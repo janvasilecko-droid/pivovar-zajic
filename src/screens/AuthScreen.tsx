@@ -52,9 +52,14 @@ export default function AuthScreen() {
               {/* bg-[#fff], ne bg-white: `white` je od zavedení proměnných
                   barva povrchu a v tmavém režimu ztmavne — tady je ale
                   potřeba doopravdy bílá, aby na ni bílé pozadí loga sedlo. */}
-              <div className="mb-4 rounded-2xl bg-[#fff] px-4 py-2.5 shadow-lg shadow-black/10 ring-1 ring-black/5">
-                <img src="/logo.png" alt="Pivovar Zajíc" className="h-16 sm:h-20 w-auto object-contain" />
-              </div>
+              {/* Bílá podložka zmizela s ní: logo je teď vektor s průhledným
+                  pozadím (public/logo-zajic.svg z firemního PDF), takže sedí
+                  přímo na krémový podklad a nemá kolem sebe rámeček. */}
+              <img
+                src="/logo-zajic.svg"
+                alt="Kynšperský pivovar"
+                className="mb-4 h-24 sm:h-28 w-auto object-contain"
+              />
 
               <h1 className="text-2xl sm:text-3xl font-display font-black tracking-tight text-amber-950 flex items-center gap-2">
                 Pivovar Zajíc

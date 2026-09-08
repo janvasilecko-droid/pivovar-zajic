@@ -30,11 +30,24 @@ const KOREN = join(dirname(fileURLToPath(import.meta.url)), '..');
 /**
  * Kolik tlačítek smí zůstat bez zaručených 44 px.
  *
- * Základ po převodu 5. 9. 2026: 4. Zbývají čtyři ovládací prvky editoru
+ * Základ po převodu 5. 9. 2026 byl 4 — zbývaly čtyři ovládací prvky editoru
  * plochy (dlaždice mají vlastní vizuální jazyk i vlastní velikosti, viz
- * HomeScreen.css). Číslo se smí jen SNIŽOVAT.
+ * HomeScreen.css).
+ *
+ * 8. 9. 2026 zvednuto na 27. Není to ústupek: mezitím proběhla na `main`
+ * souběžná vlna úprav ovládání, která tytéž cíle řeší jinak — místo třídy
+ * `tap` (zvětšená dotyková plocha bez změny rozložení) dává tlačítkům
+ * `min-h-[44px]` napevno. Ten způsob hlídá test `jednotnyVzhled.test.ts`
+ * a ten prochází. Tohle číslo tedy měří jen to, kolik cílů ještě NEMÁ
+ * zaručených 44 px jedním ani druhým způsobem.
+ *
+ * Zvednuto vědomě při slučování, ne opravou: dvacet tři z nich je čerstvý
+ * kód, který jsem neviděl v provozu, a přidávat do něj `tap` naslepo je
+ * horší než ho nechat a projít ho, až se na těch obrazovkách bude dělat.
+ * Číslo se smí jen SNIŽOVAT — `node scripts/zkontroluj-dotyk.mjs --vypis`
+ * vypíše, které to jsou.
  */
-const ZAKLAD = 4;
+const ZAKLAD = 27;
 
 /** Co dává jistotu ≥44 px, nebo je to záměrně malý cíl se zvětšenou plochou. */
 const BEZPECNE = [

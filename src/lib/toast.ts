@@ -11,6 +11,7 @@
 // namountovaný jednou v main.tsx.
 import { zavibruj } from './haptika';
 import { zalogujANahlas } from './chybyHlaseni';
+import { zapisSelDoFronty } from './offline';
 
 export type ToastTon = 'info' | 'uspech' | 'chyba' | 'varovani';
 
@@ -114,7 +115,12 @@ export function toast(text: string, opts: { ton?: ToastTon; akce?: ToastAkce; tr
 }
 
 export function uspech(text: string, opts: { akce?: ToastAkce; trvani?: number } = {}) {
-  return toast(text, { ...opts, ton: 'uspech' });
+  // Offline zápis se tváří jako povedený a hlásil zelené „Uloženo" úplně
+  // stejné jako při odeslání — ve sklepě s kolísavým signálem se kvůli tomu
+  // zapisovalo stáčení s tím, že je hotovo. Když zápis právě šel do fronty,
+  // oznámení to doříct musí (viz zapisSelDoFronty v lib/offline.ts).
+  const doplnek = zapisSelDoFronty() ? ' Telefon je offline — zápis čeká v telefonu a odešle se po signálu.' : '';
+  return toast(text + doplnek, { ...opts, ton: 'uspech', trvani: opts.trvani ?? (doplnek ? 7000 : undefined) });
 }
 
 export function varovani(text: string, opts: { akce?: ToastAkce; trvani?: number } = {}) {

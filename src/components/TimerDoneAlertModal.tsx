@@ -55,16 +55,26 @@ export function TimerDoneAlertModal() {
   }
 
   return (
-    <div className="fixed inset-0 z-nadmodal flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
-      <div className="w-full max-w-sm bg-neutral-900 border-2 border-amber-500 rounded-2xl p-5 sm:p-6 text-white shadow-2xl shadow-amber-500/30 flex flex-col items-center text-center relative animate-bounce-short">
+    /* Na telefonu se z tohohle upozornění půlka nevešla na displej: panel byl
+       vystředěný přes celou výšku, nikde se nedalo rolovat a horní i spodní
+       lišta prohlížeče (a výřez displeje) ho odsunuly pryč. Teď se obsah
+       roluje, drží se odshora a respektuje bezpečné okraje displeje —
+       „Rozumím, vypnout alarm" je vždycky vidět. */
+    <div className="fixed inset-0 z-[9999] flex items-start sm:items-center justify-center overflow-y-auto p-4 bg-black/80 backdrop-blur-md animate-fade-in"
+      style={{
+        paddingTop: 'max(1rem, env(safe-area-inset-top))',
+        paddingBottom: 'max(1rem, env(safe-area-inset-bottom))',
+      }}
+    >
+      <div className="w-full max-w-sm my-auto bg-neutral-900 border-2 border-amber-500 rounded-2xl p-5 sm:p-6 text-white shadow-2xl shadow-amber-500/30 flex flex-col items-center text-center relative animate-bounce-short">
         {/* Zavírací křížek */}
         <button
           type="button"
           onClick={dismiss}
-          className="absolute top-3 right-3 p-1.5 rounded-full text-neutral-400 hover:text-white hover:bg-neutral-800 transition tap"
-          title="Zavřít" aria-label="Zavřít"
-        >
-          <X size={18} />
+          className="absolute top-3 right-3 p-1.5 rounded-full text-neutral-400 hover:text-white hover:bg-neutral-800 transition"
+          title="Zavřít"
+         aria-label="Zavřít">
+          <X size={20} />
         </button>
 
         {/* Animovaná ikona kotle / alarmu.

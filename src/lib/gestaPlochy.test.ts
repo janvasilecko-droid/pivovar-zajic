@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  vyhodnotGesto, rychlostPosunu,
+  vyhodnotGesto, rychlostPosunu, jeVeVodorovnemPasku,
   PRAH_STRANKY_PX, PRAH_TAHU_DOLU_PX, VYSKA_OKRAJE_PX, MAX_POSUN_PX,
 } from './gestaPlochy';
 
@@ -82,5 +82,43 @@ describe('rychlostPosunu', () => {
     expect(rychlostPosunu(5, maly)).toBeLessThan(0);
     expect(rychlostPosunu(50, maly)).toBe(0);
     expect(rychlostPosunu(95, maly)).toBeGreaterThan(0);
+  });
+});
+
+describe('jeVeVodorovnemPasku', () => {
+  // Zjednodušený strom: prvek zná svého rodiče a svoje rozměry.
+  function prvek(scrollWidth: number, clientWidth: number, rodic: any = null): any {
+    return { scrollWidth, clientWidth, parentElement: rodic };
+  }
+
+  it('dotek v pásku se širším obsahem gesto plochy zablokuje', () => {
+    const plocha = prvek(360, 360);
+    const pasek = prvek(900, 360, plocha);
+    const zalozka = prvek(80, 80, pasek);
+    expect(jeVeVodorovnemPasku(zalozka, plocha, (el) => (el === pasek ? 'auto' : 'visible'))).toBe(true);
+  });
+
+  it('dotek na dlaždici mimo pásek gesto propustí', () => {
+    const plocha = prvek(360, 360);
+    const dlazdice = prvek(100, 100, plocha);
+    expect(jeVeVodorovnemPasku(dlazdice, plocha, () => 'visible')).toBe(false);
+  });
+
+  it('pásek, který se vejde celý, není důvod gesto blokovat', () => {
+    // Dvě záložky na širokém displeji — rolovat není kam.
+    const plocha = prvek(1200, 1200);
+    const pasek = prvek(1200, 1200, plocha);
+    expect(jeVeVodorovnemPasku(pasek, plocha, () => 'auto')).toBe(false);
+  });
+
+  it('hledání se zastaví u plochy a nejde výš', () => {
+    const stranka = prvek(2000, 360);
+    const plocha = prvek(360, 360, stranka);
+    const dlazdice = prvek(100, 100, plocha);
+    expect(jeVeVodorovnemPasku(dlazdice, plocha, () => 'auto')).toBe(false);
+  });
+
+  it('bez prvku (dotek mimo) nic neblokuje', () => {
+    expect(jeVeVodorovnemPasku(null, null, () => 'auto')).toBe(false);
   });
 });

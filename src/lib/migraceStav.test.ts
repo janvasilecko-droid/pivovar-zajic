@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { porovnejMigrace, pocetCekajicich, osirele, ZACATEK_EVIDENCE } from './migraceStav';
+import { porovnejMigrace, pocetCekajicich, osirele, poradiSpusteni, jeBezpecneJmenoMigrace, ZACATEK_EVIDENCE } from './migraceStav';
 
 const STARA = '20260101000000_neco_stareho.sql';
 const NOVA_A = '20261228000000_nova_a.sql';
@@ -55,5 +55,31 @@ describe('osirele', () => {
 
   it('když se všechno páruje, nevrací nic', () => {
     expect(osirele([NOVA_A], [{ nazev: NOVA_A, aplikovano_at: null }])).toEqual([]);
+  });
+});
+
+describe('poradiSpusteni', () => {
+  it('vrací jen čekající, seřazené od nejstarší', () => {
+    const radky = porovnejMigrace([NOVA_B, STARA, NOVA_A], []);
+    expect(poradiSpusteni(radky).map((r) => r.nazev)).toEqual([NOVA_A, NOVA_B]);
+  });
+
+  it('starší než evidence se nepouští — o té se neví, jestli už proběhla', () => {
+    const radky = porovnejMigrace([STARA], []);
+    expect(poradiSpusteni(radky)).toEqual([]);
+  });
+});
+
+describe('jeBezpecneJmenoMigrace', () => {
+  it('bere jen časová razítka s příponou .sql', () => {
+    expect(jeBezpecneJmenoMigrace('20261229000000_neco.sql')).toBe(true);
+    expect(jeBezpecneJmenoMigrace('neco.sql')).toBe(false);
+    expect(jeBezpecneJmenoMigrace('20261229000000_neco.txt')).toBe(false);
+  });
+
+  it('nepustí cestu ven ze složky ani prázdno', () => {
+    expect(jeBezpecneJmenoMigrace('../../etc/passwd.sql')).toBe(false);
+    expect(jeBezpecneJmenoMigrace('20261229000000_a/../b.sql')).toBe(false);
+    expect(jeBezpecneJmenoMigrace('')).toBe(false);
   });
 });

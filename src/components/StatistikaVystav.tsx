@@ -281,7 +281,7 @@ export default function StatistikaVystav({
           <button
             key={o}
             onClick={() => onObdobi(o)}
-            className={`min-h-[40px] px-3 rounded-xl text-xs font-black transition ${
+            className={`min-h-[44px] px-3 rounded-xl text-xs font-black transition ${
               obdobi === o ? 'bg-primary-600 text-white shadow-sm' : 'text-neutral-600 hover:bg-neutral-100'
             }`}
           >

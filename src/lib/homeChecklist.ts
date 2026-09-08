@@ -3,6 +3,7 @@
 import { zavibruj } from './haptika';
 import { businessDateISO } from './businessDate';
 import { zalogujANahlas } from './chybyHlaseni';
+import { uloz } from './uloziste';
 
 export type DailyTask = {
   id: string;
@@ -38,8 +39,8 @@ export function getDailyTasks(): { tasks: DailyTask[]; date: string } {
           }
         } catch {}
       }
-      localStorage.setItem(DATE_KEY, today);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(initialTasks));
+      uloz(DATE_KEY, today);
+      uloz(STORAGE_KEY, JSON.stringify(initialTasks));
       return { tasks: initialTasks, date: today };
     }
 
@@ -53,8 +54,8 @@ export function getDailyTasks(): { tasks: DailyTask[]; date: string } {
 function saveDailyTasks(tasks: DailyTask[]) {
   try {
     const today = businessDateISO();
-    localStorage.setItem(DATE_KEY, today);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+    uloz(DATE_KEY, today);
+    uloz(STORAGE_KEY, JSON.stringify(tasks));
     window.dispatchEvent(new CustomEvent(DAILY_CHECKLIST_CHANGED_EVENT, { detail: tasks }));
   } catch (e) {
     zalogujANahlas('Chyba při ukládání checklistu', e);

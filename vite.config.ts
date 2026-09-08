@@ -3,6 +3,10 @@ import react from '@vitejs/plugin-react';
 import { readFileSync, writeFileSync, readdirSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
+// Jediné místo, kde je hranice evidence migrací — přehled v Nastavení i tenhle
+// build musí mít tutéž. Dvě kopie by se rozešly a build by přibalil (nebo
+// vynechal) jiné migrace, než které se hlásí jako čekající.
+import { ZACATEK_EVIDENCE } from './src/lib/migraceStav';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -46,6 +50,28 @@ try {
   writeFileSync(
     resolve(__dirname, 'public/migrace.json'),
     JSON.stringify({ soubory }, null, 2),
+  );
+
+  // A k tomu SQL těch migrací, které ještě můžou čekat — z něj edge funkce
+  // `pust-migraci` bere, co se má pustit, když se migrace spouští z appky
+  // (typicky z telefonu, kde příkazová řádka není).
+  //
+  // PROČ SI SQL BERE SERVER ODSUD A NE OD KLIENTA: kdyby ho posílal
+  // prohlížeč, byl by z toho vzdáleně ovládaný spouštěč libovolného
+  // příkazu nad databází. Takhle klient posílá jen JMÉNO souboru a obsah
+  // pochází z nasazeného buildu, tedy z repozitáře.
+  //
+  // Starší než ZACATEK_EVIDENCE se nepřibalují: nikdy se nemůžou hlásit
+  // jako čekající (viz src/lib/migraceStav.ts), takže by to byly jen
+  // stovky kilobajtů navíc.
+  const sql: Record<string, string> = {};
+  for (const jmeno of soubory) {
+    if (jmeno < ZACATEK_EVIDENCE) continue;
+    sql[jmeno] = readFileSync(resolve(migraceDir, jmeno), 'utf-8');
+  }
+  writeFileSync(
+    resolve(__dirname, 'public/migrace-sql.json'),
+    JSON.stringify({ sql }, null, 2),
   );
 } catch {
   // Bez složky s migracemi (nebo bez public/) se jen přeskočí — přehled

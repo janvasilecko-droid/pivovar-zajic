@@ -9,7 +9,7 @@ import { useEffect, useMemo, useState, useRef } from 'react';
 import {
   CalendarX2, CloudUpload, Download, Check, ChevronLeft, ChevronRight, Lightbulb, LogOut, Palette, Plus, Search, SlidersHorizontal, Trash2, TriangleAlert, X,
   Truck, ClipboardList, MessageCircle, PlusCircle, Snowflake, FlaskConical, CalendarDays, BarChart3, Package as PackageIcon, TrendingDown, GlassWater, BookOpen, Droplet, Car, FileText, ClipboardCheck, Shield, Store, Receipt, MapPin, Beer as BeerIcon, Tag, Sparkles, Compass, Wheat, Zap, ArrowLeftRight, StickyNote,
-  AlarmClock, Play, Pause, RotateCcw, Pin, Radio, SkipForward, Flame, Sun, Settings, LayoutGrid,
+  AlarmClock, Play, Pause, RotateCcw, Pin, Radio, SkipForward, Flame, Sun, Settings, LayoutGrid, Wind,
 } from 'lucide-react';
 import { NAV, EXTRA_NAV, type Page, type NavItem } from '../components/Layout';
 import LauncherTile, { tileGridStyle } from '../components/LauncherTile';
@@ -24,19 +24,34 @@ import { businessDateISO } from '../lib/businessDate';
 import { IkonaSud, IkonaLahev, IkonaVycep } from '../components/ikony';
 import { HomeNotesModal } from '../components/HomeNotesModal';
 import { HomeChecklistModal } from '../components/HomeChecklistModal';
-import { getHomeNotes, toggleHomeNote, HOME_NOTES_CHANGED_EVENT, OPEN_HOME_NOTES_EVENT, consumeOpenHomeNotesRequest, type HomeNote } from '../lib/homeNotes';
+import { getHomeNotes, toggleHomeNote, HOME_NOTES_CHANGED_EVENT, OPEN_HOME_NOTES_EVENT, consumeOpenHomeNotesRequest, type HomeNote, toggleHomeNoteImportant, rozvrhniPoznamky, kolikPoznamekZobrazit } from '../lib/homeNotes';
 import { getDailyTasks, DAILY_CHECKLIST_CHANGED_EVENT, type DailyTask } from '../lib/homeChecklist';
 import {
   getRadioState, toggleRadio, nextStation, RADIO_STATIONS, RADIO_STATE_EVENT, type RadioState,
 } from '../lib/breweryRadio';
-import { getHomeLayout, saveHomeLayout, addPage, removePage, moveTileToPage, hideTile, addTile, mergeTiles, addToGroup, removeFromGroup, deleteGroup, isGroupId, isCountdownId, ensurePositions, ensureTrailingEmptyPage, unifyColorsByCategory, moveTileToCell, stepTileCell, addDockSlot, removeDockSlot, PAGE_CATEGORY, CATEGORY_ORDER, CATEGORY_SHADES, type Category, moveTileToPageCell, okrajProPrepnuti, dalsiStranka, rozdelVseDoStranek, idsKRozmisteni, vyrovnejStranku, VYCHOZI_STRANKA, type OkrajTazeni, MIN_SVETLOST, MAX_SVETLOST, SCENES, MIN_OPACITY, MAX_OPACITY, MIN_TILE_GAP, MAX_TILE_GAP, MIN_W, MAX_W, MIN_H, MAX_H, TILE_COLORS, COLOR_HEX, defaultTileColor, GRID_COLS_DESKTOP, GRID_COLS_MOBILE, MOBILE_BREAKPOINT_PX, ROW_HEIGHT_DESKTOP, ROW_HEIGHT_MOBILE, MIN_DOCK, MAX_DOCK, type HomeLayout, type TileColor, type TileId, type GroupId, type CountdownTileId } from '../lib/homeLayout';
+import {
+  getHomeLayout, saveHomeLayout, addPage, removePage, moveTileToPage, hideTile, addTile,
+  mergeTiles, addToGroup, removeFromGroup, deleteGroup, isGroupId, isCountdownId, ensurePositions, ensureTrailingEmptyPage, unifyColorsByCategory, moveTileToCell, stepTileCell,
+  addDockSlot, removeDockSlot,
+  hexToRgba,
+  PAGE_CATEGORY, CATEGORY_ORDER, CATEGORY_SHADES, type Category,
+  moveTileToPageCell, okrajProPrepnuti, dalsiStranka, rozdelVseDoStranek, idsKRozmisteni, vyrovnejStranku, VYCHOZI_STRANKA, type OkrajTazeni,
+  MIN_SVETLOST, MAX_SVETLOST,
+  SCENES, MIN_OPACITY, MAX_OPACITY, MIN_TILE_GAP, MAX_TILE_GAP, MIN_W, MAX_W, MIN_H, MAX_H, TILE_COLORS, COLOR_HEX, defaultTileColor,
+  GRID_COLS_DESKTOP, GRID_COLS_MOBILE, MOBILE_BREAKPOINT_PX, ROW_HEIGHT_DESKTOP, ROW_HEIGHT_MOBILE, MIN_DOCK, MAX_DOCK,
+  CO2_TILE_ID,
+  type HomeLayout, type TileColor, type TileId, type GroupId, type CountdownTileId,
+} from '../lib/homeLayout';
+import { co2Bezi, co2Zbyva, prepniCo2, zastavOdpocetVSeznamu, CO2_ID } from '../lib/co2Foukani';
+import { zavibruj } from '../lib/haptika';
 import {
   getKegTimerState, formatDurationMs, getCountdowns, saveCountdowns, countdownRemainingMs, toggleCountdown, resetCountdown,
   startAllCountdowns, pauseAllCountdowns, resetAllCountdowns, COUNTDOWN_CHANGED_EVENT, type CountdownTimer,
   getStopwatchState, saveStopwatchState, stopwatchElapsedMs, STOPWATCH_CHANGED_EVENT, type StopwatchState,
 } from '../lib/stopwatchTimers';
 import { onNewVersion, forceRefresh, type VersionInfo } from '../lib/versionCheck';
-import { vyhodnotGesto, rychlostPosunu } from '../lib/gestaPlochy';
+import { zavrenaVerzeListy, VERZE_LISTA_EVENT } from '../lib/verzeLista';
+import { vyhodnotGesto, rychlostPosunu, jeVeVodorovnemPasku } from '../lib/gestaPlochy';
 import { maSeZobrazit, oznacZobrazenou } from '../lib/napovedy';
 import { queueLength, onQueueChange, syncQueue, isOnline } from '../lib/offline';
 import { litry, litryJakoHl, kusy } from '../lib/cisla';
@@ -58,6 +73,7 @@ const MESICE_KRATCE = ['leden', 'únor', 'březen', 'duben', 'květen', 'červen
   'červenec', 'srpen', 'září', 'říjen', 'listopad', 'prosinec'];
 import { kauceVenku, vycepyVenku, type VycepVenku } from '../lib/vycepyVenku';
 import './HomeScreen.css';
+import { uloz } from '../lib/uloziste';
 
 /** true = jméno přednastaveného odstínu (CSS třída c-*); false = vlastní hex barva (inline styl). */
 function isPresetColor(c: string): c is TileColor {
@@ -99,7 +115,14 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
     return canUserView(profile?.role, user?.id, modKey, userPerms);
   }), [isAdmin, profile?.role, user?.id, userPerms]);
 
-  const visibleIds = useMemo(() => visible.map((n) => n.id), [visible]);
+  // Dlaždice „Foukání CO2" jede s běžnými dlaždicemi, i když za ní není
+  // žádná obrazovka — proto se přidává až sem a ne do NAV (v menu by byla
+  // položka, která nikam nevede). Díky tomu se sama objeví na ploše a dá
+  // se přesouvat, přebarvit i schovat jako každá jiná.
+  const visibleIds = useMemo(() => [...visible.map((n) => n.id), CO2_TILE_ID as Page], [visible]);
+
+  /** Popis dlaždice CO2 — obrazovka to není, takže si ho plocha nese sama. */
+  const CO2_ITEM: NavItem = { id: CO2_TILE_ID as Page, label: 'Foukání CO2', icon: Wind, group: 'Výroba' };
 
   // Rozšiřující dlaždice (EXTRA_NAV, viz Layout.tsx) — stránky/záložky, co
   // dnes nejdou přidat jinak než ručně přes "+ Přidat dlaždici". Na rozdíl
@@ -524,6 +547,17 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   const swipeStart = useRef<{ x: number; y: number } | null>(null);
   function handleSwipePointerDown(e: React.PointerEvent) {
     if (editMode) return;
+    // Gesto, které začalo uvnitř vodorovného pásku (záložky, řada
+    // upozornění), patří tomu pásku — dřív se jím místo posunutí pásku
+    // přetočila celá stránka launcheru. Viz jeVeVodorovnemPasku.
+    if (jeVeVodorovnemPasku(
+      e.target as Element | null,
+      e.currentTarget as Element,
+      (el) => getComputedStyle(el).overflowX,
+    )) {
+      swipeStart.current = null;
+      return;
+    }
     swipeStart.current = { x: e.clientX, y: e.clientY };
   }
   function handleSwipePointerUp(e: React.PointerEvent) {
@@ -686,6 +720,15 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   // co se dá stejně jako ostatní přesouvat/přebarvit/dát do skupiny; klik
   // na ni se tu zvlášť odchytí a spustí odhlášení místo setPage.
   async function handleTileClick(id: TileId) {
+    // 💨 Foukání CO2 — přepínač, ne obrazovka. Klepnutí spustí dvě minuty,
+    // druhé klepnutí („STOP") je ukončí. Alarm po doběhnutí obstará
+    // KegTimerNotificationManager, protože je to obyčejný odpočet.
+    if (id === CO2_TILE_ID) {
+      zavibruj('odskrtnuto');
+      saveCountdowns(prepniCo2(getCountdowns()));
+      setCountdowns(getCountdowns());
+      return;
+    }
     if (isCountdownId(id)) {
       const timerId = id.slice(3);
       const timer = countdowns.find((c) => c.id === timerId);
@@ -987,11 +1030,17 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
       // v souhrnu chybí kusy a nikdo neví proč (hlídá test strankovaniDotazu).
       const [bot, keg, fa, fp, wo, zd] = await Promise.all([
         fetchAllRows<any>('bottling', 'entry_date,beer_id,package_id,quantity').eq('entry_date', dnes),
-        fetchAllRows<any>('kegging', 'entry_date,beer_id,package_id,quantity,kegs_used,kegs_used_package_id').eq('entry_date', dnes),
+        // POZOR: kegs_used/kegs_used_package_id jsou sloupce BOTTLING (sudy
+        // spotřebované na stáčení lahví), ne kegging. Když se vyžádaly tady,
+        // celý dotaz spadl na 'column kegging.kegs_used does not exist' —
+        // a souhrn dne tiše ukazoval nulu stáčení KEG.
+        fetchAllRows<any>('kegging', 'entry_date,beer_id,package_id,quantity').eq('entry_date', dnes),
         fetchAllRows<any>('fasovani', 'entry_date,beer_id,package_id,quantity').eq('entry_date', dnes),
         fetchAllRows<any>('fasovani_private', 'entry_date,beer_id,package_id,quantity').eq('entry_date', dnes),
         fetchAllRows<any>('writeoffs', 'entry_date,beer_id,package_id,quantity').eq('entry_date', dnes),
-        fetchAllRows<any>('zavoz_deductions', 'deducted_date,beer_id,package_id,quantity').eq('deducted_date', dnes),
+        // Sloupec se jmenuje deduct_date, ne deducted_date — dotaz proto vždy
+        // spadl a v souhrnu dne nebyl vidět ani jeden závoz.
+        fetchAllRows<any>('zavoz_deductions', 'deduct_date,beer_id,package_id,quantity').eq('deduct_date', dnes),
       ]);
       if (zruseno) return;
       const pohyby = buildMovements({
@@ -1140,6 +1189,16 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   // ho k tomu nenutí uprostřed rozdělané práce.
   const [newVersionInfo, setNewVersionInfo] = useState<VersionInfo | null>(null);
   useEffect(() => onNewVersion((info) => setNewVersionInfo(info)), []);
+  // Lišta „Nová verze" visí nad KAŽDOU obrazovkou (Layout.tsx). Dokud je
+  // vidět, dlaždice se nekreslí — jinak stojí na ploše dvakrát totéž vedle
+  // sebe. Po zavření lišty ji dlaždice vystřídá, aby aktualizace nezmizela.
+  const [listaVerzeZavrena, setListaVerzeZavrena] = useState<string | null>(() => zavrenaVerzeListy());
+  useEffect(() => {
+    const obnov = () => setListaVerzeZavrena(zavrenaVerzeListy());
+    window.addEventListener(VERZE_LISTA_EVENT, obnov);
+    return () => window.removeEventListener(VERZE_LISTA_EVENT, obnov);
+  }, []);
+  const ukazatDlazdiciVerze = !!newVersionInfo && listaVerzeZavrena === newVersionInfo.version;
 
   // Připomínková dlaždice na měsíční úklid — zůstává vidět, dokud ho uživatel
   // buď neudělá (tlačítko "Už je to provedeno" v modálu MonthlyCleanupWarning,
@@ -1421,6 +1480,16 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
         )}
 
         <div className="hs-pager">
+            {/* Značka pivovaru vlevo nahoře — jen zajíc s půllitrem, celý
+                nápis by se do lišty nevešel. Je to obrázek, ne tlačítko:
+                klepnutí sem nesmí nic udělat, prst si na horním okraji
+                odpočívá. */}
+            <img
+              src="/logo-zajic-znak.svg"
+              alt=""
+              aria-hidden="true"
+              className="hs-pager-znak vlastni-vyska"
+            />
             {(layout.pages.length > 1 || editMode) && (
             <>
             <button
@@ -1504,7 +1573,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                   <Plus size={16} /> Přidat stránku
                 </button>
                 {layout.pages.length > 1 && (
-                  <button type="button" className="hs-pager-manage vlastni-vyska" title="Smazat tuhle stránku" aria-label="Smazat tuhle stránku" onClick={handleRemoveCurrentPage}>
+                  <button type="button" className="hs-pager-manage vlastni-vyska" title="Smazat tuhle stránku" onClick={handleRemoveCurrentPage} aria-label="Smazat tuhle stránku">
                     <Trash2 size={16} />
                   </button>
                 )}
@@ -1651,7 +1720,46 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                   <span className="hs-badge">{vehicleAlerts.length}</span>
                 </button>
               )}
-              {newVersionInfo && (
+              {/* ⏱️ Běžící odpočty. Ukazují se SAMY, dokud běží — dřív se
+                  musely ručně připínat na plochu špendlíkem a po doběhnutí
+                  tam zůstaly viset. Zbývající čas se přepisuje s tikem
+                  obrazovky (forceTick výš); doběhnutý odpočet zčervená,
+                  ať je ho vidět přes celou dílnu. */}
+              {countdowns.filter((c) => c.targetAt !== null).map((c) => {
+                const zbyva = countdownRemainingMs(c);
+                const dobehl = zbyva === 0;
+                return (
+                  <button
+                    key={`odpocet-${c.id}`}
+                    type="button"
+                    // Foukání CO2 bliká červeně po celou dobu, ne až po
+                    // doběhnutí: dokud se fouká, má to být vidět přes celou
+                    // dílnu, ne se to hledat mezi dlaždicemi.
+                    className={`hs-tile ${dobehl || c.id === CO2_ID ? 'hs-tile-alert' : 'hs-tile-warn'} vlastni-vyska ${
+                      c.id === CO2_ID || dobehl ? 'animate-pulse' : ''
+                    }`}
+                    // Klepnutí na upozornění odpočet ROVNOU ZASTAVÍ a smaže
+                    // — u foukání CO2 je klepnutí to samé jako „přestal jsem
+                    // foukat". Otevírat kvůli tomu Časovač a hledat v něm
+                    // položku bylo o tři klepnutí navíc, přesně ve chvíli,
+                    // kdy má člověk ruce plné. Ostatní odpočty se chovají
+                    // stejně: doběhlý se odklepne, běžící zastaví.
+                    onClick={() => {
+                      zavibruj('odskrtnuto');
+                      saveCountdowns(zastavOdpocetVSeznamu(getCountdowns(), c.id));
+                      setCountdowns(getCountdowns());
+                    }}
+                    title={dobehl ? `Odpočet „${c.label}" doběhl — klepnutím zavřeš` : `Odpočet „${c.label}" — zbývá ${formatDurationMs(zbyva)}, klepnutím zastavíš`}
+                  >
+                    <div className="hs-tile-icon-box">
+                      {c.id === CO2_ID ? <Wind /> : <AlarmClock />}
+                    </div>
+                    <div className="hs-lbl">{c.id === CO2_ID ? 'CO2' : c.label}</div>
+                    <span className="hs-badge">{dobehl ? 'STOP' : `${formatDurationMs(zbyva)} · STOP`}</span>
+                  </button>
+                );
+              })}
+              {ukazatDlazdiciVerze && (
                 <button
                   type="button"
                   className="hs-tile hs-tile-alert vlastni-vyska"
@@ -1754,7 +1862,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                 />
               );
             }
-            const item = navById.get(id as Page) ?? (isCountdownId(id) ? ({ id: id as any, label: countdowns.find((c) => c.id === id.slice(3))?.label ?? 'Odpočet', icon: AlarmClock, group: 'Nástroje' as const } as NavItem) : null);
+            const item = navById.get(id as Page) ?? (id === CO2_TILE_ID ? CO2_ITEM : isCountdownId(id) ? ({ id: id as any, label: countdowns.find((c) => c.id === id.slice(3))?.label ?? 'Odpočet', icon: AlarmClock, group: 'Nástroje' as const } as NavItem) : null);
             if (!item) return null;
 
             const activeNotesList = homeNotes.filter((n) => !n.completed).sort((a, b) => (b.important ? 1 : 0) - (a.important ? 1 : 0));
@@ -1784,6 +1892,36 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
               : undefined;
 
             let customContent: React.ReactNode = undefined;
+
+            // 💨 Foukání CO2: v klidu šedá dlaždice, za běhu červená s odpočtem
+            // a nápisem STOP („už se přestalo foukat"). Po dvou minutách se
+            // ozve alarm a dlaždice zůstane na 0:00, dokud ji někdo nezaklepne
+            // — jinak by z plochy zmizel důvod, proč se to rozeznělo.
+            if (id === CO2_TILE_ID) {
+              const bezi = co2Bezi(countdowns);
+              const zbyva = co2Zbyva(countdowns);
+              const dobehlo = bezi && zbyva === 0;
+              // Na dlaždici je jen „CO2" a čas. Celé „Foukání CO2" se do
+              // dlaždice na telefonu nevešlo a zbyla z něj nečitelná drť;
+              // co to je, řekne ikona a hlavně pásek upozornění nahoře,
+              // který za běhu červeně bliká.
+              customContent = (
+                <div className={`absolute inset-0 flex flex-col items-center justify-center gap-0.5 select-none overflow-hidden ${
+                  bezi ? 'bg-rose-600 text-white' : 'bg-neutral-500 text-white'
+                }`}>
+                  <Wind size={22} className="shrink-0" />
+                  <div className="text-lg font-black tracking-wide leading-none">CO2</div>
+                  {bezi ? (
+                    <>
+                      <div className="text-base font-mono font-black tabular-nums leading-none">{formatDurationMs(zbyva)}</div>
+                      <span className="px-2 py-0.5 rounded-full bg-white text-rose-700 text-[11px] font-black">STOP</span>
+                    </>
+                  ) : (
+                    <div className="text-[11px] font-bold opacity-90 leading-none">2 min</div>
+                  )}
+                </div>
+              );
+            }
 
             // Vlastní widget Odpočtu (cd_*):
             if (isCountdownId(id)) {
@@ -1947,23 +2085,39 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
               // něco přineslo. Na nejmenší se vejde jedna, ale ta se ukáže
               // VŽDYCKY: dřív se na velikosti 1×1 nezobrazila žádná a
               // vypadalo to, jako by se poznámka neuložila.
-              const kolikSeVejde = Math.max(1, (override.w ?? 1) * (override.h ?? 1) * 2);
-              const kZobrazeni = notesTileList.slice(0, kolikSeVejde);
+              const sirkaDlazdice = override.w ?? 1;
+              const sloupcu = sirkaDlazdice >= 2 ? 2 : 1;
+              const kolikSeVejde = kolikPoznamekZobrazit(sirkaDlazdice, override.h ?? 1);
+              const kZobrazeni = rozvrhniPoznamky(notesTileList.slice(0, kolikSeVejde), sloupcu);
               customContent = (
                 <div className="w-full h-full flex flex-col p-2 gap-1 text-left select-none overflow-hidden">
-                  <div className="flex items-center gap-1 shrink-0 opacity-80">
-                    <StickyNote size={12} className="shrink-0" />
-                    <span className="text-udaj font-black uppercase tracking-wider truncate">Poznámky</span>
-                  </div>
-
+                  {/* Hlavička „Poznámky" jen na prázdném lístečku. Jakmile
+                      na něm něco je, je zbytečná — ukradla by řádek textu,
+                      a co to je, se pozná podle poznámek samotných. */}
                   {kZobrazeni.length === 0 ? (
-                    <div className="flex-1 grid place-items-center text-udaj font-bold opacity-70 leading-tight px-1 text-center">
-                      Klepnutím přidáte poznámku
-                    </div>
+                    <>
+                      <div className="flex items-center gap-1 shrink-0 opacity-80">
+                        <StickyNote size={11} className="shrink-0" />
+                        <span className="text-[11px] font-black uppercase tracking-wider truncate">Poznámky</span>
+                      </div>
+                      <div className="flex-1 grid place-items-center text-[11px] font-bold opacity-70 leading-tight px-1 text-center">
+                        Klepnutím přidáte poznámku
+                      </div>
+                    </>
                   ) : (
-                    <div className="flex-1 flex flex-col gap-1 overflow-hidden">
-                      {kZobrazeni.map((note) => (
-                        <div key={note.id} className="flex items-start gap-1.5 min-w-0">
+                    /* Dva sloupce: krátká poznámka zabere půl řádku, delší
+                       celý (viz rozvrhniPoznamky) — vejde se jich víc a
+                       přitom se žádná neořízne v půlce slova. */
+                    <div
+                      className="flex-1 grid gap-x-2 gap-y-1 content-start overflow-hidden"
+                      style={{ gridTemplateColumns: `repeat(${sloupcu}, minmax(0, 1fr))` }}
+                    >
+                      {kZobrazeni.map(({ poznamka: note, pres2Sloupce }) => (
+                        <div
+                          key={note.id}
+                          className="flex items-start gap-1 min-w-0"
+                          style={pres2Sloupce && sloupcu > 1 ? { gridColumn: 'span 2' } : undefined}
+                        >
                           {/* Odškrtnutí přímo z plochy — kvůli tomu se nesmí
                               probublat klepnutí na dlaždici, které otevírá okno. */}
                           {/* Vlastní třídy místo velikostí z Tailwindu: v
@@ -1974,7 +2128,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                             type="button"
                             onClick={(e) => { e.stopPropagation(); toggleHomeNote(note.id); }}
                             onPointerDown={(e) => e.stopPropagation()}
-                            className="hs-note-check"
+                            className="hs-note-check vlastni-vyska"
                             title={note.completed ? 'Vrátit jako nesplněné' : 'Odškrtnout'}
                             aria-label={note.completed ? 'Vrátit jako nesplněné' : 'Odškrtnout'}
                           >
@@ -2198,21 +2352,27 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
 
       {(editingItem || editingGroup) && editingOverride && editingTileId && (
         <Modal open onClose={() => setEditingTileId(null)} title={editingOverride.label || editingItem?.label || 'Skupina'}>
-          <div className="flex flex-col gap-5">
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wide text-neutral-500 mb-1.5">Popisek</label>
-              <input
-                type="text"
-                className="w-full border border-neutral-300 rounded px-3 py-2 text-sm"
-                value={editingOverride.label ?? ''}
-                onChange={(e) => handleRenameTile(editingTileId, e.target.value)}
-                placeholder={editingItem?.label ?? 'Skupina'}
-              />
-            </div>
+          {/* Nastavení dlaždice se vejde na jednu obrazovku telefonu:
+              menší mezery, popisek a velikost vedle sebe — a hlavně lišta
+              s „Hotovo" je přilepená dole. Dřív se pro potvrzení muselo
+              rolovat až pod barvy a skupiny, takže se změna udělala a
+              nepotvrdila. */}
+          <div className="flex flex-col gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wide text-neutral-500 mb-1">Popisek</label>
+                <input
+                  type="text"
+                  className="w-full border border-neutral-300 rounded px-3 py-2 text-sm min-h-[44px]"
+                  value={editingOverride.label ?? ''}
+                  onChange={(e) => handleRenameTile(editingTileId, e.target.value)}
+                  placeholder={editingItem?.label ?? 'Skupina'}
+                />
+              </div>
 
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wide text-neutral-500 mb-1.5">Velikost</label>
-              <div className="flex items-center gap-6">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wide text-neutral-500 mb-1">Velikost</label>
+                <div className="flex items-center gap-4 flex-wrap">
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-neutral-600">Šířka</span>
                   <button type="button" className="hs-modal-stepper-btn" disabled={(editingOverride.w ?? 1) <= MIN_W} onClick={() => handleResizeStep(editingTileId, 'w', -1)}>−</button>
@@ -2225,11 +2385,12 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                   <span className="w-5 text-center font-bold tabular-nums">{editingOverride.h ?? 1}</span>
                   <button type="button" className="hs-modal-stepper-btn" disabled={(editingOverride.h ?? 1) >= MAX_H} onClick={() => handleResizeStep(editingTileId, 'h', 1)}>+</button>
                 </div>
+                </div>
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wide text-neutral-500 mb-1.5">Barva</label>
+              <label className="block text-xs font-bold uppercase tracking-wide text-neutral-500 mb-1">Barva</label>
               <div className="flex flex-wrap gap-2.5">
                 {TILE_COLORS.map((c) => (
                   <button
@@ -2316,13 +2477,13 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
               </div>
             )}
 
-            <div className="flex justify-between items-center pt-2 border-t border-neutral-100">
+            <div className="sticky bottom-0 -mb-1 flex justify-between items-center gap-3 pt-2 pb-1 border-t border-neutral-200 bg-white">
               {editingGroup ? (
-                <button type="button" className="text-sm font-semibold text-rose-600" onClick={() => handleDeleteGroup(editingTileId as GroupId)}>Zrušit skupinu</button>
+                <button type="button" className="text-sm font-semibold text-rose-600 min-h-[44px]" onClick={() => handleDeleteGroup(editingTileId as GroupId)}>Zrušit skupinu</button>
               ) : (
-                <button type="button" className="text-sm font-semibold text-rose-600" onClick={() => handleHideTile(editingTileId)}>Skrýt dlaždici</button>
+                <button type="button" className="text-sm font-semibold text-rose-600 min-h-[44px]" onClick={() => handleHideTile(editingTileId)}>Skrýt dlaždici</button>
               )}
-              <button type="button" className="text-sm font-bold bg-amber-500 hover:bg-amber-400 text-neutral-950 rounded px-4 py-2" onClick={() => setEditingTileId(null)}>Hotovo</button>
+              <button type="button" className="text-sm font-black bg-amber-500 hover:bg-amber-400 text-neutral-950 rounded px-5 py-2 min-h-[44px]" onClick={() => setEditingTileId(null)}>Hotovo</button>
             </div>
           </div>
         </Modal>
@@ -2733,7 +2894,7 @@ function BrewKettleTopBanner({
     () => { try { return localStorage.getItem(KLIC_PRUH_CASOVACE) === '1'; } catch { return false; } },
   );
   function skryjPruh() {
-    try { localStorage.setItem(KLIC_PRUH_CASOVACE, '1'); } catch { /* plná paměť */ }
+    try { uloz(KLIC_PRUH_CASOVACE, '1'); } catch { /* plná paměť */ }
     setPruhCasovaceSkryt(true);
     try { navigator.vibrate?.(10); } catch {}
   }

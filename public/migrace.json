@@ -127,6 +127,10 @@
     "20261228000000_nakupy_obalu_a_zavirek.sql",
     "20261228020000_fotky_zaznamu.sql",
     "20261228030000_push_odbery.sql",
-    "20261229000000_zrusit_prebijejici_politiky.sql"
+    "20261229000000_spousteni_migraci_z_appky.sql",
+    "20261229000000_zrusit_prebijejici_politiky.sql",
+    "20261229010000_objednavka_stoceno.sql",
+    "20261229020000_smazani_polozky_i_s_odpoctem.sql",
+    "20261229030000_smazani_odpoctu_pod_polozkou.sql"
   ]
 }

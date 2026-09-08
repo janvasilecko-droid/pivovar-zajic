@@ -2,6 +2,7 @@
 // Poslední týden měsíce = posledních 7 kalendářních dnů (např. 25.–31., 24.–30.,
 // 23.–29., 22.–28.).
 import { businessDateISO } from './businessDate';
+import { uloz } from './uloziste';
 
 // Bez výslovně předaného data se používá pražský "obchodní den" (ne syrové
 // new Date(), které je v UTC) — kolem půlnoci (léto i zima) by jinak UTC den
@@ -39,7 +40,7 @@ export const MONTHLY_CLEANUP_CHANGED_EVENT = 'pivovar:monthly-cleanup-changed';
 
 export function writeMonthlyCleanupStage(monthKey: string, stage: MonthlyCleanupStage) {
   try {
-    localStorage.setItem(DISMISS_KEY_PREFIX + monthKey, stage);
+    uloz(DISMISS_KEY_PREFIX + monthKey, stage);
   } catch {}
   window.dispatchEvent(new CustomEvent(MONTHLY_CLEANUP_CHANGED_EVENT));
 }
@@ -76,7 +77,7 @@ export function isMonthlyLineDone(line: CleanupLine, monthKey: string = getMonth
 // čeká, přestože obě linky mají odškrtnuto a zapsáno v deníku.
 export function markMonthlyLineDone(line: CleanupLine, monthKey: string = getMonthKey()) {
   try {
-    localStorage.setItem(lineKey(line, monthKey), '1');
+    uloz(lineKey(line, monthKey), '1');
   } catch {}
   if (isMonthlyLineDone('bottle', monthKey) && isMonthlyLineDone('keg', monthKey)) {
     writeMonthlyCleanupStage(monthKey, 'done');

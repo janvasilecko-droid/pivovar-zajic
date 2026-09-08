@@ -18,6 +18,7 @@
 // vymyšlených datech bez databáze.
 import { stavPrijmu } from './stavPrijmu';
 import { tichoUOdberatelu, pokrytiTydne, type Zprava, type ObjednavkaKontrola } from './kontrolaObjednavek';
+import { zpetneZmeny, type PohybSCasem, type NapocitanaInventura } from './zpetneZmeny';
 import { porovnejPolozku, maCoUkazat } from './auditSkladu';
 import { stariInventury, type InventurniRadek } from './inventuraStari';
 import type { StockLine } from './stockLedger';
@@ -117,6 +118,10 @@ export type VstupAuditu = {
 
   // Inventura
   inventurniRadky?: InventurniRadek[];
+  /** Pohyby s časem zápisu — pro kontrolu zpětných zásahů do spočítaného měsíce. */
+  pohybySCasem?: PohybSCasem[];
+  /** Uložené inventury (kdy a k jakému dni se počítalo). */
+  napocitaneInventury?: NapocitanaInventura[];
 };
 
 // ─── Jednotlivé kontroly ───────────────────────────────────────────────────
@@ -456,6 +461,7 @@ export function sestavAudit(v: VstupAuditu, ted: Date = new Date()): VysledekAud
     kontrolaSkladVsInventura(v),
     kontrolaZapornehoSkladu(v),
     kontrolaStariInventury(v, dnesISO),
+    kontrolaZpetnychZmen(v),
   ];
 
   const chyb = nalezy.filter((n) => n.zavaznost === 'chyba').length;
@@ -499,4 +505,36 @@ export function obdobiAuditu(rezim: 'tyden' | 'mesic', dnesISO: string): { od: s
   d.setUTCMonth(d.getUTCMonth() + 1);
   d.setUTCDate(0);
   return { od: prvni, do: d.toISOString().slice(0, 10), mesic };
+}
+
+/**
+ * Přibylo něco do měsíce, který už je napočítaný?
+ *
+ * Inventura je fotka skladu k poslednímu dni měsíce, ale záznam si nese
+ * vlastní datum — takže se do spočítaného měsíce dá dopsat pohyb i o týden
+ * později. Napočítané číslo zůstane, očekávaný stav se posune a druhý den
+ * „chybí dva sudy", které nikdo nevyrobil ani nevypil. Kontrola nic
+ * neopravuje, jen ukáže, kde začít hledat (viz lib/zpetneZmeny.ts).
+ */
+export function kontrolaZpetnychZmen(v: VstupAuditu): Nalez {
+  const zmeny = zpetneZmeny(v.napocitaneInventury ?? [], v.pohybySCasem ?? []);
+  if (zmeny.length === 0) {
+    return vPoradku(
+      'zpetne-zmeny',
+      'Sklad',
+      'Do napočítaného měsíce se zpětně nesahalo',
+      'Žádný pohyb nepřibyl do měsíce, který už byl spočítaný.',
+    );
+  }
+  const cas = (iso: string) => new Date(iso).toLocaleString('cs-CZ');
+  return {
+    id: 'zpetne-zmeny',
+    oblast: 'Sklad',
+    nazev: 'Do napočítaného měsíce se zpětně nesahalo',
+    zavaznost: 'pozor',
+    pocet: zmeny.length,
+    shrnuti: `${zmeny.length} pohybů přibylo až PO inventuře toho měsíce — o tolik se posunul očekávaný stav`,
+    detaily: orizni(zmeny.map((z) => `${z.datum} ${z.zdroj}: ${z.popis} — zapsáno ${cas(z.created_at!)}, inventura ${z.mesic} byla ${cas(z.inventuraZapsana)}`)),
+    rada: 'Buď je zápis správný a inventura toho měsíce se má přepočítat, nebo patří do měsíce, ve kterém se doopravdy stal. Dorovnávat rozdíl, který tímhle vznikl, znamená dorovnávat pořád dokola.',
+  };
 }

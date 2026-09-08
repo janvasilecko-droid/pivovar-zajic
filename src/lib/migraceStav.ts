@@ -76,3 +76,23 @@ export function osirele(souboryVRepo: string[], aplikovane: AplikovanaMigrace[])
   const vRepo = new Set(souboryVRepo);
   return aplikovane.map((a) => a.nazev).filter((n) => !vRepo.has(n)).sort();
 }
+
+/**
+ * Čekající migrace v pořadí, v jakém se musí pouštět — od nejstarší.
+ *
+ * Pořadí není kosmetika: pozdější migrace běžně staví na tom, co založila
+ * dřívější (tabulka → index → politika). Spuštění na přeskáčku by spadlo na
+ * chybějící objekt a vypadalo by to jako chyba v migraci samotné.
+ */
+export function poradiSpusteni(radky: MigraceRadek[]): MigraceRadek[] {
+  return radky.filter((r) => r.stav === 'ceka').sort((a, b) => a.nazev.localeCompare(b.nazev));
+}
+
+/**
+ * Bezpečný název migračního souboru: čas (14 číslic) + popis + .sql.
+ * Server pouští jen to, co projde tímhle sítem — mimo jiné proto, aby se
+ * do názvu nedala propašovat cesta ven ze složky (`../`).
+ */
+export function jeBezpecneJmenoMigrace(nazev: string): boolean {
+  return /^\d{14}_[A-Za-z0-9._-]+\.sql$/.test(nazev);
+}

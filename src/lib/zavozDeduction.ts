@@ -9,6 +9,7 @@
 import { businessDateISO, businessHour } from './businessDate';
 import { supabase } from './supabase';
 import { zalogujANahlas } from './chybyHlaseni';
+import { uloz } from './uloziste';
 
 const DAY_OFFSET: Record<string, number> = {
   po: 0,
@@ -89,7 +90,7 @@ export async function checkAndRunDailyDeduction(): Promise<void> {
 
   try {
     const count = await runZavozDeductionForDate(today);
-    localStorage.setItem(LS_KEY, today);
+    uloz(LS_KEY, today);
     if (count > 0) {
       console.info(`[zavozDeduction] Odpočet závozu ${today}: ${count} položek`);
     }

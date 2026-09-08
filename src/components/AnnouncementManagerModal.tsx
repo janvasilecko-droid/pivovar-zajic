@@ -3,6 +3,7 @@ import { Announcement } from './MandatoryAnnouncementModal';
 import { AlertTriangle, CheckCircle2, Save, Trash2, X } from 'lucide-react';
 import { isNotificationSupported, playOrderChime } from '../lib/notifications';
 import { potvrd } from '../lib/toast';
+import { uloz, smaz } from '../lib/uloziste';
 
 export function AnnouncementManagerModal({ onClose }: { onClose: () => void }) {
   const [announcements, setAnnouncements] = useState<Announcement[]>(() => {
@@ -12,10 +13,14 @@ export function AnnouncementManagerModal({ onClose }: { onClose: () => void }) {
     } catch { return []; }
   });
 
-  const [title, setTitle] = useState('Technické upozornění: Odstávka a sanitace varny');
-  const [body, setBody] = useState('V úterý od 8:00 do 12:00 proběhne plánovaná údržba. V této době nestáčet!');
+  // Formulář začíná prázdný. Dřív byl předvyplněný ukázkovým textem
+  // o odstávce varny — a hlášení se vyhlašuje jedním tlačítkem, takže
+  // stačilo ho omylem odeslat a všem naskočila přes celou obrazovku
+  // vymyšlená odstávka, kterou musel každý odklepnout.
+  const [title, setTitle] = useState('');
+  const [body, setBody] = useState('');
   const [type, setType] = useState<'technical' | 'important' | 'info'>('technical');
-  const [author, setAuthor] = useState('Ing. Petr Bednář (Sládek)');
+  const [author, setAuthor] = useState('');
   const [msg, setMsg] = useState<string | null>(null);
 
   function handlePublish(e: React.FormEvent) {
@@ -30,9 +35,9 @@ export function AnnouncementManagerModal({ onClose }: { onClose: () => void }) {
       active: true,
     };
 
-    localStorage.setItem('pivovar_active_announcement', JSON.stringify(newAnn));
+    uloz('pivovar_active_announcement', JSON.stringify(newAnn));
     // Reset confirmation status to force all users to re-confirm
-    localStorage.removeItem(`acknowledged_announcement_${newAnn.id}`);
+    smaz(`acknowledged_announcement_${newAnn.id}`);
 
     // Trigger test chime & browser push notification
     playOrderChime();
@@ -55,7 +60,7 @@ export function AnnouncementManagerModal({ onClose }: { onClose: () => void }) {
 
   async function handleClear() {
     if (!(await potvrd('Opravdu smazat a deaktivovat aktuální hlášení?'))) return;
-    localStorage.removeItem('pivovar_active_announcement');
+    smaz('pivovar_active_announcement');
     setMsg('Hlášení bylo deaktivováno.');
     setTimeout(() => {
       setMsg(null);

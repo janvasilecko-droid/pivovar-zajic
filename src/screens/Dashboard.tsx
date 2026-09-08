@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase, Beer, Package, useRealtime, beerBorder, fetchAllRows } from '../lib/supabase';
-import { Spinner, EmptyState, Modal } from '../components/ui';
+import { Kostra, EmptyState, Modal } from '../components/ui';
 import { useAuth } from '../lib/auth';
 import { AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, Calculator, ClipboardList, Check, Layers, PackageCheck, Pin, Sparkles } from 'lucide-react';
 import { AnnouncementManagerModal } from '../components/AnnouncementManagerModal';
@@ -406,7 +406,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
     });
   }, [brewStats]);
 
-  if (loading && activeTab === 'sklad') return <Spinner />;
+  if (loading && activeTab === 'sklad') return <Kostra />;
 
   return (
     <div>

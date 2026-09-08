@@ -1,13 +1,13 @@
 # Zálohy
 
-Poslední záloha: **2026-09-05**
+Poslední záloha: **2026-09-08**
 
 | Tabulka | Řádků |
 | --- | ---: |
-| orders | 177 |
-| order_items | 530 |
-| kegging | 209 |
-| bottling | 109 |
+| orders | 190 |
+| order_items | 585 |
+| kegging | 226 |
+| bottling | 117 |
 
 Zálohuje se automaticky každý den (`.github/workflows/zaloha.yml`).
 Každý den je jeden commit, takže se dá vrátit ke stavu k libovolnému dni.

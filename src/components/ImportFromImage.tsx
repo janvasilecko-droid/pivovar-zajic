@@ -16,6 +16,7 @@ import {
   detectOrderDupWarnings,
   type ParsedLine, type ParserAliasMap, type GeminiItem, type ImportedOrder, type OrderDupWarning,
 } from '../lib/orderParser';
+import { uloz } from '../lib/uloziste';
 
 type ExistingItem = { beer_id: string | null; package_id: string | null; quantity: number };
 type PhotoEntry = { dataUrl: string; name: string; fingerprint: string };
@@ -183,7 +184,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
       const saved = JSON.parse(localStorage.getItem(FREAD_FP_KEY) || '[]') as string[];
       if (!saved.includes(fp)) {
         saved.push(fp);
-        localStorage.setItem(FREAD_FP_KEY, JSON.stringify(saved.slice(-600)));
+        uloz(FREAD_FP_KEY, JSON.stringify(saved.slice(-600)));
       }
     } catch {}
   }
@@ -401,7 +402,6 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
         const isDuplicate = isDuplicateRawText(rawTextFromGemini, seenRawTextsRef.current);
         if (isDuplicate && rawTextFromGemini.trim().length > 30) {
           // Text je příliš podobný předchozímu -> pravděpodobně odpověď s kopií objednávky
-          console.log('Duplicitní text detekován (pravděpodobně odpověď s kopií objednávky):', rawTextFromGemini.substring(0, 100));
           setSkipReason(`Fotka může obsahovat odpověď s kopií původní objednávky. Zkontrolujte, jestli neobsahuje víckrát stejné položky.`);
           
           // Pokud jde o přidání dalších fotek (append), quietly skip

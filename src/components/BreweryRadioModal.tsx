@@ -62,13 +62,13 @@ export function BreweryRadioModal({ open, onClose }: BreweryRadioModalProps) {
             <button
               type="button"
               onClick={prevStation}
-              title="Předchozí stanice" aria-label="Předchozí stanice"
+              title="Předchozí stanice"
               // Plná tmavá, ne bílá s průhledností: karta má barvu stanice
               // (inline přechod) a na světlejší stanici se bílá ikona na
               // 15% bílé neztrácela jen trochu — nebyla vidět vůbec.
               className="p-2.5 rounded-full bg-neutral-900 hover:bg-neutral-800 active:scale-95 transition text-white"
-            >
-              <SkipBack size={18} />
+             aria-label="Předchozí stanice">
+              <SkipBack size={20} />
             </button>
 
             <button
@@ -89,10 +89,10 @@ export function BreweryRadioModal({ open, onClose }: BreweryRadioModalProps) {
             <button
               type="button"
               onClick={nextStation}
-              title="Další stanice" aria-label="Další stanice"
+              title="Další stanice"
               className="p-2.5 rounded-full bg-neutral-900 hover:bg-neutral-800 active:scale-95 transition text-white"
-            >
-              <SkipForward size={18} />
+             aria-label="Další stanice">
+              <SkipForward size={20} />
             </button>
           </div>
 

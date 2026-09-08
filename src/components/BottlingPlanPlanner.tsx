@@ -452,11 +452,12 @@ export function BottlingPlanPlanner({
         </p>
       );
     }
+    // Dvě různá vylepšení téhle tabulky, obě platí: `roluje-vodorovne` dá na
+    // kraj stín, aby bylo poznat, že tabulka pokračuje; a
+    // `table-drzi-prvni-sloupec` přilepí název piva vlevo, ať se u čísel
+    // pozná, čí jsou (tabulka je 920 px široká).
     return (
-      <div className="overflow-x-auto">
-        {/* `table-drzi-prvni-sloupec`: tabulka je 920 px široká, na telefonu
-            se roluje do stran a bez názvu piva vlevo se čtou čísla, u kterých
-            není vidět, čí jsou. */}
+      <div className="overflow-x-auto roluje-vodorovne">
         <table className="table-drzi-prvni-sloupec w-full text-xs border-collapse min-w-[920px]">
           <thead>
             <tr className="text-udaj uppercase tracking-wide text-neutral-500">

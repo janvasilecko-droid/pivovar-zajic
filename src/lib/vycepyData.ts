@@ -11,6 +11,7 @@
 // starý. Kopie se přepisuje po každém úspěšném načtení.
 import { supabase } from './supabase';
 import type { TapEquipment, TapReservation } from '../screens/VycepyScreen';
+import { uloz } from './uloziste';
 
 export const KLIC_VYCEPY = 'vycepy_equipment_v1';
 export const KLIC_REZERVACE = 'vycepy_reservations_v1';
@@ -110,7 +111,7 @@ function nactiKopii<T>(klic: string): T[] {
 }
 
 function ulozKopii(klic: string, data: unknown): void {
-  try { localStorage.setItem(klic, JSON.stringify(data)); } catch { /* plná paměť, nevadí */ }
+  try { uloz(klic, JSON.stringify(data)); } catch { /* plná paměť, nevadí */ }
 }
 
 // ── Čtení ──────────────────────────────────────────────────────────────────

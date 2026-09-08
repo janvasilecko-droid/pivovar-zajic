@@ -21,8 +21,9 @@ import { AlertTriangle, Check, Database, RefreshCw } from 'lucide-react';
 // desetitisíce řádků. Stránkování patří tam, kde se čtou VŠECHNY řádky.
 import { supabase } from '../lib/supabase';
 import { chybiTabulka } from '../lib/chybyHlaseni';
+import { authenticatedFunctionHeaders } from '../lib/functionAuth';
 import {
-  porovnejMigrace, pocetCekajicich, osirele, type MigraceRadek, type AplikovanaMigrace,
+  porovnejMigrace, pocetCekajicich, osirele, poradiSpusteni, type MigraceRadek, type AplikovanaMigrace,
 } from '../lib/migraceStav';
 import {
   frontaTanku, odeberZFronty, TANK_FRONTA_EVENT, type OdecetVeFronte,
@@ -162,6 +163,11 @@ function MigraceBlok() {
   const [navic, setNavic] = useState<string[]>([]);
   const [stav, setStav] = useState<'nacitam' | 'ok' | 'bez-tabulky' | 'bez-seznamu' | 'chyba'>('nacitam');
   const [chybaText, setChybaText] = useState<string | null>(null);
+  // Název právě pouštěné migrace (a tím i příznak „něco běží").
+  const [bezi, setBezi] = useState<string | null>(null);
+  // Co dopadlo jak — vypisuje se pod tlačítkem, ať je po spuštění vidět
+  // výsledek i tehdy, když se seznam mezitím překreslí.
+  const [vysledky, setVysledky] = useState<{ nazev: string; ok: boolean; popis: string }[]>([]);
 
   async function nacti() {
     setStav('nacitam');
@@ -197,6 +203,50 @@ function MigraceBlok() {
 
   const ceka = pocetCekajicich(radky);
   const cekajici = radky.filter((r) => r.stav === 'ceka');
+
+  /**
+   * Pustí čekající migrace po řadě, od nejstarší. Pořadí je podstatné:
+   * pozdější migrace běžně staví na tom, co založila dřívější. Při první
+   * chybě se zbytek nepouští — jinak by se na první chybu nabalily další,
+   * které jen padají na chybějící tabulku, a nedalo by se poznat, co je
+   * vlastně špatně.
+   */
+  async function spustVse() {
+    if (bezi) return;
+    const seznam = poradiSpusteni(radky);
+    if (seznam.length === 0) return;
+    const potvrzeno = await potvrd(
+      seznam.length === 1
+        ? `Spustit migraci ${seznam[0].nazev} na produkční databázi?`
+        : `Spustit ${seznam.length} čekajících migrací na produkční databázi (po řadě od nejstarší)?`,
+    );
+    if (!potvrzeno) return;
+
+    const nove: { nazev: string; ok: boolean; popis: string }[] = [];
+    for (const m of seznam) {
+      setBezi(m.nazev);
+      try {
+        const resp = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pust-migraci`,
+          { method: 'POST', headers: await authenticatedFunctionHeaders(), body: JSON.stringify({ nazev: m.nazev }) },
+        );
+        const telo = await resp.json().catch(() => ({}));
+        if (!resp.ok || telo?.error) {
+          nove.push({ nazev: m.nazev, ok: false, popis: telo?.error ?? `HTTP ${resp.status}` });
+          break;
+        }
+        nove.push({ nazev: m.nazev, ok: true, popis: telo?.jizBylo ? 'už byla aplikovaná' : 'hotovo' });
+      } catch (e: any) {
+        nove.push({ nazev: m.nazev, ok: false, popis: e?.message ?? String(e) });
+        break;
+      }
+    }
+    setBezi(null);
+    setVysledky(nove);
+    const spadlo = nove.find((v) => !v.ok);
+    oznam(spadlo ? `Migrace ${spadlo.nazev} neprošla: ${spadlo.popis}` : `Hotovo — ${nove.length} migrací aplikováno.`);
+    await nacti();
+  }
 
   return (
     <div className="mt-6 pt-5 border-t border-neutral-200">
@@ -242,9 +292,32 @@ function MigraceBlok() {
                   <li key={r.nazev} className="text-xs font-bold lze-vybrat">{r.nazev}</li>
                 ))}
               </ul>
+              <button
+                type="button"
+                onClick={() => { void spustVse(); }}
+                disabled={!!bezi}
+                className="mt-2 px-3 py-2 rounded bg-amber-700 hover:bg-amber-600 disabled:opacity-50 text-white font-black text-xs transition min-h-[44px] flex items-center gap-2"
+              >
+                {bezi ? <RefreshCw size={14} className="animate-spin" /> : <Database size={14} />}
+                {bezi ? `Pouštím ${bezi}…` : cekajici.length === 1 ? 'Spustit tuhle migraci' : `Spustit všech ${cekajici.length} po řadě`}
+              </button>
               <p className="text-xs mt-2">
-                Spustí se přes <code>node scripts/apply-migration.mjs &lt;nazev&gt;.sql</code> (token v <code>.env</code>).
+                Z počítače je to <code>node scripts/apply-migration.mjs &lt;nazev&gt;.sql</code> (token v <code>.env</code>) —
+                tlačítko dělá totéž a jde i z telefonu.
               </p>
+            </div>
+          )}
+          {vysledky.length > 0 && (
+            <div className="mt-2 space-y-1">
+              {vysledky.map((v) => (
+                <p
+                  key={v.nazev}
+                  className={`text-xs font-bold flex items-start gap-1.5 ${v.ok ? 'text-emerald-800' : 'text-rose-900'}`}
+                >
+                  {v.ok ? <Check size={13} className="mt-0.5 shrink-0" /> : <AlertTriangle size={13} className="mt-0.5 shrink-0" />}
+                  <span className="lze-vybrat">{v.nazev} — {v.popis}</span>
+                </p>
+              ))}
             </div>
           )}
           {navic.length > 0 && (

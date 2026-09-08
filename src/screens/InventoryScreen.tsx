@@ -1,11 +1,12 @@
 import { Fragment, useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
 
-import { Beer, beerBg, beerInk, beerText, fetchAllRows, formatPackageLabel, Package, supabase, useRealtime } from '../lib/supabase';
+import { Beer, beerBg, beerInk, beerText, fetchAllRows, formatPackageLabel, Package, supabase, useRealtime, beerName } from '../lib/supabase';
 import { Kostra } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
 import { AlertTriangle, Beer as BeerIcon, Calendar, CalendarRange, Camera, ClipboardCheck, Download, Check, Lock, MinusCircle, Package as PackageIcon, Plus, RotateCcw, Save, Search, ShieldCheck } from 'lucide-react';
 import HloubkovyAuditPanel from '../components/HloubkovyAuditPanel';
 import TydenniInventuraPanel from '../components/TydenniInventuraPanel';
+import RozpadPivaPanel from '../components/RozpadPivaPanel';
 import { computeInventoryReconciliation } from '../lib/inventoryHelper';
 import { akceProRozdil, datumDoplnku, doplnekVBudoucnu, jeSud, kegovaniZapisy, lahvoveZapisy, nabidnoutMinulyMesic, nazevMesice, odectiZeStoceni, vychoziMesicInventury } from '../lib/inventoryFix';
 import { davkySrovnani, zapisyDavky, type DavkaPiva, type SmerSudu, type ZdrojovaSkupina } from '../lib/srovnaniDavka';
@@ -13,7 +14,8 @@ import { zapamatujPozici } from '../lib/drzPozici';
 import { vyrovnaniZaMesic } from '../lib/vyrovnani';
 import { lzeUlozitKoncept, slucInventuru } from '../lib/rozepsanaInventura';
 import { normalizujCislo } from '../lib/cisloVstup';
-import { rozdelSudyDoTanku, zmenaOtevreni, type RozdeleniSudu, type TankProRozdeleni } from '../lib/tankRozdeleni';
+import { rozdelSudyDoTanku, zmenaOtevreni, type RozdeleniSudu, type TankProRozdeleni, popisRozdeleni } from '../lib/tankRozdeleni';
+import { stavPolicka, tridyPolicka } from '../lib/polickoInventury';
 import { odectiZTanku as odectiZTankuDB, vratDoTanku } from '../lib/tankZapis';
 
 import { businessDateISO, posunMesic } from '../lib/businessDate';
@@ -23,6 +25,7 @@ import { chyba, oznam, potvrd, toastZpet, uspech } from '../lib/toast';
 import { zavibruj } from '../lib/haptika';
 import { usePosledniNacteni } from '../lib/nacitani';
 import { IkonaSud } from '../components/ikony';
+import { uloz } from '../lib/uloziste';
 
 // Stahuje se až při otevření — viz komentář u lazy() v Orders.tsx.
 const CountFromImage = lazy(() => import('../components/CountFromImage').then((m) => ({ default: m.CountFromImage })));
@@ -107,8 +110,8 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
   // Záložka se drží v adrese stránky (setPage), takže může přijít i hodnota,
   // která už neexistuje — třeba zrušená záložka z minulé verze. Neznámou
   // proto srazíme na inventuru, jinak by se vykreslilo prázdno.
-  const zalozka = (t: unknown): 'inventory' | 'initial_stock' | 'end_stock' | 'audit' | 'hloubkovy' | 'tydenni' =>
-    t === 'initial_stock' || t === 'end_stock' || t === 'audit' || t === 'hloubkovy' || t === 'tydenni' ? t : 'inventory';
+  const zalozka = (t: unknown): 'inventory' | 'initial_stock' | 'end_stock' | 'audit' | 'hloubkovy' | 'tydenni' | 'rozpad' =>
+    t === 'initial_stock' || t === 'end_stock' || t === 'audit' || t === 'hloubkovy' || t === 'tydenni' || t === 'rozpad' ? t : 'inventory';
 
   const [activeTab, setActiveTab] = useState(() => zalozka(initialSubTab));
 
@@ -116,7 +119,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     setActiveTab(zalozka(initialSubTab));
   }, [initialSubTab]);
 
-  function selectTab(t: 'inventory' | 'initial_stock' | 'end_stock' | 'audit' | 'hloubkovy' | 'tydenni') {
+  function selectTab(t: 'inventory' | 'initial_stock' | 'end_stock' | 'audit' | 'hloubkovy' | 'tydenni' | 'rozpad') {
     if (setPage) setPage('inventory', undefined, t);
     else setActiveTab(t);
   }
@@ -303,7 +306,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
         dbActualMap[k] = String(r.quantity || 0);
       });
       curActual = dbActualMap;
-      try { localStorage.setItem(`actual_inventory_${currentMonth}`, JSON.stringify(dbActualMap)); } catch {}
+      try { uloz(`actual_inventory_${currentMonth}`, JSON.stringify(dbActualMap)); } catch {}
     }
     if (shouldReloadState) {
       setActualStock((prev) => slucInventuru(curActual, prev, zmenaMesice));
@@ -327,7 +330,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
         if (v !== 0) dbAdjMap[k] = String(v);
       });
       curAdj = dbAdjMap;
-      try { localStorage.setItem(`inventory_adjustments_${currentMonth}`, JSON.stringify(dbAdjMap)); } catch {}
+      try { uloz(`inventory_adjustments_${currentMonth}`, JSON.stringify(dbAdjMap)); } catch {}
     }
     if (shouldReloadState) {
       setDorovnatMap((prev) => slucInventuru(curAdj, prev, zmenaMesice));
@@ -507,7 +510,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
   }, [currentMonth]);
 
   // 🔇 Realtime přenačítá TIŠE. Bez toho zavolá loadData() bez parametru,
-  // rozsvítí se spinner přes celou obrazovku (`if (loading) return <Spinner/>`),
+  // rozsvítí se spinner přes celou obrazovku (`if (loading) return <Kostra/>`),
   // obsah se odmountuje — a s ním spadne odrolování na nulu. Z provozu:
   // „když kliknu odečíst, vrací mě to vždycky nahoru." Vlastní zápis stránku
   // srovná kotvou (lib/drzPozici.ts), jenže 400 ms po něm dorazí realtime
@@ -519,12 +522,12 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
   // otevírání přepsal uložený koncept dřív, než se stihne načíst.
   useEffect(() => {
     if (!lzeUlozitKoncept(loadedMonthRef.current, currentMonth)) return;
-    try { localStorage.setItem(`actual_inventory_${currentMonth}`, JSON.stringify(actualStock)); } catch {}
+    try { uloz(`actual_inventory_${currentMonth}`, JSON.stringify(actualStock)); } catch {}
   }, [actualStock, currentMonth]);
 
   useEffect(() => {
     if (!lzeUlozitKoncept(loadedMonthRef.current, currentMonth)) return;
-    try { localStorage.setItem(`inventory_adjustments_${currentMonth}`, JSON.stringify(dorovnatMap)); } catch {}
+    try { uloz(`inventory_adjustments_${currentMonth}`, JSON.stringify(dorovnatMap)); } catch {}
   }, [dorovnatMap, currentMonth]);
 
   useRealtime(['beers', 'packages', 'bottling', 'kegging', 'fasovani', 'fasovani_private', 'writeoffs', 'inventory', 'inventory_adjustments', 'zavoz_deductions', 'akce', 'akce_items', 'keg_prefuk'], () => loadData(true));
@@ -560,7 +563,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
       try {
         const lsMap: Record<string, number> = {};
         Object.entries(initialStock).forEach(([key, qty]) => { if (Number(qty) > 0) lsMap[key] = Number(qty); });
-        localStorage.setItem(`initial_stock_${currentMonth}`, JSON.stringify(lsMap));
+        uloz(`initial_stock_${currentMonth}`, JSON.stringify(lsMap));
       } catch {}
       uspech('Počáteční stavy skladu byly v pořádku uloženy!');
       forceReloadRef.current = true;
@@ -667,8 +670,8 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
       if (error) throw new Error(error.message);
 
       // Lokální kopii aktualizujeme až po úspěšném potvrzení celé DB transakce.
-      localStorage.setItem(`actual_inventory_${currentMonth}`, JSON.stringify(actualStock));
-      localStorage.setItem(`inventory_adjustments_${currentMonth}`, JSON.stringify(dorovnatMap));
+      uloz(`actual_inventory_${currentMonth}`, JSON.stringify(actualStock));
+      uloz(`inventory_adjustments_${currentMonth}`, JSON.stringify(dorovnatMap));
 
       uspech('Fyzická inventura i dorovnání byla v pořádku uložena do databáze!');
       forceReloadRef.current = true;
@@ -718,8 +721,8 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
           actualLs[k] = String(q);
           if (q > 0) nextInitialLs[k] = q;
         });
-        localStorage.setItem(`actual_inventory_${currentMonth}`, JSON.stringify(actualLs));
-        localStorage.setItem(`initial_stock_${nextMonthKey}`, JSON.stringify(nextInitialLs));
+        uloz(`actual_inventory_${currentMonth}`, JSON.stringify(actualLs));
+        uloz(`initial_stock_${nextMonthKey}`, JSON.stringify(nextInitialLs));
       } catch {}
 
       oznam(`Inventura za ${currentMonth} byla schválena a stavy byly převedeny jako počáteční stav (Poč.) do měsíce ${nextMonthKey}.`);
@@ -1483,7 +1486,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
 
       if (matchCount > 0) {
         setActualStock(importedActual);
-        localStorage.setItem(`actual_inventory_${currentMonth}`, JSON.stringify(importedActual));
+        uloz(`actual_inventory_${currentMonth}`, JSON.stringify(importedActual));
         oznam(`Úspěšně naimportováno ${matchCount} položek z Excelu/Google Tabulky pro měsíc ${currentMonth}!`);
       } else {
         oznam('V souboru nebyly nalezeny žádné odpovídající položky piva a obalu. Zkontrolujte strukturu tabulky.');
@@ -1698,6 +1701,20 @@ function exportInventoryExcel() {
         >
           <ShieldCheck size={16} />
           <span>Hloubkový audit (týden / měsíc)</span>
+        </button>
+
+        {/* 🔎 Rozpad piva — každý pohyb jednoho piva za libovolné období.
+            Sem se chodí, když inventura řekne, že něco nesedí. */}
+        <button
+          onClick={() => selectTab('rozpad')}
+          className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 shrink-0 ${
+            activeTab === 'rozpad'
+              ? 'bg-amber-500 text-neutral-950 shadow-md'
+              : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
+          }`}
+        >
+          <Search size={16} />
+          <span>Rozpad piva</span>
         </button>
       </div>
 
@@ -2045,7 +2062,10 @@ function exportInventoryExcel() {
                                 type="number" onWheel={(e) => e.currentTarget.blur()}
                                 min="0"
                                 inputMode="numeric"
-                                className="input !py-2 text-center font-mono font-black text-base text-neutral-950 border-amber-400 bg-amber-100/80 w-full min-w-0 rounded shadow-inner focus:ring-2 focus:ring-amber-500"
+                                /* Barva políčka podle shody se skladem (lib/polickoInventury.ts):
+                                   šedá = ve skladu něco je a nespočítalo se, zelená = sedí,
+                                   červená = nesedí. */
+                                className={`input !py-2 text-center font-mono font-black text-base w-full min-w-0 rounded shadow-inner focus:ring-2 focus:ring-amber-500 ${tridyPolicka(stavPolicka(actualStock[k], r.expectedQty))}`}
                                 value={actualStock[k] !== undefined ? actualStock[k] : ''}
                                 onFocus={(e) => e.currentTarget.select()}
                                 onChange={(e) => setActualStock((prev) => ({ ...prev, [k]: e.target.value }))}
@@ -2214,7 +2234,7 @@ function exportInventoryExcel() {
                               <input
                                 type="number" inputMode="numeric" onWheel={(e) => e.currentTarget.blur()}
                                 min="0"
-                                className="input !py-1 text-center font-mono font-black text-xs text-neutral-950 border-amber-400 bg-amber-100/80 w-16 rounded shadow-inner focus:ring-2 focus:ring-amber-500"
+                                className={`input !py-1 text-center font-mono font-black text-xs w-16 rounded shadow-inner focus:ring-2 focus:ring-amber-500 ${tridyPolicka(stavPolicka(actualStock[k], r.expectedQty))}`}
                                 value={actualStock[k] !== undefined ? actualStock[k] : ''}
                                 onFocus={(e) => e.currentTarget.select()}
                                 onChange={(e) => setActualStock((prev) => ({ ...prev, [k]: e.target.value }))}
@@ -2438,6 +2458,8 @@ function exportInventoryExcel() {
 
       {activeTab === 'tydenni' && <TydenniInventuraPanel />}
 
+      {activeTab === 'rozpad' && <RozpadPivaPanel mesic={currentMonth} />}
+
       {activeTab === 'audit' && (
         <div className="space-y-3">
           <div className={`rounded border-2 p-3.5 ${auditNesedi.length === 0 ? 'border-emerald-300 bg-emerald-50/70' : 'border-rose-300 bg-rose-50/70'}`}>
@@ -2487,7 +2509,7 @@ function exportInventoryExcel() {
               nepřilepila vůbec. S vlastní výškou se lepí přesně tady.
               Barva pozadí musí být na <th scope="col">, ne na <tr> — pozadí řádku se pod
               přilepenou buňkou nevykreslí a text by prosvítal přes data. */}
-          <div className="overflow-auto rounded border border-neutral-200 bg-white max-h-[70vh]">
+          <div className="overflow-auto roluje-vodorovne rounded border border-neutral-200 bg-white max-h-[70vh]">
             <table className="w-full border-collapse min-w-[900px]">
               <thead>
                 <tr className="text-amber-300 text-udaj font-black uppercase tracking-wider">

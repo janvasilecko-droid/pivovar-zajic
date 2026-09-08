@@ -1,3 +1,4 @@
+import { uloz } from './uloziste';
 export type DensityMode = 'xs' | 'compact' | 'normal' | 'large' | 'xl';
 
 export const DENSITY_OPTIONS: { value: DensityMode; label: string; desc: string }[] = [
@@ -17,7 +18,7 @@ export function getDensity(): DensityMode {
 
 export function setDensity(mode: DensityMode) {
   if (typeof window === 'undefined') return;
-  localStorage.setItem('minipivovar_density', mode);
+  uloz('minipivovar_density', mode);
   document.documentElement.classList.remove('density-xs', 'density-compact', 'density-normal', 'density-large', 'density-xl');
   document.documentElement.classList.add(`density-${mode}`);
 }

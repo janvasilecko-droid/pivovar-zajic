@@ -21,16 +21,18 @@
  * Ovlivňuje jen vzhled, nic se neposílá do databáze — nastavuje se na
  * každém telefonu zvlášť, protože sekání je vlastnost telefonu.
  */
+import { nacti, uloz } from './uloziste';
+
 const KLIC = 'minipivovar_mene_efektu';
 
 export function mensiEfekty(): boolean {
   if (typeof window === 'undefined') return false;
-  try { return localStorage.getItem(KLIC) === '1'; } catch { return false; }
+  return nacti(KLIC) === '1';
 }
 
 export function nastavEfekty(mene: boolean) {
   if (typeof window === 'undefined') return;
-  try { localStorage.setItem(KLIC, mene ? '1' : '0'); } catch { /* soukromé okno */ }
+  uloz(KLIC, mene ? '1' : '0');
   document.documentElement.classList.toggle('mene-efektu', mene);
 }
 

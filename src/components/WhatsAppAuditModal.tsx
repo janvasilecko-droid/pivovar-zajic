@@ -139,7 +139,7 @@ export function WhatsAppAuditModal({ isOpen, onClose, onOpenMessage }: WhatsAppA
             >
               <Zap size={14} /> {runningAutoParse ? 'Zpracovávám…' : 'Zpracovat nevyřízené'}
             </button>
-            <button type="button" onClick={load} className="p-1.5 rounded text-neutral-600 hover:bg-neutral-100 tap" title="Obnovit" aria-label="Obnovit">
+            <button type="button" onClick={load} className="p-1.5 rounded text-neutral-600 hover:bg-neutral-100" title="Obnovit" aria-label="Obnovit">
               <RefreshCw size={16} />
             </button>
           </div>

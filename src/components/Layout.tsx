@@ -20,7 +20,8 @@ import { isAdminEmail } from '../lib/config';
 import { BugReportModal } from './BugReportModal';
 
 import { onNewVersion, forceRefresh, type VersionInfo } from '../lib/versionCheck';
-import { nastavObrazovkuProChyby } from '../lib/chybyHlaseni';
+import { zavrenaVerzeListy, zavriVerziListy } from '../lib/verzeLista';
+import { nastavObrazovkuProChyby, zalogujANahlas } from '../lib/chybyHlaseni';
 // Staticky, ne přes `await import(…)`. Fronta offline zápisů sedí v hlavním
 // kusu tak jako tak — `lib/supabase.ts` si ji importuje staticky a ten
 // importuje každá obrazovka — takže dynamický import nic nešetřil a build
@@ -34,11 +35,11 @@ import { SCENES, DEFAULT_DOCK, hexToRgba, COLOR_HEX, type Scene, type TileColor 
 import { zavibruj } from '../lib/haptika';
 import { IkonaSud, IkonaLahev, IkonaVycep } from './ikony';
 import '../screens/HomeScreen.css';
-import { zalogujANahlas } from '../lib/chybyHlaseni';
+import { uloz } from '../lib/uloziste';
 
 export type NavItem = { id: Page; label: string; icon: LucideIcon; group: string };
 
-export type Page = 'export_excel' | 'home' | 'sanitace' | 'marketing' | 'planning' | 'depozitar' | 'dashboard' | 'concentration' | 'srotovani' | 'checklists' | 'haccp' | 'sanitation_log' | 'sanitace_lahve' | 'sanitace_kegy' | 'sanitace_vycepy' | 'history' | 'orders_entry' | 'orders' | 'orders_detail' | 'orders_celkem' | 'orders_zavoz' | 'zavoz' | 'kniha_jizd' | 'stock' | 'bottling' | 'kegging' | 'fasovani' | 'prodejna' | 'akce' | 'sklo_promo' | 'vycepy' | 'exkurze' | 'reminders' | 'notes' | 'writeoffs' | 'inventory' | 'calendar' | 'feedback' | 'places' | 'beers' | 'packages' | 'pricelist' | 'vehicles' | 'cellar' | 'users' | 'app_settings' | 'app_versions' | 'bottling_needs' | 'stopwatch' | 'timer' | 'keg_timer' | 'radio' | 'zaloha' | 'signout';
+export type Page = 'export_excel' | 'home' | 'sanitace' | 'marketing' | 'planning' | 'depozitar' | 'dashboard' | 'concentration' | 'srotovani' | 'checklists' | 'haccp' | 'sanitation_log' | 'sanitace_lahve' | 'sanitace_kegy' | 'sanitace_vycepy' | 'history' | 'orders_entry' | 'orders' | 'orders_detail' | 'orders_celkem' | 'orders_zavoz' | 'zavoz' | 'kniha_jizd' | 'stock' | 'bottling' | 'kegging' | 'fasovani' | 'prodejna' | 'akce' | 'sklo_promo' | 'vycepy' | 'exkurze' | 'reminders' | 'notes' | 'writeoffs' | 'inventory' | 'calendar' | 'feedback' | 'places' | 'beers' | 'packages' | 'pricelist' | 'vehicles' | 'cellar' | 'users' | 'app_settings' | 'app_versions' | 'bottling_needs' | 'stopwatch' | 'timer' | 'keg_timer' | 'radio' | 'zaloha' | 'co2' | 'signout';
 
 export const NAV: NavItem[] = [
   // --- VÝROBA ---
@@ -207,11 +208,41 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
   // `zavrenaVerze` si pamatuje, kterou verzi uživatel odklepl: až přijde
   // další, lišta se ozve znovu.
   const [novaVerze, setNovaVerze] = useState<VersionInfo | null>(null);
-  const [zavrenaVerze, setZavrenaVerze] = useState<string | null>(null);
+  // Zavření si drží lib/verzeLista.ts — čte ho i dlaždice upozornění na
+  // Domů, aby lišta a dlaždice nesvítily obě naráz.
+  const [zavrenaVerze, setZavrenaVerze] = useState<string | null>(() => zavrenaVerzeListy());
   useEffect(() => onNewVersion((info) => setNovaVerze(info)), []);
   // Předchozí navštívená obrazovka — dlouhý stisk na spodní liště se na ni
   // vrátí. Přeskakování mezi dvěma místy (třeba Závoz ↔ Objednávky) je
   // v provozu nejčastější pohyb a přes menu je to pokaždé tři klepnutí.
+  // Skutečná výška spodní lišty. Odsazení obsahu bylo napevno pb-24 (96 px),
+  // jenže lišta má pod sebou ještě bezpečnou zónu telefonu (na iPhonu 34 px)
+  // a nad sebou se občas vysune pásek „jste offline". Pak se poslední řádek
+  // seznamu — a s ním i tlačítko, na které se klepe — schoval pod lištu.
+  // Naměřená výška jde do CSS proměnné, takže odsazení sedí na každém
+  // telefonu i po otočení displeje.
+  const dokRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    const el = dokRef.current;
+    if (!el) return;
+    const zmer = () => {
+      const v = Math.round(el.getBoundingClientRect().height);
+      if (v > 0) document.documentElement.style.setProperty('--vyska-doku', `${v}px`);
+    };
+    zmer();
+    // ResizeObserver nemusí být (starší WebView) — pak stačí přeměření při
+    // otočení displeje, výška se jinak nemění.
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(zmer) : null;
+    ro?.observe(el);
+    window.addEventListener('orientationchange', zmer);
+    window.addEventListener('resize', zmer);
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener('orientationchange', zmer);
+      window.removeEventListener('resize', zmer);
+    };
+  }, []);
+
   const predchoziStranka = useRef<Page | null>(null);
   const aktualniStranka = useRef<Page>(page);
   const dlouhyStiskRef = useRef(false);
@@ -324,7 +355,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
     setHiddenModules(newHidden);
     try {
       const key = `user_hidden_modules_${user?.id || 'guest'}`;
-      localStorage.setItem(key, JSON.stringify(newHidden));
+      uloz(key, JSON.stringify(newHidden));
     } catch {}
   }
 
@@ -707,7 +738,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
             </button>
             <button
               type="button"
-              onClick={() => setZavrenaVerze(novaVerze.version)}
+              onClick={() => { setZavrenaVerze(novaVerze.version); zavriVerziListy(novaVerze.version); }}
               aria-label="Zavřít upozornění na novou verzi"
               className="shrink-0 p-1 rounded hover:bg-amber-200/70 text-amber-900/80 hover:text-amber-950 transition tap"
             >
@@ -821,7 +852,10 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
             Na Domů a na stránkách s vlastní TabBar bez horního odsazení, ať
             dlaždice/záložky začínají úplně nahoře (hlavička tam navíc není
             vůbec vykreslená). */}
-        <div className={`flex-1 overflow-y-auto px-3.5 sm:px-8 pb-24 ${hideHeader ? 'pt-2' : 'pt-3.5 sm:pt-8'}`}>
+        <div
+          className={`flex-1 overflow-y-auto px-3.5 sm:px-8 ${hideHeader ? 'pt-2' : 'pt-3.5 sm:pt-8'}`}
+          style={{ paddingBottom: 'calc(var(--vyska-doku, 4rem) + 1.5rem)' }}
+        >
           {children}
         </div>
 
@@ -839,7 +873,10 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
             s kolísavým signálem lidé zapisovali stáčení s tím, že je hotovo.
             Sem nad dok je to vidět na každé stránce včetně mobilu. */}
         {(!online || pending > 0) && (
-          <div className="fixed nad-dokem left-0 right-0 z-lista px-2 pointer-events-none sm:max-w-lg sm:mx-auto">
+          <div
+            className="fixed left-0 right-0 z-30 px-2 pointer-events-none sm:max-w-lg sm:mx-auto"
+            style={{ bottom: 'calc(var(--vyska-doku, 64px) + 6px)' }}
+          >
             <button
               type="button"
               onClick={async () => {
@@ -869,7 +906,8 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
           </div>
         )}
         <nav
-          className="hs-glass-chrome fixed bottom-0 left-0 right-0 z-lista border-t shadow-[0_-4px_24px_rgba(0,0,0,0.08)] px-1 py-1.5 pb-safe flex items-center justify-around gap-1 sm:max-w-lg sm:mx-auto sm:rounded-t-2xl sm:border-x"
+          ref={dokRef}
+          className="hs-glass-chrome fixed bottom-0 left-0 right-0 z-30 border-t shadow-[0_-4px_24px_rgba(0,0,0,0.08)] px-1 py-1.5 pb-safe flex items-center justify-around gap-1 sm:max-w-lg sm:mx-auto sm:rounded-t-2xl sm:border-x"
         >
           {dockPages.map((dockId, i) => {
             const isActive = dockId === 'home' ? navPageFor(page) === 'home' : navPageFor(page) === dockId;

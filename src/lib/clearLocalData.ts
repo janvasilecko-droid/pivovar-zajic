@@ -11,6 +11,8 @@
  */
 
 
+import { nacti, smaz } from './uloziste';
+
 // Všechny známé localStorage klíče s uživatelskými daty
 const USER_DATA_KEYS: string[] = [
   // Výčepy a rezervace
@@ -68,24 +70,32 @@ const USER_DATA_PREFIXES: string[] = [
 export function clearLocalUserData(clearSettings = false): string[] {
   const removed: string[] = [];
 
+  // Čte se přes `nacti`/`smaz` (lib/uloziste.ts), protože v privátním režimu
+  // a při zakázaném ukládání vyhodí i obyčejné `getItem` výjimku — a tahle
+  // funkce běží z tlačítka „Vymazat data v telefonu", kde by pád znamenal,
+  // že se nesmaže nic a uživatel se nedozví proč.
   // 1) Smažeme přesně pojmenované klíče
   for (const key of USER_DATA_KEYS) {
-    if (localStorage.getItem(key) !== null) {
-      localStorage.removeItem(key);
+    if (nacti(key) !== null) {
+      smaz(key);
       removed.push(key);
     }
   }
 
   // 2) Smažeme klíče podle prefixů
   const allKeys: string[] = [];
-  for (let i = 0; i < localStorage.length; i++) {
-    const k = localStorage.key(i);
-    if (k) allKeys.push(k);
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k) allKeys.push(k);
+    }
+  } catch {
+    // Nedá se ani projít — pak není co mazat podle předpony.
   }
   for (const prefix of USER_DATA_PREFIXES) {
     for (const key of allKeys) {
-      if (key.startsWith(prefix) && localStorage.getItem(key) !== null) {
-        localStorage.removeItem(key);
+      if (key.startsWith(prefix) && nacti(key) !== null) {
+        smaz(key);
         removed.push(key);
       }
     }
@@ -95,8 +105,8 @@ export function clearLocalUserData(clearSettings = false): string[] {
   if (clearSettings) {
     const settingsKeys = ['pivovar_theme', 'minipivovar_density', 'notification_settings'];
     for (const key of settingsKeys) {
-      if (localStorage.getItem(key) !== null) {
-        localStorage.removeItem(key);
+      if (nacti(key) !== null) {
+        smaz(key);
         removed.push(key);
       }
     }

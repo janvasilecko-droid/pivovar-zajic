@@ -1,7 +1,8 @@
 const KEG_ONLY_VOLS = new Set(['50', '30', '20', '15', '10']);
 const BEER_DEGREES = new Set(['8', '10', '11', '12', '13', '14', '15', '16']);
 
-import type { Beer, Package, Place } from './supabase';
+import type { Beer, Package, Place, ParserAlias } from './supabase';
+import { uloz } from './uloziste';
 
 export type ParsedVoiceOrder = {
   items: ParsedLine[];
@@ -1263,7 +1264,7 @@ export async function saveAlias(aliasText: string, beerId: string | null, packag
     const localMap = localSaved ? JSON.parse(localSaved) : { beer: {}, package: {} };
     if (beerId) localMap.beer[norm] = beerId;
     if (packageId) localMap.package[norm] = packageId;
-    localStorage.setItem('user_learned_aliases', JSON.stringify(localMap));
+    uloz('user_learned_aliases', JSON.stringify(localMap));
   } catch {}
 
   // 2. Trvalý uložení do Supabase
@@ -1304,7 +1305,7 @@ export async function savePlaceAlias(aliasText: string, placeId: string, correct
     const localSaved = localStorage.getItem('user_learned_place_aliases');
     const localMap = localSaved ? JSON.parse(localSaved) : {};
     if (placeId) localMap[norm] = placeId;
-    localStorage.setItem('user_learned_place_aliases', JSON.stringify(localMap));
+    uloz('user_learned_place_aliases', JSON.stringify(localMap));
   } catch {}
 
   // 2. Trvalé uložení do Supabase (tabulka place_aliases: wrong_name → místo)

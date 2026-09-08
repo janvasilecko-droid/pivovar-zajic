@@ -193,7 +193,7 @@ export default function LauncherTile({
             <button type="button" className="hs-dpad-btn hs-dpad-down" title="Přesunout dolů" aria-label="Přesunout dolů" onClick={() => onMoveStep('down')}><ChevronDown size={16} /></button>
             <button type="button" className="hs-dpad-btn hs-dpad-right" title="Přesunout doprava" aria-label="Přesunout doprava" onClick={() => onMoveStep('right')}><ChevronRight size={16} /></button>
           </div>
-          <button type="button" className="hs-gear-btn" title="Barva, velikost a další nastavení" aria-label="Barva, velikost a další nastavení" onClick={onOpenEditor}><Settings className="ikona-text" /></button>
+          <button type="button" className="hs-gear-btn" title="Barva, velikost a další nastavení" onClick={onOpenEditor} aria-label="Barva, velikost a další nastavení"><Settings className="ikona-text" /></button>
         </div>
       )}
     </div>

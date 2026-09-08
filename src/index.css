@@ -464,6 +464,43 @@ html, body { overscroll-behavior-y: contain; }
   [role="button"]:not([class*="w-"]):not([class*="min-w-"]):not(.vlastni-vyska) {
     min-width: 44px;
   }
+
+  /* ODEZVA NA KLEPNUTÍ.
+     Telefon nemá kurzor, takže `hover:` na něm neznamená nic — a appka měla
+     přes 200 tlačítek, která na dotyk nijak neodpověděla (Závoz 50× hover
+     a 0× active, Objednávky 68/1, Stáčení KEG 55/1). Kdo neviděl odezvu,
+     klepnul podruhé, a u zápisu do skladu to znamenalo dva zápisy.
+
+     Řeší se to jedním pravidlem, ne dvěma sty tříd: druhá kopie by se
+     rozešla už u prvního nově napsaného tlačítka. `:disabled` se schválně
+     vynechává (vypnuté tlačítko nesmí předstírat, že něco udělalo)
+     a `sticky`/`fixed` taky — transform na nich zakládá nový počátek
+     souřadnic a přilepený pruh by při klepnutí poskočil. */
+  button:not(:disabled):not([class*="sticky"]):not([class*="fixed"]):active,
+  [role="button"]:not([aria-disabled="true"]):not([class*="sticky"]):not([class*="fixed"]):active {
+    transform: scale(0.97);
+    transition: transform 60ms ease-out;
+  }
+
+  /* MALÁ ČTVERCOVÁ TLAČÍTKA (−, +, ✎, ✕, šipky, zavírátko modálu).
+     Pravidlo o 44 px výš je schválně přeskakuje: mají velikost zadanou
+     vlastní třídou (`w-6 h-6` = 24 px, `w-8 h-8` = 32 px), takže vypadají
+     jako vědomé rozhodnutí. Na telefonu to ale vědomé rozhodnutí není —
+     48 takových tlačítek zůstalo pod hranicí a bývají hned vedle sebe:
+     u sebe stojí „+1" a „smazat řádek", takže minutí cíle nemaže překlep,
+     ale zápis. Na dotykovém displeji jsou proto 44 px; s myší si velikost
+     drží (32 px), protože tam se prst netrefuje.
+
+     Míří výslovně jen na tlačítka — stejné třídy nosí i barevné tečky,
+     odznaky a ikonky v tabulkách, a ty se nafouknout nesmí. */
+  button.w-6.h-6:not(.vlastni-vyska),
+  [role="button"].w-6.h-6:not(.vlastni-vyska),
+  button.w-8.h-8:not(.vlastni-vyska),
+  [role="button"].w-8.h-8:not(.vlastni-vyska),
+  .btn-ikona:not(.vlastni-vyska) {
+    width: 44px;
+    height: 44px;
+  }
 }
 
 /* ───────────────────────────────────────────────────────────────────────
@@ -1179,4 +1216,24 @@ html.density-xl .table thead th {
   .tisk-oblast tr,
   .tisk-oblast .tisk-blok { page-break-inside: avoid; break-inside: avoid; }
   .tisk-oblast thead { display: table-header-group; }
+}
+
+/* ────────────────────────────────────────────────────────────────────
+   VODOROVNÉ ROLOVÁNÍ — ať je vidět, že tabulka pokračuje za okrajem.
+
+   Široké tabulky (plán stáčení 920 px, audit inventury 900 px) v rámečku
+   s `overflow-x-auto` odrolovat jdou, ale na telefonu to nic nenaznačuje:
+   vypadají jako oříznuté a zbytek sloupců nikdo nehledá.
+
+   Stín se kreslí čistě v CSS, bez jediného řádku JavaScriptu: dvě bílé
+   „krycí" vrstvy jsou přichycené k OBSAHU (`local`), dva stíny k RÁMEČKU
+   (`scroll`). Když je obsah odrolovaný, krycí vrstva odjede a stín se
+   odkryje — takže vlevo svítí jen když je co vlevo, a vpravo jen dokud
+   něco vpravo zbývá. Nescrollovatelný obsah nekreslí nic. */
+.roluje-vodorovne {
+  background:
+    linear-gradient(to right, var(--barva-povrch, #fff) 30%, rgba(255, 255, 255, 0)) left center / 28px 100% no-repeat local,
+    linear-gradient(to left, var(--barva-povrch, #fff) 30%, rgba(255, 255, 255, 0)) right center / 28px 100% no-repeat local,
+    radial-gradient(farthest-side at 0 50%, rgba(0, 0, 0, 0.16), rgba(0, 0, 0, 0)) left center / 14px 100% no-repeat scroll,
+    radial-gradient(farthest-side at 100% 50%, rgba(0, 0, 0, 0.16), rgba(0, 0, 0, 0)) right center / 14px 100% no-repeat scroll;
 }

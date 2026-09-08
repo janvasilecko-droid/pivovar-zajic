@@ -1,3 +1,4 @@
+import { uloz } from './uloziste';
 // 📳 Krátká odezva do prstu. Na telefonu je to rozdíl mezi „asi to prošlo"
 // a „vím, že to prošlo" — člověk nemusí kontrolovat očima, že se odškrtnutí
 // zapsalo, což se při počítání inventury nebo nakládání závozu počítá.
@@ -27,7 +28,7 @@ export function haptikaZapnuta(): boolean {
 
 export function nastavHaptiku(zapnuto: boolean) {
   try {
-    localStorage.setItem(KLIC, zapnuto ? 'on' : 'off');
+    uloz(KLIC, zapnuto ? 'on' : 'off');
   } catch {}
 }
 

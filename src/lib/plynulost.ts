@@ -21,6 +21,7 @@
  *  • Nic se neposílá pryč. Výsledek zůstává v telefonu.
  */
 import { mensiEfekty, nastavEfekty } from './efekty';
+import { nacti, uloz } from './uloziste';
 
 const KLIC_NABIDNUTO = 'minipivovar_plynulost_nabidnuto';
 
@@ -62,10 +63,10 @@ export function vyhodnot(delky: number[]): VysledekMereni {
 
 /** Nabídlo se to už? (Nabízí se jednou za život instalace.) */
 export function uzNabidnuto(): boolean {
-  try { return localStorage.getItem(KLIC_NABIDNUTO) === '1'; } catch { return false; }
+  return nacti(KLIC_NABIDNUTO) === '1';
 }
 function zapamatujNabidnuto() {
-  try { localStorage.setItem(KLIC_NABIDNUTO, '1'); } catch { /* soukromé okno */ }
+  uloz(KLIC_NABIDNUTO, '1');
 }
 
 /** Má se vůbec měřit? */

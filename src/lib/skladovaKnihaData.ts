@@ -24,6 +24,10 @@ export type SkladovaKniha = {
   kegging: any[];
   bottling: any[];
   inventura: any[];
+  /** Výdej a odpisy — audit z nich čte časy zápisu (zpětné zásahy do měsíce). */
+  fasovani: any[];
+  odpisy: any[];
+  zavozy: any[];
 };
 
 /**
@@ -43,13 +47,13 @@ export async function nactiSkladovouKnihu(): Promise<SkladovaKniha> {
     supabase.from('packages').select('id,label,kind,volume_l').order('sort_order'),
 
     fetchAllRows('bottling', 'beer_id,package_id,quantity,entry_date,kegs_used,kegs_used_package_id,source_volume_l,note,created_at'),
-    fetchAllRows('kegging', 'beer_id,package_id,quantity,entry_date,note,cellar_tank_id'),
-    fetchAllRows('fasovani', 'beer_id,package_id,quantity,entry_date'),
+    fetchAllRows('kegging', 'beer_id,package_id,quantity,entry_date,note,cellar_tank_id,created_at'),
+    fetchAllRows('fasovani', 'beer_id,package_id,quantity,entry_date,created_at'),
     fetchAllRows('fasovani_private', 'beer_id,package_id,quantity,entry_date'),
-    fetchAllRows('writeoffs', 'beer_id,package_id,quantity,entry_date'),
-    fetchAllRows('inventory', 'beer_id,package_id,quantity,entry_date,note'),
+    fetchAllRows('writeoffs', 'beer_id,package_id,quantity,entry_date,created_at'),
+    fetchAllRows('inventory', 'beer_id,package_id,quantity,entry_date,note,created_at'),
     fetchAllRows('inventory_adjustments', 'beer_id,package_id,quantity,entry_date,created_at'),
-    fetchAllRows('zavoz_deductions', 'deduct_date,beer_id,package_id,quantity'),
+    fetchAllRows('zavoz_deductions', 'deduct_date,beer_id,package_id,quantity,created_at'),
     fetchAllRows('akce', 'entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
     fetchAllRows('keg_prefuk', 'entry_date,beer_id,from_package_id,from_count,to_package_id,to_count'),
   ]);
@@ -80,6 +84,9 @@ export async function nactiSkladovouKnihu(): Promise<SkladovaKniha> {
     piva,
     obaly,
     kegging: ((kg as any[]) ?? []),
+    fasovani: ((fa as any[]) ?? []),
+    odpisy: ((wo as any[]) ?? []),
+    zavozy: ((zd as any[]) ?? []),
     bottling: ((bt as any[]) ?? []),
     inventura: ((inv as any[]) ?? []),
   };

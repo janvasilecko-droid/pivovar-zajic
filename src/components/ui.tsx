@@ -20,40 +20,38 @@ export function Spinner({ className = '' }: { className?: string }) {
 }
 
 /**
- * 🦴 KOSTRA — šedé pruhy v rozměrech skutečného obsahu, místo aby obrazovka
- * při načítání zhasla.
+ * Kostra obrazovky — místo točícího se kolečka.
  *
- * Proč: jedenáct obrazovek dělalo `if (loading) return <Spinner />`. To
- * ODMOUNTUJE obsah, prohlížeč u prázdné stránky srazí odrolování na nulu
- * a člověk se po načtení ocitne úplně nahoře. Aplikace to na přenačtení
- * řeší tichou variantou (`load(true)`) a kotvou pozice
- * (`lib/drzPozici.ts`) — kostra řeší zbytek, tedy PRVNÍ načtení a přepnutí
- * obrazovky: místo prázdna a kolečka je vidět rozvržení, které se za
- * chvíli naplní, takže se stránka pod rukama neposkočí.
+ * Kolečko říká jen „něco se děje" a stránka pod ním zůstává prázdná, takže
+ * při každém přepnutí obrazovky obsah poskočí odjinud. Kostra drží zhruba
+ * tvar toho, co se načítá (pruh nadpisu, filtry, řádky), takže oko ví, kam
+ * se dívat, a přechod je klidný. Na pomalé mobilní síti je to ten rozdíl
+ * mezi „appka se seká" a „appka se načítá".
  *
- * `radku` = kolik řádků seznamu naznačit. `karta` = obalit do karty
- * (seznamy záznamů), jinak holé pruhy (dlaždice, tabulky).
+ * `radku` je počet naznačených řádků seznamu, `hlavicka` zapíná pruh nadpisu
+ * a filtrů (uvnitř karty s tabulkou se nehodí).
  */
-export function Kostra({ radku = 5, karta = true, className = '' }: {
-  radku?: number;
-  karta?: boolean;
-  className?: string;
-}) {
+export function Kostra({ radku = 6, hlavicka = true, className = '' }: { radku?: number; hlavicka?: boolean; className?: string }) {
+  const dlazdice = 'rounded-lg bg-neutral-200/80 dark:bg-neutral-700/60';
   return (
-    <div
-      className={`space-y-2.5 ${className}`}
-      aria-busy="true"
-      aria-live="polite"
-      aria-label="Načítá se"
-    >
-      {Array.from({ length: radku }).map((_, i) => (
-        <div key={i} className={karta ? 'card p-3.5' : ''}>
-          <div className="animate-pulse space-y-2">
-            <div className="h-3.5 rounded bg-neutral-200" style={{ width: `${60 - (i % 3) * 12}%` }} />
-            <div className="h-3 rounded bg-neutral-100" style={{ width: `${40 - (i % 2) * 10}%` }} />
+    <div className={`animate-pulse space-y-3 py-3 ${className}`} aria-busy="true" aria-label="Načítám">
+      {hlavicka && (
+        <div className="space-y-3">
+          <div className={`h-7 w-2/5 ${dlazdice}`} />
+          <div className="flex gap-2">
+            <div className={`h-9 w-24 ${dlazdice}`} />
+            <div className={`h-9 w-20 ${dlazdice}`} />
+            <div className={`h-9 w-16 ${dlazdice}`} />
           </div>
         </div>
-      ))}
+      )}
+      <div className="space-y-2">
+        {Array.from({ length: radku }).map((_, i) => (
+          // Šířky se střídají a řádky slábnou dolů, ať kostra nevypadá jako
+          // mřížka — skutečný seznam taky nemá všechny řádky stejně dlouhé.
+          <div key={i} className={`h-14 ${dlazdice}`} style={{ width: `${100 - (i % 3) * 6}%`, opacity: 1 - i * 0.08 }} />
+        ))}
+      </div>
     </div>
   );
 }
@@ -137,9 +135,9 @@ export function Modal({ open, onClose, title, children, wide, maxWidth }: {
           <h3 className="font-display font-bold text-lg text-neutral-900 tracking-tight">{title}</h3>
           <button
             onClick={onClose}
-            className="w-8 h-8 grid place-items-center rounded text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 transition tap"
-            title="Zavřít" aria-label="Zavřít"
-          >
+            className="w-8 h-8 grid place-items-center rounded text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 transition"
+            title="Zavřít"
+           aria-label="Zavřít">
             <X size={18} />
           </button>
         </div>

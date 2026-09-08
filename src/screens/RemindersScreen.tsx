@@ -270,7 +270,7 @@ export default function RemindersScreen() {
                           const p = (n: number) => String(n).padStart(2, '0');
                           setDateTime(`${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T09:00`);
                         }}
-                        className="min-h-[40px] px-3 rounded-xl border border-neutral-200 bg-white text-xs font-black text-neutral-700 hover:bg-amber-50 hover:border-amber-300 active:scale-95 transition"
+                        className="min-h-[44px] px-3 rounded-xl border border-neutral-200 bg-white text-xs font-black text-neutral-700 hover:bg-amber-50 hover:border-amber-300 active:scale-95 transition"
                       >
                         {popis}
                       </button>

@@ -9,7 +9,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { HlavickaStranky } from '../components/HlavickaStranky';
 import { Copy, Download, FileSpreadsheet } from 'lucide-react';
 import { fetchAllRows, Package } from '../lib/supabase';
-import { Spinner } from '../components/ui';
+import { Kostra } from '../components/ui';
 import { chyba, uspech, varovani } from '../lib/toast';
 import { zavibruj } from '../lib/haptika';
 import { nazevSouboru, poctyRadku, stahniSesit, type ListExportu } from '../lib/mesicniExport';
@@ -70,7 +70,9 @@ export default function ExportExcelScreen() {
           fetchAllRows('packages', 'id,label,kind,volume_l'),
           fetchAllRows('fasovani', 'entry_date,beer_name,package_id,quantity,who,note'),
           fetchAllRows('fasovani_private', 'entry_date,beer_name,package_id,quantity,who,note'),
-          fetchAllRows('writeoffs', 'entry_date,beer_name,package_id,quantity,who,note'),
+          // writeoffs nemá sloupec note (má reason) — s ním dotaz padal
+          // a list „Vzorky promo a PR" se do sešitu vůbec nedostal.
+          fetchAllRows('writeoffs', 'entry_date,beer_name,package_id,quantity,who,reason'),
           fetchAllRows('bottling', 'entry_date,beer_name,package_id,quantity,note,kegs_used,kegs_used_package_id'),
           fetchAllRows('kegging', 'entry_date,beer_name,package_id,quantity,note,cellar_tank_id'),
           fetchAllRows('cellar_tanks', 'id,label'),
@@ -80,7 +82,9 @@ export default function ExportExcelScreen() {
           packages: (pk.data as Package[]) ?? [],
           fasovani: (fa.data as any[]) ?? [],
           prodejna: (pr.data as any[]) ?? [],
-          odpis: (wo.data as any[]) ?? [],
+          // Odpis nese důvod ve sloupci reason; export ho zobrazuje
+          // ve stejném sloupci jako poznámku u ostatních výdejů.
+          odpis: ((wo.data as any[]) ?? []).map((r) => ({ ...r, note: r.reason ?? null })),
           bottling: (bt.data as any[]) ?? [],
           kegging: (kg.data as any[]) ?? [],
           tanky: (tk.data as any[]) ?? [],
@@ -197,7 +201,7 @@ export default function ExportExcelScreen() {
     }
   }
 
-  if (nacitam) return <Spinner />;
+  if (nacitam) return <Kostra />;
 
   return (
     <div className="space-y-4 max-w-3xl">

@@ -60,7 +60,7 @@ export function PrepinacObdobi({
             type="button"
             onClick={() => onObdobi(v.klic)}
             aria-pressed={obdobi === v.klic}
-            className={`nav-tab !px-2.5 !py-1 !min-h-[36px] ${obdobi === v.klic ? 'nav-tab-active' : ''}`}
+            className={`nav-tab !px-2.5 !py-1 ${obdobi === v.klic ? 'nav-tab-active' : ''}`}
           >
             <Calendar size={14} /> {v.popis}
           </button>

@@ -1,5 +1,6 @@
 import { BarChart3, Bell, BookOpen, Car, ClipboardList, Landmark, Package as PackageIcon, PartyPopper, PenLine, Settings, ShieldCheck, ShoppingCart, Tag, Truck, Warehouse, Wheat, Wine, type LucideIcon } from 'lucide-react';
 import { IkonaSud, IkonaVycep } from '../components/ikony';
+import { uloz } from './uloziste';
 
 export type ModuleKey =
   | 'dashboard'
@@ -270,7 +271,7 @@ export function getUserPermissions(userId: string, rawPermissionsJson?: any): Us
 
 export function saveUserPermissions(userId: string, permissions: UserPermissions) {
   const localKey = `user_permissions_${userId}`;
-  localStorage.setItem(localKey, JSON.stringify(permissions));
+  uloz(localKey, JSON.stringify(permissions));
 }
 
 export function canUserView(userRole: string | undefined, userId: string | undefined, module: ModuleKey, userPermissions?: UserPermissions): boolean {

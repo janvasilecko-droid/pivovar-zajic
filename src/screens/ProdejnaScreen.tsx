@@ -4,11 +4,11 @@ import { EmptyState, Spinner } from '../components/ui';
 import { isoWeekKey } from '../components/WeeklyOrderSummaryCard';
 import { VoiceRecorder } from '../components/VoiceRecorder';
 import { ProdejnaFromImage } from '../components/ProdejnaFromImage';
-import { BarChart3, CalendarDays, Camera, Check, ClipboardList, Package as PackageIcon, PenLine, Store, Trash2, X, type LucideIcon } from 'lucide-react';
+import { BarChart3, Calendar, CalendarDays, Camera, Check, ClipboardList, Copy, Package as PackageIcon, PenLine, Store, Trash2, X, type LucideIcon } from 'lucide-react';
 import { parseFreeTextEntries, loadAliasMap, emptyAliasMap, type ParserAliasMap } from '../lib/orderParser';
 import { TapReservationModal } from '../components/TapReservationModal';
 import { detectTapType } from '../lib/tapReservations';
-
+import type { TapReservation } from './VycepyScreen';
 import { BeerTileGrid, BeerTilePanel, TileTotalBar } from '../components/BeerTileGrid';
 import { chyba, potvrd, toastZpet } from '../lib/toast';
 import { podezreleMnozstvi } from '../lib/kontrolaZadani';
@@ -16,6 +16,7 @@ import { zavibruj } from '../lib/haptika';
 import { klicVyberu, nactiNaposled, zapamatujVyber, serazPodleNaposled } from '../lib/naposledyPouzite';
 import { usePosledniNacteni, prvniChyba } from '../lib/nacitani';
 import { FotkyZaznamu } from '../components/FotkyZaznamu';
+import { uloz, smaz } from '../lib/uloziste';
 
 // Tři podoby jednoho výdeje ze skladu — formulář je pořád stejný, mění se
 // jen tabulka, do které se zapisuje, a jedno pole navíc. Podle toho se pak
@@ -104,16 +105,16 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
     if (!obnovenoRef.current) return;
     try {
       const jeCo = entryRows.some((r) => r.pkgId && Number(r.qty) > 0) || who.trim() || note.trim();
-      if (jeCo) localStorage.setItem(klicRozdelane, JSON.stringify({ entryRows, who, note, date }));
-      else localStorage.removeItem(klicRozdelane);
+      if (jeCo) uloz(klicRozdelane, JSON.stringify({ entryRows, who, note, date }));
+      else smaz(klicRozdelane);
     } catch { /* plné úložiště nesmí shodit zápis */ }
   }, [entryRows, who, note, date, klicRozdelane]);
+  // Vrácení na sklad (odfasování) — zapisuje se záporným množstvím.
+  const [vraceni, setVraceni] = useState(false);
   const [expandedProdejnaBeerId, setExpandedProdejnaBeerId] = useState<string | null>(null);
   const expandedProdejnaBeer = beers.find((b) => b.id === expandedProdejnaBeerId) ?? null;
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  /** Nepodařilo se načíst data (na rozdíl od „data jsou, ale žádná"). */
-  const [chybaNacteni, setChybaNacteni] = useState<string | null>(null);
   const [flash, setFlash] = useState(false);
   const [aliasMap, setAliasMap] = useState<ParserAliasMap>(emptyAliasMap());
   useEffect(() => { loadAliasMap().then(setAliasMap).catch(() => {}); }, []);
@@ -172,20 +173,13 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
     return [...bottles, ...kegs];
   }, [packages]);
 
-  // Zámek proti zápisu ze zastaralého načtení — viz lib/nacitani.ts.
-  const zacniNacteni = usePosledniNacteni();
   async function load(silent = false) {
-    const smiZapsat = zacniNacteni();
     if (!silent && !rows.length) setLoading(true);
     const [fp, b, p] = await Promise.all([
       supabase.from(table).select('*').order('entry_date', { ascending: false }).order('created_at', { ascending: false }),
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
     ]);
-    // Mezitím mohlo začít novější načtení (realtime po cizím zápisu),
-    // nebo už obrazovka není vidět. Výsledek se pak zahodí.
-    if (!smiZapsat()) return;
-    setChybaNacteni(prvniChyba(fp, b, p));
     setRows((fp.data as EntryRow[]) ?? []);
     if (b.data) setBeers(b.data as Beer[]);
     if (p.data) setPackages(p.data as Package[]);
@@ -275,14 +269,18 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
         entry_date: date,
         who: person || null,
         beer_id: r.beerId || null, beer_name: beer?.name ?? null,
-        package_id: r.pkgId, package_label: pkg?.label ?? null, quantity: n,
-        ...(isWriteoffs ? {} : { note: note || null }),
+        // Vrácení na sklad = ZÁPORNÝ řádek do téže tabulky. Původní výdej se
+        // nemaže: co se vydalo, se doopravdy vydalo, a smazáním by se ztratila
+        // stopa (a rozházel měsíc, který už může být napočítaný).
+        package_id: r.pkgId, package_label: pkg?.label ?? null, quantity: vraceni ? -n : n,
+        ...(isWriteoffs ? {} : { note: (vraceni ? (note ? `Vráceno na sklad — ${note}` : 'Vráceno na sklad') : note) || null }),
       };
     });
 
-    // `.select('id')` kvůli vrácení zpět níž — bez id se řádek musel
-    // dohledávat podle hodnot a to umí sáhnout na cizí zápis.
-    let { data: vlozeneRadky, error } = await supabase.from(table).insert(payloads).select('id');
+    // `.select('id')` je tu kvůli „Vrátit zpět" níž: bez id se řádek ke
+    // smazání dohledával podle data, piva, obalu a počtu — a smazal cizí
+    // zápis, když ten den někdo zapsal totéž. Viz komentář u toastZpet.
+    let { data: vlozene, error } = await supabase.from(table).insert(payloads).select('id');
     if (error && (error.message?.includes("'who'") || error.message?.includes("who"))) {
       const fallbackPayloads = filled.map((r) => {
         const beer = beers.find((b) => b.id === r.beerId);
@@ -293,43 +291,47 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
         return {
           entry_date: date,
           beer_id: r.beerId || null, beer_name: beer?.name ?? null,
-          package_id: r.pkgId, package_label: pkg?.label ?? null, quantity: n,
-          ...(isWriteoffs ? {} : { note: combinedNote || null }),
+          package_id: r.pkgId, package_label: pkg?.label ?? null, quantity: vraceni ? -n : n,
+          ...(isWriteoffs ? {} : { note: (vraceni ? (combinedNote ? `Vráceno na sklad — ${combinedNote}` : 'Vráceno na sklad') : combinedNote) || null }),
         };
       });
       const res = await supabase.from(table).insert(fallbackPayloads).select('id');
+      vlozene = res.data;
       error = res.error;
-      vlozeneRadky = res.data;
     }
 
     setSaving(false);
     if (error) { setErr(error.message); return; }
 
     setEntryRows(emptyRows(table === 'fasovani' ? FASOVANI_ROW_COUNT : ROW_COUNT)); setWho(''); setNote(''); setErr(null);
-    try { localStorage.removeItem(klicRozdelane); } catch { /* uklizeno i tak */ }
+    // Po uložení zpátky na výdej — vrácení je výjimka, ne režim, ve kterém
+    // se pracuje. Jinak by další zápis nenápadně odečetl místo přičetl.
+    setVraceni(false);
+    try { smaz(klicRozdelane); } catch { /* uklizeno i tak */ }
     setFlash(true); setTimeout(() => setFlash(false), 800);
     load(true);
 
     // ↩️ Vrátit zpět i po ULOŽENÍ, ne jen po smazání. Nebezpečný překlep je
-    // ten, který něco PŘIDÁ — omylem uložený výdej odečte pivo ze skladu a
-    // najde se to až u inventury.
+    // ten, který něco PŘIDÁ — omylem uložený výdej odečte pivo ze skladu
+    // a najde se to až u inventury.
     //
-    // Maže se přesně to, co se právě vložilo — podle id z `.select('id')`
-    // výš, jedním dotazem. Dřív se řádek dohledával podle data, piva, obalu
-    // a množství; když někdo zapsal totéž ve stejný den, vrácení sáhlo na
-    // JEHO řádek.
+    // ⚠️ Maže se podle ID vloženého řádku, NIKDY podle hodnot. Dohledávání
+    // podle data, piva, obalu a počtu bralo vždy nejnovější odpovídající
+    // řádek — takže když ten den vydali dva lidé stejné pivo ve stejném
+    // obalu ve stejném počtu (u desítky v 50l KEGu běžné), „vrátit zpět"
+    // smazalo zápis toho druhého. Hlídá to test v pravidlaObrazovek.ts.
+    const idVlozenych = ((vlozene as { id: string }[]) ?? []).map((v) => v.id);
     const kusuCelkem = filled.reduce((a, r) => a + Number(r.qty), 0);
-    const vlozenaIds = ((vlozeneRadky as { id: string }[] | null) ?? []).map((r) => r.id);
-    toastZpet(
-      `Uloženo ${filled.length} ${filled.length === 1 ? 'řádek' : 'řádky'} — ${kusuCelkem} ks.`,
-      async () => {
-        if (vlozenaIds.length) {
-          const { error: chybaMazani } = await supabase.from(table).delete().in('id', vlozenaIds);
+    if (idVlozenych.length > 0) {
+      toastZpet(
+        `Uloženo ${filled.length} ${filled.length === 1 ? 'řádek' : 'řádky'} — ${kusuCelkem} ks.`,
+        async () => {
+          const { error: chybaMazani } = await supabase.from(table).delete().in('id', idVlozenych);
           if (chybaMazani) throw chybaMazani;
-        }
-        load(true);
-      },
-    );
+          load(true);
+        },
+      );
+    }
   }
 
   async function del(id: string) {
@@ -402,29 +404,24 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
 
   return (
     <div className="space-y-6 pb-12">
-      {/* Top Action Bar — bez ukotvení (žádný prvek na téhle obrazovce nezůstává přilepený). */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded border border-neutral-200 shadow-2xs">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm font-display font-black text-amber-950 flex items-center gap-1.5">
-            <Ikona className="ikona-text" />
-            <span>{setPage && mode === 'all' ? 'Fasování' : title}</span>
-          </span>
-        </div>
-      </div>
+      {/* Nadpis obrazovky tu ZÁMĚRNĚ NENÍ. Byl v samostatném rámečku pod
+          horní lištou, takže „Fasování" stálo na obrazovce dvakrát pod sebou
+          a rámeček navíc sebral řádek. Jméno obrazovky nese horní lišta
+          (s hledáním a zelenou tečkou připojení) — stejně jako u KEG a Lahví. */}
 
       {/* Záložky: Zápis / Přehled */}
       <div className="flex items-center gap-1 bg-white p-1 rounded border border-neutral-200 shadow-2xs w-fit">
         <button
           type="button"
           onClick={() => setTab('zapis')}
-          className={`tap px-4 py-1.5 rounded text-xs font-black transition ${tab === 'zapis' ? 'bg-neutral-700 text-white shadow-xs' : 'bg-white text-neutral-900 hover:bg-neutral-100'}`}
+          className={`px-4 py-1.5 rounded text-xs font-black transition ${tab === 'zapis' ? 'bg-neutral-700 text-white shadow-xs' : 'bg-white text-neutral-900 hover:bg-neutral-100'}`}
         >
           <PenLine className="ikona-text" /> Zápis
         </button>
         <button
           type="button"
           onClick={() => setTab('prehled')}
-          className={`tap px-4 py-1.5 rounded text-xs font-black transition ${tab === 'prehled' ? 'bg-neutral-700 text-white shadow-xs' : 'bg-white text-neutral-900 hover:bg-neutral-100'}`}
+          className={`px-4 py-1.5 rounded text-xs font-black transition ${tab === 'prehled' ? 'bg-neutral-700 text-white shadow-xs' : 'bg-white text-neutral-900 hover:bg-neutral-100'}`}
         >
           <BarChart3 className="ikona-text" /> Přehled
         </button>
@@ -508,7 +505,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
 
           <TileTotalBar label="Zatím zapsáno" value={`${rowsSummary.totalQty} ks · ${rowsSummary.totalL.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} L`} />
           <div className="mb-2">
-            <span className="text-udaj text-neutral-400 font-medium">klepni na dlaždici a zadej obaly a množství</span>
+            <span className="text-[11px] text-neutral-400 font-medium">klepni na dlaždici a zadej obaly a množství</span>
           </div>
           <div className="mb-4">
             <BeerTileGrid
@@ -552,7 +549,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                   <div key={p.id} className="rounded border border-neutral-200 dark:border-neutral-700 py-1 px-2 flex items-center justify-between gap-2">
                       <span className="text-sm font-bold text-neutral-700 dark:text-neutral-200 truncate">{formatPackageLabel(p.label)}</span>
                       <div className="flex items-center gap-1">
-                        <button type="button" onClick={() => setTileRow(expandedProdejnaBeer.id, p.id, { qty: String(Math.max(0, qty - 1)) })} className="btn-pocet disabled:opacity-30" disabled={qty <= 0}>−</button>
+                        <button type="button" onClick={() => setTileRow(expandedProdejnaBeer.id, p.id, { qty: String(Math.max(0, qty - 1)) })} className="w-11 h-11 grid place-items-center rounded bg-amber-100 hover:bg-amber-200 text-amber-800 font-black text-xl transition disabled:opacity-30 select-none" disabled={qty <= 0}>−</button>
                         <input
                           type="number" onWheel={(e) => e.currentTarget.blur()}
                           min={0}
@@ -562,7 +559,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                           onChange={(e) => setTileRow(expandedProdejnaBeer.id, p.id, { qty: e.target.value.replace(/[^0-9]/g, '') })}
                           className="w-14 h-10 text-center text-lg font-black text-neutral-800 dark:text-neutral-100 bg-white dark:bg-neutral-900/60 border-2 border-amber-200 dark:border-neutral-700 rounded"
                         />
-                        <button type="button" onClick={() => setTileRow(expandedProdejnaBeer.id, p.id, { qty: String(qty + 1) })} className="btn-pocet">+</button>
+                        <button type="button" onClick={() => setTileRow(expandedProdejnaBeer.id, p.id, { qty: String(qty + 1) })} className="w-11 h-11 grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xl transition select-none">+</button>
                         {/* +5: po jednom se přidává jen zbytek, celé pády sudů
                             a přepravek jdou po pěti. Dvě klepnutí místo deseti. */}
                         <button type="button" onClick={() => setTileRow(expandedProdejnaBeer.id, p.id, { qty: String(qty + 5) })} className="w-11 h-11 grid place-items-center rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-950 font-black text-sm transition select-none">+5</button>
@@ -576,7 +573,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
           {/* Souhrn zapsaných položek — jen ke čtení, úprava se dělá kliknutím na dlaždici výše. */}
           {entryRows.some((r) => r.pkgId && Number(r.qty) > 0) && (
             <div className="rounded border border-neutral-200 bg-white p-3 space-y-1.5 mb-4">
-              <div className="text-udaj font-black uppercase tracking-wider text-neutral-500 mb-1">Zapsáno</div>
+              <div className="text-[11px] font-black uppercase tracking-wider text-neutral-500 mb-1">Zapsáno</div>
               {entryRows.filter((r) => r.pkgId && Number(r.qty) > 0).map((r, i) => {
                 const beer = beers.find((b) => b.id === r.beerId);
                 const pkg = packages.find((p) => p.id === r.pkgId);
@@ -600,10 +597,50 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
             <input className="input text-xs" value={note} onChange={(e) => setNote(e.target.value)} placeholder="nepovinná poznámka" />
           </div>
 
+          {/* ↩️ Odfasovat — vrácení už vydaného zboží na sklad.
+              Vrácení se zapisuje jako ZÁPORNÝ řádek do stejné tabulky, ne
+              mazáním původního zápisu: co se vydalo, se doopravdy vydalo,
+              a smazat to znamená ztratit stopu (a rozbít měsíc, který je
+              možná už napočítaný). Přepínač je vidět nahlas a tlačítko
+              změní barvu i text, ať se vrácení neuloží omylem místo výdeje. */}
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setVraceni(false)}
+              className={`px-3 py-2 rounded font-black text-xs min-h-[44px] border-2 transition ${
+                !vraceni ? 'bg-emerald-700 border-emerald-800 text-white' : 'bg-white border-neutral-300 text-neutral-600'
+              }`}
+            >
+              Vydat ze skladu
+            </button>
+            <button
+              type="button"
+              onClick={() => setVraceni(true)}
+              className={`px-3 py-2 rounded font-black text-xs min-h-[44px] border-2 transition ${
+                vraceni ? 'bg-sky-700 border-sky-800 text-white' : 'bg-white border-neutral-300 text-neutral-600'
+              }`}
+            >
+              ↩ Odfasovat (vrátit na sklad)
+            </button>
+            {vraceni && (
+              <span className="text-[11px] font-bold text-sky-900 bg-sky-50 border border-sky-300 rounded px-2 py-1">
+                Zapíše se záporný řádek — kusy se vrátí na sklad.
+              </span>
+            )}
+          </div>
+
           <div className="flex items-center justify-between mt-4">
             <div className="flex items-center gap-2">
-              <button type="submit" disabled={saving} className="btn-primary !rounded !from-emerald-600 !to-emerald-700 hover:!from-emerald-500 hover:!to-emerald-600 !shadow-emerald-600/30 text-xs font-black shadow-md">
-                {saving ? 'Ukládám…' : 'Uložit fasování'}
+              <button
+                type="submit"
+                disabled={saving}
+                className={`!rounded text-xs font-black shadow-md ${
+                  vraceni
+                    ? 'px-4 py-2.5 min-h-[44px] rounded bg-sky-700 hover:bg-sky-600 text-white'
+                    : 'btn-primary !from-emerald-600 !to-emerald-700 hover:!from-emerald-500 hover:!to-emerald-600 !shadow-emerald-600/30'
+                }`}
+              >
+                {saving ? 'Ukládám…' : vraceni ? '↩ Vrátit na sklad' : 'Uložit fasování'}
               </button>
               <button type="button" className="btn-ghost !rounded text-xs" onClick={() => setEntryRows(emptyRows(table === 'fasovani' ? FASOVANI_ROW_COUNT : ROW_COUNT))}><Trash2 className="ikona-text" /> Vymazat vše</button>
             </div>
@@ -680,13 +717,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
             {loading ? (
               <Spinner />
             ) : rows.length === 0 ? (
-              chybaNacteni ? (
-                <EmptyState
-                  varianta="chyba"
-                  text={`Záznamy se nepodařilo načíst: ${chybaNacteni}`}
-                  akce={{ popis: 'Zkusit znovu', onClick: () => load() }}
-                />
-              ) : <EmptyState text="Zatím žádné záznamy. Přidej první v záložce Zápis." icon={PenLine} />
+              <EmptyState text="Zatím žádné záznamy. Přidej první v záložce Zápis." icon={PenLine} />
             ) : filteredRows.length === 0 ? (
               <EmptyState text="Žádné záznamy pro toto období / filtr." icon={CalendarDays} />
             ) : (() => {
@@ -720,20 +751,20 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                   </h3>
                   <div className="flex flex-wrap gap-2 mb-3">
                     <div className="flex-1 min-w-[70px] rounded-lg bg-amber-50 border border-amber-200 px-2.5 py-2 text-center">
-                      <div className="text-udaj font-black uppercase tracking-wide text-amber-700">Dnes</div>
+                      <div className="text-[11px] font-black uppercase tracking-wide text-amber-700">Dnes</div>
                       <div className="font-mono font-black text-lg text-amber-950 tabular-nums">{dnesKs}</div>
                     </div>
                     <div className="flex-1 min-w-[70px] rounded-lg bg-amber-50 border border-amber-200 px-2.5 py-2 text-center">
-                      <div className="text-udaj font-black uppercase tracking-wide text-amber-700">Tento týden</div>
+                      <div className="text-[11px] font-black uppercase tracking-wide text-amber-700">Tento týden</div>
                       <div className="font-mono font-black text-lg text-amber-950 tabular-nums">{tydenKs}</div>
                     </div>
                     <div className="flex-1 min-w-[70px] rounded-lg bg-amber-100 border border-amber-300 px-2.5 py-2 text-center">
-                      <div className="text-udaj font-black uppercase tracking-wide text-amber-800">Zvolený měsíc</div>
+                      <div className="text-[11px] font-black uppercase tracking-wide text-amber-800">Zvolený měsíc</div>
                       <div className="font-mono font-black text-lg text-amber-950 tabular-nums">{totalCount}</div>
                     </div>
                   </div>
                   {nejvic && (
-                    <div className="text-udaj font-bold text-amber-800 mb-3">
+                    <div className="text-[11px] font-bold text-amber-800 mb-3">
                       Nejvíc ve zvoleném období: <span className="font-black text-amber-950">{nejvic[0]} — {nejvic[1]} ks</span>
                     </div>
                   )}
@@ -751,7 +782,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                                 <span className="truncate">{r.beer_name ?? beer?.name ?? '—'}</span>
                                 <span className="px-1.5 py-0.5 rounded-md bg-amber-200/80 text-amber-950 font-black text-xs shrink-0">{pkg ? `${vol} l` : '—'}</span>
                               </div>
-                              <div className="text-udaj font-bold text-amber-800 mt-0.5">
+                              <div className="text-[11px] font-bold text-amber-800 mt-0.5">
                                 {formatDate(r.entry_date)}
                                 {showWhoColumn && getRowWho(r) ? ` · ${getRowWho(r)}` : ''}
                               </div>
@@ -767,7 +798,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                               className="w-12 min-h-[44px] grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-black transition disabled:opacity-40"
                               onClick={() => increment(r.id, -1)}
                               disabled={Number(r.quantity) <= 0}
-                              title="Odebrat 1 ks" aria-label="Odebrat 1 ks"
+                              title="Odebrat 1 ks"
                             >−</button>
                             <button
                               type="button"
@@ -783,7 +814,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                               type="button"
                               className="w-12 min-h-[44px] ml-2 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-black transition"
                               onClick={() => del(r.id)}
-                              title="Smazat záznam" aria-label="Smazat záznam"
+                              title="Smazat záznam"
 ><X size={18} /></button>
                           </div>
                         </li>
@@ -799,16 +830,16 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                     <table className="w-full text-xs">
                       <thead>
                         <tr className="border-b border-amber-300/80 bg-amber-100/80">
-                          <th scope="col" className="text-left py-1.5 px-2 font-black text-amber-950">Datum</th>
+                          <th className="text-left py-1.5 px-2 font-black text-amber-950">Datum</th>
                           {showWhoColumn && (
-                            <th scope="col" className="text-left py-1.5 px-2 font-black text-amber-950">
+                            <th className="text-left py-1.5 px-2 font-black text-amber-950">
                               {druh.popisek}
                             </th>
                           )}
-                          <th scope="col" className="text-left py-1.5 px-2 font-black text-amber-950">Pivo</th>
-                          <th scope="col" className="text-right py-1.5 px-2 font-black text-amber-950">Obal</th>
-                          <th scope="col" className="text-right py-1.5 px-2 font-black text-amber-950">Ks</th>
-                          <th scope="col" className="text-right py-1.5 px-2 font-black text-amber-950">Akce</th>
+                          <th className="text-left py-1.5 px-2 font-black text-amber-950">Pivo</th>
+                          <th className="text-right py-1.5 px-2 font-black text-amber-950">Obal</th>
+                          <th className="text-right py-1.5 px-2 font-black text-amber-950">Ks</th>
+                          <th className="text-right py-1.5 px-2 font-black text-amber-950">Akce</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -832,23 +863,23 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                                 <div className="flex items-center justify-end gap-1">
                                   <button
                                     type="button"
-                                    className="w-6 h-6 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-xs transition tap"
+                                    className="w-6 h-6 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-xs transition"
                                     onClick={() => increment(r.id, -1)}
                                     disabled={Number(r.quantity) <= 0}
-                                    title="Odebrat 1 ks" aria-label="Odebrat 1 ks"
+                                    title="Odebrat 1 ks"
                                   >−</button>
                                   <button
                                     type="button"
-                                    className="w-6 h-6 grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-bold text-xs transition tap"
+                                    className="w-6 h-6 grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-bold text-xs transition"
                                     onClick={() => increment(r.id, 1)}
-                                    title="Přidat 1 ks" aria-label="Přidat 1 ks"
+                                    title="Přidat 1 ks"
                                   >+</button>
                                   {table === 'writeoffs' && <FotkyZaznamu typ="odpis" zaznamId={r.id} kompaktni />}
                                   <button
                                     type="button"
-                                    className="w-6 h-6 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-xs transition tap"
+                                    className="w-6 h-6 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-xs transition"
                                     onClick={() => del(r.id)}
-                                    title="Smazat záznam" aria-label="Smazat záznam"
+                                    title="Smazat záznam"
 ><X size={18} /></button>
                                 </div>
                               </td>

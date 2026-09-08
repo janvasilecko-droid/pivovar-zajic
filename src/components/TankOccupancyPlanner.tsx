@@ -3,7 +3,8 @@ import { CellarTank, Beer, CellarTankCycle, useRealtime } from '../lib/supabase'
 import { KLIC_VARKY, nactiVarky, prenesZProhlizece, smazVarku, ulozVarku } from '../lib/varkyData';
 import { rozdilProUlozeni } from '../lib/vycepyData';
 import { chyba as chybaOznam } from '../lib/toast';
-import { AlertTriangle, BarChart3, Calendar, Circle, Clock, Check, Plus, ShieldAlert, X } from 'lucide-react';
+import { AlertTriangle, BarChart3, Calendar, Circle, Clock, Check, Plus, ShieldAlert, X, CheckCircle2, Sparkles } from 'lucide-react';
+import { uloz } from '../lib/uloziste';
 
 export type PlannedBatch = {
   id: string;
@@ -55,7 +56,7 @@ export function TankOccupancyPlanner({
   function ulozVse(updated: PlannedBatch[]) {
     const stare = plannedBatches;
     setPlannedBatches(updated);
-    localStorage.setItem(KLIC_VARKY, JSON.stringify(updated));
+    uloz(KLIC_VARKY, JSON.stringify(updated));
     void (async () => {
       const { kUlozeni, kSmazani } = rozdilProUlozeni(stare, updated);
       for (const id of kSmazani) await smazVarku(id);

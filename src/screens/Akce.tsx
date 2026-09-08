@@ -1,9 +1,10 @@
 import { useEffect, useState, useMemo } from 'react';
-import { Beer, Package, beerBg, fetchAllRows, formatPackageLabel, pkgBg, supabase, useRealtime } from '../lib/supabase';
+import { Beer, Package, beerBg, fetchAllRows, formatPackageLabel, pkgBg, supabase, useRealtime, beerText, pkgText } from '../lib/supabase';
 import { EmptyState, Kostra } from '../components/ui';
 import { createReminder } from '../lib/reminders';
 import { AlertTriangle, Beer as BeerIcon, Bell, Calendar, Check, CheckCircle2, ClipboardList, Clock, DollarSign, PartyPopper, Plus, Sparkles, Star, ThumbsDown, ThumbsUp, Trash2, User, X } from 'lucide-react';
 import { oznam, potvrd } from '../lib/toast';
+import { uloz, smaz } from '../lib/uloziste';
 
 /** Řádky z DB (akce + vnořené akce_items) → tvar, se kterým pracuje obrazovka. */
 function rowsToRecords(rows: any[]): AkceRecord[] {
@@ -133,7 +134,7 @@ export default function AkceScreen() {
   // Akce se čtou i na Skladu/Dashboardu/Inventuře (spotřeba piva na akci),
   // proto posloucháme i změny z jiných zařízení.
   // 🔇 Realtime přenačítá TIŠE. Bez toho zavolá loadData() bez parametru,
-  // rozsvítí se spinner přes celou obrazovku (`if (loading) return <Spinner/>`),
+  // rozsvítí se spinner přes celou obrazovku (`if (loading) return <Kostra/>`),
   // obsah se odmountuje — a s ním spadne odrolování na nulu. Z provozu:
   // „když kliknu odečíst, vrací mě to vždycky nahoru." Vlastní zápis stránku
   // srovná kotvou (lib/drzPozici.ts), jenže 400 ms po něm dorazí realtime
@@ -164,8 +165,8 @@ export default function AkceScreen() {
       }
       if (cancelled) return;
       try {
-        localStorage.setItem('akce_records_v2__prevedeno', localStorage.getItem('akce_records_v2') || '');
-        localStorage.removeItem('akce_records_v2');
+        uloz('akce_records_v2__prevedeno', localStorage.getItem('akce_records_v2') || '');
+        smaz('akce_records_v2');
       } catch {}
       loadData();
     })();
@@ -712,7 +713,7 @@ export default function AkceScreen() {
                           onClick={() => handleRowChange(i, 'qty', String(Number(r.qty || 0) + 1))}
                         >+</button>
                         <button type="submit" className="min-h-[44px] px-3 shrink-0 grid place-items-center rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-700 font-black text-lg transition" title="Potvrdit / uložit vše" aria-label="Potvrdit / uložit vše"><Check size={18} /></button>
-                        <button type="button" className="w-11 min-h-[44px] shrink-0 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-black text-lg transition" onClick={() => clearRow(i)} title="Zrušit řádek" aria-label="Zrušit řádek"><X size={18} /></button>
+                        <button type="button" className="w-11 min-h-[44px] shrink-0 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-black text-lg transition" onClick={() => clearRow(i)} title="Zrušit řádek"><X size={18} /></button>
                       </div>
                     </div>
                   ))}
@@ -772,8 +773,8 @@ export default function AkceScreen() {
                           </td>
                           <td className="py-1">
                             <div className="flex items-center gap-1">
-                              <button type="submit" className="w-7 h-7 grid place-items-center rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-700 font-bold text-sm transition tap" title="Potvrdit / uložit vše" aria-label="Potvrdit / uložit vše"><Check size={18} /></button>
-                              <button type="button" className="w-7 h-7 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-sm transition tap" onClick={() => clearRow(i)} title="Zrušit řádek" aria-label="Zrušit řádek"><X size={18} /></button>
+                              <button type="submit" className="w-7 h-7 grid place-items-center rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-700 font-bold text-sm transition" title="Potvrdit / uložit vše" aria-label="Potvrdit / uložit vše"><Check size={18} /></button>
+                              <button type="button" className="w-7 h-7 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-sm transition" onClick={() => clearRow(i)} title="Zrušit řádek"><X size={18} /></button>
                             </div>
                           </td>
                         </tr>

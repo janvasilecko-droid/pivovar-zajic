@@ -1,3 +1,4 @@
+import { uloz } from './uloziste';
 // Offline queue + sync for the PWA.
 // Stores pending mutations in localStorage and replays them when online.
 // Each entry is a Supabase operation: { table, op: 'insert'|'update'|'delete', match?: Record<string,any>, row?: Record<string,any> }.
@@ -26,7 +27,7 @@ function read(): QueuedOp[] {
 }
 function write(q: QueuedOp[]) {
   try {
-    localStorage.setItem(KEY, JSON.stringify(q));
+    uloz(KEY, JSON.stringify(q));
   } catch (e: any) {
     // Telefon má plnou paměť pro aplikaci. Bez téhle hlášky by se zobrazila
     // holá „QuotaExceededError", ze které nikdo nepozná, co s tím dělat.
@@ -45,10 +46,37 @@ export function getQueue(): QueuedOp[] { return read(); }
 
 export function queueLength() { return read().length; }
 
+/**
+ * Kdy naposledy šel zápis do fronty místo do databáze.
+ *
+ * Offline zápis se tváří jako povedený (viz synthesizeWrite v supabase.ts) —
+ * a obrazovka pak ukáže zelené „Uloženo" úplně stejné jako při odeslání.
+ * Ve sklepě s kolísavým signálem se kvůli tomu zapisovalo stáčení s tím, že
+ * je hotovo. Podle téhle značky umí oznámení doříct, že zápis zatím leží
+ * v telefonu (viz `zapisSelDoFronty`).
+ */
+let poslednizapisDoFronty = 0;
+
 export function enqueue(op: Omit<QueuedOp, 'id' | 'ts'>) {
   const q = read();
   q.push({ ...op, id: crypto.randomUUID(), ts: Date.now() });
   write(q);
+  poslednizapisDoFronty = Date.now();
+}
+
+/**
+ * Šel poslední zápis do fronty (a je to tak čerstvé, že se to týká právě
+ * zobrazovaného oznámení)?
+ *
+ * `ted` je kvůli testům — v provozu se dosadí aktuální čas.
+ */
+export function zapisSelDoFronty(oknoMs = 4000, ted = Date.now()): boolean {
+  return poslednizapisDoFronty > 0 && ted - poslednizapisDoFronty <= oknoMs;
+}
+
+/** Jen pro testy — vrátí značku do výchozího stavu. */
+export function zapomenZapisDoFronty() {
+  poslednizapisDoFronty = 0;
 }
 
 export function clearQueue() {
@@ -75,7 +103,7 @@ function zapisChyby(chyby: SyncFailure[]) {
     // Chyby k zápisům, které už ve frontě nejsou, se nedrží — jinak by se
     // v seznamu hromadily řádky bez protějšku.
     const ve_fronte = new Set(read().map((o) => o.id));
-    localStorage.setItem(KEY_CHYBY, JSON.stringify(chyby.filter((c) => ve_fronte.has(c.id))));
+    uloz(KEY_CHYBY, JSON.stringify(chyby.filter((c) => ve_fronte.has(c.id))));
   } catch { /* na chybách o chybách nestojí nic zásadního */ }
 }
 

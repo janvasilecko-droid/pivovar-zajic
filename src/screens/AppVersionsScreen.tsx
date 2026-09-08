@@ -67,7 +67,11 @@ export default function AppVersionsScreen() {
   return (
     <div className="p-4 max-w-3xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
-        <HlavickaStranky titul="Verze aplikace" ikona={Smartphone} />
+        {/* Nadpis jen na pocitaci — na telefonu ho nese horni lista. */}
+        <h1 className="hidden sm:flex text-xl font-bold items-center gap-2">
+          <Smartphone className="w-5 h-5" />
+          Verze aplikace
+        </h1>
         <button
           onClick={load}
           disabled={loading}

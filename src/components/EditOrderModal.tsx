@@ -8,6 +8,7 @@ import { autoReserveTapIfNeeded, isTapMentioned, detectTapType } from '../lib/ta
 import { TapReservationModal } from './TapReservationModal';
 import { QuickQtySelect } from './QuickQtySelect';
 import { IkonaVycep } from '../components/ikony';
+import { najdiZdvojene, slucZdvojene, popisZdvojeni } from '../lib/zdvojenePolozky';
 
 type Order = {
   id: string; order_date: string; place_id: string | null; place_name: string | null;
@@ -68,6 +69,11 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
 
   const visibleRows = rows.filter((r) => !r.removed);
   const filledCount = visibleRows.filter((r) => r.beerId && r.pkgId && Number(r.qty) > 0).length;
+
+  // Dvakrát totéž pivo ve stejném obalu — viz lib/zdvojenePolozky.ts.
+  // Nezakazuje se to (dvě dodací adresy jednoho odběratele jsou legitimní),
+  // jen se to řekne nahlas a nabídne se sloučení jedním klepnutím.
+  const zdvojene = najdiZdvojene(rows);
 
   async function save() {
     setErr(null);
@@ -264,6 +270,31 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
               </div>
             ))}
           </div>
+          {zdvojene.length > 0 && (
+            <div className="mt-2 rounded-lg border-2 border-amber-400 bg-amber-50 p-2.5 space-y-2">
+              <div className="text-xs font-black text-amber-950">
+                Pozor, tohle je v objednávce vícekrát:
+              </div>
+              <ul className="text-xs font-semibold text-amber-900 space-y-0.5">
+                {zdvojene.map((z) => (
+                  <li key={`${z.beerId}__${z.pkgId}`}>
+                    • {popisZdvojeni(
+                      z,
+                      beers.find((b) => b.id === z.beerId)?.name ?? 'Pivo',
+                      packages.find((p) => p.id === z.pkgId)?.label ?? 'obal',
+                    )}
+                  </li>
+                ))}
+              </ul>
+              <button
+                type="button"
+                onClick={() => setRows((rs) => slucZdvojene(rs))}
+                className="btn-primary !rounded !py-2 !px-3 text-xs min-h-[44px]"
+              >
+                Sloučit do jednoho řádku
+              </button>
+            </div>
+          )}
           <button type="button" onClick={addRow} className="btn-primary !rounded mt-2 !py-2 !px-3 text-sm">
             + Přidat další řádek
           </button>

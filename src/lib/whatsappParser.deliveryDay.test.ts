@@ -45,3 +45,43 @@ describe('detectDeliveryDay — nejbližší výskyt zmíněného dne', () => {
     expect(dateStr).toBe('2026-08-31');
   });
 });
+
+// „Na příští týden úterý" — zákazník myslí úterý NÁSLEDUJÍCÍHO týdne.
+// Bez toho se objednávka napsaná v pondělí zavezla hned druhý den, tedy
+// o týden dřív, a v týdenním přehledu seděla ve špatném týdnu.
+describe('detectDeliveryDay — „příští týden"', () => {
+  beforeEach(() => { vi.useFakeTimers(); });
+  afterEach(() => { vi.useRealTimers(); });
+
+  it('napsáno v pondělí „na příští týden úterý" → úterý za osm dní, ne zítra', () => {
+    setToday('2026-08-24'); // pondělí
+    const { day, dateStr } = detectDeliveryDay('Pro pivovar Louka, na pristi tyden utery\n20x50l desitka');
+    expect(day).toBe('ut');
+    expect(dateStr).toBe('2026-09-01');
+  });
+
+  it('napsáno v pátek „na příští týden úterý" → úterý příštího týdne (nic se nepřidává)', () => {
+    // Nejbližší úterý už samo padá do příštího týdne — přidat dalších sedm
+    // dní by objednávku posunulo o týden dozadu, tedy zase vedle.
+    setToday('2026-08-28'); // pátek
+    const { dateStr } = detectDeliveryDay('Pro pivovar Louka, na pristi tyden utery po Norme');
+    expect(dateStr).toBe('2026-09-01');
+  });
+
+  it('funguje i s diakritikou a se „za týden"', () => {
+    setToday('2026-08-24'); // pondělí
+    expect(detectDeliveryDay('příští týden ve středu 5x30').dateStr).toBe('2026-09-02');
+    expect(detectDeliveryDay('za týden ve středu 5x30').dateStr).toBe('2026-09-02');
+  });
+
+  it('běžná objednávka bez „příštího týdne" se nezměnila', () => {
+    setToday('2026-08-24'); // pondělí
+    expect(detectDeliveryDay('na středu 5x30').dateStr).toBe('2026-08-26');
+  });
+
+  it('konkrétní datum má pořád přednost před „příštím týdnem"', () => {
+    setToday('2026-08-24');
+    const { dateStr } = detectDeliveryDay('příští týden, konkrétně 3.9. 5x30');
+    expect(dateStr).toBe('2026-09-03');
+  });
+});

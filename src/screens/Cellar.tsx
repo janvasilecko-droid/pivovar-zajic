@@ -11,6 +11,7 @@ import { TankOccupancyPlanner } from '../components/TankOccupancyPlanner';
 import { chyba, oznam, potvrd } from '../lib/toast';
 import { usePosledniNacteni, prvniChyba } from '../lib/nacitani';
 import { IkonaSud } from '../components/ikony';
+import { uloz } from '../lib/uloziste';
 
 const STATUS_LABELS: Record<CellarTank['status'], string> = {
   empty: 'Prázdný', filling: 'Plní se', active: 'Aktivní', emptying: 'Stáčí se',
@@ -460,7 +461,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
     const arr = local ? JSON.parse(local) : [];
     const itemWithId = { id: String(Date.now()), ...logItem };
     arr.unshift(itemWithId);
-    localStorage.setItem('sanitation_logs_data', JSON.stringify(arr));
+    uloz('sanitation_logs_data', JSON.stringify(arr));
 
     try {
       await supabase.from('sanitation_logs').insert([logItem]);
@@ -589,15 +590,16 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
       )}
 
       <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
-        <HlavickaStranky
-          titul="Sklep & Spilka — tanky"
-          podtitul="Kvasné tanky na Spilce (Spilka 1–3) & Ležácké tanky (Tanky 1–8)."
-          ikona={Warehouse}
-        />
+        {/* Na telefonu se nadpis nekreslí — jméno obrazovky nese horní lišta
+            (stejně jako u KEG a Lahví). Na počítači zůstává i s popiskem. */}
+        <div className="hidden sm:block">
+          <h1 className="text-2xl font-display font-bold text-primary-900"><Warehouse className="ikona-text" /> Sklep & Spilka — tanky</h1>
+          <p className="text-sm text-primary-500 mt-1">Kvasné tanky na Spilce (Spilka 1–3) & Ležácké tanky (Tanky 1–8).</p>
+        </div>
 
         <div className="sticky top-0 z-20 bg-neutral-100 py-1 flex flex-wrap items-center gap-2 w-full">
           {/* Tab Selector: Ležácké vs Spilka vs Plánovač — přilepený nahoře. */}
-          <div className="flex items-center gap-1.5 p-1 rounded w-full sm:w-fit overflow-x-auto scrollbar-none flex-nowrap shrink-0">
+          <div className="flex items-center gap-1.5 p-1 rounded w-full sm:w-auto sm:flex-1 min-w-0 overflow-x-auto scrollbar-thin flex-nowrap">
             <button
               type="button"
               onClick={() => selectTab('lezacke')}
@@ -1032,7 +1034,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                       </div>
                       <button
                         type="button"
-                        className="mt-1.5 w-full min-h-[40px] text-xs px-3 py-2 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-700 font-bold border border-neutral-200 flex items-center justify-center gap-1.5"
+                        className="mt-1.5 w-full min-h-[44px] text-xs px-3 py-2 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-700 font-bold border border-neutral-200 flex items-center justify-center gap-1.5"
                         onClick={() => {
                           setSanitationMethod('louh');
                           setSanitationTime(getCurrentTimeStr());
@@ -1049,10 +1051,10 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
 
                     {/* Vedlejší akce */}
                     <div className="pt-1 flex flex-wrap gap-1.5">
-                      <button className="min-h-[40px] text-xs px-3 py-2 rounded bg-neutral-200/80 text-neutral-800 hover:bg-neutral-300 font-medium" onClick={() => setEditTank(t)}>Upravit</button>
+                      <button className="min-h-[44px] text-xs px-3 py-2 rounded bg-neutral-200/80 text-neutral-800 hover:bg-neutral-300 font-medium" onClick={() => setEditTank(t)}>Upravit</button>
                       {t.label.toLowerCase().includes('spilka') && (t.status === 'active' || t.status === 'filling' || Number(t.current_volume_l) > 0) && (
                         <button
-                          className="min-h-[40px] text-xs px-3 py-2 rounded bg-sky-700 text-white font-black hover:bg-sky-800 shadow-xs flex items-center gap-1"
+                          className="min-h-[44px] text-xs px-3 py-2 rounded bg-sky-700 text-white font-black hover:bg-sky-800 shadow-xs flex items-center gap-1"
                           onClick={() => {
                             setTransferFromId(t.id);
                             if (t.current_beer_id) setTransferBeerId(t.current_beer_id);

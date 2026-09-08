@@ -3,8 +3,8 @@ import { Beer, Package, Place, fetchAllRows, formatPackageLabel, supabase, useRe
 import { Spinner, EmptyState, Modal } from '../components/ui';
 import { orderWeightKg, fmtKg } from '../lib/weight';
 import { DAYS } from '../lib/shared';
-import { AlertTriangle, ArrowRightLeft, BarChart3, Bird, Calendar, CalendarDays, Car, Check, CheckCircle2, FileText, Map as MapIcon, MapPin, MessageCircle, Package as PackageIcon, PenTool, Pencil, Phone, Plus, Printer, Scale, Search, StickyNote, TreePine, Truck, Wine } from 'lucide-react';
-
+import { AlertTriangle, ArrowRightLeft, BarChart3, Bird, Calendar, CalendarDays, Car, Check, CheckCircle2, FileText, Map as MapIcon, MapPin, MessageCircle, Package as PackageIcon, PenTool, Pencil, Phone, Plus, Printer, Scale, Search, StickyNote, TreePine, Truck, Wine, ArrowRightCircle, Droplet, Share2 } from 'lucide-react';
+import { shareDeliveryListToWhatsApp } from '../lib/whatsapp';
 import { exportZavozToExcel } from '../lib/excel';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 import { getSecondCarOrderIds, toggleOrderKachna, toggleOrdersKachna, migrateSecondCarDatesToOrders } from '../lib/zavozSecondCar';
@@ -33,7 +33,7 @@ type Order = {
   signature_url?: string | null;
   signature_name?: string | null;
 };
-type OrderItem = { id: string; order_id: string; beer_id: string | null; beer_name: string | null; package_id: string | null; package_label: string | null; quantity: number; is_prepared: boolean };
+type OrderItem = { id: string; order_id: string; beer_id: string | null; beer_name: string | null; package_id: string | null; package_label: string | null; quantity: number; is_prepared: boolean; is_bottled: boolean };
 
 export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any, sec?: string) => void; embedded?: boolean } = {}) {
   const { profile } = useAuth();
@@ -265,6 +265,22 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
     }
   }
 
+  /**
+   * Odškrtnutí „stočeno" u položky. Tentýž sloupec odškrtává i přehled
+   * Objednávek — pivo se stáčí ve sklepě, ale ten, kdo nakládá auto, je
+   * často první, kdo zjistí, že hotové není. Musí to tedy jít odškrtnout
+   * (i vrátit) na obou stranách, jinak by si každá obrazovka vedla vlastní
+   * pravdu o jedné bedně piva.
+   */
+  async function toggleItemBottled(o: Order, it: OrderItem) {
+    zavibruj('odskrtnuto');
+    const nove = !it.is_bottled;
+    const { error } = await supabase.from('order_items').update({ is_bottled: nove }).eq('id', it.id);
+    if (error) return;
+    const its = items[o.id] ?? [];
+    setItems((m) => ({ ...m, [o.id]: its.map((x) => (x.id === it.id ? { ...x, is_bottled: nove } : x)) }));
+  }
+
   // Toggle all order_items matching a loading-list label (beer_name + package)
   async function toggleLoadingLabel(label: string, currentlyAllPrepared: boolean) {
     const newPrepared = !currentlyAllPrepared;
@@ -410,7 +426,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
           {setPage && (
             <button
               onClick={() => setPage('orders_entry')}
-              className="flex-1 px-2 py-1.5 rounded font-black text-udaj leading-tight transition flex items-center justify-center gap-1 bg-white hover:bg-neutral-100 text-neutral-700 border border-neutral-200 shadow-xs whitespace-nowrap tap"
+              className="flex-1 px-2 py-2.5 min-h-[44px] rounded font-black text-xs leading-tight transition flex items-center justify-center gap-1 bg-white hover:bg-neutral-100 active:bg-neutral-200 text-neutral-700 border border-neutral-200 shadow-xs whitespace-nowrap"
             >
               <Plus size={14} />
               <span>Nové</span>
@@ -419,14 +435,14 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
           {setPage && (
             <button
               onClick={() => setPage('orders')}
-              className="flex-1 px-2 py-1.5 rounded font-black text-udaj leading-tight transition flex items-center justify-center gap-1 bg-white hover:bg-neutral-100 text-neutral-700 border border-neutral-200 shadow-xs whitespace-nowrap tap"
+              className="flex-1 px-2 py-2.5 min-h-[44px] rounded font-black text-xs leading-tight transition flex items-center justify-center gap-1 bg-white hover:bg-neutral-100 active:bg-neutral-200 text-neutral-700 border border-neutral-200 shadow-xs whitespace-nowrap"
             >
               <FileText size={14} />
               <span>Přehled</span>
             </button>
           )}
           <button
-            className="flex-1 px-2 py-1.5 rounded font-black text-udaj leading-tight transition flex items-center justify-center gap-1 bg-white text-neutral-900 shadow-md whitespace-nowrap tap"
+            className="flex-1 px-2 py-2.5 min-h-[44px] rounded font-black text-xs leading-tight transition flex items-center justify-center gap-1 bg-white text-neutral-900 shadow-md whitespace-nowrap"
           >
             <Truck size={14} />
             <span>Závoz</span>
@@ -436,11 +452,9 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
 
       {/* Top Action Bar — styl jako Stáčení KEG / Lahve */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded border border-neutral-200 shadow-2xs">
+        {/* Bez nadpisu „Závoz" — jméno obrazovky nese horní lišta. Lišta tady
+            zůstává kvůli akcím (Export Excel), ne kvůli titulku. */}
         <div className="flex items-center gap-2">
-          <span className="text-sm font-display font-black text-amber-950 flex items-center gap-1.5">
-            <span><Truck className="ikona-text" /></span>
-            <span>Závoz</span>
-          </span>
           <div className="relative group">
             <button className="btn-ghost !rounded !bg-white border-amber-300 text-amber-950 font-extrabold text-xs shadow-xs" disabled={!activeOrders.length}><BarChart3 className="ikona-text" /> Export Excel ▾</button>
             {activeOrders.length > 0 && (
@@ -961,8 +975,22 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                                         <div className="mt-2 space-y-1.5">
                                           {orderItems.map(it => (
                                             <div key={it.id} className="flex items-center justify-between text-xs py-1 px-2 rounded bg-white/80 border border-neutral-100">
-                                              <button onClick={() => toggleItemPrepared(o, it)} className={`flex items-center gap-2 text-left font-bold transition ${it.is_prepared ? 'text-emerald-700 line-through' : 'text-neutral-900'}`}>
-                                                <span className={`w-4 h-4 rounded border flex items-center justify-center text-udaj ${it.is_prepared ? 'bg-emerald-700 text-white border-emerald-600' : 'bg-white border-neutral-300'}`}>{it.is_prepared ? <Check className="ikona-text" /> : ''}</span>
+                                              {/* Stočeno — stejný sloupec, jaký odškrtávají Objednávky.
+                                                  Kdo nakládá auto, bývá první, kdo pozná, že pivo hotové
+                                                  není; musí to tedy jít odškrtnout i tady. */}
+                                              <button
+                                                onClick={() => toggleItemBottled(o, it)}
+                                                title={it.is_bottled ? 'Stočeno — klepnutím zrušit' : 'Označit jako stočené'}
+                                                aria-label={it.is_bottled ? 'Stočeno' : 'Označit jako stočené'}
+                                                aria-pressed={!!it.is_bottled}
+                                                className={`w-6 h-6 shrink-0 mr-2 grid place-items-center rounded border-2 transition ${
+                                                  it.is_bottled ? 'bg-amber-500 border-amber-600 text-neutral-950' : 'bg-white border-neutral-400 text-neutral-600'
+                                                }`}
+                                              >
+                                                <Droplet size={13} />
+                                              </button>
+                                              <button onClick={() => toggleItemPrepared(o, it)} className={`flex items-center gap-2 text-left font-bold transition flex-1 min-w-0 ${it.is_prepared ? 'text-emerald-700 line-through' : 'text-neutral-900'}`}>
+                                                <span className={`w-4 h-4 rounded border flex items-center justify-center text-[11px] ${it.is_prepared ? 'bg-emerald-700 text-white border-emerald-600' : 'bg-white border-neutral-300'}`}>{it.is_prepared ? <Check className="ikona-text" /> : ''}</span>
                                                 <span>{it.beer_name ?? '—'}</span>
                                               </button>
                                               <div className="flex items-center gap-3 font-mono">

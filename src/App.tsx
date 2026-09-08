@@ -1,41 +1,51 @@
-import { useEffect, useState, lazy, Suspense } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { Package as PackageIcon, TrendingDown } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { App as CapacitorApp } from '@capacitor/app';
 import { useAuth } from './lib/auth';
 import { requestOpenHomeNotes } from './lib/homeNotes';
-// Obrazovky se načítají až při otevření. POZOR: co se sem přidá, se musí
-// i vykreslit — 5. 9. 2026 tu leželo jedenáct deklarací obrazovek, které
-// mezitím převzaly „Tabbed" obaly (Objednávky, katalogy, Akce, Ceník,
-// Check-listy, Kniha jízd, Sklo, Exkurze). Kdo četl App.tsx, myslel si,
-// že se odsud routují — přitom je vykresluje někdo jiný.
-const AppSettingsScreen = lazy(() => import('./screens/AppSettingsScreen'));
-const AppVersionsScreen = lazy(() => import('./screens/AppVersionsScreen'));
+// Obrazovky se načítají až při otevření a přes lazyStranka — po nasazení nové
+// verze mají kousky nové názvy a ten starý na serveru končí; helper to zkusí
+// znovu a v krajním případě stránku jednou obnoví (viz lib/lazyStranka.ts).
+import { lazyStranka, uklidPojistkuReloadu } from './lib/lazyStranka';
+const AppSettingsScreen = lazyStranka(() => import('./screens/AppSettingsScreen'));
+const AppVersionsScreen = lazyStranka(() => import('./screens/AppVersionsScreen'));
 
 import Layout, { Page } from './components/Layout';
 import AuthScreen from './screens/AuthScreen';
-const Dashboard = lazy(() => import('./screens/Dashboard'));
+const Dashboard = lazyStranka(() => import('./screens/Dashboard'));
 import HomeScreen from './screens/HomeScreen';
-const Zavoz = lazy(() => import('./screens/Zavoz'));
-const Stock = lazy(() => import('./screens/Stock'));
-const Users = lazy(() => import('./screens/Users'));
-const KeggingScreen = lazy(() => import('./screens/Kegging'));
-const BottlingScreen = lazy(() => import('./screens/BottlingScreen'));
-const ProdejnaScreen = lazy(() => import('./screens/ProdejnaScreen'));
-const Statistika = lazy(() => import('./screens/Statistika'));
-const ExportExcelScreen = lazy(() => import('./screens/ExportExcelScreen'));
-const CellarScreen = lazy(() => import('./screens/Cellar'));
-const SrotovaniScreen = lazy(() => import('./screens/BreweryScreens').then((m) => ({ default: m.SrotovaniScreen })));
-const ConcentrationScreen = lazy(() => import('./screens/BreweryScreens').then((m) => ({ default: m.ConcentrationScreen })));
-const InventoryScreen = lazy(() => import('./screens/InventoryScreen'));
-const VycepyScreen = lazy(() => import('./screens/VycepyScreen'));
-const VehiclesTabbed = lazy(() => import('./screens/VehiclesTabbed'));
-const DepozitarTabbed = lazy(() => import('./screens/DepozitarTabbed'));
-const SanitaceTabbed = lazy(() => import('./screens/SanitaceTabbed'));
-const PlanningTabbed = lazy(() => import('./screens/PlanningTabbed'));
-const MarketingTabbed = lazy(() => import('./screens/MarketingTabbed'));
-const OrdersTabbed = lazy(() => import('./screens/OrdersTabbed'));
-const TimersScreen = lazy(() => import('./screens/TimersScreen'));
+const Orders = lazyStranka(() => import('./screens/Orders'));
+const Zavoz = lazyStranka(() => import('./screens/Zavoz'));
+const Stock = lazyStranka(() => import('./screens/Stock'));
+const BeersScreen = lazyStranka(() => import('./screens/Catalogs').then((m) => ({ default: m.BeersScreen })));
+const PackagesScreen = lazyStranka(() => import('./screens/Catalogs').then((m) => ({ default: m.PackagesScreen })));
+const PlacesScreen = lazyStranka(() => import('./screens/Catalogs').then((m) => ({ default: m.PlacesScreen })));
+const VehiclesScreen = lazyStranka(() => import('./screens/Catalogs').then((m) => ({ default: m.VehiclesScreen })));
+const Users = lazyStranka(() => import('./screens/Users'));
+const KeggingScreen = lazyStranka(() => import('./screens/Kegging'));
+const BottlingScreen = lazyStranka(() => import('./screens/BottlingScreen'));
+const ProdejnaScreen = lazyStranka(() => import('./screens/ProdejnaScreen'));
+const AkceScreen = lazyStranka(() => import('./screens/Akce'));
+const Statistika = lazyStranka(() => import('./screens/Statistika'));
+const ExportExcelScreen = lazyStranka(() => import('./screens/ExportExcelScreen'));
+const PriceListScreen = lazyStranka(() => import('./screens/PriceList'));
+const CellarScreen = lazyStranka(() => import('./screens/Cellar'));
+const SrotovaniScreen = lazyStranka(() => import('./screens/BreweryScreens').then((m) => ({ default: m.SrotovaniScreen })));
+const ChecklistsScreen = lazyStranka(() => import('./screens/BreweryScreens').then((m) => ({ default: m.ChecklistsScreen })));
+const ConcentrationScreen = lazyStranka(() => import('./screens/BreweryScreens').then((m) => ({ default: m.ConcentrationScreen })));
+const InventoryScreen = lazyStranka(() => import('./screens/InventoryScreen'));
+const KnihaJizdScreen = lazyStranka(() => import('./screens/KnihaJizdScreen'));
+const SkloPromoScreen = lazyStranka(() => import('./screens/SkloPromoScreen'));
+const VycepyScreen = lazyStranka(() => import('./screens/VycepyScreen'));
+const ExkurzeScreen = lazyStranka(() => import('./screens/ExkurzeScreen'));
+const VehiclesTabbed = lazyStranka(() => import('./screens/VehiclesTabbed'));
+const DepozitarTabbed = lazyStranka(() => import('./screens/DepozitarTabbed'));
+const SanitaceTabbed = lazyStranka(() => import('./screens/SanitaceTabbed'));
+const PlanningTabbed = lazyStranka(() => import('./screens/PlanningTabbed'));
+const MarketingTabbed = lazyStranka(() => import('./screens/MarketingTabbed'));
+const OrdersTabbed = lazyStranka(() => import('./screens/OrdersTabbed'));
+const TimersScreen = lazyStranka(() => import('./screens/TimersScreen'));
 import { KegTimerNotificationManager } from './components/KegTimerNotificationManager';
 import { TimerDoneAlertModal } from './components/TimerDoneAlertModal';
 import { ReminderNotificationManager } from './components/ReminderNotificationManager';
@@ -43,8 +53,8 @@ import { MandatoryAnnouncementModal } from './components/MandatoryAnnouncementMo
 import { CriticalMaterialAlertModal } from './components/CriticalMaterialAlertModal';
 import { MonthlyCleanupWarning } from './components/MonthlyCleanupWarning';
 import { SetPasswordModal } from './components/SetPasswordModal';
-const BottlingTasksSettings = lazy(() => import('./components/BottlingTasksSettings').then((m) => ({ default: m.BottlingTasksSettings })));
-import { Spinner } from './components/ui';
+const BottlingTasksSettings = lazyStranka(() => import('./components/BottlingTasksSettings').then((m) => ({ default: m.BottlingTasksSettings })));
+import { Spinner, Kostra } from './components/ui';
 import { scheduleNightlyCheck } from './lib/zavozDeduction';
 import { nactiVPredstihu } from './lib/predstih';
 import { hlidejPlynulost } from './lib/plynulost';
@@ -74,6 +84,10 @@ export default function App() {
   const [autoOpenShareImport, setAutoOpenShareImport] = useState(() => wasOpenedViaShare());
   const [haccpSection, setHaccpSection] = useState<string | undefined>();
   const [pageSubTab, setPageSubTabState] = useState<string>(() => (wasOpenedViaShare() ? '' : readSubTabFromHistory()));
+
+  // Appka se rozběhla — pojistka proti smyčce obnovování může jít pryč,
+  // ať platí zase pro příští nasazení (viz lib/lazyStranka.ts).
+  useEffect(() => { uklidPojistkuReloadu(); }, []);
 
   useEffect(() => {
     if (wasOpenedViaShare()) {
@@ -175,8 +189,20 @@ export default function App() {
 
   if (loading) {
     return (
+      /* Načítání ukazuje značku pivovaru, ne jen kolečko. Než se appka
+         přihlásí a stáhne data, je tahle obrazovka jediné, co je vidět —
+         a dřív to bylo kolečko na prázdné ploše. Logo je vektor
+         (public/logo-zajic.svg, vyrobené z firemního PDF), takže je ostré
+         na telefonu i na monitoru a nemá kolem sebe žádný rámeček. */
       <div className="min-h-screen grid place-items-center bg-primary-50">
-        <Spinner />
+        <div className="flex flex-col items-center gap-4">
+          <img
+            src="/logo-zajic.svg"
+            alt="Kynšperský pivovar"
+            className="w-36 h-36 sm:w-44 sm:h-44 object-contain"
+          />
+          <Spinner />
+        </div>
       </div>
     );
   }
@@ -196,8 +222,9 @@ export default function App() {
       />
       {/* Obrazovky se stahuji az pri prvnim otevreni (React.lazy). Drive se
           vsech ~40 nacetlo najednou pri startu — 2,9 MB, i kdyz uzivatel
-          otevrel jen Domu. Fallback je stejny spinner jako jinde v appce. */}
-      <Suspense fallback={<Spinner />}>
+          otevrel jen Domu. Nez se stahne, drzi misto kostra obrazovky (ui.tsx) — kolecko
+          nechavalo stranku prazdnou a obsah pak poskocil. */}
+      <Suspense fallback={<Kostra className="px-3" />}>
       {page === 'home' && <HomeScreen setPage={setPage} />}
       {(page === 'dashboard' || page === 'sklo_promo') && (
         <Dashboard setPage={setPage} initialTab={page === 'sklo_promo' ? 'sklo_promo' : 'sklad'} />

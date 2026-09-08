@@ -1,3 +1,4 @@
+import { uloz } from './uloziste';
 export type Theme = 'light' | 'dark' | 'system';
 
 const KEY = 'pivovar_theme';
@@ -56,7 +57,7 @@ function sledujSystem() {
 
 export function setTheme(theme: Theme) {
   try {
-    localStorage.setItem(KEY, theme);
+    uloz(KEY, theme);
   } catch {}
   applyTheme(theme);
 }

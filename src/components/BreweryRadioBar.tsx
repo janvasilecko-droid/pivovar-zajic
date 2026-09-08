@@ -28,8 +28,12 @@ export function BreweryRadioBar({ onOpenModal }: BreweryRadioBarProps) {
 
   return (
     <div
-      className="fixed nad-dokem sm:!bottom-4 right-4 z-lista flex items-center gap-2.5 px-3.5 py-2 rounded-full shadow-lg border border-white/20 backdrop-blur-md text-white transition-all animate-slide-up"
+      className="fixed right-4 z-40 flex items-center gap-2.5 px-3.5 py-2 rounded-full shadow-lg border border-white/20 backdrop-blur-md text-white transition-all animate-slide-up"
       style={{
+        // Nad spodní lištou — její výšku měří Layout a zapisuje do
+        // --vyska-doku. Napevno napsané bottom-16 sedělo jen na telefonu
+        // bez bezpečné zóny; na iPhonu lišta pásek rádia překrývala.
+        bottom: 'calc(var(--vyska-doku, 4rem) + 8px)',
         background: `linear-gradient(135deg, ${currentStation.color || '#e03131'}ee, #1e1b4bee)`,
       }}
     >
@@ -62,16 +66,17 @@ export function BreweryRadioBar({ onOpenModal }: BreweryRadioBarProps) {
           type="button"
           onClick={toggleRadio}
           title={state.playing ? 'Pozastavit' : 'Spustit'}
-          className="p-1.5 rounded-full bg-white/20 hover:bg-white/30 active:scale-95 transition tap"
+          aria-label={state.playing ? 'Pozastavit rádio' : 'Spustit rádio'}
+          className="p-1.5 rounded-full bg-white/20 hover:bg-white/30 active:scale-95 transition"
         >
           {state.playing ? <Pause size={14} className="fill-current" /> : <Play size={14} className="fill-current ml-0.5" />}
         </button>
         <button
           type="button"
           onClick={pauseRadio}
-          title="Zavřít lištu" aria-label="Zavřít lištu"
-          className="p-1.5 rounded-full hover:bg-white/20 active:scale-95 transition text-white/70 hover:text-white tap"
-        >
+          title="Zavřít lištu"
+          className="p-1.5 rounded-full hover:bg-white/20 active:scale-95 transition text-white/70 hover:text-white"
+         aria-label="Zavřít lištu">
           <X size={14} />
         </button>
       </div>

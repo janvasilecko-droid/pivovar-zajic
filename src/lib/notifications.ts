@@ -1,5 +1,6 @@
 import { oznam } from '../lib/toast';
 import { zalogujANahlas } from './chybyHlaseni';
+import { uloz } from './uloziste';
 // PWA & Browser Mobile Push Notifications & Web Audio Chime for New Orders
 
 /**
@@ -283,7 +284,7 @@ export function getTimerAlertSettings(): TimerAlertSettings {
 
 export function saveTimerAlertSettings(settings: TimerAlertSettings) {
   try {
-    localStorage.setItem(TIMER_ALERT_SETTINGS_KEY, JSON.stringify(settings));
+    uloz(TIMER_ALERT_SETTINGS_KEY, JSON.stringify(settings));
     window.dispatchEvent(new CustomEvent('timers_alert_settings_changed', { detail: settings }));
   } catch {}
 }
@@ -352,7 +353,7 @@ export function getNotificationSettings(): NotificationSettings {
 
 export function saveNotificationSettings(settings: NotificationSettings) {
   try {
-    localStorage.setItem(NOTIF_SETTINGS_KEY, JSON.stringify(settings));
+    uloz(NOTIF_SETTINGS_KEY, JSON.stringify(settings));
   } catch {}
 }
 

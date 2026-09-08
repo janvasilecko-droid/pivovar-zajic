@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Beer, beerBg, beerBorder, beerInk, fetchAllRows, formatPackageLabel, Package, Place, supabase, useRealtime } from '../lib/supabase';
-import { Kostra, Spinner } from '../components/ui';
+import { Beer, beerBg, beerBorder, beerInk, fetchAllRows, formatPackageLabel, Package, Place, supabase, useRealtime, beerName } from '../lib/supabase';
+import { Kostra, Spinner, EmptyState } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
 import { orderWeightKg } from '../lib/weight';
 
@@ -13,6 +13,7 @@ import StatistikaVystav from '../components/StatistikaVystav';
 import type { Obdobi, VyrobniRadek } from '../lib/statistika';
 import { usePosledniNacteni } from '../lib/nacitani';
 import { useChovaniDialogu } from '../lib/zavriNaZpet';
+import { uloz } from '../lib/uloziste';
 
 type MonthData = {
   month: string;
@@ -498,7 +499,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
 
   useEffect(() => { load(); loadTankCycles(); }, []);
   // 🔇 Realtime přenačítá TIŠE. Bez toho zavolá loadData() bez parametru,
-  // rozsvítí se spinner přes celou obrazovku (`if (loading) return <Spinner/>`),
+  // rozsvítí se spinner přes celou obrazovku (`if (loading) return <Kostra/>`),
   // obsah se odmountuje — a s ním spadne odrolování na nulu. Z provozu:
   // „když kliknu odečíst, vrací mě to vždycky nahoru." Vlastní zápis stránku
   // srovná kotvou (lib/drzPozici.ts), jenže 400 ms po něm dorazí realtime
@@ -676,7 +677,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
     };
     const next = [...savedFilters.filter((x) => x.name !== name), f];
     setSavedFilters(next);
-    localStorage.setItem('history_saved_filters', JSON.stringify(next));
+    uloz('history_saved_filters', JSON.stringify(next));
     setNewFilterName('');
   }
   function applyFilter(f: SavedFilter) {
@@ -689,7 +690,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
   function deleteFilter(name: string) {
     const next = savedFilters.filter((x) => x.name !== name);
     setSavedFilters(next);
-    localStorage.setItem('history_saved_filters', JSON.stringify(next));
+    uloz('history_saved_filters', JSON.stringify(next));
   }
 
   const detailTotals = useMemo(() => {

@@ -1,3 +1,4 @@
+import { uloz } from './uloziste';
 // Pivovarské rádio a hudba na pozadí — umožňuje vařičům a sklepmistrům
 // poslouchat hudbu/rádio přímo v aplikaci při práci (sklep, stáčení, sklad,
 // rozvoz). Zvuk běží kontinuálně na pozadí při procházení všech stránek.
@@ -109,7 +110,7 @@ function loadSavedState(): { stationId: string; volume: number } {
 
 function saveState(state: { stationId: string; volume: number }) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    uloz(STORAGE_KEY, JSON.stringify(state));
   } catch {}
 }
 

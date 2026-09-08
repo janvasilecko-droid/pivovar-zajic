@@ -10,6 +10,7 @@ import { BottlingPlanPlanner } from '../components/BottlingPlanPlanner';
 import { BottlingPlanBottler } from '../components/BottlingPlanBottler';
 import { isLastWeekOfMonth, getMonthKey, writeMonthlyCleanupStage, isMonthlyLineDone, markMonthlyLineDone } from '../lib/monthlyCleanup';
 import { businessDateISO } from '../lib/businessDate';
+import { vychoziZdrojovySud } from '../lib/zdrojovySud';
 import { autoLogBottleSanitationFromChecklist } from '../lib/bottleSanitation';
 import { requestOrdersItemFilter } from '../lib/ordersFilter';
 import { VoiceRecorder } from '../components/VoiceRecorder';
@@ -143,10 +144,19 @@ export default function BottlingScreen({
   const openTile = (b: Beer) => {
     // Předvyplnění z řádku, který už tohle pivo má (snadné doladění počtu).
     const existing = entryRows.find((r) => r.beerId === b.id && (r.qty || r.qty2 || r.qty3 || r.kegQty));
+    // Zdrojový sud se předvolí na padesátku (viz lib/zdrojovySud.ts) —
+    // stáčí se z ní skoro vždycky a políčko dřív začínalo na „— žádný —",
+    // takže se dalo zapsat stáčení bez odečtu sudů. Rozepsaný řádek si
+    // svoji volbu nechává, ať se nikomu nepřepíše, co už zadal.
     setTileDraft(existing ? {
       pkgId: existing.pkgId, qty: existing.qty, pkg2Id: existing.pkg2Id, qty2: existing.qty2,
-      pkg3Id: existing.pkg3Id, qty3: existing.qty3, kegPkgId: existing.kegPkgId, kegQty: existing.kegQty,
-    } : { pkgId: '', qty: '', pkg2Id: '', qty2: '', pkg3Id: '', qty3: '', kegPkgId: '', kegQty: '' });
+      pkg3Id: existing.pkg3Id, qty3: existing.qty3,
+      kegPkgId: existing.kegPkgId || vychoziZdrojovySud(kegPackages),
+      kegQty: existing.kegQty,
+    } : {
+      pkgId: '', qty: '', pkg2Id: '', qty2: '', pkg3Id: '', qty3: '',
+      kegPkgId: vychoziZdrojovySud(kegPackages), kegQty: '',
+    });
     setTileBeer(b);
   };
   const closeTile = () => setTileBeer(null);
@@ -903,7 +913,7 @@ export default function BottlingScreen({
     <div className="space-y-6 pb-12">
       {/* Top Action Bar — přilepený nahoře, ať jde přepínat záložku i uprostřed scrollování. */}
       <div className="sticky top-0 z-20 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3.5 rounded border border-neutral-200/90 shadow-2xs">
-        <div className="hidden sm:flex items-center justify-between gap-2">
+        <div className="hidden sm:flex items-center justify-between gap-2 shrink-0">
           <span className="text-sm sm:text-base font-display font-black text-amber-950 flex items-center gap-1.5 shrink-0">
             <span><IkonaLahev className="ikona-text" /></span>
             <span>Lahve</span>
@@ -912,7 +922,7 @@ export default function BottlingScreen({
 
         {/* Záložky: Stáčení / Přehled / Potřeba stočit lahve / Potřeba stočit KEGy */}
         {(
-          <div className="flex items-center gap-1.5 p-1 rounded w-full sm:w-fit overflow-x-auto scrollbar-none flex-nowrap shrink-0">
+          <div className="flex items-center gap-1.5 p-1 rounded w-full sm:w-auto sm:flex-1 min-w-0 overflow-x-auto scrollbar-thin flex-nowrap">
             <button
               type="button"
               onClick={() => selectTab('zapis')}
@@ -1116,17 +1126,17 @@ export default function BottlingScreen({
                               {q}
                             </button>
                           ))}
-                          <button type="button" onClick={() => bumpTile(slot.qty, -1)} className="btn-pocet !h-9 !min-h-[36px] !w-9 tap">−</button>
+                          <button type="button" onClick={() => bumpTile(slot.qty, -1)} className="btn-pocet !w-11">−</button>
                           <input
                             type="number" onWheel={(e) => e.currentTarget.blur()}
                             min={0}
                             inputMode="numeric"
-                            className="w-16 h-9 text-center bg-white dark:bg-neutral-900/60 border border-amber-300 dark:border-neutral-700 text-neutral-950 dark:text-neutral-100 font-black text-sm rounded"
+                            className="w-16 h-11 text-center bg-white dark:bg-neutral-900/60 border border-amber-300 dark:border-neutral-700 text-neutral-950 dark:text-neutral-100 font-black text-sm rounded"
                             value={qtyStr}
                             onChange={(e) => setTile(slot.qty, e.target.value.replace(/[^0-9]/g, ''))}
                             placeholder="0"
                           />
-                          <button type="button" onClick={() => bumpTile(slot.qty, 1)} className="btn-pocet !h-9 !min-h-[36px] !w-9 tap">+</button>
+                          <button type="button" onClick={() => bumpTile(slot.qty, 1)} className="btn-pocet !w-11">+</button>
                         </div>
                       </div>
                     );
@@ -1150,7 +1160,7 @@ export default function BottlingScreen({
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-udaj font-extrabold uppercase text-neutral-500">Počet sudů</span>
                   <div className="flex items-center gap-1">
-                    <button type="button" onClick={() => bumpTile('kegQty', -1)} className="btn-pocet !h-9 !min-h-[36px] !w-9 tap">−</button>
+                    <button type="button" onClick={() => bumpTile('kegQty', -1)} className="btn-pocet !w-11">−</button>
                     <input
                       type="number" onWheel={(e) => e.currentTarget.blur()}
                       min={0}
@@ -1160,7 +1170,7 @@ export default function BottlingScreen({
                       onChange={(e) => setTile('kegQty', e.target.value.replace(/[^0-9]/g, ''))}
                       placeholder="0"
                     />
-                    <button type="button" onClick={() => bumpTile('kegQty', 1)} className="btn-pocet !h-9 !min-h-[36px] !w-9 tap">+</button>
+                    <button type="button" onClick={() => bumpTile('kegQty', 1)} className="btn-pocet !w-11">+</button>
                   </div>
                 </div>
 
@@ -1178,7 +1188,7 @@ export default function BottlingScreen({
                       type="button"
                       onClick={() => setTile('kegQty', String(navrhZdrojovychSudu.sudy))}
                       disabled={String(navrhZdrojovychSudu.sudy) === tileDraft.kegQty}
-                      className="w-full min-h-[36px] rounded bg-sky-700 hover:bg-sky-700 disabled:opacity-40 disabled:hover:bg-sky-600 text-white font-black text-udaj transition"
+                      className="w-full min-h-[44px] rounded bg-sky-700 hover:bg-sky-700 disabled:opacity-40 disabled:hover:bg-sky-600 text-white font-black text-[11px] transition"
                       title="Dopočítat počet sudů z nastáčených lahví — načatý sud se počítá celý"
                     >
                       {String(navrhZdrojovychSudu.sudy) === tileDraft.kegQty
@@ -1703,7 +1713,7 @@ export default function BottlingScreen({
                                   className="w-6 h-6 grid place-items-center rounded bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold text-xs transition tap"
                                   title="Snížit počet sudů" aria-label="Snížit počet sudů"
                                 >−</button>
-                                <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-amber-200/80 text-amber-950 border border-amber-400/60 text-xs font-black shadow-2xs min-w-[24px] justify-center">
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-amber-200/80 text-amber-950 border border-amber-400/60 text-xs font-black shadow-2xs min-w-[44px] justify-center">
                                   {r.kegs_used && r.kegs_used > 0 ? r.kegs_used : 0}
                                 </span>
                                 <button

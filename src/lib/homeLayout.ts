@@ -48,6 +48,13 @@ export function isCountdownId(id: string): id is CountdownTileId {
   return id.startsWith('cd_');
 }
 
+/**
+ * Dlaždice „Foukání CO2" (viz lib/co2Foukani.ts). Není to obrazovka, takže
+ * v NAV nefiguruje a v menu se neobjeví — je to čistě dlaždice na ploše,
+ * a proto ji musí propustit i překlad uložených id.
+ */
+export const CO2_TILE_ID: Page = 'co2';
+
 /** Skupina víc dlaždic sloučených do jedné ("složka", styl Windows Phone/iOS). Vzhled
  *  (label/barva/velikost) skupiny se řeší přes stávající `overrides[groupId]` — žádný
  *  nový typ navíc. */
@@ -489,7 +496,7 @@ function resolveTileId(
     resolvedGroups[id] = { memberIds: members };
     return id;
   }
-  if (isCountdownId(id)) {
+  if (isCountdownId(id) || id === CO2_TILE_ID) {
     seen.add(id);
     return id;
   }
@@ -826,7 +833,11 @@ export function getHomeLayout(raw: unknown, visibleIds: Page[], extraIds: Page[]
     // rozložení (viz rozdelVseDoStranek).
     pages.push(...rozdelDoStranek(idsKRozmisteni(newIds, extraIds.filter((id) => !seen.has(id) && !hiddenSet.has(id)))));
   } else if (newIds.length > 0) {
-    pages[pages.length - 1] = [...pages[pages.length - 1], ...newIds];
+    // Nová dlaždice patří na stránku, na které plocha startuje (výroba) —
+    // ne na poslední. Na poslední stránku se přejde jen schválně, takže
+    // dlaždice, o které nikdo neví, tam čeká, dokud na ni někdo nenarazí.
+    const kam = Math.min(VYCHOZI_STRANKA, pages.length - 1);
+    pages[kam] = [...pages[kam], ...newIds];
   }
 
   const overrides = (saved.overrides && typeof saved.overrides === 'object' ? saved.overrides : {}) as Partial<Record<TileId, TileOverride>>;

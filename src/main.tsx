@@ -11,9 +11,9 @@ import { initTheme } from './lib/theme';
 import { reportAppVersion } from './lib/appVersionTracker';
 import { checkVersion, forceRefresh, startVersionCheck } from './lib/versionCheck';
 import { renderFatalError } from './lib/safeDom';
-import { nahlasChybu, zapniHlaseniChyb } from './lib/chybyHlaseni';
+import { nahlasChybu, zapniHlaseniChyb, zalogujANahlas } from './lib/chybyHlaseni';
 import { zapniFrontuTanku } from './lib/tankFrontaBeh';
-import { zalogujANahlas } from './lib/chybyHlaseni';
+import { zapniPosunNadKlavesnici } from './lib/nadKlavesnici';
 
 
 initDensity();
@@ -31,6 +31,10 @@ zapniHlaseniChyb();
 // sítě (viz lib/tankFronta.ts). Opakování je bezpečné díky klíči
 // idempotence — relativní odečet by se jinak mohl provést dvakrát.
 zapniFrontuTanku();
+
+// Klávesnice na telefonu překryje spodní polovinu displeje a políčko, do
+// kterého se píše, pod ní často zůstane schované (viz lib/nadKlavesnici.ts).
+zapniPosunNadKlavesnici();
 
 class DebugErrorBoundary extends React.Component<{ children: React.ReactNode }, { error: any }> {
   constructor(props: { children: React.ReactNode }) {
@@ -71,26 +75,40 @@ class DebugErrorBoundary extends React.Component<{ children: React.ReactNode }, 
   render() {
     if (this.state.error) {
       return (
-        <div style={{ padding: 24, fontFamily: 'sans-serif', whiteSpace: 'pre-wrap', color: '#900', background: '#fef2f2', minHeight: '100vh' }}>
-          <h1 style={{ color: '#991b1b', fontSize: 22, fontWeight: 'bold' }}>Chyba při načítání aplikace</h1>
-          <p style={{ fontSize: 14, color: '#7f1d1d', margin: '8px 0 16px 0' }}>Zachyceno v paměti React rozhraní. Stiskněte tlačítko pro pokračování nebo vyčištění paměti.</p>
-          <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
-            <button
-              style={{ padding: '10px 18px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 'bold', cursor: 'pointer' }}
-              onClick={() => this.setState({ error: null })}
-            >
-              ▶ Obnovit zobrazení
-            </button>
-            <button
-              style={{ padding: '10px 18px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 'bold', cursor: 'pointer' }}
-              onClick={() => { void forceRefresh(); }}
-            >
-              <RefreshCw className="ikona-text" /> Vyčistit mezipaměť a znovu načíst
-            </button>
-          </div>
-          <pre style={{ fontFamily: 'monospace', fontSize: 12, padding: 12, background: '#fff', border: '1px solid #fca5a5', borderRadius: 8, overflowX: 'auto' }}>
-            {String(this.state.error?.stack || this.state.error)}
-          </pre>
+        /* Obrazovka, kterou uvidí obsluha ve sklepě, ne vývojář.
+           Dřív začínala větou „Zachyceno v paměti React rozhraní" a hned
+           pod ní byl technický výpis a červené tlačítko „Vyčistit
+           mezipaměť" — návod k panice u něčeho, co skoro vždycky spraví
+           jedno klepnutí. Napřed je proto jediná srozumitelná akce,
+           technické podrobnosti se rozbalí, jen když je někdo chce. */
+        <div style={{ padding: 24, fontFamily: 'system-ui, sans-serif', color: '#1c1917', background: '#fffbeb', minHeight: '100vh' }}>
+          <h1 style={{ color: '#1c1917', fontSize: 22, fontWeight: 800, margin: 0 }}>Obrazovku se nepodařilo zobrazit</h1>
+          <p style={{ fontSize: 15, color: '#44403c', margin: '8px 0 20px 0', maxWidth: 460, lineHeight: 1.5 }}>
+            Data jsou v pořádku, nic se neztratilo. Zkuste to prosím znovu — většinou to stačí.
+          </p>
+          <button
+            style={{ padding: '14px 22px', minHeight: 48, background: '#047857', color: '#fff', border: 'none', borderRadius: 10, fontWeight: 800, fontSize: 15, cursor: 'pointer' }}
+            onClick={() => this.setState({ error: null })}
+          >
+            Zkusit znovu
+          </button>
+
+          <details style={{ marginTop: 28, maxWidth: 720 }}>
+            <summary style={{ cursor: 'pointer', fontSize: 13, fontWeight: 700, color: '#78716c' }}>
+              Když to nepomůže — podrobnosti a úplné načtení
+            </summary>
+            <div style={{ marginTop: 12 }}>
+              <button
+                style={{ padding: '10px 18px', minHeight: 44, background: '#b45309', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, cursor: 'pointer' }}
+                onClick={() => { void forceRefresh(); }}
+              >
+                <RefreshCw className="ikona-text" /> Načíst aplikaci úplně znovu
+              </button>
+              <pre style={{ fontFamily: 'monospace', fontSize: 12, padding: 12, marginTop: 12, background: '#fff', border: '1px solid #e7e5e4', borderRadius: 8, overflowX: 'auto', whiteSpace: 'pre-wrap' }}>
+                {String(this.state.error?.stack || this.state.error)}
+              </pre>
+            </div>
+          </details>
         </div>
       );
     }
@@ -137,7 +155,6 @@ startVersionCheck();
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('message', (event) => {
     if (event.data?.type === 'SW_ACTIVATED' || event.data?.type === 'NEW_VERSION_AVAILABLE') {
-      console.log('Service worker hlásí novou verzi — kontroluji dostupnou verzi');
       void checkVersion();
     }
   });

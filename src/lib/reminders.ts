@@ -1,4 +1,6 @@
 import { supabase } from './supabase';
+import { isNotificationSupported, playOrderChime } from './notifications';
+import { uloz } from './uloziste';
 
 export type ReminderDisplayMode = 'desktop_push' | 'login_modal' | 'both';
 
@@ -31,7 +33,7 @@ export function getLocalReminders(): ReminderItem[] {
 
 export function saveLocalReminders(reminders: ReminderItem[]): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(reminders));
+    uloz(STORAGE_KEY, JSON.stringify(reminders));
   } catch {}
 }
 
