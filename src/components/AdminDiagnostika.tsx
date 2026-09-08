@@ -154,7 +154,7 @@ function ChybyBlok() {
               <button
                 type="button"
                 onClick={() => { void vyridStarsi(); }}
-                className="mt-2 px-3 py-2 rounded bg-amber-700 hover:bg-amber-600 text-white font-black text-xs min-h-[44px] tap"
+                className="btn-secondary !rounded mt-2 text-xs min-h-[44px]"
               >
                 <Check className="ikona-text" /> Odklepnout všechny ze starších verzí
               </button>
