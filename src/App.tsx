@@ -46,6 +46,9 @@ import { SetPasswordModal } from './components/SetPasswordModal';
 const BottlingTasksSettings = lazy(() => import('./components/BottlingTasksSettings').then((m) => ({ default: m.BottlingTasksSettings })));
 import { Spinner } from './components/ui';
 import { scheduleNightlyCheck } from './lib/zavozDeduction';
+import { nactiVPredstihu } from './lib/predstih';
+import { hlidejPlynulost } from './lib/plynulost';
+import { varovani, uspech } from './lib/toast';
 
 const DEFAULT_PAGE: Page = 'home';
 
@@ -77,6 +80,29 @@ export default function App() {
       window.history.replaceState({ page: 'orders' }, '', '/');
     }
   }, []);
+
+  // 🏃 Přednačtení obrazovek, na které se stejně klikne, a 📉 měření
+  // plynulosti na tomhle konkrétním telefonu.
+  //
+  // Obojí až po přihlášení: bez něj se stejně nic neotevře, a měřit start
+  // přihlašovací obrazovky nemá smysl. Obojí je jen zrychlení/nabídka —
+  // když se to nepovede, appka se chová přesně jako dřív.
+  useEffect(() => {
+    if (!session) return;
+    let zruseno = false;
+    void nactiVPredstihu();
+    void hlidejPlynulost((text, zapnout) => {
+      if (zruseno) return;
+      varovani(text, {
+        trvani: 20000,
+        akce: {
+          label: 'Vypnout efekty',
+          onClick: () => { zapnout(); uspech('Efekty vypnuté. Zpátky je zapneš v Nastavení → Plynulost.'); },
+        },
+      });
+    });
+    return () => { zruseno = true; };
+  }, [session]);
 
   // Automatický odpočet závozu ze skladu (spuštěn po přihlášení, každý den v 01:00)
   useEffect(() => {
