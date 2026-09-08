@@ -6,6 +6,7 @@ import ToastHost from './components/ToastHost';
 import './index.css';
 import { AuthProvider } from './lib/auth';
 import { initDensity } from './lib/density';
+import { initEfekty } from './lib/efekty';
 import { initTheme } from './lib/theme';
 import { reportAppVersion } from './lib/appVersionTracker';
 import { checkVersion, forceRefresh, startVersionCheck } from './lib/versionCheck';
@@ -16,6 +17,9 @@ import { zalogujANahlas } from './lib/chybyHlaseni';
 
 
 initDensity();
+// Méně efektů (rozostření a blikání) — nastavuje se dřív, než se cokoli
+// vykreslí, jinak by se sklo na okamžik ukázalo a zase zmizelo.
+initEfekty();
 
 // Neodchycené chyby a promisy se zapisují do tabulky app_errors (viz
 // lib/chybyHlaseni.ts). Dřív o nich nevěděl nikdo — rozbitá obrazovka se

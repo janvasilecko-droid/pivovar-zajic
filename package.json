@@ -19,6 +19,7 @@
     "zkontroluj-popisky": "node scripts/zkontroluj-popisky.mjs",
     "snimky": "node scripts/snimky.mjs",
     "e2e": "node scripts/e2e.mjs",
+    "vykon": "node scripts/vykon.mjs",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "test:ui": "vitest --ui",

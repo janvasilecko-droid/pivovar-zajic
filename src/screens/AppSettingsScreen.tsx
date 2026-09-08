@@ -1,7 +1,8 @@
 import { useState, useEffect, type FormEvent } from 'react';
-import { AlertCircle, AlertTriangle, Beer as BeerIcon, Bell, BellOff, BookOpen, Brush, CloudDownload, Download, Eraser, Eye, Factory, FolderOpen, CheckCircle2, Lightbulb, Lock, MessageSquare, Monitor, Moon, Palette, Plus, RefreshCw, Settings, Smartphone, Sparkles, Sun, Timer, Trash2, Users, Vibrate, Volume2, VolumeX } from 'lucide-react';
+import { AlertCircle, AlertTriangle, Beer as BeerIcon, Bell, BellOff, BookOpen, Brush, CloudDownload, Download, Eraser, Eye, Factory, FolderOpen, CheckCircle2, Lightbulb, Lock, MessageSquare, Monitor, Moon, Palette, Plus, RefreshCw, Settings, Smartphone, Sparkles, Sun, Timer, Trash2, Users, Vibrate, Volume2, VolumeX, Zap } from 'lucide-react';
 
 import { DENSITY_OPTIONS, DensityMode, getDensity, setDensity } from '../lib/density';
+import { mensiEfekty, nastavEfekty } from '../lib/efekty';
 import { clearQueue } from '../lib/offline';
 import { haptikaZapnuta, nastavHaptiku, zavibruj } from '../lib/haptika';
 import { MenuCustomizeModal } from '../components/MenuCustomizeModal';
@@ -28,6 +29,7 @@ interface BeforeInstallPromptEvent extends Event {
 export default function AppSettingsScreen() {
   const { profile, user, reloadProfile } = useAuth();
   const [density, setDensityState] = useState<DensityMode>(getDensity());
+  const [meneEfektu, setMeneEfektu] = useState<boolean>(mensiEfekty());
   const [haptika, setHaptika] = useState(haptikaZapnuta());
   const [theme, setThemeState] = useState<Theme>(getTheme());
   const [notifPermission, setNotifPermission] = useState(getNotificationPermission());
@@ -335,6 +337,30 @@ export default function AppSettingsScreen() {
             </button>
           ))}
         </div>
+      </div>
+
+      {/* ⚡ Méně efektů — plynulost na starším telefonu */}
+      <div className="card p-6">
+        <h2 className="font-display font-bold text-lg flex items-center gap-2"><Zap size={18} /> Plynulost</h2>
+        <p className="text-sm text-neutral-600 mt-2">
+          Když se aplikace na telefonu seká, vypni tímhle skleněné rozostření
+          a blikání upozornění. Je to nejdražší věc, kterou aplikace kreslí —
+          rozostření se počítá znovu při každém pohybu, a to zvlášť pro každou
+          dlaždici na ploše i pro horní a spodní lištu na všech obrazovkách.
+        </p>
+        <p className="text-sm text-neutral-600 mt-2">
+          Upozornění nezmizí: místo blikání dostanou stálý barevný rámeček.
+          Nastavuje se na každém telefonu zvlášť a nic to neposílá do databáze.
+        </p>
+        <button
+          type="button"
+          onClick={() => { const n = !meneEfektu; nastavEfekty(n); setMeneEfektu(n); }}
+          aria-pressed={meneEfektu}
+          className={`mt-4 ${meneEfektu ? 'btn-primary' : 'btn-ghost'}`}
+        >
+          <Zap size={16} />
+          {meneEfektu ? 'Méně efektů je ZAPNUTÉ' : 'Zapnout méně efektů'}
+        </button>
       </div>
 
       {/* Odezva do prstu */}

@@ -384,6 +384,38 @@ html, body { overscroll-behavior-y: contain; }
   @keyframes toastIn { from { opacity: 0; transform: translateY(8px) scale(0.98); } to { opacity: 1; transform: none; } }
   @keyframes sheetUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
   @keyframes sheetFade { from { opacity: 0; } to { opacity: 1; } }
+  /* ⚡ MÉNĚ EFEKTŮ — přepínač v Nastavení (viz lib/efekty.ts).
+     Vypíná to, co na telefonu stojí nejvíc výkonu:
+
+     1) ROZOSTŘENÍ PODKLADU. Prohlížeč kvůli němu musí kus okna pod prvkem
+        ofotit, rozostřit a složit zpátky — pro každý takový prvek zvlášť,
+        při každém překreslení. Plocha jich má jeden na každé dlaždici
+        a skleněná hlavička se spodní lištou jsou na VŠECH obrazovkách.
+     2) NEKONEČNÉ ANIMACE, které animují barvu pozadí nebo `filter`. Ty se
+        nedají složit na grafické kartě, takže se prvek překresluje pořád
+        dokola, i když se na obrazovce nic neděje.
+
+     Upozornění tím ale nesmí zmizet z očí: místo blikání dostanou stálý
+     barevný rámeček. Upozornění, které není vidět, je horší než sekání. */
+  html.mene-efektu *,
+  html.mene-efektu *::before,
+  html.mene-efektu *::after {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+  html.mene-efektu .animate-pulse,
+  html.mene-efektu .hs-tile-alert,
+  html.mene-efektu .hs-tile-whatsapp,
+  html.mene-efektu .hs-edge-puls,
+  html.mene-efektu [class*="animate-ping"] {
+    animation: none !important;
+  }
+  /* Náhrada za blikání: stálý prstenec, který nic nepřekresluje. */
+  html.mene-efektu .hs-tile-alert,
+  html.mene-efektu .hs-tile-whatsapp {
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.9), 0 0 0 5px currentColor !important;
+  }
+
   /* Kdo má v systému vypnuté animace, ať je nemá ani tady. */
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {

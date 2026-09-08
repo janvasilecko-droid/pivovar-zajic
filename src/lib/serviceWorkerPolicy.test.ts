@@ -55,7 +55,6 @@ describe('service worker update policy', () => {
     it('otisk se pozná u kusů aplikace, ne u version.json a spol.', () => {
       const zdroj = source.match(/const JE_OTISK = (\/.+\/);/)?.[1];
       expect(zdroj).toBeTruthy();
-      // eslint-disable-next-line no-eval
       const re: RegExp = eval(zdroj!);
       for (const a of [
         '/assets/index-D4AU_CB0.js',
