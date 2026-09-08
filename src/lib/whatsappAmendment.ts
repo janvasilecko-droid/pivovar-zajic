@@ -357,3 +357,41 @@ export function potvrzeneBezPolozek(opts: {
   }
   return potvrzeno.filter((s) => !skupinyVObjednavce.has(s));
 }
+
+/**
+ * Říká zpráva, že je to PŘÍDAVEK k něčemu, co už je objednané?
+ *
+ * Skutečný případ (6. 9. 2026): fotka papíru
+ *
+ *     SKLAD
+ *     + 1x 30l LIMO VIŠEŇ
+ *       1x 30l LIMO KIWI
+ *
+ * s popiskem „Pro Radka jeste plus toto". Znamená to „tohle navíc k tomu, co
+ * už pro Radka jede". Aplikace z toho ale založila SAMOSTATNOU objednávku,
+ * protože doplněk pozná jen tehdy, když je zpráva odpovědí s citací
+ * (`amends_order_id`, viz `findQuotedMessage`) — a tohle je nová zpráva
+ * s fotkou, žádná odpověď.
+ *
+ * Rozpoznat to jistě z textu nejde: „plus" může být i součást normální
+ * objednávky. Proto tahle funkce nic NEROZHODUJE — jen řekne, že to tak
+ * vypadá, a obsluze se ukáže upozornění, ať se podívá, jestli objednávka pro
+ * toho člověka už neexistuje. Rozhodnutí zůstává na člověku; tichá záměna
+ * „přidat" za „založit novou" je přesně to, co dělá v objednávkách nepořádek.
+ *
+ * Hledá se jen v ÚVODU zprávy (první dva řádky / prvních 60 znaků): „plus"
+ * uprostřed výčtu položek je součást objednávky, ne pokyn.
+ */
+export function vypadaJakoPridavek(text: string | null | undefined): boolean {
+  const uvod = (text ?? '')
+    .split('\n').slice(0, 2).join(' ')
+    .slice(0, 60)
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+  if (!uvod.trim()) return false;
+  // „jeste plus toto", „plus jeste", „navic", „k tomu jeste", „pridej"
+  return /\b(jeste\s+plus|plus\s+jeste|jeste\s+k\s+tomu|k\s+tomu\s+jeste|navic|pridej|pridat)\b/.test(uvod)
+    || /^\s*(a\s+)?plus\b/.test(uvod)
+    || /\bplus\s+(toto|tohle|tohleto)\b/.test(uvod);
+}

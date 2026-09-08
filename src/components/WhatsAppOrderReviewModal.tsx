@@ -4,7 +4,7 @@ import { WhatsAppIncoming, ignoreWhatsAppMessage, updateWhatsAppParsedData } fro
 import { parseWhatsAppOrderMessageWithAI } from '../lib/whatsappParser';
 import { loadAliasMap, saveAlias, canLearnBeerAlias, matchBeerFromHints, matchPackage, matchPlaceFromText, savePlaceAlias, normalize, type ParserAliasMap } from '../lib/orderParser';
 import {
-  diffOrderItems, rozsahOdpovedi, slozNavrh, potvrzeneBezPolozek,
+  diffOrderItems, rozsahOdpovedi, slozNavrh, potvrzeneBezPolozek, vypadaJakoPridavek,
   type DiffRow, type RozsahOdpovedi, type SkupinaObalu,
 } from '../lib/whatsappAmendment';
 import { PlaceCombobox } from './PlaceCombobox';
@@ -383,7 +383,13 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
       tone: i.status === 'matched' ? ('ok' as const) : ('warn' as const),
     }))
   );
-  const transcriptSegments = message.parsed_raw_text
+  // Diff přepisu proti originálu dává smysl jen u TEXTOVÉ zprávy. U fotky
+  // není originál `message_text` (to je popisek u fotky, „Pro Radka jeste
+  // plus toto"), ale sám papír — takže se diffem porovnával přepis papíru
+  // s popiskem a celý přepis vycházel červeně jako „AI přidala". Přepis
+  // fotky se proto ukazuje jako obyčejný text; co na papíře stojí, se
+  // ověřuje pohledem na fotku vedle.
+  const transcriptSegments = !isImage && message.parsed_raw_text
     ? diffWords(message.message_text || '', message.parsed_raw_text)
     : [];
 
@@ -623,8 +629,33 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
     }
   };
 
+  // „Pro Radka jeste plus toto" — zpráva říká, že je to PŘÍDAVEK k něčemu,
+  // co už je objednané. Jistě to z textu poznat nejde (a tichá záměna
+  // „přidat" za „založit novou" by dělala v objednávkách nepořádek), takže
+  // se jen upozorní a rozhodne člověk. Ukazuje se jen tehdy, když zpráva
+  // není odpověď s citací — u té už appka ví, ke které objednávce patří.
+  const vypadaJakoDoplnek = !msg?.amends_order_id && vypadaJakoPridavek(message.message_text);
+
   const body = (
       <div className="space-y-6">
+        {vypadaJakoDoplnek && (
+          <div className="border-2 border-amber-300 rounded bg-amber-50 p-4">
+            <div className="flex items-start gap-2">
+              <AlertCircle size={18} className="text-amber-700 shrink-0 mt-0.5" />
+              <div>
+                <div className="font-display font-black text-amber-950 text-sm">
+                  Vypadá to na PŘÍDAVEK k už existující objednávce
+                </div>
+                <div className="text-xs font-bold text-amber-900 mt-1">
+                  Zpráva začíná slovy „{(message.message_text || '').slice(0, 40)}…". Schválením se
+                  ale založí NOVÁ objednávka. Zkontroluj, jestli pro toho odběratele už objednávka
+                  na ten den není — pak je správně doplnit ji, ne zakládat druhou.
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ↩️ Odpověď, která upravuje dřívější objednávku. Ukáže se PŮVODNÍ
             objednávka se zvýrazněnými změnami, ať je vidět, co se potvrzuje —
             schválení objednávku upraví, nezaloží novou. */}
@@ -932,7 +963,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
 
             <div>
               <div className="text-xs font-medium text-neutral-500 mb-1 flex items-center gap-1">
-                <FileText size={12} /> Přepis AI (diff proti originálu)
+                <FileText size={12} /> {isImage ? 'Přepis fotky od AI' : 'Přepis AI (diff proti originálu)'}
               </div>
               <div className="border rounded p-3 bg-white font-mono text-sm whitespace-pre-wrap max-h-80 overflow-y-auto">
                 {transcriptSegments.length > 0 ? (
@@ -958,15 +989,20 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                 )}
               </div>
               <div className="text-udaj text-neutral-400 mt-1">
-                zeleně = čteno z originálu · červeně = AI přidala (není v originálu) · přeškrtnuto = AI přehlédla
+                {isImage
+                  ? 'Co AI přečetla z fotky. Porovnej to s fotkou nahoře — text u fotky („popisek") objednávku neobsahuje, takže se s ním nic neporovnává.'
+                  : 'zeleně = čteno z originálu · červeně = AI přidala (není v originálu) · přeškrtnuto = AI přehlédla'}
               </div>
             </div>
           </div>
 
-          {/* Legenda zvýraznění originálu */}
-          <div className="text-xs text-neutral-500 mt-2">
-            Zeleně = přesná shoda s originálem, jantarově = částečná shoda (překlepy/pořadí slov). Číslo = položka níže.
-          </div>
+          {/* Legenda zvýraznění originálu — u fotky se v originálu nic
+              nezvýrazňuje, protože originál je papír, ne popisek. */}
+          {!isImage && (
+            <div className="text-xs text-neutral-500 mt-2">
+              Zeleně = přesná shoda s originálem, jantarově = částečná shoda (překlepy/pořadí slov). Číslo = položka níže.
+            </div>
+          )}
 
           {/* Srovnání s předchozím čtením po „přečti znovu" (#15) */}
           {prevRawText && message.parsed_raw_text && prevRawText !== message.parsed_raw_text && (
@@ -1095,7 +1131,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                                 <div className="text-xs mt-1 flex items-start gap-1">
                                   <AlertCircle size={12} className="text-rose-600 mt-0.5 shrink-0" />
                                   <span className="text-rose-700">
-                                    AI četla: „{item.rawLine}" — <b>v originální zprávě se nenašlo</b>, zkontrolujte přečtení!
+                                    AI četla: „{item.rawLine}" — <b>{isImage ? 'nesedí s přepisem fotky' : 'v originální zprávě se nenašlo'}</b>, zkontrolujte přečtení!
                                   </span>
                                 </div>
                               );

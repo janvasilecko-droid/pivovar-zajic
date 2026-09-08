@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { findQuotedMessage, findAmendedOrderId, diffOrderItems, maZmeny, rozsahOdpovedi, skupinaObalu, slozNavrh, potvrzeneBezPolozek, type WhatsAppMsgRef } from './whatsappAmendment';
+import { findQuotedMessage, findAmendedOrderId, diffOrderItems, maZmeny, rozsahOdpovedi, skupinaObalu, slozNavrh, potvrzeneBezPolozek, type WhatsAppMsgRef, vypadaJakoPridavek } from './whatsappAmendment';
 
 const m = (id: string, created_at: string, message_text: string, extra: Partial<WhatsAppMsgRef> = {}): WhatsAppMsgRef =>
   ({ id, created_at, message_text, ...extra });
@@ -241,5 +241,34 @@ describe('rozsahOdpovedi / slozNavrh — odpověď mluví o části objednávky'
     expect(navrh).toEqual(expect.arrayContaining([
       { beer_id: 'summer', package_id: 'keg50', quantity: 1 },
     ]));
+  });
+});
+
+describe('vypadaJakoPridavek', () => {
+  // Skutečný případ z provozu: fotka papíru („SKLAD + 1x 30l LIMO VIŠEŇ")
+  // s popiskem „Pro Radka jeste plus toto". Znamená to „navíc k tomu, co už
+  // pro Radka jede" — appka z toho ale založila samostatnou objednávku,
+  // protože doplněk pozná jen u odpovědi s citací.
+  it('pozná „ještě plus toto" v popisku u fotky', () => {
+    expect(vypadaJakoPridavek('Pro Radka jeste plus toto')).toBe(true);
+  });
+
+  it('pozná další obvyklé formulace', () => {
+    expect(vypadaJakoPridavek('Ještě k tomu 2x30 desítka')).toBe(true);
+    expect(vypadaJakoPridavek('Plus 3x10 11sv')).toBe(true);
+    expect(vypadaJakoPridavek('Navíc jedna petka')).toBe(true);
+  });
+
+  it('běžnou objednávku za doplněk nepovažuje', () => {
+    expect(vypadaJakoPridavek('U Dubu čtvrtek 2x50l 12° a 1x30l 11°')).toBe(false);
+    expect(vypadaJakoPridavek('')).toBe(false);
+    expect(vypadaJakoPridavek(null)).toBe(false);
+  });
+
+  it('„plus" uprostřed výčtu položek není pokyn', () => {
+    // Hledá se jen v úvodu zprávy — jinak by každá objednávka, kde někdo
+    // napíše „a plus jedna petka" na pátém řádku, hlásila doplněk.
+    const dlouha = 'U Dubu na čtvrtek\n2x50l 12°\n1x30l 11°\n3x petky\na plus jedna desítka';
+    expect(vypadaJakoPridavek(dlouha)).toBe(false);
   });
 });

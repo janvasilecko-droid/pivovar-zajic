@@ -334,9 +334,51 @@ export interface ReadbackAnalysis {
 }
 
 /** Analyzuje zprávu: pro každou rozparsovanou položku najde, kde v originálu AI četla. */
+/**
+ * Proti čemu se má čtení kontrolovat.
+ *
+ * U TEXTOVÉ zprávy je originál její text — porovnání dává smysl a chytá,
+ * když si AI přidala něco, co ve zprávě nestojí.
+ *
+ * U FOTKY ale `message_text` není objednávka, nýbrž popisek u fotky:
+ * „Pro Radka jeste plus toto". Objednávka je na papíře. Porovnávat přečtené
+ * položky s popiskem tedy nemá smysl — a přesně to appka dělala, takže
+ * u KAŽDÉ objednávky z fotky svítilo u každé položky červené „v originální
+ * zprávě se nenašlo". Varování, které je vždycky, se přestane číst.
+ *
+ * Správný originál pro fotku je PŘEPIS FOTKY (`parsed_raw_text`). Porovnání
+ * proti němu pořád něco hlídá: že se položka, kterou AI vyplnila, shoduje
+ * s tím, co si sama přečetla — tedy že „1x 30l" nevyplnila jako 2 kusy nebo
+ * 50 litrů. Když přepis chybí (starší zprávy), nekontroluje se nic; falešný
+ * poplach je horší než žádná kontrola.
+ */
+export function readbackSourceText(message: WhatsAppIncoming): string | null {
+  const jeFotka = (message.message_type || '').includes('image');
+  if (!jeFotka) return message.message_text || '';
+  return message.parsed_raw_text?.trim() ? message.parsed_raw_text : null;
+}
+
 export function analyzeReadback(message: WhatsAppIncoming): ReadbackAnalysis {
-  const text = message.message_text || '';
+  const zdroj = readbackSourceText(message);
   const parsedItems = message.parsed_items || [];
+
+  // Fotka bez přepisu — není s čím porovnávat. Položky se označí jako
+  // `empty`, což UI nechá bez varování (a nezapočítá se do skóre).
+  if (zdroj === null) {
+    return {
+      items: parsedItems.map((_, index) => ({
+        index, match: null, fuzzy: null, status: 'empty' as const, score: 0, parts: [], partsScore: null,
+      })),
+      unmatchedCount: 0,
+      partialCount: 0,
+      matchedCount: 0,
+      mismatchCount: 0,
+      score: null,
+      scoreLabel: null,
+    };
+  }
+
+  const text = zdroj;
 
   const items: ReadbackItem[] = parsedItems.map((item, index) => {
     const rawLine = (item.raw_line || '').trim();
