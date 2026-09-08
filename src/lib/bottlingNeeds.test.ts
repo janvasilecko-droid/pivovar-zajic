@@ -147,4 +147,43 @@ describe('computeBottlingNeeds', () => {
     const row = rows.find((r) => r.package_id === 'p-bottle');
     expect(row!.stock).toBe(70); // 100 − 30
   });
+
+  it('nejnaléhavější řádek (nejvíc chybí stočit) je první — dřív bylo pořadí jen podle číselníku piv', () => {
+    const BEER2 = { id: 'b2', name: 'Tmavý speciál 13°' };
+    const rows = computeBottlingNeeds(
+      makeInput({
+        beers: [BEER, BEER2],
+        orders: [
+          { id: 'o1', order_date: todayStr, delivery_date: todayStr, status: 'nova' },
+          { id: 'o2', order_date: todayStr, delivery_date: todayStr, status: 'nova' },
+        ],
+        orderItems: [
+          // b1 (první v číselníku): chybí jen málo
+          { order_id: 'o1', beer_id: 'b1', package_id: 'p-bottle', quantity: 20 },
+          // b2 (druhý v číselníku): chybí hodně — musí být v přehledu NAHOŘE
+          { order_id: 'o2', beer_id: 'b2', package_id: 'p-bottle', quantity: 200 },
+        ],
+        inventoryRows: [
+          { entry_date: todayStr, beer_id: 'b1', package_id: 'p-bottle', quantity: 15, note: 'Počáteční' },
+        ],
+      })
+    );
+    expect(rows[0].beer_id).toBe('b2');
+    expect(rows[0].missing).toBeGreaterThan(rows[1].missing);
+  });
+
+  it('bez chybějícího stočení vyhrává řádek s nejmenší rezervou — ten je blíž k tomu, aby chybět začal', () => {
+    const BEER2 = { id: 'b2', name: 'Tmavý speciál 13°' };
+    const rows = computeBottlingNeeds(
+      makeInput({
+        beers: [BEER, BEER2],
+        inventoryRows: [
+          { entry_date: todayStr, beer_id: 'b1', package_id: 'p-bottle', quantity: 500, note: 'Počáteční' },
+          { entry_date: todayStr, beer_id: 'b2', package_id: 'p-bottle', quantity: 10, note: 'Počáteční' },
+        ],
+      })
+    );
+    expect(rows.every((r) => r.missing === 0)).toBe(true);
+    expect(rows[0].beer_id).toBe('b2');
+  });
 });

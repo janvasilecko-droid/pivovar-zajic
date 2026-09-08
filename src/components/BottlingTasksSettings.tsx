@@ -340,17 +340,33 @@ export function BottlingTasksSettings() {
     }
 
     // ----- Mobilní kartičkové zobrazení (< md) -----
+    //
+    // Dřív šest čísel ve zkratkách (Obj., Fas., Plán, Sklad, Chybí, Kon.týd.)
+    // ve 3×2 mřížce — a „chybí stočit" s „konec týdne" navíc říkaly totéž
+    // (konec týdne je záporné přesně o to, co chybí stočit). Teď je nahoře
+    // JEDNO hlavní číslo psané slovy a zbytek je jedna tenká řádka pod ním.
+    // Pořadí kartiček řeší computeBottlingNeeds (nejnaléhavější nahoře).
     const mobileCards = (
-      <div className="md:hidden space-y-3">
+      <div className="md:hidden space-y-2.5">
         {list.map((r) => {
           const beer = beers.find((b) => b.id === r.beer_id);
+          const hlavni = r.missing > 0
+            ? { text: `Chybí stočit ${fmt(r.missing)} ks`, barva: 'text-rose-800' }
+            : r.afterOutgoing > 0
+              ? { text: `Sklad stačí, navíc ${fmt(r.afterOutgoing)} ks`, barva: 'text-emerald-800' }
+              : { text: 'Sklad vyjde přesně', barva: 'text-neutral-700' };
+          const vedlejsi = [
+            r.ordered > 0 && `objednáno ${fmt(r.ordered)}`,
+            `sklad ${fmt(r.stock)}`,
+            r.fasovani > 0 && `fasování odhad ${fmt(r.fasovani)}`,
+            r.planned > 0 && `naplánováno ${fmt(r.planned)}`,
+          ].filter(Boolean).join(' · ');
           return (
             <div
               key={`m-${r.beer_id}-${r.package_id}`}
-              className={`rounded-xl border bg-white shadow-xs overflow-hidden ${r.missing > 0 ? 'border-rose-300' : 'border-neutral-200'}`}
+              className={`rounded-xl border bg-white shadow-xs p-3.5 ${r.missing > 0 ? 'border-rose-300' : 'border-neutral-200'}`}
             >
-              {/* Hlavička kartičky — pivo + obal */}
-              <div className="flex items-center gap-2.5 px-3.5 pt-3 pb-2">
+              <div className="flex items-center gap-2.5">
                 <span className="w-3 h-8 rounded-full shrink-0" style={{ backgroundColor: beer ? beerBg(beer) : '#a8a29e' }} />
                 <div className="min-w-0 flex-1">
                   <div className="text-sm font-black text-neutral-950 truncate">{r.beer_name}</div>
@@ -360,70 +376,24 @@ export function BottlingTasksSettings() {
                   type="button"
                   onClick={() => openStocit(r)}
                   title={r.missing > 0 ? 'Stočit chybějící množství' : 'Stočit (pokrytí objednávek)'}
-                  className="px-3 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-neutral-950 text-xs font-black transition shadow-sm shrink-0"
+                  className="px-3.5 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-neutral-950 text-xs font-black transition shadow-sm shrink-0 min-h-[44px] tap"
                 >
                   <IkonaLahev className="ikona-text" /> Stočit
                 </button>
               </div>
-
-              {/* Datová mřížka 2×3 */}
-              <div className="grid grid-cols-3 gap-px bg-neutral-100 border-t border-neutral-200">
-                <div className="bg-white px-2.5 py-2">
-                  <div className="text-udaj font-bold uppercase tracking-wider text-neutral-400 leading-tight"><ShoppingCart size={12} className="inline -mt-0.5 mr-0.5" />Obj.</div>
-                  <div className="text-sm font-black text-neutral-800 mt-0.5">{fmt(r.ordered)}</div>
-                </div>
-                <div className="bg-white px-2.5 py-2">
-                  <div className="text-udaj font-bold uppercase tracking-wider text-neutral-400 leading-tight"><PackageIcon size={12} className="inline -mt-0.5 mr-0.5" />Fas.</div>
-                  <div className="text-sm font-black text-neutral-800 mt-0.5">{fmt(r.fasovani)}</div>
-                </div>
-                <div className="bg-white px-2.5 py-2">
-                  <div className="text-udaj font-bold uppercase tracking-wider text-amber-600 leading-tight"><ClipboardList size={12} className="inline -mt-0.5 mr-0.5" />Plán</div>
-                  <div className="text-sm font-black text-amber-800 mt-0.5">{fmt(r.planned)}</div>
-                </div>
-                <div className="bg-white px-2.5 py-2">
-                  <div className="text-udaj font-bold uppercase tracking-wider text-emerald-600 leading-tight">{isKeg ? 'Sklad' : 'Sklad'}</div>
-                  <div className="text-sm font-black text-emerald-800 mt-0.5">{fmt(r.stock)}</div>
-                </div>
-                <div className={`px-2.5 py-2 ${r.missing > 0 ? 'bg-rose-50' : 'bg-white'}`}>
-                  <div className={`text-udaj font-bold uppercase tracking-wider leading-tight ${r.missing > 0 ? 'text-rose-600' : 'text-neutral-400'}`}><AlertTriangle size={12} className="inline -mt-0.5 mr-0.5" />Chybí</div>
-                  <div className={`text-sm font-black mt-0.5 ${r.missing > 0 ? 'text-rose-800' : 'text-neutral-500'}`}>{r.missing > 0 ? fmt(r.missing) : '0'}</div>
-                </div>
-                <div className={`px-2.5 py-2 ${r.afterOutgoing < 0 ? 'bg-rose-50' : 'bg-white'}`}>
-                  <div className={`text-udaj font-bold uppercase tracking-wider leading-tight ${r.afterOutgoing < 0 ? 'text-rose-600' : 'text-neutral-400'}`}><Calendar size={12} className="inline -mt-0.5 mr-0.5" />Kon.týd.</div>
-                  <div className={`text-sm font-black mt-0.5 ${r.afterOutgoing < 0 ? 'text-rose-800' : 'text-neutral-800'}`}>{fmt(r.afterOutgoing)}</div>
-                </div>
-              </div>
+              <div className={`text-base font-black mt-2.5 ${hlavni.barva}`}>{hlavni.text}</div>
+              <div className="text-xs font-semibold text-neutral-500 mt-0.5">{vedlejsi}</div>
             </div>
           );
         })}
-        {/* Mobilní souhrn */}
+        {/* Mobilní souhrn — celý týden za všechna piva dohromady */}
         <div className="rounded-xl border-2 border-amber-400 bg-amber-50 px-3.5 py-3">
-          <div className="text-xs font-black text-amber-950 uppercase tracking-wider mb-2">Celkem</div>
-          <div className="grid grid-cols-3 gap-2">
-            <div>
-              <div className="text-udaj font-bold text-amber-700 uppercase">Obj.</div>
-              <div className="text-base font-black text-amber-950">{fmt(t.ordered)}</div>
-            </div>
-            <div>
-              <div className="text-udaj font-bold text-amber-700 uppercase">Fas.</div>
-              <div className="text-base font-black text-amber-950">{fmt(t.fasovani)}</div>
-            </div>
-            <div>
-              <div className="text-udaj font-bold text-amber-700 uppercase">Plán</div>
-              <div className="text-base font-black text-amber-950">{fmt(t.planned)}</div>
-            </div>
-            <div>
-              <div className="text-udaj font-bold text-emerald-700 uppercase">Sklad</div>
-              <div className="text-base font-black text-emerald-900">{fmt(t.stock)}</div>
-            </div>
-            <div>
-              <div className={`text-udaj font-bold uppercase ${t.missing > 0 ? 'text-rose-700' : 'text-amber-700'}`}>Chybí</div>
-              <div className={`text-base font-black ${t.missing > 0 ? 'text-rose-800' : 'text-amber-950'}`}>{fmt(t.missing)}</div>
-            </div>
-            <div>
-              <div className={`text-udaj font-bold uppercase ${t.afterOutgoing < 0 ? 'text-rose-700' : 'text-amber-700'}`}>Kon.týd.</div>
-              <div className={`text-base font-black ${t.afterOutgoing < 0 ? 'text-rose-800' : 'text-amber-950'}`}>{fmt(t.afterOutgoing)}</div>
-            </div>
+          <div className="text-xs font-black text-amber-950 uppercase tracking-wider mb-2">Celkem za týden</div>
+          <div className={`text-base font-black ${t.missing > 0 ? 'text-rose-800' : 'text-emerald-800'}`}>
+            {t.missing > 0 ? `Chybí stočit ${fmt(t.missing)} ks` : `Sklad stačí, navíc ${fmt(t.afterOutgoing)} ks`}
+          </div>
+          <div className="text-xs font-semibold text-amber-800 mt-0.5">
+            objednáno {fmt(t.ordered)} · sklad {fmt(t.stock)} · fasování odhad {fmt(t.fasovani)} · naplánováno {fmt(t.planned)}
           </div>
         </div>
       </div>

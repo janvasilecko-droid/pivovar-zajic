@@ -204,5 +204,10 @@ export function computeBottlingNeeds(input: BottlingNeedsInput): NeedsRow[] {
       });
     });
   });
+  // Dřív se řádky vracely v pořadí piv a obalů v číselníku — takže pivo,
+  // kterému akutně chybí stočit, mohlo sedět úplně dole pod deseti řádky
+  // v pořádku. Teď je nahoře to nejnaléhavější: nejdřív podle toho, kolik
+  // chybí stočit, pak podle toho, jak moc je sklad na konci týdne v mínusu.
+  list.sort((a, b) => b.missing - a.missing || a.afterOutgoing - b.afterOutgoing);
   return list;
 }
