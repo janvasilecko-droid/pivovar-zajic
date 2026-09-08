@@ -31,6 +31,7 @@ import { consumeBottlingFixRequest } from '../lib/stockFixSignal';
 import { klicVyberu, nactiNaposled, zapamatujVyber, serazPodleNaposled } from '../lib/naposledyPouzite';
 import { usePosledniNacteni, prvniChyba } from '../lib/nacitani';
 import type { RadekPohybu, RadekZavozu } from '../lib/stockLedger';
+import { soucetUlozenehoDnes } from '../lib/jizUlozeno';
 
 // Stahuje se až při otevření — viz komentář u lazy() v Orders.tsx.
 const ImportBottlingFromImage = lazy(() => import('../components/ImportBottlingFromImage').then((m) => ({ default: m.ImportBottlingFromImage })));
@@ -1059,19 +1060,27 @@ export default function BottlingScreen({
               onSelect={(b) => { setNaposledPiva(zapamatujVyber(klicPiv, b.id)); openTile(b); }}
               summaryFor={(b) => {
                 const row = entryRows.find((r) => r.beerId === b.id);
-                if (!row) return { filled: false, label: '' };
-                const parts: string[] = [];
-                const addPart = (pkgId: string, qtyStr: string) => {
-                  const n = Number(qtyStr);
-                  if (!pkgId || !(n > 0)) return;
-                  const pkg = packages.find((p) => p.id === pkgId);
-                  if (pkg) parts.push(`${n}×${Math.round(Number(pkg.volume_l) * 100) / 100}`);
-                };
-                addPart(row.pkgId, row.qty);
-                addPart(row.pkg2Id, row.qty2);
-                addPart(row.pkg3Id, row.qty3);
-                addPart(row.kegPkgId, row.kegQty);
-                return { filled: parts.length > 0, label: parts.join(', ') };
+                if (row) {
+                  const parts: string[] = [];
+                  const addPart = (pkgId: string, qtyStr: string) => {
+                    const n = Number(qtyStr);
+                    if (!pkgId || !(n > 0)) return;
+                    const pkg = packages.find((p) => p.id === pkgId);
+                    if (pkg) parts.push(`${n}×${Math.round(Number(pkg.volume_l) * 100) / 100}`);
+                  };
+                  addPart(row.pkgId, row.qty);
+                  addPart(row.pkg2Id, row.qty2);
+                  addPart(row.pkg3Id, row.qty3);
+                  addPart(row.kegPkgId, row.kegQty);
+                  if (parts.length > 0) return { filled: true, label: parts.join(', ') };
+                }
+                // Nic se zrovna nezadává — ukázat, co už je za tenhle den u
+                // piva uložené (lahve se plní na víc dávek, viz jizUlozeno.ts).
+                const jizPacky = bottlePackages
+                  .map((p) => ({ p, qty: soucetUlozenehoDnes(rows, date, b.id, p.id) }))
+                  .filter((x) => x.qty > 0);
+                if (jizPacky.length === 0) return { filled: false, label: '' };
+                return { filled: true, label: `dnes ${jizPacky.map((x) => `${x.qty}×${Math.round(Number(x.p.volume_l) * 100) / 100}`).join(', ')}` };
               }}
             />
           </div>
@@ -1102,18 +1111,30 @@ export default function BottlingScreen({
                     const pkgId = tileDraft[slot.pkg];
                     const qtyStr = tileDraft[slot.qty];
                     const quickQtys = stackingQuickQtys(bottlePackages.find((p) => p.id === pkgId));
+                    // Kolik je pro tenhle obal a vybraný den už uloženo v databázi
+                    // — lahve se plní na víc dávek přes den stejně jako KEG sudy
+                    // (viz lib/jizUlozeno.ts), a bez tohohle čísla nešlo poznat,
+                    // jestli druhá dávka opravdu přidává k první.
+                    const jizUlozeno = pkgId && tileBeer ? soucetUlozenehoDnes(rows, date, tileBeer.id, pkgId) : 0;
                     return (
                       <div key={slot.key} className="flex items-center justify-between gap-2 rounded border border-neutral-200 dark:border-neutral-700 py-1.5 px-2 flex-wrap">
-                        <select
-                          className="input text-xs font-bold w-28 p-1.5 rounded border border-amber-300 bg-white"
-                          value={pkgId}
-                          onChange={(e) => setTile(slot.pkg, e.target.value)}
-                        >
-                          <option value="">— obal {slot.key} —</option>
-                          {bottlePackages.map((p) => (
-                            <option key={p.id} value={p.id}>{p.label || `${p.volume_l}L`}</option>
-                          ))}
-                        </select>
+                        <div className="flex flex-col gap-1 w-28 shrink-0">
+                          <select
+                            className="input text-xs font-bold w-28 p-1.5 rounded border border-amber-300 bg-white"
+                            value={pkgId}
+                            onChange={(e) => setTile(slot.pkg, e.target.value)}
+                          >
+                            <option value="">— obal {slot.key} —</option>
+                            {bottlePackages.map((p) => (
+                              <option key={p.id} value={p.id}>{p.label || `${p.volume_l}L`}</option>
+                            ))}
+                          </select>
+                          {jizUlozeno > 0 && (
+                            <span className="px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 text-udaj font-black whitespace-nowrap self-start">
+                              už uloženo {jizUlozeno} ks
+                            </span>
+                          )}
+                        </div>
                         <div className="flex items-center gap-1">
                           {quickQtys.map((q) => (
                             <button

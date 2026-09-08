@@ -453,11 +453,17 @@ export function BottlingTasksSettings() {
               <th scope="col" className="text-right font-black px-2 py-1.5"><IkonaLahev className="ikona-text" /> Stočit</th>
             </tr>
           </thead>
+            {/* Zebra pruh se řídí PIVEM, ne pořadím řádku — víc obalů téhož
+                piva pod sebou tak vizuálně tvoří jednu skupinu, stejně jako
+                seskupené kartičky na mobilu (viz mobileCards výš a
+                lib/bottlingNeeds.ts → seskupPodlePiva). Tlačítko „Stočit"
+                taky otevírá celé pivo najednou, ne jen tenhle jeden obal. */}
           <tbody>
             {list.map((r, i) => {
               const beer = beers.find((b) => b.id === r.beer_id);
+              const skupinaIndex = skupinyPodlePiva.findIndex((s) => s.beerId === r.beer_id);
               return (
-                <tr key={`${r.beer_id}-${r.package_id}`} className={`border-t ${i % 2 === 0 ? 'bg-white' : 'bg-neutral-50'}`}>
+                <tr key={`${r.beer_id}-${r.package_id}`} className={`border-t ${skupinaIndex % 2 === 0 ? 'bg-white' : 'bg-neutral-50'}`}>
                   <td className="px-2 py-1.5">
                     <span className="inline-flex items-center gap-1.5 font-bold text-neutral-900">
                       <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: beer ? beerBg(beer) : '#a8a29e' }} />
@@ -478,8 +484,8 @@ export function BottlingTasksSettings() {
                   <td className="px-2 py-1.5 text-right whitespace-nowrap">
                     <button
                       type="button"
-                      onClick={() => openStocit(r)}
-                      title={r.missing > 0 ? 'Stočit chybějící množství' : 'Stočit (pokrytí objednávek)'}
+                      onClick={() => openStocitGroup(list.filter((x) => x.beer_id === r.beer_id))}
+                      title="Stočit — doplní všechny obaly tohoto piva najednou"
                       className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 text-udaj font-black transition shadow-xs tap"
                     >
                       <IkonaLahev className="ikona-text" /> Stočit
