@@ -20,7 +20,7 @@ import {
   type ReadbackMatch,
   type ReadbackStatus,
 } from '../lib/whatsappReadback';
-import { AlertCircle, AlertTriangle, ArrowDown, Check, CheckCircle2, ChevronDown, Download, ExternalLink, Eye, FileText, Image as ImageIcon, MessageSquare, RefreshCw, ShieldAlert, ShieldCheck, ShoppingCart, Plus, UserCheck, X } from 'lucide-react';
+import { AlertCircle, AlertTriangle, ArrowDown, Check, CheckCircle2, ChevronDown, Download, ExternalLink, Eye, FilePlus, FileText, Image as ImageIcon, MessageSquare, Plus, RefreshCw, ShieldAlert, ShieldCheck, ShoppingCart, UserCheck, X } from 'lucide-react';
 import { potvrd } from '../lib/toast';
 import { uloz } from '../lib/uloziste';
 
@@ -451,7 +451,11 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
     </div>
   );
 
-  const handleApprove = async () => {
+  const handleApprove = async (asNew = false) => {
+    // asNew = schválit jako NOVOU objednávku i u zprávy, která upravuje jinou
+    // (odpověď „…budou…, petky sedí"). Použije se, když se původní objednávka
+    // pořádně nenačte (petky v ní nejsou) — pak je lepší založit novou, než
+    // slepovat s neúplnou předlohou. Obsluha do ní chybějící petky doplní.
     // Blokace/varování při nesouladu čtení (⚠/≈) — u fotoobjednávek je toto
     // porovnání (popisek zprávy vs. přepis fotky) nesmysluplné, tam kontrolu
     // řeší tlačítko "Zkontrolovat fotku a potvrdit" (photoChecked) níže.
@@ -487,6 +491,9 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
       // (správné pivo/obal z katalogu, upravené množství, opravený odběratel).
       const editedMessage: WhatsAppIncoming = {
         ...message,
+        // Když se schvaluje jako nová, zahodíme vazbu na upravovanou objednávku
+        // → import založí normální novou objednávku z přečtených položek.
+        amends_order_id: asNew ? null : message.amends_order_id,
         parsed_place_id: placeId || message.parsed_place_id,
         parsed_place_name: placeName || message.parsed_place_name,
         parsed_items: items.map((it) => ({
@@ -512,7 +519,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
       }).catch(() => {});
 
       await props.onApprove(editedMessage);
-      setStatusMessage('Objednávka byla schválena a importována!');
+      setStatusMessage(asNew ? 'Vytvořena nová objednávka!' : 'Objednávka byla schválena a importována!');
 
       // Po krátké době zavřít modal a přejít na další čekající zprávu
       setTimeout(() => {
@@ -700,10 +707,23 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                   <AlertTriangle size={15} className="shrink-0 mt-0.5" />
                   <span>
                     Odběratel píše, že {amendPotvrzenoPrazdne.map((s) => NAZVY_SKUPIN[s].toLowerCase()).join(' a ')} sedí,
-                    ale v načtené objednávce k nim není jediná položka — zkontroluj původní objednávku (třeba se z PDF nevytáhly) a případně je doplň ručně.
+                    ale v načtené objednávce k nim není jediná položka — zkontroluj původní objednávku (třeba se z PDF nevytáhly), doplň je ručně, nebo rovnou založ novou objednávku níže.
                   </span>
                 </div>
               )}
+
+              {/* 🆕 Když se původní objednávka pořádně nenačte (petky v ní
+                  nejsou), je lepší z odpovědi rovnou založit NOVOU objednávku,
+                  než ji slepovat s neúplnou předlohou. Obsluha do ní chybějící
+                  položky doplní. Vazba na původní objednávku se zahodí. */}
+              <button
+                type="button"
+                onClick={() => handleApprove(true)}
+                disabled={approving}
+                className="btn-ghost !rounded mt-2 w-full !bg-white border-violet-300 text-violet-800 font-black text-xs shadow-xs disabled:opacity-50"
+              >
+                <FilePlus size={15} /> Místo úpravy vytvořit NOVOU objednávku z odpovědi
+              </button>
             </div>
 
             {/* 👀 Obě zprávy k porovnání: původní objednávka a odpověď na ni.
@@ -1277,7 +1297,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
             </div>
 
             <button
-              onClick={handleApprove}
+              onClick={() => handleApprove(false)}
               disabled={approving || loading || !isParsed || items.length === 0 || hasUnmatchedItems || (isImage ? (!!message.media_url && !photoChecked) : prisnyBlokuje)}
               className="px-6 py-2.5 bg-emerald-700 text-white rounded hover:bg-emerald-800 disabled:opacity-50 flex items-center gap-2 font-medium"
               title={
