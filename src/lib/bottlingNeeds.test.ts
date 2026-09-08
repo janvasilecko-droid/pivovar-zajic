@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeBottlingNeeds, BottlingNeedsInput } from './bottlingNeeds';
+import { computeBottlingNeeds, BottlingNeedsInput, seskupPodlePiva, NeedsRow } from './bottlingNeeds';
 import { isoWeekKey } from '../components/WeeklyOrderSummaryCard';
 
 const todayStr = '2026-08-10';
@@ -185,5 +185,42 @@ describe('computeBottlingNeeds', () => {
     );
     expect(rows.every((r) => r.missing === 0)).toBe(true);
     expect(rows[0].beer_id).toBe('b2');
+  });
+});
+
+describe('seskupPodlePiva', () => {
+  const radek = (beer_id: string, beer_name: string, package_id: string, missing = 0): NeedsRow => ({
+    beer_id, beer_name, package_id, package_label: package_id, volume_l: 0.5,
+    ordered: 0, stock: 0, planned: 0, fasovani: 0, afterBottling: 0, missing, afterOutgoing: -missing,
+  });
+
+  it('sloučí víc obalů téhož piva do jedné skupiny', () => {
+    // Přesně naměřený případ 8. 9. 2026: 12° Světlá ve třech velikostech
+    // lahví byly tři samostatné řádky, teď jedna karta se třemi obaly.
+    const skupiny = seskupPodlePiva([
+      radek('b1', '12° Světlá', 'p-1l', 45),
+      radek('b1', '12° Světlá', 'p-05l', 40),
+      radek('b2', 'Jantar', 'p-1l', 28),
+      radek('b1', '12° Světlá', 'p-15l', 30),
+    ]);
+    expect(skupiny).toHaveLength(2);
+    expect(skupiny[0].beerId).toBe('b1');
+    expect(skupiny[0].radky.map((r) => r.package_id)).toEqual(['p-1l', 'p-05l', 'p-15l']);
+    expect(skupiny[1].radky).toHaveLength(1);
+  });
+
+  it('zachová pořadí podle naléhavosti — první výskyt piva rozhoduje o pořadí karet', () => {
+    // Vstup už přichází seřazený od computeBottlingNeeds (nejvíc chybí
+    // nahoře); seskupení tohle pořadí nesmí rozhodit.
+    const skupiny = seskupPodlePiva([
+      radek('b1', 'Naléhavé', 'p1', 100),
+      radek('b2', 'V pořádku', 'p1', 0),
+      radek('b1', 'Naléhavé', 'p2', 5),
+    ]);
+    expect(skupiny.map((s) => s.beerId)).toEqual(['b1', 'b2']);
+  });
+
+  it('prázdný seznam dá prázdné skupiny', () => {
+    expect(seskupPodlePiva([])).toEqual([]);
   });
 });

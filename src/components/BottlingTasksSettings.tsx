@@ -11,7 +11,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase, useRealtime, Beer, Package, beerBg, fetchAllRows } from '../lib/supabase';
 import { isoWeekKey, weekRange, shiftWeek } from './WeeklyOrderSummaryCard';
-import { computeBottlingNeeds, NeedsRow } from '../lib/bottlingNeeds';
+import { computeBottlingNeeds, NeedsRow, seskupPodlePiva } from '../lib/bottlingNeeds';
 import {
   BottlingPlan,
   BottlingPlanInput,
@@ -213,23 +213,49 @@ export function BottlingTasksSettings() {
 
   // ---- Tlačítko „🍾 Stočit“ — otevře menu s velikostmi obalů + KEG ----
   function openStocit(row: NeedsRow) {
+    openStocitGroup([row]);
+  }
+
+  /**
+   * Otevře menu „Stočit" za celé pivo naráz, ne jen za jeden obal.
+   *
+   * Kartička v přehledu je teď seskupená po pivu (viz mobileCards) — jedno
+   * pivo se přece stáčí v jednom kole a plní se do víc velikostí najednou,
+   * takže nemá smysl nutit uživatele otevírat menu čtyřikrát. Formulář má
+   * místo na 3 velikosti lahví, doplní se v pořadí, jak moc které chybí
+   * (řádky sem chodí už seřazené — viz computeBottlingNeeds).
+   */
+  function openStocitGroup(rows: NeedsRow[]) {
+    if (rows.length === 0) return;
     setEditPlan(null);
     setErr(null);
-    const isKeg = isKegPkg(row.package_id);
-    const suggested = row.missing > 0 ? row.missing : row.ordered;
-    setForm({
-      plannedDate: todayStr,
-      beerId: row.beer_id,
-      kegPkgId: isKeg ? row.package_id : '',
-      kegQty: isKeg ? (suggested > 0 ? String(suggested) : '') : '',
-      pkgId: isKeg ? '' : row.package_id,
-      qty: isKeg ? '' : (suggested > 0 ? String(suggested) : ''),
-      pkg2Id: '',
-      qty2: '',
-      pkg3Id: '',
-      qty3: '',
-      note: '',
-    });
+    const isKeg = isKegPkg(rows[0].package_id);
+    const suggest = (r: NeedsRow) => (r.missing > 0 ? r.missing : r.ordered);
+
+    if (isKeg) {
+      // KEG formulář má jen jedno pole — doplní se ten nejnaléhavější.
+      const row = rows[0];
+      const suggested = suggest(row);
+      setForm({
+        plannedDate: todayStr,
+        beerId: row.beer_id,
+        kegPkgId: row.package_id,
+        kegQty: suggested > 0 ? String(suggested) : '',
+        pkgId: '', qty: '', pkg2Id: '', qty2: '', pkg3Id: '', qty3: '',
+        note: '',
+      });
+    } else {
+      const [r1, r2, r3] = rows;
+      setForm({
+        plannedDate: todayStr,
+        beerId: rows[0].beer_id,
+        kegPkgId: '', kegQty: '',
+        pkgId: r1?.package_id ?? '', qty: r1 && suggest(r1) > 0 ? String(suggest(r1)) : '',
+        pkg2Id: r2?.package_id ?? '', qty2: r2 && suggest(r2) > 0 ? String(suggest(r2)) : '',
+        pkg3Id: r3?.package_id ?? '', qty3: r3 && suggest(r3) > 0 ? String(suggest(r3)) : '',
+        note: '',
+      });
+    }
     setModalOpen(true);
   }
 
@@ -341,48 +367,59 @@ export function BottlingTasksSettings() {
 
     // ----- Mobilní kartičkové zobrazení (< md) -----
     //
-    // Dřív šest čísel ve zkratkách (Obj., Fas., Plán, Sklad, Chybí, Kon.týd.)
-    // ve 3×2 mřížce — a „chybí stočit" s „konec týdne" navíc říkaly totéž
-    // (konec týdne je záporné přesně o to, co chybí stočit). Teď je nahoře
-    // JEDNO hlavní číslo psané slovy a zbytek je jedna tenká řádka pod ním.
-    // Pořadí kartiček řeší computeBottlingNeeds (nejnaléhavější nahoře).
+    // Dřív jeden řádek = jedno pivo × jeden obal, takže u šesti piv se
+    // čtyřmi velikostmi lahví bylo v seznamu 13–20 kartiček — reálně
+    // naměřeno 8. 9. 2026 na produkčních datech. Pivo se přitom stáčí
+    // v jednom kole do víc velikostí najednou (formulář „Stočit" na to má
+    // místo), takže kartičky teď seskupujeme PO PIVU: jedna kartička, pod
+    // ní řádek za každý obal. List je od computeBottlingNeeds seřazený
+    // podle naléhavosti, takže i pořadí obalů uvnitř skupiny i pořadí
+    // skupin zůstává „nejhorší nahoře" — jen se seskupí podle prvního
+    // výskytu piva.
+    const skupinyPodlePiva = seskupPodlePiva(list);
+
     const mobileCards = (
       <div className="md:hidden space-y-2.5">
-        {list.map((r) => {
-          const beer = beers.find((b) => b.id === r.beer_id);
-          const hlavni = r.missing > 0
-            ? { text: `Chybí stočit ${fmt(r.missing)} ks`, barva: 'text-rose-800' }
-            : r.afterOutgoing > 0
-              ? { text: `Sklad stačí, navíc ${fmt(r.afterOutgoing)} ks`, barva: 'text-emerald-800' }
-              : { text: 'Sklad vyjde přesně', barva: 'text-neutral-700' };
-          const vedlejsi = [
-            r.ordered > 0 && `objednáno ${fmt(r.ordered)}`,
-            `sklad ${fmt(r.stock)}`,
-            r.fasovani > 0 && `fasování odhad ${fmt(r.fasovani)}`,
-            r.planned > 0 && `naplánováno ${fmt(r.planned)}`,
-          ].filter(Boolean).join(' · ');
+        {skupinyPodlePiva.map((s) => {
+          const beer = beers.find((b) => b.id === s.beerId);
           return (
             <div
-              key={`m-${r.beer_id}-${r.package_id}`}
-              className={`rounded-xl border bg-white shadow-xs p-3.5 ${r.missing > 0 ? 'border-rose-300' : 'border-neutral-200'}`}
+              key={`m-${s.beerId}`}
+              className={`rounded-xl border bg-white shadow-xs p-3.5 ${s.radky.some((r) => r.missing > 0) ? 'border-rose-300' : 'border-neutral-200'}`}
             >
               <div className="flex items-center gap-2.5">
                 <span className="w-3 h-8 rounded-full shrink-0" style={{ backgroundColor: beer ? beerBg(beer) : '#a8a29e' }} />
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm font-black text-neutral-950 truncate">{r.beer_name}</div>
-                  <div className="text-xs font-semibold text-neutral-500 mt-0.5">{r.package_label}{isKeg ? '' : ` (${r.volume_l} L)`}</div>
-                </div>
+                <div className="min-w-0 flex-1 text-sm font-black text-neutral-950 truncate">{s.beerName}</div>
                 <button
                   type="button"
-                  onClick={() => openStocit(r)}
-                  title={r.missing > 0 ? 'Stočit chybějící množství' : 'Stočit (pokrytí objednávek)'}
+                  onClick={() => openStocitGroup(s.radky)}
+                  title={isKeg ? 'Stočit KEG sud' : 'Stočit — doplní se až 3 velikosti lahví najednou'}
                   className="px-3.5 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-neutral-950 text-xs font-black transition shadow-sm shrink-0 min-h-[44px] tap"
                 >
                   <IkonaLahev className="ikona-text" /> Stočit
                 </button>
               </div>
-              <div className={`text-base font-black mt-2.5 ${hlavni.barva}`}>{hlavni.text}</div>
-              <div className="text-xs font-semibold text-neutral-500 mt-0.5">{vedlejsi}</div>
+              <div className="mt-2 space-y-1.5">
+                {s.radky.map((r) => {
+                  const hlavni = r.missing > 0
+                    ? { text: `${r.package_label} — chybí ${fmt(r.missing)} ks`, barva: 'text-rose-800' }
+                    : r.afterOutgoing > 0
+                      ? { text: `${r.package_label} — sklad stačí, navíc ${fmt(r.afterOutgoing)} ks`, barva: 'text-emerald-800' }
+                      : { text: `${r.package_label} — sklad vyjde přesně`, barva: 'text-neutral-700' };
+                  const vedlejsi = [
+                    r.ordered > 0 && `objednáno ${fmt(r.ordered)}`,
+                    `sklad ${fmt(r.stock)}`,
+                    r.fasovani > 0 && `fasování odhad ${fmt(r.fasovani)}`,
+                    r.planned > 0 && `naplánováno ${fmt(r.planned)}`,
+                  ].filter(Boolean).join(' · ');
+                  return (
+                    <div key={`m-${r.beer_id}-${r.package_id}`} className="border-t border-neutral-100 pt-1.5 first:border-t-0 first:pt-0">
+                      <div className={`text-sm font-black ${hlavni.barva}`}>{hlavni.text}</div>
+                      <div className="text-xs font-semibold text-neutral-500">{vedlejsi}</div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           );
         })}

@@ -211,3 +211,28 @@ export function computeBottlingNeeds(input: BottlingNeedsInput): NeedsRow[] {
   list.sort((a, b) => b.missing - a.missing || a.afterOutgoing - b.afterOutgoing);
   return list;
 }
+
+export type SkupinaPodlePiva = { beerId: string; beerName: string; radky: NeedsRow[] };
+
+/**
+ * Seskupí řádky potřeby podle piva — pro seznam v kartičkách.
+ *
+ * Naměřeno 8. 9. 2026 na produkčních datech: 6 piv × až 4 velikosti lahví
+ * dávalo 13 samostatných řádků, KEG sudy podobně 19. Pivo se ale stáčí
+ * v jednom kole do víc velikostí najednou (formulář „Stočit" má místo na
+ * 3 velikosti lahví + KEG), takže samostatný řádek na obal jen násobil
+ * počet kartiček beze smyslu navíc — po seskupení šlo 13 řádků na 6 karet
+ * a 19 na 8.
+ *
+ * `list` musí přijít už seřazený podle naléhavosti (viz computeBottlingNeeds
+ * výše) — seskupení pořadí zachovává, takže nejhorší pivo zůstává nahoře.
+ */
+export function seskupPodlePiva(list: NeedsRow[]): SkupinaPodlePiva[] {
+  const skupiny: SkupinaPodlePiva[] = [];
+  for (const r of list) {
+    let s = skupiny.find((x) => x.beerId === r.beer_id);
+    if (!s) { s = { beerId: r.beer_id, beerName: r.beer_name, radky: [] }; skupiny.push(s); }
+    s.radky.push(r);
+  }
+  return skupiny;
+}
