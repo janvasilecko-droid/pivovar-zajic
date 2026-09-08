@@ -29,11 +29,20 @@ Potřebuješ `.env` s přístupy k Supabase (vzor je v `.env.example`).
 
 ## Nasazení
 
+**Od `.github/workflows/deploy.yml` se nasazuje samo.** Push do `main`
+spustí testy (vitest, tsc, kontroly níže, lint, E2E) a při úspěchu appku
+sám sestaví, zvýší jí verzi (`bump-version-ci.mjs` — commitne se zpátky
+jako `chore: bump version [skip ci]`) a nasadí na Cloudflare Pages i jako
+APK. Stačí tedy commit a push; nic dalšího ručně dělat netřeba a **ruční
+zvyšování verze před pushem už jen vytváří zbytečný merge konflikt** s tím,
+co si CI zvýší samo (stalo se 8. 9. 2026).
+
 ⚠️ **`npm run deploy` NENÍ jednorázové nasazení.** Spouští `watch-deploy.mjs`,
 což je trvale běžící hlídač souborů — nasadí až při dalším uložení souboru a
 sám od sebe hned neudělá nic. Kdo ho spustí a čeká, čeká marně.
 
-Ruční nasazení má čtyři kroky a **první z nich se nesmí vynechat**:
+Ruční nasazení (jen když CI neběží nebo je potřeba nasadit mimo `main`) má
+čtyři kroky a **první z nich se nesmí vynechat**:
 
 ```bash
 # 1. Zvýšit verzi v src/lib/version.ts A ZÁROVEŇ v public/version.json
