@@ -8,7 +8,8 @@
   "package_label": "KEG 50l",
   "quantity": 1,
   "created_at": "2026-08-04T17:00:56.895+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "015659dd-e27c-4be5-8ac1-1623ba8f3eb8",
@@ -19,7 +20,8 @@
   "package_label": "30l",
   "quantity": 5,
   "created_at": "2026-08-25T19:13:23.788071+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "01650c6e-6cd9-412b-887d-16d186218cc4",
@@ -30,7 +32,8 @@
   "package_label": "0.5l",
   "quantity": 9,
   "created_at": "2026-08-16T20:07:38.650016+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "01b35a76-779d-4949-abe6-f5e10e6ddb90",
@@ -41,7 +44,8 @@
   "package_label": "KEG 30l",
   "quantity": 10,
   "created_at": "2026-08-04T16:50:39.756263+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "0284fb9e-cf97-4e6e-9ae1-e6ae212636b9",
@@ -52,7 +56,8 @@
   "package_label": "KEG 50l",
   "quantity": 10,
   "created_at": "2026-08-04T16:24:00.139046+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "0321923a-0465-4f1e-9e98-7e9703e73b3c",
@@ -63,7 +68,8 @@
   "package_label": "30l",
   "quantity": 1,
   "created_at": "2026-09-02T18:33:52.692819+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "0437cd25-899a-4903-816c-f6a9b6a7001f",
@@ -74,7 +80,8 @@
   "package_label": "1l",
   "quantity": 6,
   "created_at": "2026-08-09T10:58:50.704143+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "04aae831-55ca-48f1-b83d-45a445ef7f96",
@@ -85,7 +92,8 @@
   "package_label": " 15l",
   "quantity": 1,
   "created_at": "2026-08-10T09:03:31.779802+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "0525db42-ea01-46c1-b26e-3d9fda414b4b",
@@ -96,7 +104,8 @@
   "package_label": "30l",
   "quantity": 2,
   "created_at": "2026-08-09T10:58:56.248704+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "055825db-f5ab-480c-bf2a-c09280e7a86c",
@@ -107,7 +116,8 @@
   "package_label": " 50l",
   "quantity": 5,
   "created_at": "2026-08-10T09:04:24.152148+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "05f0d0e6-9020-4bb4-ace4-0a2d2463148e",
@@ -118,7 +128,8 @@
   "package_label": "50l",
   "quantity": 2,
   "created_at": "2026-08-16T20:07:52.845679+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "0739f8e4-544f-402e-a406-20d755952302",
@@ -129,7 +140,8 @@
   "package_label": "Lahve 1l",
   "quantity": 12,
   "created_at": "2026-08-04T16:36:06.777031+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "073a37c9-3add-4c7f-8d0f-a700fd171563",
@@ -140,7 +152,8 @@
   "package_label": "Lahve 1l",
   "quantity": 20,
   "created_at": "2026-08-04T15:27:31.71652+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "080610c3-f3d5-4239-8abc-46586d06a7fa",
@@ -151,7 +164,8 @@
   "package_label": "30l",
   "quantity": 2,
   "created_at": "2026-08-09T10:58:52.024694+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "08e9bc7a-295a-4abf-a2dc-e8c28a780430",
@@ -162,7 +176,8 @@
   "package_label": "Lahve 1l",
   "quantity": 12,
   "created_at": "2026-08-04T16:36:06.777031+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "099642a5-0984-4b67-b562-a4140e247b23",
@@ -173,7 +188,8 @@
   "package_label": "30l",
   "quantity": 14,
   "created_at": "2026-08-11T19:09:51.115574+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "09b573b7-73ff-4307-9535-7ee3b18838d2",
@@ -184,7 +200,8 @@
   "package_label": "Lahve 1.5l",
   "quantity": 6,
   "created_at": "2026-08-04T16:36:06.928996+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "0a0088ff-e137-4537-bbbf-acfa83285717",
@@ -195,7 +212,8 @@
   "package_label": "1l",
   "quantity": 10,
   "created_at": "2026-08-18T13:13:00.331597+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "0a0c8db5-5fdc-4b22-b5f1-7074a025eff2",
@@ -206,7 +224,8 @@
   "package_label": "30l",
   "quantity": 8,
   "created_at": "2026-08-18T06:44:22.390295+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "0a7b5b36-0ca5-4ff7-ac47-47c88e6f21d1",
@@ -217,7 +236,8 @@
   "package_label": "Lahve 1l",
   "quantity": 5,
   "created_at": "2026-08-04T17:00:56.584129+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "0c63f4bc-33b2-493c-8b90-2eff53e4b4ca",
@@ -228,7 +248,8 @@
   "package_label": "0.5l",
   "quantity": 40,
   "created_at": "2026-08-10T09:03:31.779802+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "0c7a47e4-6d35-4b36-b699-d5a1339e9e2c",
@@ -239,7 +260,8 @@
   "package_label": "KEG 50l",
   "quantity": 2,
   "created_at": "2026-08-04T16:56:56.07092+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "0c9de3b7-b843-454d-97e6-c69d9991b349",
@@ -250,7 +272,8 @@
   "package_label": "20l",
   "quantity": 3,
   "created_at": "2026-08-25T07:12:45.898367+00:00",
-  "is_prepared": true
+  "is_prepared": true,
+  "is_bottled": false
  },
  {
   "id": "0e316940-a577-484e-8270-4903f9e5ad3c",
@@ -261,7 +284,8 @@
   "package_label": "KEG 30l",
   "quantity": 4,
   "created_at": "2026-08-04T16:27:18.409872+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "0ece3598-40e5-47cb-91ac-9924514be566",
@@ -272,7 +296,20 @@
   "package_label": "30l",
   "quantity": 2,
   "created_at": "2026-08-09T10:58:51.77711+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
+ },
+ {
+  "id": "0ed3f1d7-b1f3-47e4-a12b-315828ff0920",
+  "order_id": "97d4e598-d255-48e2-b0a8-addedc512851",
+  "beer_id": "b3b544fa-9c0c-4c30-8089-ee4961405a81",
+  "beer_name": "Citron",
+  "package_id": "16adfff0-50c0-482e-9338-1eb4632cfc14",
+  "package_label": "30l",
+  "quantity": 2,
+  "created_at": "2026-09-08T06:53:01.218164+00:00",
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "0fb884ef-533a-4e4e-8216-8d2c5ceed9a0",
@@ -283,7 +320,8 @@
   "package_label": "30l",
   "quantity": 16,
   "created_at": "2026-09-06T08:11:36.690708+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "0fffc853-2440-4c50-8b73-223bb226e455",
@@ -294,7 +332,8 @@
   "package_label": "KEG 20l",
   "quantity": 3,
   "created_at": "2026-08-04T17:17:09.018546+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "10fea2eb-16a8-4baf-93ee-8fec7a199ad5",
@@ -305,7 +344,8 @@
   "package_label": " 15l",
   "quantity": 1,
   "created_at": "2026-08-09T10:58:55.823584+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "113bc50c-dafd-43ea-8853-d90e5c5ba3e0",
@@ -316,7 +356,8 @@
   "package_label": "KEG 50l",
   "quantity": 3,
   "created_at": "2026-08-04T16:28:33.425013+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "114dd50a-ffd4-499c-8a84-1c689e923b68",
@@ -327,7 +368,20 @@
   "package_label": "1l",
   "quantity": 10,
   "created_at": "2026-09-02T18:12:46.900634+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
+ },
+ {
+  "id": "124551bf-340a-4221-a83b-28d85244abba",
+  "order_id": "86ff01e7-cd3d-4369-a712-76a5cd68a359",
+  "beer_id": "8823be77-b372-4636-a43c-70b8d1400fd7",
+  "beer_name": "Jantar",
+  "package_id": "7fe0ce80-8310-4d38-98ce-cff8261e59a3",
+  "package_label": "1.5l",
+  "quantity": 12,
+  "created_at": "2026-09-07T07:39:42.82582+00:00",
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "12dd6192-0e7b-4773-af3b-4bb8d0a23a08",
@@ -338,7 +392,8 @@
   "package_label": "1l",
   "quantity": 5,
   "created_at": "2026-08-11T19:06:27.384461+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "1304f350-60f2-4114-9c5a-82bbd49e9d36",
@@ -349,7 +404,8 @@
   "package_label": "30l",
   "quantity": 1,
   "created_at": "2026-08-25T19:14:21.919503+00:00",
-  "is_prepared": true
+  "is_prepared": true,
+  "is_bottled": false
  },
  {
   "id": "1388ead7-bcb2-4b98-b099-f319483ea44a",
@@ -360,7 +416,8 @@
   "package_label": "30l",
   "quantity": 5,
   "created_at": "2026-08-18T13:13:00.331597+00:00",
-  "is_prepared": true
+  "is_prepared": true,
+  "is_bottled": false
  },
  {
   "id": "145b662a-f3a3-4dc4-8973-de6d165c69ca",
@@ -371,7 +428,8 @@
   "package_label": "Lahve 1.5l",
   "quantity": 6,
   "created_at": "2026-08-04T16:28:33.632281+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "14a21390-504f-4dd5-bd29-9797ed449430",
@@ -382,7 +440,8 @@
   "package_label": "30l",
   "quantity": 3,
   "created_at": "2026-08-09T10:58:56.057396+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "14b99168-ed17-4c43-a640-a8b189f33293",
@@ -393,7 +452,8 @@
   "package_label": "KEG 50l",
   "quantity": 3,
   "created_at": "2026-08-04T17:21:18.134369+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "1599c30b-4e5d-4b83-b9e1-e00c4e3d8f23",
@@ -404,7 +464,8 @@
   "package_label": "KEG 30l",
   "quantity": 2,
   "created_at": "2026-08-04T16:44:48.118816+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "15eb6e1e-98ad-4e69-ba96-c05c176eac36",
@@ -415,7 +476,8 @@
   "package_label": "KEG 50l",
   "quantity": 1,
   "created_at": "2026-08-04T16:40:10.448194+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "165303d5-757e-4f7a-8f60-e692d9b47b51",
@@ -426,7 +488,8 @@
   "package_label": "1l",
   "quantity": 10,
   "created_at": "2026-08-10T09:03:31.779802+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "16a2d3c5-125a-44e4-8c51-b964d3c0d14c",
@@ -437,7 +500,8 @@
   "package_label": "1l",
   "quantity": 6,
   "created_at": "2026-09-06T08:14:26.028263+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "16c5f7f7-fe87-42e7-a8fd-a1213d58a646",
@@ -448,7 +512,8 @@
   "package_label": " 50l",
   "quantity": 4,
   "created_at": "2026-08-09T10:58:55.370467+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "16e22cf1-4095-46e0-b782-0bf8613f1bfd",
@@ -459,7 +524,8 @@
   "package_label": "KEG 50l",
   "quantity": 5,
   "created_at": "2026-08-04T16:47:18.270485+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "17b64181-9835-4733-a822-2ae1c3e8eb7c",
@@ -470,7 +536,8 @@
   "package_label": "0.33l",
   "quantity": 100,
   "created_at": "2026-08-22T11:53:23.078539+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "18b2560a-1f51-4b2c-b589-901a31eb4ace",
@@ -481,7 +548,8 @@
   "package_label": "KEG 30l",
   "quantity": 3,
   "created_at": "2026-08-04T16:51:31.780754+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "18d3458d-73bd-4e36-a84f-fdd9b1778823",
@@ -492,7 +560,8 @@
   "package_label": " 15l",
   "quantity": 2,
   "created_at": "2026-08-18T12:17:40.484471+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "18ed101e-638b-48f3-a59b-9849df073cbf",
@@ -503,7 +572,8 @@
   "package_label": " 15l",
   "quantity": 1,
   "created_at": "2026-09-02T18:12:46.900634+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "196af7b9-0cb7-4ce5-a8bf-f70b7f5ea11e",
@@ -514,7 +584,8 @@
   "package_label": "Lahve 1l",
   "quantity": 12,
   "created_at": "2026-08-04T16:36:06.777031+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "19d970b7-7c38-48bd-b3ff-43aa9a276612",
@@ -525,7 +596,8 @@
   "package_label": "30l",
   "quantity": 2,
   "created_at": "2026-09-06T20:37:55.481104+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "1a9e2ccb-fdae-482a-a1dd-eeb66110aca4",
@@ -536,7 +608,20 @@
   "package_label": "KEG 30l",
   "quantity": 3,
   "created_at": "2026-08-04T16:28:33.886949+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
+ },
+ {
+  "id": "1af80d38-5c66-4cc3-bea2-67f8ee2ea27b",
+  "order_id": "86ff01e7-cd3d-4369-a712-76a5cd68a359",
+  "beer_id": "68c92abd-93b6-4241-b3ad-984c303716f8",
+  "beer_name": "12° Světlá",
+  "package_id": "7fe0ce80-8310-4d38-98ce-cff8261e59a3",
+  "package_label": "1.5l",
+  "quantity": 12,
+  "created_at": "2026-09-07T07:39:42.82582+00:00",
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "1b20995b-7a94-4437-acdb-bc5a359ab74c",
@@ -547,7 +632,8 @@
   "package_label": "KEG 30l",
   "quantity": 3,
   "created_at": "2026-08-04T16:40:10.641565+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "1b7bed4b-7bfb-4b50-9594-5179169453ee",
@@ -558,7 +644,8 @@
   "package_label": "KEG 50l",
   "quantity": 3,
   "created_at": "2026-08-04T17:17:08.526234+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "1b88b9fb-e96a-43e7-8a4b-741e8ec60687",
@@ -569,7 +656,8 @@
   "package_label": "Lahve 1.5l",
   "quantity": 24,
   "created_at": "2026-08-04T16:37:36.649741+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "1bd36aed-b470-4d69-b381-4edc45d41f29",
@@ -580,7 +668,8 @@
   "package_label": "Lahve 1l",
   "quantity": 10,
   "created_at": "2026-08-04T17:11:58.547333+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "1c04182d-0721-4043-a10f-37815c79fa05",
@@ -591,7 +680,8 @@
   "package_label": "KEG 30l",
   "quantity": 1,
   "created_at": "2026-08-04T16:47:17.722754+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "1c104bf9-b76b-4611-a4b1-395aafef25ce",
@@ -602,7 +692,8 @@
   "package_label": "KEG 30l",
   "quantity": 4,
   "created_at": "2026-08-04T16:44:48.388836+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "1ca9d9bf-a13a-4089-a7e3-726e39d8f571",
@@ -613,7 +704,8 @@
   "package_label": "KEG 30l",
   "quantity": 2,
   "created_at": "2026-08-04T15:25:36.556704+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "1cceb9e6-e14f-494a-afd4-77cc42d7e0b6",
@@ -624,7 +716,8 @@
   "package_label": "Lahve 1l",
   "quantity": 5,
   "created_at": "2026-08-04T17:17:08.699636+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "1d72c03c-9ae2-43c0-bb94-fb3b1f9c1a34",
@@ -635,7 +728,8 @@
   "package_label": "KEG 30l",
   "quantity": 4,
   "created_at": "2026-08-04T16:27:18.409872+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "1d7b3cfa-ca1c-4fc3-a54c-9cca9ada2981",
@@ -646,7 +740,8 @@
   "package_label": "Lahve 1.5l",
   "quantity": 5,
   "created_at": "2026-08-04T16:21:52.837303+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "1d95b6d9-9a84-4853-899d-31dbe6af09ea",
@@ -657,7 +752,8 @@
   "package_label": "30l",
   "quantity": 2,
   "created_at": "2026-08-09T10:58:54.947919+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "1e67daef-0e71-452b-85e9-9fdac889cf6a",
@@ -668,7 +764,8 @@
   "package_label": "30l",
   "quantity": 5,
   "created_at": "2026-08-11T19:10:05.764671+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "1ff54539-c65f-44e3-aca3-c5b8e2339c95",
@@ -679,7 +776,8 @@
   "package_label": " 50l",
   "quantity": 3,
   "created_at": "2026-08-17T10:07:35.477396+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "2040005a-7228-4da1-99e6-5da9378f082a",
@@ -690,7 +788,8 @@
   "package_label": "KEG 50l",
   "quantity": 3,
   "created_at": "2026-08-04T16:56:56.07092+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "20b7a673-0e24-422f-bfb3-c276a37f2ab2",
@@ -701,7 +800,8 @@
   "package_label": "30l",
   "quantity": 4,
   "created_at": "2026-08-25T10:16:08.424413+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "21149fe2-2b2a-4bbf-ac0c-ca2c3c0c1716",
@@ -712,7 +812,8 @@
   "package_label": "0.33l",
   "quantity": 100,
   "created_at": "2026-08-11T19:18:05.192397+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "21ac2503-a369-46b1-a2f9-7852931ec91f",
@@ -723,7 +824,20 @@
   "package_label": "1l",
   "quantity": 4,
   "created_at": "2026-08-16T20:07:52.845679+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
+ },
+ {
+  "id": "21c1b035-7c91-49c0-88a9-0348386c2b36",
+  "order_id": "97d4e598-d255-48e2-b0a8-addedc512851",
+  "beer_id": "80cb2ddc-7fc8-4883-ad0a-c51411980326",
+  "beer_name": "10° Desítka",
+  "package_id": "10b091f7-fa29-4f70-aa1b-d6d7614a105e",
+  "package_label": "1l",
+  "quantity": 10,
+  "created_at": "2026-09-08T06:53:01.218164+00:00",
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "2222c266-f0e9-4f39-9988-887aedd38447",
@@ -734,7 +848,8 @@
   "package_label": "KEG 50l",
   "quantity": 2,
   "created_at": "2026-08-04T16:56:55.924415+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "225973de-a167-49c0-9e30-86762a3f324a",
@@ -745,7 +860,8 @@
   "package_label": "1l",
   "quantity": 10,
   "created_at": "2026-08-11T19:06:27.384461+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "228a4d94-58e6-4496-aa04-14d4336a255e",
@@ -756,7 +872,8 @@
   "package_label": "KEG 30l",
   "quantity": 4,
   "created_at": "2026-08-04T17:17:08.175108+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "2301edc2-7f68-4239-8d5b-f437cd7648eb",
@@ -767,7 +884,8 @@
   "package_label": "Lahve 1l",
   "quantity": 10,
   "created_at": "2026-08-04T17:11:58.547333+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "23fb7eda-dd36-407c-9861-0b139f726831",
@@ -778,7 +896,8 @@
   "package_label": "50l",
   "quantity": 20,
   "created_at": "2026-08-29T12:19:30.781689+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "24533817-adc9-4530-bc79-3b67901b08da",
@@ -789,7 +908,20 @@
   "package_label": "KEG 30l",
   "quantity": 1,
   "created_at": "2026-08-04T15:33:36.307016+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
+ },
+ {
+  "id": "24766907-31dc-4608-8f25-7b0d54f81ba1",
+  "order_id": "97d4e598-d255-48e2-b0a8-addedc512851",
+  "beer_id": "80cb2ddc-7fc8-4883-ad0a-c51411980326",
+  "beer_name": "10° Desítka",
+  "package_id": "16adfff0-50c0-482e-9338-1eb4632cfc14",
+  "package_label": "30l",
+  "quantity": 14,
+  "created_at": "2026-09-08T06:53:01.218164+00:00",
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "24fb4398-c650-44e7-8e5e-bc4f06995c1b",
@@ -800,7 +932,8 @@
   "package_label": "20l",
   "quantity": 1,
   "created_at": "2026-08-10T09:03:31.779802+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "253a0889-f970-49d1-b524-869e85d4edcf",
@@ -811,7 +944,8 @@
   "package_label": "30l",
   "quantity": 1,
   "created_at": "2026-08-18T12:49:45.984165+00:00",
-  "is_prepared": true
+  "is_prepared": true,
+  "is_bottled": false
  },
  {
   "id": "256aaead-5c3c-4442-9d2e-10676a1b143d",
@@ -822,7 +956,8 @@
   "package_label": " 50l",
   "quantity": 1,
   "created_at": "2026-08-09T10:58:50.704143+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "25d3c43b-8fb1-4d08-8616-72cee2f19d2a",
@@ -833,7 +968,8 @@
   "package_label": "20l",
   "quantity": 1,
   "created_at": "2026-08-09T10:58:54.582813+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "267b6ee5-bcc8-43ae-9c62-ed4d3098b3b9",
@@ -844,7 +980,8 @@
   "package_label": "30l",
   "quantity": 4,
   "created_at": "2026-08-25T19:12:37.787727+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "26ed1823-7f1a-4713-a0c1-71110a05fdfc",
@@ -855,7 +992,8 @@
   "package_label": "Lahve 1l",
   "quantity": 10,
   "created_at": "2026-08-04T16:50:39.756263+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "27edcf53-3035-4170-bd48-27352f4a3c50",
@@ -866,7 +1004,8 @@
   "package_label": "1.5l",
   "quantity": 5,
   "created_at": "2026-08-09T10:58:50.704143+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "2965a834-0e15-48be-92c6-b4a7ccd3db90",
@@ -877,7 +1016,8 @@
   "package_label": "Lahve 1l",
   "quantity": 5,
   "created_at": "2026-08-04T16:36:06.928996+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "2abff328-ab08-4124-bf8e-20e5e7d967b9",
@@ -888,7 +1028,8 @@
   "package_label": "KEG 50l",
   "quantity": 2,
   "created_at": "2026-08-04T17:21:18.854013+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "2ac484a5-8b47-4249-af04-b011a30717be",
@@ -899,7 +1040,8 @@
   "package_label": "KEG 30l",
   "quantity": 10,
   "created_at": "2026-08-04T16:15:54.117421+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "2af684e4-a953-44ed-b16e-4f38d8c115a7",
@@ -910,7 +1052,20 @@
   "package_label": "Lahve 1.5l",
   "quantity": 1,
   "created_at": "2026-08-04T17:00:56.584129+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
+ },
+ {
+  "id": "2c4930f6-06fc-4b19-8a23-ccb2a7d102a2",
+  "order_id": "97d4e598-d255-48e2-b0a8-addedc512851",
+  "beer_id": "68c92abd-93b6-4241-b3ad-984c303716f8",
+  "beer_name": "12° Světlá",
+  "package_id": "16adfff0-50c0-482e-9338-1eb4632cfc14",
+  "package_label": "30l",
+  "quantity": 5,
+  "created_at": "2026-09-08T06:53:01.218164+00:00",
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "2d2bb43a-6819-47d6-a082-b0e84a106b81",
@@ -921,7 +1076,8 @@
   "package_label": "1.5l",
   "quantity": 24,
   "created_at": "2026-08-11T19:06:15.359275+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "2e2f0e24-29a4-4661-887c-7c4cc80187c2",
@@ -932,7 +1088,8 @@
   "package_label": "1l",
   "quantity": 6,
   "created_at": "2026-08-24T19:20:32.735899+00:00",
-  "is_prepared": true
+  "is_prepared": true,
+  "is_bottled": false
  },
  {
   "id": "2e5e1872-3983-4c6d-9a29-3706b63e935a",
@@ -943,7 +1100,8 @@
   "package_label": "KEG 50l",
   "quantity": 1,
   "created_at": "2026-08-04T16:21:52.837303+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "2ea9f490-c8fe-4751-9e86-05a53471a919",
@@ -954,7 +1112,20 @@
   "package_label": "1l",
   "quantity": 10,
   "created_at": "2026-09-02T18:12:46.900634+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
+ },
+ {
+  "id": "2eb0d198-39ab-47ff-ba99-a2a046279a0d",
+  "order_id": "86ff01e7-cd3d-4369-a712-76a5cd68a359",
+  "beer_id": "d4f7a9f0-ef4f-4729-b889-321a4509d2e1",
+  "beer_name": "Osma",
+  "package_id": "7fe0ce80-8310-4d38-98ce-cff8261e59a3",
+  "package_label": "1.5l",
+  "quantity": 12,
+  "created_at": "2026-09-07T07:39:42.82582+00:00",
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "2f0e411f-7ffd-43a3-b287-8a9579b87d7e",
@@ -965,7 +1136,8 @@
   "package_label": "1l",
   "quantity": 5,
   "created_at": "2026-08-09T10:58:50.704143+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "2f83516c-c1be-4052-94bb-d116e848bfe4",
@@ -976,7 +1148,8 @@
   "package_label": "1l",
   "quantity": 15,
   "created_at": "2026-08-10T09:03:31.779802+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "2f869946-e5f7-4f53-abf1-89353caa57a2",
@@ -987,7 +1160,8 @@
   "package_label": "KEG 20l",
   "quantity": 1,
   "created_at": "2026-08-04T16:44:48.824011+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "2fbc036b-b8fb-429e-b08c-8497e16a5018",
@@ -998,7 +1172,8 @@
   "package_label": "Lahve 1.5l",
   "quantity": 24,
   "created_at": "2026-08-04T17:17:08.526234+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "2fd104e1-b5a4-4e44-ac7d-7222738675c5",
@@ -1009,7 +1184,8 @@
   "package_label": "KEG 10l",
   "quantity": 2,
   "created_at": "2026-08-04T16:15:54.387245+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "30514979-a2be-4117-88de-e95e3dd03a28",
@@ -1020,7 +1196,8 @@
   "package_label": "KEG 15l",
   "quantity": 6,
   "created_at": "2026-08-04T16:47:18.053413+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "30b6bb35-b188-4528-b0e2-6dacbb034460",
@@ -1031,7 +1208,8 @@
   "package_label": "30l",
   "quantity": 8,
   "created_at": "2026-08-26T17:25:23.583553+00:00",
-  "is_prepared": true
+  "is_prepared": true,
+  "is_bottled": false
  },
  {
   "id": "30bdcfbe-e911-4160-a38d-586a147c1c10",
@@ -1042,7 +1220,8 @@
   "package_label": "Lahve 0.5l",
   "quantity": 20,
   "created_at": "2026-08-04T16:37:36.649741+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "3199c4dd-7b09-4414-bc0b-0c0f7c3c2402",
@@ -1053,7 +1232,8 @@
   "package_label": "1l",
   "quantity": 610,
   "created_at": "2026-08-17T11:52:06.30932+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "31c585fb-0c99-4dfa-a461-b3201d2f1fe6",
@@ -1064,7 +1244,8 @@
   "package_label": " 50l",
   "quantity": 7,
   "created_at": "2026-08-17T08:35:54.595821+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "328233b6-0e65-4da1-9bf8-6517f451b9cb",
@@ -1075,7 +1256,8 @@
   "package_label": " 50l",
   "quantity": 2,
   "created_at": "2026-08-18T12:50:49.573798+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "32a94298-5509-45f0-887a-328c85e19d5e",
@@ -1086,7 +1268,8 @@
   "package_label": "1.5l",
   "quantity": 10,
   "created_at": "2026-08-10T09:03:31.209096+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "33fc9ad1-aa8b-42c2-981a-5623e456be3a",
@@ -1097,7 +1280,8 @@
   "package_label": "30l",
   "quantity": 2,
   "created_at": "2026-08-09T10:58:55.152713+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "340927bf-83eb-4767-a3f2-54365d5ac4fc",
@@ -1108,7 +1292,8 @@
   "package_label": "20l",
   "quantity": 1,
   "created_at": "2026-08-09T11:05:34.648877+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "341aa1c5-6356-4992-a0ca-94dc6ef090ca",
@@ -1119,7 +1304,8 @@
   "package_label": "KEG 50l",
   "quantity": 2,
   "created_at": "2026-08-04T16:40:11.748797+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "345cd3b7-d731-45be-88e2-6a3161cc7a52",
@@ -1130,7 +1316,8 @@
   "package_label": "20l",
   "quantity": 1,
   "created_at": "2026-08-17T08:36:22.124675+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "347e0a5f-80bf-43a8-825c-3a1f1088efe5",
@@ -1141,7 +1328,8 @@
   "package_label": "20l",
   "quantity": 2,
   "created_at": "2026-08-25T07:09:48.855271+00:00",
-  "is_prepared": true
+  "is_prepared": true,
+  "is_bottled": false
  },
  {
   "id": "35bb5c5e-0c48-4f41-8f6a-d90de56e1fee",
@@ -1152,7 +1340,8 @@
   "package_label": "30l",
   "quantity": 1,
   "created_at": "2026-08-25T07:08:33.838544+00:00",
-  "is_prepared": true
+  "is_prepared": true,
+  "is_bottled": false
  },
  {
   "id": "36c1129d-532a-4b37-82bf-4cf02a71dc77",
@@ -1163,7 +1352,8 @@
   "package_label": "1l",
   "quantity": 10,
   "created_at": "2026-08-18T13:13:00.331597+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "372384a3-d233-4ee4-814f-ad3536291e0f",
@@ -1174,7 +1364,8 @@
   "package_label": "1l",
   "quantity": 10,
   "created_at": "2026-08-18T13:13:00.331597+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "379f28ae-bd66-45bf-9fd5-db244b84ac35",
@@ -1185,7 +1376,8 @@
   "package_label": " 50l",
   "quantity": 1,
   "created_at": "2026-08-09T10:58:50.948073+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "37b15108-c9ce-41ba-b41b-f3c70cbdaa53",
@@ -1196,7 +1388,8 @@
   "package_label": "1.5l",
   "quantity": 24,
   "created_at": "2026-08-17T10:07:35.477396+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "3816ef63-6244-49bc-ae3b-1c78301f633d",
@@ -1207,7 +1400,8 @@
   "package_label": "30l",
   "quantity": 3,
   "created_at": "2026-08-09T10:58:56.248704+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "38440b54-fcd8-4a70-a050-f2e1e99e455a",
@@ -1218,7 +1412,8 @@
   "package_label": "Lahve 1l",
   "quantity": 20,
   "created_at": "2026-08-04T15:27:31.71652+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "38d75d5c-87cc-417d-87c5-b28e78d8c0f1",
@@ -1229,7 +1424,8 @@
   "package_label": "30l",
   "quantity": 1,
   "created_at": "2026-08-25T19:13:56.675088+00:00",
-  "is_prepared": true
+  "is_prepared": true,
+  "is_bottled": false
  },
  {
   "id": "38ffa634-c31a-4e1c-8519-86963440981f",
@@ -1240,7 +1436,8 @@
   "package_label": "Lahve 1l",
   "quantity": 5,
   "created_at": "2026-08-04T17:00:56.584129+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "39188199-4ea9-4cb8-a05b-7422a7348721",
@@ -1251,7 +1448,8 @@
   "package_label": "1l",
   "quantity": 620,
   "created_at": "2026-08-17T16:11:08.164228+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "3ba5de21-b1b9-4425-b2b5-9c2e1516c798",
@@ -1262,7 +1460,8 @@
   "package_label": "Lahve 1.5l",
   "quantity": 4,
   "created_at": "2026-08-04T17:02:33.519318+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "3bf132eb-a46e-4c5f-b566-c18bce35f25a",
@@ -1273,7 +1472,8 @@
   "package_label": "0.5l",
   "quantity": 10,
   "created_at": "2026-08-25T19:13:56.675088+00:00",
-  "is_prepared": true
+  "is_prepared": true,
+  "is_bottled": false
  },
  {
   "id": "3c4e293d-7496-4cd1-be8a-27955004bc4d",
@@ -1284,7 +1484,8 @@
   "package_label": "KEG 30l",
   "quantity": 10,
   "created_at": "2026-08-04T15:25:36.556704+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "3cbc6d27-479a-410c-966a-a8599d2121a0",
@@ -1295,7 +1496,8 @@
   "package_label": "Lahve 1.5l",
   "quantity": 5,
   "created_at": "2026-08-04T17:01:43.521618+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "3cc442c1-720e-4142-9a18-ddc7e9ab66c6",
@@ -1306,7 +1508,8 @@
   "package_label": " 50l",
   "quantity": 2,
   "created_at": "2026-08-09T10:58:50.948073+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "3e3dc790-fe27-4f16-9756-461b4d592472",
@@ -1317,7 +1520,8 @@
   "package_label": "Lahve 1.5l",
   "quantity": 5,
   "created_at": "2026-08-04T16:42:47.462267+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "3e9cbea7-2f18-475f-bf72-768d47e82aff",
@@ -1328,7 +1532,8 @@
   "package_label": "1l",
   "quantity": 15,
   "created_at": "2026-08-10T09:03:31.779802+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "3edeff8d-3ec3-4f1e-8925-cc2fe8b968e6",
@@ -1339,7 +1544,8 @@
   "package_label": "Lahve 0.5l",
   "quantity": 20,
   "created_at": "2026-08-04T17:17:08.526234+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "3eea087a-9f47-4a20-9afd-8ac343ab9417",
@@ -1350,7 +1556,8 @@
   "package_label": "Lahve 1l",
   "quantity": 20,
   "created_at": "2026-08-04T17:11:59.195127+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "3ffe4eb2-6e76-4fc7-8b3f-bee17008a683",
@@ -1361,7 +1568,8 @@
   "package_label": "30l",
   "quantity": 2,
   "created_at": "2026-09-02T18:12:46.900634+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "406701b1-e621-4308-8f31-daf9f6015092",
@@ -1372,7 +1580,8 @@
   "package_label": "0.5l",
   "quantity": 20,
   "created_at": "2026-08-25T10:16:08.424413+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "40da1067-c2a4-46e1-9a85-45191b603747",
@@ -1383,7 +1592,8 @@
   "package_label": " 50l",
   "quantity": 2,
   "created_at": "2026-08-09T10:58:50.704143+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "42fd1486-913e-4aca-8fd0-1f06a305b857",
@@ -1394,7 +1604,8 @@
   "package_label": "Lahve 1l",
   "quantity": 20,
   "created_at": "2026-08-04T17:11:59.195127+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "431dac3e-a7d0-4aab-ab15-5a46cd84462a",
@@ -1405,7 +1616,8 @@
   "package_label": "Lahve 0.33l",
   "quantity": 40,
   "created_at": "2026-08-04T16:51:31.780754+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "436a78d9-7deb-4802-9324-e4a8544ebc54",
@@ -1416,7 +1628,8 @@
   "package_label": "KEG 50l",
   "quantity": 2,
   "created_at": "2026-08-04T16:56:56.07092+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "43cc6257-18fa-4466-80d3-bd3951069210",
@@ -1427,7 +1640,8 @@
   "package_label": "30l",
   "quantity": 8,
   "created_at": "2026-08-09T10:58:53.047352+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "4431bfc5-30eb-47c1-a553-4f7ff34ec07b",
@@ -1438,7 +1652,8 @@
   "package_label": " 50l",
   "quantity": 4,
   "created_at": "2026-09-02T18:34:22.697923+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "45aee4ef-b5f2-402b-9842-638f30a2b9e9",
@@ -1449,7 +1664,8 @@
   "package_label": "Lahve 1l",
   "quantity": 12,
   "created_at": "2026-08-04T15:25:36.556704+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "45d57226-0d2d-4509-81f1-68396f0052c8",
@@ -1460,7 +1676,8 @@
   "package_label": " 50l",
   "quantity": 1,
   "created_at": "2026-09-06T08:24:02.063889+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "4617d96b-828a-4e60-ac82-93a1e604e55a",
@@ -1471,7 +1688,8 @@
   "package_label": "30l",
   "quantity": 4,
   "created_at": "2026-08-11T19:18:51.041593+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "47320417-eb1e-492c-b9d9-4e5f288a9642",
@@ -1482,7 +1700,8 @@
   "package_label": "30l",
   "quantity": 1,
   "created_at": "2026-09-02T18:33:52.692819+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "47372a0d-f7c3-4ed7-94aa-b101176a0906",
@@ -1493,7 +1712,20 @@
   "package_label": "KEG 30l",
   "quantity": 1,
   "created_at": "2026-08-04T16:42:00.891807+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
+ },
+ {
+  "id": "479a9f3a-2008-4bac-b359-cc8896375052",
+  "order_id": "97d4e598-d255-48e2-b0a8-addedc512851",
+  "beer_id": "93f7be38-e176-46af-9da3-47a14ffdedfa",
+  "beer_name": "11° Světlá",
+  "package_id": "97f9dcc8-a717-4ad9-86d0-ff69b27075f0",
+  "package_label": " 15l",
+  "quantity": 1,
+  "created_at": "2026-09-08T06:53:01.218164+00:00",
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "47bef20c-e699-4430-b386-8957f2d1c948",
@@ -1504,7 +1736,8 @@
   "package_label": "10l",
   "quantity": 1,
   "created_at": "2026-08-18T13:06:20.640552+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "4814e380-f2ac-4ea0-a7b0-00a003770b31",
@@ -1515,7 +1748,8 @@
   "package_label": "KEG 30l",
   "quantity": 3,
   "created_at": "2026-08-04T15:33:36.307016+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "48534a77-15c2-46a2-ac23-cb38dc867bef",
@@ -1526,7 +1760,8 @@
   "package_label": "KEG 50l",
   "quantity": 3,
   "created_at": "2026-08-04T16:27:17.90452+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "48c974cd-ef08-42bb-b844-f713ba793f31",
@@ -1537,7 +1772,8 @@
   "package_label": "Lahve 1l",
   "quantity": 30,
   "created_at": "2026-08-04T16:17:54.279251+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "4922def0-0b7e-4c1c-be86-611a5ddec082",
@@ -1548,7 +1784,8 @@
   "package_label": "30l",
   "quantity": 2,
   "created_at": "2026-08-09T10:58:53.047352+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "49967219-fc22-4c19-b328-34b5abdc3f4e",
@@ -1559,7 +1796,8 @@
   "package_label": " 10l",
   "quantity": 1,
   "created_at": "2026-08-11T19:17:49.078903+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "499fc238-a890-4477-a07c-abfa1a81639d",
@@ -1570,7 +1808,8 @@
   "package_label": "KEG 30l",
   "quantity": 2,
   "created_at": "2026-08-04T16:50:39.97059+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "49f0f017-f903-44f0-b03a-5567ee8ac283",
@@ -1581,7 +1820,8 @@
   "package_label": "Lahve 1l",
   "quantity": 5,
   "created_at": "2026-08-04T16:42:47.462267+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "4a0acf0c-bd2c-4e12-b474-a499fbc690c4",
@@ -1592,7 +1832,8 @@
   "package_label": "KEG 50l",
   "quantity": 1,
   "created_at": "2026-08-04T16:22:37.546533+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "4ac536cb-76e5-43d1-8e88-0434335c7932",
@@ -1603,7 +1844,8 @@
   "package_label": "1.5l",
   "quantity": 5,
   "created_at": "2026-08-29T16:28:27.624993+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "4b8265c8-f06c-4370-ab40-9cc2985fae20",
@@ -1614,7 +1856,8 @@
   "package_label": "Lahve 1l",
   "quantity": 10,
   "created_at": "2026-08-04T16:50:39.756263+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "4bae7374-efe2-4689-9547-1d4d6c0fbeee",
@@ -1625,7 +1868,8 @@
   "package_label": "15l",
   "quantity": 3,
   "created_at": "2026-08-18T13:06:20.640552+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "4bcf2066-7ebe-4e11-8621-3452958dce9b",
@@ -1636,7 +1880,8 @@
   "package_label": "Lahve 1l",
   "quantity": 5,
   "created_at": "2026-08-04T16:21:52.837303+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "4bfdfabf-cd88-49ab-920b-d37890428db2",
@@ -1647,7 +1892,8 @@
   "package_label": "KEG 30l",
   "quantity": 3,
   "created_at": "2026-08-04T16:27:17.90452+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "4c7a3c31-d855-4289-ad7d-8421a35edc3d",
@@ -1658,7 +1904,8 @@
   "package_label": "1l",
   "quantity": 15,
   "created_at": "2026-08-25T10:16:08.424413+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "4cc9d297-a122-4255-9154-ab65ac36c20b",
@@ -1669,7 +1916,8 @@
   "package_label": "50l",
   "quantity": 1,
   "created_at": "2026-08-16T20:07:52.845679+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "4cf32761-304d-4be2-a0f5-b82584203227",
@@ -1680,7 +1928,8 @@
   "package_label": "10l",
   "quantity": 3,
   "created_at": "2026-08-25T07:12:45.898367+00:00",
-  "is_prepared": true
+  "is_prepared": true,
+  "is_bottled": false
  },
  {
   "id": "4d8e86b8-8719-4cc4-a4a7-47d610d9b38f",
@@ -1691,7 +1940,8 @@
   "package_label": " 50l",
   "quantity": 2,
   "created_at": "2026-08-09T10:58:50.704143+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "4df77a5f-1c50-4b56-b45e-3977b79f41a3",
@@ -1702,7 +1952,8 @@
   "package_label": " 50l",
   "quantity": 2,
   "created_at": "2026-08-29T16:28:00.716299+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "4df7a639-dea7-49c4-9cfc-d54a28d4e373",
@@ -1713,7 +1964,8 @@
   "package_label": "0.5l",
   "quantity": 20,
   "created_at": "2026-08-17T10:07:35.477396+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "4e243e09-f60b-48fa-bbe1-0a40ba1b69d1",
@@ -1724,7 +1976,8 @@
   "package_label": "1l",
   "quantity": 12,
   "created_at": "2026-08-11T10:24:23.527653+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "4efb8c11-f0f0-46e6-a005-3bf8a71db4fb",
@@ -1735,7 +1988,8 @@
   "package_label": "Lahve 1.5l",
   "quantity": 4,
   "created_at": "2026-08-04T17:02:33.519318+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "5003c985-23cb-4220-8e3d-89dbc5111dd0",
@@ -1746,7 +2000,8 @@
   "package_label": "KEG 50l",
   "quantity": 2,
   "created_at": "2026-08-04T16:40:11.593465+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "5103ad34-366f-473a-9f69-daa876935b8e",
@@ -1757,7 +2012,8 @@
   "package_label": "KEG 20l",
   "quantity": 5,
   "created_at": "2026-08-04T17:14:57.606249+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "51553aae-6952-4ebc-91bd-b9be9cbd9cea",
@@ -1768,7 +2024,8 @@
   "package_label": "Lahve 0.33l",
   "quantity": 40,
   "created_at": "2026-08-04T16:51:31.780754+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "51b67164-1ff7-4662-b75c-05492d09b099",
@@ -1779,7 +2036,8 @@
   "package_label": "KEG 30l",
   "quantity": 10,
   "created_at": "2026-08-04T16:56:55.924415+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "51cec3d5-e4cf-449c-ab89-3323b9c6efaa",
@@ -1790,7 +2048,8 @@
   "package_label": "Lahve 1l",
   "quantity": 10,
   "created_at": "2026-08-04T17:11:58.547333+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "5244e66a-de2b-4ad9-9c8a-5fd22b7ddce5",
@@ -1801,7 +2060,8 @@
   "package_label": "KEG 10l",
   "quantity": 1,
   "created_at": "2026-08-04T15:25:36.556704+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "52b1e4ad-baf0-4734-a429-20cb3d76edff",
@@ -1812,7 +2072,8 @@
   "package_label": " 50l",
   "quantity": 2,
   "created_at": "2026-08-21T06:34:27.964687+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "52d71db1-ec2c-4c8d-a908-904688dcf391",
@@ -1823,7 +2084,8 @@
   "package_label": "KEG 50l",
   "quantity": 3,
   "created_at": "2026-08-04T16:50:39.97059+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "52f68269-7964-44dc-bb64-9727f87a431c",
@@ -1834,7 +2096,8 @@
   "package_label": "20l",
   "quantity": 1,
   "created_at": "2026-08-18T12:49:36.969318+00:00",
-  "is_prepared": true
+  "is_prepared": true,
+  "is_bottled": false
  },
  {
   "id": "5311eb8e-611a-4527-9332-664a9fa66113",
@@ -1845,7 +2108,8 @@
   "package_label": "1.5l",
   "quantity": 6,
   "created_at": "2026-08-24T19:20:32.735899+00:00",
-  "is_prepared": true
+  "is_prepared": true,
+  "is_bottled": false
  },
  {
   "id": "53135ded-4d91-4999-b8e6-bc3403947f62",
@@ -1856,7 +2120,8 @@
   "package_label": "Lahve 1l",
   "quantity": 5,
   "created_at": "2026-08-04T17:00:56.584129+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "54456a87-fb9f-41d2-8d8a-4f46c11ebf26",
@@ -1867,7 +2132,8 @@
   "package_label": " 50l",
   "quantity": 3,
   "created_at": "2026-08-11T19:06:15.359275+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "5508e136-ea8e-4346-8dcd-704b85ae5aa5",
@@ -1878,7 +2144,8 @@
   "package_label": "50l",
   "quantity": 13,
   "created_at": "2026-08-22T11:52:22.294202+00:00",
-  "is_prepared": true
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "5545a60f-48ba-4ef5-ade8-f1edc4b128d7",
@@ -1889,7 +2156,8 @@
   "package_label": "KEG 30l",
   "quantity": 8,
   "created_at": "2026-08-04T16:36:06.447667+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "55b85237-9f4d-48ce-b253-78b9ae88b8a2",
@@ -1900,7 +2168,8 @@
   "package_label": "1l",
   "quantity": 5,
   "created_at": "2026-08-11T19:06:27.384461+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "568a7229-1d4d-4932-89af-40d420010409",
@@ -1911,7 +2180,8 @@
   "package_label": "KEG 30l",
   "quantity": 10,
   "created_at": "2026-08-04T15:25:36.556704+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "569ae83d-bbb6-4752-b7ad-dc069824e939",
@@ -1922,7 +2192,8 @@
   "package_label": " 50l",
   "quantity": 2,
   "created_at": "2026-08-09T10:58:50.948073+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "56c34ab4-b99b-4a44-abf5-c25e9e391694",
@@ -1933,7 +2204,8 @@
   "package_label": "10l",
   "quantity": 2,
   "created_at": "2026-08-18T13:13:00.331597+00:00",
-  "is_prepared": true
+  "is_prepared": true,
+  "is_bottled": false
  },
  {
   "id": "571025e4-c5cc-448f-af6e-db9a8abae689",
@@ -1944,7 +2216,8 @@
   "package_label": "Lahve 1l",
   "quantity": 5,
   "created_at": "2026-08-04T16:17:54.279251+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "57128223-17aa-455c-b6f9-5635fe6b2da5",
@@ -1955,7 +2228,8 @@
   "package_label": "KEG 30l",
   "quantity": 5,
   "created_at": "2026-08-04T17:21:17.360155+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "57c1b512-dc41-4979-8ac0-23aab96369a5",
@@ -1966,7 +2240,8 @@
   "package_label": "Lahve 1l",
   "quantity": 5,
   "created_at": "2026-08-04T17:21:18.671183+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "57cdd374-8156-4d1f-805d-5d9d76c32b8f",
@@ -1977,7 +2252,8 @@
   "package_label": "Lahve 1l",
   "quantity": 16,
   "created_at": "2026-08-04T15:25:36.556704+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "5801521f-7d23-4008-9ebf-21e5ea1da807",
@@ -1988,7 +2264,8 @@
   "package_label": "1l",
   "quantity": 10,
   "created_at": "2026-09-02T18:12:46.900634+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "58c53452-2a12-4c81-8625-c59c4c53dbf3",
@@ -1999,7 +2276,8 @@
   "package_label": "KEG 30l",
   "quantity": 20,
   "created_at": "2026-08-04T17:14:57.606249+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "58d6fc76-ccb1-4b8c-ad77-0b17ad3fb98a",
@@ -2010,7 +2288,8 @@
   "package_label": "KEG 50l",
   "quantity": 2,
   "created_at": "2026-08-04T15:33:36.307016+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "5920c643-f131-4ba5-95a5-901b24d361b4",
@@ -2021,7 +2300,8 @@
   "package_label": "KEG 30l",
   "quantity": 8,
   "created_at": "2026-08-04T17:14:57.606249+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "593bee8d-9c6f-4b5c-95a4-0214e764d3ea",
@@ -2032,7 +2312,8 @@
   "package_label": "30l",
   "quantity": 4,
   "created_at": "2026-09-06T08:11:36.690708+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "59a3a1ee-9585-4db4-88dc-55ff5d2c59f1",
@@ -2043,7 +2324,8 @@
   "package_label": "1l",
   "quantity": 4,
   "created_at": "2026-08-16T20:07:52.845679+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "59d1790b-7661-483a-bfb0-0c176f45dcd5",
@@ -2054,7 +2336,8 @@
   "package_label": "Lahve 1.5l",
   "quantity": 5,
   "created_at": "2026-08-04T16:21:52.837303+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "5a82419c-12f1-4538-a297-00a2c753618a",
@@ -2065,7 +2348,8 @@
   "package_label": "Lahve 1l",
   "quantity": 12,
   "created_at": "2026-08-04T17:17:09.018546+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "5a8338be-1c1c-41a1-b30b-786870e108e2",
@@ -2076,7 +2360,8 @@
   "package_label": "30l",
   "quantity": 1,
   "created_at": "2026-08-25T19:13:08.958297+00:00",
-  "is_prepared": true
+  "is_prepared": true,
+  "is_bottled": false
  },
  {
   "id": "5aa335f9-bae7-4877-b643-e5d012e9e7db",
@@ -2087,7 +2372,20 @@
   "package_label": "Lahve 1l",
   "quantity": 10,
   "created_at": "2026-08-04T16:27:18.246521+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
+ },
+ {
+  "id": "5aafccd6-23f5-4d05-a59d-3d2aa46244bd",
+  "order_id": "97d4e598-d255-48e2-b0a8-addedc512851",
+  "beer_id": "93f7be38-e176-46af-9da3-47a14ffdedfa",
+  "beer_name": "11° Světlá",
+  "package_id": "41189ae0-30ed-4f1f-9107-4367afd07c01",
+  "package_label": " 10l",
+  "quantity": 3,
+  "created_at": "2026-09-08T06:53:01.218164+00:00",
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "5ad3fe71-989b-4350-8f44-b6933c88aea0",
@@ -2098,7 +2396,8 @@
   "package_label": "50l",
   "quantity": 2,
   "created_at": "2026-08-22T11:52:22.294202+00:00",
-  "is_prepared": true
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "5af4b000-6589-44c9-b9f2-527982434e0b",
@@ -2109,7 +2408,8 @@
   "package_label": "1l",
   "quantity": 8,
   "created_at": "2026-09-06T20:40:07.409013+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "5b3c6272-84d9-405e-8e1f-a721cd6c6497",
@@ -2120,7 +2420,8 @@
   "package_label": "KEG 50l",
   "quantity": 1,
   "created_at": "2026-08-04T16:21:52.837303+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "5c4e007f-15d2-472c-aede-37a0591366da",
@@ -2131,7 +2432,8 @@
   "package_label": "KEG 30l",
   "quantity": 4,
   "created_at": "2026-08-04T15:25:36.556704+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "5c56df87-4168-4e57-8397-89e1febfa0aa",
@@ -2142,7 +2444,8 @@
   "package_label": "1l",
   "quantity": 10,
   "created_at": "2026-08-18T12:51:06.582955+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "5dc97f1b-eb55-4096-a059-6cec086ca3a4",
@@ -2153,7 +2456,8 @@
   "package_label": "Lahve 1l",
   "quantity": 5,
   "created_at": "2026-08-04T17:01:43.521618+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "5dfe1248-df98-4c44-9934-7e81a89f8fa3",
@@ -2164,7 +2468,8 @@
   "package_label": "1l",
   "quantity": 6,
   "created_at": "2026-09-07T07:07:03.79729+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "5ed2250d-feed-484e-b461-2661f0879c87",
@@ -2175,7 +2480,8 @@
   "package_label": " 50l",
   "quantity": 2,
   "created_at": "2026-08-09T10:58:52.267095+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "5f8ed8ce-d791-4f14-a74d-9bd890e14336",
@@ -2186,7 +2492,8 @@
   "package_label": "20l",
   "quantity": 1,
   "created_at": "2026-08-11T09:57:03.632812+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "5fa6f713-5f17-477f-a7df-89a160023eb7",
@@ -2197,7 +2504,8 @@
   "package_label": "30l",
   "quantity": 4,
   "created_at": "2026-08-18T18:42:54.699225+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "600f900c-effb-44de-bd2f-4bc8216567c8",
@@ -2208,7 +2516,8 @@
   "package_label": "KEG 50l",
   "quantity": 1,
   "created_at": "2026-08-04T17:21:18.365678+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "607b1ab7-ee6d-4f42-b6b9-e02a97087eca",
@@ -2219,7 +2528,8 @@
   "package_label": "Lahve 1l",
   "quantity": 10,
   "created_at": "2026-08-04T15:27:31.71652+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "611f788c-f650-4655-ad7b-9fd57decdb67",
@@ -2230,7 +2540,8 @@
   "package_label": "30l",
   "quantity": 5,
   "created_at": "2026-08-09T10:58:55.370467+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "62b53b72-b6eb-47dc-ae78-b24df0a589b9",
@@ -2241,7 +2552,8 @@
   "package_label": "KEG 30l",
   "quantity": 10,
   "created_at": "2026-08-04T15:25:36.556704+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "62f6e5cb-b667-4334-8f72-f8b23f9ab16f",
@@ -2252,7 +2564,8 @@
   "package_label": "Lahve 1l",
   "quantity": 5,
   "created_at": "2026-08-04T17:21:18.671183+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "631876f0-a7a2-4c7f-a2b0-a241166d8bbd",
@@ -2263,7 +2576,8 @@
   "package_label": "30l",
   "quantity": 5,
   "created_at": "2026-08-18T13:13:00.331597+00:00",
-  "is_prepared": true
+  "is_prepared": true,
+  "is_bottled": false
  },
  {
   "id": "633ed71e-1592-4efd-8441-ad89c61c0a26",
@@ -2274,7 +2588,8 @@
   "package_label": "1.5l",
   "quantity": 4,
   "created_at": "2026-09-06T08:14:26.028263+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "637640ea-9f24-4254-8827-327f039b5f59",
@@ -2285,7 +2600,8 @@
   "package_label": "30l",
   "quantity": 3,
   "created_at": "2026-08-11T19:18:05.192397+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "63af15fb-d360-4a82-a84e-d6807e24312f",
@@ -2296,7 +2612,8 @@
   "package_label": "KEG 20l",
   "quantity": 3,
   "created_at": "2026-08-04T16:50:39.600253+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "63fca45d-f0d2-455e-b426-d4df8073b404",
@@ -2307,7 +2624,8 @@
   "package_label": "KEG 30l",
   "quantity": 4,
   "created_at": "2026-08-04T17:17:08.853485+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "6498e64e-b70c-45c5-aeec-6a56a7c07a50",
@@ -2318,7 +2636,8 @@
   "package_label": "30l",
   "quantity": 1,
   "created_at": "2026-08-11T10:23:38.547483+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "64b7616d-30b9-4766-bc8a-e6a4ec5e86b9",
@@ -2329,7 +2648,8 @@
   "package_label": "KEG 30l",
   "quantity": 1,
   "created_at": "2026-08-04T16:42:00.622823+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "6544167e-ad67-47b8-87f0-9ce1d248dd61",
@@ -2340,7 +2660,8 @@
   "package_label": " 50l",
   "quantity": 4,
   "created_at": "2026-08-09T10:58:51.77711+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "65c42863-8e9b-43e8-82bf-3f80f33e8a86",
@@ -2351,7 +2672,8 @@
   "package_label": "20l",
   "quantity": 2,
   "created_at": "2026-08-18T12:17:40.484471+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "65d46ec8-3f62-4f4d-878f-c7b1d98bf4ed",
@@ -2362,7 +2684,8 @@
   "package_label": "Lahve 1l",
   "quantity": 6,
   "created_at": "2026-08-04T16:36:06.928996+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "6717c60c-c431-46a8-8e20-4fc85500f5b5",
@@ -2373,7 +2696,8 @@
   "package_label": "KEG 50l",
   "quantity": 4,
   "created_at": "2026-08-04T16:23:59.86543+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "676e74a7-c482-477b-99e6-ca2ba010b44c",
@@ -2384,7 +2708,8 @@
   "package_label": "50l",
   "quantity": 1,
   "created_at": "2026-08-16T20:07:52.845679+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "6799f0eb-c359-4e7d-96e6-aa5d1428a1c5",
@@ -2395,7 +2720,8 @@
   "package_label": "KEG 30l",
   "quantity": 7,
   "created_at": "2026-08-04T16:47:18.053413+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "69e70b96-d75c-44aa-a689-df874162e07d",
@@ -2406,7 +2732,8 @@
   "package_label": " 50l",
   "quantity": 1,
   "created_at": "2026-08-21T06:34:27.964687+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "6a459331-6089-43df-b5e1-2a6e57210320",
@@ -2417,7 +2744,8 @@
   "package_label": "1.5l",
   "quantity": 6,
   "created_at": "2026-09-07T07:07:03.79729+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "6a82c6dc-4a61-435a-94d6-c585a04136c3",
@@ -2428,7 +2756,8 @@
   "package_label": "30l",
   "quantity": 5,
   "created_at": "2026-08-17T08:35:54.595821+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "6b14d714-3c05-42e4-a6cc-f4c4ef28d255",
@@ -2439,7 +2768,8 @@
   "package_label": "Lahve 0.5l",
   "quantity": 40,
   "created_at": "2026-08-04T16:17:53.850756+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "6b891c4b-44cd-44c1-94e1-c7406ded3395",
@@ -2450,7 +2780,8 @@
   "package_label": "30l",
   "quantity": 1,
   "created_at": "2026-09-06T20:39:44.831345+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "6c0ad55f-ca2e-4a71-853a-bd0bc5556ab3",
@@ -2461,7 +2792,8 @@
   "package_label": "KEG 50l",
   "quantity": 2,
   "created_at": "2026-08-04T17:21:18.671183+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "6c49651e-2f41-4b76-ba9e-566ae508e0c4",
@@ -2472,7 +2804,8 @@
   "package_label": "KEG 30l",
   "quantity": 2,
   "created_at": "2026-08-04T16:15:54.685585+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "6cb9104e-1b37-4e69-8779-30a46685003e",
@@ -2483,7 +2816,8 @@
   "package_label": "0.5l",
   "quantity": 20,
   "created_at": "2026-08-09T10:58:53.047352+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "6ce2a9d5-b431-4c56-82f8-20ffc1d27e2c",
@@ -2494,7 +2828,8 @@
   "package_label": "30l",
   "quantity": 6,
   "created_at": "2026-08-18T12:17:40.484471+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "6d9d5342-48d4-4aae-89ca-c7941ff004b0",
@@ -2505,7 +2840,8 @@
   "package_label": "KEG 10l",
   "quantity": 2,
   "created_at": "2026-08-04T17:21:17.628984+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "6da81f6a-6ce3-4521-89c9-1778a2d5e65d",
@@ -2516,7 +2852,8 @@
   "package_label": "1l",
   "quantity": 10,
   "created_at": "2026-08-25T19:12:37.787727+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "6dcca25b-8ef8-4fb7-b422-b7010b45144d",
@@ -2527,7 +2864,8 @@
   "package_label": "KEG 30l",
   "quantity": 8,
   "created_at": "2026-08-04T17:22:42.551781+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "6ef39489-7cf2-499d-8523-7319ea91328e",
@@ -2538,7 +2876,8 @@
   "package_label": "KEG 50l",
   "quantity": 2,
   "created_at": "2026-08-04T17:17:08.385908+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "6f060b33-6e40-4528-9290-c9a6e9262368",
@@ -2549,7 +2888,20 @@
   "package_label": " 50l",
   "quantity": 2,
   "created_at": "2026-08-25T19:13:08.958297+00:00",
-  "is_prepared": true
+  "is_prepared": true,
+  "is_bottled": false
+ },
+ {
+  "id": "6f47bab0-3c81-4332-876d-6621866e5801",
+  "order_id": "97d4e598-d255-48e2-b0a8-addedc512851",
+  "beer_id": "8823be77-b372-4636-a43c-70b8d1400fd7",
+  "beer_name": "Jantar",
+  "package_id": "10b091f7-fa29-4f70-aa1b-d6d7614a105e",
+  "package_label": "1l",
+  "quantity": 10,
+  "created_at": "2026-09-08T06:53:01.218164+00:00",
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "6f65dea2-6790-4773-9c2a-4118b1e2a62c",
@@ -2560,7 +2912,8 @@
   "package_label": "KEG 30l",
   "quantity": 3,
   "created_at": "2026-08-04T16:36:06.777031+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "6fc8d7e3-35b3-461f-a6e7-fe21e99b696d",
@@ -2571,7 +2924,8 @@
   "package_label": "Lahve 1l",
   "quantity": 10,
   "created_at": "2026-08-04T17:01:43.521618+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "6ffdef02-c915-4f48-9c3f-79e781bcdc58",
@@ -2582,7 +2936,8 @@
   "package_label": "KEG 30l",
   "quantity": 2,
   "created_at": "2026-08-04T16:40:10.778654+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "70381880-f89b-40ca-b85c-99c3eadfd961",
@@ -2593,7 +2948,8 @@
   "package_label": "1l",
   "quantity": 6,
   "created_at": "2026-09-06T08:14:26.028263+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "70a42ed7-51eb-4321-b7cd-957f92f47d53",
@@ -2604,7 +2960,8 @@
   "package_label": "1l",
   "quantity": 620,
   "created_at": "2026-08-17T11:52:01.482665+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "716de77c-cc69-4c86-a697-323ddc25022c",
@@ -2615,7 +2972,8 @@
   "package_label": "KEG 30l",
   "quantity": 1,
   "created_at": "2026-08-04T16:22:37.546533+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "717baad8-b666-4bbd-8d6d-9dcd24e013e3",
@@ -2626,7 +2984,8 @@
   "package_label": "KEG 50l",
   "quantity": 1,
   "created_at": "2026-08-04T16:22:37.395235+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "71fff895-a283-4a60-b871-f895b2736f41",
@@ -2637,7 +2996,8 @@
   "package_label": "20l",
   "quantity": 5,
   "created_at": "2026-08-22T11:52:22.294202+00:00",
-  "is_prepared": true
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "72667190-c2c6-493d-8a1a-ec54c5cf6198",
@@ -2648,7 +3008,8 @@
   "package_label": "30l",
   "quantity": 10,
   "created_at": "2026-08-09T10:58:52.493906+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "72a8fb9e-e58a-4691-bc81-7e04815c2d2d",
@@ -2659,7 +3020,8 @@
   "package_label": "1l",
   "quantity": 24,
   "created_at": "2026-08-11T10:24:23.527653+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "72b4841c-b756-446f-a200-b5e036601133",
@@ -2670,7 +3032,8 @@
   "package_label": "0.33l",
   "quantity": 100,
   "created_at": "2026-08-11T19:18:05.192397+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "72e22bce-dc7f-4f8e-8bbe-2d573d16fae9",
@@ -2681,7 +3044,8 @@
   "package_label": "Lahve 1l",
   "quantity": 5,
   "created_at": "2026-08-04T17:00:56.584129+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "72f13a57-268a-4470-bb22-2305f3ed563c",
@@ -2692,7 +3056,8 @@
   "package_label": " 50l",
   "quantity": 2,
   "created_at": "2026-08-09T10:58:55.152713+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "7351e58e-e276-4e1c-8dbb-7cabee4d9938",
@@ -2703,7 +3068,8 @@
   "package_label": "30l",
   "quantity": 1,
   "created_at": "2026-08-16T20:07:52.845679+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "73556ae8-572c-4d1e-ac68-a61d02c3a879",
@@ -2714,7 +3080,8 @@
   "package_label": "KEG 15l",
   "quantity": 3,
   "created_at": "2026-08-04T16:36:06.173858+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "739852f9-5525-4cd4-acaa-6a80c2887b8f",
@@ -2725,7 +3092,8 @@
   "package_label": "30l",
   "quantity": 3,
   "created_at": "2026-08-09T10:58:54.947919+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "744af455-cd6d-4bb7-b1b0-f99456f0807a",
@@ -2736,7 +3104,20 @@
   "package_label": "Lahve 1l",
   "quantity": 12,
   "created_at": "2026-08-04T17:17:09.018546+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
+ },
+ {
+  "id": "744e9a64-aa84-4ddc-86d1-d17b6c757a0a",
+  "order_id": "50f10a72-8ab8-41e8-a9a3-f2b36c0ea68f",
+  "beer_id": "68c92abd-93b6-4241-b3ad-984c303716f8",
+  "beer_name": "12° Světlá",
+  "package_id": "10593bad-6a48-4653-8506-cada96205c7e",
+  "package_label": " 50l",
+  "quantity": 10,
+  "created_at": "2026-09-08T06:51:18.740426+00:00",
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "74bfa6c0-eb6f-4802-bedb-e225d6e35bc5",
@@ -2747,7 +3128,8 @@
   "package_label": "KEG 30l",
   "quantity": 5,
   "created_at": "2026-08-04T16:47:17.722754+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "763e473f-9d1b-4931-935b-95caba02b205",
@@ -2758,7 +3140,8 @@
   "package_label": "Lahve 1.5l",
   "quantity": 3,
   "created_at": "2026-08-04T16:21:52.837303+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "76d341e6-967b-4dc7-984d-129e8c222df2",
@@ -2769,7 +3152,8 @@
   "package_label": "Lahve 1.5l",
   "quantity": 10,
   "created_at": "2026-08-04T15:27:31.71652+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "7749fa75-ed08-491c-81a2-7907ee047bd8",
@@ -2780,7 +3164,8 @@
   "package_label": " 10l",
   "quantity": 1,
   "created_at": "2026-09-02T18:12:46.900634+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "77525a90-7901-41fb-835a-e0f35aef3eb2",
@@ -2791,7 +3176,8 @@
   "package_label": "KEG 50l",
   "quantity": 2,
   "created_at": "2026-08-04T16:40:11.013343+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "7831bd24-5887-4936-b95d-82944ca4c5a0",
@@ -2802,7 +3188,8 @@
   "package_label": " 10l",
   "quantity": 2,
   "created_at": "2026-08-09T10:58:53.047352+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "7886b143-70b8-4a23-b667-7950ccf8caa0",
@@ -2813,7 +3200,8 @@
   "package_label": "30l",
   "quantity": 1,
   "created_at": "2026-08-16T20:08:01.946383+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "79218edd-f09a-4a70-b176-3a05c088dccc",
@@ -2824,7 +3212,8 @@
   "package_label": "1l",
   "quantity": 10,
   "created_at": "2026-08-18T13:13:00.331597+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "7986c837-7b53-4207-a141-f7447dac0ac2",
@@ -2835,7 +3224,8 @@
   "package_label": "Lahve 1l",
   "quantity": 5,
   "created_at": "2026-08-04T16:36:06.928996+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "7a50647e-c109-4f20-9e6b-f821a67a4438",
@@ -2846,7 +3236,8 @@
   "package_label": "Lahve 1.5l",
   "quantity": 5,
   "created_at": "2026-08-04T17:02:33.519318+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "7a76ee84-27f0-4a14-a378-532496661ff8",
@@ -2857,7 +3248,8 @@
   "package_label": "30l",
   "quantity": 1,
   "created_at": "2026-08-18T06:44:22.390295+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "7a803660-d1ad-49a2-ae8f-f04466ee1981",
@@ -2868,7 +3260,8 @@
   "package_label": "30l",
   "quantity": 5,
   "created_at": "2026-09-06T20:39:24.635732+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "7ae44b0a-63f1-40b5-b0ca-3b2d5c04b636",
@@ -2879,7 +3272,8 @@
   "package_label": "KEG 10l",
   "quantity": 1,
   "created_at": "2026-08-04T16:27:18.409872+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "7bbbb2f8-9e98-4d28-aefe-a42dd7f7360e",
@@ -2890,7 +3284,8 @@
   "package_label": " 50l",
   "quantity": 2,
   "created_at": "2026-08-09T10:58:50.704143+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "7bee615b-3d65-47c2-8f9d-ab143b62d951",
@@ -2901,7 +3296,8 @@
   "package_label": "KEG 30l",
   "quantity": 10,
   "created_at": "2026-08-04T15:33:36.307016+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "7bfb6529-bcd5-4206-9eab-d9964bfe2c0a",
@@ -2912,7 +3308,20 @@
   "package_label": "Lahve 0.33l",
   "quantity": 20,
   "created_at": "2026-08-04T17:21:18.134369+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
+ },
+ {
+  "id": "7d406863-9adf-4093-a3a3-145ba025240d",
+  "order_id": "97d4e598-d255-48e2-b0a8-addedc512851",
+  "beer_id": "68c92abd-93b6-4241-b3ad-984c303716f8",
+  "beer_name": "12° Světlá",
+  "package_id": "10b091f7-fa29-4f70-aa1b-d6d7614a105e",
+  "package_label": "1l",
+  "quantity": 25,
+  "created_at": "2026-09-08T06:53:01.218164+00:00",
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "7e73195c-0d03-4a4f-8d93-bf8e5fb16781",
@@ -2923,7 +3332,8 @@
   "package_label": "30l",
   "quantity": 5,
   "created_at": "2026-08-18T13:13:00.331597+00:00",
-  "is_prepared": true
+  "is_prepared": true,
+  "is_bottled": false
  },
  {
   "id": "7f6eef94-772d-4cd8-9869-4feca1e2e1c5",
@@ -2934,7 +3344,8 @@
   "package_label": "30l",
   "quantity": 2,
   "created_at": "2026-08-10T09:03:31.779802+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "8009c64c-0f4d-4750-84d0-b7fe60997d26",
@@ -2945,7 +3356,8 @@
   "package_label": "30l",
   "quantity": 1,
   "created_at": "2026-08-17T10:07:35.477396+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "804c4092-9091-40bd-bd5f-44ca6d762567",
@@ -2956,7 +3368,8 @@
   "package_label": "KEG 50l",
   "quantity": 2,
   "created_at": "2026-08-04T15:33:36.307016+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "80bae522-886a-4160-ac0a-9283cafb030e",
@@ -2967,7 +3380,8 @@
   "package_label": "30l",
   "quantity": 10,
   "created_at": "2026-08-10T09:03:31.779802+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "80c8f04a-88c9-428c-bf1c-ff1edbe8e078",
@@ -2978,7 +3392,8 @@
   "package_label": "30l",
   "quantity": 3,
   "created_at": "2026-08-18T13:06:20.640552+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "80e0f7b3-792f-4d3f-b132-1fa5b58da334",
@@ -2989,7 +3404,8 @@
   "package_label": "KEG 50l",
   "quantity": 2,
   "created_at": "2026-08-04T16:18:52.676607+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "81706f17-841a-4d03-9b64-1a295a150854",
@@ -3000,7 +3416,8 @@
   "package_label": "Lahve 0.5l",
   "quantity": 40,
   "created_at": "2026-08-04T16:17:53.850756+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "82471fd6-afb3-4837-b8d6-1897a47798d6",
@@ -3011,7 +3428,8 @@
   "package_label": "30l",
   "quantity": 1,
   "created_at": "2026-08-12T18:30:01.992926+00:00",
-  "is_prepared": true
+  "is_prepared": true,
+  "is_bottled": false
  },
  {
   "id": "83753a49-fa54-4e24-8001-dbea9bca0578",
@@ -3022,7 +3440,8 @@
   "package_label": " 50l",
   "quantity": 10,
   "created_at": "2026-08-24T19:20:20.019482+00:00",
-  "is_prepared": true
+  "is_prepared": true,
+  "is_bottled": false
  },
  {
   "id": "83ad64e8-df21-4545-84a9-78ef9307e9a8",
@@ -3033,7 +3452,8 @@
   "package_label": "Lahve 1l",
   "quantity": 3,
   "created_at": "2026-08-04T16:21:52.837303+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "8508d686-f405-401d-bf7b-7abdd2629579",
@@ -3044,7 +3464,8 @@
   "package_label": "1l",
   "quantity": 10,
   "created_at": "2026-08-18T13:13:00.331597+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "85236bab-e84d-479a-ad30-fee6c1dca992",
@@ -3055,7 +3476,8 @@
   "package_label": "1l",
   "quantity": 50,
   "created_at": "2026-08-09T10:58:56.993424+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "85588198-64ca-45c7-8458-02170af94d8e",
@@ -3066,7 +3488,20 @@
   "package_label": "Lahve 1l",
   "quantity": 10,
   "created_at": "2026-08-04T17:11:58.813527+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
+ },
+ {
+  "id": "85898d63-6a02-4ae3-80e8-e19cf395fed1",
+  "order_id": "97d4e598-d255-48e2-b0a8-addedc512851",
+  "beer_id": "68c92abd-93b6-4241-b3ad-984c303716f8",
+  "beer_name": "12° Světlá",
+  "package_id": "16adfff0-50c0-482e-9338-1eb4632cfc14",
+  "package_label": "30l",
+  "quantity": 14,
+  "created_at": "2026-09-08T06:53:01.218164+00:00",
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "85c6304a-f15c-4933-b71c-be335bb39297",
@@ -3077,7 +3512,8 @@
   "package_label": "KEG 30l",
   "quantity": 3,
   "created_at": "2026-08-04T16:50:39.600253+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "86345b10-3a75-4d51-b738-31b0f7519afb",
@@ -3088,7 +3524,8 @@
   "package_label": "30l",
   "quantity": 3,
   "created_at": "2026-08-09T15:39:33.84814+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "8649ec93-e3ae-4026-aa2a-905fc1b27c0f",
@@ -3099,7 +3536,8 @@
   "package_label": "KEG 50l",
   "quantity": 10,
   "created_at": "2026-08-04T16:36:06.173858+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "867f3717-3f7b-45a4-a96e-4d6ec13de2cd",
@@ -3110,7 +3548,8 @@
   "package_label": "1.5l",
   "quantity": 4,
   "created_at": "2026-09-06T08:14:26.028263+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "87d788f9-f91a-4d99-b8cc-92f2e0aba404",
@@ -3121,7 +3560,8 @@
   "package_label": "Lahve 1.5l",
   "quantity": 6,
   "created_at": "2026-08-04T17:00:56.584129+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "883009f1-2394-45df-9ee0-801dcbb5308d",
@@ -3132,7 +3572,8 @@
   "package_label": "1l",
   "quantity": 10,
   "created_at": "2026-08-09T10:58:53.047352+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "89286058-b1cb-4ee3-8451-644f66bcdb0e",
@@ -3143,7 +3584,8 @@
   "package_label": " 50l",
   "quantity": 2,
   "created_at": "2026-08-21T06:34:27.964687+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "89e9313a-6bd3-4380-ac32-88257cedc337",
@@ -3154,7 +3596,8 @@
   "package_label": "30l",
   "quantity": 2,
   "created_at": "2026-08-16T20:07:52.845679+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "89e9b239-7d77-4544-8761-bb2151edd9e3",
@@ -3165,7 +3608,8 @@
   "package_label": "KEG 30l",
   "quantity": 5,
   "created_at": "2026-08-04T16:47:18.550271+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "8a6c1d62-2a47-4aa0-97d1-c28af449b08f",
@@ -3176,7 +3620,8 @@
   "package_label": " 50l",
   "quantity": 1,
   "created_at": "2026-09-06T20:39:44.831345+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "8b3d3d96-f0cb-4283-ae64-974ecb79a8de",
@@ -3187,7 +3632,8 @@
   "package_label": "KEG 20l",
   "quantity": 5,
   "created_at": "2026-08-04T16:23:59.86543+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "8cab2ebb-5911-4f0d-a563-d8259bc2eefd",
@@ -3198,7 +3644,8 @@
   "package_label": "Lahve 0.5l",
   "quantity": 10,
   "created_at": "2026-08-04T16:27:18.409872+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "8cc76e62-4385-423e-b127-06f6c5b8a554",
@@ -3209,7 +3656,20 @@
   "package_label": " 50l",
   "quantity": 10,
   "created_at": "2026-09-02T18:09:21.362023+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
+ },
+ {
+  "id": "8cd33201-6bf3-4c0d-bdb7-23a29474848b",
+  "order_id": "86ff01e7-cd3d-4369-a712-76a5cd68a359",
+  "beer_id": "6e226b00-6297-4ef0-abd1-88c06d8ccad1",
+  "beer_name": "12° Tmavá",
+  "package_id": "7fe0ce80-8310-4d38-98ce-cff8261e59a3",
+  "package_label": "1.5l",
+  "quantity": 12,
+  "created_at": "2026-09-07T07:39:42.82582+00:00",
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "8d2d9386-81c3-49a7-a88b-7d1595f157f5",
@@ -3220,7 +3680,8 @@
   "package_label": "KEG 30l",
   "quantity": 2,
   "created_at": "2026-08-04T16:17:54.001248+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "8d38bcd6-1acd-4f61-a536-4a5f0480d052",
@@ -3231,7 +3692,8 @@
   "package_label": " 50l",
   "quantity": 3,
   "created_at": "2026-08-09T10:58:56.057396+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "8d7948c3-b580-4624-b1bb-76f0eb0b6ce9",
@@ -3242,7 +3704,8 @@
   "package_label": "30l",
   "quantity": 1,
   "created_at": "2026-08-10T09:03:31.209096+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "8da6f9e3-a795-46bc-89f8-cb59956598d3",
@@ -3253,7 +3716,8 @@
   "package_label": "1.5l",
   "quantity": 5,
   "created_at": "2026-08-29T16:28:27.624993+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "8e5407b4-1334-4622-af55-a42ee787878c",
@@ -3264,7 +3728,8 @@
   "package_label": "1l",
   "quantity": 10,
   "created_at": "2026-08-18T12:51:06.582955+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "9042a179-88d3-4137-a5f3-7a298c3067ae",
@@ -3275,7 +3740,8 @@
   "package_label": "30l",
   "quantity": 5,
   "created_at": "2026-08-09T10:58:51.77711+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "906e16ca-dd55-4edd-b844-4ac0474cbf1b",
@@ -3286,7 +3752,8 @@
   "package_label": "KEG 30l",
   "quantity": 1,
   "created_at": "2026-08-04T16:21:52.837303+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "90ff5de3-c27b-48ce-85d5-f7e67507fdf4",
@@ -3297,7 +3764,8 @@
   "package_label": "Lahve 1l",
   "quantity": 5,
   "created_at": "2026-08-04T17:01:43.521618+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "9168547a-789d-4559-86f6-ede6a351533f",
@@ -3308,7 +3776,8 @@
   "package_label": "KEG 30l",
   "quantity": 6,
   "created_at": "2026-08-04T16:50:39.600253+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "91a95d76-3e3d-4e35-bc80-a50fbe15828c",
@@ -3319,7 +3788,8 @@
   "package_label": "KEG 15l",
   "quantity": 3,
   "created_at": "2026-08-04T16:24:00.139046+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "925afb92-701f-47c5-9d57-0058a52399a9",
@@ -3330,7 +3800,8 @@
   "package_label": "KEG 30l",
   "quantity": 4,
   "created_at": "2026-08-04T17:21:18.134369+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "92c422c1-d0bd-4c08-bc1f-39f4a917786c",
@@ -3341,7 +3812,8 @@
   "package_label": "0.33l",
   "quantity": 100,
   "created_at": "2026-08-22T11:53:23.078539+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "92d0884f-3a47-412a-a818-af5d278a6b95",
@@ -3352,7 +3824,8 @@
   "package_label": "Lahve 1.5l",
   "quantity": 5,
   "created_at": "2026-08-04T17:17:08.699636+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "9301bbda-64f6-43e0-a16b-c7bf1d0da46f",
@@ -3363,7 +3836,8 @@
   "package_label": "KEG 20l",
   "quantity": 1,
   "created_at": "2026-08-04T17:11:59.557431+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "93944ae7-48b5-4b05-bf12-bc1f210bca47",
@@ -3374,7 +3848,20 @@
   "package_label": "30l",
   "quantity": 15,
   "created_at": "2026-08-22T11:52:22.294202+00:00",
-  "is_prepared": false
+  "is_prepared": true,
+  "is_bottled": false
+ },
+ {
+  "id": "93a75585-91fb-458b-a021-f99fe2af8a51",
+  "order_id": "97d4e598-d255-48e2-b0a8-addedc512851",
+  "beer_id": "93f7be38-e176-46af-9da3-47a14ffdedfa",
+  "beer_name": "11° Světlá",
+  "package_id": "10b091f7-fa29-4f70-aa1b-d6d7614a105e",
+  "package_label": "1l",
+  "quantity": 25,
+  "created_at": "2026-09-08T06:53:01.218164+00:00",
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "93b07c67-4571-4b7c-ae66-7100c4184d3c",
@@ -3385,7 +3872,8 @@
   "package_label": "1l",
   "quantity": 8,
   "created_at": "2026-08-18T13:13:00.331597+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "93cb0caa-e548-4da5-9a0f-19f028b788ab",
@@ -3396,7 +3884,8 @@
   "package_label": " 50l",
   "quantity": 4,
   "created_at": "2026-09-06T08:11:36.690708+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "9465d735-9005-4106-895d-63927e7e18a0",
@@ -3407,7 +3896,8 @@
   "package_label": "20l",
   "quantity": 10,
   "created_at": "2026-08-11T19:09:51.115574+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "94a69b82-ec1e-40e8-938e-4c25265b8818",
@@ -3418,7 +3908,8 @@
   "package_label": " 50l",
   "quantity": 1,
   "created_at": "2026-08-25T19:13:08.958297+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "94b09264-92bb-4ef9-9288-6f049192d1b1",
@@ -3429,7 +3920,8 @@
   "package_label": "1l",
   "quantity": 4,
   "created_at": "2026-08-09T10:58:50.704143+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "94bcec07-649c-48ac-a549-75d2a502b1ed",
@@ -3440,7 +3932,8 @@
   "package_label": "1l",
   "quantity": 10,
   "created_at": "2026-08-18T13:13:00.331597+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "94dd9a80-f2ea-42c6-9225-f1c6eaa7f809",
@@ -3451,7 +3944,8 @@
   "package_label": "Lahve 1l",
   "quantity": 10,
   "created_at": "2026-08-04T16:42:47.462267+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "94e95c04-d826-4628-b1b4-dff563d81359",
@@ -3462,7 +3956,8 @@
   "package_label": "Lahve 1l",
   "quantity": 6,
   "created_at": "2026-08-04T15:25:36.556704+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "95005368-9c01-4ec8-a8b9-0ad77236297c",
@@ -3473,7 +3968,8 @@
   "package_label": "Lahve 1.5l",
   "quantity": 4,
   "created_at": "2026-08-04T17:02:33.519318+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "969814fd-7ca8-4f6d-8de6-2a2d983fac6c",
@@ -3484,7 +3980,20 @@
   "package_label": "30l",
   "quantity": 4,
   "created_at": "2026-08-11T09:57:03.632812+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
+ },
+ {
+  "id": "96a03115-f646-4f95-9876-f738cedf96c7",
+  "order_id": "97d4e598-d255-48e2-b0a8-addedc512851",
+  "beer_id": "68c92abd-93b6-4241-b3ad-984c303716f8",
+  "beer_name": "12° Světlá",
+  "package_id": "41189ae0-30ed-4f1f-9107-4367afd07c01",
+  "package_label": " 10l",
+  "quantity": 1,
+  "created_at": "2026-09-08T06:53:01.218164+00:00",
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "96ec0eb0-26b7-426e-bbb0-27d273ab5d26",
@@ -3495,7 +4004,8 @@
   "package_label": "0.5l",
   "quantity": 20,
   "created_at": "2026-08-25T10:16:08.424413+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "972ff65b-4a42-44f1-90c7-dcd5d3cb6742",
@@ -3506,7 +4016,8 @@
   "package_label": "30l",
   "quantity": 10,
   "created_at": "2026-08-10T09:03:31.779802+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "9896f800-a90a-4fb2-aa22-aaa150c2621d",
@@ -3517,7 +4028,8 @@
   "package_label": "Lahve 1l",
   "quantity": 6,
   "created_at": "2026-08-04T15:25:36.556704+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "9898ef53-18a2-4f19-a190-e0074547b9b0",
@@ -3528,7 +4040,8 @@
   "package_label": "30l",
   "quantity": 9,
   "created_at": "2026-08-18T13:13:00.331597+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "98ccfb37-c774-4e49-861a-551563ad03f5",
@@ -3539,7 +4052,20 @@
   "package_label": "1l",
   "quantity": 15,
   "created_at": "2026-08-25T10:16:08.424413+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
+ },
+ {
+  "id": "990c49ed-5764-4e45-b66f-96bc0ffca37e",
+  "order_id": "97d4e598-d255-48e2-b0a8-addedc512851",
+  "beer_id": "80cb2ddc-7fc8-4883-ad0a-c51411980326",
+  "beer_name": "10° Desítka",
+  "package_id": "6c981d1b-2796-4984-89eb-af9dd51aa5c0",
+  "package_label": "0.5l",
+  "quantity": 20,
+  "created_at": "2026-09-08T06:53:01.218164+00:00",
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "99110b8b-c556-40c0-8263-3b2bbf00bbf3",
@@ -3550,7 +4076,8 @@
   "package_label": "KEG 30l",
   "quantity": 1,
   "created_at": "2026-08-04T16:21:52.665358+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "999b5674-50ee-4961-9b03-6c24c6e78334",
@@ -3561,7 +4088,8 @@
   "package_label": "50l",
   "quantity": 1,
   "created_at": "2026-08-16T20:07:52.845679+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "99ee8ee8-bfda-4fc8-b0a6-c43688a8b06c",
@@ -3572,7 +4100,8 @@
   "package_label": " 50l",
   "quantity": 2,
   "created_at": "2026-08-11T19:09:51.115574+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "99feb876-a8d9-4da8-a1cb-0e83b0bb46a5",
@@ -3583,7 +4112,8 @@
   "package_label": "KEG 30l",
   "quantity": 5,
   "created_at": "2026-08-04T15:25:36.556704+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "9ac35516-2e22-46b4-ae97-1211bfb514d8",
@@ -3594,7 +4124,8 @@
   "package_label": "30l",
   "quantity": 1,
   "created_at": "2026-08-10T09:03:31.209096+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "9b95eb03-711c-4b89-b727-00effab2564e",
@@ -3605,7 +4136,8 @@
   "package_label": " 10l",
   "quantity": 1,
   "created_at": "2026-08-11T10:24:23.527653+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "9b9bdf7d-dab7-453a-9e4f-bb3e7aa027a2",
@@ -3616,7 +4148,8 @@
   "package_label": "30l",
   "quantity": 2,
   "created_at": "2026-08-09T10:58:52.024694+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "9bb0f327-9354-4f54-b296-04ad240a3c76",
@@ -3627,7 +4160,8 @@
   "package_label": "1l",
   "quantity": 12,
   "created_at": "2026-09-06T20:40:07.409013+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "9bd906a9-dd1b-4c4b-bd43-a3ace84f0dc3",
@@ -3638,7 +4172,8 @@
   "package_label": "1l",
   "quantity": 2,
   "created_at": "2026-09-06T08:14:26.028263+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "9d38276e-b3e4-4484-af5a-90294d3a1b3f",
@@ -3649,7 +4184,8 @@
   "package_label": " 50l",
   "quantity": 4,
   "created_at": "2026-08-11T19:09:51.115574+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "9d6d3287-43b8-49fa-bae5-f7c81f441a00",
@@ -3660,7 +4196,8 @@
   "package_label": "30l",
   "quantity": 6,
   "created_at": "2026-08-25T07:12:45.898367+00:00",
-  "is_prepared": true
+  "is_prepared": true,
+  "is_bottled": false
  },
  {
   "id": "9dd63ed0-a502-446c-85f0-75e208894a14",
@@ -3671,7 +4208,8 @@
   "package_label": "1l",
   "quantity": 7,
   "created_at": "2026-09-06T08:12:11.307658+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "9dff8db7-ef7b-470d-bb79-8d49f6f66f23",
@@ -3682,7 +4220,8 @@
   "package_label": "KEG 30l",
   "quantity": 1,
   "created_at": "2026-08-04T16:51:31.915106+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "9e71ded4-2c8a-4b14-8b22-358107d6a55e",
@@ -3693,7 +4232,8 @@
   "package_label": " 50l",
   "quantity": 2,
   "created_at": "2026-08-21T06:34:03.47481+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "9eafacdc-c814-4968-a527-921fd3d37831",
@@ -3704,7 +4244,8 @@
   "package_label": "30l",
   "quantity": 1,
   "created_at": "2026-08-18T12:50:24.250377+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "9ebe3f27-9682-4322-8301-1994a2018c5f",
@@ -3715,7 +4256,8 @@
   "package_label": "Lahve 1l",
   "quantity": 5,
   "created_at": "2026-08-04T17:00:56.584129+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "9ed53c92-ec33-42e1-b4be-b43e875e0a25",
@@ -3726,7 +4268,8 @@
   "package_label": " 15l",
   "quantity": 4,
   "created_at": "2026-08-11T19:17:49.078903+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "a09b3c42-8edd-4cc6-b53d-5d80a30412eb",
@@ -3737,7 +4280,8 @@
   "package_label": " 50l",
   "quantity": 2,
   "created_at": "2026-08-21T06:59:27.662634+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "a0bce0a9-398c-40aa-a12f-0e22f154fa68",
@@ -3748,7 +4292,8 @@
   "package_label": "KEG 30l",
   "quantity": 2,
   "created_at": "2026-08-04T16:47:18.053413+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "a1189823-da8d-4e23-bd2d-c4aad01a66ed",
@@ -3759,7 +4304,8 @@
   "package_label": "KEG 15l",
   "quantity": 1,
   "created_at": "2026-08-04T16:47:18.906107+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "a11fdb62-d401-4abe-868a-545492923173",
@@ -3770,7 +4316,8 @@
   "package_label": "Lahve 1l",
   "quantity": 24,
   "created_at": "2026-08-04T16:15:54.685585+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "a14dd072-ad4b-4006-bb33-19f7285b552c",
@@ -3781,7 +4328,8 @@
   "package_label": "Lahve 1l",
   "quantity": 30,
   "created_at": "2026-08-04T16:27:18.246521+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "a22b4b21-7a17-40dc-aad8-6cdcfd2827d1",
@@ -3792,7 +4340,8 @@
   "package_label": " 50l",
   "quantity": 2,
   "created_at": "2026-08-11T19:19:46.23927+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "a2691f24-f10e-47c5-9389-acd1dfeb4da3",
@@ -3803,7 +4352,8 @@
   "package_label": "KEG 50l",
   "quantity": 2,
   "created_at": "2026-08-04T17:14:57.993788+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "a2a1d184-4061-4c08-9a66-eae8b421d55d",
@@ -3814,7 +4364,8 @@
   "package_label": "KEG 30l",
   "quantity": 2,
   "created_at": "2026-08-04T16:47:17.722754+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "a324e702-a831-4a82-b801-84cd916eddec",
@@ -3825,7 +4376,8 @@
   "package_label": "KEG 10l",
   "quantity": 2,
   "created_at": "2026-08-04T16:36:06.447667+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "a4d4bff4-3090-42f3-ab5b-5820bb468278",
@@ -3836,7 +4388,8 @@
   "package_label": "1l",
   "quantity": 4,
   "created_at": "2026-08-16T20:07:52.845679+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "a59f240b-44ba-4484-90e6-25610b2aa4c5",
@@ -3847,7 +4400,8 @@
   "package_label": "KEG 10l",
   "quantity": 3,
   "created_at": "2026-08-04T17:11:59.557431+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "a5a737b4-361e-482c-943b-0b3e48a5578b",
@@ -3858,7 +4412,8 @@
   "package_label": "1.5l",
   "quantity": 24,
   "created_at": "2026-08-25T19:13:56.675088+00:00",
-  "is_prepared": true
+  "is_prepared": true,
+  "is_bottled": false
  },
  {
   "id": "a60aa6a5-2139-402f-8efc-53a6bc8b212b",
@@ -3869,7 +4424,8 @@
   "package_label": "KEG 30l",
   "quantity": 3,
   "created_at": "2026-08-04T16:51:31.780754+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "a76f4f50-3432-4d1a-9bec-337d6a0b081e",
@@ -3880,7 +4436,8 @@
   "package_label": " 50l",
   "quantity": 2,
   "created_at": "2026-08-18T08:32:38.959211+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "a8479100-5289-4ca8-94f5-0428089e0d58",
@@ -3891,7 +4448,8 @@
   "package_label": "1.5l",
   "quantity": 6,
   "created_at": "2026-09-06T08:14:26.028263+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "a850352b-93cc-484a-8a8f-ae2a4f5fe788",
@@ -3902,7 +4460,8 @@
   "package_label": "1l",
   "quantity": 10,
   "created_at": "2026-09-02T18:12:46.900634+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "a85c0fd3-5175-42dd-afa4-b0354aedc14a",
@@ -3913,7 +4472,20 @@
   "package_label": " 50l",
   "quantity": 3,
   "created_at": "2026-08-20T07:18:24.47693+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
+ },
+ {
+  "id": "a8ad5043-2482-4a06-bec6-6cc2cf180fb8",
+  "order_id": "86ff01e7-cd3d-4369-a712-76a5cd68a359",
+  "beer_id": "80cb2ddc-7fc8-4883-ad0a-c51411980326",
+  "beer_name": "10° Desítka",
+  "package_id": "7fe0ce80-8310-4d38-98ce-cff8261e59a3",
+  "package_label": "1.5l",
+  "quantity": 12,
+  "created_at": "2026-09-07T07:39:42.82582+00:00",
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "a9d53adf-3a14-4e6e-9d4f-c604fda5a602",
@@ -3924,7 +4496,8 @@
   "package_label": " 50l",
   "quantity": 3,
   "created_at": "2026-08-20T19:50:57.733101+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "aa3e63a9-a596-406a-92e0-c048fb2e7a88",
@@ -3935,7 +4508,8 @@
   "package_label": "KEG 30l",
   "quantity": 1,
   "created_at": "2026-08-04T16:40:11.013343+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "aad198a9-9ab1-46a5-8d4e-76230ed088ad",
@@ -3946,7 +4520,8 @@
   "package_label": "1l",
   "quantity": 10,
   "created_at": "2026-08-18T12:51:06.582955+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "ab14ff8c-0ac3-44e8-ab62-7bc0d03ec946",
@@ -3957,7 +4532,8 @@
   "package_label": "KEG 30l",
   "quantity": 1,
   "created_at": "2026-08-04T16:58:29.12408+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "ac46198d-7c49-40fc-b6da-e28ea3258e4e",
@@ -3968,7 +4544,8 @@
   "package_label": "20l",
   "quantity": 5,
   "created_at": "2026-09-06T08:11:36.690708+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "ac850454-74a1-4d72-9a95-fe72cd0ca1d0",
@@ -3979,7 +4556,8 @@
   "package_label": " 50l",
   "quantity": 1,
   "created_at": "2026-08-29T16:28:00.716299+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "ac852bb7-d44e-4d89-a900-6a1dd63bbc36",
@@ -3990,7 +4568,8 @@
   "package_label": "KEG 30l",
   "quantity": 6,
   "created_at": "2026-08-04T16:27:18.409872+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "ad19b63e-6734-44a3-be62-47267c67de2b",
@@ -4001,7 +4580,8 @@
   "package_label": "Lahve 1l",
   "quantity": 5,
   "created_at": "2026-08-04T16:42:47.462267+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "ae2350bd-3a5c-4a41-b79e-ed2840f84544",
@@ -4012,7 +4592,20 @@
   "package_label": "KEG 30l",
   "quantity": 2,
   "created_at": "2026-08-04T16:21:52.837303+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
+ },
+ {
+  "id": "ae34f5a9-5882-43c4-9f34-eace905d1991",
+  "order_id": "97d4e598-d255-48e2-b0a8-addedc512851",
+  "beer_id": "93f7be38-e176-46af-9da3-47a14ffdedfa",
+  "beer_name": "11° Světlá",
+  "package_id": "10b091f7-fa29-4f70-aa1b-d6d7614a105e",
+  "package_label": "1l",
+  "quantity": 20,
+  "created_at": "2026-09-08T06:53:01.218164+00:00",
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "aed7819b-1834-45ea-ae6d-409fbdacce2c",
@@ -4023,7 +4616,8 @@
   "package_label": "30l",
   "quantity": 3,
   "created_at": "2026-08-25T10:16:08.424413+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "af33b9f1-399a-47a2-ac12-ab6791fc9faa",
@@ -4034,7 +4628,8 @@
   "package_label": "Lahve 1l",
   "quantity": 5,
   "created_at": "2026-08-04T17:01:43.521618+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "af45aeb7-2ff8-423b-bc04-86e476bf237d",
@@ -4045,7 +4640,8 @@
   "package_label": "30l",
   "quantity": 4,
   "created_at": "2026-08-25T19:12:18.496184+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "afed8131-6de2-4718-a7d0-dd95f998437e",
@@ -4056,7 +4652,8 @@
   "package_label": "30l",
   "quantity": 2,
   "created_at": "2026-08-18T18:42:54.699225+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "aff6101a-a02c-43d7-a37b-8d3acfbef070",
@@ -4067,7 +4664,8 @@
   "package_label": "1l",
   "quantity": 6,
   "created_at": "2026-08-18T13:13:00.331597+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "b011662e-7317-4b03-851c-8ddd1a7e5686",
@@ -4078,7 +4676,8 @@
   "package_label": "KEG 30l",
   "quantity": 2,
   "created_at": "2026-08-04T16:40:11.593465+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "b0bfbe45-7119-4375-836f-3f3c17751cc7",
@@ -4089,7 +4688,8 @@
   "package_label": "KEG 50l",
   "quantity": 3,
   "created_at": "2026-08-04T16:37:36.649741+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "b1a7d4c5-9fc1-43ee-a09a-70a86bb51728",
@@ -4100,7 +4700,8 @@
   "package_label": "KEG 50l",
   "quantity": 2,
   "created_at": "2026-08-04T16:17:53.652843+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "b1b37d12-3f3e-483e-9263-529d081b0d97",
@@ -4111,7 +4712,8 @@
   "package_label": "KEG 30l",
   "quantity": 8,
   "created_at": "2026-08-04T16:56:55.57822+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "b284be15-bef7-4091-9815-50400a4d64f6",
@@ -4122,7 +4724,8 @@
   "package_label": " 10l",
   "quantity": 3,
   "created_at": "2026-08-10T09:03:31.779802+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "b296e575-2513-45ba-b2a8-883205401a05",
@@ -4133,7 +4736,8 @@
   "package_label": "0.5l",
   "quantity": 40,
   "created_at": "2026-08-09T10:58:53.047352+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "b2a1bd19-0342-420a-ba4c-5c05fd16a16c",
@@ -4144,7 +4748,8 @@
   "package_label": "0.5l",
   "quantity": 20,
   "created_at": "2026-08-11T19:06:15.359275+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "b2dba8bb-8760-4c5b-aee8-48b54a0b2e7a",
@@ -4155,7 +4760,8 @@
   "package_label": "30l",
   "quantity": 2,
   "created_at": "2026-08-18T13:13:00.331597+00:00",
-  "is_prepared": true
+  "is_prepared": true,
+  "is_bottled": false
  },
  {
   "id": "b2f46724-d3db-4f79-ae61-71be010a7715",
@@ -4166,7 +4772,8 @@
   "package_label": "Lahve 1l",
   "quantity": 5,
   "created_at": "2026-08-04T16:17:54.279251+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "b3130e60-734a-4952-9c96-b1035e3fb607",
@@ -4177,7 +4784,8 @@
   "package_label": " 50l",
   "quantity": 3,
   "created_at": "2026-08-25T10:16:08.424413+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "b3651db2-3f36-485e-9a2d-e3136ba19372",
@@ -4188,7 +4796,8 @@
   "package_label": "KEG 20l",
   "quantity": 3,
   "created_at": "2026-08-04T17:21:17.959577+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "b365b1d6-6fac-4370-9529-f6a8ac6bea5e",
@@ -4199,7 +4808,8 @@
   "package_label": "30l",
   "quantity": 3,
   "created_at": "2026-08-09T10:58:55.590036+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "b38b1599-88dc-445f-a2a1-547fdd889ce5",
@@ -4210,7 +4820,8 @@
   "package_label": "KEG 30l",
   "quantity": 2,
   "created_at": "2026-08-04T16:40:11.748797+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "b38e057d-9cc7-4111-bc57-62cfd51983df",
@@ -4221,7 +4832,8 @@
   "package_label": "30l",
   "quantity": 10,
   "created_at": "2026-08-10T09:03:31.779802+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "b3ece677-f03e-4f9c-8aab-e48aa03a8c35",
@@ -4232,7 +4844,8 @@
   "package_label": "1l",
   "quantity": 10,
   "created_at": "2026-08-10T09:03:31.779802+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "b41b64e7-cbb8-4870-af04-28bbe8a4673c",
@@ -4243,7 +4856,8 @@
   "package_label": "Lahve 1l",
   "quantity": 5,
   "created_at": "2026-08-04T17:17:08.699636+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "b4d3534e-8c1f-4336-880c-89821ea550f3",
@@ -4254,7 +4868,20 @@
   "package_label": " 50l",
   "quantity": 1,
   "created_at": "2026-08-09T10:58:50.948073+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
+ },
+ {
+  "id": "b4ec36a9-e08f-4ace-9c2c-ffc4aceae76e",
+  "order_id": "985a4ff6-cb9b-4413-8c3b-ff5e7bc83d41",
+  "beer_id": "68c92abd-93b6-4241-b3ad-984c303716f8",
+  "beer_name": "12° Světlá",
+  "package_id": "584a40aa-311a-4768-a518-5db0c532464c",
+  "package_label": "20l",
+  "quantity": 1,
+  "created_at": "2026-09-08T06:50:46.509099+00:00",
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "b4f7c0fe-5c75-4ae7-a5ed-722685c04e9a",
@@ -4265,7 +4892,8 @@
   "package_label": "KEG 10l",
   "quantity": 1,
   "created_at": "2026-08-04T16:27:18.409872+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "b5055a84-20cc-4cd1-88ab-53fb7b8a0dae",
@@ -4276,7 +4904,8 @@
   "package_label": "KEG 30l",
   "quantity": 3,
   "created_at": "2026-08-04T16:50:39.600253+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "b517e178-ca87-4b33-84ef-d470d2783544",
@@ -4287,7 +4916,8 @@
   "package_label": "30l",
   "quantity": 8,
   "created_at": "2026-09-02T18:12:46.900634+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "b566ca05-b431-4e6f-ad0f-e17b8371ba58",
@@ -4298,7 +4928,8 @@
   "package_label": "KEG 50l",
   "quantity": 2,
   "created_at": "2026-08-04T16:40:11.593465+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "b5fffcd2-0f3c-48ee-8556-de42dc6edda9",
@@ -4309,7 +4940,8 @@
   "package_label": "KEG 50l",
   "quantity": 3,
   "created_at": "2026-08-04T17:14:57.993788+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "b631110f-578a-4b01-ae03-59755dc60df4",
@@ -4320,7 +4952,8 @@
   "package_label": "Lahve 1l",
   "quantity": 10,
   "created_at": "2026-08-04T17:11:58.547333+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "b6d67439-81d8-481a-bd07-2b19cb2e9587",
@@ -4331,7 +4964,8 @@
   "package_label": "1l",
   "quantity": 10,
   "created_at": "2026-08-10T09:03:31.779802+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "b6f264a7-c761-40d1-bdb2-a963aa769b8a",
@@ -4342,7 +4976,8 @@
   "package_label": "30l",
   "quantity": 5,
   "created_at": "2026-08-18T13:13:00.331597+00:00",
-  "is_prepared": true
+  "is_prepared": true,
+  "is_bottled": false
  },
  {
   "id": "b74a0088-a736-4f10-a4f4-6631ba840e35",
@@ -4353,7 +4988,8 @@
   "package_label": " 50l",
   "quantity": 3,
   "created_at": "2026-08-17T10:08:41.119534+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "b788205c-0130-4922-b577-ee713ef6f4d7",
@@ -4364,7 +5000,8 @@
   "package_label": "KEG 30l",
   "quantity": 3,
   "created_at": "2026-08-04T17:11:59.364758+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "b7ae0fae-1aef-49d8-bff4-149e36cf1409",
@@ -4375,7 +5012,8 @@
   "package_label": "10l",
   "quantity": 3,
   "created_at": "2026-08-25T19:15:00.065607+00:00",
-  "is_prepared": true
+  "is_prepared": true,
+  "is_bottled": false
  },
  {
   "id": "b89a9a6f-daf9-4c35-bbc5-5d9b209b2017",
@@ -4386,7 +5024,8 @@
   "package_label": "30l",
   "quantity": 4,
   "created_at": "2026-09-02T18:33:52.692819+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "b8a1e5b7-6d21-466a-b2b4-79682c3bdf28",
@@ -4397,7 +5036,8 @@
   "package_label": "1l",
   "quantity": 20,
   "created_at": "2026-08-09T10:58:53.047352+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "b92e7743-e4e7-484f-863a-8fe3d1d019c6",
@@ -4408,7 +5048,8 @@
   "package_label": "Lahve 1l",
   "quantity": 10,
   "created_at": "2026-08-04T17:11:59.364758+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "b9931d3c-0da5-410c-986a-31b14771bd15",
@@ -4419,7 +5060,8 @@
   "package_label": "30l",
   "quantity": 2,
   "created_at": "2026-08-09T10:58:53.047352+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "b99f38c3-cd2e-4abd-a922-3a5075428f25",
@@ -4430,7 +5072,8 @@
   "package_label": "KEG 15l",
   "quantity": 1,
   "created_at": "2026-08-04T16:27:18.409872+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "b9a6730c-8d33-4299-9fa9-07994ad8d009",
@@ -4441,7 +5084,8 @@
   "package_label": "Lahve 0.5l",
   "quantity": 10,
   "created_at": "2026-08-04T16:27:18.409872+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "b9e83978-7e0c-4286-b812-59d2a50bff1d",
@@ -4452,7 +5096,8 @@
   "package_label": "15l",
   "quantity": 1,
   "created_at": "2026-09-06T20:38:27.845302+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "ba1e6844-808f-4431-b843-240eb36cf4d3",
@@ -4463,7 +5108,8 @@
   "package_label": "KEG 30l",
   "quantity": 6,
   "created_at": "2026-08-04T16:15:54.685585+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "ba2adbfb-978e-4d5e-ac6a-0b5ba0c0b682",
@@ -4474,7 +5120,8 @@
   "package_label": "1l",
   "quantity": 4,
   "created_at": "2026-09-06T20:40:07.409013+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "ba359ee8-0764-4017-bfb7-c230e8e0ee26",
@@ -4485,7 +5132,8 @@
   "package_label": "1l",
   "quantity": 10,
   "created_at": "2026-08-09T10:58:52.783091+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "ba41182e-f1a1-42c4-95a7-716346f547cb",
@@ -4496,7 +5144,8 @@
   "package_label": "KEG 15l",
   "quantity": 1,
   "created_at": "2026-08-04T15:25:36.556704+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "bb0ab032-6029-4c58-91fa-807e077a5ee8",
@@ -4507,7 +5156,8 @@
   "package_label": "Lahve 1l",
   "quantity": 20,
   "created_at": "2026-08-04T16:27:18.246521+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "bb35c670-be4b-4fc8-abd0-a5b77bde0baa",
@@ -4518,7 +5168,8 @@
   "package_label": "1l",
   "quantity": 12,
   "created_at": "2026-08-09T10:58:54.947919+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "bba4caca-c73f-44b8-a359-de409c14448f",
@@ -4529,7 +5180,8 @@
   "package_label": "30l",
   "quantity": 8,
   "created_at": "2026-08-09T10:58:53.047352+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "bc2a3e53-c4bf-42cd-bcb2-8cfa8084d134",
@@ -4540,7 +5192,8 @@
   "package_label": "1l",
   "quantity": 50,
   "created_at": "2026-09-02T18:09:43.850544+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "bc5072ee-9c88-4380-912c-ce7e146c9a51",
@@ -4551,7 +5204,8 @@
   "package_label": "KEG 30l",
   "quantity": 1,
   "created_at": "2026-08-04T17:17:08.526234+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "bda1cad7-c9a5-43b2-9a42-3dd33335e9c2",
@@ -4562,7 +5216,8 @@
   "package_label": "0.33l",
   "quantity": 100,
   "created_at": "2026-09-02T18:11:10.427707+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "bdb4e69f-b1ce-4fc6-8aac-6bf18d539514",
@@ -4573,7 +5228,8 @@
   "package_label": "KEG 50l",
   "quantity": 8,
   "created_at": "2026-08-04T16:23:59.86543+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "be44b8b8-eeac-4422-b473-52b73e066319",
@@ -4584,7 +5240,8 @@
   "package_label": "Lahve 1l",
   "quantity": 10,
   "created_at": "2026-08-04T15:27:31.71652+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "be82e247-1901-4d1a-b7b5-9b7170873152",
@@ -4595,7 +5252,8 @@
   "package_label": "1.5l",
   "quantity": 24,
   "created_at": "2026-08-09T10:58:56.057396+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "c0ff6ca9-e5e7-4c61-91fd-f2eabee2926d",
@@ -4606,7 +5264,8 @@
   "package_label": "1l",
   "quantity": 10,
   "created_at": "2026-08-10T09:03:31.779802+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "c111b2aa-00cb-4113-8464-bcde0f94bc02",
@@ -4617,7 +5276,8 @@
   "package_label": "0.5l",
   "quantity": 21,
   "created_at": "2026-08-16T20:07:38.650016+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "c1446795-2cc5-4aea-a0cf-d7d1ae310aad",
@@ -4628,7 +5288,8 @@
   "package_label": "KEG 30l",
   "quantity": 5,
   "created_at": "2026-08-04T16:44:48.118816+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "c144f3f3-b9dc-4e0c-93b1-0c9fe705dbee",
@@ -4639,7 +5300,8 @@
   "package_label": "Lahve 0.33l",
   "quantity": 120,
   "created_at": "2026-08-04T17:21:18.134369+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "c154805a-b7e3-4b2d-8c1a-5ba221e74d7e",
@@ -4650,7 +5312,8 @@
   "package_label": "1l",
   "quantity": 8,
   "created_at": "2026-08-18T13:13:00.331597+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "c2503fc9-449f-4a28-941f-7b15b5292291",
@@ -4661,7 +5324,8 @@
   "package_label": "KEG 30l",
   "quantity": 1,
   "created_at": "2026-08-04T16:56:55.924415+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "c2524a54-f97c-4268-aa66-b3ec607850da",
@@ -4672,7 +5336,8 @@
   "package_label": " 10l",
   "quantity": 5,
   "created_at": "2026-09-02T18:34:47.936568+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "c2d03ea0-60aa-4e05-9769-f3091ceb2fb4",
@@ -4683,7 +5348,8 @@
   "package_label": "KEG 30l",
   "quantity": 3,
   "created_at": "2026-08-04T16:50:39.600253+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "c3f3214e-ccb7-47f8-a7e2-7bdbe4cbb474",
@@ -4694,7 +5360,8 @@
   "package_label": " 50l",
   "quantity": 2,
   "created_at": "2026-08-21T06:34:03.47481+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "c4273049-4cc2-4ff7-a702-6fbc88b25568",
@@ -4705,7 +5372,8 @@
   "package_label": "KEG 30l",
   "quantity": 24,
   "created_at": "2026-08-04T16:23:59.86543+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "c47af1b8-7a29-4849-8c90-a16e866bc403",
@@ -4716,7 +5384,8 @@
   "package_label": "30l",
   "quantity": 8,
   "created_at": "2026-09-02T18:12:46.900634+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "c47dd724-449e-464c-9625-de2b0eaba4b6",
@@ -4727,7 +5396,8 @@
   "package_label": "KEG 30l",
   "quantity": 4,
   "created_at": "2026-08-04T15:25:36.556704+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "c4e3a2ea-d091-4337-989a-b217528037fd",
@@ -4738,7 +5408,8 @@
   "package_label": "1l",
   "quantity": 20,
   "created_at": "2026-08-09T10:58:56.648788+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "c535113e-b9fe-45a8-ad70-416abf3066e4",
@@ -4749,7 +5420,8 @@
   "package_label": "20l",
   "quantity": 2,
   "created_at": "2026-08-18T13:06:20.640552+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "c56ce2e3-3785-49c0-a95b-e50331a14a8b",
@@ -4760,7 +5432,8 @@
   "package_label": "Lahve 1l",
   "quantity": 6,
   "created_at": "2026-08-04T15:25:36.556704+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "c6772148-d867-459d-acba-d1975e67534c",
@@ -4771,7 +5444,8 @@
   "package_label": " 50l",
   "quantity": 4,
   "created_at": "2026-08-11T19:18:05.192397+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "c6e6013f-afce-4d8e-b728-8f5dc4852068",
@@ -4782,7 +5456,8 @@
   "package_label": "0.5l",
   "quantity": 9,
   "created_at": "2026-08-16T20:07:38.650016+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "c72a777f-3c11-44b7-9b13-e5d4776a2202",
@@ -4793,7 +5468,8 @@
   "package_label": "Lahve 1l",
   "quantity": 5,
   "created_at": "2026-08-04T17:21:18.671183+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "c752ac88-7aed-470f-9cee-bc015832b6ed",
@@ -4804,7 +5480,8 @@
   "package_label": " 10l",
   "quantity": 2,
   "created_at": "2026-08-09T10:58:54.09751+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "c7a7275e-a146-46a4-adea-0d844024f558",
@@ -4815,7 +5492,8 @@
   "package_label": "30l",
   "quantity": 1,
   "created_at": "2026-08-11T19:03:45.348488+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "c813f4b3-f05a-4780-a453-f5b5f56aba47",
@@ -4826,7 +5504,8 @@
   "package_label": "0.5l",
   "quantity": 20,
   "created_at": "2026-08-09T10:58:56.057396+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "c83fd508-6f73-4f91-b0fe-15aa39f2b081",
@@ -4837,7 +5516,8 @@
   "package_label": "1.5l",
   "quantity": 10,
   "created_at": "2026-08-11T19:05:56.666076+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "c8ff10af-bd6e-4564-9854-314ddd039a6c",
@@ -4848,7 +5528,8 @@
   "package_label": " 50l",
   "quantity": 1,
   "created_at": "2026-08-21T06:34:27.964687+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "c92b3ff4-3edd-4103-8cac-c8f55188b98f",
@@ -4859,7 +5540,8 @@
   "package_label": "1.5l",
   "quantity": 10,
   "created_at": "2026-08-29T16:28:27.624993+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "c92d040c-ae3c-4ad7-b279-0ee9be0f62b1",
@@ -4870,7 +5552,8 @@
   "package_label": "KEG 30l",
   "quantity": 2,
   "created_at": "2026-08-04T16:37:36.649741+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "c9475c91-72ba-4a9e-be8c-1dd52cb37c57",
@@ -4881,7 +5564,8 @@
   "package_label": "KEG 15l",
   "quantity": 2,
   "created_at": "2026-08-04T17:21:17.628984+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "c9851c25-23a1-4dc2-b63e-a70bb8170cad",
@@ -4892,7 +5576,8 @@
   "package_label": "50l",
   "quantity": 2,
   "created_at": "2026-08-16T20:07:52.845679+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "c9c31793-41cb-4beb-bb27-830fc6a953cc",
@@ -4903,7 +5588,8 @@
   "package_label": "Lahve 0.5l",
   "quantity": 20,
   "created_at": "2026-08-04T16:27:18.409872+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "c9fed510-d8a0-4466-bb3c-998be549bfa9",
@@ -4914,7 +5600,8 @@
   "package_label": "KEG 30l",
   "quantity": 1,
   "created_at": "2026-08-04T16:50:40.126349+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "ca03c704-91d6-4787-86f4-c4ecd8d831b4",
@@ -4925,7 +5612,8 @@
   "package_label": "KEG 30l",
   "quantity": 5,
   "created_at": "2026-08-04T17:11:59.364758+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "ca11e43b-06ac-4d14-a1ec-116ac1a75b54",
@@ -4936,7 +5624,8 @@
   "package_label": "1l",
   "quantity": 10,
   "created_at": "2026-08-18T13:13:00.331597+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "ca8e8a1c-22ee-4108-bc3a-d160fc9329c5",
@@ -4947,7 +5636,8 @@
   "package_label": "KEG 30l",
   "quantity": 1,
   "created_at": "2026-08-04T16:21:52.837303+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "cae02895-ab23-40a9-84a3-bf2e5a2ab64d",
@@ -4958,7 +5648,8 @@
   "package_label": "KEG 50l",
   "quantity": 2,
   "created_at": "2026-08-04T16:51:31.915106+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "cc153926-629b-44d7-834b-03793359235c",
@@ -4969,7 +5660,8 @@
   "package_label": "30l",
   "quantity": 6,
   "created_at": "2026-09-02T18:12:46.900634+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "cd232c7e-dfca-446e-8ebe-9fd887bb6793",
@@ -4980,7 +5672,8 @@
   "package_label": "Lahve 1l",
   "quantity": 4,
   "created_at": "2026-08-04T16:58:29.12408+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "cd9ca277-ff55-4858-bdc8-b28642cccd86",
@@ -4991,7 +5684,8 @@
   "package_label": "1.5l",
   "quantity": 2,
   "created_at": "2026-08-11T19:05:56.666076+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "ce4d0dd8-6597-427e-90c1-ee3f20cfc973",
@@ -5002,7 +5696,8 @@
   "package_label": "Lahve 1l",
   "quantity": 5,
   "created_at": "2026-08-04T16:42:47.462267+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "ce92f788-3b18-4161-87d5-41d58666a90e",
@@ -5013,7 +5708,8 @@
   "package_label": "KEG 20l",
   "quantity": 3,
   "created_at": "2026-08-04T16:50:39.600253+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "cf5e3441-7c2e-4036-9ca2-2077914f8248",
@@ -5024,7 +5720,8 @@
   "package_label": "15l",
   "quantity": 1,
   "created_at": "2026-08-18T13:13:00.331597+00:00",
-  "is_prepared": true
+  "is_prepared": true,
+  "is_bottled": false
  },
  {
   "id": "d0879968-1c61-4c7b-b966-6f29f26276b6",
@@ -5035,7 +5732,8 @@
   "package_label": "20l",
   "quantity": 1,
   "created_at": "2026-08-11T19:07:00.813171+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "d0a7ff7a-eff5-486f-862f-0e0887d3ac4c",
@@ -5046,7 +5744,8 @@
   "package_label": "KEG 15l",
   "quantity": 1,
   "created_at": "2026-08-04T17:11:59.557431+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "d1109f2f-6177-4def-9653-d6ba13f6754c",
@@ -5057,7 +5756,8 @@
   "package_label": "Lahve 0.5l",
   "quantity": 20,
   "created_at": "2026-08-04T16:27:18.409872+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "d167068c-d524-45e0-8f70-1062c5783870",
@@ -5068,7 +5768,8 @@
   "package_label": "Lahve 1.5l",
   "quantity": 24,
   "created_at": "2026-08-04T16:50:39.97059+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "d1adb6da-f4f2-47a3-b823-90211485d572",
@@ -5079,7 +5780,8 @@
   "package_label": "KEG 30l",
   "quantity": 7,
   "created_at": "2026-08-04T16:15:54.387245+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "d20a29fa-1887-46b1-a5e6-aaec9881dfb3",
@@ -5090,7 +5792,8 @@
   "package_label": "Lahve 1l",
   "quantity": 4,
   "created_at": "2026-08-04T16:58:29.12408+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "d21ca8ae-32f3-4c0d-b6c3-02578ce859bb",
@@ -5101,7 +5804,8 @@
   "package_label": "Lahve 1l",
   "quantity": 10,
   "created_at": "2026-08-04T15:27:31.71652+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "d242c063-efc5-48ac-bfec-847b4bdbde3d",
@@ -5112,7 +5816,8 @@
   "package_label": " 50l",
   "quantity": 1,
   "created_at": "2026-08-29T16:28:00.716299+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "d2504d7d-d11a-4170-9ed1-6321ff18f083",
@@ -5123,7 +5828,8 @@
   "package_label": "Lahve 1l",
   "quantity": 10,
   "created_at": "2026-08-04T17:11:58.813527+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "d280adee-9222-4ba9-b55b-08c110ceacf7",
@@ -5134,7 +5840,8 @@
   "package_label": "1.5l",
   "quantity": 6,
   "created_at": "2026-09-06T08:14:26.028263+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "d3c64f7c-2f9d-4c7e-9334-bacf7bf04ca9",
@@ -5145,7 +5852,8 @@
   "package_label": "KEG 50l",
   "quantity": 6,
   "created_at": "2026-08-04T16:44:48.388836+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "d3d49c99-ef9b-4599-af46-215b6c463533",
@@ -5156,7 +5864,8 @@
   "package_label": "Lahve 1l",
   "quantity": 12,
   "created_at": "2026-08-04T16:50:39.600253+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "d424775b-7029-4593-bf44-e5cbeb78415f",
@@ -5167,7 +5876,8 @@
   "package_label": "0.5l",
   "quantity": 20,
   "created_at": "2026-08-25T19:13:56.675088+00:00",
-  "is_prepared": true
+  "is_prepared": true,
+  "is_bottled": false
  },
  {
   "id": "d4c2d07f-27be-4b5e-8b53-91569d846f3c",
@@ -5178,7 +5888,8 @@
   "package_label": "30l",
   "quantity": 5,
   "created_at": "2026-08-09T10:58:53.506718+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "d4cca2f6-584a-4ae7-9f68-555004fb88f9",
@@ -5189,7 +5900,8 @@
   "package_label": "1l",
   "quantity": 6,
   "created_at": "2026-08-24T19:20:32.735899+00:00",
-  "is_prepared": true
+  "is_prepared": true,
+  "is_bottled": false
  },
  {
   "id": "d57e72b8-f807-490c-aabb-7583b1bc2cb0",
@@ -5200,7 +5912,8 @@
   "package_label": "30l",
   "quantity": 8,
   "created_at": "2026-08-25T10:16:08.424413+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "d6589c70-045a-48d3-b98c-54e6549c54b6",
@@ -5211,7 +5924,8 @@
   "package_label": "Lahve 0.5l",
   "quantity": 40,
   "created_at": "2026-08-04T16:28:33.042942+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "d69fe4bc-e43a-411c-b816-f356e64126e8",
@@ -5222,7 +5936,8 @@
   "package_label": "Lahve 1l",
   "quantity": 24,
   "created_at": "2026-08-04T17:17:09.018546+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "d724dc72-ab10-4966-93f7-6b46bf6c2838",
@@ -5233,7 +5948,8 @@
   "package_label": "0.33l",
   "quantity": 100,
   "created_at": "2026-09-02T18:11:10.427707+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "d7996e13-4995-4d1c-b2d6-fa37db97f6d8",
@@ -5244,7 +5960,8 @@
   "package_label": "Lahve 1l",
   "quantity": 3,
   "created_at": "2026-08-04T17:21:18.671183+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "d7ddd844-50a3-48e0-bbbb-616f604f069c",
@@ -5255,7 +5972,8 @@
   "package_label": "30l",
   "quantity": 7,
   "created_at": "2026-08-09T10:58:54.09751+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "d8d10b49-bedc-4bd5-86f5-bdc647686419",
@@ -5266,7 +5984,8 @@
   "package_label": "30l",
   "quantity": 5,
   "created_at": "2026-08-11T10:23:38.547483+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "d94ddcd5-77dc-4cff-b146-ecad86138da4",
@@ -5277,7 +5996,8 @@
   "package_label": "Lahve 1l",
   "quantity": 10,
   "created_at": "2026-08-04T16:27:18.246521+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "d99e0aac-aab2-46c8-9b43-c9720c3379f0",
@@ -5288,7 +6008,8 @@
   "package_label": "Lahve 1.5l",
   "quantity": 3,
   "created_at": "2026-08-04T17:02:33.519318+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "da2926b6-3f61-4b54-a192-20005054921c",
@@ -5299,7 +6020,8 @@
   "package_label": "Lahve 1.5l",
   "quantity": 12,
   "created_at": "2026-08-04T17:17:08.526234+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "da5494c6-2ec5-4696-8a6b-cfb03184e07e",
@@ -5310,7 +6032,8 @@
   "package_label": "30l",
   "quantity": 4,
   "created_at": "2026-09-06T20:37:55.481104+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "dacf31ab-768c-4229-9362-9545ca391dd5",
@@ -5321,7 +6044,8 @@
   "package_label": "0.5l",
   "quantity": 20,
   "created_at": "2026-08-10T09:03:31.545643+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "dad00289-2770-4c93-915d-97ec02f79b87",
@@ -5332,7 +6056,8 @@
   "package_label": "Lahve 1l",
   "quantity": 8,
   "created_at": "2026-08-04T17:17:08.699636+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "db938210-5fc5-41ac-8f88-4b3c975cb597",
@@ -5343,7 +6068,8 @@
   "package_label": "KEG 30l",
   "quantity": 2,
   "created_at": "2026-08-04T17:11:59.557431+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "db96febe-6735-439e-8cb9-74dff005f714",
@@ -5354,7 +6080,8 @@
   "package_label": "1l",
   "quantity": 10,
   "created_at": "2026-09-02T18:12:46.900634+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "dbbc8dce-7cb1-4276-b746-393e24218115",
@@ -5365,7 +6092,8 @@
   "package_label": "KEG 50l",
   "quantity": 2,
   "created_at": "2026-08-04T17:14:57.606249+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "dbfe06a7-a3f8-47ad-9bda-285021cb3a80",
@@ -5376,7 +6104,8 @@
   "package_label": "KEG 30l",
   "quantity": 5,
   "created_at": "2026-08-04T17:21:17.628984+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "dc0be3f7-5d1e-44bf-97e6-f6dda4af2b4c",
@@ -5387,7 +6116,8 @@
   "package_label": "1l",
   "quantity": 6,
   "created_at": "2026-09-07T07:07:03.79729+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "dc729d72-fea9-4843-a302-3898894174d4",
@@ -5398,7 +6128,8 @@
   "package_label": " 10l",
   "quantity": 2,
   "created_at": "2026-08-09T10:58:53.047352+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "dd4675f3-f41e-468b-8275-8d9ffa3e16bd",
@@ -5409,7 +6140,8 @@
   "package_label": "1.5l",
   "quantity": 12,
   "created_at": "2026-08-09T10:58:56.057396+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "dd9ad619-11cf-4adb-aba7-5fda083c3dc8",
@@ -5420,7 +6152,8 @@
   "package_label": "1l",
   "quantity": 10,
   "created_at": "2026-09-07T07:07:03.79729+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "dde1be45-0d95-481d-a3d2-6ca8c03d2631",
@@ -5431,7 +6164,8 @@
   "package_label": " 50l",
   "quantity": 1,
   "created_at": "2026-08-29T16:28:00.716299+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "debe6242-448e-4761-ab6b-a5abcd80c44d",
@@ -5442,7 +6176,8 @@
   "package_label": " 50l",
   "quantity": 2,
   "created_at": "2026-08-21T06:59:27.662634+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "decf7095-f454-4355-97d2-bf972e86210e",
@@ -5453,7 +6188,8 @@
   "package_label": "KEG 15l",
   "quantity": 1,
   "created_at": "2026-08-04T16:50:39.600253+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "e0aebfc7-4efd-41d2-a909-161d33c480f3",
@@ -5464,7 +6200,8 @@
   "package_label": "1l",
   "quantity": 4,
   "created_at": "2026-08-24T19:20:32.735899+00:00",
-  "is_prepared": true
+  "is_prepared": true,
+  "is_bottled": false
  },
  {
   "id": "e0b4db51-dfa1-4694-9290-4cd59f56eecb",
@@ -5475,7 +6212,8 @@
   "package_label": " 50l",
   "quantity": 5,
   "created_at": "2026-08-09T10:58:55.823584+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "e15ac06b-f45a-4550-8346-7a01eb5cc35c",
@@ -5486,7 +6224,8 @@
   "package_label": "30l",
   "quantity": 3,
   "created_at": "2026-08-11T10:24:23.527653+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "e19ef133-97da-4cb8-8f21-a1bda2dbe9ef",
@@ -5497,7 +6236,8 @@
   "package_label": "30l",
   "quantity": 1,
   "created_at": "2026-08-09T10:58:56.248704+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "e346465b-d967-4855-9cea-c0cc39f3e16d",
@@ -5508,7 +6248,8 @@
   "package_label": " 50l",
   "quantity": 6,
   "created_at": "2026-09-06T08:11:36.690708+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "e386edb3-4f9d-42f4-87a1-6c7481dac766",
@@ -5519,7 +6260,8 @@
   "package_label": "KEG 50l",
   "quantity": 2,
   "created_at": "2026-08-04T17:14:57.993788+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "e50887d8-8a60-4fe6-89d8-3ddd83bac814",
@@ -5530,7 +6272,8 @@
   "package_label": "KEG 50l",
   "quantity": 2,
   "created_at": "2026-08-04T16:21:52.837303+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "e5216a2a-6854-4413-869f-49630c0ca1f0",
@@ -5541,7 +6284,8 @@
   "package_label": "30l",
   "quantity": 8,
   "created_at": "2026-08-09T10:58:53.047352+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "e56e7a44-505c-4e8d-b04a-02497a5d65b5",
@@ -5552,7 +6296,8 @@
   "package_label": " 15l",
   "quantity": 7,
   "created_at": "2026-08-11T09:57:03.632812+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "e580108b-dc77-455c-984c-2c6c8738a071",
@@ -5563,7 +6308,8 @@
   "package_label": "Lahve 1.5l",
   "quantity": 3,
   "created_at": "2026-08-04T16:21:52.837303+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "e5a90642-bf40-4cb5-a716-771cd04e1b3b",
@@ -5574,7 +6320,8 @@
   "package_label": "0.5l",
   "quantity": 20,
   "created_at": "2026-08-10T09:03:31.779802+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "e5b22d88-24ed-4939-a1c6-22449a13ff80",
@@ -5585,7 +6332,8 @@
   "package_label": "1.5l",
   "quantity": 10,
   "created_at": "2026-08-29T16:28:27.624993+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "e5deb111-ceab-4b51-8bd3-40f5483a5558",
@@ -5596,7 +6344,8 @@
   "package_label": "KEG 30l",
   "quantity": 1,
   "created_at": "2026-08-04T15:33:36.307016+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "e5f3a6ca-43c2-4769-894a-1ffdbf7e3deb",
@@ -5607,7 +6356,8 @@
   "package_label": "Lahve 1l",
   "quantity": 5,
   "created_at": "2026-08-04T17:00:56.584129+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "e63b2934-e0ea-44c7-8996-46a5332dceee",
@@ -5618,7 +6368,8 @@
   "package_label": "KEG 50l",
   "quantity": 1,
   "created_at": "2026-08-04T16:40:10.778654+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "e755b7e6-ed3b-477b-8ac7-648d5d1cf0dc",
@@ -5629,7 +6380,8 @@
   "package_label": "30l",
   "quantity": 5,
   "created_at": "2026-09-02T18:11:27.74754+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "e793f53c-2d8a-4b86-b6d0-c5255747345b",
@@ -5640,7 +6392,8 @@
   "package_label": "50l",
   "quantity": 1,
   "created_at": "2026-08-16T20:07:52.845679+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "e7c30829-13c0-40e7-a420-ecd1fc211228",
@@ -5651,7 +6404,8 @@
   "package_label": "1.5l",
   "quantity": 10,
   "created_at": "2026-08-10T09:03:31.209096+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "e7db9f1a-13b3-4e12-a56f-e9e8ae777a64",
@@ -5662,7 +6416,8 @@
   "package_label": "KEG 30l",
   "quantity": 2,
   "created_at": "2026-08-04T17:11:59.557431+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "e8283dd7-2adc-4862-a460-cc253f5b9af5",
@@ -5673,7 +6428,8 @@
   "package_label": "KEG 30l",
   "quantity": 6,
   "created_at": "2026-08-04T16:47:19.505802+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "e89eb0f9-7219-44dd-b05b-76b034bcb4e2",
@@ -5684,7 +6440,8 @@
   "package_label": "50l",
   "quantity": 4,
   "created_at": "2026-08-25T19:13:56.675088+00:00",
-  "is_prepared": true
+  "is_prepared": true,
+  "is_bottled": false
  },
  {
   "id": "e8bf9a8b-0e19-45a6-b56e-2844e7d9dfa3",
@@ -5695,7 +6452,8 @@
   "package_label": "30l",
   "quantity": 4,
   "created_at": "2026-08-09T10:58:52.783091+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "e8f0cfa3-714f-4716-8446-a1047cb8226e",
@@ -5706,7 +6464,8 @@
   "package_label": "KEG 50l",
   "quantity": 3,
   "created_at": "2026-08-04T16:47:18.053413+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "e9abc695-7f50-498f-a4d3-2b9bca4b49e6",
@@ -5717,7 +6476,8 @@
   "package_label": " 50l",
   "quantity": 4,
   "created_at": "2026-08-11T19:09:51.115574+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "ea944034-3268-4622-972b-eae686a21271",
@@ -5728,7 +6488,8 @@
   "package_label": " 50l",
   "quantity": 1,
   "created_at": "2026-08-21T06:34:03.47481+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "ead26140-9c0b-4559-98bf-4ef82a3b4586",
@@ -5739,7 +6500,8 @@
   "package_label": "KEG 15l",
   "quantity": 1,
   "created_at": "2026-08-04T15:25:36.556704+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "eb38e192-0534-4e22-a701-83ec28f6e137",
@@ -5750,7 +6512,8 @@
   "package_label": "30l",
   "quantity": 12,
   "created_at": "2026-08-10T09:03:31.779802+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "ebccae80-8171-4a27-a152-2bb4daf6e348",
@@ -5761,7 +6524,8 @@
   "package_label": "30l",
   "quantity": 8,
   "created_at": "2026-08-25T10:16:08.424413+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "eda28d82-3a2b-4162-959e-a7a2321c5c39",
@@ -5772,7 +6536,8 @@
   "package_label": "KEG 30l",
   "quantity": 4,
   "created_at": "2026-08-04T16:17:54.001248+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "ee276256-f5b3-49e7-aa89-e6ad3671da9f",
@@ -5783,7 +6548,8 @@
   "package_label": "0.5l",
   "quantity": 40,
   "created_at": "2026-08-10T09:03:31.209096+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "ee886a2b-de90-405b-ad82-bf4a567644ef",
@@ -5794,7 +6560,8 @@
   "package_label": "KEG 30l",
   "quantity": 1,
   "created_at": "2026-08-04T16:21:52.837303+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "eee093ef-6f63-4b28-8134-0c08744d3d24",
@@ -5805,7 +6572,8 @@
   "package_label": "KEG 30l",
   "quantity": 1,
   "created_at": "2026-08-04T15:33:36.307016+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "f07e56bf-5d94-4242-b0af-1cf85f691974",
@@ -5816,7 +6584,8 @@
   "package_label": " 50l",
   "quantity": 2,
   "created_at": "2026-08-29T16:28:00.716299+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "f0c89d23-bb48-4cd3-b64b-6d083ab1a3a1",
@@ -5827,7 +6596,8 @@
   "package_label": "30l",
   "quantity": 8,
   "created_at": "2026-08-09T10:58:53.047352+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "f0f2edac-fbee-4de2-a5dc-c003af7ebe14",
@@ -5838,18 +6608,8 @@
   "package_label": "KEG 30l",
   "quantity": 4,
   "created_at": "2026-08-04T16:27:18.409872+00:00",
-  "is_prepared": false
- },
- {
-  "id": "f12315ae-32cb-451e-befe-d3e20a1a30a0",
-  "order_id": "c112f453-1420-4670-8425-20c9a642ad58",
-  "beer_id": "80cb2ddc-7fc8-4883-ad0a-c51411980326",
-  "beer_name": "10° Desítka",
-  "package_id": "584a40aa-311a-4768-a518-5db0c532464c",
-  "package_label": "20l",
-  "quantity": 2,
-  "created_at": "2026-09-06T20:38:27.845302+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "f1672638-92c0-4240-8df2-6b79bc41f85e",
@@ -5860,7 +6620,20 @@
   "package_label": "30l",
   "quantity": 2,
   "created_at": "2026-08-25T19:14:21.919503+00:00",
-  "is_prepared": true
+  "is_prepared": true,
+  "is_bottled": false
+ },
+ {
+  "id": "f1d705a5-0800-4fa6-aa6f-679adb177ae5",
+  "order_id": "97d4e598-d255-48e2-b0a8-addedc512851",
+  "beer_id": "68c92abd-93b6-4241-b3ad-984c303716f8",
+  "beer_name": "12° Světlá",
+  "package_id": "6c981d1b-2796-4984-89eb-af9dd51aa5c0",
+  "package_label": "0.5l",
+  "quantity": 20,
+  "created_at": "2026-09-08T06:53:01.218164+00:00",
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "f20d8f9f-bd53-4afa-b436-84b00f8da9bc",
@@ -5871,7 +6644,8 @@
   "package_label": "Lahve 1l",
   "quantity": 8,
   "created_at": "2026-08-04T16:36:06.928996+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "f226601f-7bbe-4a2b-ab0f-3703d7df87fd",
@@ -5882,7 +6656,8 @@
   "package_label": "Lahve 1l",
   "quantity": 15,
   "created_at": "2026-08-04T17:11:59.364758+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "f321f3f9-3bf9-42db-af57-73a6017ea5e9",
@@ -5893,7 +6668,8 @@
   "package_label": "1l",
   "quantity": 4,
   "created_at": "2026-08-16T20:07:52.845679+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "f3de03f7-967a-4916-b9bc-d54e6cc0b655",
@@ -5904,7 +6680,8 @@
   "package_label": "KEG 20l",
   "quantity": 1,
   "created_at": "2026-08-04T15:25:36.556704+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "f51c1975-112c-435c-9e1a-25447d08a072",
@@ -5915,7 +6692,8 @@
   "package_label": "Lahve 1l",
   "quantity": 10,
   "created_at": "2026-08-04T16:17:54.279251+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "f555e556-6a04-4bf4-9d6f-c5fb6d85fd34",
@@ -5926,7 +6704,8 @@
   "package_label": "KEG 50l",
   "quantity": 2,
   "created_at": "2026-08-04T16:56:55.924415+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "f7c01ef8-4e29-4393-827d-e8a5d675d403",
@@ -5937,7 +6716,20 @@
   "package_label": "1.5l",
   "quantity": 5,
   "created_at": "2026-08-11T19:06:27.384461+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
+ },
+ {
+  "id": "f7c6d33a-90f7-4db1-a6d1-47849d752799",
+  "order_id": "97d4e598-d255-48e2-b0a8-addedc512851",
+  "beer_id": "93f7be38-e176-46af-9da3-47a14ffdedfa",
+  "beer_name": "11° Světlá",
+  "package_id": "16adfff0-50c0-482e-9338-1eb4632cfc14",
+  "package_label": "30l",
+  "quantity": 10,
+  "created_at": "2026-09-08T06:53:01.218164+00:00",
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "f7cb563d-7651-4f23-9ea0-cfe647f06c47",
@@ -5948,7 +6740,32 @@
   "package_label": "KEG 30l",
   "quantity": 1,
   "created_at": "2026-08-04T16:28:33.886949+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
+ },
+ {
+  "id": "f7e088f9-3687-4ee5-aafb-5db2f150440d",
+  "order_id": "97d4e598-d255-48e2-b0a8-addedc512851",
+  "beer_id": "8823be77-b372-4636-a43c-70b8d1400fd7",
+  "beer_name": "Jantar",
+  "package_id": "16adfff0-50c0-482e-9338-1eb4632cfc14",
+  "package_label": "30l",
+  "quantity": 3,
+  "created_at": "2026-09-08T06:53:01.218164+00:00",
+  "is_prepared": false,
+  "is_bottled": false
+ },
+ {
+  "id": "f806f95a-b2ce-4dda-8598-cdb0099fb854",
+  "order_id": "97d4e598-d255-48e2-b0a8-addedc512851",
+  "beer_id": "68c92abd-93b6-4241-b3ad-984c303716f8",
+  "beer_name": "12° Světlá",
+  "package_id": "10b091f7-fa29-4f70-aa1b-d6d7614a105e",
+  "package_label": "1l",
+  "quantity": 10,
+  "created_at": "2026-09-08T06:53:01.218164+00:00",
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "f8272024-c980-4cd2-8ee7-66dbfeb719fa",
@@ -5959,7 +6776,20 @@
   "package_label": " 10l",
   "quantity": 5,
   "created_at": "2026-09-02T18:34:47.936568+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
+ },
+ {
+  "id": "f8295fd5-fd36-4f90-a8e6-2ed63a75c19c",
+  "order_id": "86ff01e7-cd3d-4369-a712-76a5cd68a359",
+  "beer_id": "93f7be38-e176-46af-9da3-47a14ffdedfa",
+  "beer_name": "11° Světlá",
+  "package_id": "7fe0ce80-8310-4d38-98ce-cff8261e59a3",
+  "package_label": "1.5l",
+  "quantity": 12,
+  "created_at": "2026-09-07T07:39:42.82582+00:00",
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "f8b24291-2089-4694-abc3-e2ce30a57caf",
@@ -5970,7 +6800,8 @@
   "package_label": "KEG 50l",
   "quantity": 2,
   "created_at": "2026-08-04T16:40:11.593465+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "f8b9e8ed-7993-4be8-81fe-80873fbf6124",
@@ -5981,7 +6812,8 @@
   "package_label": " 50l",
   "quantity": 3,
   "created_at": "2026-08-09T10:58:53.767134+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "f8e16a4a-b58c-449b-b01f-40aea1bb1b7a",
@@ -5992,7 +6824,8 @@
   "package_label": " 50l",
   "quantity": 3,
   "created_at": "2026-09-06T20:37:55.481104+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "f8e5edee-5ced-478f-87f0-522e7f32bb19",
@@ -6003,7 +6836,8 @@
   "package_label": "30l",
   "quantity": 4,
   "created_at": "2026-08-25T10:16:08.424413+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "f92d7b22-bf08-4738-8e92-4fd4880fbc07",
@@ -6014,7 +6848,8 @@
   "package_label": "1l",
   "quantity": 5,
   "created_at": "2026-08-09T10:58:50.704143+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "f9fa19b9-75db-4061-b3a4-066816bea544",
@@ -6025,7 +6860,8 @@
   "package_label": "Lahve 1l",
   "quantity": 4,
   "created_at": "2026-08-04T16:58:29.12408+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "fa07684d-f58e-464f-8c92-35d3b65f5d21",
@@ -6036,7 +6872,8 @@
   "package_label": "1.5l",
   "quantity": 5,
   "created_at": "2026-08-29T16:28:27.624993+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "fa17064f-b18e-4f40-8de1-3639086834dc",
@@ -6047,7 +6884,8 @@
   "package_label": "KEG 30l",
   "quantity": 2,
   "created_at": "2026-08-04T16:15:54.814634+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "fa4819cc-905e-4e5b-9c09-57eed110dde8",
@@ -6058,7 +6896,8 @@
   "package_label": "KEG 30l",
   "quantity": 12,
   "created_at": "2026-08-04T16:56:55.57822+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "fa8e92d6-d47c-4612-975e-138d9da78729",
@@ -6069,7 +6908,8 @@
   "package_label": "KEG 50l",
   "quantity": 3,
   "created_at": "2026-08-04T16:58:29.386753+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "fac9ab7f-6570-4fb9-8c5b-713c07d1266f",
@@ -6080,7 +6920,8 @@
   "package_label": "30l",
   "quantity": 2,
   "created_at": "2026-08-17T10:07:35.477396+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "faef475e-cebc-4623-a44e-458c4dd7428b",
@@ -6091,7 +6932,8 @@
   "package_label": "30l",
   "quantity": 1,
   "created_at": "2026-08-18T06:44:22.390295+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "fb570b32-4a75-45df-9a09-3f8ce9f21015",
@@ -6102,7 +6944,8 @@
   "package_label": "KEG 15l",
   "quantity": 4,
   "created_at": "2026-08-04T16:47:18.712613+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "fc7656b4-8658-4efd-88df-c48307edecf6",
@@ -6113,7 +6956,8 @@
   "package_label": "1.5l",
   "quantity": 10,
   "created_at": "2026-08-18T12:51:06.582955+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "fc9f8a3f-6ba3-4956-9f9a-970839bf7440",
@@ -6124,7 +6968,8 @@
   "package_label": " 50l",
   "quantity": 1,
   "created_at": "2026-08-11T19:03:45.348488+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "fcc82be0-7417-4131-b22f-4a7e40ad6514",
@@ -6135,7 +6980,8 @@
   "package_label": "KEG 30l",
   "quantity": 10,
   "created_at": "2026-08-04T16:56:55.924415+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "fd245fd8-d73f-4e32-aebb-6beec8574865",
@@ -6146,7 +6992,20 @@
   "package_label": "KEG 50l",
   "quantity": 4,
   "created_at": "2026-08-04T16:51:31.780754+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
+ },
+ {
+  "id": "fdf883eb-ee13-4065-a1f2-c40a2df096db",
+  "order_id": "97d4e598-d255-48e2-b0a8-addedc512851",
+  "beer_id": "6e226b00-6297-4ef0-abd1-88c06d8ccad1",
+  "beer_name": "12° Tmavá",
+  "package_id": "10b091f7-fa29-4f70-aa1b-d6d7614a105e",
+  "package_label": "1l",
+  "quantity": 10,
+  "created_at": "2026-09-08T06:53:01.218164+00:00",
+  "is_prepared": false,
+  "is_bottled": false
  },
  {
   "id": "fedba020-e87f-4289-b5ce-3093fe556931",
@@ -6157,6 +7016,7 @@
   "package_label": "30l",
   "quantity": 2,
   "created_at": "2026-09-06T20:39:24.635732+00:00",
-  "is_prepared": false
+  "is_prepared": false,
+  "is_bottled": false
  }
 ]
