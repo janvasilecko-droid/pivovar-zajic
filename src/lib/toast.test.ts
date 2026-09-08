@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import {
-  toast, oznam, chyba, uspech, toastZpet, potvrd, uzavriPotvrzeni,
+  toast, oznam, chyba, uspech, toastZpet, potvrd, uzavriPotvrzeni, volba,
   zavriToast, odebirejOznameni, stavOznameni,
 } from './toast';
 
@@ -99,3 +99,40 @@ describe('potvrzení', () => {
   });
 });
 
+
+describe('dialog s víc možnostmi (volba)', () => {
+  // Vzniklo z provozu: „když se objeví duplikovaná objednávka, dej mi možnost
+  // rovnou s upozorněním ignorovat." Dialog uměl jen ano/ne, takže nejčastější
+  // odpověď (tohle už objednané je → zahoď to) byla ta nejpracnější.
+  it('vrátí klíč zvolené možnosti', async () => {
+    const p = volba('Duplicita?', [
+      { klic: 'ignorovat', label: 'Ignorovat zprávu', ton: 'nebezpecne' },
+      { klic: 'presto', label: 'Přesto vytvořit', ton: 'hlavni' },
+    ]);
+    expect(stavOznameni().potvrzeni?.moznosti).toHaveLength(2);
+    uzavriPotvrzeni('ignorovat');
+    await expect(p).resolves.toBe('ignorovat');
+  });
+
+  it('zavření dialogu vrátí null, ne první možnost', async () => {
+    // Kdyby zavření spadlo na některou z možností, klepnutí vedle dialogu by
+    // zprávu tiše ignorovalo nebo objednávku vytvořilo.
+    const p = volba('Duplicita?', [{ klic: 'presto', label: 'Přesto' }]);
+    uzavriPotvrzeni(null);
+    await expect(p).resolves.toBeNull();
+  });
+
+  it('nový dialog uzavře ten rozdělaný, ať na něm nikdo nečeká navždy', async () => {
+    const prvni = volba('První?', [{ klic: 'a', label: 'A' }]);
+    const druhy = volba('Druhý?', [{ klic: 'b', label: 'B' }]);
+    await expect(prvni).resolves.toBeNull();
+    uzavriPotvrzeni('b');
+    await expect(druhy).resolves.toBe('b');
+  });
+
+  it('`potvrd` zůstává ano/ne — zavření je pro něj „ne"', async () => {
+    const p = potvrd('Smazat?');
+    uzavriPotvrzeni(null);
+    await expect(p).resolves.toBe(false);
+  });
+});

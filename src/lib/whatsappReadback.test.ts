@@ -310,3 +310,33 @@ describe('kontrola čtení u objednávky z FOTKY', () => {
     expect(r.items.every((i) => i.status === 'empty')).toBe(true);
   });
 });
+
+import { vypadaJakoZmenaObjednavky } from './whatsappAmendment';
+
+// PŘESNĚ ta zpráva ze snímku obrazovky (10:19, fotka papíru „SKLAD").
+const ZPRAVA: any = {
+  id: 'radek',
+  message_type: 'image',
+  message_text: 'Pro Radka jeste plus toto',
+  parsed_raw_text: 'SKLAD + 1x 30l LIMO VIŠEŇ\n1x 30l LIMO KIWI',
+  parsed_items: [
+    { beer_name: 'LIMO VIŠEŇ', package_label: '30l', qty: 1, raw_line: '1x 30l LIMO VIŠEŇ' },
+    { beer_name: 'LIMO KIWI', package_label: '30l', qty: 1, raw_line: '1x 30l LIMO KIWI' },
+  ],
+};
+
+describe('SNÍMEK Z PROVOZU 8. 9. 2026: fotka „SKLAD" s popiskem „Pro Radka jeste plus toto: fotka „SKLAD" s popiskem „Pro Radka jeste plus toto"', () => {
+  it('kontrola čtení porovnává s PŘEPISEM FOTKY, ne s popiskem', () => {
+    expect(readbackSourceText(ZPRAVA)).toBe('SKLAD + 1x 30l LIMO VIŠEŇ\n1x 30l LIMO KIWI');
+  });
+
+  it('obě položky sedí — žádné „2 nesouhlasí"', () => {
+    const r = analyzeReadback(ZPRAVA);
+    expect(r.mismatchCount).toBe(0);
+    expect(r.matchedCount).toBe(2);
+  });
+
+  it('a appka pozná, že to je přídavek k Radkově objednávce', () => {
+    expect(vypadaJakoZmenaObjednavky(ZPRAVA.message_text)).toBe('pridavek');
+  });
+});

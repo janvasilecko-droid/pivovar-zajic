@@ -2527,11 +2527,21 @@ function exportInventoryExcel() {
                           style={beer ? { backgroundColor: beerBg(beer), ['--ink-plochy' as any]: beerInk(beer) } : undefined}>
                         <td
                           rowSpan={2}
-                          className="sticky left-0 z-10 px-3 py-2 align-top font-black text-udaj text-neutral-950 whitespace-nowrap"
+                          className="plocha-z-dat sticky left-0 z-10 px-3 py-2 align-top font-black text-udaj text-neutral-950 whitespace-nowrap"
                           // Barva piva musí být i na buňce: pozadí ŘÁDKU se pod
                           // přilepenou buňkou nevykreslí a data by přes ni
                           // prosvítala při rolování.
-                          style={beer ? { backgroundColor: beerBg(beer) } : { backgroundColor: 'rgb(var(--bg-white))' }}
+                          //
+                          // A s barvou piva musí jít i barva PÍSMA. `text-neutral-950`
+                          // je odstín inkoustu, který se v tmavém režimu obrací na
+                          // světlý (viz palety v tailwind.config.js) — jenže pozadí
+                          // je tu barva piva z databáze a ta se s režimem nemění,
+                          // takže na světle žluté „11° Světlé" zůstalo světlé písmo.
+                          // `plocha-z-dat` + `--ink-plochy` je na přesně tohle:
+                          // o barvě rozhodne jas piva, ne režim aplikace.
+                          style={beer
+                            ? { backgroundColor: beerBg(beer), ['--ink-plochy' as any]: beerInk(beer) }
+                            : { backgroundColor: 'rgb(var(--bg-white))' }}
                         >
                           {it.beer_name}
                           <span className="block font-bold opacity-80">{formatPackageLabel(it.package_label)}</span>

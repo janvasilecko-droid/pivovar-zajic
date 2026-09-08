@@ -64,7 +64,7 @@ export default function ToastHost() {
       {p && (
         <div
           className="fixed inset-0 z-potvrzeni flex items-end sm:items-center justify-center bg-neutral-900/50 backdrop-blur-[2px] animate-[sheetFade_120ms_ease-out]"
-          onClick={() => uzavriPotvrzeni(false)}
+          onClick={() => uzavriPotvrzeni(p.moznosti ? null : false)}
         >
           {/* Na telefonu vyjede zespoda (palec je dole), na počítači je uprostřed. */}
           <div
@@ -78,21 +78,51 @@ export default function ToastHost() {
               {p.titulek ?? 'Potvrzení'}
             </h2>
             <p className="text-sm text-neutral-700 leading-relaxed whitespace-pre-line mb-6">{p.text}</p>
-            {/* Na telefonu pod sebou a přes celou šířku — nejjistější trefa. */}
+            {/* Na telefonu pod sebou a přes celou šířku — nejjistější trefa.
+                `flex-col-reverse` schválně: v kódu je zrušení první (a tedy
+                i pro odečítač obrazovky), na telefonu ale musí být hlavní
+                akce nejníž, u palce. */}
             <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
-              <button
-                className="btn-ghost !rounded-xl w-full sm:w-auto !min-h-[48px]"
-                onClick={() => uzavriPotvrzeni(false)}
-              >
-                {p.zrusit ?? 'Zrušit'}
-              </button>
-              <button
-                className={`${p.nebezpecne ? 'btn-danger' : 'btn-primary'} !rounded-xl w-full sm:w-auto !min-h-[48px]`}
-                onClick={() => { zavibruj('klik'); uzavriPotvrzeni(true); }}
-                autoFocus
-              >
-                {p.potvrdit ?? 'Potvrdit'}
-              </button>
+              {p.moznosti ? (
+                <>
+                  {/* Dialog s víc než dvěma odpověďmi (lib/toast.ts → volba).
+                      Pořadí se obrací stejně jako u dvou tlačítek, takže se
+                      možnosti vypisují od té nejméně důrazné. */}
+                  <button
+                    className="btn-ghost !rounded-xl w-full sm:w-auto !min-h-[48px]"
+                    onClick={() => uzavriPotvrzeni(null)}
+                  >
+                    {p.zrusit ?? 'Zpět'}
+                  </button>
+                  {p.moznosti.map((m) => (
+                    <button
+                      key={m.klic}
+                      className={`${
+                        m.ton === 'nebezpecne' ? 'btn-danger' : m.ton === 'hlavni' ? 'btn-primary' : 'btn-secondary'
+                      } !rounded-xl w-full sm:w-auto !min-h-[48px]`}
+                      onClick={() => { zavibruj('klik'); uzavriPotvrzeni(m.klic); }}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </>
+              ) : (
+                <>
+                  <button
+                    className="btn-ghost !rounded-xl w-full sm:w-auto !min-h-[48px]"
+                    onClick={() => uzavriPotvrzeni(false)}
+                  >
+                    {p.zrusit ?? 'Zrušit'}
+                  </button>
+                  <button
+                    className={`${p.nebezpecne ? 'btn-danger' : 'btn-primary'} !rounded-xl w-full sm:w-auto !min-h-[48px]`}
+                    onClick={() => { zavibruj('klik'); uzavriPotvrzeni(true); }}
+                    autoFocus
+                  >
+                    {p.potvrdit ?? 'Potvrdit'}
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>

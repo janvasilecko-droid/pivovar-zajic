@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, useCallback, useRef, lazy, Suspense } from 'react';
 
 import { AlertTriangle, ArrowRight, Ban, ChevronLeft, ChevronRight, Beer as BeerIcon, Bell, Bot, Building2, Calculator, Calendar, CalendarDays, Camera, Check, CheckCircle2, CheckSquare, ClipboardList, Clock, Copy, FilePlus, Globe, Hourglass, Mail, MessageCircle, NotebookPen, Package as PackageIcon, PackageCheck, Pencil, Phone, Plus, Receipt, RotateCcw, Scroll, Search, ShieldAlert, Trash2, Truck, User, X, Zap } from 'lucide-react';
-import { Beer, EntryRow, Package, Place, beerBg, beerName, beerText, fetchAllRows, formatPackageLabel, pkgBg, supabase, useRealtime } from '../lib/supabase';
+import { Beer, EntryRow, Package, Place, beerBg, beerInk, beerName, fetchAllRows, formatPackageLabel, pkgBg, supabase, useRealtime } from '../lib/supabase';
 import { Field, EmptyState, Spinner } from '../components/ui';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 import { schodkyObjednavky, zbytekKeKonciTydne } from '../lib/tydenniZbytek';
@@ -22,13 +22,13 @@ import { parseVoiceOrder, parseOrderText, detectOrderNotes, loadAliasMap, loadPl
 import { slozNavrh } from '../lib/whatsappAmendment';
 
 import { shareOrderToWhatsApp } from '../lib/whatsapp';
-import { subscribeToWhatsAppMessages, fetchPendingWhatsAppMessages, fetchWhatsAppMessage, WhatsAppIncoming, fetchWhatsAppSenders, isSenderAllowed, triggerAutoParse, type WhatsAppSender } from '../lib/whatsappApi';
+import { subscribeToWhatsAppMessages, fetchPendingWhatsAppMessages, fetchWhatsAppMessage, ignoreWhatsAppMessage, WhatsAppIncoming, fetchWhatsAppSenders, isSenderAllowed, triggerAutoParse, type WhatsAppSender } from '../lib/whatsappApi';
 import { autoReserveTapIfNeeded, isTapMentioned, detectTapType } from '../lib/tapReservations';
 import { findDuplicateOrders, formatDuplicateMessage } from '../lib/orderDuplicates';
 import { TapReservationModal } from '../components/TapReservationModal';
 import { createReminder, getLocalReminders } from '../lib/reminders';
 import { type AkceRow } from '../lib/inventoryHelper';
-import { chyba, oznam, potvrd, toastZpet } from '../lib/toast';
+import { chyba, oznam, potvrd, toastZpet, volba } from '../lib/toast';
 import { srovnaniPoUprave, type UpravaPolozky } from '../lib/zavozSync';
 import { IkonaVycep } from '../components/ikony';
 import { poctyPolozek } from '../lib/objednavkyStatistika';
@@ -643,8 +643,28 @@ export default function Orders({
           packageLabel: it.package_label || null,
         })),
       });
-      if (dup && !(await potvrd(formatDuplicateMessage(dup) + '\n\nPokračovat? (Ano = přesto vytvořit objednávku)'))) {
-        throw new Error('Objednávka je duplicitní — nebyla vytvořena.');
+      // Na „tohle už objednané je" byly dosud jen dvě odpovědi: přesto
+      // vytvořit, nebo zrušit. Zrušení ale zprávu nechalo viset mezi
+      // nevyřízenými a ignorovat se musela zvlášť — takže nejčastější
+      // odpověď byla ta nejpracnější. Teď je ignorování rovnou v hlášce.
+      if (dup) {
+        const co = await volba(
+          formatDuplicateMessage(dup),
+          [
+            { klic: 'ignorovat', label: 'Ignorovat zprávu', ton: 'nebezpecne' },
+            { klic: 'presto', label: 'Přesto vytvořit', ton: 'hlavni' },
+          ],
+          { titulek: 'Tahle objednávka už nejspíš existuje', zrusit: 'Zpět' }
+        );
+        if (co === 'ignorovat') {
+          await ignoreWhatsAppMessage(message.id);
+          oznam('Zpráva označená jako vyřízená — duplicitní objednávka se nezaložila.');
+          load();
+          return;
+        }
+        if (co !== 'presto') {
+          throw new Error('Objednávka je duplicitní — nebyla vytvořena.');
+        }
       }
 
       const { data: newOrder, error } = await supabase
@@ -3487,7 +3507,13 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
                         className="w-5 h-5 rounded text-emerald-600 cursor-pointer shrink-0"
                         title={i.is_prepared ? 'Připraveno' : 'Označit jako připravené'}
                       />
-                      <span className="inline-block rounded-md px-2 py-0.5 font-bold text-sm truncate" style={{ backgroundColor: beerBg(beer), color: beerText(beer) === 'text-white' ? '#fff' : undefined }}>{i.beer_name ?? '—'}</span>
+                      {/* ⚠️ Barva písma se MUSÍ nastavit v OBOU případech.
+                          Dřív tu u světlého piva stálo `undefined`, tedy
+                          „poděď barvu odjinud" — a v tmavém režimu se dědí
+                          světlá, takže na světle žluté „11° Světlé" svítilo
+                          bílé písmo na bílo. `beerInk` vrací tmavou i světlou
+                          podle JASU barvy piva, takže není co dědit. */}
+                      <span className="inline-block rounded-md px-2 py-0.5 font-bold text-sm truncate" style={{ backgroundColor: beerBg(beer), color: beerInk(beer) }}>{i.beer_name ?? '—'}</span>
                     </label>
                     <div className="flex items-center gap-1 shrink-0">
                       <button
@@ -3574,7 +3600,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
                         />
                       </td>
                       <td className="font-medium">
-                        <span className="inline-block rounded-md px-2 py-0.5" style={{ backgroundColor: beerBg(beer), color: beerText(beer) === 'text-white' ? '#fff' : undefined }}>{i.beer_name ?? '—'}</span>
+                        <span className="inline-block rounded-md px-2 py-0.5" style={{ backgroundColor: beerBg(beer), color: beerInk(beer) }}>{i.beer_name ?? '—'}</span>
                         {missing > 0 && <span className="block text-xs text-rose-600 mt-0.5"><AlertTriangle className="ikona-text" /> Chybí {missing} ks ve skladu</span>}
                         {inStock && <span className="block text-xs text-emerald-600 mt-0.5"><Check className="ikona-text" /> Skladem ({rem} ks)</span>}
                       </td>
