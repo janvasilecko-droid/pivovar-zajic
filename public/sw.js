@@ -1,10 +1,20 @@
 // Minimal offline-first service worker for the Minipivovar PWA.
 // Cache version is fetched from version.json at install time so that
 // every deploy automatically invalidates the old cache.
-// SW_VERSION: 1.516 — change this to force SW update in browser
+// SW_VERSION: 1.517 — change this to force SW update in browser
 const CACHE_PREFIX = 'pivovar-';
 const CACHE_META = `${CACHE_PREFIX}meta`;
 const CACHE_META_KEY = new URL('./__installed-cache__', self.registration.scope).href;
+
+// 🩹 Vstupní JS a CSS z index.html. Doplňuje je build (scripts/shell-do-sw.mjs),
+// protože mají v názvu otisk obsahu a ten se každým nasazením mění.
+//
+// Proč to tu musí být: dokud tenhle seznam obsahoval jen index.html, ikony a
+// písma, byl „offline shell" neúplný — HTML se uložilo, ale STYLY k němu ne.
+// Když se pak stylopis nepodařilo stáhnout ze sítě, neměl service worker z čeho
+// ho vzít a appka se vykreslila úplně bez vzhledu (patkové písmo, holá
+// tlačítka). Vypadalo to jako rozbitá grafika, přitom chyběl jeden soubor.
+const SHELL = [];
 
 // Písma jsou v precache schválně: bez nich appka offline spadne na systémové
 // písmo a vypadá jako cizí. Jsou vlastní (ne z Googlu) právě proto, že
@@ -17,6 +27,7 @@ const PRECACHE = [
   './fonts/plus-jakarta-sans-latin-ext-wght-normal.woff2',
   './fonts/outfit-latin-wght-normal.woff2',
   './fonts/outfit-latin-ext-wght-normal.woff2',
+  ...SHELL,
 ];
 
 async function getCacheVersion() {
@@ -185,6 +196,48 @@ async function checkForSWUpdate() {
   return false;
 }
 
+// Otisk obsahu v názvu, jak ho dělá Vite: `index-B4LPMgHR.css`.
+const JE_OTISK = /\/assets\/.+-[A-Za-z0-9_-]{8,}\.(js|css|woff2?|png|jpe?g|svg|webp)$/;
+
+/**
+ * Stažení s jedním opakováním.
+ *
+ * Na mobilních datech ve sklepě selže první pokus i tehdy, když je signál —
+ * a jediný neúspěšný soubor rozhoduje o tom, jestli je appka použitelná.
+ * Vrací `null`, když se to nepovedlo ani napodruhé.
+ */
+async function stahniSOpakovanim(req) {
+  for (let pokus = 0; pokus < 2; pokus++) {
+    try {
+      const res = await fetch(req);
+      if (res && res.status === 200) return res;
+    } catch {}
+    if (pokus === 0) await new Promise((r) => setTimeout(r, 400));
+  }
+  return null;
+}
+
+/** Stylopis z KTERÉKOLIV uložené verze — nouzovka, ať appka není bez vzhledu. */
+async function stylZJakekolivVerze(req) {
+  try {
+    const keys = await caches.keys();
+    for (const key of keys) {
+      if (!key.startsWith(CACHE_PREFIX) || key === CACHE_META) continue;
+      const c = await caches.open(key);
+      const hit = await c.match(req);
+      if (hit) return hit;
+      // Jiná verze má stylopis pod jiným názvem (jiný otisk) — najdi ho.
+      for (const polozka of await c.keys()) {
+        if (/\/assets\/.+\.css$/.test(new URL(polozka.url).pathname)) {
+          const css = await c.match(polozka);
+          if (css) return css;
+        }
+      }
+    }
+  } catch {}
+  return null;
+}
+
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   const url = new URL(req.url);
@@ -295,6 +348,42 @@ self.addEventListener('fetch', (e) => {
           const fallback = await matchInInstalledCache(req);
           return fallback || new Response('Offline', { status: 503, statusText: 'Offline' });
         }
+      })()
+    );
+    return;
+  }
+
+  // 🔒 Soubory s OTISKEM OBSAHU v názvu (/assets/index-B4LPMgHR.css). Jiný
+  // obsah = jiný název, takže uložená kopie je vždycky ta správná — proto
+  // cache-first. `_headers` je ze stejného důvodu značkuje `immutable` na rok.
+  //
+  // Dřív se i tyhle soubory tahaly ze sítě při KAŽDÉM spuštění, a ještě
+  // s `cache: 'no-cache'` (tedy s vynuceným dotazem na server). Ve sklepě
+  // s jedním pruhem signálu to znamenalo dvě věci: appka startovala pomalu
+  // a jedno zaškobrtnutí sítě stačilo na to, aby stylopis skončil jako
+  // odpověď „503 Offline" — a prohlížeč stránku vykreslil BEZ VZHLEDU.
+  // Novou verzi to nezdrží: ta má jiné názvy souborů, takže se stáhnou.
+  if (JE_OTISK.test(url.pathname)) {
+    e.respondWith(
+      (async () => {
+        const cached = await matchInInstalledCache(req);
+        if (cached) return cached;
+        const res = await stahniSOpakovanim(req);
+        if (res) {
+          const CACHE = await getInstalledCache();
+          const clone = res.clone();
+          caches.open(CACHE).then((c) => c.put(req, clone)).catch(() => {});
+          return res;
+        }
+        // Poslední záchrana pro STYLOPIS (a jenom pro něj): vzít ho z cache
+        // jiné verze. Křížení verzí je jinak zakázané — starý JS s novým HTML
+        // je nefunkční appka. U stylů je to ale obráceně: o pár tříd starší
+        // vzhled je proti ŽÁDNÉMU vzhledu pořád čitelná, ovladatelná aplikace.
+        if (req.destination === 'style') {
+          const zJineVerze = await stylZJakekolivVerze(req);
+          if (zJineVerze) return zJineVerze;
+        }
+        return new Response('', { status: 504, statusText: 'Nedostupné' });
       })()
     );
     return;
