@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeKeggingPlan, dayKeyFromISO, mergeWeekPlan, datumProDenVTydnu } from './keggingPlan';
+import { computeKeggingPlan, dayKeyFromISO, mergeWeekPlan, datumProDenVTydnu, rozpadPoObalech } from './keggingPlan';
 
 // Týden 2026-35 = pondělí 24. 8. – neděle 30. 8. 2026 (stejný týden, na kterém
 // se chyba reálně projevila v produkci).
@@ -356,5 +356,76 @@ describe('datumProDenVTydnu — přehození dne musí posunout i datum', () => {
     const kotva = '2026-08-26';
     const noveDatum = datumProDenVTydnu('pa', kotva)!;
     expect(dayKeyFromISO(noveDatum)).toBe('pa');
+  });
+});
+
+describe('rozpadPoObalech — kolik čeho zbývá stočit', () => {
+  // Z provozu: „musí tam být i přehled, kolik jednotlivých KEG sudů zbývá
+  // stočit — kolik dohromady třicítek, padesátek atd." U linky se chystají
+  // OBALY, ne piva: prázdné sudy se tahají po velikostech.
+  const den = (items: any[]): any => ({
+    day: 'st', label: 'Středa', date: '2026-08-26', items,
+    totalOrdered: 0, totalDone: 0, totalMissing: 0, missingLiters: 0,
+  });
+  const polozka = (package_id: string, package_label: string, volume_l: number, ordered: number, missing: number) => ({
+    key: `${package_id}`, beer_id: 'b', beer_name: 'Pivo', package_id, package_label, volume_l,
+    ordered, done: ordered - missing, autoDone: ordered - missing, checked: 0, missing, orders: [],
+  });
+
+  it('sečte stejný obal přes všechna piva', () => {
+    // Tři piva ve třicítkách → jedna třicítková položka se součtem.
+    const r = rozpadPoObalech(den([
+      { ...polozka('p30', 'KEG 30l', 30, 5, 3), beer_id: 'des' },
+      { ...polozka('p30', 'KEG 30l', 30, 4, 2), beer_id: '11sv' },
+      { ...polozka('p30', 'KEG 30l', 30, 2, 1), beer_id: 'jantar' },
+    ]));
+    expect(r).toHaveLength(1);
+    expect(r[0].missing).toBe(6);
+    expect(r[0].ordered).toBe(11);
+  });
+
+  it('řadí od největšího sudu — tak se o nich mluví i tak se staví na paletu', () => {
+    const r = rozpadPoObalech(den([
+      polozka('p20', 'KEG 20l', 20, 2, 2),
+      polozka('p50', 'KEG 50l', 50, 3, 3),
+      polozka('p30', 'KEG 30l', 30, 4, 4),
+    ]));
+    expect(r.map((x) => x.package_label)).toEqual(['KEG 50l', 'KEG 30l', 'KEG 20l']);
+  });
+
+  it('počítá litry z chybějících kusů, ne z objednaných', () => {
+    // 5 objednaných třicítek, 2 chybí → 60 L, ne 150 L.
+    const r = rozpadPoObalech(den([polozka('p30', 'KEG 30l', 30, 5, 2)]));
+    expect(r[0].missingLiters).toBe(60);
+  });
+
+  it('obal, který je celý hotový, v rozpadu zůstane s nulou', () => {
+    // Zmizet nesmí: „padesátky 0" je informace „hotovo", prázdné místo
+    // vypadá jako by se na ně zapomnělo. Skrývání řeší až obrazovka.
+    const r = rozpadPoObalech(den([
+      polozka('p50', 'KEG 50l', 50, 3, 0),
+      polozka('p30', 'KEG 30l', 30, 4, 4),
+    ]));
+    expect(r).toHaveLength(2);
+    expect(r.find((x) => x.package_label === 'KEG 50l')!.missing).toBe(0);
+  });
+
+  it('prázdný den dá prázdný rozpad', () => {
+    expect(rozpadPoObalech(den([]))).toEqual([]);
+  });
+
+  it('sedí se součtem celého plánu', () => {
+    // Kdyby se rozešly, ukazovala by obrazovka dvě různá čísla o téže věci.
+    const p = plan({
+      orders: [{ id: 'o1', delivery_date: '2026-08-26', order_date: '2026-08-26', status: 'nova', place_name: 'Hospoda' }],
+      orderItems: [
+        { id: 'r1', order_id: 'o1', beer_id: 'b-des', package_id: 'p30', quantity: 4 },
+        { id: 'r2', order_id: 'o1', beer_id: 'b-11', package_id: 'p50', quantity: 3 },
+      ],
+    });
+    const streda = day(p, 'st');
+    const soucet = rozpadPoObalech(streda).reduce((s, x) => s + x.missing, 0);
+    expect(soucet).toBe(streda.totalMissing);
+    expect(soucet).toBe(7);
   });
 });

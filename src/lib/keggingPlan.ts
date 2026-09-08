@@ -305,6 +305,52 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
   return plans;
 }
 
+/** Kolik kusů jednoho obalu (30l, 50l…) zbývá stočit. */
+export type RozpadObalu = {
+  package_id: string;
+  package_label: string;
+  volume_l: number;
+  /** Kolik si jich vyžádaly objednávky. */
+  ordered: number;
+  /** Kolik z toho ještě chybí stočit. */
+  missing: number;
+  /** Litry, které ty chybějící kusy představují. */
+  missingLiters: number;
+};
+
+/**
+ * Rozpad „zbývá stočit" podle VELIKOSTI SUDU, přes všechna piva.
+ *
+ * Z provozu: „musí tam být i přehled, kolik jednotlivých KEG sudů zbývá
+ * stočit — kolik dohromady třicítek, padesátek atd." Seznam je totiž po
+ * pivech, takže „kolik mám nachystat padesátek" se z něj dá zjistit jen
+ * sečtením deseti řádků v hlavě. U linky se přitom chystají OBALY, ne piva:
+ * prázdné sudy se tahají po velikostech.
+ *
+ * Řadí se od největšího sudu — tak se o nich v pivovaru mluví (padesátky,
+ * třicítky, dvacítky) a tak se i staví na paletu.
+ */
+export function rozpadPoObalech(plan: DayPlan): RozpadObalu[] {
+  const podle = new Map<string, RozpadObalu>();
+  plan.items.forEach((it) => {
+    const zaznam = podle.get(it.package_id) ?? {
+      package_id: it.package_id,
+      package_label: it.package_label,
+      volume_l: it.volume_l,
+      ordered: 0,
+      missing: 0,
+      missingLiters: 0,
+    };
+    zaznam.ordered += it.ordered;
+    zaznam.missing += it.missing;
+    zaznam.missingLiters += it.missing * it.volume_l;
+    podle.set(it.package_id, zaznam);
+  });
+  return [...podle.values()].sort(
+    (a, z) => z.volume_l - a.volume_l || a.package_label.localeCompare(z.package_label, 'cs')
+  );
+}
+
 /**
  * Sloučí denní plány do jednoho „celý týden" — stejné položky, jen sečtené
  * přes všechny dny. Nahrazuje bývalou záložku „Potřeba stočit KEGy", která

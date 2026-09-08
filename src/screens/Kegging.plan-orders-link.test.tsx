@@ -116,6 +116,33 @@ describe('Plán stáčení — odkaz do Objednávek a odškrtnutí', () => {
     return screen.findByText(/Stočit na St/);
   }
 
+  it('ukazuje rozpad „zbývá stočit po sudech" s počtem za velikost', async () => {
+    // Z provozu: „musí tam být i přehled, kolik jednotlivých KEG sudů zbývá
+    // stočit — kolik dohromady třicítek, padesátek atd." Seznam je po pivech,
+    // takže tohle číslo se z něj dalo dostat jen sčítáním v hlavě.
+    render(<KeggingScreen mode="all" setPage={vi.fn()} initialSubTab="plan" />);
+    await screen.findByText(/Stočit na St/);
+
+    const nadpisy = await screen.findAllByText(/Zbývá stočit po sudech/);
+    expect(nadpisy.length).toBeGreaterThan(0);
+    // 3 objednané třicítky, nic nestočeno → chip „KEG 30l 3".
+    const chipy = screen.getAllByTitle(/3 z 3 .* 90 L/);
+    expect(chipy.length).toBeGreaterThan(0);
+    expect(chipy[0].textContent).toContain('KEG 30l');
+    expect(chipy[0].textContent).toContain('3');
+  });
+
+  it('když je velikost hotová, do rozpadu se nevypisuje', async () => {
+    // Nula mezi čísly se u linky přečte jako „ještě zbývá".
+    h.DB.kegging = [{ id: 'k1', entry_date: '2026-01-06', beer_id: 'beer-12', package_id: 'pkg-30', quantity: 3 }];
+    render(<KeggingScreen mode="all" setPage={vi.fn()} initialSubTab="plan" />);
+    await screen.findByText(/Stočit na St/);
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/Všechny velikosti jsou stočené/).length).toBeGreaterThan(0);
+    });
+  });
+
   it('chybějící položka → "Zobrazit objednávky" přepne na Objednávky s filtrem pivo+obal', async () => {
     const setPage = vi.fn();
     render(<KeggingScreen mode="all" setPage={setPage} initialSubTab="plan" />);

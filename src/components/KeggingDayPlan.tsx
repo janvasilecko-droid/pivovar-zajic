@@ -17,7 +17,8 @@
 import { useMemo, useState } from 'react';
 import { CalendarDays, Check, Beer, Truck, ChevronDown, ArrowRight, Search, X } from 'lucide-react';
 import type { DayPlan, PlanItem } from '../lib/keggingPlan';
-import { dayKeyFromISO, mergeWeekPlan, BEZ_TERMINU } from '../lib/keggingPlan';
+import { dayKeyFromISO, mergeWeekPlan, rozpadPoObalech, BEZ_TERMINU } from '../lib/keggingPlan';
+import type { RozpadObalu } from '../lib/keggingPlan';
 import { IkonaSud } from './ikony';
 
 type Props = {
@@ -41,6 +42,47 @@ const fmtDate = (iso: string) => new Date(iso + 'T00:00:00Z').toLocaleDateString
 /** Porovnání bez diakritiky — hledá se jedním prstem, háčky nikdo nepíše. */
 const bezDiakritiky = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 
+/**
+ * 🛢️ „Kolik čeho zbývá stočit" — rozpad podle VELIKOSTI SUDU.
+ *
+ * Seznam pod tím je po pivech, takže „kolik mám nachystat padesátek" se z něj
+ * dá zjistit jen sečtením deseti řádků v hlavě. U linky se přitom chystají
+ * OBALY, ne piva: prázdné sudy se tahají po velikostech.
+ *
+ * Hotové obaly se nevypisují — nula mezi čísly se čte jako „ještě zbývá".
+ * Když je hotové všechno, řekne se to slovem.
+ */
+function RozpadObalu({ rozpad, jednotka }: { rozpad: RozpadObalu[]; jednotka: string }) {
+  const zbyva = rozpad.filter((r) => r.missing > 0);
+  if (rozpad.length === 0) return null;
+
+  return (
+    <div className="mt-2">
+      <div className="text-udaj font-black uppercase tracking-wide text-neutral-500 mb-1">
+        Zbývá stočit po sudech
+      </div>
+      {zbyva.length === 0 ? (
+        <div className="text-udaj font-bold text-emerald-700">Všechny velikosti jsou stočené.</div>
+      ) : (
+        <div className="flex flex-wrap gap-1.5">
+          {zbyva.map((r) => (
+            <span
+              key={r.package_id}
+              className="chip bg-amber-100 text-amber-950 border-amber-300 font-black"
+              title={`${r.missing} z ${r.ordered} ${jednotka} · ${r.missingLiters} L`}
+            >
+              {r.package_label}
+              <span className="ml-1 px-1.5 py-0.5 rounded-full bg-amber-500 text-neutral-950 tabular-nums">
+                {r.missing}
+              </span>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, canEdit, onShowOrders, jednotka = 'sudů' }: Props) {
   const todayDay = dayKeyFromISO(todayISO);
   // Otevře se rovnou nejbližší den, kde ještě něco chybí — stáčeč většinou
@@ -62,12 +104,16 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
     ordered: weekPlan.totalOrdered,
     liters: weekPlan.missingLiters,
   };
+  // Rozpad po velikostech sudu — zvlášť za týden a za vybraný den, ať se
+  // dá u linky přečíst „kolik nachystat padesátek" bez sčítání v hlavě.
+  const rozpadTydne = useMemo(() => rozpadPoObalech(weekPlan), [weekPlan]);
   const hotovoCelkem = weekTotals.ordered - weekTotals.missing;
   const procenta = weekTotals.ordered > 0 ? Math.round((hotovoCelkem / weekTotals.ordered) * 100) : 0;
 
   const active = selected === 'tyden' ? weekPlan : (plans.find((p) => p.day === selected) ?? plans[0]);
   const isWeek = active.day === 'tyden';
   const jeBezTerminu = active.day === BEZ_TERMINU;
+  const rozpadDne = useMemo(() => rozpadPoObalech(active), [active]);
 
   // Filtrování běží až nad vybraným dnem, ne nad celým týdnem — čísla
   // v hlavičce dne proto zůstávají pravdivá i při zapnutém filtru.
@@ -113,6 +159,7 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
         <div className="h-1.5 rounded-full bg-neutral-200 overflow-hidden mt-1.5">
           <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${procenta}%` }} />
         </div>
+        <RozpadObalu rozpad={rozpadTydne} jednotka={jednotka} />
       </div>
 
       <div className="hidden sm:grid grid-cols-3 gap-3">
@@ -129,6 +176,7 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
           <div className={`text-udaj font-bold mt-0.5 ${weekTotals.missing > 0 ? 'text-amber-700' : 'text-emerald-700'}`}>
             {weekTotals.missing > 0 ? `${(weekTotals.liters / 100).toFixed(1)} hl / ${weekTotals.liters} L` : 'Všechno je stočené'}
           </div>
+          <RozpadObalu rozpad={rozpadTydne} jednotka={jednotka} />
         </div>
         <div className="bg-white p-4 rounded border border-neutral-200/90 shadow-xs">
           <div className="text-udaj font-black uppercase tracking-wide text-neutral-500">Hotovo</div>
@@ -238,6 +286,12 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
               </span>
             )}
           </div>
+
+          {/* U týdne už rozpad stojí nahoře v souhrnu — dvakrát tutéž věc
+              pod sebou by byl jen šum. */}
+          {!isWeek && active.totalOrdered > 0 && (
+            <RozpadObalu rozpad={rozpadDne} jednotka={jednotka} />
+          )}
 
           {/* Hledání a filtr. Denní seznam má běžně přes deset položek
               a odscrollovat se k jednomu pivu na telefonu trvá dýl,
