@@ -12,7 +12,7 @@ import {
 } from '../lib/tapSanitation';
 import { SanitationStepRow, currentTimeStr } from './SanitationStepRow';
 import { Spinner } from './ui';
-import { Clock, Edit3, FileSpreadsheet, CheckCircle2, ChevronLeft, ChevronRight, Plus, Timer, Trash2, X } from 'lucide-react';
+import { Clock, Pencil, FileSpreadsheet, CheckCircle2, ChevronLeft, ChevronRight, Plus, Timer, Trash2, X } from 'lucide-react';
 import { potvrd } from '../lib/toast';
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
@@ -204,11 +204,11 @@ export default function TapSanitationDiary() {
         </div>
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1 bg-white border border-neutral-200 rounded px-2 py-1.5 shadow-sm">
-            <button onClick={() => shiftMonth(-1)} className="w-6 h-6 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-xs transition">
+            <button onClick={() => shiftMonth(-1)} className="w-6 h-6 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-xs transition tap">
               <ChevronLeft size={14} />
             </button>
             <span className="text-xs font-bold text-amber-950 px-1 whitespace-nowrap">{filterMonth}</span>
-            <button onClick={() => shiftMonth(1)} disabled={filterMonth >= todayStr().slice(0, 7)} className="w-6 h-6 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-xs transition disabled:opacity-40">
+            <button onClick={() => shiftMonth(1)} disabled={filterMonth >= todayStr().slice(0, 7)} className="w-6 h-6 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-xs transition disabled:opacity-40 tap">
               <ChevronRight size={14} />
             </button>
           </div>
@@ -216,7 +216,7 @@ export default function TapSanitationDiary() {
             <FileSpreadsheet size={14} /> Excel
           </button>
           <button onClick={openNew} className="px-3.5 py-2 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 text-xs font-black shadow-md flex items-center gap-1.5">
-            <Plus size={15} /> Nový zápis
+            <Plus size={16} /> Nový zápis
           </button>
         </div>
       </div>
@@ -237,47 +237,47 @@ export default function TapSanitationDiary() {
                 <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-neutral-100">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-black text-sm text-neutral-900">{e.tap_name || e.tap_id}</span>
-                    <span className="text-[11px] font-black text-neutral-600 bg-neutral-100 px-1.5 py-0.5 rounded">{formatDate(e.sanitation_date)}</span>
+                    <span className="text-udaj font-black text-neutral-600 bg-neutral-100 px-1.5 py-0.5 rounded">{formatDate(e.sanitation_date)}</span>
                     {e.sanitation_time && (
-                      <span className="text-[11px] font-mono font-black text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded flex items-center gap-1">
-                        <Clock size={10} /> {e.sanitation_time}
+                      <span className="text-udaj font-mono font-black text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded flex items-center gap-1">
+                        <Clock size={12} /> {e.sanitation_time}
                       </span>
                     )}
-                    <span className="text-[11px] font-bold text-neutral-500">{TAP_SAN_REASON_LABELS[e.reason] || e.reason}</span>
+                    <span className="text-udaj font-bold text-neutral-500">{TAP_SAN_REASON_LABELS[e.reason] || e.reason}</span>
                   </div>
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => openEdit(e)}
-                      className="p-1.5 rounded bg-neutral-100 hover:bg-amber-100 text-neutral-600 hover:text-amber-800 transition"
-                      title="Upravit"
+                      className="p-1.5 rounded bg-neutral-100 hover:bg-amber-100 text-neutral-600 hover:text-amber-800 transition tap"
+                      title="Upravit" aria-label="Upravit"
                     >
-                      <Edit3 size={13} />
+                      <Pencil size={14} />
                     </button>
                     <button
                       onClick={() => handleDelete(e.id)}
-                      className="p-1.5 rounded bg-neutral-100 hover:bg-rose-100 text-neutral-600 hover:text-rose-700 transition"
-                      title="Smazat"
+                      className="p-1.5 rounded bg-neutral-100 hover:bg-rose-100 text-neutral-600 hover:text-rose-700 transition tap"
+                      title="Smazat" aria-label="Smazat"
                     >
-                      <Trash2 size={13} />
+                      <Trash2 size={14} />
                     </button>
                   </div>
                 </div>
 
                 <div className="pt-2.5 space-y-1">
                   {done.length === 0 ? (
-                    <span className="text-[11px] text-neutral-400 font-semibold">Zatím bez dokončených kroků.</span>
+                    <span className="text-udaj text-neutral-400 font-semibold">Zatím bez dokončených kroků.</span>
                   ) : (
                     done.map((s) => (
                       <div key={s.id} className="flex items-center gap-2">
-                        <CheckCircle2 size={13} className="text-emerald-600 shrink-0" />
-                        <span className="text-[11px] text-neutral-700 font-semibold flex-1">{s.text}</span>
-                        {s.completedAt && <span className="text-[11px] font-mono font-black text-amber-800"><Timer className="ikona-text" /> {s.completedAt}</span>}
+                        <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
+                        <span className="text-udaj text-neutral-700 font-semibold flex-1">{s.text}</span>
+                        {s.completedAt && <span className="text-udaj font-mono font-black text-amber-800"><Timer className="ikona-text" /> {s.completedAt}</span>}
                       </div>
                     ))
                   )}
                 </div>
 
-                <div className="text-[11px] text-neutral-400 mt-2">
+                <div className="text-udaj text-neutral-400 mt-2">
                   Hotovo <b className="text-neutral-600">{done.length}/{total}</b> · {e.performed_by ? `Provádí: ${e.performed_by}` : 'bez provádějící osoby'}
                 </div>
               </div>
@@ -293,7 +293,7 @@ export default function TapSanitationDiary() {
               <h3 className="font-display font-black text-lg text-neutral-900">
                 {editingId ? 'Upravit záznam sanitace výčepu' : 'Nový záznam sanitace výčepu'}
               </h3>
-              <button onClick={() => setShowModal(false)} className="text-neutral-400 font-bold" title="Zavřít"><X size={18} /></button>
+              <button onClick={() => setShowModal(false)} className="text-neutral-400 font-bold" title="Zavřít" aria-label="Zavřít"><X size={18} /></button>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -332,7 +332,7 @@ export default function TapSanitationDiary() {
               {/* Steps */}
               <div className="p-4 rounded border border-neutral-200 bg-neutral-50/50 space-y-2.5">
                 <h4 className="font-black text-xs text-neutral-800 uppercase tracking-wider flex items-center gap-1.5">
-                  <CheckCircle2 size={13} className="text-amber-600" /> Kroky sanitace (s časem provedení)
+                  <CheckCircle2 size={14} className="text-amber-600" /> Kroky sanitace (s časem provedení)
                 </h4>
                 {steps.map((s, idx) => (
                   <SanitationStepRow

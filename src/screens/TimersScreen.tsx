@@ -167,7 +167,7 @@ function StopwatchTool() {
           disabled={!state.running}
           className="px-4 py-2 rounded font-black bg-neutral-200 text-neutral-700 disabled:opacity-40 flex items-center gap-1.5 shrink-0"
         >
-          <Flag size={15} /> Mezičas
+          <Flag size={16} /> Mezičas
         </button>
       </div>
 
@@ -178,9 +178,9 @@ function StopwatchTool() {
             <span className="text-xs font-bold text-neutral-400 uppercase tracking-wide">Mezičasy ({state.laps.length})</span>
             <button
               onClick={copyLaps}
-              className="flex items-center gap-1.5 text-xs font-bold text-neutral-600 hover:text-neutral-900 transition px-2 py-1 rounded hover:bg-neutral-100"
+              className="flex items-center gap-1.5 text-xs font-bold text-neutral-600 hover:text-neutral-900 transition px-2 py-1 rounded hover:bg-neutral-100 tap"
               title="Kopírovat mezičasy do schránky"
-             aria-label="Kopírovat mezičasy do schránky">
+            >
               {copied ? <><Check size={13} className="text-emerald-600" /> Zkopírováno!</> : <><Copy size={13} /> Kopírovat</>}
             </button>
           </div>
@@ -203,10 +203,10 @@ function StopwatchTool() {
                 <span className="tabular-nums text-neutral-400 shrink-0 text-xs">{formatDurationMs(lapEntry.ms, true)}</span>
                 <button
                   onClick={() => deleteLap(realIdx)}
-                  className="p-1 text-neutral-300 hover:text-rose-600 rounded transition shrink-0"
-                  title="Smazat mezičas"
+                  className="p-1 text-neutral-300 hover:text-rose-600 rounded transition shrink-0 tap"
+                  title="Smazat mezičas" aria-label="Smazat mezičas"
                 >
-                  <Trash2 size={13} />
+                  <Trash2 size={14} />
                 </button>
               </div>
             );
@@ -218,15 +218,15 @@ function StopwatchTool() {
               <div className="text-xs font-black text-neutral-500 uppercase tracking-wide mb-2">Statistika úseků</div>
               <div className="grid grid-cols-3 gap-2 text-center">
                 <div>
-                  <div className="text-[11px] font-bold text-emerald-700 uppercase">Nejrychlejší</div>
+                  <div className="text-udaj font-bold text-emerald-700 uppercase">Nejrychlejší</div>
                   <div className="text-sm font-black text-emerald-800 tabular-nums">{formatDurationMs(stats.min, true)}</div>
                 </div>
                 <div>
-                  <div className="text-[11px] font-bold text-neutral-500 uppercase">Průměr</div>
+                  <div className="text-udaj font-bold text-neutral-500 uppercase">Průměr</div>
                   <div className="text-sm font-black text-neutral-700 tabular-nums">{formatDurationMs(stats.avg, true)}</div>
                 </div>
                 <div>
-                  <div className="text-[11px] font-bold text-rose-600 uppercase">Nejpomalejší</div>
+                  <div className="text-udaj font-bold text-rose-600 uppercase">Nejpomalejší</div>
                   <div className="text-sm font-black text-rose-700 tabular-nums">{formatDurationMs(stats.max, true)}</div>
                 </div>
               </div>
@@ -423,13 +423,13 @@ function CountdownTimersTool() {
             </span>
             <div>
               <h3 className="font-extrabold text-sm text-neutral-900 leading-tight">Signalizace při vypršení odpočtu</h3>
-              <p className="text-[11px] text-neutral-500 font-semibold">Upozornění při dosažení 0:00 (i na pozadí)</p>
+              <p className="text-udaj text-neutral-500 font-semibold">Upozornění při dosažení 0:00 (i na pozadí)</p>
             </div>
           </div>
           <button
             type="button"
             onClick={handleTestAlert}
-            className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-95 text-neutral-950 text-xs font-black shadow-xs transition flex items-center gap-1.5 shrink-0"
+            className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-95 text-neutral-950 text-xs font-black shadow-xs transition flex items-center gap-1.5 shrink-0 tap"
             title="Okamžitě přehraje alarm a zavibruje"
           >
             <Volume2 size={14} /> Vyzkoušet
@@ -448,13 +448,13 @@ function CountdownTimersTool() {
             }`}
           >
             <div className="flex items-center gap-2.5">
-              {alertSettings.sound ? <Volume2 size={20} className="text-amber-600" /> : <VolumeX size={20} className="opacity-40" />}
+              {alertSettings.sound ? <Volume2 size={18} className="text-amber-600" /> : <VolumeX size={18} className="opacity-40" />}
               <div>
                 <div className="text-xs font-black">Zvukový alarm</div>
-                <div className="text-[11px] font-bold opacity-75">{alertSettings.sound ? 'Hlasité pípání' : 'Vypnuto'}</div>
+                <div className="text-udaj font-bold opacity-75">{alertSettings.sound ? 'Hlasité pípání' : 'Vypnuto'}</div>
               </div>
             </div>
-            <span className={`text-[11px] font-black px-2 py-0.5 rounded-full ${alertSettings.sound ? 'bg-amber-500 text-neutral-950' : 'bg-neutral-200 text-neutral-600'}`}>
+            <span className={`text-udaj font-black px-2 py-0.5 rounded-full ${alertSettings.sound ? 'bg-amber-500 text-neutral-950' : 'bg-neutral-200 text-neutral-600'}`}>
               {alertSettings.sound ? 'ZAP' : 'VYP'}
             </span>
           </button>
@@ -470,13 +470,13 @@ function CountdownTimersTool() {
             }`}
           >
             <div className="flex items-center gap-2.5">
-              <Smartphone size={20} className={alertSettings.vibrate ? 'text-amber-600' : 'opacity-40'} />
+              <Smartphone size={18} className={alertSettings.vibrate ? 'text-amber-600' : 'opacity-40'} />
               <div>
                 <div className="text-xs font-black">Vibrace telefonu</div>
-                <div className="text-[11px] font-bold opacity-75">{alertSettings.vibrate ? 'Dlouhá sekvence' : 'Vypnuto'}</div>
+                <div className="text-udaj font-bold opacity-75">{alertSettings.vibrate ? 'Dlouhá sekvence' : 'Vypnuto'}</div>
               </div>
             </div>
-            <span className={`text-[11px] font-black px-2 py-0.5 rounded-full ${alertSettings.vibrate ? 'bg-amber-500 text-neutral-950' : 'bg-neutral-200 text-neutral-600'}`}>
+            <span className={`text-udaj font-black px-2 py-0.5 rounded-full ${alertSettings.vibrate ? 'bg-amber-500 text-neutral-950' : 'bg-neutral-200 text-neutral-600'}`}>
               {alertSettings.vibrate ? 'ZAP' : 'VYP'}
             </span>
           </button>
@@ -492,15 +492,15 @@ function CountdownTimersTool() {
             }`}
           >
             <div className="flex items-center gap-2.5">
-              <Bell size={20} className={alertSettings.screenNotif && notifPerm === 'granted' ? 'text-amber-600' : 'opacity-40'} />
+              <Bell size={18} className={alertSettings.screenNotif && notifPerm === 'granted' ? 'text-amber-600' : 'opacity-40'} />
               <div>
                 <div className="text-xs font-black">Notifikace na displej</div>
-                <div className="text-[11px] font-bold opacity-75">
+                <div className="text-udaj font-bold opacity-75">
                   {notifPerm === 'granted' ? (alertSettings.screenNotif ? 'Povoleno' : 'Vypnuto') : 'Klepni pro povolení'}
                 </div>
               </div>
             </div>
-            <span className={`text-[11px] font-black px-2 py-0.5 rounded-full ${alertSettings.screenNotif && notifPerm === 'granted' ? 'bg-amber-500 text-neutral-950' : 'bg-neutral-200 text-neutral-600'}`}>
+            <span className={`text-udaj font-black px-2 py-0.5 rounded-full ${alertSettings.screenNotif && notifPerm === 'granted' ? 'bg-amber-500 text-neutral-950' : 'bg-neutral-200 text-neutral-600'}`}>
               {notifPerm === 'granted' ? (alertSettings.screenNotif ? 'ZAP' : 'VYP') : 'POVOLIT'}
             </span>
           </button>
@@ -525,7 +525,7 @@ function CountdownTimersTool() {
             </button>
           ))}
         </div>
-        <p className="text-[11px] text-neutral-400 leading-relaxed">
+        <p className="text-udaj text-neutral-400 leading-relaxed">
           Klepnutím na tlačítko se odpočet okamžitě <strong>vytvoří, spustí a připne na plochu</strong> —
           běží i na pozadí.
         </p>
@@ -622,29 +622,29 @@ function CountdownTimersTool() {
                 onClick={handleStartAll}
                 className="btn-primary !rounded px-3 py-1.5 rounded text-xs font-bold flex items-center gap-1"
               >
-                <Play size={13} /> Spustit všechny
+                <Play size={14} /> Spustit všechny
               </button>
             ) : (
               <button
                 type="button"
                 onClick={handlePauseAll}
-                className="px-3 py-1.5 rounded text-xs font-bold bg-amber-500 hover:bg-amber-400 text-neutral-950 flex items-center gap-1"
+                className="px-3 py-1.5 rounded text-xs font-bold bg-amber-500 hover:bg-amber-400 text-neutral-950 flex items-center gap-1 tap"
               >
-                <Pause size={13} /> Pozastavit všechny
+                <Pause size={14} /> Pozastavit všechny
               </button>
             )}
             <button
               type="button"
               onClick={handleResetAll}
-              className="px-3 py-1.5 rounded text-xs font-bold bg-white hover:bg-neutral-100 border border-neutral-200 text-neutral-700 flex items-center gap-1"
+              className="px-3 py-1.5 rounded text-xs font-bold bg-white hover:bg-neutral-100 border border-neutral-200 text-neutral-700 flex items-center gap-1 tap"
             >
-              <RotateCcw size={13} /> Resetovat vše
+              <RotateCcw size={14} /> Resetovat vše
             </button>
           </div>
           <button
             type="button"
             onClick={handleTestAlert}
-            className="px-3 py-1.5 rounded text-xs font-bold bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 flex items-center gap-1"
+            className="px-3 py-1.5 rounded text-xs font-bold bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 flex items-center gap-1 tap"
             title="Přehraje alarm a zavibruje pro otestování"
           >
             🔔 Vyzkoušet zvuk a vibrace
@@ -715,7 +715,7 @@ function CountdownTimersTool() {
                   title="Zpátky na původní čas (běžící odpočet běží dál od začátku)"
                   className="px-3 py-2 rounded text-xs font-bold bg-neutral-100 hover:bg-neutral-200 text-neutral-700 flex items-center gap-1 min-h-[44px]"
                 >
-                  <RotateCcw size={13} /> Reset
+                  <RotateCcw size={14} /> Reset
                 </button>
               </div>
             </div>
@@ -768,7 +768,7 @@ function KegRackingTimerTool() {
             </div>
           </div>
           <button onClick={begin} className="btn-primary !rounded px-10 py-4 rounded font-black text-lg flex items-center gap-2">
-            <Play size={20} /> Začít stáčení
+            <Play size={18} /> Začít stáčení
           </button>
         </>
       ) : (

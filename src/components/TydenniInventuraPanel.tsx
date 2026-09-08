@@ -219,7 +219,7 @@ export default function TydenniInventuraPanel() {
               <CalendarRange size={16} className="text-amber-600" />
               {popisTydne(obdobi.od, obdobi.do)}
             </p>
-            <p className="text-[11px] font-bold text-neutral-500 mt-0.5">
+            <p className="text-udaj font-bold text-neutral-500 mt-0.5">
               {obdobi.uzavreny
                 ? 'Uzavřený týden'
                 : `Běžící týden — počítá se po dnešek (${obdobi.doPocitani})`}
@@ -238,7 +238,7 @@ export default function TydenniInventuraPanel() {
 
         <div className="flex flex-wrap items-center gap-2">
           <label className="relative flex-1 min-w-[180px]">
-            <Search size={15} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400" />
+            <Search size={16} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400" />
             <input
               value={hledat}
               onChange={(e) => setHledat(e.target.value)}
@@ -258,10 +258,10 @@ export default function TydenniInventuraPanel() {
             Jen rozdíly
           </button>
           <button type="button" onClick={nacti} disabled={bezi} className="btn-secondary !rounded min-h-[44px]">
-            <RefreshCw size={15} className={bezi ? 'animate-spin' : ''} /> Načíst znovu
+            <RefreshCw size={16} className={bezi ? 'animate-spin' : ''} /> Načíst znovu
           </button>
           <button type="button" onClick={ulozVse} disabled={!!uklada || bezi} className="btn-primary !rounded min-h-[44px]">
-            <Save size={15} /> Uložit kontrolu
+            <Save size={16} /> Uložit kontrolu
           </button>
         </div>
 
@@ -271,16 +271,16 @@ export default function TydenniInventuraPanel() {
               {souhrn.spocitano} / {vsechnyRadky.length} spočítáno
             </span>
             <span className="chip bg-emerald-100 text-emerald-900 border-emerald-300">
-              <Check size={13} /> {souhrn.sedi} sedí
+              <Check size={14} /> {souhrn.sedi} sedí
             </span>
             {souhrn.prebytku > 0 && (
               <span className="chip bg-sky-100 text-sky-900 border-sky-300">
-                <Plus size={13} /> {souhrn.prebytku} přebytků (+{souhrn.prebytekKusu} ks)
+                <Plus size={14} /> {souhrn.prebytku} přebytků (+{souhrn.prebytekKusu} ks)
               </span>
             )}
             {souhrn.manek > 0 && (
               <span className="chip bg-rose-100 text-rose-900 border-rose-300">
-                <MinusCircle size={13} /> {souhrn.manek} manek (−{souhrn.mankoKusu} ks)
+                <MinusCircle size={14} /> {souhrn.manek} manek (−{souhrn.mankoKusu} ks)
               </span>
             )}
           </div>
@@ -327,14 +327,14 @@ export default function TydenniInventuraPanel() {
                       k okraji. */}
                   <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
                     <div className="text-center shrink-0">
-                      <p className="text-[11px] font-black uppercase tracking-wider text-neutral-400">Čeká se</p>
+                      <p className="text-udaj font-black uppercase tracking-wider text-neutral-400">Čeká se</p>
                       <p className={`font-display font-black text-base tabular-nums ${r.ocekavano < 0 ? 'text-rose-600' : 'text-neutral-800'}`}>
                         {r.ocekavano}
                       </p>
                     </div>
 
                     <div className="text-center shrink-0">
-                      <p className="text-[11px] font-black uppercase tracking-wider text-neutral-400">Napočítáno</p>
+                      <p className="text-udaj font-black uppercase tracking-wider text-neutral-400">Napočítáno</p>
                       {/* Desetinné ANO: lahve se počítají po kusech, ale načatý
                           sud se běžně zapisuje na půlky. */}
                       <input
@@ -347,7 +347,7 @@ export default function TydenniInventuraPanel() {
                     </div>
 
                     <div className="text-center shrink-0 w-16">
-                      <p className="text-[11px] font-black uppercase tracking-wider text-neutral-400">Rozdíl</p>
+                      <p className="text-udaj font-black uppercase tracking-wider text-neutral-400">Rozdíl</p>
                       <p className={`font-display font-black text-base tabular-nums ${
                         !jeRozdil ? 'text-neutral-300' : r.rozdil > 0 ? 'text-sky-700' : 'text-rose-700'
                       }`}>

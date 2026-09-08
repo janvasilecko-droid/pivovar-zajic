@@ -1,14 +1,16 @@
 import { useState, useEffect, type FormEvent } from 'react';
-import { AlertCircle, AlertTriangle, Beer as BeerIcon, Bell, BellOff, BookOpen, Brush, CloudDownload, Download, Eraser, Eye, Factory, FolderOpen, CheckCircle2, Lightbulb, Lock, MessageSquare, Monitor, Moon, Palette, Plus, RefreshCw, Settings, Smartphone, Sparkles, Sun, Timer, Trash2, Users, Vibrate, Volume2, VolumeX } from 'lucide-react';
+import { AlertCircle, AlertTriangle, Beer as BeerIcon, Bell, BellOff, BookOpen, Brush, CloudDownload, Download, Eraser, Eye, Factory, FolderOpen, CheckCircle2, Lightbulb, Lock, MessageSquare, Monitor, Moon, Palette, Plus, RefreshCw, Settings, Smartphone, Sparkles, Sun, Timer, Trash2, Users, Vibrate, Volume2, VolumeX, Zap } from 'lucide-react';
 
 import { DENSITY_OPTIONS, DensityMode, getDensity, setDensity } from '../lib/density';
+import { mensiEfekty, nastavEfekty } from '../lib/efekty';
+import { clearQueue } from '../lib/offline';
 import { haptikaZapnuta, nastavHaptiku, zavibruj } from '../lib/haptika';
 import { MenuCustomizeModal } from '../components/MenuCustomizeModal';
 import AdminDiagnostika from '../components/AdminDiagnostika';
 import { useAuth } from '../lib/auth';
 import { supabase } from '../lib/supabase';
 import { NAV, NavItem } from '../components/Layout';
-import { canUserView, getUserPermissions, PAGE_TO_MODULE, ModuleKey } from '../lib/permissions';
+import { canUserView, getUserPermissions, PAGE_TO_MODULE } from '../lib/permissions';
 import { Theme, getTheme, setTheme } from '../lib/theme';
 import { getNotificationPermission, requestNotificationPermission, getNotificationSettings, saveNotificationSettings, NotificationSettings } from '../lib/notifications';
 import { jePrihlasen, jePushPodporovan, odhlasPush, prihlasPush, stavPushu, VAPID_KLIC } from '../lib/pushOdber';
@@ -28,6 +30,7 @@ interface BeforeInstallPromptEvent extends Event {
 export default function AppSettingsScreen() {
   const { profile, user, reloadProfile } = useAuth();
   const [density, setDensityState] = useState<DensityMode>(getDensity());
+  const [meneEfektu, setMeneEfektu] = useState<boolean>(mensiEfekty());
   const [haptika, setHaptika] = useState(haptikaZapnuta());
   const [theme, setThemeState] = useState<Theme>(getTheme());
   const [notifPermission, setNotifPermission] = useState(getNotificationPermission());
@@ -303,7 +306,7 @@ export default function AppSettingsScreen() {
 
       {/* Instalace */}
       <div className="card p-6">
-        <h2 className="font-display font-bold text-lg flex items-center gap-2"><Smartphone size={20} /> Instalace aplikace</h2>
+        <h2 className="font-display font-bold text-lg flex items-center gap-2"><Smartphone size={18} /> Instalace aplikace</h2>
         {isStandalone ? (
           <p className="text-sm text-emerald-700 font-bold mt-2">Aplikace je již nainstalována na vašem zařízení.</p>
         ) : installPrompt ? (
@@ -318,14 +321,14 @@ export default function AppSettingsScreen() {
 
       {/* Menu */}
       <div className="card p-6">
-        <h2 className="font-display font-bold text-lg flex items-center gap-2"><Eye size={20} /> Přizpůsobení menu</h2>
+        <h2 className="font-display font-bold text-lg flex items-center gap-2"><Eye size={18} /> Přizpůsobení menu</h2>
         <p className="text-sm text-neutral-600 mt-2">Vyberte si, které položky chcete vidět v hlavním menu pro rychlejší navigaci.</p>
         <button onClick={() => setShowMenuCustomize(true)} className="btn-ghost !rounded mt-3 text-sm font-black">Upravit viditelnost menu</button>
       </div>
 
       {/* Hustota / Velikost */}
       <div className="card p-6">
-        <h2 className="font-display font-bold text-lg flex items-center gap-2"><Palette size={20} /> Hustota zobrazení</h2>
+        <h2 className="font-display font-bold text-lg flex items-center gap-2"><Palette size={18} /> Hustota zobrazení</h2>
         <p className="text-sm text-neutral-600 mt-2">Zvolte velikost prvků a písma. XS = nejhustší, XL = největší.</p>
         <div className="flex flex-wrap gap-2 mt-4">
           {DENSITY_OPTIONS.map(opt => (
@@ -339,15 +342,39 @@ export default function AppSettingsScreen() {
               }`}
             >
               <span className="text-base">{opt.label}</span>
-              <span className="text-[11px] font-medium mt-0.5 opacity-70">{opt.desc}</span>
+              <span className="text-udaj font-medium mt-0.5 opacity-70">{opt.desc}</span>
             </button>
           ))}
         </div>
       </div>
 
+      {/* ⚡ Méně efektů — plynulost na starším telefonu */}
+      <div className="card p-6">
+        <h2 className="font-display font-bold text-lg flex items-center gap-2"><Zap size={18} /> Plynulost</h2>
+        <p className="text-sm text-neutral-600 mt-2">
+          Když se aplikace na telefonu seká, vypni tímhle skleněné rozostření
+          a blikání upozornění. Je to nejdražší věc, kterou aplikace kreslí —
+          rozostření se počítá znovu při každém pohybu, a to zvlášť pro každou
+          dlaždici na ploše i pro horní a spodní lištu na všech obrazovkách.
+        </p>
+        <p className="text-sm text-neutral-600 mt-2">
+          Upozornění nezmizí: místo blikání dostanou stálý barevný rámeček.
+          Nastavuje se na každém telefonu zvlášť a nic to neposílá do databáze.
+        </p>
+        <button
+          type="button"
+          onClick={() => { const n = !meneEfektu; nastavEfekty(n); setMeneEfektu(n); }}
+          aria-pressed={meneEfektu}
+          className={`mt-4 ${meneEfektu ? 'btn-primary' : 'btn-ghost'}`}
+        >
+          <Zap size={16} />
+          {meneEfektu ? 'Méně efektů je ZAPNUTÉ' : 'Zapnout méně efektů'}
+        </button>
+      </div>
+
       {/* Odezva do prstu */}
       <div className="card p-6">
-        <h2 className="font-display font-bold text-lg flex items-center gap-2"><Vibrate size={20} /> Odezva při dotyku</h2>
+        <h2 className="font-display font-bold text-lg flex items-center gap-2"><Vibrate size={18} /> Odezva při dotyku</h2>
         <p className="text-sm text-neutral-600 mt-2">
           Krátké zavibrování při odškrtnutí položky nebo zápisu. Na telefonu se
           díky tomu nemusí kontrolovat očima, jestli klepnutí prošlo.
@@ -358,7 +385,7 @@ export default function AppSettingsScreen() {
             haptika ? 'bg-emerald-50 border-emerald-300 text-emerald-900' : 'bg-neutral-50 border-neutral-200 text-neutral-600'
           }`}
         >
-          <Vibrate size={20} />
+          <Vibrate size={18} />
           <span className="flex-1">{haptika ? 'Zapnuto' : 'Vypnuto'}</span>
           <span className={`w-12 h-7 rounded-full transition relative ${haptika ? 'bg-emerald-500' : 'bg-neutral-300'}`}>
             <span className={`absolute top-1 w-5 h-5 rounded-full bg-white shadow transition-all ${haptika ? 'left-6' : 'left-1'}`} />
@@ -368,7 +395,7 @@ export default function AppSettingsScreen() {
 
       {/* Upozornění */}
       <div className="card p-6">
-        <h2 className="font-display font-bold text-lg flex items-center gap-2"><Bell size={20} /> Upozornění (notifikace)</h2>
+        <h2 className="font-display font-bold text-lg flex items-center gap-2"><Bell size={18} /> Upozornění (notifikace)</h2>
         <p className="text-sm text-neutral-600 mt-2">Nastavte si chování upozornění na nové objednávky.</p>
 
         <div className="mt-5 space-y-4">
@@ -381,7 +408,7 @@ export default function AppSettingsScreen() {
                 : 'bg-rose-50 border-rose-300 text-rose-900'
             }`}
           >
-            {notifPermission === 'granted' ? <Bell size={20} /> : <BellOff size={20} />}
+            {notifPermission === 'granted' ? <Bell size={18} /> : <BellOff size={18} />}
             <span>
               {notifPermission === 'granted' ? 'Systémová upozornění jsou POVOLENA' : 'Systémová upozornění jsou ZAKÁZÁNA'}
               <span className="block text-xs font-medium opacity-75 mt-0.5">
@@ -412,7 +439,7 @@ export default function AppSettingsScreen() {
                   <button
                     disabled={pushPracuje || (!stav.muzeZapnout && !stav.muzeVypnout)}
                     onClick={() => { void prepniPush(!pushPrihlasen); }}
-                    className={`relative w-11 h-6 rounded-full transition-colors disabled:opacity-40 ${pushPrihlasen ? 'bg-amber-500' : 'bg-neutral-300'}`}
+                    className={`tap relative w-11 h-6 rounded-full transition-colors disabled:opacity-40 ${pushPrihlasen ? 'bg-amber-500' : 'bg-neutral-300'}`}
                   >
                     <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${pushPrihlasen ? 'translate-x-5' : ''}`} />
                   </button>
@@ -437,7 +464,7 @@ export default function AppSettingsScreen() {
               </div>
               <button
                 onClick={() => handleNotifSettingsChange({ showInAppBanner: !notifSettings.showInAppBanner })}
-                className={`relative w-11 h-6 rounded-full transition-colors ${notifSettings.showInAppBanner ? 'bg-amber-500' : 'bg-neutral-300'}`}
+                className={`tap relative w-11 h-6 rounded-full transition-colors ${notifSettings.showInAppBanner ? 'bg-amber-500' : 'bg-neutral-300'}`}
               >
                 <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${notifSettings.showInAppBanner ? 'translate-x-5' : ''}`} />
               </button>
@@ -454,7 +481,7 @@ export default function AppSettingsScreen() {
               </div>
               <button
                 onClick={() => handleNotifSettingsChange({ playSound: !notifSettings.playSound })}
-                className={`relative w-11 h-6 rounded-full transition-colors ${notifSettings.playSound ? 'bg-amber-500' : 'bg-neutral-300'}`}
+                className={`tap relative w-11 h-6 rounded-full transition-colors ${notifSettings.playSound ? 'bg-amber-500' : 'bg-neutral-300'}`}
               >
                 <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${notifSettings.playSound ? 'translate-x-5' : ''}`} />
               </button>
@@ -471,7 +498,7 @@ export default function AppSettingsScreen() {
               </div>
               <button
                 onClick={() => handleNotifSettingsChange({ requireInteraction: !notifSettings.requireInteraction })}
-                className={`relative w-11 h-6 rounded-full transition-colors ${notifSettings.requireInteraction ? 'bg-amber-500' : 'bg-neutral-300'}`}
+                className={`tap relative w-11 h-6 rounded-full transition-colors ${notifSettings.requireInteraction ? 'bg-amber-500' : 'bg-neutral-300'}`}
               >
                 <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${notifSettings.requireInteraction ? 'translate-x-5' : ''}`} />
               </button>
@@ -490,7 +517,7 @@ export default function AppSettingsScreen() {
                 <button
                   key={secs}
                   onClick={() => handleNotifSettingsChange({ autoHideSeconds: secs })}
-                  className={`px-3 py-1.5 rounded border-2 font-bold text-sm transition-all ${
+                  className={`tap px-3 py-1.5 rounded border-2 font-bold text-sm transition-all ${
                     notifSettings.autoHideSeconds === secs
                       ? 'bg-amber-500 border-amber-400 text-neutral-950 shadow-sm'
                       : 'bg-white border-neutral-200 text-neutral-700 hover:border-amber-300'
@@ -500,7 +527,7 @@ export default function AppSettingsScreen() {
                 </button>
               ))}
             </div>
-            <p className="text-[11px] text-neutral-500 mt-2">
+            <p className="text-udaj text-neutral-500 mt-2">
               Platí pro in-app banner. Systémové notifikace se řídí nastavením &quot;Vyžadovat potvrzení&quot; výše.
             </p>
           </div>
@@ -509,7 +536,7 @@ export default function AppSettingsScreen() {
 
       {/* Vzhled */}
       <div className="card p-6">
-        <h2 className="font-display font-bold text-lg flex items-center gap-2"><Palette size={20} /> Vzhled (Světlý/Tmavý)</h2>
+        <h2 className="font-display font-bold text-lg flex items-center gap-2"><Palette size={18} /> Vzhled (Světlý/Tmavý)</h2>
         <p className="text-sm text-neutral-600 mt-2">Vyberte si preferovaný barevný režim.</p>
         <div className="flex gap-2 mt-3 flex-wrap">
           <button onClick={() => { setTheme('light'); setThemeState('light'); }} className={`btn ${theme === 'light' ? 'btn-primary' : 'btn-ghost'} flex items-center gap-2`}>
@@ -527,7 +554,7 @@ export default function AppSettingsScreen() {
       {/* 🔄 ADMIN: Verze & Synchronizace dat */}
       {/* WhatsApp — povolení odesílatelé */}
       <div className="card p-6">
-        <h2 className="font-display font-bold text-lg flex items-center gap-2"><MessageSquare size={20} /> WhatsApp — povolení odesílatelé</h2>
+        <h2 className="font-display font-bold text-lg flex items-center gap-2"><MessageSquare size={18} /> WhatsApp — povolení odesílatelé</h2>
         <p className="text-sm text-neutral-600 mt-2">
           Zprávy se načítají automaticky jen od povolených kontaktů.
           {whatsappSenders.length === 0
@@ -545,7 +572,7 @@ export default function AppSettingsScreen() {
               <button
                 onClick={() => handleRemoveSender(s.id)}
                 className="p-2 rounded hover:bg-rose-100 text-rose-500 hover:text-rose-700 transition"
-                title="Odebrat odesílatele"
+                title="Odebrat odesílatele" aria-label="Odebrat odesílatele"
               >
                 <Trash2 size={16} />
               </button>
@@ -587,7 +614,7 @@ export default function AppSettingsScreen() {
 
       {/* 👤 Změna jména */}
       <div className="card p-6">
-        <h2 className="font-display font-bold text-lg flex items-center gap-2"><Users size={20} /> Změna jména</h2>
+        <h2 className="font-display font-bold text-lg flex items-center gap-2"><Users size={18} /> Změna jména</h2>
         <p className="text-sm text-neutral-600 mt-2">Jméno se používá pro zápisy (např. fasování, stáčení, sanitace). Změní se i v menu u vašeho profilu.</p>
         <form onSubmit={handleChangeName} className="mt-4 space-y-3">
           <div>
@@ -614,7 +641,7 @@ export default function AppSettingsScreen() {
 
       {/* 🔒 Změna hesla */}
       <div className="card p-6">
-        <h2 className="font-display font-bold text-lg flex items-center gap-2"><Lock size={20} /> Změna hesla</h2>
+        <h2 className="font-display font-bold text-lg flex items-center gap-2"><Lock size={18} /> Změna hesla</h2>
         <p className="text-sm text-neutral-600 mt-2">Zadejte nové heslo pro přihlášení do aplikace (min. 6 znaků).</p>
         <form onSubmit={handleChangePassword} className="mt-4 space-y-3">
           <div>
@@ -653,7 +680,6 @@ export default function AppSettingsScreen() {
   );
 }
 
-
 /** Text, který musí uživatel zadat pro potvrzení vyčištění všech dat. */
 const CLEAN_CONFIRM_TEXT = 'SMAZAT';
 
@@ -683,7 +709,6 @@ function AdminVersionSyncSection() {
 
       // 2) Vyčistíme offline frontu
       try {
-        const { clearQueue } = await import('../lib/offline');
         clearQueue();
       } catch {}
 
@@ -709,7 +734,6 @@ function AdminVersionSyncSection() {
       setCleaning(false);
     }
   }
-
 
   async function handleRefreshData() {
 
@@ -744,7 +768,6 @@ function AdminVersionSyncSection() {
 
       // 3. Vyčistíme offline frontu
       try {
-        const { clearQueue } = await import('../lib/offline');
         clearQueue();
       } catch {}
 
@@ -769,9 +792,9 @@ function AdminVersionSyncSection() {
   return (
     <div className="card p-6 border-2 border-amber-400/60 bg-gradient-to-br from-amber-50/80 to-white rounded shadow-md">
       <h2 className="font-display font-bold text-lg flex items-center gap-2">
-        <RefreshCw size={20} className="text-amber-600" />
+        <RefreshCw size={18} className="text-amber-600" />
         <span><RefreshCw className="ikona-text" /> Verze & Synchronizace dat</span>
-        <span className="ml-auto px-2.5 py-0.5 rounded-full bg-amber-500 text-neutral-950 font-black text-[11px] uppercase tracking-wider">
+        <span className="ml-auto px-2.5 py-0.5 rounded-full bg-amber-500 text-neutral-950 font-black text-udaj uppercase tracking-wider">
           ADMIN
         </span>
       </h2>
@@ -780,11 +803,11 @@ function AdminVersionSyncSection() {
       {/* Verze a datum */}
       <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="p-4 rounded bg-neutral-900 text-white border border-neutral-700 shadow-inner">
-          <div className="text-[11px] font-black uppercase tracking-wider text-amber-400">Verze kódu</div>
+          <div className="text-udaj font-black uppercase tracking-wider text-amber-400">Verze kódu</div>
           <div className="text-2xl font-display font-black mt-1">v{APP_VERSION}</div>
         </div>
         <div className="p-4 rounded bg-neutral-900 text-white border border-neutral-700 shadow-inner">
-          <div className="text-[11px] font-black uppercase tracking-wider text-amber-400">Poslední změna kódu</div>
+          <div className="text-udaj font-black uppercase tracking-wider text-amber-400">Poslední změna kódu</div>
           <div className="text-lg font-display font-black mt-1">{APP_VERSION_DATE}</div>
         </div>
       </div>
@@ -819,7 +842,7 @@ function AdminVersionSyncSection() {
       {/* Tlačítko pro refresh */}
       <div className="mt-5 p-4 rounded bg-amber-100/70 border border-amber-300 space-y-3">
         <div className="flex items-start gap-3">
-          <CloudDownload size={20} className="text-amber-700 shrink-0 mt-0.5" />
+          <CloudDownload size={18} className="text-amber-700 shrink-0 mt-0.5" />
           <div>
             <div className="text-sm font-black text-amber-950">Vynutit obnovení všech dat ze serveru</div>
             <p className="text-xs text-amber-800 font-medium mt-0.5">
@@ -860,7 +883,7 @@ function AdminVersionSyncSection() {
       {/* 🧹 VYČIŠTĚNÍ DAT */}
       <div className="mt-5 p-4 rounded bg-rose-50 border-2 border-rose-300 space-y-3">
         <div className="flex items-start gap-3">
-          <Eraser size={20} className="text-rose-600 shrink-0 mt-0.5" />
+          <Eraser size={18} className="text-rose-600 shrink-0 mt-0.5" />
           <div>
             <div className="text-sm font-black text-rose-900"><Brush className="ikona-text" /> Vyčistit všechna data (příprava na ostrý provoz)</div>
             <p className="text-xs text-rose-800 font-medium mt-0.5">

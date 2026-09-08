@@ -68,14 +68,14 @@ export function SetPasswordModal() {
   };
 
   return (
-    <div className="fixed inset-0 bg-neutral-950/85 backdrop-blur-md flex items-center justify-center p-4 z-[99999] animate-in fade-in duration-200">
+    <div className="fixed inset-0 bg-neutral-950/85 backdrop-blur-md flex items-center justify-center p-4 z-nadmodal animate-in fade-in duration-200">
       <div className="bg-white rounded max-w-md w-full p-6 sm:p-8 space-y-6 shadow-2xl border-4 border-amber-500 relative overflow-hidden">
         {/* Decorative Top Accent Line */}
         <div className="h-3 w-full absolute top-0 left-0 right-0 bg-amber-500" />
 
         <div className="flex items-start gap-4 pt-2">
           <div className="w-14 h-14 rounded flex items-center justify-center text-neutral-950 shrink-0 shadow-lg bg-amber-500">
-            <Lock size={30} />
+            <Lock size={32} />
           </div>
 
           <div className="flex-1">

@@ -28,11 +28,30 @@ import {
 } from '../lib/statistika';
 
 // Pořadí je záměrné — sousední dvojice musí být rozlišitelné i při barvosleposti.
+/**
+ * 🎨 Barvy grafu se berou z PROMĚNNÝCH, ne z napsaných hodnot.
+ *
+ * Recharts kreslí do SVG přes atributy `fill`/`stroke`, takže se na ně
+ * nedají použít třídy — hodnota musí být řetězec. Dřív tu byly napsané
+ * odstíny natvrdo, takže v tmavém režimu zůstala mřížka světlá, popisky
+ * os tmavé (na tmavém pozadí je nebylo vidět) a koláč byl obtažený bílou.
+ *
+ * `barvaZMotivu()` přečte tutéž proměnnou, na které stojí celý
+ * tailwind.config.js — takže graf sleduje motiv sám a nemá druhou sadu
+ * barev, která by se rozešla.
+ *
+ * Čte se až při vykreslení (ne do konstanty), protože motiv se dá přepnout
+ * za běhu v Nastavení.
+ */
+export function barvaZMotivu(promenna: string, zaloha: string): string {
+  if (typeof window === 'undefined') return zaloha;
+  const hodnota = getComputedStyle(document.documentElement).getPropertyValue(promenna).trim();
+  // Proměnné jsou uložené jako „R G B" pro rgb(var(--x) / <alpha>).
+  return hodnota ? `rgb(${hodnota.split(/\s+/).join(' ')})` : zaloha;
+}
+
 const RADA_BAREV = ['#b3730a', '#0369a1', '#15803d', '#7e22ce', '#c85f1e', '#0891b2', '#65a30d', '#be123c'];
 const BARVA_LETOS = '#b3730a';
-const BARVA_LONI = '#94a3b8';
-const INK_TLUMENA = '#64748b';
-const MRIZKA = '#e2e8f0';
 
 const MESICE_ZKR = ['led', 'úno', 'bře', 'dub', 'kvě', 'čvn', 'čvc', 'srp', 'zář', 'říj', 'lis', 'pro'];
 
@@ -74,13 +93,13 @@ function Dlazdice({ popis, litry, zmena, protiCemu }: {
 }) {
   return (
     <div className="card p-3.5 sm:p-4">
-      <div className="text-[11px] font-black uppercase tracking-wider text-neutral-500">{popis}</div>
+      <div className="text-udaj font-black uppercase tracking-wider text-neutral-500">{popis}</div>
       <div className="font-display font-extrabold text-2xl sm:text-3xl text-neutral-900 tabular-nums mt-1">
         {formatHl(litry)} <span className="text-base font-bold text-neutral-400">hl</span>
       </div>
       <div className="mt-1 flex items-center gap-1.5 min-h-[18px]">
         <Trend zmena={zmena} />
-        {zmena !== null && protiCemu && <span className="text-[11px] font-semibold text-neutral-400">proti {protiCemu}</span>}
+        {zmena !== null && protiCemu && <span className="text-udaj font-semibold text-neutral-400">proti {protiCemu}</span>}
       </div>
     </div>
   );
@@ -91,19 +110,37 @@ function Nadpis({ text, popis }: { text: string; popis?: string }) {
   return (
     <div className="mb-3">
       <h3 className="font-display font-extrabold text-sm text-neutral-900">{text}</h3>
-      {popis && <p className="text-[11px] font-semibold text-neutral-500 mt-0.5">{popis}</p>}
+      {popis && <p className="text-udaj font-semibold text-neutral-500 mt-0.5">{popis}</p>}
     </div>
   );
 }
 
-const stylTooltipu = {
-  contentStyle: { borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12, fontWeight: 700 },
-  labelStyle: { color: '#0f172a', fontWeight: 800 },
+const stylTooltipuZaklad = {
+  contentStyle: { borderRadius: 12, fontSize: 12, fontWeight: 700 },
+  labelStyle: { fontWeight: 800 },
 };
 
 export default function StatistikaVystav({
   bottlingRows, keggingRows, obaly, piva, orders, orderItems, dnes, obdobi, onObdobi,
 }: Props) {
+  // Barvy grafu podle motivu. Přepočítají se při každém vykreslení, takže
+  // přepnutí světlý/tmavý v Nastavení se projeví bez znovunačtení stránky.
+  const INK_TLUMENA = barvaZMotivu('--ink-neutral-500', '#64748b');
+  const MRIZKA = barvaZMotivu('--bd-neutral-200', '#e2e8f0');
+  const BARVA_LONI = barvaZMotivu('--ink-neutral-400', '#94a3b8');
+  // Obtažení výsečí koláče musí být barva PODKLADU, ne bílá — v tmavém
+  // režimu z bílé vznikly svítící linky přes celý graf.
+  const OBTAZENI = barvaZMotivu('--bg-white', '#ffffff');
+  const stylTooltipu = {
+    contentStyle: {
+      ...stylTooltipuZaklad.contentStyle,
+      border: `1px solid ${MRIZKA}`,
+      background: OBTAZENI,
+      color: barvaZMotivu('--ink-neutral-900', '#0f172a'),
+    },
+    labelStyle: { ...stylTooltipuZaklad.labelStyle, color: barvaZMotivu('--ink-neutral-900', '#0f172a') },
+  };
+
   const mapaObalu = useMemo(() => new Map(obaly.map((o) => [o.id, o])), [obaly]);
   // Výstav = stočené SUDY. Lahvování se sleduje zvlášť (viz komentář nahoře).
   const vyroba = keggingRows;
@@ -264,7 +301,7 @@ export default function StatistikaVystav({
               <div className="h-[220px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={podlePiv} dataKey="litry" nameKey="nazev" innerRadius="52%" outerRadius="80%" paddingAngle={2} stroke="#fff" strokeWidth={2}>
+                    <Pie data={podlePiv} dataKey="litry" nameKey="nazev" innerRadius="52%" outerRadius="80%" paddingAngle={2} stroke={OBTAZENI} strokeWidth={2}>
                       {podlePiv.map((p) => <Cell key={p.id} fill={barvaPiva.get(p.id) ?? RADA_BAREV[0]} />)}
                     </Pie>
                     <Tooltip {...stylTooltipu} formatter={(v: any, n: any) => [`${(Number(v) / 100).toFixed(1)} hl`, n]} />
@@ -296,7 +333,7 @@ export default function StatistikaVystav({
               <div className="h-[220px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={podleObalu} dataKey="litry" nameKey="nazev" innerRadius="52%" outerRadius="80%" paddingAngle={2} stroke="#fff" strokeWidth={2}>
+                    <Pie data={podleObalu} dataKey="litry" nameKey="nazev" innerRadius="52%" outerRadius="80%" paddingAngle={2} stroke={OBTAZENI} strokeWidth={2}>
                       {podleObalu.map((p) => <Cell key={p.id} fill={barvaObalu.get(p.id) ?? RADA_BAREV[1]} />)}
                     </Pie>
                     <Tooltip {...stylTooltipu} formatter={(v: any, n: any) => [`${(Number(v) / 100).toFixed(1)} hl`, n]} />
@@ -372,7 +409,7 @@ export default function StatistikaVystav({
                     <div className="h-1.5 rounded-full bg-neutral-100 mt-1 overflow-hidden">
                       <div className="h-full rounded-full" style={{ width: `${Math.max(2, podil * 100)}%`, backgroundColor: BARVA_LETOS }} />
                     </div>
-                    <div className="text-[11px] font-semibold text-neutral-500 mt-0.5">
+                    <div className="text-udaj font-semibold text-neutral-500 mt-0.5">
                       {o.kusy} ks · {o.objednavek} {o.objednavek === 1 ? 'objednávka' : o.objednavek < 5 ? 'objednávky' : 'objednávek'}
                     </div>
                   </div>
@@ -388,14 +425,14 @@ export default function StatistikaVystav({
         <section className="card p-3.5 sm:p-5">
           <Nadpis text="Piva v číslech" popis={`${POPIS_OBDOBI[obdobi]}${predchozi ? ` · srovnání s obdobím ${POPIS_PREDCHOZI[obdobi]}` : ''}`} />
           <div className="overflow-x-auto -mx-1 px-1">
-            <table className="w-full text-sm">
+            <table className="table-drzi-prvni-sloupec w-full text-sm">
               <thead>
-                <tr className="text-[11px] font-black uppercase tracking-wider text-neutral-500 border-b border-neutral-200">
-                  <th className="text-left py-2">Pivo</th>
-                  <th className="text-right py-2">Kusů</th>
-                  <th className="text-right py-2">Hektolitrů</th>
-                  <th className="text-right py-2">Podíl</th>
-                  {predchozi && <th className="text-right py-2">Změna</th>}
+                <tr className="text-udaj font-black uppercase tracking-wider text-neutral-500 border-b border-neutral-200">
+                  <th scope="col" className="text-left py-2">Pivo</th>
+                  <th scope="col" className="text-right py-2">Kusů</th>
+                  <th scope="col" className="text-right py-2">Hektolitrů</th>
+                  <th scope="col" className="text-right py-2">Podíl</th>
+                  {predchozi && <th scope="col" className="text-right py-2">Změna</th>}
                 </tr>
               </thead>
               <tbody>
@@ -424,7 +461,7 @@ export default function StatistikaVystav({
         </section>
       )}
 
-      <p className="text-[11px] text-neutral-400 font-semibold px-1">
+      <p className="text-udaj text-neutral-400 font-semibold px-1">
         Výstav = objem stočených <strong>sudů</strong> (množství × objem obalu). Lahve se do něj nepočítají —
         lahvuje se z už stočených sudů, takže pivo v lahvi do výstavu vstoupilo už jako sud; přičítat ho znovu
         by tentýž objem počítalo dvakrát. Ze skladu se sudy na lahvování odečítají (viz Sklad → „Sud spotřebován

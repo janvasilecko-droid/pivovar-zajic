@@ -23,7 +23,7 @@ function ZavaznostOdznak({ z }: { z: Zavaznost }) {
   const Ikona = b.ikona;
   return (
     <span className={`chip ${b.odznak} shrink-0`}>
-      <Ikona size={13} /> {POPIS[z]}
+      <Ikona size={14} /> {POPIS[z]}
     </span>
   );
 }
@@ -117,7 +117,7 @@ export default function HloubkovyAuditPanel() {
             disabled={bezi}
             className="btn-secondary !rounded col-span-2 sm:col-span-1 sm:ml-auto"
           >
-            <RefreshCw size={15} className={bezi ? 'animate-spin' : ''} /> Spustit znovu
+            <RefreshCw size={16} className={bezi ? 'animate-spin' : ''} /> Spustit znovu
           </button>
         </div>
 
@@ -127,16 +127,16 @@ export default function HloubkovyAuditPanel() {
               Období {new Date(vysledek.od + 'T00:00:00Z').toLocaleDateString('cs-CZ')} – {new Date(vysledek.do + 'T00:00:00Z').toLocaleDateString('cs-CZ')}
             </span>
             <span className="chip bg-emerald-100 text-emerald-900 border-emerald-300">
-              <ShieldCheck size={13} /> {vysledek.ok} sedí
+              <ShieldCheck size={14} /> {vysledek.ok} sedí
             </span>
             {vysledek.pozor > 0 && (
               <span className="chip bg-amber-100 text-amber-900 border-amber-300">
-                <AlertTriangle size={13} /> {vysledek.pozor} pozor
+                <AlertTriangle size={14} /> {vysledek.pozor} pozor
               </span>
             )}
             {vysledek.chyb > 0 && (
               <span className="chip bg-rose-100 text-rose-900 border-rose-300">
-                <ShieldAlert size={13} /> {vysledek.chyb} nesedí
+                <ShieldAlert size={14} /> {vysledek.chyb} nesedí
               </span>
             )}
           </div>

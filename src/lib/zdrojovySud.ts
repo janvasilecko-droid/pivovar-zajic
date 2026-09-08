@@ -20,8 +20,14 @@ export function vychoziZdrojovySud<T extends SudNaVyber>(sudy: T[]): string {
   if (sudy.length === 0) return '';
   const padesatka = sudy.find((p) => Number(p.volume_l) === PRIMARNI_OBJEM_SUDU);
   if (padesatka) return padesatka.id;
-  // Bez padesátky největší dostupný. `?? 0` schválně: sud bez zadaného
-  // objemu nesmí vyhrát jen proto, že se null porovnává divně.
-  const nejvetsi = [...sudy].sort((a, b) => (Number(b.volume_l) ?? 0) - (Number(a.volume_l) ?? 0))[0];
+  // Bez padesátky největší dostupný.
+  //
+  // ⚠️ Dřív tu stálo `Number(b.volume_l) ?? 0`. Záměr byl správný — sud bez
+  // zadaného objemu nesmí vyhrát —, jenže `??` se tam nikdy nedostane:
+  // `Number()` NIKDY nevrátí null ani undefined, vrací NaN. A porovnání
+  // s NaN je vždycky false, takže řazení bylo na takovém sudu nahodilé
+  // a mohl z něj vyjít vítěz. Našel to ESLint.
+  const objem = (v: unknown) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+  const nejvetsi = [...sudy].sort((a, b) => objem(b.volume_l) - objem(a.volume_l))[0];
   return nejvetsi?.id ?? '';
 }

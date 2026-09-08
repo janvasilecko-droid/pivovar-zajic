@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { zalogujANahlas } from './chybyHlaseni';
 import { uloz } from './uloziste';
 
 export type KegSanitationEntry = {
@@ -93,7 +94,7 @@ export async function loadKegSanitation(): Promise<KegSanitationEntry[]> {
       .order('created_at', { ascending: false });
     if (data) dbEntries = data as KegSanitationEntry[];
   } catch (err) {
-    console.error('Error fetching keg sanitation logs:', err);
+    zalogujANahlas('Error fetching keg sanitation logs', err);
   }
 
   let local: KegSanitationEntry[] = [];

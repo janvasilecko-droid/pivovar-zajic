@@ -72,12 +72,24 @@ html, body, #root {
   body {
     @apply bg-neutral-50 text-neutral-900 antialiased font-sans;
     font-feature-settings: 'cv11', 'ss01';
+    /* 🔢 Číslice stejné šířky v CELÉ aplikaci.
+       `tabular-nums` bylo do 5. 9. 2026 jen ve 21 souborech ze 123 — jinde
+       měla „1" jinou šířku než „8", takže se sloupec kusů při každém
+       přepočtu posunul do stran a časovač „tancoval". Vypisovat tu třídu
+       u každého čísla je práce, na kterou se zapomene; appka je navíc
+       skrz naskrz o číslech, takže je správně to mít obráceně: tabulární
+       všude a výjimka tam, kde se čte souvislý text. */
+    font-variant-numeric: tabular-nums;
     background-image:
       radial-gradient(circle at 10% 0%, rgba(200, 95, 30, 0.05), transparent 35%),
       radial-gradient(circle at 90% 100%, rgba(212, 144, 15, 0.05), transparent 35%),
       radial-gradient(circle at 50% 50%, rgba(15, 23, 42, 0.015), transparent 50%);
     background-attachment: fixed;
   }
+  /* Výjimka: v souvislém textu (changelog, nápovědy, popisy) vypadají
+     proporcionální číslice přirozeněji a nic se v něm neposouvá. */
+  p, .lze-vybrat, .prose { font-variant-numeric: normal; }
+
   * { -webkit-tap-highlight-color: transparent; }
   ::selection { @apply bg-primary-200 text-primary-950; }
 
@@ -269,8 +281,34 @@ html, body { overscroll-behavior-y: contain; }
      každém přepočtu neposouvá a „1" je stejně široká jako „8". */
   .table tbody td { @apply px-3 sm:px-4 py-2.5 sm:py-3 border-b border-neutral-100 text-neutral-800 font-medium tabular-nums; }
   .table tbody tr:last-child td { @apply border-b-0; }
+  /* 🦓 Zebra. Tabulky měly jen spodní linku, takže se u dvaceti řádků závozu
+     snadno čte o řádek vedle — a to se pak zapíše do skladu. Podklad je
+     schválně velmi slabý (bg-neutral-50/60): má vést oko po řádku, ne
+     rozdělit tabulku na proužky. Bere se z proměnné, takže se v tmavém
+     režimu otočí sám. */
+  .table tbody tr:nth-child(even) td {
+    @apply bg-neutral-50/60;
+  }
+  /* Řádek pod prstem/myší přebíjí zebru — musí stát AŽ ZA ní. */
   .table tbody tr:hover td {
-    @apply bg-neutral-50/90;
+    @apply bg-neutral-100/90;
+  }
+
+  /* 📌 První sloupec drží při rolování do stran.
+     Zapíná se třídou na `<table>`, ne plošně: aby text pod ním neprosvítal,
+     musí mít buňka vlastní neprůhledné pozadí, a to u tabulek s barevnými
+     řádky (dny závozu) není zadarmo. Používá se tam, kde se tabulka
+     nevejde na šířku telefonu a bez názvu vlevo se čtou čísla, u kterých
+     není vidět, čí jsou. */
+  .table-drzi-prvni-sloupec thead th:first-child,
+  .table-drzi-prvni-sloupec tbody td:first-child {
+    @apply sticky left-0 z-10 bg-white;
+  }
+  .table-drzi-prvni-sloupec tbody tr:nth-child(even) td:first-child {
+    @apply bg-neutral-50;
+  }
+  .table-drzi-prvni-sloupec thead th:first-child {
+    @apply bg-neutral-100;
   }
   .table tfoot tr {
     @apply bg-neutral-900 text-white font-black text-xs border-t-2 border-neutral-800;
@@ -346,6 +384,38 @@ html, body { overscroll-behavior-y: contain; }
   @keyframes toastIn { from { opacity: 0; transform: translateY(8px) scale(0.98); } to { opacity: 1; transform: none; } }
   @keyframes sheetUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
   @keyframes sheetFade { from { opacity: 0; } to { opacity: 1; } }
+  /* ⚡ MÉNĚ EFEKTŮ — přepínač v Nastavení (viz lib/efekty.ts).
+     Vypíná to, co na telefonu stojí nejvíc výkonu:
+
+     1) ROZOSTŘENÍ PODKLADU. Prohlížeč kvůli němu musí kus okna pod prvkem
+        ofotit, rozostřit a složit zpátky — pro každý takový prvek zvlášť,
+        při každém překreslení. Plocha jich má jeden na každé dlaždici
+        a skleněná hlavička se spodní lištou jsou na VŠECH obrazovkách.
+     2) NEKONEČNÉ ANIMACE, které animují barvu pozadí nebo `filter`. Ty se
+        nedají složit na grafické kartě, takže se prvek překresluje pořád
+        dokola, i když se na obrazovce nic neděje.
+
+     Upozornění tím ale nesmí zmizet z očí: místo blikání dostanou stálý
+     barevný rámeček. Upozornění, které není vidět, je horší než sekání. */
+  html.mene-efektu *,
+  html.mene-efektu *::before,
+  html.mene-efektu *::after {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+  html.mene-efektu .animate-pulse,
+  html.mene-efektu .hs-tile-alert,
+  html.mene-efektu .hs-tile-whatsapp,
+  html.mene-efektu .hs-edge-puls,
+  html.mene-efektu [class*="animate-ping"] {
+    animation: none !important;
+  }
+  /* Náhrada za blikání: stálý prstenec, který nic nepřekresluje. */
+  html.mene-efektu .hs-tile-alert,
+  html.mene-efektu .hs-tile-whatsapp {
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.9), 0 0 0 5px currentColor !important;
+  }
+
   /* Kdo má v systému vypnuté animace, ať je nemá ani tady. */
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
@@ -502,6 +572,14 @@ input[type='radio'] {
    `py-1.5` na téže liště a záleželo by na pořadí, ve kterém je Tailwind
    vysype. Tady je to jisté. */
 .pb-safe { padding-bottom: calc(0.375rem + env(safe-area-inset-bottom, 0px)); }
+
+/* 📏 Plovoucí prvky NAD spodní lištou.
+   Lišta má `pb-safe`, takže na telefonu s gesty je o systémový pruh vyšší.
+   Co nad ní plavalo s pevným odsazením (`bottom-[64px]`, `bottom-16`) —
+   pruh „čekající zápisy" a přehrávač rádia — se pak s ní překrývalo.
+   Tahle třída počítá s toutéž bezpečnou zónou, takže odsazení sedí na
+   telefonu i na počítači. */
+.nad-dokem { bottom: calc(64px + env(safe-area-inset-bottom, 0px)); }
 
 /* Vodorovné rolování tabulek — okraj musí říct, že vpravo něco je.
    Tabulka širší než displej vypadá na telefonu jen useknutá a lidi pak
@@ -693,6 +771,42 @@ html.density-large .btn {
   padding-bottom: 0.5rem !important;
   min-height: 44px !important;
   font-size: 0.95rem !important;
+}
+
+/* 📐 Hustota musí sahat i na to, co doopravdy zabírá místo.
+   Do 5. 9. 2026 měnila jen pole, tlačítka a štítky — tedy prvky, kterých je
+   na obrazovce pár. O tom, kolik se toho vejde, ale rozhodují KARTY a ŘÁDKY
+   TABULEK, a ty zůstávaly stejné ve všech čtyřech stupních. Ve sklepě se
+   kouká z metru a v rukavicích, v kanceláři se chce vidět třicet řádků —
+   a přesně to bylo dvěma nejkrajnějšími stupni nedosažitelné.
+
+   Sahá se jen na odsazení, ne na barvy ani rámečky: hustota nemá měnit
+   vzhled, jen kolik ho je vidět. */
+html.density-xs .card,
+html.density-compact .card {
+  padding: 0.5rem !important;
+}
+html.density-xs .table tbody td,
+html.density-xs .table thead th {
+  padding-top: 0.2rem !important;
+  padding-bottom: 0.2rem !important;
+}
+html.density-compact .table tbody td,
+html.density-compact .table thead th {
+  padding-top: 0.35rem !important;
+  padding-bottom: 0.35rem !important;
+}
+html.density-large .card { padding: 1.15rem !important; }
+html.density-xl .card { padding: 1.4rem !important; }
+html.density-large .table tbody td,
+html.density-large .table thead th {
+  padding-top: 0.7rem !important;
+  padding-bottom: 0.7rem !important;
+}
+html.density-xl .table tbody td,
+html.density-xl .table thead th {
+  padding-top: 0.9rem !important;
+  padding-bottom: 0.9rem !important;
 }
 
 /* HIGH CONTRAST TEXT FIXES - Prevent white-on-white text across the entire application */

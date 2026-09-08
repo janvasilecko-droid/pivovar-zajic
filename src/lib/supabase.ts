@@ -299,11 +299,33 @@ export function useRealtime(tables: string[], onChange: () => void) {
     // kompletních přenačtení; a jedno přenačtení Stáčení je 15 dotazů,
     // tedy až 225 požadavků z jednoho uložení. Půlsekundové zdržení je
     // pod hranicí vnímání a sloučí celou dávku do jednoho načtení.
+    //
+    // 👀 A NEPŘENAČÍTAT DO KAPSY. Jedno přenačtení Stáčení KEG je 17 dotazů
+    // a odběr má 17 tabulek — takže když někdo v kanceláři upraví
+    // objednávku, telefonu u stáčecí linky se přenačte všech 17, i když má
+    // člověk appku jen otevřenou v pozadí. Při šesti lidech v provozu to
+    // jsou desítky zbytečných dotazů za minutu, mobilní data a baterka.
+    // Když je stránka schovaná, událost se jen POZNAMENÁ a přenačte se
+    // jednou, až se člověk vrátí — což je přesně ta chvíle, kdy na data
+    // kouká.
     let timer: ReturnType<typeof setTimeout> | null = null;
+    let zmeskano = false;
+    const jeSchovana = () => typeof document !== 'undefined' && document.visibilityState === 'hidden';
     const trigger = () => {
+      if (jeSchovana()) { zmeskano = true; return; }
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => { timer = null; ref.current(); }, 400);
     };
+    // Vyzvednutí zameškaného. Bez tohohle by `zmeskano` nikdo nepřečetl:
+    // událost, která přišla na pozadí, by se poznamenala a nikdy neprojevila,
+    // takže by se člověk vrátil ke stará datům a nevěděl o tom.
+    const naNavrat = () => {
+      if (jeSchovana() || !zmeskano) return;
+      zmeskano = false;
+      trigger();
+    };
+    document.addEventListener('visibilitychange', naNavrat);
+
     // JEDEN kanál na celou obrazovku, ne jeden na tabulku.
     //
     // Dřív se otevíral samostatný WebSocket kanál pro každou tabulku:
@@ -322,6 +344,7 @@ export function useRealtime(tables: string[], onChange: () => void) {
       if (timer) clearTimeout(timer);
       supabase.removeChannel(kanal);
       window.removeEventListener('pivovar:online-refetch', trigger);
+      document.removeEventListener('visibilitychange', naNavrat);
     };
   }, [tables.join(',')]);
 }
@@ -347,7 +370,11 @@ export const BEER_COLOR_PRESETS = [
 ];
 
 export function beerBg(beer: { beer_color?: string | null } | null | undefined): string {
-  return beer?.beer_color ?? '#F3F4F6';
+  // Náhrada pro pivo bez barvy jde z PROMĚNNÉ, ne z napsaného odstínu:
+  // `#F3F4F6` je světle šedá, která v tmavém režimu zůstala světlá a
+  // dělala z řádku svítící pruh. V inline stylu `var()` funguje stejně
+  // jako ve třídě.
+  return beer?.beer_color ?? 'rgb(var(--bg-neutral-100))';
 }
 /** Je barva piva tmavá natolik, že na ní musí být světlé písmo? */
 function beerJeTmave(beer: { beer_color?: string | null } | null | undefined): boolean {
@@ -394,7 +421,7 @@ export function beerInk(beer: { beer_color?: string | null } | null | undefined)
   return beerJeTmave(beer) ? '#ffffff' : '#0f172a';
 }
 export function beerBorder(beer: { beer_color?: string | null } | null | undefined): string {
-  return beer?.beer_color ?? '#E5E7EB';
+  return beer?.beer_color ?? 'rgb(var(--bd-neutral-200))';
 }
 
 /**

@@ -102,13 +102,13 @@ export function CriticalMaterialAlertModal() {
   if (acknowledged || criticalItems.length === 0) return null;
 
   return (
-    <div className="fixed inset-0 bg-neutral-950/90 backdrop-blur-md flex items-center justify-center p-4 z-[99999] animate-in fade-in duration-200">
+    <div className="fixed inset-0 bg-neutral-950/90 backdrop-blur-md flex items-center justify-center p-4 z-nadmodal animate-in fade-in duration-200">
       <div className="bg-white rounded max-w-xl w-full p-6 sm:p-8 space-y-6 shadow-2xl border-4 border-rose-600 relative overflow-hidden">
         <div className="h-3 w-full bg-rose-600 absolute top-0 left-0 right-0" />
 
         <div className="flex items-start gap-4 pt-2">
           <div className="w-14 h-14 rounded bg-rose-600 text-white flex items-center justify-center shrink-0 shadow-lg animate-pulse">
-            <ShieldAlert size={34} />
+            <ShieldAlert size={32} />
           </div>
 
           <div>
@@ -133,7 +133,7 @@ export function CriticalMaterialAlertModal() {
               <div key={idx} className="flex items-center justify-between p-3 rounded bg-white border border-rose-200 shadow-2xs font-mono">
                 <span className="font-black text-xs text-neutral-900">
                   {item.name}
-                  {item.duvod && <span className="block font-bold text-[11px] text-neutral-600">{item.duvod}</span>}
+                  {item.duvod && <span className="block font-bold text-udaj text-neutral-600">{item.duvod}</span>}
                 </span>
                 <span className="px-2.5 py-1 rounded bg-rose-600 text-white font-black text-xs">
                   Zbývá JEN {item.balance} ks!
@@ -145,12 +145,12 @@ export function CriticalMaterialAlertModal() {
 
         {allLabelBalances.length > 0 && (
           <div className="p-4 rounded bg-neutral-50 border border-neutral-200 space-y-2 max-h-56 overflow-y-auto">
-            <div className="font-black text-[11px] uppercase text-neutral-600 flex items-center gap-1.5 border-b border-neutral-200 pb-1.5">
+            <div className="font-black text-udaj uppercase text-neutral-600 flex items-center gap-1.5 border-b border-neutral-200 pb-1.5">
               <span>Přehled etiket u ostatních druhů piva:</span>
             </div>
             <div className="space-y-1.5">
               {allLabelBalances.map((l) => (
-                <div key={l.beer_name} className="flex items-center justify-between px-1 font-mono text-[11px]">
+                <div key={l.beer_name} className="flex items-center justify-between px-1 font-mono text-udaj">
                   <span className="font-bold text-neutral-800">{l.beer_name}</span>
                   <span className={`font-black ${l.isLow ? 'text-rose-600' : 'text-emerald-700'}`}>{l.balance} ks</span>
                 </div>
@@ -168,7 +168,7 @@ export function CriticalMaterialAlertModal() {
             <CheckCircle2 size={24} />
             <span><Check className="ikona-text" /> Potvrzuji, že beru na vědomí kritický stav materiálu</span>
           </button>
-          <p className="text-center text-[11px] font-bold text-neutral-400">
+          <p className="text-center text-udaj font-bold text-neutral-400">
             Před pokračováním do aplikace musíte výslovně potvrdit přečtení této výstrahy.
           </p>
         </div>

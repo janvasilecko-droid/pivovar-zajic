@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeKeggingPlan, dayKeyFromISO, mergeWeekPlan } from './keggingPlan';
+import { computeKeggingPlan, dayKeyFromISO, mergeWeekPlan, datumProDenVTydnu, rozpadPoObalech } from './keggingPlan';
 
 // Týden 2026-35 = pondělí 24. 8. – neděle 30. 8. 2026 (stejný týden, na kterém
 // se chyba reálně projevila v produkci).
@@ -145,6 +145,69 @@ describe('computeKeggingPlan', () => {
     expect(day(p, 'pa').totalOrdered).toBe(3);
   });
 
+  // ── HLÁŠENÍ Z PROVOZU 8. 9. 2026 ────────────────────────────────────────
+  // „Mám tam na úterý co stočit sudy, některý co se mají stočit až ve středu."
+  //
+  // Objednávka bez uvedeného dne dovozu se plánovala na den, kdy se ZADALA
+  // (`order_date`) — u WhatsApp objednávky je to den, kdy ji někdo schválil.
+  // Kdo v úterý schválil objednávku na středu, u které AI den nevytáhla,
+  // dostal její sudy na úterý. Appka to ale nemůže vědět, takže si to nesmí
+  // domýšlet: patří do vlastní přihrádky „bez termínu", kde je vidět a dá se
+  // s tím něco udělat.
+  describe('objednávka bez uvedeného dne dovozu', () => {
+    it('se NEPLÁNUJE na den, kdy se zadala', () => {
+      // Zadáno v úterý 25. 8., žádný den ani datum dovozu.
+      const p = plan({
+        orders: [{ id: 'o1', delivery_date: null, delivery_day: null, order_date: '2026-08-25', status: 'nova', place_name: 'Hospoda' }],
+        orderItems: [polozka('o1', 'b-des', 'p30', 4)],
+      });
+      expect(day(p, 'ut').totalOrdered).toBe(0);
+    });
+
+    it('ale nezmizí — čeká v přihrádce „bez termínu"', () => {
+      // Zmizet by bylo horší než špatný den: nikdo by ty sudy nestočil.
+      const p = plan({
+        orders: [{ id: 'o1', delivery_date: null, delivery_day: null, order_date: '2026-08-25', status: 'nova', place_name: 'Hospoda' }],
+        orderItems: [polozka('o1', 'b-des', 'p30', 4)],
+      });
+      expect(day(p, 'bez').totalOrdered).toBe(4);
+      expect(day(p, 'bez').totalMissing).toBe(4);
+    });
+
+    it('počítá se do týdenního součtu — stočit se musí tak jako tak', () => {
+      const p = plan({
+        orders: [{ id: 'o1', delivery_date: null, delivery_day: null, order_date: '2026-08-25', status: 'nova', place_name: 'Hospoda' }],
+        orderItems: [polozka('o1', 'b-des', 'p30', 4)],
+      });
+      expect(mergeWeekPlan(p, 'týden').totalMissing).toBe(4);
+    });
+
+    it('zásobu z chlaďáku dostanou nejdřív dny s termínem', () => {
+      // Stočené sudy patří přednostně tomu, co se opravdu veze; teprve zbytek
+      // pokrývá objednávky, u kterých se ještě neví kdy.
+      const p = plan({
+        orders: [
+          objednavka('o1', '2026-08-26'),
+          { id: 'o2', delivery_date: null, delivery_day: null, order_date: '2026-08-25', status: 'nova', place_name: 'Hospoda' },
+        ],
+        orderItems: [polozka('o1', 'b-des', 'p30', 3), polozka('o2', 'b-des', 'p30', 3)],
+        keggingRows: [{ entry_date: '2026-08-24', beer_id: 'b-des', package_id: 'p30', quantity: 3 }],
+      });
+      expect(day(p, 'st').totalMissing).toBe(0);
+      expect(day(p, 'bez').totalMissing).toBe(3);
+    });
+
+    it('stačí SAMOTNÝ den dovozu — pak se plánuje podle něj', () => {
+      // Objednávka z duplikace („To co posledně") nemá datum, jen den.
+      const p = plan({
+        orders: [{ id: 'o1', delivery_date: null, delivery_day: 'st', order_date: '2026-08-25', status: 'nova', place_name: 'Hospoda' }],
+        orderItems: [polozka('o1', 'b-des', 'p30', 4)],
+      });
+      expect(day(p, 'st').totalOrdered).toBe(4);
+      expect(day(p, 'bez').totalOrdered).toBe(0);
+    });
+  });
+
   it('ignoruje storno a lahve', () => {
     const p = plan({
       orders: [objednavka('o1', '2026-08-26', { status: 'storno' }), objednavka('o2', '2026-08-26')],
@@ -259,5 +322,110 @@ describe('ruční odškrtnutí (kegging_plan_checks)', () => {
   it('odškrtnutí z jiného týdne nebo dne se nepoužije', () => {
     expect(st({ checkRows: [{ week_key: '2026-34', day: 'st', beer_id: 'b-des', package_id: 'p30', qty: 10 }] }).totalMissing).toBe(10);
     expect(st({ checkRows: [{ week_key: WEEK, day: 'pa', beer_id: 'b-des', package_id: 'p30', qty: 10 }] }).totalMissing).toBe(10);
+  });
+});
+
+describe('datumProDenVTydnu — přehození dne musí posunout i datum', () => {
+  // `delivery_day` a `delivery_date` popisují tutéž věc. Dřív se při přehození
+  // dne měnil jen den, takže si mohla odporovat: plán stáčení se řídí dnem,
+  // ale filtr týdne, Závoz a přehledy datem.
+  it('najde datum dne ve stejném týdnu', () => {
+    // Středa 26. 8. 2026 → úterý téhož týdne je 25. 8.
+    expect(datumProDenVTydnu('ut', '2026-08-26')).toBe('2026-08-25');
+    expect(datumProDenVTydnu('pa', '2026-08-26')).toBe('2026-08-28');
+  });
+
+  it('funguje i z pondělí a z neděle — týden začíná pondělím', () => {
+    expect(datumProDenVTydnu('ne', '2026-08-24')).toBe('2026-08-30');
+    expect(datumProDenVTydnu('po', '2026-08-30')).toBe('2026-08-24');
+  });
+
+  it('stejný den vrátí totéž datum', () => {
+    expect(datumProDenVTydnu('st', '2026-08-26')).toBe('2026-08-26');
+  });
+
+  it('neznámý den ani nesmyslné datum nic nemění', () => {
+    // Volající pak `delivery_date` nechá být — radši staré datum než vymyšlené.
+    expect(datumProDenVTydnu('xx', '2026-08-26')).toBeNull();
+    expect(datumProDenVTydnu('ut', 'nesmysl')).toBeNull();
+  });
+
+  it('po přehození dne sedí plán stáčení s datem dovozu', () => {
+    // Celý smysl: den i datum ukazují na totéž, takže je jedno, podle čeho
+    // se která obrazovka řídí.
+    const kotva = '2026-08-26';
+    const noveDatum = datumProDenVTydnu('pa', kotva)!;
+    expect(dayKeyFromISO(noveDatum)).toBe('pa');
+  });
+});
+
+describe('rozpadPoObalech — kolik čeho zbývá stočit', () => {
+  // Z provozu: „musí tam být i přehled, kolik jednotlivých KEG sudů zbývá
+  // stočit — kolik dohromady třicítek, padesátek atd." U linky se chystají
+  // OBALY, ne piva: prázdné sudy se tahají po velikostech.
+  const den = (items: any[]): any => ({
+    day: 'st', label: 'Středa', date: '2026-08-26', items,
+    totalOrdered: 0, totalDone: 0, totalMissing: 0, missingLiters: 0,
+  });
+  const polozka = (package_id: string, package_label: string, volume_l: number, ordered: number, missing: number) => ({
+    key: `${package_id}`, beer_id: 'b', beer_name: 'Pivo', package_id, package_label, volume_l,
+    ordered, done: ordered - missing, autoDone: ordered - missing, checked: 0, missing, orders: [],
+  });
+
+  it('sečte stejný obal přes všechna piva', () => {
+    // Tři piva ve třicítkách → jedna třicítková položka se součtem.
+    const r = rozpadPoObalech(den([
+      { ...polozka('p30', 'KEG 30l', 30, 5, 3), beer_id: 'des' },
+      { ...polozka('p30', 'KEG 30l', 30, 4, 2), beer_id: '11sv' },
+      { ...polozka('p30', 'KEG 30l', 30, 2, 1), beer_id: 'jantar' },
+    ]));
+    expect(r).toHaveLength(1);
+    expect(r[0].missing).toBe(6);
+    expect(r[0].ordered).toBe(11);
+  });
+
+  it('řadí od největšího sudu — tak se o nich mluví i tak se staví na paletu', () => {
+    const r = rozpadPoObalech(den([
+      polozka('p20', 'KEG 20l', 20, 2, 2),
+      polozka('p50', 'KEG 50l', 50, 3, 3),
+      polozka('p30', 'KEG 30l', 30, 4, 4),
+    ]));
+    expect(r.map((x) => x.package_label)).toEqual(['KEG 50l', 'KEG 30l', 'KEG 20l']);
+  });
+
+  it('počítá litry z chybějících kusů, ne z objednaných', () => {
+    // 5 objednaných třicítek, 2 chybí → 60 L, ne 150 L.
+    const r = rozpadPoObalech(den([polozka('p30', 'KEG 30l', 30, 5, 2)]));
+    expect(r[0].missingLiters).toBe(60);
+  });
+
+  it('obal, který je celý hotový, v rozpadu zůstane s nulou', () => {
+    // Zmizet nesmí: „padesátky 0" je informace „hotovo", prázdné místo
+    // vypadá jako by se na ně zapomnělo. Skrývání řeší až obrazovka.
+    const r = rozpadPoObalech(den([
+      polozka('p50', 'KEG 50l', 50, 3, 0),
+      polozka('p30', 'KEG 30l', 30, 4, 4),
+    ]));
+    expect(r).toHaveLength(2);
+    expect(r.find((x) => x.package_label === 'KEG 50l')!.missing).toBe(0);
+  });
+
+  it('prázdný den dá prázdný rozpad', () => {
+    expect(rozpadPoObalech(den([]))).toEqual([]);
+  });
+
+  it('sedí se součtem celého plánu', () => {
+    // Kdyby se rozešly, ukazovala by obrazovka dvě různá čísla o téže věci.
+    const p = plan({
+      orders: [{ id: 'o1', delivery_date: '2026-08-26', order_date: '2026-08-26', status: 'nova', place_name: 'Hospoda' }],
+      orderItems: [
+        { id: 'r1', order_id: 'o1', beer_id: 'b-des', package_id: 'p30', quantity: 4 },
+        { id: 'r2', order_id: 'o1', beer_id: 'b-11', package_id: 'p50', quantity: 3 },
+      ],
+    });
+    const streda = day(p, 'st');
+    const soucet = rozpadPoObalech(streda).reduce((s, x) => s + x.missing, 0);
+    expect(soucet).toBe(streda.totalMissing);
+    expect(soucet).toBe(7);
   });
 });

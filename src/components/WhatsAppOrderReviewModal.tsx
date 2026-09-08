@@ -1,11 +1,12 @@
-import { useState, useEffect, useRef } from 'react';
-import { Beer, Package, Place, fetchAllRows, supabase } from '../lib/supabase';
-import { WhatsAppIncoming, ignoreWhatsAppMessage, updateWhatsAppParsedData } from '../lib/whatsappApi';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { Beer, Package, Place, supabase } from '../lib/supabase';
+import { WhatsAppIncoming, ignoreWhatsAppMessage, updateWhatsAppParsedData, napojNaObjednavku } from '../lib/whatsappApi';
 import { parseWhatsAppOrderMessageWithAI } from '../lib/whatsappParser';
 import { loadAliasMap, saveAlias, canLearnBeerAlias, matchBeerFromHints, matchPackage, matchPlaceFromText, savePlaceAlias, normalize, type ParserAliasMap } from '../lib/orderParser';
 import {
-  diffOrderItems, rozsahOdpovedi, slozNavrh, potvrzeneBezPolozek,
-  type DiffRow, type RozsahOdpovedi, type SkupinaObalu,
+  diffOrderItems, rozsahOdpovedi, slozNavrh, potvrzeneBezPolozek, vypadaJakoPridavek,
+  kandidatiNaDoplneni, datumObjednavky, vypadaJakoZmenaObjednavky,
+  type DiffRow, type RozsahOdpovedi, type SkupinaObalu, type ObjednavkaKandidat,
 } from '../lib/whatsappAmendment';
 import { PlaceCombobox } from './PlaceCombobox';
 import { Modal } from './ui';
@@ -20,8 +21,12 @@ import {
   type ReadbackMatch,
   type ReadbackStatus,
 } from '../lib/whatsappReadback';
-import { AlertCircle, AlertTriangle, ArrowDown, Check, CheckCircle2, ChevronDown, Download, ExternalLink, Eye, FilePlus, FileText, Image as ImageIcon, MessageSquare, Plus, RefreshCw, ShieldAlert, ShieldCheck, ShoppingCart, UserCheck, X } from 'lucide-react';
+import { AlertCircle, AlertTriangle, Check, CheckCircle2, ChevronDown, Download, ExternalLink, Eye, FileText, Image as ImageIcon, MessageSquare, RefreshCw, ShieldAlert, ShieldCheck, ShoppingCart, UserCheck, X, ArrowDown, FilePlus, Plus } from 'lucide-react';
 import { potvrd } from '../lib/toast';
+import { zalogujANahlas } from '../lib/chybyHlaseni';
+import { useChovaniDialogu } from '../lib/zavriNaZpet';
+import { businessDateISO } from '../lib/businessDate';
+import { STAVY_OBJEDNAVKY, popisStavu } from '../lib/stavyObjednavek';
 import { uloz } from '../lib/uloziste';
 
 /** Jak se skupiny obalů pojmenují v přehledu úpravy. */
@@ -67,6 +72,10 @@ interface ReviewItem {
 const READBACK_STRICT_KEY = 'whatsapp_readback_require_fix';
 
 export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
+  // Zpět zavře kontrolu objednávky místo odchodu z obrazovky. Tady na tom
+  // záleží nejvíc: v kontrole se opravují rozpoznané položky a odchod
+  // z obrazovky je zahodí.
+  useChovaniDialogu(props.isOpen, props.onClose);
   const [loading, setLoading] = useState(false);
   const [approving, setApproving] = useState(false);
   const [rejecting, setRejecting] = useState(false);
@@ -112,6 +121,14 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   // k nim není jediná položka — obsluha to musí vidět, jinak z „sedí" tiše
   // nevznikne nic (např. petky z PDF se do objednávky nedostaly).
   const [amendPotvrzenoPrazdne, setAmendPotvrzenoPrazdne] = useState<SkupinaObalu[]>([]);
+  // ➕ Přídavek („Pro Radka ještě plus toto"): objednávky téhož odběratele,
+  // ke kterým může patřit. Vybírá z nich obsluha — rozhodnout to za ni by
+  // znamenalo tiše připsat položky k cizí objednávce.
+  const [objednavkyOkoli, setObjednavkyOkoli] = useState<ObjednavkaKandidat[]>([]);
+  const [kandidatiLoading, setKandidatiLoading] = useState(false);
+  const [kandidatiChyba, setKandidatiChyba] = useState<string | null>(null);
+  /** Id objednávky, na kterou se právě napojuje (zamyká tlačítko). */
+  const [napojuji, setNapojuji] = useState<string | null>(null);
 
   // Synchronizace s prop (otevření nové zprávy).
   useEffect(() => {
@@ -137,7 +154,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
     if (!props.isOpen || !msg) return;
     placeTouchedRef.current = false;
     let pid = msg.parsed_place_id || '';
-    let pname = msg.parsed_place_name || '';
+    const pname = msg.parsed_place_name || '';
     if (!pid && pname) {
       const matched = matchPlaceFromText(pname, props.places);
       if (matched.placeId && matched.placeName) pid = matched.placeId;
@@ -254,8 +271,122 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
       setAmendLoading(false);
     })();
     return () => { zruseno = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [props.isOpen, msg?.amends_order_id, msg?.message_text, items, props.packages]);
+
+  // „Pro Radka jeste plus toto" — zpráva říká, že je to PŘÍDAVEK k něčemu, co
+  // už je objednané. Jistě to z textu poznat nejde (a tichá záměna „přidat" za
+  // „založit novou" by dělala v objednávkách nepořádek), takže se jen upozorní
+  // a rozhodne člověk. Ukazuje se jen tehdy, když zpráva NENÍ odpověď s citací
+  // — u té už appka ví, ke které objednávce patří.
+  // Dva druhy: PŘÍDAVEK („ještě plus toto") jen přidává, ÚPRAVA („ty malé
+  // soudky budou 2×20l", „petky sedí") říká, co v objednávce má být jinak —
+  // tu je potřeba do vybrané objednávky zapracovat, ne z ní udělat druhou.
+  // Rozlišení dělá `vypadaJakoZmenaObjednavky` a stejné pořadí drží i
+  // `slozNavrh`, takže náhled ukazuje totéž, co import zapíše.
+  const druhZmeny = msg?.amends_order_id ? null : vypadaJakoZmenaObjednavky(msg?.message_text);
+  const vypadaJakoDoplnek = druhZmeny !== null;
+  // Napojení, které vybral člověk (ne appka z citace). Odvozuje se ze ZPRÁVY,
+  // ne ze stavu modálu: rozhodnutí se zapisuje do databáze hned, takže po
+  // zavření a znovuotevření musí být pořád vidět, co schválení udělá —
+  // a musí jít vzít zpět. Odpověď s citací tenhle příznak nemá (má
+  // `quoted_text` a vazbu si drží appka sama).
+  const napojenoRucne =
+    !!msg?.amends_order_id && !msg?.quoted_text && !!vypadaJakoZmenaObjednavky(msg?.message_text);
+  /** Jak se zpráva chová k vybrané objednávce — pro texty po napojení. */
+  const druhNapojeni = napojenoRucne ? vypadaJakoZmenaObjednavky(msg?.message_text) : null;
+
+  // ➕ Objednávky, ke kterým může přídavek patřit. Dřív musela obsluha
+  // objednávku najít v seznamu, zapamatovat si ji a přepsat ručně — appka
+  // přitom má na doplnění hotovou mašinérii (`amends_order_id`), jen k ní
+  // nevedla cesta od nové zprávy.
+  //
+  // Načítá se JEDNOU na zprávu a výběr odběratele se pak dělá nad staženým
+  // seznamem. Dotaz závislý na `placeName` by běžel po každém písmenu, které
+  // obsluha napíše do pole odběratele — combobox hlásí změnu při každém stisku.
+  useEffect(() => {
+    if (!props.isOpen || !vypadaJakoDoplnek) {
+      setObjednavkyOkoli([]); setKandidatiChyba(null);
+      return;
+    }
+    let zruseno = false;
+    setKandidatiLoading(true);
+    setKandidatiChyba(null);
+    (async () => {
+      // Okno se bere štědré (šest týdnů zpět) a teprve `kandidatiNaDoplneni`
+      // ho utáhne — objednávka zadaná dopředu má `order_date` dávno v minulosti
+      // a rozhoduje až den závozu. Strop 200 řádků je při dnešním objemu
+      // (kolem 90 objednávek měsíčně) nad rámec toho okna.
+      const od = new Date(Date.now() - 42 * 86400000).toISOString().slice(0, 10);
+      const { data, error } = await supabase
+        .from('orders')
+        .select('id, order_date, delivery_date, delivery_day, place_id, place_name, status')
+        .gte('order_date', od)
+        .order('order_date', { ascending: false })
+        .limit(200);
+      if (zruseno) return;
+      if (error) {
+        // Selhání se musí ozvat: prázdný seznam by obsluha přečetla jako
+        // „žádná objednávka není" a založila druhou.
+        setKandidatiChyba(error.message);
+        setObjednavkyOkoli([]);
+        setKandidatiLoading(false);
+        return;
+      }
+      setObjednavkyOkoli((data as ObjednavkaKandidat[]) ?? []);
+      setKandidatiLoading(false);
+    })();
+    return () => { zruseno = true; };
+     
+  }, [props.isOpen, vypadaJakoDoplnek, msg?.id]);
+
+  // Výběr podle odběratele je čistý výpočet nad staženým seznamem — mění se
+  // s tím, jak obsluha odběratele opraví, a nestojí to dotaz do databáze.
+  const kandidati = useMemo(
+    () => kandidatiNaDoplneni({
+      objednavky: objednavkyOkoli,
+      placeId: placeId || msg?.parsed_place_id || null,
+      placeName: placeName || msg?.parsed_place_name || null,
+      dnes: businessDateISO(),
+    }),
+    [objednavkyOkoli, placeId, placeName, msg?.parsed_place_id, msg?.parsed_place_name]
+  );
+
+  /**
+   * Napojí zprávu na vybranou objednávku. Zapisuje se rovnou do databáze —
+   * rozhodnutí „tohle patří k Radkově objednávce" se nesmí ztratit tím, že
+   * obsluha modál zavře a vrátí se k němu později.
+   */
+  async function napojitNaObjednavku(orderId: string) {
+    if (!msg || napojuji) return;
+    setNapojuji(orderId);
+    try {
+      await napojNaObjednavku(msg.id, orderId);
+      setMsg((m) => (m ? { ...m, amends_order_id: orderId } : m));
+      setStatusMessage('Zpráva je napojená na existující objednávku — schválením se položky přidají do ní.');
+    } catch (error) {
+      zalogujANahlas('Napojení na objednávku se nepodařilo', error);
+      setStatusMessage('Napojení se nepodařilo: ' + (error as Error).message);
+    } finally {
+      setNapojuji(null);
+    }
+  }
+
+  /** Zpět k založení nové objednávky (obsluha se překlikla). */
+  async function zrusitNapojeni() {
+    if (!msg || napojuji) return;
+    setNapojuji('zrusit');
+    try {
+      await napojNaObjednavku(msg.id, null);
+      setMsg((m) => (m ? { ...m, amends_order_id: null } : m));
+      setStatusMessage('Napojení zrušeno — schválením vznikne nová objednávka.');
+    } catch (error) {
+      zalogujANahlas('Zrušení napojení se nepodařilo', error);
+      setStatusMessage('Zrušení napojení se nepodařilo: ' + (error as Error).message);
+    } finally {
+      setNapojuji(null);
+    }
+  }
 
   const beerNameById = (id: string | null) => props.beers.find((b) => b.id === id)?.name ?? '(neurčené pivo)';
   const pkgLabelById = (id: string | null) => String(props.packages.find((p) => p.id === id)?.label ?? '').trim();
@@ -414,7 +545,13 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
       tone: i.status === 'matched' ? ('ok' as const) : ('warn' as const),
     }))
   );
-  const transcriptSegments = message.parsed_raw_text
+  // Diff přepisu proti originálu dává smysl jen u TEXTOVÉ zprávy. U fotky
+  // není originál `message_text` (to je popisek u fotky, „Pro Radka jeste
+  // plus toto"), ale sám papír — takže se diffem porovnával přepis papíru
+  // s popiskem a celý přepis vycházel červeně jako „AI přidala". Přepis
+  // fotky se proto ukazuje jako obyčejný text; co na papíře stojí, se
+  // ověřuje pohledem na fotku vedle.
+  const transcriptSegments = !isImage && message.parsed_raw_text
     ? diffWords(message.message_text || '', message.parsed_raw_text)
     : [];
 
@@ -437,7 +574,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
               >
                 {seg.text}
                 {seg.badges.map((b) => (
-                  <sup key={b} className="text-[11px] font-bold text-neutral-700 ml-0.5">#{b}</sup>
+                  <sup key={b} className="text-udaj font-bold text-neutral-700 ml-0.5">#{b}</sup>
                 ))}
               </span>
             ) : (
@@ -527,7 +664,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
         props.onDecision?.();
       }, 1500);
     } catch (error) {
-      console.error('Chyba při schvalování:', error);
+      zalogujANahlas('Chyba při schvalování', error);
       setStatusMessage('Chyba při schvalování: ' + (error as Error).message);
     } finally {
       setApproving(false);
@@ -616,7 +753,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
               : 'Zpráva přečtena znovu — vše sedí s originálem')
       );
     } catch (error) {
-      console.error('Chyba při opakovaném čtení:', error);
+      zalogujANahlas('Chyba při opakovaném čtení', error);
       setStatusMessage((isFirstParse ? 'Chyba při parsování: ' : 'Chyba při opakovaném čtení: ') + (error as Error).message);
     } finally {
       setReparsing(false);
@@ -638,7 +775,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
         props.onDecision?.();
       }, 1500);
     } catch (error) {
-      console.error('Chyba při zamítnutí:', error);
+      zalogujANahlas('Chyba při zamítnutí', error);
       setStatusMessage('Chyba při zamítnutí: ' + (error as Error).message);
     } finally {
       setRejecting(false);
@@ -654,7 +791,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
       props.onClose();
       props.onDecision?.();
     } catch (error) {
-      console.error('Chyba při ignorování:', error);
+      zalogujANahlas('Chyba při ignorování', error);
       setStatusMessage('Chyba při ignorování: ' + (error as Error).message);
     } finally {
       setLoading(false);
@@ -663,6 +800,94 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
 
   const body = (
       <div className="space-y-6">
+        {vypadaJakoDoplnek && (
+          <div className="border-2 border-amber-300 rounded bg-amber-50 p-4">
+            <div className="flex items-start gap-2">
+              <AlertCircle size={18} className="text-amber-700 shrink-0 mt-0.5" />
+              <div className="min-w-0 flex-1">
+                <div className="font-display font-black text-amber-950 text-sm">
+                  {druhZmeny === 'uprava'
+                    ? 'Vypadá to na ÚPRAVU už existující objednávky'
+                    : 'Vypadá to na PŘÍDAVEK k už existující objednávce'}
+                </div>
+                <div className="text-xs font-bold text-amber-900 mt-1">
+                  {druhZmeny === 'uprava' ? (
+                    <>
+                      Zpráva říká, co v objednávce má být jinak („{(message.message_text || '').slice(0, 40)}…").
+                      Takhle schválená by ale založila NOVOU objednávku. Vyber objednávku, do které
+                      se má zapracovat — přepíšou se jen skupiny obalů, které zpráva jmenuje,
+                      zbytek zůstane:
+                    </>
+                  ) : (
+                    <>
+                      Zpráva začíná slovy „{(message.message_text || '').slice(0, 40)}…". Takhle
+                      schválená by založila NOVOU objednávku. Pokud pro odběratele objednávka na ten
+                      den už jede, patří položky do ní:
+                    </>
+                  )}
+                </div>
+
+                {/* Objednávky téhož odběratele kolem dneška. Vybírá člověk —
+                    appka umí říct „vypadá to na přídavek", ne ke které
+                    objednávce patří, a připsat položky k cizí objednávce je
+                    horší chyba než založit druhou. */}
+                <div className="mt-3 space-y-2">
+                  {kandidatiLoading && (
+                    <div className="text-xs font-bold text-amber-800">Hledám objednávky odběratele…</div>
+                  )}
+
+                  {kandidatiChyba && (
+                    <div className="text-xs font-bold text-rose-800 flex items-start gap-1.5">
+                      <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+                      <span>
+                        Objednávky se nepodařilo načíst ({kandidatiChyba}) — než se rozhodneš,
+                        podívej se do Objednávek ručně.
+                      </span>
+                    </div>
+                  )}
+
+                  {!kandidatiLoading && !kandidatiChyba && kandidati.length === 0 && (
+                    <div className="text-xs font-bold text-amber-800">
+                      Pro {placeName || message.parsed_place_name || 'tohoto odběratele'} jsem
+                      v okolí dneška žádnou objednávku nenašel. Zkontroluj odběratele níž —
+                      jinak schválením vznikne nová objednávka, což je nejspíš správně.
+                    </div>
+                  )}
+
+                  {kandidati.map((o) => (
+                    <div
+                      key={o.id}
+                      className="flex items-center justify-between gap-2 flex-wrap bg-white border border-amber-200 rounded p-2.5"
+                    >
+                      <div className="min-w-0">
+                        <div className="text-sm font-black text-neutral-900 truncate">
+                          {o.place_name || '(bez názvu)'}
+                        </div>
+                        <div className="text-udaj font-bold text-neutral-600 flex items-center gap-1.5 flex-wrap">
+                          <span>{datumObjednavky(o)}</span>
+                          {o.delivery_day && <span>· {o.delivery_day}</span>}
+                          <span className={`chip ${STAVY_OBJEDNAVKY[o.status || 'nova']?.cls ?? ''}`}>
+                            {STAVY_OBJEDNAVKY[o.status || 'nova']?.znak} {popisStavu(o.status)}
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        className="btn-primary shrink-0"
+                        disabled={napojuji !== null}
+                        onClick={() => napojitNaObjednavku(o.id)}
+                      >
+                        {napojuji === o.id ? <ButtonSpinner /> : <Check size={16} />}
+                        {druhZmeny === 'uprava' ? 'Upravit tuhle' : 'Přidat k téhle'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ↩️ Odpověď, která upravuje dřívější objednávku. Ukáže se PŮVODNÍ
             objednávka se zvýrazněnými změnami, ať je vidět, co se potvrzuje —
             schválení objednávku upraví, nezaloží novou. */}
@@ -672,13 +897,36 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
               <div className="flex items-center gap-2">
                 <RefreshCw size={18} className="text-violet-600 shrink-0" />
                 <div className="font-display font-black text-violet-900 text-sm">
-                  Tohle je odpověď — upraví už existující objednávku
+                  {!napojenoRucne
+                    ? 'Tohle je odpověď — upraví už existující objednávku'
+                    : druhNapojeni === 'uprava'
+                      ? 'Napojeno ručně — zpráva se ZAPRACUJE do existující objednávky'
+                      : 'Napojeno ručně — položky se PŘIDAJÍ do existující objednávky'}
                 </div>
               </div>
               <div className="text-xs font-bold text-violet-700 mt-1">
                 {amendPlace ? `Odběratel: ${amendPlace}. ` : ''}
-                Schválením se objednávka přepíše podle níže uvedeného stavu. Nová objednávka se nezaloží.
+                {napojenoRucne && druhNapojeni === 'pridavek'
+                  ? 'Schválením se položky přičtou k téhle objednávce podle níže uvedeného stavu. Nová objednávka se nezaloží.'
+                  : 'Schválením se objednávka přepíše podle níže uvedeného stavu. Nová objednávka se nezaloží.'}
               </div>
+
+              {/* Cesta zpátky. Napojení zapisuje do databáze hned při kliknutí
+                  (ať se rozhodnutí neztratí zavřením modálu), takže překliknutí
+                  musí jít vzít zpět — jinak by zpráva zůstala natrvalo přišitá
+                  k cizí objednávce. Nabízí se jen u ručního napojení; u odpovědi
+                  s citací si vazbu drží appka sama a rušit ji tady nemá smysl. */}
+              {napojenoRucne && (
+                <button
+                  type="button"
+                  className="btn-secondary mt-2"
+                  disabled={napojuji !== null}
+                  onClick={zrusitNapojeni}
+                >
+                  {napojuji === 'zrusit' ? <ButtonSpinner /> : <X size={16} />}
+                  Ne, přece jen založit novou objednávku
+                </button>
+              )}
 
               {/* Co odpověď přepisuje a co nechává být — bez tohohle není z
                   výpisu poznat, proč některé položky zůstaly nedotčené. */}
@@ -704,7 +952,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                   hlášky by z „petky sedí" tiše nevzniklo nic. */}
               {amendPotvrzenoPrazdne.length > 0 && (
                 <div className="mt-2 p-2.5 rounded-xl bg-rose-50 border border-rose-300 text-rose-900 text-xs font-bold flex items-start gap-1.5">
-                  <AlertTriangle size={15} className="shrink-0 mt-0.5" />
+                  <AlertTriangle size={16} className="shrink-0 mt-0.5" />
                   <span>
                     Odběratel píše, že {amendPotvrzenoPrazdne.map((s) => NAZVY_SKUPIN[s].toLowerCase()).join(' a ')} sedí,
                     ale v načtené objednávce k nim není jediná položka — zkontroluj původní objednávku (třeba se z PDF nevytáhly), doplň je ručně, nebo rovnou založ novou objednávku níže.
@@ -732,7 +980,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                 přepsalo to, co se přepsat mělo. */}
             <div className="grid gap-3 sm:grid-cols-2 p-4 pt-0">
               <div>
-                <div className="text-[11px] font-black uppercase tracking-wider text-violet-700 mb-1">
+                <div className="text-udaj font-black uppercase tracking-wider text-violet-700 mb-1">
                   Původní objednávka
                 </div>
                 {amendOriginalMsg ? (
@@ -747,6 +995,8 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                         <img
                           src={amendOriginalMsg.media_url}
                           alt="Původní objednávka — příloha"
+                          loading="lazy"
+                          decoding="async"
                           className="max-h-40 rounded border border-violet-200"
                         />
                       </a>
@@ -767,7 +1017,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
               </div>
 
               <div>
-                <div className="text-[11px] font-black uppercase tracking-wider text-violet-700 mb-1">
+                <div className="text-udaj font-black uppercase tracking-wider text-violet-700 mb-1">
                   Tato odpověď
                 </div>
                 <div className="border border-violet-200 rounded p-2.5 bg-white text-xs font-mono whitespace-pre-wrap max-h-56 overflow-y-auto lze-vybrat">
@@ -869,9 +1119,9 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                   <button
                     onClick={handleReparse}
                     disabled={reparsing || loading}
-                    className="mt-1.5 flex items-center gap-1.5 px-2.5 py-1 rounded bg-sky-700 text-white text-xs font-semibold hover:bg-sky-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="mt-1.5 flex items-center gap-1.5 px-2.5 py-1 rounded bg-sky-700 text-white text-xs font-semibold hover:bg-sky-800 disabled:opacity-50 disabled:cursor-not-allowed tap"
                     title="Ručně spustit AI parsování této zprávy"
-                   aria-label="Ručně spustit AI parsování této zprávy">
+            >
                     {reparsing ? <RefreshCw size={13} className="animate-spin" /> : <RefreshCw size={13} />}
                     {reparsing ? 'Parsuji...' : 'Parsovat ručně'}
                   </button>
@@ -919,7 +1169,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
             </div>
           ) : isImage ? (
             <div className="text-xs text-neutral-500 mt-2 flex items-center gap-1">
-              <ImageIcon size={13} /> Fotka — médium nebylo doručeno (webhook neposlal mediaUrl).
+              <ImageIcon size={14} /> Fotka — médium nebylo doručeno (webhook neposlal mediaUrl).
             </div>
           ) : null}
         </div>
@@ -968,7 +1218,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
           {!isImage && (
             <label className="flex items-center gap-2 text-xs text-neutral-600 mb-2 cursor-pointer select-none">
               <input type="checkbox" checked={strictReadback} onChange={toggleStrictReadback} className="accent-amber-600" />
-              {strictReadback ? <ShieldCheck size={13} className="text-emerald-600" /> : <ShieldAlert size={13} className="text-amber-600" />}
+              {strictReadback ? <ShieldCheck size={14} className="text-emerald-600" /> : <ShieldAlert size={14} className="text-amber-600" />}
               Vyžadovat opravu nesouladů před schválením
             </label>
           )}
@@ -981,7 +1231,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
 
             <div>
               <div className="text-xs font-medium text-neutral-500 mb-1 flex items-center gap-1">
-                <FileText size={12} /> Přepis AI (diff proti originálu)
+                <FileText size={12} /> {isImage ? 'Přepis fotky od AI' : 'Přepis AI (diff proti originálu)'}
               </div>
               <div className="border rounded p-3 bg-white font-mono text-sm whitespace-pre-wrap max-h-80 overflow-y-auto">
                 {transcriptSegments.length > 0 ? (
@@ -1006,23 +1256,28 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                   </span>
                 )}
               </div>
-              <div className="text-[11px] text-neutral-400 mt-1">
-                zeleně = čteno z originálu · červeně = AI přidala (není v originálu) · přeškrtnuto = AI přehlédla
+              <div className="text-udaj text-neutral-400 mt-1">
+                {isImage
+                  ? 'Co AI přečetla z fotky. Porovnej to s fotkou nahoře — text u fotky („popisek") objednávku neobsahuje, takže se s ním nic neporovnává.'
+                  : 'zeleně = čteno z originálu · červeně = AI přidala (není v originálu) · přeškrtnuto = AI přehlédla'}
               </div>
             </div>
           </div>
 
-          {/* Legenda zvýraznění originálu */}
-          <div className="text-xs text-neutral-500 mt-2">
-            Zeleně = přesná shoda s originálem, jantarově = částečná shoda (překlepy/pořadí slov). Číslo = položka níže.
-          </div>
+          {/* Legenda zvýraznění originálu — u fotky se v originálu nic
+              nezvýrazňuje, protože originál je papír, ne popisek. */}
+          {!isImage && (
+            <div className="text-xs text-neutral-500 mt-2">
+              Zeleně = přesná shoda s originálem, jantarově = částečná shoda (překlepy/pořadí slov). Číslo = položka níže.
+            </div>
+          )}
 
           {/* Srovnání s předchozím čtením po „přečti znovu" (#15) */}
           {prevRawText && message.parsed_raw_text && prevRawText !== message.parsed_raw_text && (
             <details className="mt-2 group">
               <summary className="text-xs text-neutral-600 cursor-pointer hover:text-neutral-800 select-none flex items-center gap-1">
-                <RefreshCw size={13} /> Srovnání s předchozím čtením AI
-                <ChevronDown size={13} className="transition-transform group-open:rotate-180" />
+                <RefreshCw size={14} /> Srovnání s předchozím čtením AI
+                <ChevronDown size={14} className="transition-transform group-open:rotate-180" />
               </summary>
               <div className="mt-2 border rounded p-3 bg-white font-mono text-xs max-h-48 overflow-y-auto">
                 {diffWords(prevRawText, message.parsed_raw_text).map((seg, si) => {
@@ -1044,9 +1299,9 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
               <button
                 onClick={handleReparse}
                 disabled={reparsing || loading}
-                className="ml-auto px-2.5 py-1 rounded bg-sky-50 text-sky-700 text-xs font-medium hover:bg-sky-100 disabled:opacity-50 flex items-center gap-1.5"
+                className="ml-auto px-2.5 py-1 rounded bg-sky-50 text-sky-700 text-xs font-medium hover:bg-sky-100 disabled:opacity-50 flex items-center gap-1.5 tap"
                 title="Znovu spustit AI čtení zprávy — nový přepis nahradí ten stávající (a porovná se s ním)"
-               aria-label="Znovu spustit AI čtení zprávy — nový přepis nahradí ten stávající (a porovná se s ním)">
+            >
                 {reparsing ? <RefreshCw size={13} className="animate-spin" /> : <RefreshCw size={13} />}
                 {reparsing ? 'Čtu znovu...' : 'Přečíst znovu (AI)'}
               </button>
@@ -1136,7 +1391,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                               onClick={() => deleteItem(index)}
                               aria-label="Smazat položku"
                               title="Smazat položku z objednávky"
-                              className="p-1 rounded-md text-rose-500 hover:bg-rose-50 hover:text-rose-700 transition-colors shrink-0"
+                              className="p-1 rounded-md text-rose-500 hover:bg-rose-50 hover:text-rose-700 transition-colors shrink-0 tap"
                             >
                               <X size={16} />
                             </button>
@@ -1148,7 +1403,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                                 <div className="text-xs mt-1 flex items-start gap-1">
                                   <AlertCircle size={12} className="text-rose-600 mt-0.5 shrink-0" />
                                   <span className="text-rose-700">
-                                    AI četla: „{item.rawLine}" — <b>v originální zprávě se nenašlo</b>, zkontrolujte přečtení!
+                                    AI četla: „{item.rawLine}" — <b>{isImage ? 'nesedí s přepisem fotky' : 'v originální zprávě se nenašlo'}</b>, zkontrolujte přečtení!
                                   </span>
                                 </div>
                               );
@@ -1182,14 +1437,14 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                               {rbItem.parts.map((p, pi) => (
                                 <span
                                   key={pi}
-                                  className={`px-1.5 py-0.5 rounded text-[11px] flex items-center gap-1 ${
+                                  className={`px-1.5 py-0.5 rounded text-udaj flex items-center gap-1 ${
                                     p.found ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
                                   }`}
                                   title={p.found
                                     ? `${partKindLabel(p.part.kind)} ${p.part.display} se v originálu našlo`
                                     : `${partKindLabel(p.part.kind)} ${p.part.display} se v originálu NENAŠLO`}
                                 >
-                                  {p.found ? <Check size={11} /> : <AlertCircle size={11} />}
+                                  {p.found ? <Check size={12} /> : <AlertCircle size={12} />}
                                   {partKindLabel(p.part.kind)} {p.part.display}
                                 </span>
                               ))}
@@ -1357,7 +1612,8 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
             onClick={props.onClose}
             className="w-8 h-8 grid place-items-center rounded text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 transition"
             title="Zavřít"
-           aria-label="Zavřít">
+            aria-label="Zavřít"
+          >
             <X size={18} />
           </button>
         </div>
@@ -1387,7 +1643,8 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
             onClick={props.onClose}
             className="w-8 h-8 grid place-items-center rounded text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 transition"
             title="Zavřít"
-           aria-label="Zavřít">
+            aria-label="Zavřít"
+          >
             <X size={18} />
           </button>
         </div>
@@ -1407,6 +1664,4 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
     </Modal>
   );
 }
-
-
 

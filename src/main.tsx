@@ -6,16 +6,20 @@ import ToastHost from './components/ToastHost';
 import './index.css';
 import { AuthProvider } from './lib/auth';
 import { initDensity } from './lib/density';
+import { initEfekty } from './lib/efekty';
 import { initTheme } from './lib/theme';
 import { reportAppVersion } from './lib/appVersionTracker';
 import { checkVersion, forceRefresh, startVersionCheck } from './lib/versionCheck';
 import { renderFatalError } from './lib/safeDom';
-import { nahlasChybu, zapniHlaseniChyb } from './lib/chybyHlaseni';
+import { nahlasChybu, zapniHlaseniChyb, zalogujANahlas } from './lib/chybyHlaseni';
 import { zapniFrontuTanku } from './lib/tankFrontaBeh';
 import { zapniPosunNadKlavesnici } from './lib/nadKlavesnici';
 
 
 initDensity();
+// Méně efektů (rozostření a blikání) — nastavuje se dřív, než se cokoli
+// vykreslí, jinak by se sklo na okamžik ukázalo a zase zmizelo.
+initEfekty();
 
 // Neodchycené chyby a promisy se zapisují do tabulky app_errors (viz
 // lib/chybyHlaseni.ts). Dřív o nich nevěděl nikdo — rozbitá obrazovka se
@@ -176,7 +180,7 @@ try {
 } catch (err: any) {
   const el = document.getElementById('root');
   if (el) renderFatalError(el, 'Chyba při renderu', err?.stack || err, true);
-  console.error('Render error:', err);
+  zalogujANahlas('Render error', err);
 }
 
 // Service worker (offline/PWA) funguje jen na http(s), ne přes file://

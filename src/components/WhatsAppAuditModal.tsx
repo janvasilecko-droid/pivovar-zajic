@@ -8,6 +8,7 @@ import {
 import { Modal, Spinner } from './ui';
 import { AlertTriangle, Check, MessageSquare, RefreshCw, ShieldAlert, Zap } from 'lucide-react';
 import { chyba } from '../lib/toast';
+import { zalogujANahlas } from '../lib/chybyHlaseni';
 
 interface WhatsAppAuditModalProps {
   isOpen: boolean;
@@ -57,7 +58,7 @@ export function WhatsAppAuditModal({ isOpen, onClose, onOpenMessage }: WhatsAppA
       const data = await fetchAllWhatsAppMessagesSince(since.toISOString());
       setMessages(data);
     } catch (e) {
-      console.error('Chyba při načítání kontrolního přehledu WhatsApp zpráv:', e);
+      zalogujANahlas('Chyba při načítání kontrolního přehledu WhatsApp zpráv', e);
     } finally {
       setLoading(false);
     }
@@ -120,7 +121,7 @@ export function WhatsAppAuditModal({ isOpen, onClose, onOpenMessage }: WhatsAppA
                 key={d}
                 type="button"
                 onClick={() => setDays(d)}
-                className={`px-3 py-1.5 rounded text-xs font-black transition ${
+                className={`tap px-3 py-1.5 rounded text-xs font-black transition ${
                   days === d ? 'bg-white text-neutral-900 shadow-xs' : 'bg-neutral-100 text-neutral-700 hover:bg-amber-50'
                 }`}
               >
@@ -133,9 +134,9 @@ export function WhatsAppAuditModal({ isOpen, onClose, onOpenMessage }: WhatsAppA
               type="button"
               onClick={handleRunAutoParse}
               disabled={runningAutoParse}
-              className="px-3 py-1.5 rounded bg-sky-700 hover:bg-sky-800 text-white text-xs font-black shadow-xs flex items-center gap-1.5 disabled:opacity-50"
+              className="px-3 py-1.5 rounded bg-sky-700 hover:bg-sky-800 text-white text-xs font-black shadow-xs flex items-center gap-1.5 disabled:opacity-50 tap"
               title="Spustit AI zpracování nevyřízených zpráv"
-             aria-label="Spustit AI zpracování nevyřízených zpráv">
+            >
               <Zap size={14} /> {runningAutoParse ? 'Zpracovávám…' : 'Zpracovat nevyřízené'}
             </button>
             <button type="button" onClick={load} className="p-1.5 rounded text-neutral-600 hover:bg-neutral-100" title="Obnovit" aria-label="Obnovit">
@@ -149,7 +150,7 @@ export function WhatsAppAuditModal({ isOpen, onClose, onOpenMessage }: WhatsAppA
           {(Object.keys(STATUS_LABEL) as WhatsAppIncoming['status'][]).map((s) => (
             <div key={s} className={`rounded border px-2 py-1.5 text-center ${STATUS_STYLE[s]}`}>
               <div className="text-lg font-black leading-none">{counts[s] || 0}</div>
-              <div className="text-[11px] font-bold uppercase leading-tight mt-0.5">{STATUS_LABEL[s]}</div>
+              <div className="text-udaj font-bold uppercase leading-tight mt-0.5">{STATUS_LABEL[s]}</div>
             </div>
           ))}
         </div>
@@ -196,10 +197,10 @@ export function WhatsAppAuditModal({ isOpen, onClose, onOpenMessage }: WhatsAppA
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="text-xs font-black text-neutral-900">{m.sender_name}</span>
-                      <span className="text-[11px] text-neutral-400 font-mono">
+                      <span className="text-udaj text-neutral-400 font-mono">
                         {new Date(m.message_timestamp || m.created_at).toLocaleString('cs-CZ')}
                       </span>
-                      <span className={`px-2 py-0.5 rounded-full border text-[11px] font-black ${STATUS_STYLE[m.status]}`}>
+                      <span className={`px-2 py-0.5 rounded-full border text-udaj font-black ${STATUS_STYLE[m.status]}`}>
                         {STATUS_LABEL[m.status]}
                       </span>
                     </div>
@@ -207,10 +208,10 @@ export function WhatsAppAuditModal({ isOpen, onClose, onOpenMessage }: WhatsAppA
                       {m.message_text?.slice(0, 220)}{(m.message_text?.length ?? 0) > 220 ? '…' : ''}
                     </div>
                     {(m.status === 'error' || m.status === 'ignored') && m.error_message && (
-                      <div className="text-[11px] text-rose-700 font-bold mt-1"><AlertTriangle className="ikona-text" /> {m.error_message}</div>
+                      <div className="text-udaj text-rose-700 font-bold mt-1"><AlertTriangle className="ikona-text" /> {m.error_message}</div>
                     )}
                     {m.status === 'imported' && (
-                      <div className="text-[11px] text-emerald-700 font-bold mt-1">
+                      <div className="text-udaj text-emerald-700 font-bold mt-1">
                         <Check className="ikona-text" /> Vytvořeno {m.imported_at ? new Date(m.imported_at).toLocaleString('cs-CZ') : ''}
                       </div>
                     )}
@@ -220,7 +221,7 @@ export function WhatsAppAuditModal({ isOpen, onClose, onOpenMessage }: WhatsAppA
                       type="button"
                       onClick={(e) => { e.stopPropagation(); handleRetry(m.id); }}
                       disabled={retrying === m.id}
-                      className="shrink-0 px-2.5 py-1.5 rounded bg-sky-100 hover:bg-sky-200 text-sky-900 text-[11px] font-black transition disabled:opacity-50"
+                      className="shrink-0 px-2.5 py-1.5 rounded bg-sky-100 hover:bg-sky-200 text-sky-900 text-udaj font-black transition disabled:opacity-50 tap"
                     >
                       {retrying === m.id ? '…' : 'Vrátit do fronty'}
                     </button>

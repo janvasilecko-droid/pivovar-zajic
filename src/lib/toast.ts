@@ -10,6 +10,7 @@
 // bloku, bez hooku a bez předávání contextu. Vykresluje ho <ToastHost />
 // namountovaný jednou v main.tsx.
 import { zavibruj } from './haptika';
+import { zalogujANahlas } from './chybyHlaseni';
 import { zapisSelDoFronty } from './offline';
 
 export type ToastTon = 'info' | 'uspech' | 'chyba' | 'varovani';
@@ -37,7 +38,30 @@ export type PotvrdOpts = {
   nebezpecne?: boolean;
 };
 
-export type PotvrdStav = (PotvrdOpts & { text: string; resolve: (v: boolean) => void }) | null;
+/**
+ * Jedna možnost v dialogu s VÍC než dvěma tlačítky (viz `volba`).
+ *
+ * Vzniklo to z provozu: když se při schvalování WhatsApp objednávky našla
+ * duplicita, dialog uměl jen „Pokračovat / Zrušit". Zrušení ale nechalo
+ * zprávu viset mezi nevyřízenými a ignorovat se musela zvlášť — takže
+ * nejčastější odpověď na „tohle už objednané je" byla ta nejpracnější.
+ */
+export type Moznost = {
+  /** Co se vrátí, když se na tlačítko klikne. */
+  klic: string;
+  label: string;
+  /** `hlavni` = zvýrazněné, `nebezpecne` = červené, jinak nenápadné. */
+  ton?: 'hlavni' | 'nebezpecne' | 'vedlejsi';
+};
+
+export type PotvrdStav =
+  | (PotvrdOpts & {
+      text: string;
+      /** Když je vyplněné, vykreslí se tahle tlačítka místo Potvrdit/Zrušit. */
+      moznosti?: Moznost[];
+      resolve: (v: boolean | string | null) => void;
+    })
+  | null;
 
 export type StavOznameni = { toasty: Toast[]; potvrzeni: PotvrdStav };
 
@@ -86,7 +110,7 @@ export function toast(text: string, opts: { ton?: ToastTon; akce?: ToastAkce; tr
   if (trvani > 0) casovace.set(id, setTimeout(() => zavriToast(id), trvani));
   if (ton === 'chyba') zavibruj('chyba');
   // Bez hosta by zpráva zmizela beze stopy — chyba musí být aspoň v konzoli.
-  if (odberatele.size === 0 && ton === 'chyba') console.error('[oznámení]', text);
+  if (odberatele.size === 0 && ton === 'chyba') zalogujANahlas('[oznámení]', text);
   return id;
 }
 
@@ -158,13 +182,35 @@ export function potvrd(text: string, opts: PotvrdOpts = {}): Promise<boolean> {
   // „zrušeno", jinak by na jeho Promise někdo čekal navždy.
   if (stav.potvrzeni) stav.potvrzeni.resolve(false);
   return new Promise<boolean>((resolve) => {
-    stav = { ...stav, potvrzeni: { ...opts, text, resolve } };
+    // `potvrd` zná jen ano/ne; zavření dialogu (null) je pro něj „ne".
+    const odpovez = (v: boolean | string | null) => resolve(v === true);
+    stav = { ...stav, potvrzeni: { ...opts, text, resolve: odpovez } };
+    oznam_zmenu();
+  });
+}
+
+/**
+ * Dialog s víc možnostmi. Vrací `klic` zvolené možnosti, nebo `null`, když
+ * uživatel dialog zavřel (klepnutím vedle nebo tlačítkem Zpět).
+ *
+ * Proč zvlášť a ne rozšířený `potvrd`: `potvrd` vrací ano/ne a používá se na
+ * osmdesáti místech. Míchat do něj třetí odpověď by znamenalo, že každé z nich
+ * musí řešit stav, který nemůže nastat.
+ */
+export function volba(text: string, moznosti: Moznost[], opts: PotvrdOpts = {}): Promise<string | null> {
+  // Stejná pojistka jako u `potvrd`: bez namountovaného <ToastHost /> by
+  // Promise nikdy nedoběhla. Bez dialogu se nedá vybrat — vracíme null,
+  // tedy „nedělej nic", což je vždycky bezpečná odpověď.
+  if (odberatele.size === 0) return Promise.resolve(null);
+  if (stav.potvrzeni) stav.potvrzeni.resolve(null);
+  return new Promise<string | null>((resolve) => {
+    stav = { ...stav, potvrzeni: { ...opts, text, moznosti, resolve: resolve as (v: boolean | string | null) => void } };
     oznam_zmenu();
   });
 }
 
 /** Volá <ToastHost /> po kliknutí v dialogu. */
-export function uzavriPotvrzeni(vysledek: boolean) {
+export function uzavriPotvrzeni(vysledek: boolean | string | null) {
   const p = stav.potvrzeni;
   if (!p) return;
   stav = { ...stav, potvrzeni: null };

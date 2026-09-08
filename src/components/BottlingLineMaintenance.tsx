@@ -151,7 +151,7 @@ export function BottlingLineMaintenance() {
             <div>
               <div className="flex items-start justify-between gap-2 border-b border-neutral-100 pb-3">
                 <div>
-                  <span className="text-[11px] font-black uppercase tracking-wider bg-neutral-100 text-neutral-700 px-2 py-0.5 rounded-md border border-neutral-200">
+                  <span className="text-udaj font-black uppercase tracking-wider bg-neutral-100 text-neutral-700 px-2 py-0.5 rounded-md border border-neutral-200">
                     Interval: každých {task.interval_days} dní
                   </span>
                   <h4 className="font-display font-black text-base text-neutral-900 mt-1">{task.equipment_name}</h4>
@@ -173,7 +173,7 @@ export function BottlingLineMaintenance() {
               <div className="p-3.5 rounded bg-white border border-neutral-200 mt-3 space-y-1.5 text-xs text-neutral-800 font-medium">
                 {task.notes && <div><strong><ClipboardList className="ikona-text" /> Úkon:</strong> {task.notes}</div>}
                 <div><User className="ikona-text" /> Odpovědná osoba: <strong>{task.assigned_operator || '—'}</strong></div>
-                <div className="flex items-center justify-between text-[11px] text-neutral-500 pt-1 border-t border-neutral-100">
+                <div className="flex items-center justify-between text-udaj text-neutral-500 pt-1 border-t border-neutral-100">
                   <span>Poslední údržba: <strong>{task.last_done_at}</strong></span>
                   <span>Příští údržba: <strong className="text-amber-700 font-bold">{task.next_due_at}</strong></span>
                 </div>
@@ -196,7 +196,7 @@ export function BottlingLineMaintenance() {
 
       {/* Add Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-neutral-950/75 backdrop-blur-xs flex items-center justify-center p-4 z-[999]">
+        <div className="fixed inset-0 bg-neutral-950/75 backdrop-blur-xs flex items-center justify-center p-4 z-modal">
           <div className="bg-white rounded max-w-md w-full p-6 space-y-5 shadow-2xl border border-neutral-200 animate-in fade-in zoom-in duration-150">
             <div className="border-b border-neutral-100 pb-3">
               <h3 className="font-display font-black text-lg text-neutral-900">+ Nový plánovaný úkon údržby</h3>

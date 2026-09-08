@@ -76,7 +76,7 @@ type TileTotalBarProps = {
 export function TileTotalBar({ label, value }: TileTotalBarProps) {
   return (
     <div className="flex items-center justify-between gap-2 rounded bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/60 px-3 py-2 mb-3">
-      <span className="text-[11px] font-bold uppercase tracking-wide text-amber-800 dark:text-amber-300">{label}</span>
+      <span className="text-udaj font-bold uppercase tracking-wide text-amber-800 dark:text-amber-300">{label}</span>
       <span className="text-sm font-black text-amber-900 dark:text-amber-200">{value}</span>
     </div>
   );

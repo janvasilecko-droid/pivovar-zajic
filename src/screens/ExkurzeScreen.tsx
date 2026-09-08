@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
-import { supabase, useRealtime } from '../lib/supabase';
-import { Spinner, EmptyState } from '../components/ui';
-import { Archive, BarChart3, Calendar, Castle, Clock, Download, CheckCircle2, ChevronDown, ChevronUp, Landmark, Plus, Trash2, User, UserCheck, UserRound, Users } from 'lucide-react';
+import { useRealtime } from '../lib/supabase';
+import { EmptyState } from '../components/ui';
+import { Archive, BarChart3, Calendar, Download, ChevronDown, ChevronUp, Landmark, Plus, Trash2, User, UserCheck, UserRound } from 'lucide-react';
 import { exportHistoryDetailToExcel } from '../lib/excel';
 import { chyba as chybaOznam, oznam, potvrd } from '../lib/toast';
 import { KLIC_EXKURZE, nactiExkurze, prenesZProhlizece, smazExkurzi, ulozExkurzi } from '../lib/exkurzeData';
@@ -196,7 +196,7 @@ export default function ExkurzeScreen() {
 
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-1.5 bg-neutral-800 border border-neutral-700 px-3 py-1.5 rounded text-xs font-bold">
-            <Calendar size={15} className="text-amber-400" />
+            <Calendar size={16} className="text-amber-400" />
             <span>Měsíc:</span>
             <input
               type="month"
@@ -221,7 +221,7 @@ export default function ExkurzeScreen() {
         <div className="card p-5 sm:p-6 bg-white border border-amber-200 rounded shadow-sm space-y-4 lg:col-span-1">
           <div className="border-b border-amber-100 pb-3">
             <h3 className="font-display font-black text-base sm:text-lg text-neutral-900 flex items-center gap-2">
-              <Plus size={20} className="text-amber-500" />
+              <Plus size={18} className="text-amber-500" />
               <span>Naplánovat novou exkurzi</span>
             </h3>
           </div>
@@ -253,11 +253,11 @@ export default function ExkurzeScreen() {
             <div>
               <label className="block text-xs font-black text-neutral-700 mb-1">Počet lidí (osob)</label>
               <div className="flex items-center gap-1">
-                <button type="button" onClick={() => setPeopleCount(String(Math.max(1, (Number(peopleCount) || 0) - 1)))} className="w-9 h-9 shrink-0 grid place-items-center rounded bg-neutral-200 text-neutral-800 font-bold text-sm select-none active:scale-95 transition" title="- 1 osoba">−</button>
+                <button type="button" onClick={() => setPeopleCount(String(Math.max(1, (Number(peopleCount) || 0) - 1)))} className="w-9 h-9 shrink-0 grid place-items-center rounded bg-neutral-200 text-neutral-800 font-bold text-sm select-none active:scale-95 transition tap" title="- 1 osoba" aria-label="- 1 osoba">−</button>
                 <span className="min-w-[3rem] px-3 text-center font-mono font-black text-lg bg-white border border-neutral-200 rounded py-2 shadow-2xs">
                   {peopleCount || '1'}
                 </span>
-                <button type="button" onClick={() => setPeopleCount(String((Number(peopleCount) || 0) + 1))} className="w-9 h-9 shrink-0 grid place-items-center rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-sm select-none active:scale-95 transition shadow-2xs" title="+ 1 osoba">+</button>
+                <button type="button" onClick={() => setPeopleCount(String((Number(peopleCount) || 0) + 1))} className="w-9 h-9 shrink-0 grid place-items-center rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-sm select-none active:scale-95 transition shadow-2xs tap" title="+ 1 osoba" aria-label="+ 1 osoba">+</button>
               </div>
               <div className="flex gap-1.5 mt-2">
                 {[1, 2, 5, 10, 15, 20].map((num) => (
@@ -265,7 +265,7 @@ export default function ExkurzeScreen() {
                     key={num}
                     type="button"
                     onClick={() => setPeopleCount(String((Number(peopleCount) || 0) + num))}
-                    className="px-2 py-1 rounded text-xs font-black bg-amber-100 text-amber-950 hover:bg-amber-200 border border-amber-300 transition"
+                    className="px-2 py-1 rounded text-xs font-black bg-amber-100 text-amber-950 hover:bg-amber-200 border border-amber-300 transition tap"
                   >
                     +{num}
                   </button>
@@ -276,7 +276,7 @@ export default function ExkurzeScreen() {
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="label !mb-0">Průvodce (Kdo prováděl)</label>
-                <span className="text-[11px] font-bold text-neutral-500">Primárně: František</span>
+                <span className="text-udaj font-bold text-neutral-500">Primárně: František</span>
               </div>
               <input
                 type="text"
@@ -292,7 +292,7 @@ export default function ExkurzeScreen() {
                     key={name}
                     type="button"
                     onClick={() => setGuideName(name)}
-                    className={`px-2 py-1 rounded text-[11px] font-black border transition ${
+                    className={`tap px-2 py-1 rounded text-udaj font-black border transition ${
                       guideName === name
                         ? 'bg-white text-amber-900 border-amber-400 ring-2 ring-amber-300 shadow-2xs'
                         : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200 border-neutral-300'
@@ -374,7 +374,7 @@ export default function ExkurzeScreen() {
                       {new Date(e.tour_date).toLocaleDateString('cs-CZ')}
                       <span className="font-mono text-neutral-500 text-xs">({e.tour_time})</span>
                     </span>
-                    <button onClick={() => handleDelete(e.id)} className="w-9 h-9 grid place-items-center rounded hover:bg-rose-100 text-rose-600 transition shrink-0" title="Smazat">
+                    <button onClick={() => handleDelete(e.id)} className="w-9 h-9 grid place-items-center rounded hover:bg-rose-100 text-rose-600 transition shrink-0 tap" title="Smazat" aria-label="Smazat">
                       <Trash2 size={16} />
                     </button>
                   </div>
@@ -396,39 +396,39 @@ export default function ExkurzeScreen() {
               <table className="table text-xs">
                 <thead>
                   <tr>
-                    <th>Datum & Čas</th>
-                    <th className="text-right">Osob</th>
-                    <th>Průvodce</th>
-                    <th className="text-right">Tržba</th>
-                    <th>Poznámka</th>
-                    <th className="w-10"></th>
+                    <th scope="col">Datum & Čas</th>
+                    <th scope="col" className="text-right">Osob</th>
+                    <th scope="col">Průvodce</th>
+                    <th scope="col" className="text-right">Tržba</th>
+                    <th scope="col">Poznámka</th>
+                    <th scope="col" className="w-10"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {activeEntries.map((e) => (
                     <tr key={e.id} className="hover:bg-neutral-50/80 transition-colors">
-                      <td className="font-bold text-[11px] text-neutral-900 whitespace-nowrap">
+                      <td className="font-bold text-udaj text-neutral-900 whitespace-nowrap">
                         <span className="flex items-center gap-1">
                           <Calendar size={14} className="text-amber-600" />
                           {new Date(e.tour_date).toLocaleDateString('cs-CZ')}
                           <span className="font-mono text-neutral-500 ml-1">({e.tour_time})</span>
                         </span>
                       </td>
-                      <td className="text-right font-mono font-black text-[11px] text-neutral-950">
+                      <td className="text-right font-mono font-black text-udaj text-neutral-950">
                         {e.people_count} osob
                       </td>
-                      <td className="font-extrabold text-[11px] text-neutral-900">
+                      <td className="font-extrabold text-udaj text-neutral-900">
                         <span className="flex items-center gap-1">
                           <UserCheck size={14} className="text-amber-600" /> {e.guide_name}
                         </span>
                       </td>
-                      <td className="text-right font-mono font-black text-[11px] text-emerald-800">
+                      <td className="text-right font-mono font-black text-udaj text-emerald-800">
                         {e.revenue ? `${e.revenue.toLocaleString('cs-CZ')} Kč` : '—'}
                       </td>
-                      <td className="text-[11px] text-neutral-600 font-medium">{e.note || '—'}</td>
+                      <td className="text-udaj text-neutral-600 font-medium">{e.note || '—'}</td>
                       <td className="text-right">
-                        <button onClick={() => handleDelete(e.id)} className="p-1.5 rounded hover:bg-rose-100 text-rose-600 transition" title="Smazat">
-                          <Trash2 size={15} />
+                        <button onClick={() => handleDelete(e.id)} className="p-1.5 rounded hover:bg-rose-100 text-rose-600 transition tap" title="Smazat" aria-label="Smazat">
+                          <Trash2 size={16} />
                         </button>
                       </td>
                     </tr>
@@ -481,7 +481,7 @@ export default function ExkurzeScreen() {
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded bg-amber-500 text-neutral-950 flex items-center justify-center font-black shadow-xs">
-                        <User size={20} />
+                        <User size={18} />
                       </div>
                       <div>
                         <div className="font-display font-black text-base text-neutral-950">
@@ -498,9 +498,9 @@ export default function ExkurzeScreen() {
                         <div className="font-mono font-black text-lg text-emerald-800">
                           {gs.revenueTotal.toLocaleString('cs-CZ')} Kč
                         </div>
-                        <div className="text-[11px] text-neutral-400 font-bold uppercase">Celková tržba</div>
+                        <div className="text-udaj text-neutral-400 font-bold uppercase">Celková tržba</div>
                       </div>
-                      {isExpanded ? <ChevronUp size={20} className="text-amber-700" /> : <ChevronDown size={20} className="text-neutral-400" />}
+                      {isExpanded ? <ChevronUp size={18} className="text-amber-700" /> : <ChevronDown size={18} className="text-neutral-400" />}
                     </div>
                   </button>
 
@@ -514,11 +514,11 @@ export default function ExkurzeScreen() {
                         <table className="table text-xs">
                           <thead>
                             <tr>
-                              <th>Datum & Čas</th>
-                              <th className="text-right">Počet navštívených lidí</th>
-                              <th className="text-right">Tržba (Kč)</th>
-                              <th>Poznámka / Skupina</th>
-                              <th>Stav</th>
+                              <th scope="col">Datum & Čas</th>
+                              <th scope="col" className="text-right">Počet navštívených lidí</th>
+                              <th scope="col" className="text-right">Tržba (Kč)</th>
+                              <th scope="col">Poznámka / Skupina</th>
+                              <th scope="col">Stav</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -535,7 +535,7 @@ export default function ExkurzeScreen() {
                                 </td>
                                 <td className="text-neutral-600 font-medium">{it.note || '—'}</td>
                                 <td>
-                                  <span className={`px-2 py-0.5 rounded text-[11px] font-black border ${
+                                  <span className={`px-2 py-0.5 rounded text-udaj font-black border ${
                                     it.archived_month
                                       ? 'bg-neutral-100 text-neutral-600 border-neutral-200'
                                       : 'bg-emerald-100 text-emerald-950 border-emerald-300'
@@ -561,7 +561,7 @@ export default function ExkurzeScreen() {
       <div className="space-y-4">
         <div className="flex items-center justify-between border-b border-neutral-200 pb-2">
           <h2 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
-            <BarChart3 className="text-amber-600" size={20} />
+            <BarChart3 className="text-amber-600" size={18} />
             <span>Měsíční statistika exkurzí a archivní přehledy</span>
           </h2>
         </div>
@@ -569,17 +569,17 @@ export default function ExkurzeScreen() {
         {/* 4 Karty souhrnů */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="card p-5 bg-white border border-neutral-200 rounded shadow-xs space-y-1">
-            <span className="text-[11px] font-black uppercase text-neutral-500 tracking-wider">Celkem exkurzí</span>
+            <span className="text-udaj font-black uppercase text-neutral-500 tracking-wider">Celkem exkurzí</span>
             <div className="font-display font-black text-3xl text-neutral-950">{totalTours} exkurzí</div>
           </div>
 
           <div className="card p-5 bg-white border border-neutral-200 rounded shadow-xs space-y-1">
-            <span className="text-[11px] font-black uppercase text-neutral-500 tracking-wider">Celkem návštěvníků</span>
+            <span className="text-udaj font-black uppercase text-neutral-500 tracking-wider">Celkem návštěvníků</span>
             <div className="font-display font-black text-3xl text-amber-600">{totalPeople.toLocaleString('cs-CZ')} lidí</div>
           </div>
 
           <div className="card p-5 bg-white border border-neutral-200 rounded shadow-xs space-y-1">
-            <span className="text-[11px] font-black uppercase text-neutral-500 tracking-wider">Celková tržba</span>
+            <span className="text-udaj font-black uppercase text-neutral-500 tracking-wider">Celková tržba</span>
             <div className="font-display font-black text-3xl text-emerald-700">{totalRevenue.toLocaleString('cs-CZ')} Kč</div>
           </div>
         </div>
@@ -595,11 +595,11 @@ export default function ExkurzeScreen() {
               <table className="table">
                 <thead>
                   <tr>
-                    <th>Měsíc</th>
-                    <th className="text-right">Počet exkurzí</th>
-                    <th className="text-right">Celkem lidí</th>
-                    <th>Průvodci</th>
-                    <th className="text-right">Tržba (Kč)</th>
+                    <th scope="col">Měsíc</th>
+                    <th scope="col" className="text-right">Počet exkurzí</th>
+                    <th scope="col" className="text-right">Celkem lidí</th>
+                    <th scope="col">Průvodci</th>
+                    <th scope="col" className="text-right">Tržba (Kč)</th>
                   </tr>
                 </thead>
                 <tbody>

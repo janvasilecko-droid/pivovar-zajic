@@ -5,7 +5,7 @@ import { ImageEditor } from './ImageEditor';
 import type { Beer, Package } from '../lib/supabase';
 import { authenticatedFunctionHeaders } from '../lib/functionAuth';
 import { typObrazku } from '../lib/obrazek';
-import { AlertCircle, Camera, Check, ChevronLeft, ChevronRight, FilePlus, Lightbulb, Plus, RotateCcw, Sparkles, Trash2, Upload } from 'lucide-react';
+import { AlertCircle, Camera, ChevronLeft, ChevronRight, Lightbulb, Plus, RotateCcw, Trash2, Upload } from 'lucide-react';
 
 type RowInput = { beerId: string; pkgId: string; pkg2Id: string; pkg3Id: string; kegPkgId: string; kegQty: string; qty: string; qty2: string; qty3: string; _removed?: boolean; _manual?: boolean };
 type PhotoEntry = { dataUrl: string; name: string };
@@ -37,7 +37,6 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
     }, 50);
     return () => clearTimeout(timer);
   }, []);
-
 
   const [editingImage, setEditingImage] = useState<string | null>(null);
   // Fotky, které už prošly (nebo vědomě neprošly) editorem — ať se ořez
@@ -98,7 +97,7 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
   const loadMultipleFiles = (files: File[]) => {
     if (!files.length) return;
     setBusy(true);
-    let loaded: PhotoEntry[] = [];
+    const loaded: PhotoEntry[] = [];
     let count = 0;
     files.forEach((f, idx) => {
       const reader = new FileReader();
@@ -434,7 +433,7 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
                 <span>Oříznout / Otočit fotku před čtením</span>
               </label>
             </div>
-            <span className="text-[11px] text-neutral-500">
+            <span className="text-udaj text-neutral-500">
               <Lightbulb className="ikona-text" /> Obrázek/snímek obrazovky můžeš také přímo vložit zkopírováním a stisknutím <strong>Ctrl+V</strong> (Vložit).
             </span>
           </div>
@@ -515,7 +514,7 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
                       }`}
                     >
                       <div className="flex items-center justify-between gap-2 mb-2 pb-1 border-b border-neutral-100">
-                        <span className="text-[11px] font-black uppercase text-neutral-500">Řádek #{i + 1}</span>
+                        <span className="text-udaj font-black uppercase text-neutral-500">Řádek #{i + 1}</span>
                         {r._removed ? (
                           <button
                             type="button"
@@ -540,7 +539,7 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
                           {/* Beer selector */}
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                             <div>
-                              <label className="text-[11px] font-black uppercase text-neutral-500">Pivo</label>
+                              <label className="text-udaj font-black uppercase text-neutral-500">Pivo</label>
                               <select
                                 className="input text-sm sm:text-xs font-bold w-full bg-white border border-neutral-200"
                                 value={r.beerId}
@@ -555,7 +554,7 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
                             {/* KEG barrel - empty if not parsed */}
                             <div className="grid grid-cols-2 gap-1.5">
                               <div>
-                                <label className="text-[11px] font-black uppercase text-amber-800">Zdrojový KEG</label>
+                                <label className="text-udaj font-black uppercase text-amber-800">Zdrojový KEG</label>
                                 <select
                                   className="input text-sm sm:text-xs font-bold w-full bg-white border border-amber-200"
                                   value={r.kegPkgId}
@@ -568,7 +567,7 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
                                 </select>
                               </div>
                               <div>
-                                <label className="text-[11px] font-black uppercase text-amber-800">Počet KEGů</label>
+                                <label className="text-udaj font-black uppercase text-amber-800">Počet KEGů</label>
                                 <input
                                   type="text"
                                   inputMode="numeric"
@@ -585,9 +584,9 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
                           <div className="grid grid-cols-3 gap-1.5 pt-1.5 border-t border-dashed border-neutral-100">
                             {/* Bottle 1 */}
                             <div className="space-y-1">
-                              <label className="text-[11px] font-black uppercase text-neutral-500">1. Lahve</label>
+                              <label className="text-udaj font-black uppercase text-neutral-500">1. Lahve</label>
                               <select
-                                className="input text-sm sm:text-[11px] font-bold w-full p-1.5 bg-neutral-50"
+                                className="input text-sm sm:text-udaj font-bold w-full p-1.5 bg-neutral-50"
                                 value={r.pkgId}
                                 onChange={(e) => updateLine(i, { pkgId: e.target.value })}
                               >
@@ -606,9 +605,9 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
                             </div>
                             {/* Bottle 2 */}
                             <div className="space-y-1">
-                              <label className="text-[11px] font-black uppercase text-neutral-500">2. Lahve</label>
+                              <label className="text-udaj font-black uppercase text-neutral-500">2. Lahve</label>
                               <select
-                                className="input text-sm sm:text-[11px] font-bold w-full p-1.5 bg-neutral-50"
+                                className="input text-sm sm:text-udaj font-bold w-full p-1.5 bg-neutral-50"
                                 value={r.pkg2Id}
                                 onChange={(e) => updateLine(i, { pkg2Id: e.target.value })}
                               >
@@ -628,9 +627,9 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
                             </div>
                             {/* Bottle 3 */}
                             <div className="space-y-1">
-                              <label className="text-[11px] font-black uppercase text-neutral-500">3. Lahve</label>
+                              <label className="text-udaj font-black uppercase text-neutral-500">3. Lahve</label>
                               <select
-                                className="input text-sm sm:text-[11px] font-bold w-full p-1.5 bg-neutral-50"
+                                className="input text-sm sm:text-udaj font-bold w-full p-1.5 bg-neutral-50"
                                 value={r.pkg3Id}
                                 onChange={(e) => updateLine(i, { pkg3Id: e.target.value })}
                               >

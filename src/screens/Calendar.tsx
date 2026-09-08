@@ -21,6 +21,7 @@ import { chyba, toastZpet, uspech } from '../lib/toast';
 import { zavibruj } from '../lib/haptika';
 import { businessDateISO } from '../lib/businessDate';
 import { IkonaLahev } from '../components/ikony';
+import { useChovaniDialogu } from '../lib/zavriNaZpet';
 
 const BARVY: Record<string, { tecka: string; pruh: string; popis: string }> = {
   primary: { tecka: 'bg-primary-500', pruh: 'bg-primary-500', popis: 'Modrá' },
@@ -60,6 +61,8 @@ export default function CalendarScreen() {
   const [pohled, setPohled] = useState<'seznam' | 'mesic'>('seznam');
   const [cursor, setCursor] = useState(() => { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() }; });
   const [vybranyDen, setVybranyDen] = useState<string | null>(null);
+  // Zpět zavře detail dne místo odchodu z kalendáře.
+  useChovaniDialogu(!!vybranyDen, () => setVybranyDen(null));
   const [ukladam, setUkladam] = useState(false);
 
   const dnes = businessDateISO();
@@ -182,7 +185,9 @@ export default function CalendarScreen() {
     return out;
   }, [cursor]);
 
-  if (loading) return <Kostra />;
+  // Kostra místo kolečka: obsah se neodmountuje do prázdna, takže se
+  // stránka po načtení neposkočí. Viz Kostra v components/ui.tsx.
+  if (loading) return <Kostra radku={5} />;
 
   const denniKarta = (datum: string) => {
     const udalosti = udalostiKDatu.get(datum) ?? [];
@@ -227,7 +232,7 @@ export default function CalendarScreen() {
                 <div className="font-bold text-sm text-neutral-900 flex items-center gap-1.5 flex-wrap">
                   {e.title}
                   {e.reminder && (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-black text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-1.5 py-0.5">
+                    <span className="inline-flex items-center gap-1 text-udaj font-black text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-1.5 py-0.5">
                       <Bell className="w-3 h-3" /> {e.reminder_time?.slice(0, 5)}
                     </span>
                   )}
@@ -319,7 +324,7 @@ export default function CalendarScreen() {
         <div className="card p-2.5 sm:p-4">
           <div className="grid grid-cols-7 gap-1 mb-1">
             {DNY_ZKRATKY.map((d) => (
-              <div key={d} className="text-center text-[11px] font-black text-neutral-400 py-1">{d}</div>
+              <div key={d} className="text-center text-udaj font-black text-neutral-400 py-1">{d}</div>
             ))}
           </div>
           <div className="grid grid-cols-7 gap-1">
@@ -359,7 +364,7 @@ export default function CalendarScreen() {
       {/* Detail dne — spodní list, stejně jako potvrzovací dialog v celé appce. */}
       {vybranyDen && (
         <div
-          className="fixed inset-0 z-[110] flex items-end sm:items-center justify-center bg-neutral-900/50 backdrop-blur-[2px]"
+          className="fixed inset-0 z-potvrzeni flex items-end sm:items-center justify-center bg-neutral-900/50 backdrop-blur-[2px]"
           onClick={() => setVybranyDen(null)}
         >
           <div

@@ -1,18 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Radio, Play, Pause, SkipForward, SkipBack, Volume2, VolumeX, Sparkles, Music2, X } from 'lucide-react';
-import {
-  RADIO_STATIONS,
-  getRadioState,
-  playRadio,
-  pauseRadio,
-  toggleRadio,
-  setRadioStation,
-  setRadioVolume,
-  nextStation,
-  prevStation,
-  RADIO_STATE_EVENT,
-  type RadioState,
-} from '../lib/breweryRadio';
+import { Play, Pause, SkipForward, SkipBack, Volume2, VolumeX, Sparkles } from 'lucide-react';
+import { RADIO_STATIONS, getRadioState, toggleRadio, setRadioStation, setRadioVolume, nextStation, prevStation, RADIO_STATE_EVENT, type RadioState } from '../lib/breweryRadio';
 import { Modal } from './ui';
 
 interface BreweryRadioModalProps {
@@ -126,7 +114,7 @@ export function BreweryRadioModal({ open, onClose }: BreweryRadioModalProps) {
               onChange={(e) => setRadioVolume(Number(e.target.value))}
               className="flex-1 accent-amber-400 h-1.5 bg-white/25 rounded-lg cursor-pointer"
             />
-            <span className="text-[11px] font-bold w-8 text-right text-white/80">
+            <span className="text-udaj font-bold w-8 text-right text-white/80">
               {Math.round(state.volume * 100)} %
             </span>
           </div>
@@ -167,18 +155,18 @@ export function BreweryRadioModal({ open, onClose }: BreweryRadioModalProps) {
                       <div className="font-extrabold text-sm text-neutral-900 truncate">
                         {station.name}
                       </div>
-                      <div className="text-[11px] font-semibold text-neutral-500 truncate">
+                      <div className="text-udaj font-semibold text-neutral-500 truncate">
                         {station.genre}
                       </div>
                     </div>
                   </div>
                   <div className="shrink-0 pl-2">
                     {isPlayingThis ? (
-                      <span className="px-2 py-0.5 rounded-full text-[11px] font-black bg-amber-500 text-neutral-950 uppercase tracking-wider animate-pulse">
+                      <span className="px-2 py-0.5 rounded-full text-udaj font-black bg-amber-500 text-neutral-950 uppercase tracking-wider animate-pulse">
                         Hraje
                       </span>
                     ) : isSelected ? (
-                      <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-neutral-200 text-neutral-700">
+                      <span className="px-2 py-0.5 rounded-full text-udaj font-bold bg-neutral-200 text-neutral-700">
                         Zvoleno
                       </span>
                     ) : null}

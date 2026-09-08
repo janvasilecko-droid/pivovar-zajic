@@ -3,7 +3,7 @@ import { CellarTank, Beer, CellarTankCycle, useRealtime } from '../lib/supabase'
 import { KLIC_VARKY, nactiVarky, prenesZProhlizece, smazVarku, ulozVarku } from '../lib/varkyData';
 import { rozdilProUlozeni } from '../lib/vycepyData';
 import { chyba as chybaOznam } from '../lib/toast';
-import { AlertTriangle, BarChart3, Calendar, Circle, Clock, Check, CheckCircle2, Plus, ShieldAlert, Sparkles, X } from 'lucide-react';
+import { AlertTriangle, BarChart3, Calendar, Circle, Clock, Check, Plus, ShieldAlert, X, CheckCircle2, Sparkles } from 'lucide-react';
 import { uloz } from '../lib/uloziste';
 
 export type PlannedBatch = {
@@ -258,7 +258,7 @@ export function TankOccupancyPlanner({
                   <div className="flex items-center gap-2">
                     <span className="font-display font-black text-sm text-neutral-900">{t.label}</span>
                     <span className="text-xs font-bold text-neutral-500">({(t.capacity_l / 100).toFixed(0)} hl)</span>
-                    {isSpilka && <span className="px-2 py-0.5 rounded bg-sky-100 text-sky-950 text-[11px] font-black">Spilka CCT</span>}
+                    {isSpilka && <span className="px-2 py-0.5 rounded bg-sky-100 text-sky-950 text-udaj font-black">Spilka CCT</span>}
                   </div>
 
                   <div className="flex items-center gap-2">
@@ -302,14 +302,14 @@ export function TankOccupancyPlanner({
                 {/* Scheduled future batches on this tank */}
                 {plannedForThisTank.length > 0 && (
                   <div className="mt-3 pt-2 border-t border-neutral-200/80 space-y-1">
-                    <span className="text-[11px] font-black uppercase text-amber-900 tracking-wider">Naplánované budoucí várky:</span>
+                    <span className="text-udaj font-black uppercase text-amber-900 tracking-wider">Naplánované budoucí várky:</span>
                     {plannedForThisTank.map((pb) => {
                       const isConflicting = conflictingBatchIds.has(pb.id);
                       return (
                         <div key={pb.id} className={`flex items-center justify-between p-2 rounded bg-white border text-xs font-mono ${isConflicting ? 'border-rose-400 ring-1 ring-rose-300' : 'border-amber-300'}`}>
                           <div>
                             {isConflicting && (
-                              <div className="flex items-center gap-1 text-rose-700 font-black text-[11px] mb-0.5">
+                              <div className="flex items-center gap-1 text-rose-700 font-black text-udaj mb-0.5">
                                 <ShieldAlert size={12} /> Kolize obsazenosti tanku
                               </div>
                             )}
@@ -340,7 +340,7 @@ export function TankOccupancyPlanner({
               <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
                 <span><Plus className="ikona-text" /> Naplánovat novou várku na tank</span>
               </h3>
-              <button onClick={() => setShowAddModal(false)} className="text-neutral-400 hover:text-neutral-600 font-bold text-lg" title="Zavřít"><X size={18} /></button>
+              <button onClick={() => setShowAddModal(false)} className="text-neutral-400 hover:text-neutral-600 font-bold text-lg" title="Zavřít" aria-label="Zavřít"><X size={18} /></button>
             </div>
 
             <form onSubmit={handleAddPlannedBatch} className="space-y-3">

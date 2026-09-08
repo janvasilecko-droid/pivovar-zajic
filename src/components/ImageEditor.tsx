@@ -156,11 +156,11 @@ export function ImageEditor({ src, onConfirm, onCancel }: Props) {
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="label text-[11px]">Jas: {brightness}%</label>
+          <label className="label text-udaj">Jas: {brightness}%</label>
           <input type="range" min={50} max={150} value={brightness} onChange={(e) => setBrightness(Number(e.target.value))} className="w-full" />
         </div>
         <div>
-          <label className="label text-[11px]">Kontrast: {contrast}%</label>
+          <label className="label text-udaj">Kontrast: {contrast}%</label>
           <input type="range" min={50} max={150} value={contrast} onChange={(e) => setContrast(Number(e.target.value))} className="w-full" />
         </div>
       </div>

@@ -1,40 +1,36 @@
 
 
-import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import { useEffect, useMemo, useState, useCallback, useRef, lazy, Suspense } from 'react';
 
-import { AlertTriangle, ArrowRight, Ban, ChevronLeft, ChevronRight, Beer as BeerIcon, Bell, Bot, Building2, Calculator, Calendar, CalendarDays, Camera, Check, CheckCircle2, CheckSquare, ClipboardList, Clock, Copy, Droplet, FilePlus, Globe, Hourglass, ListOrdered, Mail, MessageCircle, NotebookPen, Package as PackageIcon, PackageCheck, Pencil, Phone, Plus, Receipt, RotateCcw, Scroll, Search, ShieldAlert, Trash2, Truck, User, X, Zap } from 'lucide-react';
-import { Beer, EntryRow, Package, Place, beerBg, beerName, beerText, fetchAllRows, formatPackageLabel, pkgBg, supabase, useRealtime } from '../lib/supabase';
-import { Modal, Field, EmptyState, Spinner } from '../components/ui';
+import { AlertTriangle, ArrowRight, Ban, ChevronLeft, ChevronRight, Beer as BeerIcon, Bell, Bot, Building2, Calculator, Calendar, CalendarDays, Camera, Check, CheckCircle2, CheckSquare, ClipboardList, Clock, Copy, FilePlus, Globe, Hourglass, Mail, MessageCircle, NotebookPen, Package as PackageIcon, PackageCheck, Pencil, Phone, Plus, Receipt, RotateCcw, Scroll, Search, ShieldAlert, Trash2, Truck, User, X, Zap, Droplet, ListOrdered } from 'lucide-react';
+import { Beer, EntryRow, Package, Place, beerBg, beerInk, beerName, fetchAllRows, formatPackageLabel, pkgBg, supabase, useRealtime, beerText } from '../lib/supabase';
+import { Field, EmptyState, Spinner, Modal } from '../components/ui';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 import { schodkyObjednavky, zbytekKeKonciTydne } from '../lib/tydenniZbytek';
 import type { StockSources } from '../lib/stockLedger';
 import { consumeOrdersItemFilter, consumeOrdersAutoImportRequest, consumeOrdersOverdueFilter, consumeOrdersPendingFilter, consumeOrdersHledani, ORDERS_AUTO_IMPORT_EVENT, ORDERS_HLEDANI_EVENT } from '../lib/ordersFilter';
-import { businessDateISO } from '../lib/businessDate';
+import { businessDateISO, posunMesic } from '../lib/businessDate';
 import { computeVariantTotals, type VariantTotalsResult } from '../lib/variantTotals';
-import { ImportFromImage } from '../components/ImportFromImage';
-import { WhatsAppOrderReviewModal } from '../components/WhatsAppOrderReviewModal';
-import { WhatsAppAutoProcessorModal } from '../components/WhatsAppAutoProcessorModal';
-import { WhatsAppAuditModal } from '../components/WhatsAppAuditModal';
-import { OrderAuditModal } from '../components/OrderAuditModal';
-import { EditOrderModal } from '../components/EditOrderModal';
+
 import { PlaceCombobox } from '../components/PlaceCombobox'; // Assuming this is needed
 import { DAYS } from '../lib/shared';
 import { vseHotovo } from '../lib/polozkyObjednavky';
 import { VoiceRecorder } from '../components/VoiceRecorder';
-import { QuickQtySelect, orderQuickQtys } from '../components/QuickQtySelect';
+import { orderQuickQtys } from '../components/QuickQtySelect';
 import { BeerTileGrid, BeerTilePanel } from '../components/BeerTileGrid';
 import { topQuantitiesLastMonth } from '../lib/quickQty';
 import { parseVoiceOrder, parseOrderText, detectOrderNotes, loadAliasMap, loadPlaceAliasMap, emptyAliasMap, getOrCreatePlace, matchBeerFromHints, matchPackage, normalize, type ParserAliasMap } from '../lib/orderParser';
 import { slozNavrh } from '../lib/whatsappAmendment';
 
 import { shareOrderToWhatsApp } from '../lib/whatsapp';
-import { subscribeToWhatsAppMessages, fetchPendingWhatsAppMessages, fetchWhatsAppMessage, WhatsAppIncoming, fetchWhatsAppSenders, isSenderAllowed, triggerAutoParse, type WhatsAppSender } from '../lib/whatsappApi';
+import { subscribeToWhatsAppMessages, fetchPendingWhatsAppMessages, fetchWhatsAppMessage, ignoreWhatsAppMessage, WhatsAppIncoming, fetchWhatsAppSenders, isSenderAllowed, triggerAutoParse, type WhatsAppSender } from '../lib/whatsappApi';
 import { autoReserveTapIfNeeded, isTapMentioned, detectTapType } from '../lib/tapReservations';
 import { findDuplicateOrders, formatDuplicateMessage } from '../lib/orderDuplicates';
+import { datumProDenVTydnu } from '../lib/keggingPlan';
 import { TapReservationModal } from '../components/TapReservationModal';
 import { createReminder, getLocalReminders } from '../lib/reminders';
-import { flattenAkceNet, type AkceRow } from '../lib/inventoryHelper';
-import { chyba, oznam, potvrd, toastZpet } from '../lib/toast';
+import { type AkceRow } from '../lib/inventoryHelper';
+import { chyba, oznam, potvrd, toastZpet, volba } from '../lib/toast';
 import { srovnaniPoUprave, type UpravaPolozky } from '../lib/zavozSync';
 import { IkonaVycep } from '../components/ikony';
 import { poctyPolozek } from '../lib/objednavkyStatistika';
@@ -44,6 +40,30 @@ import { PodpisModal } from '../components/PodpisModal';
 import { FotkyZaznamu } from '../components/FotkyZaznamu';
 import { uloz } from '../lib/uloziste';
 import { najdiZdvojene, popisZdvojeni } from '../lib/zdvojenePolozky';
+import { StitekStavu } from '../components/StitekStavu';
+import { STAVY_OBJEDNAVKY } from '../lib/stavyObjednavek';
+import { zalogujANahlas } from '../lib/chybyHlaseni';
+
+/**
+ * 🐢 Těžké modály se stahují AŽ při otevření.
+ *
+ * Kus Objednávek měl 273 kB (75 kB gzip) a bylo v něm zapečené i to, co
+ * většina lidí za den neotevře: čtení objednávky z fotky (1 324 řádků),
+ * kontrola objednávky z WhatsAppu (1 328), audit objednávek (1 274),
+ * automatické zpracování zpráv (645) a deník příjmu (237). Všechny se
+ * vykreslují podmíněně (`{showImport && …}`), takže z nich `lazy()` udělá
+ * samostatné kusy, které se stáhnou, až když na tlačítko někdo klikne.
+ *
+ * Fallback je `null`: modál se otevírá na klik, takže se ukáže o zlomek
+ * vteřiny později — kolečko uprostřed obrazovky by na tu chvíli jen
+ * bliklo. Vlastní obsah modálu si načítání řeší sám.
+ */
+const ImportFromImage = lazy(() => import('../components/ImportFromImage').then((m) => ({ default: m.ImportFromImage })));
+const WhatsAppOrderReviewModal = lazy(() => import('../components/WhatsAppOrderReviewModal').then((m) => ({ default: m.WhatsAppOrderReviewModal })));
+const WhatsAppAutoProcessorModal = lazy(() => import('../components/WhatsAppAutoProcessorModal').then((m) => ({ default: m.WhatsAppAutoProcessorModal })));
+const WhatsAppAuditModal = lazy(() => import('../components/WhatsAppAuditModal').then((m) => ({ default: m.WhatsAppAuditModal })));
+const OrderAuditModal = lazy(() => import('../components/OrderAuditModal').then((m) => ({ default: m.OrderAuditModal })));
+const EditOrderModal = lazy(() => import('../components/EditOrderModal').then((m) => ({ default: m.EditOrderModal })));
 
 type Order = {
   id: string; order_date: string; place_id: string | null; place_name: string | null;
@@ -66,22 +86,6 @@ type OrderItem = {
 // ho automaticky Rozvoz objednávek při odbavení) — bez vlastního popisku se
 // zobrazoval syrový název stavu, který svou délkou navíc na užší obrazovce
 // vytlačoval jméno odběratele mimo viditelnou část řádku.
-const STATUS: Record<string, { label: string; cls: string }> = {
-  nova: { label: 'Nová', cls: 'bg-primary-50 text-primary-700' },
-  pripravena: { label: 'Připravená', cls: 'bg-amber-50 text-amber-700' },
-  expedovana: { label: 'Expedovaná', cls: 'bg-emerald-50 text-emerald-700' },
-  vyrizeno_zavoz: { label: 'Zavezeno', cls: 'bg-emerald-50 text-emerald-700' },
-  vyrizeno: { label: 'Vyřízeno', cls: 'bg-emerald-50 text-emerald-700' },
-  vyrizena: { label: 'Vyřízeno', cls: 'bg-emerald-50 text-emerald-700' },
-  hotova: { label: 'Vyřízeno', cls: 'bg-emerald-50 text-emerald-700' },
-  storno: { label: 'Storno', cls: 'bg-rose-50 text-rose-700' },
-};
-
-// Per-day color coding for deliveries. Each day has a distinct hue so you can see
-// at a glance which orders go out together and that none was forgotten.
-// `border` se musí psát celé, ne skládat z `bar` řetězcovou náhradou — Tailwind
-// čte zdrojáky jako text a třídu, která v nich nikde celá nestojí, negeneruje.
-// Rámeček detailu objednávky proto vycházel v šedé místo v barvě dne.
 const DAY_COLORS: Record<string, { bg: string; bar: string; border: string; chip: string; text: string; dot: string }> = {
   po: { bg: 'bg-sky-50/70', bar: 'bg-sky-700', border: 'border-sky-600/40', chip: 'bg-sky-700 text-white font-black shadow-2xs', text: 'text-sky-950 font-bold', dot: 'bg-sky-700' },
   ut: { bg: 'bg-emerald-50/70', bar: 'bg-emerald-700', border: 'border-emerald-600/40', chip: 'bg-emerald-700 text-white font-black shadow-2xs', text: 'text-emerald-950 font-bold', dot: 'bg-emerald-700' },
@@ -92,12 +96,6 @@ const DAY_COLORS: Record<string, { bg: string; bar: string; border: string; chip
   ne: { bg: 'bg-neutral-100', bar: 'bg-neutral-600', border: 'border-neutral-600/40', chip: 'bg-neutral-700 text-white font-black shadow-2xs', text: 'text-neutral-800 font-bold', dot: 'bg-neutral-600' },
 };
 function dayColor(d: string | null | undefined) { return d ? DAY_COLORS[d] : null; }
-// Posun měsíce o delta měsíců (YYYY-MM) — pro šipky ‹ › v přehledu objednávek
-function shiftMonth(month: string, delta: number): string {
-  const [y, m] = month.split('-').map(Number);
-  const d = new Date(Date.UTC(y, (m - 1) + delta, 1));
-  return d.toISOString().slice(0, 7);
-}
 // Pořadí obalů v plnoobrazovkovém panelu zadávání (dle požadavku):
 // 50l keg → 30l → 1,5l keg → 1l keg → 20l → 15l → 10l → 0,5l → 0,33l
 const PKG_PANEL_ORDER = [50, 30, 1.5, 1, 20, 15, 10, 0.5, 0.33];
@@ -367,7 +365,7 @@ export default function Orders({
           // Automaticky spustíme parsování, pokud je zpráva v pending stavu
           if (message.status === 'pending') {
             void triggerAutoParse().catch((err) => {
-              console.error('Chyba při automatickém parsování:', err);
+              zalogujANahlas('Chyba při automatickém parsování', err);
             });
           }
 
@@ -378,7 +376,7 @@ export default function Orders({
         }
       });
     } catch (error) {
-      console.error('Chyba při připojení k WhatsApp zprávám:', error);
+      zalogujANahlas('Chyba při připojení k WhatsApp zprávám', error);
     }
     
     return () => {
@@ -418,11 +416,11 @@ export default function Orders({
           try {
             await triggerAutoParse();
           } catch (err) {
-            console.error('Chyba při automatickém parsování (dočtení):', err);
+            zalogujANahlas('Chyba při automatickém parsování (dočtení)', err);
           }
         }
       } catch (error) {
-        console.error('Chyba při dočítání čekajících WhatsApp zpráv:', error);
+        zalogujANahlas('Chyba při dočítání čekajících WhatsApp zpráv', error);
       }
     })();
     return () => { cancelled = true; };
@@ -653,8 +651,28 @@ export default function Orders({
           packageLabel: it.package_label || null,
         })),
       });
-      if (dup && !(await potvrd(formatDuplicateMessage(dup) + '\n\nPokračovat? (Ano = přesto vytvořit objednávku)'))) {
-        throw new Error('Objednávka je duplicitní — nebyla vytvořena.');
+      // Na „tohle už objednané je" byly dosud jen dvě odpovědi: přesto
+      // vytvořit, nebo zrušit. Zrušení ale zprávu nechalo viset mezi
+      // nevyřízenými a ignorovat se musela zvlášť — takže nejčastější
+      // odpověď byla ta nejpracnější. Teď je ignorování rovnou v hlášce.
+      if (dup) {
+        const co = await volba(
+          formatDuplicateMessage(dup),
+          [
+            { klic: 'ignorovat', label: 'Ignorovat zprávu', ton: 'nebezpecne' },
+            { klic: 'presto', label: 'Přesto vytvořit', ton: 'hlavni' },
+          ],
+          { titulek: 'Tahle objednávka už nejspíš existuje', zrusit: 'Zpět' }
+        );
+        if (co === 'ignorovat') {
+          await ignoreWhatsAppMessage(message.id);
+          oznam('Zpráva označená jako vyřízená — duplicitní objednávka se nezaložila.');
+          load();
+          return;
+        }
+        if (co !== 'presto') {
+          throw new Error('Objednávka je duplicitní — nebyla vytvořena.');
+        }
       }
 
       const { data: newOrder, error } = await supabase
@@ -739,7 +757,7 @@ export default function Orders({
       load();
 
     } catch (error) {
-      console.error('Chyba při schvalování WhatsApp objednávky:', error);
+      zalogujANahlas('Chyba při schvalování WhatsApp objednávky', error);
       throw error;
     }
   }, [beers, packages, aliasMap, load]);
@@ -755,7 +773,7 @@ export default function Orders({
         })
         .eq('id', message.id);
     } catch (error) {
-      console.error('Chyba při zamítnutí WhatsApp objednávky:', error);
+      zalogujANahlas('Chyba při zamítnutí WhatsApp objednávky', error);
       throw error;
     }
   }, []);
@@ -771,14 +789,10 @@ export default function Orders({
         oznam('WhatsApp zpráva k této objednávce nebyla nalezena (byla smazána?).');
       }
     } catch (error) {
-      console.error('Chyba při otevírání WhatsApp zprávy:', error);
+      zalogujANahlas('Chyba při otevírání WhatsApp zprávy', error);
       chyba('Nepodařilo se načíst WhatsApp zprávu: ' + (error as Error).message);
     }
   }, []);
-
-
-
-
 
   // Po potvrzení/zamítnutí/ignorování objednávky přeskočíme na další čekající
   // zprávu — aby šlo kontrolovat zprávy jednu po druhé, bez ručního otvírání.
@@ -803,7 +817,7 @@ export default function Orders({
       // zamítnutá zpráva zmizela ze seznamu.
       setWhatsappListRefresh((k) => k + 1);
     } catch (error) {
-      console.error('Chyba při přesunu na další WhatsApp zprávu:', error);
+      zalogujANahlas('Chyba při přesunu na další WhatsApp zprávu', error);
       setAutoWhatsAppModal(false);
       setAutoWhatsAppMessage(null);
       setNewWhatsAppCount(0);
@@ -830,7 +844,6 @@ export default function Orders({
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoOpenShareImport]);
-
 
   async function load(silent = false) {
     if (!silent && !orders.length) setLoading(true);
@@ -908,7 +921,7 @@ export default function Orders({
     setStatusFilter('');
     setDeliveryDayFilter('all');
     window.scrollTo({ top: 0 });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   // 🔀 Řádek „Dnešek" → „X nevyřízených objednávek po termínu" dřív jen
@@ -926,7 +939,7 @@ export default function Orders({
     setItemFilterBeerId(null);
     setItemFilterPackageId(null);
     window.scrollTo({ top: 0 });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   // 🔀 Odznak s počtem na dlaždici „Objednávky" na Domů (nevyřízené tento
@@ -942,7 +955,7 @@ export default function Orders({
     setItemFilterBeerId(null);
     setItemFilterPackageId(null);
     window.scrollTo({ top: 0 });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   const [timeScope, setTimeScope] = useState<'week' | 'month' | 'all'>('week');
@@ -1027,7 +1040,6 @@ export default function Orders({
     if (!filled.length) { setErr('Vyplň alespoň jednu položku (pivo, obal, množství) nebo napiš objednávku textem výše.'); return; }
     if (deliveryInFutureMonth && !confirmNextMonth) { setErr('Potvrď zaškrtnutím výše, že závoz spadá do jiného měsíce, nebo uprav datum závozu.'); return; }
     setSaving(true);
-
 
     const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
 
@@ -1179,7 +1191,6 @@ export default function Orders({
         }
       }
 
-
       // 🚰 Výčep — zaškrtnuto „Půjčení výčepu" nebo zmínka v poznámce
       const trimmedNote = note.trim();
       const isVycepMentioned = isTapMentioned(trimmedNote);
@@ -1231,7 +1242,14 @@ export default function Orders({
   }
 
   async function updateDeliveryDay(o: Order, day: string) {
+    // ⚠️ S dnem se musí posunout i DATUM. `delivery_day` a `delivery_date`
+    // popisují tutéž věc a dřív se tady měnil jen den — takže si obě pole
+    // mohla odporovat. Plán stáčení se řídí dnem, ale filtr týdne, Závoz
+    // a přehledy datem: objednávka přehozená ze středy na úterý pak byla
+    // v plánu na úterý a v datu pořád na středě.
     const patch: Record<string, unknown> = { delivery_day: day || null };
+    const noveDatum = day ? datumProDenVTydnu(day, o.delivery_date || o.order_date) : null;
+    if (noveDatum) patch.delivery_date = noveDatum;
     await supabase.from('orders').update(patch).eq('id', o.id);
     setOrders((arr) => arr.map((x) => x.id === o.id ? { ...x, ...patch } as Order : x));
   }
@@ -1324,7 +1342,7 @@ export default function Orders({
   useEffect(() => {
     const text = consumeOrdersHledani();
     if (text) nastavHledani(text);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
   // Pro případ, že obrazovka UŽ je otevřená (hledání spuštěné z Objednávek) —
   // mount efekt výše se znovu nespustí.
@@ -1336,7 +1354,7 @@ export default function Orders({
     };
     window.addEventListener(ORDERS_HLEDANI_EVENT, naHledani);
     return () => window.removeEventListener(ORDERS_HLEDANI_EVENT, naHledani);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
   const [groupByDay, setGroupByDay] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -1501,7 +1519,6 @@ export default function Orders({
     setFlash(true); setTimeout(() => setFlash(false), 800);
     load();
   }
-
 
   /**
    * ↻ Zopakovat celý závozový den. Objednávky se týden po týdnu opakují
@@ -1786,7 +1803,7 @@ export default function Orders({
             >
               <MessageCircle size={14} /> WhatsApp
               {newWhatsAppCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 bg-rose-600 text-white text-[11px] font-black rounded-full w-4 h-4 flex items-center justify-center">
+                <span className="absolute -top-1.5 -right-1.5 bg-rose-600 text-white text-udaj font-black rounded-full w-4 h-4 flex items-center justify-center">
                   {newWhatsAppCount}
                 </span>
               )}
@@ -1799,8 +1816,6 @@ export default function Orders({
         </div>
       </div>
       )}
-
-
 
       {/* 1. ZADÁVÁNÍ OBJEDNÁVEK (jen v záložce Zadání objednávek) — bez bílé
           "karty" kolem, ať dlaždice piv i zbytek formuláře sedí přímo na
@@ -1858,7 +1873,7 @@ export default function Orders({
                           }
                           setBeerRows(newRows);
                         }}
-                        className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-[11px] shadow-2xs shrink-0 transition"
+                        className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-udaj shadow-2xs shrink-0 transition tap"
                       >
                         <Zap className="ikona-text" /> Zopakovat položky
                       </button>
@@ -1876,16 +1891,16 @@ export default function Orders({
             {/* Navigace týdnem — šipky, popisek týdne a dny závozu mají teď
                 stejnou výšku (h-10), ať řádek nepůsobí rozeskákaně. */}
             <div className="flex items-center gap-1.5">
-              <button type="button" onClick={() => shiftWeekAndKeepDay(-1)} className="w-10 h-10 shrink-0 grid place-items-center rounded bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 text-neutral-700 font-black transition" title="Předchozí týden">‹</button>
+              <button type="button" onClick={() => shiftWeekAndKeepDay(-1)} className="w-10 h-10 shrink-0 grid place-items-center rounded bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 text-neutral-700 font-black transition tap" title="Předchozí týden" aria-label="Předchozí týden">‹</button>
               <button
                 type="button"
                 onClick={resetToCurrentWeek}
-                className="flex-1 h-10 text-center text-xs font-black bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 rounded transition"
+                className="flex-1 h-10 text-center text-xs font-black bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 rounded transition tap"
                 title="Klikni pro návrat na aktuální týden"
               >
                 <Calendar className="ikona-text" /> Týden {weekRange(weekKey).label}
               </button>
-              <button type="button" onClick={() => shiftWeekAndKeepDay(1)} className="w-10 h-10 shrink-0 grid place-items-center rounded bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 text-neutral-700 font-black transition" title="Další týden">›</button>
+              <button type="button" onClick={() => shiftWeekAndKeepDay(1)} className="w-10 h-10 shrink-0 grid place-items-center rounded bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 text-neutral-700 font-black transition tap" title="Další týden" aria-label="Další týden">›</button>
             </div>
 
             {/* Den závozu — barevné (amber, stejně jako tlačítko týdne výš)
@@ -1897,7 +1912,7 @@ export default function Orders({
                   key={d.v}
                   type="button"
                   onClick={() => pickDeliveryDay(d.v)}
-                  className={`flex-1 min-w-0 h-10 px-1 rounded font-black text-xs transition ${
+                  className={`tap flex-1 min-w-0 h-10 px-1 rounded font-black text-xs transition ${
                     deliveryDay === d.v
                       ? 'bg-amber-500 text-neutral-950 shadow-md'
                       : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
@@ -1926,7 +1941,7 @@ export default function Orders({
               {/* Bylo `text-black dark:text-black` — černá vynucená i v tmavém
                   režimu, z doby, kdy pozadí karet zůstávalo světlé. Teď je
                   karta tmavá a popisek na ní byl černý na černém. */}
-              <span className="text-[11px] text-neutral-600 font-bold">upřesnění data dodání</span>
+              <span className="text-udaj text-neutral-600 font-bold">upřesnění data dodání</span>
             </div>
 
             {/* Výchozí den závozu je st/čt/pá, ale ke konci měsíce (např.
@@ -1991,7 +2006,7 @@ export default function Orders({
                           type="button"
                           onClick={() => setPkgAbsolute(expandedBeer.id, p.id, q)}
                           title="Rychlá volba množství"
-                          className={`h-9 min-w-[1.75rem] px-1.5 rounded text-[11px] font-black transition ${qty === q ? 'bg-emerald-700 text-white' : 'bg-neutral-100 hover:bg-emerald-200 text-neutral-600 hover:text-emerald-950'}`}
+                          className={`tap h-9 min-w-[1.75rem] px-1.5 rounded text-udaj font-black transition ${qty === q ? 'bg-emerald-700 text-white' : 'bg-neutral-100 hover:bg-emerald-200 text-neutral-600 hover:text-emerald-950'}`}
                         >
                           {q}
                         </button>
@@ -2012,7 +2027,7 @@ export default function Orders({
                       <button
                         type="button"
                         onClick={() => setPkgQty(expandedBeer.id, p.id, -1)}
-                        className="w-10 h-10 grid place-items-center rounded bg-amber-100 hover:bg-amber-200 text-amber-800 font-black text-xl transition disabled:opacity-30 select-none"
+                        className="btn-pocet disabled:opacity-30"
                         disabled={qty <= 0}
                       >−</button>
                       <input
@@ -2032,7 +2047,7 @@ export default function Orders({
                       <button
                         type="button"
                         onClick={() => setPkgQty(expandedBeer.id, p.id, 1)}
-                        className="w-10 h-10 grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xl transition select-none"
+                        className="btn-pocet"
                       >+</button>
                     </div>
                   </div>
@@ -2040,7 +2055,6 @@ export default function Orders({
               })}
             </BeerTilePanel>
           )}
-
 
           {/* 📋 Souhrn objednávky — pod dlaždicemi, editovatelný jako dlaždice */}
           {filledBeerRows.length > 0 && (
@@ -2064,7 +2078,7 @@ export default function Orders({
                         <span className="truncate">{formatPackageLabel(pkg?.label)} · {beerName(beer)}</span>
                       </button>
                       <div className="flex items-center gap-1 shrink-0">
-                        <button type="button" onClick={() => setPkgQty(r.beerId, r.pkgId, -1)} className="w-10 h-10 grid place-items-center rounded bg-amber-100 hover:bg-amber-200 text-amber-800 font-black text-xl transition disabled:opacity-30 select-none" disabled={Number(r.qty) <= 1}>−</button>
+                        <button type="button" onClick={() => setPkgQty(r.beerId, r.pkgId, -1)} className="btn-pocet disabled:opacity-30" disabled={Number(r.qty) <= 1}>−</button>
                         <input
                           type="number" onWheel={(e) => e.currentTarget.blur()}
                           min={0}
@@ -2079,8 +2093,8 @@ export default function Orders({
                           className="w-14 h-10 text-center text-base font-black text-neutral-800 dark:text-neutral-100 bg-white dark:bg-neutral-900/60 border-2 border-amber-200 dark:border-neutral-700 rounded-xl"
                           title="Napiš počet ručně"
                         />
-                        <button type="button" onClick={() => setPkgQty(r.beerId, r.pkgId, 1)} className="w-10 h-10 grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xl transition select-none">+</button>
-                        <button type="button" onClick={() => setPkgQty(r.beerId, r.pkgId, -Number(r.qty))} className="w-10 h-10 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-black text-xl transition select-none" title="Odebrat položku"><X size={18} /></button>
+                        <button type="button" onClick={() => setPkgQty(r.beerId, r.pkgId, 1)} className="btn-pocet">+</button>
+                        <button type="button" onClick={() => setPkgQty(r.beerId, r.pkgId, -Number(r.qty))} className="w-10 h-10 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-black text-xl transition select-none tap" title="Odebrat položku" aria-label="Odebrat položku"><X size={18} /></button>
                       </div>
                     </li>
                   );
@@ -2113,7 +2127,7 @@ export default function Orders({
               }}
             />
             {noteDateHint && (
-              <div className="mt-1.5 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1">
+              <div className="mt-1.5 text-udaj font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1">
                 <Calendar className="ikona-text" /> Z poznámky nastaveno datum závozu: {new Date(noteDateHint + 'T00:00:00Z').toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric', year: 'numeric' })}
               </div>
             )}
@@ -2134,7 +2148,7 @@ export default function Orders({
               className="accent-amber-500 w-4 h-4"
             />
             <span className="text-xs font-extrabold text-neutral-800 dark:text-neutral-100"><IkonaVycep className="ikona-text" /> Půjčení výčepu</span>
-            <span className="text-[11px] text-neutral-400 font-medium">(otevře rezervační systém výčepu)</span>
+            <span className="text-udaj text-neutral-400 font-medium">(otevře rezervační systém výčepu)</span>
           </label>
 
           {/* Akční tlačítka */}
@@ -2215,7 +2229,7 @@ export default function Orders({
             </button>
             <button type="button" className="btn-ghost !rounded text-xs font-black" onClick={() => setViewMode('summary')}>← Zpět na dlaždice</button>
           </div>
-          <div className="text-[11px] text-neutral-500 mt-2">
+          <div className="text-udaj text-neutral-500 mt-2">
             Položky se vyplní do dlaždic piv ve formuláři. Pak už jen klikni na „Vytvořit objednávku“.
           </div>
         </div>
@@ -2234,7 +2248,7 @@ export default function Orders({
             <button
               type="button"
               onClick={() => setTimeScope('week')}
-              className={`px-3 py-1.5 rounded font-black text-xs transition ${
+              className={`tap px-3 py-1.5 rounded font-black text-xs transition ${
                 timeScope === 'week' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
               }`}
             >
@@ -2243,7 +2257,7 @@ export default function Orders({
             <button
               type="button"
               onClick={() => setTimeScope('month')}
-              className={`px-3 py-1.5 rounded font-black text-xs transition ${
+              className={`tap px-3 py-1.5 rounded font-black text-xs transition ${
                 timeScope === 'month' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
               }`}
             >
@@ -2252,7 +2266,7 @@ export default function Orders({
             <button
               type="button"
               onClick={() => setTimeScope('all')}
-              className={`px-3 py-1.5 rounded font-black text-xs transition ${
+              className={`tap px-3 py-1.5 rounded font-black text-xs transition ${
                 timeScope === 'all' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
               }`}
             >
@@ -2267,7 +2281,7 @@ export default function Orders({
               type="button"
               onClick={() => { void zopakujDen(); }}
               disabled={kopirujiDen || searchedFiltered.length === 0}
-              className="px-3 py-1.5 rounded font-black text-xs transition bg-white text-neutral-800 border border-neutral-300 hover:bg-neutral-100 disabled:opacity-40"
+              className="px-3 py-1.5 rounded font-black text-xs transition bg-white text-neutral-800 border border-neutral-300 hover:bg-neutral-100 disabled:opacity-40 tap"
               title="Založí kopie všech právě zobrazených objednávek k dnešnímu dni"
             >
               <span className="inline-flex items-center gap-1.5">
@@ -2281,7 +2295,7 @@ export default function Orders({
               <button
                 onClick={() => setWeekKey(shiftWeek(weekKey, -1))}
                 className="btn-ghost !rounded !py-1.5 !px-2.5 text-xs font-black hover:bg-amber-100 transition"
-                title="Předchozí týden"
+                title="Předchozí týden" aria-label="Předchozí týden"
               >
                 <ChevronLeft size={16} />
               </button>
@@ -2293,7 +2307,7 @@ export default function Orders({
               <button
                 onClick={() => setWeekKey(shiftWeek(weekKey, 1))}
                 className="btn-ghost !rounded !py-1.5 !px-2.5 text-xs font-black hover:bg-amber-100 transition"
-                title="Další týden"
+                title="Další týden" aria-label="Další týden"
               >
                 <ChevronRight size={16} />
               </button>
@@ -2304,11 +2318,11 @@ export default function Orders({
             <div className="flex items-center gap-2 bg-amber-50 border border-amber-300 px-3 py-1.5 rounded-xl">
               <button
                 type="button"
-                onClick={() => setSelectedMonth(shiftMonth(selectedMonth, -1))}
+                onClick={() => setSelectedMonth(posunMesic(selectedMonth, -1))}
                 className="btn-ghost !rounded !py-1 !px-2 text-xs font-black hover:bg-amber-100 transition"
-                title="Předchozí měsíc"
-              ><ChevronLeft size={15} /></button>
-              <Calendar size={15} className="text-amber-800" />
+                title="Předchozí měsíc" aria-label="Předchozí měsíc"
+              ><ChevronLeft size={16} /></button>
+              <Calendar size={16} className="text-amber-800" />
               <span className="text-xs font-black text-amber-900">Měsíc:</span>
               <input
                 type="month"
@@ -2318,10 +2332,10 @@ export default function Orders({
               />
               <button
                 type="button"
-                onClick={() => setSelectedMonth(shiftMonth(selectedMonth, 1))}
+                onClick={() => setSelectedMonth(posunMesic(selectedMonth, 1))}
                 className="btn-ghost !rounded !py-1 !px-2 text-xs font-black hover:bg-amber-100 transition"
-                title="Další měsíc"
-              ><ChevronRight size={15} /></button>
+                title="Další měsíc" aria-label="Další měsíc"
+              ><ChevronRight size={16} /></button>
             </div>
           )}
         </div>
@@ -2398,7 +2412,7 @@ export default function Orders({
         <div className="sticky top-0 z-20 mb-2.5 bg-neutral-100 pt-1 flex items-center gap-1.5 overflow-x-auto scrollbar-thin pb-1">
           <button
             onClick={() => setDeliveryDayFilter('all')}
-            className={`px-3.5 py-1.5 rounded font-extrabold text-xs shrink-0 transition-all ${
+            className={`tap px-3.5 py-1.5 rounded font-extrabold text-xs shrink-0 transition-all ${
               deliveryDayFilter === 'all' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
             }`}
           >
@@ -2411,7 +2425,7 @@ export default function Orders({
               <button
                 key={d.v}
                 onClick={() => setDeliveryDayFilter(d.v)}
-                className={`px-3 py-1.5 rounded font-black text-xs shrink-0 transition-all flex items-center gap-1.5 ${
+                className={`tap px-3 py-1.5 rounded font-black text-xs shrink-0 transition-all flex items-center gap-1.5 ${
                   deliveryDayFilter === d.v
                     ? 'bg-amber-500 text-neutral-950 shadow-xs'
                     : hasOrders
@@ -2421,7 +2435,7 @@ export default function Orders({
               >
                 <span>{d.label}</span>
                 {hasOrders && (
-                  <span className={`px-1.5 py-0.5 rounded-full text-[11px] ${deliveryDayFilter === d.v ? 'bg-neutral-900/10 text-neutral-900' : 'bg-white/25'}`}>
+                  <span className={`px-1.5 py-0.5 rounded-full text-udaj ${deliveryDayFilter === d.v ? 'bg-neutral-900/10 text-neutral-900' : 'bg-white/25'}`}>
                     {count}
                   </span>
                 )}
@@ -2430,7 +2444,7 @@ export default function Orders({
           })}
           <button
             onClick={() => setDeliveryDayFilter('_none')}
-            className={`px-3 py-1.5 rounded font-bold text-xs shrink-0 transition-all ${
+            className={`tap px-3 py-1.5 rounded font-bold text-xs shrink-0 transition-all ${
               deliveryDayFilter === '_none' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
             }`}
           >
@@ -2453,7 +2467,7 @@ export default function Orders({
           />
           <select className="input w-auto font-bold text-xs" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
             <option value="">Všechny statusy</option>
-            {Object.entries(STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+            {Object.entries(STAVY_OBJEDNAVKY).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
           </select>
           <select className="input w-auto font-bold text-xs" value={packageKindFilter} onChange={(e) => setPackageKindFilter(e.target.value as any)}>
             <option value="all">Všechny druhy obalů</option>
@@ -2493,7 +2507,7 @@ export default function Orders({
             <button className="chip bg-white border border-primary-200 text-primary-600 hover:bg-primary-50" onClick={clearSelection}><X className="ikona-text" /> Zrušit výběr</button>
           </div>
         ) : (
-          searchedFiltered.length > 0 && <button className="btn-ghost !rounded !py-1.5 text-xs flex items-center gap-1" onClick={selectAll}><CheckSquare size={13} /> Vybrat vše ({searchedFiltered.length})</button>
+          searchedFiltered.length > 0 && <button className="btn-ghost !rounded !py-1.5 text-xs flex items-center gap-1" onClick={selectAll}><CheckSquare size={14} /> Vybrat vše ({searchedFiltered.length})</button>
         )}
       </div>
         </>
@@ -2543,7 +2557,7 @@ export default function Orders({
               <button
                 type="button"
                 onClick={() => { void duplicateOrder(karta.posledniRadek!); }}
-                className="px-3 py-1.5 rounded font-black text-xs transition bg-amber-500 text-neutral-950 hover:bg-amber-400"
+                className="px-3 py-1.5 rounded font-black text-xs transition bg-amber-500 text-neutral-950 hover:bg-amber-400 tap"
                 title="Založí k dnešnímu dni novou objednávku se stejnými položkami jako posledně"
               >
                 <span className="inline-flex items-center gap-1.5"><Copy size={14} /> To co posledně</span>
@@ -2648,6 +2662,7 @@ export default function Orders({
       ))}
 
       {editOrder && (
+        <Suspense fallback={null}>
         <EditOrderModal
           order={editOrder}
           items={items[editOrder.id] ?? []}
@@ -2658,11 +2673,11 @@ export default function Orders({
           onSaved={() => { setEditOrder(null); setWeekKey(isoWeekKey(editOrder.order_date)); load(); }}
           onPlacesChanged={load}
         />
+        </Suspense>
       )}
 
-
-
       {showWhatsAppAutoProcessor && (
+        <Suspense fallback={null}>
         <WhatsAppAutoProcessorModal
           isOpen={showWhatsAppAutoProcessor}
           onClose={() => setShowWhatsAppAutoProcessor(false)}
@@ -2676,9 +2691,11 @@ export default function Orders({
             setAutoWhatsAppModal(true);
           }}
         />
+        </Suspense>
       )}
 
       {showWhatsAppAudit && (
+        <Suspense fallback={null}>
         <WhatsAppAuditModal
           isOpen={showWhatsAppAudit}
           onClose={() => setShowWhatsAppAudit(false)}
@@ -2688,9 +2705,11 @@ export default function Orders({
             setAutoWhatsAppModal(true);
           }}
         />
+        </Suspense>
       )}
 
       {showOrderAudit && (
+        <Suspense fallback={null}>
         <OrderAuditModal
           isOpen={showOrderAudit}
           onClose={() => setShowOrderAudit(false)}
@@ -2699,9 +2718,11 @@ export default function Orders({
           selectedWeekKey={weekRange(weekKey).start.toISOString().slice(0, 10)}
           onRefreshOrders={() => load(true)}
         />
+        </Suspense>
       )}
 
       {autoWhatsAppModal && autoWhatsAppMessage && (
+        <Suspense fallback={null}>
         <WhatsAppOrderReviewModal
           isOpen={autoWhatsAppModal}
           onClose={() => {
@@ -2717,9 +2738,11 @@ export default function Orders({
           onReject={handleRejectWhatsAppOrder}
           onDecision={advanceWhatsAppReview}
         />
+        </Suspense>
       )}
 
       {showImport && (
+        <Suspense fallback={null}>
         <ImportFromImage
           beers={beers} packages={packages} places={places}
           existing={(importTarget ? items[importTarget.id] ?? [] : []).map((i) => ({ beer_id: i.beer_id, package_id: i.package_id, quantity: i.quantity }))}
@@ -2728,10 +2751,9 @@ export default function Orders({
           onPlacesChanged={load}
           onClose={() => { setShowImport(false); setShareInitialFiles(undefined); }}
 
-
           onImport={async (items, meta) => {
-            let orderId = importTarget?.id;
-            let targetDate = importTarget?.order_date ?? meta.date;
+            const orderId = importTarget?.id;
+            const targetDate = importTarget?.order_date ?? meta.date;
             if (!orderId) {
               const groups = new Map<string, typeof items>();
               for (const it of items) {
@@ -2741,7 +2763,7 @@ export default function Orders({
               const created: string[] = [];
               for (const [recipient, rows] of groups) {
                 const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
-                let place = recipient ? places.find((p) => norm(p.name) === norm(recipient)) : undefined;
+                const place = recipient ? places.find((p) => norm(p.name) === norm(recipient)) : undefined;
                 let placeId = place?.id ?? null;
                 const placeName = recipient || meta.placeName || null;
                 if (!placeId && placeName) {
@@ -2811,6 +2833,7 @@ export default function Orders({
           }}
 
         />
+        </Suspense>
       )}
 
       {/* 🚰 Modální okno pro výběr výčepu k rezervaci */}
@@ -2830,7 +2853,6 @@ export default function Orders({
     </div>
   );
 }
-
 
 // 🍺 Ikona rezervovaného výčepu u objednávky: najde v lokálním úložišti rezervaci
 // výčepu navázanou na danou objednávku (order_id) a vrátí jméno výčepu (nebo null).
@@ -2858,7 +2880,7 @@ function detectDeliveryDateFromNote(text: string, wk: string): string | null {
     if (day >= 1 && day <= 31 && month >= 1 && month <= 12) {
       const now = new Date();
       now.setHours(0, 0, 0, 0);
-      let year = m[3] ? (parseInt(m[3], 10) < 100 ? 2000 + parseInt(m[3], 10) : parseInt(m[3], 10)) : now.getFullYear();
+      const year = m[3] ? (parseInt(m[3], 10) < 100 ? 2000 + parseInt(m[3], 10) : parseInt(m[3], 10)) : now.getFullYear();
       const check = new Date(year, month - 1, day);
       if (check.getMonth() !== month - 1 || check.getDate() !== day) return null; // neplatné datum (např. 31.2.)
       if (!m[3] && check < now) check.setFullYear(check.getFullYear() + 1); // bez roku a už uplynulo → příští rok
@@ -2930,7 +2952,7 @@ function VariantTotalsPanel({ totals, beers, packages, timeScope, onPick }: {
           <span className="text-lg leading-none mt-0.5"><Calculator className="ikona-text" /></span>
           <div>
             <div className="text-sm font-display font-black text-amber-800">Souhrn objednaného množství podle varianty</div>
-            <div className="text-[11px] font-bold text-neutral-500">
+            <div className="text-udaj font-bold text-neutral-500">
               Rozsah: {scopeLabel} · kliknutí na variantu zobrazí objednávky jen s daným pivem v daném obalu
             </div>
           </div>
@@ -2960,7 +2982,7 @@ function VariantTotalsPanel({ totals, beers, packages, timeScope, onPick }: {
                   {beerName(beer)}
                 </span>
                 <span className="font-black text-xl text-amber-700 shrink-0">
-                  {t.qty} <span className="text-[11px] font-bold text-neutral-500">ks</span>
+                  {t.qty} <span className="text-udaj font-bold text-neutral-500">ks</span>
                 </span>
               </div>
               <div className="flex items-center justify-between gap-2 min-w-0">
@@ -2968,7 +2990,7 @@ function VariantTotalsPanel({ totals, beers, packages, timeScope, onPick }: {
                   <span className="inline-block w-6 h-3.5 rounded-sm shrink-0 border border-black/10" style={{ backgroundColor: pkgBg(pkg) }} />
                   {formatPackageLabel(pkg?.label) || t.packageId}
                 </span>
-                <span className="text-[11px] font-bold text-neutral-400 shrink-0 flex items-center gap-1">
+                <span className="text-udaj font-bold text-neutral-400 shrink-0 flex items-center gap-1">
                   {t.orderCount} {ordersTxt}
                   <ArrowRight size={12} className="opacity-0 group-hover:opacity-100 transition-opacity" />
                 </span>
@@ -3078,19 +3100,19 @@ function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, 
               <BeerIcon className="ikona-text" /> {tn}
             </span>
           ) : null; })()}
-          <span className={`chip font-black shrink-0 ${STATUS[o.status]?.cls ?? ''}`}>{STATUS[o.status]?.label ?? o.status}</span>
+          <StitekStavu status={o.status} tridy="font-black shrink-0" />
           {o.delivery_date && (
             <span className="chip bg-amber-700 text-white font-black shadow-2xs shrink-0 flex items-center gap-1" title="Datum akce / závozu">
-              <Calendar size={11} /> {new Date(o.delivery_date).toLocaleDateString('cs-CZ')}
+              <Calendar size={12} /> {new Date(o.delivery_date).toLocaleDateString('cs-CZ')}
             </span>
           )}
           {o.delivery_day && (
             <span className={`chip ${dayColor(o.delivery_day)!.chip} shrink-0 flex items-center gap-1`}>
-              <Truck size={11} /> {DAYS.find((d) => d.v === o.delivery_day)?.label ?? o.delivery_day}
+              <Truck size={12} /> {DAYS.find((d) => d.v === o.delivery_day)?.label ?? o.delivery_day}
             </span>
           )}
-          <span className="text-[11px] font-bold text-neutral-500 bg-white/80 border border-neutral-200 rounded-md px-1.5 py-0.5 shadow-2xs shrink-0 flex items-center gap-1" title="Datum zadání">
-            <Calendar size={11} /> {new Date(o.order_date).toLocaleDateString('cs-CZ')}
+          <span className="text-udaj font-bold text-neutral-500 bg-white/80 border border-neutral-200 rounded-md px-1.5 py-0.5 shadow-2xs shrink-0 flex items-center gap-1" title="Datum zadání">
+            <Calendar size={12} /> {new Date(o.order_date).toLocaleDateString('cs-CZ')}
           </span>
           <div className="ml-auto flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
             {/* Připraveno: stejný formát jako akce dole — ikona 32×32,
@@ -3188,43 +3210,43 @@ function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, 
           <span className="text-[11px] font-black text-neutral-700 shrink-0">
             {items.length} položek · {total} ks
           </span>
-          {o.note && <span className="text-[11px] font-extrabold shrink-0 text-neutral-900 bg-amber-100 border border-amber-300 rounded-md px-1.5 py-0.5"><NotebookPen className="ikona-text" /> {o.note}</span>}
+          {o.note && <span className="text-udaj font-extrabold shrink-0 text-neutral-900 bg-amber-100 border border-amber-300 rounded-md px-1.5 py-0.5"><NotebookPen className="ikona-text" /> {o.note}</span>}
           {o.whatsapp_message_id && (
             <button
               onClick={(e) => { e.stopPropagation(); onOpenWhatsApp && onOpenWhatsApp(o.whatsapp_message_id!); }}
-              className="text-[11px] font-extrabold shrink-0 text-emerald-900 bg-emerald-100 border border-emerald-300 rounded-md px-1.5 py-0.5 hover:bg-emerald-200 flex items-center gap-1"
+              className="text-udaj font-extrabold shrink-0 text-emerald-900 bg-emerald-100 border border-emerald-300 rounded-md px-1.5 py-0.5 hover:bg-emerald-200 flex items-center gap-1 tap"
               title="Otevřít originální WhatsApp zprávu a kontrolu čtení (#18)"
             >
-              <MessageCircle size={11} /> WhatsApp
+              <MessageCircle size={12} /> WhatsApp
             </button>
           )}
           {(() => { const _ph = places.find(p => p.id === o.place_id)?.phone; return _ph ? (
-            <a href={`tel:${_ph}`} className="text-[11px] text-sky-700 font-bold flex items-center gap-0.5 hover:underline shrink-0">
-              <Phone size={11} /> <span>{_ph}</span>
+            <a href={`tel:${_ph}`} className="text-udaj text-sky-700 font-bold flex items-center gap-0.5 hover:underline shrink-0">
+              <Phone size={12} /> <span>{_ph}</span>
             </a>
           ) : null; })()}
-          {o.is_delivered && <span className="chip bg-violet-700 text-white font-black shadow-2xs flex items-center gap-1"><Check size={11} /> Zavez.</span>}
+          {o.is_delivered && <span className="chip bg-violet-700 text-white font-black shadow-2xs flex items-center gap-1"><Check size={12} /> Zavez.</span>}
         </div>
 
         {/* Řádek 3: sklad + připraveno + den + akce */}
         <div className="flex items-center gap-1.5 flex-wrap min-w-0">
           {uniqueDeficits.length > 0 ? (
-            <span className="flex items-center gap-1 text-[11px] font-black text-rose-950 bg-rose-100 border border-rose-300 rounded-lg px-2 py-0.5 shadow-2xs">
+            <span className="flex items-center gap-1 text-udaj font-black text-rose-950 bg-rose-100 border border-rose-300 rounded-lg px-2 py-0.5 shadow-2xs">
               <AlertTriangle size={12} />
               <span>Chybí: {uniqueDeficits.map((d) => `${d.name} ${d.missing} ks`).join(', ')}</span>
             </span>
           ) : items.length > 0 ? (
-            <span className="flex items-center gap-1 text-[11px] font-black text-emerald-950 bg-emerald-100 border border-emerald-300 rounded-lg px-2 py-0.5 shadow-2xs">
+            <span className="flex items-center gap-1 text-udaj font-black text-emerald-950 bg-emerald-100 border border-emerald-300 rounded-lg px-2 py-0.5 shadow-2xs">
               <CheckCircle2 size={12} />
               <span>Vše skladem</span>
             </span>
           ) : null}
-          {o.is_prepared && <span className="chip bg-emerald-700 text-white font-black shadow-2xs flex items-center gap-1"><Check size={11} /> Připr.</span>}
+          {o.is_prepared && <span className="chip bg-emerald-700 text-white font-black shadow-2xs flex items-center gap-1"><Check size={12} /> Připr.</span>}
 
           <div className="flex items-center gap-1 ml-auto flex-wrap justify-end" onClick={(e) => e.stopPropagation()}>
-            <span className="text-[11px] font-extrabold text-neutral-900 shrink-0">Závoz:</span>
+            <span className="text-udaj font-extrabold text-neutral-900 shrink-0">Závoz:</span>
             <select
-              className="input !py-0.5 !px-1.5 text-[11px] font-bold w-20 bg-white border-amber-300 shadow-2xs"
+              className="input !py-0.5 !px-1.5 text-udaj font-bold w-20 bg-white border-amber-300 shadow-2xs"
               value={o.delivery_day ?? ''}
               onClick={(e) => e.stopPropagation()}
               onChange={(e) => onUpdateDeliveryDay(o, e.target.value)}
@@ -3424,7 +3446,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
           <button
             onClick={() => setWeekKey(shiftWeek(weekKey, -1))}
             className="btn-ghost !rounded !py-1.5 !px-3 text-xs font-black flex items-center gap-1 hover:bg-amber-100 transition"
-            title="Předchozí týden"
+            title="Předchozí týden" aria-label="Předchozí týden"
           >
             <ChevronLeft size={16} />
           </button>
@@ -3436,7 +3458,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
           <button
             onClick={() => setWeekKey(shiftWeek(weekKey, 1))}
             className="btn-ghost !rounded !py-1.5 !px-3 text-xs font-black flex items-center gap-1 hover:bg-amber-100 transition"
-            title="Další týden"
+            title="Další týden" aria-label="Další týden"
           >
             <ChevronRight size={16} />
           </button>
@@ -3446,7 +3468,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
           <div className="flex items-center gap-2 text-sm text-primary-500 flex-wrap mb-2">
             <span>{order.order_date}</span>
             <span>·</span>
-            <span className={`chip ${STATUS[order.status]?.cls ?? ''}`}>{STATUS[order.status]?.label}</span>
+            <StitekStavu status={order.status} />
             {order.is_prepared && <span className="chip bg-emerald-100 text-emerald-700"><Check className="ikona-text" /> Připraveno</span>}
             {order.is_packaged && <span className="chip bg-primary-200 text-primary-800"><PackageIcon className="ikona-text" /> Fasování</span>}
             {order.is_delivered && <span className="chip bg-emerald-200 text-emerald-800"><Check className="ikona-text" /> Zavezenné</span>}
@@ -3470,7 +3492,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
 
           {placeHistory.length > 0 && (
             <div className="mb-3 rounded-xl bg-primary-50/60 border border-primary-100 p-3">
-              <div className="text-[11px] uppercase tracking-wider text-primary-500 mb-1.5"><Scroll className="ikona-text" /> Historie odběratele — poslední objednávky</div>
+              <div className="text-udaj uppercase tracking-wider text-primary-500 mb-1.5"><Scroll className="ikona-text" /> Historie odběratele — poslední objednávky</div>
               <div className="space-y-1">
                 {placeHistory.map((h) => {
                   const hItems = allItems[h.id] ?? [];
@@ -3480,7 +3502,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
                   return (
                     <div key={h.id} className="text-xs text-primary-600 flex items-center gap-2">
                       <span className="font-semibold text-primary-800">{h.order_date}</span>
-                      <span className={`chip !py-0.5 ${STATUS[h.status]?.cls ?? ''}`}>{STATUS[h.status]?.label}</span>
+                      <StitekStavu status={h.status} tridy="!py-0.5" />
                       <span className="truncate">{summary}{hItems.length > 3 ? '…' : ''} ({total} ks celkem)</span>
                     </div>
                   );
@@ -3514,11 +3536,11 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
 
           {order.signature_url && (
             <div className="mt-3 rounded-xl border border-neutral-300 bg-white p-3 inline-block">
-              <div className="text-[11px] uppercase tracking-wider text-neutral-500 mb-1">
+              <div className="text-udaj uppercase tracking-wider text-neutral-500 mb-1">
                 Převzato{order.delivered_at ? ` ${new Date(order.delivered_at).toLocaleString('cs-CZ')}` : ''}
                 {order.signature_name ? ` · ${order.signature_name}` : ''}
               </div>
-              <img src={order.signature_url} alt="Podpis převzetí" className="max-h-24" />
+              <img src={order.signature_url} alt="Podpis převzetí" loading="lazy" decoding="async" className="max-h-24" />
             </div>
           )}
 
@@ -3580,7 +3602,13 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
                         className="w-5 h-5 rounded text-emerald-600 cursor-pointer shrink-0"
                         title={i.is_prepared ? 'Připraveno' : 'Označit jako připravené'}
                       />
-                      <span className="inline-block rounded-md px-2 py-0.5 font-bold text-sm truncate" style={{ backgroundColor: beerBg(beer), color: beerText(beer) === 'text-white' ? '#fff' : undefined }}>{i.beer_name ?? '—'}</span>
+                      {/* ⚠️ Barva písma se MUSÍ nastavit v OBOU případech.
+                          Dřív tu u světlého piva stálo `undefined`, tedy
+                          „poděď barvu odjinud" — a v tmavém režimu se dědí
+                          světlá, takže na světle žluté „11° Světlé" svítilo
+                          bílé písmo na bílo. `beerInk` vrací tmavou i světlou
+                          podle JASU barvy piva, takže není co dědit. */}
+                      <span className="inline-block rounded-md px-2 py-0.5 font-bold text-sm truncate" style={{ backgroundColor: beerBg(beer), color: beerInk(beer) }}>{i.beer_name ?? '—'}</span>
                     </label>
                     <div className="flex items-center gap-1 shrink-0">
                       <button
@@ -3634,7 +3662,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
                             setEditingItemId(null);
                           }}
                         ><Check size={14} /> Uložit</button>
-                        <button className="btn-ghost !rounded !py-2 !px-3" onClick={() => setEditingItemId(null)} title="Zrušit"><X size={14} /></button>
+                        <button className="btn-ghost !rounded !py-2 !px-3" onClick={() => setEditingItemId(null)} title="Zrušit" aria-label="Zrušit"><X size={14} /></button>
                       </div>
                     </div>
                   )}
@@ -3646,7 +3674,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
           {/* Desktop tabulka */}
           <div className="hidden md:block card overflow-hidden">
             <table className="table text-xs">
-              <thead><tr><th className="w-8"></th><th>Pivo</th><th>Obal</th><th className="text-right">Množství</th><th></th><th></th><th></th></tr></thead>
+              <thead><tr><th scope="col" className="w-8"></th><th scope="col">Pivo</th><th scope="col">Obal</th><th scope="col" className="text-right">Množství</th><th scope="col"></th><th scope="col"></th><th scope="col"></th></tr></thead>
               <tbody>
                 {items.map((i) => {
                   const rem = i.beer_id ? (remaining.get(i.beer_id) ?? 0) : 0;
@@ -3667,7 +3695,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
                         />
                       </td>
                       <td className="font-medium">
-                        <span className="inline-block rounded-md px-2 py-0.5" style={{ backgroundColor: beerBg(beer), color: beerText(beer) === 'text-white' ? '#fff' : undefined }}>{i.beer_name ?? '—'}</span>
+                        <span className="inline-block rounded-md px-2 py-0.5" style={{ backgroundColor: beerBg(beer), color: beerInk(beer) }}>{i.beer_name ?? '—'}</span>
                         {missing > 0 && <span className="block text-xs text-rose-600 mt-0.5"><AlertTriangle className="ikona-text" /> Chybí {missing} ks ve skladu</span>}
                         {inStock && <span className="block text-xs text-emerald-600 mt-0.5"><Check className="ikona-text" /> Skladem ({rem} ks)</span>}
                       </td>
@@ -3677,7 +3705,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
                       <td className="text-right">
                         <button
                           className="text-primary-400 hover:text-primary-700 px-1"
-                          title="Upravit položku"
+                          title="Upravit položku" aria-label="Upravit položku"
                           onClick={() => {
                             if (isEditing) { setEditingItemId(null); return; }
                             setEditingItemId(i.id);
@@ -3722,7 +3750,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
                                   setEditingItemId(null);
                                 }}
                               ><Check size={14} /> Uložit</button>
-                              <button className="btn-ghost !rounded !py-2 !px-3" onClick={() => setEditingItemId(null)} title="Zrušit"><X size={14} /></button>
+                              <button className="btn-ghost !rounded !py-2 !px-3" onClick={() => setEditingItemId(null)} title="Zrušit" aria-label="Zrušit"><X size={14} /></button>
                             </div>
                           </div>
                         </td>
@@ -3736,7 +3764,6 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
           </div>
           </>
         )}
-
 
         {adding ? (
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-12 gap-2 items-end">
@@ -3760,7 +3787,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
             </div>
             <div className="col-span-2 sm:col-span-1 lg:col-span-2 flex gap-2">
               <button className="btn-primary !rounded flex-1 !py-2 text-sm" onClick={addItem}><Check size={14} /> Přidat</button>
-              <button className="btn-ghost !rounded !py-2 !px-3" onClick={() => setAdding(false)} title="Zrušit"><X size={14} /></button>
+              <button className="btn-ghost !rounded !py-2 !px-3" onClick={() => setAdding(false)} title="Zrušit" aria-label="Zrušit"><X size={14} /></button>
             </div>
           </div>
         ) : (
@@ -3827,7 +3854,7 @@ function WhatsAppOriginalBlock({ messageId }: { messageId: string }) {
           <MessageCircle size={18} className="text-emerald-600 shrink-0" />
           Původní WhatsApp zpráva
         </span>
-        <span className="text-[11px] font-bold text-neutral-400">{open ? 'Sbalit ▲' : 'Zobrazit ▼'}</span>
+        <span className="text-udaj font-bold text-neutral-400">{open ? 'Sbalit ▲' : 'Zobrazit ▼'}</span>
       </button>
 
       {open && (
@@ -3847,7 +3874,7 @@ function WhatsAppOriginalBlock({ messageId }: { messageId: string }) {
           )}
           {msg && (
             <>
-              <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] font-bold text-neutral-500">
+              <div className="flex flex-wrap gap-x-3 gap-y-1 text-udaj font-bold text-neutral-500">
                 <span className="flex items-center gap-1"><User className="ikona-text" /> {msg.sender_name || 'Neznámý odesílatel'}</span>
                 <span><Clock className="ikona-text" /> {formatWATime(msg.message_timestamp || msg.created_at)}</span>
                 {msg.readback_unmatched_count ? (
@@ -3865,7 +3892,7 @@ function WhatsAppOriginalBlock({ messageId }: { messageId: string }) {
               )}
               {msg.media_url && (
                 <a href={msg.media_url} target="_blank" rel="noreferrer" className="inline-block">
-                  <img src={msg.media_url} alt="Příloha WhatsApp objednávky" className="max-h-44 rounded-xl border border-neutral-200" />
+                  <img src={msg.media_url} alt="Příloha WhatsApp objednávky" loading="lazy" decoding="async" className="max-h-44 rounded-xl border border-neutral-200" />
                 </a>
               )}
             </>

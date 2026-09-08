@@ -88,14 +88,14 @@ function ChybyBlok() {
         <AlertTriangle className="ikona-text" />
         <span className="text-xs font-black uppercase tracking-wider text-neutral-700">Chyby aplikace</span>
         {stav === 'ok' && (
-          <span className={`ml-auto px-2.5 py-0.5 rounded-full font-black text-[11px] ${nevyrizene.length > 0 ? 'bg-rose-100 text-rose-900' : 'bg-emerald-100 text-emerald-900'}`}>
+          <span className={`ml-auto px-2.5 py-0.5 rounded-full font-black text-udaj ${nevyrizene.length > 0 ? 'bg-rose-100 text-rose-900' : 'bg-emerald-100 text-emerald-900'}`}>
             {nevyrizene.length > 0 ? `${nevyrizene.length} nevyřízených` : 'nic nového'}
           </span>
         )}
         <button
           type="button"
           onClick={() => { void nacti(); }}
-          className="px-2.5 py-1 rounded bg-neutral-100 text-neutral-700 font-black text-[11px] border border-neutral-300"
+          className="px-2.5 py-1 rounded bg-neutral-100 text-neutral-700 font-black text-udaj border border-neutral-300 tap"
         >
           Načíst znovu
         </button>
@@ -115,15 +115,15 @@ function ChybyBlok() {
       )}
       {stav === 'ok' && radky.length > 0 && (
         <div className="mt-2 overflow-x-auto">
-          <table className="w-full text-left text-xs">
+          <table className="table-drzi-prvni-sloupec w-full text-left text-xs">
             <thead>
               <tr className="text-neutral-700">
-                <th className="py-1 pr-2 font-black">Kdy</th>
-                <th className="py-1 pr-2 font-black">Verze</th>
-                <th className="py-1 pr-2 font-black">Obrazovka</th>
-                <th className="py-1 pr-2 font-black">Chyba</th>
-                <th className="py-1 pr-2 font-black">Kdo</th>
-                <th className="py-1 font-black" />
+                <th scope="col" className="py-1 pr-2 font-black">Kdy</th>
+                <th scope="col" className="py-1 pr-2 font-black">Verze</th>
+                <th scope="col" className="py-1 pr-2 font-black">Obrazovka</th>
+                <th scope="col" className="py-1 pr-2 font-black">Chyba</th>
+                <th scope="col" className="py-1 pr-2 font-black">Kdo</th>
+                <th scope="col" className="py-1 font-black" />
               </tr>
             </thead>
             <tbody>
@@ -141,7 +141,7 @@ function ChybyBlok() {
                         <button
                           type="button"
                           onClick={() => { void vyrid(r.id); }}
-                          className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-900 font-black border border-emerald-300"
+                          className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-900 font-black border border-emerald-300 tap"
                         >
                           <Check className="ikona-text" /> vyřídit
                         </button>
@@ -254,14 +254,14 @@ function MigraceBlok() {
         <Database className="ikona-text" />
         <span className="text-xs font-black uppercase tracking-wider text-neutral-700">Databázové migrace</span>
         {stav === 'ok' && (
-          <span className={`ml-auto px-2.5 py-0.5 rounded-full font-black text-[11px] ${ceka > 0 ? 'bg-amber-100 text-amber-950' : 'bg-emerald-100 text-emerald-900'}`}>
+          <span className={`ml-auto px-2.5 py-0.5 rounded-full font-black text-udaj ${ceka > 0 ? 'bg-amber-100 text-amber-950' : 'bg-emerald-100 text-emerald-900'}`}>
             {ceka > 0 ? `${ceka} čeká na spuštění` : 'nic nečeká'}
           </span>
         )}
         <button
           type="button"
           onClick={() => { void nacti(); }}
-          className="px-2.5 py-1 rounded bg-neutral-100 text-neutral-700 font-black text-[11px] border border-neutral-300"
+          className="px-2.5 py-1 rounded bg-neutral-100 text-neutral-700 font-black text-udaj border border-neutral-300 tap"
         >
           Načíst znovu
         </button>
@@ -375,7 +375,7 @@ function TankFrontaBlok() {
       <div className="flex items-center gap-2">
         <IkonaSud className="ikona-text" />
         <span className="text-xs font-black uppercase tracking-wider text-neutral-700">Nedokončené odečty z tanků</span>
-        <span className={`ml-auto px-2.5 py-0.5 rounded-full font-black text-[11px] ${fronta.length > 0 ? 'bg-amber-100 text-amber-950' : 'bg-emerald-100 text-emerald-900'}`}>
+        <span className={`ml-auto px-2.5 py-0.5 rounded-full font-black text-udaj ${fronta.length > 0 ? 'bg-amber-100 text-amber-950' : 'bg-emerald-100 text-emerald-900'}`}>
           {fronta.length > 0 ? `${fronta.length} čeká` : 'nic nečeká'}
         </span>
       </div>
@@ -390,15 +390,15 @@ function TankFrontaBlok() {
       {fronta.length > 0 && (
         <>
           <div className="mt-2 overflow-x-auto">
-            <table className="w-full text-left text-xs">
+            <table className="table-drzi-prvni-sloupec w-full text-left text-xs">
               <thead>
                 <tr className="text-neutral-700">
-                  <th className="py-1 pr-2 font-black">Tank</th>
-                  <th className="py-1 pr-2 font-black">Litry</th>
-                  <th className="py-1 pr-2 font-black">Pokusů</th>
-                  <th className="py-1 pr-2 font-black">Naposled</th>
-                  <th className="py-1 pr-2 font-black">Důvod</th>
-                  <th className="py-1 font-black" />
+                  <th scope="col" className="py-1 pr-2 font-black">Tank</th>
+                  <th scope="col" className="py-1 pr-2 font-black">Litry</th>
+                  <th scope="col" className="py-1 pr-2 font-black">Pokusů</th>
+                  <th scope="col" className="py-1 pr-2 font-black">Naposled</th>
+                  <th scope="col" className="py-1 pr-2 font-black">Důvod</th>
+                  <th scope="col" className="py-1 font-black" />
                 </tr>
               </thead>
               <tbody>
@@ -413,7 +413,7 @@ function TankFrontaBlok() {
                       <button
                         type="button"
                         onClick={() => { void zahod(p); }}
-                        className="px-2 py-0.5 rounded bg-neutral-100 text-neutral-700 font-black border border-neutral-300"
+                        className="px-2 py-0.5 rounded bg-neutral-100 text-neutral-700 font-black border border-neutral-300 tap"
                       >
                         zahodit
                       </button>
@@ -441,9 +441,9 @@ export default function AdminDiagnostika() {
   return (
     <div className="card p-6 border-2 border-neutral-300 bg-white rounded shadow-md">
       <h2 className="font-display font-bold text-lg flex items-center gap-2">
-        <AlertTriangle size={20} className="text-rose-600" />
+        <AlertTriangle size={18} className="text-rose-600" />
         <span>Diagnostika</span>
-        <span className="ml-auto px-2.5 py-0.5 rounded-full bg-amber-500 text-neutral-950 font-black text-[11px] uppercase tracking-wider">
+        <span className="ml-auto px-2.5 py-0.5 rounded-full bg-amber-500 text-neutral-950 font-black text-udaj uppercase tracking-wider">
           ADMIN
         </span>
       </h2>

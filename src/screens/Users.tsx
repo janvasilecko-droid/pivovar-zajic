@@ -6,14 +6,23 @@ import { createFullBackup, downloadBackupJSON, downloadGoogleSheetsExcelBackup }
 import { Car, CheckCircle2, Crown, Download, History, Hourglass, Mail, Plus, Search, Shield, Table, Trash2, Users as UsersIcon } from 'lucide-react';
 import { UserPermissionsModal } from '../components/UserPermissionsModal';
 import { AuditLogViewer } from '../components/AuditLogViewer';
+import { TabBar } from '../components/TabBar';
 import { isAdminEmail } from '../lib/config';
 import { chyba, potvrd } from '../lib/toast';
+import { usePosledniNacteni } from '../lib/nacitani';
 
 type UserRow = {
   id: string; email: string; display_name: string | null;
   role: 'admin' | 'user'; created_at: string; last_sign_in_at: string | null;
   receive_vehicle_alerts?: boolean | null;
 };
+
+/** Záložky obrazovky. Barvy jsou stejný jazyk jako u ostatních „Tabbed" stránek. */
+const ZALOZKY = [
+  { id: 'users', label: 'Uživatelé & Práva', icon: Shield, color: '#d4a017' },
+  { id: 'emails', label: 'Schválené e-maily', icon: Mail, color: '#2f9e64' },
+  { id: 'audit', label: 'Auditní stopa', icon: History, color: '#4dabf7' },
+];
 
 export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, sec?: string, sub?: string) => void; initialSubTab?: string } = {}) {
   const { profile, user } = useAuth();
@@ -49,7 +58,10 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
     }
   }
 
+  // Zámek proti zápisu ze zastaralého načtení — viz lib/nacitani.ts.
+  const zacniNacteni = usePosledniNacteni();
   async function load() {
+    const smiZapsat = zacniNacteni();
     setLoading(true); setErr(null);
     const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-users`;
     const { data: session } = await supabase.auth.getSession();
@@ -58,6 +70,8 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
     // Načíst doplňková nastavení z tabulky profiles
     const { data: profilesData } = await supabase.from('profiles').select('id, receive_vehicle_alerts, role');
     const profileMap = new Map((profilesData ?? []).map((p: any) => [p.id, p]));
+    // Mezitím mohlo začít novější načtení, nebo už obrazovka není vidět.
+    if (!smiZapsat()) return;
 
     if (!res.ok) {
       const j = await res.json().catch(() => ({}));
@@ -195,44 +209,15 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
         />
       )}
 
-      {/* Navigation tabs — přilepené nahoře, ať jde přepínat záložku i uprostřed scrollování. */}
-      <div className="sticky top-0 z-20 bg-neutral-100 pt-1 flex items-center gap-2 border-b border-neutral-200 pb-2">
-        <button
-          onClick={() => selectTab('users')}
-          className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 ${
-            activeTab === 'users'
-              ? 'bg-amber-500 text-neutral-950 shadow-md'
-              : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
-          }`}
-        >
-          <Shield size={16} />
-          <span>Uživatelé & Práva</span>
-        </button>
-
-        <button
-          onClick={() => selectTab('emails')}
-          className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 ${
-            activeTab === 'emails'
-              ? 'bg-amber-500 text-neutral-950 shadow-md'
-              : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
-          }`}
-        >
-          <Mail size={16} />
-          <span>Schválené e-maily</span>
-        </button>
-
-        <button
-          onClick={() => selectTab('audit')}
-          className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 ${
-            activeTab === 'audit'
-              ? 'bg-amber-500 text-neutral-950 shadow-md'
-              : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
-          }`}
-        >
-          <History size={16} />
-          <span>Auditní stopa (History Log)</span>
-        </button>
-      </div>
+      {/* Záložky přes společnou komponentu. Byly tu tři ručně malovaná
+          tlačítka se stejným ambrovým stylem, jaký měla každá „Tabbed"
+          obrazovka po svém — TabBar to sjednocuje a hlavně drží 44px
+          dotykový cíl, který ruční verze neměla. */}
+      <TabBar
+        items={ZALOZKY}
+        activeId={activeTab}
+        onSelect={(id) => selectTab(id as 'users' | 'audit' | 'emails')}
+      />
 
       {activeTab === 'audit' && <AuditLogViewer />}
 
@@ -244,7 +229,7 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
               <span>{backingUp ? 'Generuji…' : 'Týdenní záloha pro Google Tabulky (.xlsx)'}</span>
             </button>
             <button className="btn-ghost !rounded !bg-white border-amber-300 text-xs font-black shadow-xs flex items-center gap-1.5" onClick={handleBackupJSON} disabled={backingUp}>
-              <Download size={15} />
+              <Download size={16} />
               <span>{backingUp ? 'Zálohuji…' : 'JSON Záloha'}</span>
             </button>
             <button className="btn-primary !rounded text-xs font-black shadow-md" onClick={() => selectTab('emails')}><Plus className="ikona-text" /> Přidat e-mail ke schválení</button>
@@ -270,17 +255,17 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
                 {/* Upozornění na auta badge */}
                 <div className="mt-2.5 flex items-center justify-between gap-1 flex-wrap">
                   {u.role === 'admin' || u.receive_vehicle_alerts ? (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-100 text-amber-900 font-extrabold text-[11px] border border-amber-200">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-100 text-amber-900 font-extrabold text-udaj border border-amber-200">
                       <Car className="ikona-text" /> Upozornění na auta
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-neutral-100 text-neutral-600 font-medium text-[11px]">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-neutral-100 text-neutral-600 font-medium text-udaj">
                       <Car className="ikona-text" /> Bez upozornění
                     </span>
                   )}
                 </div>
 
-                <div className="text-[11px] text-neutral-400 mt-2">
+                <div className="text-udaj text-neutral-400 mt-2">
                   Poslední přihlášení: {u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleString('cs-CZ') : '—'}
                 </div>
               </div>
@@ -288,10 +273,10 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
               <div className="space-y-2 pt-2 border-t border-neutral-100">
                 <button
                   onClick={() => setPermissionsUser(u)}
-                  className="w-full py-2 px-3 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-xs transition flex items-center justify-center gap-1.5"
+                  className="btn-amber w-full"
                 >
                   <Shield size={14} />
-                  <span><Shield className="ikona-text" /> Nastavit práva (Vidět / Upravit)</span>
+                  <span>Nastavit práva (Vidět / Upravit)</span>
                 </button>
 
                 <div className="flex gap-2">
@@ -350,10 +335,10 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
               <div className="overflow-x-auto rounded border border-neutral-100">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="bg-neutral-50 text-neutral-500 text-[11px] font-black uppercase tracking-wider border-b border-neutral-100">
-                      <th className="p-4">E-mailová adresa</th>
-                      <th className="p-4">Datum přidání</th>
-                      <th className="p-4 text-right">Akce</th>
+                    <tr className="bg-neutral-50 text-neutral-500 text-udaj font-black uppercase tracking-wider border-b border-neutral-100">
+                      <th scope="col" className="p-4">E-mailová adresa</th>
+                      <th scope="col" className="p-4">Datum přidání</th>
+                      <th scope="col" className="p-4 text-right">Akce</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-neutral-100 text-xs font-medium text-neutral-700">
@@ -367,7 +352,7 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
                           <div className="flex gap-2 justify-end">
                             <button
                               onClick={() => handleApproveAllowedEmail(e.email)}
-                              className="btn-primary !rounded !py-1 !px-2.5 text-[11px] font-black flex items-center gap-1 cursor-pointer"
+                              className="btn-primary !rounded !py-1 !px-2.5 text-udaj font-black flex items-center gap-1 cursor-pointer"
                               title="Schválit přístup"
                             >
                               <CheckCircle2 size={12} />
@@ -375,7 +360,7 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
                             </button>
                             <button
                               onClick={() => handleDeleteAllowedEmail(e.email)}
-                              className="btn-danger !rounded !py-1 !px-2.5 text-[11px] font-black flex items-center gap-1 cursor-pointer"
+                              className="btn-danger !rounded !py-1 !px-2.5 text-udaj font-black flex items-center gap-1 cursor-pointer"
                               title="Odebrat e-mail"
                             >
                               <Trash2 size={12} />
@@ -418,10 +403,10 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
               <div className="overflow-x-auto rounded border border-neutral-100">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="bg-neutral-50 text-neutral-500 text-[11px] font-black uppercase tracking-wider border-b border-neutral-100">
-                      <th className="p-4">E-mailová adresa</th>
-                      <th className="p-4">Datum schválení</th>
-                      <th className="p-4 text-right">Akce</th>
+                    <tr className="bg-neutral-50 text-neutral-500 text-udaj font-black uppercase tracking-wider border-b border-neutral-100">
+                      <th scope="col" className="p-4">E-mailová adresa</th>
+                      <th scope="col" className="p-4">Datum schválení</th>
+                      <th scope="col" className="p-4 text-right">Akce</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-neutral-100 text-xs font-medium text-neutral-700">
@@ -434,7 +419,7 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
                         <td className="p-4 text-right">
                           <button
                             onClick={() => handleDeleteAllowedEmail(e.email)}
-                            className="btn-danger !rounded !py-1 !px-2.5 text-[11px] font-black flex items-center gap-1 ml-auto cursor-pointer"
+                            className="btn-danger !rounded !py-1 !px-2.5 text-udaj font-black flex items-center gap-1 ml-auto cursor-pointer"
                             title="Odebrat schválení"
                           >
                             <Trash2 size={12} />

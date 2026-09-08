@@ -1,8 +1,8 @@
 import { useEffect, useState, useMemo } from 'react';
-import { Beer, Package, beerBg, beerText, fetchAllRows, formatPackageLabel, pkgBg, pkgText, supabase, useRealtime } from '../lib/supabase';
-import { Kostra, EmptyState } from '../components/ui';
+import { Beer, Package, beerBg, fetchAllRows, formatPackageLabel, pkgBg, supabase, useRealtime, beerText, pkgText } from '../lib/supabase';
+import { EmptyState, Kostra } from '../components/ui';
 import { createReminder } from '../lib/reminders';
-import { AlertTriangle, Beer as BeerIcon, Bell, Calendar, Check, CheckCircle2, ClipboardList, Clock, DollarSign, MapPin, PartyPopper, Plus, RotateCcw, Sparkles, Star, Tent, ThumbsDown, ThumbsUp, Trash2, User, X } from 'lucide-react';
+import { AlertTriangle, Beer as BeerIcon, Bell, Calendar, Check, CheckCircle2, ClipboardList, Clock, DollarSign, PartyPopper, Plus, Sparkles, Star, ThumbsDown, ThumbsUp, Trash2, User, X } from 'lucide-react';
 import { oznam, potvrd } from '../lib/toast';
 import { uloz, smaz } from '../lib/uloziste';
 
@@ -404,7 +404,9 @@ export default function AkceScreen() {
     await deleteRecord(id);
   }
 
-  if (loading) return <Kostra />;
+  // Kostra místo kolečka: obsah se neodmountuje do prázdna, takže se
+  // stránka po načtení neposkočí. Viz Kostra v components/ui.tsx.
+  if (loading) return <Kostra radku={5} />;
 
   return (
     <div className="space-y-6 pb-12">
@@ -477,7 +479,7 @@ export default function AkceScreen() {
                         </div>
                       </div>
 
-                      <button onClick={(e) => { e.stopPropagation(); handleDeleteAkce(r.id); }} className="text-neutral-400 hover:text-rose-600 p-1 transition" title="Smazat akci">
+                      <button onClick={(e) => { e.stopPropagation(); handleDeleteAkce(r.id); }} className="text-neutral-400 hover:text-rose-600 p-1 transition tap" title="Smazat akci" aria-label="Smazat akci">
                         <Trash2 size={16} />
                       </button>
                     </div>
@@ -487,28 +489,28 @@ export default function AkceScreen() {
                       {!isDone && (
                         <button
                           onClick={(e) => { e.stopPropagation(); toggleReady(r); }}
-                          className={`px-3 py-1.5 rounded font-black text-xs transition shadow-sm flex items-center gap-1.5 ${
+                          className={`tap px-3 py-1.5 rounded font-black text-xs transition shadow-sm flex items-center gap-1.5 ${
                             r.ready ? 'bg-emerald-700 text-white' : 'bg-neutral-100 text-neutral-700 hover:bg-emerald-100'
                           }`}
                         >
-                          <Check size={15} />
+                          <Check size={16} />
                           {r.ready ? <>Připraveno na akci <Check className="ikona-text" /></> : 'Označit jako připraveno'}
                         </button>
                       )}
                       <button
                         onClick={(e) => { e.stopPropagation(); openEquipModal(r); }}
-                        className={`px-3 py-1.5 rounded font-black text-xs transition shadow-sm flex items-center gap-1.5 ${
+                        className={`tap px-3 py-1.5 rounded font-black text-xs transition shadow-sm flex items-center gap-1.5 ${
                           (r.equipment || []).length ? 'bg-amber-500 text-neutral-950' : 'bg-neutral-100 text-neutral-700 hover:bg-amber-100'
                         }`}
                       >
-                        <ClipboardList size={15} />
+                        <ClipboardList size={16} />
                         Vybavení na akci {(r.equipment || []).length ? `(${(r.equipment || []).length})` : ''}
                       </button>
                     </div>
 
                     {/* Items table */}
                     <div className="space-y-1.5 pt-2">
-                      <span className="text-[11px] font-black uppercase text-neutral-500">Piva a obaly (celkem {totalTaken} ks vzato):</span>
+                      <span className="text-udaj font-black uppercase text-neutral-500">Piva a obaly (celkem {totalTaken} ks vzato):</span>
                       <div className="flex flex-wrap gap-1.5">
                         {r.items.map((it, idx) => {
                           const beerObj = beers.find((b) => b.id === it.beer_id);
@@ -520,12 +522,12 @@ export default function AkceScreen() {
                             <div key={idx} className="px-2.5 py-1 rounded bg-white border border-neutral-300 text-xs font-bold shadow-2xs flex items-center gap-1.5">
                               <span className="w-2.5 h-2.5 rounded-full shrink-0 border border-black/20" style={{ backgroundColor: bBg }} />
                               <span>{it.beer_name ?? beerObj?.name ?? 'Pivo'}</span>
-                              <span className="px-1.5 py-0.5 rounded text-[11px] font-black text-white" style={{ backgroundColor: pBg }}>
+                              <span className="px-1.5 py-0.5 rounded text-udaj font-black text-white" style={{ backgroundColor: pBg }}>
                                 {formatPackageLabel(it.package_label ?? pkgObj?.label ?? '')}
                               </span>
                               <span className="font-mono font-black text-amber-950">{it.quantity_taken} ks</span>
                               {isDone && (
-                                <span className="text-[11px] text-emerald-800 font-extrabold bg-emerald-100 px-1.5 py-0.5 rounded-md">
+                                <span className="text-udaj text-emerald-800 font-extrabold bg-emerald-100 px-1.5 py-0.5 rounded-md">
                                   (prodáno {it.quantity_taken - it.quantity_returned} ks / vráceno {it.quantity_returned} ks)
                                 </span>
                               )}
@@ -556,7 +558,7 @@ export default function AkceScreen() {
                             <span className={`px-3 py-1 rounded font-black text-xs shadow-xs flex items-center gap-1 ${
                               r.recommend === 'yes' ? 'bg-emerald-700 text-white' : 'bg-rose-600 text-white'
                             }`}>
-                              {r.recommend === 'yes' ? <ThumbsUp size={13} /> : <ThumbsDown size={13} />}
+                              {r.recommend === 'yes' ? <ThumbsUp size={14} /> : <ThumbsDown size={14} />}
                               {r.recommend === 'yes' ? 'Doporučeno jet i za rok' : 'Nedoporučeno jet za rok'}
                             </span>
                           )}
@@ -568,12 +570,12 @@ export default function AkceScreen() {
                     {/* Equipment checklist display */}
                     {(r.equipment || []).length > 0 && (
                       <div className="pt-1">
-                        <span className="text-[11px] font-black uppercase text-neutral-500 flex items-center gap-1">
+                        <span className="text-udaj font-black uppercase text-neutral-500 flex items-center gap-1">
                           <ClipboardList size={12} className="text-amber-600" /> Vybavení na akci:
                         </span>
                         <div className="flex flex-wrap gap-1.5 mt-1">
                           {(r.equipment || []).map((eq, idx) => (
-                            <span key={idx} className="px-2 py-0.5 rounded bg-amber-50 border border-amber-200 text-[11px] font-bold text-amber-950">
+                            <span key={idx} className="px-2 py-0.5 rounded bg-amber-50 border border-amber-200 text-udaj font-bold text-amber-950">
                               <Check className="ikona-text" /> {eq}
                             </span>
                           ))}
@@ -609,10 +611,10 @@ export default function AkceScreen() {
           <div className="bg-white rounded max-w-2xl w-full p-6 space-y-4 shadow-2xl border border-neutral-200 my-8">
             <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
               <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
-                <Sparkles className="text-amber-500 fill-current" size={20} />
+                <Sparkles className="text-amber-500 fill-current" size={18} />
                 <span>Zadat novou výjezdní akci / festival</span>
               </h3>
-              <button onClick={() => setShowAddModal(false)} className="text-neutral-400 hover:text-neutral-600 font-bold text-lg" title="Zavřít"><X size={18} /></button>
+              <button onClick={() => setShowAddModal(false)} className="text-neutral-400 hover:text-neutral-600 font-bold text-lg" title="Zavřít" aria-label="Zavřít"><X size={18} /></button>
             </div>
 
             <form onSubmit={handleCreateAkce} className="space-y-4">
@@ -722,10 +724,10 @@ export default function AkceScreen() {
                   <table className="w-full text-xs whitespace-nowrap">
                     <thead>
                       <tr className="bg-neutral-100">
-                        <th className="text-left py-1.5 px-1 font-black text-neutral-700">Pivo</th>
-                        <th className="text-left py-1.5 px-1 font-black text-neutral-700">Obal</th>
-                        <th className="text-center py-1.5 px-1 font-black text-neutral-700">KS</th>
-                        <th className="w-20"></th>
+                        <th scope="col" className="text-left py-1.5 px-1 font-black text-neutral-700">Pivo</th>
+                        <th scope="col" className="text-left py-1.5 px-1 font-black text-neutral-700">Obal</th>
+                        <th scope="col" className="text-center py-1.5 px-1 font-black text-neutral-700">KS</th>
+                        <th scope="col" className="w-20"></th>
                       </tr>
                     </thead>
                     <tbody>
@@ -733,7 +735,7 @@ export default function AkceScreen() {
                         <tr key={i} className="border-b border-neutral-200/60">
                           <td className="py-1 pr-1">
                             <select
-                              className="input text-[11px] w-full appearance-none pr-2"
+                              className="input text-udaj w-full appearance-none pr-2"
                               value={r.beer_id}
                               onChange={(e) => handleRowChange(i, 'beer_id', e.target.value)}
                             >
@@ -743,7 +745,7 @@ export default function AkceScreen() {
                           </td>
                           <td className="py-1 pr-1">
                             <select
-                              className="input text-[11px] w-full appearance-none pr-2"
+                              className="input text-udaj w-full appearance-none pr-2"
                               value={r.package_id}
                               onChange={(e) => handleRowChange(i, 'package_id', e.target.value)}
                             >
@@ -755,7 +757,7 @@ export default function AkceScreen() {
                             <div className="flex items-center justify-center gap-1">
                               <button
                                 type="button"
-                                className="w-7 h-7 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-sm transition disabled:opacity-30"
+                                className="w-7 h-7 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-sm transition disabled:opacity-30 tap"
                                 disabled={!r.qty || Number(r.qty) <= 0}
                                 onClick={() => handleRowChange(i, 'qty', String(Math.max(0, Number(r.qty) - 1)))}
                               >−</button>
@@ -764,7 +766,7 @@ export default function AkceScreen() {
                               </span>
                               <button
                                 type="button"
-                                className="w-7 h-7 grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-bold text-sm transition"
+                                className="w-7 h-7 grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-bold text-sm transition tap"
                                 onClick={() => handleRowChange(i, 'qty', String(Number(r.qty || 0) + 1))}
                               >+</button>
                             </div>
@@ -804,7 +806,7 @@ export default function AkceScreen() {
                 <CheckCircle2 className="text-emerald-600" size={22} />
                 <span>Vyhodnocení PO AKCI — {evalRecord.name}</span>
               </h3>
-              <button onClick={() => setEvalRecord(null)} className="text-neutral-400 hover:text-neutral-600 font-bold text-lg" title="Zavřít"><X size={18} /></button>
+              <button onClick={() => setEvalRecord(null)} className="text-neutral-400 hover:text-neutral-600 font-bold text-lg" title="Zavřít" aria-label="Zavřít"><X size={18} /></button>
             </div>
 
             <form onSubmit={handleSaveEval} className="space-y-4">
@@ -866,9 +868,9 @@ export default function AkceScreen() {
                         type="button"
                         key={star}
                         onClick={() => setEvalRating(star)}
-                        className="p-1 hover:scale-125 transition"
+                        className="p-1 hover:scale-125 transition tap"
                       >
-                        <Star size={20} className={star <= evalRating ? 'fill-amber-400 text-amber-500' : 'text-neutral-400'} />
+                        <Star size={18} className={star <= evalRating ? 'fill-amber-400 text-amber-500' : 'text-neutral-400'} />
                       </button>
                     ))}
                   </div>
@@ -932,7 +934,7 @@ export default function AkceScreen() {
                 <ClipboardList className="text-amber-500" size={22} />
                 <span>Vybavení na akci — {equipRecord.name}</span>
               </h3>
-              <button onClick={() => setEquipRecord(null)} className="text-neutral-400 hover:text-neutral-600 font-bold text-lg" title="Zavřít"><X size={18} /></button>
+              <button onClick={() => setEquipRecord(null)} className="text-neutral-400 hover:text-neutral-600 font-bold text-lg" title="Zavřít" aria-label="Zavřít"><X size={18} /></button>
             </div>
 
             <p className="text-xs text-neutral-600 font-medium bg-amber-50 border border-amber-200 p-3 rounded">
@@ -967,9 +969,9 @@ export default function AkceScreen() {
                     type="button"
                     onClick={() => setEquipCustomItems((prev) => prev.filter((_, i) => i !== idx))}
                     className="text-rose-500 hover:text-rose-700 font-bold"
-                    title="Odebrat"
+                    title="Odebrat" aria-label="Odebrat"
                   >
-                    <Trash2 size={15} />
+                    <Trash2 size={16} />
                   </button>
                 </div>
               ))}
@@ -989,7 +991,7 @@ export default function AkceScreen() {
                 onClick={addCustomEquipItem}
                 className="px-4 py-2.5 rounded bg-neutral-800 hover:bg-neutral-700 text-white font-black text-xs shadow-md flex items-center gap-1.5"
               >
-                <Plus size={15} /> Přidat
+                <Plus size={16} /> Přidat
               </button>
             </div>
 

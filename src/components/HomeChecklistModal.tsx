@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Modal } from './ui';
-import { Plus, Check, Trash2, ClipboardCheck, RotateCcw, Sparkles } from 'lucide-react';
-import { getDailyTasks, toggleDailyTask, addDailyTask, deleteDailyTask, resetAllDailyTasks, DAILY_CHECKLIST_CHANGED_EVENT, type DailyTask } from '../lib/homeChecklist';
+import { Plus, Check, Trash2, ClipboardCheck, RotateCcw } from 'lucide-react';
+import { getDailyTasks, toggleDailyTask, addDailyTask, deleteDailyTask, resetAllDailyTasks, DAILY_CHECKLIST_CHANGED_EVENT } from '../lib/homeChecklist';
 
 export function HomeChecklistModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const [{ tasks }, setState] = useState(() => getDailyTasks());
@@ -60,7 +60,7 @@ export function HomeChecklistModal({ isOpen, onClose }: { isOpen: boolean; onClo
             disabled={!newTitle.trim()}
             className="flex items-center gap-1 bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-neutral-950 font-bold text-xs px-3.5 py-2 rounded-lg shadow-xs transition shrink-0"
           >
-            <Plus size={15} /> Přidat
+            <Plus size={16} /> Přidat
           </button>
         </form>
 
@@ -90,7 +90,7 @@ export function HomeChecklistModal({ isOpen, onClose }: { isOpen: boolean; onClo
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 {task.category && (
-                  <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-neutral-100 text-neutral-600">
+                  <span className="text-udaj font-bold px-2 py-0.5 rounded bg-neutral-100 text-neutral-600">
                     {task.category}
                   </span>
                 )}
@@ -100,10 +100,10 @@ export function HomeChecklistModal({ isOpen, onClose }: { isOpen: boolean; onClo
                     e.stopPropagation();
                     deleteDailyTask(task.id);
                   }}
-                  className="text-neutral-400 hover:text-rose-600 p-1 transition"
-                  title="Smazat úkol"
+                  className="text-neutral-400 hover:text-rose-600 p-1 transition tap"
+                  title="Smazat úkol" aria-label="Smazat úkol"
                 >
-                  <Trash2 size={15} />
+                  <Trash2 size={16} />
                 </button>
               </div>
             </div>
@@ -122,7 +122,7 @@ export function HomeChecklistModal({ isOpen, onClose }: { isOpen: boolean; onClo
           <button
             type="button"
             onClick={onClose}
-            className="text-xs font-bold bg-neutral-200 hover:bg-neutral-300 text-neutral-800 px-3.5 py-1.5 rounded-lg transition"
+            className="text-xs font-bold bg-neutral-200 hover:bg-neutral-300 text-neutral-800 px-3.5 py-1.5 rounded-lg transition tap"
           >
             Hotovo
           </button>

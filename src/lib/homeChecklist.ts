@@ -2,6 +2,7 @@
 // Automaticky udržuje stav dnešních úkolů a umožňuje jejich odškrtávání.
 import { zavibruj } from './haptika';
 import { businessDateISO } from './businessDate';
+import { zalogujANahlas } from './chybyHlaseni';
 import { uloz } from './uloziste';
 
 export type DailyTask = {
@@ -57,7 +58,7 @@ function saveDailyTasks(tasks: DailyTask[]) {
     uloz(STORAGE_KEY, JSON.stringify(tasks));
     window.dispatchEvent(new CustomEvent(DAILY_CHECKLIST_CHANGED_EVENT, { detail: tasks }));
   } catch (e) {
-    console.error('Chyba při ukládání checklistu:', e);
+    zalogujANahlas('Chyba při ukládání checklistu', e);
   }
 }
 

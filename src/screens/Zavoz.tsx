@@ -1,13 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, lazy, Suspense } from 'react';
 import { Beer, Package, Place, fetchAllRows, formatPackageLabel, supabase, useRealtime } from '../lib/supabase';
 import { Spinner, EmptyState, Modal } from '../components/ui';
 import { orderWeightKg, fmtKg } from '../lib/weight';
 import { DAYS } from '../lib/shared';
-import { AlertTriangle, ArrowRightCircle, ArrowRightLeft, BarChart3, Bird, Calendar, CalendarDays, Car, Check, CheckCircle2, Droplet, FileText, Map as MapIcon, MapPin, MessageCircle, Package as PackageIcon, PenTool, Pencil, Phone, Plus, Printer, Scale, Search, Share2, StickyNote, TreePine, Truck, Wine } from 'lucide-react';
+import { AlertTriangle, ArrowRightLeft, BarChart3, Bird, Calendar, CalendarDays, Car, Check, CheckCircle2, FileText, Map as MapIcon, MapPin, MessageCircle, Package as PackageIcon, PenTool, Pencil, Phone, Plus, Printer, Scale, Search, StickyNote, TreePine, Truck, Wine, ArrowRightCircle, Droplet, Share2 } from 'lucide-react';
 import { shareDeliveryListToWhatsApp } from '../lib/whatsapp';
 import { exportZavozToExcel } from '../lib/excel';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
-import { EditOrderModal } from '../components/EditOrderModal';
 import { getSecondCarOrderIds, toggleOrderKachna, toggleOrdersKachna, migrateSecondCarDatesToOrders } from '../lib/zavozSecondCar';
 import { PodpisModal } from '../components/PodpisModal';
 import { KegReturnModal } from '../components/KegReturnModal';
@@ -21,6 +20,9 @@ import { UkolyObjednavky, UkolyDne } from '../components/ZavozUkoly';
 import { nactiHotoveUkoly, nastavUkolHotovo, klicUkolu } from '../lib/zavozUkolyDb';
 import type { UkolKlic } from '../lib/zavozUkoly';
 import { IkonaSud } from '../components/ikony';
+
+// Stahuje se až při otevření — viz komentář u lazy() v Orders.tsx.
+const EditOrderModal = lazy(() => import('../components/EditOrderModal').then((m) => ({ default: m.EditOrderModal })));
 
 type Order = {
   id: string; order_date: string; place_id: string | null; place_name: string | null;
@@ -457,14 +459,14 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
             <button className="btn-ghost !rounded !bg-white border-amber-300 text-amber-950 font-extrabold text-xs shadow-xs" disabled={!activeOrders.length}><BarChart3 className="ikona-text" /> Export Excel ▾</button>
             {activeOrders.length > 0 && (
               <div className="absolute right-0 top-full mt-1 z-50 bg-white border border-neutral-200 rounded shadow-lg py-1 min-w-[180px] hidden group-hover:block group-focus-within:block">
-                <button className="w-full text-left px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-amber-50 hover:text-amber-950 transition" onClick={() => {
+                <button className="w-full text-left px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-amber-50 hover:text-amber-950 transition tap" onClick={() => {
                   const rows = weekOrders.flatMap((o) => (items[o.id] ?? []).map((i) => ({
                     order_date: o.order_date, place_name: o.place_name, delivery_day: o.delivery_day,
                     beer_name: i.beer_name, package_label: i.package_label, quantity: i.quantity, is_delivered: o.is_delivered,
                   })));
                   exportZavozToExcel(rows, `tyden-${weekKey}`);
                 }}><Calendar className="ikona-text" /> Tento týden</button>
-                <button className="w-full text-left px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-amber-50 hover:text-amber-950 transition" onClick={() => {
+                <button className="w-full text-left px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-amber-50 hover:text-amber-950 transition tap" onClick={() => {
                   const rows = orders.filter((o) => o.status !== 'storno').flatMap((o) => (items[o.id] ?? []).map((i) => ({
                     order_date: o.order_date, place_name: o.place_name, delivery_day: o.delivery_day,
                     beer_name: i.beer_name, package_label: i.package_label, quantity: i.quantity, is_delivered: o.is_delivered,
@@ -542,22 +544,22 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
               disabled={!activeOrders.length}
               className="px-4 py-2.5 rounded bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-neutral-950 font-black text-xs transition shadow-md flex items-center gap-2"
             >
-              <Printer size={15} />
+              <Printer size={16} />
               <span>Tisk rozvozového listu</span>
             </button>
           </div>
 
           {/* Week Selector Bar */}
           <div className="card p-3 shadow-sm border-neutral-200/80 bg-white flex flex-wrap items-center justify-between gap-3">
-            <button onClick={() => setWeekKey(shiftWeek(weekKey, -1))} className="btn-ghost !rounded !py-2 !px-3 font-black text-base" title="Předchozí týden">‹</button>
+            <button onClick={() => setWeekKey(shiftWeek(weekKey, -1))} className="btn-ghost !rounded !py-2 !px-3 font-black text-base" title="Předchozí týden" aria-label="Předchozí týden">‹</button>
             <div className="text-center flex-1">
               <div className="font-display font-black text-neutral-900 text-sm flex items-center justify-center gap-1.5">
                 <Calendar size={14} className="text-amber-600" />
                 <span>Týden {weekKey.split('-')[1]} / {weekKey.split('-')[0]}</span>
               </div>
-              <div className="text-[11px] text-neutral-500 font-bold mt-0.5">{wr.label}</div>
+              <div className="text-udaj text-neutral-500 font-bold mt-0.5">{wr.label}</div>
             </div>
-            <button onClick={() => setWeekKey(shiftWeek(weekKey, 1))} className="btn-ghost !rounded !py-2 !px-3 font-black text-base" title="Následující týden">›</button>
+            <button onClick={() => setWeekKey(shiftWeek(weekKey, 1))} className="btn-ghost !rounded !py-2 !px-3 font-black text-base" title="Následující týden" aria-label="Následující týden">›</button>
             <button onClick={() => setWeekKey(isoWeekKey(new Date().toISOString().slice(0, 10)))} className="btn-ghost !rounded !py-2 !px-3 text-xs font-black text-amber-700">Dnes</button>
           </div>
 
@@ -566,7 +568,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <span className="font-display font-black text-amber-950 text-xs"><Truck className="ikona-text" /> Závoz na tento týden</span>
-                <span className="text-[11px] text-amber-800/70">{wr.label}</span>
+                <span className="text-udaj text-amber-800/70">{wr.label}</span>
               </div>
               <span className="chip bg-amber-500 text-neutral-950 font-mono font-black text-xs">
                 {activeOrders.length} objednávek
@@ -587,11 +589,11 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                     <button
                       key={d.v}
                       onClick={() => setSelectedDayFilter(selectedDayFilter === d.v ? 'all' : d.v)}
-                      className={`flex items-center gap-1 bg-amber-100/80 rounded px-2.5 py-1.5 border shadow-2xs transition ${
+                      className={`tap flex items-center gap-1 bg-amber-100/80 rounded px-2.5 py-1.5 border shadow-2xs transition ${
                         selectedDayFilter === d.v ? 'border-amber-500 bg-amber-200' : 'border-amber-300/60 hover:bg-amber-200'
                       }`}
                     >
-                      <span className="text-[11px] font-bold text-amber-950 whitespace-nowrap">{d.label}</span>
+                      <span className="text-udaj font-bold text-amber-950 whitespace-nowrap">{d.label}</span>
                       <span className="text-xs font-black text-amber-800">{stats.count}</span>
                     </button>
                   );
@@ -602,11 +604,11 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                   return (
                     <button
                       onClick={() => setSelectedDayFilter(selectedDayFilter === '_none' ? 'all' : '_none')}
-                      className={`flex items-center gap-1 bg-neutral-200/80 rounded px-2.5 py-1.5 border shadow-2xs transition ${
+                      className={`tap flex items-center gap-1 bg-neutral-200/80 rounded px-2.5 py-1.5 border shadow-2xs transition ${
                         selectedDayFilter === '_none' ? 'border-neutral-500 bg-neutral-300' : 'border-neutral-300/60 hover:bg-neutral-300'
                       }`}
                     >
-                      <span className="text-[11px] font-bold text-neutral-800 whitespace-nowrap">Bez dne</span>
+                      <span className="text-udaj font-bold text-neutral-800 whitespace-nowrap">Bez dne</span>
                       <span className="text-xs font-black text-neutral-700">{noneStats.count}</span>
                     </button>
                   );
@@ -645,16 +647,16 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                         : 'bg-neutral-200 text-neutral-600'
                     }`}
                   >
-                    <Truck size={13} />
+                    <Truck size={14} />
                     <span>{d.label}</span>
                   </button>
                   {stats.count > 0 && (
                     <button
                       onClick={() => openMoveDay(d.v)}
                       title={`Přesunout ${d.label} na jiný den`}
-                      className="w-8 h-8 grid place-items-center rounded border border-neutral-200 bg-white text-neutral-500 hover:text-amber-700 hover:border-amber-300 hover:bg-amber-50 transition shadow-xs"
+                      className="w-8 h-8 grid place-items-center rounded border border-neutral-200 bg-white text-neutral-500 hover:text-amber-700 hover:border-amber-300 hover:bg-amber-50 transition shadow-xs tap"
                     >
-                      <ArrowRightLeft size={13} />
+                      <ArrowRightLeft size={14} />
                     </button>
                   )}
                 </div>
@@ -677,14 +679,14 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
               </div>
             </div>
 
-            <div className="flex items-center gap-2 text-[11px] font-black text-neutral-700">
+            <div className="flex items-center gap-2 text-udaj font-black text-neutral-700">
               <div className="flex items-center gap-1 px-2.5 py-1 rounded bg-amber-50 border border-amber-200/80 text-amber-900">
-                <Scale size={13} className="text-amber-600" />
+                <Scale size={14} className="text-amber-600" />
                 <span>Váha: <strong className="font-mono">{fmtKg(totalWeight)} kg</strong></span>
               </div>
 
               <div className="flex items-center gap-1 px-2.5 py-1 rounded bg-emerald-50 border border-emerald-200/80 text-emerald-900">
-                <CheckCircle2 size={13} className="text-emerald-600" />
+                <CheckCircle2 size={14} className="text-emerald-600" />
                 <span>Zavezeno: <strong className="font-mono">{deliveredCount}/{activeOrders.length}</strong></span>
               </div>
             </div>
@@ -728,7 +730,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                   <div className="flex items-center justify-between pb-3 border-b border-amber-200/80">
                     <div>
                       <h2 className="font-display font-black text-lg text-neutral-950 flex items-center gap-2">
-                        <PackageIcon size={20} className="text-amber-600" />
+                        <PackageIcon size={18} className="text-amber-600" />
                         <span>Co naložit do auta</span>
                       </h2>
                       <p className="text-xs text-neutral-700 mt-0.5 font-bold">
@@ -778,7 +780,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                               }`}
                             >
                               <div className="flex items-center gap-2 min-w-0">
-                                <span className={`w-5 h-5 rounded border-2 flex items-center justify-center text-[11px] shrink-0 ${
+                                <span className={`w-5 h-5 rounded border-2 flex items-center justify-center text-udaj shrink-0 ${
                                   allPrepared ? 'bg-emerald-700 border-emerald-600 text-white' : 'bg-white border-neutral-300'
                                 }`}>{allPrepared ? <Check className="ikona-text" /> : ''}</span>
                                 <span className={`font-extrabold text-xs truncate ${
@@ -817,7 +819,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                               }`}
                             >
                               <div className="flex items-center gap-2 min-w-0">
-                                <span className={`w-5 h-5 rounded border-2 flex items-center justify-center text-[11px] shrink-0 ${
+                                <span className={`w-5 h-5 rounded border-2 flex items-center justify-center text-udaj shrink-0 ${
                                   allPrepared ? 'bg-emerald-700 border-emerald-600 text-white' : 'bg-white border-neutral-300'
                                 }`}>{allPrepared ? <Check className="ikona-text" /> : ''}</span>
                                 <span className={`font-extrabold text-xs truncate ${
@@ -849,12 +851,12 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                           className="flex items-center gap-3 cursor-pointer group select-none"
                         >
                           <div className="w-10 h-10 rounded bg-amber-500 text-neutral-950 font-black text-lg flex items-center justify-center shadow-md group-hover:bg-amber-400 transition">
-                            <Truck size={20} />
+                            <Truck size={18} />
                           </div>
                           <div>
                             <h3 className="font-display font-extrabold text-lg text-neutral-900 group-hover:text-amber-700 transition flex items-center gap-1.5">
                               {group.label}
-                              <ArrowRightLeft size={15} className="text-amber-500 opacity-0 group-hover:opacity-100 transition" />
+                              <ArrowRightLeft size={16} className="text-amber-500 opacity-0 group-hover:opacity-100 transition" />
                             </h3>
                             <p className="text-xs text-neutral-500 font-medium">{group.orders.length} objednávek v tento den</p>
                           </div>
@@ -868,13 +870,13 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                             onClick={() => toggleSecondCarForDay(gOrderIds)}
                             disabled={!gOrderIds.length}
                             title="Označit/odznačit Kačenu pro VŠECHNY objednávky tohoto dne najednou (jednotlivé objednávky lze pak doladit zvlášť u každé karty)"
-                            className={`px-3 py-1.5 rounded font-black text-xs transition shadow-xs flex items-center gap-1.5 border disabled:opacity-40 disabled:cursor-not-allowed ${
+                            className={`tap px-3 py-1.5 rounded font-black text-xs transition shadow-xs flex items-center gap-1.5 border disabled:opacity-40 disabled:cursor-not-allowed ${
                               gOrderIds.some((id) => secondCarOrderIds.includes(id))
                                 ? 'bg-emerald-700 text-white border-emerald-600'
                                 : 'bg-white border-neutral-300 text-neutral-700 hover:bg-emerald-50'
                             }`}
                           >
-                            <span className={`w-4 h-4 rounded border flex items-center justify-center text-[11px] ${
+                            <span className={`w-4 h-4 rounded border flex items-center justify-center text-udaj ${
                               gOrderIds.some((id) => secondCarOrderIds.includes(id))
                                 ? 'bg-white text-emerald-700 border-white'
                                 : 'bg-white border-neutral-300'
@@ -885,7 +887,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                           </button>
                           <button
                             onClick={() => openMoveDay(group.dayKey)}
-                            className="px-3 py-1.5 rounded bg-white border border-amber-300 hover:bg-amber-100 text-amber-800 font-black text-xs transition shadow-xs flex items-center gap-1.5"
+                            className="px-3 py-1.5 rounded bg-white border border-amber-300 hover:bg-amber-100 text-amber-800 font-black text-xs transition shadow-xs flex items-center gap-1.5 tap"
                             title="Přesunout tento den na jiný den"
                           >
                             <ArrowRightLeft size={14} />
@@ -928,7 +930,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                                     <h4 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
                                       <span className="text-emerald-700">SPOLEČNÝ ZÁVOZ:</span>
                                       <span>{groupName}</span>
-                                      {allDelivered && <span className="px-2 py-0.5 rounded-full bg-emerald-700 text-white font-extrabold text-[11px]"><Check className="ikona-text" /> Vše zavezeno</span>}
+                                      {allDelivered && <span className="px-2 py-0.5 rounded-full bg-emerald-700 text-white font-extrabold text-udaj"><Check className="ikona-text" /> Vše zavezeno</span>}
                                     </h4>
                                     <div className="text-xs text-neutral-600 font-medium mt-1">
                                       {groupOrders.map((o: Order) => o.place_name).join(', ')}
@@ -954,7 +956,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                                             <button
                                               onClick={() => toggleOrderKachnaFor(o.id)}
                                               title="Tato objednávka pojede druhým autem (Kačena)"
-                                              className={`px-2.5 py-1.5 rounded font-black text-[11px] transition shadow-xs flex items-center gap-1 border ${
+                                              className={`tap px-2.5 py-1.5 rounded font-black text-udaj transition shadow-xs flex items-center gap-1 border ${
                                                 secondCarOrderIds.includes(o.id)
                                                   ? 'bg-emerald-700 text-white border-emerald-600'
                                                   : 'bg-white border-neutral-300 text-neutral-500 hover:bg-emerald-50'
@@ -965,7 +967,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                                                   tlačítko. Vybráno/nevybráno nese barva, ne text. */}
                                               <Bird className="ikona-text" /> Kačena
                                             </button>
-                                            <button onClick={() => toggleDelivered(o)} className={`px-3 py-1.5 rounded font-black text-xs transition shadow-xs flex items-center gap-1.5 ${o.is_delivered ? 'bg-emerald-700 text-white' : 'bg-amber-500 text-neutral-950 hover:bg-amber-400'}`}>
+                                            <button onClick={() => toggleDelivered(o)} className={`tap px-3 py-1.5 rounded font-black text-xs transition shadow-xs flex items-center gap-1.5 ${o.is_delivered ? 'bg-emerald-700 text-white' : 'bg-amber-500 text-neutral-950 hover:bg-amber-400'}`}>
                                               {o.is_delivered ? <><Check className="ikona-text" /> Zavezeno</> : 'Označit'}
                                             </button>
                                           </div>
@@ -992,7 +994,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                                                 <span>{it.beer_name ?? '—'}</span>
                                               </button>
                                               <div className="flex items-center gap-3 font-mono">
-                                                <span className="text-neutral-950 font-black text-[11px]">{formatPackageLabel(it.package_label)}</span>
+                                                <span className="text-neutral-950 font-black text-udaj">{formatPackageLabel(it.package_label)}</span>
                                                 <span className="font-black text-white bg-amber-700 px-2 py-0.5 rounded-md text-xs shadow-2xs">{it.quantity} ks</span>
                                               </div>
                                             </div>
@@ -1035,7 +1037,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                                         || 'Neznámý odběratel'}
                                     </span>
                                     {o.is_delivered && (
-                                      <span className="px-2 py-0.5 rounded-full bg-emerald-700 text-white font-extrabold text-[11px]">
+                                      <span className="px-2 py-0.5 rounded-full bg-emerald-700 text-white font-extrabold text-udaj">
                                         <Check className="ikona-text" /> Zavezeno
                                       </span>
                                     )}
@@ -1047,7 +1049,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                                       className="text-xs font-mono font-bold text-amber-700 hover:text-amber-900 flex items-center gap-1 mt-1 w-fit"
                                       title="Zavolat zákazníkovi"
                                     >
-                                      <Phone size={11} /> {o.place_phone}
+                                      <Phone size={12} /> {o.place_phone}
                                     </a>
                                   )}
                                   {o.note && (
@@ -1100,7 +1102,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                                         className="btn-ghost !rounded !py-1.5 !px-2.5 text-xs font-black flex items-center gap-1 bg-amber-50 text-amber-950 border border-amber-300 shadow-2xs hover:bg-amber-100"
                                         title={`Navigovat: ${navDest}`}
                                       >
-                                        <MapPin size={13} className="text-amber-700" /> Navigovat
+                                        <MapPin size={14} className="text-amber-700" /> Navigovat
                                       </button>
                                     );
                                   })()}
@@ -1115,7 +1117,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                                     className="btn-ghost !rounded !py-1.5 !px-2.5 text-xs font-black flex items-center gap-1 bg-emerald-50 text-emerald-950 border border-emerald-300 shadow-2xs hover:bg-emerald-100"
                                     title="Odeslat avízo o závozu na WhatsApp"
                                   >
-                                    <MessageCircle size={13} className="text-emerald-700" /> WhatsApp
+                                    <MessageCircle size={14} className="text-emerald-700" /> WhatsApp
                                   </button>
 
                                   {/* 🛢️ Vrácené prázdné sudy */}
@@ -1125,7 +1127,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                                     className="btn-ghost !rounded !py-1.5 !px-2.5 text-xs font-black flex items-center gap-1 bg-sky-50 text-sky-950 border border-sky-300 shadow-2xs hover:bg-sky-100"
                                     title="Zaznamenat vrácené prázdné KEG sudy"
                                   >
-                                    <IkonaSud size={13} className="text-sky-700" /> Sudy
+                                    <IkonaSud size={14} className="text-sky-700" /> Sudy
                                   </button>
 
                                   {/* ✍️ Podpis zákazníka */}
@@ -1135,11 +1137,11 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                                     className="btn-ghost !rounded !py-1.5 !px-2.5 text-xs font-black flex items-center gap-1 bg-neutral-100 text-neutral-900 border border-neutral-300 shadow-2xs hover:bg-neutral-200"
                                     title="Podepsat převzetí na sklo"
                                   >
-                                    <PenTool size={13} /> Podpis
+                                    <PenTool size={14} /> Podpis
                                   </button>
 
                                   <button onClick={() => setEditOrder(o)} className="btn-ghost !rounded !py-1.5 !px-2.5 text-xs font-black flex items-center gap-1" title="Upravit objednávku">
-                                    <Pencil size={13} /> Upravit
+                                    <Pencil size={14} /> Upravit
                                   </button>
 
                                   <button
@@ -1164,7 +1166,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                                       });
                                       if (hasKegs) setKegReturnOrder(o);
                                     })}
-                                    className={`px-3.5 py-1.5 rounded font-black text-xs transition shadow-xs flex items-center gap-1.5 ${
+                                    className={`tap px-3.5 py-1.5 rounded font-black text-xs transition shadow-xs flex items-center gap-1.5 ${
                                       o.is_delivered
                                         ? 'bg-emerald-700 text-white hover:bg-emerald-800'
                                         : 'bg-amber-500 text-neutral-950 hover:bg-amber-400'
@@ -1188,6 +1190,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
         </>
 
       {editOrder && (
+        <Suspense fallback={null}>
         <EditOrderModal
           order={editOrder as any}
           items={items[editOrder.id] ?? []}
@@ -1198,6 +1201,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
           onSaved={() => { setEditOrder(null); load(); }}
           onPlacesChanged={load}
         />
+        </Suspense>
       )}
 
       {moveDay && (
@@ -1229,7 +1233,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                     >
                       <span>{d.label}</span>
                       {cnt > 0 && (
-                        <span className={`px-1.5 py-0.5 rounded-md font-mono text-[11px] ${active ? 'bg-white/30 text-neutral-900' : 'bg-neutral-100 text-neutral-600'}`}>
+                        <span className={`px-1.5 py-0.5 rounded-md font-mono text-udaj ${active ? 'bg-white/30 text-neutral-900' : 'bg-neutral-100 text-neutral-600'}`}>
                           {cnt}
                         </span>
                       )}
@@ -1246,7 +1250,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                     }`}
                   >
                     <span>Bez dne</span>
-                    {(() => { const cnt = dayStats.get('_none')?.count ?? 0; return cnt > 0 ? <span className="px-1.5 py-0.5 rounded-md font-mono text-[11px] bg-neutral-100 text-neutral-600">{cnt}</span> : null; })()}
+                    {(() => { const cnt = dayStats.get('_none')?.count ?? 0; return cnt > 0 ? <span className="px-1.5 py-0.5 rounded-md font-mono text-udaj bg-neutral-100 text-neutral-600">{cnt}</span> : null; })()}
                   </button>
                 )}
               </div>
@@ -1262,7 +1266,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                 {moveBusy ? (
                   <>Přesouvám…</>
                 ) : (
-                  <><ArrowRightLeft size={15} /> Přesunout {moveDay.orderIds.length} objednávek</>
+                  <><ArrowRightLeft size={16} /> Přesunout {moveDay.orderIds.length} objednávek</>
                 )}
               </button>
             </div>

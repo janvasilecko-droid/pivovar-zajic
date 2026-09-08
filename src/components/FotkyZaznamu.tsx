@@ -3,6 +3,7 @@ import { Camera, Trash2, X } from 'lucide-react';
 import { potvrd } from '../lib/toast';
 import { type TypZaznamu } from '../lib/fotkyZaznamu';
 import { nactiFotky, nahrajFotku, smazFotku, type FotkaZaznamu } from '../lib/fotkyZaznamuApi';
+import { useChovaniDialogu } from '../lib/zavriNaZpet';
 
 /**
  * 📷 Fotky u jednoho zápisu — tlačítko „Fotka" a náhledy.
@@ -48,6 +49,8 @@ export function FotkyZaznamu({ typ, zaznamId, kompaktni = false }: {
   const [chyba, setChyba] = useState<string | null>(null);
   const [otevreno, setOtevreno] = useState(!kompaktni);
   const [zvetsena, setZvetsena] = useState<string | null>(null);
+  // Zvětšená fotka je taky dialog: Zpět ji má zavřít, ne odejít z obrazovky.
+  useChovaniDialogu(!!zvetsena, () => setZvetsena(null));
   const vstupRef = useRef<HTMLInputElement | null>(null);
 
   async function nacti() {
@@ -96,7 +99,7 @@ export function FotkyZaznamu({ typ, zaznamId, kompaktni = false }: {
 
   if (chybiTabulka) {
     return kompaktni ? null : (
-      <div className="text-[11px] font-semibold text-amber-800">
+      <div className="text-udaj font-semibold text-amber-800">
         Úložiště fotek ještě není nastavené (chybí migrace 20261228020000_fotky_zaznamu.sql).
       </div>
     );
@@ -108,7 +111,7 @@ export function FotkyZaznamu({ typ, zaznamId, kompaktni = false }: {
         type="button"
         onClick={() => setOtevreno(true)}
         className="min-h-[44px] px-2.5 grid place-items-center rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-700 font-black transition"
-        title="Fotky k zápisu"
+        title="Fotky k zápisu" aria-label="Fotky k zápisu"
       >
         <span className="inline-flex items-center gap-1"><Camera size={16} /></span>
       </button>
@@ -122,14 +125,14 @@ export function FotkyZaznamu({ typ, zaznamId, kompaktni = false }: {
           type="button"
           onClick={() => vstupRef.current?.click()}
           disabled={nahravam}
-          className="px-3 py-1.5 rounded font-black text-xs transition bg-white text-neutral-800 border border-neutral-300 hover:bg-neutral-100 disabled:opacity-40"
+          className="px-3 py-1.5 rounded font-black text-xs transition bg-white text-neutral-800 border border-neutral-300 hover:bg-neutral-100 disabled:opacity-40 tap"
         >
           <span className="inline-flex items-center gap-1.5">
             <Camera size={14} /> {nahravam ? 'Nahrávám…' : 'Přidat fotku'}
           </span>
         </button>
         {fotky.length > 0 && (
-          <span className="text-[11px] font-bold text-neutral-600">{fotky.length} fotek u zápisu</span>
+          <span className="text-udaj font-bold text-neutral-600">{fotky.length} fotek u zápisu</span>
         )}
         <input
           ref={vstupRef}
@@ -155,19 +158,24 @@ export function FotkyZaznamu({ typ, zaznamId, kompaktni = false }: {
                 <img
                   src={f.url}
                   alt={f.popis ?? 'Fotka k zápisu'}
+                  // Náhledy se stahují ze storage. `lazy` je tu kvůli
+                  // mobilním datům: u záznamu s deseti fotkami se jinak
+                  // stáhne všech deset, i když je vidět první řádek.
+                  loading="lazy"
+                  decoding="async"
                   onClick={() => setZvetsena(f.url)}
                   className="w-20 h-20 object-cover rounded-xl border border-neutral-300 cursor-zoom-in"
                 />
               ) : (
-                <div className="w-20 h-20 grid place-items-center rounded-xl border border-neutral-300 bg-neutral-100 text-[11px] font-bold text-neutral-600 text-center px-1">
+                <div className="w-20 h-20 grid place-items-center rounded-xl border border-neutral-300 bg-neutral-100 text-udaj font-bold text-neutral-600 text-center px-1">
                   fotka se nenačetla
                 </div>
               )}
               <button
                 type="button"
                 onClick={() => { void smaz(f); }}
-                className="absolute -top-1.5 -right-1.5 w-6 h-6 grid place-items-center rounded-full bg-white border border-neutral-300 text-rose-700 shadow-2xs"
-                title="Smazat fotku"
+                className="absolute -top-1.5 -right-1.5 w-6 h-6 grid place-items-center rounded-full bg-white border border-neutral-300 text-rose-700 shadow-2xs tap"
+                title="Smazat fotku" aria-label="Smazat fotku"
               >
                 <Trash2 size={12} />
               </button>
@@ -180,17 +188,17 @@ export function FotkyZaznamu({ typ, zaznamId, kompaktni = false }: {
           nepozná. */}
       {zvetsena && (
         <div
-          className="fixed inset-0 z-[99999] bg-neutral-950/90 flex items-center justify-center p-4"
+          className="fixed inset-0 z-nadmodal bg-neutral-950/90 flex items-center justify-center p-4"
           onClick={() => setZvetsena(null)}
         >
           <img src={zvetsena} alt="Fotka k zápisu" className="max-h-full max-w-full rounded" />
           <button
             type="button"
             onClick={() => setZvetsena(null)}
-            className="absolute top-4 right-4 w-10 h-10 grid place-items-center rounded-full bg-white text-neutral-900 shadow-lg"
-            title="Zavřít"
+            className="absolute top-4 right-4 w-10 h-10 grid place-items-center rounded-full bg-white text-neutral-900 shadow-lg tap"
+            title="Zavřít" aria-label="Zavřít"
           >
-            <X size={20} />
+            <X size={18} />
           </button>
         </div>
       )}

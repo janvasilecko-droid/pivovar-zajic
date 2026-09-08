@@ -1,6 +1,7 @@
-import { ReactNode, useEffect, useRef, useState } from 'react';
+import { ReactNode } from 'react';
 import { Inbox, X, AlertTriangle, type LucideIcon } from 'lucide-react';
 import { plnostTanku, popisPlnosti } from '../lib/tankPlnost';
+import { useChovaniDialogu } from '../lib/zavriNaZpet';
 import { litry } from '../lib/cisla';
 
 export function Spinner({ className = '' }: { className?: string }) {
@@ -119,42 +120,11 @@ export function Field({ label, children, hint }: { label: string; children: Reac
 export function Modal({ open, onClose, title, children, wide, maxWidth }: {
   open: boolean; onClose: () => void; title: string; children: ReactNode; wide?: boolean; maxWidth?: string;
 }) {
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
-    window.addEventListener('keydown', onKey);
-    document.body.style.overflow = 'hidden';
-    return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = ''; };
-  }, [open, onClose]);
-
-  // Tlačítko Zpět (hardwarové na Androidu i v prohlížeči) zavře modal místo
-  // toho, aby vyskočilo o stránku výš — zapíšeme si při otevření dodatečný
-  // krok do historie (se zachováním page/subTab, ať App.tsx při jeho
-  // odpopnutí nepřehodí stránku) a na popstate modal zavřeme.
-  //
-  // modalId: history.back() je asynchronní (popstate přijde až příští tick).
-  // Když se jeden modal zavře a hned v tomtéž renderu se otevře další (např.
-  // potvrzovací dialog → checklist), zpožděný back() z toho prvního by bez
-  // téhle kontroly odpopnul historii AŽ PO tom, co druhý modal stihl
-  // pushnout svůj vlastní záznam — a jeho popstate listener by ho tím pádem
-  // hned zase zavřel. Cleanup proto volá back() jen tehdy, když je na vrcholu
-  // historie pořád jeho VLASTNÍ záznam (podle unikátního id).
-  const onCloseRef = useRef(onClose);
-  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
-  useEffect(() => {
-    if (!open) return;
-    const modalId = Math.random().toString(36).slice(2);
-    window.history.pushState({ ...window.history.state, modalOpen: true, modalId }, '');
-    const onPopState = () => onCloseRef.current();
-    window.addEventListener('popstate', onPopState);
-    return () => {
-      window.removeEventListener('popstate', onPopState);
-      if (window.history.state?.modalOpen && window.history.state?.modalId === modalId) {
-        window.history.back();
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  // Zavírání na Escape, zamčené rolování pod dialogem a zavření tlačítkem
+  // Zpět. Vytaženo do lib/zavriNaZpet.ts, aby to samé měly i dialogy, které
+  // si `fixed inset-0` kreslí samy — bylo jich třináct a Zpět v nich odešel
+  // z celé obrazovky i s rozepsanou prací.
+  useChovaniDialogu(open, onClose);
 
   if (!open) return null;
   return (
@@ -198,7 +168,7 @@ export function Stat({ label, value, icon, tone = 'primary' }: {
       <div className="flex items-center justify-between mb-3">
         <span className="text-xs font-bold uppercase tracking-wider text-neutral-500">{label}</span>
         <span className={`w-10 h-10 rounded border grid place-items-center text-xl shadow-xs transition-transform group-hover:scale-105 ${t.iconBg}`}>
-          {Ikona ? <Ikona size={20} /> : znak}
+          {Ikona ? <Ikona size={18} /> : znak}
         </span>
       </div>
       <div className={`text-2xl sm:text-3xl font-display font-extrabold tracking-tight ${t.text}`}>{value}</div>
@@ -250,7 +220,7 @@ export function UkazatelPlnosti({ zbyvaLitru, kapacitaLitru, popisek = true }: {
         <div className={`h-full ${barva} transition-all duration-500`} style={{ width: `${p.procent}%` }} />
       </div>
       {popisek && (
-        <div className="mt-1 flex items-center justify-between text-[11px] font-bold text-neutral-600">
+        <div className="mt-1 flex items-center justify-between text-udaj font-bold text-neutral-600">
           <span className="tabular-nums">{litry(zbyvaLitru)} z {litry(kapacitaLitru)}</span>
           <span>{popis}</span>
         </div>

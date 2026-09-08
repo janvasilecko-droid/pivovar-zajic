@@ -8,6 +8,7 @@
 
 import { businessDateISO, businessHour } from './businessDate';
 import { supabase } from './supabase';
+import { zalogujANahlas } from './chybyHlaseni';
 import { uloz } from './uloziste';
 
 const DAY_OFFSET: Record<string, number> = {
@@ -70,7 +71,7 @@ export async function runZavozDeductionForDate(deductDate: string): Promise<numb
 
   const { data, error } = await supabase.rpc('run_today_zavoz_deductions');
   if (error) {
-    console.error('[zavozDeduction] Databázový odpočet selhal:', error);
+    zalogujANahlas('[zavozDeduction] Databázový odpočet selhal', error);
     throw error;
   }
 
@@ -95,7 +96,7 @@ export async function checkAndRunDailyDeduction(): Promise<void> {
     }
   } catch (error) {
     // Do not mark the day complete. The next fallback check or pg_cron retries.
-    console.error('[zavozDeduction] Denní odpočet bude zopakován:', error);
+    zalogujANahlas('[zavozDeduction] Denní odpočet bude zopakován', error);
   }
 }
 

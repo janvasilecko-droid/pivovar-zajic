@@ -90,7 +90,7 @@ export default function Notes() {
       {/* Header */}
       <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
         <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
-          <StickyNote size={20} className="text-amber-500" />
+          <StickyNote size={18} className="text-amber-500" />
           <span><NotebookPen className="ikona-text" /> Poznámky ({notes.length})</span>
         </h3>
       </div>
@@ -164,13 +164,13 @@ export default function Notes() {
                     <div className="flex gap-2">
                       <button
                         onClick={() => saveEdit(n.id)}
-                        className="px-3 py-1.5 rounded bg-emerald-700 hover:bg-emerald-800 text-white font-black text-xs flex items-center gap-1 transition"
+                        className="px-3 py-1.5 rounded bg-emerald-700 hover:bg-emerald-800 text-white font-black text-xs flex items-center gap-1 transition tap"
                       >
                         <Check size={14} /> Uložit
                       </button>
                       <button
                         onClick={() => setEditingId(null)}
-                        className="px-3 py-1.5 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-700 font-black text-xs flex items-center gap-1 transition"
+                        className="px-3 py-1.5 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-700 font-black text-xs flex items-center gap-1 transition tap"
                       >
                         <X size={14} /> Zrušit
                       </button>
@@ -186,21 +186,21 @@ export default function Notes() {
                       <div className="flex items-center gap-1 shrink-0">
                         <button
                           onClick={() => startEdit(n)}
-                          className="p-1.5 rounded hover:bg-amber-100 text-amber-600 transition"
-                          title="Upravit poznámku"
+                          className="p-1.5 rounded hover:bg-amber-100 text-amber-600 transition tap"
+                          title="Upravit poznámku" aria-label="Upravit poznámku"
                         >
                           <Pencil size={14} />
                         </button>
                         <button
                           onClick={() => del(n.id)}
-                          className="p-1.5 rounded hover:bg-rose-100 text-rose-600 transition"
-                          title="Smazat poznámku"
+                          className="p-1.5 rounded hover:bg-rose-100 text-rose-600 transition tap"
+                          title="Smazat poznámku" aria-label="Smazat poznámku"
                         >
                           <Trash2 size={14} />
                         </button>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 pt-2 border-t border-neutral-100 mt-2 text-[11px] font-bold text-neutral-400">
+                    <div className="flex items-center gap-2 pt-2 border-t border-neutral-100 mt-2 text-udaj font-bold text-neutral-400">
                       <span>{n.created_by || '—'}</span>
                       <span>•</span>
                       <span>{formatDate(n.created_at)}</span>

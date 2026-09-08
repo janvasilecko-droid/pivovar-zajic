@@ -2,6 +2,7 @@ import { Beer, Package, Place, supabase } from './supabase';
 import { parseGeminiItems, matchPlaceFromText, detectOrderNotes, loadAliasMap, loadPlaceAliasMap, ParserAliasMap, ParsedLine, GeminiItem } from './orderParser';
 import { parseExplicitDate } from './orderDates';
 import { authenticatedFunctionHeaders } from './functionAuth';
+import { zalogujANahlas } from './chybyHlaseni';
 
 // 📷 Stažení fotky z WhatsApp (media_url ze Supabase Storage) a převod na base64
 // pro AI čtení. Velké fotky zmenšíme na max. 1600 px (JPEG), aby se request
@@ -515,7 +516,7 @@ export async function parseWhatsAppOrderMessageWithAI(
         }
       }
     } catch (e) {
-      console.error('Chyba při načítání chat kontextu:', e);
+      zalogujANahlas('Chyba při načítání chat kontextu', e);
     }
   }
 
@@ -651,7 +652,7 @@ export async function parseWhatsAppOrderMessageWithAI(
     if (foundPlace.placeId && !isMatchGrounded(foundPlace.placeName)) foundPlace = { placeId: null, placeName: null };
   }
 
-  let placeId = foundPlace.placeId;
+  const placeId = foundPlace.placeId;
   let placeName = foundPlace.placeName;
   if (!placeId && !placeName) {
     // AI rozpoznala jméno, ale neodpovídá žádnému známému odběrateli

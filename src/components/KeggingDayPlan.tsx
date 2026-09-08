@@ -17,7 +17,8 @@
 import { useMemo, useState } from 'react';
 import { CalendarDays, Check, Beer, Truck, ChevronDown, ArrowRight, Search, X } from 'lucide-react';
 import type { DayPlan, PlanItem } from '../lib/keggingPlan';
-import { dayKeyFromISO, mergeWeekPlan } from '../lib/keggingPlan';
+import { dayKeyFromISO, mergeWeekPlan, rozpadPoObalech, BEZ_TERMINU } from '../lib/keggingPlan';
+import type { RozpadObalu } from '../lib/keggingPlan';
 import { IkonaSud } from './ikony';
 
 type Props = {
@@ -41,11 +42,53 @@ const fmtDate = (iso: string) => new Date(iso + 'T00:00:00Z').toLocaleDateString
 /** Porovnání bez diakritiky — hledá se jedním prstem, háčky nikdo nepíše. */
 const bezDiakritiky = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 
+/**
+ * 🛢️ „Kolik čeho zbývá stočit" — rozpad podle VELIKOSTI SUDU.
+ *
+ * Seznam pod tím je po pivech, takže „kolik mám nachystat padesátek" se z něj
+ * dá zjistit jen sečtením deseti řádků v hlavě. U linky se přitom chystají
+ * OBALY, ne piva: prázdné sudy se tahají po velikostech.
+ *
+ * Hotové obaly se nevypisují — nula mezi čísly se čte jako „ještě zbývá".
+ * Když je hotové všechno, řekne se to slovem.
+ */
+function RozpadObalu({ rozpad, jednotka }: { rozpad: RozpadObalu[]; jednotka: string }) {
+  const zbyva = rozpad.filter((r) => r.missing > 0);
+  if (rozpad.length === 0) return null;
+
+  return (
+    <div className="mt-2">
+      <div className="text-udaj font-black uppercase tracking-wide text-neutral-500 mb-1">
+        Zbývá stočit po sudech
+      </div>
+      {zbyva.length === 0 ? (
+        <div className="text-udaj font-bold text-emerald-700">Všechny velikosti jsou stočené.</div>
+      ) : (
+        <div className="flex flex-wrap gap-1.5">
+          {zbyva.map((r) => (
+            <span
+              key={r.package_id}
+              className="chip bg-amber-100 text-amber-950 border-amber-300 font-black"
+              title={`${r.missing} z ${r.ordered} ${jednotka} · ${r.missingLiters} L`}
+            >
+              {r.package_label}
+              <span className="ml-1 px-1.5 py-0.5 rounded-full bg-amber-500 text-neutral-950 tabular-nums">
+                {r.missing}
+              </span>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, canEdit, onShowOrders, jednotka = 'sudů' }: Props) {
   const todayDay = dayKeyFromISO(todayISO);
   // Otevře se rovnou nejbližší den, kde ještě něco chybí — stáčeč většinou
   // řeší ten, ne pondělí.
-  const firstOpen = plans.find((p) => p.totalMissing > 0)?.day;
+  // „Bez termínu" se jako první neotevírá — stáčeč řeší den, který se veze.
+  const firstOpen = plans.find((p) => p.day !== BEZ_TERMINU && p.totalMissing > 0)?.day;
   const [selected, setSelected] = useState<string>(firstOpen ?? todayDay);
   const [busy, setBusy] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -61,11 +104,16 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
     ordered: weekPlan.totalOrdered,
     liters: weekPlan.missingLiters,
   };
+  // Rozpad po velikostech sudu — zvlášť za týden a za vybraný den, ať se
+  // dá u linky přečíst „kolik nachystat padesátek" bez sčítání v hlavě.
+  const rozpadTydne = useMemo(() => rozpadPoObalech(weekPlan), [weekPlan]);
   const hotovoCelkem = weekTotals.ordered - weekTotals.missing;
   const procenta = weekTotals.ordered > 0 ? Math.round((hotovoCelkem / weekTotals.ordered) * 100) : 0;
 
   const active = selected === 'tyden' ? weekPlan : (plans.find((p) => p.day === selected) ?? plans[0]);
   const isWeek = active.day === 'tyden';
+  const jeBezTerminu = active.day === BEZ_TERMINU;
+  const rozpadDne = useMemo(() => rozpadPoObalech(active), [active]);
 
   // Filtrování běží až nad vybraným dnem, ne nad celým týdnem — čísla
   // v hlavičce dne proto zůstávají pravdivá i při zapnutém filtru.
@@ -104,32 +152,34 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
               <span className="text-emerald-700">Celý týden je stočený</span>
             )}
           </div>
-          <div className="text-[11px] font-black text-neutral-500 shrink-0">
+          <div className="text-udaj font-black text-neutral-500 shrink-0">
             {hotovoCelkem} / {weekTotals.ordered}
           </div>
         </div>
         <div className="h-1.5 rounded-full bg-neutral-200 overflow-hidden mt-1.5">
           <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${procenta}%` }} />
         </div>
+        <RozpadObalu rozpad={rozpadTydne} jednotka={jednotka} />
       </div>
 
       <div className="hidden sm:grid grid-cols-3 gap-3">
         <div className="bg-white p-4 rounded border border-neutral-200/90 shadow-xs">
-          <div className="text-[11px] font-black uppercase tracking-wide text-neutral-500">Objednáno tento týden</div>
+          <div className="text-udaj font-black uppercase tracking-wide text-neutral-500">Objednáno tento týden</div>
           <div className="font-display font-black text-2xl text-neutral-900 mt-0.5">{weekTotals.ordered} <span className="text-sm font-bold text-neutral-500">ks {jednotka}</span></div>
-          <div className="text-[11px] font-bold text-neutral-500 mt-0.5">{weekLabel}</div>
+          <div className="text-udaj font-bold text-neutral-500 mt-0.5">{weekLabel}</div>
         </div>
         <div className={`p-4 rounded border shadow-xs ${weekTotals.missing > 0 ? 'bg-amber-50 border-amber-300' : 'bg-emerald-50 border-emerald-300'}`}>
-          <div className={`text-[11px] font-black uppercase tracking-wide ${weekTotals.missing > 0 ? 'text-amber-800' : 'text-emerald-800'}`}>Zbývá stočit</div>
+          <div className={`text-udaj font-black uppercase tracking-wide ${weekTotals.missing > 0 ? 'text-amber-800' : 'text-emerald-800'}`}>Zbývá stočit</div>
           <div className={`font-display font-black text-2xl mt-0.5 ${weekTotals.missing > 0 ? 'text-amber-900' : 'text-emerald-900'}`}>
             {weekTotals.missing} <span className="text-sm font-bold opacity-70">ks {jednotka}</span>
           </div>
-          <div className={`text-[11px] font-bold mt-0.5 ${weekTotals.missing > 0 ? 'text-amber-700' : 'text-emerald-700'}`}>
+          <div className={`text-udaj font-bold mt-0.5 ${weekTotals.missing > 0 ? 'text-amber-700' : 'text-emerald-700'}`}>
             {weekTotals.missing > 0 ? `${(weekTotals.liters / 100).toFixed(1)} hl / ${weekTotals.liters} L` : 'Všechno je stočené'}
           </div>
+          <RozpadObalu rozpad={rozpadTydne} jednotka={jednotka} />
         </div>
         <div className="bg-white p-4 rounded border border-neutral-200/90 shadow-xs">
-          <div className="text-[11px] font-black uppercase tracking-wide text-neutral-500">Hotovo</div>
+          <div className="text-udaj font-black uppercase tracking-wide text-neutral-500">Hotovo</div>
           <div className="font-display font-black text-2xl text-emerald-700 mt-0.5">
             {hotovoCelkem}<span className="text-sm font-bold text-neutral-500"> / {weekTotals.ordered}</span>
           </div>
@@ -157,13 +207,13 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
             <CalendarDays size={14} />
             <span>Celý týden</span>
             {weekTotals.missing > 0 && (
-              <span className={`px-1.5 py-0.5 rounded-full text-[11px] font-black ${isWeek ? 'bg-neutral-950 text-amber-300' : 'bg-amber-300 text-amber-950'}`}>
+              <span className={`px-1.5 py-0.5 rounded-full text-udaj font-black ${isWeek ? 'bg-neutral-950 text-amber-300' : 'bg-amber-300 text-amber-950'}`}>
                 {weekTotals.missing}
               </span>
             )}
           </button>
           <span className="w-px h-8 bg-neutral-300 shrink-0 mx-0.5" />
-          {plans.map((p) => {
+          {plans.filter((p) => p.day !== BEZ_TERMINU || p.totalOrdered > 0).map((p) => {
             const isSel = p.day === selected;
             const hotovo = p.totalOrdered > 0 && p.totalMissing === 0;
             return (
@@ -186,10 +236,14 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
                     {p.day === todayDay && <span className="w-1.5 h-1.5 rounded-full bg-current" title="Dnes" />}
                     {p.label}
                   </span>
-                  <span className="text-[11px] font-bold opacity-70">{fmtDate(p.date)}</span>
+                  {/* Přihrádka bez termínu žádné datum nemá — `fmtDate('')`
+                      by vypsalo „Invalid Date". */}
+                  <span className="text-udaj font-bold opacity-70">
+                    {p.day === BEZ_TERMINU ? 'nevíme kdy' : fmtDate(p.date)}
+                  </span>
                 </div>
                 {p.totalMissing > 0 ? (
-                  <span className={`px-1.5 py-0.5 rounded-full text-[11px] font-black ${isSel ? 'bg-neutral-950 text-amber-300' : 'bg-amber-300 text-amber-950'}`}>
+                  <span className={`px-1.5 py-0.5 rounded-full text-udaj font-black ${isSel ? 'bg-neutral-950 text-amber-300' : 'bg-amber-300 text-amber-950'}`}>
                     {p.totalMissing}
                   </span>
                 ) : hotovo ? (
@@ -207,11 +261,19 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <h3 className="font-display font-black text-neutral-950 flex items-center gap-2">
-                <CalendarDays size={17} className="text-amber-600 shrink-0" />
-                <span className="min-w-0">{isWeek ? `Stočit za celý týden ${active.label}` : `Stočit na ${active.label} ${fmtDate(active.date)}`}</span>
+                <CalendarDays size={16} className="text-amber-600 shrink-0" />
+                <span className="min-w-0">
+                  {isWeek
+                    ? `Stočit za celý týden ${active.label}`
+                    : jeBezTerminu
+                    ? 'Objednávky bez uvedeného dne dovozu'
+                    : `Stočit na ${active.label} ${fmtDate(active.date)}`}
+                </span>
               </h3>
-              <p className="text-[11px] font-bold text-neutral-500 mt-0.5">
-                {active.totalOrdered === 0
+              <p className="text-udaj font-bold text-neutral-500 mt-0.5">
+                {jeBezTerminu
+                  ? `U těchhle objednávek není uvedený den dovozu, takže nevím, na kdy je stočit — doplň ho v Objednávkách a přeskočí sem, kam patří. Do té doby se počítají jen do týdenního součtu. Chybí ${active.totalMissing} ks (${active.missingLiters} L).`
+                  : active.totalOrdered === 0
                   ? isWeek ? 'Tenhle týden zatím není žádná objednávka.' : 'Na tenhle den není žádná objednávka.'
                   : active.totalMissing === 0
                   ? isWeek ? 'Hotovo — celý týden je stočený.' : 'Hotovo — všechno na tenhle den je stočené.'
@@ -224,6 +286,12 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
               </span>
             )}
           </div>
+
+          {/* U týdne už rozpad stojí nahoře v souhrnu — dvakrát tutéž věc
+              pod sebou by byl jen šum. */}
+          {!isWeek && active.totalOrdered > 0 && (
+            <RozpadObalu rozpad={rozpadDne} jednotka={jednotka} />
+          )}
 
           {/* Hledání a filtr. Denní seznam má běžně přes deset položek
               a odscrollovat se k jednomu pivu na telefonu trvá dýl,
@@ -243,8 +311,8 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
                   <button
                     type="button"
                     onClick={() => setHledat('')}
-                    className="absolute right-1 top-1/2 -translate-y-1/2 w-9 h-9 grid place-items-center rounded text-neutral-600 hover:bg-neutral-100"
-                    title="Zrušit hledání"
+                    className="absolute right-1 top-1/2 -translate-y-1/2 w-9 h-9 grid place-items-center rounded text-neutral-600 hover:bg-neutral-100 tap"
+                    title="Zrušit hledání" aria-label="Zrušit hledání"
                   >
                     <X size={14} />
                   </button>
@@ -268,7 +336,7 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
 
         {active.items.length === 0 ? (
           <div className="p-8 text-center text-neutral-400 font-bold text-sm">
-            <Beer size={30} className="mx-auto mb-2 opacity-40" />
+            <Beer size={32} className="mx-auto mb-2 opacity-40" />
             Na {active.label} nejsou žádné objednávky.
           </div>
         ) : polozky.length === 0 ? (
@@ -289,7 +357,7 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
         ) : (
           <>
             {skryto > 0 && (
-              <div className="px-3.5 py-1.5 text-[11px] font-bold text-neutral-500 bg-neutral-50/80 border-b border-neutral-100">
+              <div className="px-3.5 py-1.5 text-udaj font-bold text-neutral-500 bg-neutral-50/80 border-b border-neutral-100">
                 Filtr schoval {skryto} {skryto === 1 ? 'položku' : skryto < 5 ? 'položky' : 'položek'}.
               </div>
             )}
@@ -305,14 +373,14 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
                         dalo trefit palcem. */}
                     <div className="flex items-start gap-3 p-3.5 pb-2.5">
                       <div className={`w-10 h-10 rounded grid place-items-center shrink-0 ${hotovo ? 'bg-emerald-700 text-white' : 'bg-amber-100 text-amber-700'}`}>
-                        {hotovo ? <Check size={20} /> : <IkonaSud size={19} />}
+                        {hotovo ? <Check size={18} /> : <IkonaSud size={18} />}
                       </div>
 
                       <div className="flex-1 min-w-0">
                         <div className="font-display font-black text-sm text-neutral-900 leading-tight">
                           {it.beer_name} <span className="text-neutral-500">{it.package_label.trim()}</span>
                         </div>
-                        <div className="text-[11px] font-bold text-neutral-500 mt-0.5">
+                        <div className="text-udaj font-bold text-neutral-500 mt-0.5">
                           {it.done} / {it.ordered} ks hotovo
                           {it.checked > 0 && (
                             <span className="text-emerald-700" title="Ručně odškrtnuto — nezapisuje se do stáčení">
@@ -326,7 +394,7 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
                         <div className={`font-mono font-black text-2xl leading-none ${hotovo ? 'text-emerald-600' : 'text-amber-700'}`}>
                           {hotovo ? <Check className="ikona-text" /> : it.missing}
                         </div>
-                        {!hotovo && <div className="text-[11px] font-black text-neutral-400 uppercase mt-0.5">zbývá</div>}
+                        {!hotovo && <div className="text-udaj font-black text-neutral-400 uppercase mt-0.5">zbývá</div>}
                       </div>
                     </div>
 
@@ -346,7 +414,7 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
                           disabled={busy === it.key || it.checked === 0}
                           onClick={() => setCheck(it, it.checked - 1)}
                           className="w-11 min-h-[44px] grid place-items-center rounded border border-neutral-200 bg-white text-neutral-700 font-black hover:bg-neutral-50 disabled:opacity-30 shrink-0"
-                          title="Ubrat jeden odškrtnutý kus"
+                          title="Ubrat jeden odškrtnutý kus" aria-label="Ubrat jeden odškrtnutý kus"
                         >
                           −
                         </button>
@@ -355,7 +423,7 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
                           disabled={busy === it.key || hotovo}
                           onClick={() => setCheck(it, it.checked + 1)}
                           className="w-11 min-h-[44px] grid place-items-center rounded border border-neutral-200 bg-white text-neutral-700 font-black hover:bg-neutral-50 disabled:opacity-30 shrink-0"
-                          title="Odškrtnout jeden kus"
+                          title="Odškrtnout jeden kus" aria-label="Odškrtnout jeden kus"
                         >
                           +
                         </button>
@@ -367,7 +435,7 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
                             className="flex-1 min-h-[44px] rounded bg-emerald-700 text-white font-black text-xs hover:bg-emerald-800 disabled:opacity-40 inline-flex items-center justify-center gap-1.5"
                             title="Odškrtnout celou položku — nezapisuje se do stáčení"
                           >
-                            <Check size={15} />
+                            <Check size={16} />
                             {busy === it.key ? 'Ukládám…' : `Mám všech ${it.missing}`}
                           </button>
                         ) : it.checked > 0 ? (
@@ -390,19 +458,19 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
                       <button
                         type="button"
                         onClick={() => setExpanded((p) => ({ ...p, [it.key]: !p[it.key] }))}
-                        className="flex-1 min-h-[44px] px-3 rounded border border-neutral-200 bg-neutral-50 text-neutral-600 font-bold text-[11px] inline-flex items-center justify-between gap-1.5 hover:bg-neutral-100"
+                        className="flex-1 min-h-[44px] px-3 rounded border border-neutral-200 bg-neutral-50 text-neutral-600 font-bold text-udaj inline-flex items-center justify-between gap-1.5 hover:bg-neutral-100"
                       >
                         <span className="inline-flex items-center gap-1.5">
                           <Truck size={12} />
                           {it.orders.length} {it.orders.length === 1 ? 'odběratel' : it.orders.length < 5 ? 'odběratelé' : 'odběratelů'}
                         </span>
-                        <ChevronDown size={13} className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                        <ChevronDown size={14} className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                       </button>
                       {onShowOrders && (
                         <button
                           type="button"
                           onClick={() => onShowOrders(it.beer_id, it.package_id)}
-                          className="min-h-[44px] px-3 rounded border border-neutral-200 bg-neutral-50 text-neutral-600 font-bold text-[11px] inline-flex items-center gap-1.5 hover:bg-neutral-100 shrink-0"
+                          className="min-h-[44px] px-3 rounded border border-neutral-200 bg-neutral-50 text-neutral-600 font-bold text-udaj inline-flex items-center gap-1.5 hover:bg-neutral-100 shrink-0"
                         >
                           Objednávky
                           <ArrowRight size={12} />
@@ -415,7 +483,7 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
                     {isOpen && (
                       <ul className="px-3.5 pb-3 -mt-1 space-y-1">
                         {it.orders.map((o, i) => (
-                          <li key={`${o.order_id}-${i}`} className="flex items-center justify-between gap-2 text-[11px] font-bold px-3 py-2 rounded bg-neutral-50 border border-neutral-100">
+                          <li key={`${o.order_id}-${i}`} className="flex items-center justify-between gap-2 text-udaj font-bold px-3 py-2 rounded bg-neutral-50 border border-neutral-100">
                             <span className={o.delivered ? 'text-neutral-400 line-through' : 'text-neutral-700'}>{o.place_name}</span>
                             <span className="font-mono text-neutral-600 shrink-0">
                               {o.quantity} ks{o.delivered ? ' · zavezeno' : ''}

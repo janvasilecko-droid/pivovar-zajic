@@ -1,17 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  normalizeForReadback,
-  normalizeForReadbackParts,
-  findRawLineMatch,
-  findRawLineFuzzyMatch,
-  analyzeReadback,
-  buildHighlightedSegments,
-  extractOrderParts,
-  diffWords,
-  computeReadbackUnmatchedCount,
-  findRepeatedReadbackErrors,
-  findSimilarMessages,
-} from './whatsappReadback';
+import { normalizeForReadback, readbackSourceText, findRawLineMatch, findRawLineFuzzyMatch, analyzeReadback, buildHighlightedSegments, extractOrderParts, diffWords, computeReadbackUnmatchedCount, findRepeatedReadbackErrors, findSimilarMessages } from './whatsappReadback';
 import type { WhatsAppIncoming } from './whatsappApi';
 
 function makeMessage(messageText: string, rawLines: (string | null | undefined)[]): WhatsAppIncoming {
@@ -260,5 +248,95 @@ describe('findRepeatedReadbackErrors a findSimilarMessages', () => {
     const pairs = findSimilarMessages([a, b]);
     expect(pairs.length).toBeGreaterThan(0);
     expect(pairs[0].score).toBeGreaterThanOrEqual(0.85);
+  });
+});
+
+describe('kontrola čtení u objednávky z FOTKY', () => {
+  // Skutečný případ z provozu (6. 9. 2026): do skupiny přišla FOTKA papíru
+  //
+  //     SKLAD
+  //     + 1x 30l LIMO VIŠEŇ
+  //       1x 30l LIMO KIWI
+  //
+  // s popiskem „Pro Radka jeste plus toto". Objednávka je na papíře, popisek
+  // jen říká, komu to patří. Kontrola čtení ale porovnávala přečtené položky
+  // s POPISKEM — takže u obou položek svítilo červené „v originální zprávě se
+  // nenašlo" a u nich chybové odznaky „objem 30l" a „množství 1×", přestože
+  // AI přečetla papír správně. Varování, které je vždycky, se přestane číst.
+  function fotka(popisek: string, prepis: string | null, rawLines: string[]): WhatsAppIncoming {
+    return {
+      id: 'f1',
+      created_at: '2026-09-06T06:53:00Z',
+      sender_name: 'Radek',
+      message_text: popisek,
+      message_type: 'image',
+      status: 'parsed',
+      parsed_raw_text: prepis,
+      parsed_items: rawLines.map((raw_line) => ({ raw_line })),
+    };
+  }
+
+  const POPISEK = 'Pro Radka jeste plus toto';
+  const PREPIS = 'SKLAD + 1x 30l LIMO VIŠEŇ 1x 30l LIMO KIWI';
+  const POLOZKY = ['1x 30l LIMO VIŠEŇ', '1x 30l LIMO KIWI'];
+
+  it('porovnává s přepisem fotky, ne s popiskem u ní', () => {
+    expect(readbackSourceText(fotka(POPISEK, PREPIS, POLOZKY))).toBe(PREPIS);
+  });
+
+  it('u textové zprávy zůstává originálem text zprávy', () => {
+    expect(readbackSourceText(makeMessage('2x50l 12°', ['2x50l 12°']))).toBe('2x50l 12°');
+  });
+
+  it('položky přečtené z fotky se přestaly hlásit jako nenalezené', () => {
+    const r = analyzeReadback(fotka(POPISEK, PREPIS, POLOZKY));
+    expect(r.unmatchedCount).toBe(0);
+    expect(r.matchedCount).toBe(2);
+  });
+
+  it('nesoulad mezi přepisem a vyplněnou položkou se pořád pozná', () => {
+    // AI přečetla „1x 30l", ale do položky napsala 50 l — to je chyba, kterou
+    // kontrola hlásit MÁ. Tohle je celý smysl porovnání proti přepisu fotky.
+    const r = analyzeReadback(fotka(POPISEK, PREPIS, ['1x 50l LIMO VIŠEŇ']));
+    expect(r.items[0].status).not.toBe('matched');
+    expect(r.items[0].parts.some((p) => p.part.kind === 'volume' && !p.found)).toBe(true);
+  });
+
+  it('fotka bez přepisu nic nehlásí — falešný poplach je horší než mlčení', () => {
+    const r = analyzeReadback(fotka(POPISEK, null, POLOZKY));
+    expect(r.unmatchedCount).toBe(0);
+    expect(r.mismatchCount).toBe(0);
+    expect(r.score).toBeNull();
+    expect(r.items.every((i) => i.status === 'empty')).toBe(true);
+  });
+});
+
+import { vypadaJakoZmenaObjednavky } from './whatsappAmendment';
+
+// PŘESNĚ ta zpráva ze snímku obrazovky (10:19, fotka papíru „SKLAD").
+const ZPRAVA: any = {
+  id: 'radek',
+  message_type: 'image',
+  message_text: 'Pro Radka jeste plus toto',
+  parsed_raw_text: 'SKLAD + 1x 30l LIMO VIŠEŇ\n1x 30l LIMO KIWI',
+  parsed_items: [
+    { beer_name: 'LIMO VIŠEŇ', package_label: '30l', qty: 1, raw_line: '1x 30l LIMO VIŠEŇ' },
+    { beer_name: 'LIMO KIWI', package_label: '30l', qty: 1, raw_line: '1x 30l LIMO KIWI' },
+  ],
+};
+
+describe('SNÍMEK Z PROVOZU 8. 9. 2026: fotka „SKLAD" s popiskem „Pro Radka jeste plus toto: fotka „SKLAD" s popiskem „Pro Radka jeste plus toto"', () => {
+  it('kontrola čtení porovnává s PŘEPISEM FOTKY, ne s popiskem', () => {
+    expect(readbackSourceText(ZPRAVA)).toBe('SKLAD + 1x 30l LIMO VIŠEŇ\n1x 30l LIMO KIWI');
+  });
+
+  it('obě položky sedí — žádné „2 nesouhlasí"', () => {
+    const r = analyzeReadback(ZPRAVA);
+    expect(r.mismatchCount).toBe(0);
+    expect(r.matchedCount).toBe(2);
+  });
+
+  it('a appka pozná, že to je přídavek k Radkově objednávce', () => {
+    expect(vypadaJakoZmenaObjednavky(ZPRAVA.message_text)).toBe('pridavek');
   });
 });

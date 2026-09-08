@@ -40,3 +40,23 @@ export function businessDateISO(value: Date = new Date()): string {
 export function businessHour(value: Date = new Date()): number {
   return businessParts(value).hour;
 }
+
+/**
+ * Posun měsíce o `delta` měsíců. Vstup i výstup je `YYYY-MM`.
+ *
+ * Bylo to napsané ČTYŘIKRÁT — v Objednávkách, Inventuře, Stáčení KEG
+ * a Lahvích — pokaždé o kousek jinak (dvakrát přes `Date.UTC` a
+ * `toISOString`, jednou přes `getUTC*`, jednou přes místní čas). Všechny
+ * čtyři varianty vracely totéž, ale u data se na „vrací totéž" nedá
+ * spoléhat: v aplikaci, kde se datum bere přes `businessDateISO()` právě
+ * proto, aby nezáleželo na nastavení telefonu, patří i tohle na jedno místo.
+ *
+ * Počítá se přes UTC schválně: prvního v měsíci o půlnoci UTC nespadne
+ * přes hranici měsíce v žádné časové zóně, takže „leden −1" je vždycky
+ * prosinec předchozího roku.
+ */
+export function posunMesic(mesic: string, delta: number): string {
+  const [rok, m] = mesic.split('-').map(Number);
+  const d = new Date(Date.UTC(rok, m - 1 + delta, 1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+}

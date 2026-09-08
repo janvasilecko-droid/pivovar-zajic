@@ -5,11 +5,9 @@ import { PlaceCombobox } from './PlaceCombobox';
 import { ImageEditor } from './ImageEditor';
 import { PhotoReviewPane } from './PhotoReviewPane';
 
-
-
 import { isTapMentioned } from '../lib/tapReservations';
 import type { Beer, Package, Place } from '../lib/supabase';
-import { supabase } from '../lib/supabase';
+
 import { authenticatedFunctionHeaders } from '../lib/functionAuth';
 import { IkonaVycep } from '../components/ikony';
 import {
@@ -19,7 +17,6 @@ import {
   type ParsedLine, type ParserAliasMap, type GeminiItem, type ImportedOrder, type OrderDupWarning,
 } from '../lib/orderParser';
 import { uloz } from '../lib/uloziste';
-
 
 type ExistingItem = { beer_id: string | null; package_id: string | null; quantity: number };
 type PhotoEntry = { dataUrl: string; name: string; fingerprint: string };
@@ -173,7 +170,6 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
   // ze ktere rozpoznane polozky pochazeji, a zobrazili ji odshora.
   const reviewWasOpenRef = useRef(false);
 
-
   // Detekce duplicitního nahrání toho samého snímku obrazovky / souboru.
   // Otisk souboru = název + velikost + čas uložení. Dva stejné soubory mají
   // stejný otisk, takže poznáme, že uživatel nahrál stejný screen 2x.
@@ -201,7 +197,6 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
       return saved.includes(fp);
     } catch { return false; }
   }
-
 
   // Resetovat historii rozpoznaných textů při otevření nové relace
   useEffect(() => {
@@ -434,7 +429,6 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
         setDate(data.order_date);
       }
 
-
       // 🧠 AUTO-DETEKCE ODBĚRATELE z fotky.
       // AI vrací top-level "place_name" (hlavní odběratel na fotce) i place_name
       // u každé položky. Zkusíme je spárovat se známými odběrateli (places).
@@ -476,8 +470,6 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
         // → použij ho jako nového odběratele
         setPlaceName(firstItemPlaceName);
       }
-
-
 
       const newLines = parseGeminiItems(geminiItems, beers, packages, aliasMap, photoIndex, places);
       setParsed((prev) => {
@@ -563,10 +555,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
       } catch {}
     }
 
-
-
   }
-
 
   async function importSelected() {
     if (!parsed) return;
@@ -649,7 +638,6 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
     // pro detekci duplicit napříč celou relací
   }
 
-
   function addLine() {
     const newLine: ParsedLine = {
       raw: '', originalLine: '', quantity: 1, beer_id: '', beer_name: null,
@@ -673,7 +661,6 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
       return [...arr, { line: newLine, duplicate: false }];
     });
   }
-
 
   function removeLine(i: number) {
     if (!parsed) return;
@@ -755,7 +742,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
           <div className="card !bg-amber-50/50 border border-amber-200 p-3">
             <div className="text-xs font-semibold text-amber-800 mb-1"><NotebookPen className="ikona-text" /> Rozpoznaná poznámka k objednávce</div>
             <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="poznámka (např. bez etikety, podtacky…)" />
-            <div className="text-[11px] text-amber-600 mt-1">Auto-detected z textu — můžeš upravit. Bude uloženo k objednávce.</div>
+            <div className="text-udaj text-amber-600 mt-1">Auto-detected z textu — můžeš upravit. Bude uloženo k objednávce.</div>
             {isTapMentioned(note) && (
               <div className="mt-2.5 text-xs font-bold text-amber-900 bg-amber-100 dark:bg-amber-950/80 dark:text-amber-200 p-2.5 rounded border border-amber-300 dark:border-amber-700 flex items-center gap-2">
                 <span className="text-base"><IkonaVycep className="ikona-text" /></span>
@@ -776,7 +763,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                 type="button"
                 onClick={() => cameraRef.current?.click()}
                 disabled={busy}
-                title="Vyfotit objednávku fotoaparátem"
+                title="Vyfotit objednávku fotoaparátem" aria-label="Vyfotit objednávku fotoaparátem"
                 className="w-11 h-11 grid place-items-center rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 text-xl shadow-md transition active:scale-95 disabled:opacity-50"
               >
                 <Camera className="ikona-text" />
@@ -785,7 +772,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                 type="button"
                 onClick={() => fileRef.current?.click()}
                 disabled={busy}
-                title="Vybrat objednávku z fotogalerie"
+                title="Vybrat objednávku z fotogalerie" aria-label="Vybrat objednávku z fotogalerie"
                 className="w-11 h-11 grid place-items-center rounded bg-amber-700 hover:bg-amber-800 text-white text-xl shadow-md transition active:scale-95 disabled:opacity-50"
               >
                 <ImageIcon className="ikona-text" />
@@ -808,7 +795,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
             </label>
             {queueLeft > 0 && <span className="text-xs text-primary-400">Ve frontě: {queueLeft}</span>}
           </div>
-          <span className="text-[11px] text-neutral-500">
+          <span className="text-udaj text-neutral-500">
             <Lightbulb className="ikona-text" /> Můžeš nahrát více fotek najednou. Obrázek/snímek obrazovky lze také přímo vložit zkopírováním a stisknutím <strong>Ctrl+V</strong> (Vložit).
           </span>
         </div>
@@ -857,7 +844,6 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
           </div>
         )}
 
-
         {busy && !editingImage && (
           <div className="flex items-center gap-3">
             <Spinner />
@@ -870,14 +856,17 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
         {photos.length > 0 && (
           <div className="flex gap-2 flex-wrap">
             {photos.map((ph, i) => (
-              <div key={i} className="relative w-20 h-20 rounded overflow-hidden border-2 border-primary-200 group">
+              // Klíčem je otisk fotky, ne index: fotky se dají odebírat
+              // zprostředka (`removePhoto`) a s indexem by React posunul
+              // náhledy o jeden a ukazoval u fotky cizí křížek.
+              <div key={ph.fingerprint} className="relative w-20 h-20 rounded overflow-hidden border-2 border-primary-200 group">
                 <img src={ph.dataUrl} alt={ph.name} className="w-full h-full object-cover" />
                 <button
-                  className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-primary-900/80 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-primary-900/80 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity tap"
                   onClick={() => removePhoto(i)}
-                  title="Odstranit fotku"
+                  title="Odstranit fotku" aria-label="Odstranit fotku"
                 >×</button>
-                <span className="absolute bottom-0 left-0 right-0 bg-primary-900/70 text-white text-[11px] px-1 py-0.5 truncate">{i + 1}</span>
+                <span className="absolute bottom-0 left-0 right-0 bg-primary-900/70 text-white text-udaj px-1 py-0.5 truncate">{i + 1}</span>
               </div>
             ))}
           </div>
@@ -906,7 +895,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
     </Modal>
 
     {parsed && (
-      <div className="fixed inset-0 z-[90] bg-white flex flex-col">
+      <div className="fixed inset-0 z-nadmodal bg-white flex flex-col">
         <div className="h-[42vh] min-h-[220px] shrink-0">
           <PhotoReviewPane
             photos={photos}
@@ -919,7 +908,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
         <div className="flex-1 min-h-0 flex flex-col">
           <div className="flex items-center justify-between px-4 py-3 border-b border-primary-100 shrink-0 bg-primary-50/50">
             <div className="flex items-center gap-2 min-w-0 flex-1 mr-2">
-              <span className="text-[11px] uppercase font-black px-1.5 py-0.5 rounded bg-primary-200 text-primary-800 shrink-0">
+              <span className="text-udaj uppercase font-black px-1.5 py-0.5 rounded bg-primary-200 text-primary-800 shrink-0">
                 Položka {activeLineIdx + 1}/{parsed.length}
               </span>
               <span className="text-xs sm:text-sm font-mono font-bold text-primary-950 truncate" title={activeOriginalText}>
@@ -984,7 +973,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-rose-100">
                     <div className="p-3">
-                      <div className="text-[11px] uppercase tracking-wider font-bold text-emerald-700 mb-1.5"><Check className="ikona-text" /> Již importováno (předchozí fotka)</div>
+                      <div className="text-udaj uppercase tracking-wider font-bold text-emerald-700 mb-1.5"><Check className="ikona-text" /> Již importováno (předchozí fotka)</div>
                       {w.prev.items.length > 0 ? (
                         <ul className="space-y-1.5">
                           {w.prev.items.map((it, ii) => (
@@ -999,7 +988,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                       ) : <div className="text-xs text-emerald-600 italic">—</div>}
                     </div>
                     <div className="p-3">
-                      <div className="text-[11px] uppercase tracking-wider font-bold text-rose-500 mb-1.5"><Camera className="ikona-text" /> Aktuální fotka</div>
+                      <div className="text-udaj uppercase tracking-wider font-bold text-rose-500 mb-1.5"><Camera className="ikona-text" /> Aktuální fotka</div>
                       {w.curr.items.length > 0 ? (
                         <ul className="space-y-1.5">
                           {w.curr.items.map((it, ii) => (
@@ -1073,13 +1062,13 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
               >
                 <div className="px-4 py-3 bg-primary-900 text-primary-50">
                   <div className="flex items-center gap-3 mb-1.5">
-                    <span className="text-[11px] uppercase tracking-wider text-primary-300 font-semibold shrink-0">Řádek {i + 1}</span>
-                    <span className="text-[11px] uppercase tracking-wider text-primary-400 shrink-0">
+                    <span className="text-udaj uppercase tracking-wider text-primary-300 font-semibold shrink-0">Řádek {i + 1}</span>
+                    <span className="text-udaj uppercase tracking-wider text-primary-400 shrink-0">
                       {p.line._manual ? 'ručně přidáno' : `z fotky ${typeof p.line.photo_index === 'number' ? p.line.photo_index + 1 : ''}`}
                     </span>
                     {(!p.duplicate || userAllowedDups.has(i)) && (
                       <button
-                        className="ml-auto text-primary-300 hover:text-rose-400 text-xs px-2 py-0.5 rounded hover:bg-primary-800 transition-colors"
+                        className="ml-auto text-primary-300 hover:text-rose-400 text-xs px-2 py-0.5 rounded hover:bg-primary-800 transition-colors tap"
                         title="Odstranit tento řádek z importu"
                         onClick={(e) => { e.stopPropagation(); removeLine(i); }}
                       >× Odstranit</button>
@@ -1098,7 +1087,6 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                     <code className="text-base font-mono leading-snug break-words block">{p.line.originalLine || p.line.raw}</code>
                   )}
                 </div>
-
 
                 <div className="px-4 pt-2 flex items-center justify-between" onClick={(e) => e.stopPropagation()}>
                   {(p.duplicate && !userAllowedDups.has(i)) ? (
@@ -1136,7 +1124,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                   <div className="p-3 sm:p-4 space-y-2" onClick={(e) => e.stopPropagation()}>
                     {/* Odběratel — každá položka si nese vlastního odběratele (kvůli více objednávkám na jedné fotce) */}
                     <div className="flex flex-col gap-0.5 min-w-0">
-                      <span className="text-[11px] uppercase tracking-wider text-primary-400 font-semibold">Odběratel</span>
+                      <span className="text-udaj uppercase tracking-wider text-primary-400 font-semibold">Odběratel</span>
                       <input
                         type="text"
                         list={`place-list-${i}`}
@@ -1156,7 +1144,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                     <div className="grid grid-cols-[1fr_auto] sm:grid-cols-[1.5fr_1.2fr_80px_auto] gap-3 items-end">
                       {/* Pivo */}
                       <div className="flex flex-col gap-0.5 min-w-0 col-span-2 sm:col-span-1">
-                        <span className="text-[11px] uppercase tracking-wider text-primary-400 font-semibold">Pivo</span>
+                        <span className="text-udaj uppercase tracking-wider text-primary-400 font-semibold">Pivo</span>
                         <select
                           className="input !py-2.5 sm:!py-1.5 text-sm sm:text-xs w-full font-bold"
                           value={p.line.beer_id ?? ''}
@@ -1175,7 +1163,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                       </div>
                       {/* Obal */}
                       <div className="flex flex-col gap-0.5 min-w-0 col-span-2 sm:col-span-1">
-                        <span className="text-[11px] uppercase tracking-wider text-primary-400 font-semibold">Obal</span>
+                        <span className="text-udaj uppercase tracking-wider text-primary-400 font-semibold">Obal</span>
                         <select
                           className="input !py-2.5 sm:!py-1.5 text-sm sm:text-xs w-full font-bold"
                           value={p.line.package_id ?? ''}
@@ -1194,7 +1182,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                       </div>
                       {/* Množství */}
                       <div className="flex flex-col gap-0.5 min-w-0 col-span-1">
-                        <span className="text-[11px] uppercase tracking-wider text-primary-400 font-semibold">Množství</span>
+                        <span className="text-udaj uppercase tracking-wider text-primary-400 font-semibold">Množství</span>
                         <input
                           type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} min={0} className="input !py-2.5 sm:!py-1.5 text-sm font-black w-full"
                           value={p.line.quantity ?? ''}
@@ -1209,8 +1197,8 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                       <div className="flex items-end col-span-1 justify-end">
                         <button
                           type="button"
-                          className="w-10 h-10 rounded bg-rose-100 hover:bg-rose-200 text-rose-700 flex items-center justify-center transition text-base font-bold"
-                          title="Odstranit řádek"
+                          className="w-10 h-10 rounded bg-rose-100 hover:bg-rose-200 text-rose-700 flex items-center justify-center transition text-base font-bold tap"
+                          title="Odstranit řádek" aria-label="Odstranit řádek"
                           onClick={(e) => { e.stopPropagation(); removeLine(i); }}
                         >×</button>
                       </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Radio, Play, Pause, Volume2, X } from 'lucide-react';
+import { Play, Pause, X } from 'lucide-react';
 import {
   RADIO_STATIONS,
   getRadioState,
@@ -47,7 +47,7 @@ export function BreweryRadioBar({ onOpenModal }: BreweryRadioBarProps) {
           <div className="text-xs font-black tracking-tight leading-tight truncate max-w-[130px] sm:max-w-[180px]">
             {currentStation.name}
           </div>
-          <div className="text-[11px] font-semibold text-white/80 leading-none truncate">
+          <div className="text-udaj font-semibold text-white/80 leading-none truncate">
             {state.loading ? 'Načítám…' : currentStation.genre}
           </div>
         </div>

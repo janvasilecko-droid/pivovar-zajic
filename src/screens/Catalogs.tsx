@@ -3,9 +3,10 @@ import { supabase, Beer, Package, Place, Vehicle, useRealtime, BEER_COLOR_PRESET
 import { getVehicleExpiryStatus } from '../lib/vozidla';
 import { Modal, Field, EmptyState, Spinner } from '../components/ui';
 import ExcelImportModal from '../components/ExcelImportModal';
-import { AlertTriangle, Beer as BeerIcon, Car, Edit, Eye, EyeOff, FileSpreadsheet, Check, Mail, MapPin, Milestone, NotebookPen, Package as PackageIcon, Phone, Plus, Search, ShieldAlert, ShieldCheck, Store, Trash2, Wrench } from 'lucide-react';
+import { AlertTriangle, Beer as BeerIcon, Car, FileSpreadsheet, Check, Mail, MapPin, Milestone, NotebookPen, Package as PackageIcon, Phone, Plus, Search, ShieldAlert, ShieldCheck, Store, Trash2, Wrench } from 'lucide-react';
 import { lookupPlaceOnline } from '../lib/placeLookup';
 import { chyba, oznam, potvrd } from '../lib/toast';
+import { usePosledniNacteni } from '../lib/nacitani';
 
 /* ===== PIVA ===== */
 export function BeersScreen() {
@@ -16,7 +17,10 @@ export function BeersScreen() {
   const [edit, setEdit] = useState<Beer | null>(null);
   const [search, setSearch] = useState('');
 
+  // Zámek proti zápisu ze zastaralého načtení — viz lib/nacitani.ts.
+  const zacniNacteni = usePosledniNacteni();
   async function load() {
+    const smiZapsat = zacniNacteni();
     setLoading(true);
     // Použijeme explicitní seznam sloupců (bez short_name), aby aplikace fungovala
     // i když sloupec short_name v databázi zatím neexistuje.
@@ -24,6 +28,7 @@ export function BeersScreen() {
       .from('beers')
       .select('id,name,degree,color,beer_color,price_per_liter,is_active,sort_order,created_at')
       .order('sort_order');
+    if (!smiZapsat()) return;
     setRows((data as Beer[]) ?? []); setLoading(false);
   }
 
@@ -90,14 +95,14 @@ export function BeersScreen() {
               </div>
 
               <div className="flex items-center gap-2 mt-5 pt-3 border-t border-neutral-200 dark:border-neutral-700">
-                <button className="flex-1 px-3 py-1.5 rounded bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-900 dark:text-neutral-100 font-extrabold text-xs shadow-xs transition" onClick={() => { setEdit(b); setShow(true); }}>
+                <button className="flex-1 px-3 py-1.5 rounded bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-900 dark:text-neutral-100 font-extrabold text-xs shadow-xs transition tap" onClick={() => { setEdit(b); setShow(true); }}>
                   Upravit
                 </button>
-                <button className="px-3 py-1.5 rounded bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 font-bold text-xs shadow-xs transition" onClick={() => toggleActive(b)}>
+                <button className="px-3 py-1.5 rounded bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 font-bold text-xs shadow-xs transition tap" onClick={() => toggleActive(b)}>
                   {b.is_active ? 'Skrýt' : 'Aktivovat'}
                 </button>
-                <button className="p-1.5 rounded bg-rose-50 hover:bg-rose-500 dark:bg-rose-900/30 text-rose-700 hover:text-white font-bold text-xs transition" onClick={() => del(b.id)}>
-                  <Trash2 size={15} />
+                <button className="p-1.5 rounded bg-rose-50 hover:bg-rose-500 dark:bg-rose-900/30 text-rose-700 hover:text-white font-bold text-xs transition tap" onClick={() => del(b.id)}>
+                  <Trash2 size={16} />
                 </button>
               </div>
             </div>
@@ -138,8 +143,6 @@ function BeerForm({ beer, onClose, onSaved }: { beer: Beer | null; onClose: () =
     onSaved();
   }
 
-
-
   return (
     <Modal open onClose={onClose} title={beer ? 'Upravit pivo' : 'Nové pivo'}>
       <div className="space-y-4">
@@ -153,7 +156,7 @@ function BeerForm({ beer, onClose, onSaved }: { beer: Beer | null; onClose: () =
           <div className="flex flex-wrap gap-2 items-center">
             {BEER_COLOR_PRESETS.map((c) => (
               <button key={c} type="button" onClick={() => setBeerColor(c)}
-                className={`w-8 h-8 rounded border-2 transition ${beerColor === c ? 'ring-2 ring-amber-500 border-amber-500 scale-110' : 'border-neutral-200'}`}
+                className={`tap w-8 h-8 rounded border-2 transition ${beerColor === c ? 'ring-2 ring-amber-500 border-amber-500 scale-110' : 'border-neutral-200'}`}
                 style={{ backgroundColor: c }} title={c} />
             ))}
             <input type="color" value={beerColor} onChange={(e) => setBeerColor(e.target.value)} className="w-8 h-8 rounded cursor-pointer border border-neutral-200" />
@@ -176,9 +179,13 @@ export function PackagesScreen() {
   const [show, setShow] = useState(false);
   const [edit, setEdit] = useState<Package | null>(null);
 
+  // Zámek proti zápisu ze zastaralého načtení — viz lib/nacitani.ts.
+  const zacniNacteni = usePosledniNacteni();
   async function load() {
+    const smiZapsat = zacniNacteni();
     setLoading(true);
     const { data } = await supabase.from('packages').select('*').order('sort_order');
+    if (!smiZapsat()) return;
     setRows((data as Package[]) ?? []); setLoading(false);
   }
   useEffect(() => { load(); }, []);
@@ -215,11 +222,11 @@ export function PackagesScreen() {
               </div>
 
               <div className="flex items-center gap-2 mt-5 pt-3 border-t border-neutral-100">
-                <button className="flex-1 px-3 py-1.5 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-900 font-extrabold text-xs transition" onClick={() => { setEdit(p); setShow(true); }}>
+                <button className="flex-1 px-3 py-1.5 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-900 font-extrabold text-xs transition tap" onClick={() => { setEdit(p); setShow(true); }}>
                   Upravit
                 </button>
-                <button className="p-1.5 rounded bg-rose-50 hover:bg-rose-500 text-rose-700 hover:text-white font-bold text-xs transition" onClick={() => del(p.id)}>
-                  <Trash2 size={15} />
+                <button className="p-1.5 rounded bg-rose-50 hover:bg-rose-500 text-rose-700 hover:text-white font-bold text-xs transition tap" onClick={() => del(p.id)}>
+                  <Trash2 size={16} />
                 </button>
               </div>
             </div>
@@ -282,9 +289,13 @@ export function PlacesScreen() {
   const [edit, setEdit] = useState<Place | null>(null);
   const [search, setSearch] = useState('');
 
+  // Zámek proti zápisu ze zastaralého načtení — viz lib/nacitani.ts.
+  const zacniNacteni = usePosledniNacteni();
   async function load() {
+    const smiZapsat = zacniNacteni();
     setLoading(true);
     const { data, error } = await supabase.from('places').select('*').order('name');
+    if (!smiZapsat()) return;
     if (data && !error) {
       // Pre-fill delivery group for specific places
       const toUpdate = data.filter(p => ['sklad', 'BEN', 'JONA'].includes(p.name) && !p.delivery_group);
@@ -362,18 +373,18 @@ export function PlacesScreen() {
                 <div className="flex items-start justify-between gap-1">
                   <div className="font-display font-black text-base text-neutral-900">{p.name}</div>
                   {!p.address && (
-                    <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 font-extrabold text-[11px] shrink-0 border border-amber-300">
+                    <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 font-extrabold text-udaj shrink-0 border border-amber-300">
                       <AlertTriangle className="ikona-text" /> Bez adresy
                     </span>
                   )}
                 </div>
                 {p.address ? (
                   <div className="text-xs text-neutral-600 font-medium mt-1 flex items-center gap-1">
-                    <MapPin size={13} className="text-amber-600 shrink-0" />
+                    <MapPin size={14} className="text-amber-600 shrink-0" />
                     <span className="truncate">{p.address}</span>
                   </div>
                 ) : (
-                  <div className="text-[11px] text-neutral-400 font-bold italic mt-1">
+                  <div className="text-udaj text-neutral-400 font-bold italic mt-1">
                     Adresa není zadána
                   </div>
                 )}
@@ -385,7 +396,7 @@ export function PlacesScreen() {
                     <a href={`tel:${p.phone}`} className="hover:underline">{p.phone}</a>
                   </div>
                 ) : (
-                  <div className="text-[11px] text-neutral-400 font-mono mt-0.5 flex items-center gap-1">
+                  <div className="text-udaj text-neutral-400 font-mono mt-0.5 flex items-center gap-1">
                     <Phone size={12} /> bez telefonu
                   </div>
                 )}
@@ -393,11 +404,11 @@ export function PlacesScreen() {
               </div>
 
               <div className="flex items-center gap-2 mt-5 pt-3 border-t border-neutral-100">
-                <button className="flex-1 px-3 py-1.5 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-900 font-extrabold text-xs transition" onClick={() => { setEdit(p); setShow(true); }}>
+                <button className="flex-1 px-3 py-1.5 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-900 font-extrabold text-xs transition tap" onClick={() => { setEdit(p); setShow(true); }}>
                   Upravit
                 </button>
-                <button className="p-1.5 rounded bg-rose-50 hover:bg-rose-500 text-rose-700 hover:text-white font-bold text-xs transition" onClick={() => del(p.id)}>
-                  <Trash2 size={15} />
+                <button className="p-1.5 rounded bg-rose-50 hover:bg-rose-500 text-rose-700 hover:text-white font-bold text-xs transition tap" onClick={() => del(p.id)}>
+                  <Trash2 size={16} />
                 </button>
               </div>
             </div>
@@ -539,13 +550,13 @@ function GpsBackfillModal({ places, onClose, onSaved }: { places: Place[]; onClo
                     />
                     <div className="min-w-0 flex-1">
                       <div className="font-black text-neutral-900 truncate">{p.name}</div>
-                      <div className="text-[11px] text-neutral-500 truncate">{addresses[p.id]}</div>
+                      <div className="text-udaj text-neutral-500 truncate">{addresses[p.id]}</div>
                       {r ? (
-                        <div className="text-[11px] text-emerald-700 font-bold truncate" title={r.displayName}>
+                        <div className="text-udaj text-emerald-700 font-bold truncate" title={r.displayName}>
                           <Check className="ikona-text" /> {r.lat.toFixed(6)}, {r.lng.toFixed(6)} — {r.displayName}
                         </div>
                       ) : (
-                        <div className="text-[11px] text-rose-600 font-bold">Nenalezeno</div>
+                        <div className="text-udaj text-rose-600 font-bold">Nenalezeno</div>
                       )}
                     </div>
                   </label>
@@ -730,7 +741,7 @@ function PlaceForm({ place, onClose, onSaved }: { place: Place | null; onClose: 
                   className="w-full text-left p-2 rounded text-xs hover:bg-amber-50 font-medium text-neutral-800 transition flex items-center justify-between gap-2 border border-transparent hover:border-amber-300"
                 >
                   <span className="truncate">{cand.address}</span>
-                  <span className="text-[11px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md shrink-0">
+                  <span className="text-udaj font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md shrink-0">
                     Zvolit
                   </span>
                 </button>
@@ -824,9 +835,13 @@ export function VehiclesScreen() {
   const [show, setShow] = useState(false);
   const [edit, setEdit] = useState<Vehicle | null>(null);
 
+  // Zámek proti zápisu ze zastaralého načtení — viz lib/nacitani.ts.
+  const zacniNacteni = usePosledniNacteni();
   async function load() {
+    const smiZapsat = zacniNacteni();
     setLoading(true);
     const { data } = await supabase.from('vehicles').select('*').order('name');
+    if (!smiZapsat()) return;
     let vehicleList = (data as Vehicle[]) ?? [];
 
     // Pokud je databáze prázdná, předvytvořit 2 výchozí pivovarská auta: "Velké auto" a "Kachna"
@@ -912,7 +927,7 @@ export function VehiclesScreen() {
                       <span className={`px-3 py-1 rounded text-xs font-black flex items-center gap-1 shadow-xs ${
                         hasExpired ? 'bg-rose-600 text-white animate-pulse' : 'bg-amber-500 text-neutral-950'
                       }`}>
-                        <AlertTriangle size={15} />
+                        <AlertTriangle size={16} />
                         <span>{hasExpired ? 'EXPIROVÁNO' : 'Pozor: Vyprší brzy'}</span>
                       </span>
                     )}
@@ -928,7 +943,7 @@ export function VehiclesScreen() {
                         ? 'bg-amber-500/20 border-amber-500 text-amber-950 font-extrabold'
                         : 'bg-emerald-50 border-emerald-200 text-emerald-950'
                     }`}>
-                      <div className="text-[11px] font-black uppercase tracking-wider text-neutral-500 mb-0.5"><Wrench className="ikona-text" /> Technická (STK)</div>
+                      <div className="text-udaj font-black uppercase tracking-wider text-neutral-500 mb-0.5"><Wrench className="ikona-text" /> Technická (STK)</div>
                       <div className="text-xs font-black flex items-center gap-1.5 mt-1">
                         {stkStatus.status === 'expired' && <ShieldAlert size={16} className="text-rose-600 shrink-0" />}
                         {stkStatus.status === 'warning' && <AlertTriangle size={16} className="text-amber-600 shrink-0" />}
@@ -945,7 +960,7 @@ export function VehiclesScreen() {
                         ? 'bg-amber-500/20 border-amber-500 text-amber-950 font-extrabold'
                         : 'bg-emerald-50 border-emerald-200 text-emerald-950'
                     }`}>
-                      <div className="text-[11px] font-black uppercase tracking-wider text-neutral-500 mb-0.5"><Milestone className="ikona-text" /> Dálniční známka</div>
+                      <div className="text-udaj font-black uppercase tracking-wider text-neutral-500 mb-0.5"><Milestone className="ikona-text" /> Dálniční známka</div>
                       <div className="text-xs font-black flex items-center gap-1.5 mt-1">
                         {tollStatus.status === 'expired' && <ShieldAlert size={16} className="text-rose-600 shrink-0" />}
                         {tollStatus.status === 'warning' && <AlertTriangle size={16} className="text-amber-600 shrink-0" />}

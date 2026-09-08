@@ -20,7 +20,11 @@ export type TabBarItem = {
   id: string;
   label: string;
   icon: LucideIcon;
-  /** Hex barva ikony+popisku aktivní záložky. Bez zadání = neutrální šedá. */
+  /**
+   * Hex barva ikony+popisku aktivní záložky — každá sekce má svůj odstín,
+   * stejně jako dlaždice na ploše. Bez zadání se vezme barva písma z motivu
+   * (dřív tu byl natvrdo `#57534e`, který v tmavém režimu splýval s kartou).
+   */
   color?: string;
   badge?: number | string;
 };

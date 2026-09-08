@@ -1,5 +1,5 @@
 import { ReactNode, useState, useEffect, useRef, lazy, Suspense } from 'react';
-import { AlarmClock, AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, Bell, BellOff, BookOpen, Calculator, CalendarDays, Car, ClipboardCheck, ClipboardList, Compass, Cylinder, Download, FilePlus, FileSpreadsheet, FileText, FlaskConical, GlassWater, History as HistoryIcon, Home, Hourglass, LogOut, MapPin, MessageCircle, Package as PackageIcon, PlusCircle, Radio, Receipt, Search, Settings, Shield, ShieldCheck, Smartphone, Snowflake, Sparkles, StickyNote, Store, Tag, Timer, TrendingDown, Truck, Users, Wheat, Wifi, WifiOff, Wine, X, XCircle, type LucideIcon } from 'lucide-react';
+import { AlarmClock, AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, Bell, BookOpen, CalendarDays, Car, ClipboardCheck, ClipboardList, Compass, Download, FileSpreadsheet, FileText, FlaskConical, GlassWater, History as HistoryIcon, Home, Hourglass, LogOut, MapPin, MessageCircle, Package as PackageIcon, Radio, Receipt, Search, Settings, Shield, ShieldCheck, Smartphone, Snowflake, Sparkles, StickyNote, Store, Tag, Timer, TrendingDown, Truck, Users, Wifi, WifiOff, X, XCircle, type LucideIcon } from 'lucide-react';
 import { BreweryRadioBar } from './BreweryRadioBar';
 import { BreweryRadioModal } from './BreweryRadioModal';
 
@@ -7,22 +7,30 @@ import { useAuth } from '../lib/auth';
 import { potvrd } from '../lib/toast';
 import { Modal } from './ui';
 import { supabase, Beer, Package, Place } from '../lib/supabase';
-import { autoReserveTapIfNeeded } from '../lib/tapReservations';
 
 // Načte se až při otevření — viz komentář u <EditOrderModal /> níž.
 const EditOrderModal = lazy(() => import('./EditOrderModal').then((m) => ({ default: m.EditOrderModal })));
 import { requestNotificationPermission, getNotificationPermission, notifyNewOrder, notifyNewWhatsAppMessage, NewOrderNotifyData } from '../lib/notifications';
 import { subscribeToWhatsAppMessages, fetchWhatsAppSenders, fetchPendingWhatsAppCount, isSenderAllowed, triggerAutoParse, type WhatsAppSender, type WhatsAppIncoming } from '../lib/whatsappApi';
 import { requestOrdersAutoImport } from '../lib/ordersFilter';
-import { getDensity, setDensity, DensityMode } from '../lib/density';
-import { canUserView, getUserPermissions, PAGE_TO_MODULE, ModuleKey } from '../lib/permissions';
+import { getDensity, DensityMode } from '../lib/density';
+import { canUserView, getUserPermissions, PAGE_TO_MODULE } from '../lib/permissions';
 import { QuickSearchModal } from './QuickSearchModal';
 import { isAdminEmail } from '../lib/config';
 import { BugReportModal } from './BugReportModal';
-import { APP_VERSION, APP_VERSION_DATE } from '../lib/version';
+
 import { onNewVersion, forceRefresh, type VersionInfo } from '../lib/versionCheck';
 import { zavrenaVerzeListy, zavriVerziListy } from '../lib/verzeLista';
-import { nastavObrazovkuProChyby } from '../lib/chybyHlaseni';
+import { nastavObrazovkuProChyby, zalogujANahlas } from '../lib/chybyHlaseni';
+// Staticky, ne přes `await import(…)`. Fronta offline zápisů sedí v hlavním
+// kusu tak jako tak — `lib/supabase.ts` si ji importuje staticky a ten
+// importuje každá obrazovka — takže dynamický import nic nešetřil a build
+// to hlásil: „dynamic import will not move module into another chunk".
+// Jediné, co přinášel, byla asynchronní obsluha tam, kde stačí volání.
+import {
+  queueLength, onQueueChange, onConnectivityChange, syncQueue, clearQueue,
+  getQueue, getLastSyncFailures, popisOperace, removeOp,
+} from '../lib/offline';
 import { SCENES, DEFAULT_DOCK, hexToRgba, COLOR_HEX, type Scene, type TileColor } from '../lib/homeLayout';
 import { zavibruj } from '../lib/haptika';
 import { IkonaSud, IkonaLahev, IkonaVycep } from './ikony';
@@ -520,7 +528,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
         );
       });
     } catch (error) {
-      console.error('Chyba při připojení k WhatsApp notifikacím:', error);
+      zalogujANahlas('Chyba při připojení k WhatsApp notifikacím', error);
     }
     return () => { if (unsubscribe) unsubscribe(); clearTimeout(countTimer); };
   }, []);
@@ -529,7 +537,6 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
   useEffect(() => {
     let mounted = true;
     (async () => {
-      const { queueLength, onQueueChange, onConnectivityChange, syncQueue } = await import('../lib/offline');
       if (!mounted) return;
       setPending(queueLength());
       const offQ = onQueueChange((n) => setPending(n));
@@ -623,7 +630,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
                 {activeNewOrderBanner.kind === 'whatsapp' ? <MessageCircle className="ikona-text" /> : <BeerIcon className="ikona-text" />}
               </div>
               <div>
-                <div className="text-[11px] font-black uppercase tracking-wider text-amber-400">
+                <div className="text-udaj font-black uppercase tracking-wider text-amber-400">
                   {activeNewOrderBanner.kind === 'whatsapp' ? 'NOVÁ WHATSAPP OBJEDNÁVKA K OVĚŘENÍ!' : 'NOVÁ OBJEDNÁVKA PŘIJATA!'}
                 </div>
                 <h4 className="text-base font-extrabold font-display text-white">
@@ -635,7 +642,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
             </div>
             <button
               onClick={() => setActiveNewOrderBanner(null)}
-              className="p-1 rounded hover:bg-neutral-800 text-neutral-400 hover:text-white transition"
+              className="p-1 rounded hover:bg-neutral-800 text-neutral-400 hover:text-white transition tap"
             >
               <X size={18} />
             </button>
@@ -658,7 +665,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
           <div className="flex items-center justify-end gap-2 pt-1 border-t border-neutral-800/80">
             <button
               onClick={() => setActiveNewOrderBanner(null)}
-              className="px-3 py-1.5 rounded text-xs font-bold text-neutral-400 hover:text-white"
+              className="px-3 py-1.5 rounded text-xs font-bold text-neutral-400 hover:text-white tap"
             >
               Zavřít
             </button>
@@ -691,15 +698,15 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
 
       {/* Banner: offline → zobrazená data nemusí být aktuální (z mezipaměti). */}
       {showStaleBanner && (
-        <div className="fixed top-4 right-4 z-40 max-w-xs sm:max-w-sm flex items-center gap-2 rounded bg-amber-50 border-2 border-amber-300 text-amber-950 shadow-xl px-3.5 py-2.5 animate-fade-in">
+        <div className="fixed top-4 right-4 z-toast max-w-xs sm:max-w-sm flex items-center gap-2 rounded bg-amber-50 border-2 border-amber-300 text-amber-950 shadow-xl px-3.5 py-2.5 animate-fade-in">
           <span className="text-base shrink-0"><AlertTriangle className="ikona-text" /></span>
-          <p className="text-[11px] font-bold leading-snug flex-1">
+          <p className="text-udaj font-bold leading-snug flex-1">
             Jste offline - zobrazená data nemusí být aktuální (z mezipaměti).
           </p>
           <button
             onClick={() => setShowStaleBanner(false)}
             aria-label="Zavřít upozornění"
-            className="p-1 rounded hover:bg-amber-200/70 text-amber-900/70 hover:text-amber-950 transition shrink-0"
+            className="p-1 rounded hover:bg-amber-200/70 text-amber-900/70 hover:text-amber-950 transition shrink-0 tap"
           >
             <X size={16} />
           </button>
@@ -718,14 +725,14 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
             nereloaduje rozdělaná obrazovka (viz versionCheck.ts). */}
         {novaVerze && novaVerze.version !== zavrenaVerze && (
           <div className="shrink-0 flex items-center gap-2 px-3 sm:px-8 py-1.5 bg-amber-100 border-b border-amber-300 text-amber-950">
-            <Download size={15} className="shrink-0" />
+            <Download size={16} className="shrink-0" />
             <p className="text-[12px] font-bold leading-snug flex-1 min-w-0 truncate">
               Nová verze v{novaVerze.version} je k dispozici
             </p>
             <button
               type="button"
               onClick={() => { void forceRefresh(); }}
-              className="shrink-0 px-3 py-1 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-[12px] transition"
+              className="shrink-0 px-3 py-1 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-[12px] transition tap"
             >
               Aktualizovat
             </button>
@@ -733,9 +740,9 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
               type="button"
               onClick={() => { setZavrenaVerze(novaVerze.version); zavriVerziListy(novaVerze.version); }}
               aria-label="Zavřít upozornění na novou verzi"
-              className="shrink-0 p-1 rounded hover:bg-amber-200/70 text-amber-900/80 hover:text-amber-950 transition"
+              className="shrink-0 p-1 rounded hover:bg-amber-200/70 text-amber-900/80 hover:text-amber-950 transition tap"
             >
-              <X size={15} />
+              <X size={16} />
             </button>
           </div>
         )}
@@ -791,7 +798,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
               ukazuje, že něco ještě neodešlo do cloudu. Bez něj by se
               neodeslaná data ztratila potichu. */}
           <div className="flex items-center gap-2 shrink-0 ml-auto">
-            <OfflineStatus online={online} pending={pending} syncing={syncing} syncMsg={syncMsg} onSync={async () => { const { syncQueue, queueLength } = await import('../lib/offline'); if (queueLength() === 0) { setSyncMsg('Fronta je prázdná — nic k synchronizaci'); setTimeout(() => setSyncMsg(null), 3000); return; } setSyncing(true); const r = await syncQueue(); setSyncing(false); setSyncMsg(r.remaining === 0 ? `Synchronizováno ${r.ok} změn` : `OK ${r.ok}, selhalo ${r.failed}`); setTimeout(() => setSyncMsg(null), 4000); }} />
+            <OfflineStatus online={online} pending={pending} syncing={syncing} syncMsg={syncMsg} onSync={async () => { if (queueLength() === 0) { setSyncMsg('Fronta je prázdná — nic k synchronizaci'); setTimeout(() => setSyncMsg(null), 3000); return; } setSyncing(true); const r = await syncQueue(); setSyncing(false); setSyncMsg(r.remaining === 0 ? `Synchronizováno ${r.ok} změn` : `OK ${r.ok}, selhalo ${r.failed}`); setTimeout(() => setSyncMsg(null), 4000); }} />
           </div>
         </header>
         )}
@@ -873,7 +880,6 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
             <button
               type="button"
               onClick={async () => {
-                const { syncQueue, queueLength } = await import('../lib/offline');
                 if (queueLength() === 0) return;
                 setSyncing(true);
                 const r = await syncQueue();
@@ -921,14 +927,14 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
                 onContextMenu={(e) => e.preventDefault()}
                 title={predchoziStranka.current ? 'Podržením se vrátíte na předchozí obrazovku' : undefined}
                 style={isActive ? { color: accent } : undefined}
-                className={`flex flex-col items-center justify-center py-1 px-1 sm:px-2.5 rounded transition-all relative flex-1 font-bold ${
+                className={`tap flex flex-col items-center justify-center py-1 px-1 sm:px-2.5 rounded transition-all relative flex-1 font-bold ${
                   isActive ? 'bg-white/60 shadow-sm scale-105' : 'text-neutral-700 hover:text-neutral-900'
                 }`}
               >
                 <div className="relative">
-                  <DockIcon size={20} strokeWidth={isActive ? 2.5 : 2} />
+                  <DockIcon size={18} strokeWidth={isActive ? 2.5 : 2} />
                   {dockId === 'orders' && pendingWhatsAppCount > 0 && (
-                    <span className="absolute -top-1 -right-2 bg-rose-600 text-white text-[11px] font-black rounded-full min-w-[14px] h-3.5 px-0.5 flex items-center justify-center shadow">
+                    <span className="absolute -top-1 -right-2 bg-rose-600 text-white text-udaj font-black rounded-full min-w-[14px] h-3.5 px-0.5 flex items-center justify-center shadow">
                       {pendingWhatsAppCount > 9 ? '9+' : pendingWhatsAppCount}
                     </span>
                   )}
@@ -939,7 +945,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
                     („Lahve (Stá…" místo „Lahve (Stáčení)"). `w-full`
                     respektuje skutečnou šířku slotu, ať jsou v liště dva
                     zástupci nebo šest. */}
-                <span className="text-[11px] mt-0.5 tracking-tight truncate w-full text-center">{info.label}</span>
+                <span className="text-udaj mt-0.5 tracking-tight truncate w-full text-center">{info.label}</span>
               </button>
             );
           })}
@@ -956,7 +962,6 @@ function OfflineStatus({ online, pending, syncing, syncMsg, onSync }: { online: 
   const [failures, setFailures] = useState<{ id: string; table: string; op: string; error: string }[]>([]);
 
   async function refreshQueueDetail() {
-    const { getQueue, getLastSyncFailures, popisOperace } = await import('../lib/offline');
     setQueueItems(getQueue().map((o) => ({ id: o.id, popis: popisOperace(o), ts: o.ts })));
     setFailures(getLastSyncFailures());
   }
@@ -966,7 +971,6 @@ function OfflineStatus({ online, pending, syncing, syncMsg, onSync }: { online: 
   }, [showInfo, pending, syncing]);
 
   async function discardOp(id: string) {
-    const { removeOp } = await import('../lib/offline');
     removeOp(id);
     setFailures((prev) => prev.filter((f) => f.id !== id));
     refreshQueueDetail();
@@ -981,7 +985,7 @@ function OfflineStatus({ online, pending, syncing, syncMsg, onSync }: { online: 
               <div className="text-2xl">{online ? <Wifi className="ikona-text" /> : <AlertTriangle className="ikona-text" />}</div>
               <div>
                 <div className="font-black text-sm">{online ? 'Jste ONLINE (Připojeno k internetu)' : 'Jste OFFLINE (Bez připojení k síti)'}</div>
-                <p className="text-[11px] mt-0.5 font-bold">
+                <p className="text-udaj mt-0.5 font-bold">
                   {online
                     ? 'Veškeré zápisy se okamžitě ukládají do databáze.'
                     : 'Aplikace v pivovaru plně funguje bez signálu! Zápisy ze sklepa se bezpečně ukládají do telefonu a po připojení se samy synchronizují.'}
@@ -994,7 +998,7 @@ function OfflineStatus({ online, pending, syncing, syncMsg, onSync }: { online: 
                 <span className="text-neutral-400">Čekající offline zápisy ve frontě:</span>
                 <span className="font-black text-amber-400">{pending} operací</span>
               </div>
-              <p className="text-[11px] text-neutral-300 pt-1 font-sans">
+              <p className="text-udaj text-neutral-300 pt-1 font-sans">
                 Po obnovení internetového připojení v pivovaru stiskněte tlačítko pro ruční odeslání všech zápisů ze sklepa.
               </p>
             </div>
@@ -1004,11 +1008,11 @@ function OfflineStatus({ online, pending, syncing, syncMsg, onSync }: { online: 
                 {queueItems.map((item) => {
                   const failure = failures.find((f) => f.id === item.id);
                   return (
-                    <div key={item.id} className={`flex items-center justify-between gap-2 px-3 py-2 rounded border text-[11px] font-bold ${failure ? 'bg-rose-50 border-rose-300 text-rose-950' : 'bg-neutral-100 border-neutral-200 text-neutral-700'}`}>
+                    <div key={item.id} className={`flex items-center justify-between gap-2 px-3 py-2 rounded border text-udaj font-bold ${failure ? 'bg-rose-50 border-rose-300 text-rose-950' : 'bg-neutral-100 border-neutral-200 text-neutral-700'}`}>
                       <div className="min-w-0">
                         <div className="truncate" title={item.popis}>{item.popis}</div>
-                        <div className="text-[11px] font-semibold text-neutral-500">{new Date(item.ts).toLocaleString('cs-CZ')}</div>
-                        {failure && <div className="text-[11px] font-semibold text-rose-700 truncate" title={failure.error}><XCircle className="ikona-text" /> {failure.error}</div>}
+                        <div className="text-udaj font-semibold text-neutral-500">{new Date(item.ts).toLocaleString('cs-CZ')}</div>
+                        {failure && <div className="text-udaj font-semibold text-rose-700 truncate" title={failure.error}><XCircle className="ikona-text" /> {failure.error}</div>}
                       </div>
                       <button
                         onClick={async () => {
@@ -1046,7 +1050,7 @@ Do databáze se už neuloží.`)) discardOp(item.id);
       )}
 
       {syncMsg && (
-        <span className="text-[11px] font-extrabold text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded border border-emerald-300 animate-fade-in">
+        <span className="text-udaj font-extrabold text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded border border-emerald-300 animate-fade-in">
           {syncMsg}
         </span>
       )}
@@ -1059,7 +1063,7 @@ Do databáze se už neuloží.`)) discardOp(item.id);
         <button
           onClick={onSync}
           disabled={syncing}
-          className="px-2.5 py-1 rounded bg-sky-700 hover:bg-sky-800 text-white font-black text-[11px] border border-sky-400 transition flex items-center gap-1 shadow-xs animate-pulse"
+          className="px-2.5 py-1 rounded bg-sky-700 hover:bg-sky-800 text-white font-black text-udaj border border-sky-400 transition flex items-center gap-1 shadow-xs animate-pulse tap"
         >
           <span>{syncing ? 'Sync…' : `Čeká ${pending} změn`}</span>
         </button>

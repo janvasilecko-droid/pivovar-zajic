@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase, Beer, useRealtime } from '../lib/supabase';
+import { usePosledniNacteni } from '../lib/nacitani';
 import { Spinner, EmptyState, Field } from '../components/ui';
 import { BookOpen, Calculator, FileText, Flame, FlaskConical, Check, CheckSquare, NotebookPen, Plus, Scale, Sliders, SprayCan, Truck, User, Wheat, Zap } from 'lucide-react';
 import { IkonaSud } from '../components/ikony';
@@ -32,7 +33,7 @@ function NumberStepper({
       <button
         type="button"
         onClick={() => onChange(String(Math.max(min, Number((numVal - step).toFixed(2)))))}
-        className="w-8 h-8 shrink-0 grid place-items-center rounded bg-neutral-200 hover:bg-amber-200 text-neutral-900 font-black text-sm select-none active:scale-95 transition"
+        className="w-8 h-8 shrink-0 grid place-items-center rounded bg-neutral-200 hover:bg-amber-200 text-neutral-900 font-black text-sm select-none active:scale-95 transition tap"
         title={`- ${step}`}
       >
         −
@@ -43,7 +44,7 @@ function NumberStepper({
       <button
         type="button"
         onClick={() => onChange(String(Number((numVal + step).toFixed(2))))}
-        className="w-8 h-8 shrink-0 grid place-items-center rounded bg-amber-950 hover:bg-amber-900 text-white font-black text-sm select-none active:scale-95 transition"
+        className="w-8 h-8 shrink-0 grid place-items-center rounded bg-amber-950 hover:bg-amber-900 text-white font-black text-sm select-none active:scale-95 transition tap"
         title={`+ ${step}`}
       >
         +
@@ -51,7 +52,6 @@ function NumberStepper({
     </div>
   );
 }
-
 
 type SrotovaniRow = {
   id?: string;
@@ -84,12 +84,16 @@ export function SrotovaniScreen({ setPage }: { setPage?: (p: any, sec?: string) 
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
 
+  // Zámek proti zápisu ze zastaralého načtení — viz lib/nacitani.ts.
+  const zacniNacteni = usePosledniNacteni();
   async function load() {
+    const smiZapsat = zacniNacteni();
     setLoading(true);
     const [{ data: b }, { data: s }] = await Promise.all([
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('srotovani').select('*').order('entry_date', { ascending: false }),
     ]);
+    if (!smiZapsat()) return;
     setBeers((b as Beer[]) ?? []);
     setRows((s as SrotovaniRow[]) ?? []);
     setLoading(false);
@@ -303,7 +307,6 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
     if (setPage) setPage('concentration', undefined, t);
     else setActiveTab(t);
   }
-
 
   // --- 1. KEG Kalkulačka dotáčení z tanku ---
   const [tankVolumeHl, setTankVolumeHl] = useState<string>('15');
@@ -530,7 +533,7 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 card p-6 bg-white border border-neutral-200 rounded space-y-5 shadow-sm">
             <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
-              <IkonaSud className="text-amber-600" size={20} />
+              <IkonaSud className="text-amber-600" size={18} />
               <span>Kalkulačka potřebných sudů na stáčení z tanku</span>
             </h3>
 
@@ -560,8 +563,8 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
               <div className="flex items-center justify-between border-b border-amber-200 pb-2">
                 <h4 className="font-display font-black text-base text-amber-950"><Sliders className="ikona-text" /> Ruční volba sudů (30L vs 50L)</h4>
                 <div className="flex items-center gap-1 bg-white p-1 rounded border border-amber-300">
-                  <button type="button" onClick={() => setCalcMode('fix30')} className={`px-3 py-1 rounded text-xs font-black ${calcMode === 'fix30' ? 'bg-white text-amber-900 ring-2 ring-amber-300' : 'text-neutral-600'}`}>Zadám 30L</button>
-                  <button type="button" onClick={() => setCalcMode('fix50')} className={`px-3 py-1 rounded text-xs font-black ${calcMode === 'fix50' ? 'bg-white text-amber-900 ring-2 ring-amber-300' : 'text-neutral-600'}`}>Zadám 50L</button>
+                  <button type="button" onClick={() => setCalcMode('fix30')} className={`tap px-3 py-1 rounded text-xs font-black ${calcMode === 'fix30' ? 'bg-white text-amber-900 ring-2 ring-amber-300' : 'text-neutral-600'}`}>Zadám 30L</button>
+                  <button type="button" onClick={() => setCalcMode('fix50')} className={`tap px-3 py-1 rounded text-xs font-black ${calcMode === 'fix50' ? 'bg-white text-amber-900 ring-2 ring-amber-300' : 'text-neutral-600'}`}>Zadám 50L</button>
                 </div>
               </div>
 
@@ -603,16 +606,16 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
             <h3 className="font-display font-black text-lg text-amber-950"><IkonaSud className="ikona-text" /> Varianty v sudování</h3>
             <div className="space-y-3 font-mono text-xs">
               <div className="p-3 rounded bg-white border border-amber-300 space-y-1">
-                <span className="text-[11px] font-black uppercase text-amber-900">1 Typ sudů:</span>
+                <span className="text-udaj font-black uppercase text-amber-900">1 Typ sudů:</span>
                 <div>• {pure50}× 50L (zb. {rem50.toFixed(0)}l)</div>
                 <div>• {pure30}× 30L (zb. {rem30.toFixed(0)}l)</div>
               </div>
               <div className="p-3 rounded bg-neutral-900 text-amber-300 space-y-1">
-                <div className="text-[11px] font-black text-white uppercase">MIX 1 (Max 50L):</div>
+                <div className="text-udaj font-black text-white uppercase">MIX 1 (Max 50L):</div>
                 <div>• {mix1_50}× 50L + {mix1_30}× 30L</div>
               </div>
               <div className="p-3 rounded bg-neutral-900 text-emerald-300 space-y-1">
-                <div className="text-[11px] font-black text-white uppercase">MIX 2 (50% / 50%):</div>
+                <div className="text-udaj font-black text-white uppercase">MIX 2 (50% / 50%):</div>
                 <div>• {mix2_50}× 50L + {mix2_30}× 30L</div>
               </div>
             </div>
@@ -625,11 +628,11 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 card p-6 bg-white border border-neutral-200 rounded space-y-4 shadow-sm">
             <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
-              <Wheat className="text-amber-600" size={20} />
+              <Wheat className="text-amber-600" size={18} />
               <span>Plán šrotování — kolik sladu se šrotuje</span>
             </h3>
 
-            <div className="grid grid-cols-[1fr_auto_auto] items-center gap-3 px-1 text-[11px] font-black uppercase tracking-widest text-neutral-500">
+            <div className="grid grid-cols-[1fr_auto_auto] items-center gap-3 px-1 text-udaj font-black uppercase tracking-widest text-neutral-500">
               <span>Pivo</span>
               <span className="w-36 text-center">Slad (kg)</span>
               <span className="w-24 text-center">Pytlů 25 kg</span>
@@ -680,7 +683,7 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
               </div>
             </div>
 
-            <p className="text-[11px] text-neutral-500 font-medium leading-relaxed">
+            <p className="text-udaj text-neutral-500 font-medium leading-relaxed">
               Kolik sladu se našrotuje pro danou várku. Počet pytlů 25 kg se zaokrouhluje nahoru.
             </p>
           </div>
@@ -751,7 +754,7 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
           <div className="lg:col-span-2 card p-6 bg-white border border-neutral-200 rounded space-y-5 shadow-sm">
             <div>
               <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
-                <Flame className="text-amber-600" size={20} />
+                <Flame className="text-amber-600" size={18} />
                 <span>Kalkulačka energetické náročnosti a médií (Varna & Sklep)</span>
               </h3>
             </div>
@@ -786,11 +789,11 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
             <h3 className="font-display font-black text-lg text-amber-950"><Zap className="ikona-text" /> Výsledné náklady</h3>
             <div className="space-y-3 font-mono">
               <div className="p-4 rounded bg-neutral-900 border border-neutral-800">
-                <div className="text-[11px] text-neutral-400 uppercase">Celkem na 1 várku ({bHl} hl)</div>
+                <div className="text-udaj text-neutral-400 uppercase">Celkem na 1 várku ({bHl} hl)</div>
                 <div className="text-2xl font-black text-amber-400">{totalEnergyCostBatch.toLocaleString('cs-CZ')} Kč</div>
               </div>
               <div className="p-4 rounded bg-amber-500 text-neutral-950">
-                <div className="text-[11px] font-black uppercase">Na 1 PŮLLITR (0.5 l)</div>
+                <div className="text-udaj font-black uppercase">Na 1 PŮLLITR (0.5 l)</div>
                 <div className="text-3xl font-black">{costPerPint.toFixed(2)} Kč</div>
               </div>
             </div>

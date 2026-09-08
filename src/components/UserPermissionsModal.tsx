@@ -9,7 +9,7 @@ import {
   saveUserPermissions,
   ModuleKey,
 } from '../lib/permissions';
-import { CheckCircle2, Lock, Save, Shield, Unlock, X, Zap } from 'lucide-react';
+import { CheckCircle2, Lock, Save, Unlock, X, Zap } from 'lucide-react';
 
 export function UserPermissionsModal({
   user,
@@ -97,7 +97,7 @@ export function UserPermissionsModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-neutral-950/75 backdrop-blur-xs flex items-center justify-center p-4 z-[999]">
+    <div className="fixed inset-0 bg-neutral-950/75 backdrop-blur-xs flex items-center justify-center p-4 z-modal">
       <div className="bg-white rounded max-w-3xl w-full p-6 sm:p-8 space-y-6 shadow-2xl border border-neutral-200 animate-in fade-in zoom-in duration-150 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between border-b border-neutral-100 pb-4">
           <div className="flex items-center gap-3">
@@ -126,7 +126,7 @@ export function UserPermissionsModal({
         {/* Quick Role Presets */}
         <div className="p-4 rounded bg-amber-50/80 border border-amber-200 space-y-2">
           <div className="text-xs font-black uppercase text-amber-950 flex items-center gap-1.5">
-            <Zap size={15} className="text-amber-600" />
+            <Zap size={16} className="text-amber-600" />
             <span>Rychlé předvolby rolí (1-Click Aplikovat):</span>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -168,7 +168,7 @@ export function UserPermissionsModal({
                     <span className="text-neutral-500"><mod.icon size={22} /></span>
                     <div>
                       <div className="font-display font-black text-sm text-neutral-900">{mod.label}</div>
-                      <div className="text-[11px] text-neutral-500 font-medium">{mod.desc}</div>
+                      <div className="text-udaj text-neutral-500 font-medium">{mod.desc}</div>
                     </div>
                   </div>
 
@@ -177,7 +177,7 @@ export function UserPermissionsModal({
                     <button
                       type="button"
                       onClick={() => toggleView(mod.id)}
-                      className={`px-3 py-1.5 rounded text-xs font-black border transition flex items-center gap-1 ${
+                      className={`tap px-3 py-1.5 rounded text-xs font-black border transition flex items-center gap-1 ${
                         access.view
                           ? 'bg-emerald-100 text-emerald-950 border-emerald-300'
                           : 'bg-neutral-200 text-neutral-600 border-neutral-300'
@@ -192,7 +192,7 @@ export function UserPermissionsModal({
                       type="button"
                       onClick={() => toggleEdit(mod.id)}
                       disabled={!access.view}
-                      className={`px-3 py-1.5 rounded text-xs font-black border transition flex items-center gap-1 ${
+                      className={`tap px-3 py-1.5 rounded text-xs font-black border transition flex items-center gap-1 ${
                         !access.view
                           ? 'opacity-40 cursor-not-allowed bg-neutral-100 text-neutral-600 border-neutral-200'
                           : access.edit

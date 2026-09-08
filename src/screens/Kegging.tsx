@@ -1,14 +1,14 @@
 import { synchronizuj } from '../lib/checklistData';
-import { useEffect, useMemo, useState, useRef } from 'react';
-import { supabase, Beer, Package, EntryRow, CellarTank, KegPrefuk, useRealtime, beerBg, beerText, beerName, pkgBg, pkgText, formatPackageLabel, fetchAllRows } from '../lib/supabase';
+import { useEffect, useMemo, useState, lazy, Suspense } from 'react';
+import { supabase, Beer, Package, EntryRow, CellarTank, KegPrefuk, useRealtime, beerBg, beerName, formatPackageLabel, fetchAllRows } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import { KeggingChecklistModal, KeggingChecklistBody, isStartChecklistCompleteForKeg, isMonthlyChecklistCompleteForKeg } from '../components/KeggingChecklistModal';
 import { autoLogKegSanitationFromChecklist, isLastWeekOfMonth } from '../lib/kegSanitation';
 import { getMonthKey, writeMonthlyCleanupStage, isMonthlyLineDone, markMonthlyLineDone } from '../lib/monthlyCleanup';
 import { businessDateISO } from '../lib/businessDate';
 import { EmptyState, Spinner, Modal } from '../components/ui';
-import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
-import { exportKeggingToExcel } from '../lib/excel';
+import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
+
 import { VoiceRecorder } from '../components/VoiceRecorder';
 import { parseFreeTextEntries, loadAliasMap, emptyAliasMap, type ParserAliasMap } from '../lib/orderParser';
 import { requestOrdersItemFilter } from '../lib/ordersFilter';
@@ -16,17 +16,21 @@ import { computeKeggingPlan } from '../lib/keggingPlan';
 import { BottlingPlanBottler } from '../components/BottlingPlanBottler';
 import { markPlanSeenAt, type BottlingPlan } from '../lib/bottlingPlans';
 import KeggingDayPlan from '../components/KeggingDayPlan';
-import { AlertTriangle, BarChart3, Beer as BeerIcon, Brush, Calendar, CalendarDays, Camera, Check, ClipboardList, Copy, Cylinder, Loader2, Minus, Package as PackageIcon, PenLine, Pencil, Play, Plus, RefreshCw, Scroll, Sparkles, Trash2, X } from 'lucide-react';
-import { ImportKeggingFromImage } from '../components/ImportKeggingFromImage';
+import { AlertTriangle, BarChart3, Beer as BeerIcon, Brush, CalendarDays, Camera, Check, ClipboardList, Minus, Package as PackageIcon, PenLine, Pencil, Play, Plus, RefreshCw, Scroll, Sparkles, Trash2, X } from 'lucide-react';
 import { BeerTileGrid, BeerTilePanel } from '../components/BeerTileGrid';
 import { chyba, potvrd, toastZpet } from '../lib/toast';
 import { nejvetsiTank, radkyBezTanku, tankRadku, tankyProPivo } from '../lib/tankUZapisu';
 import { podezreleMnozstvi } from '../lib/kontrolaZadani';
 import { IkonaSud } from '../components/ikony';
+import { PrepinacObdobi } from '../components/PrepinacObdobi';
 import { zavibruj } from '../lib/haptika';
 import { consumeKegFixRequest } from '../lib/stockFixSignal';
 import { klicVyberu, nactiNaposled, zapamatujVyber, serazPodleNaposled } from '../lib/naposledyPouzite';
+import { usePosledniNacteni, prvniChyba } from '../lib/nacitani';
+import type { RadekPohybu, RadekZavozu } from '../lib/stockLedger';
 
+// Stahuje se až při otevření — viz komentář u lazy() v Orders.tsx.
+const ImportKeggingFromImage = lazy(() => import('../components/ImportKeggingFromImage').then((m) => ({ default: m.ImportKeggingFromImage })));
 
 const ROW_COUNT = 12;
 type RowInput = { beerId: string; pkgId: string; qty: string; tankId: string };
@@ -47,7 +51,6 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   const [packages, setPackages] = useState<Package[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingRow, setEditingRow] = useState<EntryRow | null>(null);
-  const loadCountRef = useRef(0);
 
   const { profile } = useAuth();
   const isManager = profile?.role === 'admin' || (profile?.role as any) === 'sladek' || (profile?.role as any) === 'sef';
@@ -56,7 +59,6 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   // se pivo, které naposledy nepoužil, hledá tam, kde ho vždycky měl.
   const klicPiv = klicVyberu('kegging', profile?.id);
   const [naposledPiva, setNaposledPiva] = useState<string[]>(() => nactiNaposled(klicPiv));
-
 
   // Zápis / Přehled / Potřeba stočit KEGy / Přefuk KEG / Checklist záložky
   const [tab, setTab] = useState<'zapis' | 'prehled' | 'plan' | 'prefuk' | 'checklist'>((initialSubTab as any) || 'zapis');
@@ -100,34 +102,30 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   useEffect(() => {
     const beerId = consumeKegFixRequest();
     if (beerId) setExpandedKegBeerId(beerId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
   const [err, setErr] = useState<string | null>(null);
+  /** Nepodařilo se načíst data (na rozdíl od „data jsou, ale žádná"). */
+  const [chybaNacteni, setChybaNacteni] = useState<string | null>(null);
   const [flash, setFlash] = useState(false);
-  const [showCount, setShowCount] = useState(false);
   const [showImageImport, setShowImageImport] = useState(false);
   const [aliasMap, setAliasMap] = useState<ParserAliasMap>(emptyAliasMap());
   useEffect(() => { loadAliasMap().then(setAliasMap).catch(() => {}); }, []);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editQty, setEditQty] = useState('');
 
-
-
   // Datové sady pro výpočet potřeb KEG sudů (Objednávky vs. Sklad)
   const [orders, setOrders] = useState<any[]>([]);
   const [orderItems, setOrderItems] = useState<any[]>([]);
-  const [inventoryRows, setInventoryRows] = useState<any[]>([]);
-  const [fasovaniRows, setFasovaniRows] = useState<any[]>([]);
-  const [prodejnaRows, setProdejnaRows] = useState<any[]>([]);
-  const [writeoffsRows, setWriteoffsRows] = useState<any[]>([]);
-  const [zavozDeductionRows, setZavozDeductionRows] = useState<any[]>([]);
+  const [fasovaniRows, setFasovaniRows] = useState<RadekPohybu[]>([]);
+  const [prodejnaRows, setProdejnaRows] = useState<RadekPohybu[]>([]);
+  const [writeoffsRows, setWriteoffsRows] = useState<RadekPohybu[]>([]);
+  const [zavozDeductionRows, setZavozDeductionRows] = useState<RadekZavozu[]>([]);
   // Jen kvůli poli kegs_used (KEGy spotřebované jako zdroj stáčení lahví) —
   // viz komentář u KegNeedsInput.bottlingRows v kegNeeds.ts.
-  const [bottlingRows, setBottlingRows] = useState<any[]>([]);
-  const [adjustmentRows, setAdjustmentRows] = useState<any[]>([]);
+  const [bottlingRows, setBottlingRows] = useState<RadekPohybu[]>([]);
   // Ruční odškrtnutí v plánu stáčení — pracovní pomůcka, ne evidence stáčení.
   const [planCheckRows, setPlanCheckRows] = useState<any[]>([]);
-  const [akceRows, setAkceRows] = useState<any[]>([]);
 
   // Filtry pro "Potřeba stočit KEGy"
 
@@ -158,18 +156,6 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   const [weekPkgFilter, setWeekPkgFilter] = useState('');
 
   // Posun měsíce o delta měsíců (vrací YYYY-MM)
-  function shiftMonth(monthKey: string, delta: number): string {
-    const [y, m] = monthKey.split('-').map(Number);
-    const d = new Date(Date.UTC(y, m - 1 + delta, 1));
-    return d.toISOString().slice(0, 7);
-  }
-
-  // Posun dne o delta dní (vrací YYYY-MM-DD)
-  function shiftDay(day: string, delta: number): string {
-    const d = new Date(day + 'T00:00:00Z');
-    d.setUTCDate(d.getUTCDate() + delta);
-    return d.toISOString().slice(0, 10);
-  }
 
   const filteredRows = useMemo(() => {
     // Minusové položky (ruční opravy přepočtu) se v přehledu stáčení
@@ -191,10 +177,8 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     return result;
   }, [rows, recordsView, recordsMonthKey, recordsWeekKey, recordsDay, beerFilter, recordPkgFilter]);
 
-
   const [weekKey, setWeekKey] = useState(isoWeekKey(new Date().toISOString().slice(0, 10)));
   const weekLabel = weekRange(weekKey).label;
-
 
   const kegPackages = useMemo(() => packages.filter((p) => p.kind === 'keg').sort((a, b) => b.volume_l - a.volume_l), [packages]);
 
@@ -315,10 +299,17 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     }
   }
 
+  // Zámek proti zápisu ze zastaralého načtení — viz lib/nacitani.ts.
+  const zacniNacteni = usePosledniNacteni();
   async function load(silent = false) {
-    const loadId = ++loadCountRef.current;
+    const smiZapsat = zacniNacteni();
     if (!silent && !rows.length) setLoading(true);
-    const [kg, ct, b, p, ords, oi, inv, fa, fp, wo, pf, zd, bt, adj, ak, pc, ukoly] = await Promise.all([
+    // 🚚 Co se tady načítá, se musí i používat. Do 5. 9. 2026 se tahaly
+    // navíc `inventory`, `inventory_adjustments` a `akce` — jejich výsledek
+    // se uložil do stavu, který nikdo nikdy nepřečetl. Byly to tři z
+    // sedmnácti dotazů při každém otevření obrazovky A při každém přenačtení
+    // z realtime, tedy i pokaždé, když někdo jiný cokoliv uložil.
+    const [kg, ct, b, p, ords, oi, fa, fp, wo, pf, zd, bt, pc, ukoly] = await Promise.all([
       fetchAllRows('kegging', '*').order('entry_date', { ascending: false }).order('created_at', { ascending: true }).order('id'),
       supabase.from('cellar_tanks').select('*').order('label'),
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
@@ -328,19 +319,22 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
       // a ručně přehozený den závozu by se ignoroval.
       fetchAllRows('orders', 'id,order_date,delivery_date,delivery_day,place_name,status,is_delivered'),
       fetchAllRows('order_items', 'id,order_id,beer_id,package_id,quantity'),
-      fetchAllRows('inventory', 'entry_date,beer_id,package_id,quantity'),
       fetchAllRows('fasovani', 'entry_date,beer_id,package_id,quantity'),
       fetchAllRows('fasovani_private', 'entry_date,beer_id,package_id,quantity'),
       fetchAllRows('writeoffs', 'entry_date,beer_id,package_id,quantity'),
       fetchAllRows('keg_prefuk', '*').order('entry_date', { ascending: false }).order('created_at', { ascending: true }).order('id'),
       fetchAllRows('zavoz_deductions', 'deduct_date,beer_id,package_id,quantity,order_item_id'),
       fetchAllRows('bottling', 'entry_date,beer_id,package_id,quantity,kegs_used,kegs_used_package_id,source_volume_l,note,created_at'),
-      fetchAllRows('inventory_adjustments', 'entry_date,beer_id,package_id,quantity'),
-      fetchAllRows('akce', 'entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
       fetchAllRows('kegging_plan_checks', 'week_key,day,beer_id,package_id,qty'),
       supabase.from('bottling_plans').select('*').order('planned_date'),
     ]);
-    if (loadId !== loadCountRef.current) return;
+    // Mezitím mohlo začít novější načtení (realtime po cizím zápisu),
+    // nebo už obrazovka není vidět. Výsledek se pak zahodí.
+    if (!smiZapsat()) return;
+    // Selhaný dotaz se dřív tvářil jako prázdný seznam — `?? []` chybu
+    // spolklo a obrazovka řekla „zatím žádné stočení", i když se jen
+    // nepodařilo načíst. Teď se rozliší.
+    setChybaNacteni(prvniChyba(kg, ct, b, p, ords, oi));
     setRows((kg.data as EntryRow[]) ?? []);
     setPlany((ukoly.data as BottlingPlan[]) ?? []);
     setCellarTanks((ct.data as CellarTank[]) ?? []);
@@ -348,21 +342,20 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     if (p.data) setPackages(p.data as Package[]);
     if (ords.data) setOrders(ords.data);
     if (oi.data) setOrderItems(oi.data);
-    if (inv.data) setInventoryRows(inv.data);
     if (fa.data) setFasovaniRows(fa.data);
     if (fp.data) setProdejnaRows(fp.data);
     if (wo.data) setWriteoffsRows(wo.data);
     if (pf.data) setPrefukRows(pf.data as KegPrefuk[]);
     if (zd.data) setZavozDeductionRows(zd.data);
     if (bt.data) setBottlingRows(bt.data);
-    if (adj.data) setAdjustmentRows(adj.data);
-    if (ak.data) setAkceRows(ak.data);
     if (pc.data) setPlanCheckRows(pc.data);
     setLoading(false);
   }
   useEffect(() => { load(); }, []);
-  useRealtime(['kegging', 'cellar_tanks', 'beers', 'packages', 'orders', 'order_items', 'inventory', 'fasovani', 'fasovani_private', 'writeoffs', 'keg_prefuk', 'zavoz_deductions', 'bottling', 'inventory_adjustments', 'akce', 'akce_items', 'kegging_plan_checks'], () => load(true));
-
+  // Odběr musí sedět s tím, co se načítá — jinak přenačítáme kvůli datům,
+  // která obrazovka nikde nepoužije. `inventory`, `inventory_adjustments`,
+  // `akce` a `akce_items` odsud vypadly spolu s dotazy na ně.
+  useRealtime(['kegging', 'cellar_tanks', 'beers', 'packages', 'orders', 'order_items', 'fasovani', 'fasovani_private', 'writeoffs', 'keg_prefuk', 'zavoz_deductions', 'bottling', 'kegging_plan_checks'], () => load(true));
 
   // 🗓️ Plán stáčení po dnech — „co stočit na středu". Na rozdíl od
   // kegRequirements výše nestojí na měsíčním skladovém modelu, takže se do něj
@@ -420,38 +413,14 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     await load(true);
   }
 
-
-
   // (zrušeno — pivo se nevyplňuje automaticky z tanku)
 
-
-
-
-  // Souhrn stáčení z tanku (kegging) — sjednoceno s Cellar.tsx: % stočeno se počítá
-  // ze skutečně zapsaných záznamů (source_volume_l), ne z current_volume_l tanku.
-  // Omezeno na AKTUÁLNÍ cyklus tanku (od started_at) — jinak se po opakovaném
-  // použití tanku sčítalo i stočené z předchozích cyklů (viz stejná oprava
-  // v Cellar.tsx).
-  const cycleStartByTank = useMemo(() => {
-    const m = new Map<string, string>();
-    cellarTanks.forEach((t) => {
-      if (t.started_at) m.set(t.id, t.started_at.slice(0, 10));
-    });
-    return m;
-  }, [cellarTanks]);
-  const tankSummary = useMemo(() => {
-    const m = new Map<string, { kegCount: number; sourceL: number }>();
-    rows.forEach((r) => {
-      const id = r.cellar_tank_id ?? '_none';
-      const cycleStart = cycleStartByTank.get(id);
-      if (cycleStart && r.entry_date < cycleStart) return;
-      if (!m.has(id)) m.set(id, { kegCount: 0, sourceL: 0 });
-      const s = m.get(id)!;
-      s.kegCount += Number(r.quantity) ?? 0;
-      s.sourceL += Number(r.source_volume_l ?? 0);
-    });
-    return m;
-  }, [rows, cycleStartByTank]);
+  // POZNÁMKA: tady stál `cycleStartByTank` + `tankSummary` — dva useMemo, které
+  // při každém překreslení projely všechny řádky stáčení, ale jejich výsledek
+  // se nikde nevykresloval. Odstraněno 5. 9. 2026; ESLint u nich zároveň našel
+  // `Number(r.quantity) ?? 0`, což je vždycky `Number(...)` — u chybějícího
+  // množství by z toho vyšlo NaN a celý součet tanku by zmizel. Kdyby se
+  // souhrn stáčení z tanku někdy hodil, počítá totéž Cellar.tsx.
 
   function setRowField(i: number, field: keyof RowInput, value: string) {
     setEntryRows((rs) => rs.map((r, idx) => idx === i ? { ...r, [field]: value } : r));
@@ -461,7 +430,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   // Pro KEG režim preferujeme obaly druhu 'keg'
   function handleVoiceResult(text: string) {
     // Nejprv zkusíme normální parser
-    let parsed = parseFreeTextEntries(text, beers, packages, aliasMap);
+    const parsed = parseFreeTextEntries(text, beers, packages, aliasMap);
 
     // Pokud parser nenašel nic, zkusíme jednodušší přístup pro kegy
     if (!parsed.length) {
@@ -517,7 +486,6 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     });
     setErr(null);
   }
-
 
   // Zpracování položek načtených z fotky — naplní prvních volných 12 řádků.
   function handleApplyPhotoRows(photoRows: { beerId: string; pkgId: string; qty: string }[], dateVal?: string, photoNote?: string) {
@@ -620,8 +588,16 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
       }
     });
 
-    const { error } = await supabase.from('kegging').insert(payloads);
+    // `.select('id')` je tu kvůli vrácení zpět níž. Bez něj se id právě
+    // vložených řádků zahodilo a vracení je muselo dohledávat podle hodnot
+    // (datum + pivo + obal + počet, nejnovější) — což při dvou lidech, kteří
+    // týž den stočí totéž, smazalo CIZÍ zápis a vrátilo objem do jiného tanku.
+    const { data: vlozeneRadky, error } = await supabase
+      .from('kegging')
+      .insert(payloads)
+      .select('id');
     if (error) { setSaving(false); setErr(error.message); return; }
+    const vlozenaIds = ((vlozeneRadky as { id: string }[]) ?? []).map((r) => r.id);
 
     // Odečti stočený objem z každého dotčeného tanku. RELATIVNĚ přes RPC —
     // dřív se počítala absolutní hodnota z React state, takže když stáčeli
@@ -662,21 +638,12 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     toastZpet(
       `Uloženo ${payloads.length} ${payloads.length === 1 ? 'řádek' : 'řádky'} — ${kusuCelkem} ks.`,
       async () => {
-        for (const p of payloads) {
-          const { data: nalezene } = await supabase
-            .from('kegging')
-            .select('id')
-            .eq('entry_date', p.entry_date)
-            .eq('beer_id', p.beer_id)
-            .eq('package_id', p.package_id)
-            .eq('quantity', p.quantity)
-            .order('created_at', { ascending: false })
-            .limit(1);
-          const id = ((nalezene as any[]) ?? [])[0]?.id;
-          if (id) {
-            const { error: chybaMazani } = await supabase.from('kegging').delete().eq('id', id);
-            if (chybaMazani) throw chybaMazani;
-          }
+        // Maže se PŘESNĚ to, co se vložilo — podle id z `.select('id')` výš,
+        // jedním dotazem. Dohledávání podle hodnot tu bylo dřív a umělo
+        // sáhnout na cizí řádek se stejným datem, pivem, obalem a počtem.
+        if (vlozenaIds.length) {
+          const { error: chybaMazani } = await supabase.from('kegging').delete().in('id', vlozenaIds);
+          if (chybaMazani) throw chybaMazani;
         }
         for (const [tankId, odectenoL] of vraceniTanku) {
           await adjustTankVolume(tankId, odectenoL);
@@ -795,7 +762,6 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     setEditQty('');
     setErr(null);
   }
-
 
   // Prehled podle velikosti kegu (50/30/20/15/10 l + ostatni)
   const KEG_SIZES = [50, 30, 20, 15, 10];
@@ -923,7 +889,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
             >
               <span className="inline-flex items-center gap-1.5"><CalendarDays size={14} /> Co stočit na který den</span>
               {planMissingTotal > 0 && (
-                <span className="px-1.5 py-0.5 rounded-full bg-amber-300 text-amber-950 text-[11px] font-black">
+                <span className="px-1.5 py-0.5 rounded-full bg-amber-300 text-amber-950 text-udaj font-black">
                   {planMissingTotal}
                 </span>
               )}
@@ -935,7 +901,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
             >
               <span className="inline-flex items-center gap-1.5"><RefreshCw size={14} /> Přefuk KEG</span>
               {prefukRows.length > 0 && (
-                <span className="px-1.5 py-0.5 rounded-full bg-sky-200 text-sky-900 text-[11px] font-black">{prefukRows.length}</span>
+                <span className="px-1.5 py-0.5 rounded-full bg-sky-200 text-sky-900 text-udaj font-black">{prefukRows.length}</span>
               )}
             </button>
             <button
@@ -945,7 +911,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
             >
               <span className="inline-flex items-center gap-1.5"><ClipboardList size={14} /> Checklist</span>
               {isLastWeekOfMonth() && !isMonthlyChecklistCompleteForKeg(businessDateISO()) && (
-                <span className="px-1.5 py-0.5 rounded-full bg-rose-600 text-white text-[11px] font-black animate-pulse">1</span>
+                <span className="px-1.5 py-0.5 rounded-full bg-rose-600 text-white text-udaj font-black animate-pulse">1</span>
               )}
             </button>
             <button
@@ -1040,7 +1006,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                 [...rowTankPreview.perTank.entries()].map(([tankId, liters]) => {
                   const t = cellarTanks.find((x) => x.id === tankId);
                   return (
-                    <span key={tankId} className="px-2 py-0.5 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-900 text-[11px] font-black whitespace-nowrap">
+                    <span key={tankId} className="px-2 py-0.5 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-900 text-udaj font-black whitespace-nowrap">
                       <IkonaSud className="ikona-text" /> {t?.label ?? 'Tank'} · {liters.toLocaleString('cs-CZ', { maximumFractionDigits: 0 })} L
                     </span>
                   );
@@ -1054,12 +1020,12 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
               )}
             </div>
             {rowTankPreview.ambiguousCount > 0 && (
-              <p className="text-[11px] font-black text-amber-700 mt-1">
+              <p className="text-udaj font-black text-amber-700 mt-1">
                 <AlertTriangle className="ikona-text" /> {rowTankPreview.ambiguousCount}× řádek: 2+ aktivní tanky se stejným pivem — vyber správný v řádku
               </p>
             )}
             {rowTankPreview.missingCount > 0 && (
-              <p className="text-[11px] font-semibold text-neutral-500 mt-1">
+              <p className="text-udaj font-semibold text-neutral-500 mt-1">
                 {rowTankPreview.missingCount}× řádek bez aktivního tanku s daným pivem — objem se neodečte
               </p>
             )}
@@ -1067,7 +1033,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
           </div>
 
           <div className="mb-2">
-            <span className="text-[11px] text-neutral-400 font-medium">klepni na dlaždici a zadej obaly a množství sudů</span>
+            <span className="text-udaj text-neutral-400 font-medium">klepni na dlaždici a zadej obaly a množství sudů</span>
           </div>
           <div className="mb-4">
             <BeerTileGrid
@@ -1105,12 +1071,12 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                             type="button"
                             onClick={() => setTileRow(expandedKegBeer.id, p.id, { qty: String(q) })}
                             title="Rychlá volba množství"
-                            className={`h-7 min-w-[1.75rem] px-1.5 rounded text-[11px] font-black transition ${qty === q ? 'bg-emerald-700 text-white' : 'bg-neutral-100 dark:bg-neutral-700 hover:bg-emerald-200 text-neutral-600 dark:text-neutral-200 hover:text-emerald-950'}`}
+                            className={`tap h-7 min-w-[1.75rem] px-1.5 rounded text-udaj font-black transition ${qty === q ? 'bg-emerald-700 text-white' : 'bg-neutral-100 dark:bg-neutral-700 hover:bg-emerald-200 text-neutral-600 dark:text-neutral-200 hover:text-emerald-950'}`}
                           >
                             {q}
                           </button>
                         ))}
-                        <button type="button" onClick={() => setTileRow(expandedKegBeer.id, p.id, { qty: String(Math.max(0, qty - 1)) })} className="w-11 h-11 grid place-items-center rounded bg-amber-100 hover:bg-amber-200 text-amber-800 font-black text-xl transition disabled:opacity-30 select-none" disabled={qty <= 0}>−</button>
+                        <button type="button" onClick={() => setTileRow(expandedKegBeer.id, p.id, { qty: String(Math.max(0, qty - 1)) })} className="btn-pocet disabled:opacity-30" disabled={qty <= 0}>−</button>
                         <input
                           type="number" onWheel={(e) => e.currentTarget.blur()}
                           min={0}
@@ -1120,7 +1086,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                           onChange={(e) => setTileRow(expandedKegBeer.id, p.id, { qty: e.target.value.replace(/[^0-9]/g, '') })}
                           className="w-14 h-10 text-center text-lg font-black text-neutral-800 dark:text-neutral-100 bg-white dark:bg-neutral-900/60 border-2 border-amber-200 dark:border-neutral-700 rounded"
                         />
-                        <button type="button" onClick={() => setTileRow(expandedKegBeer.id, p.id, { qty: String(qty + 1) })} className="w-11 h-11 grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xl transition select-none">+</button>
+                        <button type="button" onClick={() => setTileRow(expandedKegBeer.id, p.id, { qty: String(qty + 1) })} className="btn-pocet">+</button>
                         {/* +5: po jednom se přidává jen zbytek, celé pády sudů
                             jdou po pěti. Dvě klepnutí místo deseti. */}
                         <button type="button" onClick={() => setTileRow(expandedKegBeer.id, p.id, { qty: String(qty + 5) })} className="w-11 h-11 grid place-items-center rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-950 font-black text-sm transition select-none">+5</button>
@@ -1128,7 +1094,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                     </div>
                     {qty > 0 && rowTanks.length > 1 && (
                       <div>
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-100 border border-amber-300 text-amber-900 text-[11px] font-black whitespace-nowrap"><AlertTriangle className="ikona-text" /> {rowTanks.length} aktivní tanky — vyber</span>
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-100 border border-amber-300 text-amber-900 text-udaj font-black whitespace-nowrap"><AlertTriangle className="ikona-text" /> {rowTanks.length} aktivní tanky — vyber</span>
                         <select
                           className="input !py-1 !px-1.5 text-xs font-bold w-full mt-1"
                           value={currentTankId}
@@ -1142,10 +1108,10 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                       </div>
                     )}
                     {qty > 0 && rowTanks.length === 1 && (
-                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-900 text-[11px] font-black whitespace-nowrap"><IkonaSud className="ikona-text" /> {rowTanks[0].label}</span>
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-900 text-udaj font-black whitespace-nowrap"><IkonaSud className="ikona-text" /> {rowTanks[0].label}</span>
                     )}
                     {qty > 0 && rowTanks.length === 0 && (
-                      <span className="text-[11px] text-neutral-400 font-semibold">žádný aktivní tank — objem se neodečte</span>
+                      <span className="text-udaj text-neutral-400 font-semibold">žádný aktivní tank — objem se neodečte</span>
                     )}
                   </div>
                 );
@@ -1178,7 +1144,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                           <span className="truncate">{formatPackageLabel(pkg?.label)} · {beerName(beer)}</span>
                         </button>
                         <div className="flex items-center gap-1 shrink-0">
-                          <button type="button" onClick={() => setTileRow(r.beerId, r.pkgId, { qty: String(Math.max(0, Number(r.qty) - 1)) })} className="w-11 h-11 grid place-items-center rounded bg-amber-100 hover:bg-amber-200 text-amber-800 font-black text-xl transition disabled:opacity-30 select-none" disabled={Number(r.qty) <= 1}>−</button>
+                          <button type="button" onClick={() => setTileRow(r.beerId, r.pkgId, { qty: String(Math.max(0, Number(r.qty) - 1)) })} className="btn-pocet disabled:opacity-30" disabled={Number(r.qty) <= 1}>−</button>
                           <input
                             type="number" onWheel={(e) => e.currentTarget.blur()}
                             min={0}
@@ -1189,8 +1155,8 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                             className="w-14 h-10 text-center text-base font-black text-neutral-800 dark:text-neutral-100 bg-white dark:bg-neutral-900/60 border-2 border-amber-200 dark:border-neutral-700 rounded"
                             title="Napiš počet ručně"
                           />
-                          <button type="button" onClick={() => setTileRow(r.beerId, r.pkgId, { qty: String(Number(r.qty) + 1) })} className="w-11 h-11 grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xl transition select-none">+</button>
-                          <button type="button" onClick={() => setTileRow(r.beerId, r.pkgId, { qty: '0' })} className="w-10 h-10 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-black text-xl transition select-none" title="Odebrat položku"><X size={18} /></button>
+                          <button type="button" onClick={() => setTileRow(r.beerId, r.pkgId, { qty: String(Number(r.qty) + 1) })} className="btn-pocet">+</button>
+                          <button type="button" onClick={() => setTileRow(r.beerId, r.pkgId, { qty: '0' })} className="w-10 h-10 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-black text-xl transition select-none tap" title="Odebrat položku" aria-label="Odebrat položku"><X size={18} /></button>
                         </div>
                       </li>
                     );
@@ -1210,7 +1176,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                 {saving ? 'Ukládám…' : 'Uložit stáčení'}
               </button>
               {!isStartChecklistCompleteForKeg(businessDateISO()) && (
-                <span className="text-[11px] font-bold text-amber-700 animate-pulse bg-amber-50 border border-amber-200 rounded px-2.5 py-1">
+                <span className="text-udaj font-bold text-amber-700 animate-pulse bg-amber-50 border border-amber-200 rounded px-2.5 py-1">
                   <AlertTriangle className="ikona-text" /> Před uložením musíte splnit checklist přípravy!
                 </span>
               )}
@@ -1345,11 +1311,11 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="border-b border-emerald-300/80 bg-emerald-100/80">
-                        <th className="text-left py-1.5 px-2 font-black text-emerald-950">Datum</th>
-                        <th className="text-left py-1.5 px-2 font-black text-emerald-950">Pivo</th>
-                        <th className="text-right py-1.5 px-2 font-black text-emerald-950">KEG</th>
-                        <th className="text-right py-1.5 px-2 font-black text-emerald-950">Ks</th>
-                        <th className="text-right py-1.5 px-2 font-black text-emerald-950">Akce</th>
+                        <th scope="col" className="text-left py-1.5 px-2 font-black text-emerald-950">Datum</th>
+                        <th scope="col" className="text-left py-1.5 px-2 font-black text-emerald-950">Pivo</th>
+                        <th scope="col" className="text-right py-1.5 px-2 font-black text-emerald-950">KEG</th>
+                        <th scope="col" className="text-right py-1.5 px-2 font-black text-emerald-950">Ks</th>
+                        <th scope="col" className="text-right py-1.5 px-2 font-black text-emerald-950">Akce</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1388,44 +1354,44 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                                 <div className="flex items-center justify-end gap-1">
                                   <button
                                     type="button"
-                                    className="px-2 h-6 grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-bold text-xs transition"
+                                    className="px-2 h-6 grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-bold text-xs transition tap"
                                     onClick={saveEdit}
                                     title="Uložit"
                                    aria-label="Uložit"><Check size={14} /></button>
                                   <button
                                     type="button"
-                                    className="px-2 h-6 grid place-items-center rounded bg-neutral-200 hover:bg-neutral-300 text-neutral-700 font-bold text-xs transition"
+                                    className="px-2 h-6 grid place-items-center rounded bg-neutral-200 hover:bg-neutral-300 text-neutral-700 font-bold text-xs transition tap"
                                     onClick={() => { setEditingId(null); setEditQty(''); }}
-                                    title="Zrušit"
+                                    title="Zrušit" aria-label="Zrušit"
                                   ><X size={14} /></button>
                                 </div>
                               ) : (
                                 <div className="flex items-center justify-end gap-1">
                                   <button
                                     type="button"
-                                    className="px-2 h-6 grid place-items-center rounded bg-sky-100 hover:bg-sky-200 text-sky-800 font-bold text-xs transition"
+                                    className="px-2 h-6 grid place-items-center rounded bg-sky-100 hover:bg-sky-200 text-sky-800 font-bold text-xs transition tap"
                                     onClick={() => setEditingRow(r)}
-                                    title="Upravit detail"
+                                    title="Upravit detail" aria-label="Upravit detail"
                                   ><Pencil className="ikona-text" /></button>
                                   <button
                                     type="button"
-                                    className="w-6 h-6 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-emerald-950 font-bold text-xs transition"
+                                    className="w-6 h-6 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-emerald-950 font-bold text-xs transition tap"
                                     onClick={() => increment(r.id, -1)}
                                     disabled={Number(r.quantity) <= 0}
-                                    title="Odebrat 1 ks"
+                                    title="Odebrat 1 ks" aria-label="Odebrat 1 ks"
                                   >−</button>
                                   <button
                                     type="button"
-                                    className="w-6 h-6 grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-bold text-xs transition"
+                                    className="w-6 h-6 grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-bold text-xs transition tap"
                                     onClick={() => increment(r.id, 1)}
-                                    title="Přidat 1 ks"
+                                    title="Přidat 1 ks" aria-label="Přidat 1 ks"
                                   >+</button>
-                                  <input type="number" inputMode="numeric" min="0" onWheel={(e) => e.currentTarget.blur()} key={r.quantity} defaultValue={r.quantity} onBlur={(e) => { const v = Math.max(0, Math.round(Number(e.target.value) || 0)); if (v !== Number(r.quantity)) setQty(r.id, v); }} onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }} className="h-6 rounded bg-white border border-amber-300 text-emerald-950 font-bold text-[11px] px-1 cursor-pointer transition !w-14 text-center tabular-nums" title="Napiš počet ks (libovolné číslo)" />
+                                  <input type="number" inputMode="numeric" min="0" onWheel={(e) => e.currentTarget.blur()} key={r.quantity} defaultValue={r.quantity} onBlur={(e) => { const v = Math.max(0, Math.round(Number(e.target.value) || 0)); if (v !== Number(r.quantity)) setQty(r.id, v); }} onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }} className="h-6 rounded bg-white border border-amber-300 text-emerald-950 font-bold text-udaj px-1 cursor-pointer transition !w-14 text-center tabular-nums" title="Napiš počet ks (libovolné číslo)" />
                                   <button
                                     type="button"
-                                    className="w-6 h-6 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-xs transition"
+                                    className="w-6 h-6 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-xs transition tap"
                                     onClick={() => del(r.id)}
-                                    title="Smazat záznam"
+                                    title="Smazat záznam" aria-label="Smazat záznam"
                                   ><X size={14} /></button>
                                 </div>
                               )}
@@ -1490,70 +1456,19 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                   ))}
                 </select>
 
-                {/* Přepínač období: Den / Týden / Měsíc */}
-                <div className="flex items-center gap-1 bg-white border border-neutral-200 rounded p-0.5">
-                  <button
-                    type="button"
-                    onClick={() => setRecordsView('day')}
-                    className={`text-xs font-bold px-2.5 py-1 rounded-md border transition ${
-                      recordsView === 'day'
-                        ? 'bg-amber-200 border-amber-300 text-amber-950'
-                        : 'bg-white border-transparent text-neutral-600'
-                    }`}
-                  >
-                    <Calendar className="ikona-text" /> Den
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRecordsView('week')}
-                    className={`text-xs font-bold px-2.5 py-1 rounded-md border transition ${
-                      recordsView === 'week'
-                        ? 'bg-amber-200 border-amber-300 text-amber-950'
-                        : 'bg-white border-transparent text-neutral-600'
-                    }`}
-                  >
-                    <Calendar className="ikona-text" /> Týden
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRecordsView('month')}
-                    className={`text-xs font-bold px-2.5 py-1 rounded-md border transition ${
-                      recordsView === 'month'
-                        ? 'bg-amber-200 border-amber-300 text-amber-950'
-                        : 'bg-white border-transparent text-neutral-600'
-                    }`}
-                  >
-                    <Calendar className="ikona-text" /> Měsíc
-                  </button>
-                </div>
-
-                {/* Navigace podle zvoleného období */}
-                {recordsView === 'day' && (
-                  <div className="flex items-center gap-1">
-                    <button onClick={() => setRecordsDay(shiftDay(recordsDay, -1))} className="w-11 min-h-[44px] grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-black text-base transition shrink-0">‹</button>
-                    <input
-                      type="date"
-                      value={recordsDay}
-                      onChange={(e) => setRecordsDay(e.target.value)}
-                      className="input text-xs font-bold px-2 py-1 rounded border border-neutral-200 bg-white text-neutral-700"
-                    />
-                    <button onClick={() => setRecordsDay(shiftDay(recordsDay, 1))} className="w-11 min-h-[44px] grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-black text-base transition shrink-0">›</button>
-                  </div>
-                )}
-                {recordsView === 'week' && (
-                  <div className="flex items-center gap-1">
-                    <button onClick={() => setRecordsWeekKey(shiftWeek(recordsWeekKey, -1))} className="w-11 min-h-[44px] grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-black text-base transition shrink-0">‹</button>
-                    <span className="text-xs font-bold text-amber-950 px-1 whitespace-nowrap">{weekRange(recordsWeekKey).label}</span>
-                    <button onClick={() => setRecordsWeekKey(shiftWeek(recordsWeekKey, 1))} className="w-11 min-h-[44px] grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-black text-base transition shrink-0">›</button>
-                  </div>
-                )}
-                {recordsView === 'month' && (
-                  <div className="flex items-center gap-1">
-                    <button onClick={() => setRecordsMonthKey(shiftMonth(recordsMonthKey, -1))} className="w-11 min-h-[44px] grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-black text-base transition shrink-0">‹</button>
-                    <span className="text-xs font-bold text-amber-950 px-1 whitespace-nowrap">{recordsMonthKey}</span>
-                    <button onClick={() => setRecordsMonthKey(shiftMonth(recordsMonthKey, 1))} className="w-11 min-h-[44px] grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-black text-base transition shrink-0">›</button>
-                  </div>
-                )}
+                {/* Přepínač období — společná komponenta. Bylo to poskládané
+                    z devíti ručně malovaných tlačítek a stálo to skoro
+                    stejně i ve Stáčení lahví. */}
+                <PrepinacObdobi
+                  obdobi={recordsView}
+                  onObdobi={setRecordsView}
+                  den={recordsDay}
+                  onDen={setRecordsDay}
+                  tyden={recordsWeekKey}
+                  onTyden={setRecordsWeekKey}
+                  mesic={recordsMonthKey}
+                  onMesic={setRecordsMonthKey}
+                />
               </>
             )}
             {rows.length > 0 && (
@@ -1568,7 +1483,13 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
         {loading ? (
           <Spinner />
         ) : rows.length === 0 ? (
-          <EmptyState text="Zatím žádné stočení do sudů." icon={PenLine} akce={{ popis: 'Zapsat stočení', onClick: () => setTab('zapis') }} />
+          chybaNacteni ? (
+            <EmptyState
+              varianta="chyba"
+              text={`Stáčení se nepodařilo načíst: ${chybaNacteni}`}
+              akce={{ popis: 'Zkusit znovu', onClick: () => load() }}
+            />
+          ) : <EmptyState text="Zatím žádné stočení do sudů." icon={PenLine} akce={{ popis: 'Zapsat stočení', onClick: () => setTab('zapis') }} />
         ) : filteredRows.length === 0 ? (
           <EmptyState text="Žádné záznamy pro toto období." icon={CalendarDays} />
         ) : (() => {
@@ -1633,7 +1554,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                       {/* Litry/HL zhuštěné do jednoho řádku (dřív dvě velké
                           dlaždice na záznam) — na telefon se tak vejde víc
                           záznamů a pořád je to čitelné. */}
-                      <div className="text-[11px] font-bold text-amber-700 tabular-nums">
+                      <div className="text-udaj font-bold text-amber-700 tabular-nums">
                         {liters.toLocaleString('cs-CZ', { maximumFractionDigits: 0 })} l · {(liters / 100).toLocaleString('cs-CZ', { maximumFractionDigits: 2 })} hl
                       </div>
                       {!isEditing && (
@@ -1666,13 +1587,13 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="border-b border-amber-300/80 bg-amber-100/80">
-                      <th className="text-left py-1.5 px-2 font-black text-amber-950">Datum</th>
-                      <th className="text-left py-1.5 px-2 font-black text-amber-950">Pivo</th>
-                      <th className="text-right py-1.5 px-2 font-black text-amber-950">KEG</th>
-                      <th className="text-right py-1.5 px-2 font-black text-amber-950">Ks</th>
-                      <th className="text-right py-1.5 px-2 font-black text-amber-950">Litry</th>
-                      <th className="text-right py-1.5 px-2 font-black text-amber-950">HL</th>
-                      <th className="text-right py-1.5 px-2 font-black text-amber-950">Akce</th>
+                      <th scope="col" className="text-left py-1.5 px-2 font-black text-amber-950">Datum</th>
+                      <th scope="col" className="text-left py-1.5 px-2 font-black text-amber-950">Pivo</th>
+                      <th scope="col" className="text-right py-1.5 px-2 font-black text-amber-950">KEG</th>
+                      <th scope="col" className="text-right py-1.5 px-2 font-black text-amber-950">Ks</th>
+                      <th scope="col" className="text-right py-1.5 px-2 font-black text-amber-950">Litry</th>
+                      <th scope="col" className="text-right py-1.5 px-2 font-black text-amber-950">HL</th>
+                      <th scope="col" className="text-right py-1.5 px-2 font-black text-amber-950">Akce</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1712,44 +1633,44 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                               <div className="flex items-center justify-end gap-1">
                                 <button
                                   type="button"
-                                  className="px-2 h-6 grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-bold text-xs transition"
+                                  className="px-2 h-6 grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-bold text-xs transition tap"
                                   onClick={saveEdit}
                                   title="Uložit"
                                  aria-label="Uložit"><Check size={14} /></button>
                                 <button
                                   type="button"
-                                  className="px-2 h-6 grid place-items-center rounded bg-neutral-200 hover:bg-neutral-300 text-neutral-700 font-bold text-xs transition"
+                                  className="px-2 h-6 grid place-items-center rounded bg-neutral-200 hover:bg-neutral-300 text-neutral-700 font-bold text-xs transition tap"
                                   onClick={() => { setEditingId(null); setEditQty(''); }}
-                                  title="Zrušit"
+                                  title="Zrušit" aria-label="Zrušit"
                                 ><X size={14} /></button>
                               </div>
                             ) : (
                               <div className="flex items-center justify-end gap-1">
                                 <button
                                   type="button"
-                                  className="px-2 h-6 grid place-items-center rounded bg-sky-100 hover:bg-sky-200 text-sky-800 font-bold text-xs transition"
+                                  className="px-2 h-6 grid place-items-center rounded bg-sky-100 hover:bg-sky-200 text-sky-800 font-bold text-xs transition tap"
                                   onClick={() => setEditingRow(r)}
-                                  title="Upravit"
+                                  title="Upravit" aria-label="Upravit"
                                 ><Pencil className="ikona-text" /></button>
                                 <button
                                   type="button"
-                                  className="w-6 h-6 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-xs transition"
+                                  className="w-6 h-6 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-xs transition tap"
                                   onClick={() => increment(r.id, -1)}
                                   disabled={Number(r.quantity) <= 0}
-                                  title="Odebrat 1 ks"
+                                  title="Odebrat 1 ks" aria-label="Odebrat 1 ks"
                                 >−</button>
                                 <button
                                   type="button"
-                                  className="w-6 h-6 grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-bold text-xs transition"
+                                  className="w-6 h-6 grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-bold text-xs transition tap"
                                   onClick={() => increment(r.id, 1)}
-                                  title="Přidat 1 ks"
+                                  title="Přidat 1 ks" aria-label="Přidat 1 ks"
                                 >+</button>
-                                <input type="number" inputMode="numeric" min="0" onWheel={(e) => e.currentTarget.blur()} key={r.quantity} defaultValue={r.quantity} onBlur={(e) => { const v = Math.max(0, Math.round(Number(e.target.value) || 0)); if (v !== Number(r.quantity)) setQty(r.id, v); }} onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }} className="h-6 rounded bg-white border border-amber-300 text-emerald-950 font-bold text-[11px] px-1 cursor-pointer transition !w-14 text-center tabular-nums" title="Napiš počet ks (libovolné číslo)" />
+                                <input type="number" inputMode="numeric" min="0" onWheel={(e) => e.currentTarget.blur()} key={r.quantity} defaultValue={r.quantity} onBlur={(e) => { const v = Math.max(0, Math.round(Number(e.target.value) || 0)); if (v !== Number(r.quantity)) setQty(r.id, v); }} onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }} className="h-6 rounded bg-white border border-amber-300 text-emerald-950 font-bold text-udaj px-1 cursor-pointer transition !w-14 text-center tabular-nums" title="Napiš počet ks (libovolné číslo)" />
                                 <button
                                   type="button"
-                                  className="w-6 h-6 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-xs transition"
+                                  className="w-6 h-6 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-xs transition tap"
                                   onClick={() => del(r.id)}
-                                  title="Smazat záznam"
+                                  title="Smazat záznam" aria-label="Smazat záznam"
                                 ><X size={14} /></button>
                               </div>
                             )}
@@ -1856,7 +1777,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-4">
               {/* ZE — odečet */}
               <div className="rounded border-2 border-rose-300 bg-white p-3">
-                <div className="text-[11px] font-black text-rose-700 uppercase tracking-wider mb-2">
+                <div className="text-udaj font-black text-rose-700 uppercase tracking-wider mb-2">
                   <Minus className="ikona-text" /> ZE sudů <span className="normal-case font-bold">(odečte se ze skladu)</span>
                 </div>
                 <div className="grid grid-cols-2 gap-3 items-end">
@@ -1887,7 +1808,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
               </div>
               {/* DO — příčet */}
               <div className="rounded border-2 border-emerald-300 bg-white p-3">
-                <div className="text-[11px] font-black text-emerald-700 uppercase tracking-wider mb-2">
+                <div className="text-udaj font-black text-emerald-700 uppercase tracking-wider mb-2">
                   <Plus className="ikona-text" /> DO sudů <span className="normal-case font-bold">(přičte se na sklad)</span>
                 </div>
                 <div className="grid grid-cols-2 gap-3 items-end">
@@ -1957,12 +1878,12 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                 <table className="table text-xs w-full">
                   <thead>
                     <tr className="bg-neutral-100 border-b border-neutral-200">
-                      <th className="p-2.5 text-left">Datum</th>
-                      <th className="p-2.5 text-left">Pivo</th>
-                      <th className="p-2.5 text-left">ZE sudů (odečet)</th>
-                      <th className="p-2.5 text-left">DO sudů (přičet)</th>
-                      <th className="p-2.5 text-left">Poznámka</th>
-                      <th className="p-2.5 text-center">Smazat</th>
+                      <th scope="col" className="p-2.5 text-left">Datum</th>
+                      <th scope="col" className="p-2.5 text-left">Pivo</th>
+                      <th scope="col" className="p-2.5 text-left">ZE sudů (odečet)</th>
+                      <th scope="col" className="p-2.5 text-left">DO sudů (přičet)</th>
+                      <th scope="col" className="p-2.5 text-left">Poznámka</th>
+                      <th scope="col" className="p-2.5 text-center">Smazat</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1978,12 +1899,12 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                             </div>
                           </td>
                           <td className="p-2.5">
-                            <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 font-black text-[11px] border border-rose-200 whitespace-nowrap">
+                            <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 font-black text-udaj border border-rose-200 whitespace-nowrap">
                               − {r.from_count} × {r.from_package_label ?? '?'}
                             </span>
                           </td>
                           <td className="p-2.5">
-                            <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-black text-[11px] border border-emerald-200 whitespace-nowrap">
+                            <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-black text-udaj border border-emerald-200 whitespace-nowrap">
                               + {r.to_count} × {r.to_package_label ?? '?'}
                             </span>
                           </td>
@@ -1992,8 +1913,8 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                             <button
                               type="button"
                               onClick={() => deletePrefuk(r.id)}
-                              className="px-2 py-1 rounded text-neutral-400 hover:text-rose-600 hover:bg-rose-50 transition"
-                              title="Smazat přefuk"
+                              className="px-2 py-1 rounded text-neutral-400 hover:text-rose-600 hover:bg-rose-50 transition tap"
+                              title="Smazat přefuk" aria-label="Smazat přefuk"
                             >
                               <Trash2 className="ikona-text" />
                             </button>
@@ -2115,6 +2036,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
         </Modal>
       )}
       {showImageImport && (
+        <Suspense fallback={null}>
         <ImportKeggingFromImage
           isOpen={showImageImport}
           onClose={() => setShowImageImport(false)}
@@ -2122,6 +2044,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
           packages={packages}
           onImport={handleApplyPhotoRows}
         />
+        </Suspense>
       )}
       <KeggingChecklistModal
         isOpen={showChecklistModal}
@@ -2203,7 +2126,6 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     </div>
   );
 }
-
 
 function Field2({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (

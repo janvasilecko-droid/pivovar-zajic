@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { AlarmClock, Bell, BellRing, Volume2, X, Check, Flame } from 'lucide-react';
+import { BellRing, Volume2, X, Check } from 'lucide-react';
 import { playAlarmSound } from '../lib/notifications';
 import { zavibruj } from '../lib/haptika';
 
@@ -109,7 +109,7 @@ export function TimerDoneAlertModal() {
             onClick={replay}
             className="w-full py-2.5 px-4 rounded-xl bg-neutral-800 hover:bg-neutral-700 active:scale-95 text-neutral-300 font-bold text-xs transition flex items-center justify-center gap-2"
           >
-            <Volume2 size={15} /> Přehrát zvuk a vibraci znovu
+            <Volume2 size={16} /> Přehrát zvuk a vibraci znovu
           </button>
         </div>
       </div>

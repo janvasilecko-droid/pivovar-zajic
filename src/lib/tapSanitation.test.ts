@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 
 // tapSanitation.ts importuje supabase klienta, který v testech není potřeba
 // (a bez VITE_* proměnných by spadl). Stub vrací „prázdno" bez chyby, takže
@@ -27,14 +27,7 @@ vi.mock('./supabase', () => ({
   },
 }));
 
-import {
-  newTapSanEntry,
-  nowTimeStr,
-  DEFAULT_TAP_SANITATION_STEPS,
-  TAP_SAN_REASON_LABELS,
-  TAP_SAN_STORAGE_KEY,
-  type TapSanitationEntry,
-} from './tapSanitation';
+import { newTapSanEntry, nowTimeStr, DEFAULT_TAP_SANITATION_STEPS, TAP_SAN_REASON_LABELS, type TapSanitationEntry } from './tapSanitation';
 
 describe('newTapSanEntry (nový záznam sanitačního deníku výčepu)', () => {
   it('vytvoří záznam se všemi 6 výchozími kroky a aktuálním časem', () => {

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { HlavickaStranky } from '../components/HlavickaStranky';
 import { getAllUserVersions } from '../lib/appVersionTracker';
 import { useAuth } from '../lib/auth';
 import { Smartphone, RefreshCw, Clock, User } from 'lucide-react';

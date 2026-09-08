@@ -69,7 +69,7 @@ export function KegReturnModal({
                   <button
                     type="button"
                     onClick={() => handleDelta(size, -1)}
-                    className="w-9 h-9 rounded bg-white hover:bg-neutral-200 border border-neutral-300 grid place-items-center text-lg font-black active:scale-95 transition"
+                    className="w-9 h-9 rounded bg-white hover:bg-neutral-200 border border-neutral-300 grid place-items-center text-lg font-black active:scale-95 transition tap"
                   >
                     <Minus size={16} />
                   </button>
@@ -81,7 +81,7 @@ export function KegReturnModal({
                   <button
                     type="button"
                     onClick={() => handleDelta(size, 1)}
-                    className="w-9 h-9 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 grid place-items-center text-lg font-black active:scale-95 transition shadow-xs"
+                    className="w-9 h-9 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 grid place-items-center text-lg font-black active:scale-95 transition shadow-xs tap"
                   >
                     <Plus size={16} />
                   </button>
@@ -98,7 +98,7 @@ export function KegReturnModal({
 
           <div className="flex items-center gap-2">
             <button type="button" onClick={() => setCounts({ ...EMPTY_COUNTS })} className="btn-ghost !rounded text-xs font-bold flex items-center gap-1" title="Vynulovat">
-              <RotateCcw size={13} /> Reset
+              <RotateCcw size={14} /> Reset
             </button>
             <button type="button" onClick={onClose} className="btn-secondary text-xs font-bold">
               Zrušit

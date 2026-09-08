@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase, Beer, Package, PriceListItem, useRealtime, beerBg, beerText, pkgBg, pkgText, formatPackageLabel } from '../lib/supabase';
 import { EmptyState, Spinner } from '../components/ui';
-import { Beer as BeerIcon, Calendar, CheckCircle2, DollarSign, Info, Package as PackageIcon, Tag } from 'lucide-react';
+import { Beer as BeerIcon, Calendar, Package as PackageIcon } from 'lucide-react';
 import { IkonaLahev, IkonaSud } from '../components/ikony';
 
 export default function PriceListScreen() {
@@ -78,7 +78,7 @@ export default function PriceListScreen() {
 
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-1.5 bg-neutral-800 border border-neutral-700 px-3 py-1.5 rounded text-xs font-bold">
-            <Calendar size={15} className="text-amber-400" />
+            <Calendar size={16} className="text-amber-400" />
             <span>Měsíc:</span>
             <input
               type="month"
@@ -118,7 +118,7 @@ export default function PriceListScreen() {
                       <div className="p-3 space-y-2.5">
                         <span className={`text-sm font-black ${txt}`}>{b.name}{b.degree ? ` (${b.degree})` : ''}</span>
                         <label className="block">
-                          <span className="text-[11px] font-black uppercase text-neutral-600 bg-white/70 px-1.5 py-0.5 rounded-md inline-block mb-1">Cena za 1 litr</span>
+                          <span className="text-udaj font-black uppercase text-neutral-600 bg-white/70 px-1.5 py-0.5 rounded-md inline-block mb-1">Cena za 1 litr</span>
                           <input
                             type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} step="0.01" min={0}
                             className="input w-full text-right font-mono font-black text-base bg-white border border-neutral-300 shadow-xs"
@@ -146,11 +146,11 @@ export default function PriceListScreen() {
               <div className="hidden md:block overflow-x-auto scrollbar-thin rounded border border-neutral-200">
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="bg-neutral-900 text-amber-300 uppercase tracking-wider text-[11px] font-black">
-                      <th className="py-3.5 px-4 text-left">Pivo</th>
-                      <th className="py-3.5 px-4 text-right">Cena za 1 litr (Kč)</th>
+                    <tr className="bg-neutral-900 text-amber-300 uppercase tracking-wider text-udaj font-black">
+                      <th scope="col" className="py-3.5 px-4 text-left">Pivo</th>
+                      <th scope="col" className="py-3.5 px-4 text-right">Cena za 1 litr (Kč)</th>
                       {kegPackages.map((p) => (
-                        <th key={p.id} className="py-3.5 px-4 text-right">
+                        <th scope="col" key={p.id} className="py-3.5 px-4 text-right">
                           <span className="inline-block rounded-md px-2 py-0.5 text-xs font-extrabold shadow-2xs" style={{ backgroundColor: pkgBg(p), color: pkgText(p) === 'text-white' ? '#fff' : '#111' }}>
                             {formatPackageLabel(p.label)}
                           </span>
@@ -234,7 +234,7 @@ export default function PriceListScreen() {
                             const cellKey = `${b.id}:${p.id}`;
                             return (
                               <label key={p.id} className="block">
-                                <span className="text-[11px] font-black uppercase text-neutral-600 bg-white/70 px-1.5 py-0.5 rounded-md inline-block mb-1">{formatPackageLabel(p.label)}</span>
+                                <span className="text-udaj font-black uppercase text-neutral-600 bg-white/70 px-1.5 py-0.5 rounded-md inline-block mb-1">{formatPackageLabel(p.label)}</span>
                                 <input
                                   type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} step="0.01" min={0}
                                   className="input w-full text-right font-mono font-black text-sm bg-white border border-neutral-300 shadow-xs"
@@ -259,10 +259,10 @@ export default function PriceListScreen() {
               <div className="hidden md:block overflow-x-auto scrollbar-thin rounded border border-neutral-200">
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="bg-neutral-900 text-amber-300 uppercase tracking-wider text-[11px] font-black">
-                      <th className="py-3.5 px-4 text-left">Pivo</th>
+                    <tr className="bg-neutral-900 text-amber-300 uppercase tracking-wider text-udaj font-black">
+                      <th scope="col" className="py-3.5 px-4 text-left">Pivo</th>
                       {bottlePackages.map((p) => (
-                        <th key={p.id} className="py-3.5 px-4 text-right">
+                        <th scope="col" key={p.id} className="py-3.5 px-4 text-right">
                           <span className="inline-block rounded-md px-2 py-0.5 text-xs font-extrabold shadow-2xs" style={{ backgroundColor: pkgBg(p), color: pkgText(p) === 'text-white' ? '#fff' : '#111' }}>
                             {formatPackageLabel(p.label)}
                           </span>

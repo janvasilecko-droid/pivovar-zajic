@@ -5,6 +5,7 @@ import { parseWhatsAppOrderMessageWithAI } from '../lib/whatsappParser';
 import { analyzeReadback, findRepeatedReadbackErrors, findSimilarMessages, type RepeatedReadbackError } from '../lib/whatsappReadback';
 import { Modal, Spinner } from './ui';
 import { AlertCircle, AlertTriangle, ArrowDownUp, Check, CheckSquare, Clock, Copy, Download, Filter, Image as ImageIcon, MessageSquare, RefreshCw, Square, Trash2, X, XCircle } from 'lucide-react';
+import { zalogujANahlas } from '../lib/chybyHlaseni';
 
 interface WhatsAppAutoProcessorModalProps {
   isOpen: boolean;
@@ -90,7 +91,7 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
       // chyby (#14) + duplicity (#25).
       fetchRecentWhatsAppMessages(100).then(setRecentMessages).catch(() => {});
     } catch (error) {
-      console.error('Error loading WhatsApp messages:', error);
+      zalogujANahlas('Error loading WhatsApp messages', error);
     } finally {
       setLoading(false);
     }
@@ -200,7 +201,7 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
       await loadMessages();
       setStatus(`Objednávka od ${message.sender_name} byla úspěšně importována`);
     } catch (error) {
-      console.error('Error importing order:', error);
+      zalogujANahlas('Error importing order', error);
       setStatus(`Chyba při importu: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setImportingIds((prev) => { const next = new Set(prev); next.delete(messageId); return next; });
@@ -212,7 +213,7 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
       await updateWhatsAppMessageStatus(messageId, 'ignored');
       await loadMessages();
     } catch (error) {
-      console.error('Error ignoring message:', error);
+      zalogujANahlas('Error ignoring message', error);
     }
   }
 
@@ -326,21 +327,21 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
               onClick={() => loadMessages()}
               disabled={processing}
               className="p-2 rounded border hover:bg-neutral-50 disabled:opacity-50"
-              title="Obnovit seznam"
+              title="Obnovit seznam" aria-label="Obnovit seznam"
             >
               <RefreshCw size={16} />
             </button>
             <button
               onClick={() => processMessages()}
               disabled={processing || messages.length === 0}
-              className="px-3 py-1.5 rounded bg-sky-700 text-white text-sm font-medium hover:bg-sky-800 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 py-1.5 rounded bg-sky-700 text-white text-sm font-medium hover:bg-sky-800 disabled:opacity-50 disabled:cursor-not-allowed tap"
             >
               {processing ? 'Zpracovává se...' : 'Zpracovat automaticky'}
             </button>
             <button
               onClick={() => processMessages(messages.filter((m) => selectedIds.has(m.id)))}
               disabled={processing || selectedIds.size === 0}
-              className="px-3 py-1.5 rounded bg-emerald-700 text-white text-sm font-medium hover:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 py-1.5 rounded bg-emerald-700 text-white text-sm font-medium hover:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed tap"
             >
               Načíst vybrané ({selectedIds.size})
             </button>
@@ -349,7 +350,7 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
                 onClick={() => processMessages(errorMessages)}
                 disabled={processing}
                 title="Znovu zkusí AI parsování jen u zpráv se stavem Chyba"
-                className="px-3 py-1.5 rounded bg-rose-600 text-white text-sm font-medium hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-1.5 rounded bg-rose-600 text-white text-sm font-medium hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed tap"
               >
                 <XCircle className="ikona-text" /> Zkusit znovu vše ({errorMessages.length})
               </button>
@@ -361,7 +362,7 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
         <div className="flex items-center gap-3 flex-wrap text-sm">
           <button
             onClick={() => setFilterMismatchOnly((v) => !v)}
-            className={`px-3 py-1.5 rounded border text-sm font-medium flex items-center gap-1.5 ${
+            className={`tap px-3 py-1.5 rounded border text-sm font-medium flex items-center gap-1.5 ${
               filterMismatchOnly
                 ? 'bg-amber-100 border-amber-300 text-amber-800'
                 : 'border-neutral-300 text-neutral-600 hover:bg-neutral-50'
@@ -416,12 +417,12 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
         {repeatedErrors.length > 0 && (
           <div className="rounded border border-amber-200 bg-amber-50 p-3">
             <div className="text-xs font-medium text-amber-800 mb-1.5 flex items-center gap-1.5">
-              <AlertCircle size={13} />
+              <AlertCircle size={14} />
               Opakované chyby čtení — opravte položku v detailu a AI si to zapamatuje:
             </div>
             <div className="flex flex-wrap gap-1.5">
               {repeatedErrors.slice(0, 5).map((err, i) => (
-                <span key={i} className="px-2 py-0.5 rounded-full bg-white border border-amber-300 text-[11px] text-amber-800">
+                <span key={i} className="px-2 py-0.5 rounded-full bg-white border border-amber-300 text-udaj text-amber-800">
                   „{err.rawLine}" · {err.sender} ({err.count}×)
                 </span>
               ))}
@@ -433,10 +434,10 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
         {similarPairs.length > 0 && (
           <div className="rounded border border-primary-200 bg-primary-50 p-3">
             <div className="text-xs font-medium text-primary-800 mb-1.5 flex items-center gap-1.5">
-              <Copy size={13} />
+              <Copy size={14} />
               Možná duplicitní objednávka — dvě zprávy mají téměř stejný obsah:
             </div>
-            <div className="text-[11px] text-primary-700 space-y-0.5">
+            <div className="text-udaj text-primary-700 space-y-0.5">
               {similarPairs.slice(0, 3).map((p, i) => (
                 <div key={i} className="flex items-center gap-1 flex-wrap">
                   <span className="font-medium">{p.first.sender_name}</span> ⇄ <span className="font-medium">{p.second.sender_name}</span>
@@ -500,7 +501,7 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
                   <div className="flex items-start gap-2">
                     <button
                       onClick={(e) => { e.stopPropagation(); toggleSelected(message.id); }}
-                      className="mt-0.5 p-1 rounded text-neutral-400 hover:bg-neutral-100 hover:text-sky-600 shrink-0"
+                      className="mt-0.5 p-1 rounded text-neutral-400 hover:bg-neutral-100 hover:text-sky-600 shrink-0 tap"
                       title="Označit zprávu k načtení"
                     >
                       {selectedIds.has(message.id)
@@ -554,7 +555,7 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
                           }`}
                           title="Čas čekání na zpracování"
                         >
-                          <Clock size={11} /> {formatWaitTime(message.message_timestamp || message.created_at)}
+                          <Clock size={12} /> {formatWaitTime(message.message_timestamp || message.created_at)}
                         </span>
                       </div>
 
@@ -564,6 +565,8 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
                           <img
                             src={message.media_url}
                             alt="Příloha"
+                            loading="lazy"
+                            decoding="async"
                             className="h-16 w-16 object-cover rounded border"
                             onClick={(e) => e.stopPropagation()}
                           />
@@ -599,7 +602,7 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
                           <button
                             onClick={(e) => { e.stopPropagation(); importOrder(message.id); }}
                             disabled={importingIds.has(message.id) || hasUnmatchedItems}
-                            className={`p-1.5 rounded disabled:opacity-40 disabled:cursor-not-allowed ${hasUnmatchedItems ? 'text-amber-600' : 'text-emerald-600 hover:bg-emerald-50'}`}
+                            className={`tap p-1.5 rounded disabled:opacity-40 disabled:cursor-not-allowed ${hasUnmatchedItems ? 'text-amber-600' : 'text-emerald-600 hover:bg-emerald-50'}`}
                             title={
                               importingIds.has(message.id)
                                 ? 'Importuje se…'
@@ -615,15 +618,15 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
                       <button
                         onClick={(e) => { e.stopPropagation(); processMessages([message]); }}
                         disabled={processing}
-                        className="p-1.5 rounded text-sky-600 hover:bg-sky-50 disabled:opacity-50"
-                        title="Přečíst / rozparsovat přes AI"
+                        className="p-1.5 rounded text-sky-600 hover:bg-sky-50 disabled:opacity-50 tap"
+                        title="Přečíst / rozparsovat přes AI" aria-label="Přečíst / rozparsovat přes AI"
                       >
                         <RefreshCw size={16} className={processing ? "animate-spin" : ""} />
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); ignoreMessage(message.id); }}
-                        className="p-1.5 rounded text-neutral-600 hover:bg-neutral-100"
-                        title="Ignorovat zprávu"
+                        className="p-1.5 rounded text-neutral-600 hover:bg-neutral-100 tap"
+                        title="Ignorovat zprávu" aria-label="Ignorovat zprávu"
                       >
                         <Trash2 size={16} />
                       </button>
@@ -638,5 +641,4 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
     </Modal>
   );
 }
-
 

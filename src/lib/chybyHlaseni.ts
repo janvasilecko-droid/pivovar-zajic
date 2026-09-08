@@ -23,8 +23,17 @@
 
 import { APP_VERSION } from './version';
 
-/** Odkud chyba přišla. */
-export type DruhChyby = 'boundary' | 'unhandled' | 'rejection';
+/**
+ * Odkud chyba přišla.
+ *
+ * `odchycena` je pro chyby z `catch` bloků. Do 5. 9. 2026 takové chyby
+ * končily jen v `console.error` (bylo jich 60) — uživatel viděl prázdno
+ * nebo nic a v tabulce `chyby_aplikace` po nich nezůstala stopa, protože
+ * globální posluchači chytají jen to, co spadne až nahoru. Přitom právě
+ * tyhle jsou nejčastější: selhaný dotaz do databáze, nepovedený zápis,
+ * fotka, kterou se nepodařilo nahrát.
+ */
+export type DruhChyby = 'boundary' | 'unhandled' | 'rejection' | 'odchycena';
 
 export type HlaseniChyby = {
   druh: DruhChyby;
@@ -183,4 +192,21 @@ export function zapniHlaseniChyb(): () => void {
     window.removeEventListener('error', naChybu);
     window.removeEventListener('unhandledrejection', naRejection);
   };
+}
+
+/**
+ * Zaloguj do konzole A NAHLAS. Náhrada za `console.error(...)` v `catch`
+ * blocích — jeden zápis místo dvou, ať se na to hlášení nezapomene.
+ *
+ *   } catch (e) {
+ *     zalogujANahlas('uložení stáčení', e);
+ *   }
+ *
+ * `kde` je krátký popis místa, ne obsah dat — do hlášení jde jen text
+ * chyby, začátek stacku a jméno obrazovky, nic z toho, co člověk zapsal.
+ */
+export function zalogujANahlas(kde: string, chyba: unknown): void {
+  // eslint-disable-next-line no-console
+  console.error(`[${kde}]`, chyba);
+  nahlasChybu('odchycena', chyba instanceof Error ? chyba : new Error(`${kde}: ${popisChyby(chyba)}`));
 }

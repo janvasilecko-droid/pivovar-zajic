@@ -6,6 +6,7 @@
 // každý zápis svůj list — se stejným rozvržením, jaké má pivovar v ručních
 // listech, aby se z něj dalo rovnou kopírovat.
 import { useEffect, useMemo, useState } from 'react';
+import { HlavickaStranky } from '../components/HlavickaStranky';
 import { Copy, Download, FileSpreadsheet } from 'lucide-react';
 import { fetchAllRows, Package } from '../lib/supabase';
 import { Kostra } from '../components/ui';
@@ -205,13 +206,11 @@ export default function ExportExcelScreen() {
   return (
     <div className="space-y-4 max-w-3xl">
       <div className="card p-4 sm:p-5">
-        <h1 className="font-display font-extrabold text-lg text-neutral-900 flex items-center gap-2">
-          <FileSpreadsheet className="w-5 h-5 text-emerald-600" /> Export do Excelu
-        </h1>
-        <p className="text-sm text-neutral-600 font-medium mt-1">
-          Jeden sešit, ve kterém má každý zápis svůj list. Rozvržení sedí s ručními listy,
-          takže se z něj dá rovnou kopírovat.
-        </p>
+        <HlavickaStranky
+          titul="Export do Excelu"
+          ikona={FileSpreadsheet}
+          podtitul="Jeden sešit, ve kterém má každý zápis svůj list. Rozvržení sedí s ručními listy, takže se z něj dá rovnou kopírovat."
+        />
       </div>
 
       <div className="card p-4 sm:p-5 space-y-3">
@@ -295,7 +294,7 @@ export default function ExportExcelScreen() {
                       onClick={(e) => { e.preventDefault(); kopirujList(p.nazev); }}
                       title="Zkopírovat jen tenhle list"
                       aria-label={`Zkopírovat list ${p.nazev}`}
-                      className="w-10 h-10 grid place-items-center rounded-xl text-neutral-400 hover:text-primary-700 hover:bg-primary-50 active:scale-95 transition"
+                      className="w-10 h-10 grid place-items-center rounded-xl text-neutral-400 hover:text-primary-700 hover:bg-primary-50 active:scale-95 transition tap"
                     >
                       <Copy className="w-4 h-4" />
                     </button>
@@ -306,7 +305,7 @@ export default function ExportExcelScreen() {
           })}
         </div>
 
-        <p className="text-[11px] font-semibold text-neutral-500">
+        <p className="text-udaj font-semibold text-neutral-500">
           Prázdné listy se do sešitu nedávají — sešit s prázdnými kartami jen mate.
           Hektolitry jsou vzorcem, takže se po opravě počtu přepočítají samy.
         </p>

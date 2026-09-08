@@ -89,3 +89,7 @@ google-klic.json
 
 # Vyexportované tabulky pro ruční přepis do Excelu — nepatří do repozitáře.
 staceni-keg-*.xlsx
+
+# Snímky vzorníku prvků (scripts/snimky.mjs) — obrázky pro porovnání
+# „před a po", do repozitáře nepatří.
+nahled/snimky/

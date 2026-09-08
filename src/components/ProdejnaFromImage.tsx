@@ -68,7 +68,7 @@ export function ProdejnaFromImage({ isOpen, onClose, beers, packages, onTextExtr
   const loadMultipleFiles = (files: File[]) => {
     if (!files.length) return;
     setBusy(true);
-    let loaded: PhotoEntry[] = [];
+    const loaded: PhotoEntry[] = [];
     let count = 0;
     files.forEach((f, idx) => {
       const reader = new FileReader();
@@ -212,7 +212,7 @@ export function ProdejnaFromImage({ isOpen, onClose, beers, packages, onTextExtr
               <Upload size={16} /> Vybrat fotku / fotky z galerie
             </button>
           </div>
-          <span className="text-[11px] text-neutral-500">
+          <span className="text-udaj text-neutral-500">
             <Camera className="ikona-text" /> Můžete vybrat i <strong>více fotek najednou</strong> (např. 30 snímků). Systém je projde postupně po sobě a vše sloučí do tabulky.
           </span>
         </div>

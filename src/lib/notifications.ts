@@ -1,4 +1,5 @@
 import { oznam } from '../lib/toast';
+import { zalogujANahlas } from './chybyHlaseni';
 import { uloz } from './uloziste';
 // PWA & Browser Mobile Push Notifications & Web Audio Chime for New Orders
 
@@ -48,7 +49,7 @@ export async function requestNotificationPermission(): Promise<boolean> {
       return false;
     }
   } catch (err) {
-    console.error('Chyba při žádosti o notifikace:', err);
+    zalogujANahlas('Chyba při žádosti o notifikace', err);
     return false;
   }
 }
@@ -403,7 +404,7 @@ export function notifyNewOrder(order: NewOrderNotifyData) {
         setTimeout(() => { try { n.close(); } catch {} }, settings.autoHideSeconds * 1000);
       }
     } catch (e) {
-      console.error('Failed to trigger notification:', e);
+      zalogujANahlas('Failed to trigger notification', e);
     }
   }
 
@@ -485,7 +486,7 @@ export function notifyNewWhatsAppMessage(
         setTimeout(() => { try { n.close(); } catch {} }, settings.autoHideSeconds * 1000);
       }
     } catch (e) {
-      console.error('Failed to trigger WhatsApp notification:', e);
+      zalogujANahlas('Failed to trigger WhatsApp notification', e);
     }
   }
 

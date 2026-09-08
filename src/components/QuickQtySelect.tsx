@@ -28,7 +28,7 @@ export function QuickQtySelect({ pkg, qty, onSelect, className }: {
   const num = Number(qty);
   return (
     <select
-      className={className ?? 'h-6 rounded bg-white border border-amber-300 text-emerald-950 font-bold text-[11px] px-1 cursor-pointer transition'}
+      className={className ?? 'h-6 rounded bg-white border border-amber-300 text-emerald-950 font-bold text-udaj px-1 cursor-pointer transition'}
       value={qtys.includes(num) ? num : ''}
       onChange={(e) => { const v = e.target.value; if (v !== '') onSelect(Number(v)); }}
       title={`Rychlé nastavení počtu (${qtys.join('/')})`}

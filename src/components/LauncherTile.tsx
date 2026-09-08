@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Settings, Zap } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Settings } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import type { NavItem } from './Layout';
 import { hexToRgba, tileTextColor, COLOR_HEX, UNIT_COLS, defaultTileColor, type TileColor, type TileId, type TileOverride } from '../lib/homeLayout';
@@ -188,10 +188,10 @@ export default function LauncherTile({
         // overflow:visible + vyšší z-index, ať panel nic neoseká).
         <div className="hs-tile-controls" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
           <div className="hs-move-dpad">
-            <button type="button" className="hs-dpad-btn hs-dpad-up" title="Přesunout nahoru" onClick={() => onMoveStep('up')}><ChevronUp size={16} /></button>
-            <button type="button" className="hs-dpad-btn hs-dpad-left" title="Přesunout doleva" onClick={() => onMoveStep('left')}><ChevronLeft size={16} /></button>
-            <button type="button" className="hs-dpad-btn hs-dpad-down" title="Přesunout dolů" onClick={() => onMoveStep('down')}><ChevronDown size={16} /></button>
-            <button type="button" className="hs-dpad-btn hs-dpad-right" title="Přesunout doprava" onClick={() => onMoveStep('right')}><ChevronRight size={16} /></button>
+            <button type="button" className="hs-dpad-btn hs-dpad-up" title="Přesunout nahoru" aria-label="Přesunout nahoru" onClick={() => onMoveStep('up')}><ChevronUp size={16} /></button>
+            <button type="button" className="hs-dpad-btn hs-dpad-left" title="Přesunout doleva" aria-label="Přesunout doleva" onClick={() => onMoveStep('left')}><ChevronLeft size={16} /></button>
+            <button type="button" className="hs-dpad-btn hs-dpad-down" title="Přesunout dolů" aria-label="Přesunout dolů" onClick={() => onMoveStep('down')}><ChevronDown size={16} /></button>
+            <button type="button" className="hs-dpad-btn hs-dpad-right" title="Přesunout doprava" aria-label="Přesunout doprava" onClick={() => onMoveStep('right')}><ChevronRight size={16} /></button>
           </div>
           <button type="button" className="hs-gear-btn" title="Barva, velikost a další nastavení" onClick={onOpenEditor} aria-label="Barva, velikost a další nastavení"><Settings className="ikona-text" /></button>
         </div>
