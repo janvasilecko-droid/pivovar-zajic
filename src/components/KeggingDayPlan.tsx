@@ -17,7 +17,7 @@
 import { useMemo, useState } from 'react';
 import { CalendarDays, Check, Beer, Truck, ChevronDown, ArrowRight, Search, X } from 'lucide-react';
 import type { DayPlan, PlanItem } from '../lib/keggingPlan';
-import { dayKeyFromISO, mergeWeekPlan } from '../lib/keggingPlan';
+import { dayKeyFromISO, mergeWeekPlan, BEZ_TERMINU } from '../lib/keggingPlan';
 import { IkonaSud } from './ikony';
 
 type Props = {
@@ -45,7 +45,8 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
   const todayDay = dayKeyFromISO(todayISO);
   // Otevře se rovnou nejbližší den, kde ještě něco chybí — stáčeč většinou
   // řeší ten, ne pondělí.
-  const firstOpen = plans.find((p) => p.totalMissing > 0)?.day;
+  // „Bez termínu" se jako první neotevírá — stáčeč řeší den, který se veze.
+  const firstOpen = plans.find((p) => p.day !== BEZ_TERMINU && p.totalMissing > 0)?.day;
   const [selected, setSelected] = useState<string>(firstOpen ?? todayDay);
   const [busy, setBusy] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -66,6 +67,7 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
 
   const active = selected === 'tyden' ? weekPlan : (plans.find((p) => p.day === selected) ?? plans[0]);
   const isWeek = active.day === 'tyden';
+  const jeBezTerminu = active.day === BEZ_TERMINU;
 
   // Filtrování běží až nad vybraným dnem, ne nad celým týdnem — čísla
   // v hlavičce dne proto zůstávají pravdivá i při zapnutém filtru.
@@ -163,7 +165,7 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
             )}
           </button>
           <span className="w-px h-8 bg-neutral-300 shrink-0 mx-0.5" />
-          {plans.map((p) => {
+          {plans.filter((p) => p.day !== BEZ_TERMINU || p.totalOrdered > 0).map((p) => {
             const isSel = p.day === selected;
             const hotovo = p.totalOrdered > 0 && p.totalMissing === 0;
             return (
@@ -186,7 +188,11 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
                     {p.day === todayDay && <span className="w-1.5 h-1.5 rounded-full bg-current" title="Dnes" />}
                     {p.label}
                   </span>
-                  <span className="text-udaj font-bold opacity-70">{fmtDate(p.date)}</span>
+                  {/* Přihrádka bez termínu žádné datum nemá — `fmtDate('')`
+                      by vypsalo „Invalid Date". */}
+                  <span className="text-udaj font-bold opacity-70">
+                    {p.day === BEZ_TERMINU ? 'nevíme kdy' : fmtDate(p.date)}
+                  </span>
                 </div>
                 {p.totalMissing > 0 ? (
                   <span className={`px-1.5 py-0.5 rounded-full text-udaj font-black ${isSel ? 'bg-neutral-950 text-amber-300' : 'bg-amber-300 text-amber-950'}`}>
@@ -208,10 +214,18 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
             <div className="min-w-0">
               <h3 className="font-display font-black text-neutral-950 flex items-center gap-2">
                 <CalendarDays size={16} className="text-amber-600 shrink-0" />
-                <span className="min-w-0">{isWeek ? `Stočit za celý týden ${active.label}` : `Stočit na ${active.label} ${fmtDate(active.date)}`}</span>
+                <span className="min-w-0">
+                  {isWeek
+                    ? `Stočit za celý týden ${active.label}`
+                    : jeBezTerminu
+                    ? 'Objednávky bez uvedeného dne dovozu'
+                    : `Stočit na ${active.label} ${fmtDate(active.date)}`}
+                </span>
               </h3>
               <p className="text-udaj font-bold text-neutral-500 mt-0.5">
-                {active.totalOrdered === 0
+                {jeBezTerminu
+                  ? `U těchhle objednávek není uvedený den dovozu, takže nevím, na kdy je stočit — doplň ho v Objednávkách a přeskočí sem, kam patří. Do té doby se počítají jen do týdenního součtu. Chybí ${active.totalMissing} ks (${active.missingLiters} L).`
+                  : active.totalOrdered === 0
                   ? isWeek ? 'Tenhle týden zatím není žádná objednávka.' : 'Na tenhle den není žádná objednávka.'
                   : active.totalMissing === 0
                   ? isWeek ? 'Hotovo — celý týden je stočený.' : 'Hotovo — všechno na tenhle den je stočené.'

@@ -49,8 +49,24 @@ export type PlanItem = {
   orders: PlanOrderRef[];
 };
 
+/**
+ * Přihrádka pro objednávky, u kterých se NEVÍ, na který den se vezou.
+ *
+ * Z provozu 8. 9. 2026: „mám tam na úterý co stočit sudy, některý co se mají
+ * stočit až ve středu." Objednávka bez uvedeného dne se totiž plánovala na
+ * den, kdy se ZADALA (`order_date`) — a u WhatsApp objednávky je to den, kdy
+ * ji někdo schválil. Kdo v úterý schválil objednávku na středu, u které AI
+ * den dovozu nevytáhla, dostal její sudy na úterý.
+ *
+ * Domyslet si den z data zadání je horší než přiznat, že se neví: podle plánu
+ * se stáčí, takže vymyšlený den znamená sudy stočené o den dřív než je třeba
+ * — a jiné o den později. Zmizet ale nesmí (to by je nikdo nestočil), proto
+ * vlastní přihrádka, kde jsou vidět a dá se jim den doplnit.
+ */
+export const BEZ_TERMINU = 'bez';
+
 export type DayPlan = {
-  /** 'po' … 'ne' */
+  /** 'po' … 'ne', `BEZ_TERMINU`, nebo 'tyden' u souhrnu. */
   day: string;
   label: string;
   /** ISO datum toho dne v aktuálním týdnu. */
@@ -96,6 +112,28 @@ export type KeggingPlanInput = {
 export function dayKeyFromISO(dateStr: string): string {
   const d = new Date(dateStr + 'T00:00:00Z');
   return DAYS[(d.getUTCDay() + 6) % 7].v;
+}
+
+/**
+ * Datum toho dne v týdnu, do kterého spadá `kotva`.
+ *
+ * Přehození dne závozu (Objednávky → přepínač dne) dosud zapisovalo JEN
+ * `delivery_day` a `delivery_date` nechávalo být. Obě pole tak popisovala
+ * stejnou věc a mohla si odporovat: plán stáčení se řídí dnem, ale filtr
+ * týdne, Závoz a přehledy datem. Kdo objednávku přehodil ze středy na úterý,
+ * měl ji v plánu na úterý a v datu pořád na středě.
+ *
+ * Vrací `null` pro neznámý den — volající pak `delivery_date` nemění.
+ */
+export function datumProDenVTydnu(den: string, kotva: string): string | null {
+  const i = DAYS.findIndex((d) => d.v === den);
+  if (i < 0) return null;
+  const ref = new Date(kotva + 'T00:00:00Z');
+  if (Number.isNaN(ref.getTime())) return null;
+  const pondeli = new Date(ref);
+  pondeli.setUTCDate(ref.getUTCDate() - ((ref.getUTCDay() + 6) % 7));
+  pondeli.setUTCDate(pondeli.getUTCDate() + i);
+  return pondeli.toISOString().slice(0, 10);
 }
 
 export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
@@ -164,10 +202,17 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
   const orderDay = new Map<string, string>();
   activeOrders.forEach((o) => {
     // Přednost má explicitní den závozu (uživatel ho v Závozu ručně přehazuje),
-    // jinak se odvodí z data dovozu.
-    const target = o.delivery_date || o.order_date;
-    const day = o.delivery_day && DAYS.some((d) => d.v === o.delivery_day) ? o.delivery_day : dayKeyFromISO(target);
-    orderDay.set(o.id, day);
+    // jinak se odvodí z DATA DOVOZU.
+    //
+    // ⚠️ Nikdy ne z `order_date`. To je datum ZADÁNÍ, ne dovozu — u WhatsApp
+    // objednávky den, kdy ji někdo schválil. Odvozovat z něj den stáčení
+    // znamenalo, že objednávka bez uvedeného termínu spadla na dnešek.
+    // Když termín není, jde do přihrádky `BEZ_TERMINU` (viz komentář u ní).
+    if (o.delivery_day && DAYS.some((d) => d.v === o.delivery_day)) {
+      orderDay.set(o.id, o.delivery_day);
+      return;
+    }
+    orderDay.set(o.id, o.delivery_date ? dayKeyFromISO(o.delivery_date) : BEZ_TERMINU);
   });
 
   // ── Co je z objednávek už vykryté. Rozhoduje ODEČET ZE SKLADU u konkrétní
@@ -185,6 +230,7 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
   type Bucket = { ordered: number; covered: number; orders: PlanOrderRef[] };
   const byDay: Record<string, Record<string, Bucket>> = {};
   DAYS.forEach((d) => { byDay[d.v] = {}; });
+  byDay[BEZ_TERMINU] = {};
 
   orderItems.forEach((it) => {
     if (!it.beer_id || !it.package_id || !kegPkgs.has(it.package_id)) return;
@@ -209,8 +255,8 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
 
   // ── Rozdělení zásoby mezi dny — od nejbližšího dne, protože ten se veze
   // dřív. Zavezené kusy stáčet netřeba, ty se odečtou rovnou.
-  const plans: DayPlan[] = DAYS.map((d, i) => {
-    const items: PlanItem[] = Object.entries(byDay[d.v]).map(([k, b]) => {
+  const sestavDen = (dayKey: string, label: string, date: string): DayPlan => {
+    const items: PlanItem[] = Object.entries(byDay[dayKey]).map(([k, b]) => {
       const [beer_id, package_id] = k.split('__');
       const pkg = kegPkgs.get(package_id)!;
       const stillNeeded = Math.max(0, b.ordered - b.covered);
@@ -220,7 +266,7 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
       // Ruční odškrtnutí a doložený stav se skládají přes MAX. Součet by
       // položku započítal dvakrát ve chvíli, kdy si ji stáčeč odškrtne a pak
       // ji poctivě zapíše i do stáčení — a to je běžný postup, ne výjimka.
-      const checked = Math.min(b.ordered, Number(checkedMap[`${d.v}__${beer_id}__${package_id}`] || 0));
+      const checked = Math.min(b.ordered, Number(checkedMap[`${dayKey}__${beer_id}__${package_id}`] || 0));
       const done = Math.max(autoDone, checked);
       return {
         key: k,
@@ -239,16 +285,22 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
     });
     items.sort((a, z) => z.missing - a.missing || a.beer_name.localeCompare(z.beer_name, 'cs') || z.volume_l - a.volume_l);
     return {
-      day: d.v,
-      label: d.label,
-      date: dayDates[i],
+      day: dayKey,
+      label,
+      date,
       items,
       totalOrdered: items.reduce((s, x) => s + x.ordered, 0),
       totalDone: items.reduce((s, x) => s + x.done, 0),
       totalMissing: items.reduce((s, x) => s + x.missing, 0),
       missingLiters: items.reduce((s, x) => s + x.missing * x.volume_l, 0),
     };
-  });
+  };
+
+  // Pořadí ROZHODUJE: `sestavDen` ubírá ze zásoby v chlaďáku (`pool`), takže
+  // co se staví dřív, dostane stočené sudy dřív. Dny s termínem proto jdou
+  // první — ty se opravdu vezou. Objednávky bez termínu berou až zbytek.
+  const plans: DayPlan[] = DAYS.map((d, i) => sestavDen(d.v, d.label, dayDates[i]));
+  plans.push(sestavDen(BEZ_TERMINU, 'Bez termínu', ''));
 
   return plans;
 }

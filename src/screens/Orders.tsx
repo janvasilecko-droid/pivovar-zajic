@@ -25,6 +25,7 @@ import { shareOrderToWhatsApp } from '../lib/whatsapp';
 import { subscribeToWhatsAppMessages, fetchPendingWhatsAppMessages, fetchWhatsAppMessage, ignoreWhatsAppMessage, WhatsAppIncoming, fetchWhatsAppSenders, isSenderAllowed, triggerAutoParse, type WhatsAppSender } from '../lib/whatsappApi';
 import { autoReserveTapIfNeeded, isTapMentioned, detectTapType } from '../lib/tapReservations';
 import { findDuplicateOrders, formatDuplicateMessage } from '../lib/orderDuplicates';
+import { datumProDenVTydnu } from '../lib/keggingPlan';
 import { TapReservationModal } from '../components/TapReservationModal';
 import { createReminder, getLocalReminders } from '../lib/reminders';
 import { type AkceRow } from '../lib/inventoryHelper';
@@ -1234,7 +1235,14 @@ export default function Orders({
   }
 
   async function updateDeliveryDay(o: Order, day: string) {
+    // ⚠️ S dnem se musí posunout i DATUM. `delivery_day` a `delivery_date`
+    // popisují tutéž věc a dřív se tady měnil jen den — takže si obě pole
+    // mohla odporovat. Plán stáčení se řídí dnem, ale filtr týdne, Závoz
+    // a přehledy datem: objednávka přehozená ze středy na úterý pak byla
+    // v plánu na úterý a v datu pořád na středě.
     const patch: Record<string, unknown> = { delivery_day: day || null };
+    const noveDatum = day ? datumProDenVTydnu(day, o.delivery_date || o.order_date) : null;
+    if (noveDatum) patch.delivery_date = noveDatum;
     await supabase.from('orders').update(patch).eq('id', o.id);
     setOrders((arr) => arr.map((x) => x.id === o.id ? { ...x, ...patch } as Order : x));
   }
