@@ -28,6 +28,7 @@ import { consumeKegFixRequest } from '../lib/stockFixSignal';
 import { klicVyberu, nactiNaposled, zapamatujVyber, serazPodleNaposled } from '../lib/naposledyPouzite';
 import { usePosledniNacteni, prvniChyba } from '../lib/nacitani';
 import type { RadekPohybu, RadekZavozu } from '../lib/stockLedger';
+import { soucetUlozenehoDnes } from '../lib/jizUlozeno';
 
 // Stahuje se až při otevření — viz komentář u lazy() v Orders.tsx.
 const ImportKeggingFromImage = lazy(() => import('../components/ImportKeggingFromImage').then((m) => ({ default: m.ImportKeggingFromImage })));
@@ -206,6 +207,14 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   function tileQtyFor(beerId: string, pkgId: string): number {
     const row = entryRows.find((r) => r.beerId === beerId && r.pkgId === pkgId);
     return row ? Number(row.qty || 0) : 0;
+  }
+
+  // Kolik už je pro tohle pivo, obal a vybrané datum ULOŽENO v databázi —
+  // viz lib/jizUlozeno.ts (stáčí se průběžně přes den, každé uložení je
+  // samostatný zápis, který se ve skladu sečte správně; bez tohohle čísla
+  // ale nebylo vidět, jestli druhé uložení PŘIDÁVÁ, nebo se něco ztratilo).
+  function jizUlozenoDnes(beerId: string, pkgId: string): number {
+    return soucetUlozenehoDnes(rows, date, beerId, pkgId);
   }
   function setTileRow(beerId: string, pkgId: string, patch: Partial<RowInput>) {
     setEntryRows((rs) => {
@@ -1041,14 +1050,25 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
               onSelect={(b) => { setNaposledPiva(zapamatujVyber(klicPiv, b.id)); setExpandedKegBeerId(b.id); }}
               summaryFor={(b) => {
                 const beerRows = entryRows.filter((r) => r.beerId === b.id && Number(r.qty) > 0);
-                const label = beerRows
-                  .map((r) => {
-                    const pkg = packages.find((p) => p.id === r.pkgId);
-                    return pkg ? `${r.qty}×${Math.round(Number(pkg.volume_l))}` : null;
-                  })
-                  .filter(Boolean)
-                  .join(', ');
-                return { filled: beerRows.length > 0, label };
+                if (beerRows.length > 0) {
+                  const label = beerRows
+                    .map((r) => {
+                      const pkg = packages.find((p) => p.id === r.pkgId);
+                      return pkg ? `${r.qty}×${Math.round(Number(pkg.volume_l))}` : null;
+                    })
+                    .filter(Boolean)
+                    .join(', ');
+                  return { filled: true, label };
+                }
+                // Nic se zrovna nezadává — ukázat, co už je pro tohle pivo za
+                // vybraný den uložené. Stáčí se průběžně (pár sudů teď, další
+                // za chvíli) a bez tohohle by dlaždice po zavření panelu
+                // vypadala prázdně, i když už dnes něco přibylo.
+                const jizPacky = kegPackages
+                  .map((p) => ({ p, qty: jizUlozenoDnes(b.id, p.id) }))
+                  .filter((x) => x.qty > 0);
+                if (jizPacky.length === 0) return { filled: false, label: '' };
+                return { filled: true, label: `dnes ${jizPacky.map((x) => `${x.qty}×${Math.round(Number(x.p.volume_l))}`).join(', ')}` };
               }}
             />
           </div>
@@ -1060,10 +1080,18 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                 const rowTanks = activeTanksForBeer(expandedKegBeer.id);
                 const currentTankId = entryRows.find((r) => r.beerId === expandedKegBeer.id && r.pkgId === p.id)?.tankId || '';
                 const quickQtys = QUICK_KEG_QTY;
+                const jizUlozeno = jizUlozenoDnes(expandedKegBeer.id, p.id);
                 return (
                   <div key={p.id} className="rounded border border-neutral-200 dark:border-neutral-700 py-1.5 px-2 space-y-1.5">
                     <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <span className="text-sm font-bold text-neutral-700 dark:text-neutral-200 truncate">{formatPackageLabel(p.label)}</span>
+                      <span className="text-sm font-bold text-neutral-700 dark:text-neutral-200 truncate">
+                        {formatPackageLabel(p.label)}
+                        {jizUlozeno > 0 && (
+                          <span className="ml-1.5 px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 text-udaj font-black whitespace-nowrap">
+                            už uloženo {jizUlozeno} ks
+                          </span>
+                        )}
+                      </span>
                       <div className="flex items-center gap-1">
                         {quickQtys.map((q) => (
                           <button
