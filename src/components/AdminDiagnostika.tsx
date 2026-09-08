@@ -32,6 +32,8 @@ import { spustFrontuTanku } from '../lib/tankFrontaBeh';
 import { oznam, potvrd } from '../lib/toast';
 import { litry } from '../lib/cisla';
 import { IkonaSud } from './ikony';
+import { rozdelChyby, shrnutiChyb, jeZeStarsiVerze } from '../lib/chybyPrehled';
+import { APP_VERSION } from '../lib/version';
 
 type ChybaRadek = {
   id: string;
@@ -80,6 +82,27 @@ function ChybyBlok() {
     setRadky((p) => p.map((r) => (r.id === id ? { ...r, vyrizeno_at: new Date().toISOString() } : r)));
   }
 
+  /**
+   * Odklepne naráz všechny chyby ze starších verzí.
+   *
+   * Bez toho se musel každý řádek odklepnout zvlášť — a chyby po nasazené
+   * opravě zůstávaly v seznamu svítit dál, takže chybník tvrdil „něco je
+   * rozbité", i když nebylo.
+   */
+  async function vyridStarsi() {
+    const idcka = deleni.starsi.map((r) => r.id);
+    if (idcka.length === 0) return;
+    if (!(await potvrd(`Odklepnout ${idcka.length} chyb ze starších verzí? Zůstanou v seznamu, jen přestanou svítit jako nevyřízené.`))) return;
+    const ted = new Date().toISOString();
+    const { error } = await supabase.from('app_errors').update({ vyrizeno_at: ted }).in('id', idcka);
+    if (error) { oznam(`Nepovedlo se: ${error.message}`); return; }
+    setRadky((p) => p.map((r) => (idcka.includes(r.id) ? { ...r, vyrizeno_at: ted } : r)));
+  }
+
+  // Chyba z jiné verze, než jaká běží, není důkaz, že je opravená — ale je to
+  // jediné, co se dá poznat automaticky, a je to velký rozdíl proti hromadě,
+  // ve které se „děje se to teď" nedá odlišit od historie (lib/chybyPrehled.ts).
+  const deleni = rozdelChyby(radky, APP_VERSION);
   const nevyrizene = radky.filter((r) => !r.vyrizeno_at);
 
   return (
@@ -88,8 +111,12 @@ function ChybyBlok() {
         <AlertTriangle className="ikona-text" />
         <span className="text-xs font-black uppercase tracking-wider text-neutral-700">Chyby aplikace</span>
         {stav === 'ok' && (
-          <span className={`ml-auto px-2.5 py-0.5 rounded-full font-black text-udaj ${nevyrizene.length > 0 ? 'bg-rose-100 text-rose-900' : 'bg-emerald-100 text-emerald-900'}`}>
-            {nevyrizene.length > 0 ? `${nevyrizene.length} nevyřízených` : 'nic nového'}
+          <span className={`ml-auto px-2.5 py-0.5 rounded-full font-black text-udaj ${
+            deleni.aktualni.length > 0 ? 'bg-rose-100 text-rose-900'
+            : deleni.starsi.length > 0 ? 'bg-amber-100 text-amber-950'
+            : 'bg-emerald-100 text-emerald-900'
+          }`}>
+            {shrnutiChyb(deleni)}
           </span>
         )}
         <button
@@ -114,43 +141,61 @@ function ChybyBlok() {
         <p className="text-xs text-neutral-600 mt-2">Žádná chyba zapsaná. To je dobrá zpráva.</p>
       )}
       {stav === 'ok' && radky.length > 0 && (
-        <div className="mt-2 overflow-x-auto">
-          <table className="table-drzi-prvni-sloupec w-full text-left text-xs">
-            <thead>
-              <tr className="text-neutral-700">
-                <th scope="col" className="py-1 pr-2 font-black">Kdy</th>
-                <th scope="col" className="py-1 pr-2 font-black">Verze</th>
-                <th scope="col" className="py-1 pr-2 font-black">Obrazovka</th>
-                <th scope="col" className="py-1 pr-2 font-black">Chyba</th>
-                <th scope="col" className="py-1 pr-2 font-black">Kdo</th>
-                <th scope="col" className="py-1 font-black" />
-              </tr>
-            </thead>
-            <tbody>
-              {radky.map((r) => (
-                <tr key={r.id} className={`border-t border-neutral-200 ${r.vyrizeno_at ? 'text-neutral-500' : 'text-neutral-900'}`}>
-                  <td className="py-1.5 pr-2 whitespace-nowrap">{cas(r.created_at)}</td>
-                  <td className="py-1.5 pr-2 whitespace-nowrap font-black">v{r.app_version ?? '?'}</td>
-                  <td className="py-1.5 pr-2 whitespace-nowrap">{r.obrazovka ?? '—'}</td>
-                  <td className="py-1.5 pr-2 lze-vybrat">{r.zprava}</td>
-                  <td className="py-1.5 pr-2 whitespace-nowrap">{r.user_email ?? '—'}</td>
-                  <td className="py-1.5 whitespace-nowrap">
-                    {r.vyrizeno_at
-                      ? <span className="text-emerald-900 font-black">vyřízeno</span>
-                      : (
-                        <button
-                          type="button"
-                          onClick={() => { void vyrid(r.id); }}
-                          className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-900 font-black border border-emerald-300 tap"
-                        >
-                          <Check className="ikona-text" /> vyřídit
-                        </button>
-                      )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        // Dřív to byla tabulka o šesti sloupcích. Na telefonu z ní byly vidět
+        // dva a tlačítko „vyřídit" bylo úplně mimo displej — takže se chyba
+        // nedala odklepnout, jen odrolovat. Seznam se vejde vždycky.
+        <div className="mt-2 space-y-2">
+          {deleni.starsi.length > 0 && (
+            <div className="rounded-lg border border-amber-300 bg-amber-50 p-2.5">
+              <p className="text-xs font-bold text-amber-950">
+                {deleni.starsi.length === 1 ? 'Jedna chyba je' : `${deleni.starsi.length} chyb je`} z verzí, které už neběží
+                (teď běží {APP_VERSION}). Nejspíš je oprava venku — než je odklepnete, stojí za to se podívat, co v nich stojí.
+              </p>
+              <button
+                type="button"
+                onClick={() => { void vyridStarsi(); }}
+                className="mt-2 px-3 py-2 rounded bg-amber-700 hover:bg-amber-600 text-white font-black text-xs min-h-[44px] tap"
+              >
+                <Check className="ikona-text" /> Odklepnout všechny ze starších verzí
+              </button>
+            </div>
+          )}
+
+          {radky.map((r) => {
+            const stara = !r.vyrizeno_at && jeZeStarsiVerze(r.app_version, APP_VERSION);
+            return (
+              <div
+                key={r.id}
+                className={`rounded-lg border p-2.5 ${
+                  r.vyrizeno_at ? 'border-neutral-200 bg-neutral-50 text-neutral-500'
+                  : stara ? 'border-amber-200 bg-white text-neutral-800'
+                  : 'border-rose-300 bg-rose-50 text-neutral-900'
+                }`}
+              >
+                <div className="flex items-center gap-2 flex-wrap text-udaj font-black">
+                  <span>{cas(r.created_at)}</span>
+                  <span className="px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-700 border border-neutral-300">v{r.app_version ?? '?'}</span>
+                  <span>{r.obrazovka ?? '—'}</span>
+                  {r.vyrizeno_at
+                    ? <span className="ml-auto text-emerald-900">vyřízeno</span>
+                    : stara && <span className="ml-auto text-amber-800">ze starší verze</span>}
+                </div>
+                <p className="mt-1 text-xs font-semibold break-words lze-vybrat">{r.zprava}</p>
+                <div className="mt-1.5 flex items-center gap-2 flex-wrap">
+                  <span className="text-udaj text-neutral-500">{r.user_email ?? '—'}</span>
+                  {!r.vyrizeno_at && (
+                    <button
+                      type="button"
+                      onClick={() => { void vyrid(r.id); }}
+                      className="ml-auto px-3 py-1.5 rounded bg-emerald-100 text-emerald-900 font-black text-xs border border-emerald-300 min-h-[44px] tap"
+                    >
+                      <Check className="ikona-text" /> vyřídit
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
