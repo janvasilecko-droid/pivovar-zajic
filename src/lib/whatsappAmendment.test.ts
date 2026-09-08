@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { findQuotedMessage, findAmendedOrderId, diffOrderItems, maZmeny, rozsahOdpovedi, skupinaObalu, slozNavrh, potvrzeneBezPolozek, type WhatsAppMsgRef, vypadaJakoPridavek } from './whatsappAmendment';
+import { findQuotedMessage, findAmendedOrderId, diffOrderItems, maZmeny, rozsahOdpovedi, skupinaObalu, slozNavrh, potvrzeneBezPolozek, type WhatsAppMsgRef, vypadaJakoPridavek, prictiPolozky, kandidatiNaDoplneni, vypadaJakoZmenaObjednavky, type ObjednavkaKandidat } from './whatsappAmendment';
 
 const m = (id: string, created_at: string, message_text: string, extra: Partial<WhatsAppMsgRef> = {}): WhatsAppMsgRef =>
   ({ id, created_at, message_text, ...extra });
@@ -270,5 +270,200 @@ describe('vypadaJakoPridavek', () => {
     // napíše „a plus jedna petka" na pátém řádku, hlásila doplněk.
     const dlouha = 'U Dubu na čtvrtek\n2x50l 12°\n1x30l 11°\n3x petky\na plus jedna desítka';
     expect(vypadaJakoPridavek(dlouha)).toBe(false);
+  });
+});
+
+describe('přídavek k existující objednávce', () => {
+  const OBALY = [
+    { id: 'keg30', label: 'KEG 30l', kind: 'keg', volume_l: 30 },
+    { id: 'keg10', label: 'KEG 10l', kind: 'keg', volume_l: 10 },
+    { id: 'pet1', label: 'PET 1l', kind: 'pet', volume_l: 1 },
+  ];
+
+  // Objednávka pro Radka, která už jede.
+  const RADEK = [
+    { beer_id: 'des', package_id: 'keg30', quantity: 2 },
+    { beer_id: '11sv', package_id: 'keg10', quantity: 3 },
+  ];
+
+  it('SKUTEČNÝ PŘÍPAD: „Pro Radka jeste plus toto" objednávku doplní, nesmaže', () => {
+    // Fotka papíru s dvěma limonádami, popisek „Pro Radka jeste plus toto".
+    // Bez rozpoznání přídavku by z návrhu vyšly JEN ty dvě limonády a
+    // schválení by z objednávky odmazalo desítku i jedenáctku.
+    const zOdpovedi = [
+      { beer_id: 'limo-visen', package_id: 'keg30', quantity: 1 },
+      { beer_id: 'limo-kiwi', package_id: 'keg30', quantity: 1 },
+    ];
+    const navrh = slozNavrh({
+      soucasne: RADEK, zOdpovedi, text: 'Pro Radka jeste plus toto', obaly: OBALY,
+    });
+    expect(navrh).toEqual([...RADEK, ...zOdpovedi]);
+
+    // A v porovnání ke schválení nesmí být ANI JEDNO odebrání.
+    const diff = diffOrderItems(RADEK, navrh);
+    expect(diff.filter((d) => d.zmena === 'odebrano')).toEqual([]);
+    expect(diff.filter((d) => d.zmena === 'pridano')).toHaveLength(2);
+  });
+
+  it('stejná položka se sečte, ne přepíše', () => {
+    // „Plus 1x30 desítka" u objednávky, kde už dvě jsou → tři, ne jedna.
+    const navrh = slozNavrh({
+      soucasne: RADEK,
+      zOdpovedi: [{ beer_id: 'des', package_id: 'keg30', quantity: 1 }],
+      text: 'Plus 1x30 desitka',
+      obaly: OBALY,
+    });
+    expect(navrh).toEqual(expect.arrayContaining([
+      { beer_id: 'des', package_id: 'keg30', quantity: 3 },
+    ]));
+    expect(navrh).toHaveLength(2);
+  });
+
+  it('když zpráva diktuje skupinu („male soudky budou"), přídavek nepřebíjí nahrazení', () => {
+    // Přídavkové sloveso i diktát naráz — vyhrát musí diktát, jinak by
+    // „ještě plus male soudky budou 2x10" jen přisypalo k původním.
+    const navrh = slozNavrh({
+      soucasne: RADEK,
+      zOdpovedi: [{ beer_id: 'des', package_id: 'keg10', quantity: 2 }],
+      text: 'Jeste plus male soudky budou 2x10 desitka',
+      obaly: OBALY,
+    });
+    // Jedenáctka v desítkových sudech (malý sud) se nahradila, třicítky zůstaly.
+    expect(navrh).toEqual(expect.arrayContaining([
+      { beer_id: 'des', package_id: 'keg30', quantity: 2 },
+      { beer_id: 'des', package_id: 'keg10', quantity: 2 },
+    ]));
+    expect(navrh).not.toEqual(expect.arrayContaining([
+      { beer_id: '11sv', package_id: 'keg10', quantity: 3 },
+    ]));
+  });
+
+  it('prictiPolozky nemění pořadí původních položek', () => {
+    const out = prictiPolozky(RADEK, [{ beer_id: 'nove', package_id: 'pet1', quantity: 6 }]);
+    expect(out.map((i) => i.beer_id)).toEqual(['des', '11sv', 'nove']);
+  });
+
+  it('prictiPolozky přeskočí nulové množství', () => {
+    const out = prictiPolozky(RADEK, [{ beer_id: 'nove', package_id: 'pet1', quantity: 0 }]);
+    expect(out).toHaveLength(2);
+  });
+});
+
+describe('kandidatiNaDoplneni — ke které objednávce přídavek patří', () => {
+  const DNES = '2026-09-06';
+  const o = (
+    id: string, datum: string | null, place_name: string | null,
+    extra: Partial<ObjednavkaKandidat> = {}
+  ): ObjednavkaKandidat => ({
+    id, order_date: datum, delivery_date: null, delivery_day: null,
+    place_id: null, place_name, status: 'nova', ...extra,
+  });
+
+  it('najde objednávku pro Radka podle zkráceného jména', () => {
+    // Ve zprávě „Pro Radka", v objednávce plný název odběratele.
+    const out = kandidatiNaDoplneni({
+      objednavky: [o('a', '2026-09-07', 'Hospoda U Radka'), o('b', '2026-09-07', 'Maneo')],
+      placeName: 'Radek',
+      dnes: DNES,
+    });
+    expect(out.map((x) => x.id)).toEqual(['a']);
+  });
+
+  it('stornovanou nenabídne', () => {
+    const out = kandidatiNaDoplneni({
+      objednavky: [o('a', '2026-09-07', 'Radek', { status: 'storno' })],
+      placeName: 'Radek',
+      dnes: DNES,
+    });
+    expect(out).toEqual([]);
+  });
+
+  it('měsíc starou objednávku nenabídne', () => {
+    const out = kandidatiNaDoplneni({
+      objednavky: [o('stara', '2026-08-01', 'Radek'), o('blizka', '2026-09-05', 'Radek')],
+      placeName: 'Radek',
+      dnes: DNES,
+    });
+    expect(out.map((x) => x.id)).toEqual(['blizka']);
+  });
+
+  it('řadí podle blízkosti k dnešku, ne podle stáří', () => {
+    // Objednávka na zítřek je pravděpodobnější cíl než ta z minulého týdne.
+    const out = kandidatiNaDoplneni({
+      objednavky: [o('tyden-zpet', '2026-09-01', 'Radek'), o('zitra', '2026-09-07', 'Radek')],
+      placeName: 'Radek',
+      dnes: DNES,
+    });
+    expect(out.map((x) => x.id)).toEqual(['zitra', 'tyden-zpet']);
+  });
+
+  it('den závozu má přednost před dnem objednání', () => {
+    const out = kandidatiNaDoplneni({
+      objednavky: [o('a', '2026-08-20', 'Radek', { delivery_date: '2026-09-07' })],
+      placeName: 'Radek',
+      dnes: DNES,
+    });
+    // Objednáno před 17 dny, ale veze se zítra → do okna patří.
+    expect(out.map((x) => x.id)).toEqual(['a']);
+  });
+
+  it('když zpráva zná odběratele podle id, jméno nerozhoduje', () => {
+    const out = kandidatiNaDoplneni({
+      objednavky: [
+        o('spravna', '2026-09-07', 'úplně jiný zápis jména', { place_id: 'p1' }),
+        o('cizi', '2026-09-07', 'Radek', { place_id: 'p2' }),
+      ],
+      placeId: 'p1',
+      placeName: 'Radek',
+      dnes: DNES,
+    });
+    expect(out.map((x) => x.id)).toEqual(['spravna']);
+  });
+
+  it('cizí odběratel se nenabídne, i když má podobné jméno', () => {
+    // Pojistka k pravidlu o skloňování: „Radek" a „Rybárna" si podobné nejsou
+    // a „Radek" vs. „Radnice" se liší délkou natolik, že to není pád.
+    const out = kandidatiNaDoplneni({
+      objednavky: [o('a', '2026-09-07', 'Rybárna'), o('b', '2026-09-07', 'Radnice města')],
+      placeName: 'Radek',
+      dnes: DNES,
+    });
+    expect(out).toEqual([]);
+  });
+
+  it('bez odběratele nenabídne nic (radši nic než cizí objednávku)', () => {
+    const out = kandidatiNaDoplneni({
+      objednavky: [o('a', '2026-09-07', 'Radek')],
+      placeName: '',
+      dnes: DNES,
+    });
+    expect(out).toEqual([]);
+  });
+});
+
+describe('vypadaJakoZmenaObjednavky — přídavek vs. úprava', () => {
+  it('„ještě plus toto" je přídavek', () => {
+    expect(vypadaJakoZmenaObjednavky('Pro Radka jeste plus toto')).toBe('pridavek');
+  });
+
+  it('„ty malé soudky budou…" je ÚPRAVA, ne nová objednávka', () => {
+    // Tohle si vyžádal provoz: zpráva, která říká, co v objednávce má být
+    // jinak, se musí dát napojit a zapracovat — ne založit vedle druhou.
+    expect(vypadaJakoZmenaObjednavky('Ty male soudky budou Desitka 2x 20l')).toBe('uprava');
+  });
+
+  it('„třicítky a petky sedí" je taky úprava (mluví o existující objednávce)', () => {
+    expect(vypadaJakoZmenaObjednavky('Tricitky a petky sedi')).toBe('uprava');
+  });
+
+  it('diktát skupiny přebíjí slovo „plus" — stejně jako slozNavrh', () => {
+    // Kdyby UI řeklo „přídavek" a import zpráv zapracoval jako úpravu,
+    // ukázal by náhled něco jiného, než co se zapíše.
+    expect(vypadaJakoZmenaObjednavky('Jeste plus male soudky budou 2x10 desitka')).toBe('uprava');
+  });
+
+  it('běžná nová objednávka není ani jedno', () => {
+    expect(vypadaJakoZmenaObjednavky('U Dubu ctvrtek 2x50l 12 a 1x30l 11')).toBe(null);
+    expect(vypadaJakoZmenaObjednavky('')).toBe(null);
   });
 });

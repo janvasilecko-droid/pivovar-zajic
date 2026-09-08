@@ -1,11 +1,12 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Beer, Package, Place, supabase } from '../lib/supabase';
-import { WhatsAppIncoming, ignoreWhatsAppMessage, updateWhatsAppParsedData } from '../lib/whatsappApi';
+import { WhatsAppIncoming, ignoreWhatsAppMessage, updateWhatsAppParsedData, napojNaObjednavku } from '../lib/whatsappApi';
 import { parseWhatsAppOrderMessageWithAI } from '../lib/whatsappParser';
 import { loadAliasMap, saveAlias, canLearnBeerAlias, matchBeerFromHints, matchPackage, matchPlaceFromText, savePlaceAlias, normalize, type ParserAliasMap } from '../lib/orderParser';
 import {
   diffOrderItems, rozsahOdpovedi, slozNavrh, potvrzeneBezPolozek, vypadaJakoPridavek,
-  type DiffRow, type RozsahOdpovedi, type SkupinaObalu,
+  kandidatiNaDoplneni, datumObjednavky, vypadaJakoZmenaObjednavky,
+  type DiffRow, type RozsahOdpovedi, type SkupinaObalu, type ObjednavkaKandidat,
 } from '../lib/whatsappAmendment';
 import { PlaceCombobox } from './PlaceCombobox';
 import { QuickQtySelect } from './QuickQtySelect';
@@ -25,6 +26,8 @@ import { AlertCircle, AlertTriangle, Check, CheckCircle2, ChevronDown, Download,
 import { potvrd } from '../lib/toast';
 import { zalogujANahlas } from '../lib/chybyHlaseni';
 import { useChovaniDialogu } from '../lib/zavriNaZpet';
+import { businessDateISO } from '../lib/businessDate';
+import { STAVY_OBJEDNAVKY, popisStavu } from '../lib/stavyObjednavek';
 
 /** Jak se skupiny obalů pojmenují v přehledu úpravy. */
 const NAZVY_SKUPIN: Record<SkupinaObalu, string> = {
@@ -112,6 +115,14 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   // k nim není jediná položka — obsluha to musí vidět, jinak z „sedí" tiše
   // nevznikne nic (např. petky z PDF se do objednávky nedostaly).
   const [amendPotvrzenoPrazdne, setAmendPotvrzenoPrazdne] = useState<SkupinaObalu[]>([]);
+  // ➕ Přídavek („Pro Radka ještě plus toto"): objednávky téhož odběratele,
+  // ke kterým může patřit. Vybírá z nich obsluha — rozhodnout to za ni by
+  // znamenalo tiše připsat položky k cizí objednávce.
+  const [objednavkyOkoli, setObjednavkyOkoli] = useState<ObjednavkaKandidat[]>([]);
+  const [kandidatiLoading, setKandidatiLoading] = useState(false);
+  const [kandidatiChyba, setKandidatiChyba] = useState<string | null>(null);
+  /** Id objednávky, na kterou se právě napojuje (zamyká tlačítko). */
+  const [napojuji, setNapojuji] = useState<string | null>(null);
 
   // Synchronizace s prop (otevření nové zprávy).
   useEffect(() => {
@@ -255,6 +266,120 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
     return () => { zruseno = true; };
      
   }, [props.isOpen, msg?.amends_order_id, msg?.message_text, items, props.packages]);
+
+  // „Pro Radka jeste plus toto" — zpráva říká, že je to PŘÍDAVEK k něčemu, co
+  // už je objednané. Jistě to z textu poznat nejde (a tichá záměna „přidat" za
+  // „založit novou" by dělala v objednávkách nepořádek), takže se jen upozorní
+  // a rozhodne člověk. Ukazuje se jen tehdy, když zpráva NENÍ odpověď s citací
+  // — u té už appka ví, ke které objednávce patří.
+  // Dva druhy: PŘÍDAVEK („ještě plus toto") jen přidává, ÚPRAVA („ty malé
+  // soudky budou 2×20l", „petky sedí") říká, co v objednávce má být jinak —
+  // tu je potřeba do vybrané objednávky zapracovat, ne z ní udělat druhou.
+  // Rozlišení dělá `vypadaJakoZmenaObjednavky` a stejné pořadí drží i
+  // `slozNavrh`, takže náhled ukazuje totéž, co import zapíše.
+  const druhZmeny = msg?.amends_order_id ? null : vypadaJakoZmenaObjednavky(msg?.message_text);
+  const vypadaJakoDoplnek = druhZmeny !== null;
+  // Napojení, které vybral člověk (ne appka z citace). Odvozuje se ze ZPRÁVY,
+  // ne ze stavu modálu: rozhodnutí se zapisuje do databáze hned, takže po
+  // zavření a znovuotevření musí být pořád vidět, co schválení udělá —
+  // a musí jít vzít zpět. Odpověď s citací tenhle příznak nemá (má
+  // `quoted_text` a vazbu si drží appka sama).
+  const napojenoRucne =
+    !!msg?.amends_order_id && !msg?.quoted_text && !!vypadaJakoZmenaObjednavky(msg?.message_text);
+  /** Jak se zpráva chová k vybrané objednávce — pro texty po napojení. */
+  const druhNapojeni = napojenoRucne ? vypadaJakoZmenaObjednavky(msg?.message_text) : null;
+
+  // ➕ Objednávky, ke kterým může přídavek patřit. Dřív musela obsluha
+  // objednávku najít v seznamu, zapamatovat si ji a přepsat ručně — appka
+  // přitom má na doplnění hotovou mašinérii (`amends_order_id`), jen k ní
+  // nevedla cesta od nové zprávy.
+  //
+  // Načítá se JEDNOU na zprávu a výběr odběratele se pak dělá nad staženým
+  // seznamem. Dotaz závislý na `placeName` by běžel po každém písmenu, které
+  // obsluha napíše do pole odběratele — combobox hlásí změnu při každém stisku.
+  useEffect(() => {
+    if (!props.isOpen || !vypadaJakoDoplnek) {
+      setObjednavkyOkoli([]); setKandidatiChyba(null);
+      return;
+    }
+    let zruseno = false;
+    setKandidatiLoading(true);
+    setKandidatiChyba(null);
+    (async () => {
+      // Okno se bere štědré (šest týdnů zpět) a teprve `kandidatiNaDoplneni`
+      // ho utáhne — objednávka zadaná dopředu má `order_date` dávno v minulosti
+      // a rozhoduje až den závozu. Strop 200 řádků je při dnešním objemu
+      // (kolem 90 objednávek měsíčně) nad rámec toho okna.
+      const od = new Date(Date.now() - 42 * 86400000).toISOString().slice(0, 10);
+      const { data, error } = await supabase
+        .from('orders')
+        .select('id, order_date, delivery_date, delivery_day, place_id, place_name, status')
+        .gte('order_date', od)
+        .order('order_date', { ascending: false })
+        .limit(200);
+      if (zruseno) return;
+      if (error) {
+        // Selhání se musí ozvat: prázdný seznam by obsluha přečetla jako
+        // „žádná objednávka není" a založila druhou.
+        setKandidatiChyba(error.message);
+        setObjednavkyOkoli([]);
+        setKandidatiLoading(false);
+        return;
+      }
+      setObjednavkyOkoli((data as ObjednavkaKandidat[]) ?? []);
+      setKandidatiLoading(false);
+    })();
+    return () => { zruseno = true; };
+     
+  }, [props.isOpen, vypadaJakoDoplnek, msg?.id]);
+
+  // Výběr podle odběratele je čistý výpočet nad staženým seznamem — mění se
+  // s tím, jak obsluha odběratele opraví, a nestojí to dotaz do databáze.
+  const kandidati = useMemo(
+    () => kandidatiNaDoplneni({
+      objednavky: objednavkyOkoli,
+      placeId: placeId || msg?.parsed_place_id || null,
+      placeName: placeName || msg?.parsed_place_name || null,
+      dnes: businessDateISO(),
+    }),
+    [objednavkyOkoli, placeId, placeName, msg?.parsed_place_id, msg?.parsed_place_name]
+  );
+
+  /**
+   * Napojí zprávu na vybranou objednávku. Zapisuje se rovnou do databáze —
+   * rozhodnutí „tohle patří k Radkově objednávce" se nesmí ztratit tím, že
+   * obsluha modál zavře a vrátí se k němu později.
+   */
+  async function napojitNaObjednavku(orderId: string) {
+    if (!msg || napojuji) return;
+    setNapojuji(orderId);
+    try {
+      await napojNaObjednavku(msg.id, orderId);
+      setMsg((m) => (m ? { ...m, amends_order_id: orderId } : m));
+      setStatusMessage('Zpráva je napojená na existující objednávku — schválením se položky přidají do ní.');
+    } catch (error) {
+      zalogujANahlas('Napojení na objednávku se nepodařilo', error);
+      setStatusMessage('Napojení se nepodařilo: ' + (error as Error).message);
+    } finally {
+      setNapojuji(null);
+    }
+  }
+
+  /** Zpět k založení nové objednávky (obsluha se překlikla). */
+  async function zrusitNapojeni() {
+    if (!msg || napojuji) return;
+    setNapojuji('zrusit');
+    try {
+      await napojNaObjednavku(msg.id, null);
+      setMsg((m) => (m ? { ...m, amends_order_id: null } : m));
+      setStatusMessage('Napojení zrušeno — schválením vznikne nová objednávka.');
+    } catch (error) {
+      zalogujANahlas('Zrušení napojení se nepodařilo', error);
+      setStatusMessage('Zrušení napojení se nepodařilo: ' + (error as Error).message);
+    } finally {
+      setNapojuji(null);
+    }
+  }
 
   const beerNameById = (id: string | null) => props.beers.find((b) => b.id === id)?.name ?? '(neurčené pivo)';
   const pkgLabelById = (id: string | null) => String(props.packages.find((p) => p.id === id)?.label ?? '').trim();
@@ -629,27 +754,90 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
     }
   };
 
-  // „Pro Radka jeste plus toto" — zpráva říká, že je to PŘÍDAVEK k něčemu,
-  // co už je objednané. Jistě to z textu poznat nejde (a tichá záměna
-  // „přidat" za „založit novou" by dělala v objednávkách nepořádek), takže
-  // se jen upozorní a rozhodne člověk. Ukazuje se jen tehdy, když zpráva
-  // není odpověď s citací — u té už appka ví, ke které objednávce patří.
-  const vypadaJakoDoplnek = !msg?.amends_order_id && vypadaJakoPridavek(message.message_text);
-
   const body = (
       <div className="space-y-6">
         {vypadaJakoDoplnek && (
           <div className="border-2 border-amber-300 rounded bg-amber-50 p-4">
             <div className="flex items-start gap-2">
               <AlertCircle size={18} className="text-amber-700 shrink-0 mt-0.5" />
-              <div>
+              <div className="min-w-0 flex-1">
                 <div className="font-display font-black text-amber-950 text-sm">
-                  Vypadá to na PŘÍDAVEK k už existující objednávce
+                  {druhZmeny === 'uprava'
+                    ? 'Vypadá to na ÚPRAVU už existující objednávky'
+                    : 'Vypadá to na PŘÍDAVEK k už existující objednávce'}
                 </div>
                 <div className="text-xs font-bold text-amber-900 mt-1">
-                  Zpráva začíná slovy „{(message.message_text || '').slice(0, 40)}…". Schválením se
-                  ale založí NOVÁ objednávka. Zkontroluj, jestli pro toho odběratele už objednávka
-                  na ten den není — pak je správně doplnit ji, ne zakládat druhou.
+                  {druhZmeny === 'uprava' ? (
+                    <>
+                      Zpráva říká, co v objednávce má být jinak („{(message.message_text || '').slice(0, 40)}…").
+                      Takhle schválená by ale založila NOVOU objednávku. Vyber objednávku, do které
+                      se má zapracovat — přepíšou se jen skupiny obalů, které zpráva jmenuje,
+                      zbytek zůstane:
+                    </>
+                  ) : (
+                    <>
+                      Zpráva začíná slovy „{(message.message_text || '').slice(0, 40)}…". Takhle
+                      schválená by založila NOVOU objednávku. Pokud pro odběratele objednávka na ten
+                      den už jede, patří položky do ní:
+                    </>
+                  )}
+                </div>
+
+                {/* Objednávky téhož odběratele kolem dneška. Vybírá člověk —
+                    appka umí říct „vypadá to na přídavek", ne ke které
+                    objednávce patří, a připsat položky k cizí objednávce je
+                    horší chyba než založit druhou. */}
+                <div className="mt-3 space-y-2">
+                  {kandidatiLoading && (
+                    <div className="text-xs font-bold text-amber-800">Hledám objednávky odběratele…</div>
+                  )}
+
+                  {kandidatiChyba && (
+                    <div className="text-xs font-bold text-rose-800 flex items-start gap-1.5">
+                      <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+                      <span>
+                        Objednávky se nepodařilo načíst ({kandidatiChyba}) — než se rozhodneš,
+                        podívej se do Objednávek ručně.
+                      </span>
+                    </div>
+                  )}
+
+                  {!kandidatiLoading && !kandidatiChyba && kandidati.length === 0 && (
+                    <div className="text-xs font-bold text-amber-800">
+                      Pro {placeName || message.parsed_place_name || 'tohoto odběratele'} jsem
+                      v okolí dneška žádnou objednávku nenašel. Zkontroluj odběratele níž —
+                      jinak schválením vznikne nová objednávka, což je nejspíš správně.
+                    </div>
+                  )}
+
+                  {kandidati.map((o) => (
+                    <div
+                      key={o.id}
+                      className="flex items-center justify-between gap-2 flex-wrap bg-white border border-amber-200 rounded p-2.5"
+                    >
+                      <div className="min-w-0">
+                        <div className="text-sm font-black text-neutral-900 truncate">
+                          {o.place_name || '(bez názvu)'}
+                        </div>
+                        <div className="text-udaj font-bold text-neutral-600 flex items-center gap-1.5 flex-wrap">
+                          <span>{datumObjednavky(o)}</span>
+                          {o.delivery_day && <span>· {o.delivery_day}</span>}
+                          <span className={`chip ${STAVY_OBJEDNAVKY[o.status || 'nova']?.cls ?? ''}`}>
+                            {STAVY_OBJEDNAVKY[o.status || 'nova']?.znak} {popisStavu(o.status)}
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        className="btn-primary shrink-0"
+                        disabled={napojuji !== null}
+                        onClick={() => napojitNaObjednavku(o.id)}
+                      >
+                        {napojuji === o.id ? <ButtonSpinner /> : <Check size={16} />}
+                        {druhZmeny === 'uprava' ? 'Upravit tuhle' : 'Přidat k téhle'}
+                      </button>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -665,13 +853,36 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
               <div className="flex items-center gap-2">
                 <RefreshCw size={18} className="text-violet-600 shrink-0" />
                 <div className="font-display font-black text-violet-900 text-sm">
-                  Tohle je odpověď — upraví už existující objednávku
+                  {!napojenoRucne
+                    ? 'Tohle je odpověď — upraví už existující objednávku'
+                    : druhNapojeni === 'uprava'
+                      ? 'Napojeno ručně — zpráva se ZAPRACUJE do existující objednávky'
+                      : 'Napojeno ručně — položky se PŘIDAJÍ do existující objednávky'}
                 </div>
               </div>
               <div className="text-xs font-bold text-violet-700 mt-1">
                 {amendPlace ? `Odběratel: ${amendPlace}. ` : ''}
-                Schválením se objednávka přepíše podle níže uvedeného stavu. Nová objednávka se nezaloží.
+                {napojenoRucne && druhNapojeni === 'pridavek'
+                  ? 'Schválením se položky přičtou k téhle objednávce podle níže uvedeného stavu. Nová objednávka se nezaloží.'
+                  : 'Schválením se objednávka přepíše podle níže uvedeného stavu. Nová objednávka se nezaloží.'}
               </div>
+
+              {/* Cesta zpátky. Napojení zapisuje do databáze hned při kliknutí
+                  (ať se rozhodnutí neztratí zavřením modálu), takže překliknutí
+                  musí jít vzít zpět — jinak by zpráva zůstala natrvalo přišitá
+                  k cizí objednávce. Nabízí se jen u ručního napojení; u odpovědi
+                  s citací si vazbu drží appka sama a rušit ji tady nemá smysl. */}
+              {napojenoRucne && (
+                <button
+                  type="button"
+                  className="btn-secondary mt-2"
+                  disabled={napojuji !== null}
+                  onClick={zrusitNapojeni}
+                >
+                  {napojuji === 'zrusit' ? <ButtonSpinner /> : <X size={16} />}
+                  Ne, přece jen založit novou objednávku
+                </button>
+              )}
 
               {/* Co odpověď přepisuje a co nechává být — bez tohohle není z
                   výpisu poznat, proč některé položky zůstaly nedotčené. */}

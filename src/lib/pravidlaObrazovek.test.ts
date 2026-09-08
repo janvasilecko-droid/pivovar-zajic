@@ -12,7 +12,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import {
-  diffOrderItems, rozsahOdpovedi, slozNavrh,
+  diffOrderItems, rozsahOdpovedi, slozNavrh, vypadaJakoZmenaObjednavky,
 } from './whatsappAmendment';
 import { APP_VERSION } from './version';
 import { NAV, EXTRA_NAV } from '../components/Layout';
@@ -100,6 +100,107 @@ describe('doplněk objednávky z WhatsAppu', () => {
     // vždycky, nešlo by objednávku odpovědí přepsat celou.
     const navrh = slozNavrh({ soucasne: SOUCASNE, zOdpovedi: Z_ODPOVEDI, text: 'Nova objednavka:', obaly: OBALY });
     expect(navrh).toEqual(Z_ODPOVEDI);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 1b) Ruční napojení přídavku nesmí objednávku přepsat
+// ---------------------------------------------------------------------------
+describe('ruční napojení přídavku na objednávku', () => {
+  // Skutečný případ (6. 9. 2026): fotka papíru se dvěma limonádami
+  // a popiskem „Pro Radka jeste plus toto". Nově se dá taková zpráva
+  // v kontrole napojit na existující objednávku — a právě tady číhá past:
+  // schválení jde přes tutéž větev jako odpověď s citací, jenže ta bere
+  // položky ze zprávy jako CELÝ nový obsah objednávky. Napojení přídavku
+  // by tedy z Radkovy objednávky nechalo dvě limonády a zbytek smazalo.
+  const OBALY = [
+    { id: 'keg30', label: 'KEG 30l', kind: 'keg', volume_l: 30 },
+    { id: 'keg10', label: 'KEG 10l', kind: 'keg', volume_l: 10 },
+  ];
+  const RADKOVA_OBJEDNAVKA = [
+    { beer_id: 'des', package_id: 'keg30', quantity: 2 },
+    { beer_id: '11sv', package_id: 'keg10', quantity: 3 },
+  ];
+  const Z_FOTKY = [
+    { beer_id: 'limo-visen', package_id: 'keg30', quantity: 1 },
+    { beer_id: 'limo-kiwi', package_id: 'keg30', quantity: 1 },
+  ];
+
+  it('schválení napojeného přídavku nic z objednávky neodebere', () => {
+    // Přesně to, co dělá Orders.tsx ve větvi `if (message.amends_order_id)`.
+    const navrh = slozNavrh({
+      soucasne: RADKOVA_OBJEDNAVKA,
+      zOdpovedi: Z_FOTKY,
+      text: 'Pro Radka jeste plus toto',
+      obaly: OBALY,
+    });
+    const diff = diffOrderItems(RADKOVA_OBJEDNAVKA, navrh);
+    expect(diff.filter((d) => d.zmena === 'odebrano')).toEqual([]);
+    expect(navrh).toHaveLength(4);
+  });
+
+  it('„malé sudy budou takhle" vybranou objednávku UPRAVÍ, nezaloží druhou', () => {
+    // Zadání z provozu: napojit nejde jen přídavek. Když zpráva říká, co
+    // v objednávce má být jinak, musí se do vybrané objednávky zapracovat —
+    // jmenovaná skupina se přepíše, zbytek zůstane.
+    const zprava = 'Ty male soudky budou Desitka 2x 10l';
+    expect(vypadaJakoZmenaObjednavky(zprava)).toBe('uprava');
+
+    const navrh = slozNavrh({
+      soucasne: RADKOVA_OBJEDNAVKA,
+      zOdpovedi: [{ beer_id: 'des', package_id: 'keg10', quantity: 2 }],
+      text: zprava,
+      obaly: OBALY,
+    });
+    // Malé sudy (10l) se vyměnily…
+    expect(navrh).toEqual(expect.arrayContaining([
+      { beer_id: 'des', package_id: 'keg10', quantity: 2 },
+    ]));
+    // …a třicítky, o kterých zpráva nemluví, zůstaly.
+    expect(navrh).toEqual(expect.arrayContaining([
+      { beer_id: 'des', package_id: 'keg30', quantity: 2 },
+    ]));
+    // Nesmí to skončit jako přičtení — jedenáctka v malých sudech měla zmizet.
+    expect(navrh).not.toEqual(expect.arrayContaining([
+      { beer_id: '11sv', package_id: 'keg10', quantity: 3 },
+    ]));
+  });
+
+  it('náhled i import rozlišují přídavek a úpravu STEJNĚ', () => {
+    // Kdyby žlutý pruh nabídl „Přidat k téhle" a import zprávu zapracoval
+    // jako přepis (nebo naopak), obsluha by potvrdila něco jiného, než co se
+    // zapíše. Rozhoduje jedno pravidlo: diktát skupiny přebíjí slovo „plus".
+    const zprava = 'Jeste plus male soudky budou 2x10 desitka';
+    expect(vypadaJakoZmenaObjednavky(zprava)).toBe('uprava');
+    const navrh = slozNavrh({
+      soucasne: RADKOVA_OBJEDNAVKA,
+      zOdpovedi: [{ beer_id: 'des', package_id: 'keg10', quantity: 2 }],
+      text: zprava,
+      obaly: OBALY,
+    });
+    // Zapracovalo se jako úprava (3 ks jedenáctky pryč), ne jako přičtení.
+    expect(navrh).toHaveLength(2);
+  });
+
+  it('import i náhled rozdílu skládají návrh STEJNĚ (přes slozNavrh)', () => {
+    // Kdyby si jedna strana položky brala rovnou z parsed_items, ukázal by
+    // náhled něco jiného, než co se pak zapíše — a obsluha by potvrdila
+    // rozdíl, který nevidí. Obě místa musí projít slozNavrh.
+    const importObrazovka = readFileSync('src/screens/Orders.tsx', 'utf8');
+    const kontrola = readFileSync('src/components/WhatsAppOrderReviewModal.tsx', 'utf8');
+    expect(importObrazovka).toContain('slozNavrh(');
+    expect(kontrola).toContain('slozNavrh(');
+  });
+
+  it('napojení se zapisuje jen do amends_order_id, ne do stavu zprávy', () => {
+    // Napojení říká, KAM se zpráva schválí — ne že se schválila. Kdyby
+    // sáhlo na `status`, zmizela by zpráva ze seznamu ke schválení dřív,
+    // než ji někdo potvrdil.
+    const api = readFileSync('src/lib/whatsappApi.ts', 'utf8');
+    const usek = api.slice(api.indexOf('export async function napojNaObjednavku'));
+    const telo = usek.slice(0, usek.indexOf('\n}'));
+    expect(telo).toContain('amends_order_id');
+    expect(telo).not.toContain('status');
   });
 });
 

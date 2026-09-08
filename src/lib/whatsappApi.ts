@@ -419,6 +419,28 @@ export function subscribeToWhatsAppMessages(
 /**
  * Uloží opravená/nově rozparsovaná data zprávy (po ručním přečtení znovu).
  */
+/**
+ * 🔗 Napojí zprávu na existující objednávku (nebo napojení zruší).
+ *
+ * Používá se u zpráv, které jsou PŘÍDAVEK („Pro Radka ještě plus toto"), ale
+ * nejsou odpovědí s citací — z těch appka objednávku sama neurčí a obsluha ji
+ * vybere. Zapisuje se hned, ne až při schválení: rozhodnutí „tohle patří
+ * k Radkově objednávce" se nesmí ztratit zavřením modálu.
+ *
+ * Vědomě NEMĚNÍ `status`. Zpráva zůstává ke schválení tam, kde byla — napojení
+ * je informace o tom, KAM se schválí, ne že se schválila.
+ */
+export async function napojNaObjednavku(
+  messageId: string,
+  orderId: string | null
+): Promise<void> {
+  const { error } = await supabase
+    .from('whatsapp_incoming')
+    .update({ amends_order_id: orderId })
+    .eq('id', messageId);
+  if (error) throw new Error(error.message);
+}
+
 export async function updateWhatsAppParsedData(
   id: string,
   updates: {

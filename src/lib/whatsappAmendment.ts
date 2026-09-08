@@ -298,7 +298,17 @@ export function slozNavrh(opts: {
 }): ItemRef[] {
   const { soucasne, zOdpovedi, text, obaly } = opts;
   const { nahradit } = rozsahOdpovedi(text);
-  if (nahradit.length === 0) return zOdpovedi;
+  if (nahradit.length === 0) {
+    // ➕ PŘÍDAVEK: „Pro Radka ještě plus toto", „Plus 3x10 11sv". Tahle zpráva
+    //    objednávku NEPOPISUJE ZNOVU — přidává k ní. Bez téhle větve by z ní
+    //    vyšel návrh „objednávka = jen tyhle dvě limonády" a schválení by
+    //    zbytek objednávky smazalo. Přesně ta past, před kterou varuje
+    //    komentář výš („jedna přidaná položka by smazala celou objednávku").
+    //    Množství se SČÍTÁ: „plus 1x30 višeň" u objednávky, kde už dvě jsou,
+    //    znamená tři.
+    if (vypadaJakoPridavek(text)) return prictiPolozky(soucasne, zOdpovedi);
+    return zOdpovedi;
+  }
 
   const podleId = new Map(obaly.map((p) => [p.id, p]));
   const skupina = (i: ItemRef): SkupinaObalu => {
@@ -394,4 +404,168 @@ export function vypadaJakoPridavek(text: string | null | undefined): boolean {
   return /\b(jeste\s+plus|plus\s+jeste|jeste\s+k\s+tomu|k\s+tomu\s+jeste|navic|pridej|pridat)\b/.test(uvod)
     || /^\s*(a\s+)?plus\b/.test(uvod)
     || /\bplus\s+(toto|tohle|tohleto)\b/.test(uvod);
+}
+
+/**
+ * Přičte položky ze zprávy k tomu, co v objednávce je.
+ *
+ * Stejná položka (pivo + obal) se sečte, nová se připojí na konec. Pořadí
+ * původních položek se nemění — obsluha porovnává návrh s objednávkou očima
+ * a přeskládaný seznam se čte hůř než ten, ve kterém přibyl řádek dole.
+ */
+export function prictiPolozky(soucasne: ItemRef[], pridavane: ItemRef[]): ItemRef[] {
+  const vysledek: ItemRef[] = soucasne.map((i) => ({ ...i, quantity: Number(i.quantity || 0) }));
+  for (const p of pridavane) {
+    const mnozstvi = Number(p.quantity || 0);
+    if (mnozstvi === 0) continue;
+    const i = vysledek.findIndex((v) => itemKey(v) === itemKey(p));
+    if (i >= 0) vysledek[i] = { ...vysledek[i], quantity: vysledek[i].quantity + mnozstvi };
+    else vysledek.push({ ...p, quantity: mnozstvi });
+  }
+  return vysledek;
+}
+
+/**
+ * Mluví zpráva o objednávce, která už existuje — a jak?
+ *
+ *   `'uprava'`   „Ty malé soudky budou Desítka 2×20l", „petky sedí"
+ *                → jmenuje skupinu obalů a říká, co v ní má být (nebo že
+ *                  zůstat). Takovou zprávu je potřeba do vybrané objednávky
+ *                  ZAPRACOVAT: jmenované skupiny se přepíšou, zbytek zůstane.
+ *   `'pridavek'` „Pro Radka ještě plus toto", „Plus 3×10 11sv"
+ *                → nic nepřepisuje, jen přidává.
+ *   `null`       běžná nová objednávka.
+ *
+ * Pořadí je záměrné a musí sedět se `slozNavrh`: když zpráva diktuje skupinu,
+ * rozhoduje diktát, i kdyby začínala slovem „plus". Kdyby si UI a import
+ * vybraly jinak, ukázal by náhled něco jiného, než co se zapíše.
+ */
+export type DruhZmeny = 'pridavek' | 'uprava';
+
+export function vypadaJakoZmenaObjednavky(text: string | null | undefined): DruhZmeny | null {
+  const { nahradit, potvrzeno } = rozsahOdpovedi(text);
+  if (nahradit.length > 0 || potvrzeno.length > 0) return 'uprava';
+  if (vypadaJakoPridavek(text)) return 'pridavek';
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// 🔗 KE KTERÉ OBJEDNÁVCE PŘÍDAVEK PATŘÍ
+// ---------------------------------------------------------------------------
+// `vypadaJakoPridavek` umí říct „tohle je přídavek", ale ne k čemu. Napojení
+// na objednávku (`amends_order_id`) dosud uměla jen citovaná odpověď — u nové
+// zprávy s fotkou žádná citace není a obsluze nezbylo než objednávku najít
+// v seznamu, zapamatovat si ji a přepsat ručně.
+//
+// Tohle vybere objednávky, které přicházejí v úvahu, a nechá výběr na
+// člověku. Rozhodnout to za něj by znamenalo tiše připsat položky k cizí
+// objednávce — což je horší chyba než založit druhou.
+
+export type ObjednavkaKandidat = {
+  id: string;
+  order_date: string | null;
+  delivery_date: string | null;
+  delivery_day: string | null;
+  place_id: string | null;
+  place_name: string | null;
+  status: string | null;
+};
+
+/**
+ * Je to totéž slovo v jiném pádu? „radka" vs. „radek", „dubu" vs. „dub".
+ *
+ * Přesné skloňování by potřebovalo slovník; tohle je záměrně hrubé pravidlo —
+ * stejný začátek, jiná koncovka. Cena za omyl je nízká: nabídne se o jednu
+ * objednávku v seznamu navíc a vybírá z něj člověk. Cena za opatrnost je
+ * naopak vysoká: objednávka, kterou obsluha hledá, se vůbec neukáže.
+ *
+ * Krátká slova („u", „na", „pod") se vynechávají — na těch by si byla podobná
+ * skoro všechna jména.
+ */
+function stejneSlovoJinyPad(a: string, b: string): boolean {
+  if (a.length < 3 || b.length < 3) return false;
+  // Pád mění koncovku, ne délku slova: „radek"/„radka" (0), „dub"/„dubu" (1).
+  // Dva znaky rozdílu už znamenají jiné slovo — „radek" vs. „radnice".
+  if (Math.abs(a.length - b.length) > 1) return false;
+  return a.slice(0, 3) === b.slice(0, 3);
+}
+
+/** Datum, podle kterého se objednávka řadí: den závozu, jinak den objednání. */
+export function datumObjednavky(o: ObjednavkaKandidat): string {
+  return o.delivery_date || o.order_date || '';
+}
+
+/** Rozdíl dvou dnů ve dnech (YYYY-MM-DD), kladně i záporně. */
+function rozdilDnu(a: string, b: string): number {
+  const ta = Date.parse(a + 'T00:00:00Z');
+  const tb = Date.parse(b + 'T00:00:00Z');
+  if (Number.isNaN(ta) || Number.isNaN(tb)) return Number.POSITIVE_INFINITY;
+  return Math.round((ta - tb) / 86400000);
+}
+
+/**
+ * Objednávky, ke kterým může přídavek patřit — od té nejpravděpodobnější.
+ *
+ * Pravidla, a proč zrovna tahle:
+ *  • **Stornované ne.** Připsat položku ke zrušené objednávce nedává smysl.
+ *  • **Odběratel musí sedět.** Podle `place_id`, když ho zpráva má; jinak
+ *    podle jména oběma směry (v objednávce „Hospoda U Radka", ve zprávě
+ *    „Radek"), protože WhatsApp zprávy jmenují odběratele zkratkou.
+ *  • **Časové okno.** Objednávka stará měsíc je dávno zavezená; přídavek
+ *    k ní by byl omyl. Výchozí okno je týden zpět a dva týdny dopředu.
+ *  • **Řadí se podle blízkosti k dnešku**, ne podle stáří: objednávka na
+ *    zítřek je pravděpodobnější cíl než ta z minulého týdne. Při shodné
+ *    vzdálenosti vyhrává pozdější datum.
+ *
+ * Vyřízené objednávky se NEVYHAZUJÍ — jen je u nich vidět stav. „Zavezeno"
+ * bývá překlep obsluhy stejně často jako pravda a schovat objednávku, kterou
+ * člověk hledá, je horší než mu ji ukázat i s varováním.
+ */
+export function kandidatiNaDoplneni(opts: {
+  objednavky: ObjednavkaKandidat[];
+  placeId?: string | null;
+  placeName?: string | null;
+  /** Dnešek jako YYYY-MM-DD. */
+  dnes: string;
+  dnuZpet?: number;
+  dnuVpred?: number;
+  /** Nejvýš tolik návrhů (výchozí 6) — delší seznam se na telefonu nedá projít. */
+  limit?: number;
+}): ObjednavkaKandidat[] {
+  const { objednavky, placeId, placeName, dnes } = opts;
+  const dnuZpet = opts.dnuZpet ?? 7;
+  const dnuVpred = opts.dnuVpred ?? 14;
+  const limit = opts.limit ?? 6;
+
+  const jmeno = normText(placeName);
+  const sediOdberatel = (o: ObjednavkaKandidat): boolean => {
+    if (placeId && o.place_id) return o.place_id === placeId;
+    if (!jmeno) return false;
+    const n = normText(o.place_name);
+    if (!n) return false;
+    if (n === jmeno || n.includes(jmeno) || jmeno.includes(n)) return true;
+    // Skloňování: „Pro RADKA" ve zprávě, „RADEK" v objednávce. Kus textu
+    // se neshoduje ani jedním směrem a bez tohohle by se objednávka, kterou
+    // obsluha hledá, prostě nenabídla.
+    const slovaA = jmeno.split(' ').filter(Boolean);
+    const slovaB = n.split(' ').filter(Boolean);
+    return slovaA.some((a) => slovaB.some((b) => stejneSlovoJinyPad(a, b)));
+  };
+
+  return objednavky
+    .filter((o) => o.status !== 'storno')
+    .filter(sediOdberatel)
+    .filter((o) => {
+      const d = datumObjednavky(o);
+      if (!d) return false;
+      const rozdil = rozdilDnu(d, dnes);
+      return rozdil >= -dnuZpet && rozdil <= dnuVpred;
+    })
+    .sort((a, z) => {
+      const da = Math.abs(rozdilDnu(datumObjednavky(a), dnes));
+      const dz = Math.abs(rozdilDnu(datumObjednavky(z), dnes));
+      if (da !== dz) return da - dz;
+      return datumObjednavky(a) < datumObjednavky(z) ? 1 : -1;
+    })
+    .slice(0, limit);
 }
