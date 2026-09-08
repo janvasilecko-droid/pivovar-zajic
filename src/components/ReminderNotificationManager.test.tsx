@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   fetchReminders: vi.fn(),
   isReminderForUser: vi.fn(() => true),
   playOrderChime: vi.fn(),
+  ukazUpozorneni: vi.fn(() => Promise.resolve()),
   auth: {
     user: { email: 'worker@example.test', role: 'authenticated' },
     profile: { role: 'admin' },
@@ -17,7 +18,11 @@ vi.mock('../lib/reminders', () => ({
   isReminderForUser: mocks.isReminderForUser,
 }));
 vi.mock('../lib/notifications', () => ({
-  isNotificationSupported: () => false,
+  // Systémové upozornění chodí přes ukazUpozorneni (na Androidu je
+  // `new Notification` zakázané, viz lib/notifications.ts). V testu jen
+  // nesmí chybět — bez něj komponenta spadne uprostřed procházení upomínek
+  // a druhé zazvonění se nikdy nestane.
+  ukazUpozorneni: mocks.ukazUpozorneni,
   playOrderChime: mocks.playOrderChime,
 }));
 vi.mock('../lib/auth', () => ({ useAuth: () => mocks.auth }));

@@ -27,6 +27,73 @@ export function getNotificationPermission(): NotificationPermission | 'unsupport
   return Notification.permission;
 }
 
+/**
+ * 🔔 Jediná cesta, kudy se v aplikaci ukazují systémová upozornění.
+ *
+ * PROČ: na Androidu je `new Notification(...)` ZAKÁZANÉ. Chrome vyhodí
+ * „Failed to construct 'Notification': Illegal constructor. Use
+ * ServiceWorkerRegistration.showNotification() instead." — takže na telefonu
+ * upozornění na novou objednávku nikdy nepřišlo a místo něj padala chyba
+ * doprostřed realtime posluchače (8. 9. 2026 čtyřikrát za dopoledne).
+ * Na počítači `new Notification` funguje, proto si toho nikdo nevšiml.
+ *
+ * Přes service worker to funguje na obou. Kliknutí pak řeší `notificationclick`
+ * v public/sw.js: vytáhne otevřenou appku dopředu a přepne na stránku z
+ * `data.stranka`. Proto se sem předává stránka, ne funkce — obsluha kliknutí
+ * u service workeru nemůže žít ve stránce, ta v tu chvíli nemusí běžet.
+ *
+ * Nikdy nevyhodí výjimku: volá se z realtime posluchače, kde by shodila
+ * celou obrazovku.
+ */
+export async function ukazUpozorneni(
+  titulek: string,
+  moznosti: NotificationOptions & { stranka?: string } = {},
+  opts: { autoZavritPoMs?: number } = {},
+): Promise<void> {
+  if (!isNotificationSupported() || Notification.permission !== 'granted') return;
+  const { stranka, ...zbytek } = moznosti;
+  const nastaveni: NotificationOptions = {
+    icon: './icon-192.png',
+    badge: './icon-192.png',
+    ...zbytek,
+    data: { ...(zbytek.data ?? {}), stranka: stranka ?? '' },
+  };
+
+  try {
+    const registrace = await navigator.serviceWorker?.getRegistration();
+    if (registrace) {
+      await registrace.showNotification(titulek, nastaveni);
+      if (opts.autoZavritPoMs && opts.autoZavritPoMs > 0 && nastaveni.tag) {
+        // Upozornění ze service workeru nejde zavřít odkazem — dohledá se
+        // podle značky.
+        setTimeout(() => {
+          void registrace.getNotifications({ tag: nastaveni.tag })
+            .then((seznam) => seznam.forEach((n) => n.close()))
+            .catch(() => {});
+        }, opts.autoZavritPoMs);
+      }
+      return;
+    }
+
+    // Bez service workeru (vývoj, starší prohlížeč na počítači) zbývá
+    // původní cesta. Na Androidu sem kód nedojde — tam service worker je.
+    const n = new Notification(titulek, nastaveni);
+    n.onclick = () => {
+      window.focus();
+      if (stranka) {
+        window.location.hash = `#${stranka}`;
+        window.dispatchEvent(new CustomEvent('pivovar:go-orders'));
+      }
+      n.close();
+    };
+    if (opts.autoZavritPoMs && opts.autoZavritPoMs > 0) {
+      setTimeout(() => { try { n.close(); } catch {} }, opts.autoZavritPoMs);
+    }
+  } catch (e) {
+    zalogujANahlas('Systémové upozornění se nepodařilo zobrazit', e);
+  }
+}
+
 export async function requestNotificationPermission(): Promise<boolean> {
   if (!isNotificationSupported()) {
     oznam('Tento prohlížeč nebo zařízení nepodporuje systémové notifikace.');
@@ -38,9 +105,8 @@ export async function requestNotificationPermission(): Promise<boolean> {
     if (permission === 'granted') {
       // Test chime & notification
       playOrderChime();
-      new Notification('🔔 Upozornění na objednávky aktivováno!', {
+      void ukazUpozorneni('🔔 Upozornění na objednávky aktivováno!', {
         body: 'Při příchodu nové objednávky piva Zajíc budete upozorněni zvukovým signálem a notifikací na displeji.',
-        icon: '/favicon.ico',
         tag: 'test-notification',
       });
       return true;
@@ -307,10 +373,8 @@ export function notifyTimerDone(title: string, body: string) {
   }
 
   // 3. Systémová push notifikace na displej
-  if (settings.screenNotif && isNotificationSupported() && Notification.permission === 'granted') {
-    try {
-      new Notification(`⏰ ${title}`, { body, icon: '/favicon.ico', tag: 'timer-done', requireInteraction: true });
-    } catch {}
+  if (settings.screenNotif) {
+    void ukazUpozorneni(`⏰ ${title}`, { body, tag: 'timer-done', requireInteraction: true, stranka: 'timer' });
   }
 
   // 4. In-app vizuální okno přes celou obrazovku
@@ -381,31 +445,21 @@ export function notifyNewOrder(order: NewOrderNotifyData) {
   }
 
   // 3. System Push Notification
-  if (isNotificationSupported() && Notification.permission === 'granted') {
+  {
     const place = order.place_name || 'Neznámý odběratel';
     const summary = order.items_summary ? ` (${order.items_summary})` : '';
     const noteText = order.note ? `\nPoznámka: ${order.note}` : '';
 
-    try {
-      const n = new Notification(`🍺 NOVÁ OBJEDNÁVKA: ${place}`, {
+    void ukazUpozorneni(
+      `🍺 NOVÁ OBJEDNÁVKA: ${place}`,
+      {
         body: `Přijata nová objednávka piva Zajíc!${summary}${noteText}`,
-        icon: '/favicon.ico',
         tag: `order-${order.id}`,
         requireInteraction: settings.requireInteraction,
-      });
-
-      n.onclick = () => {
-        window.focus();
-        window.location.hash = '#orders';
-      };
-
-      // Auto-close push notification if not requiring interaction
-      if (!settings.requireInteraction && settings.autoHideSeconds > 0) {
-        setTimeout(() => { try { n.close(); } catch {} }, settings.autoHideSeconds * 1000);
-      }
-    } catch (e) {
-      zalogujANahlas('Failed to trigger notification', e);
-    }
+        stranka: 'orders',
+      },
+      { autoZavritPoMs: !settings.requireInteraction && settings.autoHideSeconds > 0 ? settings.autoHideSeconds * 1000 : 0 },
+    );
   }
 
   // 4. Dispatch custom DOM event for in-app floating banner popup
@@ -465,30 +519,16 @@ export function notifyNewWhatsAppMessage(
     : bodyText || 'Přijata nová zpráva z WhatsAppu — zkontrolujte ji v aplikaci.';
 
   // 3. System Push Notification
-  if (isNotificationSupported() && Notification.permission === 'granted') {
-    try {
-      const n = new Notification(notifTitle, {
-        body: notifBody,
-        icon: '/favicon.ico',
-        tag: `whatsapp-${message.id}`,
-        requireInteraction: settings.requireInteraction,
-      });
-
-      n.onclick = () => {
-        window.focus();
-        window.location.hash = '#orders';
-        // Layout.tsx poslouchá a přepne na stránku Objednávky (React routing).
-        window.dispatchEvent(new CustomEvent('pivovar:go-orders'));
-      };
-
-      // Auto-close push notification if not requiring interaction
-      if (!settings.requireInteraction && settings.autoHideSeconds > 0) {
-        setTimeout(() => { try { n.close(); } catch {} }, settings.autoHideSeconds * 1000);
-      }
-    } catch (e) {
-      zalogujANahlas('Failed to trigger WhatsApp notification', e);
-    }
-  }
+  void ukazUpozorneni(
+    notifTitle,
+    {
+      body: notifBody,
+      tag: `whatsapp-${message.id}`,
+      requireInteraction: settings.requireInteraction,
+      stranka: 'orders',
+    },
+    { autoZavritPoMs: !settings.requireInteraction && settings.autoHideSeconds > 0 ? settings.autoHideSeconds * 1000 : 0 },
+  );
 
   // 4. Dispatch custom DOM event for in-app floating banner popup
   if (opts?.banner !== false && typeof window !== 'undefined' && settings.showInAppBanner) {

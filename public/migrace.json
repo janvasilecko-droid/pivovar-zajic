@@ -131,6 +131,7 @@
     "20261229000000_zrusit_prebijejici_politiky.sql",
     "20261229010000_objednavka_stoceno.sql",
     "20261229020000_smazani_polozky_i_s_odpoctem.sql",
-    "20261229030000_smazani_odpoctu_pod_polozkou.sql"
+    "20261229030000_smazani_odpoctu_pod_polozkou.sql",
+    "20261230000000_whatsapp_prava_podle_modulu.sql"
   ]
 }

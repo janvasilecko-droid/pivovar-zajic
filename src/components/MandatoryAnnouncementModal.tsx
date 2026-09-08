@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { AlertTriangle, BellRing, Check, CheckCircle2, Megaphone, ShieldAlert } from 'lucide-react';
-import { isNotificationSupported, playOrderChime } from '../lib/notifications';
+import { playOrderChime, ukazUpozorneni } from '../lib/notifications';
 import { uloz, smaz } from '../lib/uloziste';
 
 export type Announcement = {
@@ -58,15 +58,8 @@ export function MandatoryAnnouncementModal() {
         // Pokud ještě nebylo přečteno, spustíme push notifikaci na telefonu/PC a zvukový signál
         if (!hasAck) {
           playOrderChime();
-          if (isNotificationSupported() && Notification.permission === 'granted') {
-            try {
-              new Notification(announcement.title, {
-                body: announcement.body,
-                icon: '/favicon.ico',
-                tag: announcement.id,
-              });
-            } catch (e) { console.warn(e); }
-          }
+          // Přes ukazUpozorneni — new Notification je na Androidu zakázané.
+          void ukazUpozorneni(announcement.title, { body: announcement.body, tag: announcement.id });
         }
       } else {
         setAcknowledged(true);

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Announcement } from './MandatoryAnnouncementModal';
 import { AlertTriangle, CheckCircle2, Save, Trash2, X } from 'lucide-react';
-import { isNotificationSupported, playOrderChime } from '../lib/notifications';
+import { playOrderChime, ukazUpozorneni } from '../lib/notifications';
 import { potvrd } from '../lib/toast';
 import { uloz, smaz } from '../lib/uloziste';
 
@@ -41,15 +41,9 @@ export function AnnouncementManagerModal({ onClose }: { onClose: () => void }) {
 
     // Trigger test chime & browser push notification
     playOrderChime();
-    if (isNotificationSupported() && Notification.permission === 'granted') {
-      try {
-        new Notification(newAnn.title, {
-          body: newAnn.body,
-          icon: '/favicon.ico',
-          tag: newAnn.id,
-        });
-      } catch (err) { console.warn(err); }
-    }
+    // Přes ukazUpozorneni, ne new Notification — to je na Androidu zakázané
+    // a hlášení se na telefonu nikdy neukázalo (viz lib/notifications.ts).
+    void ukazUpozorneni(newAnn.title, { body: newAnn.body, tag: newAnn.id });
 
     setMsg('Hlášení bylo úspěšně publikováno! Zobrazí se všem uživatelům po přihlášení.');
     setTimeout(() => {

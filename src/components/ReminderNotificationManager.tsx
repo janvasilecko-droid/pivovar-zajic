@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { ReminderItem, fetchReminders, isReminderForUser } from '../lib/reminders';
-import { isNotificationSupported, playOrderChime } from '../lib/notifications';
+import { playOrderChime, ukazUpozorneni } from '../lib/notifications';
 import { MandatoryReminderModal } from './MandatoryReminderModal';
 import { useAuth } from '../lib/auth';
 import { getAdminEmail, DEFAULT_ROLE } from '../lib/config';
@@ -45,15 +45,13 @@ export function ReminderNotificationManager() {
           if ((r.display_mode === 'desktop_push' || r.display_mode === 'both') && !pushedSetRef.current.has(r.id)) {
             pushedSetRef.current.add(r.id);
             playOrderChime();
-            if (isNotificationSupported() && Notification.permission === 'granted') {
-              try {
-                new Notification(`🔔 UPOMÍNKA: ${r.title}`, {
-                  body: r.note || `Termín: ${new Date(r.date_time).toLocaleString('cs-CZ')}`,
-                  icon: '/favicon.ico',
-                  tag: `reminder-${r.id}`,
-                });
-              } catch {}
-            }
+            // Přes ukazUpozorneni — new Notification je na Androidu zakázané,
+            // takže upomínka na telefonu nikdy nevyskočila.
+            void ukazUpozorneni(`🔔 UPOMÍNKA: ${r.title}`, {
+              body: r.note || `Termín: ${new Date(r.date_time).toLocaleString('cs-CZ')}`,
+              tag: `reminder-${r.id}`,
+              stranka: 'reminders',
+            });
           }
 
           // 2. Trigger Login Modal popup if requested and no modal is currently active

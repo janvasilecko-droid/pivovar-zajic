@@ -1,4 +1,6 @@
-#!/usr/bin/env node
+// Bez shebangu schválně: skript se pouští přes `node scripts/shell-do-sw.mjs`
+// (viz package.json), ale importují ho i testy — a řádek #!/usr/bin/env node
+// v .mjs vitest nepřeloží (SyntaxError hned na prvním znaku).
 /**
  * 🩹 Dopíše do `dist/sw.js` vstupní JS a CSS, na které odkazuje index.html.
  *
