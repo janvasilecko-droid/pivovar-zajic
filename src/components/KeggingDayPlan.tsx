@@ -388,6 +388,32 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
                             </span>
                           )}
                         </div>
+
+                        {/* 🧾 Z ČEHO TO ČÍSLO JE.
+                            Z provozu: „píše mi, že chybí 2 kusy, ale podle
+                            objednávek jich má být 6." Appka do té chvíle
+                            tvrdila výsledek bez důkazu — stáčeč viděl
+                            objednávky na šest a číslo dvě a neměl jak zjistit,
+                            kde se ty čtyři vzaly. Teď je to napsané: kolik už
+                            fyzicky odešlo nebo je nachystané a kolik leží
+                            stočené v chlaďáku. Ukazuje se jen když je co
+                            vysvětlovat — u nedotčené položky by to byl šum. */}
+                        {(it.nachystano > 0 || it.zChladaku > 0) && (
+                          <div className="text-udaj font-bold text-neutral-400 mt-0.5">
+                            z toho{' '}
+                            {it.nachystano > 0 && (
+                              <span title="Už odečteno ze skladu na tuhle objednávku — nachystáno nebo zavezeno">
+                                {it.nachystano} nachystáno/zavezeno
+                              </span>
+                            )}
+                            {it.nachystano > 0 && it.zChladaku > 0 && ' · '}
+                            {it.zChladaku > 0 && (
+                              <span title="Stočeno tenhle týden a zatím neodvezeno — leží v chlaďáku">
+                                {it.zChladaku} stočeno tento týden
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
 
                       <div className="text-right shrink-0">

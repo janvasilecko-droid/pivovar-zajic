@@ -41,7 +41,7 @@ import { FotkyZaznamu } from '../components/FotkyZaznamu';
 import { uloz } from '../lib/uloziste';
 import { najdiZdvojene, popisZdvojeni } from '../lib/zdvojenePolozky';
 import { StitekStavu } from '../components/StitekStavu';
-import { STAVY_OBJEDNAVKY } from '../lib/stavyObjednavek';
+import { STAVY_OBJEDNAVKY, jeVyrizena } from '../lib/stavyObjednavek';
 import { zalogujANahlas } from '../lib/chybyHlaseni';
 
 /**
@@ -3023,12 +3023,22 @@ function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, 
 }) {
 
   const total = items.reduce((s, i) => s + Number(i.quantity), 0);
+  // ⚠️ CO TENHLE ODZNAK VLASTNĚ MĚŘÍ. Ne „na tuhle objednávku nemám pivo",
+  // ale „tahle kombinace piva a obalu je ke konci týdne závozu v mínusu" —
+  // počítá se ze skladové knihy přes VŠECHNY pohyby toho týdne. Proto se
+  // ukáže na každé objednávce, která tu kombinaci obsahuje.
+  //
+  // U objednávky, která už fyzicky odjela, to nedává smysl a mate to:
+  // z provozu přišlo „stočil jsem 4×30, a u objednávky mi to píše, že
+  // 4×30 chybí" — u objednávky se stavem Zavezeno. To pivo už je pryč,
+  // varovat u ní o nedostatku je rada, kterou nejde uposlechnout.
+  const odbaveno = o.is_delivered || jeVyrizena(o.status) || o.status === 'storno';
   // Schodek se posuzuje podle PIVA A OBALU: chybějící sudy nevykryjí lahve,
   // i když je v nich totéž pivo (viz lib/tydenniZbytek.ts).
   const remaining = stockRemainingForWeek(isoWeekKey(o.delivery_date || o.order_date));
   // Obal patří do popisku: schodek se počítá po pivu A obalu, takže bez něj by
   // dvě velikosti téhož piva vypadaly jako tentýž údaj napsaný dvakrát.
-  const uniqueDeficits = schodkyObjednavky(items, remaining).map((s) => {
+  const uniqueDeficits = (odbaveno ? [] : schodkyObjednavky(items, remaining)).map((s) => {
     const obal = packages.find((p) => p.id === s.package_id);
     return {
       name: obal ? `${s.beer_name} ${formatPackageLabel(obal.label)}` : s.beer_name,
@@ -3231,11 +3241,14 @@ function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, 
         {/* Řádek 3: sklad + připraveno + den + akce */}
         <div className="flex items-center gap-1.5 flex-wrap min-w-0">
           {uniqueDeficits.length > 0 ? (
-            <span className="flex items-center gap-1 text-udaj font-black text-rose-950 bg-rose-100 border border-rose-300 rounded-lg px-2 py-0.5 shadow-2xs">
+            <span
+              className="flex items-center gap-1 text-udaj font-black text-rose-950 bg-rose-100 border border-rose-300 rounded-lg px-2 py-0.5 shadow-2xs"
+              title={'Ke konci týdne závozu je tahle kombinace piva a obalu ve skladu v mínusu — počítá se ze všech pohybů toho týdne, ne jen z téhle objednávky.'}
+            >
               <AlertTriangle size={12} />
-              <span>Chybí: {uniqueDeficits.map((d) => `${d.name} ${d.missing} ks`).join(', ')}</span>
+              <span>Ke konci týdne chybí: {uniqueDeficits.map((d) => `${d.name} ${d.missing} ks`).join(', ')}</span>
             </span>
-          ) : items.length > 0 ? (
+          ) : odbaveno ? null : items.length > 0 ? (
             <span className="flex items-center gap-1 text-udaj font-black text-emerald-950 bg-emerald-100 border border-emerald-300 rounded-lg px-2 py-0.5 shadow-2xs">
               <CheckCircle2 size={12} />
               <span>Vše skladem</span>
