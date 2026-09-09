@@ -429,3 +429,81 @@ describe('rozpadPoObalech — kolik čeho zbývá stočit', () => {
     expect(soucet).toBe(7);
   });
 });
+
+describe('z čeho je „hotovo" — rozpad, který si vyžádal provoz', () => {
+  const objednavka = (id: string, date: string, extra: any = {}) => ({
+    id, delivery_date: date, order_date: date, status: 'nova', place_name: `Hospoda ${id}`, ...extra,
+  });
+  const polozka = (order_id: string, beer_id: string, package_id: string, quantity: number, id = `p${order_id}${beer_id}${package_id}`) => ({
+    id, order_id, beer_id, package_id, quantity,
+  });
+
+  // „Píše mi, že chybí 2 kusy, ale podle objednávek jich má být 6."
+  // Appka do té chvíle tvrdila výsledek bez důkazu: stáčeč viděl objednávky
+  // na šest a číslo dvě a neměl jak zjistit, kde se ty čtyři vzaly.
+  it('rozliší, co je nachystané, a co leží stočené v chlaďáku', () => {
+    const p = plan({
+      orders: [objednavka('o1', '2026-08-26')],
+      orderItems: [polozka('o1', 'b-des', 'p30', 6, 'radek1')],
+      // 2 kusy už fyzicky odečtené na tu položku (nachystáno/zavezeno)…
+      zavozDeductionRows: [
+        { order_item_id: 'radek1', deduct_date: '2026-08-25', beer_id: 'b-des', package_id: 'p30', quantity: 2 },
+      ],
+      // …a 4 stočené tenhle týden. POZOR: odečet ze skladu ubírá i ze
+      // zásoby v chlaďáku (ty 2 nachystané se z těch 4 vzaly), takže
+      // v chlaďáku zbývají 2. Právě tahle dvojí role odečtu je důvod, proč
+      // se ten rozpad musí ukázat — z hlavy to nikdo nedopočítá.
+      keggingRows: [{ entry_date: '2026-08-24', beer_id: 'b-des', package_id: 'p30', quantity: 4 }],
+    });
+    const it0 = day(p, 'st').items[0];
+    expect(it0.ordered).toBe(6);
+    expect(it0.nachystano).toBe(2);
+    expect(it0.zChladaku).toBe(2);
+    expect(it0.done).toBe(4);
+    expect(it0.missing).toBe(2);
+  });
+
+  it('rozpad se vždycky sečte na „hotovo" — jinak by vysvětloval něco jiného', () => {
+    // Kdyby se rozpad rozešel se součtem, byla by to horší lež než žádný
+    // rozpad: obsluha by mu věřila.
+    const p = plan({
+      orders: [objednavka('o1', '2026-08-26'), objednavka('o2', '2026-08-27')],
+      orderItems: [polozka('o1', 'b-des', 'p30', 4, 'a1'), polozka('o2', 'b-11', 'p50', 3, 'a2')],
+      zavozDeductionRows: [
+        { order_item_id: 'a1', deduct_date: '2026-08-25', beer_id: 'b-des', package_id: 'p30', quantity: 1 },
+      ],
+      keggingRows: [
+        { entry_date: '2026-08-24', beer_id: 'b-des', package_id: 'p30', quantity: 2 },
+        { entry_date: '2026-08-24', beer_id: 'b-11', package_id: 'p50', quantity: 1 },
+      ],
+    });
+    for (const den of p) {
+      for (const it of den.items) {
+        expect(it.nachystano + it.zChladaku, `${den.day} ${it.beer_name}`).toBe(it.autoDone);
+      }
+    }
+  });
+
+  it('nedotčená položka nemá co vysvětlovat', () => {
+    const p = plan({
+      orders: [objednavka('o1', '2026-08-26')],
+      orderItems: [polozka('o1', 'b-des', 'p30', 4)],
+    });
+    const it0 = day(p, 'st').items[0];
+    expect(it0.nachystano).toBe(0);
+    expect(it0.zChladaku).toBe(0);
+    expect(it0.missing).toBe(4);
+  });
+
+  it('týdenní souhrn rozpad sčítá taky', () => {
+    const p = plan({
+      orders: [objednavka('o1', '2026-08-26')],
+      orderItems: [polozka('o1', 'b-des', 'p30', 6, 'r1')],
+      zavozDeductionRows: [
+        { order_item_id: 'r1', deduct_date: '2026-08-25', beer_id: 'b-des', package_id: 'p30', quantity: 2 },
+      ],
+    });
+    const tyden = mergeWeekPlan(p, 'týden');
+    expect(tyden.items[0].nachystano).toBe(2);
+  });
+});

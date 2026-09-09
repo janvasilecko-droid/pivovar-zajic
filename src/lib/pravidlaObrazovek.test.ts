@@ -205,6 +205,40 @@ describe('ruční napojení přídavku na objednávku', () => {
 });
 
 // ---------------------------------------------------------------------------
+// 1c) „Chybí skladem" se nesmí hlásit u objednávky, která už odjela
+// ---------------------------------------------------------------------------
+describe('odznak „chybí skladem" u odbavené objednávky', () => {
+  // Z provozu 8. 9. 2026: „stočil jsem 4×30 na Duck and Dog a u přehledu mi
+  // to píše, že 4×30 12sv chybí ve stáčení." Objednávka měla stav Zavezeno.
+  //
+  // Ten odznak neměří „na tuhle objednávku nemám pivo", ale „tahle kombinace
+  // piva a obalu je ke konci týdne závozu v mínusu" — přes VŠECHNY pohyby
+  // toho týdne. U objednávky, která už fyzicky odjela, je to rada, kterou
+  // nejde uposlechnout: to pivo je pryč.
+  const zdroj = readFileSync('src/screens/Orders.tsx', 'utf8');
+
+  it('schodek se u odbavené objednávky vůbec nepočítá', () => {
+    expect(zdroj).toContain('const odbaveno =');
+    // Výpočet schodku musí být na tom příznaku závislý, ne až jeho vykreslení:
+    // spočítat ho a pak schovat by znamenalo, že se někde jinde stejně ukáže.
+    expect(zdroj).toMatch(/odbaveno \? \[\] : schodkyObjednavky\(/);
+  });
+
+  it('za odbavenou se považuje zavezená, vyřízená i stornovaná', () => {
+    const radek = zdroj.slice(zdroj.indexOf('const odbaveno ='));
+    const telo = radek.slice(0, radek.indexOf(';'));
+    expect(telo).toContain('is_delivered');
+    expect(telo).toContain('jeVyrizena');
+    expect(telo).toContain('storno');
+  });
+
+  it('popisek odznaku říká, že jde o celý TÝDEN, ne o tu objednávku', () => {
+    // Původní „Chybí: 12° Světlá 30 L 4 ks" se četlo jako výrok o objednávce.
+    expect(zdroj).toContain('Ke konci týdne chybí:');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 2) Verze v kódu a ve version.json si musí odpovídat
 // ---------------------------------------------------------------------------
 describe('číslo verze', () => {

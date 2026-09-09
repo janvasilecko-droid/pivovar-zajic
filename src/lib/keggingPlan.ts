@@ -42,6 +42,15 @@ export type PlanItem = {
   done: number;
   /** Kolik z toho je doloženo daty (nachystáno/zavezeno nebo stočeno tento týden). */
   autoDone: number;
+  /**
+   * Z čeho se `autoDone` skládá. Bez tohohle rozpadu je „chybí 2" tvrzení
+   * bez důkazu: stáčeč vidí objednávky na šest kusů a appka mu řekne dvě,
+   * a nemá jak zjistit, kde se ty čtyři vzaly. Z provozu 9. 9. 2026.
+   */
+  /** Už fyzicky nachystáno nebo zavezeno (odečet ze skladu na tu položku). */
+  nachystano: number;
+  /** Pokryto sudy stočenými tenhle týden, které ještě leží v chlaďáku. */
+  zChladaku: number;
   /** Kolik kusů si stáčeč ručně odškrtl. */
   checked: number;
   /** Kolik ještě chybí stočit. */
@@ -278,6 +287,8 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
         ordered: b.ordered,
         done,
         autoDone,
+        nachystano: b.covered,
+        zChladaku: fromPool,
         checked,
         missing: Math.max(0, b.ordered - done),
         orders: b.orders,
@@ -369,6 +380,8 @@ export function mergeWeekPlan(plans: DayPlan[], weekLabel: string): DayPlan {
       prev.ordered += it.ordered;
       prev.done += it.done;
       prev.autoDone += it.autoDone;
+      prev.nachystano += it.nachystano;
+      prev.zChladaku += it.zChladaku;
       prev.checked += it.checked;
       prev.missing += it.missing;
       prev.orders.push(...it.orders);
