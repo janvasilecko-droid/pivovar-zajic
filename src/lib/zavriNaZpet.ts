@@ -48,9 +48,23 @@ export function useZavriNaZpet(open: boolean, onClose: () => void): void {
     window.addEventListener('popstate', onPopState);
     return () => {
       window.removeEventListener('popstate', onPopState);
-      if (window.history.state?.modalOpen && window.history.state?.modalId === modalId) {
-        window.history.back();
-      }
+      // Rozhodnutí "mám ještě zavolat back()?" se schválně NEDĚLÁ hned tady,
+      // ale až v mikrotasku. Skutečný případ: potvrzení "Dokončeno stáčení"
+      // se v TÉMŽ obsluze kliknutí zavře a rovnou otevře checklist ("Končím"
+      // → setShowEndConfirm(false) + setShowChecklistModal(true)). Obojí je
+      // jeden React commit — úklidy (tenhle) proběhnou dřív než nový efekt
+      // checklistu, který si pushne VLASTNÍ záznam. Kdyby `back()` padlo
+      // hned tady, provede se AŽ POTÉ, co checklist svůj záznam už pushnul —
+      // a odpopne TEN, ne ten starý: checklist se sám zavře ve chvíli, kdy
+      // se otvírá. V mikrotasku už nový `pushState` proběhl (efekty v jednom
+      // commitu se odbaví synchronně, mikrotask čeká, až se to celé odbaví),
+      // takže kontrola "jsem pořád navrchu?" už vidí ten NOVÝ záznam a
+      // `back()` se přeskočí — zavře ho až JEHO VLASTNÍ pozdější úklid.
+      queueMicrotask(() => {
+        if (window.history.state?.modalOpen && window.history.state?.modalId === modalId) {
+          window.history.back();
+        }
+      });
     };
   }, [open]);
 }
