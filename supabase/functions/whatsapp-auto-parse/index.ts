@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { requireApprovedUser } from "../_shared/require-user.ts";
-import { normText, bestFuzzyScoreInText, matchBeerId, matchPackageId } from "../_shared/beer-match.ts";
+import { normText, matchBeerId, matchPackageId } from "../_shared/beer-match.ts";
+import { normPlaceName, stripSenderName, resolvePlace } from "../_shared/place-match.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -170,139 +171,10 @@ function parseExplicitDate(text: string): { dateStr: string; display: string; ma
   return null;
 }
 
-
 // ── Bezpečné přiřazení odběratele (místa) ──────────────────────────────────
-// Normalizace pro porovnání názvů míst (malá písmena, bez diakritiky).
-function normPlaceName(s: string | null | undefined): string {
-  return (s || "")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function escapeRegExp(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-// Odstraní jméno odesílatele (posla) z textu zprávy, aby nemohlo zastínit
-// skutečného odběratele, který je uvedený UVNITŘ zprávy (např. pozdrav
-// "Ahoj, tady Miláček" vs. odběratel "U Dubu").
-function stripSenderName(text: string, senderName: string | null | undefined): string {
-  if (!senderName) return text;
-  const words = senderName.split(/\s+/).filter((w) => w.length >= 3);
-  if (words.length === 0) return text;
-  let out = text;
-  for (const w of words) {
-    out = out.replace(new RegExp(`\\b${escapeRegExp(w)}\\b`, "gi"), " ");
-  }
-  return out.replace(/\s+/g, " ").trim();
-}
-
-// Slova, která nenesou informaci o konkrétním odběrateli (druh provozovny,
-// předložky…) — nesmí samy o sobě určovat shodu.
-const PLACE_STOPWORDS = new Set([
-  "u", "na", "pod", "ve", "v", "za", "nad", "mezi",
-  "hospoda", "restaurace", "pivnice", "bar", "vinarna", "hostinec",
-  "klub", "kavarna", "cukrarna", "penzion", "hotel", "motel", "pub",
-  "lokalka", "pivovar", "minipivovar", "stodola", "sala", "kulturni",
-]);
-
-function placeSignificantWords(n: string): string[] {
-  return n.split(/\s+/).filter((w) => w.length >= 3 && !PLACE_STOPWORDS.has(w));
-}
-
-// Ověří, že kandidát na odběratele je "ukotven" v textu zprávy. Jméno
-// odesílatele se k ukotvení NEPOUŽÍVÁ — odesílatel je jen posel/doručovatel,
-// odběratel musí být uvedený UVNITŘ textu zprávy. Brání tomu, aby AI vymyslelo
-// odběratele, který v objednávce vůbec není (hallucinace ze seznamu známých
-// odběratelů). Ukotvení je na úrovni podstatných slov (např. "Růžku" pro
-// "Restaurace Na Růžku").
-function isPlaceGrounded(candidate: string, messageText: string): boolean {
-  const c = normPlaceName(candidate);
-  if (!c || c.length < 3) return false;
-  const msg = normPlaceName(messageText);
-  if (msg.includes(c)) return true;
-  const words = placeSignificantWords(c);
-  if (words.length > 0) {
-    if (words.some((w) => msg.includes(w))) return true;
-  }
-  return false;
-}
-
-// Bezpečné přiřazení odběratele: kandidát musí být ukotven v textu zprávy
-// a odpovídat skutečnému místu z DATABÁZE aplikace. Přednost má databáze
-// odběratelů — používáme přesnou shodu, shodu slov, aliasy a fuzzy shodu.
-function matchPlaceSafely(
-  candidate: string,
-  messageText: string,
-  places: { id: string; name: string }[],
-  placeAliases: { wrong_name: string; correct_name: string }[]
-): { id: string | null; name: string | null } {
-  const c = normPlaceName(candidate);
-  if (!c || c.length < 3) return { id: null, name: null };
-  if (!isPlaceGrounded(candidate, messageText)) return { id: null, name: null };
-
-  // 1) Naučené aliasy odběratelů (zkomolený název → správný název).
-  for (const a of placeAliases) {
-    const wrong = normPlaceName(a.wrong_name);
-    if (wrong && (wrong === c || (c.length >= 4 && wrong.includes(c)) || (wrong.length >= 4 && c.includes(wrong)))) {
-      const correct = places.find((p) => normPlaceName(p.name) === normPlaceName(a.correct_name));
-      if (correct) return { id: correct.id, name: correct.name };
-    }
-  }
-
-  // 2) Přesná normalizovaná shoda s odběratelem v katalogu.
-  const exact = places.find((p) => normPlaceName(p.name) === c);
-  if (exact) return { id: exact.id, name: exact.name };
-
-  // 3) Kandidát je součástí názvu odběratele (např. AI vrátí jen "Naseb",
-  //    v katalogu je "Na Seb"). Jen pro dostatečně dlouhé kandidáty.
-  if (c.length >= 5) {
-    const contained = places.find((p) => {
-      const np = normPlaceName(p.name);
-      return np.length >= 4 && np.includes(c);
-    });
-    if (contained) return { id: contained.id, name: contained.name };
-  }
-
-  // 4) Shoda podle podstatných slov názvu z katalogu: "Růžku" → "Restaurace
-  //    Na Růžku", "Malesice" → "Malešice". Přednost má databáze odběratelů.
-  const cWords = placeSignificantWords(c);
-  if (cWords.length > 0) {
-    let wordBest: { place: { id: string; name: string }; score: number } | null = null;
-    for (const p of places) {
-      const np = normPlaceName(p.name);
-      const pWords = placeSignificantWords(np);
-      if (pWords.length === 0) continue;
-      const matched = pWords.filter((w) =>
-        cWords.some((cw) => cw === w || cw.includes(w) || (cw.length >= 4 && w.includes(cw)))
-      ).length;
-      const score = matched / pWords.length;
-      if (score >= 0.6 && (!wordBest || score > wordBest.score)) {
-        wordBest = { place: p, score };
-      }
-    }
-    if (wordBest) return { id: wordBest.place.id, name: wordBest.place.name };
-  }
-
-  // 5) Fuzzy shoda s názvy z katalogu (překlepy, OCR šum) — jen pro dostatečně
-  //    dlouhé názvy, aby nevznikaly falešné shody jako "patek" → "Radek".
-  if (c.length >= 5) {
-    let fuzzyBest: { id: string; name: string; score: number } | null = null;
-    for (const p of places) {
-      const np = normPlaceName(p.name);
-      if (np.length < 5) continue;
-      const s = bestFuzzyScoreInText(np, c);
-      if (s > (fuzzyBest?.score ?? 0)) fuzzyBest = { id: p.id, name: p.name, score: s };
-    }
-    if (fuzzyBest && fuzzyBest.score >= 0.8) return { id: fuzzyBest.id, name: fuzzyBest.name };
-  }
-
-  return { id: null, name: null };
-}
+// Vytaženo do ../_shared/place-match.ts (normPlaceName, stripSenderName,
+// matchPlaceSafely, resolvePlace…), aby to šlo testovat vitestem — dokud to
+// sedělo tady, nedalo se to z testů vůbec zavolat.
 
 // Bezpečný update zprávy: když se plný update nepovede (např. chybějící sloupec
 // v DB), zkusí se alespoň minimální update jen na status + error_message. Cíl:
@@ -709,8 +581,14 @@ Deno.serve(async (req: Request) => {
         // jako odběratel NIKDY nepoužívá — je to jen posel. Proto vyřadíme
         // kandidáty odpovídající jménu odesílatele a z textu zprávy odstraníme
         // jeho jméno (např. pozdrav "Ahoj, tady Miláček" nesmí zastínit
-        // skutečného odběratele "U Dubu"). Vše prochází matchPlaceSafely,
-        // které páruje primárně s DATABÁZÍ odběratelů aplikace.
+        // skutečného odběratele "U Dubu"). O výběr se stará resolvePlace
+        // (../_shared/place-match.ts): nejdřív zkusí DATABÁZI odběratelů
+        // (matchPlaceSafely), a když tam nic není, ale AI přesto přečetla
+        // jméno přímo z textu (nový odběratel, v katalogu ještě není), použije
+        // se jako nezávazný název — MÍSTO "Neznámý odběratel". Z provozu
+        // 9. 9. 2026: "objednávka pro Tomáše od Marušky" (Maruška posílá,
+        // Tomáš objednává) dřív skončila jako Neznámý odběratel, přestože
+        // "Tomáš" bylo v textu jasně napsané.
         const topLevelPlaceName: string | null = parseResult.place_name || null;
         const firstItemPlaceName: string | null =
           (parsedItems.length > 0 && parsedItems[0].place_name) || null;
@@ -738,30 +616,30 @@ Deno.serve(async (req: Request) => {
           message.participant_name || message.sender_name
         );
 
-        const placeCandidates = [
-          firstItemPlaceName,
-          topLevelPlaceName,
-          cleanTextForPlace,
-        ].filter((c): c is string => {
+        const jePlatnyKandidat = (c: string | null | undefined): c is string => {
           if (!c || c.trim().length === 0) return false;
           // "pro mě" → odesílatel je platný odběratel (nesmíme ho zahodit).
           if (wantsOwnOrder) return true;
           return !isSameAsSender(c);
-        });
+        };
 
-        for (const candidate of placeCandidates) {
-          const matched = matchPlaceSafely(
-            candidate,
-            cleanTextForPlace,
-            places,
-            placeAliases
-          );
-          if (matched.id) {
-            parsedPlaceId = matched.id;
-            parsedPlaceName = matched.name;
-            break;
-          }
-        }
+        // K PÁROVÁNÍ S KATALOGEM zkusíme i celý vyčištěný text zprávy —
+        // chytí to i případ, kdy AI jméno odběratele nevrátila do vlastního
+        // pole, ale v textu je (shoda podstatných slov, viz matchPlaceSafely).
+        const matchCandidates = [
+          firstItemPlaceName,
+          topLevelPlaceName,
+          cleanTextForPlace,
+        ].filter(jePlatnyKandidat);
+
+        // PRO NEZÁVAZNÝ NÁZEV (když katalog nic nenajde) se celý text zprávy
+        // nesmí použít — to není jméno, ale odstavec. Jen strukturovaná pole
+        // od AI (viz resolvePlace v ../_shared/place-match.ts).
+        const freeformCandidates = [firstItemPlaceName, topLevelPlaceName].filter(jePlatnyKandidat);
+
+        const resolved = resolvePlace(matchCandidates, freeformCandidates, cleanTextForPlace, places, placeAliases);
+        parsedPlaceId = resolved.id;
+        parsedPlaceName = resolved.name;
 
         // Extract delivery day/date from message text — nejdřív konkrétní datum
         // (např. "25.8." → objednávka se přesune do týdne 25.8.), pak zítra/dnes,
