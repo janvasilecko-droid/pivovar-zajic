@@ -41,6 +41,7 @@ import { FotkyZaznamu } from '../components/FotkyZaznamu';
 import { uloz } from '../lib/uloziste';
 import { najdiZdvojene, popisZdvojeni } from '../lib/zdvojenePolozky';
 import { objednavkaJakoText } from '../lib/objednavkaJakoText';
+import { zapisZmenuPolozky, nactiHistoriiObjednavky, popisZmenyPolozky, type ZmenaPolozky } from '../lib/objednavkaAudit';
 import { StitekStavu } from '../components/StitekStavu';
 import { STAVY_OBJEDNAVKY, jeVyrizena } from '../lib/stavyObjednavek';
 import { zalogujANahlas } from '../lib/chybyHlaseni';
@@ -3326,6 +3327,18 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
   // podpis není (a naopak).
   const [podpisOtevren, setPodpisOtevren] = useState(false);
 
+  // 📜 Historie změn — kdo a kdy přidal/upravil/smazal řádek. Načítá se, až
+  // se rozbalí (ne při každém otevření objednávky — v naprosté většině
+  // případů se na to nikdo nedívá).
+  const [historieOtevrena, setHistorieOtevrena] = useState(false);
+  const [historie, setHistorie] = useState<ZmenaPolozky[] | null>(null);
+  useEffect(() => {
+    if (!historieOtevrena || historie !== null) return;
+    let zruseno = false;
+    void nactiHistoriiObjednavky(order.id).then((h) => { if (!zruseno) setHistorie(h); });
+    return () => { zruseno = true; };
+  }, [historieOtevrena, historie, order.id]);
+
   async function ulozPodpis(p: { png: string; prevzal: string; sirka: number; vyska: number }) {
     const { error } = await supabase.from('orders').update({
       signature_url: p.png,
@@ -3358,21 +3371,25 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
     if (!beerId || !pkgId || !Number(qty)) return;
     const b = beers.find((x) => x.id === beerId);
     const p = packages.find((x) => x.id === pkgId);
-    await supabase.from('order_items').insert({
+    const novy = {
       order_id: order.id, beer_id: beerId, beer_name: b?.name ?? null,
       package_id: pkgId, package_label: p?.label ?? null, quantity: Number(qty),
-    });
+    };
+    await supabase.from('order_items').insert(novy);
+    void zapisZmenuPolozky(order.id, 'insert', null, novy);
     setBeerId(''); setPkgId(''); setQty(''); setAdding(false); onChanged();
   }
   async function rmItem(id: string) {
     // Už zavezenou položku databáze smazat nedá (cizí klíč na zavoz_deductions
     // je RESTRICT) — bez téhle hlášky chyba propadla, seznam se přenačetl a
     // řádek se beze slova vrátil.
+    const mazany = items.find((x) => x.id === id);
     const { error } = await supabase.from('order_items').delete().eq('id', id);
     if (error) {
       chyba('Položku nejde smazat — je už zavezená a odepsaná ze skladu. Oprav množství, nebo zruš celou objednávku.');
       return;
     }
+    void zapisZmenuPolozky(order.id, 'delete', mazany ?? null, null);
     onChanged();
   }
 
@@ -3401,6 +3418,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
       [order.id]: (map[order.id] ?? []).map((x) => x.id === it.id ? { ...x, quantity: newQty } : x),
     }));
     await supabase.from('order_items').update({ quantity: newQty }).eq('id', it.id);
+    void zapisZmenuPolozky(order.id, 'update', { ...it }, { ...it, quantity: newQty });
     await srovnejOdpocet(it, { quantity: newQty });
   }
   async function updateItemBeer(it: OrderItem, newBeerId: string) {
@@ -3410,6 +3428,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
       [order.id]: (map[order.id] ?? []).map((x) => x.id === it.id ? { ...x, beer_id: newBeerId, beer_name: b?.name ?? null } : x),
     }));
     await supabase.from('order_items').update({ beer_id: newBeerId, beer_name: b?.name ?? null }).eq('id', it.id);
+    void zapisZmenuPolozky(order.id, 'update', { ...it }, { ...it, beer_id: newBeerId, beer_name: b?.name ?? null });
     await srovnejOdpocet(it, { beer_id: newBeerId });
   }
   async function updateItemPkg(it: OrderItem, newPkgId: string) {
@@ -3419,6 +3438,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
       [order.id]: (map[order.id] ?? []).map((x) => x.id === it.id ? { ...x, package_id: newPkgId, package_label: p?.label ?? null } : x),
     }));
     await supabase.from('order_items').update({ package_id: newPkgId, package_label: p?.label ?? null }).eq('id', it.id);
+    void zapisZmenuPolozky(order.id, 'update', { ...it }, { ...it, package_id: newPkgId, package_label: p?.label ?? null });
     await srovnejOdpocet(it, { package_id: newPkgId });
   }
 
@@ -3801,6 +3821,37 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
           </div>
           </>
         )}
+
+        {/* 📜 Historie změn — kdo a kdy přidal/upravil/smazal řádek. Bez ní
+            se hledání duplicity nebo omylu v objednávce protahovalo, protože
+            appka vůbec nezaznamenávala, KDO řádek přidal (audit_log tabulka
+            existovala, ale nikdo do ní nezapisoval). */}
+        <div className="mt-3">
+          <button
+            type="button"
+            onClick={() => setHistorieOtevrena((v) => !v)}
+            aria-expanded={historieOtevrena}
+            className="text-xs font-bold text-primary-600 flex items-center gap-1.5 min-h-[44px] tap"
+          >
+            <ClipboardList size={14} /> Historie změn {historieOtevrena ? '▲' : '▼'}
+          </button>
+          {historieOtevrena && (
+            historie === null ? (
+              <p className="text-xs text-neutral-400 mt-1">Načítám…</p>
+            ) : historie.length === 0 ? (
+              <p className="text-xs text-neutral-400 mt-1">Zatím žádná zaznamenaná změna položek.</p>
+            ) : (
+              <ul className="mt-1.5 space-y-1">
+                {historie.map((h) => (
+                  <li key={h.id} className="text-xs text-neutral-600 border-l-2 border-neutral-200 pl-2">
+                    <span className="font-bold text-neutral-800">{popisZmenyPolozky(h)}</span>
+                    <span className="text-neutral-400"> — {h.changed_by ?? 'neznámý uživatel'}, {new Date(h.changed_at).toLocaleString('cs-CZ')}</span>
+                  </li>
+                ))}
+              </ul>
+            )
+          )}
+        </div>
 
         {adding ? (
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-12 gap-2 items-end">
