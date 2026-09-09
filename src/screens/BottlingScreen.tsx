@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState, useRef, lazy, Suspense } from 'react';
 import { supabase, Beer, Package, EntryRow, useRealtime, beerBg, beerName, formatPackageLabel, fetchAllRows } from '../lib/supabase';
 import { EmptyState, Spinner, Modal } from '../components/ui';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
-import { AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, Brush, CalendarDays, Camera, Check, CheckCircle2, ClipboardList, Lightbulb, ListChecks, Megaphone, Package as PackageIcon, PenLine, Pencil, Play, Plus, RefreshCw, Sparkles, Trash2, Wine, X } from 'lucide-react';
+import { AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, Brush, CalendarDays, Camera, Check, CheckCircle2, ClipboardList, Lightbulb, ListChecks, Megaphone, Minus, Package as PackageIcon, PenLine, Pencil, Play, Plus, RefreshCw, Sparkles, Trash2, Wine, X } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { BottlingPlan, getPlanSeenAt, markPlanSeenAt, isPlanUnseen, isBottlingManager, setPlanStatus } from '../lib/bottlingPlans';
 import { BottlingPlanPlanner } from '../components/BottlingPlanPlanner';
@@ -1168,7 +1168,10 @@ export default function BottlingScreen({
                               {q}
                             </button>
                           ))}
-                          <button type="button" onClick={() => bumpTile(slot.qty, -1)} className="btn-pocet !w-11">−</button>
+                          {/* − jako pouhý textový znak vždycky vypadal slabší
+                              než + (jeden tenký tah proti dvěma) i se stejným
+                              font-weight — ikona s rovnoměrným tahem to řeší. */}
+                          <button type="button" onClick={() => bumpTile(slot.qty, -1)} className="btn-pocet !w-11"><Minus size={18} strokeWidth={3} /></button>
                           <input
                             type="number" onWheel={(e) => e.currentTarget.blur()}
                             min={0}
@@ -1178,7 +1181,7 @@ export default function BottlingScreen({
                             onChange={(e) => setTile(slot.qty, e.target.value.replace(/[^0-9]/g, ''))}
                             placeholder="0"
                           />
-                          <button type="button" onClick={() => bumpTile(slot.qty, 1)} className="btn-pocet !w-11">+</button>
+                          <button type="button" onClick={() => bumpTile(slot.qty, 1)} className="btn-pocet !w-11"><Plus size={18} strokeWidth={3} /></button>
                         </div>
 
                         {/* 🧾 Objednáno / chybí stočit — stejné číslo jako v
@@ -1191,12 +1194,8 @@ export default function BottlingScreen({
                                 snáz se čte, které z obou je „chybí" (červené)
                                 a které je jen souhrn objednávky. */}
                             <span className="text-udaj font-bold text-neutral-500">
-                              Objednáno <span className="font-black text-neutral-800">{plan.ordered}</span> ks tento týden
-                              {plan.missing > 0 ? (
-                                <> · chybí stočit <span className="font-black text-red-600">{plan.missing}</span></>
-                              ) : (
-                                <span className="font-black text-emerald-700"> · hotovo</span>
-                              )}
+                              Objednáno: <span className="font-black text-neutral-800">{plan.ordered}</span> ks
+                              {' '}· Chybí: <span className={`font-black ${plan.missing > 0 ? 'text-red-600' : 'text-emerald-700'}`}>{plan.missing}</span>
                             </span>
                             {plan.missing > 0 && (
                               <div className="flex items-center gap-1.5">

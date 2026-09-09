@@ -1128,7 +1128,10 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                             {q}
                           </button>
                         ))}
-                        <button type="button" onClick={() => setTileRow(expandedKegBeer.id, p.id, { qty: String(Math.max(0, qty - 1)) })} className="btn-pocet disabled:opacity-30" disabled={qty <= 0}>−</button>
+                        {/* − jako pouhý textový znak vždycky vypadal slabší
+                            než + (jeden tenký tah proti dvěma) i se stejným
+                            font-weight — ikona s rovnoměrným tahem to řeší. */}
+                        <button type="button" onClick={() => setTileRow(expandedKegBeer.id, p.id, { qty: String(Math.max(0, qty - 1)) })} className="btn-pocet disabled:opacity-30" disabled={qty <= 0}><Minus size={18} strokeWidth={3} /></button>
                         <input
                           type="number" onWheel={(e) => e.currentTarget.blur()}
                           min={0}
@@ -1138,7 +1141,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                           onChange={(e) => setTileRow(expandedKegBeer.id, p.id, { qty: e.target.value.replace(/[^0-9]/g, '') })}
                           className="w-14 h-10 text-center text-lg font-black text-neutral-800 dark:text-neutral-100 bg-white dark:bg-neutral-900/60 border-2 border-amber-200 dark:border-neutral-700 rounded"
                         />
-                        <button type="button" onClick={() => setTileRow(expandedKegBeer.id, p.id, { qty: String(qty + 1) })} className="btn-pocet">+</button>
+                        <button type="button" onClick={() => setTileRow(expandedKegBeer.id, p.id, { qty: String(qty + 1) })} className="btn-pocet"><Plus size={18} strokeWidth={3} /></button>
                         {/* +5: po jednom se přidává jen zbytek, celé pády sudů
                             jdou po pěti. Dvě klepnutí místo deseti. */}
                         <button type="button" onClick={() => setTileRow(expandedKegBeer.id, p.id, { qty: String(qty + 5) })} className="w-11 h-11 grid place-items-center rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-950 font-black text-sm transition select-none">+5</button>
@@ -1155,12 +1158,8 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                             se čte, které z obou je „chybí" (červené) a které
                             je jen souhrn objednávky. */}
                         <span className="text-udaj font-bold text-neutral-500">
-                          Objednáno <span className="font-black text-neutral-800">{plan.ordered}</span> ks tento týden
-                          {plan.missing > 0 ? (
-                            <> · chybí stočit <span className="font-black text-red-600">{plan.missing}</span></>
-                          ) : (
-                            <span className="font-black text-emerald-700"> · hotovo</span>
-                          )}
+                          Objednáno: <span className="font-black text-neutral-800">{plan.ordered}</span> ks
+                          {' '}· Chybí: <span className={`font-black ${plan.missing > 0 ? 'text-red-600' : 'text-emerald-700'}`}>{plan.missing}</span>
                         </span>
                         {plan.missing > 0 && (
                           <div className="flex items-center gap-1.5">
