@@ -4,7 +4,7 @@ import { Kostra, Spinner, EmptyState } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
 import { orderWeightKg } from '../lib/weight';
 
-import { AlertTriangle, ChevronDown, ChevronUp, ArrowDownRight, ArrowUpRight, BarChart3, Beer as BeerIcon, Calendar, ChevronsUpDown, DollarSign, Download, Droplet, History as HistoryIcon, Package as PackageIcon, PartyPopper, PieChart as PieChartIcon, Printer, Receipt, Save, Search, ShieldAlert, ShoppingCart, Star, Store, TrendingDown, TrendingUp, Trophy, Truck, Undo2, X, Zap, type LucideIcon } from 'lucide-react';
+import { AlertTriangle, ChevronDown, ChevronUp, ArrowDownRight, ArrowUpRight, BarChart3, Beer as BeerIcon, Calendar, ChevronsUpDown, DollarSign, Download, Droplet, History as HistoryIcon, Package as PackageIcon, PartyPopper, PieChart as PieChartIcon, Printer, Receipt, Save, Search, ShieldAlert, ShoppingCart, Snowflake, Star, Store, TrendingDown, TrendingUp, Trophy, Truck, Undo2, X, Zap, type LucideIcon } from 'lucide-react';
 import { WeeklyOrderSummaryCard, WeeklyOrderItem, isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
 import { EditOrderModal } from '../components/EditOrderModal';
 import ZavozHistory from '../components/ZavozHistory';
@@ -1825,7 +1825,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
             {tankCyclesLoading ? (
               <Spinner />
             ) : tankCycles.length === 0 ? (
-              <div className="text-center text-xs font-bold text-neutral-500 py-8">Zatím žádné ukončené cykly tanků.</div>
+              <EmptyState text="Zatím žádné ukončené cykly tanků." icon={Snowflake} />
             ) : (
               <>
               {/* Mobilní karty */}

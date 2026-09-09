@@ -19,7 +19,8 @@ import {
   Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts';
-import { TrendingDown, TrendingUp, Minus } from 'lucide-react';
+import { TrendingDown, TrendingUp, Minus, Store } from 'lucide-react';
+import { EmptyState } from './ui';
 import {
   formatHl, hl, litryPoMesicich, litryPoTydnech, litryVRozsahu, podilPodleObalu,
   podilPodlePiva, podleOdberatelu, posunDnu, posunMesicu, predchoziRozsah,
@@ -392,7 +393,7 @@ export default function StatistikaVystav({
       <section className="card p-3.5 sm:p-5">
         <Nadpis text="Největší odběratelé" popis={`Podle objednaného množství ${POPIS_OBDOBI[obdobi]} — rozhoduje den závozu`} />
         {odberatele.length === 0 ? (
-          <p className="text-sm text-neutral-500 font-semibold py-8 text-center">V tomhle období není žádná objednávka.</p>
+          <EmptyState text="V tomhle období není žádná objednávka." icon={Store} />
         ) : (
           <div className="space-y-1.5">
             {odberatele.map((o, i) => {

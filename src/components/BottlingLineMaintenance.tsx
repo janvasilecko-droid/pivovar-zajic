@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { ClipboardList, CheckCircle2, Plus, User, Wrench } from 'lucide-react';
 import { supabase, useRealtime } from '../lib/supabase';
 import { businessDateISO } from '../lib/businessDate';
+import { EmptyState } from './ui';
 
 type MaintenanceTaskType = 'sanitation' | 'o_rings' | 'lubrication' | 'pressure_test' | 'valve_replacement';
 
@@ -128,9 +129,7 @@ export function BottlingLineMaintenance() {
       {err && <div className="text-sm text-rose-700 bg-rose-500/10 rounded px-3 py-2">{err}</div>}
 
       {tasks.length === 0 && (
-        <div className="text-sm text-neutral-500 font-medium py-8 text-center">
-          Zatím žádné naplánované úkony údržby — přidejte první tlačítkem výše.
-        </div>
+        <EmptyState text="Zatím žádné naplánované úkony údržby — přidejte první tlačítkem výše." icon={Wrench} />
       )}
 
       {/* Task Cards */}

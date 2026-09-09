@@ -3235,7 +3235,11 @@ function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, 
               <Phone size={12} /> <span>{_ph}</span>
             </a>
           ) : null; })()}
-          {o.is_delivered && <span className="chip bg-violet-700 text-white font-black shadow-2xs flex items-center gap-1"><Check size={12} /> Zavez.</span>}
+          {/* emerald, ne violet — "zavezeno" je stejný stav jako "připraveno"
+              o pár řádků níž a jinde v souboru (2504, 3487), jen tady byl
+              omylem jinou barvou. Podle docs/jednotny-styl.md emerald =
+              potvrzení hotového (Hotovo, Zavezeno, Schválit). */}
+          {o.is_delivered && <span className="chip bg-emerald-700 text-white font-black shadow-2xs flex items-center gap-1"><Check size={12} /> Zavez.</span>}
         </div>
 
         {/* Řádek 3: sklad + připraveno + den + akce */}

@@ -17,6 +17,7 @@ import {
   formatDurationMs,
 } from '../lib/stopwatchTimers';
 import { TabBar, type TabBarItem } from '../components/TabBar';
+import { EmptyState } from '../components/ui';
 import { NAV, EXTRA_NAV } from '../components/Layout';
 import { useAuth } from '../lib/auth';
 import { getHomeLayout, saveHomeLayout, addTile, hideTile, type CountdownTileId } from '../lib/homeLayout';
@@ -653,7 +654,7 @@ function CountdownTimersTool() {
       )}
 
       {list.length === 0 && (
-        <p className="text-sm text-neutral-500 text-center py-8">Zatím žádný časovač — přidej si první nahoře.</p>
+        <EmptyState text="Zatím žádný časovač — přidej si první nahoře." icon={Timer} />
       )}
 
       <div className="grid gap-3 sm:grid-cols-2">
