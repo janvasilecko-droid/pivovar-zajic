@@ -41,6 +41,7 @@ import { FotkyZaznamu } from '../components/FotkyZaznamu';
 import { uloz } from '../lib/uloziste';
 import { najdiZdvojene, popisZdvojeni } from '../lib/zdvojenePolozky';
 import { objednavkaJakoText } from '../lib/objednavkaJakoText';
+import { hodnotaObjednavky, type CenaPolozky } from '../lib/hodnotaObjednavky';
 import { zapisZmenuPolozky, nactiHistoriiObjednavky, popisZmenyPolozky, type ZmenaPolozky } from '../lib/objednavkaAudit';
 import { StitekStavu } from '../components/StitekStavu';
 import { STAVY_OBJEDNAVKY, jeVyrizena } from '../lib/stavyObjednavek';
@@ -124,6 +125,7 @@ export default function Orders({
   const [items, setItems] = useState<Record<string, OrderItem[]>>({});
   const [places, setPlaces] = useState<Place[]>([]);
   const [beers, setBeers] = useState<Beer[]>([]);
+  const [priceList, setPriceList] = useState<CenaPolozky[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
   const [bottling, setBottling] = useState<EntryRow[]>([]);
   const [kegging, setKegging] = useState<EntryRow[]>([]);
@@ -849,7 +851,7 @@ export default function Orders({
 
   async function load(silent = false) {
     if (!silent && !orders.length) setLoading(true);
-    const [{ data: o }, { data: pl }, { data: b }, { data: pk }, { data: bt }, { data: kg }, { data: inv }, { data: wo }, { data: zd }, { data: fa }, { data: fp }, { data: ak }] = await Promise.all([
+    const [{ data: o }, { data: pl }, { data: b }, { data: pk }, { data: bt }, { data: kg }, { data: inv }, { data: wo }, { data: zd }, { data: fa }, { data: fp }, { data: ak }, { data: pc }] = await Promise.all([
       fetchAllRows('orders', '*').order('order_date', { ascending: false }).order('created_at', { ascending: false }),
       supabase.from('places').select('*').order('name'),
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
@@ -868,6 +870,9 @@ export default function Orders({
       fetchAllRows('fasovani', 'entry_date,beer_id,package_id,quantity'),
       fetchAllRows('fasovani_private', 'entry_date,beer_id,package_id,quantity'),
       fetchAllRows('akce', 'entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
+      // Jen pro "Hodnota objednávky" v detailu (lib/hodnotaObjednavky.ts) —
+      // appka měla ceník hotový, ale nikde ho k objednávkám nepřipojila.
+      fetchAllRows('price_list', 'beer_id,package_id,price_per_unit,currency,valid_from,valid_to'),
     ]);
     const rawPk = (pk as Package[]) ?? [];
     const sortedPk = [...rawPk].sort((a, b) => {
@@ -878,6 +883,7 @@ export default function Orders({
       return (a.sort_order ?? 0) - (b.sort_order ?? 0);
     });
     setOrders((o as Order[]) ?? []); setPlaces((pl as Place[]) ?? []); setBeers((b as Beer[]) ?? []); setPackages(sortedPk);
+    setPriceList((pc as CenaPolozky[]) ?? []);
     setBottling((bt as EntryRow[]) ?? []); setKegging((kg as EntryRow[]) ?? []);
     setInventory((inv as EntryRow[]) ?? []); setWriteoffs((wo as EntryRow[]) ?? []);
     setZavozDeductionRows((zd as { order_item_id: string | null }[]) ?? []);
@@ -906,7 +912,7 @@ export default function Orders({
   // výpočet skladových odznaků ("chybí skladem" atd.), ale bez nich v seznamu
   // se appka o nový zápis stáčení/inventury/odpisu nikdy nedozvěděla a čísla
   // zůstala stará, dokud uživatel ručně neobnovil stránku.
-  useRealtime(['orders','order_items','beers','packages','places','zavoz_deductions','bottling','kegging','inventory','writeoffs','fasovani','fasovani_private','akce','akce_items'], () => load(true));
+  useRealtime(['orders','order_items','beers','packages','places','zavoz_deductions','bottling','kegging','inventory','writeoffs','fasovani','fasovani_private','akce','akce_items','price_list'], () => load(true));
 
   // 🔀 Požadavek z „Potřeba stočit KEGy / lahve“ (Kegging / Bottling): uživatel
   // klikl na řádek „Chybí X ks“ → otevřeme přehled objednávek rovnou filtrovaný
@@ -2605,6 +2611,7 @@ export default function Orders({
                           beers={beers}
                           packages={packages}
                           places={places}
+                          priceList={priceList}
                           remaining={stockRemainingForWeek(orderWeekKey(detail))}
                           onClose={() => setDetail(null)}
                           onChanged={load}
@@ -2643,6 +2650,7 @@ export default function Orders({
                     beers={beers}
                     packages={packages}
                     places={places}
+                    priceList={priceList}
                     remaining={stockRemainingForWeek(orderWeekKey(detail))}
                     onClose={() => setDetail(null)}
                     onChanged={load}
@@ -3299,8 +3307,8 @@ function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, 
   );
 }
 
-function OrderDetail({ order, items, beers, packages, places, remaining, onClose, onChanged, onToggleFlag, onImportImage, setItems, setOrders, allOrders, allItems, setPage, weekKey, setWeekKey }: {
-  order: Order; items: OrderItem[]; beers: Beer[]; packages: Package[]; places: Place[]; remaining: Map<string, number>; onClose: () => void; onChanged: () => void; onToggleFlag: (o: Order, key: 'is_prepared' | 'is_packaged' | 'is_delivered') => void; onImportImage: (o: Order) => void;
+function OrderDetail({ order, items, beers, packages, places, priceList, remaining, onClose, onChanged, onToggleFlag, onImportImage, setItems, setOrders, allOrders, allItems, setPage, weekKey, setWeekKey }: {
+  order: Order; items: OrderItem[]; beers: Beer[]; packages: Package[]; places: Place[]; priceList: CenaPolozky[]; remaining: Map<string, number>; onClose: () => void; onChanged: () => void; onToggleFlag: (o: Order, key: 'is_prepared' | 'is_packaged' | 'is_delivered') => void; onImportImage: (o: Order) => void;
   setItems: React.Dispatch<React.SetStateAction<Record<string, OrderItem[]>>>;
   setOrders: React.Dispatch<React.SetStateAction<Order[]>>;
   setPage?: (p: any, sec?: string) => void;
@@ -3309,6 +3317,14 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
   weekKey: string;
   setWeekKey: (wk: string) => void;
 }) {
+  // 💰 Hodnota objednávky podle ceníku — appka měla ceník hotový (Depozitář
+  // → Ceník), ale nikde ho k objednávkám nepřipojila. Cena se bere platná
+  // K DATU objednávky, ne dnešní (lib/hodnotaObjednavky.ts).
+  const hodnota = useMemo(
+    () => hodnotaObjednavky(items, priceList, order.order_date),
+    [items, priceList, order.order_date]
+  );
+
   // ---- Historie odběratele: poslední objednávky téhož místa (kromě aktuální) ----
   const placeHistory = useMemo(() => {
     if (!order.place_id && !order.place_name) return [];
@@ -3510,6 +3526,16 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
             {order.is_prepared && <span className="chip bg-emerald-100 text-emerald-700"><Check className="ikona-text" /> Připraveno</span>}
             {order.is_packaged && <span className="chip bg-primary-200 text-primary-800"><PackageIcon className="ikona-text" /> Fasování</span>}
             {order.is_delivered && <span className="chip bg-emerald-200 text-emerald-800"><Check className="ikona-text" /> Zavezenné</span>}
+            {hodnota.celkem > 0 && (
+              <span className="ml-auto font-display font-black text-primary-900">
+                {hodnota.celkem.toLocaleString('cs-CZ')} {hodnota.mena ?? 'Kč'}
+                {hodnota.chybiCenaUPolozek > 0 && (
+                  <span className="ml-1 text-udaj font-bold text-amber-700" title={`${hodnota.chybiCenaUPolozek} položek nemá v ceníku platnou cenu — do součtu se nepočítají`}>
+                    (neúplné)
+                  </span>
+                )}
+              </span>
+            )}
           </div>
           <a
             onClick={() => order.place_id && setPage && setPage('places', order.place_id)}
