@@ -32,6 +32,22 @@
   "loss_l": 0
  },
  {
+  "id": "0263f864-cf3e-44b1-82a0-828ced14d820",
+  "entry_date": "2026-09-08",
+  "beer_id": "80cb2ddc-7fc8-4883-ad0a-c51411980326",
+  "beer_name": "10° Desítka",
+  "package_id": "41189ae0-30ed-4f1f-9107-4367afd07c01",
+  "package_label": " 10l",
+  "quantity": 1,
+  "note": null,
+  "created_by": null,
+  "created_at": "2026-09-08T15:26:14.480601+00:00",
+  "tank_id": null,
+  "cellar_tank_id": "d4fec39c-d0e5-47b9-afd4-97faa1c23c7d",
+  "source_volume_l": 10,
+  "loss_l": 0
+ },
+ {
   "id": "03d405d5-4e8b-49a8-b26a-475246f6a591",
   "entry_date": "2026-08-31",
   "beer_id": "89611b63-865f-4ed1-9166-e6309f35d3b6",
@@ -381,6 +397,22 @@
   "tank_id": null,
   "cellar_tank_id": null,
   "source_volume_l": null,
+  "loss_l": 0
+ },
+ {
+  "id": "189e03d7-38b8-4238-96cb-bcb0e14dd1d9",
+  "entry_date": "2026-09-08",
+  "beer_id": "6e226b00-6297-4ef0-abd1-88c06d8ccad1",
+  "beer_name": "12° Tmavá",
+  "package_id": "10593bad-6a48-4653-8506-cada96205c7e",
+  "package_label": " 50l",
+  "quantity": 1,
+  "note": null,
+  "created_by": null,
+  "created_at": "2026-09-08T13:30:55.418322+00:00",
+  "tank_id": null,
+  "cellar_tank_id": "77b432ca-795d-4e7a-98f6-1a0cdc8ccc28",
+  "source_volume_l": 50,
   "loss_l": 0
  },
  {
@@ -880,6 +912,22 @@
   "loss_l": 0
  },
  {
+  "id": "393e9886-f5bb-4c2e-b86f-a8596ef521c1",
+  "entry_date": "2026-09-08",
+  "beer_id": "68c92abd-93b6-4241-b3ad-984c303716f8",
+  "beer_name": "12° Světlá",
+  "package_id": "10593bad-6a48-4653-8506-cada96205c7e",
+  "package_label": " 50l",
+  "quantity": 2,
+  "note": null,
+  "created_by": null,
+  "created_at": "2026-09-08T13:30:55.418322+00:00",
+  "tank_id": null,
+  "cellar_tank_id": "b57cadba-29ed-4748-ae8e-5e023596d8f4",
+  "source_volume_l": 100,
+  "loss_l": 0
+ },
+ {
   "id": "395e9f57-9de8-4b6f-a202-062d5f4c9c14",
   "entry_date": "2026-07-23",
   "beer_id": "68c92abd-93b6-4241-b3ad-984c303716f8",
@@ -1120,6 +1168,22 @@
   "loss_l": 0
  },
  {
+  "id": "49594fb3-9572-42e5-8506-c3d50f518223",
+  "entry_date": "2026-09-08",
+  "beer_id": "68c92abd-93b6-4241-b3ad-984c303716f8",
+  "beer_name": "12° Světlá",
+  "package_id": "10593bad-6a48-4653-8506-cada96205c7e",
+  "package_label": " 50l",
+  "quantity": 4,
+  "note": null,
+  "created_by": null,
+  "created_at": "2026-09-08T08:32:29.636971+00:00",
+  "tank_id": null,
+  "cellar_tank_id": "b57cadba-29ed-4748-ae8e-5e023596d8f4",
+  "source_volume_l": 200,
+  "loss_l": 0
+ },
+ {
   "id": "49b8766f-6223-4d4d-a58d-eecbb0a7564b",
   "entry_date": "2026-07-20",
   "beer_id": "93f7be38-e176-46af-9da3-47a14ffdedfa",
@@ -1133,6 +1197,38 @@
   "tank_id": null,
   "cellar_tank_id": null,
   "source_volume_l": null,
+  "loss_l": 0
+ },
+ {
+  "id": "4a0abb7a-dad0-4889-9cf7-20924594c50f",
+  "entry_date": "2026-09-08",
+  "beer_id": "93f7be38-e176-46af-9da3-47a14ffdedfa",
+  "beer_name": "11° Světlá",
+  "package_id": "16adfff0-50c0-482e-9338-1eb4632cfc14",
+  "package_label": "30l",
+  "quantity": 16,
+  "note": "Proplach cest: NaOH 2% (20 minut) | Vystříkat klapky Persterilem 0.2% | Oplach klapek vodou | Oplach vodou stáčečku (2 minuty)",
+  "created_by": null,
+  "created_at": "2026-09-08T08:32:05.404204+00:00",
+  "tank_id": null,
+  "cellar_tank_id": "9a59a745-705b-40c1-993e-926fa4497983",
+  "source_volume_l": 480,
+  "loss_l": 0
+ },
+ {
+  "id": "4ffc2efb-5edd-44f7-bf12-acb955bbe850",
+  "entry_date": "2026-09-08",
+  "beer_id": "68c92abd-93b6-4241-b3ad-984c303716f8",
+  "beer_name": "12° Světlá",
+  "package_id": "10593bad-6a48-4653-8506-cada96205c7e",
+  "package_label": " 50l",
+  "quantity": 18,
+  "note": "Proplach cest: NaOH 2% (20 minut) | Vystříkat klapky Persterilem 0.2% | Oplach klapek vodou | Oplach vodou stáčečku (2 minuty)",
+  "created_by": null,
+  "created_at": "2026-09-08T08:32:05.404204+00:00",
+  "tank_id": null,
+  "cellar_tank_id": "b57cadba-29ed-4748-ae8e-5e023596d8f4",
+  "source_volume_l": 900,
   "loss_l": 0
  },
  {
@@ -1165,6 +1261,22 @@
   "tank_id": null,
   "cellar_tank_id": "9a59a745-705b-40c1-993e-926fa4497983",
   "source_volume_l": 600,
+  "loss_l": 0
+ },
+ {
+  "id": "5218921d-a267-4ac1-9f2d-6bc038405c7d",
+  "entry_date": "2026-09-08",
+  "beer_id": "80cb2ddc-7fc8-4883-ad0a-c51411980326",
+  "beer_name": "10° Desítka",
+  "package_id": "97f9dcc8-a717-4ad9-86d0-ff69b27075f0",
+  "package_label": " 15l",
+  "quantity": 2,
+  "note": null,
+  "created_by": null,
+  "created_at": "2026-09-08T15:26:14.480601+00:00",
+  "tank_id": null,
+  "cellar_tank_id": "d4fec39c-d0e5-47b9-afd4-97faa1c23c7d",
+  "source_volume_l": 30,
   "loss_l": 0
  },
  {
@@ -1213,6 +1325,22 @@
   "tank_id": null,
   "cellar_tank_id": null,
   "source_volume_l": null,
+  "loss_l": 0
+ },
+ {
+  "id": "560d4c60-8d65-4ccb-a399-0b3245d6ce5e",
+  "entry_date": "2026-09-08",
+  "beer_id": "6e226b00-6297-4ef0-abd1-88c06d8ccad1",
+  "beer_name": "12° Tmavá",
+  "package_id": "16adfff0-50c0-482e-9338-1eb4632cfc14",
+  "package_label": "30l",
+  "quantity": 1,
+  "note": null,
+  "created_by": null,
+  "created_at": "2026-09-08T15:25:38.492895+00:00",
+  "tank_id": null,
+  "cellar_tank_id": "77b432ca-795d-4e7a-98f6-1a0cdc8ccc28",
+  "source_volume_l": 30,
   "loss_l": 0
  },
  {
@@ -1280,6 +1408,22 @@
   "loss_l": 0
  },
  {
+  "id": "576a0102-9d38-4a95-85f6-cbfed413ea63",
+  "entry_date": "2026-09-08",
+  "beer_id": "80cb2ddc-7fc8-4883-ad0a-c51411980326",
+  "beer_name": "10° Desítka",
+  "package_id": "16adfff0-50c0-482e-9338-1eb4632cfc14",
+  "package_label": "30l",
+  "quantity": 12,
+  "note": null,
+  "created_by": null,
+  "created_at": "2026-09-08T13:30:55.418322+00:00",
+  "tank_id": null,
+  "cellar_tank_id": "d4fec39c-d0e5-47b9-afd4-97faa1c23c7d",
+  "source_volume_l": 360,
+  "loss_l": 0
+ },
+ {
   "id": "586341a9-163e-474e-8942-87e266dd9fab",
   "entry_date": "2026-08-31",
   "beer_id": "93f7be38-e176-46af-9da3-47a14ffdedfa",
@@ -1293,6 +1437,22 @@
   "tank_id": null,
   "cellar_tank_id": "9a59a745-705b-40c1-993e-926fa4497983",
   "source_volume_l": 50,
+  "loss_l": 0
+ },
+ {
+  "id": "5888bf1e-eae3-48b2-9f11-ae53d2574bfb",
+  "entry_date": "2026-09-08",
+  "beer_id": "93f7be38-e176-46af-9da3-47a14ffdedfa",
+  "beer_name": "11° Světlá",
+  "package_id": "10593bad-6a48-4653-8506-cada96205c7e",
+  "package_label": " 50l",
+  "quantity": 6,
+  "note": "Proplach cest: NaOH 2% (20 minut) | Vystříkat klapky Persterilem 0.2% | Oplach klapek vodou | Oplach vodou stáčečku (2 minuty)",
+  "created_by": null,
+  "created_at": "2026-09-08T08:32:05.404204+00:00",
+  "tank_id": null,
+  "cellar_tank_id": "9a59a745-705b-40c1-993e-926fa4497983",
+  "source_volume_l": 300,
   "loss_l": 0
  },
  {
@@ -2032,6 +2192,22 @@
   "loss_l": 0
  },
  {
+  "id": "9b8a9bc7-b250-4c81-b10b-ac5351b784ab",
+  "entry_date": "2026-09-08",
+  "beer_id": "68c92abd-93b6-4241-b3ad-984c303716f8",
+  "beer_name": "12° Světlá",
+  "package_id": "16adfff0-50c0-482e-9338-1eb4632cfc14",
+  "package_label": "30l",
+  "quantity": 4,
+  "note": null,
+  "created_by": null,
+  "created_at": "2026-09-08T08:32:29.636971+00:00",
+  "tank_id": null,
+  "cellar_tank_id": "b57cadba-29ed-4748-ae8e-5e023596d8f4",
+  "source_volume_l": 120,
+  "loss_l": 0
+ },
+ {
   "id": "9cde3cb9-58d2-4b5a-819d-5016957eddd4",
   "entry_date": "2026-08-13",
   "beer_id": "8823be77-b372-4636-a43c-70b8d1400fd7",
@@ -2045,6 +2221,22 @@
   "tank_id": null,
   "cellar_tank_id": null,
   "source_volume_l": null,
+  "loss_l": 0
+ },
+ {
+  "id": "9cfde7dc-24b5-4ba7-bf9e-e9f752133a0d",
+  "entry_date": "2026-09-08",
+  "beer_id": "93f7be38-e176-46af-9da3-47a14ffdedfa",
+  "beer_name": "11° Světlá",
+  "package_id": "584a40aa-311a-4768-a518-5db0c532464c",
+  "package_label": "20l",
+  "quantity": 1,
+  "note": null,
+  "created_by": null,
+  "created_at": "2026-09-08T15:26:14.480601+00:00",
+  "tank_id": null,
+  "cellar_tank_id": "9a59a745-705b-40c1-993e-926fa4497983",
+  "source_volume_l": 20,
   "loss_l": 0
  },
  {
@@ -2304,6 +2496,22 @@
   "loss_l": 0
  },
  {
+  "id": "aabc360c-b6f2-4b31-81be-e7af2b402321",
+  "entry_date": "2026-09-08",
+  "beer_id": "93f7be38-e176-46af-9da3-47a14ffdedfa",
+  "beer_name": "11° Světlá",
+  "package_id": "41189ae0-30ed-4f1f-9107-4367afd07c01",
+  "package_label": " 10l",
+  "quantity": 1,
+  "note": null,
+  "created_by": null,
+  "created_at": "2026-09-08T15:26:14.480601+00:00",
+  "tank_id": null,
+  "cellar_tank_id": "9a59a745-705b-40c1-993e-926fa4497983",
+  "source_volume_l": 10,
+  "loss_l": 0
+ },
+ {
   "id": "ac1ceef0-9652-488c-b273-be52eef5e695",
   "entry_date": "2026-08-31",
   "beer_id": "f26c4f2b-12cd-40e5-97d6-55063c5514b2",
@@ -2544,6 +2752,22 @@
   "loss_l": 0
  },
  {
+  "id": "bc5b58d0-b6dd-4d3e-99f1-a8bc4abc6531",
+  "entry_date": "2026-09-08",
+  "beer_id": "8823be77-b372-4636-a43c-70b8d1400fd7",
+  "beer_name": "Jantar",
+  "package_id": "10593bad-6a48-4653-8506-cada96205c7e",
+  "package_label": " 50l",
+  "quantity": 1,
+  "note": null,
+  "created_by": null,
+  "created_at": "2026-09-08T13:30:55.418322+00:00",
+  "tank_id": null,
+  "cellar_tank_id": null,
+  "source_volume_l": null,
+  "loss_l": 0
+ },
+ {
   "id": "bcfb84c4-0097-479b-bffa-f9aaba90e52c",
   "entry_date": "2026-07-27",
   "beer_id": "80cb2ddc-7fc8-4883-ad0a-c51411980326",
@@ -2605,6 +2829,22 @@
   "tank_id": null,
   "cellar_tank_id": "a19216e9-9c1c-43c2-88ed-697596d7c1ec",
   "source_volume_l": 20,
+  "loss_l": 0
+ },
+ {
+  "id": "c0c1697e-3edb-4d07-89a0-6e7710c685fa",
+  "entry_date": "2026-09-08",
+  "beer_id": "93f7be38-e176-46af-9da3-47a14ffdedfa",
+  "beer_name": "11° Světlá",
+  "package_id": "584a40aa-311a-4768-a518-5db0c532464c",
+  "package_label": "20l",
+  "quantity": 5,
+  "note": "Proplach cest: NaOH 2% (20 minut) | Vystříkat klapky Persterilem 0.2% | Oplach klapek vodou | Oplach vodou stáčečku (2 minuty)",
+  "created_by": null,
+  "created_at": "2026-09-08T08:32:05.404204+00:00",
+  "tank_id": null,
+  "cellar_tank_id": "9a59a745-705b-40c1-993e-926fa4497983",
+  "source_volume_l": 100,
   "loss_l": 0
  },
  {
@@ -3152,6 +3392,22 @@
   "loss_l": 0
  },
  {
+  "id": "e768289a-3d1c-417d-96aa-2d9f9705f7ec",
+  "entry_date": "2026-09-08",
+  "beer_id": "68c92abd-93b6-4241-b3ad-984c303716f8",
+  "beer_name": "12° Světlá",
+  "package_id": "16adfff0-50c0-482e-9338-1eb4632cfc14",
+  "package_label": "30l",
+  "quantity": 13,
+  "note": null,
+  "created_by": null,
+  "created_at": "2026-09-08T13:30:55.418322+00:00",
+  "tank_id": null,
+  "cellar_tank_id": "b57cadba-29ed-4748-ae8e-5e023596d8f4",
+  "source_volume_l": 390,
+  "loss_l": 0
+ },
+ {
   "id": "e79f9010-4aa3-4093-ba0e-bb8c0ee2adb0",
   "entry_date": "2026-08-04",
   "beer_id": "80cb2ddc-7fc8-4883-ad0a-c51411980326",
@@ -3290,6 +3546,22 @@
   "note": null,
   "created_by": null,
   "created_at": "2026-08-03T07:27:53.719944+00:00",
+  "tank_id": null,
+  "cellar_tank_id": null,
+  "source_volume_l": null,
+  "loss_l": 0
+ },
+ {
+  "id": "f1711cf3-fab9-4c07-9ba4-915cb23d88ac",
+  "entry_date": "2026-09-08",
+  "beer_id": "8823be77-b372-4636-a43c-70b8d1400fd7",
+  "beer_name": "Jantar",
+  "package_id": "16adfff0-50c0-482e-9338-1eb4632cfc14",
+  "package_label": "30l",
+  "quantity": 4,
+  "note": null,
+  "created_by": null,
+  "created_at": "2026-09-08T13:30:55.418322+00:00",
   "tank_id": null,
   "cellar_tank_id": null,
   "source_volume_l": null,

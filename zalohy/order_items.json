@@ -132,6 +132,18 @@
   "is_bottled": false
  },
  {
+  "id": "07253210-fd5e-42cc-818f-551267feb2e5",
+  "order_id": "9114b922-45cc-4bca-8ff7-6206f3217c2a",
+  "beer_id": "80cb2ddc-7fc8-4883-ad0a-c51411980326",
+  "beer_name": "10° Desítka",
+  "package_id": "16adfff0-50c0-482e-9338-1eb4632cfc14",
+  "package_label": "30l",
+  "quantity": 5,
+  "created_at": "2026-09-08T10:09:11.885941+00:00",
+  "is_prepared": false,
+  "is_bottled": false
+ },
+ {
   "id": "0739f8e4-544f-402e-a406-20d755952302",
   "order_id": "fcd20d69-97fc-4b45-8f94-3f6df7c1e614",
   "beer_id": "f26c4f2b-12cd-40e5-97d6-55063c5514b2",
@@ -320,7 +332,7 @@
   "package_label": "30l",
   "quantity": 16,
   "created_at": "2026-09-06T08:11:36.690708+00:00",
-  "is_prepared": false,
+  "is_prepared": true,
   "is_bottled": false
  },
  {
@@ -600,6 +612,18 @@
   "is_bottled": false
  },
  {
+  "id": "1a7a36b2-ba9b-4fa1-b62a-31bc85128c9e",
+  "order_id": "24ecd73c-82e7-42f8-8c01-dd83227caab9",
+  "beer_id": "80cb2ddc-7fc8-4883-ad0a-c51411980326",
+  "beer_name": "10° Desítka",
+  "package_id": "16adfff0-50c0-482e-9338-1eb4632cfc14",
+  "package_label": "30l",
+  "quantity": 5,
+  "created_at": "2026-09-08T08:28:35.354699+00:00",
+  "is_prepared": false,
+  "is_bottled": false
+ },
+ {
   "id": "1a9e2ccb-fdae-482a-a1dd-eeb66110aca4",
   "order_id": "89300d25-539c-4163-9297-66961f347623",
   "beer_id": "80cb2ddc-7fc8-4883-ad0a-c51411980326",
@@ -620,6 +644,18 @@
   "package_label": "1.5l",
   "quantity": 12,
   "created_at": "2026-09-07T07:39:42.82582+00:00",
+  "is_prepared": false,
+  "is_bottled": false
+ },
+ {
+  "id": "1af8ac4d-5c28-41ee-a426-1f4068a8d439",
+  "order_id": "24ecd73c-82e7-42f8-8c01-dd83227caab9",
+  "beer_id": "80cb2ddc-7fc8-4883-ad0a-c51411980326",
+  "beer_name": "10° Desítka",
+  "package_id": "97f9dcc8-a717-4ad9-86d0-ff69b27075f0",
+  "package_label": "15l",
+  "quantity": 2,
+  "created_at": "2026-09-08T08:28:35.354699+00:00",
   "is_prepared": false,
   "is_bottled": false
  },
@@ -1064,7 +1100,7 @@
   "package_label": "30l",
   "quantity": 5,
   "created_at": "2026-09-08T06:53:01.218164+00:00",
-  "is_prepared": false,
+  "is_prepared": true,
   "is_bottled": false
  },
  {
@@ -1076,6 +1112,18 @@
   "package_label": "1.5l",
   "quantity": 24,
   "created_at": "2026-08-11T19:06:15.359275+00:00",
+  "is_prepared": false,
+  "is_bottled": false
+ },
+ {
+  "id": "2d9878d0-c8a1-4811-96e5-4f91edce702f",
+  "order_id": "6e98a625-2a8d-4fef-96ab-b02cb2d5a6ea",
+  "beer_id": "68c92abd-93b6-4241-b3ad-984c303716f8",
+  "beer_name": "12° Světlá",
+  "package_id": "6c981d1b-2796-4984-89eb-af9dd51aa5c0",
+  "package_label": "0.5l",
+  "quantity": 20,
+  "created_at": "2026-09-08T08:20:48.683749+00:00",
   "is_prepared": false,
   "is_bottled": false
  },
@@ -1476,6 +1524,18 @@
   "is_bottled": false
  },
  {
+  "id": "3c0cfd2b-1853-4d08-8874-a248fc967fe1",
+  "order_id": "eea29ff6-d0b1-4970-a609-771781eddb2d",
+  "beer_id": "68c92abd-93b6-4241-b3ad-984c303716f8",
+  "beer_name": "12° Světlá",
+  "package_id": "16adfff0-50c0-482e-9338-1eb4632cfc14",
+  "package_label": "30l",
+  "quantity": 4,
+  "created_at": "2026-09-08T11:44:41.224371+00:00",
+  "is_prepared": false,
+  "is_bottled": false
+ },
+ {
   "id": "3c4e293d-7496-4cd1-be8a-27955004bc4d",
   "order_id": "e4d0d01f-3f95-4fff-80e7-a487994f42cc",
   "beer_id": "93f7be38-e176-46af-9da3-47a14ffdedfa",
@@ -1848,6 +1908,18 @@
   "is_bottled": false
  },
  {
+  "id": "4af613bc-1292-4464-97ae-7d0940455b1f",
+  "order_id": "f3b17081-ae93-4ce0-a58b-015ff06cdc4e",
+  "beer_id": "bed4111e-ec22-4a08-b847-ee3a5978cd09",
+  "beer_name": "Višeň",
+  "package_id": "16adfff0-50c0-482e-9338-1eb4632cfc14",
+  "package_label": "30l",
+  "quantity": 1,
+  "created_at": "2026-09-08T08:20:31.686009+00:00",
+  "is_prepared": false,
+  "is_bottled": false
+ },
+ {
   "id": "4b8265c8-f06c-4370-ab40-9cc2985fae20",
   "order_id": "3523ac1d-249d-4d4f-b16d-4b996971e0e3",
   "beer_id": "f26c4f2b-12cd-40e5-97d6-55063c5514b2",
@@ -1992,6 +2064,18 @@
   "is_bottled": false
  },
  {
+  "id": "4f82b65d-4d2a-4dc4-9bb8-f43183f2dea0",
+  "order_id": "b805cb08-6f70-4b7a-8a82-d2ebc999c509",
+  "beer_id": "80cb2ddc-7fc8-4883-ad0a-c51411980326",
+  "beer_name": "10° Desítka",
+  "package_id": "10b091f7-fa29-4f70-aa1b-d6d7614a105e",
+  "package_label": "1l",
+  "quantity": 12,
+  "created_at": "2026-09-08T08:21:42.891927+00:00",
+  "is_prepared": false,
+  "is_bottled": false
+ },
+ {
   "id": "5003c985-23cb-4220-8e3d-89dbc5111dd0",
   "order_id": "03c7e892-85f7-4067-8093-3246723cd96a",
   "beer_id": "68c92abd-93b6-4241-b3ad-984c303716f8",
@@ -2124,6 +2208,18 @@
   "is_bottled": false
  },
  {
+  "id": "532240aa-0802-4b46-b99a-bb6c990b0dcb",
+  "order_id": "b805cb08-6f70-4b7a-8a82-d2ebc999c509",
+  "beer_id": "93f7be38-e176-46af-9da3-47a14ffdedfa",
+  "beer_name": "11° Světlá",
+  "package_id": "41189ae0-30ed-4f1f-9107-4367afd07c01",
+  "package_label": "10l",
+  "quantity": 1,
+  "created_at": "2026-09-08T08:26:49.966924+00:00",
+  "is_prepared": false,
+  "is_bottled": false
+ },
+ {
   "id": "54456a87-fb9f-41d2-8d8a-4f46c11ebf26",
   "order_id": "0c688cae-6206-4085-870e-fcb87469b454",
   "beer_id": "68c92abd-93b6-4241-b3ad-984c303716f8",
@@ -2192,6 +2288,18 @@
   "package_label": " 50l",
   "quantity": 2,
   "created_at": "2026-08-09T10:58:50.948073+00:00",
+  "is_prepared": false,
+  "is_bottled": false
+ },
+ {
+  "id": "56bf743f-d2e9-42d3-acbb-c48d93c49415",
+  "order_id": "eea29ff6-d0b1-4970-a609-771781eddb2d",
+  "beer_id": "8823be77-b372-4636-a43c-70b8d1400fd7",
+  "beer_name": "Jantar",
+  "package_id": "16adfff0-50c0-482e-9338-1eb4632cfc14",
+  "package_label": "30l",
+  "quantity": 1,
+  "created_at": "2026-09-08T11:44:41.224371+00:00",
   "is_prepared": false,
   "is_bottled": false
  },
@@ -2312,7 +2420,7 @@
   "package_label": "30l",
   "quantity": 4,
   "created_at": "2026-09-06T08:11:36.690708+00:00",
-  "is_prepared": false,
+  "is_prepared": true,
   "is_bottled": false
  },
  {
@@ -2468,7 +2576,7 @@
   "package_label": "1l",
   "quantity": 6,
   "created_at": "2026-09-07T07:07:03.79729+00:00",
-  "is_prepared": false,
+  "is_prepared": true,
   "is_bottled": false
  },
  {
@@ -2744,7 +2852,7 @@
   "package_label": "1.5l",
   "quantity": 6,
   "created_at": "2026-09-07T07:07:03.79729+00:00",
-  "is_prepared": false,
+  "is_prepared": true,
   "is_bottled": false
  },
  {
@@ -3116,7 +3224,7 @@
   "package_label": " 50l",
   "quantity": 10,
   "created_at": "2026-09-08T06:51:18.740426+00:00",
-  "is_prepared": false,
+  "is_prepared": true,
   "is_bottled": false
  },
  {
@@ -3140,6 +3248,18 @@
   "package_label": "Lahve 1.5l",
   "quantity": 3,
   "created_at": "2026-08-04T16:21:52.837303+00:00",
+  "is_prepared": false,
+  "is_bottled": false
+ },
+ {
+  "id": "76c21106-8678-442f-b34f-af5e350b61eb",
+  "order_id": "f3b17081-ae93-4ce0-a58b-015ff06cdc4e",
+  "beer_id": "524d974c-dec2-4042-ab59-a7aa6b515530",
+  "beer_name": "Kiwi",
+  "package_id": "16adfff0-50c0-482e-9338-1eb4632cfc14",
+  "package_label": "30l",
+  "quantity": 1,
+  "created_at": "2026-09-08T08:20:31.686009+00:00",
   "is_prepared": false,
   "is_bottled": false
  },
@@ -3696,6 +3816,18 @@
   "is_bottled": false
  },
  {
+  "id": "8d5f79e9-7d20-4d93-8e88-a85ecfcd8665",
+  "order_id": "b805cb08-6f70-4b7a-8a82-d2ebc999c509",
+  "beer_id": "8823be77-b372-4636-a43c-70b8d1400fd7",
+  "beer_name": "Jantar",
+  "package_id": "10b091f7-fa29-4f70-aa1b-d6d7614a105e",
+  "package_label": "1l",
+  "quantity": 12,
+  "created_at": "2026-09-08T08:21:42.891927+00:00",
+  "is_prepared": false,
+  "is_bottled": false
+ },
+ {
   "id": "8d7948c3-b580-4624-b1bb-76f0eb0b6ce9",
   "order_id": "ba9d2f87-a045-49c2-ad76-d03c30ff2e2f",
   "beer_id": "68c92abd-93b6-4241-b3ad-984c303716f8",
@@ -3792,6 +3924,18 @@
   "is_bottled": false
  },
  {
+  "id": "91b31e5c-0511-4ffa-b821-4ee1a888fbb0",
+  "order_id": "6e98a625-2a8d-4fef-96ab-b02cb2d5a6ea",
+  "beer_id": "68c92abd-93b6-4241-b3ad-984c303716f8",
+  "beer_name": "12° Světlá",
+  "package_id": "10593bad-6a48-4653-8506-cada96205c7e",
+  "package_label": "50l",
+  "quantity": 4,
+  "created_at": "2026-09-08T08:20:48.683749+00:00",
+  "is_prepared": true,
+  "is_bottled": false
+ },
+ {
   "id": "925afb92-701f-47c5-9d57-0058a52399a9",
   "order_id": "0c56a051-091c-487a-bc86-ff6c37339082",
   "beer_id": "68c92abd-93b6-4241-b3ad-984c303716f8",
@@ -3884,7 +4028,7 @@
   "package_label": " 50l",
   "quantity": 4,
   "created_at": "2026-09-06T08:11:36.690708+00:00",
-  "is_prepared": false,
+  "is_prepared": true,
   "is_bottled": false
  },
  {
@@ -3969,6 +4113,18 @@
   "quantity": 4,
   "created_at": "2026-08-04T17:02:33.519318+00:00",
   "is_prepared": false,
+  "is_bottled": false
+ },
+ {
+  "id": "967546b6-fb90-4d2a-993d-71b9d82e936d",
+  "order_id": "6e98a625-2a8d-4fef-96ab-b02cb2d5a6ea",
+  "beer_id": "68c92abd-93b6-4241-b3ad-984c303716f8",
+  "beer_name": "12° Světlá",
+  "package_id": "7fe0ce80-8310-4d38-98ce-cff8261e59a3",
+  "package_label": "1.5l",
+  "quantity": 24,
+  "created_at": "2026-09-08T08:20:48.683749+00:00",
+  "is_prepared": true,
   "is_bottled": false
  },
  {
@@ -4544,6 +4700,18 @@
   "package_label": "20l",
   "quantity": 5,
   "created_at": "2026-09-06T08:11:36.690708+00:00",
+  "is_prepared": true,
+  "is_bottled": false
+ },
+ {
+  "id": "ac7e4f0a-1c5f-4718-ba27-e97340e406b2",
+  "order_id": "234d285b-0048-4784-8526-01fad2432277",
+  "beer_id": "8823be77-b372-4636-a43c-70b8d1400fd7",
+  "beer_name": "Jantar",
+  "package_id": "10593bad-6a48-4653-8506-cada96205c7e",
+  "package_label": " 50l",
+  "quantity": 3,
+  "created_at": "2026-09-09T06:55:32.172483+00:00",
   "is_prepared": false,
   "is_bottled": false
  },
@@ -5448,6 +5616,30 @@
   "is_bottled": false
  },
  {
+  "id": "c6b3a769-7026-4548-9570-693248b4a3fd",
+  "order_id": "6e98a625-2a8d-4fef-96ab-b02cb2d5a6ea",
+  "beer_id": "8823be77-b372-4636-a43c-70b8d1400fd7",
+  "beer_name": "Jantar",
+  "package_id": "16adfff0-50c0-482e-9338-1eb4632cfc14",
+  "package_label": "30l",
+  "quantity": 2,
+  "created_at": "2026-09-08T08:20:48.683749+00:00",
+  "is_prepared": true,
+  "is_bottled": false
+ },
+ {
+  "id": "c6c34d26-ce88-4e6a-9f00-dadb87ab74de",
+  "order_id": "6e98a625-2a8d-4fef-96ab-b02cb2d5a6ea",
+  "beer_id": "68c92abd-93b6-4241-b3ad-984c303716f8",
+  "beer_name": "12° Světlá",
+  "package_id": "16adfff0-50c0-482e-9338-1eb4632cfc14",
+  "package_label": "30l",
+  "quantity": 8,
+  "created_at": "2026-09-08T08:20:48.683749+00:00",
+  "is_prepared": true,
+  "is_bottled": false
+ },
+ {
   "id": "c6e6013f-afce-4d8e-b728-8f5dc4852068",
   "order_id": "d64f55b3-b20f-4b6c-b3b1-287e0df8396d",
   "beer_id": "68c92abd-93b6-4241-b3ad-984c303716f8",
@@ -5648,6 +5840,18 @@
   "package_label": "KEG 50l",
   "quantity": 2,
   "created_at": "2026-08-04T16:51:31.915106+00:00",
+  "is_prepared": false,
+  "is_bottled": false
+ },
+ {
+  "id": "cb6a95be-a47c-4b28-8155-a5859eec4956",
+  "order_id": "234d285b-0048-4784-8526-01fad2432277",
+  "beer_id": "d4f7a9f0-ef4f-4729-b889-321a4509d2e1",
+  "beer_name": "Osma",
+  "package_id": "10593bad-6a48-4653-8506-cada96205c7e",
+  "package_label": " 50l",
+  "quantity": 2,
+  "created_at": "2026-09-09T06:55:32.172483+00:00",
   "is_prepared": false,
   "is_bottled": false
  },
@@ -6116,7 +6320,7 @@
   "package_label": "1l",
   "quantity": 6,
   "created_at": "2026-09-07T07:07:03.79729+00:00",
-  "is_prepared": false,
+  "is_prepared": true,
   "is_bottled": false
  },
  {
@@ -6152,7 +6356,7 @@
   "package_label": "1l",
   "quantity": 10,
   "created_at": "2026-09-07T07:07:03.79729+00:00",
-  "is_prepared": false,
+  "is_prepared": true,
   "is_bottled": false
  },
  {
@@ -6188,6 +6392,18 @@
   "package_label": "KEG 15l",
   "quantity": 1,
   "created_at": "2026-08-04T16:50:39.600253+00:00",
+  "is_prepared": false,
+  "is_bottled": false
+ },
+ {
+  "id": "dfa400b1-3aec-4999-9028-ff75a99db376",
+  "order_id": "b805cb08-6f70-4b7a-8a82-d2ebc999c509",
+  "beer_id": "93f7be38-e176-46af-9da3-47a14ffdedfa",
+  "beer_name": "11° Světlá",
+  "package_id": "584a40aa-311a-4768-a518-5db0c532464c",
+  "package_label": "20l",
+  "quantity": 1,
+  "created_at": "2026-09-08T08:26:49.966924+00:00",
   "is_prepared": false,
   "is_bottled": false
  },
@@ -6248,7 +6464,7 @@
   "package_label": " 50l",
   "quantity": 6,
   "created_at": "2026-09-06T08:11:36.690708+00:00",
-  "is_prepared": false,
+  "is_prepared": true,
   "is_bottled": false
  },
  {
@@ -6480,6 +6696,18 @@
   "is_bottled": false
  },
  {
+  "id": "ea66a3c6-9af1-4486-990e-1bbba6b04302",
+  "order_id": "118f66ac-05a3-42ca-a71a-d2038edefb3a",
+  "beer_id": "80cb2ddc-7fc8-4883-ad0a-c51411980326",
+  "beer_name": "10° Desítka",
+  "package_id": "16adfff0-50c0-482e-9338-1eb4632cfc14",
+  "package_label": "30l",
+  "quantity": 10,
+  "created_at": "2026-09-08T10:58:00.672213+00:00",
+  "is_prepared": false,
+  "is_bottled": false
+ },
+ {
   "id": "ea944034-3268-4622-972b-eae686a21271",
   "order_id": "e7ca4f9e-643a-44cb-afb3-6075fc3cef16",
   "beer_id": "6e226b00-6297-4ef0-abd1-88c06d8ccad1",
@@ -6536,6 +6764,18 @@
   "package_label": "KEG 30l",
   "quantity": 4,
   "created_at": "2026-08-04T16:17:54.001248+00:00",
+  "is_prepared": false,
+  "is_bottled": false
+ },
+ {
+  "id": "edf1cd6e-a72b-4b19-9d67-82eab8719c84",
+  "order_id": "24ecd73c-82e7-42f8-8c01-dd83227caab9",
+  "beer_id": "80cb2ddc-7fc8-4883-ad0a-c51411980326",
+  "beer_name": "10° Desítka",
+  "package_id": "41189ae0-30ed-4f1f-9107-4367afd07c01",
+  "package_label": "10l",
+  "quantity": 1,
+  "created_at": "2026-09-08T08:28:35.354699+00:00",
   "is_prepared": false,
   "is_bottled": false
  },
