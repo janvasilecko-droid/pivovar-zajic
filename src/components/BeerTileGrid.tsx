@@ -81,7 +81,7 @@ export function BeerTileGrid({ beers, onSelect, summaryFor, missingFor, missingB
                 kolečer pod sebou (zabíralo moc místa přes celou dlaždici). */}
             {missingBadge && missingBadge.length > 0 && (
               <span
-                className="absolute -top-1.5 -right-1.5 z-10 max-w-[90%] px-1.5 py-1 rounded bg-red-600 text-white text-[10px] leading-none font-black shadow ring-2 ring-white dark:ring-neutral-900 whitespace-nowrap overflow-hidden text-ellipsis"
+                className="absolute -top-1.5 -right-1.5 z-10 max-w-[90%] px-1.5 py-1 rounded bg-red-600 text-white text-[10px] leading-none font-medium shadow ring-2 ring-white dark:ring-neutral-900 whitespace-nowrap overflow-hidden text-ellipsis"
                 title={missingBadge.map((m) => `${m.missing} × ${m.label}`).join(', ') + ' — chybí stočit do konce týdne'}
               >
                 {missingBadge.map((m) => `${m.label} ${m.missing}`).join(' · ')}
