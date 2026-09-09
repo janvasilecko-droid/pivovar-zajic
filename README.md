@@ -95,6 +95,33 @@ Vzor pro novou tabulku najdeš v poslední existující migraci. Platí:
 zapnout RLS, čtení `TO authenticated USING (true)`, zápis přes
 `public.user_can_edit_module('modul')`.
 
+## Nasazení edge funkcí
+
+Edge funkce (`supabase/functions/*`) se na rozdíl od webu a APK nasazují
+samy — po pushi do `main` job `deploy-edge-functions` v `deploy.yml` nasadí
+jen ty funkce, které se doopravdy změnily (vlastní `index.ts`, nebo sdílený
+modul z `_shared/`, který importují).
+
+**Aby to fungovalo, je potřeba JEDNOU nastavit secret** — bez klíče se krok
+potichu přeskočí (appka poběží dál na staré verzi edge funkce, nic se
+nerozbije, jen se nenasadí oprava):
+
+1. Settings → Secrets and variables → Actions → New repository secret.
+2. Jméno `SUPABASE_ACCESS_TOKEN`, hodnota je přístupový token ze
+   [supabase.com/dashboard/account/tokens](https://supabase.com/dashboard/account/tokens)
+   (stejný, jaký jde do `.env` jako `SUPABASE_ACCESS_TOKEN` / `SB_TOKEN`).
+
+Od té chvíle se každá oprava v edge funkci nasadí sama spolu s webem — není
+potřeba počítač ani `.env`. Ruční nasazení VŠECH funkcí najednou (např. hned
+po prvním nastavení secretu, ať se pošle i to, co už čeká) jde spustit
+z telefonu: záložka **Actions → Build & Deploy → Run workflow**.
+
+Bez secretu (nebo z počítače) funguje i dosavadní ruční cesta:
+
+```bash
+node scripts/deploy-function.mjs whatsapp-auto-parse   # token v .env
+```
+
 ## Kde co je
 
 ```
