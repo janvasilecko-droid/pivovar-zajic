@@ -20,6 +20,14 @@ type BeerTileGridProps = {
    * tohle číslo nemají a štítek se u nich nezobrazí.
    */
   missingFor?: (beer: Beer) => number;
+  /**
+   * Totéž jako `missingFor`, ale rozepsané po VELIKOSTI OBALU — místo
+   * jednoho malého kolečka s sečteným číslem („55", což je 0,5l a 1l
+   * dohromady a neřekne, co reálně nachystat) vypíše štítek s názvem
+   * velikosti u každé, kde ještě něco chybí. Když je zadané, MÁ PŘEDNOST
+   * před `missingFor` — ten se pak na téhle dlaždici nekreslí.
+   */
+  missingBadgeFor?: (beer: Beer) => { label: string; missing: number }[];
 };
 
 /**
@@ -46,14 +54,15 @@ type BeerTileGridProps = {
  * zůstávají malá a rychle klikatelná. Rozpis se může zalomit, dlaždice
  * poroste s ním.
  */
-export function BeerTileGrid({ beers, onSelect, summaryFor, missingFor }: BeerTileGridProps) {
+export function BeerTileGrid({ beers, onSelect, summaryFor, missingFor, missingBadgeFor }: BeerTileGridProps) {
   return (
     <div className="grid grid-cols-3 gap-2">
       {beers.map((b) => {
         const { filled, label } = summaryFor(b);
         const textClass = beerText(b);
         const isDark = textClass === 'text-white';
-        const missing = missingFor?.(b) ?? 0;
+        const missingBadge = missingBadgeFor?.(b).filter((m) => m.missing > 0) ?? null;
+        const missing = missingBadge ? 0 : (missingFor?.(b) ?? 0);
         return (
           <button
             key={b.id}
@@ -66,6 +75,18 @@ export function BeerTileGrid({ beers, onSelect, summaryFor, missingFor }: BeerTi
             }`}
             style={{ backgroundColor: beerBg(b) }}
           >
+            {/* Rozepsané po velikosti — jeden obdélníček se všemi velikostmi
+                za sebou, místo jednoho kolečka se sečteným číslem (ať je
+                vidět NA KTEROU velikost se zaměřit), ale i místo hromady
+                kolečer pod sebou (zabíralo moc místa přes celou dlaždici). */}
+            {missingBadge && missingBadge.length > 0 && (
+              <span
+                className="absolute -top-1.5 -right-1.5 z-10 max-w-[90%] px-1.5 py-1 rounded bg-red-600 text-white text-[10px] leading-none font-black shadow ring-2 ring-white dark:ring-neutral-900 whitespace-nowrap overflow-hidden text-ellipsis"
+                title={missingBadge.map((m) => `${m.missing} × ${m.label}`).join(', ') + ' — chybí stočit do konce týdne'}
+              >
+                {missingBadge.map((m) => `${m.label} ${m.missing}`).join(' · ')}
+              </span>
+            )}
             {missing > 0 && (
               <span
                 className="absolute -top-1.5 -right-1.5 z-10 min-w-[20px] h-5 px-1 rounded-full bg-red-600 text-white text-[11px] font-black grid place-items-center shadow ring-2 ring-white dark:ring-neutral-900"

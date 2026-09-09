@@ -430,15 +430,6 @@ export default function BottlingScreen({
     jeCilovyObal: (kind) => kind !== 'keg',
   }), [beers, packages, orders, orderItems, rows, zavozDeductionRows, fasovaniRows, prodejnaRows, writeoffsRows, planCheckRows, weekKey]);
 
-  // 🔴 „Chybí stočit" po pivech pro štítek na dlaždici v Zápisu — stejné
-  // číslo jako v Potřebách stáčení, jen bez přepínání obrazovky. Viz
-  // komentář u BeerTileGrid.missingFor.
-  const missingByBeer = useMemo(() => {
-    const m: Record<string, number> = {};
-    dennniPlanLahvi.forEach((den) => den.items.forEach((it) => { m[it.beer_id] = (m[it.beer_id] || 0) + it.missing; }));
-    return m;
-  }, [dennniPlanLahvi]);
-
   // 🍾 Rozpad „zbývá stočit tento týden" podle VELIKOSTI LAHVE, přes všechna
   // piva — z provozu 9. 9. 2026: součet přes všechny velikosti na dlaždici
   // („55") nic neřekne o tom, co reálně nachystat, protože sčítá 0,5l s 1,5l.
@@ -449,6 +440,21 @@ export default function BottlingScreen({
   // Klik na velikost lahve v rozpadu rozklikne, kolik z toho je kterého piva
   // — stejný nápad jako u KEG (Kegging.tsx).
   const [rozpadOtevrenPkg, setRozpadOtevrenPkg] = useState<string | null>(null);
+
+  // 🏷️ „Chybí stočit" po pivech, rozepsané po VELIKOSTI LAHVE — pro štítek
+  // na dlaždici v Zápisu. Nahrazuje jedno sečtené číslo („55" u 12° Světlá,
+  // 0,5l a 1l dohromady), které neřeklo, co reálně nachystat. Z provozu
+  // 9. 9. 2026: „u lahví nedělej jen červený kolečko, ale udělej ho větší
+  // a napiš jakýho obalu co chybí".
+  const missingBreakdownByBeer = useMemo(() => {
+    const m: Record<string, { label: string; missing: number }[]> = {};
+    weekPlanLahvi.items.forEach((it) => {
+      if (it.missing <= 0) return;
+      (m[it.beer_id] ||= []).push({ label: it.package_label.trim(), missing: it.missing });
+    });
+    Object.values(m).forEach((arr) => arr.sort((a, z) => z.missing - a.missing));
+    return m;
+  }, [weekPlanLahvi]);
 
   // 🧾 Totéž po KONKRÉTNÍM OBALU (ne jen souhrn za pivo) — a s rozpadem po
   // dnech, ať se ze dlaždice v Zápisu dá rovnou zadat chybějící počet nebo
@@ -1197,7 +1203,7 @@ export default function BottlingScreen({
             <BeerTileGrid
               beers={serazPodleNaposled(beers.filter((b) => b.is_active), (b) => b.id, naposledPiva)}
               onSelect={(b) => { setNaposledPiva(zapamatujVyber(klicPiv, b.id)); openTile(b); }}
-              missingFor={(b) => missingByBeer[b.id] || 0}
+              missingBadgeFor={(b) => missingBreakdownByBeer[b.id] || []}
               summaryFor={(b) => {
                 const row = entryRows.find((r) => r.beerId === b.id);
                 if (row) {
