@@ -12,7 +12,7 @@ import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
 import { VoiceRecorder } from '../components/VoiceRecorder';
 import { parseFreeTextEntries, loadAliasMap, emptyAliasMap, type ParserAliasMap } from '../lib/orderParser';
 import { requestOrdersItemFilter } from '../lib/ordersFilter';
-import { computeKeggingPlan, BEZ_TERMINU } from '../lib/keggingPlan';
+import { computeKeggingPlan, mergeWeekPlan, rozpadPoObalech, BEZ_TERMINU } from '../lib/keggingPlan';
 import { BottlingPlanBottler } from '../components/BottlingPlanBottler';
 import { markPlanSeenAt, type BottlingPlan } from '../lib/bottlingPlans';
 import KeggingDayPlan from '../components/KeggingDayPlan';
@@ -411,6 +411,18 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     keggingPlan.forEach((den) => den.items.forEach((it) => { m[it.beer_id] = (m[it.beer_id] || 0) + it.missing; }));
     return m;
   }, [keggingPlan]);
+
+  // 🛢️ Rozpad „zbývá stočit tento týden" podle VELIKOSTI SUDU, přes všechna
+  // piva — z provozu 9. 9. 2026: součet přes všechny velikosti na dlaždici
+  // („55") nic neřekne o tom, co reálně nachystat, protože sčítá padesátky
+  // s desítkami. Stejný výpočet jako „Zbývá stočit po sudech" v „Co stočit
+  // na který den" (KeggingDayPlan.tsx), jen nad zápisem.
+  const weekPlanKeg = useMemo(() => mergeWeekPlan(keggingPlan, weekLabel), [keggingPlan, weekLabel]);
+  const rozpadTydneKeg = useMemo(() => rozpadPoObalech(weekPlanKeg), [weekPlanKeg]);
+  // Klik na velikost sudu v rozpadu rozklikne, kolik z toho je kterého piva
+  // — z provozu: „ale když kliknu na 1l 100, tak by se mělo rozkliknout,
+  // kolik jakého druhu". `weekPlanKeg.items` má už granularitu pivo+obal.
+  const [rozpadOtevrenPkg, setRozpadOtevrenPkg] = useState<string | null>(null);
 
   // 📅 Totéž po DNI — pro odznaky na přepínači dne v panelu zápisu (kolik
   // kusů tohohle piva chybí stočit konkrétně na pondělí, úterý…).
@@ -1120,6 +1132,48 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
           <div className="mb-2">
             <span className="text-udaj text-neutral-400 font-medium">klepni na dlaždici a zadej obaly a množství sudů</span>
           </div>
+
+          {/* 🛢️ Rozpad „zbývá stočit" podle VELIKOSTI SUDU — červený počet na
+              dlaždici je součet přes VŠECHNY velikosti, takže sám o sobě
+              neřekne, co reálně nachystat (padesátky, nebo desítky?). Viz
+              komentář u rozpadTydneKeg výš. */}
+          {rozpadTydneKeg.some((r) => r.missing > 0) && (
+            <div className="mb-3">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-udaj font-black uppercase tracking-wide text-neutral-500">Zbývá stočit tento týden:</span>
+                {rozpadTydneKeg.filter((r) => r.missing > 0).map((r) => (
+                  <button
+                    key={r.package_id}
+                    type="button"
+                    onClick={() => setRozpadOtevrenPkg((p) => (p === r.package_id ? null : r.package_id))}
+                    className={`chip font-black transition ${rozpadOtevrenPkg === r.package_id ? 'bg-red-600 text-white border-red-700' : 'bg-red-100 text-red-950 border-red-300 hover:bg-red-200'}`}
+                    title={`${r.missing} ${r.package_label} · ${r.missingLiters} L — klepnutím rozbalíš, kolik je kterého piva`}
+                  >
+                    {r.package_label}
+                    <span className={`ml-1 px-1.5 py-0.5 rounded-full tabular-nums ${rozpadOtevrenPkg === r.package_id ? 'bg-white text-red-700' : 'bg-red-600 text-white'}`}>{r.missing}</span>
+                  </button>
+                ))}
+              </div>
+              {/* Rozklik jedné velikosti sudu na jednotlivá piva — „1l 100"
+                  samo o sobě neřekne, kolik je kterého piva, tak se ptá znovu. */}
+              {rozpadOtevrenPkg && (() => {
+                const rozpisPiv = weekPlanKeg.items
+                  .filter((it) => it.package_id === rozpadOtevrenPkg && it.missing > 0)
+                  .sort((a, z) => z.missing - a.missing);
+                if (rozpisPiv.length === 0) return null;
+                return (
+                  <ul className="mt-1.5 flex flex-wrap gap-1.5">
+                    {rozpisPiv.map((it) => (
+                      <li key={it.beer_id} className="px-2 py-1 rounded bg-neutral-50 border border-neutral-200 text-udaj font-bold text-neutral-700 whitespace-nowrap">
+                        {it.beer_name} <span className="font-black text-red-600">{it.missing}</span>
+                      </li>
+                    ))}
+                  </ul>
+                );
+              })()}
+            </div>
+          )}
+
           <div className="mb-4">
             <BeerTileGrid
               beers={serazPodleNaposled(beers.filter((b) => b.is_active), (b) => b.id, naposledPiva)}
@@ -1196,21 +1250,27 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                 const rowTanks = activeTanksForBeer(expandedKegBeer.id);
                 const currentTankId = entryRows.find((r) => r.beerId === expandedKegBeer.id && r.pkgId === p.id)?.tankId || '';
                 const quickQtys = QUICK_KEG_QTY;
-                const jizUlozeno = jizUlozenoDnes(expandedKegBeer.id, p.id);
                 const fullPlan = planByKey[`${expandedKegBeer.id}__${p.id}`];
                 const dayEntry = tileDay !== 'tyden' ? fullPlan?.days.find((d) => d.day === tileDay) : undefined;
                 const plan = tileDay === 'tyden' ? fullPlan : (dayEntry && { ordered: dayEntry.ordered, missing: dayEntry.missing, checked: dayEntry.checked, days: [dayEntry] });
                 const cilovyDen = plan?.days.find((d) => d.missing > 0);
+                // 🏷️ Barva celého řádku podle stavu — světle červená, když
+                // ještě něco chybí, světle zelená, když je objednávka
+                // pokrytá. Z provozu 9. 9. 2026: „ať to jde líp vidět".
+                const radekBarva = !plan || plan.ordered === 0
+                  ? 'border-neutral-200 dark:border-neutral-700'
+                  : plan.missing > 0
+                  ? 'border-red-200 bg-red-50 dark:border-red-800/60 dark:bg-red-950/20'
+                  : 'border-emerald-200 bg-emerald-50 dark:border-emerald-800/60 dark:bg-emerald-950/20';
+                // 🏭 Kolik z toho, co se právě zadává, jde NAD rámec objednávky
+                // — na sklad. Z provozu: „sklad bude to, co je navíc na
+                // objednávku a bude na sklad".
+                const naSklad = plan ? Math.max(0, qty - plan.missing) : 0;
                 return (
-                  <div key={p.id} className="rounded border border-neutral-200 dark:border-neutral-700 py-1.5 px-2 space-y-1.5">
+                  <div key={p.id} className={`rounded border py-1.5 px-2 space-y-1.5 transition-colors ${radekBarva}`}>
                     <div className="flex items-center justify-between gap-2 flex-wrap">
                       <span className="text-sm font-bold text-neutral-700 dark:text-neutral-200 truncate">
                         {formatPackageLabel(p.label)}
-                        {jizUlozeno > 0 && (
-                          <span className="ml-1.5 px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 text-udaj font-black whitespace-nowrap">
-                            už uloženo {jizUlozeno} ks
-                          </span>
-                        )}
                       </span>
                       <div className="flex items-center gap-1">
                         {quickQtys.map((q) => (
@@ -1262,8 +1322,11 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                           className="text-udaj font-bold text-neutral-500 hover:text-neutral-700 underline decoration-dotted underline-offset-2 text-left"
                           title="Zobrazit objednávky s touhle položkou"
                         >
-                          Objednáno: <span className="font-black text-neutral-800">{plan.ordered}</span> ks
+                          Objednáno: <span className="font-black text-neutral-800">{plan.ordered}</span>
                           {' '}· Chybí: <span className={`font-black ${plan.missing > 0 ? 'text-red-600' : 'text-emerald-700'}`}>{plan.missing}</span>
+                          {naSklad > 0 && (
+                            <> · Sklad: <span className="font-black text-sky-700">{naSklad}</span></>
+                          )}
                         </button>
                         {plan.missing > 0 && (
                           <div className="flex items-center gap-1.5">

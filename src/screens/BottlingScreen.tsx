@@ -20,7 +20,7 @@ import { stackingQuickQtys } from '../lib/quickQty';
 import { navrhSudu } from '../lib/bottlingYield';
 import { synchronizuj } from '../lib/checklistData';
 import { computePackageNeeds } from '../lib/packageNeeds';
-import { computeKeggingPlan, BEZ_TERMINU } from '../lib/keggingPlan';
+import { computeKeggingPlan, mergeWeekPlan, rozpadPoObalech, BEZ_TERMINU } from '../lib/keggingPlan';
 import KeggingDayPlan from '../components/KeggingDayPlan';
 import { chyba, potvrd, toastZpet } from '../lib/toast';
 import { zavibruj } from '../lib/haptika';
@@ -438,6 +438,17 @@ export default function BottlingScreen({
     dennniPlanLahvi.forEach((den) => den.items.forEach((it) => { m[it.beer_id] = (m[it.beer_id] || 0) + it.missing; }));
     return m;
   }, [dennniPlanLahvi]);
+
+  // 🍾 Rozpad „zbývá stočit tento týden" podle VELIKOSTI LAHVE, přes všechna
+  // piva — z provozu 9. 9. 2026: součet přes všechny velikosti na dlaždici
+  // („55") nic neřekne o tom, co reálně nachystat, protože sčítá 0,5l s 1,5l.
+  // Stejný výpočet jako „Zbývá stočit po sudech" v „Co stočit na který den"
+  // (KeggingDayPlan.tsx), jen nad zápisem.
+  const weekPlanLahvi = useMemo(() => mergeWeekPlan(dennniPlanLahvi, weekLabel), [dennniPlanLahvi, weekLabel]);
+  const rozpadTydneLahvi = useMemo(() => rozpadPoObalech(weekPlanLahvi), [weekPlanLahvi]);
+  // Klik na velikost lahve v rozpadu rozklikne, kolik z toho je kterého piva
+  // — stejný nápad jako u KEG (Kegging.tsx).
+  const [rozpadOtevrenPkg, setRozpadOtevrenPkg] = useState<string | null>(null);
 
   // 🧾 Totéž po KONKRÉTNÍM OBALU (ne jen souhrn za pivo) — a s rozpadem po
   // dnech, ať se ze dlaždice v Zápisu dá rovnou zadat chybějící počet nebo
@@ -1141,6 +1152,47 @@ export default function BottlingScreen({
           <div className="mb-2">
             <span className="text-udaj text-neutral-400 font-medium">klepni na dlaždici a zadej obaly a množství</span>
           </div>
+
+          {/* 🍾 Rozpad „zbývá stočit" podle VELIKOSTI LAHVE — červený počet na
+              dlaždici je součet přes VŠECHNY velikosti, takže sám o sobě
+              neřekne, co reálně nachystat. Viz komentář u rozpadTydneLahvi výš. */}
+          {rozpadTydneLahvi.some((r) => r.missing > 0) && (
+            <div className="mb-3">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-udaj font-black uppercase tracking-wide text-neutral-500">Zbývá stočit tento týden:</span>
+                {rozpadTydneLahvi.filter((r) => r.missing > 0).map((r) => (
+                  <button
+                    key={r.package_id}
+                    type="button"
+                    onClick={() => setRozpadOtevrenPkg((p) => (p === r.package_id ? null : r.package_id))}
+                    className={`chip font-black transition ${rozpadOtevrenPkg === r.package_id ? 'bg-red-600 text-white border-red-700' : 'bg-red-100 text-red-950 border-red-300 hover:bg-red-200'}`}
+                    title={`${r.missing} ${r.package_label} · ${r.missingLiters} L — klepnutím rozbalíš, kolik je kterého piva`}
+                  >
+                    {r.package_label}
+                    <span className={`ml-1 px-1.5 py-0.5 rounded-full tabular-nums ${rozpadOtevrenPkg === r.package_id ? 'bg-white text-red-700' : 'bg-red-600 text-white'}`}>{r.missing}</span>
+                  </button>
+                ))}
+              </div>
+              {/* Rozklik jedné velikosti lahve na jednotlivá piva — „1l 110"
+                  samo o sobě neřekne, kolik je kterého piva, tak se ptá znovu. */}
+              {rozpadOtevrenPkg && (() => {
+                const rozpisPiv = weekPlanLahvi.items
+                  .filter((it) => it.package_id === rozpadOtevrenPkg && it.missing > 0)
+                  .sort((a, z) => z.missing - a.missing);
+                if (rozpisPiv.length === 0) return null;
+                return (
+                  <ul className="mt-1.5 flex flex-wrap gap-1.5">
+                    {rozpisPiv.map((it) => (
+                      <li key={it.beer_id} className="px-2 py-1 rounded bg-neutral-50 border border-neutral-200 text-udaj font-bold text-neutral-700 whitespace-nowrap">
+                        {it.beer_name} <span className="font-black text-red-600">{it.missing}</span>
+                      </li>
+                    ))}
+                  </ul>
+                );
+              })()}
+            </div>
+          )}
+
           <div className="mb-4">
             <BeerTileGrid
               beers={serazPodleNaposled(beers.filter((b) => b.is_active), (b) => b.id, naposledPiva)}
@@ -1235,17 +1287,24 @@ export default function BottlingScreen({
                     const pkgId = tileDraft[slot.pkg];
                     const qtyStr = tileDraft[slot.qty];
                     const quickQtys = stackingQuickQtys(bottlePackages.find((p) => p.id === pkgId));
-                    // Kolik je pro tenhle obal a vybraný den už uloženo v databázi
-                    // — lahve se plní na víc dávek přes den stejně jako KEG sudy
-                    // (viz lib/jizUlozeno.ts), a bez tohohle čísla nešlo poznat,
-                    // jestli druhá dávka opravdu přidává k první.
-                    const jizUlozeno = pkgId && tileBeer ? soucetUlozenehoDnes(rows, date, tileBeer.id, pkgId) : 0;
                     const fullPlan = pkgId && tileBeer ? planByKey[`${tileBeer.id}__${pkgId}`] : undefined;
                     const dayEntry = tileDay !== 'tyden' ? fullPlan?.days.find((d) => d.day === tileDay) : undefined;
                     const plan = tileDay === 'tyden' ? fullPlan : (dayEntry && { ordered: dayEntry.ordered, missing: dayEntry.missing, checked: dayEntry.checked, days: [dayEntry] });
                     const cilovyDen = plan?.days.find((d) => d.missing > 0);
+                    // 🏷️ Barva celého řádku podle stavu — světle červená, když
+                    // ještě něco chybí, světle zelená, když je objednávka
+                    // pokrytá. Z provozu 9. 9. 2026: „ať to jde líp vidět".
+                    const radekBarva = !plan || plan.ordered === 0
+                      ? 'border-neutral-200 dark:border-neutral-700'
+                      : plan.missing > 0
+                      ? 'border-red-200 bg-red-50 dark:border-red-800/60 dark:bg-red-950/20'
+                      : 'border-emerald-200 bg-emerald-50 dark:border-emerald-800/60 dark:bg-emerald-950/20';
+                    // 🏭 Kolik z toho, co se právě zadává, jde NAD rámec
+                    // objednávky — na sklad. Z provozu: „sklad bude to, co je
+                    // navíc na objednávku a bude na sklad".
+                    const naSklad = plan ? Math.max(0, Number(qtyStr || 0) - plan.missing) : 0;
                     return (
-                      <div key={slot.key} className="flex items-center justify-between gap-2 rounded border border-neutral-200 dark:border-neutral-700 py-1.5 px-2 flex-wrap">
+                      <div key={slot.key} className={`flex items-center justify-between gap-2 rounded border py-1.5 px-2 flex-wrap transition-colors ${radekBarva}`}>
                         <div className="flex flex-col gap-1 w-28 shrink-0">
                           <select
                             className="input text-xs font-bold w-28 p-1.5 rounded border border-amber-300 bg-white"
@@ -1257,11 +1316,6 @@ export default function BottlingScreen({
                               <option key={p.id} value={p.id}>{p.label || `${p.volume_l}L`}</option>
                             ))}
                           </select>
-                          {jizUlozeno > 0 && (
-                            <span className="px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 text-udaj font-black whitespace-nowrap self-start">
-                              už uloženo {jizUlozeno} ks
-                            </span>
-                          )}
                         </div>
                         <div className="flex items-center gap-1">
                           {quickQtys.map((q) => (
@@ -1308,8 +1362,11 @@ export default function BottlingScreen({
                               className="text-udaj font-bold text-neutral-500 hover:text-neutral-700 underline decoration-dotted underline-offset-2 text-left"
                               title="Zobrazit objednávky s touhle položkou"
                             >
-                              Objednáno: <span className="font-black text-neutral-800">{plan.ordered}</span> ks
+                              Objednáno: <span className="font-black text-neutral-800">{plan.ordered}</span>
                               {' '}· Chybí: <span className={`font-black ${plan.missing > 0 ? 'text-red-600' : 'text-emerald-700'}`}>{plan.missing}</span>
+                              {naSklad > 0 && (
+                                <> · Sklad: <span className="font-black text-sky-700">{naSklad}</span></>
+                              )}
                             </button>
                             {plan.missing > 0 && (
                               <div className="flex items-center gap-1.5">
