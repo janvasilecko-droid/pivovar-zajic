@@ -107,10 +107,22 @@ type BeerTilePanelProps = {
   headerRight?: ReactNode;
   /** Vlastní patička (např. „Přidat do zápisu“ / „Zpět“ u stáčení). Bez zadání se zobrazí výchozí tlačítko „Hotovo ✓“. */
   footer?: ReactNode;
+  /**
+   * Co udělá fajfka („Hotovo") — na rozdíl od křížku, který jen zavírá.
+   * Bez zadání se fajfka chová stejně jako křížek (jen zavře). U stáčení KEG
+   * (Kegging.tsx) rovnou uloží rozepsaný zápis, ať uživatel po „Zadat
+   * chybějících N" nemusí ještě hledat samostatné tlačítko „Uložit stáčení"
+   * dole pod dlaždicemi — z provozu 9. 9. 2026: „když dám hotovo, tak ať se
+   * rovnou stáčení zapíše".
+   */
+  onConfirm?: () => void;
+  /** Fajfka se na chvíli změní na spinner/text, ať je vidět, že se ukládá. */
+  confirming?: boolean;
 };
 
 /** Plnoobrazovkový panel otevřený z dlaždice — stejná "skořápka" pro všechny obrazovky, obsah (řádky obalů) dodává volající. */
-export function BeerTilePanel({ beer, onClose, children, headerRight, footer }: BeerTilePanelProps) {
+export function BeerTilePanel({ beer, onClose, children, headerRight, footer, onConfirm, confirming }: BeerTilePanelProps) {
+  const confirm = onConfirm ?? onClose;
   return (
     <div className="fixed inset-0 z-50 bg-black/60 p-2 sm:p-4 flex items-center justify-center overflow-hidden" onClick={onClose}>
       <div className="w-full max-w-xl m-auto" onClick={(e) => e.stopPropagation()}>
@@ -121,14 +133,15 @@ export function BeerTilePanel({ beer, onClose, children, headerRight, footer }: 
               <span className={`text-sm font-bold shrink-0 opacity-80 ${beerText(beer)}`}>{beer.degree ?? ''}</span>
               {headerRight}
             </div>
-            {/* Fajfka vedle křížku: potvrdit jde rovnou z lišty, bez
-                scrollování na konec panelu. Obojí zavírá — zapsané kusy
-                jsou v rozepsaném zápisu okamžitě, není tu co zahazovat. */}
+            {/* Fajfka: potvrdí (a když je zadané onConfirm, i uloží) rovnou
+                z lišty, bez scrollování na konec panelu. Křížek jen zavírá —
+                nic se tím nezahazuje, rozepsaný zápis zůstává, jak byl. */}
             <div className="shrink-0 flex items-center gap-1.5">
               <button
                 type="button"
-                onClick={onClose}
-                className="w-11 h-11 grid place-items-center rounded bg-emerald-700 hover:bg-emerald-400 text-white font-black transition select-none shadow-sm"
+                onClick={confirm}
+                disabled={confirming}
+                className="w-11 h-11 grid place-items-center rounded bg-emerald-700 hover:bg-emerald-400 text-white font-black transition select-none shadow-sm disabled:opacity-60"
                 title="Hotovo — potvrdit a zavřít" aria-label="Hotovo — potvrdit a zavřít"><Check size={20} /></button>
               <button
                 type="button"
@@ -143,7 +156,9 @@ export function BeerTilePanel({ beer, onClose, children, headerRight, footer }: 
             {children}
             {footer ?? (
               <div className="flex justify-end pt-1">
-                <button type="button" onClick={onClose} className="btn-primary !rounded font-black shadow-md">Hotovo <Check className="ikona-text" /></button>
+                <button type="button" onClick={confirm} disabled={confirming} className="btn-primary !rounded font-black shadow-md disabled:opacity-60">
+                  {confirming ? 'Ukládám…' : <>Hotovo <Check className="ikona-text" /></>}
+                </button>
               </div>
             )}
           </div>

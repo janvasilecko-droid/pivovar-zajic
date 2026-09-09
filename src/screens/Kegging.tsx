@@ -12,7 +12,7 @@ import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
 import { VoiceRecorder } from '../components/VoiceRecorder';
 import { parseFreeTextEntries, loadAliasMap, emptyAliasMap, type ParserAliasMap } from '../lib/orderParser';
 import { requestOrdersItemFilter } from '../lib/ordersFilter';
-import { computeKeggingPlan } from '../lib/keggingPlan';
+import { computeKeggingPlan, BEZ_TERMINU } from '../lib/keggingPlan';
 import { BottlingPlanBottler } from '../components/BottlingPlanBottler';
 import { markPlanSeenAt, type BottlingPlan } from '../lib/bottlingPlans';
 import KeggingDayPlan from '../components/KeggingDayPlan';
@@ -101,6 +101,15 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   const [expandedKegBeerId, setExpandedKegBeerId] = useState<string | null>(null);
   const expandedKegBeer = beers.find((b) => b.id === expandedKegBeerId) ?? null;
   const [saving, setSaving] = useState(false);
+
+  // 📅 Který den v panelu zápisu prohlížíme — „tyden" je souhrn přes celý
+  // týden (výchozí), jinak 'po'…'ne' nebo BEZ_TERMINU. Stejný přepínač jako
+  // v „Co stočit na který den", jen zmenšený a přímo u zadávání — z provozu
+  // 9. 9. 2026: „nahoře u piva ať se dá zakliknout, na který den je objednáno".
+  const [tileDay, setTileDay] = useState<string>('tyden');
+  // Fajfka „Hotovo" v dlaždici KEG rovnou uloží stáčení (viz add() výš) —
+  // dokud se ukládá, je vidět "Ukládám…" a druhé klepnutí se ignoruje.
+  const [tileConfirming, setTileConfirming] = useState(false);
 
   // 🔀 „Sklad" → „Nesedí evidence" → „Doplnit stočení" (Stock.tsx). Rovnou
   // rozbalí to pivo v dlaždicové mřížce, ať ho člověk nemusí sám hledat.
@@ -403,6 +412,17 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     return m;
   }, [keggingPlan]);
 
+  // 📅 Totéž po DNI — pro odznaky na přepínači dne v panelu zápisu (kolik
+  // kusů tohohle piva chybí stočit konkrétně na pondělí, úterý…).
+  const missingByBeerDay = useMemo(() => {
+    const m: Record<string, Record<string, number>> = {};
+    keggingPlan.forEach((den) => den.items.forEach((it) => {
+      const byDay = (m[it.beer_id] ||= {});
+      byDay[den.day] = (byDay[den.day] || 0) + it.missing;
+    }));
+    return m;
+  }, [keggingPlan]);
+
   // 🧾 Totéž, ale po KONKRÉTNÍM OBALU (ne jen souhrn za pivo) — a s rozpadem
   // po dnech, ať se z dlaždice dá rovnou zadat chybějící počet nebo odškrtnout
   // „mám nachystáno", bez přepínání na záložku „Co stočit na který den".
@@ -421,6 +441,36 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     }));
     return m;
   }, [keggingPlan]);
+
+  // Otevření jiného piva (nebo zavření a otevření znovu) nastaví den zpátky
+  // na nejbližší, kde ještě něco chybí — jinak by zůstal den vybraný pro
+  // předchozí pivo, i když s tímhle pivem nemá nic společného. Jen
+  // `expandedKegBeerId` v závislostech: dokud panel zůstává otevřený pro
+  // stejné pivo, realtime přenačtení dat nesmí uživateli sebrat, na kterém
+  // dni si zrovna dívá.
+  useEffect(() => {
+    if (!expandedKegBeerId) return;
+    const byDay = missingByBeerDay[expandedKegBeerId] || {};
+    const nearest = keggingPlan.find((p) => p.day !== BEZ_TERMINU && (byDay[p.day] || 0) > 0)?.day;
+    setTileDay(nearest ?? 'tyden');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expandedKegBeerId]);
+
+  // Fajfka „Hotovo" v dlaždici KEG: pokud je pro tohle pivo něco vyplněné,
+  // rovnou to uloží (add() — stejná funkce jako tlačítko „Uložit stáčení"
+  // dole), ať uživatel po „Zadat chybějících N" nemusí ještě hledat
+  // samostatné tlačítko. Prázdné pivo (jen se podíval) se jen zavře, ať
+  // nevybalí hlášku „vyplň alespoň jeden řádek" na neviný klik.
+  async function confirmTileAndMaybeSave() {
+    const maSCoUlozit = entryRows.some((r) => r.beerId === expandedKegBeerId && r.pkgId && Number(r.qty) > 0);
+    if (!maSCoUlozit) { setExpandedKegBeerId(null); return; }
+    setTileConfirming(true);
+    const ok = await add();
+    setTileConfirming(false);
+    if (ok) setExpandedKegBeerId(null);
+    // Když se neuložilo (checklist gate, zrušená otázka „opravdu?"…), panel
+    // zůstává otevřený — uživatel vidí chybovou hlášku nebo checklist modal.
+  }
 
   // „Naplnit do zápisu" — sudová část úkolu se předepíše do prvního řádku
   // a ostatní se vyprázdní, ať je zápis vždycky jen o jednom úkolu.
@@ -548,7 +598,11 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     if (dateVal) setDate(dateVal);
     if (photoNote) setNote((prev) => (prev ? prev + ' | ' + photoNote : photoNote));
   }
-  async function add(e?: React.FormEvent) {
+  // Vrací true jen po SKUTEČNÉM uložení — díky tomu si volající (fajfka
+  // „Hotovo" v dlaždici, viz confirmTileAndMaybeSave) může ověřit, jestli se
+  // zápis opravdu zapsal, nebo ho něco zablokovalo (checklist, zrušená
+  // otázka „opravdu?"), a podle toho dlaždici zavřít, nebo ji necháte otevřenou.
+  async function add(e?: React.FormEvent): Promise<boolean> {
     e?.preventDefault();
     setErr(null);
     // Checklist se váže na SKUTEČNÉ dnešní datum (businessDateISO), ne na
@@ -560,7 +614,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
       setChecklistPhase('start');
       setChecklistGate(true);
       setShowChecklistModal(true);
-      return;
+      return false;
     }
 
     // 🔒 Zápis do měsíce, který je už napočítaný (fyzická/schválená
@@ -573,7 +627,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
         `Měsíc ${date.slice(0, 7)} už má napočítanou inventuru. Zápis do něj teď ` +
         'změní číslo, které je už uzavřené a dorovnané — přesně tak vznikl ' +
         'záhadný schodek u Manea 6. 9. 2026.\n\nOpravdu zapsat do už napočítaného měsíce?';
-      if (!(await potvrd(dotaz, { titulek: 'Měsíc je už napočítaný', potvrdit: 'Ano, zapsat' }))) return;
+      if (!(await potvrd(dotaz, { titulek: 'Měsíc je už napočítaný', potvrdit: 'Ano, zapsat' }))) return false;
     }
 
     // Kontroluje se i PIVO — bez něj se stočení sice uloží a je vidět
@@ -583,10 +637,10 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     const bezPiva = entryRows.filter((r) => !r.beerId && (r.pkgId || Number(r.qty) > 0));
     if (bezPiva.length > 0) {
       setErr('U každého vyplněného řádku vyberte pivo — bez něj by se stočení nepromítlo do skladu.');
-      return;
+      return false;
     }
     const filled = entryRows.filter((r) => r.beerId && r.pkgId && Number(r.qty) > 0);
-    if (filled.length === 0) { setErr('Vyplň alespoň jeden řádek (pivo, obal a množství).'); return; }
+    if (filled.length === 0) { setErr('Vyplň alespoň jeden řádek (pivo, obal a množství).'); return false; }
 
     // Přehmat o řád (12 → 120) se jinak najde až u inventury, kdy se těžko
     // dohledává, kde vznikl. Neblokuje se — velká várka je legitimní.
@@ -596,7 +650,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
         .map((x) => Number(x.quantity || 0));
       const popis = `${beers.find((b) => b.id === r.beerId)?.name ?? 'Pivo'} · ${packages.find((p) => p.id === r.pkgId)?.label ?? 'obal'}`;
       const dotaz = podezreleMnozstvi(Number(r.qty), historie, popis);
-      if (dotaz && !(await potvrd(dotaz, { titulek: 'Zkontrolujte množství', potvrdit: 'Ano, uložit' }))) return;
+      if (dotaz && !(await potvrd(dotaz, { titulek: 'Zkontrolujte množství', potvrdit: 'Ano, uložit' }))) return false;
     }
 
     // 🛢️ Zápis bez tanku se dřív uložil TIŠE — a spolu s číslem tanku zmizel
@@ -612,7 +666,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
         `Tyhle řádky nemají tank, ze kterého se stáčelo:\n\n${seznam}\n\n` +
         'Uloží se bez čísla tanku a ze žádného tanku se neodečte objem — sklep pak ukazuje víc piva, než v něm je.\n\n' +
         'Stáčelo se z tanku? Zavři tohle, ve Sklepě u něj dej „Zahájit stáčení" a ulož znovu.';
-      if (!(await potvrd(dotaz, { titulek: 'Chybí tank', potvrdit: 'Uložit bez tanku' }))) return;
+      if (!(await potvrd(dotaz, { titulek: 'Chybí tank', potvrdit: 'Uložit bez tanku' }))) return false;
     }
 
     setSaving(true);
@@ -647,7 +701,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     });
 
     const { error } = await supabase.from('kegging').insert(payloads);
-    if (error) { setSaving(false); setErr(error.message); return; }
+    if (error) { setSaving(false); setErr(error.message); return false; }
 
     // Odečti stočený objem z každého dotčeného tanku. RELATIVNĚ přes RPC —
     // dřív se počítala absolutní hodnota z React state, takže když stáčeli
@@ -683,6 +737,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     load(true);
 
     setShowEndConfirm(true);
+    return true;
   }
 
   // Vrátí (nebo odebere) objem u zdrojového tanku záznamu — volá se při
@@ -1096,14 +1151,55 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
           </div>
 
           {expandedKegBeer && (
-            <BeerTilePanel beer={expandedKegBeer} onClose={() => setExpandedKegBeerId(null)}>
+            <BeerTilePanel
+              beer={expandedKegBeer}
+              onClose={() => setExpandedKegBeerId(null)}
+              onConfirm={() => confirmTileAndMaybeSave()}
+              confirming={tileConfirming}
+            >
+              {/* 📅 Na který den je objednáno — přepínač jako v „Co stočit na
+                  který den", jen zmenšený a přímo u zadávání. Přepočítá
+                  Objednáno/Chybí pod ním na vybraný den místo celého týdne. */}
+              <div className="flex items-center gap-1 overflow-x-auto scrollbar-none -mx-1 px-1 pb-1.5 mb-0.5 border-b border-neutral-200 dark:border-neutral-700">
+                <button
+                  type="button"
+                  onClick={() => setTileDay('tyden')}
+                  className={`px-2.5 h-8 rounded text-udaj font-black shrink-0 transition ${tileDay === 'tyden' ? 'bg-amber-500 text-neutral-950' : 'bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-200 hover:bg-amber-100'}`}
+                >
+                  Týden
+                </button>
+                {keggingPlan
+                  .filter((p) => p.day !== BEZ_TERMINU || (missingByBeerDay[expandedKegBeer.id]?.[BEZ_TERMINU] ?? 0) > 0)
+                  .map((p) => {
+                    const m = missingByBeerDay[expandedKegBeer.id]?.[p.day] ?? 0;
+                    const isSel = tileDay === p.day;
+                    return (
+                      <button
+                        key={p.day}
+                        type="button"
+                        onClick={() => setTileDay(p.day)}
+                        className={`px-2.5 h-8 rounded text-udaj font-black shrink-0 transition flex items-center gap-1 ${isSel ? 'bg-amber-500 text-neutral-950' : 'bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-200 hover:bg-amber-100'}`}
+                        title={p.day === BEZ_TERMINU ? 'Bez uvedeného dne dovozu' : `${p.label} ${p.date ? new Date(p.date + 'T00:00:00Z').toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric', timeZone: 'UTC' }) : ''}`}
+                      >
+                        {p.day === BEZ_TERMINU ? 'Bez dne' : p.label}
+                        {m > 0 && (
+                          <span className={`px-1 min-w-[16px] rounded-full text-[10px] leading-4 ${isSel ? 'bg-neutral-950 text-amber-300' : 'bg-amber-300 text-amber-950'}`}>
+                            {m}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+              </div>
               {kegPackages.map((p) => {
                 const qty = tileQtyFor(expandedKegBeer.id, p.id);
                 const rowTanks = activeTanksForBeer(expandedKegBeer.id);
                 const currentTankId = entryRows.find((r) => r.beerId === expandedKegBeer.id && r.pkgId === p.id)?.tankId || '';
                 const quickQtys = QUICK_KEG_QTY;
                 const jizUlozeno = jizUlozenoDnes(expandedKegBeer.id, p.id);
-                const plan = planByKey[`${expandedKegBeer.id}__${p.id}`];
+                const fullPlan = planByKey[`${expandedKegBeer.id}__${p.id}`];
+                const dayEntry = tileDay !== 'tyden' ? fullPlan?.days.find((d) => d.day === tileDay) : undefined;
+                const plan = tileDay === 'tyden' ? fullPlan : (dayEntry && { ordered: dayEntry.ordered, missing: dayEntry.missing, checked: dayEntry.checked, days: [dayEntry] });
                 const cilovyDen = plan?.days.find((d) => d.missing > 0);
                 return (
                   <div key={p.id} className="rounded border border-neutral-200 dark:border-neutral-700 py-1.5 px-2 space-y-1.5">
@@ -1156,11 +1252,19 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                       <div className="flex items-center justify-between gap-2 flex-wrap">
                         {/* Text zůstává neutrální, barvu nese jen ČÍSLO — snáz
                             se čte, které z obou je „chybí" (červené) a které
-                            je jen souhrn objednávky. */}
-                        <span className="text-udaj font-bold text-neutral-500">
+                            je jen souhrn objednávky. „Objednáno" je klikací —
+                            otevře Objednávky vyfiltrované na tohle pivo a
+                            obal, stejně jako tlačítko „Objednávky" v „Co
+                            stočit na který den". */}
+                        <button
+                          type="button"
+                          onClick={() => { requestOrdersItemFilter({ beerId: expandedKegBeer.id, packageId: p.id }); setPage?.('orders'); }}
+                          className="text-udaj font-bold text-neutral-500 hover:text-neutral-700 underline decoration-dotted underline-offset-2 text-left"
+                          title="Zobrazit objednávky s touhle položkou"
+                        >
                           Objednáno: <span className="font-black text-neutral-800">{plan.ordered}</span> ks
                           {' '}· Chybí: <span className={`font-black ${plan.missing > 0 ? 'text-red-600' : 'text-emerald-700'}`}>{plan.missing}</span>
-                        </span>
+                        </button>
                         {plan.missing > 0 && (
                           <div className="flex items-center gap-1.5">
                             <button
