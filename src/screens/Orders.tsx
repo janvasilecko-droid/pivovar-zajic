@@ -1379,6 +1379,13 @@ export default function Orders({
     }
     return true;
   }
+  // Stejná podmínka jako u searchedFiltered výš — jestli je aktivní filtr
+  // piva/obalu/druhu. Dřív se objednávka do seznamu pustila celá, jakmile jí
+  // vyhověl jeden řádek (searchedFiltered), ale KARTA pak vypsala úplně
+  // všechny řádky bez ohledu na filtr — z provozu 9. 9. 2026: „dal jsem
+  // filtr na sudy KEG a stejně tam vidím objednávky na PET 1l". OrderCard
+  // teď dostane tuhle funkci a schová řádky, které jí nevyhoví.
+  const polozkovyFiltrAktivni = !!(itemFilterBeerId || itemFilterPackageId || (packageKindFilter && packageKindFilter !== 'all'));
 
   const searchedFiltered = useMemo(() => {
     const q = norm(searchText);
@@ -2594,7 +2601,8 @@ export default function Orders({
                       selected={selectedIds.has(o.id)} onToggleSelect={() => toggleSelect(o.id)}
                       onClick={() => openDetail(o)} onToggleFlag={toggleFlag} onToggleItemFlag={toggleItemFlag} onUpdateDeliveryDay={updateDeliveryDay}
                       onSetStatus={setStatus} onDelete={del} onDuplicate={duplicateOrder} onEdit={setEditOrder} onOpenWhatsApp={handleOpenWhatsAppMessage} beers={beers} packages={packages} places={places}
-                      activeBeerId={itemFilterBeerId} activePackageId={itemFilterPackageId} />
+                      activeBeerId={itemFilterBeerId} activePackageId={itemFilterPackageId}
+                      itemMatchesFilter={polozkovyFiltrAktivni ? matchesItemFilters : undefined} />
                     {detail?.id === o.id && (
                       <div id="order-detail-card" className="scroll-mt-6 animate-scale-in pl-2 sm:pl-4 border-l-4 border-amber-500">
                         <OrderDetail
@@ -2632,7 +2640,8 @@ export default function Orders({
                 selected={selectedIds.has(o.id)} onToggleSelect={() => toggleSelect(o.id)}
                 onClick={() => openDetail(o)} onToggleFlag={toggleFlag} onToggleItemFlag={toggleItemFlag} onUpdateDeliveryDay={updateDeliveryDay}
                 onSetStatus={setStatus} onDelete={del} onDuplicate={duplicateOrder} onEdit={setEditOrder} onOpenWhatsApp={handleOpenWhatsAppMessage} beers={beers} packages={packages} places={places}
-                activeBeerId={itemFilterBeerId} activePackageId={itemFilterPackageId} />
+                activeBeerId={itemFilterBeerId} activePackageId={itemFilterPackageId}
+                itemMatchesFilter={polozkovyFiltrAktivni ? matchesItemFilters : undefined} />
               {detail?.id === o.id && (
                 <div id="order-detail-card" className="scroll-mt-6 animate-scale-in pl-2 sm:pl-4 border-l-4 border-amber-500">
                   <OrderDetail
@@ -3003,7 +3012,7 @@ function VariantTotalsPanel({ totals, beers, packages, timeScope, onPick }: {
   );
 }
 
-function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, onClick, onToggleFlag, onToggleItemFlag, onUpdateDeliveryDay, onSetStatus, onDelete, onDuplicate, onEdit, onOpenWhatsApp, beers, packages, places, activeBeerId, activePackageId }: {
+function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, onClick, onToggleFlag, onToggleItemFlag, onUpdateDeliveryDay, onSetStatus, onDelete, onDuplicate, onEdit, onOpenWhatsApp, beers, packages, places, activeBeerId, activePackageId, itemMatchesFilter }: {
   o: Order; items: OrderItem[];
   stockRemainingForWeek: (wk: string) => Map<string, number>;
   selected: boolean; onToggleSelect: () => void; onClick: () => void;
@@ -3020,6 +3029,16 @@ function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, 
   places: Place[];
   activeBeerId?: string | null;
   activePackageId?: string | null;
+  /**
+   * Filtr obalu/piva/druhu z Přehledu (viz matchesItemFilters u Orders).
+   * Objednávka se zobrazuje celá, jakmile filtru vyhoví JEDEN její řádek
+   * (viz searchedFiltered) — bez tohohle by ale karta pořád vypisovala i
+   * ty řádky, které filtru nevyhovují. Z provozu 9. 9. 2026: „dal jsem
+   * filtr na sudy KEG a stejně tam vidím objednávky na PET 1l" — objednávka
+   * měla sudy i petky na jednom řádku dohromady, karta ukázala obojí.
+   * `undefined` = žádný filtr aktivní, zobrazí se úplně všechno jako dřív.
+   */
+  itemMatchesFilter?: (item: OrderItem) => boolean;
 }) {
 
   const total = items.reduce((s, i) => s + Number(i.quantity), 0);
@@ -3072,7 +3091,15 @@ function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, 
     const podlePiva = (a.beer_name ?? '').localeCompare(b.beer_name ?? '', 'cs');
     return podlePiva !== 0 ? podlePiva : a.id.localeCompare(b.id);
   });
-  
+
+  // Karta se ukazuje celá, jakmile filtru vyhoví JEDEN řádek — řádky, které
+  // nevyhovují, se ale v seznamu nezobrazují (viz komentář u itemMatchesFilter
+  // výše). `total` a `uniqueDeficits` výš záměrně počítají se VŠEMI položkami
+  // objednávky, ne jen s viditelnými — je to skutečný stav objednávky, ne
+  // stav po filtru.
+  const viditelnePolozky = itemMatchesFilter ? sortedItems.filter(itemMatchesFilter) : sortedItems;
+  const skrytoFiltrem = sortedItems.length - viditelnePolozky.length;
+
   return (
     <div
       className={`card-hover p-2.5 cursor-pointer relative overflow-hidden transition-all border-2 bg-white border-neutral-200 ${selected ? 'ring-2 ring-primary-500' : ''}`}
@@ -3151,9 +3178,14 @@ function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, 
             (fajfka). Jsou to tytéž sloupce, které odškrtává Závoz, takže se
             to propíše na obě strany a jde to odškrtnout i zpátky. Schválně
             bez popisků: v přehledu jde o rychlé přejetí očima, ne o čtení. */}
-        {items.length > 0 && (
+        {viditelnePolozky.length > 0 && (
           <div className="space-y-0.5" onClick={(e) => e.stopPropagation()}>
-            {sortedItems.map((i) => {
+            {skrytoFiltrem > 0 && (
+              <div className="text-udaj font-bold text-neutral-400 px-1.5 py-0.5">
+                Filtr schoval {skrytoFiltrem} {skrytoFiltrem === 1 ? 'položku' : skrytoFiltrem < 5 ? 'položky' : 'položek'}.
+              </div>
+            )}
+            {viditelnePolozky.map((i) => {
               const beer = i.beer_id ? beers.find((b) => b.id === i.beer_id) : null;
               const isBeerMatch = !!(activeBeerId && i.beer_id === activeBeerId);
               const isPkgMatch = !!(activePackageId && i.package_id === activePackageId);
