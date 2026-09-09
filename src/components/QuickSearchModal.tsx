@@ -9,11 +9,13 @@
 //  • hledalo se přesně na znak, takže „kynsperk" nenašlo „Kynšperk" a
 //    „11" nenašlo „11°". Teď se porovnává bez diakritiky.
 import { useEffect, useState, useRef, useMemo } from 'react';
-import { Search, ArrowRight, MapPin, Beer as BeerIcon, ClipboardList, Package as PackageIcon } from 'lucide-react';
+import { Search, ArrowRight, MapPin, Beer as BeerIcon, ClipboardList, Package as PackageIcon, BookOpen } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { NAV, EXTRA_NAV, Page } from './Layout';
 import { requestOrdersHledani } from '../lib/ordersFilter';
 import { popisStavu } from '../lib/stavyObjednavek';
+import { NavodPouziti } from './NavodPouziti';
+import { Modal } from './ui';
 
 interface QuickSearchModalProps {
   isOpen: boolean;
@@ -57,6 +59,12 @@ function bezDiakritiky(s: string): string {
 
 export function QuickSearchModal({ isOpen, onClose, onSelectPage }: QuickSearchModalProps) {
   const [query, setQuery] = useState('');
+  // 📖 Návod k použití — dostupný odkudkoli přes tohle hledání, ne přes
+  // vlastní tlačítko v hlavičce. Hlavička je schválně prázdná až na název
+  // stránky (viz Layout.tsx); Hledat/Rádio/Chyby už z ní kvůli tomu byly
+  // přesunuté pryč, takže nápověda sem patří stejnou cestou, ne zpátky
+  // do hlavičky.
+  const [showGuide, setShowGuide] = useState(false);
   const [places, setPlaces] = useState<{ id: string; name: string; address: string | null }[]>([]);
   const [beers, setBeers] = useState<{ id: string; name: string; degree: string | number | null }[]>([]);
   const [packages, setPackages] = useState<{ id: string; label: string; volume_l: number | null }[]>([]);
@@ -192,7 +200,24 @@ export function QuickSearchModal({ isOpen, onClose, onSelectPage }: QuickSearchM
       };
     });
 
-  const allItems: SearchItem[] = [...filteredPages, ...filteredPlaces, ...filteredBeers, ...filteredPackages, ...filteredOrders];
+  // Návod k použití — jediné místo, odkud je dostupný odkudkoli v appce
+  // (viz komentář u showGuide výš). Zobrazí se vždycky bez dotazu a dál
+  // podle shody, ať ho jde najít i napsáním "návod"/"pomoc"/"nápověda".
+  const napovedaItem: SearchItem[] = sedi('Návod k použití', 'nápověda', 'pomoc', 'help')
+    ? [{
+        id: 'napoveda',
+        title: 'Návod k použití',
+        subtitle: 'Co která obrazovka dělá',
+        category: 'Nápověda',
+        icon: BookOpen,
+        // Bez onClose(): kdyby se hledání zavřelo, `isOpen` shodí celou
+        // komponentu (`if (!isOpen) return null` níž) i s právě otevřeným
+        // návodem. Návod se vykreslí NAD hledáním (stejná modální vrstva).
+        action: () => setShowGuide(true),
+      }]
+    : [];
+
+  const allItems: SearchItem[] = [...filteredPages, ...filteredPlaces, ...filteredBeers, ...filteredPackages, ...filteredOrders, ...napovedaItem];
 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === 'ArrowDown') {
@@ -317,6 +342,10 @@ export function QuickSearchModal({ isOpen, onClose, onSelectPage }: QuickSearchM
           <span className="text-udaj text-amber-700 font-extrabold">Pivovar Zajíc</span>
         </div>
       </div>
+
+      <Modal open={showGuide} onClose={() => setShowGuide(false)} title="Návod k použití & Přehled funkcí" wide>
+        <NavodPouziti />
+      </Modal>
     </div>
   );
 }
