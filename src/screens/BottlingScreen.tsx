@@ -32,6 +32,7 @@ import { klicVyberu, nactiNaposled, zapamatujVyber, serazPodleNaposled } from '.
 import { usePosledniNacteni, prvniChyba } from '../lib/nacitani';
 import type { RadekPohybu, RadekZavozu } from '../lib/stockLedger';
 import { soucetUlozenehoDnes } from '../lib/jizUlozeno';
+import { jeMesicUzamcen } from '../lib/mesicUzamcen';
 
 // Stahuje se až při otevření — viz komentář u lazy() v Orders.tsx.
 const ImportBottlingFromImage = lazy(() => import('../components/ImportBottlingFromImage').then((m) => ({ default: m.ImportBottlingFromImage })));
@@ -593,6 +594,16 @@ export default function BottlingScreen({
       setChecklistGate(true);
       setShowChecklistModal(true);
       return;
+    }
+
+    // 🔒 Stejné varování jako u KEGů — zápis do už napočítaného měsíce se
+    // nezakazuje, jen se na to nahlas upozorní (viz Kegging.tsx a
+    // lib/mesicUzamcen.ts).
+    if (jeMesicUzamcen(inventoryRows, date)) {
+      const dotaz =
+        `Měsíc ${date.slice(0, 7)} už má napočítanou inventuru. Zápis do něj teď ` +
+        'změní číslo, které je už uzavřené a dorovnané.\n\nOpravdu zapsat do už napočítaného měsíce?';
+      if (!(await potvrd(dotaz, { titulek: 'Měsíc je už napočítaný', potvrdit: 'Ano, zapsat' }))) return;
     }
     // Bez vybraného piva se záznam sice uloží, ale všechny skladové výpočty
     // ho přeskočí (filtrují `if (!beer_id || !package_id) return`) — stočené

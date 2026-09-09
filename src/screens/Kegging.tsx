@@ -29,6 +29,7 @@ import { klicVyberu, nactiNaposled, zapamatujVyber, serazPodleNaposled } from '.
 import { usePosledniNacteni, prvniChyba } from '../lib/nacitani';
 import type { RadekPohybu, RadekZavozu } from '../lib/stockLedger';
 import { soucetUlozenehoDnes } from '../lib/jizUlozeno';
+import { jeMesicUzamcen } from '../lib/mesicUzamcen';
 
 // Stahuje se až při otevření — viz komentář u lazy() v Orders.tsx.
 const ImportKeggingFromImage = lazy(() => import('../components/ImportKeggingFromImage').then((m) => ({ default: m.ImportKeggingFromImage })));
@@ -43,6 +44,9 @@ const QUICK_KEG_QTY = [6, 12, 18, 24];
 
 export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: { setPage?: (p: any, sec?: string, sub?: string) => void; mode?: 'entry_only' | 'overviews_only' | 'all'; initialSubTab?: string } = {}) {
   const [rows, setRows] = useState<EntryRow[]>([]);
+  // Jen pro varování „tenhle měsíc je už napočítaný" (lib/mesicUzamcen.ts) —
+  // viz add() níž.
+  const [inventoryRows, setInventoryRows] = useState<{ entry_date: string; note: string | null }[]>([]);
   // Úkoly zadané sládkem/šéfem (tabulka bottling_plans). Dřív je viděli jen
   // stáčeči lahví — u sudů se zadaná práce nikde neukazovala, i když v úkolu
   // sudová část byla.
@@ -318,7 +322,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     // se uložil do stavu, který nikdo nikdy nepřečetl. Byly to tři z
     // sedmnácti dotazů při každém otevření obrazovky A při každém přenačtení
     // z realtime, tedy i pokaždé, když někdo jiný cokoliv uložil.
-    const [kg, ct, b, p, ords, oi, fa, fp, wo, pf, zd, bt, pc, ukoly] = await Promise.all([
+    const [kg, ct, b, p, ords, oi, fa, fp, wo, pf, zd, bt, pc, ukoly, inv] = await Promise.all([
       fetchAllRows('kegging', '*').order('entry_date', { ascending: false }).order('created_at', { ascending: true }).order('id'),
       supabase.from('cellar_tanks').select('*').order('label'),
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
@@ -336,6 +340,9 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
       fetchAllRows('bottling', 'entry_date,beer_id,package_id,quantity,kegs_used,kegs_used_package_id,source_volume_l,note,created_at'),
       fetchAllRows('kegging_plan_checks', 'week_key,day,beer_id,package_id,qty'),
       supabase.from('bottling_plans').select('*').order('planned_date'),
+      // Jen entry_date + note — na víc se `jeMesicUzamcen` neptá (viz níž
+      // v add()). Komentář výš platí dál: co se sem přidá, se musí i použít.
+      fetchAllRows('inventory', 'entry_date,note'),
     ]);
     // Mezitím mohlo začít novější načtení (realtime po cizím zápisu),
     // nebo už obrazovka není vidět. Výsledek se pak zahodí.
@@ -346,6 +353,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     setChybaNacteni(prvniChyba(kg, ct, b, p, ords, oi));
     setRows((kg.data as EntryRow[]) ?? []);
     setPlany((ukoly.data as BottlingPlan[]) ?? []);
+    setInventoryRows((inv.data as { entry_date: string; note: string | null }[]) ?? []);
     setCellarTanks((ct.data as CellarTank[]) ?? []);
     if (b.data) setBeers(b.data as Beer[]);
     if (p.data) setPackages(p.data as Package[]);
@@ -364,7 +372,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   // Odběr musí sedět s tím, co se načítá — jinak přenačítáme kvůli datům,
   // která obrazovka nikde nepoužije. `inventory`, `inventory_adjustments`,
   // `akce` a `akce_items` odsud vypadly spolu s dotazy na ně.
-  useRealtime(['kegging', 'cellar_tanks', 'beers', 'packages', 'orders', 'order_items', 'fasovani', 'fasovani_private', 'writeoffs', 'keg_prefuk', 'zavoz_deductions', 'bottling', 'kegging_plan_checks'], () => load(true));
+  useRealtime(['kegging', 'cellar_tanks', 'beers', 'packages', 'orders', 'order_items', 'fasovani', 'fasovani_private', 'writeoffs', 'keg_prefuk', 'zavoz_deductions', 'bottling', 'kegging_plan_checks', 'inventory'], () => load(true));
 
   // 🗓️ Plán stáčení po dnech — „co stočit na středu". Na rozdíl od
   // kegRequirements výše nestojí na měsíčním skladovém modelu, takže se do něj
@@ -525,6 +533,19 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
       setChecklistGate(true);
       setShowChecklistModal(true);
       return;
+    }
+
+    // 🔒 Zápis do měsíce, který je už napočítaný (fyzická/schválená
+    // inventura), nezakazujeme — legitimní dodatečná oprava se stát může —
+    // ale nahlas na to upozorníme. Přesně tohle byl případ Manea (6. 9.):
+    // do spočítaného srpna přibyly dva sudy o týden později a schodek se
+    // pak hledal jako záhada (viz lib/mesicUzamcen.ts).
+    if (jeMesicUzamcen(inventoryRows, date)) {
+      const dotaz =
+        `Měsíc ${date.slice(0, 7)} už má napočítanou inventuru. Zápis do něj teď ` +
+        'změní číslo, které je už uzavřené a dorovnané — přesně tak vznikl ' +
+        'záhadný schodek u Manea 6. 9. 2026.\n\nOpravdu zapsat do už napočítaného měsíce?';
+      if (!(await potvrd(dotaz, { titulek: 'Měsíc je už napočítaný', potvrdit: 'Ano, zapsat' }))) return;
     }
 
     // Kontroluje se i PIVO — bez něj se stočení sice uloží a je vidět
