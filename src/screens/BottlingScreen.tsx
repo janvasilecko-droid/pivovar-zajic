@@ -394,6 +394,15 @@ export default function BottlingScreen({
     jeCilovyObal: (kind) => kind !== 'keg',
   }), [beers, packages, orders, orderItems, rows, zavozDeductionRows, fasovaniRows, prodejnaRows, writeoffsRows, planCheckRows, weekKey]);
 
+  // 🔴 „Chybí stočit" po pivech pro štítek na dlaždici v Zápisu — stejné
+  // číslo jako v Potřebách stáčení, jen bez přepínání obrazovky. Viz
+  // komentář u BeerTileGrid.missingFor.
+  const missingByBeer = useMemo(() => {
+    const m: Record<string, number> = {};
+    dennniPlanLahvi.forEach((den) => den.items.forEach((it) => { m[it.beer_id] = (m[it.beer_id] || 0) + it.missing; }));
+    return m;
+  }, [dennniPlanLahvi]);
+
   // ✅ Odškrtnutí NEZAPISUJE stáčení — je to pracovní pomůcka. Skutečné
   // stáčení se dál zapisuje v „Zápis". S doloženým stavem se skládá přes MAX,
   // aby se odškrtnutá a poté poctivě zapsaná položka nepočítala dvakrát.
@@ -1049,6 +1058,7 @@ export default function BottlingScreen({
             <BeerTileGrid
               beers={serazPodleNaposled(beers.filter((b) => b.is_active), (b) => b.id, naposledPiva)}
               onSelect={(b) => { setNaposledPiva(zapamatujVyber(klicPiv, b.id)); openTile(b); }}
+              missingFor={(b) => missingByBeer[b.id] || 0}
               summaryFor={(b) => {
                 const row = entryRows.find((r) => r.beerId === b.id);
                 if (row) {

@@ -11,6 +11,15 @@ type BeerTileGridProps = {
   beers: Beer[];
   onSelect: (beer: Beer) => void;
   summaryFor: (beer: Beer) => TileSummary;
+  /**
+   * Kolik kusů tohohle piva ještě chybí stočit do konce týdne — stejné číslo,
+   * jaké dřív bylo vidět jen v samostatné „Potřeby stáčení". Uživatel na
+   * začátku 9. 9. 2026: musí kvůli tomu furt přeskakovat mezi Potřeby stáčení
+   * a Zápisem stáčení. Červený štítek v rohu dlaždice ať je vidět bez
+   * přepínání obrazovky. Nepovinné — dlaždice v Objednávkách/Fasování/Prodejně
+   * tohle číslo nemají a štítek se u nich nezobrazí.
+   */
+  missingFor?: (beer: Beer) => number;
 };
 
 /**
@@ -37,25 +46,34 @@ type BeerTileGridProps = {
  * zůstávají malá a rychle klikatelná. Rozpis se může zalomit, dlaždice
  * poroste s ním.
  */
-export function BeerTileGrid({ beers, onSelect, summaryFor }: BeerTileGridProps) {
+export function BeerTileGrid({ beers, onSelect, summaryFor, missingFor }: BeerTileGridProps) {
   return (
     <div className="grid grid-cols-3 gap-2">
       {beers.map((b) => {
         const { filled, label } = summaryFor(b);
         const textClass = beerText(b);
         const isDark = textClass === 'text-white';
+        const missing = missingFor?.(b) ?? 0;
         return (
           <button
             key={b.id}
             type="button"
             onClick={() => onSelect(b)}
-            className={`text-left rounded shadow-sm transition-all hover:brightness-110 active:scale-[0.98] ${textClass} ${
+            className={`relative text-left rounded shadow-sm transition-all hover:brightness-110 active:scale-[0.98] ${textClass} ${
               filled
                 ? `col-span-3 p-3 min-h-[56px] flex items-center justify-between gap-3 ${isDark ? 'ring-2 ring-white/80' : 'ring-2 ring-primary-900/40'}`
                 : 'p-2 min-h-[52px] flex flex-col gap-0.5'
             }`}
             style={{ backgroundColor: beerBg(b) }}
           >
+            {missing > 0 && (
+              <span
+                className="absolute -top-1.5 -right-1.5 z-10 min-w-[20px] h-5 px-1 rounded-full bg-red-600 text-white text-[11px] font-black grid place-items-center shadow ring-2 ring-white dark:ring-neutral-900"
+                title={`Chybí stočit ${missing} ks do konce týdne`}
+              >
+                {missing}
+              </span>
+            )}
             <span className={`font-black leading-tight ${filled ? 'text-base shrink-0' : 'text-[13px]'}`}>{beerName(b)}</span>
             {filled && (
               <span className={`text-right text-sm font-black leading-tight tabular-nums ${isDark ? 'text-white' : 'text-primary-900'}`}>{label}</span>

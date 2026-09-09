@@ -394,6 +394,15 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
 
   const planMissingTotal = useMemo(() => keggingPlan.reduce((s, p) => s + p.totalMissing, 0), [keggingPlan]);
 
+  // 🔴 Totéž „chybí stočit" po pivech pro štítek na dlaždici v Zápisu — ať je
+  // vidět bez přepínání na záložku „Potřeba stočit". Viz komentář u
+  // BeerTileGrid.missingFor.
+  const missingByBeer = useMemo(() => {
+    const m: Record<string, number> = {};
+    keggingPlan.forEach((den) => den.items.forEach((it) => { m[it.beer_id] = (m[it.beer_id] || 0) + it.missing; }));
+    return m;
+  }, [keggingPlan]);
+
   // „Naplnit do zápisu" — sudová část úkolu se předepíše do prvního řádku
   // a ostatní se vyprázdní, ať je zápis vždycky jen o jednom úkolu.
   function naplnZUkolu(plan: BottlingPlan) {
@@ -1041,6 +1050,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
             <BeerTileGrid
               beers={serazPodleNaposled(beers.filter((b) => b.is_active), (b) => b.id, naposledPiva)}
               onSelect={(b) => { setNaposledPiva(zapamatujVyber(klicPiv, b.id)); setExpandedKegBeerId(b.id); }}
+              missingFor={(b) => missingByBeer[b.id] || 0}
               summaryFor={(b) => {
                 const beerRows = entryRows.filter((r) => r.beerId === b.id && Number(r.qty) > 0);
                 if (beerRows.length > 0) {
