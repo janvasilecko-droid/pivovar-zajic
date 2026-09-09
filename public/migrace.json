@@ -132,6 +132,7 @@
     "20261229010000_objednavka_stoceno.sql",
     "20261229020000_smazani_polozky_i_s_odpoctem.sql",
     "20261229030000_smazani_odpoctu_pod_polozkou.sql",
-    "20261230000000_whatsapp_prava_podle_modulu.sql"
+    "20261230000000_whatsapp_prava_podle_modulu.sql",
+    "20261231000000_polozka_objednavky_ma_vlastni_den.sql"
   ]
 }

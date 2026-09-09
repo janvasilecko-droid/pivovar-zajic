@@ -18,6 +18,8 @@ import { useMemo, useState } from 'react';
 import { CalendarDays, Check, Beer, Truck, ChevronDown, ArrowRight, Search, X } from 'lucide-react';
 import type { DayPlan, PlanItem } from '../lib/keggingPlan';
 import { dayKeyFromISO, mergeWeekPlan, rozpadPoObalech, BEZ_TERMINU } from '../lib/keggingPlan';
+import type { PlanOrderRef } from '../lib/keggingPlan';
+import { DAYS } from '../lib/shared';
 import type { RozpadObalu } from '../lib/keggingPlan';
 import { IkonaSud } from './ikony';
 
@@ -35,7 +37,16 @@ type Props = {
   canEdit: boolean;
   /** Otevře Objednávky vyfiltrované na tohle pivo a obal. */
   onShowOrders?: (beerId: string, packageId: string) => void;
+  /**
+   * Přesune `kusu` kusů z řádku objednávky na jiný den (`null` = zpět pod den
+   * celé objednávky). Když se přesouvá jen část, řádek se rozdělí — viz
+   * lib/presunPolozky.ts.
+   */
+  onMove?: (orderItemId: string, cilovyDen: string | null, kusu: number, soucasnyDen: string) => Promise<void> | void;
 };
+
+/** Hodnota v rozbalovátku pro „vrátit zpět pod den objednávky". */
+const ZPET = '__zpet';
 
 const fmtDate = (iso: string) => new Date(iso + 'T00:00:00Z').toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric', timeZone: 'UTC' });
 
@@ -83,7 +94,7 @@ function RozpadObalu({ rozpad, jednotka }: { rozpad: RozpadObalu[]; jednotka: st
   );
 }
 
-export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, canEdit, onShowOrders, jednotka = 'sudů' }: Props) {
+export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, canEdit, onShowOrders, onMove, jednotka = 'sudů' }: Props) {
   const todayDay = dayKeyFromISO(todayISO);
   // Otevře se rovnou nejbližší den, kde ještě něco chybí — stáčeč většinou
   // řeší ten, ne pondělí.
@@ -91,6 +102,9 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
   const firstOpen = plans.find((p) => p.day !== BEZ_TERMINU && p.totalMissing > 0)?.day;
   const [selected, setSelected] = useState<string>(firstOpen ?? todayDay);
   const [busy, setBusy] = useState<string | null>(null);
+  // Kolik kusů se má přesunout — po řádcích objednávky, dokud se nepotvrdí.
+  const [kolikPresunout, setKolikPresunout] = useState<Record<string, string>>({});
+  const [presouvam, setPresouvam] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [hledat, setHledat] = useState('');
   const [jenChybi, setJenChybi] = useState(false);
@@ -134,6 +148,24 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
       await onCheck(active.day, item.beer_id, item.package_id, Math.max(0, Math.min(item.ordered, qty)));
     } finally {
       setBusy(null);
+    }
+  }
+
+  /**
+   * Přehodí část řádku objednávky na jiný den. Počet se bere z políčka vedle
+   * rozbalovátka; když v něm někdo nechá nesmysl, přesune se celý řádek —
+   * to je bezpečnější než neudělat nic a tvářit se, že se klik nestal.
+   */
+  async function presun(o: PlanOrderRef, cilovyDen: string | null) {
+    if (!onMove || !canEdit || isWeek) return;
+    const zadano = Number(kolikPresunout[o.order_item_id] ?? o.quantity);
+    const kusu = Number.isFinite(zadano) && zadano > 0 ? Math.min(Math.floor(zadano), o.quantity) : o.quantity;
+    setPresouvam(o.order_item_id);
+    try {
+      await onMove(o.order_item_id, cilovyDen, kusu, active.day);
+      setKolikPresunout((p) => { const d = { ...p }; delete d[o.order_item_id]; return d; });
+    } finally {
+      setPresouvam(null);
     }
   }
 
@@ -409,23 +441,28 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
                         téměř celou obrazovku mrtvého místa. */}
                     {canEdit && !isWeek && !(hotovo && it.checked === 0) && (
                       <div className="flex items-stretch gap-1.5 px-3.5 pb-2.5 sm:pb-0 sm:flex-1 sm:max-w-xs">
+                        {/* „−1 ks" / „+1 ks" schválně SLOVY. Dokud tu stálo jen
+                            „−" a „+", vypadalo to jako ozdoba vedle velkého
+                            zeleného tlačítka a z provozu přišlo „je tam zbývá 2,
+                            mám všech 2, dej tam možnost že můžu přidat že mám
+                            třeba 1" — přitom přesně to „+" dělalo. */}
                         <button
                           type="button"
                           disabled={busy === it.key || it.checked === 0}
                           onClick={() => setCheck(it, it.checked - 1)}
-                          className="w-11 min-h-[44px] grid place-items-center rounded border border-neutral-200 bg-white text-neutral-700 font-black hover:bg-neutral-50 disabled:opacity-30 shrink-0"
-                          title="Ubrat jeden odškrtnutý kus" aria-label="Ubrat jeden odškrtnutý kus"
+                          className="w-14 min-h-[44px] grid place-items-center rounded border border-neutral-200 bg-white text-neutral-700 font-black text-udaj hover:bg-neutral-50 disabled:opacity-30 shrink-0"
+                          title="Ubrat jeden odškrtnutý kus"
                         >
-                          −
+                          −1 ks
                         </button>
                         <button
                           type="button"
                           disabled={busy === it.key || hotovo}
                           onClick={() => setCheck(it, it.checked + 1)}
-                          className="w-11 min-h-[44px] grid place-items-center rounded border border-neutral-200 bg-white text-neutral-700 font-black hover:bg-neutral-50 disabled:opacity-30 shrink-0"
-                          title="Odškrtnout jeden kus" aria-label="Odškrtnout jeden kus"
+                          className="w-14 min-h-[44px] grid place-items-center rounded border border-neutral-200 bg-white text-neutral-700 font-black text-udaj hover:bg-neutral-50 disabled:opacity-30 shrink-0"
+                          title="Odškrtnout jeden kus — když máš hotovou jen část"
                         >
-                          +
+                          +1 ks
                         </button>
                         {!hotovo ? (
                           <button
@@ -483,11 +520,61 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
                     {isOpen && (
                       <ul className="px-3.5 pb-3 -mt-1 space-y-1">
                         {it.orders.map((o, i) => (
-                          <li key={`${o.order_id}-${i}`} className="flex items-center justify-between gap-2 text-udaj font-bold px-3 py-2 rounded bg-neutral-50 border border-neutral-100">
-                            <span className={o.delivered ? 'text-neutral-400 line-through' : 'text-neutral-700'}>{o.place_name}</span>
-                            <span className="font-mono text-neutral-600 shrink-0">
-                              {o.quantity} ks{o.delivered ? ' · zavezeno' : ''}
-                            </span>
+                          <li key={`${o.order_id}-${i}`} className="text-udaj font-bold px-3 py-2 rounded bg-neutral-50 border border-neutral-100">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className={o.delivered ? 'text-neutral-400 line-through' : 'text-neutral-700'}>
+                                {o.place_name}
+                                {o.vlastniDen && (
+                                  <span className="ml-1.5 text-sky-800" title="Tenhle řádek byl ručně přesunut na jiný den, než má celá objednávka">
+                                    · přesunuto
+                                  </span>
+                                )}
+                              </span>
+                              <span className="font-mono text-neutral-600 shrink-0">
+                                {o.quantity} ks{o.delivered ? ' · zavezeno' : ''}
+                              </span>
+                            </div>
+
+                            {/* Objednávka se běžně veze na dvakrát — „část od
+                                Radka se vezla o den dřív". Tady se dá kus řádku
+                                přehodit na jiný den, ať se dá odškrtávat tam,
+                                kde se opravdu pracuje. Zavezený řádek se
+                                nepřesouvá: je fyzicky venku a přesun by jen
+                                rozhodil odpočty závozu. */}
+                            {onMove && canEdit && !isWeek && !o.delivered && (
+                              <div className="flex items-center gap-1.5 mt-2">
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={o.quantity}
+                                  inputMode="numeric"
+                                  className="input w-16 !py-1 min-h-[44px] font-mono font-bold text-udaj"
+                                  aria-label={`Kolik kusů přesunout (${o.place_name})`}
+                                  value={kolikPresunout[o.order_item_id] ?? String(o.quantity)}
+                                  onChange={(e) => setKolikPresunout((p) => ({ ...p, [o.order_item_id]: e.target.value }))}
+                                />
+                                <span className="text-neutral-500 shrink-0">ks na</span>
+                                <select
+                                  className="input flex-1 min-h-[44px] !py-1 font-bold text-udaj"
+                                  aria-label={`Přesunout na jiný den (${o.place_name})`}
+                                  disabled={presouvam === o.order_item_id}
+                                  value=""
+                                  onChange={(e) => {
+                                    const v = e.target.value;
+                                    if (!v) return;
+                                    void presun(o, v === ZPET ? null : v);
+                                  }}
+                                >
+                                  <option value="">
+                                    {presouvam === o.order_item_id ? 'Přesouvám…' : 'jiný den…'}
+                                  </option>
+                                  {DAYS.filter((d) => d.v !== active.day).map((d) => (
+                                    <option key={d.v} value={d.v}>{d.label}</option>
+                                  ))}
+                                  {o.vlastniDen && <option value={ZPET}>Zpět pod den objednávky</option>}
+                                </select>
+                              </div>
+                            )}
                           </li>
                         ))}
                       </ul>
