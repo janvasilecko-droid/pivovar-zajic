@@ -472,7 +472,8 @@
   "quantity",
   "created_at",
   "is_prepared",
-  "is_bottled"
+  "is_bottled",
+  "delivery_day"
  ],
  "orders": [
   "id",

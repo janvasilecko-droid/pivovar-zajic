@@ -45,6 +45,51 @@ describe('computeKeggingPlan', () => {
     id: id ?? `i${++itemSeq}`, order_id, beer_id, package_id, quantity,
   });
 
+  it('položka s vlastním dnem se plánuje na svůj den, ne na den objednávky', () => {
+    // Z provozu: „část objednávky od Radka se vezla o den dřív." Objednávka
+    // je na čtvrtek, ale čtyři sudy z ní jedou ve středu.
+    const p = plan({
+      orders: [objednavka('o1', '2026-08-27')], // čtvrtek
+      orderItems: [
+        { ...polozka('o1', 'b-des', 'p30', 4), delivery_day: 'st' },
+        polozka('o1', 'b-des', 'p30', 6),
+      ],
+    });
+    expect(day(p, 'st').totalOrdered).toBe(4);
+    expect(day(p, 'ct').totalOrdered).toBe(6);
+    // Dohromady pořád deset — přesun nesmí sudy vyrobit ani ztratit.
+    expect(day(p, 'st').totalOrdered + day(p, 'ct').totalOrdered).toBe(10);
+  });
+
+  it('vlastní den nevytáhne do týdne objednávku z jiného týdne', () => {
+    // Kdyby o dni rozhodovala jen položka, přesunutý řádek by přitáhl
+    // i objednávku, která se tenhle týden vůbec neveze.
+    const p = plan({
+      orders: [objednavka('o1', '2026-09-10')], // úplně jiný týden
+      orderItems: [{ ...polozka('o1', 'b-des', 'p30', 4), delivery_day: 'st' }],
+    });
+    expect(day(p, 'st').totalOrdered).toBe(0);
+  });
+
+  it('neplatný den u položky se ignoruje a platí den objednávky', () => {
+    // Překlep v datech nesmí položku vyhodit z plánu — nikdo by ji nestočil.
+    const p = plan({
+      orders: [objednavka('o1', '2026-08-27')],
+      orderItems: [{ ...polozka('o1', 'b-des', 'p30', 4), delivery_day: 'streda' }],
+    });
+    expect(day(p, 'ct').totalOrdered).toBe(4);
+  });
+
+  it('u položky je vidět, na který řádek objednávky se dá sáhnout', () => {
+    const p = plan({
+      orders: [objednavka('o1', '2026-08-27')],
+      orderItems: [polozka('o1', 'b-des', 'p30', 4, 'radek-42')],
+    });
+    const odkaz = day(p, 'ct').items[0].orders[0];
+    expect(odkaz.order_item_id).toBe('radek-42');
+    expect(odkaz.vlastniDen).toBe(null);
+  });
+
   it('rozpadne objednávky na dny a spočítá, co chybí', () => {
     const p = plan({
       orders: [objednavka('o1', '2026-08-26'), objednavka('o2', '2026-08-28')],

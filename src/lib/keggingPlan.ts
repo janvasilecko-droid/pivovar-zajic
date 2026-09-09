@@ -24,9 +24,17 @@ import { weekRange } from '../components/WeeklyOrderSummaryCard';
 
 export type PlanOrderRef = {
   order_id: string;
+  /** Řádek objednávky — podle něj se přesouvá část objednávky na jiný den. */
+  order_item_id: string;
   place_name: string;
   quantity: number;
   delivered: boolean;
+  /**
+   * Den, který si vyžádala TAHLE položka (`order_items.delivery_day`).
+   * `null` = řádek jede podle dne celé objednávky. Slouží jen k tomu, aby
+   * šlo v plánu poznat a vrátit ručně přesunutý řádek.
+   */
+  vlastniDen: string | null;
 };
 
 export type PlanItem = {
@@ -107,6 +115,11 @@ export type KeggingPlanInput = {
   checkRows?: { week_key: string; day: string; beer_id: string; package_id: string; qty: number }[];
   weekKey: string;
 };
+
+/** Je to platná zkratka dne ('po'…'ne')? */
+export function jeDenVTydnu(den: unknown): boolean {
+  return typeof den === 'string' && DAYS.some((d) => d.v === den);
+}
 
 /** Den v týdnu ('po'…'ne') z ISO data — bez ohledu na časovou zónu. */
 export function dayKeyFromISO(dateStr: string): string {
@@ -208,7 +221,7 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
     // objednávky den, kdy ji někdo schválil. Odvozovat z něj den stáčení
     // znamenalo, že objednávka bez uvedeného termínu spadla na dnešek.
     // Když termín není, jde do přihrádky `BEZ_TERMINU` (viz komentář u ní).
-    if (o.delivery_day && DAYS.some((d) => d.v === o.delivery_day)) {
+    if (jeDenVTydnu(o.delivery_day)) {
       orderDay.set(o.id, o.delivery_day);
       return;
     }
@@ -234,8 +247,16 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
 
   orderItems.forEach((it) => {
     if (!it.beer_id || !it.package_id || !kegPkgs.has(it.package_id)) return;
-    const day = orderDay.get(it.order_id);
-    if (!day) return;
+    // Den objednávky rozhoduje o tom, jestli je řádek v tomhle týdnu vůbec
+    // ve hře. Teprve pak se smí uplatnit vlastní den položky — jinak by
+    // řádek přesunutý na středu vytáhl do plánu i objednávku z jiného týdne.
+    const denObjednavky = orderDay.get(it.order_id);
+    if (!denObjednavky) return;
+    // Objednávka se běžně veze na dvakrát: „část od Radka se vezla o den
+    // dřív". Položka si proto může nést vlastní den (viz migrace
+    // 20261231000000) a pak se plánuje podle něj, ne podle celé objednávky.
+    const vlastniDen = jeDenVTydnu(it.delivery_day) ? (it.delivery_day as string) : null;
+    const day = vlastniDen ?? denObjednavky;
     const ord = ordersById.get(it.order_id);
     const qty = Number(it.quantity || 0);
     if (qty <= 0) return;
@@ -247,9 +268,11 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
     bucket.covered += covered;
     bucket.orders.push({
       order_id: it.order_id,
+      order_item_id: it.id,
       place_name: ord?.place_name || 'Neznámý odběratel',
       quantity: qty,
       delivered: covered >= qty,
+      vlastniDen,
     });
   });
 
