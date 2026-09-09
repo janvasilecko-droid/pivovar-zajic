@@ -1187,9 +1187,16 @@ export default function BottlingScreen({
                             nachystané) bez přeskakování na jinou záložku. */}
                         {plan && plan.ordered > 0 && (
                           <div className="w-full flex items-center justify-between gap-2 flex-wrap">
-                            <span className={`text-udaj font-black ${plan.missing > 0 ? 'text-amber-700' : 'text-emerald-700'}`}>
-                              Objednáno {plan.ordered} ks tento týden
-                              {plan.missing > 0 ? ` · chybí stočit ${plan.missing}` : ' · hotovo'}
+                            {/* Text zůstává neutrální, barvu nese jen ČÍSLO —
+                                snáz se čte, které z obou je „chybí" (červené)
+                                a které je jen souhrn objednávky. */}
+                            <span className="text-udaj font-bold text-neutral-500">
+                              Objednáno <span className="font-black text-neutral-800">{plan.ordered}</span> ks tento týden
+                              {plan.missing > 0 ? (
+                                <> · chybí stočit <span className="font-black text-red-600">{plan.missing}</span></>
+                              ) : (
+                                <span className="font-black text-emerald-700"> · hotovo</span>
+                              )}
                             </span>
                             {plan.missing > 0 && (
                               <div className="flex items-center gap-1.5">
