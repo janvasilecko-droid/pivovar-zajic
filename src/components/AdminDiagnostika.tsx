@@ -146,7 +146,7 @@ function ChybyBlok() {
         // nedala odklepnout, jen odrolovat. Seznam se vejde vždycky.
         <div className="mt-2 space-y-2">
           {deleni.starsi.length > 0 && (
-            <div className="rounded-lg border border-amber-300 bg-amber-50 p-2.5">
+            <div className="rounded-xl border border-amber-300 bg-amber-50 p-2.5">
               <p className="text-xs font-bold text-amber-950">
                 {deleni.starsi.length === 1 ? 'Jedna chyba je' : `${deleni.starsi.length} chyb je`} z verzí, které už neběží
                 (teď běží {APP_VERSION}). Nejspíš je oprava venku — než je odklepnete, stojí za to se podívat, co v nich stojí.
@@ -166,7 +166,7 @@ function ChybyBlok() {
             return (
               <div
                 key={r.id}
-                className={`rounded-lg border p-2.5 ${
+                className={`rounded-xl border p-2.5 ${
                   r.vyrizeno_at ? 'border-neutral-200 bg-neutral-50 text-neutral-500'
                   : stara ? 'border-amber-200 bg-white text-neutral-800'
                   : 'border-rose-300 bg-rose-50 text-neutral-900'

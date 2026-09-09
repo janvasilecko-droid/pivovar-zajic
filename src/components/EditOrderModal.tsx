@@ -271,7 +271,7 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
             ))}
           </div>
           {zdvojene.length > 0 && (
-            <div className="mt-2 rounded-lg border-2 border-amber-400 bg-amber-50 p-2.5 space-y-2">
+            <div className="mt-2 rounded-xl border-2 border-amber-400 bg-amber-50 p-2.5 space-y-2">
               <div className="text-xs font-black text-amber-950">
                 Pozor, tohle je v objednávce vícekrát:
               </div>

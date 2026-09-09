@@ -394,7 +394,7 @@ export function BottlingTasksSettings() {
                   type="button"
                   onClick={() => openStocitGroup(s.radky)}
                   title={isKeg ? 'Stočit KEG sud' : 'Stočit — doplní se až 3 velikosti lahví najednou'}
-                  className="px-3.5 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-neutral-950 text-xs font-black transition shadow-sm shrink-0 min-h-[44px] tap"
+                  className="px-3.5 py-2 rounded bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-neutral-950 text-xs font-black transition shadow-sm shrink-0 min-h-[44px] tap"
                 >
                   <IkonaLahev className="ikona-text" /> Stočit
                 </button>
