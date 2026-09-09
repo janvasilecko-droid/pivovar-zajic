@@ -11,7 +11,8 @@ import { lazyStranka, uklidPojistkuReloadu } from './lib/lazyStranka';
 const AppSettingsScreen = lazyStranka(() => import('./screens/AppSettingsScreen'));
 const AppVersionsScreen = lazyStranka(() => import('./screens/AppVersionsScreen'));
 
-import Layout, { Page } from './components/Layout';
+import Layout, { Page, NAV, EXTRA_NAV } from './components/Layout';
+import { zjistiStrankuZUrl } from './lib/vstupniStranka';
 import AuthScreen from './screens/AuthScreen';
 const Dashboard = lazyStranka(() => import('./screens/Dashboard'));
 import HomeScreen from './screens/HomeScreen';
@@ -78,9 +79,18 @@ function wasOpenedViaShare(): boolean {
   return window.location.pathname === '/share';
 }
 
+// Platné cílové stránky pro zkratku na ploše i pro klik na push upozornění
+// (public/sw.js posílá `./?page=orders` — ten odkaz byl mrtvý, appka to
+// nikdy nečetla). Nové okno nemá `history.state`, jen tuhle adresu.
+const VSECHNY_STRANKY = new Set<string>([...NAV, ...EXTRA_NAV].map((n) => n.id));
+
 export default function App() {
   const { session, loading } = useAuth();
-  const [page, setPageState] = useState<Page>(() => (wasOpenedViaShare() ? 'orders' : readPageFromHistory()));
+  const [page, setPageState] = useState<Page>(() => {
+    if (wasOpenedViaShare()) return 'orders';
+    const zUrl = zjistiStrankuZUrl(window.location.search, VSECHNY_STRANKY);
+    return (zUrl as Page | null) ?? readPageFromHistory();
+  });
   const [autoOpenShareImport, setAutoOpenShareImport] = useState(() => wasOpenedViaShare());
   const [haccpSection, setHaccpSection] = useState<string | undefined>();
   const [pageSubTab, setPageSubTabState] = useState<string>(() => (wasOpenedViaShare() ? '' : readSubTabFromHistory()));
@@ -92,7 +102,17 @@ export default function App() {
   useEffect(() => {
     if (wasOpenedViaShare()) {
       window.history.replaceState({ page: 'orders' }, '', '/');
+      return;
     }
+    // Zkratka na ploše / klik na push upozornění otevřou nové okno s
+    // `?page=…` v adrese. Jakmile se podle toho appka rozjela (viz
+    // `useState` výš), adresu i history.state se srovná na stejný tvar,
+    // jaký appka běžně používá (setPage) — jinak by tlačítko Zpět a
+    // obnovení stránky skončily zpátky na tom `?page=` místo na Domů.
+    if (zjistiStrankuZUrl(window.location.search, VSECHNY_STRANKY)) {
+      window.history.replaceState({ page }, '', window.location.pathname);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // 🏃 Přednačtení obrazovek, na které se stejně klikne, a 📉 měření
