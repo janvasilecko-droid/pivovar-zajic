@@ -7,6 +7,8 @@ import { AlertTriangle, ArrowRightLeft, BarChart3, Bird, Calendar, CalendarDays,
 import { shareDeliveryListToWhatsApp } from '../lib/whatsapp';
 import { exportZavozToExcel } from '../lib/excel';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
+import type { StockSources } from '../lib/stockLedger';
+import { zbytekKeKonciTydne, schodkyObjednavky } from '../lib/tydenniZbytek';
 import { getSecondCarOrderIds, toggleOrderKachna, toggleOrdersKachna, migrateSecondCarDatesToOrders } from '../lib/zavozSecondCar';
 import { PodpisModal } from '../components/PodpisModal';
 import { KegReturnModal } from '../components/KegReturnModal';
@@ -53,6 +55,11 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
   const [searchTerm, setSearchTerm] = useState('');
   const [moveDay, setMoveDay] = useState<{ source: string | null; label: string; orderIds: string[] } | null>(null);
   const [moveTarget, setMoveTarget] = useState<string | null>(null);
+  // 📒 Skladová kniha — jen pro odznak „chybí skladem" u objednávky (stejný
+  // výpočet jako v Objednávkách, viz lib/tydenniZbytek.ts). Kdo tady odškrtává
+  // "stočeno"/"připraveno", to dřív dělal naslepo: appka ví, kolik je
+  // objednáno a kolik doopravdy stočeno, ale nikde to před závozem nesrovnala.
+  const [stockRows, setStockRows] = useState<StockSources>({});
   const [moveBusy, setMoveBusy] = useState(false);
   const [secondCarOrderIds, setSecondCarOrderIds] = useState<string[]>(() => getSecondCarOrderIds());
 
@@ -66,12 +73,30 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
 
   async function load(silent = false) {
     if (!silent && !orders.length) setLoading(true);
-    const [{ data: o }, { data: p }, { data: b }, { data: pl }] = await Promise.all([
+    const [{ data: o }, { data: p }, { data: b }, { data: pl }, sklad] = await Promise.all([
       fetchAllRows('orders', '*').neq('status', 'storno').order('order_date', { ascending: false }),
       supabase.from('packages').select('*'),
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('places').select('*').order('name'),
+      Promise.all([
+        fetchAllRows('inventory', 'entry_date,beer_id,package_id,quantity,note'),
+        fetchAllRows('bottling', 'entry_date,beer_id,package_id,quantity,kegs_used,kegs_used_package_id,source_volume_l,note,created_at'),
+        fetchAllRows('kegging', 'entry_date,beer_id,package_id,quantity'),
+        fetchAllRows('fasovani', 'entry_date,beer_id,package_id,quantity'),
+        fetchAllRows('fasovani_private', 'entry_date,beer_id,package_id,quantity'),
+        fetchAllRows('writeoffs', 'entry_date,beer_id,package_id,quantity'),
+        fetchAllRows('zavoz_deductions', 'deduct_date,beer_id,package_id,quantity,order_item_id'),
+        fetchAllRows('akce', 'entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
+        fetchAllRows('keg_prefuk', 'entry_date,beer_id,from_package_id,from_count,to_package_id,to_count'),
+        fetchAllRows('inventory_adjustments', 'entry_date,beer_id,package_id,quantity'),
+      ]).then(([inventoryRows, bottlingRows, keggingRows, fasovaniRows, prodejnaRows, writeoffsRows, zavozDeductionRows, akceRows, prefukRows, adjustmentRows]) => ({
+        inventoryRows: inventoryRows.data ?? [], bottlingRows: bottlingRows.data ?? [], keggingRows: keggingRows.data ?? [],
+        fasovaniRows: fasovaniRows.data ?? [], prodejnaRows: prodejnaRows.data ?? [], writeoffsRows: writeoffsRows.data ?? [],
+        zavozDeductionRows: zavozDeductionRows.data ?? [], akceRows: akceRows.data ?? [], prefukRows: prefukRows.data ?? [],
+        adjustmentRows: adjustmentRows.data ?? [],
+      })),
     ]);
+    setStockRows({ ...sklad, packages: (p as Package[]) ?? [] });
     const ords = ((o as Order[]) ?? []).map(order => {
       const place = (pl as Place[] ?? []).find(p => p.id === order.place_id);
       return { ...order, place_phone: place?.phone ?? null, delivery_group: (place as any)?.delivery_group };
@@ -121,7 +146,17 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
   }
 
   useEffect(() => { load(); }, []);
-  useRealtime(['orders', 'order_items', 'packages', 'beers', 'places', 'keg_returns', 'zavoz_ukoly_hotovo'], () => load(true));
+  useRealtime([
+    'orders', 'order_items', 'packages', 'beers', 'places', 'keg_returns', 'zavoz_ukoly_hotovo',
+    'inventory', 'bottling', 'kegging', 'fasovani', 'fasovani_private', 'writeoffs', 'zavoz_deductions', 'akce', 'akce_items', 'keg_prefuk', 'inventory_adjustments',
+  ], () => load(true));
+
+  // Stav skladu ke KONCI vybraného týdne — stejný výpočet jako u odznaku
+  // „chybí skladem" v Objednávkách (lib/tydenniZbytek.ts), ne nový čtvrtý.
+  const zbytek = useMemo(
+    () => zbytekKeKonciTydne(stockRows, weekRange(weekKey).end.toISOString().slice(0, 10)),
+    [stockRows, weekKey]
+  );
 
   // Konto sudů se počítá ze všech pohybů (odvezeno/vráceno) — načítá se zvlášť,
   // ať to nezdržuje hlavní seznam závozu.
@@ -944,8 +979,19 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                                 <div className="mt-3 pt-3 border-t border-amber-200/60 space-y-3">
                                   {groupOrders.map((o: Order) => {
                                     const orderItems = items[o.id] ?? [];
+                                    // Appka ví, co je objednáno a kolik je doopravdy stočeno (skladová
+                                    // kniha), ale dřív to nikde před závozem nesrovnala — jen se
+                                    // ručně odškrtávalo "stočeno" bez ověření. Stejný výpočet jako
+                                    // odznak "chybí skladem" v Objednávkách.
+                                    const schodky = o.is_delivered ? [] : schodkyObjednavky(orderItems, zbytek);
                                     return (
                                       <div key={o.id} className={`p-3 rounded border ${o.is_delivered ? 'bg-emerald-100/50 border-emerald-200' : 'bg-white border-neutral-200'}`}>
+                                        {schodky.length > 0 && (
+                                          <div className="mb-2 flex items-center gap-1.5 text-udaj font-black text-rose-950 bg-rose-100 border border-rose-300 rounded-lg px-2 py-1">
+                                            <AlertTriangle size={13} className="shrink-0" />
+                                            <span>Chybí skladem: {schodky.map((s) => `${s.beer_name} ${s.chybi} ks`).join(', ')}</span>
+                                          </div>
+                                        )}
                                         <div className="flex justify-between items-start">
                                           <div>
                                             <a onClick={() => setPage && setPage('orders', o.id)} className="font-bold text-sm text-neutral-900 hover:underline cursor-pointer">{o.place_name}</a>
