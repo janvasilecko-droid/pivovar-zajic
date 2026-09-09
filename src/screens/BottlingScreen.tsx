@@ -663,14 +663,9 @@ export default function BottlingScreen({
 
     if (payloads.length === 0) { setErr('Vyplň alespoň jeden řádek (obal a množství).'); setSaving(false); return; }
 
-    // `.select('id')` kvůli vrácení zpět níž — viz komentář u něj.
-    const { data: vlozeneRadky, error } = await supabase
-      .from('bottling')
-      .insert(payloads)
-      .select('id');
+    const { error } = await supabase.from('bottling').insert(payloads);
     setSaving(false);
     if (error) { setErr(error.message); return; }
-    const vlozenaIds = ((vlozeneRadky as { id: string }[]) ?? []).map((r) => r.id);
 
     // Auto-označení naplněného úkolu za hotový (pokud se stočilo skutečně vše, co bylo naplánované)
     const fp = filledPlanRef.current;
@@ -694,28 +689,13 @@ export default function BottlingScreen({
       }
     }
 
+    // Bez potvrzovacího „Uloženo… Vrátit zpět" — lahvuje se průběžně a po
+    // každém zápisu by to okno jen zdržovalo. Karta se orámuje (`flash`
+    // níž) a řádek přibude v seznamu pod formulářem; omyl se opraví přímo
+    // tam (úprava množství nebo smazání řádku).
     setEntryRows(emptyRows()); setNote(''); setErr(null);
     setFlash(true); setTimeout(() => setFlash(false), 800);
     load(true);
-
-    // ↩️ Vrátit zpět i po ULOŽENÍ, ne jen po smazání — omylem uložené
-    // lahvování přičte lahve do skladu a odečte sudy, které se „spotřebovaly".
-    //
-    // Maže se přesně to, co se právě vložilo — podle id z `.select('id')`
-    // výš. Dřív se řádek dohledával podle hodnot (datum + pivo + obal +
-    // počet, nejnovější); když ten den lahvovali dva lidé totéž, vrácení
-    // sáhlo na cizí zápis.
-    const kusuCelkem = payloads.reduce((a, p) => a + Number(p.quantity), 0);
-    toastZpet(
-      `Uloženo ${payloads.length} ${payloads.length === 1 ? 'řádek' : 'řádky'} — ${kusuCelkem} ks.`,
-      async () => {
-        if (vlozenaIds.length) {
-          const { error: chybaMazani } = await supabase.from('bottling').delete().in('id', vlozenaIds);
-          if (chybaMazani) throw chybaMazani;
-        }
-        load(true);
-      },
-    );
 
     setShowEndConfirm(true);
   }

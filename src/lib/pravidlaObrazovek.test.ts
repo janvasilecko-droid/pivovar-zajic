@@ -316,9 +316,14 @@ describe('vrácení zpět po uložení', () => {
   // Správně je vzít id z `.insert(...).select('id')` a mazat podle něj.
   // Test hlídá, aby se ten vzorec nevrátil — nesnaží se spustit obrazovku,
   // ale čte, čím se maže, protože právě SLOŽENÍ dotazu byla ta chyba.
+  //
+  // Kegging.tsx a BottlingScreen.tsx tu od 9. 9. 2026 CHYBÍ schválně: na
+  // přání uživatele („neukazuj uloženo a zpět") „Vrátit zpět" po uložení
+  // úplně zmizelo — stáčí se průběžně a to okno jen zdržovalo. `toastZpet`
+  // v nich zůstal jen u MAZÁNÍ řádku (undo podle už známého `id`, ne podle
+  // hodnot), což tuhle past nemá — mazaný řádek se nehledá, už se ví, který
+  // to je. Bod, který test hlídá, se týká jen ProdejnaScreen.tsx.
   const ZAPISOVE_OBRAZOVKY = [
-    'src/screens/Kegging.tsx',
-    'src/screens/BottlingScreen.tsx',
     'src/screens/ProdejnaScreen.tsx',
   ];
 

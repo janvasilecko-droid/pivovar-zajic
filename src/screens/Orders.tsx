@@ -40,6 +40,7 @@ import { PodpisModal } from '../components/PodpisModal';
 import { FotkyZaznamu } from '../components/FotkyZaznamu';
 import { uloz } from '../lib/uloziste';
 import { najdiZdvojene, popisZdvojeni } from '../lib/zdvojenePolozky';
+import { objednavkaJakoText } from '../lib/objednavkaJakoText';
 import { StitekStavu } from '../components/StitekStavu';
 import { STAVY_OBJEDNAVKY, jeVyrizena } from '../lib/stavyObjednavek';
 import { zalogujANahlas } from '../lib/chybyHlaseni';
@@ -3536,6 +3537,25 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
             <label className="flex items-center gap-2 text-sm text-primary-700 cursor-pointer px-3 py-2 rounded hover:bg-primary-50">
               <input type="checkbox" checked={order.is_delivered} onChange={() => onToggleFlag(order, 'is_delivered')} className="w-4 h-4 rounded text-primary-600" /> Závoz
             </label>
+
+            {/* Kopírovat jako text — pro poslání zákazníkovi přes SMS/e-mail,
+                kam appka (na rozdíl od WhatsAppu při zadávání) nemá přímý
+                odkaz. Bez toho se text opisoval ručně z obrazovky. */}
+            <button
+              type="button"
+              onClick={async () => {
+                const text = objednavkaJakoText(order, items);
+                try {
+                  await navigator.clipboard.writeText(text);
+                  oznam('Objednávka zkopírována do schránky.');
+                } catch {
+                  chyba('Kopírování se nepodařilo — prohlížeč ho asi zakázal.');
+                }
+              }}
+              className="flex items-center gap-2 text-sm text-primary-700 px-3 py-2 rounded hover:bg-primary-50 tap"
+            >
+              <Copy size={16} /> Kopírovat jako text
+            </button>
 
             {/* ✍️ Podpis převzetí. V Závozu se podepisovalo už dřív, tady
                 ne — a přitom právě tady se objednávka řeší, když se pak

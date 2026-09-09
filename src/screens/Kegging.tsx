@@ -597,16 +597,8 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
       }
     });
 
-    // `.select('id')` je tu kvůli vrácení zpět níž. Bez něj se id právě
-    // vložených řádků zahodilo a vracení je muselo dohledávat podle hodnot
-    // (datum + pivo + obal + počet, nejnovější) — což při dvou lidech, kteří
-    // týž den stočí totéž, smazalo CIZÍ zápis a vrátilo objem do jiného tanku.
-    const { data: vlozeneRadky, error } = await supabase
-      .from('kegging')
-      .insert(payloads)
-      .select('id');
+    const { error } = await supabase.from('kegging').insert(payloads);
     if (error) { setSaving(false); setErr(error.message); return; }
-    const vlozenaIds = ((vlozeneRadky as { id: string }[]) ?? []).map((r) => r.id);
 
     // Odečti stočený objem z každého dotčeného tanku. RELATIVNĚ přes RPC —
     // dřív se počítala absolutní hodnota z React state, takže když stáčeli
@@ -633,33 +625,13 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     // takže dvojklik stihl uložit zápis dvakrát.
     setSaving(false);
     setEntryRows(emptyRows()); setNote(''); setErr(null);
+    // Bez potvrzovacího „Uloženo… Vrátit zpět" — stáčí se průběžně a po
+    // každém zápisu (klidně desetkrát za směnu) by to okno jen zdržovalo.
+    // Zpětná vazba, že se to uložilo, je tichá: karta se orámuje (`flash`
+    // níž) a řádek přibude v seznamu pod formulářem. Omyl se dá opravit
+    // přímo tam (úprava množství nebo smazání řádku), ne přes toast.
     setFlash(true); setTimeout(() => setFlash(false), 800);
     load(true);
-
-    // ↩️ Vrátit zpět i po ULOŽENÍ, ne jen po smazání. Nebezpečný překlep je
-    // ten, který něco PŘIDÁ: omylem uložené stočení přičte sudy do skladu
-    // A ubere pivo z tanku, a najde se to až u inventury.
-    //
-    // Vrací se OBOJÍ — řádky i objem do tanku, přesně opačně, než se to
-    // právě provedlo (deductByTank). Půlka vrácení by byla horší než žádné.
-    const kusuCelkem = payloads.reduce((a, p) => a + Number(p.quantity), 0);
-    const vraceniTanku = [...deductByTank.entries()];
-    toastZpet(
-      `Uloženo ${payloads.length} ${payloads.length === 1 ? 'řádek' : 'řádky'} — ${kusuCelkem} ks.`,
-      async () => {
-        // Maže se PŘESNĚ to, co se vložilo — podle id z `.select('id')` výš,
-        // jedním dotazem. Dohledávání podle hodnot tu bylo dřív a umělo
-        // sáhnout na cizí řádek se stejným datem, pivem, obalem a počtem.
-        if (vlozenaIds.length) {
-          const { error: chybaMazani } = await supabase.from('kegging').delete().in('id', vlozenaIds);
-          if (chybaMazani) throw chybaMazani;
-        }
-        for (const [tankId, odectenoL] of vraceniTanku) {
-          await adjustTankVolume(tankId, odectenoL);
-        }
-        load(true);
-      },
-    );
 
     setShowEndConfirm(true);
   }
