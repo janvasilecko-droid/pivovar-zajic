@@ -1,4 +1,5 @@
 import { AlertTriangle, Calculator, Calendar, CalendarDays, Check, ClipboardList, MessageCircle, Package as PackageIcon, Pencil, ShoppingCart, Trash2, Undo2 } from 'lucide-react';
+import { BeerTileGrid, BeerTilePanel } from './BeerTileGrid';
 // 🗓️ Plánování stáčení — „Co je potřeba stočit" (pouze admin/sládek/šéf).
 // Zadání úkolu (pivo + lahve až 3 velikosti + KEG sudy + datum), přehled
 // naplánovaných úkolů v týdnu a tabulky potřeby (objednávky týdne vs. sklad
@@ -314,6 +315,31 @@ export function BottlingPlanPlanner({
     [allRows, packages]
   );
 
+  // 🍺 Dlaždice piv nad formulářem — stejný vzor jako „Zbývá stočit tento
+  // týden" v Zápisu (Kegging.tsx/BottlingScreen.tsx), ale na rozdíl od
+  // toho VÝPOČTU (jen objednávky vs. co se stočilo tenhle týden) tady
+  // počítá se SKLADEM a UŽ NAPLÁNOVANÝM (stejná data jako tabulky níže) —
+  // z provozu 9. 9. 2026: „když zadám 50l třeba 12° sv, znamená to, že se
+  // musí i stočit, NEBO musí být na skladě". Klik na dlaždici rozbalí
+  // pivo a u každého obalu (lahve i KEG) jde jedním klepnutím předvyplnit
+  // formulář (+ Úkol = quickAdd, stejná funkce jako v tabulce).
+  const rowsByBeer = useMemo(() => {
+    const m: Record<string, PlanRow[]> = {};
+    allRows.forEach((r) => { (m[r.beer_id] ||= []).push(r); });
+    return m;
+  }, [allRows]);
+  const tileBeers = useMemo(
+    () => beers.filter((b) => (rowsByBeer[b.id]?.length ?? 0) > 0),
+    [beers, rowsByBeer]
+  );
+  const [expandedPlanBeerId, setExpandedPlanBeerId] = useState<string | null>(null);
+  const expandedPlanBeer = beers.find((b) => b.id === expandedPlanBeerId) ?? null;
+  const missingBadgeByBeer = (beerId: string) =>
+    (rowsByBeer[beerId] || [])
+      .filter((r) => r.missing > 0)
+      .map((r) => ({ label: r.package_label.trim(), missing: Math.round(r.missing) }))
+      .sort((a, z) => z.missing - a.missing);
+
   const weekPlans = useMemo(
     () =>
       plans
@@ -540,6 +566,53 @@ export function BottlingPlanPlanner({
           </div>
         </div>
       </div>
+
+      {/* Dlaždice piv — klepnutím rozbalíš, co u kterého obalu chybí
+          (objednáno − sklad − naplánováno) a jedním tlačítkem předvyplníš
+          formulář úkolu níž. */}
+      {tileBeers.length > 0 && (
+        <div className="card p-3.5">
+          <div className="text-xs font-black text-neutral-800 mb-2"><ClipboardList className="ikona-text" /> Klepni na pivo — co chybí naplánovat</div>
+          <BeerTileGrid
+            beers={tileBeers}
+            onSelect={(b) => setExpandedPlanBeerId(b.id)}
+            summaryFor={() => ({ filled: false, label: '' })}
+            missingBadgeFor={(b) => missingBadgeByBeer(b.id)}
+          />
+        </div>
+      )}
+
+      {expandedPlanBeer && (
+        <BeerTilePanel beer={expandedPlanBeer} onClose={() => setExpandedPlanBeerId(null)}>
+          {(rowsByBeer[expandedPlanBeer.id] || []).map((r) => {
+            const isKeg = packages.find((p) => p.id === r.package_id)?.kind === 'keg';
+            return (
+              <div key={r.package_id} className={`rounded border py-1.5 px-2 space-y-1 ${r.missing > 0 ? 'border-red-200 bg-red-50' : 'border-neutral-200'}`}>
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <span className="text-sm font-bold text-neutral-700 flex items-center gap-1.5">
+                    {isKeg ? <IkonaSud className="ikona-text" /> : <IkonaLahev className="ikona-text" />}
+                    {r.package_label}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => { quickAdd(r, isKeg); setExpandedPlanBeerId(null); }}
+                    title={r.missing > 0 ? 'Vytvořit úkol na pokrytí chybějícího množství' : 'Vytvořit úkol (pokrytí objednávek)'}
+                    className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 text-udaj font-black transition tap"
+                  >
+                    + Úkol
+                  </button>
+                </div>
+                <div className="text-udaj font-bold text-neutral-500">
+                  Objednáno: <span className="font-black text-neutral-800">{fmt(r.ordered)}</span>
+                  {' '}· Sklad: <span className="font-black text-sky-700">{fmt(r.stock)}</span>
+                  {r.planned > 0 && <> · Naplánováno: <span className="font-black text-amber-700">{fmt(r.planned)}</span></>}
+                  {' '}· Chybí: <span className={`font-black ${r.missing > 0 ? 'text-red-600' : 'text-emerald-700'}`}>{fmt(r.missing)}</span>
+                </div>
+              </div>
+            );
+          })}
+        </BeerTilePanel>
+      )}
 
       {/* Formulář zadání úkolu */}
       <form onSubmit={handleSubmit} className={`card p-3.5 border-2 border-amber-300/70 transition-all duration-200 ${flash ? 'ring-4 ring-emerald-500/20' : ''}`}>
