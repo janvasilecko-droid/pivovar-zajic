@@ -403,6 +403,24 @@ export default function BottlingScreen({
     return m;
   }, [dennniPlanLahvi]);
 
+  // 🧾 Totéž po KONKRÉTNÍM OBALU (ne jen souhrn za pivo) — a s rozpadem po
+  // dnech, ať se ze dlaždice v Zápisu dá rovnou zadat chybějící počet nebo
+  // odškrtnout „mám nachystáno", bez přepínání na „Co stočit na který den".
+  // Viz stejný vzor v Kegging.tsx.
+  type PlanByKeyAgg = { ordered: number; missing: number; checked: number; days: { day: string; ordered: number; missing: number; checked: number }[] };
+  const planByKey = useMemo(() => {
+    const m: Record<string, PlanByKeyAgg> = {};
+    dennniPlanLahvi.forEach((den) => den.items.forEach((it) => {
+      const k = `${it.beer_id}__${it.package_id}`;
+      const agg = (m[k] ||= { ordered: 0, missing: 0, checked: 0, days: [] });
+      agg.ordered += it.ordered;
+      agg.missing += it.missing;
+      agg.checked += it.checked;
+      agg.days.push({ day: den.day, ordered: it.ordered, missing: it.missing, checked: it.checked });
+    }));
+    return m;
+  }, [dennniPlanLahvi]);
+
   // ✅ Odškrtnutí NEZAPISUJE stáčení — je to pracovní pomůcka. Skutečné
   // stáčení se dál zapisuje v „Zápis". S doloženým stavem se skládá přes MAX,
   // aby se odškrtnutá a poté poctivě zapsaná položka nepočítala dvakrát.
@@ -1117,6 +1135,8 @@ export default function BottlingScreen({
                     // (viz lib/jizUlozeno.ts), a bez tohohle čísla nešlo poznat,
                     // jestli druhá dávka opravdu přidává k první.
                     const jizUlozeno = pkgId && tileBeer ? soucetUlozenehoDnes(rows, date, tileBeer.id, pkgId) : 0;
+                    const plan = pkgId && tileBeer ? planByKey[`${tileBeer.id}__${pkgId}`] : undefined;
+                    const cilovyDen = plan?.days.find((d) => d.missing > 0);
                     return (
                       <div key={slot.key} className="flex items-center justify-between gap-2 rounded border border-neutral-200 dark:border-neutral-700 py-1.5 px-2 flex-wrap">
                         <div className="flex flex-col gap-1 w-28 shrink-0">
@@ -1160,6 +1180,41 @@ export default function BottlingScreen({
                           />
                           <button type="button" onClick={() => bumpTile(slot.qty, 1)} className="btn-pocet !w-11">+</button>
                         </div>
+
+                        {/* 🧾 Objednáno / chybí stočit — stejné číslo jako v
+                            „Co stočit na který den", jen přímo u zadávání.
+                            Ať se dá vidět a hned zapsat (nebo odškrtnout jako
+                            nachystané) bez přeskakování na jinou záložku. */}
+                        {plan && plan.ordered > 0 && (
+                          <div className="w-full flex items-center justify-between gap-2 flex-wrap">
+                            <span className={`text-udaj font-black ${plan.missing > 0 ? 'text-amber-700' : 'text-emerald-700'}`}>
+                              Objednáno {plan.ordered} ks tento týden
+                              {plan.missing > 0 ? ` · chybí stočit ${plan.missing}` : ' · hotovo'}
+                            </span>
+                            {plan.missing > 0 && (
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => setTile(slot.qty, String(plan.missing))}
+                                  className="tap h-7 px-2 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-udaj whitespace-nowrap"
+                                  title="Vyplní pole množství přesně chybějícím počtem"
+                                >
+                                  Zadat chybějících {plan.missing}
+                                </button>
+                                {cilovyDen && (
+                                  <button
+                                    type="button"
+                                    onClick={() => togglePlanCheck(cilovyDen.day, tileBeer!.id, pkgId, cilovyDen.ordered)}
+                                    className="tap h-7 px-2 rounded border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-black text-udaj whitespace-nowrap"
+                                    title="Nezapisuje stáčení — jen pracovní odškrtnutí, že je to nachystané"
+                                  >
+                                    Mám nachystáno
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     );
                   })}

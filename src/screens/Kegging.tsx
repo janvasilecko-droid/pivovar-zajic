@@ -403,6 +403,25 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     return m;
   }, [keggingPlan]);
 
+  // 🧾 Totéž, ale po KONKRÉTNÍM OBALU (ne jen souhrn za pivo) — a s rozpadem
+  // po dnech, ať se z dlaždice dá rovnou zadat chybějící počet nebo odškrtnout
+  // „mám nachystáno", bez přepínání na záložku „Co stočit na který den".
+  // Z provozu 9. 9. 2026: „musím furt přeskakovat mezi Potřeby stáčení a
+  // Zápisem stáčení" — tohle byl dřív poslední krok, který se dělal jinde.
+  type PlanByKeyAgg = { ordered: number; missing: number; checked: number; days: { day: string; ordered: number; missing: number; checked: number }[] };
+  const planByKey = useMemo(() => {
+    const m: Record<string, PlanByKeyAgg> = {};
+    keggingPlan.forEach((den) => den.items.forEach((it) => {
+      const k = `${it.beer_id}__${it.package_id}`;
+      const agg = (m[k] ||= { ordered: 0, missing: 0, checked: 0, days: [] });
+      agg.ordered += it.ordered;
+      agg.missing += it.missing;
+      agg.checked += it.checked;
+      agg.days.push({ day: den.day, ordered: it.ordered, missing: it.missing, checked: it.checked });
+    }));
+    return m;
+  }, [keggingPlan]);
+
   // „Naplnit do zápisu" — sudová část úkolu se předepíše do prvního řádku
   // a ostatní se vyprázdní, ať je zápis vždycky jen o jednom úkolu.
   function naplnZUkolu(plan: BottlingPlan) {
@@ -1084,6 +1103,8 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                 const currentTankId = entryRows.find((r) => r.beerId === expandedKegBeer.id && r.pkgId === p.id)?.tankId || '';
                 const quickQtys = QUICK_KEG_QTY;
                 const jizUlozeno = jizUlozenoDnes(expandedKegBeer.id, p.id);
+                const plan = planByKey[`${expandedKegBeer.id}__${p.id}`];
+                const cilovyDen = plan?.days.find((d) => d.missing > 0);
                 return (
                   <div key={p.id} className="rounded border border-neutral-200 dark:border-neutral-700 py-1.5 px-2 space-y-1.5">
                     <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -1123,6 +1144,41 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                         <button type="button" onClick={() => setTileRow(expandedKegBeer.id, p.id, { qty: String(qty + 5) })} className="w-11 h-11 grid place-items-center rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-950 font-black text-sm transition select-none">+5</button>
                       </div>
                     </div>
+
+                    {/* 🧾 Objednáno / chybí stočit — stejné číslo jako v „Co
+                        stočit na který den", jen přímo u zadávání. Ať se dá
+                        vidět a hned zapsat (nebo odškrtnout jako nachystané)
+                        bez přeskakování na jinou záložku. */}
+                    {plan && plan.ordered > 0 && (
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <span className={`text-udaj font-black ${plan.missing > 0 ? 'text-amber-700' : 'text-emerald-700'}`}>
+                          Objednáno {plan.ordered} ks tento týden
+                          {plan.missing > 0 ? ` · chybí stočit ${plan.missing}` : ' · hotovo'}
+                        </span>
+                        {plan.missing > 0 && (
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setTileRow(expandedKegBeer.id, p.id, { qty: String(plan.missing) })}
+                              className="tap h-7 px-2 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-udaj whitespace-nowrap"
+                              title="Vyplní pole množství přesně chybějícím počtem"
+                            >
+                              Zadat chybějících {plan.missing}
+                            </button>
+                            {cilovyDen && (
+                              <button
+                                type="button"
+                                onClick={() => togglePlanCheck(cilovyDen.day, expandedKegBeer.id, p.id, cilovyDen.ordered)}
+                                className="tap h-7 px-2 rounded border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-black text-udaj whitespace-nowrap"
+                                title="Nezapisuje stáčení — jen pracovní odškrtnutí, že je to nachystané"
+                              >
+                                Mám nachystáno
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
                     {qty > 0 && rowTanks.length > 1 && (
                       <div>
                         <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-100 border border-amber-300 text-amber-900 text-udaj font-black whitespace-nowrap"><AlertTriangle className="ikona-text" /> {rowTanks.length} aktivní tanky — vyber</span>
