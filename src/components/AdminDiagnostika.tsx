@@ -15,7 +15,7 @@
  * takže tenhle stav je normální provoz, ne porucha.
  */
 import { useEffect, useState } from 'react';
-import { AlertTriangle, Check, Database, RefreshCw } from 'lucide-react';
+import { AlertTriangle, Check, Database, ExternalLink, RefreshCw } from 'lucide-react';
 // `fetchAllRows` se tu ZÁMĚRNĚ nepoužívá: oba dotazy mají malý pevný rozsah
 // (posledních 50 chyb, seznam migrací) a přehled diagnostiky nemá stahovat
 // desetitisíce řádků. Stránkování patří tam, kde se čtou VŠECHNY řádky.
@@ -33,6 +33,7 @@ import { oznam, potvrd } from '../lib/toast';
 import { litry } from '../lib/cisla';
 import { IkonaSud } from './ikony';
 import { rozdelChyby, shrnutiChyb, jeZeStarsiVerze } from '../lib/chybyPrehled';
+import { nactiPosledniBehNasazeni, vyhodnotBeh, type BehNasazeni } from '../lib/nasazeniStav';
 import { APP_VERSION } from '../lib/version';
 
 type ChybaRadek = {
@@ -52,6 +53,53 @@ function cas(iso: string | null): string {
 }
 
 /** 🐞 Poslední chyby aplikace. */
+/** 🚦 Poslední automatické nasazení — appka to sama nikde neřekne, GitHub issue z toho vidí jen ten, kdo tam chodí. */
+function NasazeniBlok() {
+  const [beh, setBeh] = useState<BehNasazeni | null>(null);
+  const [nacteno, setNacteno] = useState(false);
+
+  useEffect(() => {
+    let zruseno = false;
+    void nactiPosledniBehNasazeni().then((b) => { if (!zruseno) { setBeh(b); setNacteno(true); } });
+    return () => { zruseno = true; };
+  }, []);
+
+  const vysledek = vyhodnotBeh(beh);
+  // Dokud se nenačte nebo GitHub není dostupný, appka mlčí — bonusový
+  // údaj nesmí strašit poplašnou hláškou jen kvůli výpadku sítě.
+  if (!nacteno || vysledek === 'neznamo' || vysledek === 'v-poradku' || !beh) return null;
+
+  return (
+    <div className="mt-5">
+      <div className="flex items-center gap-2">
+        <AlertTriangle className="ikona-text text-rose-600" />
+        <span className="text-xs font-black uppercase tracking-wider text-neutral-700">Automatické nasazení</span>
+      </div>
+      {vysledek === 'bezi' ? (
+        <p className="text-xs text-neutral-600 mt-2">
+          <RefreshCw size={12} className="inline animate-spin -mt-0.5 mr-1" /> Právě probíhá nasazení poslední změny — appka se za pár minut sama aktualizuje.
+        </p>
+      ) : (
+        <div className="mt-2 rounded-xl border border-rose-300 bg-rose-50 p-2.5">
+          <p className="text-xs font-bold text-rose-950">
+            Poslední pokus o nasazení ({cas(beh.created_at)}) se nepovedl. Appka na produkci
+            je pořád ta z předchozího úspěšného nasazení — nic se nerozbilo, jen se nedostala
+            ven poslední změna.
+          </p>
+          <a
+            href={beh.html_url}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-2 inline-flex items-center gap-1.5 text-xs font-black text-rose-800 underline"
+          >
+            Zobrazit podrobnosti na GitHubu <ExternalLink size={12} />
+          </a>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ChybyBlok() {
   const [radky, setRadky] = useState<ChybaRadek[]>([]);
   const [stav, setStav] = useState<'nacitam' | 'ok' | 'bez-tabulky' | 'chyba'>('nacitam');
@@ -496,6 +544,7 @@ export default function AdminDiagnostika() {
         Chyby aplikace, stav databázových migrací a nedokončené odečty z tanků — tři věci,
         které se dřív nedaly zjistit jinak než tím, že něco nefungovalo.
       </p>
+      <NasazeniBlok />
       <ChybyBlok />
       <MigraceBlok />
       <TankFrontaBlok />
