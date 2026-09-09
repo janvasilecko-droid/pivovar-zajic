@@ -5,7 +5,7 @@ import { EmptyState, Spinner, Modal } from '../components/ui';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
 import { AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, Brush, CalendarDays, Camera, Check, CheckCircle2, ClipboardList, Lightbulb, ListChecks, Megaphone, Minus, Package as PackageIcon, PenLine, Pencil, Play, Plus, RefreshCw, Sparkles, Trash2, Wine, X } from 'lucide-react';
 import { useAuth } from '../lib/auth';
-import { BottlingPlan, getPlanSeenAt, markPlanSeenAt, isPlanUnseen, isBottlingManager, setPlanStatus } from '../lib/bottlingPlans';
+import { BottlingPlan, getPlanSeenAt, markPlanSeenAt, isPlanUnseen, isBottlingManager, setPlanStatus, saveBottlingPlan, deleteBottlingPlan } from '../lib/bottlingPlans';
 import { BottlingPlanPlanner } from '../components/BottlingPlanPlanner';
 import { BottlingPlanBottler } from '../components/BottlingPlanBottler';
 import { isLastWeekOfMonth, getMonthKey, writeMonthlyCleanupStage, isMonthlyLineDone, markMonthlyLineDone } from '../lib/monthlyCleanup';
@@ -19,7 +19,7 @@ import { BeerTileGrid, BeerTilePanel } from '../components/BeerTileGrid';
 import { stackingQuickQtys } from '../lib/quickQty';
 import { navrhSudu } from '../lib/bottlingYield';
 import { synchronizuj } from '../lib/checklistData';
-import { computePackageNeeds } from '../lib/packageNeeds';
+import { computePackageNeeds, PackageNeedsRow } from '../lib/packageNeeds';
 import { computeKeggingPlan, mergeWeekPlan, rozpadPoObalech, BEZ_TERMINU } from '../lib/keggingPlan';
 import KeggingDayPlan from '../components/KeggingDayPlan';
 import { chyba, potvrd, toastZpet } from '../lib/toast';
@@ -555,6 +555,57 @@ export default function BottlingScreen({
       { ordered: 0, stock: 0, needed: 0, neededLiters: 0 }
     );
   }, [filteredRequirements]);
+
+  // 🍾 Dlaždice piv přímo v „Potřeba stočit lahve" — uživatel: „nevidím to
+  // [dlaždice s úkoly], dej to do potřeby stáčení". `bottleRequirements` už
+  // je přesně ten výpočet, co počítá se skladem a naplánovaným (ne jen s
+  // objednávkami jako lib/keggingPlan.ts) — je to STEJNÁ data, ze kterých
+  // se skládá tabulka „Lahve k dotočení" níž, jen přerovnaná po pivech.
+  const reqByBeer = useMemo(() => {
+    const m: Record<string, typeof bottleRequirements> = {};
+    bottleRequirements.forEach((r) => { (m[r.beer_id] ||= []).push(r); });
+    return m;
+  }, [bottleRequirements]);
+  const reqTileBeers = useMemo(
+    () => beers.filter((b) => (reqByBeer[b.id]?.length ?? 0) > 0),
+    [beers, reqByBeer]
+  );
+  const [expandedNeedsBeerId, setExpandedNeedsBeerId] = useState<string | null>(null);
+  const expandedNeedsBeer = beers.find((b) => b.id === expandedNeedsBeerId) ?? null;
+  const [creatingTaskFor, setCreatingTaskFor] = useState<string | null>(null);
+  const needsMissingBadge = (beerId: string) =>
+    (reqByBeer[beerId] || [])
+      .filter((r) => r.neededQty > 0)
+      .map((r) => ({ label: r.package_label.trim(), missing: Math.round(r.neededQty) }))
+      .sort((a, z) => z.missing - a.missing);
+
+  // Založí úkol napřímo (bez formuláře) — tahle záložka jen ukazuje potřebu,
+  // formulář s datem/poznámkou je v „Zadat stáčení". Chce se to ale zadat
+  // OKAMŽITĚ z jednoho klepnutí, ne přeskočením na jinou záložku. Datum =
+  // dnešek, dá se pak upravit/smazat v „Zadat stáčení" → „Úkoly v tomto týdnu".
+  async function vytvorUkolNaPrimo(row: PackageNeedsRow) {
+    setCreatingTaskFor(row.package_id);
+    const qty = row.neededQty > 0 ? Math.round(row.neededQty) : Math.round(row.orderedQty);
+    const { data, error } = await saveBottlingPlan({
+      beer_id: row.beer_id,
+      keg_pkg_id: null, keg_qty: 0,
+      pkg_id: row.package_id, qty,
+      pkg2_id: null, qty2: 0,
+      pkg3_id: null, qty3: 0,
+      planned_date: new Date().toISOString().slice(0, 10),
+    });
+    setCreatingTaskFor(null);
+    if (error) { chyba('Úkol se nepodařilo založit: ' + error.message); return; }
+    zavibruj('hotovo');
+    load(true);
+    if (data) {
+      toastZpet(`Úkol založen: ${row.beer_name} ${row.package_label} × ${qty}`, async () => {
+        const { error: chybaMazani } = await deleteBottlingPlan(data.id);
+        if (chybaMazani) throw chybaMazani;
+        load(true);
+      });
+    }
+  }
 
   // Souhrn zapisovaných řádků
   const rowsSummary = useMemo(() => {
@@ -2023,6 +2074,51 @@ export default function BottlingScreen({
       {/* TAB 3: POTŘEBA STOČIT LAHVE */}
       {tab === 'potreba' && (
         <div className="space-y-4">
+          {/* 🍾 Dlaždice piv — klepnutím rozbalíš, co u kterého obalu chybí
+              (objednáno − sklad − naplánováno), a manager může úkol založit
+              jedním klepnutím, přímo tady. */}
+          {reqTileBeers.length > 0 && (
+            <div className="card p-3.5 bg-white border border-neutral-200 rounded">
+              <div className="text-xs font-black text-neutral-800 mb-2"><ListChecks className="ikona-text" /> Klepni na pivo — co chybí stočit</div>
+              <BeerTileGrid
+                beers={reqTileBeers}
+                onSelect={(b) => setExpandedNeedsBeerId(b.id)}
+                summaryFor={() => ({ filled: false, label: '' })}
+                missingBadgeFor={(b) => needsMissingBadge(b.id)}
+              />
+            </div>
+          )}
+
+          {expandedNeedsBeer && (
+            <BeerTilePanel beer={expandedNeedsBeer} onClose={() => setExpandedNeedsBeerId(null)}>
+              {(reqByBeer[expandedNeedsBeer.id] || []).map((r) => (
+                <div key={r.package_id} className={`rounded border py-1.5 px-2 space-y-1 ${r.neededQty > 0 ? 'border-red-200 bg-red-50' : 'border-neutral-200'}`}>
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <span className="text-sm font-bold text-neutral-700 flex items-center gap-1.5">
+                      <IkonaLahev className="ikona-text" /> {r.package_label}
+                    </span>
+                    {isManager && (
+                      <button
+                        type="button"
+                        disabled={creatingTaskFor === r.package_id}
+                        onClick={() => vytvorUkolNaPrimo(r)}
+                        title="Založí úkol na dnešek — datum a poznámku lze upravit v záložce Zadat stáčení"
+                        className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-neutral-950 text-udaj font-black transition tap"
+                      >
+                        {creatingTaskFor === r.package_id ? 'Ukládám…' : '+ Úkol'}
+                      </button>
+                    )}
+                  </div>
+                  <div className="text-udaj font-bold text-neutral-500">
+                    Objednáno: <span className="font-black text-neutral-800">{Math.round(r.orderedQty)}</span>
+                    {' '}· Sklad: <span className="font-black text-sky-700">{Math.round(r.stockQty)}</span>
+                    {' '}· Chybí: <span className={`font-black ${r.neededQty > 0 ? 'text-red-600' : 'text-emerald-700'}`}>{Math.round(r.neededQty)}</span>
+                  </div>
+                </div>
+              ))}
+            </BeerTilePanel>
+          )}
+
           {/* Tabule po dnech — stejná jako u sudů. Odpovídá na „co stočit
               dnes", ne jen „kolik chybí za celý týden". */}
           <KeggingDayPlan

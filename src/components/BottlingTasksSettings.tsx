@@ -22,6 +22,7 @@ import {
   planLines,
 } from '../lib/bottlingPlans';
 import { Modal } from './ui';
+import { BeerTileGrid } from './BeerTileGrid';
 import { AlertTriangle, Calendar, Check, ChevronLeft, ChevronRight, ClipboardList, Lightbulb, MessageCircle, Package as PackageIcon, Pencil, ShoppingCart, Trash2, Undo2 } from 'lucide-react';
 import { chyba, potvrd } from '../lib/toast';
 import { IkonaLahev, IkonaSud } from '../components/ikony';
@@ -178,6 +179,27 @@ export function BottlingTasksSettings() {
   const bottleRows = useMemo(() => needs.filter((r) => !isKegPkg(r.package_id)), [needs, packages]);
   const kegRows = useMemo(() => needs.filter((r) => isKegPkg(r.package_id)), [needs, packages]);
 
+  // 🍺 Dlaždice piv nad přehledem — uživatel: „obdobně připrav i úkoly ke
+  // stočení, ať vidím dlaždici, na ní bude u každýho piva jaký konkrétní
+  // obal kolikrát má být stočen, já to rozkliknu a můžu úkolovat stáčení
+  // lahví podle toho a stáčení kegu". Na rozdíl od bottleRows/kegRows výš
+  // (rozdělené podle druhu, pro dvě SAMOSTATNÉ tabulky) je tohle seskupení
+  // přes VŠECHNY řádky najednou (lahve i KEG spolu) — jedna dlaždice na
+  // pivo. Klik otevře stejné menu „Stočit" jako tlačítko v tabulce.
+  const skupinyVse = useMemo(() => seskupPodlePiva(needs), [needs]);
+  const tileBeers = useMemo(
+    () => skupinyVse.map((s) => beers.find((b) => b.id === s.beerId)).filter((b): b is Beer => !!b),
+    [skupinyVse, beers]
+  );
+  const needsMissingBadge = (beerId: string) => {
+    const s = skupinyVse.find((x) => x.beerId === beerId);
+    if (!s) return [];
+    return s.radky
+      .filter((r) => r.missing > 0)
+      .map((r) => ({ label: r.package_label.trim(), missing: Math.round(r.missing) }))
+      .sort((a, z) => z.missing - a.missing);
+  };
+
   const sum = (list: NeedsRow[], f: (r: NeedsRow) => number) => list.reduce((a, r) => a + f(r), 0);
 
   const totals = {
@@ -224,38 +246,33 @@ export function BottlingTasksSettings() {
    * takže nemá smysl nutit uživatele otevírat menu čtyřikrát. Formulář má
    * místo na 3 velikosti lahví, doplní se v pořadí, jak moc které chybí
    * (řádky sem chodí už seřazené — viz computeBottlingNeeds).
+   *
+   * Řádky mohou být lahvové i sudové NAMÍCHANÉ (dlaždice nahoře volá se
+   * VŠÍM za pivo najednou, viz tileBeers) — proto se tady vždycky rozdělí
+   * na lahvovou a sudovou část zvlášť, ne podle druhu prvního řádku. Dřív
+   * (jen pro bottleRows/kegRows samostatně) by to nevadilo, ale se
+   * smíšeným vstupem by první řádek (třeba lahev) umlčel sudovou potřebu
+   * úplně — zmizela by z formuláře beze stopy.
    */
   function openStocitGroup(rows: NeedsRow[]) {
     if (rows.length === 0) return;
     setEditPlan(null);
     setErr(null);
-    const isKeg = isKegPkg(rows[0].package_id);
     const suggest = (r: NeedsRow) => (r.missing > 0 ? r.missing : r.ordered);
-
-    if (isKeg) {
-      // KEG formulář má jen jedno pole — doplní se ten nejnaléhavější.
-      const row = rows[0];
-      const suggested = suggest(row);
-      setForm({
-        plannedDate: todayStr,
-        beerId: row.beer_id,
-        kegPkgId: row.package_id,
-        kegQty: suggested > 0 ? String(suggested) : '',
-        pkgId: '', qty: '', pkg2Id: '', qty2: '', pkg3Id: '', qty3: '',
-        note: '',
-      });
-    } else {
-      const [r1, r2, r3] = rows;
-      setForm({
-        plannedDate: todayStr,
-        beerId: rows[0].beer_id,
-        kegPkgId: '', kegQty: '',
-        pkgId: r1?.package_id ?? '', qty: r1 && suggest(r1) > 0 ? String(suggest(r1)) : '',
-        pkg2Id: r2?.package_id ?? '', qty2: r2 && suggest(r2) > 0 ? String(suggest(r2)) : '',
-        pkg3Id: r3?.package_id ?? '', qty3: r3 && suggest(r3) > 0 ? String(suggest(r3)) : '',
-        note: '',
-      });
-    }
+    const bottleRowsGroup = rows.filter((r) => !isKegPkg(r.package_id));
+    const kegRowsGroup = rows.filter((r) => isKegPkg(r.package_id));
+    const [r1, r2, r3] = bottleRowsGroup;
+    const kegRow = kegRowsGroup[0];
+    setForm({
+      plannedDate: todayStr,
+      beerId: rows[0].beer_id,
+      kegPkgId: kegRow?.package_id ?? '',
+      kegQty: kegRow && suggest(kegRow) > 0 ? String(suggest(kegRow)) : '',
+      pkgId: r1?.package_id ?? '', qty: r1 && suggest(r1) > 0 ? String(suggest(r1)) : '',
+      pkg2Id: r2?.package_id ?? '', qty2: r2 && suggest(r2) > 0 ? String(suggest(r2)) : '',
+      pkg3Id: r3?.package_id ?? '', qty3: r3 && suggest(r3) > 0 ? String(suggest(r3)) : '',
+      note: '',
+    });
     setModalOpen(true);
   }
 
@@ -566,6 +583,23 @@ export function BottlingTasksSettings() {
       </p>
 
       {msg && <div className="mt-3 p-3 rounded bg-emerald-100 text-emerald-900 font-bold text-xs border border-emerald-300">{msg}</div>}
+
+      {/* 🍺 Dlaždice piv — klepnutím rovnou otevřeš „Stočit" pro celé pivo
+          (lahve i KEG najednou), s návrhem doplněným podle toho, co chybí. */}
+      {tileBeers.length > 0 && (
+        <div className="mt-3 sm:mt-4">
+          <div className="text-xs font-black text-neutral-800 mb-2"><IkonaLahev className="ikona-text" /> Klepni na pivo — stočit</div>
+          <BeerTileGrid
+            beers={tileBeers}
+            onSelect={(b) => {
+              const s = skupinyVse.find((x) => x.beerId === b.id);
+              if (s) openStocitGroup(s.radky);
+            }}
+            summaryFor={() => ({ filled: false, label: '' })}
+            missingBadgeFor={(b) => needsMissingBadge(b.id)}
+          />
+        </div>
+      )}
 
       {/* Souhrn */}
       <div className="mt-3 sm:mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
