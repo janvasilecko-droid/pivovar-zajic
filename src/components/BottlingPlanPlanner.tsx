@@ -1,4 +1,4 @@
-import { AlertTriangle, Calculator, Calendar, CalendarDays, Check, ClipboardList, MessageCircle, Package as PackageIcon, Pencil, ShoppingCart, Trash2, Undo2 } from 'lucide-react';
+import { AlertTriangle, Calculator, Calendar, CalendarDays, Check, ClipboardList, MessageCircle, Minus, Package as PackageIcon, Pencil, Plus, ShoppingCart, Trash2, Undo2 } from 'lucide-react';
 import { BeerTileGrid, BeerTilePanel } from './BeerTileGrid';
 // 🗓️ Plánování stáčení — „Co je potřeba stočit" (pouze admin/sládek/šéf).
 // Zadání úkolu (pivo + lahve až 3 velikosti + KEG sudy + datum), přehled
@@ -352,6 +352,15 @@ export function BottlingPlanPlanner({
     setForm((f) => ({ ...f, [field]: value }));
   }
 
+  // +/- vedle "ks" — stejný vzor jako btn-pocet jinde v appce (viz stejná
+  // funkce v BottlingTasksSettings.tsx).
+  function bumpQty(field: 'qty' | 'qty2' | 'qty3' | 'kegQty', delta: number) {
+    setForm((f) => {
+      const next = Math.max(0, Number(f[field] || 0) + delta);
+      return { ...f, [field]: next === 0 ? '' : String(next) };
+    });
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.beerId) {
@@ -385,8 +394,22 @@ export function BottlingPlanPlanner({
         const { error } = await updateBottlingPlan(editingId, input);
         if (error) throw error;
       } else {
-        const { error } = await saveBottlingPlan(input);
-        if (error) throw error;
+        // 🍺🛢️ Lahve a KEG v jednom úkolu se uloží jako DVA samostatné
+        // záznamy — stejná úvaha jako v BottlingTasksSettings.tsx: "KEG
+        // sudy" v kombinovaném zápisu by se v BottlingScreen.tsx při
+        // „Naplnit" vyložilo jako zdrojový sud PRO TYHLE lahve (kegs_used),
+        // zatímco skutečně jde o nezávislou potřebu nastáčet sudy zvlášť.
+        const maLahve = !!(input.pkg_id || input.pkg2_id || input.pkg3_id);
+        const maKeg = !!input.keg_pkg_id;
+        if (maLahve && maKeg) {
+          const { error: e1 } = await saveBottlingPlan({ ...input, keg_pkg_id: null, keg_qty: 0 });
+          if (e1) throw e1;
+          const { error: e2 } = await saveBottlingPlan({ ...input, pkg_id: null, qty: 0, pkg2_id: null, qty2: 0, pkg3_id: null, qty3: 0 });
+          if (e2) throw e2;
+        } else {
+          const { error } = await saveBottlingPlan(input);
+          if (error) throw error;
+        }
       }
       setEditingId(null);
       setForm(emptyForm());
@@ -665,9 +688,13 @@ export function BottlingPlanPlanner({
                   ))}
                 </select>
               </div>
-              <div className="w-24">
+              <div>
                 <label className="label">ks</label>
-                <input type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} min={0} className="input text-right" value={form[qtyField]} onChange={(e) => setField(qtyField, e.target.value)} placeholder="0" />
+                <div className="flex items-stretch gap-1">
+                  <button type="button" onClick={() => bumpQty(qtyField, -1)} className="btn-pocet !min-h-[44px]" aria-label={`Ubrat ${l}`}><Minus size={16} /></button>
+                  <input type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} min={0} className="input w-14 text-center px-1" value={form[qtyField]} onChange={(e) => setField(qtyField, e.target.value)} placeholder="0" />
+                  <button type="button" onClick={() => bumpQty(qtyField, 1)} className="btn-pocet !min-h-[44px]" aria-label={`Přidat ${l}`}><Plus size={16} /></button>
+                </div>
               </div>
             </div>
           ))}
@@ -682,9 +709,13 @@ export function BottlingPlanPlanner({
               ))}
             </select>
           </div>
-          <div className="w-24">
+          <div>
             <label className="label">ks</label>
-            <input type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} min={0} className="input text-right" value={form.kegQty} onChange={(e) => setField('kegQty', e.target.value)} placeholder="0" />
+            <div className="flex items-stretch gap-1">
+              <button type="button" onClick={() => bumpQty('kegQty', -1)} className="btn-pocet !min-h-[44px]" aria-label="Ubrat KEG sud"><Minus size={16} /></button>
+              <input type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} min={0} className="input w-14 text-center px-1" value={form.kegQty} onChange={(e) => setField('kegQty', e.target.value)} placeholder="0" />
+              <button type="button" onClick={() => bumpQty('kegQty', 1)} className="btn-pocet !min-h-[44px]" aria-label="Přidat KEG sud"><Plus size={16} /></button>
+            </div>
           </div>
         </div>
         {err && <p className="text-udaj font-black text-rose-700 mt-2">{err}</p>}

@@ -23,7 +23,7 @@ import {
 } from '../lib/bottlingPlans';
 import { Modal } from './ui';
 import { BeerTileGrid } from './BeerTileGrid';
-import { AlertTriangle, Calendar, Check, ChevronLeft, ChevronRight, ClipboardList, Lightbulb, MessageCircle, Package as PackageIcon, Pencil, ShoppingCart, Trash2, Undo2 } from 'lucide-react';
+import { AlertTriangle, Calendar, Check, ChevronLeft, ChevronRight, ClipboardList, Lightbulb, MessageCircle, Minus, Package as PackageIcon, Pencil, Plus, ShoppingCart, Trash2, Undo2 } from 'lucide-react';
 import { chyba, potvrd } from '../lib/toast';
 import { IkonaLahev, IkonaSud } from '../components/ikony';
 import { requestOrdersItemFilter } from '../lib/ordersFilter';
@@ -314,6 +314,15 @@ export function BottlingTasksSettings({ setPage }: Props = {}) {
     setForm((f) => ({ ...f, [field]: value }));
   }
 
+  // +/- vedle "ks" — uživatel: "těch ks dávej tam + a -, ať můžu i přidávat
+  // sudy timhle". Stejný vzor jako btn-pocet jinde v appce.
+  function bumpQty(field: 'qty' | 'qty2' | 'qty3' | 'kegQty', delta: number) {
+    setForm((f) => {
+      const next = Math.max(0, Number(f[field] || 0) + delta);
+      return { ...f, [field]: next === 0 ? '' : String(next) };
+    });
+  }
+
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (!form.beerId) {
@@ -347,10 +356,40 @@ export function BottlingTasksSettings({ setPage }: Props = {}) {
     }
     setSaving(true);
     try {
-      const { error } = editPlan
-        ? await updateBottlingPlan(editPlan.id, input)
-        : await saveBottlingPlan(input);
-      if (error) throw error;
+      if (editPlan) {
+        const { error } = await updateBottlingPlan(editPlan.id, input);
+        if (error) throw error;
+      } else {
+        // 🍺🛢️ Lahve a KEG v JEDNOM úkolu se uloží jako DVA samostatné
+        // záznamy, ne jeden se všemi poli najednou.
+        //
+        // "KEG sudy" v jednom společném zápisu (kegPkgId/kegQty) totiž
+        // v BottlingScreen.tsx při „Naplnit" znamená „kolik sudů se
+        // SPOTŘEBOVALO jako zdroj na tyhle lahve" (sloupec kegs_used —
+        // stáčeč pak vidí předvyplněný zdrojový sud a počet, jako recept
+        // na přelití). Kegging.tsx ale stejné pole čte jako „kolik sudů
+        // se má NASTÁČET" (nová výroba). Dlaždice teď umí navrhnout obojí
+        // najednou (chybí 2× KEG 50l NEZÁVISLE na chybějících 2× 1l lahvích)
+        // — kdyby se to uložilo jako jeden úkol, stáčeč lahví by dostal
+        // návrh „spotřebuj 100 l ze sudů na 2 litrové lahve", což nedává
+        // smysl a je to jiná potřeba než nastáčet ty samé 2 sudy zvlášť.
+        const maLahve = !!(input.pkg_id || input.pkg2_id || input.pkg3_id);
+        const maKeg = !!input.keg_pkg_id;
+        if (maLahve && maKeg) {
+          const lahvovy: BottlingPlanInput = { ...input, keg_pkg_id: null, keg_qty: 0 };
+          const kegovy: BottlingPlanInput = {
+            ...input,
+            pkg_id: null, qty: 0, pkg2_id: null, qty2: 0, pkg3_id: null, qty3: 0,
+          };
+          const { error: e1 } = await saveBottlingPlan(lahvovy);
+          if (e1) throw e1;
+          const { error: e2 } = await saveBottlingPlan(kegovy);
+          if (e2) throw e2;
+        } else {
+          const { error } = await saveBottlingPlan(input);
+          if (error) throw error;
+        }
+      }
       setModalOpen(false);
       setEditPlan(null);
       setFlash(true);
@@ -772,9 +811,13 @@ export function BottlingTasksSettings({ setPage }: Props = {}) {
                     ))}
                   </select>
                 </div>
-                <div className="w-24">
+                <div>
                   <label className="label">ks</label>
-                  <input type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} min={0} className="input text-right" value={form[qtyField]} onChange={(e) => setField(qtyField, e.target.value)} placeholder="0" />
+                  <div className="flex items-stretch gap-1">
+                    <button type="button" onClick={() => bumpQty(qtyField, -1)} className="btn-pocet !min-h-[44px]" aria-label={`Ubrat ${label}`}><Minus size={16} /></button>
+                    <input type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} min={0} className="input w-14 text-center px-1" value={form[qtyField]} onChange={(e) => setField(qtyField, e.target.value)} placeholder="0" />
+                    <button type="button" onClick={() => bumpQty(qtyField, 1)} className="btn-pocet !min-h-[44px]" aria-label={`Přidat ${label}`}><Plus size={16} /></button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -790,9 +833,13 @@ export function BottlingTasksSettings({ setPage }: Props = {}) {
                 ))}
               </select>
             </div>
-            <div className="w-24">
+            <div>
               <label className="label">ks</label>
-              <input type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} min={0} className="input text-right" value={form.kegQty} onChange={(e) => setField('kegQty', e.target.value)} placeholder="0" />
+              <div className="flex items-stretch gap-1">
+                <button type="button" onClick={() => bumpQty('kegQty', -1)} className="btn-pocet !min-h-[44px]" aria-label="Ubrat KEG sud"><Minus size={16} /></button>
+                <input type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} min={0} className="input w-14 text-center px-1" value={form.kegQty} onChange={(e) => setField('kegQty', e.target.value)} placeholder="0" />
+                <button type="button" onClick={() => bumpQty('kegQty', 1)} className="btn-pocet !min-h-[44px]" aria-label="Přidat KEG sud"><Plus size={16} /></button>
+              </div>
             </div>
           </div>
 
