@@ -1,5 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AlertTriangle, Plus, Search, ShoppingBag } from 'lucide-react';
+import { supabase, useRealtime } from '../lib/supabase';
+import { chyba } from '../lib/toast';
+import { Kostra } from './ui';
 
 type MerchItem = {
   id: string;
@@ -8,22 +11,27 @@ type MerchItem = {
   stockQty: number;
   minAlertQty: number;
   unitCostKic: number;
-  sellPriceKic?: number;
+  sellPriceKic?: number | null;
 };
 
-const DEFAULT_MERCH: MerchItem[] = [
-  { id: 'm1', name: 'Zajíc Značkové sklo 0.5L (Cejchovaný cejch)', category: 'sklo', stockQty: 240, minAlertQty: 50, unitCostKic: 45, sellPriceKic: 95 },
-  { id: 'm2', name: 'Zajíc Značkové sklo 0.3L', category: 'sklo', stockQty: 180, minAlertQty: 40, unitCostKic: 38, sellPriceKic: 85 },
-  { id: 'm3', name: 'Papírové pivní tácky Zajíc (Karton 1000ks)', category: 'tacky', stockQty: 12, minAlertQty: 3, unitCostKic: 450, sellPriceKic: 0 },
-  { id: 'm4', name: 'Pivovarské tričko Zajíc (Černé L/XL)', category: 'obleceni', stockQty: 28, minAlertQty: 10, unitCostKic: 180, sellPriceKic: 390 },
-  { id: 'm5', name: 'Kovový otvírák na lahve Zajíc (S magnetem)', category: 'doplnky', stockQty: 150, minAlertQty: 30, unitCostKic: 22, sellPriceKic: 59 },
-  { id: 'm6', name: 'Plechová reklamní cedule 40x30cm', category: 'reklama', stockQty: 8, minAlertQty: 5, unitCostKic: 150, sellPriceKic: 350 },
-];
+function zRadku(r: any): MerchItem {
+  return {
+    id: r.id,
+    name: r.name,
+    category: r.category,
+    stockQty: Number(r.stock_qty) || 0,
+    minAlertQty: Number(r.min_alert_qty) || 0,
+    unitCostKic: Number(r.unit_cost_kic) || 0,
+    sellPriceKic: r.sell_price_kic != null ? Number(r.sell_price_kic) : null,
+  };
+}
 
 export function MarketingMerchInventory() {
-  const [items, setItems] = useState<MerchItem[]>(DEFAULT_MERCH);
+  const [items, setItems] = useState<MerchItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [ukladaId, setUkladaId] = useState<string | null>(null);
 
   // Add form
   const [name, setName] = useState('');
@@ -32,31 +40,59 @@ export function MarketingMerchInventory() {
   const [unitCostKic, setUnitCostKic] = useState('40');
   const [sellPriceKic, setSellPriceKic] = useState('90');
 
-  function updateQty(id: string, delta: number) {
-    setItems((prev) =>
-      prev.map((i) => (i.id === id ? { ...i, stockQty: Math.max(0, i.stockQty + delta) } : i))
-    );
+  async function load() {
+    const { data, error } = await supabase.from('merch_items').select('*').order('name');
+    if (!error) setItems(((data as any[]) ?? []).map(zRadku));
+    setLoading(false);
+  }
+  useEffect(() => { load(); }, []);
+  useRealtime(['merch_items'], load);
+
+  async function updateQty(id: string, delta: number) {
+    const polozka = items.find((i) => i.id === id);
+    if (!polozka) return;
+    const novaQty = Math.max(0, polozka.stockQty + delta);
+    // Optimisticky hned na obrazovce — realtime pak dorovná i ostatní zařízení.
+    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, stockQty: novaQty } : i)));
+    setUkladaId(id);
+    try {
+      const { error } = await supabase.from('merch_items')
+        .update({ stock_qty: novaQty, updated_at: new Date().toISOString() })
+        .eq('id', id);
+      if (error) throw error;
+    } catch (e) {
+      chyba(e);
+      void load();
+    } finally {
+      setUkladaId(null);
+    }
   }
 
-  function addMerch() {
+  async function addMerch() {
     if (!name.trim()) return;
-    const newItem: MerchItem = {
-      id: `m_${Date.now()}`,
-      name,
-      category,
-      stockQty: Number(stockQty) || 0,
-      minAlertQty: 10,
-      unitCostKic: Number(unitCostKic) || 0,
-      sellPriceKic: Number(sellPriceKic) || 0,
-    };
-    setItems((prev) => [newItem, ...prev]);
-    setShowAddModal(false);
-    setName('');
+    try {
+      const { error } = await supabase.from('merch_items').insert({
+        name: name.trim(),
+        category,
+        stock_qty: Number(stockQty) || 0,
+        min_alert_qty: 10,
+        unit_cost_kic: Number(unitCostKic) || 0,
+        sell_price_kic: Number(sellPriceKic) || 0,
+      });
+      if (error) throw error;
+      setShowAddModal(false);
+      setName('');
+      void load();
+    } catch (e) {
+      chyba(e);
+    }
   }
 
   const filtered = items.filter(
     (i) => i.name.toLowerCase().includes(query.toLowerCase()) || i.category.includes(query.toLowerCase())
   );
+
+  if (loading) return <Kostra />;
 
   return (
     <div className="space-y-6">
@@ -98,6 +134,11 @@ export function MarketingMerchInventory() {
       </div>
 
       {/* Grid */}
+      {filtered.length === 0 ? (
+        <div className="card p-8 text-center text-sm text-neutral-500">
+          {items.length === 0 ? 'Zatím žádné položky merche — přidej první tlačítkem nahoře.' : 'Nic nenalezeno.'}
+        </div>
+      ) : (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {filtered.map((item) => (
           <div key={item.id} className="card p-5 bg-white border border-neutral-200 rounded space-y-3 shadow-xs hover:shadow-md transition flex flex-col justify-between">
@@ -127,16 +168,16 @@ export function MarketingMerchInventory() {
             <div className="pt-3 border-t border-neutral-100 flex items-center justify-between">
               <span className="text-udaj font-bold text-neutral-400">Rychlá úprava:</span>
               <div className="flex gap-1">
-                <button onClick={() => updateQty(item.id, -5)} className="px-2.5 py-1 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-800 font-black text-xs tap">
+                <button disabled={ukladaId === item.id} onClick={() => updateQty(item.id, -5)} className="px-2.5 py-1 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-800 font-black text-xs tap disabled:opacity-40">
                   -5
                 </button>
-                <button onClick={() => updateQty(item.id, -1)} className="px-2.5 py-1 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-800 font-black text-xs tap">
+                <button disabled={ukladaId === item.id} onClick={() => updateQty(item.id, -1)} className="px-2.5 py-1 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-800 font-black text-xs tap disabled:opacity-40">
                   -1
                 </button>
-                <button onClick={() => updateQty(item.id, 1)} className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs tap">
+                <button disabled={ukladaId === item.id} onClick={() => updateQty(item.id, 1)} className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs tap disabled:opacity-40">
                   +1
                 </button>
-                <button onClick={() => updateQty(item.id, 10)} className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs tap">
+                <button disabled={ukladaId === item.id} onClick={() => updateQty(item.id, 10)} className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs tap disabled:opacity-40">
                   +10
                 </button>
               </div>
@@ -144,6 +185,7 @@ export function MarketingMerchInventory() {
           </div>
         ))}
       </div>
+      )}
 
       {/* Add Modal */}
       {showAddModal && (

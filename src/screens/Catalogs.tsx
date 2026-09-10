@@ -312,8 +312,10 @@ export function PlacesScreen() {
       } else {
         setRows((data as Place[]) ?? []);
       }
+    } else {
+      setRows([]);
     }
-    setRows((data as Place[]) ?? []); setLoading(false);
+    setLoading(false);
   }
   useEffect(() => { load(); }, []);
   useRealtime(['places'], load);
@@ -844,21 +846,26 @@ export function VehiclesScreen() {
     if (!smiZapsat()) return;
     let vehicleList = (data as Vehicle[]) ?? [];
 
-    // Pokud je databáze prázdná, předvytvořit 2 výchozí pivovarská auta: "Velké auto" a "Kachna"
+    // Pokud je databáze prázdná, předvytvořit 2 výchozí pivovarská auta:
+    // "Velké auto" a "Kachna" — appka je pod těmito jmény zná i jinde
+    // (Závoz rozlišuje jízdy "🦆 Kačena"), jen SPZ a termíny STK/známky se
+    // NEVYMÝŠLÍ (byly to fiktivní datumy, které mohly vypadat jako
+    // skutečná blížící se revize — nalezeno 10. 9. 2026,
+    // docs/50-navrhu-2026-09-10-treti.md, bod 7) — ty ať doplní člověk.
     if (vehicleList.length === 0) {
       const defaultVehicles = [
         {
           name: 'Velké auto',
-          spz: '5H1 2345',
-          stk_valid_until: '2026-08-25',
-          highway_toll_valid_until: '2026-12-31',
+          spz: '',
+          stk_valid_until: null,
+          highway_toll_valid_until: null,
           note: 'Velký rozvozový nákladní vůz pro sudové pivo',
         },
         {
           name: 'Kachna',
-          spz: '3H8 9876',
-          stk_valid_until: '2026-08-10',
-          highway_toll_valid_until: '2026-09-01',
+          spz: '',
+          stk_valid_until: null,
+          highway_toll_valid_until: null,
           note: 'Dodávka Kachna pro rychlé závozy lahví a kegů',
         },
       ];

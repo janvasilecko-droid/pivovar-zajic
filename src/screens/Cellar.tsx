@@ -108,21 +108,29 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
     // Zajištění existence Spilka 1–3 a Ležácké Tanky 1–8
     const existingLabels = new Set(tankList.map((x) => x.label));
     const newTanksToInsert = [];
-    const beerList = (b.data as Beer[]) ?? [];
 
     // 1. Spilka 1-3 (kvasné tanky - kapacita 8000 l)
+    //
+    // Samotná existence Spilka 1–3 / Tank 1–8 je reálný fyzický layout
+    // sklepa, ne výmysl — appka na tyhle konkrétní nádoby (jejich objemy
+    // a čísla) odkazuje na spoustě dalších míst. Fiktivní ale bylo, ČÍM
+    // appka nově vytvořené tanky rovnou naplnila: náhodně přiřazené pivo,
+    // vymyšlený objem a datum začátku stáčení — tank, který ve
+    // skutečnosti nikdy nikdo nezaložil, tak vypadal jako aktivně
+    // vystočený. Nalezeno 10. 9. 2026
+    // (docs/50-navrhu-2026-09-10-treti.md, bod 7) — nové tanky se teď
+    // zakládají prázdné a nepoužité, ať appka netvrdí nic, co neví.
     for (let s = 1; s <= 3; s++) {
       const label = `Spilka ${s}`;
       if (!existingLabels.has(label)) {
-        const assignedBeer = beerList[(s - 1) % Math.max(beerList.length, 1)];
         newTanksToInsert.push({
           label,
           capacity_l: 8000,
-          current_volume_l: s === 1 ? 6000 : 0,
-          status: s === 1 ? 'active' : 'empty',
-          current_beer_id: s === 1 && assignedBeer ? assignedBeer.id : null,
-          current_beer_name: s === 1 && assignedBeer ? assignedBeer.name : null,
-          started_at: s === 1 ? new Date(Date.now() - 3 * 86400000).toISOString() : null,
+          current_volume_l: 0,
+          status: 'empty',
+          current_beer_id: null,
+          current_beer_name: null,
+          started_at: null,
           initial_volume_l: 8000,
         });
       }
@@ -132,16 +140,15 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
     for (let i = 1; i <= 8; i++) {
       const label = `Tank ${i}`;
       if (!existingLabels.has(label)) {
-        const assignedBeer = beerList[(i - 1) % Math.max(beerList.length, 1)];
         const initialVol = 7500;
         newTanksToInsert.push({
           label,
           capacity_l: initialVol,
-          current_volume_l: i <= 5 ? Math.round(initialVol * (0.4 + (i * 0.12))) : 0,
-          status: i <= 3 ? 'active' : i === 4 ? 'filling' : i === 5 ? 'emptying' : 'empty',
-          current_beer_id: i <= 5 && assignedBeer ? assignedBeer.id : null,
-          current_beer_name: i <= 5 && assignedBeer ? assignedBeer.name : null,
-          started_at: i <= 5 ? new Date(Date.now() - i * 86400000 * 5).toISOString() : null,
+          current_volume_l: 0,
+          status: 'empty',
+          current_beer_id: null,
+          current_beer_name: null,
+          started_at: null,
           initial_volume_l: initialVol,
         });
       }

@@ -467,6 +467,19 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
         fetchPendingWhatsAppCount().then(setPendingWhatsAppCount).catch(() => {});
       }, 300);
     };
+
+    // 🐢 Sražené volání triggerAutoParse — víc zpráv dorazí typicky ve
+    // shluku (zákazník napíše 3 řádky za sebou) a bez zpoždění by každá
+    // zvlášť zavolala edge funkci na KAŽDÉM otevřeném zařízení zvlášť.
+    // Limit funkce je 5 volání/60 s na uživatele (whatsapp-auto-parse) —
+    // to appka v provozu opakovaně narazila na „Příliš mnoho požadavků"
+    // (viz app_errors, 9. 9. 2026). Jedno sražené volání za shluk stačí:
+    // claim_pending_whatsapp_messages beztak bere všechny čekající najednou.
+    let autoParseTimer: ReturnType<typeof setTimeout> | undefined;
+    const triggerAutoParseDebounced = () => {
+      clearTimeout(autoParseTimer);
+      autoParseTimer = setTimeout(() => { triggerAutoParse().catch(() => {}); }, 1500);
+    };
     refreshPendingCount();
     try {
       unsubscribe = subscribeToWhatsAppMessages((message: WhatsAppIncoming) => {
@@ -480,7 +493,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
         // uložená zpráva je potenciální objednávka. Necháme ji rozparsovat a
         // notifikaci pošleme až ve stavu 'parsed'.
         if (message.status === 'pending' || message.status === 'processing') {
-          triggerAutoParse().catch(() => {});
+          triggerAutoParseDebounced();
           return;
         }
 
@@ -530,7 +543,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
     } catch (error) {
       zalogujANahlas('Chyba při připojení k WhatsApp notifikacím', error);
     }
-    return () => { if (unsubscribe) unsubscribe(); clearTimeout(countTimer); };
+    return () => { if (unsubscribe) unsubscribe(); clearTimeout(countTimer); clearTimeout(autoParseTimer); };
   }, []);
 
   // Offline queue + connectivity

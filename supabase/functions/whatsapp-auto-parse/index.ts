@@ -357,9 +357,13 @@ Deno.serve(async (req: Request) => {
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
+    // Limit zvednut z 5 na 15/60s (10. 9. 2026) — volání sráží klient
+    // (Layout.tsx, triggerAutoParseDebounced), ale bucket je sdílený mezi
+    // víc otevřenými zařízeními stejného uživatele; 5 při shluku zpráv
+    // opakovaně padalo na "Příliš mnoho požadavků" (app_errors, 9. 9. 2026).
     const auth = await requireApprovedUser(req, supabase, corsHeaders, {
       bucket: "whatsapp-auto-parse",
-      limit: 5,
+      limit: 15,
       windowSeconds: 60,
     });
     if (!auth.ok) return auth.response;

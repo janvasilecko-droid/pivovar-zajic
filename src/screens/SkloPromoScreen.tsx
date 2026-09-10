@@ -97,13 +97,11 @@ function normalizeBottleLabel(label: string): string | null {
 export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => void }) {
   const [activeTab, setActiveTab] = useState<'sklo' | 'etikety' | 'lahve'>('sklo');
 
-  // Sklo & Promo entries
-  const [entries, setEntries] = useState<PromoEntry[]>(() => {
-    try {
-      const saved = localStorage.getItem('sklo_promo_entries');
-      return saved ? JSON.parse(saved) : [];
-    } catch { return []; }
-  });
+  // Sklo & Promo entries — sdílené přes Supabase (tabulka sklo_promo_entries).
+  // Dřív žily jen v localStorage tohohle telefonu, stejná chyba jako u
+  // nákupů lahví/etiket (viz prevedEntryZTelefonu níž).
+  const [entries, setEntries] = useState<PromoEntry[]>([]);
+  const prevodEntriesBezi = useRef(false);
 
   // Label purchases (sdílené přes Supabase — vidí je všechna zařízení stejně)
   const [labelPurchases, setLabelPurchases] = useState<LabelPurchase[]>([]);
@@ -157,13 +155,14 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
 
   async function loadData(tiche = false) {
     if (!tiche) setLoading(true);
-    const [pRes, bRes, pkgRes, botRes, lpRes, onRes] = await Promise.all([
+    const [pRes, bRes, pkgRes, botRes, lpRes, onRes, speRes] = await Promise.all([
       supabase.from('places').select('*').order('name'),
       supabase.from('beers').select('*').eq('is_active', true).order('name'),
       supabase.from('packages').select('*').order('kind'),
       fetchAllRows('bottling', 'beer_name, package_label, quantity, entry_date, package_id'),
       supabase.from('label_purchases').select('id, beer_name, entry_date, quantity, note').order('entry_date', { ascending: false }),
       supabase.from('obal_nakupy').select('id, package_label, entry_date, quantity, note').order('entry_date', { ascending: false }),
+      supabase.from('sklo_promo_entries').select('id, entry_type, entry_date, category, item_name, quantity, destination, note').order('entry_date', { ascending: false }),
     ]);
 
     const loadedBeers = (bRes.data as Beer[]) ?? [];
@@ -181,6 +180,13 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
     }));
     setBottlePurchases(nakupyZDb);
     if (!onRes.error) void prevedNakupyZTelefonu();
+    if (!speRes.error) {
+      setEntries(((speRes.data as any[]) ?? []).map((r) => ({
+        id: r.id, entry_type: r.entry_type, entry_date: r.entry_date, category: r.category,
+        item_name: r.item_name, quantity: Number(r.quantity), destination: r.destination ?? undefined, note: r.note ?? undefined,
+      })));
+      void prevedEntryZTelefonu();
+    }
 
     if (loadedBeers.length > 0 && !labelBeerName) {
       setLabelBeerName(loadedBeers[0].name);
@@ -195,11 +201,48 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
   // „když kliknu odečíst, vrací mě to vždycky nahoru." Vlastní zápis stránku
   // srovná kotvou (lib/drzPozici.ts), jenže 400 ms po něm dorazí realtime
   // událost o tomtéž zápisu a celou práci zahodí.
-  useRealtime(['places', 'beers', 'packages', 'bottling', 'label_purchases', 'obal_nakupy'], () => loadData(true));
+  useRealtime(['places', 'beers', 'packages', 'bottling', 'label_purchases', 'obal_nakupy', 'sklo_promo_entries'], () => loadData(true));
 
-  function saveEntries(newEntries: PromoEntry[]) {
-    setEntries(newEntries);
-    uloz('sklo_promo_entries', JSON.stringify(newEntries));
+  /**
+   * Jednorázový převod starých zápisů skla/promo z localStorage tohohle
+   * telefonu do databáze — stejný vzor jako prevedNakupyZTelefonu výš.
+   */
+  async function prevedEntryZTelefonu() {
+    if (prevodEntriesBezi.current) return;
+    const KLIC = 'sklo_promo_entries_prevedeno';
+    let stare: PromoEntry[] = [];
+    try {
+      if (localStorage.getItem(KLIC)) return;
+      stare = JSON.parse(localStorage.getItem('sklo_promo_entries') ?? '[]');
+    } catch { return; }
+    if (!Array.isArray(stare) || stare.length === 0) {
+      try { uloz(KLIC, new Date().toISOString()); } catch { /* zamčené úložiště */ }
+      return;
+    }
+    prevodEntriesBezi.current = true;
+    const { error } = await supabase.from('sklo_promo_entries').insert(stare.map((e) => ({
+      entry_type: e.entry_type, entry_date: e.entry_date, category: e.category,
+      item_name: e.item_name, quantity: Number(e.quantity) || 0,
+      destination: e.destination ?? null, note: e.note ?? null, zdroj: 'prevod-z-telefonu',
+    })));
+    if (error) { prevodEntriesBezi.current = false; return; }
+    try { uloz(KLIC, new Date().toISOString()); } catch { /* zamčené úložiště */ }
+    oznam(`Přeneseno ${stare.length} starších zápisů skla/promo z tohoto telefonu do databáze — teď je vidí i ostatní.`);
+    await loadData(true);
+    prevodEntriesBezi.current = false;
+  }
+
+  async function saveEntry(newEntry: PromoEntry) {
+    setEntries((prev) => [newEntry, ...prev]);
+    // id se posílá stejné jako v optimistickém stavu — jinak by okamžité
+    // smazání ještě před doražením realtime/reloadu mířilo na neexistující id.
+    const { error } = await supabase.from('sklo_promo_entries').insert({
+      id: newEntry.id,
+      entry_type: newEntry.entry_type, entry_date: newEntry.entry_date, category: newEntry.category,
+      item_name: newEntry.item_name, quantity: newEntry.quantity,
+      destination: newEntry.destination ?? null, note: newEntry.note ?? null, zdroj: 'obrazovka',
+    });
+    if (error) { chyba(error); void loadData(true); }
   }
 
   /**
@@ -351,7 +394,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
       id: crypto.randomUUID(), entry_type: 'in', entry_date: inDate, category: inCategory,
       item_name: finalName, quantity: qty, destination: 'Sklad Kynšperk (Příjem)', note: inNote.trim() || undefined,
     };
-    saveEntries([newE, ...entries]);
+    void saveEntry(newE);
     setInQty(''); setInNote('');
     oznam(`Zapsán příjem ${qty} ks (${finalName}) na sklad!`);
   }
@@ -367,14 +410,16 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
       id: crypto.randomUUID(), entry_type: 'out', entry_date: outDate, category: outCategory,
       item_name: outItemName, quantity: qty, destination: dest, note: outNote.trim() || undefined,
     };
-    saveEntries([newE, ...entries]);
+    void saveEntry(newE);
     setOutQty(''); setOutNote('');
     oznam(`Zapsán výdej ${qty} ks (${outItemName}) pro ${dest}!`);
   }
 
   async function handleDeletePromo(id: string) {
     if (!(await potvrd('Smazat tento záznam?'))) return;
-    saveEntries(entries.filter((e) => e.id !== id));
+    setEntries((prev) => prev.filter((e) => e.id !== id));
+    const { error } = await supabase.from('sklo_promo_entries').delete().eq('id', id);
+    if (error) { chyba(error); void loadData(true); }
   }
 
   // Handlers for Etikety (Supabase — sdílené mezi zařízeními)
