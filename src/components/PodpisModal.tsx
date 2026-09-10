@@ -5,6 +5,7 @@ import {
   pridejBod, novyTah, jePodpisPrazdny, podpisJeMocVelky, prepocitejNaPlochu,
   type Tah,
 } from '../lib/podpis';
+import { FotkyZaznamu } from './FotkyZaznamu';
 
 /**
  * ✍️ Podpis převzetí prstem na displeji.
@@ -16,7 +17,7 @@ import {
  * Prázdný podpis se neuloží: tečka jako doklad o převzetí je horší než
  * nemít nic.
  */
-export function PodpisModal({ open, onClose, nazev, predvolenyPodpis, onUlozit }: {
+export function PodpisModal({ open, onClose, nazev, predvolenyPodpis, onUlozit, objednavkaId }: {
   open: boolean;
   onClose: () => void;
   /** Komu se veze — ať je na plátně vidět, u čeho se podepisuje. */
@@ -24,6 +25,14 @@ export function PodpisModal({ open, onClose, nazev, predvolenyPodpis, onUlozit }
   /** Předvyplněné jméno toho, kdo přebírá (typicky jméno odběratele). */
   predvolenyPodpis?: string;
   onUlozit: (podpis: { png: string; prevzal: string; sirka: number; vyska: number }) => Promise<void> | void;
+  /**
+   * Když je vyplněné, nabídne se vedle podpisu i „Vyfotit doklad/vratku" —
+   * pro případ, že zákazník nemůže/nechce podepsat na displeji (viz
+   * docs/30-navrhu-2026-09-10.md, bod 26). Fotka se ukládá rovnou k
+   * objednávce (stejně jako fotky poškozeného zboží v detailu objednávky),
+   * nezávisle na podpisu — obojí jde použít i dohromady.
+   */
+  objednavkaId?: string;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const tahyRef = useRef<Tah[]>([]);
@@ -196,6 +205,15 @@ export function PodpisModal({ open, onClose, nazev, predvolenyPodpis, onUlozit }
         {chyba && (
           <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-sm font-semibold">
             {chyba}
+          </div>
+        )}
+
+        {objednavkaId && (
+          <div className="pt-1 border-t border-neutral-200">
+            <p className="text-xs text-neutral-500 font-semibold mb-1.5">
+              Zákazník nemůže/nechce podepsat? Vyfoť místo toho doklad nebo vratku:
+            </p>
+            <FotkyZaznamu typ="objednavka" zaznamId={objednavkaId} kompaktni />
           </div>
         )}
 

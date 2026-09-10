@@ -1352,6 +1352,37 @@ export async function savePlaceAlias(aliasText: string, placeId: string, correct
   } catch {}
 }
 
+export type PlaceAliasRow = {
+  id: string;
+  wrong_name: string;
+  correct_name: string | null;
+  place_id: string | null;
+  hit_count: number | null;
+  updated_at: string | null;
+};
+
+/**
+ * Přehled naučených aliasů odběratelů pro admina (Nastavení) — aby šlo
+ * vidět, co všechno appka „umí", a špatný alias smazat bez zásahu do
+ * databáze. Viz docs/30-navrhu-2026-09-10.md, bod 4.
+ */
+export async function fetchPlaceAliasesForAdmin(): Promise<PlaceAliasRow[]> {
+  const { supabase } = await import('./supabase');
+  const { data, error } = await supabase
+    .from('place_aliases')
+    .select('id, wrong_name, correct_name, place_id, hit_count, updated_at')
+    .order('updated_at', { ascending: false });
+  if (error) throw error;
+  return data ?? [];
+}
+
+/** Smaže jeden naučený alias (omylem naučené/špatné přiřazení). */
+export async function deletePlaceAlias(id: string): Promise<void> {
+  const { supabase } = await import('./supabase');
+  const { error } = await supabase.from('place_aliases').delete().eq('id', id);
+  if (error) throw error;
+}
+
 // Načtení naučených aliasů pro místa (špatný název → placeId)
 export async function loadPlaceAliasMap(): Promise<Map<string, string>> {
   const map = new Map<string, string>();

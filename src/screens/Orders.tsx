@@ -19,7 +19,8 @@ import { VoiceRecorder } from '../components/VoiceRecorder';
 import { orderQuickQtys } from '../components/QuickQtySelect';
 import { BeerTileGrid, BeerTilePanel } from '../components/BeerTileGrid';
 import { topQuantitiesLastMonth } from '../lib/quickQty';
-import { parseVoiceOrder, parseOrderText, detectOrderNotes, loadAliasMap, loadPlaceAliasMap, emptyAliasMap, getOrCreatePlace, matchBeerFromHints, matchPackage, normalize, type ParserAliasMap } from '../lib/orderParser';
+import { parseVoiceOrder, parseOrderText, detectOrderNotes, loadAliasMap, loadPlaceAliasMap, emptyAliasMap, getOrCreatePlace, matchBeerFromHints, matchPackage, normalize, savePlaceAlias, type ParserAliasMap } from '../lib/orderParser';
+import { parseWhatsAppOrderMessageWithAI } from '../lib/whatsappParser';
 import { slozNavrh } from '../lib/whatsappAmendment';
 
 import { shareOrderToWhatsApp } from '../lib/whatsapp';
@@ -3662,7 +3663,16 @@ function OrderDetail({ order, items, beers, packages, places, priceList, remaini
           </div>
         </div>
 
-        {order.whatsapp_message_id && <WhatsAppOriginalBlock messageId={order.whatsapp_message_id} />}
+        {order.whatsapp_message_id && (
+          <WhatsAppOriginalBlock
+            messageId={order.whatsapp_message_id}
+            orderId={order.place_id ? null : order.id}
+            beers={beers}
+            packages={packages}
+            places={places}
+            onPlaceFound={onChanged}
+          />
+        )}
 
         {items.length === 0 ? <p className="text-sm text-primary-400">Žádné položky.</p> : (
           <>
@@ -3939,11 +3949,54 @@ function formatWATime(iso?: string): string {
   }
 }
 
-function WhatsAppOriginalBlock({ messageId }: { messageId: string }) {
+function WhatsAppOriginalBlock({ messageId, orderId, beers, packages, places, onPlaceFound }: {
+  messageId: string;
+  /** Vyplněné, jen když objednávka nemá odběratele (place_id je null) — nabídne tlačítko na nové rozpoznání. */
+  orderId: string | null;
+  beers: Beer[]; packages: Package[]; places: Place[];
+  onPlaceFound?: () => void;
+}) {
   const [msg, setMsg] = useState<WhatsAppIncoming | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState(true);
+  // 🔎 Ruční „zkusit znovu najít odběratele" — stejný postup, jaký se dřív
+  // dělal ručně přes SQL (Vildštejn, Tomáš od Marušky, 10. 9. 2026): znovu
+  // zavolá AI parsování zprávy a nabídne nalezené jméno, i pro staré
+  // objednávky, které skončily jako "Neznámý odběratel" ještě před opravou
+  // promptu (docs/30-navrhu-2026-09-10.md, bod 3).
+  const [hledani, setHledani] = useState<'idle' | 'probiha' | 'nenalezeno' | 'chyba'>('idle');
+  const [hledaniChyba, setHledaniChyba] = useState<string | null>(null);
+
+  async function zkusNajitOdberatele() {
+    if (!msg || !orderId) return;
+    setHledani('probiha');
+    setHledaniChyba(null);
+    try {
+      const vysledek = await parseWhatsAppOrderMessageWithAI(
+        msg.message_text, beers, packages, places, msg.sender_name, msg.message_timestamp,
+      );
+      const jmeno = vysledek.placeName?.trim();
+      if (!jmeno) {
+        setHledani('nenalezeno');
+        return;
+      }
+      let placeId = vysledek.placeId;
+      let resolvedName = jmeno;
+      if (!placeId) {
+        const misto = await getOrCreatePlace(jmeno, places);
+        if (misto) { placeId = misto.id; resolvedName = misto.name; }
+      }
+      if (!placeId) { setHledani('nenalezeno'); return; }
+      await supabase.from('orders').update({ place_id: placeId, place_name: resolvedName }).eq('id', orderId);
+      await savePlaceAlias(jmeno, placeId, resolvedName).catch(() => {});
+      setHledani('idle');
+      onPlaceFound?.();
+    } catch (e) {
+      setHledani('chyba');
+      setHledaniChyba((e as Error).message ?? 'neznámá chyba');
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -4008,6 +4061,24 @@ function WhatsAppOriginalBlock({ messageId }: { messageId: string }) {
                 <a href={msg.media_url} target="_blank" rel="noreferrer" className="inline-block">
                   <img src={msg.media_url} alt="Příloha WhatsApp objednávky" loading="lazy" decoding="async" className="max-h-44 rounded-xl border border-neutral-200" />
                 </a>
+              )}
+              {orderId && (
+                <div className="pt-1">
+                  <button
+                    type="button"
+                    disabled={hledani === 'probiha'}
+                    onClick={() => { void zkusNajitOdberatele(); }}
+                    className="btn-ghost !rounded text-xs !py-1.5 border border-emerald-300 text-emerald-800 disabled:opacity-50"
+                  >
+                    {hledani === 'probiha' ? 'Hledám v textu zprávy…' : 'Zkusit znovu najít odběratele v téhle zprávě'}
+                  </button>
+                  {hledani === 'nenalezeno' && (
+                    <p className="text-xs text-amber-700 font-semibold mt-1">Ani teď se v textu žádné jméno odběratele nenašlo — doplň ho ručně výše.</p>
+                  )}
+                  {hledani === 'chyba' && (
+                    <p className="text-xs text-rose-600 font-semibold mt-1">Nepodařilo se: {hledaniChyba}</p>
+                  )}
+                </div>
               )}
             </>
           )}

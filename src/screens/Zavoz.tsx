@@ -1376,6 +1376,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
           onClose={() => setSignOrder(null)}
           nazev={signOrder.place_name || 'Objednávka'}
           predvolenyPodpis={signOrder.place_name || ''}
+          objednavkaId={signOrder.id}
           onUlozit={async ({ png, prevzal }) => {
             const { error } = await supabase.from('orders').update({
               signature_url: png,

@@ -15,12 +15,14 @@ import { canUserView, getUserPermissions, PAGE_TO_MODULE } from '../lib/permissi
 import { Theme, getTheme, setTheme } from '../lib/theme';
 import { getNotificationPermission, requestNotificationPermission, getNotificationSettings, saveNotificationSettings, NotificationSettings } from '../lib/notifications';
 import { jePrihlasen, jePushPodporovan, odhlasPush, prihlasPush, stavPushu, VAPID_KLIC } from '../lib/pushOdber';
+import { authenticatedFunctionHeaders } from '../lib/functionAuth';
 import { APP_VERSION, APP_VERSION_DATE } from '../lib/version';
 import { APP_CHANGELOG } from '../lib/changelog';
 import { forceRefresh } from '../lib/versionCheck';
 import { isAdminEmail } from '../lib/config';
 import { fetchWhatsAppSenders, addWhatsAppSender, removeWhatsAppSender, type WhatsAppSender } from '../lib/whatsappApi';
-import { oznam } from '../lib/toast';
+import { fetchPlaceAliasesForAdmin, deletePlaceAlias, type PlaceAliasRow } from '../lib/orderParser';
+import { oznam, uspech, chyba as toastChyba } from '../lib/toast';
 import { uloz, smaz } from '../lib/uloziste';
 
 interface BeforeInstallPromptEvent extends Event {
@@ -36,6 +38,8 @@ export default function AppSettingsScreen() {
   const [theme, setThemeState] = useState<Theme>(getTheme());
   const [notifPermission, setNotifPermission] = useState(getNotificationPermission());
   const [notifSettings, setNotifSettings] = useState<NotificationSettings>(getNotificationSettings());
+  const [placeAliases, setPlaceAliases] = useState<PlaceAliasRow[]>([]);
+  const [placeAliasesLoading, setPlaceAliasesLoading] = useState(true);
 
   // 🔔 Push i se zavřenou aplikací — odběr tohohle zařízení.
   const [pushPrihlasen, setPushPrihlasen] = useState(false);
@@ -50,6 +54,34 @@ export default function AppSettingsScreen() {
     if (problem) setPushChyba(problem);
     setPushPrihlasen(await jePrihlasen());
     setPushPracuje(false);
+  }
+
+  // 🔔 Zkušební push — appka si sama ověří, že server umí notifikace poslat
+  // (VAPID klíče jsou v Supabase secrets), místo aby se to zjistilo až
+  // tichým 503 při první skutečné objednávce.
+  const [testPushPracuje, setTestPushPracuje] = useState(false);
+  async function posliZkusebniPush() {
+    setTestPushPracuje(true);
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const resp = await fetch(`${supabaseUrl}/functions/v1/posli-push`, {
+        method: 'POST',
+        headers: await authenticatedFunctionHeaders(),
+        body: JSON.stringify({ titulek: 'Zkušební upozornění', telo: 'Funguje — tohle je testovací push z Nastavení.', tag: 'zkusebni-push' }),
+      });
+      const telo = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        toastChyba(telo?.error || `Push se nepodařilo odeslat (HTTP ${resp.status}).`);
+      } else if (!telo?.odeslano) {
+        oznam('Odesláno na server, ale žádné zařízení není přihlášené k odběru.');
+      } else {
+        uspech(`Odesláno na ${telo.odeslano} zařízení.`);
+      }
+    } catch (e) {
+      toastChyba(e);
+    } finally {
+      setTestPushPracuje(false);
+    }
   }
   const [showMenuCustomize, setShowMenuCustomize] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
@@ -193,6 +225,21 @@ export default function AppSettingsScreen() {
 
   const userPerms = getUserPermissions(user?.id ?? '', (profile as any)?.permissions);
   const isAdmin = profile?.role === 'admin' || isAdminEmail(user?.email);
+
+  useEffect(() => {
+    if (!isAdmin) { setPlaceAliasesLoading(false); return; }
+    setPlaceAliasesLoading(true);
+    fetchPlaceAliasesForAdmin().then(setPlaceAliases).catch(() => {}).finally(() => setPlaceAliasesLoading(false));
+  }, [isAdmin]);
+
+  async function handleDeletePlaceAlias(id: string) {
+    try {
+      await deletePlaceAlias(id);
+      setPlaceAliases((rows) => rows.filter((r) => r.id !== id));
+    } catch (e) {
+      toastChyba(e);
+    }
+  }
 
   const permittedNav = NAV.filter((n) => {
     if (n.id === 'users') return isAdmin;
@@ -406,6 +453,16 @@ export default function AppSettingsScreen() {
                 <p className="text-xs text-neutral-500">
                   Platí pro tenhle telefon. Zapnout se to musí na každém zařízení zvlášť.
                 </p>
+                {pushPrihlasen && (
+                  <button
+                    type="button"
+                    disabled={testPushPracuje}
+                    onClick={() => { void posliZkusebniPush(); }}
+                    className="tap text-xs font-bold text-primary-700 underline disabled:opacity-40"
+                  >
+                    {testPushPracuje ? 'Posílám…' : 'Odeslat zkušební upozornění'}
+                  </button>
+                )}
               </div>
             );
           })()}
@@ -566,6 +623,45 @@ export default function AppSettingsScreen() {
         {senderErr && <div className="mt-2 p-2 rounded bg-rose-50 text-rose-700 text-xs font-bold border border-rose-200">{senderErr}</div>}
         {senderMsg && <div className="mt-2 p-2 rounded bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200">{senderMsg}</div>}
       </div>
+
+      {/* 🧠 Naučení odběratelé — přehled aliasů z omylů AI/OCR, opravovaných
+          ručně (viz docs/30-navrhu-2026-09-10.md, bod 4). Jen pro admina:
+          smazání špatného aliasu bez SQL. */}
+      {isAdmin && (
+        <div className="card p-6">
+          <h2 className="font-display font-bold text-lg flex items-center gap-2"><Sparkles size={18} /> Naučení odběratelé</h2>
+          <p className="text-sm text-neutral-600 mt-2">
+            Když se ručně opraví špatně rozpoznaný odběratel, appka si zapamatuje
+            „tenhle text = tenhle odběratel" pro příště. Tady je vidět, co všechno
+            se naučila — a dá se to smazat, pokud je naučení špatné.
+          </p>
+          <div className="mt-4 space-y-2">
+            {placeAliasesLoading && <div className="text-sm text-neutral-400 py-2">Načítám…</div>}
+            {!placeAliasesLoading && placeAliases.map((a) => (
+              <div key={a.id} className="flex items-center justify-between p-3 rounded bg-neutral-50 border border-neutral-200 gap-2">
+                <div className="min-w-0">
+                  <div className="text-sm font-black text-neutral-800 truncate">
+                    „{a.wrong_name}" → {a.correct_name || '(bez jména)'}
+                  </div>
+                  <div className="text-xs text-neutral-500">
+                    použito {a.hit_count ?? 1}× · naposledy {a.updated_at ? new Date(a.updated_at).toLocaleDateString('cs-CZ') : '—'}
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleDeletePlaceAlias(a.id)}
+                  className="p-2 rounded hover:bg-rose-100 text-rose-500 hover:text-rose-700 transition shrink-0"
+                  title="Smazat naučený alias" aria-label="Smazat naučený alias"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            ))}
+            {!placeAliasesLoading && placeAliases.length === 0 && (
+              <div className="text-sm text-neutral-400 py-2 italic">Zatím se appka nic nenaučila.</div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* 👤 Změna jména */}
       <div className="card p-6">

@@ -153,6 +153,22 @@ export default function Feedback({ setPage, initialSubTab }: { setPage?: (p: any
             </button>
           </div>
 
+      {/* 📊 Souhrn podle stavu — ať je na první pohled vidět, kolik toho
+          ještě čeká, bez nutnosti scrollovat celý seznam (docs/30-navrhu-2026-09-10.md, bod 30). */}
+      {!loading && notes.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-4">
+          {STATUS_ORDER.map((s) => {
+            const pocet = notes.filter((n) => n.status === s).length;
+            if (pocet === 0) return null;
+            return (
+              <span key={s} className={`px-2.5 py-1 rounded text-xs font-black ${STATUS_META[s].chip}`}>
+                {pocet}× {STATUS_META[s].label}
+              </span>
+            );
+          })}
+        </div>
+      )}
+
       {err && <div className="text-sm text-rose-700 bg-rose-500/10 rounded px-3 py-2 mb-4">{err}</div>}
 
       {showForm && (
