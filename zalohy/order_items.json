@@ -3620,7 +3620,7 @@
   "package_label": "30l",
   "quantity": 14,
   "created_at": "2026-09-08T06:53:01.218164+00:00",
-  "is_prepared": false,
+  "is_prepared": true,
   "is_bottled": false
  },
  {
@@ -6968,7 +6968,7 @@
   "package_label": "30l",
   "quantity": 10,
   "created_at": "2026-09-08T06:53:01.218164+00:00",
-  "is_prepared": false,
+  "is_prepared": true,
   "is_bottled": false
  },
  {
