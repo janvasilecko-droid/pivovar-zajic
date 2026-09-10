@@ -356,39 +356,50 @@ export function BottlingTasksSettings({ setPage }: Props = {}) {
     }
     setSaving(true);
     try {
-      if (editPlan) {
-        const { error } = await updateBottlingPlan(editPlan.id, input);
-        if (error) throw error;
-      } else {
-        // 🍺🛢️ Lahve a KEG v JEDNOM úkolu se uloží jako DVA samostatné
-        // záznamy, ne jeden se všemi poli najednou.
-        //
-        // "KEG sudy" v jednom společném zápisu (kegPkgId/kegQty) totiž
-        // v BottlingScreen.tsx při „Naplnit" znamená „kolik sudů se
-        // SPOTŘEBOVALO jako zdroj na tyhle lahve" (sloupec kegs_used —
-        // stáčeč pak vidí předvyplněný zdrojový sud a počet, jako recept
-        // na přelití). Kegging.tsx ale stejné pole čte jako „kolik sudů
-        // se má NASTÁČET" (nová výroba). Dlaždice teď umí navrhnout obojí
-        // najednou (chybí 2× KEG 50l NEZÁVISLE na chybějících 2× 1l lahvích)
-        // — kdyby se to uložilo jako jeden úkol, stáčeč lahví by dostal
-        // návrh „spotřebuj 100 l ze sudů na 2 litrové lahve", což nedává
-        // smysl a je to jiná potřeba než nastáčet ty samé 2 sudy zvlášť.
-        const maLahve = !!(input.pkg_id || input.pkg2_id || input.pkg3_id);
-        const maKeg = !!input.keg_pkg_id;
-        if (maLahve && maKeg) {
-          const lahvovy: BottlingPlanInput = { ...input, keg_pkg_id: null, keg_qty: 0 };
-          const kegovy: BottlingPlanInput = {
-            ...input,
-            pkg_id: null, qty: 0, pkg2_id: null, qty2: 0, pkg3_id: null, qty3: 0,
-          };
-          const { error: e1 } = await saveBottlingPlan(lahvovy);
+      // 🍺🛢️ Lahve a KEG v JEDNOM úkolu se uloží jako DVA samostatné
+      // záznamy, ne jeden se všemi poli najednou.
+      //
+      // "KEG sudy" v jednom společném zápisu (kegPkgId/kegQty) totiž
+      // v BottlingScreen.tsx při „Naplnit" znamená „kolik sudů se
+      // SPOTŘEBOVALO jako zdroj na tyhle lahve" (sloupec kegs_used —
+      // stáčeč pak vidí předvyplněný zdrojový sud a počet, jako recept
+      // na přelití). Kegging.tsx ale stejné pole čte jako „kolik sudů
+      // se má NASTÁČET" (nová výroba). Dlaždice umí navrhnout obojí
+      // najednou (chybí 2× KEG 50l NEZÁVISLE na chybějících 2× 1l lahvích)
+      // — kdyby se to uložilo jako jeden úkol, stáčeč lahví by dostal
+      // návrh „spotřebuj 100 l ze sudů na 2 litrové lahve", což nedává
+      // smysl a je to jiná potřeba než nastáčet ty samé 2 sudy zvlášť.
+      // Platí i při ÚPRAVĚ (uživatel: „ano" na otázku, jestli to dodělat)
+      // — původní záznam se přepíše na lahvovou část, sudová se založí
+      // jako nový. Naopak (sudy zůstávají, lahve se přidávají) dělá totéž,
+      // jen v opačném pořadí, ať editovaný úkol vždycky zůstane tím
+      // "hlavním" — nemá to praktický rozdíl, jde jen o to, aby žádná
+      // z částí nezmizela.
+      const maLahve = !!(input.pkg_id || input.pkg2_id || input.pkg3_id);
+      const maKeg = !!input.keg_pkg_id;
+      if (maLahve && maKeg) {
+        const lahvovy: BottlingPlanInput = { ...input, keg_pkg_id: null, keg_qty: 0 };
+        const kegovy: BottlingPlanInput = {
+          ...input,
+          pkg_id: null, qty: 0, pkg2_id: null, qty2: 0, pkg3_id: null, qty3: 0,
+        };
+        if (editPlan) {
+          const { error: e1 } = await updateBottlingPlan(editPlan.id, lahvovy);
           if (e1) throw e1;
           const { error: e2 } = await saveBottlingPlan(kegovy);
           if (e2) throw e2;
         } else {
-          const { error } = await saveBottlingPlan(input);
-          if (error) throw error;
+          const { error: e1 } = await saveBottlingPlan(lahvovy);
+          if (e1) throw e1;
+          const { error: e2 } = await saveBottlingPlan(kegovy);
+          if (e2) throw e2;
         }
+      } else if (editPlan) {
+        const { error } = await updateBottlingPlan(editPlan.id, input);
+        if (error) throw error;
+      } else {
+        const { error } = await saveBottlingPlan(input);
+        if (error) throw error;
       }
       setModalOpen(false);
       setEditPlan(null);

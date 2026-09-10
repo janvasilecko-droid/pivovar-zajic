@@ -390,26 +390,35 @@ export function BottlingPlanPlanner({
     }
     setSaving(true);
     try {
-      if (editingId) {
+      // 🍺🛢️ Lahve a KEG v jednom úkolu se uloží jako DVA samostatné
+      // záznamy — stejná úvaha jako v BottlingTasksSettings.tsx: "KEG
+      // sudy" v kombinovaném zápisu by se v BottlingScreen.tsx při
+      // „Naplnit" vyložilo jako zdrojový sud PRO TYHLE lahve (kegs_used),
+      // zatímco skutečně jde o nezávislou potřebu nastáčet sudy zvlášť.
+      // Platí i při úpravě — původní záznam se přepíše na lahvovou část,
+      // sudová se založí jako nový, ať žádná z částí nezmizí.
+      const maLahve = !!(input.pkg_id || input.pkg2_id || input.pkg3_id);
+      const maKeg = !!input.keg_pkg_id;
+      if (maLahve && maKeg) {
+        const lahvovy: BottlingPlanInput = { ...input, keg_pkg_id: null, keg_qty: 0 };
+        const kegovy: BottlingPlanInput = { ...input, pkg_id: null, qty: 0, pkg2_id: null, qty2: 0, pkg3_id: null, qty3: 0 };
+        if (editingId) {
+          const { error: e1 } = await updateBottlingPlan(editingId, lahvovy);
+          if (e1) throw e1;
+          const { error: e2 } = await saveBottlingPlan(kegovy);
+          if (e2) throw e2;
+        } else {
+          const { error: e1 } = await saveBottlingPlan(lahvovy);
+          if (e1) throw e1;
+          const { error: e2 } = await saveBottlingPlan(kegovy);
+          if (e2) throw e2;
+        }
+      } else if (editingId) {
         const { error } = await updateBottlingPlan(editingId, input);
         if (error) throw error;
       } else {
-        // 🍺🛢️ Lahve a KEG v jednom úkolu se uloží jako DVA samostatné
-        // záznamy — stejná úvaha jako v BottlingTasksSettings.tsx: "KEG
-        // sudy" v kombinovaném zápisu by se v BottlingScreen.tsx při
-        // „Naplnit" vyložilo jako zdrojový sud PRO TYHLE lahve (kegs_used),
-        // zatímco skutečně jde o nezávislou potřebu nastáčet sudy zvlášť.
-        const maLahve = !!(input.pkg_id || input.pkg2_id || input.pkg3_id);
-        const maKeg = !!input.keg_pkg_id;
-        if (maLahve && maKeg) {
-          const { error: e1 } = await saveBottlingPlan({ ...input, keg_pkg_id: null, keg_qty: 0 });
-          if (e1) throw e1;
-          const { error: e2 } = await saveBottlingPlan({ ...input, pkg_id: null, qty: 0, pkg2_id: null, qty2: 0, pkg3_id: null, qty3: 0 });
-          if (e2) throw e2;
-        } else {
-          const { error } = await saveBottlingPlan(input);
-          if (error) throw error;
-        }
+        const { error } = await saveBottlingPlan(input);
+        if (error) throw error;
       }
       setEditingId(null);
       setForm(emptyForm());
