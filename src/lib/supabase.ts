@@ -121,6 +121,27 @@ function applyPendingOps(rows: any[], table: string): any[] {
   return result;
 }
 
+/**
+ * Ořízne offline výsledek podle offset/limit z .range() (fetchAllRows).
+ * Supabase-js posílá stránkování jako URL parametry offset/limit (ne
+ * hlavičku), viz PostgrestTransformBuilder.range(). Bez tohohle by offline
+ * odpověď na KAŽDOU stránku vrátila STEJNÝ, neposunutý obsah celé tabulky —
+ * fetchAllRows by tak dostal batch.length >= PAGE pořád dokola a myslel si,
+ * že další stránka nekončí. Smyčku by zastavila jen pojistka na 500 000
+ * nasbíraných řádcích, což u tabulky nad 1000 řádků (orders, order_items,
+ * fasovani…) v praxi appku na dlouho zamrzlo/nenačetlo — offline appka pak
+ * vypadala, že „nevidí data" a nejde do ní nic zadat (nalezeno 10. 9. 2026).
+ * Exportováno kvůli testu (čistá funkce, bez IndexedDB/fetch).
+ */
+export function sliceByRange(rows: any[], searchParams: URLSearchParams): any[] {
+  const offsetParam = searchParams.get('offset');
+  const limitParam = searchParams.get('limit');
+  if (offsetParam == null && limitParam == null) return rows;
+  const offset = Number(offsetParam) || 0;
+  const limit = limitParam != null && limitParam !== '' ? Number(limitParam) : rows.length;
+  return rows.slice(offset, offset + (Number.isFinite(limit) ? limit : rows.length));
+}
+
 async function serveCached(url: URL, rest: RestInfo | null, wantCount: boolean): Promise<Response> {
   let rows: any[] | null = null;
   let contentRange: string | null = null;
@@ -132,7 +153,9 @@ async function serveCached(url: URL, rest: RestInfo | null, wantCount: boolean):
     // filtrovaný dotaz by jinak dostal nesprávná data.
     if (tblRows && tblRows.length > 0 && !hasRowFilters(url)) rows = tblRows;
   }
-  const finalRows = applyPendingOps(rows ?? [], rest?.table ?? '');
+  const merged = applyPendingOps(rows ?? [], rest?.table ?? '');
+  const finalRows = sliceByRange(merged, url.searchParams);
+
   const headers: Record<string, string> = {};
   if (wantCount) headers['Content-Range'] = `0-${Math.max(finalRows.length - 1, 0)}/${finalRows.length}`;
   else if (contentRange) headers['Content-Range'] = contentRange;
