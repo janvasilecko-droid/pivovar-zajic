@@ -22,11 +22,9 @@ export function BeersScreen() {
   async function load() {
     const smiZapsat = zacniNacteni();
     setLoading(true);
-    // Použijeme explicitní seznam sloupců (bez short_name), aby aplikace fungovala
-    // i když sloupec short_name v databázi zatím neexistuje.
     const { data } = await supabase
       .from('beers')
-      .select('id,name,degree,color,beer_color,price_per_liter,is_active,sort_order,created_at')
+      .select('id,name,short_name,degree,color,beer_color,price_per_liter,is_active,sort_order,created_at')
       .order('sort_order');
     if (!smiZapsat()) return;
     setRows((data as Beer[]) ?? []); setLoading(false);
@@ -125,8 +123,11 @@ function BeerForm({ beer, onClose, onSaved }: { beer: Beer | null; onClose: () =
 
   async function save() {
     setBusy(true);
-    // Pozn.: short_name se neukládá, protože sloupec v databázi nemusí existovat.
-    const payload = { name, degree: degree || null, color: color || null, beer_color: beerColor, sort_order: order, is_active: true };
+    // short_name se aktivně používá při rozpoznávání piva ve WhatsApp/hlasových/
+    // fotoobjednávkách (lib/orderParser.ts, matchBeerFromHints) — dřív se
+    // neukládalo (sloupec prý nemusí existovat), takže tahle cesta byla
+    // celou dobu naprázdno, i když pole ve formuláři vypadalo funkčně.
+    const payload = { name, short_name: shortName.trim() || null, degree: degree || null, color: color || null, beer_color: beerColor, sort_order: order, is_active: true };
     let error: any = null;
     if (beer) {
       const res = await supabase.from('beers').update(payload).eq('id', beer.id);

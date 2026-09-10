@@ -23,9 +23,14 @@ import { businessDateISO } from '../lib/businessDate';
 import { IkonaLahev } from '../components/ikony';
 import { useChovaniDialogu } from '../lib/zavriNaZpet';
 
+// „accent" dřív mířilo na stejnou třídu jako „primary" (bg-primary-500) —
+// v nabídce barev vypadaly dvě různé volby úplně stejně. `primary` navíc
+// nese popisek „Modrá", ačkoliv paleta primary je měděná/oranžová
+// (viz tailwind.config.js) — opraveno 10. 9. 2026,
+// docs/50-navrhu-2026-09-10-treti.md, bod 23.
 const BARVY: Record<string, { tecka: string; pruh: string; popis: string }> = {
-  primary: { tecka: 'bg-primary-500', pruh: 'bg-primary-500', popis: 'Modrá' },
-  accent: { tecka: 'bg-primary-500', pruh: 'bg-primary-500', popis: 'Tyrkysová' },
+  primary: { tecka: 'bg-primary-500', pruh: 'bg-primary-500', popis: 'Měděná' },
+  accent: { tecka: 'bg-sky-500', pruh: 'bg-sky-500', popis: 'Modrá' },
   success: { tecka: 'bg-emerald-500', pruh: 'bg-emerald-500', popis: 'Zelená' },
   warning: { tecka: 'bg-amber-500', pruh: 'bg-amber-500', popis: 'Oranžová' },
   danger: { tecka: 'bg-rose-500', pruh: 'bg-rose-500', popis: 'Červená' },
