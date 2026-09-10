@@ -1007,7 +1007,7 @@ function AdminVersionSyncSection() {
               <button
                 onClick={() => { setConfirmingClean(false); setConfirmText(''); }}
                 disabled={cleaning}
-                className="px-4 py-2.5 rounded bg-neutral-200 hover:bg-neutral-300 disabled:opacity-40 disabled:cursor-not-allowed text-neutral-800 font-bold text-sm transition"
+                className="btn-ghost !rounded !px-4 !py-2.5 disabled:opacity-40 disabled:cursor-not-allowed !font-bold text-sm"
               >
                 Zrušit
               </button>

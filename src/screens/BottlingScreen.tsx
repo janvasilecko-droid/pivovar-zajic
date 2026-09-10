@@ -1113,7 +1113,7 @@ export default function BottlingScreen({
             <button
               type="button"
               onClick={() => { setChecklistPhase('start'); setChecklistGate(false); setShowChecklistModal(true); }}
-              className="px-3.5 py-2 rounded text-xs font-black transition shrink-0 min-h-[44px] bg-amber-500 hover:bg-amber-400 text-neutral-950 flex items-center gap-1.5 shadow-2xs"
+              className="btn-amber !px-3.5 !py-2 !rounded text-xs !font-black shrink-0 min-h-[44px] !flex !items-center gap-1.5 !shadow-2xs"
             >
               <ClipboardList size={14} />
               <span>Příprava (Checklist)</span>
@@ -1121,7 +1121,7 @@ export default function BottlingScreen({
             <button
               type="button"
               onClick={() => { setChecklistPhase('end'); setChecklistGate(false); setShowChecklistModal(true); }}
-              className="px-3.5 py-2 rounded text-xs font-black transition shrink-0 min-h-[44px] bg-amber-500 hover:bg-amber-400 text-neutral-950 flex items-center gap-1.5 shadow-2xs"
+              className="btn-amber !px-3.5 !py-2 !rounded text-xs !font-black shrink-0 min-h-[44px] !flex !items-center gap-1.5 !shadow-2xs"
             >
               <Sparkles size={14} />
               <span>Konec stáčení (úklid)</span>
@@ -1195,7 +1195,7 @@ export default function BottlingScreen({
             <button
               type="button"
               onClick={() => { setChecklistPhase('start'); setChecklistGate(true); setShowChecklistModal(true); }}
-              className="mx-auto flex items-center gap-3 px-8 py-5 sm:px-10 sm:py-6 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-lg sm:text-xl shadow-xl active:scale-[0.97] transition"
+              className="btn-primary mx-auto !flex !items-center gap-3 !px-8 !py-5 sm:!px-10 sm:!py-6 !rounded font-black !text-lg sm:!text-xl !shadow-xl"
             >
               <Play className="ikona-text" /> Zahájit stáčení
             </button>
@@ -1432,7 +1432,7 @@ export default function BottlingScreen({
                                 <button
                                   type="button"
                                   onClick={() => setTile(slot.qty, String(plan.missing))}
-                                  className="tap h-7 px-2 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-udaj whitespace-nowrap"
+                                  className="btn-amber tap h-7 !px-2 !rounded !font-black text-udaj whitespace-nowrap"
                                   title="Vyplní pole množství přesně chybějícím počtem"
                                 >
                                   Zadat chybějících {plan.missing}
@@ -2105,7 +2105,7 @@ export default function BottlingScreen({
                         disabled={creatingTaskFor === r.package_id}
                         onClick={() => vytvorUkolNaPrimo(r)}
                         title="Založí úkol na dnešek — datum a poznámku lze upravit v záložce Zadat stáčení"
-                        className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-neutral-950 text-udaj font-black transition tap"
+                        className="btn-amber !px-2.5 !py-1 !rounded disabled:opacity-50 text-udaj !font-black tap"
                       >
                         {creatingTaskFor === r.package_id ? 'Ukládám…' : '+ Úkol'}
                       </button>
@@ -2527,7 +2527,7 @@ export default function BottlingScreen({
                 onClick={() => {
                   setShowEndConfirm(false);
                 }}
-                className="px-5 py-3 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs transition shadow-md"
+                className="btn-amber !px-5 !py-3 !rounded !font-black text-xs !shadow-md"
               >
                 <RefreshCw className="ikona-text" /> Budu pokračovat ve stáčení
               </button>

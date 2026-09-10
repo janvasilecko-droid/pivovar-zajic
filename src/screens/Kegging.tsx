@@ -1014,7 +1014,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
             <button
               type="button"
               onClick={() => { setChecklistPhase('start'); setChecklistGate(false); setShowChecklistModal(true); }}
-              className="px-3.5 py-2 rounded text-xs font-black transition shrink-0 min-h-[44px] bg-amber-500 hover:bg-amber-400 text-neutral-950 flex items-center gap-1.5 shadow-2xs"
+              className="btn-amber !px-3.5 !py-2 !rounded text-xs !font-black shrink-0 min-h-[44px] !flex !items-center gap-1.5 !shadow-2xs"
             >
               <ClipboardList size={14} />
               <span>Příprava (Checklist)</span>
@@ -1022,7 +1022,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
             <button
               type="button"
               onClick={() => { setChecklistPhase('end'); setChecklistGate(false); setShowChecklistModal(true); }}
-              className="px-3.5 py-2 rounded text-xs font-black transition shrink-0 min-h-[44px] bg-amber-500 hover:bg-amber-400 text-neutral-950 flex items-center gap-1.5 shadow-2xs"
+              className="btn-amber !px-3.5 !py-2 !rounded text-xs !font-black shrink-0 min-h-[44px] !flex !items-center gap-1.5 !shadow-2xs"
             >
               <Sparkles size={14} />
               <span>Konec stáčení</span>
@@ -1067,7 +1067,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
           <button
             type="button"
             onClick={() => { setChecklistPhase('start'); setChecklistGate(true); setShowChecklistModal(true); }}
-            className="mx-auto flex items-center gap-3 px-8 py-5 sm:px-10 sm:py-6 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-lg sm:text-xl shadow-xl active:scale-[0.97] transition"
+            className="btn-primary mx-auto !flex !items-center gap-3 !px-8 !py-5 sm:!px-10 sm:!py-6 !rounded font-black !text-lg sm:!text-xl !shadow-xl"
           >
             <Play className="ikona-text" /> Zahájit stáčení
           </button>
@@ -1333,7 +1333,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                             <button
                               type="button"
                               onClick={() => setTileRow(expandedKegBeer.id, p.id, { qty: String(plan.missing) })}
-                              className="tap h-7 px-2 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-udaj whitespace-nowrap"
+                              className="btn-amber tap h-7 !px-2 !rounded !font-black text-udaj whitespace-nowrap"
                               title="Vyplní pole množství přesně chybějícím počtem"
                             >
                               Zadat chybějících {plan.missing}
@@ -2364,7 +2364,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                 onClick={() => {
                   setShowEndConfirm(false);
                 }}
-                className="px-5 py-3 rounded bg-amber-500 hover:bg-amber-400 text-neutral-900 font-black text-xs transition shadow-md"
+                className="btn-amber !px-5 !py-3 !rounded !font-black text-xs !shadow-md"
               >
                 <RefreshCw className="ikona-text" /> Budu pokračovat ve stáčení
               </button>

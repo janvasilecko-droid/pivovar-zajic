@@ -598,7 +598,7 @@ export function BottlingPlanPlanner({
             <button type="button" onClick={() => setWeekKey(shiftWeek(weekKey, -1))} className="w-7 h-7 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-sm transition tap">‹</button>
             <span className="text-xs font-black text-amber-950 px-2 whitespace-nowrap">{weekLabel}</span>
             <button type="button" onClick={() => setWeekKey(shiftWeek(weekKey, 1))} className="w-7 h-7 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-sm transition tap">›</button>
-            <button type="button" onClick={() => setWeekKey(isoWeekKey(new Date().toISOString().slice(0, 10)))} className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 text-udaj font-black transition tap">Tento týden</button>
+            <button type="button" onClick={() => setWeekKey(isoWeekKey(new Date().toISOString().slice(0, 10)))} className="btn-amber !rounded !px-2.5 !py-1 text-udaj !font-black tap">Tento týden</button>
           </div>
         </div>
       </div>

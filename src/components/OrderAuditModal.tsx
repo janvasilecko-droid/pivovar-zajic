@@ -368,7 +368,7 @@ Skladové výpočty se tím rovnou přepočítají.`,
               {/* podklad: bg-amber-900 */}
               <button
                 onClick={onClose}
-                className="w-10 h-10 grid place-items-center rounded bg-white/10 hover:bg-white/20 active:scale-95 text-white transition border border-white/10"
+                className="tap w-10 h-10 grid place-items-center rounded bg-white/10 hover:bg-white/20 active:scale-95 text-white transition border border-white/10"
                 title="Zavřít"
                aria-label="Zavřít">
                 <X size={20} />

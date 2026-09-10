@@ -19,9 +19,14 @@
  *   node scripts/zkontroluj-tlacitka.mjs --uloz     přepíše základ (po převodu)
  */
 import { readFileSync, writeFileSync, readdirSync, statSync, existsSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { join, relative, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const KOREN = new URL('..', import.meta.url).pathname;
+// fileURLToPath (ne .pathname) — na Windows dává `new URL('..', import.meta.url).pathname`
+// tvar „/D:/stazene/…" (s úvodním lomítkem před písmenem disku), který
+// path.join dál skládá jako „D:\D:\stazene\…" (dvakrát disk). fileURLToPath
+// to převádí správně na všech platformách.
+const KOREN = fileURLToPath(new URL('..', import.meta.url));
 const ZAKLAD = join(KOREN, 'scripts/tlacitka-zaklad.json');
 
 /**
@@ -93,7 +98,11 @@ const VLASTNI_BARVA = /\bbg-(amber|emerald|rose|sky|violet|primary|neutral)-\d00
 
 const nalezy = new Map();
 for (const cesta of souboryVeZdroji(join(KOREN, 'src'))) {
-  const rel = relative(KOREN, cesta);
+  // Normalizace na lomítka: na Windows vrací `relative()` zpětná lomítka,
+  // ale scripts/tlacitka-zaklad.json (i VYJIMKY výš) má klíče/cesty s "/" —
+  // bez týhle normalizace nikdy nenajde odpovídající základ (vypadalo by to,
+  // že je pro každý soubor povoleno 0, i když existuje uložený základ).
+  const rel = relative(KOREN, cesta).split(sep).join('/');
   if (VYJIMKY.some((v) => rel.startsWith(v))) continue;
   const zdroj = readFileSync(cesta, 'utf8');
   const rucni = tlacitka(zdroj).filter((t) => !MA_ROLI.test(t.text) && VLASTNI_BARVA.test(t.text));
