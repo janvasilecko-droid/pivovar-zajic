@@ -1146,11 +1146,11 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                     key={r.package_id}
                     type="button"
                     onClick={() => setRozpadOtevrenPkg((p) => (p === r.package_id ? null : r.package_id))}
-                    className={`chip font-black transition ${rozpadOtevrenPkg === r.package_id ? 'bg-red-600 text-white border-red-700' : 'bg-red-100 text-red-950 border-red-300 hover:bg-red-200'}`}
+                    className={`chip font-black transition ${rozpadOtevrenPkg === r.package_id ? 'bg-rose-600 text-white border-rose-700' : 'bg-rose-100 text-rose-950 border-rose-300 hover:bg-rose-200'}`}
                     title={`${r.missing} ${r.package_label} · ${r.missingLiters} L — klepnutím rozbalíš, kolik je kterého piva`}
                   >
                     {r.package_label}
-                    <span className={`ml-1 px-1.5 py-0.5 rounded-full tabular-nums ${rozpadOtevrenPkg === r.package_id ? 'bg-white text-red-700' : 'bg-red-600 text-white'}`}>{r.missing}</span>
+                    <span className={`ml-1 px-1.5 py-0.5 rounded-full tabular-nums ${rozpadOtevrenPkg === r.package_id ? 'bg-white text-rose-700' : 'bg-rose-600 text-white'}`}>{r.missing}</span>
                   </button>
                 ))}
               </div>
@@ -1165,7 +1165,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                   <ul className="mt-1.5 flex flex-wrap gap-1.5">
                     {rozpisPiv.map((it) => (
                       <li key={it.beer_id} className="px-2 py-1 rounded bg-neutral-50 border border-neutral-200 text-udaj font-bold text-neutral-700 whitespace-nowrap">
-                        {it.beer_name} <span className="font-black text-red-600">{it.missing}</span>
+                        {it.beer_name} <span className="font-black text-rose-600">{it.missing}</span>
                       </li>
                     ))}
                   </ul>
@@ -1237,7 +1237,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                       >
                         {p.day === BEZ_TERMINU ? 'Bez dne' : p.label}
                         {m > 0 && (
-                          <span className={`px-1 min-w-[16px] rounded-full text-[10px] leading-4 ${isSel ? 'bg-neutral-950 text-amber-300' : 'bg-amber-300 text-amber-950'}`}>
+                          <span className={`px-1 min-w-[16px] rounded-full text-[11px] leading-4 ${isSel ? 'bg-neutral-950 text-amber-300' : 'bg-amber-300 text-amber-950'}`}>
                             {m}
                           </span>
                         )}
@@ -1260,7 +1260,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                 const radekBarva = !plan || plan.ordered === 0
                   ? 'border-neutral-200 dark:border-neutral-700'
                   : plan.missing > 0
-                  ? 'border-red-200 bg-red-50 dark:border-red-800/60 dark:bg-red-950/20'
+                  ? 'border-rose-200 bg-rose-50 dark:border-rose-800/60 dark:bg-rose-950/20'
                   : 'border-emerald-200 bg-emerald-50 dark:border-emerald-800/60 dark:bg-emerald-950/20';
                 // 🏭 Kolik z toho, co se právě zadává, jde NAD rámec objednávky
                 // — na sklad. Z provozu: „sklad bude to, co je navíc na
@@ -1323,7 +1323,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                           title="Zobrazit objednávky s touhle položkou"
                         >
                           Objednáno: <span className="font-black text-neutral-800">{plan.ordered}</span>
-                          {' '}· Chybí: <span className={`font-black ${plan.missing > 0 ? 'text-red-600' : 'text-emerald-700'}`}>{plan.missing}</span>
+                          {' '}· Chybí: <span className={`font-black ${plan.missing > 0 ? 'text-rose-600' : 'text-emerald-700'}`}>{plan.missing}</span>
                           {naSklad > 0 && (
                             <> · Sklad: <span className="font-black text-sky-700">{naSklad}</span></>
                           )}

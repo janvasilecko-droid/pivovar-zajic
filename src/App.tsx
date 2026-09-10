@@ -327,7 +327,7 @@ export default function App() {
           setPage={setPage}
         />
       )}
-      {page === 'bottling_needs' && <BottlingTasksSettings />}
+      {page === 'bottling_needs' && <BottlingTasksSettings setPage={setPage} />}
       {page === 'cellar' && <CellarScreen setPage={setPage} initialSubTab={pageSubTab} />}
       {(page === 'vehicles' || page === 'kniha_jizd') && (
         <VehiclesTabbed

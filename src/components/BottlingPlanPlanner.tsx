@@ -434,7 +434,11 @@ export function BottlingPlanPlanner({
 
   // Rychlé zadání úkolu z tabulky potřeby — předvyplní formulář (návrh = chybějící množství)
   function quickAdd(row: PlanRow, isKeg: boolean) {
-    const suggested = row.missing > 0 ? row.missing : row.ordered;
+    // Návrh jen podle toho, co opravdu chybí — ne podle objednávek (viz
+    // stejná úvaha u openStocitGroup v BottlingTasksSettings.tsx).
+    // Zaokrouhleno: `missing` bývá zlomkové (odhad fasování), takže by se
+    // jinak do pole vypsalo třeba „4.333333333333333".
+    const suggested = Math.round(row.missing);
     setEditingId(null);
     setErr(null);
     setForm({
@@ -522,7 +526,7 @@ export function BottlingPlanPlanner({
                     <button
                       type="button"
                       onClick={() => quickAdd(r, isKeg)}
-                      title={r.missing > 0 ? 'Vytvořit úkol na pokrytí chybějícího množství' : 'Vytvořit úkol (pokrytí objednávek)'}
+                      title={r.missing > 0 ? 'Vytvořit úkol na pokrytí chybějícího množství' : 'Vytvořit úkol pro tenhle obal — počet doplníš ručně, sklad na něj momentálně stačí'}
                       className="px-2 py-1 rounded bg-amber-100 hover:bg-amber-200 text-amber-900 text-udaj font-black transition tap"
                     >
                       + Úkol
@@ -587,7 +591,7 @@ export function BottlingPlanPlanner({
           {(rowsByBeer[expandedPlanBeer.id] || []).map((r) => {
             const isKeg = packages.find((p) => p.id === r.package_id)?.kind === 'keg';
             return (
-              <div key={r.package_id} className={`rounded border py-1.5 px-2 space-y-1 ${r.missing > 0 ? 'border-red-200 bg-red-50' : 'border-neutral-200'}`}>
+              <div key={r.package_id} className={`rounded border py-1.5 px-2 space-y-1 ${r.missing > 0 ? 'border-rose-200 bg-rose-50' : 'border-neutral-200'}`}>
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <span className="text-sm font-bold text-neutral-700 flex items-center gap-1.5">
                     {isKeg ? <IkonaSud className="ikona-text" /> : <IkonaLahev className="ikona-text" />}
@@ -606,7 +610,7 @@ export function BottlingPlanPlanner({
                   Objednáno: <span className="font-black text-neutral-800">{fmt(r.ordered)}</span>
                   {' '}· Sklad: <span className="font-black text-sky-700">{fmt(r.stock)}</span>
                   {r.planned > 0 && <> · Naplánováno: <span className="font-black text-amber-700">{fmt(r.planned)}</span></>}
-                  {' '}· Chybí: <span className={`font-black ${r.missing > 0 ? 'text-red-600' : 'text-emerald-700'}`}>{fmt(r.missing)}</span>
+                  {' '}· Chybí: <span className={`font-black ${r.missing > 0 ? 'text-rose-600' : 'text-emerald-700'}`}>{fmt(r.missing)}</span>
                 </div>
               </div>
             );

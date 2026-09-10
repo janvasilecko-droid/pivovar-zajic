@@ -26,6 +26,7 @@ import { BeerTileGrid } from './BeerTileGrid';
 import { AlertTriangle, Calendar, Check, ChevronLeft, ChevronRight, ClipboardList, Lightbulb, MessageCircle, Package as PackageIcon, Pencil, ShoppingCart, Trash2, Undo2 } from 'lucide-react';
 import { chyba, potvrd } from '../lib/toast';
 import { IkonaLahev, IkonaSud } from '../components/ikony';
+import { requestOrdersItemFilter } from '../lib/ordersFilter';
 
 // Povolené velikosti lahví v dropdownu (shodné se zápisem stáčení)
 const ALLOWED_BOTTLE_VOLUMES = [1.5, 1, 0.5, 0.33];
@@ -78,7 +79,12 @@ function fmt(n: number): string {
   return Math.round(n).toLocaleString('cs-CZ');
 }
 
-export function BottlingTasksSettings() {
+type Props = {
+  /** Otevře Objednávky vyfiltrované na pivo + obal — klik na „chybí X ks". */
+  setPage?: (p: any, sec?: string, sub?: string) => void;
+};
+
+export function BottlingTasksSettings({ setPage }: Props = {}) {
   const todayStr = new Date().toISOString().slice(0, 10);
   const [weekKey, setWeekKey] = useState(() => isoWeekKey(todayStr));
   const weekLabel = weekRange(weekKey).label;
@@ -258,19 +264,28 @@ export function BottlingTasksSettings() {
     if (rows.length === 0) return;
     setEditPlan(null);
     setErr(null);
-    const suggest = (r: NeedsRow) => (r.missing > 0 ? r.missing : r.ordered);
-    const bottleRowsGroup = rows.filter((r) => !isKegPkg(r.package_id));
-    const kegRowsGroup = rows.filter((r) => isKegPkg(r.package_id));
+    // 🎯 Návrh vyplní počet JEN u obalu, kterému opravdu něco chybí — dřív
+    // padal zpátky na „objednáno", takže se předvyplnil i obal, co má sklad
+    // v pořádku. Z provozu 9. 9. 2026: „když chybí 10× 1l, většinou se
+    // stočí 1× 50 a zbytek se rozdělí mezi litrovky/sklo/1,5l podle
+    // uvážení" — appka ten rozpad neumí uhodnout, tak ho nemá předstírat.
+    // Řádky bez skutečného nedostatku se do formuláře vůbec nedostanou;
+    // slot zůstane prázdný a stáčeč si obal případně doplní sám. Porovnává
+    // se ZAOKROUHLENÁ hodnota — zlomkové „chybí 0,4" (z odhadu fasování)
+    // by jinak prošlo filtrem (0,4 > 0), ale zobrazilo by se jako matoucí
+    // „ks: 0" po zaokrouhlení dolů.
+    const bottleRowsGroup = rows.filter((r) => !isKegPkg(r.package_id) && Math.round(r.missing) > 0);
+    const kegRowsGroup = rows.filter((r) => isKegPkg(r.package_id) && Math.round(r.missing) > 0);
     const [r1, r2, r3] = bottleRowsGroup;
     const kegRow = kegRowsGroup[0];
     setForm({
       plannedDate: todayStr,
       beerId: rows[0].beer_id,
       kegPkgId: kegRow?.package_id ?? '',
-      kegQty: kegRow && suggest(kegRow) > 0 ? String(suggest(kegRow)) : '',
-      pkgId: r1?.package_id ?? '', qty: r1 && suggest(r1) > 0 ? String(suggest(r1)) : '',
-      pkg2Id: r2?.package_id ?? '', qty2: r2 && suggest(r2) > 0 ? String(suggest(r2)) : '',
-      pkg3Id: r3?.package_id ?? '', qty3: r3 && suggest(r3) > 0 ? String(suggest(r3)) : '',
+      kegQty: kegRow ? String(Math.round(kegRow.missing)) : '',
+      pkgId: r1?.package_id ?? '', qty: r1 ? String(Math.round(r1.missing)) : '',
+      pkg2Id: r2?.package_id ?? '', qty2: r2 ? String(Math.round(r2.missing)) : '',
+      pkg3Id: r3?.package_id ?? '', qty3: r3 ? String(Math.round(r3.missing)) : '',
       note: '',
     });
     setModalOpen(true);
@@ -431,7 +446,17 @@ export function BottlingTasksSettings() {
                   ].filter(Boolean).join(' · ');
                   return (
                     <div key={`m-${r.beer_id}-${r.package_id}`} className="border-t border-neutral-100 pt-1.5 first:border-t-0 first:pt-0">
-                      <div className={`text-sm font-black ${hlavni.barva}`}>{hlavni.text}</div>
+                      {/* Klikací — otevře Objednávky vyfiltrované na tohle
+                          pivo a obal, ať se dá ověřit, z čeho číslo „chybí"
+                          vzniklo (počítá se s fasováním a skladem, ne jen
+                          s objednávkami — proto sedí jen zřídka na první pohled). */}
+                      <button
+                        type="button"
+                        onClick={() => { requestOrdersItemFilter({ beerId: r.beer_id, packageId: r.package_id }); setPage?.('orders'); }}
+                        className={`text-sm font-black text-left hover:underline decoration-dotted underline-offset-2 ${hlavni.barva}`}
+                      >
+                        {hlavni.text}
+                      </button>
                       <div className="text-xs font-semibold text-neutral-500">{vedlejsi}</div>
                     </div>
                   );
@@ -493,7 +518,14 @@ export function BottlingTasksSettings() {
                   <td className="px-2 py-1.5 text-right font-semibold text-amber-800">{fmt(r.planned)}</td>
                   <td className="px-2 py-1.5 text-right font-black text-emerald-800">{fmt(r.stock)}</td>
                   <td className={`px-2 py-1.5 text-right font-black ${r.missing > 0 ? 'bg-rose-100 text-rose-800' : 'text-neutral-600 font-semibold'}`}>
-                    {r.missing > 0 ? `${fmt(r.missing)}` : '0'}
+                    <button
+                      type="button"
+                      onClick={() => { requestOrdersItemFilter({ beerId: r.beer_id, packageId: r.package_id }); setPage?.('orders'); }}
+                      className="hover:underline decoration-dotted underline-offset-2"
+                      title="Zobrazit objednávky s touhle položkou"
+                    >
+                      {r.missing > 0 ? `${fmt(r.missing)}` : '0'}
+                    </button>
                   </td>
                   <td className={`px-2 py-1.5 text-right font-black ${r.afterOutgoing < 0 ? 'bg-rose-100 text-rose-800' : 'text-neutral-900'}`}>
                     {fmt(r.afterOutgoing)}
