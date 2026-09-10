@@ -1291,6 +1291,21 @@ export async function saveAlias(aliasText: string, beerId: string | null, packag
   } catch {}
 }
 
+// 🚫 Slova, která se NESMÍ naučit jako alias odběratele — jsou běžná
+// v textu skoro každé objednávky, takže by po naučení přebila i výslovně
+// napsané jméno. Z provozu 10. 9. 2026: naučený alias "sklad" → Lužec
+// (vzniklý z jedné dřívější opravy) přebil zprávu „Pro Radka … na sklad
+// … 11sv" — appka přiřadila objednávku Lužci, přestože zpráva výslovně
+// říkala „pro Radka". Alias se kontroluje jako VŮBEC PRVNÍ věc (dřív než
+// hledání jména v textu), takže jediné běžné slovo stačilo přebít
+// explicitní jméno odběratele ve stejné zprávě.
+const PRILIS_OBECNA_SLOVA = new Set([
+  'sklad', 'dnes', 'zitra', 'vcera', 'prosim', 'dekuji', 'diky', 'ahoj', 'cau',
+  'pivo', 'piva', 'objednavka', 'potreba', 'vyzvednuti', 'zavoz', 'rozvoz',
+  'jeste', 'este', 'hotovo', 'dobre', 'ano', 'ne', 'kolik', 'kdy', 'kde', 'plus',
+  'diky moc', 'dekuji moc', 'zdravim', 'super', 'ok', 'okay',
+]);
+
 // Uložení naučeného aliasu pro místo (place) do localStorage i Supabase.
 // Když uživatel opraví odběratele, který AI/OCR rozpoznal špatně, uložíme
 // mapping: špatný název (aliasText) → správný odběratel (placeId + correctName).
@@ -1299,6 +1314,9 @@ export async function saveAlias(aliasText: string, beerId: string | null, packag
 export async function savePlaceAlias(aliasText: string, placeId: string, correctName?: string): Promise<void> {
   const norm = normalizePlace(aliasText);
   if (!norm || norm.length < 2) return;
+  // Příliš obecné slovo se nenaučí jako alias, i kdyby ho zrovna AI/OCR
+  // označila jako "špatně rozpoznaný odběratel" — viz PRILIS_OBECNA_SLOVA výš.
+  if (PRILIS_OBECNA_SLOVA.has(norm)) return;
 
   // 1. Okamžitá paměť do localStorage (wrong_name → placeId)
   try {
@@ -1356,6 +1374,14 @@ export async function loadPlaceAliasMap(): Promise<Map<string, string>> {
     }
   } catch {}
 
+  // Vyfiltrovat příliš obecná slova, i kdyby už byla dřív naučená (v localStorage
+  // na některém zařízení, nebo v Supabase) — viz komentář u PRILIS_OBECNA_SLOVA.
+  // Řeší to i staré/cizí zápisy, ne jen budoucí (savePlaceAlias je odmítne
+  // ukládat nově, ale tohle smaže i to, co se naučilo předtím).
+  for (const wrongName of map.keys()) {
+    if (PRILIS_OBECNA_SLOVA.has(wrongName)) map.delete(wrongName);
+  }
+
   return map;
 }
 
@@ -1405,6 +1431,10 @@ export function matchPlaceFromText(
   // 0. Try to match against learned place aliases first
   if (placeAliasMap && placeAliasMap.size > 0) {
     for (const [alias, placeId] of placeAliasMap) {
+      // Poslední pojistka proti příliš obecnému aliasu (viz PRILIS_OBECNA_SLOVA
+      // výš u savePlaceAlias) — i kdyby se sem nějakou cestou dostala mapa,
+      // co filtr loadPlaceAliasMap neprošla (např. placeAliasMapOverride).
+      if (PRILIS_OBECNA_SLOVA.has(alias)) continue;
       if (cleanText.includes(alias)) {
         const place = places.find((p) => p.id === placeId);
         if (place) return { placeId: place.id, placeName: place.name };

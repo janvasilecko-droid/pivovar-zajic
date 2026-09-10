@@ -73,6 +73,32 @@ describe('matchPlaceFromText — Malenovice vs Malešice', () => {
   });
 });
 
+// 🚫 Regrese z provozu 10. 9. 2026: naučený alias "sklad" → Lužec (vzniklý
+// z jedné dřívější opravy) přebil zprávu „Pro Radka … na sklad … 11sv" —
+// appka přiřadila objednávku Lužci, přestože zpráva výslovně říkala „pro
+// Radka". Alias se kontroluje jako úplně první věc (dřív než hledání jména
+// v textu), takže jediné běžné slovo stačilo přebít explicitní jméno
+// odběratele ve stejné zprávě. Viz PRILIS_OBECNA_SLOVA v orderParser.ts.
+describe('matchPlaceFromText — naučený alias nesmí být příliš obecné slovo', () => {
+  const luzec: Place = { id: 'p-luzec', name: 'Lužec', note: null, created_at: '', address: null, phone: null, opening_hours: null };
+  const radek: Place = { id: 'p-radek', name: 'Radek', note: null, created_at: '', address: null, phone: null, opening_hours: null };
+  const catalog = [...places, luzec, radek];
+
+  it('alias "sklad" → Lužec se ignoruje, i když je v naučené mapě', () => {
+    const badAliasMap = new Map([['sklad', 'p-luzec']]);
+    const r = matchPlaceFromText('pro radka na zitra na sklad jeste prosim plus 2xpetainer 10l 11sv', catalog, badAliasMap);
+    // S obecným aliasem vyřazeným z rozhodování se najde odběratel podle
+    // jména v textu ("radka" → Radek), ne podle slova "sklad".
+    expect(r.placeId).not.toBe('p-luzec');
+  });
+
+  it('konkrétní (ne obecné) naučené jméno v mapě dál funguje normálně', () => {
+    const goodAliasMap = new Map([['luzec', 'p-luzec']]);
+    const r = matchPlaceFromText('objednavka pro luzec 2x10 11sv', catalog, goodAliasMap);
+    expect(r.placeId).toBe('p-luzec');
+  });
+});
+
 describe('parseGeminiItems — víc objemů na řádku "7x30 2x10 1x20"', () => {
   it('přiřadí každé položce objem podle jejího množství (30/10/20), i když AI vrátila "KEG 30l" všude', () => {
     const items: GeminiItem[] = [
