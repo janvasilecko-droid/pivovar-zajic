@@ -539,6 +539,43 @@ Deno.serve(async (req: Request) => {
 
     await zapisDoDeniku("ulozeno", undefined, data.id);
 
+    // 🔔 Push „nová WhatsApp objednávka". Vědomě AWAIT (ne fire-and-forget) —
+    // Deno edge runtime může proces po odeslání odpovědi ukončit dřív, než
+    // fire-and-forget volání doběhne, takže by se push nespolehlivě ztrácel.
+    // Vlastní try/catch: chyba push notifikace nesmí shodit uložení zprávy,
+    // to je hotovo o pár řádků výš. Vlastní zprávy (from_me — psané ze
+    // spárovaného telefonu, typicky poznámka/oprava) push nedostávají, jde
+    // o zprávu OD zákazníka. Ověření stejným interním secretem jako u cronu
+    // (viz migrace 20261121000000 a 20261230010000) — posli-push tenhle
+    // vzorec už umí (_shared/require-user.ts).
+    if (!fromMe) {
+      try {
+        const { data: secretRow } = await supabase
+          .from("app_secrets")
+          .select("value")
+          .eq("key", "WHATSAPP_CRON_SECRET")
+          .maybeSingle();
+        if (secretRow?.value) {
+          const preview = record.message_text.slice(0, 120).replace(/\n/g, " ");
+          await fetch(`${supabaseUrl}/functions/v1/posli-push`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Internal-Cron-Secret": secretRow.value,
+            },
+            body: JSON.stringify({
+              titulek: `WhatsApp: ${record.sender_name}`,
+              telo: preview,
+              stranka: "orders",
+              tag: "whatsapp-objednavka",
+            }),
+          });
+        }
+      } catch (e) {
+        console.error("[whatsapp-webhook] push o nové zprávě selhal:", e);
+      }
+    }
+
     // Return success response
     return new Response(
       JSON.stringify({
