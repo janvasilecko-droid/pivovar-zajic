@@ -138,6 +138,7 @@
     "20261230030000_merch_items.sql",
     "20261230040000_festival_equipment.sql",
     "20261230050000_sklo_promo_entries.sql",
-    "20261231010000_odpocet_zavozu_az_po_stoceni.sql"
+    "20261231010000_odpocet_zavozu_az_po_stoceni.sql",
+    "20261231020000_stoceno_zaklada_zaznam_kegu.sql"
   ]
 }
