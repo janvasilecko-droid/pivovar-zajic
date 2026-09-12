@@ -42,7 +42,7 @@ const ODDILY: Oddil[] = [
       },
       {
         co: 'Přerovnat si plochu',
-        jak: 'Podrž prst na dlaždici a táhni ji kam chceš — i na jinou stránku. Přes ozubené kolečko na dlaždici se mění barva a velikost. Rozložení je uložené jen v tomhle telefonu.',
+        jak: 'PODRŽ prst na dlaždici (zavibruje, jakmile ji máš „v ruce") a teprve pak táhni — i na jinou stránku. Samotné přejetí dlaždicí nehne, tím se listuje. Přes ozubené kolečko se mění barva a velikost. Rozložení je uložené jen v tomhle telefonu.',
       },
       {
         co: 'Spodní lišta',

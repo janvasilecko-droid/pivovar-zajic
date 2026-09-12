@@ -12,6 +12,32 @@
 /** Co má gesto na ploše udělat. */
 export type GestoPlochy = 'stranka-dalsi' | 'stranka-predchozi' | 'hledat' | null;
 
+/**
+ * O kolik se smí prst pohnout, než se PODRŽENÍ dlaždice vzdá.
+ *
+ * Z provozu: „udělej, aby se dlaždice přesouvaly jen když na nich přidržím
+ * prst, ne jen přejetím." Dřív stačilo 6 px pohybu a dlaždice se zvedla —
+ * takže přejetí přes plochu (listování, rolování) ji vzalo s sebou a
+ * rozložení se rozházelo, aniž by o to kdo stál.
+ *
+ * Větší než přirozený třes prstu (pár px), menší než pohyb, kterým se listuje.
+ */
+export const PRAH_ZRUSENI_PODRZENI_PX = 10;
+
+/** Co se má stát s dotykem na dlaždici, dokud se drží. */
+export type StavPodrzeni = 'ceka' | 'zrusit';
+
+/**
+ * Drží prst pořád dost na místě, aby se z toho stalo zvednutí dlaždice?
+ *
+ * Vrací `'zrusit'`, jakmile se prst rozjede — tím se dotyk pustí a postará se
+ * o něj listování stránek. Samotné zvednutí řídí časovač, ne tahle funkce:
+ * ta jen říká, kdy už to podržení není.
+ */
+export function stavPodrzeni(dx: number, dy: number): StavPodrzeni {
+  return Math.hypot(dx, dy) > PRAH_ZRUSENI_PODRZENI_PX ? 'zrusit' : 'ceka';
+}
+
 /** Kolik pixelů musí prst ujet do strany, aby to bylo přetočení stránky. */
 export const PRAH_STRANKY_PX = 50;
 /** Kolik pixelů musí prst stáhnout dolů, aby se otevřelo hledání. */
