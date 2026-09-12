@@ -54,7 +54,7 @@ import {
 } from '../lib/stopwatchTimers';
 import { onNewVersion, forceRefresh, type VersionInfo } from '../lib/versionCheck';
 import { zavrenaVerzeListy, VERZE_LISTA_EVENT } from '../lib/verzeLista';
-import { vyhodnotGesto, rychlostPosunu, jeVeVodorovnemPasku } from '../lib/gestaPlochy';
+import { vyhodnotGesto, rychlostPosunu, jeVeVodorovnemPasku, stavPodrzeni } from '../lib/gestaPlochy';
 import { maSeZobrazit, oznacZobrazenou } from '../lib/napovedy';
 import { queueLength, onQueueChange, syncQueue, isOnline } from '../lib/offline';
 import { litry, litryJakoHl, kusy } from '../lib/cisla';
@@ -265,7 +265,6 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
    * O kolik se musí prst pohnout, aby to bylo tažení a ne klepnutí.
    * Pár pixelů je přirozený třes ruky; víc už je úmysl.
    */
-  const PRAH_TAZENI = 6;
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressFired = useRef(false);
   // Tažení mezi stránkami: obsluha myši/prstu běží v closure, takže by jinak
@@ -486,15 +485,14 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
 
     function onMove(ev: PointerEvent) {
       if (!longPressFired.current) {
-        // TAŽENÍ ZAČÍNÁ POHYBEM, ne čekáním. Dřív se muselo 400 ms držet
-        // bez hnutí a pohyb přes 18 px do té doby tažení ZRUŠIL — takže kdo
-        // dlaždici chytil a rovnou s ní jel (což je to, co člověk udělá),
-        // nedosáhl ničeho: dlaždice zůstala stát a nedalo se poznat proč.
+        // TAŽENÍ ZAČÍNÁ PODRŽENÍM, ne pohybem. Kdo prstem jen přejede
+        // (listuje stránky, roluje), dlaždici s sebou nevezme — gesto se
+        // pustí a postará se o něj listování plochy (handleSwipePointerUp).
         //
-        // Práh je jen tak velký, aby se klepnutí (výběr dlaždice) neproměnilo
-        // v přesun o pixel — přirozený třes prstu je pár px.
-        if (Math.hypot(ev.clientX - startX, ev.clientY - startY) > PRAH_TAZENI) zvedni();
-        else return;
+        // Dřív to bylo obráceně: pohyb přes 6 px dlaždici rovnou zvedl.
+        // Přejetí přes plochu tím rozhazovalo rozložení.
+        if (stavPodrzeni(ev.clientX - startX, ev.clientY - startY) === 'zrusit') cleanup();
+        return;
       }
       // Dlaždice jde PLYNULE ZA PRSTEM, přesně jako ikona na ploše Androidu.
       // Mřížka se uplatní až při puštění a průběžně ji ukazuje obrys cílové
@@ -529,9 +527,9 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
     // "Nabíjecí" vizuální stav hned od dotyku (viz LauncherTile — jemné
     // zvětšení), ať je jasné, že dlaždice reaguje.
     setPrimingId(id);
-    // Podržení na místě zvedne dlaždici i bez pohybu — je to druhá cesta,
-    // ne jediná. Hodí se, když si člověk chce dlaždici „vzít do ruky" a teprve
-    // pak se rozhodnout kam; bez toho by musel hned jet prstem.
+    // Podržení na místě je JEDINÁ cesta, jak dlaždici zvednout. „Nabíjecí"
+    // stav výš ukazuje, že se něco děje, a zavibrování v `zvedni()` řekne,
+    // že je dlaždice v ruce — od té chvíle jde prstem kamkoli.
     longPressTimer.current = setTimeout(zvedni, 400);
   }
   // Volná velikost — +/- krok šířky nebo výšky (žádné pevné předvolby),
@@ -542,14 +540,17 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
     const h = dim === 'h' ? Math.min(MAX_H, Math.max(MIN_H, (current.h ?? 1) + delta)) : (current.h ?? 1);
     persist({ ...layout, overrides: { ...layout.overrides, [id]: { ...current, w, h } } });
   }
-  // Přejetí prstem doleva/doprava = přepnutí stránky (jako Android launcher),
-  // jen mimo edit mód (tam má přednost podržení+tažení dlaždice, viz výš).
+  // Přejetí prstem doleva/doprava = přepnutí stránky (jako Android launcher).
+  //
+  // Platí i V EDIT MÓDU: od chvíle, kdy dlaždici zvedá až PODRŽENÍ, je
+  // přejetí volné a musí něčím být — jinak by se v editaci nedalo listovat
+  // a člověk by zůstal zamčený na jedné stránce. Když je dlaždice v ruce
+  // (longPressFired), listování se nepoužije; tam přetáčí držení u kraje.
   // Sleduje se vodorovná vzdálenost od prvního dotyku; svislý posun (scroll
   // obsahu, pokud je stránka vyšší než displej) a krátký tap na dlaždici se
   // ignorují (< 50px, nebo víc svislý než vodorovný pohyb).
   const swipeStart = useRef<{ x: number; y: number } | null>(null);
   function handleSwipePointerDown(e: React.PointerEvent) {
-    if (editMode) return;
     // Gesto, které začalo uvnitř vodorovného pásku (záložky, řada
     // upozornění), patří tomu pásku — dřív se jím místo posunutí pásku
     // přetočila celá stránka launcheru. Viz jeVeVodorovnemPasku.
@@ -566,7 +567,11 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   function handleSwipePointerUp(e: React.PointerEvent) {
     const start = swipeStart.current;
     swipeStart.current = null;
-    if (!start || editMode) return;
+    if (!start) return;
+    // Dlaždice byla v ruce — o stránky se postaralo držení u kraje a tohle
+    // gesto už bylo „spotřebované". Bez téhle pojistky by puštění dlaždice
+    // na sousední stránce zároveň přetočilo ještě jednu.
+    if (longPressFired.current) return;
     const dx = e.clientX - start.x;
     const dy = e.clientY - start.y;
     // Tah dolů od horního konce plochy otevře hledání (jako Spotlight na

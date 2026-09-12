@@ -1,8 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  vyhodnotGesto, rychlostPosunu, jeVeVodorovnemPasku,
-  PRAH_STRANKY_PX, PRAH_TAHU_DOLU_PX, VYSKA_OKRAJE_PX, MAX_POSUN_PX,
-} from './gestaPlochy';
+import { vyhodnotGesto, rychlostPosunu, jeVeVodorovnemPasku, PRAH_STRANKY_PX, PRAH_TAHU_DOLU_PX, VYSKA_OKRAJE_PX, MAX_POSUN_PX, stavPodrzeni, PRAH_ZRUSENI_PODRZENI_PX } from './gestaPlochy';
 
 describe('vyhodnotGesto', () => {
   it('tah do strany přetočí stránku', () => {
@@ -120,5 +117,42 @@ describe('jeVeVodorovnemPasku', () => {
 
   it('bez prvku (dotek mimo) nic neblokuje', () => {
     expect(jeVeVodorovnemPasku(null, null, () => 'auto')).toBe(false);
+  });
+});
+
+describe('stavPodrzeni — dlaždici zvedne jen podržení, ne přejetí', () => {
+  // Ze zadání: „udělej, aby se dlaždice přesouvaly jen když na nich přidržím
+  // prst, ne jen přejetím." Dřív stačilo 6 px pohybu a dlaždice se zvedla,
+  // takže listování stránek rozhazovalo rozložení plochy.
+  it('prst na místě čeká na zvednutí', () => {
+    expect(stavPodrzeni(0, 0)).toBe('ceka');
+  });
+
+  it('přirozený třes prstu podržení nezruší', () => {
+    // Nikdo neudrží prst na pixelu; pár px musí projít, jinak by se dlaždice
+    // nedala zvednout vůbec.
+    expect(stavPodrzeni(3, 4)).toBe('ceka');   // 5 px
+    expect(stavPodrzeni(6, 6)).toBe('ceka');   // ~8,5 px
+  });
+
+  it('rozjetý prst podržení zruší — z gesta je listování', () => {
+    expect(stavPodrzeni(40, 0)).toBe('zrusit');
+    expect(stavPodrzeni(0, -40)).toBe('zrusit');
+  });
+
+  it('rozhoduje vzdálenost, ne směr', () => {
+    // Šikmo ujetých 10 px je totéž co 10 px do strany — jinak by se dlaždice
+    // dala „ušoupnout“ diagonálně.
+    const uhlopricne = stavPodrzeni(9, 9); // ~12,7 px
+    expect(uhlopricne).toBe('zrusit');
+    expect(stavPodrzeni(-40, 0)).toBe('zrusit');
+    expect(stavPodrzeni(0, 40)).toBe('zrusit');
+  });
+
+  it('práh zrušení je menší než práh listování', () => {
+    // Kdyby byl větší, gesto by se nejdřív vyhodnotilo jako přetočení
+    // stránky a teprve pak by se pustila dlaždice — pořadí, ve kterém by
+    // se dlaždice pořád ještě vozila s sebou.
+    expect(PRAH_ZRUSENI_PODRZENI_PX).toBeLessThan(PRAH_STRANKY_PX);
   });
 });

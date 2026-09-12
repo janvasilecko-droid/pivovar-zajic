@@ -239,6 +239,42 @@ describe('odznak „chybí skladem" u odbavené objednávky', () => {
 });
 
 // ---------------------------------------------------------------------------
+// 1d) Dlaždici na ploše zvedá PODRŽENÍ, ne přejetí
+// ---------------------------------------------------------------------------
+describe('přesouvání dlaždic na ploše', () => {
+  // Ze zadání: „udělej, aby se dlaždice přesouvaly jen když na nich přidržím
+  // prst, ne jen přejetím." Dřív stačilo 6 px pohybu a dlaždice se zvedla,
+  // takže listování stránek rozhazovalo rozložení plochy.
+  const zdroj = readFileSync('src/screens/HomeScreen.tsx', 'utf8');
+
+  it('pohyb prstu dlaždici NEZVEDÁ — jen zruší podržení', () => {
+    // Úsek obsluhy pohybu PŘED tím, než je dlaždice v ruce.
+    const od = zdroj.indexOf('function onMove(ev: PointerEvent)');
+    const predZvednutim = zdroj.slice(od, zdroj.indexOf('poslednePozice = { x: ev.clientX', od));
+    expect(predZvednutim).toContain('stavPodrzeni');
+    expect(predZvednutim).toContain('cleanup()');
+    expect(predZvednutim).not.toContain('zvedni()');
+  });
+
+  it('zvednutí drží časovač podržení', () => {
+    expect(zdroj).toMatch(/longPressTimer\.current = setTimeout\(zvedni, \d+\)/);
+  });
+
+  it('listování stránek funguje i v editaci — jinak by se v ní nedalo hnout', () => {
+    // Když dlaždici zvedá až podržení, přejetí je volné a musí něčím být.
+    const dolu = zdroj.slice(zdroj.indexOf('function handleSwipePointerDown'));
+    expect(dolu.slice(0, dolu.indexOf('\n  }'))).not.toContain('if (editMode) return;');
+  });
+
+  it('puštění dlaždice zároveň nepřetočí stránku', () => {
+    // Gesto už bylo spotřebované držením u kraje; bez pojistky by se
+    // přetočilo ještě jednou.
+    const nahoru = zdroj.slice(zdroj.indexOf('function handleSwipePointerUp'));
+    expect(nahoru.slice(0, nahoru.indexOf('\n  }'))).toContain('longPressFired.current');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 2) Verze v kódu a ve version.json si musí odpovídat
 // ---------------------------------------------------------------------------
 describe('číslo verze', () => {
