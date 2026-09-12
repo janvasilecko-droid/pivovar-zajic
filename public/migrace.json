@@ -133,6 +133,11 @@
     "20261229020000_smazani_polozky_i_s_odpoctem.sql",
     "20261229030000_smazani_odpoctu_pod_polozkou.sql",
     "20261230000000_whatsapp_prava_podle_modulu.sql",
-    "20261230010000_ranni_souhrn_a_push_pri_objednavce.sql"
+    "20261230010000_ranni_souhrn_a_push_pri_objednavce.sql",
+    "20261230020000_znovu_prava_zavoz_odpoctu.sql",
+    "20261230030000_merch_items.sql",
+    "20261230040000_festival_equipment.sql",
+    "20261230050000_sklo_promo_entries.sql",
+    "20261231010000_odpocet_zavozu_az_po_stoceni.sql"
   ]
 }
