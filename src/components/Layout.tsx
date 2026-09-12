@@ -39,7 +39,7 @@ import { uloz } from '../lib/uloziste';
 
 export type NavItem = { id: Page; label: string; icon: LucideIcon; group: string };
 
-export type Page = 'export_excel' | 'home' | 'sanitace' | 'marketing' | 'planning' | 'depozitar' | 'dashboard' | 'concentration' | 'srotovani' | 'checklists' | 'haccp' | 'sanitation_log' | 'sanitace_lahve' | 'sanitace_kegy' | 'sanitace_vycepy' | 'history' | 'orders_entry' | 'orders' | 'orders_detail' | 'orders_celkem' | 'orders_zavoz' | 'zavoz' | 'kniha_jizd' | 'stock' | 'bottling' | 'kegging' | 'fasovani' | 'prodejna' | 'akce' | 'sklo_promo' | 'vycepy' | 'exkurze' | 'reminders' | 'notes' | 'writeoffs' | 'inventory' | 'calendar' | 'feedback' | 'places' | 'beers' | 'packages' | 'pricelist' | 'vehicles' | 'cellar' | 'users' | 'app_settings' | 'app_versions' | 'bottling_needs' | 'stopwatch' | 'timer' | 'keg_timer' | 'radio' | 'zaloha' | 'co2' | 'signout';
+export type Page = 'export_excel' | 'home' | 'sanitace' | 'marketing' | 'planning' | 'depozitar' | 'dashboard' | 'concentration' | 'srotovani' | 'checklists' | 'haccp' | 'sanitation_log' | 'sanitace_lahve' | 'sanitace_kegy' | 'sanitace_vycepy' | 'history' | 'orders_entry' | 'orders' | 'orders_detail' | 'orders_celkem' | 'orders_zavoz' | 'zavoz' | 'kniha_jizd' | 'stock' | 'bottling' | 'kegging' | 'fasovani' | 'prodejna' | 'akce' | 'sklo_promo' | 'vycepy' | 'exkurze' | 'reminders' | 'notes' | 'writeoffs' | 'inventory' | 'calendar' | 'feedback' | 'places' | 'beers' | 'packages' | 'pricelist' | 'vehicles' | 'cellar' | 'users' | 'app_settings' | 'app_versions' | 'bottling_needs' | 'stopwatch' | 'timer' | 'keg_timer' | 'radio' | 'zaloha' | 'co2' | 'navod' | 'signout';
 
 export const NAV: NavItem[] = [
   // --- VÝROBA ---
@@ -111,6 +111,9 @@ export const EXTRA_NAV: NavItem[] = [
   { id: 'stopwatch', label: 'Stopky', icon: Timer, group: 'Nástroje' },
   { id: 'keg_timer', label: 'Stočení sudu', icon: Hourglass, group: 'Nástroje' },
   { id: 'radio', label: 'Pivovarské Rádio', icon: Radio, group: 'Nástroje' },
+  // Návod k použití. Jako dlaždice na ploše, protože „?" v horní liště je
+  // malé a kdo appku teprve poznává, hledá spíš ikonu než otazník.
+  { id: 'navod', label: 'Návod k použití', icon: BookOpen, group: 'Nastavení' },
 ];
 
 // Interní záložky uvnitř "Tabbed" obrazovek (viz App.tsx) mají vlastní Page

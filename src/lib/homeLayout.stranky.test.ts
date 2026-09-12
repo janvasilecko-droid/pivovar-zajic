@@ -87,9 +87,13 @@ describe('rozdelDoStranek — tři stránky podle toho, co člověk dělá', () 
       EXTRA_NAV.map((n) => n.id),
       GRID_COLS_MOBILE,
     );
-    // Hlavní moduly + lísteček s poznámkami (záměrná výjimka), nic víc.
-    expect(layout.pages.flat()).toHaveLength(NAV.length + 1);
-    expect(layout.pages.flat()).toContain('notes');
+    // Hlavní moduly + záměrné výjimky (lísteček s poznámkami, návod), nic víc.
+    // Počítá se ze seznamu výjimek, ne z napevno napsaného čísla: jinak by
+    // každá nová výjimka znamenala „oprav číslo v testu" místo rozhodnutí.
+    expect(layout.pages.flat()).toHaveLength(NAV.length + DLAZDICE_MIMO_TABULKU_ZAMERNE.length);
+    for (const vyjimka of DLAZDICE_MIMO_TABULKU_ZAMERNE) {
+      expect(layout.pages.flat()).toContain(vyjimka);
+    }
     expect(layout.pages.flat()).not.toContain('sanitace_vycepy');
     expect(layout.pages.flat()).not.toContain('bottling_entry');
   });
@@ -221,13 +225,15 @@ describe('jedna věc = jedna dlaždice', () => {
     expect(chybi).toEqual([]);
   });
 
-  it('idsKRozmisteni pustí z EXTRA_NAV jen poznámky', () => {
+  it('idsKRozmisteni pustí z EXTRA_NAV jen záměrné výjimky', () => {
     const ids = idsKRozmisteni(['kegging'], EXTRA_NAV.map((n) => n.id));
     expect(ids).toContain('kegging');
-    expect(ids).toContain('notes');
+    for (const vyjimka of DLAZDICE_MIMO_TABULKU_ZAMERNE) {
+      expect(ids).toContain(vyjimka);
+    }
     expect(ids).not.toContain('bottling_entry');
     expect(ids).not.toContain('sanitace_vycepy');
-    expect(ids).toHaveLength(2);
+    expect(ids).toHaveLength(1 + DLAZDICE_MIMO_TABULKU_ZAMERNE.length);
   });
 });
 

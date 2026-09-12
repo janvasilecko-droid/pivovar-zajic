@@ -17,7 +17,8 @@ describe('PAGE_TO_MODULE — mapa obrazovka → modul', () => {
       //  • home     — úvodní plocha
       //  • stopwatch/timer/keg_timer/radio — pomůcky (stopky, časovač, stočení sudu, rádio),
       //    nepracují s žádnými daty, takže je nemá smysl zamykat
-      .filter((id) => !['users', 'zaloha', 'signout', 'home', 'stopwatch', 'timer', 'keg_timer', 'radio'].includes(id))
+      //  • navod    — nápověda k aplikaci; zamknout ji znamená nechat člověka bez pomoci
+      .filter((id) => !['users', 'zaloha', 'signout', 'home', 'stopwatch', 'timer', 'keg_timer', 'radio', 'navod'].includes(id))
       .filter((id) => !PAGE_TO_MODULE[id]);
     expect(chybi).toEqual([]);
   });
