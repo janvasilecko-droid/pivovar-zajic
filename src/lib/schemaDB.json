@@ -387,7 +387,8 @@
   "tank_id",
   "cellar_tank_id",
   "source_volume_l",
-  "loss_l"
+  "loss_l",
+  "order_item_id"
  ],
  "kegging_plan_checks": [
   "id",

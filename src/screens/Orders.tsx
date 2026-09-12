@@ -15,6 +15,8 @@ import { computeVariantTotals, type VariantTotalsResult } from '../lib/variantTo
 import { PlaceCombobox } from '../components/PlaceCombobox'; // Assuming this is needed
 import { DAYS } from '../lib/shared';
 import { vseHotovo } from '../lib/polozkyObjednavky';
+import { zapisStaceniZPolozky, zrusStaceniZPolozky } from '../lib/staceniZPolozky';
+import type { TankKOdectu } from '../lib/tankUZapisu';
 import { VoiceRecorder } from '../components/VoiceRecorder';
 import { orderQuickQtys } from '../components/QuickQtySelect';
 import { BeerTileGrid, BeerTilePanel } from '../components/BeerTileGrid';
@@ -1296,6 +1298,17 @@ export default function Orders({
    * U „připraveno" se navíc dopočítá příznak celé objednávky — stejně jako
    * to dělá Závoz, protože podle něj se objednávka tváří jako nachystaná.
    */
+  // Aktivní tanky pro automatické stočení ze zaškrtnutí — stejná data,
+  // jaká by nabídl ruční zápis v Začátek stáčení (viz lib/tankUZapisu.ts).
+  async function nactiAktivniTanky(): Promise<TankKOdectu[]> {
+    const { data, error } = await fetchAllRows<TankKOdectu>(
+      'cellar_tanks',
+      'id,current_beer_id,kegging_active,status,current_volume_l',
+    );
+    if (error || !data) return [];
+    return data;
+  }
+
   async function toggleItemFlag(o: Order, it: OrderItem, key: 'is_bottled' | 'is_prepared') {
     const nova = !it[key];
     const { error } = await supabase.from('order_items').update({ [key]: nova }).eq('id', it.id);
@@ -1310,6 +1323,17 @@ export default function Orders({
         await supabase.from('orders').update({ is_prepared: hotovo }).eq('id', o.id);
         setOrders((arr) => arr.map((x) => (x.id === o.id ? { ...x, is_prepared: hotovo } : x)));
       }
+    }
+
+    // Stočeno u sudu rovnou založí (nebo při odškrtnutí zruší) skutečný
+    // záznam stáčení — viz lib/staceniZPolozky.ts. Lahve appka nepozná,
+    // kolik sudů surového piva se na ně spotřebovalo, takže tam se dál
+    // jen odškrtává, beze změny.
+    if (key === 'is_bottled') {
+      const chybaZapisu = nova
+        ? await zapisStaceniZPolozky(it, packages, await nactiAktivniTanky(), businessDateISO())
+        : await zrusStaceniZPolozky(it.id);
+      if (chybaZapisu) chyba(chybaZapisu);
     }
   }
 

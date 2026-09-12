@@ -22,6 +22,9 @@ import { UkolyObjednavky, UkolyDne } from '../components/ZavozUkoly';
 import { nactiHotoveUkoly, nastavUkolHotovo, klicUkolu } from '../lib/zavozUkolyDb';
 import type { UkolKlic } from '../lib/zavozUkoly';
 import { IkonaSud } from '../components/ikony';
+import { businessDateISO } from '../lib/businessDate';
+import { zapisStaceniZPolozky, zrusStaceniZPolozky } from '../lib/staceniZPolozky';
+import type { TankKOdectu } from '../lib/tankUZapisu';
 
 // Stahuje se až při otevření — viz komentář u lazy() v Orders.tsx.
 const EditOrderModal = lazy(() => import('../components/EditOrderModal').then((m) => ({ default: m.EditOrderModal })));
@@ -307,6 +310,17 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
    * (i vrátit) na obou stranách, jinak by si každá obrazovka vedla vlastní
    * pravdu o jedné bedně piva.
    */
+  // Aktivní tanky pro automatické stočení ze zaškrtnutí — stejná data,
+  // jaká by nabídl ruční zápis v Začátek stáčení (viz lib/tankUZapisu.ts).
+  async function nactiAktivniTanky(): Promise<TankKOdectu[]> {
+    const { data, error } = await fetchAllRows<TankKOdectu>(
+      'cellar_tanks',
+      'id,current_beer_id,kegging_active,status,current_volume_l',
+    );
+    if (error || !data) return [];
+    return data;
+  }
+
   async function toggleItemBottled(o: Order, it: OrderItem) {
     zavibruj('odskrtnuto');
     const nove = !it.is_bottled;
@@ -314,6 +328,15 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
     if (error) return;
     const its = items[o.id] ?? [];
     setItems((m) => ({ ...m, [o.id]: its.map((x) => (x.id === it.id ? { ...x, is_bottled: nove } : x)) }));
+
+    // Stočeno u sudu rovnou založí (nebo při odškrtnutí zruší) skutečný
+    // záznam stáčení — viz lib/staceniZPolozky.ts a stejné místo v
+    // Orders.tsx. Lahve appka nepozná, kolik sudů surového piva se na ně
+    // spotřebovalo, takže tam se dál jen odškrtává, beze změny.
+    const chybaZapisu = nove
+      ? await zapisStaceniZPolozky(it, packages, await nactiAktivniTanky(), businessDateISO())
+      : await zrusStaceniZPolozky(it.id);
+    if (chybaZapisu) chyba(chybaZapisu);
   }
 
   // Toggle all order_items matching a loading-list label (beer_name + package)
