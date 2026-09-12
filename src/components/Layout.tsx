@@ -1,5 +1,5 @@
 import { ReactNode, useState, useEffect, useRef, lazy, Suspense } from 'react';
-import { AlarmClock, AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, Bell, BookOpen, CalendarDays, Car, ClipboardCheck, ClipboardList, Compass, Download, FileSpreadsheet, FileText, FlaskConical, GlassWater, History as HistoryIcon, Home, Hourglass, LogOut, MapPin, MessageCircle, Package as PackageIcon, Radio, Receipt, Search, Settings, Shield, ShieldCheck, Smartphone, Snowflake, Sparkles, StickyNote, Store, Tag, Timer, TrendingDown, Truck, Users, Wifi, WifiOff, X, XCircle, type LucideIcon } from 'lucide-react';
+import { AlarmClock, AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, Bell, BookOpen, CalendarDays, Car, ClipboardCheck, ClipboardList, Compass, Download, FileSpreadsheet, FileText, FlaskConical, GlassWater, History as HistoryIcon, Home, Hourglass, Info, LogOut, MapPin, MessageCircle, Package as PackageIcon, Radio, Receipt, Search, Settings, Shield, ShieldCheck, Smartphone, Snowflake, Sparkles, StickyNote, Store, Tag, Timer, TrendingDown, Truck, Users, Wifi, WifiOff, X, XCircle, type LucideIcon } from 'lucide-react';
 import { BreweryRadioBar } from './BreweryRadioBar';
 import { BreweryRadioModal } from './BreweryRadioModal';
 
@@ -111,9 +111,11 @@ export const EXTRA_NAV: NavItem[] = [
   { id: 'stopwatch', label: 'Stopky', icon: Timer, group: 'Nástroje' },
   { id: 'keg_timer', label: 'Stočení sudu', icon: Hourglass, group: 'Nástroje' },
   { id: 'radio', label: 'Pivovarské Rádio', icon: Radio, group: 'Nástroje' },
-  // Návod k použití. Jako dlaždice na ploše, protože „?" v horní liště je
-  // malé a kdo appku teprve poznává, hledá spíš ikonu než otazník.
-  { id: 'navod', label: 'Návod k použití', icon: BookOpen, group: 'Nastavení' },
+  // Info — návody ke všem funkcím a údaje o aplikaci. Jako dlaždice na ploše,
+  // protože „?" v horní liště je malé a kdo appku teprve poznává, hledá spíš
+  // ikonu než otazník. Id zůstává 'navod': mění se jen popisek, takže komu
+  // dlaždice na ploše už leží, o ni nepřijde.
+  { id: 'navod', label: 'Info', icon: Info, group: 'Nastavení' },
 ];
 
 // Interní záložky uvnitř "Tabbed" obrazovek (viz App.tsx) mají vlastní Page

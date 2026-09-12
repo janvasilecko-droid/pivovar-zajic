@@ -2872,8 +2872,8 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
         onClose={() => setShowNotesModal(false)}
       />
 
-      {/* Návod k použití — stahuje se až při otevření (viz lazy výš). */}
-      <Modal open={showNavodModal} onClose={() => setShowNavodModal(false)} title="Návod k použití" wide>
+      {/* Info a návod — stahuje se až při otevření (viz lazy výš). */}
+      <Modal open={showNavodModal} onClose={() => setShowNavodModal(false)} title="Info a návod k použití" wide>
         <Suspense fallback={<div className="text-sm font-bold text-neutral-500 p-4">Načítám návod…</div>}>
           <NavodPouziti />
         </Suspense>
