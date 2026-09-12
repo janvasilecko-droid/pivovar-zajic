@@ -92,10 +92,10 @@ describe('návod k použití', () => {
     // Na telefonu se souvislý text přes patnáct obrazovek neroluje.
     render(<NavodPouziti />);
     expect(screen.getByText('Stáčení KEG')).toBeTruthy();
-    expect(screen.queryByText('Odškrtávátko NEZAPISUJE stáčení')).toBeNull();
+    expect(screen.queryByText('Odškrtávátko v PLÁNU stáčení nezapisuje')).toBeNull();
 
     fireEvent.click(screen.getByText('Stáčení KEG'));
-    expect(screen.getByText('Odškrtávátko NEZAPISUJE stáčení')).toBeTruthy();
+    expect(screen.getByText('Odškrtávátko v PLÁNU stáčení nezapisuje')).toBeTruthy();
   });
 
   it('otevřený oddíl se dá zase zavřít', () => {
