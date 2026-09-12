@@ -30,6 +30,7 @@ import { usePosledniNacteni, prvniChyba } from '../lib/nacitani';
 import type { RadekPohybu, RadekZavozu } from '../lib/stockLedger';
 import { soucetUlozenehoDnes } from '../lib/jizUlozeno';
 import { jeMesicUzamcen } from '../lib/mesicUzamcen';
+import { jeZeZaskrtnuti } from '../lib/staceniZPolozky';
 
 // Stahuje se až při otevření — viz komentář u lazy() v Orders.tsx.
 const ImportKeggingFromImage = lazy(() => import('../components/ImportKeggingFromImage').then((m) => ({ default: m.ImportKeggingFromImage })));
@@ -1541,6 +1542,14 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                             )}
                           </span>
                         </div>
+                        {/* Odkud se záznam vzal — viz stejná značka v „Všechny
+                            záznamy" níž a `jeZeZaskrtnuti` v lib. */}
+                        {jeZeZaskrtnuti(r.note) && (
+                          <div className="text-udaj font-bold text-sky-800 bg-sky-50 border border-sky-200 rounded px-1.5 py-0.5 inline-flex items-center gap-1">
+                            <ClipboardList size={11} className="shrink-0" />
+                            Založeno zaškrtnutím „Stočeno" u objednávky
+                          </div>
+                        )}
                         {!isEditing && (
                           <div className="flex items-center gap-1.5 pt-2 border-t border-emerald-100">
                             <button type="button" onClick={() => setEditingRow(r)} className="btn-ghost !flex-none !w-11 !px-0 !min-h-[44px]" title="Upravit záznam" aria-label="Upravit záznam"><Pencil size={16} /></button>
@@ -1817,6 +1826,21 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                       <div className="text-udaj font-bold text-amber-700 tabular-nums">
                         {liters.toLocaleString('cs-CZ', { maximumFractionDigits: 0 })} l · {(liters / 100).toLocaleString('cs-CZ', { maximumFractionDigits: 2 })} hl
                       </div>
+                      {/* 🏷️ ODKUD SE TEN ZÁZNAM VZAL.
+                          Z provozu 12. 9. 2026: „10× 12sv 50 l jsem nezadával,
+                          co to je?" Byl to záznam, který appka založila sama
+                          po zaškrtnutí kapky „Stočeno" u objednávky. Je to
+                          správně a bylo to vyžádané — jenže v seznamu vypadal
+                          úplně stejně jako ručně napsaný, takže se v něm
+                          objevilo stáčení, o kterém stáčeč nevěděl.
+                          Poznámku nese `note`, ale ta se do téhle chvíle
+                          kreslila jen v tabulce na počítači. */}
+                      {jeZeZaskrtnuti(r.note) && (
+                        <div className="text-udaj font-bold text-sky-800 bg-sky-50 border border-sky-200 rounded px-1.5 py-0.5 inline-flex items-center gap-1">
+                          <ClipboardList size={11} className="shrink-0" />
+                          Založeno zaškrtnutím „Stočeno" u objednávky
+                        </div>
+                      )}
                       {!isEditing && (
                         <div className="flex items-center gap-1.5 pt-1.5 border-t border-amber-100">
                           <button type="button" onClick={() => setEditingRow(r)} className="btn-ghost !flex-none !w-11 !px-0 !min-h-[44px]" title="Upravit záznam" aria-label="Upravit záznam"><Pencil size={16} /></button>

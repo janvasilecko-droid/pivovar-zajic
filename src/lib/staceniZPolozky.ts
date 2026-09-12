@@ -50,6 +50,22 @@ export type NovyZaznamStaceni = {
 export const POZNAMKA_AUTOMATICKY = 'Založeno zaškrtnutím "Stočeno" u objednávky';
 
 /**
+ * Vznikl tenhle záznam stáčení sám, zaškrtnutím u objednávky?
+ *
+ * Z provozu 12. 9. 2026: „10× 12sv 50 l jsem nezadával, co to je?" Byl to
+ * právě takový záznam — appka ho založila správně a na vyžádání, jenže
+ * v seznamu vypadal úplně stejně jako ručně napsaný. Ve stáčení se tak
+ * objevilo pivo, o kterém stáčeč nevěděl, že tam je.
+ *
+ * Poznámka je jediná stopa, kterou takový řádek nese, takže se pozná podle
+ * ní. Porovnává se na ZAČÁTEK textu: kdyby někdo k poznámce něco připsal
+ * (ručně nebo při úpravě), značka musí zůstat.
+ */
+export function jeZeZaskrtnuti(note: string | null | undefined): boolean {
+  return (note ?? '').trimStart().startsWith(POZNAMKA_AUTOMATICKY);
+}
+
+/**
  * Co se má zapsat do `kegging`, když se položka označí za stočenou.
  * `null` = nezapisovat nic (není to sud, nemá množství, nebo obal
  * v katalogu chybí).

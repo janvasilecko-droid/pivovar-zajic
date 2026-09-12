@@ -116,6 +116,33 @@ describe('Plán stáčení — odkaz do Objednávek a odškrtnutí', () => {
     return screen.findByText(/Stočit na St/);
   }
 
+  it('záznam založený zaškrtnutím u objednávky je v přehledu POZNAT', async () => {
+    // Z provozu 12. 9. 2026: „10× 12sv 50 l jsem nezadával, co to je?"
+    // Vypadal v seznamu jako ručně napsaný, takže se ve stáčení objevilo
+    // pivo, o kterém stáčeč nevěděl, odkud je.
+    h.DB.kegging = [{
+      id: 'auto-1', entry_date: '2026-01-07', beer_id: 'beer-12', package_id: 'pkg-30',
+      quantity: 10, note: 'Založeno zaškrtnutím "Stočeno" u objednávky',
+    }];
+    render(<KeggingScreen mode="all" setPage={vi.fn()} initialSubTab="prehled" />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/Založeno zaškrtnutím/).length).toBeGreaterThan(0);
+    });
+  });
+
+  it('ručně napsaný záznam tu značku NEMÁ', async () => {
+    // Kdyby se značka kreslila u všeho, nic by neznamenala.
+    h.DB.kegging = [{
+      id: 'rucni-1', entry_date: '2026-01-07', beer_id: 'beer-12', package_id: 'pkg-30',
+      quantity: 3, note: null,
+    }];
+    render(<KeggingScreen mode="all" setPage={vi.fn()} initialSubTab="prehled" />);
+
+    await screen.findByText(/Všechny záznamy|3 ks/);
+    expect(screen.queryByText(/Založeno zaškrtnutím/)).toBeNull();
+  });
+
   it('ukazuje rozpad „zbývá stočit po sudech" s počtem za velikost', async () => {
     // Z provozu: „musí tam být i přehled, kolik jednotlivých KEG sudů zbývá
     // stočit — kolik dohromady třicítek, padesátek atd." Seznam je po pivech,

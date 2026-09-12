@@ -134,7 +134,11 @@ const ODDILY: Oddil[] = [
         jak: 'Objednávky, u kterých není uvedený den dovozu. Appka je nehádá na dnešek — doplň den v Objednávkách a přeskočí, kam patří.',
       },
       {
-        co: 'Odškrtávátko NEZAPISUJE stáčení',
+        co: 'Kapka „Stočeno" u objednávky zápis ZALOŽÍ',
+        jak: 'Zaškrtnutí kapky u položky objednávky (jen u sudů) rovnou založí záznam ve stáčení, ať se totéž nepíše dvakrát. V seznamu záznamů je takový řádek označený „Založeno zaškrtnutím Stočeno u objednávky" — podle toho poznáš, že ho appka napsala sama.',
+      },
+      {
+        co: 'Odškrtávátko v PLÁNU stáčení nezapisuje',
         jak: 'Fajfky v plánu jsou jen pracovní pomůcka pro stáčeče. Skutečný zápis se dělá v „Začátek stáčení“, jinak by vznikl dvojí záznam.',
       },
     ],

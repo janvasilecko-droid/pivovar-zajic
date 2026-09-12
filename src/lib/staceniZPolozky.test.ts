@@ -1,7 +1,7 @@
 // Co se má zapsat do kegging, když se u položky objednávky zaškrtne
 // "Stočeno" — viz hlavička staceniZPolozky.ts, proč to vzniklo.
 import { describe, it, expect } from 'vitest';
-import { naplanujZaznamZeStoceni, POZNAMKA_AUTOMATICKY } from './staceniZPolozky';
+import { naplanujZaznamZeStoceni, POZNAMKA_AUTOMATICKY, jeZeZaskrtnuti } from './staceniZPolozky';
 
 const PACKAGES = [
   { id: 'keg30', kind: 'keg' as const, volume_l: 30 },
@@ -83,5 +83,43 @@ describe('naplanujZaznamZeStoceni', () => {
     ];
     const z = naplanujZaznamZeStoceni(polozka(), PACKAGES, tanky, '2026-09-12');
     expect(z?.cellar_tank_id).toBeNull();
+  });
+});
+
+describe('jeZeZaskrtnuti — poznat záznam, který appka založila sama', () => {
+  // Z provozu 12. 9. 2026: „10× 12sv 50 l jsem nezadával, co to je?"
+  // Byl to záznam z kapky „Stočeno" u objednávky — správně a na vyžádání,
+  // jenže v seznamu vypadal jako ručně napsaný, takže se ve stáčení objevilo
+  // pivo, o kterém stáčeč nevěděl.
+  it('pozná svůj vlastní zápis', () => {
+    expect(jeZeZaskrtnuti(POZNAMKA_AUTOMATICKY)).toBe(true);
+  });
+
+  it('ručně napsaná poznámka to není', () => {
+    expect(jeZeZaskrtnuti('Dostáčeno ze zbytku tanku')).toBe(false);
+    expect(jeZeZaskrtnuti('')).toBe(false);
+    expect(jeZeZaskrtnuti(null)).toBe(false);
+    expect(jeZeZaskrtnuti(undefined)).toBe(false);
+  });
+
+  it('značka přežije, když někdo k poznámce něco připíše', () => {
+    // Poznámka jde upravit ručně; kdyby se porovnávala na přesnou shodu,
+    // dopsaná věta by značku zrušila a řádek by se zase tvářil jako ručně
+    // napsaný.
+    expect(jeZeZaskrtnuti(`${POZNAMKA_AUTOMATICKY} — dodělal Franta`)).toBe(true);
+    expect(jeZeZaskrtnuti(`  ${POZNAMKA_AUTOMATICKY}`)).toBe(true);
+  });
+
+  it('záznam z plánovače tu značku opravdu nese', () => {
+    // Kdyby se text poznámky v plánovači změnil a tady ne, značka by zmizela
+    // a nikdo by si toho nevšiml.
+    const zaznam = naplanujZaznamZeStoceni(
+      { id: 'i1', beer_id: 'b', beer_name: 'Jantar', package_id: 'keg50', package_label: 'KEG 50l', quantity: 10 },
+      [{ id: 'keg50', kind: 'keg', volume_l: 50 }],
+      [],
+      '2026-09-11',
+    );
+    expect(zaznam).toBeTruthy();
+    expect(jeZeZaskrtnuti(zaznam!.note)).toBe(true);
   });
 });
