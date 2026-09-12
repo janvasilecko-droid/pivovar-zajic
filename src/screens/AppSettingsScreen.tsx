@@ -17,7 +17,6 @@ import { getNotificationPermission, requestNotificationPermission, getNotificati
 import { jePrihlasen, jePushPodporovan, odhlasPush, prihlasPush, stavPushu, VAPID_KLIC } from '../lib/pushOdber';
 import { authenticatedFunctionHeaders } from '../lib/functionAuth';
 import { APP_VERSION, APP_VERSION_DATE } from '../lib/version';
-import { APP_CHANGELOG } from '../lib/changelog';
 import { forceRefresh } from '../lib/versionCheck';
 import { isAdminEmail } from '../lib/config';
 import { fetchWhatsAppSenders, addWhatsAppSender, removeWhatsAppSender, type WhatsAppSender } from '../lib/whatsappApi';
@@ -871,24 +870,6 @@ function AdminVersionSyncSection() {
           <RefreshCw className="ikona-text" /> Vynutit stažení nejnovější verze aplikace (vyčistit cache)
         </button>
       </div>
-
-      {/* Co je nového v této verzi */}
-      {APP_CHANGELOG.length > 0 && (
-        <div className="mt-5 p-4 rounded bg-emerald-50 border border-emerald-200 space-y-2">
-          <div className="flex items-center gap-2">
-            <Sparkles className="ikona-text" />
-            <span className="text-xs font-black uppercase tracking-wider text-emerald-800">Co je nového ve verzi v{APP_VERSION}</span>
-          </div>
-          <ul className="space-y-1">
-            {APP_CHANGELOG.map((line, i) => (
-              <li key={i} className="text-xs font-medium text-emerald-900 flex items-start gap-2">
-                <span className="text-emerald-500 mt-0.5">•</span>
-                <span>{line}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
 
       {/* Tlačítko pro refresh */}
       <div className="mt-5 p-4 rounded bg-amber-100/70 border border-amber-300 space-y-3">

@@ -5,7 +5,7 @@
 // Výjimka nad dlaždicemi: upozornění na STK/dálniční známku vozidel —
 // zobrazuje se jen komu je nastaveno (Uživatelé → "Dostává upozornění na
 // vozidla") a musí ho jednou potvrdit, pak zmizí (dokud se stav nezmění).
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState, useRef } from 'react';
 import {
   CalendarX2, CloudUpload, Download, Check, ChevronLeft, ChevronRight, Lightbulb, LogOut, Palette, Plus, Search, SlidersHorizontal, Trash2, TriangleAlert, X,
   Truck, ClipboardList, MessageCircle, PlusCircle, Snowflake, FlaskConical, CalendarDays, BarChart3, Package as PackageIcon, TrendingDown, GlassWater, BookOpen, Droplet, Car, FileText, ClipboardCheck, Shield, Store, Receipt, MapPin, Beer as BeerIcon, Tag, Sparkles, Compass, Wheat, Zap, ArrowLeftRight, StickyNote,
@@ -23,6 +23,9 @@ import { getVehicleExpiryStatus } from '../lib/vozidla';
 import { businessDateISO } from '../lib/businessDate';
 import { IkonaSud, IkonaLahev, IkonaVycep } from '../components/ikony';
 import { HomeNotesModal } from '../components/HomeNotesModal';
+// Návod je přes deset kilobajtů textu, který většina lidí za den neotevře —
+// stáhne se až při klepnutí na dlaždici.
+const NavodPouziti = lazy(() => import('../components/NavodPouziti').then((m) => ({ default: m.NavodPouziti })));
 import { HomeChecklistModal } from '../components/HomeChecklistModal';
 import { getHomeNotes, toggleHomeNote, HOME_NOTES_CHANGED_EVENT, OPEN_HOME_NOTES_EVENT, consumeOpenHomeNotesRequest, type HomeNote, toggleHomeNoteImportant, rozvrhniPoznamky, kolikPoznamekZobrazit } from '../lib/homeNotes';
 import { getDailyTasks, DAILY_CHECKLIST_CHANGED_EVENT, type DailyTask } from '../lib/homeChecklist';
@@ -744,6 +747,12 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
       toggleRadio();
       return;
     }
+    // Návod se otevře v okně nad plochou — je to čtení, ne obrazovka,
+    // na kterou se odchází a pak se z ní musí vracet zpátky.
+    if (id === 'navod') {
+      setShowNavodModal(true);
+      return;
+    }
     if (id === 'signout') {
       if ((await potvrd('Odhlásit se z appky?'))) signOut();
       return;
@@ -777,6 +786,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
 
   // Modály pro rychlé poznámky a denní checklist
   const [showNotesModal, setShowNotesModal] = useState(false);
+  const [showNavodModal, setShowNavodModal] = useState(false);
   const [showChecklistModal, setShowChecklistModal] = useState(false);
 
   // 🔀 Kdokoli zavolá setPage('notes') (vyhledávání, menu, záložky —
@@ -2856,6 +2866,13 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
         isOpen={showNotesModal}
         onClose={() => setShowNotesModal(false)}
       />
+
+      {/* Návod k použití — stahuje se až při otevření (viz lazy výš). */}
+      <Modal open={showNavodModal} onClose={() => setShowNavodModal(false)} title="Návod k použití" wide>
+        <Suspense fallback={<div className="text-sm font-bold text-neutral-500 p-4">Načítám návod…</div>}>
+          <NavodPouziti />
+        </Suspense>
+      </Modal>
 
       <HomeChecklistModal
         isOpen={showChecklistModal}

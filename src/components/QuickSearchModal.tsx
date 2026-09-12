@@ -8,13 +8,16 @@
 //    chyběly — teď se bere přímo z NAV/EXTRA_NAV a zastarat nemůže,
 //  • hledalo se přesně na znak, takže „kynsperk" nenašlo „Kynšperk" a
 //    „11" nenašlo „11°". Teď se porovnává bez diakritiky.
-import { useEffect, useState, useRef, useMemo } from 'react';
+import { lazy, Suspense, useEffect, useState, useRef, useMemo } from 'react';
 import { Search, ArrowRight, MapPin, Beer as BeerIcon, ClipboardList, Package as PackageIcon, BookOpen } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { NAV, EXTRA_NAV, Page } from './Layout';
 import { requestOrdersHledani } from '../lib/ordersFilter';
 import { popisStavu } from '../lib/stavyObjednavek';
-import { NavodPouziti } from './NavodPouziti';
+// Návod se stahuje AŽ při otevření. Hledání visí v horní liště, takže je
+// v prvním kusu aplikace — a návod je přes deset kilobajtů textu, který
+// většina lidí za den neotevře. `lazy()` z něj udělá samostatný kus.
+const NavodPouziti = lazy(() => import('./NavodPouziti').then((m) => ({ default: m.NavodPouziti })));
 import { Modal } from './ui';
 
 interface QuickSearchModalProps {
@@ -344,7 +347,9 @@ export function QuickSearchModal({ isOpen, onClose, onSelectPage }: QuickSearchM
       </div>
 
       <Modal open={showGuide} onClose={() => setShowGuide(false)} title="Návod k použití & Přehled funkcí" wide>
-        <NavodPouziti />
+        <Suspense fallback={<div className="text-sm font-bold text-neutral-500 p-4">Načítám návod…</div>}>
+          <NavodPouziti />
+        </Suspense>
       </Modal>
     </div>
   );

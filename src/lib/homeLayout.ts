@@ -253,7 +253,7 @@ export const STRANKY_PLOCHY: Array<{ nazev: string; ids: Page[] }> = [
     nazev: 'Výpočty a přehledy',
     ids: [
       'concentration', 'inventory', 'calendar', 'timer', 'history',
-      'export_excel', 'haccp', 'vehicles', 'dashboard', 'zaloha',
+      'export_excel', 'haccp', 'vehicles', 'dashboard', 'zaloha', 'navod',
     ],
   },
   {
@@ -293,7 +293,9 @@ export const STRANKY_PLOCHY: Array<{ nazev: string; ids: Page[] }> = [
  * nemá smysl. Další výjimky patří sem, ať je poznat, že je to rozhodnutí a
  * ne nedopatření.
  */
-export const DLAZDICE_MIMO_TABULKU_ZAMERNE: Page[] = ['notes'];
+// Lísteček s poznámkami (widget, který jinde než na ploše nedává smysl)
+// a návod k použití (otevírá se v okně nad plochou, není to obrazovka).
+export const DLAZDICE_MIMO_TABULKU_ZAMERNE: Page[] = ['notes', 'navod'];
 
 /**
  * Které dlaždice smí rozdělení rozmístit: hlavní moduly, na které má
@@ -459,6 +461,7 @@ export const PAGE_CATEGORY: Partial<Record<Page, Category>> = {
   depozitar: 'Číselníky', places: 'Číselníky', beers: 'Číselníky', packages: 'Číselníky', pricelist: 'Číselníky',
   // Nastavení
   users: 'Nastavení', app_settings: 'Nastavení', app_versions: 'Nastavení', signout: 'Nastavení', zaloha: 'Nastavení',
+  navod: 'Nastavení',
 };
 const FALLBACK_CYCLE: TileColor[] = ['indigo', 'orchid', 'forest', 'plum', 'citrus'];
 

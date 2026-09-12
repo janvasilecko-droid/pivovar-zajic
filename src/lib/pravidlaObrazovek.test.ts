@@ -272,6 +272,7 @@ describe('oprávnění obrazovek', () => {
     stopwatch: 'stopky — nástroj bez dat pivovaru',
     keg_timer: 'odpočet ke stáčení — nástroj bez dat pivovaru',
     radio: 'rádio — nástroj bez dat pivovaru',
+    navod: 'návod k použití — nápověda, ne data; zamknout ji znamená nechat člověka bez pomoci',
   };
 
   it('žádná obrazovka nezůstala bez modulu oprávnění NEDOPATŘENÍM', () => {
