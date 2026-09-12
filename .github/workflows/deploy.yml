@@ -252,6 +252,64 @@ jobs:
           name: pivovar-zajic-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
 
+  # 🛰️ Edge funkce (supabase/functions/*) se na rozdíl od webu a APK
+  # dosud nasazovaly JEN ručně z počítače (node scripts/deploy-function.mjs,
+  # token v .env) — kdo neměl počítač po ruce, na nasazení opravy čekal.
+  # Tenhle job dělá totéž samo po každém pushi, a jen pro funkce, které se
+  # doopravdy změnily (scripts/deploy-changed-functions.mjs); ruční spuštění
+  # z karty Actions (workflow_dispatch) nasadí radši všechny, protože typický
+  # důvod ručního spuštění je „nasaď to TEĎ", ne přesná ekonomika deploye.
+  #
+  # BEZ SECRETU SUPABASE_ACCESS_TOKEN SE TENHLE JOB NEROZBÍJÍ — u automatického
+  # pushe se krok potichu přeskočí (stejný důvod jako u WhatsApp hlášky níž:
+  # chybějící volitelné nastavení nesmí kazit zelenou fajfku ostatním), u
+  # ručního spuštění spadne nahlas, protože tam je „nasaď to" jasný úmysl.
+  deploy-edge-functions:
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # fetch-depth: 0 = celá historie. Bez ní je checkout mělký (jen
+          # poslední commit) a `git diff <before>..<after>` v
+          # deploy-changed-functions.mjs by na chybějící `<before>` spadl —
+          # skript by to sice ošetřil nasazením VŠECH funkcí (bezpečné, ale
+          # zbytečně pomalé u každého jednoho pushe).
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Nasadit změněné edge funkce (po pushi)
+        if: github.event_name == 'push'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.sha }}
+        run: |
+          if [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+            echo "SUPABASE_ACCESS_TOKEN není nastaven — nasazení edge funkcí přeskakuji."
+            echo "Nastavení → Secrets and variables → Actions → New repository secret,"
+            echo "ať se to příště nasadí samo (viz README, sekce Nasazení edge funkcí)."
+            exit 0
+          fi
+          # $BEFORE_SHA je u prvního pushe větve/force pushe samé nuly —
+          # `git diff` na to spadne a skript sám ošetří nasazením všeho.
+          node scripts/deploy-changed-functions.mjs "$BEFORE_SHA" "$AFTER_SHA"
+
+      - name: Nasadit VŠECHNY edge funkce (ruční spuštění z karty Actions)
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          if [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+            echo "Chybí secret SUPABASE_ACCESS_TOKEN (Nastavení → Secrets and variables → Actions)."
+            exit 1
+          fi
+          node scripts/deploy-changed-functions.mjs --all
+
   # ❗ SELHÁNÍ NESMÍ BÝT TICHÉ.
   #
   # Když spadne `test` (testy, kontrola tříd, kontrast), deploy job se přes
@@ -265,7 +323,7 @@ jobs:
   # druhý krok se pak sám zapne.
   oznam-selhani:
     runs-on: ubuntu-latest
-    needs: [test, build-and-deploy, build-apk]
+    needs: [test, build-and-deploy, build-apk, deploy-edge-functions]
     if: failure()
 
     steps:
@@ -286,7 +344,10 @@ jobs:
               '1. `npm test` — spadl test,',
               '2. `zkontroluj-tridy` — třída, kterou Tailwind nezná (nevygeneruje se z ní nic),',
               '3. `zkontroluj-kontrast` — dvojice písmo/podklad pod 4,5 : 1,',
-              '4. `Deploy to Cloudflare Pages` — neplatný CF_API_TOKEN.',
+              '4. `Deploy to Cloudflare Pages` — neplatný CF_API_TOKEN,',
+              '5. `Nasadit edge funkce` — neplatný SUPABASE_ACCESS_TOKEN, nebo Supabase',
+              '   API nedostupné. Web a APK jsou v tomhle případě nasazené v pořádku,',
+              '   jen se nezapsala oprava v edge funkci (WhatsApp, migrace…).',
               '',
               'Obojí z bodů 2 a 3 jde pustit lokálně: `npm run zkontroluj-tridy`,',
               '`npm run zkontroluj-kontrast` (a `git config core.hooksPath .githooks`,',
