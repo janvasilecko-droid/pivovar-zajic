@@ -2,9 +2,10 @@ import { useState } from 'react';
 import {
   AlarmClock, BarChart3, Beer as BeerIcon, Bell, Car, ChevronDown, ClipboardCheck,
   ClipboardList, FileSpreadsheet, FlaskConical, Factory, GlassWater, LayoutGrid,
-  type LucideIcon, Settings, Shield, Snowflake, Sparkles, Store, Tag, Truck, Users,
+  Info, type LucideIcon, Settings, Shield, Snowflake, Sparkles, Store, Tag, Truck, Users,
 } from 'lucide-react';
 import { IkonaSud, IkonaLahev } from './ikony';
+import { APP_VERSION, APP_VERSION_DATE } from '../lib/version';
 
 // 📖 NÁVOD K POUŽITÍ — co která obrazovka umí a jak se to dělá.
 // ---------------------------------------------------------------------------
@@ -31,6 +32,46 @@ type Oddil = {
 
 const ODDILY: Oddil[] = [
   {
+    klic: 'oaplikaci',
+    nazev: 'O aplikaci',
+    ikona: Info,
+    kCemu: 'Co to je, kde jsou data a kam hlásit, když něco nesedí.',
+    body: [
+      {
+        co: 'K čemu appka je',
+        jak: 'Vede objednávky, sklad a výrobu pivovaru Zajíc na jednom místě — od stočení sudu po podpis při předání. Nahrazuje papíry a tabulky, ve kterých se to dřív vedlo každé zvlášť.',
+      },
+      {
+        co: 'Verze',
+        jak: `Teď máš v${APP_VERSION} z ${APP_VERSION_DATE}. Když vyjde nová, appka se ozve sama a nabídne „Aktualizovat"; jde ji vynutit i v Nastavení tlačítkem „Vynutit stažení nejnovější verze".`,
+      },
+      {
+        co: 'Kde jsou data',
+        jak: 'V jedné společné databázi, ne v telefonu. Co uložíš ty, vidí hned i ostatní — a naopak, jejich zápis se ti na obrazovce sám obnoví.',
+      },
+      {
+        co: 'Záloha',
+        jak: 'Objednávky a stáčení se každý den samy zálohují. Admin si navíc může stáhnout kopii k sobě (dlaždice „Stáhnout zálohu") — to je jediná kopie, která je mimo, takže ji stojí za to občas stáhnout.',
+      },
+      {
+        co: 'Funguje i bez signálu',
+        jak: 'Ve sklepě a na cestě se zápis uloží do telefonu a odešle se, jakmile je signál. Appka to u takového zápisu napíše, takže se nestane, že si myslíš, že je uložený, a přitom čeká.',
+      },
+      {
+        co: 'Na telefon jde přidat na plochu',
+        jak: 'V prohlížeči přes nabídku „Přidat na plochu" — pak se otevírá jako běžná aplikace, na celou obrazovku a bez adresního řádku.',
+      },
+      {
+        co: 'Když něco nesedí',
+        jak: 'Napiš to do Zpětné vazby (Nástroje → Zpětná vazba). Vidí to všichni kolegové a nezapadne to. U chyby pomůže napsat, na které obrazovce byla a co jsi zrovna dělal.',
+      },
+      {
+        co: 'Kdo co smí',
+        jak: 'Práva nastavuje admin v Uživatelích — podle nich se lidem ukazují jen obrazovky, které mají mít. Návod a tenhle přehled vidí každý.',
+      },
+    ],
+  },
+  {
     klic: 'plocha',
     nazev: 'Plocha a ovládání',
     ikona: LayoutGrid,
@@ -53,8 +94,8 @@ const ODDILY: Oddil[] = [
         jak: 'Lupa nahoře hledá odběratele, piva i obrazovky. Vedle ní je „?“ — otevře tenhle návod odkudkoli.',
       },
       {
-        co: 'Návod k použití',
-        jak: 'Dlaždice „Návod k použití" na ploše (a „?" vedle lupy) otevře tenhle text. Klepni na oddíl a rozbalí se, co v něm která věc dělá.',
+        co: 'Dlaždice Info',
+        jak: 'Dlaždice „Info" na ploše (a „?" vedle lupy) otevře tenhle text — návody ke všem funkcím i údaje o aplikaci. Klepni na oddíl a rozbalí se, co v něm která věc dělá.',
       },
       {
         co: 'Tlačítko Zpět',

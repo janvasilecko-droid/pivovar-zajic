@@ -10,6 +10,7 @@ import { describe, it, expect } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { NavodPouziti, NAVOD_ODDILY } from './NavodPouziti';
 import { NAV, EXTRA_NAV } from './Layout';
+import { APP_VERSION } from '../lib/version';
 
 /** Celý text návodu jako jeden řetězec, bez diakritiky a malými písmeny. */
 const bezDiakritiky = (s: string) =>
@@ -23,6 +24,7 @@ describe('návod k použití', () => {
   // Obrazovky, které se v menu jmenují jinak, než jak se o nich mluví
   // v návodu (a byly by tedy falešně hlášené jako chybějící).
   const JINAK_POJMENOVANE: Record<string, string> = {
+    navod: 'dlazdice info',
     dashboard: 'sklad',
     history: 'statistika',
     concentration: 'kalkulacky',
@@ -103,5 +105,28 @@ describe('návod k použití', () => {
     expect(screen.getByText('Duplicita')).toBeTruthy();
     fireEvent.click(nadpis);
     expect(screen.queryByText('Duplicita')).toBeNull();
+  });
+
+  describe('oddíl „O aplikaci"', () => {
+    const oAplikaci = NAVOD_ODDILY.find((o) => o.klic === 'oaplikaci');
+
+    it('v návodu je', () => {
+      expect(oAplikaci, 'oddíl „O aplikaci" chybí').toBeTruthy();
+    });
+
+    it('ukazuje SKUTEČNOU verzi, ne napsanou napevno', () => {
+      // Napevno napsaná verze je horší než žádná: vypadá jako údaj a lže.
+      const verze = oAplikaci!.body.find((b) => b.co === 'Verze');
+      expect(verze).toBeTruthy();
+      expect(verze!.jak).toContain(APP_VERSION);
+    });
+
+    it('řekne, kam hlásit chybu, a kde jsou data', () => {
+      // To jsou dvě otázky, na které se u appky ptá každý nový člověk.
+      const text = oAplikaci!.body.map((b) => `${b.co} ${b.jak}`).join(' ');
+      expect(text).toContain('Zpětné vazby');
+      expect(text.toLowerCase()).toContain('databáz');
+      expect(text.toLowerCase()).toContain('zálo');
+    });
   });
 });
