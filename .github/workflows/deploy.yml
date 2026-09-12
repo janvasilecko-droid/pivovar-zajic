@@ -252,6 +252,55 @@ jobs:
           name: pivovar-zajic-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
 
+      # APK ke stažení přímým odkazem. Artefakt o krok výš zůstává (hodí se,
+      # když je potřeba sáhnout po APK z jednoho konkrétního běhu), ale
+      # instalovat z něj do telefonu se prakticky nedá: chce přihlášení na
+      # GitHub, stáhne se jako zip a po 90 dnech ho GitHub smaže. Release je
+      # proti tomu veřejný přímý odkaz na .apk, který nevyprší.
+      #
+      # Nahrávají se dva soubory, obsahem stejné. Ten s číslem verze je pro
+      # přehled; ten pod stálým jménem pivovar-zajic.apk existuje jen kvůli
+      # tomu, že jedině s neměnným jménem funguje odkaz, který se dá jednou
+      # uložit do záložek v telefonu a už nikdy neměnit:
+      #   .../releases/latest/download/pivovar-zajic.apk
+      #
+      # APK je z assembleDebug, tedy podepsané ladicím klíčem: telefon si při
+      # instalaci vyžádá povolení „z neznámých zdrojů" a přes dřívější APK
+      # podepsané jiným klíčem se nenainstaluje (nejdřív odinstalovat).
+      - name: Vystavit APK jako Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          VERZE=$(node -p "require('./public/version.json').version")
+          SHA=$(git rev-parse HEAD)
+          APK=android/app/build/outputs/apk/debug/app-debug.apk
+          cp "$APK" "pivovar-zajic-$VERZE.apk"
+          cp "$APK" "pivovar-zajic.apk"
+
+          cat > poznamky.md <<EOF
+          Aplikace pro Android, verze $VERZE.
+
+          Do telefonu stáhnout soubor **pivovar-zajic.apk** níže. Tenhle odkaz míří
+          vždycky na nejnovější verzi, takže stačí jednou uložit do záložek:
+
+          https://github.com/$REPO/releases/latest/download/pivovar-zajic.apk
+
+          Web se na stejnou verzi aktualizuje sám, tohle je jen pro telefon.
+          EOF
+
+          # Značka už existovat může (opakovaný běh nad týmž commitem). Tehdy
+          # se soubory jen přepíšou — nasazení kvůli tomu padat nemá.
+          if gh release view "v$VERZE" > /dev/null 2>&1; then
+            gh release upload "v$VERZE" "pivovar-zajic-$VERZE.apk" "pivovar-zajic.apk" --clobber
+          else
+            gh release create "v$VERZE" "pivovar-zajic-$VERZE.apk" "pivovar-zajic.apk" \
+              --target "$SHA" \
+              --title "Verze $VERZE" \
+              --notes-file poznamky.md \
+              --latest
+          fi
+
   # ❗ SELHÁNÍ NESMÍ BÝT TICHÉ.
   #
   # Když spadne `test` (testy, kontrola tříd, kontrast), deploy job se přes

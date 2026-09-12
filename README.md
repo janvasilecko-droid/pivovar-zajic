@@ -59,6 +59,28 @@ Po nasazení appka chvíli ukazuje starou verzi — service worker servíruje z
 cache a novou verzi nabídne až po kontrole `version.json`. Není to vada
 nasazení; uživatel musí kliknout na „Aktualizovat", nebo appku zavřít a otevřít.
 
+## APK do telefonu
+
+Každý push do `main` sestaví i APK a vyvěsí ho jako Release. Stálý odkaz,
+který vede vždycky na tu nejnovější — dá se jednou uložit do záložek
+v telefonu a už neřešit:
+
+<https://github.com/janvasilecko-droid/pivovar-zajic/releases/latest/download/pivovar-zajic.apk>
+
+Přehled všech verzí je na [stránce Releases](https://github.com/janvasilecko-droid/pivovar-zajic/releases).
+
+Dvě věci, které při instalaci překvapí:
+
+- APK je z `assembleDebug`, tedy podepsané **ladicím klíčem**. Telefon si
+  vyžádá povolení instalace z neznámých zdrojů a přes appku podepsanou jiným
+  klíčem se nenainstaluje — tu je nutné nejdřív odinstalovat.
+- Web běží na téže verzi a aktualizuje se sám. APK je potřeba jen tehdy, když
+  má appka běžet jako appka; jinak stačí otevřít web.
+
+Artefakt `pivovar-zajic-apk` u každého běhu v Actions zůstává taky, ale je to
+zip, chce přihlášení a po 90 dnech ho GitHub smaže. Na instalaci do telefonu
+slouží odkaz výš.
+
 ## Kontroly před commitem
 
 `zkontroluj-tridy` a `zkontroluj-kontrast` jsou v CI **podmínkou nasazení** —
