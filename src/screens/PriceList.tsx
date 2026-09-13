@@ -1,8 +1,92 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase, Beer, Package, PriceListItem, useRealtime, beerBg, beerText, pkgBg, pkgText, formatPackageLabel } from '../lib/supabase';
 import { EmptyState, Spinner } from '../components/ui';
-import { Beer as BeerIcon, Calendar, Package as PackageIcon } from 'lucide-react';
+import { Beer as BeerIcon, Calendar, History, Package as PackageIcon } from 'lucide-react';
 import { IkonaLahev, IkonaSud } from '../components/ikony';
+import { chybiTabulka } from '../lib/chybyHlaseni';
+
+type ZmenaCeny = {
+  id: string;
+  created_at: string;
+  druh: 'litr' | 'kus';
+  beer_id: string | null;
+  package_id: string | null;
+  stara_cena: number | null;
+  nova_cena: number | null;
+};
+
+function kc(n: number | null): string {
+  return n == null ? '—' : `${Number(n).toLocaleString('cs-CZ', { maximumFractionDigits: 2 })} Kč`;
+}
+
+/**
+ * 🕑 Kdy se co zdražilo. Zapisují triggery v databázi (migrace
+ * 20261231040000), takže historie zná i změny udělané mimo tuhle obrazovku.
+ */
+function HistorieCen({ beers, packages }: { beers: Beer[]; packages: Package[] }) {
+  const [zmeny, setZmeny] = useState<ZmenaCeny[]>([]);
+  const [stav, setStav] = useState<'nacitam' | 'ok' | 'bez-tabulky' | 'chyba'>('nacitam');
+  const [vse, setVse] = useState(false);
+
+  async function nacti() {
+    const { data, error } = await supabase
+      .from('cenik_zmeny')
+      .select('id,created_at,druh,beer_id,package_id,stara_cena,nova_cena')
+      .order('created_at', { ascending: false })
+      .limit(500);
+    if (error) { setStav(chybiTabulka(error) ? 'bez-tabulky' : 'chyba'); return; }
+    setZmeny((data as ZmenaCeny[]) ?? []);
+    setStav('ok');
+  }
+  useEffect(() => { void nacti(); }, []);
+  useRealtime(['cenik_zmeny'], nacti);
+
+  const jmenoPiva = (id: string | null) => beers.find((b) => b.id === id)?.name ?? 'Neznámé pivo';
+  const jmenoObalu = (id: string | null) => {
+    const p = packages.find((x) => x.id === id);
+    return p ? formatPackageLabel(p.label) : '';
+  };
+  const zobrazene = vse ? zmeny : zmeny.slice(0, 15);
+
+  return (
+    <div className="card p-5 shadow-sm border border-neutral-200/90 bg-white rounded space-y-3">
+      <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
+        <History className="ikona-text" /> Historie změn cen
+      </h3>
+      {stav === 'nacitam' ? <Spinner /> : stav === 'bez-tabulky' ? (
+        <p className="text-sm text-neutral-600">
+          Historie se začne zapisovat po spuštění migrace <code>20261231040000_historie_zmen_cen.sql</code> (Nastavení → Diagnostika → Databázové migrace).
+        </p>
+      ) : stav === 'chyba' ? (
+        <EmptyState varianta="chyba" text="Historii cen se nepodařilo načíst." akce={{ popis: 'Zkusit znovu', onClick: () => void nacti() }} />
+      ) : zmeny.length === 0 ? (
+        <p className="text-sm text-neutral-600">Od spuštění evidence se žádná cena nezměnila.</p>
+      ) : (
+        <>
+          <ul className="divide-y divide-neutral-200">
+            {zobrazene.map((z) => (
+              <li key={z.id} className="py-2 flex flex-wrap items-baseline justify-between gap-2 text-sm">
+                <span className="font-bold text-neutral-900">
+                  {jmenoPiva(z.beer_id)}{' '}
+                  <span className="font-medium text-neutral-500">{z.druh === 'litr' ? 'sudy, za litr' : jmenoObalu(z.package_id)}</span>
+                </span>
+                <span className="font-mono tabular-nums">
+                  {kc(z.stara_cena)} → <strong className={z.nova_cena != null && z.stara_cena != null && z.nova_cena > z.stara_cena ? 'text-rose-700' : 'text-emerald-700'}>{kc(z.nova_cena)}</strong>
+                </span>
+                <span className="text-xs text-neutral-500 basis-full sm:basis-auto">{new Date(z.created_at).toLocaleString('cs-CZ')}</span>
+              </li>
+            ))}
+          </ul>
+          {zmeny.length > 15 && (
+            <button type="button" className="btn-ghost" onClick={() => setVse((v) => !v)}>
+              {vse ? 'Zobrazit méně' : `Zobrazit všech ${zmeny.length} změn`}
+            </button>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
 
 export default function PriceListScreen() {
   const [beers, setBeers] = useState<Beer[]>([]);
@@ -309,6 +393,8 @@ export default function PriceListScreen() {
               </>
             )}
           </div>
+
+          <HistorieCen beers={beers} packages={packages} />
         </>
       )}
     </div>

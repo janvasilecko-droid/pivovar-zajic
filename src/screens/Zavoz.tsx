@@ -13,6 +13,7 @@ import { getSecondCarOrderIds, toggleOrderKachna, toggleOrdersKachna, migrateSec
 import { PodpisModal } from '../components/PodpisModal';
 import { KegReturnModal } from '../components/KegReturnModal';
 import { saveKegReturns, fetchKegMovements, computeKegBalances, type KegBalance } from '../lib/kegAccount';
+import { sudyVenku, DLOUHO_VENKU_DNI, type SudyVenku } from '../lib/sudyVenku';
 import { useAuth } from '../lib/auth';
 import { openNavigation, buildCustomerDeliveryWhatsAppText, openCustomerWhatsApp } from '../lib/navigation';
 import { printDeliveryList } from '../lib/safePrint';
@@ -73,6 +74,8 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
   // Konto sudů — kdo má u sebe kolik prázdných KEGů (odvezeno − vráceno).
   const [kegBalances, setKegBalances] = useState<KegBalance[]>([]);
   const [showKegBalances, setShowKegBalances] = useState(false);
+  // Jak dlouho už kdo sudy drží (lib/sudyVenku.ts) — klíč jako v kontě sudů.
+  const [kegVenku, setKegVenku] = useState<Map<string, SudyVenku>>(new Map());
 
   async function load(silent = false) {
     if (!silent && !orders.length) setLoading(true);
@@ -165,7 +168,9 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
   // ať to nezdržuje hlavní seznam závozu.
   async function loadKegBalances() {
     try {
-      setKegBalances(computeKegBalances(await fetchKegMovements()));
+      const pohyby = await fetchKegMovements();
+      setKegBalances(computeKegBalances(pohyby));
+      setKegVenku(new Map(sudyVenku(pohyby, businessDateISO()).map((s) => [s.klic, s])));
     } catch { /* konto sudů je doplňkový přehled — chyba nesmí shodit obrazovku */ }
   }
   useEffect(() => { loadKegBalances(); }, []);
@@ -550,6 +555,14 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
             <span className="flex items-center gap-2 font-black text-sm text-sky-950">
               <IkonaSud size={16} className="text-sky-700" />
               Konto sudů — u odběratelů je {kegBalances.reduce((s, b) => s + b.total, 0)} prázdných KEGů
+              {(() => {
+                const dlouho = [...kegVenku.values()].filter((v) => v.dni >= DLOUHO_VENKU_DNI).length;
+                return dlouho > 0 ? (
+                  <span className="px-1.5 py-0.5 rounded-md bg-rose-100 text-rose-900 border border-rose-300 text-xs font-black">
+                    {dlouho}× déle než {DLOUHO_VENKU_DNI} dní
+                  </span>
+                ) : null;
+              })()}
             </span>
             <span className="text-xs font-bold text-sky-800 shrink-0">
               {showKegBalances ? 'Skrýt ▲' : `Zobrazit (${kegBalances.length}) ▼`}
@@ -559,7 +572,22 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
             <div className="divide-y divide-neutral-200">
               {kegBalances.map((b) => (
                 <div key={b.placeId ?? b.placeName} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5">
-                  <span className="font-bold text-sm text-neutral-900">{b.placeName}</span>
+                  <span className="font-bold text-sm text-neutral-900">
+                    {b.placeName}
+                    {(() => {
+                      const v = kegVenku.get(b.placeId || `name:${b.placeName.toLowerCase()}`);
+                      if (!v) return null;
+                      const dlouho = v.dni >= DLOUHO_VENKU_DNI;
+                      return (
+                        <span
+                          className={`ml-2 text-xs font-bold ${dlouho ? 'text-rose-700' : 'text-neutral-500'}`}
+                          title="Dní od posledního vrácení sudu (když nikdy nevracel, od prvního odvozu)"
+                        >
+                          {v.dni === 0 ? 'vráceno dnes' : `${v.dni} dní bez vrácení`}
+                        </span>
+                      );
+                    })()}
+                  </span>
                   <span className="flex flex-wrap items-center gap-1.5">
                     {Object.entries(b.byVolume)
                       .filter(([, n]) => n !== 0)

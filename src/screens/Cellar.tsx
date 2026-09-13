@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../lib/auth';
-import { AlertTriangle, ArrowLeftRight, Beer as BeerIcon, CalendarDays, Check, ChevronLeft, ChevronRight, ClipboardList, Droplet, Factory, FlaskConical, NotebookPen, Play, SprayCan, Square, Warehouse } from 'lucide-react';
+import { AlertTriangle, ArrowLeftRight, Beer as BeerIcon, CalendarDays, Check, ChevronLeft, ChevronRight, ClipboardList, Droplet, Factory, FlaskConical, NotebookPen, Play, SprayCan, Square, TrendingDown, Warehouse, type LucideIcon } from 'lucide-react';
+import { VarkySklep } from '../components/VarkySklep';
+import { ZtratyTankuPrehled } from '../components/ZtratyTankuPrehled';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 import { HlavickaStranky } from '../components/HlavickaStranky';
 
@@ -28,6 +30,16 @@ const STATUS_COLORS: Record<CellarTank['status'], string> = {
 };
 
 
+type ZalozkaSklepa = 'lezacke' | 'spilka' | 'planovac' | 'varky' | 'ztraty';
+
+const ZALOZKY_SKLEPA: { id: ZalozkaSklepa; popis: string; Ikona: LucideIcon | typeof BeerIcon }[] = [
+  { id: 'lezacke', popis: 'Ležácké tanky (1–8)', Ikona: BeerIcon },
+  { id: 'spilka', popis: 'Spilka (3 kvasné tanky)', Ikona: Factory },
+  { id: 'planovac', popis: 'Plánovač obsazenosti & Zrání (Gantt)', Ikona: CalendarDays },
+  { id: 'varky', popis: 'Várky & kvašení', Ikona: FlaskConical },
+  { id: 'ztraty', popis: 'Ztráty při stáčení', Ikona: TrendingDown },
+];
+
 const DEFAULT_INITIAL_VOLUME = 7500;
 const LOW_VOLUME_THRESHOLD = 300; // l — upozornění na blížící se konec stáčení
 
@@ -42,13 +54,13 @@ function fmtHours(h: number | null | undefined): string {
 }
 
 export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p: any, sec?: string, sub?: string) => void; initialSubTab?: string } = {}) {
-  const [activeTab, setActiveTab] = useState<'lezacke' | 'spilka' | 'planovac'>((initialSubTab as any) || 'lezacke');
+  const [activeTab, setActiveTab] = useState<ZalozkaSklepa>((initialSubTab as any) || 'lezacke');
 
   useEffect(() => {
     setActiveTab((initialSubTab as any) || 'lezacke');
   }, [initialSubTab]);
 
-  function selectTab(t: 'lezacke' | 'spilka' | 'planovac') {
+  function selectTab(t: ZalozkaSklepa) {
     if (setPage) setPage('cellar', undefined, t);
     else setActiveTab(t);
   }
@@ -607,33 +619,19 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
         <div className="sticky top-0 z-20 bg-neutral-100 py-1 flex flex-wrap items-center gap-2 w-full">
           {/* Tab Selector: Ležácké vs Spilka vs Plánovač — přilepený nahoře. */}
           <div className="flex items-center gap-1.5 p-1 rounded w-full sm:w-auto sm:flex-1 min-w-0 overflow-x-auto scrollbar-thin flex-nowrap">
-            <button
-              type="button"
-              onClick={() => selectTab('lezacke')}
-              className={`px-3.5 py-2 rounded text-xs font-black transition shrink-0 min-h-[44px] ${
-                activeTab === 'lezacke' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
-              }`}
-            >
-              <span className="inline-flex items-center gap-1.5"><BeerIcon size={14} /> Ležácké tanky (1–8)</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => selectTab('spilka')}
-              className={`px-3.5 py-2 rounded text-xs font-black transition shrink-0 min-h-[44px] ${
-                activeTab === 'spilka' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
-              }`}
-            >
-              <span className="inline-flex items-center gap-1.5"><Factory size={14} /> Spilka (3 kvasné tanky)</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => selectTab('planovac')}
-              className={`px-3.5 py-2 rounded text-xs font-black transition shrink-0 min-h-[44px] ${
-                activeTab === 'planovac' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
-              }`}
-            >
-              <span className="inline-flex items-center gap-1.5"><CalendarDays size={14} /> Plánovač obsazenosti & Zrání (Gantt)</span>
-            </button>
+            {ZALOZKY_SKLEPA.map(({ id, popis, Ikona }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => selectTab(id)}
+                aria-pressed={activeTab === id}
+                className={`px-3.5 py-2 rounded text-xs font-black transition shrink-0 min-h-[44px] ${
+                  activeTab === id ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
+                }`}
+              >
+                <span className="inline-flex items-center gap-1.5"><Ikona size={14} /> {popis}</span>
+              </button>
+            ))}
           </div>
 
           {/* Týdenní selector pro výpočet objednávek */}
@@ -674,6 +672,10 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
         />
       ) : activeTab === 'planovac' ? (
         <TankOccupancyPlanner tanks={tanks} beers={beers} cycles={cycles} />
+      ) : activeTab === 'varky' ? (
+        <VarkySklep beers={beers} tanks={tanks} />
+      ) : activeTab === 'ztraty' ? (
+        <ZtratyTankuPrehled cycles={cycles} />
       ) : (
         <>
           {/* Tanky grid */}

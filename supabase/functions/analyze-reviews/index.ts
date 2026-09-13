@@ -69,7 +69,7 @@ Deno.serve(async (req: Request) => {
 
 Buď konkrétní a opírej se POUZE o vložené recenze. Nevymýšlej si fakta, která tam nejsou.
 
-Vrať ČISTĚ JSON (bez markdown, bez \\`\\`\\`), přesně v tomto formátu, a nic jiného:
+Vrať ČISTĚ JSON (bez markdown, bez \`\`\`), přesně v tomto formátu, a nic jiného:
 {"overallRating":4.38,"totalReviewsAnalyzed":4,"sentimentScorePct":94,"topFlavorNotes":[{"note":"Žatecký červeňák","count":3,"category":"hop"}],"positiveHighlights":["..."],"constructiveFeedback":["..."],"sladekSummary":"..."}`;
 
     const anthropicBody = {
