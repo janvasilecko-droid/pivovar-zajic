@@ -90,15 +90,33 @@ export function barvaVTextu(text: string): Barva | null {
  * raw_line jediný úsek, patří celý položce.
  */
 export function barvaPolozky(item: any): Barva | null {
-  const raw = String(item?.raw_line || '');
-  if (!raw.trim()) return null;
-  const useky = raw.split(/[,;/+\n]|\s+a\s+/i).map((u) => u.trim()).filter(Boolean);
-  if (useky.length === 1) return barvaVTextu(useky[0]);
-  const ks = Number(item?.quantity ?? item?.qty);
-  if (!Number.isFinite(ks) || ks <= 0) return null;
-  const ksRe = new RegExp(`(?:^|[^0-9.,])${ks}\\s*(?:x|\\*|ks|kus|bed)|(?:x|\\*)\\s*${ks}(?![0-9.,])`, 'i');
-  const barvy = new Set(useky.filter((u) => ksRe.test(u)).map((u) => barvaVTextu(u)));
+  const useky = usekyPolozky(item);
+  if (!useky.length) return null;
+  const barvy = new Set(useky.map((u) => barvaVTextu(u)));
   return barvy.size === 1 ? [...barvy][0] : null;
+}
+
+/**
+ * Úseky raw_line, které patří TÉHLE položce. Raw_line s jediným úsekem patří
+ * celý položce; jinak se berou úseky s jejím množstvím („4x30", „6x", „5 beden").
+ * Prázdné pole = nedá se určit (bez množství, nebo žádný úsek nesedí).
+ *
+ * 13. 9. 2026: kontrola všech objednávek našla „2x30l světle, 1x30l jantar"
+ * (Seeberg) — jméno „jantar" kdekoli v řádku by vyhrálo i u položky 2×30l
+ * světlé. Proto se pivo hledá napřed v úseku položky (viz matchBeerId).
+ */
+export function usekyPolozky(item: any): string[] {
+  const raw = String(item?.raw_line || '');
+  if (!raw.trim()) return [];
+  // Čárka mezi číslicemi je desetinná („1,5l", „0,5l"), ne oddělovač — jinak
+  // by se „10xpet 1,5l tmava" rozpadlo na „10xpet 1" a „5l tmava" a položka by
+  // barvu ztratila (nalezeno kontrolou objednávek 13. 9. 2026: Sedláčková, Kebab).
+  const useky = raw.split(/(?<![0-9]),|,(?![0-9])|[;/+\n]|\s+a\s+/i).map((u) => u.trim()).filter(Boolean);
+  if (useky.length === 1) return useky;
+  const ks = Number(item?.quantity ?? item?.qty);
+  if (!Number.isFinite(ks) || ks <= 0) return [];
+  const ksRe = new RegExp(`(?:^|[^0-9.,])${ks}\\s*(?:x|\\*|ks|kus|bed)|(?:x|\\*)\\s*${ks}(?![0-9.,])`, 'i');
+  return useky.filter((u) => ksRe.test(u));
 }
 
 const stupenPiva = (b: { degree?: string | null } | undefined) => (b?.degree || '').replace('°', '').trim();
@@ -153,6 +171,18 @@ function matchBeerIdBezBarvy(
     if (beerDegree && beerDegree !== ownDegree) return null;
     return beerId;
   };
+
+  // Nejdřív úsek řádku, který patří téhle položce — jen když je jediný a řádek
+  // má víc úseků (jinak je to totéž co celý raw_line níž). V úseku se hledá
+  // JEN podle toho, co v něm doopravdy stojí, BEZ stupně od AI: úsek
+  // „10x0,5l lahev" pivo neurčuje, a se stupněm 12° by vyšla 12° Světlá dřív,
+  // než by se došlo k „Jantar" na začátku řádku (Malešice, 26. 8. 2026).
+  const useky = usekyPolozky(item);
+  const celyRadek = String(item.raw_line || '');
+  if (useky.length === 1 && normText(useky[0]) !== normText(celyRadek)) {
+    const hit = neodporuje(matchBeerInText(normText(useky[0]), beers, aliasMap, null));
+    if (hit) return hit;
+  }
 
   const rawText = normText([item.raw_line, item.degree].filter(Boolean).join(" "));
   if (rawText) {

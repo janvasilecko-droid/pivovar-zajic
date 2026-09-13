@@ -189,6 +189,24 @@ describe('Zkratka „tm" je tmavá', () => {
     expect(pivo({ degree: '12°', quantity: 2, raw_line: radek })).toBe('12° Tmavá');
   });
 
+  it('Seeberg: „2x30l světle, 1x30l jantar" — jméno jednoho piva nepřebije druhou položku', () => {
+    const radek = '2x30l světle, 1x30l jantar';
+    expect(pivo({ quantity: 2, raw_line: radek })).toBe('12° Světlá');
+    expect(pivo({ quantity: 1, raw_line: radek })).toBe('Jantar');
+  });
+
+  // Tři objednávky, které rozbila první verze čtení po úsecích (kontrola 13. 9.).
+  it('desetinná čárka neroztrhne řádek: „10xpet 1,5l tmava" (Sedláčková)', () => {
+    expect(pivo({ degree: '12°', quantity: 10, raw_line: '10xpet 1,5l tmava' })).toBe('12° Tmavá');
+    expect(pivo({ degree: '12°', quantity: 12, raw_line: '12x 1,5l pět od všeho co máme, 12° Tmavá' })).toBe('12° Tmavá');
+  });
+
+  it('úsek bez jména piva nepřebije pivo napsané na začátku řádku (Malešice)', () => {
+    const radek = '•  Jantar 12 = 1x30l KEG + 10x0,5l lahev…..Děkuji moc.';
+    expect(pivo({ degree: '12°', quantity: 10, raw_line: radek })).toBe('Jantar');
+    expect(pivo({ degree: '12°', quantity: 1, raw_line: radek })).toBe('Jantar');
+  });
+
   it('slova, která jen obsahují „tm", tmavé nejsou', () => {
     expect(pivo({ degree: '12°', quantity: 1, raw_line: '1x50 12 atm' })).toBe('12° Světlá');
   });
