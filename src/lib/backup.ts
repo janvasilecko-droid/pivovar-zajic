@@ -1,34 +1,6 @@
 import { supabase } from './supabase';
 import { nactiXlsx, xlsx } from './xlsxLazy';
-
-export interface DatabaseBackup {
-  version: string;
-  timestamp: string;
-  tables: {
-    beers: any[];
-    packages: any[];
-    places: any[];
-    price_list: any[];
-    orders: any[];
-    order_items: any[];
-    cellar_tanks: any[];
-    cellar_batches: any[];
-    bottling: any[];
-    kegging: any[];
-    keg_prefuk: any[];
-    fasovani: any[];
-    fasovani_private: any[];
-    writeoffs: any[];
-    inventory: any[];
-    inventory_adjustments: any[];
-    akce: any[];
-    akce_items: any[];
-    whatsapp_incoming: any[];
-    whatsapp_senders: any[];
-    parser_aliases: any[];
-    place_aliases: any[];
-  };
-}
+import type { NazevTabulky, Radek } from './dbTypy';
 
 /** Tabulky, které se zálohují. Jeden zdroj pravdy — ať seznam nezastarává. */
 export const BACKUP_TABLES = [
@@ -42,7 +14,16 @@ export const BACKUP_TABLES = [
   'logbook_entries', 'srotovani', 'vehicles', 'label_purchases',
   'bottling_plans', 'notes', 'reminders', 'calendar_events',
   'whatsapp_incoming', 'whatsapp_senders', 'parser_aliases', 'place_aliases',
-];
+] as const satisfies readonly NazevTabulky[];
+
+export type ZalohovanaTabulka = (typeof BACKUP_TABLES)[number];
+
+export interface DatabaseBackup {
+  version: string;
+  timestamp: string;
+  /** Řádky po tabulkách; `__nekompletni` = seznam tabulek, které se nepodařilo načíst. */
+  tables: { [T in ZalohovanaTabulka]?: Radek<T>[] } & { __nekompletni?: string[] };
+}
 
 /**
  * Načte CELOU tabulku po stránkách.
@@ -52,9 +33,9 @@ export const BACKUP_TABLES = [
  * kompletně, přestože v ní chyběl zbytek. Proto se čte po dávkách přes
  * .range(), dokud chodí plné stránky.
  */
-async function fetchAllRows(table: string): Promise<{ rows: any[]; error: string | null }> {
+async function fetchAllRows(table: ZalohovanaTabulka): Promise<{ rows: Record<string, unknown>[]; error: string | null }> {
   const PAGE = 1000;
-  const out: any[] = [];
+  const out: Record<string, unknown>[] = [];
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await supabase.from(table).select('*').range(from, from + PAGE - 1);
     if (error) return { rows: out, error: error.message };
@@ -70,7 +51,7 @@ async function fetchAllRows(table: string): Promise<{ rows: any[]; error: string
 export async function createFullBackup(): Promise<DatabaseBackup> {
   const tables = BACKUP_TABLES;
 
-  const backupData: any = {};
+  const backupData: Record<string, unknown> = {};
   const problemy: string[] = [];
 
   await Promise.all(
@@ -92,7 +73,7 @@ export async function createFullBackup(): Promise<DatabaseBackup> {
   return {
     version: '1.2',
     timestamp: new Date().toISOString(),
-    tables: backupData,
+    tables: backupData as DatabaseBackup['tables'],
   };
 }
 
@@ -116,7 +97,7 @@ export async function downloadGoogleSheetsExcelBackup(backup: DatabaseBackup, mo
   const dateStr = new Date().toISOString().slice(0, 10);
   const wb = xlsx().utils.book_new();
 
-  const addSheet = (sheetName: string, dataArray: any[]) => {
+  const addSheet = (sheetName: string, dataArray: readonly object[]) => {
     if (!dataArray || dataArray.length === 0) {
       const emptyWs = xlsx().utils.json_to_sheet([{ Zprava: 'Žádné záznamy pro tento měsíc / modul' }]);
       xlsx().utils.book_append_sheet(wb, emptyWs, sheetName);
@@ -127,9 +108,9 @@ export async function downloadGoogleSheetsExcelBackup(backup: DatabaseBackup, mo
   };
 
   // Local storage items fallback
-  let exkurze: any[] = [];
-  let vycepy: any[] = [];
-  let knihaJizd: any[] = [];
+  let exkurze: object[] = [];
+  let vycepy: object[] = [];
+  let knihaJizd: object[] = [];
   try { exkurze = JSON.parse(localStorage.getItem('exkurze_entries_v1') || '[]'); } catch {}
   try { vycepy = JSON.parse(localStorage.getItem('vycepy_reservations_v1') || '[]'); } catch {}
   try { knihaJizd = JSON.parse(localStorage.getItem('kniha_jizd_v1') || '[]'); } catch {}
