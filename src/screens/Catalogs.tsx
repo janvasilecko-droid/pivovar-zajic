@@ -119,6 +119,7 @@ function BeerForm({ beer, onClose, onSaved }: { beer: Beer | null; onClose: () =
   const [color, setColor] = useState(beer?.color ?? '');
   const [beerColor, setBeerColor] = useState(beer?.beer_color ?? '#F3F4F6');
   const [order, setOrder] = useState(beer?.sort_order ?? 1);
+  const [trvanlivost, setTrvanlivost] = useState(beer?.trvanlivost_dni != null ? String(beer.trvanlivost_dni) : '');
   const [busy, setBusy] = useState(false);
 
   async function save() {
@@ -127,7 +128,16 @@ function BeerForm({ beer, onClose, onSaved }: { beer: Beer | null; onClose: () =
     // fotoobjednávkách (lib/orderParser.ts, matchBeerFromHints) — dřív se
     // neukládalo (sloupec prý nemusí existovat), takže tahle cesta byla
     // celou dobu naprázdno, i když pole ve formuláři vypadalo funkčně.
-    const payload = { name, short_name: shortName.trim() || null, degree: degree || null, color: color || null, beer_color: beerColor, sort_order: order, is_active: true };
+    const dni = trvanlivost.trim() === '' ? null : Math.round(Number(trvanlivost));
+    if (dni != null && (!Number.isFinite(dni) || dni <= 0)) {
+      setBusy(false);
+      chyba('Trvanlivost musí být kladný počet dní, nebo prázdná.');
+      return;
+    }
+    const payload: Record<string, unknown> = { name, short_name: shortName.trim() || null, degree: degree || null, color: color || null, beer_color: beerColor, sort_order: order, is_active: true };
+    // Sloupec přidává migrace 20261231060000 — dokud neběží, neposílat ho,
+    // jinak by selhalo uložení celého piva kvůli jednomu nepovinnému poli.
+    if (dni != null || beer?.trvanlivost_dni != null) payload.trvanlivost_dni = dni;
     let error: any = null;
     if (beer) {
       const res = await supabase.from('beers').update(payload).eq('id', beer.id);
@@ -164,6 +174,9 @@ function BeerForm({ beer, onClose, onSaved }: { beer: Beer | null; onClose: () =
           </div>
         </Field>
         <Field label="Pořadí"><input type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} className="input" value={order} onChange={(e) => setOrder(Number(e.target.value))} /></Field>
+        <Field label="Trvanlivost lahví (dní od lahvování)" hint="Sklad podle toho upozorní na šarže, kterým se blíží datum. Prázdné = nehlídat.">
+          <input type="number" inputMode="numeric" min={1} onWheel={(e) => e.currentTarget.blur()} className="input" value={trvanlivost} onChange={(e) => setTrvanlivost(e.target.value)} placeholder="např. 90" />
+        </Field>
         <div className="flex justify-end gap-2 pt-2">
           <button className="btn-ghost !rounded" onClick={onClose}>Zrušit</button>
           <button className="btn-primary !rounded" disabled={busy || !name} onClick={save}>{busy ? 'Ukládám…' : 'Uložit'}</button>

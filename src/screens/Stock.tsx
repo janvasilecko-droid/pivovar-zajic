@@ -4,6 +4,7 @@ import { ZavozDeductionRow } from '../lib/zavozDeduction';
 import { supabase, Beer, Package, KegPrefuk, useRealtime, beerBorder, fetchAllRows } from '../lib/supabase';
 import { buildMovements, stockForMonth, stockKey, type Movement } from '../lib/stockLedger';
 import { predpovedDojiti, type Predpoved } from '../lib/predpovedDojiti';
+import { trvanlivostSkladu, type TrvanlivostSkladu } from '../lib/trvanlivostSarzi';
 import PohybyModal from '../components/PohybyModal';
 import { Spinner, EmptyState, Modal } from '../components/ui';
 import { AlertTriangle, BarChart2, Beer as BeerIcon, Calendar, ChevronDown, Download, Package as PackageIcon, PackageCheck, ShoppingBag, Tent, Warehouse } from 'lucide-react';
@@ -28,6 +29,8 @@ type StockByPkg = {
   orderedW: number;
   /** 📉 Za kolik dní dojde při obvyklé spotřebě (viz lib/predpovedDojiti.ts). */
   predpoved: Predpoved;
+  /** 🗓️ Trvanlivost nejstarší šarže, která je nejspíš na skladě (jen lahve, viz lib/trvanlivostSarzi.ts). */
+  trvanlivost: TrvanlivostSkladu | null;
 };
 
 // Položka, u které skladová kniha vychází záporně — evidence u ní nesedí.
@@ -280,6 +283,14 @@ export default function Stock({ setPage }: { setPage?: (p: Page, sec?: string, s
           baselineDate: line?.baselineDate ?? null, baselineQty: line?.baselineQty ?? 0,
           fromInv, brewedW, woW, fasovaniW, prodejnaW, akceWeek, kegsUsedW, zdW, prefukFrom, prefukTo, adjW, orderedW,
           predpoved,
+          trvanlivost: pkg.kind === 'bottle'
+            ? trvanlivostSkladu(
+                currentStock,
+                bot.filter((r) => r.beer_id === beer.id && r.package_id === pkg.id).map((r) => ({ entry_date: r.entry_date, quantity: Number(r.quantity) })),
+                beer.trvanlivost_dni,
+                todayISO(),
+              )
+            : null,
         };
       });
 
@@ -657,6 +668,16 @@ export default function Stock({ setPage }: { setPage?: (p: Page, sec?: string, s
                                           {p.predpoved.dni === 0 ? 'dnes' : `${p.predpoved.dni} dní`}
                                         </span>
                                       )}
+                                      {/* 🗓️ Trvanlivost — jen když se blíží nebo prošla.
+                                          Je to FIFO odhad, proto „nejspíš" v titulku. */}
+                                      {p.trvanlivost && p.trvanlivost.stav !== 'ok' && (
+                                        <span
+                                          className={`block text-udaj font-black ${p.trvanlivost.stav === 'prosla' ? 'text-rose-700' : 'text-amber-700'}`}
+                                          title={`Nejstarší šarže, která je nejspíš na skladě: lahvováno ${p.trvanlivost.lahvovano}, trvanlivost do ${p.trvanlivost.trvanlivostDo} (odhad podle pořadí lahvování)`}
+                                        >
+                                          {p.trvanlivost.stav === 'prosla' ? 'MT prošlo' : `MT za ${p.trvanlivost.dni} dní`}
+                                        </span>
+                                      )}
                                     </button>
                                   </td>
                                   <td className={`py-1 px-1 text-center font-extrabold rounded-md ${p.outgoing > 0 ? 'bg-rose-50 text-rose-700' : 'bg-neutral-50 text-neutral-500'}`}>{p.outgoing > 0 ? `-${p.outgoing}` : '0'}</td>
@@ -711,6 +732,16 @@ export default function Stock({ setPage }: { setPage?: (p: Page, sec?: string, s
                                       {p.predpoved.stav === 'dochazi' && (
                                         <span className="block text-udaj font-black text-amber-700" title={p.predpoved.popis}>
                                           {p.predpoved.dni === 0 ? 'dnes' : `${p.predpoved.dni} dní`}
+                                        </span>
+                                      )}
+                                      {/* 🗓️ Trvanlivost — jen když se blíží nebo prošla.
+                                          Je to FIFO odhad, proto „nejspíš" v titulku. */}
+                                      {p.trvanlivost && p.trvanlivost.stav !== 'ok' && (
+                                        <span
+                                          className={`block text-udaj font-black ${p.trvanlivost.stav === 'prosla' ? 'text-rose-700' : 'text-amber-700'}`}
+                                          title={`Nejstarší šarže, která je nejspíš na skladě: lahvováno ${p.trvanlivost.lahvovano}, trvanlivost do ${p.trvanlivost.trvanlivostDo} (odhad podle pořadí lahvování)`}
+                                        >
+                                          {p.trvanlivost.stav === 'prosla' ? 'MT prošlo' : `MT za ${p.trvanlivost.dni} dní`}
                                         </span>
                                       )}
                                     </button>

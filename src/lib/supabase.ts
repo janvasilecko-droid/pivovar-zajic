@@ -392,6 +392,8 @@ export type Beer = {
   id: string; name: string; short_name: string | null; degree: string | null; color: string | null;
   beer_color: string | null;
   price_per_liter: number | null;
+  /** Trvanlivost lahví ve dnech od lahvování (migrace 20261231060000). */
+  trvanlivost_dni?: number | null;
   is_active: boolean; sort_order: number; created_at: string;
 };
 

@@ -190,6 +190,72 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
 
+  # 🗄️ Databáze a edge funkce — dřív se musely nasazovat ručně a zapomínalo
+  # se na to: aplikace byla na produkci, tabulka nebo funkce, kterou
+  # potřebuje, ne. Běží AŽ po nasazení webu.
+  #
+  # Obojí je bez klíče vypnuté, ne rozbité: bez SUPABASE_ACCESS_TOKEN se
+  # kroky jen ohlásí a skončí úspěšně. Migrace se navíc pouštějí jen při
+  # proměnné AUTO_MIGRACE=ano a s pojistkami (scripts/pust-cekajici-migrace.mjs).
+  #
+  # `secrets` v `if:` použít nejde (viz oznam-selhani níž) — klíč jde do env
+  # a prázdnota se ověřuje v shellu.
+  nasad-databazi-a-funkce:
+    runs-on: ubuntu-latest
+    needs: build-and-deploy
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Čekající migrace
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          AUTO_MIGRACE: ${{ vars.AUTO_MIGRACE }}
+        run: node scripts/pust-cekajici-migrace.mjs
+
+      # Nasazují se jen funkce, které se v tomhle pushi změnily. Změna
+      # v _shared/ se týká všech, takže pak jdou všechny.
+      - name: Změněné edge funkce
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PRED: ${{ github.event.before }}
+        run: |
+          if [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+            echo "SUPABASE_ACCESS_TOKEN není nastaven — edge funkce se nasazují ručně." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          if [ -z "$PRED" ] || ! git cat-file -e "$PRED" 2>/dev/null; then
+            ZMENY=$(ls -d supabase/functions/*/ | sed 's#/$##')
+          else
+            ZMENY=$(git diff --name-only "$PRED" "$GITHUB_SHA" -- supabase/functions | cut -d/ -f1-3 | sort -u)
+          fi
+          if echo "$ZMENY" | grep -q "supabase/functions/_shared"; then
+            ZMENY=$(ls -d supabase/functions/*/ | sed 's#/$##')
+          fi
+          FUNKCE=$(echo "$ZMENY" | xargs -r -n1 basename | grep -v '^_shared$' | sort -u)
+          if [ -z "$FUNKCE" ]; then
+            echo "Žádná edge funkce se nezměnila." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo "### Edge funkce" >> "$GITHUB_STEP_SUMMARY"
+          SELHALO=0
+          for f in $FUNKCE; do
+            [ -f "supabase/functions/$f/index.ts" ] || continue
+            if npx --yes supabase functions deploy "$f" --project-ref sasqexjadvlqyticxwja; then
+              echo "- ✅ $f" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "- ❌ $f" >> "$GITHUB_STEP_SUMMARY"
+              SELHALO=1
+            fi
+          done
+          exit $SELHALO
+
   build-apk:
     runs-on: ubuntu-latest
     needs: build-and-deploy
@@ -265,7 +331,7 @@ jobs:
   # druhý krok se pak sám zapne.
   oznam-selhani:
     runs-on: ubuntu-latest
-    needs: [test, build-and-deploy, build-apk]
+    needs: [test, build-and-deploy, build-apk, nasad-databazi-a-funkce]
     if: failure()
 
     steps:
