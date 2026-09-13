@@ -7,6 +7,11 @@ import { chybiTabulka } from '../lib/chybyHlaseni';
 import { useAuth } from '../lib/auth';
 import { bodyGrafu, dalsiGenerace, posledniStupnovitost, prokvaseni, type Mereni, type Varka } from '../lib/varky';
 
+/** Česky s čárkou a nejvýš jedním desetinným místem (12,1 °P, ne 12.1). */
+function cz(n: number | null | undefined): string {
+  return n == null ? '?' : Number(n).toLocaleString('cs-CZ', { maximumFractionDigits: 1 });
+}
+
 /**
  * 🧪 Várky ve sklepě — průběh kvašení a generace kvasnic.
  *
@@ -99,9 +104,9 @@ export function VarkySklep({ beers, tanks }: { beers: Beer[]; tanks: CellarTank[
 
               <div className="flex flex-wrap gap-1.5 text-xs">
                 <span className="chip bg-amber-50 text-amber-900 border border-amber-200">
-                  {v.og != null ? `${v.og} °P` : '? °P'} → {v.fg != null ? `${v.fg} °P` : posledniStupnovitost(v, m) != null ? `teď ${posledniStupnovitost(v, m)} °P` : '?'}
+                  {cz(v.og)} °P → {v.fg != null ? `${cz(v.fg)} °P` : posledniStupnovitost(v, m) != null ? `teď ${cz(posledniStupnovitost(v, m))} °P` : '?'}
                 </span>
-                {pk != null && <span className="chip bg-emerald-50 text-emerald-900 border border-emerald-200">prokvašení {pk} %</span>}
+                {pk != null && <span className="chip bg-emerald-50 text-emerald-900 border border-emerald-200">prokvašení {cz(pk)} %</span>}
                 {v.kvasnice_generace != null && (
                   <span className="chip bg-sky-50 text-sky-900 border border-sky-200">
                     kvasnice {v.kvasnice_generace}. generace{zdroj ? ` (z ${zdroj.batch_number || zdroj.beer_name})` : ''}
@@ -141,11 +146,11 @@ function GrafKvaseni({ mereni }: { mereni: Mereni[] }) {
   return (
     <figure className="m-0">
       <svg viewBox={`-6 -6 ${SIRKA + 12} ${VYSKA + 12}`} className="w-full max-w-md h-24 text-amber-700" role="img"
-        aria-label={`Stupňovitost klesla z ${body[0].hodnota} na ${body[body.length - 1].hodnota} °P`}>
+        aria-label={`Stupňovitost klesla z ${cz(body[0].hodnota)} na ${cz(body[body.length - 1].hodnota)} °P`}>
         <polyline fill="none" stroke="currentColor" strokeWidth="2" points={body.map((b) => `${b.x},${b.y}`).join(' ')} />
         {body.map((b) => <circle key={b.cas} cx={b.x} cy={b.y} r="3" fill="currentColor" />)}
       </svg>
-      <figcaption className="text-xs text-neutral-600">Stupňovitost {max} → {min} °P</figcaption>
+      <figcaption className="text-xs text-neutral-600">Stupňovitost {cz(max)} → {cz(min)} °P</figcaption>
     </figure>
   );
 }
@@ -212,8 +217,8 @@ function MereniVarky({ varka, mereni, kdo }: { varka: Varka; mereni: Mereni[]; k
             <li key={m.id} className="py-1.5 flex flex-wrap items-center justify-between gap-2">
               <span className="text-neutral-600 text-xs">{new Date(m.measured_at).toLocaleString('cs-CZ')}</span>
               <span className="font-bold tabular-nums">
-                {m.stupnovitost != null ? `${m.stupnovitost} °P` : ''}
-                {m.teplota_c != null ? <span className="ml-2 text-sky-800"><Thermometer size={12} className="inline -mt-0.5" aria-hidden /> {m.teplota_c} °C</span> : null}
+                {m.stupnovitost != null ? `${cz(m.stupnovitost)} °P` : ''}
+                {m.teplota_c != null ? <span className="ml-2 text-sky-800"><Thermometer size={12} className="inline -mt-0.5" aria-hidden /> {cz(m.teplota_c)} °C</span> : null}
               </span>
               {m.poznamka && <span className="text-xs text-neutral-700 basis-full">{m.poznamka}</span>}
               <button type="button" className="btn-ghost" aria-label="Smazat měření" onClick={() => void smaz(m.id)}><Trash2 className="ikona-text" /></button>

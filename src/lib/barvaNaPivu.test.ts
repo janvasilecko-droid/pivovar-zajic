@@ -46,6 +46,12 @@ describe('barva písma na barvě piva', () => {
     const podezrele = /(?:beerText|pkgText)\([^)]*\)\s*===\s*'text-white'\s*\?[^:]*:\s*undefined/;
     const soubory = [
       'src/screens/Orders.tsx',
+      // Části Objednávek vytažené 13. 9. 2026 do vlastních souborů — hlídka
+      // se nesmí ztratit jen proto, že kód změnil adresu.
+      'src/components/objednavky/OrderCard.tsx',
+      'src/components/objednavky/OrderDetail.tsx',
+      'src/components/objednavky/VariantTotalsPanel.tsx',
+      'src/components/objednavky/WhatsAppOriginalBlock.tsx',
       'src/screens/InventoryScreen.tsx',
       'src/screens/PriceList.tsx',
       'src/components/QuickCountModal.tsx',

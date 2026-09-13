@@ -9,6 +9,7 @@
 // Zápisy MĚNÍ data v paměti, takže se náhled chová jako appka: napočítáš
 // rozdíl, klikneš „Zapsat do stáčení" a řádek se pak srovná. Po obnovení
 // stránky je zase výchozí stav.
+import { useEffect, useRef } from 'react';
 import * as vychozi from './data';
 
 type Radek = Record<string, any>;
@@ -29,7 +30,37 @@ const db: Record<string, Radek[]> = {
   keg_prefuk: [...vychozi.keg_prefuk],
   cellar_tanks: vychozi.cellar_tanks.map((t) => ({ ...t })),
   tydenni_inventura: vychozi.tydenni_inventura.map((r) => ({ ...r })),
+  // Obrazovky Sklepa (nahled/obrazovky.html).
+  cellar_tank_cycles: vychozi.cellar_tank_cycles.map((r) => ({ ...r })),
+  cellar_batches: vychozi.cellar_batches.map((r) => ({ ...r })),
+  cellar_batch_mereni: vychozi.cellar_batch_mereni.map((r) => ({ ...r })),
 };
+
+/**
+ * Realtime v náhledu: po každém zápisu se zavolají odběratelé dotčené
+ * tabulky — přesně to, co by v appce udělal Supabase kanál.
+ */
+const realtime = new Map<string, Set<() => void>>();
+
+export function useRealtime(tables: string[], onChange: () => void) {
+  const ref = useRef(onChange);
+  ref.current = onChange;
+  const klic = tables.join(',');
+  useEffect(() => {
+    const fn = () => ref.current();
+    for (const t of tables) {
+      const s = realtime.get(t) ?? new Set();
+      s.add(fn);
+      realtime.set(t, s);
+    }
+    return () => { for (const t of tables) realtime.get(t)?.delete(fn); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [klic]);
+}
+
+function ohlasZmenu(tabulka: string) {
+  realtime.get(tabulka)?.forEach((fn) => fn());
+}
 
 /** Co se v náhledu zapsalo — vypisuje se v pravém panelu stránky. */
 export type Zapis = { kdy: string; tabulka: string; operace: string; radku: number; popis: string };
@@ -59,6 +90,7 @@ function zaznamenej(tabulka: string, operace: string, radky: Radek[]) {
     popis: popis || '—',
   });
   posluchaci.forEach((fn) => fn());
+  ohlasZmenu(tabulka);
 }
 
 /** Vrátí data do výchozího stavu — tlačítko „Začít znovu" na stránce. */
@@ -90,14 +122,26 @@ function pouzijFiltry(radky: Radek[], filtry: Filtr[]): Radek[] {
 function dotaz(tabulka: string) {
   const filtry: Filtr[] = [];
   let radit: string | null = null;
+  let sestupne = false;
+  let pocet: number | null = null;
 
   const api: any = {
     eq(col: string, val: any) { filtry.push({ typ: 'eq', col, val }); return api; },
     in(col: string, val: any[]) { filtry.push({ typ: 'in', col, val }); return api; },
-    order(col: string) { radit = col; return api; },
+    order(col: string, opts?: { ascending?: boolean }) { radit = col; sestupne = opts?.ascending === false; return api; },
+    limit(n: number) { pocet = n; return api; },
     then(splneno: (v: { data: Radek[]; error: null }) => any) {
       let data = pouzijFiltry(db[tabulka] ?? [], filtry);
-      if (radit) data = [...data].sort((a, z) => (a[radit!] ?? 0) - (z[radit!] ?? 0));
+      if (radit) {
+        const k = radit;
+        data = [...data].sort((a, z) => {
+          const x = a[k] ?? 0;
+          const y = z[k] ?? 0;
+          const r = typeof x === 'string' || typeof y === 'string' ? String(x).localeCompare(String(y)) : x - y;
+          return sestupne ? -r : r;
+        });
+      }
+      if (pocet != null) data = data.slice(0, pocet);
       return Promise.resolve(splneno({ data, error: null }));
     },
   };
@@ -109,8 +153,33 @@ export const supabase = {
     return {
       select: (_cols?: string) => dotaz(tabulka),
 
+      delete() {
+        const filtry: Filtr[] = [];
+        const api: any = {
+          eq(col: string, val: any) { filtry.push({ typ: 'eq', col, val }); return api; },
+          in(col: string, val: any[]) { filtry.push({ typ: 'in', col, val }); return api; },
+          then(splneno: (v: { data: null; error: null }) => any) {
+            const pryc = pouzijFiltry(db[tabulka] ?? [], filtry);
+            db[tabulka] = (db[tabulka] ?? []).filter((r) => !pryc.includes(r));
+            // Cizí klíč ON DELETE CASCADE u měření várky — ať náhled nelže.
+            if (tabulka === 'cellar_batches') {
+              const idcka = new Set(pryc.map((r) => r.id));
+              db.cellar_batch_mereni = db.cellar_batch_mereni.filter((m) => !idcka.has(m.batch_id));
+              ohlasZmenu('cellar_batch_mereni');
+            }
+            zaznamenej(tabulka, 'delete', pryc);
+            return Promise.resolve(splneno({ data: null, error: null }));
+          },
+        };
+        return api;
+      },
+
       insert(radky: Radek | Radek[]) {
-        const pole = Array.isArray(radky) ? radky : [radky];
+        const pole = (Array.isArray(radky) ? radky : [radky]).map((r) => ({
+          id: `nahled-${Math.random().toString(36).slice(2, 10)}`,
+          created_at: new Date().toISOString(),
+          ...r,
+        }));
         db[tabulka] = [...(db[tabulka] ?? []), ...pole];
         zaznamenej(tabulka, 'insert', pole);
         return Promise.resolve({ data: pole, error: null });

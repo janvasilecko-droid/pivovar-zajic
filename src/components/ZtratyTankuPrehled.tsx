@@ -4,6 +4,9 @@ import type { CellarTankCycle } from '../lib/supabase';
 import { ztratyPodle, TREND_CYKLU } from '../lib/ztratyTanku';
 import { EmptyState } from './ui';
 
+/** Česky s čárkou, jedno desetinné místo (2,9 %, ne 2.9). */
+const cz = (n: number) => n.toLocaleString('cs-CZ', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+
 /** Nad kolik procent se ztráta barví jako vysoká (stejně jako na kartě tanku). */
 const VYSOKA_ZTRATA_PCT = 3;
 
@@ -19,7 +22,7 @@ export function ZtratyTankuPrehled({ cycles }: { cycles: CellarTankCycle[] }) {
     <div className="card p-4 space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-neutral-700">
-          Vážený průměr ztrát ze všech ukončených cyklů. Šipka porovnává posledních {TREND_CYKLU} cykly se staršími.
+          Vážený průměr ztrát ze všech ukončených cyklů. Vývoj porovnává poslední {TREND_CYKLU} cykly se staršími.
         </p>
         <div className="flex gap-1.5" role="group" aria-label="Seskupit ztráty">
           {(['pivo', 'tank'] as const).map((v) => (
@@ -58,9 +61,9 @@ export function ZtratyTankuPrehled({ cycles }: { cycles: CellarTankCycle[] }) {
                   <tr key={s.klic}>
                     <td className="py-2 pr-3 font-bold text-neutral-900">{s.nazev}</td>
                     <td className="py-2 px-2 text-right tabular-nums">{s.cyklu}</td>
-                    <td className="py-2 px-2 text-right tabular-nums">{(s.ztrataL / 100).toFixed(1)} hl</td>
+                    <td className="py-2 px-2 text-right tabular-nums">{cz(s.ztrataL / 100)} hl</td>
                     <td className={`py-2 px-2 text-right tabular-nums font-black ${s.ztrataPct > VYSOKA_ZTRATA_PCT ? 'text-rose-700' : 'text-emerald-700'}`}>
-                      {s.ztrataPct.toFixed(1)} %
+                      {cz(s.ztrataPct)} %
                     </td>
                     <td className="py-2 pl-2 text-right text-xs whitespace-nowrap">
                       {s.poslednichPct == null ? (
@@ -69,7 +72,7 @@ export function ZtratyTankuPrehled({ cycles }: { cycles: CellarTankCycle[] }) {
                         <span className={horsi ? 'text-rose-700 font-bold' : lepsi ? 'text-emerald-700 font-bold' : 'text-neutral-600'}>
                           {horsi && <TrendingUp size={14} className="inline -mt-0.5 mr-1" aria-hidden />}
                           {lepsi && <TrendingDown size={14} className="inline -mt-0.5 mr-1" aria-hidden />}
-                          {s.predtimPct?.toFixed(1)} → {s.poslednichPct.toFixed(1)} %
+                          {cz(s.predtimPct ?? 0)} → {cz(s.poslednichPct)} %
                         </span>
                       )}
                     </td>

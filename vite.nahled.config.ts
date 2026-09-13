@@ -14,8 +14,11 @@ import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const PRAVY = resolve(__dirname, 'src/lib/supabase.ts');
-const NAHRADA = resolve(__dirname, 'nahled/mock/supabase.ts');
+// Skutečný modul → náhrada. Auth kvůli obrazovkám, které čtou, kdo zapisuje.
+const NAHRADY: Record<string, string> = {
+  [resolve(__dirname, 'src/lib/supabase.ts')]: resolve(__dirname, 'nahled/mock/supabase.ts'),
+  [resolve(__dirname, 'src/lib/auth.tsx')]: resolve(__dirname, 'nahled/mock/auth.tsx'),
+};
 
 export default defineConfig({
   root: resolve(__dirname, 'nahled'),
@@ -24,10 +27,10 @@ export default defineConfig({
       name: 'nahled-podstrc-supabase',
       enforce: 'pre',
       async resolveId(source, importer, options) {
-        if (source.includes('mock/supabase')) return null; // sama náhrada
+        if (source.includes('mock/')) return null; // samy náhrady
         const vysledek = await this.resolve(source, importer, { ...options, skipSelf: true });
-        if (vysledek && resolve(vysledek.id.split('?')[0]) === PRAVY) return NAHRADA;
-        return null;
+        if (!vysledek) return null;
+        return NAHRADY[resolve(vysledek.id.split('?')[0])] ?? null;
       },
     },
     react(),
@@ -35,4 +38,13 @@ export default defineConfig({
   resolve: { dedupe: ['react', 'react-dom'] },
   define: { __APP_VERSION__: JSON.stringify('nahled') },
   server: { port: 5199, host: true, allowedHosts: true },
+  build: {
+    rollupOptions: {
+      input: {
+        index: resolve(__dirname, 'nahled/index.html'),
+        panel: resolve(__dirname, 'nahled/panel.html'),
+        obrazovky: resolve(__dirname, 'nahled/obrazovky.html'),
+      },
+    },
+  },
 });

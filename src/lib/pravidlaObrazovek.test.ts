@@ -215,7 +215,8 @@ describe('odznak „chybí skladem" u odbavené objednávky', () => {
   // piva a obalu je ke konci týdne závozu v mínusu" — přes VŠECHNY pohyby
   // toho týdne. U objednávky, která už fyzicky odjela, je to rada, kterou
   // nejde uposlechnout: to pivo je pryč.
-  const zdroj = readFileSync('src/screens/Orders.tsx', 'utf8');
+  // Karta objednávky se 13. 9. 2026 vytáhla ze screens/Orders.tsx do vlastního souboru.
+  const zdroj = readFileSync('src/components/objednavky/OrderCard.tsx', 'utf8');
 
   it('schodek se u odbavené objednávky vůbec nepočítá', () => {
     expect(zdroj).toContain('const odbaveno =');

@@ -128,4 +128,49 @@ export const tydenni_inventura = [
   { tyden_od: PONDELI, beer_id: 'b-12tm', package_id: 'p-keg50', napocitano: 2, ocekavano: 2, rozdil: 0, vyreseno: null },
 ];
 
+/** Ukončené cykly tanků — pro přehled ztrát (Sklep → Ztráty při stáčení). */
+const cyklus = (id: string, tank: string, pivo: string, pocatek: number, ztrata: number, konec: string) => ({
+  id, tank_id: `t-${tank}`, tank_label: `Tank ${tank}`,
+  beer_id: pivo, beer_name: beers.find((b) => b.id === pivo)?.name ?? null,
+  initial_volume_l: pocatek, kegged_volume_l: pocatek - ztrata, keg_count: Math.round((pocatek - ztrata) / 50),
+  loss_l: ztrata, loss_pct: Math.round((ztrata / pocatek) * 1000) / 10,
+  started_at: posunDnu(konec, -30), ended_at: `${konec}T12:00:00Z`, duration_hours: 720, note: null, created_at: `${konec}T12:00:00Z`,
+});
+export const cellar_tank_cycles = [
+  cyklus('c1', '1', 'b-12sv', 2500, 45, posunDnu(DNES, -150)),
+  cyklus('c2', '1', 'b-12sv', 2500, 50, posunDnu(DNES, -110)),
+  cyklus('c3', '1', 'b-12sv', 2500, 60, posunDnu(DNES, -70)),
+  cyklus('c4', '1', 'b-12sv', 2500, 110, posunDnu(DNES, -40)),
+  cyklus('c5', '1', 'b-12sv', 2500, 130, posunDnu(DNES, -10)),
+  cyklus('c6', '6', 'b-10de', 1500, 20, posunDnu(DNES, -90)),
+  cyklus('c7', '6', 'b-10de', 1500, 25, posunDnu(DNES, -20)),
+  cyklus('c8', '4', 'b-summ', 800, 12, posunDnu(DNES, -30)),
+];
+
+/** Várky ve sklepě s průběhem kvašení (Sklep → Várky & kvašení). */
+export const cellar_batches = [
+  {
+    id: 'v-1', batch_number: '2026/31', beer_id: 'b-12sv', beer_name: '12° Světlý ležák', tank_id: 't-1', tank_label: 'Tank 1',
+    volume_hl: 25, og: 12.1, fg: 3.2, started_at: `${posunDnu(DNES, -45)}T06:00:00Z`, finished_at: `${posunDnu(DNES, -10)}T06:00:00Z`,
+    note: null, kvasnice_generace: 3, kvasnice_z_varky: null, created_at: `${posunDnu(DNES, -45)}T06:00:00Z`,
+  },
+  {
+    id: 'v-2', batch_number: '2026/36', beer_id: 'b-11sv', beer_name: '11° Světlá', tank_id: 't-3', tank_label: 'Spilka 1',
+    volume_hl: 8, og: 11.2, fg: null, started_at: `${posunDnu(DNES, -6)}T06:00:00Z`, finished_at: null,
+    note: 'Kvasnice sklizené z várky 2026/31.', kvasnice_generace: 4, kvasnice_z_varky: 'v-1', created_at: `${posunDnu(DNES, -6)}T06:00:00Z`,
+  },
+];
+
+const mereni = (id: string, batch: string, dniZpet: number, hodina: number, plato: number | null, teplota: number | null) => ({
+  id, batch_id: batch, measured_at: `${posunDnu(DNES, -dniZpet)}T${String(hodina).padStart(2, '0')}:00:00Z`,
+  stupnovitost: plato, teplota_c: teplota, poznamka: null, zapsal: 'Náhled',
+});
+export const cellar_batch_mereni = [
+  mereni('m1', 'v-2', 6, 7, 11.2, 8.0),
+  mereni('m2', 'v-2', 5, 7, 10.6, 8.5),
+  mereni('m3', 'v-2', 4, 7, 9.1, 9.0),
+  mereni('m4', 'v-2', 3, 18, 7.4, 9.2),
+  mereni('m5', 'v-2', 1, 7, 5.9, 8.8),
+];
+
 export const POPIS = { DNES, PONDELI };
