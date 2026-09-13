@@ -21,6 +21,16 @@ describe('zdvojené položky objednávky', () => {
     expect(najdiZdvojene([r('10', 'k20', 2), r('10', 'k50', 1)])).toEqual([]);
   });
 
+  it('řádky rozdělené přesunem na jiný den duplicita nejsou', () => {
+    // Plán stáčení rozdělí 10× 30l na 6 ks ve čtvrtek a 4 ks ve středu.
+    // Editace objednávky jim dává skupinu podle dne — sloučení by přesun
+    // potichu vrátilo (EditOrderModal).
+    expect(najdiZdvojene([
+      { ...r('10', 'k30', 6, 'a'), skupina: '' },
+      { ...r('10', 'k30', 4, 'b'), skupina: 'st' },
+    ])).toEqual([]);
+  });
+
   it('nevyplněné a odstraněné řádky se neberou', () => {
     expect(najdiZdvojene([r('', '', ''), r('', '', ''), r('10', 'k20', 1)])).toEqual([]);
     expect(najdiZdvojene([r('10', 'k20', 1), r('10', 'k20', 1, 'x', true)])).toEqual([]);

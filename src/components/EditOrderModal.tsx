@@ -21,6 +21,8 @@ type OrderItem = {
   id: string; order_id: string; beer_id: string | null; beer_name: string | null;
   package_id: string | null; package_label: string | null; quantity: number;
   is_prepared: boolean;
+  /** Vlastní den položky (migrace 20261231070000) — přesun části objednávky v plánu stáčení. */
+  delivery_day?: string | null;
 };
 
 const DAYS = [
@@ -28,7 +30,10 @@ const DAYS = [
   { v: 'ct', label: 'Ct' }, { v: 'pa', label: 'Pá' }, { v: 'so', label: 'So' }, { v: 'ne', label: 'Ne' },
 ];
 
-type Row = { id: string | null; beerId: string; pkgId: string; qty: string; removed: boolean };
+// `skupina` = vlastní den položky. Po přesunu části objednávky na jiný den
+// vzniknou dva řádky se stejným pivem i obalem — nejsou to zdvojené položky
+// a nabídka „sloučit" by přesun potichu vrátila (lib/zdvojenePolozky.ts).
+type Row = { id: string | null; beerId: string; pkgId: string; qty: string; removed: boolean; skupina?: string };
 
 export function EditOrderModal({ order, items, beers, packages, places, onClose, onSaved, onPlacesChanged }: {
   order: Order; items: OrderItem[]; beers: Beer[]; packages: Package[]; places: Place[];
@@ -41,7 +46,7 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
   const [deliveryDate, setDeliveryDate] = useState(order.delivery_date ?? '');
   const [note, setNote] = useState(order.note ?? '');
   const [rows, setRows] = useState<Row[]>(
-    items.map((i) => ({ id: i.id, beerId: i.beer_id ?? '', pkgId: i.package_id ?? '', qty: String(i.quantity), removed: false }))
+    items.map((i) => ({ id: i.id, beerId: i.beer_id ?? '', pkgId: i.package_id ?? '', qty: String(i.quantity), removed: false, skupina: i.delivery_day ?? '' }))
   );
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
