@@ -12,6 +12,7 @@ import { supabase, fetchAllRows } from './supabase';
 import { expectedForMonth, stockForMonth } from './stockLedger';
 import { nactiSkladovouKnihu } from './skladovaKnihaData';
 import { obdobiAuditu, type VstupAuditu } from './hloubkovyAudit';
+import { porovnejCteni } from './kontrolaCteniWhatsApp';
 
 export type RezimAuditu = 'tyden' | 'mesic';
 
@@ -29,13 +30,14 @@ export async function nactiPodkladyAuditu(rezim: RezimAuditu, dnesISO: string): 
     { data: objednavky }, { data: polozky },
     { data: zpravy }, { data: prijemLog },
     { data: most }, { count: neodeslane }, { data: posledniPrijem },
+    { data: zpravySPolozkami }, { data: pivaSeStupnem }, { data: zkratky },
   ] = await Promise.all([
     nactiSkladovouKnihu(),
 
     // Objednávky — širší okno než období, aby šlo počítat rytmus odběratelů
     // a pokrytí proti minulému týdnu.
     fetchAllRows('orders', 'id,place_name,delivery_date,order_date,status,is_delivered').gte('order_date', posunOMesice(od, -3)),
-    fetchAllRows('order_items', 'order_id'),
+    fetchAllRows('order_items', 'order_id,beer_id,package_id,quantity'),
 
     // Zprávy: 90 dní zpátky. Kratší okno by u odběratele, co píše jednou za
     // tři týdny, nestačilo na spočítání jeho obvyklého rytmu.
@@ -45,6 +47,14 @@ export async function nactiPodkladyAuditu(rezim: RezimAuditu, dnesISO: string): 
     supabase.from('whatsapp_most_stav').select('naposledy,pripojeno').eq('id', 'most').maybeSingle(),
     supabase.from('whatsapp_neodeslane').select('id', { count: 'exact', head: true }).is('odeslano_at', null),
     supabase.from('whatsapp_prijem_log').select('created_at').order('created_at', { ascending: false }).limit(1),
+
+    // Kontrola čtení objednávek z WhatsAppu (lib/kontrolaCteniWhatsApp.ts):
+    // zprávy s tím, co se z nich přečetlo, a katalog se stupněm — párování
+    // piva bez stupně nerozliší 12° Světlou od Tmavé.
+    fetchAllRows('whatsapp_incoming', 'created_at,message_text,media_url,imported_order_id,parsed_items')
+      .not('imported_order_id', 'is', null).gte('created_at', posunOMesice(od, -1)),
+    supabase.from('beers').select('id,name,degree,short_name'),
+    fetchAllRows('parser_aliases', 'alias_text,beer_id,package_id'),
   ]);
 
   // Počet položek na objednávku — prázdná objednávka se jinak nepozná.
@@ -79,6 +89,15 @@ export async function nactiPodkladyAuditu(rezim: RezimAuditu, dnesISO: string): 
       pocetPolozek: polozekNaObjednavku.get(o.id) ?? 0,
     })),
     zacatekTydne: rezim === 'tyden' ? od : undefined,
+    // Jen objednávky, jejichž den závozu spadá do kontrolovaného období.
+    cteniWhatsApp: porovnejCteni({
+      zpravy: ((zpravySPolozkami as any[]) ?? []).map((z) => ({ ...z, foto: !!z.media_url })),
+      polozky: ((polozky as any[]) ?? []),
+      objednavky: ((objednavky as any[]) ?? []),
+      piva: ((pivaSeStupnem as any[]) ?? []),
+      obaly: kniha.obaly as any[],
+      zkratky: ((zkratky as any[]) ?? []),
+    }).filter((r) => r.den >= od && r.den <= doDne),
 
     kegging: kniha.kegging,
     bottling: kniha.bottling,

@@ -22,6 +22,7 @@ import { zpetneZmeny, type PohybSCasem, type NapocitanaInventura } from './zpetn
 import { porovnejPolozku, maCoUkazat } from './auditSkladu';
 import { stariInventury, type InventurniRadek } from './inventuraStari';
 import type { StockLine } from './stockLedger';
+import type { RozdilCteni } from './kontrolaCteniWhatsApp';
 
 export type Zavaznost = 'ok' | 'pozor' | 'chyba';
 
@@ -104,6 +105,8 @@ export type VstupAuditu = {
   // Objednávky
   objednavky?: ObjednavkaAudit[];
   zacatekTydne?: string;
+  /** Objednávky z WhatsAppu, které neodpovídají zprávě (lib/kontrolaCteniWhatsApp.ts). */
+  cteniWhatsApp?: RozdilCteni[];
 
   // Výroba
   kegging?: VyrobniRadek[];
@@ -280,6 +283,38 @@ export function kontrolaPokryti(v: VstupAuditu): Nalez {
   };
 }
 
+/**
+ * Odpovídají objednávky z WhatsAppu zprávám? Zpráva se znovu přečte stejným
+ * párováním jako na serveru a porovná s uloženými položkami.
+ */
+export function kontrolaCteniWhatsApp(v: VstupAuditu): Nalez {
+  const nazev = 'Objednávky z WhatsAppu odpovídají zprávě';
+  const rozdily = v.cteniWhatsApp ?? [];
+  if (rozdily.length === 0) {
+    return vPoradku('cteni-whatsapp', 'Objednávky', nazev, 'Pivo, obal i počet sedí se zprávami');
+  }
+  const sBarvou = rozdily.filter((r) => r.rozporBarvy.length > 0);
+  const detaily: string[] = [];
+  for (const r of [...sBarvou, ...rozdily.filter((x) => x.rozporBarvy.length === 0)]) {
+    detaily.push(`${r.den} ${r.misto}${r.foto ? ' (fotka)' : ''} — zpráva: ${r.zprava}`);
+    for (const t of r.rozporBarvy) detaily.push(`   ❗ ${t}`);
+    for (const t of r.chybi) detaily.push(`   − podle zprávy: ${t}`);
+    for (const t of r.navic) detaily.push(`   + v objednávce: ${t}`);
+  }
+  return {
+    id: 'cteni-whatsapp',
+    oblast: 'Objednávky',
+    nazev,
+    zavaznost: sBarvou.length > 0 ? 'chyba' : 'pozor',
+    pocet: rozdily.length,
+    shrnuti: sBarvou.length > 0
+      ? `${sBarvou.length}× tmavé/světlé zapsané obráceně, celkem ${rozdily.length} objednávek s rozdílem`
+      : `${rozdily.length} objednávek se liší od zprávy`,
+    detaily: orizni(detaily),
+    rada: 'Porovnej se zprávou. Rozdíl může být i ruční úprava při schválení nebo doplnění z navazující zprávy — chybu oprav přímo v objednávce.',
+  };
+}
+
 /** Pravidelný odběratel, který mlčí podstatně dýl, než je u něj obvyklé. */
 export function kontrolaTicha(v: VstupAuditu, ted: Date): Nalez {
   const ticho = tichoUOdberatelu(v.zpravy ?? [], ted);
@@ -453,6 +488,7 @@ export function sestavAudit(v: VstupAuditu, ted: Date = new Date()): VysledekAud
     kontrolaZahozenych(v),
     kontrolaNezpracovanych(v),
     kontrolaPrazdnychObjednavek(v),
+    kontrolaCteniWhatsApp(v),
     kontrolaNezavezenych(v, dnesISO),
     kontrolaPokryti(v),
     kontrolaTicha(v, ted),
