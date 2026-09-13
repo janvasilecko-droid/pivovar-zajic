@@ -13,6 +13,7 @@ import { VoiceRecorder } from '../components/VoiceRecorder';
 import { parseFreeTextEntries, loadAliasMap, emptyAliasMap, type ParserAliasMap } from '../lib/orderParser';
 import { requestOrdersItemFilter } from '../lib/ordersFilter';
 import { computeKeggingPlan, mergeWeekPlan, rozpadPoObalech, BEZ_TERMINU } from '../lib/keggingPlan';
+import { naplanujPresun } from '../lib/presunPolozky';
 import { BottlingPlanBottler } from '../components/BottlingPlanBottler';
 import { markPlanSeenAt, type BottlingPlan } from '../lib/bottlingPlans';
 import KeggingDayPlan from '../components/KeggingDayPlan';
@@ -341,7 +342,10 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
       // bez delivery_day by všechny objednávky spadly na den podle delivery_date
       // a ručně přehozený den závozu by se ignoroval.
       fetchAllRows('orders', 'id,order_date,delivery_date,delivery_day,place_name,status,is_delivered'),
-      fetchAllRows('order_items', 'id,order_id,beer_id,package_id,quantity'),
+      // `*` místo výčtu: delivery_day (vlastní den položky) přidává migrace
+      // 20261231070000, která jde pustit až PO nasazení. Výčet se sloupcem,
+      // který ještě neexistuje, by obrazovku do té doby shodil.
+      fetchAllRows('order_items', '*'),
       fetchAllRows('fasovani', 'entry_date,beer_id,package_id,quantity'),
       fetchAllRows('fasovani_private', 'entry_date,beer_id,package_id,quantity'),
       fetchAllRows('writeoffs', 'entry_date,beer_id,package_id,quantity'),
@@ -509,6 +513,48 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   // taky, vznikl by při běžném zápisu duplicitní záznam a sklad i objem tanku
   // by se nafoukly o každý odškrtnutý sud. V plánu se odškrtnutí a doložené
   // stočení skládají přes MAX (viz keggingPlan.ts).
+  // 🔀 Přesun části objednávky na jiný den stáčení. Objednávka se běžně veze
+  // na dvakrát („část od Radka se vezla o den dřív"), ale plán přiřazuje den
+  // celé objednávce — ve středu tak nebylo co odškrtnout. Řádek proto může
+  // mít vlastní den (order_items.delivery_day, migrace 20261231070000) a při
+  // přesunu ČÁSTI se rozdělí na dva. Co se má zapsat, spočítá
+  // lib/presunPolozky.ts; tady se to jen provede. (Převzato z PR #33.)
+  async function presunPolozkuPlanu(orderItemId: string, cilovyDen: string | null, kusu: number, soucasnyDen: string) {
+    setErr(null);
+    const radek = orderItems.find((i: any) => i.id === orderItemId);
+    if (!radek) { setErr('Řádek objednávky se nepodařilo najít — zkus obrazovku načíst znovu.'); return; }
+    const plan = naplanujPresun({
+      id: radek.id,
+      order_id: radek.order_id,
+      beer_id: radek.beer_id ?? null,
+      beer_name: beers.find((b: any) => b.id === radek.beer_id)?.name ?? null,
+      package_id: radek.package_id ?? null,
+      package_label: packages.find((p: any) => p.id === radek.package_id)?.label ?? null,
+      quantity: Number(radek.quantity || 0),
+      delivery_day: radek.delivery_day ?? null,
+    }, cilovyDen, kusu, soucasnyDen);
+
+    if (plan.druh === 'nic') { setErr(plan.duvod); return; }
+
+    if (plan.druh === 'cely') {
+      const { error } = await supabase.from('order_items').update({ delivery_day: plan.delivery_day }).eq('id', plan.id);
+      if (error) { setErr(`Přesun se nepodařil: ${error.message}`); return; }
+    } else {
+      // POŘADÍ ROZHODUJE: nejdřív se založí nový řádek, teprve pak se ubere
+      // původnímu. Kdyby druhý krok selhal, je v objednávce pár sudů navíc —
+      // to je vidět a dá se opravit. Obráceně by se sudy tiše ztratily.
+      const { error: chybaZalozeni } = await supabase.from('order_items').insert(plan.zalozit);
+      if (chybaZalozeni) { setErr(`Přesun se nepodařil: ${chybaZalozeni.message}`); return; }
+      const { error: chybaZmenseni } = await supabase.from('order_items').update({ quantity: plan.zmensit.quantity }).eq('id', plan.zmensit.id);
+      if (chybaZmenseni) {
+        setErr(`Přesunutá část se založila, ale původní řádek se nezmenšil (${chybaZmenseni.message}) — v objednávce je teď o ${plan.zalozit.quantity} ks víc, oprav to prosím v Objednávkách.`);
+        await load(true);
+        return;
+      }
+    }
+    await load(true);
+  }
+
   async function togglePlanCheck(day: string, beerId: string, pkgId: string, qty: number) {
     setErr(null);
     const { error } = await supabase
@@ -1993,6 +2039,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
             weekLabel={weekLabel}
             todayISO={businessDateISO()}
             onCheck={togglePlanCheck}
+            onMove={presunPolozkuPlanu}
             canEdit
             onShowOrders={(beerId, packageId) => { requestOrdersItemFilter({ beerId, packageId }); setPage?.('orders'); }}
           />
@@ -2012,6 +2059,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
             weekLabel={weekLabel}
             todayISO={businessDateISO()}
             onCheck={togglePlanCheck}
+            onMove={presunPolozkuPlanu}
             canEdit={false}
             onShowOrders={(beerId, packageId) => { requestOrdersItemFilter({ beerId, packageId }); setPage?.('orders'); }}
           />

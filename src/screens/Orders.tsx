@@ -11,6 +11,7 @@ import type { StockSources } from '../lib/stockLedger';
 import { consumeOrdersItemFilter, consumeOrdersAutoImportRequest, consumeOrdersOverdueFilter, consumeOrdersPendingFilter, consumeOrdersHledani, ORDERS_AUTO_IMPORT_EVENT, ORDERS_HLEDANI_EVENT } from '../lib/ordersFilter';
 import { businessDateISO, posunMesic } from '../lib/businessDate';
 import { computeVariantTotals } from '../lib/variantTotals';
+import { vyhovujeDruhu, NAZEV_DRUHU, type DruhObaluFiltr } from '../lib/druhObalu';
 
 import { PlaceCombobox } from '../components/PlaceCombobox'; // Assuming this is needed
 import { DAYS } from '../lib/shared';
@@ -943,7 +944,7 @@ export default function Orders({
 
   const [timeScope, setTimeScope] = useState<'week' | 'month' | 'all'>('week');
   const [selectedMonth, setSelectedMonth] = useState<string>(() => new Date().toISOString().slice(0, 7));
-  const [packageKindFilter, setPackageKindFilter] = useState<'all' | 'keg' | 'bottle'>('all');
+  const [packageKindFilter, setPackageKindFilter] = useState<DruhObaluFiltr>('all');
 
   function orderWeekKey(o: Order): string {
     return isoWeekKey(o.delivery_date || o.order_date);
@@ -1376,14 +1377,21 @@ export default function Orders({
   function matchesItemFilters(item: OrderItem): boolean {
     if (itemFilterBeerId && item.beer_id !== itemFilterBeerId) return false;
     if (itemFilterPackageId && item.package_id !== itemFilterPackageId) return false;
-    if (packageKindFilter && packageKindFilter !== 'all') {
+    // Sudy / petky / lahve rozhoduje lib/druhObalu.ts nad `skupinaObalu()`.
+    // Dřív se tu porovnával jen label na „keg"/„sud" a všechno ostatní byla
+    // jedna hromada, takže petky nešly oddělit od skla (převzato z PR #32).
+    if (packageKindFilter !== 'all') {
       const pkg = packages.find((p) => p.id === item.package_id);
-      if (!pkg) return false;
-      const isKeg = pkg.kind === 'keg' || (pkg.label ?? '').toLowerCase().includes('keg') || (pkg.label ?? '').toLowerCase().includes('sud');
-      if (packageKindFilter === 'keg' ? !isKeg : isKeg) return false;
+      if (!vyhovujeDruhu(pkg, packageKindFilter)) return false;
     }
     return true;
   }
+  // Jestli je aktivní filtr piva/obalu/druhu (stejná podmínka jako
+  // u searchedFiltered níž). Objednávka se do seznamu pustí celá, jakmile
+  // jí vyhoví jeden řádek — karta pak dostane matchesItemFilters a schová
+  // řádky, které nevyhoví. Z provozu 9. 9. 2026: „dal jsem filtr na sudy KEG
+  // a stejně tam vidím objednávky na PET 1l" (převzato z PR #37).
+  const polozkovyFiltrAktivni = !!(itemFilterBeerId || itemFilterPackageId || packageKindFilter !== 'all');
 
   const searchedFiltered = useMemo(() => {
     const q = norm(searchText);
@@ -2361,7 +2369,7 @@ export default function Orders({
                 <span>
                   Aktivní filtry:{' '}
                   {timeScope === 'month' ? `[Měsíc: ${selectedMonth}] ` : timeScope === 'all' ? '[Všechny objednávky] ' : ''}
-                  {packageKindFilter === 'keg' ? '[Pouze KEG sudy] ' : packageKindFilter === 'bottle' ? '[Pouze lahve] ' : ''}
+                  {packageKindFilter !== 'all' ? `[${NAZEV_DRUHU[packageKindFilter]}] ` : ''}
                   {itemFilterBeerId ? `[Pivo: ${beers.find(b => b.id === itemFilterBeerId)?.name}] ` : ''}
                   {itemFilterPackageId ? `[Obal: ${packages.find(p => p.id === itemFilterPackageId)?.label}] ` : ''}
                   {searchText.trim() ? `[Hledání: "${searchText}"] ` : ''}
@@ -2474,10 +2482,11 @@ export default function Orders({
             <option value="">Všechny statusy</option>
             {Object.entries(STAVY_OBJEDNAVKY).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
           </select>
-          <select className="input w-auto font-bold text-xs" value={packageKindFilter} onChange={(e) => setPackageKindFilter(e.target.value as any)}>
+          <select className="input w-auto font-bold text-xs" value={packageKindFilter} onChange={(e) => setPackageKindFilter(e.target.value as DruhObaluFiltr)}>
             <option value="all">Všechny druhy obalů</option>
             <option value="keg">Pouze sudy (KEG)</option>
-            <option value="bottle">Pouze lahve / Sklo / PET</option>
+            <option value="pet">Pouze petky (PET)</option>
+            <option value="lahev">Pouze lahve (sklo)</option>
           </select>
           <select className={`input w-auto font-bold text-xs ${itemFilterBeerId ? 'border-sky-500 ring-2 ring-sky-500/30 dark:border-sky-500' : 'border-sky-300 dark:border-sky-300'} focus:border-sky-500 focus:ring-sky-500/25 dark:focus:border-sky-500 dark:focus:ring-sky-500/25`} value={itemFilterBeerId ?? ''} onChange={(e) => setItemFilterBeerId(e.target.value || null)}>
             <option value="">Všechna piva</option>
@@ -2491,8 +2500,8 @@ export default function Orders({
             <input type="checkbox" checked={groupByDay} onChange={(e) => setGroupByDay(e.target.checked)} className="w-4 h-4 rounded text-primary-600" />
             <Calendar className="ikona-text" /> Seskupit dle dne
           </label>
-          {(searchText || statusFilter || deliveryDayFilter !== 'all' || itemFilterBeerId || itemFilterPackageId || overdueOnly) && (
-            <button className="btn-ghost !rounded !py-1.5 text-xs font-bold text-amber-900" onClick={() => { setSearchText(''); setStatusFilter(''); setDeliveryDayFilter('all'); setItemFilterBeerId(null); setItemFilterPackageId(null); setOverdueOnly(false); }}>Zrušit filtr</button>
+          {(searchText || statusFilter || deliveryDayFilter !== 'all' || itemFilterBeerId || itemFilterPackageId || packageKindFilter !== 'all' || overdueOnly) && (
+            <button className="btn-ghost !rounded !py-1.5 text-xs font-bold text-amber-900" onClick={() => { setSearchText(''); setStatusFilter(''); setDeliveryDayFilter('all'); setItemFilterBeerId(null); setItemFilterPackageId(null); setPackageKindFilter('all'); setOverdueOnly(false); }}>Zrušit filtr</button>
           )}
         </div>
 
@@ -2599,7 +2608,8 @@ export default function Orders({
                       selected={selectedIds.has(o.id)} onToggleSelect={() => toggleSelect(o.id)}
                       onClick={() => openDetail(o)} onToggleFlag={toggleFlag} onToggleItemFlag={toggleItemFlag} onUpdateDeliveryDay={updateDeliveryDay}
                       onSetStatus={setStatus} onDelete={del} onDuplicate={duplicateOrder} onEdit={setEditOrder} onOpenWhatsApp={handleOpenWhatsAppMessage} beers={beers} packages={packages} places={places}
-                      activeBeerId={itemFilterBeerId} activePackageId={itemFilterPackageId} />
+                      activeBeerId={itemFilterBeerId} activePackageId={itemFilterPackageId}
+                itemMatchesFilter={polozkovyFiltrAktivni ? matchesItemFilters : undefined} />
                     {detail?.id === o.id && (
                       <div id="order-detail-card" className="scroll-mt-6 animate-scale-in pl-2 sm:pl-4 border-l-4 border-amber-500">
                         <OrderDetail
@@ -2638,7 +2648,8 @@ export default function Orders({
                 selected={selectedIds.has(o.id)} onToggleSelect={() => toggleSelect(o.id)}
                 onClick={() => openDetail(o)} onToggleFlag={toggleFlag} onToggleItemFlag={toggleItemFlag} onUpdateDeliveryDay={updateDeliveryDay}
                 onSetStatus={setStatus} onDelete={del} onDuplicate={duplicateOrder} onEdit={setEditOrder} onOpenWhatsApp={handleOpenWhatsAppMessage} beers={beers} packages={packages} places={places}
-                activeBeerId={itemFilterBeerId} activePackageId={itemFilterPackageId} />
+                activeBeerId={itemFilterBeerId} activePackageId={itemFilterPackageId}
+                itemMatchesFilter={polozkovyFiltrAktivni ? matchesItemFilters : undefined} />
               {detail?.id === o.id && (
                 <div id="order-detail-card" className="scroll-mt-6 animate-scale-in pl-2 sm:pl-4 border-l-4 border-amber-500">
                   <OrderDetail

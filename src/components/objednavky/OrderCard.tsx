@@ -18,7 +18,7 @@ import { jeVyrizena } from '../../lib/stavyObjednavek';
 
 import { type Order, type OrderItem, dayColor, getTapNameForOrder } from './spolecne';
 
-export function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, onClick, onToggleFlag, onToggleItemFlag, onUpdateDeliveryDay, onSetStatus, onDelete, onDuplicate, onEdit, onOpenWhatsApp, beers, packages, places, activeBeerId, activePackageId }: {
+export function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, onClick, onToggleFlag, onToggleItemFlag, onUpdateDeliveryDay, onSetStatus, onDelete, onDuplicate, onEdit, onOpenWhatsApp, beers, packages, places, activeBeerId, activePackageId, itemMatchesFilter }: {
   o: Order; items: OrderItem[];
   stockRemainingForWeek: (wk: string) => Map<string, number>;
   selected: boolean; onToggleSelect: () => void; onClick: () => void;
@@ -35,6 +35,17 @@ export function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleS
   places: Place[];
   activeBeerId?: string | null;
   activePackageId?: string | null;
+  /**
+   * Filtr obalu/piva/druhu z Přehledu (viz matchesItemFilters u Orders).
+   * Objednávka se zobrazuje celá, jakmile filtru vyhoví JEDEN její řádek
+   * (viz searchedFiltered) — bez tohohle by ale karta pořád vypisovala i
+   * ty řádky, které filtru nevyhovují. Z provozu 9. 9. 2026: „dal jsem
+   * filtr na sudy KEG a stejně tam vidím objednávky na PET 1l" — objednávka
+   * měla sudy i petky dohromady, karta ukázala obojí.
+   * `undefined` = žádný filtr aktivní, zobrazí se úplně všechno jako dřív.
+   * (Převzato z nesloučeného PR #37.)
+   */
+  itemMatchesFilter?: (item: OrderItem) => boolean;
 }) {
 
   const total = items.reduce((s, i) => s + Number(i.quantity), 0);
@@ -87,7 +98,14 @@ export function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleS
     const podlePiva = (a.beer_name ?? '').localeCompare(b.beer_name ?? '', 'cs');
     return podlePiva !== 0 ? podlePiva : a.id.localeCompare(b.id);
   });
-  
+
+  // Karta se ukazuje celá, jakmile filtru vyhoví JEDEN řádek — řádky, které
+  // nevyhovují, se ale v seznamu nezobrazují (viz itemMatchesFilter výše).
+  // `total` a `uniqueDeficits` výš záměrně počítají se VŠEMI položkami
+  // objednávky — je to skutečný stav objednávky, ne stav po filtru.
+  const viditelnePolozky = itemMatchesFilter ? sortedItems.filter(itemMatchesFilter) : sortedItems;
+  const skrytoFiltrem = sortedItems.length - viditelnePolozky.length;
+
   return (
     <div
       className={`card-hover p-2.5 cursor-pointer relative overflow-hidden transition-all border-2 bg-white border-neutral-200 ${selected ? 'ring-2 ring-primary-500' : ''}`}
@@ -166,9 +184,14 @@ export function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleS
             (fajfka). Jsou to tytéž sloupce, které odškrtává Závoz, takže se
             to propíše na obě strany a jde to odškrtnout i zpátky. Schválně
             bez popisků: v přehledu jde o rychlé přejetí očima, ne o čtení. */}
-        {items.length > 0 && (
+        {viditelnePolozky.length > 0 && (
           <div className="space-y-0.5" onClick={(e) => e.stopPropagation()}>
-            {sortedItems.map((i) => {
+            {skrytoFiltrem > 0 && (
+              <div className="text-udaj font-bold text-neutral-600 px-1.5 py-0.5">
+                Filtr schoval {skrytoFiltrem} {skrytoFiltrem === 1 ? 'položku' : skrytoFiltrem < 5 ? 'položky' : 'položek'}.
+              </div>
+            )}
+            {viditelnePolozky.map((i) => {
               const beer = i.beer_id ? beers.find((b) => b.id === i.beer_id) : null;
               const isBeerMatch = !!(activeBeerId && i.beer_id === activeBeerId);
               const isPkgMatch = !!(activePackageId && i.package_id === activePackageId);

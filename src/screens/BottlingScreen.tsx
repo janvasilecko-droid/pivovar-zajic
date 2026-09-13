@@ -21,6 +21,7 @@ import { navrhSudu } from '../lib/bottlingYield';
 import { synchronizuj } from '../lib/checklistData';
 import { computePackageNeeds, PackageNeedsRow } from '../lib/packageNeeds';
 import { computeKeggingPlan, mergeWeekPlan, rozpadPoObalech, BEZ_TERMINU } from '../lib/keggingPlan';
+import { naplanujPresun } from '../lib/presunPolozky';
 import KeggingDayPlan from '../components/KeggingDayPlan';
 import { chyba, potvrd, toastZpet } from '../lib/toast';
 import { zavibruj } from '../lib/haptika';
@@ -500,6 +501,43 @@ export default function BottlingScreen({
   // ✅ Odškrtnutí NEZAPISUJE stáčení — je to pracovní pomůcka. Skutečné
   // stáčení se dál zapisuje v „Zápis". S doloženým stavem se skládá přes MAX,
   // aby se odškrtnutá a poté poctivě zapsaná položka nepočítala dvakrát.
+  // 🔀 Přesun části objednávky na jiný den stáčení — stejně jako u KEG
+  // (Kegging.tsx, presunPolozkuPlanu). Co se má zapsat, spočítá
+  // lib/presunPolozky.ts; tady se to jen provede. (Převzato z PR #33.)
+  async function presunPolozkuPlanu(orderItemId: string, cilovyDen: string | null, kusu: number, soucasnyDen: string) {
+    setErr(null);
+    const radek = orderItems.find((i: any) => i.id === orderItemId);
+    if (!radek) { setErr('Řádek objednávky se nepodařilo najít — zkus obrazovku načíst znovu.'); return; }
+    const plan = naplanujPresun({
+      id: radek.id,
+      order_id: radek.order_id,
+      beer_id: radek.beer_id ?? null,
+      beer_name: beers.find((b: any) => b.id === radek.beer_id)?.name ?? null,
+      package_id: radek.package_id ?? null,
+      package_label: packages.find((p: any) => p.id === radek.package_id)?.label ?? null,
+      quantity: Number(radek.quantity || 0),
+      delivery_day: radek.delivery_day ?? null,
+    }, cilovyDen, kusu, soucasnyDen);
+
+    if (plan.druh === 'nic') { setErr(plan.duvod); return; }
+
+    if (plan.druh === 'cely') {
+      const { error } = await supabase.from('order_items').update({ delivery_day: plan.delivery_day }).eq('id', plan.id);
+      if (error) { setErr(`Přesun se nepodařil: ${error.message}`); return; }
+    } else {
+      // Nejdřív založit nový řádek, pak ubrat původnímu — viz Kegging.tsx.
+      const { error: chybaZalozeni } = await supabase.from('order_items').insert(plan.zalozit);
+      if (chybaZalozeni) { setErr(`Přesun se nepodařil: ${chybaZalozeni.message}`); return; }
+      const { error: chybaZmenseni } = await supabase.from('order_items').update({ quantity: plan.zmensit.quantity }).eq('id', plan.zmensit.id);
+      if (chybaZmenseni) {
+        setErr(`Přesunutá část se založila, ale původní řádek se nezmenšil (${chybaZmenseni.message}) — v objednávce je teď o ${plan.zalozit.quantity} lahví víc, oprav to prosím v Objednávkách.`);
+        await load(true);
+        return;
+      }
+    }
+    await load(true);
+  }
+
   async function togglePlanCheck(day: string, beerId: string, pkgId: string, qty: number) {
     const { error } = await supabase
       .from('kegging_plan_checks')
@@ -698,7 +736,9 @@ export default function BottlingScreen({
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
       fetchAllRows('orders', 'id,order_date,delivery_date,delivery_day,place_name,status,is_delivered'),
-      fetchAllRows('order_items', 'id,order_id,beer_id,package_id,quantity'),
+      // `*` místo výčtu: delivery_day (vlastní den položky) přidává migrace
+      // 20261231070000, která jde pustit až PO nasazení — viz Kegging.tsx.
+      fetchAllRows('order_items', '*'),
       fetchAllRows('inventory', 'entry_date,beer_id,package_id,quantity,note'),
       fetchAllRows('fasovani', 'entry_date,beer_id,package_id,quantity'),
       fetchAllRows('fasovani_private', 'entry_date,beer_id,package_id,quantity'),
@@ -2139,6 +2179,7 @@ export default function BottlingScreen({
             weekLabel={weekLabel}
             todayISO={businessDateISO()}
             onCheck={togglePlanCheck}
+            onMove={presunPolozkuPlanu}
             canEdit
             jednotka="lahví"
             onShowOrders={(beerId, packageId) => { requestOrdersItemFilter({ beerId, packageId }); setPage?.('orders'); }}
