@@ -925,7 +925,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
           <div className="card p-6 bg-white border border-neutral-200 rounded shadow-xs space-y-3">
             <h4 className="font-display font-black text-base text-neutral-900">Historie nákupů etiket ({labelPurchases.length})</h4>
             {labelPurchases.length === 0 ? (
-              <EmptyState text="Zatiaľ nebol zadaný žiadny nákup etiket." icon={Tag} />
+              <EmptyState text="Zatím nebyl zadán žádný nákup etiket." icon={Tag} />
             ) : (
               <div className="overflow-x-auto scrollbar-thin">
               <table className="table text-xs">
@@ -1123,7 +1123,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
           <div className="card p-6 bg-white border border-neutral-200 rounded shadow-xs space-y-3">
             <h4 className="font-display font-black text-base text-neutral-900">Historie příjmů prázdných lahví ({bottlePurchases.length})</h4>
             {bottlePurchases.length === 0 ? (
-              <EmptyState text="Zatiaľ nebol zadaný žiadny nákup prázdných lahví." icon={IkonaLahev} />
+              <EmptyState text="Zatím nebyl zadán žádný nákup prázdných lahví." icon={IkonaLahev} />
             ) : (
               <div className="overflow-x-auto scrollbar-thin">
               <table className="table text-xs">

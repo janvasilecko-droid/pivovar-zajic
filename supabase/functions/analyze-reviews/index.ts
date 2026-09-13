@@ -89,7 +89,10 @@ Vrať ČISTĚ JSON (bez markdown, bez \\`\\`\\`), přesně v tomto formátu, a n
 
     const anthropicUrl = "https://api.anthropic.com/v1/messages";
 
+    // Bez timeoutu by visící volání drželo funkci až do platformního limitu
+    // Supabase (viz stejný vzor v parse-order-text/parse-order-image).
     const anthropicResp = await fetch(anthropicUrl, {
+      signal: AbortSignal.timeout(30_000),
       method: "POST",
       headers: {
         "Content-Type": "application/json",

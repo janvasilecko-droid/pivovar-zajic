@@ -1,6 +1,7 @@
 import { Beer, Package, Place, supabase } from './supabase';
 import { parseGeminiItems, matchPlaceFromText, detectOrderNotes, loadAliasMap, loadPlaceAliasMap, ParserAliasMap, ParsedLine, GeminiItem } from './orderParser';
 import { parseExplicitDate } from './orderDates';
+import { businessNow } from './businessDate';
 import { authenticatedFunctionHeaders } from './functionAuth';
 import { zalogujANahlas } from './chybyHlaseni';
 
@@ -355,6 +356,15 @@ const DAY_MAP: { regex: RegExp; code: string }[] = [
  */
 const PRISTI_TYDEN_RE = /\b(p[řr][íi][šs]t[íi]|dal[šs][íi]|nadch[áa]zej[íi]c[íi])\s+t[ýy]den\b|\bza\s+t[ýy]den\b/i;
 
+/**
+ * ISO datum z LOKÁLNÍCH getterů (getFullYear/getMonth/getDate), ne z
+ * toISOString() (ta čte UTC) — `d` sem chodí buď z businessNow(), nebo
+ * z něj odvozené přes setDate(), takže je to vždy "pražský" kalendářní den.
+ */
+function isoZMistnihoData(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 /** Pondělí týdne, ve kterém den leží — pro porovnání „je to ještě tenhle týden?". */
 function tydenOd(d: Date): string {
   const kopie = new Date(d);
@@ -380,20 +390,23 @@ export function detectDeliveryDay(text: string): { day: string | null; dateStr: 
   }
 
   // Check for "zítra" or "dnes"
-  const now = new Date();
+  // now je "dnešek podle Prahy" s LOKÁLNÍMI gettery (viz businessNow) —
+  // dál se s ním pracuje jen přes ně (getDay/getDate/...), nikdy přes
+  // toISOString(), aby datum a den v týdnu vyšly ze stejné časové zóny.
+  const now = businessNow();
   if (/\bz[ií]tra\b/i.test(text)) {
     const tomorrow = new Date(now);
     tomorrow.setDate(now.getDate() + 1);
     const dayIdx = (tomorrow.getDay() + 6) % 7; // 0=po, 6=ne
     const dayCodes = ['po', 'ut', 'st', 'ct', 'pa', 'so', 'ne'];
     dayCode = dayCodes[dayIdx];
-    dateStr = tomorrow.toISOString().slice(0, 10);
+    dateStr = isoZMistnihoData(tomorrow);
     cleanText = cleanText.replace(/\bz[ií]tra\b/gi, '');
   } else if (/\bdnes\b/i.test(text)) {
     const dayIdx = (now.getDay() + 6) % 7;
     const dayCodes = ['po', 'ut', 'st', 'ct', 'pa', 'so', 'ne'];
     dayCode = dayCodes[dayIdx];
-    dateStr = now.toISOString().slice(0, 10);
+    dateStr = isoZMistnihoData(now);
     cleanText = cleanText.replace(/\bdnes\b/gi, '');
   } else {
     for (const d of DAY_MAP) {
@@ -424,7 +437,7 @@ export function detectDeliveryDay(text: string): { day: string | null; dateStr: 
       const pristiTyden = PRISTI_TYDEN_RE.test(text);
       const jeVTomtoTydnu = tydenOd(now) === tydenOd(target0);
       target.setDate(now.getDate() + diff + (pristiTyden && jeVTomtoTydnu ? 7 : 0));
-      dateStr = target.toISOString().slice(0, 10);
+      dateStr = isoZMistnihoData(target);
     }
   }
 

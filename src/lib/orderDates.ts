@@ -2,6 +2,8 @@
 // "25/8", "25. srpna"). Datum se zapíše do poznámky a objednávka se automaticky
 // přesune do týdne, ve kterém dané datum je (delivery_date → isoWeekKey).
 
+import { businessDateISO } from './businessDate';
+
 export interface ExplicitDate {
   dateStr: string;   // YYYY-MM-DD
   display: string;   // např. "25.8."
@@ -20,13 +22,17 @@ const CZ_MONTHS: [string, number][] = [
 
 function buildDate(day: number, month: number, year?: number, matched?: string): ExplicitDate | null {
   if (day < 1 || day > 31 || month < 1 || month > 12) return null;
-  let y = year ?? new Date().getFullYear();
+  // "Dnešek" podle Prahy (businessDateISO), ne podle systémových hodin —
+  // appka běží i v Deno edge funkci, jejíž "lokální" čas je vždy UTC. Kolem
+  // půlnoci pražského času by se bez tohohle mohl odhad roku u holého data
+  // (bez roku, např. "31.12.") spletl o celý rok (nalezeno 13. 9. 2026).
+  const [todayY, todayM, todayD] = businessDateISO().split('-').map(Number);
+  let y = year ?? todayY;
 
   // Bez roku: pokud by datum bylo už v minulosti (před dneškem), předpokládáme
   // příští rok (typické u objednávek dopředu, např. "dodat 25.8." poslané v září).
   if (!year) {
-    const now = new Date();
-    const todayStart = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+    const todayStart = Date.UTC(todayY, todayM - 1, todayD);
     if (Date.UTC(y, month - 1, day) < todayStart) y = y + 1;
   }
 

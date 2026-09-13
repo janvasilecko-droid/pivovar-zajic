@@ -42,6 +42,26 @@ export function businessHour(value: Date = new Date()): number {
 }
 
 /**
+ * Vrátí Date, jehož LOKÁLNÍ gettery (getFullYear/getMonth/getDate/getDay)
+ * odpovídají kalendářnímu dni v Praze — bez ohledu na to, v jaké časové
+ * zóně běží runtime. V prohlížeči v ČR je to shodou okolností stejné jako
+ * `new Date()`, ale v Deno edge funkci (vždy UTC) by bez tohohle
+ * `getDay()`/`getDate()` kolem půlnoci pražského času ukazovaly ještě
+ * včerejšek — přesně tenhle rozdíl mezi lokálními gettery a
+ * `toISOString()` (vždy UTC) způsobil, že appka WhatsApp objednávkám
+ * "dnes"/"zítra"/"v úterý" psaným těsně po půlnoci ukládala datum dodání
+ * o den dřív (nalezeno 13. 9. 2026).
+ *
+ * POZOR: vrácený objekt NENÍ platný okamžik v čase (jen nosič lokálních
+ * kalendářních polí) — nikdy ho nepoužívat s `toISOString()`/`getTime()`
+ * jako skutečný čas, jen číst lokální gettery.
+ */
+export function businessNow(value: Date = new Date()): Date {
+  const { year, month, day } = businessParts(value);
+  return new Date(year, month - 1, day);
+}
+
+/**
  * Posun měsíce o `delta` měsíců. Vstup i výstup je `YYYY-MM`.
  *
  * Bylo to napsané ČTYŘIKRÁT — v Objednávkách, Inventuře, Stáčení KEG

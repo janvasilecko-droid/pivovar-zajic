@@ -97,16 +97,30 @@ const CZ_MONTHS: [string, number][] = [
   ["října", 10], ["rijna", 10], ["listopadu", 11], ["prosince", 12],
 ];
 
+// "Dnešek" podle Prahy, ne podle serveru — Deno Edge Function běží vždy v
+// UTC, takže kolem půlnoci pražského času by se bez tohohle odhad roku u
+// holého data (bez roku, např. "31.12.") mohl splést o celý rok
+// (nalezeno 13. 9. 2026, stejný bug jako v src/lib/orderDates.ts).
+function dnesniDatumPraha(): { rok: number; mesic: number; den: number } {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Prague",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const cislo = (typ: string) => Number(parts.find((p) => p.type === typ)?.value);
+  return { rok: cislo("year"), mesic: cislo("month"), den: cislo("day") };
+}
+
 function parseExplicitDate(text: string): { dateStr: string; display: string; matched: string } | null {
   if (!text) return null;
-  const now = new Date();
-  const thisYear = now.getFullYear();
+  const { rok: thisYear, mesic: todayMonth, den: todayDay } = dnesniDatumPraha();
 
   const build = (day: number, month: number, year?: number, matched?: string): { dateStr: string; display: string; matched: string } | null => {
     if (day < 1 || day > 31 || month < 1 || month > 12) return null;
     let y = year ?? thisYear;
     if (!year) {
-      const todayStart = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+      const todayStart = Date.UTC(thisYear, todayMonth - 1, todayDay);
       if (Date.UTC(y, month - 1, day) < todayStart) y = y + 1;
     }
     const d = new Date(Date.UTC(y, month - 1, day));

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { AlertTriangle, Plus, Search, ShoppingBag } from 'lucide-react';
+import { AlertTriangle, Plus, Search, ShoppingBag, Trash2 } from 'lucide-react';
 import { supabase, useRealtime } from '../lib/supabase';
-import { chyba } from '../lib/toast';
+import { chyba, potvrd } from '../lib/toast';
 import { Kostra } from './ui';
 
 type MerchItem = {
@@ -29,6 +29,7 @@ function zRadku(r: any): MerchItem {
 export function MarketingMerchInventory() {
   const [items, setItems] = useState<MerchItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [query, setQuery] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [ukladaId, setUkladaId] = useState<string | null>(null);
@@ -42,11 +43,22 @@ export function MarketingMerchInventory() {
 
   async function load() {
     const { data, error } = await supabase.from('merch_items').select('*').order('name');
+    // Selhaný dotaz se nesmí tvářit jako prázdný sklad — jinak si někdo
+    // myslí, že merch nikdy nezaevidoval, a založí ho znovu ručně (stejná
+    // záměna, jakou už dřív řešila nadřazená obrazovka Sklad).
+    setLoadError(!!error);
     if (!error) setItems(((data as any[]) ?? []).map(zRadku));
     setLoading(false);
   }
   useEffect(() => { load(); }, []);
   useRealtime(['merch_items'], load);
+
+  async function smazPolozku(id: string, name: string) {
+    if (!(await potvrd(`Smazat položku „${name}"?`))) return;
+    setItems((prev) => prev.filter((i) => i.id !== id));
+    const { error } = await supabase.from('merch_items').delete().eq('id', id);
+    if (error) { chyba(error); void load(); }
+  }
 
   async function updateQty(id: string, delta: number) {
     const polozka = items.find((i) => i.id === id);
@@ -134,7 +146,13 @@ export function MarketingMerchInventory() {
       </div>
 
       {/* Grid */}
-      {filtered.length === 0 ? (
+      {loadError ? (
+        <div className="card p-8 text-center text-sm text-rose-700 bg-rose-50 border border-rose-200">
+          <AlertTriangle className="mx-auto mb-2" size={28} />
+          <p className="font-black">Načtení merche se nepovedlo.</p>
+          <p className="text-xs text-rose-600 mt-1">Zkus obnovit stránku — tohle NEZNAMENÁ, že je sklad prázdný.</p>
+        </div>
+      ) : filtered.length === 0 ? (
         <div className="card p-8 text-center text-sm text-neutral-500">
           {items.length === 0 ? 'Zatím žádné položky merche — přidej první tlačítkem nahoře.' : 'Nic nenalezeno.'}
         </div>
@@ -147,11 +165,22 @@ export function MarketingMerchInventory() {
                 <span className="text-udaj font-black uppercase tracking-wider bg-amber-100 text-amber-950 px-2.5 py-0.5 rounded-full border border-amber-200">
                   {item.category === 'sklo' ? 'Sklo' : item.category === 'tacky' ? 'Tácky' : item.category === 'obleceni' ? 'Oblečení' : 'Merch'}
                 </span>
-                {item.stockQty <= item.minAlertQty && (
-                  <span className="chip bg-rose-100 text-rose-950 font-black border border-rose-300 text-udaj">
-                    <AlertTriangle className="ikona-text" /> Dochází
-                  </span>
-                )}
+                <div className="flex items-center gap-1.5">
+                  {item.stockQty <= item.minAlertQty && (
+                    <span className="chip bg-rose-100 text-rose-950 font-black border border-rose-300 text-udaj">
+                      <AlertTriangle className="ikona-text" /> Dochází
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => void smazPolozku(item.id, item.name)}
+                    aria-label={`Smazat ${item.name}`}
+                    title="Smazat položku"
+                    className="p-1 rounded text-neutral-400 hover:bg-rose-50 hover:text-rose-600 transition tap"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
               </div>
 
               <h4 className="font-display font-black text-base text-neutral-900 mt-2">{item.name}</h4>

@@ -99,7 +99,7 @@ export function BeersScreen() {
                 <button className="px-3 py-1.5 rounded bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 font-bold text-xs shadow-xs transition tap" onClick={() => toggleActive(b)}>
                   {b.is_active ? 'Skrýt' : 'Aktivovat'}
                 </button>
-                <button className="p-1.5 rounded bg-rose-50 hover:bg-rose-500 dark:bg-rose-900/30 text-rose-700 hover:text-white font-bold text-xs transition tap" onClick={() => del(b.id)}>
+                <button aria-label="Smazat pivo" title="Smazat pivo" className="p-1.5 rounded bg-rose-50 hover:bg-rose-500 dark:bg-rose-900/30 text-rose-700 hover:text-white font-bold text-xs transition tap" onClick={() => del(b.id)}>
                   <Trash2 size={16} />
                 </button>
               </div>
@@ -226,7 +226,7 @@ export function PackagesScreen() {
                 <button className="flex-1 px-3 py-1.5 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-900 font-extrabold text-xs transition tap" onClick={() => { setEdit(p); setShow(true); }}>
                   Upravit
                 </button>
-                <button className="p-1.5 rounded bg-rose-50 hover:bg-rose-500 text-rose-700 hover:text-white font-bold text-xs transition tap" onClick={() => del(p.id)}>
+                <button aria-label="Smazat obal" title="Smazat obal" className="p-1.5 rounded bg-rose-50 hover:bg-rose-500 text-rose-700 hover:text-white font-bold text-xs transition tap" onClick={() => del(p.id)}>
                   <Trash2 size={16} />
                 </button>
               </div>
@@ -410,7 +410,7 @@ export function PlacesScreen() {
                 <button className="flex-1 px-3 py-1.5 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-900 font-extrabold text-xs transition tap" onClick={() => { setEdit(p); setShow(true); }}>
                   Upravit
                 </button>
-                <button className="p-1.5 rounded bg-rose-50 hover:bg-rose-500 text-rose-700 hover:text-white font-bold text-xs transition tap" onClick={() => del(p.id)}>
+                <button aria-label="Smazat místo" title="Smazat místo" className="p-1.5 rounded bg-rose-50 hover:bg-rose-500 text-rose-700 hover:text-white font-bold text-xs transition tap" onClick={() => del(p.id)}>
                   <Trash2 size={16} />
                 </button>
               </div>
@@ -989,7 +989,7 @@ export function VehiclesScreen() {
                   <button className="flex-1 px-4 py-2 rounded bg-neutral-900 text-amber-300 font-extrabold text-xs hover:bg-neutral-800 transition shadow-xs" onClick={() => { setEdit(v); setShow(true); }}>
                     Upravit termíny & SPZ
                   </button>
-                  <button className="p-2 rounded bg-rose-50 hover:bg-rose-500 text-rose-700 hover:text-white font-bold text-xs transition" onClick={() => del(v.id)}>
+                  <button aria-label="Smazat vozidlo" title="Smazat vozidlo" className="p-2 rounded bg-rose-50 hover:bg-rose-500 text-rose-700 hover:text-white font-bold text-xs transition" onClick={() => del(v.id)}>
                     <Trash2 size={16} />
                   </button>
                 </div>

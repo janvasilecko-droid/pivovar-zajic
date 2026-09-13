@@ -82,7 +82,12 @@ Deno.serve(async (req: Request) => {
     form.append("response_format", "json");
 
 
+    // Bez timeoutu by visící volání drželo funkci až do platformního limitu
+    // Supabase (viz stejný vzor v parse-order-text/parse-order-image). Delší
+    // strop než u textových AI volání — přepis zvuku trvá déle úměrně délce
+    // nahrávky, ne konstantně.
     const resp = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+      signal: AbortSignal.timeout(60_000),
       method: "POST",
       headers: {
         "Authorization": `Bearer ${apiKey}`,

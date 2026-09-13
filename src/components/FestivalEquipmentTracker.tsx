@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Calendar, ClipboardList, DollarSign, Download, CheckCircle2, Phone, Plus, Search, Tent, Truck, User } from 'lucide-react';
+import { AlertTriangle, Calendar, ClipboardList, DollarSign, Download, CheckCircle2, Phone, Plus, Search, Tent, Trash2, Truck, User } from 'lucide-react';
 import { potvrd, chyba } from '../lib/toast';
 import { supabase, useRealtime } from '../lib/supabase';
 import { Kostra } from './ui';
@@ -37,6 +37,7 @@ function zRadku(r: any): EquipmentItem {
 export function FestivalEquipmentTracker() {
   const [items, setItems] = useState<EquipmentItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [query, setQuery] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
 
@@ -61,11 +62,22 @@ export function FestivalEquipmentTracker() {
 
   async function load() {
     const { data, error } = await supabase.from('festival_equipment').select('*').order('name');
+    // Selhaný dotaz se nesmí tvářit jako prázdný sklad — u vybavení
+    // půjčovaného v kaucích za tisíce Kč by to vypadalo, že appka nikdy
+    // nic neevidovala (stejná záměna, jakou už dřív řešila obrazovka Sklad).
+    setLoadError(!!error);
     if (!error) setItems(((data as any[]) ?? []).map(zRadku));
     setLoading(false);
   }
   useEffect(() => { load(); }, []);
   useRealtime(['festival_equipment'], load);
+
+  async function smazPolozku(item: EquipmentItem) {
+    if (!(await potvrd(`Smazat vybavení „${item.name}" (${item.serialCode})?`))) return;
+    setItems((prev) => prev.filter((i) => i.id !== item.id));
+    const { error } = await supabase.from('festival_equipment').delete().eq('id', item.id);
+    if (error) { chyba(error); void load(); }
+  }
 
   async function addItem() {
     if (!name.trim()) return;
@@ -92,29 +104,19 @@ export function FestivalEquipmentTracker() {
     const returnAt = expectedReturnAt || new Date(Date.now() + 86400000 * 3).toISOString().split('T')[0];
     const deposit = Number(depositKic) || 0;
     try {
-      const { error: e1 } = await supabase.from('festival_equipment').update({
-        status: 'borrowed',
-        borrower_name: borrowerName.trim(),
-        borrower_phone: borrowerPhone.trim() || null,
-        event_name: eventName.trim() || null,
-        borrowed_at: borrowedAt,
-        expected_return_at: returnAt,
-        deposit_kic: deposit,
-        updated_at: new Date().toISOString(),
-      }).eq('id', loaningItem.id);
-      if (e1) throw e1;
-      // Trvalý záznam půjčky — zůstane i po vrácení, na rozdíl od stavu
-      // na festival_equipment, který se přepíše zpátky na "available".
-      const { error: e2 } = await supabase.from('festival_equipment_loans').insert({
-        equipment_id: loaningItem.id,
-        borrower_name: borrowerName.trim(),
-        borrower_phone: borrowerPhone.trim() || null,
-        event_name: eventName.trim() || null,
-        borrowed_at: borrowedAt,
-        expected_return_at: returnAt,
-        deposit_kic: deposit,
+      // Jedno atomické RPC volání (migrace 20261230080000) — dřív to byly
+      // dva nezávislé zápisy a výpadek spojení mezi nimi (běžný přímo na
+      // festivalu) nechal položku "vypůjčenou" bez záznamu v historii.
+      const { error } = await supabase.rpc('pujc_vybaveni', {
+        p_equipment_id: loaningItem.id,
+        p_borrower_name: borrowerName.trim(),
+        p_borrower_phone: borrowerPhone.trim() || null,
+        p_event_name: eventName.trim() || null,
+        p_borrowed_at: borrowedAt,
+        p_expected_return_at: returnAt,
+        p_deposit_kic: deposit,
       });
-      if (e2) throw e2;
+      if (error) throw error;
       setLoaningItem(null);
       void load();
     } catch (e) {
@@ -217,7 +219,13 @@ export function FestivalEquipmentTracker() {
       </div>
 
       {/* Equipment List */}
-      {filtered.length === 0 ? (
+      {loadError ? (
+        <div className="card p-8 text-center text-sm text-rose-700 bg-rose-50 border border-rose-200">
+          <AlertTriangle className="mx-auto mb-2" size={28} />
+          <p className="font-black">Načtení vybavení se nepovedlo.</p>
+          <p className="text-xs text-rose-600 mt-1">Zkus obnovit stránku — tohle NEZNAMENÁ, že je sklad prázdný.</p>
+        </div>
+      ) : filtered.length === 0 ? (
         <div className="card p-8 text-center text-sm text-neutral-500">
           {items.length === 0 ? 'Zatím žádné festivalové vybavení — přidej první tlačítkem nahoře.' : 'Nic nenalezeno.'}
         </div>
@@ -234,15 +242,28 @@ export function FestivalEquipmentTracker() {
                   <h4 className="font-display font-black text-base text-neutral-900 mt-1">{item.name}</h4>
                 </div>
 
-                <span
-                  className={`chip shrink-0 ${
-                    item.status === 'available'
-                      ? 'bg-emerald-100 text-emerald-950 border border-emerald-300 font-extrabold'
-                      : 'bg-amber-100 text-amber-950 border border-amber-300 font-extrabold'
-                  }`}
-                >
-                  {item.status === 'available' ? 'Na skladě' : 'Zapůjčeno'}
-                </span>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span
+                    className={`chip ${
+                      item.status === 'available'
+                        ? 'bg-emerald-100 text-emerald-950 border border-emerald-300 font-extrabold'
+                        : 'bg-amber-100 text-amber-950 border border-amber-300 font-extrabold'
+                    }`}
+                  >
+                    {item.status === 'available' ? 'Na skladě' : 'Zapůjčeno'}
+                  </span>
+                  {item.status !== 'borrowed' && (
+                    <button
+                      type="button"
+                      onClick={() => void smazPolozku(item)}
+                      aria-label={`Smazat ${item.name}`}
+                      title="Smazat vybavení"
+                      className="p-1 rounded text-neutral-400 hover:bg-rose-50 hover:text-rose-600 transition tap"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+                </div>
               </div>
 
               {item.status === 'borrowed' && (

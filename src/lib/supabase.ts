@@ -142,11 +142,27 @@ export function sliceByRange(rows: any[], searchParams: URLSearchParams): any[] 
   return rows.slice(offset, offset + (Number.isFinite(limit) ? limit : rows.length));
 }
 
+/**
+ * Rozhodne, jestli se na `rows` má ještě uplatnit offset/limit z URL.
+ * `zPresneUrl=true` znamená, že `rows` je odpověď z cache pro PŘESNĚ tuhle
+ * URL — tu server (PostgREST) oříznul na offset/limit už při prvním, online
+ * volání, takže je to hotová stránka. Druhé ořezání by offset aplikovalo
+ * podruhé: stránka 2 (offset=1000) na poli, které už samo začíná na indexu
+ * 1000, by vyšla prázdná, i když v ní reálně je zbylých např. 500 řádků.
+ * Nalezeno 13. 9. 2026 — dozvuk bugu z 10. 9., jehož tehdejší oprava
+ * pokryla jen fallback „celá tabulka z cache" (ten se opravdu musí oříznout,
+ * protože není stránkovaný vůbec).
+ */
+export function finalizeOfflineRows(rows: any[], searchParams: URLSearchParams, zPresneUrl: boolean): any[] {
+  return zPresneUrl ? rows : sliceByRange(rows, searchParams);
+}
+
 async function serveCached(url: URL, rest: RestInfo | null, wantCount: boolean): Promise<Response> {
   let rows: any[] | null = null;
   let contentRange: string | null = null;
+  let zPresneUrl = false;
   const cached = await getCachedResponse(url.toString());
-  if (cached) { rows = cached.rows; contentRange = cached.contentRange; }
+  if (cached) { rows = cached.rows; contentRange = cached.contentRange; zPresneUrl = true; }
   if (!rows && rest) {
     const tblRows = await getTableRows(rest.table);
     // Celý obsah tabulky vracíme jen pro dotazy bez filtrů (např. číselníky) —
@@ -154,7 +170,7 @@ async function serveCached(url: URL, rest: RestInfo | null, wantCount: boolean):
     if (tblRows && tblRows.length > 0 && !hasRowFilters(url)) rows = tblRows;
   }
   const merged = applyPendingOps(rows ?? [], rest?.table ?? '');
-  const finalRows = sliceByRange(merged, url.searchParams);
+  const finalRows = finalizeOfflineRows(merged, url.searchParams, zPresneUrl);
 
   const headers: Record<string, string> = {};
   if (wantCount) headers['Content-Range'] = `0-${Math.max(finalRows.length - 1, 0)}/${finalRows.length}`;

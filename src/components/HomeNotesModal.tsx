@@ -285,6 +285,7 @@ export function HomeNotesModal({ isOpen, onClose }: { isOpen: boolean; onClose: 
                           <button
                             type="button"
                             onClick={() => deleteHomeNote(note.id)}
+                            title="Smazat poznámku" aria-label="Smazat poznámku"
                             className="text-neutral-400 hover:text-rose-600 p-1 shrink-0 tap"
                           >
                             <Trash2 size={16} />

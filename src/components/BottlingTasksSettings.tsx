@@ -754,7 +754,7 @@ export function BottlingTasksSettings({ setPage }: Props = {}) {
                       <Undo2 className="ikona-text" /> Zpět
                     </button>
                   )}
-                  <button type="button" onClick={() => handleDelete(plan)} className="px-2.5 py-1.5 rounded bg-rose-100 hover:bg-rose-200 text-rose-800 text-udaj font-black transition tap">
+                  <button type="button" onClick={() => handleDelete(plan)} aria-label="Smazat úkol" title="Smazat úkol" className="px-2.5 py-1.5 rounded bg-rose-100 hover:bg-rose-200 text-rose-800 text-udaj font-black transition tap">
                     <Trash2 className="ikona-text" />
                   </button>
                 </div>

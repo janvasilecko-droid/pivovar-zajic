@@ -52,6 +52,25 @@ Deno.serve(async (req: Request) => {
     });
     if (!auth.ok) return auth.response;
 
+    // requireApprovedUser jen ověří přihlášení a schválený e-mail — modulová
+    // oprávnění (Objednávky) si musí zkontrolovat funkce sama, stejnou logikou
+    // jako DB funkce user_can_edit_module (fail-open beze změny, jen mimo RLS,
+    // protože tohle běží přes service_role klienta, ne jako přihlášený uživatel).
+    const { data: profil } = await supabase
+      .from("profiles")
+      .select("role, permissions")
+      .eq("id", auth.user.id)
+      .maybeSingle();
+    const role = (profil as { role?: string } | null)?.role;
+    const perms = (profil as { permissions?: Record<string, { edit?: boolean }> } | null)?.permissions;
+    const smiUpravovatObjednavky = !profil || role === "admin" || !perms || perms.orders?.edit !== false;
+    if (!smiUpravovatObjednavky) {
+      return new Response(
+        JSON.stringify({ error: "Nemáš oprávnění upravovat Objednávky." }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     const body = await readJsonWithLimit<SendOrderBody>(req, 32 * 1024);
     if (!body.placeName || !Array.isArray(body.items) || body.items.length === 0) {
       return new Response(

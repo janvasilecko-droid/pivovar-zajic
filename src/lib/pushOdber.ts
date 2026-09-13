@@ -134,12 +134,18 @@ export async function prihlasPush(): Promise<string | null> {
       applicationServerKey: klicNaBajty(VAPID_KLIC),
     });
     const json = odber.toJSON();
+    // user_id se posílá výslovně (ne jen DB výchozí auth.uid() při INSERTu) —
+    // na sdíleném zařízení se stejným endpointem se tak vlastnictví řádku
+    // při přihlášení dalšího člověka správně přepíše na něj. RLS pak smí
+    // UPDATE/DELETE omezit na vlastníka, aniž by to sdílené zařízení rozbilo.
+    const { data: { user } } = await supabase.auth.getUser().catch(() => ({ data: { user: null } } as any));
     const { error } = await supabase.from('push_odbery').upsert({
       endpoint: json.endpoint,
       p256dh: json.keys?.p256dh ?? '',
       auth: json.keys?.auth ?? '',
       zarizeni: popisZarizeni(navigator.userAgent),
       posledni_chyba: null,
+      user_id: user?.id ?? null,
     }, { onConflict: 'endpoint' });
     if (error) {
       // Odběr v prohlížeči bez záznamu v databázi je odběr, na který

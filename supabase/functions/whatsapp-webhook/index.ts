@@ -557,7 +557,11 @@ Deno.serve(async (req: Request) => {
           .maybeSingle();
         if (secretRow?.value) {
           const preview = record.message_text.slice(0, 120).replace(/\n/g, " ");
+          // Timeout: zpráva je v DB uložená už před tímhle voláním (žádné
+          // riziko ztráty dat), ale bez limitu by pomalé posli-push (mnoho
+          // neplatných push odběrů) zbytečně drželo spojení s Tasker/Make.
           await fetch(`${supabaseUrl}/functions/v1/posli-push`, {
+            signal: AbortSignal.timeout(15_000),
             method: "POST",
             headers: {
               "Content-Type": "application/json",
