@@ -2076,6 +2076,17 @@ export default function BottlingScreen({
       {/* TAB 3: POTŘEBA STOČIT LAHVE */}
       {tab === 'potreba' && (
         <div className="space-y-4">
+          {/* ⚠️ Tahle obrazovka a „Co stočit na který den" odpovídají na
+              podobnou otázku dvěma různými způsoby a je NORMÁLNÍ, že se
+              čísla liší: tady se od objednávek odečítá i zásoba z minulého
+              týdne, tam ne (viz komentář v lib/keggingPlan.ts — měsíční
+              skladový model se umí rozejít s realitou). Bez téhle věty to
+              vypadalo jako chyba aplikace, takže si řekneme rovnou, co
+              které číslo znamená. */}
+          <p className="text-udaj text-neutral-600 bg-neutral-50 border border-neutral-200 rounded p-2.5">
+            <Lightbulb className="ikona-text" /> <b>Co se tu počítá:</b> objednáno za celý týden <b>mínus to, co už máš skladem</b> (včetně zásoby z minulého týdne).
+            {' '}Záložka <b>„Co stočit na který den"</b> počítá jinak — jen objednávky tohoto týdne a co se na ně tento týden stočilo, <b>bez zásoby</b>. Proto tam bývá větší číslo; není to chyba.
+          </p>
           {/* 🍾 Dlaždice piv — klepnutím rozbalíš, co u kterého obalu chybí
               (objednáno − sklad − naplánováno), a manager může úkol založit
               jedním klepnutím, přímo tady. */}
