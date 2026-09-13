@@ -47,6 +47,7 @@ const PlanningTabbed = lazyStranka(() => import('./screens/PlanningTabbed'));
 const MarketingTabbed = lazyStranka(() => import('./screens/MarketingTabbed'));
 const OrdersTabbed = lazyStranka(() => import('./screens/OrdersTabbed'));
 const TimersScreen = lazyStranka(() => import('./screens/TimersScreen'));
+const AuditScreen = lazyStranka(() => import('./screens/AuditScreen'));
 import { KegTimerNotificationManager } from './components/KegTimerNotificationManager';
 import { TimerDoneAlertModal } from './components/TimerDoneAlertModal';
 import { ReminderNotificationManager } from './components/ReminderNotificationManager';
@@ -310,6 +311,7 @@ export default function App() {
         />
       )}
       {page === 'inventory' && <InventoryScreen setPage={setPage} initialSubTab={pageSubTab} />}
+      {page === 'audit' && <AuditScreen setPage={setPage} />}
       {(page === 'calendar' || page === 'feedback' || page === 'planning' || page === 'reminders' || page === 'notes') && (
         <PlanningTabbed
           initialTab={page === 'reminders' ? 'reminders' : page === 'feedback' ? 'feedback' : page === 'notes' ? 'notes' : 'calendar'}

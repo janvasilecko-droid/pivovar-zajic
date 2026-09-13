@@ -226,6 +226,9 @@ export const PAGE_TO_MODULE: Record<string, ModuleKey> = {
   kniha_jizd: 'kniha_jizd',
   stock: 'stock',
   inventory: 'inventory',
+  // Audity kontrolují hlavně sklad a inventuru — kdo nevidí Inventuru,
+  // neuvidí ani Audit. Diagnostika a historie změn uvnitř jsou jen pro admina.
+  audit: 'inventory',
   srotovani: 'srotovani',
   checklists: 'haccp',
   concentration: 'cellar',
