@@ -46,7 +46,8 @@ describe('šifrování zálohy', () => {
 });
 
 describe('seznam zálohovaných tabulek', () => {
-  const typy = readFileSync('src/lib/database.types.ts', 'utf8');
+  // Na Windows git soubor rozbalí s CRLF — `$` by pak před \r nesedělo.
+  const typy = readFileSync('src/lib/database.types.ts', 'utf8').replace(/\r\n/g, '\n');
   const blok = typy.slice(typy.indexOf('    Tables: {'), typy.indexOf('    Views: {'));
   const vDatabazi = [...blok.matchAll(/^ {6}(\w+): \{$/gm)].map((m) => m[1]);
   const { zalohovane, nezalohovat, odlozene, vazby } = node(

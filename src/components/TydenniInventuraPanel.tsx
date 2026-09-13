@@ -21,7 +21,7 @@ import { rozdelSudyDoTanku, type TankProRozdeleni } from '../lib/tankRozdeleni';
 import { odectiZTanku } from '../lib/tankZapis';
 import {
   jenAktivni, popisTydne, radkyTydne, souhrnTydne, stitekTydne, tydenObdobi, vychoziTyden,
-  zaznamKontroly, type TydenniRadek,
+  zaznamKontroly, zaznamDorovnani, type TydenniRadek,
 } from '../lib/tydenniInventura';
 import { chyba, oznam, uspech } from '../lib/toast';
 import { normalizujCislo } from '../lib/cisloVstup';
@@ -155,15 +155,7 @@ export default function TydenniInventuraPanel() {
     if (uklada || r.rozdil === 0 || r.napocitano === null) return;
     setUklada(r.klic);
     try {
-      const { error } = await supabase.from('inventory_adjustments').insert([{
-        entry_date: obdobi.doPocitani,
-        beer_id: r.beer_id,
-        beer_name: r.beer_name,
-        package_id: r.package_id,
-        package_label: r.package_label,
-        quantity: r.rozdil,
-        note: `Dorovnání z inventury ${stitekTydne(obdobi.od)} — ${r.package_label}`,
-      }]);
+      const { error } = await supabase.from('inventory_adjustments').insert([zaznamDorovnani(r, obdobi)]);
       if (error) throw error;
       await ulozZaznam(r, 'dorovnani');
       uspech(`Dorovnáno ${r.rozdil > 0 ? '+' : ''}${r.rozdil} ks. Výroba zůstala beze změny.`);

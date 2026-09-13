@@ -5,7 +5,8 @@ import { BACKUP_TABLES } from './backup';
 // Typová kontrola (`satisfies readonly NazevTabulky[]` v backup.ts) hlídá
 // totéž při `tsc`; tenhle test to řekne i v `vitest`, kde se typy nekontrolují.
 describe('vygenerované typy databáze', () => {
-  const typy = readFileSync('src/lib/database.types.ts', 'utf8');
+  // Na Windows git soubor rozbalí s CRLF — `$` by pak před \r nesedělo.
+  const typy = readFileSync('src/lib/database.types.ts', 'utf8').replace(/\r\n/g, '\n');
 
   it('každá zálohovaná tabulka v databázi opravdu existuje', () => {
     const chybi = BACKUP_TABLES.filter((t) => !new RegExp(`^\\s{6}${t}: \\{$`, 'm').test(typy));

@@ -219,6 +219,26 @@ export function souhrnTydne(radky: TydenniRadek[]): SouhrnTydne {
 }
 
 /** Řádek pro tabulku `tydenni_inventura` — záznam o kontrole, ne reset stavu. */
+/**
+ * Řádek do `inventory_adjustments` pro „Dorovnat".
+ *
+ * Tabulka nemá sloupec `note`, ale `reason`. Panel dřív posílal `note`, takže
+ * každé dorovnání skončilo chybou „column not found" — nikdo si toho nevšiml,
+ * protože se tlačítko do 13. 9. 2026 ani jednou nepoužilo (tabulka byla
+ * prázdná). Hlídá to src/lib/zapisyProtiSchematu.test.ts.
+ */
+export function zaznamDorovnani(r: TydenniRadek, obdobi: TydenObdobi): Record<string, unknown> {
+  return {
+    entry_date: obdobi.doPocitani,
+    beer_id: r.beer_id,
+    beer_name: r.beer_name,
+    package_id: r.package_id,
+    package_label: r.package_label,
+    quantity: r.rozdil,
+    reason: `Dorovnání z inventury ${stitekTydne(obdobi.od)} — ${r.package_label}`,
+  };
+}
+
 export function zaznamKontroly(
   r: TydenniRadek,
   obdobi: TydenObdobi,
