@@ -1,14 +1,14 @@
 name: Denní záloha objednávek a stáčení
 
-# Zálohuje objednávky a stáčení do adresáře `zalohy/` v tomhle repozitáři.
-# Každý den = jeden commit, takže historie gitu funguje jako bodová obnova:
-# dá se vrátit ke stavu k libovolnému dni, ne jen k poslednímu.
+# Zálohuje databázi do adresáře `zalohy/` v tomhle repozitáři — ZAŠIFROVANĚ,
+# protože repozitář je veřejný (scripts/lib/sifraZalohy.mjs). Každý den =
+# jeden commit, takže historie gitu funguje jako bodová obnova.
 #
-# ⚠️ POTŘEBUJE SECRET `SUPABASE_SERVICE_ROLE_KEY`
-#    (Settings → Secrets and variables → Actions → New repository secret).
-#    Servisní klíč obchází veškerá oprávnění, proto ho přidej jen sem a nikam
-#    ho nekopíruj. Bez něj workflow skončí chybou a nic se nezálohuje —
-#    záměrně, ať se na to nezapomene.
+# ⚠️ POTŘEBUJE SECRETY (Settings → Secrets and variables → Actions):
+#    SUPABASE_SERVICE_ROLE_KEY  servisní klíč — obchází oprávnění, nikam ho nekopíruj
+#    ZALOHA_HESLO               heslo šifrování, aspoň 12 znaků. ULOŽ HO I MIMO GITHUB —
+#                               bez něj zálohu nikdo neobnoví.
+#    Bez nich workflow skončí chybou a nic se nezapíše (ani nezašifrovaně) — záměrně.
 
 on:
   schedule:
@@ -18,6 +18,7 @@ on:
 
 permissions:
   contents: write
+  issues: write
 
 concurrency:
   group: zaloha
@@ -33,22 +34,49 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Stáhnout data
+      - name: Stáhnout a zašifrovat data
         env:
           SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ZALOHA_HESLO: ${{ secrets.ZALOHA_HESLO }}
         run: node scripts/zaloha-objednavek.mjs
 
       - name: Uložit do repozitáře
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add zalohy/
+          # -A: zachytí i smazání starých nešifrovaných souborů.
+          git add -A zalohy/
           if git diff --staged --quiet; then
-            echo "Data se od minule nezměnila — není co commitovat."
+            echo "Není co commitovat."
             exit 0
           fi
-          git commit -m "chore: záloha objednávek a stáčení $(date +%Y-%m-%d) [skip ci]"
+          git commit -m "chore: šifrovaná záloha $(date +%Y-%m-%d) [skip ci]"
           # Mezitím mohl přijít jiný commit (třeba bump verze z deploye).
           git pull --rebase origin main
           git push
+
+  # Selhání zálohy nesmí být tiché — stejný vzor jako u nasazení.
+  oznam-selhani:
+    runs-on: ubuntu-latest
+    needs: [zaloha]
+    if: failure()
+    steps:
+      - name: Založit issue o selhání
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const beh = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Denní záloha selhala — běh #${context.runNumber}`,
+              body: [
+                '**Noční záloha databáze neproběhla.** Poslední úspěšná záloha zůstává v `zalohy/`.',
+                '',
+                `Běh: ${beh}`,
+                '',
+                'Nejčastější příčiny: chybí secret `ZALOHA_HESLO` nebo `SUPABASE_SERVICE_ROLE_KEY`,',
+                'nebo je Supabase nedostupný.',
+              ].join('\n'),
+            });

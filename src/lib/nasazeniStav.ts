@@ -9,8 +9,10 @@
 // Repozitář je veřejný, takže GitHub API pro čtení běhů workflow nepotřebuje
 // žádný token — přímo z prohlížeče admina.
 
-const OWNER = 'janvasilecko-droid';
-const REPO = 'pivovar-zajic';
+export const GITHUB_OWNER = 'janvasilecko-droid';
+export const GITHUB_REPO = 'pivovar-zajic';
+const OWNER = GITHUB_OWNER;
+const REPO = GITHUB_REPO;
 const WORKFLOW = 'deploy.yml';
 
 export type BehNasazeni = {

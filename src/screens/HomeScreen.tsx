@@ -69,6 +69,7 @@ import { fetchLastWhatsAppAt, fetchPendingWhatsAppCount, subscribeToWhatsAppMess
 import { tichoWhatsApp, type TichoWhatsApp } from '../lib/whatsappTicho';
 import { nactiRezervace } from '../lib/vycepyData';
 import { stariInventury, type StariInventury } from '../lib/inventuraStari';
+import { nactiBehyZalohy, vyhodnotZalohu, type StavZalohy } from '../lib/zalohaStav';
 import { nazevMesice } from '../lib/inventoryFix';
 
 /** Na odznak dlaždice se vejde jen krátký název měsíce. */
@@ -1239,6 +1240,16 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
     setZalohaChybi(isWeeklyBackupDue());
   }, [isAdmin]);
 
+  // 🛟 Noční šifrovaná záloha v GitHubu (lib/zalohaStav.ts) — dřív mohla
+  // týdny tiše stát a z telefonu to nikdo neviděl. Jen admin, stejně jako výš.
+  const [nocniZaloha, setNocniZaloha] = useState<StavZalohy['stav']>('neznamo');
+  useEffect(() => {
+    if (!isAdmin) { setNocniZaloha('neznamo'); return; }
+    let zruseno = false;
+    void nactiBehyZalohy().then((b) => { if (!zruseno) setNocniZaloha(vyhodnotZalohu(b, new Date()).stav); });
+    return () => { zruseno = true; };
+  }, [isAdmin]);
+
   // Offline fronta — kolik zápisů čeká na odeslání do cloudu. Zápisy bez
   // signálu se ukládají do prohlížeče a odešlou se samy, jen to dosud nikde
   // nesvítilo: kolik jich čeká poznal jen ten, kdo otevřel Nastavení. Když
@@ -1903,6 +1914,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
               : (id === 'timer' || id === 'stopwatch') && runningTimers.length > 1 ? `⏱️ ${runningTimers.length} běží (${formatDurationMs(countdownRemainingMs(shortestRunning!))})`
               : id === 'radio' && radioState.playing ? `📻 ${RADIO_STATIONS.find((s) => s.id === radioState.stationId)?.name || 'Hraje'}`
               : id === 'keg_timer' && kegLastDuration ? kegLastDuration
+              : id === 'zaloha' && (nocniZaloha === 'selhala' || nocniZaloha === 'stara') ? '⚠ noční neběží'
               : id === 'zaloha' && zalohaChybi ? (zalohaDnu === null ? '⚠ nikdy' : `⚠ ${zalohaDnu} dní`)
               : undefined;
 

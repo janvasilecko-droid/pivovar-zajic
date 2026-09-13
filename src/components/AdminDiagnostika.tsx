@@ -34,6 +34,7 @@ import { litry } from '../lib/cisla';
 import { IkonaSud } from './ikony';
 import { rozdelChyby, shrnutiChyb, jeZeStarsiVerze } from '../lib/chybyPrehled';
 import { nactiPosledniBehNasazeni, vyhodnotBeh, type BehNasazeni } from '../lib/nasazeniStav';
+import { nactiBehyZalohy, vyhodnotZalohu, type StavZalohy } from '../lib/zalohaStav';
 import { APP_VERSION } from '../lib/version';
 
 type ChybaRadek = {
@@ -96,6 +97,43 @@ function NasazeniBlok() {
           </a>
         </div>
       )}
+    </div>
+  );
+}
+
+/** 🛟 Noční šifrovaná záloha — ukáže se jen když selhala nebo dlouho neběžela. */
+function ZalohaBlok() {
+  const [stav, setStav] = useState<StavZalohy>({ stav: 'neznamo' });
+
+  useEffect(() => {
+    let zruseno = false;
+    void nactiBehyZalohy().then((b) => { if (!zruseno) setStav(vyhodnotZalohu(b, new Date())); });
+    return () => { zruseno = true; };
+  }, []);
+
+  if (stav.stav === 'ok' || stav.stav === 'neznamo') return null;
+  const url = stav.url;
+
+  return (
+    <div className="mt-5">
+      <div className="flex items-center gap-2">
+        <AlertTriangle className="ikona-text text-rose-600" />
+        <span className="text-xs font-black uppercase tracking-wider text-neutral-700">Noční záloha databáze</span>
+      </div>
+      <div className="mt-2 rounded-xl border border-rose-300 bg-rose-50 p-2.5">
+        <p className="text-xs font-bold text-rose-950">
+          {stav.stav === 'selhala'
+            ? `Poslední noční záloha (${cas(stav.kdy)}) selhala. Nejčastěji chybí heslo ZALOHA_HESLO v nastavení GitHubu.`
+            : stav.posledni
+              ? `Poslední úspěšná záloha je z ${cas(stav.posledni)} — denní záloha neběží.`
+              : 'Noční záloha zatím ani jednou neproběhla.'}
+        </p>
+        {url && (
+          <a href={url} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1.5 text-xs font-black text-rose-800 underline">
+            Zobrazit podrobnosti na GitHubu <ExternalLink size={12} />
+          </a>
+        )}
+      </div>
     </div>
   );
 }
@@ -545,6 +583,7 @@ export default function AdminDiagnostika() {
         které se dřív nedaly zjistit jinak než tím, že něco nefungovalo.
       </p>
       <NasazeniBlok />
+      <ZalohaBlok />
       <ChybyBlok />
       <MigraceBlok />
       <TankFrontaBlok />

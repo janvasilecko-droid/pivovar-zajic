@@ -1,12 +1,9 @@
-// ♻️ Obnova objednávek a stáčení ze zálohy.
+// ♻️ Obnova databáze ze (šifrované) zálohy.
 // ---------------------------------------------------------------------------
-// Protějšek k zaloha-objednavek.mjs. Do teď se dalo jen zálohovat — soubory
-// v zalohy/ ležely v gitu a vrátit je zpátky znamenalo ručně klikat v Supabase.
-// Záloha, kterou neumíte obnovit, není záloha.
+// Protějšek k zaloha-objednavek.mjs. Záloha, kterou neumíte obnovit, není záloha.
 //
 // Ve výchozím stavu se NIC nezapisuje: skript jen spočítá, co by se změnilo,
-// a vypíše to. Zapisuje se teprve s přepínačem --opravdu. Je to nevratná
-// operace na ostrých datech, takže se raději zeptá dvakrát než jednou.
+// a vypíše to. Zapisuje se teprve s přepínačem --opravdu.
 //
 // Použití:
 //   node scripts/obnov-ze-zalohy.mjs                    … náhled z aktuálních souborů
@@ -16,21 +13,22 @@
 //   node scripts/obnov-ze-zalohy.mjs --smazat-navic --opravdu
 //                                    … + smaže řádky, které v záloze nejsou
 //
-// Bez --smazat-navic se jen doplňuje a opravuje. To je skoro vždycky to, co
-// chcete: omylem smazaná objednávka se vrátí a nic novějšího se nezahodí.
-// S --smazat-navic se databáze srovná PŘESNĚ do stavu zálohy — všechno, co
-// vzniklo po ní, zmizí.
+// Heslo: ZALOHA_HESLO v prostředí nebo v .env. Zálohy před 13. 9. 2026 jsou
+// nešifrované (jen 4 tabulky) a čtou se bez hesla.
+//
+// Pořadí a kruhové odkazy (objednávky ↔ WhatsApp zprávy): scripts/lib/zalohaTabulky.mjs.
+// Sloupce z ODLOZENE_SLOUPCE se napřed zapíšou prázdné a doplní se ve druhém
+// kole, až jsou v databázi obě strany vazby.
 import { readFileSync, existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { desifruj } from './lib/sifraZalohy.mjs';
+import { TABULKY, ODLOZENE_SLOUPCE, pk } from './lib/zalohaTabulky.mjs';
 
 const KOREN = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const SLOZKA = resolve(KOREN, 'zalohy');
-
-// Pořadí je závazné: order_items ukazují na orders, takže objednávky musí být
-// v databázi dřív než jejich položky. Při mazání se jde obráceně.
-const TABULKY = ['orders', 'order_items', 'kegging', 'bottling'];
+const NAZVY = TABULKY.map(([t]) => t);
 
 const args = process.argv.slice(2);
 const prepinac = (jmeno) => args.includes(`--${jmeno}`);
@@ -44,10 +42,7 @@ const smazatNavic = prepinac('smazat-navic');
 const datum = hodnota('datum');
 const jenTabulka = hodnota('tabulka');
 
-const URL_DB = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || zEnvSouboru('VITE_SUPABASE_URL');
-const KLIC = process.env.SUPABASE_SERVICE_ROLE_KEY || zEnvSouboru('VITE_SUPABASE_SERVICE_ROLE_KEY');
-
-/** Lokálně se klíč bere z .env, na GitHubu ze secrets. */
+/** Lokálně se klíče berou z .env, na GitHubu ze secrets. */
 function zEnvSouboru(jmeno) {
   const f = resolve(KOREN, '.env');
   if (!existsSync(f)) return null;
@@ -55,64 +50,60 @@ function zEnvSouboru(jmeno) {
   return m ? m[1].trim() : null;
 }
 
-if (!URL_DB || !KLIC) {
-  console.error(
-    'Obnova se nespustila — chybí přístup k databázi.\n' +
-    (URL_DB ? '' : '  • SUPABASE_URL / VITE_SUPABASE_URL není nastavené\n') +
-    (KLIC ? '' : '  • SUPABASE_SERVICE_ROLE_KEY není nastavený\n') +
-    '\nLokálně stačí mít v .env VITE_SUPABASE_URL a VITE_SUPABASE_SERVICE_ROLE_KEY.'
-  );
-  process.exitCode = 1;
-}
+const URL_DB = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || zEnvSouboru('VITE_SUPABASE_URL');
+const KLIC = process.env.SUPABASE_SERVICE_ROLE_KEY || zEnvSouboru('VITE_SUPABASE_SERVICE_ROLE_KEY');
+const HESLO = process.env.ZALOHA_HESLO || zEnvSouboru('ZALOHA_HESLO');
 
 const hlavicky = { apikey: KLIC, Authorization: `Bearer ${KLIC}`, 'Content-Type': 'application/json' };
 
-/**
- * Načte zálohu buď z aktuálních souborů, nebo z gitu ke dni --datum.
- * Bere se poslední commit, který ten den (nebo dřív) sáhl na zalohy/ —
- * záloha se dělá jednou denně, ale kdyby ten den workflow neproběhl,
- * je lepší vrátit o den starší stav než spadnout.
- */
-function nactiZalohu(tabulka) {
-  const cesta = `zalohy/${tabulka}.json`;
-  if (!datum) {
-    const f = resolve(SLOZKA, `${tabulka}.json`);
-    if (!existsSync(f)) throw new Error(`Chybí soubor ${cesta}`);
-    return JSON.parse(readFileSync(f, 'utf8'));
-  }
-  const commit = execFileSync('git', ['log', '-1', '--format=%H', `--before=${datum} 23:59:59`, '--', cesta], {
-    cwd: KOREN, encoding: 'utf8',
-  }).trim();
-  if (!commit) {
-    const dny = dostupneDny();
-    throw new Error(
-      `K datu ${datum} není v historii žádná záloha ${cesta}.\n` +
-      `Zálohy existují k těmto dnům:\n  ${dny.join('\n  ') || '(žádné)'}`,
-    );
-  }
-  const obsah = execFileSync('git', ['show', `${commit}:${cesta}`], { cwd: KOREN, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
-  return JSON.parse(obsah);
+function git(argumenty) {
+  return execFileSync('git', argumenty, { cwd: KOREN, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
 }
 
-/** Dny, ke kterým je v historii gitu záloha — pro nápovědu při překlepu v --datum. */
+/** Commit, ze kterého se obnovuje (poslední k --datum), nebo null = aktuální soubory. */
+function commitKDatu() {
+  if (!datum) return null;
+  const commit = git(['log', '-1', '--format=%H', `--before=${datum} 23:59:59`, '--', 'zalohy/']).trim();
+  if (!commit) {
+    throw new Error(`K datu ${datum} není v historii žádná záloha.\nZálohy existují k těmto dnům:\n  ${dostupneDny().join('\n  ') || '(žádné)'}`);
+  }
+  return commit;
+}
+
+/** Obsah souboru z pracovní kopie nebo z commitu; null když neexistuje. */
+function soubor(cesta, commit) {
+  if (!commit) {
+    const f = resolve(KOREN, cesta);
+    return existsSync(f) ? readFileSync(f, 'utf8') : null;
+  }
+  try { return git(['show', `${commit}:${cesta}`]); } catch { return null; }
+}
+
+/** Řádky tabulky ze zálohy; null = tabulka v téhle záloze není. */
+function nactiZalohu(tabulka, commit) {
+  const sifrovana = soubor(`zalohy/${tabulka}.json.enc`, commit);
+  if (sifrovana !== null) {
+    if (!HESLO) throw new Error('Záloha je zašifrovaná — chybí ZALOHA_HESLO (v .env nebo v prostředí).');
+    return JSON.parse(desifruj(sifrovana, HESLO));
+  }
+  const stara = soubor(`zalohy/${tabulka}.json`, commit);
+  return stara === null ? null : JSON.parse(stara);
+}
+
 function dostupneDny() {
   try {
-    return execFileSync('git', ['log', '--format=%ad', '--date=short', '--', 'zalohy/orders.json'], {
-      cwd: KOREN, encoding: 'utf8',
-      // Jeden den může mít víc commitů (denní záloha + ruční spuštění),
-      // ale ve výpisu nás zajímá datum, ne kolikrát se ten den ukládalo.
-    }).trim().split('\n').filter(Boolean).filter((d, i, a) => a.indexOf(d) === i).slice(0, 14);
+    return git(['log', '--format=%ad', '--date=short', '--', 'zalohy/manifest.json', 'zalohy/orders.json'])
+      .trim().split('\n').filter(Boolean).filter((d, i, a) => a.indexOf(d) === i).slice(0, 14);
   } catch {
     return [];
   }
 }
 
-/** Načte celou tabulku z databáze po stránkách (PostgREST vrací max 1000). */
 async function nactiZDb(tabulka) {
   const STRANKA = 1000;
   const out = [];
   for (let od = 0; ; od += STRANKA) {
-    const r = await fetch(`${URL_DB}/rest/v1/${tabulka}?select=*&order=id`, {
+    const r = await fetch(`${URL_DB}/rest/v1/${tabulka}?select=*&order=${pk(tabulka)}`, {
       headers: { ...hlavicky, Range: `${od}-${od + STRANKA - 1}` },
     });
     if (!r.ok) throw new Error(`${tabulka}: HTTP ${r.status} ${(await r.text()).slice(0, 200)}`);
@@ -123,11 +114,6 @@ async function nactiZDb(tabulka) {
   return out;
 }
 
-/**
- * Porovnání řádku po sloupcích. Datumy z PostgREST chodí jako řetězec, takže
- * stačí mělké porovnání přes JSON — složené hodnoty se v těchhle tabulkách
- * nevyskytují.
- */
 function stejne(a, b) {
   const klice = new Set([...Object.keys(a), ...Object.keys(b)]);
   for (const k of klice) {
@@ -136,21 +122,22 @@ function stejne(a, b) {
   return true;
 }
 
-async function posli(metoda, tabulka, telo, extraHlavicky = {}) {
-  const r = await fetch(`${URL_DB}/rest/v1/${tabulka}`, {
-    method: metoda,
-    headers: { ...hlavicky, Prefer: 'resolution=merge-duplicates,return=minimal', ...extraHlavicky },
-    body: JSON.stringify(telo),
-  });
-  if (!r.ok) throw new Error(`${tabulka}: HTTP ${r.status} ${(await r.text()).slice(0, 300)}`);
+async function posli(tabulka, telo) {
+  for (let i = 0; i < telo.length; i += 500) {
+    const r = await fetch(`${URL_DB}/rest/v1/${tabulka}?on_conflict=${pk(tabulka)}`, {
+      method: 'POST',
+      headers: { ...hlavicky, Prefer: 'resolution=merge-duplicates,return=minimal' },
+      body: JSON.stringify(telo.slice(i, i + 500)),
+    });
+    if (!r.ok) throw new Error(`${tabulka}: HTTP ${r.status} ${(await r.text()).slice(0, 300)}`);
+  }
 }
 
-async function smaz(tabulka, ids) {
-  // Mažou se po dávkách — URL s tisícem id by se do dotazu nevešlo.
-  for (let i = 0; i < ids.length; i += 100) {
-    const davka = ids.slice(i, i + 100);
-    const seznam = davka.map((x) => `"${x}"`).join(',');
-    const r = await fetch(`${URL_DB}/rest/v1/${tabulka}?id=in.(${encodeURIComponent(seznam)})`, {
+async function smaz(tabulka, klice) {
+  const sloupec = pk(tabulka);
+  for (let i = 0; i < klice.length; i += 100) {
+    const seznam = klice.slice(i, i + 100).map((x) => `"${String(x).replace(/"/g, '\\"')}"`).join(',');
+    const r = await fetch(`${URL_DB}/rest/v1/${tabulka}?${sloupec}=in.(${encodeURIComponent(seznam)})`, {
       method: 'DELETE',
       headers: { ...hlavicky, Prefer: 'return=minimal' },
     });
@@ -158,80 +145,79 @@ async function smaz(tabulka, ids) {
   }
 }
 
-const tabulky = jenTabulka ? [jenTabulka] : TABULKY;
-if (jenTabulka && !TABULKY.includes(jenTabulka)) {
-  console.error(`Neznámá tabulka „${jenTabulka}". Zálohují se: ${TABULKY.join(', ')}`);
-  process.exitCode = 1;
+/** Řádek s vynulovanými sloupci, které se doplní až ve druhém kole. */
+function bezOdlozenych(tabulka, radek) {
+  const sloupce = ODLOZENE_SLOUPCE[tabulka];
+  if (!sloupce) return radek;
+  const kopie = { ...radek };
+  for (const s of sloupce) if (s in kopie) kopie[s] = null;
+  return kopie;
 }
 
-const plan = [];
-
-// Celý běh v try/catch: tohle se pouští ve chvíli, kdy už se něco pokazilo,
-// a výpis zásobníku z Node je v takové chvíli k ničemu.
 try {
+  if (!URL_DB || !KLIC) throw new Error('Chybí přístup k databázi — v .env musí být VITE_SUPABASE_URL a VITE_SUPABASE_SERVICE_ROLE_KEY.');
+  if (jenTabulka && !NAZVY.includes(jenTabulka)) throw new Error(`Neznámá tabulka „${jenTabulka}". Zálohují se: ${NAZVY.join(', ')}`);
 
-console.log(datum ? `Záloha ke dni ${datum}` : 'Záloha z aktuálních souborů v zalohy/');
-console.log('─'.repeat(64));
+  const commit = commitKDatu();
+  const tabulky = jenTabulka ? [jenTabulka] : NAZVY;
+  const plan = [];
 
-for (const tabulka of tabulky) {
-  const zalohaRadky = nactiZalohu(tabulka);
-  const dbRadky = await nactiZDb(tabulka);
+  console.log(datum ? `Záloha ke dni ${datum}` : 'Záloha z aktuálních souborů v zalohy/');
+  console.log('─'.repeat(72));
 
-  const dbPodleId = new Map(dbRadky.map((r) => [r.id, r]));
-  const zalohaPodleId = new Map(zalohaRadky.map((r) => [r.id, r]));
+  for (const tabulka of tabulky) {
+    const zalohaRadky = nactiZalohu(tabulka, commit);
+    if (zalohaRadky === null) continue; // v téhle (starší) záloze tabulka není
+    const klic = pk(tabulka);
+    const dbRadky = await nactiZDb(tabulka);
+    const dbPodle = new Map(dbRadky.map((r) => [r[klic], r]));
+    const zalohaPodle = new Map(zalohaRadky.map((r) => [r[klic], r]));
 
-  const chybi = zalohaRadky.filter((r) => !dbPodleId.has(r.id));
-  const zmenene = zalohaRadky.filter((r) => dbPodleId.has(r.id) && !stejne(r, dbPodleId.get(r.id)));
-  const navic = dbRadky.filter((r) => !zalohaPodleId.has(r.id));
+    const chybi = zalohaRadky.filter((r) => !dbPodle.has(r[klic]));
+    const zmenene = zalohaRadky.filter((r) => dbPodle.has(r[klic]) && !stejne(r, dbPodle.get(r[klic])));
+    const navic = dbRadky.filter((r) => !zalohaPodle.has(r[klic]));
+    plan.push({ tabulka, chybi, zmenene, navic });
 
-  plan.push({ tabulka, chybi, zmenene, navic });
-
-  const popisNavic = navic.length === 0
-    ? ''
-    : smazatNavic
-    ? `, ${navic.length} smazat (v záloze nejsou)`
-    : `, ${navic.length} navíc v databázi (zůstanou — přidej --smazat-navic)`;
-
-  console.log(
-    `${tabulka.padEnd(12)} záloha ${String(zalohaRadky.length).padStart(5)} | databáze ${String(dbRadky.length).padStart(5)}` +
-    ` → ${chybi.length} doplnit, ${zmenene.length} opravit${popisNavic}`,
-  );
-}
-
-const celkemZmen = plan.reduce((s, p) => s + p.chybi.length + p.zmenene.length + (smazatNavic ? p.navic.length : 0), 0);
-console.log('─'.repeat(64));
-
-if (celkemZmen === 0) {
-  console.log('Databáze se zálohou souhlasí — není co obnovovat.');
-} else if (!opravdu) {
-  console.log(`Celkem by se změnilo ${celkemZmen} řádků. NIC SE NEZAPSALO.`);
-  console.log('Spusť znovu s --opravdu, pokud to tak má být.');
-  if (!smazatNavic && plan.some((p) => p.navic.length)) {
-    console.log('Pozn.: --smazat-navic srovná databázi PŘESNĚ do stavu zálohy; všechno novější zmizí.');
+    const popisNavic = navic.length === 0 ? ''
+      : smazatNavic ? `, ${navic.length} smazat`
+      : `, ${navic.length} navíc v databázi (zůstanou)`;
+    console.log(`${tabulka.padEnd(32)} záloha ${String(zalohaRadky.length).padStart(5)} | databáze ${String(dbRadky.length).padStart(5)}` +
+      ` → ${chybi.length} doplnit, ${zmenene.length} opravit${popisNavic}`);
   }
-} else {
-  // Zapisuje se v pořadí tabulek (objednávky před položkami), maže obráceně —
-  // jinak by cizí klíč odmítl smazat objednávku, na kterou visí položky.
-  for (const { tabulka, chybi, zmenene } of plan) {
-    const kZapisu = [...chybi, ...zmenene];
-    if (!kZapisu.length) continue;
-    for (let i = 0; i < kZapisu.length; i += 500) {
-      await posli('POST', tabulka, kZapisu.slice(i, i + 500));
+
+  const celkem = plan.reduce((s, p) => s + p.chybi.length + p.zmenene.length + (smazatNavic ? p.navic.length : 0), 0);
+  console.log('─'.repeat(72));
+
+  if (celkem === 0) {
+    console.log('Databáze se zálohou souhlasí — není co obnovovat.');
+  } else if (!opravdu) {
+    console.log(`Celkem by se změnilo ${celkem} řádků. NIC SE NEZAPSALO. Spusť znovu s --opravdu.`);
+  } else {
+    // 1. kolo: v pořadí závislostí, kruhové sloupce prázdné.
+    for (const { tabulka, chybi, zmenene } of plan) {
+      const kZapisu = [...chybi, ...zmenene];
+      if (!kZapisu.length) continue;
+      await posli(tabulka, kZapisu.map((r) => bezOdlozenych(tabulka, r)));
+      console.log(`${tabulka}: zapsáno ${kZapisu.length} řádků`);
     }
-    console.log(`${tabulka}: zapsáno ${kZapisu.length} řádků`);
-  }
-
-  if (smazatNavic) {
-    for (const { tabulka, navic } of [...plan].reverse()) {
-      if (!navic.length) continue;
-      await smaz(tabulka, navic.map((r) => r.id));
-      console.log(`${tabulka}: smazáno ${navic.length} řádků`);
+    // 2. kolo: doplnit kruhové odkazy, teď už existují obě strany.
+    for (const { tabulka, chybi, zmenene } of plan) {
+      const sloupce = ODLOZENE_SLOUPCE[tabulka];
+      if (!sloupce) continue;
+      const doplnit = [...chybi, ...zmenene].filter((r) => sloupce.some((s) => r[s] != null));
+      if (!doplnit.length) continue;
+      await posli(tabulka, doplnit);
+      console.log(`${tabulka}: doplněno odkazů u ${doplnit.length} řádků`);
     }
+    if (smazatNavic) {
+      for (const { tabulka, navic } of [...plan].reverse()) {
+        if (!navic.length) continue;
+        await smaz(tabulka, navic.map((r) => r[pk(tabulka)]));
+        console.log(`${tabulka}: smazáno ${navic.length} řádků`);
+      }
+    }
+    console.log('Hotovo.');
   }
-
-  console.log('Hotovo.');
-}
-
 } catch (e) {
   console.error('\nObnova skončila chybou:\n' + (e instanceof Error ? e.message : String(e)));
   process.exitCode = 1;
