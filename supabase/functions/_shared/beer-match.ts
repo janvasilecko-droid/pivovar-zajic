@@ -63,7 +63,72 @@ export function bestFuzzyScoreInText(needle: string, haystack: string): number {
   return best;
 }
 
+type Barva = 'svetle' | 'tmave';
+
+/**
+ * Barva napsaná v krátkém kusu textu. Zná i zkratky, které se v objednávkách
+ * píšou nejčastěji: „tm", „12tm", „tm12", „TM:" (tmavá) a „sv", „sl", „12sv"
+ * (světlá). Hranice je „ne písmeno", ne \b — v „12tm" před „tm" stojí číslice.
+ */
+export function barvaVTextu(text: string): Barva | null {
+  const t = normText(text);
+  if (/(?:^|[^a-z])tm(?:a|av[aeyu]?|ave|avy)?(?![a-z])|tmav|(?:^|[^a-z])cern[aey](?![a-z])|\bdark\b/.test(t)) return 'tmave';
+  if (/(?:^|[^a-z])(?:sv|sl|svet|svetl[aeyu]?|svetly|svetle)(?![a-z])|\blight\b/.test(t)) return 'svetle';
+  return null;
+}
+
+/**
+ * Barva z úseku zprávy, který patří TÉHLE položce.
+ *
+ * 13. 9. 2026 z provozu: „Tm: 2x30l" (Lužec) i „5 beden 12tm" (lahve) se
+ * zapsaly jako 12° Světlá. Serverový matcher zkratku „tm" neznal a AI k nim
+ * přidala stupeň 12°, takže poslední záchrana („neoznačený stupeň = světlé")
+ * vybrala světlou. Barva se ale nesmí brát z celého raw_line — ten může patřit
+ * víc položkám („1x50 12, 1x50 10 a 1x50 tm"). Proto se raw_line rozdělí na
+ * úseky (čárka, středník, lomítko, plus, „a", nový řádek) a barva platí, jen
+ * když ji úseky patřící položce (podle množství) říkají jednoznačně. Když má
+ * raw_line jediný úsek, patří celý položce.
+ */
+export function barvaPolozky(item: any): Barva | null {
+  const raw = String(item?.raw_line || '');
+  if (!raw.trim()) return null;
+  const useky = raw.split(/[,;/+\n]|\s+a\s+/i).map((u) => u.trim()).filter(Boolean);
+  if (useky.length === 1) return barvaVTextu(useky[0]);
+  const ks = Number(item?.quantity ?? item?.qty);
+  if (!Number.isFinite(ks) || ks <= 0) return null;
+  const ksRe = new RegExp(`(?:^|[^0-9.,])${ks}\\s*(?:x|\\*|ks|kus|bed)|(?:x|\\*)\\s*${ks}(?![0-9.,])`, 'i');
+  const barvy = new Set(useky.filter((u) => ksRe.test(u)).map((u) => barvaVTextu(u)));
+  return barvy.size === 1 ? [...barvy][0] : null;
+}
+
+const stupenPiva = (b: { degree?: string | null } | undefined) => (b?.degree || '').replace('°', '').trim();
+
 export function matchBeerId(
+  item: any,
+  beers: { id: string; name: string; degree?: string | null; short_name?: string | null }[],
+  aliasMap: { beer: Map<string, string>; package: Map<string, string> }
+): string | null {
+  // Barva z vlastního úseku položky má poslední slovo mezi světlou a tmavou
+  // téhož stupně (viz barvaPolozky) — AI i shoda podle stupně se v tom pletly.
+  const barva = barvaPolozky(item);
+  const opravBarvu = (beerId: string | null): string | null => {
+    if (!beerId || !barva) return beerId;
+    const b = beers.find((x) => x.id === beerId);
+    const stupen = stupenPiva(b);
+    if (!b || !stupen) return beerId;
+    const jeTmave = /tmav|dark/.test(normText(b.name));
+    if (barva === 'tmave' && !jeTmave) {
+      return beers.find((x) => stupenPiva(x) === stupen && /tmav|dark/.test(normText(x.name)))?.id ?? beerId;
+    }
+    if (barva === 'svetle' && jeTmave) {
+      return beers.find((x) => stupenPiva(x) === stupen && /svetl|light/.test(normText(x.name)))?.id ?? beerId;
+    }
+    return beerId;
+  };
+  return opravBarvu(matchBeerIdBezBarvy(item, beers, aliasMap));
+}
+
+function matchBeerIdBezBarvy(
   item: any,
   beers: { id: string; name: string; degree?: string | null; short_name?: string | null }[],
   aliasMap: { beer: Map<string, string>; package: Map<string, string> }
@@ -304,11 +369,12 @@ export function matchBeerInText(
       if (light) return light.id;
     }
   }
-  // 4) Barva bez stupně („2x30l světle", „5xbasa tm.") — v katalogu je jen
+  // 4) Barva bez stupně („2x30l světle", „5xbasa tm.", „Tm: 2x30l") — v katalogu je jen
   //    jedno tmavé pivo, u světlých bere přednost 12° ležák (výchozí pivo
   //    pivovaru), pokud text neříká jinak.
-  if (!degree && slovy.color) {
-    if (slovy.color === 'tmave') {
+  const barvaTextu = slovy.color ?? barvaVTextu(text);
+  if (!degree && barvaTextu) {
+    if (barvaTextu === 'tmave') {
       const dark = beers.find((b) => /tmav|dark/.test(normText(b.name)));
       if (dark) return dark.id;
     } else {

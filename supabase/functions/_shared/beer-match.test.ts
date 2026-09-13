@@ -163,3 +163,33 @@ describe('Holý stupeň se nelosuje', () => {
     expect(pivo({ degree: '12°', raw_line: '1x30l 12 tmava' })).toBe('12° Tmavá');
   });
 });
+
+// Z provozu 13. 9. 2026: „tmavý se propisuje jako světlý". Serverový matcher
+// neznal zkratku „tm" a AI k položce přidala stupeň 12° a název „12° Světlá".
+describe('Zkratka „tm" je tmavá', () => {
+  it('Lužec: „Tm: 2x30l" pod řádkem se světlou', () => {
+    expect(pivo({ degree: '12°', beer_name: '12° Světlá', quantity: 2, raw_line: 'Tm: 2x30l' })).toBe('12° Tmavá');
+    expect(pivo({ degree: '12°', beer_name: '12° Světlá', quantity: 4, raw_line: '12sv: 3x50l + 4x30l' })).toBe('12° Světlá');
+  });
+
+  it('lahve: „5 beden 12tm" vedle „5 beden 12sv"', () => {
+    expect(pivo({ degree: '12°', beer_name: '12° Světlá', quantity: 100, raw_line: '5 beden 12tm' })).toBe('12° Tmavá');
+    expect(pivo({ degree: '12°', beer_name: '12° Světlá', quantity: 100, raw_line: '5 beden 12sv' })).toBe('12° Světlá');
+  });
+
+  it('velkými písmeny a za obalem: „1,5l TM 6x", „tm12", „12 tm"', () => {
+    expect(pivo({ degree: '12°', beer_name: '12° Světlá', quantity: 6, raw_line: '1,5l TM 6x' })).toBe('12° Tmavá');
+    expect(pivo({ degree: '12°', quantity: 3, raw_line: '3x30 tm12' })).toBe('12° Tmavá');
+    expect(pivo({ degree: '12°', quantity: 3, raw_line: '3x30 12 tm' })).toBe('12° Tmavá');
+  });
+
+  it('„tm" jedné položky neztmaví ostatní položky na stejném řádku', () => {
+    const radek = 'Seeberg 4x30 12sv, 2x30 tm';
+    expect(pivo({ degree: '12°', quantity: 4, raw_line: radek })).toBe('12° Světlá');
+    expect(pivo({ degree: '12°', quantity: 2, raw_line: radek })).toBe('12° Tmavá');
+  });
+
+  it('slova, která jen obsahují „tm", tmavé nejsou', () => {
+    expect(pivo({ degree: '12°', quantity: 1, raw_line: '1x50 12 atm' })).toBe('12° Světlá');
+  });
+});
