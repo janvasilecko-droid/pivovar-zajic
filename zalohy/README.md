@@ -1,6 +1,6 @@
 # Zálohy
 
-Poslední záloha: **2026-09-12**
+Poslední záloha: **2026-09-13**
 
 | Tabulka | Řádků |
 | --- | ---: |
