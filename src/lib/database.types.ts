@@ -279,6 +279,7 @@ export type Database = {
           price_per_liter: number | null
           short_name: string | null
           sort_order: number
+          trvanlivost_dni: number | null
         }
         Insert: {
           beer_color?: string | null
@@ -291,6 +292,7 @@ export type Database = {
           price_per_liter?: number | null
           short_name?: string | null
           sort_order?: number
+          trvanlivost_dni?: number | null
         }
         Update: {
           beer_color?: string | null
@@ -303,6 +305,7 @@ export type Database = {
           price_per_liter?: number | null
           short_name?: string | null
           sort_order?: number
+          trvanlivost_dni?: number | null
         }
         Relationships: []
       }
@@ -649,6 +652,47 @@ export type Database = {
         }
         Relationships: []
       }
+      cellar_batch_mereni: {
+        Row: {
+          batch_id: string
+          created_at: string
+          id: string
+          measured_at: string
+          poznamka: string | null
+          stupnovitost: number | null
+          teplota_c: number | null
+          zapsal: string | null
+        }
+        Insert: {
+          batch_id: string
+          created_at?: string
+          id?: string
+          measured_at?: string
+          poznamka?: string | null
+          stupnovitost?: number | null
+          teplota_c?: number | null
+          zapsal?: string | null
+        }
+        Update: {
+          batch_id?: string
+          created_at?: string
+          id?: string
+          measured_at?: string
+          poznamka?: string | null
+          stupnovitost?: number | null
+          teplota_c?: number | null
+          zapsal?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cellar_batch_mereni_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "cellar_batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cellar_batches: {
         Row: {
           batch_number: string | null
@@ -658,6 +702,8 @@ export type Database = {
           fg: number | null
           finished_at: string | null
           id: string
+          kvasnice_generace: number | null
+          kvasnice_z_varky: string | null
           note: string | null
           og: number | null
           started_at: string | null
@@ -673,6 +719,8 @@ export type Database = {
           fg?: number | null
           finished_at?: string | null
           id?: string
+          kvasnice_generace?: number | null
+          kvasnice_z_varky?: string | null
           note?: string | null
           og?: number | null
           started_at?: string | null
@@ -688,6 +736,8 @@ export type Database = {
           fg?: number | null
           finished_at?: string | null
           id?: string
+          kvasnice_generace?: number | null
+          kvasnice_z_varky?: string | null
           note?: string | null
           og?: number | null
           started_at?: string | null
@@ -701,6 +751,13 @@ export type Database = {
             columns: ["beer_id"]
             isOneToOne: false
             referencedRelation: "beers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cellar_batches_kvasnice_z_varky_fkey"
+            columns: ["kvasnice_z_varky"]
+            isOneToOne: false
+            referencedRelation: "cellar_batches"
             referencedColumns: ["id"]
           },
           {
@@ -906,6 +963,54 @@ export type Database = {
             columns: ["to_tank_id"]
             isOneToOne: false
             referencedRelation: "cellar_tanks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cenik_zmeny: {
+        Row: {
+          beer_id: string | null
+          created_at: string
+          druh: string
+          id: string
+          nova_cena: number | null
+          package_id: string | null
+          stara_cena: number | null
+          zmenil: string | null
+        }
+        Insert: {
+          beer_id?: string | null
+          created_at?: string
+          druh: string
+          id?: string
+          nova_cena?: number | null
+          package_id?: string | null
+          stara_cena?: number | null
+          zmenil?: string | null
+        }
+        Update: {
+          beer_id?: string | null
+          created_at?: string
+          druh?: string
+          id?: string
+          nova_cena?: number | null
+          package_id?: string | null
+          stara_cena?: number | null
+          zmenil?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cenik_zmeny_beer_id_fkey"
+            columns: ["beer_id"]
+            isOneToOne: false
+            referencedRelation: "beers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cenik_zmeny_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "packages"
             referencedColumns: ["id"]
           },
         ]
@@ -3672,9 +3777,22 @@ export type Database = {
         Returns: undefined
       }
       posli_ranni_souhrn: { Args: never; Returns: undefined }
+      posli_tydenni_ticho: { Args: never; Returns: undefined }
       process_zavoz_deductions_for_date: {
         Args: { p_date: string }
         Returns: number
+      }
+      pujc_vybaveni: {
+        Args: {
+          p_borrowed_at: string
+          p_borrower_name: string
+          p_borrower_phone: string
+          p_deposit_kic: number
+          p_equipment_id: string
+          p_event_name: string
+          p_expected_return_at: string
+        }
+        Returns: undefined
       }
       reconcile_zavoz_deduction_for_item: {
         Args: {
