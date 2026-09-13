@@ -2091,6 +2091,7 @@ export type Database = {
           beer_id: string | null
           beer_name: string | null
           created_at: string | null
+          delivery_day: string | null
           id: string
           is_bottled: boolean
           is_prepared: boolean
@@ -2103,6 +2104,7 @@ export type Database = {
           beer_id?: string | null
           beer_name?: string | null
           created_at?: string | null
+          delivery_day?: string | null
           id?: string
           is_bottled?: boolean
           is_prepared?: boolean
@@ -2115,6 +2117,7 @@ export type Database = {
           beer_id?: string | null
           beer_name?: string | null
           created_at?: string | null
+          delivery_day?: string | null
           id?: string
           is_bottled?: boolean
           is_prepared?: boolean
