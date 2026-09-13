@@ -593,6 +593,13 @@ export function BottlingPlanPlanner({
             <div className="text-udaj text-amber-900/70 mt-0.5">
               Plánování na týden <b>{weekLabel}</b> — stáčeč to vidí zvýrazněné v zápisu stáčení.
             </div>
+            {/* Proč se čísla liší od „Potřeba stočit lahve": tam se odečítá
+                zásoba z minulého týdne, tady ne — záměrně, protože měsíční
+                skladový model se umí rozejít s realitou (viz lib/keggingPlan.ts).
+                Dokud to tu nebylo napsané, vypadal rozdíl jako chyba. */}
+            <div className="text-udaj text-amber-900/70 mt-1">
+              Počítá se <b>jen z objednávek tohoto týdne</b> a z toho, co se na ně tento týden stočilo — <b>bez zásoby</b>. Záložka „Potřeba stočit lahve" zásobu odečítá, takže tam vychází menší číslo.
+            </div>
           </div>
           <div className="flex items-center gap-1.5">
             <button type="button" onClick={() => setWeekKey(shiftWeek(weekKey, -1))} className="w-7 h-7 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-sm transition tap">‹</button>

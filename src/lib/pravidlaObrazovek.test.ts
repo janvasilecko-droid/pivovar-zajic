@@ -323,6 +323,33 @@ describe('pojistky načítání jsou opravdu použité', () => {
 });
 
 // ---------------------------------------------------------------------------
+// 1f) Dva různé výpočty „co chybí stočit" musí být vysvětlené
+// ---------------------------------------------------------------------------
+describe('rozdíl mezi „Potřeba stočit lahve" a „Co stočit na který den"', () => {
+  // Obrazovka lahví počítá potřebu dvakrát a jinak:
+  //   • computePackageNeeds — objednávky týdne MÍNUS zásoba,
+  //   • computeKeggingPlan  — objednávky týdne BEZ zásoby (záměrně, viz
+  //     komentář v keggingPlan.ts o nespolehlivém měsíčním modelu).
+  // Obojdí je správně, ale bez vysvětlení to vypadá jako chyba aplikace —
+  // přesně typ stížnosti „to číslo nesedí", který se opakuje.
+  // KEG obrazovka to vyřešila tím, že si nechala jen jeden výpočet.
+  const bottling = readFileSync('src/screens/BottlingScreen.tsx', 'utf8');
+
+  it('obrazovka lahví pořád používá oba výpočty', () => {
+    // Kdyby jeden zmizel, vysvětlivky níž už nejsou třeba a tenhle test
+    // připomene, že se mají odstranit taky.
+    expect(bottling).toMatch(/computePackageNeeds\(/);
+    expect(bottling).toMatch(/computeKeggingPlan\(/);
+  });
+
+  it('u každého z nich stojí, co počítá a proč se liší', () => {
+    expect(bottling, '„Potřeba stočit lahve" nemá vysvětlivku').toMatch(/mínus to, co už máš skladem/);
+    const planner = readFileSync('src/components/BottlingPlanPlanner.tsx', 'utf8');
+    expect(planner, '„Co je potřeba stočit" nemá vysvětlivku').toMatch(/bez zásoby/);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 2) Verze v kódu a ve version.json si musí odpovídat
 // ---------------------------------------------------------------------------
 describe('číslo verze', () => {
