@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../lib/auth';
 import { BottleSanitationEntry, loadBottleSanitation, saveBottleSanEntry, removeBottleSanEntry, newBottleSanEntry } from '../lib/bottleSanitation';
 import { Spinner } from './ui';
-import { SanitationStepRow, currentTimeStr } from './SanitationStepRow';
+import { SanitationStepRow } from './SanitationStepRow';
 import { Beaker, Calendar, CalendarDays, Clock, Pencil, FileSpreadsheet, FileText, Check, CheckCircle2, Plus, Settings, ShieldAlert, SprayCan, Trash2, User, UserCheck, X } from 'lucide-react';
 import { potvrd } from '../lib/toast';
 
@@ -148,26 +148,8 @@ export default function BottleSanitationDiary() {
     setNote('');
     setPerformedBy(defaultUserName || performedBy);
 
-    // Časy kroků — nový zápis: předvyplnit aktuálním časem hlavní kroky
-    const t = currentTimeStr();
-    setStepTimes({
-      louh: t,
-      proplach_vodou: t,
-      cela_cesta_na_louhu: t,
-      prostory: t,
-      proc_rinse_water: t,
-      proc_circulation: t,
-      proc_rinse_co2: t,
-      proc_disassembly: t,
-      ctrl_visual: t,
-      ctrl_co2_pressure: t,
-      ctrl_tightness: t,
-      ctrl_valve: t,
-      eq_pegas: t,
-      eq_hoses: t,
-      eq_coupler: t,
-      eq_co2: t,
-    });
+    // Časy jednotlivých kroků se od 13. 9. 2026 nezadávají — jen čas začátku.
+    setStepTimes({});
 
     setShowModal(true);
   }
@@ -305,8 +287,8 @@ export default function BottleSanitationDiary() {
     // i tomu, kdo nikdy nic neexportuje.
     const XLSX = await import('xlsx-js-style');
     const rows = filtered.map((e) => {
-      const st = e.step_times || {};
-      const t = (key: string) => (st[key] ? ` (${st[key]})` : '');
+      // Časy kroků se nevypisují — jen čas začátku ve sloupci „Čas".
+      const t = (_krok: string) => '';
       return {
       'Datum': e.sanitation_date,
       'Čas': e.sanitation_time ?? '—',
@@ -355,7 +337,8 @@ export default function BottleSanitationDiary() {
           label: def.label,
           chemical: def.chemical(e),
           concentration: def.concentration(e),
-          time: e.step_times?.[def.key] || e.sanitation_time || null,
+          // Jen čas začátku sanitace — časy kroků se nezadávají (13. 9. 2026).
+          time: e.sanitation_time || null,
         });
       });
     });
@@ -665,7 +648,7 @@ export default function BottleSanitationDiary() {
                       <input type="date" value={sanDate} onChange={(e) => setSanDate(e.target.value)} className="input w-full font-bold text-xs" required />
                     </div>
                     <div>
-                      <label className="label !text-udaj !mb-1">Čas sanitace</label>
+                      <label className="label !text-udaj !mb-1">Čas začátku</label>
                       <input type="time" value={sanTime} onChange={(e) => setSanTime(e.target.value)} className="input w-full font-bold text-xs" />
                     </div>
                   </div>
@@ -694,8 +677,6 @@ export default function BottleSanitationDiary() {
                       field="eq_pegas"
                       checked={eqPegas}
                       onChecked={setEqPegas}
-                      stepTimes={stepTimes}
-                      setStepTimes={setStepTimes}
                     >
                       PEGAS hlava
                     </SanitationStepRow>
@@ -703,8 +684,6 @@ export default function BottleSanitationDiary() {
                       field="eq_hoses"
                       checked={eqHoses}
                       onChecked={setEqHoses}
-                      stepTimes={stepTimes}
-                      setStepTimes={setStepTimes}
                     >
                       Hadice
                     </SanitationStepRow>
@@ -712,8 +691,6 @@ export default function BottleSanitationDiary() {
                       field="eq_coupler"
                       checked={eqCoupler}
                       onChecked={setEqCoupler}
-                      stepTimes={stepTimes}
-                      setStepTimes={setStepTimes}
                     >
                       Narážeč
                     </SanitationStepRow>
@@ -721,8 +698,6 @@ export default function BottleSanitationDiary() {
                       field="eq_co2"
                       checked={eqCo2}
                       onChecked={setEqCo2}
-                      stepTimes={stepTimes}
-                      setStepTimes={setStepTimes}
                     >
                       CO₂ rozvody
                     </SanitationStepRow>
@@ -767,8 +742,6 @@ export default function BottleSanitationDiary() {
                       field="proc_rinse_water"
                       checked={procRinseWater}
                       onChecked={setProcRinseWater}
-                      stepTimes={stepTimes}
-                      setStepTimes={setStepTimes}
                     >
                       Oplach čistou vodou
                     </SanitationStepRow>
@@ -776,8 +749,6 @@ export default function BottleSanitationDiary() {
                       field="proc_circulation"
                       checked={procCirculation}
                       onChecked={setProcCirculation}
-                      stepTimes={stepTimes}
-                      setStepTimes={setStepTimes}
                     >
                       Cirkulace sanitačního roztoku (celý systém)
                     </SanitationStepRow>
@@ -785,8 +756,6 @@ export default function BottleSanitationDiary() {
                       field="proc_rinse_co2"
                       checked={procRinseCo2}
                       onChecked={setProcRinseCo2}
-                      stepTimes={stepTimes}
-                      setStepTimes={setStepTimes}
                     >
                       Finální výplach sterilní vodou / profuk CO₂
                     </SanitationStepRow>
@@ -794,8 +763,6 @@ export default function BottleSanitationDiary() {
                       field="proc_disassembly"
                       checked={procDisassembly}
                       onChecked={setProcDisassembly}
-                      stepTimes={stepTimes}
-                      setStepTimes={setStepTimes}
                     >
                       Rozebrání a ruční čištění Pegasu
                     </SanitationStepRow>
@@ -817,8 +784,6 @@ export default function BottleSanitationDiary() {
                     field="ctrl_visual"
                     checked={ctrlVisual}
                     onChecked={setCtrlVisual}
-                    stepTimes={stepTimes}
-                    setStepTimes={setStepTimes}
                   >
                     Vizuální čistota / pach
                   </SanitationStepRow>
@@ -826,8 +791,6 @@ export default function BottleSanitationDiary() {
                     field="ctrl_co2_pressure"
                     checked={ctrlCo2Pressure}
                     onChecked={setCtrlCo2Pressure}
-                    stepTimes={stepTimes}
-                    setStepTimes={setStepTimes}
                   >
                     Tlak CO₂ (2–2.5 bar)
                   </SanitationStepRow>
@@ -835,8 +798,6 @@ export default function BottleSanitationDiary() {
                     field="ctrl_tightness"
                     checked={ctrlTightness}
                     onChecked={setCtrlTightness}
-                    stepTimes={stepTimes}
-                    setStepTimes={setStepTimes}
                   >
                     Těsnost rozvodů
                   </SanitationStepRow>
@@ -844,8 +805,6 @@ export default function BottleSanitationDiary() {
                     field="ctrl_valve"
                     checked={ctrlValve}
                     onChecked={setCtrlValve}
-                    stepTimes={stepTimes}
-                    setStepTimes={setStepTimes}
                   >
                     Funkčnost ventilů
                   </SanitationStepRow>

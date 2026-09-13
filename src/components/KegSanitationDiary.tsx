@@ -8,7 +8,7 @@ import {
   newKegSanEntry,
   isLastWeekOfMonth,
 } from '../lib/kegSanitation';
-import { SanitationStepRow, currentTimeStr } from './SanitationStepRow';
+import { SanitationStepRow } from './SanitationStepRow';
 import { Spinner } from './ui';
 import { AlertTriangle, Calendar, CalendarDays, Clock, Pencil, FileSpreadsheet, FileText, CheckCircle2, Moon, Plus, SprayCan, Sun, Trash2, User, UserCheck, X } from 'lucide-react';
 import { potvrd } from '../lib/toast';
@@ -27,11 +27,11 @@ type KegStepKey =
   | 'proc_month_disassemble_couplers' | 'proc_month_clean_brush_24h' | 'proc_month_rinse_water' | 'proc_month_visual_clean';
 
 const KEG_STEP_DEFS: { key: KegStepKey; label: string; chemical: string; concentration: string | null }[] = [
-  { key: 'proc_rinse_naoh_2_20', label: 'Proplach cest', chemical: 'NaOH (louh)', concentration: '2 %' },
-  { key: 'proc_rinse_persteril_02_10', label: 'Proplach cest', chemical: 'Persteril', concentration: '0,2 %' },
-  { key: 'proc_rinse_water_before', label: 'Oplach stáčečky', chemical: 'Voda', concentration: null },
+  { key: 'proc_rinse_naoh_2_20', label: 'Louh (20 min)', chemical: 'NaOH (louh)', concentration: '2 %' },
+  { key: 'proc_rinse_persteril_02_10', label: 'Persteril místo louhu (10 min)', chemical: 'Persteril', concentration: '0,2 %' },
+  { key: 'proc_rinse_water_before', label: 'Proplach vodou (2 min)', chemical: 'Voda', concentration: null },
   { key: 'proc_scrub_valves_naoh_2_15', label: 'Sanitace klapek (kartáč)', chemical: 'NaOH (louh)', concentration: '2 %' },
-  { key: 'proc_spray_valves_persteril_02_10', label: 'Sanitace klapek (postřik)', chemical: 'Persteril', concentration: '0,2 %' },
+  { key: 'proc_spray_valves_persteril_02_10', label: 'Sanitace klapek (30 s)', chemical: 'Persteril', concentration: '0,2 %' },
   { key: 'proc_rinse_water_after_valves', label: 'Oplach klapek', chemical: 'Voda', concentration: null },
   { key: 'proc_end_rinse_lines_water', label: 'Proplach pivních cest', chemical: 'Voda', concentration: null },
   { key: 'proc_end_rinse_valves_water', label: 'Oplach klapek', chemical: 'Voda', concentration: null },
@@ -162,17 +162,8 @@ export default function KegSanitationDiary() {
     setProcMonthRinseWater(false);
     setProcMonthVisualClean(false);
 
-    // Časy kroků — nový zápis: předvyplnit aktuálním časem u přednastavených kroků
-    const t = currentTimeStr();
-    const st: Record<string, string> = {
-      proc_rinse_naoh_2_20: t,
-      proc_rinse_persteril_02_10: t,
-      proc_rinse_water_before: t,
-      proc_scrub_valves_naoh_2_15: t,
-      proc_spray_valves_persteril_02_10: t,
-      proc_rinse_water_after_valves: t,
-    };
-    setStepTimes(st);
+    // Časy jednotlivých kroků se od 13. 9. 2026 nezadávají — jen čas začátku.
+    setStepTimes({});
 
     setShowModal(true);
   }
@@ -296,8 +287,8 @@ export default function KegSanitationDiary() {
     // i tomu, kdo nikdy nic neexportuje.
     const XLSX = await import('xlsx-js-style');
     const rows = filtered.map((e) => {
-      const st = e.step_times || {};
-      const t = (key: string) => (st[key] ? ` (${st[key]})` : '');
+      // Časy kroků se nevypisují — jen čas začátku ve sloupci „Čas".
+      const t = (_krok: string) => '';
       return {
       'Datum': e.sanitation_date,
       'Čas': e.sanitation_time ?? '—',
@@ -306,8 +297,8 @@ export default function KegSanitationDiary() {
       'Schválil': e.approved_by ?? '—',
       'NaOH 2% 20min': e.proc_rinse_naoh_2_20 ? 'ANO' + t('proc_rinse_naoh_2_20') : 'NE',
       'Persteril 0.2% 10min': e.proc_rinse_persteril_02_10 ? 'ANO' + t('proc_rinse_persteril_02_10') : 'NE',
-      'Oplach vodou stáčečku (2 min)': e.proc_rinse_water_before ? 'ANO' + t('proc_rinse_water_before') : 'NE',
-      'Klapky: vystříkat Persterilem 0.2%': e.proc_spray_valves_persteril_02_10 ? 'ANO' + t('proc_spray_valves_persteril_02_10') : 'NE',
+      'Proplach vodou (2 min)': e.proc_rinse_water_before ? 'ANO' + t('proc_rinse_water_before') : 'NE',
+      'Sanitace klapek Persteril 0,2% (30 s)': e.proc_spray_valves_persteril_02_10 ? 'ANO' + t('proc_spray_valves_persteril_02_10') : 'NE',
       'Oplach klapek vodou': e.proc_rinse_water_after_valves ? 'ANO' + t('proc_rinse_water_after_valves') : 'NE',
       'Po konci: proplach cest vodou': e.proc_end_rinse_lines_water ? 'ANO' + t('proc_end_rinse_lines_water') : 'NE',
       'Po konci: oplach klapek vodou': e.proc_end_rinse_valves_water ? 'ANO' + t('proc_end_rinse_valves_water') : 'NE',
@@ -344,7 +335,8 @@ export default function KegSanitationDiary() {
           label: def.label,
           chemical: def.chemical,
           concentration: def.concentration,
-          time: e.step_times?.[def.key] || e.sanitation_time || null,
+          // Jen čas začátku sanitace — časy kroků se nezadávají (13. 9. 2026).
+          time: e.sanitation_time || null,
         });
       });
     });
@@ -645,7 +637,7 @@ export default function KegSanitationDiary() {
                       <input type="date" value={sanDate} onChange={(e) => setSanDate(e.target.value)} className="input w-full font-bold text-xs" required />
                     </div>
                     <div>
-                      <label className="label !text-udaj !mb-1">Čas sanitace</label>
+                      <label className="label !text-udaj !mb-1">Čas začátku</label>
                       <input type="time" value={sanTime} onChange={(e) => setSanTime(e.target.value)} className="input w-full font-bold text-xs" />
                     </div>
                   </div>
@@ -686,54 +678,45 @@ export default function KegSanitationDiary() {
                   <h4 className="font-black text-xs text-neutral-800 uppercase tracking-wider flex items-center gap-1.5 mb-2.5">
                     <Sun className="ikona-text" /> Část A: Před stáčením
                   </h4>
+                  {/* Postup podle provozu (13. 9. 2026): louh NaOH nebo Persteril
+                      (střídají se) → proplach vodou → sanitace klapek → oplach
+                      klapek. Doba je u kroku v popisku; zapisuje se jen čas
+                      začátku sanitace (vlevo nahoře). */}
                   <div className="space-y-2">
                     <SanitationStepRow
                       field="proc_rinse_naoh_2_20"
                       checked={procRinseNaoh}
                       onChecked={setProcRinseNaoh}
-                      stepTimes={stepTimes}
-                      setStepTimes={setStepTimes}
                     >
-                      Proplach cest **NaOH 2%** (20 minut)
+                      Louh <strong>NaOH 2 %</strong> — 20 minut
                     </SanitationStepRow>
                     <SanitationStepRow
                       field="proc_rinse_persteril_02_10"
                       checked={procRinsePersteril}
                       onChecked={setProcRinsePersteril}
-                      stepTimes={stepTimes}
-                      setStepTimes={setStepTimes}
                     >
-                      **Nebo** proplach **Persteril 0.2%** (10 minut)
+                      <strong>Nebo</strong> <strong>Persteril 0,2 %</strong> — 10 minut <span className="text-neutral-500">(střídá se s louhem)</span>
                     </SanitationStepRow>
-                    <div className="border-t border-neutral-200/80 my-2 pt-2 space-y-1.5">
-                      <span className="block text-udaj font-bold text-neutral-500 uppercase">Sanitace klapek:</span>
-                      <SanitationStepRow
-                        field="proc_spray_valves_persteril_02_10"
-                        checked={procSprayValvesPersteril}
-                        onChecked={setProcSprayValvesPersteril}
-                        stepTimes={stepTimes}
-                        setStepTimes={setStepTimes}
-                      >
-                        Vystříkat klapky **Persterilem 0.2%**
-                      </SanitationStepRow>
-                      <SanitationStepRow
-                        field="proc_rinse_water_after_valves"
-                        checked={procRinseWaterAfterValves}
-                        onChecked={setProcRinseWaterAfterValves}
-                        stepTimes={stepTimes}
-                        setStepTimes={setStepTimes}
-                      >
-                        Oplach klapek vodou
-                      </SanitationStepRow>
-                    </div>
                     <SanitationStepRow
                       field="proc_rinse_water_before"
                       checked={procRinseWaterBefore}
                       onChecked={setProcRinseWaterBefore}
-                      stepTimes={stepTimes}
-                      setStepTimes={setStepTimes}
                     >
-                      Oplach vodou stáčečku (2 minuty)
+                      Proplach vodou — 2 minuty
+                    </SanitationStepRow>
+                    <SanitationStepRow
+                      field="proc_spray_valves_persteril_02_10"
+                      checked={procSprayValvesPersteril}
+                      onChecked={setProcSprayValvesPersteril}
+                    >
+                      Sanitace klapek <strong>Persteril 0,2 %</strong> — 30 vteřin
+                    </SanitationStepRow>
+                    <SanitationStepRow
+                      field="proc_rinse_water_after_valves"
+                      checked={procRinseWaterAfterValves}
+                      onChecked={setProcRinseWaterAfterValves}
+                    >
+                      Oplach klapek vodou
                     </SanitationStepRow>
                   </div>
                 </div>
@@ -748,8 +731,6 @@ export default function KegSanitationDiary() {
                       field="proc_end_rinse_lines_water"
                       checked={procEndRinseLinesWater}
                       onChecked={setProcEndRinseLinesWater}
-                      stepTimes={stepTimes}
-                      setStepTimes={setStepTimes}
                     >
                       Proplach pivních cest vodou
                     </SanitationStepRow>
@@ -757,8 +738,6 @@ export default function KegSanitationDiary() {
                       field="proc_end_rinse_valves_water"
                       checked={procEndRinseValvesWater}
                       onChecked={setProcEndRinseValvesWater}
-                      stepTimes={stepTimes}
-                      setStepTimes={setStepTimes}
                     >
                       Opláchnutí klapek vodou
                     </SanitationStepRow>
@@ -766,8 +745,6 @@ export default function KegSanitationDiary() {
                       field="proc_end_rinse_couplers_water"
                       checked={procEndRinseCouplersWater}
                       onChecked={setProcEndRinseCouplersWater}
-                      stepTimes={stepTimes}
-                      setStepTimes={setStepTimes}
                     >
                       Oplach narážečů vodou + kontrola
                     </SanitationStepRow>
@@ -775,8 +752,6 @@ export default function KegSanitationDiary() {
                       field="proc_end_rinse_floors_cellar"
                       checked={procEndRinseFloorsCellar}
                       onChecked={setProcEndRinseFloorsCellar}
-                      stepTimes={stepTimes}
-                      setStepTimes={setStepTimes}
                     >
                       Spláchnutí podlah ve sklepě
                     </SanitationStepRow>
@@ -784,8 +759,6 @@ export default function KegSanitationDiary() {
                       field="proc_end_rinse_floors_walls_bottlers"
                       checked={procEndRinseFloorsWallsBottlers}
                       onChecked={setProcEndRinseFloorsWallsBottlers}
-                      stepTimes={stepTimes}
-                      setStepTimes={setStepTimes}
                     >
                       Spláchnutí podlahy a stěn u stáčeček
                     </SanitationStepRow>
@@ -793,8 +766,6 @@ export default function KegSanitationDiary() {
                       field="proc_end_coupler_heads_persteril_bucket"
                       checked={procEndCouplerHeadsPersterilBucket}
                       onChecked={setProcEndCouplerHeadsPersterilBucket}
-                      stepTimes={stepTimes}
-                      setStepTimes={setStepTimes}
                     >
                       Hlavy narážečů ponořeny do kýble v Persterilu
                     </SanitationStepRow>
@@ -811,8 +782,6 @@ export default function KegSanitationDiary() {
                       field="proc_month_disassemble_couplers"
                       checked={procMonthDisassembleCouplers}
                       onChecked={setProcMonthDisassembleCouplers}
-                      stepTimes={stepTimes}
-                      setStepTimes={setStepTimes}
                     >
                       Rozebrat VŠECHNY narážeče a rychlospojky a naložit do louhu
                     </SanitationStepRow>
@@ -820,8 +789,6 @@ export default function KegSanitationDiary() {
                       field="proc_month_clean_brush_24h"
                       checked={procMonthCleanBrush24h}
                       onChecked={setProcMonthCleanBrush24h}
-                      stepTimes={stepTimes}
-                      setStepTimes={setStepTimes}
                     >
                       Vyčistit rozebrané díly kartáčem (louhování 24 hodin)
                     </SanitationStepRow>
@@ -829,8 +796,6 @@ export default function KegSanitationDiary() {
                       field="proc_month_rinse_water"
                       checked={procMonthRinseWater}
                       onChecked={setProcMonthRinseWater}
-                      stepTimes={stepTimes}
-                      setStepTimes={setStepTimes}
                     >
                       Poté oplach čistou vodou
                     </SanitationStepRow>
@@ -838,8 +803,6 @@ export default function KegSanitationDiary() {
                       field="proc_month_visual_clean"
                       checked={procMonthVisualClean}
                       onChecked={setProcMonthVisualClean}
-                      stepTimes={stepTimes}
-                      setStepTimes={setStepTimes}
                     >
                       Vizuální kontrola čistoty a těsnění
                     </SanitationStepRow>

@@ -316,7 +316,7 @@ export default function TapSanitationDiary() {
                   <input type="date" required value={sanDate} onChange={(e) => setSanDate(e.target.value)} className="input w-full text-xs font-mono font-bold" />
                 </div>
                 <div>
-                  <label className="label">Čas zahájení</label>
+                  <label className="label">Čas začátku</label>
                   <input type="time" value={sanTime} onChange={(e) => setSanTime(e.target.value)} className="input w-full text-xs font-mono font-bold" />
                 </div>
                 <div>
@@ -332,7 +332,7 @@ export default function TapSanitationDiary() {
               {/* Steps */}
               <div className="p-4 rounded border border-neutral-200 bg-neutral-50/50 space-y-2.5">
                 <h4 className="font-black text-xs text-neutral-800 uppercase tracking-wider flex items-center gap-1.5">
-                  <CheckCircle2 size={14} className="text-amber-600" /> Kroky sanitace (s časem provedení)
+                  <CheckCircle2 size={14} className="text-amber-600" /> Kroky sanitace
                 </h4>
                 {steps.map((s, idx) => (
                   <SanitationStepRow
@@ -340,8 +340,6 @@ export default function TapSanitationDiary() {
                     field={s.id}
                     checked={s.completed}
                     onChecked={(v) => setSteps((prev) => prev.map((x, i) => (i === idx ? { ...x, completed: v } : x)))}
-                    stepTimes={stepTimesDraft}
-                    setStepTimes={setStepTimesDraft}
                   >
                     {s.text}
                   </SanitationStepRow>
