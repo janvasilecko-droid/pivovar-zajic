@@ -283,6 +283,11 @@ export function kontrolaPokryti(v: VstupAuditu): Nalez {
   };
 }
 
+/** „1 objednávka", „3 objednávky", „5 objednávek". */
+function objednavek(n: number): string {
+  return `${n} ${n === 1 ? 'objednávka' : n >= 2 && n <= 4 ? 'objednávky' : 'objednávek'}`;
+}
+
 /**
  * Odpovídají objednávky z WhatsAppu zprávám? Zpráva se znovu přečte stejným
  * párováním jako na serveru a porovná s uloženými položkami.
@@ -308,8 +313,8 @@ export function kontrolaCteniWhatsApp(v: VstupAuditu): Nalez {
     zavaznost: sBarvou.length > 0 ? 'chyba' : 'pozor',
     pocet: rozdily.length,
     shrnuti: sBarvou.length > 0
-      ? `${sBarvou.length}× tmavé/světlé zapsané obráceně, celkem ${rozdily.length} objednávek s rozdílem`
-      : `${rozdily.length} objednávek se liší od zprávy`,
+      ? `${sBarvou.length}× tmavé/světlé zapsané obráceně, celkem ${objednavek(rozdily.length)} s rozdílem`
+      : `${objednavek(rozdily.length)} se liší od zprávy`,
     detaily: orizni(detaily),
     rada: 'Porovnej se zprávou. Rozdíl může být i ruční úprava při schválení nebo doplnění z navazující zprávy — chybu oprav přímo v objednávce.',
   };

@@ -78,7 +78,9 @@ export function porovnejCteni(vstup: {
         const item = { ...it, quantity: it.qty ?? it.quantity };
         return { item, beer: matchBeerId(item, piva, aliasMap), pkg: matchPackageId(item, obaly, aliasMap), ks: Number(item.quantity || 0) };
       })
-      .filter((e) => e.ks > 0);
+      // Řádek, ze kterého AI nevyčetla nic (bez textu, piva i obalu), se
+      // neporovnává — v detailu by byl jen šum „neznámé pivo neznámý obal".
+      .filter((e) => e.ks > 0 && (e.beer || e.pkg || String(e.item.raw_line ?? '').trim()));
 
     const zbyva = skutecne.map((s) => popis(s.beer_id, s.package_id, s.quantity));
     const chybi: string[] = [];
