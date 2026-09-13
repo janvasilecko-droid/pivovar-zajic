@@ -196,13 +196,15 @@ describe('Plán stáčení — odkaz do Objednávek a odškrtnutí', () => {
     expect(screen.queryByRole('button', { name: /Mám všech/ })).toBeNull();
   });
 
-  // Sudy nachystané a odečtené ze skladu se stáčet nemusí, i když objednávka
-  // ještě není označená jako zavezená (25. 8. 2026 jich takhle čekalo 68).
-  it('nachystané sudy s odečtem ze skladu položku pokryjí', async () => {
+  // Odpočet ze skladu se zapisuje podle kalendáře, když den závozu projde —
+  // o stočení nic neříká. Z provozu 11.–12. 9. 2026 plán kvůli němu psal
+  // „vše stočeno" bez stočení; od 13. 9. (migrace 20261231080000) ho plán
+  // za hotové nepovažuje.
+  it('odpočet ze skladu sám položku nepokryje', async () => {
     h.DB.zavoz_deductions = [{ deduct_date: '2026-01-06', beer_id: 'beer-12', package_id: 'pkg-30', quantity: 3, order_item_id: 'oi-1' }];
     await otevriPlan();
-    await waitFor(() => expect(screen.getByText('3 / 3 ks hotovo', { exact: false })).toBeTruthy());
-    expect(screen.queryByRole('button', { name: /Mám všech/ })).toBeNull();
+    await waitFor(() => expect(screen.getByText('0 / 3 ks hotovo', { exact: false })).toBeTruthy());
+    expect(screen.getByRole('button', { name: /Mám všech/ })).toBeTruthy();
   });
 
   it('"Celý týden" sečte všechny dny', async () => {

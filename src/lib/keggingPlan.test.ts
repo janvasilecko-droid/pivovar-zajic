@@ -125,26 +125,29 @@ describe('computeKeggingPlan', () => {
     expect(day(p, 'st').totalMissing).toBe(5);
   });
 
-  // Reálný stav z 25. 8. 2026: 68 sudů mělo odečet ze skladu, ale objednávky
-  // byly pořád `status='nova', is_delivered=false` — sudy se chystají dřív, než
-  // řidič vyjede. Plán je nesmí chtít stočit znovu.
-  it('nachystané sudy s odečtem ze skladu se už stáčet nemusí, i když objednávka je „nová"', () => {
+  // Z provozu 11.–12. 9. 2026: u pátku svítilo „vše stočeno", i když se
+  // nestočilo — odpočet ze skladu se zapisuje podle kalendáře a plán ho bral
+  // jako důkaz stočení. Od 13. 9. (migrace 20261231080000) o stočení rozhoduje
+  // stáčení a ruční odškrtnutí, ne odpočet.
+  it('odpočet ze skladu sám o sobě neznamená, že je stočeno', () => {
     const p = plan({
       orders: [objednavka('o1', '2026-08-26')],
       orderItems: [polozka('o1', 'b-des', 'p30', 10, 'item-1')],
-      zavozDeductionRows: [{ deduct_date: '2026-08-25', beer_id: 'b-des', package_id: 'p30', quantity: 10, order_item_id: 'item-1' }],
+      zavozDeductionRows: [{ deduct_date: '2026-08-26', beer_id: 'b-des', package_id: 'p30', quantity: 10, order_item_id: 'item-1' }],
+    });
+    expect(day(p, 'st').totalMissing).toBe(10);
+    expect(day(p, 'st').totalDone).toBe(0);
+  });
+
+  it('odpočet neubírá stočené sudy — objednávka, na kterou se stočilo, je hotová', () => {
+    const p = plan({
+      orders: [objednavka('o1', '2026-08-26')],
+      orderItems: [polozka('o1', 'b-des', 'p30', 10, 'item-1')],
+      keggingRows: [{ entry_date: '2026-08-25', beer_id: 'b-des', package_id: 'p30', quantity: 10 }],
+      zavozDeductionRows: [{ deduct_date: '2026-08-26', beer_id: 'b-des', package_id: 'p30', quantity: 10, order_item_id: 'item-1' }],
     });
     expect(day(p, 'st').totalMissing).toBe(0);
     expect(day(p, 'st').totalDone).toBe(10);
-  });
-
-  it('částečný odečet nechá zbytek k stočení', () => {
-    const p = plan({
-      orders: [objednavka('o1', '2026-08-26')],
-      orderItems: [polozka('o1', 'b-des', 'p30', 10, 'item-1')],
-      zavozDeductionRows: [{ deduct_date: '2026-08-25', beer_id: 'b-des', package_id: 'p30', quantity: 4, order_item_id: 'item-1' }],
-    });
-    expect(day(p, 'st').totalMissing).toBe(6);
   });
 
   it('už zavezená objednávka se stáčet nemusí', () => {
@@ -486,25 +489,23 @@ describe('z čeho je „hotovo" — rozpad, který si vyžádal provoz', () => {
   // „Píše mi, že chybí 2 kusy, ale podle objednávek jich má být 6."
   // Appka do té chvíle tvrdila výsledek bez důkazu: stáčeč viděl objednávky
   // na šest a číslo dvě a neměl jak zjistit, kde se ty čtyři vzaly.
-  it('rozliší, co je nachystané, a co leží stočené v chlaďáku', () => {
+  it('rozliší, co je zavezené, a co leží stočené v chlaďáku', () => {
     const p = plan({
-      orders: [objednavka('o1', '2026-08-26')],
-      orderItems: [polozka('o1', 'b-des', 'p30', 6, 'radek1')],
-      // 2 kusy už fyzicky odečtené na tu položku (nachystáno/zavezeno)…
+      orders: [objednavka('o0', '2026-08-26', { is_delivered: true }), objednavka('o1', '2026-08-26')],
+      orderItems: [polozka('o0', 'b-des', 'p30', 2, 'radek0'), polozka('o1', 'b-des', 'p30', 6, 'radek1')],
+      // 6 stočených tenhle týden; 2 z nich odjely se zavezenou objednávkou o0,
+      // v chlaďáku tak na o1 zbývají 4. Odpočet ze skladu na o1 nic nemění —
+      // o stočení nerozhoduje (migrace 20261231080000).
+      keggingRows: [{ entry_date: '2026-08-24', beer_id: 'b-des', package_id: 'p30', quantity: 6 }],
       zavozDeductionRows: [
-        { order_item_id: 'radek1', deduct_date: '2026-08-25', beer_id: 'b-des', package_id: 'p30', quantity: 2 },
+        { order_item_id: 'radek1', deduct_date: '2026-08-26', beer_id: 'b-des', package_id: 'p30', quantity: 6 },
       ],
-      // …a 4 stočené tenhle týden. POZOR: odečet ze skladu ubírá i ze
-      // zásoby v chlaďáku (ty 2 nachystané se z těch 4 vzaly), takže
-      // v chlaďáku zbývají 2. Právě tahle dvojí role odečtu je důvod, proč
-      // se ten rozpad musí ukázat — z hlavy to nikdo nedopočítá.
-      keggingRows: [{ entry_date: '2026-08-24', beer_id: 'b-des', package_id: 'p30', quantity: 4 }],
     });
     const it0 = day(p, 'st').items[0];
-    expect(it0.ordered).toBe(6);
+    expect(it0.ordered).toBe(8);
     expect(it0.nachystano).toBe(2);
-    expect(it0.zChladaku).toBe(2);
-    expect(it0.done).toBe(4);
+    expect(it0.zChladaku).toBe(4);
+    expect(it0.done).toBe(6);
     expect(it0.missing).toBe(2);
   });
 
@@ -542,11 +543,8 @@ describe('z čeho je „hotovo" — rozpad, který si vyžádal provoz', () => {
 
   it('týdenní souhrn rozpad sčítá taky', () => {
     const p = plan({
-      orders: [objednavka('o1', '2026-08-26')],
-      orderItems: [polozka('o1', 'b-des', 'p30', 6, 'r1')],
-      zavozDeductionRows: [
-        { order_item_id: 'r1', deduct_date: '2026-08-25', beer_id: 'b-des', package_id: 'p30', quantity: 2 },
-      ],
+      orders: [objednavka('o1', '2026-08-26', { is_delivered: true }), objednavka('o2', '2026-08-27')],
+      orderItems: [polozka('o1', 'b-des', 'p30', 2, 'r1'), polozka('o2', 'b-des', 'p30', 4, 'r2')],
     });
     const tyden = mergeWeekPlan(p, 'týden');
     expect(tyden.items[0].nachystano).toBe(2);

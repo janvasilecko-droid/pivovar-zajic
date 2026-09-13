@@ -208,7 +208,11 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
       pool[k] = (pool[k] || 0) - Number(r.quantity || 0);
     });
   };
-  drain(zavozDeductionRows, 'deduct_date');
+  // Odpočty závozu (zavozDeductionRows) zásobu NEubírají: odpočet se zapisuje
+  // podle kalendáře, když den závozu projde, a nic neříká o tom, jestli se
+  // pivo stočilo. Zásobu ubírají jen objednávky, které člověk označil jako
+  // zavezené — viz níž u poptávky (migrace 20261231080000, 13. 9. 2026).
+  void zavozDeductionRows;
   drain(fasovaniRows, 'entry_date');
   drain(prodejnaRows, 'entry_date');
   drain(writeoffsRows, 'entry_date');
@@ -237,17 +241,12 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
     orderDay.set(o.id, o.delivery_date ? dayKeyFromISO(o.delivery_date) : BEZ_TERMINU);
   });
 
-  // ── Co je z objednávek už vykryté. Rozhoduje ODEČET ZE SKLADU u konkrétní
-  // položky (zavoz_deductions.order_item_id), ne příznak `is_delivered` na
-  // objednávce: v provozu se sudy nachystají a odečtou ze skladu klidně dva dny
-  // dopředu, zatímco objednávka zůstane „nová", dokud řidič nedojede. Kdyby se
-  // šlo podle `is_delivered`, těch nachystaných sudů (25. 8. 2026 jich bylo 68)
-  // by plán žádal stočit znovu.
-  const deductedByItem: Record<string, number> = {};
-  zavozDeductionRows.forEach((r) => {
-    if (!r.order_item_id) return;
-    deductedByItem[r.order_item_id] = (deductedByItem[r.order_item_id] || 0) + Number(r.quantity || 0);
-  });
+  // ── Co je z objednávek už vykryté: JEN objednávka, kterou člověk označil
+  // jako zavezenou. Odpočet ze skladu (zavoz_deductions) o stočení nic neříká —
+  // zapisuje se podle kalendáře, a když se podle něj plán řídil, psal
+  // „vše stočeno" jen proto, že den závozu prošel (z provozu 11.–12. 9. 2026).
+  // Co se opravdu stočilo, pozná plán ze stáčení (zásoba v chlaďáku) a z ručního
+  // odškrtnutí (kegging_plan_checks).
 
   type Bucket = { ordered: number; covered: number; orders: PlanOrderRef[] };
   const byDay: Record<string, Record<string, Bucket>> = {};
@@ -272,7 +271,11 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
     const k = `${it.beer_id}__${it.package_id}`;
     const bucket = (byDay[day][k] ||= { ordered: 0, covered: 0, orders: [] });
     const wholeOrderDone = !!ord?.is_delivered || ord?.status === 'vyrizeno' || ord?.status === 'vyrizeno_zavoz';
-    const covered = wholeOrderDone ? qty : Math.min(qty, Number(deductedByItem[it.id] || 0));
+    const covered = wholeOrderDone ? qty : 0;
+    // Zavezené sudy fyzicky odjely — nesmí pokrýt další den ze zásoby.
+    if (wholeOrderDone && inWeek(ord?.delivery_date || ord?.order_date)) {
+      pool[k] = Math.max(0, (pool[k] || 0) - qty);
+    }
     bucket.ordered += qty;
     bucket.covered += covered;
     bucket.orders.push({
