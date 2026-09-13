@@ -1,0 +1,280 @@
+{
+ "format": "pivovar-zaloha-manifest",
+ "v": 1,
+ "datum": "2026-09-13T13:55:23.989Z",
+ "tabulky": {
+  "beers": {
+   "radku": 13,
+   "sha256": "04d9506e07098cce26731ddafb50aea2f50f1d8752e8cca3a18838e0042d2e2d"
+  },
+  "packages": {
+   "radku": 9,
+   "sha256": "ff6fd88ab0a9ea3a18ae8118c5d04c86af9ff685bd34fbbf37544e57b5a713f1"
+  },
+  "places": {
+   "radku": 57,
+   "sha256": "1718cece794f7a5d468897a25580009e1406c39cec561ddd14016b9afa41c4bf"
+  },
+  "vehicles": {
+   "radku": 2,
+   "sha256": "9b3ddc8a8e2abf92c1a491671f5b908c594dbd8d1d36af19382480fd998ba5d6"
+  },
+  "profiles": {
+   "radku": 2,
+   "sha256": "3f9ead80ae3d6052b25fcc009236c4a07c42ae9eef7d8ca6f89dcd183d77df57"
+  },
+  "allowed_emails": {
+   "radku": 2,
+   "sha256": "35bc89e5f5426a51ff7d2877d3b8e336c133f947db35fe5c9fc8e06612cf54b1"
+  },
+  "festival_equipment": {
+   "radku": 0,
+   "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+  },
+  "vycepy": {
+   "radku": 0,
+   "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+  },
+  "merch_items": {
+   "radku": 0,
+   "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+  },
+  "sklo_promo_entries": {
+   "radku": 0,
+   "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+  },
+  "exkurze": {
+   "radku": 0,
+   "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+  },
+  "notes": {
+   "radku": 0,
+   "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+  },
+  "reminders": {
+   "radku": 1,
+   "sha256": "3598bd474385c2d0cabfd37965c5a3ed645653871e30018d11de9822db506b6c"
+  },
+  "calendar_events": {
+   "radku": 192,
+   "sha256": "4555fb036289568a1f958fa5edcd01ad8a77365344190e3ca806fbc84ce04901"
+  },
+  "checklisty_hotovo": {
+   "radku": 66,
+   "sha256": "e656cf26de2a54a497d022a265346a610e9d83812f94aa696041859293d90286"
+  },
+  "feedback_notes": {
+   "radku": 1,
+   "sha256": "3ac5ea5559243110cf2b841ee0018d3c1ba5b163cbaafb7ff038038ca777f93e"
+  },
+  "obal_nakupy": {
+   "radku": 0,
+   "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+  },
+  "sdilene_poznamky": {
+   "radku": 0,
+   "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+  },
+  "zaznam_fotky": {
+   "radku": 0,
+   "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+  },
+  "whatsapp_senders": {
+   "radku": 1,
+   "sha256": "fced81074162e37a03dbbeb541002995c63c4355bfd063c85f124b454185e565"
+  },
+  "whatsapp_prikazy": {
+   "radku": 3,
+   "sha256": "f859496e4e34f274331046f1ee404b38cc4410013686c4c6a3752b69f2ee6e21"
+  },
+  "whatsapp_neodeslane": {
+   "radku": 0,
+   "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+  },
+  "whatsapp_rejected": {
+   "radku": 0,
+   "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+  },
+  "keg_sanitation_logs": {
+   "radku": 22,
+   "sha256": "b0d55bb23a89e930da0822349cba8243cbdd120dcc93c00b2a1262cc306bdf21"
+  },
+  "bottle_sanitation_logs": {
+   "radku": 8,
+   "sha256": "48fa8528f8279006353ceb3a4bf857389404c9713b9aaf44bf78c98722c09daf"
+  },
+  "tap_sanitation_logs": {
+   "radku": 0,
+   "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+  },
+  "bottling_line_maintenance_tasks": {
+   "radku": 0,
+   "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+  },
+  "audit_log": {
+   "radku": 0,
+   "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+  },
+  "migrace_aplikovane": {
+   "radku": 28,
+   "sha256": "a196a091beaea1bfb262a24d76d6198d9a850e3b565701965a2112be6716d1df"
+  },
+  "tank_uprava_log": {
+   "radku": 0,
+   "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+  },
+  "cellar_tanks": {
+   "radku": 11,
+   "sha256": "fdbfc8a90305b52ea211902dce19486ce0d3629577db9d712dc19d4c1c03306b"
+  },
+  "price_list": {
+   "radku": 0,
+   "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+  },
+  "cenik_zmeny": {
+   "radku": 0,
+   "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+  },
+  "akce": {
+   "radku": 1,
+   "sha256": "23641c707177763f4fb23bd60febd8cfa0ed4e315564fdf765bf777bd22f687d"
+  },
+  "bottling": {
+   "radku": 117,
+   "sha256": "21f82f663ed19472b5ae75e012191facc7966ffd2aa59cb6ab077f883b46f1fa"
+  },
+  "fasovani": {
+   "radku": 21,
+   "sha256": "59a0338756c5e3c2339576f48342014ef18b59f2480f5fe205c52e9799b46cb3"
+  },
+  "fasovani_private": {
+   "radku": 92,
+   "sha256": "14f31ff360d08186815151c20f5a7c7ce2e2c596fd05b0de879e71c211fc1c79"
+  },
+  "inventory": {
+   "radku": 119,
+   "sha256": "fd231cd11f9e0a1420b67f556123d6f86ca03c9e3d4e9833bf199e6404f2aa49"
+  },
+  "inventory_adjustments": {
+   "radku": 0,
+   "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+  },
+  "keg_prefuk": {
+   "radku": 1,
+   "sha256": "964efc9e4916765ebe306a6bd284c35fe4ced9c380eda2778d224f4d7d96dd92"
+  },
+  "kegging_plan_checks": {
+   "radku": 27,
+   "sha256": "16db90315df1fc04f0fe46038b368428b7651d689adfbc6fa3cf16b4869e5e7b"
+  },
+  "parser_aliases": {
+   "radku": 183,
+   "sha256": "b164324ce1ac6cd3454b12319c83d6d44c3363911d579ef87fe6bf9daaf1cc00"
+  },
+  "place_aliases": {
+   "radku": 7,
+   "sha256": "2ab712dc59fbd31dd9cf604a5493f6f90fb33b9c3198e6dfe46757ad6f39a46e"
+  },
+  "writeoffs": {
+   "radku": 3,
+   "sha256": "e0993b89cbf6b51708d6128212258594a1cff16ef115f10ae9c5fd7afa1697de"
+  },
+  "tydenni_inventura": {
+   "radku": 0,
+   "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+  },
+  "label_purchases": {
+   "radku": 0,
+   "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+  },
+  "srotovani": {
+   "radku": 0,
+   "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+  },
+  "zadavani": {
+   "radku": 0,
+   "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+  },
+  "bottling_plans": {
+   "radku": 5,
+   "sha256": "fe893290e5ac4d742d212e2dfa9f55006731bd9a63ab7173073fed0a218162bc"
+  },
+  "logbook_entries": {
+   "radku": 0,
+   "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+  },
+  "festival_equipment_loans": {
+   "radku": 0,
+   "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+  },
+  "akce_items": {
+   "radku": 5,
+   "sha256": "89ade98be4b11d1bd76d656f294378c40ed6d2cde409155707e745fa012c994e"
+  },
+  "cellar_tank_cycles": {
+   "radku": 2,
+   "sha256": "dcb88a74c1ba8bd7d8a77bf9f03374d5fe63cb5e24e46357845cded3e94567ee"
+  },
+  "cellar_transfers": {
+   "radku": 9,
+   "sha256": "38db0c1767bf76c1c7fd364bf2a9d5dda606c11553e7aabcb2dad57e1cbc1a62"
+  },
+  "kegging_tanks": {
+   "radku": 0,
+   "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+  },
+  "planovane_varky": {
+   "radku": 0,
+   "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+  },
+  "sanitation_logs": {
+   "radku": 10,
+   "sha256": "de7c0410cd83a4440986d3bf48c2e8a860c0bb0f0d14fcee8b9e2ad3292cb9c6"
+  },
+  "cellar_batches": {
+   "radku": 0,
+   "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+  },
+  "cellar_batch_mereni": {
+   "radku": 0,
+   "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+  },
+  "orders": {
+   "radku": 201,
+   "sha256": "0805ff3864f6dcfabb076a591497d5bbac7cdb41a73becdd61035b4f93c29582"
+  },
+  "whatsapp_incoming": {
+   "radku": 222,
+   "sha256": "fb7e02989087af06af542b77a49aff30b165312fb2f07573e1ba019b3d91dcfb"
+  },
+  "whatsapp_prijem_log": {
+   "radku": 119,
+   "sha256": "acd19c88f86359a605b8235a8a5a5090c73895a2cf851213b26a40e53cae182f"
+  },
+  "order_items": {
+   "radku": 611,
+   "sha256": "cfa58b4f6dd1091933c140d7865e96d9d724fe0b33d4205febedce16600490f1"
+  },
+  "kegging": {
+   "radku": 256,
+   "sha256": "827a28bfc1cade6c9a1fffe50d69171f72392c414c4f23f1a96186b42a56b92a"
+  },
+  "zavoz_deductions": {
+   "radku": 68,
+   "sha256": "946dc8d4fec4267a0dcc977cacddde1b71c374c1e6fdb17481cc48ebc3c30705"
+  },
+  "keg_returns": {
+   "radku": 0,
+   "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+  },
+  "vycepy_rezervace": {
+   "radku": 0,
+   "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+  },
+  "zavoz_ukoly_hotovo": {
+   "radku": 0,
+   "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+  }
+ },
+ "nejsouVDatabazi": []
+}
