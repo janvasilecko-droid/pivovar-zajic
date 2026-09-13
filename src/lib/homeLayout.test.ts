@@ -25,7 +25,6 @@ describe('getHomeLayout', () => {
     // a orders na „Stáčení a objednávky" (úvodní, 2. stránka). Poslední
     // prázdná stránka je místo na přidávání (ensureTrailingEmptyPage).
     expect(layout.pages).toEqual([[C], [A, B], []]);
-    expect(layout.scene).toBe('warm');
     expect(layout.tileOpacity).toBeCloseTo(0.62);
     // 'bottling' ani 'notes' nejsou v visibleIds, takže i výchozí slot
     // spodní lišty se ověří a spadne na 'home' — viz "spodní lišta: home je
@@ -76,14 +75,11 @@ describe('getHomeLayout', () => {
     expect(getHomeLayout({ tileOpacity: -1 }, [A]).tileOpacity).toBe(MIN_OPACITY);
   });
 
-  it('ignoruje neplatnou hodnotu scene a použije výchozí', () => {
-    const layout = getHomeLayout({ scene: 'neexistujici' }, [A]);
-    expect(layout.scene).toBe('warm');
-  });
-
-  it('přijme platný vlastní hex jako customAccent, neplatný nahradí výchozím', () => {
-    expect(getHomeLayout({ customAccent: '#00ff00' }, [A]).customAccent).toBe('#00ff00');
-    expect(getHomeLayout({ customAccent: 'nesmysl' }, [A]).customAccent).toBe('#ff6b6b');
+  it('starou volbu pozadí z uloženého profilu zahodí (pozadí je jen bílé/tmavé)', () => {
+    const layout = getHomeLayout({ scene: 'ocean', customAccent: '#00ff00', bgSvetlost: 0.5 } as any, [A]);
+    expect(layout).not.toHaveProperty('scene');
+    expect(layout).not.toHaveProperty('customAccent');
+    expect(layout).not.toHaveProperty('bgSvetlost');
   });
 
   it('spodní lišta: "home" je vždy platné, modul bez práva spadne na "home"', () => {

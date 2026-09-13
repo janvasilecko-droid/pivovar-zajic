@@ -18,7 +18,6 @@ export type TileColor =
   | 'tangerine' | 'honey' | 'peach' | 'mustard'
   | 'lavender' | 'violet' | 'grape' | 'magenta'
   | 'charcoal';
-export type Scene = 'warm' | 'sunset' | 'ocean' | 'forest' | 'night' | 'white' | 'sky' | 'mint' | 'lavender' | 'slate' | 'custom';
 
 // Barva dlaždice může být buď jméno přednastaveného odstínu (TileColor), nebo
 // libovolný hex ("#rrggbb") z vlastního výběru barvy — proto plain string.
@@ -67,18 +66,10 @@ export type HomeLayout = {
   overrides: Partial<Record<TileId, TileOverride>>;
   /** Skupinové dlaždice (id → seznam členů), viz mergeTiles/addToGroup/removeFromGroup. */
   groups: Record<GroupId, TileGroup>;
-  scene: Scene;
-  /** Vlastní barva pozadí (hex), použije se jen když scene === 'custom'. */
-  customAccent: string;
   /** Průhlednost skleněných dlaždic (viz MIN/MAX_OPACITY) — jako "Full Screen Picture" efekt na WP */
   tileOpacity: number;
   /** Mezera mezi dlaždicemi v px (viz MIN/MAX_TILE_GAP). */
   tileGap: number;
-  /**
-   * Zesvětlení pozadí 0–0,85. Přes scénu se položí bílý závoj — barevné
-   * pozadí se dá ztlumit, aniž by se muselo měnit na bílou scénu.
-   */
-  bgSvetlost: number;
   /** 4 zástupci ve spodní mobilní liště (Layout.tsx) — 'home' je vždy platná volba. */
   dock: Page[];
   /** Dlaždice schované z mřížky (modul zůstává dostupný, jen nezabírá místo). */
@@ -199,8 +190,6 @@ export const TILE_COLORS: TileColor[] = [
 export const HEX_UPOZORNENI = '#c1121f';
 /** Podklad dlaždice „blíží se" (hs-tile-warn v HomeScreen.css). */
 export const HEX_VAROVANI = '#b45309';
-export const SCENES: Scene[] = ['warm', 'sunset', 'ocean', 'forest', 'night', 'white', 'sky', 'mint', 'lavender', 'slate', 'custom'];
-const DEFAULT_CUSTOM_ACCENT = '#ff6b6b';
 
 // Plné (neprůhledné) odstíny pro barevné tečky ve výběru — samotná dlaždice
 // pak stejnou barvu použije poloprůhledně (viz HomeScreen.css .hs-tile.c-*).
@@ -398,13 +387,8 @@ export const DOCK_SIZE = DEFAULT_DOCK.length;
 export const MIN_DOCK = 2;
 export const MAX_DOCK = 6;
 
-const DEFAULT_SCENE: Scene = 'warm';
 const DEFAULT_OPACITY = 0.62;
 export const MIN_OPACITY = 0.3;
-/** Zesvětlení pozadí: 0 = scéna beze změny, 0,85 = skoro bílá. */
-export const MIN_SVETLOST = 0;
-export const MAX_SVETLOST = 0.85;
-const DEFAULT_SVETLOST = 0;
 export const MAX_OPACITY = 0.9;
 
 const DEFAULT_TILE_GAP = 4;
@@ -864,16 +848,10 @@ export function getHomeLayout(raw: unknown, visibleIds: Page[], extraIds: Page[]
     };
   });
 
-  const scene: Scene = SCENES.includes(saved.scene as Scene) ? (saved.scene as Scene) : DEFAULT_SCENE;
   const rawOpacity = typeof saved.tileOpacity === 'number' ? saved.tileOpacity : DEFAULT_OPACITY;
   const tileOpacity = Math.min(MAX_OPACITY, Math.max(MIN_OPACITY, rawOpacity));
   const rawGap = typeof saved.tileGap === 'number' ? saved.tileGap : DEFAULT_TILE_GAP;
   const tileGap = Math.min(MAX_TILE_GAP, Math.max(MIN_TILE_GAP, rawGap));
-  const rawSvetlost = typeof (saved as any).bgSvetlost === 'number' ? (saved as any).bgSvetlost : DEFAULT_SVETLOST;
-  const bgSvetlost = Math.min(MAX_SVETLOST, Math.max(MIN_SVETLOST, rawSvetlost));
-  const customAccent = typeof saved.customAccent === 'string' && /^#[0-9a-fA-F]{3,6}$/.test(saved.customAccent)
-    ? saved.customAccent
-    : DEFAULT_CUSTOM_ACCENT;
 
   // Spodní lišta: počet slotů je teď volitelný (MIN_DOCK–MAX_DOCK, ne napevno
   // 4) — viz addDockSlot/removeDockSlot. Každý slot musí být buď 'home' (vždy
@@ -912,11 +890,8 @@ export function getHomeLayout(raw: unknown, visibleIds: Page[], extraIds: Page[]
     pages,
     overrides: filledOverrides,
     groups: resolvedGroups,
-    scene,
     tileOpacity,
     tileGap,
-    bgSvetlost,
-    customAccent,
     dock,
     hidden,
     fixedColors,

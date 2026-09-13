@@ -31,7 +31,7 @@ import {
   queueLength, onQueueChange, onConnectivityChange, syncQueue, clearQueue,
   getQueue, getLastSyncFailures, popisOperace, removeOp,
 } from '../lib/offline';
-import { SCENES, DEFAULT_DOCK, hexToRgba, COLOR_HEX, type Scene, type TileColor } from '../lib/homeLayout';
+import { DEFAULT_DOCK, COLOR_HEX, type TileColor } from '../lib/homeLayout';
 import { zavibruj } from '../lib/haptika';
 import { IkonaSud, IkonaLahev, IkonaVycep } from './ikony';
 import '../screens/HomeScreen.css';
@@ -173,18 +173,6 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
   // žádnou lištu — záložka má být úplně nahoře, stejně jako dlaždice na Domů.
   const isTabbed = TABBED_PAGES.has(navPageFor(page));
   const hideHeader = isHome || isTabbed;
-  const homeSceneRaw = (profile as any)?.home_layout?.scene;
-  const homeScene: Scene = SCENES.includes(homeSceneRaw) ? homeSceneRaw : 'warm';
-  const homeCustomAccent: string = (profile as any)?.home_layout?.customAccent || '#ff6b6b';
-  // Sytější "umytí" barvou pro celoobrazovkovou scénu 'custom' — samotný hex
-  // by na bílém podkladu vypadal jako plná barva přes celou obrazovku, ne
-  // jako jemné pozadí; průhledná verze dá stejný efekt jako přednastavené
-  // scény (viz HomeScreen.css .hs-fullscreen-scene[data-scene]).
-  const homeCustomWash = hexToRgba(homeCustomAccent, 0.55);
-  // Zesvětlení pozadí — bílý závoj přes scénu. Nastavuje se v úpravě
-  // rozložení plochy (HomeScreen.tsx) a platí i mimo Domů, protože scéna je
-  // celoobrazovková.
-  const homeBgSvetlost: number = Number((profile as any)?.home_layout?.bgSvetlost) || 0;
   const savedDock = (profile as any)?.home_layout?.dock;
   const dockPages: Page[] = Array.isArray(savedDock) && savedDock.length > 0 ? savedDock : DEFAULT_DOCK;
   // Barva ikony+popisku spodní lišty na Domů = stejná barva, jakou má
@@ -764,12 +752,9 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
             </button>
           </div>
         )}
-        {/* Barevné pozadí (scéna) — dřív jen na Domů, teď na všech
-            stránkách, ať appka vypadá jednotně (viz homeScene/customAccent
-            výše, nastavuje se v HomeScreen.tsx "Upravit rozložení" → POZADÍ). */}
-        <div className="hs-fullscreen-scene" data-scene={homeScene} style={{ ['--hs-custom' as any]: homeCustomAccent, ['--hs-custom-wash' as any]: homeCustomWash, ['--hs-svetlost' as any]: homeBgSvetlost }}>
-          <i className="b1" /><i className="b2" /><i className="b3" /><i className="b4" />
-        </div>
+        {/* Pozadí aplikace — jen bílé, v tmavém režimu tmavé (HomeScreen.css).
+            Výběr barevných scén se 13. 9. 2026 zrušil na přání uživatele. */}
+        <div className="hs-fullscreen-scene" />
         {/* Top Header - Desktop & Mobile. Na Domů a na stránkách s vlastní
             TabBar (viz TABBED_PAGES) úplně schovaná — dlaždice/záložky mají
             být úplně nahoře, žádný rámeček/lišta nad nimi. Jinde skleněná/

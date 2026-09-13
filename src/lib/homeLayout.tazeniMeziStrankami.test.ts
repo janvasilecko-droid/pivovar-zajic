@@ -61,7 +61,7 @@ describe('moveTileToPageCell', () => {
       orders: { x: 1, y: 0, w: 1, h: 1 },
       kegging: { x: 0, y: 0, w: 1, h: 1 },
     },
-    hidden: [], dock: [], fixedColors: {}, scene: 'warm', tileOpacity: 1, tileGap: 8,
+    hidden: [], dock: [], fixedColors: {}, tileOpacity: 1, tileGap: 8,
   } as unknown as HomeLayout);
 
   it('přesune dlaždici na druhou stránku i na zadanou buňku', () => {

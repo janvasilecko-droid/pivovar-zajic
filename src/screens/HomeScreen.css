@@ -29,98 +29,9 @@
      vsechno misto aby byla vzadu (staticke prvky maluji driv nez
      positionovane s z-index 0, ale POZDEJI nez ty se zapornym). */
   position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none;
-  background: #fbfaff;
+  background: #ffffff;
   transition: background 0.25s ease;
 }
-/* Základní podklad scény je barevně odlišený gradient (ne jednotná bílá pro
-   všechny scény) — sytější/tmavší odstíny (stejné barvy jako --hs-* výš, ne
-   jejich zesvětlené pastelové verze), ať je změna scény na první pohled
-   vidět, ne jen jemný nádech skoro k nerozeznání od bílé. */
-.hs-fullscreen-scene[data-scene="warm"]   { background: linear-gradient(160deg, var(--hs-coral) 0%, var(--hs-rose) 55%, var(--hs-plum) 100%); }
-.hs-fullscreen-scene[data-scene="sunset"] { background: linear-gradient(160deg, var(--hs-amber2) 0%, var(--hs-coral) 55%, var(--hs-orchid) 100%); }
-.hs-fullscreen-scene[data-scene="ocean"]  { background: linear-gradient(160deg, var(--hs-sky) 0%, var(--hs-indigo) 55%, var(--hs-teal) 100%); }
-.hs-fullscreen-scene[data-scene="forest"] { background: linear-gradient(160deg, var(--hs-mint) 0%, var(--hs-forest) 55%, var(--hs-gold) 100%); }
-.hs-fullscreen-scene[data-scene="night"]  { background: linear-gradient(160deg, var(--hs-plum) 0%, var(--hs-indigo) 55%, var(--hs-slate) 100%); }
-.hs-fullscreen-scene[data-scene="custom"] { background: linear-gradient(160deg, var(--hs-custom, #ff6b6b) 0%, var(--hs-custom-wash, rgba(255,107,107,0.55)) 60%, #2b2438 100%); }
-/* Světlejší/neutrálnější scény (bílá/modrá/máta/levandule/šedá) — na rozdíl
-   od sytých scén výš zůstávají blíž bílé, jen s jemným barevným nádechem. */
-.hs-fullscreen-scene[data-scene="white"]    { background: linear-gradient(160deg, #fdfcff 0%, #f3f0ff 55%, #e6ecfb 100%); }
-.hs-fullscreen-scene[data-scene="sky"]      { background: linear-gradient(160deg, #bfe3ff 0%, #7cc4fb 55%, #3f7dd6 100%); }
-.hs-fullscreen-scene[data-scene="mint"]     { background: linear-gradient(160deg, #d4f7ec 0%, #8de8cf 55%, #2fb894 100%); }
-.hs-fullscreen-scene[data-scene="lavender"] { background: linear-gradient(160deg, #ece4ff 0%, #cbb6f7 55%, #9a72e0 100%); }
-.hs-fullscreen-scene[data-scene="slate"]    { background: linear-gradient(160deg, #eef1f5 0%, #d7dde5 55%, #a3aebd 100%); }
-/* Vyšší průhlednost bublin (dřív 0.4 / 0.22 pro night) — na displeji plném
-   poloprůhledných dlaždic byl rozdíl mezi scénami skoro neznatelný, "jako by
-   se pozadí vůbec neměnilo" (viz i sytější gradient výše). */
-.hs-fullscreen-scene i {
-  position: absolute; border-radius: 50%; filter: blur(70px); opacity: 0.6;
-}
-.hs-fullscreen-scene .b1 { width: 55%; height: 55%; left: -10%; top: -12%; }
-.hs-fullscreen-scene .b2 { width: 46%; height: 46%; right: -8%; top: 2%; }
-.hs-fullscreen-scene .b3 { width: 50%; height: 50%; left: 14%; bottom: -18%; }
-.hs-fullscreen-scene .b4 { width: 36%; height: 36%; right: 6%; bottom: -8%; opacity: 0.32; }
-
-.hs-fullscreen-scene[data-scene="warm"] .b1  { background: var(--hs-coral); }
-.hs-fullscreen-scene[data-scene="warm"] .b2  { background: var(--hs-indigo); }
-.hs-fullscreen-scene[data-scene="warm"] .b3  { background: var(--hs-mint); }
-.hs-fullscreen-scene[data-scene="warm"] .b4  { background: var(--hs-orchid); }
-
-.hs-fullscreen-scene[data-scene="sunset"] .b1 { background: var(--hs-amber2); }
-.hs-fullscreen-scene[data-scene="sunset"] .b2 { background: var(--hs-coral); }
-.hs-fullscreen-scene[data-scene="sunset"] .b3 { background: var(--hs-citrus); }
-.hs-fullscreen-scene[data-scene="sunset"] .b4 { background: var(--hs-orchid); }
-
-.hs-fullscreen-scene[data-scene="ocean"] .b1 { background: var(--hs-sky); }
-.hs-fullscreen-scene[data-scene="ocean"] .b2 { background: var(--hs-indigo); }
-.hs-fullscreen-scene[data-scene="ocean"] .b3 { background: var(--hs-mint); }
-.hs-fullscreen-scene[data-scene="ocean"] .b4 { background: var(--hs-citrus); }
-
-.hs-fullscreen-scene[data-scene="forest"] .b1 { background: var(--hs-mint); }
-.hs-fullscreen-scene[data-scene="forest"] .b2 { background: var(--hs-forest); }
-.hs-fullscreen-scene[data-scene="forest"] .b3 { background: var(--hs-citrus); }
-.hs-fullscreen-scene[data-scene="forest"] .b4 { background: var(--hs-amber2); }
-
-.hs-fullscreen-scene[data-scene="night"] .b1 { background: var(--hs-plum); }
-.hs-fullscreen-scene[data-scene="night"] .b2 { background: var(--hs-indigo); }
-.hs-fullscreen-scene[data-scene="night"] .b3 { background: var(--hs-orchid); }
-.hs-fullscreen-scene[data-scene="night"] .b4 { background: var(--hs-plum); }
-.hs-fullscreen-scene[data-scene="night"] i { opacity: 0.4; }
-
-.hs-fullscreen-scene[data-scene="white"] .b1 { background: #ffe8d6; }
-.hs-fullscreen-scene[data-scene="white"] .b2 { background: #dbe4ff; }
-.hs-fullscreen-scene[data-scene="white"] .b3 { background: #e0f7ef; }
-.hs-fullscreen-scene[data-scene="white"] .b4 { background: #f3d9ff; }
-.hs-fullscreen-scene[data-scene="white"] i { opacity: 0.4; }
-
-.hs-fullscreen-scene[data-scene="sky"] .b1 { background: var(--hs-sky); }
-.hs-fullscreen-scene[data-scene="sky"] .b2 { background: var(--hs-cobalt, #1c7ed6); }
-.hs-fullscreen-scene[data-scene="sky"] .b3 { background: var(--hs-azure, #339af0); }
-.hs-fullscreen-scene[data-scene="sky"] .b4 { background: var(--hs-navy, #1864ab); }
-
-.hs-fullscreen-scene[data-scene="mint"] .b1 { background: var(--hs-mint); }
-.hs-fullscreen-scene[data-scene="mint"] .b2 { background: var(--hs-teal); }
-.hs-fullscreen-scene[data-scene="mint"] .b3 { background: var(--hs-jade, #12b886); }
-.hs-fullscreen-scene[data-scene="mint"] .b4 { background: var(--hs-mint); }
-
-.hs-fullscreen-scene[data-scene="lavender"] .b1 { background: var(--hs-orchid); }
-.hs-fullscreen-scene[data-scene="lavender"] .b2 { background: var(--hs-indigo); }
-.hs-fullscreen-scene[data-scene="lavender"] .b3 { background: var(--hs-plum); }
-.hs-fullscreen-scene[data-scene="lavender"] .b4 { background: var(--hs-orchid); }
-
-.hs-fullscreen-scene[data-scene="slate"] .b1 { background: var(--hs-slate); }
-.hs-fullscreen-scene[data-scene="slate"] .b2 { background: #94a3b8; }
-.hs-fullscreen-scene[data-scene="slate"] .b3 { background: var(--hs-slate); }
-.hs-fullscreen-scene[data-scene="slate"] .b4 { background: #94a3b8; }
-.hs-fullscreen-scene[data-scene="slate"] i { opacity: 0.4; }
-
-/* Vlastní barva pozadí — --hs-custom nastavuje inline Layout.tsx podle
-   home_layout.customAccent. Všechny 4 "bubliny" mají stejný odstín, různé
-   velikosti/pozice/průhlednost jim i tak dají trochu hloubky. */
-.hs-fullscreen-scene[data-scene="custom"] .b1,
-.hs-fullscreen-scene[data-scene="custom"] .b2,
-.hs-fullscreen-scene[data-scene="custom"] .b3,
-.hs-fullscreen-scene[data-scene="custom"] .b4 { background: var(--hs-custom, #ff6b6b); }
-
 /* Skleněná/poloprůhledná hlavička a spodní lišta — dřív jen na Domů (přes
    [data-home-chrome]), teď stejný vzhled na VŠECH stránkách (viz
    Layout.tsx), ať skrz ně prosvítá barevná scéna .hs-fullscreen-scene i
@@ -166,20 +77,6 @@
 }
 .hs-controls-group { display: flex; align-items: center; gap: 8px; }
 .hs-controls-label { font-size: 11px; font-weight: 700; color: rgba(43,36,56,0.55); text-transform: uppercase; letter-spacing: 0.06em; }
-.hs-scene-swatch {
-  width: 32px; height: 32px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; padding: 0;
-}
-.hs-scene-swatch.active { border-color: #2b2438; }
-.hs-scene-swatch.warm   { background: conic-gradient(from 45deg, var(--hs-coral), var(--hs-indigo), var(--hs-mint), var(--hs-orchid)); }
-.hs-scene-swatch.sunset { background: conic-gradient(from 45deg, var(--hs-amber2), var(--hs-coral), var(--hs-citrus), var(--hs-orchid)); }
-.hs-scene-swatch.ocean  { background: conic-gradient(from 45deg, var(--hs-sky), var(--hs-indigo), var(--hs-mint), var(--hs-citrus)); }
-.hs-scene-swatch.forest { background: conic-gradient(from 45deg, var(--hs-mint), var(--hs-forest), var(--hs-citrus), var(--hs-amber2)); }
-.hs-scene-swatch.night  { background: conic-gradient(from 45deg, var(--hs-plum), var(--hs-indigo), var(--hs-orchid), var(--hs-plum)); }
-.hs-scene-swatch.white    { background: conic-gradient(from 45deg, #fdfcff, #dbe4ff, #e0f7ef, #f3d9ff); border-color: rgba(43,36,56,0.14); }
-.hs-scene-swatch.sky      { background: conic-gradient(from 45deg, #bfe3ff, #7cc4fb, #3f7dd6, #1c7ed6); }
-.hs-scene-swatch.mint     { background: conic-gradient(from 45deg, #d4f7ec, #8de8cf, #2fb894, var(--hs-teal)); }
-.hs-scene-swatch.lavender { background: conic-gradient(from 45deg, #ece4ff, #cbb6f7, #9a72e0, var(--hs-indigo)); }
-.hs-scene-swatch.slate    { background: conic-gradient(from 45deg, #eef1f5, #d7dde5, #a3aebd, var(--hs-slate)); }
 .hs-opacity-slider { width: 110px; accent-color: var(--hs-coral); }
 .hs-dock-group { flex-wrap: wrap; }
 .hs-dock-slot { display: inline-flex; align-items: center; gap: 2px; }
@@ -941,10 +838,6 @@
   position: absolute; inset: -4px; width: 44px; height: 44px; opacity: 0; cursor: pointer; border: none; padding: 0;
 }
 
-.hs-bg-custom input[type="color"] {
-  width: 32px; height: 32px; border-radius: 50%; border: 2px solid rgba(43,36,56,0.2); cursor: pointer; padding: 0; background: none;
-}
-
 /* Vlastní barvy pevných utilitních dlaždic (Hledat/Parsování/Odhlásit se) —
    malý kulatý color picker s popiskem, v panelu Upravit rozložení. */
 .hs-fixed-color { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: rgba(43,36,56,0.7); }
@@ -952,28 +845,9 @@
   width: 28px; height: 28px; border-radius: 50%; border: 2px solid rgba(43,36,56,0.2); cursor: pointer; padding: 0; background: none;
 }
 
-/* ───────────────────────────────────────────────────────────────────────
-   SCÉNA V TMAVÉM REŽIMU
-   ───────────────────────────────────────────────────────────────────────
-   Barevná scéna se od jisté doby kreslí na VŠECH stránkách, ne jen na Domů
-   (viz Layout.tsx) — je to fixed vrstva se z-indexem -1 pod celou aplikací.
-   Jenže scény jsou světlé, takže v tmavém režimu prosvítala krémová plocha
-   skrz skleněnou hlavičku i spodní lištu a světlé písmo v nich bylo
-   neviditelné. Tmavé karty nad tím zároveň vypadaly jako díry.
-
-   Řeší to jeden tmavý závoj místo přepisování jedenácti scén: barva zůstane
-   prosvítat na 12 %, takže je pořád poznat, jestli má člověk vybranou
-   Levanduli nebo Les — jen v noční síle. Funguje i pro scénu "Vlastní",
-   kde si barvu volí uživatel a vypsat by se nedala.
-
-   ::after, ne filter na kontejneru: bubliny uvnitř (.b1–.b4) jsou rozmazané
-   přes blur(70px) a filter by je přepočítával při každém překreslení. */
-:root.dark .hs-fullscreen-scene::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: rgb(15 23 42 / 0.88);
-}
+/* Pozadí v tmavém režimu — stejná tmavá jako lišta prohlížeče (theme.ts).
+   Barevné scény se 13. 9. 2026 zrušily: pozadí je jen bílé, nebo tmavé. */
+:root.dark .hs-fullscreen-scene { background: #0f172a; }
 
 /* V tmavém režimu NENÍ řešením slabší bílý závoj, ale TMAVÉ sklo. Bílý závoj
    se musel držet na 6 %, aby z lišty nebyl světlý pruh — jenže tím zůstala
@@ -1103,34 +977,6 @@
   margin-top: 1px;
   color: #e11d48;
 }
-
-/* 🔆 Zesvětlení pozadí — bílý závoj přes scénu.
-   Dřív se barevné pozadí dalo ztlumit jen přepnutím na bílou scénu, čímž
-   se ztratil odstín, který si člověk vybral. Takhle zůstane a jen zesvětlí. */
-.hs-fullscreen-scene::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: #fff;
-  opacity: var(--hs-svetlost, 0);
-  pointer-events: none;
-  transition: opacity 0.25s ease;
-}
-
-/* Kolečka výběru pozadí byla ŠIŠATÁ: ve flex řádku plném ovládacích prvků
-   je flexbox smrskl na šířku, výška zůstala, a z kruhu byl ovál.
-   `flex-shrink: 0` je drží kulaté. */
-.hs-scene-swatch { flex-shrink: 0; }
-
-/* Posuvník zesvětlení vedle koleček pozadí. */
-.hs-svetlost {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  flex-shrink: 0;
-  color: #2b2438;
-}
-.hs-svetlost svg { flex-shrink: 0; }
 
 /* Přepínač světlý / tmavý / podle systému přímo v úpravě plochy — dřív byl
    jen v Aplikace & Nastavení, kde ho při úpravě vzhledu nikdo nehledal. */

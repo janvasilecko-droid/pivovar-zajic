@@ -9,7 +9,7 @@ import { lazy, Suspense, useEffect, useMemo, useState, useRef } from 'react';
 import {
   CalendarX2, CloudUpload, Download, Check, ChevronLeft, ChevronRight, Lightbulb, LogOut, Palette, Plus, Search, SlidersHorizontal, Trash2, TriangleAlert, X,
   Truck, ClipboardList, MessageCircle, PlusCircle, Snowflake, FlaskConical, CalendarDays, BarChart3, Package as PackageIcon, TrendingDown, GlassWater, BookOpen, Droplet, Car, FileText, ClipboardCheck, Shield, Store, Receipt, MapPin, Beer as BeerIcon, Tag, Sparkles, Compass, Wheat, Zap, ArrowLeftRight, StickyNote,
-  AlarmClock, Play, Pause, RotateCcw, Pin, Radio, SkipForward, Flame, Sun, Settings, LayoutGrid, Wind,
+  AlarmClock, Play, Pause, RotateCcw, Pin, Radio, SkipForward, Flame, Settings, LayoutGrid, Wind,
 } from 'lucide-react';
 import { NAV, EXTRA_NAV, type Page, type NavItem } from '../components/Layout';
 import LauncherTile, { tileGridStyle } from '../components/LauncherTile';
@@ -39,8 +39,7 @@ import {
   hexToRgba,
   PAGE_CATEGORY, CATEGORY_ORDER, CATEGORY_SHADES, type Category,
   moveTileToPageCell, okrajProPrepnuti, dalsiStranka, rozdelVseDoStranek, idsKRozmisteni, vyrovnejStranku, VYCHOZI_STRANKA, type OkrajTazeni,
-  MIN_SVETLOST, MAX_SVETLOST,
-  SCENES, MIN_OPACITY, MAX_OPACITY, MIN_TILE_GAP, MAX_TILE_GAP, MIN_W, MAX_W, MIN_H, MAX_H, TILE_COLORS, COLOR_HEX, defaultTileColor,
+  MIN_OPACITY, MAX_OPACITY, MIN_TILE_GAP, MAX_TILE_GAP, MIN_W, MAX_W, MIN_H, MAX_H, TILE_COLORS, COLOR_HEX, defaultTileColor,
   GRID_COLS_DESKTOP, GRID_COLS_MOBILE, MOBILE_BREAKPOINT_PX, ROW_HEIGHT_DESKTOP, ROW_HEIGHT_MOBILE, MIN_DOCK, MAX_DOCK,
   CO2_TILE_ID,
   type HomeLayout, type TileColor, type TileId, type GroupId, type CountdownTileId,
@@ -99,12 +98,6 @@ type VehicleAlert = { vehicleName: string; label: string; status: 'warning' | 'e
 
 /** Zavřený pruh časovače na ploše — volba se pamatuje i po zavření appky. */
 export const KLIC_PRUH_CASOVACE = 'pivovar_pruh_casovace_skryt';
-
-const SCENE_LABELS: Record<string, string> = {
-  warm: 'Teplá', sunset: 'Západ', ocean: 'Oceán', forest: 'Les', night: 'Noc',
-  white: 'Bílá', sky: 'Modrá', mint: 'Máta', lavender: 'Levandule', slate: 'Šedá',
-  custom: 'Vlastní',
-};
 
 export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSection?: string, subTab?: string) => void }) {
   const { profile, user, patchProfile, signOut } = useAuth();
@@ -602,12 +595,6 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   }
   function fixedColor(key: string, fallback: TileColor): string {
     return layout.fixedColors[key] ?? fallback;
-  }
-  function handleSceneChange(scene: HomeLayout['scene']) {
-    persist({ ...layout, scene });
-  }
-  function handleCustomAccentChange(hex: string) {
-    persist({ ...layout, scene: 'custom', customAccent: hex });
   }
   function handleOpacityChange(tileOpacity: number) {
     persist({ ...layout, tileOpacity });
@@ -1412,40 +1399,6 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
               ))}
             </div>
 
-            <div className="hs-controls-group">
-              <span className="hs-controls-label">Pozadí</span>
-              {SCENES.filter((s) => s !== 'custom').map((s) => (
-                <button
-                  key={s}
-                  className={`hs-scene-swatch ${s} ${s === layout.scene ? 'active' : ''}`}
-                  title={SCENE_LABELS[s]}
-                  onClick={() => handleSceneChange(s)}
-                />
-              ))}
-              {/* Zesvětlení pozadí — přes scénu se položí bílý závoj. Dřív se
-                  barevné pozadí dalo ztlumit jen tím, že se přepnulo na bílou
-                  scénu, čímž se ztratil odstín, který si člověk vybral. */}
-              <label className="hs-svetlost" title="Zesvětlit pozadí">
-                <Sun size={14} />
-                <input
-                  type="range"
-                  min={MIN_SVETLOST}
-                  max={MAX_SVETLOST}
-                  step={0.05}
-                  value={layout.bgSvetlost}
-                  onChange={(e) => persist({ ...layout, bgSvetlost: Number(e.target.value) })}
-                  className="hs-opacity-slider"
-                  aria-label="Zesvětlit pozadí"
-                />
-              </label>
-              <label className="hs-bg-custom" title="Vlastní barva pozadí">
-                <input
-                  type="color"
-                  value={layout.customAccent}
-                  onChange={(e) => handleCustomAccentChange(e.target.value)}
-                />
-              </label>
-            </div>
             <div className="hs-controls-group">
               <span className="hs-controls-label">Průhlednost</span>
               <input
