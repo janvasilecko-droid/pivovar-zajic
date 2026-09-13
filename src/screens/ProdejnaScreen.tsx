@@ -56,6 +56,10 @@ const emptyRows = (count: number): RowInput[] => Array.from({ length: count }, e
 
 export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovani_private', title = 'Fasování', Ikona = Store, showVycep = false }: { setPage?: (p: any, sec?: string) => void; mode?: 'entry_only' | 'overviews_only' | 'all'; table?: string; title?: string; Ikona?: LucideIcon; showVycep?: boolean } = {}) {
   const [rows, setRows] = useState<EntryRow[]>([]);
+  /** Proč se nenačetlo — aby se selhání nepletlo s „nic tu není". */
+  const [chybaNacteni, setChybaNacteni] = useState<string | null>(null);
+  /** Hlídá, že starší odpověď nepřepíše novější (viz load níž). */
+  const zacniNacteni = usePosledniNacteni();
   // 🔁 Naposledy použitá piva jdou v dlaždicích dopředu (viz
   // lib/naposledyPouzite.ts). Zbytek zůstává v pořadí číselníku.
   //
@@ -173,13 +177,25 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
     return [...bottles, ...kegs];
   }, [packages]);
 
+  /**
+   * Poslední načtení vyhrává a selhání se pozná od prázdna.
+   *
+   * ⚠️ Tohle se ZTRATILO při slučování 8. 9. 2026 — import v hlavičce zůstal,
+   * ale použití zmizelo, takže se dvě věci tiše vrátily: selhané načtení se
+   * tvářilo jako „zatím žádné záznamy" a pomalejší odpověď mohla přepsat
+   * novější. Odhaleno až auditem; ESLint to hlásil jen jako nepoužitý import
+   * (varování), takže to prošlo přes všechny kontroly.
+   */
   async function load(silent = false) {
+    const smiZapsat = zacniNacteni();
     if (!silent && !rows.length) setLoading(true);
     const [fp, b, p] = await Promise.all([
       supabase.from(table).select('*').order('entry_date', { ascending: false }).order('created_at', { ascending: false }),
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
     ]);
+    if (!smiZapsat()) return;
+    setChybaNacteni(prvniChyba(fp, b, p));
     setRows((fp.data as EntryRow[]) ?? []);
     if (b.data) setBeers(b.data as Beer[]);
     if (p.data) setPackages(p.data as Package[]);
@@ -717,7 +733,13 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
             {loading ? (
               <Spinner />
             ) : rows.length === 0 ? (
-              <EmptyState text="Zatím žádné záznamy. Přidej první v záložce Zápis." icon={PenLine} />
+              chybaNacteni ? (
+                <EmptyState
+                  varianta="chyba"
+                  text={`Záznamy se nepodařilo načíst: ${chybaNacteni}`}
+                  akce={{ popis: 'Zkusit znovu', onClick: () => load() }}
+                />
+              ) : <EmptyState text="Zatím žádné záznamy. Přidej první v záložce Zápis." icon={PenLine} />
             ) : filteredRows.length === 0 ? (
               <EmptyState text="Žádné záznamy pro toto období / filtr." icon={CalendarDays} />
             ) : (() => {

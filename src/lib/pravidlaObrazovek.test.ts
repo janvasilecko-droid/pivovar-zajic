@@ -10,7 +10,7 @@
  * se stala nepozorovaně.
  */
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import {
   diffOrderItems, rozsahOdpovedi, slozNavrh, vypadaJakoZmenaObjednavky,
 } from './whatsappAmendment';
@@ -271,6 +271,54 @@ describe('přesouvání dlaždic na ploše', () => {
     // přetočilo ještě jednou.
     const nahoru = zdroj.slice(zdroj.indexOf('function handleSwipePointerUp'));
     expect(nahoru.slice(0, nahoru.indexOf('\n  }'))).toContain('longPressFired.current');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 1e) Pojistka načítání nesmí zůstat jen naimportovaná
+// ---------------------------------------------------------------------------
+describe('pojistky načítání jsou opravdu použité', () => {
+  // Odhaleno auditem 13. 9. 2026: při slučování 47 souborů zůstal
+  // v ProdejnaScreen import `usePosledniNacteni, prvniChyba`, ale jejich
+  // POUŽITÍ zmizelo. Tiše se tím vrátily dvě věci:
+  //   • selhané načtení se tvářilo jako „zatím žádné záznamy",
+  //   • pomalejší odpověď mohla přepsat novější.
+  //
+  // Přes všechny kontroly to prošlo: tsc je spokojený (import se použije
+  // v typu), testy nic nevědí a ESLint hlásí nepoužitý import jen jako
+  // VAROVÁNÍ, kterých je přes tisíc. Proto vlastní test.
+  const obrazovky = readdirSync('src/screens')
+    .filter((f) => f.endsWith('.tsx') && !f.includes('.test.'))
+    .map((f) => `src/screens/${f}`);
+
+  it('kdo si naimportuje usePosledniNacteni, ten ho i volá', () => {
+    const jenImport = obrazovky.filter((cesta) => {
+      const zdroj = readFileSync(cesta, 'utf8');
+      if (!/import[^;]*usePosledniNacteni/.test(zdroj)) return false;
+      // Musí být i volání, ne jen zmínka v importu.
+      return !/usePosledniNacteni\(\)/.test(zdroj);
+    });
+    expect(jenImport, 'naimportováno, ale nepoužito — pojistka neplatí').toEqual([]);
+  });
+
+  it('kdo si naimportuje prvniChyba, ten ji i volá', () => {
+    const jenImport = obrazovky.filter((cesta) => {
+      const zdroj = readFileSync(cesta, 'utf8');
+      if (!/import[^;]*prvniChyba/.test(zdroj)) return false;
+      return !/prvniChyba\(/.test(zdroj.replace(/import[^;]*;/g, ''));
+    });
+    expect(jenImport, 'naimportováno, ale nepoužito — selhání se ukáže jako prázdno').toEqual([]);
+  });
+
+  it('kde se hlídá poslední načtení, tam se i čte jeho výsledek', () => {
+    // `zacniNacteni()` bez následného `smiZapsat()` je pojistka, která se
+    // nastaví a nikdy nezeptá — tedy žádná pojistka.
+    const bezKontroly = obrazovky.filter((cesta) => {
+      const zdroj = readFileSync(cesta, 'utf8');
+      if (!/usePosledniNacteni\(\)/.test(zdroj)) return false;
+      return !/smiZapsat\(\)/.test(zdroj);
+    });
+    expect(bezKontroly).toEqual([]);
   });
 });
 
