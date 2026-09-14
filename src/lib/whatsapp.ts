@@ -16,7 +16,7 @@ export function shareOrderToWhatsApp(
 
   const noteText = order.note ? `\n📝 *Poznámka:* ${order.note}` : '';
 
-  const msg = `🍺 *OBJEDNÁVKA — Kynšperk nad Ohří*\n\n🏬 *Odběratel:* ${place}\n📅 *Datum:* ${date}${day}${noteText}\n\n*Položky:* \n${itemListText}\n\n_Minipivovar Zajíc Kynšperk_`;
+  const msg = `📅 *Datum:* ${date}${day}\n🏬 *Odběratel:* ${place}\n\n*Položky:* \n${itemListText}${noteText}`;
 
   const url = `https://wa.me/?text=${encodeURIComponent(msg)}`;
   if (typeof window !== 'undefined') {
