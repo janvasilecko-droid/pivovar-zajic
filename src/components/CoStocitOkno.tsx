@@ -1,19 +1,23 @@
-// 🍺 Tabulka „Co stočit" na úvodní stránce — co je potřeba stočit dnes, na
-// vybraný den nebo za celý týden. Sudy (KEG) i lahve najednou, pod sebou,
-// ať se nemusí přepínat.
+// 🍺 Přehled „Co stočit" na úvodní stránce — co je potřeba stočit dnes, na
+// vybraný den nebo za celý týden, sudy (KEG) i lahve najednou.
 // ---------------------------------------------------------------------------
+// Tvar je MATICE: jeden řádek = jedno pivo, sloupce = obaly (nejdřív sudy,
+// pak lahve), v buňce kolik ještě chybí. Z provozu 14. 9. 2026: seznam
+// „pivo × obal" pod sebou zabral při deseti pivech tři obrazovky a na
+// telefonu byl vidět jen nadpis. Jde o přehled, proto se stočená piva
+// nevypisují — jen se sečtou do řádku pod tabulkou.
+//
 // Čísla jsou z téhož výpočtu jako „Co stočit na který den" na obrazovkách
 // Sudy a Lahve (lib/keggingPlan.ts) — plocha a obrazovka stáčení se tak
-// nemůžou rozejít. Načítá se jen aktuální týden, ne celá historie: plocha se
-// otevírá nejčastěji ze všech obrazovek.
+// nemůžou rozejít. Načítá se jen aktuální týden, ne celá historie.
 //
 // Volba týden/dnes a sbalení okna se pamatuje v telefonu.
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { CalendarDays, Check, ChevronDown, ChevronRight } from 'lucide-react';
-import { supabase, fetchAllRows, useRealtime, beerBg } from '../lib/supabase';
+import { supabase, fetchAllRows, useRealtime, beerBg, beerName } from '../lib/supabase';
 import { businessDateISO } from '../lib/businessDate';
 import { isoWeekKey, weekRange } from './WeeklyOrderSummaryCard';
-import { computeKeggingPlan, dayKeyFromISO, BEZ_TERMINU, type DayPlan, type PlanItem } from '../lib/keggingPlan';
+import { computeKeggingPlan, dayKeyFromISO, BEZ_TERMINU, type DayPlan } from '../lib/keggingPlan';
 import { planProVyber } from '../lib/coStocit';
 import { DAYS } from '../lib/shared';
 import { uloz } from '../lib/uloziste';
@@ -31,11 +35,46 @@ type Data = {
   kegging: any[]; bottling: any[]; fasovani: any[]; prodejna: any[]; writeoffs: any[]; checks: any[];
 };
 
-/** Všechno objednané v období — nejdřív to, kde něco chybí (nejvíc nahoře), stočené dole. */
-function radkyTabulky(plan: DayPlan): PlanItem[] {
-  return plan.items
-    .filter((it) => it.ordered > 0)
-    .sort((a, z) => z.missing - a.missing || a.beer_name.localeCompare(z.beer_name, 'cs') || z.volume_l - a.volume_l);
+type Sloupec = { package_id: string; label: string; druh: Druh; volume_l: number };
+type Radek = { beer_id: string; chybi: Map<string, number>; objednano: Set<string>; celkem: number };
+
+/** Popisek obalu do úzkého sloupce: „KEG 50l" → „50l", „Lahev 0,5l" → „0,5l". */
+function kratkyObal(label: string): string {
+  const m = label.match(/\d+(?:[,.]\d+)?\s*l\b/i);
+  return m ? m[0].replace(/\s+/g, '') : label;
+}
+
+/**
+ * Sestaví matici z plánu sudů a lahví za vybrané období. Sloupce jen pro
+ * obaly, které někdo objednal; řádky jen pro piva, kde ještě něco chybí.
+ */
+export function sestavMatici(plany: { druh: Druh; plan: DayPlan }[]) {
+  const sloupce = new Map<string, Sloupec>();
+  const radky = new Map<string, Radek>();
+  const hotovaPiva = new Set<string>();
+  for (const { druh, plan } of plany) {
+    for (const it of plan.items) {
+      if (it.ordered <= 0) continue;
+      if (!sloupce.has(it.package_id)) {
+        sloupce.set(it.package_id, { package_id: it.package_id, label: kratkyObal(it.package_label), druh, volume_l: it.volume_l });
+      }
+      const r = radky.get(it.beer_id) ?? { beer_id: it.beer_id, chybi: new Map(), objednano: new Set(), celkem: 0 };
+      r.objednano.add(it.package_id);
+      if (it.missing > 0) {
+        r.chybi.set(it.package_id, (r.chybi.get(it.package_id) ?? 0) + it.missing);
+        r.celkem += it.missing;
+      }
+      radky.set(it.beer_id, r);
+    }
+  }
+  for (const r of radky.values()) if (r.celkem === 0) hotovaPiva.add(r.beer_id);
+  const serazeneSloupce = [...sloupce.values()].sort((a, z) =>
+    (a.druh === z.druh ? 0 : a.druh === 'sudy' ? -1 : 1) || z.volume_l - a.volume_l);
+  const serazeneRadky = [...radky.values()].filter((r) => r.celkem > 0).sort((a, z) => z.celkem - a.celkem);
+  const soucty = new Map(serazeneSloupce.map((s) => [
+    s.package_id, serazeneRadky.reduce((n, r) => n + (r.chybi.get(s.package_id) ?? 0), 0),
+  ]));
+  return { sloupce: serazeneSloupce, radky: serazeneRadky, soucty, hotovaPiva };
 }
 
 export default function CoStocitOkno({ setPage, sudy, lahve }: {
@@ -60,7 +99,7 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
   async function nacti() {
     try {
       const [b, p, o, k, bt, fa, fp, wo, pc] = await Promise.all([
-        supabase.from('beers').select('id,name,beer_color'),
+        supabase.from('beers').select('*'),
         supabase.from('packages').select('id,label,kind,volume_l'),
         // Objednávka patří do týdne podle data dovozu, a když chybí, podle
         // data zadání — obojí musí být od pondělí dál.
@@ -114,14 +153,18 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
 
   const planSudy = useMemo(() => planProVyber(planySudy, obdobi, weekLabel), [planySudy, obdobi, weekLabel]);
   const planLahve = useMemo(() => planProVyber(planyLahve, obdobi, weekLabel), [planyLahve, obdobi, weekLabel]);
-  const barvaPiva = useMemo(() => new Map((data?.beers ?? []).map((b) => [b.id, b])), [data]);
+  const matice = useMemo(() => sestavMatici([
+    ...(sudy ? [{ druh: 'sudy' as Druh, plan: planSudy }] : []),
+    ...(lahve ? [{ druh: 'lahve' as Druh, plan: planLahve }] : []),
+  ]), [sudy, lahve, planSudy, planLahve]);
+  const pivoPodleId = useMemo(() => new Map((data?.beers ?? []).map((b) => [b.id, b])), [data]);
 
-  const oddily = [
-    ...(sudy ? [{ druh: 'sudy' as Druh, nazev: 'Sudy (KEG)', jednotka: 'sudů', plan: planSudy, plany: planySudy }] : []),
-    ...(lahve ? [{ druh: 'lahve' as Druh, nazev: 'Lahve', jednotka: 'ks', plan: planLahve, plany: planyLahve }] : []),
-  ];
-  const chybiCelkem = planSudy.totalMissing + planLahve.totalMissing;
   const objednanoCelkem = planSudy.totalOrdered + planLahve.totalOrdered;
+  const sloupceSudu = matice.sloupce.filter((s) => s.druh === 'sudy').length;
+  const sloupceLahvi = matice.sloupce.length - sloupceSudu;
+  const bezTerminu = obdobi === 'tyden'
+    ? (planySudy.find((p) => p.day === BEZ_TERMINU)?.totalMissing ?? 0) + (planyLahve.find((p) => p.day === BEZ_TERMINU)?.totalMissing ?? 0)
+    : 0;
 
   const nazevObdobi = obdobi === 'tyden'
     ? `tento týden (${weekLabel})`
@@ -139,6 +182,7 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
     `px-3 py-1.5 rounded font-black text-xs shrink-0 flex items-center gap-1.5 min-h-[36px] transition ${
       aktivni ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-white text-neutral-700 border border-neutral-200 hover:bg-amber-50'
     }`;
+  const bunka = 'px-1 py-1 text-center tabular-nums w-11';
 
   return (
     <section className="bg-white rounded border border-neutral-200/90 shadow-xs overflow-hidden">
@@ -153,12 +197,20 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
           <span className="truncate">Co stočit {nazevObdobi}</span>
         </span>
         <span className="flex items-center gap-1.5 shrink-0">
-          {data && (chybiCelkem > 0 ? oddily.filter((o) => o.plan.totalMissing > 0).map((o) => (
-            <span key={o.druh} className="px-2 py-0.5 rounded-full bg-amber-500 text-neutral-950 font-black text-xs tabular-nums flex items-center gap-1">
-              {o.druh === 'sudy' ? <IkonaSud size={12} /> : <IkonaLahev size={12} />}
-              {o.plan.totalMissing}
-            </span>
-          )) : objednanoCelkem > 0 ? (
+          {data && (planSudy.totalMissing + planLahve.totalMissing > 0 ? (
+            <>
+              {planSudy.totalMissing > 0 && (
+                <span className="px-2 py-0.5 rounded-full bg-amber-500 text-neutral-950 font-black text-xs tabular-nums flex items-center gap-1">
+                  <IkonaSud size={12} /> {planSudy.totalMissing}
+                </span>
+              )}
+              {planLahve.totalMissing > 0 && (
+                <span className="px-2 py-0.5 rounded-full bg-amber-500 text-neutral-950 font-black text-xs tabular-nums flex items-center gap-1">
+                  <IkonaLahev size={12} /> {planLahve.totalMissing}
+                </span>
+              )}
+            </>
+          ) : objednanoCelkem > 0 ? (
             <span className="px-2 py-0.5 rounded-full bg-emerald-700 text-white font-black text-xs"><Check size={12} className="inline" /> hotovo</span>
           ) : null)}
           {sbaleno ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
@@ -166,7 +218,7 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
       </button>
 
       {!sbaleno && (
-        <div className="px-3.5 pb-3 pt-2 space-y-2.5">
+        <div className="px-3.5 pb-3 pt-2 space-y-2">
           <div className="flex gap-1.5 overflow-x-auto scrollbar-none">
             <button type="button" className={tlacitko(obdobi === 'tyden')} onClick={() => zvolObdobi('tyden')}>
               <CalendarDays size={14} /> Týden
@@ -193,70 +245,88 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
             <p className="text-udaj font-bold text-neutral-500">Načítám…</p>
           ) : objednanoCelkem === 0 ? (
             <p className="text-sm font-bold text-emerald-700">Nic k stočení — žádné objednávky.</p>
+          ) : matice.radky.length === 0 ? (
+            <p className="text-sm font-bold text-emerald-700"><Check size={14} className="inline" /> Všechno je stočené.</p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+            <div className="overflow-x-auto -mx-1">
+              <table className="w-full text-sm border-collapse">
                 <thead>
-                  <tr className="text-udaj font-black uppercase text-neutral-500 border-b border-neutral-200">
-                    <th className="text-left py-1 pr-2">Pivo</th>
-                    <th className="text-left py-1 pr-2">Obal</th>
-                    <th className="text-right py-1 pr-2">Objednáno</th>
-                    <th className="text-right py-1">Stočit</th>
+                  {sloupceSudu > 0 && sloupceLahvi > 0 && (
+                    <tr className="text-udaj font-black text-neutral-500">
+                      <th />
+                      <th colSpan={sloupceSudu} className="px-1 pt-0.5 text-center border-b-2 border-amber-300">
+                        <span className="inline-flex items-center gap-1"><IkonaSud size={12} /> Sudy</span>
+                      </th>
+                      <th colSpan={sloupceLahvi} className="px-1 pt-0.5 text-center border-b-2 border-sky-300">
+                        <span className="inline-flex items-center gap-1"><IkonaLahev size={12} /> Lahve</span>
+                      </th>
+                    </tr>
+                  )}
+                  <tr className="text-udaj font-black text-neutral-600 border-b border-neutral-200">
+                    <th className="text-left px-1 py-1">Pivo</th>
+                    {matice.sloupce.map((s) => (
+                      <th key={s.package_id} className={`${bunka} whitespace-nowrap`}>{s.label}</th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {oddily.map((o) => {
-                    const radky = radkyTabulky(o.plan);
-                    const bezTerminu = obdobi === 'tyden' ? o.plany.find((p) => p.day === BEZ_TERMINU)?.totalMissing ?? 0 : 0;
+                  {matice.radky.map((r) => {
+                    const pivo = pivoPodleId.get(r.beer_id);
                     return (
-                      <Fragment key={o.druh}>
-                        <tr className="bg-neutral-50">
-                          <td colSpan={4} className="py-1.5 px-1">
-                            <button
-                              type="button"
-                              onClick={() => setPage(o.druh === 'sudy' ? 'kegging' : 'bottling', undefined, 'plan')}
-                              className="w-full flex items-center justify-between gap-2 font-display font-black text-neutral-950 min-h-[44px]"
-                            >
-                              <span className="flex items-center gap-1.5">
-                                {o.druh === 'sudy' ? <IkonaSud /> : <IkonaLahev />} {o.nazev}
-                              </span>
-                              <span className={`text-xs tabular-nums ${o.plan.totalMissing > 0 ? 'text-amber-800' : 'text-emerald-700'}`}>
-                                {o.plan.totalMissing > 0 ? `chybí ${o.plan.totalMissing} ${o.jednotka} →` : radky.length ? 'hotovo →' : 'nic →'}
-                              </span>
-                            </button>
-                          </td>
-                        </tr>
-                        {radky.map((it) => (
-                          <tr key={it.key} className={`border-b border-neutral-100 ${it.missing > 0 ? '' : 'text-neutral-400'}`}>
-                            <td className="py-1.5 pr-2 max-w-0 w-full">
-                              <span className="flex items-center gap-2 min-w-0">
-                                <span className="w-3 h-3 rounded-full shrink-0 border border-neutral-300" style={{ background: beerBg(barvaPiva.get(it.beer_id)) }} />
-                                <span className={`truncate font-bold ${it.missing > 0 ? 'text-neutral-900' : ''}`}>{it.beer_name}</span>
-                              </span>
+                      <tr key={r.beer_id} className="border-b border-neutral-100 even:bg-neutral-50/70">
+                        <td className="px-1 py-1 max-w-0 w-full">
+                          <span className="flex items-center gap-1.5 min-w-0">
+                            <span className="w-2.5 h-2.5 rounded-full shrink-0 border border-neutral-300" style={{ background: beerBg(pivo) }} />
+                            <span className="truncate font-bold text-neutral-900">{pivo ? beerName(pivo) : '?'}</span>
+                          </span>
+                        </td>
+                        {matice.sloupce.map((s) => {
+                          const n = r.chybi.get(s.package_id) ?? 0;
+                          return (
+                            <td key={s.package_id} className={bunka}>
+                              {n > 0
+                                ? <span className="font-display font-black text-amber-800">{n}</span>
+                                : r.objednano.has(s.package_id)
+                                  ? <Check size={12} className="inline text-emerald-700" aria-label="stočeno" />
+                                  : <span className="text-neutral-300">·</span>}
                             </td>
-                            <td className="py-1.5 pr-2 whitespace-nowrap text-udaj font-bold">{it.package_label}</td>
-                            <td className="py-1.5 pr-2 text-right tabular-nums">{it.ordered}</td>
-                            <td className="py-1.5 text-right tabular-nums font-display font-black">
-                              {it.missing > 0
-                                ? <span className="text-amber-700">{it.missing}×</span>
-                                : <Check size={14} className="inline text-emerald-700" aria-label="stočeno" />}
-                            </td>
-                          </tr>
-                        ))}
-                        {bezTerminu > 0 && (
-                          <tr>
-                            <td colSpan={4} className="py-1 text-udaj font-bold text-neutral-500">
-                              Včetně {bezTerminu} {o.jednotka} z objednávek bez dne dovozu.
-                            </td>
-                          </tr>
-                        )}
-                      </Fragment>
+                          );
+                        })}
+                      </tr>
                     );
                   })}
                 </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-neutral-300 font-black">
+                    <td className="px-1 py-1 text-udaj text-neutral-600">Celkem</td>
+                    {matice.sloupce.map((s) => (
+                      <td key={s.package_id} className={`${bunka} font-display text-neutral-950`}>{matice.soucty.get(s.package_id) || ''}</td>
+                    ))}
+                  </tr>
+                </tfoot>
               </table>
             </div>
           )}
+
+          {data && (matice.hotovaPiva.size > 0 || bezTerminu > 0) && (
+            <p className="text-udaj font-bold text-neutral-500">
+              {matice.hotovaPiva.size > 0 && <><Check size={11} className="inline text-emerald-700" /> Už stočeno: {matice.hotovaPiva.size} {matice.hotovaPiva.size === 1 ? 'pivo' : matice.hotovaPiva.size < 5 ? 'piva' : 'piv'}. </>}
+              {bezTerminu > 0 && <>Včetně {bezTerminu} ks z objednávek bez dne dovozu.</>}
+            </p>
+          )}
+
+          <div className="flex gap-3">
+            {sudy && (
+              <button type="button" onClick={() => setPage('kegging', undefined, 'plan')} className="text-xs font-black text-amber-800 hover:underline min-h-[44px]">
+                Plán sudů →
+              </button>
+            )}
+            {lahve && (
+              <button type="button" onClick={() => setPage('bottling', undefined, 'plan')} className="text-xs font-black text-amber-800 hover:underline min-h-[44px]">
+                Plán lahví →
+              </button>
+            )}
+          </div>
         </div>
       )}
     </section>

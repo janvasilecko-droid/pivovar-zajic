@@ -41,6 +41,9 @@ const db: Record<string, Radek[]> = {
 };
 
 /** Kopie z produkčního modulu — barva piva na tečku v seznamu. */
+export function beerName(beer: { short_name?: string | null; name?: string | null } | null | undefined): string {
+  return beer?.short_name?.trim() || beer?.name || '';
+}
 export function beerBg(beer: { beer_color?: string | null } | null | undefined): string {
   return beer?.beer_color ?? 'rgb(var(--bg-neutral-100))';
 }
