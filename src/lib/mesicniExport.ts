@@ -20,6 +20,7 @@ import {
   sestavPrehled, sloupceVarianty,
   type ObalPrehled, type PrehledRadek, type VariantaPrehledu, type VydejRadek,
 } from './prehledVydeje';
+import { postavInventuruList, type InventuraExportRadek } from './inventuraExport';
 
 export type ListExportu = {
   nazev: string;
@@ -30,7 +31,7 @@ export type ListExportu = {
 };
 
 /** Písmeno sloupce v Excelu (0 → A). */
-function pismeno(index: number): string {
+export function pismeno(index: number): string {
   let s = '';
   let i = index;
   do {
@@ -40,7 +41,7 @@ function pismeno(index: number): string {
   return s;
 }
 
-const styl = {
+export const styl = {
   skupina: {
     font: { bold: true, sz: 11 },
     alignment: { horizontal: 'center' as const },
@@ -183,6 +184,8 @@ export type MesicniExportVstup = {
   obaly: ObalPrehled[];
   od: string;
   do: string;
+  /** List „Inventura" — jiný tvar než ostatní (viz lib/inventuraExport.ts), proto zvlášť. */
+  inventura?: InventuraExportRadek[];
 };
 
 /** Název souboru — z období, ať se stažené sešity nepřepisují. */
@@ -195,10 +198,12 @@ export function nazevSouboru(od: string, doKdy: string): string {
 
 /** Kolik řádků má který list — pro náhled před stažením. */
 export function poctyRadku(vstup: MesicniExportVstup): { nazev: string; pocet: number }[] {
-  return vstup.listy.map((l) => ({
+  const obycejne = vstup.listy.map((l) => ({
     nazev: l.nazev,
     pocet: sestavPrehled(l.radky, vstup.obaly, { od: vstup.od, do: vstup.do }).length,
   }));
+  if (!vstup.inventura) return obycejne;
+  return [...obycejne, { nazev: 'Inventura', pocet: vstup.inventura.length }];
 }
 
 /**
@@ -213,6 +218,13 @@ export function postavSesit(vstup: MesicniExportVstup): any | null {
     const radky = sestavPrehled(list.radky, vstup.obaly, { od: vstup.od, do: vstup.do });
     if (!radky.length) continue;
     xlsx().utils.book_append_sheet(wb, postavList(list, vstup.obaly, radky), list.nazev.slice(0, 31));
+    neco = true;
+  }
+
+  // Inventura je za CELÝ měsíc, ne omezená na `od`/`do` — už je spočítaná
+  // dopředu (viz lib/inventuraExport.ts), tady se jen připojí jako list.
+  if (vstup.inventura?.length) {
+    xlsx().utils.book_append_sheet(wb, postavInventuruList(vstup.inventura), 'Inventura');
     neco = true;
   }
 

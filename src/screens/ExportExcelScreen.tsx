@@ -14,15 +14,21 @@ import { chyba, uspech, varovani } from '../lib/toast';
 import { zavibruj } from '../lib/haptika';
 import { nazevSouboru, poctyRadku, stahniSesit, type ListExportu } from '../lib/mesicniExport';
 import { prehledDoTsv, sestavPrehled, type VydejRadek } from '../lib/prehledVydeje';
+import { buildMovements, expectedForMonth } from '../lib/stockLedger';
+import { inventuraDoTsv, sestavInventuruExportu, type BeerProInventuru, type InventuraExportRadek } from '../lib/inventuraExport';
 
 type Nactene = {
   packages: Package[];
+  beers: BeerProInventuru[];
   fasovani: any[];
   prodejna: any[];
   odpis: any[];
   bottling: any[];
   kegging: any[];
   inventura: any[];
+  zavoz: any[];
+  akce: any[];
+  prefuk: any[];
   tanky: { id: string; label: string | null }[];
 };
 
@@ -67,21 +73,29 @@ export default function ExportExcelScreen() {
     let zruseno = false;
     (async () => {
       try {
-        const [pk, fa, pr, wo, bt, kg, tk, iv] = await Promise.all([
+        const [pk, bs, fa, pr, wo, bt, kg, tk, iv, zd, ak, pf] = await Promise.all([
           fetchAllRows('packages', 'id,label,kind,volume_l'),
-          fetchAllRows('fasovani', 'entry_date,beer_name,package_id,quantity,who,note'),
-          fetchAllRows('fasovani_private', 'entry_date,beer_name,package_id,quantity,who,note'),
+          // Pro list Inventura — potřebuje se vědět, které pivo je pořád
+          // aktivní (viz lib/inventuraExport.ts, stejná úvaha jako v
+          // Inventuře: skryté pivo se ukáže, jen když v měsíci mělo pohyb).
+          fetchAllRows('beers', 'id,name,is_active'),
+          fetchAllRows('fasovani', 'entry_date,beer_id,beer_name,package_id,quantity,who,note'),
+          fetchAllRows('fasovani_private', 'entry_date,beer_id,beer_name,package_id,quantity,who,note'),
           // writeoffs nemá sloupec note (má reason) — s ním dotaz padal
           // a list „Vzorky promo a PR" se do sešitu vůbec nedostal.
-          fetchAllRows('writeoffs', 'entry_date,beer_name,package_id,quantity,who,reason'),
-          fetchAllRows('bottling', 'entry_date,beer_name,package_id,quantity,note,kegs_used,kegs_used_package_id'),
-          fetchAllRows('kegging', 'entry_date,beer_name,package_id,quantity,note,cellar_tank_id'),
+          fetchAllRows('writeoffs', 'entry_date,beer_id,beer_name,package_id,quantity,who,reason'),
+          fetchAllRows('bottling', 'entry_date,beer_id,beer_name,package_id,quantity,note,kegs_used,kegs_used_package_id,source_volume_l'),
+          fetchAllRows('kegging', 'entry_date,beer_id,beer_name,package_id,quantity,note,cellar_tank_id'),
           fetchAllRows('cellar_tanks', 'id,label'),
-          fetchAllRows('inventory', 'entry_date,beer_name,package_id,quantity,note'),
+          fetchAllRows('inventory', 'entry_date,beer_id,beer_name,package_id,quantity,note'),
+          fetchAllRows('zavoz_deductions', 'deduct_date,beer_id,package_id,quantity'),
+          fetchAllRows('akce', 'entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
+          fetchAllRows('keg_prefuk', 'entry_date,beer_id,from_package_id,from_count,to_package_id,to_count'),
         ]);
         if (zruseno) return;
         setData({
           packages: (pk.data as Package[]) ?? [],
+          beers: (bs.data as BeerProInventuru[]) ?? [],
           fasovani: (fa.data as any[]) ?? [],
           prodejna: (pr.data as any[]) ?? [],
           // Odpis nese důvod ve sloupci reason; export ho zobrazuje
@@ -91,6 +105,9 @@ export default function ExportExcelScreen() {
           kegging: (kg.data as any[]) ?? [],
           tanky: (tk.data as any[]) ?? [],
           inventura: (iv.data as any[]) ?? [],
+          zavoz: (zd.data as any[]) ?? [],
+          akce: (ak.data as any[]) ?? [],
+          prefuk: (pf.data as any[]) ?? [],
         });
       } catch (e) {
         chyba(e);
@@ -136,32 +153,54 @@ export default function ExportExcelScreen() {
       tank: r.cellar_tank_id ? (mapaTanku.get(r.cellar_tank_id) ?? '') : '',
     }));
 
-    // 📋 Inventura — jen NAPOČÍTANÉ stavy (Fyzická/Schválená), ne „Počáteční
-    // stav" zkopírovaný z minulé uzávěrky (to není nový zápis, jen přenesené
-    // číslo — v listu by vypadalo jako druhá inventura téhož měsíce).
-    // Sloupec „Odběratel" nese typ zápisu, ať je vidět, co bylo jen fyzicky
-    // napočítané a co je už uzavřené (viz lib/mesicUzamcen.ts se stejným
-    // rozlišením podle poznámky).
-    const inventuraRadky: VydejRadek[] = data.inventura
-      .filter((r: any) => /fyzick|schválen|schvalen/i.test(r.note ?? ''))
-      .map((r: any) => ({
-        entry_date: r.entry_date, beer_name: r.beer_name,
-        package_id: r.package_id, quantity: r.quantity,
-        who: /schválen|schvalen/i.test(r.note ?? '') ? 'Schválená' : 'Fyzická',
-      }));
-
     return [
       { nazev: 'Odběr personál', varianta: 'odberatel', radky: bezZapornych(data.fasovani) },
       { nazev: 'Fasování prodejna', varianta: 'odberatel', radky: bezZapornych(data.prodejna) },
       { nazev: 'Vzorky promo a PR', varianta: 'odberatel', radky: bezZapornych(data.odpis), popisOdberatele: 'Komu proč a zač' },
       { nazev: 'Stáčení lahve', varianta: 'staceni_lahve', radky: bezZapornych(lahveRadky) },
       { nazev: 'Stáčení KEG', varianta: 'staceni_keg', radky: bezZapornych(kegRadky) },
-      { nazev: 'Inventura', varianta: 'odberatel', radky: inventuraRadky, popisOdberatele: 'Typ zápisu' },
     ];
   }, [data, bezMinusu]);
 
   // Jen zaškrtnuté listy — ať jde stáhnout třeba jen KEG.
   const vybraneListy = useMemo(() => listy.filter((l) => !vynechane.has(l.nazev)), [listy, vynechane]);
+
+  /**
+   * 📒 Inventura — na rozdíl od ostatních listů NENÍ omezená na `od`/`do`
+   * po dnech: je to celá skladová kniha za měsíc (viz lib/inventuraExport.ts),
+   * stejná čísla jako záložka „Fyzická inventura" v Inventuře. Dřív se do
+   * listu braly jen uložené fyzické zápisy — pár řádků místo desítek, jako
+   * by měsíc chyběl.
+   */
+  const radkyInventury = useMemo<InventuraExportRadek[]>(() => {
+    if (!data) return [];
+    const mesicInventury = od.slice(0, 7);
+    const pohyby = buildMovements({
+      inventoryRows: data.inventura,
+      bottlingRows: data.bottling,
+      keggingRows: data.kegging,
+      fasovaniRows: data.fasovani,
+      prodejnaRows: data.prodejna,
+      writeoffsRows: data.odpis,
+      zavozDeductionRows: data.zavoz,
+      akceRows: data.akce,
+      prefukRows: data.prefuk,
+      packages: data.packages as any,
+    });
+    const expectedLedger = expectedForMonth(pohyby, mesicInventury);
+
+    // Fyzicky napočítaný stav toho měsíce — jen Fyzická/Schválená, ne
+    // „Počáteční stav" zkopírovaný z minulé uzávěrky (to není nový zápis).
+    const actualMap: Record<string, number> = {};
+    data.inventura.forEach((r: any) => {
+      if (r.entry_date?.slice(0, 7) !== mesicInventury) return;
+      if (!/fyzick|schválen|schvalen/i.test(r.note ?? '')) return;
+      if (!r.beer_id || !r.package_id) return;
+      actualMap[`${r.beer_id}__${r.package_id}`] = Number(r.quantity || 0);
+    });
+
+    return sestavInventuruExportu(data.beers, data.packages as any, expectedLedger, actualMap);
+  }, [data, od]);
 
   function prepniList(nazev: string) {
     setVynechane((prev) => {
@@ -173,8 +212,8 @@ export default function ExportExcelScreen() {
 
   const prehled = useMemo(() => {
     if (!data) return [];
-    return poctyRadku({ listy, obaly: data.packages as any, od, do: doKdy });
-  }, [listy, data, od, doKdy]);
+    return poctyRadku({ listy, obaly: data.packages as any, od, do: doKdy, inventura: radkyInventury });
+  }, [listy, data, od, doKdy, radkyInventury]);
 
   // Řádky jen ze zaškrtnutých listů — podle nich se povoluje stažení.
   const celkemVybranych = prehled
@@ -184,6 +223,18 @@ export default function ExportExcelScreen() {
   /** Zkopíruje jeden list — když nechceš celý sešit, ale jen řádky do ruky. */
   async function kopirujList(nazev: string) {
     if (!data) return;
+    // Inventura má jiný tvar než ostatní listy (viz lib/inventuraExport.ts).
+    if (nazev === 'Inventura') {
+      if (!radkyInventury.length) return;
+      try {
+        await navigator.clipboard.writeText(inventuraDoTsv(radkyInventury));
+        zavibruj('hotovo');
+        uspech(`Zkopírováno ${radkyInventury.length} řádků z listu Inventura.`);
+      } catch {
+        chyba('Schránka není dostupná — stáhni radši celý sešit.');
+      }
+      return;
+    }
     const list = listy.find((l) => l.nazev === nazev);
     if (!list) return;
     const radky = sestavPrehled(list.radky, data.packages as any, { od, do: doKdy });
@@ -205,7 +256,10 @@ export default function ExportExcelScreen() {
     if (!data) return;
     setStahuji(true);
     try {
-      const povedlo = await stahniSesit({ listy: vybraneListy, obaly: data.packages as any, od, do: doKdy });
+      const povedlo = await stahniSesit({
+        listy: vybraneListy, obaly: data.packages as any, od, do: doKdy,
+        inventura: vynechane.has('Inventura') ? [] : radkyInventury,
+      });
       if (povedlo) {
         zavibruj('hotovo');
         uspech(`Staženo — ${nazevSouboru(od, doKdy)}`);

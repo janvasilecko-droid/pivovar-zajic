@@ -3,6 +3,7 @@ import XLSX from 'xlsx-js-style';
 import { nazevSouboru, poctyRadku, postavSesit, type ListExportu } from './mesicniExport';
 import { nactiXlsx } from './xlsxLazy';
 import type { ObalPrehled, VydejRadek } from './prehledVydeje';
+import type { InventuraExportRadek } from './inventuraExport';
 
 const OBALY: ObalPrehled[] = [
   { id: 'k50', label: 'KEG 50 l', kind: 'keg', volume_l: 50 },
@@ -117,6 +118,29 @@ describe('měsíční export do jednoho sešitu', () => {
       { nazev: 'Fasování prodejna', pocet: 0 },
       { nazev: 'Stáčení KEG', pocet: 1 },
     ]);
+  });
+});
+
+describe('list Inventura v sešitu (jiný tvar než ostatní, viz lib/inventuraExport.ts)', () => {
+  beforeAll(async () => { await nactiXlsx(); });
+
+  const radkyInventury: InventuraExportRadek[] = [
+    { beer_name: '11° Světlá', package_label: 'KEG 50 l', initialQty: 5, stacenoQty: 10, odpisQty: 0, vydejQty: 3, expectedQty: 12, actualQty: 12, diffQty: 0, diffCzk: 0 },
+  ];
+
+  it('se přidá do sešitu a do náhledu, když je co ukázat', () => {
+    const wb = postavSesit({ ...vstup, inventura: radkyInventury })!;
+    expect(wb.SheetNames).toContain('Inventura');
+    expect(poctyRadku({ ...vstup, inventura: radkyInventury })).toContainEqual({ nazev: 'Inventura', pocet: 1 });
+  });
+
+  it('se do sešitu nepřidá, když je prázdná', () => {
+    const wb = postavSesit({ ...vstup, inventura: [] })!;
+    expect(wb.SheetNames).not.toContain('Inventura');
+  });
+
+  it('bez `inventura` v náhledu vůbec nefiguruje (zpětná kompatibilita)', () => {
+    expect(poctyRadku(vstup).some((p) => p.nazev === 'Inventura')).toBe(false);
   });
 });
 
