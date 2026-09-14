@@ -23,6 +23,7 @@ import { getVehicleExpiryStatus } from '../lib/vozidla';
 import { businessDateISO } from '../lib/businessDate';
 import { IkonaSud, IkonaLahev, IkonaVycep } from '../components/ikony';
 import { HomeNotesModal } from '../components/HomeNotesModal';
+import CoStocitOkno from '../components/CoStocitOkno';
 // Návod je přes deset kilobajtů textu, který většina lidí za den neotevře —
 // stáhne se až při klepnutí na dlaždici.
 const NavodPouziti = lazy(() => import('../components/NavodPouziti').then((m) => ({ default: m.NavodPouziti })));
@@ -1346,6 +1347,16 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
         countdowns={countdowns}
         setPage={setPage}
       />
+
+      {/* 🍺 Co je potřeba stočit dnes / na den / za týden, sudy nebo lahve.
+          Při úpravě plochy se schová, ať nepřekáží v přeskládávání. */}
+      {!editMode && (visibleIds.includes('kegging') || visibleIds.includes('bottling')) && (
+        <CoStocitOkno
+          setPage={setPage}
+          sudy={visibleIds.includes('kegging')}
+          lahve={visibleIds.includes('bottling')}
+        />
+      )}
 
       <div className="hs-launcher">
         {editMode && (

@@ -174,3 +174,23 @@ export const cellar_batch_mereni = [
 ];
 
 export const POPIS = { DNES, PONDELI };
+
+// Objednávky tohoto týdne — okno „Co stočit" na úvodní stránce. Dny se
+// počítají od pondělí, ne od dneška, ať je vidět den, týden i „bez termínu".
+const denTydne = (n: number) => posunDnu(PONDELI, n);
+export const orders = [
+  { id: 'o-1', order_date: denTydne(0), delivery_date: denTydne(0), delivery_day: 'po', place_name: 'Hospoda U Zajíce', status: 'nova', is_delivered: false },
+  { id: 'o-2', order_date: denTydne(0), delivery_date: denTydne(1), delivery_day: 'ut', place_name: 'Restaurace Na Mlýně', status: 'nova', is_delivered: false },
+  { id: 'o-3', order_date: denTydne(0), delivery_date: denTydne(3), delivery_day: 'ct', place_name: 'Pivnice Sokolovna', status: 'nova', is_delivered: false },
+  { id: 'o-4', order_date: denTydne(0), delivery_date: null, delivery_day: null, place_name: 'Kiosek u koupaliště', status: 'nova', is_delivered: false },
+];
+export const order_items = [
+  { id: 'oi-1', order_id: 'o-1', beer_id: 'b-12sv', package_id: 'p-keg50', quantity: 30 },
+  { id: 'oi-2', order_id: 'o-1', beer_id: 'b-12tm', package_id: 'p-keg30', quantity: 4 },
+  { id: 'oi-3', order_id: 'o-1', beer_id: 'b-12sv', package_id: 'p-lah05', quantity: 40 },
+  { id: 'oi-4', order_id: 'o-2', beer_id: 'b-11sv', package_id: 'p-keg30', quantity: 6 },
+  { id: 'oi-5', order_id: 'o-2', beer_id: 'b-10de', package_id: 'p-keg20', quantity: 5 },
+  { id: 'oi-6', order_id: 'o-3', beer_id: 'b-12tm', package_id: 'p-lah033', quantity: 60 },
+  { id: 'oi-7', order_id: 'o-4', beer_id: 'b-12sv', package_id: 'p-keg30', quantity: 2 },
+];
+export const kegging_plan_checks: any[] = [];
