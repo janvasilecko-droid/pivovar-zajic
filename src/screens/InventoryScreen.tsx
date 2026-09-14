@@ -192,6 +192,14 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
   const [vyrovnaniMap, setVyrovnaniMap] = useState<Map<string, number>>(new Map());
   /** Leží za tenhle měsíc v databázi uložená fyzická (nebo schválená) inventura? */
   const [inventuraUlozena, setInventuraUlozena] = useState(false);
+  /**
+   * 🔒 Měsíc byl uzavřen tlačítkem „Uzavřít měsíc" (schválená inventura má
+   * v databázi poznámku „Schválená", na rozdíl od jen uložené fyzické).
+   * Uzavřený měsíc se dál jen prohlíží — přepsat by ho šlo jedině tím, že se
+   * schválí znovu, a to by tiše rozjelo číslo, které se používá jako
+   * počáteční stav už uzavřeného dalšího měsíce.
+   */
+  const [mesicUzavren, setMesicUzavren] = useState(false);
   // 🛢️ Tanky pro odečet doplněného kegování.
   const [tanky, setTanky] = useState<TankProRozdeleni[]>([]);
 
@@ -210,7 +218,11 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     if (!tiche) setLoading(true);
 
     const [{ data: b }, { data: pk }, { data: bt }, { data: kg }, { data: fa }, { data: fp }, { data: wo }, { data: inv }, { data: adj }, { data: zd }, { data: ak }, { data: pf }, { data: tk }] = await Promise.all([
-      supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
+      // 🍺 VŠECHNA piva, i skrytá — inventura se dívá zpátky do měsíců, kdy
+      // ještě sezónní pivo (např. Summer Ale) bylo aktivní. Filtr na aktivní
+      // ho ze srpnové inventury smazal, i když v srpnu ještě teklo: viz
+      // monthBeers níž, který ho do tabulek vrátí podle pohybu v měsíci.
+      supabase.from('beers').select('*').order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
       fetchAllRows('bottling', 'beer_id,package_id,quantity,entry_date,kegs_used,kegs_used_package_id,source_volume_l,note,created_at'),
       fetchAllRows('kegging', 'beer_id,package_id,quantity,entry_date,note'),
@@ -298,6 +310,9 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     // 2b. Pokud je v DB uložená fyzická/schválená inventura, má přednost a uloží i do localStorage.
     const actualRowsForCurMonth = invRowsAll.filter((r) => r.entry_date?.slice(0, 7) === currentMonth && (r.note?.includes('Fyzická') || r.note?.includes('Schválená')));
     setInventuraUlozena(actualRowsForCurMonth.length > 0);
+    // 🔒 „Schválená" (na rozdíl od jen „Fyzická") znamená, že se měsíc uzavřel
+    // tlačítkem Uzavřít měsíc — od tý chvíle je jen k nahlédnutí.
+    setMesicUzavren(actualRowsForCurMonth.some((r) => r.note?.includes('Schválená')));
     if (actualRowsForCurMonth.length > 0) {
       const dbActualMap: Record<string, string> = {};
       actualRowsForCurMonth.forEach((r) => {
@@ -686,7 +701,9 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
 
   // Schválení inventury a převod fyzického stavu jako počáteční stav nového měsíce
   async function handleLockAndTransferNextMonth() {
-    if (!(await potvrd(`Chceš schválit inventuru za ${currentMonth} a převést fyzické stavy jako počáteční stav do nového měsíce?`))) return;
+    if (!(await potvrd(
+      `Chceš uzavřít měsíc ${currentMonth}? Fyzické stavy se převedou jako počáteční stav do nového měsíce a tenhle měsíc se dál bude jen prohlížet — na úpravu se znovu neotevře.`,
+    ))) return;
 
     const [y, m] = currentMonth.split('-').map(Number);
     const nextDate = new Date(y, m, 1);
@@ -737,11 +754,25 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     setBusy(false);
   }
 
+  /**
+   * 🍺 Piva pro tento měsíc: aktivní vždycky, skryté jen když v tomhle měsíci
+   * mělo pohyb (stáčení, výdej, počáteční stav…) — jinak by tabulka byla
+   * plná dávno vyřazených piv. `expectedLedger` má řádek pro pivo×obal jen
+   * tehdy, když v měsíci opravdu k něčemu došlo (viz stockLedger.ts), takže
+   * stačí zkontrolovat, jestli tam pro dané pivo aspoň jeden obal leží.
+   */
+  const monthBeers = useMemo(() => {
+    return beers.filter((b) => {
+      if (b.is_active) return true;
+      return packages.some((p) => expectedLedger.has(`${b.id}__${p.id}`));
+    });
+  }, [beers, packages, expectedLedger]);
+
   // Výpočet tabulky inventury
   const rows: InventoryRow[] = useMemo(() => {
     const list: InventoryRow[] = [];
 
-    beers.forEach((b) => {
+    monthBeers.forEach((b) => {
       packages.forEach((p) => {
         const k = `${b.id}__${p.id}`;
 
@@ -807,7 +838,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     });
 
     return list;
-  }, [beers, packages, initialStock, actualStock, dorovnatMap, stacenoMap, odpisyMap, vydejMap, expectedLedger]);
+  }, [monthBeers, packages, initialStock, actualStock, dorovnatMap, stacenoMap, odpisyMap, vydejMap, expectedLedger]);
 
   // Totals
   const totals = useMemo(() => {
@@ -1526,8 +1557,9 @@ function exportInventoryExcel() {
     );
   }
 
-  // Vedlejší akce (import, export, uzávěrka) jsou pod „⋯" — na telefonu
-  // má být hned vidět měsíc a hlavní akce, ne čtyři pruhy.
+  // Vedlejší akce (import, export) jsou pod „⋯" — na telefonu má být hned
+  // vidět měsíc a hlavní akce, ne čtyři pruhy. Uzávěrka měsíce zůstává
+  // vlastním viditelným řádkem (viz níž) — schovaná pod „⋯" ji nikdo nenašel.
   const [dalsiAkce, setDalsiAkce] = useState(false);
 
   // Kostra místo kolečka: obsah se neodmountuje do prázdna, takže se
@@ -1541,8 +1573,7 @@ function exportInventoryExcel() {
           čtyři pruhy po ~90 px plus měsíc daly ~700 px, takže první
           obrazovka telefonu neukázala z inventury vůbec nic. Vidět je
           teď měsíc a hlavní akce (spočítat z fotek), zbytek je pod „⋯" —
-          import, export a uzávěrka nejsou věci, které se dělají každou
-          návštěvu. */}
+          import a export nejsou věci, které se dělají každou návštěvu. */}
       <div className="space-y-2">
         <div className="flex items-center gap-1.5">
           {/* w-11 = 44 px: šipky měly jen `px-2` kolem jednoho znaku, tedy
@@ -1575,7 +1606,7 @@ function exportInventoryExcel() {
         </div>
 
         <div className="lista-akci">
-          <button onClick={() => setShowPhotoCounter(true)} className="btn-primary !text-xs">
+          <button onClick={() => setShowPhotoCounter(true)} className="btn-primary !text-xs" disabled={mesicUzavren}>
             <Camera size={16} /> Spočítat z fotek
           </button>
           <button
@@ -1598,21 +1629,34 @@ function exportInventoryExcel() {
         />
 
         {dalsiAkce && (
-          <div className="space-y-2">
-            <div className="lista-akci">
-              <button type="button" onClick={() => excelFileRef.current?.click()} className="btn-ghost !text-xs">
-                <Download size={16} /> Import Excel
-              </button>
-              <button onClick={exportInventoryExcel} className="btn-ghost !text-xs">
-                <Download size={16} /> Export Excel
-              </button>
-            </div>
-            {/* Uzávěrka měsíce zůstává vlastním řádkem: je to jediná akce
-                na téhle obrazovce, kterou nejde vzít zpět. */}
-            <button onClick={handleLockAndTransferNextMonth} className="btn-ghost !w-full !text-xs">
-              <Lock size={16} /> Schválit &amp; převést do nového měsíce
+          <div className="lista-akci">
+            <button type="button" onClick={() => excelFileRef.current?.click()} className="btn-ghost !text-xs" disabled={mesicUzavren}>
+              <Download size={16} /> Import Excel
+            </button>
+            <button onClick={exportInventoryExcel} className="btn-ghost !text-xs">
+              <Download size={16} /> Export Excel
             </button>
           </div>
+        )}
+
+        {/* 🔒 Uzavření měsíce zůstává VLASTNÍM, pořád viditelným řádkem — je
+            to jediná akce na téhle obrazovce, kterou nejde vzít zpět, a dřív
+            se schovávala pod „⋯ Další akce", kde ji nikdo nenašel. Po
+            uzavření zmizí a nahradí ji jen odznak — zavřít měsíc podruhé by
+            přepsalo počáteční stav, který z něj mezitím vznikl v dalším
+            měsíci. */}
+        {mesicUzavren ? (
+          <div className="flex items-center gap-1.5 px-3 py-2 rounded bg-neutral-200 text-neutral-700 font-black text-xs w-fit">
+            <Lock size={14} /> Měsíc {nazevMesice(currentMonth)} je uzavřen — jen k nahlédnutí
+          </div>
+        ) : (
+          <button
+            onClick={handleLockAndTransferNextMonth}
+            disabled={busy}
+            className="px-3 py-2.5 rounded bg-rose-700 hover:bg-rose-800 text-white font-black text-xs shadow-md transition flex items-center gap-1.5 w-fit disabled:opacity-50"
+          >
+            <Lock size={16} /> Uzavřít měsíc {nazevMesice(currentMonth)}
+          </button>
         )}
       </div>
 
@@ -1755,6 +1799,15 @@ function exportInventoryExcel() {
       {/* TAB 1: FYZICKÁ INVENTURA & ROZDÍLY */}
       {activeTab === 'inventory' && (
         <div className="space-y-6">
+          {mesicUzavren && (
+            <div className="rounded border-2 border-neutral-400 bg-neutral-100 p-3.5 flex items-center gap-3">
+              <Lock size={18} className="text-neutral-600 shrink-0" />
+              <p className="text-udaj font-bold text-neutral-700">
+                Měsíc {nazevMesice(currentMonth)} je uzavřen — čísla níž jsou jen k nahlédnutí.
+                Opravu je potřeba zapsat do měsíce, který ještě uzavřený není.
+              </p>
+            </div>
+          )}
           {/* ⚠️ Nespočítané položky. Právě tohle stálo za deficitem u 34 z 56
               položek: schválená inventura za červenec 2026 měla jen 19 řádků,
               zbytek se nikdy nespočítal a skladová kniha u nich dál odečítala
@@ -2026,8 +2079,11 @@ function exportInventoryExcel() {
                   ))}
                 </div>
               </div>
-              {/* Mobilní karty — editace inventury a dorovnání bez vodorovného scrollování */}
-              <div className="grid grid-cols-1 gap-2.5 md:hidden">
+              {/* Mobilní karty — editace inventury a dorovnání bez vodorovného scrollování.
+                  Fieldset uzavřeného měsíce vypne inputy i tlačítka uvnitř
+                  jedním atributem, ať se při přidávání nové akce nezapomene
+                  zamknout i ta nová (viz mesicUzavren výš). */}
+              <fieldset disabled={mesicUzavren} className="grid grid-cols-1 gap-2.5 md:hidden border-0 p-0 m-0 min-w-0">
                 {zobrazeneRadky.map((r, i) => {
                   const k = `${r.beer_id}__${r.package_id}`;
                   const beer = beers.find((b) => b.id === r.beer_id);
@@ -2172,9 +2228,9 @@ function exportInventoryExcel() {
                     </Fragment>
                   );
                 })}
-              </div>
+              </fieldset>
 
-              <div className="hidden md:block overflow-x-auto scrollbar-thin">
+              <fieldset disabled={mesicUzavren} className="hidden md:block overflow-x-auto scrollbar-thin border-0 p-0 m-0 min-w-0">
                 <table className="table text-xs w-full">
                   <thead>
                     <tr className="bg-neutral-100 text-neutral-800 border-b border-neutral-200">
@@ -2361,7 +2417,7 @@ function exportInventoryExcel() {
                     </tr>
                   </tfoot>
                 </table>
-              </div>
+              </fieldset>
               </>
             )}
           </div>
@@ -2380,18 +2436,23 @@ function exportInventoryExcel() {
               <p className="text-xs text-neutral-500 font-bold mt-0.5">
                 Zde zadej zásoby z minulého měsíce / roztočení provozu. Tyto kusy se NEBUDOU počítat jako nové stáčení!
               </p>
+              {mesicUzavren && (
+                <p className="text-udaj font-black text-neutral-600 flex items-center gap-1.5 mt-1.5">
+                  <Lock size={14} /> Měsíc je uzavřen — jen k nahlédnutí.
+                </p>
+              )}
             </div>
             <button
               onClick={handleSaveInitialStock}
-              disabled={busy}
-              className="px-4 py-2.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-md transition flex items-center gap-1.5"
+              disabled={busy || mesicUzavren}
+              className="px-4 py-2.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-md transition flex items-center gap-1.5 disabled:opacity-50"
             >
               <Save size={16} /> Uložit počáteční zásoby
             </button>
           </div>
 
-          <div className="space-y-6">
-            {beers.map((b) => (
+          <fieldset disabled={mesicUzavren} className="space-y-6 border-0 p-0 m-0 min-w-0">
+            {monthBeers.map((b) => (
               <div key={b.id} className="p-4 rounded bg-neutral-50 border border-neutral-200 space-y-3">
                 <h4 className="font-display font-black text-base text-neutral-900 border-b border-neutral-200 pb-2 flex items-center gap-2">
                   <span><BeerIcon className="ikona-text" /> {b.name}</span>
@@ -2427,14 +2488,14 @@ function exportInventoryExcel() {
                 </div>
               </div>
             ))}
-          </div>
+          </fieldset>
         </div>
       )}
 
       {/* TAB 3: STAV SUDŮ NA KONCI MĚSÍCE (BILANČNÍ KONTO) */}
       {activeTab === 'end_stock' && (
         <EndStockTab
-          beers={beers}
+          beers={monthBeers}
           packages={packages}
           currentMonth={currentMonth}
           initialStock={initialStock}
