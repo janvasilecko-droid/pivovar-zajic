@@ -105,6 +105,13 @@ function computeInitialStockForMonth(
 
 export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: (p: any, sec?: string, sub?: string) => void; initialSubTab?: string } = {}) {
   const [beers, setBeers] = useState<Beer[]>([]);
+  // Aktivní + zrušená piva dohromady — jen pro měsíční uzávěrku (řádky
+  // Inventury a Audit). Pivo zrušené PO srpnu (is_active=false) by jinak ze
+  // srpnové uzávěrky úplně zmizelo, i když v srpnu ještě mělo pohyb a je ho
+  // potřeba dopočítat. `beers` (aktivní) zůstává beze změny pro ostatní
+  // záložky (Počáteční stav, Stav sudů), tam by naopak zrušená piva jen
+  // zbytečně zaplevelila seznam bez ohledu na měsíc.
+  const [allBeers, setAllBeers] = useState<Beer[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
   const [loading, setLoading] = useState(true);
   // Záložka se drží v adrese stránky (setPage), takže může přijít i hodnota,
@@ -210,7 +217,9 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     if (!tiche) setLoading(true);
 
     const [{ data: b }, { data: pk }, { data: bt }, { data: kg }, { data: fa }, { data: fp }, { data: wo }, { data: inv }, { data: adj }, { data: zd }, { data: ak }, { data: pf }, { data: tk }] = await Promise.all([
-      supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
+      // Bez filtru na is_active — zrušené pivo se z výsledku škrtá až níž,
+      // jen v záložkách, kde nezáleží na měsíci (viz allBeers výše).
+      supabase.from('beers').select('*').order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
       fetchAllRows('bottling', 'beer_id,package_id,quantity,entry_date,kegs_used,kegs_used_package_id,source_volume_l,note,created_at'),
       fetchAllRows('kegging', 'beer_id,package_id,quantity,entry_date,note'),
@@ -232,7 +241,9 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     // nebo už obrazovka není vidět. Výsledek se pak zahodí.
     if (!smiZapsat()) return;
 
-    setBeers((b as Beer[]) ?? []);
+    const bAll = (b as Beer[]) ?? [];
+    setAllBeers(bAll);
+    setBeers(bAll.filter((x) => x.is_active));
     setPackages((pk as Package[]) ?? []);
     setTanky((tk as TankProRozdeleni[]) ?? []);
 
@@ -741,7 +752,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
   const rows: InventoryRow[] = useMemo(() => {
     const list: InventoryRow[] = [];
 
-    beers.forEach((b) => {
+    allBeers.forEach((b) => {
       packages.forEach((p) => {
         const k = `${b.id}__${p.id}`;
 
@@ -781,6 +792,13 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
         const diffCzk = diffQty * priceCzk;
         const diffAfterCzk = diffAfterQty * priceCzk;
 
+        // Zrušené pivo (is_active=false) se v měsíci, kde už/ještě nemělo
+        // vůbec žádnou stopu, přeskočí — jinak by se seznam natrvalo zaplnil
+        // vším, co kdy appka evidovala. V měsíci, kdy ale ještě/už aktivní
+        // BYLO (má počátek, stočení, odpis nebo výdej), zůstává vidět, ať
+        // jde uzávěrka toho měsíce dopočítat i zpětně.
+        if (!b.is_active && initialQty === 0 && stacenoQty === 0 && odpisQty === 0 && vydejQty === 0) return;
+
         // Zobrazit všechny aktivní položky (piva a obaly) v bilanční tabulce
         list.push({
           beer_id: b.id,
@@ -807,7 +825,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     });
 
     return list;
-  }, [beers, packages, initialStock, actualStock, dorovnatMap, stacenoMap, odpisyMap, vydejMap, expectedLedger]);
+  }, [allBeers, packages, initialStock, actualStock, dorovnatMap, stacenoMap, odpisyMap, vydejMap, expectedLedger]);
 
   // Totals
   const totals = useMemo(() => {
@@ -1341,7 +1359,10 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
   const auditPolozky = useMemo(() => {
     const out: { beer_id: string; beer_name: string; package_id: string; package_label: string;
                  porovnani: ReturnType<typeof porovnejPolozku> }[] = [];
-    beers.forEach((b) => {
+    // allBeers (ne jen aktivní) ze stejného důvodu jako u `rows` výš — zrušené
+    // pivo s pohybem zrovna v tomhle měsíci nesmí z auditu zmizet. Piva bez
+    // jakékoliv stopy v měsíci stejně vyhodí maCoUkazat().
+    allBeers.forEach((b) => {
       packages.forEach((pkg) => {
         const k = `${b.id}__${pkg.id}`;
         const porovnani = porovnejPolozku(auditInventura.get(k), skladLedger.get(k));
@@ -1350,7 +1371,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
       });
     });
     return out;
-  }, [beers, packages, auditInventura, skladLedger]);
+  }, [allBeers, packages, auditInventura, skladLedger]);
 
   const auditChybiZaklad = useMemo(
     () => auditPolozky.filter((p) => p.porovnani.chybiZaklad),
@@ -2030,7 +2051,7 @@ function exportInventoryExcel() {
               <div className="grid grid-cols-1 gap-2.5 md:hidden">
                 {zobrazeneRadky.map((r, i) => {
                   const k = `${r.beer_id}__${r.package_id}`;
-                  const beer = beers.find((b) => b.id === r.beer_id);
+                  const beer = allBeers.find((b) => b.id === r.beer_id);
                   // Panel se vykreslí pod POSLEDNÍM řádkem piva, ať se dopočet
                   // ukáže až po všech jeho obalech.
                   const posledniPiva = zobrazeneRadky[i + 1]?.beer_id !== r.beer_id;
@@ -2197,7 +2218,7 @@ function exportInventoryExcel() {
                   <tbody>
                     {rows.map((r, i) => {
                       const k = `${r.beer_id}__${r.package_id}`;
-                      const beer = beers.find((b) => b.id === r.beer_id);
+                      const beer = allBeers.find((b) => b.id === r.beer_id);
                       const isDark = beer && beerText(beer) === 'text-white';
                       const textColor = isDark ? 'text-white' : 'text-neutral-950';
                       // Panel pod POSLEDNÍM řádkem piva — až po všech jeho obalech.
@@ -2528,7 +2549,7 @@ function exportInventoryExcel() {
               </thead>
               <tbody>
                 {(auditJenRozdily ? auditNesedi : auditPolozky).map((it) => {
-                  const beer = beers.find((b) => b.id === it.beer_id);
+                  const beer = allBeers.find((b) => b.id === it.beer_id);
                   const { porovnani } = it;
                   const nesedi = porovnani.rozdilne.length > 0 || porovnani.soucetNesedi;
                   const bunka = (sl: AuditSloupec, hodnota: number, radek: 'inventura' | 'sklad') => (
