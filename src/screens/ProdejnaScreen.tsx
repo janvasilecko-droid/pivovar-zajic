@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { supabase, Beer, Package, EntryRow, useRealtime, beerBg, beerName, formatPackageLabel } from '../lib/supabase';
+import { supabase, Beer, Package, EntryRow, useRealtime, beerBg, beerName, formatPackageLabel, fetchAllRows } from '../lib/supabase';
 import { EmptyState, Spinner } from '../components/ui';
 import { isoWeekKey } from '../components/WeeklyOrderSummaryCard';
 import { VoiceRecorder } from '../components/VoiceRecorder';
@@ -11,6 +11,7 @@ import { detectTapType } from '../lib/tapReservations';
 import type { TapReservation } from './VycepyScreen';
 import { BeerTileGrid, BeerTilePanel, TileTotalBar } from '../components/BeerTileGrid';
 import { chyba, potvrd, toastZpet } from '../lib/toast';
+import { jeMesicUzamcen } from '../lib/mesicUzamcen';
 import { podezreleMnozstvi } from '../lib/kontrolaZadani';
 import { zavibruj } from '../lib/haptika';
 import { klicVyberu, nactiNaposled, zapamatujVyber, serazPodleNaposled } from '../lib/naposledyPouzite';
@@ -73,6 +74,9 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
   const [beers, setBeers] = useState<Beer[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
   const [loading, setLoading] = useState(true);
+  // Jen pro varování „tenhle měsíc je už napočítaný" (lib/mesicUzamcen.ts) —
+  // stejná pojistka jako ve Stáčení KEG a Lahvích, viz add() níž.
+  const [inventoryRows, setInventoryRows] = useState<{ entry_date: string; note: string | null }[]>([]);
 
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [who, setWho] = useState('');
@@ -189,16 +193,21 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
   async function load(silent = false) {
     const smiZapsat = zacniNacteni();
     if (!silent && !rows.length) setLoading(true);
-    const [fp, b, p] = await Promise.all([
+    const [fp, b, p, inv] = await Promise.all([
       supabase.from(table).select('*').order('entry_date', { ascending: false }).order('created_at', { ascending: false }),
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
+      // Jen entry_date + note — na víc se `jeMesicUzamcen` neptá (viz add() níž).
+      // fetchAllRows, ne supabase.from přímo: inventory roste přes 1000
+      // řádků a Supabase by zbytek tiše ořízl (viz strankovaniDotazu.test.ts).
+      fetchAllRows('inventory', 'entry_date,note'),
     ]);
     if (!smiZapsat()) return;
     setChybaNacteni(prvniChyba(fp, b, p));
     setRows((fp.data as EntryRow[]) ?? []);
     if (b.data) setBeers(b.data as Beer[]);
     if (p.data) setPackages(p.data as Package[]);
+    if (inv.data) setInventoryRows(inv.data as { entry_date: string; note: string | null }[]);
     setLoading(false);
   }
   // Přepnutí druhu výdeje mění tabulku, ze které se čte. Komponenta se přitom
@@ -206,7 +215,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
   // proto se musí načíst znovu podle table, jinak by v přehledu zůstal
   // seznam z předchozí tabulky.
   useEffect(() => { load(); }, [table]);
-  useRealtime([table, 'beers', 'packages'], () => load(true));
+  useRealtime([table, 'beers', 'packages', 'inventory'], () => load(true));
 
   function setRowField(i: number, field: keyof RowInput, value: string | boolean) {
     setEntryRows((rs) => rs.map((r, idx) => idx === i ? { ...r, [field]: value } : r));
@@ -255,6 +264,18 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
     }
     const filled = entryRows.filter((r) => r.beerId && r.pkgId && Number(r.qty) > 0);
     if (filled.length === 0) { setErr('Vyplň alespoň jeden řádek (pivo, obal a množství).'); return; }
+
+    // 🔒 Zápis do měsíce, který je už napočítaný (fyzická/schválená
+    // inventura), nezakazujeme — legitimní dodatečná oprava se stát může —
+    // ale nahlas na to upozorníme. Dřív měla tuhle pojistku jen Stáčení KEG
+    // a Lahve; výdej a odpis hýbou skladem stejně, takže stejně tiše
+    // rozjížděly už uzavřený měsíc (viz lib/mesicUzamcen.ts).
+    if (jeMesicUzamcen(inventoryRows, date)) {
+      const dotaz =
+        `Měsíc ${date.slice(0, 7)} už má napočítanou inventuru. Zápis do něj teď ` +
+        'změní číslo, které je už uzavřené a dorovnané.\n\nOpravdu zapsat do už napočítaného měsíce?';
+      if (!(await potvrd(dotaz, { titulek: 'Měsíc je už napočítaný', potvrdit: 'Ano, zapsat' }))) return;
+    }
 
     // Přehmat o řád (12 → 120) — stejná pojistka jako ve Stáčení KEG
     // a v Lahvích. Výdej a odpis hýbou skladem úplně stejně, takže tady
