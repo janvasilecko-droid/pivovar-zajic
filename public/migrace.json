@@ -138,7 +138,17 @@
     "20261230030000_merch_items.sql",
     "20261230040000_festival_equipment.sql",
     "20261230050000_sklo_promo_entries.sql",
+    "20261230060000_rpc_kontrola_opravneni.sql",
+    "20261230070000_push_odbery_a_chyby_uzsi_prava.sql",
+    "20261230080000_pujc_vybaveni_atomicky.sql",
     "20261231010000_odpocet_zavozu_az_po_stoceni.sql",
-    "20261231020000_stoceno_zaklada_zaznam_kegu.sql"
+    "20261231020000_stoceno_zaklada_zaznam_kegu.sql",
+    "20261231030000_ranni_souhrn_sudy_stk_a_ticho.sql",
+    "20261231040000_historie_zmen_cen.sql",
+    "20261231050000_varky_mereni_a_kvasnice.sql",
+    "20261231060000_trvanlivost_piva.sql",
+    "20261231070000_polozka_objednavky_ma_vlastni_den.sql",
+    "20261231080000_odpocet_podle_dne_zavozu.sql",
+    "20261231090000_zavreny_mesic.sql"
   ]
 }
