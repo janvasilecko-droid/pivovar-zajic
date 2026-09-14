@@ -148,6 +148,7 @@
     "20261231050000_varky_mereni_a_kvasnice.sql",
     "20261231060000_trvanlivost_piva.sql",
     "20261231070000_polozka_objednavky_ma_vlastni_den.sql",
-    "20261231080000_odpocet_podle_dne_zavozu.sql"
+    "20261231080000_odpocet_podle_dne_zavozu.sql",
+    "20261231090000_zavreny_mesic.sql"
   ]
 }

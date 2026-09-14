@@ -26,6 +26,8 @@ import { zavibruj } from '../lib/haptika';
 import { usePosledniNacteni } from '../lib/nacitani';
 import { IkonaSud } from '../components/ikony';
 import { uloz } from '../lib/uloziste';
+import { useAuth } from '../lib/auth';
+import { jeMesicVSeznamuUzavren, nactiZavreneMesice, otevriMesic, zavriMesic, type ZavrenyMesic } from '../lib/closedMonths';
 
 // Stahuje se až při otevření — viz komentář u lazy() v Orders.tsx.
 const CountFromImage = lazy(() => import('../components/CountFromImage').then((m) => ({ default: m.CountFromImage })));
@@ -104,6 +106,10 @@ function computeInitialStockForMonth(
 }
 
 export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: (p: any, sec?: string, sub?: string) => void; initialSubTab?: string } = {}) {
+  const { profile } = useAuth();
+  // Zavřené měsíce (viz lib/closedMonths.ts) — skutečné vynucení je v
+  // databázi (RLS), tady se to čte jen kvůli banneru a tlačítku Otevřít.
+  const [zavreneMesice, setZavreneMesice] = useState<ZavrenyMesic[]>([]);
   const [beers, setBeers] = useState<Beer[]>([]);
   // Aktivní + zrušená piva dohromady — jen pro měsíční uzávěrku (řádky
   // Inventury a Audit). Pivo zrušené PO srpnu (is_active=false) by jinak ze
@@ -543,6 +549,9 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
 
   useRealtime(['beers', 'packages', 'bottling', 'kegging', 'fasovani', 'fasovani_private', 'writeoffs', 'inventory', 'inventory_adjustments', 'zavoz_deductions', 'akce', 'akce_items', 'keg_prefuk'], () => loadData(true));
 
+  useEffect(() => { nactiZavreneMesice().then(setZavreneMesice); }, []);
+  useRealtime(['closed_months'], () => { nactiZavreneMesice().then(setZavreneMesice); });
+
   // Uložení počátečního stavu z rozjetého měsíce do databáze (inventory tabulka)
   async function handleSaveInitialStock() {
     const vratPozici = zapamatujPozici('[data-inv-kotva="pocatecni"]');
@@ -695,9 +704,13 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     setBusy(false);
   }
 
-  // Schválení inventury a převod fyzického stavu jako počáteční stav nového měsíce
+  // Schválení inventury, ZAVŘENÍ měsíce (viz lib/closedMonths.ts) a převod
+  // fyzického stavu jako počáteční stav nového měsíce. Zavření je jediná
+  // část, kterou databáze (RLS) dovolí jen admin/šéf/sládkovi/manažerovi —
+  // ostatním se převod dat i tak povede, jen se měsíc nezamkne a appka na
+  // to nahlas upozorní, ať to neprojde tiše.
   async function handleLockAndTransferNextMonth() {
-    if (!(await potvrd(`Chceš schválit inventuru za ${currentMonth} a převést fyzické stavy jako počáteční stav do nového měsíce?`))) return;
+    if (!(await potvrd(`Chceš schválit inventuru za ${currentMonth}, ZAVŘÍT ho (objednávky a zápisy výroby půjdou od teď jen číst) a převést fyzické stavy jako počáteční stav do nového měsíce?`))) return;
 
     const [y, m] = currentMonth.split('-').map(Number);
     const nextDate = new Date(y, m, 1);
@@ -736,8 +749,15 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
         uloz(`initial_stock_${nextMonthKey}`, JSON.stringify(nextInitialLs));
       } catch {}
 
-      oznam(`Inventura za ${currentMonth} byla schválena a stavy byly převedeny jako počáteční stav (Poč.) do měsíce ${nextMonthKey}.`);
-      
+      const chybaZavreni = await zavriMesic(currentMonth);
+      if (chybaZavreni) {
+        chyba(`Data se převedla, ale měsíc ${currentMonth} se nepodařilo zavřít: ${chybaZavreni}`);
+      } else {
+        setZavreneMesice(await nactiZavreneMesice());
+      }
+
+      oznam(`Inventura za ${currentMonth} byla schválena${chybaZavreni ? '' : ' a měsíc zavřen'}, stavy byly převedeny jako počáteční stav (Poč.) do měsíce ${nextMonthKey}.`);
+
       // Nastavíme příznaky pro vynucené načtení nových stavů z DB
       forceReloadRef.current = true;
       setCurrentMonth(nextMonthKey);
@@ -1551,6 +1571,20 @@ function exportInventoryExcel() {
   // má být hned vidět měsíc a hlavní akce, ne čtyři pruhy.
   const [dalsiAkce, setDalsiAkce] = useState(false);
 
+  const mesicUzavren = jeMesicVSeznamuUzavren(zavreneMesice, currentMonth);
+  const zaznamUzavreni = zavreneMesice.find((m) => m.month === currentMonth);
+  const smiOdemykat = profile?.role === 'admin';
+
+  async function handleOtevritMesic() {
+    if (!(await potvrd(`Otevřít zpátky měsíc ${currentMonth}? Objednávky a zápisy výroby/skladu za něj půjdou zase upravovat.`))) return;
+    setBusy(true);
+    const chybaOtevreni = await otevriMesic(currentMonth);
+    setBusy(false);
+    if (chybaOtevreni) { chyba(chybaOtevreni); return; }
+    setZavreneMesice(await nactiZavreneMesice());
+    oznam(`Měsíc ${currentMonth} je znovu otevřený.`);
+  }
+
   // Kostra místo kolečka: obsah se neodmountuje do prázdna, takže se
   // stránka po načtení neposkočí. Viz Kostra v components/ui.tsx.
   if (loading) return <Kostra radku={8} />;
@@ -1595,6 +1629,30 @@ function exportInventoryExcel() {
           </button>
         </div>
 
+        {/* Zavřený měsíc — objednávky a zápisy výroby/skladu za něj jsou
+            v ostatních obrazovkách jen ke čtení (vynuceno v databázi, viz
+            migrace 20261231090000_zavreny_mesic.sql). Otevřít zpátky smí
+            jen admin. */}
+        {mesicUzavren && (
+          <div className="flex items-center gap-2 flex-wrap px-3 py-2 rounded border-2 border-neutral-700 bg-neutral-900 text-white text-xs font-bold">
+            <Lock size={14} className="text-amber-400 shrink-0" />
+            <span className="flex-1 min-w-0">
+              Měsíc {currentMonth} je <strong className="text-amber-400">zavřený</strong> — objednávky, stáčení, lahvování,
+              fasování, prodejna, odpisy i akce jsou jen ke čtení.
+              {zaznamUzavreni && (
+                <span className="block font-normal text-neutral-400 mt-0.5">
+                  Zavřeno {new Date(zaznamUzavreni.closed_at).toLocaleString('cs-CZ')}.
+                </span>
+              )}
+            </span>
+            {smiOdemykat && (
+              <button type="button" onClick={handleOtevritMesic} disabled={busy} className="btn-ghost !text-xs !bg-white/10 !text-white hover:!bg-white/20 shrink-0">
+                Otevřít měsíc
+              </button>
+            )}
+          </div>
+        )}
+
         <div className="lista-akci">
           <button onClick={() => setShowPhotoCounter(true)} className="btn-primary !text-xs">
             <Camera size={16} /> Spočítat z fotek
@@ -1628,10 +1686,10 @@ function exportInventoryExcel() {
                 <Download size={16} /> Export Excel
               </button>
             </div>
-            {/* Uzávěrka měsíce zůstává vlastním řádkem: je to jediná akce
-                na téhle obrazovce, kterou nejde vzít zpět. */}
-            <button onClick={handleLockAndTransferNextMonth} className="btn-ghost !w-full !text-xs">
-              <Lock size={16} /> Schválit &amp; převést do nového měsíce
+            {/* Uzávěrka měsíce zůstává vlastním řádkem: založí i skutečný
+                zámek (viz mesicUzavren výš), ne jen převod dat. */}
+            <button onClick={handleLockAndTransferNextMonth} disabled={mesicUzavren} className="btn-ghost !w-full !text-xs">
+              <Lock size={16} /> {mesicUzavren ? `Měsíc ${currentMonth} je už zavřený` : 'Schválit, zavřít měsíc & převést do nového'}
             </button>
           </div>
         )}
