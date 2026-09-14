@@ -322,7 +322,7 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
               </button>
             )}
             {lahve && (
-              <button type="button" onClick={() => setPage('bottling', undefined, 'plan')} className="text-xs font-black text-amber-800 hover:underline min-h-[44px]">
+              <button type="button" onClick={() => setPage('bottling', undefined, 'potreba')} className="text-xs font-black text-amber-800 hover:underline min-h-[44px]">
                 Plán lahví →
               </button>
             )}
