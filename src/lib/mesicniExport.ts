@@ -186,14 +186,24 @@ export type MesicniExportVstup = {
   do: string;
   /** List „Inventura" — jiný tvar než ostatní (viz lib/inventuraExport.ts), proto zvlášť. */
   inventura?: InventuraExportRadek[];
+  /** Je zaškrtnutý jen jeden list? Jeho jméno pak nese i stažený soubor (viz nazevSouboru). */
+  jedinyList?: string;
 };
 
-/** Název souboru — z období, ať se stažené sešity nepřepisují. */
-export function nazevSouboru(od: string, doKdy: string): string {
+/**
+ * Název souboru — z období, ať se stažené sešity nepřepisují.
+ *
+ * @param jedinyList Když je zaškrtnutý jen JEDEN list (např. jen „Inventura",
+ *   nebo jen „Stáčení KEG"), nese název souboru rovnou jeho jméno místo
+ *   obecného „Zapisy_pivovar" — stažené soubory se pak dají rozeznat podle
+ *   jména, ne až podle obsahu.
+ */
+export function nazevSouboru(od: string, doKdy: string, jedinyList?: string): string {
   const stejnyMesic = od.slice(0, 7) === doKdy.slice(0, 7);
+  const zaklad = jedinyList ? jedinyList.replace(/\s+/g, '_') : 'Zapisy_pivovar';
   return stejnyMesic
-    ? `Zapisy_pivovar_${od.slice(0, 7)}.xlsx`
-    : `Zapisy_pivovar_${od}_az_${doKdy}.xlsx`;
+    ? `${zaklad}_${od.slice(0, 7)}.xlsx`
+    : `${zaklad}_${od}_az_${doKdy}.xlsx`;
 }
 
 /** Kolik řádků má který list — pro náhled před stažením. */
@@ -236,6 +246,6 @@ export async function stahniSesit(vstup: MesicniExportVstup): Promise<boolean> {
   await nactiXlsx();
   const wb = postavSesit(vstup);
   if (!wb) return false;
-  xlsx().writeFile(wb, nazevSouboru(vstup.od, vstup.do));
+  xlsx().writeFile(wb, nazevSouboru(vstup.od, vstup.do, vstup.jedinyList));
   return true;
 }

@@ -1,17 +1,18 @@
 // 📒 List „Inventura" pro měsíční export.
 // ---------------------------------------------------------------------------
 // Ostatní listy (Odběr personál, Stáčení…) mají jeden řádek na den + pivo —
-// to se ale hodí na výdeje, ne na inventuru. Inventura má být za CELÝ měsíc
-// najednou: pro každé pivo × obal počáteční stav, stočeno, odpis, výdej,
-// očekávaný stav a fyzicky napočítané kusy — stejná čísla jako záložka
-// „Fyzická inventura" v Inventuře (viz screens/InventoryScreen.tsx).
+// to se ale hodí na výdeje, ne na inventuru. Inventura ukazuje tři sloupce:
+// pivo, obal a fyzický stav ke konci měsíce — ale za CELÝ měsíc, tedy každé
+// pivo × obal, které v měsíci mělo pohyb nebo je pořád aktivní, ne jen ty,
+// co měly uložený fyzický zápis.
 //
 // Dřív se do listu braly jen řádky uložené jako Fyzická/Schválená inventura
 // (přímý výpis z tabulky `inventory`) — tj. jen položky, které měly nenulový
 // fyzický zápis. Za měsíc, kde se spočítalo jen pár druhů, tak vyšlo pár
 // řádků a vypadalo to, že měsíc chybí, i když sklad měl pohyb u desítek
-// položek. Tenhle modul proto počítá celou skladovou knihu (stockLedger.ts),
-// stejně jako to dělá obrazovka Inventura.
+// položek. Které řádky do listu patří se proto pozná ze stejné skladové
+// knihy (stockLedger.ts), jakou počítá záložka „Fyzická inventura" v
+// Inventuře — ukazuje se z ní ale jen výsledný fyzický stav, ne celý rozpad.
 import { xlsx } from './xlsxLazy';
 import { pismeno, styl } from './mesicniExport';
 import type { StockLine } from './stockLedger';
@@ -22,35 +23,36 @@ export type PackageProInventuru = { id: string; label: string; volume_l: number 
 export type InventuraExportRadek = {
   beer_name: string;
   package_label: string;
-  initialQty: number;
-  stacenoQty: number;
-  odpisQty: number;
-  vydejQty: number;
-  expectedQty: number;
-  /** null = nezapočítáno (nebyla uložená fyzická/schválená inventura). */
+  /** null = nezapočítáno (nebyla uložená fyzická/schválená inventura toho měsíce). */
   actualQty: number | null;
-  diffQty: number | null;
-  diffCzk: number | null;
 };
-
-/** Orientační cena za kus podle objemu — stejný odhad jako v Inventuře. */
-function cenaZaKus(volumeL: number): number {
-  return volumeL > 20 ? 1500 : volumeL > 0.6 ? 250 : 45;
-}
 
 /**
  * Piva pro daný měsíc: aktivní vždycky, skrytá jen když v měsíci měla pohyb
- * — jinak by tabulka byla plná dávno vyřazených piv (viz InventoryScreen.tsx,
- * monthBeers, stejná úvaha).
+ * NEBO fyzický zápis — jinak by tabulka byla plná dávno vyřazených piv (viz
+ * InventoryScreen.tsx, monthBeers, stejná úvaha). Fyzický zápis se počítá
+ * zvlášť od pohybu: čistě napočítaný stav bez jiného pohybu do skladové
+ * knihy nevstupuje (viz stockLedger.ts, kind 'inventura' se v hlavní smyčce
+ * přeskakuje), takže by bez týhle podmínky zmizel úplně.
  */
-function pivaMesice(beers: BeerProInventuru[], packages: PackageProInventuru[], expectedLedger: Map<string, StockLine>): BeerProInventuru[] {
-  return beers.filter((b) => b.is_active || packages.some((p) => expectedLedger.has(`${b.id}__${p.id}`)));
+function pivaMesice(
+  beers: BeerProInventuru[], packages: PackageProInventuru[],
+  expectedLedger: Map<string, StockLine>, actualMap: Record<string, number>,
+): BeerProInventuru[] {
+  return beers.filter((b) => b.is_active || packages.some((p) => {
+    const k = `${b.id}__${p.id}`;
+    return expectedLedger.has(k) || k in actualMap;
+  }));
 }
 
 /**
  * Poskládá řádky inventury za měsíc. `actualMap` je fyzicky napočítaný stav
  * (klíč `beer_id__package_id`) z uložené Fyzické/Schválené inventury toho
  * měsíce — chybějící klíč znamená „nepočítalo se", ne nulu.
+ *
+ * Do listu patří pivo × obal, které buď v měsíci mělo NĚJAKÝ pohyb (podle
+ * `expectedLedger`), nebo bylo fyzicky napočítané — jinak by šlo o prázdný
+ * řádek, který do exportu nepatří.
  */
 export function sestavInventuruExportu(
   beers: BeerProInventuru[],
@@ -60,52 +62,34 @@ export function sestavInventuruExportu(
 ): InventuraExportRadek[] {
   const out: InventuraExportRadek[] = [];
 
-  pivaMesice(beers, packages, expectedLedger).forEach((b) => {
+  pivaMesice(beers, packages, expectedLedger, actualMap).forEach((b) => {
     packages.forEach((p) => {
       const k = `${b.id}__${p.id}`;
-      const line = expectedLedger.get(k);
-      const kinds = line?.byKind ?? {};
-      const initialQty = line?.baselineQty ?? 0;
-      const stacenoQty = (kinds.kegovani ?? 0) + (kinds.staceni ?? 0) + (kinds.prefuk_do ?? 0);
-      const odpisQty = -(kinds.odpis ?? 0);
-      const vydejQty =
-        -((kinds.fasovani ?? 0) + (kinds.prodejna ?? 0) + (kinds.zavoz ?? 0) +
-          (kinds.akce ?? 0) + (kinds.sud_na_lahve ?? 0) + (kinds.prefuk_z ?? 0));
-      const expectedQty = line?.qty ?? (initialQty + stacenoQty - odpisQty - vydejQty);
+      const melPohyb = expectedLedger.has(k);
       const actualQty = k in actualMap ? actualMap[k] : null;
-      const diffQty = actualQty !== null ? actualQty - expectedQty : null;
-      const diffCzk = diffQty !== null ? diffQty * cenaZaKus(Number(p.volume_l ?? 0)) : null;
+      if (!melPohyb && actualQty === null) return;
 
-      // Prázdný řádek (nic se nedělo a nic se ani nepočítalo) do exportu nepatří.
-      if (initialQty === 0 && stacenoQty === 0 && odpisQty === 0 && vydejQty === 0 && expectedQty === 0 && actualQty === null) return;
-
-      out.push({ beer_name: b.name, package_label: p.label, initialQty, stacenoQty, odpisQty, vydejQty, expectedQty, actualQty, diffQty, diffCzk });
+      out.push({ beer_name: b.name, package_label: p.label, actualQty });
     });
   });
 
   return out;
 }
 
-const HLAVICKA = ['Pivo', 'Obal', 'Počáteční', 'Stočeno (+)', 'Odpis (−)', 'Výdej (−)', 'Očekávaný', 'Fyzická inventura', 'Manko (ks)', 'Manko (Kč)'];
+const HLAVICKA = ['Pivo', 'Obal', 'Fyzický stav ke konci měsíce'];
 
 /** TSV k vykopírování — stejný tvar jako `prehledDoTsv` u ostatních listů. */
 export function inventuraDoTsv(radky: InventuraExportRadek[]): string {
-  const telo = radky.map((r) => [
-    r.beer_name, r.package_label, r.initialQty, r.stacenoQty, r.odpisQty, r.vydejQty, r.expectedQty,
-    r.actualQty ?? '', r.diffQty ?? '', r.diffCzk ?? '',
-  ].join('\t'));
+  const telo = radky.map((r) => [r.beer_name, r.package_label, r.actualQty ?? ''].join('\t'));
   return [HLAVICKA.join('\t'), ...telo].join('\n');
 }
 
 /** Postaví worksheet listu Inventura — stejné styly jako ostatní listy sešitu. */
 export function postavInventuruList(radky: InventuraExportRadek[]): any {
-  const data: any[][] = [HLAVICKA, ...radky.map((r) => [
-    r.beer_name, r.package_label, r.initialQty, r.stacenoQty, r.odpisQty, r.vydejQty, r.expectedQty,
-    r.actualQty, r.diffQty, r.diffCzk,
-  ])];
+  const data: any[][] = [HLAVICKA, ...radky.map((r) => [r.beer_name, r.package_label, r.actualQty])];
 
   const ws = xlsx().utils.aoa_to_sheet(data);
-  ws['!cols'] = [{ wch: 22 }, { wch: 16 }, { wch: 11 }, { wch: 11 }, { wch: 10 }, { wch: 10 }, { wch: 11 }, { wch: 16 }, { wch: 11 }, { wch: 12 }];
+  ws['!cols'] = [{ wch: 24 }, { wch: 18 }, { wch: 24 }];
   ws['!freeze'] = { xSplit: 0, ySplit: 1 };
 
   const rozsah = xlsx().utils.decode_range(ws['!ref']!);
@@ -115,7 +99,7 @@ export function postavInventuruList(radky: InventuraExportRadek[]): any {
       const bunka = ws[adresa];
       if (!bunka) continue;
       if (R === 0) bunka.s = styl.hlavicka;
-      else if (C >= 2) bunka.s = styl.cislo;
+      else if (C === 2) bunka.s = styl.cislo;
     }
   }
 

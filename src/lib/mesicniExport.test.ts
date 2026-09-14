@@ -125,7 +125,7 @@ describe('list Inventura v sešitu (jiný tvar než ostatní, viz lib/inventuraE
   beforeAll(async () => { await nactiXlsx(); });
 
   const radkyInventury: InventuraExportRadek[] = [
-    { beer_name: '11° Světlá', package_label: 'KEG 50 l', initialQty: 5, stacenoQty: 10, odpisQty: 0, vydejQty: 3, expectedQty: 12, actualQty: 12, diffQty: 0, diffCzk: 0 },
+    { beer_name: '11° Světlá', package_label: 'KEG 50 l', actualQty: 12 },
   ];
 
   it('se přidá do sešitu a do náhledu, když je co ukázat', () => {
@@ -151,5 +151,10 @@ describe('název souboru', () => {
 
   it('u vlastního období nese oba kraje, ať se soubory nepřepisují', () => {
     expect(nazevSouboru('2026-08-01', '2026-09-15')).toBe('Zapisy_pivovar_2026-08-01_az_2026-09-15.xlsx');
+  });
+
+  it('u jediného zaškrtnutého listu nese jeho jméno místo obecného „Zapisy_pivovar"', () => {
+    expect(nazevSouboru('2026-08-01', '2026-08-31', 'Inventura')).toBe('Inventura_2026-08.xlsx');
+    expect(nazevSouboru('2026-08-01', '2026-08-31', 'Stáčení KEG')).toBe('Stáčení_KEG_2026-08.xlsx');
   });
 });

@@ -216,9 +216,13 @@ export default function ExportExcelScreen() {
   }, [listy, data, od, doKdy, radkyInventury]);
 
   // Řádky jen ze zaškrtnutých listů — podle nich se povoluje stažení.
+  const vybraneNazvy = prehled.filter((p) => !vynechane.has(p.nazev)).map((p) => p.nazev);
   const celkemVybranych = prehled
     .filter((p) => !vynechane.has(p.nazev))
     .reduce((s, p) => s + p.pocet, 0);
+  // Jen jeden zaškrtnutý list → soubor se jmenuje po něm (viz nazevSouboru
+  // v lib/mesicniExport.ts), ať jde stažené soubory rozeznat podle jména.
+  const jedinyList = vybraneNazvy.length === 1 ? vybraneNazvy[0] : undefined;
 
   /** Zkopíruje jeden list — když nechceš celý sešit, ale jen řádky do ruky. */
   async function kopirujList(nazev: string) {
@@ -259,10 +263,11 @@ export default function ExportExcelScreen() {
       const povedlo = await stahniSesit({
         listy: vybraneListy, obaly: data.packages as any, od, do: doKdy,
         inventura: vynechane.has('Inventura') ? [] : radkyInventury,
+        jedinyList,
       });
       if (povedlo) {
         zavibruj('hotovo');
-        uspech(`Staženo — ${nazevSouboru(od, doKdy)}`);
+        uspech(`Staženo — ${nazevSouboru(od, doKdy, jedinyList)}`);
       } else {
         varovani('V tomhle období není žádný zápis, není co stahovat.');
       }
