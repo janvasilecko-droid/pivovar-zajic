@@ -22,6 +22,7 @@ type Nactene = {
   odpis: any[];
   bottling: any[];
   kegging: any[];
+  inventura: any[];
   tanky: { id: string; label: string | null }[];
 };
 
@@ -66,7 +67,7 @@ export default function ExportExcelScreen() {
     let zruseno = false;
     (async () => {
       try {
-        const [pk, fa, pr, wo, bt, kg, tk] = await Promise.all([
+        const [pk, fa, pr, wo, bt, kg, tk, iv] = await Promise.all([
           fetchAllRows('packages', 'id,label,kind,volume_l'),
           fetchAllRows('fasovani', 'entry_date,beer_name,package_id,quantity,who,note'),
           fetchAllRows('fasovani_private', 'entry_date,beer_name,package_id,quantity,who,note'),
@@ -76,6 +77,7 @@ export default function ExportExcelScreen() {
           fetchAllRows('bottling', 'entry_date,beer_name,package_id,quantity,note,kegs_used,kegs_used_package_id'),
           fetchAllRows('kegging', 'entry_date,beer_name,package_id,quantity,note,cellar_tank_id'),
           fetchAllRows('cellar_tanks', 'id,label'),
+          fetchAllRows('inventory', 'entry_date,beer_name,package_id,quantity,note'),
         ]);
         if (zruseno) return;
         setData({
@@ -88,6 +90,7 @@ export default function ExportExcelScreen() {
           bottling: (bt.data as any[]) ?? [],
           kegging: (kg.data as any[]) ?? [],
           tanky: (tk.data as any[]) ?? [],
+          inventura: (iv.data as any[]) ?? [],
         });
       } catch (e) {
         chyba(e);
@@ -133,12 +136,27 @@ export default function ExportExcelScreen() {
       tank: r.cellar_tank_id ? (mapaTanku.get(r.cellar_tank_id) ?? '') : '',
     }));
 
+    // 📋 Inventura — jen NAPOČÍTANÉ stavy (Fyzická/Schválená), ne „Počáteční
+    // stav" zkopírovaný z minulé uzávěrky (to není nový zápis, jen přenesené
+    // číslo — v listu by vypadalo jako druhá inventura téhož měsíce).
+    // Sloupec „Odběratel" nese typ zápisu, ať je vidět, co bylo jen fyzicky
+    // napočítané a co je už uzavřené (viz lib/mesicUzamcen.ts se stejným
+    // rozlišením podle poznámky).
+    const inventuraRadky: VydejRadek[] = data.inventura
+      .filter((r: any) => /fyzick|schválen|schvalen/i.test(r.note ?? ''))
+      .map((r: any) => ({
+        entry_date: r.entry_date, beer_name: r.beer_name,
+        package_id: r.package_id, quantity: r.quantity,
+        who: /schválen|schvalen/i.test(r.note ?? '') ? 'Schválená' : 'Fyzická',
+      }));
+
     return [
       { nazev: 'Odběr personál', varianta: 'odberatel', radky: bezZapornych(data.fasovani) },
       { nazev: 'Fasování prodejna', varianta: 'odberatel', radky: bezZapornych(data.prodejna) },
       { nazev: 'Vzorky promo a PR', varianta: 'odberatel', radky: bezZapornych(data.odpis), popisOdberatele: 'Komu proč a zač' },
       { nazev: 'Stáčení lahve', varianta: 'staceni_lahve', radky: bezZapornych(lahveRadky) },
       { nazev: 'Stáčení KEG', varianta: 'staceni_keg', radky: bezZapornych(kegRadky) },
+      { nazev: 'Inventura', varianta: 'odberatel', radky: inventuraRadky, popisOdberatele: 'Typ zápisu' },
     ];
   }, [data, bezMinusu]);
 
