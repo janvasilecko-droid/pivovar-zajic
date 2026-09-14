@@ -1653,7 +1653,7 @@ function exportInventoryExcel() {
           <button
             onClick={handleLockAndTransferNextMonth}
             disabled={busy}
-            className="px-3 py-2.5 rounded bg-rose-700 hover:bg-rose-800 text-white font-black text-xs shadow-md transition flex items-center gap-1.5 w-fit disabled:opacity-50"
+            className="btn-emerald !w-fit !text-xs"
           >
             <Lock size={16} /> Uzavřít měsíc {nazevMesice(currentMonth)}
           </button>
