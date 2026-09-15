@@ -234,6 +234,16 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
   // podle kalendáře, když den závozu projde, a nic neříká o tom, jestli se
   // pivo stočilo. Zásobu ubírají jen objednávky, které člověk označil jako
   // zavezené — viz níž u poptávky (migrace 20261231080000, 13. 9. 2026).
+  //
+  // POZOR volajícím: `currentStockMap` sem proto NESMÍ nést pohyby 'zavoz' —
+  // volající si pro tenhle výpočet musí postavit zásobu BEZ zavozDeductionRows
+  // (viz `currentStockMap` v Kegging.tsx/BottlingScreen.tsx/CoStocitOkno.tsx).
+  // Kdyby je nesla, ubraly by se tytéž sudy dvakrát: jednou v odpočtu (v
+  // currentStockMap) a podruhé tady, když si na ně plán sáhne z fondu znovu,
+  // protože objednávka bez ručního „Zavezeno" pořád čeká v poptávce níž
+  // (z provozu 15. 9. 2026: „stočil jsem 21×30, appka mi přesto píše, že
+  // 4 chybí" — pondělní objednávka měla odpočet už zapsaný, ale fond z něj
+  // byl ochuzený podruhé, a na čtvrteční objednávku pak nic nezbylo).
   void zavozDeductionRows;
   Object.keys(pool).forEach((k) => { pool[k] = Math.max(0, pool[k]); });
 

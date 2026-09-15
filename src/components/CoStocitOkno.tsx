@@ -148,6 +148,13 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
 
   // Nezávisí na `druh` (sudy/lahve) — vrací zásobu pro VŠECHNA pivo×obal,
   // stačí spočítat jednou a použít pro oba plány níž.
+  //
+  // ⚠️ BEZ zavozDeductionRows — jde jen do keggingPlan.ts jako `pool` (viz
+  // stejný komentář v Kegging.tsx/BottlingScreen.tsx). Ten odpočet ze
+  // skladu sám o sobě nepovažuje za stočení; kdyby ho tahle zásoba
+  // zahrnula, ubraly by se tytéž kusy dvakrát u objednávky, kterou nikdo
+  // v Závozu neoznačil, a připravily by o zásobu jiný den (z provozu
+  // 15. 9. 2026: „stočil jsem 21×30, appka mi přesto píše, že 4 chybí").
   const currentStockMap = useMemo(() => {
     if (!data) return undefined;
     return zbytekKeKonciTydne({
@@ -157,7 +164,6 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
       fasovaniRows: data.fasovani,
       prodejnaRows: data.prodejna,
       writeoffsRows: data.writeoffs,
-      zavozDeductionRows: data.zavozDeductions,
       akceRows: data.akce,
       prefukRows: data.prefuk,
       adjustmentRows: data.adjustments,
@@ -174,6 +180,7 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
       orders: data.orders,
       orderItems: data.orderItems,
       keggingRows: druh === 'sudy' ? data.kegging : data.bottling,
+      zavozDeductionRows: data.zavozDeductions,
       fasovaniRows: data.fasovani,
       prodejnaRows: data.prodejna,
       writeoffsRows: data.writeoffs,

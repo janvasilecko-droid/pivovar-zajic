@@ -399,10 +399,20 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   // která obrazovka nikde nepoužije.
   useRealtime(['kegging', 'cellar_tanks', 'beers', 'packages', 'orders', 'order_items', 'fasovani', 'fasovani_private', 'writeoffs', 'keg_prefuk', 'zavoz_deductions', 'bottling', 'kegging_plan_checks', 'inventory', 'akce', 'akce_items', 'inventory_adjustments'], () => load(true));
 
-  // 📦 Skutečná zásoba skladem PRÁVĚ TEĎ — ze skladové knihy (stejný výpočet
-  // jako „Chybí skladem" v Objednávkách), ne jen ze stočení tohoto týdne.
-  // Z provozu 15. 9. 2026: „mám na skladě 9× 30l, appka mi stejně píše, že
-  // musím stočit další" (a předtím totéž u Němců, viz keggingPlan.ts).
+  // 📦 Skutečná zásoba skladem PRÁVĚ TEĎ — ze skladové knihy, ne jen ze
+  // stočení tohoto týdne. Z provozu 15. 9. 2026: „mám na skladě 9× 30l,
+  // appka mi stejně píše, že musím stočit další" (a předtím totéž u Němců,
+  // viz keggingPlan.ts).
+  //
+  // ⚠️ BEZ zavozDeductionRows, na rozdíl od „Chybí skladem" v Objednávkách.
+  // Tenhle výsledek jde jen do keggingPlan.ts jako `pool` — a ten odpočet ze
+  // skladu sám o sobě nepovažuje za stočení, poptávku počítá dál jako
+  // nekrytou, dokud objednávku někdo v Závozu neoznačí (viz komentář u
+  // `pool` v keggingPlan.ts). Kdyby tahle zásoba odpočet zahrnula, ubraly by
+  // se tytéž sudy dvakrát: jednou tady a podruhé v `pool`, když si na tu
+  // samou (v Závozu neoznačenou) objednávku sáhne znovu — a připraví tak o
+  // zásobu jiný den. Z provozu 15. 9. 2026: „stočil jsem 21×30, appka mi
+  // přesto píše, že 4 chybí" — přesně tenhle dvojitý odpočet.
   const currentStockMap = useMemo(() => zbytekKeKonciTydne({
     inventoryRows,
     bottlingRows,
@@ -410,12 +420,11 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     fasovaniRows,
     prodejnaRows,
     writeoffsRows,
-    zavozDeductionRows,
     akceRows,
     prefukRows,
     adjustmentRows,
     packages,
-  }, businessDateISO()), [inventoryRows, bottlingRows, rows, fasovaniRows, prodejnaRows, writeoffsRows, zavozDeductionRows, akceRows, prefukRows, adjustmentRows, packages]);
+  }, businessDateISO()), [inventoryRows, bottlingRows, rows, fasovaniRows, prodejnaRows, writeoffsRows, akceRows, prefukRows, adjustmentRows, packages]);
 
   // 🗓️ Plán stáčení po dnech — „co stočit na středu". Poptávka (objednávky)
   // se dál řídí jen tímhle týdnem — schodek z minulých měsíců se do ní

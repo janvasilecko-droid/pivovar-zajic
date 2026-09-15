@@ -594,5 +594,29 @@ describe('z čeho je „hotovo" — rozpad, který si vyžádal provoz', () => {
       expect(day(p, 'ut').items[0].missing).toBe(0);
       expect(day(p, 'st').items[0].missing).toBe(4);
     });
+
+    // Z provozu 15. 9. 2026: „stočil jsem 21×30, appka mi přesto píše, že
+    // 4 chybí." Příčina NENÍ v tomhle výpočtu — je v tom, jaký `currentStockMap`
+    // mu volající pošle (viz `currentStockMap` v Kegging.tsx/BottlingScreen.tsx/
+    // CoStocitOkno.tsx). Pošle-li volající zásobu, ze které je pondělní
+    // objednávka (odpočet ze skladu už kalendářně prošel, ale nikdo ji
+    // v Závozu neoznačil) odečtená JEDNOU (=21, fyzicky stočeno, bez
+    // odpočtu), spočítá tenhle výpočet obě objednávky správně z jednoho
+    // fondu — nic nezdvojuje.
+    it('jeden fond bez odpočtu pokryje pondělní i čtvrteční objednávku ze stejné zásoby', () => {
+      const p = plan({
+        orders: [objednavka('o1', '2026-08-24'), objednavka('o2', '2026-08-27')], // po, čt
+        orderItems: [
+          polozka('o1', 'b-des', 'p30', 10, 'polozka-po'),
+          polozka('o2', 'b-des', 'p30', 4, 'polozka-ct'),
+        ],
+        // 21 stočeno včera — currentStockMap volajícího BEZ odpočtu závozu
+        // (viz `currentStockMap` v Kegging.tsx), ne skladová kniha ochuzená
+        // o pondělní odpočet.
+        currentStockMap: new Map([['b-des__p30', 21]]),
+      });
+      expect(day(p, 'po').totalMissing).toBe(0);
+      expect(day(p, 'ct').totalMissing).toBe(0);
+    });
   });
 });

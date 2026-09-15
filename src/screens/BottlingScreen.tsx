@@ -415,6 +415,12 @@ export default function BottlingScreen({
   // stočení tohoto týdne. Z provozu 15. 9. 2026: „mám na skladě 9× 30l,
   // appka mi stejně píše, že musím stočit další" (u sudů, stejný nápad platí
   // pro lahve — viz keggingPlan.ts, currentStockMap).
+  //
+  // ⚠️ BEZ zavozDeductionRows — viz stejný komentář v Kegging.tsx. Jde jen do
+  // keggingPlan.ts jako `pool`, a ten odpočet ze skladu sám o sobě
+  // nepovažuje za stočení; kdyby ho tahle zásoba zahrnula, ubraly by se
+  // tytéž lahve dvakrát (jednou tady, podruhé v `pool` u objednávky, kterou
+  // nikdo v Závozu neoznačil) a připravily by o zásobu jiný den.
   const currentStockMap = useMemo(() => zbytekKeKonciTydne({
     inventoryRows,
     bottlingRows: rows,
@@ -422,11 +428,10 @@ export default function BottlingScreen({
     fasovaniRows,
     prodejnaRows,
     writeoffsRows,
-    zavozDeductionRows,
     akceRows,
     adjustmentRows,
     packages,
-  }, businessDateISO()), [inventoryRows, rows, keggingRows, fasovaniRows, prodejnaRows, writeoffsRows, zavozDeductionRows, akceRows, adjustmentRows, packages]);
+  }, businessDateISO()), [inventoryRows, rows, keggingRows, fasovaniRows, prodejnaRows, writeoffsRows, akceRows, adjustmentRows, packages]);
 
   // Výpočet potřeby stočení lahví — objednávky AKTUÁLNÍHO TÝDNE vs. sklad
   // (stav v pondělí ráno + stočeno tento týden − výdej tento týden). Sdílená
