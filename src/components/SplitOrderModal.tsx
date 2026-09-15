@@ -18,10 +18,12 @@ import { PlaceCombobox } from './PlaceCombobox';
 import { supabase, formatPackageLabel } from '../lib/supabase';
 import { getOrCreatePlace } from '../lib/orderParser';
 import { oznacVlastniObjednavku } from '../lib/mojeObjednavky';
+import { WhatsAppOriginalBlock } from './objednavky/WhatsAppOriginalBlock';
 import type { Order, OrderItem } from './objednavky/spolecne';
 
-export function SplitOrderModal({ order, items, places, onClose, onSaved, onPlacesChanged }: {
-  order: Order; items: OrderItem[]; places: import('../lib/supabase').Place[];
+export function SplitOrderModal({ order, items, beers, packages, places, onClose, onSaved, onPlacesChanged }: {
+  order: Order; items: OrderItem[];
+  beers: import('../lib/supabase').Beer[]; packages: import('../lib/supabase').Package[]; places: import('../lib/supabase').Place[];
   onClose: () => void; onSaved: () => void; onPlacesChanged?: () => void;
 }) {
   const [vybrane, setVybrane] = useState<Set<string>>(new Set());
@@ -84,12 +86,18 @@ export function SplitOrderModal({ order, items, places, onClose, onSaved, onPlac
   }
 
   return (
-    <Modal open onClose={onClose} title="Rozdělit objednávku na dva odběratele">
+    <Modal open onClose={onClose} title="Rozdělit objednávku na dva odběratele" wide>
       <div className="space-y-4">
         <p className="text-udaj text-neutral-500">
           Zaškrtni položky, které patří <strong>druhému</strong> odběrateli — vznikne pro ně nová objednávka,
           zbytek zůstane u <strong>{order.place_name || 'původního odběratele'}</strong>.
         </p>
+
+        {/* Původní WhatsApp zpráva — ať jde rozdělit přesně podle ní, ne
+            jen podle položek, jak je appka rozpoznala (z provozu 15. 9. 2026). */}
+        {order.whatsapp_message_id && (
+          <WhatsAppOriginalBlock messageId={order.whatsapp_message_id} orderId={null} beers={beers} packages={packages} places={places} />
+        )}
 
         <div className="space-y-1.5">
           {items.map((it) => (

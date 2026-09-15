@@ -2634,6 +2634,7 @@ export default function Orders({
                           remaining={stockRemainingForWeek(orderWeekKey(detail))}
                           onClose={() => setDetail(null)}
                           onChanged={load}
+                          onSplit={setSplitOrder}
                           onToggleFlag={toggleFlag}
                           onImportImage={(o) => { setDetail(null); setImportTarget(o); setShowImport(true); }}
                           setItems={setItems}
@@ -2674,6 +2675,7 @@ export default function Orders({
                     remaining={stockRemainingForWeek(orderWeekKey(detail))}
                     onClose={() => setDetail(null)}
                     onChanged={load}
+                    onSplit={setSplitOrder}
                     onToggleFlag={toggleFlag}
                     onImportImage={(o) => { setDetail(null); setImportTarget(o); setShowImport(true); }}
                     setItems={setItems}
@@ -2711,6 +2713,8 @@ export default function Orders({
         <SplitOrderModal
           order={splitOrder}
           items={items[splitOrder.id] ?? []}
+          beers={beers}
+          packages={packages}
           places={places}
           onClose={() => setSplitOrder(null)}
           onSaved={() => { setSplitOrder(null); setWeekKey(isoWeekKey(splitOrder.order_date)); load(); }}

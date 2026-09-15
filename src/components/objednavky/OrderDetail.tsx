@@ -1,6 +1,6 @@
 // 🔎 Detail objednávky — část obrazovky Objednávky.
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, ChevronLeft, ChevronRight, Bell, Building2, Camera, Check, ClipboardList, Copy, Package as PackageIcon, Pencil, Phone, Scroll, X } from 'lucide-react';
+import { AlertTriangle, ChevronLeft, ChevronRight, Bell, Building2, Camera, Check, ClipboardList, Copy, Package as PackageIcon, Pencil, Phone, Scroll, Split, X } from 'lucide-react';
 import { Beer, Package, Place, beerBg, beerInk, supabase } from '../../lib/supabase';
 import { Field } from '../ui';
 import { weekRange, shiftWeek } from '../WeeklyOrderSummaryCard';
@@ -24,8 +24,11 @@ import { StitekStavu } from '../StitekStavu';
 
 import { type Order, type OrderItem, dayColor } from './spolecne';
 import { WhatsAppOriginalBlock } from './WhatsAppOriginalBlock';
-export function OrderDetail({ order, items, beers, packages, places, priceList, remaining, onClose, onChanged, onToggleFlag, onImportImage, setItems, setOrders, allOrders, allItems, setPage, weekKey, setWeekKey }: {
-  order: Order; items: OrderItem[]; beers: Beer[]; packages: Package[]; places: Place[]; priceList: CenaPolozky[]; remaining: Map<string, number>; onClose: () => void; onChanged: () => void; onToggleFlag: (o: Order, key: 'is_prepared' | 'is_packaged' | 'is_delivered') => void; onImportImage: (o: Order) => void;
+export function OrderDetail({ order, items, beers, packages, places, priceList, remaining, onClose, onChanged, onSplit, onToggleFlag, onImportImage, setItems, setOrders, allOrders, allItems, setPage, weekKey, setWeekKey }: {
+  order: Order; items: OrderItem[]; beers: Beer[]; packages: Package[]; places: Place[]; priceList: CenaPolozky[]; remaining: Map<string, number>; onClose: () => void; onChanged: () => void;
+  /** Rozdělit na dva odběratele (viz SplitOrderModal) — jen když má 2+ položky. */
+  onSplit: (o: Order) => void;
+  onToggleFlag: (o: Order, key: 'is_prepared' | 'is_packaged' | 'is_delivered') => void; onImportImage: (o: Order) => void;
   setItems: React.Dispatch<React.SetStateAction<Record<string, OrderItem[]>>>;
   setOrders: React.Dispatch<React.SetStateAction<Order[]>>;
   setPage?: (p: any, sec?: string) => void;
@@ -319,6 +322,21 @@ export function OrderDetail({ order, items, beers, packages, places, priceList, 
             >
               <Copy size={16} /> Kopírovat jako text
             </button>
+
+            {/* ✂️ Rozdělit na dva odběratele — z provozu 15. 9. 2026: „i ve
+                správě, jedna objednávka může mít víc drobných odběratelů
+                (řada, Eigl, restaurace)". Původní WhatsApp zpráva je vidět
+                hned nahoře (WhatsAppOriginalBlock), takže se dá rozdělit
+                přesně podle ní. */}
+            {items.length > 1 && (
+              <button
+                type="button"
+                onClick={() => onSplit(order)}
+                className="flex items-center gap-2 text-sm text-primary-700 px-3 py-2 rounded hover:bg-primary-50 tap"
+              >
+                <Split size={16} /> Rozdělit na dva odběratele
+              </button>
+            )}
 
             {/* ✍️ Podpis převzetí. V Závozu se podepisovalo už dřív, tady
                 ne — a přitom právě tady se objednávka řeší, když se pak
