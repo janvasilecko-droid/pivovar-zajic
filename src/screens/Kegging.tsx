@@ -13,7 +13,7 @@ import { VoiceRecorder } from '../components/VoiceRecorder';
 import { parseFreeTextEntries, loadAliasMap, emptyAliasMap, type ParserAliasMap } from '../lib/orderParser';
 import { requestOrdersItemFilter } from '../lib/ordersFilter';
 import { computeKeggingPlan, mergeWeekPlan, rozpadPoObalech, objednavkyVTydnu, BEZ_TERMINU } from '../lib/keggingPlan';
-import { zbyvaStocitPrehledTydne } from '../lib/tydenniPrehledZasoby';
+import { zbyvaStocitPrehledTydne, zbyvaStocitPrehledTydnePodlePiv } from '../lib/tydenniPrehledZasoby';
 import { naplanujPresun } from '../lib/presunPolozky';
 import { BottlingPlanBottler } from '../components/BottlingPlanBottler';
 import { markPlanSeenAt, type BottlingPlan } from '../lib/bottlingPlans';
@@ -458,22 +458,27 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   // vyjímáním zavezených objednávek zůstává v „Co je potřeba stočit"
   // (KeggingDayPlan.tsx, dál na weekPlanKeg).
   const objednavkyTydne = useMemo(() => objednavkyVTydnu(orders, orderItems, weekKey), [orders, orderItems, weekKey]);
-  const rozpadTydneKeg = useMemo(() => {
+  const vstupPrehledTydneKeg = useMemo(() => {
     const { start, end } = weekRange(weekKey);
     const pondeliISO = start.toISOString().slice(0, 10);
     const nedeleISO = end.toISOString().slice(0, 10);
     const vTomtoTydnu = <T extends { entry_date?: string | null }>(r: T[]) => r.filter((x) => x.entry_date && x.entry_date >= pondeliISO && x.entry_date <= nedeleISO);
-    return zbyvaStocitPrehledTydne({
+    return {
       zdroje: { inventoryRows, bottlingRows, keggingRows: rows, fasovaniRows, prodejnaRows, writeoffsRows, zavozDeductionRows, akceRows, prefukRows, adjustmentRows, packages },
       packages,
       stoceniTydne: vTomtoTydnu(rows),
       objednavkyTydne,
       fasovaniTydne: vTomtoTydnu(fasovaniRows),
       pondeliISO,
-    });
+    };
   }, [inventoryRows, bottlingRows, rows, fasovaniRows, prodejnaRows, writeoffsRows, zavozDeductionRows, akceRows, prefukRows, adjustmentRows, packages, objednavkyTydne, weekKey]);
-  // Denní plán ("Co je potřeba stočit", per-pivo rozklik chipu) zůstává na
-  // PŮVODNÍM computeKeggingPlan — beze změny, jen zjednodušený souhrn výš je nový.
+  const rozpadTydneKeg = useMemo(() => zbyvaStocitPrehledTydne(vstupPrehledTydneKeg), [vstupPrehledTydneKeg]);
+  // Rozklik jedné velikosti sudu na jednotlivá piva (níž, `rozpisPiv`) MUSÍ
+  // počítat stejným (zjednodušeným) vzorcem jako `rozpadTydneKeg` výš, jinak
+  // by se součet piv v rozkliku nesešel s číslem na dlaždici.
+  const rozpisTydneKegPodlePiv = useMemo(() => zbyvaStocitPrehledTydnePodlePiv(vstupPrehledTydneKeg), [vstupPrehledTydneKeg]);
+  // Denní plán ("Co je potřeba stočit") zůstává na PŮVODNÍM computeKeggingPlan
+  // — beze změny, jen zjednodušený souhrn výš je nový.
   const weekPlanKeg = useMemo(() => mergeWeekPlan(keggingPlan, weekLabel), [keggingPlan, weekLabel]);
   // 🏷️ „Chybí stočit" po pivech, rozepsané po VELIKOSTI SUDU — pro štítek na
   // dlaždici v Zápisu. Nahrazuje jedno sečtené číslo („12"), které sčítalo
@@ -1269,15 +1274,13 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
               {/* Rozklik jedné velikosti sudu na jednotlivá piva — „1l 100"
                   samo o sobě neřekne, kolik je kterého piva, tak se ptá znovu. */}
               {rozpadOtevrenPkg && (() => {
-                const rozpisPiv = weekPlanKeg.items
-                  .filter((it) => it.package_id === rozpadOtevrenPkg && it.missing > 0)
-                  .sort((a, z) => z.missing - a.missing);
+                const rozpisPiv = rozpisTydneKegPodlePiv.filter((it) => it.package_id === rozpadOtevrenPkg);
                 if (rozpisPiv.length === 0) return null;
                 return (
                   <ul className="mt-1.5 flex flex-wrap gap-1.5">
                     {rozpisPiv.map((it) => (
                       <li key={it.beer_id} className="px-2 py-1 rounded bg-neutral-50 border border-neutral-200 text-udaj font-bold text-neutral-700 whitespace-nowrap">
-                        {it.beer_name} <span className="font-black text-rose-600">{it.missing}</span>
+                        {beers.find((b) => b.id === it.beer_id)?.name ?? '—'} <span className="font-black text-rose-600">{it.missing}</span>
                       </li>
                     ))}
                   </ul>

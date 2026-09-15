@@ -14,6 +14,14 @@
 // zavezené — a zásoba v pondělí je FIXNÍ počáteční bod (stav ke konci
 // předchozí neděle), ne "co je skladem právě teď". Žádné rozdělování podle
 // priority dnů, žádné vyjímání zavezených objednávek ze zásoby.
+//
+// Rozklik jedné velikosti na jednotlivá piva (Kegging.tsx/BottlingScreen.tsx,
+// `rozpisPiv`) MUSÍ počítat stejným vzorcem, jinak by se součet piv v
+// rozkliku nesešel s číslem na dlaždici — z provozu 15. 9. 2026 to byl přesně
+// tenhle nesoulad mezi dlaždicí a denním plánem, jen na jednu úroveň níž.
+// `zbyvaStocitPrehledTydnePodlePiv` proto počítá stejné `soucet` a
+// `zbyvaStocitPrehledTydne` z něj jen sečte obaly — obal je tedy vždycky
+// přesně součtem svých piv.
 import { buildMovements, stockAsOf, type StockSources } from './stockLedger';
 import type { RozpadObalu } from './keggingPlan';
 
@@ -33,6 +41,8 @@ export type TydenniPrehledVstup = {
   jeCilovyObal?: (kind: string) => boolean;
 };
 
+export type ChybiPivoObal = { beer_id: string; package_id: string; missing: number };
+
 /** Den před `datumISO` — čistě kalendářně, bez časové zóny. */
 function denPred(datumISO: string): string {
   const d = new Date(datumISO + 'T00:00:00Z');
@@ -40,7 +50,8 @@ function denPred(datumISO: string): string {
   return d.toISOString().slice(0, 10);
 }
 
-export function zbyvaStocitPrehledTydne(vstup: TydenniPrehledVstup): RozpadObalu[] {
+/** Součet (nabídka − poptávka) za tento týden, na klíč pivo__obal. */
+function spocitejSoucetPodlePiv(vstup: TydenniPrehledVstup): { soucet: Record<string, number>; cilovePkg: Map<string, TydenniPrehledVstup['packages'][number]> } {
   const jeCilovy = vstup.jeCilovyObal ?? ((kind: string) => kind === 'keg');
   const cilovePkg = new Map(vstup.packages.filter((p) => jeCilovy(p.kind)).map((p) => [p.id, p]));
 
@@ -68,6 +79,31 @@ export function zbyvaStocitPrehledTydne(vstup: TydenniPrehledVstup): RozpadObalu
   pricti(vstup.objednavkyTydne, -1);
   pricti(vstup.fasovaniTydne, -1);
 
+  return { soucet, cilovePkg };
+}
+
+/**
+ * Totéž číslo jako `zbyvaStocitPrehledTydne`, ale nerozpadlé podle obalu —
+ * podle KONKRÉTNÍHO PIVA. Pro rozklik jedné velikosti obalu na jednotlivá
+ * piva (viz komentář na začátku souboru).
+ */
+export function zbyvaStocitPrehledTydnePodlePiv(vstup: TydenniPrehledVstup): ChybiPivoObal[] {
+  const { soucet, cilovePkg } = spocitejSoucetPodlePiv(vstup);
+  const vysledek: ChybiPivoObal[] = [];
+  Object.entries(soucet).forEach(([k, zbytek]) => {
+    if (zbytek >= 0) return; // zásoba stačí, nic nechybí
+    const [beerId, packageId] = k.split('__');
+    if (!cilovePkg.has(packageId)) return;
+    vysledek.push({ beer_id: beerId, package_id: packageId, missing: -zbytek });
+  });
+  return vysledek.sort((a, z) => z.missing - a.missing);
+}
+
+export function zbyvaStocitPrehledTydne(vstup: TydenniPrehledVstup): RozpadObalu[] {
+  const chybiPodlePiv = zbyvaStocitPrehledTydnePodlePiv(vstup);
+  const jeCilovy = vstup.jeCilovyObal ?? ((kind: string) => kind === 'keg');
+  const cilovePkg = new Map(vstup.packages.filter((p) => jeCilovy(p.kind)).map((p) => [p.id, p]));
+
   const objednanoSoucet: Record<string, number> = {};
   vstup.objednavkyTydne.forEach((r) => {
     if (!r.beer_id || !r.package_id || !cilovePkg.has(r.package_id)) return;
@@ -76,24 +112,20 @@ export function zbyvaStocitPrehledTydne(vstup: TydenniPrehledVstup): RozpadObalu
   });
 
   const podleObalu = new Map<string, RozpadObalu>();
-  Object.entries(soucet).forEach(([k, zbytek]) => {
-    if (zbytek >= 0) return; // zásoba stačí, nic nechybí
-    const packageId = k.split('__')[1];
-    const pkg = cilovePkg.get(packageId);
+  chybiPodlePiv.forEach(({ package_id, missing }) => {
+    const pkg = cilovePkg.get(package_id);
     if (!pkg) return;
-    const missing = -zbytek;
-    const zaznam = podleObalu.get(packageId) ?? {
-      package_id: packageId,
+    const zaznam = podleObalu.get(package_id) ?? {
+      package_id,
       package_label: pkg.label,
       volume_l: Number(pkg.volume_l),
       ordered: 0,
       missing: 0,
       missingLiters: 0,
     };
-    zaznam.ordered += 0; // dopočítá se níž ze všech položek toho obalu
     zaznam.missing += missing;
     zaznam.missingLiters += missing * Number(pkg.volume_l);
-    podleObalu.set(packageId, zaznam);
+    podleObalu.set(package_id, zaznam);
   });
   // `ordered` je součet za VŠECHNA piva daného obalu (i ta, co nechybí) —
   // ať title na dlaždici pořád umí říct "objednáno X".

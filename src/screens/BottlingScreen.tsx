@@ -22,7 +22,7 @@ import { synchronizuj } from '../lib/checklistData';
 import { computePackageNeeds, PackageNeedsRow } from '../lib/packageNeeds';
 import { computeKeggingPlan, mergeWeekPlan, rozpadPoObalech, objednavkyVTydnu, BEZ_TERMINU } from '../lib/keggingPlan';
 import { zbytekKeKonciTydne } from '../lib/tydenniZbytek';
-import { zbyvaStocitPrehledTydne } from '../lib/tydenniPrehledZasoby';
+import { zbyvaStocitPrehledTydne, zbyvaStocitPrehledTydnePodlePiv } from '../lib/tydenniPrehledZasoby';
 import { naplanujPresun } from '../lib/presunPolozky';
 import KeggingDayPlan from '../components/KeggingDayPlan';
 import { chyba, potvrd, toastZpet } from '../lib/toast';
@@ -464,21 +464,27 @@ export default function BottlingScreen({
   // rozdělování po dnech a bez vyjímání zavezených objednávek. Denní plán
   // („Co je potřeba stočit") zůstává na weekPlanLahvi, beze změny.
   const objednavkyTydneLahve = useMemo(() => objednavkyVTydnu(orders, orderItems, weekKey), [orders, orderItems, weekKey]);
-  const rozpadTydneLahvi = useMemo(() => {
+  const vstupPrehledTydneLahvi = useMemo(() => {
     const { start, end } = weekRange(weekKey);
     const pondeliISO = start.toISOString().slice(0, 10);
     const nedeleISO = end.toISOString().slice(0, 10);
     const vTomtoTydnu = <T extends { entry_date?: string | null }>(r: T[]) => r.filter((x) => x.entry_date && x.entry_date >= pondeliISO && x.entry_date <= nedeleISO);
-    return zbyvaStocitPrehledTydne({
+    return {
       zdroje: { inventoryRows, bottlingRows: rows, keggingRows, fasovaniRows, prodejnaRows, writeoffsRows, zavozDeductionRows, akceRows, adjustmentRows, packages },
       packages,
       stoceniTydne: vTomtoTydnu(rows),
       objednavkyTydne: objednavkyTydneLahve,
       fasovaniTydne: vTomtoTydnu(fasovaniRows),
       pondeliISO,
-      jeCilovyObal: (kind) => kind !== 'keg',
-    });
+      jeCilovyObal: (kind: string) => kind !== 'keg',
+    };
   }, [inventoryRows, rows, keggingRows, fasovaniRows, prodejnaRows, writeoffsRows, zavozDeductionRows, akceRows, adjustmentRows, packages, objednavkyTydneLahve, weekKey]);
+  const rozpadTydneLahvi = useMemo(() => zbyvaStocitPrehledTydne(vstupPrehledTydneLahvi), [vstupPrehledTydneLahvi]);
+  // Rozklik jedné velikosti lahve na jednotlivá piva (níž, `rozpisPiv`) MUSÍ
+  // počítat stejným (zjednodušeným) vzorcem jako `rozpadTydneLahvi` výš,
+  // jinak by se součet piv v rozkliku nesešel s číslem na dlaždici — stejný
+  // nápad jako u KEG (Kegging.tsx).
+  const rozpisTydneLahviPodlePiv = useMemo(() => zbyvaStocitPrehledTydnePodlePiv(vstupPrehledTydneLahvi), [vstupPrehledTydneLahvi]);
   const weekPlanLahvi = useMemo(() => mergeWeekPlan(dennniPlanLahvi, weekLabel), [dennniPlanLahvi, weekLabel]);
   // Klik na velikost lahve v rozpadu rozklikne, kolik z toho je kterého piva
   // — stejný nápad jako u KEG (Kegging.tsx).
@@ -1333,15 +1339,13 @@ export default function BottlingScreen({
               {/* Rozklik jedné velikosti lahve na jednotlivá piva — „1l 110"
                   samo o sobě neřekne, kolik je kterého piva, tak se ptá znovu. */}
               {rozpadOtevrenPkg && (() => {
-                const rozpisPiv = weekPlanLahvi.items
-                  .filter((it) => it.package_id === rozpadOtevrenPkg && it.missing > 0)
-                  .sort((a, z) => z.missing - a.missing);
+                const rozpisPiv = rozpisTydneLahviPodlePiv.filter((it) => it.package_id === rozpadOtevrenPkg);
                 if (rozpisPiv.length === 0) return null;
                 return (
                   <ul className="mt-1.5 flex flex-wrap gap-1.5">
                     {rozpisPiv.map((it) => (
                       <li key={it.beer_id} className="px-2 py-1 rounded bg-neutral-50 border border-neutral-200 text-udaj font-bold text-neutral-700 whitespace-nowrap">
-                        {it.beer_name} <span className="font-black text-rose-600">{it.missing}</span>
+                        {beers.find((b) => b.id === it.beer_id)?.name ?? '—'} <span className="font-black text-rose-600">{it.missing}</span>
                       </li>
                     ))}
                   </ul>

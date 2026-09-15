@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { zbyvaStocitPrehledTydne } from './tydenniPrehledZasoby';
+import { zbyvaStocitPrehledTydne, zbyvaStocitPrehledTydnePodlePiv } from './tydenniPrehledZasoby';
 
 const packages = [{ id: 'p30', label: '30l', kind: 'keg', volume_l: 30 }];
 const PONDELI = '2026-09-14'; // pondělí — týden 2026-09-14 (po) až 2026-09-20 (ne)
@@ -88,5 +88,40 @@ describe('zbyvaStocitPrehledTydne — zjednodušený týdenní přehled', () => 
       pondeliISO: PONDELI,
     });
     expect(out).toEqual([]);
+  });
+});
+
+describe('zbyvaStocitPrehledTydnePodlePiv — rozklik obalu na jednotlivá piva', () => {
+  it('součet piv na jeden obal sedí přesně s číslem na dlaždici (missing i missingLiters)', () => {
+    const vstup = {
+      zdroje: {},
+      packages,
+      stoceniTydne: [{ beer_id: 'b1', package_id: 'p30', quantity: 5 }],
+      objednavkyTydne: [
+        { beer_id: 'b1', package_id: 'p30', quantity: 12 },
+        { beer_id: 'b2', package_id: 'p30', quantity: 8 },
+      ],
+      fasovaniTydne: [],
+      pondeliISO: PONDELI,
+    };
+    const podleObalu = zbyvaStocitPrehledTydne(vstup);
+    const podlePiv = zbyvaStocitPrehledTydnePodlePiv(vstup);
+    const p30 = podleObalu.find((r) => r.package_id === 'p30');
+    const soucetPiv = podlePiv.filter((it) => it.package_id === 'p30').reduce((s, it) => s + it.missing, 0);
+    expect(soucetPiv).toBe(p30?.missing);
+    expect(podlePiv.find((it) => it.beer_id === 'b1')?.missing).toBe(7);
+    expect(podlePiv.find((it) => it.beer_id === 'b2')?.missing).toBe(8);
+  });
+
+  it('pivo, které nic nechybí, se v rozkliku nezobrazí', () => {
+    const podlePiv = zbyvaStocitPrehledTydnePodlePiv({
+      zdroje: {},
+      packages,
+      stoceniTydne: [{ beer_id: 'b1', package_id: 'p30', quantity: 20 }],
+      objednavkyTydne: [{ beer_id: 'b1', package_id: 'p30', quantity: 5 }],
+      fasovaniTydne: [],
+      pondeliISO: PONDELI,
+    });
+    expect(podlePiv).toEqual([]);
   });
 });
