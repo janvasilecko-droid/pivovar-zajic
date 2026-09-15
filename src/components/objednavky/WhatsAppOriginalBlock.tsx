@@ -24,12 +24,14 @@ function formatWATime(iso?: string): string {
   }
 }
 
-export function WhatsAppOriginalBlock({ messageId, orderId, beers, packages, places, onPlaceFound }: {
+export function WhatsAppOriginalBlock({ messageId, orderId, beers, packages, places, onPlaceFound, onMessageLoaded }: {
   messageId: string;
   /** Vyplněné, jen když objednávka nemá odběratele (place_id je null) — nabídne tlačítko na nové rozpoznání. */
   orderId: string | null;
   beers: Beer[]; packages: Package[]; places: Place[];
   onPlaceFound?: () => void;
+  /** Zavolá se, jakmile se zpráva načte — ať volající umí z textu vytáhnout vlastní věc (např. SplitOrderModal hledá druhého odběratele). */
+  onMessageLoaded?: (msg: WhatsAppIncoming) => void;
 }) {
   const [msg, setMsg] = useState<WhatsAppIncoming | null>(null);
   const [loading, setLoading] = useState(true);
@@ -79,7 +81,7 @@ export function WhatsAppOriginalBlock({ messageId, orderId, beers, packages, pla
     setError(null);
     setMsg(null);
     fetchWhatsAppMessage(messageId)
-      .then((m) => { if (!cancelled) setMsg(m); })
+      .then((m) => { if (!cancelled) { setMsg(m); if (m) onMessageLoaded?.(m); } })
       .catch((e) => { if (!cancelled) setError((e as Error).message ?? 'neznámá chyba'); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };

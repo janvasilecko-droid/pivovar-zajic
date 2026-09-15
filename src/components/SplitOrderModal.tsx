@@ -12,14 +12,18 @@
 // odpočet závozu). Pokud už položka má odpočet (zavoz_deductions), přesune
 // se s ní i ten — jinak by odpočet zůstal ukazovat na starou objednávku a
 // přehledy/audit by se rozešly s tím, kde položka doopravdy je.
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Modal } from './ui';
 import { PlaceCombobox } from './PlaceCombobox';
 import { supabase, formatPackageLabel } from '../lib/supabase';
 import { getOrCreatePlace } from '../lib/orderParser';
 import { oznacVlastniObjednavku } from '../lib/mojeObjednavky';
+import { uhodniDruhehoOdberatele } from '../lib/druhyOdberatel';
 import { WhatsAppOriginalBlock } from './objednavky/WhatsAppOriginalBlock';
+import type { WhatsAppIncoming } from '../lib/whatsappApi';
 import type { Order, OrderItem } from './objednavky/spolecne';
+
+const bezDiakritiky = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
 
 export function SplitOrderModal({ order, items, beers, packages, places, onClose, onSaved, onPlacesChanged }: {
   order: Order; items: OrderItem[];
@@ -31,6 +35,23 @@ export function SplitOrderModal({ order, items, beers, packages, places, onClose
   const [placeName, setPlaceName] = useState('');
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  // 🔍 Jakmile se načte originální zpráva, zkusit z ní rovnou uhodnout
+  // druhého odběratele (z provozu 15. 9. 2026: „rovnou tam přidej toho
+  // odběratele, pokud ve zprávě byl — tady bylo Sluhy"). Jen návrh, obsluha
+  // ho může přepsat; `zkusenoRef` mu nedovolí přebít, co si už sama napsala.
+  const zkusenoRef = useRef(false);
+  const [autoNavrzeno, setAutoNavrzeno] = useState(false);
+  function zpravaNactena(msg: WhatsAppIncoming) {
+    if (zkusenoRef.current) return;
+    zkusenoRef.current = true;
+    const navrh = uhodniDruhehoOdberatele(msg.message_text, order.place_name);
+    if (!navrh) return;
+    setPlaceName((soucasne) => soucasne || navrh);
+    const shoda = places.find((p) => bezDiakritiky(p.name) === bezDiakritiky(navrh));
+    if (shoda) setPlaceId((soucasne) => soucasne || shoda.id);
+    setAutoNavrzeno(true);
+  }
 
   function prepni(id: string) {
     setVybrane((s) => {
@@ -96,7 +117,7 @@ export function SplitOrderModal({ order, items, beers, packages, places, onClose
         {/* Původní WhatsApp zpráva — ať jde rozdělit přesně podle ní, ne
             jen podle položek, jak je appka rozpoznala (z provozu 15. 9. 2026). */}
         {order.whatsapp_message_id && (
-          <WhatsAppOriginalBlock messageId={order.whatsapp_message_id} orderId={null} beers={beers} packages={packages} places={places} />
+          <WhatsAppOriginalBlock messageId={order.whatsapp_message_id} orderId={null} beers={beers} packages={packages} places={places} onMessageLoaded={zpravaNactena} />
         )}
 
         <div className="space-y-1.5">
@@ -117,7 +138,17 @@ export function SplitOrderModal({ order, items, beers, packages, places, onClose
 
         <div>
           <label className="label">Druhý odběratel</label>
-          <PlaceCombobox value={placeId || placeName} onChange={(id, name) => { setPlaceId(id); setPlaceName(name); }} places={places} onPlacesChanged={onPlacesChanged} />
+          <PlaceCombobox
+            value={placeId || placeName}
+            onChange={(id, name) => { setPlaceId(id); setPlaceName(name); setAutoNavrzeno(false); }}
+            places={places}
+            onPlacesChanged={onPlacesChanged}
+          />
+          {autoNavrzeno && (
+            <p className="text-udaj font-bold text-emerald-700 mt-1">
+              Doplněno z originální zprávy — zkontroluj, jestli sedí.
+            </p>
+          )}
         </div>
 
         {err && <p className="text-udaj font-bold text-rose-700">{err}</p>}

@@ -333,7 +333,10 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
                               {n > 0
                                 ? <span className="font-display font-black text-amber-800">{n}</span>
                                 : r.objednano.has(s.package_id)
-                                  ? <Check size={12} className="inline text-emerald-700" aria-label="stočeno" />
+                                  // "Pokryto", ne "stočeno" — od zapojení skutečné zásoby
+                                  // skladem (currentStockMap, 15. 9. 2026) to nemusí
+                                  // znamenat stočení TENTO týden, ale i starší zásobu.
+                                  ? <span title="Objednávka je pokrytá — stočením nebo zásobou skladem"><Check size={12} className="inline text-emerald-700" aria-label="pokryto" /></span>
                                   : <span className="text-neutral-300">·</span>}
                             </td>
                           );
@@ -356,7 +359,7 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
 
           {data && (matice.hotovaPiva.size > 0 || bezTerminu > 0) && (
             <p className="text-udaj font-bold text-neutral-500">
-              {matice.hotovaPiva.size > 0 && <><Check size={11} className="inline text-emerald-700" /> Už stočeno: {matice.hotovaPiva.size} {matice.hotovaPiva.size === 1 ? 'pivo' : matice.hotovaPiva.size < 5 ? 'piva' : 'piv'}. </>}
+              {matice.hotovaPiva.size > 0 && <><Check size={11} className="inline text-emerald-700" /> Už pokryto: {matice.hotovaPiva.size} {matice.hotovaPiva.size === 1 ? 'pivo' : matice.hotovaPiva.size < 5 ? 'piva' : 'piv'} (stočením nebo zásobou skladem). </>}
               {bezTerminu > 0 && <>Včetně {bezTerminu} ks z objednávek bez dne dovozu.</>}
             </p>
           )}

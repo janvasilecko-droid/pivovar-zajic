@@ -72,10 +72,15 @@ export function BeerTileGrid({ beers, onSelect, summaryFor, missingBadgeFor }: B
             {/* Rozepsané po velikosti — jeden obdélníček se všemi velikostmi
                 za sebou, místo jednoho kolečka se sečteným číslem (ať je
                 vidět NA KTEROU velikost se zaměřit), ale i místo hromady
-                kolečer pod sebou (zabíralo moc místa přes celou dlaždici). */}
+                kolečer pod sebou (zabíralo moc místa přes celou dlaždici).
+                V TOKU (ne absolutně přes roh) — na telefonu se u piva s víc
+                velikostmi (např. „30l:4, 15l:4, 10l:1") odznak přes celý
+                název piva dřív nešel přečíst ani jedno, ani druhé (z provozu
+                15. 9. 2026). Dlaždice s odznakem je o řádek vyšší, bez něj
+                zůstává stejně nízká jako dřív. */}
             {missingBadge && missingBadge.length > 0 && (
               <span
-                className="absolute -top-1.5 -right-1.5 z-10 max-w-[90%] px-1.5 py-1 rounded bg-rose-600 text-white text-[11px] leading-none font-medium shadow ring-2 ring-white dark:ring-neutral-900 whitespace-nowrap overflow-hidden text-ellipsis"
+                className="self-stretch px-1.5 py-0.5 rounded bg-rose-600 text-white text-[11px] leading-tight font-medium shadow"
                 title={missingBadge.map((m) => `${m.missing} × ${m.label}`).join(', ') + ' — chybí stočit do konce týdne'}
               >
                 {missingBadge.map((m) => `${m.label}:${m.missing}`).join(', ')}
