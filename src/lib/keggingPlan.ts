@@ -211,7 +211,12 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
   // pokrýt některý z dalších dnů.
   const pool: Record<string, number> = {};
   if (input.currentStockMap) {
-    input.currentStockMap.forEach((qty, k) => { pool[k] = Math.max(0, qty); });
+    // NEořezávat na nulu: záporná hodnota je skutečný dluh (vydalo se víc,
+    // než kdy bylo stočeno) a `sestavDen` níž ho musí umět připočítat k
+    // tomu, co ještě chybí stočit — jinak by appka takový dluh navždy
+    // tiše ignorovala, i když ho Sklad ukazuje poctivě záporný (z provozu
+    // 15. 9. 2026: audit).
+    input.currentStockMap.forEach((qty, k) => { pool[k] = qty; });
   } else {
     keggingRows.filter((r) => inWeek(r.entry_date)).forEach((r) => {
       if (!r.beer_id || !r.package_id || !kegPkgs.has(r.package_id)) return;
@@ -245,7 +250,6 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
   // 4 chybí" — pondělní objednávka měla odpočet už zapsaný, ale fond z něj
   // byl ochuzený podruhé, a na čtvrteční objednávku pak nic nezbylo).
   void zavozDeductionRows;
-  Object.keys(pool).forEach((k) => { pool[k] = Math.max(0, pool[k]); });
 
   // ── Poptávka po dnech.
   const ordersById = new Map(orders.map((o) => [o.id, o]));
@@ -323,9 +327,16 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
     const items: PlanItem[] = Object.entries(byDay[dayKey]).map(([k, b]) => {
       const [beer_id, package_id] = k.split('__');
       const pkg = kegPkgs.get(package_id)!;
+      // Fond (pool[k]) může být ZÁPORNÝ — skutečný dluh z minula (vydalo se
+      // víc, než kdy bylo stočeno). Ten dluh se řeší HNED, na prvním dni,
+      // kde se na tenhle klíč sáhne: připočítá se k tomu, co chybí, a fond
+      // se od něj očistí (na 0), ať ho žádný další den v týdnu nezpracoval
+      // znovu. Kladná část fondu se pak čerpá jako dřív.
+      const deficit = Math.max(0, -(pool[k] || 0));
+      const poolKladny = Math.max(0, pool[k] || 0);
       const stillNeeded = Math.max(0, b.ordered - b.covered);
-      const fromPool = Math.min(stillNeeded, pool[k] || 0);
-      pool[k] = (pool[k] || 0) - fromPool;
+      const fromPool = Math.min(stillNeeded, poolKladny);
+      pool[k] = poolKladny - fromPool;
       const autoDone = b.covered + fromPool;
       // Ruční odškrtnutí a doložený stav se skládají přes MAX. Součet by
       // položku započítal dvakrát ve chvíli, kdy si ji stáčeč odškrtne a pak
@@ -345,7 +356,7 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
         nachystano: b.covered,
         zChladaku: fromPool,
         checked,
-        missing: Math.max(0, b.ordered - done),
+        missing: Math.max(0, b.ordered - done) + deficit,
         orders: b.orders,
       };
     });

@@ -1,8 +1,9 @@
 // Test sdílené logiky packageNeeds.ts na příkladu LAHVÍ (kind !== 'keg') —
 // stejný scénář, jaký uživatel reportoval na BottlingScreen.tsx: čerstvé
 // stočení dnes musí hned pokrýt dnešní objednávku, i když jiná objednávka
-// týdne byla dřív zavezena. KEG případ je pokrytý v kegNeeds.test.ts (ten
-// je jen tenký wrapper nad touto sdílenou funkcí).
+// týdne byla dřív zavezena. Funkce umí i KEG větev (kind === 'keg'), ale tu
+// dnes žádná obrazovka nepoužívá (viz komentář v packageNeeds.ts) — proto
+// pro ni testy zatím nejsou; testujeme jen skutečně používanou lahvovou cestu.
 import { describe, it, expect, beforeEach } from 'vitest';
 import { computePackageNeeds, PackageNeedsInput } from './packageNeeds';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';

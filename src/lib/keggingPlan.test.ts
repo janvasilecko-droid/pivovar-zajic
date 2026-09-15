@@ -618,5 +618,41 @@ describe('z čeho je „hotovo" — rozpad, který si vyžádal provoz', () => {
       expect(day(p, 'po').totalMissing).toBe(0);
       expect(day(p, 'ct').totalMissing).toBe(0);
     });
+
+    // Nález z auditu 15. 9. 2026: záporný fond (skutečný dluh ze skladové
+    // knihy — vydalo se víc, než kdy bylo stočeno) se dřív tiše ořezal na
+    // nulu, takže dluh navždy zmizel z „co stočit", i když ho Sklad
+    // ukazoval poctivě záporný.
+    it('záporný fond (dluh) se připočítá k tomu, co chybí, ne zmizí', () => {
+      const p = plan({
+        orders: [objednavka('o1', '2026-08-26')],
+        orderItems: [polozka('o1', 'b-des', 'p30', 10)],
+        // Sklad je v mínusu −5 (dluh z minula).
+        currentStockMap: new Map([['b-des__p30', -5]]),
+      });
+      // 10 na objednávku + 5 na smazání dluhu = 15.
+      expect(day(p, 'st').items[0].missing).toBe(15);
+    });
+
+    it('dluh se připočítá jen jednou, ne znovu na každý den', () => {
+      const p = plan({
+        orders: [objednavka('o1', '2026-08-25'), objednavka('o2', '2026-08-27')], // út, čt
+        orderItems: [polozka('o1', 'b-des', 'p30', 3), polozka('o2', 'b-des', 'p30', 4)],
+        currentStockMap: new Map([['b-des__p30', -2]]),
+      });
+      // Úterý (první den v týdnu s touhle položkou) odnese celý dluh: 3 + 2 = 5.
+      expect(day(p, 'ut').items[0].missing).toBe(5);
+      // Čtvrtek už dluh neplatí podruhé — jen svoje vlastní 4.
+      expect(day(p, 'ct').items[0].missing).toBe(4);
+    });
+
+    it('bez dluhu (kladný nebo nulový fond) se chová jako dřív', () => {
+      const p = plan({
+        orders: [objednavka('o1', '2026-08-26')],
+        orderItems: [polozka('o1', 'b-des', 'p30', 10)],
+        currentStockMap: new Map([['b-des__p30', 0]]),
+      });
+      expect(day(p, 'st').items[0].missing).toBe(10);
+    });
   });
 });

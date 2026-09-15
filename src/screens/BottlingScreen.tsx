@@ -579,7 +579,11 @@ export default function BottlingScreen({
     const todayStr = new Date().toISOString().slice(0, 10);
     return computePackageNeeds(
       {
-        beers,
+        // Nález z auditu 15. 9. 2026: se seznamem jen aktivních piv řádek
+        // pro vyřazené pivo ze součtu úplně zmizel (na rozdíl od denního
+        // plánu, kde se aspoň ukázal jako "Neznámé pivo") — objednávka na
+        // něj se tak z „Potřeba stočit lahve" ztratila beze stopy.
+        beers: vsechnaPivaJmena,
         packages,
         orders,
         orderItems,
@@ -597,7 +601,7 @@ export default function BottlingScreen({
       },
       (kind) => kind !== 'keg'
     );
-  }, [beers, packages, orders, orderItems, inventoryRows, rows, fasovaniRows, prodejnaRows, writeoffsRows, keggingRows, zavozDeductionRows, adjustmentRows, akceRows, weekKey]);
+  }, [vsechnaPivaJmena, packages, orders, orderItems, inventoryRows, rows, fasovaniRows, prodejnaRows, writeoffsRows, keggingRows, zavozDeductionRows, adjustmentRows, akceRows, weekKey]);
 
   const filteredRequirements = useMemo(() => {
     let list = bottleRequirements;

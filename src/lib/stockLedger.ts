@@ -256,7 +256,14 @@ export function buildMovements(src: StockSources): Movement[] {
   (src.bottlingRows ?? []).forEach((r) => {
     const res = resolveKegsUsed(r, packages);
     if (!res || !r.beer_id) return;
-    const dedupe = `${r.entry_date}|${r.beer_id}|${res.kegsUsed}|${res.kegPkgId}|${r.created_at || r.note || ''}`;
+    // `package_id` je CÍLOVÝ obal (do jakých lahví se stáčelo) — bez něj se
+    // dva různé řádky stáčení (stejné pivo, stejný počet a velikost
+    // spotřebovaných sudů, stejný den) v JEDNOM uložení (sdílené `created_at`
+    // z jednoho INSERTu i sdílená poznámka celé dávky) mylně považovaly za
+    // duplicitu, i když šlo o dvě různé lahve — druhý zápis se tiše zahodil
+    // a spotřeba sudů vyšla nižší, než doopravdy byla (nález z auditu
+    // 15. 9. 2026).
+    const dedupe = `${r.entry_date}|${r.beer_id}|${r.package_id}|${res.kegsUsed}|${res.kegPkgId}|${r.created_at || r.note || ''}`;
     if (seen.has(dedupe)) return;
     seen.add(dedupe);
     // Poznámka je z řádku STÁČENÍ — díky ní je vidět, že sud ubyl (nebo se

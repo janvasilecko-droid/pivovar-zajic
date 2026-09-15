@@ -150,7 +150,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   const [writeoffsRows, setWriteoffsRows] = useState<RadekPohybu[]>([]);
   const [zavozDeductionRows, setZavozDeductionRows] = useState<RadekZavozu[]>([]);
   // Jen kvůli poli kegs_used (KEGy spotřebované jako zdroj stáčení lahví) —
-  // viz komentář u KegNeedsInput.bottlingRows v kegNeeds.ts.
+  // stockLedger.ts z něj počítá pohyb 'sud_na_lahve' (viz resolveKegsUsed).
   const [bottlingRows, setBottlingRows] = useState<RadekPohybu[]>([]);
   // Ruční odškrtnutí v plánu stáčení — pracovní pomůcka, ne evidence stáčení.
   const [planCheckRows, setPlanCheckRows] = useState<any[]>([]);
@@ -999,6 +999,20 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     const fromPkg = packages.find((p) => p.id === pfFromPkgId);
     const toPkg = packages.find((p) => p.id === pfToPkgId);
     const beer = beers.find((b) => b.id === pfBeerId);
+    // Nález z auditu 15. 9. 2026: zadání přefuku nekontrolovalo, že v obalu
+    // ZE opravdu tolik sudů je — skladová kniha ho klidně srazila do mínusu
+    // a chybu odhalil až Hloubkový audit, ne zadání samotné. Zápis dál
+    // nezakazujeme (viz stockLedger.ts — appka schválně nic neořezává), jen
+    // se předem zeptáme, ať to není omyl v počtu.
+    const kAvailable = `${pfBeerId}__${pfFromPkgId}`;
+    const available = currentStockMap?.get(kAvailable) ?? 0;
+    if (fromCount > available) {
+      const ok = await potvrd(
+        `Ve skladu je podle skladové knihy jen ${available} × ${fromPkg?.label ?? 'ten sud'} (${beer?.name ?? 'to pivo'}), ne ${fromCount}. Přefuk by sklad poslal do mínusu — opravdu pokračovat?`,
+        { titulek: 'Sklad na tohle nestačí', potvrdit: 'Ano, zapsat i tak' }
+      );
+      if (!ok) return;
+    }
     setPfSaving(true);
     setPfErr(null);
     const { error } = await supabase.from('keg_prefuk').insert({
