@@ -15,6 +15,7 @@
 // Inventuře — ukazuje se z ní ale jen výsledný fyzický stav, ne celý rozpad.
 import { xlsx } from './xlsxLazy';
 import { pismeno, styl } from './mesicniExport';
+import { jeLimonada } from './limonady';
 import type { StockLine } from './stockLedger';
 
 export type BeerProInventuru = { id: string; name: string; is_active: boolean };
@@ -34,15 +35,18 @@ export type InventuraExportRadek = {
  * zvlášť od pohybu: čistě napočítaný stav bez jiného pohybu do skladové
  * knihy nevstupuje (viz stockLedger.ts, kind 'inventura' se v hlavní smyčce
  * přeskakuje), takže by bez týhle podmínky zmizel úplně.
+ *
+ * 🥤 Limonády (Grep, Citron, Kiwi, Višeň…) do inventury nepatří vůbec — viz
+ * lib/limonady.ts.
  */
 function pivaMesice(
   beers: BeerProInventuru[], packages: PackageProInventuru[],
   expectedLedger: Map<string, StockLine>, actualMap: Record<string, number>,
 ): BeerProInventuru[] {
-  return beers.filter((b) => b.is_active || packages.some((p) => {
+  return beers.filter((b) => !jeLimonada(b.name) && (b.is_active || packages.some((p) => {
     const k = `${b.id}__${p.id}`;
     return expectedLedger.has(k) || k in actualMap;
-  }));
+  })));
 }
 
 /**

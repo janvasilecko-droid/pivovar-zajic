@@ -26,6 +26,7 @@ import { zavibruj } from '../lib/haptika';
 import { usePosledniNacteni } from '../lib/nacitani';
 import { IkonaSud } from '../components/ikony';
 import { uloz } from '../lib/uloziste';
+import { jeLimonada } from '../lib/limonady';
 
 // Stahuje se až při otevření — viz komentář u lazy() v Orders.tsx.
 const CountFromImage = lazy(() => import('../components/CountFromImage').then((m) => ({ default: m.CountFromImage })));
@@ -760,9 +761,14 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
    * plná dávno vyřazených piv. `expectedLedger` má řádek pro pivo×obal jen
    * tehdy, když v měsíci opravdu k něčemu došlo (viz stockLedger.ts), takže
    * stačí zkontrolovat, jestli tam pro dané pivo aspoň jeden obal leží.
+   *
+   * 🥤 Limonády (Grep, Citron, Kiwi, Višeň…) sedí ve stejném katalogu jako
+   * pivo, ale do inventury nepatří — nevaří se, nepočítají se stejně
+   * (lib/limonady.ts). Z provozu: „do inventury nepočítej limonády".
    */
   const monthBeers = useMemo(() => {
     return beers.filter((b) => {
+      if (jeLimonada(b.name)) return false;
       if (b.is_active) return true;
       return packages.some((p) => expectedLedger.has(`${b.id}__${p.id}`));
     });
@@ -1531,11 +1537,10 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
   }
 
 function exportInventoryExcel() {
-    const filteredRows = rows.filter((r) => {
-      const name = r.beer_name.toLowerCase();
-      const isLimo = name.includes('grep') || name.includes('citron') || name.includes('citro') || name.includes('limo');
-      return !isLimo;
-    });
+    // Limonády už `rows` neobsahuje vůbec — filtruje se u zdroje (monthBeers,
+    // viz lib/limonady.ts), ať to platí jednotně pro tabulku na obrazovce
+    // i pro export, ne jen tady.
+    const filteredRows = rows;
 
     const dataToExport = filteredRows.map((r) => {
       const druh = r.package_kind === 'keg' ? 'KEG' : 'Lahve';
