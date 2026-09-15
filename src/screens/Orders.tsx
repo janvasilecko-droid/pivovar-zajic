@@ -422,7 +422,7 @@ export default function Orders({
     whatsappMessageId?: string;
     items: { beerId: string; pkgId: string; qty: number }[];
   }[]) {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = businessDateISO();
     const createdIds: string[] = [];
 
     // ⚠️ Kontrola duplicit PŘED vytvořením jakékoli objednávky — aby dva lidé
@@ -510,7 +510,7 @@ export default function Orders({
         throw new Error('Objednávka nemá žádné rozparsované položky');
       }
 
-      const today = new Date().toISOString().slice(0, 10);
+      const today = businessDateISO();
       const placeId = message.parsed_place_id || null;
       const placeNameFree = message.parsed_place_name || 'Neznámý odběratel';
 
@@ -1529,7 +1529,7 @@ export default function Orders({
   async function duplicateOrder(o: Order) {
     const its = items[o.id] ?? [];
     if (!its.length) return;
-    const today = new Date().toISOString().slice(0, 10);
+    const today = businessDateISO();
     const { data: newOrder, error } = await supabase.from('orders').insert({
       order_date: today, place_id: o.place_id, place_name: o.place_name,
       source: 'duplikat', status: 'nova', delivery_day: o.delivery_day,
@@ -1579,7 +1579,7 @@ export default function Orders({
     if (!ok) return;
 
     setKopirujiDen(true);
-    const dnes = new Date().toISOString().slice(0, 10);
+    const dnes = businessDateISO();
     const vznikle: string[] = [];
     let selhalo = 0;
     for (const o of kZopakovani) {

@@ -16,6 +16,7 @@ import { IkonaLahev, IkonaSud } from '../components/ikony';
 import { requestKegFix, requestBottlingFix } from '../lib/stockFixSignal';
 import { usePosledniNacteni, prvniChyba } from '../lib/nacitani';
 import type { Page } from '../components/Layout';
+import { businessDateISO } from '../lib/businessDate';
 
 type StockByPkg = {
   package_id: string; label: string; volume_l: number; kind: string;
@@ -88,7 +89,10 @@ function fmtHl(qty: number): string {
 function pkgLiters(rows: { quantity: number; volume_l: number }[]): number {
   return rows.reduce((s, r) => s + r.quantity * r.volume_l, 0);
 }
-function todayISO(): string { return new Date().toISOString().slice(0, 10); }
+// businessDateISO(), NE new Date().toISOString() (vždycky UTC) — jinak kolem
+// půlnoci weekKey/stav skladu k datu počítaly s jiným dnem než reálně v
+// Praze je. Stejná chyba jako u weekKey v Kegging.tsx.
+function todayISO(): string { return businessDateISO(); }
 function addDaysISO(iso: string, delta: number): string {
   const d = new Date(iso + 'T00:00:00Z');
   d.setUTCDate(d.getUTCDate() + delta);

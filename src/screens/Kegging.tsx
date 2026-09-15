@@ -170,7 +170,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   const [recordsView, setRecordsView] = useState<'day' | 'week' | 'month'>('week');
   const [recordsWeekKey, setRecordsWeekKey] = useState(() => isoWeekKey(businessDateISO()));
   const [recordsMonthKey, setRecordsMonthKey] = useState(() => new Date().toISOString().slice(0, 7));
-  const [recordsDay, setRecordsDay] = useState(() => new Date().toISOString().slice(0, 10));
+  const [recordsDay, setRecordsDay] = useState(() => businessDateISO());
   const [beerFilter, setBeerFilter] = useState('');
   const [recordPkgFilter, setRecordPkgFilter] = useState('');
   // Filtr piva a obalu pro souhrn "Stočeno KEG za týden" v záložce Zápis (nezávislý na beerFilter/recordPkgFilter v Přehledu).

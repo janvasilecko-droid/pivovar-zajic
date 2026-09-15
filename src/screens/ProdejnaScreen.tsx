@@ -18,6 +18,7 @@ import { klicVyberu, nactiNaposled, zapamatujVyber, serazPodleNaposled } from '.
 import { usePosledniNacteni, prvniChyba } from '../lib/nacitani';
 import { FotkyZaznamu } from '../components/FotkyZaznamu';
 import { uloz, smaz } from '../lib/uloziste';
+import { businessDateISO } from '../lib/businessDate';
 
 // Tři podoby jednoho výdeje ze skladu — formulář je pořád stejný, mění se
 // jen tabulka, do které se zapisuje, a jedno pole navíc. Podle toho se pak
@@ -772,7 +773,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
               // 📊 Rychlý souhrn: kolik kusů dnes / tento týden (z VŠECH záznamů,
               // ne jen z filtru měsíce) a co se ve zvoleném období prodalo nejvíc.
               // Dřív šlo z přehledu vyčíst jen měsíční součet a jednotlivé řádky.
-              const dnesISO = new Date().toISOString().slice(0, 10);
+              const dnesISO = businessDateISO();
               const tydenNyni = isoWeekKey(dnesISO);
               const soucet = (pred: (r: EntryRow) => boolean) =>
                 rows.filter(pred).reduce((s, r) => s + Number(r.quantity || 0), 0);

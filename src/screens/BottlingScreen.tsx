@@ -344,7 +344,7 @@ export default function BottlingScreen({
   const [recordsView, setRecordsView] = useState<'day' | 'week' | 'month'>('week');
   const [recordsMonthKey, setRecordsMonthKey] = useState(() => new Date().toISOString().slice(0, 7));
   const [recordsWeekKey, setRecordsWeekKey] = useState(() => isoWeekKey(businessDateISO()));
-  const [recordsDay, setRecordsDay] = useState(() => new Date().toISOString().slice(0, 10));
+  const [recordsDay, setRecordsDay] = useState(() => businessDateISO());
   // Aktuální týden pro „Potřeba stočit lahve" (objednávky se počítají za týden, ne za měsíc).
   // businessDateISO(), NE new Date().toISOString() (vždycky UTC) — jinak kolem
   // půlnoci pražského času vyjde jiný týden než na ploše Domů (CoStocitOkno),
@@ -592,7 +592,7 @@ export default function BottlingScreen({
   }
 
   const bottleRequirements = useMemo(() => {
-    const todayStr = new Date().toISOString().slice(0, 10);
+    const todayStr = businessDateISO();
     return computePackageNeeds(
       {
         beers,

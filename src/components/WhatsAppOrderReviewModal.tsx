@@ -702,7 +702,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
           if (place) { resolvedPlaceId = place.id; resolvedPlaceName = place.name; }
         }
         const { data: newOrder, error: orderErr } = await supabase.from('orders').insert({
-          order_date: new Date().toISOString().slice(0, 10),
+          order_date: businessDateISO(),
           place_id: resolvedPlaceId, place_name: resolvedPlaceName || null,
           source: 'whatsapp', status: 'nova',
           delivery_day: message.parsed_delivery_day ?? null,

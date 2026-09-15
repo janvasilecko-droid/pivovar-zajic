@@ -7,6 +7,7 @@ import { chyba as chybaOznam, oznam, potvrd } from '../lib/toast';
 import { KLIC_REZERVACE, KLIC_VYCEPY, nactiRezervace, nactiVycepy, prenesZProhlizece, rozdilProUlozeni, smazRezervaci, smazVycep, ulozRezervaci, ulozVycep } from '../lib/vycepyData';
 import { IkonaVycep } from '../components/ikony';
 import { uloz } from '../lib/uloziste';
+import { businessDateISO } from '../lib/businessDate';
 
 export type TapSanitationStatus = 'clean' | 'dirty_beer' | 'needs_louh';
 
@@ -219,7 +220,7 @@ export default function VycepyScreen() {
     }
   }
 
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = businessDateISO();
 
   return (
     <div className="space-y-6 pb-12">

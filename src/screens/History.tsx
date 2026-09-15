@@ -46,7 +46,10 @@ function monthLabel(m: string): string {
   const [y, mo] = m.split('-');
   return ['Led', 'Úno', 'Bře', 'Dub', 'Kvě', 'Čvn', 'Čvc', 'Srp', 'Zář', 'Říj', 'Lis', 'Pro'][Number(mo) - 1] + ' ' + y;
 }
-function todayISO(): string { return new Date().toISOString().slice(0, 10); }
+// businessDateISO(), NE new Date().toISOString() (vždycky UTC) — jinak kolem
+// půlnoci "dnešní" rozsah (týden/měsíc/rok) počítal s jiným dnem než reálně
+// v Praze je. Stejná chyba jako u weekKey v Kegging.tsx.
+function todayISO(): string { return businessDateISO(); }
 function startOfYearISO(iso: string): string { return iso.slice(0, 4) + '-01-01'; }
 function startOfMonthISO(iso: string): string { return iso.slice(0, 7) + '-01'; }
 function addDaysISO(iso: string, delta: number): string {
