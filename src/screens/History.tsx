@@ -13,6 +13,7 @@ import StatistikaVystav from '../components/StatistikaVystav';
 import type { Obdobi, VyrobniRadek } from '../lib/statistika';
 import { usePosledniNacteni } from '../lib/nacitani';
 import { useChovaniDialogu } from '../lib/zavriNaZpet';
+import { businessDateISO } from '../lib/businessDate';
 import { uloz } from '../lib/uloziste';
 
 type MonthData = {
@@ -173,7 +174,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
   const [packageFilter, setPackageFilter] = useState<string>('');
 
   // ---- Přehled objednávek (týdenní) ----
-  const [ordWeekKey, setOrdWeekKey] = useState(isoWeekKey(new Date().toISOString().slice(0, 10)));
+  const [ordWeekKey, setOrdWeekKey] = useState(isoWeekKey(businessDateISO()));
   type OrdItem = { order_id: string; beer_id: string | null; beer_name: string | null; package_id: string | null; package_label: string | null; quantity: number };
   type OrdRow = { id: string; order_date: string; delivery_date: string | null; status: string };
   const [ordItems, setOrdItems] = useState<OrdItem[]>([]);

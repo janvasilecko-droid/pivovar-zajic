@@ -139,7 +139,10 @@ export default function Orders({
     };
   }, [detail]);
 
-  const [weekKey, setWeekKey] = useState(isoWeekKey(new Date().toISOString().slice(0, 10)));
+  // businessDateISO(), NE new Date().toISOString() (vždycky UTC) — jinak
+  // kolem půlnoci pražského času vyjde jiný týden než na ploše Domů
+  // (CoStocitOkno) nebo ve Stáčení (z provozu 15. 9. 2026, viz Kegging.tsx).
+  const [weekKey, setWeekKey] = useState(isoWeekKey(businessDateISO()));
 
   // inline quick-add
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
@@ -213,7 +216,7 @@ export default function Orders({
 
   // 📅 Návrat na aktuální týden (klik na popisek týdne)
   function resetToCurrentWeek() {
-    const wk = isoWeekKey(new Date().toISOString().slice(0, 10));
+    const wk = isoWeekKey(businessDateISO());
     setWeekKey(wk);
     const idx = DAYS.findIndex((d) => d.v === deliveryDay);
     if (idx >= 0) {
@@ -1110,7 +1113,7 @@ export default function Orders({
       // Na závoz v probíhajícím týdnu upomínka nedává smysl: ten je vidět
       // v Objednávkách, v Závozu i v přehledu Dnešek a další hlášení z toho
       // dělá jen šum, který se odklikává bez čtení.
-      const zavozTentoTyden = !!deliveryDate && isoWeekKey(deliveryDate) === isoWeekKey(new Date().toISOString().slice(0, 10));
+      const zavozTentoTyden = !!deliveryDate && isoWeekKey(deliveryDate) === isoWeekKey(businessDateISO());
       if (deliveryDate && !zavozTentoTyden) {
         try {
           const reminderDate = new Date(deliveryDate + 'T09:00:00');

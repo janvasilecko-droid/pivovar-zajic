@@ -12,7 +12,8 @@ import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
 import { VoiceRecorder } from '../components/VoiceRecorder';
 import { parseFreeTextEntries, loadAliasMap, emptyAliasMap, type ParserAliasMap } from '../lib/orderParser';
 import { requestOrdersItemFilter } from '../lib/ordersFilter';
-import { computeKeggingPlan, mergeWeekPlan, rozpadPoObalech, BEZ_TERMINU } from '../lib/keggingPlan';
+import { computeKeggingPlan, mergeWeekPlan, rozpadPoObalech, objednavkyVTydnu, BEZ_TERMINU } from '../lib/keggingPlan';
+import { zbyvaStocitPrehledTydne } from '../lib/tydenniPrehledZasoby';
 import { naplanujPresun } from '../lib/presunPolozky';
 import { BottlingPlanBottler } from '../components/BottlingPlanBottler';
 import { markPlanSeenAt, type BottlingPlan } from '../lib/bottlingPlans';
@@ -167,7 +168,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   // Výchozí je TÝDEN — v jednom dni často není nic stočené (stáčí se v cyklech),
   // takže „den" by se otvíral prázdný. Den a měsíc jsou o klik vedle.
   const [recordsView, setRecordsView] = useState<'day' | 'week' | 'month'>('week');
-  const [recordsWeekKey, setRecordsWeekKey] = useState(() => isoWeekKey(new Date().toISOString().slice(0, 10)));
+  const [recordsWeekKey, setRecordsWeekKey] = useState(() => isoWeekKey(businessDateISO()));
   const [recordsMonthKey, setRecordsMonthKey] = useState(() => new Date().toISOString().slice(0, 7));
   const [recordsDay, setRecordsDay] = useState(() => new Date().toISOString().slice(0, 10));
   const [beerFilter, setBeerFilter] = useState('');
@@ -198,7 +199,13 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     return result;
   }, [rows, recordsView, recordsMonthKey, recordsWeekKey, recordsDay, beerFilter, recordPkgFilter]);
 
-  const [weekKey, setWeekKey] = useState(isoWeekKey(new Date().toISOString().slice(0, 10)));
+  // businessDateISO(), NE new Date().toISOString() — ten je vždycky UTC.
+  // Kolem půlnoci pražského času (UTC je o 1–2 h pozadu) by vyšel jiný
+  // "dnešní" den, a v neděli večer/pondělí ráno rovnou jiný TÝDEN — přesně
+  // to způsobilo, že tahle obrazovka a plocha Domů (CoStocitOkno, která
+  // businessDateISO() už používala) ukazovaly plán za jiný týden a
+  // "zbývá stočit" se mezi nimi rozešlo (z provozu 15. 9. 2026).
+  const [weekKey, setWeekKey] = useState(isoWeekKey(businessDateISO()));
   const weekLabel = weekRange(weekKey).label;
 
   const kegPackages = useMemo(() => packages.filter((p) => p.kind === 'keg').sort((a, b) => b.volume_l - a.volume_l), [packages]);
@@ -442,10 +449,32 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   // 🛢️ Rozpad „zbývá stočit tento týden" podle VELIKOSTI SUDU, přes všechna
   // piva — z provozu 9. 9. 2026: součet přes všechny velikosti na dlaždici
   // („55") nic neřekne o tom, co reálně nachystat, protože sčítá padesátky
-  // s desítkami. Stejný výpočet jako „Zbývá stočit po sudech" v „Co stočit
-  // na který den" (KeggingDayPlan.tsx), jen nad zápisem.
+  // s desítkami.
+  //
+  // ⚠️ ZJEDNODUŠENÝ vzorec, jiný než denní plán níž (weekPlanKeg) — z provozu
+  // 15. 9. 2026: „nekomplikuj to, ať je to jen přehled — neodečítej zavezené
+  // kegy a objednávky, prostě pondělní zásoba + objednávky + fasování se
+  // sečtou a odečte se stočené tenhle týden". Den po dni s prioritou dnů a
+  // vyjímáním zavezených objednávek zůstává v „Co je potřeba stočit"
+  // (KeggingDayPlan.tsx, dál na weekPlanKeg).
+  const objednavkyTydne = useMemo(() => objednavkyVTydnu(orders, orderItems, weekKey), [orders, orderItems, weekKey]);
+  const rozpadTydneKeg = useMemo(() => {
+    const { start, end } = weekRange(weekKey);
+    const pondeliISO = start.toISOString().slice(0, 10);
+    const nedeleISO = end.toISOString().slice(0, 10);
+    const vTomtoTydnu = <T extends { entry_date?: string | null }>(r: T[]) => r.filter((x) => x.entry_date && x.entry_date >= pondeliISO && x.entry_date <= nedeleISO);
+    return zbyvaStocitPrehledTydne({
+      zdroje: { inventoryRows, bottlingRows, keggingRows: rows, fasovaniRows, prodejnaRows, writeoffsRows, zavozDeductionRows, akceRows, prefukRows, adjustmentRows, packages },
+      packages,
+      stoceniTydne: vTomtoTydnu(rows),
+      objednavkyTydne,
+      fasovaniTydne: vTomtoTydnu(fasovaniRows),
+      pondeliISO,
+    });
+  }, [inventoryRows, bottlingRows, rows, fasovaniRows, prodejnaRows, writeoffsRows, zavozDeductionRows, akceRows, prefukRows, adjustmentRows, packages, objednavkyTydne, weekKey]);
+  // Denní plán ("Co je potřeba stočit", per-pivo rozklik chipu) zůstává na
+  // PŮVODNÍM computeKeggingPlan — beze změny, jen zjednodušený souhrn výš je nový.
   const weekPlanKeg = useMemo(() => mergeWeekPlan(keggingPlan, weekLabel), [keggingPlan, weekLabel]);
-  const rozpadTydneKeg = useMemo(() => rozpadPoObalech(weekPlanKeg), [weekPlanKeg]);
   // 🏷️ „Chybí stočit" po pivech, rozepsané po VELIKOSTI SUDU — pro štítek na
   // dlaždici v Zápisu. Nahrazuje jedno sečtené číslo („12"), které sčítalo
   // desítky s padesátkami a neřeklo, čeho se to vlastně týká — z provozu

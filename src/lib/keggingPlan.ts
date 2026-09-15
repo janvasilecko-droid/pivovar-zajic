@@ -169,6 +169,33 @@ export function datumProDenVTydnu(den: string, kotva: string): string | null {
   return pondeli.toISOString().slice(0, 10);
 }
 
+/**
+ * Položky objednávek TOHOTO týdne — bez ohledu na stav zavezení a bez dělení
+ * po dnech (na rozdíl od computeKeggingPlan). Pro zjednodušený týdenní
+ * přehled (lib/tydenniPrehledZasoby.ts) — dřív, den po dni, se zavezené
+ * objednávky vyjímaly ze zásoby a to bylo u souhrnné dlaždice matoucí
+ * (z provozu 15. 9. 2026: „neodečítej zavezené kegy a objednávky").
+ */
+export function objednavkyVTydnu(
+  orders: { id: string; status: string; delivery_date?: string | null; order_date?: string | null }[],
+  orderItems: { order_id: string; beer_id: string | null; package_id: string | null; quantity: number }[],
+  weekKey: string,
+): { beer_id: string | null; package_id: string | null; quantity: number }[] {
+  const { start } = weekRange(weekKey);
+  const weekStartStr = start.toISOString().slice(0, 10);
+  const weekEndDate = new Date(start);
+  weekEndDate.setUTCDate(weekEndDate.getUTCDate() + 6);
+  const weekEndStr = weekEndDate.toISOString().slice(0, 10);
+  const inWeek = (s: string | null | undefined) => !!s && s >= weekStartStr && s <= weekEndStr;
+
+  const aktivniId = new Set(
+    orders
+      .filter((o) => o.status !== 'storno' && inWeek(o.delivery_date || o.order_date))
+      .map((o) => o.id)
+  );
+  return orderItems.filter((it) => aktivniId.has(it.order_id));
+}
+
 export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
   const {
     beers,

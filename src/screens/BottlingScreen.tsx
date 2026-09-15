@@ -20,8 +20,9 @@ import { stackingQuickQtys } from '../lib/quickQty';
 import { navrhSudu } from '../lib/bottlingYield';
 import { synchronizuj } from '../lib/checklistData';
 import { computePackageNeeds, PackageNeedsRow } from '../lib/packageNeeds';
-import { computeKeggingPlan, mergeWeekPlan, rozpadPoObalech, BEZ_TERMINU } from '../lib/keggingPlan';
+import { computeKeggingPlan, mergeWeekPlan, rozpadPoObalech, objednavkyVTydnu, BEZ_TERMINU } from '../lib/keggingPlan';
 import { zbytekKeKonciTydne } from '../lib/tydenniZbytek';
+import { zbyvaStocitPrehledTydne } from '../lib/tydenniPrehledZasoby';
 import { naplanujPresun } from '../lib/presunPolozky';
 import KeggingDayPlan from '../components/KeggingDayPlan';
 import { chyba, potvrd, toastZpet } from '../lib/toast';
@@ -342,10 +343,13 @@ export default function BottlingScreen({
   // takže „den" by se otvíral prázdný. Den a měsíc jsou o klik vedle.
   const [recordsView, setRecordsView] = useState<'day' | 'week' | 'month'>('week');
   const [recordsMonthKey, setRecordsMonthKey] = useState(() => new Date().toISOString().slice(0, 7));
-  const [recordsWeekKey, setRecordsWeekKey] = useState(() => isoWeekKey(new Date().toISOString().slice(0, 10)));
+  const [recordsWeekKey, setRecordsWeekKey] = useState(() => isoWeekKey(businessDateISO()));
   const [recordsDay, setRecordsDay] = useState(() => new Date().toISOString().slice(0, 10));
-  // Aktuální týden pro „Potřeba stočit lahve" (objednávky se počítají za týden, ne za měsíc)
-  const [weekKey, setWeekKey] = useState(() => isoWeekKey(new Date().toISOString().slice(0, 10)));
+  // Aktuální týden pro „Potřeba stočit lahve" (objednávky se počítají za týden, ne za měsíc).
+  // businessDateISO(), NE new Date().toISOString() (vždycky UTC) — jinak kolem
+  // půlnoci pražského času vyjde jiný týden než na ploše Domů (CoStocitOkno),
+  // která businessDateISO() už používala (z provozu 15. 9. 2026, viz Kegging.tsx).
+  const [weekKey, setWeekKey] = useState(() => isoWeekKey(businessDateISO()));
   const weekLabel = weekRange(weekKey).label;
   // Posun měsíce o delta měsíců (vrací YYYY-MM)
   // Záložka záznamů: lahve / KEG / vše
@@ -453,10 +457,29 @@ export default function BottlingScreen({
   // 🍾 Rozpad „zbývá stočit tento týden" podle VELIKOSTI LAHVE, přes všechna
   // piva — z provozu 9. 9. 2026: součet přes všechny velikosti na dlaždici
   // („55") nic neřekne o tom, co reálně nachystat, protože sčítá 0,5l s 1,5l.
-  // Stejný výpočet jako „Zbývá stočit po sudech" v „Co stočit na který den"
-  // (KeggingDayPlan.tsx), jen nad zápisem.
+  //
+  // ⚠️ ZJEDNODUŠENÝ vzorec, jiný než denní plán níž (weekPlanLahvi) — stejný
+  // nápad jako u KEG (Kegging.tsx, z provozu 15. 9. 2026): pondělní zásoba +
+  // objednávky + fasování celého týdne, mínus stočeno tenhle týden — bez
+  // rozdělování po dnech a bez vyjímání zavezených objednávek. Denní plán
+  // („Co je potřeba stočit") zůstává na weekPlanLahvi, beze změny.
+  const objednavkyTydneLahve = useMemo(() => objednavkyVTydnu(orders, orderItems, weekKey), [orders, orderItems, weekKey]);
+  const rozpadTydneLahvi = useMemo(() => {
+    const { start, end } = weekRange(weekKey);
+    const pondeliISO = start.toISOString().slice(0, 10);
+    const nedeleISO = end.toISOString().slice(0, 10);
+    const vTomtoTydnu = <T extends { entry_date?: string | null }>(r: T[]) => r.filter((x) => x.entry_date && x.entry_date >= pondeliISO && x.entry_date <= nedeleISO);
+    return zbyvaStocitPrehledTydne({
+      zdroje: { inventoryRows, bottlingRows: rows, keggingRows, fasovaniRows, prodejnaRows, writeoffsRows, zavozDeductionRows, akceRows, adjustmentRows, packages },
+      packages,
+      stoceniTydne: vTomtoTydnu(rows),
+      objednavkyTydne: objednavkyTydneLahve,
+      fasovaniTydne: vTomtoTydnu(fasovaniRows),
+      pondeliISO,
+      jeCilovyObal: (kind) => kind !== 'keg',
+    });
+  }, [inventoryRows, rows, keggingRows, fasovaniRows, prodejnaRows, writeoffsRows, zavozDeductionRows, akceRows, adjustmentRows, packages, objednavkyTydneLahve, weekKey]);
   const weekPlanLahvi = useMemo(() => mergeWeekPlan(dennniPlanLahvi, weekLabel), [dennniPlanLahvi, weekLabel]);
-  const rozpadTydneLahvi = useMemo(() => rozpadPoObalech(weekPlanLahvi), [weekPlanLahvi]);
   // Klik na velikost lahve v rozpadu rozklikne, kolik z toho je kterého piva
   // — stejný nápad jako u KEG (Kegging.tsx).
   const [rozpadOtevrenPkg, setRozpadOtevrenPkg] = useState<string | null>(null);

@@ -9,6 +9,7 @@ import { Beer, Package, beerBg, fetchAllRows, useRealtime } from '../lib/supabas
 import { isoWeekKey, weekRange, shiftWeek } from './WeeklyOrderSummaryCard';
 
 import { buildMovements, stockAsOf } from '../lib/stockLedger';
+import { businessDateISO } from '../lib/businessDate';
 import { chyba, potvrd } from '../lib/toast';
 import { IkonaLahev, IkonaSud } from '../components/ikony';
 import {
@@ -109,7 +110,7 @@ export function BottlingPlanPlanner({
   keggingRows,
   onChanged,
 }: Props) {
-  const [weekKey, setWeekKey] = useState(() => isoWeekKey(new Date().toISOString().slice(0, 10)));
+  const [weekKey, setWeekKey] = useState(() => isoWeekKey(businessDateISO()));
   const [form, setForm] = useState<FormState>(emptyForm());
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -173,7 +174,7 @@ export function BottlingPlanPlanner({
   // jako Sklad, Inventura i „co stočit na který den". Dřív si ho plánovač
   // počítal sám z měsíčního modelu a chyběl mu přefuk i dorovnání inventury.
   const stockMap = useMemo(() => {
-    const dnes = new Date().toISOString().slice(0, 10);
+    const dnes = businessDateISO();
     const map: Record<string, number> = {};
     stockAsOf(
       buildMovements({
@@ -605,7 +606,7 @@ export function BottlingPlanPlanner({
             <button type="button" onClick={() => setWeekKey(shiftWeek(weekKey, -1))} className="w-7 h-7 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-sm transition tap">‹</button>
             <span className="text-xs font-black text-amber-950 px-2 whitespace-nowrap">{weekLabel}</span>
             <button type="button" onClick={() => setWeekKey(shiftWeek(weekKey, 1))} className="w-7 h-7 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-sm transition tap">›</button>
-            <button type="button" onClick={() => setWeekKey(isoWeekKey(new Date().toISOString().slice(0, 10)))} className="btn-amber !rounded !px-2.5 !py-1 text-udaj !font-black tap">Tento týden</button>
+            <button type="button" onClick={() => setWeekKey(isoWeekKey(businessDateISO()))} className="btn-amber !rounded !px-2.5 !py-1 text-udaj !font-black tap">Tento týden</button>
           </div>
         </div>
       </div>

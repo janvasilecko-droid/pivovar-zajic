@@ -52,7 +52,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
   const [places, setPlaces] = useState<Place[]>([]);
   const [loading, setLoading] = useState(true);
   const [editOrder, setEditOrder] = useState<Order | null>(null);
-  const [weekKey, setWeekKey] = useState(isoWeekKey(new Date().toISOString().slice(0, 10)));
+  const [weekKey, setWeekKey] = useState(isoWeekKey(businessDateISO()));
   const [hideDelivered, setHideDelivered] = useState(false);
   const [selectedDayFilter, setSelectedDayFilter] = useState<string>('all');
   const [mobileTab, setMobileTab] = useState<'routes' | 'loading'>('routes');
@@ -646,7 +646,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
               <div className="text-udaj text-neutral-500 font-bold mt-0.5">{wr.label}</div>
             </div>
             <button onClick={() => setWeekKey(shiftWeek(weekKey, 1))} className="btn-ghost !rounded !py-2 !px-3 font-black text-base" title="Následující týden" aria-label="Následující týden">›</button>
-            <button onClick={() => setWeekKey(isoWeekKey(new Date().toISOString().slice(0, 10)))} className="btn-ghost !rounded !py-2 !px-3 text-xs font-black text-amber-700">Dnes</button>
+            <button onClick={() => setWeekKey(isoWeekKey(businessDateISO()))} className="btn-ghost !rounded !py-2 !px-3 text-xs font-black text-amber-700">Dnes</button>
           </div>
 
           {/* Kompaktní přehled závozu — styl jako "Zbývá stočit keg" */}
