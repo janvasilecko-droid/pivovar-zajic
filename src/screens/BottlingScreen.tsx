@@ -65,6 +65,8 @@ export default function BottlingScreen({
   const pageValue = 'bottling';
   const [rows, setRows] = useState<EntryRow[]>([]);
   const [beers, setBeers] = useState<Beer[]>([]);
+  // Jen pro jméno piva v plánu stáčení — viz stejná proměnná v Kegging.tsx.
+  const [vsechnaPivaJmena, setVsechnaPivaJmena] = useState<{ id: string; name: string }[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingRow, setEditingRow] = useState<EntryRow | null>(null);
@@ -440,7 +442,7 @@ export default function BottlingScreen({
   // lahve a PET. Poptávka se dál řídí jen tímhle týdnem, nabídka
   // (currentStockMap výš) je skutečná zásoba skladem (viz lib/keggingPlan.ts).
   const dennniPlanLahvi = useMemo(() => computeKeggingPlan({
-    beers,
+    beers: vsechnaPivaJmena,
     packages,
     orders,
     orderItems,
@@ -453,7 +455,7 @@ export default function BottlingScreen({
     weekKey,
     jeCilovyObal: (kind) => kind !== 'keg',
     currentStockMap,
-  }), [beers, packages, orders, orderItems, rows, zavozDeductionRows, fasovaniRows, prodejnaRows, writeoffsRows, planCheckRows, weekKey, currentStockMap]);
+  }), [vsechnaPivaJmena, packages, orders, orderItems, rows, zavozDeductionRows, fasovaniRows, prodejnaRows, writeoffsRows, planCheckRows, weekKey, currentStockMap]);
 
   // 🍾 Rozpad „zbývá stočit tento týden" podle VELIKOSTI LAHVE, přes všechna
   // piva — z provozu 9. 9. 2026: součet přes všechny velikosti na dlaždici
@@ -755,9 +757,11 @@ export default function BottlingScreen({
     const smiZapsat = zacniNacteni();
     const loadId = ++loadCountRef.current;
     if (!silent && !rows.length) setLoading(true);
-    const [bt, b, p, ords, oi, inv, fa, fp, wo, kg, pl, zd, adj, ak, checks] = await Promise.all([
+    const [bt, b, vsePiva, p, ords, oi, inv, fa, fp, wo, kg, pl, zd, adj, ak, checks] = await Promise.all([
       fetchAllRows('bottling', '*').order('entry_date', { ascending: false }).order('created_at', { ascending: true }).order('id'),
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
+      // Bez filtru na aktivní — jen jméno, pro plán stáčení (viz vsechnaPivaJmena výš).
+      supabase.from('beers').select('id,name'),
       supabase.from('packages').select('*').order('sort_order'),
       fetchAllRows('orders', 'id,order_date,delivery_date,delivery_day,place_name,status,is_delivered'),
       // `*` místo výčtu: delivery_day (vlastní den položky) přidává migrace
@@ -778,9 +782,10 @@ export default function BottlingScreen({
     // nebo už obrazovka není vidět. Výsledek se pak zahodí.
     if (!smiZapsat()) return;
     if (loadId !== loadCountRef.current) return;
-    setChybaNacteni(prvniChyba(bt, b, p, ords, oi));
+    setChybaNacteni(prvniChyba(bt, b, vsePiva, p, ords, oi));
     setRows((bt.data as EntryRow[]) ?? []);
     if (b.data) setBeers(b.data as Beer[]);
+    if (vsePiva.data) setVsechnaPivaJmena(vsePiva.data as { id: string; name: string }[]);
     if (p.data) setPackages(p.data as Package[]);
     if (ords.data) setOrders(ords.data);
     if (oi.data) setOrderItems(oi.data);

@@ -60,6 +60,13 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   const [plany, setPlany] = useState<BottlingPlan[]>([]);
   const [cellarTanks, setCellarTanks] = useState<CellarTank[]>([]);
   const [beers, setBeers] = useState<Beer[]>([]);
+  // Jen pro jméno piva v plánu stáčení (computeKeggingPlan) — `beers` výš je
+  // záměrně jen AKTIVNÍ piva (výběr v zadávání nesmí nabízet vyřazené pivo).
+  // Objednávka na pivo, které se mezitím v katalogu vypnulo, ale pořád může
+  // ležet nestočená — bez tohohle seznamu by ji plán uměl jen tiše spočítat
+  // do součtu „zbývá stočit", ale ukázat by ji uměl jen jako "Neznámé pivo",
+  // takže by nešlo poznat, o co jde (z provozu 15. 9. 2026: „20l nevím co je").
+  const [vsechnaPivaJmena, setVsechnaPivaJmena] = useState<{ id: string; name: string }[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingRow, setEditingRow] = useState<EntryRow | null>(null);
@@ -338,10 +345,12 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     // odstraněné — 15. 9. 2026 se vrátily zpátky, tentokrát se skutečně
     // čtou (currentStockMap níž, pro plán „Co stočit" se skutečnou zásobou
     // skladem, ne jen stočeným tento týden).
-    const [kg, ct, b, p, ords, oi, fa, fp, wo, pf, zd, bt, pc, ukoly, inv, ak, adj] = await Promise.all([
+    const [kg, ct, b, vsePiva, p, ords, oi, fa, fp, wo, pf, zd, bt, pc, ukoly, inv, ak, adj] = await Promise.all([
       fetchAllRows('kegging', '*').order('entry_date', { ascending: false }).order('created_at', { ascending: true }).order('id'),
       supabase.from('cellar_tanks').select('*').order('label'),
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
+      // Bez filtru na aktivní — jen jméno, pro plán stáčení (viz vsechnaPivaJmena výš).
+      supabase.from('beers').select('id,name'),
       supabase.from('packages').select('*').order('sort_order'),
       // delivery_day + place_name potřebuje denní plán stáčení (keggingPlan.ts):
       // bez delivery_day by všechny objednávky spadly na den podle delivery_date
@@ -374,7 +383,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     // Selhaný dotaz se dřív tvářil jako prázdný seznam — `?? []` chybu
     // spolklo a obrazovka řekla „zatím žádné stočení", i když se jen
     // nepodařilo načíst. Teď se rozliší.
-    setChybaNacteni(prvniChyba(kg, ct, b, p, ords, oi));
+    setChybaNacteni(prvniChyba(kg, ct, b, vsePiva, p, ords, oi));
     setRows((kg.data as EntryRow[]) ?? []);
     setPlany((ukoly.data as BottlingPlan[]) ?? []);
     setInventoryRows((inv.data as { entry_date: string; note: string | null }[]) ?? []);
@@ -382,6 +391,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     setAdjustmentRows((adj.data as any[]) ?? []);
     setCellarTanks((ct.data as CellarTank[]) ?? []);
     if (b.data) setBeers(b.data as Beer[]);
+    if (vsePiva.data) setVsechnaPivaJmena(vsePiva.data as { id: string; name: string }[]);
     if (p.data) setPackages(p.data as Package[]);
     if (ords.data) setOrders(ords.data);
     if (oi.data) setOrderItems(oi.data);
@@ -432,7 +442,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   // skladem, ne jen stočení tohoto týdne — jinak appka tvrdila „chybí
   // stočit", i když toho bylo dost na skladě (viz lib/keggingPlan.ts).
   const keggingPlan = useMemo(() => computeKeggingPlan({
-    beers,
+    beers: vsechnaPivaJmena,
     packages,
     orders,
     orderItems,
@@ -444,7 +454,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     checkRows: planCheckRows,
     weekKey,
     currentStockMap,
-  }), [beers, packages, orders, orderItems, rows, zavozDeductionRows, fasovaniRows, prodejnaRows, writeoffsRows, planCheckRows, weekKey, currentStockMap]);
+  }), [vsechnaPivaJmena, packages, orders, orderItems, rows, zavozDeductionRows, fasovaniRows, prodejnaRows, writeoffsRows, planCheckRows, weekKey, currentStockMap]);
 
   const planMissingTotal = useMemo(() => keggingPlan.reduce((s, p) => s + p.totalMissing, 0), [keggingPlan]);
 
