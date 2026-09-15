@@ -1,6 +1,6 @@
 // 📦 Karta jedné objednávky v přehledu — část obrazovky Objednávky.
 
-import { AlertTriangle, Ban, Beer as BeerIcon, Calendar, Check, CheckCircle2, Copy, Hourglass, MessageCircle, NotebookPen, Pencil, Phone, RotateCcw, Trash2, Truck, Droplet } from 'lucide-react';
+import { AlertTriangle, Ban, Beer as BeerIcon, Calendar, Check, CheckCircle2, Copy, Hourglass, MessageCircle, NotebookPen, Pencil, Phone, RotateCcw, Split, Trash2, Truck, Droplet } from 'lucide-react';
 import { Beer, Package, Place, beerBg, formatPackageLabel } from '../../lib/supabase';
 
 import { isoWeekKey } from '../WeeklyOrderSummaryCard';
@@ -18,7 +18,7 @@ import { jeVyrizena } from '../../lib/stavyObjednavek';
 
 import { type Order, type OrderItem, dayColor, getTapNameForOrder } from './spolecne';
 
-export function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, onClick, onToggleFlag, onToggleItemFlag, onUpdateDeliveryDay, onSetStatus, onDelete, onDuplicate, onEdit, onOpenWhatsApp, beers, packages, places, activeBeerId, activePackageId, itemMatchesFilter }: {
+export function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, onClick, onToggleFlag, onToggleItemFlag, onUpdateDeliveryDay, onSetStatus, onDelete, onDuplicate, onEdit, onSplit, onOpenWhatsApp, beers, packages, places, activeBeerId, activePackageId, itemMatchesFilter }: {
   o: Order; items: OrderItem[];
   stockRemainingForWeek: (wk: string) => Map<string, number>;
   selected: boolean; onToggleSelect: () => void; onClick: () => void;
@@ -29,6 +29,8 @@ export function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleS
   onDelete: (id: string) => void;
   onDuplicate: (o: Order) => void;
   onEdit: (o: Order) => void;
+  /** Rozdělit na dva odběratele (viz SplitOrderModal) — jen když má aspoň 2 položky. */
+  onSplit: (o: Order) => void;
   onOpenWhatsApp?: (messageId: string) => void;
   beers: Beer[];
   packages: Package[];
@@ -321,6 +323,9 @@ export function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleS
               <MessageCircle size={14} />
             </button>
             <button className="btn-ikona bg-white hover:bg-neutral-100 text-neutral-700 border border-neutral-300" onClick={() => onDuplicate(o)} title="Vytvořit stejnou objednávku znovu" aria-label="Duplikovat objednávku"><Copy size={14} /></button>
+            {items.length > 1 && (
+              <button className="btn-ikona bg-white hover:bg-neutral-100 text-neutral-700 border border-neutral-300" onClick={() => onSplit(o)} title="Rozdělit na dva odběratele" aria-label="Rozdělit objednávku na dva odběratele"><Split size={14} /></button>
+            )}
             {o.status !== 'storno' && (
               <button className="btn-ikona bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200" onClick={() => onSetStatus(o, 'storno')} title="Zrušit / stornovat objednávku" aria-label="Zrušit objednávku"><Ban size={14} /></button>
             )}

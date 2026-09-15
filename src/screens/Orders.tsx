@@ -70,6 +70,7 @@ const WhatsAppAutoProcessorModal = lazy(() => import('../components/WhatsAppAuto
 const WhatsAppAuditModal = lazy(() => import('../components/WhatsAppAuditModal').then((m) => ({ default: m.WhatsAppAuditModal })));
 const OrderAuditModal = lazy(() => import('../components/OrderAuditModal').then((m) => ({ default: m.OrderAuditModal })));
 const EditOrderModal = lazy(() => import('../components/EditOrderModal').then((m) => ({ default: m.EditOrderModal })));
+const SplitOrderModal = lazy(() => import('../components/SplitOrderModal').then((m) => ({ default: m.SplitOrderModal })));
 
 import { type Order, type OrderItem, dayColor } from '../components/objednavky/spolecne';
 import { VariantTotalsPanel } from '../components/objednavky/VariantTotalsPanel';
@@ -289,6 +290,7 @@ export default function Orders({
   const [importTarget, setImportTarget] = useState<Order | null>(null);
   const [shareInitialFiles, setShareInitialFiles] = useState<File[] | undefined>(undefined);
   const [editOrder, setEditOrder] = useState<Order | null>(null);
+  const [splitOrder, setSplitOrder] = useState<Order | null>(null);
   const [aliasMap, setAliasMap] = useState<ParserAliasMap>(emptyAliasMap());
   const [placeAliasMap, setPlaceAliasMap] = useState<Map<string, string>>(new Map());
   const [viewMode, setViewMode] = useState<'summary' | 'detail' | 'celkem' | 'text'>(initialViewMode); // New state for view mode
@@ -2613,7 +2615,7 @@ export default function Orders({
                     <OrderCard o={o} items={items[o.id] ?? []} stockRemainingForWeek={stockRemainingForWeek}
                       selected={selectedIds.has(o.id)} onToggleSelect={() => toggleSelect(o.id)}
                       onClick={() => openDetail(o)} onToggleFlag={toggleFlag} onToggleItemFlag={toggleItemFlag} onUpdateDeliveryDay={updateDeliveryDay}
-                      onSetStatus={setStatus} onDelete={del} onDuplicate={duplicateOrder} onEdit={setEditOrder} onOpenWhatsApp={handleOpenWhatsAppMessage} beers={beers} packages={packages} places={places}
+                      onSetStatus={setStatus} onDelete={del} onDuplicate={duplicateOrder} onEdit={setEditOrder} onSplit={setSplitOrder} onOpenWhatsApp={handleOpenWhatsAppMessage} beers={beers} packages={packages} places={places}
                       activeBeerId={itemFilterBeerId} activePackageId={itemFilterPackageId}
                 itemMatchesFilter={polozkovyFiltrAktivni ? matchesItemFilters : undefined} />
                     {detail?.id === o.id && (
@@ -2653,7 +2655,7 @@ export default function Orders({
               <OrderCard o={o} items={items[o.id] ?? []} stockRemainingForWeek={stockRemainingForWeek}
                 selected={selectedIds.has(o.id)} onToggleSelect={() => toggleSelect(o.id)}
                 onClick={() => openDetail(o)} onToggleFlag={toggleFlag} onToggleItemFlag={toggleItemFlag} onUpdateDeliveryDay={updateDeliveryDay}
-                onSetStatus={setStatus} onDelete={del} onDuplicate={duplicateOrder} onEdit={setEditOrder} onOpenWhatsApp={handleOpenWhatsAppMessage} beers={beers} packages={packages} places={places}
+                onSetStatus={setStatus} onDelete={del} onDuplicate={duplicateOrder} onEdit={setEditOrder} onSplit={setSplitOrder} onOpenWhatsApp={handleOpenWhatsAppMessage} beers={beers} packages={packages} places={places}
                 activeBeerId={itemFilterBeerId} activePackageId={itemFilterPackageId}
                 itemMatchesFilter={polozkovyFiltrAktivni ? matchesItemFilters : undefined} />
               {detail?.id === o.id && (
@@ -2695,6 +2697,19 @@ export default function Orders({
           places={places}
           onClose={() => setEditOrder(null)}
           onSaved={() => { setEditOrder(null); setWeekKey(isoWeekKey(editOrder.order_date)); load(); }}
+          onPlacesChanged={load}
+        />
+        </Suspense>
+      )}
+
+      {splitOrder && (
+        <Suspense fallback={null}>
+        <SplitOrderModal
+          order={splitOrder}
+          items={items[splitOrder.id] ?? []}
+          places={places}
+          onClose={() => setSplitOrder(null)}
+          onSaved={() => { setSplitOrder(null); setWeekKey(isoWeekKey(splitOrder.order_date)); load(); }}
           onPlacesChanged={load}
         />
         </Suspense>
