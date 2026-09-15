@@ -9,7 +9,7 @@ export function shareOrderToWhatsApp(
   const day = order.delivery_day ? ` (${order.delivery_day.toUpperCase()})` : '';
 
   let itemListText = items
-    .map((i) => `• *${i.quantity}x* ${i.beer_name || 'Pivo'} ${i.package_label ? `(${i.package_label})` : ''}`)
+    .map((i) => `• *${i.quantity}x* ${i.package_label ? `${i.package_label} ` : ''}${i.beer_name || 'Pivo'}`)
     .join('\n');
 
   if (!itemListText) itemListText = '_Bez položek_';
@@ -35,7 +35,7 @@ export function shareDeliveryListToWhatsApp(
   ordersWithItems.forEach((o, idx) => {
     body += `*${idx + 1}. ${o.place_name || 'Neznámý odběratel'}*\n`;
     o.items.forEach((i) => {
-      body += `   • ${i.quantity}x ${i.beer_name || 'Pivo'} ${i.package_label ? `(${i.package_label})` : ''}\n`;
+      body += `   • ${i.quantity}x ${i.package_label ? `${i.package_label} ` : ''}${i.beer_name || 'Pivo'}\n`;
     });
     if (o.note) body += `   📝 _Poznámka: ${o.note}_\n`;
     body += `\n`;
