@@ -4,7 +4,7 @@
 // přehlížel (přefuk, sudy na lahve, dorovnání) — právě kvůli nim odznak
 // nesvítil, když měl.
 import { describe, expect, it } from 'vitest';
-import { schodkyObjednavky, zbytekKeKonciTydne } from './tydenniZbytek';
+import { schodkyObjednavky, zbytekKeKonciTydne, zbytekPodleObjednavek, type ObjednavkaKPrioritě } from './tydenniZbytek';
 
 const KEG50 = { id: 'keg50', kind: 'keg', volume_l: 50 };
 const KEG30 = { id: 'keg30', kind: 'keg', volume_l: 30 };
@@ -122,5 +122,75 @@ describe('schodkyObjednavky', () => {
 
   it('pivo, které sklad vůbec nezná, se bere jako nulový stav (tedy bez schodku)', () => {
     expect(schodkyObjednavky([{ beer_id: 'neznamé', package_id: KEG50.id }], zbytek)).toEqual([]);
+  });
+});
+
+// Nález z auditu 15. 9. 2026, rozhodnutí uživatele: priorita mezi
+// objednávkami stejného týdne podle dne dovozu — kdo se veze dřív, dostane
+// zbytek dřív.
+describe('zbytekPodleObjednavek — priorita podle dne dovozu', () => {
+  const objednavka = (
+    order_id: string, poradiDatum: string, qty: number, id = `${order_id}-i1`,
+  ): ObjednavkaKPrioritě => ({
+    order_id, poradiDatum,
+    polozky: [{ order_item_id: id, beer_id: PIVO, package_id: KEG50.id, beer_name: 'Ležák', quantity: qty }],
+  });
+
+  it('dvě objednávky stejný týden, dohromady přes zásobu — dřívější vyhraje, pozdější má schodek', () => {
+    const zbytek = new Map([[`${PIVO}__${KEG50.id}`, 15]]);
+    const vysledek = zbytekPodleObjednavek(
+      [objednavka('A', '2026-08-05', 10), objednavka('B', '2026-08-07', 10)], // st, pá
+      zbytek,
+      new Set(),
+    );
+    expect(schodkyObjednavky(objednavka('A', '', 10).polozky, vysledek.get('A')!)).toEqual([]);
+    expect(schodkyObjednavky(objednavka('B', '', 10).polozky, vysledek.get('B')!)[0].chybi).toBe(5);
+  });
+
+  it('pořadí ve vstupu nerozhoduje, jen datum dovozu', () => {
+    const zbytek = new Map([[`${PIVO}__${KEG50.id}`, 15]]);
+    // B (pátek) je ve vstupu PRVNÍ, ale přednost má pořád A (středa).
+    const vysledek = zbytekPodleObjednavek(
+      [objednavka('B', '2026-08-07', 10), objednavka('A', '2026-08-05', 10)],
+      zbytek,
+      new Set(),
+    );
+    expect(schodkyObjednavky(objednavka('A', '', 10).polozky, vysledek.get('A')!)).toEqual([]);
+    expect(schodkyObjednavky(objednavka('B', '', 10).polozky, vysledek.get('B')!)[0].chybi).toBe(5);
+  });
+
+  it('stejný den dovozu = stejná priorita, nesoutěží mezi sebou', () => {
+    const zbytek = new Map([[`${PIVO}__${KEG50.id}`, 15]]);
+    const vysledek = zbytekPodleObjednavek(
+      [objednavka('A', '2026-08-05', 10), objednavka('B', '2026-08-05', 10)],
+      zbytek,
+      new Set(),
+    );
+    // Obě vidí týž (nezměněný) zbytek 15 — ani jedna nemá schodek.
+    expect(schodkyObjednavky(objednavka('A', '', 10).polozky, vysledek.get('A')!)).toEqual([]);
+    expect(schodkyObjednavky(objednavka('B', '', 10).polozky, vysledek.get('B')!)).toEqual([]);
+  });
+
+  it('položka, která už má odpočet ze skladu (zavoz), se neodečítá podruhé', () => {
+    // `zbytek` uже tuhle položku odečetl (skladová kniha), takže by se tu
+    // neměla brát znovu — jinak by šlo o stejnou chybu jako u fondu v
+    // keggingPlan.ts (dvojitý odpočet).
+    const zbytek = new Map([[`${PIVO}__${KEG50.id}`, 5]]); // 15 − 10 (A) už v knize
+    const vysledek = zbytekPodleObjednavek(
+      [objednavka('A', '2026-08-05', 10, 'A-odectena'), objednavka('B', '2026-08-07', 5)],
+      zbytek,
+      new Set(['A-odectena']),
+    );
+    expect(schodkyObjednavky(objednavka('B', '', 5).polozky, vysledek.get('B')!)).toEqual([]);
+  });
+
+  it('třetí objednávka v pořadí vidí zbytek po OBOU předchozích', () => {
+    const zbytek = new Map([[`${PIVO}__${KEG50.id}`, 20]]);
+    const vysledek = zbytekPodleObjednavek(
+      [objednavka('A', '2026-08-03', 8), objednavka('B', '2026-08-05', 8), objednavka('C', '2026-08-07', 8)],
+      zbytek,
+      new Set(),
+    );
+    expect(schodkyObjednavky(objednavka('C', '', 8).polozky, vysledek.get('C')!)[0].chybi).toBe(4); // 20-8-8=4, chybí 4 z 8
   });
 });

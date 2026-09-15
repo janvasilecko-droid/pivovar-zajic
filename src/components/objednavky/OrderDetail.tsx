@@ -5,7 +5,7 @@ import { Beer, Package, Place, beerBg, beerInk, supabase } from '../../lib/supab
 import { Field } from '../ui';
 import { weekRange, shiftWeek } from '../WeeklyOrderSummaryCard';
 
-import type {  } from '../../lib/stockLedger';
+import { stockKey } from '../../lib/stockLedger';
 
 import { DAYS } from '../../lib/shared';
 
@@ -413,7 +413,10 @@ export function OrderDetail({ order, items, beers, packages, places, priceList, 
           {/* Mobilní karty */}
           <div className="grid grid-cols-1 gap-2 md:hidden">
             {items.map((i) => {
-              const rem = i.beer_id ? (remaining.get(i.beer_id) ?? 0) : 0;
+              // ⚠️ Klíč je PIVO+OBAL (stockKey), ne jen pivo — bez toho se tu
+              // hledal `beer_id` v mapě klíčované `beer_id__package_id` a
+              // nikdy se netrefil: "Chybí"/"Skladem" tu nesvítilo nikdy.
+              const rem = (i.beer_id && i.package_id) ? (remaining.get(stockKey(i.beer_id, i.package_id)) ?? 0) : 0;
               const missing = rem < 0 ? -rem : 0;
               const inStock = i.beer_id ? rem >= Number(i.quantity) : false;
               const isEditing = editingItemId === i.id;
@@ -504,7 +507,7 @@ export function OrderDetail({ order, items, beers, packages, places, priceList, 
               <thead><tr><th scope="col" className="w-8"></th><th scope="col">Pivo</th><th scope="col">Obal</th><th scope="col" className="text-right">Množství</th><th scope="col"></th><th scope="col"></th><th scope="col"></th></tr></thead>
               <tbody>
                 {items.map((i) => {
-                  const rem = i.beer_id ? (remaining.get(i.beer_id) ?? 0) : 0;
+                  const rem = (i.beer_id && i.package_id) ? (remaining.get(stockKey(i.beer_id, i.package_id)) ?? 0) : 0;
                   const missing = rem < 0 ? -rem : 0;
                   const inStock = i.beer_id ? rem >= Number(i.quantity) : false;
                   const isEditing = editingItemId === i.id;

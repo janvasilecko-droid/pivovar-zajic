@@ -6,7 +6,7 @@ import { AlertTriangle, ChevronLeft, ChevronRight, Calendar, CalendarDays, Camer
 import { Beer, EntryRow, Package, Place, beerName, fetchAllRows, formatPackageLabel, supabase, useRealtime } from '../lib/supabase';
 import { EmptyState, Spinner } from '../components/ui';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
-import { zbytekKeKonciTydne } from '../lib/tydenniZbytek';
+import { zbytekKeKonciTydne, zbytekPodleObjednavek, type ObjednavkaKPrioritě } from '../lib/tydenniZbytek';
 import type { StockSources } from '../lib/stockLedger';
 import { consumeOrdersItemFilter, consumeOrdersAutoImportRequest, consumeOrdersOverdueFilter, consumeOrdersPendingFilter, consumeOrdersHledani, ORDERS_AUTO_IMPORT_EVENT, ORDERS_HLEDANI_EVENT } from '../lib/ordersFilter';
 import { businessDateISO, posunMesic, posunDen } from '../lib/businessDate';
@@ -109,7 +109,7 @@ export default function Orders({
   const [kegging, setKegging] = useState<EntryRow[]>([]);
   const [inventory, setInventory] = useState<EntryRow[]>([]);
   const [writeoffs, setWriteoffs] = useState<EntryRow[]>([]);
-  // "Chybí skladem" odznak (stockRemainingForWeek) dřív počítal jen stočeno −
+  // "Chybí skladem" odznak (stockRemainingForOrder) dřív počítal jen stočeno −
   // objednáno − odpisy, bez fasování/prodejny/akcí — sklad tak vypadal
   // vyšší, než ve skutečnosti byl, a odznak se objevil pozdě nebo vůbec.
   const [fasovaniRows, setFasovaniRows] = useState<EntryRow[]>([]);
@@ -989,15 +989,40 @@ export default function Orders({
 
   // Počítá se jednou za týden, ne pro každou kartu zvlášť — karet bývá v
   // seznamu desítky a starý výpočet se pro každou z nich spouštěl celý znovu.
-  const zbytkyPodleTydne = useRef(new Map<string, Map<string, number>>());
-  useEffect(() => { zbytkyPodleTydne.current = new Map(); }, [pohybySkladu]);
-  function stockRemainingForWeek(wk: string): Map<string, number> {
-    const hotove = zbytkyPodleTydne.current.get(wk);
-    if (hotove) return hotove;
-    const konec = weekRange(wk).end.toISOString().slice(0, 10);
-    const spocitane = zbytekKeKonciTydne(pohybySkladu, konec);
-    zbytkyPodleTydne.current.set(wk, spocitane);
-    return spocitane;
+  //
+  // Nález z auditu 15. 9. 2026: dřív se každá objednávka kontrolovala zvlášť
+  // proti STEJNÉMU `zbytekKeKonciTydne` — dvě objednávky na stejné pivo+obal
+  // tak mohly OBĚ vyjít „v pořádku", i když dohromady sklad nestačil.
+  // Rozhodnutí uživatele: priorita podle dne dovozu, viz zbytekPodleObjednavek
+  // v lib/tydenniZbytek.ts.
+  const zbytkyPodleTydne = useRef(new Map<string, Map<string, Map<string, number>>>());
+  useEffect(() => { zbytkyPodleTydne.current = new Map(); }, [pohybySkladu, orders, items]);
+  function stockRemainingForOrder(o: Order): Map<string, number> {
+    const wk = orderWeekKey(o);
+    let hotove = zbytkyPodleTydne.current.get(wk);
+    if (!hotove) {
+      const konec = weekRange(wk).end.toISOString().slice(0, 10);
+      const zbytek = zbytekKeKonciTydne(pohybySkladu, konec);
+      const objednavkyTydne: ObjednavkaKPrioritě[] = orders
+        .filter((ord) => ord.status !== 'storno' && orderWeekKey(ord) === wk)
+        .map((ord) => ({
+          order_id: ord.id,
+          poradiDatum: ord.delivery_date || ord.order_date,
+          polozky: (items[ord.id] ?? []).map((it) => ({
+            order_item_id: it.id,
+            beer_id: it.beer_id,
+            package_id: it.package_id,
+            beer_name: it.beer_name,
+            quantity: Number(it.quantity),
+          })),
+        }));
+      const jizOdecteno = new Set(
+        zavozDeductionRows.filter((r) => r.order_item_id).map((r) => r.order_item_id as string)
+      );
+      hotove = zbytekPodleObjednavek(objednavkyTydne, zbytek, jizOdecteno);
+      zbytkyPodleTydne.current.set(wk, hotove);
+    }
+    return hotove.get(o.id) ?? new Map();
   }
 
   async function addOrder(e?: React.FormEvent, sendWhatsApp = false) {
@@ -2652,7 +2677,7 @@ export default function Orders({
               <div className="space-y-3">
                 {grp.orders.map((o) => (
                   <div key={o.id} className="space-y-3">
-                    <OrderCard o={o} items={items[o.id] ?? []} stockRemainingForWeek={stockRemainingForWeek}
+                    <OrderCard o={o} items={items[o.id] ?? []} stockRemainingForOrder={stockRemainingForOrder}
                       selected={selectedIds.has(o.id)} onToggleSelect={() => toggleSelect(o.id)}
                       onClick={() => openDetail(o)} onToggleFlag={toggleFlag} onToggleItemFlag={toggleItemFlag} onUpdateDeliveryDay={updateDeliveryDay}
                       onSetStatus={setStatus} onDelete={del} onDuplicate={duplicateOrder} onEdit={setEditOrder} onSplit={setSplitOrder} onOpenWhatsApp={handleOpenWhatsAppMessage} beers={beers} packages={packages} places={places}
@@ -2667,7 +2692,7 @@ export default function Orders({
                           packages={packages}
                           places={places}
                           priceList={priceList}
-                          remaining={stockRemainingForWeek(orderWeekKey(detail))}
+                          remaining={stockRemainingForOrder(detail)}
                           onClose={() => setDetail(null)}
                           onChanged={load}
                           onSplit={setSplitOrder}
@@ -2693,7 +2718,7 @@ export default function Orders({
         <div className="space-y-3">
           {searchedFiltered.map((o) => (
             <div key={o.id} className="space-y-3">
-              <OrderCard o={o} items={items[o.id] ?? []} stockRemainingForWeek={stockRemainingForWeek}
+              <OrderCard o={o} items={items[o.id] ?? []} stockRemainingForOrder={stockRemainingForOrder}
                 selected={selectedIds.has(o.id)} onToggleSelect={() => toggleSelect(o.id)}
                 onClick={() => openDetail(o)} onToggleFlag={toggleFlag} onToggleItemFlag={toggleItemFlag} onUpdateDeliveryDay={updateDeliveryDay}
                 onSetStatus={setStatus} onDelete={del} onDuplicate={duplicateOrder} onEdit={setEditOrder} onSplit={setSplitOrder} onOpenWhatsApp={handleOpenWhatsAppMessage} beers={beers} packages={packages} places={places}
@@ -2708,7 +2733,7 @@ export default function Orders({
                     packages={packages}
                     places={places}
                     priceList={priceList}
-                    remaining={stockRemainingForWeek(orderWeekKey(detail))}
+                    remaining={stockRemainingForOrder(detail)}
                     onClose={() => setDetail(null)}
                     onChanged={load}
                     onSplit={setSplitOrder}

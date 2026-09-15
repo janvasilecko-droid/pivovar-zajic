@@ -73,3 +73,82 @@ export function schodkyObjednavky(
   }
   return out;
 }
+
+export type PolozkaKPrioritě = PolozkaObjednavky & {
+  /** `order_items.id` — pro spárování s `jizOdectenoOrderItemIds`. */
+  order_item_id: string;
+  quantity: number;
+};
+
+export type ObjednavkaKPrioritě = {
+  order_id: string;
+  /** Den dovozu (delivery_date, jinak order_date) — dřívější má přednost. */
+  poradiDatum: string;
+  polozky: PolozkaKPrioritě[];
+};
+
+/**
+ * Zbytek skladu PRO KAŽDOU objednávku zvlášť, s ohledem na to, co si už
+ * „vzaly" jiné, PŘEDNOSTNĚJŠÍ (dřívější den dovozu) objednávky stejného
+ * týdne na stejné pivo+obal.
+ *
+ * Nález z auditu 15. 9. 2026: `schodkyObjednavky` kontrolovalo každou
+ * objednávku zvlášť proti STEJNÉMU `zbytekKeKonciTydne` — dvě objednávky na
+ * stejné pivo+obal tak mohly OBĚ vyjít "v pořádku", i když dohromady sklad
+ * nestačil. Rozhodnutí uživatele 15. 9. 2026: priorita podle dne dovozu —
+ * kdo se veze dřív, dostane zbytek dřív (stejný princip jako fond v
+ * keggingPlan.ts). Objednávky se STEJNÝM dnem dovozu mají stejnou prioritu
+ * a nesoutěží mezi sebou (stejná granularita jako denní plán stáčení) —
+ * jen s objednávkami z dřívějších dnů.
+ *
+ * Poptávka položky, jejíž odpočet ze skladu (zavoz_deductions) UŽ existuje,
+ * se neodečítá znovu — `zbytek` (skladová kniha) ji má odečtenou už sama;
+ * odečíst by ji podruhé byla stejná chyba, jakou měl fond v keggingPlan.ts
+ * (viz commit „Plán stáčení dvakrát odečítal sudy z fondu").
+ */
+export function zbytekPodleObjednavek(
+  objednavky: ObjednavkaKPrioritě[],
+  zbytek: Map<string, number>,
+  jizOdectenoOrderItemIds: Set<string>,
+): Map<string, Map<string, number>> {
+  const razene = [...objednavky].sort((a, z) =>
+    a.poradiDatum < z.poradiDatum ? -1 : a.poradiDatum > z.poradiDatum ? 1 : 0
+  );
+
+  const poptavkaObjednavky = (o: ObjednavkaKPrioritě): Map<string, number> => {
+    const m = new Map<string, number>();
+    for (const p of o.polozky) {
+      if (!p.beer_id || !p.package_id) continue;
+      if (jizOdectenoOrderItemIds.has(p.order_item_id)) continue;
+      const k = stockKey(p.beer_id, p.package_id);
+      m.set(k, (m.get(k) ?? 0) + Number(p.quantity || 0));
+    }
+    return m;
+  };
+
+  // `bezici` = zbytek PO všech PŘÍSNĚ dřívějších dnech (aktualizuje se mezi
+  // dávkami). V rámci jedné dávky (stejný den) každá objednávka vidí stejný
+  // `bezici` a od něj odečte JEN SVOU VLASTNÍ poptávku — ne poptávku
+  // sourozenců se stejným dnem, ti mezi sebou nesoutěží.
+  const bezici = new Map(zbytek);
+  const vysledek = new Map<string, Map<string, number>>();
+  let i = 0;
+  while (i < razene.length) {
+    let j = i;
+    while (j < razene.length && razene[j].poradiDatum === razene[i].poradiDatum) j++;
+    const davka = razene.slice(i, j);
+    const snapshot = new Map(bezici);
+    const davkovaPoptavka = new Map<string, number>();
+    for (const o of davka) {
+      const poptavka = poptavkaObjednavky(o);
+      const vlastni = new Map(snapshot);
+      poptavka.forEach((qty, k) => vlastni.set(k, (vlastni.get(k) ?? 0) - qty));
+      vysledek.set(o.order_id, vlastni);
+      poptavka.forEach((qty, k) => davkovaPoptavka.set(k, (davkovaPoptavka.get(k) ?? 0) + qty));
+    }
+    // Pro DALŠÍ (pozdější) dny se odečte poptávka CELÉ dávky najednou.
+    davkovaPoptavka.forEach((qty, k) => bezici.set(k, (bezici.get(k) ?? 0) - qty));
+    i = j;
+  }
+  return vysledek;
+}
