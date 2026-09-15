@@ -18,6 +18,7 @@ import { supabase, fetchAllRows, useRealtime, beerBg, beerName } from '../lib/su
 import { businessDateISO } from '../lib/businessDate';
 import { isoWeekKey, weekRange } from './WeeklyOrderSummaryCard';
 import { computeKeggingPlan, dayKeyFromISO, BEZ_TERMINU, type DayPlan } from '../lib/keggingPlan';
+import { zbytekKeKonciTydne } from '../lib/tydenniZbytek';
 import { planProVyber } from '../lib/coStocit';
 import { DAYS } from '../lib/shared';
 import { uloz } from '../lib/uloziste';
@@ -33,6 +34,9 @@ const cti = (klic: string) => { try { return localStorage.getItem(klic); } catch
 type Data = {
   beers: any[]; packages: any[]; orders: any[]; orderItems: any[];
   kegging: any[]; bottling: any[]; fasovani: any[]; prodejna: any[]; writeoffs: any[]; checks: any[];
+  // Skutečná zásoba skladem (currentStockMap, viz keggingPlan.ts) — na rozdíl
+  // od výše (jen aktuální týden) potřebuje CELOU historii + inventuru.
+  inventory: any[]; adjustments: any[]; akce: any[]; prefuk: any[]; zavozDeductions: any[];
 };
 
 type Sloupec = { package_id: string; label: string; druh: Druh; volume_l: number };
@@ -98,19 +102,29 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
 
   async function nacti() {
     try {
-      const [b, p, o, k, bt, fa, fp, wo, pc] = await Promise.all([
+      // 📦 Kegging/bottling/fasování/prodejna/odpisy se čtou BEZ omezení na
+      // aktuální týden — currentStockMap (skutečná zásoba skladem, viz níž)
+      // potřebuje celou historii, jinak by neviděla nic stočeného dřív než
+      // tenhle týden (z provozu 15. 9. 2026: „mám na skladě 9× 30l, appka
+      // mi stejně píše, že musím stočit další").
+      const [b, p, o, k, bt, fa, fp, wo, pc, inv, adj, ak, pf, zd] = await Promise.all([
         supabase.from('beers').select('*'),
         supabase.from('packages').select('id,label,kind,volume_l'),
         // Objednávka patří do týdne podle data dovozu, a když chybí, podle
         // data zadání — obojí musí být od pondělí dál.
         fetchAllRows('orders', 'id,order_date,delivery_date,delivery_day,place_name,status,is_delivered')
           .or(`delivery_date.gte.${zacatekTydne},order_date.gte.${zacatekTydne}`),
-        fetchAllRows('kegging', 'entry_date,beer_id,package_id,quantity').gte('entry_date', zacatekTydne),
-        fetchAllRows('bottling', 'entry_date,beer_id,package_id,quantity').gte('entry_date', zacatekTydne),
-        fetchAllRows('fasovani', 'entry_date,beer_id,package_id,quantity').gte('entry_date', zacatekTydne),
-        fetchAllRows('fasovani_private', 'entry_date,beer_id,package_id,quantity').gte('entry_date', zacatekTydne),
-        fetchAllRows('writeoffs', 'entry_date,beer_id,package_id,quantity').gte('entry_date', zacatekTydne),
+        fetchAllRows('kegging', 'entry_date,beer_id,package_id,quantity'),
+        fetchAllRows('bottling', 'entry_date,beer_id,package_id,quantity,kegs_used,kegs_used_package_id,source_volume_l'),
+        fetchAllRows('fasovani', 'entry_date,beer_id,package_id,quantity'),
+        fetchAllRows('fasovani_private', 'entry_date,beer_id,package_id,quantity'),
+        fetchAllRows('writeoffs', 'entry_date,beer_id,package_id,quantity'),
         fetchAllRows('kegging_plan_checks', 'week_key,day,beer_id,package_id,qty').eq('week_key', weekKey),
+        fetchAllRows('inventory', 'entry_date,beer_id,package_id,quantity,note'),
+        fetchAllRows('inventory_adjustments', 'beer_id,package_id,entry_date,quantity'),
+        fetchAllRows('akce', 'entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
+        fetchAllRows('keg_prefuk', 'beer_id,from_package_id,to_package_id,from_count,to_count,entry_date'),
+        fetchAllRows('zavoz_deductions', 'deduct_date,beer_id,package_id,quantity,order_item_id'),
       ]);
       const orders = (o.data as any[]) ?? [];
       const ids = orders.map((x) => x.id);
@@ -122,13 +136,35 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
         beers: b.data ?? [], packages: p.data ?? [], orders, orderItems: oi.data ?? [],
         kegging: k.data ?? [], bottling: bt.data ?? [], fasovani: fa.data ?? [], prodejna: fp.data ?? [],
         writeoffs: wo.data ?? [], checks: pc.data ?? [],
+        inventory: inv.data ?? [], adjustments: adj.data ?? [], akce: ak.data ?? [], prefuk: pf.data ?? [],
+        zavozDeductions: zd.data ?? [],
       });
     } catch {
       setChyba(true);
     }
   }
   useEffect(() => { void nacti(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [weekKey]);
-  useRealtime(['orders', 'order_items', 'kegging', 'bottling', 'fasovani', 'fasovani_private', 'writeoffs', 'kegging_plan_checks'], () => { void nacti(); });
+  useRealtime(['orders', 'order_items', 'kegging', 'bottling', 'fasovani', 'fasovani_private', 'writeoffs', 'kegging_plan_checks', 'inventory', 'inventory_adjustments', 'akce', 'akce_items', 'keg_prefuk', 'zavoz_deductions'], () => { void nacti(); });
+
+  // Nezávisí na `druh` (sudy/lahve) — vrací zásobu pro VŠECHNA pivo×obal,
+  // stačí spočítat jednou a použít pro oba plány níž.
+  const currentStockMap = useMemo(() => {
+    if (!data) return undefined;
+    return zbytekKeKonciTydne({
+      inventoryRows: data.inventory,
+      bottlingRows: data.bottling,
+      keggingRows: data.kegging,
+      fasovaniRows: data.fasovani,
+      prodejnaRows: data.prodejna,
+      writeoffsRows: data.writeoffs,
+      zavozDeductionRows: data.zavozDeductions,
+      akceRows: data.akce,
+      prefukRows: data.prefuk,
+      adjustmentRows: data.adjustments,
+      packages: data.packages,
+    }, businessDateISO());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
 
   const planyDruhu = (druh: Druh): DayPlan[] => {
     if (!data) return [];
@@ -144,6 +180,7 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
       checkRows: data.checks,
       weekKey,
       jeCilovyObal: druh === 'sudy' ? (kind) => kind === 'keg' : (kind) => kind !== 'keg',
+      currentStockMap,
     });
   };
   // eslint-disable-next-line react-hooks/exhaustive-deps

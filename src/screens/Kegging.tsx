@@ -29,6 +29,7 @@ import { consumeKegFixRequest } from '../lib/stockFixSignal';
 import { klicVyberu, nactiNaposled, zapamatujVyber, serazPodleNaposled } from '../lib/naposledyPouzite';
 import { usePosledniNacteni, prvniChyba } from '../lib/nacitani';
 import type { RadekPohybu, RadekZavozu } from '../lib/stockLedger';
+import { zbytekKeKonciTydne } from '../lib/tydenniZbytek';
 import { soucetUlozenehoDnes } from '../lib/jizUlozeno';
 import { jeMesicUzamcen } from '../lib/mesicUzamcen';
 import { jeZeZaskrtnuti } from '../lib/staceniZPolozky';
@@ -48,7 +49,11 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   const [rows, setRows] = useState<EntryRow[]>([]);
   // Jen pro varování „tenhle měsíc je už napočítaný" (lib/mesicUzamcen.ts) —
   // viz add() níž.
-  const [inventoryRows, setInventoryRows] = useState<{ entry_date: string; note: string | null }[]>([]);
+  const [inventoryRows, setInventoryRows] = useState<{ entry_date: string; note: string | null; beer_id?: string | null; package_id?: string | null; quantity?: number }[]>([]);
+  // Skutečná zásoba skladem pro `keggingPlan.ts` (currentStockMap, viz komentář
+  // tam) — bez akce/dorovnání by zásoba vyšla vyšší, než ve skutečnosti je.
+  const [akceRows, setAkceRows] = useState<any[]>([]);
+  const [adjustmentRows, setAdjustmentRows] = useState<any[]>([]);
   // Úkoly zadané sládkem/šéfem (tabulka bottling_plans). Dřív je viděli jen
   // stáčeči lahví — u sudů se zadaná práce nikde neukazovala, i když v úkolu
   // sudová část byla.
@@ -329,11 +334,11 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     const smiZapsat = zacniNacteni();
     if (!silent && !rows.length) setLoading(true);
     // 🚚 Co se tady načítá, se musí i používat. Do 5. 9. 2026 se tahaly
-    // navíc `inventory`, `inventory_adjustments` a `akce` — jejich výsledek
-    // se uložil do stavu, který nikdo nikdy nepřečetl. Byly to tři z
-    // sedmnácti dotazů při každém otevření obrazovky A při každém přenačtení
-    // z realtime, tedy i pokaždé, když někdo jiný cokoliv uložil.
-    const [kg, ct, b, p, ords, oi, fa, fp, wo, pf, zd, bt, pc, ukoly, inv] = await Promise.all([
+    // navíc `inventory`, `inventory_adjustments` a `akce` bez užitku a byly
+    // odstraněné — 15. 9. 2026 se vrátily zpátky, tentokrát se skutečně
+    // čtou (currentStockMap níž, pro plán „Co stočit" se skutečnou zásobou
+    // skladem, ne jen stočeným tento týden).
+    const [kg, ct, b, p, ords, oi, fa, fp, wo, pf, zd, bt, pc, ukoly, inv, ak, adj] = await Promise.all([
       fetchAllRows('kegging', '*').order('entry_date', { ascending: false }).order('created_at', { ascending: true }).order('id'),
       supabase.from('cellar_tanks').select('*').order('label'),
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
@@ -354,9 +359,14 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
       fetchAllRows('bottling', 'entry_date,beer_id,package_id,quantity,kegs_used,kegs_used_package_id,source_volume_l,note,created_at'),
       fetchAllRows('kegging_plan_checks', 'week_key,day,beer_id,package_id,qty'),
       supabase.from('bottling_plans').select('*').order('planned_date'),
-      // Jen entry_date + note — na víc se `jeMesicUzamcen` neptá (viz níž
-      // v add()). Komentář výš platí dál: co se sem přidá, se musí i použít.
-      fetchAllRows('inventory', 'entry_date,note'),
+      // Beer_id/package_id/quantity navíc oproti `jeMesicUzamcen` potřebuje
+      // skladová kniha (currentStockMap níž) — počáteční stav zásoby.
+      fetchAllRows('inventory', 'entry_date,beer_id,package_id,quantity,note'),
+      // Akce a dorovnání zásoby — obojí potřebuje skladová kniha
+      // (lib/stockLedger.ts) pro currentStockMap, jinak by zásoba vyšla
+      // vyšší, než ve skutečnosti je (viz komentář u pool v keggingPlan.ts).
+      fetchAllRows('akce', 'entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
+      fetchAllRows('inventory_adjustments', 'beer_id,package_id,entry_date,quantity'),
     ]);
     // Mezitím mohlo začít novější načtení (realtime po cizím zápisu),
     // nebo už obrazovka není vidět. Výsledek se pak zahodí.
@@ -368,6 +378,8 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     setRows((kg.data as EntryRow[]) ?? []);
     setPlany((ukoly.data as BottlingPlan[]) ?? []);
     setInventoryRows((inv.data as { entry_date: string; note: string | null }[]) ?? []);
+    setAkceRows((ak.data as any[]) ?? []);
+    setAdjustmentRows((adj.data as any[]) ?? []);
     setCellarTanks((ct.data as CellarTank[]) ?? []);
     if (b.data) setBeers(b.data as Beer[]);
     if (p.data) setPackages(p.data as Package[]);
@@ -384,14 +396,32 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   }
   useEffect(() => { load(); }, []);
   // Odběr musí sedět s tím, co se načítá — jinak přenačítáme kvůli datům,
-  // která obrazovka nikde nepoužije. `inventory`, `inventory_adjustments`,
-  // `akce` a `akce_items` odsud vypadly spolu s dotazy na ně.
-  useRealtime(['kegging', 'cellar_tanks', 'beers', 'packages', 'orders', 'order_items', 'fasovani', 'fasovani_private', 'writeoffs', 'keg_prefuk', 'zavoz_deductions', 'bottling', 'kegging_plan_checks', 'inventory'], () => load(true));
+  // která obrazovka nikde nepoužije.
+  useRealtime(['kegging', 'cellar_tanks', 'beers', 'packages', 'orders', 'order_items', 'fasovani', 'fasovani_private', 'writeoffs', 'keg_prefuk', 'zavoz_deductions', 'bottling', 'kegging_plan_checks', 'inventory', 'akce', 'akce_items', 'inventory_adjustments'], () => load(true));
 
-  // 🗓️ Plán stáčení po dnech — „co stočit na středu". Na rozdíl od
-  // kegRequirements výše nestojí na měsíčním skladovém modelu, takže se do něj
-  // nepromítne schodek z minulých měsíců a čerstvé stáčení se odečte přesně
-  // o zapsané množství (viz lib/keggingPlan.ts).
+  // 📦 Skutečná zásoba skladem PRÁVĚ TEĎ — ze skladové knihy (stejný výpočet
+  // jako „Chybí skladem" v Objednávkách), ne jen ze stočení tohoto týdne.
+  // Z provozu 15. 9. 2026: „mám na skladě 9× 30l, appka mi stejně píše, že
+  // musím stočit další" (a předtím totéž u Němců, viz keggingPlan.ts).
+  const currentStockMap = useMemo(() => zbytekKeKonciTydne({
+    inventoryRows,
+    bottlingRows,
+    keggingRows: rows,
+    fasovaniRows,
+    prodejnaRows,
+    writeoffsRows,
+    zavozDeductionRows,
+    akceRows,
+    prefukRows,
+    adjustmentRows,
+    packages,
+  }, businessDateISO()), [inventoryRows, bottlingRows, rows, fasovaniRows, prodejnaRows, writeoffsRows, zavozDeductionRows, akceRows, prefukRows, adjustmentRows, packages]);
+
+  // 🗓️ Plán stáčení po dnech — „co stočit na středu". Poptávka (objednávky)
+  // se dál řídí jen tímhle týdnem — schodek z minulých měsíců se do ní
+  // nepromítne. Nabídka (currentStockMap výš) ale JE skutečná zásoba
+  // skladem, ne jen stočení tohoto týdne — jinak appka tvrdila „chybí
+  // stočit", i když toho bylo dost na skladě (viz lib/keggingPlan.ts).
   const keggingPlan = useMemo(() => computeKeggingPlan({
     beers,
     packages,
@@ -404,7 +434,8 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     writeoffsRows,
     checkRows: planCheckRows,
     weekKey,
-  }), [beers, packages, orders, orderItems, rows, zavozDeductionRows, fasovaniRows, prodejnaRows, writeoffsRows, planCheckRows, weekKey]);
+    currentStockMap,
+  }), [beers, packages, orders, orderItems, rows, zavozDeductionRows, fasovaniRows, prodejnaRows, writeoffsRows, planCheckRows, weekKey, currentStockMap]);
 
   const planMissingTotal = useMemo(() => keggingPlan.reduce((s, p) => s + p.totalMissing, 0), [keggingPlan]);
 

@@ -21,6 +21,7 @@ import { navrhSudu } from '../lib/bottlingYield';
 import { synchronizuj } from '../lib/checklistData';
 import { computePackageNeeds, PackageNeedsRow } from '../lib/packageNeeds';
 import { computeKeggingPlan, mergeWeekPlan, rozpadPoObalech, BEZ_TERMINU } from '../lib/keggingPlan';
+import { zbytekKeKonciTydne } from '../lib/tydenniZbytek';
 import { naplanujPresun } from '../lib/presunPolozky';
 import KeggingDayPlan from '../components/KeggingDayPlan';
 import { chyba, potvrd, toastZpet } from '../lib/toast';
@@ -410,12 +411,29 @@ export default function BottlingScreen({
       .sort((a, b) => b.volume_l - a.volume_l),
   [packages]);
 
+  // 📦 Skutečná zásoba skladem PRÁVĚ TEĎ — ze skladové knihy, ne jen ze
+  // stočení tohoto týdne. Z provozu 15. 9. 2026: „mám na skladě 9× 30l,
+  // appka mi stejně píše, že musím stočit další" (u sudů, stejný nápad platí
+  // pro lahve — viz keggingPlan.ts, currentStockMap).
+  const currentStockMap = useMemo(() => zbytekKeKonciTydne({
+    inventoryRows,
+    bottlingRows: rows,
+    keggingRows,
+    fasovaniRows,
+    prodejnaRows,
+    writeoffsRows,
+    zavozDeductionRows,
+    akceRows,
+    adjustmentRows,
+    packages,
+  }, businessDateISO()), [inventoryRows, rows, keggingRows, fasovaniRows, prodejnaRows, writeoffsRows, zavozDeductionRows, akceRows, adjustmentRows, packages]);
+
   // Výpočet potřeby stočení lahví — objednávky AKTUÁLNÍHO TÝDNE vs. sklad
   // (stav v pondělí ráno + stočeno tento týden − výdej tento týden). Sdílená
   // logika s KEGy — viz packageNeeds.ts.
   // 🗓️ „Co stočit na který den" — stejná tabule jako u sudů (KEG), jen pro
-  // lahve a PET. Počítá se JEN z dat aktuálního týdne, takže se každý zápis
-  // stáčení projeví okamžitě (viz lib/keggingPlan.ts).
+  // lahve a PET. Poptávka se dál řídí jen tímhle týdnem, nabídka
+  // (currentStockMap výš) je skutečná zásoba skladem (viz lib/keggingPlan.ts).
   const dennniPlanLahvi = useMemo(() => computeKeggingPlan({
     beers,
     packages,
@@ -429,7 +447,8 @@ export default function BottlingScreen({
     checkRows: planCheckRows,
     weekKey,
     jeCilovyObal: (kind) => kind !== 'keg',
-  }), [beers, packages, orders, orderItems, rows, zavozDeductionRows, fasovaniRows, prodejnaRows, writeoffsRows, planCheckRows, weekKey]);
+    currentStockMap,
+  }), [beers, packages, orders, orderItems, rows, zavozDeductionRows, fasovaniRows, prodejnaRows, writeoffsRows, planCheckRows, weekKey, currentStockMap]);
 
   // 🍾 Rozpad „zbývá stočit tento týden" podle VELIKOSTI LAHVE, přes všechna
   // piva — z provozu 9. 9. 2026: součet přes všechny velikosti na dlaždici

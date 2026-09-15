@@ -123,6 +123,17 @@ export type KeggingPlanInput = {
    */
   checkRows?: { week_key: string; day: string; beer_id: string; package_id: string; qty: number }[];
   weekKey: string;
+  /**
+   * Skutečná zásoba skladem PRÁVĚ TEĎ (klíč `beer_id__package_id`, ze
+   * skladové knihy — viz lib/tydenniZbytek.ts, zbytekKeKonciTydne). Bez ní
+   * plán vidí jako zásobu jen to, co bylo stočeno TENTO týden — z provozu
+   * 15. 9. 2026: „mám na skladě 9× 30l, a appka mi stejně píše, že musím
+   * stočit další" (a předtím totéž u Němců). Když je zadaná, NAHRAZUJE
+   * (nesčítá se s) výpočet zásoby z `keggingRows`/drain níž — skladová
+   * kniha už stočení tohoto týdne i výdeje sama zahrnuje, sčítání by je
+   * počítalo dvakrát. Bez zadání se plán chová jako dřív (jen tento týden).
+   */
+  currentStockMap?: Map<string, number>;
 };
 
 /** Je to platná zkratka dne ('po'…'ne')? */
@@ -192,30 +203,38 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
   const kegPkgs = new Map(packages.filter((p) => jeCilovy(p.kind)).map((p) => [p.id, p]));
   const beerName = new Map(beers.map((b) => [b.id, b.name]));
 
-  // ── Zásoba k rozdělení: co se tento týden stočilo, mínus co už fyzicky
-  // odešlo (zavezené objednávky, fasování, prodejna, odpisy). Zbytek leží ve
-  // chlaďáku a může pokrýt některý z dalších dnů.
+  // ── Zásoba k rozdělení. Se skutečnou zásobou (currentStockMap, viz
+  // komentář u typu výš) se bere PŘÍMO ta — skladová kniha už stočení
+  // tohoto týdne i výdeje (fasování/prodejna/odpisy) sama zahrnuje. Bez ní
+  // (starší volání) se dopočítá po staru: co se TENTO TÝDEN stočilo, mínus
+  // co už tento týden fyzicky odešlo. Zbytek leží ve chlaďáku a může
+  // pokrýt některý z dalších dnů.
   const pool: Record<string, number> = {};
-  keggingRows.filter((r) => inWeek(r.entry_date)).forEach((r) => {
-    if (!r.beer_id || !r.package_id || !kegPkgs.has(r.package_id)) return;
-    const k = `${r.beer_id}__${r.package_id}`;
-    pool[k] = (pool[k] || 0) + Number(r.quantity || 0);
-  });
-  const drain = (rows: any[], dateField: string) => {
-    rows.filter((r) => inWeek(r[dateField])).forEach((r) => {
+  if (input.currentStockMap) {
+    input.currentStockMap.forEach((qty, k) => { pool[k] = Math.max(0, qty); });
+  } else {
+    keggingRows.filter((r) => inWeek(r.entry_date)).forEach((r) => {
       if (!r.beer_id || !r.package_id || !kegPkgs.has(r.package_id)) return;
       const k = `${r.beer_id}__${r.package_id}`;
-      pool[k] = (pool[k] || 0) - Number(r.quantity || 0);
+      pool[k] = (pool[k] || 0) + Number(r.quantity || 0);
     });
-  };
-  // Odpočty závozu (zavozDeductionRows) zásobu NEubírají: odpočet se zapisuje
+    const drain = (rows: any[], dateField: string) => {
+      rows.filter((r) => inWeek(r[dateField])).forEach((r) => {
+        if (!r.beer_id || !r.package_id || !kegPkgs.has(r.package_id)) return;
+        const k = `${r.beer_id}__${r.package_id}`;
+        pool[k] = (pool[k] || 0) - Number(r.quantity || 0);
+      });
+    };
+    drain(fasovaniRows, 'entry_date');
+    drain(prodejnaRows, 'entry_date');
+    drain(writeoffsRows, 'entry_date');
+  }
+  // Odpočty závozu (zavozDeductionRows) zásobu NEubírají SAMY (mimo
+  // currentStockMap, kde je skladová kniha zahrnuje): odpočet se zapisuje
   // podle kalendáře, když den závozu projde, a nic neříká o tom, jestli se
   // pivo stočilo. Zásobu ubírají jen objednávky, které člověk označil jako
   // zavezené — viz níž u poptávky (migrace 20261231080000, 13. 9. 2026).
   void zavozDeductionRows;
-  drain(fasovaniRows, 'entry_date');
-  drain(prodejnaRows, 'entry_date');
-  drain(writeoffsRows, 'entry_date');
   Object.keys(pool).forEach((k) => { pool[k] = Math.max(0, pool[k]); });
 
   // ── Poptávka po dnech.

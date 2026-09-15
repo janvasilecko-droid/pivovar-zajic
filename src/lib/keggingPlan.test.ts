@@ -549,4 +549,50 @@ describe('z čeho je „hotovo" — rozpad, který si vyžádal provoz', () => {
     const tyden = mergeWeekPlan(p, 'týden');
     expect(tyden.items[0].nachystano).toBe(2);
   });
+
+  describe('currentStockMap — skutečná zásoba skladem (i z minulých týdnů)', () => {
+    // Z provozu 15. 9. 2026: „mám na skladě 9× 30l, appka mi stejně píše,
+    // že musím stočit další" — stočeno minulý týden, plán to bez
+    // currentStockMap neviděl (jen tento týden), viz komentář u pool výš.
+    it('zásoba ze skladové knihy pokryje objednávku, i když se nic nestočilo TENTO týden', () => {
+      const p = plan({
+        orders: [objednavka('o1', '2026-08-26')],
+        orderItems: [polozka('o1', 'b-des', 'p30', 1)],
+        keggingRows: [], // nic stočeno tento týden
+        currentStockMap: new Map([['b-des__p30', 9]]),
+      });
+      const it0 = day(p, 'st').items[0];
+      expect(it0.missing).toBe(0);
+      expect(it0.zChladaku).toBe(1);
+    });
+
+    it('zásoba nestačí na celou objednávku — chybí jen rozdíl', () => {
+      const p = plan({
+        orders: [objednavka('o1', '2026-08-26')],
+        orderItems: [polozka('o1', 'b-des', 'p30', 12)],
+        currentStockMap: new Map([['b-des__p30', 9]]),
+      });
+      expect(day(p, 'st').items[0].missing).toBe(3);
+    });
+
+    it('bez currentStockMap se chová jako dřív — jen tento týden', () => {
+      const p = plan({
+        orders: [objednavka('o1', '2026-08-26')],
+        orderItems: [polozka('o1', 'b-des', 'p30', 1)],
+        keggingRows: [{ entry_date: '2026-08-17', beer_id: 'b-des', package_id: 'p30', quantity: 9 }], // minulý týden
+      });
+      expect(day(p, 'st').items[0].missing).toBe(1);
+    });
+
+    it('zásoba se mezi dny nezdvojuje — pokryje jen jeden den, ne oba', () => {
+      const p = plan({
+        orders: [objednavka('o1', '2026-08-25'), objednavka('o2', '2026-08-26')], // út, st
+        orderItems: [polozka('o1', 'b-des', 'p30', 5), polozka('o2', 'b-des', 'p30', 5)],
+        currentStockMap: new Map([['b-des__p30', 6]]),
+      });
+      // 6 kusů pokryje úterý (5) a jeden z deseti kusů středy — ne obojí zvlášť.
+      expect(day(p, 'ut').items[0].missing).toBe(0);
+      expect(day(p, 'st').items[0].missing).toBe(4);
+    });
+  });
 });
