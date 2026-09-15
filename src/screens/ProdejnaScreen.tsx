@@ -638,33 +638,31 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
               Vrácení se zapisuje jako ZÁPORNÝ řádek do stejné tabulky, ne
               mazáním původního zápisu: co se vydalo, se doopravdy vydalo,
               a smazat to znamená ztratit stopu (a rozbít měsíc, který je
-              možná už napočítaný). Přepínač je vidět nahlas a tlačítko
-              změní barvu i text, ať se vrácení neuloží omylem místo výdeje. */}
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setVraceni(false)}
-              className={`px-3 py-2 rounded font-black text-xs min-h-[44px] border-2 transition ${
-                !vraceni ? 'bg-emerald-700 border-emerald-800 text-white' : 'bg-white border-neutral-300 text-neutral-600'
-              }`}
-            >
-              Vydat ze skladu
-            </button>
-            <button
-              type="button"
-              onClick={() => setVraceni(true)}
-              className={`px-3 py-2 rounded font-black text-xs min-h-[44px] border-2 transition ${
-                vraceni ? 'bg-sky-700 border-sky-800 text-white' : 'bg-white border-neutral-300 text-neutral-600'
-              }`}
-            >
+              možná už napočítaný).
+              Dřív tu byla dvě tlačítka ("Vydat ze skladu" / "Odfasovat") a
+              vedle nich ještě samostatné "Uložit fasování" — vypadalo to
+              jako dvě různá tlačítka pro totéž. Výdej je výchozí stav, na
+              nic se tedy nekliká; jediný přepínač je tenhle checkbox a
+              hlavní tlačítko dole samo změní text i barvu, ať se vrácení
+              neuloží omylem místo výdeje. */}
+          <label className={`mt-3 inline-flex items-center gap-2 px-3 py-2 rounded border-2 min-h-[44px] cursor-pointer transition select-none w-fit ${vraceni ? 'bg-sky-50 border-sky-300' : 'bg-white border-neutral-300'}`}>
+            <input
+              type="checkbox"
+              checked={vraceni}
+              onChange={(e) => setVraceni(e.target.checked)}
+              className="w-4 h-4 accent-sky-700"
+            />
+            <span className={`font-black text-xs ${vraceni ? 'text-sky-900' : 'text-neutral-600'}`}>
               ↩ Odfasovat (vrátit na sklad)
-            </button>
-            {vraceni && (
+            </span>
+          </label>
+          {vraceni && (
+            <div className="mt-2">
               <span className="text-[11px] font-bold text-sky-900 bg-sky-50 border border-sky-300 rounded px-2 py-1">
                 Zapíše se záporný řádek — kusy se vrátí na sklad.
               </span>
-            )}
-          </div>
+            </div>
+          )}
 
           <div className="flex items-center justify-between mt-4">
             <div className="flex items-center gap-2">
