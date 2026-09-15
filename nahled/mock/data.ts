@@ -29,6 +29,14 @@ export const beers = [
   { id: 'b-10de', name: '10° Desítka', sort_order: 4 },
   { id: 'b-08os', name: 'Osma', sort_order: 5 },
   { id: 'b-summ', name: 'Summer Ale', sort_order: 6 },
+  // Piva pro pátek s deseti pivy (o-5) — bez nich order_items odkazovaly na
+  // neexistující b-13pa/b-14ip/b-citr/b-psen a panel „Co stočit" je ukázal
+  // jako „?" (pivoPodleId nenašlo shodu). Z provozu 15. 9. 2026: „co sou ty
+  // otazníky, to je nějaká chyba" — nebyla, jen chybějící vymyšlená data.
+  { id: 'b-13pa', name: '13° Pale Ale', sort_order: 7 },
+  { id: 'b-14ip', name: '14° IPA', sort_order: 8 },
+  { id: 'b-citr', name: 'Citron', sort_order: 9 },
+  { id: 'b-psen', name: 'Pšeničné', sort_order: 10 },
 ];
 
 export const packages = [
