@@ -1402,7 +1402,11 @@ export default function Orders({
   const searchedFiltered = useMemo(() => {
     const q = norm(searchText);
     const dnes = businessDateISO();
-    return filtered.filter((o) => {
+    // Hledání textem prohledá VŠECHNY objednávky, ne jen ty ve zvoleném
+    // období (týden/měsíc) — z provozu 15. 9. 2026: „ať to hledá všechny
+    // objednávky toho odběratele". Bez textu se chová jako dřív (jen `filtered`).
+    const zaklad = q ? orders : filtered;
+    return zaklad.filter((o) => {
       if (zavozOnly && o.is_delivered) return false;
       // Stejná podmínka jako řádek „nevyřízené objednávky po termínu" v Dnesek.tsx.
       if (overdueOnly && (o.status !== 'nova' || !o.delivery_date || o.delivery_date > dnes)) return false;
@@ -1423,7 +1427,7 @@ export default function Orders({
       }
       return true;
     });
-  }, [filtered, zavozOnly, overdueOnly, statusFilter, deliveryDayFilter, searchText, items, itemFilterBeerId, itemFilterPackageId, packageKindFilter, packages]);
+  }, [filtered, orders, zavozOnly, overdueOnly, statusFilter, deliveryDayFilter, searchText, items, itemFilterBeerId, itemFilterPackageId, packageKindFilter, packages]);
 
   // 🧮 Záložka „Celkem“ — souhrn objednaného množství podle varianty (pivo + obal)
   // v aktuálně zvoleném rozsahu (týden / měsíc / vše). Storno se nepočítá.
@@ -2380,7 +2384,7 @@ export default function Orders({
                   {packageKindFilter !== 'all' ? `[${NAZEV_DRUHU[packageKindFilter]}] ` : ''}
                   {itemFilterBeerId ? `[Pivo: ${beers.find(b => b.id === itemFilterBeerId)?.name}] ` : ''}
                   {itemFilterPackageId ? `[Obal: ${packages.find(p => p.id === itemFilterPackageId)?.label}] ` : ''}
-                  {searchText.trim() ? `[Hledání: "${searchText}"] ` : ''}
+                  {searchText.trim() ? `[Hledání: "${searchText}"${timeScope !== 'all' ? ' — všechna období' : ''}] ` : ''}
                 </span>
 
                 {itemAuditStats && (
