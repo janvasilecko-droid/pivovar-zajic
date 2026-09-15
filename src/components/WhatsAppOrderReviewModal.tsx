@@ -1387,42 +1387,31 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
 
               {/* ✂️ Rozdělit na dva odběratele — z provozu 15. 9. 2026: WhatsApp
                   zpráva se dvěma odběrateli (Chmeloun a Sluhy) dorazila jako
-                  jedna objednávka. Jen u nových zpráv (ne u odpovědí upravujících
-                  stávající objednávku) a jen když je co rozdělit (2+ položky). */}
-              {!message.amends_order_id && items.length > 1 && (
-                <div>
-                  {!splitEnabled ? (
+                  jedna objednávka. Tlačítko pro ZAPNUTÍ je dole u Ignorovat/
+                  Zamítnout — tady jen rozbalený panel, jakmile je zapnuté.
+                  Bez tlačítka nahoře, protože ho tam nebylo vidět (z provozu). */}
+              {splitEnabled && !message.amends_order_id && items.length > 1 && (
+                <div className="border border-amber-300 bg-amber-50 rounded p-2.5 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-amber-800">
+                      Zaškrtni u položek níž, které patří druhému odběrateli
+                    </span>
                     <button
                       type="button"
-                      onClick={() => setSplitEnabled(true)}
-                      className="text-xs font-bold text-amber-700 hover:text-amber-900 underline decoration-dotted underline-offset-2 tap"
+                      onClick={() => { setSplitEnabled(false); setSplitKeys(new Set()); setSplitPlaceId(''); setSplitPlaceName(''); }}
+                      className="text-xs font-bold text-neutral-500 hover:text-neutral-700 tap"
                     >
-                      ✂️ Rozdělit na dva odběratele
+                      Zrušit rozdělení
                     </button>
-                  ) : (
-                    <div className="border border-amber-300 bg-amber-50 rounded p-2.5 space-y-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs font-bold text-amber-800">
-                          Zaškrtni u položek níž, které patří druhému odběrateli
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => { setSplitEnabled(false); setSplitKeys(new Set()); setSplitPlaceId(''); setSplitPlaceName(''); }}
-                          className="text-xs font-bold text-neutral-500 hover:text-neutral-700 tap"
-                        >
-                          Zrušit rozdělení
-                        </button>
-                      </div>
-                      <div>
-                        <div className="text-xs text-neutral-600 mb-1">Druhý odběratel</div>
-                        <PlaceCombobox
-                          value={splitPlaceId || splitPlaceName}
-                          onChange={(id, name) => { setSplitPlaceId(id); setSplitPlaceName(name); }}
-                          places={props.places}
-                        />
-                      </div>
-                    </div>
-                  )}
+                  </div>
+                  <div>
+                    <div className="text-xs text-neutral-600 mb-1">Druhý odběratel</div>
+                    <PlaceCombobox
+                      value={splitPlaceId || splitPlaceName}
+                      onChange={(id, name) => { setSplitPlaceId(id); setSplitPlaceName(name); }}
+                      places={props.places}
+                    />
+                  </div>
                 </div>
               )}
 
@@ -1668,6 +1657,21 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                 {rejecting ? <ButtonSpinner /> : <X size={16} />}
                 Zamítnout objednávku
               </button>
+
+              {/* ✂️ Rozdělit na dva odběratele — vedle Ignorovat/Zamítnout,
+                  ať je vidět (z provozu 15. 9. 2026: „nevidím to tlačítko,
+                  dej to k tomu ignorovat, zamítnout"). Panel s výběrem
+                  položek a druhého odběratele se rozbalí nahoře u položek. */}
+              {!message.amends_order_id && items.length > 1 && !splitEnabled && (
+                <button
+                  type="button"
+                  onClick={() => setSplitEnabled(true)}
+                  disabled={loading}
+                  className="btn-ghost"
+                >
+                  ✂️ Rozdělit na dva odběratele
+                </button>
+              )}
             </div>
 
             <button
