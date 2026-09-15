@@ -27,6 +27,7 @@ import { parseVoiceOrder, parseOrderText, detectOrderNotes, loadAliasMap, loadPl
 import { slozNavrh } from '../lib/whatsappAmendment';
 
 import { shareOrderToWhatsApp } from '../lib/whatsapp';
+import { oznacVlastniObjednavku } from '../lib/mojeObjednavky';
 import { subscribeToWhatsAppMessages, fetchPendingWhatsAppMessages, fetchWhatsAppMessage, ignoreWhatsAppMessage, WhatsAppIncoming, fetchWhatsAppSenders, isSenderAllowed, triggerAutoParse, type WhatsAppSender } from '../lib/whatsappApi';
 import { autoReserveTapIfNeeded, isTapMentioned, detectTapType } from '../lib/tapReservations';
 import { findDuplicateOrders, formatDuplicateMessage } from '../lib/orderDuplicates';
@@ -459,6 +460,7 @@ export default function Orders({
 
       if (error || !newOrder) throw new Error(error?.message || 'Chyba při vytváření objednávky');
       createdIds.push(newOrder.id);
+      oznacVlastniObjednavku(newOrder.id);
 
       const rows = data.items.map((i) => {
         const beer = beers.find((b) => b.id === i.beerId);
@@ -674,6 +676,7 @@ export default function Orders({
         .single();
 
       if (error || !newOrder) throw new Error(error?.message || 'Chyba při vytváření objednávky');
+      oznacVlastniObjednavku(newOrder.id);
 
       // Převést rozparsované položky na formát pro order_items. Pokud položka
       // nemá ID piva/obalu, dohledáme je v katalogu podle názvu/stupně/balení.
@@ -1072,6 +1075,7 @@ export default function Orders({
           is_prepared: false, is_packaged: false, note: note.trim() || null,
         }).select().single();
         if (error) throw new Error(error.message);
+        oznacVlastniObjednavku(order.id);
 
         if (!firstOrderId) {
           firstOrderId = order.id;
@@ -1523,6 +1527,7 @@ export default function Orders({
       delivery_date: null, is_prepared: false, is_packaged: false, note: o.note,
     }).select().single();
     if (error || !newOrder) return;
+    oznacVlastniObjednavku(newOrder.id);
     const rows = its.map((i) => ({
       order_id: newOrder.id, beer_id: i.beer_id, beer_name: i.beer_name,
       package_id: i.package_id, package_label: i.package_label, quantity: i.quantity,
@@ -1576,6 +1581,7 @@ export default function Orders({
         note: o.note,
       }).select().single();
       if (error || !nova) { selhalo += 1; continue; }
+      oznacVlastniObjednavku(nova.id);
       const radky = (items[o.id] ?? []).map((i) => ({
         order_id: nova.id, beer_id: i.beer_id, beer_name: i.beer_name,
         package_id: i.package_id, package_label: i.package_label, quantity: i.quantity,
@@ -2802,6 +2808,7 @@ export default function Orders({
                   note: meta.note || null,
                 }).select().single();
                 if (error) throw new Error(error.message);
+                oznacVlastniObjednavku(order.id);
                 const itemRows = rows.map((i) => {
                   const b = beers.find((x) => x.id === i.beer_id);
                   const p = packages.find((x) => x.id === i.package_id);

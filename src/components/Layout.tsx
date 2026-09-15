@@ -20,6 +20,7 @@ import { isAdminEmail } from '../lib/config';
 import { BugReportModal } from './BugReportModal';
 
 import { onNewVersion, forceRefresh, type VersionInfo } from '../lib/versionCheck';
+import { jeVlastniObjednavka } from '../lib/mojeObjednavky';
 import { zavrenaVerzeListy, zavriVerziListy } from '../lib/verzeLista';
 import { nastavObrazovkuProChyby, zalogujANahlas } from '../lib/chybyHlaseni';
 // Staticky, ne přes `await import(…)`. Fronta offline zápisů sedí v hlavním
@@ -389,6 +390,11 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
       .channel('realtime_orders_alert')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, (payload) => {
         const newO = payload.new as any;
+        // 📥 Objednávku, kterou si tenhle telefon zrovna sám založil, appka
+        // nemá hlásit jako novou — jinak by ji člověk hned po zapsání musel
+        // ještě odklikávat, jako by mu ji poslal někdo jiný (viz
+        // lib/mojeObjednavky.ts). Jiné zařízení notifikaci dostane normálně.
+        if (jeVlastniObjednavka(newO.id)) return;
         const notifyData: NewOrderNotifyData = {
           id: newO.id,
           place_name: newO.place_name,
