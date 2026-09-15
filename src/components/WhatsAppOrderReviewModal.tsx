@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { Beer, Package, Place, supabase } from '../lib/supabase';
 import { WhatsAppIncoming, ignoreWhatsAppMessage, updateWhatsAppParsedData, napojNaObjednavku } from '../lib/whatsappApi';
 import { parseWhatsAppOrderMessageWithAI } from '../lib/whatsappParser';
-import { loadAliasMap, saveAlias, canLearnBeerAlias, matchBeerFromHints, matchPackage, matchPlaceFromText, savePlaceAlias, normalize, type ParserAliasMap } from '../lib/orderParser';
+import { loadAliasMap, saveAlias, canLearnBeerAlias, matchBeerFromHints, matchPackage, matchPlaceFromText, savePlaceAlias, normalize, getOrCreatePlace, type ParserAliasMap } from '../lib/orderParser';
+import { oznacVlastniObjednavku } from '../lib/mojeObjednavky';
 import {
   diffOrderItems, rozsahOdpovedi, slozNavrh, potvrzeneBezPolozek, vypadaJakoPridavek,
   kandidatiNaDoplneni, datumObjednavky, vypadaJakoZmenaObjednavky,
@@ -129,6 +130,15 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   const [kandidatiChyba, setKandidatiChyba] = useState<string | null>(null);
   /** Id objednávky, na kterou se právě napojuje (zamyká tlačítko). */
   const [napojuji, setNapojuji] = useState<string | null>(null);
+  // ✂️ Rozdělení na dva odběratele — z provozu 15. 9. 2026: WhatsApp zpráva
+  // se dvěma odběrateli (Chmeloun a Sluhy) dorazila jako jedna objednávka.
+  // Zaškrtnuté položky odejdou po schválení do NOVÉ, druhé objednávky —
+  // viz handleApprove. Netýká se odpovědí upravujících stávající objednávku
+  // (amends_order_id) — tam by rozdělení nedávalo smysl.
+  const [splitEnabled, setSplitEnabled] = useState(false);
+  const [splitKeys, setSplitKeys] = useState<Set<string>>(new Set());
+  const [splitPlaceId, setSplitPlaceId] = useState('');
+  const [splitPlaceName, setSplitPlaceName] = useState('');
 
   // Synchronizace s prop (otevření nové zprávy).
   useEffect(() => {
@@ -466,6 +476,15 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
     });
   }
 
+  /** Zaškrtnutí položky pro druhého odběratele (viz splitEnabled). */
+  function toggleSplitKey(key: string) {
+    setSplitKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }
+
   function updatePlace(pid: string, pname: string) {
     placeTouchedRef.current = true;
     setPlaceId(pid);
@@ -612,6 +631,13 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
       }
     }
 
+    // Rozdělení bez vybraného druhého odběratele by založilo objednávku bez
+    // jména — radši zastavit dřív, než se cokoliv zapíše.
+    if (splitEnabled && splitKeys.size > 0 && !splitPlaceId && !splitPlaceName.trim()) {
+      setStatusMessage('Vyber nebo napiš druhého odběratele — nebo rozdělení zrušit.');
+      return;
+    }
+
     setApproving(true);
     setStatusMessage('Schvaluji objednávku...');
 
@@ -624,6 +650,13 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
         savePlaceAlias(origPlaceName, placeId, finalPlaceName).catch(() => {});
       }
 
+      // ✂️ Rozdělení na dva odběratele (viz splitEnabled výš): zaškrtnuté
+      // položky odejdou stranou, schválená PRVNÍ objednávka je vůbec
+      // nedostane — jinak by je měly obě dvakrát.
+      const splitActive = splitEnabled && splitKeys.size > 0 && splitKeys.size < items.length && !message.amends_order_id;
+      const primaryItems = splitActive ? items.filter((it) => !splitKeys.has(it.key)) : items;
+      const secondItems = splitActive ? items.filter((it) => splitKeys.has(it.key)) : [];
+
       // Zkopírujeme zprávu s položkami, jak je uživatel případně opravil
       // (správné pivo/obal z katalogu, upravené množství, opravený odběratel).
       const editedMessage: WhatsAppIncoming = {
@@ -633,7 +666,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
         amends_order_id: asNew ? null : message.amends_order_id,
         parsed_place_id: placeId || message.parsed_place_id,
         parsed_place_name: placeName || message.parsed_place_name,
-        parsed_items: items.map((it) => ({
+        parsed_items: primaryItems.map((it) => ({
           beer_id: it.beerId || null,
           pkg_id: it.pkgId || null,
           qty: parseInt(it.qty, 10) || 0,
@@ -656,7 +689,41 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
       }).catch(() => {});
 
       await props.onApprove(editedMessage);
-      setStatusMessage(asNew ? 'Vytvořena nová objednávka!' : 'Objednávka byla schválena a importována!');
+
+      // Druhá objednávka (odštěpené položky) — samostatný, jednoduchý zápis,
+      // NE přes onApprove (ten by se pro stejné message.id spustil podruhé
+      // a narazil na už 'imported' zprávu). Stejný vzor jako duplicateOrder
+      // v Orders.tsx.
+      if (splitActive && secondItems.length > 0) {
+        let resolvedPlaceId = splitPlaceId || null;
+        let resolvedPlaceName = splitPlaceName.trim();
+        if (!resolvedPlaceId && resolvedPlaceName) {
+          const place = await getOrCreatePlace(resolvedPlaceName, props.places);
+          if (place) { resolvedPlaceId = place.id; resolvedPlaceName = place.name; }
+        }
+        const { data: newOrder, error: orderErr } = await supabase.from('orders').insert({
+          order_date: new Date().toISOString().slice(0, 10),
+          place_id: resolvedPlaceId, place_name: resolvedPlaceName || null,
+          source: 'whatsapp', status: 'nova',
+          delivery_day: message.parsed_delivery_day ?? null,
+          delivery_date: message.parsed_delivery_date ?? null,
+          is_prepared: false, is_packaged: false, is_delivered: false,
+        }).select().single();
+        if (orderErr || !newOrder) throw new Error(orderErr?.message ?? 'Druhá objednávka se nepovedla založit.');
+        oznacVlastniObjednavku(newOrder.id);
+        const radky = secondItems.map((it) => ({
+          order_id: newOrder.id, beer_id: it.beerId || null, beer_name: it.beerName || null,
+          package_id: it.pkgId || null, package_label: it.packageLabel || null,
+          quantity: parseInt(it.qty, 10) || 0,
+        }));
+        const { error: itemsErr } = await supabase.from('order_items').insert(radky);
+        if (itemsErr) throw new Error(itemsErr.message);
+      }
+
+      setStatusMessage(
+        splitActive ? 'Schváleno — rozděleno na dvě objednávky!'
+          : asNew ? 'Vytvořena nová objednávka!' : 'Objednávka byla schválena a importována!'
+      );
 
       // Po krátké době zavřít modal a přejít na další čekající zprávu
       setTimeout(() => {
@@ -1318,6 +1385,47 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                 <PlaceCombobox value={placeId || placeName} onChange={updatePlace} places={props.places} />
               </div>
 
+              {/* ✂️ Rozdělit na dva odběratele — z provozu 15. 9. 2026: WhatsApp
+                  zpráva se dvěma odběrateli (Chmeloun a Sluhy) dorazila jako
+                  jedna objednávka. Jen u nových zpráv (ne u odpovědí upravujících
+                  stávající objednávku) a jen když je co rozdělit (2+ položky). */}
+              {!message.amends_order_id && items.length > 1 && (
+                <div>
+                  {!splitEnabled ? (
+                    <button
+                      type="button"
+                      onClick={() => setSplitEnabled(true)}
+                      className="text-xs font-bold text-amber-700 hover:text-amber-900 underline decoration-dotted underline-offset-2 tap"
+                    >
+                      ✂️ Rozdělit na dva odběratele
+                    </button>
+                  ) : (
+                    <div className="border border-amber-300 bg-amber-50 rounded p-2.5 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-bold text-amber-800">
+                          Zaškrtni u položek níž, které patří druhému odběrateli
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => { setSplitEnabled(false); setSplitKeys(new Set()); setSplitPlaceId(''); setSplitPlaceName(''); }}
+                          className="text-xs font-bold text-neutral-500 hover:text-neutral-700 tap"
+                        >
+                          Zrušit rozdělení
+                        </button>
+                      </div>
+                      <div>
+                        <div className="text-xs text-neutral-600 mb-1">Druhý odběratel</div>
+                        <PlaceCombobox
+                          value={splitPlaceId || splitPlaceName}
+                          onChange={(id, name) => { setSplitPlaceId(id); setSplitPlaceName(name); }}
+                          places={props.places}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {(message.parsed_delivery_day || message.parsed_delivery_date) && (
                 <div>
                   <div className="text-sm text-neutral-600">Datum dodání</div>
@@ -1356,6 +1464,17 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                               Všechna tři pole mají stejnou velikost písma
                               i výšku na dotek. */}
                           <div className="flex items-center gap-2 flex-wrap">
+                            {splitEnabled && (
+                              <label className="flex items-center gap-1 shrink-0 text-xs font-bold text-amber-800" title="Patří druhému odběrateli">
+                                <input
+                                  type="checkbox"
+                                  className="w-5 h-5"
+                                  checked={splitKeys.has(item.key)}
+                                  onChange={() => toggleSplitKey(item.key)}
+                                />
+                                2.
+                              </label>
+                            )}
                             <select
                               value={item.beerId}
                               onChange={(e) => updateItemBeer(index, e.target.value)}
