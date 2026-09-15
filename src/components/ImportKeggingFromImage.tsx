@@ -4,7 +4,7 @@ import { PhotoReviewPane } from './PhotoReviewPane';
 import { ImageEditor } from './ImageEditor';
 import type { Beer, Package } from '../lib/supabase';
 import { authenticatedFunctionHeaders } from '../lib/functionAuth';
-import { typObrazku } from '../lib/obrazek';
+import { typObrazku, zmensenyDataUrl } from '../lib/obrazek';
 import { AlertCircle, AlertTriangle, Beer as BeerIcon, Camera, Plus, RotateCcw, Sparkles, Trash2, Upload } from 'lucide-react';
 import { IkonaSud } from '../components/ikony';
 
@@ -89,23 +89,21 @@ export function ImportKeggingFromImage({ isOpen, onClose, beers, packages, onImp
     runOcrFromBase64(base64, typObrazku(currentPhoto.dataUrl), activeIndex);
   }, [photos, activeIndex]);
 
-  const loadMultipleFiles = (files: File[]) => {
+  // Fotka z mobilu má klidně 4–8 MB — jako nezmenšený data URL appku na
+  // telefonu spolehlivě sekla (stejný bug jako u stáčení lahví, viz
+  // ImportBottlingFromImage.tsx). zmensenyDataUrl ji zmenší na rozumnou
+  // velikost, stejně jako FotkyZaznamu.tsx dělá pro nahrávání do úložiště.
+  const loadMultipleFiles = async (files: File[]) => {
     if (!files.length) return;
     setBusy(true);
-    const loaded: PhotoEntry[] = [];
-    let count = 0;
-    files.forEach((f, idx) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        loaded[idx] = { dataUrl: reader.result as string, name: f.name };
-        count++;
-        if (count === files.length) {
-          setPhotos((prev) => [...prev, ...loaded.filter(Boolean)]);
-          setBusy(false);
-        }
-      };
-      reader.readAsDataURL(f);
-    });
+    try {
+      const loaded: PhotoEntry[] = await Promise.all(
+        files.map(async (f) => ({ dataUrl: await zmensenyDataUrl(f), name: f.name })),
+      );
+      setPhotos((prev) => [...prev, ...loaded]);
+    } finally {
+      setBusy(false);
+    }
   };
 
   const handleFile = (file: File) => {
