@@ -182,7 +182,16 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
     `px-3 py-1.5 rounded font-black text-xs shrink-0 flex items-center gap-1.5 min-h-[36px] transition ${
       aktivni ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-white text-neutral-700 border border-neutral-200 hover:bg-amber-50'
     }`;
-  const bunka = 'px-1 py-1 text-center tabular-nums w-11';
+  // 🧱 Řádky i sloupce potřebovaly víc kontrastu — z provozu 15. 9. 2026:
+  // „ať jsou vidět řádky i sloupce líp, hodně to splívá". Každá datová
+  // buňka teď má tenkou svislou linku vlevo (oddělí ji od sousedního
+  // obalu) a sudý řádek má sytější podklad než dřív skoro neviditelné
+  // neutral-50/70.
+  const bunka = 'px-1 py-1 text-center tabular-nums w-11 border-l border-neutral-200';
+  /** Přechod ze sudů na lahve dostane sytější linku — pokračování barevného
+   * předělu z hlavičky (border-sky-300) dolů přes celou tabulku. */
+  const hranicaSkupiny = (i: number) =>
+    i > 0 && matice.sloupce[i].druh === 'lahve' && matice.sloupce[i - 1].druh === 'sudy' ? 'border-l-2 border-sky-300' : '';
 
   return (
     <section className="bg-white rounded border border-neutral-200/90 shadow-xs overflow-hidden">
@@ -264,8 +273,8 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
                   )}
                   <tr className="text-udaj font-black text-neutral-600 border-b border-neutral-200">
                     <th className="text-left px-1 py-1">Pivo</th>
-                    {matice.sloupce.map((s) => (
-                      <th key={s.package_id} className={`${bunka} whitespace-nowrap`}>{s.label}</th>
+                    {matice.sloupce.map((s, i) => (
+                      <th key={s.package_id} className={`${bunka} whitespace-nowrap ${hranicaSkupiny(i)}`}>{s.label}</th>
                     ))}
                   </tr>
                 </thead>
@@ -273,17 +282,17 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
                   {matice.radky.map((r) => {
                     const pivo = pivoPodleId.get(r.beer_id);
                     return (
-                      <tr key={r.beer_id} className="border-b border-neutral-100 even:bg-neutral-50/70">
+                      <tr key={r.beer_id} className="border-b border-neutral-200 even:bg-neutral-100/80">
                         <td className="px-1 py-1 max-w-0 w-full">
                           <span className="flex items-center gap-1.5 min-w-0">
                             <span className="w-2.5 h-2.5 rounded-full shrink-0 border border-neutral-300" style={{ background: beerBg(pivo) }} />
                             <span className="truncate font-bold text-neutral-900">{pivo ? beerName(pivo) : '?'}</span>
                           </span>
                         </td>
-                        {matice.sloupce.map((s) => {
+                        {matice.sloupce.map((s, i) => {
                           const n = r.chybi.get(s.package_id) ?? 0;
                           return (
-                            <td key={s.package_id} className={bunka}>
+                            <td key={s.package_id} className={`${bunka} ${hranicaSkupiny(i)}`}>
                               {n > 0
                                 ? <span className="font-display font-black text-amber-800">{n}</span>
                                 : r.objednano.has(s.package_id)
@@ -299,8 +308,8 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
                 <tfoot>
                   <tr className="border-t-2 border-neutral-300 font-black">
                     <td className="px-1 py-1 text-udaj text-neutral-600">Celkem</td>
-                    {matice.sloupce.map((s) => (
-                      <td key={s.package_id} className={`${bunka} font-display text-neutral-950`}>{matice.soucty.get(s.package_id) || ''}</td>
+                    {matice.sloupce.map((s, i) => (
+                      <td key={s.package_id} className={`${bunka} ${hranicaSkupiny(i)} font-display text-neutral-950`}>{matice.soucty.get(s.package_id) || ''}</td>
                     ))}
                   </tr>
                 </tfoot>

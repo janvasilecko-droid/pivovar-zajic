@@ -1727,7 +1727,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                   <div className="hs-lbl">{vehicleAlerts.length === 1 ? vehicleAlerts[0].vehicleName : 'STK a známky'}</div>
                   <span className="hs-badge">
                     {vehicleAlerts.length === 1
-                      ? `${vehicleAlerts[0].kind === 'stk' ? 'STK' : 'dálnice'} ${vehicleAlerts[0].status === 'expired' ? 'propadlo' : 'brzy'}`
+                      ? `${vehicleAlerts[0].kind === 'stk' ? 'STK' : 'dálnice'} ${vehicleAlerts[0].status === 'expired' ? 'propadla' : 'brzy'}`
                       : vehicleAlerts.length}
                   </span>
                 </button>
@@ -1892,7 +1892,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
             const badge =
               id === 'cellar' && cellarLiveStats ? `${cellarLiveStats.totalHl} hl`
               : (id === 'bottling' || id === 'bottling_needs') && bottlingTodayCount ? `${bottlingTodayCount} plán`
-              : id === 'vehicles' && vehicleAlerts.length === 1 ? `${vehicleAlerts[0].kind === 'stk' ? 'STK' : 'dálnice'} ${vehicleAlerts[0].status === 'expired' ? 'propadlo' : 'brzy'}`
+              : id === 'vehicles' && vehicleAlerts.length === 1 ? `${vehicleAlerts[0].kind === 'stk' ? 'STK' : 'dálnice'} ${vehicleAlerts[0].status === 'expired' ? 'propadla' : 'brzy'}`
               : id === 'vehicles' && vehicleAlerts.length > 0 ? `${vehicleAlerts.length} STK`
               : id === 'notes' && activeNotesList.length > 0 ? `${activeNotesList.length} vzkazů`
               : id === 'checklists' && dailyTasks.length > 0 ? `${doneTasksCount}/${dailyTasks.length}`
