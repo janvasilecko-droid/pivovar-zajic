@@ -9,7 +9,7 @@ import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSumma
 import { zbytekKeKonciTydne } from '../lib/tydenniZbytek';
 import type { StockSources } from '../lib/stockLedger';
 import { consumeOrdersItemFilter, consumeOrdersAutoImportRequest, consumeOrdersOverdueFilter, consumeOrdersPendingFilter, consumeOrdersHledani, ORDERS_AUTO_IMPORT_EVENT, ORDERS_HLEDANI_EVENT } from '../lib/ordersFilter';
-import { businessDateISO, posunMesic } from '../lib/businessDate';
+import { businessDateISO, posunMesic, posunDen } from '../lib/businessDate';
 import { computeVariantTotals } from '../lib/variantTotals';
 import { vyhovujeDruhu, NAZEV_DRUHU, type DruhObaluFiltr } from '../lib/druhObalu';
 
@@ -31,7 +31,7 @@ import { oznacVlastniObjednavku } from '../lib/mojeObjednavky';
 import { subscribeToWhatsAppMessages, fetchPendingWhatsAppMessages, fetchWhatsAppMessage, ignoreWhatsAppMessage, WhatsAppIncoming, fetchWhatsAppSenders, isSenderAllowed, triggerAutoParse, type WhatsAppSender } from '../lib/whatsappApi';
 import { autoReserveTapIfNeeded, isTapMentioned, detectTapType } from '../lib/tapReservations';
 import { findDuplicateOrders, formatDuplicateMessage } from '../lib/orderDuplicates';
-import { datumProDenVTydnu } from '../lib/keggingPlan';
+import { datumProDenVTydnu, dayKeyFromISO } from '../lib/keggingPlan';
 import { TapReservationModal } from '../components/TapReservationModal';
 import { createReminder, getLocalReminders } from '../lib/reminders';
 import { type AkceRow } from '../lib/inventoryHelper';
@@ -1968,6 +1968,42 @@ export default function Orders({
                   karta tmavá a popisek na ní byl černý na černém. */}
               <span className="text-udaj text-neutral-600 font-bold">upřesnění data dodání</span>
             </div>
+
+            {/* 🚨 Výjimka „Stočit dnes" — sud/lahev potřebuje den na dozrání,
+                takže normálně se stáčí na den PŘED závozem (viz Domů, „Co
+                stočit"). Tahle objednávka ale musí být hotová hned dneska
+                (den závozu prošel, nebo se přidala pozdě) — zaškrtnutí ji
+                zařadí do dnešního plánu stáčení (delivery_day = dnešek),
+                ale ze skladu se odečte až zítra (delivery_date = zítřek),
+                ať automatický noční odpočet neubere sklad dřív, než se
+                doopravdy stočí a vyveze. Platí pro celou objednávku —
+                lahve i sudy na ní. Odškrtnutí vrátí den i datum na dnešek. */}
+            {(() => {
+              const dnesKlic = dayKeyFromISO(businessDateISO());
+              const zitrejsiDatum = posunDen(businessDateISO(), 1);
+              const jeVyjimkaDnes = deliveryDay === dnesKlic && deliveryDate === zitrejsiDatum;
+              return (
+                <label className="mt-2 flex items-start gap-2 p-2.5 rounded-xl bg-sky-50 border-2 border-sky-200 text-sky-900 text-xs font-bold cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={jeVyjimkaDnes}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setWeekKey(isoWeekKey(businessDateISO()));
+                        setDeliveryDay(dnesKlic);
+                        setDeliveryDate(zitrejsiDatum);
+                      } else {
+                        pickDeliveryDay(dnesKlic);
+                      }
+                    }}
+                    className="w-4 h-4 mt-0.5 rounded text-sky-600 focus:ring-sky-500 accent-sky-600 shrink-0"
+                  />
+                  <span>
+                    Stočit dnes (výjimka) — ze skladu se odečte až zítra, ať se to nesplete s dnešním ranním odpočtem.
+                  </span>
+                </label>
+              );
+            })()}
 
             {/* Výchozí den závozu je st/čt/pá, ale ke konci měsíce (např.
                 objednávka zadaná v pondělí poslední týden měsíce) může

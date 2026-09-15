@@ -19,7 +19,7 @@ import { businessDateISO } from '../lib/businessDate';
 import { isoWeekKey, weekRange } from './WeeklyOrderSummaryCard';
 import { computeKeggingPlan, dayKeyFromISO, BEZ_TERMINU, type DayPlan } from '../lib/keggingPlan';
 import { zbytekKeKonciTydne } from '../lib/tydenniZbytek';
-import { planProVyber } from '../lib/coStocit';
+import { planProVyber, vychoziDenCoStocit } from '../lib/coStocit';
 import { DAYS } from '../lib/shared';
 import { uloz } from '../lib/uloziste';
 import { IkonaSud, IkonaLahev } from './ikony';
@@ -95,7 +95,16 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
 
   // 'tyden' nebo den v týdnu. Pamatuje se jen týden/dnes — konkrétní jiný
   // den by příští otevření ukázalo jako „dnes" a mátlo by to.
-  const [obdobi, setObdobi] = useState<string>(() => (cti(KLIC_OBDOBI) === 'tyden' ? 'tyden' : dnesniDen));
+  //
+  // Když si uživatel nic nezapamatoval, výchozí není dnešek, ale ZÍTŘEK
+  // (vychoziDenCoStocit) — co jede zítra na zavoz, se musí stočit dneska.
+  // Výslovná volba „Dnes"/„Týden" (uložená v localStorage) má přednost.
+  const [obdobi, setObdobi] = useState<string>(() => {
+    const ulozeno = cti(KLIC_OBDOBI);
+    if (ulozeno === 'tyden') return 'tyden';
+    if (ulozeno === 'dnes') return dnesniDen;
+    return vychoziDenCoStocit(dnes);
+  });
   const [sbaleno, setSbaleno] = useState(() => cti(KLIC_SBALENO) === '1');
   const [data, setData] = useState<Data | null>(null);
   const [chyba, setChyba] = useState(false);
