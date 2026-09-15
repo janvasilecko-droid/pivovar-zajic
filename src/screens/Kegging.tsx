@@ -408,15 +408,6 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
 
   const planMissingTotal = useMemo(() => keggingPlan.reduce((s, p) => s + p.totalMissing, 0), [keggingPlan]);
 
-  // 🔴 Totéž „chybí stočit" po pivech pro štítek na dlaždici v Zápisu — ať je
-  // vidět bez přepínání na záložku „Potřeba stočit". Viz komentář u
-  // BeerTileGrid.missingFor.
-  const missingByBeer = useMemo(() => {
-    const m: Record<string, number> = {};
-    keggingPlan.forEach((den) => den.items.forEach((it) => { m[it.beer_id] = (m[it.beer_id] || 0) + it.missing; }));
-    return m;
-  }, [keggingPlan]);
-
   // 🛢️ Rozpad „zbývá stočit tento týden" podle VELIKOSTI SUDU, přes všechna
   // piva — z provozu 9. 9. 2026: součet přes všechny velikosti na dlaždici
   // („55") nic neřekne o tom, co reálně nachystat, protože sčítá padesátky
@@ -424,6 +415,20 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   // na který den" (KeggingDayPlan.tsx), jen nad zápisem.
   const weekPlanKeg = useMemo(() => mergeWeekPlan(keggingPlan, weekLabel), [keggingPlan, weekLabel]);
   const rozpadTydneKeg = useMemo(() => rozpadPoObalech(weekPlanKeg), [weekPlanKeg]);
+  // 🏷️ „Chybí stočit" po pivech, rozepsané po VELIKOSTI SUDU — pro štítek na
+  // dlaždici v Zápisu. Nahrazuje jedno sečtené číslo („12"), které sčítalo
+  // desítky s padesátkami a neřeklo, čeho se to vlastně týká — z provozu
+  // 15. 9. 2026: „napiš vždy obal a počet chybějících", stejný nápad jako u
+  // lahví (BottlingScreen.tsx, missingBreakdownByBeer).
+  const missingBreakdownByBeer = useMemo(() => {
+    const m: Record<string, { label: string; missing: number }[]> = {};
+    weekPlanKeg.items.forEach((it) => {
+      if (it.missing <= 0) return;
+      (m[it.beer_id] ||= []).push({ label: it.package_label.trim(), missing: it.missing });
+    });
+    Object.values(m).forEach((arr) => arr.sort((a, z) => z.missing - a.missing));
+    return m;
+  }, [weekPlanKeg]);
   // Klik na velikost sudu v rozpadu rozklikne, kolik z toho je kterého piva
   // — z provozu: „ale když kliknu na 1l 100, tak by se mělo rozkliknout,
   // kolik jakého druhu". `weekPlanKeg.items` má už granularitu pivo+obal.
@@ -1225,7 +1230,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
             <BeerTileGrid
               beers={serazPodleNaposled(beers.filter((b) => b.is_active), (b) => b.id, naposledPiva)}
               onSelect={(b) => { setNaposledPiva(zapamatujVyber(klicPiv, b.id)); setExpandedKegBeerId(b.id); }}
-              missingFor={(b) => missingByBeer[b.id] || 0}
+              missingBadgeFor={(b) => missingBreakdownByBeer[b.id] || []}
               summaryFor={(b) => {
                 const beerRows = entryRows.filter((r) => r.beerId === b.id && Number(r.qty) > 0);
                 if (beerRows.length > 0) {
@@ -1301,12 +1306,21 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                 const dayEntry = tileDay !== 'tyden' ? fullPlan?.days.find((d) => d.day === tileDay) : undefined;
                 const plan = tileDay === 'tyden' ? fullPlan : (dayEntry && { ordered: dayEntry.ordered, missing: dayEntry.missing, checked: dayEntry.checked, days: [dayEntry] });
                 const cilovyDen = plan?.days.find((d) => d.missing > 0);
+                // 🔴 Chybí „naživo" — dřív se řádek zbarvil a psal „chybí"
+                // pořád stejné číslo, i když bylo množství už rozepsané v
+                // řádku (ale ještě neuložené). Z provozu 15. 9. 2026: „ve
+                // chvíli kdy zadám stočení, ještě ho neuložím, tak už
+                // odečítej, co zbývá" — odečte se rozepsané `qty`, dokud se
+                // fyzicky neuloží (add()), plan.missing samo zůstává beze
+                // změny (je to DB pravda).
+                const liveMissing = plan ? Math.max(0, plan.missing - qty) : 0;
                 // 🏷️ Barva celého řádku podle stavu — světle červená, když
                 // ještě něco chybí, světle zelená, když je objednávka
-                // pokrytá. Z provozu 9. 9. 2026: „ať to jde líp vidět".
+                // pokrytá (i rozepsaným, ještě neuloženým množstvím).
+                // Z provozu 9. 9. 2026: „ať to jde líp vidět".
                 const radekBarva = !plan || plan.ordered === 0
                   ? 'border-neutral-200 dark:border-neutral-700'
-                  : plan.missing > 0
+                  : liveMissing > 0
                   ? 'border-rose-200 bg-rose-50 dark:border-rose-800/60 dark:bg-rose-950/20'
                   : 'border-emerald-200 bg-emerald-50 dark:border-emerald-800/60 dark:bg-emerald-950/20';
                 // 🏭 Kolik z toho, co se právě zadává, jde NAD rámec objednávky
@@ -1370,12 +1384,12 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                           title="Zobrazit objednávky s touhle položkou"
                         >
                           Objednáno: <span className="font-black text-neutral-800">{plan.ordered}</span>
-                          {' '}· Chybí: <span className={`font-black ${plan.missing > 0 ? 'text-rose-600' : 'text-emerald-700'}`}>{plan.missing}</span>
+                          {' '}· Chybí: <span className={`font-black ${liveMissing > 0 ? 'text-rose-600' : 'text-emerald-700'}`}>{liveMissing}</span>
                           {naSklad > 0 && (
                             <> · Sklad: <span className="font-black text-sky-700">{naSklad}</span></>
                           )}
                         </button>
-                        {plan.missing > 0 && (
+                        {liveMissing > 0 && (
                           <div className="flex items-center gap-1.5">
                             <button
                               type="button"

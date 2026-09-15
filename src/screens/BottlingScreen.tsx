@@ -1390,12 +1390,22 @@ export default function BottlingScreen({
                     const dayEntry = tileDay !== 'tyden' ? fullPlan?.days.find((d) => d.day === tileDay) : undefined;
                     const plan = tileDay === 'tyden' ? fullPlan : (dayEntry && { ordered: dayEntry.ordered, missing: dayEntry.missing, checked: dayEntry.checked, days: [dayEntry] });
                     const cilovyDen = plan?.days.find((d) => d.missing > 0);
+                    // 🔴 Chybí „naživo" — dřív se řádek zbarvil a psal „chybí"
+                    // pořád stejné číslo, i když bylo množství už rozepsané v
+                    // řádku (ale ještě neuložené). Z provozu 15. 9. 2026: „ve
+                    // chvíli kdy zadám stočení, ještě ho neuložím, tak už
+                    // odečítej, co zbývá" — stejný nápad jako u KEG
+                    // (Kegging.tsx). Odečte se rozepsané `qtyStr`, dokud se
+                    // fyzicky neuloží (add()), plan.missing samo zůstává beze
+                    // změny (je to DB pravda).
+                    const liveMissing = plan ? Math.max(0, plan.missing - Number(qtyStr || 0)) : 0;
                     // 🏷️ Barva celého řádku podle stavu — světle červená, když
                     // ještě něco chybí, světle zelená, když je objednávka
-                    // pokrytá. Z provozu 9. 9. 2026: „ať to jde líp vidět".
+                    // pokrytá (i rozepsaným, ještě neuloženým množstvím).
+                    // Z provozu 9. 9. 2026: „ať to jde líp vidět".
                     const radekBarva = !plan || plan.ordered === 0
                       ? 'border-neutral-200 dark:border-neutral-700'
-                      : plan.missing > 0
+                      : liveMissing > 0
                       ? 'border-rose-200 bg-rose-50 dark:border-rose-800/60 dark:bg-rose-950/20'
                       : 'border-emerald-200 bg-emerald-50 dark:border-emerald-800/60 dark:bg-emerald-950/20';
                     // 🏭 Kolik z toho, co se právě zadává, jde NAD rámec
@@ -1462,12 +1472,12 @@ export default function BottlingScreen({
                               title="Zobrazit objednávky s touhle položkou"
                             >
                               Objednáno: <span className="font-black text-neutral-800">{plan.ordered}</span>
-                              {' '}· Chybí: <span className={`font-black ${plan.missing > 0 ? 'text-rose-600' : 'text-emerald-700'}`}>{plan.missing}</span>
+                              {' '}· Chybí: <span className={`font-black ${liveMissing > 0 ? 'text-rose-600' : 'text-emerald-700'}`}>{liveMissing}</span>
                               {naSklad > 0 && (
                                 <> · Sklad: <span className="font-black text-sky-700">{naSklad}</span></>
                               )}
                             </button>
-                            {plan.missing > 0 && (
+                            {liveMissing > 0 && (
                               <div className="flex items-center gap-1.5">
                                 <button
                                   type="button"

@@ -12,20 +12,15 @@ type BeerTileGridProps = {
   onSelect: (beer: Beer) => void;
   summaryFor: (beer: Beer) => TileSummary;
   /**
-   * Kolik kusů tohohle piva ještě chybí stočit do konce týdne — stejné číslo,
-   * jaké dřív bylo vidět jen v samostatné „Potřeby stáčení". Uživatel na
-   * začátku 9. 9. 2026: musí kvůli tomu furt přeskakovat mezi Potřeby stáčení
-   * a Zápisem stáčení. Červený štítek v rohu dlaždice ať je vidět bez
-   * přepínání obrazovky. Nepovinné — dlaždice v Objednávkách/Fasování/Prodejně
-   * tohle číslo nemají a štítek se u nich nezobrazí.
-   */
-  missingFor?: (beer: Beer) => number;
-  /**
-   * Totéž jako `missingFor`, ale rozepsané po VELIKOSTI OBALU — místo
-   * jednoho malého kolečka s sečteným číslem („55", což je 0,5l a 1l
-   * dohromady a neřekne, co reálně nachystat) vypíše štítek s názvem
-   * velikosti u každé, kde ještě něco chybí. Když je zadané, MÁ PŘEDNOST
-   * před `missingFor` — ten se pak na téhle dlaždici nekreslí.
+   * Kolik kusů tohohle piva ještě chybí stočit do konce týdne, rozepsané po
+   * VELIKOSTI OBALU — místo jednoho sečteného čísla („55", což je 0,5l a 1l
+   * dohromady a neřekne, co reálně nachystat) vypíše štítek s obalem a
+   * počtem u každé velikosti, kde ještě něco chybí (např. „1l:14, 0,5l:20").
+   * Stejné číslo, jaké dřív bylo vidět jen v samostatné „Potřeby stáčení" —
+   * uživatel na začátku 9. 9. 2026: musí kvůli tomu furt přeskakovat mezi
+   * Potřeby stáčení a Zápisem stáčení. Nepovinné — dlaždice v
+   * Objednávkách/Fasování/Prodejně tohle číslo nemají a štítek se u nich
+   * nezobrazí.
    */
   missingBadgeFor?: (beer: Beer) => { label: string; missing: number }[];
 };
@@ -54,7 +49,7 @@ type BeerTileGridProps = {
  * zůstávají malá a rychle klikatelná. Rozpis se může zalomit, dlaždice
  * poroste s ním.
  */
-export function BeerTileGrid({ beers, onSelect, summaryFor, missingFor, missingBadgeFor }: BeerTileGridProps) {
+export function BeerTileGrid({ beers, onSelect, summaryFor, missingBadgeFor }: BeerTileGridProps) {
   return (
     <div className="grid grid-cols-3 gap-2">
       {beers.map((b) => {
@@ -62,7 +57,6 @@ export function BeerTileGrid({ beers, onSelect, summaryFor, missingFor, missingB
         const textClass = beerText(b);
         const isDark = textClass === 'text-white';
         const missingBadge = missingBadgeFor?.(b).filter((m) => m.missing > 0) ?? null;
-        const missing = missingBadge ? 0 : (missingFor?.(b) ?? 0);
         return (
           <button
             key={b.id}
@@ -84,15 +78,7 @@ export function BeerTileGrid({ beers, onSelect, summaryFor, missingFor, missingB
                 className="absolute -top-1.5 -right-1.5 z-10 max-w-[90%] px-1.5 py-1 rounded bg-rose-600 text-white text-[11px] leading-none font-medium shadow ring-2 ring-white dark:ring-neutral-900 whitespace-nowrap overflow-hidden text-ellipsis"
                 title={missingBadge.map((m) => `${m.missing} × ${m.label}`).join(', ') + ' — chybí stočit do konce týdne'}
               >
-                {missingBadge.map((m) => `${m.label} ${m.missing}`).join(' · ')}
-              </span>
-            )}
-            {missing > 0 && (
-              <span
-                className="absolute -top-1.5 -right-1.5 z-10 min-w-[20px] h-5 px-1 rounded-full bg-rose-600 text-white text-[11px] font-black grid place-items-center shadow ring-2 ring-white dark:ring-neutral-900"
-                title={`Chybí stočit ${missing} ks do konce týdne`}
-              >
-                {missing}
+                {missingBadge.map((m) => `${m.label}:${m.missing}`).join(', ')}
               </span>
             )}
             <span className={`font-black leading-tight ${filled ? 'text-base shrink-0' : 'text-[13px]'}`}>{beerName(b)}</span>

@@ -1,5 +1,5 @@
 import { ReactNode, useState, useEffect, useRef, lazy, Suspense } from 'react';
-import { AlarmClock, AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, Bell, BookOpen, CalendarDays, Car, ClipboardCheck, ClipboardList, Compass, Download, FileSpreadsheet, FileText, FlaskConical, GlassWater, History as HistoryIcon, Home, Hourglass, Info, LogOut, MapPin, MessageCircle, Package as PackageIcon, Radio, Receipt, Search, Settings, Shield, ShieldCheck, Smartphone, Snowflake, Sparkles, StickyNote, Store, Tag, Timer, TrendingDown, Truck, Users, Wifi, WifiOff, X, XCircle, type LucideIcon } from 'lucide-react';
+import { AlarmClock, AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, Bell, BookOpen, CalendarDays, Car, ClipboardCheck, ClipboardList, Compass, Download, FilePlus, FileSpreadsheet, FileText, FlaskConical, GlassWater, History as HistoryIcon, Home, Hourglass, Info, LogOut, MapPin, MessageCircle, Package as PackageIcon, Radio, Receipt, Search, Settings, Shield, ShieldCheck, Smartphone, Snowflake, Sparkles, StickyNote, Store, Tag, Timer, TrendingDown, Truck, Users, Wifi, WifiOff, X, XCircle, type LucideIcon } from 'lucide-react';
 import { BreweryRadioBar } from './BreweryRadioBar';
 import { BreweryRadioModal } from './BreweryRadioModal';
 
@@ -99,6 +99,11 @@ export const EXTRA_NAV: NavItem[] = [
   { id: 'kniha_jizd', label: 'Kniha jízd', icon: BookOpen, group: 'Nástroje' },
   { id: 'vycepy', label: 'Výčepy', icon: IkonaVycep, group: 'Výroba' },
   { id: 'orders_zavoz', label: 'Rozvoz objednávek', icon: Truck, group: 'Výroba' },
+  // Zkratky přímo na záložky Objednávek (viz OrdersTabbed.tsx) — hlavně pro
+  // spodní lištu: „vidím Objednávky, KEG, Lahve" nestačilo, když se sáhne
+  // rovnou po zadání nebo po přehledu (z provozu 15. 9. 2026).
+  { id: 'orders_entry', label: 'Nová obj.', icon: FilePlus, group: 'Výroba' },
+  { id: 'orders_detail', label: 'Obj. přehled', icon: FileText, group: 'Výroba' },
   { id: 'places', label: 'Odběratelé', icon: MapPin, group: 'Číselníky' },
   { id: 'beers', label: 'Piva', icon: BeerIcon, group: 'Číselníky' },
   { id: 'packages', label: 'Obaly', icon: PackageIcon, group: 'Číselníky' },
@@ -922,10 +927,17 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
           className="hs-glass-chrome fixed bottom-0 left-0 right-0 z-30 border-t shadow-[0_-4px_24px_rgba(0,0,0,0.08)] px-1 py-1.5 pb-safe flex items-center justify-around gap-1 sm:max-w-lg sm:mx-auto sm:rounded-t-2xl sm:border-x"
         >
           {dockPages.map((dockId, i) => {
-            const isActive = dockId === 'home' ? navPageFor(page) === 'home' : navPageFor(page) === dockId;
+            // Přesná shoda vyhraje vždy — jinak by se „Nová obj." a „Obj.
+            // přehled" (podzáložky Objednávek, viz EXTRA_NAV) nikdy
+            // nerozsvítily samy, protože navPageFor(page) je normalizuje
+            // obě na rodiče 'orders'. Obecná dlaždice (bez PAGE_GROUP_PARENT)
+            // se dál chová jako dřív — rozsvítí se za celou svou skupinu.
+            const isActive = dockId === 'home'
+              ? navPageFor(page) === 'home'
+              : page === dockId || (!PAGE_GROUP_PARENT[dockId] && navPageFor(page) === dockId);
             const info = dockId === 'home'
               ? { label: 'Domů', icon: Home }
-              : NAV.find((n) => n.id === dockId);
+              : NAV.find((n) => n.id === dockId) ?? EXTRA_NAV.find((n) => n.id === dockId);
             if (!info) return null;
             const DockIcon = info.icon;
             const accent = dockAccentColor(dockId);

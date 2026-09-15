@@ -95,7 +95,7 @@ function colorInputValue(c: string): string {
 // Mapa obrazovka -> modul je sdilena v lib/permissions.ts (drive byla
 // zkopirovana na tri mistech a kopie se rozesly).
 
-type VehicleAlert = { vehicleName: string; label: string; status: 'warning' | 'expired' };
+type VehicleAlert = { vehicleName: string; kind: 'stk' | 'dalnice'; label: string; status: 'warning' | 'expired' };
 
 /** Zavřený pruh časovače na ploše — volba se pamatuje i po zavření appky. */
 export const KLIC_PRUH_CASOVACE = 'pivovar_pruh_casovace_skryt';
@@ -105,13 +105,14 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   const isAdmin = profile?.role === 'admin' || isAdminEmail(user?.email);
   const userPerms = getUserPermissions(user?.id ?? '', (profile as any)?.permissions);
 
-  const visible = useMemo(() => NAV.filter((n) => {
+  const smiVidet = (n: NavItem) => {
     if (n.id === 'users') return isAdmin;
     if (n.id === 'bottling_needs') return isAdmin;
     const modKey = PAGE_TO_MODULE[n.id];
     if (!modKey) return true;
     return canUserView(profile?.role, user?.id, modKey, userPerms);
-  }), [isAdmin, profile?.role, user?.id, userPerms]);
+  };
+  const visible = useMemo(() => NAV.filter(smiVidet), [isAdmin, profile?.role, user?.id, userPerms]);
 
   // Dlaždice „Foukání CO2" jede s běžnými dlaždicemi, i když za ní není
   // žádná obrazovka — proto se přidává až sem a ne do NAV (v menu by byla
@@ -123,8 +124,9 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   const CO2_ITEM: NavItem = { id: CO2_TILE_ID as Page, label: 'Foukání CO2', icon: Wind, group: 'Výroba' };
 
   // Rozšiřující dlaždice (EXTRA_NAV, viz Layout.tsx) — stránky/záložky, co
-  // dnes nejdou přidat jinak než ručně přes "+ Přidat dlaždici". Na rozdíl
-  // od `visible` se nepřidávají do launcheru automaticky.
+  // dnes nejdou přidat jinak než ručně přes "+ Přidat dlaždici" NEBO výběrem
+  // do spodní lišty (viz select ve „Spodní lišta" níž). Na rozdíl od
+  // `visible` se nepřidávají do launcheru automaticky.
   const extraVisible = useMemo(() => EXTRA_NAV.filter((n) => {
     const modKey = PAGE_TO_MODULE[n.id];
     if (!modKey) return true;
@@ -1176,11 +1178,11 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
       rows.forEach((v) => {
         const stk = getVehicleExpiryStatus(v.stk_valid_until);
         if (stk.status === 'warning' || stk.status === 'expired') {
-          alerts.push({ vehicleName: v.name, label: `STK: ${stk.label}`, status: stk.status });
+          alerts.push({ vehicleName: v.name, kind: 'stk', label: `STK: ${stk.label}`, status: stk.status });
         }
         const toll = getVehicleExpiryStatus(v.highway_toll_valid_until);
         if (toll.status === 'warning' || toll.status === 'expired') {
-          alerts.push({ vehicleName: v.name, label: `Dálniční známka: ${toll.label}`, status: toll.status });
+          alerts.push({ vehicleName: v.name, kind: 'dalnice', label: `Dálniční známka: ${toll.label}`, status: toll.status });
         }
       });
       setVehicleAlerts(alerts);
@@ -1447,6 +1449,13 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                     {visible.filter((n) => n.id !== 'signout').map((n) => (
                       <option key={n.id} value={n.id}>{n.label}</option>
                     ))}
+                    {extraVisible.length > 0 && (
+                      <optgroup label="Zkratky">
+                        {extraVisible.map((n) => (
+                          <option key={n.id} value={n.id}>{n.label}</option>
+                        ))}
+                      </optgroup>
+                    )}
                   </select>
                   {layout.dock.length > MIN_DOCK && (
                     <button type="button" className="hs-dock-remove" title="Odebrat tenhle slot" aria-label="Odebrat tenhle slot" onClick={() => handleRemoveDockSlot(i)}><X size={14} /></button>
@@ -1699,15 +1708,28 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
               )}
               {/* Krátký popisek schválně: štítek má 44 px a na 360px
                   displeji stojí dva vedle sebe, takže „Vozidla —
-                  STK/známka" se odseklo v půlce slova. Ikona a číslo
-                  doříkají, o co jde. */}
+                  STK/známka" se odseklo v půlce slova. Blikající dlaždice
+                  ale dřív psala jen počet („2"), takže nebylo vidět, o
+                  jaké auto ani o jaký doklad jde bez proklikání — z provozu
+                  15. 9. 2026: „napiš co je problém, ne jen STK". U jednoho
+                  upozornění proto dlaždice napíše auto + doklad + naléhavost
+                  rovnou, u víc jich zůstává počet a plný rozpis jde do title. */}
               {vehicleAlerts.length > 0 && (
-                <button type="button" className="hs-tile hs-tile-alert vlastni-vyska" onClick={() => setPage('vehicles')}>
+                <button
+                  type="button"
+                  className="hs-tile hs-tile-alert vlastni-vyska"
+                  onClick={() => setPage('vehicles')}
+                  title={vehicleAlerts.map((a) => `${a.vehicleName} — ${a.label}`).join('\n')}
+                >
                   <div className="hs-tile-icon-box">
                     <TriangleAlert />
                   </div>
-                  <div className="hs-lbl">STK a známky</div>
-                  <span className="hs-badge">{vehicleAlerts.length}</span>
+                  <div className="hs-lbl">{vehicleAlerts.length === 1 ? vehicleAlerts[0].vehicleName : 'STK a známky'}</div>
+                  <span className="hs-badge">
+                    {vehicleAlerts.length === 1
+                      ? `${vehicleAlerts[0].kind === 'stk' ? 'STK' : 'dálnice'} ${vehicleAlerts[0].status === 'expired' ? 'propadlo' : 'brzy'}`
+                      : vehicleAlerts.length}
+                  </span>
                 </button>
               )}
               {/* ⏱️ Běžící odpočty. Ukazují se SAMY, dokud běží — dřív se
@@ -1870,6 +1892,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
             const badge =
               id === 'cellar' && cellarLiveStats ? `${cellarLiveStats.totalHl} hl`
               : (id === 'bottling' || id === 'bottling_needs') && bottlingTodayCount ? `${bottlingTodayCount} plán`
+              : id === 'vehicles' && vehicleAlerts.length === 1 ? `${vehicleAlerts[0].kind === 'stk' ? 'STK' : 'dálnice'} ${vehicleAlerts[0].status === 'expired' ? 'propadlo' : 'brzy'}`
               : id === 'vehicles' && vehicleAlerts.length > 0 ? `${vehicleAlerts.length} STK`
               : id === 'notes' && activeNotesList.length > 0 ? `${activeNotesList.length} vzkazů`
               : id === 'checklists' && dailyTasks.length > 0 ? `${doneTasksCount}/${dailyTasks.length}`

@@ -65,6 +65,11 @@ describe('návod k použití', () => {
     kegging: 'keg',
     bottling: 'lahv',
     orders: 'objednavky',
+    // Zkratky přímo na záložky Objednávek (viz EXTRA_NAV v Layout.tsx) —
+    // stejná obrazovka jako `orders`, jen jiný vstupní bod, popis navíc
+    // netřeba.
+    orders_entry: 'objednavky',
+    orders_detail: 'objednavky',
     fasovani: 'fasovani',
     prodejna: 'prodejna',
   };
