@@ -856,6 +856,22 @@ export default function BottlingScreen({
       }
     }
 
+    // ⚠️ Bez obalu/počtu zdrojových sudů se lahve odečtou ze skladu, ale
+    // SUD ne — sklad sudů pak zůstane nafouklý, i když se fyzicky
+    // vyprázdnily. Z provozu 15. 9. 2026: „při zadávání stáčení lahví,
+    // pokud se nevyplní velikost keg a hlavně počet, upozorni na to".
+    for (const r of filled) {
+      const maLahve = Number(r.qty) > 0 || Number(r.qty2) > 0 || Number(r.qty3) > 0;
+      if (!maLahve) continue;
+      const maSudVelikost = !!r.kegPkgId;
+      const maSudPocet = Number(r.kegQty) > 0;
+      if (maSudVelikost && maSudPocet) continue;
+      const nazevPiva = beers.find((b) => b.id === r.beerId)?.name ?? 'Pivo';
+      const chybi = !maSudVelikost && !maSudPocet ? 'obal ani počet sudů' : !maSudPocet ? 'počet sudů' : 'obal sudu';
+      const dotaz = `${nazevPiva}: chybí ${chybi}, ze kterých se stáčelo — sklad sudů se bez toho neodečte.\n\nOpravdu uložit bez toho?`;
+      if (!(await potvrd(dotaz, { titulek: 'Chybí zdrojový sud', potvrdit: 'Ano, uložit bez sudů' }))) return false;
+    }
+
     setSaving(true);
 
     // Z každého řádku vytvoříme 1–3 záznamy (Lahve 1, Lahve 2 a/nebo Lahve 3).
@@ -1566,12 +1582,16 @@ export default function BottlingScreen({
                       <strong>{navrhZdrojovychSudu.zdrojL} l</strong> ze sudů
                       <span className="text-sky-700"> · {navrhZdrojovychSudu.sudyPresne} sudu</span>
                     </div>
+                    {/* Jen NÁVRH, ne uložení — dřív na celou šířku vypadal
+                        vizuálně důležitěji než „Uložit stáčení lahví" dole
+                        (z provozu 15. 9. 2026: „uložit at je větší, dopočítat
+                        ztráty menší"). Teď je menší a auto-šířky. */}
                     <button
                       type="button"
                       onClick={() => setTile('kegQty', String(navrhZdrojovychSudu.sudy))}
                       disabled={String(navrhZdrojovychSudu.sudy) === tileDraft.kegQty}
-                      className="w-full min-h-[44px] rounded bg-sky-700 hover:bg-sky-700 disabled:opacity-40 disabled:hover:bg-sky-600 text-white font-black text-[11px] transition"
-                      title="Dopočítat počet sudů z nastáčených lahví — načatý sud se počítá celý"
+                      className="min-h-[44px] px-3 rounded bg-sky-700 hover:bg-sky-700 disabled:opacity-40 disabled:hover:bg-sky-600 text-white font-bold text-[11px] transition"
+                      title="Dopočítat počet sudů z nastáčených lahví (s 10% ztrátou) — načatý sud se počítá celý"
                     >
                       {String(navrhZdrojovychSudu.sudy) === tileDraft.kegQty
                         ? `✓ Sedí s dopočtem (${navrhZdrojovychSudu.sudy} ks)`
