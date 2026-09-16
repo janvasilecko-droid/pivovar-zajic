@@ -7,6 +7,7 @@ import { authenticatedFunctionHeaders } from '../lib/functionAuth';
 import { typObrazku } from '../lib/obrazek';
 import { AlertCircle, AlertTriangle, Beer as BeerIcon, Camera, Plus, RotateCcw, Sparkles, Trash2, Upload } from 'lucide-react';
 import { IkonaSud } from '../components/ikony';
+import { businessDateISO } from '../lib/businessDate';
 
 type KegRow = { beerId: string; pkgId: string; qty: string; _removed?: boolean; _manual?: boolean };
 type PhotoEntry = { dataUrl: string; name: string };
@@ -22,7 +23,7 @@ type Props = {
 const KEG_SIZES = [50, 30, 20, 15, 10];
 
 export function ImportKeggingFromImage({ isOpen, onClose, beers, packages, onImport }: Props) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = businessDateISO();
   const [date, setDate] = useState(today);
   const [note, setNote] = useState('');
   const [entryRows, setEntryRows] = useState<KegRow[] | null>(null);

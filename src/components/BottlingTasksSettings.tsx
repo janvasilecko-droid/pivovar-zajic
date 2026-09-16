@@ -27,6 +27,7 @@ import { AlertTriangle, Calendar, Check, ChevronLeft, ChevronRight, ClipboardLis
 import { chyba, potvrd } from '../lib/toast';
 import { IkonaLahev, IkonaSud } from '../components/ikony';
 import { requestOrdersItemFilter } from '../lib/ordersFilter';
+import { businessDateISO } from '../lib/businessDate';
 
 // Povolené velikosti lahví v dropdownu (shodné se zápisem stáčení)
 const ALLOWED_BOTTLE_VOLUMES = [1.5, 1, 0.5, 0.33];
@@ -85,7 +86,7 @@ type Props = {
 };
 
 export function BottlingTasksSettings({ setPage }: Props = {}) {
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = businessDateISO();
   const [weekKey, setWeekKey] = useState(() => isoWeekKey(todayStr));
   const weekLabel = weekRange(weekKey).label;
   const [loading, setLoading] = useState(true);

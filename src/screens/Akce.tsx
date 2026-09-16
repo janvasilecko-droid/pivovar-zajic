@@ -6,6 +6,7 @@ import { AlertTriangle, Beer as BeerIcon, Bell, Calendar, Check, CheckCircle2, C
 import { oznam, potvrd } from '../lib/toast';
 import { uloz, smaz } from '../lib/uloziste';
 import { jeMesicUzamcen } from '../lib/mesicUzamcen';
+import { businessDateISO } from '../lib/businessDate';
 
 /** Řádky z DB (akce + vnořené akce_items) → tvar, se kterým pracuje obrazovka. */
 function rowsToRecords(rows: any[]): AkceRecord[] {
@@ -93,7 +94,7 @@ export default function AkceScreen() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [name, setName] = useState('');
   const [who, setWho] = useState('Petr Bednář & Tým');
-  const [entryDate, setEntryDate] = useState(new Date().toISOString().slice(0, 10));
+  const [entryDate, setEntryDate] = useState(businessDateISO());
   const [itemRows, setItemRows] = useState<FormRow[]>(() =>
     Array.from({ length: 7 }, () => ({ beer_id: '', package_id: '', qty: '' }))
   );

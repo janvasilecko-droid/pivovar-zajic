@@ -145,7 +145,7 @@ export default function Orders({
   const [weekKey, setWeekKey] = useState(isoWeekKey(businessDateISO()));
 
   // inline quick-add
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(businessDateISO());
   const [placeId, setPlaceId] = useState('');
   const [placeNameFree, setPlaceNameFree] = useState('');
   const [deliveryDay, setDeliveryDay] = useState('');
@@ -154,7 +154,7 @@ export default function Orders({
   // výběru data níž. Musí se zaškrtnout znovu pokaždé, když se datum závozu
   // změní, ať nezůstane omylem zaškrtnuté z předchozí objednávky.
   const [confirmNextMonth, setConfirmNextMonth] = useState(false);
-  const deliveryInFutureMonth = !!deliveryDate && deliveryDate.slice(0, 7) > new Date().toISOString().slice(0, 7);
+  const deliveryInFutureMonth = !!deliveryDate && deliveryDate.slice(0, 7) > businessDateISO().slice(0, 7);
   useEffect(() => { setConfirmNextMonth(false); }, [deliveryDate]);
   type BeerRowItem = { beerId: string; pkgId: string; qty: string; placeId?: string; placeNameFree?: string };
   const [beerRows, setBeerRows] = useState<BeerRowItem[]>([
@@ -951,7 +951,7 @@ export default function Orders({
   }, []);
 
   const [timeScope, setTimeScope] = useState<'week' | 'month' | 'all'>('week');
-  const [selectedMonth, setSelectedMonth] = useState<string>(() => new Date().toISOString().slice(0, 7));
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => businessDateISO().slice(0, 7));
   const [packageKindFilter, setPackageKindFilter] = useState<DruhObaluFiltr>('all');
 
   function orderWeekKey(o: Order): string {

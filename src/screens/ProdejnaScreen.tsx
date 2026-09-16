@@ -79,7 +79,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
   // stejná pojistka jako ve Stáčení KEG a Lahvích, viz add() níž.
   const [inventoryRows, setInventoryRows] = useState<{ entry_date: string; note: string | null }[]>([]);
 
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(businessDateISO());
   const [who, setWho] = useState('');
   const [note, setNote] = useState('');
   const [entryRows, setEntryRows] = useState<RowInput[]>(() => emptyRows(table === 'fasovani' ? FASOVANI_ROW_COUNT : ROW_COUNT));
@@ -132,7 +132,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
   const [tab, setTab] = useState<'zapis' | 'prehled'>('zapis');
 
   // Filtry v Přehledu — druh (pivo), jméno (kdo) a měsíc; výchozí je aktuální měsíc.
-  const [overviewMonth, setOverviewMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [overviewMonth, setOverviewMonth] = useState(businessDateISO().slice(0, 7));
   const [overviewBeerId, setOverviewBeerId] = useState('');
   const [overviewWho, setOverviewWho] = useState('');
 
@@ -739,10 +739,10 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                   className="input !py-1.5 !px-3 text-xs font-semibold"
                 />
               )}
-              {(overviewMonth !== new Date().toISOString().slice(0, 7) || overviewBeerId || overviewWho) && (
+              {(overviewMonth !== businessDateISO().slice(0, 7) || overviewBeerId || overviewWho) && (
                 <button
                   type="button"
-                  onClick={() => { setOverviewMonth(new Date().toISOString().slice(0, 7)); setOverviewBeerId(''); setOverviewWho(''); }}
+                  onClick={() => { setOverviewMonth(businessDateISO().slice(0, 7)); setOverviewBeerId(''); setOverviewWho(''); }}
                   className="btn-ghost !rounded text-xs font-bold !py-1.5 !px-3"
                 >
                   Zrušit filtry

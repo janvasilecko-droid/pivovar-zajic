@@ -93,7 +93,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   const [checklistInitialCategory, setChecklistInitialCategory] = useState<string | null>(null);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
 
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(businessDateISO());
   const [note, setNote] = useState('');
 
   const [entryRows, setEntryRows] = useState<RowInput[]>(emptyRows());
@@ -152,7 +152,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
 
   // Přefuk KEG sudů (přelití ze sudů jedné velikosti do jiných)
   const [prefukRows, setPrefukRows] = useState<KegPrefuk[]>([]);
-  const [pfDate, setPfDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [pfDate, setPfDate] = useState(() => businessDateISO());
   const [pfBeerId, setPfBeerId] = useState('');
   const [pfFromPkgId, setPfFromPkgId] = useState('');
   const [pfFromCount, setPfFromCount] = useState('');
@@ -168,7 +168,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   // takže „den" by se otvíral prázdný. Den a měsíc jsou o klik vedle.
   const [recordsView, setRecordsView] = useState<'day' | 'week' | 'month'>('week');
   const [recordsWeekKey, setRecordsWeekKey] = useState(() => isoWeekKey(businessDateISO()));
-  const [recordsMonthKey, setRecordsMonthKey] = useState(() => new Date().toISOString().slice(0, 7));
+  const [recordsMonthKey, setRecordsMonthKey] = useState(() => businessDateISO().slice(0, 7));
   const [recordsDay, setRecordsDay] = useState(() => businessDateISO());
   const [beerFilter, setBeerFilter] = useState('');
   const [recordPkgFilter, setRecordPkgFilter] = useState('');
@@ -1034,7 +1034,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     setPfToPkgId('');
     setPfToCount('');
     setPfNote('');
-    setPfDate(new Date().toISOString().slice(0, 10));
+    setPfDate(businessDateISO());
     load(true);
   }
 

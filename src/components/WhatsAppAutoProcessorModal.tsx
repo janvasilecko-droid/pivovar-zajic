@@ -6,6 +6,7 @@ import { analyzeReadback, findRepeatedReadbackErrors, findSimilarMessages, type 
 import { Modal, Spinner } from './ui';
 import { AlertCircle, AlertTriangle, ArrowDownUp, Check, CheckSquare, Clock, Copy, Download, Filter, Image as ImageIcon, MessageSquare, RefreshCw, Square, Trash2, X, XCircle } from 'lucide-react';
 import { zalogujANahlas } from '../lib/chybyHlaseni';
+import { businessDateISO } from '../lib/businessDate';
 
 interface WhatsAppAutoProcessorModalProps {
   isOpen: boolean;
@@ -179,9 +180,9 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
       const orderData = {
         placeId: parsedResult.placeId,
         placeNameFree: parsedResult.placeName || 'Neznámý odběratel',
-        orderDate: new Date().toISOString().split('T')[0],
+        orderDate: businessDateISO(),
         deliveryDay: parsedResult.deliveryDay || 'po',
-        deliveryDate: parsedResult.deliveryDate || new Date().toISOString().split('T')[0],
+        deliveryDate: parsedResult.deliveryDate || businessDateISO(),
         note: parsedResult.note || '',
         whatsappMessageId: message.id, // zpětný odkaz objednávka → zpráva (#18)
         items: parsedResult.items.map((item: any) => ({

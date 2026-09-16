@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 import { nactiXlsx, xlsx } from './xlsxLazy';
 import type { NazevTabulky, Radek } from './dbTypy';
+import { businessDateISO } from './businessDate';
 
 /** Tabulky, které se zálohují. Jeden zdroj pravdy — ať seznam nezastarává. */
 export const BACKUP_TABLES = [
@@ -78,7 +79,7 @@ export async function createFullBackup(): Promise<DatabaseBackup> {
 }
 
 export function downloadBackupJSON(backup: DatabaseBackup) {
-  const dateStr = new Date().toISOString().slice(0, 10);
+  const dateStr = businessDateISO();
   const jsonStr = JSON.stringify(backup, null, 2);
   const blob = new Blob([jsonStr], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
@@ -94,7 +95,7 @@ export function downloadBackupJSON(backup: DatabaseBackup) {
 
 export async function downloadGoogleSheetsExcelBackup(backup: DatabaseBackup, monthLabel?: string) {
   await nactiXlsx();
-  const dateStr = new Date().toISOString().slice(0, 10);
+  const dateStr = businessDateISO();
   const wb = xlsx().utils.book_new();
 
   const addSheet = (sheetName: string, dataArray: readonly object[]) => {

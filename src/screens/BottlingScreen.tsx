@@ -70,7 +70,7 @@ export default function BottlingScreen({
   const [editingRow, setEditingRow] = useState<EntryRow | null>(null);
   const loadCountRef = useRef(0);
 
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(businessDateISO());
   const [note, setNote] = useState('');
   const [entryRows, setEntryRows] = useState<RowInput[]>(emptyRows());
   const [saving, setSaving] = useState(false);
@@ -341,7 +341,7 @@ export default function BottlingScreen({
   // Výchozí je TÝDEN — v jednom dni často není nic stočené (stáčí se v cyklech),
   // takže „den" by se otvíral prázdný. Den a měsíc jsou o klik vedle.
   const [recordsView, setRecordsView] = useState<'day' | 'week' | 'month'>('week');
-  const [recordsMonthKey, setRecordsMonthKey] = useState(() => new Date().toISOString().slice(0, 7));
+  const [recordsMonthKey, setRecordsMonthKey] = useState(() => businessDateISO().slice(0, 7));
   const [recordsWeekKey, setRecordsWeekKey] = useState(() => isoWeekKey(businessDateISO()));
   const [recordsDay, setRecordsDay] = useState(() => businessDateISO());
   // Aktuální týden pro „Potřeba stočit lahve" (objednávky se počítají za týden, ne za měsíc).
@@ -680,7 +680,7 @@ export default function BottlingScreen({
       pkg_id: row.package_id, qty,
       pkg2_id: null, qty2: 0,
       pkg3_id: null, qty3: 0,
-      planned_date: new Date().toISOString().slice(0, 10),
+      planned_date: businessDateISO(),
     });
     setCreatingTaskFor(null);
     if (error) { chyba('Úkol se nepodařilo založit: ' + error.message); return; }

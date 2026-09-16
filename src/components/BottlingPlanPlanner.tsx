@@ -76,7 +76,7 @@ const emptyForm = (): FormState => ({
   qty2: '',
   pkg3Id: '',
   qty3: '',
-  plannedDate: new Date().toISOString().slice(0, 10),
+  plannedDate: businessDateISO(),
   note: '',
 });
 
@@ -157,7 +157,7 @@ export function BottlingPlanPlanner({
       .then(({ data }) => setAkceRows(data ?? []));
   });
 
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = businessDateISO();
   const curMonth = todayStr.slice(0, 7);
   const weekLabel = weekRange(weekKey).label;
 
@@ -484,7 +484,7 @@ export function BottlingPlanPlanner({
       qty2: '',
       pkg3Id: '',
       qty3: '',
-      plannedDate: new Date().toISOString().slice(0, 10),
+      plannedDate: businessDateISO(),
       note: '',
     });
     setFlash(true);

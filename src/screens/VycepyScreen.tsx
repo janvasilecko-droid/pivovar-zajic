@@ -67,8 +67,8 @@ export default function VycepyScreen() {
 
   // New Reservation Form
   const [resTapId, setResTapId] = useState('');
-  const [resDateFrom, setResDateFrom] = useState(new Date().toISOString().slice(0, 10));
-  const [resDateTo, setResDateTo] = useState(new Date().toISOString().slice(0, 10));
+  const [resDateFrom, setResDateFrom] = useState(businessDateISO());
+  const [resDateTo, setResDateTo] = useState(businessDateISO());
   const [resCustomer, setResCustomer] = useState('');
   const [resPhone, setResPhone] = useState('');
   const [resDeposit, setResDeposit] = useState<number | ''>(2000);

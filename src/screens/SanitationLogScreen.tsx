@@ -5,6 +5,7 @@ import { BookOpen, Calendar, Clock, Droplets, Pencil, FileSpreadsheet, FlaskConi
 
 import { useAuth } from '../lib/auth';
 import { uloz } from '../lib/uloziste';
+import { businessDateISO } from '../lib/businessDate';
 
 
 const METHOD_BADGES: Record<string, { label: string; bg: string; text: string; icon: LucideIcon }> = {
@@ -57,7 +58,7 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
   // Form states for manual add
   const [tankLabel, setTankLabel] = useState('Tank 1');
   const [method, setMethod] = useState<'kyselina_dusicna' | 'louh' | 'oplach_vodou' | 'persteril' | 'kombinovana'>('louh');
-  const [sanitationDate, setSanitationDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [sanitationDate, setSanitationDate] = useState(() => businessDateISO());
   const [sanitationTime, setSanitationTime] = useState(getCurrentTimeStr);
   const [durationMinutes, setDurationMinutes] = useState<number | ''>(20);
   const [concentrationPct, setConcentrationPct] = useState<number | ''>(2.0);
@@ -222,7 +223,7 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Sanitační deník');
-    XLSX.writeFile(wb, `Sanitacni_denik_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    XLSX.writeFile(wb, `Sanitacni_denik_${businessDateISO()}.xlsx`);
   };
 
   const tanksList = [

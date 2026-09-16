@@ -11,6 +11,7 @@ import { AlertTriangle, ArrowDownCircle, ArrowUpCircle, Boxes, Download, Check, 
 import { chyba, oznam, potvrd } from '../lib/toast';
 import { IkonaLahev } from '../components/ikony';
 import { uloz } from '../lib/uloziste';
+import { businessDateISO } from '../lib/businessDate';
 
 export type PromoEntry = {
   id: string;
@@ -125,7 +126,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
 
   // Form 1: Sklo Příjem na sklad (IN)
-  const [inDate, setInDate] = useState(new Date().toISOString().slice(0, 10));
+  const [inDate, setInDate] = useState(businessDateISO());
   const [inCategory, setInCategory] = useState<'sklenice' | 'podtacky' | 'kelimky' | 'promo'>('sklenice');
   const [inItemName, setInItemName] = useState('Sklenice 0.5L (Pivovar Zajíček)');
   const [inCustomName, setInCustomName] = useState('');
@@ -133,7 +134,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
   const [inNote, setInNote] = useState('');
 
   // Form 2: Sklo Výdej odběrateli (OUT)
-  const [outDate, setOutDate] = useState(new Date().toISOString().slice(0, 10));
+  const [outDate, setOutDate] = useState(businessDateISO());
   const [outCategory, setOutCategory] = useState<'sklenice' | 'podtacky' | 'kelimky' | 'promo'>('sklenice');
   const [outItemName, setOutItemName] = useState('Sklenice 0.5L (Pivovar Zajíček)');
   const [outPlaceId, setOutPlaceId] = useState('');
@@ -143,13 +144,13 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
 
   // Form 3: Etikety Nákup
   const [labelBeerName, setLabelBeerName] = useState('');
-  const [labelDate, setLabelDate] = useState(new Date().toISOString().slice(0, 10));
+  const [labelDate, setLabelDate] = useState(businessDateISO());
   const [labelQty, setLabelQty] = useState<string>('1000');
   const [labelNote, setLabelNote] = useState('');
 
   // Form 4: Lahve Nákup
   const [bottlePkgLabel, setBottlePkgLabel] = useState('0.5L');
-  const [bottleDate, setBottleDate] = useState(new Date().toISOString().slice(0, 10));
+  const [bottleDate, setBottleDate] = useState(businessDateISO());
   const [bottleQty, setBottleQty] = useState<string>('1200');
   const [bottleNote, setBottleNote] = useState('');
 
@@ -498,7 +499,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
       dataToExport,
       ['Datum', 'Pohyb', 'Předmět', 'Počet (ks)', 'Odběratel / Cíl', 'Poznámka'],
       ['Datum', 'Pohyb', 'Předmět / Obal', 'Počet (ks)', 'Cíl / Odběratel', 'Poznámka'],
-      `Sklo_Podtacky_Etikety_${new Date().toISOString().slice(0, 10)}.xlsx`
+      `Sklo_Podtacky_Etikety_${businessDateISO()}.xlsx`
     );
   }
 

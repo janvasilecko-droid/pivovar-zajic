@@ -17,6 +17,7 @@ import {
   type ParsedLine, type ParserAliasMap, type GeminiItem, type ImportedOrder, type OrderDupWarning,
 } from '../lib/orderParser';
 import { uloz } from '../lib/uloziste';
+import { businessDateISO } from '../lib/businessDate';
 
 type ExistingItem = { beer_id: string | null; package_id: string | null; quantity: number };
 type PhotoEntry = { dataUrl: string; name: string; fingerprint: string };
@@ -29,7 +30,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
   onPlacesChanged?: () => void;
 }) {
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = businessDateISO();
 
   const [date, setDate] = useState(today);
   const [placeId, setPlaceId] = useState('');

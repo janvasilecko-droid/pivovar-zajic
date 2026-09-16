@@ -463,7 +463,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
       ? (durationMinutes !== '' ? Number(durationMinutes) : DEFAULT_DURATION[methodToSave])
       : (sanitationDuration !== '' ? Number(sanitationDuration) : DEFAULT_DURATION[methodToSave]);
     const logItem = {
-      sanitation_date: new Date().toISOString().slice(0, 10),
+      sanitation_date: businessDateISO(),
       sanitation_time: sanitationTime || getCurrentTimeStr(),
       duration_minutes: effectiveDuration,
       tank_id: targetTank.id,
@@ -1232,7 +1232,7 @@ function StartTankForm({ tank, beers, onClose, onSaved }: { tank: CellarTank; be
 }
 
 function TransferForm({ tanks, beers, initialFromId, initialBeerId, initialVolume, onClose, onSaved }: { tanks: CellarTank[]; beers: Beer[]; initialFromId?: string; initialBeerId?: string; initialVolume?: string; onClose: () => void; onSaved: () => void }) {
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(businessDateISO());
   const [fromId, setFromId] = useState(initialFromId || '');
   const [toId, setToId] = useState('');
   const [beerId, setBeerId] = useState(initialBeerId || '');

@@ -4,6 +4,7 @@ import { EmptyState, Spinner } from '../components/ui';
 import { Beer as BeerIcon, Calendar, History, Package as PackageIcon } from 'lucide-react';
 import { IkonaLahev, IkonaSud } from '../components/ikony';
 import { chybiTabulka } from '../lib/chybyHlaseni';
+import { businessDateISO } from '../lib/businessDate';
 
 type ZmenaCeny = {
   id: string;
@@ -93,7 +94,7 @@ export default function PriceListScreen() {
   const [packages, setPackages] = useState<Package[]>([]);
   const [rows, setRows] = useState<PriceListItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [currentMonth, setCurrentMonth] = useState<string>(() => new Date().toISOString().slice(0, 7));
+  const [currentMonth, setCurrentMonth] = useState<string>(() => businessDateISO().slice(0, 7));
   const [savingBeerId, setSavingBeerId] = useState<string | null>(null);
   const [savingCellId, setSavingCellId] = useState<string | null>(null);
 
