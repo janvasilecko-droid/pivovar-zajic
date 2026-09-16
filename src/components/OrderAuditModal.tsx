@@ -97,7 +97,11 @@ export function OrderAuditModal({
       pred.setDate(pred.getDate() - 180);
       const odIso = pred.toISOString().slice(0, 10);
       const [zpravy, objednavky, zamitnute, denikDennne, stavMostu] = await Promise.all([
-        supabase.from('whatsapp_incoming').select('id,sender_name,created_at,status').gte('created_at', odIso),
+        // fetchAllRows, ne holé .select(): 180 dní whatsapp_incoming může
+        // snadno přesáhnout tisícovku řádků a Supabase by zbytek tiše
+        // zahodil — přesně v auditu, kde by to nejvíc bolelo (viz
+        // strankovaniDotazu.test.ts).
+        fetchAllRows('whatsapp_incoming', 'id,sender_name,created_at,status').gte('created_at', odIso),
         fetchAllRows('orders', 'id,place_name,delivery_date,order_date,status').gte('order_date', odIso),
         // Tabulka vzniká migrací 20261216000000 — dokud není nasazená, chyba
         // se spolkne a zbytek kontroly funguje dál.

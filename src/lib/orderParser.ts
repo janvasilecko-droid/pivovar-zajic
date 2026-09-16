@@ -1367,13 +1367,13 @@ export type PlaceAliasRow = {
  * databáze. Viz docs/30-navrhu-2026-09-10.md, bod 4.
  */
 export async function fetchPlaceAliasesForAdmin(): Promise<PlaceAliasRow[]> {
-  const { supabase } = await import('./supabase');
-  const { data, error } = await supabase
-    .from('place_aliases')
-    .select('id, wrong_name, correct_name, place_id, hit_count, updated_at')
+  const { fetchAllRows } = await import('./supabase');
+  // fetchAllRows, ne holé .select(): naučené aliasy odběratelů se nikdy
+  // nemažou samy (viz strankovaniDotazu.test.ts).
+  const { data, error } = await fetchAllRows('place_aliases', 'id, wrong_name, correct_name, place_id, hit_count, updated_at')
     .order('updated_at', { ascending: false });
-  if (error) throw error;
-  return data ?? [];
+  if (error) throw new Error(error.message);
+  return (data ?? []) as PlaceAliasRow[];
 }
 
 /** Smaže jeden naučený alias (omylem naučené/špatné přiřazení). */
@@ -1396,10 +1396,12 @@ export async function loadPlaceAliasMap(): Promise<Map<string, string>> {
     }
   } catch {}
 
-  // 2. Načtení ze Supabase (tabulka place_aliases)
+  // 2. Načtení ze Supabase (tabulka place_aliases) — fetchAllRows, ne holé
+  // .select(): naučené aliasy se nikdy nemažou samy (viz
+  // strankovaniDotazu.test.ts).
   try {
-    const { supabase } = await import('./supabase');
-    const { data } = await supabase.from('place_aliases').select('wrong_name, place_id').not('place_id', 'is', null);
+    const { fetchAllRows } = await import('./supabase');
+    const { data } = await fetchAllRows('place_aliases', 'wrong_name, place_id').not('place_id', 'is', null);
     for (const a of (data ?? []) as any[]) {
       if (a.place_id) map.set(a.wrong_name, a.place_id);
     }
@@ -1429,10 +1431,13 @@ export async function loadAliasMap(): Promise<ParserAliasMap> {
     }
   } catch {}
 
-  // 2. Načtení ze Supabase
+  // 2. Načtení ze Supabase — fetchAllRows, ne holé .select('*'): tabulka
+  // naučených zkratek jen roste (žádné mazání) a Supabase nad tisícovkou
+  // řádků zbytek tiše zahodí bez chyby (viz strankovaniDotazu.test.ts) —
+  // appka by pak náhodně "zapomínala" starší naučené zkratky.
   try {
-    const { supabase } = await import('./supabase');
-    const { data } = await supabase.from('parser_aliases').select('*');
+    const { fetchAllRows } = await import('./supabase');
+    const { data } = await fetchAllRows('parser_aliases', '*');
     for (const a of (data ?? []) as any[]) {
       if (a.beer_id) map.beer.set(a.alias_text, a.beer_id);
       if (a.package_id) map.package.set(a.alias_text, a.package_id);

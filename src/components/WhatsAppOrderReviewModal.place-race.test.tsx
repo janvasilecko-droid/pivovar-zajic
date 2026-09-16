@@ -10,16 +10,28 @@ const supabaseMock = vi.hoisted(() => ({
 }));
 vi.mock('../lib/supabase', () => {
   const stub = () => ({
-    select: vi.fn().mockImplementation(() => new Promise((resolve) => {
-      supabaseMock.resolveSelect = () => resolve({ data: [], error: null });
-    })),
+    select: vi.fn().mockImplementation(() => {
+      // Slouží jak pro přímé `supabase.from(t).select(...)`, tak pro
+      // `fetchAllRows(t, ...)` níž (ta ještě řetězí .not()/.eq()/.order()
+      // a nakonec .range() před await) — tenhle test nestránkuje, jen
+      // ověřuje časování, takže všechny metody vrací tutéž visící promise.
+      const p: any = new Promise((resolve) => {
+        supabaseMock.resolveSelect = () => resolve({ data: [], error: null });
+      });
+      p.not = () => p;
+      p.eq = () => p;
+      p.order = () => p;
+      p.range = () => p;
+      return p;
+    }),
     eq: vi.fn().mockReturnThis(),
     maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
   });
   const supabase = {
     from: vi.fn((table: string) => { supabaseMock.fromCalls.push(table); return stub(); }),
   };
-  return { supabase };
+  const fetchAllRows = (table: string, select?: string) => supabase.from(table).select(select ?? '*');
+  return { supabase, fetchAllRows };
 });
 
 vi.mock('../lib/whatsappApi', () => ({
