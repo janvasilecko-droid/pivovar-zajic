@@ -355,11 +355,14 @@ export function useRealtime(tables: string[], onChange: () => void) {
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => { timer = null; ref.current(); }, 400);
     };
-    // Vyzvednutí zameškaného. Bez tohohle by `zmeskano` nikdo nepřečetl:
-    // událost, která přišla na pozadí, by se poznamenala a nikdy neprojevila,
-    // takže by se člověk vrátil ke stará datům a nevěděl o tom.
+    // Návrat na viditelnou stránku VŽDY přenačte, ne jen když se cestou
+    // stihla zachytit nějaká postgres_changes událost. Z provozu 16. 9.
+    // 2026: druhá obrazovka (Sklad na tabletu v kanceláři) klidně celou
+    // dobu, co byla schovaná v pozadí, neměla vůbec spojení (viz níž,
+    // WebSocket dovede spadnout a appka o tom sama neví) — `zmeskano` by
+    // v tom případě zůstalo `false` a návrat by nic nepřenačetl.
     const naNavrat = () => {
-      if (jeSchovana() || !zmeskano) return;
+      if (jeSchovana()) return;
       zmeskano = false;
       trigger();
     };
@@ -372,16 +375,56 @@ export function useRealtime(tables: string[], onChange: () => void) {
     // přepínání obrazovek se to celé zavíralo a otevíralo znovu. Supabase
     // přitom umí navěsit víc odběrů na jeden kanál, takže z osmnácti
     // spojení je jedno a odhlášení je jedno volání místo osmnácti.
-    const kanal = supabase.channel(`rt-${Math.random().toString(36).slice(2)}`);
-    tables.forEach((t) => {
-      kanal.on('postgres_changes' as any, { event: '*', schema: 'public', table: t }, trigger);
-    });
-    kanal.subscribe();
+    //
+    // 🔌 ZNOVUPŘIPOJENÍ PŘI VÝPADKU. Z provozu 16. 9. 2026: „změním sudy ve
+    // stáčení a ve Skladu na druhé obrazovce to hned nevidím" — WebSocket
+    // realtime kanálu dovede spadnout (slabý signál ve sklepě, uspání
+    // telefonu, výpadek u poskytovatele) a supabase-js ho sám o sobě
+    // donekonečna nezkouší obnovit; appka pak tiše zůstane BEZ ŽIVÝCH
+    // aktualizací, aniž by o tom někdo věděl — vypadá to jako fungující
+    // appka se starými čísly. `subscribe(status => …)` níž pozná selhání
+    // (CHANNEL_ERROR/TIMED_OUT/CLOSED) a založí kanál znovu, se zpožděním,
+    // které při opakovaném selhání roste (2 s → … → strop 30 s), ať appka
+    // při delším výpadku nebombarduje server pokusy o spojení. Úspěšné
+    // (opětovné) připojení navíc jednou přenačte samo — co se stihlo změnit
+    // BĚHEM výpadku, kanál sám o sobě nedožene.
+    let kanal: ReturnType<typeof supabase.channel> | null = null;
+    let zpozdeniOpakovani = 2000;
+    let planZnovupripojeni: ReturnType<typeof setTimeout> | null = null;
+    let zrusen = false;
+
+    const naplanujZnovupripojeni = () => {
+      if (zrusen || planZnovupripojeni) return;
+      planZnovupripojeni = setTimeout(() => {
+        planZnovupripojeni = null;
+        if (kanal) { supabase.removeChannel(kanal); kanal = null; }
+        zpozdeniOpakovani = Math.min(zpozdeniOpakovani * 2, 30000);
+        pripoj();
+      }, zpozdeniOpakovani);
+    };
+    const pripoj = () => {
+      if (zrusen) return;
+      kanal = supabase.channel(`rt-${Math.random().toString(36).slice(2)}`);
+      tables.forEach((t) => {
+        kanal!.on('postgres_changes' as any, { event: '*', schema: 'public', table: t }, trigger);
+      });
+      kanal.subscribe((status: string) => {
+        if (status === 'SUBSCRIBED') {
+          zpozdeniOpakovani = 2000;
+          trigger();
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          naplanujZnovupripojeni();
+        }
+      });
+    };
+    pripoj();
 
     window.addEventListener('pivovar:online-refetch', trigger);
     return () => {
+      zrusen = true;
       if (timer) clearTimeout(timer);
-      supabase.removeChannel(kanal);
+      if (planZnovupripojeni) clearTimeout(planZnovupripojeni);
+      if (kanal) supabase.removeChannel(kanal);
       window.removeEventListener('pivovar:online-refetch', trigger);
       document.removeEventListener('visibilitychange', naNavrat);
     };
