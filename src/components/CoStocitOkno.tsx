@@ -176,6 +176,9 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
       orders: data.orders,
       orderItems: data.orderItems,
       keggingRows: druh === 'sudy' ? data.kegging : data.bottling,
+      // Bez nich by se už zavezené objednávky odečetly dvakrát — viz
+      // keggingPlan.ts (vrácení závozů do zásoby u currentStockMap).
+      zavozDeductionRows: data.zavozDeductions,
       fasovaniRows: data.fasovani,
       prodejnaRows: data.prodejna,
       writeoffsRows: data.writeoffs,
