@@ -12,8 +12,7 @@ import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
 import { VoiceRecorder } from '../components/VoiceRecorder';
 import { parseFreeTextEntries, loadAliasMap, emptyAliasMap, type ParserAliasMap } from '../lib/orderParser';
 import { requestOrdersItemFilter } from '../lib/ordersFilter';
-import { computeKeggingPlan, mergeWeekPlan, rozpadPoObalech, objednavkyVTydnu, BEZ_TERMINU } from '../lib/keggingPlan';
-import { zbyvaStocitPrehledTydne, zbyvaStocitPrehledTydnePodlePiv } from '../lib/tydenniPrehledZasoby';
+import { computeKeggingPlan, mergeWeekPlan, rozpadPoObalech, BEZ_TERMINU } from '../lib/keggingPlan';
 import { naplanujPresun } from '../lib/presunPolozky';
 import { BottlingPlanBottler } from '../components/BottlingPlanBottler';
 import { markPlanSeenAt, type BottlingPlan } from '../lib/bottlingPlans';
@@ -446,54 +445,49 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
 
   const planMissingTotal = useMemo(() => keggingPlan.reduce((s, p) => s + p.totalMissing, 0), [keggingPlan]);
 
-  // 🛢️ Rozpad „zbývá stočit tento týden" podle VELIKOSTI SUDU, přes všechna
-  // piva — z provozu 9. 9. 2026: součet přes všechny velikosti na dlaždici
-  // („55") nic neřekne o tom, co reálně nachystat, protože sčítá padesátky
-  // s desítkami.
-  //
-  // ⚠️ ZJEDNODUŠENÝ vzorec, jiný než denní plán níž (weekPlanKeg) — z provozu
-  // 15. 9. 2026: „nekomplikuj to, ať je to jen přehled — neodečítej zavezené
-  // kegy a objednávky, prostě pondělní zásoba + objednávky + fasování se
-  // sečtou a odečte se stočené tenhle týden". Den po dni s prioritou dnů a
-  // vyjímáním zavezených objednávek zůstává v „Co je potřeba stočit"
-  // (KeggingDayPlan.tsx, dál na weekPlanKeg).
-  const objednavkyTydne = useMemo(() => objednavkyVTydnu(orders, orderItems, weekKey), [orders, orderItems, weekKey]);
-  const vstupPrehledTydneKeg = useMemo(() => {
-    const { start, end } = weekRange(weekKey);
-    const pondeliISO = start.toISOString().slice(0, 10);
-    const nedeleISO = end.toISOString().slice(0, 10);
-    const vTomtoTydnu = <T extends { entry_date?: string | null }>(r: T[]) => r.filter((x) => x.entry_date && x.entry_date >= pondeliISO && x.entry_date <= nedeleISO);
-    return {
-      zdroje: { inventoryRows, bottlingRows, keggingRows: rows, fasovaniRows, prodejnaRows, writeoffsRows, zavozDeductionRows, akceRows, prefukRows, adjustmentRows, packages },
-      packages,
-      stoceniTydne: vTomtoTydnu(rows),
-      objednavkyTydne,
-      fasovaniTydne: vTomtoTydnu(fasovaniRows),
-      pondeliISO,
-    };
-  }, [inventoryRows, bottlingRows, rows, fasovaniRows, prodejnaRows, writeoffsRows, zavozDeductionRows, akceRows, prefukRows, adjustmentRows, packages, objednavkyTydne, weekKey]);
-  const rozpadTydneKeg = useMemo(() => zbyvaStocitPrehledTydne(vstupPrehledTydneKeg), [vstupPrehledTydneKeg]);
-  // Rozklik jedné velikosti sudu na jednotlivá piva (níž, `rozpisPiv`) MUSÍ
-  // počítat stejným (zjednodušeným) vzorcem jako `rozpadTydneKeg` výš, jinak
-  // by se součet piv v rozkliku nesešel s číslem na dlaždici.
-  const rozpisTydneKegPodlePiv = useMemo(() => zbyvaStocitPrehledTydnePodlePiv(vstupPrehledTydneKeg), [vstupPrehledTydneKeg]);
-  // Denní plán ("Co je potřeba stočit") zůstává na PŮVODNÍM computeKeggingPlan
-  // — beze změny, jen zjednodušený souhrn výš je nový.
+  // ⚖️ JEDEN výpočet pro všechno — z provozu 16. 9. 2026: „udělej to tak, ať
+  // to logicky všechno sedí“. Dlaždice „Zbývá stočit tento týden“, červené
+  // štítky u piv i plán „Co je potřeba stočit“ jedou ze STEJNÉHO týdenního
+  // plánu (keggingPlan), který počítá se skutečnou zásobou skladem
+  // (currentStockMap). Do 16. 9. tu byl druhý, zjednodušený vzorec a každé
+  // místo v appce hlásilo jiné číslo: „když mám na skladě 11×30, nemůže mi
+  // přece chybět 5×30“.
   const weekPlanKeg = useMemo(() => mergeWeekPlan(keggingPlan, weekLabel), [keggingPlan, weekLabel]);
+  // Rozpad podle VELIKOSTI obalu, přes všechna piva — součet přes všechny
+  // velikosti („55“) neřekne, co reálně nachystat (z provozu 9. 9. 2026).
+  const rozpadTydneKeg = useMemo(() => rozpadPoObalech(weekPlanKeg), [weekPlanKeg]);
+  // Rozklik jedné velikosti na jednotlivá piva — táž data, takže součet piv
+  // v rozkliku vyjde přesně na číslo na dlaždici.
+  const rozpisTydneKegPodlePiv = useMemo(() => weekPlanKeg.items
+    .filter((it) => it.missing > 0)
+    .map((it) => ({ beer_id: it.beer_id, package_id: it.package_id, missing: it.missing }))
+    .sort((a, z) => z.missing - a.missing), [weekPlanKeg]);
   // 🏷️ „Chybí stočit" po pivech, rozepsané po VELIKOSTI SUDU — pro štítek na
   // dlaždici v Zápisu. Nahrazuje jedno sečtené číslo („12"), které sčítalo
   // desítky s padesátkami a neřeklo, čeho se to vlastně týká — z provozu
   // 15. 9. 2026: „napiš vždy obal a počet chybějících", stejný nápad jako u
   // lahví (BottlingScreen.tsx, missingBreakdownByBeer).
+  // ⚖️ Počítá se ZJEDNODUŠENÝM týdenním vzorcem (rozpisTydneKegPodlePiv), ne
+  // denním plánem — z provozu 16. 9. 2026: „to ukazuje 5 u 12ky, ale nahoře
+  // 12ka není“. Dlaždice „Zbývá stočit tento týden“ a červený štítek na pivu
+  // musí říkat totéž, jinak jedno z čísel lže.
   const missingBreakdownByBeer = useMemo(() => {
     const m: Record<string, { label: string; missing: number }[]> = {};
-    weekPlanKeg.items.forEach((it) => {
+    rozpisTydneKegPodlePiv.forEach((it) => {
       if (it.missing <= 0) return;
-      (m[it.beer_id] ||= []).push({ label: it.package_label.trim(), missing: it.missing });
+      const pkg = packages.find((p) => p.id === it.package_id);
+      (m[it.beer_id] ||= []).push({ label: (pkg?.label ?? '').trim(), missing: it.missing });
     });
     Object.values(m).forEach((arr) => arr.sort((a, z) => z.missing - a.missing));
     return m;
-  }, [weekPlanKeg]);
+  }, [rozpisTydneKegPodlePiv, packages]);
+
+  /** Týdenní „chybí“ týmž zjednodušeným vzorcem, klíč `pivo__obal`. */
+  const tydenChybiPodleKlice = useMemo(() => {
+    const m: Record<string, number> = {};
+    rozpisTydneKegPodlePiv.forEach((it) => { m[`${it.beer_id}__${it.package_id}`] = it.missing; });
+    return m;
+  }, [rozpisTydneKegPodlePiv]);
   // Klik na velikost sudu v rozpadu rozklikne, kolik z toho je kterého piva
   // — z provozu: „ale když kliknu na 1l 100, tak by se mělo rozkliknout,
   // kolik jakého druhu". `weekPlanKeg.items` má už granularitu pivo+obal.
@@ -526,8 +520,12 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
       agg.checked += it.checked;
       agg.days.push({ day: den.day, ordered: it.ordered, missing: it.missing, checked: it.checked });
     }));
+    // Týden musí sednout s dlaždicí „Zbývá stočit tento týden“ (zjednodušený
+    // vzorec). Rozpad po DNECH zůstává z denního plánu — odpovídá na jinou
+    // otázku („na který den“), ale součet za týden se musí shodovat.
+    Object.entries(m).forEach(([k, agg]) => { agg.missing = tydenChybiPodleKlice[k] ?? 0; });
     return m;
-  }, [keggingPlan]);
+  }, [keggingPlan, tydenChybiPodleKlice]);
 
   // Otevření jiného piva (nebo zavření a otevření znovu) nastaví den zpátky
   // na nejbližší, kde ještě něco chybí — jinak by zůstal den vybraný pro

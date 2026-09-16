@@ -172,7 +172,7 @@ export function datumProDenVTydnu(den: string, kotva: string): string | null {
 /**
  * Položky objednávek TOHOTO týdne — bez ohledu na stav zavezení a bez dělení
  * po dnech (na rozdíl od computeKeggingPlan). Pro zjednodušený týdenní
- * přehled (lib/tydenniPrehledZasoby.ts) — dřív, den po dni, se zavezené
+ * přehled — dřív, den po dni, se zavezené
  * objednávky vyjímaly ze zásoby a to bylo u souhrnné dlaždice matoucí
  * (z provozu 15. 9. 2026: „neodečítej zavezené kegy a objednávky").
  */
@@ -238,7 +238,23 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
   // pokrýt některý z dalších dnů.
   const pool: Record<string, number> = {};
   if (input.currentStockMap) {
-    input.currentStockMap.forEach((qty, k) => { pool[k] = Math.max(0, qty); });
+    // Sklad UŽ MÁ závozy tohoto týdne odečtené, ale poptávka níž počítá
+    // objednávky celého týdne včetně zavezených — bez vrácení by se odečetly
+    // dvakrát. Z provozu 16. 9. 2026: 16 objednaných, 12 už zavezených, 11
+    // skladem, a plán hlásil „chybí stočit 5“.
+    //
+    // Vrátí se až POTOM se ořízne záporná zásoba: minus na skladě znamená,
+    // že se odečetlo víc, než se stočilo, a to nesmí zmizet — jinak by
+    // automatický odpočet podle kalendáře zase tvrdil „vše stočeno“
+    // (z provozu 11.–12. 9. 2026).
+    const vracenoZaZavozy: Record<string, number> = {};
+    zavozDeductionRows.forEach((r: any) => {
+      if (!r.beer_id || !r.package_id || !kegPkgs.has(r.package_id) || !inWeek(r.deduct_date)) return;
+      const k = `${r.beer_id}__${r.package_id}`;
+      vracenoZaZavozy[k] = (vracenoZaZavozy[k] || 0) + Number(r.quantity || 0);
+    });
+    input.currentStockMap.forEach((qty, k) => { pool[k] = qty + (vracenoZaZavozy[k] || 0); });
+    Object.entries(vracenoZaZavozy).forEach(([k, qty]) => { if (!input.currentStockMap!.has(k)) pool[k] = qty; });
   } else {
     keggingRows.filter((r) => inWeek(r.entry_date)).forEach((r) => {
       if (!r.beer_id || !r.package_id || !kegPkgs.has(r.package_id)) return;
@@ -261,6 +277,11 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
   // podle kalendáře, když den závozu projde, a nic neříká o tom, jestli se
   // pivo stočilo. Zásobu ubírají jen objednávky, které člověk označil jako
   // zavezené — viz níž u poptávky (migrace 20261231080000, 13. 9. 2026).
+  // Se skutečnou zásobou skladem (currentStockMap) ale odečtený závoz značí,
+  // že pivo už fyzicky odjelo: skladová kniha ho z zásoby odepsala. Kdyby se
+  // ta samá objednávka počítala dál do poptávky, odečte se dvakrát — z provozu
+  // 16. 9. 2026: 16 objednaných, 12 už zavezených, 11 skladem, a plán hlásil
+  // „chybí stočit 5“. Proto se odečtené kusy berou jako vykryté.
   void zavozDeductionRows;
   Object.keys(pool).forEach((k) => { pool[k] = Math.max(0, pool[k]); });
 
@@ -317,9 +338,18 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
     const k = `${it.beer_id}__${it.package_id}`;
     const bucket = (byDay[day][k] ||= { ordered: 0, covered: 0, orders: [] });
     const wholeOrderDone = !!ord?.is_delivered || ord?.status === 'vyrizeno' || ord?.status === 'vyrizeno_zavoz';
-    const covered = wholeOrderDone ? qty : 0;
+    // Se skutečnou zásobou skladem se zavezená objednávka NEBERE jako vykrytá:
+    // patří do poptávky celého týdne stejně jako na dlaždici „Zbývá stočit
+    // tento týden“ (táž data, viz Kegging.tsx) a kryje ji zásoba výš.
+    const covered = wholeOrderDone && !input.currentStockMap ? qty : 0;
     // Zavezené sudy fyzicky odjely — nesmí pokrýt další den ze zásoby.
-    if (wholeOrderDone && inWeek(ord?.delivery_date || ord?.order_date)) {
+    //
+    // ⚠️ JEN bez `currentStockMap`. Se skutečnou zásobou skladem je odvoz
+    // už jednou odečtený (skladová kniha zná zavoz_deductions), takové druhé
+    // odečtení zásobu vynuluje a plán hlásí „chybí stočit“ i u piva, kterého
+    // je plný chlaďák — z provozu 16. 9. 2026: „pokud mám na skladě 11×30,
+    // tak mi přece nemůže chybět 5×30“.
+    if (!input.currentStockMap && wholeOrderDone && inWeek(ord?.delivery_date || ord?.order_date)) {
       pool[k] = Math.max(0, (pool[k] || 0) - qty);
     }
     bucket.ordered += qty;

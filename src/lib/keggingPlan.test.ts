@@ -584,6 +584,30 @@ describe('z čeho je „hotovo" — rozpad, který si vyžádal provoz', () => {
       expect(day(p, 'st').items[0].missing).toBe(1);
     });
 
+    // Z provozu 16. 9. 2026: „pokud mám na skladě 11×30, tak mi přece nemůže
+    // chybět 5×30“. Skladová kniha už zavezené kusy odečtla (zavoz_deductions),
+    // takže když se ta samá objednávka počítá dál do poptávky, odečte se dvakrát.
+    it('už odečtený závoz se do poptávky nepočítá podruhé', () => {
+      const p = plan({
+        orders: [objednavka('o1', '2026-08-26'), objednavka('o2', '2026-08-27')],
+        orderItems: [polozka('o1', 'b-des', 'p30', 12, 'i-st'), polozka('o2', 'b-des', 'p30', 4, 'i-ct')],
+        zavozDeductionRows: [{ deduct_date: '2026-08-26', beer_id: 'b-des', package_id: 'p30', quantity: 12, order_item_id: 'i-st' }],
+        currentStockMap: new Map([['b-des__p30', 11]]),
+      });
+      expect(day(p, 'st').items[0].missing).toBe(0);
+      expect(day(p, 'st').items[0].zChladaku).toBe(12);
+      expect(day(p, 'ct').items[0].missing).toBe(0);
+    });
+
+    it('bez currentStockMap odečtený závoz dál nic nevykrývá', () => {
+      const p = plan({
+        orders: [objednavka('o1', '2026-08-26')],
+        orderItems: [polozka('o1', 'b-des', 'p30', 3, 'i-x')],
+        zavozDeductionRows: [{ deduct_date: '2026-08-26', beer_id: 'b-des', package_id: 'p30', quantity: 3, order_item_id: 'i-x' }],
+      });
+      expect(day(p, 'st').items[0].missing).toBe(3);
+    });
+
     it('zásoba se mezi dny nezdvojuje — pokryje jen jeden den, ne oba', () => {
       const p = plan({
         orders: [objednavka('o1', '2026-08-25'), objednavka('o2', '2026-08-26')], // út, st
