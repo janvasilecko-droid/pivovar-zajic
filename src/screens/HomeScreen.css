@@ -122,8 +122,22 @@
 /* Na počítači se všechny stránky plochy kreslí pod sebe najednou (viz
    HomeScreen.tsx, zobrazVsechnyStrankyNajednou) — mezera + jemná linka mezi
    nimi, ať je vidět, že jde o další stránku, ne pokračování téže mřížky. */
-.hs-grid-dalsi-stranka { margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(0, 0, 0, 0.1); }
-:root.dark .hs-grid-dalsi-stranka { border-top-color: rgba(255, 255, 255, 0.14); }
+/* Na počítači jedou stránky plochy VEDLE SEBE, ne pod sebou (viz
+   HomeScreen.tsx, zobrazVsechnyStrankyNajednou) — z provozu 16. 9. 2026:
+   "rozáhni ty dlaždice po celou obrazovku, ne jen dolu". Sloupec mřížky má
+   pevnou šířku (HS_SLOUPEC_PX), ne 1fr přes celý kontejner — jinak by
+   krátká stránka s pár dlaždicemi vyplnila celou šířku obrazovky sama a
+   další stránka by skončila stejně jako dřív, až POD ní. */
+.hs-stranky-vedle-sebe { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 28px; }
+.hs-grid-stranka-vedle-sebe {
+  flex: 0 0 auto;
+  width: auto;
+  padding: 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(0, 0, 0, 0.015);
+}
+:root.dark .hs-grid-stranka-vedle-sebe { border-color: rgba(255, 255, 255, 0.1); background: rgba(255, 255, 255, 0.03); }
 .hs-page-enter { animation: hs-page-enter-kf 0.18s ease-out; }
 @keyframes hs-page-enter-kf {
   from { opacity: 0; transform: translateX(10px); }

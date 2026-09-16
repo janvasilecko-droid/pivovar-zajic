@@ -41,7 +41,7 @@ import {
   PAGE_CATEGORY, CATEGORY_ORDER, CATEGORY_SHADES, type Category,
   moveTileToPageCell, okrajProPrepnuti, dalsiStranka, rozdelVseDoStranek, idsKRozmisteni, vyrovnejStranku, VYCHOZI_STRANKA, type OkrajTazeni,
   MIN_OPACITY, MAX_OPACITY, MIN_TILE_GAP, MAX_TILE_GAP, MIN_W, MAX_W, MIN_H, MAX_H, TILE_COLORS, COLOR_HEX, defaultTileColor,
-  GRID_COLS_DESKTOP, GRID_COLS_MOBILE, MOBILE_BREAKPOINT_PX, ROW_HEIGHT_DESKTOP, ROW_HEIGHT_MOBILE, MIN_DOCK, MAX_DOCK,
+  GRID_COLS_DESKTOP, GRID_COLS_MOBILE, MOBILE_BREAKPOINT_PX, ROW_HEIGHT_DESKTOP, ROW_HEIGHT_MOBILE, MIN_DOCK, MAX_DOCK, UNIT_COLS,
   CO2_TILE_ID,
   type HomeLayout, type TileColor, type TileId, type GroupId, type CountdownTileId,
 } from '../lib/homeLayout';
@@ -293,6 +293,33 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   // (cellFromPoint níž počítá z JEDINÉ `.hs-grid` v DOM).
   const zobrazVsechnyStrankyNajednou = !editMode && cols === GRID_COLS_DESKTOP;
   const zobrazeneStranky = zobrazVsechnyStrankyNajednou ? layout.pages.map((_, i) => i) : [currentPageIndex];
+  // 🖥️ Kolik sloupců stránka OPRAVDU využívá — z provozu 16. 9. 2026: „na
+  // notebooku rozáhni ty dlaždice po celý obrazovku, ne jen dolu". Mřížka
+  // sama je široká 18 sloupců, ale stránka s pár dlaždicemi je využije jen
+  // zčásti — když se pak stránky jen podskládají pod sebe (na celou šířku
+  // 18 sloupců každá), zbytek řádku zůstane prázdný a další stránka jede
+  // až POD tím prázdnem. Když se místo toho stránky vedle sebe vejdou na
+  // šířku obrazovky (viz .hs-stranky-vedle-sebe níž — sloupec má PEVNOU
+  // šířku, ne 1fr přes celý kontejner), skutečně se využije šířka, ne
+  // výška. Vrací se rozsah v RAW gridových sloupcích (stejná jednotka jako
+  // tileGridStyle), s dolní mezí jeden „tile unit", ať prázdná stránka
+  // nezůstane nulově úzká.
+  const strankaPouzitaSirka = (strankaIndex: number): number => {
+    const ids = ((nahledLayout ?? layout).pages[strankaIndex] ?? []).filter((id) => id !== 'signout' && id !== 'app_settings');
+    let max = UNIT_COLS;
+    for (const id of ids) {
+      const o = (nahledLayout ?? layout).overrides[id] ?? {};
+      const x = o.x ?? 0;
+      const w = o.w ?? 1;
+      const span = w === 0 ? 1 : w * UNIT_COLS;
+      if (x + span > max) max = x + span;
+    }
+    return Math.min(GRID_COLS_DESKTOP, max);
+  };
+  /** Pevná šířka sloupce (px) pro stránky vedle sebe — tak velké dlaždice
+   * vycházejí dnes běžně na jednu stránku přes celou šířku, jen se teď
+   * nenafukují donekonečna se šířkou monitoru. */
+  const HS_SLOUPEC_PX = 76;
   function cellFromPoint(clientX: number, clientY: number): { x: number; y: number } | null {
     const gridEl = document.querySelector('.hs-grid') as HTMLElement | null;
     if (!gridEl) return null;
@@ -1857,11 +1884,20 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
           </div>
         )}
 
-        {zobrazeneStranky.map((strankaIndex, poradi) => (
+        <div className={zobrazVsechnyStrankyNajednou ? 'hs-stranky-vedle-sebe' : undefined}>
+        {zobrazeneStranky.map((strankaIndex) => (
         <div
           key={strankaIndex}
-          className={`hs-grid ${draggingId ? 'hs-mrizka-viditelna' : ''} ${poradi > 0 ? 'hs-grid-dalsi-stranka' : ''}`}
-          style={{ ['--hs-tile-alpha' as any]: layout.tileOpacity, ['--hs-tile-gap' as any]: `${layout.tileGap}px`, ['--hs-sloupcu' as any]: cols, ['--hs-radek' as any]: `${rowHeight}px` }}
+          className={`hs-grid ${draggingId ? 'hs-mrizka-viditelna' : ''} ${zobrazVsechnyStrankyNajednou ? 'hs-grid-stranka-vedle-sebe' : ''}`}
+          style={{
+            ['--hs-tile-alpha' as any]: layout.tileOpacity,
+            ['--hs-tile-gap' as any]: `${layout.tileGap}px`,
+            ['--hs-sloupcu' as any]: cols,
+            ['--hs-radek' as any]: `${rowHeight}px`,
+            ...(zobrazVsechnyStrankyNajednou
+              ? { gridTemplateColumns: `repeat(${strankaPouzitaSirka(strankaIndex)}, ${HS_SLOUPEC_PX}px)` }
+              : null),
+          }}
         >
           {/* Obrys buňky, kam dlaždice spadne. Kreslí se ve stejné velikosti
               jako přesouvaná dlaždice, aby bylo předem vidět, jestli se tam
@@ -2400,6 +2436,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
           })}
         </div>
         ))}
+        </div>
         </div>
       </div>
 
