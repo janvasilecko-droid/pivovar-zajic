@@ -804,10 +804,19 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
       setRebuildKey((k) => k + 1); // znovu postaví editační položky z nových parsed_items
 
       // Pokud uživatel odběratele ručně neopravil, promítneme nové místo z AI.
+      // Když nové čtení nenajde NIC (placeId i placeName prázdné), ale
+      // odběratel byl už předtím vyplněný (ať z prvního čtení, nebo ho sem
+      // ručně vyplnil někdo jiný), pole nemažeme — druhé čtení je skoro
+      // vždycky NEÚSPĚCH AI, ne důkaz, že odběratel zmizel (z provozu
+      // 16. 9. 2026: "Přečíst znovu" vymazalo už správně dosazeného
+      // odběratele, protože AI ho podruhé nenašla).
       if (!placeTouchedRef.current) {
-        setPlaceId(parsed.placeId || '');
-        setPlaceName(parsed.placeName || '');
-        setOrigPlaceName(parsed.placeName || null);
+        const nalezenoNove = !!(parsed.placeId || parsed.placeName?.trim());
+        if (nalezenoNove || !(placeId || placeName.trim())) {
+          setPlaceId(parsed.placeId || '');
+          setPlaceName(parsed.placeName || '');
+          setOrigPlaceName(parsed.placeName || null);
+        }
       }
 
       setStatusMessage(

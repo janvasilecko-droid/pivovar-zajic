@@ -1,5 +1,6 @@
 import { Beer, Package, Place, supabase } from './supabase';
-import { parseGeminiItems, matchPlaceFromText, detectOrderNotes, loadAliasMap, loadPlaceAliasMap, ParserAliasMap, ParsedLine, GeminiItem } from './orderParser';
+import { normPlaceName, stripSenderName, resolvePlace, wantsOwnOrder as textWantsOwnOrder } from '../../supabase/functions/_shared/place-match';
+import { parseGeminiItems, detectOrderNotes, loadAliasMap, loadPlaceAliasMap, ParserAliasMap, ParsedLine, GeminiItem } from './orderParser';
 import { parseExplicitDate } from './orderDates';
 import { businessNow } from './businessDate';
 import { authenticatedFunctionHeaders } from './functionAuth';
@@ -499,22 +500,29 @@ export async function parseWhatsAppOrderMessageWithAI(
       })()
     : null;
 
-  // Načtení kontextu z předchozích zpráv ve stejném chatu/skupině (chat_id)
+  // Načtení kontextu z předchozích zpráv ve stejném chatu/skupině (chat_id).
+  // Zároveň zjistíme SKUTEČNÉHO pisatele TÉTO zprávy (participant_name) —
+  // u skupinového chatu je `sender` předaný voláním obvykle sender_name
+  // (jméno mostu/skupiny, např. "Objednávky pivovar"), ne osoby, která
+  // zprávu napsala. Bez tohohle appka u "pro mě" hledala odběratele podle
+  // jména skupiny (z provozu 16. 9. 2026, viz whatsapp-auto-parse/index.ts).
   let chatContext: any[] = [];
   let quotedText: string | null = null;
+  let effectiveSender = sender ?? null;
   if (messageId) {
     try {
       const { data: currentMsg } = await supabase
         .from('whatsapp_incoming')
-        .select('chat_id, created_at, quoted_text')
+        .select('chat_id, created_at, quoted_text, sender_name, participant_name')
         .eq('id', messageId)
         .maybeSingle();
       quotedText = currentMsg?.quoted_text || null;
+      effectiveSender = currentMsg?.participant_name || currentMsg?.sender_name || effectiveSender;
 
       if (currentMsg?.chat_id) {
         const { data: contextData } = await supabase
           .from('whatsapp_incoming')
-          .select('sender_name, message_timestamp, message_text')
+          .select('sender_name, participant_name, message_timestamp, message_text')
           .eq('chat_id', currentMsg.chat_id)
           .lt('created_at', currentMsg.created_at)
           .order('created_at', { ascending: false })
@@ -522,7 +530,7 @@ export async function parseWhatsAppOrderMessageWithAI(
 
         if (contextData && contextData.length > 0) {
           chatContext = [...contextData].reverse().map((m: any) => ({
-            sender: m.sender_name,
+            sender: m.participant_name || m.sender_name,
             date: m.message_timestamp ? new Date(m.message_timestamp).toISOString().split('T')[0] : null,
             text: m.message_text,
           }));
@@ -558,7 +566,7 @@ export async function parseWhatsAppOrderMessageWithAI(
       placeAliases: placeAliasList,
       messages: [
         ...chatContext,
-        { sender: sender ?? null, date, text: rawMessage, ...(quotedText ? { quotedText } : {}) }
+        { sender: effectiveSender, date, text: rawMessage, ...(quotedText ? { quotedText } : {}) }
       ],
       ...(imageBase64 ? { imageBase64, imageMimeType } : {}),
     }),
@@ -580,100 +588,41 @@ export async function parseWhatsAppOrderMessageWithAI(
 
   // 3. Odběratel — top-level place_name z AI má přednost (stejné ladění jako
   //    u čtení z fotek), pak place_name položek, pak celý text zprávy.
-  //    ODESÍLATEL se jako odběratel NIKDY nepoužívá — je to jen posel;
-  //    odběratel je vždy napsaný UVNITŘ textu zprávy.
+  //    ODESÍLATEL se jako odběratel normálně nepoužívá — je to jen posel;
+  //    odběratel je vždy napsaný UVNITŘ textu zprávy. VÝJIMKA: "pro mě"/
+  //    "mi"/"mně"/"pro mne" — pak je odběratelem PRÁVĚ odesílatel (viz
+  //    `resolvePlace`/`matchOwnOrderPlace` v _shared/place-match.ts).
   //
-  // Ukotvení (grounding): AI občas vymyslí odběratele, který v objednávce není
-  // (hallucinace ze seznamu ZNÁMÍ ODBĚRATELÉ). Kandidát na odběratele proto
-  // musí být "ukotven" — jeho název se musí vyskytovat v textu zprávy.
-  // Stejně tak filtrujeme falešné fuzzy shody z textu (např. "patek" → "Radek").
-  const isIgnoredSender = (name?: string | null) => {
-    if (!name) return true;
-    const norm = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    return ['bednar', 'petr', 'sladek', 'gabina', 'ucetni', 'pojmi', 'bendat'].some((s) => norm.includes(s));
-  };
-  const normGround = (s?: string | null) =>
-    (s || '')
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-z0-9]+/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-  // Jméno odesílatele (posla) nikdy neoznačuje odběratele.
-  const senderNormGround = normGround(sender);
-  const isSameAsSender = (name?: string | null) =>
-    !!name && !!senderNormGround && normGround(name) === senderNormGround;
-  // Z textu zprávy odstraníme jméno odesílatele (pozdrav/podpis), aby nemohlo
-  // zastínit odběratele, který je napsaný uvnitř zprávy.
-  const stripSenderWords = (text: string): string => {
-    if (!sender) return text;
-    const words = sender.split(/\s+/).filter((w) => w.length >= 3);
-    if (words.length === 0) return text;
-    let out = text;
-    for (const w of words) {
-      out = out.replace(new RegExp(`\\b${w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi'), ' ');
-    }
-    return out.replace(/\s+/g, ' ').trim();
-  };
-  const groundText = stripSenderWords(rawMessage);
-  const isPlaceGrounded = (candidate?: string | null) => {
-    const c = normGround(candidate);
-    if (!c || c.length < 3) return false;
-    if (isSameAsSender(candidate)) return false;
-    if (normGround(groundText).includes(c)) return true;
-    return false;
-  };
-  // Shoda místa je důvěryhodná, pokud se název místa (nebo jeho podstatné
-  // slovo) vyskytuje v textu zprávy (ne v odesílateli).
-  const isMatchGrounded = (placeNameToCheck?: string | null) => {
-    if (!placeNameToCheck) return false;
-    if (isSameAsSender(placeNameToCheck)) return false;
-    if (isPlaceGrounded(placeNameToCheck)) return true;
-    const np = normGround(placeNameToCheck);
-    const words = np.split(' ').filter((w) => w.length >= 3);
-    if (words.some((w) => normGround(groundText).includes(w))) return true;
-    return false;
-  };
-
+  // Stejná funkce jako u serverového whatsapp-auto-parse (žádná vlastní
+  // duplicitní logika) — appka se tak u "Přečíst znovu" chová stejně jako
+  // u prvního (automatického) zpracování zprávy.
   const rawTextFromAi: string = data?.raw_text ?? rawMessage;
   const rawPlaceName: string | null = data?.place_name ?? null;
-  const detectedPlaceName =
-    (isIgnoredSender(rawPlaceName) || isSameAsSender(rawPlaceName)) ? null : rawPlaceName;
+  const wantsOwnOrder = textWantsOwnOrder(rawMessage);
+  const senderNorm = normPlaceName(effectiveSender);
+  const isSameAsSender = (name?: string | null) => !!name && !!senderNorm && normPlaceName(name) === senderNorm;
+  const jePlatnyKandidat = (c: string | null | undefined): c is string => {
+    if (!c || !c.trim()) return false;
+    if (wantsOwnOrder) return true;
+    return !isSameAsSender(c);
+  };
+  const cleanTextForPlace = stripSenderName(rawTextFromAi || rawMessage, effectiveSender);
 
-  let foundPlace = { placeId: null as string | null, placeName: null as string | null };
-  if (detectedPlaceName && isPlaceGrounded(detectedPlaceName)) {
-    foundPlace = matchPlaceFromText(detectedPlaceName, places, placeAliasMap);
-    if (foundPlace.placeId && !isMatchGrounded(foundPlace.placeName)) foundPlace = { placeId: null, placeName: null };
-  }
   let firstItemPlaceName: string | null = null;
-  if (!foundPlace.placeId) {
-    for (const item of geminiItems) {
-      if (item.place_name && !isIgnoredSender(item.place_name) && !isSameAsSender(item.place_name)) {
-        if (!firstItemPlaceName) firstItemPlaceName = item.place_name;
-        if (isPlaceGrounded(item.place_name)) {
-          foundPlace = matchPlaceFromText(item.place_name, places, placeAliasMap);
-          if (foundPlace.placeId && !isMatchGrounded(foundPlace.placeName)) foundPlace = { placeId: null, placeName: null };
-          if (foundPlace.placeId) break;
-        }
-      }
+  for (const item of geminiItems) {
+    if (item.place_name && jePlatnyKandidat(item.place_name) && !firstItemPlaceName) {
+      firstItemPlaceName = item.place_name;
     }
   }
-  if (!foundPlace.placeId) {
-    // Celý text zprávy (bez jména odesílatele) — odběratel je uvnitř zprávy.
-    foundPlace = matchPlaceFromText(stripSenderWords(rawTextFromAi || rawMessage), places, placeAliasMap);
-    if (foundPlace.placeId && !isMatchGrounded(foundPlace.placeName)) foundPlace = { placeId: null, placeName: null };
-  }
+  const topLevelPlaceName = jePlatnyKandidat(rawPlaceName) ? rawPlaceName : null;
 
-  const placeId = foundPlace.placeId;
-  let placeName = foundPlace.placeName;
-  if (!placeId && !placeName) {
-    // AI rozpoznala jméno, ale neodpovídá žádnému známému odběrateli
-    // → použij ho jako nového odběratele (placeNameFree). Jen pokud je
-    // ukotveno v textu zprávy (ne vymyšlené) a není to jméno odesílatele.
-    placeName = detectedPlaceName || firstItemPlaceName;
-    if (placeName && (isSameAsSender(placeName) || !isPlaceGrounded(placeName))) placeName = null;
-  }
+  const matchCandidates = [firstItemPlaceName, topLevelPlaceName, cleanTextForPlace].filter(jePlatnyKandidat);
+  const freeformCandidates = [firstItemPlaceName, topLevelPlaceName].filter(jePlatnyKandidat);
+  const ownOrderCandidate = wantsOwnOrder ? effectiveSender : null;
+  const resolved = resolvePlace(matchCandidates, freeformCandidates, cleanTextForPlace, places, placeAliasList, ownOrderCandidate);
+
+  const placeId = resolved.id;
+  const placeName = resolved.name;
 
   // 4. Den/datum dodání (zítra, dnes, název dne, ...).
   const { day, dateStr } = detectDeliveryDay(rawMessage);

@@ -7,6 +7,11 @@ export interface WhatsAppIncoming {
   id: string;
   created_at: string;
   sender_name: string;
+  /** Skutečný pisatel zprávy VE SKUPINOVÉM chatu — u skupiny je `sender_name`
+      jméno mostu/skupiny (např. "Objednávky pivovar"), ne osoby, která
+      zprávu napsala. Používej `participant_name || sender_name`, ne holé
+      `sender_name` (viz whatsappParser.ts, `parseWhatsAppOrderMessageWithAI`). */
+  participant_name?: string | null;
   sender_number?: string;
   message_text: string;
   message_timestamp?: string;

@@ -1,7 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { requireApprovedUser } from "../_shared/require-user.ts";
 import { normText, matchBeerId, matchPackageId } from "../_shared/beer-match.ts";
-import { normPlaceName, stripSenderName, resolvePlace } from "../_shared/place-match.ts";
+import { normPlaceName, stripSenderName, resolvePlace, wantsOwnOrder as textWantsOwnOrder } from "../_shared/place-match.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -615,10 +615,7 @@ Deno.serve(async (req: Request) => {
         // VÝJIMKA: když text zprávy říká "pro mě"/"mi"/"mně"/"pro mne" (objednávka
         // pro pisatele), je odběratelem PRÁVĚ odesílatel (jeho participant_name
         // nebo sender_name).
-        const wantsOwnOrder =
-          /(?:^|\s)pro\s+(?:m[eě]|mne|mn[eě])\b|(?:^|\s)(?:mi|mn[eě])\b|pro\s+sebe/i.test(
-            message.message_text
-          );
+        const wantsOwnOrder = textWantsOwnOrder(message.message_text);
         const senderNormPlace = normPlaceName(
           message.participant_name || message.sender_name
         );
@@ -655,7 +652,14 @@ Deno.serve(async (req: Request) => {
         // od AI (viz resolvePlace v ../_shared/place-match.ts).
         const freeformCandidates = [firstItemPlaceName, topLevelPlaceName].filter(jePlatnyKandidat);
 
-        const resolved = resolvePlace(matchCandidates, freeformCandidates, cleanTextForPlace, places, placeAliases);
+        // "pro mě" bez jména v textu (typický případ): ukotvením není výskyt
+        // jména odesílatele v textu (to by skoro nikdy nebylo, jméno se naopak
+        // z textu odstraňuje), ale sama fáze "pro mě" — viz matchOwnOrderPlace
+        // v ../_shared/place-match.ts. Díky tomu odesílatel "Petr Bednář" najde
+        // odběratele "petr", i když se v textu zprávy vůbec nevyskytuje
+        // (z provozu 16. 9. 2026: "Lucka jede zitra do skoly... pro me prosim").
+        const ownOrderCandidate = wantsOwnOrder ? (message.participant_name || message.sender_name) : null;
+        const resolved = resolvePlace(matchCandidates, freeformCandidates, cleanTextForPlace, places, placeAliases, ownOrderCandidate);
         parsedPlaceId = resolved.id;
         parsedPlaceName = resolved.name;
 

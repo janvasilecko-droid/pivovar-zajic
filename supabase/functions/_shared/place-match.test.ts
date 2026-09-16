@@ -1,13 +1,16 @@
 // Určení odběratele ze zprávy — viz hlavička place-match.ts, proč je tohle
 // vytažené z whatsapp-auto-parse/index.ts do samostatného souboru.
 import { describe, it, expect } from 'vitest';
-import { normPlaceName, isPlaceGrounded, matchPlaceSafely, resolvePlace, stripSenderName } from './place-match';
+import { normPlaceName, isPlaceGrounded, matchPlaceSafely, matchOwnOrderPlace, resolvePlace, stripSenderName, wantsOwnOrder } from './place-match';
 
 const PLACES = [
   { id: 'p-udubu', name: 'U Dubu' },
   { id: 'p-seeberg', name: 'Seeberg' },
   { id: 'p-ruzek', name: 'Restaurace Na Růžku' },
   { id: 'p-malesice', name: 'Malešice' },
+  // Zákazník, který se křestním jménem shoduje se zaměstnancem/sládkem
+  // (viz `wantsOwnOrder`/`matchOwnOrderPlace` níž, z provozu 16. 9. 2026).
+  { id: 'p-petr', name: 'petr' },
 ];
 const NO_ALIASES: { wrong_name: string; correct_name: string }[] = [];
 
@@ -136,5 +139,58 @@ describe('resolvePlace', () => {
     expect(resolvePlace([null, undefined, ''], [null, undefined, ''], 'text', PLACES, NO_ALIASES)).toEqual({
       id: null, name: null,
     });
+  });
+
+  // Z provozu 16. 9. 2026: "Lucka jede zitra do skoly do Pisku a bude brat
+  // pivo, tak pro me prosim dnes 1x30l 11sv, Gabi pripis mi to..." — sám
+  // odesílatel je odběratel, jeho jméno se v textu vůbec nevyskytuje (proto
+  // ho matchCandidates/freeformCandidates ukotvené v textu nikdy nechytí),
+  // a navíc se křestním jménem shoduje se zaměstnancem ("Petr Bednář").
+  it('"pro mě" najde odběratele podle odesílatele, i když jeho jméno v textu vůbec není', () => {
+    const text = 'Lucka jede zitra do skoly, tak pro me prosim dnes 1x30l 11sv, diky';
+    const resolved = resolvePlace([], [], text, PLACES, NO_ALIASES, 'Petr Bednář');
+    expect(resolved).toEqual({ id: 'p-petr', name: 'petr' });
+  });
+
+  it('výslovně jmenovaný odběratel v textu má přednost i před "pro mě"', () => {
+    const text = 'pro mě prosim poslat na Seeberg 4x30';
+    const resolved = resolvePlace(['Seeberg', text], ['Seeberg'], text, PLACES, NO_ALIASES, 'Petr Bednář');
+    expect(resolved).toEqual({ id: 'p-seeberg', name: 'Seeberg' });
+  });
+
+  it('"pro mě" bez shody v katalogu nabídne aspoň jméno odesílatele jako nezávazné', () => {
+    const text = 'pro mě prosim zítra 2x30 12sv';
+    const resolved = resolvePlace([], [], text, PLACES, NO_ALIASES, 'Nový Zákazník');
+    expect(resolved).toEqual({ id: null, name: 'Nový Zákazník' });
+  });
+});
+
+describe('wantsOwnOrder', () => {
+  it('pozná "pro mě"/"mi"/"mně"/"pro mne"/"pro sebe"', () => {
+    expect(wantsOwnOrder('tak pro me prosim dnes 1x30l')).toBe(true);
+    expect(wantsOwnOrder('pripis mi to na ucet')).toBe(true);
+    expect(wantsOwnOrder('posli mně 2x30')).toBe(true);
+    expect(wantsOwnOrder('objednávka pro mne na zítra')).toBe(true);
+    expect(wantsOwnOrder('vezmu si to pro sebe')).toBe(true);
+  });
+
+  it('nehlásí se u objednávky pro někoho jiného', () => {
+    expect(wantsOwnOrder('objednávka pro Tomáše od Marušky')).toBe(false);
+    expect(wantsOwnOrder('4x30 12sv na Seeberg')).toBe(false);
+  });
+});
+
+describe('matchOwnOrderPlace', () => {
+  it('nepotřebuje ukotvení v textu — hledá přímo v katalogu podle jména odesílatele', () => {
+    expect(matchOwnOrderPlace('Petr Bednář', PLACES, NO_ALIASES)).toEqual({ id: 'p-petr', name: 'petr' });
+  });
+
+  it('bez shody v katalogu vrátí null (o nezávazný název se stará resolvePlace)', () => {
+    expect(matchOwnOrderPlace('Nikdo Neznámý', PLACES, NO_ALIASES)).toEqual({ id: null, name: null });
+  });
+
+  it('prázdné jméno odesílatele nespadne', () => {
+    expect(matchOwnOrderPlace(null, PLACES, NO_ALIASES)).toEqual({ id: null, name: null });
+    expect(matchOwnOrderPlace(undefined, PLACES, NO_ALIASES)).toEqual({ id: null, name: null });
   });
 });
