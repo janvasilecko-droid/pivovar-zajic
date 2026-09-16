@@ -282,6 +282,17 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
     setEdgeHint(null);
   }
   const rowHeight = cols === GRID_COLS_MOBILE ? ROW_HEIGHT_MOBILE : ROW_HEIGHT_DESKTOP;
+  // 🖥️ Na počítači (široká obrazovka, mimo úpravu rozložení) se všechny
+  // stránky plochy zobrazí pod sebou najednou — na velkém displeji je pro
+  // ně dost místa a přepínání šipkami dává smysl jen na telefonu, kde se na
+  // obrazovku vejde jen jedna. Z provozu 16. 9. 2026: „na počítači ať mám
+  // všechny dlaždice na jedny ploše a nemusím přepínat obrazovky, to jen na
+  // telefonu". Úprava rozložení (přetahování, mazání stránek…) zůstává vždy
+  // jen na JEDNÉ stránce najednou (currentPageIndex) — přetahovat dlaždici
+  // mezi několika viditelnými mřížkami by vyžadovalo přepsat cílení buňky
+  // (cellFromPoint níž počítá z JEDINÉ `.hs-grid` v DOM).
+  const zobrazVsechnyStrankyNajednou = !editMode && cols === GRID_COLS_DESKTOP;
+  const zobrazeneStranky = zobrazVsechnyStrankyNajednou ? layout.pages.map((_, i) => i) : [currentPageIndex];
   function cellFromPoint(clientX: number, clientY: number): { x: number; y: number } | null {
     const gridEl = document.querySelector('.hs-grid') as HTMLElement | null;
     if (!gridEl) return null;
@@ -548,6 +559,10 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   // ignorují (< 50px, nebo víc svislý než vodorovný pohyb).
   const swipeStart = useRef<{ x: number; y: number } | null>(null);
   function handleSwipePointerDown(e: React.PointerEvent) {
+    // Na počítači se stránky nepřetáčí (jsou pod sebou najednou, viz
+    // zobrazVsechnyStrankyNajednou výš) — gesto by beztak neměnilo nic
+    // vidět, jen tiše přepnulo currentPageIndex na pozadí.
+    if (zobrazVsechnyStrankyNajednou) { swipeStart.current = null; return; }
     // Gesto, které začalo uvnitř vodorovného pásku (záložky, řada
     // upozornění), patří tomu pásku — dřív se jím místo posunutí pásku
     // přetočila celá stránka launcheru. Viz jeVeVodorovnemPasku.
@@ -1489,7 +1504,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
               aria-hidden="true"
               className="hs-pager-znak vlastni-vyska"
             />
-            {(layout.pages.length > 1 || editMode) && (
+            {(layout.pages.length > 1 || editMode) && !zobrazVsechnyStrankyNajednou && (
             <>
             <button
               type="button"
@@ -1824,11 +1839,16 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
           </div>
         )}
 
-        <div className={`hs-grid ${draggingId ? 'hs-mrizka-viditelna' : ''}`} style={{ ['--hs-tile-alpha' as any]: layout.tileOpacity, ['--hs-tile-gap' as any]: `${layout.tileGap}px`, ['--hs-sloupcu' as any]: cols, ['--hs-radek' as any]: `${rowHeight}px` }}>
+        {zobrazeneStranky.map((strankaIndex, poradi) => (
+        <div
+          key={strankaIndex}
+          className={`hs-grid ${draggingId ? 'hs-mrizka-viditelna' : ''} ${poradi > 0 ? 'hs-grid-dalsi-stranka' : ''}`}
+          style={{ ['--hs-tile-alpha' as any]: layout.tileOpacity, ['--hs-tile-gap' as any]: `${layout.tileGap}px`, ['--hs-sloupcu' as any]: cols, ['--hs-radek' as any]: `${rowHeight}px` }}
+        >
           {/* Obrys buňky, kam dlaždice spadne. Kreslí se ve stejné velikosti
               jako přesouvaná dlaždice, aby bylo předem vidět, jestli se tam
               vejde — ne jen „někam sem". */}
-          {draggingId && dropCell && (
+          {draggingId && dropCell && strankaIndex === currentPageIndex && (
             <div
               className="hs-drop-ghost"
               aria-hidden="true"
@@ -1844,7 +1864,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
               uhnuly. Mimo tažení je `nahledLayout` null a platí uložený stav. */}
           {/* 'signout' se nevykresluje — odhlášení je nahoře u šipek jako
               ikona. V uloženém rozložení zůstává, ať jde vrátit beze ztráty. */}
-          {((nahledLayout ?? layout).pages[currentPageIndex] ?? []).filter((id) => id !== 'signout' && id !== 'app_settings').map((id) => {
+          {((nahledLayout ?? layout).pages[strankaIndex] ?? []).filter((id) => id !== 'signout' && id !== 'app_settings').map((id) => {
             const override = (nahledLayout ?? layout).overrides[id] ?? {};
             if (isGroupId(id)) {
               const group = layout.groups[id];
@@ -2361,6 +2381,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
             );
           })}
         </div>
+        ))}
         </div>
       </div>
 

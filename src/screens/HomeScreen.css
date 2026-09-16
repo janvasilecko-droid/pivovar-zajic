@@ -119,6 +119,11 @@
    (key={currentPageIndex} v HomeScreen.tsx tenhle prvek při přepnutí
    znovu-namountuje, takže animace vždycky naběhne od začátku). */
 .hs-swipe-area { touch-action: pan-y; display: flex; flex-direction: column; flex: 1 1 auto; min-height: 200px; }
+/* Na počítači se všechny stránky plochy kreslí pod sebe najednou (viz
+   HomeScreen.tsx, zobrazVsechnyStrankyNajednou) — mezera + jemná linka mezi
+   nimi, ať je vidět, že jde o další stránku, ne pokračování téže mřížky. */
+.hs-grid-dalsi-stranka { margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(0, 0, 0, 0.1); }
+:root.dark .hs-grid-dalsi-stranka { border-top-color: rgba(255, 255, 255, 0.14); }
 .hs-page-enter { animation: hs-page-enter-kf 0.18s ease-out; }
 @keyframes hs-page-enter-kf {
   from { opacity: 0; transform: translateX(10px); }
