@@ -306,8 +306,16 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
+      # `packages: ''` je nutné: akce jinak ve výchozím stavu pouští
+      # `sdkmanager tools`, ale balíček `tools` Google ze SDK odstranil —
+      # sdkmanager skončí „Warning: Failed to find package 'tools'“ a návratovým
+      # kódem 1, takže celý job spadne ještě před překladečem (16. 9. 2026).
+      # Co build opravdu potřebuje (platforms, build-tools), si gradle stáhne
+      # sám a platform-tools jsou v obrazu runneru už předinstalované.
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: ''
 
       - name: Build APK
         run: cd android && ./gradlew assembleDebug
