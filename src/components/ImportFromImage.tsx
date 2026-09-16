@@ -18,6 +18,7 @@ import {
 } from '../lib/orderParser';
 import { uloz } from '../lib/uloziste';
 import { businessDateISO } from '../lib/businessDate';
+import { matchAgainstCatalog } from '../../supabase/functions/_shared/place-match';
 
 type ExistingItem = { beer_id: string | null; package_id: string | null; quantity: number };
 type PhotoEntry = { dataUrl: string; name: string; fingerprint: string };
@@ -435,33 +436,46 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
       // u každé položky. Zkusíme je spárovat se známými odběrateli (places).
       // Detekci spouštíme VŽDY (i když už je placeId nastavené), aby se při
       // importu více fotek správně rozpoznal odběratel pro každou objednávku.
+      // ⚠️ Jméno "zaměstnance" se tu NESMÍ vyřazovat PŘED pohledem do
+      // katalogu odběratelů — z provozu 16. 9. 2026: appka takhle zahazovala
+      // i SKUTEČNÉHO zákazníka "petr", protože "petr" je zároveň křestní
+      // jméno sládka. Skutečný odběratel z katalogu je potvrzená data a musí
+      // vyhrát nad heuristikou "tohle vypadá jako podpis". Blacklist zůstává
+      // jen tam, kde se jméno bere jako NEZÁVAZNÝ název NOVÉHO odběratele
+      // (katalog o něm nic neví) — tam skutečně hrozí, že se z podpisu
+      // řidiče založí vymyšlený zákazník (stejná oprava jako u WhatsAppu,
+      // viz matchAgainstCatalog v _shared/place-match.ts).
       const isIgnoredSender = (name?: string | null) => {
         if (!name) return true;
         const norm = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
         return ['bednar', 'petr', 'sladek', 'gabina', 'ucetni', 'pojmi', 'bendat'].some((s) => norm.includes(s));
       };
 
-      const detectedPlaceName = isIgnoredSender(data?.place_name ?? data?.customer_name) ? null : (data?.place_name ?? data?.customer_name);
-      // Nejprve zkus top-level place_name z AI (nejspolehlivější)
-      let foundPlace = matchPlaceFromText(detectedPlaceName || '', places, placeAliasMap);
+      const detectedPlaceName = data?.place_name ?? data?.customer_name ?? null;
+      // Nejprve zkus top-level place_name z AI (nejspolehlivější) — přímo
+      // proti katalogu, bez blacklistu.
+      let foundPlace = matchAgainstCatalog(detectedPlaceName || '', places, placeAliasList);
       let firstItemPlaceName: string | null = null;
       // Pokud top-level nic nedal, zkus place_name z jednotlivých položek
-      if (!foundPlace.placeId) {
+      if (!foundPlace.id) {
         for (const item of geminiItems) {
-          if (item.place_name && !isIgnoredSender(item.place_name)) {
+          if (item.place_name) {
             if (!firstItemPlaceName) firstItemPlaceName = item.place_name;
-            foundPlace = matchPlaceFromText(item.place_name, places, placeAliasMap);
-            if (foundPlace.placeId) break;
+            foundPlace = matchAgainstCatalog(item.place_name, places, placeAliasList);
+            if (foundPlace.id) break;
           }
         }
       }
-      // Pokud stále nic, zkus najít odběratele v celém rozpoznaném textu
-      if (!foundPlace.placeId) {
-        foundPlace = matchPlaceFromText(rawTextFromGemini, places, placeAliasMap);
+      // Pokud stále nic, zkus najít odběratele v celém rozpoznaném textu —
+      // tady blacklist zůstává (viz komentář výš): whole-text shoda nemá jak
+      // ukotvit, že "Petr" v textu je zákazník, ne podpis řidiče.
+      if (!foundPlace.id) {
+        const whole = matchPlaceFromText(rawTextFromGemini, places, placeAliasMap);
+        foundPlace = { id: whole.placeId, name: whole.placeName };
       }
-      if (foundPlace.placeId) {
-        setPlaceId(foundPlace.placeId);
-        setPlaceName(foundPlace.placeName ?? '');
+      if (foundPlace.id) {
+        setPlaceId(foundPlace.id);
+        setPlaceName(foundPlace.name ?? '');
       } else if (detectedPlaceName && !isIgnoredSender(detectedPlaceName)) {
         // AI rozpoznala jméno, ale neodpovídá žádnému známému odběrateli
         // → použij ho jako nového odběratele

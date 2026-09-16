@@ -96,9 +96,15 @@ export function isPlaceGrounded(candidate: string, messageText: string): boolean
  * Vytažené z `matchPlaceSafely` níže, aby šlo použít i BEZ požadavku na
  * ukotvení v textu zprávy — pro odesílatele u "pro mě" (viz
  * `matchOwnOrderPlace`), kde ukotvením není výskyt jména v textu, ale sama
- * fráze "pro mě"/"mi"/"mně".
+ * fráze "pro mě"/"mi"/"mně". Taky pro znovu-vyhledání ID k jménu, které je
+ * UŽ VYBRANÉ (ne syrový text zprávy k ukotvení) — např. modál objednávky
+ * po otevření zná jen `parsed_place_name`, ne ID (viz
+ * WhatsAppOrderReviewModal.tsx). Tam by ukotvení nedávalo smysl a stará
+ * cesta přes `matchPlaceFromText` (orderParser.ts) navíc jméno typu "petr"
+ * napevno vyřazovala jako zaměstnance — i když jde o zákazníka, který se
+ * tak jmenuje (z provozu 16. 9. 2026).
  */
-function matchAgainstCatalog(
+export function matchAgainstCatalog(
   candidate: string,
   places: { id: string; name: string }[],
   placeAliases: { wrong_name: string; correct_name: string }[]

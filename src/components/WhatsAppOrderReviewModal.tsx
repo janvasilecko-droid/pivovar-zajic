@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { Beer, Package, Place, supabase } from '../lib/supabase';
 import { WhatsAppIncoming, ignoreWhatsAppMessage, updateWhatsAppParsedData, napojNaObjednavku } from '../lib/whatsappApi';
 import { parseWhatsAppOrderMessageWithAI } from '../lib/whatsappParser';
-import { loadAliasMap, saveAlias, canLearnBeerAlias, matchBeerFromHints, matchPackage, matchPlaceFromText, savePlaceAlias, normalize, getOrCreatePlace, type ParserAliasMap } from '../lib/orderParser';
+import { loadAliasMap, saveAlias, canLearnBeerAlias, matchBeerFromHints, matchPackage, savePlaceAlias, normalize, getOrCreatePlace, type ParserAliasMap } from '../lib/orderParser';
+import { matchAgainstCatalog } from '../../supabase/functions/_shared/place-match';
 import { oznacVlastniObjednavku } from '../lib/mojeObjednavky';
 import {
   diffOrderItems, rozsahOdpovedi, slozNavrh, potvrzeneBezPolozek, vypadaJakoPridavek,
@@ -166,8 +167,13 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
     let pid = msg.parsed_place_id || '';
     const pname = msg.parsed_place_name || '';
     if (!pid && pname) {
-      const matched = matchPlaceFromText(pname, props.places);
-      if (matched.placeId && matched.placeName) pid = matched.placeId;
+      // matchAgainstCatalog (ne matchPlaceFromText): `pname` je už VYBRANÉ
+      // jméno (AI ho vrátila jako place_name), ne syrový text zprávy —
+      // ukotvení v textu tu nedává smysl a stará cesta navíc jméno jako
+      // "petr" napevno vyřazovala coby zaměstnance (viz komentář u
+      // matchAgainstCatalog v _shared/place-match.ts).
+      const matched = matchAgainstCatalog(pname, props.places, []);
+      if (matched.id) pid = matched.id;
     }
     setPlaceId(pid);
     setPlaceName(pname || props.places.find((p) => p.id === pid)?.name || '');

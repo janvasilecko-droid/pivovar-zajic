@@ -1,7 +1,7 @@
 // Určení odběratele ze zprávy — viz hlavička place-match.ts, proč je tohle
 // vytažené z whatsapp-auto-parse/index.ts do samostatného souboru.
 import { describe, it, expect } from 'vitest';
-import { normPlaceName, isPlaceGrounded, matchPlaceSafely, matchOwnOrderPlace, resolvePlace, stripSenderName, wantsOwnOrder } from './place-match';
+import { normPlaceName, isPlaceGrounded, matchPlaceSafely, matchOwnOrderPlace, matchAgainstCatalog, resolvePlace, stripSenderName, wantsOwnOrder } from './place-match';
 
 const PLACES = [
   { id: 'p-udubu', name: 'U Dubu' },
@@ -177,6 +177,21 @@ describe('wantsOwnOrder', () => {
   it('nehlásí se u objednávky pro někoho jiného', () => {
     expect(wantsOwnOrder('objednávka pro Tomáše od Marušky')).toBe(false);
     expect(wantsOwnOrder('4x30 12sv na Seeberg')).toBe(false);
+  });
+});
+
+describe('matchAgainstCatalog', () => {
+  // Z provozu 16. 9. 2026: fotka/modál objednávky znovu-hledá ID k jménu,
+  // které je UŽ VYBRANÉ — žádné ukotvení v textu, žádný blacklist podle
+  // "vypadá to jako zaměstnanec". Skutečný zákazník v katalogu (i "petr")
+  // musí projít, ať se jmenuje jakkoliv.
+  it('najde zákazníka v katalogu, i když se jmenuje stejně jako zaměstnanec', () => {
+    expect(matchAgainstCatalog('petr', PLACES, NO_ALIASES)).toEqual({ id: 'p-petr', name: 'petr' });
+    expect(matchAgainstCatalog('Petr Bednář', PLACES, NO_ALIASES)).toEqual({ id: 'p-petr', name: 'petr' });
+  });
+
+  it('bez shody v katalogu vrátí null (žádné ukotvení v textu se nekontroluje)', () => {
+    expect(matchAgainstCatalog('Někdo Neznámý', PLACES, NO_ALIASES)).toEqual({ id: null, name: null });
   });
 });
 
