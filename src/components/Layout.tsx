@@ -203,6 +203,12 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
   const [pending, setPending] = useState(0);
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
+  // Sdílené se spodní lištou "N zápisů čeká na odeslání" — když se
+  // synchronizace nepovede (viz onClick té lišty níž), otevře se odsud
+  // TENTÝŽ detail se seznamem a důvody chyb, co má tečka v hlavičce.
+  // Bez sdíleného stavu by lišta po neúspěšném pokusu jen zabliknout toastem
+  // a uživatel by nikdy neviděl PROČ zápis uvízl.
+  const [showSyncInfo, setShowSyncInfo] = useState(false);
   // Banner "offline → zobrazená data nemusí být aktuální" (událost z supabase.ts serveCached).
   const [showStaleBanner, setShowStaleBanner] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
@@ -815,7 +821,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
               ukazuje, že něco ještě neodešlo do cloudu. Bez něj by se
               neodeslaná data ztratila potichu. */}
           <div className="flex items-center gap-2 shrink-0 ml-auto">
-            <OfflineStatus online={online} pending={pending} syncing={syncing} syncMsg={syncMsg} onSync={async () => { if (queueLength() === 0) { setSyncMsg('Fronta je prázdná — nic k synchronizaci'); setTimeout(() => setSyncMsg(null), 3000); return; } setSyncing(true); const r = await syncQueue(); setSyncing(false); setSyncMsg(r.remaining === 0 ? `Synchronizováno ${r.ok} změn` : `OK ${r.ok}, selhalo ${r.failed}`); setTimeout(() => setSyncMsg(null), 4000); }} />
+            <OfflineStatus online={online} pending={pending} syncing={syncing} syncMsg={syncMsg} showInfo={showSyncInfo} setShowInfo={setShowSyncInfo} onSync={async () => { if (queueLength() === 0) { setSyncMsg('Fronta je prázdná — nic k synchronizaci'); setTimeout(() => setSyncMsg(null), 3000); return; } setSyncing(true); const r = await syncQueue(); setSyncing(false); setSyncMsg(r.remaining === 0 ? `Synchronizováno ${r.ok} změn` : `OK ${r.ok}, selhalo ${r.failed}`); setTimeout(() => setSyncMsg(null), 4000); }} />
           </div>
         </header>
         )}
@@ -898,11 +904,22 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
               type="button"
               onClick={async () => {
                 if (queueLength() === 0) return;
+                // Offline se odesílat nedá — klepnutí tu jen otevře detail
+                // (proč to čeká, případně zahodit vadný zápis), ne slepý
+                // pokus o odeslání, který by stejně selhal bez sítě.
+                if (!online) { setShowSyncInfo(true); return; }
                 setSyncing(true);
                 const r = await syncQueue();
                 setSyncing(false);
                 setSyncMsg(r.remaining === 0 ? `Odesláno ${r.ok} změn` : `OK ${r.ok}, selhalo ${r.failed}`);
                 setTimeout(() => setSyncMsg(null), 4000);
+                // Zůstalo něco neodeslané i po pokusu (a appka JE online) —
+                // dřív z toho stačilo jen 4s zablikané "OK 0, selhalo 2" a
+                // lišta pak dál mlčí, i když se opakovaně klepe. Teď se
+                // rovnou otevře detail se seznamem a DŮVODEM chyby u
+                // každého zápisu (a tlačítkem "Zahodit"), stejný, jaký má
+                // tečka v hlavičce — ne jen "zkus to znovu naslepo".
+                if (r.remaining > 0) setShowSyncInfo(true);
               }}
               disabled={syncing || pending === 0}
               className={`pointer-events-auto w-full rounded-lg px-3 py-2 text-xs font-black shadow-lg border flex items-center justify-center gap-2 transition ${
@@ -980,8 +997,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
   );
 }
 
-function OfflineStatus({ online, pending, syncing, syncMsg, onSync }: { online: boolean; pending: number; syncing: boolean; syncMsg: string | null; onSync: () => void }) {
-  const [showInfo, setShowInfo] = useState(false);
+function OfflineStatus({ online, pending, syncing, syncMsg, onSync, showInfo, setShowInfo }: { online: boolean; pending: number; syncing: boolean; syncMsg: string | null; onSync: () => void; showInfo: boolean; setShowInfo: (v: boolean) => void }) {
   const [queueItems, setQueueItems] = useState<{ id: string; popis: string; ts: number }[]>([]);
   const [failures, setFailures] = useState<{ id: string; table: string; op: string; error: string }[]>([]);
 
