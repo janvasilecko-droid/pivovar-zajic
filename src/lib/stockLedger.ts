@@ -63,6 +63,8 @@ export type Movement = {
   qty: number;
   kind: MovementKind;
   note?: string | null;
+  /** U 'zavoz' id objednávky, na kterou se vydalo — pro proklik na detail. */
+  orderId?: string | null;
 };
 
 /**
@@ -96,6 +98,7 @@ export type RadekPohybu = {
 export type RadekZavozu = Omit<RadekPohybu, 'entry_date'> & {
   deduct_date?: string | null;
   order_item_id?: string | null;
+  order_id?: string | null;
 };
 
 /** Přefuk sudů: ze kterého obalu do kterého. */
@@ -190,9 +193,9 @@ export function buildMovements(src: StockSources): Movement[] {
   const out: Movement[] = [];
   const packages = src.packages ?? [];
 
-  const push = (date: any, beer: any, pkg: any, qty: number, kind: MovementKind, note?: string | null) => {
+  const push = (date: any, beer: any, pkg: any, qty: number, kind: MovementKind, note?: string | null, orderId?: string | null) => {
     if (!date || !beer || !pkg || !qty) return;
-    out.push({ date: String(date).slice(0, 10), beer_id: beer, package_id: pkg, qty, kind, note: note ?? null });
+    out.push({ date: String(date).slice(0, 10), beer_id: beer, package_id: pkg, qty, kind, note: note ?? null, orderId: orderId ?? null });
   };
 
   // Inventura — reset stavu. Při shodném datu vyhraje řádek s vyšší prioritou,
@@ -233,7 +236,7 @@ export function buildMovements(src: StockSources): Movement[] {
   (src.fasovaniRows ?? []).forEach((r) => push(r.entry_date, r.beer_id, r.package_id, -Number(r.quantity || 0), 'fasovani'));
   (src.prodejnaRows ?? []).forEach((r) => push(r.entry_date, r.beer_id, r.package_id, -Number(r.quantity || 0), 'prodejna'));
   (src.writeoffsRows ?? []).forEach((r) => push(r.entry_date, r.beer_id, r.package_id, -Number(r.quantity || 0), 'odpis'));
-  (src.zavozDeductionRows ?? []).forEach((r) => push(r.deduct_date, r.beer_id, r.package_id, -Number(r.quantity || 0), 'zavoz'));
+  (src.zavozDeductionRows ?? []).forEach((r) => push(r.deduct_date, r.beer_id, r.package_id, -Number(r.quantity || 0), 'zavoz', null, r.order_id));
   (src.adjustmentRows ?? []).forEach((r) => push(r.entry_date, r.beer_id, r.package_id, Number(r.quantity || 0), 'dorovnani', r.note));
 
   // Akce a festivaly — čistý odběr (odvezeno − vráceno).

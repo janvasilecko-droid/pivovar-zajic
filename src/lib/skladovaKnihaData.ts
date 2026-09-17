@@ -53,7 +53,7 @@ export async function nactiSkladovouKnihu(): Promise<SkladovaKniha> {
     fetchAllRows('writeoffs', 'beer_id,package_id,quantity,entry_date,created_at'),
     fetchAllRows('inventory', 'beer_id,package_id,quantity,entry_date,note,created_at'),
     fetchAllRows('inventory_adjustments', 'beer_id,package_id,quantity,entry_date,created_at'),
-    fetchAllRows('zavoz_deductions', 'deduct_date,beer_id,package_id,quantity,created_at'),
+    fetchAllRows('zavoz_deductions', 'deduct_date,beer_id,package_id,quantity,created_at,order_id'),
     fetchAllRows('akce', 'entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
     fetchAllRows('keg_prefuk', 'entry_date,beer_id,from_package_id,from_count,to_package_id,to_count'),
   ]);

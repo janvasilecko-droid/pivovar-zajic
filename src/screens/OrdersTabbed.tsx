@@ -9,7 +9,9 @@ interface OrdersTabbedProps {
   initialTab?: TopTab;
   autoOpenShareImport?: boolean;
   onShareImportHandled?: () => void;
-  setPage?: (p: any, sec?: string) => void;
+  setPage?: (p: any, sec?: string, sub?: string) => void;
+  /** `order:<id>` z App.tsx — proklik odjinud na konkrétní objednávku. */
+  pageSubTab?: string;
 }
 
 // Závoz a Výčepy jsou teď samostatné dlaždice/stránky (viz Layout.tsx
@@ -33,8 +35,10 @@ export default function OrdersTabbed({
   autoOpenShareImport,
   onShareImportHandled,
   setPage,
+  pageSubTab,
 }: OrdersTabbedProps) {
   const [activeTab, setActiveTab] = useState<TopTab>(initialTab);
+  const openOrderId = pageSubTab?.startsWith('order:') ? pageSubTab.slice('order:'.length) : undefined;
 
   // Sync state if initialTab changes from parent
   useEffect(() => {
@@ -63,6 +67,7 @@ export default function OrdersTabbed({
           autoOpenShareImport={autoOpenShareImport}
           onShareImportHandled={onShareImportHandled}
           initialViewMode={activeTab === 'detail' ? 'detail' : activeTab === 'celkem' ? 'celkem' : 'summary'}
+          openOrderId={openOrderId}
         />
       </div>
     </div>

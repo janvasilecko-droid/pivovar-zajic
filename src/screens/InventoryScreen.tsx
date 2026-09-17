@@ -2522,7 +2522,7 @@ function exportInventoryExcel() {
           je hned vidět, KTERÝ sloupec se rozešel — ne jen že výsledek nesedí. */}
       {activeTab === 'hloubkovy' && <HloubkovyAuditPanel />}
 
-      {activeTab === 'tydenni' && <TydenniInventuraPanel />}
+      {activeTab === 'tydenni' && <TydenniInventuraPanel setPage={setPage} />}
 
       {activeTab === 'rozpad' && <RozpadPivaPanel mesic={currentMonth} />}
 
