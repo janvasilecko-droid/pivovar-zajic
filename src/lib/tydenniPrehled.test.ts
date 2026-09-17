@@ -39,7 +39,7 @@ describe('objednavkaShoduje', () => {
 });
 
 const ZAPIS: PrehledZapis = {
-  id: 'z1', entry_date: '2026-09-11', beer_name: '12° Tmavá', package_label: 'KEG 50l', quantity: 4, note: 'ranní směna',
+  id: 'z1', entry_date: '2026-09-11', beer_name: '12° Tmavá', beer_color: '#3b2415', package_label: 'KEG 50l', quantity: 4, note: 'ranní směna',
 };
 
 describe('zapisShoduje', () => {

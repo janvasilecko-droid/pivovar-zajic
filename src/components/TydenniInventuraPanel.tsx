@@ -11,7 +11,7 @@
 // lib/tankZapis.ts). Vlastní verze zápisu by byla druhá pravda o tomtéž.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarRange, Check, ChevronLeft, ChevronRight, ClipboardList, ExternalLink, ListChecks, Lock, LockOpen, MinusCircle, Plus, RefreshCw, Save, Search } from 'lucide-react';
-import { supabase, fetchAllRows, formatPackageLabel } from '../lib/supabase';
+import { supabase, fetchAllRows, formatPackageLabel, beerBg, beerText } from '../lib/supabase';
 import { Spinner } from './ui';
 import { businessDateISO } from '../lib/businessDate';
 import { nactiSkladovouKnihu, type SkladovaKniha } from '../lib/skladovaKnihaData';
@@ -628,14 +628,15 @@ function PrehledTydne({
 
   const { keggingZapisy, bottlingZapisy } = useMemo(() => {
     if (!kniha) return { keggingZapisy: [] as PrehledZapis[], bottlingZapisy: [] as PrehledZapis[] };
-    const jmenoPiva = new Map(kniha.piva.map((b) => [b.id, b.name]));
+    const pivoPodleId = new Map(kniha.piva.map((b) => [b.id, b]));
     const obalPodleId = new Map(kniha.obaly.map((p) => [p.id, p.label]));
     const preved = (radky: any[]): PrehledZapis[] => radky
       .filter((r) => r.entry_date >= obdobi.od && r.entry_date <= obdobi.do)
       .map((r, i) => ({
         id: String(i),
         entry_date: r.entry_date,
-        beer_name: jmenoPiva.get(r.beer_id) ?? '?',
+        beer_name: pivoPodleId.get(r.beer_id)?.name ?? '?',
+        beer_color: pivoPodleId.get(r.beer_id)?.beer_color ?? null,
         package_label: obalPodleId.get(r.package_id) ?? '?',
         quantity: Number(r.quantity) || 0,
         note: r.note ?? null,
@@ -711,13 +712,18 @@ function SekcePrehledu({ nadpis, children }: { nadpis: string; children: ReactNo
   );
 }
 
+/** Pozadí podle barvy piva — stejný princip jako dlaždice piv (BeerTileGrid), ať jde pivo od piva rozeznat na první pohled, ne jen podle jména v textu. */
 function RadekZapisu({ z }: { z: PrehledZapis }) {
+  const inkTrida = beerText({ beer_color: z.beer_color });
   return (
-    <div className="flex items-center gap-2 p-2 rounded border border-neutral-200 bg-white text-xs">
-      <span className="font-bold text-neutral-400 tabular-nums shrink-0">{z.entry_date}</span>
-      <span className="font-black text-neutral-900 flex-1 min-w-0 truncate">{z.beer_name} {z.package_label}</span>
-      <span className="font-black tabular-nums shrink-0">{z.quantity} ks</span>
-      {z.note && <span className="text-neutral-500 font-medium truncate max-w-[40%]" title={z.note}>{z.note}</span>}
+    <div
+      className="flex items-center gap-2 p-2 rounded border border-black/10 text-xs"
+      style={{ backgroundColor: beerBg({ beer_color: z.beer_color }) }}
+    >
+      <span className={`font-bold tabular-nums shrink-0 opacity-70 ${inkTrida}`}>{z.entry_date}</span>
+      <span className={`font-black flex-1 min-w-0 truncate ${inkTrida}`}>{z.beer_name} {z.package_label}</span>
+      <span className={`font-black tabular-nums shrink-0 ${inkTrida}`}>{z.quantity} ks</span>
+      {z.note && <span className={`font-medium truncate max-w-[40%] opacity-80 ${inkTrida}`} title={z.note}>{z.note}</span>}
     </div>
   );
 }

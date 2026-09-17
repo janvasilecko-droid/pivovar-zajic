@@ -18,6 +18,7 @@ export type PrehledZapis = {
   id: string;
   entry_date: string;
   beer_name: string;
+  beer_color: string | null;
   package_label: string;
   quantity: number;
   note: string | null;
