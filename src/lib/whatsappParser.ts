@@ -499,7 +499,18 @@ export async function parseWhatsAppOrderMessageWithAI(
       })()
     : null;
 
-  // Načtení kontextu z předchozích zpráv ve stejném chatu/skupině (chat_id)
+  // Načtení kontextu z předchozích zpráv ve stejném chatu/skupině (chat_id).
+  //
+  // ⚠️ Okno MUSÍ sedět s automatickým zpracováním (whatsapp-auto-parse, které
+  // bere až 200 zpráv / 7 dní zpátky) — dřív tu bylo natvrdo jen `limit(3)`.
+  // Cesta "Přečíst znovu (AI)" v Kontrole objednávky (WhatsAppOrderReviewModal)
+  // jde přes TUHLE funkci, takže zpráva, kterou automat správně spároval s
+  // odběratelem z citace o pár zpráv dřív, po ručním "Přečíst znovu" o
+  // odběratele přišla — AI citovanou zprávu v tak úzkém okně prostě neviděla
+  // (z provozu 17. 9. 2026: odpověď „Radek" na citovanou objednávku se
+  // znovunačtením rozparsovala bez odběratele).
+  const CONTEXT_MAX_DAYS = 7;
+  const CONTEXT_MAX_MESSAGES = 200;
   let chatContext: any[] = [];
   let quotedText: string | null = null;
   if (messageId) {
@@ -512,19 +523,24 @@ export async function parseWhatsAppOrderMessageWithAI(
       quotedText = currentMsg?.quoted_text || null;
 
       if (currentMsg?.chat_id) {
+        const since = new Date(
+          new Date(currentMsg.created_at).getTime() - CONTEXT_MAX_DAYS * 24 * 60 * 60 * 1000
+        ).toISOString();
         const { data: contextData } = await supabase
           .from('whatsapp_incoming')
-          .select('sender_name, message_timestamp, message_text')
+          .select('sender_name, participant_name, message_timestamp, message_text, from_me')
           .eq('chat_id', currentMsg.chat_id)
           .lt('created_at', currentMsg.created_at)
+          .gte('created_at', since)
           .order('created_at', { ascending: false })
-          .limit(3);
+          .limit(CONTEXT_MAX_MESSAGES);
 
         if (contextData && contextData.length > 0) {
           chatContext = [...contextData].reverse().map((m: any) => ({
-            sender: m.sender_name,
+            sender: m.participant_name || m.sender_name,
             date: m.message_timestamp ? new Date(m.message_timestamp).toISOString().split('T')[0] : null,
             text: m.message_text,
+            fromMe: !!m.from_me,
           }));
         }
       }
