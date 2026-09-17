@@ -472,13 +472,20 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
           {radky.map((r) => {
             const sedi = r.napocitano !== null && r.rozdil === 0;
             const jeRozdil = r.napocitano !== null && r.rozdil !== 0;
+            // 🎨 Pozadí podle barvy piva (Nastavení) — stejné pivo ve
+            // 38řádkovém seznamu je pak vidět na první pohled, ne jen podle
+            // jména. Stav (sedí/přebytek/manko) dál nese barva RÁMEČKU, ať se
+            // barvy nepřebíjí — čísla mají vlastní světlou podložku, ať jejich
+            // barvy (červená/modrá) zůstanou čitelné na tmavším pivu.
+            const inkTrida = beerText({ beer_color: r.beer_color });
             return (
               <div
                 key={r.klic}
                 className={`card p-3 border ${
-                  jeRozdil ? (r.rozdil > 0 ? 'border-sky-300 bg-sky-50/50' : 'border-rose-300 bg-rose-50/50')
+                  jeRozdil ? (r.rozdil > 0 ? 'border-sky-300' : 'border-rose-300')
                     : sedi ? 'border-emerald-200' : 'border-neutral-200'
                 }`}
+                style={{ backgroundColor: beerBg({ beer_color: r.beer_color }) }}
               >
                 {/* Na telefonu má název piva CELÝ ŘÁDEK, čísla jdou pod něj.
                     Tři sloupečky s pevnou šířkou (~210 px i s mezerami) jinak
@@ -488,14 +495,15 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
                     výš se místa dost, tak zůstávají v jedné řadě. */}
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                   <div className="min-w-0 basis-full sm:basis-auto sm:flex-1">
-                    <p className="font-black text-sm text-neutral-900 break-words">{r.beer_name}</p>
-                    <p className="text-xs font-bold text-neutral-500">{formatPackageLabel(r.package_label)}</p>
+                    <p className={`font-black text-sm break-words ${inkTrida}`}>{r.beer_name}</p>
+                    <p className={`text-xs font-bold opacity-80 ${inkTrida}`}>{formatPackageLabel(r.package_label)}</p>
                   </div>
 
                   {/* Čísla drží pohromadě: na telefonu roztažená přes šířku,
                       ať políčko „napočítáno" padne pod palec a nelepí se
-                      k okraji. */}
-                  <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+                      k okraji. Vlastní světlá podložka nezávisle na barvě
+                      piva — ať je vidět kurzor v poli i červená/modrá čísla. */}
+                  <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end bg-neutral-50 rounded-lg px-2.5 py-2">
                     <div className="text-center shrink-0">
                       <p className="text-udaj font-black uppercase tracking-wider text-neutral-400">Čeká se</p>
                       <p className={`font-display font-black text-base tabular-nums ${r.ocekavano < 0 ? 'text-rose-600' : 'text-neutral-800'}`}>
@@ -528,8 +536,8 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
                 </div>
 
                 {jeRozdil && (
-                  <div className="mt-2.5 pt-2.5 border-t border-neutral-200/70 flex flex-wrap items-center gap-2">
-                    <p className="text-xs font-bold text-neutral-600 flex-1 min-w-[180px]">
+                  <div className="mt-2.5 pt-2.5 border-t border-black/10 flex flex-wrap items-center gap-2">
+                    <p className={`text-xs font-bold opacity-90 flex-1 min-w-[180px] ${inkTrida}`}>
                       {r.rozdil > 0
                         ? `Přebytek ${r.rozdil} ks — nejspíš se stočilo a nezapsalo.`
                         : `Manko ${Math.abs(r.rozdil)} ks — nejspíš se zapsalo víc, než se vyrobilo.`}
@@ -738,15 +746,17 @@ function DetailRozdilu({
   objednavkyInfo: Record<string, { place_name: string | null; delivery_date: string | null; status: string | null }>;
   setPage?: (p: any, sec?: string, sub?: string) => void;
 }) {
+  {/* Vlastní světlá podložka nezávisle na barvě piva karty nad tím —
+      stejný důvod jako u čísel výš (červená/modrá musí zůstat čitelná). */}
   if (pohyby.length === 0) {
     return (
-      <div className="mt-2.5 pt-2.5 border-t border-neutral-200/70 text-xs font-bold text-neutral-500">
+      <div className="mt-2.5 bg-neutral-50 rounded-lg p-2.5 text-xs font-bold text-neutral-500">
         Za tenhle týden k téhle položce neleží žádný pohyb — rozdíl je z předchozího období.
       </div>
     );
   }
   return (
-    <div className="mt-2.5 pt-2.5 border-t border-neutral-200/70 space-y-1.5">
+    <div className="mt-2.5 bg-neutral-50 rounded-lg p-2.5 space-y-1.5">
       {pohyby.map((m, i) => {
         const info = m.orderId ? objednavkyInfo[m.orderId] : undefined;
         return (

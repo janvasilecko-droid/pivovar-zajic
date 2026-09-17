@@ -89,6 +89,17 @@ describe('období týdne', () => {
 });
 
 describe('řádky týdenní inventury', () => {
+  it('nese barvu piva z katalogu — pro barevné odlišení stejného piva v seznamu', () => {
+    const piva = [{ id: 'b1', name: '12° Světlá', beer_color: '#fde68a' }, { id: 'b2', name: '11° Světlá' }];
+    const [r] = radkyTydne(sklad(line('b1', 'p1', 10)), piva, OBALY, {});
+    expect(r.beer_color).toBe('#fde68a');
+  });
+
+  it('pivo bez nastavené barvy nese null, ne prázdný řetězec', () => {
+    const [r] = radkyTydne(sklad(line('b2', 'p1', 10)), PIVA, OBALY, {});
+    expect(r.beer_color).toBeNull();
+  });
+
   it('nevyplněné pole NENÍ nula — nezadané se nepočítá jako manko', () => {
     const [r] = radkyTydne(sklad(line('b1', 'p1', 10)), PIVA, OBALY, {});
     expect(r.napocitano).toBeNull();
@@ -147,7 +158,7 @@ describe('řádky týdenní inventury', () => {
 
 describe('výběr toho, co se má počítat', () => {
   const zaklad = (over: Partial<TydenniRadek>): TydenniRadek => ({
-    klic: 'b1__p1', beer_id: 'b1', beer_name: '12° Světlá',
+    klic: 'b1__p1', beer_id: 'b1', beer_name: '12° Světlá', beer_color: null,
     package_id: 'p1', package_label: 'KEG 50 l', package_kind: 'keg',
     ocekavano: 0, napocitano: null, rozdil: 0, pohybuVTydnu: 0, sud: true,
     ...over,
