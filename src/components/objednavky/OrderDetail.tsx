@@ -13,6 +13,8 @@ import type {  } from '../../lib/tankUZapisu';
 
 import { chyba, oznam } from '../../lib/toast';
 import { srovnaniPoUprave, type UpravaPolozky } from '../../lib/zavozSync';
+import { parseDeliveryTimeHint } from '../../lib/orderParser';
+import { createReminder, getLocalReminders } from '../../lib/reminders';
 
 import { PodpisModal } from '../PodpisModal';
 import { FotkyZaznamu } from '../FotkyZaznamu';
@@ -97,6 +99,11 @@ export function OrderDetail({ order, items, beers, packages, places, priceList, 
   const [day, setDay] = useState(order.delivery_day ?? '');
   const [deliveryDate, setDeliveryDate] = useState(order.delivery_date ?? '');
   const [savingMeta, setSavingMeta] = useState(false);
+  // Znění originální WhatsApp zprávy (viz WhatsAppOriginalBlock níž) — kvůli
+  // odhadu času dovozu ("přijedou kolem poledne") i tehdy, když ho stáčeč
+  // ještě neuložil do poznámky ručně.
+  const [waText, setWaText] = useState('');
+  const [vytvarimUpozorneni, setVytvarimUpozorneni] = useState(false);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editBeerId, setEditBeerId] = useState('');
   const [editPkgId, setEditPkgId] = useState('');
@@ -182,6 +189,51 @@ export function OrderDetail({ order, items, beers, packages, places, priceList, 
     setSavingMeta(true);
     await supabase.from('orders').update({ note: note || null, delivery_day: day || null, delivery_date: deliveryDate || null }).eq('id', order.id);
     setSavingMeta(false); onChanged();
+  }
+
+  // 🕐 Čas dovozu zmíněný v poznámce nebo v originální WhatsApp zprávě
+  // ("přijedou kolem poledne", "v 15" apod., viz orderParser.ts) — jen
+  // podklad pro tlačítko "Upozornit hodinu předem" níž, nic víc s ním appka
+  // sama neudělá.
+  const [vytvorenoTick, setVytvorenoTick] = useState(0);
+  const casDovozu = useMemo(() => parseDeliveryTimeHint(`${note} ${waText}`), [note, waText]);
+  const denDovozu = deliveryDate || order.order_date;
+  const dvoumistne = (n: number) => String(n).padStart(2, '0');
+  const znackaUpozorneni = casDovozu && denDovozu
+    ? `[dovoz-upozorneni:${order.id}:${denDovozu}:${dvoumistne(casDovozu.hodina)}${dvoumistne(casDovozu.minuta)}]`
+    : null;
+  const upozorneniJizVytvoreno = useMemo(() => {
+    if (!znackaUpozorneni) return false;
+    return getLocalReminders().some((r) => (r.note || '').includes(znackaUpozorneni));
+    // vytvorenoTick nic nečte — jen si vynutí přepočet po createReminder(),
+    // protože getLocalReminders() čte localStorage mimo Reactí stav.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [znackaUpozorneni, vytvorenoTick]);
+
+  async function vytvoritUpozorneniHodinuPredem() {
+    if (!casDovozu || !denDovozu || !znackaUpozorneni) return;
+    setVytvarimUpozorneni(true);
+    try {
+      const cilovyCas = new Date(`${denDovozu}T${dvoumistne(casDovozu.hodina)}:${dvoumistne(casDovozu.minuta)}:00`);
+      cilovyCas.setHours(cilovyCas.getHours() - 1);
+      const placeName = (order.place_name && order.place_name.trim())
+        || (order.place_id && places.find((p) => p.id === order.place_id)?.name)
+        || 'odběratel';
+      await createReminder({
+        title: `Za hodinu dovoz: ${placeName} (~${dvoumistne(casDovozu.hodina)}:${dvoumistne(casDovozu.minuta)})`,
+        note: `${znackaUpozorneni} Objednávka zmiňuje čas dovozu — appka spočítala hodinu předem.`,
+        date_time: cilovyCas.toISOString().slice(0, 16),
+        target_role: 'all',
+        display_mode: 'both',
+        created_by: 'Ruční upozornění (Objednávky)',
+      });
+      oznam('Upozornění hodinu předem je nastavené.');
+      setVytvorenoTick((t) => t + 1);
+    } catch (e) {
+      chyba(`Upozornění se nepodařilo nastavit: ${(e as Error).message ?? 'neznámá chyba'}`);
+    } finally {
+      setVytvarimUpozorneni(false);
+    }
   }
   async function toggleItemPrepared(it: OrderItem) {
     const newPrepared = !it.is_prepared;
@@ -392,6 +444,30 @@ export function OrderDetail({ order, items, beers, packages, places, priceList, 
               <Bell className="ikona-text" /> Upomínka se automaticky vytvoří v kalendáři na <strong>{new Date(new Date(deliveryDate).getTime() - 3 * 86400000).toLocaleDateString('cs-CZ')}</strong> v 8:45.
             </div>
           )}
+          {/* 🕐 Čas dovozu z poznámky/zprávy ("přijedou kolem poledne" apod.)
+              — nabídni tlačítko na upozornění hodinu předem, ať to stáčeč
+              nemusí hlídat sám. Zmizí, jakmile je upozornění nastavené. */}
+          {casDovozu && denDovozu && (
+            <div className="mt-2 flex items-center gap-2 flex-wrap">
+              <span className="text-xs text-neutral-600">
+                Čas dovozu v textu: <strong>{dvoumistne(casDovozu.hodina)}:{dvoumistne(casDovozu.minuta)}</strong>
+              </span>
+              {upozorneniJizVytvoreno ? (
+                <span className="chip bg-emerald-100 text-emerald-800 text-xs font-bold flex items-center gap-1">
+                  <Check size={12} /> Upozornění hodinu předem nastaveno
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  disabled={vytvarimUpozorneni}
+                  onClick={vytvoritUpozorneniHodinuPredem}
+                  className="btn-ghost !rounded text-xs !py-1.5 border border-amber-300 text-amber-800 disabled:opacity-50 flex items-center gap-1"
+                >
+                  <Bell size={12} /> {vytvarimUpozorneni ? 'Nastavuji…' : `Upozornit hodinu předem (v ${dvoumistne(casDovozu.hodina === 0 ? 23 : casDovozu.hodina - 1)}:${dvoumistne(casDovozu.minuta)})`}
+                </button>
+              )}
+            </div>
+          )}
           <div className="flex justify-end mt-2">
             <button className="btn-ghost !rounded text-xs !py-1.5" disabled={savingMeta} onClick={saveMeta}>{savingMeta ? 'Ukládám…' : 'Uložit datum dodání'}</button>
           </div>
@@ -405,6 +481,7 @@ export function OrderDetail({ order, items, beers, packages, places, priceList, 
             packages={packages}
             places={places}
             onPlaceFound={onChanged}
+            onMessageLoaded={(m) => setWaText(m.message_text || m.parsed_raw_text || '')}
           />
         )}
 

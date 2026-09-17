@@ -1614,7 +1614,12 @@ const NOTE_PATTERNS: { re: RegExp; label: string | ((m: RegExpMatchArray) => str
   { re: /(?:pridat\s+|je[sš]t[íěe]?\s+|a\s+|i\s+)podt[aá]ck[y]?\b|\bpodt[aá]c[eě]k\b/i, label: 'podtácky' },
   { re: /\bzavoz\s+(v[e]?\s+)?(pondeli|utery|stredu|ctvrtek|patek|sobotu|nedeli|\d{1,2}\.\d{1,2}\.)(\s+v\s+\d{1,2}(:\d{2})?\s*(h|hod)?)?/i, label: (m) => m[0] },
   { re: /\bdodat\s+(v[e]?\s+)?(pondeli|utery|stredu|ctvrtek|patek|sobotu|nedeli|\d{1,2}\.\d{1,2}\.)(\s+v\s+\d{1,2}(:\d{2})?\s*(h|hod)?)?/i, label: (m) => m[0] },
-  { re: /\b(cas|hodin[a]|v)\s+\d{1,2}(:\d{2})?\s*(h|hod)?\b/i, label: (m) => m[0] },
+  { re: /\b(cas|hodin[a]|kolem|okolo|v)\s+\d{1,2}(:\d{2})?\s*(h|hod)?\b/i, label: (m) => m[0] },
+  // 🕐 SLOVNÍ ČAS DOVOZU — "přijedou kolem poledne" apod. Bez tohohle věta
+  // zůstala v textu zprávy, ale do poznámky se z ní nedostalo nic (na rozdíl
+  // od číselného času výš, "v 15" apod.) — viz i parseDeliveryTimeHint níž,
+  // která ze stejné věty počítá konkrétní hodinu pro upozornění předem.
+  { re: /\b(?:(?:p[řr]ijed\w*|doraz\w*|bud(?:ou|eme|e)?)\s+)?\b(kolem|okolo|v|o)\s+(poledne|p[uú]lnoci)\b/i, label: (m) => m[0].replace(/\s+/g, ' ').trim() },
   { re: /\bbez\s*etiket/i, label: 'bez etikety' },
   { re: /\bbez\s*etiket[a]?\b/i, label: 'bez etikety' },
   { re: /\(\s*bez\s*etiket/i, label: 'bez etikety' },
@@ -1644,6 +1649,26 @@ export function detectOrderNotes(rawText: string): string {
     }
   }
   return found.join(', ');
+}
+
+/**
+ * Čas dovozu zmíněný v textu zprávy/poznámky — "kolem poledne", "v 15",
+ * "kolem 14:30" apod. Vrátí `null`, když text žádný čas nezmiňuje.
+ *
+ * Používá se pro tlačítko "Upozornit hodinu předem" u objednávky — appka
+ * dřív takovou zmínku jen tiše ignorovala (nešla ani do poznámky, natož
+ * aby z ní šlo spočítat, kdy poslat upozornění).
+ */
+export function parseDeliveryTimeHint(rawText: string): { hodina: number; minuta: number } | null {
+  if (/\bp[uú]lnoci?\b/i.test(rawText)) return { hodina: 0, minuta: 0 };
+  if (/\bpoledne\b/i.test(rawText)) return { hodina: 12, minuta: 0 };
+  const m = rawText.match(/\b(?:kolem|okolo|v|o|cas|casu|hodin[ae]?)\s+(\d{1,2})(?::(\d{2}))?\s*(?:h|hod)?\b/i);
+  if (m) {
+    const hodina = Number(m[1]);
+    const minuta = m[2] ? Number(m[2]) : 0;
+    if (hodina <= 23 && minuta <= 59) return { hodina, minuta };
+  }
+  return null;
 }
 
 export function parseFreeTextEntries(
