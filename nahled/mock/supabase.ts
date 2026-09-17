@@ -30,6 +30,8 @@ const db: Record<string, Radek[]> = {
   keg_prefuk: [...vychozi.keg_prefuk],
   cellar_tanks: vychozi.cellar_tanks.map((t) => ({ ...t })),
   tydenni_inventura: vychozi.tydenni_inventura.map((r) => ({ ...r })),
+  // Značka uzavření týdne (TydenniInventuraPanel) — v náhledu vždycky prázdná.
+  tydenni_uzaverky: [],
   // Obrazovky Sklepa (nahled/obrazovky.html).
   cellar_tank_cycles: vychozi.cellar_tank_cycles.map((r) => ({ ...r })),
   cellar_batches: vychozi.cellar_batches.map((r) => ({ ...r })),
@@ -154,6 +156,14 @@ function dotaz(tabulka: string) {
     in(col: string, val: any[]) { filtry.push({ typ: 'in', col, val }); return api; },
     order(col: string, opts?: { ascending?: boolean }) { radit = col; sestupne = opts?.ascending === false; return api; },
     limit(n: number) { pocet = n; return api; },
+    maybeSingle() {
+      return {
+        then(splneno: (v: { data: Radek | null; error: null }) => any) {
+          const data = pouzijFiltry(db[tabulka] ?? [], filtry);
+          return Promise.resolve(splneno({ data: data[0] ?? null, error: null }));
+        },
+      };
+    },
     then(splneno: (v: { data: Radek[]; error: null }) => any) {
       let data = pouzijFiltry(db[tabulka] ?? [], filtry);
       if (radit) {
