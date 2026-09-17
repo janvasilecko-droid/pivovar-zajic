@@ -91,12 +91,15 @@ export default function Orders({
   mode = 'all',
   setPage,
   initialViewMode = 'summary',
+  openOrderId,
 }: {
   autoOpenShareImport?: boolean;
   onShareImportHandled?: () => void;
   mode?: 'entry_only' | 'overviews_only' | 'all';
   setPage?: (p: any) => void;
   initialViewMode?: 'summary' | 'detail' | 'celkem' | 'text';
+  /** Proklik odjinud (např. z Týdenní inventury) na konkrétní objednávku. */
+  openOrderId?: string;
 } = {}) {
 
   const [orders, setOrders] = useState<Order[]>([]);
@@ -1698,6 +1701,21 @@ export default function Orders({
       document.getElementById('order-detail-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 50);
   };
+
+  // 🔗 Proklik odjinud na konkrétní objednávku (openOrderId). Detail card se
+  // renderuje jen mezi objednávkami, co projdou filtrem — objednávka z jiného
+  // týdne by tak proklikem otevřená být "měla", ale nic by se nezobrazilo.
+  // Proto se zároveň zruší týdenní/měsíční omezení (timeScope 'all'), ať je
+  // vidět jistě.
+  const openedForIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!openOrderId || loading || openedForIdRef.current === openOrderId) return;
+    const o = orders.find((x) => x.id === openOrderId);
+    if (!o) return;
+    openedForIdRef.current = openOrderId;
+    setTimeScope('all');
+    openDetail(o);
+  }, [openOrderId, orders, loading]);
 
   function handleVoiceResult(text: string) {
     const parsedOrder = parseVoiceOrder(text, beers, packages, places, undefined, placeAliasMap);

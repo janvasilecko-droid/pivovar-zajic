@@ -10,12 +10,12 @@
 // Zapisuje se stejnými funkcemi jako u měsíční uzávěrky (lib/inventoryFix.ts,
 // lib/tankZapis.ts). Vlastní verze zápisu by byla druhá pravda o tomtéž.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CalendarRange, Check, ChevronLeft, ChevronRight, MinusCircle, Plus, RefreshCw, Save, Search } from 'lucide-react';
+import { CalendarRange, Check, ChevronLeft, ChevronRight, ExternalLink, MinusCircle, Plus, RefreshCw, Save, Search } from 'lucide-react';
 import { supabase, formatPackageLabel } from '../lib/supabase';
 import { Spinner } from './ui';
 import { businessDateISO } from '../lib/businessDate';
 import { nactiSkladovouKnihu, type SkladovaKniha } from '../lib/skladovaKnihaData';
-import { stockForObdobi } from '../lib/stockLedger';
+import { MOVEMENT_LABELS, movementsFor, stockForObdobi } from '../lib/stockLedger';
 import { kegovaniZapisy, lahvoveZapisy, odectiZeStoceni } from '../lib/inventoryFix';
 import { rozdelSudyDoTanku, type TankProRozdeleni } from '../lib/tankRozdeleni';
 import { odectiZTanku } from '../lib/tankZapis';
@@ -28,7 +28,7 @@ import { nactiJson, ulozJson } from '../lib/uloziste';
 import { chyba, oznam, uspech } from '../lib/toast';
 import { normalizujCislo } from '../lib/cisloVstup';
 
-export default function TydenniInventuraPanel() {
+export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, sec?: string, sub?: string) => void } = {}) {
   const dnes = businessDateISO();
   const [posun, setPosun] = useState(() => vychoziTyden(dnes));
   const obdobi = useMemo(() => tydenObdobi(dnes, posun), [dnes, posun]);
@@ -52,6 +52,11 @@ export default function TydenniInventuraPanel() {
   // zápisu i při návratu na stejný týden) tiše přepsalo naťukaná čísla jen
   // tím, co už je uložené v DB.
   const loadedTydenRef = useRef<string | null>(null);
+  // 🔎 Detail rozdílu — rozbalí se u řádku, který nesedí: odkud se vzal
+  // (jaké pohyby se s ním za ten týden dělo) a proklik na objednávky, které
+  // se do toho počítaly (viz zavoz_deductions.order_id).
+  const [otevrenyRadek, setOtevrenyRadek] = useState<string | null>(null);
+  const [objednavkyInfo, setObjednavkyInfo] = useState<Record<string, { place_name: string | null; delivery_date: string | null; status: string | null }>>({});
 
   const nacti = useCallback(async () => {
     setBezi(true);
@@ -114,6 +119,40 @@ export default function TydenniInventuraPanel() {
       return `${r.beer_name} ${r.package_label}`.toLowerCase().includes(q);
     });
   }, [radkyObalu, hledat, jenRozdily]);
+
+  const otevrenyRadekObj = useMemo(
+    () => vsechnyRadky.find((r) => r.klic === otevrenyRadek) ?? null,
+    [vsechnyRadky, otevrenyRadek],
+  );
+
+  /** Rozpad pohybů za týden pro rozbalený řádek — odkud se vzal rozdíl. */
+  const pohybyOtevrenehoRadku = useMemo(() => {
+    if (!kniha || !otevrenyRadekObj) return [];
+    return movementsFor(kniha.pohyby, otevrenyRadekObj.beer_id, otevrenyRadekObj.package_id, obdobi.od, obdobi.doPocitani);
+  }, [kniha, otevrenyRadekObj, obdobi.od, obdobi.doPocitani]);
+
+  // Objednávky za pohyby typu 'zavoz' se dotahují až při rozbalení detailu —
+  // stahovat je dopředu pro celý týden by zatěžovalo appku kvůli něčemu, na
+  // co se člověk možná ani nepodívá.
+  useEffect(() => {
+    const chybejici = Array.from(new Set(
+      pohybyOtevrenehoRadku.filter((m) => m.kind === 'zavoz' && m.orderId).map((m) => m.orderId as string),
+    )).filter((id) => !objednavkyInfo[id]);
+    if (chybejici.length === 0) return;
+    let zruseno = false;
+    // .limit() jako výslovný strop — `.in()` s pár konkrétními id sám o sobě
+    // víc řádků vrátit nemůže, ale hlídač rostoucích tabulek (viz
+    // strankovaniDotazu.test.ts) to nepozná, dokud strop nevidí.
+    supabase.from('orders').select('id,place_name,delivery_date,status').in('id', chybejici).limit(chybejici.length).then(({ data }) => {
+      if (zruseno || !data) return;
+      setObjednavkyInfo((prev) => {
+        const next = { ...prev };
+        for (const o of data as any[]) next[o.id] = { place_name: o.place_name, delivery_date: o.delivery_date, status: o.status };
+        return next;
+      });
+    });
+    return () => { zruseno = true; };
+  }, [pohybyOtevrenehoRadku, objednavkyInfo]);
 
   const souhrn = useMemo(() => souhrnTydne(radkyObalu), [radkyObalu]);
 
@@ -276,10 +315,8 @@ export default function TydenniInventuraPanel() {
               key={klic}
               type="button"
               onClick={() => setFiltrObalu(klic)}
-              className={`flex-1 px-3 py-2.5 rounded font-black text-xs transition min-h-[44px] ${
-                filtrObalu === klic
-                  ? 'bg-amber-600 text-white shadow-md'
-                  : 'text-neutral-600 hover:bg-neutral-200'
+              className={`flex-1 !rounded !px-3 !py-2.5 !min-h-[44px] font-black text-xs transition ${
+                filtrObalu === klic ? 'btn-amber' : 'btn-ghost !border-none'
               }`}
             >
               {popisek}
@@ -431,13 +468,71 @@ export default function TydenniInventuraPanel() {
                     >
                       Dorovnat
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => setOtevrenyRadek((k) => (k === r.klic ? null : r.klic))}
+                      className="btn-secondary !rounded !text-xs min-h-[44px]"
+                    >
+                      {otevrenyRadek === r.klic ? 'Skrýt detail' : 'Odkud se to vzalo?'}
+                    </button>
                   </div>
+                )}
+
+                {jeRozdil && otevrenyRadek === r.klic && (
+                  <DetailRozdilu pohyby={pohybyOtevrenehoRadku} objednavkyInfo={objednavkyInfo} setPage={setPage} />
                 )}
               </div>
             );
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+/** Rozpad pohybů za týden pro rozbalený řádek — a proklik na objednávky. */
+function DetailRozdilu({
+  pohyby,
+  objednavkyInfo,
+  setPage,
+}: {
+  pohyby: ReturnType<typeof movementsFor>;
+  objednavkyInfo: Record<string, { place_name: string | null; delivery_date: string | null; status: string | null }>;
+  setPage?: (p: any, sec?: string, sub?: string) => void;
+}) {
+  if (pohyby.length === 0) {
+    return (
+      <div className="mt-2.5 pt-2.5 border-t border-neutral-200/70 text-xs font-bold text-neutral-500">
+        Za tenhle týden k téhle položce neleží žádný pohyb — rozdíl je z předchozího období.
+      </div>
+    );
+  }
+  return (
+    <div className="mt-2.5 pt-2.5 border-t border-neutral-200/70 space-y-1.5">
+      {pohyby.map((m, i) => {
+        const info = m.orderId ? objednavkyInfo[m.orderId] : undefined;
+        return (
+          <div key={i} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+            <span className="font-bold text-neutral-400 tabular-nums shrink-0">{m.date}</span>
+            <span className="font-bold text-neutral-700 flex-1 min-w-[120px]">{MOVEMENT_LABELS[m.kind]}</span>
+            <span className={`font-black tabular-nums shrink-0 ${m.qty < 0 ? 'text-rose-700' : 'text-sky-700'}`}>
+              {m.qty > 0 ? `+${m.qty}` : m.qty}
+            </span>
+            {m.kind === 'zavoz' && m.orderId && (
+              <button
+                type="button"
+                onClick={() => setPage?.('orders_detail', undefined, `order:${m.orderId}`)}
+                disabled={!setPage}
+                className="chip badge-amber !text-udaj shrink-0 disabled:opacity-40"
+                title={info ? `${info.place_name ?? 'bez odběratele'} — ${info.delivery_date ?? '?'}` : 'Otevřít objednávku'}
+              >
+                <ExternalLink size={11} />
+                {info ? (info.place_name ?? 'bez odběratele') : 'Otevřít objednávku'}
+              </button>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

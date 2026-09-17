@@ -272,6 +272,7 @@ export default function App() {
           autoOpenShareImport={autoOpenShareImport}
           onShareImportHandled={() => setAutoOpenShareImport(false)}
           setPage={setPage}
+          pageSubTab={pageSubTab}
         />
       )}
 
