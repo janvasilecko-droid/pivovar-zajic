@@ -471,13 +471,23 @@ Deno.serve(async (req: Request) => {
         let amendsMessageId: string | null = null;
         let amendedItems: { beer_name: string | null; package_label: string | null; quantity: number }[] = [];
         let amendedPlaceName: string | null = null;
+        // Citovaná zpráva, i když sama nezaložila objednávku (amendsOrderId
+        // zůstane null) — pořád může nést svého ROZPOZNANÉHO odběratele. Reply
+        // typu „60x0,5l. Grep a 40x0,5l. Citrón" na zprávu, kde byl odběratel
+        // napsaný, žádnou položku PŮVODNÍ objednávky nemění (není to doplnění
+        // ani oprava — je to VLASTNÍ, jinak znějící objednávka), takže
+        // amendsOrderId správně zůstává null. Ale bez odběratele z citace se
+        // založí jako „Neznámý odběratel", ačkoli appka přesně ví, na koho
+        // odpovídá (z provozu 17. 9. 2026: odpověď na Radkovu zprávu).
+        let quotedPlaceId: string | null = null;
+        let quotedPlaceName: string | null = null;
 
         if (message.quoted_text) {
           const q = normQuote(message.quoted_text);
           if (q.length >= 3) {
             const { data: drivejsi } = await supabase
               .from("whatsapp_incoming")
-              .select("id, created_at, message_text, imported_order_id")
+              .select("id, created_at, message_text, imported_order_id, parsed_place_id, parsed_place_name")
               .lt("created_at", message.created_at)
               .order("created_at", { ascending: false })
               .limit(200);
@@ -491,6 +501,8 @@ Deno.serve(async (req: Request) => {
             if (vybrany) {
               amendsMessageId = vybrany.id;
               amendsOrderId = vybrany.imported_order_id ?? null;
+              quotedPlaceId = vybrany.parsed_place_id ?? null;
+              quotedPlaceName = vybrany.parsed_place_name ?? null;
             }
           }
         }
@@ -498,13 +510,17 @@ Deno.serve(async (req: Request) => {
         if (amendsOrderId) {
           const { data: ord } = await supabase
             .from("orders")
-            .select("place_name, status, items:order_items(beer_name, package_label, quantity)")
+            .select("place_id, place_name, status, items:order_items(beer_name, package_label, quantity)")
             .eq("id", amendsOrderId)
             .maybeSingle();
           // Stornovanou objednávku nemá smysl upravovat.
           if (ord && ord.status !== "storno") {
             amendedPlaceName = ord.place_name ?? null;
             amendedItems = (ord.items ?? []) as any[];
+            // Skutečně založená objednávka je spolehlivější zdroj odběratele
+            // než rozpoznání jedné zprávy — přednost před quotedPlace* výš.
+            quotedPlaceId = ord.place_id ?? quotedPlaceId;
+            quotedPlaceName = ord.place_name ?? quotedPlaceName;
           } else {
             amendsOrderId = null;
           }
@@ -658,6 +674,18 @@ Deno.serve(async (req: Request) => {
         const resolved = resolvePlace(matchCandidates, freeformCandidates, cleanTextForPlace, places, placeAliases);
         parsedPlaceId = resolved.id;
         parsedPlaceName = resolved.name;
+
+        // ↩️ Zpráva sama žádného odběratele nejmenuje, ale je to ODPOVĚĎ na
+        // zprávu, která ho měla (viz quotedPlaceId/quotedPlaceName výš) —
+        // zdědit ho. Bez tohohle appka zprávu jako „60x0,5l. Grep a
+        // 40x0,5l. Citrón" v odpovědi na Radkovu objednávku založila jako
+        // Neznámého odběratele, i když appka přesně ví, komu ta odpověď
+        // patří (z provozu 17. 9. 2026). Vlastní odběratel v téhle zprávě
+        // (matchCandidates) má vždy přednost — zdědění platí jen jako záloha.
+        if (!parsedPlaceId && !parsedPlaceName && !wantsOwnOrder && (quotedPlaceId || quotedPlaceName)) {
+          parsedPlaceId = quotedPlaceId;
+          parsedPlaceName = quotedPlaceName;
+        }
 
         // Extract delivery day/date from message text — nejdřív konkrétní datum
         // (např. "25.8." → objednávka se přesune do týdne 25.8.), pak zítra/dnes,

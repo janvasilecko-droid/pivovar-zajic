@@ -4,6 +4,7 @@ import { parseExplicitDate } from './orderDates';
 import { businessNow } from './businessDate';
 import { authenticatedFunctionHeaders } from './functionAuth';
 import { zalogujANahlas } from './chybyHlaseni';
+import { norm } from './whatsappAmendment';
 
 // 📷 Stažení fotky z WhatsApp (media_url ze Supabase Storage) a převod na base64
 // pro AI čtení. Velké fotky zmenšíme na max. 1600 px (JPEG), aby se request
@@ -513,6 +514,11 @@ export async function parseWhatsAppOrderMessageWithAI(
   const CONTEXT_MAX_MESSAGES = 200;
   let chatContext: any[] = [];
   let quotedText: string | null = null;
+  // Citovaná zpráva, i když sama nezaložila objednávku — pořád může nést
+  // svého rozpoznaného odběratele (viz fallback po foundPlace níž, stejná
+  // logika jako v supabase/functions/whatsapp-auto-parse/index.ts).
+  let quotedPlaceId: string | null = null;
+  let quotedPlaceName: string | null = null;
   if (messageId) {
     try {
       const { data: currentMsg } = await supabase
@@ -528,7 +534,7 @@ export async function parseWhatsAppOrderMessageWithAI(
         ).toISOString();
         const { data: contextData } = await supabase
           .from('whatsapp_incoming')
-          .select('sender_name, participant_name, message_timestamp, message_text, from_me')
+          .select('sender_name, participant_name, message_timestamp, message_text, from_me, created_at, imported_order_id, parsed_place_id, parsed_place_name')
           .eq('chat_id', currentMsg.chat_id)
           .lt('created_at', currentMsg.created_at)
           .gte('created_at', since)
@@ -542,6 +548,19 @@ export async function parseWhatsAppOrderMessageWithAI(
             text: m.message_text,
             fromMe: !!m.from_me,
           }));
+
+          const q = norm(quotedText);
+          if (q.length >= 3) {
+            const kandidati = contextData.filter((z: any) => {
+              const t = norm(z.message_text);
+              return t && (t.startsWith(q) || q.startsWith(t));
+            });
+            const vybrany = kandidati.find((z: any) => z.imported_order_id) ?? kandidati[0] ?? null;
+            if (vybrany) {
+              quotedPlaceId = vybrany.parsed_place_id ?? null;
+              quotedPlaceName = vybrany.parsed_place_name ?? null;
+            }
+          }
         }
       }
     } catch (e) {
@@ -681,7 +700,7 @@ export async function parseWhatsAppOrderMessageWithAI(
     if (foundPlace.placeId && !isMatchGrounded(foundPlace.placeName)) foundPlace = { placeId: null, placeName: null };
   }
 
-  const placeId = foundPlace.placeId;
+  let placeId = foundPlace.placeId;
   let placeName = foundPlace.placeName;
   if (!placeId && !placeName) {
     // AI rozpoznala jméno, ale neodpovídá žádnému známému odběrateli
@@ -689,6 +708,14 @@ export async function parseWhatsAppOrderMessageWithAI(
     // ukotveno v textu zprávy (ne vymyšlené) a není to jméno odesílatele.
     placeName = detectedPlaceName || firstItemPlaceName;
     if (placeName && (isSameAsSender(placeName) || !isPlaceGrounded(placeName))) placeName = null;
+  }
+  // ↩️ Zpráva sama žádného odběratele nejmenuje, ale je to ODPOVĚĎ na zprávu,
+  // která ho měla (quotedPlaceId/quotedPlaceName výš) — zdědit ho. Stejná
+  // logika jako v supabase/functions/whatsapp-auto-parse/index.ts; vlastní
+  // odběratel v téhle zprávě má vždy přednost, zdědění platí jen jako záloha.
+  if (!placeId && !placeName && (quotedPlaceId || quotedPlaceName)) {
+    placeId = quotedPlaceId;
+    placeName = quotedPlaceName;
   }
 
   // 4. Den/datum dodání (zítra, dnes, název dne, ...).
