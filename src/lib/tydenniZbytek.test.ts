@@ -159,16 +159,33 @@ describe('zbytekPodleObjednavek — priorita podle dne dovozu', () => {
     expect(schodkyObjednavky(objednavka('B', '', 10).polozky, vysledek.get('B')!)[0].chybi).toBe(5);
   });
 
-  it('stejný den dovozu = stejná priorita, nesoutěží mezi sebou', () => {
+  it('stejný den dovozu, dohromady se do skladu vejdou — ani jedna nemá schodek', () => {
+    const zbytek = new Map([[`${PIVO}__${KEG50.id}`, 15]]);
+    const vysledek = zbytekPodleObjednavek(
+      [objednavka('A', '2026-08-05', 5), objednavka('B', '2026-08-05', 5)],
+      zbytek,
+      new Set(),
+    );
+    // Dohromady chtějí 10 z 15 — obě vidí zbytek po SPOLEČNÉM odečtení (5), obě v pořádku.
+    expect(schodkyObjednavky(objednavka('A', '', 5).polozky, vysledek.get('A')!)).toEqual([]);
+    expect(schodkyObjednavky(objednavka('B', '', 5).polozky, vysledek.get('B')!)).toEqual([]);
+  });
+
+  it('stejný den dovozu, dohromady na sklad NESTAČÍ — obě dostanou stejný sdílený schodek', () => {
+    // Oprava z provozu 17. 9. 2026: "nesoutěží mezi sebou" NEZNAMENÁ, že o
+    // sobě navzájem nevědí (to byl přesně Nález č. 3, jen o úroveň níž — na
+    // dni místo týdne) — znamená, že se dělí o STEJNÝ výsledek dne, přesně
+    // jako denní plán stáčení (keggingPlan.ts) počítá poptávku celého dne
+    // dohromady, ne objednávku po objednávce.
     const zbytek = new Map([[`${PIVO}__${KEG50.id}`, 15]]);
     const vysledek = zbytekPodleObjednavek(
       [objednavka('A', '2026-08-05', 10), objednavka('B', '2026-08-05', 10)],
       zbytek,
       new Set(),
     );
-    // Obě vidí týž (nezměněný) zbytek 15 — ani jedna nemá schodek.
-    expect(schodkyObjednavky(objednavka('A', '', 10).polozky, vysledek.get('A')!)).toEqual([]);
-    expect(schodkyObjednavky(objednavka('B', '', 10).polozky, vysledek.get('B')!)).toEqual([]);
+    // Dohromady chtějí 20 z 15 — oběma chybí stejných 5, ne že by "kdo dřív, ten bere".
+    expect(schodkyObjednavky(objednavka('A', '', 10).polozky, vysledek.get('A')!)[0].chybi).toBe(5);
+    expect(schodkyObjednavky(objednavka('B', '', 10).polozky, vysledek.get('B')!)[0].chybi).toBe(5);
   });
 
   it('položka, která už má odpočet ze skladu (zavoz), se neodečítá podruhé', () => {

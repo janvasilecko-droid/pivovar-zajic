@@ -127,9 +127,19 @@ export function zbytekPodleObjednavek(
   };
 
   // `bezici` = zbytek PO všech PŘÍSNĚ dřívějších dnech (aktualizuje se mezi
-  // dávkami). V rámci jedné dávky (stejný den) každá objednávka vidí stejný
-  // `bezici` a od něj odečte JEN SVOU VLASTNÍ poptávku — ne poptávku
-  // sourozenců se stejným dnem, ti mezi sebou nesoutěží.
+  // dávkami). V rámci jedné dávky (stejný den) VŠECHNY objednávky vidí
+  // STEJNÝ výsledek: zbytek po odečtení SPOLEČNÉ poptávky CELÉ dávky —
+  // stejná granularita jako denní plán stáčení (keggingPlan.ts), který taky
+  // nejdřív sečte poptávku celého dne do jednoho čísla a teprve to porovná
+  // se skladem, ne objednávku po objednávce.
+  //
+  // Oprava z provozu 17. 9. 2026: první verze tu každé objednávce dávky
+  // odečítala jen JEJÍ VLASTNÍ poptávku od nedotčeného zbytku — takže tři
+  // objednávky na stejný den, každá po 2ks, se STEJNÝM skladem 4ks, vyšly
+  // VŠECHNY jako "v pořádku" (4 ≥ 2), i když dohromady scházely 2ks. Přesně
+  // ten souběh, který měl Nález č. 3 opravit — jen přesunutý na úroveň dne
+  // místo týdne, protože "nesoutěží mezi sebou" se implementovalo jako
+  // "o sobě navzájem neví", ne jako "dělí se o stejný výsledek".
   const bezici = new Map(zbytek);
   const vysledek = new Map<string, Map<string, number>>();
   let i = 0;
@@ -137,15 +147,13 @@ export function zbytekPodleObjednavek(
     let j = i;
     while (j < razene.length && razene[j].poradiDatum === razene[i].poradiDatum) j++;
     const davka = razene.slice(i, j);
-    const snapshot = new Map(bezici);
     const davkovaPoptavka = new Map<string, number>();
-    for (const o of davka) {
-      const poptavka = poptavkaObjednavky(o);
-      const vlastni = new Map(snapshot);
-      poptavka.forEach((qty, k) => vlastni.set(k, (vlastni.get(k) ?? 0) - qty));
-      vysledek.set(o.order_id, vlastni);
-      poptavka.forEach((qty, k) => davkovaPoptavka.set(k, (davkovaPoptavka.get(k) ?? 0) + qty));
-    }
+    davka.forEach((o) => {
+      poptavkaObjednavky(o).forEach((qty, k) => davkovaPoptavka.set(k, (davkovaPoptavka.get(k) ?? 0) + qty));
+    });
+    const poDavce = new Map(bezici);
+    davkovaPoptavka.forEach((qty, k) => poDavce.set(k, (poDavce.get(k) ?? 0) - qty));
+    davka.forEach((o) => vysledek.set(o.order_id, poDavce));
     // Pro DALŠÍ (pozdější) dny se odečte poptávka CELÉ dávky najednou.
     davkovaPoptavka.forEach((qty, k) => bezici.set(k, (bezici.get(k) ?? 0) - qty));
     i = j;
