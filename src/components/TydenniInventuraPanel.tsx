@@ -9,7 +9,7 @@
 //
 // Zapisuje se stejnými funkcemi jako u měsíční uzávěrky (lib/inventoryFix.ts,
 // lib/tankZapis.ts). Vlastní verze zápisu by byla druhá pravda o tomtéž.
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarRange, Check, ChevronLeft, ChevronRight, MinusCircle, Plus, RefreshCw, Save, Search } from 'lucide-react';
 import { supabase, formatPackageLabel } from '../lib/supabase';
 import { Spinner } from './ui';
@@ -23,6 +23,8 @@ import {
   jenAktivni, popisTydne, radkyTydne, souhrnTydne, stitekTydne, tydenObdobi, vychoziTyden,
   zaznamKontroly, zaznamDorovnani, type TydenniRadek,
 } from '../lib/tydenniInventura';
+import { lzeUlozitKoncept, slucInventuru } from '../lib/rozepsanaInventura';
+import { nactiJson, ulozJson } from '../lib/uloziste';
 import { chyba, oznam, uspech } from '../lib/toast';
 import { normalizujCislo } from '../lib/cisloVstup';
 
@@ -38,6 +40,18 @@ export default function TydenniInventuraPanel() {
   const [uklada, setUklada] = useState<string | null>(null);
   const [hledat, setHledat] = useState('');
   const [jenRozdily, setJenRozdily] = useState(false);
+  // 🍾/🛢️ Přepínač nahoře: počítání se dělá buď v chlaďáku (sudy), nebo ve
+  // skladu lahví (PET) — jindy, jinde a jiný člověk. Zobrazit obojí najednou
+  // jen prodlužuje scrollování k tomu, co se zrovna počítá.
+  const [filtrObalu, setFiltrObalu] = useState<'vse' | 'lahve' | 'sudy'>(
+    () => (nactiJson<'vse' | 'lahve' | 'sudy'>('tydenni_inventura_filtr_obalu', 'vse')),
+  );
+  useEffect(() => { ulozJson('tydenni_inventura_filtr_obalu', filtrObalu); }, [filtrObalu]);
+  // 💾 Rozepsané (ještě neuložené) napočítání se nesmí ztratit — viz
+  // lib/rozepsanaInventura.ts. Bez tohohle `nacti()` (při přenačtení, po
+  // zápisu i při návratu na stejný týden) tiše přepsalo naťukaná čísla jen
+  // tím, co už je uložené v DB.
+  const loadedTydenRef = useRef<string | null>(null);
 
   const nacti = useCallback(async () => {
     setBezi(true);
@@ -52,9 +66,15 @@ export default function TydenniInventuraPanel() {
       // Co se v tomhle týdnu už napočítalo, se vrátí do políček. Kontrola se
       // dělá po částech (sklep dnes, sklad zítra) a překlikáním týdne sem a
       // zpátky se rozdělaná práce nesmí ztratit.
-      const mapa: Record<string, string> = {};
-      for (const r of ((ulozene as any[]) ?? [])) mapa[`${r.beer_id}__${r.package_id}`] = String(r.napocitano);
-      setNapocitano(mapa);
+      const mapaDB: Record<string, string> = {};
+      for (const r of ((ulozene as any[]) ?? [])) mapaDB[`${r.beer_id}__${r.package_id}`] = String(r.napocitano);
+      // Základ = koncept z localStorage pro TENHLE týden (přežije refresh i
+      // uspání telefonu), DB má přednost tam, kde už je něco oficiálně uloženo.
+      const koncept = nactiJson<Record<string, string>>(`tydenni_napocitano_${obdobi.od}`, {});
+      const nactene = { ...koncept, ...mapaDB };
+      const zmenaTydne = loadedTydenRef.current !== obdobi.od;
+      setNapocitano((prev) => slucInventuru(nactene, prev, zmenaTydne));
+      loadedTydenRef.current = obdobi.od;
     } catch (e: any) {
       chyba('Týdenní inventuru se nepodařilo načíst: ' + (e?.message || e));
     } finally {
@@ -64,22 +84,38 @@ export default function TydenniInventuraPanel() {
 
   useEffect(() => { nacti(); }, [nacti]);
 
+  useEffect(() => {
+    if (!lzeUlozitKoncept(loadedTydenRef.current, obdobi.od)) return;
+    ulozJson(`tydenni_napocitano_${obdobi.od}`, napocitano);
+  }, [napocitano, obdobi.od]);
+
   const vsechnyRadky = useMemo(() => {
     if (!kniha) return [];
     const sklad = stockForObdobi(kniha.pohyby, obdobi.od, obdobi.doPocitani);
     return jenAktivni(radkyTydne(sklad, kniha.piva, kniha.obaly, napocitano));
   }, [kniha, obdobi.od, obdobi.doPocitani, napocitano]);
 
+  // Přepínač nahoře (Lahve/Sudy) omezuje i souhrn a počítadlo „X / Y
+  // spočítáno" — jinak by ukazovaly zbytek skladu, na který se teď vůbec
+  // nekouká, a číslo by nesedělo s tím, co je vidět na obrazovce.
+  const radkyObalu = useMemo(() => {
+    return vsechnyRadky.filter((r) => {
+      if (filtrObalu === 'lahve' && r.sud) return false;
+      if (filtrObalu === 'sudy' && !r.sud) return false;
+      return true;
+    });
+  }, [vsechnyRadky, filtrObalu]);
+
   const radky = useMemo(() => {
     const q = hledat.trim().toLowerCase();
-    return vsechnyRadky.filter((r) => {
+    return radkyObalu.filter((r) => {
       if (jenRozdily && r.rozdil === 0) return false;
       if (!q) return true;
       return `${r.beer_name} ${r.package_label}`.toLowerCase().includes(q);
     });
-  }, [vsechnyRadky, hledat, jenRozdily]);
+  }, [radkyObalu, hledat, jenRozdily]);
 
-  const souhrn = useMemo(() => souhrnTydne(vsechnyRadky), [vsechnyRadky]);
+  const souhrn = useMemo(() => souhrnTydne(radkyObalu), [radkyObalu]);
 
   /**
    * Propíše rozdíl do stáčení — tam, kde vznikl.
@@ -228,6 +264,29 @@ export default function TydenniInventuraPanel() {
           </button>
         </div>
 
+        {/* 🍾/🛢️ Nahoře, jako první — na telefonu se přepíná hned po
+            otevření, ještě než se vůbec začne počítat. */}
+        <div className="flex items-stretch gap-1 rounded bg-neutral-100 border border-neutral-200 p-1">
+          {([
+            { klic: 'vse', popisek: 'Vše' },
+            { klic: 'lahve', popisek: 'Lahve' },
+            { klic: 'sudy', popisek: 'Sudy' },
+          ] as const).map(({ klic, popisek }) => (
+            <button
+              key={klic}
+              type="button"
+              onClick={() => setFiltrObalu(klic)}
+              className={`flex-1 px-3 py-2.5 rounded font-black text-xs transition min-h-[44px] ${
+                filtrObalu === klic
+                  ? 'bg-amber-600 text-white shadow-md'
+                  : 'text-neutral-600 hover:bg-neutral-200'
+              }`}
+            >
+              {popisek}
+            </button>
+          ))}
+        </div>
+
         <div className="flex flex-wrap items-center gap-2">
           <label className="relative flex-1 min-w-[180px]">
             <Search size={16} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400" />
@@ -260,7 +319,7 @@ export default function TydenniInventuraPanel() {
         {!bezi && (
           <div className="flex flex-wrap items-center gap-2 text-xs font-bold">
             <span className="chip bg-neutral-100 text-neutral-700 border-neutral-300">
-              {souhrn.spocitano} / {vsechnyRadky.length} spočítáno
+              {souhrn.spocitano} / {radkyObalu.length} spočítáno
             </span>
             <span className="chip bg-emerald-100 text-emerald-900 border-emerald-300">
               <Check size={14} /> {souhrn.sedi} sedí
