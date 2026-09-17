@@ -905,22 +905,22 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
               type="button"
               onClick={async () => {
                 if (queueLength() === 0) return;
-                // Offline se odesílat nedá — klepnutí tu jen otevře detail
-                // (proč to čeká, případně zahodit vadný zápis), ne slepý
-                // pokus o odeslání, který by stejně selhal bez sítě.
-                if (!online) { setShowSyncInfo(true); return; }
+                // ⚠️ Klepnutí VŽDY rovnou otevře detail — ne až podle toho,
+                // jak dopadne pokus o odeslání. Z provozu 17. 9. 2026: i po
+                // předchozí opravě (otevřít detail, když po pokusu něco
+                // zůstane) se pořád stávalo, že se to "tvářilo, že nic
+                // nedělá" — 4s bliknutá hláška zmizí rychleji, než ji člověk
+                // stihne přečíst, a bez otevřeného detailu to pak vypadá
+                // úplně stejně jako předtím. Teď se stane vždycky totéž a
+                // hned: otevře se okno se seznamem, a teprve v něm proběhne
+                // (a je vidět) pokus o odeslání.
+                setShowSyncInfo(true);
+                if (!online) return;
                 setSyncing(true);
                 const r = await syncQueue();
                 setSyncing(false);
                 setSyncMsg(r.remaining === 0 ? `Odesláno ${r.ok} změn` : `OK ${r.ok}, selhalo ${r.failed}`);
                 setTimeout(() => setSyncMsg(null), 4000);
-                // Zůstalo něco neodeslané i po pokusu (a appka JE online) —
-                // dřív z toho stačilo jen 4s zablikané "OK 0, selhalo 2" a
-                // lišta pak dál mlčí, i když se opakovaně klepe. Teď se
-                // rovnou otevře detail se seznamem a DŮVODEM chyby u
-                // každého zápisu (a tlačítkem "Zahodit"), stejný, jaký má
-                // tečka v hlavičce — ne jen "zkus to znovu naslepo".
-                if (r.remaining > 0) setShowSyncInfo(true);
               }}
               disabled={syncing || pending === 0}
               className={`pointer-events-auto w-full rounded-lg px-3 py-2 text-xs font-black shadow-lg border flex items-center justify-center gap-2 transition ${
