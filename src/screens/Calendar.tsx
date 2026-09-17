@@ -74,7 +74,11 @@ export default function CalendarScreen() {
   const [form, setForm] = useState({ title: '', description: '', reminder: false, reminder_time: '09:00', color: 'primary' });
 
   async function load() {
-    const { data } = await supabase.from('calendar_events').select('*').order('event_date');
+    // fetchAllRows, ne holé .select(): kalendář se nikdy nemaže sám a
+    // Supabase by nad tisícovkou událostí zbytek tiše zahodil — starší
+    // (nebo naopak nejnovější, podle pořadí) akce by z kalendáře prostě
+    // zmizely (viz strankovaniDotazu.test.ts).
+    const { data } = await fetchAllRows('calendar_events', '*').order('event_date');
     setEvents((data as CalendarEvent[]) ?? []);
     setLoading(false);
   }

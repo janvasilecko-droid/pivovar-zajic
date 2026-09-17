@@ -3,6 +3,7 @@ import { AlertTriangle, Calendar, ClipboardList, DollarSign, Download, CheckCirc
 import { potvrd, chyba } from '../lib/toast';
 import { supabase, useRealtime } from '../lib/supabase';
 import { Kostra } from './ui';
+import { businessDateISO } from '../lib/businessDate';
 
 type EquipmentItem = {
   id: string;
@@ -100,7 +101,7 @@ export function FestivalEquipmentTracker() {
 
   async function confirmLoan() {
     if (!loaningItem || !borrowerName.trim()) return;
-    const borrowedAt = new Date().toISOString().split('T')[0];
+    const borrowedAt = businessDateISO();
     const returnAt = expectedReturnAt || new Date(Date.now() + 86400000 * 3).toISOString().split('T')[0];
     const deposit = Number(depositKic) || 0;
     try {
@@ -157,7 +158,7 @@ export function FestivalEquipmentTracker() {
       if (e1) throw e1;
       if (activeLoanId) {
         const { error: e2 } = await supabase.from('festival_equipment_loans').update({
-          returned_at: new Date().toISOString().split('T')[0],
+          returned_at: businessDateISO(),
           deposit_returned: depositReturned,
         }).eq('id', activeLoanId);
         if (e2) throw e2;

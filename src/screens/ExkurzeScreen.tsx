@@ -7,6 +7,7 @@ import { chyba as chybaOznam, oznam, potvrd } from '../lib/toast';
 import { KLIC_EXKURZE, nactiExkurze, prenesZProhlizece, smazExkurzi, ulozExkurzi } from '../lib/exkurzeData';
 import { rozdilProUlozeni } from '../lib/vycepyData';
 import { uloz } from '../lib/uloziste';
+import { businessDateISO } from '../lib/businessDate';
 
 export type ExkurzeEntry = {
   id: string;
@@ -28,10 +29,10 @@ export default function ExkurzeScreen() {
     } catch { return []; }
   });
 
-  const [currentMonth, setCurrentMonth] = useState<string>(() => new Date().toISOString().slice(0, 7));
+  const [currentMonth, setCurrentMonth] = useState<string>(() => businessDateISO().slice(0, 7));
 
   // Form State - Default guide: František, Default people: 1
-  const [tourDate, setTourDate] = useState(new Date().toISOString().slice(0, 10));
+  const [tourDate, setTourDate] = useState(businessDateISO());
   const [tourTime, setTourTime] = useState('14:00');
   const [peopleCount, setPeopleCount] = useState<string>('1');
   const [guideName, setGuideName] = useState('František');
@@ -180,7 +181,7 @@ export default function ExkurzeScreen() {
       dataToExport,
       ['Datum', 'Čas', 'Počet lidí', 'Průvodce', 'Tržba (Kč)', 'Stav', 'Poznámka'],
       ['Datum', 'Čas', 'Počet lidí', 'Průvodce', 'Tržba (Kč)', 'Stav', 'Poznámka'],
-      `Exkurze_Statistika_${new Date().toISOString().slice(0, 10)}.xlsx`
+      `Exkurze_Statistika_${businessDateISO()}.xlsx`
     );
   }
 

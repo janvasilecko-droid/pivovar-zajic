@@ -4,6 +4,7 @@ import { Modal } from './ui';
 import { Check, CheckSquare, Lock, RotateCcw, ShieldCheck, Square, Unlock } from 'lucide-react';
 import { zavibruj } from '../lib/haptika';
 import { uloz } from '../lib/uloziste';
+import { businessDateISO } from '../lib/businessDate';
 
 type ChecklistItem = {
   id: string;
@@ -214,7 +215,7 @@ export function isMonthlyChecklistCompleteForDate(dateKey: string): boolean {
 }
 
 export function BottlingChecklistModal({ isOpen, onClose, dateStr, onApplyNote, blockCloseUntilStartDone, phase = 'start', initialCategory, showSkip }: Props) {
-  const dateKey = dateStr || new Date().toISOString().slice(0, 10);
+  const dateKey = dateStr || businessDateISO();
   const storageKey = 'bottling_checklist_' + dateKey;
 
   // Položky viditelné v aktuální fázi (jen příprava, konec stáčení nebo měsíční údržba).

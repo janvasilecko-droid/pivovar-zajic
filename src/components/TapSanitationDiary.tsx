@@ -14,8 +14,9 @@ import { SanitationStepRow, currentTimeStr } from './SanitationStepRow';
 import { Spinner } from './ui';
 import { Clock, Pencil, FileSpreadsheet, CheckCircle2, ChevronLeft, ChevronRight, Plus, Timer, Trash2, X } from 'lucide-react';
 import { potvrd } from '../lib/toast';
+import { businessDateISO } from '../lib/businessDate';
 
-const todayStr = () => new Date().toISOString().slice(0, 10);
+const todayStr = () => businessDateISO();
 
 // Výčepy sdílené s obrazovkou „Výčepy“ (localStorage).
 function loadTaps(): { id: string; name: string }[] {

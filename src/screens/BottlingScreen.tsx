@@ -72,7 +72,7 @@ export default function BottlingScreen({
   const [editingRow, setEditingRow] = useState<EntryRow | null>(null);
   const loadCountRef = useRef(0);
 
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(businessDateISO());
   const [note, setNote] = useState('');
   const [entryRows, setEntryRows] = useState<RowInput[]>(emptyRows());
   const [saving, setSaving] = useState(false);
@@ -343,11 +343,14 @@ export default function BottlingScreen({
   // Výchozí je TÝDEN — v jednom dni často není nic stočené (stáčí se v cyklech),
   // takže „den" by se otvíral prázdný. Den a měsíc jsou o klik vedle.
   const [recordsView, setRecordsView] = useState<'day' | 'week' | 'month'>('week');
-  const [recordsMonthKey, setRecordsMonthKey] = useState(() => new Date().toISOString().slice(0, 7));
-  const [recordsWeekKey, setRecordsWeekKey] = useState(() => isoWeekKey(new Date().toISOString().slice(0, 10)));
-  const [recordsDay, setRecordsDay] = useState(() => new Date().toISOString().slice(0, 10));
-  // Aktuální týden pro „Potřeba stočit lahve" (objednávky se počítají za týden, ne za měsíc)
-  const [weekKey, setWeekKey] = useState(() => isoWeekKey(new Date().toISOString().slice(0, 10)));
+  const [recordsMonthKey, setRecordsMonthKey] = useState(() => businessDateISO().slice(0, 7));
+  const [recordsWeekKey, setRecordsWeekKey] = useState(() => isoWeekKey(businessDateISO()));
+  const [recordsDay, setRecordsDay] = useState(() => businessDateISO());
+  // Aktuální týden pro „Potřeba stočit lahve" (objednávky se počítají za týden, ne za měsíc).
+  // businessDateISO(), NE new Date().toISOString() (vždycky UTC) — jinak kolem
+  // půlnoci pražského času vyjde jiný týden než na ploše Domů (CoStocitOkno),
+  // která businessDateISO() už používala (z provozu 15. 9. 2026, viz Kegging.tsx).
+  const [weekKey, setWeekKey] = useState(() => isoWeekKey(businessDateISO()));
   const weekLabel = weekRange(weekKey).label;
   // Posun měsíce o delta měsíců (vrací YYYY-MM)
   // Záložka záznamů: lahve / KEG / vše
@@ -457,13 +460,23 @@ export default function BottlingScreen({
     currentStockMap,
   }), [vsechnaPivaJmena, packages, orders, orderItems, rows, zavozDeductionRows, fasovaniRows, prodejnaRows, writeoffsRows, planCheckRows, weekKey, currentStockMap]);
 
-  // 🍾 Rozpad „zbývá stočit tento týden" podle VELIKOSTI LAHVE, přes všechna
-  // piva — z provozu 9. 9. 2026: součet přes všechny velikosti na dlaždici
-  // („55") nic neřekne o tom, co reálně nachystat, protože sčítá 0,5l s 1,5l.
-  // Stejný výpočet jako „Zbývá stočit po sudech" v „Co stočit na který den"
-  // (KeggingDayPlan.tsx), jen nad zápisem.
+  // ⚖️ JEDEN výpočet pro všechno — z provozu 16. 9. 2026: „udělej to tak, ať
+  // to logicky všechno sedí“. Dlaždice „Zbývá stočit tento týden“, červené
+  // štítky u piv i plán „Co je potřeba stočit“ jedou ze STEJNÉHO týdenního
+  // plánu (dennniPlanLahvi), který počítá se skutečnou zásobou skladem
+  // (currentStockMap). Do 16. 9. tu byl druhý, zjednodušený vzorec a každé
+  // místo v appce hlásilo jiné číslo: „když mám na skladě 11×30, nemůže mi
+  // přece chybět 5×30“.
   const weekPlanLahvi = useMemo(() => mergeWeekPlan(dennniPlanLahvi, weekLabel), [dennniPlanLahvi, weekLabel]);
+  // Rozpad podle VELIKOSTI obalu, přes všechna piva — součet přes všechny
+  // velikosti („55“) neřekne, co reálně nachystat (z provozu 9. 9. 2026).
   const rozpadTydneLahvi = useMemo(() => rozpadPoObalech(weekPlanLahvi), [weekPlanLahvi]);
+  // Rozklik jedné velikosti na jednotlivá piva — táž data, takže součet piv
+  // v rozkliku vyjde přesně na číslo na dlaždici.
+  const rozpisTydneLahviPodlePiv = useMemo(() => weekPlanLahvi.items
+    .filter((it) => it.missing > 0)
+    .map((it) => ({ beer_id: it.beer_id, package_id: it.package_id, missing: it.missing }))
+    .sort((a, z) => z.missing - a.missing), [weekPlanLahvi]);
   // Klik na velikost lahve v rozpadu rozklikne, kolik z toho je kterého piva
   // — stejný nápad jako u KEG (Kegging.tsx).
   const [rozpadOtevrenPkg, setRozpadOtevrenPkg] = useState<string | null>(null);
@@ -473,15 +486,27 @@ export default function BottlingScreen({
   // 0,5l a 1l dohromady), které neřeklo, co reálně nachystat. Z provozu
   // 9. 9. 2026: „u lahví nedělej jen červený kolečko, ale udělej ho větší
   // a napiš jakýho obalu co chybí".
+  // ⚖️ Počítá se ZJEDNODUŠENÝM týdenním vzorcem (rozpisTydneLahviPodlePiv), ne
+  // denním plánem — z provozu 16. 9. 2026: „to ukazuje 5 u 12ky, ale nahoře
+  // 12ka není“. Dlaždice „Zbývá stočit tento týden“ a červený štítek na pivu
+  // musí říkat totéž, jinak jedno z čísel lže.
   const missingBreakdownByBeer = useMemo(() => {
     const m: Record<string, { label: string; missing: number }[]> = {};
-    weekPlanLahvi.items.forEach((it) => {
+    rozpisTydneLahviPodlePiv.forEach((it) => {
       if (it.missing <= 0) return;
-      (m[it.beer_id] ||= []).push({ label: it.package_label.trim(), missing: it.missing });
+      const pkg = packages.find((p) => p.id === it.package_id);
+      (m[it.beer_id] ||= []).push({ label: (pkg?.label ?? '').trim(), missing: it.missing });
     });
     Object.values(m).forEach((arr) => arr.sort((a, z) => z.missing - a.missing));
     return m;
-  }, [weekPlanLahvi]);
+  }, [rozpisTydneLahviPodlePiv, packages]);
+
+  /** Týdenní „chybí“ týmž zjednodušeným vzorcem, klíč `pivo__obal`. */
+  const tydenChybiPodleKlice = useMemo(() => {
+    const m: Record<string, number> = {};
+    rozpisTydneLahviPodlePiv.forEach((it) => { m[`${it.beer_id}__${it.package_id}`] = it.missing; });
+    return m;
+  }, [rozpisTydneLahviPodlePiv]);
 
   // 🧾 Totéž po KONKRÉTNÍM OBALU (ne jen souhrn za pivo) — a s rozpadem po
   // dnech, ať se ze dlaždice v Zápisu dá rovnou zadat chybějící počet nebo
@@ -498,8 +523,12 @@ export default function BottlingScreen({
       agg.checked += it.checked;
       agg.days.push({ day: den.day, ordered: it.ordered, missing: it.missing, checked: it.checked });
     }));
+    // Týden musí sednout s dlaždicí „Zbývá stočit tento týden“ (zjednodušený
+    // vzorec). Rozpad po DNECH zůstává z denního plánu — odpovídá na jinou
+    // otázku („na který den“), ale součet za týden se musí shodovat.
+    Object.entries(m).forEach(([k, agg]) => { agg.missing = tydenChybiPodleKlice[k] ?? 0; });
     return m;
-  }, [dennniPlanLahvi]);
+  }, [dennniPlanLahvi, tydenChybiPodleKlice]);
 
   // 📅 Totéž po DNI — pro odznaky na přepínači dne v panelu zápisu.
   const missingByBeerDay = useMemo(() => {
@@ -576,7 +605,7 @@ export default function BottlingScreen({
   }
 
   const bottleRequirements = useMemo(() => {
-    const todayStr = new Date().toISOString().slice(0, 10);
+    const todayStr = businessDateISO();
     return computePackageNeeds(
       {
         // Nález z auditu 15. 9. 2026: se seznamem jen aktivních piv řádek
@@ -662,7 +691,7 @@ export default function BottlingScreen({
       pkg_id: row.package_id, qty,
       pkg2_id: null, qty2: 0,
       pkg3_id: null, qty3: 0,
-      planned_date: new Date().toISOString().slice(0, 10),
+      planned_date: businessDateISO(),
     });
     setCreatingTaskFor(null);
     if (error) { chyba('Úkol se nepodařilo založit: ' + error.message); return; }
@@ -868,6 +897,22 @@ export default function BottlingScreen({
         const dotaz = podezreleMnozstvi(Number(qty), historie, popis);
         if (dotaz && !(await potvrd(dotaz, { titulek: 'Zkontrolujte množství', potvrdit: 'Ano, uložit' }))) return false;
       }
+    }
+
+    // ⚠️ Bez obalu/počtu zdrojových sudů se lahve odečtou ze skladu, ale
+    // SUD ne — sklad sudů pak zůstane nafouklý, i když se fyzicky
+    // vyprázdnily. Z provozu 15. 9. 2026: „při zadávání stáčení lahví,
+    // pokud se nevyplní velikost keg a hlavně počet, upozorni na to".
+    for (const r of filled) {
+      const maLahve = Number(r.qty) > 0 || Number(r.qty2) > 0 || Number(r.qty3) > 0;
+      if (!maLahve) continue;
+      const maSudVelikost = !!r.kegPkgId;
+      const maSudPocet = Number(r.kegQty) > 0;
+      if (maSudVelikost && maSudPocet) continue;
+      const nazevPiva = beers.find((b) => b.id === r.beerId)?.name ?? 'Pivo';
+      const chybi = !maSudVelikost && !maSudPocet ? 'obal ani počet sudů' : !maSudPocet ? 'počet sudů' : 'obal sudu';
+      const dotaz = `${nazevPiva}: chybí ${chybi}, ze kterých se stáčelo — sklad sudů se bez toho neodečte.\n\nOpravdu uložit bez toho?`;
+      if (!(await potvrd(dotaz, { titulek: 'Chybí zdrojový sud', potvrdit: 'Ano, uložit bez sudů' }))) return false;
     }
 
     setSaving(true);
@@ -1308,15 +1353,13 @@ export default function BottlingScreen({
               {/* Rozklik jedné velikosti lahve na jednotlivá piva — „1l 110"
                   samo o sobě neřekne, kolik je kterého piva, tak se ptá znovu. */}
               {rozpadOtevrenPkg && (() => {
-                const rozpisPiv = weekPlanLahvi.items
-                  .filter((it) => it.package_id === rozpadOtevrenPkg && it.missing > 0)
-                  .sort((a, z) => z.missing - a.missing);
+                const rozpisPiv = rozpisTydneLahviPodlePiv.filter((it) => it.package_id === rozpadOtevrenPkg);
                 if (rozpisPiv.length === 0) return null;
                 return (
                   <ul className="mt-1.5 flex flex-wrap gap-1.5">
                     {rozpisPiv.map((it) => (
                       <li key={it.beer_id} className="px-2 py-1 rounded bg-neutral-50 border border-neutral-200 text-udaj font-bold text-neutral-700 whitespace-nowrap">
-                        {it.beer_name} <span className="font-black text-rose-600">{it.missing}</span>
+                        {beers.find((b) => b.id === it.beer_id)?.name ?? '—'} <span className="font-black text-rose-600">{it.missing}</span>
                       </li>
                     ))}
                   </ul>
@@ -1580,12 +1623,16 @@ export default function BottlingScreen({
                       <strong>{navrhZdrojovychSudu.zdrojL} l</strong> ze sudů
                       <span className="text-sky-700"> · {navrhZdrojovychSudu.sudyPresne} sudu</span>
                     </div>
+                    {/* Jen NÁVRH, ne uložení — dřív na celou šířku vypadal
+                        vizuálně důležitěji než „Uložit stáčení lahví" dole
+                        (z provozu 15. 9. 2026: „uložit at je větší, dopočítat
+                        ztráty menší"). Teď je menší a auto-šířky. */}
                     <button
                       type="button"
                       onClick={() => setTile('kegQty', String(navrhZdrojovychSudu.sudy))}
                       disabled={String(navrhZdrojovychSudu.sudy) === tileDraft.kegQty}
-                      className="w-full min-h-[44px] rounded bg-sky-700 hover:bg-sky-700 disabled:opacity-40 disabled:hover:bg-sky-600 text-white font-black text-[11px] transition"
-                      title="Dopočítat počet sudů z nastáčených lahví — načatý sud se počítá celý"
+                      className="min-h-[44px] px-3 rounded bg-sky-700 hover:bg-sky-700 disabled:opacity-40 disabled:hover:bg-sky-600 text-white font-bold text-[11px] transition"
+                      title="Dopočítat počet sudů z nastáčených lahví (s 10% ztrátou) — načatý sud se počítá celý"
                     >
                       {String(navrhZdrojovychSudu.sudy) === tileDraft.kegQty
                         ? `✓ Sedí s dopočtem (${navrhZdrojovychSudu.sudy} ks)`

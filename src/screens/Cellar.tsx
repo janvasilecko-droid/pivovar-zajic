@@ -13,6 +13,7 @@ import { TankOccupancyPlanner } from '../components/TankOccupancyPlanner';
 import { chyba, oznam, potvrd } from '../lib/toast';
 import { usePosledniNacteni, prvniChyba } from '../lib/nacitani';
 import { IkonaSud } from '../components/ikony';
+import { businessDateISO } from '../lib/businessDate';
 import { uloz } from '../lib/uloziste';
 
 const STATUS_LABELS: Record<CellarTank['status'], string> = {
@@ -87,7 +88,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
   // Objednávky (pro propojení: kolik kegů z aktuálního piva je objednáno)
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [orderItems, setOrderItems] = useState<OrderItemRow[]>([]);
-  const [weekKey, setWeekKey] = useState(isoWeekKey(new Date().toISOString().slice(0, 10)));
+  const [weekKey, setWeekKey] = useState(isoWeekKey(businessDateISO()));
   /** Nepodařilo se načíst data (na rozdíl od „ve sklepě nic není"). */
   const [chybaNacteni, setChybaNacteni] = useState<string | null>(null);
 
@@ -462,7 +463,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
       ? (durationMinutes !== '' ? Number(durationMinutes) : DEFAULT_DURATION[methodToSave])
       : (sanitationDuration !== '' ? Number(sanitationDuration) : DEFAULT_DURATION[methodToSave]);
     const logItem = {
-      sanitation_date: new Date().toISOString().slice(0, 10),
+      sanitation_date: businessDateISO(),
       sanitation_time: sanitationTime || getCurrentTimeStr(),
       duration_minutes: effectiveDuration,
       tank_id: targetTank.id,
@@ -1231,7 +1232,7 @@ function StartTankForm({ tank, beers, onClose, onSaved }: { tank: CellarTank; be
 }
 
 function TransferForm({ tanks, beers, initialFromId, initialBeerId, initialVolume, onClose, onSaved }: { tanks: CellarTank[]; beers: Beer[]; initialFromId?: string; initialBeerId?: string; initialVolume?: string; onClose: () => void; onSaved: () => void }) {
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(businessDateISO());
   const [fromId, setFromId] = useState(initialFromId || '');
   const [toId, setToId] = useState('');
   const [beerId, setBeerId] = useState(initialBeerId || '');

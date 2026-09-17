@@ -12,7 +12,7 @@
 // nemůžou rozejít. Načítá se jen aktuální týden, ne celá historie.
 //
 // Volba týden/dnes a sbalení okna se pamatuje v telefonu.
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarDays, Check, ChevronDown, ChevronRight } from 'lucide-react';
 import { supabase, fetchAllRows, useRealtime, beerBg, beerName } from '../lib/supabase';
 import { businessDateISO } from '../lib/businessDate';
@@ -108,6 +108,8 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
   const [sbaleno, setSbaleno] = useState(() => cti(KLIC_SBALENO) === '1');
   const [data, setData] = useState<Data | null>(null);
   const [chyba, setChyba] = useState(false);
+  /** Klepl si uživatel sám na den? Pak mu ho automatika nesmí přehodit. */
+  const rucniVyber = useRef(false);
 
   async function nacti() {
     try {
@@ -189,6 +191,8 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
       orders: data.orders,
       orderItems: data.orderItems,
       keggingRows: druh === 'sudy' ? data.kegging : data.bottling,
+      // Bez nich by se už zavezené objednávky odečetly dvakrát — viz
+      // keggingPlan.ts (vrácení závozů do zásoby u currentStockMap).
       zavozDeductionRows: data.zavozDeductions,
       fasovaniRows: data.fasovani,
       prodejnaRows: data.prodejna,
@@ -203,6 +207,20 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
   const planySudy = useMemo(() => (sudy ? planyDruhu('sudy') : []), [data, sudy, weekKey]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const planyLahve = useMemo(() => (lahve ? planyDruhu('lahve') : []), [data, lahve, weekKey]);
+
+  // 🔜 Přehled na ploše má ukazovat, co chybí stočit na NEJBLIŽŠÍ den — z
+  // provozu 16. 9. 2026: „na hlavní straně nahoře ten přehled má ukazovat, co
+  // chybí stočit na další den“. Dokud si uživatel den nepřepne sám (nebo nemá
+  // uložený týden), vybere se první den od dneška, kde ještě něco chybí.
+  useEffect(() => {
+    if (rucniVyber.current || cti(KLIC_OBDOBI) === 'tyden' || !data) return;
+    const poradi: string[] = DAYS.map((d) => d.v);
+    const odDneska = poradi.slice(poradi.indexOf(dnesniDen)).concat(poradi.slice(0, poradi.indexOf(dnesniDen)));
+    const chybiVDen = (den: string) => (planySudy.find((p) => p.day === den)?.totalMissing ?? 0)
+      + (planyLahve.find((p) => p.day === den)?.totalMissing ?? 0);
+    const nejblizsi = odDneska.find((d) => chybiVDen(d) > 0);
+    if (nejblizsi && nejblizsi !== obdobi) setObdobi(nejblizsi);
+  }, [data, planySudy, planyLahve, dnesniDen, obdobi]);
 
   const planSudy = useMemo(() => planProVyber(planySudy, obdobi, weekLabel), [planySudy, obdobi, weekLabel]);
   const planLahve = useMemo(() => planProVyber(planyLahve, obdobi, weekLabel), [planyLahve, obdobi, weekLabel]);
@@ -224,6 +242,7 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
     : obdobi === dnesniDen ? 'dnes' : `na ${DAYS.find((d) => d.v === obdobi)?.label ?? obdobi}`;
 
   function zvolObdobi(o: string) {
+    rucniVyber.current = true;
     setObdobi(o);
     if (o === 'tyden' || o === dnesniDen) uloz(KLIC_OBDOBI, o === 'tyden' ? 'tyden' : 'dnes');
   }

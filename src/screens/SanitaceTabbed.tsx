@@ -11,10 +11,11 @@ import { IkonaSud, IkonaLahev } from '../components/ikony';
 import { fetchAllRows } from '../lib/supabase';
 import { DENIKY, stahniSanitace } from '../lib/exportSanitaci';
 import { oznam } from '../lib/toast';
+import { businessDateISO } from '../lib/businessDate';
 
 /** 🧼 Export všech sanitačních deníků za období — pro hygienickou kontrolu. */
 function ExportSanitaci() {
-  const dnes = new Date().toISOString().slice(0, 10);
+  const dnes = businessDateISO();
   const [od, setOd] = useState(() => `${dnes.slice(0, 4)}-01-01`);
   const [doKdy, setDoKdy] = useState(dnes);
   const [bezi, setBezi] = useState(false);

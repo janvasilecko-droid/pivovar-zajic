@@ -20,6 +20,7 @@ import { isAdminEmail } from '../lib/config';
 import { BugReportModal } from './BugReportModal';
 
 import { onNewVersion, forceRefresh, type VersionInfo } from '../lib/versionCheck';
+import { businessDateISO } from '../lib/businessDate';
 import { jeVlastniObjednavka } from '../lib/mojeObjednavky';
 import { zavrenaVerzeListy, zavriVerziListy } from '../lib/verzeLista';
 import { nastavObrazovkuProChyby, zalogujANahlas } from '../lib/chybyHlaseni';
@@ -839,7 +840,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
           <Suspense fallback={null}>
           <EditOrderModal
             order={{
-              id: '', order_date: new Date().toISOString().slice(0, 10), place_id: null, place_name: null,
+              id: '', order_date: businessDateISO(), place_id: null, place_name: null,
               source: 'rucne', status: 'nova', note: null, created_at: '', delivery_day: null, delivery_date: null,
               is_prepared: false, is_packaged: false, is_delivered: false, delivered_at: null
             }}

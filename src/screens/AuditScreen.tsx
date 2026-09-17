@@ -5,6 +5,7 @@ import { isAdminEmail } from '../lib/config';
 import { Beer, Package, supabase } from '../lib/supabase';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
 import HloubkovyAuditPanel from '../components/HloubkovyAuditPanel';
+import { businessDateISO } from '../lib/businessDate';
 
 const OrderAuditModal = lazy(() => import('../components/OrderAuditModal').then((m) => ({ default: m.OrderAuditModal })));
 const WhatsAppAuditModal = lazy(() => import('../components/WhatsAppAuditModal').then((m) => ({ default: m.WhatsAppAuditModal })));
@@ -37,7 +38,7 @@ export default function AuditScreen({ setPage }: { setPage?: (p: any, sec?: stri
     });
   }, [otevreno, beers.length]);
 
-  const tydenOd = weekRange(isoWeekKey(new Date().toISOString().slice(0, 10))).start.toISOString().slice(0, 10);
+  const tydenOd = weekRange(isoWeekKey(businessDateISO())).start.toISOString().slice(0, 10);
 
   return (
     <div className="max-w-4xl mx-auto p-3 sm:p-4 space-y-4">

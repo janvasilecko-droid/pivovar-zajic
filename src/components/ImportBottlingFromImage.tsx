@@ -6,6 +6,7 @@ import type { Beer, Package } from '../lib/supabase';
 import { authenticatedFunctionHeaders } from '../lib/functionAuth';
 import { typObrazku, zmensenyDataUrl } from '../lib/obrazek';
 import { AlertCircle, Camera, ChevronLeft, ChevronRight, Lightbulb, Plus, RotateCcw, Trash2, Upload } from 'lucide-react';
+import { businessDateISO } from '../lib/businessDate';
 
 type RowInput = { beerId: string; pkgId: string; pkg2Id: string; pkg3Id: string; kegPkgId: string; kegQty: string; qty: string; qty2: string; qty3: string; _removed?: boolean; _manual?: boolean };
 type PhotoEntry = { dataUrl: string; name: string };
@@ -19,7 +20,7 @@ type Props = {
 };
 
 export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onImport }: Props) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = businessDateISO();
   const [date, setDate] = useState(today);
   const [note, setNote] = useState('');
   const [entryRows, setEntryRows] = useState<RowInput[] | null>(null);

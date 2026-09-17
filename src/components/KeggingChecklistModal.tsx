@@ -4,6 +4,7 @@ import { AlertTriangle, Check, CheckSquare, FlaskConical, Lock, RotateCcw, Shiel
 import { potvrd } from '../lib/toast';
 import { synchronizuj, ulozStav } from '../lib/checklistData';
 import { zavibruj } from '../lib/haptika';
+import { businessDateISO } from '../lib/businessDate';
 
 export type ChecklistPhase = 'start' | 'end' | 'monthly' | 'all';
 
@@ -127,7 +128,7 @@ type BodyProps = {
  * vložený do stránky (záložka "Checklist" v Kegging.tsx pro souhrnný pohled).
  */
 export function KeggingChecklistBody({ dateStr, onApplyNote, onDone, blockCloseUntilStartDone, phase = 'start', initialCategory, showSkip, isLastWeekOfMonth = false }: BodyProps) {
-  const dateKey = dateStr || new Date().toISOString().slice(0, 10);
+  const dateKey = dateStr || businessDateISO();
   const [checks, setChecks] = useState<Record<string, boolean | string>>({});
 
   // Stav se srovná s databází, takže checklist proklikaný na tabletu platí i
@@ -404,7 +405,7 @@ type ModalProps = {
 
 /** Modálni obal nad KeggingChecklistBody — použitý pro povinnou bránu před stáčením a rychlé otevření z lišty. */
 export function KeggingChecklistModal({ isOpen, onClose, dateStr, onApplyNote, blockCloseUntilStartDone, phase = 'start', initialCategory, showSkip }: ModalProps) {
-  const dateKey = dateStr || new Date().toISOString().slice(0, 10);
+  const dateKey = dateStr || businessDateISO();
   const isOverallStartDone = isStartChecklistCompleteForKeg(dateKey);
 
   if (!isOpen) return null;

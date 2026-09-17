@@ -23,6 +23,11 @@ const ROSTOUCI = [
   'writeoffs', 'inventory', 'inventory_adjustments', 'zavoz_deductions',
   'keg_prefuk', 'akce', 'akce_items', 'keg_returns', 'keg_movements',
   'logbook_entries', 'zavoz_ukoly_hotovo', 'kegging_plan_checks',
+  // Doplněno 16. 9. 2026 při stejném hledání: appka je četla holým
+  // .select() bez stránkování — whatsapp_incoming a calendar_events rostou
+  // s každým provozním dnem, parser_aliases/place_aliases s každou naučenou
+  // opravou, a nikdy se nemažou.
+  'whatsapp_incoming', 'calendar_events', 'parser_aliases', 'place_aliases',
 ];
 
 /**

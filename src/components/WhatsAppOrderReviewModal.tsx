@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { Beer, Package, Place, supabase } from '../lib/supabase';
 import { WhatsAppIncoming, ignoreWhatsAppMessage, updateWhatsAppParsedData, napojNaObjednavku } from '../lib/whatsappApi';
 import { parseWhatsAppOrderMessageWithAI } from '../lib/whatsappParser';
-import { loadAliasMap, saveAlias, canLearnBeerAlias, matchBeerFromHints, matchPackage, matchPlaceFromText, savePlaceAlias, normalize, getOrCreatePlace, type ParserAliasMap } from '../lib/orderParser';
+import { loadAliasMap, saveAlias, canLearnBeerAlias, matchBeerFromHints, matchPackage, savePlaceAlias, normalize, getOrCreatePlace, type ParserAliasMap } from '../lib/orderParser';
+import { matchAgainstCatalog } from '../../supabase/functions/_shared/place-match';
 import { oznacVlastniObjednavku } from '../lib/mojeObjednavky';
 import {
   diffOrderItems, rozsahOdpovedi, slozNavrh, potvrzeneBezPolozek, vypadaJakoPridavek,
@@ -166,8 +167,13 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
     let pid = msg.parsed_place_id || '';
     const pname = msg.parsed_place_name || '';
     if (!pid && pname) {
-      const matched = matchPlaceFromText(pname, props.places);
-      if (matched.placeId && matched.placeName) pid = matched.placeId;
+      // matchAgainstCatalog (ne matchPlaceFromText): `pname` je už VYBRANÉ
+      // jméno (AI ho vrátila jako place_name), ne syrový text zprávy —
+      // ukotvení v textu tu nedává smysl a stará cesta navíc jméno jako
+      // "petr" napevno vyřazovala coby zaměstnance (viz komentář u
+      // matchAgainstCatalog v _shared/place-match.ts).
+      const matched = matchAgainstCatalog(pname, props.places, []);
+      if (matched.id) pid = matched.id;
     }
     setPlaceId(pid);
     setPlaceName(pname || props.places.find((p) => p.id === pid)?.name || '');
@@ -702,7 +708,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
           if (place) { resolvedPlaceId = place.id; resolvedPlaceName = place.name; }
         }
         const { data: newOrder, error: orderErr } = await supabase.from('orders').insert({
-          order_date: new Date().toISOString().slice(0, 10),
+          order_date: businessDateISO(),
           place_id: resolvedPlaceId, place_name: resolvedPlaceName || null,
           source: 'whatsapp', status: 'nova',
           delivery_day: message.parsed_delivery_day ?? null,
@@ -804,10 +810,19 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
       setRebuildKey((k) => k + 1); // znovu postaví editační položky z nových parsed_items
 
       // Pokud uživatel odběratele ručně neopravil, promítneme nové místo z AI.
+      // Když nové čtení nenajde NIC (placeId i placeName prázdné), ale
+      // odběratel byl už předtím vyplněný (ať z prvního čtení, nebo ho sem
+      // ručně vyplnil někdo jiný), pole nemažeme — druhé čtení je skoro
+      // vždycky NEÚSPĚCH AI, ne důkaz, že odběratel zmizel (z provozu
+      // 16. 9. 2026: "Přečíst znovu" vymazalo už správně dosazeného
+      // odběratele, protože AI ho podruhé nenašla).
       if (!placeTouchedRef.current) {
-        setPlaceId(parsed.placeId || '');
-        setPlaceName(parsed.placeName || '');
-        setOrigPlaceName(parsed.placeName || null);
+        const nalezenoNove = !!(parsed.placeId || parsed.placeName?.trim());
+        if (nalezenoNove || !(placeId || placeName.trim())) {
+          setPlaceId(parsed.placeId || '');
+          setPlaceName(parsed.placeName || '');
+          setOrigPlaceName(parsed.placeName || null);
+        }
       }
 
       setStatusMessage(

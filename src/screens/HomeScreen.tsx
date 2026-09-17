@@ -18,7 +18,7 @@ import { Modal } from '../components/ui';
 import { useAuth } from '../lib/auth';
 import { canUserView, getUserPermissions, PAGE_TO_MODULE } from '../lib/permissions';
 import { isAdminEmail } from '../lib/config';
-import { supabase, Vehicle, fetchAllRows } from '../lib/supabase';
+import { supabase, Vehicle, fetchAllRows, useRealtime } from '../lib/supabase';
 import { getVehicleExpiryStatus } from '../lib/vozidla';
 import { businessDateISO } from '../lib/businessDate';
 import { IkonaSud, IkonaLahev, IkonaVycep } from '../components/ikony';
@@ -41,7 +41,7 @@ import {
   PAGE_CATEGORY, CATEGORY_ORDER, CATEGORY_SHADES, type Category,
   moveTileToPageCell, okrajProPrepnuti, dalsiStranka, rozdelVseDoStranek, idsKRozmisteni, vyrovnejStranku, VYCHOZI_STRANKA, type OkrajTazeni,
   MIN_OPACITY, MAX_OPACITY, MIN_TILE_GAP, MAX_TILE_GAP, MIN_W, MAX_W, MIN_H, MAX_H, TILE_COLORS, COLOR_HEX, defaultTileColor,
-  GRID_COLS_DESKTOP, GRID_COLS_MOBILE, MOBILE_BREAKPOINT_PX, ROW_HEIGHT_DESKTOP, ROW_HEIGHT_MOBILE, MIN_DOCK, MAX_DOCK,
+  GRID_COLS_DESKTOP, GRID_COLS_MOBILE, MOBILE_BREAKPOINT_PX, ROW_HEIGHT_DESKTOP, ROW_HEIGHT_MOBILE, MIN_DOCK, MAX_DOCK, UNIT_COLS,
   CO2_TILE_ID,
   type HomeLayout, type TileColor, type TileId, type GroupId, type CountdownTileId,
 } from '../lib/homeLayout';
@@ -282,6 +282,44 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
     setEdgeHint(null);
   }
   const rowHeight = cols === GRID_COLS_MOBILE ? ROW_HEIGHT_MOBILE : ROW_HEIGHT_DESKTOP;
+  // 🖥️ Na počítači (široká obrazovka, mimo úpravu rozložení) se všechny
+  // stránky plochy zobrazí pod sebou najednou — na velkém displeji je pro
+  // ně dost místa a přepínání šipkami dává smysl jen na telefonu, kde se na
+  // obrazovku vejde jen jedna. Z provozu 16. 9. 2026: „na počítači ať mám
+  // všechny dlaždice na jedny ploše a nemusím přepínat obrazovky, to jen na
+  // telefonu". Úprava rozložení (přetahování, mazání stránek…) zůstává vždy
+  // jen na JEDNÉ stránce najednou (currentPageIndex) — přetahovat dlaždici
+  // mezi několika viditelnými mřížkami by vyžadovalo přepsat cílení buňky
+  // (cellFromPoint níž počítá z JEDINÉ `.hs-grid` v DOM).
+  const zobrazVsechnyStrankyNajednou = !editMode && cols === GRID_COLS_DESKTOP;
+  const zobrazeneStranky = zobrazVsechnyStrankyNajednou ? layout.pages.map((_, i) => i) : [currentPageIndex];
+  // 🖥️ Kolik sloupců stránka OPRAVDU využívá — z provozu 16. 9. 2026: „na
+  // notebooku rozáhni ty dlaždice po celý obrazovku, ne jen dolu". Mřížka
+  // sama je široká 18 sloupců, ale stránka s pár dlaždicemi je využije jen
+  // zčásti — když se pak stránky jen podskládají pod sebe (na celou šířku
+  // 18 sloupců každá), zbytek řádku zůstane prázdný a další stránka jede
+  // až POD tím prázdnem. Když se místo toho stránky vedle sebe vejdou na
+  // šířku obrazovky (viz .hs-stranky-vedle-sebe níž — sloupec má PEVNOU
+  // šířku, ne 1fr přes celý kontejner), skutečně se využije šířka, ne
+  // výška. Vrací se rozsah v RAW gridových sloupcích (stejná jednotka jako
+  // tileGridStyle), s dolní mezí jeden „tile unit", ať prázdná stránka
+  // nezůstane nulově úzká.
+  const strankaPouzitaSirka = (strankaIndex: number): number => {
+    const ids = ((nahledLayout ?? layout).pages[strankaIndex] ?? []).filter((id) => id !== 'signout' && id !== 'app_settings');
+    let max = UNIT_COLS;
+    for (const id of ids) {
+      const o = (nahledLayout ?? layout).overrides[id] ?? {};
+      const x = o.x ?? 0;
+      const w = o.w ?? 1;
+      const span = w === 0 ? 1 : w * UNIT_COLS;
+      if (x + span > max) max = x + span;
+    }
+    return Math.min(GRID_COLS_DESKTOP, max);
+  };
+  /** Pevná šířka sloupce (px) pro stránky vedle sebe — tak velké dlaždice
+   * vycházejí dnes běžně na jednu stránku přes celou šířku, jen se teď
+   * nenafukují donekonečna se šířkou monitoru. */
+  const HS_SLOUPEC_PX = 76;
   function cellFromPoint(clientX: number, clientY: number): { x: number; y: number } | null {
     const gridEl = document.querySelector('.hs-grid') as HTMLElement | null;
     if (!gridEl) return null;
@@ -548,6 +586,10 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   // ignorují (< 50px, nebo víc svislý než vodorovný pohyb).
   const swipeStart = useRef<{ x: number; y: number } | null>(null);
   function handleSwipePointerDown(e: React.PointerEvent) {
+    // Na počítači se stránky nepřetáčí (jsou pod sebou najednou, viz
+    // zobrazVsechnyStrankyNajednou výš) — gesto by beztak neměnilo nic
+    // vidět, jen tiše přepnulo currentPageIndex na pozadí.
+    if (zobrazVsechnyStrankyNajednou) { swipeStart.current = null; return; }
     // Gesto, které začalo uvnitř vodorovného pásku (záložky, řada
     // upozornění), patří tomu pásku — dřív se jím místo posunutí pásku
     // přetočila celá stránka launcheru. Viz jeVeVodorovnemPasku.
@@ -942,7 +984,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
 
   // ---- Živá dlaždice: Sklep (objem ležícího piva v hl a plné tanky) ----
   const [cellarLiveStats, setCellarLiveStats] = useState<{ activeTanks: number; totalHl: number } | null>(null);
-  useEffect(() => {
+  const nactiCellarLiveStats = () => {
     if (!visibleIds.includes('cellar')) return;
     supabase.from('cellar_tanks').select('status,current_volume_l').then(({ data }) => {
       const rows = data ?? [];
@@ -950,9 +992,12 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
       const sumL = active.reduce((acc: number, t: any) => acc + (t.current_volume_l || 0), 0);
       if (active.length > 0) {
         setCellarLiveStats({ activeTanks: active.length, totalHl: Math.round(sumL / 100) });
+      } else {
+        setCellarLiveStats(null);
       }
     });
-  }, [visibleIds]);
+  };
+  useEffect(() => { nactiCellarLiveStats(); }, [visibleIds]);
 
   // ---- Živá dlaždice Sklep: jednotlivé tanky s objemem ----
   // Odznak výš říká jen „6 tanků, 84 hl". Když je dlaždice zvětšená, vejde
@@ -960,15 +1005,13 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   // KOLIK v něm zbývá. Byla to jedna z věcí, pro kterou se chodilo do
   // Sklepa a hned zpátky.
   const [tankyNaPlochu, setTankyNaPlochu] = useState<{ label: string; pivo: string; litry: number; staci: boolean }[]>([]);
-  useEffect(() => {
+  const nactiTankyNaPlochu = () => {
     if (!visibleIds.includes('cellar')) return;
-    let zruseno = false;
     void (async () => {
       const [{ data: tanky }, { data: piva }] = await Promise.all([
         supabase.from('cellar_tanks').select('label,current_beer_id,current_volume_l,status,kegging_active'),
         supabase.from('beers').select('id,name'),
       ]);
-      if (zruseno) return;
       const jmenoPiva = new Map(((piva as any[]) ?? []).map((b) => [b.id, b.name as string]));
       const radky = (((tanky as any[]) ?? [])
         .filter((t) => t.status !== 'empty' && Number(t.current_volume_l || 0) > 0)
@@ -983,14 +1026,13 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
         .sort((a, b) => (Number(b.staci) - Number(a.staci)) || (b.litry - a.litry)));
       setTankyNaPlochu(radky);
     })();
-    return () => { zruseno = true; };
-  }, [visibleIds]);
+  };
+  useEffect(() => { nactiTankyNaPlochu(); }, [visibleIds]);
 
   // ---- Živá dlaždice Objednávky: co se dnes veze ----
   const [dnesniZavoz, setDnesniZavoz] = useState<{ objednavek: number; kusu: number; mista: string[] } | null>(null);
-  useEffect(() => {
+  const nactiDnesniZavoz = () => {
     if (!visibleIds.includes('orders')) return;
-    let zruseno = false;
     void (async () => {
       const dnes = businessDateISO();
       // Objednávky na dnešní závoz. Storno se nepočítá — nechystá se.
@@ -1003,7 +1045,6 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
       const { data } = await fetchAllRows<any>('orders', 'id, place_name, status, order_items(quantity)')
         .eq('delivery_date', dnes)
         .neq('status', 'storno');
-      if (zruseno) return;
       const rows = ((data as any[]) ?? []);
       if (rows.length === 0) { setDnesniZavoz(null); return; }
       const kusu = rows.reduce(
@@ -1015,17 +1056,16 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
         .filter((m) => m.length > 0);
       setDnesniZavoz({ objednavek: rows.length, kusu, mista });
     })();
-    return () => { zruseno = true; };
-  }, [visibleIds]);
+  };
+  useEffect(() => { nactiDnesniZavoz(); }, [visibleIds]);
 
   // ---- Živá dlaždice Sklad: co se dnes stalo ----
   // Dosud se to skládalo z pěti obrazovek (KEG, Lahve, Fasování, Odpis,
   // Závoz) a nikdo to nedělal. Sčítají se POHYBY dne po druzích — stav
   // skladu se tu nepočítá, ten umí jedině lib/stockLedger.ts.
   const [souhrn, setSouhrn] = useState<SouhrnDne | null>(null);
-  useEffect(() => {
+  const nactiSouhrnDne = () => {
     if (!visibleIds.includes('dashboard')) return;
-    let zruseno = false;
     void (async () => {
       const dnes = businessDateISO();
       // Čte se jen dnešek: souhrn dne nepotřebuje historii a stahovat
@@ -1048,7 +1088,6 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
         // spadl a v souhrnu dne nebyl vidět ani jeden závoz.
         fetchAllRows<any>('zavoz_deductions', 'deduct_date,beer_id,package_id,quantity').eq('deduct_date', dnes),
       ]);
-      if (zruseno) return;
       const pohyby = buildMovements({
         bottlingRows: (bot.data as any[]) ?? [],
         keggingRows: (keg.data as any[]) ?? [],
@@ -1059,19 +1098,20 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
       });
       setSouhrn(souhrnDne(pohyby, dnes));
     })();
-    return () => { zruseno = true; };
-  }, [visibleIds]);
+  };
+  useEffect(() => { nactiSouhrnDne(); }, [visibleIds]);
 
   // ---- Živá dlaždice: Dnešní plánované stáčení lahví ----
   const [bottlingTodayCount, setBottlingTodayCount] = useState<number | null>(null);
-  useEffect(() => {
+  const nactiBottlingTodayCount = () => {
     if (!visibleIds.includes('bottling') && !visibleIds.includes('bottling_needs')) return;
     const dnes = businessDateISO();
     supabase.from('bottling_plans').select('id', { count: 'exact', head: true })
       .eq('planned_date', dnes)
       .eq('status', 'planned')
       .then(({ count }) => setBottlingTodayCount(count && count > 0 ? count : null));
-  }, [visibleIds]);
+  };
+  useEffect(() => { nactiBottlingTodayCount(); }, [visibleIds]);
 
   // Modál rychlých akcí (Quick Actions)
   const [quickActionsTile, setQuickActionsTile] = useState<TileId | null>(null);
@@ -1170,7 +1210,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   // v Uživatelích (nebo admin), a jen dokud to ten člověk jednou nepotvrdí.
   const canSeeVehicleAlerts = profile?.role === 'admin' || !!(profile as any)?.receive_vehicle_alerts;
   const [vehicleAlerts, setVehicleAlerts] = useState<VehicleAlert[]>([]);
-  useEffect(() => {
+  const nactiVehicleAlerts = () => {
     if (!canSeeVehicleAlerts) { setVehicleAlerts([]); return; }
     supabase.from('vehicles').select('*').then(({ data }) => {
       const rows = (data as Vehicle[]) ?? [];
@@ -1187,7 +1227,27 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
       });
       setVehicleAlerts(alerts);
     });
-  }, [canSeeVehicleAlerts]);
+  };
+  useEffect(() => { nactiVehicleAlerts(); }, [canSeeVehicleAlerts]);
+
+  // 🔴 Živé dlaždice na Domů (sklep, dnešní závoz, sklad dne, plán stáčení
+  // lahví, vozidla) se dřív načetly JEN při otevření appky — kdo měl Domů
+  // otevřené na tabletu v kanceláři a sklepník mezitím upravil tank na
+  // telefonu, viděl starý stav, dokud appku sám neobnovil (z provozu
+  // 16. 9. 2026, stejná chyba jako u Skladu/Stáčení KEG — viz useRealtime
+  // v lib/supabase.ts). Jeden odběr pro všech šest dlaždic najednou, každá
+  // funkce si sama pohlídá, jestli je vůbec na ploše vidět.
+  useRealtime(
+    ['cellar_tanks', 'beers', 'orders', 'order_items', 'bottling', 'kegging', 'fasovani', 'fasovani_private', 'writeoffs', 'zavoz_deductions', 'bottling_plans', 'vehicles'],
+    () => {
+      nactiCellarLiveStats();
+      nactiTankyNaPlochu();
+      nactiDnesniZavoz();
+      nactiSouhrnDne();
+      nactiBottlingTodayCount();
+      nactiVehicleAlerts();
+    },
+  );
 
   // Nová verze appky — dřív automaticky vyskakující modál, teď jen tichá
   // dlaždice na Domů (stejný princip jako "Vozidla — STK/známka" níže):
@@ -1489,7 +1549,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
               aria-hidden="true"
               className="hs-pager-znak vlastni-vyska"
             />
-            {(layout.pages.length > 1 || editMode) && (
+            {(layout.pages.length > 1 || editMode) && !zobrazVsechnyStrankyNajednou && (
             <>
             <button
               type="button"
@@ -1824,11 +1884,25 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
           </div>
         )}
 
-        <div className={`hs-grid ${draggingId ? 'hs-mrizka-viditelna' : ''}`} style={{ ['--hs-tile-alpha' as any]: layout.tileOpacity, ['--hs-tile-gap' as any]: `${layout.tileGap}px`, ['--hs-sloupcu' as any]: cols, ['--hs-radek' as any]: `${rowHeight}px` }}>
+        <div className={zobrazVsechnyStrankyNajednou ? 'hs-stranky-vedle-sebe' : undefined}>
+        {zobrazeneStranky.map((strankaIndex) => (
+        <div
+          key={strankaIndex}
+          className={`hs-grid ${draggingId ? 'hs-mrizka-viditelna' : ''} ${zobrazVsechnyStrankyNajednou ? 'hs-grid-stranka-vedle-sebe' : ''}`}
+          style={{
+            ['--hs-tile-alpha' as any]: layout.tileOpacity,
+            ['--hs-tile-gap' as any]: `${layout.tileGap}px`,
+            ['--hs-sloupcu' as any]: cols,
+            ['--hs-radek' as any]: `${rowHeight}px`,
+            ...(zobrazVsechnyStrankyNajednou
+              ? { gridTemplateColumns: `repeat(${strankaPouzitaSirka(strankaIndex)}, ${HS_SLOUPEC_PX}px)` }
+              : null),
+          }}
+        >
           {/* Obrys buňky, kam dlaždice spadne. Kreslí se ve stejné velikosti
               jako přesouvaná dlaždice, aby bylo předem vidět, jestli se tam
               vejde — ne jen „někam sem". */}
-          {draggingId && dropCell && (
+          {draggingId && dropCell && strankaIndex === currentPageIndex && (
             <div
               className="hs-drop-ghost"
               aria-hidden="true"
@@ -1844,7 +1918,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
               uhnuly. Mimo tažení je `nahledLayout` null a platí uložený stav. */}
           {/* 'signout' se nevykresluje — odhlášení je nahoře u šipek jako
               ikona. V uloženém rozložení zůstává, ať jde vrátit beze ztráty. */}
-          {((nahledLayout ?? layout).pages[currentPageIndex] ?? []).filter((id) => id !== 'signout' && id !== 'app_settings').map((id) => {
+          {((nahledLayout ?? layout).pages[strankaIndex] ?? []).filter((id) => id !== 'signout' && id !== 'app_settings').map((id) => {
             const override = (nahledLayout ?? layout).overrides[id] ?? {};
             if (isGroupId(id)) {
               const group = layout.groups[id];
@@ -2360,6 +2434,8 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
               />
             );
           })}
+        </div>
+        ))}
         </div>
         </div>
       </div>

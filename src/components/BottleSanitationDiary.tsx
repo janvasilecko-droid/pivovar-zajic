@@ -5,8 +5,9 @@ import { Spinner } from './ui';
 import { SanitationStepRow } from './SanitationStepRow';
 import { Beaker, Calendar, CalendarDays, Clock, Pencil, FileSpreadsheet, FileText, Check, CheckCircle2, Plus, Settings, ShieldAlert, SprayCan, Trash2, User, UserCheck, X } from 'lucide-react';
 import { potvrd } from '../lib/toast';
+import { businessDateISO } from '../lib/businessDate';
 
-const todayStr = () => new Date().toISOString().slice(0, 10);
+const todayStr = () => businessDateISO();
 
 // Definice kroků sanitace lahví — pro zobrazení deníku jako tabulky (datum,
 // co bylo provedeno, čím, koncentrace, čas). U lahví je chemie/koncentrace

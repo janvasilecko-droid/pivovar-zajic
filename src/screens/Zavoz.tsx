@@ -52,7 +52,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
   const [places, setPlaces] = useState<Place[]>([]);
   const [loading, setLoading] = useState(true);
   const [editOrder, setEditOrder] = useState<Order | null>(null);
-  const [weekKey, setWeekKey] = useState(isoWeekKey(new Date().toISOString().slice(0, 10)));
+  const [weekKey, setWeekKey] = useState(isoWeekKey(businessDateISO()));
   const [hideDelivered, setHideDelivered] = useState(false);
   const [selectedDayFilter, setSelectedDayFilter] = useState<string>('all');
   const [mobileTab, setMobileTab] = useState<'routes' | 'loading'>('routes');
@@ -176,12 +176,20 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
   useEffect(() => { loadKegBalances(); }, []);
   useRealtime(['keg_returns'], loadKegBalances);
 
+  // Týden podle DATA ZÁVOZU, ne data zadání — objednávka přijatá v pondělí
+  // na příští pondělí patří do PŘÍŠTÍHO týdne v Závozu, ne do tohohle (z
+  // provozu 16. 9. 2026: "zadal sem obednavku na pondeli, v obednavkach je
+  // v dalsim tydnu, ale kdyz dam zavoz je v tomhle tydnu"). `delivery_date`
+  // appka doplňuje sama, jakmile je znám den závozu (viz migrace
+  // 20261215000000, ucinny_den_zavozu) — chybí jen u objednávek bez
+  // uvedeného dne, tam se použije den zadání jako dřív. Stejný klíč jako
+  // generátor Knihy jízd níž (`delivery_date ?? order_date`).
   const activeOrders = useMemo(() => {
-    return orders.filter((o) => isoWeekKey(o.order_date) === weekKey);
+    return orders.filter((o) => isoWeekKey(o.delivery_date || o.order_date) === weekKey);
   }, [orders, weekKey]);
 
   const weekOrders = useMemo(
-    () => orders.filter((o) => isoWeekKey(o.order_date) === weekKey && o.status !== 'storno'),
+    () => orders.filter((o) => isoWeekKey(o.delivery_date || o.order_date) === weekKey && o.status !== 'storno'),
     [orders, weekKey]
   );
 
@@ -646,7 +654,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
               <div className="text-udaj text-neutral-500 font-bold mt-0.5">{wr.label}</div>
             </div>
             <button onClick={() => setWeekKey(shiftWeek(weekKey, 1))} className="btn-ghost !rounded !py-2 !px-3 font-black text-base" title="Následující týden" aria-label="Následující týden">›</button>
-            <button onClick={() => setWeekKey(isoWeekKey(new Date().toISOString().slice(0, 10)))} className="btn-ghost !rounded !py-2 !px-3 text-xs font-black text-amber-700">Dnes</button>
+            <button onClick={() => setWeekKey(isoWeekKey(businessDateISO()))} className="btn-ghost !rounded !py-2 !px-3 text-xs font-black text-amber-700">Dnes</button>
           </div>
 
           {/* Kompaktní přehled závozu — styl jako "Zbývá stočit keg" */}

@@ -5,6 +5,7 @@ import { rozdilProUlozeni } from '../lib/vycepyData';
 import { chyba as chybaOznam } from '../lib/toast';
 import { AlertTriangle, BarChart3, Calendar, Circle, Clock, Check, Plus, ShieldAlert, X, CheckCircle2, Sparkles } from 'lucide-react';
 import { uloz } from '../lib/uloziste';
+import { businessDateISO } from '../lib/businessDate';
 
 export type PlannedBatch = {
   id: string;
@@ -38,7 +39,7 @@ export function TankOccupancyPlanner({
   const [selectedTankId, setSelectedTankId] = useState('');
   const [selectedBeerName, setSelectedBeerName] = useState('');
   const [volumeHl, setVolumeHl] = useState('10');
-  const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10));
+  const [startDate, setStartDate] = useState(businessDateISO());
   const [targetDays, setTargetDays] = useState('30');
   const [note, setNote] = useState('');
 

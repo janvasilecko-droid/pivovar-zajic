@@ -13,6 +13,7 @@ import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
 import { chyba, oznam } from '../lib/toast';
 import { usePosledniNacteni } from '../lib/nacitani';
 import { IkonaLahev, IkonaSud } from '../components/ikony';
+import { businessDateISO } from '../lib/businessDate';
 
 type Row = {
   entry_date: string; beer_id: string | null; beer_name: string | null;
@@ -20,7 +21,10 @@ type Row = {
 };
 
 function monthKey(d: string): string { return d.slice(0, 7); }
-function todayISO(): string { return new Date().toISOString().slice(0, 10); }
+// businessDateISO(), NE new Date().toISOString() (vždycky UTC) — jinak kolem
+// půlnoci "Stav k" i měsíční součty (entry_date <= todayISO()) počítaly s
+// jiným dnem než reálně v Praze je. Stejná chyba jako u weekKey v Kegging.tsx.
+function todayISO(): string { return businessDateISO(); }
 function startOfMonthISO(iso: string): string { return iso.slice(0, 7) + '-01'; }
 
 type StockByPkg = {

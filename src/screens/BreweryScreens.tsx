@@ -4,6 +4,7 @@ import { usePosledniNacteni } from '../lib/nacitani';
 import { Spinner, EmptyState, Field } from '../components/ui';
 import { BookOpen, Calculator, FileText, Flame, FlaskConical, Check, CheckSquare, NotebookPen, Plus, Scale, Sliders, SprayCan, Truck, User, Wheat, Zap } from 'lucide-react';
 import { IkonaSud } from '../components/ikony';
+import { businessDateISO } from '../lib/businessDate';
 
 /**
  * Krokovací číselník kalkulaček.
@@ -78,7 +79,7 @@ export function SrotovaniScreen({ setPage }: { setPage?: (p: any, sec?: string) 
   const [loading, setLoading] = useState(true);
 
   // Formular
-  const [entryDate, setEntryDate] = useState(new Date().toISOString().slice(0, 10));
+  const [entryDate, setEntryDate] = useState(businessDateISO());
   const [beerId, setBeerId] = useState('');
   const [weightKg, setWeightKg] = useState('');
   const [note, setNote] = useState('');

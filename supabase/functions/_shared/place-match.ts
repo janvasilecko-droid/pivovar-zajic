@@ -19,6 +19,23 @@ export function normPlaceName(s: string | null | undefined): string {
     .trim();
 }
 
+/**
+ * Text říká, že objednávka je pro PISATELE zprávy — "pro mě"/"mi"/"mně"/
+ * "pro mne"/"pro sebe". Pak je odběratelem odesílatel této zprávy, ne nikdo
+ * jmenovaný v textu (viz `matchOwnOrderPlace` níž a `resolvePlace`).
+ * Jedno místo pro tuhle detekci — používá ji whatsapp-auto-parse (server)
+ * i whatsappParser.ts (klient, "Přečíst znovu"), aby se oba chovaly stejně.
+ */
+export function wantsOwnOrder(text: string): boolean {
+  // ⚠️ NE `\b` na konci — `\b` v JS regexu rozhoduje podle `\w`, který
+  // neznámkovaná písmena bez diakritiky (á, č, ě, ř, š, ž…) NEPOVAŽUJE za
+  // znak slova. Tvar "mně" (běžný, dativ zájmena "já") tak končí písmenem,
+  // které `\b` po sobě NEVIDÍ jako hranici — celá skupina "mn[eě]\b" u "mně"
+  // před mezerou/čárkou nikdy nesedla (z provozu 16. 9. 2026, chyceno až
+  // testem: "posli mně 2x30" se nepoznalo jako "pro mě").
+  return /(?:^|\s)pro\s+(?:m[eě]|mne|mn[eě])(?![a-záčďéěíňóřšťúůýž])|(?:^|\s)(?:mi|mn[eě])(?![a-záčďéěíňóřšťúůýž])|pro\s+sebe/i.test(text);
+}
+
 export function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -73,15 +90,27 @@ export function isPlaceGrounded(candidate: string, messageText: string): boolean
 // databáze — přesná shoda, obsažení, shoda podstatných slov, fuzzy shoda.
 // Kandidát, který katalogu neodpovídá, vrátí { id: null, name: null } — i
 // kdyby byl v textu jasně napsaný. Na to je `resolvePlace` níže.
-export function matchPlaceSafely(
+/**
+ * Prohledá katalog odběratelů pro `candidate` — naučené aliasy, přesná
+ * shoda, obsažení, shoda podstatných slov, fuzzy shoda (v tomhle pořadí).
+ * Vytažené z `matchPlaceSafely` níže, aby šlo použít i BEZ požadavku na
+ * ukotvení v textu zprávy — pro odesílatele u "pro mě" (viz
+ * `matchOwnOrderPlace`), kde ukotvením není výskyt jména v textu, ale sama
+ * fráze "pro mě"/"mi"/"mně". Taky pro znovu-vyhledání ID k jménu, které je
+ * UŽ VYBRANÉ (ne syrový text zprávy k ukotvení) — např. modál objednávky
+ * po otevření zná jen `parsed_place_name`, ne ID (viz
+ * WhatsAppOrderReviewModal.tsx). Tam by ukotvení nedávalo smysl a stará
+ * cesta přes `matchPlaceFromText` (orderParser.ts) navíc jméno typu "petr"
+ * napevno vyřazovala jako zaměstnance — i když jde o zákazníka, který se
+ * tak jmenuje (z provozu 16. 9. 2026).
+ */
+export function matchAgainstCatalog(
   candidate: string,
-  messageText: string,
   places: { id: string; name: string }[],
   placeAliases: { wrong_name: string; correct_name: string }[]
 ): { id: string | null; name: string | null } {
   const c = normPlaceName(candidate);
   if (!c || c.length < 3) return { id: null, name: null };
-  if (!isPlaceGrounded(candidate, messageText)) return { id: null, name: null };
 
   // 1) Naučené aliasy odběratelů (zkomolený název → správný název).
   for (const a of placeAliases) {
@@ -142,6 +171,36 @@ export function matchPlaceSafely(
   return { id: null, name: null };
 }
 
+export function matchPlaceSafely(
+  candidate: string,
+  messageText: string,
+  places: { id: string; name: string }[],
+  placeAliases: { wrong_name: string; correct_name: string }[]
+): { id: string | null; name: string | null } {
+  if (!isPlaceGrounded(candidate, messageText)) return { id: null, name: null };
+  return matchAgainstCatalog(candidate, places, placeAliases);
+}
+
+/**
+ * Odběratel je ODESÍLATEL zprávy — výjimka "pro mě"/"mi"/"mně"/"pro mne"
+ * (viz `wantsOwnOrder` v parse-order-text a whatsapp-auto-parse). Ukotvením
+ * tu není výskyt jména v textu (to by u vlastního jména odesílatele skoro
+ * nikdy nebyl — jméno se z textu naopak odstraňuje, viz `stripSenderName`),
+ * ale sama fráze "pro mě": ta je silnější důkaz, kdo je odběratel, než
+ * cokoliv v textu. Katalog se prohledává stejně jako u `matchPlaceSafely`
+ * (naučené aliasy, přesná shoda, podstatná slova, fuzzy) — díky tomu
+ * odesílatel "Petr Bednář" najde odběratele "petr", i když se v textu
+ * zprávy vůbec nevyskytuje.
+ */
+export function matchOwnOrderPlace(
+  senderName: string | null | undefined,
+  places: { id: string; name: string }[],
+  placeAliases: { wrong_name: string; correct_name: string }[]
+): { id: string | null; name: string | null } {
+  if (!senderName) return { id: null, name: null };
+  return matchAgainstCatalog(senderName, places, placeAliases);
+}
+
 /** Nejdelší jméno, které se ještě bere jako věrohodný název odběratele. */
 const MAX_FREEFORM_PLACE_LEN = 60;
 
@@ -176,11 +235,17 @@ export function resolvePlace(
   freeformCandidates: (string | null | undefined)[],
   messageText: string,
   places: { id: string; name: string }[],
-  placeAliases: { wrong_name: string; correct_name: string }[]
+  placeAliases: { wrong_name: string; correct_name: string }[],
+  /** Odesílatel zprávy, když text říká "pro mě"/"mi"/"mně"/"pro mne" — jinak `null`. */
+  ownOrderCandidate?: string | null
 ): ResolvedPlace {
   for (const candidate of matchCandidates) {
     if (!candidate) continue;
     const matched = matchPlaceSafely(candidate, messageText, places, placeAliases);
+    if (matched.id) return matched;
+  }
+  if (ownOrderCandidate) {
+    const matched = matchOwnOrderPlace(ownOrderCandidate, places, placeAliases);
     if (matched.id) return matched;
   }
   for (const candidate of freeformCandidates) {
@@ -188,6 +253,13 @@ export function resolvePlace(
     const trimmed = candidate.trim();
     if (!trimmed || trimmed.length > MAX_FREEFORM_PLACE_LEN) continue;
     if (isPlaceGrounded(trimmed, messageText)) return { id: null, name: trimmed };
+  }
+  // Odesílatel z "pro mě" katalogu neodpovídá (nový zákazník, ještě
+  // nezaložený) — nabídnout aspoň jeho jméno jako nezávazný název, ať
+  // obsluha nemusí zprávu znovu otevírat a přepisovat ručně.
+  if (ownOrderCandidate) {
+    const trimmed = ownOrderCandidate.trim();
+    if (trimmed && trimmed.length <= MAX_FREEFORM_PLACE_LEN) return { id: null, name: trimmed };
   }
   return { id: null, name: null };
 }

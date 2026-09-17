@@ -51,7 +51,11 @@ export function WhatsAppOriginalBlock({ messageId, orderId, beers, packages, pla
     setHledaniChyba(null);
     try {
       const vysledek = await parseWhatsAppOrderMessageWithAI(
+        // messageId (skutečný pisatel u "pro mě" — viz whatsappParser.ts) až za
+        // aliasy: bez messageId appka u skupinového chatu hledala odběratele
+        // podle jména skupiny, ne podle toho, kdo zprávu napsal.
         msg.message_text, beers, packages, places, msg.sender_name, msg.message_timestamp,
+        undefined, undefined, messageId,
       );
       const jmeno = vysledek.placeName?.trim();
       if (!jmeno) {

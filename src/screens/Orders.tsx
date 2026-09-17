@@ -139,10 +139,13 @@ export default function Orders({
     };
   }, [detail]);
 
-  const [weekKey, setWeekKey] = useState(isoWeekKey(new Date().toISOString().slice(0, 10)));
+  // businessDateISO(), NE new Date().toISOString() (vždycky UTC) — jinak
+  // kolem půlnoci pražského času vyjde jiný týden než na ploše Domů
+  // (CoStocitOkno) nebo ve Stáčení (z provozu 15. 9. 2026, viz Kegging.tsx).
+  const [weekKey, setWeekKey] = useState(isoWeekKey(businessDateISO()));
 
   // inline quick-add
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(businessDateISO());
   const [placeId, setPlaceId] = useState('');
   const [placeNameFree, setPlaceNameFree] = useState('');
   const [deliveryDay, setDeliveryDay] = useState('');
@@ -151,7 +154,7 @@ export default function Orders({
   // výběru data níž. Musí se zaškrtnout znovu pokaždé, když se datum závozu
   // změní, ať nezůstane omylem zaškrtnuté z předchozí objednávky.
   const [confirmNextMonth, setConfirmNextMonth] = useState(false);
-  const deliveryInFutureMonth = !!deliveryDate && deliveryDate.slice(0, 7) > new Date().toISOString().slice(0, 7);
+  const deliveryInFutureMonth = !!deliveryDate && deliveryDate.slice(0, 7) > businessDateISO().slice(0, 7);
   useEffect(() => { setConfirmNextMonth(false); }, [deliveryDate]);
   type BeerRowItem = { beerId: string; pkgId: string; qty: string; placeId?: string; placeNameFree?: string };
   const [beerRows, setBeerRows] = useState<BeerRowItem[]>([
@@ -213,7 +216,7 @@ export default function Orders({
 
   // 📅 Návrat na aktuální týden (klik na popisek týdne)
   function resetToCurrentWeek() {
-    const wk = isoWeekKey(new Date().toISOString().slice(0, 10));
+    const wk = isoWeekKey(businessDateISO());
     setWeekKey(wk);
     const idx = DAYS.findIndex((d) => d.v === deliveryDay);
     if (idx >= 0) {
@@ -419,7 +422,7 @@ export default function Orders({
     whatsappMessageId?: string;
     items: { beerId: string; pkgId: string; qty: number }[];
   }[]) {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = businessDateISO();
     const createdIds: string[] = [];
 
     // ⚠️ Kontrola duplicit PŘED vytvořením jakékoli objednávky — aby dva lidé
@@ -507,7 +510,7 @@ export default function Orders({
         throw new Error('Objednávka nemá žádné rozparsované položky');
       }
 
-      const today = new Date().toISOString().slice(0, 10);
+      const today = businessDateISO();
       const placeId = message.parsed_place_id || null;
       const placeNameFree = message.parsed_place_name || 'Neznámý odběratel';
 
@@ -948,7 +951,7 @@ export default function Orders({
   }, []);
 
   const [timeScope, setTimeScope] = useState<'week' | 'month' | 'all'>('week');
-  const [selectedMonth, setSelectedMonth] = useState<string>(() => new Date().toISOString().slice(0, 7));
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => businessDateISO().slice(0, 7));
   const [packageKindFilter, setPackageKindFilter] = useState<DruhObaluFiltr>('all');
 
   function orderWeekKey(o: Order): string {
@@ -1135,7 +1138,7 @@ export default function Orders({
       // Na závoz v probíhajícím týdnu upomínka nedává smysl: ten je vidět
       // v Objednávkách, v Závozu i v přehledu Dnešek a další hlášení z toho
       // dělá jen šum, který se odklikává bez čtení.
-      const zavozTentoTyden = !!deliveryDate && isoWeekKey(deliveryDate) === isoWeekKey(new Date().toISOString().slice(0, 10));
+      const zavozTentoTyden = !!deliveryDate && isoWeekKey(deliveryDate) === isoWeekKey(businessDateISO());
       if (deliveryDate && !zavozTentoTyden) {
         try {
           const reminderDate = new Date(deliveryDate + 'T09:00:00');
@@ -1551,7 +1554,7 @@ export default function Orders({
   async function duplicateOrder(o: Order) {
     const its = items[o.id] ?? [];
     if (!its.length) return;
-    const today = new Date().toISOString().slice(0, 10);
+    const today = businessDateISO();
     const { data: newOrder, error } = await supabase.from('orders').insert({
       order_date: today, place_id: o.place_id, place_name: o.place_name,
       source: 'duplikat', status: 'nova', delivery_day: o.delivery_day,
@@ -1601,7 +1604,7 @@ export default function Orders({
     if (!ok) return;
 
     setKopirujiDen(true);
-    const dnes = new Date().toISOString().slice(0, 10);
+    const dnes = businessDateISO();
     const vznikle: string[] = [];
     let selhalo = 0;
     for (const o of kZopakovani) {

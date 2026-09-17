@@ -100,7 +100,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   const [checklistInitialCategory, setChecklistInitialCategory] = useState<string | null>(null);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
 
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(businessDateISO());
   const [note, setNote] = useState('');
 
   const [entryRows, setEntryRows] = useState<RowInput[]>(emptyRows());
@@ -159,7 +159,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
 
   // Přefuk KEG sudů (přelití ze sudů jedné velikosti do jiných)
   const [prefukRows, setPrefukRows] = useState<KegPrefuk[]>([]);
-  const [pfDate, setPfDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [pfDate, setPfDate] = useState(() => businessDateISO());
   const [pfBeerId, setPfBeerId] = useState('');
   const [pfFromPkgId, setPfFromPkgId] = useState('');
   const [pfFromCount, setPfFromCount] = useState('');
@@ -174,9 +174,9 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   // Výchozí je TÝDEN — v jednom dni často není nic stočené (stáčí se v cyklech),
   // takže „den" by se otvíral prázdný. Den a měsíc jsou o klik vedle.
   const [recordsView, setRecordsView] = useState<'day' | 'week' | 'month'>('week');
-  const [recordsWeekKey, setRecordsWeekKey] = useState(() => isoWeekKey(new Date().toISOString().slice(0, 10)));
-  const [recordsMonthKey, setRecordsMonthKey] = useState(() => new Date().toISOString().slice(0, 7));
-  const [recordsDay, setRecordsDay] = useState(() => new Date().toISOString().slice(0, 10));
+  const [recordsWeekKey, setRecordsWeekKey] = useState(() => isoWeekKey(businessDateISO()));
+  const [recordsMonthKey, setRecordsMonthKey] = useState(() => businessDateISO().slice(0, 7));
+  const [recordsDay, setRecordsDay] = useState(() => businessDateISO());
   const [beerFilter, setBeerFilter] = useState('');
   const [recordPkgFilter, setRecordPkgFilter] = useState('');
   // Filtr piva a obalu pro souhrn "Stočeno KEG za týden" v záložce Zápis (nezávislý na beerFilter/recordPkgFilter v Přehledu).
@@ -205,7 +205,13 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     return result;
   }, [rows, recordsView, recordsMonthKey, recordsWeekKey, recordsDay, beerFilter, recordPkgFilter]);
 
-  const [weekKey, setWeekKey] = useState(isoWeekKey(new Date().toISOString().slice(0, 10)));
+  // businessDateISO(), NE new Date().toISOString() — ten je vždycky UTC.
+  // Kolem půlnoci pražského času (UTC je o 1–2 h pozadu) by vyšel jiný
+  // "dnešní" den, a v neděli večer/pondělí ráno rovnou jiný TÝDEN — přesně
+  // to způsobilo, že tahle obrazovka a plocha Domů (CoStocitOkno, která
+  // businessDateISO() už používala) ukazovaly plán za jiný týden a
+  // "zbývá stočit" se mezi nimi rozešlo (z provozu 15. 9. 2026).
+  const [weekKey, setWeekKey] = useState(isoWeekKey(businessDateISO()));
   const weekLabel = weekRange(weekKey).label;
 
   const kegPackages = useMemo(() => packages.filter((p) => p.kind === 'keg').sort((a, b) => b.volume_l - a.volume_l), [packages]);
@@ -458,27 +464,49 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
 
   const planMissingTotal = useMemo(() => keggingPlan.reduce((s, p) => s + p.totalMissing, 0), [keggingPlan]);
 
-  // 🛢️ Rozpad „zbývá stočit tento týden" podle VELIKOSTI SUDU, přes všechna
-  // piva — z provozu 9. 9. 2026: součet přes všechny velikosti na dlaždici
-  // („55") nic neřekne o tom, co reálně nachystat, protože sčítá padesátky
-  // s desítkami. Stejný výpočet jako „Zbývá stočit po sudech" v „Co stočit
-  // na který den" (KeggingDayPlan.tsx), jen nad zápisem.
+  // ⚖️ JEDEN výpočet pro všechno — z provozu 16. 9. 2026: „udělej to tak, ať
+  // to logicky všechno sedí“. Dlaždice „Zbývá stočit tento týden“, červené
+  // štítky u piv i plán „Co je potřeba stočit“ jedou ze STEJNÉHO týdenního
+  // plánu (keggingPlan), který počítá se skutečnou zásobou skladem
+  // (currentStockMap). Do 16. 9. tu byl druhý, zjednodušený vzorec a každé
+  // místo v appce hlásilo jiné číslo: „když mám na skladě 11×30, nemůže mi
+  // přece chybět 5×30“.
   const weekPlanKeg = useMemo(() => mergeWeekPlan(keggingPlan, weekLabel), [keggingPlan, weekLabel]);
+  // Rozpad podle VELIKOSTI obalu, přes všechna piva — součet přes všechny
+  // velikosti („55“) neřekne, co reálně nachystat (z provozu 9. 9. 2026).
   const rozpadTydneKeg = useMemo(() => rozpadPoObalech(weekPlanKeg), [weekPlanKeg]);
+  // Rozklik jedné velikosti na jednotlivá piva — táž data, takže součet piv
+  // v rozkliku vyjde přesně na číslo na dlaždici.
+  const rozpisTydneKegPodlePiv = useMemo(() => weekPlanKeg.items
+    .filter((it) => it.missing > 0)
+    .map((it) => ({ beer_id: it.beer_id, package_id: it.package_id, missing: it.missing }))
+    .sort((a, z) => z.missing - a.missing), [weekPlanKeg]);
   // 🏷️ „Chybí stočit" po pivech, rozepsané po VELIKOSTI SUDU — pro štítek na
   // dlaždici v Zápisu. Nahrazuje jedno sečtené číslo („12"), které sčítalo
   // desítky s padesátkami a neřeklo, čeho se to vlastně týká — z provozu
   // 15. 9. 2026: „napiš vždy obal a počet chybějících", stejný nápad jako u
   // lahví (BottlingScreen.tsx, missingBreakdownByBeer).
+  // ⚖️ Počítá se ZJEDNODUŠENÝM týdenním vzorcem (rozpisTydneKegPodlePiv), ne
+  // denním plánem — z provozu 16. 9. 2026: „to ukazuje 5 u 12ky, ale nahoře
+  // 12ka není“. Dlaždice „Zbývá stočit tento týden“ a červený štítek na pivu
+  // musí říkat totéž, jinak jedno z čísel lže.
   const missingBreakdownByBeer = useMemo(() => {
     const m: Record<string, { label: string; missing: number }[]> = {};
-    weekPlanKeg.items.forEach((it) => {
+    rozpisTydneKegPodlePiv.forEach((it) => {
       if (it.missing <= 0) return;
-      (m[it.beer_id] ||= []).push({ label: it.package_label.trim(), missing: it.missing });
+      const pkg = packages.find((p) => p.id === it.package_id);
+      (m[it.beer_id] ||= []).push({ label: (pkg?.label ?? '').trim(), missing: it.missing });
     });
     Object.values(m).forEach((arr) => arr.sort((a, z) => z.missing - a.missing));
     return m;
-  }, [weekPlanKeg]);
+  }, [rozpisTydneKegPodlePiv, packages]);
+
+  /** Týdenní „chybí“ týmž zjednodušeným vzorcem, klíč `pivo__obal`. */
+  const tydenChybiPodleKlice = useMemo(() => {
+    const m: Record<string, number> = {};
+    rozpisTydneKegPodlePiv.forEach((it) => { m[`${it.beer_id}__${it.package_id}`] = it.missing; });
+    return m;
+  }, [rozpisTydneKegPodlePiv]);
   // Klik na velikost sudu v rozpadu rozklikne, kolik z toho je kterého piva
   // — z provozu: „ale když kliknu na 1l 100, tak by se mělo rozkliknout,
   // kolik jakého druhu". `weekPlanKeg.items` má už granularitu pivo+obal.
@@ -511,8 +539,12 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
       agg.checked += it.checked;
       agg.days.push({ day: den.day, ordered: it.ordered, missing: it.missing, checked: it.checked });
     }));
+    // Týden musí sednout s dlaždicí „Zbývá stočit tento týden“ (zjednodušený
+    // vzorec). Rozpad po DNECH zůstává z denního plánu — odpovídá na jinou
+    // otázku („na který den“), ale součet za týden se musí shodovat.
+    Object.entries(m).forEach(([k, agg]) => { agg.missing = tydenChybiPodleKlice[k] ?? 0; });
     return m;
-  }, [keggingPlan]);
+  }, [keggingPlan, tydenChybiPodleKlice]);
 
   // Otevření jiného piva (nebo zavření a otevření znovu) nastaví den zpátky
   // na nejbližší, kde ještě něco chybí — jinak by zůstal den vybraný pro
@@ -1035,7 +1067,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     setPfToPkgId('');
     setPfToCount('');
     setPfNote('');
-    setPfDate(new Date().toISOString().slice(0, 10));
+    setPfDate(businessDateISO());
     load(true);
   }
 
@@ -1273,15 +1305,13 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
               {/* Rozklik jedné velikosti sudu na jednotlivá piva — „1l 100"
                   samo o sobě neřekne, kolik je kterého piva, tak se ptá znovu. */}
               {rozpadOtevrenPkg && (() => {
-                const rozpisPiv = weekPlanKeg.items
-                  .filter((it) => it.package_id === rozpadOtevrenPkg && it.missing > 0)
-                  .sort((a, z) => z.missing - a.missing);
+                const rozpisPiv = rozpisTydneKegPodlePiv.filter((it) => it.package_id === rozpadOtevrenPkg);
                 if (rozpisPiv.length === 0) return null;
                 return (
                   <ul className="mt-1.5 flex flex-wrap gap-1.5">
                     {rozpisPiv.map((it) => (
                       <li key={it.beer_id} className="px-2 py-1 rounded bg-neutral-50 border border-neutral-200 text-udaj font-bold text-neutral-700 whitespace-nowrap">
-                        {it.beer_name} <span className="font-black text-rose-600">{it.missing}</span>
+                        {beers.find((b) => b.id === it.beer_id)?.name ?? '—'} <span className="font-black text-rose-600">{it.missing}</span>
                       </li>
                     ))}
                   </ul>

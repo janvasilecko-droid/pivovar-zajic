@@ -1,5 +1,5 @@
 import { Calendar } from 'lucide-react';
-import { posunMesic } from '../lib/businessDate';
+import { posunMesic, businessDateISO } from '../lib/businessDate';
 import { isoWeekKey, weekRange, shiftWeek } from './WeeklyOrderSummaryCard';
 
 /**
@@ -118,7 +118,7 @@ export function PrepinacObdobi({
 
 /** Dnešek jako `YYYY-MM-DD` — pro výchozí hodnotu přepínače. */
 export function dnesniDen(): string {
-  return new Date().toISOString().slice(0, 10);
+  return businessDateISO();
 }
 
 /** Tenhle týden jako klíč ISO týdne. */
