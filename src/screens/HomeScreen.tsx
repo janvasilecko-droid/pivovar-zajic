@@ -36,7 +36,7 @@ import {
 import {
   getHomeLayout, saveHomeLayout, addPage, removePage, moveTileToPage, hideTile, addTile,
   mergeTiles, addToGroup, removeFromGroup, deleteGroup, isGroupId, isCountdownId, ensurePositions, ensureTrailingEmptyPage, unifyColorsByCategory, moveTileToCell, stepTileCell,
-  addDockSlot, removeDockSlot,
+  addDockSlot, removeDockSlot, moveDockSlot,
   hexToRgba,
   PAGE_CATEGORY, CATEGORY_ORDER, CATEGORY_SHADES, type Category,
   moveTileToPageCell, okrajProPrepnuti, dalsiStranka, rozdelVseDoStranek, idsKRozmisteni, vyrovnejStranku, VYCHOZI_STRANKA, type OkrajTazeni,
@@ -664,6 +664,9 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   }
   function handleRemoveDockSlot(slot: number) {
     persist(removeDockSlot(layout, slot));
+  }
+  function handleMoveDockSlot(slot: number, smer: 'doleva' | 'doprava') {
+    persist(moveDockSlot(layout, slot, smer));
   }
   function handleAddPage() {
     const next = addPage(layout);
@@ -1517,6 +1520,22 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                       </optgroup>
                     )}
                   </select>
+                  <button
+                    type="button"
+                    className="hs-dock-move"
+                    title="Posunout doleva"
+                    aria-label="Posunout tenhle slot doleva"
+                    disabled={i === 0}
+                    onClick={() => handleMoveDockSlot(i, 'doleva')}
+                  ><ChevronLeft size={14} /></button>
+                  <button
+                    type="button"
+                    className="hs-dock-move"
+                    title="Posunout doprava"
+                    aria-label="Posunout tenhle slot doprava"
+                    disabled={i === layout.dock.length - 1}
+                    onClick={() => handleMoveDockSlot(i, 'doprava')}
+                  ><ChevronRight size={14} /></button>
                   {layout.dock.length > MIN_DOCK && (
                     <button type="button" className="hs-dock-remove" title="Odebrat tenhle slot" aria-label="Odebrat tenhle slot" onClick={() => handleRemoveDockSlot(i)}><X size={14} /></button>
                   )}

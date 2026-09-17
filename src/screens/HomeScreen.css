@@ -97,6 +97,14 @@
   background: rgba(43,36,56,0.08); border: 1px dashed rgba(43,36,56,0.3); border-radius: 8px;
   padding: 4px 8px; color: #2b2438; cursor: pointer;
 }
+/* Přeřadit slot doleva/doprava — jediná dřívější cesta, jak změnit pořadí,
+   byla ručně přenastavit obsah dvou rozbalovacích menu naráz. */
+.hs-dock-move {
+  width: 18px; height: 18px; border-radius: 50%; border: none; cursor: pointer;
+  background: rgba(43,36,56,0.1); color: #2b2438;
+  display: grid; place-items: center; padding: 0;
+}
+.hs-dock-move:disabled { opacity: 0.3; cursor: default; }
 
 /* Volné dlaždice mají VŽDY explicitní grid-column/-row (viz LauncherTile.tsx
    tileGridStyle, homeLayout.ts x/y) — žádné "husté" auto-balení, dlaždice
