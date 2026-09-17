@@ -150,6 +150,7 @@
     "20261231070000_polozka_objednavky_ma_vlastni_den.sql",
     "20261231080000_odpocet_podle_dne_zavozu.sql",
     "20261231090000_zavoz_srovnani_hlida_uzavreny_mesic.sql",
-    "20261231100000_mista_duplicity_ignorovano.sql"
+    "20261231100000_mista_duplicity_ignorovano.sql",
+    "20261231110000_tydenni_uzaverky.sql"
   ]
 }

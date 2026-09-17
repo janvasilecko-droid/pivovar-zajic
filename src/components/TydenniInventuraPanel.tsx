@@ -10,8 +10,8 @@
 // Zapisuje se stejnými funkcemi jako u měsíční uzávěrky (lib/inventoryFix.ts,
 // lib/tankZapis.ts). Vlastní verze zápisu by byla druhá pravda o tomtéž.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CalendarRange, Check, ChevronLeft, ChevronRight, ExternalLink, MinusCircle, Plus, RefreshCw, Save, Search } from 'lucide-react';
-import { supabase, formatPackageLabel } from '../lib/supabase';
+import { CalendarRange, Check, ChevronLeft, ChevronRight, ClipboardList, ExternalLink, ListChecks, Lock, LockOpen, MinusCircle, Plus, RefreshCw, Save, Search } from 'lucide-react';
+import { supabase, fetchAllRows, formatPackageLabel } from '../lib/supabase';
 import { Spinner } from './ui';
 import { businessDateISO } from '../lib/businessDate';
 import { nactiSkladovouKnihu, type SkladovaKniha } from '../lib/skladovaKnihaData';
@@ -21,11 +21,14 @@ import { rozdelSudyDoTanku, type TankProRozdeleni } from '../lib/tankRozdeleni';
 import { odectiZTanku } from '../lib/tankZapis';
 import {
   jenAktivni, popisTydne, radkyTydne, souhrnTydne, stitekTydne, tydenObdobi, vychoziTyden,
-  zaznamKontroly, zaznamDorovnani, type TydenniRadek,
+  zaznamKontroly, zaznamDorovnani, type TydenniRadek, type TydenObdobi,
 } from '../lib/tydenniInventura';
+import type { ReactNode } from 'react';
+import { popisPolozek, objednavkaShoduje, zapisShoduje, type PrehledObjednavka, type PrehledZapis } from '../lib/tydenniPrehled';
+import { StitekStavu } from './StitekStavu';
 import { lzeUlozitKoncept, slucInventuru } from '../lib/rozepsanaInventura';
 import { nactiJson, ulozJson } from '../lib/uloziste';
-import { chyba, oznam, uspech } from '../lib/toast';
+import { chyba, oznam, potvrd, uspech } from '../lib/toast';
 import { normalizujCislo } from '../lib/cisloVstup';
 
 export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, sec?: string, sub?: string) => void } = {}) {
@@ -57,6 +60,42 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
   // se do toho počítaly (viz zavoz_deductions.order_id).
   const [otevrenyRadek, setOtevrenyRadek] = useState<string | null>(null);
   const [objednavkyInfo, setObjednavkyInfo] = useState<Record<string, { place_name: string | null; delivery_date: string | null; status: string | null }>>({});
+
+  // 📋 Přehled týdne (vedle počítání kusů) a značka uzavření — viz
+  // lib/tydenniPrehled.ts a migrace tydenni_uzaverky.
+  const [rezim, setRezim] = useState<'pocitani' | 'prehled'>('pocitani');
+  const [uzavreno, setUzavreno] = useState<{ at: string; by: string | null } | null>(null);
+  const [uzaviram, setUzaviram] = useState(false);
+
+  useEffect(() => {
+    let zruseno = false;
+    supabase.from('tydenni_uzaverky').select('uzavreno_at, uzavreno_by').eq('tyden_od', obdobi.od).maybeSingle()
+      .then(({ data }) => { if (!zruseno) setUzavreno(data ? { at: data.uzavreno_at, by: data.uzavreno_by } : null); });
+    return () => { zruseno = true; };
+  }, [obdobi.od]);
+
+  async function uzavritTyden() {
+    if (!(await potvrd(`Uzavřít týden ${popisTydne(obdobi.od, obdobi.do)}? Je to jen značka pro přehled — nic nezamkne, jde kdykoli zase otevřít.`))) return;
+    setUzaviram(true);
+    const { data: { user } } = await supabase.auth.getUser().catch(() => ({ data: { user: null } } as any));
+    const { error } = await supabase.from('tydenni_uzaverky').upsert(
+      { tyden_od: obdobi.od, uzavreno_at: new Date().toISOString(), uzavreno_by: user?.email ?? null },
+      { onConflict: 'tyden_od' },
+    );
+    setUzaviram(false);
+    if (error) { chyba('Uzavření se nepovedlo: ' + error.message); return; }
+    setUzavreno({ at: new Date().toISOString(), by: user?.email ?? null });
+    uspech(`Týden ${popisTydne(obdobi.od, obdobi.do)} uzavřen.`);
+  }
+
+  async function otevritTyden() {
+    if (!(await potvrd('Otevřít týden znovu?'))) return;
+    setUzaviram(true);
+    const { error } = await supabase.from('tydenni_uzaverky').delete().eq('tyden_od', obdobi.od);
+    setUzaviram(false);
+    if (error) { chyba('Otevření se nepovedlo: ' + error.message); return; }
+    setUzavreno(null);
+  }
 
   const nacti = useCallback(async () => {
     setBezi(true);
@@ -303,81 +342,124 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
           </button>
         </div>
 
-        {/* 🍾/🛢️ Nahoře, jako první — na telefonu se přepíná hned po
-            otevření, ještě než se vůbec začne počítat. */}
+        {/* ✅ Značka uzavření týdne — jen přehled, nic nezamyká (viz uzavritTyden). */}
+        <div className="flex items-center gap-2">
+          {uzavreno ? (
+            <>
+              <span className="chip bg-emerald-100 text-emerald-900 border-emerald-300 flex-1 justify-start">
+                <Lock size={14} /> Uzavřeno{uzavreno.by ? ` — ${uzavreno.by}` : ''}
+              </span>
+              <button type="button" onClick={otevritTyden} disabled={uzaviram} className="btn-secondary !rounded !text-xs min-h-[44px]">
+                <LockOpen size={14} /> Otevřít znovu
+              </button>
+            </>
+          ) : (
+            <button type="button" onClick={uzavritTyden} disabled={uzaviram} className="btn-primary !rounded w-full min-h-[44px]">
+              <Lock size={16} /> Uzavřít týden
+            </button>
+          )}
+        </div>
+
+        {/* 📋 Počítání kusů, nebo přehled všeho, co se v týdnu dělo. */}
         <div className="flex items-stretch gap-1 rounded bg-neutral-100 border border-neutral-200 p-1">
           {([
-            { klic: 'vse', popisek: 'Vše' },
-            { klic: 'lahve', popisek: 'Lahve' },
-            { klic: 'sudy', popisek: 'Sudy' },
-          ] as const).map(({ klic, popisek }) => (
+            { klic: 'pocitani' as const, popisek: 'Počítání', Ikona: ListChecks },
+            { klic: 'prehled' as const, popisek: 'Přehled týdne', Ikona: ClipboardList },
+          ]).map(({ klic, popisek, Ikona }) => (
             <button
               key={klic}
               type="button"
-              onClick={() => setFiltrObalu(klic)}
-              className={`flex-1 !rounded !px-3 !py-2.5 !min-h-[44px] font-black text-xs transition ${
-                filtrObalu === klic ? 'btn-amber' : 'btn-ghost !border-none'
+              onClick={() => setRezim(klic)}
+              className={`flex-1 !rounded !px-3 !py-2.5 !min-h-[44px] font-black text-xs transition flex items-center justify-center gap-1.5 ${
+                rezim === klic ? 'btn-amber' : 'btn-ghost !border-none'
               }`}
             >
-              {popisek}
+              <Ikona size={14} /> {popisek}
             </button>
           ))}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <label className="relative flex-1 min-w-[180px]">
-            <Search size={16} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400" />
-            <input
-              value={hledat}
-              onChange={(e) => setHledat(e.target.value)}
-              placeholder="Hledat pivo nebo obal…"
-              className="input !pl-8 min-h-[44px] w-full"
-            />
-          </label>
-          <button
-            type="button"
-            onClick={() => setJenRozdily((v) => !v)}
-            className={`px-3.5 py-2.5 rounded font-black text-xs transition min-h-[44px] ${
-              jenRozdily
-                ? 'bg-rose-600 text-white shadow-md'
-                : 'bg-neutral-100 text-neutral-700 border border-neutral-200 hover:bg-neutral-200'
-            }`}
-          >
-            Jen rozdíly
-          </button>
-          <button type="button" onClick={nacti} disabled={bezi} className="btn-secondary !rounded min-h-[44px]">
-            <RefreshCw size={16} className={bezi ? 'animate-spin' : ''} /> Načíst znovu
-          </button>
-          <button type="button" onClick={ulozVse} disabled={!!uklada || bezi} className="btn-primary !rounded min-h-[44px]">
-            <Save size={16} /> Uložit kontrolu
-          </button>
-        </div>
+        {rezim === 'pocitani' && (
+          <>
+            {/* 🍾/🛢️ Nahoře, jako první — na telefonu se přepíná hned po
+                otevření, ještě než se vůbec začne počítat. */}
+            <div className="flex items-stretch gap-1 rounded bg-neutral-100 border border-neutral-200 p-1">
+              {([
+                { klic: 'vse', popisek: 'Vše' },
+                { klic: 'lahve', popisek: 'Lahve' },
+                { klic: 'sudy', popisek: 'Sudy' },
+              ] as const).map(({ klic, popisek }) => (
+                <button
+                  key={klic}
+                  type="button"
+                  onClick={() => setFiltrObalu(klic)}
+                  className={`flex-1 !rounded !px-3 !py-2.5 !min-h-[44px] font-black text-xs transition ${
+                    filtrObalu === klic ? 'btn-amber' : 'btn-ghost !border-none'
+                  }`}
+                >
+                  {popisek}
+                </button>
+              ))}
+            </div>
 
-        {!bezi && (
-          <div className="flex flex-wrap items-center gap-2 text-xs font-bold">
-            <span className="chip bg-neutral-100 text-neutral-700 border-neutral-300">
-              {souhrn.spocitano} / {radkyObalu.length} spočítáno
-            </span>
-            <span className="chip bg-emerald-100 text-emerald-900 border-emerald-300">
-              <Check size={14} /> {souhrn.sedi} sedí
-            </span>
-            {souhrn.prebytku > 0 && (
-              <span className="chip bg-sky-100 text-sky-900 border-sky-300">
-                <Plus size={14} /> {souhrn.prebytku} přebytků (+{souhrn.prebytekKusu} ks)
-              </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="relative flex-1 min-w-[180px]">
+                <Search size={16} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400" />
+                <input
+                  value={hledat}
+                  onChange={(e) => setHledat(e.target.value)}
+                  placeholder="Hledat pivo nebo obal…"
+                  className="input !pl-8 min-h-[44px] w-full"
+                />
+              </label>
+              <button
+                type="button"
+                onClick={() => setJenRozdily((v) => !v)}
+                className={`px-3.5 py-2.5 rounded font-black text-xs transition min-h-[44px] ${
+                  jenRozdily
+                    ? 'bg-rose-600 text-white shadow-md'
+                    : 'bg-neutral-100 text-neutral-700 border border-neutral-200 hover:bg-neutral-200'
+                }`}
+              >
+                Jen rozdíly
+              </button>
+              <button type="button" onClick={nacti} disabled={bezi} className="btn-secondary !rounded min-h-[44px]">
+                <RefreshCw size={16} className={bezi ? 'animate-spin' : ''} /> Načíst znovu
+              </button>
+              <button type="button" onClick={ulozVse} disabled={!!uklada || bezi} className="btn-primary !rounded min-h-[44px]">
+                <Save size={16} /> Uložit kontrolu
+              </button>
+            </div>
+
+            {!bezi && (
+              <div className="flex flex-wrap items-center gap-2 text-xs font-bold">
+                <span className="chip bg-neutral-100 text-neutral-700 border-neutral-300">
+                  {souhrn.spocitano} / {radkyObalu.length} spočítáno
+                </span>
+                <span className="chip bg-emerald-100 text-emerald-900 border-emerald-300">
+                  <Check size={14} /> {souhrn.sedi} sedí
+                </span>
+                {souhrn.prebytku > 0 && (
+                  <span className="chip bg-sky-100 text-sky-900 border-sky-300">
+                    <Plus size={14} /> {souhrn.prebytku} přebytků (+{souhrn.prebytekKusu} ks)
+                  </span>
+                )}
+                {souhrn.manek > 0 && (
+                  <span className="chip bg-rose-100 text-rose-900 border-rose-300">
+                    <MinusCircle size={14} /> {souhrn.manek} manek (−{souhrn.mankoKusu} ks)
+                  </span>
+                )}
+              </div>
             )}
-            {souhrn.manek > 0 && (
-              <span className="chip bg-rose-100 text-rose-900 border-rose-300">
-                <MinusCircle size={14} /> {souhrn.manek} manek (−{souhrn.mankoKusu} ks)
-              </span>
-            )}
-          </div>
+          </>
         )}
       </div>
 
-      {bezi && <Spinner />}
+      {rezim === 'prehled' && <PrehledTydne obdobi={obdobi} kniha={kniha} setPage={setPage} />}
 
-      {!bezi && radky.length === 0 && (
+      {rezim === 'pocitani' && bezi && <Spinner />}
+
+      {rezim === 'pocitani' && !bezi && radky.length === 0 && (
         <div className="card p-6 text-center text-sm font-bold text-neutral-500">
           {vsechnyRadky.length === 0
             ? 'Za tenhle týden není co počítat — sklad je prázdný a nic se nehýbalo.'
@@ -385,7 +467,7 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
         </div>
       )}
 
-      {!bezi && radky.length > 0 && (
+      {rezim === 'pocitani' && !bezi && radky.length > 0 && (
         <div className="space-y-2">
           {radky.map((r) => {
             const sedi = r.napocitano !== null && r.rozdil === 0;
@@ -486,6 +568,156 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Přehled týdne — vedle počítání kusů i vidět VŠECHNO, co se v týdnu dělo:
+ * objednávky (se stavem a proklikem na detail), stočení KEG, stočení lahví.
+ * Kegging/bottling se NEnačítá znovu — obojí je už v `kniha` (celá skladová
+ * kniha, viz nactiSkladovouKnihu), tenhle panel jen filtruje na týden.
+ * Objednávky s položkami se táhnou zvlášť — kniha je nepotřebuje.
+ */
+function PrehledTydne({
+  obdobi,
+  kniha,
+  setPage,
+}: {
+  obdobi: TydenObdobi;
+  kniha: SkladovaKniha | null;
+  setPage?: (p: any, sec?: string, sub?: string) => void;
+}) {
+  const [nacitaji, setNacitaji] = useState(true);
+  const [objednavky, setObjednavky] = useState<PrehledObjednavka[]>([]);
+  const [hledat, setHledat] = useState('');
+
+  useEffect(() => {
+    let zruseno = false;
+    (async () => {
+      setNacitaji(true);
+      try {
+        const { data: orders } = await fetchAllRows(
+          'orders', 'id, order_date, delivery_date, place_name, status',
+        ).or(`and(delivery_date.gte.${obdobi.od},delivery_date.lte.${obdobi.do}),and(delivery_date.is.null,order_date.gte.${obdobi.od},order_date.lte.${obdobi.do})`)
+          .neq('status', 'storno');
+        const seznam = (orders as any[]) ?? [];
+        const ids = seznam.map((o) => o.id);
+        let polozky: any[] = [];
+        if (ids.length > 0) {
+          const { data } = await fetchAllRows('order_items', 'order_id, beer_name, package_label, quantity').in('order_id', ids);
+          polozky = (data as any[]) ?? [];
+        }
+        if (zruseno) return;
+        setObjednavky(seznam.map((o) => ({
+          id: o.id,
+          place_name: o.place_name,
+          order_date: o.order_date,
+          delivery_date: o.delivery_date,
+          status: o.status,
+          polozky: polozky.filter((p) => p.order_id === o.id).map((p) => ({
+            beer_name: p.beer_name ?? '?', package_label: p.package_label ?? '', quantity: Number(p.quantity) || 0,
+          })),
+        })).sort((a, b) => (a.delivery_date ?? a.order_date).localeCompare(b.delivery_date ?? b.order_date)));
+      } finally {
+        if (!zruseno) setNacitaji(false);
+      }
+    })();
+    return () => { zruseno = true; };
+  }, [obdobi.od, obdobi.do]);
+
+  const { keggingZapisy, bottlingZapisy } = useMemo(() => {
+    if (!kniha) return { keggingZapisy: [] as PrehledZapis[], bottlingZapisy: [] as PrehledZapis[] };
+    const jmenoPiva = new Map(kniha.piva.map((b) => [b.id, b.name]));
+    const obalPodleId = new Map(kniha.obaly.map((p) => [p.id, p.label]));
+    const preved = (radky: any[]): PrehledZapis[] => radky
+      .filter((r) => r.entry_date >= obdobi.od && r.entry_date <= obdobi.do)
+      .map((r, i) => ({
+        id: String(i),
+        entry_date: r.entry_date,
+        beer_name: jmenoPiva.get(r.beer_id) ?? '?',
+        package_label: obalPodleId.get(r.package_id) ?? '?',
+        quantity: Number(r.quantity) || 0,
+        note: r.note ?? null,
+      }))
+      .sort((a, b) => a.entry_date.localeCompare(b.entry_date));
+    return { keggingZapisy: preved(kniha.kegging), bottlingZapisy: preved(kniha.bottling) };
+  }, [kniha, obdobi.od, obdobi.do]);
+
+  const objednavkyView = useMemo(() => objednavky.filter((o) => objednavkaShoduje(o, hledat)), [objednavky, hledat]);
+  const keggingView = useMemo(() => keggingZapisy.filter((z) => zapisShoduje(z, hledat)), [keggingZapisy, hledat]);
+  const bottlingView = useMemo(() => bottlingZapisy.filter((z) => zapisShoduje(z, hledat)), [bottlingZapisy, hledat]);
+
+  if (nacitaji) return <div className="card p-6"><Spinner /></div>;
+
+  return (
+    <div className="space-y-3">
+      <label className="relative block">
+        <Search size={16} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400" />
+        <input
+          value={hledat}
+          onChange={(e) => setHledat(e.target.value)}
+          placeholder="Hledat odběratele, pivo, obal, poznámku…"
+          className="input !pl-8 min-h-[44px] w-full"
+        />
+      </label>
+
+      <SekcePrehledu nadpis={`Objednávky (${objednavkyView.length})`}>
+        {objednavkyView.length === 0 ? (
+          <p className="text-xs font-bold text-neutral-400 p-2">Žádné objednávky za tenhle týden.</p>
+        ) : objednavkyView.map((o) => (
+          <div key={o.id} className="flex flex-wrap items-start gap-2 p-2.5 rounded border border-neutral-200 bg-white">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="font-black text-sm text-neutral-900">{o.place_name ?? 'bez odběratele'}</span>
+                  <span className="text-udaj font-bold text-neutral-400 tabular-nums">{o.delivery_date ?? o.order_date}</span>
+                  <StitekStavu status={o.status ?? 'nova'} tridy="!text-udaj" />
+                </div>
+                <p className="text-xs font-medium text-neutral-600 mt-0.5">{popisPolozek(o.polozky)}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPage?.('orders_detail', undefined, `order:${o.id}`)}
+                disabled={!setPage}
+                className="btn-ghost !rounded !text-udaj !py-1.5 shrink-0 disabled:opacity-40"
+              >
+                <ExternalLink size={12} /> Detail
+              </button>
+          </div>
+        ))}
+      </SekcePrehledu>
+
+      <SekcePrehledu nadpis={`Stočení KEG (${keggingView.length})`}>
+        {keggingView.length === 0 ? (
+          <p className="text-xs font-bold text-neutral-400 p-2">Žádné stočení sudů za tenhle týden.</p>
+        ) : keggingView.map((z) => <RadekZapisu key={z.id} z={z} />)}
+      </SekcePrehledu>
+
+      <SekcePrehledu nadpis={`Stočení lahví (${bottlingView.length})`}>
+        {bottlingView.length === 0 ? (
+          <p className="text-xs font-bold text-neutral-400 p-2">Žádné stočení lahví za tenhle týden.</p>
+        ) : bottlingView.map((z) => <RadekZapisu key={z.id} z={z} />)}
+      </SekcePrehledu>
+    </div>
+  );
+}
+
+function SekcePrehledu({ nadpis, children }: { nadpis: string; children: ReactNode }) {
+  return (
+    <div className="card p-3 space-y-1.5">
+      <p className="text-xs font-black uppercase tracking-wider text-neutral-500">{nadpis}</p>
+      <div className="space-y-1.5">{children}</div>
+    </div>
+  );
+}
+
+function RadekZapisu({ z }: { z: PrehledZapis }) {
+  return (
+    <div className="flex items-center gap-2 p-2 rounded border border-neutral-200 bg-white text-xs">
+      <span className="font-bold text-neutral-400 tabular-nums shrink-0">{z.entry_date}</span>
+      <span className="font-black text-neutral-900 flex-1 min-w-0 truncate">{z.beer_name} {z.package_label}</span>
+      <span className="font-black tabular-nums shrink-0">{z.quantity} ks</span>
+      {z.note && <span className="text-neutral-500 font-medium truncate max-w-[40%]" title={z.note}>{z.note}</span>}
     </div>
   );
 }
