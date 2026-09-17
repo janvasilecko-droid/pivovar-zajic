@@ -1,9 +1,10 @@
 import { useEffect, useState, useMemo } from 'react';
-import { supabase, Beer, Package, Place, Vehicle, useRealtime, BEER_COLOR_PRESETS, beerBorder } from '../lib/supabase';
+import { supabase, fetchAllRows, Beer, Package, Place, Vehicle, useRealtime, BEER_COLOR_PRESETS, beerBorder } from '../lib/supabase';
 import { getVehicleExpiryStatus } from '../lib/vozidla';
+import { najdiPodezreleDuplicity, type KandidatDuplicity } from '../lib/podezreleDuplicity';
 import { Modal, Field, EmptyState, Spinner } from '../components/ui';
 import ExcelImportModal from '../components/ExcelImportModal';
-import { AlertTriangle, Beer as BeerIcon, Car, FileSpreadsheet, Check, Mail, MapPin, Milestone, NotebookPen, Package as PackageIcon, Phone, Plus, Search, ShieldAlert, ShieldCheck, Store, Trash2, Wrench } from 'lucide-react';
+import { AlertTriangle, Beer as BeerIcon, Car, Copy, FileSpreadsheet, Check, Mail, MapPin, Milestone, NotebookPen, Package as PackageIcon, Phone, Plus, Search, ShieldAlert, ShieldCheck, Store, Trash2, Wrench } from 'lucide-react';
 import { lookupPlaceOnline } from '../lib/placeLookup';
 import { chyba, oznam, potvrd } from '../lib/toast';
 import { usePosledniNacteni } from '../lib/nacitani';
@@ -300,6 +301,7 @@ export function PlacesScreen() {
   const [show, setShow] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [showGpsBackfill, setShowGpsBackfill] = useState(false);
+  const [showDuplicity, setShowDuplicity] = useState(false);
   const [edit, setEdit] = useState<Place | null>(null);
   const [search, setSearch] = useState('');
 
@@ -355,6 +357,9 @@ export function PlacesScreen() {
   return (
     <div className="space-y-6 pb-12">
       <div className="flex flex-wrap items-center justify-end gap-2">
+        <button className="btn-ghost !rounded !py-2.5 !px-3.5 text-xs" onClick={() => setShowDuplicity(true)}>
+          <Copy size={16} /> Podezřelé duplicity
+        </button>
         {missingGps.length > 0 && (
           <button className="px-3.5 py-2.5 rounded bg-white border border-sky-300/80 text-sky-950 hover:bg-sky-50 font-extrabold text-xs transition flex items-center gap-1.5 shadow-xs" onClick={() => setShowGpsBackfill(true)}>
             <MapPin size={16} /> Doplnit chybějící GPS ({missingGps.length})
@@ -439,7 +444,127 @@ export function PlacesScreen() {
           onSaved={() => { setShowGpsBackfill(false); load(); }}
         />
       )}
+      {showDuplicity && (
+        <DuplicatePlacesModal
+          places={rows}
+          onClose={() => setShowDuplicity(false)}
+          onChanged={load}
+        />
+      )}
     </div>
+  );
+}
+
+// Jen NABÍDKA podezřelých duplicit ke kontrole — sloučit nebo označit
+// "nejsou duplicita" musí vždycky sám člověk (viz lib/podezreleDuplicity.ts:
+// audit 16.–17. 9. 2026 skoro sloučil dva různé lidi jen podle jména).
+function DuplicatePlacesModal({ places, onClose, onChanged }: { places: Place[]; onClose: () => void; onChanged: () => void }) {
+  const [loading, setLoading] = useState(true);
+  const [pocty, setPocty] = useState<Record<string, number>>({});
+  const [ignorovane, setIgnorovane] = useState<{ a: string; b: string }[]>([]);
+  const [slucuji, setSlucuji] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      const [objRes, ignRes] = await Promise.all([
+        fetchAllRows('orders', 'place_id').neq('status', 'storno'),
+        supabase.from('mista_duplicity_ignorovano').select('place_id_a, place_id_b'),
+      ]);
+      const p: Record<string, number> = {};
+      for (const o of (objRes.data as { place_id: string | null }[] | null) ?? []) {
+        if (!o.place_id) continue;
+        p[o.place_id] = (p[o.place_id] ?? 0) + 1;
+      }
+      setPocty(p);
+      setIgnorovane(((ignRes.data as { place_id_a: string; place_id_b: string }[] | null) ?? []).map((r) => ({ a: r.place_id_a, b: r.place_id_b })));
+      setLoading(false);
+    })();
+  }, []);
+
+  const jeIgnorovany = (a: string, b: string) => ignorovane.some((p) => (p.a === a && p.b === b) || (p.a === b && p.b === a));
+
+  const kandidati = useMemo(
+    () => najdiPodezreleDuplicity(places).filter((k) => !jeIgnorovany(k.a.id, k.b.id)),
+    [places, ignorovane]
+  );
+
+  async function nejsouDuplicity(k: KandidatDuplicity) {
+    const { data: { user } } = await supabase.auth.getUser().catch(() => ({ data: { user: null } } as any));
+    await supabase.from('mista_duplicity_ignorovano').insert({ place_id_a: k.a.id, place_id_b: k.b.id, created_by: user?.email ?? null });
+    setIgnorovane((arr) => [...arr, { a: k.a.id, b: k.b.id }]);
+  }
+
+  async function sloucDoTohoto(cilove: { id: string; name: string }, zdrojove: { id: string; name: string }) {
+    const pocetZdroj = pocty[zdrojove.id] ?? 0;
+    if (!(await potvrd(
+      `Sloučit „${zdrojove.name}" do „${cilove.name}"? ${pocetZdroj} objednávek a další záznamy se přepíšou na „${cilove.name}" a „${zdrojove.name}" se smaže. Nejde vrátit zpět.`
+    ))) return;
+    setSlucuji(zdrojove.id);
+    const kroky = [
+      supabase.from('orders').update({ place_id: cilove.id, place_name: cilove.name }).eq('place_id', zdrojove.id),
+      supabase.from('keg_returns').update({ place_id: cilove.id, place_name: cilove.name }).eq('place_id', zdrojove.id),
+      supabase.from('place_aliases').update({ place_id: cilove.id }).eq('place_id', zdrojove.id),
+      supabase.from('whatsapp_incoming').update({ parsed_place_id: cilove.id, parsed_place_name: cilove.name }).eq('parsed_place_id', zdrojove.id),
+    ];
+    for (const krok of kroky) {
+      const { error } = await krok;
+      if (error) { chyba(`Sloučení selhalo: ${error.message}`); setSlucuji(null); return; }
+    }
+    const { error: delErr } = await supabase.from('places').delete().eq('id', zdrojove.id);
+    setSlucuji(null);
+    if (delErr) { chyba(`Záznamy přepsány, ale starý odběratel „${zdrojove.name}" se nesmazal: ${delErr.message}`); }
+    else { oznam(`Sloučeno do „${cilove.name}".`); }
+    onChanged();
+  }
+
+  return (
+    <Modal open={true} onClose={onClose} title="Podezřelé duplicity odběratelů">
+      <div className="space-y-4 text-xs">
+        <p className="text-neutral-600 font-bold leading-snug">
+          Appka jen NABÍZÍ páry se skoro stejným jménem nebo stejnou adresou — sloučit nebo nechat rozhoduješ vždycky ty.
+          Sloučení přepíše objednávky i další záznamy na vybraného odběratele a ten druhý smaže.
+        </p>
+        {loading ? <Spinner /> : kandidati.length === 0 ? (
+          <EmptyState text="Žádné podezřelé duplicity." icon={ShieldCheck} />
+        ) : (
+          <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+            {kandidati.map((k) => (
+              <div key={`${k.a.id}-${k.b.id}`} className="rounded-xl border border-violet-200 bg-violet-50/60 p-3 space-y-2">
+                <div className="text-udaj font-extrabold text-violet-800">
+                  {k.duvod === 'jmeno' ? 'Skoro stejné jméno' : 'Stejná adresa, jiné jméno'}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {[k.a, k.b].map((m, i) => {
+                    const druhy = i === 0 ? k.b : k.a;
+                    return (
+                      <div key={m.id} className="rounded-lg border border-neutral-200 bg-white p-2.5 space-y-1">
+                        <div className="font-black text-neutral-900">{m.name}</div>
+                        <div className="text-neutral-500 font-medium">{m.address || 'bez adresy'}</div>
+                        <div className="text-neutral-500 font-bold">{pocty[m.id] ?? 0} objednávek</div>
+                        <button
+                          className="btn-danger !rounded w-full mt-1 !py-1.5 text-udaj"
+                          disabled={slucuji !== null}
+                          onClick={() => sloucDoTohoto(m, druhy)}
+                        >
+                          {slucuji === druhy.id ? 'Slučuji…' : `Sloučit sem (smazat „${druhy.name}")`}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+                <button
+                  className="btn-ghost !rounded w-full !py-1.5 text-udaj"
+                  onClick={() => nejsouDuplicity(k)}
+                >
+                  Nejsou duplicita — nechat obě
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </Modal>
   );
 }
 
