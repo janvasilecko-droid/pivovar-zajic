@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { planProVyber, coZbyvaStocit } from './coStocit';
+import { planProVyber, coZbyvaStocit, vychoziDenCoStocit } from './coStocit';
 import type { DayPlan, PlanItem } from './keggingPlan';
 
 const polozka = (key: string, beer: string, ordered: number, missing: number): PlanItem => ({
@@ -39,5 +39,25 @@ describe('okno „Co stočit" na úvodní stránce', () => {
     const r = coZbyvaStocit(planProVyber(plans, 'tyden', 'T'));
     expect(r.map((i) => i.beer_name)).toEqual(['Světlá', 'Tmavá']);
     expect(coZbyvaStocit(planProVyber(plans, 'po', 'T')).map((i) => i.key)).toEqual(['a__k50']);
+  });
+});
+
+describe('vychoziDenCoStocit — výchozí den je zítřek, ne dnešek', () => {
+  // Co jede zítra na zavoz, se musí stočit dneska — sud/lahev potřebuje čas
+  // na dozrání a dnešní vlastní odpočet ze skladu už proběhl brzo ráno.
+  it('v úterý ukáže středu', () => {
+    expect(vychoziDenCoStocit('2026-09-15')).toBe('st'); // úterý → středa
+  });
+
+  it('v sobotu ukáže neděli', () => {
+    expect(vychoziDenCoStocit('2026-09-19')).toBe('ne');
+  });
+
+  it('v neděli zůstává dnešek — zítřek (pondělí) je už v jiném týdnu', () => {
+    expect(vychoziDenCoStocit('2026-09-20')).toBe('ne');
+  });
+
+  it('v pátek ukáže sobotu', () => {
+    expect(vychoziDenCoStocit('2026-09-18')).toBe('so');
   });
 });

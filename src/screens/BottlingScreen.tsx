@@ -65,6 +65,8 @@ export default function BottlingScreen({
   const pageValue = 'bottling';
   const [rows, setRows] = useState<EntryRow[]>([]);
   const [beers, setBeers] = useState<Beer[]>([]);
+  // Jen pro jméno piva v plánu stáčení — viz stejná proměnná v Kegging.tsx.
+  const [vsechnaPivaJmena, setVsechnaPivaJmena] = useState<{ id: string; name: string }[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingRow, setEditingRow] = useState<EntryRow | null>(null);
@@ -418,6 +420,12 @@ export default function BottlingScreen({
   // stočení tohoto týdne. Z provozu 15. 9. 2026: „mám na skladě 9× 30l,
   // appka mi stejně píše, že musím stočit další" (u sudů, stejný nápad platí
   // pro lahve — viz keggingPlan.ts, currentStockMap).
+  //
+  // ⚠️ BEZ zavozDeductionRows — viz stejný komentář v Kegging.tsx. Jde jen do
+  // keggingPlan.ts jako `pool`, a ten odpočet ze skladu sám o sobě
+  // nepovažuje za stočení; kdyby ho tahle zásoba zahrnula, ubraly by se
+  // tytéž lahve dvakrát (jednou tady, podruhé v `pool` u objednávky, kterou
+  // nikdo v Závozu neoznačil) a připravily by o zásobu jiný den.
   const currentStockMap = useMemo(() => zbytekKeKonciTydne({
     inventoryRows,
     bottlingRows: rows,
@@ -425,11 +433,10 @@ export default function BottlingScreen({
     fasovaniRows,
     prodejnaRows,
     writeoffsRows,
-    zavozDeductionRows,
     akceRows,
     adjustmentRows,
     packages,
-  }, businessDateISO()), [inventoryRows, rows, keggingRows, fasovaniRows, prodejnaRows, writeoffsRows, zavozDeductionRows, akceRows, adjustmentRows, packages]);
+  }, businessDateISO()), [inventoryRows, rows, keggingRows, fasovaniRows, prodejnaRows, writeoffsRows, akceRows, adjustmentRows, packages]);
 
   // Výpočet potřeby stočení lahví — objednávky AKTUÁLNÍHO TÝDNE vs. sklad
   // (stav v pondělí ráno + stočeno tento týden − výdej tento týden). Sdílená
@@ -438,7 +445,7 @@ export default function BottlingScreen({
   // lahve a PET. Poptávka se dál řídí jen tímhle týdnem, nabídka
   // (currentStockMap výš) je skutečná zásoba skladem (viz lib/keggingPlan.ts).
   const dennniPlanLahvi = useMemo(() => computeKeggingPlan({
-    beers,
+    beers: vsechnaPivaJmena,
     packages,
     orders,
     orderItems,
@@ -451,7 +458,7 @@ export default function BottlingScreen({
     weekKey,
     jeCilovyObal: (kind) => kind !== 'keg',
     currentStockMap,
-  }), [beers, packages, orders, orderItems, rows, zavozDeductionRows, fasovaniRows, prodejnaRows, writeoffsRows, planCheckRows, weekKey, currentStockMap]);
+  }), [vsechnaPivaJmena, packages, orders, orderItems, rows, zavozDeductionRows, fasovaniRows, prodejnaRows, writeoffsRows, planCheckRows, weekKey, currentStockMap]);
 
   // ⚖️ JEDEN výpočet pro všechno — z provozu 16. 9. 2026: „udělej to tak, ať
   // to logicky všechno sedí“. Dlaždice „Zbývá stočit tento týden“, červené
@@ -601,7 +608,11 @@ export default function BottlingScreen({
     const todayStr = businessDateISO();
     return computePackageNeeds(
       {
-        beers,
+        // Nález z auditu 15. 9. 2026: se seznamem jen aktivních piv řádek
+        // pro vyřazené pivo ze součtu úplně zmizel (na rozdíl od denního
+        // plánu, kde se aspoň ukázal jako "Neznámé pivo") — objednávka na
+        // něj se tak z „Potřeba stočit lahve" ztratila beze stopy.
+        beers: vsechnaPivaJmena,
         packages,
         orders,
         orderItems,
@@ -619,7 +630,7 @@ export default function BottlingScreen({
       },
       (kind) => kind !== 'keg'
     );
-  }, [beers, packages, orders, orderItems, inventoryRows, rows, fasovaniRows, prodejnaRows, writeoffsRows, keggingRows, zavozDeductionRows, adjustmentRows, akceRows, weekKey]);
+  }, [vsechnaPivaJmena, packages, orders, orderItems, inventoryRows, rows, fasovaniRows, prodejnaRows, writeoffsRows, keggingRows, zavozDeductionRows, adjustmentRows, akceRows, weekKey]);
 
   const filteredRequirements = useMemo(() => {
     let list = bottleRequirements;
@@ -779,9 +790,11 @@ export default function BottlingScreen({
     const smiZapsat = zacniNacteni();
     const loadId = ++loadCountRef.current;
     if (!silent && !rows.length) setLoading(true);
-    const [bt, b, p, ords, oi, inv, fa, fp, wo, kg, pl, zd, adj, ak, checks] = await Promise.all([
+    const [bt, b, vsePiva, p, ords, oi, inv, fa, fp, wo, kg, pl, zd, adj, ak, checks] = await Promise.all([
       fetchAllRows('bottling', '*').order('entry_date', { ascending: false }).order('created_at', { ascending: true }).order('id'),
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
+      // Bez filtru na aktivní — jen jméno, pro plán stáčení (viz vsechnaPivaJmena výš).
+      supabase.from('beers').select('id,name'),
       supabase.from('packages').select('*').order('sort_order'),
       fetchAllRows('orders', 'id,order_date,delivery_date,delivery_day,place_name,status,is_delivered'),
       // `*` místo výčtu: delivery_day (vlastní den položky) přidává migrace
@@ -802,9 +815,10 @@ export default function BottlingScreen({
     // nebo už obrazovka není vidět. Výsledek se pak zahodí.
     if (!smiZapsat()) return;
     if (loadId !== loadCountRef.current) return;
-    setChybaNacteni(prvniChyba(bt, b, p, ords, oi));
+    setChybaNacteni(prvniChyba(bt, b, vsePiva, p, ords, oi));
     setRows((bt.data as EntryRow[]) ?? []);
     if (b.data) setBeers(b.data as Beer[]);
+    if (vsePiva.data) setVsechnaPivaJmena(vsePiva.data as { id: string; name: string }[]);
     if (p.data) setPackages(p.data as Package[]);
     if (ords.data) setOrders(ords.data);
     if (oi.data) setOrderItems(oi.data);

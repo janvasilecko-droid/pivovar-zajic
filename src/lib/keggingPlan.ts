@@ -238,23 +238,31 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
   // pokrýt některý z dalších dnů.
   const pool: Record<string, number> = {};
   if (input.currentStockMap) {
-    // Sklad UŽ MÁ závozy tohoto týdne odečtené, ale poptávka níž počítá
-    // objednávky celého týdne včetně zavezených — bez vrácení by se odečetly
-    // dvakrát. Z provozu 16. 9. 2026: 16 objednaných, 12 už zavezených, 11
-    // skladem, a plán hlásil „chybí stočit 5“.
+    // Poptávka níž počítá objednávky celého týdne VČETNĚ těch, co už mají
+    // odpočet zavozu zapsaný (zavoz_deductions) — bez vrácení by se ten
+    // odpočet z fondu odečetl dvakrát. Z provozu 16. 9. 2026: 16 objednaných,
+    // 12 už zavezených, 11 skladem, a plán hlásil „chybí stočit 5“.
     //
-    // Vrátí se až POTOM se ořízne záporná zásoba: minus na skladě znamená,
-    // že se odečetlo víc, než se stočilo, a to nesmí zmizet — jinak by
-    // automatický odpočet podle kalendáře zase tvrdil „vše stočeno“
-    // (z provozu 11.–12. 9. 2026).
+    // ⚠️ Vrací se JEN pro klíč, který v currentStockMap SKUTEČNĚ existuje —
+    // to je jediný důkaz, že se to pivo+obal tenhle týden opravdu stočilo.
+    // Pivo, které se nikdy nestočilo (klíč v currentStockMap vůbec není),
+    // se zavozem NEVYKRYJE, i kdyby pro něj nějaký odpočet existoval — jinak
+    // by appka zase věřila kalendáři/nesrovnalosti místo skutečnému stočení
+    // (přesně ta chyba, co opravila migrace 20261231010000: bez ručního
+    // odškrtnutí „Stočeno" se sklad nesmí tvářit vykrytý).
     const vracenoZaZavozy: Record<string, number> = {};
     zavozDeductionRows.forEach((r: any) => {
       if (!r.beer_id || !r.package_id || !kegPkgs.has(r.package_id) || !inWeek(r.deduct_date)) return;
       const k = `${r.beer_id}__${r.package_id}`;
+      if (!input.currentStockMap!.has(k)) return;
       vracenoZaZavozy[k] = (vracenoZaZavozy[k] || 0) + Number(r.quantity || 0);
     });
     input.currentStockMap.forEach((qty, k) => { pool[k] = qty + (vracenoZaZavozy[k] || 0); });
-    Object.entries(vracenoZaZavozy).forEach(([k, qty]) => { if (!input.currentStockMap!.has(k)) pool[k] = qty; });
+    // NEořezávat na nulu tady: záporná hodnota (i po vrácení závozů) je
+    // skutečný dluh (vydalo se víc, než kdy bylo stočeno) a `sestavDen` níž
+    // ho musí umět připočítat k tomu, co ještě chybí stočit — jinak by appka
+    // takový dluh navždy tiše ignorovala, i když ho Sklad ukazuje poctivě
+    // záporný (z provozu 15. 9. 2026: audit).
   } else {
     keggingRows.filter((r) => inWeek(r.entry_date)).forEach((r) => {
       if (!r.beer_id || !r.package_id || !kegPkgs.has(r.package_id)) return;
@@ -277,13 +285,16 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
   // podle kalendáře, když den závozu projde, a nic neříká o tom, jestli se
   // pivo stočilo. Zásobu ubírají jen objednávky, které člověk označil jako
   // zavezené — viz níž u poptávky (migrace 20261231080000, 13. 9. 2026).
-  // Se skutečnou zásobou skladem (currentStockMap) ale odečtený závoz značí,
-  // že pivo už fyzicky odjelo: skladová kniha ho z zásoby odepsala. Kdyby se
-  // ta samá objednávka počítala dál do poptávky, odečte se dvakrát — z provozu
-  // 16. 9. 2026: 16 objednaných, 12 už zavezených, 11 skladem, a plán hlásil
-  // „chybí stočit 5“. Proto se odečtené kusy berou jako vykryté.
-  void zavozDeductionRows;
-  Object.keys(pool).forEach((k) => { pool[k] = Math.max(0, pool[k]); });
+  //
+  // Volající pro tenhle výpočet postaví zásobu BEZ zavozDeductionRows (viz
+  // `currentStockMap` v Kegging.tsx/BottlingScreen.tsx/CoStocitOkno.tsx) —
+  // co si tenhle týden odpočet zavozu vzal, se proto výš (`vracenoZaZavozy`)
+  // vrací zpátky do fondu, ať se to nepočítá jako chybějící ještě jednou
+  // (z provozu 16. 9. 2026: „16 objednaných, 12 už zavezených, 11 skladem,
+  // a appka mi napsala, že chybí stočit 5"). Bez ručního „Zavezeno" u
+  // manuálně odbavené objednávky (mimo zavoz_deductions) fond dál ubírá
+  // přímo v poptávce níž (z provozu 15. 9. 2026: „stočil jsem 21×30, appka
+  // mi přesto píše, že 4 chybí").
 
   // ── Poptávka po dnech.
   const ordersById = new Map(orders.map((o) => [o.id, o]));
@@ -338,17 +349,16 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
     const k = `${it.beer_id}__${it.package_id}`;
     const bucket = (byDay[day][k] ||= { ordered: 0, covered: 0, orders: [] });
     const wholeOrderDone = !!ord?.is_delivered || ord?.status === 'vyrizeno' || ord?.status === 'vyrizeno_zavoz';
-    // Se skutečnou zásobou skladem se zavezená objednávka NEBERE jako vykrytá:
-    // patří do poptávky celého týdne stejně jako na dlaždici „Zbývá stočit
-    // tento týden“ (táž data, viz Kegging.tsx) a kryje ji zásoba výš.
+    // Se skutečnou zásobou skladem (currentStockMap) se zavezená objednávka
+    // NEBERE jako vykrytá tady — kryje ji fond výš (`vracenoZaZavozy`), který
+    // ji do fondu vrátil. Dvojí odečet (jednou tady, podruhé z fondu) by
+    // zásobu vynuloval — z provozu 16. 9. 2026: „pokud mám na skladě 11×30,
+    // tak mi přece nemůže chybět 5×30“.
     const covered = wholeOrderDone && !input.currentStockMap ? qty : 0;
     // Zavezené sudy fyzicky odjely — nesmí pokrýt další den ze zásoby.
-    //
-    // ⚠️ JEN bez `currentStockMap`. Se skutečnou zásobou skladem je odvoz
-    // už jednou odečtený (skladová kniha zná zavoz_deductions), takové druhé
-    // odečtení zásobu vynuluje a plán hlásí „chybí stočit“ i u piva, kterého
-    // je plný chlaďák — z provozu 16. 9. 2026: „pokud mám na skladě 11×30,
-    // tak mi přece nemůže chybět 5×30“.
+    // JEN bez `currentStockMap` — s ním už je odvoz odečtený ve skladové
+    // knize a fond výš ho zase vrátil, takže odečítat ho tu podruhé by
+    // zásobu ochudilo o kusy, které nikdy neopustily chladák.
     if (!input.currentStockMap && wholeOrderDone && inWeek(ord?.delivery_date || ord?.order_date)) {
       pool[k] = Math.max(0, (pool[k] || 0) - qty);
     }
@@ -370,9 +380,16 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
     const items: PlanItem[] = Object.entries(byDay[dayKey]).map(([k, b]) => {
       const [beer_id, package_id] = k.split('__');
       const pkg = kegPkgs.get(package_id)!;
+      // Fond (pool[k]) může být ZÁPORNÝ — skutečný dluh z minula (vydalo se
+      // víc, než kdy bylo stočeno). Ten dluh se řeší HNED, na prvním dni,
+      // kde se na tenhle klíč sáhne: připočítá se k tomu, co chybí, a fond
+      // se od něj očistí (na 0), ať ho žádný další den v týdnu nezpracoval
+      // znovu. Kladná část fondu se pak čerpá jako dřív.
+      const deficit = Math.max(0, -(pool[k] || 0));
+      const poolKladny = Math.max(0, pool[k] || 0);
       const stillNeeded = Math.max(0, b.ordered - b.covered);
-      const fromPool = Math.min(stillNeeded, pool[k] || 0);
-      pool[k] = (pool[k] || 0) - fromPool;
+      const fromPool = Math.min(stillNeeded, poolKladny);
+      pool[k] = poolKladny - fromPool;
       const autoDone = b.covered + fromPool;
       // Ruční odškrtnutí a doložený stav se skládají přes MAX. Součet by
       // položku započítal dvakrát ve chvíli, kdy si ji stáčeč odškrtne a pak
@@ -392,7 +409,7 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
         nachystano: b.covered,
         zChladaku: fromPool,
         checked,
-        missing: Math.max(0, b.ordered - done),
+        missing: Math.max(0, b.ordered - done) + deficit,
         orders: b.orders,
       };
     });

@@ -29,7 +29,7 @@ export type WhatsAppMsgRef = {
 };
 
 /** Normalizace pro porovnání citace s původní zprávou. */
-function norm(s: string | null | undefined): string {
+export function norm(s: string | null | undefined): string {
   return (s ?? '')
     .toLowerCase()
     .normalize('NFD')

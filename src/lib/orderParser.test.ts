@@ -7,6 +7,7 @@ import {
   parseOrderText,
   parseFreeTextEntries,
   detectOrderNotes,
+  parseDeliveryTimeHint,
   parseGeminiItems,
   isUsefulBeerAlias,
   canLearnBeerAlias,
@@ -515,6 +516,38 @@ describe('detectOrderNotes', () => {
     expect(detectOrderNotes('sebrat 3 kegy')).toBe('vyzvednout prázdné sudy');
     // Objednávka sudů piva požadavkem na vyzvednutí není.
     expect(detectOrderNotes('2x50 12sv')).toBe('');
+  });
+
+  it('pozná slovní čas dovozu ("kolem poledne") — dřív zmizel beze stopy', () => {
+    // Přesně tahle zpráva (16. 9. 2026): "přijedou kolem poledne" se
+    // nedostalo do poznámky vůbec, protože starý vzorec uměl jen číselný čas.
+    expect(detectOrderNotes('Na zítra 2x30l tmavé, přijedou kolem poledne..díky')).toBe('přijedou kolem poledne');
+    expect(detectOrderNotes('dovoz v poledne prosim')).toBe('v poledne');
+    expect(detectOrderNotes('dorazime kolem pulnoci')).toBe('dorazime kolem pulnoci');
+  });
+
+  it('slovní čas dovozu se sčítá s dalšími poznámkami', () => {
+    expect(detectOrderNotes('2x50 12sv, prijedou kolem poledne, zaplaceno')).toBe('prijedou kolem poledne, zaplaceno');
+  });
+});
+
+describe('parseDeliveryTimeHint', () => {
+  it('rozpozná slovní "poledne" jako 12:00', () => {
+    expect(parseDeliveryTimeHint('přijedou kolem poledne')).toEqual({ hodina: 12, minuta: 0 });
+  });
+
+  it('rozpozná slovní "půlnoc" jako 0:00', () => {
+    expect(parseDeliveryTimeHint('dorazime kolem pulnoci')).toEqual({ hodina: 0, minuta: 0 });
+  });
+
+  it('rozpozná číselný čas s trigger slovem (kolem/v/okolo)', () => {
+    expect(parseDeliveryTimeHint('dovoz v 15')).toEqual({ hodina: 15, minuta: 0 });
+    expect(parseDeliveryTimeHint('kolem 14:30 prijedou')).toEqual({ hodina: 14, minuta: 30 });
+    expect(parseDeliveryTimeHint('okolo 9 hod')).toEqual({ hodina: 9, minuta: 0 });
+  });
+
+  it('vrátí null, když text žádný čas nezmiňuje', () => {
+    expect(parseDeliveryTimeHint('2x30l tmavé, díky')).toBeNull();
   });
 });
 

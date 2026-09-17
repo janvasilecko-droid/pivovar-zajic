@@ -1,7 +1,9 @@
 // ⚙️ Sdílený výpočet potřeby stáčení podle druhu obalu — „co je potřeba stočit".
 // ---------------------------------------------------------------------------
-// Stejná logika pro KEGy (kegNeeds.ts) i lahve (BottlingScreen.tsx „Lahve k
-// dotočení tento týden"), jen parametrizovaná podle druhu obalu. Sestaví
+// Parametrizovaná podle druhu obalu (isTargetPkg) — dnes ji používá jen
+// BottlingScreen.tsx („Lahve k dotočení tento týden") pro lahve. KEGy
+// obdobnou týdenní tabulku nemají — mají jen denní plán (keggingPlan.ts).
+// Sestaví
 // řádek pivo × obal s těmito sloupci (VŠE ZA AKTUÁLNÍ TÝDEN, od pondělí do
 // teď — ne za celý měsíc):
 //   • invQty      – sklad v PONDĚLÍ RÁNO (počátek týdne): počáteční stav

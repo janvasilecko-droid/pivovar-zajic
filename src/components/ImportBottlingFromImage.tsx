@@ -4,7 +4,7 @@ import { PhotoReviewPane } from './PhotoReviewPane';
 import { ImageEditor } from './ImageEditor';
 import type { Beer, Package } from '../lib/supabase';
 import { authenticatedFunctionHeaders } from '../lib/functionAuth';
-import { typObrazku } from '../lib/obrazek';
+import { typObrazku, zmensenyDataUrl } from '../lib/obrazek';
 import { AlertCircle, Camera, ChevronLeft, ChevronRight, Lightbulb, Plus, RotateCcw, Trash2, Upload } from 'lucide-react';
 import { businessDateISO } from '../lib/businessDate';
 
@@ -95,23 +95,21 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
     runOcrFromBase64(base64, typObrazku(currentPhoto.dataUrl), activeIndex);
   }, [photos, activeIndex]);
 
-  const loadMultipleFiles = (files: File[]) => {
+  // Fotka z mobilu má klidně 4–8 MB — jako nezmenšený data URL appku na
+  // telefonu spolehlivě sekla (z provozu: „když dám vyfotit, appka
+  // spadne"). zmensenyDataUrl ji zmenší na rozumnou velikost, stejně jako
+  // FotkyZaznamu.tsx dělá pro nahrávání do úložiště.
+  const loadMultipleFiles = async (files: File[]) => {
     if (!files.length) return;
     setBusy(true);
-    const loaded: PhotoEntry[] = [];
-    let count = 0;
-    files.forEach((f, idx) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        loaded[idx] = { dataUrl: reader.result as string, name: f.name };
-        count++;
-        if (count === files.length) {
-          setPhotos((prev) => [...prev, ...loaded.filter(Boolean)]);
-          setBusy(false);
-        }
-      };
-      reader.readAsDataURL(f);
-    });
+    try {
+      const loaded: PhotoEntry[] = await Promise.all(
+        files.map(async (f) => ({ dataUrl: await zmensenyDataUrl(f), name: f.name })),
+      );
+      setPhotos((prev) => [...prev, ...loaded]);
+    } finally {
+      setBusy(false);
+    }
   };
 
   const handleFile = (file: File) => {
@@ -281,6 +279,24 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
   const updateLine = (i: number, patch: Partial<RowInput>) => {
     if (!entryRows) return;
     setEntryRows(entryRows.map((x, idx) => (idx === i ? { ...x, ...patch } : x)));
+  };
+
+  // Předdefinovaný sud pro „Zdrojový KEG" — 50l je nejběžnější velikost,
+  // kterou se lahve stáčejí. Použije se, jen když se sud teprve NASTAVUJE
+  // (tlačítkem + u počtu, viz zmenKegQty) — necháváme prázdné, dokud tam
+  // nikdo nic nezadá, ať se AI odhad z fotky dál nedomýšlí natvrdo (viz
+  // komentář „Nehádáme natvrdo první KEG v katalogu" výš).
+  const vychoziKegPkgId = () => kegPackages.find((p) => Number(p.volume_l) === 50)?.id ?? kegPackages[0]?.id ?? '';
+
+  // +/- u počtu sudů: rychlejší než přepisovat číslo přes klávesnici.
+  // Krok z 0 nahoru zároveň doplní sud, pokud ještě není vybraný — jinak by
+  // šlo „počet 1" bez toho, z jakého kegu.
+  const zmenKegQty = (i: number, r: RowInput, delta: number) => {
+    const novaQty = Math.max(0, Number(r.kegQty || 0) + delta);
+    updateLine(i, {
+      kegQty: novaQty > 0 ? String(novaQty) : '',
+      kegPkgId: novaQty > 0 && !r.kegPkgId ? vychoziKegPkgId() : r.kegPkgId,
+    });
   };
 
   const addLine = () => {
@@ -569,14 +585,33 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
                               </div>
                               <div>
                                 <label className="text-udaj font-black uppercase text-amber-800">Počet KEGů</label>
-                                <input
-                                  type="text"
-                                  inputMode="numeric"
-                                  placeholder="např. 2"
-                                  className="input text-sm sm:text-xs font-bold w-full border border-amber-200 text-center"
-                                  value={r.kegQty}
-                                  onChange={(e) => updateLine(i, { kegQty: e.target.value.replace(/[^0-9]/g, '') })}
-                                />
+                                <div className="flex items-stretch gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => zmenKegQty(i, r, -1)}
+                                    disabled={!Number(r.kegQty)}
+                                    aria-label="Ubrat keg"
+                                    className="w-8 shrink-0 rounded border border-amber-200 bg-amber-50 text-amber-900 font-black text-base disabled:opacity-40 tap"
+                                  >
+                                    −
+                                  </button>
+                                  <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    placeholder="např. 2"
+                                    className="input text-sm sm:text-xs font-bold w-full border border-amber-200 text-center"
+                                    value={r.kegQty}
+                                    onChange={(e) => updateLine(i, { kegQty: e.target.value.replace(/[^0-9]/g, '') })}
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => zmenKegQty(i, r, 1)}
+                                    aria-label="Přidat keg"
+                                    className="w-8 shrink-0 rounded border border-amber-200 bg-amber-50 text-amber-900 font-black text-base tap"
+                                  >
+                                    +
+                                  </button>
+                                </div>
                               </div>
                             </div>
                           </div>

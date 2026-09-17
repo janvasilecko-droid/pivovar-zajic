@@ -3,7 +3,6 @@
 import { AlertTriangle, Ban, Beer as BeerIcon, Calendar, Check, CheckCircle2, Copy, Hourglass, MessageCircle, NotebookPen, Pencil, Phone, RotateCcw, Split, Trash2, Truck, Droplet } from 'lucide-react';
 import { Beer, Package, Place, beerBg, formatPackageLabel } from '../../lib/supabase';
 
-import { isoWeekKey } from '../WeeklyOrderSummaryCard';
 import { schodkyObjednavky } from '../../lib/tydenniZbytek';
 import type {  } from '../../lib/stockLedger';
 
@@ -18,9 +17,15 @@ import { jeVyrizena } from '../../lib/stavyObjednavek';
 
 import { type Order, type OrderItem, dayColor, getTapNameForOrder } from './spolecne';
 
-export function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, onClick, onToggleFlag, onToggleItemFlag, onUpdateDeliveryDay, onSetStatus, onDelete, onDuplicate, onEdit, onSplit, onOpenWhatsApp, beers, packages, places, activeBeerId, activePackageId, itemMatchesFilter }: {
+export function OrderCard({ o, items, stockRemainingForOrder, selected, onToggleSelect, onClick, onToggleFlag, onToggleItemFlag, onUpdateDeliveryDay, onSetStatus, onDelete, onDuplicate, onEdit, onSplit, onOpenWhatsApp, beers, packages, places, activeBeerId, activePackageId, itemMatchesFilter }: {
   o: Order; items: OrderItem[];
-  stockRemainingForWeek: (wk: string) => Map<string, number>;
+  /**
+   * Zbytek skladu ke konci týdne PRO TUHLE KONKRÉTNÍ objednávku — objednávky
+   * stejného týdne na stejné pivo+obal soutěží o sklad podle dne dovozu (viz
+   * zbytekPodleObjednavek v lib/tydenniZbytek.ts), takže dvě různé objednávky
+   * mohou pro stejné pivo+obal dostat různý zbytek.
+   */
+  stockRemainingForOrder: (o: Order) => Map<string, number>;
   selected: boolean; onToggleSelect: () => void; onClick: () => void;
   onToggleFlag: (o: Order, key: 'is_prepared' | 'is_packaged' | 'is_delivered') => void;
   onToggleItemFlag: (o: Order, it: OrderItem, key: 'is_bottled' | 'is_prepared') => void;
@@ -63,7 +68,7 @@ export function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleS
   const odbaveno = o.is_delivered || jeVyrizena(o.status) || o.status === 'storno';
   // Schodek se posuzuje podle PIVA A OBALU: chybějící sudy nevykryjí lahve,
   // i když je v nich totéž pivo (viz lib/tydenniZbytek.ts).
-  const remaining = stockRemainingForWeek(isoWeekKey(o.delivery_date || o.order_date));
+  const remaining = stockRemainingForOrder(o);
   // Obal patří do popisku: schodek se počítá po pivu A obalu, takže bez něj by
   // dvě velikosti téhož piva vypadaly jako tentýž údaj napsaný dvakrát.
   const uniqueDeficits = (odbaveno ? [] : schodkyObjednavky(items, remaining)).map((s) => {

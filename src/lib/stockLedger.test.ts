@@ -61,6 +61,25 @@ describe('buildMovements — znaménka pohybů', () => {
     expect(m.find((x) => x.kind === 'sud_na_lahve')!.package_id).toBe(P50);
   });
 
+  // Nález z auditu 15. 9. 2026: dva různé řádky stáčení (stejné pivo, stejný
+  // počet a velikost spotřebovaných sudů, stejný den) uložené najednou —
+  // stejný `created_at` z jednoho INSERTu, stejná (prázdná) poznámka celé
+  // dávky — ale do JINÝCH lahví, se mylně slily do jednoho pohybu a druhý
+  // spotřebovaný sud zmizel.
+  it('dva řádky se stejným počtem/velikostí sudů, ale do RŮZNÝCH lahví, se nesloučí', () => {
+    const pkgs = [...packages, { id: 'pet10', kind: 'bottle', volume_l: 1.0 }];
+    const m = buildMovements({
+      packages: pkgs,
+      bottlingRows: [
+        { entry_date: '2026-08-12', beer_id: B, package_id: 'pet15', quantity: 20, kegs_used: 2, kegs_used_package_id: P50, created_at: '2026-08-12T10:00:00Z', note: null },
+        { entry_date: '2026-08-12', beer_id: B, package_id: 'pet10', quantity: 30, kegs_used: 2, kegs_used_package_id: P50, created_at: '2026-08-12T10:00:00Z', note: null },
+      ],
+    });
+    const sudy = m.filter((x) => x.kind === 'sud_na_lahve');
+    expect(sudy).toHaveLength(2);
+    expect(sudy.reduce((s, x) => s + x.qty, 0)).toBe(-4);
+  });
+
   it('dorovnání může být i záporné (manko)', () => {
     const m = buildMovements({
       packages,

@@ -945,6 +945,19 @@ export function removeDockSlot(layout: HomeLayout, index: number): HomeLayout {
 }
 
 /**
+ * Prohodí slot spodní lišty se sousedním (doleva/doprava) — jediný způsob,
+ * jak přeřadit pořadí, byl dřív přenastavit obsah obou rozbalovacích menu
+ * ručně. Na kraji (první doleva, poslední doprava) se nic neděje.
+ */
+export function moveDockSlot(layout: HomeLayout, index: number, smer: 'doleva' | 'doprava'): HomeLayout {
+  const cil = smer === 'doleva' ? index - 1 : index + 1;
+  if (cil < 0 || cil >= layout.dock.length) return layout;
+  const dock = [...layout.dock];
+  [dock[index], dock[cil]] = [dock[cil], dock[index]];
+  return { ...layout, dock };
+}
+
+/**
  * Přebarví všechny dlaždice s definovanou kategorií (viz PAGE_CATEGORY) na
  * barvu jejich kategorie — i ty, co už mají uloženou VLASTNÍ barvu (na
  * rozdíl od `defaultColorFor`, která se použije jen když barva chybí úplně).

@@ -19,7 +19,7 @@ import { businessDateISO } from '../lib/businessDate';
 import { isoWeekKey, weekRange } from './WeeklyOrderSummaryCard';
 import { computeKeggingPlan, dayKeyFromISO, BEZ_TERMINU, type DayPlan } from '../lib/keggingPlan';
 import { zbytekKeKonciTydne } from '../lib/tydenniZbytek';
-import { planProVyber } from '../lib/coStocit';
+import { planProVyber, vychoziDenCoStocit } from '../lib/coStocit';
 import { DAYS } from '../lib/shared';
 import { uloz } from '../lib/uloziste';
 import { IkonaSud, IkonaLahev } from './ikony';
@@ -95,7 +95,16 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
 
   // 'tyden' nebo den v týdnu. Pamatuje se jen týden/dnes — konkrétní jiný
   // den by příští otevření ukázalo jako „dnes" a mátlo by to.
-  const [obdobi, setObdobi] = useState<string>(() => (cti(KLIC_OBDOBI) === 'tyden' ? 'tyden' : dnesniDen));
+  //
+  // Když si uživatel nic nezapamatoval, výchozí není dnešek, ale ZÍTŘEK
+  // (vychoziDenCoStocit) — co jede zítra na zavoz, se musí stočit dneska.
+  // Výslovná volba „Dnes"/„Týden" (uložená v localStorage) má přednost.
+  const [obdobi, setObdobi] = useState<string>(() => {
+    const ulozeno = cti(KLIC_OBDOBI);
+    if (ulozeno === 'tyden') return 'tyden';
+    if (ulozeno === 'dnes') return dnesniDen;
+    return vychoziDenCoStocit(dnes);
+  });
   const [sbaleno, setSbaleno] = useState(() => cti(KLIC_SBALENO) === '1');
   const [data, setData] = useState<Data | null>(null);
   const [chyba, setChyba] = useState(false);
@@ -150,6 +159,13 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
 
   // Nezávisí na `druh` (sudy/lahve) — vrací zásobu pro VŠECHNA pivo×obal,
   // stačí spočítat jednou a použít pro oba plány níž.
+  //
+  // ⚠️ BEZ zavozDeductionRows — jde jen do keggingPlan.ts jako `pool` (viz
+  // stejný komentář v Kegging.tsx/BottlingScreen.tsx). Ten odpočet ze
+  // skladu sám o sobě nepovažuje za stočení; kdyby ho tahle zásoba
+  // zahrnula, ubraly by se tytéž kusy dvakrát u objednávky, kterou nikdo
+  // v Závozu neoznačil, a připravily by o zásobu jiný den (z provozu
+  // 15. 9. 2026: „stočil jsem 21×30, appka mi přesto píše, že 4 chybí").
   const currentStockMap = useMemo(() => {
     if (!data) return undefined;
     return zbytekKeKonciTydne({
@@ -159,7 +175,6 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
       fasovaniRows: data.fasovani,
       prodejnaRows: data.prodejna,
       writeoffsRows: data.writeoffs,
-      zavozDeductionRows: data.zavozDeductions,
       akceRows: data.akce,
       prefukRows: data.prefuk,
       adjustmentRows: data.adjustments,
