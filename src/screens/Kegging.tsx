@@ -1,4 +1,5 @@
 import { synchronizuj } from '../lib/checklistData';
+import { jeSud } from '../lib/inventoryFix';
 import { useEffect, useMemo, useState, lazy, Suspense } from 'react';
 import { supabase, Beer, Package, EntryRow, CellarTank, KegPrefuk, useRealtime, beerBg, beerName, formatPackageLabel, fetchAllRows } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
@@ -214,7 +215,9 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   const [weekKey, setWeekKey] = useState(isoWeekKey(businessDateISO()));
   const weekLabel = weekRange(weekKey).label;
 
-  const kegPackages = useMemo(() => packages.filter((p) => p.kind === 'keg').sort((a, b) => b.volume_l - a.volume_l), [packages]);
+  // Podle kindu i popisku: sud bez vyplněného `kind` by se jinak v KEGách
+  // vůbec nenabídl (a ve stáčení lahví by naopak přebýval) — viz jeSud.
+  const kegPackages = useMemo(() => packages.filter((p) => jeSud(p.kind, p.label)).sort((a, b) => b.volume_l - a.volume_l), [packages]);
 
   // Aktivní sklepní tanky (stáčí se z nich) — status active nebo emptying
   const activeCellarTanks = useMemo(() => cellarTanks.filter((t) => t.status === 'active' || t.status === 'emptying'), [cellarTanks]);

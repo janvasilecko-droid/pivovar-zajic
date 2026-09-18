@@ -20,6 +20,7 @@ import { stackingQuickQtys } from '../lib/quickQty';
 import { navrhSudu } from '../lib/bottlingYield';
 import { synchronizuj } from '../lib/checklistData';
 import { computePackageNeeds, PackageNeedsRow } from '../lib/packageNeeds';
+import { jeSud } from '../lib/inventoryFix';
 import { computeKeggingPlan, mergeWeekPlan, rozpadPoObalech, BEZ_TERMINU } from '../lib/keggingPlan';
 import { zbytekKeKonciTydne } from '../lib/tydenniZbytek';
 import { naplanujPresun } from '../lib/presunPolozky';
@@ -372,12 +373,12 @@ export default function BottlingScreen({
     if (recordsTab === 'lahve') {
       result = result.filter((r) => {
         const pkg = packages.find((p) => p.id === r.package_id);
-        return !pkg || pkg.kind !== 'keg';
+        return !pkg || !jeSud(pkg.kind, pkg.label);
       });
     } else if (recordsTab === 'keg') {
       result = result.filter((r) => {
         const pkg = packages.find((p) => p.id === r.package_id);
-        return pkg && pkg.kind === 'keg';
+        return pkg && jeSud(pkg.kind, pkg.label);
       });
     }
     if (recordsBeerFilter) {
@@ -412,7 +413,7 @@ export default function BottlingScreen({
   // KEG obaly
   const kegPackages = useMemo(() =>
     packages
-      .filter((p) => p.kind === 'keg' && KEG_SIZES.includes(Number(p.volume_l)))
+      .filter((p) => jeSud(p.kind, p.label) && KEG_SIZES.includes(Number(p.volume_l)))
       .sort((a, b) => b.volume_l - a.volume_l),
   [packages]);
 
@@ -456,7 +457,8 @@ export default function BottlingScreen({
     writeoffsRows,
     checkRows: planCheckRows,
     weekKey,
-    jeCilovyObal: (kind) => kind !== 'keg',
+    // Lahve = co NENÍ sud. Podle kindu i popisku — viz jeSud.
+    jeCilovyObal: (kind, label) => !jeSud(kind, label),
     currentStockMap,
   }), [vsechnaPivaJmena, packages, orders, orderItems, rows, zavozDeductionRows, fasovaniRows, prodejnaRows, writeoffsRows, planCheckRows, weekKey, currentStockMap]);
 
@@ -628,7 +630,7 @@ export default function BottlingScreen({
         weekKey,
         todayStr,
       },
-      (kind) => kind !== 'keg'
+      (kind, label) => !jeSud(kind, label)
     );
   }, [vsechnaPivaJmena, packages, orders, orderItems, inventoryRows, rows, fasovaniRows, prodejnaRows, writeoffsRows, keggingRows, zavozDeductionRows, adjustmentRows, akceRows, weekKey]);
 
@@ -1138,7 +1140,7 @@ export default function BottlingScreen({
     periodRows.forEach((r) => {
       const pkg = packages.find((p) => p.id === r.package_id);
       // Přímé stáčení do KEG
-      if (pkg && pkg.kind === 'keg' && KEG_SIZES.includes(Number(pkg.volume_l))) {
+      if (pkg && jeSud(pkg.kind, pkg.label) && KEG_SIZES.includes(Number(pkg.volume_l))) {
         totalKegCount += Number(r.quantity);
         totalKegLiters += Number(r.quantity) * Number(pkg.volume_l);
         totalSourceL += Number(r.source_volume_l ?? 0);
@@ -2336,7 +2338,7 @@ export default function BottlingScreen({
                   className="input text-xs font-bold px-2.5 py-1.5 rounded border border-neutral-200 bg-white text-neutral-800 shrink-0"
                 >
                   <option value="">Všechny obaly</option>
-                  {packages.filter((p) => p.kind !== 'keg').map((p) => (
+                  {packages.filter((p) => !jeSud(p.kind, p.label)).map((p) => (
                     <option key={p.id} value={p.id}>{p.label}</option>
                   ))}
                 </select>
@@ -2623,7 +2625,7 @@ export default function BottlingScreen({
                   className="input"
                 >
                   <option value="">— Vyber KEG —</option>
-                  {packages.filter(p => p.kind === 'keg').map((p) => (
+                  {packages.filter((p) => jeSud(p.kind, p.label)).map((p) => (
                     <option key={p.id} value={p.id}>{p.label}</option>
                   ))}
                 </select>

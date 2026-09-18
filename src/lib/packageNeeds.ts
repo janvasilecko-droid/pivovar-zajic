@@ -89,7 +89,12 @@ function resolveKegsUsed(
   return null;
 }
 
-export function computePackageNeeds(input: PackageNeedsInput, isTargetPkg: (kind: string) => boolean): PackageNeedsRow[] {
+/**
+ * `isTargetPkg` dostává `kind` I `label` — `kind` sám nestačí, obal „KEG 30l"
+ * bez vyplněného druhu jinak propadne mezi lahve (viz jeSud v inventoryFix.ts
+ * a stejná oprava v keggingPlan.ts, z provozu 18. 9. 2026).
+ */
+export function computePackageNeeds(input: PackageNeedsInput, isTargetPkg: (kind: string, label?: string | null) => boolean): PackageNeedsRow[] {
   const {
     beers,
     packages,
@@ -110,7 +115,7 @@ export function computePackageNeeds(input: PackageNeedsInput, isTargetPkg: (kind
 
   const akceOutRows = flattenAkceNet(akceRows);
 
-  const targetPkgIds = new Set(packages.filter((p) => isTargetPkg(p.kind)).map((p) => p.id));
+  const targetPkgIds = new Set(packages.filter((p) => isTargetPkg(p.kind, p.label)).map((p) => p.id));
 
   // Pondělí aktuálního týdne — hranice mezi "sklad na začátku týdne" a
   // "pohyby tento týden".

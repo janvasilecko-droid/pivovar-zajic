@@ -20,6 +20,7 @@
 // Díky tomu se každý nový zápis do `kegging` projeví okamžitě a přesně o tolik
 // sudů, kolik se zapsalo.
 import { DAYS } from './shared';
+import { jeSud } from './inventoryFix';
 import { weekRange } from '../components/WeeklyOrderSummaryCard';
 
 export type PlanOrderRef = {
@@ -110,7 +111,14 @@ export type KeggingPlanInput = {
    * Které obaly se plánují. Výchozí jsou sudy (kvůli stávajícím voláním),
    * pro lahve se předá `(kind) => kind !== 'keg'`.
    */
-  jeCilovyObal?: (kind: string) => boolean;
+  /**
+   * Který obal do tohohle plánu patří. Dostává `kind` I `label`, protože
+   * `kind` sám o sobě nestačí: obal „KEG 30l" se zavedeným prázdným nebo
+   * jiným druhem propadl filtrem „kind !== 'keg'" mezi LAHVE a stáčení lahví
+   * pak hlásilo „chybí 6× 30l tmavá" (z provozu 18. 9. 2026). Stejné
+   * rozhodování jako lib/inventoryFix.ts → jeSud.
+   */
+  jeCilovyObal?: (kind: string, label?: string | null) => boolean;
   zavozDeductionRows?: any[];
   fasovaniRows?: any[];
   prodejnaRows?: any[];
@@ -226,8 +234,8 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
   const weekEndStr = dayDates[6];
   const inWeek = (s: string | null | undefined) => !!s && s >= weekStartStr && s <= weekEndStr;
 
-  const jeCilovy = input.jeCilovyObal ?? ((kind: string) => kind === 'keg');
-  const kegPkgs = new Map(packages.filter((p) => jeCilovy(p.kind)).map((p) => [p.id, p]));
+  const jeCilovy = input.jeCilovyObal ?? ((kind: string, label?: string | null) => jeSud(kind, label));
+  const kegPkgs = new Map(packages.filter((p) => jeCilovy(p.kind, p.label)).map((p) => [p.id, p]));
   const beerName = new Map(beers.map((b) => [b.id, b.name]));
 
   // ── Zásoba k rozdělení. Se skutečnou zásobou (currentStockMap, viz
