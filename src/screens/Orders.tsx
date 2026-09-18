@@ -16,7 +16,6 @@ import { vyhovujeDruhu, NAZEV_DRUHU, type DruhObaluFiltr } from '../lib/druhObal
 import { PlaceCombobox } from '../components/PlaceCombobox'; // Assuming this is needed
 import { DAYS } from '../lib/shared';
 import { vseHotovo } from '../lib/polozkyObjednavky';
-import { zapisStaceniZPolozky, zrusStaceniZPolozky } from '../lib/staceniZPolozky';
 import type { TankKOdectu } from '../lib/tankUZapisu';
 import { VoiceRecorder } from '../components/VoiceRecorder';
 import { orderQuickQtys } from '../components/QuickQtySelect';
@@ -1336,16 +1335,11 @@ export default function Orders({
       }
     }
 
-    // Stočeno u sudu rovnou založí (nebo při odškrtnutí zruší) skutečný
-    // záznam stáčení — viz lib/staceniZPolozky.ts. Lahve appka nepozná,
-    // kolik sudů surového piva se na ně spotřebovalo, takže tam se dál
-    // jen odškrtává, beze změny.
-    if (key === 'is_bottled') {
-      const chybaZapisu = nova
-        ? await zapisStaceniZPolozky(it, packages, await nactiAktivniTanky(), businessDateISO())
-        : await zrusStaceniZPolozky(it.id);
-      if (chybaZapisu) chyba(chybaZapisu);
-    }
+    // ⛔ „Stočeno" JEN odškrtne položku. Do 18. 9. 2026 tím appka rovnou
+    // zakládala záznam ve stáčení KEG — a ve stáčení se pak objevila várka,
+    // o které stáčeč nevěděl (ptal se na to 12. i 18. 9.). Zrušeno na pokyn
+    // majitele: „appka nesmí přidávat stáčení, objednávky, nebo odepisovat
+    // bez jasného povelu." Stáčení se zapisuje v KEG → Začátek stáčení.
   }
 
   async function del(id: string) {
