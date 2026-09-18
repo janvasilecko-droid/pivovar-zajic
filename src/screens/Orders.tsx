@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useCallback, useRef, lazy, Suspense } from 'react';
 
-import { AlertTriangle, ChevronLeft, ChevronRight, Calendar, CalendarDays, Camera, Check, CheckCircle2, CheckSquare, ClipboardList, Clock, Copy, FilePlus, Globe, Mail, MessageCircle, Package as PackageIcon, PackageCheck, Plus, Receipt, Search, ShieldAlert, Trash2, Truck, User, X, Zap } from 'lucide-react';
+import { AlertTriangle, Calendar, CalendarDays, Camera, Check, CheckCircle2, CheckSquare, ChevronLeft, ChevronRight, ClipboardList, Clock, Copy, FilePlus, Globe, Mail, MessageCircle, Package as PackageIcon, PackageCheck, Plus, Receipt, RotateCcw, Search, ShieldAlert, Trash2, Truck, User, X, Zap } from 'lucide-react';
 import { Beer, EntryRow, Package, Place, beerName, fetchAllRows, formatPackageLabel, supabase, useRealtime } from '../lib/supabase';
 import { EmptyState, Spinner } from '../components/ui';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
@@ -75,6 +75,7 @@ const SplitOrderModal = lazy(() => import('../components/SplitOrderModal').then(
 import { type Order, type OrderItem, dayColor } from '../components/objednavky/spolecne';
 import { VariantTotalsPanel } from '../components/objednavky/VariantTotalsPanel';
 import { OrderCard } from '../components/objednavky/OrderCard';
+import { VraceniPiva } from '../components/objednavky/VraceniPiva';
 import { OrderDetail } from '../components/objednavky/OrderDetail';
 
 // Pořadí obalů v plnoobrazovkovém panelu zadávání (dle požadavku):
@@ -299,7 +300,7 @@ export default function Orders({
   const [splitOrder, setSplitOrder] = useState<Order | null>(null);
   const [aliasMap, setAliasMap] = useState<ParserAliasMap>(emptyAliasMap());
   const [placeAliasMap, setPlaceAliasMap] = useState<Map<string, string>>(new Map());
-  const [viewMode, setViewMode] = useState<'summary' | 'detail' | 'celkem' | 'text'>(initialViewMode); // New state for view mode
+  const [viewMode, setViewMode] = useState<'summary' | 'detail' | 'celkem' | 'text' | 'vraceni'>(initialViewMode); // New state for view mode
   const [itemFilterBeerId, setItemFilterBeerId] = useState<string | null>(null); // New state for item filter
   const [itemFilterPackageId, setItemFilterPackageId] = useState<string | null>(null); // New state for item filter
   useEffect(() => { loadAliasMap().then(setAliasMap).catch(() => {}); }, []);
@@ -1576,82 +1577,6 @@ export default function Orders({
   }
 
   /**
-   * ↻ Zopakovat celý závozový den. Objednávky se týden po týdnu opakují
-   * skoro totožně, ale duplikovat se dala jen JEDNA — u dvaceti objednávek
-   * je to dvacet klepnutí a snadno se na některou zapomene.
-   *
-   * Kopírují se VŠECHNY objednávky, které jsou právě vidět (tedy i s
-   * filtrem, kdyby si někdo chtěl zopakovat jen část) a mají aspoň jednu
-   * položku. Storno se vynechává — zrušená objednávka se opakovat nemá.
-   * Nová objednávka vzniká vždy jako „nová" a nezavezená, ať projde
-   * normální kontrolou; datum závozu se nechává prázdné a den v týdnu
-   * zůstane, takže se objednávka objeví ve stejný den nového týdne.
-   */
-  const [kopirujiDen, setKopirujiDen] = useState(false);
-  async function zopakujDen() {
-    const kZopakovani = searchedFiltered
-      .filter((o) => o.status !== 'storno')
-      .filter((o) => (items[o.id] ?? []).length > 0);
-    if (kZopakovani.length === 0) {
-      oznam('Není co zopakovat — žádná z viditelných objednávek nemá položky.');
-      return;
-    }
-    const kusu = kZopakovani.reduce(
-      (a, o) => a + (items[o.id] ?? []).reduce((b, i) => b + Number(i.quantity || 0), 0), 0,
-    );
-    const ok = await potvrd(
-      `Zopakovat ${kZopakovani.length} objednávek (${kusu} ks) k dnešnímu dni?`
-      + ' Vzniknou nové objednávky ve stavu „nová"; ty původní zůstanou, jak jsou.',
-      { titulek: 'Zopakovat celý závoz', potvrdit: `Zopakovat ${kZopakovani.length}` },
-    );
-    if (!ok) return;
-
-    setKopirujiDen(true);
-    const dnes = businessDateISO();
-    const vznikle: string[] = [];
-    let selhalo = 0;
-    for (const o of kZopakovani) {
-      const { data: nova, error } = await supabase.from('orders').insert({
-        order_date: dnes, place_id: o.place_id, place_name: o.place_name,
-        source: 'duplikat', status: 'nova', delivery_day: o.delivery_day,
-        delivery_date: null, is_prepared: false, is_packaged: false, is_delivered: false,
-        note: o.note,
-      }).select().single();
-      if (error || !nova) { selhalo += 1; continue; }
-      oznacVlastniObjednavku(nova.id);
-      const radky = (items[o.id] ?? []).map((i) => ({
-        order_id: nova.id, beer_id: i.beer_id, beer_name: i.beer_name,
-        package_id: i.package_id, package_label: i.package_label, quantity: i.quantity,
-      }));
-      const { error: chybaRadku } = await supabase.from('order_items').insert(radky);
-      // Objednávka bez položek je horší než žádná — kdyby se položky
-      // nevložily, hlavička se hned uklidí, ať nezůstane prázdná.
-      if (chybaRadku) {
-        await supabase.from('orders').delete().eq('id', nova.id);
-        selhalo += 1;
-        continue;
-      }
-      vznikle.push(nova.id);
-    }
-    setKopirujiDen(false);
-    setWeekKey(isoWeekKey(dnes));
-    load();
-
-    if (selhalo > 0) {
-      chyba(`Zopakováno ${vznikle.length} z ${kZopakovani.length} objednávek, ${selhalo} se nepovedlo.`);
-      return;
-    }
-    // Vrátit zpět: smažou se PRÁVĚ VZNIKLÉ objednávky podle id, ne podle
-    // data — jinak by se smazalo i to, co dnes někdo zapsal ručně.
-    toastZpet(`Zopakováno ${vznikle.length} objednávek.`, async () => {
-      await supabase.from('order_items').delete().in('order_id', vznikle);
-      const { error } = await supabase.from('orders').delete().in('id', vznikle);
-      if (error) throw error;
-      load();
-    });
-  }
-
-  /**
    * 🏠 Karta odběratele. Ukáže se jen tehdy, když je ve výběru JEDEN
    * odběratel — tedy typicky po hledání („Maneo") nebo po klepnutí na
    * odběratele v rychlém hledání. Jinak by to byl panel bez obsahu nad
@@ -1818,7 +1743,7 @@ export default function Orders({
   return (
     <div className="space-y-6 pb-12">
       {/* Top Action Bar — bez nadpisu "Objednávky": to už říká záložka nahoře, duplicitní popisek by byl zbytečný. */}
-      {(zadaniViditelne || (mode === 'overviews_only' && setPage)) && (
+      {viewMode !== 'vraceni' && (zadaniViditelne || (mode === 'overviews_only' && setPage)) && (
       <div className="flex flex-wrap items-center justify-end gap-2 bg-white p-2.5 rounded-2xl border border-neutral-200 shadow-2xs">
         <div className="flex flex-col gap-2 items-stretch sm:items-end w-full sm:w-auto">
           {mode === 'overviews_only' && setPage && (
@@ -2342,6 +2267,22 @@ export default function Orders({
         </div>
       )}
 
+      {/* 🔄 ZÁLOŽKA VRÁCENÍ PIVA — místo bývalého „Zopakovat závoz".
+          Vlastní obrazovka, ne modální okno: zadává se do ní stejně dlouho
+          jako objednávka (vybrat odběratele, projít položky) a v okně by se
+          na telefonu nedalo rolovat seznamem objednávek. */}
+      {viewMode === 'vraceni' && (
+        <VraceniPiva
+          orders={orders}
+          items={items}
+          beers={beers}
+          packages={packages}
+          places={places}
+          onZpet={() => setViewMode(mode === 'entry_only' ? 'summary' : 'detail')}
+          onChanged={() => load(true)}
+        />
+      )}
+
       {/* 2. PŘEHLEDY & SOUHRNY (Když není entry_only) */}
       {/* V záložce „Nové“ se zobrazuje pouze formulář zadávání objednávek (výše).
           Seznam a detaily objednávek jsou vidět jen v záložce „Objednávky“. */}
@@ -2380,19 +2321,18 @@ export default function Orders({
               <span className="inline-flex items-center gap-1.5"><PackageIcon size={14} /> Všechny</span>
             </button>
 
-            {/* ↻ Zopakovat celý závoz — objednávky se týden po týdnu
-                opakují skoro totožně a duplikovat se dala jen jedna.
-                Ptá se předem, protože to zakládá dvacet nových
-                objednávek naráz; vrátit zpět jde stejně. */}
+            {/* 🔄 Vrácení piva — na místě, kde bývalo „Zopakovat závoz".
+                Zopakování zakládalo dvacet objednávek naráz a v provozu se
+                nepoužívalo; vrácení naopak chodí každý týden a dalo se
+                zadat jen přes detail konkrétní objednávky. */}
             <button
               type="button"
-              onClick={() => { void zopakujDen(); }}
-              disabled={kopirujiDen || searchedFiltered.length === 0}
-              className="px-3 py-1.5 rounded font-black text-xs transition bg-white text-neutral-800 border border-neutral-300 hover:bg-neutral-100 disabled:opacity-40 tap"
-              title="Založí kopie všech právě zobrazených objednávek k dnešnímu dni"
+              onClick={() => setViewMode('vraceni')}
+              className="px-3 py-1.5 rounded font-black text-xs transition bg-white text-neutral-800 border border-neutral-300 hover:bg-neutral-100 tap"
+              title="Zapsat pivo, které se od odběratele vrátilo zpátky na sklad"
             >
               <span className="inline-flex items-center gap-1.5">
-                <Copy size={14} /> {kopirujiDen ? 'Kopíruji…' : 'Zopakovat závoz'}
+                <RotateCcw size={14} /> Vrácení piva
               </span>
             </button>
           </div>
@@ -2624,7 +2564,7 @@ export default function Orders({
       {/* 🏠 Karta odběratele — ukáže se jen tehdy, když je ve výběru jeden
           odběratel. Odpovídá na to, na co se u telefonu ptá nejčastěji:
           kdy bral naposledy, jak často bere a co bere. */}
-      {karta && mode !== 'entry_only' && (
+      {karta && mode !== 'entry_only' && viewMode !== 'vraceni' && (
         <div className="card p-3 mb-2.5 shadow-sm">
           <div className="flex flex-wrap items-center gap-2 mb-2">
             <span className="chip bg-amber-100 text-amber-900"><User className="ikona-text" /> {karta.jmeno}</span>
@@ -2685,7 +2625,7 @@ export default function Orders({
       {/* Při načítání se dřív nezobrazovalo nic — na pomalém připojení bylo pod
           filtry prázdno a objednávky se pak „samy objevily". Nešlo poznat,
           jestli se načítá, nebo je opravdu prázdno. */}
-      {viewMode !== 'celkem' && viewMode !== 'text' && (loading ? <Spinner /> : searchedFiltered.length === 0 ? <EmptyState text="Žádné objednávky pro zvolené filtry." icon={Receipt} akce={{ popis: 'Zrušit filtry a hledání', onClick: () => { setSearchText(''); setStatusFilter(''); setDeliveryDayFilter('all'); setItemFilterBeerId(null); setItemFilterPackageId(null); setPackageKindFilter('all'); setZavozOnly(false); setOverdueOnly(false); } }} /> : (viewMode === 'detail' && groupedByDay) ? (
+      {viewMode !== 'celkem' && viewMode !== 'text' && viewMode !== 'vraceni' && (loading ? <Spinner /> : searchedFiltered.length === 0 ? <EmptyState text="Žádné objednávky pro zvolené filtry." icon={Receipt} akce={{ popis: 'Zrušit filtry a hledání', onClick: () => { setSearchText(''); setStatusFilter(''); setDeliveryDayFilter('all'); setItemFilterBeerId(null); setItemFilterPackageId(null); setPackageKindFilter('all'); setZavozOnly(false); setOverdueOnly(false); } }} /> : (viewMode === 'detail' && groupedByDay) ? (
         <div className="space-y-6">
           {groupedByDay.map((grp) => (
             <div key={grp.key}>
