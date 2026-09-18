@@ -25,7 +25,8 @@
     "lint:fix": "eslint . --fix",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
-    "test:watch": "vitest --watch"
+    "test:watch": "vitest --watch",
+    "zkontroluj-nasazeni": "node scripts/zkontroluj-nasazeni.mjs"
   },
   "dependencies": {
     "@capacitor/app": "^8.1.1",

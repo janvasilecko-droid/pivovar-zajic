@@ -1,0 +1,15 @@
+{
+  "_poznamka": "Které verzi edge funkce odpovídá to, co běží na Supabase. Píše to scripts/deploy-function.mjs po každém povedeném nasazení; čte to scripts/zkontroluj-nasazeni.mjs, které připomene nenasazené funkce. Založeno 18. 9. 2026 s PŘEDPOKLADEM, že všechno kromě whatsapp-auto-parse je nasazené — u té je doloženo, že nasazená není (oprava odběratele z citované zprávy z 17. 9. se v provozu neprojevila a nasazení v CI je bez klíče SUPABASE_ACCESS_TOKEN vypnuté). Když se ukáže, že je stará i některá jiná, stačí ji odsud smazat a připomínka se po ní ozve.",
+  "analyze-reviews": "b3d28a311216e4f88e7ffbd2bed8e2ca901fce1d",
+  "auth-auto-login": "6f3798420eafd7d88b7e57334065cfeb46d610b1",
+  "count-bottles": "5e076a67c412e9d9cef83d120ab5d5bf32f80696",
+  "fix-order-dates": "6f3798420eafd7d88b7e57334065cfeb46d610b1",
+  "manage-users": "6f3798420eafd7d88b7e57334065cfeb46d610b1",
+  "parse-order-image": "8df638a340ae662c17090ba6e2e7f7969ec47c30",
+  "parse-order-text": "7c370f7aafaff711b642f2ef2602e23ee49eae77",
+  "posli-push": "6f3798420eafd7d88b7e57334065cfeb46d610b1",
+  "pust-migraci": "1903964fc7d331b0d04edb3958fd6f4bb2c37aa0",
+  "transcribe-audio": "5e076a67c412e9d9cef83d120ab5d5bf32f80696",
+  "whatsapp-send-order": "5e076a67c412e9d9cef83d120ab5d5bf32f80696",
+  "whatsapp-webhook": "5e076a67c412e9d9cef83d120ab5d5bf32f80696"
+}
