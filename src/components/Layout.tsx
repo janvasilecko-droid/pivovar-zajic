@@ -596,6 +596,17 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
     return () => { mounted = false; };
   }, []);
 
+  // Ruční synchronizace — sdílená hlavičkou i detailním oknem (SyncDetailModal),
+  // ať se logika nepíše na dvou místech dvakrát jinak.
+  async function syncNyni() {
+    if (queueLength() === 0) { setSyncMsg('Fronta je prázdná — nic k synchronizaci'); setTimeout(() => setSyncMsg(null), 3000); return; }
+    setSyncing(true);
+    const r = await syncQueue();
+    setSyncing(false);
+    setSyncMsg(r.remaining === 0 ? `Synchronizováno ${r.ok} změn` : `OK ${r.ok}, selhalo ${r.failed}`);
+    setTimeout(() => setSyncMsg(null), 4000);
+  }
+
   // Banner "offline → zastaralá data": supabase.ts dispatches 'pivovar:offline-stale'
   // vždy, když GET odpověď byla vyrobena z mezipaměti/prázdná kvůli offline stavu.
   // Ukážeme banner na ~6 s (nebo dokud uživatel nezavře X).
@@ -822,7 +833,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
               ukazuje, že něco ještě neodešlo do cloudu. Bez něj by se
               neodeslaná data ztratila potichu. */}
           <div className="flex items-center gap-2 shrink-0 ml-auto">
-            <OfflineStatus online={online} pending={pending} syncing={syncing} syncMsg={syncMsg} showInfo={showSyncInfo} setShowInfo={setShowSyncInfo} onSync={async () => { if (queueLength() === 0) { setSyncMsg('Fronta je prázdná — nic k synchronizaci'); setTimeout(() => setSyncMsg(null), 3000); return; } setSyncing(true); const r = await syncQueue(); setSyncing(false); setSyncMsg(r.remaining === 0 ? `Synchronizováno ${r.ok} změn` : `OK ${r.ok}, selhalo ${r.failed}`); setTimeout(() => setSyncMsg(null), 4000); }} />
+            <OfflineStatus online={online} pending={pending} syncing={syncing} syncMsg={syncMsg} setShowInfo={setShowSyncInfo} onSync={syncNyni} />
           </div>
         </header>
         )}
@@ -832,6 +843,16 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
           onClose={() => setShowSearchModal(false)}
           onSelectPage={setPage}
         />
+
+        {/* 🔧 Mimo hlavičku schválně — na Domů a na "tabbed" obrazovkách se
+            hlavička (a s ní dřív i tohle okno) vůbec nevykresluje (viz
+            hideHeader), takže klepnutí na spodní lištu "N zápisů čeká"
+            volalo setShowSyncInfo(true), ale nic se nestalo: okno prostě
+            nebylo v DOMu. Z provozu 18. 9. 2026: "zase je tam odeslat, píše
+            to, že se nepodařilo odeslat" — lišta se pokoušela znovu a znovu
+            odeslat totéž, ale detail s důvodem a tlačítkem Zahodit nešel
+            nikdy otevřít, právě proto, že šlo o tabbed obrazovku. */}
+        <SyncDetailModal open={showSyncInfo} onClose={() => setShowSyncInfo(false)} online={online} pending={pending} syncing={syncing} onSync={syncNyni} />
 
         <BreweryRadioBar onOpenModal={() => setShowRadioModal(true)} />
         <BreweryRadioModal open={showRadioModal} onClose={() => setShowRadioModal(false)} />
@@ -998,7 +1019,15 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
   );
 }
 
-function OfflineStatus({ online, pending, syncing, syncMsg, onSync, showInfo, setShowInfo }: { online: boolean; pending: number; syncing: boolean; syncMsg: string | null; onSync: () => void; showInfo: boolean; setShowInfo: (v: boolean) => void }) {
+/**
+ * Detail synchronizace — proč zápis uvízl a tlačítko Zahodit.
+ *
+ * Vykresluje se MIMO hlavičku (viz volání v Layout), protože hlavička se na
+ * Domů a na "tabbed" obrazovkách vůbec nemountuje (`hideHeader`). Dřív tenhle
+ * Modal žil uvnitř OfflineStatus, která tam žije taky — takže klepnutí na
+ * spodní lištu na většině obrazovek otevřelo okno, které fyzicky neexistovalo.
+ */
+function SyncDetailModal({ open, onClose, online, pending, syncing, onSync }: { open: boolean; onClose: () => void; online: boolean; pending: number; syncing: boolean; onSync: () => void }) {
   const [queueItems, setQueueItems] = useState<{ id: string; popis: string; ts: number }[]>([]);
   const [failures, setFailures] = useState<{ id: string; table: string; op: string; error: string }[]>([]);
 
@@ -1008,8 +1037,8 @@ function OfflineStatus({ online, pending, syncing, syncMsg, onSync, showInfo, se
   }
 
   useEffect(() => {
-    if (showInfo) refreshQueueDetail();
-  }, [showInfo, pending, syncing]);
+    if (open) refreshQueueDetail();
+  }, [open, pending, syncing]);
 
   async function discardOp(id: string) {
     removeOp(id);
@@ -1017,79 +1046,84 @@ function OfflineStatus({ online, pending, syncing, syncMsg, onSync, showInfo, se
     refreshQueueDetail();
   }
 
+  if (!open) return null;
+
   return (
-    <div className="flex items-center gap-2">
-      {showInfo && (
-        <Modal open={true} onClose={() => setShowInfo(false)} title="Offline Režim & Synchronizace">
-          <div className="space-y-4 text-xs text-neutral-800 font-medium">
-            <div className={`p-4 rounded border-2 flex items-center gap-3 ${online ? 'bg-emerald-50 border-emerald-300 text-emerald-950' : 'bg-amber-50 border-amber-300 text-amber-950'}`}>
-              <div className="text-2xl">{online ? <Wifi className="ikona-text" /> : <AlertTriangle className="ikona-text" />}</div>
-              <div>
-                <div className="font-black text-sm">{online ? 'Jste ONLINE (Připojeno k internetu)' : 'Jste OFFLINE (Bez připojení k síti)'}</div>
-                <p className="text-udaj mt-0.5 font-bold">
-                  {online
-                    ? 'Veškeré zápisy se okamžitě ukládají do databáze.'
-                    : 'Aplikace v pivovaru plně funguje bez signálu! Zápisy ze sklepa se bezpečně ukládají do telefonu a po připojení se samy synchronizují.'}
-                </p>
-              </div>
-            </div>
+    <Modal open={true} onClose={onClose} title="Offline Režim & Synchronizace">
+      <div className="space-y-4 text-xs text-neutral-800 font-medium">
+        <div className={`p-4 rounded border-2 flex items-center gap-3 ${online ? 'bg-emerald-50 border-emerald-300 text-emerald-950' : 'bg-amber-50 border-amber-300 text-amber-950'}`}>
+          <div className="text-2xl">{online ? <Wifi className="ikona-text" /> : <AlertTriangle className="ikona-text" />}</div>
+          <div>
+            <div className="font-black text-sm">{online ? 'Jste ONLINE (Připojeno k internetu)' : 'Jste OFFLINE (Bez připojení k síti)'}</div>
+            <p className="text-udaj mt-0.5 font-bold">
+              {online
+                ? 'Veškeré zápisy se okamžitě ukládají do databáze.'
+                : 'Aplikace v pivovaru plně funguje bez signálu! Zápisy ze sklepa se bezpečně ukládají do telefonu a po připojení se samy synchronizují.'}
+            </p>
+          </div>
+        </div>
 
-            <div className="p-4 rounded bg-neutral-900 text-white space-y-2 font-mono text-xs">
-              <div className="flex justify-between border-b border-neutral-700 pb-2">
-                <span className="text-neutral-400">Čekající offline zápisy ve frontě:</span>
-                <span className="font-black text-amber-400">{pending} operací</span>
-              </div>
-              <p className="text-udaj text-neutral-300 pt-1 font-sans">
-                Po obnovení internetového připojení v pivovaru stiskněte tlačítko pro ruční odeslání všech zápisů ze sklepa.
-              </p>
-            </div>
+        <div className="p-4 rounded bg-neutral-900 text-white space-y-2 font-mono text-xs">
+          <div className="flex justify-between border-b border-neutral-700 pb-2">
+            <span className="text-neutral-400">Čekající offline zápisy ve frontě:</span>
+            <span className="font-black text-amber-400">{pending} operací</span>
+          </div>
+          <p className="text-udaj text-neutral-300 pt-1 font-sans">
+            Po obnovení internetového připojení v pivovaru stiskněte tlačítko pro ruční odeslání všech zápisů ze sklepa.
+          </p>
+        </div>
 
-            {queueItems.length > 0 && (
-              <div className="space-y-1.5 max-h-40 overflow-y-auto">
-                {queueItems.map((item) => {
-                  const failure = failures.find((f) => f.id === item.id);
-                  return (
-                    <div key={item.id} className={`flex items-center justify-between gap-2 px-3 py-2 rounded border text-udaj font-bold ${failure ? 'bg-rose-50 border-rose-300 text-rose-950' : 'bg-neutral-100 border-neutral-200 text-neutral-700'}`}>
-                      <div className="min-w-0">
-                        <div className="truncate" title={item.popis}>{item.popis}</div>
-                        <div className="text-udaj font-semibold text-neutral-500">{new Date(item.ts).toLocaleString('cs-CZ')}</div>
-                        {failure && <div className="text-udaj font-semibold text-rose-700 truncate" title={failure.error}><XCircle className="ikona-text" /> {failure.error}</div>}
-                      </div>
-                      <button
-                        onClick={async () => {
-                          if (await potvrd(`Zahodit tento zápis?
+        {queueItems.length > 0 && (
+          <div className="space-y-1.5 max-h-40 overflow-y-auto">
+            {queueItems.map((item) => {
+              const failure = failures.find((f) => f.id === item.id);
+              return (
+                <div key={item.id} className={`flex items-center justify-between gap-2 px-3 py-2 rounded border text-udaj font-bold ${failure ? 'bg-rose-50 border-rose-300 text-rose-950' : 'bg-neutral-100 border-neutral-200 text-neutral-700'}`}>
+                  <div className="min-w-0">
+                    <div className="truncate" title={item.popis}>{item.popis}</div>
+                    <div className="text-udaj font-semibold text-neutral-500">{new Date(item.ts).toLocaleString('cs-CZ')}</div>
+                    {failure && <div className="text-udaj font-semibold text-rose-700 truncate" title={failure.error}><XCircle className="ikona-text" /> {failure.error}</div>}
+                  </div>
+                  <button
+                    onClick={async () => {
+                      if (await potvrd(`Zahodit tento zápis?
 
 ${item.popis}
 
 Do databáze se už neuloží.`)) discardOp(item.id);
-                        }}
-                        title="Zahodit tento zápis natrvalo — do databáze se neuloží"
-                        className={`shrink-0 min-h-[44px] px-3 rounded font-black ${failure ? 'bg-rose-600 hover:bg-rose-700 text-white' : 'bg-white border border-neutral-300 text-neutral-600 hover:bg-neutral-50'}`}
-                      >
-                        Zahodit
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            <div className="flex items-center justify-between pt-2">
-              <button
-                onClick={onSync}
-                disabled={syncing || pending === 0}
-                className="px-4 py-2.5 rounded bg-sky-700 hover:bg-sky-800 disabled:opacity-50 text-white font-black text-xs shadow-md transition flex items-center gap-2"
-              >
-                <span>{syncing ? 'Odesílám zápisy…' : `Ručně synchronizovat (${pending})`}</span>
-              </button>
-              <button onClick={() => setShowInfo(false)} className="btn-amber !rounded text-xs font-black">
-                Zavřít
-              </button>
-            </div>
+                    }}
+                    title="Zahodit tento zápis natrvalo — do databáze se neuloží"
+                    className={`shrink-0 min-h-[44px] px-3 rounded font-black ${failure ? 'bg-rose-600 hover:bg-rose-700 text-white' : 'bg-white border border-neutral-300 text-neutral-600 hover:bg-neutral-50'}`}
+                  >
+                    Zahodit
+                  </button>
+                </div>
+              );
+            })}
           </div>
-        </Modal>
-      )}
+        )}
 
+        <div className="flex items-center justify-between pt-2">
+          <button
+            onClick={onSync}
+            disabled={syncing || pending === 0}
+            className="px-4 py-2.5 rounded bg-sky-700 hover:bg-sky-800 disabled:opacity-50 text-white font-black text-xs shadow-md transition flex items-center gap-2"
+          >
+            <span>{syncing ? 'Odesílám zápisy…' : `Ručně synchronizovat (${pending})`}</span>
+          </button>
+          <button onClick={onClose} className="btn-amber !rounded text-xs font-black">
+            Zavřít
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+/** Kompaktní tečka + fronta v hlavičce — detail viz SyncDetailModal (vykreslené mimo hlavičku). */
+function OfflineStatus({ online, pending, syncing, syncMsg, onSync, setShowInfo }: { online: boolean; pending: number; syncing: boolean; syncMsg: string | null; onSync: () => void; setShowInfo: (v: boolean) => void }) {
+  return (
+    <div className="flex items-center gap-2">
       {syncMsg && (
         <span className="text-udaj font-extrabold text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded border border-emerald-300 animate-fade-in">
           {syncMsg}
