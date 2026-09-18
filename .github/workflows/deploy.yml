@@ -221,7 +221,11 @@ jobs:
 
       # Nasazují se jen funkce, které se v tomhle pushi změnily. Změna
       # v _shared/ se týká všech, takže pak jdou všechny.
+      # `always()`: hlášení o migracích nesmí zabránit nasazení funkcí. 18. 9.
+      # 2026 krok s migracemi spadl na HTTP 403 a s ním celý job — edge funkce
+      # se pak nenasadily, přestože klíč už v repozitáři byl.
       - name: Změněné edge funkce
+        if: always()
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           PRED: ${{ github.event.before }}
