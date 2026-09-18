@@ -71,7 +71,24 @@ async function main() {
   }
 
   const soubory = readdirSync(SLOZKA).filter((f) => f.endsWith('.sql') && f >= ZACATEK_EVIDENCE).sort();
-  const aplikovane = new Set((await dotaz('SELECT nazev FROM public.migrace_aplikovane;')).map((r) => r.nazev));
+
+  // Zjistit, co už běžalo, je JEN HLÁŠENÍ — když se to nepovede, není to
+  // důvod položit nasazení. 18. 9. 2026 tenhle dotaz vrátil HTTP 403 (token
+  // nemá práva na Management API), skript spadl na výjimce a s ním celý job —
+  // takže se NENASADILY ani edge funkce, kvůli kterým se klíč zaváděl.
+  // Hlášení o migracích nesmí blokovat nasazení funkcí.
+  let aplikovane;
+  try {
+    aplikovane = new Set((await dotaz('SELECT nazev FROM public.migrace_aplikovane;')).map((r) => r.nazev));
+  } catch (e) {
+    const zprava = e instanceof Error ? e.message : String(e);
+    const prava = /\b403\b|privileges/i.test(zprava);
+    shrnuti(['### Migrace', `Stav migrací se nepodařilo zjistit: ${zprava}`, '',
+      prava
+        ? 'Token nemá práva na Management API. Migrace se dá pustit tlačítkem v Diagnostice; nasazení tím nekončí.'
+        : 'Migrace se dá pustit tlačítkem v Diagnostice; nasazení tím nekončí.']);
+    return;
+  }
   const cekajici = soubory.filter((f) => !aplikovane.has(f));
 
   if (cekajici.length === 0) {
