@@ -23,7 +23,7 @@ import {
   type ReadbackMatch,
   type ReadbackStatus,
 } from '../lib/whatsappReadback';
-import { AlertCircle, AlertTriangle, Check, CheckCircle2, ChevronDown, Download, ExternalLink, Eye, FileText, Image as ImageIcon, MessageSquare, CornerDownRight, RefreshCw, RotateCcw, ShieldAlert, ShieldCheck, ShoppingCart, UserCheck, X, ArrowDown, FilePlus, Plus } from 'lucide-react';
+import { AlertCircle, AlertTriangle, Check, CheckCircle2, ChevronDown, Download, ExternalLink, Eye, FileText, Image as ImageIcon, MessageSquare, CornerDownRight, HelpCircle, RefreshCw, RotateCcw, ShieldAlert, ShieldCheck, ShoppingCart, UserCheck, X, ArrowDown, FilePlus, Plus } from 'lucide-react';
 import { chyba, potvrd, uspech } from '../lib/toast';
 import { zalogujANahlas } from '../lib/chybyHlaseni';
 import { useChovaniDialogu } from '../lib/zavriNaZpet';
@@ -198,6 +198,22 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   //
   // Nic se nezapisuje: jen se PŘEDVYPLNÍ pole, které člověk před schválením
   // vidí a může přepsat. Co už napsal ručně, se nepřebíjí.
+  /**
+   * ❓ Co si AI při čtení téhle zprávy nebyla jistá.
+   *
+   * Do teď byl model nucený pokaždé hádat — „2x10" je deset piv, nebo dva
+   * sudy 10 l? má odpověď objednávku upravit, nebo je to nová? — a obsluha
+   * se o té nejistotě nedozvěděla. Teď se zeptá (viz KDYŽ NEVÍŠ
+   * v supabase/functions/_shared/order-rules.ts).
+   *
+   * Bere se ze zprávy (uloženo při automatickém čtení), a když se použije
+   * „Přečíst znovu (AI)", přepisuje se čerstvým výsledkem.
+   */
+  const [otazkyAi, setOtazkyAi] = useState<string[]>([]);
+  useEffect(() => {
+    setOtazkyAi(Array.isArray(msg?.parsed_otazky) ? msg.parsed_otazky : []);
+  }, [msg?.id, msg?.parsed_otazky]);
+
   const [odberatelZOdpovedi, setOdberatelZOdpovedi] = useState<string | null>(null);
   useEffect(() => {
     setOdberatelZOdpovedi(null);
@@ -933,6 +949,8 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
           setOrigPlaceName(parsed.placeName || null);
         }
       }
+      // Otázky z čerstvého čtení mají přednost před těmi uloženými u zprávy.
+      setOtazkyAi(parsed.otazky ?? []);
 
       setStatusMessage(
         unmatched > 0
@@ -991,6 +1009,34 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
 
   const body = (
       <div className="space-y-6">
+        {/* ❓ NA CO SE AI PTÁ. Úplně nahoře: je to jediná věc v okně, kterou
+            appka sama nevyřeší, a bez odpovědi se schálením zapisuje odhad.
+            Do 18. 9. 2026 se model neměl jak zeptat — buď uřekl položku, nebo
+            ji zahodil, a obsluha se o té nejistotě nedozvěděla. */}
+        {otazkyAi.length > 0 && (
+          <div className="border-2 border-violet-400 rounded bg-violet-50 p-4">
+            <div className="flex items-start gap-2">
+              <HelpCircle size={18} className="text-violet-700 shrink-0 mt-0.5" />
+              <div className="min-w-0 flex-1">
+                <div className="font-display font-black text-violet-950 text-sm">
+                  {otazkyAi.length === 1 ? 'AI si není jistá jednou věcí' : `AI si není jistá (${otazkyAi.length})`}
+                </div>
+                <p className="text-xs font-bold text-violet-900 mt-1">
+                  Než objednávku schválíš, projdi tohle — položky níž jsou u těchhle míst jen odhad.
+                  Oprav je rovnou ve formuláři.
+                </p>
+                <ul className="mt-2.5 space-y-1.5">
+                  {otazkyAi.map((o, i) => (
+                    <li key={i} className="text-sm font-bold text-violet-950 bg-white/70 border border-violet-200 rounded px-2.5 py-1.5">
+                      {o}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ↩️ VRÁCENÍ — nahoře, ať se nedá přehlédnout: pod tím je normální
             formulář objednávky a schválit ho by znamenalo odepsat ze skladu
             pivo, které se právě vrátilo. */}

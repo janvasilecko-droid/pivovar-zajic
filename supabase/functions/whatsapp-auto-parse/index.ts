@@ -824,6 +824,9 @@ Deno.serve(async (req: Request) => {
             parsed_note: note,
             parsed_raw_text: parseResult.raw_text || null,
             parsed_items: itemsForStorage,
+            // ❓ Otázky AI k téhle zprávě — uklidí se do kontroly objednávky,
+            // ať obsluha ví, co si model nebyl jistý, místo aby to uhádl.
+            parsed_otazky: Array.isArray(parsedData?.otazky) ? parsedData.otazky : [],
             // U fotoobjednávek nemá kontrola čtení (diff popisku zprávy vs.
             // přepisu fotky) smysl — popisek typu "Maneo" nikdy neobsahuje
             // text položek, takže by vždy hlásil nesoulady. Tam kontrolu

@@ -102,6 +102,8 @@ export type ParsedWhatsAppResult = {
   items: ParsedLine[];
   /** Doslovný přepis textu od AI (raw_text) — pro kontrolu čtení. */
   raw_text?: string | null;
+  /** ❓ Co si AI nebyla jistá — vidí to obsluha v kontrole objednávky. */
+  otazky?: string[];
 };
 
 // Rozdělí vložený text (může obsahovat VÍCE WhatsApp zpráv od různých
@@ -680,5 +682,14 @@ export async function parseWhatsAppOrderMessageWithAI(
     note = note && note.includes(dnote) ? note : (note ? `${note}, ${dnote}` : dnote);
   }
 
-  return { placeId, placeName, deliveryDay: day, deliveryDate: dateStr, note, items, raw_text: rawTextFromAi };
+  // ❓ Otázky od AI — když si nebyla jistá, řekne to místo hádání.
+  // Filtruje se tvrdě: jen neprázdné věty, nejvýš tři (dlouhý seznam by
+  // obsluha přeskočila stejně jako žádný).
+  const otazky: string[] = Array.isArray(data?.otazky)
+    ? data.otazky.filter((o: unknown): o is string => typeof o === 'string' && o.trim().length > 0)
+        .map((o: string) => o.trim())
+        .slice(0, 3)
+    : [];
+
+  return { placeId, placeName, deliveryDay: day, deliveryDate: dateStr, note, items, raw_text: rawTextFromAi, otazky };
 }
