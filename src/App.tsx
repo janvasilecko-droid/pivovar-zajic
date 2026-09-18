@@ -9,6 +9,7 @@ import { requestOpenHomeNotes } from './lib/homeNotes';
 // znovu a v krajním případě stránku jednou obnoví (viz lib/lazyStranka.ts).
 import { lazyStranka, uklidPojistkuReloadu } from './lib/lazyStranka';
 const AppSettingsScreen = lazyStranka(() => import('./screens/AppSettingsScreen'));
+const HlaseniScreen = lazyStranka(() => import('./screens/HlaseniScreen'));
 const AppVersionsScreen = lazyStranka(() => import('./screens/AppVersionsScreen'));
 
 import Layout, { Page, NAV, EXTRA_NAV } from './components/Layout';
@@ -345,6 +346,7 @@ export default function App() {
           setPage={setPage}
         />
       )}
+      {page === 'hlaseni' && <HlaseniScreen setPage={setPage} />}
       {page === 'app_settings' && <AppSettingsScreen />}
       {page === 'app_versions' && <AppVersionsScreen />}
       </Suspense>
