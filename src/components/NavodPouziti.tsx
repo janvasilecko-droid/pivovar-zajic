@@ -310,6 +310,10 @@ const ODDILY: Oddil[] = [
       { co: 'Upozornění a připomínky', jak: 'Vlastní připomínky k datu. Na ploše svítí, co je po termínu.' },
       { co: 'Poznámky', jak: 'Lísteček na ploše — pro vzkazy mezi směnami.' },
       { co: 'Zpětná vazba', jak: 'Co by se mělo vylepšit nebo opravit. Vidí to všichni kolegové.' },
+      {
+        co: 'Hlášení',
+        jak: 'Vyhlásí zprávu, která všem naskočí přes celou obrazovku a musí ji odklepnout — odstávka varny, změna závozu. Napiš nadpis, text a druh (technické / důležité / informace) a vyhlas. Platí jedno hlášení najednou; zrušíš ho tamtéž.',
+      },
     ],
   },
   {

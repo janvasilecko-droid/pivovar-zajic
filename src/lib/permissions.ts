@@ -256,6 +256,11 @@ export const PAGE_TO_MODULE: Record<string, ModuleKey> = {
   reminders: 'reminders',
   notes: 'reminders',
   feedback: 'catalogs',
+  // Hlášení mělo dosud podobu tlačítka na obrazovce Sklad, takže ho mohl
+  // vyhlásit každý, kdo Sklad viděl. Samostatná dlaždice na tom schválně nic
+  // nemění — zúžit právo na vyhlášení zprávy všem je rozhodnutí majitele,
+  // ne vedlejší účinek přesunu tlačítka.
+  hlaseni: 'dashboard',
 };
 
 export function getUserPermissions(userId: string, rawPermissionsJson?: any): UserPermissions {
