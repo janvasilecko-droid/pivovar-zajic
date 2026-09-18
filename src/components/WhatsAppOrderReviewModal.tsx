@@ -23,12 +23,13 @@ import {
   type ReadbackMatch,
   type ReadbackStatus,
 } from '../lib/whatsappReadback';
-import { AlertCircle, AlertTriangle, Check, CheckCircle2, ChevronDown, Download, ExternalLink, Eye, FileText, Image as ImageIcon, MessageSquare, RefreshCw, RotateCcw, ShieldAlert, ShieldCheck, ShoppingCart, UserCheck, X, ArrowDown, FilePlus, Plus } from 'lucide-react';
+import { AlertCircle, AlertTriangle, Check, CheckCircle2, ChevronDown, Download, ExternalLink, Eye, FileText, Image as ImageIcon, MessageSquare, CornerDownRight, RefreshCw, RotateCcw, ShieldAlert, ShieldCheck, ShoppingCart, UserCheck, X, ArrowDown, FilePlus, Plus } from 'lucide-react';
 import { chyba, potvrd, uspech } from '../lib/toast';
 import { zalogujANahlas } from '../lib/chybyHlaseni';
 import { useChovaniDialogu } from '../lib/zavriNaZpet';
 import { businessDateISO } from '../lib/businessDate';
 import { rozdelVraceni, vypadaJakoVraceni } from '../lib/vraceniZeZpravy';
+import { odberatelZCitace, stojiZaHledani } from '../lib/odberatelZCitace';
 import { zaznamyDorovnaniVraceni, type PolozkaVraceni } from '../lib/vraceniZObjednavky';
 import { STAVY_OBJEDNAVKY, popisStavu } from '../lib/stavyObjednavek';
 import { uloz } from '../lib/uloziste';
@@ -180,6 +181,45 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
     setPlaceId(pid);
     setPlaceName(pname || props.places.find((p) => p.id === pid)?.name || '');
     setOrigPlaceName(pname || null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.isOpen, msg?.id]);
+
+  // ↩️ Odpověď bez odběratele zdědí odběratele z CITOVANÉ zprávy.
+  //
+  // Z provozu 17. i 18. 9. 2026: na Radkovu objednávku přišla odpověď
+  // „60x0,5l. Grep a 40x0,5l. Citrón". Je to VLASTNÍ objednávka, jen na
+  // Radkovu navazuje — odběratel v ní není napsaný a pole zůstávalo prázdné,
+  // ačkoli appka z citace přesně ví, komu se odpovídá.
+  //
+  // Totéž umí edge funkce whatsapp-auto-parse od 17. 9., jenže ta se do
+  // Supabase nenasadila (klíč SUPABASE_ACCESS_TOKEN není v GitHubu) — viz
+  // lib/odberatelZCitace.ts. Aplikace se nasazuje sama, takže tahle cesta
+  // k uživateli doopravdy dojede.
+  //
+  // Nic se nezapisuje: jen se PŘEDVYPLNÍ pole, které člověk před schválením
+  // vidí a může přepsat. Co už napsal ručně, se nepřebíjí.
+  const [odberatelZOdpovedi, setOdberatelZOdpovedi] = useState<string | null>(null);
+  useEffect(() => {
+    setOdberatelZOdpovedi(null);
+    if (!props.isOpen || !msg || !stojiZaHledani(msg)) return;
+    let zruseno = false;
+    (async () => {
+      const { data } = await supabase
+        .from('whatsapp_incoming')
+        .select('id, created_at, message_text, quoted_text, imported_order_id, parsed_place_id, parsed_place_name')
+        .lt('created_at', msg.created_at)
+        .order('created_at', { ascending: false })
+        // Celý chat se netáhne — citace se týká něčeho z posledních dní.
+        .limit(200);
+      if (zruseno) return;
+      const nalez = odberatelZCitace(msg, (data ?? []) as any[]);
+      // Mezitím mohl člověk odběratele napsat sám — to má přednost.
+      if (!nalez || placeTouchedRef.current) return;
+      setPlaceId(nalez.placeId ?? '');
+      setPlaceName(nalez.placeName ?? '');
+      setOdberatelZOdpovedi(nalez.zCitace);
+    })();
+    return () => { zruseno = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.isOpen, msg?.id]);
 
@@ -1542,6 +1582,17 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                   )}
                 </div>
                 <PlaceCombobox value={placeId || placeName} onChange={updatePlace} places={props.places} />
+                {/* Doplnilí jsme ho z citace, ať to není potichu — appka nemá
+                    dělat nic, co se člověk nedozví. Přepisatelné jako cokoli
+                    jiného v tomhle formuláři. */}
+                {odberatelZOdpovedi && (
+                  <div className="text-udaj font-bold text-sky-800 bg-sky-50 border border-sky-200 rounded px-2 py-1 mt-1.5 inline-flex items-start gap-1">
+                    <CornerDownRight size={12} className="shrink-0 mt-0.5" />
+                    <span>
+                      Doplněno z odpovědi na zprávu „{odberatelZOdpovedi}…" — ve zprávě samotné odběratel napsaný není. Zkontroluj a případně přepiš.
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* ✂️ Rozdělit na dva odběratele — z provozu 15. 9. 2026: WhatsApp
