@@ -24,7 +24,7 @@
  */
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { KOREN, nactiZaznam, rozhodujiciCommit } from './nasazeni-zaznam.mjs';
+import { KOREN, nactiZaznam, otiskFunkce } from './nasazeni-zaznam.mjs';
 
 const FUNKCE_DIR = join(KOREN, 'supabase', 'functions');
 
@@ -35,9 +35,9 @@ export function nenasazeneFunkce() {
   for (const jmeno of readdirSync(FUNKCE_DIR)) {
     const cesta = join(FUNKCE_DIR, jmeno);
     if (jmeno.startsWith('_') || !statSync(cesta).isDirectory()) continue;
-    const commit = rozhodujiciCommit(jmeno);
-    if (!commit) continue;
-    if (zaznam[jmeno] !== commit) out.push({ jmeno, commit, nasazeno: zaznam[jmeno] ?? null });
+    const otisk = otiskFunkce(jmeno);
+    if (!otisk) continue;
+    if (zaznam[jmeno] !== otisk) out.push({ jmeno, otisk, nasazeno: zaznam[jmeno] ?? null });
   }
   return out;
 }
