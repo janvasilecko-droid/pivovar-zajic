@@ -1,6 +1,6 @@
 // 🔎 Detail objednávky — část obrazovky Objednávky.
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, ChevronLeft, ChevronRight, Bell, Building2, Camera, Check, ClipboardList, Copy, Package as PackageIcon, Pencil, Phone, Scroll, Split, X } from 'lucide-react';
+import { AlertTriangle, ChevronLeft, ChevronRight, Bell, Building2, Camera, Check, ClipboardList, Copy, Package as PackageIcon, Pencil, Phone, RotateCcw, Scroll, Split, X } from 'lucide-react';
 import { Beer, Package, Place, beerBg, beerInk, supabase } from '../../lib/supabase';
 import { Field } from '../ui';
 import { weekRange, shiftWeek } from '../WeeklyOrderSummaryCard';
@@ -11,10 +11,12 @@ import { DAYS } from '../../lib/shared';
 
 import type {  } from '../../lib/tankUZapisu';
 
-import { chyba, oznam } from '../../lib/toast';
+import { chyba, oznam, uspech } from '../../lib/toast';
 import { srovnaniPoUprave, type UpravaPolozky } from '../../lib/zavozSync';
 import { parseDeliveryTimeHint } from '../../lib/orderParser';
 import { createReminder, getLocalReminders } from '../../lib/reminders';
+import { businessDateISO } from '../../lib/businessDate';
+import { platneVraceni, poznamkaVraceni, pripojPoznamku, zaznamyDorovnaniVraceni } from '../../lib/vraceniZObjednavky';
 
 import { PodpisModal } from '../PodpisModal';
 import { FotkyZaznamu } from '../FotkyZaznamu';
@@ -107,6 +109,13 @@ export function OrderDetail({ order, items, beers, packages, places, priceList, 
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editBeerId, setEditBeerId] = useState('');
   const [editPkgId, setEditPkgId] = useState('');
+  // 🔄 Vrácení — sudy/lahve z TÉTO objednávky, co se přivezly zpátky
+  // (nedopité, nepoužité). Přičte se do skladu DNEŠNÍM datem (ne datem
+  // původního závozu — ten může ležet v už uzavřeném týdnu) a na objednávku
+  // se jen připíše poznámka, viz lib/vraceniZObjednavky.ts.
+  const [otevrenoVraceni, setOtevrenoVraceni] = useState(false);
+  const [vraceniPocty, setVraceniPocty] = useState<Record<string, string>>({});
+  const [ukladamVraceni, setUkladamVraceni] = useState(false);
   const [editQty, setEditQty] = useState('');
 
   async function addItem() {
@@ -189,6 +198,35 @@ export function OrderDetail({ order, items, beers, packages, places, priceList, 
     setSavingMeta(true);
     await supabase.from('orders').update({ note: note || null, delivery_day: day || null, delivery_date: deliveryDate || null }).eq('id', order.id);
     setSavingMeta(false); onChanged();
+  }
+
+  async function ulozVraceni() {
+    const polozky = platneVraceni(items.map((it) => ({
+      beer_id: it.beer_id ?? '',
+      beer_name: it.beer_name,
+      package_id: it.package_id ?? '',
+      package_label: it.package_label,
+      pocet: Number(vraceniPocty[it.id] || 0),
+    })));
+    if (polozky.length === 0) { oznam('Zadejte, kolik se čeho vrátilo.'); return; }
+    setUkladamVraceni(true);
+    try {
+      const datum = businessDateISO();
+      const { error } = await supabase.from('inventory_adjustments').insert(zaznamyDorovnaniVraceni(polozky, datum));
+      if (error) throw new Error(error.message);
+      const novaPoznamka = pripojPoznamku(note, poznamkaVraceni(polozky, datum));
+      const { error: e2 } = await supabase.from('orders').update({ note: novaPoznamka }).eq('id', order.id);
+      if (e2) throw new Error(e2.message);
+      setNote(novaPoznamka);
+      setVraceniPocty({});
+      setOtevrenoVraceni(false);
+      uspech('Vrácení zapsáno a přičteno do skladu.');
+      onChanged();
+    } catch (e: any) {
+      chyba('Vrácení se nepovedlo: ' + (e?.message || e));
+    } finally {
+      setUkladamVraceni(false);
+    }
   }
 
   // 🕐 Čas dovozu zmíněný v poznámce nebo v originální WhatsApp zprávě
@@ -732,6 +770,43 @@ export function OrderDetail({ order, items, beers, packages, places, priceList, 
           <div className="flex gap-2">
             <button className="btn-ghost !rounded text-sm" onClick={() => setAdding(true)}>+ Přidat položku</button>
             <button className="btn-ghost !rounded text-sm" onClick={() => onImportImage(order)}><Camera className="ikona-text" /> Načíst z fotky</button>
+          </div>
+        )}
+
+        {/* 🔄 Vrácení — jen u zavezené objednávky, jinak se nemá co vracet.
+            Nemění řádky téhle objednávky (ty zůstávají svědectvím o tom, co
+            se doopravdy odvezlo) — jen přičte kusy do skladu DNEŠNÍM dnem a
+            připíše poznámku, viz lib/vraceniZObjednavky.ts. */}
+        {order.is_delivered && items.length > 0 && (
+          <div className="mt-4 pt-3 border-t border-primary-200/60">
+            {!otevrenoVraceni ? (
+              <button className="btn-ghost !rounded text-sm" onClick={() => setOtevrenoVraceni(true)}>
+                <RotateCcw className="ikona-text" /> Vrácení sudů/lahví
+              </button>
+            ) : (
+              <div className="space-y-2">
+                <label className="label">Vrácení sudů/lahví <span className="text-primary-400 font-normal">(co se přivezlo zpátky nepoužité)</span></label>
+                <div className="space-y-1.5">
+                  {items.map((it) => (
+                    <div key={it.id} className="flex items-center justify-between gap-2 text-sm">
+                      <span className="text-primary-700 truncate">{it.beer_name} — {it.package_label} <span className="text-primary-400">(zavezeno {it.quantity} ks)</span></span>
+                      <input
+                        type="number" onWheel={(e) => e.currentTarget.blur()} min={0} inputMode="numeric"
+                        className="input !w-20 !py-1 text-center shrink-0" placeholder="0"
+                        value={vraceniPocty[it.id] ?? ''}
+                        onChange={(e) => setVraceniPocty((m) => ({ ...m, [it.id]: e.target.value }))}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <div className="flex justify-end gap-2 pt-1">
+                  <button className="btn-ghost !rounded text-xs !py-1.5" onClick={() => { setOtevrenoVraceni(false); setVraceniPocty({}); }}>Zrušit</button>
+                  <button className="btn-primary !rounded text-xs !py-1.5" disabled={ukladamVraceni} onClick={ulozVraceni}>
+                    {ukladamVraceni ? 'Ukládám…' : 'Uložit vrácení'}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
