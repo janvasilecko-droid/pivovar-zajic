@@ -1,4 +1,5 @@
 import { BottlingChecklistModal, DEFAULT_ITEMS, isStartChecklistCompleteForDate, isMonthlyChecklistCompleteForDate, MONTHLY_CATEGORY } from '../components/BottlingChecklistModal';
+import { puvodZapisu } from '../lib/puvodZapisu';
 import { useEffect, useMemo, useState, useRef, lazy, Suspense } from 'react';
 import { supabase, Beer, Package, EntryRow, useRealtime, beerBg, beerName, formatPackageLabel, fetchAllRows } from '../lib/supabase';
 import { EmptyState, Spinner, Modal } from '../components/ui';
@@ -2119,14 +2120,27 @@ export default function BottlingScreen({
                           <td className="py-1.5 px-2 font-mono font-bold text-amber-950 whitespace-nowrap">
                             {!isSameBatchAsPrev ? formatDate(r.entry_date) : <span className="text-neutral-400 font-normal">〃</span>}
                           </td>
-                          <td className="py-1.5 px-2 font-bold text-amber-950 flex items-center gap-1.5">
-                            {!isSameBatchAsPrev ? (
-                              <>
-                                <span className="w-2.5 h-2.5 rounded-full shrink-0 shadow-2xs border border-black/20" style={{ backgroundColor: beerBg(beer) }} />
-                                <span className="truncate max-w-[120px]">{r.beer_name ?? beer?.name ?? '—'}</span>
-                              </>
-                            ) : (
-                              <span className="text-amber-800/60 pl-3 font-mono text-udaj">└─ <span className="truncate max-w-[100px] inline-block align-bottom text-amber-950 font-bold">{r.beer_name ?? beer?.name ?? '—'}</span></span>
+                          {/* 🏷️ Odkud se záznam vzal — stejně jako u KEGů.
+                              Appka zapisuje do stáčení i sama (zaškrtnutá
+                              kapka „Stočeno" u objednávky, doplňky z inventury)
+                              a bez téhle značky vypadá takový řádek jako
+                              ručně napsaný. Viz lib/puvodZapisu.ts. */}
+                          <td className="py-1.5 px-2 font-bold text-amber-950">
+                            <div className="flex items-center gap-1.5">
+                              {!isSameBatchAsPrev ? (
+                                <>
+                                  <span className="w-2.5 h-2.5 rounded-full shrink-0 shadow-2xs border border-black/20" style={{ backgroundColor: beerBg(beer) }} />
+                                  <span className="truncate max-w-[120px]">{r.beer_name ?? beer?.name ?? '—'}</span>
+                                </>
+                              ) : (
+                                <span className="text-amber-800/60 pl-3 font-mono text-udaj">└─ <span className="truncate max-w-[100px] inline-block align-bottom text-amber-950 font-bold">{r.beer_name ?? beer?.name ?? '—'}</span></span>
+                              )}
+                            </div>
+                            {puvodZapisu(r.note) && (
+                              <div className="text-udaj font-bold text-sky-800 bg-sky-50 border border-sky-200 rounded px-1.5 py-0.5 mt-1 inline-flex items-center gap-1">
+                                <ClipboardList size={11} className="shrink-0" />
+                                {puvodZapisu(r.note)?.popis}
+                              </div>
                             )}
                           </td>
                           <td className="py-1.5 px-2 text-right font-semibold text-amber-900 whitespace-nowrap">{pkg?.label ?? '—'}</td>

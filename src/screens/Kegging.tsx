@@ -33,7 +33,7 @@ import type { RadekPohybu, RadekZavozu } from '../lib/stockLedger';
 import { zbytekKeKonciTydne } from '../lib/tydenniZbytek';
 import { soucetUlozenehoDnes } from '../lib/jizUlozeno';
 import { jeMesicUzamcen } from '../lib/mesicUzamcen';
-import { jeZeZaskrtnuti } from '../lib/staceniZPolozky';
+import { puvodZapisu, vlastniPoznamka } from '../lib/puvodZapisu';
 
 // Stahuje se až při otevření — viz komentář u lazy() v Orders.tsx.
 const ImportKeggingFromImage = lazy(() => import('../components/ImportKeggingFromImage').then((m) => ({ default: m.ImportKeggingFromImage })));
@@ -1701,10 +1701,10 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                         </div>
                         {/* Odkud se záznam vzal — viz stejná značka v „Všechny
                             záznamy" níž a `jeZeZaskrtnuti` v lib. */}
-                        {jeZeZaskrtnuti(r.note) && (
+                        {puvodZapisu(r.note) && (
                           <div className="text-udaj font-bold text-sky-800 bg-sky-50 border border-sky-200 rounded px-1.5 py-0.5 inline-flex items-center gap-1">
                             <ClipboardList size={11} className="shrink-0" />
-                            Založeno zaškrtnutím „Stočeno" u objednávky
+                            {puvodZapisu(r.note)?.popis}
                           </div>
                         )}
                         {!isEditing && (
@@ -1754,9 +1754,28 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                             <td className="py-1.5 px-2 font-mono font-bold text-emerald-950 whitespace-nowrap">
                               {r.entry_date ? r.entry_date.slice(8, 10) + '.' + r.entry_date.slice(5, 7) + '.' : '—'}
                             </td>
-                            <td className="py-1.5 px-2 font-bold text-emerald-950 flex items-center gap-1.5">
-                              <span className="w-2.5 h-2.5 rounded-full shrink-0 shadow-2xs border border-black/20" style={{ backgroundColor: beerBg(beer) }} />
-                              <span className="truncate max-w-[120px]">{r.beer_name ?? beer?.name ?? '—'}</span>
+                            {/* 🏷️ ODKUD SE TEN ZÁZNAM VZAL — přímo v tabulce,
+                                ne jen v kartách na telefonu. Z provozu
+                                18. 9. 2026: „proč je zadané stáčení 14×30
+                                Desítka, to jsem nezadával?" — ptal se nad
+                                TOUHLE tabulkou a ta o původu neříkala nic.
+                                Viz lib/puvodZapisu.ts. */}
+                            <td className="py-1.5 px-2 font-bold text-emerald-950">
+                              <div className="flex items-center gap-1.5">
+                                <span className="w-2.5 h-2.5 rounded-full shrink-0 shadow-2xs border border-black/20" style={{ backgroundColor: beerBg(beer) }} />
+                                <span className="truncate max-w-[120px]">{r.beer_name ?? beer?.name ?? '—'}</span>
+                              </div>
+                              {puvodZapisu(r.note) && (
+                                <div className="text-udaj font-bold text-sky-800 bg-sky-50 border border-sky-200 rounded px-1.5 py-0.5 mt-1 inline-flex items-center gap-1">
+                                  <ClipboardList size={11} className="shrink-0" />
+                                  {puvodZapisu(r.note)?.popis}
+                                </div>
+                              )}
+                              {vlastniPoznamka(r.note) && (
+                                <div className="text-udaj text-neutral-500 mt-0.5 truncate max-w-[200px]" title={vlastniPoznamka(r.note) ?? undefined}>
+                                  {vlastniPoznamka(r.note)}
+                                </div>
+                              )}
                             </td>
                             <td className="py-1.5 px-2 text-right font-semibold text-emerald-900 whitespace-nowrap">{vol > 0 ? `${vol}L` : '—'}</td>
                             <td className="py-1.5 px-2 text-right font-bold text-emerald-950">
@@ -1992,10 +2011,10 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                           objevilo stáčení, o kterém stáčeč nevěděl.
                           Poznámku nese `note`, ale ta se do téhle chvíle
                           kreslila jen v tabulce na počítači. */}
-                      {jeZeZaskrtnuti(r.note) && (
+                      {puvodZapisu(r.note) && (
                         <div className="text-udaj font-bold text-sky-800 bg-sky-50 border border-sky-200 rounded px-1.5 py-0.5 inline-flex items-center gap-1">
                           <ClipboardList size={11} className="shrink-0" />
-                          Založeno zaškrtnutím „Stočeno" u objednávky
+                          {puvodZapisu(r.note)?.popis}
                         </div>
                       )}
                       {!isEditing && (
