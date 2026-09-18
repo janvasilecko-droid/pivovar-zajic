@@ -23,11 +23,13 @@ import {
   type ReadbackMatch,
   type ReadbackStatus,
 } from '../lib/whatsappReadback';
-import { AlertCircle, AlertTriangle, Check, CheckCircle2, ChevronDown, Download, ExternalLink, Eye, FileText, Image as ImageIcon, MessageSquare, RefreshCw, ShieldAlert, ShieldCheck, ShoppingCart, UserCheck, X, ArrowDown, FilePlus, Plus } from 'lucide-react';
-import { potvrd } from '../lib/toast';
+import { AlertCircle, AlertTriangle, Check, CheckCircle2, ChevronDown, Download, ExternalLink, Eye, FileText, Image as ImageIcon, MessageSquare, RefreshCw, RotateCcw, ShieldAlert, ShieldCheck, ShoppingCart, UserCheck, X, ArrowDown, FilePlus, Plus } from 'lucide-react';
+import { chyba, potvrd, uspech } from '../lib/toast';
 import { zalogujANahlas } from '../lib/chybyHlaseni';
 import { useChovaniDialogu } from '../lib/zavriNaZpet';
 import { businessDateISO } from '../lib/businessDate';
+import { rozdelVraceni, vypadaJakoVraceni } from '../lib/vraceniZeZpravy';
+import { zaznamyDorovnaniVraceni, type PolozkaVraceni } from '../lib/vraceniZObjednavky';
 import { STAVY_OBJEDNAVKY, popisStavu } from '../lib/stavyObjednavek';
 import { uloz } from '../lib/uloziste';
 
@@ -311,6 +313,73 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
     !!msg?.amends_order_id && !msg?.quoted_text && !!vypadaJakoZmenaObjednavky(msg?.message_text);
   /** Jak se zpráva chová k vybrané objednávce — pro texty po napojení. */
   const druhNapojeni = napojenoRucne ? vypadaJakoZmenaObjednavky(msg?.message_text) : null;
+
+  // ↩️ „Tady vrací 1x50l. Vosmy…" — zpráva o VRÁCENÍ, ne objednávka.
+  // Schválením by vznikl závoz, který nikdy nepojede, a pivo by se ze skladu
+  // odepsalo, ačkoli se právě naopak vrátilo. Rozpad na „vrácené pivo" vs.
+  // „nejspíš prázdné obaly" dělá lib/vraceniZeZpravy.ts; řádky bez piva se
+  // nezahazují, jen se nezaškrtnou — viz pravidlo od majitele tamtéž.
+  const jeVraceni = vypadaJakoVraceni(msg?.message_text);
+  const rozpadVraceni = useMemo(() => rozdelVraceni(
+    items.map((it) => ({
+      klic: it.key,
+      beerId: it.beerId,
+      beerName: it.beerName ?? props.beers.find((b) => b.id === it.beerId)?.name ?? null,
+      pkgId: it.pkgId,
+      packageLabel: it.packageLabel ?? props.packages.find((p) => p.id === it.pkgId)?.label ?? null,
+      pocet: Number(it.qty || 0),
+    })),
+    msg?.message_text,
+  ), [items, msg?.message_text, props.beers, props.packages]);
+  /** Které řádky se doopravdy zapíšou — s pivem zaškrtnuté, obaly ne. */
+  const [vraceniZaskrtnuto, setVraceniZaskrtnuto] = useState<Record<string, boolean>>({});
+  useEffect(() => {
+    if (!jeVraceni) return;
+    setVraceniZaskrtnuto(Object.fromEntries(rozpadVraceni.sPivem.map((r) => [r.klic, true])));
+    // Jen při otevření zprávy — další překlik už patří člověku.
+  }, [jeVraceni, msg?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [ukladamVraceni, setUkladamVraceni] = useState(false);
+
+  const vraceneRadky = [...rozpadVraceni.sPivem, ...rozpadVraceni.jenObaly]
+    .filter((r) => vraceniZaskrtnuto[r.klic]);
+  const vracenoKusu = vraceneRadky.reduce((a, r) => a + r.pocet, 0);
+
+  /**
+   * Zapíše zprávu jako vrácení: kusy se přičtou na sklad DNEŠNÍM dnem
+   * (stejná cesta jako záložka „Vrácení piva", lib/vraceniZObjednavky.ts)
+   * a zpráva se odloží, ať z ní nikdo omylem nezaloží objednávku.
+   */
+  async function zapisJakoVraceni() {
+    const polozky: PolozkaVraceni[] = vraceneRadky.map((r) => ({
+      beer_id: r.beerId,
+      beer_name: r.beerName,
+      package_id: r.pkgId,
+      package_label: r.packageLabel,
+      pocet: r.pocet,
+    }));
+    const odberatel = placeName || msg?.parsed_place_name || msg?.sender_name || '';
+    const ok = await potvrd(
+      `Zapsat jako vrácení ${vracenoKusu} ks od „${odberatel || 'neznámého odběratele'}"?`
+      + ' Přičte se to na sklad dneškem a objednávka z téhle zprávy NEvznikne.',
+      { titulek: 'Vrácení piva', potvrdit: 'Zapsat vrácení' },
+    );
+    if (!ok) return;
+    setUkladamVraceni(true);
+    try {
+      const { error } = await supabase
+        .from('inventory_adjustments')
+        .insert(zaznamyDorovnaniVraceni(polozky, businessDateISO(), odberatel));
+      if (error) throw new Error(error.message);
+      await ignoreWhatsAppMessage(message.id);
+      uspech(`Vráceno ${vracenoKusu} ks — přičteno na sklad. Je to vidět v Objednávkách → Vrácení piva.`);
+      props.onClose();
+      props.onDecision?.();
+    } catch (e: any) {
+      chyba('Vrácení se nepovedlo: ' + (e?.message || e));
+    } finally {
+      setUkladamVraceni(false);
+    }
+  }
 
   // ➕ Objednávky, ke kterým může přídavek patřit. Dřív musela obsluha
   // objednávku najít v seznamu, zapamatovat si ji a přepsat ručně — appka
@@ -882,6 +951,81 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
 
   const body = (
       <div className="space-y-6">
+        {/* ↩️ VRÁCENÍ — nahoře, ať se nedá přehlédnout: pod tím je normální
+            formulář objednávky a schválit ho by znamenalo odepsat ze skladu
+            pivo, které se právě vrátilo. */}
+        {jeVraceni && (
+          <div className="border-2 border-sky-300 rounded bg-sky-50 p-4">
+            <div className="flex items-start gap-2">
+              <RotateCcw size={18} className="text-sky-700 shrink-0 mt-0.5" />
+              <div className="min-w-0 flex-1">
+                <div className="font-display font-black text-sky-950 text-sm">
+                  Vypadá to na VRÁCENÍ piva, ne na objednávku
+                </div>
+                <div className="text-xs font-bold text-sky-900 mt-1">
+                  Zpráva mluví o vracení („{(message.message_text || '').slice(0, 45)}…“). Schválená
+                  jako objednávka by založila závoz, který nikdy nepojede, a pivo by se ze skladu
+                  odepsalo — přitom se právě vrátilo. Zaškrtni, co se doopravdy vrátilo, a zapiš to
+                  jako vrácení: přičte se na sklad dneškem.
+                </div>
+
+                {rozpadVraceni.sPivem.length === 0 && rozpadVraceni.jenObaly.length === 0 ? (
+                  <div className="text-xs font-bold text-sky-900 mt-3">
+                    Ze zprávy se nic k vrácení nevyčetlo. Zkontroluj položky níž, nebo zprávu ignoruj
+                    a vrácení zapiš v Objednávkách → Vrácení piva.
+                  </div>
+                ) : (
+                  <div className="mt-3 space-y-1.5">
+                    {rozpadVraceni.sPivem.map((r) => (
+                      <label key={r.klic} className="flex items-center gap-2 bg-white border border-sky-200 rounded p-2 cursor-pointer">
+                        <input
+                          type="checkbox" className="w-4 h-4 shrink-0"
+                          checked={!!vraceniZaskrtnuto[r.klic]}
+                          onChange={(e) => setVraceniZaskrtnuto((m) => ({ ...m, [r.klic]: e.target.checked }))}
+                        />
+                        <span className="text-sm font-black text-neutral-900 min-w-0 truncate">
+                          {r.pocet}× {r.packageLabel} {r.beerName}
+                        </span>
+                      </label>
+                    ))}
+
+                    {/* Prázdné obaly: pravidlo od majitele — „vrací 3x30" bez
+                        napsaného piva jsou sudy, ne pivo. Nezahazují se, jen
+                        nejsou zaškrtnuté; kdo ví, že v nich pivo bylo, zaškrtne. */}
+                    {rozpadVraceni.jenObaly.map((r) => (
+                      <label key={r.klic} className="flex items-center gap-2 bg-white border border-neutral-200 rounded p-2 cursor-pointer">
+                        <input
+                          type="checkbox" className="w-4 h-4 shrink-0"
+                          checked={!!vraceniZaskrtnuto[r.klic]}
+                          onChange={(e) => setVraceniZaskrtnuto((m) => ({ ...m, [r.klic]: e.target.checked }))}
+                        />
+                        <span className="text-sm font-bold text-neutral-600 min-w-0 truncate">
+                          {r.pocet}× {r.packageLabel}
+                          <span className="text-udaj text-neutral-500"> — u toho není napsané pivo, nejspíš prázdné obaly</span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    disabled={ukladamVraceni || vracenoKusu === 0}
+                    onClick={() => { void zapisJakoVraceni(); }}
+                  >
+                    <RotateCcw size={14} /> {ukladamVraceni ? 'Zapisuji…' : `Zapsat jako vrácení (${vracenoKusu} ks)`}
+                  </button>
+                  <span className="text-udaj font-bold text-sky-900">
+                    …nebo pokračuj dole, pokud je to přece jen objednávka.
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {vypadaJakoDoplnek && (
           <div className="border-2 border-amber-300 rounded bg-amber-50 p-4">
             <div className="flex items-start gap-2">

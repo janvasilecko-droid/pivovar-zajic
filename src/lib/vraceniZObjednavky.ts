@@ -30,8 +30,21 @@ export function platneVraceni(polozky: PolozkaVraceni[]): PolozkaVraceni[] {
   return polozky.filter((p) => p.beer_id && p.package_id && p.pocet > 0);
 }
 
-/** Řádky pro `inventory_adjustments` — přičtou vrácené kusy zpátky do skladu k zadanému dni. */
-export function zaznamyDorovnaniVraceni(polozky: PolozkaVraceni[], datum: string): Record<string, unknown>[] {
+/**
+ * Řádky pro `inventory_adjustments` — přičtou vrácené kusy zpátky do skladu
+ * k zadanému dni.
+ *
+ * `odberatel` se jen připíše do důvodu, ať je ve Skladu i v záloze poznat,
+ * od koho se pivo vrátilo. V záložce „Vrácení piva" se vrací i bez vybrané
+ * objednávky (přivezli to jen tak, objednávka je stará nebo žádná není),
+ * a bez jména by v dorovnáních zůstal nedohledatelný řádek.
+ */
+export function zaznamyDorovnaniVraceni(
+  polozky: PolozkaVraceni[],
+  datum: string,
+  odberatel?: string | null,
+): Record<string, unknown>[] {
+  const kdo = (odberatel ?? '').trim();
   return platneVraceni(polozky).map((p) => ({
     entry_date: datum,
     beer_id: p.beer_id,
@@ -39,7 +52,7 @@ export function zaznamyDorovnaniVraceni(polozky: PolozkaVraceni[], datum: string
     package_id: p.package_id,
     package_label: p.package_label,
     quantity: p.pocet,
-    reason: `Vráceno z objednávky — ${p.pocet}× ${p.package_label ?? p.package_id}${p.beer_name ? ` ${p.beer_name}` : ''}`,
+    reason: `Vráceno z objednávky — ${p.pocet}× ${p.package_label ?? p.package_id}${p.beer_name ? ` ${p.beer_name}` : ''}${kdo ? ` (${kdo})` : ''}`,
   }));
 }
 
@@ -48,13 +61,70 @@ export function poznamkaVraceni(polozky: PolozkaVraceni[], datum: string): strin
   const popis = platneVraceni(polozky)
     .map((p) => `${p.pocet}× ${p.package_label ?? p.package_id}${p.beer_name ? ` ${p.beer_name}` : ''}`)
     .join(', ');
-  const [y, m, d] = datum.split('-').map(Number);
-  const datumCesky = `${d}. ${m}. ${y}`;
-  return `Vráceno ${popis} — přičteno do skladu ${datumCesky}, ${stitekTydne(pondeliTydne(datum))}.`;
+  return `Vráceno ${popis} — přičteno do skladu ${datumCesky(datum)}, ${stitekTydne(pondeliTydne(datum))}.`;
 }
 
 /** Připojí novou poznámku na konec stávající — nikdy ji nepřepíše. */
 export function pripojPoznamku(puvodni: string | null | undefined, novaRadka: string): string {
   const zaklad = (puvodni ?? '').trim();
   return zaklad ? `${zaklad}\n${novaRadka}` : novaRadka;
+}
+
+// ---------------------------------------------------------------------------
+// Podklady pro záložku „Vrácení piva" v Objednávkách
+// ---------------------------------------------------------------------------
+
+export type ObjednavkaProVraceni = {
+  id: string;
+  place_id: string | null;
+  place_name: string | null;
+  status: string;
+  is_delivered: boolean;
+  order_date: string;
+  delivery_date: string | null;
+};
+
+/** Den, kdy pivo doopravdy odjelo — datum závozu, a když chybí, datum objednávky. */
+export function datumZavozu(o: Pick<ObjednavkaProVraceni, 'order_date' | 'delivery_date'>): string {
+  return o.delivery_date || o.order_date;
+}
+
+/**
+ * Objednávky, ze kterých se dá vracet.
+ *
+ * Jen ZAVEZENÉ a s aspoň jednou položkou — z nezavezené se nemá co vrátit
+ * a z prázdné není co vypsat. Storno se vynechává. Řadí se od nejnovější,
+ * protože se skoro vždycky vrací z posledního závozu.
+ *
+ * `dnuZpet` drží seznam krátký: sudy se vracejí do pár týdnů, ne po roce.
+ * Kdo potřebuje starší, otevře objednávku v seznamu a vrátí ji tam.
+ */
+export function objednavkyKVraceni<O extends ObjednavkaProVraceni>(
+  objednavky: O[],
+  polozky: Record<string, unknown[]>,
+  opts: { dnes: string; dnuZpet?: number; placeId?: string | null; hledat?: string },
+): O[] {
+  const dnuZpet = opts.dnuZpet ?? 56;
+  // Počítá se v UTC: `new Date('2026-09-18T00:00:00')` je PŮLNOC MÍSTNÍHO ČASU,
+  // takže by se z toISOString() v Praze vrátil den předtím a mez by byla o den
+  // posunutá. Data v databázi jsou prosté dny bez časové zóny.
+  const mez = new Date(`${opts.dnes}T00:00:00Z`);
+  mez.setUTCDate(mez.getUTCDate() - dnuZpet);
+  const mezISO = mez.toISOString().slice(0, 10);
+  const hledat = (opts.hledat ?? '').trim().toLowerCase();
+
+  return objednavky
+    .filter((o) => o.is_delivered && o.status !== 'storno')
+    .filter((o) => (polozky[o.id] ?? []).length > 0)
+    .filter((o) => datumZavozu(o) >= mezISO)
+    .filter((o) => (opts.placeId ? o.place_id === opts.placeId : true))
+    .filter((o) => (hledat ? (o.place_name ?? '').toLowerCase().includes(hledat) : true))
+    .sort((a, b) => datumZavozu(b).localeCompare(datumZavozu(a)));
+}
+
+/** „18. 9. 2026" — datum v ISO na čitelné, bez závislosti na locale prohlížeče. */
+export function datumCesky(iso: string): string {
+  const [y, m, d] = iso.split('-').map(Number);
+  if (!y || !m || !d) return iso;
+  return `${d}. ${m}. ${y}`;
 }
