@@ -385,6 +385,7 @@ describe('oprávnění obrazovek', () => {
     keg_timer: 'odpočet ke stáčení — nástroj bez dat pivovaru',
     radio: 'rádio — nástroj bez dat pivovaru',
     navod: 'návod k použití — nápověda, ne data; zamknout ji znamená nechat člověka bez pomoci',
+    hlaseni: 'hlášení může vyhlásit každý (rozhodnutí majitele) — když bouší varna nebo se mění závoz, nemá se čekat na právo',
   };
 
   it('žádná obrazovka nezůstala bez modulu oprávnění NEDOPATŘENÍM', () => {

@@ -18,7 +18,9 @@ describe('PAGE_TO_MODULE — mapa obrazovka → modul', () => {
       //  • stopwatch/timer/keg_timer/radio — pomůcky (stopky, časovač, stočení sudu, rádio),
       //    nepracují s žádnými daty, takže je nemá smysl zamykat
       //  • navod    — nápověda k aplikaci; zamknout ji znamená nechat člověka bez pomoci
-      .filter((id) => !['users', 'zaloha', 'signout', 'home', 'stopwatch', 'timer', 'keg_timer', 'radio', 'navod'].includes(id))
+      //  • hlaseni  — hlášení může vyhlásit každý (rozhodnutí majitele, 18. 9. 2026):
+      //    když bouší varna nebo se mění závoz, nemá se čekat na právo
+      .filter((id) => !['users', 'zaloha', 'signout', 'home', 'stopwatch', 'timer', 'keg_timer', 'radio', 'navod', 'hlaseni'].includes(id))
       .filter((id) => !PAGE_TO_MODULE[id]);
     expect(chybi).toEqual([]);
   });

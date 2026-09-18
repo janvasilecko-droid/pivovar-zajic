@@ -207,6 +207,10 @@ export const PRESET_ROLES: { name: string; permissions: UserPermissions }[] = [
  * Pozn.: klíč, který tu chybí, se považuje za veřejný — proto sem patří
  * všechny obrazovky, které mají být za právy.
  */
+// `hlaseni` tu SCHVÁLNĚ NENÍ: hlášení může vyhlásit každý (rozhodnutí
+// majitele, 18. 9. 2026). Když někomu bouší varna nebo se mění závoz, nemá
+// čekat, až mu někdo dá právo. Důvod je i v BEZ_MODULU_ZAMERNE
+// v pravidlaObrazovek.test.ts, ať to nevypadá jako opomenutí.
 export const PAGE_TO_MODULE: Record<string, ModuleKey> = {
   dashboard: 'dashboard',
   // Měsíční export čte zápisy stáčení a výdeje — spadá pod stejný modul
@@ -256,11 +260,6 @@ export const PAGE_TO_MODULE: Record<string, ModuleKey> = {
   reminders: 'reminders',
   notes: 'reminders',
   feedback: 'catalogs',
-  // Hlášení mělo dosud podobu tlačítka na obrazovce Sklad, takže ho mohl
-  // vyhlásit každý, kdo Sklad viděl. Samostatná dlaždice na tom schválně nic
-  // nemění — zúžit právo na vyhlášení zprávy všem je rozhodnutí majitele,
-  // ne vedlejší účinek přesunu tlačítka.
-  hlaseni: 'dashboard',
 };
 
 export function getUserPermissions(userId: string, rawPermissionsJson?: any): UserPermissions {
