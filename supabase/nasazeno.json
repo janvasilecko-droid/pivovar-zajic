@@ -1,16 +1,16 @@
 {
   "_poznamka": "Které verzi edge funkce odpovídá to, co běží na Supabase. Píše to nasazení z CI (scripts/zapis-nasazeni.mjs) i ruční nasazení (scripts/deploy-function.mjs); čte to scripts/zkontroluj-nasazeni.mjs a připomíná, co neběží v poslední verzi. Přepsáno 18. 9. 2026 po běhu #720, ve kterém se všech 13 funkcí nasadilo z mainu.",
   "analyze-reviews": "b3d28a311216e4f88e7ffbd2bed8e2ca901fce1d",
-  "auth-auto-login": "6f3798420eafd7d88b7e57334065cfeb46d610b1",
+  "auth-auto-login": "c3394ea5f812ecdd458e20e5068008deb145c974",
   "count-bottles": "5e076a67c412e9d9cef83d120ab5d5bf32f80696",
-  "fix-order-dates": "6f3798420eafd7d88b7e57334065cfeb46d610b1",
-  "manage-users": "6f3798420eafd7d88b7e57334065cfeb46d610b1",
-  "parse-order-image": "8df638a340ae662c17090ba6e2e7f7969ec47c30",
-  "parse-order-text": "7c370f7aafaff711b642f2ef2602e23ee49eae77",
-  "posli-push": "6f3798420eafd7d88b7e57334065cfeb46d610b1",
+  "fix-order-dates": "39ea6afa1cf9ed739fd846c9f3272fe69be8e0d4",
+  "manage-users": "ab41a9e82bd94ecdcf5501205d1b5ca67dc9718d",
+  "parse-order-image": "ee6bf8d4569d7d01ebcdb25f7a4322e170d28c3b",
+  "parse-order-text": "ee6bf8d4569d7d01ebcdb25f7a4322e170d28c3b",
+  "posli-push": "248499a44eb56ef6844395a8a056e0cfc08872b0",
   "pust-migraci": "1903964fc7d331b0d04edb3958fd6f4bb2c37aa0",
   "transcribe-audio": "5e076a67c412e9d9cef83d120ab5d5bf32f80696",
   "whatsapp-send-order": "5e076a67c412e9d9cef83d120ab5d5bf32f80696",
   "whatsapp-webhook": "5e076a67c412e9d9cef83d120ab5d5bf32f80696",
-  "whatsapp-auto-parse": "3aed0104af1b84bb46251221ac05b77ba68c2a2a"
+  "whatsapp-auto-parse": "ee6bf8d4569d7d01ebcdb25f7a4322e170d28c3b"
 }
