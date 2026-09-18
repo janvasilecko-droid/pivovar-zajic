@@ -10,12 +10,13 @@
 // Zapisuje se stejnými funkcemi jako u měsíční uzávěrky (lib/inventoryFix.ts,
 // lib/tankZapis.ts). Vlastní verze zápisu by byla druhá pravda o tomtéž.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CalendarRange, Check, ChevronLeft, ChevronRight, ClipboardList, ExternalLink, ListChecks, Lock, LockOpen, MinusCircle, Plus, RefreshCw, Save, Search } from 'lucide-react';
+import { CalendarRange, Calculator, Check, ChevronLeft, ChevronRight, ClipboardList, ExternalLink, ListChecks, Lock, LockOpen, MinusCircle, Plus, RefreshCw, Save, Search } from 'lucide-react';
 import { supabase, fetchAllRows, formatPackageLabel, beerBg, beerText } from '../lib/supabase';
 import { Spinner } from './ui';
+import { QuickCountModal } from './QuickCountModal';
 import { businessDateISO } from '../lib/businessDate';
 import { nactiSkladovouKnihu, type SkladovaKniha } from '../lib/skladovaKnihaData';
-import { MOVEMENT_LABELS, movementsFor, stockForObdobi } from '../lib/stockLedger';
+import { MOVEMENT_LABELS, movementsFor, stockForObdobi, stockKey } from '../lib/stockLedger';
 import { kegovaniZapisy, lahvoveZapisy, odectiZeStoceni } from '../lib/inventoryFix';
 import { rozdelSudyDoTanku, type TankProRozdeleni } from '../lib/tankRozdeleni';
 import { odectiZTanku } from '../lib/tankZapis';
@@ -64,6 +65,21 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
   // 📋 Přehled týdne (vedle počítání kusů) a značka uzavření — viz
   // lib/tydenniPrehled.ts a migrace tydenni_uzaverky.
   const [rezim, setRezim] = useState<'pocitani' | 'prehled'>('pocitani');
+  /**
+   * 🧮 Dotykové sčítadlo. Napočítané kusy jen PŘEDVYPLNÍ pole
+   * „Napočítáno" — do databáze nic nejde. Člověk si čísla ještě prohlédne
+   * a teprve „Uložit kontrolu" / „Dopsat stáčení" s nimi něco udělá.
+   */
+  const [scitadlo, setScitadlo] = useState(false);
+  function vyplnZeScitadla(polozky: { beerId: string; packageId: string; count: number }[]) {
+    if (polozky.length === 0) return;
+    setNapocitano((m) => {
+      const dalsi = { ...m };
+      for (const p of polozky) dalsi[stockKey(p.beerId, p.packageId)] = String(p.count);
+      return dalsi;
+    });
+    oznam(`Vyplněno ${polozky.length} položek do „Napočítáno". Zkontroluj čísla a ulož.`);
+  }
   const [uzavreno, setUzavreno] = useState<{ at: string; by: string | null } | null>(null);
   const [uzaviram, setUzaviram] = useState(false);
 
@@ -423,6 +439,14 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
               >
                 Jen rozdíly
               </button>
+              {/* 🧮 Dotykové sčítadlo — stejné jako ve Skladu, ale TADY
+                  jen VYPLNÍ pole „Napočítáno". Nic se nikam nezapisuje: co se
+                  má se skladem stát, rozhoduje až „Dopsat stáčení" u konkrétního
+                  rozdílu. Ve Skladu se týmž sčítadlem ukládá inventura, což je
+                  RESET stavu — proto tam má dotaz navíc. */}
+              <button type="button" onClick={() => setScitadlo(true)} className="btn-secondary !rounded min-h-[44px]">
+                <Calculator size={16} /> Sčítadlo
+              </button>
               <button type="button" onClick={nacti} disabled={bezi} className="btn-secondary !rounded min-h-[44px]">
                 <RefreshCw size={16} className={bezi ? 'animate-spin' : ''} /> Načíst znovu
               </button>
@@ -576,6 +600,18 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
           })}
         </div>
       )}
+
+      {/* 🧮 Sčítadlo — vyplní pole „Napočítáno", nic neukládá. */}
+      <QuickCountModal
+        isOpen={scitadlo}
+        onClose={() => setScitadlo(false)}
+        beers={(kniha?.piva ?? []) as any}
+        packages={(kniha?.obaly ?? []) as any}
+        onConfirmCount={vyplnZeScitadla}
+        titulek="Sčítadlo — týdenní kontrola"
+        popisUlozeni="Vyplní se tím pole ‚Napočítáno‘. Nic se neukládá — čísla si pak projdi a ulož tlačítkem ‚Uložit kontrolu‘."
+        potvrditPopisek="Vyplnit do kontroly"
+      />
     </div>
   );
 }
@@ -782,5 +818,6 @@ function DetailRozdilu({
         );
       })}
     </div>
+
   );
 }
