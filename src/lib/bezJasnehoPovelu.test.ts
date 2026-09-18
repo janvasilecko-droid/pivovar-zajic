@@ -52,3 +52,37 @@ describe('úprava objednávky z plánu stáčení se ptá', () => {
     });
   }
 });
+
+// ---------------------------------------------------------------------------
+// Úklid dopsaných záznamů musí být vidět — i na telefonu
+// ---------------------------------------------------------------------------
+describe('upozornění na dopsané záznamy', () => {
+  // Poprvé se to vykreslilo uvnitř týdenní tabulky, která je v bloku
+  // `hidden md:block` — na telefonu tedy nebylo vůbec a na počítači se k němu
+  // muselo dorolovat pod nadpis. Majitel ho nenašel a napsal
+  // „udělej je nějak výrazněji".
+  const zdroj = readFileSync('src/screens/Kegging.tsx', 'utf8');
+
+  it('vykresluje se, až když takové záznamy opravdu jsou', () => {
+    expect(zdroj).toMatch(/\{dopsaneVse\.length > 0 && \(/);
+  });
+
+  it('není schované v části jen pro počítač', () => {
+    // Komentáře pryč: fráze `hidden md:block` je i v komentáři, který tuhle
+    // chybu popisuje, a bez očištění by test hlásil právě tenhle komentář.
+    const kod = zdroj.replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+    const zacatek = kod.indexOf('{dopsaneVse.length > 0 && (');
+    expect(zacatek, 'upozornění se vůbec nevykresluje').toBeGreaterThan(-1);
+    // Týdenní tabulka (a všechny ostatní `hidden md:block`) jsou až POD ním.
+    const prvniSkryti = kod.indexOf('hidden md:block');
+    expect(prvniSkryti === -1 || zacatek < prvniSkryti,
+      'upozornění je až za blokem jen pro počítač — na telefonu se neukáže').toBe(true);
+  });
+
+  it('nabízí smazání a ptá se předem', () => {
+    expect(zdroj).toMatch(/uklidDopsane\(dopsaneVse\)/);
+    const uklid = zdroj.slice(zdroj.indexOf('async function uklidDopsane'));
+    expect(uklid.slice(0, 1200)).toMatch(/potvrd\(/);
+    expect(uklid.slice(0, 1200)).toMatch(/nebezpecne: true/);
+  });
+});

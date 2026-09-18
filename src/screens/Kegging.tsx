@@ -222,11 +222,32 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
    *
    * Mazání je natvrdo a nevrací se — proto se ptá a vyjmenuje, co zmizí.
    */
+  /**
+   * 🚨 Řádky, které do stáčení dopsala appka sama po zaškrtnutí kapky
+   * „Stočeno" u objednávky. Zakládání je od 18. 9. 2026 zrušené, ale už
+   * vzniklé řádky leží v databázi dál.
+   *
+   * Počítá se TADY, ne uvnitř týdenní tabulky: tam to bylo schované
+   * v bloku `hidden md:block`, takže na telefonu se upozornění neukázalo
+   * vůbec a na počítači se k němu muselo dorolovat pod nadpis.
+   * Bere CELÝ seznam, ne jen zvolený týden — kdo je má uklidit, nemá je
+   * hledat po týdnech.
+   */
+  const dopsaneVse = useMemo(() => dopsaneZaskrtnutim(rows), [rows]);
+  const dopsaneKusu = useMemo(
+    () => dopsaneVse.reduce((a, r) => a + Number(r.quantity || 0), 0),
+    [dopsaneVse],
+  );
   const [uklizim, setUklizim] = useState(false);
   async function uklidDopsane(dopsane: typeof rows) {
+    // Do dialogu se výpis zkracuje — při dvaceti řádcích by potvrzovací
+    // tlačítko uteklo pod okraj obrazovky a nebylo by na co klepnout.
+    const MAX = 12;
     const seznam = dopsane
+      .slice(0, MAX)
       .map((r) => `\u2022 ${r.entry_date} — ${r.quantity}× ${r.package_label ?? ''} ${r.beer_name ?? ''}`)
-      .join('\n');
+      .join('\n')
+      + (dopsane.length > MAX ? `\n\u2022 … a dalších ${dopsane.length - MAX}` : '');
     const ok = await potvrd(
       `Smazat ${dopsane.length} záznamů, které appka dopsala sama?\n\n${seznam}\n\n`
       + 'Ze stáčení KEG zmizí nadobro. Objednávek se to netýká — zůstanou, jak jsou.',
@@ -1222,6 +1243,50 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
         )}
       </div>
 
+      {/* 🚨 ZÁZNAMY, KTERÉ APPKA DOPSALA SAMA.
+          Nahoře, červeně a na všech záložkách — předchozí podoba (žlutý pruh
+          uvnitř týdenní tabulky) byla v bloku `hidden md:block`, takže na
+          telefonu nebyla vůbec a na počítači se k ní muselo dorolovat.
+          Majitel: „udělej je nějak výrazněji". */}
+      {dopsaneVse.length > 0 && (
+        <div className="card border-2 border-rose-400 bg-rose-50 p-4 space-y-3">
+          <div className="flex items-start gap-2.5">
+            <AlertTriangle size={22} className="text-rose-600 shrink-0 mt-0.5" />
+            <div className="min-w-0">
+              <h3 className="font-display font-black text-rose-950 text-base sm:text-lg">
+                {dopsaneVse.length} záznamů ve stáčení nikdo nezapsal ({dopsaneKusu} ks)
+              </h3>
+              <p className="text-sm font-bold text-rose-900 mt-1">
+                Založila je appka sama po zaškrtnutí kapky „Stočeno" u objednávky.
+                Tohle už je zrušené — od teď „Stočeno" jen odškrtne položku a do
+                stáčení nezapisuje nic. Staré řádky ale leží v databázi dál a pletou
+                se do skladu.
+              </p>
+            </div>
+          </div>
+
+          <ul className="text-sm font-bold text-rose-900 bg-white/70 rounded border border-rose-200 p-2.5 space-y-1 max-h-60 overflow-y-auto scrollbar-thin">
+            {dopsaneVse.map((r) => (
+              <li key={r.id} className="flex items-center justify-between gap-2">
+                <span className="truncate">{r.beer_name} — {r.package_label}</span>
+                <span className="font-mono shrink-0">
+                  {r.quantity}× · {r.entry_date?.slice(8, 10)}.{r.entry_date?.slice(5, 7)}.
+                </span>
+              </li>
+            ))}
+          </ul>
+
+          <button
+            type="button"
+            className="btn-danger !rounded w-full sm:w-auto !min-h-[48px] text-sm font-black"
+            disabled={uklizim}
+            onClick={() => { void uklidDopsane(dopsaneVse); }}
+          >
+            <Trash2 size={16} /> {uklizim ? 'Mažu…' : `Smazat všech ${dopsaneVse.length} záznamů`}
+          </button>
+        </div>
+      )}
+
       {/* Export Excel a foto/hlas — schválně NEUKOTVENO (viz komentář u sticky lišty výše). */}
       <div className="flex items-center gap-1.5 flex-wrap">
 
@@ -1673,13 +1738,6 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
             const weekPkgIds = new Set(weekRowsAll.map((r) => r.package_id));
             const weekPkgs = packages.filter((p) => weekPkgIds.has(p.id));
 
-            // 🧹 Řádky, které appka do stáčení dopsala sama po zaškrtnutí
-            // kapky „Stočeno" u objednávky. Zakládání je od 18. 9. 2026 zrušené,
-            // ale už vzniklé řádky v databázi leží dál — tohle je způsob, jak
-            // je po týdnech vidět a smazat.
-            const dopsane = dopsaneZaskrtnutim(weekRowsAll);
-            const dopsaneKusu = dopsane.reduce((a, r) => a + Number(r.quantity || 0), 0);
-
             return (
               <div className="card p-4 mb-5 border-2 border-emerald-300/80 bg-white">
                 <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 mb-3 bg-white py-1.5 -mx-4 px-4 rounded-t-2xl">
@@ -1781,34 +1839,6 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                 </div>
 
                 <div className="hidden md:block rounded border border-emerald-300/80 bg-emerald-50/90 overflow-x-auto">
-                  {dopsane.length > 0 && (
-                    <div className="mb-3 rounded border-2 border-amber-300 bg-amber-50 p-3">
-                      <div className="font-display font-black text-amber-950 text-sm">
-                        Tenhle týden appka dopsala {dopsane.length} záznamů ({dopsaneKusu} ks) sama
-                      </div>
-                      <p className="text-udaj font-bold text-amber-900 mt-1">
-                        Vznikly zaškrtnutím kapky „Stočeno" u objednávky. Tohle zakládání je
-                        už zrušené — od teď „Stočeno" jen odškrtne položku a do stáčení
-                        nic nezapisuje. Staré řádky ale leží v databázi dál.
-                      </p>
-                      <ul className="text-udaj font-bold text-amber-900 mt-2 space-y-0.5">
-                        {dopsane.map((r) => (
-                          <li key={r.id}>
-                            {r.entry_date?.slice(8, 10)}.{r.entry_date?.slice(5, 7)}. — {r.quantity}× {r.package_label} {r.beer_name}
-                          </li>
-                        ))}
-                      </ul>
-                      <button
-                        type="button"
-                        className="btn-danger !rounded text-xs font-black mt-2.5"
-                        disabled={uklizim}
-                        onClick={() => { void uklidDopsane(dopsane); }}
-                      >
-                        <Trash2 size={14} /> {uklizim ? 'Mažu…' : `Smazat těchto ${dopsane.length} záznamů`}
-                      </button>
-                    </div>
-                  )}
-
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="border-b border-emerald-300/80 bg-emerald-100/80">
