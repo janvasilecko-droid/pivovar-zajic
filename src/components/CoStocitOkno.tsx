@@ -13,6 +13,7 @@
 //
 // Volba týden/dnes a sbalení okna se pamatuje v telefonu.
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { jeSud } from '../lib/inventoryFix';
 import { CalendarDays, Check, ChevronDown, ChevronRight } from 'lucide-react';
 import { supabase, fetchAllRows, useRealtime, beerBg, beerName } from '../lib/supabase';
 import { businessDateISO } from '../lib/businessDate';
@@ -199,7 +200,9 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
       writeoffsRows: data.writeoffs,
       checkRows: data.checks,
       weekKey,
-      jeCilovyObal: druh === 'sudy' ? (kind) => kind === 'keg' : (kind) => kind !== 'keg',
+      jeCilovyObal: druh === 'sudy'
+        ? (kind, label) => jeSud(kind, label)
+        : (kind, label) => !jeSud(kind, label),
       currentStockMap,
     });
   };
