@@ -52,6 +52,15 @@ export interface WhatsAppIncoming {
   /** Text zprávy, na kterou tahle odpovídá (WhatsApp "reply"/citace), pokud nějaký je. */
   quoted_text?: string | null;
   /**
+   * ❓ Otázky, které měla AI při čtení téhle zprávy.
+   *
+   * Do teď byl model nucený hádat: „2x10" je deset piv, nebo dva sudy 10 l?
+   * Teď může říct, že si není jistý, a zeptá se — obsluha zprávu stejně
+   * kontroluje. Prázdné pole = všechno bylo jasné; `null`/chybí = zpráva se
+   * četla ještě před touhle změnou.
+   */
+  parsed_otazky?: string[] | null;
+  /**
    * Objednávka, kterou tahle odpověď UPRAVUJE („Bez summera", „nakonec 9x30",
    * „plus 3x10 11sv"). Když je vyplněná, `parsed_items` obsahují VÝSLEDNOU
    * podobu celé objednávky po zapracování odpovědi — ne jen obsah odpovědi.
