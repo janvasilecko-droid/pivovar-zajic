@@ -579,6 +579,19 @@ export default function BottlingScreen({
 
     if (plan.druh === 'nic') { setErr(plan.duvod); return; }
 
+    // 🔒 Mění se OBJEDNÁVKA, ne jen plán — takže se appka zeptá a napíše,
+    // co přesně se v ní změní. Pravidlo od majitele (18. 9. 2026): „appka
+    // nesmí přidávat stáčení, objednávky, nebo odepisovat bez jasného povelu."
+    const kam = cilovyDen ? `na ${cilovyDen}` : 'mimo dny (bez termínu)';
+    const kolik = plan.druh === 'cely' ? 'celý řádek' : `${kusu} z ${Number(radek.quantity || 0)}`;
+    const potvrzeno = await potvrd(
+      `Přesunout ${kolik} — ${radek.beer_name ?? beers.find((b: any) => b.id === radek.beer_id)?.name ?? 'pivo'} `
+      + `${packages.find((p: any) => p.id === radek.package_id)?.label ?? ''} — ${kam}?\n\n`
+      + 'Změní to POLOŽKU OBJEDNÁVKY, nejen plán stáčení.',
+      { titulek: 'Upravit objednávku', potvrdit: 'Upravit objednávku' },
+    );
+    if (!potvrzeno) return;
+
     if (plan.druh === 'cely') {
       const { error } = await supabase.from('order_items').update({ delivery_day: plan.delivery_day }).eq('id', plan.id);
       if (error) { setErr(`Přesun se nepodařil: ${error.message}`); return; }

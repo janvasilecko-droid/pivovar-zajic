@@ -24,7 +24,6 @@ import { nactiHotoveUkoly, nastavUkolHotovo, klicUkolu } from '../lib/zavozUkoly
 import type { UkolKlic } from '../lib/zavozUkoly';
 import { IkonaSud } from '../components/ikony';
 import { businessDateISO } from '../lib/businessDate';
-import { zapisStaceniZPolozky, zrusStaceniZPolozky } from '../lib/staceniZPolozky';
 import type { TankKOdectu } from '../lib/tankUZapisu';
 
 // Stahuje se až při otevření — viz komentář u lazy() v Orders.tsx.
@@ -342,14 +341,8 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
     const its = items[o.id] ?? [];
     setItems((m) => ({ ...m, [o.id]: its.map((x) => (x.id === it.id ? { ...x, is_bottled: nove } : x)) }));
 
-    // Stočeno u sudu rovnou založí (nebo při odškrtnutí zruší) skutečný
-    // záznam stáčení — viz lib/staceniZPolozky.ts a stejné místo v
-    // Orders.tsx. Lahve appka nepozná, kolik sudů surového piva se na ně
-    // spotřebovalo, takže tam se dál jen odškrtává, beze změny.
-    const chybaZapisu = nove
-      ? await zapisStaceniZPolozky(it, packages, await nactiAktivniTanky(), businessDateISO())
-      : await zrusStaceniZPolozky(it.id);
-    if (chybaZapisu) chyba(chybaZapisu);
+    // ⛔ „Stočeno" JEN odškrtne položku — do stáčení KEG se nic nezapisuje.
+    // Zrušeno 18. 9. 2026, viz stejné místo v Orders.tsx a lib/staceniZPolozky.ts.
   }
 
   // Toggle all order_items matching a loading-list label (beer_name + package)

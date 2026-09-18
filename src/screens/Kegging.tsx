@@ -20,7 +20,7 @@ import { markPlanSeenAt, type BottlingPlan } from '../lib/bottlingPlans';
 import KeggingDayPlan from '../components/KeggingDayPlan';
 import { AlertTriangle, BarChart3, Beer as BeerIcon, Brush, CalendarDays, Camera, Check, ClipboardList, Minus, Package as PackageIcon, PenLine, Pencil, Play, Plus, RefreshCw, Scroll, Sparkles, Trash2, X } from 'lucide-react';
 import { BeerTileGrid, BeerTilePanel } from '../components/BeerTileGrid';
-import { chyba, potvrd, toastZpet } from '../lib/toast';
+import { chyba, potvrd, toastZpet, uspech } from '../lib/toast';
 import { nejvetsiTank, radkyBezTanku, tankRadku, tankyProPivo } from '../lib/tankUZapisu';
 import { podezreleMnozstvi } from '../lib/kontrolaZadani';
 import { IkonaSud } from '../components/ikony';
@@ -34,6 +34,7 @@ import { zbytekKeKonciTydne } from '../lib/tydenniZbytek';
 import { soucetUlozenehoDnes } from '../lib/jizUlozeno';
 import { jeMesicUzamcen } from '../lib/mesicUzamcen';
 import { puvodZapisu, vlastniPoznamka } from '../lib/puvodZapisu';
+import { dopsaneZaskrtnutim, smazZaznamyStaceni } from '../lib/staceniZPolozky';
 
 // Stahuje se až při otevření — viz komentář u lazy() v Orders.tsx.
 const ImportKeggingFromImage = lazy(() => import('../components/ImportKeggingFromImage').then((m) => ({ default: m.ImportKeggingFromImage })));
@@ -213,6 +214,32 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   // businessDateISO() už používala) ukazovaly plán za jiný týden a
   // "zbývá stočit" se mezi nimi rozešlo (z provozu 15. 9. 2026).
   const [weekKey, setWeekKey] = useState(isoWeekKey(businessDateISO()));
+
+  /**
+   * 🧹 Úklid řádků, které appka do stáčení dopsala sama po zaškrtnutí
+   * kapky „Stočeno" u objednávky. Zakládání je zrušené (18. 9. 2026), ale
+   * už vzniklé řádky leží v databázi dál a majitel je chtěl pryč.
+   *
+   * Mazání je natvrdo a nevrací se — proto se ptá a vyjmenuje, co zmizí.
+   */
+  const [uklizim, setUklizim] = useState(false);
+  async function uklidDopsane(dopsane: typeof rows) {
+    const seznam = dopsane
+      .map((r) => `\u2022 ${r.entry_date} — ${r.quantity}× ${r.package_label ?? ''} ${r.beer_name ?? ''}`)
+      .join('\n');
+    const ok = await potvrd(
+      `Smazat ${dopsane.length} záznamů, které appka dopsala sama?\n\n${seznam}\n\n`
+      + 'Ze stáčení KEG zmizí nadobro. Objednávek se to netýká — zůstanou, jak jsou.',
+      { titulek: 'Smazat dopsané záznamy', potvrdit: `Smazat ${dopsane.length}`, nebezpecne: true },
+    );
+    if (!ok) return;
+    setUklizim(true);
+    const chybaMazani = await smazZaznamyStaceni(dopsane.map((r) => r.id));
+    setUklizim(false);
+    if (chybaMazani) { chyba('Smazání se nepovedlo: ' + chybaMazani); return; }
+    uspech(`Smazáno ${dopsane.length} záznamů.`);
+    load(true);
+  }
   const weekLabel = weekRange(weekKey).label;
 
   // Podle kindu i popisku: sud bez vyplněného `kind` by se jinak v KEGách
@@ -625,6 +652,19 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     }, cilovyDen, kusu, soucasnyDen);
 
     if (plan.druh === 'nic') { setErr(plan.duvod); return; }
+
+    // 🔒 Mění se OBJEDNÁVKA, ne jen plán — takže se appka zeptá a napíše,
+    // co přesně se v ní změní. Pravidlo od majitele (18. 9. 2026): „appka
+    // nesmí přidávat stáčení, objednávky, nebo odepisovat bez jasného povelu."
+    const kam = cilovyDen ? `na ${cilovyDen}` : 'mimo dny (bez termínu)';
+    const kolik = plan.druh === 'cely' ? 'celý řádek' : `${kusu} z ${Number(radek.quantity || 0)}`;
+    const potvrzeno = await potvrd(
+      `Přesunout ${kolik} — ${radek.beer_name ?? beers.find((b: any) => b.id === radek.beer_id)?.name ?? 'pivo'} `
+      + `${packages.find((p: any) => p.id === radek.package_id)?.label ?? ''} — ${kam}?\n\n`
+      + 'Změní to POLOŽKU OBJEDNÁVKY, nejen plán stáčení.',
+      { titulek: 'Upravit objednávku', potvrdit: 'Upravit objednávku' },
+    );
+    if (!potvrzeno) return;
 
     if (plan.druh === 'cely') {
       const { error } = await supabase.from('order_items').update({ delivery_day: plan.delivery_day }).eq('id', plan.id);
@@ -1633,6 +1673,13 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
             const weekPkgIds = new Set(weekRowsAll.map((r) => r.package_id));
             const weekPkgs = packages.filter((p) => weekPkgIds.has(p.id));
 
+            // 🧹 Řádky, které appka do stáčení dopsala sama po zaškrtnutí
+            // kapky „Stočeno" u objednávky. Zakládání je od 18. 9. 2026 zrušené,
+            // ale už vzniklé řádky v databázi leží dál — tohle je způsob, jak
+            // je po týdnech vidět a smazat.
+            const dopsane = dopsaneZaskrtnutim(weekRowsAll);
+            const dopsaneKusu = dopsane.reduce((a, r) => a + Number(r.quantity || 0), 0);
+
             return (
               <div className="card p-4 mb-5 border-2 border-emerald-300/80 bg-white">
                 <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 mb-3 bg-white py-1.5 -mx-4 px-4 rounded-t-2xl">
@@ -1734,6 +1781,34 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                 </div>
 
                 <div className="hidden md:block rounded border border-emerald-300/80 bg-emerald-50/90 overflow-x-auto">
+                  {dopsane.length > 0 && (
+                    <div className="mb-3 rounded border-2 border-amber-300 bg-amber-50 p-3">
+                      <div className="font-display font-black text-amber-950 text-sm">
+                        Tenhle týden appka dopsala {dopsane.length} záznamů ({dopsaneKusu} ks) sama
+                      </div>
+                      <p className="text-udaj font-bold text-amber-900 mt-1">
+                        Vznikly zaškrtnutím kapky „Stočeno" u objednávky. Tohle zakládání je
+                        už zrušené — od teď „Stočeno" jen odškrtne položku a do stáčení
+                        nic nezapisuje. Staré řádky ale leží v databázi dál.
+                      </p>
+                      <ul className="text-udaj font-bold text-amber-900 mt-2 space-y-0.5">
+                        {dopsane.map((r) => (
+                          <li key={r.id}>
+                            {r.entry_date?.slice(8, 10)}.{r.entry_date?.slice(5, 7)}. — {r.quantity}× {r.package_label} {r.beer_name}
+                          </li>
+                        ))}
+                      </ul>
+                      <button
+                        type="button"
+                        className="btn-danger !rounded text-xs font-black mt-2.5"
+                        disabled={uklizim}
+                        onClick={() => { void uklidDopsane(dopsane); }}
+                      >
+                        <Trash2 size={14} /> {uklizim ? 'Mažu…' : `Smazat těchto ${dopsane.length} záznamů`}
+                      </button>
+                    </div>
+                  )}
+
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="border-b border-emerald-300/80 bg-emerald-100/80">
