@@ -1,7 +1,7 @@
 {
  "format": "pivovar-zaloha-manifest",
  "v": 1,
- "datum": "2026-09-17T07:49:50.700Z",
+ "datum": "2026-09-18T07:29:06.300Z",
  "tabulky": {
   "beers": {
    "radku": 13,
@@ -21,7 +21,7 @@
   },
   "profiles": {
    "radku": 2,
-   "sha256": "54f7c3c689ee605d9d58b72c325f449cac723620569f1457d90ce68c192784e8"
+   "sha256": "d58311f44bbc21253d9c3926d49fe2114f238e2873188fa5383a5137bcf15437"
   },
   "allowed_emails": {
    "radku": 2,
@@ -52,12 +52,12 @@
    "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
   },
   "reminders": {
-   "radku": 2,
-   "sha256": "8838eb3c5e4a0294b45ff4012e9ecb129f1580516f9c58820bea4f61bb523210"
+   "radku": 3,
+   "sha256": "285b4e45ca7703b0411bd5858f0dc6dbde00e5d02ae8756e9bf3761a858e0419"
   },
   "calendar_events": {
    "radku": 210,
-   "sha256": "e1aeeb0059416e8d917b49ffdc5505dc78352971383bd8759537f13c0f6a846f"
+   "sha256": "7a8a4bbd3f60ba4760844c12589dc47d6cc3a490ad00fca09bb9304585d04af2"
   },
   "checklisty_hotovo": {
    "radku": 106,
@@ -116,8 +116,8 @@
    "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
   },
   "migrace_aplikovane": {
-   "radku": 31,
-   "sha256": "6791c7ed058278b554859c9c0ded88edfb01581df256f795c753c6305efa5a88"
+   "radku": 33,
+   "sha256": "24bde305bb8143a99b67f7f3f8fb2afc04d7292aa3b17b9e296ce79a09e26a37"
   },
   "tank_uprava_log": {
    "radku": 0,
@@ -241,15 +241,15 @@
   },
   "orders": {
    "radku": 220,
-   "sha256": "1915fc1f97a6518a0f6f604f04b3a64f9c74772c85aee40f6e2a393f469f06f1"
+   "sha256": "8747a34709539da0ce40668d04de1831210eb51d143e4c27f5cecdc5fb49056a"
   },
   "whatsapp_incoming": {
-   "radku": 250,
-   "sha256": "71f5b16370bf83c07e057e38b28ff27cd688896f46d6ca80b2b88579ca21a1a6"
+   "radku": 262,
+   "sha256": "6985b587289af97b87be15b567ce0b624aab479165a70b54091645341f904e5c"
   },
   "whatsapp_prijem_log": {
-   "radku": 147,
-   "sha256": "76e8527b770793055b18ae6eb2bee1e7fb5ccdc0754a2dada94e0329d91267ea"
+   "radku": 159,
+   "sha256": "90c110da731d38258427c90a2b9324dd1d01ec97dcaf327fdc03ffddced68142"
   },
   "order_items": {
    "radku": 656,
@@ -260,8 +260,8 @@
    "sha256": "eb7786a92e83dea91194fa2dcc39a1e439d147d1548d40996ec7398e3ab17179"
   },
   "zavoz_deductions": {
-   "radku": 647,
-   "sha256": "d5e152bf7bbbd2b0476c3b8c2e4e05fb573cb058ef944789e3bd561abe717b5f"
+   "radku": 648,
+   "sha256": "3374db2229d6749602eabd7a897950a1b31e17b8f027201e19f8d51a5d0f0d03"
   },
   "keg_returns": {
    "radku": 0,
