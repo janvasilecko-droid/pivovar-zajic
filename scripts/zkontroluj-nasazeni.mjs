@@ -22,64 +22,11 @@
  * Nikdy nekončí chybou — je to připomínka, ne hlídač. Rozbít kvůli ní build
  * by znamenalo, že ji někdo vypne.
  */
-import { execFileSync } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { KOREN, nactiZaznam, rozhodujiciCommit } from './nasazeni-zaznam.mjs';
 
-const KOREN = new URL('..', import.meta.url).pathname;
 const FUNKCE_DIR = join(KOREN, 'supabase', 'functions');
-const ZAZNAM = join(KOREN, 'supabase', 'nasazeno.json');
-
-/** Commit, který se dané cesty naposledy dotkl (prázdné = nezjištěno). */
-function posledniCommit(cesta) {
-  try {
-    return execFileSync('git', ['log', '-1', '--format=%H', '--', cesta], {
-      cwd: KOREN, encoding: 'utf8',
-    }).trim();
-  } catch {
-    return '';
-  }
-}
-
-function nactiZaznam() {
-  try {
-    return JSON.parse(readFileSync(ZAZNAM, 'utf8'));
-  } catch {
-    return {};
-  }
-}
-
-/**
- * Sdílené soubory, které funkce doopravdy importuje.
- *
- * Záměrně se NEbere „_shared se změnil → všechno je staré": deset ze třinácti
- * funkcí z _shared něco importuje, takže by připomínka po každé drobnosti
- * vypsala deset položek. Seznam, který se vypisuje pokaždé celý, si člověk
- * odvykne číst — a přesně to se stalo s nasazováním. Bere se jen ten soubor,
- * který funkce jmenuje ve svém importu; deploy-function.mjs přibaluje totéž.
- */
-function sdileneSoubory(indexTs) {
-  const zdroj = readFileSync(indexTs, 'utf8');
-  const nalezy = [...zdroj.matchAll(/["']\.\.\/_shared\/([\w.-]+)["']/g)].map((m) => m[1]);
-  return [...new Set(nalezy)];
-}
-
-/** Novější ze dvou commitů podle data (prázdný prohrává). */
-function novejsi(a, b) {
-  if (!a) return b;
-  if (!b) return a;
-  const da = datumCommitu(a);
-  const db = datumCommitu(b);
-  return db > da ? b : a;
-}
-
-function datumCommitu(hash) {
-  try {
-    return execFileSync('git', ['show', '-s', '--format=%cI', hash], { cwd: KOREN, encoding: 'utf8' }).trim();
-  } catch {
-    return '';
-  }
-}
 
 export function nenasazeneFunkce() {
   if (!existsSync(FUNKCE_DIR)) return [];
@@ -88,15 +35,9 @@ export function nenasazeneFunkce() {
   for (const jmeno of readdirSync(FUNKCE_DIR)) {
     const cesta = join(FUNKCE_DIR, jmeno);
     if (jmeno.startsWith('_') || !statSync(cesta).isDirectory()) continue;
-    const indexTs = join(cesta, 'index.ts');
-    if (!existsSync(indexTs)) continue;
-
-    let rozhodujici = posledniCommit(`supabase/functions/${jmeno}`);
-    if (!rozhodujici) continue;
-    for (const soubor of sdileneSoubory(indexTs)) {
-      rozhodujici = novejsi(rozhodujici, posledniCommit(`supabase/functions/_shared/${soubor}`));
-    }
-    if (zaznam[jmeno] !== rozhodujici) out.push({ jmeno, commit: rozhodujici, nasazeno: zaznam[jmeno] ?? null });
+    const commit = rozhodujiciCommit(jmeno);
+    if (!commit) continue;
+    if (zaznam[jmeno] !== commit) out.push({ jmeno, commit, nasazeno: zaznam[jmeno] ?? null });
   }
   return out;
 }
@@ -111,23 +52,21 @@ if (process.argv[1] && process.argv[1].endsWith('zkontroluj-nasazeni.mjs')) {
 
   const muzuTady = existsSync(join(KOREN, '.env'));
   console.log('');
-  console.log('⏰ ČEKÁ NASAZENÍ NA SUPABASE — aplikace se nasadí sama, edge funkce NE.');
+  console.log('\u23f0 TYHLE EDGE FUNKCE NEB\u011a\u017d\u00cd V POSLEDN\u00cd VERZI:');
   console.log('');
   for (const f of cekaji) {
-    console.log(`   • ${f.jmeno}${f.nasazeno ? '' : '   (nasazená verze není zaznamenaná)'}`);
+    console.log(`   \u2022 ${f.jmeno}${f.nasazeno ? '' : '   (nasazen\u00e1 verze nen\u00ed zaznamenan\u00e1)'}`);
   }
   console.log('');
+  console.log('   Normální cestou to jde samo: pushni do mainu a nasazení');
+  console.log('   změněné funkce nahraje (od 18. 9. 2026, kdy je v repozitáři');
+  console.log('   klíč SUPABASE_ACCESS_TOKEN). Tahle hláška znamená, že se to');
+  console.log('   z nějakého důvodu nestalo — mrkni na poslední běh:');
+  console.log('     https://github.com/janvasilecko-droid/pivovar-zajic/actions');
   if (muzuTady) {
-    console.log('   Na tomhle počítači to jde — .env s klíčem tu je. Spusť:');
-    for (const f of cekaji) console.log(`     node scripts/deploy-function.mjs ${f.jmeno}`);
     console.log('');
-    console.log('   Ať se to příště nasazuje samo odkudkoli, vlož ten samý klíč z .env do GitHubu:');
-    console.log('     https://github.com/janvasilecko-droid/pivovar-zajic/settings/secrets/actions/new');
-    console.log('     Name: SUPABASE_ACCESS_TOKEN');
-  } else {
-    console.log('   Tady to nejde — chybí .env s klíčem. Udělej to na počítači, kde .env máš,');
-    console.log('   nebo vlož klíč do GitHubu a bude se to nasazovat samo:');
-    console.log('     https://github.com/janvasilecko-droid/pivovar-zajic/settings/secrets/actions/new');
+    console.log('   Ručně to jde i odsud (.env s klíčem tu je):');
+    for (const f of cekaji) console.log(`     node scripts/deploy-function.mjs ${f.jmeno}`);
   }
   console.log('');
   // Schválně 0: připomínka nesmí rozbít build ani kontroly.

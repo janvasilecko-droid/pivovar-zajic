@@ -81,25 +81,14 @@ console.log(text);
 // tak ležela v mainu dva dny, zatímco v provozu běžela stará (18. 9. 2026).
 // Čte to scripts/zkontroluj-nasazeni.mjs a připomíná, co ještě čeká.
 if (resp.ok) {
+  // Zapsat, která verze teď na Supabase běží — stejný výpočet jako v CI
+  // i v připomínce, jedno místo (scripts/nasazeni-zaznam.mjs).
   try {
-    const { execFileSync } = await import('node:child_process');
-    const { readFileSync: cti, writeFileSync: zapis } = await import('node:fs');
-    const cesta = new URL('../supabase/nasazeno.json', import.meta.url);
-    const zaznam = (() => { try { return JSON.parse(cti(cesta, 'utf8')); } catch { return {}; } })();
-    // Stejný výpočet jako v kontrole: vlastní složka i sdílené soubory,
-    // které funkce doopravdy importuje.
-    const koren = new URL('..', import.meta.url).pathname;
-    const commit = (c) => execFileSync('git', ['log', '-1', '--format=%H', '--', c], { cwd: koren, encoding: 'utf8' }).trim();
-    const kdy = (h) => execFileSync('git', ['show', '-s', '--format=%cI', h], { cwd: koren, encoding: 'utf8' }).trim();
-    let vysledek = commit(`supabase/functions/${slug}`);
-    for (const [, soubor] of code.matchAll(/["']\.\.\/_shared\/([\w.-]+)["']/g)) {
-      const h = commit(`supabase/functions/_shared/${soubor}`);
-      if (h && (!vysledek || kdy(h) > kdy(vysledek))) vysledek = h;
+    const { zaznamenejNasazeni } = await import('./nasazeni-zaznam.mjs');
+    if (zaznamenejNasazeni([slug]).length > 0) {
+      console.log(`Zapsáno do supabase/nasazeno.json: ${slug}`);
+      console.log('Nezapomeň ten soubor commitnout, ať to ví i druhý počítač.');
     }
-    zaznam[slug] = vysledek;
-    zapis(cesta, JSON.stringify(zaznam, null, 2) + '\n');
-    console.log(`Zapsáno do supabase/nasazeno.json: ${slug} = ${vysledek.slice(0, 8)}`);
-    console.log('Nezapomeň ten soubor commitnout, ať to ví i druhý počítač.');
   } catch (e) {
     console.warn('Nepodařilo se zapsat supabase/nasazeno.json:', e.message);
   }
