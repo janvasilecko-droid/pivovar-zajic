@@ -7,6 +7,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { zaznamDorovnani, zaznamKontroly, type TydenniRadek } from './tydenniInventura';
+import { zaznamyDorovnaniVraceni } from './vraceniZObjednavky';
 
 /** Sloupce z bloku Insert dané tabulky ve vygenerovaných typech. */
 function sloupceInsert(tabulka: string): string[] {
@@ -35,5 +36,15 @@ describe('zápisy odpovídají schématu databáze', () => {
   it('záznam o týdenní kontrole (tydenni_inventura)', () => {
     const sloupce = sloupceInsert('tydenni_inventura');
     expect(Object.keys(zaznamKontroly(radek, obdobi, null)).filter((k) => !sloupce.includes(k))).toEqual([]);
+  });
+
+  it('vrácení z objednávky (inventory_adjustments)', () => {
+    const sloupce = sloupceInsert('inventory_adjustments');
+    const [radekVraceni] = zaznamyDorovnaniVraceni(
+      [{ beer_id: 'b', beer_name: 'Ležák', package_id: 'p', package_label: 'KEG 50l', pocet: 2 }],
+      '2026-09-18',
+    );
+    expect(Object.keys(radekVraceni).filter((k) => !sloupce.includes(k))).toEqual([]);
+    expect(radekVraceni.reason).toMatch(/Vráceno z objednávky/);
   });
 });
