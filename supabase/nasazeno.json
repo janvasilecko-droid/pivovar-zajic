@@ -5,12 +5,12 @@
   "count-bottles": "77b97203aa14c9fb",
   "fix-order-dates": "77618eba98620162",
   "manage-users": "a1d0df2079f385e6",
-  "parse-order-image": "e17bb579b3df4313",
-  "parse-order-text": "328b11e566ed2796",
+  "parse-order-image": "bada5aea34d2497f",
+  "parse-order-text": "908594071fa547f8",
   "posli-push": "53627b732efb2fb9",
   "pust-migraci": "d8a6ff284352a331",
   "transcribe-audio": "f9ac946163e10725",
   "whatsapp-send-order": "1c49bcca1a4bd4c6",
   "whatsapp-webhook": "0b195cf4e6e03806",
-  "whatsapp-auto-parse": "fb42f4391899834b"
+  "whatsapp-auto-parse": "34fb5bc7eeaa0476"
 }
