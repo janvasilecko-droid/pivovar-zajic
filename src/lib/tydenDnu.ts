@@ -59,3 +59,22 @@ export function posunTyden(iso: string, tydnu: number): string {
   d.setUTCDate(d.getUTCDate() + tydnu * 7);
   return d.toISOString().slice(0, 10);
 }
+
+/**
+ * Dny k výběru v přehledu: pondělí až pátek.
+ *
+ * Zadání z 19. 9. 2026: „so, ne nemusíš." V pivovaru se o víkendu nestáčí,
+ * takže dvě tlačítka navíc jen zabírala místo.
+ *
+ * ⚠️ VÝJIMKA: když zvolený den NA VÍKEND padne (typicky proto, že je dnes
+ * sobota a přehled se otevřel na dnešku), zůstane v řadě i on. Jinak by
+ * nesvítilo žádné tlačítko, seznam by ukazoval sobotní data a nebylo by
+ * poznat proč — a zpátky na pátek by se nedalo doklikat.
+ *
+ * Víkendové záznamy se tím neztrácejí: v přehledu za Týden a za Měsíc jsou
+ * vidět dál, protože ty berou celý týden včetně soboty a neděle.
+ */
+export function dnyProVyber(iso: string): DenTydne[] {
+  const vsechny = dnyTydne(iso);
+  return vsechny.filter((d) => !d.vikend || d.iso === iso);
+}
