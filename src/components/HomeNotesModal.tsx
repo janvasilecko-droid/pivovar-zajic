@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Modal } from './ui';
 import { Plus, Bell, BellRing, Check, Trash2, StickyNote, LayoutGrid, AlertTriangle, Users } from 'lucide-react';
 import { getHomeNotes, addHomeNote, toggleHomeNote, toggleHomeNoteImportant, deleteHomeNote, clearCompletedNotes, HOME_NOTES_CHANGED_EVENT, type HomeNote } from '../lib/homeNotes';
@@ -60,6 +60,24 @@ export function HomeNotesModal({ isOpen, onClose }: { isOpen: boolean; onClose: 
   async function nactiUpozorneni() { setUpozorneni(await fetchReminders()); }
   useEffect(() => { if (isOpen) void nactiUpozorneni(); }, [isOpen]);
   useRealtime(['reminders'], () => { void nactiUpozorneni(); });
+
+  /**
+   * Upozornění, která k žádné poznámce nepatří — typicky ta starší, co vznikla
+   * ještě na zrušené obrazovce „Upozornění". Bez tohohle seznamu by z aplikace
+   * zmizela úplně, i když pořád platí a mají zazvonit.
+   */
+  const upozorneniBezPoznamky = useMemo(() => {
+    const zabrane = new Set<string>();
+    for (const n of notes) {
+      const u = upozorneniKPoznamce({ title: null, body: n.text }, upozorneni);
+      if (u) zabrane.add(u.id);
+    }
+    for (const v of sdilene) {
+      const u = upozorneniKPoznamce({ title: null, body: v.text }, upozorneni);
+      if (u) zabrane.add(u.id);
+    }
+    return upozorneni.filter((u) => !zabrane.has(u.id) && !u.is_completed);
+  }, [notes, sdilene, upozorneni]);
 
   /** Upozornění, které u téhle poznámky visí — nebo null. */
   function upozorneniK(note: HomeNote): ReminderItem | null {
@@ -447,6 +465,26 @@ export function HomeNotesModal({ isOpen, onClose }: { isOpen: boolean; onClose: 
             </>
           )}
         </div>
+
+        {/* 🔔 Upozornění, která k žádné poznámce nepatří — starší, z doby, kdy
+            měla vlastní obrazovku. Bez toho by z aplikace zmizela úplně. */}
+        {upozorneniBezPoznamky.length > 0 && (
+          <div className="pt-3 border-t border-neutral-200 space-y-2">
+            <div className="flex items-center gap-1.5 text-udaj font-black uppercase tracking-wider text-amber-800">
+              <Bell size={14} /> Upozornění bez poznámky ({upozorneniBezPoznamky.length})
+            </div>
+            {upozorneniBezPoznamky.map((u) => (
+              <UpozorneniPruh
+                key={u.id}
+                upozorneni={u}
+                jaEmail={user?.email || ''}
+                odkliknout={(id) => void odkliknout(id)}
+                smazat={(id) => void zrusUpozorneni(id)}
+                samostatne
+              />
+            ))}
+          </div>
+        )}
       </div>
     </Modal>
   );
