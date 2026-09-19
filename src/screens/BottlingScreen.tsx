@@ -2053,28 +2053,27 @@ export default function BottlingScreen({
                       </div>
 
                       {sarze.map((s) => (
-                        <div key={s.klic} className="rounded-lg bg-white/95 border border-black/10 p-2 space-y-2">
-                          {/* 🛢️ SUD — vždycky vidět, i když zatím žádný zapsaný není. */}
-                          <div className="space-y-1.5">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-udaj font-black uppercase tracking-wider text-amber-700">Stočeno ze sudu</span>
-                              {s.nositelZdroje && (
-                                <span className="ml-auto flex items-center gap-1">
-                                  <button type="button" onClick={() => incrementKegs(s.nositelZdroje!.id, -1)} className="w-8 h-8 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-800 font-black text-sm transition tap" aria-label="Ubrat sud">−</button>
-                                  <span className="text-sm font-black text-amber-900 tabular-nums">{s.sudu} <IkonaSud className="ikona-text" /></span>
-                                  <button type="button" onClick={() => incrementKegs(s.nositelZdroje!.id, 1)} className="w-8 h-8 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-900 font-black text-sm transition tap" aria-label="Přidat sud">+</button>
-                                </span>
-                              )}
-                            </div>
-                            {s.nositelZdroje ? (
+                        <div key={s.klic} className="rounded-lg bg-white/95 border border-black/10 border-l-4 border-l-amber-500 p-2 space-y-2">
+                          {/* 🛢️ Šarži nedrží pohromadě nadpis, ale ČÁRA PO STRANĚ (border-l).
+                              Z provozu 19. 9. 2026: „proč je tam „stočeno ze sudu“, má tam
+                              být sud a počet, jen nějak označ třeba čarou na jedné straně."
+                              Nadpis zabral celý řádek a říkal to, co je z obsahu vidět.
+
+                              Sud a počet jsou vždycky vidět. Když žádný zapsaný není,
+                              svítí mezi velikostmi „bez sudu", takže to není prázdné místo. */}
+                          <div className="flex items-start gap-2 flex-wrap">
+                            <div className="min-w-0">
                               <VyberZdrojovehoSudu
                                 sudy={kegPackages}
                                 vybrany={s.zdrojPackageId ?? ''}
                                 zmen={(id) => updateKegPackage(s.nositelZdroje!.id, id)}
                               />
-                            ) : (
-                              <div className="text-udaj font-bold text-neutral-500">Zdroj není zapsaný.</div>
-                            )}
+                            </div>
+                            <span className="ml-auto flex items-center gap-1 shrink-0">
+                              <button type="button" onClick={() => incrementKegs(s.nositelZdroje!.id, -1)} className="w-9 h-9 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-800 font-black text-base transition tap" aria-label="Ubrat sud">−</button>
+                              <span className="text-base font-black text-amber-900 tabular-nums">{s.sudu} <IkonaSud className="ikona-text" /></span>
+                              <button type="button" onClick={() => incrementKegs(s.nositelZdroje!.id, 1)} className="w-9 h-9 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-900 font-black text-base transition tap" aria-label="Přidat sud">+</button>
+                            </span>
                           </div>
 
                           {/* … a co se z něj stočilo. */}
