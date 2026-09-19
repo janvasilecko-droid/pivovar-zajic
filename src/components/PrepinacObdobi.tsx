@@ -1,6 +1,7 @@
 import { Calendar } from 'lucide-react';
 import { posunMesic, businessDateISO } from '../lib/businessDate';
 import { isoWeekKey, weekRange, shiftWeek } from './WeeklyOrderSummaryCard';
+import { dnyTydne, posunTyden } from '../lib/tydenDnu';
 
 /**
  * 📅 Přepínač období: Den / Týden / Měsíc + šipky na posun.
@@ -40,13 +41,6 @@ export function PrepinacObdobi({
     { klic: 'month', popis: 'Měsíc' },
   ];
 
-  /** Posun dne o „delta" dní. Přes UTC, ať nezáleží na zóně zařízení. */
-  const posunDen = (d: string, delta: number) => {
-    const t = new Date(d + 'T00:00:00Z');
-    t.setUTCDate(t.getUTCDate() + delta);
-    return t.toISOString().slice(0, 10);
-  };
-
   // `weekRange` popisek už umí — formátovat ho tu podruhé by znamenalo, že
   // se týden píše na dvou místech dvěma způsoby.
   const popisTydne = weekRange(tyden).label;
@@ -73,20 +67,41 @@ export function PrepinacObdobi({
           className="btn-secondary w-11 !px-0 shrink-0"
           aria-label="Předchozí období"
           onClick={() => {
-            if (obdobi === 'day') onDen(posunDen(den, -1));
+            if (obdobi === 'day') onDen(posunTyden(den, -1));
             else if (obdobi === 'week') onTyden(shiftWeek(tyden, -1));
             else onMesic(posunMesic(mesic, -1));
           }}
         >‹</button>
 
+        {/* 📅 DNY JAKO TLAČÍTKA, ne kalendář. Z provozu 19. 9. 2026: „místo
+            den tam dej tlačítka po, út, st, čt, pá jako dny, a kliknutím na den
+            se uvidí, jaký den se co stáčelo." Výběr přes systémový kalendář je na
+            telefonu pět klepnutí a člověk u toho musí vědět, kolikátého bylo
+            v úterý — přitom se stáčení plánuje po dnech v týdnu.
+            Šipky proto listují po TÝDNECH: řádek dnů zůstane celý. */}
         {obdobi === 'day' && (
-          <input
-            type="date"
-            value={den}
-            onChange={(e) => onDen(e.target.value)}
-            aria-label="Zvolený den"
-            className="input text-xs font-bold !px-2 !py-1"
-          />
+          <div className="flex items-center gap-0.5" role="group" aria-label="Den v týdnu">
+            {dnyTydne(den).map((d) => {
+              const vybrany = d.iso === den;
+              return (
+                <button
+                  key={d.iso}
+                  type="button"
+                  onClick={() => onDen(d.iso)}
+                  aria-pressed={vybrany}
+                  aria-label={`${d.zkratka} ${d.cislo}.`}
+                  // Role místo vlastní barvy (viz docs/jednotny-styl.md).
+                  // Víkend se neodlišuje BARVOU: šedá na světlém měla kontrast
+                  // 2,45 : 1 při mezi 4,5 — našel to scripts/zkontroluj-kontrast.mjs.
+                  // Mírnější váhu proto nese jen číslo dne.
+                  className={`${vybrany ? 'btn-amber' : 'btn-ghost'} !w-10 !px-0 !flex-col !gap-0`}
+                >
+                  <span className="text-[11px] uppercase leading-none">{d.zkratka}</span>
+                  <span className={`text-udaj tabular-nums leading-none ${d.vikend ? 'opacity-60' : 'opacity-80'}`}>{d.cislo}.</span>
+                </button>
+              );
+            })}
+          </div>
         )}
         {obdobi === 'week' && (
           <span className="chip badge-slate whitespace-nowrap">{popisTydne}</span>
@@ -106,7 +121,7 @@ export function PrepinacObdobi({
           className="btn-secondary w-11 !px-0 shrink-0"
           aria-label="Další období"
           onClick={() => {
-            if (obdobi === 'day') onDen(posunDen(den, 1));
+            if (obdobi === 'day') onDen(posunTyden(den, 1));
             else if (obdobi === 'week') onTyden(shiftWeek(tyden, 1));
             else onMesic(posunMesic(mesic, 1));
           }}
