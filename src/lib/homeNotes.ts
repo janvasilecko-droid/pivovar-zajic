@@ -81,13 +81,20 @@ export function getHomeNotes(): HomeNote[] {
   }
 }
 
-export function saveHomeNotes(notes: HomeNote[]) {
+/**
+ * @param zCloudu Hodnota přišla ze serveru — neposílat ji rovnou zpátky.
+ *   Bez toho by každé převzetí z cloudu spustilo zápis do cloudu, ten by se
+ *   vrátil jako další realtime změna a dokola. Navíc by takový zápis pořád
+ *   dokola obnovoval ochranu čerstvosti (viz cloudSmiPrepsat v profileSync).
+ */
+export function saveHomeNotes(notes: HomeNote[], zCloudu = false) {
   try {
     uloz(STORAGE_KEY, JSON.stringify(notes));
     window.dispatchEvent(new CustomEvent(HOME_NOTES_CHANGED_EVENT, { detail: notes }));
   } catch (e) {
     zalogujANahlas('Chyba při ukládání poznámek', e);
   }
+  if (zCloudu) return;
   // Cloud sync — viz lib/profileSync.ts (sériový zápis, slučuje souběžné
   // změny místo dvou zápisů, co si mohly navzájem přepsat čerstvá data).
   queueHomeLayoutPatch({ notes });
