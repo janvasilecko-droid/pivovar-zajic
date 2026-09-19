@@ -1,7 +1,7 @@
 // Určení odběratele ze zprávy — viz hlavička place-match.ts, proč je tohle
 // vytažené z whatsapp-auto-parse/index.ts do samostatného souboru.
 import { describe, it, expect } from 'vitest';
-import { normPlaceName, isPlaceGrounded, matchPlaceSafely, matchOwnOrderPlace, matchAgainstCatalog, resolvePlace, stripSenderName, wantsOwnOrder } from './place-match';
+import { normPlaceName, isPlaceGrounded, matchPlaceSafely, matchOwnOrderPlace, matchAgainstCatalog, resolvePlace, odberatelZHistorie, stripSenderName, wantsOwnOrder } from './place-match';
 
 const PLACES = [
   { id: 'p-udubu', name: 'U Dubu' },
@@ -207,5 +207,56 @@ describe('matchOwnOrderPlace', () => {
   it('prázdné jméno odesílatele nespadne', () => {
     expect(matchOwnOrderPlace(null, PLACES, NO_ALIASES)).toEqual({ id: null, name: null });
     expect(matchOwnOrderPlace(undefined, PLACES, NO_ALIASES)).toEqual({ id: null, name: null });
+  });
+});
+
+// ── Odběratel z historie objednávek odesílatele ───────────────────────────
+// Zadání z 19. 9. 2026: „pořádně číst odběratele ve zprávách i pokud není již
+// uložený, aby ho aplikace dokázala vždy najít." Jméno z historie v textu
+// zprávy z podstaty věci není, takže by ho `matchPlaceSafely` zahodilo —
+// ukotvením je tady seznam odběratelů, pro které odesílatel už objednával.
+describe('odberatelZHistorie', () => {
+  it('jméno z historie najde v katalogu, i když v textu zprávy vůbec není', () => {
+    expect(odberatelZHistorie(['Seeberg'], ['Seeberg', 'U Dubu'], PLACES, NO_ALIASES))
+      .toEqual({ id: 'p-seeberg', name: 'Seeberg' });
+  });
+
+  it('co v historii odesílatele není, se zahodí — radši neznámý než špatný zákazník', () => {
+    expect(odberatelZHistorie(['Malešice'], ['Seeberg'], PLACES, NO_ALIASES))
+      .toEqual({ id: null, name: null });
+  });
+
+  it('bez historie nevrací nic', () => {
+    expect(odberatelZHistorie(['Seeberg'], [], PLACES, NO_ALIASES)).toEqual({ id: null, name: null });
+  });
+
+  it('stačí obsažení: „Růžku" proti „Restaurace Na Růžku" z historie', () => {
+    expect(odberatelZHistorie(['Růžku'], ['Restaurace Na Růžku'], PLACES, NO_ALIASES))
+      .toEqual({ id: 'p-ruzek', name: 'Restaurace Na Růžku' });
+  });
+
+  it('odběratel z historie, který už v katalogu není, se nabídne aspoň jako nezávazný název', () => {
+    expect(odberatelZHistorie(['Vildštejn'], ['Vildštejn'], PLACES, NO_ALIASES))
+      .toEqual({ id: null, name: 'Vildštejn' });
+  });
+
+  it('bere první kandidát, který v historii sedí', () => {
+    expect(odberatelZHistorie([null, 'Malešice', 'Seeberg'], ['Seeberg'], PLACES, NO_ALIASES))
+      .toEqual({ id: 'p-seeberg', name: 'Seeberg' });
+  });
+});
+
+// ── Ukotvení o citovanou zprávu ───────────────────────────────────────────
+// U ODPOVĚDI je odběratel napsaný v citované zprávě, ne v odpovědi samé
+// (z provozu 17. 9. 2026). whatsapp-auto-parse proto do `resolvePlace`
+// posílá text zprávy + citaci.
+describe('resolvePlace s textem včetně citace', () => {
+  it('odběratele z citované zprávy považuje za ukotveného', () => {
+    const odpoved = '60x0,5l. Grep a 40x0,5l. Citrón';
+    const sCitaci = `${odpoved}\nSeeberg: 4x30 svetla`;
+    expect(resolvePlace(['Seeberg'], [], odpoved, PLACES, NO_ALIASES))
+      .toEqual({ id: null, name: null });
+    expect(resolvePlace(['Seeberg'], [], sCitaci, PLACES, NO_ALIASES))
+      .toEqual({ id: 'p-seeberg', name: 'Seeberg' });
   });
 });

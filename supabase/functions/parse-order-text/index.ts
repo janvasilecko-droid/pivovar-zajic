@@ -312,6 +312,13 @@ Deno.serve(async (req: Request) => {
     const amendOrder = body.amendOrder as
       | { place_name: string | null; items: { beer_name: string | null; package_label: string | null; quantity: number }[] }
       | undefined;
+    // 🧠 Historie objednávek (sestavuje whatsapp-auto-parse, viz
+    // _shared/historie-objednavek.ts). Prázdné = není co říct; prázdný nadpis
+    // v promptu jen ubere pozornost od pravidel, která něco znamenají.
+    const historieSection = typeof body.historie === "string" && body.historie.trim()
+      ? body.historie
+      : "";
+
     const amendSection = amendOrder
       ? `
 
@@ -599,6 +606,7 @@ PRAVIDLA:
 - place_name se dědí odshora dolů — nikdy nenechávej null jen proto, že řádek sám o sobě jméno neobsahuje, pokud ho lze odvodit z PŘEDCHOZÍCH ŘÁDKŮ zprávy. Záhlaví zprávy / jméno odesílatele se pro odběratele NEPOUŽÍVÁ (kromě výjimky "pro mě"/"mi"/"mně"/"pro mne", kdy je odběratelem odesílatel).
 - OBECNÉ PRAVIDLO PRO CELÝ VÝSTUP: u beer_name i place_name VŽDY nejprve zkus najít shodu v existujících datech (KATALOG PIV / NAUČENÉ ZKRATKY / ZNÁMÍ ODBĚRATELÉ) — i při nepřesné, fonetické nebo překlepové shodě. Teprve když opravdu nic z existujících dat neodpovídá, ber to jako nové/neznámé (u piva vrať null, u odběratele vrať text tak, jak jsi ho přečetl). Nikdy nepřepisuj/nenahrazuj existující známou položku vlastním vymyšleným textem, pokud shoda s katalogem/seznamem je rozumně možná.
 
+${historieSection}
 ${amendSection}
 
 Vrať ČISTĚ JSON (bez markdown, bez \`\`\`), přesně v tomto formátu, a nic jiného:

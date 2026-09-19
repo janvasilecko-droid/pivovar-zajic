@@ -201,6 +201,51 @@ export function matchOwnOrderPlace(
   return matchAgainstCatalog(senderName, places, placeAliases);
 }
 
+/**
+ * Odběratel z HISTORIE objednávek odesílatele — poslední nápověda, když ho
+ * nenajdeme ani v textu, ani v citované zprávě.
+ *
+ * Zadání z 19. 9. 2026: „nauč aplikaci na základě i předchozích objednávek
+ * pořádně číst kontexty a odpovědi na zprávy." Posel posílá objednávky pořád
+ * pro tytéž hospody, takže když v textu odběratel není, historie ho skoro
+ * vždycky určí — prompt na to AI instruuje (ODBERATEL_A_HISTORIE v
+ * ../_shared/order-rules.ts).
+ *
+ * ⚠️ Proč to nestačí nechat na AI: `matchPlaceSafely` výš vyžaduje, aby jméno
+ * bylo UKOTVENÉ v textu zprávy — jméno z historie tam z podstaty věci není a
+ * spadlo by pod stůl. Ukotvením je tady místo textu SEZNAM ODBĚRATELŬ, pro
+ * které tenhle odesílatel už objednával: kandidát musí být jeden z nich, jinak
+ * se zahodí. AI si tak nemůže „vzpomenout" na někoho, kdo v historii není —
+ * objednávka odeslaná špatnému zákazníkovi je horší než neznámý odběratel.
+ */
+export function odberatelZHistorie(
+  candidates: (string | null | undefined)[],
+  historieOdberatelu: string[],
+  places: { id: string; name: string }[],
+  placeAliases: { wrong_name: string; correct_name: string }[]
+): ResolvedPlace {
+  const zHistorie = historieOdberatelu.map((h) => normPlaceName(h)).filter(Boolean);
+  if (zHistorie.length === 0) return { id: null, name: null };
+
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    const c = normPlaceName(candidate);
+    if (!c || c.length < 3) continue;
+    // Ukotvení v historii: přesná shoda, nebo obsažení (AI vrátí „Růžku"
+    // a v historii je „Restaurace Na Růžku"). Fuzzy tady schválně není —
+    // nápověda bez opory v textu musí být přísnější než ta s ní.
+    const sedi = zHistorie.find((h) => h === c || (c.length >= 4 && h.includes(c)) || (h.length >= 4 && c.includes(h)));
+    if (!sedi) continue;
+    const vKatalogu = matchAgainstCatalog(candidate, places, placeAliases);
+    if (vKatalogu.id) return vKatalogu;
+    // V historii je, v katalogu už ne (odběratel byl mezitím smazaný) — aspoň
+    // nezávazný název, ať obsluha nemusí zprávu otvírat znovu.
+    const trimmed = candidate.trim();
+    if (trimmed && trimmed.length <= MAX_FREEFORM_PLACE_LEN) return { id: null, name: trimmed };
+  }
+  return { id: null, name: null };
+}
+
 /** Nejdelší jméno, které se ještě bere jako věrohodný název odběratele. */
 const MAX_FREEFORM_PLACE_LEN = 60;
 
