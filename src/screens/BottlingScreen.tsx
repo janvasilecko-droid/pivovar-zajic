@@ -12,6 +12,7 @@ import { BottlingPlanBottler } from '../components/BottlingPlanBottler';
 import { isLastWeekOfMonth, getMonthKey, writeMonthlyCleanupStage, isMonthlyLineDone, markMonthlyLineDone } from '../lib/monthlyCleanup';
 import { businessDateISO } from '../lib/businessDate';
 import { vychoziZdrojovySud } from '../lib/zdrojovySud';
+import VyberZdrojovehoSudu from '../components/VyberZdrojovehoSudu';
 import { autoLogBottleSanitationFromChecklist } from '../lib/bottleSanitation';
 import { requestOrdersItemFilter } from '../lib/ordersFilter';
 import { VoiceRecorder } from '../components/VoiceRecorder';
@@ -1602,16 +1603,13 @@ export default function BottlingScreen({
               {/* KEG zdroj — odečet sudů */}
               <div className="rounded border border-sky-200 bg-sky-50/70 p-2.5 space-y-1.5">
                 <div className="text-udaj font-black uppercase tracking-wider text-sky-900"><IkonaSud className="ikona-text" /> Zdrojový KEG (odečet sudů)</div>
-                <select
-                  className="input text-xs font-bold w-full p-1.5 rounded border border-sky-300 bg-white"
-                  value={tileDraft.kegPkgId}
-                  onChange={(e) => setTile('kegPkgId', e.target.value)}
-                >
-                  <option value="">— žádný —</option>
-                  {kegPackages.map((p) => (
-                    <option key={p.id} value={p.id}>KEG {p.volume_l}L</option>
-                  ))}
-                </select>
+                {/* Vyklikat, ne rozklikávat — viz components/VyberZdrojovehoSudu.tsx.
+                    Rozbalovátko neukázalo, co je vybrané, dokud se neotevřelo. */}
+                <VyberZdrojovehoSudu
+                  sudy={kegPackages}
+                  vybrany={tileDraft.kegPkgId}
+                  zmen={(id) => setTile('kegPkgId', id)}
+                />
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-udaj font-extrabold uppercase text-neutral-500">Počet sudů</span>
                   <div className="flex items-center gap-1">
