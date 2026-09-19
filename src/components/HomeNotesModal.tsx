@@ -180,6 +180,24 @@ export function HomeNotesModal({ isOpen, onClose }: { isOpen: boolean; onClose: 
               }
             }}
           />
+          {/* 🔔 Upozornění — nepovinné, ale na VLASTNÍM ŘÁDKU hned pod textem.
+              Dřív to byl třetí přepínač v řadě s barvami, dlaždicí a „Poslat všem"
+              — na telefonu se ta řada zalomila a zanikl v ní (z provozu 19. 9.
+              2026: „nevidím, že by v poznámkách šlo nastavit upozornění"). */}
+          <label className={`flex items-center gap-2 text-sm font-black cursor-pointer select-none px-2.5 py-2 rounded-lg border-2 transition ${
+            chciUpozorneni ? 'bg-amber-50 border-amber-400 text-amber-900' : 'bg-white border-neutral-200 text-neutral-700 hover:border-amber-300'
+          }`}>
+            <input
+              type="checkbox"
+              checked={chciUpozorneni}
+              onChange={(e) => setChciUpozorneni(e.target.checked)}
+              className="w-5 h-5 shrink-0 accent-amber-500"
+            />
+            <Bell size={16} className="text-amber-500 shrink-0" />
+            <span>Upozornit</span>
+            <span className="text-udaj font-bold text-neutral-400 truncate">— kdy, komu a kde</span>
+          </label>
+
           <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
             <div className="flex items-center gap-1.5">
               {(['yellow', 'blue', 'green', 'rose', 'amber'] as const).map((c) => (
@@ -214,20 +232,6 @@ export function HomeNotesModal({ isOpen, onClose }: { isOpen: boolean; onClose: 
               />
               <Users size={14} />
               <span>Poslat všem</span>
-            </label>
-            {/* 🔔 Upozornění — nepovinné. Nastavení se rozbalí až po zaškrtnutí,
-                ať formulář nevypadá složitěji, než je. */}
-            <label className={`inline-flex items-center gap-1.5 text-xs font-bold cursor-pointer select-none px-2 py-1 rounded-lg border transition ${
-              chciUpozorneni ? 'bg-amber-50 border-amber-300 text-amber-800' : 'border-neutral-200 text-neutral-600 hover:bg-neutral-100'
-            }`}>
-              <input
-                type="checkbox"
-                checked={chciUpozorneni}
-                onChange={(e) => setChciUpozorneni(e.target.checked)}
-                className="rounded text-amber-500 focus:ring-amber-400"
-              />
-              <Bell size={14} />
-              <span>Upozornit</span>
             </label>
             <button
               type="submit"
