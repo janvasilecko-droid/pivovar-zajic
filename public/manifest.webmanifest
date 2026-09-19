@@ -12,34 +12,34 @@
   "theme_color": "#090909",
   "categories": ["business", "productivity", "food"],
   "icons": [
-    { "src": "./icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "./icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    { "src": "./icon-192-v2.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icon-512-v2.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./icon-maskable-512-v2.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
   "shortcuts": [
     {
       "name": "Stáčení KEG",
       "short_name": "KEG",
       "url": "./?page=kegging",
-      "icons": [{ "src": "./icon-192.png", "sizes": "192x192" }]
+      "icons": [{ "src": "./icon-192-v2.png", "sizes": "192x192" }]
     },
     {
       "name": "Stáčení lahví",
       "short_name": "Lahve",
       "url": "./?page=bottling",
-      "icons": [{ "src": "./icon-192.png", "sizes": "192x192" }]
+      "icons": [{ "src": "./icon-192-v2.png", "sizes": "192x192" }]
     },
     {
       "name": "Objednávky",
       "short_name": "Objednávky",
       "url": "./?page=orders",
-      "icons": [{ "src": "./icon-192.png", "sizes": "192x192" }]
+      "icons": [{ "src": "./icon-192-v2.png", "sizes": "192x192" }]
     },
     {
       "name": "Rozvoz objednávek",
       "short_name": "Rozvoz",
       "url": "./?page=orders_zavoz",
-      "icons": [{ "src": "./icon-192.png", "sizes": "192x192" }]
+      "icons": [{ "src": "./icon-192-v2.png", "sizes": "192x192" }]
     }
   ],
   "share_target": {

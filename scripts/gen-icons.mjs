@@ -76,9 +76,9 @@ function zapis(cesta, buffer) {
 
 // --- PWA (plocha telefonu, úvodní obrazovka v prohlížeči) ------------------
 console.log('PWA ikony:');
-zapis('public/icon-192.png', await znakNaCtverec(192, 0.84));
-zapis('public/icon-512.png', await znakNaCtverec(512, 0.84));
-zapis('public/icon-maskable-512.png', await znakNaCtverec(512, 0.58));
+zapis('public/icon-192-v2.png', await znakNaCtverec(192, 0.84));
+zapis('public/icon-512-v2.png', await znakNaCtverec(512, 0.84));
+zapis('public/icon-maskable-512-v2.png', await znakNaCtverec(512, 0.58));
 
 // --- Android: ikona aplikace ----------------------------------------------
 // Velikosti podle hustoty displeje. `ic_launcher_foreground` je vrstva

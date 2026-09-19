@@ -16,7 +16,22 @@
     </style>
 
 
+    <!-- 🐰 Úvodní obrazovka.
+         ==========================================================
+         `android:background` (obrázek @drawable/splash) platí na starších
+         Androidech. Android 12 a výš ho IGNORUJE — má vlastní systémovou
+         úvodní obrazovku a když se jí neřekne jinak, vezme si ikonu spouštěče
+         a vykreslí ji na výchozí podklad tématu. Tady se to proto říká
+         naplno: bílý podklad (stejně jako background_color ve webovém
+         manifestu) a ostrý znak z vektoru.
+
+         Z provozu 19. 9. 2026: „v telefonu když tu aplikaci po delší době
+         otevřu, objeví se nejdřív bílé pozadí s rozmazaným logem zajíce
+         v černém obdélníku." -->
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
         <item name="android:background">@drawable/splash</item>
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
     </style>
 </resources>
