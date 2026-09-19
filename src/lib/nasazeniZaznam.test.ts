@@ -41,7 +41,25 @@ describe('uložený záznam sedí s repozitářem', () => {
     expect(Object.keys(zaznam).filter((k) => !k.startsWith('_'))).toHaveLength(13);
   });
 
+  // ⚠️ Jen když právě žádná edge funkce rozpracovaná není. První verze tohohle
+  // testu (18. 9. 2026) to nerozlišovala a spadla po každé úpravě edge funkce —
+  // ještě předtím, než se vůbec bylo co nasadit. Rozpracovaná změna NENÍ
+  // zapomenuté nasazení: záznam aktualizuje až nasazení z mainu (deploy.yml).
+  const rozpracovaneFunkce = (): string => {
+    try {
+      return execFileSync('git', ['status', '--porcelain', '--', 'supabase/functions'], { encoding: 'utf8' }).trim();
+    } catch {
+      return ''; // Bez gitu (třeba v tarballu) se testuje jako dřív.
+    }
+  };
+
   it('kontrola hlásí, že je všechno nasazené', () => {
+    const rozpracovane = rozpracovaneFunkce();
+    if (rozpracovane) {
+      // Než se tohle pushne a nasadí, se záznamem seďíst nemůže.
+      expect(rozpracovane.length).toBeGreaterThan(0);
+      return;
+    }
     // Když tenhle test spadne, je v mainu funkce, která se nenasadila —
     // což je právě to, co má připomínka hlásit. Skript nikdy nekončí chybou,
     // takže se čte jeho výpis.

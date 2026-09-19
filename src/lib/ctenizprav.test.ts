@@ -83,6 +83,65 @@ describe('pravidla jsou pořád jen na jednom místě', () => {
   });
 
   it('nový blok je součástí sdílených pravidel', () => {
-    expect(PRAVIDLA).toMatch(/\$\{CISLA_STUPEN_VS_OBJEM\}\$\{VZORY_ZAPISU\}\$\{KONTEXT_A_ODPOVEDI\}\$\{KDYZ_NEVIS\}/);
+    expect(PRAVIDLA).toMatch(
+      /\$\{CISLA_STUPEN_VS_OBJEM\}\$\{VZORY_ZAPISU\}\$\{KONTEXT_A_ODPOVEDI\}\$\{ODBERATEL_A_HISTORIE\}\$\{KDYZ_NEVIS\}/,
+    );
+  });
+});
+
+// ── Odběratel a historie ─────────────────────────────────────────────
+// Zadání z 19. 9. 2026: „nauč aplikaci na základě i předchozích objednávek
+// pořádně číst kontexty a odpovědi na zprávy, pořádně číst odběratele ve
+// zprávách i pokud není již uložený, aby ho aplikace dokázala vždy najít."
+describe('odběratel, který ještě není uložený', () => {
+  it('seznam odběratelů je nápověda, ne číselník', () => {
+    expect(PRAVIDLA).toContain('NE číselník povolených hodnot');
+  });
+
+  it('neznámé jméno z textu není důvod k null', () => {
+    expect(PRAVIDLA).toContain('NENÍ to důvod k null');
+  });
+
+  it('nikdy nevybírat ze seznamu někoho, kdo ve zprávě není', () => {
+    expect(PRAVIDLA).toMatch(/Nikdy nevybírej ze seznamu/);
+  });
+
+  it('jméno se očišťuje od předložky, ne ohýbá do 1. pádu na sílu', () => {
+    expect(PRAVIDLA).toContain('na Vildštejn');
+  });
+});
+
+describe('historie objednávek jako kontext', () => {
+  const HISTORIE = readFileSync('supabase/functions/_shared/historie-objednavek.ts', 'utf8');
+
+  it('historie rozhoduje mezi výklady, položky nedoplňuje', () => {
+    expect(PRAVIDLA).toContain('nikdy z ní neber položky');
+    expect(HISTORIE).toContain('NENÍ k doplňování položek');
+  });
+
+  it('whatsapp-auto-parse historii sestaví a pošle do promptu', () => {
+    const autoParse = readFileSync('supabase/functions/whatsapp-auto-parse/index.ts', 'utf8');
+    expect(autoParse).toMatch(/blokHistorie\(/);
+    expect(autoParse).toMatch(/historie: historieText/);
+    // Selhání dotazu nesmí shodit čtení zprávy — bez historie se čte jako dřív.
+    expect(autoParse).toMatch(/catch[\s\S]{0,120}Historie objednávek se nenačetla/);
+  });
+
+  it('parse-order-text blok vloží do promptu', () => {
+    const prompt = readFileSync('supabase/functions/parse-order-text/index.ts', 'utf8');
+    expect(prompt).toMatch(/historieSection/);
+  });
+
+  it('jméno z historie musí být v historii odesílatele opravdu obsažené', () => {
+    const autoParse = readFileSync('supabase/functions/whatsapp-auto-parse/index.ts', 'utf8');
+    expect(autoParse).toMatch(/odberatelZHistorie\(/);
+    // Až jako poslední — text i citace mají přednost.
+    expect(autoParse.lastIndexOf('odberatelZHistorie(')).toBeGreaterThan(autoParse.indexOf('quotedPlaceName;'));
+  });
+
+  it('ukotvení jména smí vycházet i z citované zprávy', () => {
+    const autoParse = readFileSync('supabase/functions/whatsapp-auto-parse/index.ts', 'utf8');
+    expect(autoParse).toMatch(/resolvePlace\(matchCandidates, freeformCandidates, ukotveniText/);
+    expect(autoParse).toMatch(/message\.quoted_text\]\.filter\(Boolean\)/);
   });
 });

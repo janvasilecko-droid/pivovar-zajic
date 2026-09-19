@@ -157,6 +157,41 @@ ODBĚRATEL U ODPOVĚDI
 • Zprávu, na kterou se odpovídá, čti kvůli KONTEXTU — ale NIKDY z ní
   neber položky do téhle objednávky, pokud nejde o úpravu nebo přídavek.
 • Stupeň z jiné zprávy nebo od jiného odběratele se NEPŘENÁŠÍ nikdy.
+• Historie (blok níž, pokud je) pomáhá rozhodnout, KOMU odpověď patří —
+  ale nikdy z ní neber položky. Co ve zprávě není, do objednávky nepatří.
+`;
+
+
+/**
+ * Odběratel, který v seznamu ještě není, a historie objednávek jako nápověda.
+ * Zadání z 19. 9. 2026: „pořádně číst odběratele ve zprávách i pokud není již
+ * uložený, aby ho aplikace dokázala vždy najít."
+ */
+export const ODBERATEL_A_HISTORIE = `
+════════════════════════════════════════════════════════════════════
+ODBĚRATEL — I TEN, KTERÝ JEŠTĚ NENÍ ULOŽENÝ
+════════════════════════════════════════════════════════════════════
+Seznam ZNÁMÍ ODBĚRATELÉ je nápověda, NE číselník povolených hodnot.
+Nový odběratel přibude každou chvíli (nová hospoda, svatba, festival) a
+aplikace si ho po schválení sama založí. Tvůj úkol je ho PŘEČÍST.
+
+Postup, v tomhle pořadí:
+  1) Je jméno/místo napsané v textu zprávy? → použij ho. Když se přibližně
+     shoduje se ZNÁMÝM odběratelem (překlep, jiný pád, foneticky), vrať
+     PŘESNÝ tvar ze seznamu. Když se neshoduje s ničím, vrať ho tak, jak
+     je v textu — NENÍ to důvod k null.
+  2) Není v textu? Je to ODPOVĚĎ? → vezmi odběratele z citované zprávy.
+  3) Pořád nic? → podívej se do HISTORIE (blok níž, pokud je). Když
+     odesílatel posílal objednávky pořád pro jednoho odběratele, je to
+     skoro jistě on.
+  4) Ani to ne? → vrať place_name: null a ZEPTEJ SE (pole "otazky").
+     Nikdy nevybírej ze seznamu ZNÁMÍ ODBĚRATELÉ někoho, kdo ve zprávě
+     ani v historii není — to je vymýšlení a objednávka pak odjede
+     špatnému zákazníkovi.
+
+Jméno pište tak, jak ho píše odběratel. Pády neohýbej do 1. pádu na sílu,
+ale jméno očisti od předložky: „pro Radka" → „Radek", „na Vildštejn" →
+„Vildštejn". Když si nejsi jistý základním tvarem, nech ho, jak je.
 `;
 
 export const KDYZ_NEVIS = `
@@ -200,4 +235,4 @@ Pravidla pro otázky:
 `;
 
 /** Celý blok pravidel k vložení do promptu. */
-export const PRAVIDLA_CTENI_OBJEDNAVEK = `${CISLA_STUPEN_VS_OBJEM}${VZORY_ZAPISU}${KONTEXT_A_ODPOVEDI}${KDYZ_NEVIS}`;
+export const PRAVIDLA_CTENI_OBJEDNAVEK = `${CISLA_STUPEN_VS_OBJEM}${VZORY_ZAPISU}${KONTEXT_A_ODPOVEDI}${ODBERATEL_A_HISTORIE}${KDYZ_NEVIS}`;

@@ -1,7 +1,8 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { requireApprovedUser } from "../_shared/require-user.ts";
 import { normText, matchBeerId, matchPackageId } from "../_shared/beer-match.ts";
-import { normPlaceName, stripSenderName, resolvePlace, wantsOwnOrder as textWantsOwnOrder } from "../_shared/place-match.ts";
+import { normPlaceName, stripSenderName, resolvePlace, odberatelZHistorie, wantsOwnOrder as textWantsOwnOrder } from "../_shared/place-match.ts";
+import { blokHistorie, odberateleOdesilatele } from "../_shared/historie-objednavek.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -527,6 +528,76 @@ Deno.serve(async (req: Request) => {
         }
 
         // Call the existing parse-order-text edge function
+        // 🧠 HISTORIE — co už víme z dřívějších objednávek.
+        // Posel posílá objednávky pořád pro tytéž hospody a hospoda bere pořád
+        // dokola totéž — to je v téhle skupině nejsilnější nápověda a AI ji
+        // dosud vůbec neviděla. Slouží jen k ROZHODNUTÍ MEZI VÝKLADY, nikdy
+        // k doplnění položek (viz _shared/historie-objednavek.ts).
+        //
+        // Selhání se jen zaloguje: bez historie se čte jako dosud, rozhodně
+        // kvůli ní nesmí zpráva propadnout.
+        let historieText = "";
+        // Seznam odběratelů, pro které tenhle odesílatel už objednával — používá
+        // se níž jako UKOTVENÍ jména, které AI vzala z historie (odberatelZHistorie).
+        let historieOdberatelu: string[] = [];
+        try {
+          const odesilatel = (message.participant_name || message.sender_name || "").trim();
+          if (odesilatel) {
+            const odKdy = new Date(
+              new Date(message.created_at).getTime() - 120 * 24 * 60 * 60 * 1000,
+            ).toISOString();
+            // Objednávky, které z tohohle odesílatele už vznikly.
+            const { data: drivejsiZpravy } = await supabase
+              .from("whatsapp_incoming")
+              .select("imported_order_id, participant_name, sender_name")
+              .not("imported_order_id", "is", null)
+              .gte("created_at", odKdy)
+              .order("created_at", { ascending: false })
+              .limit(300);
+            const mojeIds = (drivejsiZpravy ?? [])
+              .filter((z: any) => ((z.participant_name || z.sender_name || "").trim() === odesilatel))
+              .map((z: any) => z.imported_order_id)
+              .filter(Boolean)
+              .slice(0, 60);
+
+            let objednavkyOdesilatele: { place_name: string | null }[] = [];
+            let polozkyPodleOdberatele: Record<string, any[]> = {};
+            if (mojeIds.length > 0) {
+              const { data: ord } = await supabase
+                .from("orders")
+                .select("id, place_name")
+                .in("id", mojeIds);
+              objednavkyOdesilatele = (ord ?? []).map((o: any) => ({ place_name: o.place_name }));
+
+              // Co ti odběratelé berou obvykle — jen pro tři nejčastější, ať prompt
+              // nenaroste o výpis celého skladu.
+              const nejcastejsi = odberateleOdesilatele(objednavkyOdesilatele).slice(0, 3).map((o) => o.jmeno);
+              if (nejcastejsi.length > 0) {
+                const { data: pol } = await supabase
+                  .from("order_items")
+                  .select("quantity, beer_name, package_label, orders!inner(place_name, order_date)")
+                  .in("orders.place_name", nejcastejsi)
+                  .gte("orders.order_date", odKdy.slice(0, 10))
+                  .limit(300);
+                for (const r of (pol ?? []) as any[]) {
+                  const jmeno = r.orders?.place_name ?? "";
+                  if (!jmeno) continue;
+                  (polozkyPodleOdberatele[jmeno] ||= []).push({
+                    place_name: jmeno,
+                    beer_name: r.beer_name,
+                    package_label: r.package_label,
+                    quantity: Number(r.quantity || 0),
+                  });
+                }
+              }
+            }
+            historieOdberatelu = odberateleOdesilatele(objednavkyOdesilatele).map((o) => o.jmeno);
+            historieText = blokHistorie({ odesilatel, objednavkyOdesilatele, polozkyPodleOdberatele });
+          }
+        } catch (e) {
+          console.error("Historie objednávek se nenačetla (čte se bez ní):", e);
+        }
+
         const parseUrl = `${supabaseUrl}/functions/v1/parse-order-text`;
 
         const parseBody = {
@@ -536,6 +607,7 @@ Deno.serve(async (req: Request) => {
           places: places.map(p => p.name),
           aliases,
           placeAliases,
+          historie: historieText,
           // Když jde o úpravu, dostane AI SOUČASNÝ obsah objednávky a má vrátit
           // VÝSLEDNÝ stav po zapracování odpovědi — ne jen to, co je v odpovědi
           // napsané. Jinak by z „Bez summera" vyšla prázdná objednávka.
@@ -647,6 +719,18 @@ Deno.serve(async (req: Request) => {
           message.participant_name || message.sender_name
         );
 
+        // ↩️ UKOTVENÍ jména smí vycházet i z CITOVANÉ zprávy. `matchPlaceSafely`
+        // požaduje, aby jméno bylo opravdu ve zprávě (jinak by ho AI mohla vymýlet)
+        // — jenže u ODPOVĚDI je odběratel napsaný v té zprávě, na kterou se
+        // odpovídá, ne v odpovědi samé. Bez tohohle „Radek: ..." v citaci a holyčké
+        // „60x0,5l. Grep" v odpovědi skončilo jako neznámý odběratel, i když AI
+        // „Radek" přečetla správně (z provozu 17. 9. 2026). Citace je skutečný text
+        // zprávy, ne vymyšlený text — ukotvit se o ni proto smí.
+        const ukotveniText = stripSenderName(
+          [message.message_text, message.quoted_text].filter(Boolean).join('\n'),
+          message.participant_name || message.sender_name
+        );
+
         const jePlatnyKandidat = (c: string | null | undefined): c is string => {
           if (!c || c.trim().length === 0) return false;
           // "pro mě" → odesílatel je platný odběratel (nesmíme ho zahodit).
@@ -675,7 +759,7 @@ Deno.serve(async (req: Request) => {
         // odběratele "petr", i když se v textu zprávy vůbec nevyskytuje
         // (z provozu 16. 9. 2026: "Lucka jede zitra do skoly... pro me prosim").
         const ownOrderCandidate = wantsOwnOrder ? (message.participant_name || message.sender_name) : null;
-        const resolved = resolvePlace(matchCandidates, freeformCandidates, cleanTextForPlace, places, placeAliases, ownOrderCandidate);
+        const resolved = resolvePlace(matchCandidates, freeformCandidates, ukotveniText, places, placeAliases, ownOrderCandidate);
         parsedPlaceId = resolved.id;
         parsedPlaceName = resolved.name;
 
@@ -689,6 +773,25 @@ Deno.serve(async (req: Request) => {
         if (!parsedPlaceId && !parsedPlaceName && !wantsOwnOrder && (quotedPlaceId || quotedPlaceName)) {
           parsedPlaceId = quotedPlaceId;
           parsedPlaceName = quotedPlaceName;
+        }
+
+        // 🧠 Ani text, ani citace odběratele neurčily — poslední nápověda je
+        // HISTORIE. Prompt (ODBERATEL_A_HISTORIE v ../_shared/order-rules.ts) AI
+        // říká, že v takovém případě má vzít odběratele, pro kterého tenhle
+        // odesílatel objednává pořád — a `odberatelZHistorie` pak ověří, že to
+        // jméno v jeho historii OPRAVDU je. Co AI vrátí mimo ten seznam, se
+        // zahodí: objednávka u špatného zákazníka je horší než neznámý odběratel.
+        if (!parsedPlaceId && !parsedPlaceName && !wantsOwnOrder && historieOdberatelu.length > 0) {
+          const zHistorie = odberatelZHistorie(
+            [firstItemPlaceName, topLevelPlaceName],
+            historieOdberatelu,
+            places,
+            placeAliases,
+          );
+          if (zHistorie.id || zHistorie.name) {
+            parsedPlaceId = zHistorie.id;
+            parsedPlaceName = zHistorie.name;
+          }
         }
 
         // Extract delivery day/date from message text — nejdřív konkrétní datum
