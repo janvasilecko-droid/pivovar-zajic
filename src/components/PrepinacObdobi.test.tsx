@@ -1,6 +1,10 @@
 // 📅 Přepínač období: dny jako tlačítka, ne kalendář.
 // Zadání z 19. 9. 2026: „místo den tam dej tlačítka po, út, st, čt, pá jako
-// dny, a kliknutím na den se uvidí, jaký den se co stáčelo."
+// dny, a kliknutím na den se uvidí, jaký den se co stáčelo." A znovu totéž
+// den: „misto toho ze kliknu na den a pak teprv muzu vybrat den, tak at
+// rovnou muzu klikat na vybrany den" — dny týdne jsou teď PŘÍMO v hlavní
+// řadě místo samostatného tlačítka „Den", klik na den zároveň přepne na
+// denní pohled i vybere ho.
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { PrepinacObdobi } from './PrepinacObdobi';
@@ -59,6 +63,25 @@ describe('volba dne', () => {
     render(<PrepinacObdobi {...zaklad} obdobi="day" />);
     expect(screen.getByLabelText('st 16.')).toBeTruthy();
   });
+
+  it('kliknutím na den se rovnou přepne na denní pohled — bez mezikroku', () => {
+    // Dřív se muselo nejdřív kliknout na tlačítko „Den" a teprve pak se
+    // objevily dny týdne k výběru. Teď je den vidět a klikatelný hned,
+    // i když je aktuálně vybraný Týden nebo Měsíc.
+    const onObdobi = vi.fn();
+    const onDen = vi.fn();
+    render(<PrepinacObdobi {...zaklad} obdobi="week" onObdobi={onObdobi} onDen={onDen} />);
+    fireEvent.click(screen.getByText('po'));
+    expect(onObdobi).toHaveBeenCalledWith('day');
+    expect(onDen).toHaveBeenCalledWith('2026-09-14');
+  });
+
+  it('dny týdne jsou vidět i když je zrovna vybraný Týden nebo Měsíc', () => {
+    render(<PrepinacObdobi {...zaklad} obdobi="week" />);
+    for (const d of ['po', 'út', 'st', 'čt', 'pá']) {
+      expect(screen.getByText(d), `chybí ${d}`).toBeTruthy();
+    }
+  });
 });
 
 describe('ostatní období zůstala', () => {
@@ -66,7 +89,6 @@ describe('ostatní období zůstala', () => {
     render(<PrepinacObdobi {...zaklad} obdobi="week" />);
     expect(screen.getByText('Týden')).toBeTruthy();
     expect(screen.getByText('Měsíc')).toBeTruthy();
-    expect(screen.getByText('Den')).toBeTruthy();
   });
 
   it('v měsíci zůstává výběr měsíce', () => {
