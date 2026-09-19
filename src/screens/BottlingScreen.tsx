@@ -21,7 +21,7 @@ import { VoiceRecorder } from '../components/VoiceRecorder';
 import { parseFreeTextEntries, loadAliasMap, emptyAliasMap, type ParserAliasMap } from '../lib/orderParser';
 import { BeerTileGrid, BeerTilePanel } from '../components/BeerTileGrid';
 import { stackingQuickQtys } from '../lib/quickQty';
-import { navrhSudu } from '../lib/bottlingYield';
+import { navrhSudu, skutecnaVytrataProcenta } from '../lib/bottlingYield';
 import { synchronizuj } from '../lib/checklistData';
 import { computePackageNeeds, PackageNeedsRow } from '../lib/packageNeeds';
 import { jeSud } from '../lib/inventoryFix';
@@ -2075,6 +2075,26 @@ export default function BottlingScreen({
                               <button type="button" onClick={() => incrementKegs(s.nositelZdroje!.id, 1)} className="w-9 h-9 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-900 font-black text-base transition tap" aria-label="Přidat sud">+</button>
                             </span>
                           </div>
+
+                          {/* 📐 Stočeno litrů + výtrata % — zpětný dopočet ze
+                              SKUTEČNĚ zapsaného počtu sudů, ne z teoretického
+                              koeficientu jako `navrhSudu`. Zadání z 19. 9. 2026:
+                              „u každého sudu bude navíc údaj stočeno litrů a
+                              výtrata v %." Schovává se, dokud u šarže není
+                              zapsaný zdrojový sud — bez něj není z čeho
+                              výtratu počítat. */}
+                          {(() => {
+                            const nalahvovanoL = s.polozky.reduce((sum, p) => sum + p.litry, 0);
+                            const zdrojVolL = kegPackages.find((p) => p.id === s.zdrojPackageId)?.volume_l;
+                            const zdrojSkutecneL = s.sudu > 0 && zdrojVolL ? s.sudu * Number(zdrojVolL) : 0;
+                            const vytrata = skutecnaVytrataProcenta(nalahvovanoL, zdrojSkutecneL);
+                            if (vytrata === null) return null;
+                            return (
+                              <div className="text-udaj font-bold text-amber-800 tabular-nums">
+                                Stočeno {nalahvovanoL.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} L · výtrata {vytrata.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} %
+                              </div>
+                            );
+                          })()}
 
                           {/* … a co se z něj stočilo. */}
                           <div className="space-y-1.5 pt-1.5 border-t border-amber-100">

@@ -34,6 +34,24 @@ export function zdrojoveLitry(nalahvovanoL: number, vytecnost = VYTEZNOST_LAHVOV
   return Math.round((nalahvovanoL / vytecnost) * 10) / 10;
 }
 
+/**
+ * Skutečná výtrata v % — z ROZDÍLU mezi tím, co se doopravdy vzalo ze sudů
+ * (podle zapsaného počtu kusů sudů), a tím, co se doopravdy nastáčelo do
+ * lahví. Na rozdíl od `zdrojoveLitry` výš (dopočet TEORETICKÝM koeficientem
+ * `VYTEZNOST_LAHVOVANI` při návrhu) počítá zpětně ze skutečně zapsaných
+ * sudů — kolik se v provozu u tyhle šarže doopravdy ztratilo.
+ *
+ * Zadání z 19. 9. 2026: „u každého sudu bude navíc údaj stočeno litrů a
+ * výtrata v %."
+ *
+ * `null`, když není co počítat (žádný zdroj nebo nulové litry) — ať to UI
+ * pozná a údaj radši schová, než aby ukázalo nesmyslné číslo.
+ */
+export function skutecnaVytrataProcenta(nalahvovanoL: number, zdrojSkutecneL: number): number | null {
+  if (!(nalahvovanoL > 0) || !(zdrojSkutecneL > 0)) return null;
+  return Math.round((1 - nalahvovanoL / zdrojSkutecneL) * 1000) / 10;
+}
+
 export type NavrhSudu = {
   /** Litry v lahvích. */
   nalahvovanoL: number;
