@@ -1,5 +1,6 @@
 import { Beer, Package, Place, supabase } from './supabase';
-import { normPlaceName, stripSenderName, resolvePlace, wantsOwnOrder as textWantsOwnOrder } from '../../supabase/functions/_shared/place-match';
+import { normPlaceName, stripSenderName, resolvePlace, odberatelZHistorie, wantsOwnOrder as textWantsOwnOrder } from '../../supabase/functions/_shared/place-match';
+import { nactiHistorii } from '../../supabase/functions/_shared/historie-objednavek';
 import { parseGeminiItems, detectOrderNotes, loadAliasMap, loadPlaceAliasMap, ParserAliasMap, ParsedLine, GeminiItem } from './orderParser';
 import { parseExplicitDate } from './orderDates';
 import { businessNow } from './businessDate';
@@ -578,6 +579,16 @@ export async function parseWhatsAppOrderMessageWithAI(
     }
   }
 
+  // 🧠 HISTORIE — co už víme z dřívějších objednávek tohohle odesílatele.
+  // Stejná funkce jako na serveru (whatsapp-auto-parse), žádná vlastní kopie:
+  // „Přečíst znovu" musí dát totéž, co dalo první automatické zpracování.
+  // Bez tohohle měla AI při ručním přečtení méně informací než při prvním —
+  // a táž zpráva se pak přečetla jinak podle toho, kudy šla.
+  const { text: historieText, odberatele: historieOdberatelu } = await nactiHistorii(supabase, {
+    odesilatel: effectiveSender,
+    kdy: messageTimestamp || new Date().toISOString(),
+  });
+
   // 📷 Fotka v příloze → stáhneme ji a pošleme AI, aby objednávku přečetla i z fotky.
   let imageBase64: string | null = null;
   let imageMimeType: string | null = null;
@@ -601,6 +612,7 @@ export async function parseWhatsAppOrderMessageWithAI(
       places: places.map((pl) => pl.name),
       aliases: aliasList,
       placeAliases: placeAliasList,
+      historie: historieText,
       messages: [
         ...chatContext,
         { sender: effectiveSender, date, text: rawMessage, ...(quotedText ? { quotedText } : {}) }
@@ -656,7 +668,14 @@ export async function parseWhatsAppOrderMessageWithAI(
   const matchCandidates = [firstItemPlaceName, topLevelPlaceName, cleanTextForPlace].filter(jePlatnyKandidat);
   const freeformCandidates = [firstItemPlaceName, topLevelPlaceName].filter(jePlatnyKandidat);
   const ownOrderCandidate = wantsOwnOrder ? effectiveSender : null;
-  const resolved = resolvePlace(matchCandidates, freeformCandidates, cleanTextForPlace, places, placeAliasList, ownOrderCandidate);
+  // ↩️ UKOTVENÍ jména smí vycházet i z CITOVANÉ zprávy — u odpovědi je
+  // odběratel napsaný v té zprávě, na kterou se odpovídá, ne v odpovědi samé.
+  // Totéž dělá server (whatsapp-auto-parse), ať se obě cesty chovají stejně.
+  const ukotveniText = stripSenderName(
+    [rawTextFromAi || rawMessage, quotedText].filter(Boolean).join('\n'),
+    effectiveSender,
+  );
+  const resolved = resolvePlace(matchCandidates, freeformCandidates, ukotveniText, places, placeAliasList, ownOrderCandidate);
 
   let placeId = resolved.id;
   let placeName = resolved.name;
@@ -667,6 +686,22 @@ export async function parseWhatsAppOrderMessageWithAI(
   if (!placeId && !placeName && !wantsOwnOrder && (quotedPlaceId || quotedPlaceName)) {
     placeId = quotedPlaceId;
     placeName = quotedPlaceName;
+  }
+
+  // 🧠 Ani text, ani citace odběratele neurčily — poslední nápověda je HISTORIE.
+  // `odberatelZHistorie` ověří, že jméno v historii odesílatele OPRAVDU je; co je
+  // mimo ní, se zahodí. Stejně jako na serveru (whatsapp-auto-parse).
+  if (!placeId && !placeName && !wantsOwnOrder && historieOdberatelu.length > 0) {
+    const zHistorie = odberatelZHistorie(
+      [firstItemPlaceName, topLevelPlaceName],
+      historieOdberatelu,
+      places,
+      placeAliasList,
+    );
+    if (zHistorie.id || zHistorie.name) {
+      placeId = zHistorie.id;
+      placeName = zHistorie.name;
+    }
   }
 
   // 4. Den/datum dodání (zítra, dnes, název dne, ...).
