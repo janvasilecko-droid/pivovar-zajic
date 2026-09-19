@@ -13,6 +13,7 @@ import { isLastWeekOfMonth, getMonthKey, writeMonthlyCleanupStage, isMonthlyLine
 import { businessDateISO } from '../lib/businessDate';
 import { vychoziZdrojovySud } from '../lib/zdrojovySud';
 import VyberZdrojovehoSudu from '../components/VyberZdrojovehoSudu';
+import VyberObalu, { objemCesky } from '../components/VyberObalu';
 import { autoLogBottleSanitationFromChecklist } from '../lib/bottleSanitation';
 import { requestOrdersItemFilter } from '../lib/ordersFilter';
 import { VoiceRecorder } from '../components/VoiceRecorder';
@@ -1507,17 +1508,20 @@ export default function BottlingScreen({
                     const naSklad = plan ? Math.max(0, Number(qtyStr || 0) - plan.missing) : 0;
                     return (
                       <div key={slot.key} className={`flex items-center justify-between gap-2 rounded border py-1.5 px-2 flex-wrap transition-colors ${radekBarva}`}>
-                        <div className="flex flex-col gap-1 w-28 shrink-0">
-                          <select
-                            className="input text-xs font-bold w-28 p-1.5 rounded border border-amber-300 bg-white"
-                            value={pkgId}
-                            onChange={(e) => setTile(slot.pkg, e.target.value)}
-                          >
-                            <option value="">— obal {slot.key} —</option>
-                            {bottlePackages.map((p) => (
-                              <option key={p.id} value={p.id}>{p.label || `${p.volume_l}L`}</option>
-                            ))}
-                          </select>
+                        {/* Obal se vyklikává, ne rozklikává — stejně jako zdrojový
+                            sud níž (viz components/VyberObalu.tsx). Velikosti jsou
+                            čtyři, vejdou se vedle sebe a platná svítí. Rozbalovátko
+                            bylo široké 28 jednotek a neukázalo vybraný obal, dokud se
+                            neotevřelo. */}
+                        <div className="w-full">
+                          <VyberObalu
+                            obaly={bottlePackages}
+                            vybrany={pkgId}
+                            zmen={(id) => setTile(slot.pkg, id)}
+                            popis={(o) => o.label || objemCesky(o.volume_l) || 'obal'}
+                            prazdnyPopis={`prázdný ${slot.key}`}
+                            ariaLabel={`Obal ${slot.key}`}
+                          />
                         </div>
                         <div className="flex items-center gap-1">
                           {quickQtys.map((q) => (
