@@ -75,12 +75,30 @@ describe('upozornění v poznámkovém bloku', () => {
 
   it('upozornění se zakládá až po uložení poznámky', () => {
     // Obráceně by při selhání zápisu zbyla připomínka na text, co nikde není.
+    // `zalozUpozorneni(text` se ve zdroji objevuje dvakrát (i v „Poslat všem"
+    // větvi výš) — hledá se ten výskyt AŽ ZA `addHomeNote`.
     const z = ZDROJ();
-    expect(z.indexOf('addHomeNote(newText')).toBeLessThan(z.indexOf('if (chciUpozorneni)'));
+    const odAddHomeNote = z.indexOf('addHomeNote(text');
+    expect(odAddHomeNote).toBeGreaterThan(-1);
+    expect(z.indexOf('zalozUpozorneni(text', odAddHomeNote)).toBeGreaterThan(odAddHomeNote);
   });
 
-  it('smazání poznámky zruší i její upozornění', () => {
-    expect(ZDROJ()).toMatch(/deleteHomeNote\(note\.id\)[\s\S]{0,80}zrusUpozorneni\(maUpozorneni\.id\)/);
+  it('sdílený vzkaz se odešle dřív, než se k němu zkusí založit upozornění', () => {
+    // Stejná zásada jako u osobní poznámky — jen napřed jde `pridejSdilenou`.
+    const z = ZDROJ();
+    expect(z.indexOf('pridejSdilenou(text, jmeno)')).toBeLessThan(z.indexOf('await zalozUpozorneni(text, nastaveniPriZapisu)'));
+  });
+
+  it('smazání poznámky zruší i její upozornění — u obou druhů', () => {
+    expect(ZDROJ()).toMatch(/function smazPolozku[\s\S]{0,300}zrusUpozorneni\(maUpozorneni\.id\)/);
+  });
+
+  it('upozornění jde nastavit i na sdíleném vzkazu, ne jen na osobní poznámce', () => {
+    // Dřív handleAdd u „Poslat všem" končil `return` ještě PŘED blokem, který
+    // zakládal upozornění — sdílený vzkaz tak upozornění dostat nemohl.
+    const z = ZDROJ();
+    const proVsechnyVetev = z.slice(z.indexOf('if (proVsechny)'), z.indexOf('addHomeNote(text'));
+    expect(proVsechnyVetev, 'větev pro "Poslat všem" nezakládá upozornění').toMatch(/zalozUpozorneni/);
   });
 
   it('páruje se stejnou funkcí jako obrazovka Poznámky — ne vlastní kopií', () => {
