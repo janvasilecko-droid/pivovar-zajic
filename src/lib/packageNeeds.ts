@@ -28,6 +28,7 @@
 import { flattenAkceNet, AkceRow } from './inventoryHelper';
 import { buildMovements, stockAsOf, stockAtStartOfDay } from './stockLedger';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
+import { jeVyrizena } from './stavyObjednavek';
 
 export type PackageNeedsRow = {
   beer_id: string;
@@ -125,10 +126,17 @@ export function computePackageNeeds(input: PackageNeedsInput, isTargetPkg: (kind
 
   // Objednávky v AKTUÁLNÍM TÝDNU — VŠECHNY (i už zavezené), ať je vidět
   // celková týdenní potřeba na středu/čtvrtek/pátek zavoz, ne jen zbytek.
+  //
+  // ⚠️ „Vyřízeno" se pozná přes `jeVyrizena()` (lib/stavyObjednavek.ts), ne
+  // vlastním výčtem stavů — ten dřív znal jen 'vyrizeno' a 'vyrizeno_zavoz'
+  // natvrdo, stav 'vyrizena'/'hotova' (který `jeVyrizena()` odjinud v appce
+  // taky počítá jako odbavený) mu chyběl — druhá kopie významu, co drží
+  // krok jen náhodou. Stejný filtr je i v bottlingNeeds.ts (viz jeho
+  // komentář k souvislosti s hlášením z 19. 9. 2026).
   const activeOrderIds = new Set(
     orders
       .filter((o) => {
-        if (o.status === 'storno' || o.status === 'vyrizeno' || o.status === 'vyrizeno_zavoz') return false;
+        if (o.status === 'storno' || jeVyrizena(o.status)) return false;
         const targetDate = o.delivery_date || o.order_date;
         return isThisWeek(targetDate);
       })

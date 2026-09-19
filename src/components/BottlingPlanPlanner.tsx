@@ -10,6 +10,7 @@ import { isoWeekKey, weekRange, shiftWeek } from './WeeklyOrderSummaryCard';
 
 import { buildMovements, stockAsOf } from '../lib/stockLedger';
 import { businessDateISO } from '../lib/businessDate';
+import { jeVyrizena } from '../lib/stavyObjednavek';
 import { chyba, potvrd } from '../lib/toast';
 import { IkonaLahev, IkonaSud } from '../components/ikony';
 import {
@@ -202,7 +203,10 @@ export function BottlingPlanPlanner({
     const activeIds = new Set(
       orders
         .filter((o) => {
-          if (o.status === 'storno' || o.status === 'vyrizeno' || o.status === 'vyrizeno_zavoz') return false;
+          // „Vyřízeno" přes jeVyrizena() (lib/stavyObjednavek.ts), ne vlastním
+          // výčtem — ten dřív neznal stav 'vyrizena'/'hotova', který jeVyrizena()
+          // odjinud v appce taky počítá jako odbavený (viz bottlingNeeds.ts).
+          if (o.status === 'storno' || jeVyrizena(o.status)) return false;
           if (o.is_delivered) return false;
           const target = o.delivery_date || o.order_date;
           return !!target && isoWeekKey(target) === weekKey;

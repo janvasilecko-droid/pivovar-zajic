@@ -122,6 +122,26 @@ describe('computeBottlingNeeds', () => {
     expect(row!.ordered).toBe(106); // 99 + 7 (o1 je mimo týden)
   });
 
+  it('objednávka se stavem „vyřízeno"/„hotová" se nepočítá jako chybějící — sdílí definici s jeVyrizena()', () => {
+    // Filtr dřív znal jen 'vyrizeno' a 'vyrizeno_zavoz' natvrdo napsané —
+    // stavy 'vyrizena' a 'hotova', které `jeVyrizena()` (lib/stavyObjednavek.ts)
+    // odjinud v appce taky počítá jako odbavené, tu chyběly.
+    const rows = computeBottlingNeeds(
+      makeInput({
+        orders: [
+          { id: 'o1', order_date: todayStr, delivery_date: todayStr, status: 'vyrizena', is_delivered: false },
+          { id: 'o2', order_date: todayStr, delivery_date: todayStr, status: 'hotova', is_delivered: false },
+        ],
+        orderItems: [
+          { order_id: 'o1', beer_id: 'b1', package_id: 'p-bottle', quantity: 6 },
+          { order_id: 'o2', beer_id: 'b1', package_id: 'p-bottle', quantity: 3 },
+        ],
+      })
+    );
+    const row = rows.find((r) => r.package_id === 'p-bottle');
+    expect(row).toBeUndefined();
+  });
+
   it('ordered počítá i položku s vlastním odpočtem závozu — ten se místo toho odečte ze stock', () => {
     const rows = computeBottlingNeeds(
       makeInput({
