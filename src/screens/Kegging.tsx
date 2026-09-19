@@ -1771,65 +1771,86 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                   </div>
                 </div>
 
-                {/* Mobilní karty — čitelné a ovladatelné bez vodorovného scrollování */}
+                {/* 📋 Jedna dlaždice na DEN a PIVO, barevná podle piva — stejný
+                    princip jako v „Všechny záznamy" níž (davkyStaceni).
+                    Zadání z 19. 9. 2026: „i v keg stáčení ať jsou dlaždice
+                    barevný podle piva, a pokud bude jeden den stočeno od
+                    jednoho druhu piva víc druhů velikostí, tak ať je to v
+                    jedný dlaždici." Dřív tu byl řádek na každý zápis zvlášť,
+                    i když šlo o stejné pivo stočené ten den do víc velikostí
+                    sudů. Upravovat se dál musí po jednotlivých obalech —
+                    každý je v databázi vlastní řádek. */}
                 <div className="grid grid-cols-1 gap-2.5 md:hidden">
-                  {sorted.map((r) => {
-                    const beer = beers.find((b) => b.id === r.beer_id);
-                    const pkg = packages.find((p) => p.id === r.package_id);
-                    const vol = pkg ? Number(pkg.volume_l) : 0;
-                    const isEditing = editingId === r.id;
+                  {davkyStaceni(sorted, (pkgId) => {
+                    const pkg = packages.find((p) => p.id === pkgId);
+                    return pkg ? Number(pkg.volume_l) : 0;
+                  }).map((davka) => {
+                    const beer = beers.find((b) => b.id === davka.beerId);
                     return (
-                      <div key={r.id} className="rounded border border-emerald-300/80 bg-white p-3 space-y-2.5">
-                        <div className="flex items-center gap-2">
-                          <span className="shrink-0 font-mono font-bold text-xs text-emerald-800">
-                            {r.entry_date ? r.entry_date.slice(8, 10) + '.' + r.entry_date.slice(5, 7) + '.' : '—'}
-                          </span>
-                          <span className="w-2.5 h-2.5 rounded-full shrink-0 border border-black/20" style={{ backgroundColor: beerBg(beer) }} />
-                          <span className="font-black text-sm text-emerald-950 truncate min-w-0">{r.beer_name ?? beer?.name ?? '—'}</span>
-                          <span className="shrink-0 text-xs font-bold text-emerald-700">{vol > 0 ? `KEG ${vol}L` : '—'}</span>
-                          <span className="ml-auto shrink-0">
-                            {isEditing ? (
-                              <div className="flex items-center gap-1.5">
-                                <input
-                                  type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} min="0" step="1" autoFocus
-                                  className="input text-base font-black w-16 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                  value={editQty}
-                                  onChange={(e) => setEditQty(e.target.value)}
-                                  onKeyDown={(e) => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') { setEditingId(null); setEditQty(''); } }}
-                                />
-                                <button type="button" onClick={saveEdit} aria-label="Uložit množství" title="Uložit množství" className="px-3 h-10 rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xs transition"><Check size={14} /></button>
-                                <button type="button" onClick={() => { setEditingId(null); setEditQty(''); }} aria-label="Zrušit úpravu" title="Zrušit úpravu" className="px-3 h-10 rounded bg-neutral-200 hover:bg-neutral-300 text-neutral-700 font-black text-xs transition"><X size={14} /></button>
-                              </div>
-                            ) : (
-                              <span className="font-display font-black text-xl text-emerald-950">{r.quantity} ks</span>
-                            )}
-                          </span>
+                      <div
+                        key={davka.klic}
+                        className="rounded-xl border border-black/10 p-2.5 space-y-2 shadow-xs"
+                        style={{ backgroundColor: beerBg(beer) }}
+                      >
+                        <div className={`flex items-center gap-2 flex-wrap ${beerText(beer)}`}>
+                          <span className="shrink-0 font-mono font-bold text-xs opacity-80">{denACesky(davka.datum)}</span>
+                          <span className="font-black text-sm truncate min-w-0">{davka.beerName}</span>
+                          <span className="ml-auto shrink-0 font-display font-black text-xl tabular-nums">{davka.celkemKs} ks</span>
                         </div>
-                        {/* Odkud se záznam vzal — viz stejná značka v „Všechny
-                            záznamy" níž a `jeZeZaskrtnuti` v lib. */}
-                        {puvodZapisu(r.note) && (
-                          <div className="text-udaj font-bold text-sky-800 bg-sky-50 border border-sky-200 rounded px-1.5 py-0.5 inline-flex items-center gap-1">
-                            <ClipboardList size={11} className="shrink-0" />
-                            {puvodZapisu(r.note)?.popis}
-                          </div>
-                        )}
-                        {!isEditing && (
-                          <div className="flex items-center gap-1.5 pt-2 border-t border-emerald-100">
-                            <button type="button" onClick={() => setEditingRow(r)} className="btn-ghost !flex-none !w-11 !px-0 !min-h-[44px]" title="Upravit záznam" aria-label="Upravit záznam"><Pencil size={16} /></button>
-                            <button type="button" onClick={() => increment(r.id, -1)} disabled={Number(r.quantity) <= 0} className="btn-pocet !min-h-[44px]" aria-label="Ubrat sud">−</button>
-                            <button type="button" onClick={() => increment(r.id, 1)} className="btn-pocet !min-h-[44px]" aria-label="Přidat sud">+</button>
-                            <input type="number" inputMode="numeric" min="0" onWheel={(e) => e.currentTarget.blur()} key={r.quantity} defaultValue={r.quantity} onBlur={(e) => { const v = Math.max(0, Math.round(Number(e.target.value) || 0)); if (v !== Number(r.quantity)) setQty(r.id, v); }} onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }} className="min-h-[44px] rounded bg-white border border-neutral-200 text-neutral-800 font-bold text-xs px-1.5 cursor-pointer transition !w-14 text-center tabular-nums" title="Napiš počet ks (libovolné číslo)" />
-                            {/* Mazání je jediná barva v řádku a stojí za
-                                mezerou od plusu — na dotyk jsou to sousedi
-                                a záměna maže zápis. */}
-                            <button
-                              type="button"
-                              onClick={() => del(r.id)}
-                              className="btn-danger !flex-none !w-11 !px-0 !min-h-[44px] ml-2"
-                              aria-label="Smazat záznam"
-                            ><X size={18} /></button>
-                          </div>
-                        )}
+                        <div className="space-y-1.5">
+                          {davka.polozky.map(({ zaznam: r, objemL: vol }) => {
+                            const isEditing = editingId === r.id;
+                            return (
+                              <div key={r.id} className="rounded-lg bg-white/95 border border-black/10 p-3 space-y-2.5">
+                                <div className="flex items-center gap-2">
+                                  <span className="shrink-0 text-xs font-bold text-emerald-700">{vol > 0 ? `KEG ${vol}L` : '—'}</span>
+                                  <span className="ml-auto shrink-0">
+                                    {isEditing ? (
+                                      <div className="flex items-center gap-1.5">
+                                        <input
+                                          type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} min="0" step="1" autoFocus
+                                          className="input text-base font-black w-16 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                          value={editQty}
+                                          onChange={(e) => setEditQty(e.target.value)}
+                                          onKeyDown={(e) => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') { setEditingId(null); setEditQty(''); } }}
+                                        />
+                                        <button type="button" onClick={saveEdit} aria-label="Uložit množství" title="Uložit množství" className="px-3 h-10 rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xs transition"><Check size={14} /></button>
+                                        <button type="button" onClick={() => { setEditingId(null); setEditQty(''); }} aria-label="Zrušit úpravu" title="Zrušit úpravu" className="px-3 h-10 rounded bg-neutral-200 hover:bg-neutral-300 text-neutral-700 font-black text-xs transition"><X size={14} /></button>
+                                      </div>
+                                    ) : (
+                                      <span className="font-display font-black text-xl text-emerald-950">{r.quantity} ks</span>
+                                    )}
+                                  </span>
+                                </div>
+                                {/* Odkud se záznam vzal — viz stejná značka v „Všechny
+                                    záznamy" níž a `jeZeZaskrtnuti` v lib. */}
+                                {puvodZapisu(r.note) && (
+                                  <div className="text-udaj font-bold text-sky-800 bg-sky-50 border border-sky-200 rounded px-1.5 py-0.5 inline-flex items-center gap-1">
+                                    <ClipboardList size={11} className="shrink-0" />
+                                    {puvodZapisu(r.note)?.popis}
+                                  </div>
+                                )}
+                                {!isEditing && (
+                                  <div className="flex items-center gap-1.5 pt-2 border-t border-emerald-100">
+                                    <button type="button" onClick={() => setEditingRow(r)} className="btn-ghost !flex-none !w-11 !px-0 !min-h-[44px]" title="Upravit záznam" aria-label="Upravit záznam"><Pencil size={16} /></button>
+                                    <button type="button" onClick={() => increment(r.id, -1)} disabled={Number(r.quantity) <= 0} className="btn-pocet !min-h-[44px]" aria-label="Ubrat sud">−</button>
+                                    <button type="button" onClick={() => increment(r.id, 1)} className="btn-pocet !min-h-[44px]" aria-label="Přidat sud">+</button>
+                                    <input type="number" inputMode="numeric" min="0" onWheel={(e) => e.currentTarget.blur()} key={r.quantity} defaultValue={r.quantity} onBlur={(e) => { const v = Math.max(0, Math.round(Number(e.target.value) || 0)); if (v !== Number(r.quantity)) setQty(r.id, v); }} onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }} className="min-h-[44px] rounded bg-white border border-neutral-200 text-neutral-800 font-bold text-xs px-1.5 cursor-pointer transition !w-14 text-center tabular-nums" title="Napiš počet ks (libovolné číslo)" />
+                                    {/* Mazání je jediná barva v řádku a stojí za
+                                        mezerou od plusu — na dotyk jsou to sousedi
+                                        a záměna maže zápis. */}
+                                    <button
+                                      type="button"
+                                      onClick={() => del(r.id)}
+                                      className="btn-danger !flex-none !w-11 !px-0 !min-h-[44px] ml-2"
+                                      aria-label="Smazat záznam"
+                                    ><X size={18} /></button>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
                     );
                   })}

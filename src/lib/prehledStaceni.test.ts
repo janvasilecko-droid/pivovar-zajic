@@ -233,6 +233,21 @@ describe('sarzeDavky', () => {
     expect(sarze[0].zdrojPackageId).toBeNull();
   });
 
+  it('kegs_used je na KAŽDÉM řádku šarže stejný — nesčítá se, bere se jednou', () => {
+    // Z provozu 19. 9. 2026: „u každého keg 6...... to měl být 1 keg,
+    // nevím, kde si vzal tyhle čísla." V databázi má `kegs_used` DUPLIKOVANOU
+    // hodnotu na každém řádku šarže (ne jen na jednom) — šarže o třech
+    // obalech se sčítáním přes řádky napočítala 3× víc sudů, než se doopravdy
+    // stočilo.
+    const sarze = sarzeDavky([
+      polozka({ id: '1', davka: 'A', kegs_used: 2, kegs_used_package_id: 'k50' }),
+      polozka({ id: '2', davka: 'A', kegs_used: 2, kegs_used_package_id: 'k50' }),
+      polozka({ id: '3', davka: 'A', kegs_used: 2, kegs_used_package_id: 'k50' }),
+    ], (z: any) => z.davka);
+    expect(sarze).toHaveLength(1);
+    expect(sarze[0].sudu).toBe(2);
+  });
+
   it('dvě stáčení téhož piva v jednom dni jsou dvě šarže, každá se svým sudem', () => {
     const sarze = sarzeDavky([
       polozka({ id: '1', davka: 'rano', kegs_used: 2, kegs_used_package_id: 'k50' }),

@@ -170,7 +170,14 @@ export function sarzeDavky<R extends {
     if (!sarze.nositelZdroje || (!Number(sarze.nositelZdroje.kegs_used) && Number(z.kegs_used) > 0)) {
       sarze.nositelZdroje = z;
     }
-    sarze.sudu += Number(z.kegs_used) || 0;
+    // ⚠️ NE SČÍTAT přes řádky. `kegs_used` je u záznamu DUPLIKOVANÝ na
+    // KAŽDÉM řádku téže šarže (jeden zdrojový sud platí pro celý zápis, ne
+    // pro jeden obal) — stejnou konvenci už dodržuje `isFirstInBatch` níž
+    // i dedup v `totalKegs`. Z provozu 19. 9. 2026: „u každého keg 6, mělo
+    // to být 1" — šarže o třech obalech se sčítáním přes řádky napočítala
+    // 3× víc sudů, než se doopravdy stočilo. Číslo se bere JEDNOU, z řádku,
+    // který ho nese (u všech řádků šarže je stejné).
+    if (Number(z.kegs_used) > 0) sarze.sudu = Number(z.kegs_used);
   }
   return [...podleKlice.values()];
 }
