@@ -2,7 +2,8 @@
 // historie-objednavek.ts. Testy hlídají hlavně tu hranici, kterou historie
 // nesmí překročit: rozhoduje mezi výklady, položky nedoplňuje.
 import { describe, it, expect } from 'vitest';
-import { odberateleOdesilatele, obvykleBere, blokHistorie } from './historie-objednavek';
+import { readFileSync } from 'node:fs';
+import { odberateleOdesilatele, obvykleBere, blokHistorie, nactiHistorii } from './historie-objednavek';
 
 describe('odberateleOdesilatele', () => {
   it('spočítá, pro koho odesílatel objednával, a seřadí od nejčastějšího', () => {
@@ -102,5 +103,95 @@ describe('blokHistorie', () => {
       },
     });
     expect(blok).toContain('Lužec: 4× KEG 50l 12° Světlá');
+  });
+});
+
+// ── Načtení historie ──────────────────────────────────────────────────────
+// Dotazy musí být na JEDNOM místě: čtení zprávy má dvě cesty (server
+// whatsapp-auto-parse a klient „Přečíst znovu") a dvě kopie se vždycky
+// rozešly — právě proto celý _shared/ vznikl.
+describe('nactiHistorii', () => {
+  /** Nejmenší mock Supabase, který zvládne řetězení dotazů. */
+  const mockDb = (tabulky: Record<string, any[]>) => {
+    const dotaz = (t: string) => {
+      const api: any = {};
+      for (const m of ['select', 'not', 'gte', 'order', 'limit', 'in']) {
+        api[m] = () => api;
+      }
+      api.then = (resolve: any) => resolve({ data: tabulky[t] ?? [] });
+      return api;
+    };
+    return { from: (t: string) => dotaz(t) };
+  };
+
+  const DNES = '2026-09-19T08:00:00Z';
+
+  it('bez odesílatele nedělá nic', async () => {
+    expect(await nactiHistorii(mockDb({}), { odesilatel: null, kdy: DNES }))
+      .toEqual({ text: '', odberatele: [] });
+    expect(await nactiHistorii(mockDb({}), { odesilatel: '  ', kdy: DNES }))
+      .toEqual({ text: '', odberatele: [] });
+  });
+
+  it('bere jen zprávy tohohle odesílatele', async () => {
+    const db = mockDb({
+      whatsapp_incoming: [
+        { imported_order_id: 'o1', participant_name: 'Bednář', sender_name: null },
+        { imported_order_id: 'o2', participant_name: 'Někdo jiný', sender_name: null },
+      ],
+      orders: [{ id: 'o1', place_name: 'Lužec' }],
+      order_items: [],
+    });
+    const { odberatele } = await nactiHistorii(db, { odesilatel: 'Bednář', kdy: DNES });
+    expect(odberatele).toEqual(['Lužec']);
+  });
+
+  it('bez dřívějších objednávek vrací prázdno', async () => {
+    const db = mockDb({ whatsapp_incoming: [], orders: [], order_items: [] });
+    expect(await nactiHistorii(db, { odesilatel: 'Bednář', kdy: DNES }))
+      .toEqual({ text: '', odberatele: [] });
+  });
+
+  it('sestaví blok do promptu i seznam odběratelů k ukotvení', async () => {
+    const db = mockDb({
+      whatsapp_incoming: [{ imported_order_id: 'o1', participant_name: 'Bednář', sender_name: null }],
+      orders: [{ id: 'o1', place_name: 'Lužec' }],
+      order_items: [
+        { quantity: 4, beer_name: '12° Světlá', package_label: 'KEG 50l', orders: { place_name: 'Lužec' } },
+      ],
+    });
+    const { text, odberatele } = await nactiHistorii(db, { odesilatel: 'Bednář', kdy: DNES });
+    expect(odberatele).toEqual(['Lužec']);
+    expect(text).toContain('Lužec: 4× KEG 50l 12° Světlá');
+    expect(text).toContain('NENÍ k doplňování položek');
+  });
+
+  it('když dotaz selže, čte se bez historie — zpráva kvůli nápovědě propadnout nesmí', async () => {
+    const rozbito = { from: () => { throw new Error('RLS'); } };
+    await expect(nactiHistorii(rozbito, { odesilatel: 'Bednář', kdy: DNES }))
+      .resolves.toEqual({ text: '', odberatele: [] });
+  });
+});
+
+describe('obě cesty čtení berou tutéž historii', () => {
+  const server = readFileSync('supabase/functions/whatsapp-auto-parse/index.ts', 'utf8');
+  const klient = readFileSync('src/lib/whatsappParser.ts', 'utf8');
+
+  it('server i klient volají nactiHistorii', () => {
+    expect(server).toMatch(/nactiHistorii\(supabase/);
+    expect(klient).toMatch(/nactiHistorii\(supabase/);
+  });
+
+  it('ani jeden si nedrží vlastní kopii dotazů', () => {
+    for (const [kde, zdroj] of [['server', server], ['klient', klient]] as const) {
+      expect(zdroj, `${kde} si dotazuje whatsapp_incoming sám`).not.toMatch(/imported_order_id, participant_name/);
+    }
+  });
+
+  it('oba mají historii jako poslední nápovědu na odběratele', () => {
+    for (const [kde, zdroj] of [['server', server], ['klient', klient]] as const) {
+      expect(zdroj, `${kde} nemá odberatelZHistorie`).toMatch(/odberatelZHistorie\(/);
+      expect(zdroj, `${kde} neukotvuje podle citace`).toMatch(/ukotveniText/);
+    }
   });
 });

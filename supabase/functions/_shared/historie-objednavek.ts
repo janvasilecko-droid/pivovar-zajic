@@ -124,3 +124,90 @@ ${radky.join('\n')}
     zprávě žádný není. Co je napsané ve zprávě, má vždycky přednost.
 `;
 }
+
+/** Kolik dní zpátky se historie čte. Sezóna se mění, starší už neplatí. */
+const DNU_ZPET = 120;
+
+/**
+ * Načte historii odesílatele a rovnou z ní udělá blok do promptu.
+ *
+ * ⚠️ Tohle musí být na JEDNOM místě, ne dvakrát. Čtení zprávy má dvě cesty —
+ * server (whatsapp-auto-parse, když zpráva přijde) a klient (whatsappParser,
+ * tlačítko „Přečíst znovu") — a celý `_shared/` vznikl právě proto, že se ty
+ * dvě cesty rozcházely a táž zpráva se pak přečetla jinak podle toho, kudy
+ * přišla. Dotazy jsou tu psané tak, aby prošly přes obě: `supabase` je klient
+ * z @supabase/supabase-js, který má server i aplikace.
+ *
+ * Nikdy nevyhazuje výjimku — bez historie se čte jako dosud. Kvůli nápovědě
+ * nesmí zpráva propadnout.
+ */
+export async function nactiHistorii(
+  supabase: {
+    from: (t: string) => any;
+  },
+  opts: {
+    /** Jméno odesílatele (posla), jak je u zprávy. */
+    odesilatel: string | null | undefined;
+    /** Kdy zpráva přišla (ISO) — historie se čte zpětně od ní. */
+    kdy: string;
+  },
+): Promise<{ text: string; odberatele: string[] }> {
+  const prazdno = { text: '', odberatele: [] as string[] };
+  const odesilatel = (opts.odesilatel ?? '').trim();
+  if (!odesilatel) return prazdno;
+
+  try {
+    const odKdy = new Date(new Date(opts.kdy).getTime() - DNU_ZPET * 24 * 60 * 60 * 1000).toISOString();
+
+    // Objednávky, které z tohohle odesílatele už vznikly. Filtruje se až tady
+    // v JS: odesílatel je v `participant_name` NEBO `sender_name` a jméno může
+    // obsahovat cokoliv, takže skládat z něj `.or()` by koledovalo o potíže.
+    const { data: drivejsiZpravy } = await supabase
+      .from('whatsapp_incoming')
+      .select('imported_order_id, participant_name, sender_name')
+      .not('imported_order_id', 'is', null)
+      .gte('created_at', odKdy)
+      .order('created_at', { ascending: false })
+      .limit(300);
+    const mojeIds = (drivejsiZpravy ?? [])
+      .filter((z: any) => ((z.participant_name || z.sender_name || '').trim() === odesilatel))
+      .map((z: any) => z.imported_order_id)
+      .filter(Boolean)
+      .slice(0, 60);
+    if (mojeIds.length === 0) return prazdno;
+
+    const { data: ord } = await supabase.from('orders').select('id, place_name').in('id', mojeIds);
+    const objednavkyOdesilatele: ObjednavkaOdesilatele[] = (ord ?? []).map((o: any) => ({ place_name: o.place_name }));
+
+    // Co ti odběratelé berou obvykle — jen pro tři nejčastější, ať prompt
+    // nenaroste o výpis celého skladu.
+    const polozkyPodleOdberatele: Record<string, PolozkaOdberatele[]> = {};
+    const nejcastejsi = odberateleOdesilatele(objednavkyOdesilatele).slice(0, 3).map((o) => o.jmeno);
+    if (nejcastejsi.length > 0) {
+      const { data: pol } = await supabase
+        .from('order_items')
+        .select('quantity, beer_name, package_label, orders!inner(place_name, order_date)')
+        .in('orders.place_name', nejcastejsi)
+        .gte('orders.order_date', odKdy.slice(0, 10))
+        .limit(300);
+      for (const r of (pol ?? []) as any[]) {
+        const jmeno = r.orders?.place_name ?? '';
+        if (!jmeno) continue;
+        (polozkyPodleOdberatele[jmeno] ||= []).push({
+          place_name: jmeno,
+          beer_name: r.beer_name,
+          package_label: r.package_label,
+          quantity: Number(r.quantity || 0),
+        });
+      }
+    }
+
+    return {
+      text: blokHistorie({ odesilatel, objednavkyOdesilatele, polozkyPodleOdberatele }),
+      odberatele: odberateleOdesilatele(objednavkyOdesilatele).map((o) => o.jmeno),
+    };
+  } catch (e) {
+    console.error('Historie objednávek se nenačetla (čte se bez ní):', e);
+    return prazdno;
+  }
+}

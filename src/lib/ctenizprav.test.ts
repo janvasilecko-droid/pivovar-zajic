@@ -119,12 +119,14 @@ describe('historie objednávek jako kontext', () => {
     expect(HISTORIE).toContain('NENÍ k doplňování položek');
   });
 
-  it('whatsapp-auto-parse historii sestaví a pošle do promptu', () => {
+  it('whatsapp-auto-parse historii načte a pošle do promptu', () => {
     const autoParse = readFileSync('supabase/functions/whatsapp-auto-parse/index.ts', 'utf8');
-    expect(autoParse).toMatch(/blokHistorie\(/);
+    expect(autoParse).toMatch(/nactiHistorii\(supabase/);
     expect(autoParse).toMatch(/historie: historieText/);
-    // Selhání dotazu nesmí shodit čtení zprávy — bez historie se čte jako dřív.
-    expect(autoParse).toMatch(/catch[\s\S]{0,120}Historie objednávek se nenačetla/);
+  });
+
+  it('selhání dotazu nesmí shodit čtení zprávy — bez historie se čte jako dřív', () => {
+    expect(HISTORIE).toMatch(/catch[\s\S]{0,160}Historie objednávek se nenačetla/);
   });
 
   it('parse-order-text blok vloží do promptu', () => {
