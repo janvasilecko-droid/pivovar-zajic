@@ -2,7 +2,7 @@
 // Zadání z 19. 9. 2026: „na den stáčecí jen jeden záznam druhu 11 sv, barevný
 // pozadí a v tom všechny obaly a množství" a vzápětí „to samý i u lahví".
 import { describe, it, expect } from 'vitest';
-import { davkyStaceni, souhrnDavek, type ZaznamStaceni } from './prehledStaceni';
+import { davkyStaceni, denACesky, sarzeDavky, souhrnDavek, type ZaznamStaceni } from './prehledStaceni';
 
 const OBJEMY: Record<string, number> = { p50: 50, p30: 30, p20: 20, p05: 0.5 };
 const objem = (id: string | null) => (id ? OBJEMY[id] ?? 0 : 0);
@@ -143,10 +143,98 @@ describe('přehledy KEG i lahví seskupují stejně', () => {
     }
   });
 
-  it('u lahví se „první v dávce" počítá PŘEDEM, ne podle pořadí dlaždic', () => {
-    // Jinak by o možnosti upravit zdrojové sudy rozhodovalo pořadí výpisu —
-    // a to je vlastnost dávky, ne seznamu.
-    expect(LAHVE).toMatch(/const prvniVDavce = new Map<string, boolean>\(\)/);
-    expect(LAHVE.indexOf('const prvniVDavce')).toBeLessThan(LAHVE.indexOf('davkyStaceni(sortedRows'));
+  it('u lahví se zdrojový sud ukazuje po ŠARŽÍCH, ne po řádcích', () => {
+    // Zdroj nese uvnitř šarže jen jeden řádek; u ostatních se dřív psalo jen
+    // „〃 stejná dávka" a vypadalo to, že se zdroj ztratil.
+    expect(LAHVE).toMatch(/sarzeDavky\(davka\.polozky, getBatchId\)/);
+    expect(LAHVE).toMatch(/Stočeno ze sudu/);
+    // Jen dlaždice na telefonu — tabulka na počítači zůstává řádek po řádku,
+    // tam „〃 stejná dávka" dává smysl a místo na sud tam není.
+    const dlazdice = LAHVE.slice(
+      LAHVE.indexOf('Jedna dlaždice na DEN a PIVO'),
+      LAHVE.indexOf('hidden md:block rounded border border-amber-300/80'),
+    );
+    expect(dlazdice, 'v dlaždici zůstalo „stejná dávka" místo sudu').not.toMatch(/stejná dávka/);
+  });
+
+  it('datum nese i den v týdnu — na obou obrazovkách', () => {
+    for (const [kde, zdroj] of [['KEG', KEG], ['lahve', LAHVE]] as const) {
+      expect(zdroj, `${kde}: chybí den v týdnu`).toMatch(/denACesky\(davka\.datum\)/);
+    }
+  });
+});
+
+// ── Den v týdnu u data ────────────────────────────────────────────────────
+// Zadání z 19. 9. 2026: „udělej v tom stáčení KEG i lahve po, út, st, čt…
+// ať je vidět, jaký den se co stáčelo."
+describe('denACesky', () => {
+  it('napíše den před datum', () => {
+    expect(denACesky('2026-09-15')).toBe('út 15.9.');   // úterý
+    expect(denACesky('2026-09-14')).toBe('po 14.9.');
+    expect(denACesky('2026-09-20')).toBe('ne 20.9.');
+  });
+
+  it('nula z čísel zmizí — „5.9.", ne „05.09."', () => {
+    expect(denACesky('2026-09-05')).toBe('so 5.9.');
+  });
+
+  it('prázdné a nesmyslné datum nevyrobí „Invalid Date"', () => {
+    expect(denACesky(null)).toBe('—');
+    expect(denACesky('')).toBe('—');
+    expect(denACesky('nesmysl')).toBe('nesmysl');
+  });
+
+  it('den se čte přes UTC — jinak by se pondělí hlásilo jako neděle', () => {
+    // Bez UTC by `new Date('2026-09-14')` v záporné zóně spadlo na 13. 9.
+    const puvodni = process.env.TZ;
+    process.env.TZ = 'America/Los_Angeles';
+    try {
+      expect(denACesky('2026-09-14')).toBe('po 14.9.');
+    } finally {
+      process.env.TZ = puvodni;
+    }
+  });
+});
+
+// ── Sud a co se z něj stočilo ─────────────────────────────────────────────
+// Zadání z 19. 9. 2026: „u některých lahví zmizelo nebo není, z jakýho sudu
+// byly stočeny" a „ukaž vždy sud a z něho, co vše bylo stočeno".
+describe('sarzeDavky', () => {
+  const polozka = (o: any) => ({ zaznam: o, objemL: 0.5, litry: 0 });
+
+  it('sud nese jen jeden řádek — šarže ho dá celé skupině', () => {
+    const sarze = sarzeDavky([
+      polozka({ id: '1', davka: 'A', kegs_used: 4, kegs_used_package_id: 'k50' }),
+      polozka({ id: '2', davka: 'A', kegs_used: 0, kegs_used_package_id: null }),
+      polozka({ id: '3', davka: 'A', kegs_used: 0, kegs_used_package_id: null }),
+    ], (z: any) => z.davka);
+    expect(sarze).toHaveLength(1);
+    expect(sarze[0].zdrojPackageId, 'zdroj se ztratil').toBe('k50');
+    expect(sarze[0].polozky).toHaveLength(3);
+    expect(sarze[0].sudu).toBe(4);
+  });
+
+  it('upravuje se na řádku, který sudy opravdu nese', () => {
+    const sarze = sarzeDavky([
+      polozka({ id: 'bez', davka: 'A', kegs_used: 0, kegs_used_package_id: null }),
+      polozka({ id: 'se-sudy', davka: 'A', kegs_used: 2, kegs_used_package_id: 'k50' }),
+    ], (z: any) => z.davka);
+    expect(sarze[0].nositelZdroje?.id).toBe('se-sudy');
+  });
+
+  it('když sudy nenese nikdo, je kam je dopsat', () => {
+    const sarze = sarzeDavky([
+      polozka({ id: 'prvni', davka: 'A', kegs_used: 0, kegs_used_package_id: null }),
+    ], (z: any) => z.davka);
+    expect(sarze[0].nositelZdroje?.id).toBe('prvni');
+    expect(sarze[0].zdrojPackageId).toBeNull();
+  });
+
+  it('dvě stáčení téhož piva v jednom dni jsou dvě šarže, každá se svým sudem', () => {
+    const sarze = sarzeDavky([
+      polozka({ id: '1', davka: 'rano', kegs_used: 2, kegs_used_package_id: 'k50' }),
+      polozka({ id: '2', davka: 'odpo', kegs_used: 1, kegs_used_package_id: 'k30' }),
+    ], (z: any) => z.davka);
+    expect(sarze.map((s) => s.zdrojPackageId)).toEqual(['k50', 'k30']);
   });
 });

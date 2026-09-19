@@ -98,3 +98,79 @@ export function souhrnDavek<R>(davky: DavkaStaceni<R>[]): { ks: number; litry: n
     litry: davky.reduce((s, d) => s + d.celkemL, 0),
   };
 }
+
+/** Zkratky dnů tak, jak se používají na cedulích v pivovaru. */
+const DNY = ['ne', 'po', 'út', 'st', 'čt', 'pá', 'so'];
+
+/**
+ * „út 15.9." — den v týdnu před datem.
+ *
+ * Zadání z 19. 9. 2026: „udělej v tom stáčení KEG i lahve po, út, st, čt… ať
+ * je vidět, jaký den se co stáčelo." Samotné „15.9." nikomu neřekne, jestli
+ * to bylo v úterý nebo v sobotu, a rozvrh stáčení se plánuje po dnech.
+ *
+ * ⚠️ Datum se čte přes UTC. `new Date('2026-09-15')` je půlnoc UTC a
+ * `getDay()` by v záporné zóně ukázal den předchozí — stáčení z pondělí by
+ * se hlásilo jako nedělní.
+ */
+export function denACesky(iso: string | null | undefined): string {
+  if (!iso) return '—';
+  const casti = iso.split('-');
+  if (casti.length < 3) return iso;
+  const d = new Date(`${iso}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return iso;
+  return `${DNY[d.getUTCDay()]} ${Number(casti[2])}.${Number(casti[1])}.`;
+}
+
+/**
+ * Rozdělí položky dávky na ŠARŽE — „sud a co všechno se z něj stočilo".
+ *
+ * Zadání z 19. 9. 2026: „ukaž vždy sud a z něho, co vše bylo stočeno."
+ * Zdrojový sud nese uvnitř šarže jen JEDEN řádek — ten, kterým se zapsal
+ * odečet sudů. Ostatní mají prázdno a u nich to vypadalo, jako by se zdroj
+ * ztratil („u některých lahví zmizelo nebo není, z jakého sudu byly stočeny").
+ * Zdroj patří ŠARŽI, ne jednotlivému obalu — tak se teď i ukazuje: jednou,
+ * nad tím, co se z něj stočilo.
+ *
+ * Pořadí šarží i položek v nich zůstává takové, v jakém přišly.
+ */
+export type Sarze<R> = {
+  klic: string;
+  /** Obal zdrojového sudu — null, když ho žádný řádek šarže nenese. */
+  zdrojPackageId: string | null;
+  /** Kolik sudů se na tuhle šarži spotřebovalo. */
+  sudu: number;
+  /** Záznam, který zdroj nese — na něm se zdroj upravuje. */
+  nositelZdroje: R | null;
+  polozky: PolozkaDavky<R>[];
+};
+
+export function sarzeDavky<R extends {
+  kegs_used_package_id?: string | null;
+  kegs_used?: number | null;
+}>(
+  polozky: PolozkaDavky<R>[],
+  sarzeId: (zaznam: R) => string,
+): Sarze<R>[] {
+  const podleKlice = new Map<string, Sarze<R>>();
+  for (const polozka of polozky) {
+    const klic = sarzeId(polozka.zaznam);
+    let sarze = podleKlice.get(klic);
+    if (!sarze) {
+      sarze = { klic, zdrojPackageId: null, sudu: 0, nositelZdroje: null, polozky: [] };
+      podleKlice.set(klic, sarze);
+    }
+    sarze.polozky.push(polozka);
+    const z = polozka.zaznam;
+    if (!sarze.zdrojPackageId && z.kegs_used_package_id) {
+      sarze.zdrojPackageId = z.kegs_used_package_id;
+    }
+    // Nositel zdroje je první řádek, který má odečtené sudy; když žádný nemá,
+    // je to první řádek šarže — aby bylo kam sud dopsat.
+    if (!sarze.nositelZdroje || (!Number(sarze.nositelZdroje.kegs_used) && Number(z.kegs_used) > 0)) {
+      sarze.nositelZdroje = z;
+    }
+    sarze.sudu += Number(z.kegs_used) || 0;
+  }
+  return [...podleKlice.values()];
+}

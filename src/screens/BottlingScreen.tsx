@@ -14,7 +14,7 @@ import { businessDateISO } from '../lib/businessDate';
 import { vychoziZdrojovySud } from '../lib/zdrojovySud';
 import VyberZdrojovehoSudu from '../components/VyberZdrojovehoSudu';
 import VyberObalu, { objemCesky } from '../components/VyberObalu';
-import { davkyStaceni } from '../lib/prehledStaceni';
+import { davkyStaceni, denACesky, sarzeDavky } from '../lib/prehledStaceni';
 import { autoLogBottleSanitationFromChecklist } from '../lib/bottleSanitation';
 import { requestOrdersItemFilter } from '../lib/ordersFilter';
 import { VoiceRecorder } from '../components/VoiceRecorder';
@@ -2020,35 +2020,26 @@ export default function BottlingScreen({
 
             <div className="card p-4 border-2 border-amber-300/80 bg-white">
               <h3 className="font-display font-black text-amber-950 text-sm mb-3">
-                <IkonaLahev className="ikona-text" /> {recordsView === 'month' ? `Měsíc ${recordsMonthKey}` : `Týden ${recordsWeekKey}`}
+                <IkonaLahev className="ikona-text" /> {recordsView === 'month' ? `Měsíc ${recordsMonthKey}` : recordsView === 'day' ? `Den ${denACesky(recordsDay)}` : `Týden ${recordsWeekKey}`}
               </h3>
 
-              {/* 📋 Jedna dlaždice na DEN a PIVO, ne na každý obal zvlášť — stejně
-                  jako u KEG (viz lib/prehledStaceni.ts). Zadání z 19. 9. 2026:
-                  „to samý i u lahví, na jeden den jeden druh piva a v něm
-                  jednotlivé druhy stáčení."
+              {/* 📋 Dlaždice na DEN a PIVO, uvnitř rozdělená na ŠARŽE: nad každou
+                  stojí SUD a pod ním to, co se z něj stočilo.
+                  Zadání z 19. 9. 2026: „to samý i u lahví, na jeden den jeden druh
+                  piva a v něm jednotlivé druhy stáčení", „u některých lahví zmizelo
+                  nebo není, z jakého sudu byly stočeny" a „ukaž vždy sud a z něho,
+                  co vše bylo stočeno".
 
-                  ⚠️ „První v dávce" se počítá PŘEDEM, v původním pořadí řádků, ne
-                  až při vykreslování. Kdyby se to počítalo až v seskupeném seznamu,
-                  rozhodovalo by pořadí dlaždic o tom, u kterého řádku se dají
-                  upravit zdrojové sudy — a to je vlastnost dÁVKY, ne výpisu. */}
-              {(() => {
-                const prvniVDavce = new Map<string, boolean>();
-                const videno = new Set<string>();
-                for (const r of sortedRows) {
-                  const bId = getBatchId(r);
-                  prvniVDavce.set(r.id, !videno.has(bId));
-                  if (r.kegs_used && r.kegs_used > 0) videno.add(bId);
-                }
-                const davky = davkyStaceni(sortedRows, (pkgId) => {
+                  Zdroj nesl uvnitř šarže jen JEDEN řádek — ten, kterým se zapsal
+                  odečet sudů. U ostatních se psalo jen „〃 stejná dávka" a vypadalo
+                  to, že se zdroj ztratil. Zdroj patří ŠARŽI, ne obalu. */}
+              <div className="grid grid-cols-1 gap-2 md:hidden">
+                {davkyStaceni(sortedRows, (pkgId) => {
                   const pkg = packages.find((p) => p.id === pkgId);
                   return pkg ? Number(pkg.volume_l) : 0;
-                });
-                return (
-              <div className="grid grid-cols-1 gap-2 md:hidden">
-                {davky.map((davka) => {
+                }).map((davka) => {
                   const beer = beers.find((b) => b.id === davka.beerId);
-                  const sudyDavky = davka.polozky.reduce((s, { zaznam }) => s + (Number(zaznam.kegs_used) || 0), 0);
+                  const sarze = sarzeDavky(davka.polozky, getBatchId);
                   return (
                     <div
                       key={davka.klic}
@@ -2056,62 +2047,60 @@ export default function BottlingScreen({
                       style={{ backgroundColor: beerBg(beer) }}
                     >
                       <div className={`flex items-center gap-2 flex-wrap ${beerText(beer)}`}>
-                        <span className="shrink-0 font-mono font-bold text-xs opacity-80">{formatDate(davka.datum)}</span>
+                        <span className="shrink-0 font-mono font-bold text-xs opacity-80">{denACesky(davka.datum)}</span>
                         <span className="font-black text-base truncate min-w-0">{davka.beerName}</span>
                         <span className="ml-auto shrink-0 font-display font-black text-xl tabular-nums">{davka.celkemKs} ks</span>
                       </div>
-                      <div className={`text-udaj font-bold tabular-nums opacity-80 ${beerText(beer)}`}>
-                        {davka.celkemL.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} l
-                        {sudyDavky > 0 ? ` · ${sudyDavky} sudů` : ''}
-                      </div>
 
-                      {/* Jednotlivé obaly. Podúložené bílou, ať jsou čitelné i na
-                          tmavém pivu — barva pozadí nese PIVO, ne čitelnost čísel. */}
-                      <div className="space-y-1.5">
-                        {davka.polozky.map(({ zaznam: r, litry }) => {
-                          const pkg = packages.find((p) => p.id === r.package_id);
-                          const kegPkg = r.kegs_used_package_id ? packages.find((p) => p.id === r.kegs_used_package_id) : null;
-                          const isFirstInBatch = prvniVDavce.get(r.id) ?? false;
-                          return (
-                            <div key={r.id} className="rounded-lg bg-white/95 border border-black/10 p-2 space-y-1.5">
-                              <div className="flex items-center gap-2">
-                                <span className="shrink-0 text-sm font-black text-amber-900">{pkg?.label ?? r.package_label ?? '—'}</span>
-                                <span className="ml-auto shrink-0 font-display font-black text-lg text-amber-950 tabular-nums">{r.quantity} ks</span>
-                              </div>
-                              <div className="grid grid-cols-2 gap-1.5 text-center">
-                                <div className="rounded bg-amber-100/70 py-1.5">
-                                  <div className="text-udaj font-black uppercase text-amber-700">Litry</div>
-                                  <div className="text-sm font-black text-amber-900">{litry.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })}</div>
-                                </div>
-                                <div className="rounded bg-amber-100/70 py-1.5 flex items-center justify-center gap-1">
-                                  {isFirstInBatch ? (
-                                    <>
-                                      <button type="button" onClick={() => incrementKegs(r.id, -1)} className="w-7 h-7 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-800 font-black text-sm transition tap">−</button>
-                                      <span className="text-sm font-black text-amber-900">{r.kegs_used && r.kegs_used > 0 ? r.kegs_used : 0} <IkonaSud className="ikona-text" /></span>
-                                      <button type="button" onClick={() => incrementKegs(r.id, 1)} className="w-7 h-7 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-900 font-black text-sm transition tap">+</button>
-                                    </>
-                                  ) : (
-                                    <span className="text-udaj font-bold text-amber-600">〃 stejná dávka</span>
-                                  )}
-                                </div>
-                              </div>
-                              {isFirstInBatch && (
-                                <VyberZdrojovehoSudu
-                                  sudy={kegPackages}
-                                  vybrany={kegPkg?.id ?? ''}
-                                  zmen={(id) => updateKegPackage(r.id, id)}
-                                />
+                      {sarze.map((s) => (
+                        <div key={s.klic} className="rounded-lg bg-white/95 border border-black/10 p-2 space-y-2">
+                          {/* 🛢️ SUD — vždycky vidět, i když zatím žádný zapsaný není. */}
+                          <div className="space-y-1.5">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-udaj font-black uppercase tracking-wider text-amber-700">Stočeno ze sudu</span>
+                              {s.nositelZdroje && (
+                                <span className="ml-auto flex items-center gap-1">
+                                  <button type="button" onClick={() => incrementKegs(s.nositelZdroje!.id, -1)} className="w-8 h-8 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-800 font-black text-sm transition tap" aria-label="Ubrat sud">−</button>
+                                  <span className="text-sm font-black text-amber-900 tabular-nums">{s.sudu} <IkonaSud className="ikona-text" /></span>
+                                  <button type="button" onClick={() => incrementKegs(s.nositelZdroje!.id, 1)} className="w-8 h-8 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-900 font-black text-sm transition tap" aria-label="Přidat sud">+</button>
+                                </span>
                               )}
-                              <div className="flex items-center gap-1.5 pt-1 border-t border-amber-100">
-                                <button type="button" onClick={() => increment(r.id, -1)} className="w-11 min-h-[44px] grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-black text-lg transition">−</button>
-                                <button type="button" onClick={() => increment(r.id, 1)} className="w-11 min-h-[44px] grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-lg transition">+</button>
-                                <button type="button" onClick={() => setEditingRow(r)} className="btn-ghost !flex-none !w-11 !px-0 !min-h-[44px]" title="Upravit záznam" aria-label="Upravit záznam"><Pencil size={16} /></button>
-                                <button type="button" onClick={() => del(r.id)} className="btn-danger !flex-none !w-11 !px-0 !min-h-[44px] ml-2" title="Smazat záznam" aria-label="Smazat záznam"><X size={18} /></button>
-                              </div>
                             </div>
-                          );
-                        })}
-                      </div>
+                            {s.nositelZdroje ? (
+                              <VyberZdrojovehoSudu
+                                sudy={kegPackages}
+                                vybrany={s.zdrojPackageId ?? ''}
+                                zmen={(id) => updateKegPackage(s.nositelZdroje!.id, id)}
+                              />
+                            ) : (
+                              <div className="text-udaj font-bold text-neutral-500">Zdroj není zapsaný.</div>
+                            )}
+                          </div>
+
+                          {/* … a co se z něj stočilo. */}
+                          <div className="space-y-1.5 pt-1.5 border-t border-amber-100">
+                            {s.polozky.map(({ zaznam: r }) => {
+                              const pkg = packages.find((p) => p.id === r.package_id);
+                              return (
+                                <div key={r.id} className="rounded bg-amber-50/70 border border-amber-100 p-2 space-y-1.5">
+                                  <div className="flex items-center gap-2">
+                                    <span className="shrink-0 text-sm font-black text-amber-900">{pkg?.label ?? r.package_label ?? '—'}</span>
+                                    {/* ⚠️ KUSY, ne litry — z provozu 19. 9. 2026: „nejsou to
+                                        litry, ale ks." U obalu se počítají kusy. */}
+                                    <span className="ml-auto shrink-0 font-display font-black text-lg text-amber-950 tabular-nums">{r.quantity} ks</span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5">
+                                    <button type="button" onClick={() => increment(r.id, -1)} className="w-11 min-h-[44px] grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-black text-lg transition" aria-label="Ubrat kus">−</button>
+                                    <button type="button" onClick={() => increment(r.id, 1)} className="w-11 min-h-[44px] grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-lg transition" aria-label="Přidat kus">+</button>
+                                    <button type="button" onClick={() => setEditingRow(r)} className="btn-ghost !flex-none !w-11 !px-0 !min-h-[44px]" title="Upravit záznam" aria-label="Upravit záznam"><Pencil size={16} /></button>
+                                    <button type="button" onClick={() => del(r.id)} className="btn-danger !flex-none !w-11 !px-0 !min-h-[44px] ml-2" title="Smazat záznam" aria-label="Smazat záznam"><X size={18} /></button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   );
                 })}
@@ -2123,8 +2112,6 @@ export default function BottlingScreen({
                   </div>
                 </div>
               </div>
-                );
-              })()}
 
               <div className="hidden md:block rounded border border-amber-300/80 bg-amber-50/90 overflow-x-auto">
                 <table className="w-full text-xs">
