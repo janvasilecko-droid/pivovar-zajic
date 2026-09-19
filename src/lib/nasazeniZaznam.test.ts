@@ -36,34 +36,53 @@ describe('otisk se počítá z obsahu, ne z gitu', () => {
 });
 
 describe('uložený záznam sedí s repozitářem', () => {
+  const zaznam = () =>
+    JSON.parse(readFileSync('supabase/nasazeno.json', 'utf8')) as Record<string, string>;
+  const funkce = (z: Record<string, string>) => Object.keys(z).filter((k) => !k.startsWith('_'));
+
   it('obsahuje všech třináct funkcí', () => {
-    const zaznam = JSON.parse(readFileSync('supabase/nasazeno.json', 'utf8')) as Record<string, string>;
-    expect(Object.keys(zaznam).filter((k) => !k.startsWith('_'))).toHaveLength(13);
+    expect(funkce(zaznam())).toHaveLength(13);
   });
 
-  // ⚠️ Jen když právě žádná edge funkce rozpracovaná není. První verze tohohle
-  // testu (18. 9. 2026) to nerozlišovala a spadla po každé úpravě edge funkce —
-  // ještě předtím, než se vůbec bylo co nasadit. Rozpracovaná změna NENÍ
-  // zapomenuté nasazení: záznam aktualizuje až nasazení z mainu (deploy.yml).
-  const rozpracovaneFunkce = (): string => {
-    try {
-      return execFileSync('git', ['status', '--porcelain', '--', 'supabase/functions'], { encoding: 'utf8' }).trim();
-    } catch {
-      return ''; // Bez gitu (třeba v tarballu) se testuje jako dřív.
+  it('klíčem je otisk obsahu, ne commit', () => {
+    // První verze (18. 9. 2026) ukládala commit hash — 40 znaků a na každém
+    // stroji jiný. Otisk je 16 znaků sha256 z obsahu nahrávaných souborů.
+    const z = zaznam();
+    for (const f of funkce(z)) {
+      expect(z[f], `${f}: ${z[f]}`).toMatch(/^[0-9a-f]{16}$/);
     }
-  };
+  });
+});
 
-  it('kontrola hlásí, že je všechno nasazené', () => {
-    const rozpracovane = rozpracovaneFunkce();
-    if (rozpracovane) {
-      // Než se tohle pushne a nasadí, se záznamem seďíst nemůže.
-      expect(rozpracovane.length).toBeGreaterThan(0);
-      return;
-    }
-    // Když tenhle test spadne, je v mainu funkce, která se nenasadila —
-    // což je právě to, co má připomínka hlásit. Skript nikdy nekončí chybou,
-    // takže se čte jeho výpis.
-    const vystup = execFileSync('node', ['scripts/zkontroluj-nasazeni.mjs'], { encoding: 'utf8' });
-    expect(vystup, vystup).toContain('všechno nasazené');
+// ⚠️ Tady se SCHVÁLNĚ NEKONTROLUJE, jestli je všechno nasazené.
+// První verze to zkoušela (19. 9. 2026) a zacyklila se: nasazení běží až ZA
+// testy, takže commit, který mění edge funkci, má záznam z podstaty věci
+// ještě starý — test spadl, nasazení se nespustilo a záznam se neměl jak
+// srovnat. Změněná edge funkce by se do provozu nedostala už nikdy.
+//
+// Stav provozu není vlastnost repozitáře. Od toho je připomínka při startu
+// (scripts/zkontroluj-nasazeni.mjs), která schválně nikdy nekončí chybou —
+// hlídač, který rozbíjí build, se za týden vypne. Test hlídá jen to, že
+// připomínka funguje a nelze ji přehlédnout.
+describe('připomínka nenasazených funkcí', () => {
+  const spust = () =>
+    execFileSync('node', ['scripts/zkontroluj-nasazeni.mjs'], { encoding: 'utf8' });
+
+  it('nikdy nekončí chybou — nesmí rozbít build ani kontroly', () => {
+    expect(() => spust()).not.toThrow();
+  });
+
+  it('řekne buď „všechno nasazené", nebo vyjmenuje, co chýbí', () => {
+    const vystup = spust();
+    const vseNasazeno = vystup.includes('všechno nasazené');
+    const hlasiChybejici = vystup.includes('NEBĚŽÍ V POSLEDNÍ VERZI');
+    expect(vseNasazeno !== hlasiChybejici, vystup).toBe(true);
+  });
+
+  it('když něco chýbí, řekne i jak to naspravit', () => {
+    const vystup = spust();
+    if (vystup.includes('všechno nasazené')) return;
+    expect(vystup).toContain('pushni do mainu');
+    expect(vystup).toContain('actions');
   });
 });
