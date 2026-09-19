@@ -316,7 +316,9 @@ export default function App() {
       {page === 'audit' && <AuditScreen setPage={setPage} />}
       {(page === 'calendar' || page === 'feedback' || page === 'planning' || page === 'reminders' || page === 'notes') && (
         <PlanningTabbed
-          initialTab={page === 'reminders' ? 'reminders' : page === 'feedback' ? 'feedback' : page === 'notes' ? 'notes' : 'calendar'}
+          // 'reminders' už není vlastní záložka — vede na Poznámky, kde
+          // upozornění teď žijí. Necháno kvůli starým odkazům a uloženému stavu.
+          initialTab={page === 'feedback' ? 'feedback' : (page === 'notes' || page === 'reminders') ? 'notes' : 'calendar'}
           setPage={setPage}
           pageSubTab={pageSubTab}
         />

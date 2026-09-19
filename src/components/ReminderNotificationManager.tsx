@@ -50,7 +50,7 @@ export function ReminderNotificationManager() {
             void ukazUpozorneni(`🔔 UPOMÍNKA: ${r.title}`, {
               body: r.note || `Termín: ${new Date(r.date_time).toLocaleString('cs-CZ')}`,
               tag: `reminder-${r.id}`,
-              stranka: 'reminders',
+              stranka: 'notes',
             });
           }
 
