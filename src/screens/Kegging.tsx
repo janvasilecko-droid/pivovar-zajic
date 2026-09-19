@@ -2,7 +2,7 @@ import { synchronizuj } from '../lib/checklistData';
 import { jeSud } from '../lib/inventoryFix';
 import { useEffect, useMemo, useState, lazy, Suspense } from 'react';
 import { supabase, Beer, Package, EntryRow, CellarTank, KegPrefuk, useRealtime, beerBg, beerText, beerName, formatPackageLabel, fetchAllRows } from '../lib/supabase';
-import { davkyStaceni } from '../lib/prehledStaceni';
+import { davkyStaceni, denACesky } from '../lib/prehledStaceni';
 import { useAuth } from '../lib/auth';
 import { KeggingChecklistModal, KeggingChecklistBody, isStartChecklistCompleteForKeg, isMonthlyChecklistCompleteForKeg } from '../components/KeggingChecklistModal';
 import { autoLogKegSanitationFromChecklist, isLastWeekOfMonth } from '../lib/kegSanitation';
@@ -2090,7 +2090,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                       style={{ backgroundColor: beerBg(beer) }}
                     >
                       <div className={`flex items-center gap-2 flex-wrap ${beerText(beer)}`}>
-                        <span className="shrink-0 font-mono font-bold text-xs opacity-80">{formatDate(davka.datum)}</span>
+                        <span className="shrink-0 font-mono font-bold text-xs opacity-80">{denACesky(davka.datum)}</span>
                         <span className="font-black text-base truncate min-w-0">{davka.beerName}</span>
                         <span className="ml-auto shrink-0 font-display font-black text-xl tabular-nums">{davka.celkemKs} ks</span>
                       </div>
@@ -2101,7 +2101,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                       {/* Jednotlivé obaly. Podúložené bílou, ať jsou čitelné i na
                           tmavém pivu — barva pozadí nese PIVO, ne čitelnost čísel. */}
                       <div className="space-y-1.5">
-                        {davka.polozky.map(({ zaznam: r, litry }) => {
+                        {davka.polozky.map(({ zaznam: r }) => {
                           const isEditing = editingId === r.id;
                           return (
                             <div key={r.id} className="rounded-lg bg-white/95 border border-black/10 p-2 space-y-1.5">
@@ -2126,9 +2126,6 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                                     <span className="font-display font-black text-lg text-amber-950 tabular-nums">{r.quantity} ks</span>
                                   )}
                                 </span>
-                              </div>
-                              <div className="text-udaj font-bold text-amber-700 tabular-nums">
-                                {litry.toLocaleString('cs-CZ', { maximumFractionDigits: 0 })} l
                               </div>
                               {/* 🏷️ Odkud se ten záznam vzal — z provozu 12. 9. 2026:
                                   „10× 12sv 50 l jsem nezadával, co to je?" Byl to záznam,
