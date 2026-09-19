@@ -28,6 +28,8 @@ import CoStocitOkno from '../components/CoStocitOkno';
 // stáhne se až při klepnutí na dlaždici.
 const NavodPouziti = lazy(() => import('../components/NavodPouziti').then((m) => ({ default: m.NavodPouziti })));
 import { HomeChecklistModal } from '../components/HomeChecklistModal';
+import { polozkyDlazdice, pocetCekajicich } from '../lib/dlazdicePoznamek';
+import { nactiSdilene, prepniHotovo, SDILENE_POZNAMKY_ZMENA, type SdilenaPoznamka } from '../lib/sdilenePoznamky';
 import { getHomeNotes, toggleHomeNote, HOME_NOTES_CHANGED_EVENT, OPEN_HOME_NOTES_EVENT, consumeOpenHomeNotesRequest, type HomeNote, toggleHomeNoteImportant, rozvrhniPoznamky, kolikPoznamekZobrazit } from '../lib/homeNotes';
 import { getDailyTasks, DAILY_CHECKLIST_CHANGED_EVENT, type DailyTask } from '../lib/homeChecklist';
 import {
@@ -976,6 +978,24 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
     window.addEventListener(HOME_NOTES_CHANGED_EVENT, handleUpdate);
     return () => window.removeEventListener(HOME_NOTES_CHANGED_EVENT, handleUpdate);
   }, []);
+
+  // 📌 VZKAZY CELÉ SMĚNĚ. Poznámky jsou v appce dvoje (osobní a sdílené)
+  // a dlaždice znala jen ty osobní — kdo v okně zapnul „Poslat všem", zapsal
+  // vzkaz do té druhé přihrádky a dlaždice zůstala prázdná. Vypadalo to, že se
+  // poznámka neuložila (z provozu 19. 9. 2026).
+  const [sdilenePoznamky, setSdilenePoznamky] = useState<SdilenaPoznamka[]>([]);
+  useEffect(() => {
+    let zruseno = false;
+    const nacti = async () => {
+      const data = await nactiSdilene();
+      if (!zruseno) setSdilenePoznamky(data);
+    };
+    void nacti();
+    const obnov = () => { void nacti(); };
+    window.addEventListener(SDILENE_POZNAMKY_ZMENA, obnov);
+    return () => { zruseno = true; window.removeEventListener(SDILENE_POZNAMKY_ZMENA, obnov); };
+  }, []);
+  useRealtime(['sdilene_poznamky'], () => { void nactiSdilene().then(setSdilenePoznamky); });
 
   // ---- Denní checklist na ploše ----
   const [dailyTasks, setDailyTasks] = useState<DailyTask[]>(() => getDailyTasks().tasks);
@@ -1970,11 +1990,11 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
             const item = navById.get(id as Page) ?? (id === CO2_TILE_ID ? CO2_ITEM : isCountdownId(id) ? ({ id: id as any, label: countdowns.find((c) => c.id === id.slice(3))?.label ?? 'Odpočet', icon: AlarmClock, group: 'Nástroje' as const } as NavItem) : null);
             if (!item) return null;
 
-            const activeNotesList = homeNotes.filter((n) => !n.completed).sort((a, b) => (b.important ? 1 : 0) - (a.important ? 1 : 0));
-            // Na lístečku jsou i čerstvě odškrtnuté — přeškrtnuté, ať je vidět,
-            // že se odškrtnutí povedlo, a dá se vzít zpět. Sama zmizí do 24 h
-            // (viz uklidStareOdskrtnute), takže se lísteček nezanese.
-            const notesTileList = [...activeNotesList, ...homeNotes.filter((n) => n.completed)];
+            // Osobní poznámky i vzkazy celé směně dohromady — viz
+            // lib/dlazdicePoznamek.ts. Na lístečku jsou i čerstvě odškrtnuté,
+            // přeškrtnuté, ať je vidět, že se odškrtnutí podařilo, a dá se vzít
+            // zpět. Samy zmizí do 24 h (viz uklidStareOdskrtnute).
+            const notesTileList = polozkyDlazdice(homeNotes, sdilenePoznamky);
             const doneTasksCount = dailyTasks.filter((t) => t.completed).length;
             const runningTimers = countdowns.filter((c) => c.targetAt !== null && countdownRemainingMs(c) > 0);
             const doneTimers = countdowns.filter((c) => c.targetAt !== null && countdownRemainingMs(c) === 0);
@@ -1987,7 +2007,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
               : (id === 'bottling' || id === 'bottling_needs') && bottlingTodayCount ? `${bottlingTodayCount} plán`
               : id === 'vehicles' && vehicleAlerts.length === 1 ? `${vehicleAlerts[0].kind === 'stk' ? 'STK' : 'dálnice'} ${vehicleAlerts[0].status === 'expired' ? 'propadla' : 'brzy'}`
               : id === 'vehicles' && vehicleAlerts.length > 0 ? `${vehicleAlerts.length} STK`
-              : id === 'notes' && activeNotesList.length > 0 ? `${activeNotesList.length} vzkazů`
+              : id === 'notes' && pocetCekajicich(notesTileList) > 0 ? `${pocetCekajicich(notesTileList)} vzkazů`
               : id === 'checklists' && dailyTasks.length > 0 ? `${doneTasksCount}/${dailyTasks.length}`
               : (id === 'timer' || id === 'stopwatch') && doneTimers.length > 0 ? '⏰ Hotovo!'
               : (id === 'timer' || id === 'stopwatch') && runningTimers.length === 1 ? `⏱️ ${formatDurationMs(countdownRemainingMs(runningTimers[0]))}`
@@ -2231,20 +2251,30 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                               HomeScreen.css je globální `.hs-tile svg { width:
                               24px; height: 24px }`, které nafoukne každou
                               ikonu v dlaždici — fajfka pak leze mimo rámeček. */}
+                          {/* Odškrtnutí míří do té správné přihrádky: u vzkazu celé
+                              směně platí pro všechny, u osobní poznámky jen pro mě. */}
                           <button
                             type="button"
-                            onClick={(e) => { e.stopPropagation(); toggleHomeNote(note.id); }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (note.sdilena) {
+                                const vzkaz = sdilenePoznamky.find((v) => v.id === note.id);
+                                if (vzkaz) void prepniHotovo(vzkaz, profile?.display_name || user?.email || null);
+                              } else {
+                                toggleHomeNote(note.id);
+                              }
+                            }}
                             onPointerDown={(e) => e.stopPropagation()}
                             className="hs-note-check vlastni-vyska"
-                            title={note.completed ? 'Vrátit jako nesplněné' : 'Odškrtnout'}
-                            aria-label={note.completed ? 'Vrátit jako nesplněné' : 'Odškrtnout'}
+                            title={note.hotovo ? 'Vrátit jako nesplněné' : 'Odškrtnout'}
+                            aria-label={note.hotovo ? 'Vrátit jako nesplněné' : 'Odškrtnout'}
                           >
-                            {note.completed && <Check />}
+                            {note.hotovo && <Check />}
                           </button>
-                          {note.important && !note.completed && (
+                          {note.dulezite && !note.hotovo && (
                             <TriangleAlert className="hs-note-vykricnik" />
                           )}
-                          <span className={`text-udaj font-bold leading-tight line-clamp-2 min-w-0 ${note.completed ? 'line-through opacity-45' : ''}`}>
+                          <span className={`text-udaj font-bold leading-tight line-clamp-2 min-w-0 ${note.hotovo ? 'line-through opacity-45' : ''} ${note.sdilena ? 'italic' : ''}`}>
                             {note.text}
                           </span>
                         </div>
