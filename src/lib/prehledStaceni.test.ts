@@ -147,7 +147,10 @@ describe('přehledy KEG i lahví seskupují stejně', () => {
     // Zdroj nese uvnitř šarže jen jeden řádek; u ostatních se dřív psalo jen
     // „〃 stejná dávka" a vypadalo to, že se zdroj ztratil.
     expect(LAHVE).toMatch(/sarzeDavky\(davka\.polozky, getBatchId\)/);
-    expect(LAHVE).toMatch(/Stočeno ze sudu/);
+    // Nadpis „Stočeno ze sudu" je pryč — šarži drží pohromadě čára po straně.
+    // Z provozu: „má tam být sud a počet, jen nějak označ třeba čarou."
+    expect(LAHVE, 'nadpis se vrátil místo sudu a počtu').not.toMatch(/Stočeno ze sudu/);
+    expect(LAHVE, 'chybí čára, která šarži drží pohromadě').toMatch(/border-l-4 border-l-amber-500/);
     // Jen dlaždice na telefonu — tabulka na počítači zůstává řádek po řádku,
     // tam „〃 stejná dávka" dává smysl a místo na sud tam není.
     const dlazdice = LAHVE.slice(
