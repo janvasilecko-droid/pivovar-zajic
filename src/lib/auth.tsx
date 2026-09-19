@@ -5,6 +5,7 @@ import { reportAppVersion } from './appVersionTracker';
 import { isAdminEmail, getAdminName } from './config';
 import { saveCountdowns } from './stopwatchTimers';
 import { saveHomeNotes } from './homeNotes';
+import { cloudSmiPrepsat } from './profileSync';
 
 type AuthCtx = {
   session: Session | null;
@@ -21,6 +22,26 @@ type AuthCtx = {
 };
 
 const Ctx = createContext<AuthCtx>({} as AuthCtx);
+
+/**
+ * Převezme z cloudu to, co je opravdu novější než místní kopie.
+ *
+ * ⚠️ NE VŠECHNO, CO PŘIJDE, JE NOVĚJŠÍ. Realtime změny `profiles` chodí i jako
+ * ozvěna vlastních zápisů, a když se naše čerstvá změna ještě neodeslala
+ * (poznámky se zapisují odloženě), nese ozvěna starší data. Dřív se jím místní
+ * kopie přepsala natvrdo — právě napsaná poznámka zmizela z úložiště i z dlaždice
+ * a vypadalo to, že se neuložila (z provozu 19. 9. 2026). `cloudSmiPrepsat`
+ * (lib/profileSync.ts) řekne, která pole máme rozepsaná — ta se nepřepisují.
+ */
+function prevezmiZCloudu(home_layout: unknown): void {
+  const hl = (home_layout as any) || {};
+  if (Array.isArray(hl?.countdowns) && cloudSmiPrepsat('countdowns')) {
+    saveCountdowns(hl.countdowns);
+  }
+  if (Array.isArray(hl?.notes) && cloudSmiPrepsat('notes')) {
+    saveHomeNotes(hl.notes, true);
+  }
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = React.useState<Session | null>(null);
@@ -40,13 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     if (prof) {
-      const hl = (prof.home_layout as any) || {};
-      if (hl?.countdowns && Array.isArray(hl.countdowns)) {
-        saveCountdowns(hl.countdowns);
-      }
-      if (hl?.notes && Array.isArray(hl.notes)) {
-        saveHomeNotes(hl.notes);
-      }
+      prevezmiZCloudu(prof.home_layout);
     }
 
     setProfile(prof);
@@ -102,13 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const updatedProf = payload.new as Profile;
           if (updatedProf) {
             setProfile(updatedProf);
-            const hl = (updatedProf.home_layout as any) || {};
-            if (hl?.countdowns && Array.isArray(hl.countdowns)) {
-              saveCountdowns(hl.countdowns);
-            }
-            if (hl?.notes && Array.isArray(hl.notes)) {
-              saveHomeNotes(hl.notes);
-            }
+            prevezmiZCloudu(updatedProf.home_layout);
           }
         }
       )

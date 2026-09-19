@@ -1,12 +1,20 @@
 import { useState, useEffect } from 'react';
 import { Modal } from './ui';
-import { Plus, Check, Trash2, StickyNote, LayoutGrid, AlertTriangle, Users } from 'lucide-react';
+import { Plus, Bell, BellRing, Check, Trash2, StickyNote, LayoutGrid, AlertTriangle, Users } from 'lucide-react';
 import { getHomeNotes, addHomeNote, toggleHomeNote, toggleHomeNoteImportant, deleteHomeNote, clearCompletedNotes, HOME_NOTES_CHANGED_EVENT, type HomeNote } from '../lib/homeNotes';
 import { useAuth } from '../lib/auth';
 import { useRealtime } from '../lib/supabase';
 import { chyba as chybaOznam, oznam } from '../lib/toast';
 import { nactiSdilene, pridejSdilenou, prepniHotovo, smazSdilenou, SDILENE_POZNAMKY_ZMENA, type SdilenaPoznamka } from '../lib/sdilenePoznamky';
 import { getHomeLayout, saveHomeLayout, addTile } from '../lib/homeLayout';
+import { ReminderItem, acknowledgeReminder, createReminder, deleteReminder, fetchReminders } from '../lib/reminders';
+import { isNotificationSupported, requestNotificationPermission } from '../lib/notifications';
+import UpozorneniForm from './UpozorneniForm';
+import UpozorneniPruh from './UpozorneniPruh';
+import {
+  NastaveniUpozorneni, nazevUpozorneni, prijemciZNastaveni, terminZNastaveni,
+  upozorneniKPoznamce, vychoziNastaveni,
+} from '../lib/upozorneniPoznamky';
 import { NAV, EXTRA_NAV } from './Layout';
 
 export function HomeNotesModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
@@ -20,6 +28,16 @@ export function HomeNotesModal({ isOpen, onClose }: { isOpen: boolean; onClose: 
   // mi mezi mými zařízeními); tohle ji pošle všem do společné nástěnky.
   const [proVsechny, setProVsechny] = useState(false);
   const [sdilene, setSdilene] = useState<SdilenaPoznamka[]>([]);
+
+  // 🔔 Upozornění k poznámkám — zadání z 19. 9. 2026: „plus tam přidej
+  // možnost upozornění." Stejný mechanismus jako u Poznámek (screens/Notes.tsx):
+  // připomínka se páruje s poznámkou podle jejího textu, viz lib/upozorneniPoznamky.ts.
+  const [upozorneni, setUpozorneni] = useState<ReminderItem[]>([]);
+  const [chciUpozorneni, setChciUpozorneni] = useState(false);
+  const [nastaveni, setNastaveni] = useState<NastaveniUpozorneni>(() => vychoziNastaveni());
+  /** U které už napsané poznámky je právě otevřené nastavení upozornění. */
+  const [nastavujiProId, setNastavujiProId] = useState<string | null>(null);
+  const [nastaveniProPoznamku, setNastaveniProPoznamku] = useState<NastaveniUpozorneni>(() => vychoziNastaveni());
 
   const jmeno = (profile as any)?.display_name || user?.email || null;
 
@@ -39,6 +57,48 @@ export function HomeNotesModal({ isOpen, onClose }: { isOpen: boolean; onClose: 
   useEffect(() => { if (isOpen) void nactiSpolecne(); }, [isOpen]);
   useRealtime(['sdilene_poznamky'], () => { void nactiSpolecne(); });
 
+  async function nactiUpozorneni() { setUpozorneni(await fetchReminders()); }
+  useEffect(() => { if (isOpen) void nactiUpozorneni(); }, [isOpen]);
+  useRealtime(['reminders'], () => { void nactiUpozorneni(); });
+
+  /** Upozornění, které u téhle poznámky visí — nebo null. */
+  function upozorneniK(note: HomeNote): ReminderItem | null {
+    return upozorneniKPoznamce({ title: null, body: note.text }, upozorneni);
+  }
+
+  /** Založí upozornění k textu. Vrací hlášku, když to nejde — ne výjimku. */
+  async function zalozUpozorneni(text: string, n: NastaveniUpozorneni): Promise<string | null> {
+    const nazev = nazevUpozorneni({ title: null, body: text });
+    if (!nazev) return 'Napište nejdřív poznámku — z čeho jinak upozornění udělat.';
+    const prijemci = prijemciZNastaveni(n);
+    if ('chyba' in prijemci) return prijemci.chyba;
+    // Bez svolení prohlížeče by push nikam nedorazil a nikdo by se to nedozvěděl.
+    if ((n.zobrazeni === 'desktop_push' || n.zobrazeni === 'both') && isNotificationSupported()
+        && Notification.permission !== 'granted') {
+      await requestNotificationPermission();
+    }
+    await createReminder({
+      title: nazev,
+      note: text,
+      date_time: terminZNastaveni(n),
+      target_role: prijemci.target_role,
+      target_emails: prijemci.target_emails,
+      display_mode: n.zobrazeni,
+      created_by: jmeno || 'Poznámky',
+    });
+    await nactiUpozorneni();
+    return null;
+  }
+
+  async function zrusUpozorneni(id: string) {
+    await deleteReminder(id);
+    await nactiUpozorneni();
+  }
+  async function odkliknout(id: string) {
+    await acknowledgeReminder(id, user?.email || '');
+    await nactiUpozorneni();
+  }
+
   function handleAdd(e: React.FormEvent) {
     e.preventDefault();
     if (!newText.trim()) return;
@@ -56,6 +116,18 @@ export function HomeNotesModal({ isOpen, onClose }: { isOpen: boolean; onClose: 
     }
 
     addHomeNote(newText, undefined, selectedColor);
+    // Upozornění až po poznámce: kdyby uložení poznámky selhalo, nesmí zbýt
+    // připomínka na text, který nikde není.
+    if (chciUpozorneni) {
+      const text = newText;
+      const kdy = nastaveni;
+      void zalozUpozorneni(text, kdy).then((potiz) => {
+        if (potiz) chybaOznam(potiz);
+        else oznam('Poznámka uložená, upozornění nastavené.');
+      });
+      setChciUpozorneni(false);
+      setNastaveni(vychoziNastaveni());
+    }
     setNewText('');
 
     if (pinToHome) {
@@ -143,14 +215,33 @@ export function HomeNotesModal({ isOpen, onClose }: { isOpen: boolean; onClose: 
               <Users size={14} />
               <span>Poslat všem</span>
             </label>
+            {/* 🔔 Upozornění — nepovinné. Nastavení se rozbalí až po zaškrtnutí,
+                ať formulář nevypadá složitěji, než je. */}
+            <label className={`inline-flex items-center gap-1.5 text-xs font-bold cursor-pointer select-none px-2 py-1 rounded-lg border transition ${
+              chciUpozorneni ? 'bg-amber-50 border-amber-300 text-amber-800' : 'border-neutral-200 text-neutral-600 hover:bg-neutral-100'
+            }`}>
+              <input
+                type="checkbox"
+                checked={chciUpozorneni}
+                onChange={(e) => setChciUpozorneni(e.target.checked)}
+                className="rounded text-amber-500 focus:ring-amber-400"
+              />
+              <Bell size={14} />
+              <span>Upozornit</span>
+            </label>
             <button
               type="submit"
               disabled={!newText.trim()}
               className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-neutral-950 font-bold text-xs px-3.5 py-2 rounded-lg shadow-xs transition ml-auto"
             >
-              <Plus size={16} /> {proVsechny ? 'Poslat všem' : 'Přidat poznámku'}
+              <Plus size={16} /> {proVsechny ? 'Poslat všem' : chciUpozorneni ? 'Přidat s upozorněním' : 'Přidat poznámku'}
             </button>
           </div>
+          {chciUpozorneni && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-2.5">
+              <UpozorneniForm hodnota={nastaveni} zmen={setNastaveni} />
+            </div>
+          )}
         </form>
 
         {/* 📌 Společná nástěnka — vzkazy, které poslal někdo celé směně.
@@ -209,13 +300,15 @@ export function HomeNotesModal({ isOpen, onClose }: { isOpen: boolean; onClose: 
             <>
               {activeNotes.map((note) => {
                 const style = COLOR_STYLES[note.color || 'yellow'];
+                const maUpozorneni = upozorneniK(note);
                 return (
                   <div
                     key={note.id}
-                    className={`flex items-start justify-between gap-3 p-3 rounded-xl border shadow-xs transition ${
+                    className={`rounded-xl border shadow-xs transition ${
                       note.important ? 'bg-rose-50 border-rose-300 text-rose-950' : `${style.bg} ${style.border} ${style.text}`
                     }`}
                   >
+                  <div className="flex items-start justify-between gap-3 p-3">
                     <button
                       type="button"
                       onClick={() => toggleHomeNote(note.id)}
@@ -235,14 +328,65 @@ export function HomeNotesModal({ isOpen, onClose }: { isOpen: boolean; onClose: 
                     >
                       <AlertTriangle size={16} className={note.important ? 'fill-rose-200' : ''} />
                     </button>
+                    {!maUpozorneni && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNastavujiProId(nastavujiProId === note.id ? null : note.id);
+                          setNastaveniProPoznamku(vychoziNastaveni());
+                        }}
+                        className="text-neutral-400 hover:text-amber-600 p-1 shrink-0 transition tap"
+                        title="Přidat upozornění" aria-label="Přidat upozornění"
+                      >
+                        <Bell size={16} />
+                      </button>
+                    )}
                     <button
                       type="button"
-                      onClick={() => deleteHomeNote(note.id)}
+                      onClick={() => { void deleteHomeNote(note.id); if (maUpozorneni) void zrusUpozorneni(maUpozorneni.id); }}
                       className="text-neutral-400 hover:text-rose-600 p-1 shrink-0 transition tap"
                       title="Smazat poznámku" aria-label="Smazat poznámku"
                     >
                       <Trash2 size={16} />
                     </button>
+                  </div>
+
+                  {/* Upozornění, které u téhle poznámky visí. */}
+                  {maUpozorneni && (
+                    <div className="px-3 pb-3">
+                      <UpozorneniPruh
+                        upozorneni={maUpozorneni}
+                        jaEmail={user?.email || ''}
+                        odkliknout={(id) => void odkliknout(id)}
+                        smazat={(id) => void zrusUpozorneni(id)}
+                      />
+                    </div>
+                  )}
+
+                  {/* Nastavení upozornění u už napsané poznámky. */}
+                  {nastavujiProId === note.id && !maUpozorneni && (
+                    <div className="px-3 pb-3 space-y-2">
+                      <div className="rounded-lg border border-amber-200 bg-white/80 p-2.5">
+                        <UpozorneniForm hodnota={nastaveniProPoznamku} zmen={setNastaveniProPoznamku} />
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const potiz = await zalozUpozorneni(note.text, nastaveniProPoznamku);
+                            if (potiz) chybaOznam(potiz);
+                            else setNastavujiProId(null);
+                          }}
+                          className="btn-amber btn-sm"
+                        >
+                          <BellRing size={14} /> Upozornit
+                        </button>
+                        <button type="button" onClick={() => setNastavujiProId(null)} className="btn-secondary btn-sm">
+                          Zrušit
+                        </button>
+                      </div>
+                    </div>
+                  )}
                   </div>
                 );
               })}
