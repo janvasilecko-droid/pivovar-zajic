@@ -45,6 +45,18 @@ export function nenasazeneFunkce() {
 // Spuštění z příkazové řádky (ne při importu v testu).
 if (process.argv[1] && process.argv[1].endsWith('zkontroluj-nasazeni.mjs')) {
   const cekaji = nenasazeneFunkce();
+
+  // `--jen-jmena`: holyý seznam pro nasazení (deploy.yml). Dřív si nasazení
+  // vybíralo funkce z git diffu proti předchozímu commitu — když běh spadl
+  // (třeba na testu), změna se ztratila: další běh už ve svém diffu žádnou
+  // edge funkci neviděl a nasadit ji neměl jak už nikdy (běhy #730 a #731,
+  // 19. 9. 2026). Otisk obsahu tohle nemá: říká, co se od nahrané verze
+  // LIŠÍ — takže zmeškané nasazení dojede sám další běh.
+  if (process.argv.includes('--jen-jmena')) {
+    for (const f of cekaji) console.log(f.jmeno);
+    process.exit(0);
+  }
+
   if (cekaji.length === 0) {
     console.log('Edge funkce: všechno nasazené.');
     process.exit(0);
