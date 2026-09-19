@@ -152,11 +152,16 @@ export default function App() {
   // ať si nová stránka neponese cizí záložku z předchozí. Kliknutí na vnitřní
   // záložku volá setPage(stejná stránka, undefined, 'nazev-zalozky').
   function setPage(p: Page, targetSection?: string, subTab?: string) {
-    // 'notes' bývalo dvoje — samostatná stránka (sdílená nástěnka bez
-    // zaškrtávání) a dlaždice na Domů (se zaškrtáváním). Sjednoceno na jedno:
-    // kdokoli zavolá setPage('notes') odkudkoli (vyhledávání, menu, záložky),
-    // skončí na Domů s otevřeným oknem poznámek — viz lib/homeNotes.ts.
-    if (p === 'notes') {
+    // ⚠️ POZNÁMKY JSOU JEDNY. Bývaly tři: samostatná stránka (tabulka `notes`),
+    // dlaždice na Domů (lib/homeNotes.ts) a vzkazy směně (sdilene_poznamky).
+    // Stránka měla vlastní tlačítko „Uložit", jenže zapisovala do úložiště,
+    // které dlaždice na hlavní straně vůbec nečte — z provozu 19. 9. 2026:
+    // „poznámka se má objevit v tom bloku na hlavní straně, ale když dám
+    // uložit, nic se nestane." Cesta na ni je proto zavřená: kdokoli zavolá
+    // setPage('notes') NEBO setPage('reminders') odkudkoli (vyhledávání, menu,
+    // záložky, stará historie prohlížeče), skončí na Domů s otevřeným blokem
+    // poznámek — tam, kde se poznámka opravdu uloží a hned ukáže.
+    if (p === 'notes' || p === 'reminders') {
       requestOpenHomeNotes();
       p = 'home';
     }
@@ -314,11 +319,9 @@ export default function App() {
       )}
       {page === 'inventory' && <InventoryScreen setPage={setPage} initialSubTab={pageSubTab} />}
       {page === 'audit' && <AuditScreen setPage={setPage} />}
-      {(page === 'calendar' || page === 'feedback' || page === 'planning' || page === 'reminders' || page === 'notes') && (
+      {(page === 'calendar' || page === 'feedback' || page === 'planning') && (
         <PlanningTabbed
-          // 'reminders' už není vlastní záložka — vede na Poznámky, kde
-          // upozornění teď žijí. Necháno kvůli starým odkazům a uloženému stavu.
-          initialTab={page === 'feedback' ? 'feedback' : (page === 'notes' || page === 'reminders') ? 'notes' : 'calendar'}
+          initialTab={page === 'feedback' ? 'feedback' : 'calendar'}
           setPage={setPage}
           pageSubTab={pageSubTab}
         />

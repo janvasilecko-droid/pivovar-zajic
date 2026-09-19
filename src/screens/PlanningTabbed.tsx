@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react';
 import CalendarScreen from './Calendar';
-import Notes from './Notes';
 import Feedback from './Feedback';
-import { CalendarDays, StickyNote, MessageSquare } from 'lucide-react';
+import { CalendarDays, MessageSquare } from 'lucide-react';
 import { TabBar, type TabBarItem } from '../components/TabBar';
 
-type PlanningTab = 'calendar' | 'notes' | 'feedback';
+type PlanningTab = 'calendar' | 'feedback';
 
 interface PlanningTabbedProps {
   initialTab?: PlanningTab;
@@ -19,7 +18,6 @@ interface PlanningTabbedProps {
 // psal dvakrát.
 const TABS: (TabBarItem & { id: PlanningTab })[] = [
   { id: 'calendar', label: 'Kalendář', icon: CalendarDays, color: '#d4a017' },
-  { id: 'notes', label: 'Poznámky', icon: StickyNote, color: '#4dabf7' },
   { id: 'feedback', label: 'Feedback', icon: MessageSquare, color: '#e066b0' },
 ];
 
@@ -46,7 +44,6 @@ export default function PlanningTabbed({ initialTab = 'calendar', setPage, pageS
       {/* Screen Render */}
       <div className="transition-all duration-200">
         {activeTab === 'calendar' && <CalendarScreen />}
-        {activeTab === 'notes' && <Notes />}
         {activeTab === 'feedback' && <Feedback setPage={setPage} initialSubTab={pageSubTab} />}
       </div>
     </div>

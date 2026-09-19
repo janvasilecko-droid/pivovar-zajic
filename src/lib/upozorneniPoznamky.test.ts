@@ -109,26 +109,25 @@ describe('kdyCesky', () => {
   });
 });
 
-// Chování obrazovky, které se nedá spustit, ale dá se uhlídat ve zdroji.
-describe('obrazovka Poznámky', () => {
-  const ZDROJ = readFileSync('src/screens/Notes.tsx', 'utf8');
-
-  it('upozornění se zakládá až po uložení poznámky', () => {
-    // Opačné pořadí by při selhání zápisu nechalo připomínku na text, co nikde není.
-    expect(ZDROJ.indexOf("from('notes').insert")).toBeLessThan(ZDROJ.indexOf('if (chciUpozorneni)'));
+// ⚠️ POZNÁMKY JSOU JEDNY. Bývaly tři — samostatná obrazovka nad tabulkou
+// `notes`, blok na ploše a vzkazy směně. Ta obrazovka měla vlastní „Uložit",
+// jenže zapisovala do úložiště, které blok na hlavní straně nikdy nečetl.
+// Z provozu 19. 9. 2026: „poznámka se má objevit v tom bloku na hlavní straně,
+// ale když dám uložit, nic se nestane."
+describe('poznámka má v aplikaci jedno místo', () => {
+  it('osiřelá obrazovka Poznámky je pryč', () => {
+    expect(() => readFileSync('src/screens/Notes.tsx', 'utf8')).toThrow();
   });
 
-  it('smazání poznámky smaže i její upozornění', () => {
-    expect(ZDROJ).toMatch(/async function del[\s\S]{0,400}deleteReminder\(u\.id\)/);
+  it('všechny cesty vedou na blok poznámek na ploše', () => {
+    const app = readFileSync('src/App.tsx', 'utf8');
+    expect(app).toMatch(/p === 'notes' \|\| p === 'reminders'/);
+    expect(app).toMatch(/requestOpenHomeNotes\(\)/);
   });
 
-  it('úprava poznámky přepíše i připomínku, ať vazba drží', () => {
-    expect(ZDROJ).toMatch(/async function saveEdit[\s\S]{0,700}from\('reminders'\)\.update/);
-  });
-
-  it('Ctrl+Enter ukládá v textu poznámky i při úpravě', () => {
-    expect(ZDROJ).toMatch(/klavesyUlozeni\(add\)/);
-    expect(ZDROJ).toMatch(/klavesyUlozeni\(\(\) => saveEdit\(n\.id\)/);
+  it('záložka Poznámky v plánování už není', () => {
+    const tabs = readFileSync('src/screens/PlanningTabbed.tsx', 'utf8');
+    expect(tabs).not.toMatch(/id: 'notes'/);
   });
 });
 
@@ -215,10 +214,11 @@ describe('upozornění žijí jen v Poznámkách', () => {
     expect(() => readFileSync(nemelBySeVratit, 'utf8')).toThrow();
   });
 
-  it('v záložkách plánování už není vlastní záložka', () => {
+  it('v záložkách plánování není ani „Upozornění", ani „Poznámky"', () => {
+    // Obojí žije v bloku poznámek na ploše — viz komentář u setPage v App.tsx.
     const tabs = readFileSync('src/screens/PlanningTabbed.tsx', 'utf8');
     expect(tabs).not.toMatch(/id: 'reminders'/);
-    expect(tabs).toMatch(/id: 'notes'/);
+    expect(tabs).not.toMatch(/id: 'notes'/);
   });
 
   it('dlaždice „Připomínky" je pryč z menu', () => {
@@ -226,9 +226,9 @@ describe('upozornění žijí jen v Poznámkách', () => {
     expect(layout).not.toMatch(/id: 'reminders', label:/);
   });
 
-  it('staré odkazy na „reminders" vedou na Poznámky, ne do prázdna', () => {
+  it('staré odkazy na „reminders" vedou na blok poznámek, ne do prázdna', () => {
     const app = readFileSync('src/App.tsx', 'utf8');
-    expect(app).toMatch(/page === 'reminders'\) \? 'notes'/);
+    expect(app).toMatch(/p === 'notes' \|\| p === 'reminders'/);
   });
 
   it('upozornění z notifikace otevře Poznámky', () => {
@@ -236,8 +236,8 @@ describe('upozornění žijí jen v Poznámkách', () => {
     expect(manager).toMatch(/stranka: 'notes'/);
   });
 
-  it('upozornění bez poznámky se pořád ukazují — nesmí zmizet s dlaždicí', () => {
-    const notes = readFileSync('src/screens/Notes.tsx', 'utf8');
-    expect(notes).toMatch(/upozorneniBezPoznamky/);
+  it('upozornění bez poznámky se pořád ukazují — nesmí zmizet se zrušenou obrazovkou', () => {
+    const modal = readFileSync('src/components/HomeNotesModal.tsx', 'utf8');
+    expect(modal).toMatch(/upozorneniBezPoznamky/);
   });
 });
