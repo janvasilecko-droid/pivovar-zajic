@@ -3,9 +3,8 @@ import { Beer, Package, Place, fetchAllRows, formatPackageLabel, supabase, useRe
 import { Spinner, EmptyState, Modal } from '../components/ui';
 import { orderWeightKg, fmtKg } from '../lib/weight';
 import { DAYS } from '../lib/shared';
-import { AlertTriangle, ArrowRightLeft, BarChart3, Bird, Calendar, CalendarDays, Car, Check, CheckCircle2, FileText, Map as MapIcon, MapPin, MessageCircle, Package as PackageIcon, PenTool, Pencil, Phone, Plus, Printer, Scale, Search, StickyNote, TreePine, Truck, Wine, ArrowRightCircle, Droplet, Share2 } from 'lucide-react';
+import { AlertTriangle, ArrowRightLeft, Bird, Calendar, CalendarDays, Car, Check, CheckCircle2, Map as MapIcon, MapPin, MessageCircle, Package as PackageIcon, PenTool, Pencil, Phone, Printer, Scale, Search, StickyNote, TreePine, Truck, Wine, ArrowRightCircle, Droplet, Share2 } from 'lucide-react';
 import { shareDeliveryListToWhatsApp } from '../lib/whatsapp';
-import { exportZavozToExcel } from '../lib/excel';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 import type { StockSources } from '../lib/stockLedger';
 import { zbytekKeKonciTydne, schodkyObjednavky } from '../lib/tydenniZbytek';
@@ -40,7 +39,7 @@ type Order = {
 };
 type OrderItem = { id: string; order_id: string; beer_id: string | null; beer_name: string | null; package_id: string | null; package_label: string | null; quantity: number; is_prepared: boolean; is_bottled: boolean };
 
-export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any, sec?: string) => void; embedded?: boolean } = {}) {
+export default function Zavoz({ setPage }: { setPage?: (p: any, sec?: string) => void } = {}) {
   const { profile } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [items, setItems] = useState<Record<string, OrderItem[]>>({});
@@ -484,65 +483,6 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
 
   return (
     <div className="space-y-6 pb-12">
-      {/* Top Navigation Tabs — zobrazeno jen na samostatné stránce Závoz (ne když je vloženo v Objednávkách) */}
-      {!embedded && (
-        <div className="flex items-center gap-1.5 flex-nowrap border-b border-neutral-200 pb-2 w-full">
-          {setPage && (
-            <button
-              onClick={() => setPage('orders_entry')}
-              className="flex-1 px-2 py-2.5 min-h-[44px] rounded font-black text-xs leading-tight transition flex items-center justify-center gap-1 bg-white hover:bg-neutral-100 active:bg-neutral-200 text-neutral-700 border border-neutral-200 shadow-xs whitespace-nowrap"
-            >
-              <Plus size={14} />
-              <span>Nové</span>
-            </button>
-          )}
-          {setPage && (
-            <button
-              onClick={() => setPage('orders')}
-              className="flex-1 px-2 py-2.5 min-h-[44px] rounded font-black text-xs leading-tight transition flex items-center justify-center gap-1 bg-white hover:bg-neutral-100 active:bg-neutral-200 text-neutral-700 border border-neutral-200 shadow-xs whitespace-nowrap"
-            >
-              <FileText size={14} />
-              <span>Přehled</span>
-            </button>
-          )}
-          <button
-            className="flex-1 px-2 py-2.5 min-h-[44px] rounded font-black text-xs leading-tight transition flex items-center justify-center gap-1 bg-white text-neutral-900 shadow-md whitespace-nowrap"
-          >
-            <Truck size={14} />
-            <span>Závoz</span>
-          </button>
-        </div>
-      )}
-
-      {/* Top Action Bar — styl jako Stáčení KEG / Lahve */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded border border-neutral-200 shadow-2xs">
-        {/* Bez nadpisu „Závoz" — jméno obrazovky nese horní lišta. Lišta tady
-            zůstává kvůli akcím (Export Excel), ne kvůli titulku. */}
-        <div className="flex items-center gap-2">
-          <div className="relative group">
-            <button className="btn-ghost !rounded !bg-white border-amber-300 text-amber-950 font-extrabold text-xs shadow-xs" disabled={!activeOrders.length}><BarChart3 className="ikona-text" /> Export Excel ▾</button>
-            {activeOrders.length > 0 && (
-              <div className="absolute right-0 top-full mt-1 z-50 bg-white border border-neutral-200 rounded shadow-lg py-1 min-w-[180px] hidden group-hover:block group-focus-within:block">
-                <button className="w-full text-left px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-amber-50 hover:text-amber-950 transition tap" onClick={() => {
-                  const rows = weekOrders.flatMap((o) => (items[o.id] ?? []).map((i) => ({
-                    order_date: o.order_date, place_name: o.place_name, delivery_day: o.delivery_day,
-                    beer_name: i.beer_name, package_label: i.package_label, quantity: i.quantity, is_delivered: o.is_delivered,
-                  })));
-                  exportZavozToExcel(rows, `tyden-${weekKey}`);
-                }}><Calendar className="ikona-text" /> Tento týden</button>
-                <button className="w-full text-left px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-amber-50 hover:text-amber-950 transition tap" onClick={() => {
-                  const rows = orders.filter((o) => o.status !== 'storno').flatMap((o) => (items[o.id] ?? []).map((i) => ({
-                    order_date: o.order_date, place_name: o.place_name, delivery_day: o.delivery_day,
-                    beer_name: i.beer_name, package_label: i.package_label, quantity: i.quantity, is_delivered: o.is_delivered,
-                  })));
-                  exportZavozToExcel(rows, 'vse');
-                }}><Calendar className="ikona-text" /> Všechno</button>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
       {/* 🛢️ KONTO SUDŮ — kdo má u sebe kolik prázdných KEGů.
           Dřív se vrácené sudy nikam neukládaly, takže se nedalo zjistit,
           kdo kolik dluží; sud přitom stojí 2–3 tisíce. */}
