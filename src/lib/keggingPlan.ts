@@ -21,6 +21,7 @@
 // sudů, kolik se zapsalo.
 import { DAYS } from './shared';
 import { jeSud } from './inventoryFix';
+import { jeVyrizena } from './stavyObjednavek';
 import { weekRange } from '../components/WeeklyOrderSummaryCard';
 
 export type PlanOrderRef = {
@@ -356,7 +357,7 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
     if (qty <= 0) return;
     const k = `${it.beer_id}__${it.package_id}`;
     const bucket = (byDay[day][k] ||= { ordered: 0, covered: 0, orders: [] });
-    const wholeOrderDone = !!ord?.is_delivered || ord?.status === 'vyrizeno' || ord?.status === 'vyrizeno_zavoz';
+    const wholeOrderDone = !!ord?.is_delivered || jeVyrizena(ord?.status);
     // Se skutečnou zásobou skladem (currentStockMap) se zavezená objednávka
     // NEBERE jako vykrytá tady — kryje ji fond výš (`vracenoZaZavozy`), který
     // ji do fondu vrátil. Dvojí odečet (jednou tady, podruhé z fondu) by

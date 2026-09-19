@@ -159,6 +159,18 @@ describe('computeKeggingPlan', () => {
     expect(day(p, 'ut').totalDone).toBe(8);
   });
 
+  it('objednávka se stavem „vyřízeno"/„hotová" (bez is_delivered) se taky nemusí stáčet', () => {
+    // `wholeOrderDone` dřív znal jen 'vyrizeno'/'vyrizeno_zavoz' natvrdo —
+    // stav 'vyrizena'/'hotova', který jeVyrizena() (lib/stavyObjednavek.ts)
+    // odjinud v appce taky počítá jako odbavený, tu chyběl.
+    const p = plan({
+      orders: [objednavka('o1', '2026-08-25', { status: 'vyrizena', is_delivered: false })],
+      orderItems: [polozka('o1', 'b-des', 'p30', 8)],
+    });
+    expect(day(p, 'ut').totalMissing).toBe(0);
+    expect(day(p, 'ut').totalDone).toBe(8);
+  });
+
   it('sudy, které už odjely, nemůžou pokrýt další den', () => {
     const p = plan({
       orders: [

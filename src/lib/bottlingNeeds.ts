@@ -25,6 +25,7 @@
 import { AkceRow } from './inventoryHelper';
 import { buildMovements, stockAsOf } from './stockLedger';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
+import { jeVyrizena } from './stavyObjednavek';
 import type { BottlingPlan } from './bottlingPlans';
 
 export type NeedsRow = {
@@ -109,10 +110,20 @@ export function computeBottlingNeeds(input: BottlingNeedsInput): NeedsRow[] {
   ).forEach((line, k) => { stockMap[k] = Math.max(0, line.qty); });
 
   // Objednávky v daném týdnu (ks na pivo + obal) — VŠECHNY, i už zavezené.
+  //
+  // ⚠️ „Vyřízeno" se pozná přes `jeVyrizena()` (lib/stavyObjednavek.ts), ne
+  // vlastním výčtem stavů. Tenhle filtr dřív znal jen 'vyrizeno' a
+  // 'vyrizeno_zavoz' natvrdo — stav 'vyrizena'/'hotova', který `jeVyrizena()`
+  // odjinud v appce (hledání, Závoz) taky počítá jako odbavený, tu chyběl.
+  // Souvislost s hlášením „potreby staceni mi ukazuji ze chybi 6x30 tmava
+  // to je prece blbost, vse je zavezeno" (19. 9. 2026) se nepotvrdila —
+  // 'vyrizena'/'hotova' se dnes v appce nikde nezapisují — ale je to stejná
+  // chyba (druhá kopie významu, co drží krok jen náhodou), tak stálo za to
+  // ji smazat, když se hledala.
   const activeIds = new Set(
     orders
       .filter((o) => {
-        if (o.status === 'storno' || o.status === 'vyrizeno' || o.status === 'vyrizeno_zavoz') return false;
+        if (o.status === 'storno' || jeVyrizena(o.status)) return false;
         const target = o.delivery_date || o.order_date;
         return isThisWeek(target);
       })
