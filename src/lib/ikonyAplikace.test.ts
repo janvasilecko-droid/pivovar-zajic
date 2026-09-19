@@ -36,9 +36,53 @@ describe('ikony v manifestu mají slíbenou velikost', () => {
 
   it('192 a 512 nejsou tentýž soubor', () => {
     // Přesně tohle bylo špatně: jeden soubor ve dvou rolích.
-    const a = readFileSync('public/icon-192.png');
-    const b = readFileSync('public/icon-512.png');
-    expect(a.equals(b), 'icon-192.png a icon-512.png mají stejný obsah').toBe(false);
+    const mala = MANIFEST.icons.find((i) => i.sizes === '192x192')!;
+    const velka = MANIFEST.icons.find((i) => i.sizes === '512x512' && i.purpose !== 'maskable')!;
+    const a = readFileSync(`public/${mala.src.replace('./', '')}`);
+    const b = readFileSync(`public/${velka.src.replace('./', '')}`);
+    expect(a.equals(b), `${mala.src} a ${velka.src} mají stejný obsah`).toBe(false);
+  });
+});
+
+// ⚠️ Správný soubor na staré adrese je pořád špatná ikona.
+// ---------------------------------------------------------------------------
+// Z provozu 19. 9. 2026: „v telefonu když tu aplikaci po delší době otevřu,
+// objeví se nejdřív bílé pozadí s rozmazaným logem zajíce v černém obdélníku —
+// tohle už mělo být smazané."
+//
+// Ikony se opravily už 18. 9., ale na telefonu se nic nezměnilo: prohlížeč si
+// ikonu přidané aplikace uloží při INSTALACI a znovu ji nesthává jen proto, že
+// se na stejné adrese změnil obsah souboru. Jediné, co ho donutí ikonu načíst
+// znovu, je JINÁ ADRESA v manifestu. Proto mají soubory pořadové číslo.
+describe('ikony mají adresu, která se při změně mění', () => {
+  for (const ikona of MANIFEST.icons) {
+    it(`${ikona.src} nese pořadové číslo`, () => {
+      expect(ikona.src, 'bez čísla si telefon nechá starou ikonu napořád').toMatch(/-v\d+\.png$/);
+    });
+  }
+
+  it('index.html, offline režim i manifest ukazují na tytéž soubory', () => {
+    const vManifestu = new Set(MANIFEST.icons.map((i) => i.src.replace('./', '')));
+    for (const cesta of ['index.html', 'public/sw.js']) {
+      const zdroj = readFileSync(cesta, 'utf8');
+      for (const odkaz of zdroj.match(/icon-[\w-]*\.png/g) ?? []) {
+        expect(vManifestu.has(odkaz), `${cesta} odkazuje na ${odkaz}, která v manifestu není`).toBe(true);
+      }
+    }
+  });
+
+  it('generátor vyrábí právě ty soubory, co manifest slíbil', () => {
+    const skript = readFileSync('scripts/gen-icons.mjs', 'utf8');
+    for (const ikona of MANIFEST.icons) {
+      const jmeno = ikona.src.replace('./', '');
+      expect(skript, `gen-icons.mjs nevyrábí ${jmeno}`).toContain(`public/${jmeno}`);
+    }
+  });
+
+  it('rozmazané staré logo je pryč a nikdo ho nepoužívá', () => {
+    // public/logo.png bylo 540×260 rozmazané a výstřižkové. Vektory
+    // (logo-zajic.svg, logo-zajic-znak.svg) zůstávají — ty jsou ostré.
+    expect(() => readFileSync('public/logo.png'), 'public/logo.png se vrátilo').toThrow();
   });
 });
 
