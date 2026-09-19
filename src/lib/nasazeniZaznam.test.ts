@@ -86,3 +86,37 @@ describe('připomínka nenasazených funkcí', () => {
     expect(vystup).toContain('actions');
   });
 });
+
+// ⚠️ Výběr funkcí k nasazení musí vycházet z OTISKU, ne z git diffu.
+// Běhy #730 a #731 (19. 9. 2026): #730 spadl na testu dřív, než se nasadilo,
+// a #731 už ve svém diffu proti předchozímu commitu žádnou edge funkci
+// neviděl — oprava čtení zpráv zůstala ležet v mainu a v provozu běžela stará
+// verze. Otisk je samoopravný: říká, co se od nahrané verze LIŠÍ, takže
+// zmeškané nasazení dojede sám další běh.
+describe('nasazení si vybírá funkce podle otisku', () => {
+  const WORKFLOW = readFileSync('.github/workflows/deploy.yml', 'utf8');
+  const KROK = WORKFLOW.slice(WORKFLOW.indexOf('Změněné edge funkce'));
+
+  it('seznam bere z kontroly nasazení', () => {
+    expect(KROK).toMatch(/zkontroluj-nasazeni\.mjs --jen-jmena/);
+  });
+
+  it('nerozhoduje se podle git diffu proti předchozímu commitu', () => {
+    const kod = KROK.split('\n').filter((r) => !r.trim().startsWith('#')).join('\n');
+    // `git diff --cached` níž je něco jiného — zjišťuje, jestli se záznam
+    // vůbec změnil, než se commitne. Zakázaný je výběr funkcí z diffu.
+    expect(kod).not.toMatch(/git diff --name-only/);
+    expect(kod).not.toMatch(/github\.event\.before/);
+  });
+
+  it('--jen-jmena vypíše holý seznam, nic víc', () => {
+    const vystup = execFileSync('node', ['scripts/zkontroluj-nasazeni.mjs', '--jen-jmena'], { encoding: 'utf8' });
+    const radky = vystup.split('\n').filter(Boolean);
+    for (const r of radky) expect(r, vystup).toMatch(/^[a-z0-9-]+$/);
+  });
+
+  it('zapíše se jen to, co se opravdu nasadilo', () => {
+    expect(KROK).toMatch(/NASAZENE="\$NASAZENE \$f"/);
+    expect(KROK).toMatch(/zapis-nasazeni\.mjs \$NASAZENE/);
+  });
+});
