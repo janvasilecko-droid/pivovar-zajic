@@ -46,7 +46,11 @@ export const MODULE_DEFINITIONS: { id: ModuleKey; label: string; icon: LucideIco
   { id: 'sklo_promo', label: 'Sklad lahve, sklo, etikety...', icon: Wine, desc: 'Evidence pivního skla, podtácků, etiket a prázdných lahví s varováním.' },
   { id: 'vycepy', label: 'Výčepy & Rezervace zařazení', icon: IkonaVycep, desc: 'Evidence výčepních zařízení, kontrola čistoty, sanitací a kalendář rezervací.' },
   { id: 'exkurze', label: 'Exkurze & Prohlídky pivovaru', icon: Landmark, desc: 'Rezervační kalendář exkurzí, počet návštěvníků, průvodci a měsíční archiv.' },
-  { id: 'reminders', label: 'Upomínky & Upozornění', icon: Bell, desc: 'Vytváření upomínek s možností zobrazení na ploše (Push) nebo po přihlášení.' },
+  // Klíč 'reminders' zůstává — je uložený v oprávněních uživatelů a přejmenovat
+  // ho by znamenalo migrovat data. Obrazovka už ale samostatná není: upozornění
+  // se zadávají u poznámky (19. 9. 2026), takže popis mluví o tom, co se tím
+  // opravdu povoluje.
+  { id: 'reminders', label: 'Poznámky, kalendář a upozornění', icon: Bell, desc: 'Poznámky s upozorněním (na ploše nebo po přihlášení), kalendář a feedback.' },
   { id: 'akce', label: 'Akce & Výjezdní prodej', icon: PartyPopper, desc: 'Plánování výjezdních akcí, rozvoz piva a naskladnění neprodaných kusů.' },
   { id: 'pricelist', label: 'Ceník pivovaru', icon: Tag, desc: 'Ceník piva pro odběratele, velkoobchodní i maloobchodní ceny.' },
   { id: 'app_settings', label: 'Aplikace & Nastavení', icon: Settings, desc: 'Instalace aplikace, přizpůsobení menu a nastavení vzhledu.' },

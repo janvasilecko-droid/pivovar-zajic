@@ -114,7 +114,6 @@ export const EXTRA_NAV: NavItem[] = [
   { id: 'sanitace_vycepy', label: 'Sanitace výčepů', icon: IkonaVycep, group: 'Nástroje' },
   { id: 'checklists', label: 'Checklisty', icon: ClipboardCheck, group: 'Nástroje' },
   { id: 'sanitation_log', label: 'Sanitační deník', icon: FileText, group: 'Nástroje' },
-  { id: 'reminders', label: 'Připomínky', icon: Bell, group: 'Nástroje' },
   { id: 'notes', label: 'Poznámky', icon: StickyNote, group: 'Nástroje' },
   { id: 'feedback', label: 'Zpětná vazba', icon: MessageCircle, group: 'Nástroje' },
   { id: 'exkurze', label: 'Exkurze', icon: Compass, group: 'Výroba' },

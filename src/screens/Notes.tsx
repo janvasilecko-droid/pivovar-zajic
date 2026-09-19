@@ -1,13 +1,36 @@
+// 📝 Poznámky — a upozornění k nim.
+// ---------------------------------------------------------------------------
+// Zadání z 19. 9. 2026: „celý ty upozornění předělej do poznámek, ať můžu
+// přidat čas a datum upozornění, přesně jak fungujou upomínky — akorát je můžu
+// mít i na tom listě, a pak dlaždici upomínky smaž."
+//
+// Upozornění bývala vlastní obrazovka (RemindersScreen) s vlastním formulářem,
+// kde se název a text psal ZNOVU, i když totéž už stálo v poznámce. Dvě místa
+// na jednu věc: poznámka zapadla, protože ji nikomu nic nepřipomnělo, a
+// upozornění bylo bez souvislosti, protože se k němu poznámka nedostala.
+//
+// Teď je poznámka jediné místo. Text se píše jednou, upozornění je jen jeho
+// nastavení (kdy, komu, kde) a visí u poznámky, ke které patří. Starší
+// upozornění, která vznikla ještě na té zrušené obrazovce, se ukazují dole
+// pod čarou, aby se neztratila.
 import { useState, useEffect, useMemo } from 'react';
 import { supabase, Note, useRealtime } from '../lib/supabase';
 import { EmptyState, Spinner } from '../components/ui';
 import { useAuth } from '../lib/auth';
-import { Bell, BellOff, BellRing, Check, NotebookPen, PenLine, Pencil, Plus, StickyNote, Trash2, X } from 'lucide-react';
-import { potvrd } from '../lib/toast';
-import { ReminderItem, createReminder, deleteReminder, fetchReminders } from '../lib/reminders';
 import {
-  RYCHLE_TERMINY, RychlyTermin, kdyCesky, nazevUpozorneni, proVstupDatumCas,
-  terminKdy, upozorneniKPoznamce,
+  Bell, BellRing, Check, Monitor, NotebookPen, PenLine, Pencil, Plus, StickyNote, Trash2, X,
+} from 'lucide-react';
+import { chyba, oznam, potvrd } from '../lib/toast';
+import {
+  ReminderItem, acknowledgeReminder, createReminder, deleteReminder, fetchReminders,
+} from '../lib/reminders';
+import { isNotificationSupported, requestNotificationPermission } from '../lib/notifications';
+import { getAdminEmail } from '../lib/config';
+import UpozorneniForm from '../components/UpozorneniForm';
+import UpozorneniPruh from '../components/UpozorneniPruh';
+import {
+  NastaveniUpozorneni, kdyCesky, nazevUpozorneni, prijemciZNastaveni, terminZNastaveni,
+  upozorneniKPoznamce, vychoziNastaveni,
 } from '../lib/upozorneniPoznamky';
 
 const NOTE_COLORS: Record<string, string> = {
@@ -33,16 +56,15 @@ export default function Notes() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [editBody, setEditBody] = useState('');
-  const currentUser = user?.email || '';
+  const currentUser = user?.email || getAdminEmail();
 
-  // 🔔 Upozornění k poznamkám. Poznamka a připomínka byly dvě oddělené
-  // obrazovky — kdo chtěl, aby mu appka o poznámce dala vědět, musel ji celou
-  // znovu opsat do Připomínek. Teď to jde rovnou odsud.
+  // 🔔 Upozornění
   const [upozorneni, setUpozorneni] = useState<ReminderItem[]>([]);
-  // Pro kterou poznámku je právě otevřený výběr termínu ('nova' = formulář nahoře).
+  const [chciUpozorneni, setChciUpozorneni] = useState(false);
+  const [nastaveni, setNastaveni] = useState<NastaveniUpozorneni>(() => vychoziNastaveni());
+  /** Pro kterou už napsanou poznámku je právě otevřené nastavení upozornění. */
   const [nastavujiProId, setNastavujiProId] = useState<string | null>(null);
-  const [kdy, setKdy] = useState(() => terminKdy('zitra-rano'));
-  const [pridavamUpozorneni, setPridavamUpozorneni] = useState(false);
+  const [nastaveniProPoznamku, setNastaveniProPoznamku] = useState<NastaveniUpozorneni>(() => vychoziNastaveni());
 
   async function load() {
     setLoading(true);
@@ -58,8 +80,8 @@ export default function Notes() {
   // dávku stejně slučuje (viz komentář u useRealtime v lib/supabase.ts).
   useRealtime(['notes', 'reminders'], () => { load(); nactiUpozorneni(); });
 
-  // Rychlé dohledání „má tahle poznámka upozornění?" — bez mapy by se při každém
-  // překreslení procházel celý seznam připomínek pro každou poznámku zvlášť.
+  // Rychlé dohledání „má tahle poznámka upozornění?" — bez mapy by se při
+  // každém překreslení procházel celý seznam pro každou poznámku zvlášť.
   const upozorneniPodlePoznamky = useMemo(() => {
     const m = new Map<string, ReminderItem>();
     for (const n of notes) {
@@ -69,21 +91,44 @@ export default function Notes() {
     return m;
   }, [notes, upozorneni]);
 
-  /** Založí připomínku k textu poznámky. Vrací false, když není z čeho udělat název. */
-  async function zalozUpozorneni(poznamka: { title: string | null; body: string }, termin: string) {
+  // Upozornění, která k žádné poznámce nepatří — typicky ta starší, co vznikla
+  // ještě na zrušené obrazovce. Bez tohohle seznamu by po zrušení dlaždice
+  // zmizela z aplikace úplně, i když pořád platí.
+  const upozorneniBezPoznamky = useMemo(() => {
+    const zabrane = new Set([...upozorneniPodlePoznamky.values()].map((u) => u.id));
+    return upozorneni.filter((u) => !zabrane.has(u.id) && !u.is_completed);
+  }, [upozorneni, upozorneniPodlePoznamky]);
+
+  /**
+   * Založí upozornění k textu poznámky. Vrací chybu jako text, ne výjimku —
+   * formulář ji ukáže, místo aby uložení tiše propadlo.
+   */
+  async function zalozUpozorneni(
+    poznamka: { title: string | null; body: string },
+    n: NastaveniUpozorneni,
+  ): Promise<string | null> {
     const nazev = nazevUpozorneni(poznamka);
-    if (!nazev) return false;
+    if (!nazev) return 'Napište nejdřív poznámku — z čeho jinak upozornění udělat.';
+    const prijemci = prijemciZNastaveni(n);
+    if ('chyba' in prijemci) return prijemci.chyba;
+
+    // Bez svolení prohlížeče by push nikam nedorazil a nikdo by se to nedozvěděl.
+    if ((n.zobrazeni === 'desktop_push' || n.zobrazeni === 'both') && isNotificationSupported()
+        && Notification.permission !== 'granted') {
+      await requestNotificationPermission();
+    }
+
     await createReminder({
       title: nazev,
       note: poznamka.body,
-      date_time: termin,
-      target_role: 'all',
-      target_emails: [],
-      display_mode: 'both',
-      created_by: currentUser || 'Poznámky',
+      date_time: terminZNastaveni(n),
+      target_role: prijemci.target_role,
+      target_emails: prijemci.target_emails,
+      display_mode: n.zobrazeni,
+      created_by: currentUser,
     });
     await nactiUpozorneni();
-    return true;
+    return null;
   }
 
   async function add() {
@@ -91,19 +136,23 @@ export default function Notes() {
     setSaving(true);
     try {
       const novaPoznamka = { title: title.trim() || null, body: body.trim() };
+      // Upozornění se zakládá až po poznámce: když uložení poznámky selhalo,
+      // nesmí zbýt upozornění na text, který nikde není.
       await supabase.from('notes').insert({
         ...novaPoznamka,
         color,
         created_by: currentUser || null,
       });
-      // Upozornění se zakládá až po poznámce: když uložení poznámky selhalo,
-      // nesmí zbýt připomínka na text, který nikde není.
-      if (pridavamUpozorneni) await zalozUpozorneni(novaPoznamka, kdy);
+      if (chciUpozorneni) {
+        const potiz = await zalozUpozorneni(novaPoznamka, nastaveni);
+        if (potiz) chyba(potiz);
+        else oznam('Poznámka uložená, upozornění nastavené.');
+      }
       setTitle('');
       setBody('');
       setColor('primary');
-      setPridavamUpozorneni(false);
-      setKdy(terminKdy('zitra-rano'));
+      setChciUpozorneni(false);
+      setNastaveni(vychoziNastaveni());
       await load();
     } finally {
       setSaving(false);
@@ -119,12 +168,16 @@ export default function Notes() {
     setNotes((n) => n.filter((x) => x.id !== id));
   }
 
-  /** Odebrat upozornění u poznámky (poznámka zůstává). */
-  async function zrusUpozorneni(poznamkaId: string) {
-    const u = upozorneniPodlePoznamky.get(poznamkaId);
+  async function zrusUpozorneni(id: string) {
+    const u = upozorneni.find((x) => x.id === id);
     if (!u) return;
     if (!(await potvrd(`Zrušit upozornění na ${kdyCesky(u.date_time)}? Poznámka zůstane.`))) return;
-    await deleteReminder(u.id);
+    await deleteReminder(id);
+    await nactiUpozorneni();
+  }
+
+  async function odkliknout(id: string) {
+    await acknowledgeReminder(id, currentUser);
     await nactiUpozorneni();
   }
 
@@ -136,8 +189,8 @@ export default function Notes() {
 
   async function saveEdit(id: string) {
     const novy = { title: editTitle.trim() || null, body: editBody.trim() };
-    // Připomínka se páruje podle názvu a textu (viz lib/upozorneniPoznamky.ts),
-    // takže ji při úpravě poznámky přepisujeme též — jinak by se vazba rozpadla
+    // Upozornění se páruje podle názvu a textu (viz lib/upozorneniPoznamky.ts),
+    // takže ho při úpravě poznámky přepisujeme též — jinak by se vazba rozpadla
     // a u poznámky by odznáček zmizel, i když upozornění dál platí.
     const u = upozorneniPodlePoznamky.get(id);
     await supabase
@@ -156,7 +209,7 @@ export default function Notes() {
   }
 
   /**
-   * Ctrl/Cmd+Enter uloží, Esc zruší — v textovém poli samé. Zadání z 19. 9.
+   * Ctrl/Cmd+Enter uloží, Esc zruší — v textovém poli samém. Zadání z 19. 9.
    * 2026: „a jednodušeji to ukládat." Trefit myší malé tlačítko pod textem je
    * na telefonu v provozu (v ruce, v rukavicích) to nejhorší místo.
    */
@@ -176,11 +229,16 @@ export default function Notes() {
   return (
     <div className="card p-5 sm:p-6 bg-white border border-neutral-200 rounded shadow-sm space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-100 pb-3">
         <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
           <StickyNote size={18} className="text-amber-500" />
           <span><NotebookPen className="ikona-text" /> Poznámky ({notes.length})</span>
         </h3>
+        {isNotificationSupported() && Notification.permission !== 'granted' && (
+          <button onClick={() => requestNotificationPermission()} className="btn-ghost btn-sm">
+            <Monitor size={14} /> Povolit upozornění na ploše
+          </button>
+        )}
       </div>
 
       {/* Add form */}
@@ -205,42 +263,19 @@ export default function Notes() {
         />
 
         {/* 🔔 Upozornění k téhle poznámce — nepovinné, schované pod přepínačem,
-            ať form nevypadá složitěji, než je. */}
-        <div className="rounded border border-neutral-200 bg-neutral-50 p-2.5 space-y-2">
+            ať formulář nevypadá složitěji, než je. */}
+        <div className="rounded border border-neutral-200 bg-neutral-50 p-2.5 space-y-2.5">
           <label className="flex items-center gap-2 text-xs font-black text-neutral-700 cursor-pointer">
             <input
               type="checkbox"
-              checked={pridavamUpozorneni}
-              onChange={(e) => setPridavamUpozorneni(e.target.checked)}
-              className="w-4 h-4"
+              checked={chciUpozorneni}
+              onChange={(e) => setChciUpozorneni(e.target.checked)}
+              className="w-5 h-5 accent-amber-500"
             />
             <Bell size={14} className="text-amber-500" />
-            Upozornit mě na ni
+            Upozornit na ni
           </label>
-          {pridavamUpozorneni && (
-            <div className="space-y-2">
-              <div className="flex flex-wrap gap-1.5">
-                {RYCHLE_TERMINY.map((t) => (
-                  <button
-                    key={t.klic}
-                    type="button"
-                    onClick={() => setKdy(terminKdy(t.klic as RychlyTermin))}
-                    className={`btn-sm ${kdy === terminKdy(t.klic as RychlyTermin) ? 'btn-amber' : 'btn-ghost'}`}
-                  >
-                    {t.popis}
-                  </button>
-                ))}
-              </div>
-              <input
-                type="datetime-local"
-                value={kdy}
-                min={proVstupDatumCas(new Date())}
-                onChange={(e) => setKdy(e.target.value)}
-                className="input text-xs"
-                aria-label="Kdy upozornit"
-              />
-            </div>
-          )}
+          {chciUpozorneni && <UpozorneniForm hodnota={nastaveni} zmen={setNastaveni} />}
         </div>
 
         <div className="flex items-center gap-2">
@@ -256,14 +291,13 @@ export default function Notes() {
             disabled={saving || (!title.trim() && !body.trim())}
             className="btn-amber btn-sm flex-1"
           >
-            <Plus size={16} /> {pridavamUpozorneni ? 'Přidat s upozorněním' : 'Přidat poznámku'}
+            <Plus size={16} /> {chciUpozorneni ? 'Přidat s upozorněním' : 'Přidat poznámku'}
           </button>
         </div>
         <p className="text-udaj font-bold text-neutral-400">
           Uloží i <kbd>Ctrl</kbd>+<kbd>Enter</kbd> přímo v textu.
         </p>
       </form>
-
 
       {/* Notes list */}
       {loading ? (
@@ -316,18 +350,12 @@ export default function Notes() {
                         <p className="lze-vybrat text-xs text-neutral-700 font-medium whitespace-pre-wrap leading-relaxed">{n.body}</p>
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
-                        {maUpozorneni ? (
+                        {!maUpozorneni && (
                           <button
-                            onClick={() => zrusUpozorneni(n.id)}
-                            className="p-1.5 rounded hover:bg-rose-100 text-amber-600 transition tap"
-                            title={`Upozornění ${kdyCesky(maUpozorneni.date_time)} — kliknutím zrušíte`}
-                            aria-label="Zrušit upozornění"
-                          >
-                            <BellOff size={14} />
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => { setNastavujiProId(nastavujiProId === n.id ? null : n.id); setKdy(terminKdy('zitra-rano')); }}
+                            onClick={() => {
+                              setNastavujiProId(nastavujiProId === n.id ? null : n.id);
+                              setNastaveniProPoznamku(vychoziNastaveni());
+                            }}
                             className="p-1.5 rounded hover:bg-amber-100 text-neutral-400 hover:text-amber-600 transition tap"
                             title="Přidat upozornění" aria-label="Přidat upozornění"
                           >
@@ -350,32 +378,30 @@ export default function Notes() {
                         </button>
                       </div>
                     </div>
-                    {/* Výběr termínu u existující poznámky — rozbalí se pod zvonečkem. */}
-                    {nastavujiProId === n.id && !maUpozorneni && (
-                      <div className="mt-2 rounded border border-amber-200 bg-amber-50 p-2.5 space-y-2">
-                        <div className="flex flex-wrap gap-1.5">
-                          {RYCHLE_TERMINY.map((t) => (
-                            <button
-                              key={t.klic}
-                              type="button"
-                              onClick={() => setKdy(terminKdy(t.klic as RychlyTermin))}
-                              className={`btn-sm ${kdy === terminKdy(t.klic as RychlyTermin) ? 'btn-amber' : 'btn-ghost'}`}
-                            >
-                              {t.popis}
-                            </button>
-                          ))}
-                        </div>
-                        <input
-                          type="datetime-local"
-                          value={kdy}
-                          min={proVstupDatumCas(new Date())}
-                          onChange={(e) => setKdy(e.target.value)}
-                          className="input text-xs"
-                          aria-label="Kdy upozornit"
+
+                    {/* Upozornění, které u téhle poznámky visí. */}
+                    {maUpozorneni && (
+                      <div className="mt-2">
+                        <UpozorneniPruh
+                          upozorneni={maUpozorneni}
+                          jaEmail={currentUser}
+                          odkliknout={odkliknout}
+                          smazat={zrusUpozorneni}
                         />
+                      </div>
+                    )}
+
+                    {/* Nastavení upozornění u už napsané poznámky. */}
+                    {nastavujiProId === n.id && !maUpozorneni && (
+                      <div className="mt-2 rounded border border-amber-200 bg-amber-50 p-2.5 space-y-2.5">
+                        <UpozorneniForm hodnota={nastaveniProPoznamku} zmen={setNastaveniProPoznamku} />
                         <div className="flex gap-2">
                           <button
-                            onClick={async () => { await zalozUpozorneni(n, kdy); setNastavujiProId(null); }}
+                            onClick={async () => {
+                              const potiz = await zalozUpozorneni(n, nastaveniProPoznamku);
+                              if (potiz) chyba(potiz);
+                              else setNastavujiProId(null);
+                            }}
                             className="btn-amber btn-sm"
                           >
                             <BellRing size={14} /> Upozornit
@@ -391,13 +417,6 @@ export default function Notes() {
                       <span>{n.created_by || '—'}</span>
                       <span>•</span>
                       <span>{formatDate(n.created_at)}</span>
-                      {maUpozorneni && (
-                        <span className="inline-flex items-center gap-1 text-amber-600">
-                          <span>•</span>
-                          <BellRing size={12} />
-                          {kdyCesky(maUpozorneni.date_time)}
-                        </span>
-                      )}
                     </div>
                   </>
                 )}
@@ -406,7 +425,28 @@ export default function Notes() {
           })}
         </div>
       )}
+
+      {/* Starší upozornění, která k žádné poznámce nepatří — vznikla ještě na
+          zrušené obrazovce „Upozornění". Bez tohohle seznamu by po zrušení
+          dlaždice zmizela z aplikace úplně, i když pořád platí. */}
+      {upozorneniBezPoznamky.length > 0 && (
+        <div className="pt-4 border-t border-neutral-200 space-y-2.5">
+          <h4 className="font-display font-black text-sm text-neutral-900 flex items-center gap-2">
+            <Bell size={16} className="text-amber-500" />
+            Upozornění bez poznámky ({upozorneniBezPoznamky.length})
+          </h4>
+          {upozorneniBezPoznamky.map((u) => (
+            <UpozorneniPruh
+              key={u.id}
+              upozorneni={u}
+              jaEmail={currentUser}
+              odkliknout={odkliknout}
+              smazat={zrusUpozorneni}
+              samostatne
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
-

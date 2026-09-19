@@ -110,3 +110,96 @@ export function kdyCesky(iso: string): string {
     day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit',
   });
 }
+
+// ─── Plné nastavení upozornění (dřív samostatná obrazovka „Upozornění") ─────
+// Zadání z 19. 9. 2026: „celý ty upozornění předělej do poznámek, ať můžu
+// přidat čas a datum upozornění, přesně jak fungujou upomínky — akorát je můžu
+// mít i na tom listě, a pak dlaždici upomínky smaž."
+//
+// Upozornění bylo vlastní obrazovkou s vlastním formulářem, kde se název a text
+// psal ZNOVU, i když přesně totéž už stálo v poznámce. Teď je poznámka jediné
+// místo: text se píše jednou a upozornění je jen jeho nastavení. Tenhle blok je
+// ta část, která se dá spočítat bez Reactu — a proto otestovat.
+
+import type { ReminderDisplayMode, ReminderTarget } from './reminders';
+
+export type KomuUpozornit = 'all' | 'role' | 'users' | 'custom';
+
+export type NastaveniUpozorneni = {
+  /** Neplánovat, poslat hned — pro „vem to hned, ne zítra". */
+  ihned: boolean;
+  /** `YYYY-MM-DDTHH:mm` v místním čase. */
+  kdy: string;
+  komu: KomuUpozornit;
+  role: ReminderTarget;
+  uzivatele: string[];
+  vlastniMaily: string;
+  zobrazeni: ReminderDisplayMode;
+};
+
+export function vychoziNastaveni(ted: Date = new Date()): NastaveniUpozorneni {
+  return {
+    ihned: false,
+    kdy: terminKdy('zitra-rano', ted),
+    komu: 'all',
+    role: 'sladek',
+    uzivatele: [],
+    vlastniMaily: '',
+    zobrazeni: 'both',
+  };
+}
+
+/** Rozdělí „a@b.cz, c@d.cz" na e-maily. Prázdné kusy zahodí. */
+export function rozdelMaily(text: string): string[] {
+  return text
+    .split(/[,;\s]+/)
+    .map((m) => m.trim())
+    .filter(Boolean);
+}
+
+export type PrijemciNeboChyba =
+  | { target_role: ReminderTarget; target_emails: string[] }
+  | { chyba: string };
+
+/**
+ * Příjemci pro `createReminder` — nebo hláška, co chybí.
+ *
+ * ⚠️ Chyba se vrací, ne vyhazuje: formulář ji ukáže vedle pole, kterého se
+ * týká. Upozornění bez příjemce se nesmí uložit potichu — nikomu by nepřišlo
+ * a nikdo by se to nedozvěděl.
+ */
+export function prijemciZNastaveni(n: NastaveniUpozorneni): PrijemciNeboChyba {
+  if (n.komu === 'all') return { target_role: 'all', target_emails: [] };
+  if (n.komu === 'role') return { target_role: n.role, target_emails: [] };
+  if (n.komu === 'users') {
+    if (n.uzivatele.length === 0) return { chyba: 'Vyberte aspoň jednoho kolegu.' };
+    return { target_role: 'custom', target_emails: n.uzivatele };
+  }
+  const maily = rozdelMaily(n.vlastniMaily);
+  if (maily.length === 0) return { chyba: 'Napište aspoň jeden e-mail.' };
+  return { target_role: 'custom', target_emails: maily };
+}
+
+/** Kdy se má upozornění doručit — ISO řetězec pro databázi. */
+export function terminZNastaveni(n: NastaveniUpozorneni, ted: Date = new Date()): string {
+  return n.ihned ? ted.toISOString() : n.kdy;
+}
+
+/** „Všichni" / „sládek" / „3 lidem (a@b.cz…)" — komu upozornění přijde. */
+export function komuCesky(target_role: string, target_emails?: string[]): string {
+  if (target_emails && target_emails.length > 0) {
+    const prvni = target_emails.slice(0, 2).join(', ');
+    return target_emails.length > 2
+      ? `${target_emails.length} lidem (${prvni}…)`
+      : `${target_emails.length === 1 ? '1 člověku' : `${target_emails.length} lidem`} (${prvni})`;
+  }
+  if (target_role === 'all') return 'Všichni';
+  return target_role;
+}
+
+/** „Okno + Push" — kde se upozornění ukáže. */
+export function zobrazeniCesky(mode: ReminderDisplayMode): string {
+  if (mode === 'desktop_push') return 'Push na ploše';
+  if (mode === 'login_modal') return 'Okno po přihlášení';
+  return 'Okno + Push';
+}

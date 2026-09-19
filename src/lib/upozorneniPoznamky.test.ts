@@ -5,7 +5,8 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import type { ReminderItem } from './reminders';
 import {
-  RYCHLE_TERMINY, kdyCesky, nazevUpozorneni, proVstupDatumCas, terminKdy, upozorneniKPoznamce,
+  RYCHLE_TERMINY, komuCesky, kdyCesky, nazevUpozorneni, prijemciZNastaveni, proVstupDatumCas,
+  rozdelMaily, terminKdy, terminZNastaveni, upozorneniKPoznamce, vychoziNastaveni, zobrazeniCesky,
 } from './upozorneniPoznamky';
 
 const upozorneni = (zmeny: Partial<ReminderItem>): ReminderItem => ({
@@ -114,7 +115,7 @@ describe('obrazovka Poznámky', () => {
 
   it('upozornění se zakládá až po uložení poznámky', () => {
     // Opačné pořadí by při selhání zápisu nechalo připomínku na text, co nikde není.
-    expect(ZDROJ.indexOf("from('notes').insert")).toBeLessThan(ZDROJ.indexOf('if (pridavamUpozorneni)'));
+    expect(ZDROJ.indexOf("from('notes').insert")).toBeLessThan(ZDROJ.indexOf('if (chciUpozorneni)'));
   });
 
   it('smazání poznámky smaže i její upozornění', () => {
@@ -128,5 +129,115 @@ describe('obrazovka Poznámky', () => {
   it('Ctrl+Enter ukládá v textu poznámky i při úpravě', () => {
     expect(ZDROJ).toMatch(/klavesyUlozeni\(add\)/);
     expect(ZDROJ).toMatch(/klavesyUlozeni\(\(\) => saveEdit\(n\.id\)/);
+  });
+});
+
+// ── Plné nastavení upozornění (po zrušení samostatné obrazovky) ────────────
+describe('prijemciZNastaveni', () => {
+  const zaklad = vychoziNastaveni(new Date(2026, 8, 19, 9, 30));
+
+  it('všem v pivovaru', () => {
+    expect(prijemciZNastaveni({ ...zaklad, komu: 'all' }))
+      .toEqual({ target_role: 'all', target_emails: [] });
+  });
+
+  it('podle pozice', () => {
+    expect(prijemciZNastaveni({ ...zaklad, komu: 'role', role: 'sladek' }))
+      .toEqual({ target_role: 'sladek', target_emails: [] });
+  });
+
+  it('konkrétním lidem', () => {
+    expect(prijemciZNastaveni({ ...zaklad, komu: 'users', uzivatele: ['a@b.cz'] }))
+      .toEqual({ target_role: 'custom', target_emails: ['a@b.cz'] });
+  });
+
+  it('bez vybraného člověka to neprojde — upozornění bez příjemce nesmí vzniknout', () => {
+    expect(prijemciZNastaveni({ ...zaklad, komu: 'users', uzivatele: [] }))
+      .toEqual({ chyba: 'Vyberte aspoň jednoho kolegu.' });
+  });
+
+  it('bez e-mailu to neprojde', () => {
+    expect(prijemciZNastaveni({ ...zaklad, komu: 'custom', vlastniMaily: '  ' }))
+      .toEqual({ chyba: 'Napište aspoň jeden e-mail.' });
+  });
+
+  it('e-maily jdou oddělit čárkou, středníkem i mezerou', () => {
+    expect(prijemciZNastaveni({ ...zaklad, komu: 'custom', vlastniMaily: 'a@b.cz, c@d.cz; e@f.cz' }))
+      .toEqual({ target_role: 'custom', target_emails: ['a@b.cz', 'c@d.cz', 'e@f.cz'] });
+  });
+});
+
+describe('rozdelMaily', () => {
+  it('prázdné kusy zahodí', () => {
+    expect(rozdelMaily(' a@b.cz ,, ; c@d.cz ')).toEqual(['a@b.cz', 'c@d.cz']);
+  });
+});
+
+describe('terminZNastaveni', () => {
+  const ted = new Date(2026, 8, 19, 9, 30);
+
+  it('naplánované vrací zadaný čas', () => {
+    expect(terminZNastaveni({ ...vychoziNastaveni(ted), kdy: '2026-09-20T07:00' }, ted))
+      .toBe('2026-09-20T07:00');
+  });
+
+  it('„hned teď" nečeká na termín', () => {
+    expect(terminZNastaveni({ ...vychoziNastaveni(ted), ihned: true }, ted)).toBe(ted.toISOString());
+  });
+});
+
+describe('komuCesky', () => {
+  it('bez e-mailů ukáže roli', () => {
+    expect(komuCesky('all')).toBe('Všichni');
+    expect(komuCesky('sladek')).toBe('sladek');
+  });
+
+  it('e-maily se vypíšou, dlouhý seznam se zkrátí', () => {
+    expect(komuCesky('custom', ['a@b.cz'])).toBe('1 člověku (a@b.cz)');
+    expect(komuCesky('custom', ['a@b.cz', 'c@d.cz', 'e@f.cz'])).toBe('3 lidem (a@b.cz, c@d.cz…)');
+  });
+});
+
+describe('zobrazeniCesky', () => {
+  it('pojmenuje všechny tři způsoby', () => {
+    expect(zobrazeniCesky('both')).toBe('Okno + Push');
+    expect(zobrazeniCesky('login_modal')).toBe('Okno po přihlášení');
+    expect(zobrazeniCesky('desktop_push')).toBe('Push na ploše');
+  });
+});
+
+// Samostatná obrazovka „Upozornění" zanikla — hlídáme, že se nevrátí zadní
+// cestou a že se cesta k ní nikde neutrhla.
+describe('upozornění žijí jen v Poznámkách', () => {
+  const nemelBySeVratit = 'src/screens/RemindersScreen.tsx';
+
+  it('stará obrazovka je pryč', () => {
+    expect(() => readFileSync(nemelBySeVratit, 'utf8')).toThrow();
+  });
+
+  it('v záložkách plánování už není vlastní záložka', () => {
+    const tabs = readFileSync('src/screens/PlanningTabbed.tsx', 'utf8');
+    expect(tabs).not.toMatch(/id: 'reminders'/);
+    expect(tabs).toMatch(/id: 'notes'/);
+  });
+
+  it('dlaždice „Připomínky" je pryč z menu', () => {
+    const layout = readFileSync('src/components/Layout.tsx', 'utf8');
+    expect(layout).not.toMatch(/id: 'reminders', label:/);
+  });
+
+  it('staré odkazy na „reminders" vedou na Poznámky, ne do prázdna', () => {
+    const app = readFileSync('src/App.tsx', 'utf8');
+    expect(app).toMatch(/page === 'reminders'\) \? 'notes'/);
+  });
+
+  it('upozornění z notifikace otevře Poznámky', () => {
+    const manager = readFileSync('src/components/ReminderNotificationManager.tsx', 'utf8');
+    expect(manager).toMatch(/stranka: 'notes'/);
+  });
+
+  it('upozornění bez poznámky se pořád ukazují — nesmí zmizet s dlaždicí', () => {
+    const notes = readFileSync('src/screens/Notes.tsx', 'utf8');
+    expect(notes).toMatch(/upozorneniBezPoznamky/);
   });
 });
