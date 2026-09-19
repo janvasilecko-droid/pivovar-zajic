@@ -24,10 +24,15 @@ describe('volba dne', () => {
     }
   });
 
-  it('sobota a neděle tam taky jsou — jinak by sobotní stáčení nešlo najít', () => {
+  it('sobota a neděle se nenabízejí — o víkendu se nestáčí', () => {
     render(<PrepinacObdobi {...zaklad} obdobi="day" />);
-    expect(screen.getByText('so')).toBeTruthy();
-    expect(screen.getByText('ne')).toBeTruthy();
+    expect(screen.queryByText('so')).toBeNull();
+    expect(screen.queryByText('ne')).toBeNull();
+  });
+
+  it('když je ale zvolená sobota, je vidět — jinak by nesvítilo nic', () => {
+    render(<PrepinacObdobi {...zaklad} obdobi="day" den="2026-09-19" />);
+    expect(screen.getByText('so').closest('button')?.getAttribute('aria-pressed')).toBe('true');
   });
 
   it('je vidět, který den je vybraný', () => {

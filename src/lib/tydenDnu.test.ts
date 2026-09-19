@@ -1,6 +1,6 @@
 // 📅 Dny týdne jako tlačítka — viz hlavička tydenDnu.ts.
 import { describe, it, expect } from 'vitest';
-import { dnyTydne, posunTyden } from './tydenDnu';
+import { dnyProVyber, dnyTydne, posunTyden } from './tydenDnu';
 
 describe('dnyTydne', () => {
   it('vrátí sedm dnů od pondělí do neděle', () => {
@@ -34,7 +34,7 @@ describe('dnyTydne', () => {
       .toEqual(['so', 'ne']);
   });
 
-  it('sobota a neděle se NEVYNECHÁVAJÍ — jinak by sobotní stáčení nešlo najít', () => {
+  it('celý týden má vždycky sedm dnů — výběr se řeší jinde', () => {
     expect(dnyTydne('2026-09-16').map((d) => d.zkratka)).toContain('so');
   });
 
@@ -61,5 +61,30 @@ describe('posunTyden', () => {
 
   it('nesmyslné datum vrátí beze změny', () => {
     expect(posunTyden('nesmysl', 1)).toBe('nesmysl');
+  });
+});
+
+// ── Co se nabídne k výběru ────────────────────────────────────────────────
+// Zadání z 19. 9. 2026: „so, ne nemusíš." V pivovaru se o víkendu nestáčí.
+describe('dnyProVyber', () => {
+  it('nabídne pondělí až pátek', () => {
+    expect(dnyProVyber('2026-09-16').map((d) => d.zkratka))
+      .toEqual(['po', 'út', 'st', 'čt', 'pá']);
+  });
+
+  it('když je zvolená SOBOTA, zůstane v řadě — jinak by nesvítilo nic', () => {
+    // Stane se to samo: přehled se otevírá na dnešku, a ten může být sobota.
+    const dny = dnyProVyber('2026-09-19'); // sobota
+    expect(dny.map((d) => d.zkratka)).toEqual(['po', 'út', 'st', 'čt', 'pá', 'so']);
+    expect(dny.some((d) => d.iso === '2026-09-19'), 'zvolený den zmizel z výběru').toBe(true);
+  });
+
+  it('zvolená neděle zůstane taky, a nepřitáhne s sebou sobotu', () => {
+    const dny = dnyProVyber('2026-09-20'); // neděle
+    expect(dny.map((d) => d.zkratka)).toEqual(['po', 'út', 'st', 'čt', 'pá', 'ne']);
+  });
+
+  it('všední den žádný víkend nepřidá', () => {
+    expect(dnyProVyber('2026-09-14')).toHaveLength(5);
   });
 });

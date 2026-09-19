@@ -1,7 +1,7 @@
 import { Calendar } from 'lucide-react';
 import { posunMesic, businessDateISO } from '../lib/businessDate';
 import { isoWeekKey, weekRange, shiftWeek } from './WeeklyOrderSummaryCard';
-import { dnyTydne, posunTyden } from '../lib/tydenDnu';
+import { dnyProVyber, posunTyden } from '../lib/tydenDnu';
 
 /**
  * 📅 Přepínač období: Den / Týden / Měsíc + šipky na posun.
@@ -78,10 +78,13 @@ export function PrepinacObdobi({
             se uvidí, jaký den se co stáčelo." Výběr přes systémový kalendář je na
             telefonu pět klepnutí a člověk u toho musí vědět, kolikátého bylo
             v úterý — přitom se stáčení plánuje po dnech v týdnu.
-            Šipky proto listují po TÝDNECH: řádek dnů zůstane celý. */}
+            Šipky proto listují po TÝDNECH: řádek dnů zůstane celý.
+            Sobota a neděle v řadě nejsou — v pivovaru se o víkendu nestáčí
+            („so, ne nemusíš"). Víkendové záznamy jsou dál vidět v přehledu za
+            Týden a za Měsíc. Viz dnyProVyber v lib/tydenDnu.ts. */}
         {obdobi === 'day' && (
           <div className="flex items-center gap-0.5" role="group" aria-label="Den v týdnu">
-            {dnyTydne(den).map((d) => {
+            {dnyProVyber(den).map((d) => {
               const vybrany = d.iso === den;
               return (
                 <button
