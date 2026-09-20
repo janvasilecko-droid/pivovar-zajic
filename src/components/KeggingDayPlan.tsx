@@ -398,7 +398,7 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
                 const hotovo = it.missing === 0;
                 const isOpen = !!expanded[it.key];
                 return (
-                  <li key={it.key} className={hotovo ? 'bg-emerald-50/40' : ''}>
+                  <li key={it.key} data-plan-radek={it.key} className={hotovo ? 'bg-emerald-50/40' : ''}>
                     {/* Řádek 1: co stočit + kolik zbývá.
                         Na telefonu jsou to dva bloky vedle sebe a nic víc —
                         tlačítka jsou pod tím na celou šířku, aby se do nich
