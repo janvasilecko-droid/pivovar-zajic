@@ -39,6 +39,7 @@ import { usePosledniNacteni, prvniChyba } from '../lib/nacitani';
 import type { RadekPohybu, RadekZavozu } from '../lib/stockLedger';
 import { soucetUlozenehoDnes } from '../lib/jizUlozeno';
 import { jeMesicUzamcen } from '../lib/mesicUzamcen';
+import { zapamatujPozici } from '../lib/drzPozici';
 
 // Stahuje se až při otevření — viz komentář u lazy() v Orders.tsx.
 const ImportBottlingFromImage = lazy(() => import('../components/ImportBottlingFromImage').then((m) => ({ default: m.ImportBottlingFromImage })));
@@ -619,7 +620,12 @@ export default function BottlingScreen({
         { onConflict: 'week_key,day,beer_id,package_id' }
       );
     if (error) { setErr(`Odškrtnutí se nepodařilo uložit: ${error.message}`); return; }
+    // Ať obrazovka po odškrtnutí zůstane u položky, u které se klikalo — až
+    // odškrtnutá položka zezelená a schová tlačítka, obsah nad ní se
+    // scvrkne. Stejný vzor jako Sklad/Inventura, viz lib/drzPozici.ts.
+    const vratPozici = zapamatujPozici(`[data-plan-radek="${beerId}__${pkgId}"]`);
     await load(true);
+    vratPozici();
   }
 
   const bottleRequirements = useMemo(() => {

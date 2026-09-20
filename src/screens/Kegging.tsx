@@ -36,6 +36,7 @@ import { soucetUlozenehoDnes } from '../lib/jizUlozeno';
 import { jeMesicUzamcen } from '../lib/mesicUzamcen';
 import { puvodZapisu, vlastniPoznamka } from '../lib/puvodZapisu';
 import { dopsaneZaskrtnutim, smazZaznamyStaceni } from '../lib/staceniZPolozky';
+import { zapamatujPozici } from '../lib/drzPozici';
 
 // Stahuje se až při otevření — viz komentář u lazy() v Orders.tsx.
 const ImportKeggingFromImage = lazy(() => import('../components/ImportKeggingFromImage').then((m) => ({ default: m.ImportKeggingFromImage })));
@@ -716,7 +717,12 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
         { onConflict: 'week_key,day,beer_id,package_id' }
       );
     if (error) { setErr(`Odškrtnutí se nepodařilo uložit: ${error.message}`); return; }
+    // Ať obrazovka po odškrtnutí zůstane u položky, u které se klikalo — až
+    // odškrtnutá položka zezelená a schová tlačítka, obsah nad ní se
+    // scvrkne. Stejný vzor jako Sklad/Inventura, viz lib/drzPozici.ts.
+    const vratPozici = zapamatujPozici(`[data-plan-radek="${beerId}__${pkgId}"]`);
     await load(true);
+    vratPozici();
   }
 
   // (zrušeno — pivo se nevyplňuje automaticky z tanku)
