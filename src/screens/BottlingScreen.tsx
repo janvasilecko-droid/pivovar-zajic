@@ -7,7 +7,6 @@ import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
 import { AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, Brush, CalendarDays, Camera, Check, CheckCircle2, ClipboardList, Lightbulb, ListChecks, Megaphone, Minus, Package as PackageIcon, PenLine, Pencil, Play, Plus, RefreshCw, Sparkles, Trash2, Wine, X } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { BottlingPlan, getPlanSeenAt, markPlanSeenAt, isPlanUnseen, isBottlingManager, setPlanStatus, saveBottlingPlan, deleteBottlingPlan } from '../lib/bottlingPlans';
-import { BottlingPlanPlanner } from '../components/BottlingPlanPlanner';
 import { BottlingPlanBottler } from '../components/BottlingPlanBottler';
 import { isLastWeekOfMonth, getMonthKey, writeMonthlyCleanupStage, isMonthlyLineDone, markMonthlyLineDone } from '../lib/monthlyCleanup';
 import { businessDateISO } from '../lib/businessDate';
@@ -100,8 +99,8 @@ export default function BottlingScreen({
 
   // Záložky: Stáčení / Přehled / Potřeba stočit lahve
   // Z menu se otevře nejprve Přehled stočených; tlačítko „Stáčení lahví" otevře zápis stáčení.
-  const defaultTab: 'zapis' | 'prehled' | 'potreba' | 'plan' = 'prehled';
-  const [tab, setTab] = useState<'zapis' | 'prehled' | 'potreba' | 'plan'>((initialSubTab as any) || initialTab || defaultTab);
+  const defaultTab: 'zapis' | 'prehled' | 'potreba' = 'prehled';
+  const [tab, setTab] = useState<'zapis' | 'prehled' | 'potreba'>((initialSubTab as any) || initialTab || defaultTab);
 
   useEffect(() => {
     setTab((initialSubTab as any) || initialTab || defaultTab);
@@ -111,7 +110,7 @@ export default function BottlingScreen({
   // Přepnutí záložky zapíšeme do historie stránek (setPage), ne jen do
   // lokálního stavu — jinak tlačítko Zpět z téhle obrazovky nevrátí
   // předchozí záložku, ale rovnou vyskočí do menu.
-  function selectTab(t: 'zapis' | 'prehled' | 'potreba' | 'plan') {
+  function selectTab(t: 'zapis' | 'prehled' | 'potreba') {
     if (setPage) setPage(pageValue, undefined, t);
     else setTab(t);
   }
@@ -1263,15 +1262,6 @@ export default function BottlingScreen({
               <Sparkles size={14} />
               <span>Konec stáčení (úklid)</span>
             </button>
-            {isManager && (
-              <button
-                type="button"
-                onClick={() => selectTab('plan')}
-                className={`px-3.5 py-2 rounded text-xs font-black transition shrink-0 min-h-[44px] ${tab === 'plan' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'}`}
-              >
-                <span className="inline-flex items-center gap-1.5"><CalendarDays size={14} /> Zadat stáčení</span>
-              </button>
-            )}
           </div>
         )}
 
@@ -1738,28 +1728,6 @@ export default function BottlingScreen({
         </form>
         )}
         </>
-      )}
-
-      {/* Plánování stáčení — zadání úkolů „co je potřeba stočit" (admin/sládek/šéf) */}
-      {tab === 'plan' && (
-        isManager ? (
-          <BottlingPlanPlanner
-            plans={plans}
-            beers={beers}
-            packages={packages}
-            orders={orders}
-            orderItems={orderItems}
-            inventoryRows={inventoryRows}
-            rows={rows}
-            fasovaniRows={fasovaniRows}
-            prodejnaRows={prodejnaRows}
-            writeoffsRows={writeoffsRows}
-            keggingRows={keggingRows}
-            onChanged={() => load(true)}
-          />
-        ) : (
-          <div className="card p-4 text-sm text-neutral-600">Nemáte oprávnění k plánování stáčení.</div>
-        )
       )}
 
       {/* Přehled: Stočeno lahví — velikosti */}

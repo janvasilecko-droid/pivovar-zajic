@@ -345,8 +345,7 @@ describe('rozdíl mezi „Potřeba stočit lahve" a „Co stočit na který den"
 
   it('u každého z nich stojí, co počítá a proč se liší', () => {
     expect(bottling, '„Potřeba stočit lahve" nemá vysvětlivku').toMatch(/mínus to, co už máš skladem/);
-    const planner = readFileSync('src/components/BottlingPlanPlanner.tsx', 'utf8');
-    expect(planner, '„Co je potřeba stočit" nemá vysvětlivku').toMatch(/bez zásoby/);
+    expect(bottling, '„Co stočit na který den" nemá vysvětlivku').toMatch(/bez zásoby/);
   });
 });
 
