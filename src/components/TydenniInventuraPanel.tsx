@@ -30,6 +30,7 @@ import { StitekStavu } from './StitekStavu';
 import { lzeUlozitKoncept, slucInventuru } from '../lib/rozepsanaInventura';
 import { nactiJson, ulozJson } from '../lib/uloziste';
 import { chyba, oznam, potvrd, uspech } from '../lib/toast';
+import { zapamatujPozici } from '../lib/drzPozici';
 import { normalizujCislo } from '../lib/cisloVstup';
 
 export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, sec?: string, sub?: string) => void } = {}) {
@@ -267,7 +268,12 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
       }
 
       await ulozZaznam(r, 'staceni');
+      // Ať obrazovka po zápisu zůstane u řádku, u kterého se klikalo — viz
+      // lib/drzPozici.ts. Bez tohohle zmizí tlačítka u srovnaného řádku
+      // a všechno pod ním vyskočí nahoru.
+      const vratPozici = zapamatujPozici(`[data-inv-radek="${r.klic}"]`);
       await nacti();
+      vratPozici();
     } catch (e: any) {
       chyba('Zápis se nepovedl: ' + (e?.message || e));
     } finally {
@@ -289,7 +295,11 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
       if (error) throw error;
       await ulozZaznam(r, 'dorovnani');
       uspech(`Dorovnáno ${r.rozdil > 0 ? '+' : ''}${r.rozdil} ks. Výroba zůstala beze změny.`);
+      // Viz lib/drzPozici.ts — bez tohohle vyskočí obrazovka nahoru, jakmile
+      // po dorovnání zmizí tlačítka u řádku.
+      const vratPozici = zapamatujPozici(`[data-inv-radek="${r.klic}"]`);
       await nacti();
+      vratPozici();
     } catch (e: any) {
       chyba('Dorovnání se nepovedlo: ' + (e?.message || e));
     } finally {
@@ -505,6 +515,7 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
             return (
               <div
                 key={r.klic}
+                data-inv-radek={r.klic}
                 className={`card p-3 border ${
                   jeRozdil ? (r.rozdil > 0 ? 'border-sky-300' : 'border-rose-300')
                     : sedi ? 'border-emerald-200' : 'border-neutral-200'
