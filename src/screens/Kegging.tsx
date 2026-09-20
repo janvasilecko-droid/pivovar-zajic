@@ -689,6 +689,12 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     );
     if (!potvrzeno) return;
 
+    // Ať obrazovka po přesunu zůstane u položky, u které se klikalo — u
+    // částečného přesunu zbylý řádek jen zmenší počet (viz lib/drzPozici.ts).
+    // U přesunu celého řádku kotva sama zmizí a zapamatujPozici v tichosti
+    // nic nedělá — ani tak neuškodí.
+    const vratPozici = zapamatujPozici(`[data-plan-radek="${radek.beer_id}__${radek.package_id}"]`);
+
     if (plan.druh === 'cely') {
       const { error } = await supabase.from('order_items').update({ delivery_day: plan.delivery_day }).eq('id', plan.id);
       if (error) { setErr(`Přesun se nepodařil: ${error.message}`); return; }
@@ -702,10 +708,12 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
       if (chybaZmenseni) {
         setErr(`Přesunutá část se založila, ale původní řádek se nezmenšil (${chybaZmenseni.message}) — v objednávce je teď o ${plan.zalozit.quantity} ks víc, oprav to prosím v Objednávkách.`);
         await load(true);
+        vratPozici();
         return;
       }
     }
     await load(true);
+    vratPozici();
   }
 
   async function togglePlanCheck(day: string, beerId: string, pkgId: string, qty: number) {
