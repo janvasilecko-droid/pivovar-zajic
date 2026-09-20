@@ -1977,6 +1977,25 @@ export default function BottlingScreen({
           // desktop tabulkou způsobil, že by po vykreslení karet byly
           // všechny dávky v tabulce mylně označené jako "stejná dávka".
 
+          // 🍾 Řádky DESKTOP TABULKY v POŘADÍ DEN → PIVO → ŠARŽE — stejném,
+          // v jakém je vidí mobilní dlaždice výš (davkyStaceni + sarzeDavky),
+          // ne v syrovém pořadí `sortedRows`. Sloupec „〃"/„└─" níž spoléhá
+          // na to, že řádky jedné šarže leží HNED VEDLE SEBE — ale
+          // `sortedRows` řadí jen podle data a `created_at`, a víc piv
+          // stočených v jednom zápisu mívá STEJNÝ `created_at`. Dál se pak
+          // řadily jen podle náhodného `id` a šarže se roztrhala po tabulce.
+          // Zadání z 20. 9. 2026: „ať jsou piva seřazeny tak, aby vše
+          // z jednoho sudu bylo v jednom poli nebo označeno spolu."
+          const tableRows: EntryRow[] = [];
+          davkyStaceni(sortedRows, (pkgId) => {
+            const pkg = packages.find((p) => p.id === pkgId);
+            return pkg ? Number(pkg.volume_l) : 0;
+          }).forEach((davka) => {
+            sarzeDavky(davka.polozky, getBatchId).forEach((sarze) => {
+              sarze.polozky.forEach((p) => tableRows.push(p.zaznam));
+            });
+          });
+
           function formatDate(d: string | null | undefined) {
             if (!d) return '—';
             const parts = d.split('-');
@@ -2115,7 +2134,7 @@ export default function BottlingScreen({
                     </tr>
                   </thead>
                   <tbody>
-                    {sortedRows.map((r, index) => {
+                    {tableRows.map((r, index) => {
                       const beer = beers.find((b) => b.id === r.beer_id);
                       const pkg = packages.find((p) => p.id === r.package_id);
                       const kegPkg = r.kegs_used_package_id ? packages.find((p) => p.id === r.kegs_used_package_id) : null;
@@ -2129,7 +2148,7 @@ export default function BottlingScreen({
                       }
 
                       // Zjistíme, zda předchozí řádek patřil do stejné šarže
-                      const prevRow = index > 0 ? sortedRows[index - 1] : null;
+                      const prevRow = index > 0 ? tableRows[index - 1] : null;
                       const isSameBatchAsPrev = prevRow && getBatchId(prevRow) === bId;
 
                       return (
