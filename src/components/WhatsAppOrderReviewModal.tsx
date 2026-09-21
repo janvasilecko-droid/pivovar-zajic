@@ -660,6 +660,13 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   const isParsed = message.status === 'parsed';
   const isPending = message.status === 'pending';
   const isImported = message.status === 'imported';
+  // ⚠️ AI čtení může spadnout (výpadek, rate limit, chybný JSON) — edge funkce
+  // pak zprávu NEnechá viset v 'processing', ale nastaví 'error' (viz komentář
+  // u safeUpdateMessage v supabase/functions/whatsapp-auto-parse/index.ts).
+  // Bez týhle větve to ale UI ukazovalo úplně stejně jako běžící zpracování
+  // ("Zpracovává se...") a bez tlačítka na nový pokus — zpráva tak vypadala,
+  // že se pořád čte, ačkoli už dávno spadla a nikdy sama nedoběhne.
+  const isError = message.status === 'error';
   const parsedItems = message.parsed_items || [];
   const hasParsedData = parsedItems.length > 0 || message.parsed_place_name || message.parsed_delivery_date;
 
@@ -1423,11 +1430,15 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                   <span className="text-amber-600 flex items-center gap-1">
                     <AlertCircle size={14} /> Čeká na parsování
                   </span>
+                ) : isError ? (
+                  <span className="text-rose-600 flex items-center gap-1" title={message.error_message || undefined}>
+                    <AlertTriangle size={14} /> Čtení AI selhalo{message.error_message ? ` — ${message.error_message}` : ''}
+                  </span>
                 ) : (
                   <span className="text-neutral-600">Zpracovává se...</span>
                 )}
 
-                {isPending && (
+                {(isPending || isError) && (
                   <button
                     onClick={handleReparse}
                     disabled={reparsing || loading}
@@ -1435,7 +1446,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                     title="Ručně spustit AI parsování této zprávy"
             >
                     {reparsing ? <RefreshCw size={13} className="animate-spin" /> : <RefreshCw size={13} />}
-                    {reparsing ? 'Parsuji...' : 'Parsovat ručně'}
+                    {reparsing ? 'Parsuji...' : isError ? 'Zkusit znovu' : 'Parsovat ručně'}
                   </button>
                 )}
               </div>
