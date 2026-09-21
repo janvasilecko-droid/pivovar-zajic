@@ -75,6 +75,7 @@ import { type Order, type OrderItem, dayColor } from '../components/objednavky/s
 import { VariantTotalsPanel } from '../components/objednavky/VariantTotalsPanel';
 import { OrderCard } from '../components/objednavky/OrderCard';
 import { VraceniPiva } from '../components/objednavky/VraceniPiva';
+import { VratitPivoModal } from '../components/objednavky/VratitPivoModal';
 import { OrderDetail } from '../components/objednavky/OrderDetail';
 
 // Pořadí obalů v plnoobrazovkovém panelu zadávání (dle požadavku):
@@ -123,6 +124,9 @@ export default function Orders({
   // vůbec, dorovnané manko taky ne.
   const [prefukRows, setPrefukRows] = useState<any[]>([]);
   const [adjustmentRows, setAdjustmentRows] = useState<any[]>([]);
+  // ↩️ Objednávka, u které se právě otevřel „Vrátit pivo" (VratitPivoModal) —
+  // viz zadání 21. 9. 2026 pod OrderCard.tsx.
+  const [vratitObjednavka, setVratitObjednavka] = useState<Order | null>(null);
   // Nese i beer_id/package_id/quantity/deduct_date — skladová kniha z toho
   // počítá výdej na objednávku, `order_item_id` slouží k poznání, že položka
   // už fyzicky odjela.
@@ -880,7 +884,7 @@ export default function Orders({
     // potřebuje, ale zbytek obrazovky ne, tak ať nezdržují první vykreslení.
     void Promise.all([
       fetchAllRows('keg_prefuk', 'beer_id,from_package_id,to_package_id,from_count,to_count,entry_date'),
-      fetchAllRows('inventory_adjustments', 'beer_id,package_id,entry_date,quantity'),
+      fetchAllRows('inventory_adjustments', 'beer_id,package_id,entry_date,quantity,order_id'),
     ]).then(([pf, adj]) => {
       setPrefukRows((pf.data as any[]) ?? []);
       setAdjustmentRows((adj.data as any[]) ?? []);
@@ -992,6 +996,19 @@ export default function Orders({
     adjustmentRows,
     packages,
   }), [inventory, bottling, kegging, fasovaniRows, prodejnaRows, writeoffs, zavozDeductionRows, akceRows, prefukRows, adjustmentRows, packages]);
+
+  // ↩️ Vrácení spárovaná ke KONKRÉTNÍ objednávce (order_id) — OrderCard z nich
+  // dopočítá efektivní množství (viz vracenoPodleObjednavky) a VratitPivoModal
+  // jimi omezí, kolik ještě jde vrátit. Vrácení bez vybrané objednávky (např.
+  // ze záložky „Vrácení piva" bez objednávky) tu záměrně nejsou.
+  const vraceniPodleObjednavky = useMemo(() => {
+    const map: Record<string, { beer_id: string | null; package_id: string | null; quantity: number }[]> = {};
+    for (const r of adjustmentRows) {
+      if (!r.order_id) continue;
+      (map[r.order_id] ??= []).push({ beer_id: r.beer_id, package_id: r.package_id, quantity: Number(r.quantity) || 0 });
+    }
+    return map;
+  }, [adjustmentRows]);
 
   // Počítá se jednou za týden, ne pro každou kartu zvlášť — karet bývá v
   // seznamu desítky a starý výpočet se pro každou z nich spouštěl celý znovu.
@@ -2637,6 +2654,7 @@ export default function Orders({
                       onClick={() => openDetail(o)} onToggleFlag={toggleFlag} onToggleItemFlag={toggleItemFlag} onUpdateDeliveryDay={updateDeliveryDay}
                       onSetStatus={setStatus} onDelete={del} onDuplicate={duplicateOrder} onEdit={setEditOrder} onSplit={setSplitOrder} onOpenWhatsApp={handleOpenWhatsAppMessage} beers={beers} packages={packages} places={places}
                       activeBeerId={itemFilterBeerId} activePackageId={itemFilterPackageId}
+                      onVratitPivo={setVratitObjednavka} vracenoZaznamy={vraceniPodleObjednavky[o.id]}
                 itemMatchesFilter={polozkovyFiltrAktivni ? matchesItemFilters : undefined} />
                     {detail?.id === o.id && (
                       <div id="order-detail-card" className="scroll-mt-6 animate-scale-in pl-2 sm:pl-4 border-l-4 border-amber-500">
@@ -2678,6 +2696,7 @@ export default function Orders({
                 onClick={() => openDetail(o)} onToggleFlag={toggleFlag} onToggleItemFlag={toggleItemFlag} onUpdateDeliveryDay={updateDeliveryDay}
                 onSetStatus={setStatus} onDelete={del} onDuplicate={duplicateOrder} onEdit={setEditOrder} onSplit={setSplitOrder} onOpenWhatsApp={handleOpenWhatsAppMessage} beers={beers} packages={packages} places={places}
                 activeBeerId={itemFilterBeerId} activePackageId={itemFilterPackageId}
+                onVratitPivo={setVratitObjednavka} vracenoZaznamy={vraceniPodleObjednavky[o.id]}
                 itemMatchesFilter={polozkovyFiltrAktivni ? matchesItemFilters : undefined} />
               {detail?.id === o.id && (
                 <div id="order-detail-card" className="scroll-mt-6 animate-scale-in pl-2 sm:pl-4 border-l-4 border-amber-500">
@@ -2737,6 +2756,18 @@ export default function Orders({
           onPlacesChanged={load}
         />
         </Suspense>
+      )}
+
+      {vratitObjednavka && (
+        <VratitPivoModal
+          isOpen={!!vratitObjednavka}
+          order={vratitObjednavka}
+          items={items[vratitObjednavka.id] ?? []}
+          beers={beers}
+          vracenoZaznamy={vraceniPodleObjednavky[vratitObjednavka.id] ?? []}
+          onClose={() => setVratitObjednavka(null)}
+          onSaved={() => load(true)}
+        />
       )}
 
       {showWhatsAppAutoProcessor && (

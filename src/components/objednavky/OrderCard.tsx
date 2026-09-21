@@ -14,10 +14,11 @@ import { shareOrderToWhatsApp } from '../../lib/whatsapp';
 
 import { StitekStavu } from '../StitekStavu';
 import { jeVyrizena } from '../../lib/stavyObjednavek';
+import { vracenoPodleObjednavky } from '../../lib/vraceniZObjednavky';
 
 import { type Order, type OrderItem, dayColor, getTapNameForOrder } from './spolecne';
 
-export function OrderCard({ o, items, stockRemainingForOrder, selected, onToggleSelect, onClick, onToggleFlag, onToggleItemFlag, onUpdateDeliveryDay, onSetStatus, onDelete, onDuplicate, onEdit, onSplit, onOpenWhatsApp, beers, packages, places, activeBeerId, activePackageId, itemMatchesFilter }: {
+export function OrderCard({ o, items, stockRemainingForOrder, selected, onToggleSelect, onClick, onToggleFlag, onToggleItemFlag, onUpdateDeliveryDay, onSetStatus, onDelete, onDuplicate, onEdit, onSplit, onOpenWhatsApp, onVratitPivo, vracenoZaznamy, beers, packages, places, activeBeerId, activePackageId, itemMatchesFilter }: {
   o: Order; items: OrderItem[];
   /**
    * Zbytek skladu ke konci týdne PRO TUHLE KONKRÉTNÍ objednávku — objednávky
@@ -37,6 +38,10 @@ export function OrderCard({ o, items, stockRemainingForOrder, selected, onToggle
   /** Rozdělit na dva odběratele (viz SplitOrderModal) — jen když má aspoň 2 položky. */
   onSplit: (o: Order) => void;
   onOpenWhatsApp?: (messageId: string) => void;
+  /** „Vrátit pivo" — otevře VratitPivoModal pro tuhle objednávku (viz Orders.tsx). */
+  onVratitPivo?: (o: Order) => void;
+  /** Řádky inventory_adjustments s order_id téhle objednávky — pro dopočet efektivního množství. */
+  vracenoZaznamy?: { beer_id: string | null; package_id: string | null; quantity: number }[];
   beers: Beer[];
   packages: Package[];
   places: Place[];
@@ -112,6 +117,12 @@ export function OrderCard({ o, items, stockRemainingForOrder, selected, onToggle
   // objednávky — je to skutečný stav objednávky, ne stav po filtru.
   const viditelnePolozky = itemMatchesFilter ? sortedItems.filter(itemMatchesFilter) : sortedItems;
   const skrytoFiltrem = sortedItems.length - viditelnePolozky.length;
+
+  // ↩️ Vrácené kusy po (pivo, obal) — položky objednávky se NEMĚNÍ (svědectví
+  // o tom, co se doopravdy zavezlo), jen se u nich dopočítá efektivní počet.
+  // Z provozu 21. 9. 2026: „obednavka zustane stejna ale pribude radek kde
+  // bude vraceny pivo... bude tam napsano ze se pocita 4x30 a 1x30 vraceno."
+  const jizVraceno = vracenoZaznamy?.length ? vracenoPodleObjednavky(vracenoZaznamy) : null;
 
   return (
     <div
@@ -204,6 +215,9 @@ export function OrderCard({ o, items, stockRemainingForOrder, selected, onToggle
               const isPkgMatch = !!(activePackageId && i.package_id === activePackageId);
               const bothActive = !!(activeBeerId && activePackageId);
               const zvyrazneno = bothActive ? (isBeerMatch && isPkgMatch) : (isBeerMatch || isPkgMatch);
+              const vraceno = jizVraceno && i.beer_id && i.package_id
+                ? (jizVraceno.get(`${i.beer_id}__${i.package_id}`) ?? 0)
+                : 0;
               return (
                 <div
                   key={i.id}
@@ -254,6 +268,14 @@ export function OrderCard({ o, items, stockRemainingForOrder, selected, onToggle
                   <span className="text-xs font-black text-amber-900 bg-amber-100 rounded px-1.5 py-0.5 shrink-0 tabular-nums">
                     {i.quantity} ks
                   </span>
+                  {vraceno > 0 && (
+                    <span
+                      className="text-udaj font-black text-sky-900 bg-sky-100 border border-sky-300 rounded px-1.5 py-0.5 shrink-0 tabular-nums"
+                      title={`Vráceno ${vraceno} ks zpátky na sklad — u objednávky se teď počítá ${Math.max(0, i.quantity - vraceno)} ks.`}
+                    >
+                      ↩ počítá se {Math.max(0, i.quantity - vraceno)}, {vraceno} vráceno
+                    </span>
+                  )}
                 </div>
               );
             })}
@@ -328,6 +350,16 @@ export function OrderCard({ o, items, stockRemainingForOrder, selected, onToggle
               <MessageCircle size={14} />
             </button>
             <button className="btn-ikona bg-white hover:bg-neutral-100 text-neutral-700 border border-neutral-300" onClick={() => onDuplicate(o)} title="Vytvořit stejnou objednávku znovu" aria-label="Duplikovat objednávku"><Copy size={14} /></button>
+            {onVratitPivo && o.is_delivered && items.length > 0 && (
+              <button
+                className="btn-ikona bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-300"
+                onClick={() => onVratitPivo(o)}
+                title="Vrátit pivo z téhle objednávky zpátky na sklad"
+                aria-label="Vrátit pivo z téhle objednávky"
+              >
+                <RotateCcw size={14} />
+              </button>
+            )}
             {items.length > 1 && (
               <button className="btn-ikona bg-white hover:bg-neutral-100 text-neutral-700 border border-neutral-300" onClick={() => onSplit(o)} title="Rozdělit na dva odběratele" aria-label="Rozdělit objednávku na dva odběratele"><Split size={14} /></button>
             )}
