@@ -2828,6 +2828,8 @@ export default function Orders({
           beers={beers}
           packages={packages}
           places={places}
+          orders={orders}
+          orderItems={items}
           onApprove={handleApproveWhatsAppOrder}
           onReject={handleRejectWhatsAppOrder}
           onDecision={advanceWhatsAppReview}
