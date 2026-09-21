@@ -3,6 +3,7 @@ import { requireApprovedUser } from "../_shared/require-user.ts";
 import { normText, matchBeerId, matchPackageId } from "../_shared/beer-match.ts";
 import { normPlaceName, stripSenderName, resolvePlace, odberatelZHistorie, wantsOwnOrder as textWantsOwnOrder } from "../_shared/place-match.ts";
 import { nactiHistorii } from "../_shared/historie-objednavek.ts";
+import { vypadaJakoVraceni } from "../_shared/vraceni-detekce.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -555,7 +556,14 @@ Deno.serve(async (req: Request) => {
           // Když jde o úpravu, dostane AI SOUČASNÝ obsah objednávky a má vrátit
           // VÝSLEDNÝ stav po zapracování odpovědi — ne jen to, co je v odpovědi
           // napsané. Jinak by z „Bez summera" vyšla prázdná objednávka.
-          ...(amendsOrderId ? {
+          //
+          // Ale VRÁCENÍ piva („Vrací jednu plnou 30tku" jako odpověď na
+          // potvrzení objednávky) není úprava té objednávky — AI by z
+          // „SOUČASNÝ obsah, vrať výsledný stav" spočítala nesmysl (z provozu
+          // 21. 9. 2026: prázdné/nesmyslné parsed_items). amendsOrderId níž
+          // zůstává nastavený beze změny (posílá se s vrácením propojit),
+          // jen se s ním AI netváří jako s úpravou objednávky.
+          ...(amendsOrderId && !vypadaJakoVraceni(message.message_text) ? {
             amendOrder: {
               place_name: amendedPlaceName,
               items: amendedItems.map((i) => ({

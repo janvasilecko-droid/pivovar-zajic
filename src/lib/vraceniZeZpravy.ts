@@ -14,34 +14,13 @@
 // dohledaného piva zahodila, tiše by zmizel litr piva. Proto se řádky jen
 // ROZDĚLÍ — s pivem zaškrtnuté, bez piva nezaškrtnuté a popsané jako
 // „nejspíš prázdný obal" — a rozhodne člověk.
-
-/** Bez diakritiky, malými písmeny, jednoduché mezery. */
-function norm(s: string | null | undefined): string {
-  return (s ?? '')
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-/**
- * Tvary slovesa „vracet" na začátku i uvnitř zprávy.
- *
- * Schválně BEZ „vrátit zpět"/„vratny sud"/„vratne lahve": to jsou zavedené
- * pojmy o obalech a v objednávkách („+ vratné lahve") se objevují běžně —
- * z takové zprávy se vrácení dělat nesmí.
- */
-const SLOVESO_VRACENI = /\b(vraci|vraceji|vracim|vracime|vraceno|vratili|vratil|vratila|vratime|vratim|vraceni)\b/;
-
-/** Vypadá zpráva na vrácení piva (ne na objednávku)? */
-export function vypadaJakoVraceni(text: string | null | undefined): boolean {
-  const t = norm(text);
-  if (!t) return false;
-  // „vratné lahve" a spol. jsou obaly v objednávce, ne vrácení — viz výše.
-  if (/\bvratn[eyaáé]\b/.test(t)) return false;
-  return SLOVESO_VRACENI.test(t);
-}
+//
+// Samotná detekce („vypadá to na vrácení?") je sdílená s edge funkcí
+// whatsapp-auto-parse (viz supabase/functions/_shared/vraceni-detekce.ts) —
+// obě strany musí souhlasit na tom, co je vrácení, jinak edge funkce pošle
+// AI vrácení jako „úpravu objednávky" a vypadne z toho nesmysl.
+import { norm, vypadaJakoVraceni } from '../../supabase/functions/_shared/vraceni-detekce';
+export { norm, vypadaJakoVraceni };
 
 /**
  * Obecná čeština předsazuje před slova na o- písmeno „v": „osma" → „vosma".

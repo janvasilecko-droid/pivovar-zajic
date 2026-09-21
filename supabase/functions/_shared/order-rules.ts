@@ -139,9 +139,15 @@ Nejdřív rozhodni CO, teprve pak čti čísla. Jsou jen čtyři možnosti:
 
 4) VRÁCENÍ — odpověď mluví o tom, že se pivo VRACÍ.
    „Tady vrací 1x50l. Vosmy a jednu vosmu roztočenou, téměř plnou"
-   → NENÍ TO OBJEDNÁVKA. Vrať items prázdné a do "otazky" napiš, že jde
-   o vrácení. (Z provozu: založila se z toho objednávka na dvě padesátky,
-   která nikdy nepojede, a pivo se odepsalo ze skladu.)
+   → NENÍ TO OBJEDNÁVKA, ale POLOŽKY PŘESTO PŘEČTI NORMÁLNĚ (pivo, obal,
+   množství) — appka umí vrácení propsat na sklad jen z toho, co v items
+   dostane, na výběr do zaškrtávacího seznamu, nikdy ne rovnou jako
+   objednávku (schválení jako objednávky appka pro vrácení sama blokuje).
+   Prázdné items by ten seznam nechaly prázdný a obsluha by musela vrácení
+   dohledávat ručně. Do "otazky" navíc napiš, že jde o vrácení.
+   (Z provozu: založila se z toho objednávka na dvě padesátky, která
+   nikdy nepojede, a pivo se odepsalo ze skladu — proto items nikdy
+   nesmí appka vzít jako hotovou objednávku, i když je přečte.)
    ⚠️ Množství BEZ NAPSANÉHO PIVA („vrací 3x30") jsou prázdné obaly, ne
    pivo — sudy se vracejí pořád, pivo v nich skoro nikdy.
    ⚠️ „vratné lahve" a „vratný sud" v objednávce vrácení NEJSOU — to jsou

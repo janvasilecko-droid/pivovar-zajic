@@ -122,6 +122,13 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   // Interní stav zprávy — po „přečtení znovu (AI)" se aktualizuje lokálně,
   // aby se přepis, položky i kontrola čtení okamžitě překreslily.
   const [msg, setMsg] = useState<WhatsAppIncoming | null>(props.message);
+  // ↩️ „Tady vrací 1x50l. Vosmy…" — zpráva o VRÁCENÍ, ne objednávka. Musí být
+  // spočítané už tady nahoře: i když zpráva zároveň cituje jinou (a dostane
+  // amends_order_id z citace), NESMÍ se chovat jako úprava/schválení té
+  // objednávky — schválením by vznikl závoz, který nikdy nepojede, nebo by se
+  // rovnou přepsala cizí objednávka podle textu o vrácení. Viz gate níž u
+  // amend-banneru a u tlačítka Schválit.
+  const jeVraceni = vypadaJakoVraceni(msg?.message_text);
   // Rozdíl mezi současnou objednávkou a tím, co z odpovědi vyšlo.
   const [amendDiff, setAmendDiff] = useState<DiffRow[]>([]);
   const [amendPlace, setAmendPlace] = useState<string | null>(null);
@@ -304,8 +311,12 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   // ↩️ Když zpráva upravuje existující objednávku, načti její SOUČASNÝ obsah
   // a porovnej s tím, co z odpovědi vyšlo — obsluha pak vidí celou objednávku
   // se zvýrazněnými změnami, ne jen samotnou odpověď.
+  //
+  // NE u VRÁCENÍ (jeVraceni): i když zpráva cituje jinou a dostala
+  // amends_order_id, „upraví existující objednávku" je pro vrácení věcně
+  // špatně — objednávka se propisuje výhradně přes „Zapsat jako vrácení" výš.
   useEffect(() => {
-    if (!props.isOpen || !msg?.amends_order_id) {
+    if (!props.isOpen || !msg?.amends_order_id || jeVraceni) {
       setAmendDiff([]); setAmendPlace(null); setAmendOriginalMsg(null);
       setAmendRozsah({ nahradit: [], potvrzeno: [] });
       setAmendPotvrzenoPrazdne([]);
@@ -358,7 +369,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
     })();
     return () => { zruseno = true; };
      
-  }, [props.isOpen, msg?.amends_order_id, msg?.message_text, items, props.packages]);
+  }, [props.isOpen, msg?.amends_order_id, msg?.message_text, items, props.packages, jeVraceni]);
 
   // „Pro Radka jeste plus toto" — zpráva říká, že je to PŘÍDAVEK k něčemu, co
   // už je objednané. Jistě to z textu poznat nejde (a tichá záměna „přidat" za
@@ -382,12 +393,9 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   /** Jak se zpráva chová k vybrané objednávce — pro texty po napojení. */
   const druhNapojeni = napojenoRucne ? vypadaJakoZmenaObjednavky(msg?.message_text) : null;
 
-  // ↩️ „Tady vrací 1x50l. Vosmy…" — zpráva o VRÁCENÍ, ne objednávka.
-  // Schválením by vznikl závoz, který nikdy nepojede, a pivo by se ze skladu
-  // odepsalo, ačkoli se právě naopak vrátilo. Rozpad na „vrácené pivo" vs.
-  // „nejspíš prázdné obaly" dělá lib/vraceniZeZpravy.ts; řádky bez piva se
-  // nezahazují, jen se nezaškrtnou — viz pravidlo od majitele tamtéž.
-  const jeVraceni = vypadaJakoVraceni(msg?.message_text);
+  // Rozpad na „vrácené pivo" vs. „nejspíš prázdné obaly" (jeVraceni je
+  // spočítané výš, hned u definice `msg`) dělá lib/vraceniZeZpravy.ts; řádky
+  // bez piva se nezahazují, jen se nezaškrtnou — viz pravidlo od majitele tamtéž.
   const rozpadVraceni = useMemo(() => rozdelVraceni(
     items.map((it) => ({
       klic: it.key,
@@ -431,20 +439,33 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
    *
    * Z provozu 21. 9. 2026: „to je ve zprave, takze normalne na cteni to
    * precetlo vraci, tak at da volbu vratit sud z ty obednavky, at to napise
-   * puvodni a z ni to odecte." Nepovinné (výchozí „bez objednávky" — stejné
-   * chování jako dřív), appka NEVYBÍRÁ objednávku sama.
+   * puvodni a z ni to odecte." Zůstává NEPOVINNÉ a jde ručně přepnout nebo
+   * zrušit — appka nic nezapíše bez potvrzení tlačítkem — ale když zpráva
+   * cituje zprávu, ze které objednávka vznikla (amends_order_id), přednabídne
+   * ji appka rovnou, ať se nemusí hledat ručně v seznamu.
    */
   const [vratitZObjednavky, setVratitZObjednavky] = useState('');
   useEffect(() => {
-    setVratitZObjednavky('');
+    setVratitZObjednavky(msg?.amends_order_id ?? '');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jeVraceni, msg?.id]);
   const nabidkaObjednavek = useMemo(() => {
     if (!jeVraceni || !props.orders) return [];
-    return objednavkyKVraceni(props.orders, props.orderItems ?? {}, {
+    const seznam = objednavkyKVraceni(props.orders, props.orderItems ?? {}, {
       dnes: businessDateISO(),
       placeId: placeId || undefined,
     }).slice(0, 10);
-  }, [jeVraceni, props.orders, props.orderItems, placeId]);
+    // Objednávka, na kterou zpráva podle citace odpovídá, musí jít vybrat
+    // vždycky — i kdyby normální filtr (posledních 56 dní, stejný odběratel,
+    // max. 10 položek) na ni sám nedosáhl.
+    const cilena = msg?.amends_order_id
+      ? props.orders.find((o) => o.id === msg.amends_order_id)
+      : null;
+    if (cilena && !seznam.some((o) => o.id === cilena.id)) {
+      return [cilena, ...seznam];
+    }
+    return seznam;
+  }, [jeVraceni, props.orders, props.orderItems, placeId, msg?.amends_order_id]);
   const vybranaObjObjednavka = vratitZObjednavky
     ? props.orders?.find((o) => o.id === vratitZObjednavky) ?? null
     : null;
@@ -1289,8 +1310,12 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
 
         {/* ↩️ Odpověď, která upravuje dřívější objednávku. Ukáže se PŮVODNÍ
             objednávka se zvýrazněnými změnami, ať je vidět, co se potvrzuje —
-            schválení objednávku upraví, nezaloží novou. */}
-        {msg?.amends_order_id && (
+            schválení objednávku upraví, nezaloží novou.
+            NE u VRÁCENÍ (jeVraceni) — tenhle banner tvrdí, že schválení
+            „upraví existující objednávku", což by u vrácení znamenalo
+            objednávku nesmyslně přepsat podle textu o vrácení. Tam se má
+            použít jen „Zapsat jako vrácení" v banneru výš. */}
+        {msg?.amends_order_id && !jeVraceni && (
           <div className="border-2 border-violet-300 rounded bg-violet-50 overflow-hidden">
             <div className="p-4 border-b border-violet-200">
               <div className="flex items-center gap-2">
@@ -2023,10 +2048,12 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
 
             <button
               onClick={() => handleApprove(false)}
-              disabled={approving || loading || !isParsed || items.length === 0 || hasUnmatchedItems || (isImage ? (!!message.media_url && !photoChecked) : prisnyBlokuje)}
+              disabled={jeVraceni || approving || loading || !isParsed || items.length === 0 || hasUnmatchedItems || (isImage ? (!!message.media_url && !photoChecked) : prisnyBlokuje)}
               className="px-6 py-2.5 bg-emerald-700 text-white rounded hover:bg-emerald-800 disabled:opacity-50 flex items-center gap-2 font-medium"
               title={
-                isImage && !!message.media_url && !photoChecked
+                jeVraceni
+                  ? 'Vypadá to na vrácení piva, ne na objednávku — zapiš ho tlačítkem „Zapsat jako vrácení" výše.'
+                  : isImage && !!message.media_url && !photoChecked
                   ? 'Nejprve potvrďte, že jste fotku zkontroloval/a (tlačítko výše).'
                   : items.length === 0
                   ? 'Žádné položky k importu — smazanou položku vrátíte zavřením bez schválení nebo „Přečíst znovu (AI)".'
