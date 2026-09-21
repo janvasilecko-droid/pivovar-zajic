@@ -30,9 +30,13 @@ import { useChovaniDialogu } from '../lib/zavriNaZpet';
 import { businessDateISO } from '../lib/businessDate';
 import { rozdelVraceni, vypadaJakoVraceni } from '../lib/vraceniZeZpravy';
 import { odberatelZCitace, stojiZaHledani } from '../lib/odberatelZCitace';
-import { zaznamyDorovnaniVraceni, type PolozkaVraceni } from '../lib/vraceniZObjednavky';
+import {
+  datumCesky, datumZavozu, objednavkyKVraceni, pripojPoznamku, poznamkaVraceni,
+  zaznamyDorovnaniVraceni, type PolozkaVraceni,
+} from '../lib/vraceniZObjednavky';
 import { STAVY_OBJEDNAVKY, popisStavu } from '../lib/stavyObjednavek';
 import { uloz } from '../lib/uloziste';
+import type { Order, OrderItem } from './objednavky/spolecne';
 
 /** Jak se skupiny obalů pojmenují v přehledu úpravy. */
 const NAZVY_SKUPIN: Record<SkupinaObalu, string> = {
@@ -56,6 +60,14 @@ interface WhatsAppOrderReviewModalProps {
   places: Place[];
   onApprove: (message: WhatsAppIncoming) => Promise<void>;
   onReject: (message: WhatsAppIncoming) => Promise<void>;
+  /**
+   * Zavezené objednávky + jejich položky — jen pro nabídku „vrátit z téhle
+   * objednávky" u VRÁCENÍ (viz jeVraceni níž). Nepovinné: bez nich zprávu
+   * jde zapsat jako vrácení pořád, jen bez vazby na konkrétní objednávku
+   * (stejně jako dřív).
+   */
+  orders?: Order[];
+  orderItems?: Record<string, OrderItem[]>;
 }
 
 function ButtonSpinner() {
@@ -411,6 +423,33 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   const vracenoKusu = vraceneRadky.reduce((a, r) => a + r.pocet, 0);
 
   /**
+   * ↩️ Vrácení z WHATSAPP zprávy nabídne i propojení s konkrétní zavezenou
+   * objednávkou stejného odběratele (stejný seznam jako záložka „Vrácení
+   * piva", lib/vraceniZObjednavky.ts) — appka pak u té objednávky dopočítá
+   * efektivní množství (OrderCard.tsx), místo aby vrácení zůstalo jen
+   * volným záznamem ve skladu bez vazby na to, odkud pivo přišlo.
+   *
+   * Z provozu 21. 9. 2026: „to je ve zprave, takze normalne na cteni to
+   * precetlo vraci, tak at da volbu vratit sud z ty obednavky, at to napise
+   * puvodni a z ni to odecte." Nepovinné (výchozí „bez objednávky" — stejné
+   * chování jako dřív), appka NEVYBÍRÁ objednávku sama.
+   */
+  const [vratitZObjednavky, setVratitZObjednavky] = useState('');
+  useEffect(() => {
+    setVratitZObjednavky('');
+  }, [jeVraceni, msg?.id]);
+  const nabidkaObjednavek = useMemo(() => {
+    if (!jeVraceni || !props.orders) return [];
+    return objednavkyKVraceni(props.orders, props.orderItems ?? {}, {
+      dnes: businessDateISO(),
+      placeId: placeId || undefined,
+    }).slice(0, 10);
+  }, [jeVraceni, props.orders, props.orderItems, placeId]);
+  const vybranaObjObjednavka = vratitZObjednavky
+    ? props.orders?.find((o) => o.id === vratitZObjednavky) ?? null
+    : null;
+
+  /**
    * Zapíše zprávu jako vrácení: kusy se přičtou na sklad DNEŠNÍM dnem
    * (stejná cesta jako záložka „Vrácení piva", lib/vraceniZObjednavky.ts)
    * a zpráva se odloží, ať z ní nikdo omylem nezaloží objednávku.
@@ -426,16 +465,23 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
     const odberatel = placeName || msg?.parsed_place_name || msg?.sender_name || '';
     const ok = await potvrd(
       `Zapsat jako vrácení ${vracenoKusu} ks od „${odberatel || 'neznámého odběratele'}"?`
+      + (vybranaObjObjednavka ? ` Propíše se k objednávce z ${datumCesky(datumZavozu(vybranaObjObjednavka))}.` : '')
       + ' Přičte se to na sklad dneškem a objednávka z téhle zprávy NEvznikne.',
       { titulek: 'Vrácení piva', potvrdit: 'Zapsat vrácení' },
     );
     if (!ok) return;
     setUkladamVraceni(true);
     try {
+      const dnes = businessDateISO();
       const { error } = await supabase
         .from('inventory_adjustments')
-        .insert(zaznamyDorovnaniVraceni(polozky, businessDateISO(), odberatel));
+        .insert(zaznamyDorovnaniVraceni(polozky, dnes, odberatel, vybranaObjObjednavka?.id ?? null));
       if (error) throw new Error(error.message);
+      if (vybranaObjObjednavka) {
+        const novaPoznamka = pripojPoznamku(vybranaObjObjednavka.note, poznamkaVraceni(polozky, dnes));
+        const { error: e2 } = await supabase.from('orders').update({ note: novaPoznamka }).eq('id', vybranaObjObjednavka.id);
+        if (e2) throw new Error(e2.message);
+      }
       await ignoreWhatsAppMessage(message.id);
       uspech(`Vráceno ${vracenoKusu} ks — přičteno na sklad. Je to vidět v Objednávkách → Vrácení piva.`);
       props.onClose();
@@ -1108,6 +1154,30 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                         </span>
                       </label>
                     ))}
+                  </div>
+                )}
+
+                {/* ↩️ Volitelné propojení s konkrétní zavezenou objednávkou —
+                    appka pak u ní dopočítá „počítá se X, Y vráceno" (viz
+                    OrderCard.tsx). Bez výběru zůstává vrácení jen záznamem
+                    ve skladu, stejně jako dřív. */}
+                {nabidkaObjednavek.length > 0 && (
+                  <div className="mt-3">
+                    <label className="text-udaj font-black text-sky-900 uppercase tracking-wide">
+                      Vrátit z konkrétní objednávky (nepovinné)
+                    </label>
+                    <select
+                      className="input !mt-1 !py-1.5 text-sm w-full"
+                      value={vratitZObjednavky}
+                      onChange={(e) => setVratitZObjednavky(e.target.value)}
+                    >
+                      <option value="">— bez vazby na objednávku —</option>
+                      {nabidkaObjednavek.map((o) => (
+                        <option key={o.id} value={o.id}>
+                          {datumCesky(datumZavozu(o))} · {o.place_name ?? 'bez odběratele'}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 )}
 
