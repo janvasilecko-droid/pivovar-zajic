@@ -387,13 +387,23 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
     })),
     msg?.message_text,
   ), [items, msg?.message_text, props.beers, props.packages]);
-  /** Které řádky se doopravdy zapíšou — s pivem zaškrtnuté, obaly ne. */
+  /**
+   * Které řádky se doopravdy zapíšou.
+   *
+   * Z provozu 21. 9. 2026: „v tech vratkach je nak moc polozek, ty se
+   * nevracely... pokud bude neco na vraceni tak vyhod upozadu vozorneni a
+   * rucne se musi potvrdit ze se vraci plny sud." Dřív se řádky s dohledaným
+   * pivem (rozpadVraceni.sPivem) rovnou předzaškrtly — ale `pivoJeVTextu`
+   * (viz lib/vraceniZeZpravy.ts) je jen hrubá shoda prvních tří písmen kmene
+   * kdekoli ve zprávě, takže se předzaškrtlo i pivo, které se ve
+   * skutečnosti nevracelo (jen padlo do stejné zprávy jinou souvislostí).
+   * Nezaškrtnuté nic nezahazuje — jen to čeká na ruční potvrzení, přesně
+   * jak žádá pravidlo od majitele o žádném zápisu bez jasného povelu.
+   */
   const [vraceniZaskrtnuto, setVraceniZaskrtnuto] = useState<Record<string, boolean>>({});
   useEffect(() => {
-    if (!jeVraceni) return;
-    setVraceniZaskrtnuto(Object.fromEntries(rozpadVraceni.sPivem.map((r) => [r.klic, true])));
-    // Jen při otevření zprávy — další překlik už patří člověku.
-  }, [jeVraceni, msg?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+    setVraceniZaskrtnuto({});
+  }, [jeVraceni, msg?.id]);
   const [ukladamVraceni, setUkladamVraceni] = useState(false);
 
   const vraceneRadky = [...rozpadVraceni.sPivem, ...rozpadVraceni.jenObaly]
