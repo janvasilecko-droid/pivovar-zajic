@@ -189,10 +189,10 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
 
   // Posun měsíce o delta měsíců (vrací YYYY-MM)
 
-  const filteredRows = useMemo(() => {
-    // Minusové položky (ruční opravy přepočtu) se v přehledu stáčení
-    // nezobrazují — je to seznam toho, co se stočilo, ne účetní deník oprav.
-    let result = rows.filter((r) => Number(r.quantity) > 0);
+  // Období + pivo + obal — beze změny znaménka. Základ jak pro seznam
+  // (dál filtrovaný na kladné), tak pro součty (ty musí vidět i opravy).
+  const filtrObdobim = useMemo(() => {
+    let result = rows;
     if (recordsView === 'month') {
       result = result.filter((r) => r.entry_date?.startsWith(recordsMonthKey));
     } else if (recordsView === 'week') {
@@ -208,6 +208,18 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     }
     return result;
   }, [rows, recordsView, recordsMonthKey, recordsWeekKey, recordsDay, beerFilter, recordPkgFilter]);
+
+  const filteredRows = useMemo(
+    // Minusové položky (ruční opravy přepočtu z inventury) se v přehledu
+    // stáčení jako ŘÁDKY nezobrazují — je to seznam toho, co se stočilo, ne
+    // účetní deník oprav. Do SOUČTŮ ale patří (viz filtrObdobim výš) — jinak
+    // by „Celkem" po odečtu z inventury ukazovalo víc, než se doopravdy ve
+    // skladu vyrobilo. Z provozu 21. 9. 2026: „bez tech minusovych polozek
+    // to bude ukazovat spatny stoceny sud a lahve, musi se to odecitat uz ze
+    // zadanych dat, ne dat to zvlast jako polozky."
+    () => filtrObdobim.filter((r) => Number(r.quantity) > 0),
+    [filtrObdobim],
+  );
 
   // businessDateISO(), NE new Date().toISOString() — ten je vždycky UTC.
   // Kolem půlnoci pražského času (UTC je o 1–2 h pozadu) by vyšel jiný
@@ -1734,9 +1746,10 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
 
           {/* Stočeno KEG za týden — jednotlivé záznamy s +/−/✕ */}
           {rows.length > 0 && (() => {
-            // Minusové položky (ruční opravy) se nezobrazují — je to seznam
-            // stočeného, ne účetní deník oprav.
-            const weekRowsAll = rows.filter((r) => isoWeekKey(r.entry_date) === weekKey && Number(r.quantity) > 0);
+            const tydenVsechno = rows.filter((r) => isoWeekKey(r.entry_date) === weekKey);
+            // Minusové položky (ruční opravy z inventury) se jako ŘÁDKY
+            // nezobrazují — je to seznam stočeného, ne účetní deník oprav.
+            const weekRowsAll = tydenVsechno.filter((r) => Number(r.quantity) > 0);
             if (weekRowsAll.length === 0) return null;
             const weekRows = weekRowsAll.filter((r) =>
               (!weekBeerFilter || r.beer_id === weekBeerFilter) &&
@@ -1747,7 +1760,13 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
               if (dateCmp !== 0) return dateCmp;
               return (a.created_at ?? '').localeCompare(b.created_at ?? '') || a.id.localeCompare(b.id);
             });
-            const totalCount = sorted.reduce((s, r) => s + Number(r.quantity), 0);
+            // Celkem počítá z tydenVsechno (kladné i opravy) — bez toho by po
+            // odečtu z inventury „Celkem" ukazovalo víc, než se doopravdy
+            // vyrobilo. Z provozu 21. 9. 2026: „musi se to odecitat uz ze
+            // zadanych dat, ne dat to zvlast jako polozky."
+            const totalCount = tydenVsechno
+              .filter((r) => (!weekBeerFilter || r.beer_id === weekBeerFilter) && (!weekPkgFilter || r.package_id === weekPkgFilter))
+              .reduce((s, r) => s + Number(r.quantity), 0);
             const weekBeerIds = new Set(weekRowsAll.map((r) => r.beer_id));
             const weekBeers = beers.filter((b) => weekBeerIds.has(b.id));
             const weekPkgIds = new Set(weekRowsAll.map((r) => r.package_id));
@@ -2059,7 +2078,9 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
             )}
             {rows.length > 0 && (
               <span className="chip bg-amber-100/60 text-amber-900/70 text-xs font-bold">
-                {filteredRows.length} záznamů · <span className="text-amber-950 font-black tabular-nums">{filteredRows.reduce((s, r) => s + Number(r.quantity || 0), 0)} ks</span>
+                {/* Počet záznamů = co je vidět dole (kladné řádky); součet ks
+                    ale počítá z filtrObdobim, ať v sobě má i opravy z inventury. */}
+                {filteredRows.length} záznamů · <span className="text-amber-950 font-black tabular-nums">{filtrObdobim.reduce((s, r) => s + Number(r.quantity || 0), 0)} ks</span>
               </span>
             )}
           </div>
@@ -2085,8 +2106,11 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
             if (dateCmp !== 0) return dateCmp;
             return (a.created_at ?? '').localeCompare(b.created_at ?? '') || a.id.localeCompare(b.id);
           });
-          const totalCount = sortedRows.reduce((s, r) => s + Number(r.quantity), 0);
-          const totalLiters = sortedRows.reduce((s, r) => {
+          // Celkem se počítá z filtrObdobim (kladné i opravy), ne ze
+          // sortedRows (jen kladné) — jinak by „Celkem" po odečtu z
+          // inventury ukazovalo víc, než se doopravdy vyrobilo.
+          const totalCount = filtrObdobim.reduce((s, r) => s + Number(r.quantity), 0);
+          const totalLiters = filtrObdobim.reduce((s, r) => {
             const pkg = packages.find((p) => p.id === r.package_id);
             return s + (pkg ? Number(r.quantity) * Number(pkg.volume_l) : 0);
           }, 0);

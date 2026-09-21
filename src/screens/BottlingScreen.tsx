@@ -363,10 +363,11 @@ export default function BottlingScreen({
   const [recordsBeerFilter, setRecordsBeerFilter] = useState('');
   const [recordsPkgFilter, setRecordsPkgFilter] = useState('');
 
-  const filteredRows = useMemo(() => {
-    // Minusové položky (ruční opravy přepočtu) se v přehledu stáčení
-    // nezobrazují — je to seznam toho, co se stočilo, ne deník oprav.
-    let result = rows.filter((r) => Number(r.quantity) > 0);
+  // Období + záložka (lahve/KEG/vše) + pivo + obal — beze změny znaménka.
+  // Základ jak pro seznam (dál filtrovaný na kladné), tak pro součty (ty
+  // musí vidět i opravy z inventury).
+  const filtrObdobim = useMemo(() => {
+    let result = rows;
     if (recordsView === 'day') {
       result = result.filter((r) => r.entry_date === recordsDay);
     } else if (recordsView === 'month') {
@@ -393,6 +394,17 @@ export default function BottlingScreen({
     }
     return result;
   }, [rows, recordsView, recordsDay, recordsMonthKey, recordsWeekKey, recordsTab, recordsBeerFilter, recordsPkgFilter, packages]);
+
+  const filteredRows = useMemo(
+    // Minusové položky (ruční opravy z inventury) se v přehledu stáčení
+    // jako ŘÁDKY nezobrazují — je to seznam toho, co se stočilo, ne deník
+    // oprav. Do SOUČTŮ (filtrObdobim výš) ale patří — jinak by „Celkem" po
+    // odečtu z inventury ukazovalo víc, než se doopravdy vyrobilo. Z
+    // provozu 21. 9. 2026: „bez tech minusovych polozek to bude ukazovat
+    // spatny stoceny sud a lahve, musi se to odecitat uz ze zadanych dat."
+    () => filtrObdobim.filter((r) => Number(r.quantity) > 0),
+    [filtrObdobim],
+  );
 
   // Záznamy omezené jen na zvolené období (měsíc/týden) — bez filtru lahve/KEG,
   // piva a obalu. Slouží pro souhrnné karty "Přehled stočených..." nahoře,
@@ -1899,7 +1911,9 @@ export default function BottlingScreen({
             )}
             {rows.length > 0 && (
               <span className="chip bg-amber-100/60 text-amber-900/70 text-xs font-bold">
-                {filteredRows.length} záznamů · <span className="text-amber-950 font-black tabular-nums">{filteredRows.reduce((s, r) => s + Number(r.quantity || 0), 0)} ks</span>
+                {/* Počet záznamů = co je vidět dole (kladné řádky); součet ks
+                    ale počítá z filtrObdobim, ať v sobě má i opravy z inventury. */}
+                {filteredRows.length} záznamů · <span className="text-amber-950 font-black tabular-nums">{filtrObdobim.reduce((s, r) => s + Number(r.quantity || 0), 0)} ks</span>
               </span>
             )}
           </div>
@@ -1971,13 +1985,16 @@ export default function BottlingScreen({
             if (dateCmp !== 0) return dateCmp;
             return (a.created_at ?? '').localeCompare(b.created_at ?? '') || a.id.localeCompare(b.id);
           });
-          const totalCount = sortedRows.reduce((s, r) => s + Number(r.quantity), 0);
-          const totalLiters = sortedRows.reduce((s, r) => {
+          // Celkem se počítá z filtrObdobim (kladné i opravy), ne ze
+          // sortedRows (jen kladné) — jinak by „Celkem" po odečtu z
+          // inventury ukazovalo víc, než se doopravdy vyrobilo.
+          const totalCount = filtrObdobim.reduce((s, r) => s + Number(r.quantity), 0);
+          const totalLiters = filtrObdobim.reduce((s, r) => {
             const pkg = packages.find((p) => p.id === r.package_id);
             return s + (pkg ? Number(r.quantity) * Number(pkg.volume_l) : 0);
           }, 0);
           const seenKegsTotal = new Set<string>();
-          const totalKegs = sortedRows.reduce((s, r) => {
+          const totalKegs = filtrObdobim.reduce((s, r) => {
             if (r.kegs_used && r.kegs_used > 0) {
               const bId = r.created_at
                 ? `${r.entry_date}_${r.beer_id}_${r.created_at.slice(0, 19)}`
