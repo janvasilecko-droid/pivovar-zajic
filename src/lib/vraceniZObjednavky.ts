@@ -38,11 +38,19 @@ export function platneVraceni(polozky: PolozkaVraceni[]): PolozkaVraceni[] {
  * od koho se pivo vrátilo. V záložce „Vrácení piva" se vrací i bez vybrané
  * objednávky (přivezli to jen tak, objednávka je stará nebo žádná není),
  * a bez jména by v dorovnáních zůstal nedohledatelný řádek.
+ *
+ * `orderId` — když se vrací přímo z konkrétní objednávky (viz tlačítko
+ * „Vrátit pivo" u karty objednávky), propíše se, ať appka umí dopočítat
+ * efektivní (vydané − vrácené) množství té objednávky zpátky (viz
+ * `vracenoPodleObjednavky` níž). Bez vybrané objednávky zůstává `null` —
+ * vrácení pak nejde spárovat s žádnou konkrétní objednávkou, jen se
+ * promítne do skladu.
  */
 export function zaznamyDorovnaniVraceni(
   polozky: PolozkaVraceni[],
   datum: string,
   odberatel?: string | null,
+  orderId?: string | null,
 ): Record<string, unknown>[] {
   const kdo = (odberatel ?? '').trim();
   return platneVraceni(polozky).map((p) => ({
@@ -52,8 +60,29 @@ export function zaznamyDorovnaniVraceni(
     package_id: p.package_id,
     package_label: p.package_label,
     quantity: p.pocet,
+    order_id: orderId ?? null,
     reason: `Vráceno z objednávky — ${p.pocet}× ${p.package_label ?? p.package_id}${p.beer_name ? ` ${p.beer_name}` : ''}${kdo ? ` (${kdo})` : ''}`,
   }));
+}
+
+export type VraceniZaznam = { beer_id: string | null; package_id: string | null; quantity: number };
+
+/**
+ * Kolik se u KONKRÉTNÍ objednávky celkem vrátilo, po (pivo, obal).
+ *
+ * Klíč je `beer_id__package_id` — stejná granularita jako `stockKey` ve
+ * skladové knize (chybějící sudy nevykryjí lahve, i když je v nich totéž
+ * pivo). Vstup jsou řádky `inventory_adjustments` už vyfiltrované na
+ * `order_id` rovné té objednávce.
+ */
+export function vracenoPodleObjednavky(zaznamy: VraceniZaznam[]): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const z of zaznamy) {
+    if (!z.beer_id || !z.package_id) continue;
+    const klic = `${z.beer_id}__${z.package_id}`;
+    out.set(klic, (out.get(klic) ?? 0) + Number(z.quantity || 0));
+  }
+  return out;
 }
 
 /** „Vráceno 2× 50l 12° Světlé — přičteno do skladu 18. 9. 2026, týdne 2026-09-14." */

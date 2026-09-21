@@ -133,7 +133,7 @@ export function VraceniPiva({ orders, items, beers, packages, places, onZpet, on
     try {
       const { error } = await supabase
         .from('inventory_adjustments')
-        .insert(zaznamyDorovnaniVraceni(kUlozeni, dnes, jmenoOdberatele));
+        .insert(zaznamyDorovnaniVraceni(kUlozeni, dnes, jmenoOdberatele, objednavka?.id ?? null));
       if (error) throw new Error(error.message);
 
       // Poznámka na objednávku jen když je vybraná. Množství na ní se NEMĚNÍ —

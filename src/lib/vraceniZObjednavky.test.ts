@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   datumCesky, datumZavozu, objednavkyKVraceni, platneVraceni, poznamkaVraceni, pripojPoznamku,
-  zaznamyDorovnaniVraceni, type ObjednavkaProVraceni, type PolozkaVraceni,
+  vracenoPodleObjednavky, zaznamyDorovnaniVraceni, type ObjednavkaProVraceni, type PolozkaVraceni,
 } from './vraceniZObjednavky';
 
 const polozky: PolozkaVraceni[] = [
@@ -25,6 +25,35 @@ describe('zaznamyDorovnaniVraceni', () => {
     const radky = zaznamyDorovnaniVraceni(polozky, '2026-09-18');
     expect(radky).toHaveLength(1);
     expect(radky[0]).toMatchObject({ entry_date: '2026-09-18', beer_id: 'b1', package_id: 'p1', quantity: 2 });
+  });
+
+  it('bez orderId nese order_id: null — vrácení bez vybrané objednávky', () => {
+    expect(zaznamyDorovnaniVraceni(polozky, '2026-09-18')[0].order_id).toBeNull();
+  });
+
+  it('s orderId se propíše, ať jde dopočítat efektivní množství té objednávky', () => {
+    expect(zaznamyDorovnaniVraceni(polozky, '2026-09-18', 'Lužec', 'obj-1')[0].order_id).toBe('obj-1');
+  });
+});
+
+describe('vracenoPodleObjednavky', () => {
+  it('sečte vrácené kusy podle (pivo, obal) — klíč beer_id__package_id', () => {
+    const mapa = vracenoPodleObjednavky([
+      { beer_id: 'b1', package_id: 'p1', quantity: 1 },
+      { beer_id: 'b1', package_id: 'p1', quantity: 2 },
+      { beer_id: 'b1', package_id: 'p2', quantity: 5 },
+    ]);
+    expect(mapa.get('b1__p1')).toBe(3);
+    expect(mapa.get('b1__p2')).toBe(5);
+  });
+
+  it('řádek bez piva nebo obalu se přeskočí', () => {
+    const mapa = vracenoPodleObjednavky([{ beer_id: null, package_id: 'p1', quantity: 4 }]);
+    expect(mapa.size).toBe(0);
+  });
+
+  it('prázdný vstup vrátí prázdnou mapu', () => {
+    expect(vracenoPodleObjednavky([]).size).toBe(0);
   });
 });
 
