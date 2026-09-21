@@ -144,6 +144,57 @@ describe('list Inventura v sešitu (jiný tvar než ostatní, viz lib/inventuraE
   });
 });
 
+describe('„Celkem" zahrne manko z inventury, i když jako řádek nesvítí (provoz 21. 9. 2026)', () => {
+  beforeAll(async () => { await nactiXlsx(); });
+
+  // Kladný zápis (12 ks) + záporná oprava z inventury (−2 ks) na stejné pivo/obal.
+  // `radky` nese jen kladné (jako v ExportExcelScreen.tsx po zaškrtnutí
+  // „Schovat záporné řádky"), `radkyVcetneOprav` obojí — přesně ten pár,
+  // který si mezi sebou postavSesit odečítá přes rozdilSoucet.
+  const kegPozitivni: VydejRadek[] = [
+    { entry_date: '2026-08-04', beer_name: '12° Světlá', package_id: 'k50', quantity: 12, tank: '6' },
+  ];
+  const kegVcetneOpravy: VydejRadek[] = [
+    ...kegPozitivni,
+    { entry_date: '2026-08-05', beer_name: '12° Světlá', package_id: 'k50', quantity: -2, note: 'Odečteno z inventury 2026-08 — KEG 50L (manko -2 ks)' },
+  ];
+
+  it('Celkem v ks i v hl je natvrdo připočtené k SUM() přes viditelné řádky', () => {
+    const wb = postavSesit({
+      listy: [{ nazev: 'Stáčení KEG', varianta: 'staceni_keg', radky: kegPozitivni, radkyVcetneOprav: kegVcetneOpravy }],
+      obaly: OBALY, od: '2026-08-01', do: '2026-08-31',
+    })!;
+    const ws = wb.Sheets['Stáčení KEG'];
+    // C = sloupec 50l, jediný dotčený objem.
+    expect(bunka(ws, 'C4').f).toBe('SUM(C3:C3)+(-2)');
+    // I = sudy hl, K = celkem hl — obojí o 1 hl míň (2 ks × 50 l = 100 l).
+    expect(bunka(ws, 'I4').f).toBe('SUM(I3:I3)+(-1)');
+    expect(bunka(ws, 'K4').f).toBe('SUM(K3:K3)+(-1)');
+    // J = lahve hl — KEG list lahve nemá, oprava tam je 0, formule beze změny.
+    expect(bunka(ws, 'J4').f).toBe('SUM(J3:J3)');
+  });
+
+  it('funguje stejně na týdenní období, ne jen na celý měsíc', () => {
+    // Stejná dvojice zápisů, ale export omezený na jediný týden — přesně to,
+    // co dá „vlastní období" v ExportExcelScreen.tsx místo výchozího měsíce.
+    const wb = postavSesit({
+      listy: [{ nazev: 'Stáčení KEG', varianta: 'staceni_keg', radky: kegPozitivni, radkyVcetneOprav: kegVcetneOpravy }],
+      obaly: OBALY, od: '2026-08-03', do: '2026-08-09',
+    })!;
+    const ws = wb.Sheets['Stáčení KEG'];
+    expect(bunka(ws, 'C4').f).toBe('SUM(C3:C3)+(-2)');
+    expect(bunka(ws, 'K4').f).toBe('SUM(K3:K3)+(-1)');
+  });
+
+  it('bez radkyVcetneOprav zůstává Celkem čistý SUM(), jak testuje sekce výš', () => {
+    const wb = postavSesit({
+      listy: [{ nazev: 'Stáčení KEG', varianta: 'staceni_keg', radky: kegPozitivni }],
+      obaly: OBALY, od: '2026-08-01', do: '2026-08-31',
+    })!;
+    expect(bunka(wb.Sheets['Stáčení KEG'], 'C4').f).toBe('SUM(C3:C3)');
+  });
+});
+
 describe('název souboru', () => {
   it('u celého měsíce nese měsíc', () => {
     expect(nazevSouboru('2026-08-01', '2026-08-31')).toBe('Zapisy_pivovar_2026-08.xlsx');
