@@ -195,11 +195,38 @@ function signalOfflineStale(): void {
   setTimeout(() => { staleSignalCooldown = false; }, 3000);
 }
 
+/**
+ * `fetch`, ale s tvrdým stropem na dobu čekání.
+ *
+ * Nalezeno 21. 9. 2026 v poledne, ve sklepě: „nevidel sem data a nemohl sem
+ * je zadavat." `navigator.onLine` u slabého signálu hlásí `true` (telefon JE
+ * připojený k síti), ale požadavek na server nikdy nedostane odpověď ani
+ * chybu — obyčejný `fetch()` bez limitu na něj čeká klidně desítky vteřin až
+ * minuty, takže se `handleGet`/`handleWrite` níž nikdy nedostanou do `catch`
+ * větve, která by přepnula na cache/frontu. Appka pak vypadá stejně jako
+ * u bugů z 10./13. 9. (viz sliceByRange/finalizeOfflineRows), ale příčina je
+ * jiná — tam offline fallback běžel a špatně ořezával, tady se k němu vůbec
+ * nedostane. Řešení: po `TIMEOUT_MS` požadavek zahodit, ať se chová jako
+ * síťová chyba a appka spadne do stejného cache/frontového chování jako při
+ * zjevném offline stavu.
+ */
+export const OFFLINE_FETCH_TIMEOUT_MS = 10_000;
+export function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), OFFLINE_FETCH_TIMEOUT_MS);
+  const outerSignal = init?.signal;
+  if (outerSignal) {
+    if (outerSignal.aborted) controller.abort();
+    else outerSignal.addEventListener('abort', () => controller.abort(), { once: true });
+  }
+  return fetch(input, { ...init, signal: controller.signal }).finally(() => clearTimeout(timer));
+}
+
 async function handleGet(input: RequestInfo | URL, init: RequestInit | undefined, url: URL, rest: RestInfo | null): Promise<Response> {
   const prefer = getHeader(init, 'prefer') ?? '';
   const wantCount = prefer.includes('count=exact');
   try {
-    const res = await fetch(input, init);
+    const res = await fetchWithTimeout(input, init);
     if (res && res.ok) {
       const text = await res.clone().text();
       if (text && rest) {
@@ -276,13 +303,13 @@ async function handleWrite(input: RequestInfo | URL, init: RequestInit, rest: Re
   // Bezpečnostní pojistka: update/delete bez jakéhokoli filtru se nedá offline
   // bezpečně zopakovat (hrozilo by smazání všech řádků) → nikdy neřadit.
   if ((method === 'PATCH' || method === 'DELETE') && Object.keys(rest.eq).length === 0 && Object.keys(rest.inMatch).length === 0) {
-    return fetch(input, init);
+    return fetchWithTimeout(input, init);
   }
 
   // Nejdřív zkusíme síť (přeskočíme, když víme, že jsme offline).
   if (navigator.onLine) {
     try {
-      const res = await fetch(input, init);
+      const res = await fetchWithTimeout(input, init);
       if (res.ok && method === 'POST') {
         const prefer = getHeader(init, 'prefer') ?? '';
         if (prefer.includes('return=representation')) {
