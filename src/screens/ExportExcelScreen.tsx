@@ -153,12 +153,18 @@ export default function ExportExcelScreen() {
       tank: r.cellar_tank_id ? (mapaTanku.get(r.cellar_tank_id) ?? '') : '',
     }));
 
+    // 🧮 „Celkem" na konci listu musí manko vidět, i když se jako řádek
+    // schovává — jinak sešit ukazuje, že se vyrobilo víc, než doopravdy bylo
+    // (radkyVcetneOprav níž nese stejná data BEZ ohledu na znaménko, jen pro
+    // dopočet součtu — viz lib/mesicniExport.ts). Z provozu 21. 9. 2026:
+    // „minulej mesic sem ucetni poslal spatny data... ty minusovy polozky...
+    // nejsou realne odecteny ze stacecich dat."
     return [
-      { nazev: 'Odběr personál', varianta: 'odberatel', radky: bezZapornych(data.fasovani) },
-      { nazev: 'Fasování prodejna', varianta: 'odberatel', radky: bezZapornych(data.prodejna) },
-      { nazev: 'Vzorky promo a PR', varianta: 'odberatel', radky: bezZapornych(data.odpis), popisOdberatele: 'Komu proč a zač' },
-      { nazev: 'Stáčení lahve', varianta: 'staceni_lahve', radky: bezZapornych(lahveRadky) },
-      { nazev: 'Stáčení KEG', varianta: 'staceni_keg', radky: bezZapornych(kegRadky) },
+      { nazev: 'Odběr personál', varianta: 'odberatel', radky: bezZapornych(data.fasovani), radkyVcetneOprav: data.fasovani },
+      { nazev: 'Fasování prodejna', varianta: 'odberatel', radky: bezZapornych(data.prodejna), radkyVcetneOprav: data.prodejna },
+      { nazev: 'Vzorky promo a PR', varianta: 'odberatel', radky: bezZapornych(data.odpis), radkyVcetneOprav: data.odpis, popisOdberatele: 'Komu proč a zač' },
+      { nazev: 'Stáčení lahve', varianta: 'staceni_lahve', radky: bezZapornych(lahveRadky), radkyVcetneOprav: lahveRadky },
+      { nazev: 'Stáčení KEG', varianta: 'staceni_keg', radky: bezZapornych(kegRadky), radkyVcetneOprav: kegRadky },
     ];
   }, [data, bezMinusu]);
 
@@ -326,7 +332,9 @@ export default function ExportExcelScreen() {
         </div>
 
         {/* Přepínač záporných řádků — ruční opravy přepočtu se do exportu
-            ve výchozím stavu nevypisují (viz komentář u bezZapornych). */}
+            ve výchozím stavu nevypisují jako VLASTNÍ řádek (viz komentář
+            u bezZapornych), ale do „Celkem" se počítají VŽDYCKY — i při
+            zaškrtnutém přepínači (viz radkyVcetneOprav v lib/mesicniExport.ts). */}
         <label className="flex items-start gap-2 text-xs font-bold text-neutral-700 cursor-pointer rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2.5">
           <input
             type="checkbox"
@@ -335,10 +343,12 @@ export default function ExportExcelScreen() {
             className="w-5 h-5 accent-amber-500 mt-0.5 shrink-0"
           />
           <span>
-            Vynechat záporné řádky (ruční opravy)
+            Schovat záporné řádky (ruční opravy)
             <span className="block font-medium text-neutral-500 mt-0.5">
-              Minusové položky vznikají opravou přepočtu a na skutečný stav nemají vliv.
-              Odškrtni, když je chceš v sešitu vidět.
+              Minusové položky vznikají opravou přepočtu z inventury. Zaškrtnuté
+              nejsou v sešitu vidět jako vlastní řádek, ale do „Celkem" se
+              vždycky počítají — ten proto sedí se skladem, i schované.
+              Odškrtni, když je chceš vidět i jako řádek (kvůli dohledání).
             </span>
           </span>
         </label>

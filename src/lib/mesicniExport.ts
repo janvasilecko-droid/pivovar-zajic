@@ -17,7 +17,7 @@
 import { nactiXlsx, xlsx } from './xlsxLazy';
 import {
   SLOUPCE_LAHVE, SLOUPCE_SUDY, VARIANTY, formatDatum, popisSloupce, popisneSloupce,
-  sestavPrehled, sloupceVarianty,
+  sestavPrehled, sloupceVarianty, soucty,
   type ObalPrehled, type PrehledRadek, type VariantaPrehledu, type VydejRadek,
 } from './prehledVydeje';
 import { postavInventuruList, type InventuraExportRadek } from './inventuraExport';
@@ -26,9 +26,38 @@ export type ListExportu = {
   nazev: string;
   varianta: VariantaPrehledu;
   radky: VydejRadek[];
+  /**
+   * Stejné období, ale BEZ vynechání záporných řádků (viz „Vynechat záporné
+   * řádky" v ExportExcelScreen.tsx) — jen pro dopočet součtu, samo se
+   * nevykresluje. Manko z inventury se tak propíše do „Celkem", i když jako
+   * vlastní řádek v listu schválně nesvítí. Bez tohohle by „Celkem" po
+   * odečtu ukazovalo víc, než se doopravdy vyrobilo — z provozu 21. 9. 2026:
+   * „pokud mam stoceno napr 10hl a -1hl v minusovych polozkach, tak kdyz
+   * dam export bez minusovych tak mi vyjede 10hl, ja tam potrebuju videt 9hl."
+   */
+  radkyVcetneOprav?: VydejRadek[];
   /** Popisek druhého sloupce, když se liší od výchozího („Komu proč a zač"). */
   popisOdberatele?: string;
 };
+
+/** Rozdíl dvou součtů — o kolik se `vsechny` liší od `viditelne` (schované opravy). */
+function rozdilSoucet(
+  vsechny: ReturnType<typeof soucty>,
+  viditelne: ReturnType<typeof soucty>,
+): ReturnType<typeof soucty> {
+  const klice = new Set([...Object.keys(vsechny.kusy), ...Object.keys(viditelne.kusy)].map(Number));
+  const kusy: Record<number, number> = {};
+  klice.forEach((k) => {
+    const rozdil = (vsechny.kusy[k] ?? 0) - (viditelne.kusy[k] ?? 0);
+    if (rozdil) kusy[k] = rozdil;
+  });
+  return {
+    kusy,
+    kusyJine: vsechny.kusyJine - viditelne.kusyJine,
+    sudyL: vsechny.sudyL - viditelne.sudyL,
+    lahveL: vsechny.lahveL - viditelne.lahveL,
+  };
+}
 
 /** Písmeno sloupce v Excelu (0 → A). */
 export function pismeno(index: number): string {
@@ -71,7 +100,7 @@ export const styl = {
  * Rozvržení kopíruje ruční listy: první řádek jsou skupiny („Sudy", „Lahve"),
  * druhý jsou konkrétní objemy, pak data a nakonec součet.
  */
-function postavList(list: ListExportu, obaly: ObalPrehled[], radky: PrehledRadek[]): any {
+function postavList(list: ListExportu, obaly: ObalPrehled[], radky: PrehledRadek[], oprava?: ReturnType<typeof soucty>): any {
   const v = VARIANTY[list.varianta];
   const popisne = popisneSloupce(list.varianta, false).map((p, i) =>
     (i === 1 && list.popisOdberatele ? list.popisOdberatele : p));
@@ -125,15 +154,35 @@ function postavList(list: ListExportu, obaly: ObalPrehled[], radky: PrehledRadek
   });
 
   // Součtový řádek — SUM přes datové řádky, ať se dá dopsat ručně a sedí dál.
+  //
+  // ⚠️ Když je zaškrtnuté „Vynechat záporné řádky", manko z inventury v
+  // datových řádcích NENÍ — ale do „Celkem" patří, jinak by po odečtu
+  // ukazovalo víc, než se doopravdy vyrobilo (viz `oprava`, dopočtená z
+  // `radkyVcetneOprav` v ExportExcelScreen.tsx). Přičítá se jako pevné
+  // číslo vedle SUM(), ať zůstane vzorec nad viditelnými řádky funkční —
+  // kdo si v Excelu opraví kus, „Celkem" se dál dopočítá samo, jen s tímhle
+  // mankem navíc. Z provozu 21. 9. 2026: „minulej mesic sem ucetni poslal
+  // spatny data... ty minusovy polozky... nejsou realne odecteny ze
+  // stacecich dat."
   if (radky.length) {
     const prvniData = 3;
     const posledniData = radky.length + 2;
+    const sPripoctenymMankem = (zaklad: string, korekce: number) =>
+      korekce ? { f: `${zaklad}+(${korekce})` } : { f: zaklad };
     const soucet: any[] = [
       'Celkem',
       ...Array(popisne.length - 1).fill(''),
-      ...objemy.map((_, j) => ({ f: `SUM(${pismeno(prvniObjem + j)}${prvniData}:${pismeno(prvniObjem + j)}${posledniData})` })),
+      ...objemy.map((l, j) => {
+        const zaklad = `SUM(${pismeno(prvniObjem + j)}${prvniData}:${pismeno(prvniObjem + j)}${posledniData})`;
+        const korekce = oprava?.kusy[Math.round(l * 100) / 100] ?? 0;
+        return sPripoctenymMankem(zaklad, korekce);
+      }),
       ...(maTank ? [''] : []),
-      ...[0, 1, 2].map((j) => ({ f: `SUM(${pismeno(prvniHl + j)}${prvniData}:${pismeno(prvniHl + j)}${posledniData})` })),
+      ...[0, 1, 2].map((j) => {
+        const zaklad = `SUM(${pismeno(prvniHl + j)}${prvniData}:${pismeno(prvniHl + j)}${posledniData})`;
+        const korekceL = j === 0 ? (oprava?.sudyL ?? 0) : j === 1 ? (oprava?.lahveL ?? 0) : (oprava?.sudyL ?? 0) + (oprava?.lahveL ?? 0);
+        return sPripoctenymMankem(zaklad, korekceL / 100);
+      }),
     ];
     data.push(soucet);
   }
@@ -227,7 +276,15 @@ export function postavSesit(vstup: MesicniExportVstup): any | null {
   for (const list of vstup.listy) {
     const radky = sestavPrehled(list.radky, vstup.obaly, { od: vstup.od, do: vstup.do });
     if (!radky.length) continue;
-    xlsx().utils.book_append_sheet(wb, postavList(list, vstup.obaly, radky), list.nazev.slice(0, 31));
+    // Oprava (manko z inventury) dopočtená ze stejného období BEZ ohledu na
+    // znaménko — viz komentář u `radkyVcetneOprav` v typu ListExportu výš.
+    const oprava = list.radkyVcetneOprav
+      ? rozdilSoucet(
+          soucty(sestavPrehled(list.radkyVcetneOprav, vstup.obaly, { od: vstup.od, do: vstup.do })),
+          soucty(radky),
+        )
+      : undefined;
+    xlsx().utils.book_append_sheet(wb, postavList(list, vstup.obaly, radky, oprava), list.nazev.slice(0, 31));
     neco = true;
   }
 
