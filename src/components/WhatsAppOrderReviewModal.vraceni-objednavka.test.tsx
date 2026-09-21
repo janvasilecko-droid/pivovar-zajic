@@ -147,4 +147,47 @@ describe('WhatsAppOrderReviewModal — vrácení propojené s objednávkou', () 
     expect(inserted[0].rows[0].order_id).toBeNull();
     expect(updated).toHaveLength(0);
   });
+
+  it('u vrácení s amends_order_id se NEUKÁŽE banner „upraví existující objednávku" a Schválit je zamčené', async () => {
+    renderModal({
+      orders: [order],
+      orderItems,
+      message: { ...message, amends_order_id: 'obj-1' },
+    });
+
+    await waitFor(() => expect(screen.getByText('1× KEG 50l Osma')).toBeTruthy());
+    expect(screen.queryByText('Tohle je odpověď — upraví už existující objednávku')).toBeNull();
+
+    const schvalit = screen.getByText(/^Schválit/i).closest('button') as HTMLButtonElement;
+    expect(schvalit).toBeDisabled();
+  });
+
+  it('zpráva odpovídající na objednávku (amends_order_id) ji rovnou přednabídne vybranou', async () => {
+    renderModal({
+      orders: [order],
+      orderItems,
+      message: { ...message, amends_order_id: 'obj-1' },
+    });
+
+    let label: HTMLElement;
+    await waitFor(() => { label = screen.getByText('Vrátit z konkrétní objednávky (nepovinné)'); expect(label).toBeTruthy(); });
+    const select = label!.parentElement!.querySelector('select') as HTMLSelectElement;
+    expect(select.value).toBe('obj-1');
+  });
+
+  it('přednabídnutou objednávku jde ručně zrušit zpět na „bez vazby"', async () => {
+    renderModal({
+      orders: [order],
+      orderItems,
+      message: { ...message, amends_order_id: 'obj-1' },
+    });
+
+    let label: HTMLElement;
+    await waitFor(() => { label = screen.getByText('Vrátit z konkrétní objednávky (nepovinné)'); expect(label).toBeTruthy(); });
+    const select = label!.parentElement!.querySelector('select') as HTMLSelectElement;
+    await waitFor(() => expect(select.value).toBe('obj-1'));
+
+    fireEvent.change(select, { target: { value: '' } });
+    expect(select.value).toBe('');
+  });
 });

@@ -147,3 +147,38 @@ describe('historie objednávek jako kontext', () => {
     expect(autoParse).toMatch(/message\.quoted_text\]\.filter\(Boolean\)/);
   });
 });
+
+// ── Vrácení jako odpověď s citací ────────────────────────────────────
+// Z provozu 21. 9. 2026: „SKONTROLUJ A UPRAV TY ODPOVEDI NA ZPRAVY VCETNE
+// TECH VRACENYCH SUDU ABY TO FUNGOVALO." Zpráva o vrácení, která ZÁROVEŇ
+// cituje jinou zprávu (dostane amends_order_id), se brala jako ÚPRAVA té
+// citované objednávky — AI dostala „SOUČASNÝ obsah, vrať výsledný stav po
+// zapracování odpovědi", což pro vrácení nedává smysl a appka navíc
+// nechávala aktivní tlačítko, které by tu objednávku přepsalo.
+describe('vrácení jako odpověď s citací se nechová jako úprava objednávky', () => {
+  it('pravidla už nežádají prázdné items u vrácení — checklist k zaškrtnutí by jinak zůstal prázdný', () => {
+    expect(PRAVIDLA).not.toContain('Vrať items prázdné');
+    expect(PRAVIDLA).toContain('POLOŽKY PŘESTO PŘEČTI NORMÁLNĚ');
+  });
+
+  it('detekce vrácení je sdílená mezi klientem a edge funkcí, ne dvě kopie', () => {
+    const klient = readFileSync('src/lib/vraceniZeZpravy.ts', 'utf8');
+    expect(klient).toMatch(/from '\.\.\/\.\.\/supabase\/functions\/_shared\/vraceni-detekce'/);
+    const sdilene = readFileSync('supabase/functions/_shared/vraceni-detekce.ts', 'utf8');
+    expect(sdilene).toMatch(/export function vypadaJakoVraceni/);
+  });
+
+  it('whatsapp-auto-parse nebere vrácení jako úpravu citované objednávky', () => {
+    const autoParse = readFileSync('supabase/functions/whatsapp-auto-parse/index.ts', 'utf8');
+    expect(autoParse).toMatch(/import \{ vypadaJakoVraceni \} from "\.\.\/_shared\/vraceni-detekce\.ts"/);
+    expect(autoParse).toMatch(/amendsOrderId && !vypadaJakoVraceni\(message\.message_text\)/);
+  });
+
+  it('modál nikdy nenechá vrácení schválit jako přepis/založení objednávky', () => {
+    const modal = readFileSync('src/components/WhatsAppOrderReviewModal.tsx', 'utf8');
+    // Schválit je u vrácení vždy zamčené…
+    expect(modal).toMatch(/disabled=\{jeVraceni \|\| approving/);
+    // …a banner „upraví existující objednávku" se u vrácení vůbec neukáže.
+    expect(modal).toMatch(/msg\?\.amends_order_id && !jeVraceni && \(/);
+  });
+});
