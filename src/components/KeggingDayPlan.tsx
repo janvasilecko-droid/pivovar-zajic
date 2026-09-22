@@ -440,8 +440,18 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
                             )}
                             {it.nachystano > 0 && it.zChladaku > 0 && ' · '}
                             {it.zChladaku > 0 && (
-                              <span title="Stočeno tenhle týden a zatím neodvezeno — leží v chlaďáku">
-                                {it.zChladaku} stočeno tento týden
+                              // ⚠️ NE „stočeno tento týden". Tohle číslo je
+                              // pokrytí ze SKUTEČNÉ zásoby skladem, tedy i
+                              // z piva stočeného dávno nebo z počátečního
+                              // stavu inventury. Popisek „stočeno tento
+                              // týden" u něj tvrdil něco, co nemusí být
+                              // pravda, a bral tak stáčeči jediné vodítko,
+                              // proč se položka tváří jako hotová
+                              // (z provozu 22. 9. 2026: „6/6 hotovo, z toho
+                              // 6 stočeno tento týden — vždyť nejsou
+                              // nastočené").
+                              <span title="Pokryto zásobou, která na skladě už leží — ne nutně stočenou tenhle týden. Zkontroluj Sklad.">
+                                {it.zChladaku} ze zásoby skladem
                               </span>
                             )}
                           </div>

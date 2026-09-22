@@ -127,7 +127,7 @@ const ODDILY: Oddil[] = [
       },
       {
         co: 'Z čeho je číslo „hotovo“',
-        jak: 'Pod položkou se píše „z toho X nachystáno/zavezeno · Y stočeno tento týden“. Pozor: nachystané kusy se z těch stočených VZALY, nepřičítají se k nim.',
+        jak: 'Pod položkou se píše „z toho X nachystáno/zavezeno · Y ze zásoby skladem“. Pozor: nachystané kusy se z té zásoby VZALY, nepřičítají se k ní. A „ze zásoby skladem“ neznamená, že se stočilo tenhle týden — může to být i starší zásoba nebo počáteční stav z inventury.',
       },
       {
         co: 'Přihrádka „Bez termínu“',

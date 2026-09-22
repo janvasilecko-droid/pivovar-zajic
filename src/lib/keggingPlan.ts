@@ -50,7 +50,7 @@ export type PlanItem = {
   ordered: number;
   /** Kolik z toho je pokryto — vyšší z „doloženo daty" a „ručně odškrtnuto". */
   done: number;
-  /** Kolik z toho je doloženo daty (nachystáno/zavezeno nebo stočeno tento týden). */
+  /** Kolik z toho je doloženo daty (nachystáno/zavezeno nebo kryto zásobou skladem). */
   autoDone: number;
   /**
    * Z čeho se `autoDone` skládá. Bez tohohle rozpadu je „chybí 2" tvrzení
@@ -59,7 +59,12 @@ export type PlanItem = {
    */
   /** Už fyzicky nachystáno nebo zavezeno (odečet ze skladu na tu položku). */
   nachystano: number;
-  /** Pokryto sudy stočenými tenhle týden, které ještě leží v chlaďáku. */
+  /**
+   * Pokryto ze zásoby, která na skladě LEŽÍ — ne nutně stočené tenhle
+   * týden. Se `currentStockMap` je to skutečná zásoba skladem, takže sem
+   * spadá i pivo stočené dávno nebo počáteční stav z inventury. Kdo to
+   * zobrazuje, ať to tak i pojmenuje (viz KeggingDayPlan.tsx).
+   */
   zChladaku: number;
   /** Kolik kusů si stáčeč ručně odškrtl. */
   checked: number;
