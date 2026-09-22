@@ -261,29 +261,34 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
   // pokrýt některý z dalších dnů.
   const pool: Record<string, number> = {};
   if (input.currentStockMap) {
-    // ⚠️ ODPOČTY ZÁVOZU SE UŽ NEPŘIČÍTAJÍ ZPÁTKY — počítaly se DVAKRÁT.
+    // Fond = skutečná zásoba (stejné číslo jako Sklad) + odpočty závozu
+    // TOHOTO týdne zpátky.
     //
-    // Volající staví `currentStockMap` SCHVÁLNĚ BEZ `zavozDeductionRows`
-    // (viz Kegging.tsx / BottlingScreen.tsx / CoStocitOkno.tsx), takže fond
-    // ten odpočet nikdy odečtený neměl. Kód ho přesto ještě jednou
-    // přičítal — fond tím narostl o dvojnásobek zavezeného množství a plán
-    // hlásil „vše stočeno", i když Sklad poctivě ukazoval mínus.
+    // Proč zpátky: poptávka níž počítá VŠECHNY objednávky týdne, i ty, co
+    // už odjely. Kdyby se jejich odpočet nevrátil, odečetl by se dvakrát —
+    // jednou ve skladu, podruhé v poptávce (z provozu 16. 9. 2026:
+    // „16 objednaných, 12 už zavezených, 11 skladem, a appka mi napsala,
+    // že chybí stočit 5").
     //
-    // Změřeno 22. 9. 2026: sklad 10 (s odpočtem), fond 15 (bez odpočtu) + 5
-    // vráceno = 20; poptávka 18 → plán tvrdil „chybí 0", správně chybí 3.
-    // Přesně sedělo na hlášení „ve skladu mi to ukazuje sudy správně, ale
-    // ve stáčení to, co chybí, ne".
+    // Proč jen TENHLE týden: odpočty ze starších týdnů se vracet nesmí —
+    // jejich objednávky v poptávce nejsou. Právě tím vznikla chyba z
+    // 22. 9. 2026: volající zásobu stavěli bez odpočtů za CELOU historii,
+    // takže fond obsahoval každý sud, který kdy odjel (100 stočených a
+    // 100 rozvezených → Sklad 0, fond 100) a plán svítil „pokryto" i u
+    // piva, které nikdo nestočil. Volající teď posílají skutečný sklad a
+    // vrací se jen tenhle týden.
     //
-    // Model je teď jednotný a odpovídá zadání („co stočit = všechny
-    // objednávky − stočené − počáteční stav“): fond = zásoba BEZ odpočtů
-    // závozu (tedy počáteční stav + stočené − výdeje), poptávka = VŠECHNY
-    // objednávky týdne včetně už zavezených. Zavezená objednávka si svůj
-    // díl z fondu vezme sama, protože fond ho pořád obsahuje.
-    //
-    // Kontrola proti případu z 16. 9. 2026 („16 objednaných, 12 zavezených,
-    // 11 skladem, appka hlásila chybí 5"): fond = 11 + 12 = 23, poptávka 16
-    // → chybí 0. Sedí.
-    input.currentStockMap.forEach((qty, k) => { pool[k] = qty; });
+    // ⚠️ Vrací se JEN pro klíč, který v currentStockMap SKUTEČNĚ existuje —
+    // to je jediný důkaz, že se to pivo+obal opravdu stáčelo. Bez toho by
+    // appka věřila kalendáři místo stočení (migrace 20261231010000).
+    const vracenoZaZavozy: Record<string, number> = {};
+    zavozDeductionRows.forEach((r: any) => {
+      if (!r.beer_id || !r.package_id || !kegPkgs.has(r.package_id) || !inWeek(r.deduct_date)) return;
+      const k = `${r.beer_id}__${r.package_id}`;
+      if (!input.currentStockMap!.has(k)) return;
+      vracenoZaZavozy[k] = (vracenoZaZavozy[k] || 0) + Number(r.quantity || 0);
+    });
+    input.currentStockMap.forEach((qty, k) => { pool[k] = qty + (vracenoZaZavozy[k] || 0); });
     // NEořezávat na nulu tady: záporná hodnota (i po vrácení závozů) je
     // skutečný dluh (vydalo se víc, než kdy bylo stočeno) a `sestavDen` níž
     // ho musí umět připočítat k tomu, co ještě chybí stočit — jinak by appka

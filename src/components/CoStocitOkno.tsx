@@ -180,6 +180,8 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
       prefukRows: data.prefuk,
       adjustmentRows: data.adjustments,
       packages: data.packages,
+      // Viz Kegging.tsx — skutečná zásoba včetně odpočtů závozu.
+      zavozDeductionRows: data.zavozDeductions,
     }, businessDateISO());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);

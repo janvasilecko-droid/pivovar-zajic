@@ -622,16 +622,15 @@ describe('z čeho je „hotovo" — rozpad, který si vyžádal provoz', () => {
       expect(day(p, 'ct').items[0].missing).toBe(0);
     });
 
-    // Opačný směr téhož: zásoba se nesmí nafouknout o zavezené kusy.
-    // Sklad 10 (fyzicky, po odvozu 5), tedy fond BEZ odpočtu = 15.
-    // Poptávka 5 (už zavezeno) + 13 (středa) = 18 → chybí stočit 3.
-    // Před opravou tu plán tvrdil „chybí 0“.
-    it('odpočet závozu se nepřičítá zpátky — fond není dvakrát bohatší', () => {
+    // Zásoba je SKUTEČNÝ sklad (stav po odvozu) — viz smlouva u
+    // currentStockMap. Sklad 10 (po odvozu 5 v úterý), odpočet tohoto týdne
+    // se vrátí → fond 15. Poptávka 5 (úterý) + 13 (středa) = 18 → chybí 3.
+    it('skutečná zásoba + vrácený odpočet tohoto týdne dá správný zbytek', () => {
       const p = plan({
         orders: [objednavka('o1', '2026-08-25'), objednavka('o2', '2026-08-26')],
         orderItems: [polozka('o1', 'b-des', 'p30', 5, 'i-ut'), polozka('o2', 'b-des', 'p30', 13, 'i-st')],
         zavozDeductionRows: [{ deduct_date: '2026-08-25', beer_id: 'b-des', package_id: 'p30', quantity: 5, order_item_id: 'i-ut' }],
-        currentStockMap: new Map([['b-des__p30', 15]]),
+        currentStockMap: new Map([['b-des__p30', 10]]),
       });
       expect(day(p, 'ut').items[0].missing).toBe(0);
       expect(day(p, 'st').items[0].missing).toBe(3);
