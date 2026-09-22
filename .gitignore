@@ -93,3 +93,6 @@ staceni-keg-*.xlsx
 # Snímky vzorníku prvků (scripts/snimky.mjs) — obrázky pro porovnání
 # „před a po", do repozitáře nepatří.
 nahled/snimky/
+
+# Vzniká při `npm run zkontroluj-edge-funkce` (deno check) — není potřeba verzovat.
+deno.lock
