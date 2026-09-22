@@ -2273,6 +2273,25 @@ export default function Orders({
             value={manualText}
             onChange={(e) => setManualText(e.target.value)}
           />
+          {/* 📅 Den závozu rovnou tady, ne až po přepnutí na dlaždice —
+              "Rozparsovat" ho sice sám pozná z textu (viz
+              parseDeliveryDayFromText), ale bylo to vidět až o obrazovku
+              dál. Klepnutím jde den i přebít/doplnit ručně, ještě než se
+              stiskne Rozparsovat. Jen pracovní dny — pivovar o víkendu
+              nerozváží. */}
+          <div className="flex items-center gap-1.5 mt-3 flex-wrap">
+            <span className="text-udaj font-extrabold text-neutral-700 shrink-0">Závoz:</span>
+            {DAYS.slice(0, 5).map((d) => (
+              <button
+                key={d.v}
+                type="button"
+                className={`btn-den ${deliveryDay === d.v ? 'btn-den-aktivni' : ''}`}
+                onClick={() => pickDeliveryDay(deliveryDay === d.v ? '' : d.v)}
+              >
+                {d.label}
+              </button>
+            ))}
+          </div>
           <div className="flex flex-wrap items-center gap-2 mt-3">
             <button type="button" className="btn-primary !rounded text-xs font-black shadow-md" onClick={() => { handleManualTextParse(); setViewMode('summary'); }} disabled={!manualText.trim()}>
               <Zap className="ikona-text" /> Rozparsovat a přidat do formuláře
