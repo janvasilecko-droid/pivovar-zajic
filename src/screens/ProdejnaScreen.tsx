@@ -501,10 +501,32 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
     setErr(null);
   }
 
-  // 🚰 Po potvrzení / přeskočení rezervace výčepu
-  // Zpracuje text naceny z fotky pri stejnem parseru zkratek jako objednavky (12, 12sv, svetly, lezak => 12° Svetla).
-  function handlePhotoText(text: string) {
-    handleVoiceResult(text);
+  /**
+   * 📷 Řádky přečtené z fotky (a zkontrolované nad ní) se doplní do formuláře.
+   *
+   * Do 22. 9. 2026 sem z fotky chodil TEXT, který se znovu rozebíral parserem
+   * zkratek — tedy dvojí překlad a dvojí ztráta („četlo to špatně“). Teď
+   * chodí rovnou pivo, obal a počet spárované s katalogem
+   * (lib/fotkaPolozky.ts), takže se nic nepřekládá znovu.
+   *
+   * Plní se do prvních volných řádků; když jich je málo, formulář se
+   * prodlouží, ať se nic nezahodí.
+   */
+  function handlePhotoRows(rows: { beerId: string; pkgId: string; qty: string }[]) {
+    if (!rows.length) return;
+    setEntryRows((rs) => {
+      const next = [...rs];
+      let cursor = 0;
+      for (const r of rows) {
+        while (cursor < next.length && (next[cursor].beerId || next[cursor].pkgId || next[cursor].qty)) cursor++;
+        const novy: RowInput = { beerId: r.beerId, pkgId: r.pkgId, qty: r.qty, vycep: false, who: '' };
+        if (cursor >= next.length) next.push(novy);
+        else next[cursor] = novy;
+        cursor++;
+      }
+      return next;
+    });
+    setErr(null);
   }
 
   function handleTapModalDone() {
@@ -1064,7 +1086,8 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
           onClose={() => setShowPhotoModal(false)}
           beers={beers}
           packages={packages}
-          onTextExtracted={handlePhotoText}
+          onImport={handlePhotoRows}
+          popisVydeje={druh.popis}
         />
       )}
 
