@@ -329,15 +329,20 @@ export function OrderCard({ o, items, stockRemainingForOrder, selected, onToggle
 
           <div className="flex items-center gap-1 ml-auto flex-wrap justify-end" onClick={(e) => e.stopPropagation()}>
             <span className="text-udaj font-extrabold text-neutral-900 shrink-0">Závoz:</span>
-            <select
-              className="input !py-0.5 !px-1.5 text-udaj font-bold w-20 bg-white border-amber-300 shadow-2xs"
-              value={o.delivery_day ?? ''}
-              onClick={(e) => e.stopPropagation()}
-              onChange={(e) => onUpdateDeliveryDay(o, e.target.value)}
-            >
-              <option value="">—</option>
-              {DAYS.map((d) => <option key={d.v} value={d.v}>{d.label}</option>)}
-            </select>
+            {/* Jedno klepnutí místo rozklikávacího <select>u — pivovar rozváží
+                jen v pracovní dny, proto jen 5 tlačítek (Po–Pá). Klepnutí na
+                už vybraný den ho zase zruší. */}
+            {DAYS.slice(0, 5).map((d) => (
+              <button
+                key={d.v}
+                type="button"
+                className={`btn-den ${o.delivery_day === d.v ? 'btn-den-aktivni' : ''}`}
+                onClick={() => onUpdateDeliveryDay(o, o.delivery_day === d.v ? '' : d.v)}
+                title={o.delivery_day === d.v ? `Zrušit den závozu (${d.label})` : `Nastavit den závozu: ${d.label}`}
+              >
+                {d.label}
+              </button>
+            ))}
             {/* 🔸 Akce jsou jen ikony (32×32), jednotně ve všech kartách —
                 dřív měly texty (Upravit / WhatsApp / Duplik. / Zrušit /
                 Smazat) a zalamovaly se přes celou šířku, takže na položky

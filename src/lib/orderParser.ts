@@ -1656,6 +1656,34 @@ export function detectOrderNotes(rawText: string): string {
   return found.join(', ');
 }
 
+// 📅 Den závozu zmíněný v textu ("Závoz v úterý", "prosím na čtvrtek",
+// "dodat ve středu odpoledne"). Pivovar rozváží jen v pracovní dny, takže
+// vrací JEN po/ut/st/ct/pa — sobota/neděle v textu se nerozpozná.
+//
+// Nezávisle na diakritice: `NOTE_PATTERNS` výš má den jen jako součást
+// dlouhé fráze "zavoz v ..." zapsané BEZ diakritiky (viz testy), takže na
+// skutečné zprávě od odběratele ("Závoz v úterý", s diakritikou) nechytí
+// vůbec nic — pořadí dne pak zůstávalo schované jen v poznámce, kterou
+// bylo snadné přehlédnout, a den závozu se musel domýšlet nebo dohledávat
+// ručně. Tahle funkce normalizuje text (bez ohledu na velikost a
+// diakritiku) a vrací den jako STRUKTUROVANOU hodnotu rovnou pro políčko
+// „Den závozu", ne jen jako text poznámky.
+const DEN_V_TEXTU: { re: RegExp; v: string }[] = [
+  { re: /\bpondel(i|ku)\b/, v: 'po' },
+  { re: /\butery\b/, v: 'ut' },
+  { re: /\bstred[au]\b/, v: 'st' },
+  { re: /\bctvrtek(u|em)?\b/, v: 'ct' },
+  { re: /\bpatek(u|em)?\b/, v: 'pa' },
+];
+
+export function parseDeliveryDayFromText(rawText: string): string | null {
+  const norm = rawText.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  for (const { re, v } of DEN_V_TEXTU) {
+    if (re.test(norm)) return v;
+  }
+  return null;
+}
+
 /**
  * Čas dovozu zmíněný v textu zprávy/poznámky — "kolem poledne", "v 15",
  * "kolem 14:30" apod. Vrátí `null`, když text žádný čas nezmiňuje.

@@ -21,7 +21,7 @@ import { VoiceRecorder } from '../components/VoiceRecorder';
 import { orderQuickQtys } from '../components/QuickQtySelect';
 import { BeerTileGrid, BeerTilePanel } from '../components/BeerTileGrid';
 import { topQuantitiesLastMonth } from '../lib/quickQty';
-import { parseVoiceOrder, parseOrderText, detectOrderNotes, loadAliasMap, loadPlaceAliasMap, emptyAliasMap, getOrCreatePlace, matchBeerFromHints, matchPackage, normalize, type ParserAliasMap } from '../lib/orderParser';
+import { parseVoiceOrder, parseOrderText, detectOrderNotes, parseDeliveryDayFromText, loadAliasMap, loadPlaceAliasMap, emptyAliasMap, getOrCreatePlace, matchBeerFromHints, matchPackage, normalize, type ParserAliasMap } from '../lib/orderParser';
 
 import { slozNavrh } from '../lib/whatsappAmendment';
 
@@ -1732,6 +1732,13 @@ export default function Orders({
     });
     const autoNote = detectOrderNotes(text);
     if (autoNote) setNote((prev) => (prev ? `${prev}, ${autoNote}` : autoNote));
+    // 📅 Den závozu přímo z textu ("Závoz v úterý") — rovnou nastaví a
+    // zvýrazní tlačítko dne níž, ať se nemusí dohledávat ručně z věty
+    // schované v poznámce. Nepřepisuje den, který už je vybraný ručně.
+    if (!deliveryDay) {
+      const den = parseDeliveryDayFromText(text);
+      if (den) pickDeliveryDay(den);
+    }
     setErr(null);
   }
 
