@@ -17,6 +17,7 @@
     "zkontroluj-velikost": "node scripts/zkontroluj-velikost.mjs",
     "zkontroluj-dotyk": "node scripts/zkontroluj-dotyk.mjs",
     "zkontroluj-popisky": "node scripts/zkontroluj-popisky.mjs",
+    "zkontroluj-edge-funkce": "node scripts/zkontroluj-edge-funkce.mjs",
     "snimky": "node scripts/snimky.mjs",
     "e2e": "node scripts/e2e.mjs",
     "vykon": "node scripts/vykon.mjs",
