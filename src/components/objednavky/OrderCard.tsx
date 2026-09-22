@@ -1,6 +1,6 @@
 // 📦 Karta jedné objednávky v přehledu — část obrazovky Objednávky.
 
-import { AlertTriangle, Ban, Beer as BeerIcon, Calendar, Check, CheckCircle2, Copy, Hourglass, MessageCircle, NotebookPen, Pencil, Phone, RotateCcw, Split, Trash2, Truck, Droplet } from 'lucide-react';
+import { AlertTriangle, Ban, Beer as BeerIcon, Calendar, Check, CheckCircle2, Hourglass, MessageCircle, NotebookPen, Pencil, Phone, RotateCcw, Split, Trash2, Truck, Undo2, Droplet } from 'lucide-react';
 import { Beer, Package, Place, beerBg, formatPackageLabel } from '../../lib/supabase';
 
 import { schodkyObjednavky } from '../../lib/tydenniZbytek';
@@ -18,7 +18,7 @@ import { vracenoPodleObjednavky } from '../../lib/vraceniZObjednavky';
 
 import { type Order, type OrderItem, dayColor, getTapNameForOrder } from './spolecne';
 
-export function OrderCard({ o, items, stockRemainingForOrder, selected, onToggleSelect, onClick, onToggleFlag, onToggleItemFlag, onUpdateDeliveryDay, onSetStatus, onDelete, onDuplicate, onEdit, onSplit, onOpenWhatsApp, onVratitPivo, vracenoZaznamy, beers, packages, places, activeBeerId, activePackageId, itemMatchesFilter }: {
+export function OrderCard({ o, items, stockRemainingForOrder, selected, onToggleSelect, onClick, onToggleFlag, onToggleItemFlag, onUpdateDeliveryDay, onSetStatus, onDelete, onEdit, onSplit, onOpenWhatsApp, onVratitPivo, vracenoZaznamy, beers, packages, places, activeBeerId, activePackageId, itemMatchesFilter }: {
   o: Order; items: OrderItem[];
   /**
    * Zbytek skladu ke konci týdne PRO TUHLE KONKRÉTNÍ objednávku — objednávky
@@ -33,7 +33,6 @@ export function OrderCard({ o, items, stockRemainingForOrder, selected, onToggle
   onUpdateDeliveryDay: (o: Order, day: string) => void;
   onSetStatus: (o: Order, status: string) => void;
   onDelete: (id: string) => void;
-  onDuplicate: (o: Order) => void;
   onEdit: (o: Order) => void;
   /** Rozdělit na dva odběratele (viz SplitOrderModal) — jen když má aspoň 2 položky. */
   onSplit: (o: Order) => void;
@@ -354,15 +353,26 @@ export function OrderCard({ o, items, stockRemainingForOrder, selected, onToggle
             <button className="btn-ikona bg-emerald-100 hover:bg-emerald-200 text-emerald-900 border border-emerald-300" onClick={() => shareOrderToWhatsApp(o, items)} title="Sdílet objednávku na WhatsApp" aria-label="Sdílet objednávku na WhatsApp">
               <MessageCircle size={14} />
             </button>
-            <button className="btn-ikona bg-white hover:bg-neutral-100 text-neutral-700 border border-neutral-300" onClick={() => onDuplicate(o)} title="Vytvořit stejnou objednávku znovu" aria-label="Duplikovat objednávku"><Copy size={14} /></button>
-            {onVratitPivo && o.is_delivered && items.length > 0 && (
+            {/* ↩️ Vrátit na sklad. Zadání 22. 9. 2026: „u objednávky přehled
+                odstraň kopírovat objednávku, ale místo toho dej ikonu vrátit,
+                po kliknutí můžu vybrané položky vrátit na sklad."
+                Duplikování („Vytvořit stejnou objednávku znovu") tím z karty
+                zmizelo; stejnou objednávku dál nabízí „To co posledně"
+                v zadávání.
+                POZOR na podmínku: do 22. 9. se tlačítko ukazovalo jen
+                u objednávek s `is_delivered`, jenže ten příznak se v provozu
+                skoro nepoužívá (195 z 219 objednávek zůstává „Nová“, viz
+                poznámka „Zavezeno se nepoužívá") — tlačítko tak prakticky
+                nebylo vidět a vrácení se nedalo zadat. Teď stačí, že
+                objednávka má položky a není stornovaná. */}
+            {onVratitPivo && items.length > 0 && o.status !== 'storno' && (
               <button
                 className="btn-ikona bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-300"
                 onClick={() => onVratitPivo(o)}
-                title="Vrátit pivo z téhle objednávky zpátky na sklad"
-                aria-label="Vrátit pivo z téhle objednávky"
+                title="Vrátit vybrané položky z téhle objednávky zpátky na sklad"
+                aria-label="Vrátit položky na sklad"
               >
-                <RotateCcw size={14} />
+                <Undo2 size={14} />
               </button>
             )}
             {items.length > 1 && (

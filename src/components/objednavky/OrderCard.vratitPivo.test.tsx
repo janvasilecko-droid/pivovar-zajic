@@ -48,21 +48,44 @@ function renderCard(extra: Partial<React.ComponentProps<typeof OrderCard>> = {})
   );
 }
 
-describe('OrderCard — Vrátit pivo', () => {
-  it('u zavezené objednávky s položkami se ukáže tlačítko, jen když je onVratitPivo předané', () => {
+const VRATIT = 'Vrátit položky na sklad';
+
+describe('OrderCard — Vrátit na sklad', () => {
+  it('u objednávky s položkami se ukáže tlačítko, jen když je onVratitPivo předané', () => {
     const onVratitPivo = vi.fn();
     renderCard({ onVratitPivo });
-    expect(screen.getByLabelText('Vrátit pivo z téhle objednávky')).toBeTruthy();
+    expect(screen.getByLabelText(VRATIT)).toBeTruthy();
   });
 
   it('bez onVratitPivo se tlačítko nezobrazí', () => {
     renderCard();
-    expect(screen.queryByLabelText('Vrátit pivo z téhle objednávky')).toBeNull();
+    expect(screen.queryByLabelText(VRATIT)).toBeNull();
   });
 
-  it('u nezavezené objednávky se tlačítko nezobrazí, i když je onVratitPivo předané', () => {
+  // Zadání 22. 9. 2026: „dej ikonu vrátit, po kliknutí můžu vybrané položky
+  // vrátit na sklad." Do té doby se tlačítko ukazovalo jen u objednávek
+  // označených „Zavezeno" — jenže ten příznak se v provozu skoro nepoužívá
+  // (195 z 219 objednávek zůstává „Nová"), takže ho nikdo nikdy neviděl.
+  it('ukáže se i u objednávky, která není označená jako zavezená', () => {
     renderCard({ onVratitPivo: vi.fn(), o: { ...order, is_delivered: false } });
-    expect(screen.queryByLabelText('Vrátit pivo z téhle objednávky')).toBeNull();
+    expect(screen.getByLabelText(VRATIT)).toBeTruthy();
+  });
+
+  it('u stornované objednávky se tlačítko nezobrazí — není co vracet', () => {
+    renderCard({ onVratitPivo: vi.fn(), o: { ...order, status: 'storno' } });
+    expect(screen.queryByLabelText(VRATIT)).toBeNull();
+  });
+
+  it('bez položek se tlačítko nezobrazí', () => {
+    renderCard({ onVratitPivo: vi.fn(), items: [] });
+    expect(screen.queryByLabelText(VRATIT)).toBeNull();
+  });
+
+  // Duplikování z karty 22. 9. 2026 zmizelo („odstraň kopírovat objednávku") —
+  // stejnou objednávku dál nabízí „To co posledně" v zadávání.
+  it('kopírování objednávky na kartě už není', () => {
+    renderCard({ onVratitPivo: vi.fn() });
+    expect(screen.queryByLabelText('Duplikovat objednávku')).toBeNull();
   });
 
   it('bez vráceného množství se u položky žádná anotace neukáže', () => {

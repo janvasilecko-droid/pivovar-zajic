@@ -2706,7 +2706,7 @@ export default function Orders({
                     <OrderCard o={o} items={items[o.id] ?? []} stockRemainingForOrder={stockRemainingForOrder}
                       selected={selectedIds.has(o.id)} onToggleSelect={() => toggleSelect(o.id)}
                       onClick={() => openDetail(o)} onToggleFlag={toggleFlag} onToggleItemFlag={toggleItemFlag} onUpdateDeliveryDay={updateDeliveryDay}
-                      onSetStatus={setStatus} onDelete={del} onDuplicate={duplicateOrder} onEdit={setEditOrder} onSplit={setSplitOrder} onOpenWhatsApp={handleOpenWhatsAppMessage} beers={beers} packages={packages} places={places}
+                      onSetStatus={setStatus} onDelete={del} onEdit={setEditOrder} onSplit={setSplitOrder} onOpenWhatsApp={handleOpenWhatsAppMessage} beers={beers} packages={packages} places={places}
                       activeBeerId={itemFilterBeerId} activePackageId={itemFilterPackageId}
                       onVratitPivo={setVratitObjednavka} vracenoZaznamy={vraceniPodleObjednavky[o.id]}
                 itemMatchesFilter={polozkovyFiltrAktivni ? matchesItemFilters : undefined} />
@@ -2748,7 +2748,7 @@ export default function Orders({
               <OrderCard o={o} items={items[o.id] ?? []} stockRemainingForOrder={stockRemainingForOrder}
                 selected={selectedIds.has(o.id)} onToggleSelect={() => toggleSelect(o.id)}
                 onClick={() => openDetail(o)} onToggleFlag={toggleFlag} onToggleItemFlag={toggleItemFlag} onUpdateDeliveryDay={updateDeliveryDay}
-                onSetStatus={setStatus} onDelete={del} onDuplicate={duplicateOrder} onEdit={setEditOrder} onSplit={setSplitOrder} onOpenWhatsApp={handleOpenWhatsAppMessage} beers={beers} packages={packages} places={places}
+                onSetStatus={setStatus} onDelete={del} onEdit={setEditOrder} onSplit={setSplitOrder} onOpenWhatsApp={handleOpenWhatsAppMessage} beers={beers} packages={packages} places={places}
                 activeBeerId={itemFilterBeerId} activePackageId={itemFilterPackageId}
                 onVratitPivo={setVratitObjednavka} vracenoZaznamy={vraceniPodleObjednavky[o.id]}
                 itemMatchesFilter={polozkovyFiltrAktivni ? matchesItemFilters : undefined} />
