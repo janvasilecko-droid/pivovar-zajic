@@ -1,5 +1,5 @@
 import { useState, useEffect, type FormEvent } from 'react';
-import { AlertCircle, AlertTriangle, Bell, BellOff, BookOpen, Brush, CloudDownload, Download, Eraser, Eye, CheckCircle2, Lock, MessageSquare, Monitor, Moon, Palette, Plus, RefreshCw, Settings, Smartphone, Sparkles, Sun, Timer, Trash2, Users, Vibrate, Volume2, VolumeX, Zap } from 'lucide-react';
+import { AlertCircle, AlertTriangle, Bell, BellOff, BookOpen, Brush, CloudDownload, Download, Eraser, Eye, CheckCircle2, Lock, MessageSquare, Monitor, Moon, Palette, Plus, RefreshCw, Settings, Smartphone, Sparkles, Stethoscope, Sun, Timer, Trash2, Users, Vibrate, Volume2, VolumeX, Zap } from 'lucide-react';
 import { NavodPouziti } from '../components/NavodPouziti';
 
 import { DENSITY_OPTIONS, DensityMode, getDensity, setDensity } from '../lib/density';
@@ -7,7 +7,6 @@ import { mensiEfekty, nastavEfekty } from '../lib/efekty';
 import { clearQueue } from '../lib/offline';
 import { haptikaZapnuta, nastavHaptiku, zavibruj } from '../lib/haptika';
 import { MenuCustomizeModal } from '../components/MenuCustomizeModal';
-import AdminDiagnostika from '../components/AdminDiagnostika';
 import { useAuth } from '../lib/auth';
 import { supabase } from '../lib/supabase';
 import { NAV, NavItem } from '../components/Layout';
@@ -29,7 +28,7 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 }
 
-export default function AppSettingsScreen() {
+export default function AppSettingsScreen({ setPage }: { setPage?: (p: any, sec?: string, sub?: string) => void } = {}) {
   const { profile, user, reloadProfile } = useAuth();
   const [density, setDensityState] = useState<DensityMode>(getDensity());
   const [meneEfektu, setMeneEfektu] = useState<boolean>(mensiEfekty());
@@ -719,11 +718,27 @@ export default function AppSettingsScreen() {
       {isAdmin && (
         <>
           <AdminVersionSyncSection />
-          {/* Chyby aplikace, stav migrací a nedokončené odečty z tanků.
-              Jen pro admina: jsou to čísla, se kterými se nic nedělá při
-              běžné práci, ale bez kterých se o rozbité obrazovce nebo
-              čekající migraci dozvíš až telefonátem. */}
-          <AdminDiagnostika />
+          {/* 🔎 Diagnostika (chyby aplikace, stav migrací, nedokončené odečty
+              z tanků) se 22. 9. 2026 přesunula do dlaždice Audit — ze zadání
+              „odstraň z nastavení ty audity, dej je jen do dlaždice Audit".
+              Tady zůstává jen rozcestník, ať se po ní nemusí pátrat a ať
+              fungují starší návody, které posílaly do Nastavení. */}
+          <div className="card p-4 space-y-2">
+            <h2 className="font-display font-bold text-lg flex items-center gap-2">
+              <Stethoscope size={18} /> Diagnostika a kontroly
+            </h2>
+            <p className="text-xs text-neutral-600 dark:text-neutral-400">
+              Chyby aplikace, stav databázových migrací, zálohy a všechny audity jsou pohromadě
+              v dlaždici <strong>Audit</strong>.
+            </p>
+            <button
+              type="button"
+              onClick={() => setPage?.('audit')}
+              className="btn-primary !rounded text-sm font-black w-full sm:w-auto"
+            >
+              Otevřít Audit
+            </button>
+          </div>
         </>
       )}
     </div>

@@ -60,7 +60,7 @@ export function VarkySklep({ beers, tanks }: { beers: Beer[]; tanks: CellarTank[
   if (stav === 'bez-migrace') {
     return (
       <EmptyState
-        text="Várky potřebují migraci 20261231050000_varky_mereni_a_kvasnice.sql — spusť ji v Nastavení → Diagnostika → Databázové migrace."
+        text="Várky potřebují migraci 20261231050000_varky_mereni_a_kvasnice.sql — spusť ji v dlaždici Audit → Diagnostika → Databázové migrace."
       />
     );
   }

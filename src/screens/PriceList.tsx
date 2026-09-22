@@ -56,7 +56,7 @@ function HistorieCen({ beers, packages }: { beers: Beer[]; packages: Package[] }
       </h3>
       {stav === 'nacitam' ? <Spinner /> : stav === 'bez-tabulky' ? (
         <p className="text-sm text-neutral-600">
-          Historie se začne zapisovat po spuštění migrace <code>20261231040000_historie_zmen_cen.sql</code> (Nastavení → Diagnostika → Databázové migrace).
+          Historie se začne zapisovat po spuštění migrace <code>20261231040000_historie_zmen_cen.sql</code> (dlaždice Audit → Diagnostika → Databázové migrace).
         </p>
       ) : stav === 'chyba' ? (
         <EmptyState varianta="chyba" text="Historii cen se nepodařilo načíst." akce={{ popis: 'Zkusit znovu', onClick: () => void nacti() }} />

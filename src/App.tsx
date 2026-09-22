@@ -352,7 +352,7 @@ export default function App() {
         />
       )}
       {page === 'hlaseni' && <HlaseniScreen setPage={setPage} />}
-      {page === 'app_settings' && <AppSettingsScreen />}
+      {page === 'app_settings' && <AppSettingsScreen setPage={setPage} />}
       {page === 'app_versions' && <AppVersionsScreen />}
       </Suspense>
     </Layout>
