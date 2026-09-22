@@ -247,6 +247,17 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
   // svítil zelené „hotovo". Sklad počítá celý týden, plán jen vybraný den,
   // takže si navzájem odporovaly. Schodek mimo vybraný den se proto ukazuje
   // vždycky.
+  // ✍️ Jen ODŠKRTNUTÉ, ale ve stáčení nezapsané.
+  //
+  // Tlačítko „Mám všech X" v plánu zapisuje do kegging_plan_checks —
+  // je to pracovní odškrtávátko, ne evidence stáčení (a samo to říká).
+  // Jenže tím položce spadne „chybí" na nulu a z plochy BEZE STOPY
+  // zmizí: ve stáčení není zápis, ve skladu pořád nula, a nikdo už
+  // neví, že se na to má sáhnout. Z provozu 22. 9. 2026: „klikl jsem
+  // u 5×30 desítky na ‚vše mám‘, zmizely z hlavní plochy, ale nejsou
+  // zapsané ve stáčení". Proto se to tady přizná.
+  const jenOdskrtnuto = [...planSudy.items, ...planLahve.items]
+    .reduce((s, it) => s + Math.max(0, Math.min(it.checked, it.ordered) - it.autoDone), 0);
   const chybiVeVyberu = planSudy.totalMissing + planLahve.totalMissing;
   const chybiMimoVyber = spoctiChybiMimoVyber(planySudy, obdobi) + spoctiChybiMimoVyber(planyLahve, obdobi);
   const bezTerminu = (planySudy.find((p) => p.day === BEZ_TERMINU)?.totalMissing ?? 0)
@@ -425,6 +436,17 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
                   : `Mimo ${nazevObdobi} chybí tento týden ještě ${chybiMimoVyber} ks`}
                 {bezTerminu > 0 ? ` (z toho ${bezTerminu} ks u objednávek bez dne dovozu)` : ' (na jiný den)'}
                 {' — přepni na Týden.'}
+              </span>
+            </p>
+          )}
+
+          {/* ✍️ Odškrtnuté, ale nezapsané — viz komentář u jenOdskrtnuto. */}
+          {data && jenOdskrtnuto > 0 && (
+            <p className="text-udaj font-black text-amber-900 bg-amber-50 border border-amber-300 rounded px-2 py-1.5 flex items-start gap-1.5">
+              <AlertTriangle size={12} className="shrink-0 mt-0.5" />
+              <span>
+                {jenOdskrtnuto} ks je jen odškrtnuto v plánu, ale ve stáčení nezapsáno — ve skladu se to neprojeví.
+                {' '}Zapiš je v „Začátek stáčení", nebo odškrtnutí zruš.
               </span>
             </p>
           )}
