@@ -630,13 +630,24 @@ export default function Orders({
         return;
       }
 
+      // 📅 Den závozu: co nepoznala AI, zkus vyčíst z textu zprávy.
+      //
+      // Bez tohohle skončila objednávka bez dne v přihrádce „bez termínu" —
+      // v denním plánu stáčení ji nikdo neviděl (viz lib/coStocit.ts) a den
+      // se musel doklikávat ručně v přehledu objednávek. AI den občas mine,
+      // i když ho odběratel v textu napsal („Závoz v úterý"); tenhle záchyt
+      // je nezávislý na AI a funguje i s diakritikou.
+      const denZavozu = message.parsed_delivery_day
+        || parseDeliveryDayFromText(message.message_text || '')
+        || null;
+
       // ⚠️ Kontrola duplicity — aby dva lidé nezadali ve stejnou chvíli stejnou
       // objednávku (např. oba kliknou na „Schválit“ u téže zprávy).
       const dup = await findDuplicateOrders({
         placeId,
         placeName: placeNameFree,
         deliveryDate: message.parsed_delivery_date || null,
-        deliveryDay: message.parsed_delivery_day || null,
+        deliveryDay: denZavozu,
         items: (message.parsed_items || []).map((it) => ({
           beerId: it.beer_id || null,
           pkgId: it.pkg_id || null,
@@ -677,7 +688,7 @@ export default function Orders({
           place_name: placeNameFree,
           source: 'whatsapp',
           status: 'nova',
-          delivery_day: message.parsed_delivery_day || null,
+          delivery_day: denZavozu,
           delivery_date: message.parsed_delivery_date || null,
           is_prepared: false,
           is_packaged: false,
@@ -2900,7 +2911,12 @@ export default function Orders({
                 const orderDate = itemDate || meta.date;
                 const { data: order, error } = await supabase.from('orders').insert({
                   order_date: orderDate, place_id: placeId, place_name: placeName,
-                  source: 'fotka', status: 'nova', delivery_day: deliveryDay || null,
+                  // Den závozu: ručně vybraný má přednost, jinak se zkusí
+                  // vyčíst z poznámky přečtené z fotky („závoz v úterý“) —
+                  // bez dne by objednávka spadla do přihrádky „bez termínu“
+                  // a v denním plánu stáčení by ji nikdo neviděl.
+                  source: 'fotka', status: 'nova',
+                  delivery_day: deliveryDay || parseDeliveryDayFromText(meta.note || '') || null,
                   delivery_date: deliveryDate || null,
                   is_prepared: false, is_packaged: false,
                   note: meta.note || null,

@@ -134,7 +134,21 @@ export type KeggingPlanInput = {
   weekKey: string;
   /**
    * Skutečná zásoba skladem PRÁVĚ TEĎ (klíč `beer_id__package_id`, ze
-   * skladové knihy — viz lib/tydenniZbytek.ts, zbytekKeKonciTydne). Bez ní
+   * skladové knihy — viz lib/tydenniZbytek.ts, zbytekKeKonciTydne).
+   *
+   * ⚠️ SMLOUVA: staví se BEZ `zavozDeductionRows`, tedy „počáteční stav
+   * + stočené − výdeje (fasování/prodejna/odpisy/akce)", ale odvezené
+   * objednávky se z ní NEODEČÍTAJÍ. Poptávka níž totiž počítá VŠECHNY
+   * objednávky týdne včetně už zavezených, takže si zavezená objednávka
+   * svůj díl z fondu vezme sama.
+   *
+   * Tohle se jednou rozešlo: testy posílaly zásobu s odpočtem závozu,
+   * provoz bez něj, a výpočet si odpočet navíc přičítal zpátky — fond byl
+   * o zavezené množství dvakrát bohatší a plán hlásil „vše stočeno“, i
+   * když Sklad ukazoval mínus (22. 9. 2026). Kdo tenhle vstup mění, ať
+   * drží tuhle jedinou smlouvu.
+   *
+   * Bez ní
    * plán vidí jako zásobu jen to, co bylo stočeno TENTO týden — z provozu
    * 15. 9. 2026: „mám na skladě 9× 30l, a appka mi stejně píše, že musím
    * stočit další" (a předtím totéž u Němců). Když je zadaná, NAHRAZUJE
@@ -247,26 +261,29 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
   // pokrýt některý z dalších dnů.
   const pool: Record<string, number> = {};
   if (input.currentStockMap) {
-    // Poptávka níž počítá objednávky celého týdne VČETNĚ těch, co už mají
-    // odpočet zavozu zapsaný (zavoz_deductions) — bez vrácení by se ten
-    // odpočet z fondu odečetl dvakrát. Z provozu 16. 9. 2026: 16 objednaných,
-    // 12 už zavezených, 11 skladem, a plán hlásil „chybí stočit 5“.
+    // ⚠️ ODPOČTY ZÁVOZU SE UŽ NEPŘIČÍTAJÍ ZPÁTKY — počítaly se DVAKRÁT.
     //
-    // ⚠️ Vrací se JEN pro klíč, který v currentStockMap SKUTEČNĚ existuje —
-    // to je jediný důkaz, že se to pivo+obal tenhle týden opravdu stočilo.
-    // Pivo, které se nikdy nestočilo (klíč v currentStockMap vůbec není),
-    // se zavozem NEVYKRYJE, i kdyby pro něj nějaký odpočet existoval — jinak
-    // by appka zase věřila kalendáři/nesrovnalosti místo skutečnému stočení
-    // (přesně ta chyba, co opravila migrace 20261231010000: bez ručního
-    // odškrtnutí „Stočeno" se sklad nesmí tvářit vykrytý).
-    const vracenoZaZavozy: Record<string, number> = {};
-    zavozDeductionRows.forEach((r: any) => {
-      if (!r.beer_id || !r.package_id || !kegPkgs.has(r.package_id) || !inWeek(r.deduct_date)) return;
-      const k = `${r.beer_id}__${r.package_id}`;
-      if (!input.currentStockMap!.has(k)) return;
-      vracenoZaZavozy[k] = (vracenoZaZavozy[k] || 0) + Number(r.quantity || 0);
-    });
-    input.currentStockMap.forEach((qty, k) => { pool[k] = qty + (vracenoZaZavozy[k] || 0); });
+    // Volající staví `currentStockMap` SCHVÁLNĚ BEZ `zavozDeductionRows`
+    // (viz Kegging.tsx / BottlingScreen.tsx / CoStocitOkno.tsx), takže fond
+    // ten odpočet nikdy odečtený neměl. Kód ho přesto ještě jednou
+    // přičítal — fond tím narostl o dvojnásobek zavezeného množství a plán
+    // hlásil „vše stočeno", i když Sklad poctivě ukazoval mínus.
+    //
+    // Změřeno 22. 9. 2026: sklad 10 (s odpočtem), fond 15 (bez odpočtu) + 5
+    // vráceno = 20; poptávka 18 → plán tvrdil „chybí 0", správně chybí 3.
+    // Přesně sedělo na hlášení „ve skladu mi to ukazuje sudy správně, ale
+    // ve stáčení to, co chybí, ne".
+    //
+    // Model je teď jednotný a odpovídá zadání („co stočit = všechny
+    // objednávky − stočené − počáteční stav“): fond = zásoba BEZ odpočtů
+    // závozu (tedy počáteční stav + stočené − výdeje), poptávka = VŠECHNY
+    // objednávky týdne včetně už zavezených. Zavezená objednávka si svůj
+    // díl z fondu vezme sama, protože fond ho pořád obsahuje.
+    //
+    // Kontrola proti případu z 16. 9. 2026 („16 objednaných, 12 zavezených,
+    // 11 skladem, appka hlásila chybí 5"): fond = 11 + 12 = 23, poptávka 16
+    // → chybí 0. Sedí.
+    input.currentStockMap.forEach((qty, k) => { pool[k] = qty; });
     // NEořezávat na nulu tady: záporná hodnota (i po vrácení závozů) je
     // skutečný dluh (vydalo se víc, než kdy bylo stočeno) a `sestavDen` níž
     // ho musí umět připočítat k tomu, co ještě chybí stočit — jinak by appka
