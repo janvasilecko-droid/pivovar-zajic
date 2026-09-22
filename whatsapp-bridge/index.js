@@ -633,6 +633,49 @@ function ukonci(signal) {
 
 startHttpServer(qrState);
 
+// ⏰ Sebe-buzení (keep-warm) — nejdůležitější pojistka proti „nechodí zprávy".
+// Render FREE plán uspí instanci po ~15 minutách BEZ příchozího (inbound)
+// provozu. Spící most nemá otevřené spojení s WhatsAppem → zprávy poslané
+// mezitím se ZTRATÍ, a při každém probuzení se most znovu pere o session
+// (odtud opakované odhlašování / „hluchá" session). Doteď to řešil jen externí
+// ping (cron-job.org / UptimeRobot) — když ho nikdo nenastavil nebo přestal
+// fungovat, most usínal.
+//
+// Řešení bez cizí služby: most si každých 10 minut sám sáhne na svou VEŘEJNOU
+// /health adresu. Ten požadavek jde ven a vrátí se do Renderu jako plnohodnotný
+// inbound → 15minutový časovač spánku se resetuje a instance zůstane vzhůru
+// (jedna instance 24/7 ≈ 720 h/měsíc, vejde se do free allowance). Sáhnutí na
+// vlastní adresu (ne na 127.0.0.1) je schválně — jen skutečný inbound přes
+// edge Renderu spánku zabrání.
+//
+// Bezpečné: když adresa není známá (lokální běh), tiše se to vypne; chyba
+// pingu se jen zaloguje a nikdy neshodí most.
+function spustSebeBuzeni(logger) {
+  const verejnaUrl = (process.env.RENDER_EXTERNAL_URL || process.env.BRIDGE_PUBLIC_URL || '')
+    .trim()
+    .replace(/\/+$/, '');
+  if (!verejnaUrl) {
+    logger.info('[keep-warm] veřejná adresa není známá (RENDER_EXTERNAL_URL/BRIDGE_PUBLIC_URL) — sebe-buzení vypnuto (nejspíš lokální běh)');
+    return;
+  }
+  const cil = `${verejnaUrl}/health`;
+  logger.info(`[keep-warm] most se bude budit sám každých 10 min na ${cil} (aby free instance neusnula)`);
+  const pingni = async () => {
+    const ac = new AbortController();
+    const t = setTimeout(() => ac.abort(), 20_000);
+    try {
+      const r = await fetch(cil, { signal: ac.signal, headers: { 'x-keep-warm': '1' } });
+      if (!r.ok) logger.warn(`[keep-warm] ping vrátil HTTP ${r.status}`);
+    } catch (e) {
+      logger.warn(`[keep-warm] ping selhal: ${e?.message || e}`);
+    } finally {
+      clearTimeout(t);
+    }
+  };
+  setInterval(pingni, 10 * 60 * 1000).unref?.();
+}
+spustSebeBuzeni(logger);
+
 // 💓 Tep — každou minutu „žiju" do databáze. Bez toho se v aplikaci nedá
 // odlišit „nikdo nic neposlal" od „most neběžel": obojí vypadá stejně, tedy
 // prázdno. Na bezplatném Renderu je to podstatné, instance po ~15 minutách
