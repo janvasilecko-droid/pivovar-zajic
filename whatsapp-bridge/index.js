@@ -45,6 +45,16 @@ const SEND_TOKEN = process.env.SEND_TOKEN || '';
 const SYNC_HISTORY = (process.env.SYNC_HISTORY || 'on') !== 'off';
 const HISTORY_MAX_MESSAGES = Math.max(0, Number(process.env.HISTORY_MAX_MESSAGES || 1000) || 0);
 const HISTORY_MAX_DAYS = Math.max(0, Number(process.env.HISTORY_MAX_DAYS || 4) || 0);
+/**
+ * Kolik fotek se nejvýš stáhne z historie po (znovu)připojení. Objednávka
+ * poslaná fotkou během výpadku přijde právě přes historii, takže se média
+ * z historie stahovat MUSÍ — ale při párování jich může přijít dávka, a
+ * stahování je pomalé. Strop drží znovupřipojení svižné; živých zpráv se
+ * netýká.
+ */
+const HISTORY_MEDIA_MAX = Math.max(0, Number(process.env.HISTORY_MEDIA_MAX || 40) || 0);
+/** Kolik fotek z historie se od startu procesu už stáhlo (strop výš). */
+let historieFotekStazeno = 0;
 
 /** In-memory dedup: `messages.upsert` může stejnou zprávu doručit vícenásobně. */
 const SEEN = new Set();
@@ -288,13 +298,13 @@ async function handleMessage(sock, gate, supabase, msg, opts = {}) {
   let text = extractText(msg);
   if (!text) {
     if (imageMessage) {
-      if (history) {
-        // V historii stará média nestahujeme — fotka bez popisku nemá co přeposlat.
-        logger.debug('[msg] historie: fotka bez popisku — přeskočena');
-        return;
-      }
       // Fotka bez popisku — dřív se ignorovala. Teď ji přeposíláme s placeholderem,
       // aby si ji v aplikaci mohl člověk otevřít a stáhnout.
+      //
+      // Platí to i pro HISTORII: fotka objednávky poslaná během výpadku mostu
+      // přijde po znovupárování právě přes historii a dřív se zahodila úplně
+      // (objednávka se tím ztratila beze stopy). Média se z historie nově
+      // stahují taky — viz HISTORY_MEDIA_MAX níž.
       text = '📷 Fotka objednávky (bez popisu)';
       logger.info('[msg] fotka bez popisku — přeposílám s placeholderem (DeepSeek fotky nečte)');
     } else {
@@ -381,14 +391,32 @@ async function handleMessage(sock, gate, supabase, msg, opts = {}) {
   // takže kontrola objednávky z fotky je vždy na člověku. mediaUrl pošleme
   // webhooku → whatsapp_incoming.media_url.
   let mediaUrl = null;
-  if (imageMessage && !history) {
-    // Stará média z historie nestahujeme (pomalé a zbytečné) — text a popisky jdou dál.
-    mediaUrl = await prepareImageForForwarding({
-      msg,
-      supabase,
-      webhookId,
-      logger,
-    });
+  if (imageMessage) {
+    // 📷 Fotky z HISTORIE se stahují taky. Dřív se přeskakovaly jako „pomalé
+    // a zbytečné" — jenže objednávka poslaná fotkou ve chvíli, kdy most
+    // neběžel, přijde po znovupárování PRÁVĚ přes historii, a bez fotky je
+    // to prázdná objednávka bez položek (z provozu 22. 9. 2026: Maneo,
+    // „médium nebylo doručeno — webhook neposlal mediaUrl").
+    //
+    // Pojistka proti zahlcení při znovupárování: z historie se stáhne
+    // nejvýš HISTORY_MEDIA_MAX fotek. Zbytek se přepošle bez fotky, ale
+    // aspoň se o objednávce ví. Živých zpráv se strop netýká.
+    if (history && historieFotekStazeno >= HISTORY_MEDIA_MAX) {
+      logger.warn(
+        `[media] historie: strop ${HISTORY_MEDIA_MAX} stažených fotek vyčerpán — posílám zprávu bez fotky`
+      );
+    } else {
+      if (history) historieFotekStazeno += 1;
+      mediaUrl = await prepareImageForForwarding({
+        msg,
+        supabase,
+        webhookId,
+        logger,
+        // Bez soketu nejde požádat o znovunahrání média (reuploadRequest) —
+        // a přesně to starší fotky z historie potřebují.
+        sock,
+      });
+    }
   }
 
   const quotedText = extractQuotedText(msg);
