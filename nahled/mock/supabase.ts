@@ -40,6 +40,9 @@ const db: Record<string, Radek[]> = {
   orders: [...vychozi.orders],
   order_items: [...vychozi.order_items],
   kegging_plan_checks: [...vychozi.kegging_plan_checks],
+  // Úkoly stáčení („Potřeby stáčení" v Nastavení) — v náhledu se začíná
+  // s prázdným týdnem, úkol si jde rovnou zkusit založit.
+  bottling_plans: [],
 };
 
 /** Kopie z produkčního modulu — barva piva na tečku v seznamu. */

@@ -23,20 +23,20 @@ const PRVNI_V_MESICI = PONDELI.slice(0, 8) + '01';
 const MINULY = (n: number) => posunDnu(PONDELI, n - 7);
 
 export const beers = [
-  { id: 'b-12sv', name: '12° Světlý ležák', sort_order: 1 },
-  { id: 'b-12tm', name: '12° Tmavý ležák', sort_order: 2 },
-  { id: 'b-11sv', name: '11° Světlá', sort_order: 3 },
-  { id: 'b-10de', name: '10° Desítka', sort_order: 4 },
-  { id: 'b-08os', name: 'Osma', sort_order: 5 },
-  { id: 'b-summ', name: 'Summer Ale', sort_order: 6 },
+  { id: 'b-12sv', name: '12° Světlý ležák', sort_order: 1, is_active: true },
+  { id: 'b-12tm', name: '12° Tmavý ležák', sort_order: 2, is_active: true },
+  { id: 'b-11sv', name: '11° Světlá', sort_order: 3, is_active: true },
+  { id: 'b-10de', name: '10° Desítka', sort_order: 4, is_active: true },
+  { id: 'b-08os', name: 'Osma', sort_order: 5, is_active: true },
+  { id: 'b-summ', name: 'Summer Ale', sort_order: 6, is_active: true },
   // Piva pro pátek s deseti pivy (o-5) — bez nich order_items odkazovaly na
   // neexistující b-13pa/b-14ip/b-citr/b-psen a panel „Co stočit" je ukázal
   // jako „?" (pivoPodleId nenašlo shodu). Z provozu 15. 9. 2026: „co sou ty
   // otazníky, to je nějaká chyba" — nebyla, jen chybějící vymyšlená data.
-  { id: 'b-13pa', name: '13° Pale Ale', sort_order: 7 },
-  { id: 'b-14ip', name: '14° IPA', sort_order: 8 },
-  { id: 'b-citr', name: 'Citron', sort_order: 9 },
-  { id: 'b-psen', name: 'Pšeničné', sort_order: 10 },
+  { id: 'b-13pa', name: '13° Pale Ale', sort_order: 7, is_active: true },
+  { id: 'b-14ip', name: '14° IPA', sort_order: 8, is_active: true },
+  { id: 'b-citr', name: 'Citron', sort_order: 9, is_active: true },
+  { id: 'b-psen', name: 'Pšeničné', sort_order: 10, is_active: true },
 ];
 
 export const packages = [
