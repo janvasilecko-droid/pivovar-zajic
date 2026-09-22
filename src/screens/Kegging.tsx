@@ -529,7 +529,35 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     currentStockMap,
   }), [vsechnaPivaJmena, packages, orders, orderItems, rows, zavozDeductionRows, fasovaniRows, prodejnaRows, writeoffsRows, planCheckRows, weekKey, currentStockMap]);
 
-  const planMissingTotal = useMemo(() => keggingPlan.reduce((s, p) => s + p.totalMissing, 0), [keggingPlan]);
+  // ✍️ TENTÝŽ plán, ale BEZ ručního odškrtnutí — „kolik je doopravdy stočeno".
+  //
+  // Odškrtnutí („Mám všech X") je pracovní pomůcka v plánu, ne evidence
+  // stáčení. Jenže jelo do JEDNOHO společného plánu, ze kterého čte i
+  // ZAPISOVÁNÍ stáčení — takže po odškrtnutí appka i při zadávání tvrdila,
+  // že je stočeno. Z provozu 22. 9. 2026: „teď zadávám stáčení a ukazuje mi
+  // to, že už to je stočený… ale není, teď jsem to teprv stočil."
+  //
+  // Odškrtnutí proto nově platí JEN v plánu „Co stočit na který den"
+  // (komponenta KeggingDayPlan, která dál dostává `keggingPlan`). Všechno
+  // ostatní — štítky u piv, dlaždice „Zbývá stočit tento týden", odznaky dnů
+  // v panelu zápisu — počítá z tohohle plánu, tedy ze skutečného stočení a
+  // skutečné zásoby.
+  const keggingPlanSkutecny = useMemo(() => computeKeggingPlan({
+    beers: vsechnaPivaJmena,
+    packages,
+    orders,
+    orderItems,
+    keggingRows: rows,
+    zavozDeductionRows,
+    fasovaniRows,
+    prodejnaRows,
+    writeoffsRows,
+    checkRows: [],
+    weekKey,
+    currentStockMap,
+  }), [vsechnaPivaJmena, packages, orders, orderItems, rows, zavozDeductionRows, fasovaniRows, prodejnaRows, writeoffsRows, weekKey, currentStockMap]);
+
+  const planMissingTotal = useMemo(() => keggingPlanSkutecny.reduce((s, p) => s + p.totalMissing, 0), [keggingPlanSkutecny]);
 
   // ⚖️ JEDEN výpočet pro všechno — z provozu 16. 9. 2026: „udělej to tak, ať
   // to logicky všechno sedí“. Dlaždice „Zbývá stočit tento týden“, červené
@@ -538,7 +566,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   // (currentStockMap). Do 16. 9. tu byl druhý, zjednodušený vzorec a každé
   // místo v appce hlásilo jiné číslo: „když mám na skladě 11×30, nemůže mi
   // přece chybět 5×30“.
-  const weekPlanKeg = useMemo(() => mergeWeekPlan(keggingPlan, weekLabel), [keggingPlan, weekLabel]);
+  const weekPlanKeg = useMemo(() => mergeWeekPlan(keggingPlanSkutecny, weekLabel), [keggingPlanSkutecny, weekLabel]);
   // Rozpad podle VELIKOSTI obalu, přes všechna piva — součet přes všechny
   // velikosti („55“) neřekne, co reálně nachystat (z provozu 9. 9. 2026).
   const rozpadTydneKeg = useMemo(() => rozpadPoObalech(weekPlanKeg), [weekPlanKeg]);
@@ -583,12 +611,12 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   // kusů tohohle piva chybí stočit konkrétně na pondělí, úterý…).
   const missingByBeerDay = useMemo(() => {
     const m: Record<string, Record<string, number>> = {};
-    keggingPlan.forEach((den) => den.items.forEach((it) => {
+    keggingPlanSkutecny.forEach((den) => den.items.forEach((it) => {
       const byDay = (m[it.beer_id] ||= {});
       byDay[den.day] = (byDay[den.day] || 0) + it.missing;
     }));
     return m;
-  }, [keggingPlan]);
+  }, [keggingPlanSkutecny]);
 
   // 🧾 Totéž, ale po KONKRÉTNÍM OBALU (ne jen souhrn za pivo) — a s rozpadem
   // po dnech, ať se z dlaždice dá rovnou zadat chybějící počet nebo odškrtnout
@@ -1819,14 +1847,34 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                   {davkyStaceni(sorted, (pkgId) => {
                     const pkg = packages.find((p) => p.id === pkgId);
                     return pkg ? Number(pkg.volume_l) : 0;
-                  }).map((davka) => {
+                  }).map((davka, iDavky, vsechnyDavky) => {
                     const beer = beers.find((b) => b.id === davka.beerId);
+                    // 📆 Záhlaví dne u PRVNÍ dávky daného dne. Den byl dosud jen drobným
+                    // písmem v rohu a pozadí karty nese BARVU PIVA, takže dny od sebe
+                    // nešlo rozeznat (z provozu 22. 9. 2026: „to PO ÚT je hrozně malý").
+                    // Barvu piva měnit nejde — je to informace sama o sobě — proto se
+                    // den odděluje vlastním pruhem přes celou šířku karty a sousední
+                    // dny se střídají v odstínu.
+                    const novyDen = iDavky === 0 || vsechnyDavky[iDavky - 1].datum !== davka.datum;
+                    const tmavsiDen = novyDen
+                      && new Set(vsechnyDavky.slice(0, iDavky + 1).map((d) => d.datum)).size % 2 === 1;
                     return (
                       <div
                         key={davka.klic}
                         className="rounded-xl border border-black/10 p-2.5 space-y-2 shadow-xs"
                         style={{ backgroundColor: beerBg(beer) }}
                       >
+                        {novyDen && (
+                          <div
+                            className={`-mx-2.5 -mt-2.5 mb-2 px-3 py-2 rounded-t-xl border-b-2 font-display font-black text-base tracking-wide ${
+                              tmavsiDen
+                                ? 'bg-neutral-800 border-neutral-900 text-white'
+                                : 'bg-white border-neutral-300 text-neutral-900'
+                            }`}
+                          >
+                            {denACesky(davka.datum)}
+                          </div>
+                        )}
                         <div className={`flex items-center gap-2 flex-wrap ${beerText(beer)}`}>
                           <span className="shrink-0 font-mono font-bold text-xs opacity-80">{denACesky(davka.datum)}</span>
                           <span className="font-black text-sm truncate min-w-0">{davka.beerName}</span>
@@ -2142,14 +2190,34 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                 {davkyStaceni(sortedRows, (pkgId) => {
                   const pkg = packages.find((p) => p.id === pkgId);
                   return pkg ? Number(pkg.volume_l) : 0;
-                }).map((davka) => {
+                }).map((davka, iDavky, vsechnyDavky) => {
                   const beer = beers.find((b) => b.id === davka.beerId);
+                  // 📆 Záhlaví dne u PRVNÍ dávky daného dne. Den byl dosud jen drobným
+                  // písmem v rohu a pozadí karty nese BARVU PIVA, takže dny od sebe
+                  // nešlo rozeznat (z provozu 22. 9. 2026: „to PO ÚT je hrozně malý").
+                  // Barvu piva měnit nejde — je to informace sama o sobě — proto se
+                  // den odděluje vlastním pruhem přes celou šířku karty a sousední
+                  // dny se střídají v odstínu.
+                  const novyDen = iDavky === 0 || vsechnyDavky[iDavky - 1].datum !== davka.datum;
+                  const tmavsiDen = novyDen
+                    && new Set(vsechnyDavky.slice(0, iDavky + 1).map((d) => d.datum)).size % 2 === 1;
                   return (
                     <div
                       key={davka.klic}
                       className="rounded-xl border border-black/10 p-2.5 space-y-2 shadow-xs"
                       style={{ backgroundColor: beerBg(beer) }}
                     >
+                      {novyDen && (
+                        <div
+                          className={`-mx-2.5 -mt-2.5 mb-2 px-3 py-2 rounded-t-xl border-b-2 font-display font-black text-base tracking-wide ${
+                            tmavsiDen
+                              ? 'bg-neutral-800 border-neutral-900 text-white'
+                              : 'bg-white border-neutral-300 text-neutral-900'
+                          }`}
+                        >
+                          {denACesky(davka.datum)}
+                        </div>
+                      )}
                       <div className={`flex items-center gap-2 flex-wrap ${beerText(beer)}`}>
                         <span className="shrink-0 font-mono font-bold text-xs opacity-80">{denACesky(davka.datum)}</span>
                         <span className="font-black text-base truncate min-w-0">{davka.beerName}</span>
