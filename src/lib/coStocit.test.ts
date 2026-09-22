@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { planProVyber, coZbyvaStocit, vychoziDenCoStocit } from './coStocit';
+import { planProVyber, coZbyvaStocit, vychoziDenCoStocit, chybiMimoVyber } from './coStocit';
 import type { DayPlan, PlanItem } from './keggingPlan';
 
 const polozka = (key: string, beer: string, ordered: number, missing: number): PlanItem => ({
@@ -59,5 +59,40 @@ describe('vychoziDenCoStocit — výchozí den je zítřek, ne dnešek', () => {
 
   it('v pátek ukáže sobotu', () => {
     expect(vychoziDenCoStocit('2026-09-18')).toBe('so');
+  });
+});
+
+describe('chybiMimoVyber — schodek, který denní pohled schovává', () => {
+  // Přesně případ z provozu 22. 9. 2026: sklad ukazuje −1, ale „Co stočit
+  // na středu" tvrdí, že je vše stočené, protože ten chybějící sud visí
+  // na jiném dni / na objednávce bez dne dovozu.
+  const plans = [
+    den('po', [polozka('a__k30', 'Světlá 12', 3, 0)]),
+    den('st', [polozka('a__k30', 'Světlá 12', 5, 0)]),
+    den('bez', [polozka('a__k30', 'Světlá 12', 1, 1)]),
+  ];
+
+  it('den, kde je hotovo, přesto nahlásí schodek jinde v týdnu', () => {
+    expect(planProVyber(plans, 'st', 'T').totalMissing).toBe(0);
+    expect(chybiMimoVyber(plans, 'st')).toBe(1);
+  });
+
+  it('u výběru „tyden" nehlásí nic navíc — celý týden je vidět', () => {
+    expect(chybiMimoVyber(plans, 'tyden')).toBe(0);
+  });
+
+  it('když nikde nic nechybí, je to nula', () => {
+    const hotovo = [den('po', [polozka('a__k30', 'Světlá 12', 3, 0)])];
+    expect(chybiMimoVyber(hotovo, 'po')).toBe(0);
+    expect(chybiMimoVyber(hotovo, 'tyden')).toBe(0);
+  });
+
+  it('odečte jen vybraný den, zbytek týdne zůstává', () => {
+    const p2 = [
+      den('po', [polozka('a__k30', 'Světlá 12', 3, 2)]),
+      den('st', [polozka('a__k30', 'Světlá 12', 5, 3)]),
+    ];
+    expect(chybiMimoVyber(p2, 'po')).toBe(3);
+    expect(chybiMimoVyber(p2, 'st')).toBe(2);
   });
 });
