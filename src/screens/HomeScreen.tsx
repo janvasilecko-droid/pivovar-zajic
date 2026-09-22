@@ -69,6 +69,7 @@ import { requestOrdersAutoImport } from '../lib/ordersFilter';
 import { getTheme, setTheme, type Theme } from '../lib/theme';
 import { fetchLastWhatsAppAt, fetchPendingWhatsAppCount, subscribeToWhatsAppMessages } from '../lib/whatsappApi';
 import { tichoWhatsApp, type TichoWhatsApp } from '../lib/whatsappTicho';
+import { vyhodnotMostStav, type MostVarovani } from '../lib/mostStav';
 import { nactiRezervace } from '../lib/vycepyData';
 import { stariInventury, type StariInventury } from '../lib/inventuraStari';
 import { nactiBehyZalohy, vyhodnotZalohu, type StavZalohy } from '../lib/zalohaStav';
@@ -852,18 +853,47 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   // to 1. 9. 2026 a přišlo se na to až tím, že odeslané objednávky nikde
   // nebyly. Viz lib/whatsappTicho.ts.
   const [ticho, setTicho] = useState<TichoWhatsApp | null>(null);
+  // 💓 Tep mostu — RYCHLÁ pojistka nezávislá na tom, jestli zrovna někdo
+  // píše (viz lib/mostStav.ts). `mostStavRawRef` drží poslední načtený
+  // řádek pro živý přepočet níž (posun času sám o sobě, bez nového dotazu).
+  const [mostVarovani, setMostVarovani] = useState<MostVarovani>({ varovat: false, duvod: null });
+  const mostStavRawRef = useRef<{ naposledy: string | null; pripojeno: boolean | null; poznamka: string | null } | null>(null);
+  const nactiMostStav = () => {
+    supabase
+      .from('whatsapp_most_stav')
+      .select('naposledy,pripojeno,poznamka')
+      .eq('id', 'most')
+      .maybeSingle()
+      .then(({ data }) => {
+        mostStavRawRef.current = data ?? null;
+        setMostVarovani(vyhodnotMostStav(data ?? null, new Date()));
+      });
+  };
+  useRealtime(['whatsapp_most_stav'], nactiMostStav);
   useEffect(() => {
     const nacti = () => {
       void fetchPendingWhatsAppCount().then(setPendingWhatsApp).catch(() => {});
       void fetchLastWhatsAppAt()
         .then((kdy) => setTicho(tichoWhatsApp(kdy, new Date())))
         .catch(() => {});
+      nactiMostStav();
     };
     nacti();
     // Zpráva může přijít kdykoli — realtime na tabulku příchozích zpráv.
     // Funkce vrací rovnou odhlašovací callback, ne kanál.
     const odhlas = subscribeToWhatsAppMessages(() => nacti());
-    return odhlas;
+    // ⏱️ Živý přepočet BEZ nového dotazu do databáze. `ticho` i
+    // `mostVarovani` se jinak přepočítají jen při novém fetchi (nová
+    // zpráva / nový tep) — appka nechaná dlouho otevřená (tablet,
+    // telefon na nabíječce) by pak ukazovala starý „v pořádku" stav
+    // dlouho poté, co výpadek dávno přesáhl práh, protože se čas od
+    // posledního fetche nikde nepřepočítal. Přepočet ze zapamatovaných
+    // dat je zadarmo, může běžet často.
+    const tik = setInterval(() => {
+      setTicho((t) => (t ? tichoWhatsApp(t.posledni, new Date()) : t));
+      setMostVarovani(vyhodnotMostStav(mostStavRawRef.current, new Date()));
+    }, 3 * 60 * 1000);
+    return () => { odhlas(); clearInterval(tik); };
   }, []);
 
   // 🍺 Výčepy po termínu, které se ještě nevrátily (viz lib/vycepyVenku.ts).
@@ -1730,29 +1760,37 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                   <span className="hs-badge">{pendingWhatsApp > 99 ? '99+' : pendingWhatsApp}</span>
                 </button>
               )}
-              {/* 📵 Z telefonu dlouho nic nedorazilo. Odznak výš zamrzne na
-                  starém čísle a tváří se normálně, takže výpadek příjmu se
-                  jinak pozná až tím, že objednávka někde chybí. */}
-              {ticho?.varovat && (
+              {/* 📵 WhatsApp most nechodí — DVĚ nezávislé pojistky.
+                  1) mostVarovani: most zapisuje tep do whatsapp_most_stav
+                     KAŽDOU MINUTU bez ohledu na to, jestli někdo píše —
+                     když tep zmizí nebo most hlásí odpojeno, appka to
+                     pozná do ~15 minut. Tohle je RYCHLÁ cesta.
+                  2) ticho: záložní pojistka pro případ, že by tep sám
+                     selhal — pozná výpadek jen podle ticha v chatu, a musí
+                     být benevolentní (24 pracovních hodin), protože běžná
+                     víkendová pauza vypadá stejně jako spadlý most (viz
+                     testy u tichoWhatsApp). V reálném výpadku zpravidla
+                     ohlásí mostVarovani dřív.
+                  Přesně tohle (tichý výpadek beze stopy, dokud objednávka
+                  někde nechyběla) appku potkalo 1. 9. i 21. 9. 2026. */}
+              {(mostVarovani.varovat || ticho?.varovat) && (
                 <button
                   type="button"
                   className="hs-tile hs-tile-alert vlastni-vyska"
                   onClick={() => setPage('orders')}
-                  // Rada „zkontroluj Tasker" je z doby, kdy zprávy posílal
-                  // Tasker z telefonu. Ten je pryč od verze 1.8xx, zprávy
-                  // vozí WhatsApp most na Renderu — a jeho typická porucha
-                  // je jiná: session zůstane přihlášená (most hlásí
-                  // „připojeno"), ale WhatsApp na zařízení přestane
-                  // doručovat. Sám se z toho nedostane, protože nikdy
-                  // nepřijde `loggedOut`; spraví to jen nové spárování.
-                  title={`Poslední zpráva dorazila ${new Date(ticho.posledni!).toLocaleString('cs-CZ')}.\nWhatsApp most nejspíš ztratil spárování — otevři https://whatsapp-bridge-g1v0.onrender.com/qr a načti QR ve WhatsAppu (Nastavení → Propojená zařízení).`}
+                  title={
+                    mostVarovani.duvod
+                      ?? `Poslední zpráva dorazila ${new Date(ticho!.posledni!).toLocaleString('cs-CZ')}.\nWhatsApp most nejspíš ztratil spárování — otevři https://whatsapp-bridge-g1v0.onrender.com/qr a načti QR ve WhatsAppu (Nastavení → Propojená zařízení).`
+                  }
                 >
                   <div className="hs-tile-icon-box">
                     <MessageCircle />
                   </div>
                   <div className="hs-lbl">WhatsApp nechodí</div>
                   <span className="hs-badge">
-                    {new Date(ticho.posledni!).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric' })}
+                    {mostVarovani.varovat
+                      ? '!'
+                      : new Date(ticho!.posledni!).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric' })}
                   </span>
                 </button>
               )}
