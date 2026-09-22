@@ -90,8 +90,9 @@ if (nalezy.length > 0) {
   }
   console.error(
     '\nTakový překlep shodí funkci až v provozu (u WhatsAppu to znamená, že\n' +
-    'se objednávky musí číst ručně). Oprav jméno proměnné a po opravě funkci\n' +
-    'ručně nasaď — CI edge funkce nenasazuje:\n' +
+    'se objednávky musí číst ručně). Oprav jméno proměnné; změněné funkce pak\n' +
+    'nasadí CI samo (job „nasad-databazi-a-funkce"). Ručně jen když je potřeba\n' +
+    'hned:\n' +
     '   npx supabase functions deploy <nazev> --project-ref sasqexjadvlqyticxwja\n',
   );
   process.exit(1);
