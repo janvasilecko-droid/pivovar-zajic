@@ -20,7 +20,7 @@ import type { TankKOdectu } from '../lib/tankUZapisu';
 import { VoiceRecorder } from '../components/VoiceRecorder';
 import { orderQuickQtys } from '../components/QuickQtySelect';
 import { BeerTileGrid, BeerTilePanel } from '../components/BeerTileGrid';
-import { topQuantitiesLastMonth } from '../lib/quickQty';
+import { nejcastejsiMnozstvi } from '../lib/quickQty';
 import { parseVoiceOrder, parseOrderText, detectOrderNotes, parseDeliveryDayFromText, loadAliasMap, loadPlaceAliasMap, emptyAliasMap, getOrCreatePlace, matchBeerFromHints, matchPackage, normalize, type ParserAliasMap } from '../lib/orderParser';
 
 import { slozNavrh } from '../lib/whatsappAmendment';
@@ -262,7 +262,7 @@ export default function Orders({
   const expandedBeer = expandedBeerId ? beers.find((b) => b.id === expandedBeerId) ?? null : null;
 
   // Historie objednaného množství (pivo+obal) ze VŠECH nestornovaných objednávek —
-  // slouží k dopočtu "4 nejčastější hodnoty z minulého měsíce" u dlaždic (viz níže).
+  // z ní se počítají tři nejčastější počty na tlačítkách u dlaždic (viz níže).
   const orderQtyHistory = useMemo(() => {
     const out: { beer_id: string | null; package_id: string | null; quantity: number | null; entry_date: string | null }[] = [];
     orders.forEach((o) => {
@@ -274,6 +274,20 @@ export default function Orders({
     });
     return out;
   }, [orders, items]);
+
+  // 🔢 Tři nejčastější počty pro rozbalené pivo — pro každý obal zvlášť.
+  // Počítá se jednou za změnu historie, ne při každém stisku klávesy
+  // v políčku počtu (panel se překresluje při každé změně).
+  const rychlePoctyMapa = useMemo(() => {
+    const out = new Map<string, number[]>();
+    if (!expandedBeer) return out;
+    for (const p of packages) {
+      out.set(p.id, nejcastejsiMnozstvi(orderQtyHistory, expandedBeer.id, p.id, orderQuickQtys(p) ?? []));
+    }
+    return out;
+  }, [expandedBeer, packages, orderQtyHistory]);
+  const rychlePocty = (pkgId: string) => rychlePoctyMapa.get(pkgId);
+
   // 📅 Datum rozpoznané z poznámky (kdy má být zavezeno)
   const [noteDateHint, setNoteDateHint] = useState<string | null>(null);
 
@@ -2056,7 +2070,10 @@ export default function Orders({
                 const qty = row ? Number(row.qty || 0) : 0;
                 const qtyStr = row ? row.qty : '';
                 const qtys = orderQuickQtys(p);
-                const commonQtys = topQuantitiesLastMonth(orderQtyHistory, expandedBeer.id, p.id);
+                // Tři nejčastější počty PRO TOHLE pivo a obal; pevná řada
+                // podle typu obalu slouží jen jako výplň, když historie
+                // nestačí (viz lib/quickQty.ts).
+                const commonQtys = rychlePocty(p.id) ?? [];
                 return (
                   <div key={p.id} className="flex items-center justify-between gap-2 rounded-xl border border-neutral-200 dark:border-neutral-700 py-1.5 px-2 flex-wrap">
                     <span className="text-sm font-bold text-neutral-700 dark:text-neutral-200 truncate">{formatPackageLabel(p.label)}</span>

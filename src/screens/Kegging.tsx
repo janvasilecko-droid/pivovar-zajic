@@ -37,6 +37,7 @@ import { jeMesicUzamcen } from '../lib/mesicUzamcen';
 import { puvodZapisu, vlastniPoznamka } from '../lib/puvodZapisu';
 import { dopsaneZaskrtnutim, smazZaznamyStaceni } from '../lib/staceniZPolozky';
 import { zapamatujPozici } from '../lib/drzPozici';
+import { nejcastejsiMnozstvi } from '../lib/quickQty';
 
 // Stahuje se až při otevření — viz komentář u lazy() v Orders.tsx.
 const ImportKeggingFromImage = lazy(() => import('../components/ImportKeggingFromImage').then((m) => ({ default: m.ImportKeggingFromImage })));
@@ -46,7 +47,10 @@ type RowInput = { beerId: string; pkgId: string; qty: string; tankId: string };
 const emptyItem = (): RowInput => ({ beerId: '', pkgId: '', qty: '', tankId: '' });
 const emptyRows = (): RowInput[] => Array.from({ length: ROW_COUNT }, emptyItem);
 
-// Rychlé hodnoty počtu sudů v rozbalovacím poli (6/12/18/24/30/36 ks)
+// Záložní hodnoty počtu sudů — použijí se, jen když se dané pivo v tomhle
+// obalu ještě nestáčelo dost na to, aby se daly spočítat tři nejčastější
+// (lib/quickQty.ts). Do 22. 9. 2026 tahle čtveřice platila pro všechna piva
+// bez rozdílu, i když se konkrétní pivo stáčelo pokaždé po deseti.
 const QUICK_KEG_QTY = [6, 12, 18, 24];
 
 export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: { setPage?: (p: any, sec?: string, sub?: string) => void; mode?: 'entry_only' | 'overviews_only' | 'all'; initialSubTab?: string } = {}) {
@@ -280,6 +284,18 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   // Podle kindu i popisku: sud bez vyplněného `kind` by se jinak v KEGách
   // vůbec nenabídl (a ve stáčení lahví by naopak přebýval) — viz jeSud.
   const kegPackages = useMemo(() => packages.filter((p) => jeSud(p.kind, p.label)).sort((a, b) => b.volume_l - a.volume_l), [packages]);
+
+  // 🔢 Tři nejčastěji stáčené počty pro rozbalené pivo — pro každý obal
+  // zvlášť, z historie stáčení. Počítá se jednou za změnu historie, ne při
+  // každém překreslení panelu (ten se překresluje při každé změně počtu).
+  const rychlePoctyMapa = useMemo(() => {
+    const out = new Map<string, number[]>();
+    if (!expandedKegBeerId) return out;
+    for (const p of kegPackages) {
+      out.set(p.id, nejcastejsiMnozstvi(rows, expandedKegBeerId, p.id, QUICK_KEG_QTY));
+    }
+    return out;
+  }, [expandedKegBeerId, kegPackages, rows]);
 
   // Aktivní sklepní tanky (stáčí se z nich) — status active nebo emptying
   const activeCellarTanks = useMemo(() => cellarTanks.filter((t) => t.status === 'active' || t.status === 'emptying'), [cellarTanks]);
@@ -1560,7 +1576,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                 const qty = tileQtyFor(expandedKegBeer.id, p.id);
                 const rowTanks = activeTanksForBeer(expandedKegBeer.id);
                 const currentTankId = entryRows.find((r) => r.beerId === expandedKegBeer.id && r.pkgId === p.id)?.tankId || '';
-                const quickQtys = QUICK_KEG_QTY;
+                const quickQtys = rychlePoctyMapa.get(p.id) ?? QUICK_KEG_QTY;
                 const fullPlan = planByKey[`${expandedKegBeer.id}__${p.id}`];
                 const dayEntry = tileDay !== 'tyden' ? fullPlan?.days.find((d) => d.day === tileDay) : undefined;
                 const plan = tileDay === 'tyden' ? fullPlan : (dayEntry && { ordered: dayEntry.ordered, missing: dayEntry.missing, checked: dayEntry.checked, days: [dayEntry] });

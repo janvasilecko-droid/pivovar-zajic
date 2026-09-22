@@ -19,7 +19,7 @@ import { requestOrdersItemFilter } from '../lib/ordersFilter';
 import { VoiceRecorder } from '../components/VoiceRecorder';
 import { parseFreeTextEntries, loadAliasMap, emptyAliasMap, type ParserAliasMap } from '../lib/orderParser';
 import { BeerTileGrid, BeerTilePanel } from '../components/BeerTileGrid';
-import { stackingQuickQtys } from '../lib/quickQty';
+import { nejcastejsiMnozstvi, stackingQuickQtys } from '../lib/quickQty';
 import { navrhSudu, skutecnaVytrataProcenta } from '../lib/bottlingYield';
 import { synchronizuj } from '../lib/checklistData';
 import { computePackageNeeds, PackageNeedsRow } from '../lib/packageNeeds';
@@ -425,6 +425,20 @@ export default function BottlingScreen({
       .filter((p) => p.kind === 'bottle' && ALLOWED_BOTTLE_VOLUMES.some((v) => Math.abs(Number(p.volume_l) - v) < 0.01))
       .sort((a, b) => b.volume_l - a.volume_l),
   [packages]);
+
+  // 🔢 Tři nejčastěji stáčené počty pro pivo v dlaždici — pro každý obal
+  // zvlášť, z historie stáčení lahví. Pevná řada podle velikosti lahve
+  // (stackingQuickQtys) je jen výplň, když historie nestačí; do 22. 9. 2026
+  // platila pro všechna piva stejně. Počítá se jednou za změnu historie, ne
+  // při každém překreslení dlaždice.
+  const rychlePoctyMapa = useMemo(() => {
+    const out = new Map<string, number[]>();
+    if (!tileBeer) return out;
+    for (const p of bottlePackages) {
+      out.set(p.id, nejcastejsiMnozstvi(rows, tileBeer.id, p.id, stackingQuickQtys(p)));
+    }
+    return out;
+  }, [tileBeer, bottlePackages, rows]);
 
   // KEG obaly
   const kegPackages = useMemo(() =>
@@ -1495,7 +1509,8 @@ export default function BottlingScreen({
                   {tileSlots.map((slot) => {
                     const pkgId = tileDraft[slot.pkg];
                     const qtyStr = tileDraft[slot.qty];
-                    const quickQtys = stackingQuickQtys(bottlePackages.find((p) => p.id === pkgId));
+                    const quickQtys = (pkgId ? rychlePoctyMapa.get(pkgId) : undefined)
+                      ?? stackingQuickQtys(bottlePackages.find((p) => p.id === pkgId));
                     const fullPlan = pkgId && tileBeer ? planByKey[`${tileBeer.id}__${pkgId}`] : undefined;
                     const dayEntry = tileDay !== 'tyden' ? fullPlan?.days.find((d) => d.day === tileDay) : undefined;
                     const plan = tileDay === 'tyden' ? fullPlan : (dayEntry && { ordered: dayEntry.ordered, missing: dayEntry.missing, checked: dayEntry.checked, days: [dayEntry] });
