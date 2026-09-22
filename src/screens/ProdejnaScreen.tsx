@@ -4,7 +4,7 @@ import { EmptyState, Spinner } from '../components/ui';
 import { isoWeekKey } from '../components/WeeklyOrderSummaryCard';
 import { VoiceRecorder } from '../components/VoiceRecorder';
 import { ProdejnaFromImage } from '../components/ProdejnaFromImage';
-import { BarChart3, Calendar, CalendarDays, Camera, Check, ClipboardList, Copy, Package as PackageIcon, PenLine, Store, Trash2, X, type LucideIcon } from 'lucide-react';
+import { BarChart3, Calendar, CalendarDays, Camera, Check, ClipboardList, Copy, Package as PackageIcon, PenLine, RotateCcw, Store, Trash2, X, type LucideIcon } from 'lucide-react';
 import { parseFreeTextEntries, loadAliasMap, emptyAliasMap, type ParserAliasMap } from '../lib/orderParser';
 import { TapReservationModal } from '../components/TapReservationModal';
 import { detectTapType } from '../lib/tapReservations';
@@ -391,6 +391,85 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
         load(true);
       },
     );
+  }
+
+  /**
+   * ↩️ Odfasovat jeden už uložený zápis — kusy se vrátí na sklad.
+   *
+   * Zadání 22. 9. 2026 („u obchodu přidej možnost odfasovat objednávku
+   * u fasování, vrátí ji do skladu"): dosud to šlo jen přepsat ručně —
+   * v Zápisu zaškrtnout „Odfasovat" a znovu vyplnit pivo, obal a počet.
+   * Tady stačí jedno klepnutí u toho zápisu, který se vrací.
+   *
+   * Zapisuje se ZÁPORNÝ protizápis DNEŠNÍM dnem, ne oprava ani smazání
+   * původního řádku — stejné pravidlo jako u zaškrtávátka v Zápisu:
+   * co se vydalo, se doopravdy vydalo, a přepsání by ztratilo stopu
+   * a rozhýbalo měsíc, který je možná už napočítaný. Tlačítka −/+ u řádku
+   * jsou na něco jiného: ta opravují PŘEKLEP v počtu (mění původní zápis).
+   */
+  async function odfasuj(id: string) {
+    const row = rows.find((r) => r.id === id);
+    if (!row) return;
+    const ks = Number(row.quantity || 0);
+    if (ks <= 0) return;
+    const nazevPiva = row.beer_name ?? beers.find((b) => b.id === row.beer_id)?.name ?? 'pivo';
+    const popis = `${nazevPiva} ${row.package_label ?? ''} × ${ks} ks`.replace(/\s+/g, ' ').trim();
+    const dnes = businessDateISO();
+
+    if (!(await potvrd(
+      `Vrátit na sklad: ${popis}?\n\nPůvodní zápis z ${formatDate(row.entry_date)} zůstane, ` +
+      `přibude k němu záporný řádek dneškem.`,
+      { titulek: druh.tabulka === 'writeoffs' ? 'Vrátit na sklad' : 'Odfasovat', potvrdit: 'Ano, vrátit na sklad' },
+    ))) return;
+
+    // 🔒 Stejná pojistka jako u zápisu: vrácení hýbe skladem úplně stejně,
+    // takže by jinak tiše rozjelo už uzavřený měsíc (lib/mesicUzamcen.ts).
+    if (jeMesicUzamcen(inventoryRows, dnes)) {
+      const dotaz =
+        `Měsíc ${dnes.slice(0, 7)} už má napočítanou inventuru. Vrácení do něj teď ` +
+        'změní číslo, které je už uzavřené a dorovnané.\n\nOpravdu vrátit na sklad?';
+      if (!(await potvrd(dotaz, { titulek: 'Měsíc je už napočítaný', potvrdit: 'Ano, vrátit' }))) return;
+    }
+
+    const isWriteoffs = table === 'writeoffs';
+    const kdo = getRowWho(row);
+    const poznamka = `Vráceno na sklad — odfasováno ze zápisu z ${formatDate(row.entry_date)}`;
+    const zaklad = {
+      entry_date: dnes,
+      beer_id: row.beer_id, beer_name: row.beer_name ?? nazevPiva,
+      package_id: row.package_id, package_label: row.package_label ?? null,
+      quantity: -ks,
+    };
+    // Sloupec `who` chybí v některých starších podobách tabulek — stejný
+    // záchranný pokus jako v add(): při chybě na `who` se jméno přesune
+    // do poznámky, ať se vrácení neztratí kvůli názvu sloupce.
+    const sJmenem = {
+      ...zaklad,
+      ...(kdo && kdo !== '—' ? { who: kdo } : {}),
+      ...(isWriteoffs ? {} : { note: poznamka }),
+    };
+    let { data: vlozene, error } = await supabase.from(table).insert(sJmenem).select('id');
+    if (error && error.message?.includes('who')) {
+      const res = await supabase.from(table).insert({
+        ...zaklad,
+        ...(isWriteoffs ? {} : { note: kdo && kdo !== '—' ? `[${kdo}] ${poznamka}` : poznamka }),
+      }).select('id');
+      vlozene = res.data;
+      error = res.error;
+    }
+    if (error) { chyba(error); return; }
+
+    zavibruj('odskrtnuto');
+    load(true);
+
+    const idVracenych = ((vlozene as { id: string }[]) ?? []).map((v) => v.id);
+    if (idVracenych.length > 0) {
+      toastZpet(`Vráceno na sklad: ${popis}`, async () => {
+        const { error: chybaMazani } = await supabase.from(table).delete().in('id', idVracenych);
+        if (chybaMazani) throw chybaMazani;
+        load(true);
+      });
+    }
   }
 
   async function increment(id: string, delta: number) {
@@ -852,6 +931,18 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                                 jediný doklad a po měsíci si nikdo nevzpomene, jak to
                                 vypadalo. */}
                             {table === 'writeoffs' && <FotkyZaznamu typ="odpis" zaznamId={r.id} kompaktni />}
+                            {/* ↩️ Odfasovat — vrátí kusy na sklad záporným
+                                protizápisem. U už vráceného řádku (záporný)
+                                nemá co vracet, tak se neukazuje. */}
+                            {Number(r.quantity) > 0 && (
+                              <button
+                                type="button"
+                                className="w-12 min-h-[44px] grid place-items-center rounded bg-sky-100 hover:bg-sky-200 text-sky-800 font-black transition"
+                                onClick={() => odfasuj(r.id)}
+                                aria-label="Odfasovat — vrátit na sklad"
+                                title="Odfasovat — vrátit na sklad"
+                              ><RotateCcw size={18} /></button>
+                            )}
                             <button
                               type="button"
                               className="w-12 min-h-[44px] ml-2 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-black transition"
@@ -917,6 +1008,15 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                                     title="Přidat 1 ks"
                                   >+</button>
                                   {table === 'writeoffs' && <FotkyZaznamu typ="odpis" zaznamId={r.id} kompaktni />}
+                                  {Number(r.quantity) > 0 && (
+                                    <button
+                                      type="button"
+                                      className="tap w-6 h-6 grid place-items-center rounded bg-sky-100 hover:bg-sky-200 text-sky-800 font-bold text-xs transition"
+                                      onClick={() => odfasuj(r.id)}
+                                      aria-label="Odfasovat — vrátit na sklad"
+                                      title="Odfasovat — vrátit na sklad"
+                                    ><RotateCcw size={14} /></button>
+                                  )}
                                   <button
                                     type="button"
                                     className="w-6 h-6 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-xs transition"

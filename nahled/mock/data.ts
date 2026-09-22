@@ -89,17 +89,20 @@ export const bottling = [
   },
 ];
 
+// `id` a `beer_name`/`package_label` tu nejsou navíc: přehled výdeje podle
+// nich řádek pozná (mazání, „Odfasovat") a vypisuje jeho popis.
 export const fasovani = [
-  { beer_id: 'b-12sv', package_id: 'p-lah05', quantity: 12, entry_date: den(1) },
-  { beer_id: 'b-10de', package_id: 'p-keg50', quantity: 1, entry_date: den(2) },
+  { id: 'fa-1', beer_id: 'b-12sv', beer_name: '12° Světlý ležák', package_id: 'p-lah05', package_label: 'Lahev 0,5l', quantity: 12, entry_date: den(1), who: 'Radek', note: null },
+  { id: 'fa-2', beer_id: 'b-10de', beer_name: '10° Desítka', package_id: 'p-keg50', package_label: 'KEG 50l', quantity: 1, entry_date: den(2), who: 'Gabi', note: null },
 ];
 
 export const fasovani_private = [
-  { beer_id: 'b-12sv', package_id: 'p-lah05', quantity: 6, entry_date: den(2) },
+  { id: 'fp-1', beer_id: 'b-12sv', beer_name: '12° Světlý ležák', package_id: 'p-lah05', package_label: 'Lahev 0,5l', quantity: 6, entry_date: den(2), who: null, note: null },
+  { id: 'fp-2', beer_id: 'b-summ', beer_name: 'Summer Ale', package_id: 'p-lah033', package_label: 'Lahev 0,33l', quantity: 24, entry_date: den(1), who: null, note: null },
 ];
 
 export const writeoffs = [
-  { beer_id: 'b-summ', package_id: 'p-lah033', quantity: 4, entry_date: den(1) },
+  { id: 'wo-1', beer_id: 'b-summ', beer_name: 'Summer Ale', package_id: 'p-lah033', package_label: 'Lahev 0,33l', quantity: 4, entry_date: den(1), who: null, reason: 'rozbitá láhev' },
 ];
 
 /** Zavezeno na objednávky — hlavní odliv. */
