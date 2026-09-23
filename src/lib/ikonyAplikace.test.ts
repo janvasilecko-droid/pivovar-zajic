@@ -113,3 +113,49 @@ describe('ikona aplikace a úvodní obrazovka nejsou výchozí Capacitor', () =>
     expect(skript).not.toMatch(/function makePng|function deflateStore/);
   });
 });
+
+// 🐇 Znak na systémové úvodní obrazovce (Android 12+).
+// ---------------------------------------------------------------------------
+// Z provozu 23. 9. 2026 — potřetí totéž hlášení: „na telefonu se mi jako první
+// zobrazí rozmazaný logo pivovaru v černém čtverci, vymaž to … až pak se tam
+// dá to ostrý, co tam má být."
+//
+// Tentokrát nebyla chyba v ikonách appky (ty se opravily 18. 9.), ale v tom,
+// CO SI BERE úvodní obrazovka: byla nastavená na `ic_launcher_foreground`,
+// což je vrstva ikony a má nejvýš 432 px. Android 12+ kreslí znak ve 288dp,
+// tedy 864–1152 px podle hustoty displeje — obrázek se tak zvětšoval skoro
+// trojnásobně. K tomu měl natvrdo bílý čtverec místo průhledného pozadí.
+describe('úvodní obrazovka Androidu ukazuje ostrý znak', () => {
+  const STYLY = readFileSync('android/app/src/main/res/values/styles.xml', 'utf8');
+  const STYLY_TMA = readFileSync('android/app/src/main/res/values-night/styles.xml', 'utf8');
+  const ZNAK = 'android/app/src/main/res/drawable-nodpi/splash_icon.png';
+
+  it('znak má aspoň 1152 px, ať se nemusí zvětšovat', () => {
+    const { w, h } = rozmery(ZNAK);
+    expect(w).toBe(h);
+    expect(w, 'menší obrázek Android roztáhne a rozmaže').toBeGreaterThanOrEqual(1152);
+  });
+
+  it('znak má průhledné pozadí, ne bílý čtverec', () => {
+    // Typ barvy v hlavičce PNG (bajt 25): 6 = RGBA, 4 = šedá s průhledností.
+    const typBarvy = readFileSync(ZNAK)[25];
+    expect([4, 6], 'bez průhlednosti je kolem znaku vidět čtverec').toContain(typBarvy);
+  });
+
+  it('téma si bere ten velký znak, ne vrstvu ikony', () => {
+    expect(STYLY).toMatch(/windowSplashScreenAnimatedIcon">@drawable\/splash_icon/);
+    expect(STYLY, 'vrstva ikony má jen 432 px').not.toMatch(/windowSplashScreenAnimatedIcon">@mipmap/);
+  });
+
+  it('podklad pod znakem je výslovně určený, i v tmavém režimu', () => {
+    for (const [kde, zdroj] of [['světlý', STYLY], ['tmavý', STYLY_TMA]] as const) {
+      expect(zdroj, `${kde} režim: bez toho si podklad vybarví systém`).toMatch(/windowSplashScreenIconBackgroundColor">@color\/splash_background/);
+      expect(zdroj, `${kde} režim: chybí barva pozadí`).toMatch(/windowSplashScreenBackground">@color\/splash_background/);
+    }
+  });
+
+  it('popředí ikony aplikace je taky průhledné', () => {
+    const typBarvy = readFileSync('android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.png')[25];
+    expect([4, 6]).toContain(typBarvy);
+  });
+});

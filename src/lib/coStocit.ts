@@ -37,6 +37,23 @@ export function vychoziDenCoStocit(dnesISO: string): string {
   return dayKeyFromISO(zitraISO);
 }
 
+/**
+ * Kolik kusů chybí stočit MIMO právě vybraný den (celý týden minus výběr).
+ *
+ * Z provozu 22. 9. 2026: „na skladě mi to ukazuje −1×30 12sv, ale Co stočit
+ * na středu ukazuje, že je vše stočené". Obojí byla pravda — středa pokrytá
+ * byla, ale chybějící sud visel na jiném dni (nebo na objednávce bez dne
+ * dovozu). Sklad počítá celý týden, denní plán jen vybraný den, takže si
+ * navzájem odporovaly a schodek se našel až u závozu.
+ *
+ * Při výběru „tyden" vrací 0 — tam je celý týden vidět.
+ */
+export function chybiMimoVyber(plans: DayPlan[], vyber: VyberObdobi): number {
+  const celkem = plans.reduce((s, p) => s + p.totalMissing, 0);
+  const veVyberu = planProVyber(plans, vyber, '').totalMissing;
+  return Math.max(0, celkem - veVyberu);
+}
+
 /** Jen to, co ještě zbývá stočit — nejvíc chybějících nahoře. */
 export function coZbyvaStocit(plan: DayPlan): PlanItem[] {
   return plan.items

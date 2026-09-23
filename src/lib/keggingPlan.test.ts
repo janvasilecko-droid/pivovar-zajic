@@ -597,18 +597,43 @@ describe('z čeho je „hotovo" — rozpad, který si vyžádal provoz', () => {
     });
 
     // Z provozu 16. 9. 2026: „pokud mám na skladě 11×30, tak mi přece nemůže
-    // chybět 5×30“. Skladová kniha už zavezené kusy odečtla (zavoz_deductions),
-    // takže když se ta samá objednávka počítá dál do poptávky, odečte se dvakrát.
-    it('už odečtený závoz se do poptávky nepočítá podruhé', () => {
+    // chybět 5×30“. Už zavezená objednávka nesmí vyrobit fiktivní schodek.
+    //
+    // ⚠️ POZOR NA SMLOUVU: `currentStockMap` se staví BEZ `zavozDeductionRows`
+    // (tak ji posílá Kegging.tsx, BottlingScreen.tsx i CoStocitOkno.tsx —
+    // viz doc u KeggingPlanInput). Tenhle test dřív posílal zásobu S už
+    // odečteným závozem (11) a výpočet si odpočet přičítal zpátky, aby to
+    // vyšlo. Jenže provoz posílá opak, takže se odpočet započítal DVAKRÁT:
+    // fond narostl o dvojnásobek zavezeného a plán hlásil „vše stočeno“,
+    // i když Sklad ukazoval mínus (nahlášeno 22. 9. 2026 — „ve skladu
+    // sudy správně, ve stáčení to, co chybí, ne“).
+    //
+    // Fyzicky: 11 na skladě + 12 už zavezených = 23 stočených kusů, které
+    // fond tou dobou obsahoval. Poptávka 12 + 4 = 16 → nic nechybí.
+    it('už zavezená objednávka nevyrobí schodek (zásoba BEZ odpočtu závozu)', () => {
       const p = plan({
         orders: [objednavka('o1', '2026-08-26'), objednavka('o2', '2026-08-27')],
         orderItems: [polozka('o1', 'b-des', 'p30', 12, 'i-st'), polozka('o2', 'b-des', 'p30', 4, 'i-ct')],
         zavozDeductionRows: [{ deduct_date: '2026-08-26', beer_id: 'b-des', package_id: 'p30', quantity: 12, order_item_id: 'i-st' }],
-        currentStockMap: new Map([['b-des__p30', 11]]),
+        currentStockMap: new Map([['b-des__p30', 23]]),
       });
       expect(day(p, 'st').items[0].missing).toBe(0);
       expect(day(p, 'st').items[0].zChladaku).toBe(12);
       expect(day(p, 'ct').items[0].missing).toBe(0);
+    });
+
+    // Zásoba je SKUTEČNÝ sklad (stav po odvozu) — viz smlouva u
+    // currentStockMap. Sklad 10 (po odvozu 5 v úterý), odpočet tohoto týdne
+    // se vrátí → fond 15. Poptávka 5 (úterý) + 13 (středa) = 18 → chybí 3.
+    it('skutečná zásoba + vrácený odpočet tohoto týdne dá správný zbytek', () => {
+      const p = plan({
+        orders: [objednavka('o1', '2026-08-25'), objednavka('o2', '2026-08-26')],
+        orderItems: [polozka('o1', 'b-des', 'p30', 5, 'i-ut'), polozka('o2', 'b-des', 'p30', 13, 'i-st')],
+        zavozDeductionRows: [{ deduct_date: '2026-08-25', beer_id: 'b-des', package_id: 'p30', quantity: 5, order_item_id: 'i-ut' }],
+        currentStockMap: new Map([['b-des__p30', 10]]),
+      });
+      expect(day(p, 'ut').items[0].missing).toBe(0);
+      expect(day(p, 'st').items[0].missing).toBe(3);
     });
 
     it('bez currentStockMap odečtený závoz dál nic nevykrývá', () => {

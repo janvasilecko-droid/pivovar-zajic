@@ -3,6 +3,7 @@ import { Modal } from './ui';
 import { AlertTriangle, Check, CheckSquare, FlaskConical, Lock, RotateCcw, ShieldCheck, Square, Unlock } from 'lucide-react';
 import { potvrd } from '../lib/toast';
 import { synchronizuj, ulozStav } from '../lib/checklistData';
+import { sZnackouKonce } from '../lib/konecStaceni';
 import { zavibruj } from '../lib/haptika';
 import { businessDateISO } from '../lib/businessDate';
 
@@ -146,10 +147,17 @@ export function KeggingChecklistBody({ dateStr, onApplyNote, onDone, blockCloseU
     return () => { platne = false; };
   }, [dateKey]);
 
-  /** Zapíše stav do zrcadla i do databáze. Vrací ho, ať jde řetězit do setChecks. */
+  /**
+   * Zapíše stav do zrcadla i do databáze. Vrací ho, ať jde řetězit do setChecks.
+   *
+   * Spolu se stavem jde i odvozená značka „konec stáčení hotový"
+   * (lib/konecStaceni.ts) — podle ní pozná databáze, jestli má večer poslat
+   * připomínku na telefon.
+   */
   function zapis(next: Record<string, boolean | string>) {
-    void ulozStav('kegy', dateKey, next);
-    return next;
+    const sZnackou = sZnackouKonce(KEG_DEFAULT_ITEMS, next);
+    void ulozStav('kegy', dateKey, sZnackou);
+    return sZnackou;
   }
 
   const items = getFilteredKegItems(phase);

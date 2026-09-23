@@ -40,6 +40,9 @@ const db: Record<string, Radek[]> = {
   orders: [...vychozi.orders],
   order_items: [...vychozi.order_items],
   kegging_plan_checks: [...vychozi.kegging_plan_checks],
+  // Úkoly stáčení („Potřeby stáčení" v Nastavení) — v náhledu se začíná
+  // s prázdným týdnem, úkol si jde rovnou zkusit založit.
+  bottling_plans: [],
 };
 
 /** Kopie z produkčního modulu — barva piva na tečku v seznamu. */
@@ -216,7 +219,14 @@ export const supabase = {
         }));
         db[tabulka] = [...(db[tabulka] ?? []), ...pole];
         zaznamenej(tabulka, 'insert', pole);
-        return Promise.resolve({ data: pole, error: null });
+        // `.select('id')` za insertem: skutečná Supabase vrací vložené řádky
+        // a appka podle jejich id staví „Vrátit zpět" (ProdejnaScreen). Bez
+        // tohohle náhled na takové obrazovce spadl na `insert(...).select
+        // is not a function` — a vypadalo to jako chyba appky, ne náhledu.
+        const vysledek = { data: pole, error: null };
+        const odpoved: any = Promise.resolve(vysledek);
+        odpoved.select = () => Promise.resolve(vysledek);
+        return odpoved;
       },
 
       upsert(radky: Radek | Radek[], opts?: { onConflict?: string }) {

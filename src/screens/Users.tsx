@@ -5,7 +5,7 @@ import { Modal, Field, EmptyState, Spinner } from '../components/ui';
 import { createFullBackup, downloadBackupJSON, downloadGoogleSheetsExcelBackup } from '../lib/backup';
 import { Car, CheckCircle2, Crown, Download, History, Hourglass, Mail, Plus, Search, Shield, Table, Trash2, Users as UsersIcon } from 'lucide-react';
 import { UserPermissionsModal } from '../components/UserPermissionsModal';
-import { AuditLogViewer } from '../components/AuditLogViewer';
+
 import { TabBar } from '../components/TabBar';
 import { isAdminEmail } from '../lib/config';
 import { chyba, potvrd } from '../lib/toast';
@@ -18,10 +18,14 @@ type UserRow = {
 };
 
 /** Záložky obrazovky. Barvy jsou stejný jazyk jako u ostatních „Tabbed" stránek. */
+// „Auditní stopa" tu byla do 22. 9. 2026 jako třetí záložka. Ze zadání
+// („odstraň z nastavení ty audity, dej je jen do dlaždice Audit") se přesunula
+// tam, kde jsou všechny kontroly pohromadě — v dlaždici Audit jako „Historie
+// změn". Odkaz na ni zůstává pod seznamem uživatelů, ať se na ni dá dostat
+// i odsud. Stará adresa (users → podzáložka 'audit') proto přesměrovává.
 const ZALOZKY = [
   { id: 'users', label: 'Uživatelé & Práva', icon: Shield, color: '#d4a017' },
   { id: 'emails', label: 'Schválené e-maily', icon: Mail, color: '#2f9e64' },
-  { id: 'audit', label: 'Auditní stopa', icon: History, color: '#4dabf7' },
 ];
 
 export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, sec?: string, sub?: string) => void; initialSubTab?: string } = {}) {
@@ -99,13 +103,16 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
   }
 
   const [permissionsUser, setPermissionsUser] = useState<UserRow | null>(null);
-  const [activeTab, setActiveTab] = useState<'users' | 'audit' | 'emails'>((initialSubTab as any) || 'users');
+  // 'audit' už tady záložku nemá — kdo přijde po staré cestě (uložená
+  // dlaždice, odkaz), skončí na seznamu uživatelů místo na prázdné obrazovce.
+  const zalozkaZAdresy = (s?: string) => (s === 'users' || s === 'emails' ? s : 'users');
+  const [activeTab, setActiveTab] = useState<'users' | 'emails'>(() => zalozkaZAdresy(initialSubTab));
 
   useEffect(() => {
-    setActiveTab((initialSubTab as any) || 'users');
+    setActiveTab(zalozkaZAdresy(initialSubTab));
   }, [initialSubTab]);
 
-  function selectTab(t: 'users' | 'audit' | 'emails') {
+  function selectTab(t: 'users' | 'emails') {
     if (setPage) setPage('users', undefined, t);
     else setActiveTab(t);
   }
@@ -216,10 +223,8 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
       <TabBar
         items={ZALOZKY}
         activeId={activeTab}
-        onSelect={(id) => selectTab(id as 'users' | 'audit' | 'emails')}
+        onSelect={(id) => selectTab(id as 'users' | 'emails')}
       />
-
-      {activeTab === 'audit' && <AuditLogViewer />}
 
       {activeTab === 'users' && (
         <>
@@ -236,6 +241,17 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
           </div>
           <p className="text-xs text-neutral-500 font-medium -mt-2 mb-1 text-right">
             Nový přístup: v záložce „Schválené e-maily" přidejte e-mail a pak ho schvalte. Uživatel se přihlásí odkazem na e-mail.
+          </p>
+          {/* Kdo co kdy změnil, je od 22. 9. 2026 jen v dlaždici Audit —
+              ať jsou všechny kontroly na jednom místě. Odsud na ni vede odkaz. */}
+          <p className="text-xs text-neutral-500 font-medium mb-1 text-right">
+            <button
+              type="button"
+              onClick={() => setPage?.('audit')}
+              className="tap font-black text-amber-800 hover:underline decoration-dotted underline-offset-2 inline-flex items-center gap-1"
+            >
+              <History className="ikona-text" /> Kdo co kdy změnil → dlaždice Audit
+            </button>
           </p>
 
       {err && <div className="text-sm text-rose-700 bg-rose-500/10 rounded px-3.5 py-2.5 mb-4 font-bold">{err}</div>}

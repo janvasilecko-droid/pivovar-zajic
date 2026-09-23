@@ -497,6 +497,38 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
       clearTimeout(autoParseTimer);
       autoParseTimer = setTimeout(() => { triggerAutoParse().catch(() => {}); }, 1500);
     };
+    // 🚀 DOPARSOVAT, CO PŘIŠLO ZAVŘENÝM DVEŘÍM.
+    //
+    // `triggerAutoParse` se doteď volal JEN z odběru realtime níž — tedy
+    // výhradně ve chvíli, kdy zpráva dorazí a někdo má zrovna appku
+    // otevřenou. Zprávy, které přišly v noci, o víkendu nebo jen když
+    // nikdo appku neměl puštěnou, tak zůstaly navždy ve stavu `pending`
+    // a musely se parsovat ručně (z provozu 22. 9. 2026: „furt mi to
+    // automaticky neparsuje, musím to dělat ručně"). Totéž po výpadku
+    // realtime spojení — zmeškaná událost se už nikdy nevrátila.
+    //
+    // Proto se při startu appky (a při návratu k ní) podíváme, jestli
+    // něco nečeká, a když ano, pošleme JEDNO volání. Škrtič drží odstup
+    // aspoň minutu, ať se netrefíme do limitu funkce (5 volání/60 s).
+    let poslednidoparsovani = 0;
+    const doparsujCekajici = () => {
+      const ted = Date.now();
+      if (ted - poslednidoparsovani < 60_000) return;
+      fetchPendingWhatsAppCount()
+        .then((kolik) => {
+          if (kolik > 0) {
+            poslednidoparsovani = Date.now();
+            return triggerAutoParse().catch(() => {});
+          }
+        })
+        .catch(() => {});
+    };
+    const naNavrat = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') doparsujCekajici();
+    };
+    doparsujCekajici();
+    if (typeof document !== 'undefined') document.addEventListener('visibilitychange', naNavrat);
+
     refreshPendingCount();
     try {
       unsubscribe = subscribeToWhatsAppMessages((message: WhatsAppIncoming) => {
@@ -560,7 +592,12 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
     } catch (error) {
       zalogujANahlas('Chyba při připojení k WhatsApp notifikacím', error);
     }
-    return () => { if (unsubscribe) unsubscribe(); clearTimeout(countTimer); clearTimeout(autoParseTimer); };
+    return () => {
+      if (unsubscribe) unsubscribe();
+      if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', naNavrat);
+      clearTimeout(countTimer);
+      clearTimeout(autoParseTimer);
+    };
   }, []);
 
   // Offline queue + connectivity

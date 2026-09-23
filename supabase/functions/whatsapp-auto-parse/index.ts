@@ -881,7 +881,13 @@ Deno.serve(async (req: Request) => {
             parsed_items: itemsForStorage,
             // ❓ Otázky AI k téhle zprávě — uklidí se do kontroly objednávky,
             // ať obsluha ví, co si model nebyl jistý, místo aby to uhádl.
-            parsed_otazky: Array.isArray(parsedData?.otazky) ? parsedData.otazky : [],
+            // POZOR na název proměnné: odpověď z parse-order-text je
+            // `parseResult`. Od 18. 9. 2026 tu stálo `parsedData`, což v téhle
+            // funkci neexistuje — každá zpráva tak spadla na ReferenceError
+            // („parsedData is not defined"), skončila ve stavu 'error' a
+            // musela se číst ručně. Nezachytil to ani typescript (funkce se
+            // nekontrolují s appkou), ani test — proto `deno check` v CI.
+            parsed_otazky: Array.isArray(parseResult?.otazky) ? parseResult.otazky : [],
             // U fotoobjednávek nemá kontrola čtení (diff popisku zprávy vs.
             // přepisu fotky) smysl — popisek typu "Maneo" nikdy neobsahuje
             // text položek, takže by vždy hlásil nesoulady. Tam kontrolu

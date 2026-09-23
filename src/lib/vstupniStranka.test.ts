@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { zjistiStrankuZUrl } from './vstupniStranka';
+import { zjistiStrankuZUrl, jeChecklistKonceZUrl } from './vstupniStranka';
 
 const PLATNE = new Set(['orders', 'kegging', 'bottling', 'home']);
 
@@ -18,5 +18,21 @@ describe('zjistiStrankuZUrl', () => {
 
   it('funguje i vedle jiných parametrů v query stringu', () => {
     expect(zjistiStrankuZUrl('?utm_source=x&page=kegging', PLATNE)).toBe('kegging');
+  });
+});
+
+// 🔔 Otevření rovnou na tabulce konce stáčení (připomínka v 16:00/18:00).
+describe('jeChecklistKonceZUrl', () => {
+  it('pozná adresu z připomínky', () => {
+    expect(jeChecklistKonceZUrl('?page=bottling&checklist=konec')).toBe(true);
+  });
+
+  it('bez parametru nic neotevírá', () => {
+    expect(jeChecklistKonceZUrl('?page=bottling')).toBe(false);
+    expect(jeChecklistKonceZUrl('')).toBe(false);
+  });
+
+  it('jinou hodnotu ignoruje', () => {
+    expect(jeChecklistKonceZUrl('?checklist=zacatek')).toBe(false);
   });
 });

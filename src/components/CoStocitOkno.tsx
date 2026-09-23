@@ -14,13 +14,13 @@
 // Volba týden/dnes a sbalení okna se pamatuje v telefonu.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { jeSud } from '../lib/inventoryFix';
-import { CalendarDays, Check, ChevronDown, ChevronRight } from 'lucide-react';
+import { AlertTriangle, CalendarDays, Check, ChevronDown, ChevronRight } from 'lucide-react';
 import { supabase, fetchAllRows, useRealtime, beerBg, beerName } from '../lib/supabase';
 import { businessDateISO } from '../lib/businessDate';
 import { isoWeekKey, weekRange } from './WeeklyOrderSummaryCard';
 import { computeKeggingPlan, dayKeyFromISO, BEZ_TERMINU, type DayPlan } from '../lib/keggingPlan';
 import { zbytekKeKonciTydne } from '../lib/tydenniZbytek';
-import { planProVyber, vychoziDenCoStocit } from '../lib/coStocit';
+import { planProVyber, vychoziDenCoStocit, chybiMimoVyber as spoctiChybiMimoVyber } from '../lib/coStocit';
 import { DAYS } from '../lib/shared';
 import { uloz } from '../lib/uloziste';
 import { IkonaSud, IkonaLahev } from './ikony';
@@ -180,6 +180,8 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
       prefukRows: data.prefuk,
       adjustmentRows: data.adjustments,
       packages: data.packages,
+      // Viz Kegging.tsx — skutečná zásoba včetně odpočtů závozu.
+      zavozDeductionRows: data.zavozDeductions,
     }, businessDateISO());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
@@ -236,9 +238,30 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
   const objednanoCelkem = planSudy.totalOrdered + planLahve.totalOrdered;
   const sloupceSudu = matice.sloupce.filter((s) => s.druh === 'sudy').length;
   const sloupceLahvi = matice.sloupce.length - sloupceSudu;
-  const bezTerminu = obdobi === 'tyden'
-    ? (planySudy.find((p) => p.day === BEZ_TERMINU)?.totalMissing ?? 0) + (planyLahve.find((p) => p.day === BEZ_TERMINU)?.totalMissing ?? 0)
-    : 0;
+  // ⚠️ Kolik chybí za CELÝ týden — i když se kouká na jeden den.
+  //
+  // Z provozu 22. 9. 2026: „na skladě mi to ukazuje −1×30 12sv, ale Co stočit
+  // na středu mi ukazuje, že je vše stočené". Obojí byla pravda: středa
+  // opravdu pokrytá byla, jenže ten chybějící sud visel na JINÉM dni (nebo
+  // na objednávce bez dne dovozu) a denní pohled o něm mlčel — dokonce
+  // svítil zelené „hotovo". Sklad počítá celý týden, plán jen vybraný den,
+  // takže si navzájem odporovaly. Schodek mimo vybraný den se proto ukazuje
+  // vždycky.
+  // ✍️ Jen ODŠKRTNUTÉ, ale ve stáčení nezapsané.
+  //
+  // Tlačítko „Mám všech X" v plánu zapisuje do kegging_plan_checks —
+  // je to pracovní odškrtávátko, ne evidence stáčení (a samo to říká).
+  // Jenže tím položce spadne „chybí" na nulu a z plochy BEZE STOPY
+  // zmizí: ve stáčení není zápis, ve skladu pořád nula, a nikdo už
+  // neví, že se na to má sáhnout. Z provozu 22. 9. 2026: „klikl jsem
+  // u 5×30 desítky na ‚vše mám‘, zmizely z hlavní plochy, ale nejsou
+  // zapsané ve stáčení". Proto se to tady přizná.
+  const jenOdskrtnuto = [...planSudy.items, ...planLahve.items]
+    .reduce((s, it) => s + Math.max(0, Math.min(it.checked, it.ordered) - it.autoDone), 0);
+  const chybiVeVyberu = planSudy.totalMissing + planLahve.totalMissing;
+  const chybiMimoVyber = spoctiChybiMimoVyber(planySudy, obdobi) + spoctiChybiMimoVyber(planyLahve, obdobi);
+  const bezTerminu = (planySudy.find((p) => p.day === BEZ_TERMINU)?.totalMissing ?? 0)
+    + (planyLahve.find((p) => p.day === BEZ_TERMINU)?.totalMissing ?? 0);
 
   const nazevObdobi = obdobi === 'tyden'
     ? `tento týden (${weekLabel})`
@@ -294,6 +317,12 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
                 </span>
               )}
             </>
+          ) : chybiMimoVyber > 0 ? (
+            /* Na vybraný den je hotovo, ale TÝDEN chybí — zelené „hotovo" by
+               tady lhalo (viz komentář u chybiMimoVyber). */
+            <span className="px-2 py-0.5 rounded-full bg-amber-500 text-neutral-950 font-black text-xs tabular-nums flex items-center gap-1">
+              <AlertTriangle size={12} /> týden {chybiMimoVyber}
+            </span>
           ) : objednanoCelkem > 0 ? (
             <span className="px-2 py-0.5 rounded-full bg-emerald-700 text-white font-black text-xs"><Check size={12} className="inline" /> hotovo</span>
           ) : null)}
@@ -395,10 +424,37 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
             </div>
           )}
 
-          {data && (matice.hotovaPiva.size > 0 || bezTerminu > 0) && (
+          {/* ⚠️ Schodek, který na vybraný den nevidíš. Bez tohohle řádku
+              tvrdil denní pohled „vše stočeno", zatímco Sklad ukazoval
+              mínus — a chybějící sud se našel až u závozu. */}
+          {data && chybiMimoVyber > 0 && (
+            <p className="text-udaj font-black text-amber-900 bg-amber-50 border border-amber-300 rounded px-2 py-1.5 flex items-start gap-1.5">
+              <AlertTriangle size={12} className="shrink-0 mt-0.5" />
+              <span>
+                {chybiVeVyberu === 0
+                  ? `Na ${nazevObdobi} je vše stočené, ale tento týden ještě chybí ${chybiMimoVyber} ks`
+                  : `Mimo ${nazevObdobi} chybí tento týden ještě ${chybiMimoVyber} ks`}
+                {bezTerminu > 0 ? ` (z toho ${bezTerminu} ks u objednávek bez dne dovozu)` : ' (na jiný den)'}
+                {' — přepni na Týden.'}
+              </span>
+            </p>
+          )}
+
+          {/* ✍️ Odškrtnuté, ale nezapsané — viz komentář u jenOdskrtnuto. */}
+          {data && jenOdskrtnuto > 0 && (
+            <p className="text-udaj font-black text-amber-900 bg-amber-50 border border-amber-300 rounded px-2 py-1.5 flex items-start gap-1.5">
+              <AlertTriangle size={12} className="shrink-0 mt-0.5" />
+              <span>
+                {jenOdskrtnuto} ks je jen odškrtnuto v plánu, ale ve stáčení nezapsáno — ve skladu se to neprojeví.
+                {' '}Zapiš je v „Začátek stáčení", nebo odškrtnutí zruš.
+              </span>
+            </p>
+          )}
+
+          {data && (matice.hotovaPiva.size > 0 || (bezTerminu > 0 && obdobi === 'tyden')) && (
             <p className="text-udaj font-bold text-neutral-500">
               {matice.hotovaPiva.size > 0 && <><Check size={11} className="inline text-emerald-700" /> Už pokryto: {matice.hotovaPiva.size} {matice.hotovaPiva.size === 1 ? 'pivo' : matice.hotovaPiva.size < 5 ? 'piva' : 'piv'} (stočením nebo zásobou skladem). </>}
-              {bezTerminu > 0 && <>Včetně {bezTerminu} ks z objednávek bez dne dovozu.</>}
+              {bezTerminu > 0 && obdobi === 'tyden' && <>Včetně {bezTerminu} ks z objednávek bez dne dovozu.</>}
             </p>
           )}
 

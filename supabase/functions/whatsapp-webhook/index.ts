@@ -472,17 +472,52 @@ Deno.serve(async (req: Request) => {
     if (record.webhook_id) {
       const { data: existing } = await supabase
         .from("whatsapp_incoming")
-        .select("id")
+        .select("id, media_url")
         .eq("webhook_id", record.webhook_id)
         .maybeSingle();
 
       if (existing) {
-        await zapisDoDeniku("duplicita", "stejné webhook_id už v databázi je", existing.id);
+        // 🩹 DOPLNĚNÍ CHYBĚJÍCÍ FOTKY. Duplicita se jinak jen zahodí — jenže
+        // když zpráva poprvé dorazila BEZ fotky (most ji neuměl stáhnout,
+        // typicky objednávka poslaná během výpadku, která přišla přes
+        // historii), zůstala by v aplikaci navždycky prázdná. Přeposlání
+        // téže zprávy s fotkou ji pak nemělo jak opravit — dedup podle
+        // webhook_id ji zahodil dřív, než se k médiu vůbec došlo.
+        // Z provozu 22. 9. 2026 (Maneo): „Fotka — médium nebylo doručeno".
+        //
+        // Doplňuje se JEN chybějící fotka, nic jiného se nepřepisuje: text
+        // ani rozparsované položky se sahat nesmí, ty už mohl někdo v
+        // aplikaci ručně opravit.
+        let doplneno = false;
+        if (record.media_url && !existing.media_url) {
+          const { error: healErr } = await supabase
+            .from("whatsapp_incoming")
+            .update({ media_url: record.media_url })
+            .eq("id", existing.id);
+          if (healErr) {
+            console.error(`[whatsapp-webhook] doplnění fotky k ${existing.id} selhalo:`, healErr);
+          } else {
+            doplneno = true;
+            console.log(
+              `[whatsapp-webhook] 🩹 K existující zprávě ${existing.id} doplněna chybějící fotka (${record.media_url}).`
+            );
+          }
+        }
+        await zapisDoDeniku(
+          "duplicita",
+          doplneno
+            ? "stejné webhook_id už v databázi je — doplněna chybějící fotka"
+            : "stejné webhook_id už v databázi je",
+          existing.id,
+        );
         return new Response(
           JSON.stringify({
             success: true,
-            message: "Duplicate webhook ID, message already received",
-            id: existing.id
+            message: doplneno
+              ? "Duplicate webhook ID — chybějící fotka doplněna k existující zprávě"
+              : "Duplicate webhook ID, message already received",
+            id: existing.id,
+            media_doplneno: doplneno,
           }),
           { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );

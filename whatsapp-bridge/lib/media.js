@@ -87,14 +87,35 @@ export function getImageDirectUrl(msg) {
  * stáhnout nedá (view-once bez povolení, odepřený přístup, timeout…).
  * Chyby JEN loguje a vrací null — zpráva se má přeposlat i bez fotky.
  */
-export async function downloadImageBuffer(msg, { logger } = {}) {
-  try {
-    const buffer = await downloadMediaMessage(msg, 'buffer', {}, { logger });
-    return buffer && buffer.length > 0 ? buffer : null;
-  } catch (e) {
-    logger?.warn(`[media] stažení fotky selhalo: ${e?.message || e}`);
-    return null;
+export async function downloadImageBuffer(msg, { logger, sock } = {}) {
+  // `reuploadRequest` je ZÁSADNÍ pro fotky, které nejdou stáhnout přímo —
+  // typicky starší kousky z historie (po znovupárování mostu) nebo média,
+  // která už nejsou na CDN WhatsAppu. Bez něj `downloadMediaMessage` prostě
+  // selže a objednávka doputuje do aplikace bez fotky („médium nebylo
+  // doručeno"). S ním Baileys požádá odesílatelovo zařízení, ať médium
+  // nahraje znovu, a stažení se povede.
+  //
+  // Z provozu 22. 9. 2026: fotka objednávky od Manea dorazila ve chvíli, kdy
+  // byl most odhlášený. Po naskenování QR přišla přes historii — a protože
+  // se média z historie vůbec nestahovala a `reuploadRequest` chyběl,
+  // v aplikaci zůstala objednávka bez fotky i bez položek.
+  const opts = { logger };
+  if (sock && typeof sock.updateMediaMessage === 'function') {
+    opts.reuploadRequest = sock.updateMediaMessage.bind(sock);
   }
+  // Dva pokusy: první běžný, druhý po krátké pauze (výpadek sítě na Renderu,
+  // nebo než odesílatel stihne médium znovu nahrát).
+  for (let pokus = 1; pokus <= 2; pokus += 1) {
+    try {
+      const buffer = await downloadMediaMessage(msg, 'buffer', {}, opts);
+      if (buffer && buffer.length > 0) return buffer;
+      logger?.warn(`[media] stažení fotky vrátilo prázdno (pokus ${pokus}/2)`);
+    } catch (e) {
+      logger?.warn(`[media] stažení fotky selhalo (pokus ${pokus}/2): ${e?.message || e}`);
+    }
+    if (pokus === 1) await new Promise((r) => setTimeout(r, 1500));
+  }
+  return null;
 }
 
 /**
@@ -174,8 +195,8 @@ export async function uploadMediaToSupabase(supabase, { buffer, contentType, web
  *   - přímou WhatsApp URL (nouzový fallback, pokud se upload nepovedl),
  *   - null, když se fotku nepovedlo ani stáhnout (zpráva se pošle bez mediaUrl).
  */
-export async function prepareImageForForwarding({ msg, supabase, webhookId, logger } = {}) {
-  const buffer = await downloadImageBuffer(msg, { logger });
+export async function prepareImageForForwarding({ msg, supabase, webhookId, logger, sock } = {}) {
+  const buffer = await downloadImageBuffer(msg, { logger, sock });
   if (!buffer) {
     logger?.warn('[media] fotka se nepodařila stáhnout — posílám zprávu bez mediaUrl');
     return null;

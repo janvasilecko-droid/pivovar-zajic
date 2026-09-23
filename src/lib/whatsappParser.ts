@@ -1,7 +1,7 @@
 import { Beer, Package, Place, supabase } from './supabase';
 import { normPlaceName, stripSenderName, resolvePlace, odberatelZHistorie, wantsOwnOrder as textWantsOwnOrder } from '../../supabase/functions/_shared/place-match';
 import { nactiHistorii } from '../../supabase/functions/_shared/historie-objednavek';
-import { parseGeminiItems, detectOrderNotes, loadAliasMap, loadPlaceAliasMap, ParserAliasMap, ParsedLine, GeminiItem } from './orderParser';
+import { parseGeminiItems, detectOrderNotes, parseOrderText, loadAliasMap, loadPlaceAliasMap, ParserAliasMap, ParsedLine, GeminiItem } from './orderParser';
 import { parseExplicitDate } from './orderDates';
 import { businessNow } from './businessDate';
 import { authenticatedFunctionHeaders } from './functionAuth';
@@ -635,6 +635,7 @@ export async function parseWhatsAppOrderMessageWithAI(
   const geminiItems: GeminiItem[] = data?.items ?? [];
   const items = parseGeminiItems(geminiItems, beers, packages, aliasMap, undefined, places);
 
+
   // 3. Odběratel — top-level place_name z AI má přednost (stejné ladění jako
   //    u čtení z fotek), pak place_name položek, pak celý text zprávy.
   //    ODESÍLATEL se jako odběratel normálně nepoužívá — je to jen posel;
@@ -725,6 +726,36 @@ export async function parseWhatsAppOrderMessageWithAI(
         .map((o: string) => o.trim())
         .slice(0, 3)
     : [];
+
+  // 🕸️ ZÁCHRANNÁ SÍŤ: co AI přehlédla, dopočítá lokální parser.
+  //
+  // Z provozu 22. 9. 2026: objednávka od Malešic obsahovala
+  // „24x1,5l 12sv bez etikety" a v aplikaci ta položka vůbec nebyla —
+  // AI ji prostě vynechala a nic to nehlásilo. Lokální `parseOrderText`
+  // přitom tentýž řádek čte správně (ověřeno testem níž), takže se
+  // nabízí použít ho jako kontrolu.
+  //
+  // Přidává se JEN to, co v AI výsledku chybí (stejné pivo+obal+počet) —
+  // ne že by se seznamy slučovaly. Radši položka navíc, kterou obsluha
+  // v kontrole smaže, než tiše chybějící sudy: objednávka se stejně
+  // schvaluje ručně, takže se přidané řádky nikam nedostanou bez
+  // lidského oka. Chyba lokálního parseru nesmí shodit čtení zprávy,
+  // proto je celé v try/catch.
+  try {
+    const zTextu = parseOrderText(rawTextFromAi || rawMessage, beers, packages, aliasMap);
+    const klic = (l: { beer_id: string | null; package_id: string | null; quantity: number | null }) =>
+      `${l.beer_id ?? '?'}__${l.package_id ?? '?'}__${l.quantity ?? 0}`;
+    const uzMame = new Set(items.map(klic));
+    for (const l of zTextu) {
+      // Jen jednoznačné řádky: bez piva nebo bez obalu by to byl šum.
+      if (!l.beer_id || !l.package_id || !l.quantity) continue;
+      if (uzMame.has(klic(l))) continue;
+      uzMame.add(klic(l));
+      items.push({ ...l, confidence: 'low' });
+    }
+  } catch (e) {
+    console.warn('[whatsappParser] záchranné čtení textu selhalo:', e);
+  }
 
   return { placeId, placeName, deliveryDay: day, deliveryDate: dateStr, note, items, raw_text: rawTextFromAi, otazky };
 }

@@ -7,6 +7,7 @@ import {
   parseOrderText,
   parseFreeTextEntries,
   detectOrderNotes,
+  parseDeliveryDayFromText,
   parseDeliveryTimeHint,
   parseGeminiItems,
   isUsefulBeerAlias,
@@ -528,6 +529,36 @@ describe('detectOrderNotes', () => {
 
   it('slovní čas dovozu se sčítá s dalšími poznámkami', () => {
     expect(detectOrderNotes('2x50 12sv, prijedou kolem poledne, zaplaceno')).toBe('prijedou kolem poledne, zaplaceno');
+  });
+});
+
+describe('parseDeliveryDayFromText', () => {
+  it('rozpozná den se skutečnou diakritikou (jak píše odběratel)', () => {
+    // Přesně tohle detectOrderNotes/NOTE_PATTERNS nechytí — počítají jen
+    // s ASCII tvarem "utery", ne se skutečným "úterý" s diakritikou.
+    expect(parseDeliveryDayFromText('Závoz v úterý prosím')).toBe('ut');
+    expect(parseDeliveryDayFromText('dodat ve středu odpoledne')).toBe('st');
+    expect(parseDeliveryDayFromText('prosím na čtvrtek')).toBe('ct');
+    expect(parseDeliveryDayFromText('přivezte v pátek ráno')).toBe('pa');
+    expect(parseDeliveryDayFromText('v pondělí máme akci')).toBe('po');
+  });
+
+  it('funguje i bez diakritiky', () => {
+    expect(parseDeliveryDayFromText('zavoz v utery')).toBe('ut');
+    expect(parseDeliveryDayFromText('2x50 12sv, ctvrtek prosim')).toBe('ct');
+  });
+
+  it('sobotu/neděli nerozpozná — pivovar o víkendu nerozváží', () => {
+    expect(parseDeliveryDayFromText('vyzvednu si to v sobotu')).toBeNull();
+    expect(parseDeliveryDayFromText('v neděli budeme zavření')).toBeNull();
+  });
+
+  it('vrátí null, když text žádný den nezmiňuje', () => {
+    expect(parseDeliveryDayFromText('2x50 12sv desitka')).toBeNull();
+  });
+
+  it('nechytá den schovaný uvnitř jiného slova ("středisko")', () => {
+    expect(parseDeliveryDayFromText('poslat na naše středisko')).toBeNull();
   });
 });
 

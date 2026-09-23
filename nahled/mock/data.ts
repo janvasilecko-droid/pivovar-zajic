@@ -23,20 +23,20 @@ const PRVNI_V_MESICI = PONDELI.slice(0, 8) + '01';
 const MINULY = (n: number) => posunDnu(PONDELI, n - 7);
 
 export const beers = [
-  { id: 'b-12sv', name: '12° Světlý ležák', sort_order: 1 },
-  { id: 'b-12tm', name: '12° Tmavý ležák', sort_order: 2 },
-  { id: 'b-11sv', name: '11° Světlá', sort_order: 3 },
-  { id: 'b-10de', name: '10° Desítka', sort_order: 4 },
-  { id: 'b-08os', name: 'Osma', sort_order: 5 },
-  { id: 'b-summ', name: 'Summer Ale', sort_order: 6 },
+  { id: 'b-12sv', name: '12° Světlý ležák', sort_order: 1, is_active: true },
+  { id: 'b-12tm', name: '12° Tmavý ležák', sort_order: 2, is_active: true },
+  { id: 'b-11sv', name: '11° Světlá', sort_order: 3, is_active: true },
+  { id: 'b-10de', name: '10° Desítka', sort_order: 4, is_active: true },
+  { id: 'b-08os', name: 'Osma', sort_order: 5, is_active: true },
+  { id: 'b-summ', name: 'Summer Ale', sort_order: 6, is_active: true },
   // Piva pro pátek s deseti pivy (o-5) — bez nich order_items odkazovaly na
   // neexistující b-13pa/b-14ip/b-citr/b-psen a panel „Co stočit" je ukázal
   // jako „?" (pivoPodleId nenašlo shodu). Z provozu 15. 9. 2026: „co sou ty
   // otazníky, to je nějaká chyba" — nebyla, jen chybějící vymyšlená data.
-  { id: 'b-13pa', name: '13° Pale Ale', sort_order: 7 },
-  { id: 'b-14ip', name: '14° IPA', sort_order: 8 },
-  { id: 'b-citr', name: 'Citron', sort_order: 9 },
-  { id: 'b-psen', name: 'Pšeničné', sort_order: 10 },
+  { id: 'b-13pa', name: '13° Pale Ale', sort_order: 7, is_active: true },
+  { id: 'b-14ip', name: '14° IPA', sort_order: 8, is_active: true },
+  { id: 'b-citr', name: 'Citron', sort_order: 9, is_active: true },
+  { id: 'b-psen', name: 'Pšeničné', sort_order: 10, is_active: true },
 ];
 
 export const packages = [
@@ -89,17 +89,20 @@ export const bottling = [
   },
 ];
 
+// `id` a `beer_name`/`package_label` tu nejsou navíc: přehled výdeje podle
+// nich řádek pozná (mazání, „Odfasovat") a vypisuje jeho popis.
 export const fasovani = [
-  { beer_id: 'b-12sv', package_id: 'p-lah05', quantity: 12, entry_date: den(1) },
-  { beer_id: 'b-10de', package_id: 'p-keg50', quantity: 1, entry_date: den(2) },
+  { id: 'fa-1', beer_id: 'b-12sv', beer_name: '12° Světlý ležák', package_id: 'p-lah05', package_label: 'Lahev 0,5l', quantity: 12, entry_date: den(1), who: 'Radek', note: null },
+  { id: 'fa-2', beer_id: 'b-10de', beer_name: '10° Desítka', package_id: 'p-keg50', package_label: 'KEG 50l', quantity: 1, entry_date: den(2), who: 'Gabi', note: null },
 ];
 
 export const fasovani_private = [
-  { beer_id: 'b-12sv', package_id: 'p-lah05', quantity: 6, entry_date: den(2) },
+  { id: 'fp-1', beer_id: 'b-12sv', beer_name: '12° Světlý ležák', package_id: 'p-lah05', package_label: 'Lahev 0,5l', quantity: 6, entry_date: den(2), who: null, note: null },
+  { id: 'fp-2', beer_id: 'b-summ', beer_name: 'Summer Ale', package_id: 'p-lah033', package_label: 'Lahev 0,33l', quantity: 24, entry_date: den(1), who: null, note: null },
 ];
 
 export const writeoffs = [
-  { beer_id: 'b-summ', package_id: 'p-lah033', quantity: 4, entry_date: den(1) },
+  { id: 'wo-1', beer_id: 'b-summ', beer_name: 'Summer Ale', package_id: 'p-lah033', package_label: 'Lahev 0,33l', quantity: 4, entry_date: den(1), who: null, reason: 'rozbitá láhev' },
 ];
 
 /** Zavezeno na objednávky — hlavní odliv. */

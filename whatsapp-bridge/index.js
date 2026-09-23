@@ -46,6 +46,16 @@ const SEND_TOKEN = process.env.SEND_TOKEN || '';
 const SYNC_HISTORY = (process.env.SYNC_HISTORY || 'on') !== 'off';
 const HISTORY_MAX_MESSAGES = Math.max(0, Number(process.env.HISTORY_MAX_MESSAGES || 1000) || 0);
 const HISTORY_MAX_DAYS = Math.max(0, Number(process.env.HISTORY_MAX_DAYS || 4) || 0);
+/**
+ * Kolik fotek se nejvýš stáhne z historie po (znovu)připojení. Objednávka
+ * poslaná fotkou během výpadku přijde právě přes historii, takže se média
+ * z historie stahovat MUSÍ — ale při párování jich může přijít dávka, a
+ * stahování je pomalé. Strop drží znovupřipojení svižné; živých zpráv se
+ * netýká.
+ */
+const HISTORY_MEDIA_MAX = Math.max(0, Number(process.env.HISTORY_MEDIA_MAX || 40) || 0);
+/** Kolik fotek z historie se od startu procesu už stáhlo (strop výš). */
+let historieFotekStazeno = 0;
 
 /** In-memory dedup: `messages.upsert` může stejnou zprávu doručit vícenásobně. */
 const SEEN = new Set();
@@ -291,13 +301,13 @@ async function handleMessage(sock, gate, supabase, msg, opts = {}) {
   let text = extractText(msg);
   if (!text) {
     if (imageMessage) {
-      if (history) {
-        // V historii stará média nestahujeme — fotka bez popisku nemá co přeposlat.
-        logger.debug('[msg] historie: fotka bez popisku — přeskočena');
-        return;
-      }
       // Fotka bez popisku — dřív se ignorovala. Teď ji přeposíláme s placeholderem,
       // aby si ji v aplikaci mohl člověk otevřít a stáhnout.
+      //
+      // Platí to i pro HISTORII: fotka objednávky poslaná během výpadku mostu
+      // přijde po znovupárování právě přes historii a dřív se zahodila úplně
+      // (objednávka se tím ztratila beze stopy). Média se z historie nově
+      // stahují taky — viz HISTORY_MEDIA_MAX níž.
       text = '📷 Fotka objednávky (bez popisu)';
       logger.info('[msg] fotka bez popisku — přeposílám s placeholderem (DeepSeek fotky nečte)');
     } else {
@@ -384,14 +394,32 @@ async function handleMessage(sock, gate, supabase, msg, opts = {}) {
   // takže kontrola objednávky z fotky je vždy na člověku. mediaUrl pošleme
   // webhooku → whatsapp_incoming.media_url.
   let mediaUrl = null;
-  if (imageMessage && !history) {
-    // Stará média z historie nestahujeme (pomalé a zbytečné) — text a popisky jdou dál.
-    mediaUrl = await prepareImageForForwarding({
-      msg,
-      supabase,
-      webhookId,
-      logger,
-    });
+  if (imageMessage) {
+    // 📷 Fotky z HISTORIE se stahují taky. Dřív se přeskakovaly jako „pomalé
+    // a zbytečné" — jenže objednávka poslaná fotkou ve chvíli, kdy most
+    // neběžel, přijde po znovupárování PRÁVĚ přes historii, a bez fotky je
+    // to prázdná objednávka bez položek (z provozu 22. 9. 2026: Maneo,
+    // „médium nebylo doručeno — webhook neposlal mediaUrl").
+    //
+    // Pojistka proti zahlcení při znovupárování: z historie se stáhne
+    // nejvýš HISTORY_MEDIA_MAX fotek. Zbytek se přepošle bez fotky, ale
+    // aspoň se o objednávce ví. Živých zpráv se strop netýká.
+    if (history && historieFotekStazeno >= HISTORY_MEDIA_MAX) {
+      logger.warn(
+        `[media] historie: strop ${HISTORY_MEDIA_MAX} stažených fotek vyčerpán — posílám zprávu bez fotky`
+      );
+    } else {
+      if (history) historieFotekStazeno += 1;
+      mediaUrl = await prepareImageForForwarding({
+        msg,
+        supabase,
+        webhookId,
+        logger,
+        // Bez soketu nejde požádat o znovunahrání média (reuploadRequest) —
+        // a přesně to starší fotky z historie potřebují.
+        sock,
+      });
+    }
   }
 
   const quotedText = extractQuotedText(msg);
@@ -692,6 +720,49 @@ function ukonci(signal) {
 }
 
 startHttpServer(qrState);
+
+// ⏰ Sebe-buzení (keep-warm) — nejdůležitější pojistka proti „nechodí zprávy".
+// Render FREE plán uspí instanci po ~15 minutách BEZ příchozího (inbound)
+// provozu. Spící most nemá otevřené spojení s WhatsAppem → zprávy poslané
+// mezitím se ZTRATÍ, a při každém probuzení se most znovu pere o session
+// (odtud opakované odhlašování / „hluchá" session). Doteď to řešil jen externí
+// ping (cron-job.org / UptimeRobot) — když ho nikdo nenastavil nebo přestal
+// fungovat, most usínal.
+//
+// Řešení bez cizí služby: most si každých 10 minut sám sáhne na svou VEŘEJNOU
+// /health adresu. Ten požadavek jde ven a vrátí se do Renderu jako plnohodnotný
+// inbound → 15minutový časovač spánku se resetuje a instance zůstane vzhůru
+// (jedna instance 24/7 ≈ 720 h/měsíc, vejde se do free allowance). Sáhnutí na
+// vlastní adresu (ne na 127.0.0.1) je schválně — jen skutečný inbound přes
+// edge Renderu spánku zabrání.
+//
+// Bezpečné: když adresa není známá (lokální běh), tiše se to vypne; chyba
+// pingu se jen zaloguje a nikdy neshodí most.
+function spustSebeBuzeni(logger) {
+  const verejnaUrl = (process.env.RENDER_EXTERNAL_URL || process.env.BRIDGE_PUBLIC_URL || '')
+    .trim()
+    .replace(/\/+$/, '');
+  if (!verejnaUrl) {
+    logger.info('[keep-warm] veřejná adresa není známá (RENDER_EXTERNAL_URL/BRIDGE_PUBLIC_URL) — sebe-buzení vypnuto (nejspíš lokální běh)');
+    return;
+  }
+  const cil = `${verejnaUrl}/health`;
+  logger.info(`[keep-warm] most se bude budit sám každých 10 min na ${cil} (aby free instance neusnula)`);
+  const pingni = async () => {
+    const ac = new AbortController();
+    const t = setTimeout(() => ac.abort(), 20_000);
+    try {
+      const r = await fetch(cil, { signal: ac.signal, headers: { 'x-keep-warm': '1' } });
+      if (!r.ok) logger.warn(`[keep-warm] ping vrátil HTTP ${r.status}`);
+    } catch (e) {
+      logger.warn(`[keep-warm] ping selhal: ${e?.message || e}`);
+    } finally {
+      clearTimeout(t);
+    }
+  };
+  setInterval(pingni, 10 * 60 * 1000).unref?.();
+}
+spustSebeBuzeni(logger);
 
 // 💓 Tep — každou minutu „žiju" do databáze. Bez toho se v aplikaci nedá
 // odlišit „nikdo nic neposlal" od „most neběžel": obojí vypadá stejně, tedy

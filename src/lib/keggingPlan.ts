@@ -50,7 +50,7 @@ export type PlanItem = {
   ordered: number;
   /** Kolik z toho je pokryto — vyšší z „doloženo daty" a „ručně odškrtnuto". */
   done: number;
-  /** Kolik z toho je doloženo daty (nachystáno/zavezeno nebo stočeno tento týden). */
+  /** Kolik z toho je doloženo daty (nachystáno/zavezeno nebo kryto zásobou skladem). */
   autoDone: number;
   /**
    * Z čeho se `autoDone` skládá. Bez tohohle rozpadu je „chybí 2" tvrzení
@@ -59,7 +59,12 @@ export type PlanItem = {
    */
   /** Už fyzicky nachystáno nebo zavezeno (odečet ze skladu na tu položku). */
   nachystano: number;
-  /** Pokryto sudy stočenými tenhle týden, které ještě leží v chlaďáku. */
+  /**
+   * Pokryto ze zásoby, která na skladě LEŽÍ — ne nutně stočené tenhle
+   * týden. Se `currentStockMap` je to skutečná zásoba skladem, takže sem
+   * spadá i pivo stočené dávno nebo počáteční stav z inventury. Kdo to
+   * zobrazuje, ať to tak i pojmenuje (viz KeggingDayPlan.tsx).
+   */
   zChladaku: number;
   /** Kolik kusů si stáčeč ručně odškrtl. */
   checked: number;
@@ -134,7 +139,21 @@ export type KeggingPlanInput = {
   weekKey: string;
   /**
    * Skutečná zásoba skladem PRÁVĚ TEĎ (klíč `beer_id__package_id`, ze
-   * skladové knihy — viz lib/tydenniZbytek.ts, zbytekKeKonciTydne). Bez ní
+   * skladové knihy — viz lib/tydenniZbytek.ts, zbytekKeKonciTydne).
+   *
+   * ⚠️ SMLOUVA: staví se BEZ `zavozDeductionRows`, tedy „počáteční stav
+   * + stočené − výdeje (fasování/prodejna/odpisy/akce)", ale odvezené
+   * objednávky se z ní NEODEČÍTAJÍ. Poptávka níž totiž počítá VŠECHNY
+   * objednávky týdne včetně už zavezených, takže si zavezená objednávka
+   * svůj díl z fondu vezme sama.
+   *
+   * Tohle se jednou rozešlo: testy posílaly zásobu s odpočtem závozu,
+   * provoz bez něj, a výpočet si odpočet navíc přičítal zpátky — fond byl
+   * o zavezené množství dvakrát bohatší a plán hlásil „vše stočeno“, i
+   * když Sklad ukazoval mínus (22. 9. 2026). Kdo tenhle vstup mění, ať
+   * drží tuhle jedinou smlouvu.
+   *
+   * Bez ní
    * plán vidí jako zásobu jen to, co bylo stočeno TENTO týden — z provozu
    * 15. 9. 2026: „mám na skladě 9× 30l, a appka mi stejně píše, že musím
    * stočit další" (a předtím totéž u Němců). Když je zadaná, NAHRAZUJE
@@ -247,18 +266,26 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
   // pokrýt některý z dalších dnů.
   const pool: Record<string, number> = {};
   if (input.currentStockMap) {
-    // Poptávka níž počítá objednávky celého týdne VČETNĚ těch, co už mají
-    // odpočet zavozu zapsaný (zavoz_deductions) — bez vrácení by se ten
-    // odpočet z fondu odečetl dvakrát. Z provozu 16. 9. 2026: 16 objednaných,
-    // 12 už zavezených, 11 skladem, a plán hlásil „chybí stočit 5“.
+    // Fond = skutečná zásoba (stejné číslo jako Sklad) + odpočty závozu
+    // TOHOTO týdne zpátky.
+    //
+    // Proč zpátky: poptávka níž počítá VŠECHNY objednávky týdne, i ty, co
+    // už odjely. Kdyby se jejich odpočet nevrátil, odečetl by se dvakrát —
+    // jednou ve skladu, podruhé v poptávce (z provozu 16. 9. 2026:
+    // „16 objednaných, 12 už zavezených, 11 skladem, a appka mi napsala,
+    // že chybí stočit 5").
+    //
+    // Proč jen TENHLE týden: odpočty ze starších týdnů se vracet nesmí —
+    // jejich objednávky v poptávce nejsou. Právě tím vznikla chyba z
+    // 22. 9. 2026: volající zásobu stavěli bez odpočtů za CELOU historii,
+    // takže fond obsahoval každý sud, který kdy odjel (100 stočených a
+    // 100 rozvezených → Sklad 0, fond 100) a plán svítil „pokryto" i u
+    // piva, které nikdo nestočil. Volající teď posílají skutečný sklad a
+    // vrací se jen tenhle týden.
     //
     // ⚠️ Vrací se JEN pro klíč, který v currentStockMap SKUTEČNĚ existuje —
-    // to je jediný důkaz, že se to pivo+obal tenhle týden opravdu stočilo.
-    // Pivo, které se nikdy nestočilo (klíč v currentStockMap vůbec není),
-    // se zavozem NEVYKRYJE, i kdyby pro něj nějaký odpočet existoval — jinak
-    // by appka zase věřila kalendáři/nesrovnalosti místo skutečnému stočení
-    // (přesně ta chyba, co opravila migrace 20261231010000: bez ručního
-    // odškrtnutí „Stočeno" se sklad nesmí tvářit vykrytý).
+    // to je jediný důkaz, že se to pivo+obal opravdu stáčelo. Bez toho by
+    // appka věřila kalendáři místo stočení (migrace 20261231010000).
     const vracenoZaZavozy: Record<string, number> = {};
     zavozDeductionRows.forEach((r: any) => {
       if (!r.beer_id || !r.package_id || !kegPkgs.has(r.package_id) || !inWeek(r.deduct_date)) return;

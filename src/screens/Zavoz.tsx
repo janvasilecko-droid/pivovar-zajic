@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, lazy, Suspense } from 'react';
 import { Beer, Package, Place, fetchAllRows, formatPackageLabel, supabase, useRealtime } from '../lib/supabase';
+import { sestavCoNalozit } from '../lib/coNalozit';
 import { Spinner, EmptyState, Modal } from '../components/ui';
 import { orderWeightKg, fmtKg } from '../lib/weight';
 import { DAYS } from '../lib/shared';
@@ -223,42 +224,10 @@ export default function Zavoz({ setPage }: { setPage?: (p: any, sec?: string) =>
   }, [activeOrders, hideDelivered, selectedDayFilter, searchTerm, items]);
 
   const loadingListBreakdown = useMemo(() => {
-    const kegMap = new Map<string, { label: string; qty: number; preparedQty: number }>();
-    const bottleMap = new Map<string, { label: string; qty: number; preparedQty: number }>();
-    let totalKegs = 0;
-    let totalBottles = 0;
-
-    filteredOrders.forEach((o) => {
-      (items[o.id] ?? []).forEach((i) => {
-        const pkg = packages.find((p) => p.id === i.package_id);
-        const pkgLabel = i.package_label ?? pkg?.label ?? 'Neurčeno';
-        const isKeg = pkg?.kind === 'keg' || pkgLabel.toLowerCase().includes('keg') || pkgLabel.toLowerCase().includes('sud');
-        const label = `${formatPackageLabel(pkgLabel)} ${i.beer_name ?? '?'}`;
-        const qty = Number(i.quantity);
-        const preparedQty = i.is_prepared ? qty : 0;
-
-        if (isKeg) {
-          const cur = kegMap.get(label) ?? { label, qty: 0, preparedQty: 0 };
-          cur.qty += qty;
-          cur.preparedQty += preparedQty;
-          kegMap.set(label, cur);
-          totalKegs += qty;
-        } else {
-          const cur = bottleMap.get(label) ?? { label, qty: 0, preparedQty: 0 };
-          cur.qty += qty;
-          cur.preparedQty += preparedQty;
-          bottleMap.set(label, cur);
-          totalBottles += qty;
-        }
-      });
-    });
-
-    const kegs = [...kegMap.values()].sort((a, b) => b.qty - a.qty);
-    const bottles = [...bottleMap.values()].sort((a, b) => b.qty - a.qty);
-    const preparedCount = [...kegMap.values(), ...bottleMap.values()].filter((x) => x.preparedQty >= x.qty).length;
-    const totalLabels = kegMap.size + bottleMap.size;
-
-    return { kegs, bottles, totalKegs, totalBottles, totalCount: totalKegs + totalBottles, preparedCount, totalLabels };
+    // Výpočet je v lib/coNalozit.ts (má testy) — je to seznam, podle kterého
+    // se nakládá auto, takže chyba v něm znamená nedovezené pivo.
+    const vsechnyPolozky = filteredOrders.flatMap((o) => items[o.id] ?? []);
+    return sestavCoNalozit(vsechnyPolozky as any, packages as any, formatPackageLabel);
   }, [filteredOrders, items, packages]);
 
   const totalWeight = useMemo(() => {

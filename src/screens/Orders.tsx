@@ -20,8 +20,8 @@ import type { TankKOdectu } from '../lib/tankUZapisu';
 import { VoiceRecorder } from '../components/VoiceRecorder';
 import { orderQuickQtys } from '../components/QuickQtySelect';
 import { BeerTileGrid, BeerTilePanel } from '../components/BeerTileGrid';
-import { topQuantitiesLastMonth } from '../lib/quickQty';
-import { parseVoiceOrder, parseOrderText, detectOrderNotes, loadAliasMap, loadPlaceAliasMap, emptyAliasMap, getOrCreatePlace, matchBeerFromHints, matchPackage, normalize, type ParserAliasMap } from '../lib/orderParser';
+import { nejcastejsiMnozstvi } from '../lib/quickQty';
+import { parseVoiceOrder, parseOrderText, detectOrderNotes, parseDeliveryDayFromText, loadAliasMap, loadPlaceAliasMap, emptyAliasMap, getOrCreatePlace, matchBeerFromHints, matchPackage, normalize, type ParserAliasMap } from '../lib/orderParser';
 
 import { slozNavrh } from '../lib/whatsappAmendment';
 
@@ -262,7 +262,7 @@ export default function Orders({
   const expandedBeer = expandedBeerId ? beers.find((b) => b.id === expandedBeerId) ?? null : null;
 
   // Historie objednaného množství (pivo+obal) ze VŠECH nestornovaných objednávek —
-  // slouží k dopočtu "4 nejčastější hodnoty z minulého měsíce" u dlaždic (viz níže).
+  // z ní se počítají tři nejčastější počty na tlačítkách u dlaždic (viz níže).
   const orderQtyHistory = useMemo(() => {
     const out: { beer_id: string | null; package_id: string | null; quantity: number | null; entry_date: string | null }[] = [];
     orders.forEach((o) => {
@@ -274,6 +274,20 @@ export default function Orders({
     });
     return out;
   }, [orders, items]);
+
+  // 🔢 Tři nejčastější počty pro rozbalené pivo — pro každý obal zvlášť.
+  // Počítá se jednou za změnu historie, ne při každém stisku klávesy
+  // v políčku počtu (panel se překresluje při každé změně).
+  const rychlePoctyMapa = useMemo(() => {
+    const out = new Map<string, number[]>();
+    if (!expandedBeer) return out;
+    for (const p of packages) {
+      out.set(p.id, nejcastejsiMnozstvi(orderQtyHistory, expandedBeer.id, p.id, orderQuickQtys(p) ?? []));
+    }
+    return out;
+  }, [expandedBeer, packages, orderQtyHistory]);
+  const rychlePocty = (pkgId: string) => rychlePoctyMapa.get(pkgId);
+
   // 📅 Datum rozpoznané z poznámky (kdy má být zavezeno)
   const [noteDateHint, setNoteDateHint] = useState<string | null>(null);
 
@@ -630,13 +644,24 @@ export default function Orders({
         return;
       }
 
+      // 📅 Den závozu: co nepoznala AI, zkus vyčíst z textu zprávy.
+      //
+      // Bez tohohle skončila objednávka bez dne v přihrádce „bez termínu" —
+      // v denním plánu stáčení ji nikdo neviděl (viz lib/coStocit.ts) a den
+      // se musel doklikávat ručně v přehledu objednávek. AI den občas mine,
+      // i když ho odběratel v textu napsal („Závoz v úterý"); tenhle záchyt
+      // je nezávislý na AI a funguje i s diakritikou.
+      const denZavozu = message.parsed_delivery_day
+        || parseDeliveryDayFromText(message.message_text || '')
+        || null;
+
       // ⚠️ Kontrola duplicity — aby dva lidé nezadali ve stejnou chvíli stejnou
       // objednávku (např. oba kliknou na „Schválit“ u téže zprávy).
       const dup = await findDuplicateOrders({
         placeId,
         placeName: placeNameFree,
         deliveryDate: message.parsed_delivery_date || null,
-        deliveryDay: message.parsed_delivery_day || null,
+        deliveryDay: denZavozu,
         items: (message.parsed_items || []).map((it) => ({
           beerId: it.beer_id || null,
           pkgId: it.pkg_id || null,
@@ -677,7 +702,7 @@ export default function Orders({
           place_name: placeNameFree,
           source: 'whatsapp',
           status: 'nova',
-          delivery_day: message.parsed_delivery_day || null,
+          delivery_day: denZavozu,
           delivery_date: message.parsed_delivery_date || null,
           is_prepared: false,
           is_packaged: false,
@@ -1732,6 +1757,13 @@ export default function Orders({
     });
     const autoNote = detectOrderNotes(text);
     if (autoNote) setNote((prev) => (prev ? `${prev}, ${autoNote}` : autoNote));
+    // 📅 Den závozu přímo z textu ("Závoz v úterý") — rovnou nastaví a
+    // zvýrazní tlačítko dne níž, ať se nemusí dohledávat ručně z věty
+    // schované v poznámce. Nepřepisuje den, který už je vybraný ručně.
+    if (!deliveryDay) {
+      const den = parseDeliveryDayFromText(text);
+      if (den) pickDeliveryDay(den);
+    }
     setErr(null);
   }
 
@@ -2038,7 +2070,10 @@ export default function Orders({
                 const qty = row ? Number(row.qty || 0) : 0;
                 const qtyStr = row ? row.qty : '';
                 const qtys = orderQuickQtys(p);
-                const commonQtys = topQuantitiesLastMonth(orderQtyHistory, expandedBeer.id, p.id);
+                // Tři nejčastější počty PRO TOHLE pivo a obal; pevná řada
+                // podle typu obalu slouží jen jako výplň, když historie
+                // nestačí (viz lib/quickQty.ts).
+                const commonQtys = rychlePocty(p.id) ?? [];
                 return (
                   <div key={p.id} className="flex items-center justify-between gap-2 rounded-xl border border-neutral-200 dark:border-neutral-700 py-1.5 px-2 flex-wrap">
                     <span className="text-sm font-bold text-neutral-700 dark:text-neutral-200 truncate">{formatPackageLabel(p.label)}</span>
@@ -2266,6 +2301,25 @@ export default function Orders({
             value={manualText}
             onChange={(e) => setManualText(e.target.value)}
           />
+          {/* 📅 Den závozu rovnou tady, ne až po přepnutí na dlaždice —
+              "Rozparsovat" ho sice sám pozná z textu (viz
+              parseDeliveryDayFromText), ale bylo to vidět až o obrazovku
+              dál. Klepnutím jde den i přebít/doplnit ručně, ještě než se
+              stiskne Rozparsovat. Jen pracovní dny — pivovar o víkendu
+              nerozváží. */}
+          <div className="flex items-center gap-1.5 mt-3 flex-wrap">
+            <span className="text-udaj font-extrabold text-neutral-700 shrink-0">Závoz:</span>
+            {DAYS.slice(0, 5).map((d) => (
+              <button
+                key={d.v}
+                type="button"
+                className={`btn-den ${deliveryDay === d.v ? 'btn-den-aktivni' : ''}`}
+                onClick={() => pickDeliveryDay(deliveryDay === d.v ? '' : d.v)}
+              >
+                {d.label}
+              </button>
+            ))}
+          </div>
           <div className="flex flex-wrap items-center gap-2 mt-3">
             <button type="button" className="btn-primary !rounded text-xs font-black shadow-md" onClick={() => { handleManualTextParse(); setViewMode('summary'); }} disabled={!manualText.trim()}>
               <Zap className="ikona-text" /> Rozparsovat a přidat do formuláře
@@ -2652,7 +2706,7 @@ export default function Orders({
                     <OrderCard o={o} items={items[o.id] ?? []} stockRemainingForOrder={stockRemainingForOrder}
                       selected={selectedIds.has(o.id)} onToggleSelect={() => toggleSelect(o.id)}
                       onClick={() => openDetail(o)} onToggleFlag={toggleFlag} onToggleItemFlag={toggleItemFlag} onUpdateDeliveryDay={updateDeliveryDay}
-                      onSetStatus={setStatus} onDelete={del} onDuplicate={duplicateOrder} onEdit={setEditOrder} onSplit={setSplitOrder} onOpenWhatsApp={handleOpenWhatsAppMessage} beers={beers} packages={packages} places={places}
+                      onSetStatus={setStatus} onDelete={del} onEdit={setEditOrder} onSplit={setSplitOrder} onOpenWhatsApp={handleOpenWhatsAppMessage} beers={beers} packages={packages} places={places}
                       activeBeerId={itemFilterBeerId} activePackageId={itemFilterPackageId}
                       onVratitPivo={setVratitObjednavka} vracenoZaznamy={vraceniPodleObjednavky[o.id]}
                 itemMatchesFilter={polozkovyFiltrAktivni ? matchesItemFilters : undefined} />
@@ -2694,7 +2748,7 @@ export default function Orders({
               <OrderCard o={o} items={items[o.id] ?? []} stockRemainingForOrder={stockRemainingForOrder}
                 selected={selectedIds.has(o.id)} onToggleSelect={() => toggleSelect(o.id)}
                 onClick={() => openDetail(o)} onToggleFlag={toggleFlag} onToggleItemFlag={toggleItemFlag} onUpdateDeliveryDay={updateDeliveryDay}
-                onSetStatus={setStatus} onDelete={del} onDuplicate={duplicateOrder} onEdit={setEditOrder} onSplit={setSplitOrder} onOpenWhatsApp={handleOpenWhatsAppMessage} beers={beers} packages={packages} places={places}
+                onSetStatus={setStatus} onDelete={del} onEdit={setEditOrder} onSplit={setSplitOrder} onOpenWhatsApp={handleOpenWhatsAppMessage} beers={beers} packages={packages} places={places}
                 activeBeerId={itemFilterBeerId} activePackageId={itemFilterPackageId}
                 onVratitPivo={setVratitObjednavka} vracenoZaznamy={vraceniPodleObjednavky[o.id]}
                 itemMatchesFilter={polozkovyFiltrAktivni ? matchesItemFilters : undefined} />
@@ -2874,7 +2928,12 @@ export default function Orders({
                 const orderDate = itemDate || meta.date;
                 const { data: order, error } = await supabase.from('orders').insert({
                   order_date: orderDate, place_id: placeId, place_name: placeName,
-                  source: 'fotka', status: 'nova', delivery_day: deliveryDay || null,
+                  // Den závozu: ručně vybraný má přednost, jinak se zkusí
+                  // vyčíst z poznámky přečtené z fotky („závoz v úterý“) —
+                  // bez dne by objednávka spadla do přihrádky „bez termínu“
+                  // a v denním plánu stáčení by ji nikdo neviděl.
+                  source: 'fotka', status: 'nova',
+                  delivery_day: deliveryDay || parseDeliveryDayFromText(meta.note || '') || null,
                   delivery_date: deliveryDate || null,
                   is_prepared: false, is_packaged: false,
                   note: meta.note || null,

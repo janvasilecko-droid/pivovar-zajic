@@ -28,6 +28,12 @@ type Telo = {
   telo?: string;
   /** Na kterou obrazovku má klepnutí otevřít appku. */
   stranka?: string;
+  /**
+   * Doplňující parametry do adresy (např. `checklist=konec`), které appka
+   * přečte po otevření. Bez nich jde říct jen KAM otevřít, ne co tam rovnou
+   * udělat — připomínka konce stáčení takhle otevře přímo formulář.
+   */
+  parametry?: string;
   /** Stejný tag = nová zpráva přepíše starou místo laviny oznámení. */
   tag?: string;
 };
@@ -83,6 +89,7 @@ Deno.serve(async (req: Request) => {
       titulek: body.titulek.trim(),
       telo: (body.telo ?? "").trim(),
       stranka: body.stranka ?? "",
+      parametry: body.parametry ?? "",
       tag: body.tag ?? "pivovar",
     });
 

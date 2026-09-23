@@ -1,9 +1,14 @@
 // 📝 Zadávání stáčení lahví — admin sekce v Nastavení.
 // ---------------------------------------------------------------------------
-// Přehled potřeby stáčení pro zvolený týden:
-//   • 🍾 lahve na skladě / 🛢️ sudy na skladě (měsíční model inventury)
-//   • 🛒 objednávky týdne + 📦 odhad fasování
-//   • ⚠️ „chybí stočit“  a  📅 „na konci týdne“
+// Přehled potřeby stáčení pro zvolený týden: ukazuje JEN to, co chybí stočit
+// — zvlášť lahve, zvlášť KEG sudy.
+//
+// Do 22. 9. 2026 tu ke každé položce stálo ještě pět dalších čísel (lahve na
+// skladě, sudy na skladě, objednávky, odhad fasování, naplánováno, konec
+// týdne) a v souhrnu nahoře pět dlaždic. Z provozu: „ať sou tam jen sudy
+// a lahve nějak přehledně které chybí a můžu je zadat ke stáčení." Čísla se
+// tedy neztratila, jen se přesunula do bublinové nápovědy u „chybí“ a jinak
+// jsou ve Skladu a v Objednávkách; sem se chodí kvůli jedinému číslu.
 // Tlačítko „🍾 Stočit“ otevře menu, kde se nastaví datum, velikosti obalů
 // (až 3) + počet KEG sudů a poznámka. Úkol se uloží do bottling_plans a
 // automaticky se propíše do formuláře stáčení (Lahve) — stáčeč ho tam vidí
@@ -23,7 +28,7 @@ import {
 } from '../lib/bottlingPlans';
 import { Modal } from './ui';
 import { BeerTileGrid } from './BeerTileGrid';
-import { AlertTriangle, Calendar, Check, ChevronLeft, ChevronRight, ClipboardList, Lightbulb, MessageCircle, Minus, Package as PackageIcon, Pencil, Plus, ShoppingCart, Trash2, Undo2 } from 'lucide-react';
+import { AlertTriangle, Calendar, Check, ChevronLeft, ChevronRight, ClipboardList, Lightbulb, MessageCircle, Minus, Pencil, Plus, Trash2, Undo2 } from 'lucide-react';
 import { chyba, potvrd } from '../lib/toast';
 import { IkonaLahev, IkonaSud } from '../components/ikony';
 import { requestOrdersItemFilter } from '../lib/ordersFilter';
@@ -209,12 +214,14 @@ export function BottlingTasksSettings({ setPage }: Props = {}) {
 
   const sum = (list: NeedsRow[], f: (r: NeedsRow) => number) => list.reduce((a, r) => a + f(r), 0);
 
+  // Zadání 22. 9. 2026: „ať sou tam jen sudy a lahve nějak přehledně které
+  // chybí a můžu je zadat ke stáčení." Proto se tu počítá jen „chybí“ —
+  // zásoba, objednávky, fasování a konec týdne z obrazovky zmizely. Kdo je
+  // potřebuje ověřit, má je ve Skladu a v Objednávkách; sem se chodí kvůli
+  // jedinému číslu: co ještě stočit.
   const totals = {
-    bottleStock: sum(bottleRows, (r) => r.stock),
-    kegStock: sum(kegRows, (r) => r.stock),
-    bottleOutgoing: sum(bottleRows, (r) => r.ordered + r.fasovani),
     bottleMissing: sum(bottleRows, (r) => r.missing),
-    bottleEndWeek: sum(bottleRows, (r) => r.afterOutgoing),
+    kegMissing: sum(kegRows, (r) => r.missing),
   };
 
   const weekPlans = useMemo(
@@ -428,22 +435,17 @@ export function BottlingTasksSettings({ setPage }: Props = {}) {
   }
 
   function renderTable(list: NeedsRow[], isKeg: boolean) {
-    const t = list.reduce(
-      (a, r) => {
-        a.ordered += r.ordered;
-        a.stock += r.stock;
-        a.planned += r.planned;
-        a.fasovani += r.fasovani;
-        a.missing += r.missing;
-        a.afterOutgoing += r.afterOutgoing;
-        return a;
-      },
-      { ordered: 0, stock: 0, planned: 0, fasovani: 0, missing: 0, afterOutgoing: 0 }
-    );
-    if (list.length === 0) {
+    // 🎯 Jen to, co CHYBÍ. Zadání 22. 9. 2026: „ať sou tam jen sudy a lahve
+    // nějak přehledně které chybí a můžu je zadat ke stáčení." Položky, na
+    // které sklad stačí, se neukazují vůbec — jen ředily seznam. Naplánovat
+    // stáčení „do foroty" jde dál přes dlaždici piva nad přehledem, ta
+    // nabízí všechna piva, ne jen ta chybějící.
+    const chybejici = list.filter((r) => Math.round(r.missing) > 0);
+    const celkemChybi = chybejici.reduce((a, r) => a + r.missing, 0);
+    if (chybejici.length === 0) {
       return (
-        <p className="text-xs text-neutral-500 py-1">
-          {isKeg ? 'Žádné KEG sudy v tomto týdnu nejsou potřeba ani naplánované.' : 'Žádné lahve v tomto týdnu nejsou potřeba ani naplánované.'}
+        <p className="text-xs font-bold text-emerald-800 py-1">
+          <Check className="ikona-text" /> {isKeg ? 'Sudy' : 'Lahve'} tenhle týden stáčet netřeba — objednávky pokryje sklad.
         </p>
       );
     }
@@ -459,7 +461,7 @@ export function BottlingTasksSettings({ setPage }: Props = {}) {
     // podle naléhavosti, takže i pořadí obalů uvnitř skupiny i pořadí
     // skupin zůstává „nejhorší nahoře" — jen se seskupí podle prvního
     // výskytu piva.
-    const skupinyPodlePiva = seskupPodlePiva(list);
+    const skupinyPodlePiva = seskupPodlePiva(chybejici);
 
     const mobileCards = (
       <div className="md:hidden space-y-2.5">
@@ -483,35 +485,22 @@ export function BottlingTasksSettings({ setPage }: Props = {}) {
                 </button>
               </div>
               <div className="mt-2 space-y-1.5">
-                {s.radky.map((r) => {
-                  const hlavni = r.missing > 0
-                    ? { text: `${r.package_label} — chybí ${fmt(r.missing)} ks`, barva: 'text-rose-800' }
-                    : r.afterOutgoing > 0
-                      ? { text: `${r.package_label} — sklad stačí, navíc ${fmt(r.afterOutgoing)} ks`, barva: 'text-emerald-800' }
-                      : { text: `${r.package_label} — sklad vyjde přesně`, barva: 'text-neutral-700' };
-                  const vedlejsi = [
-                    r.ordered > 0 && `objednáno ${fmt(r.ordered)}`,
-                    `sklad ${fmt(r.stock)}`,
-                    r.fasovani > 0 && `fasování odhad ${fmt(r.fasovani)}`,
-                    r.planned > 0 && `naplánováno ${fmt(r.planned)}`,
-                  ].filter(Boolean).join(' · ');
-                  return (
-                    <div key={`m-${r.beer_id}-${r.package_id}`} className="border-t border-neutral-100 pt-1.5 first:border-t-0 first:pt-0">
-                      {/* Klikací — otevře Objednávky vyfiltrované na tohle
-                          pivo a obal, ať se dá ověřit, z čeho číslo „chybí"
-                          vzniklo (počítá se s fasováním a skladem, ne jen
-                          s objednávkami — proto sedí jen zřídka na první pohled). */}
-                      <button
-                        type="button"
-                        onClick={() => { requestOrdersItemFilter({ beerId: r.beer_id, packageId: r.package_id }); setPage?.('orders'); }}
-                        className={`text-sm font-black text-left hover:underline decoration-dotted underline-offset-2 ${hlavni.barva}`}
-                      >
-                        {hlavni.text}
-                      </button>
-                      <div className="text-xs font-semibold text-neutral-500">{vedlejsi}</div>
-                    </div>
-                  );
-                })}
+                {s.radky.map((r) => (
+                  <div key={`m-${r.beer_id}-${r.package_id}`} className="border-t border-neutral-100 pt-1.5 first:border-t-0 first:pt-0">
+                    {/* Klikací — otevře Objednávky vyfiltrované na tohle
+                        pivo a obal, ať se dá ověřit, z čeho číslo „chybí"
+                        vzniklo (počítá se s fasováním a skladem, ne jen
+                        s objednávkami — proto sedí jen zřídka na první pohled). */}
+                    <button
+                      type="button"
+                      onClick={() => { requestOrdersItemFilter({ beerId: r.beer_id, packageId: r.package_id }); setPage?.('orders'); }}
+                      title={`Objednáno ${fmt(r.ordered)} · sklad ${fmt(r.stock)} · fasování odhad ${fmt(r.fasovani)} · naplánováno ${fmt(r.planned)}`}
+                      className="text-sm font-black text-left text-rose-800 hover:underline decoration-dotted underline-offset-2"
+                    >
+                      {r.package_label} — chybí {fmt(r.missing)} ks
+                    </button>
+                  </div>
+                ))}
               </div>
             </div>
           );
@@ -519,12 +508,7 @@ export function BottlingTasksSettings({ setPage }: Props = {}) {
         {/* Mobilní souhrn — celý týden za všechna piva dohromady */}
         <div className="rounded-xl border-2 border-amber-400 bg-amber-50 px-3.5 py-3">
           <div className="text-xs font-black text-amber-950 uppercase tracking-wider mb-2">Celkem za týden</div>
-          <div className={`text-base font-black ${t.missing > 0 ? 'text-rose-800' : 'text-emerald-800'}`}>
-            {t.missing > 0 ? `Chybí stočit ${fmt(t.missing)} ks` : `Sklad stačí, navíc ${fmt(t.afterOutgoing)} ks`}
-          </div>
-          <div className="text-xs font-semibold text-amber-800 mt-0.5">
-            objednáno {fmt(t.ordered)} · sklad {fmt(t.stock)} · fasování odhad {fmt(t.fasovani)} · naplánováno {fmt(t.planned)}
-          </div>
+          <div className="text-base font-black text-rose-800">Chybí stočit {fmt(celkemChybi)} ks</div>
         </div>
       </div>
     );
@@ -537,12 +521,7 @@ export function BottlingTasksSettings({ setPage }: Props = {}) {
             <tr className="text-udaj uppercase tracking-wide text-neutral-500">
               <th scope="col" className="text-left font-black px-2 py-1.5">Pivo</th>
               <th scope="col" className="text-left font-black px-2 py-1.5">Obal</th>
-              <th scope="col" className="text-right font-black px-2 py-1.5"><ShoppingCart className="ikona-text" /> Objednávky</th>
-              <th scope="col" className="text-right font-black px-2 py-1.5"><PackageIcon className="ikona-text" /> Fasování</th>
-              <th scope="col" className="text-right font-black px-2 py-1.5"><ClipboardList className="ikona-text" /> Naplánováno</th>
-              <th scope="col" className="text-right font-black px-2 py-1.5">{isKeg ? 'Sudy na skladě' : 'Lahve na skladě'}</th>
               <th scope="col" className="text-right font-black px-2 py-1.5"><AlertTriangle className="ikona-text" /> Chybí stočit</th>
-              <th scope="col" className="text-right font-black px-2 py-1.5"><Calendar className="ikona-text" /> Konec týdne</th>
               <th scope="col" className="text-right font-black px-2 py-1.5"><IkonaLahev className="ikona-text" /> Stočit</th>
             </tr>
           </thead>
@@ -564,22 +543,15 @@ export function BottlingTasksSettings({ setPage }: Props = {}) {
                     </span>
                   </td>
                   <td className="px-2 py-1.5 text-neutral-700 whitespace-nowrap">{r.package_label} {isKeg ? '' : `(${r.volume_l} L)`}</td>
-                  <td className="px-2 py-1.5 text-right font-semibold text-neutral-800">{fmt(r.ordered)}</td>
-                  <td className="px-2 py-1.5 text-right font-semibold text-neutral-800">{fmt(r.fasovani)}</td>
-                  <td className="px-2 py-1.5 text-right font-semibold text-amber-800">{fmt(r.planned)}</td>
-                  <td className="px-2 py-1.5 text-right font-black text-emerald-800">{fmt(r.stock)}</td>
-                  <td className={`px-2 py-1.5 text-right font-black ${r.missing > 0 ? 'bg-rose-100 text-rose-800' : 'text-neutral-600 font-semibold'}`}>
+                  <td className="px-2 py-1.5 text-right font-black bg-rose-100 text-rose-800">
                     <button
                       type="button"
                       onClick={() => { requestOrdersItemFilter({ beerId: r.beer_id, packageId: r.package_id }); setPage?.('orders'); }}
                       className="hover:underline decoration-dotted underline-offset-2"
-                      title="Zobrazit objednávky s touhle položkou"
+                      title={`Zobrazit objednávky s touhle položkou — objednáno ${fmt(r.ordered)}, sklad ${fmt(r.stock)}, fasování odhad ${fmt(r.fasovani)}, naplánováno ${fmt(r.planned)}`}
                     >
-                      {r.missing > 0 ? `${fmt(r.missing)}` : '0'}
+                      {fmt(r.missing)}
                     </button>
-                  </td>
-                  <td className={`px-2 py-1.5 text-right font-black ${r.afterOutgoing < 0 ? 'bg-rose-100 text-rose-800' : 'text-neutral-900'}`}>
-                    {fmt(r.afterOutgoing)}
                   </td>
                   <td className="px-2 py-1.5 text-right whitespace-nowrap">
                     <button
@@ -596,12 +568,7 @@ export function BottlingTasksSettings({ setPage }: Props = {}) {
             })}
             <tr className="border-t-2 border-neutral-300 bg-amber-50">
               <td colSpan={2} className="px-2 py-1.5 font-black text-amber-950">Celkem</td>
-              <td className="px-2 py-1.5 text-right font-black text-amber-950">{fmt(t.ordered)}</td>
-              <td className="px-2 py-1.5 text-right font-black text-amber-950">{fmt(t.fasovani)}</td>
-              <td className="px-2 py-1.5 text-right font-black text-amber-950">{fmt(t.planned)}</td>
-              <td className="px-2 py-1.5 text-right font-black text-amber-950">{fmt(t.stock)}</td>
-              <td className={`px-2 py-1.5 text-right font-black ${t.missing > 0 ? 'text-rose-800' : 'text-amber-950'}`}>{fmt(t.missing)}</td>
-              <td className={`px-2 py-1.5 text-right font-black ${t.afterOutgoing < 0 ? 'text-rose-800' : 'text-amber-950'}`}>{fmt(t.afterOutgoing)}</td>
+              <td className="px-2 py-1.5 text-right font-black text-rose-800">{fmt(celkemChybi)}</td>
               <td />
             </tr>
           </tbody>
@@ -684,28 +651,25 @@ export function BottlingTasksSettings({ setPage }: Props = {}) {
         </div>
       )}
 
-      {/* Souhrn */}
-      <div className="mt-3 sm:mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
-        <div className="p-3 rounded bg-white border border-emerald-200 shadow-xs">
-          <div className="text-udaj font-black uppercase tracking-wider text-emerald-700"><IkonaLahev className="ikona-text" /> Lahve na skladě</div>
-          <div className="text-xl font-display font-black text-emerald-900 mt-0.5">{fmt(totals.bottleStock)}</div>
+      {/* Souhrn — jen „co chybí", zvlášť lahve a zvlášť sudy. Zásoba,
+          objednávky, fasování a konec týdne se odsud 22. 9. 2026 odstranily
+          na přání z provozu: pět čísel vedle sebe přebíjelo to jediné, kvůli
+          kterému se sem chodí. */}
+      <div className="mt-3 sm:mt-4 grid grid-cols-2 gap-2">
+        <div className={`p-3 rounded border shadow-xs ${totals.bottleMissing > 0 ? 'bg-rose-50 border-rose-200' : 'bg-white border-emerald-200'}`}>
+          <div className={`text-udaj font-black uppercase tracking-wider ${totals.bottleMissing > 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
+            <IkonaLahev className="ikona-text" /> Chybí stočit lahví
+          </div>
+          <div className={`text-xl font-display font-black mt-0.5 ${totals.bottleMissing > 0 ? 'text-rose-900' : 'text-emerald-800'}`}>
+            {totals.bottleMissing > 0 ? fmt(totals.bottleMissing) : <><Check className="ikona-text" /> nic</>}
+          </div>
         </div>
-        <div className="p-3 rounded bg-white border border-neutral-200 shadow-xs">
-          <div className="text-udaj font-black uppercase tracking-wider text-neutral-500"><IkonaSud className="ikona-text" /> Sudy na skladě</div>
-          <div className="text-xl font-display font-black text-neutral-900 mt-0.5">{fmt(totals.kegStock)}</div>
-        </div>
-        <div className="p-3 rounded bg-white border border-sky-200 shadow-xs">
-          <div className="text-udaj font-black uppercase tracking-wider text-sky-700"><ShoppingCart className="ikona-text" /> Objednávky + fasování</div>
-          <div className="text-xl font-display font-black text-sky-900 mt-0.5">{fmt(totals.bottleOutgoing)}</div>
-        </div>
-        <div className="p-3 rounded bg-rose-50 border border-rose-200 shadow-xs">
-          <div className="text-udaj font-black uppercase tracking-wider text-rose-700"><AlertTriangle className="ikona-text" /> Chybí stočit</div>
-          <div className="text-xl font-display font-black text-rose-900 mt-0.5">{fmt(totals.bottleMissing)}</div>
-        </div>
-        <div className="p-3 rounded bg-amber-50 border border-amber-200 shadow-xs">
-          <div className="text-udaj font-black uppercase tracking-wider text-amber-800"><Calendar className="ikona-text" /> Konec týdne</div>
-          <div className={`text-xl font-display font-black mt-0.5 ${totals.bottleEndWeek < 0 ? 'text-rose-800' : 'text-amber-900'}`}>
-            {fmt(totals.bottleEndWeek)}
+        <div className={`p-3 rounded border shadow-xs ${totals.kegMissing > 0 ? 'bg-rose-50 border-rose-200' : 'bg-white border-emerald-200'}`}>
+          <div className={`text-udaj font-black uppercase tracking-wider ${totals.kegMissing > 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
+            <IkonaSud className="ikona-text" /> Chybí stočit sudů
+          </div>
+          <div className={`text-xl font-display font-black mt-0.5 ${totals.kegMissing > 0 ? 'text-rose-900' : 'text-emerald-800'}`}>
+            {totals.kegMissing > 0 ? fmt(totals.kegMissing) : <><Check className="ikona-text" /> nic</>}
           </div>
         </div>
       </div>
@@ -774,8 +738,8 @@ export function BottlingTasksSettings({ setPage }: Props = {}) {
         <div className="text-xs font-black text-neutral-800 mb-2"><IkonaSud className="ikona-text" /> Potřeba KEG sudů (týden {weekLabel})</div>
         {renderTable(kegRows, true)}
         <p className="text-udaj text-neutral-400 mt-1.5">
-          Sklad = měsíční model (inventura + stočeno − výdej). „Konec týdne“ = sklad + naplánováno − objednávky − odhad
-          fasování (průměr za posledních 30 dní). „Chybí stočit“ = objednávky + fasování − sklad − naplánováno.
+          „Chybí stočit“ = objednávky + odhad fasování − sklad − naplánováno. Klepnutím na číslo se otevřou
+          objednávky s tou položkou; podrobná čísla (sklad, objednávky, fasování) jsou ve Skladu a v Objednávkách.
         </p>
       </div>
 
