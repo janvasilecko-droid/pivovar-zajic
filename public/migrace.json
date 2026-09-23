@@ -153,6 +153,7 @@
     "20261231100000_mista_duplicity_ignorovano.sql",
     "20261231110000_tydenni_uzaverky.sql",
     "20261231120000_otazky_ke_zprave.sql",
-    "20261231130000_vraceni_order_id.sql"
+    "20261231130000_vraceni_order_id.sql",
+    "20261231140000_pripominka_konce_staceni.sql"
   ]
 }

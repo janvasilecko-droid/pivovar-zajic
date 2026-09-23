@@ -157,6 +157,65 @@ describe('computeBottlingNeeds', () => {
     expect(row!.ordered).toBe(100); // i1 + i2 — celková týdenní potřeba
   });
 
+  // 🐛 Regrese k hlášení z 22. 9. 2026: „potreby staceni: neodecitaji se
+  // stocene lahve a sudy, furt mi to ukazuje vysoky cisla."
+  //
+  // Objednávka se veze na dvakrát a uzavře se teprve tehdy, když má odpočet
+  // KAŽDÁ položka. Do té doby zůstávala v potřebě CELÁ — ačkoli zavezenou
+  // část skladová kniha ze `stock` dávno odečetla. Tytéž kusy se tak odečetly
+  // dvakrát a „chybí stočit" ukazovalo víc, než kolik doopravdy chybělo.
+  it('zavezená část rozvezené objednávky se do „chybí stočit" nepočítá dvakrát', () => {
+    const rows = computeBottlingNeeds(
+      makeInput({
+        // 100 na skladě, z toho 60 už ráno odjelo → fyzicky zbývá 40.
+        inventoryRows: [{ entry_date: todayStr, beer_id: 'b1', package_id: 'p-bottle', quantity: 100, note: 'Počáteční' }],
+        orders: [{ id: 'o1', order_date: todayStr, delivery_date: todayStr, status: 'nova', is_delivered: false }],
+        orderItems: [
+          { id: 'i1', order_id: 'o1', beer_id: 'b1', package_id: 'p-bottle', quantity: 60 }, // zavezeno
+          { id: 'i2', order_id: 'o1', beer_id: 'b1', package_id: 'p-bottle', quantity: 40 }, // ještě čeká
+        ],
+        zavozDeductionRows: [
+          { deduct_date: todayStr, beer_id: 'b1', package_id: 'p-bottle', quantity: 60, order_item_id: 'i1' },
+        ],
+      })
+    );
+    const row = rows.find((r) => r.package_id === 'p-bottle')!;
+    expect(row.stock).toBe(40); // 100 − 60 (kniha si odvoz odečetla sama)
+    expect(row.ordered).toBe(100); // sloupec „objednáno" zůstává celá potřeba
+    // Zbývá zavézt 40 a na skladě je právě 40 → stočit není potřeba nic.
+    // Dřív tu vyšlo 60 (100 − 40), tedy přesně ta zavezená část navíc.
+    expect(row.missing).toBe(0);
+    expect(row.afterOutgoing).toBe(0);
+  });
+
+  it('nezavezená objednávka se počítá celá (nic se neodpouští)', () => {
+    const rows = computeBottlingNeeds(
+      makeInput({
+        inventoryRows: [{ entry_date: todayStr, beer_id: 'b1', package_id: 'p-bottle', quantity: 40, note: 'Počáteční' }],
+        orders: [{ id: 'o1', order_date: todayStr, delivery_date: todayStr, status: 'nova', is_delivered: false }],
+        orderItems: [{ id: 'i1', order_id: 'o1', beer_id: 'b1', package_id: 'p-bottle', quantity: 100 }],
+      })
+    );
+    const row = rows.find((r) => r.package_id === 'p-bottle')!;
+    expect(row.missing).toBe(60); // 100 − 40
+  });
+
+  it('odpočet bez vazby na položku (order_item_id chybí) potřebu neodpouští', () => {
+    // Takový odpočet kniha ze `stock` odečte, ale nedá se přiřadit k žádné
+    // položce — poptávka proto zůstává celá, ať se omylem nic „neztratí".
+    const rows = computeBottlingNeeds(
+      makeInput({
+        inventoryRows: [{ entry_date: todayStr, beer_id: 'b1', package_id: 'p-bottle', quantity: 100, note: 'Počáteční' }],
+        orders: [{ id: 'o1', order_date: todayStr, delivery_date: todayStr, status: 'nova', is_delivered: false }],
+        orderItems: [{ id: 'i1', order_id: 'o1', beer_id: 'b1', package_id: 'p-bottle', quantity: 100 }],
+        zavozDeductionRows: [{ deduct_date: todayStr, beer_id: 'b1', package_id: 'p-bottle', quantity: 60 }],
+      })
+    );
+    const row = rows.find((r) => r.package_id === 'p-bottle')!;
+    expect(row.stock).toBe(40);
+    expect(row.missing).toBe(60); // 100 − 40
+  });
+
   it('zavezené objednávky (zavoz_deductions) se odečtou ze skladu — stejný zdroj jako Sklad/Inventura', () => {
     const rows = computeBottlingNeeds(
       makeInput({
