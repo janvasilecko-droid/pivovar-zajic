@@ -24,6 +24,7 @@ import { fileURLToPath } from 'node:url';
 const KOREN = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const ZNAK = resolve(KOREN, 'public/logo-zajic-znak.svg');
 const BILA = { r: 255, g: 255, b: 255, alpha: 1 };
+const PRUHLEDNA = { r: 255, g: 255, b: 255, alpha: 0 };
 
 /**
  * Znak doprostřed čtverce.
@@ -48,6 +49,31 @@ async function znakNaCtverec(velikost, podil) {
     .toBuffer();
   return sharp({
     create: { width: velikost, height: velikost, channels: 4, background: BILA },
+  })
+    .composite([{ input: znak, gravity: 'center' }])
+    .png()
+    .toBuffer();
+}
+
+/**
+ * Znak doprostřed čtverce, ale BEZ podkladu (průhledné pozadí).
+ *
+ * Pro vrstvu adaptivní ikony a pro znak na systémové úvodní obrazovce:
+ * obojí si podklad kreslí Android sám (adaptivní ikona z
+ * `ic_launcher_background`, úvodní obrazovka z `windowSplashScreenBackground`).
+ * Když se do nich pošle obrázek s natvrdo bílým čtvercem, je ten čtverec na
+ * tmavém podkladu vidět — a přesně tak vypadalo hlášení z provozu
+ * 23. 9. 2026: „jako první se zobrazí rozmazaný logo pivovaru v černém
+ * čtverci".
+ */
+async function znakNaPruhledno(velikost, podil) {
+  const sirkaZnaku = Math.round(velikost * podil);
+  const znak = await sharp(ZNAK, { density: 1200 })
+    .resize({ width: sirkaZnaku, fit: 'inside' })
+    .png()
+    .toBuffer();
+  return sharp({
+    create: { width: velikost, height: velikost, channels: 4, background: PRUHLEDNA },
   })
     .composite([{ input: znak, gravity: 'center' }])
     .png()
@@ -79,6 +105,9 @@ console.log('PWA ikony:');
 zapis('public/icon-192-v2.png', await znakNaCtverec(192, 0.84));
 zapis('public/icon-512-v2.png', await znakNaCtverec(512, 0.84));
 zapis('public/icon-maskable-512-v2.png', await znakNaCtverec(512, 0.58));
+// 1024 px navíc: telefon s hustým displejem si na úvodní obrazovku webové
+// verze bere ikonu zvětšenou, a z 512 px byla na velkém telefonu měkká.
+zapis('public/icon-1024-v2.png', await znakNaCtverec(1024, 0.84));
 
 // --- Android: ikona aplikace ----------------------------------------------
 // Velikosti podle hustoty displeje. `ic_launcher_foreground` je vrstva
@@ -93,8 +122,25 @@ for (const [hustota, ikona, popredi] of HUSTOTY) {
   const ctverec = await znakNaCtverec(ikona, 0.8);
   zapis(`android/app/src/main/res/mipmap-${hustota}/ic_launcher.png`, ctverec);
   zapis(`android/app/src/main/res/mipmap-${hustota}/ic_launcher_round.png`, ctverec);
-  zapis(`android/app/src/main/res/mipmap-${hustota}/ic_launcher_foreground.png`, await znakNaCtverec(popredi, 0.58));
+  // Popředí adaptivní ikony PRŮHLEDNÉ — podklad kreslí Android sám
+  // (ic_launcher_background). S bílým čtvercem uvnitř se ikona na tmavém
+  // pozadí tvářila jako obrázek v rámečku.
+  zapis(`android/app/src/main/res/mipmap-${hustota}/ic_launcher_foreground.png`, await znakNaPruhledno(popredi, 0.58));
 }
+
+// --- Android 12+: znak na systémové úvodní obrazovce -----------------------
+// Android 12 a výš si úvodní obrazovku kreslí sám a znak na ní zobrazuje
+// ve 288dp (uvnitř je vidět prostředních 192dp). Na dnešním telefonu (3–4×)
+// to je 864 až 1152 px — dosavadní `ic_launcher_foreground` má přitom jen
+// 432 px, takže se zvětšoval skoro trojnásobně a byl ROZMAZANÝ. Z provozu
+// 23. 9. 2026: „jako první se zobrazí rozmazaný logo pivovaru v černém
+// čtverci … až pak se tam dá to ostrý."
+//
+// Proto vlastní soubor v jedné velké velikosti (a `-nodpi`, ať ho Android
+// nepřepočítává podle hustoty): 1152 px, průhledné pozadí, znak na 0.55
+// šířky — tedy uvnitř bezpečné zóny, aby se nic neuřízlo.
+console.log('Znak na úvodní obrazovce (Android 12+):');
+zapis('android/app/src/main/res/drawable-nodpi/splash_icon.png', await znakNaPruhledno(1152, 0.55));
 
 // --- Android: úvodní obrazovka --------------------------------------------
 console.log('Úvodní obrazovka (Android):');
