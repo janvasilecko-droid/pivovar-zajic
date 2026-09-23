@@ -28,6 +28,28 @@ export function zbytekKeKonciTydne(
   return out;
 }
 
+/**
+ * Kolik kusů z každé POLOŽKY objednávky už fyzicky odjelo (zavoz_deductions).
+ *
+ * Klíč je `order_items.id`. Slouží k jedinému účelu, ale zásadnímu: skladová
+ * kniha má zavezené kusy odečtené sama, takže kdo je chce odečíst ještě jednou
+ * jako „poptávku", odečte je DVAKRÁT. Přesně tuhle chybu už jednou měl fond
+ * v keggingPlan.ts („Plán stáčení dvakrát odečítal sudy z fondu") a řeší ji
+ * i `zbytekPodleObjednavek` níž — proto je ta znalost tady, na jednom místě,
+ * a ne potřetí opsaná jinde.
+ */
+export function odecteneKusyPolozek(
+  zavozDeductionRows: { order_item_id?: string | null; quantity?: number | null }[] | undefined,
+): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const r of zavozDeductionRows ?? []) {
+    const id = r?.order_item_id;
+    if (!id) continue;
+    out.set(id, (out.get(id) ?? 0) + Number(r.quantity || 0));
+  }
+  return out;
+}
+
 export type Schodek = {
   beer_id: string;
   package_id: string;
