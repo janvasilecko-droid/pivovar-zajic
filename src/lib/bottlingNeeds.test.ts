@@ -182,6 +182,9 @@ describe('computeBottlingNeeds', () => {
     const row = rows.find((r) => r.package_id === 'p-bottle')!;
     expect(row.stock).toBe(40); // 100 − 60 (kniha si odvoz odečetla sama)
     expect(row.ordered).toBe(100); // sloupec „objednáno" zůstává celá potřeba
+    // Tohle číslo se ukazuje v přehledu jako „zbývá zavézt" — podle něj se
+    // rozhoduje, kolik stočit (zadání 23. 9. 2026).
+    expect(row.zbyvaZavezt).toBe(40); // 100 − 60 zavezených
     // Zbývá zavézt 40 a na skladě je právě 40 → stočit není potřeba nic.
     // Dřív tu vyšlo 60 (100 − 40), tedy přesně ta zavezená část navíc.
     expect(row.missing).toBe(0);
@@ -270,7 +273,7 @@ describe('computeBottlingNeeds', () => {
 describe('seskupPodlePiva', () => {
   const radek = (beer_id: string, beer_name: string, package_id: string, missing = 0): NeedsRow => ({
     beer_id, beer_name, package_id, package_label: package_id, volume_l: 0.5,
-    ordered: 0, stock: 0, planned: 0, fasovani: 0, afterBottling: 0, missing, afterOutgoing: -missing,
+    ordered: 0, zbyvaZavezt: 0, stock: 0, planned: 0, fasovani: 0, afterBottling: 0, missing, afterOutgoing: -missing,
   });
 
   it('sloučí víc obalů téhož piva do jedné skupiny', () => {

@@ -39,6 +39,12 @@ export type NeedsRow = {
   package_label: string;
   volume_l: number;
   ordered: number;
+  /**
+   * Kolik z objednávek týdne ještě NEODJELO (objednáno − co už je zavezené).
+   * Proti tomuhle číslu se rozhoduje, kolik stočit — `ordered` samo o sobě
+   * u rozvezené objednávky lže, protože zavezené kusy už ze skladu odešly.
+   */
+  zbyvaZavezt: number;
   stock: number;
   planned: number;
   fasovani: number;
@@ -229,6 +235,7 @@ export function computeBottlingNeeds(input: BottlingNeedsInput): NeedsRow[] {
         package_label: p.label,
         volume_l: Number(p.volume_l || 0),
         ordered,
+        zbyvaZavezt,
         stock,
         planned,
         fasovani,
