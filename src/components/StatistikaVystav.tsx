@@ -14,7 +14,7 @@
 // ΔE 13,3 pro deuteranopii), takže se sousední výseče dají rozlišit i bez
 // plného vnímání barev. Vedle barvy je vždycky i popisek — barva sama nikdy
 // nenese informaci.
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
@@ -24,7 +24,7 @@ import { EmptyState } from './ui';
 import {
   formatHl, hl, litryPoMesicich, litryPoTydnech, litryVRozsahu, podilPodleObalu,
   podilPodlePiva, podleOdberatelu, posunDnu, posunMesicu, predchoziRozsah,
-  rozsahObdobi, zmenaProcent,
+  prumernaPotrebaKegu, popisRozsahu, denObdobi, rozsahObdobi, zmenaProcent,
   type Obal, type Obdobi, type Pivo, type VyrobniRadek,
 } from '../lib/statistika';
 
@@ -147,8 +147,19 @@ export default function StatistikaVystav({
   const vyroba = keggingRows;
   const lahvovani = bottlingRows;
 
-  const { od, do: doKdy } = rozsahObdobi(obdobi, dnes);
-  const predchozi = predchoziRozsah(obdobi, dnes);
+  // O kolik období zpět se zrovna kouká (0 = to, ve kterém jsme teď).
+  // Posouvají se jím jen ROZPADY pod přepínačem; dlaždice a grafy nahoře
+  // ukazují pořád aktuální stav.
+  const [posun, setPosun] = useState(0);
+  const denProObdobi = denObdobi(obdobi, dnes, posun);
+
+  // Nadpisy pod přepínačem musí říkat, co je OPRAVDU vidět. Dokud se
+  // needituje posun, zůstává zažité „tento měsíc"; po posunu se ukáže
+  // konkrétní období, ať popisek nelže.
+  const popisVybraneho = posun === 0 ? POPIS_OBDOBI[obdobi] : popisRozsahu(obdobi, denProObdobi);
+
+  const { od, do: doKdy } = rozsahObdobi(obdobi, denProObdobi);
+  const predchozi = predchoziRozsah(obdobi, denProObdobi);
 
   const soucty = useMemo(() => {
     const zaObdobi = (o: Obdobi) => {
@@ -214,6 +225,13 @@ export default function StatistikaVystav({
     [orders, orderItems, mapaObalu, od, doKdy],
   );
 
+  // 🛢️ Kolik sudů průměrně padne za týden a za měsíc — podklad pro to, kolik
+  // jich mít doma umytých. Počítá se z ukončených období (viz lib/statistika).
+  const potrebaKegu = useMemo(
+    () => prumernaPotrebaKegu(vyroba, mapaObalu, dnes),
+    [vyroba, mapaObalu, dnes],
+  );
+
   // Barva podle pořadí v katalogu, ne v žebříčku — pivo si barvu drží,
   // i když se filtrem změní pořadí.
   const barvaPiva = useMemo(() => {
@@ -238,6 +256,33 @@ export default function StatistikaVystav({
         <Dlazdice popis="Letos" litry={soucty.rok.ted} zmena={soucty.rok.zmena} protiCemu="loňsku" />
         <Dlazdice popis="Výstav celkem" litry={soucty.vse.ted} zmena={null} />
       </div>
+
+      {/* 🛢️ Průměrná potřeba sudů — v KUSECH, ne v hektolitrech: odpovídá na
+          „kolik jich musím mít doma umytých", a na to hektolitry neodpoví
+          (padesátka i desítka je pořád jeden sud). Z ukončených období —
+          běžící týden by průměr v pondělí strhl dolů. */}
+      <section className="card p-3.5 sm:p-5">
+        <Nadpis
+          text="Průměrná potřeba sudů"
+          popis={`Kolik sudů se průměrně stočí — z posledních ${potrebaKegu.tydnu} ukončených týdnů a ${potrebaKegu.mesicu} měsíců`}
+        />
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-xl border border-neutral-200 bg-white p-3">
+            <div className="text-udaj font-black uppercase tracking-wider text-neutral-500">Na týden</div>
+            <div className="font-display font-extrabold text-2xl text-neutral-900 tabular-nums mt-1">
+              {potrebaKegu.tyden.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })}{' '}
+              <span className="text-base font-bold text-neutral-400">sudů</span>
+            </div>
+          </div>
+          <div className="rounded-xl border border-neutral-200 bg-white p-3">
+            <div className="text-udaj font-black uppercase tracking-wider text-neutral-500">Na měsíc</div>
+            <div className="font-display font-extrabold text-2xl text-neutral-900 tabular-nums mt-1">
+              {potrebaKegu.mesic.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })}{' '}
+              <span className="text-base font-bold text-neutral-400">sudů</span>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* Porovnání měsíců — dvě řady ve stejné jednotce, jedna osa. */}
       <section className="card p-3.5 sm:p-5">
@@ -276,25 +321,68 @@ export default function StatistikaVystav({
         </div>
       </section>
 
-      {/* Přepínač období pro rozpady pod ním */}
-      <div className="flex items-center gap-1 p-1 rounded-2xl bg-white border border-neutral-200 w-fit">
-        {(['tyden', 'mesic', 'rok', 'vse'] as Obdobi[]).map((o) => (
-          <button
-            key={o}
-            onClick={() => onObdobi(o)}
-            className={`min-h-[44px] px-3 rounded-xl text-xs font-black transition ${
-              obdobi === o ? 'bg-primary-600 text-white shadow-sm' : 'text-neutral-600 hover:bg-neutral-100'
-            }`}
-          >
-            {o === 'tyden' ? 'Týden' : o === 'mesic' ? 'Měsíc' : o === 'rok' ? 'Rok' : 'Celkem'}
-          </button>
-        ))}
+      {/* Přepínač období pro rozpady pod ním + posouvání šipkami.
+          Zadání 23. 9. 2026: „uprav ten filtr tyden, tento tyden at to
+          ukazuje, mesic aktualni, rok aktualni a at se daj vsechny tyto
+          udaje sipkama jednoduse posouvat." Výchozí je vždycky období,
+          ve kterém jsme teď (posun 0); šipka vlevo jde do minulosti. */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-1 p-1 rounded-2xl bg-white border border-neutral-200 w-fit">
+          {(['tyden', 'mesic', 'rok', 'vse'] as Obdobi[]).map((o) => (
+            <button
+              key={o}
+              onClick={() => { onObdobi(o); setPosun(0); }}
+              className={`min-h-[44px] px-3 rounded-xl text-xs font-black transition ${
+                obdobi === o ? 'bg-primary-600 text-white shadow-sm' : 'text-neutral-600 hover:bg-neutral-100'
+              }`}
+            >
+              {o === 'tyden' ? 'Týden' : o === 'mesic' ? 'Měsíc' : o === 'rok' ? 'Rok' : 'Celkem'}
+            </button>
+          ))}
+        </div>
+
+        {/* U „Celkem" není co posouvat — celá doba je jen jedna. */}
+        {obdobi !== 'vse' && (
+          <div className="flex items-center gap-1 p-1 rounded-2xl bg-white border border-neutral-200 w-fit">
+            <button
+              type="button"
+              onClick={() => setPosun((p) => p - 1)}
+              className="btn-ghost !rounded-xl !py-2 !px-3 font-black text-base"
+              title="Předchozí období"
+              aria-label="Předchozí období"
+            >
+              ‹
+            </button>
+            <span className="px-2 text-xs font-black text-neutral-900 tabular-nums whitespace-nowrap">
+              {popisRozsahu(obdobi, denProObdobi)}
+            </span>
+            <button
+              type="button"
+              onClick={() => setPosun((p) => Math.min(0, p + 1))}
+              disabled={posun >= 0}
+              className="btn-ghost !rounded-xl !py-2 !px-3 font-black text-base disabled:opacity-30"
+              title="Následující období"
+              aria-label="Následující období"
+            >
+              ›
+            </button>
+            {posun !== 0 && (
+              <button
+                type="button"
+                onClick={() => setPosun(0)}
+                className="btn-ghost !rounded-xl !py-2 !px-3 text-xs font-black text-amber-700"
+              >
+                Teď
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Podíl piv */}
         <section className="card p-3.5 sm:p-5">
-          <Nadpis text="Které pivo táhne" popis={`Podíl na výstavu ${POPIS_OBDOBI[obdobi]} · celkem ${formatHl(litryObdobi)} hl`} />
+          <Nadpis text="Které pivo táhne" popis={`Podíl na výstavu ${popisVybraneho} · celkem ${formatHl(litryObdobi)} hl`} />
           {podlePiv.length === 0 ? (
             <p className="text-sm text-neutral-500 font-semibold py-8 text-center">V tomhle období se nic nestočilo.</p>
           ) : (
@@ -326,7 +414,7 @@ export default function StatistikaVystav({
 
         {/* Podíl obalů */}
         <section className="card p-3.5 sm:p-5">
-          <Nadpis text="Do jakých sudů" popis={`Rozpad výstavu podle velikosti sudu ${POPIS_OBDOBI[obdobi]}`} />
+          <Nadpis text="Do jakých sudů" popis={`Rozpad výstavu podle velikosti sudu ${popisVybraneho}`} />
           {podleObalu.length === 0 ? (
             <p className="text-sm text-neutral-500 font-semibold py-8 text-center">V tomhle období se nic nestočilo.</p>
           ) : (
@@ -360,7 +448,7 @@ export default function StatistikaVystav({
       <section className="card p-3.5 sm:p-5">
         <Nadpis
           text="Přestočeno do lahví"
-          popis={`${POPIS_OBDOBI[obdobi]} — lahvuje se z už stočených sudů, do výstavu se to proto NEpřičítá`}
+          popis={`${popisVybraneho} — lahvuje se z už stočených sudů, do výstavu se to proto NEpřičítá`}
         />
         {podleLahvi.length === 0 ? (
           <p className="text-sm text-neutral-500 font-semibold py-6 text-center">V tomhle období se nelahvovalo.</p>
@@ -391,7 +479,7 @@ export default function StatistikaVystav({
 
       {/* Odběratelé */}
       <section className="card p-3.5 sm:p-5">
-        <Nadpis text="Největší odběratelé" popis={`Podle objednaného množství ${POPIS_OBDOBI[obdobi]} — rozhoduje den závozu`} />
+        <Nadpis text="Největší odběratelé" popis={`Podle objednaného množství ${popisVybraneho} — rozhoduje den závozu`} />
         {odberatele.length === 0 ? (
           <EmptyState text="V tomhle období není žádná objednávka." icon={Store} />
         ) : (
@@ -424,7 +512,7 @@ export default function StatistikaVystav({
       {/* Piva v číslech — tabulka jako alternativa ke grafu */}
       {podlePiv.length > 0 && (
         <section className="card p-3.5 sm:p-5">
-          <Nadpis text="Piva v číslech" popis={`${POPIS_OBDOBI[obdobi]}${predchozi ? ` · srovnání s obdobím ${POPIS_PREDCHOZI[obdobi]}` : ''}`} />
+          <Nadpis text="Piva v číslech" popis={`${popisVybraneho}${predchozi ? ` · srovnání s obdobím ${POPIS_PREDCHOZI[obdobi]}` : ''}`} />
           <div className="overflow-x-auto -mx-1 px-1">
             <table className="table-drzi-prvni-sloupec w-full text-sm">
               <thead>

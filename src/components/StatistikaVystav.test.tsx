@@ -56,6 +56,40 @@ describe('Statistika — Výstav', () => {
     expect(screen.queryAllByText('8').length).toBe(0);
   });
 
+  // 🐛 Pojistka proti chybě, kterou tahle appka udělala už dvakrát jinde:
+  // přehledy stáčení i export do Excelu si seznam předfiltrovaly na KLADNÉ
+  // množství a se stejným filtrem pak počítaly i SOUČET, takže manko
+  // z inventury (záporný řádek v `kegging` — viz lib/inventoryFix.ts,
+  // odectiZeStoceni) ze součtu vypadlo a výroba vycházela vyšší, než jaká
+  // byla. Uživatel to tehdy popsal přesně: „pokud mam stoceno napr 10hl
+  // a −1hl v minusovych polozkach, tak mi vyjede 10hl, coz je spatny udaj,
+  // ja tam potrebuju videt 9hl."
+  //
+  // Výstav po měsících musí manko započítat — jinak měsíc tvrdí víc, než
+  // se doopravdy stočilo.
+  it('manko z inventury (záporný řádek) se z měsíčního výstavu odečte', () => {
+    render(
+      <StatistikaVystav
+        bottlingRows={bottling}
+        keggingRows={[
+          ...kegging,
+          // Srovnání inventury: dva sudy se nenašly → −60 l, tedy −0,6 hl.
+          { entry_date: '2026-08-26', beer_id: 'b11', package_id: 'keg30', quantity: -2 },
+        ]}
+        obaly={OBALY}
+        piva={PIVA}
+        orders={orders}
+        orderItems={orderItems}
+        dnes="2026-08-27"
+        obdobi="mesic"
+        onObdobi={vi.fn()}
+      />,
+    );
+    // 600 l − 60 l = 540 l = 5,4 hl. Kdyby se záporný řádek zahodil,
+    // stálo by tu pořád 6 — o dva sudy víc, než se skutečně stočilo.
+    expect(screen.getAllByText('5,4').length).toBeGreaterThan(0);
+  });
+
   it('lahvování se ukazuje zvlášť a řekne, jaký je to podíl výstavu', () => {
     vykresli();
     expect(screen.getByText('Přestočeno do lahví')).toBeTruthy();

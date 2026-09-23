@@ -3,6 +3,7 @@ import {
   pondeliTydne, posunMesicu, rozsahObdobi, predchoziRozsah,
   litryVRozsahu, litryPoMesicich, litryPoTydnech,
   podilPodlePiva, podilPodleObalu, podleOdberatelu, zmenaProcent, formatHl,
+  prumernaPotrebaKegu, denObdobi, popisRozsahu,
   type Obal, type VyrobniRadek,
 } from './statistika';
 
@@ -141,5 +142,92 @@ describe('pomocné', () => {
     expect(formatHl(1234)).toBe('12,3');
     // cs-CZ odděluje tisíce pevnou mezerou (U+00A0), ne obyčejnou.
     expect(formatHl(1234567).replace(/\s/g, ' ')).toBe('12 346');
+  });
+});
+
+// 🛢️ Zadání 23. 9. 2026: „u prehledu pridej kolonku prumerne potreba kegu
+// na tyden a mesic." Číslo je v KUSECH sudů — odpovídá na „kolik jich musím
+// mít doma umytých", a na to se hektolitry odpovědět nedají.
+describe('průměrná potřeba sudů', () => {
+  const OKEN = 12;
+  // 12 ukončených týdnů před týdnem, do kterého spadá 2026-08-27 (čtvrtek).
+  // Pondělí toho týdne je 2026-08-24, okno tedy začíná 2026-06-01.
+  const dnes = '2026-08-27';
+
+  it('průměruje kusy sudů přes ukončené týdny i měsíce', () => {
+    const r: VyrobniRadek[] = [
+      { entry_date: '2026-08-17', beer_id: 'b11', package_id: 'keg30', quantity: 12 }, // minulý týden
+      { entry_date: '2026-07-06', beer_id: 'b11', package_id: 'keg50', quantity: 12 }, // červenec
+    ];
+    const v = prumernaPotrebaKegu(r, OBALY, dnes, OKEN);
+    expect(v.tyden).toBe(24 / OKEN); // oba řádky padnou do okna týdnů
+    // Do okna MĚSÍCŮ patří jen červenec: řádek ze 17. 8. je v běžícím měsíci,
+    // a ten se schválně nepočítá (viz test níž).
+    expect(v.mesic).toBe(12 / OKEN);
+    expect(v.tydnu).toBe(OKEN);
+    expect(v.mesicu).toBe(OKEN);
+  });
+
+  it('běžící týden a měsíc se nepočítají — jinak by průměr v pondělí spadl', () => {
+    const r: VyrobniRadek[] = [
+      { entry_date: '2026-08-25', beer_id: 'b11', package_id: 'keg30', quantity: 99 }, // TENTO týden i měsíc
+    ];
+    const v = prumernaPotrebaKegu(r, OBALY, dnes, OKEN);
+    expect(v.tyden).toBe(0);
+    expect(v.mesic).toBe(0);
+  });
+
+  it('lahve se nepočítají — potřeba sudů je o sudech', () => {
+    const r: VyrobniRadek[] = [
+      { entry_date: '2026-07-06', beer_id: 'b11', package_id: 'lahev', quantity: 500 },
+    ];
+    expect(prumernaPotrebaKegu(r, OBALY, dnes, OKEN).mesic).toBe(0);
+  });
+
+  it('manko z inventury (záporný řádek) průměr snižuje, nezahazuje se', () => {
+    const r: VyrobniRadek[] = [
+      { entry_date: '2026-07-06', beer_id: 'b11', package_id: 'keg30', quantity: 24 },
+      { entry_date: '2026-07-07', beer_id: 'b11', package_id: 'keg30', quantity: -12 },
+    ];
+    expect(prumernaPotrebaKegu(r, OBALY, dnes, OKEN).mesic).toBe(12 / OKEN);
+  });
+
+  it('bez dat vrátí nulu, ne dělení nulou', () => {
+    const v = prumernaPotrebaKegu([], OBALY, dnes, OKEN);
+    expect(v.tyden).toBe(0);
+    expect(v.mesic).toBe(0);
+  });
+});
+
+// ⬅️➡️ Zadání 23. 9. 2026: „uprav ten filtr tyden, tento tyden at to ukazuje,
+// mesic aktualni, rok aktualni a at se daj vsechny tyto udaje sipkama
+// jednoduse posouvat."
+describe('posouvání období šipkami', () => {
+  const dnes = '2026-09-23'; // středa, ISO týden 21.–27. 9.
+
+  it('bez posunu ukazuje období, ve kterém jsme teď', () => {
+    expect(rozsahObdobi('tyden', denObdobi('tyden', dnes, 0))).toEqual({ od: '2026-09-21', do: '2026-09-27' });
+    expect(rozsahObdobi('mesic', denObdobi('mesic', dnes, 0)).od).toBe('2026-09-01');
+    expect(rozsahObdobi('rok', denObdobi('rok', dnes, 0)).od).toBe('2026-01-01');
+  });
+
+  it('šipka zpět posune o jeden týden, měsíc i rok', () => {
+    expect(rozsahObdobi('tyden', denObdobi('tyden', dnes, -1))).toEqual({ od: '2026-09-14', do: '2026-09-20' });
+    expect(rozsahObdobi('mesic', denObdobi('mesic', dnes, -1)).od).toBe('2026-08-01');
+    expect(rozsahObdobi('rok', denObdobi('rok', dnes, -1)).od).toBe('2025-01-01');
+  });
+
+  it('posun přetáčí přes hranici roku', () => {
+    expect(rozsahObdobi('mesic', denObdobi('mesic', '2026-01-15', -1)).od).toBe('2025-12-01');
+  });
+
+  it('„za celou dobu" se posouvat nedá — nemá čím', () => {
+    expect(denObdobi('vse', dnes, -5)).toBe(dnes);
+  });
+
+  it('popis říká lidsky, co je zrovna vidět', () => {
+    expect(popisRozsahu('tyden', dnes)).toBe('21. 9. – 27. 9. 2026');
+    expect(popisRozsahu('mesic', dnes)).toBe('září 2026');
+    expect(popisRozsahu('rok', dnes)).toBe('2026');
   });
 });

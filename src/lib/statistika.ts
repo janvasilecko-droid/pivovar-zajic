@@ -53,6 +53,40 @@ export function rozsahObdobi(obdobi: Obdobi, dnes: string): { od: string; do: st
   return { od: '0000-01-01', do: '9999-12-31' };
 }
 
+/**
+ * Den, od kterého se odvíjí období posunuté o `posun` období zpět/dopředu
+ * (0 = to, ve kterém jsme teď; −1 = předchozí).
+ *
+ * Schválně se posouvá REFERENČNÍ DEN a rozsah se pak počítá stávajícím
+ * `rozsahObdobi()` — tím pádem existuje jen jedna definice toho, kde týden
+ * (měsíc, rok) začíná a končí, a posun ji nemůže rozejít.
+ */
+export function denObdobi(obdobi: Obdobi, dnes: string, posun: number): string {
+  if (posun === 0) return dnes;
+  if (obdobi === 'tyden') return posunDnu(pondeliTydne(dnes), 7 * posun);
+  if (obdobi === 'mesic') return posunMesicu(dnes.slice(0, 7), posun) + '-01';
+  if (obdobi === 'rok') return String(Number(dnes.slice(0, 4)) + posun) + '-01-01';
+  return dnes; // „za celou dobu" se posouvat nedá
+}
+
+const MESICE_1_PAD = [
+  'leden', 'únor', 'březen', 'duben', 'květen', 'červen',
+  'červenec', 'srpen', 'září', 'říjen', 'listopad', 'prosinec',
+];
+
+/** Čitelný popis zobrazeného období — „23. 9. – 29. 9. 2026", „září 2026", „2026". */
+export function popisRozsahu(obdobi: Obdobi, den: string): string {
+  if (obdobi === 'rok') return den.slice(0, 4);
+  if (obdobi === 'mesic') return `${MESICE_1_PAD[Number(den.slice(5, 7)) - 1]} ${den.slice(0, 4)}`;
+  if (obdobi === 'tyden') {
+    const od = pondeliTydne(den);
+    const doKdy = posunDnu(od, 6);
+    const denMesic = (iso: string) => `${Number(iso.slice(8, 10))}. ${Number(iso.slice(5, 7))}.`;
+    return `${denMesic(od)} – ${denMesic(doKdy)} ${doKdy.slice(0, 4)}`;
+  }
+  return 'za celou dobu';
+}
+
 /** Předchozí srovnatelné období — proti němu se počítá růst/pokles. */
 export function predchoziRozsah(obdobi: Obdobi, dnes: string): { od: string; do: string } | null {
   if (obdobi === 'tyden') {
@@ -203,6 +237,66 @@ export function zmenaProcent(ted: number, drive: number): number | null {
 }
 
 export const hl = (litry: number): number => litry / 100;
+
+export type PotrebaKegu = {
+  /** Průměrný počet sudů stočených za týden. */
+  tyden: number;
+  /** Průměrný počet sudů stočených za měsíc. */
+  mesic: number;
+  /** Z kolika ukončených týdnů se průměr počítal (0 = není z čeho). */
+  tydnu: number;
+  /** Z kolika ukončených měsíců se průměr počítal. */
+  mesicu: number;
+};
+
+/**
+ * 🛢️ Průměrná potřeba sudů — kolik KUSŮ sudů se průměrně stočí za týden
+ * a za měsíc.
+ *
+ * Schválně v KUSECH, ne v hektolitrech: tohle číslo odpovídá na otázku
+ * „kolik sudů musím mít doma umytých a připravených", a na tu se v
+ * hektolitrech odpovědět nedá — padesátka i desítka je pořád jeden sud,
+ * který někde musí stát.
+ *
+ * Počítá se z UKONČENÝCH období, běžící týden a měsíc se vynechávají:
+ * v pondělí ráno je stočeno skoro nic, a kdyby se ten týden počítal,
+ * průměr by spadl z důvodu, který s potřebou sudů nesouvisí.
+ *
+ * Záporné řádky (manko z inventury, viz lib/inventoryFix.ts) se počítají
+ * jako všude jinde — snižují výsledek, protože se to pivo nestočilo.
+ */
+export function prumernaPotrebaKegu(
+  radky: VyrobniRadek[],
+  obaly: Map<string, Obal>,
+  dnes: string,
+  oken = 12,
+): PotrebaKegu {
+  const jeSud = (id: string | null) => !!id && obaly.get(id)?.kind === 'keg';
+
+  // ── Týdny: `oken` ukončených týdnů před tím, do kterého spadá `dnes`.
+  const tentoPondeli = pondeliTydne(dnes);
+  const prvniPondeli = posunDnu(tentoPondeli, -7 * oken);
+  let kusyTydny = 0;
+  // ── Měsíce: `oken` ukončených měsíců před měsícem `dnes`.
+  const tentoMesic = dnes.slice(0, 7);
+  const prvniMesic = posunMesicu(tentoMesic, -oken);
+  let kusyMesice = 0;
+
+  for (const r of radky) {
+    if (!r.entry_date || !jeSud(r.package_id)) continue;
+    const ks = Number(r.quantity || 0);
+    if (r.entry_date >= prvniPondeli && r.entry_date < tentoPondeli) kusyTydny += ks;
+    const m = r.entry_date.slice(0, 7);
+    if (m >= prvniMesic && m < tentoMesic) kusyMesice += ks;
+  }
+
+  return {
+    tyden: kusyTydny / oken,
+    mesic: kusyMesice / oken,
+    tydnu: oken,
+    mesicu: oken,
+  };
+}
 
 export function formatHl(litry: number): string {
   const v = hl(litry);
