@@ -4,6 +4,8 @@ import {
   litryVRozsahu, litryPoMesicich, litryPoTydnech,
   podilPodlePiva, podilPodleObalu, podleOdberatelu, zmenaProcent, formatHl,
   prumernaPotrebaKegu, denObdobi, popisRozsahu,
+  obalyVCislech, pivaVCislech, litryPoObdobiAObalech, obalyVDatech,
+  kdoPrestalObjednavat, pondeliTydne as pondeli,
   type Obal, type VyrobniRadek,
 } from './statistika';
 
@@ -114,8 +116,23 @@ describe('odběratelé', () => {
 
   it('řadí podle litrů a sčítá objednávky téhož odběratele', () => {
     const v = podleOdberatelu(orders, polozky, OBALY, '2026-08-01', '2026-08-31');
-    expect(v[0]).toEqual({ nazev: 'Hospoda U Lípy', litry: 110, kusy: 3, objednavek: 2 });
+    expect(v[0]).toMatchObject({ nazev: 'Hospoda U Lípy', litry: 110, kusy: 3, objednavek: 2 });
     expect(v[1].nazev).toBe('Restaurace Zámek');
+  });
+
+  // 📦 Souhrnné „3 ks" je pro nachystání závozu k ničemu — dvě třicítky
+  // a jedna padesátka je jiná práce než tři třicítky. Proto se u každého
+  // odběratele drží i to, DO ČEHO se mu vozí.
+  it('rozepíše odběratele na konkrétní obaly, seřazené od největšího objemu', () => {
+    const v = podleOdberatelu(orders, polozky, OBALY, '2026-08-01', '2026-08-31');
+    expect(v[0].obaly).toEqual([
+      { id: 'keg30', nazev: 'KEG 30 l', kusy: 2, litry: 60 },
+      { id: 'keg50', nazev: 'KEG 50 l', kusy: 1, litry: 50 },
+    ]);
+    // Součet rozpadu musí sedět na souhrn — jinak by dvě čísla na jedné
+    // obrazovce tvrdila každé něco jiného.
+    expect(v[0].obaly.reduce((s, o) => s + o.kusy, 0)).toBe(v[0].kusy);
+    expect(v[0].obaly.reduce((s, o) => s + o.litry, 0)).toBe(v[0].litry);
   });
 
   it('stornované objednávky se nepočítají', () => {
@@ -127,7 +144,10 @@ describe('odběratelé', () => {
     // o2 je zadaná 10. 8., ale veze se 14. 8. — v týdnu od 10. 8. tedy je,
     // podle data zadání by ale spadla jinam.
     const v = podleOdberatelu(orders, polozky, OBALY, '2026-08-10', '2026-08-16');
-    expect(v).toEqual([{ nazev: 'Hospoda U Lípy', litry: 50, kusy: 1, objednavek: 1 }]);
+    expect(v).toEqual([{
+      nazev: 'Hospoda U Lípy', litry: 50, kusy: 1, objednavek: 1,
+      obaly: [{ id: 'keg50', nazev: 'KEG 50 l', kusy: 1, litry: 50 }],
+    }]);
   });
 });
 
@@ -229,5 +249,173 @@ describe('posouvání období šipkami', () => {
     expect(popisRozsahu('tyden', dnes)).toBe('21. 9. – 27. 9. 2026');
     expect(popisRozsahu('mesic', dnes)).toBe('září 2026');
     expect(popisRozsahu('rok', dnes)).toBe('2026');
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// Zadání 23. 9. 2026: „nestojim o data kolik celkem bylo stoceny lahvi
+// a kegu najednou (udaj k nicemu, je potreba vedet konkretni obaly kolik
+// za jaky obdobi)." Všechno níž je o tom, aby každé číslo šlo dohledat
+// ke KONKRÉTNÍMU obalu.
+// ───────────────────────────────────────────────────────────────────────────
+
+describe('průměrná potřeba sudů — rozpad podle velikosti', () => {
+  const OKEN = 4;
+  // Čtyři ukončené týdny před týdnem od 2026-08-31.
+  const r: VyrobniRadek[] = [
+    { entry_date: '2026-08-04', beer_id: 'b11', package_id: 'keg50', quantity: 8 },
+    { entry_date: '2026-08-11', beer_id: 'b11', package_id: 'keg50', quantity: 8 },
+    { entry_date: '2026-08-18', beer_id: 'b11', package_id: 'keg30', quantity: 4 },
+    { entry_date: '2026-08-25', beer_id: 'b11', package_id: 'keg30', quantity: 4 },
+    // Lahve do potřeby sudů nepatří — sud to není.
+    { entry_date: '2026-08-25', beer_id: 'b11', package_id: 'lahev', quantity: 500 },
+  ];
+
+  it('rozpad se sečte přesně na souhrnné číslo', () => {
+    const v = prumernaPotrebaKegu(r, OBALY, '2026-08-31', OKEN);
+    expect(v.tyden).toBe(24 / OKEN);
+    expect(v.obaly.reduce((s, o) => s + o.tyden, 0)).toBeCloseTo(v.tyden, 10);
+    expect(v.obaly.reduce((s, o) => s + o.mesic, 0)).toBeCloseTo(v.mesic, 10);
+  });
+
+  it('řadí od nejžádanější velikosti a pojmenuje ji', () => {
+    const v = prumernaPotrebaKegu(r, OBALY, '2026-08-31', OKEN);
+    expect(v.obaly.map((o) => o.nazev)).toEqual(['KEG 50 l', 'KEG 30 l']);
+    expect(v.obaly[0].tyden).toBe(16 / OKEN);
+    expect(v.obaly[1].tyden).toBe(8 / OKEN);
+  });
+
+  it('lahve se do rozpadu nedostanou', () => {
+    const v = prumernaPotrebaKegu(r, OBALY, '2026-08-31', OKEN);
+    expect(v.obaly.find((o) => o.id === 'lahev')).toBeUndefined();
+  });
+
+  it('obal, který v okně nic nemá, se nevypisuje', () => {
+    // Okno jen na poslední dva týdny → padesátky už do něj nespadají.
+    const v = prumernaPotrebaKegu(r, OBALY, '2026-08-31', 2);
+    expect(v.obaly.map((o) => o.id)).toEqual(['keg30']);
+  });
+});
+
+describe('obaly v číslech', () => {
+  const ted = { od: '2026-08-01', do: '2026-08-31' };
+  const drive = { od: '2026-07-01', do: '2026-07-31' };
+
+  it('řádek je JEDEN obal, ne skupina „sudy/lahve"', () => {
+    const v = obalyVCislech(radky, OBALY, ted.od, ted.do, drive);
+    expect(v.map((o) => o.nazev).sort()).toEqual(['KEG 30 l', 'KEG 50 l', 'Lahev 0,5 l']);
+  });
+
+  it('změna se počítá proti témuž obalu v minulém období', () => {
+    // keg30: srpen 300 l, červenec 150 l → +100 %.
+    const v = obalyVCislech(radky, OBALY, ted.od, ted.do, drive);
+    expect(v.find((o) => o.id === 'keg30')!.zmena).toBe(100);
+  });
+
+  it('obal, který minule nebyl, nemá změnu — ne „+nekonečno"', () => {
+    const v = obalyVCislech(radky, OBALY, ted.od, ted.do, drive);
+    expect(v.find((o) => o.id === 'keg50')!.zmena).toBeNull();
+  });
+
+  it('bez předchozího období (volba „Celkem") se změna nepočítá vůbec', () => {
+    const v = obalyVCislech(radky, OBALY, ted.od, ted.do, null);
+    expect(v.every((o) => o.zmena === null)).toBe(true);
+  });
+
+  it('piva v číslech počítají změnu stejně', () => {
+    // b11: srpen 300 (keg30) + 100 (lahev) = 400 l, červenec 150 l.
+    const v = pivaVCislech(radky, OBALY, PIVA, ted.od, ted.do, drive);
+    expect(v.find((p) => p.id === 'b11')!.zmena).toBeCloseTo(((400 - 150) / 150) * 100, 10);
+  });
+});
+
+describe('řady pro stohovaný graf', () => {
+  it('po měsících drží litry odděleně za každý obal', () => {
+    const v = litryPoObdobiAObalech(radky, OBALY, (d) => d.slice(0, 7));
+    expect(v.get('2026-08')!.get('keg30')).toBe(300);
+    expect(v.get('2026-08')!.get('lahev')).toBe(100);
+    expect(v.get('2026-07')!.get('keg30')).toBe(150);
+  });
+
+  it('po týdnech se bucketuje stejně jako zbytek appky (pondělí)', () => {
+    const v = litryPoObdobiAObalech(radky, OBALY, pondeli);
+    expect(v.get('2026-08-03')!.get('keg30')).toBe(300);
+    expect(v.get('2026-08-03')!.get('lahev')).toBe(100);
+    expect(v.get('2026-08-10')!.get('keg50')).toBe(200);
+  });
+
+  it('součet řady přes obaly sedí na souhrn po měsících', () => {
+    const rozpad = litryPoObdobiAObalech(radky, OBALY, (d) => d.slice(0, 7));
+    const souhrn = litryPoMesicich(radky, OBALY);
+    for (const [mesic, vnitrni] of rozpad) {
+      expect([...vnitrni.values()].reduce((s, v) => s + v, 0)).toBe(souhrn.get(mesic));
+    }
+  });
+
+  it('obaly v datech jsou seřazené od největšího objemu', () => {
+    expect(obalyVDatech(radky, OBALY).map((o) => o.id)).toEqual(['keg30', 'keg50', 'lahev']);
+  });
+});
+
+describe('kdo přestal objednávat', () => {
+  const objednavky = [
+    // Stálý odběratel — vozí se mu pořád.
+    { id: 'a1', place_name: 'Stálý', delivery_date: '2026-08-20', order_date: '2026-08-18', status: 'nova' },
+    { id: 'a2', place_name: 'Stálý', delivery_date: '2026-07-20', order_date: '2026-07-18', status: 'nova' },
+    // Mlčí od března.
+    { id: 'b1', place_name: 'Utichlá hospoda', delivery_date: '2026-03-02', order_date: '2026-03-01', status: 'nova' },
+    { id: 'b2', place_name: 'Utichlá hospoda', delivery_date: '2026-02-02', order_date: '2026-02-01', status: 'nova' },
+    // Jednorázový odběr — ten nic nepřestal, ten jednou přijel.
+    { id: 'c1', place_name: 'Jednorázový', delivery_date: '2026-01-10', order_date: '2026-01-09', status: 'nova' },
+    // Stornovaná se nepočítá.
+    { id: 'd1', place_name: 'Utichlá hospoda', delivery_date: '2026-09-01', order_date: '2026-08-30', status: 'storno' },
+  ];
+  const polozky = [
+    { order_id: 'a1', package_id: 'keg50', quantity: 2 },
+    { order_id: 'a2', package_id: 'keg50', quantity: 2 },
+    { order_id: 'b1', package_id: 'keg30', quantity: 5 },
+    { order_id: 'b2', package_id: 'keg30', quantity: 5 },
+    { order_id: 'c1', package_id: 'keg30', quantity: 1 },
+    { order_id: 'd1', package_id: 'keg50', quantity: 99 },
+  ];
+
+  it('najde toho, kdo dřív bral a teď mlčí', () => {
+    const v = kdoPrestalObjednavat(objednavky, polozky, OBALY, '2026-08-31');
+    expect(v.map((x) => x.nazev)).toEqual(['Utichlá hospoda']);
+    expect(v[0].posledni).toBe('2026-03-02');
+    expect(v[0].dnu).toBe(182);
+    expect(v[0].litry).toBe(300); // 10 × 30 l
+    expect(v[0].objednavek).toBe(2);
+  });
+
+  it('jednorázový odběratel se nepočítá — nic nepřestal', () => {
+    const v = kdoPrestalObjednavat(objednavky, polozky, OBALY, '2026-08-31');
+    expect(v.find((x) => x.nazev === 'Jednorázový')).toBeUndefined();
+  });
+
+  it('stornovaná objednávka nesmí odběratele „oživit"', () => {
+    // d1 je z 1. 9., ale je storno — kdyby se počítala, Utichlá hospoda by
+    // ze seznamu vypadla (a ještě by měla o 99 sudů víc).
+    const v = kdoPrestalObjednavat(objednavky, polozky, OBALY, '2026-08-31');
+    expect(v[0].posledni).toBe('2026-03-02');
+    expect(v[0].litry).toBe(300);
+  });
+
+  it('naplánovaný budoucí závoz taky není mlčení', () => {
+    const budouci = [
+      ...objednavky,
+      { id: 'b3', place_name: 'Utichlá hospoda', delivery_date: '2026-09-15', order_date: '2026-08-30', status: 'nova' },
+    ];
+    // K dnešku 31. 8. je závoz na 15. 9. teprve před námi — poslední
+    // SKUTEČNÝ závoz je pořád březnový.
+    expect(kdoPrestalObjednavat(budouci, polozky, OBALY, '2026-08-31')[0].posledni).toBe('2026-03-02');
+    // O dva týdny později už proběhl, a mlčení tím skončilo.
+    expect(kdoPrestalObjednavat(budouci, polozky, OBALY, '2026-09-20')).toEqual([]);
+  });
+
+  it('práh se dá posunout', () => {
+    // Stálý má poslední závoz 20. 8., tedy 11 dní zpátky.
+    const v = kdoPrestalObjednavat(objednavky, polozky, OBALY, '2026-08-31', 10);
+    expect(v.map((x) => x.nazev).sort()).toEqual(['Stálý', 'Utichlá hospoda']);
   });
 });

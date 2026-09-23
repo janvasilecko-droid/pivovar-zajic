@@ -192,7 +192,23 @@ export function podilPodleObalu(
     .sort((a, b) => b.litry - a.litry);
 }
 
-export type OdberatelRadek = { nazev: string; litry: number; kusy: number; objednavek: number };
+/** Kolik kusů a litrů konkrétního obalu — řádek rozpadu. */
+export type ObalKusy = { id: string; nazev: string; kusy: number; litry: number };
+
+export type OdberatelRadek = {
+  nazev: string;
+  litry: number;
+  kusy: number;
+  objednavek: number;
+  /**
+   * Rozpad na KONKRÉTNÍ obaly, seřazený od největšího objemu.
+   *
+   * Souhrnné „16 ks" je pro plánování stáčení k ničemu — šest padesátek
+   * a deset PET lahví je úplně jiná práce než šestnáct třicítek. Proto se
+   * u každého odběratele drží i to, do čeho se mu vozí.
+   */
+  obaly: ObalKusy[];
+};
 
 /**
  * Odběratelé podle objednaného množství. Bere se DEN ZÁVOZU (delivery_date),
@@ -214,19 +230,35 @@ export function podleOdberatelu(
   }
   const podleJmena = new Map<string, OdberatelRadek>();
   const objednavkyJmena = new Map<string, Set<string>>();
+  const obalyJmena = new Map<string, Map<string, ObalKusy>>();
   for (const p of polozky) {
     const jmeno = vRozsahu.get(p.order_id);
     if (!jmeno) continue;
-    const zaznam = podleJmena.get(jmeno) ?? { nazev: jmeno, litry: 0, kusy: 0, objednavek: 0 };
-    zaznam.litry += Number(p.quantity || 0) * objem(p.package_id ? obaly.get(p.package_id) : undefined);
-    zaznam.kusy += Number(p.quantity || 0);
+    const zaznam = podleJmena.get(jmeno) ?? { nazev: jmeno, litry: 0, kusy: 0, objednavek: 0, obaly: [] };
+    const ks = Number(p.quantity || 0);
+    const litry = ks * objem(p.package_id ? obaly.get(p.package_id) : undefined);
+    zaznam.litry += litry;
+    zaznam.kusy += ks;
     podleJmena.set(jmeno, zaznam);
     const mnozina = objednavkyJmena.get(jmeno) ?? new Set<string>();
     mnozina.add(p.order_id);
     objednavkyJmena.set(jmeno, mnozina);
+    if (p.package_id) {
+      const naObal = obalyJmena.get(jmeno) ?? new Map<string, ObalKusy>();
+      const o = naObal.get(p.package_id)
+        ?? { id: p.package_id, nazev: obaly.get(p.package_id)?.label ?? 'Neznámý obal', kusy: 0, litry: 0 };
+      o.kusy += ks;
+      o.litry += litry;
+      naObal.set(p.package_id, o);
+      obalyJmena.set(jmeno, naObal);
+    }
   }
   return [...podleJmena.values()]
-    .map((z) => ({ ...z, objednavek: objednavkyJmena.get(z.nazev)?.size ?? 0 }))
+    .map((z) => ({
+      ...z,
+      objednavek: objednavkyJmena.get(z.nazev)?.size ?? 0,
+      obaly: [...(obalyJmena.get(z.nazev)?.values() ?? [])].sort((a, b) => b.litry - a.litry),
+    }))
     .sort((a, b) => b.litry - a.litry);
 }
 
@@ -238,6 +270,9 @@ export function zmenaProcent(ted: number, drive: number): number | null {
 
 export const hl = (litry: number): number => litry / 100;
 
+/** Průměrná potřeba JEDNÉ velikosti sudu. */
+export type PotrebaObalu = { id: string; nazev: string; tyden: number; mesic: number };
+
 export type PotrebaKegu = {
   /** Průměrný počet sudů stočených za týden. */
   tyden: number;
@@ -247,6 +282,14 @@ export type PotrebaKegu = {
   tydnu: number;
   /** Z kolika ukončených měsíců se průměr počítal. */
   mesicu: number;
+  /**
+   * Rozpad na KONKRÉTNÍ velikosti sudů, seřazený od nejžádanější.
+   *
+   * Souhrnné „18 sudů týdně" se nedá použít: neřekne, jestli mít připravené
+   * padesátky, nebo třicítky, a přitom právě tohle je ta otázka. Součet
+   * řádků dává `tyden` / `mesic`.
+   */
+  obaly: PotrebaObalu[];
 };
 
 /**
@@ -282,12 +325,24 @@ export function prumernaPotrebaKegu(
   const prvniMesic = posunMesicu(tentoMesic, -oken);
   let kusyMesice = 0;
 
+  // Tentýž průchod vede i rozpad na velikosti sudů — jedna smyčka, jedna
+  // definice toho, co se do průměru počítá.
+  const naObal = new Map<string, { tydny: number; mesice: number }>();
+
   for (const r of radky) {
     if (!r.entry_date || !jeSud(r.package_id)) continue;
     const ks = Number(r.quantity || 0);
-    if (r.entry_date >= prvniPondeli && r.entry_date < tentoPondeli) kusyTydny += ks;
+    const zaznam = naObal.get(r.package_id!) ?? { tydny: 0, mesice: 0 };
+    if (r.entry_date >= prvniPondeli && r.entry_date < tentoPondeli) {
+      kusyTydny += ks;
+      zaznam.tydny += ks;
+    }
     const m = r.entry_date.slice(0, 7);
-    if (m >= prvniMesic && m < tentoMesic) kusyMesice += ks;
+    if (m >= prvniMesic && m < tentoMesic) {
+      kusyMesice += ks;
+      zaznam.mesice += ks;
+    }
+    naObal.set(r.package_id!, zaznam);
   }
 
   return {
@@ -295,7 +350,163 @@ export function prumernaPotrebaKegu(
     mesic: kusyMesice / oken,
     tydnu: oken,
     mesicu: oken,
+    obaly: [...naObal.entries()]
+      .map(([id, v]) => ({
+        id,
+        nazev: obaly.get(id)?.label ?? 'Neznámý obal',
+        tyden: v.tydny / oken,
+        mesic: v.mesice / oken,
+      }))
+      // Obal, který v obou oknech vyšel na nulu, jen zabírá místo.
+      .filter((o) => o.tyden !== 0 || o.mesic !== 0)
+      .sort((a, b) => b.tyden - a.tyden || b.mesic - a.mesic),
   };
+}
+
+/** Řádek tabulky „v číslech" — podíl plus srovnání s minulým obdobím. */
+export type CisloRadek = PodilRadek & { zmena: number | null };
+
+/**
+ * 📦 Obaly v číslech — kolik KUSŮ konkrétního obalu za zvolené období,
+ * se srovnáním proti období předchozímu.
+ *
+ * Zadání 23. 9. 2026: „nestojim o data kolik celkem bylo stoceny lahvi
+ * a kegu najednou (udaj k nicemu, je potreba vedet konkretni obaly kolik
+ * za jaky obdobi)." Proto je řádek = jeden obal, ne „sudy" a „lahve".
+ *
+ * Sudy a lahve se ZÁMĚRNĚ počítají odděleně (volá se to dvakrát): sečíst
+ * je do jednoho podílu by tentýž objem počítalo dvakrát, protože se lahvuje
+ * z už stočených sudů.
+ */
+export function obalyVCislech(
+  radky: VyrobniRadek[],
+  obaly: Map<string, Obal>,
+  od: string,
+  doKdy: string,
+  predchozi: { od: string; do: string } | null,
+): CisloRadek[] {
+  const ted = podilPodleObalu(radky, obaly, od, doKdy);
+  const drive = predchozi ? podilPodleObalu(radky, obaly, predchozi.od, predchozi.do) : [];
+  return ted.map((r) => ({
+    ...r,
+    zmena: predchozi ? zmenaProcent(r.litry, drive.find((d) => d.id === r.id)?.litry ?? 0) : null,
+  }));
+}
+
+/**
+ * Totéž pro piva. Dřív se předchozí období dopočítávalo přímo v tabulce,
+ * uvnitř `.map()` — tedy celý průchod daty na KAŽDÝ řádek. Tohle je jeden
+ * průchod navíc, ne jeden na pivo.
+ */
+export function pivaVCislech(
+  radky: VyrobniRadek[],
+  obaly: Map<string, Obal>,
+  piva: Pivo[],
+  od: string,
+  doKdy: string,
+  predchozi: { od: string; do: string } | null,
+): CisloRadek[] {
+  const ted = podilPodlePiva(radky, obaly, piva, od, doKdy);
+  const drive = predchozi ? podilPodlePiva(radky, obaly, piva, predchozi.od, predchozi.do) : [];
+  return ted.map((r) => ({
+    ...r,
+    zmena: predchozi ? zmenaProcent(r.litry, drive.find((d) => d.id === r.id)?.litry ?? 0) : null,
+  }));
+}
+
+/**
+ * 📈 Litry po obdobích A obalech — podklad pro stohovaný graf.
+ *
+ * Klíč vnější mapy určuje volající (`litryPoMesicich` používá `RRRR-MM`,
+ * `litryPoTydnech` pondělí), aby bucketů nebyla druhá definice; vnitřní
+ * mapa je `id obalu → litry`.
+ */
+export function litryPoObdobiAObalech(
+  radky: VyrobniRadek[],
+  obaly: Map<string, Obal>,
+  klic: (datum: string) => string,
+): Map<string, Map<string, number>> {
+  const out = new Map<string, Map<string, number>>();
+  for (const r of radky) {
+    if (!r.entry_date || !r.package_id) continue;
+    const k = klic(r.entry_date);
+    const vnitrni = out.get(k) ?? new Map<string, number>();
+    vnitrni.set(r.package_id, (vnitrni.get(r.package_id) ?? 0) + litryRadku(r, obaly));
+    out.set(k, vnitrni);
+  }
+  return out;
+}
+
+/** Obaly, které se v datech vůbec vyskytují, seřazené od nejobjemnějšího. */
+export function obalyVDatech(radky: VyrobniRadek[], obaly: Map<string, Obal>): { id: string; nazev: string }[] {
+  return podilPodleObalu(radky, obaly, '0000-01-01', '9999-12-31').map((o) => ({ id: o.id, nazev: o.nazev }));
+}
+
+export type SpiciOdberatel = {
+  nazev: string;
+  /** Den posledního závozu. */
+  posledni: string;
+  /** Kolik dní od něj uplynulo. */
+  dnu: number;
+  /** Kolik hektolitrů u něj za celou dobu proteklo — čím víc, tím víc bolí. */
+  litry: number;
+  objednavek: number;
+};
+
+/** Kolik dní je mezi dvěma dny (kladné, když je `b` později). */
+function rozdilDnu(a: string, b: string): number {
+  return Math.round((Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / 86_400_000);
+}
+
+/**
+ * 💤 Odběratelé, kteří dřív brali a teď už ne.
+ *
+ * Tohle je jediné číslo ve Statistice, které mluví o ztracených penězích —
+ * všechno ostatní ukazuje, co se stalo, tohle ukazuje, co se přestalo dít.
+ *
+ * Jednorázový odběratel (jediná objednávka za celou dobu) se nepočítá:
+ * ten nic nepřestal, ten jednou přijel. Bere se den závozu, jako všude
+ * jinde ve Statistice.
+ */
+export function kdoPrestalObjednavat(
+  orders: { id: string; place_name: string | null; delivery_date: string | null; order_date: string; status: string }[],
+  polozky: { order_id: string; package_id: string | null; quantity: number | null }[],
+  obaly: Map<string, Obal>,
+  dnes: string,
+  prahDnu = 60,
+): SpiciOdberatel[] {
+  const jmenoObjednavky = new Map<string, string>();
+  const denObjednavky = new Map<string, string>();
+  const posledni = new Map<string, string>();
+  const pocet = new Map<string, number>();
+  for (const o of orders) {
+    if (o.status === 'storno') continue;
+    const den = o.delivery_date || o.order_date;
+    if (!den || den > dnes) continue; // naplánovaný budoucí závoz není mlčení
+    const jmeno = o.place_name || 'Neuvedený odběratel';
+    jmenoObjednavky.set(o.id, jmeno);
+    denObjednavky.set(o.id, den);
+    if (!posledni.has(jmeno) || den > posledni.get(jmeno)!) posledni.set(jmeno, den);
+    pocet.set(jmeno, (pocet.get(jmeno) ?? 0) + 1);
+  }
+
+  const litry = new Map<string, number>();
+  for (const p of polozky) {
+    const jmeno = jmenoObjednavky.get(p.order_id);
+    if (!jmeno) continue;
+    litry.set(jmeno, (litry.get(jmeno) ?? 0) + Number(p.quantity || 0) * objem(p.package_id ? obaly.get(p.package_id) : undefined));
+  }
+
+  return [...posledni.entries()]
+    .filter(([jmeno, den]) => (pocet.get(jmeno) ?? 0) > 1 && rozdilDnu(den, dnes) >= prahDnu)
+    .map(([jmeno, den]) => ({
+      nazev: jmeno,
+      posledni: den,
+      dnu: rozdilDnu(den, dnes),
+      litry: litry.get(jmeno) ?? 0,
+      objednavek: pocet.get(jmeno) ?? 0,
+    }))
+    .sort((a, b) => b.litry - a.litry);
 }
 
 export function formatHl(litry: number): string {
