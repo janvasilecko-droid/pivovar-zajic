@@ -499,6 +499,15 @@ export function BottlingTasksSettings({ setPage }: Props = {}) {
                     >
                       {r.package_label} — chybí {fmt(r.missing)} ks
                     </button>
+                    {/* 📊 Z čeho to číslo je — VIDITELNĚ, ne jen v bublině:
+                        na telefonu se na tooltip nedá najet, takže tam dřív
+                        zbylo holé „chybí X" bez opory. Zadání 23. 9. 2026:
+                        „potrebuju videt kolik zbiva, at na zaklade toho muzu
+                        zadat staceni." */}
+                    <div className="text-udaj font-bold text-neutral-600 mt-0.5">
+                      zbývá zavézt {fmt(r.zbyvaZavezt)} · sklad {fmt(r.stock)}
+                      {r.planned > 0 ? ` · naplánováno ${fmt(r.planned)}` : ''}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -509,6 +518,9 @@ export function BottlingTasksSettings({ setPage }: Props = {}) {
         <div className="rounded-xl border-2 border-amber-400 bg-amber-50 px-3.5 py-3">
           <div className="text-xs font-black text-amber-950 uppercase tracking-wider mb-2">Celkem za týden</div>
           <div className="text-base font-black text-rose-800">Chybí stočit {fmt(celkemChybi)} ks</div>
+          <div className="text-udaj font-bold text-amber-900 mt-1">
+            zbývá zavézt {fmt(sum(chybejici, (r) => r.zbyvaZavezt))} ks · skladem {fmt(sum(chybejici, (r) => r.stock))} ks
+          </div>
         </div>
       </div>
     );
@@ -521,6 +533,11 @@ export function BottlingTasksSettings({ setPage }: Props = {}) {
             <tr className="text-udaj uppercase tracking-wide text-neutral-500">
               <th scope="col" className="text-left font-black px-2 py-1.5">Pivo</th>
               <th scope="col" className="text-left font-black px-2 py-1.5">Obal</th>
+              {/* Zbývá zavézt + sklad jsou tu vidět jako čísla, ne jen
+                  v bublině — z čeho „chybí stočit" vzniklo, musí jít přečíst
+                  i na dotykovém displeji (zadání 23. 9. 2026). */}
+              <th scope="col" className="text-right font-black px-2 py-1.5">Zbývá zavézt</th>
+              <th scope="col" className="text-right font-black px-2 py-1.5">Sklad</th>
               <th scope="col" className="text-right font-black px-2 py-1.5"><AlertTriangle className="ikona-text" /> Chybí stočit</th>
               <th scope="col" className="text-right font-black px-2 py-1.5"><IkonaLahev className="ikona-text" /> Stočit</th>
             </tr>
@@ -543,6 +560,8 @@ export function BottlingTasksSettings({ setPage }: Props = {}) {
                     </span>
                   </td>
                   <td className="px-2 py-1.5 text-neutral-700 whitespace-nowrap">{r.package_label} {isKeg ? '' : `(${r.volume_l} L)`}</td>
+                  <td className="px-2 py-1.5 text-right font-bold text-neutral-800">{fmt(r.zbyvaZavezt)}</td>
+                  <td className="px-2 py-1.5 text-right font-bold text-neutral-800">{fmt(r.stock)}</td>
                   <td className="px-2 py-1.5 text-right font-black bg-rose-100 text-rose-800">
                     <button
                       type="button"
@@ -568,6 +587,8 @@ export function BottlingTasksSettings({ setPage }: Props = {}) {
             })}
             <tr className="border-t-2 border-neutral-300 bg-amber-50">
               <td colSpan={2} className="px-2 py-1.5 font-black text-amber-950">Celkem</td>
+              <td className="px-2 py-1.5 text-right font-bold text-amber-950">{fmt(sum(list, (r) => r.zbyvaZavezt))}</td>
+              <td className="px-2 py-1.5 text-right font-bold text-amber-950">{fmt(sum(list, (r) => r.stock))}</td>
               <td className="px-2 py-1.5 text-right font-black text-rose-800">{fmt(celkemChybi)}</td>
               <td />
             </tr>
