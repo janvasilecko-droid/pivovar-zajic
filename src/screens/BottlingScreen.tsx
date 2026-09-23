@@ -20,6 +20,7 @@ import { VoiceRecorder } from '../components/VoiceRecorder';
 import { parseFreeTextEntries, loadAliasMap, emptyAliasMap, type ParserAliasMap } from '../lib/orderParser';
 import { BeerTileGrid, BeerTilePanel } from '../components/BeerTileGrid';
 import { nejcastejsiMnozstvi, stackingQuickQtys } from '../lib/quickQty';
+import { jeChecklistKonceZUrl } from '../lib/vstupniStranka';
 import { navrhSudu, skutecnaVytrataProcenta } from '../lib/bottlingYield';
 import { synchronizuj } from '../lib/checklistData';
 import { computePackageNeeds, PackageNeedsRow } from '../lib/packageNeeds';
@@ -97,6 +98,24 @@ export default function BottlingScreen({
   const [checklistPhase, setChecklistPhase] = useState<'start' | 'end' | 'monthly'>('start');
   // Zaměření otevřeného checklistu na konkrétní sekci (např. měsíční údržba).
   const [checklistInitialCategory, setChecklistInitialCategory] = useState<string | null>(null);
+
+  // 🔔 Příchod z večerní připomínky (push v 16:00/18:00, viz migrace
+  // 20261231140000): adresa nese `?checklist=konec`, takže se rovnou otevře
+  // tabulka k vyplnění. Zadání znělo „upozornit na telefon A tabulku
+  // k vyplnění" — samotné přepnutí obrazovky by znamenalo hledat tlačítko.
+  // Parametr se hned uklidí z adresy, ať se okno neotevře znovu po obnovení
+  // stránky.
+  useEffect(() => {
+    if (!jeChecklistKonceZUrl(window.location.search)) return;
+    setChecklistPhase('end');
+    setChecklistGate(false);
+    setShowChecklistModal(true);
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('checklist');
+      window.history.replaceState(window.history.state, '', url);
+    } catch { /* adresa se nedala upravit — okno se prostě otevře znovu */ }
+  }, []);
 
   // Záložky: Stáčení / Přehled / Potřeba stočit lahve
   // Z menu se otevře nejprve Přehled stočených; tlačítko „Stáčení lahví" otevře zápis stáčení.

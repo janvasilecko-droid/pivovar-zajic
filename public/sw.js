@@ -428,7 +428,7 @@ self.addEventListener('push', (e) => {
     // sebou. Bez tagu by jeden zaseknutý most vyrobil lavinu.
     tag: data.tag || 'pivovar',
     renotify: true,
-    data: { stranka: data.stranka || '' },
+    data: { stranka: data.stranka || '', parametry: data.parametry || '' },
   };
   e.waitUntil(self.registration.showNotification(titulek, moznosti));
 });
@@ -436,7 +436,14 @@ self.addEventListener('push', (e) => {
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();
   const stranka = (e.notification.data && e.notification.data.stranka) || '';
-  const cil = new URL(stranka ? `./?page=${encodeURIComponent(stranka)}` : './', self.registration.scope).href;
+  // `parametry` (např. `checklist=konec`) říkají, co se má po otevření rovnou
+  // udělat — bez nich umí odkaz jen přepnout obrazovku. Připojují se za
+  // `?page=`, takže platí jen se zvolenou stránkou.
+  const parametry = (e.notification.data && e.notification.data.parametry) || '';
+  const dotaz = stranka
+    ? `./?page=${encodeURIComponent(stranka)}${parametry ? `&${parametry}` : ''}`
+    : './';
+  const cil = new URL(dotaz, self.registration.scope).href;
   e.waitUntil((async () => {
     const okna = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     // Otevřená appka se jen vytáhne dopředu — druhé okno téže aplikace

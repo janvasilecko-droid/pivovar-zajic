@@ -114,6 +114,10 @@ const ODDILY: Oddil[] = [
         jak: 'Vyber pivo dlaždicí, obal a počet kusů. Uložit. Před prvním stáčením dne se prokliká Příprava (Checklist) — zapíše se do sanitačního deníku.',
       },
       {
+        co: 'Konec stáčení (Checklist)',
+        jak: 'Po stáčení se prokliká úklid — i ten jde do sanitačního deníku. Musí být vyplněný každý den, kdy se stáčelo. Když v 16:00 chybí, přijde upozornění na telefon; když v 18:00 pořád chybí, přijde znovu a klepnutím se rovnou otevře tabulka k vyplnění.',
+      },
+      {
         co: 'Přehled',
         jak: 'Všechny záznamy za den, týden nebo měsíc. Nahoře je počet záznamů i celkový počet kusů. U řádku jde počet opravit (tužka nebo − / +) nebo ho smazat křížkem.',
       },

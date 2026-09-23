@@ -37,6 +37,7 @@ import { jeMesicUzamcen } from '../lib/mesicUzamcen';
 import { puvodZapisu, vlastniPoznamka } from '../lib/puvodZapisu';
 import { dopsaneZaskrtnutim, smazZaznamyStaceni } from '../lib/staceniZPolozky';
 import { zapamatujPozici } from '../lib/drzPozici';
+import { jeChecklistKonceZUrl } from '../lib/vstupniStranka';
 import { nejcastejsiMnozstvi } from '../lib/quickQty';
 
 // Stahuje se až při otevření — viz komentář u lazy() v Orders.tsx.
@@ -107,6 +108,22 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   const [checklistPhase, setChecklistPhase] = useState<'start' | 'end' | 'monthly'>('start');
   const [checklistInitialCategory, setChecklistInitialCategory] = useState<string | null>(null);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
+
+  // 🔔 Příchod z večerní připomínky (push v 16:00/18:00, viz migrace
+  // 20261231140000): `?checklist=konec` v adrese otevře rovnou tabulku
+  // k vyplnění, ne jen obrazovku. Parametr se hned uklidí, ať se okno
+  // neotevře znovu po obnovení stránky.
+  useEffect(() => {
+    if (!jeChecklistKonceZUrl(window.location.search)) return;
+    setChecklistPhase('end');
+    setChecklistGate(false);
+    setShowChecklistModal(true);
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('checklist');
+      window.history.replaceState(window.history.state, '', url);
+    } catch { /* adresa se nedala upravit — okno se prostě otevře znovu */ }
+  }, []);
 
   const [date, setDate] = useState(businessDateISO());
   const [note, setNote] = useState('');
