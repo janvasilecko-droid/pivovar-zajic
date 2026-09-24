@@ -26,6 +26,7 @@ import { nejvetsiTank, radkyBezTanku, tankRadku, tankyProPivo } from '../lib/tan
 import { podezreleMnozstvi } from '../lib/kontrolaZadani';
 import { IkonaSud } from '../components/ikony';
 import { PrepinacObdobi } from '../components/PrepinacObdobi';
+import { ChipyPiva, ChipyObalu } from '../components/FiltrPivaAObalu';
 import { zavibruj } from '../lib/haptika';
 import { consumeKegFixRequest } from '../lib/stockFixSignal';
 import { klicVyberu, nactiNaposled, zapamatujVyber, serazPodleNaposled } from '../lib/naposledyPouzite';
@@ -2120,30 +2121,6 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
           <div className="flex flex-wrap items-center gap-2">
             {rows.length > 0 && (
               <>
-                {/* Filtr podle piva */}
-                <select
-                  value={beerFilter}
-                  onChange={(e) => setBeerFilter(e.target.value)}
-                  className="input text-xs font-bold px-2 py-1 rounded border border-neutral-200 bg-white text-neutral-700 max-w-[140px]"
-                >
-                  <option value="">Všechna piva</option>
-                  {beers.map((b) => (
-                    <option key={b.id} value={b.id}>{b.name}</option>
-                  ))}
-                </select>
-
-                {/* Filtr podle obalu */}
-                <select
-                  value={recordPkgFilter}
-                  onChange={(e) => setRecordPkgFilter(e.target.value)}
-                  className="input text-xs font-bold px-2 py-1 rounded border border-neutral-200 bg-white text-neutral-700 max-w-[140px]"
-                >
-                  <option value="">Všechny obaly</option>
-                  {kegPackages.map((p) => (
-                    <option key={p.id} value={p.id}>{p.label}</option>
-                  ))}
-                </select>
-
                 {/* Přepínač období — společná komponenta. Bylo to poskládané
                     z devíti ručně malovaných tlačítek a stálo to skoro
                     stejně i ve Stáčení lahví. */}
@@ -2169,6 +2146,27 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
           </div>
 
         </div>
+
+        {/* Filtr piva a obalu — chipy rovnou klikatelné, vidět hned, žádné
+            rozbalování. Zadání 24. 9. 2026: „misto rollovaciho pole udelej
+            obaly i piva rouzklikavaci ikony ktery budou videt hned, stejne
+            jako po ut st......" — stejný vzor jako dny týdne v
+            PrepinacObdobi.tsx výš. */}
+        {rows.length > 0 && (
+          <div className="sticky top-[32px] z-10 flex flex-col gap-2 bg-amber-100/60 p-2.5 rounded border border-amber-200/90 shadow-2xs">
+            <ChipyPiva piva={beers} vybrane={beerFilter} onVybrat={setBeerFilter} />
+            <ChipyObalu obaly={kegPackages} vybrane={recordPkgFilter} onVybrat={setRecordPkgFilter} />
+            {(beerFilter || recordPkgFilter) && (
+              <button
+                type="button"
+                onClick={() => { setBeerFilter(''); setRecordPkgFilter(''); }}
+                className="btn-ghost !rounded text-xs font-bold !text-rose-700 !bg-rose-50 !border-rose-200 self-start"
+              >
+                <X className="ikona-text" /> Vymazat filtry
+              </button>
+            )}
+          </div>
+        )}
 
         {loading ? (
           <Spinner />
