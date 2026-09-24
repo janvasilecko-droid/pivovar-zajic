@@ -12,6 +12,7 @@ import { consumeOrdersItemFilter, consumeOrdersAutoImportRequest, consumeOrdersO
 import { businessDateISO, posunMesic, posunDen } from '../lib/businessDate';
 import { computeVariantTotals } from '../lib/variantTotals';
 import { vyhovujeDruhu, NAZEV_DRUHU, type DruhObaluFiltr } from '../lib/druhObalu';
+import { jeAutomatickyBezZavozu } from '../lib/bezZavozu';
 
 import { PlaceCombobox } from '../components/PlaceCombobox'; // Assuming this is needed
 import { DAYS } from '../lib/shared';
@@ -155,6 +156,16 @@ export default function Orders({
   const [date, setDate] = useState(businessDateISO());
   const [placeId, setPlaceId] = useState('');
   const [placeNameFree, setPlaceNameFree] = useState('');
+  // 🚚❌ Bez závozu — u jmenovaných odběratelů (viz lib/bezZavozu.ts) se
+  // zaškrtne samo při výběru/napsání jména; `noDeliveryTouched` drží, že
+  // uživatel pole už jednou přepnul ručně, ať mu další písmenko ve jméně
+  // volbu tiše nepřepíše zpátky.
+  const [noDelivery, setNoDelivery] = useState(false);
+  const [noDeliveryTouched, setNoDeliveryTouched] = useState(false);
+  useEffect(() => {
+    if (noDeliveryTouched) return;
+    setNoDelivery(jeAutomatickyBezZavozu(placeNameFree));
+  }, [placeNameFree, noDeliveryTouched]);
   const [deliveryDay, setDeliveryDay] = useState('');
   const [deliveryDate, setDeliveryDate] = useState('');
   // Potvrzení, že závoz spadá do jiného (příštího) měsíce — viz banner u
@@ -1148,6 +1159,7 @@ export default function Orders({
           source: 'rucne', status: 'nova', delivery_day: deliveryDay || null,
           delivery_date: deliveryDate || null,
           is_prepared: false, is_packaged: false, note: note.trim() || null,
+          no_delivery: noDelivery,
         }).select().single();
         if (error) throw new Error(error.message);
         oznacVlastniObjednavku(order.id);
@@ -1982,6 +1994,23 @@ export default function Orders({
                   karta tmavá a popisek na ní byl černý na černém. */}
               <span className="text-udaj text-neutral-600 font-bold">upřesnění data dodání</span>
             </div>
+
+            {/* 🚚❌ Bez závozu — odběratel si pivo bere sám, nejde do trasy.
+                Zadání 24. 9. 2026: „pridej zaskrtavaci volbu bez zavozu,
+                automaticky ji zaskrtni kdyz bude mates,jitka,restaurace,
+                terasa u zbytku se musi zadat rucne." U jmenovaných
+                odběratelů se zaškrtne samo (lib/bezZavozu.ts) při psaní
+                jména výš; jakmile se pole jednou přepne ručně, appka ho
+                dál sama nepřepisuje. */}
+            <label className="mt-2 flex items-start gap-2 p-2.5 rounded-xl bg-neutral-100 border-2 border-neutral-200 text-neutral-800 text-xs font-bold cursor-pointer">
+              <input
+                type="checkbox"
+                checked={noDelivery}
+                onChange={(e) => { setNoDelivery(e.target.checked); setNoDeliveryTouched(true); }}
+                className="w-4 h-4 mt-0.5 rounded text-neutral-700 focus:ring-neutral-500 accent-neutral-700 shrink-0"
+              />
+              <span>Bez závozu — odběratel si bere pivo sám, nejde do trasy.</span>
+            </label>
 
             {/* 🚨 Výjimka „Stočit dnes" — sud/lahev potřebuje den na dozrání,
                 takže normálně se stáčí na den PŘED závozem (viz Domů, „Co
