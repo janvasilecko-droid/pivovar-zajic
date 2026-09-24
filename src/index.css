@@ -255,6 +255,17 @@ html, body { overscroll-behavior-y: contain; }
     @apply bg-amber-500 text-neutral-950 border-amber-500 shadow-2xs hover:bg-amber-500;
   }
 
+  /* Záložka nebo přepínač filtru (Sklad: Zásoby / Pohyby / Festival / Merch,
+     filtry druhu pohybu). Stejný vzhled, jaký měly záložky Skladu ručně
+     malované, jen s 44px cílem na telefon. */
+  .btn-zalozka {
+    @apply inline-flex items-center gap-2 px-4 py-2.5 min-h-[44px] rounded font-black text-xs transition shrink-0
+           bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100 active:scale-95;
+  }
+  .btn-zalozka-aktivni {
+    @apply bg-amber-500 text-neutral-950 border-amber-500 shadow-md hover:bg-amber-500;
+  }
+
   /* Lišta akcí pod nadpisem: hlavní akce vidět, zbytek pod „⋯".
      Nahrazuje tmavý panel se čtyřmi pruhy, který sežral celou první
      obrazovku telefonu (Inventura, Kniha jízd, Sklo). */

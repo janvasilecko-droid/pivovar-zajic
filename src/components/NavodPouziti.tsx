@@ -235,6 +235,10 @@ const ODDILY: Oddil[] = [
         jak: 'Aktuální stav po pivech a obalech. Sloupce: Obal / Stav / Odejde / Zbude. Místo „0 (−10)“ se píše „chybí 10“.',
       },
       {
+        co: 'Sklad → Pohyby',
+        jak: 'Každý pohyb ve vybraném týdnu den po dni: stočeno, závozy s odběratelem, fasování, odpisy, inventura. Filtr pivo / obal / druh pohybu. Pod každým dnem „Stav večer“ — stejné číslo jako Sklad. Když fyzický stav nesedí, hledejte první den, kdy se stav večer od skutečnosti odchýlil.',
+      },
+      {
         co: 'Sklep a tanky',
         jak: 'Kvasné tanky na spilce a ležácké tanky, průběh kvašení a varné listy. U tanku je vidět, na kolik sudů zbývající objem vyjde.',
       },

@@ -6,8 +6,9 @@ import { buildMovements, stockForMonth, stockKey, type Movement } from '../lib/s
 import { predpovedDojiti, type Predpoved } from '../lib/predpovedDojiti';
 import { trvanlivostSkladu, type TrvanlivostSkladu } from '../lib/trvanlivostSarzi';
 import PohybyModal from '../components/PohybyModal';
+import PohybySkladu from '../components/PohybySkladu';
 import { Spinner, EmptyState, Modal } from '../components/ui';
-import { AlertTriangle, BarChart2, Beer as BeerIcon, Calendar, ChevronDown, Download, Package as PackageIcon, PackageCheck, ShoppingBag, Tent, Warehouse } from 'lucide-react';
+import { AlertTriangle, BarChart2, Beer as BeerIcon, Calendar, ChevronDown, Download, ListOrdered, Package as PackageIcon, PackageCheck, ShoppingBag, Tent, Warehouse } from 'lucide-react';
 
 import { exportExciseTaxReportToExcel } from '../lib/excel';
 import { FestivalEquipmentTracker } from '../components/FestivalEquipmentTracker';
@@ -393,49 +394,35 @@ export default function Stock({ setPage }: { setPage?: (p: Page, sec?: string, s
   const brewTotalBottles = brewStats.reduce((s, r) => s + r.totalBottles, 0);
   const brewTotalLiters = brewStats.reduce((s, r) => s + r.totalLiters, 0);
 
-  const [topTab, setTopTab] = useState<'stock' | 'festival' | 'merch'>('stock');
+  const [topTab, setTopTab] = useState<'stock' | 'pohyby' | 'festival' | 'merch'>('stock');
+  const zalozky: { id: typeof topTab; label: string; ikona: JSX.Element }[] = [
+    { id: 'stock', label: 'Skladové zásoby piv', ikona: <Warehouse size={16} /> },
+    // Každý pohyb ve vybraném týdnu s filtrem — z provozu 24. 9. 2026:
+    // „ať se dá kouknout na pohyb ve vybraném týdnu a filtrovat v něm".
+    { id: 'pohyby', label: 'Pohyby', ikona: <ListOrdered size={16} /> },
+    { id: 'festival', label: 'Festivalové vybavení', ikona: <Tent size={16} /> },
+    { id: 'merch', label: 'Marketing & Merch & Sklo', ikona: <ShoppingBag size={16} /> },
+  ];
 
   return (
     <div className="space-y-6 pb-12">
-      {/* Top Navigation Tabs — černá/bílý text, označená se obrací na bílou s tmavým textem. */}
-      <div className="flex items-center gap-2 pb-2">
-        <button
-          onClick={() => setTopTab('stock')}
-          className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 ${
-            topTab === 'stock'
-              ? 'bg-amber-500 text-neutral-950 shadow-md'
-              : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
-          }`}
-        >
-          <Warehouse size={16} />
-          <span>Skladové zásoby piv</span>
-        </button>
-
-        <button
-          onClick={() => setTopTab('festival')}
-          className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 ${
-            topTab === 'festival'
-              ? 'bg-amber-500 text-neutral-950 shadow-md'
-              : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
-          }`}
-        >
-          <Tent size={16} />
-          <span>Festivalové vybavení</span>
-        </button>
-
-        <button
-          onClick={() => setTopTab('merch')}
-          className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 ${
-            topTab === 'merch'
-              ? 'bg-amber-500 text-neutral-950 shadow-md'
-              : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
-          }`}
-        >
-          <ShoppingBag size={16} />
-          <span>Marketing & Merch & Sklo</span>
-        </button>
+      {/* Záložky — na telefonu se posouvají do strany, ať se vejdou všechny čtyři. */}
+      <div className="flex items-center gap-2 pb-2 overflow-x-auto scrollbar-thin -mx-1 px-1">
+        {zalozky.map((z) => (
+          <button
+            key={z.id}
+            type="button"
+            onClick={() => setTopTab(z.id)}
+            aria-pressed={topTab === z.id}
+            className={`btn-zalozka ${topTab === z.id ? 'btn-zalozka-aktivni' : ''}`}
+          >
+            {z.ikona}
+            <span className="whitespace-nowrap">{z.label}</span>
+          </button>
+        ))}
       </div>
 
+      {topTab === 'pohyby' && <PohybySkladu />}
       {topTab === 'festival' && <FestivalEquipmentTracker />}
       {topTab === 'merch' && <MarketingMerchInventory />}
 
