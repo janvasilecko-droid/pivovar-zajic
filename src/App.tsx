@@ -295,7 +295,9 @@ export default function App() {
           obrazovku jako 'zavoz'. */}
       {page === 'vycepy' && <VycepyScreen />}
       {(page === 'zavoz' || page === 'orders_zavoz') && <Zavoz setPage={setPage} />}
-      {page === 'stock' && <Stock setPage={setPage} />}
+      {(page === 'stock' || page === 'stock_pohyby') && (
+        <Stock setPage={setPage} initialTopTab={page === 'stock_pohyby' ? 'pohyby' : undefined} />
+      )}
       {page === 'bottling' && <BottlingScreen setPage={setPage} initialSubTab={pageSubTab} />}
       {page === 'srotovani' && <SrotovaniScreen setPage={setPage} />}
 

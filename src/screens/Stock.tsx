@@ -102,7 +102,7 @@ function addDaysISO(iso: string, delta: number): string {
 function startOfMonthISO(iso: string): string { return iso.slice(0, 7) + '-01'; }
 function startOfYearISO(iso: string): string { return iso.slice(0, 4) + '-01-01'; }
 
-export default function Stock({ setPage }: { setPage?: (p: Page, sec?: string, sub?: string) => void } = {}) {
+export default function Stock({ setPage, initialTopTab }: { setPage?: (p: Page, sec?: string, sub?: string) => void; initialTopTab?: 'stock' | 'pohyby' | 'festival' | 'merch' } = {}) {
   const [beers, setBeers] = useState<Beer[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
   const [rows, setRows] = useState<StockRow[]>([]);
@@ -394,7 +394,7 @@ export default function Stock({ setPage }: { setPage?: (p: Page, sec?: string, s
   const brewTotalBottles = brewStats.reduce((s, r) => s + r.totalBottles, 0);
   const brewTotalLiters = brewStats.reduce((s, r) => s + r.totalLiters, 0);
 
-  const [topTab, setTopTab] = useState<'stock' | 'pohyby' | 'festival' | 'merch'>('stock');
+  const [topTab, setTopTab] = useState<'stock' | 'pohyby' | 'festival' | 'merch'>(initialTopTab ?? 'stock');
   const zalozky: { id: typeof topTab; label: string; ikona: JSX.Element }[] = [
     { id: 'stock', label: 'Skladové zásoby piv', ikona: <Warehouse size={16} /> },
     // Každý pohyb ve vybraném týdnu s filtrem — z provozu 24. 9. 2026:
