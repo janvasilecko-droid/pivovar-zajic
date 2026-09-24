@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useRef, lazy, Suspense } from 'react';
 import { supabase, Beer, Package, EntryRow, useRealtime, beerBg, beerText, beerName, formatPackageLabel, fetchAllRows } from '../lib/supabase';
 import { EmptyState, Spinner, Modal } from '../components/ui';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
-import { AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, Brush, CalendarDays, Camera, Check, CheckCircle2, ClipboardList, Lightbulb, ListChecks, Megaphone, Minus, Package as PackageIcon, PenLine, Pencil, Play, Plus, RefreshCw, Sparkles, Trash2, Wine, X } from 'lucide-react';
+import { AlertTriangle, ArrowRight, BarChart3, Brush, CalendarDays, Camera, Check, CheckCircle2, ClipboardList, Lightbulb, ListChecks, Megaphone, Minus, Package as PackageIcon, PenLine, Pencil, Play, Plus, RefreshCw, Sparkles, Trash2, Wine, X } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { BottlingPlan, getPlanSeenAt, markPlanSeenAt, isPlanUnseen, isBottlingManager, setPlanStatus, saveBottlingPlan, deleteBottlingPlan } from '../lib/bottlingPlans';
 import { BottlingPlanBottler } from '../components/BottlingPlanBottler';
@@ -34,6 +34,7 @@ import { zavibruj } from '../lib/haptika';
 import { podezreleMnozstvi } from '../lib/kontrolaZadani';
 import { IkonaLahev, IkonaSud } from '../components/ikony';
 import { PrepinacObdobi } from '../components/PrepinacObdobi';
+import { ChipyPiva, ChipyObalu } from '../components/FiltrPivaAObalu';
 import { consumeBottlingFixRequest } from '../lib/stockFixSignal';
 import { klicVyberu, nactiNaposled, zapamatujVyber, serazPodleNaposled } from '../lib/naposledyPouzite';
 import { usePosledniNacteni, prvniChyba } from '../lib/nacitani';
@@ -1952,47 +1953,25 @@ export default function BottlingScreen({
           </div>
         </div>
 
-        {/* Filtr Druh piva a Obal */}
+        {/* Filtr piva a obalu — chipy rovnou klikatelné, vidět hned, žádné
+            rozbalování. Zadání 24. 9. 2026: „misto rollovaciho pole udelej
+            obaly i piva rouzklikavaci ikony ktery budou videt hned, stejne
+            jako po ut st......" — stejný vzor jako dny týdne v
+            PrepinacObdobi.tsx výš. */}
         {rows.length > 0 && (
-          <div className="sticky top-[32px] z-10 flex flex-wrap items-center gap-2.5 bg-amber-100/60 p-2.5 rounded border border-amber-200/90 shadow-2xs">
-            <div className="flex items-center gap-1.5 shrink-0 min-w-[150px] max-w-[240px]">
-              <span className="text-xs font-bold text-amber-950/80 shrink-0"><BeerIcon className="ikona-text" /> Pivo:</span>
-              <select
-                value={recordsBeerFilter}
-                onChange={(e) => setRecordsBeerFilter(e.target.value)}
-                className="input text-xs font-bold py-1 px-2 rounded bg-white border-amber-300 text-amber-950 focus:border-amber-500 shadow-2xs w-full"
-              >
-                <option value="">Všechna piva</option>
-                {beers.map((b) => (
-                  <option key={b.id} value={b.id}>{b.name}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex items-center gap-1.5 shrink-0 min-w-[150px] max-w-[240px]">
-              <span className="text-xs font-bold text-amber-950/80 shrink-0"><PackageIcon className="ikona-text" /> Obal:</span>
-              <select
-                value={recordsPkgFilter}
-                onChange={(e) => setRecordsPkgFilter(e.target.value)}
-                className="input text-xs font-bold py-1 px-2 rounded bg-white border-amber-300 text-amber-950 focus:border-amber-500 shadow-2xs w-full"
-              >
-                <option value="">Všechny obaly</option>
-                {(recordsTab === 'lahve'
-                  ? bottlePackages
-                  : recordsTab === 'keg'
-                  ? kegPackages
-                  : packages
-                ).map((p) => (
-                  <option key={p.id} value={p.id}>{p.label || `${p.volume_l}L`}</option>
-                ))}
-              </select>
-            </div>
-
+          <div className="sticky top-[32px] z-10 flex flex-col gap-2 bg-amber-100/60 p-2.5 rounded border border-amber-200/90 shadow-2xs">
+            <ChipyPiva piva={beers} vybrane={recordsBeerFilter} onVybrat={setRecordsBeerFilter} />
+            <ChipyObalu
+              obaly={(recordsTab === 'lahve' ? bottlePackages : recordsTab === 'keg' ? kegPackages : packages)
+                .map((p) => ({ id: p.id, label: p.label || `${p.volume_l}L` }))}
+              vybrane={recordsPkgFilter}
+              onVybrat={setRecordsPkgFilter}
+            />
             {(recordsBeerFilter || recordsPkgFilter) && (
               <button
                 type="button"
                 onClick={() => { setRecordsBeerFilter(''); setRecordsPkgFilter(''); }}
-                className="text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 px-2.5 py-1 rounded transition shrink-0 ml-auto whitespace-nowrap tap"
+                className="btn-ghost !rounded text-xs font-bold !text-rose-700 !bg-rose-50 !border-rose-200 self-start"
               >
                 <X className="ikona-text" /> Vymazat filtry
               </button>
