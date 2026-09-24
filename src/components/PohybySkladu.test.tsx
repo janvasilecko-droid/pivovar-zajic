@@ -9,6 +9,9 @@ vi.mock('../lib/chybyHlaseni', () => ({ zalogujANahlas: vi.fn() }));
 vi.mock('../lib/supabase', () => ({
   useRealtime: () => {},
   fetchAllRows: () => Promise.resolve({ data: [{ id: 'o1', place_name: 'U Zajíce' }], error: null }),
+  beerBg: vi.fn(() => '#f59e0b'),
+  beerText: vi.fn(() => 'text-white'),
+  formatPackageLabel: vi.fn((l: string) => l),
 }));
 vi.mock('../lib/skladovaKnihaData', () => ({
   nactiSkladovouKnihu: () => Promise.resolve({
@@ -45,8 +48,17 @@ describe('PohybySkladu', () => {
     render(<PohybySkladu />);
     await waitFor(() => expect(screen.getByText(/U Zajíce/)).toBeTruthy());
     expect(screen.getAllByText(/10° Výčepní · KEG 50l/).length).toBeGreaterThan(0);
-    fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: 'b12' } });
+    fireEvent.click(screen.getByRole('button', { name: '12° Světlá' }));
     expect(screen.queryByText(/10° Výčepní · KEG 50l/)).toBeNull();
+  });
+
+  it('přepnutí na Měsíc ukáže celý kalendářní měsíc', async () => {
+    render(<PohybySkladu />);
+    await waitFor(() => expect(screen.getByText(/U Zajíce/)).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'Měsíc' }));
+    expect(screen.getByText('září 2026')).toBeTruthy();
+    // V měsíčním pohledu se den 5. 9. taky ukáže — v týdenním by nebyl vidět.
+    expect(screen.getByText('So 5. 9.')).toBeTruthy();
   });
 
   it('filtr druhu nechá jen závozy', async () => {

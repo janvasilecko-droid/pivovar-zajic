@@ -10,16 +10,19 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, ListOrdered } from 'lucide-react';
 import { Spinner } from './ui';
-import { fetchAllRows, useRealtime } from '../lib/supabase';
+import { beerBg, beerText, fetchAllRows, formatPackageLabel, useRealtime } from '../lib/supabase';
 import { nactiSkladovouKnihu, type SkladovaKniha } from '../lib/skladovaKnihaData';
 import { sestavPohybyObdobi, SKUPINY_POHYBU } from '../lib/pohybySkladu';
+import { konecMesice } from '../lib/stockLedger';
+import { nazevMesice } from '../lib/inventoryFix';
 import { isoWeekKey, shiftWeek, weekRange } from './WeeklyOrderSummaryCard';
-import { businessDateISO } from '../lib/businessDate';
+import { businessDateISO, posunMesic } from '../lib/businessDate';
 import { zalogujANahlas } from '../lib/chybyHlaseni';
 import { nactiJson, ulozJson } from '../lib/uloziste';
 
 const DNY = ['Ne', 'Po', 'Út', 'St', 'Čt', 'Pá', 'So'];
 const LS_FILTR = 'pohyby_skladu_filtr_v1';
+const LS_REZIM = 'pohyby_skladu_rezim_v1';
 
 function denPopis(iso: string): string {
   const d = new Date(iso + 'T00:00:00Z');
@@ -37,7 +40,11 @@ export default function PohybySkladu() {
   const [bezi, setBezi] = useState(true);
   const [chybaNacteni, setChybaNacteni] = useState<string | null>(null);
 
+  // 🗓️/📅 Týden, nebo celý měsíc — obojí sdílí stejný výpočet (lib/pohybySkladu.ts
+  // je jen na 'od'/'doDne', nezáleží mu, jak dlouhé období to je).
+  const [rezim, setRezim] = useState<'tyden' | 'mesic'>(() => nactiJson<'tyden' | 'mesic'>(LS_REZIM, 'tyden'));
   const [tyden, setTyden] = useState(() => isoWeekKey(businessDateISO()));
+  const [mesic, setMesic] = useState(() => businessDateISO().slice(0, 7));
   const [beerId, setBeerId] = useState(() => nactiFiltr().beerId);
   const [packageId, setPackageId] = useState(() => nactiFiltr().packageId);
   const [skupiny, setSkupiny] = useState<string[]>([]);
@@ -45,6 +52,7 @@ export default function PohybySkladu() {
   useEffect(() => {
     ulozJson(LS_FILTR, { beerId, packageId });
   }, [beerId, packageId]);
+  useEffect(() => { ulozJson(LS_REZIM, rezim); }, [rezim]);
 
   const nacti = useCallback(async () => {
     try {
@@ -70,9 +78,28 @@ export default function PohybySkladu() {
     () => { void nacti(); },
   );
 
-  const { start, end, label } = weekRange(tyden);
-  const od = start.toISOString().slice(0, 10);
-  const doDne = end.toISOString().slice(0, 10);
+  const { od, doDne, label } = useMemo(() => {
+    if (rezim === 'mesic') return { od: `${mesic}-01`, doDne: konecMesice(mesic), label: nazevMesice(mesic) };
+    const { start, end, label: l } = weekRange(tyden);
+    return { od: start.toISOString().slice(0, 10), doDne: end.toISOString().slice(0, 10), label: l };
+  }, [rezim, tyden, mesic]);
+
+  function posunObdobi(delta: number) {
+    if (rezim === 'mesic') setMesic((m) => posunMesic(m, delta));
+    else setTyden((t) => shiftWeek(t, delta));
+  }
+  function zpetNaAktualni() {
+    if (rezim === 'mesic') setMesic(businessDateISO().slice(0, 7));
+    else setTyden(isoWeekKey(businessDateISO()));
+  }
+  const jeAktualni = rezim === 'mesic'
+    ? mesic === businessDateISO().slice(0, 7)
+    : tyden === isoWeekKey(businessDateISO());
+
+  // Tlačítko jen pro aktivní piva — stejný filtr jako dlaždice ve Stáčení
+  // (BeerTileGrid). Zrušené/sezónní pivo nezabírá místo v tlačítkách, ale
+  // dá se pořád dohledat výběrem "Všechna piva" a hledáním v seznamu dní.
+  const aktivniPiva = useMemo(() => (kniha?.piva ?? []).filter((b) => b.is_active !== false), [kniha]);
 
   const vysledek = useMemo(() => {
     if (!kniha) return null;
@@ -95,44 +122,80 @@ export default function PohybySkladu() {
       <div className="rounded-xl border-2 border-amber-300 bg-amber-50 p-3 space-y-3">
         <div className="flex items-center gap-2 text-amber-950">
           <ListOrdered className="ikona-text" />
-          <span className="text-xs font-black uppercase tracking-wider">Pohyby skladu — každý pohyb ve vybraném týdnu</span>
+          <span className="text-xs font-black uppercase tracking-wider">Pohyby skladu — každý pohyb ve vybraném období</span>
         </div>
 
-        {/* Týden */}
+        {/* Týden, nebo celý měsíc */}
+        <div className="flex items-stretch gap-1 rounded bg-white/70 border border-amber-200 p-1">
+          {([['tyden', 'Týden'], ['mesic', 'Měsíc']] as const).map(([r, popisek]) => (
+            <button
+              key={r}
+              type="button"
+              onClick={() => setRezim(r)}
+              className={`flex-1 !rounded !px-3 !py-2 !min-h-[44px] font-black text-xs transition ${rezim === r ? 'btn-amber' : 'btn-ghost !border-none'}`}
+            >
+              {popisek}
+            </button>
+          ))}
+        </div>
+
         <div className="flex items-center gap-2">
-          <button type="button" className="btn-secondary btn-sm" onClick={() => setTyden((t) => shiftWeek(t, -1))} aria-label="Předchozí týden">
+          <button type="button" className="btn-secondary btn-sm" onClick={() => posunObdobi(-1)} aria-label={rezim === 'mesic' ? 'Předchozí měsíc' : 'Předchozí týden'}>
             <ChevronLeft className="ikona-text" />
           </button>
           <div className="flex-1 text-center">
             <div className="text-sm font-black text-neutral-950 tabular-nums">{label}</div>
-            <div className="text-udaj font-bold text-neutral-600">týden {tyden.split('-')[1]}</div>
+            {rezim === 'tyden' && <div className="text-udaj font-bold text-neutral-600">týden {tyden.split('-')[1]}</div>}
           </div>
-          <button type="button" className="btn-secondary btn-sm" onClick={() => setTyden((t) => shiftWeek(t, 1))} aria-label="Další týden">
+          <button type="button" className="btn-secondary btn-sm" onClick={() => posunObdobi(1)} aria-label={rezim === 'mesic' ? 'Další měsíc' : 'Další týden'}>
             <ChevronRight className="ikona-text" />
           </button>
         </div>
-        {tyden !== isoWeekKey(businessDateISO()) && (
-          <button type="button" className="btn-ghost btn-sm w-full" onClick={() => setTyden(isoWeekKey(businessDateISO()))}>
-            Zpět na tento týden
+        {!jeAktualni && (
+          <button type="button" className="btn-ghost btn-sm w-full" onClick={zpetNaAktualni}>
+            {rezim === 'mesic' ? 'Zpět na tento měsíc' : 'Zpět na tento týden'}
           </button>
         )}
 
-        {/* Pivo a obal */}
-        <div className="grid grid-cols-2 gap-2">
-          <label className="block">
-            <span className="label">Pivo</span>
-            <select value={beerId} onChange={(e) => setBeerId(e.target.value)} className="select w-full text-sm font-black min-h-[44px]">
-              <option value="">Všechna piva</option>
-              {(kniha?.piva ?? []).map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-            </select>
-          </label>
-          <label className="block">
-            <span className="label">Obal</span>
-            <select value={packageId} onChange={(e) => setPackageId(e.target.value)} className="select w-full text-sm font-black min-h-[44px]">
-              <option value="">Všechny obaly</option>
-              {(kniha?.obaly ?? []).map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
-            </select>
-          </label>
+        {/* Pivo — tlačítko na každé aktivní pivo, jako jinde v appce (Stáčení). */}
+        <div>
+          <span className="label">Pivo</span>
+          <div className="flex flex-wrap gap-1.5">
+            <button type="button" onClick={() => setBeerId('')} className={`btn-zalozka px-3 ${beerId === '' ? 'btn-zalozka-aktivni' : ''}`}>
+              Všechna piva
+            </button>
+            {aktivniPiva.map((b) => (
+              <button
+                key={b.id}
+                type="button"
+                onClick={() => setBeerId(b.id)}
+                className={`btn-zalozka px-3 transition ${beerText(b)} ${beerId === b.id ? 'ring-2 ring-neutral-900' : 'opacity-70 hover:opacity-100'}`}
+                style={{ backgroundColor: beerBg(b), borderColor: 'transparent' }}
+              >
+                {b.name}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Obal — tlačítko na každý obal z číselníku. */}
+        <div>
+          <span className="label">Obal</span>
+          <div className="flex flex-wrap gap-1.5">
+            <button type="button" onClick={() => setPackageId('')} className={`btn-zalozka px-3 ${packageId === '' ? 'btn-zalozka-aktivni' : ''}`}>
+              Všechny obaly
+            </button>
+            {(kniha?.obaly ?? []).map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => setPackageId(p.id)}
+                className={`btn-zalozka px-3 ${packageId === p.id ? 'btn-zalozka-aktivni' : ''}`}
+              >
+                {formatPackageLabel(p.label)}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Druh pohybu — nic vybráno = všechno */}
@@ -189,7 +252,7 @@ export default function PohybySkladu() {
                   </tr>
                 ))}
                 {vysledek.souhrn.length === 0 && (
-                  <tr><td colSpan={5} className="px-2 py-3 text-center font-bold text-neutral-500">V tomhle týdnu se s vybraným pivem nic nehýbalo.</td></tr>
+                  <tr><td colSpan={5} className="px-2 py-3 text-center font-bold text-neutral-500">V tomhle období se s vybraným pivem nic nehýbalo.</td></tr>
                 )}
               </tbody>
             </table>
