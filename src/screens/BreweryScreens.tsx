@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase, Beer, useRealtime } from '../lib/supabase';
 import { usePosledniNacteni } from '../lib/nacitani';
 import { Spinner, EmptyState, Field } from '../components/ui';
-import { BookOpen, Calculator, FileText, FlaskConical, Check, CheckSquare, NotebookPen, Plus, Scale, Sliders, SprayCan, Truck, User, Wheat } from 'lucide-react';
+import { Calculator, FileText, FlaskConical, Check, CheckSquare, NotebookPen, Plus, Scale, Sliders, SprayCan, Truck, User, Wheat } from 'lucide-react';
 import { IkonaSud } from '../components/ikony';
 import { businessDateISO } from '../lib/businessDate';
 
@@ -122,23 +122,6 @@ export function SrotovaniScreen({ setPage }: { setPage?: (p: any, sec?: string) 
   return (
     <div className="space-y-6 pb-12">
 
-      {/* HACCP & WhatsApp Banner */}
-      <div className="bg-amber-500/10 border border-amber-500/30 p-4 rounded flex flex-wrap items-center justify-between gap-3 shadow-xs">
-        <div className="flex items-center gap-3">
-          <span className="text-2xl"><Wheat className="ikona-text" /></span>
-          <div>
-            <div className="font-extrabold text-amber-950 text-xs uppercase tracking-wider">Normy HACCP pro Šrotování & Slad</div>
-            <div className="text-xs text-neutral-700 font-medium">Smyslová kontrola sladu (Bod 3.1), Vystírání & Rmutování (Bod 3.2), Čištění šrotovníku</div>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {setPage && (
-            <button onClick={() => setPage('haccp', 'sec-3-1')} className="px-3.5 py-2 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-md transition">
-              <BookOpen className="ikona-text" /> Šrotování sladu (3.1)
-            </button>
-          )}
-        </div>
-      </div>
       <form onSubmit={handleSubmit} className="card p-5 shadow-sm border border-neutral-200/90 bg-white rounded space-y-4">
         <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
           <Plus size={18} className="text-amber-600" />

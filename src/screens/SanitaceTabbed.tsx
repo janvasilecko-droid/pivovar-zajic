@@ -69,7 +69,6 @@ const TABS: (TabBarItem & { id: SanitaceTab })[] = [
 
 interface SanitaceTabbedProps {
   initialTab?: 'sanitation_log' | 'haccp' | 'checklists' | 'tanks' | 'lahve' | 'kegy' | 'vycepy';
-  initialSection?: string;
   setPage?: (p: any, sec?: string, sub?: string) => void;
   pageSubTab?: string;
 }
@@ -86,7 +85,7 @@ const TAB_TO_PAGE: Record<SanitaceTab, string> = {
   vycepy: 'sanitace_vycepy',
 };
 
-export default function SanitaceTabbed({ initialTab = 'sanitation_log', initialSection, setPage, pageSubTab }: SanitaceTabbedProps) {
+export default function SanitaceTabbed({ initialTab = 'sanitation_log', setPage, pageSubTab }: SanitaceTabbedProps) {
   const [activeTab, setActiveTab] = useState<SanitaceTab>(
     initialTab === 'sanitation_log' ? 'tanks' : initialTab as any
   );
@@ -116,7 +115,7 @@ export default function SanitaceTabbed({ initialTab = 'sanitation_log', initialS
         {activeTab === 'lahve' && <BottleSanitationDiary />}
         {activeTab === 'kegy' && <KegSanitationDiary />}
         {activeTab === 'vycepy' && <TapSanitationDiary />}
-        {activeTab === 'haccp' && <HaccpScreen initialSection={initialSection} setPage={setPage} initialSubTab={pageSubTab} />}
+        {activeTab === 'haccp' && <HaccpScreen setPage={setPage} initialSubTab={pageSubTab} />}
         {activeTab === 'checklists' && <ChecklistsScreen />}
       </div>
     </div>

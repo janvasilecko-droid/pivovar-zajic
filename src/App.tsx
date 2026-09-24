@@ -95,7 +95,6 @@ export default function App() {
     return (zUrl as Page | null) ?? readPageFromHistory();
   });
   const [autoOpenShareImport, setAutoOpenShareImport] = useState(() => wasOpenedViaShare());
-  const [haccpSection, setHaccpSection] = useState<string | undefined>();
   const [pageSubTab, setPageSubTabState] = useState<string>(() => (wasOpenedViaShare() ? '' : readSubTabFromHistory()));
 
   // Appka se rozběhla — pojistka proti smyčce obnovování může jít pryč,
@@ -166,9 +165,6 @@ export default function App() {
       requestOpenHomeNotes();
       p = 'home';
     }
-    if (targetSection) {
-      setHaccpSection(targetSection);
-    }
     const nextSubTab = subTab ?? '';
     if (p === page && !targetSection && nextSubTab === pageSubTab) return;
     window.history.pushState({ page: p, targetSection, subTab: nextSubTab }, '', '');
@@ -182,9 +178,6 @@ export default function App() {
     }
     const onPopState = (e: PopStateEvent) => {
       const p: Page = (e.state && e.state.page) || DEFAULT_PAGE;
-      if (e.state && e.state.targetSection) {
-        setHaccpSection(e.state.targetSection);
-      }
       setPageState(p);
       setPageSubTabState((e.state && e.state.subTab) || '');
     };
@@ -268,7 +261,6 @@ export default function App() {
             : page === 'sanitace_vycepy' ? 'vycepy'
             : 'sanitation_log'
           }
-          initialSection={haccpSection}
           setPage={setPage}
           pageSubTab={pageSubTab}
         />
