@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useCallback, useRef, lazy, Suspense } from 'react';
 
-import { AlertTriangle, Calendar, CalendarDays, Camera, Check, CheckCircle2, CheckSquare, ChevronLeft, ChevronRight, ClipboardList, Clock, Copy, FilePlus, Globe, Mail, MessageCircle, Package as PackageIcon, PackageCheck, Plus, Receipt, RotateCcw, Search, ShieldAlert, Trash2, Truck, User, X, Zap } from 'lucide-react';
+import { AlertTriangle, Calendar, CalendarDays, Camera, Check, CheckCircle2, CheckSquare, ChevronLeft, ChevronRight, ClipboardList, Clock, Copy, FilePlus, Globe, Mail, MessageCircle, Package as PackageIcon, PackageCheck, Plus, Receipt, Search, ShieldAlert, Trash2, Truck, User, X, Zap } from 'lucide-react';
 import { Beer, EntryRow, Package, Place, beerName, fetchAllRows, formatPackageLabel, supabase, useRealtime } from '../lib/supabase';
 import { EmptyState, Spinner } from '../components/ui';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
@@ -98,7 +98,7 @@ export default function Orders({
   onShareImportHandled?: () => void;
   mode?: 'entry_only' | 'overviews_only' | 'all';
   setPage?: (p: any) => void;
-  initialViewMode?: 'summary' | 'detail' | 'celkem' | 'text';
+  initialViewMode?: 'summary' | 'detail' | 'celkem' | 'text' | 'vraceni';
   /** Proklik odjinud (např. z Týdenní inventury) na konkrétní objednávku. */
   openOrderId?: string;
 } = {}) {
@@ -2332,10 +2332,16 @@ export default function Orders({
         </div>
       )}
 
-      {/* 🔄 ZÁLOŽKA VRÁCENÍ PIVA — místo bývalého „Zopakovat závoz".
-          Vlastní obrazovka, ne modální okno: zadává se do ní stejně dlouho
+      {/* 🔄 ZÁLOŽKA VRÁCENÍ — vlastní horní záložka (OrdersTabbed.tsx), ne
+          modální okno ani skrytý přepínač: zadává se do ní stejně dlouho
           jako objednávka (vybrat odběratele, projít položky) a v okně by se
-          na telefonu nedalo rolovat seznamem objednávek. */}
+          na telefonu nedalo rolovat seznamem objednávek. Zadání 24. 9. 2026:
+          „pridej tam moznost do obejdnavek zalozku vratka" — dřív šlo
+          vrácení zadat jen přes tlačítko schované v liště záložky Přehled/
+          Celkem, teď je to samostatná záložka nahoře vedle Objednávky/
+          Přehled/Celkem. „Zpět" proto jde přes setPage na záložku
+          Objednávky, ne jen lokálním přepnutím viewMode — ať zůstane
+          v historii stránek konzistentně se zbytkem záložkové lišty. */}
       {viewMode === 'vraceni' && (
         <VraceniPiva
           orders={orders}
@@ -2343,7 +2349,7 @@ export default function Orders({
           beers={beers}
           packages={packages}
           places={places}
-          onZpet={() => setViewMode(mode === 'entry_only' ? 'summary' : 'detail')}
+          onZpet={() => (setPage ? setPage('orders') : setViewMode('summary'))}
           onChanged={() => load(true)}
         />
       )}
@@ -2385,21 +2391,10 @@ export default function Orders({
             >
               <span className="inline-flex items-center gap-1.5"><PackageIcon size={14} /> Všechny</span>
             </button>
-
-            {/* 🔄 Vrácení piva — na místě, kde bývalo „Zopakovat závoz".
-                Zopakování zakládalo dvacet objednávek naráz a v provozu se
-                nepoužívalo; vrácení naopak chodí každý týden a dalo se
-                zadat jen přes detail konkrétní objednávky. */}
-            <button
-              type="button"
-              onClick={() => setViewMode('vraceni')}
-              className="px-3 py-1.5 rounded font-black text-xs transition bg-white text-neutral-800 border border-neutral-300 hover:bg-neutral-100 tap"
-              title="Zapsat pivo, které se od odběratele vrátilo zpátky na sklad"
-            >
-              <span className="inline-flex items-center gap-1.5">
-                <RotateCcw size={14} /> Vrácení piva
-              </span>
-            </button>
+            {/* Tlačítko „Vrácení piva" bývalo tady (schované v liště téhle
+                záložky). 24. 9. 2026 povýšeno na vlastní horní záložku
+                „Vrácení" — viz OrdersTabbed.tsx a komentář u <VraceniPiva/>
+                níž v tomhle souboru. */}
           </div>
 
           {timeScope === 'week' && (

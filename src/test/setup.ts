@@ -12,6 +12,14 @@ if (typeof globalThis.ResizeObserver === 'undefined') {
   } as unknown as typeof globalThis.ResizeObserver
 }
 
+// jsdom taky neimplementuje scrollIntoView — TabBar.tsx (sdílená záložková
+// lišta: Objednávky, Kalendář, Odběratelé, Auta…) ho volá na aktivní
+// záložce při KAŽDÉM přepnutí, takže bez stubu spadne render jakékoliv
+// obrazovky, co TabBar používá.
+if (typeof Element !== 'undefined' && !Element.prototype.scrollIntoView) {
+  Element.prototype.scrollIntoView = () => {}
+}
+
 // Automatically cleanup after each test
 afterEach(() => {
   cleanup()
