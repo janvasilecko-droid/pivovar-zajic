@@ -4,6 +4,7 @@ import { normText, matchBeerId, matchPackageId } from "../_shared/beer-match.ts"
 import { normPlaceName, stripSenderName, resolvePlace, odberatelZHistorie, wantsOwnOrder as textWantsOwnOrder } from "../_shared/place-match.ts";
 import { nactiHistorii } from "../_shared/historie-objednavek.ts";
 import { vypadaJakoVraceni } from "../_shared/vraceni-detekce.ts";
+import { jeVlastniHlaseniObjednavky } from "../_shared/vlastni-hlaseni-objednavky.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -378,6 +379,31 @@ Deno.serve(async (req: Request) => {
             id: message.id,
             status: "ignored",
             reason: "sender not allowed",
+          });
+          continue;
+        }
+
+        // ✅ Vlastní hlášení appky o vytvořené objednávce (whatsapp-send-order),
+        // ozvěnou vrácené jako from_me zpráva do téže skupiny — bez týhle
+        // pojistky by AI přečetla objednávku, kterou appka sama nahlásila,
+        // jako DALŠÍ novou objednávku a čekala by v Kontrole na potvrzení.
+        // Z provozu 24. 9. 2026: „uz se mi to stalo, ze ve vice obednavek
+        // sem potvrdil i obednavku vytvorenou aplikaci a pak sem ji tam
+        // mel 2x."
+        if (jeVlastniHlaseniObjednavky(message.message_text, !!message.from_me)) {
+          await safeUpdateMessage(
+            supabase,
+            message.id,
+            {
+              status: "ignored",
+              error_message: "Vlastní hlášení appky o už vytvořené objednávce — není to nová objednávka",
+            },
+            "pending"
+          );
+          results.push({
+            id: message.id,
+            status: "ignored",
+            reason: "own order confirmation echo",
           });
           continue;
         }

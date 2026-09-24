@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { readJsonWithLimit, requireApprovedUser } from "../_shared/require-user.ts";
+import { ZNACKA_VLASTNIHO_HLASENI } from "../_shared/vlastni-hlaseni-objednavky.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -25,7 +26,10 @@ interface SendOrderBody {
  * skupiny "Objednávky pivovar" — stejné skupiny, ze které appka zprávy čte.
  */
 function formatOrderMessage(body: SendOrderBody): string {
-  const lines = [`✅ Nová objednávka`, `Odběratel: ${body.placeName}`];
+  // Značka je sdílená s whatsapp-auto-parse (viz _shared/
+  // vlastni-hlaseni-objednavky.ts) — appka podle ní pozná svoje vlastní
+  // hlášení a nepřečte ho podruhé jako novou objednávku.
+  const lines = [ZNACKA_VLASTNIHO_HLASENI, `Odběratel: ${body.placeName}`];
   for (const item of body.items) {
     lines.push(`Množství: ${item.qty}× ${item.packageLabel}   Pivo: ${item.beerName}`);
   }
