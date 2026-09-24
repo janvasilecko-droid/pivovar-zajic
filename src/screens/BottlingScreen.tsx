@@ -8,7 +8,7 @@ import { AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, Brush, Calendar
 import { useAuth } from '../lib/auth';
 import { BottlingPlan, getPlanSeenAt, markPlanSeenAt, isPlanUnseen, isBottlingManager, setPlanStatus, saveBottlingPlan, deleteBottlingPlan } from '../lib/bottlingPlans';
 import { BottlingPlanBottler } from '../components/BottlingPlanBottler';
-import { isLastWeekOfMonth, getMonthKey, writeMonthlyCleanupStage, isMonthlyLineDone, markMonthlyLineDone } from '../lib/monthlyCleanup';
+import { isLastWeekOfMonth, cleanupMonthKey, writeMonthlyCleanupStage, isMonthlyLineDone, markMonthlyLineDone } from '../lib/monthlyCleanup';
 import { businessDateISO } from '../lib/businessDate';
 import { vychoziZdrojovySud } from '../lib/zdrojovySud';
 import VyberZdrojovehoSudu from '../components/VyberZdrojovehoSudu';
@@ -2662,7 +2662,7 @@ export default function BottlingScreen({
             // připomínku pořád dokola.
             if (isMonthlyChecklistCompleteForDate(businessDateISO())) {
               markMonthlyLineDone('bottle');
-              writeMonthlyCleanupStage(getMonthKey(), 'done');
+              writeMonthlyCleanupStage(cleanupMonthKey(), 'done');
             }
           }
         }}
