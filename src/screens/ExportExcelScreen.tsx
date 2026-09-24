@@ -11,6 +11,7 @@ import { Copy, Download, FileSpreadsheet } from 'lucide-react';
 import { fetchAllRows, Package } from '../lib/supabase';
 import { Kostra } from '../components/ui';
 import { chyba, uspech, varovani } from '../lib/toast';
+import { posunMesic } from '../lib/businessDate';
 import { zavibruj } from '../lib/haptika';
 import { nazevSouboru, poctyRadku, stahniSesit, type ListExportu } from '../lib/mesicniExport';
 import { prehledDoTsv, sestavPrehled, type VydejRadek } from '../lib/prehledVydeje';
@@ -301,12 +302,30 @@ export default function ExportExcelScreen() {
           {!vlastniObdobi ? (
             <label className="block">
               <span className="label !mb-0.5">Měsíc</span>
-              <input
-                type="month"
-                className="input !min-h-[48px] !w-auto"
-                value={mesic}
-                onChange={(e) => setMesic(e.target.value)}
-              />
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setMesic((m) => posunMesic(m, -1))}
+                  className="btn-ghost jen-ikona !flex-none"
+                  title="Předchozí měsíc" aria-label="Předchozí měsíc"
+                >
+                  ‹
+                </button>
+                <input
+                  type="month"
+                  className="input !min-h-[48px] !w-auto"
+                  value={mesic}
+                  onChange={(e) => setMesic(e.target.value)}
+                />
+                <button
+                  type="button"
+                  onClick={() => setMesic((m) => posunMesic(m, 1))}
+                  className="btn-ghost jen-ikona !flex-none"
+                  title="Následující měsíc" aria-label="Následující měsíc"
+                >
+                  ›
+                </button>
+              </div>
             </label>
           ) : (
             <>
