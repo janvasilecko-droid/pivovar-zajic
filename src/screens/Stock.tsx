@@ -8,11 +8,9 @@ import { trvanlivostSkladu, type TrvanlivostSkladu } from '../lib/trvanlivostSar
 import PohybyModal from '../components/PohybyModal';
 import PohybySkladu from '../components/PohybySkladu';
 import { Spinner, EmptyState, Modal } from '../components/ui';
-import { AlertTriangle, BarChart2, Beer as BeerIcon, Calendar, ChevronDown, Download, ListOrdered, Package as PackageIcon, PackageCheck, ShoppingBag, Tent, Warehouse } from 'lucide-react';
+import { AlertTriangle, BarChart2, Beer as BeerIcon, Calendar, ChevronDown, Download, ListOrdered, Package as PackageIcon, PackageCheck, Warehouse } from 'lucide-react';
 
 import { exportExciseTaxReportToExcel } from '../lib/excel';
-import { FestivalEquipmentTracker } from '../components/FestivalEquipmentTracker';
-import { MarketingMerchInventory } from '../components/MarketingMerchInventory';
 import { IkonaLahev, IkonaSud } from '../components/ikony';
 import { requestKegFix, requestBottlingFix } from '../lib/stockFixSignal';
 import { usePosledniNacteni, prvniChyba } from '../lib/nacitani';
@@ -102,7 +100,7 @@ function addDaysISO(iso: string, delta: number): string {
 function startOfMonthISO(iso: string): string { return iso.slice(0, 7) + '-01'; }
 function startOfYearISO(iso: string): string { return iso.slice(0, 4) + '-01-01'; }
 
-export default function Stock({ setPage, initialTopTab }: { setPage?: (p: Page, sec?: string, sub?: string) => void; initialTopTab?: 'stock' | 'pohyby' | 'festival' | 'merch' } = {}) {
+export default function Stock({ setPage, initialTopTab }: { setPage?: (p: Page, sec?: string, sub?: string) => void; initialTopTab?: 'stock' | 'pohyby' } = {}) {
   const [beers, setBeers] = useState<Beer[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
   const [rows, setRows] = useState<StockRow[]>([]);
@@ -394,19 +392,17 @@ export default function Stock({ setPage, initialTopTab }: { setPage?: (p: Page, 
   const brewTotalBottles = brewStats.reduce((s, r) => s + r.totalBottles, 0);
   const brewTotalLiters = brewStats.reduce((s, r) => s + r.totalLiters, 0);
 
-  const [topTab, setTopTab] = useState<'stock' | 'pohyby' | 'festival' | 'merch'>(initialTopTab ?? 'stock');
+  const [topTab, setTopTab] = useState<'stock' | 'pohyby'>(initialTopTab ?? 'stock');
   const zalozky: { id: typeof topTab; label: string; ikona: JSX.Element }[] = [
     { id: 'stock', label: 'Skladové zásoby piv', ikona: <Warehouse size={16} /> },
     // Každý pohyb ve vybraném týdnu s filtrem — z provozu 24. 9. 2026:
     // „ať se dá kouknout na pohyb ve vybraném týdnu a filtrovat v něm".
     { id: 'pohyby', label: 'Pohyby', ikona: <ListOrdered size={16} /> },
-    { id: 'festival', label: 'Festivalové vybavení', ikona: <Tent size={16} /> },
-    { id: 'merch', label: 'Marketing & Merch & Sklo', ikona: <ShoppingBag size={16} /> },
   ];
 
   return (
     <div className="space-y-6 pb-12">
-      {/* Záložky — na telefonu se posouvají do strany, ať se vejdou všechny čtyři. */}
+      {/* Záložky — na telefonu se posouvají do strany. */}
       <div className="flex items-center gap-2 pb-2 overflow-x-auto scrollbar-thin -mx-1 px-1">
         {zalozky.map((z) => (
           <button
@@ -423,8 +419,6 @@ export default function Stock({ setPage, initialTopTab }: { setPage?: (p: Page, 
       </div>
 
       {topTab === 'pohyby' && <PohybySkladu />}
-      {topTab === 'festival' && <FestivalEquipmentTracker />}
-      {topTab === 'merch' && <MarketingMerchInventory />}
 
       {topTab === 'stock' && (
         <>
