@@ -173,7 +173,17 @@ jobs:
       # Commitnout zvýšenou verzi zpět do repozitáře PŘED deployem — i když
       # Cloudflare deploy selže, GitHub má vždy nejnovější verzi (a APK job
       # checkoutuje post-bump commit, takže APK nese stejné číslo jako web).
+      #
+      # continue-on-error: SOUBĚH dvou běhů (dva pushe do main těsně po sobě)
+      # mění TENTÝŽ soubor (verzi) — `git pull --rebase` na to narazí jako na
+      # skutečný konflikt, ne jen "pozadu", a retry (níž) ho nerozmotá. Bez
+      # continue-on-error tahle čistě kosmetická prohra (chybějící bump commit,
+      # samo se doplní příštím pushem) shodila CELÝ job — a s ním i
+      # `Deploy to Cloudflare Pages` A `build-apk` (needs: build-and-deploy),
+      # i když web i appka byly v pořádku a jen čekaly na nasazení. Z provozu
+      # 24. 9. 2026: běh #800 takhle přeskočil nasazení dvakrát za sebou.
       - name: Commit bumped version
+        continue-on-error: true
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
