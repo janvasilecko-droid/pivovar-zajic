@@ -446,11 +446,28 @@ export function useRealtime(tables: string[], onChange: () => void) {
     };
     pripoj();
 
+    // 💓 POJISTKA NAVÍC — bezpečnostní síť pro TICHÝ pád kanálu.
+    // Z provozu 24. 9. 2026: „kdyz ted zadam na telefonu minus jedne keg
+    // v lahvich jaktze okamzite nevidim zmenu ve skladu na pocitaci... to
+    // se musi propisovat hned" — stejný scénář jako 16. 9. výš, ale i PO
+    // tamní opravě: reconnect nahoře čeká na CHANNEL_ERROR/TIMED_OUT/
+    // CLOSED, jenže kanál dovede zůstat ve stavu SUBSCRIBED navěky, i když
+    // podkladový WebSocket už dávno mlčí — typicky NAT/router na slabší
+    // síti tiše zahodí nečinné spojení bez zavíracího rámce, takže
+    // klientská knihovna to nepozná dřív než při vlastním heartbeatu (a to
+    // dovede trvat desítky vteřin, než vůbec ZAČNE reconnect výš).
+    // Viditelná obrazovka se proto jednou za minutu i BEZ jakékoliv
+    // postgres_changes události sama přenačte — v nejhorším případě je to
+    // jeden dotaz navíc za minutu na otevřenou obrazovku, ne appka, co
+    // tiše ukazuje stará čísla, dokud si toho někdo nevšimne a nedá F5.
+    const pojistka = setInterval(() => { if (!jeSchovana()) trigger(); }, 60_000);
+
     window.addEventListener('pivovar:online-refetch', trigger);
     return () => {
       zrusen = true;
       if (timer) clearTimeout(timer);
       if (planZnovupripojeni) clearTimeout(planZnovupripojeni);
+      clearInterval(pojistka);
       if (kanal) supabase.removeChannel(kanal);
       window.removeEventListener('pivovar:online-refetch', trigger);
       document.removeEventListener('visibilitychange', naNavrat);
