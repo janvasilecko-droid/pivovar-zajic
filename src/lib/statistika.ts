@@ -509,6 +509,86 @@ export function kdoPrestalObjednavat(
     .sort((a, b) => b.litry - a.litry);
 }
 
+export type RozpocetObalu = {
+  id: string;
+  nazev: string;
+  /** Kolik kusů téhle velikosti se za období stočilo. */
+  stoceno: number;
+  fasovano: number;
+  odpisy: number;
+  /** Kolik kusů je na objednávkách se závozem v tomhle období. */
+  objednano: number;
+  /** Stočeno − fasováno − odpisy. Kladné číslo = nerozpočtené sudy. */
+  nerozpocteno: number;
+};
+
+/**
+ * 🛢️ Rozpočet sudů — co se stočilo proti tomu, co se vyfasovalo a odepsalo,
+ * po KONKRÉTNÍCH velikostech.
+ *
+ * Vzorec `stočeno − fasováno − odpisy` je tentýž, jaký ukazovaly měsíční
+ * přehledy jako „Ztráty KEG"; jediný rozdíl je, že se počítá za zvolené
+ * období a s rozpadem na velikosti. Souhrn totiž neřekne, kde se sudy
+ * ztrácejí — a ony se neztrácejí rovnoměrně.
+ *
+ * Objednané kusy jsou vedle jako kontext (podle dne závozu, jako všude ve
+ * Statistice), do rozdílu ZÁMĚRNĚ nevstupují: objednávka není pohyb skladu.
+ */
+export function rozpocetSudu(
+  staceni: VyrobniRadek[],
+  fasovani: VyrobniRadek[],
+  odpisy: VyrobniRadek[],
+  orders: { id: string; delivery_date: string | null; order_date: string; status: string }[],
+  polozky: { order_id: string; package_id: string | null; quantity: number | null }[],
+  obaly: Map<string, Obal>,
+  od: string,
+  doKdy: string,
+): RozpocetObalu[] {
+  const jeSud = (id: string | null | undefined) => !!id && obaly.get(id)?.kind === 'keg';
+  const secti = (radky: VyrobniRadek[]) => {
+    const m = new Map<string, number>();
+    for (const r of radky) {
+      if (!r.entry_date || r.entry_date < od || r.entry_date > doKdy || !jeSud(r.package_id)) continue;
+      m.set(r.package_id!, (m.get(r.package_id!) ?? 0) + Number(r.quantity || 0));
+    }
+    return m;
+  };
+
+  const stoceno = secti(staceni);
+  const vyfasovano = secti(fasovani);
+  const odepsano = secti(odpisy);
+
+  const vRozsahu = new Set<string>();
+  for (const o of orders) {
+    if (o.status === 'storno') continue;
+    const den = o.delivery_date || o.order_date;
+    if (den && den >= od && den <= doKdy) vRozsahu.add(o.id);
+  }
+  const objednano = new Map<string, number>();
+  for (const p of polozky) {
+    if (!vRozsahu.has(p.order_id) || !jeSud(p.package_id)) continue;
+    objednano.set(p.package_id!, (objednano.get(p.package_id!) ?? 0) + Number(p.quantity || 0));
+  }
+
+  const vsechny = new Set([...stoceno.keys(), ...vyfasovano.keys(), ...odepsano.keys(), ...objednano.keys()]);
+  return [...vsechny]
+    .map((id) => {
+      const s = stoceno.get(id) ?? 0;
+      const f = vyfasovano.get(id) ?? 0;
+      const w = odepsano.get(id) ?? 0;
+      return {
+        id,
+        nazev: obaly.get(id)?.label ?? 'Neznámý obal',
+        stoceno: s,
+        fasovano: f,
+        odpisy: w,
+        objednano: objednano.get(id) ?? 0,
+        nerozpocteno: s - f - w,
+      };
+    })
+    .sort((a, b) => b.stoceno - a.stoceno);
+}
+
 export function formatHl(litry: number): string {
   const v = hl(litry);
   return v.toLocaleString('cs-CZ', { maximumFractionDigits: v >= 100 ? 0 : 1 });

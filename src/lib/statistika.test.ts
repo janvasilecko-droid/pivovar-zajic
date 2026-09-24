@@ -5,7 +5,7 @@ import {
   podilPodlePiva, podilPodleObalu, podleOdberatelu, zmenaProcent, formatHl,
   prumernaPotrebaKegu, denObdobi, popisRozsahu,
   obalyVCislech, pivaVCislech, litryPoObdobiAObalech, obalyVDatech,
-  kdoPrestalObjednavat, pondeliTydne as pondeli,
+  kdoPrestalObjednavat, rozpocetSudu, pondeliTydne as pondeli,
   type Obal, type VyrobniRadek,
 } from './statistika';
 
@@ -417,5 +417,72 @@ describe('kdo přestal objednávat', () => {
     // Stálý má poslední závoz 20. 8., tedy 11 dní zpátky.
     const v = kdoPrestalObjednavat(objednavky, polozky, OBALY, '2026-08-31', 10);
     expect(v.map((x) => x.nazev).sort()).toEqual(['Stálý', 'Utichlá hospoda']);
+  });
+});
+
+describe('rozpočet sudů', () => {
+  const staceni: VyrobniRadek[] = [
+    { entry_date: '2026-08-10', beer_id: 'b11', package_id: 'keg50', quantity: 20 },
+    { entry_date: '2026-08-11', beer_id: 'b11', package_id: 'keg30', quantity: 10 },
+    // Lahve do rozpočtu SUDŮ nepatří.
+    { entry_date: '2026-08-11', beer_id: 'b11', package_id: 'lahev', quantity: 500 },
+    // Jiný měsíc — mimo období.
+    { entry_date: '2026-07-11', beer_id: 'b11', package_id: 'keg50', quantity: 99 },
+  ];
+  const fasovani: VyrobniRadek[] = [
+    { entry_date: '2026-08-12', beer_id: 'b11', package_id: 'keg50', quantity: 15 },
+  ];
+  const odpisy: VyrobniRadek[] = [
+    { entry_date: '2026-08-13', beer_id: 'b11', package_id: 'keg50', quantity: 2 },
+  ];
+  const objednavky = [
+    { id: 'o1', delivery_date: '2026-08-20', order_date: '2026-08-18', status: 'nova' },
+    { id: 'o2', delivery_date: '2026-08-21', order_date: '2026-08-19', status: 'storno' },
+  ];
+  const polozky = [
+    { order_id: 'o1', package_id: 'keg50', quantity: 7 },
+    { order_id: 'o2', package_id: 'keg50', quantity: 99 },
+  ];
+
+  const vysledek = () => rozpocetSudu(staceni, fasovani, odpisy, objednavky, polozky, OBALY, '2026-08-01', '2026-08-31');
+
+  it('rozdíl je stočeno − fasováno − odpisy', () => {
+    const keg50 = vysledek().find((r) => r.id === 'keg50')!;
+    expect(keg50).toMatchObject({ stoceno: 20, fasovano: 15, odpisy: 2, nerozpocteno: 3 });
+  });
+
+  // 🐛 Objednávka není pohyb skladu — objednané pivo nemusí být stočené
+  // a stočené nemusí být objednané. Kdyby vstupovalo do rozdílu, ukazovala
+  // by karta ztrátu, která se nikdy nestala.
+  it('objednané kusy jsou kontext, do rozdílu nevstupují', () => {
+    const keg50 = vysledek().find((r) => r.id === 'keg50')!;
+    expect(keg50.objednano).toBe(7);
+    expect(keg50.nerozpocteno).toBe(3);
+  });
+
+  it('stornovaná objednávka se do objednaných kusů nepočítá', () => {
+    expect(vysledek().find((r) => r.id === 'keg50')!.objednano).toBe(7);
+  });
+
+  it('lahve v rozpočtu sudů nejsou', () => {
+    expect(vysledek().find((r) => r.id === 'lahev')).toBeUndefined();
+  });
+
+  it('jiné období se nepřimíchá', () => {
+    expect(vysledek().find((r) => r.id === 'keg50')!.stoceno).toBe(20);
+  });
+
+  it('řadí od nejvíc stáčeného sudu', () => {
+    expect(vysledek().map((r) => r.id)).toEqual(['keg50', 'keg30']);
+  });
+
+  it('sud, který se jen fasoval a nestáčel, ze seznamu nevypadne', () => {
+    const v = rozpocetSudu(
+      [], [{ entry_date: '2026-08-12', beer_id: 'b11', package_id: 'keg30', quantity: 4 }], [],
+      [], [], OBALY, '2026-08-01', '2026-08-31',
+    );
+    expect(v).toEqual([{
+      id: 'keg30', nazev: 'KEG 30 l', stoceno: 0, fasovano: 4, odpisy: 0, objednano: 0, nerozpocteno: -4,
+    }]);
   });
 });

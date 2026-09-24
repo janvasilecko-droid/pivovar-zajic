@@ -25,7 +25,7 @@ import {
   formatHl, hl, litryPoMesicich, litryPoTydnech, litryPoObdobiAObalech, litryVRozsahu,
   obalyVCislech, obalyVDatech, pivaVCislech,
   podleOdberatelu, pondeliTydne, posunDnu, predchoziRozsah,
-  prumernaPotrebaKegu, popisRozsahu, denObdobi, rozsahObdobi, zmenaProcent,
+  prumernaPotrebaKegu, popisRozsahu, denObdobi, rozpocetSudu, rozsahObdobi, zmenaProcent,
   type CisloRadek, type Obal, type Obdobi, type Pivo, type VyrobniRadek,
 } from '../lib/statistika';
 
@@ -60,6 +60,9 @@ const MESICE_ZKR = ['led', 'úno', 'bře', 'dub', 'kvě', 'čvn', 'čvc', 'srp',
 type Props = {
   bottlingRows: VyrobniRadek[];
   keggingRows: VyrobniRadek[];
+  /** Vyfasované a odepsané kusy — podklad pro rozpočet sudů. */
+  fasovaniRows: VyrobniRadek[];
+  writeoffRows: VyrobniRadek[];
   obaly: Obal[];
   piva: Pivo[];
   orders: { id: string; place_name: string | null; delivery_date: string | null; order_date: string; status: string }[];
@@ -207,7 +210,8 @@ function SkupinaObalu({ nazev, radky, barvy, maZmenu }: {
 }
 
 export default function StatistikaVystav({
-  bottlingRows, keggingRows, obaly, piva, orders, orderItems, dnes, obdobi, onObdobi,
+  bottlingRows, keggingRows, fasovaniRows, writeoffRows, obaly, piva, orders, orderItems,
+  dnes, obdobi, onObdobi,
 }: Props) {
   // Barvy grafu podle motivu. Přepočítají se při každém vykreslení, takže
   // přepnutí světlý/tmavý v Nastavení se projeví bez znovunačtení stránky.
@@ -359,6 +363,15 @@ export default function StatistikaVystav({
   const potrebaKegu = useMemo(
     () => prumernaPotrebaKegu(vyroba, mapaObalu, dnes),
     [vyroba, mapaObalu, dnes],
+  );
+
+  // 🛢️ Rozpočet sudů — co se stočilo proti tomu, co se vyfasovalo
+  // a odepsalo. Dřív to bylo v měsíčních přehledech jako „Ztráty KEG",
+  // ale jen souhrnem za měsíc; tady je to za zvolené období a po
+  // konkrétních velikostech, protože sudy se neztrácejí rovnoměrně.
+  const rozpocet = useMemo(
+    () => rozpocetSudu(vyroba, fasovaniRows, writeoffRows, orders, orderItems, mapaObalu, od, doKdy),
+    [vyroba, fasovaniRows, writeoffRows, orders, orderItems, mapaObalu, od, doKdy],
   );
 
   // Barva podle pořadí v katalogu, ne v žebříčku — pivo si barvu drží,
@@ -781,6 +794,56 @@ export default function StatistikaVystav({
               </tbody>
             </table>
           </div>
+        </section>
+      )}
+
+      {/* 🛢️ Rozpočet sudů — přesunuto sem ze záložky „Měsíční přehledy",
+          kde to viselo jako „Ztráty KEG" jen jako souhrn za měsíc.
+          Vzorec je tentýž (stočeno − fasováno − odpisy), jen po konkrétních
+          velikostech a za zvolené období. */}
+      {rozpocet.length > 0 && (
+        <section className="card p-3.5 sm:p-5">
+          <Nadpis
+            text="Rozpočet sudů"
+            popis={`${popisVybraneho} — co se stočilo proti tomu, co se vyfasovalo a odepsalo`}
+          />
+          <div className="overflow-x-auto -mx-1 px-1">
+            <table className="table-drzi-prvni-sloupec w-full text-sm">
+              <thead>
+                <tr className="text-udaj font-black uppercase tracking-wider text-neutral-500 border-b border-neutral-200">
+                  <th scope="col" className="text-left py-2">Sud</th>
+                  <th scope="col" className="text-right py-2">Stočeno</th>
+                  <th scope="col" className="text-right py-2">Fasováno</th>
+                  <th scope="col" className="text-right py-2">Odpisy</th>
+                  <th scope="col" className="text-right py-2">Objednáno</th>
+                  <th scope="col" className="text-right py-2">Nerozpočteno</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rozpocet.map((r) => (
+                  <tr key={r.id} className="border-b border-neutral-100 last:border-0">
+                    <td className="py-2.5">
+                      <span className="inline-flex items-center gap-2">
+                        <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: barvaObalu.get(r.id) ?? RADA_BAREV[1] }} />
+                        <span className="font-bold text-neutral-900">{r.nazev}</span>
+                      </span>
+                    </td>
+                    <td className="text-right tabular-nums font-black text-neutral-900">{r.stoceno}</td>
+                    <td className="text-right tabular-nums font-semibold text-neutral-700">{r.fasovano}</td>
+                    <td className="text-right tabular-nums font-semibold text-neutral-700">{r.odpisy}</td>
+                    <td className="text-right tabular-nums font-semibold text-neutral-500">{r.objednano}</td>
+                    <td className={`text-right tabular-nums font-black ${r.nerozpocteno > 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
+                      {r.nerozpocteno}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-udaj text-neutral-400 font-semibold mt-2">
+            Nerozpočteno = stočeno − fasováno − odpisy. Objednané kusy jsou vedle jen jako kontext (podle dne závozu),
+            do rozdílu nevstupují — objednávka není pohyb skladu.
+          </p>
         </section>
       )}
 

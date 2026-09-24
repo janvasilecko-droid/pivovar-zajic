@@ -1,16 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Beer, beerBg, beerBorder, beerInk, fetchAllRows, formatPackageLabel, Package, Place, supabase, useRealtime, beerName } from '../lib/supabase';
+import { Beer, beerBorder, fetchAllRows, formatPackageLabel, Package, Place, supabase, useRealtime } from '../lib/supabase';
 import { Kostra, Spinner, EmptyState } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
 import { orderWeightKg } from '../lib/weight';
 
-import { AlertTriangle, ChevronDown, ChevronUp, ArrowDownRight, ArrowUpRight, BarChart3, Beer as BeerIcon, Calendar, ChevronsUpDown, DollarSign, Download, Droplet, History as HistoryIcon, Package as PackageIcon, PartyPopper, PieChart as PieChartIcon, Printer, Receipt, Save, Search, ShieldAlert, ShoppingCart, Snowflake, Star, Store, TrendingDown, TrendingUp, Trophy, Truck, Undo2, X, Zap, type LucideIcon } from 'lucide-react';
+import { AlertTriangle, ChevronDown, ChevronUp, ArrowDownRight, ArrowUpRight, ChevronsUpDown, Download, Package as PackageIcon, Printer, Receipt, Save, Search, ShieldAlert, ShoppingCart, Snowflake, Star, Store, TrendingDown, TrendingUp, Trophy, Truck, X, Zap, type LucideIcon } from 'lucide-react';
 import { WeeklyOrderSummaryCard, WeeklyOrderItem, isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
 import { EditOrderModal } from '../components/EditOrderModal';
 import ZavozHistory from '../components/ZavozHistory';
 import { IkonaLahev, IkonaSud } from '../components/ikony';
 import StatistikaVystav from '../components/StatistikaVystav';
 import type { Obdobi, VyrobniRadek } from '../lib/statistika';
+import { kdoPrestalObjednavat, podilPodleObalu, rozsahObdobi, denObdobi } from '../lib/statistika';
+import { rozpadSuduVCyklech, popisRozpaduSudu, type StaceniRadek } from '../lib/cyklyTanku';
 import { usePosledniNacteni } from '../lib/nacitani';
 import { useChovaniDialogu } from '../lib/zavriNaZpet';
 import { businessDateISO } from '../lib/businessDate';
@@ -90,6 +92,8 @@ type DetailResultRow = {
 
 type TankCycleRow = {
   id: string;
+  /** Tank, kterému cyklus patří — podle něj se k cyklu dohledá stáčení. */
+  tank_id: string | null;
   tank_label: string;
   beer_name: string | null;
   initial_volume_l: number;
@@ -100,6 +104,11 @@ type TankCycleRow = {
   started_at: string | null;
   ended_at: string;
   duration_hours: number | null;
+};
+
+/** Popis období pro nadpis karty v žebříčcích — bere se z volby na Výstavu. */
+const POPIS_OBDOBI_ZEBRICEK: Record<Obdobi, string> = {
+  tyden: 'tento týden', mesic: 'tento měsíc', rok: 'letos', vse: 'za celou dobu',
 };
 
 function fmtHoursShort(h: number | null | undefined): string {
@@ -145,21 +154,33 @@ type DeliveryOrder = {
 };
 type DeliveryItem = { id: string; order_id: string; beer_id: string | null; beer_name: string | null; package_id: string | null; package_label: string | null; quantity: number; is_prepared: boolean };
 
+type Zalozka = 'vystav' | 'detail' | 'cycles' | 'stats' | 'orders' | 'deliveries';
+const ZALOZKY: Zalozka[] = ['vystav', 'detail', 'cycles', 'stats', 'orders', 'deliveries'];
+
+/**
+ * Záložka z adresy se musí ověřit, ne jen přetypovat.
+ *
+ * `selectTab` si název záložky ukládá do adresy, takže na ni existují
+ * uložené odkazy — a dvě záložky („overview" a „production") se zrušily.
+ * Bez tohohle by takový odkaz otevřel obrazovku, na které se nevykreslí
+ * vůbec nic: `activeTab` by se rovnalo hodnotě, kterou žádný blok netestuje.
+ */
+function zalozkaZAdresy(sub: string | undefined): Zalozka {
+  return ZALOZKY.includes(sub as Zalozka) ? (sub as Zalozka) : 'vystav';
+}
+
 export default function History({ setPage, initialSubTab }: { setPage?: (p: any, sec?: string, sub?: string) => void; initialSubTab?: string } = {}) {
-  const [activeTab, setActiveTab] = useState<'vystav' | 'overview' | 'production' | 'detail' | 'cycles' | 'stats' | 'orders' | 'deliveries'>((initialSubTab as any) || 'vystav');
+  const [activeTab, setActiveTab] = useState<Zalozka>(() => zalozkaZAdresy(initialSubTab));
 
   useEffect(() => {
-    setActiveTab((initialSubTab as any) || 'overview');
+    setActiveTab(zalozkaZAdresy(initialSubTab));
   }, [initialSubTab]);
 
-  function selectTab(t: 'vystav' | 'overview' | 'production' | 'detail' | 'cycles' | 'stats' | 'orders' | 'deliveries') {
+  function selectTab(t: Zalozka) {
     if (setPage) setPage('history', undefined, t);
     else setActiveTab(t);
   }
   // ---- Výstav (production) state ----
-  const [prodPeriod, setProdPeriod] = useState<'week' | 'month' | 'year' | 'all'>('year');
-  const [prodCustomFrom, setProdCustomFrom] = useState<string>(startOfYearISO(todayISO()));
-  const [prodCustomTo, setProdCustomTo] = useState<string>(todayISO());
 
   const [data, setData] = useState<MonthData[]>([]);
   const [beers, setBeers] = useState<Beer[]>([]);
@@ -167,14 +188,14 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
   // se týden ani odběratel dopočítat nedá.
   const [vyrobaLahve, setVyrobaLahve] = useState<VyrobniRadek[]>([]);
   const [vyrobaSudy, setVyrobaSudy] = useState<VyrobniRadek[]>([]);
+  const [fasovaniStat, setFasovaniStat] = useState<VyrobniRadek[]>([]);
+  const [odpisyStat, setOdpisyStat] = useState<VyrobniRadek[]>([]);
   const [objednavkyStat, setObjednavkyStat] = useState<any[]>([]);
   const [polozkyStat, setPolozkyStat] = useState<any[]>([]);
   const [obdobiStat, setObdobiStat] = useState<Obdobi>('mesic');
   const [packages, setPackages] = useState<Package[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMonths, setSelectedMonths] = useState<string[]>([]);
-  const [beerFilter, setBeerFilter] = useState<string>('');
-  const [packageFilter, setPackageFilter] = useState<string>('');
 
   // ---- Přehled objednávek (týdenní) ----
   const [ordWeekKey, setOrdWeekKey] = useState(isoWeekKey(businessDateISO()));
@@ -199,6 +220,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
   // ---- Historie cyklů tanků ----
   const [tankCycles, setTankCycles] = useState<TankCycleRow[]>([]);
   const [tankCyclesLoading, setTankCyclesLoading] = useState(true);
+  const [staceniProCykly, setStaceniProCykly] = useState<StaceniRadek[]>([]);
 
   // ---- Historie nákladek (přesunuto z původní obrazovky Závoz) ----
   const [delOrders, setDelOrders] = useState<DeliveryOrder[]>([]);
@@ -301,6 +323,8 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
     setBeers(beerList);
     setVyrobaLahve((bt as VyrobniRadek[]) ?? []);
     setVyrobaSudy((kg as VyrobniRadek[]) ?? []);
+    setFasovaniStat((fa as VyrobniRadek[]) ?? []);
+    setOdpisyStat((wo as VyrobniRadek[]) ?? []);
     setObjednavkyStat((ord as any[]) ?? []);
     setPolozkyStat((oi as any[]) ?? []);
     setPackages((pk as Package[]) ?? []);
@@ -496,8 +520,14 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
 
   async function loadTankCycles() {
     setTankCyclesLoading(true);
-    const { data: cy } = await supabase.from('cellar_tank_cycles').select('*').order('ended_at', { ascending: false }).limit(300);
+    // Rozpad sudů podle velikosti si tabulka cyklů nepamatuje (má jen
+    // `keg_count`), takže se dopočítá z řádků stáčení — viz lib/cyklyTanku.
+    const [{ data: cy }, { data: kg }] = await Promise.all([
+      supabase.from('cellar_tank_cycles').select('*').order('ended_at', { ascending: false }).limit(300),
+      fetchAllRows('kegging', 'cellar_tank_id,package_id,quantity,created_at'),
+    ]);
     setTankCycles((cy as TankCycleRow[]) ?? []);
+    setStaceniProCykly((kg as StaceniRadek[]) ?? []);
     setTankCyclesLoading(false);
   }
 
@@ -557,19 +587,6 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
 
   const selected = data.filter((d) => selectedMonths.includes(d.month));
 
-  const beerName = (id: string) => beers.find((b) => b.id === id)?.name ?? (id === 'unknown' ? 'Neznámé' : '—');
-  const packageName = (id: string) => packages.find((p) => p.id === id)?.label ?? (id === 'unknown' ? 'Neznámý' : '—');
-  const filteredData = data.filter((d) => {
-    if (beerFilter && !(d.byBeer[beerFilter] > 0)) return false;
-    if (packageFilter && !(d.byPackage[packageFilter] > 0)) return false;
-    return true;
-  });
-  const filteredSelected = selected.filter((d) => {
-    if (beerFilter && !(d.byBeer[beerFilter] > 0)) return false;
-    if (packageFilter && !(d.byPackage[packageFilter] > 0)) return false;
-    return true;
-  });
-  const maxBrewedFiltered = Math.max(...filteredData.map((d) => d.brewed), 1);
 
   function toggleSet<T>(set: Set<T>, val: T): Set<T> {
     const n = new Set(set);
@@ -614,6 +631,15 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
   const detailResultsSorted = useMemo(() => sortRows(detailResults, detailSortKey, detailSortDir), [detailResults, detailSortKey, detailSortDir]);
   const tankCyclesSorted = useMemo(() => sortRows(tankCycles, cycleSortKey, cycleSortDir), [tankCycles, cycleSortKey, cycleSortDir]);
 
+  // 🛢️ Do jakých velikostí sudů se v jednotlivých cyklech stáčelo.
+  // Samotné „Sudů: 12" ztrátovost nevysvětlí — dvanáct desítek je šestkrát
+  // víc stáčení (a šestkrát víc příležitostí něco ztratit) než dvanáct
+  // padesátek.
+  const sudyVCyklech = useMemo(
+    () => rozpadSuduVCyklech(tankCycles, staceniProCykly, new Map(packages.map((p) => [p.id, { label: p.label }]))),
+    [tankCycles, staceniProCykly, packages],
+  );
+
   // Diagnostika ztrátovosti podle tanků
   const tankLossDiagnostics = useMemo(() => {
     const m = new Map<string, { count: number; totalLossL: number; totalInitialL: number; avgLossPct: number }>();
@@ -643,6 +669,21 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
     return { topBeer, lowestLoss, highestLoss, fastest, slowest };
   }, [detailResults, tankCycles]);
 
+  // 📦 Nejvíc stáčený OBAL za zvolené období — ne „nejvíc kusů dohromady".
+  // Jde o to, do čeho se nejvíc stáčí, tedy čeho mít doma nejvíc.
+  const nejcastejsiObal = useMemo(() => {
+    const { od, do: doKdy } = rozsahObdobi(obdobiStat, denObdobi(obdobiStat, todayISO(), 0));
+    const mapaObalu = new Map(packages.map((p) => [p.id, p as any]));
+    return podilPodleObalu(vyrobaSudy, mapaObalu, od, doKdy)[0] ?? null;
+  }, [vyrobaSudy, packages, obdobiStat]);
+
+  // 💤 Kdo dřív bral a teď mlčí. Jediné číslo ve Statistice, které mluví
+  // o ztracených penězích — všechno ostatní ukazuje, co se stalo.
+  const utichliOdberatele = useMemo(
+    () => kdoPrestalObjednavat(objednavkyStat, polozkyStat, new Map(packages.map((p) => [p.id, p as any])), todayISO()),
+    [objednavkyStat, polozkyStat, packages],
+  );
+
   function exportDetailExcel() {
     const rows = detailResultsSorted.map((r) => ({
       beer_name: r.beer_name, package_label: r.package_label,
@@ -658,13 +699,14 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
     const rows = tankCyclesSorted.map((c) => ({
       tank_label: c.tank_label, beer_name: c.beer_name ?? '', initial_hl: (Number(c.initial_volume_l) / 100).toFixed(2),
       kegged_hl: (Number(c.kegged_volume_l) / 100).toFixed(2), keg_count: c.keg_count,
+      keg_rozpad: popisRozpaduSudu(sudyVCyklech.get(c.id)),
       loss_l: Number(c.loss_l).toFixed(1), loss_pct: Number(c.loss_pct).toFixed(1),
       duration: fmtHoursShort(c.duration_hours), ended_at: new Date(c.ended_at).toLocaleDateString('cs-CZ'),
     }));
     exportHistoryDetailToExcel(
       rows,
-      ['Tank', 'Pivo', 'Počáteční (hl)', 'Stočeno (hl)', 'Sudů', 'Ztráta (l)', 'Ztráta (%)', 'Doba', 'Ukončeno'],
-      ['tank_label', 'beer_name', 'initial_hl', 'kegged_hl', 'keg_count', 'loss_l', 'loss_pct', 'duration', 'ended_at'],
+      ['Tank', 'Pivo', 'Počáteční (hl)', 'Stočeno (hl)', 'Sudů', 'Do jakých sudů', 'Ztráta (l)', 'Ztráta (%)', 'Doba', 'Ukončeno'],
+      ['tank_label', 'beer_name', 'initial_hl', 'kegged_hl', 'keg_count', 'keg_rozpad', 'loss_l', 'loss_pct', 'duration', 'ended_at'],
       'historie-cykly-tanku.xlsx'
     );
   }
@@ -837,34 +879,6 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
           </button>
 
           <button
-            onClick={() => selectTab('overview')}
-            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded font-black text-xs transition flex items-center gap-1.5 sm:gap-2 shrink-0 ${
-              activeTab === 'overview'
-                ? 'bg-amber-500 text-neutral-950 shadow-md'
-                : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
-            }`}
-          >
-            <BarChart3 size={16} />
-            <span><span className="sm:hidden">Přehledy</span><span className="hidden sm:inline">Měsíční přehledy & Porovnání</span></span>
-          </button>
-
-          <button
-            onClick={() => selectTab('production')}
-            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded font-black text-xs transition flex items-center gap-1.5 sm:gap-2 shrink-0 ${
-              activeTab === 'production'
-                ? 'bg-amber-500 text-neutral-950 shadow-md'
-                : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
-            }`}
-          >
-            <TrendingUp size={16} />
-            {/* Zkrácený popisek nesmí být „Výstav" — tak se jmenuje už první
-                záložka vlevo a na telefonu (kde se dlouhé popisky schovávají)
-                pak stály v pruhu dvě tlačítka se stejným nápisem a nešlo
-                poznat, které otevře co. */}
-            <span><span className="sm:hidden">HL & KEG/PET</span><span className="hidden sm:inline">Výstav (HL) & KEG/PET</span></span>
-          </button>
-
-          <button
             onClick={() => selectTab('detail')}
             className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded font-black text-xs transition flex items-center gap-1.5 sm:gap-2 shrink-0 ${
               activeTab === 'detail'
@@ -938,11 +952,19 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
         </button>
       </div>
 
-      {/* TAB 1: OVERVIEW & MONTHLY COMPARISON */}
+      {/* ZÁLOŽKA 1: VÝSTAV
+          Pohltila dřívější „Měsíční přehledy & Porovnání" a „Výstav (HL) &
+          KEG/PET". Ty tři záložky ukazovaly z velké části totéž — tři různé
+          rozpisy obalů, dva měsíční grafy, dvě sady dlaždic — jen každá
+          trochu jinak, a na telefonu zabíral zalomený pruh osmi záložek
+          třetinu displeje. Co tam bylo navíc (ztráty KEG), je teď karta
+          „Rozpočet sudů"; vlastní rozsah dat zůstal v „Podrobném hledání". */}
       {activeTab === 'vystav' && (
         <StatistikaVystav
           bottlingRows={vyrobaLahve}
           keggingRows={vyrobaSudy}
+          fasovaniRows={fasovaniStat}
+          writeoffRows={odpisyStat}
           obaly={packages as any}
           piva={beers as any}
           orders={objednavkyStat}
@@ -953,625 +975,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
         />
       )}
 
-      {activeTab === 'overview' && (
-        <div className="space-y-6">
-          <div className="card sticky top-0 z-10 p-4 flex flex-wrap items-end gap-3 bg-white border border-neutral-200 shadow-sm">
-            <div className="flex-1 min-w-[180px]">
-              <label className="label">Pivo</label>
-              <select className="input" value={beerFilter} onChange={(e) => setBeerFilter(e.target.value)}>
-                <option value="">Všechna piva</option>
-                {beers.map((b) => <option key={b.id} value={b.id}>{b.name}{b.degree ? ` (${b.degree})` : ''}</option>)}
-              </select>
-            </div>
-            <div className="flex-1 min-w-[180px]">
-              <label className="label">Obal</label>
-              <select className="input" value={packageFilter} onChange={(e) => setPackageFilter(e.target.value)}>
-                <option value="">Všechny obaly</option>
-                {packages.map((p) => <option key={p.id} value={p.id}>{p.volume_l} L</option>)}
-              </select>
-            </div>
-            {(beerFilter || packageFilter) && (
-              <button className="btn-ghost !rounded !py-2 text-xs font-bold text-rose-700 bg-rose-50 border border-rose-200" onClick={() => { setBeerFilter(''); setPackageFilter(''); }}>Zrušit filtr</button>
-            )}
-          </div>
 
-          {/* Month chips */}
-          <div className="flex flex-wrap gap-2">
-            {filteredData.map((d) => (
-              <button
-                key={d.month}
-                onClick={() => toggleMonth(d.month)}
-                className={`tap px-3.5 py-1.5 rounded text-xs font-black transition-all ${
-                  selectedMonths.includes(d.month)
-                    ? 'bg-white text-neutral-900 shadow-md scale-105'
-                    : 'bg-white text-neutral-700 border border-neutral-200 hover:bg-amber-50'
-                }`}
-              >
-                {monthLabel(d.month)}
-              </button>
-            ))}
-          </div>
-
-          {/* Comparison cards + YoY Analytics */}
-          {filteredSelected.length === 0 ? (
-            <div className="card p-12 text-center text-neutral-500 bg-white">Vyber měsíce pro porovnání{beerFilter || packageFilter ? ' (žádná data neodpovídá filtru)' : '.'}</div>
-          ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {filteredSelected.map((d) => {
-                // YoY Výpočet (minulý rok stejný měsíc)
-                const [currY, currMo] = d.month.split('-');
-                const prevYearMonth = `${Number(currY) - 1}-${currMo}`;
-                const prevMonthData = data.find((x) => x.month === prevYearMonth);
-
-                const yoyBrewedDiff = prevMonthData ? d.brewed - prevMonthData.brewed : null;
-                const yoyBrewedPct = prevMonthData && prevMonthData.brewed > 0 ? ((yoyBrewedDiff! / prevMonthData.brewed) * 100).toFixed(1) : null;
-
-                const yoyFasovaniDiff = prevMonthData ? d.fasovani - prevMonthData.fasovani : null;
-                const yoyFasovaniPct = prevMonthData && prevMonthData.fasovani > 0 ? ((yoyFasovaniDiff! / prevMonthData.fasovani) * 100).toFixed(1) : null;
-
-                // Poměry Stáčení KEG vs Lahve
-                const totalStaceno = d.kegged + d.bottled;
-                const keggedPct = totalStaceno > 0 ? Math.round((d.kegged / totalStaceno) * 100) : 0;
-                const bottledPct = totalStaceno > 0 ? Math.round((d.bottled / totalStaceno) * 100) : 0;
-
-                return (
-                  <div key={d.month} className="card p-5 bg-white border border-neutral-200 rounded shadow-xs space-y-4">
-                    <div className="flex items-center justify-between border-b border-neutral-100 pb-2">
-                      <h3 className="font-display font-black text-xl text-neutral-900">{monthLabel(d.month)}</h3>
-                      {prevMonthData && (
-                        <div className="flex items-center gap-1.5 text-udaj font-black px-2.5 py-1 rounded bg-neutral-900 text-amber-300">
-                          <TrendingUp size={14} />
-                          <span>YoY porovnáno s {monthLabel(prevYearMonth)}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                      <Stat label="Stočeno" value={d.brewed} icon={BeerIcon} tone="amber" />
-                      <Stat label="Lahve" value={d.bottled} icon={IkonaLahev} />
-                      <Stat label="Sudy" value={d.kegged} icon={IkonaSud} tone="amber" />
-                      <div className="col-span-2 sm:col-span-4 rounded p-3 border shadow-2xs bg-white">
-                        <div className="flex items-center gap-1.5 mb-1"><span className="w-6 h-6 rounded grid place-items-center text-xs font-bold border text-amber-900 bg-amber-100/80 border-amber-300"><Droplet className="ikona-text" /></span><span className="text-udaj font-black uppercase tracking-wider text-neutral-600 truncate">Stočeno celkem (hl)</span></div>
-                        <div className="text-base font-display font-black text-neutral-900">{d.brewed_hl.toFixed(2)} hl</div>
-                      </div>
-                      <Stat label="Fasování" value={d.fasovani} icon={PackageIcon} />
-                      <Stat label="Odpisy" value={d.writeoffs} icon={TrendingDown} tone="danger" />
-                      <Stat label="Objednáno" value={d.ordered} icon={Receipt} tone="amber" />
-                      <Stat label="Akce odvezeno" value={d.akce_taken} icon={PartyPopper} tone="warning" />
-                      <Stat label="Akce vráceno" value={d.akce_returned} icon={Undo2} tone="success" />
-                    </div>
-
-                    {/* 📦 KONKRÉTNÍ ROZPAS STOČENÝCH OBALŮ: 50, 30, 20, 15, 10, 1.5, 1, 0.5, 0.33 */}
-                    {(() => {
-                      const kegQtyMap: Record<number, number> = {};
-                      const bottleQtyMap: Record<number, number> = {};
-                      packages.forEach((pkg) => {
-                        const qty = d.byPackage[pkg.id] || 0;
-                        if (!qty) return;
-                        const vol = Number(pkg.volume_l);
-                        if (pkg.kind === 'keg') kegQtyMap[vol] = (kegQtyMap[vol] || 0) + qty;
-                        else bottleQtyMap[vol] = (bottleQtyMap[vol] || 0) + qty;
-                      });
-
-                      return (
-                        <div className="p-3.5 rounded bg-amber-50/80 border border-amber-200 shadow-2xs space-y-3">
-                          <div className="text-xs font-black text-amber-950 flex items-center justify-between">
-                            <span className="flex items-center gap-1.5 font-display"><PackageIcon className="ikona-text" /> Konkrétní stočené obaly</span>
-                            <span className="text-xs font-mono font-black text-amber-800">Celkem: {d.brewed} ks</span>
-                          </div>
-
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                            {/* KEG Sudy */}
-                            <div className="p-2.5 rounded bg-white border border-amber-300 shadow-2xs space-y-1.5">
-                              <div className="text-udaj font-black uppercase text-amber-900 flex items-center justify-between border-b border-amber-100 pb-1">
-                                <span><IkonaSud className="ikona-text" /> KEG Sudy</span>
-                                <span className="font-mono text-amber-800">{d.kegged} ks</span>
-                              </div>
-                              <div className="grid grid-cols-5 gap-1 text-center">
-                                {[50, 30, 20, 15, 10].map((v) => {
-                                  const qty = kegQtyMap[v] || 0;
-                                  return (
-                                    <div key={v} className={`p-1 rounded border transition-all ${qty > 0 ? 'bg-amber-100/90 border-amber-400 text-amber-950 font-black shadow-2xs' : 'bg-neutral-50/80 border-neutral-200 text-neutral-500'}`}>
-                                      <div className="text-udaj font-black uppercase text-neutral-500">{v} L</div>
-                                      <div className="font-mono text-udaj font-black">{qty}</div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-
-                            {/* Lahve */}
-                            <div className="p-2.5 rounded bg-white border border-sky-300 shadow-2xs space-y-1.5">
-                              <div className="text-udaj font-black uppercase text-sky-900 flex items-center justify-between border-b border-sky-100 pb-1">
-                                <span><IkonaLahev className="ikona-text" /> Lahve / PET</span>
-                                <span className="font-mono text-sky-800">{d.bottled} ks</span>
-                              </div>
-                              <div className="grid grid-cols-4 gap-1 text-center">
-                                {[1.5, 1.0, 0.5, 0.33].map((v) => {
-                                  const qty = bottleQtyMap[v] || 0;
-                                  return (
-                                    <div key={v} className={`p-1 rounded border transition-all ${qty > 0 ? 'bg-sky-100/90 border-sky-400 text-sky-950 font-black shadow-2xs' : 'bg-neutral-50/80 border-neutral-200 text-neutral-500'}`}>
-                                      <div className="text-udaj font-black uppercase text-neutral-500">{v === 1 ? '1 L' : `${v} L`}</div>
-                                      <div className="font-mono text-udaj font-black">{qty}</div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })()}
-
-                    {Object.keys(d.byBeerHl).length > 0 && (
-                      <div className="p-3.5 rounded bg-neutral-50 border border-neutral-200 space-y-2">
-                        <div className="text-xs font-black text-neutral-900">Rozpis stočených hl podle piva:</div>
-                        <div className="flex flex-wrap gap-2">
-                          {Object.entries(d.byBeerHl).sort((a, b) => b[1] - a[1]).map(([beerId, hl]) => (
-                            <div key={beerId} className="px-2.5 py-1 rounded bg-white border border-neutral-200 text-xs font-bold shadow-2xs">
-                              {beerName(beerId)}: <strong className="font-mono text-amber-700">{(hl / 100).toFixed(2)} hl</strong>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Vizuální rozpad Stáčení: KEG vs Lahve */}
-                    {totalStaceno > 0 && (
-                      <div className="p-3.5 rounded bg-neutral-50 border border-neutral-200 space-y-2">
-                        <div className="flex items-center justify-between text-xs font-black text-neutral-900">
-                          <span className="flex items-center gap-1.5"><PieChartIcon size={14} className="text-amber-600" /> Poměr stáčení sudů a lahví</span>
-                          <span><IkonaSud className="ikona-text" /> {keggedPct}% Sudy vs <IkonaLahev className="ikona-text" /> {bottledPct}% Lahve</span>
-                        </div>
-                        <div className="w-full h-3 bg-neutral-200 rounded-full overflow-hidden flex">
-                          <div className="bg-amber-500 h-full transition-all" style={{ width: `${keggedPct}%` }} title={`KEG sudy: ${d.kegged} ks (${keggedPct}%)`} />
-                          <div className="bg-sky-500 h-full transition-all" style={{ width: `${bottledPct}%` }} title={`Lahve: ${d.bottled} ks (${bottledPct}%)`} />
-                        </div>
-                      </div>
-                    )}
-
-                    {/* YoY Porovnání s minulým rokem */}
-                    {prevMonthData && (
-                      <div className="p-3 rounded bg-amber-50/70 border border-amber-200 space-y-1 text-xs">
-                        <span className="font-extrabold text-amber-950 block"><Calendar className="ikona-text" /> Vývoj oproti minulému roku ({monthLabel(prevYearMonth)}):</span>
-                        <div className="grid grid-cols-2 gap-2 pt-1">
-                          <div className="flex items-center justify-between p-2 rounded bg-white border border-amber-200">
-                            <span className="text-neutral-600 font-bold">Stáčení hl:</span>
-                            <span className={`font-black ${yoyBrewedDiff! >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-                              {yoyBrewedDiff! >= 0 ? `+${yoyBrewedDiff}` : yoyBrewedDiff} ks ({yoyBrewedPct != null ? `${yoyBrewedPct}%` : '—'})
-                            </span>
-                          </div>
-                          <div className="flex items-center justify-between p-2 rounded bg-white border border-amber-200">
-                            <span className="text-neutral-600 font-bold">Fasování:</span>
-                            <span className={`font-black ${yoyFasovaniDiff! >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-                              {yoyFasovaniDiff! >= 0 ? `+${yoyFasovaniDiff}` : yoyFasovaniDiff} ks ({yoyFasovaniPct != null ? `${yoyFasovaniPct}%` : '—'})
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Ztráty: Stočeno (KEG) vs Fasováno/Objednáno */}
-                    {d.kegged > 0 && (
-                      <div className="p-3.5 rounded bg-rose-50/80 border border-rose-200 space-y-2">
-                        <div className="flex items-center gap-1.5 mb-1">
-                          <span className="w-6 h-6 rounded grid place-items-center text-xs font-bold border text-rose-900 bg-rose-100/80 border-rose-300"><BarChart3 className="ikona-text" /></span>
-                          <span className="text-udaj font-black uppercase tracking-wider text-rose-800">Ztráty KEG</span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2 text-xs">
-                          <div className="p-2 rounded bg-white border border-rose-200">
-                            <span className="block text-udaj font-bold text-neutral-500">Stočeno KEG (hl)</span>
-                            <span className="font-black text-neutral-900">{(d.kegHl).toFixed(2)} hl</span>
-                          </div>
-                          <div className="p-2 rounded bg-white border border-rose-200">
-                            <span className="block text-udaj font-bold text-neutral-500">Fasováno (ks)</span>
-                            <span className="font-black text-neutral-900">{d.fasovani} ks</span>
-                          </div>
-                          <div className="p-2 rounded bg-white border border-rose-200">
-                            <span className="block text-udaj font-bold text-neutral-500">Objednáno (ks)</span>
-                            <span className="font-black text-neutral-900">{d.ordered} ks</span>
-                          </div>
-                          <div className="p-2 rounded bg-white border border-rose-200">
-                            <span className="block text-udaj font-bold text-neutral-500">Odpisy (ks)</span>
-                            <span className="font-black text-rose-700">{d.writeoffs} ks</span>
-                          </div>
-                        </div>
-                        {(() => {
-                          const rozdil = d.kegged - d.fasovani - d.writeoffs;
-                          const rozdilPct = d.kegged > 0 ? ((rozdil / d.kegged) * 100) : 0;
-                          return (
-                            <div className={`p-2 rounded border text-xs font-bold flex items-center justify-between ${rozdil > 0 ? 'bg-rose-100 border-rose-300 text-rose-800' : 'bg-emerald-100 border-emerald-300 text-emerald-800'}`}>
-                              <span>{rozdil > 0 ? 'Nerozpočteno (ztráta)' : 'Vše pokryto'}</span>
-                              <span className="font-mono font-black">{rozdil} ks ({rozdilPct.toFixed(1)}%)</span>
-                            </div>
-                          );
-                        })()}
-                      </div>
-                    )}
-
-                    {d.akce_revenue > 0 && (
-                      <div className="pt-2 border-t border-neutral-100 flex items-center justify-between">
-                        <span className="text-xs text-neutral-600 font-bold"><DollarSign className="ikona-text" /> Vyděláno na akcích</span>
-                        <span className="font-display font-black text-emerald-700 text-base">{d.akce_revenue.toLocaleString('cs-CZ')} Kč</span>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Bar chart */}
-          {filteredData.length > 0 && (
-            <div className="card p-6 bg-white border border-neutral-200 rounded space-y-4 shadow-xs">
-              <h3 className="font-display font-black text-lg text-neutral-900">Stočeno pivo — všechny měsíce{(beerFilter || packageFilter) ? ' (dle filtru)' : ''}</h3>
-              <div className="space-y-2.5 relative">
-                {filteredData.map((d) => (
-                  <div key={d.month} className="flex items-center gap-3">
-                    <div className="w-24 text-xs font-extrabold text-neutral-700 shrink-0">{monthLabel(d.month)}</div>
-                    <div className="flex-1 bg-neutral-100 rounded h-8 overflow-hidden border border-neutral-200/80">
-                      <div
-                        className="bg-gradient-to-r from-amber-500 to-amber-600 h-full rounded flex items-center justify-end pr-2.5 transition-all shadow-2xs"
-                        style={{ width: `${Math.max((d.brewed / maxBrewedFiltered) * 100, 2)}%` }}
-                      >
-                        <span className="text-xs font-black text-neutral-950">{d.brewed} ks</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* TAB 2: VÝSTAV (HL) & KEG/PET */}
-      {activeTab === 'production' && (
-        <div className="space-y-6">
-          {/* Volba období */}
-          <div className="card sticky top-0 z-10 p-4 bg-white border border-neutral-200 rounded flex flex-wrap items-end gap-3 shadow-sm">
-            <div>
-              <label className="label">Období</label>
-              <div className="flex flex-wrap gap-1.5">
-                {(['week', 'month', 'year', 'all'] as const).map((p) => (
-                  <button
-                    key={p}
-                    onClick={() => setProdPeriod(p)}
-                    className={`tap px-3 py-1.5 rounded text-xs font-black transition ${
-                      prodPeriod === p ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
-                    }`}
-                  >
-                    {p === 'week' ? 'Týden' : p === 'month' ? 'Měsíc' : p === 'year' ? 'Rok' : 'Vše'}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <label className="label">Od</label>
-              <input type="date" value={prodCustomFrom} onChange={(e) => setProdCustomFrom(e.target.value)} className="input !py-1.5 text-xs font-mono font-bold" />
-            </div>
-            <div>
-              <label className="label">Do</label>
-              <input type="date" value={prodCustomTo} onChange={(e) => setProdCustomTo(e.target.value)} className="input !py-1.5 text-xs font-mono font-bold" />
-            </div>
-          </div>
-
-          {/* Výpočet dat pro výstav */}
-          {(() => {
-            // Určení rozsahu dat podle zvoleného období
-            const today = todayISO();
-            let fromDate: string, toDate: string;
-            if (prodPeriod === 'week') { fromDate = addDaysISO(today, -6); toDate = today; }
-            else if (prodPeriod === 'month') { fromDate = startOfMonthISO(today); toDate = today; }
-            else if (prodPeriod === 'year') { fromDate = startOfYearISO(today); toDate = today; }
-            else { fromDate = '2000-01-01'; toDate = today; }
-            // Použijeme custom rozsah pokud je zadán
-            const effectiveFrom = prodCustomFrom || fromDate;
-            const effectiveTo = prodCustomTo || toDate;
-
-            // Filtrování měsíců v rozsahu
-            const monthsInRange = data.filter(d => {
-              const [y, m] = d.month.split('-').map(Number);
-              const monthStart = `${y}-${String(m).padStart(2, '0')}-01`;
-              const monthEnd = new Date(y, m, 0).toISOString().slice(0, 10);
-              return monthEnd >= effectiveFrom && monthStart <= effectiveTo;
-            });
-
-            // Celkové součty
-            const totalHl = monthsInRange.reduce((s, d) => s + d.brewed_hl, 0);
-            const totalKegHl = monthsInRange.reduce((s, d) => s + d.kegHl, 0);
-            const totalBottleHl = monthsInRange.reduce((s, d) => s + d.bottleHl, 0);
-            const totalKegPct = totalHl > 0 ? (totalKegHl / totalHl) * 100 : 0;
-            const totalBottlePct = totalHl > 0 ? (totalBottleHl / totalHl) * 100 : 0;
-
-            // Rozpad podle piv (celkem HL)
-            const beerHlMap = new Map<string, number>();
-            monthsInRange.forEach(d => {
-              Object.entries(d.byBeerHl).forEach(([beerId, hl]) => {
-                beerHlMap.set(beerId, (beerHlMap.get(beerId) ?? 0) + hl);
-              });
-            });
-            const beerHlList = [...beerHlMap.entries()]
-              .map(([id, hl]) => ({ id, name: beerName(id), hl: hl / 100 }))
-              .sort((a, b) => b.hl - a.hl);
-
-            // Rozpad KEG podle piv
-            const beerKegHlMap = new Map<string, number>();
-            monthsInRange.forEach(d => {
-              Object.entries(d.byBeerKegHl).forEach(([beerId, hl]) => {
-                beerKegHlMap.set(beerId, (beerKegHlMap.get(beerId) ?? 0) + hl);
-              });
-            });
-            const beerKegHlList = [...beerKegHlMap.entries()]
-              .map(([id, hl]) => ({ id, name: beerName(id), hl: hl / 100 }))
-              .sort((a, b) => b.hl - a.hl);
-
-            // Rozpad PET/Lahve podle piv
-            const beerBottleHlMap = new Map<string, number>();
-            monthsInRange.forEach(d => {
-              Object.entries(d.byBeerBottleHl).forEach(([beerId, hl]) => {
-                beerBottleHlMap.set(beerId, (beerBottleHlMap.get(beerId) ?? 0) + hl);
-              });
-            });
-            const beerBottleHlList = [...beerBottleHlMap.entries()]
-              .map(([id, hl]) => ({ id, name: beerName(id), hl: hl / 100 }))
-              .sort((a, b) => b.hl - a.hl);
-
-            // Rozpad podle druhu obalu (keg/bottle)
-            const kindHlMap = new Map<string, { ks: number; hl: number }>();
-            monthsInRange.forEach(d => {
-              Object.entries(d.byPackageKind).forEach(([kind, data]) => {
-                const prev = kindHlMap.get(kind) ?? { ks: 0, hl: 0 };
-                kindHlMap.set(kind, { ks: prev.ks + data.ks, hl: prev.hl + data.hl });
-              });
-            });
-
-            const maxHl = Math.max(...beerHlList.map(b => b.hl), 1);
-
-            return (
-              <>
-                {/* Hlavní KPI karty */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                  <div className="rounded p-4 bg-white border-2 border-amber-300 shadow-xs">
-                    <div className="text-udaj font-black uppercase tracking-wider text-amber-700">Celkový výstav</div>
-                    <div className="text-2xl font-display font-black text-neutral-900">{totalHl.toFixed(2)} hl</div>
-                    <div className="text-udaj font-bold text-neutral-500">{monthsInRange.reduce((s, d) => s + d.brewed, 0)} ks</div>
-                  </div>
-                  <div className="rounded p-4 bg-white border-2 border-amber-500 shadow-xs">
-                    <div className="text-udaj font-black uppercase tracking-wider text-amber-800"><IkonaSud className="ikona-text" /> KEG sudy</div>
-                    <div className="text-2xl font-display font-black text-neutral-900">{totalKegHl.toFixed(2)} hl</div>
-                    <div className="text-udaj font-bold text-neutral-500">{totalKegPct.toFixed(1)}% z celku</div>
-                  </div>
-                  <div className="rounded p-4 bg-white border-2 border-sky-300 shadow-xs">
-                    <div className="text-udaj font-black uppercase tracking-wider text-sky-700"><IkonaLahev className="ikona-text" /> Lahve / PET</div>
-                    <div className="text-2xl font-display font-black text-neutral-900">{totalBottleHl.toFixed(2)} hl</div>
-                    <div className="text-udaj font-bold text-neutral-500">{totalBottlePct.toFixed(1)}% z celku</div>
-                  </div>
-                  <div className="rounded p-4 bg-white border-2 border-neutral-300 shadow-xs">
-                    <div className="text-udaj font-black uppercase tracking-wider text-neutral-600">Počet měsíců</div>
-                    <div className="text-2xl font-display font-black text-neutral-900">{monthsInRange.length}</div>
-                    <div className="text-udaj font-bold text-neutral-500">Ø {(totalHl / Math.max(monthsInRange.length, 1)).toFixed(2)} hl/měsíc</div>
-                  </div>
-                </div>
-
-                {/* Vizuální poměr KEG vs Lahve */}
-                <div className="card p-5 bg-white border border-neutral-200 rounded space-y-3 shadow-xs">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-display font-black text-base text-neutral-900 flex items-center gap-2">
-                      <PieChartIcon size={18} className="text-amber-600" />
-                      <span>Poměr stáčení: KEG vs Lahve</span>
-                    </h3>
-                    <span className="text-xs font-black text-neutral-600">
-                      <IkonaSud className="ikona-text" /> {totalKegPct.toFixed(1)}% KEG · <IkonaLahev className="ikona-text" /> {totalBottlePct.toFixed(1)}% Lahve
-                    </span>
-                  </div>
-                  <div className="w-full h-5 bg-neutral-200 rounded-full overflow-hidden flex shadow-inner">
-                    <div
-                      className="bg-gradient-to-r from-amber-600 to-amber-500 h-full transition-all flex items-center justify-center text-udaj font-black text-white"
-                      style={{ width: `${Math.max(totalKegPct, 2)}%` }}
-                    >
-                      {totalKegPct > 10 ? `${totalKegPct.toFixed(0)}%` : ''}
-                    </div>
-                    <div
-                      className="bg-gradient-to-r from-sky-500 to-sky-400 h-full transition-all flex items-center justify-center text-udaj font-black text-white"
-                      style={{ width: `${Math.max(totalBottlePct, 2)}%` }}
-                    >
-                      {totalBottlePct > 10 ? `${totalBottlePct.toFixed(0)}%` : ''}
-                    </div>
-                  </div>
-                  {/* 📦 KONKRÉTNÍ ROZPAS VŠECH OBALŮ PRO ZVOLENÉ OBDOBÍ */}
-                  {(() => {
-                    const rangeKegQtyMap: Record<number, number> = {};
-                    const rangeBottleQtyMap: Record<number, number> = {};
-                    monthsInRange.forEach((d) => {
-                      packages.forEach((pkg) => {
-                        const qty = d.byPackage[pkg.id] || 0;
-                        if (!qty) return;
-                        const vol = Number(pkg.volume_l);
-                        if (pkg.kind === 'keg') rangeKegQtyMap[vol] = (rangeKegQtyMap[vol] || 0) + qty;
-                        else rangeBottleQtyMap[vol] = (rangeBottleQtyMap[vol] || 0) + qty;
-                      });
-                    });
-                    const totalKegCount = Object.values(rangeKegQtyMap).reduce((a, b) => a + b, 0);
-                    const totalBottleCount = Object.values(rangeBottleQtyMap).reduce((a, b) => a + b, 0);
-
-                    return (
-                      <div className="p-4 rounded bg-amber-50/80 border border-amber-200 space-y-3 pt-3">
-                        <div className="text-xs font-black text-amber-950 flex items-center justify-between border-b border-amber-200/60 pb-2">
-                          <span className="flex items-center gap-1.5 font-display text-sm"><PackageIcon className="ikona-text" /> Konkrétní stočené obaly za vybrané období</span>
-                          <span className="text-xs font-mono font-black text-amber-800">Celkem: {totalKegCount + totalBottleCount} ks</span>
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          {/* KEG Sudy */}
-                          <div className="p-3 rounded bg-white border border-amber-300 shadow-2xs space-y-2">
-                            <div className="text-xs font-black uppercase text-amber-900 flex items-center justify-between border-b border-amber-100 pb-1">
-                              <span><IkonaSud className="ikona-text" /> KEG Sudy (50, 30, 20, 15, 10 L)</span>
-                              <span className="font-mono text-amber-800">{totalKegCount} ks</span>
-                            </div>
-                            <div className="grid grid-cols-5 gap-1.5 text-center">
-                              {[50, 30, 20, 15, 10].map((v) => {
-                                const qty = rangeKegQtyMap[v] || 0;
-                                return (
-                                  <div key={v} className={`p-1.5 rounded border transition-all ${qty > 0 ? 'bg-amber-100/90 border-amber-400 text-amber-950 font-black shadow-2xs' : 'bg-neutral-50/80 border-neutral-200 text-neutral-500'}`}>
-                                    <div className="text-udaj font-black uppercase text-neutral-600">{v} L</div>
-                                    <div className="font-mono text-xs font-black">{qty}</div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-
-                          {/* Lahve */}
-                          <div className="p-3 rounded bg-white border border-sky-300 shadow-2xs space-y-2">
-                            <div className="text-xs font-black uppercase text-sky-900 flex items-center justify-between border-b border-sky-100 pb-1">
-                              <span><IkonaLahev className="ikona-text" /> Lahve (1,5 / 1 / 0,5 / 0,33 L)</span>
-                              <span className="font-mono text-sky-800">{totalBottleCount} ks</span>
-                            </div>
-                            <div className="grid grid-cols-4 gap-1.5 text-center">
-                              {[1.5, 1.0, 0.5, 0.33].map((v) => {
-                                const qty = rangeBottleQtyMap[v] || 0;
-                                return (
-                                  <div key={v} className={`p-1.5 rounded border transition-all ${qty > 0 ? 'bg-sky-100/90 border-sky-400 text-sky-950 font-black shadow-2xs' : 'bg-neutral-50/80 border-neutral-200 text-neutral-500'}`}>
-                                    <div className="text-udaj font-black uppercase text-neutral-600">{v === 1 ? '1 L' : `${v} L`}</div>
-                                    <div className="font-mono text-xs font-black">{qty}</div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })()}
-                </div>
-
-                {/* Rozpad podle piv - celkem */}
-                <div className="card p-5 bg-white border border-neutral-200 rounded space-y-3 shadow-xs">
-                  <h3 className="font-display font-black text-base text-neutral-900 flex items-center gap-2">
-                    <BeerIcon size={18} className="text-amber-600" />
-                    <span>Výstav podle piv (HL)</span>
-                  </h3>
-                  {beerHlList.length === 0 ? (
-                    <div className="text-xs font-bold text-neutral-500 py-4 text-center">Žádná data v tomto období.</div>
-                  ) : (
-                    <div className="space-y-2">
-                      {beerHlList.map((b) => {
-                        const beer = beers.find(be => be.id === b.id);
-                        const bg = beerBg(beer);
-                        const ink = beerInk(beer);
-                        return (
-                          <div key={b.id} className="flex items-center gap-3">
-                            <div className="w-32 text-xs font-extrabold text-neutral-700 shrink-0 truncate">{b.name}</div>
-                            <div className="flex-1 bg-neutral-100 rounded h-7 overflow-hidden border border-neutral-200/80">
-                              <div
-                                className="plocha-z-dat h-full rounded flex items-center justify-end pr-2.5 transition-all shadow-2xs"
-                                style={{ width: `${Math.max((b.hl / maxHl) * 100, 2)}%`, backgroundColor: bg, ['--ink-plochy' as any]: ink }}
-                              >
-                                <span className="text-udaj font-black text-neutral-950">{b.hl.toFixed(2)} hl</span>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-
-                {/* Rozpad KEG podle piv */}
-                <div className="card p-5 bg-white border border-neutral-200 rounded space-y-3 shadow-xs">
-                  <h3 className="font-display font-black text-base text-neutral-900 flex items-center gap-2">
-                    <span><IkonaSud className="ikona-text" /></span>
-                    <span>Výstav KEG podle piv (HL)</span>
-                  </h3>
-                  {beerKegHlList.length === 0 ? (
-                    <div className="text-xs font-bold text-neutral-500 py-4 text-center">Žádná KEG data v tomto období.</div>
-                  ) : (
-                    <div className="space-y-2">
-                      {beerKegHlList.map((b) => {
-                        const beer = beers.find(be => be.id === b.id);
-                        const bg = beerBg(beer);
-                        const ink = beerInk(beer);
-                        return (
-                          <div key={b.id} className="flex items-center gap-3">
-                            <div className="w-32 text-xs font-extrabold text-neutral-700 shrink-0 truncate">{b.name}</div>
-                            <div className="flex-1 bg-neutral-100 rounded h-7 overflow-hidden border border-neutral-200/80">
-                              <div
-                                className="plocha-z-dat h-full rounded flex items-center justify-end pr-2.5 transition-all shadow-2xs"
-                                style={{ width: `${Math.max((b.hl / Math.max(...beerKegHlList.map(x => x.hl), 1)) * 100, 2)}%`, backgroundColor: bg, ['--ink-plochy' as any]: ink }}
-                              >
-                                <span className="text-udaj font-black text-neutral-950">{b.hl.toFixed(2)} hl</span>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-
-                {/* Rozpad Lahve/PET podle piv */}
-                <div className="card p-5 bg-white border border-neutral-200 rounded space-y-3 shadow-xs">
-                  <h3 className="font-display font-black text-base text-neutral-900 flex items-center gap-2">
-                    <span><IkonaLahev className="ikona-text" /></span>
-                    <span>Výstav lahví/PET podle piv (HL)</span>
-                  </h3>
-                  {beerBottleHlList.length === 0 ? (
-                    <div className="text-xs font-bold text-neutral-500 py-4 text-center">Žádná data lahví/PET v tomto období.</div>
-                  ) : (
-                    <div className="space-y-2">
-                      {beerBottleHlList.map((b) => {
-                        const beer = beers.find(be => be.id === b.id);
-                        const bg = beerBg(beer);
-                        const ink = beerInk(beer);
-                        return (
-                          <div key={b.id} className="flex items-center gap-3">
-                            <div className="w-32 text-xs font-extrabold text-neutral-700 shrink-0 truncate">{b.name}</div>
-                            <div className="flex-1 bg-neutral-100 rounded h-7 overflow-hidden border border-neutral-200/80">
-                              <div
-                                className="plocha-z-dat h-full rounded flex items-center justify-end pr-2.5 transition-all shadow-2xs"
-                                style={{ width: `${Math.max((b.hl / Math.max(...beerBottleHlList.map(x => x.hl), 1)) * 100, 2)}%`, backgroundColor: bg, ['--ink-plochy' as any]: ink }}
-                              >
-                                <span className="text-udaj font-black text-neutral-950">{b.hl.toFixed(2)} hl</span>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-
-                {/* Měsíční vývojový graf */}
-                <div className="card p-5 bg-white border border-neutral-200 rounded space-y-3 shadow-xs">
-                  <h3 className="font-display font-black text-base text-neutral-900 flex items-center gap-2">
-                    <TrendingUp size={18} className="text-amber-600" />
-                    <span>Měsíční vývoj výstavu (HL)</span>
-                  </h3>
-                  <div className="space-y-2">
-                    {monthsInRange.map((d) => {
-                      const maxHlInRange = Math.max(...monthsInRange.map(x => x.brewed_hl), 1);
-                      return (
-                        <div key={d.month} className="flex items-center gap-3">
-                          <div className="w-20 text-xs font-extrabold text-neutral-700 shrink-0">{monthLabel(d.month)}</div>
-                          <div className="flex-1 bg-neutral-100 rounded h-7 overflow-hidden border border-neutral-200/80">
-                            <div
-                              className="bg-gradient-to-r from-amber-500 to-amber-600 h-full rounded flex items-center justify-end pr-2.5 transition-all shadow-2xs"
-                              style={{ width: `${Math.max((d.brewed_hl / maxHlInRange) * 100, 2)}%` }}
-                            >
-                              <span className="text-udaj font-black text-neutral-950">{d.brewed_hl.toFixed(2)} hl</span>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </>
-            );
-          })()}
-        </div>
-      )}
 
       {/* TAB 3: PODROBNÉ HLEDÁNÍ & FILTRY */}
       {activeTab === 'detail' && (
@@ -1851,6 +1255,14 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                         <span>{fmtHoursShort(c.duration_hours)}</span>
                         <span>{new Date(c.ended_at).toLocaleDateString('cs-CZ')}</span>
                       </div>
+                      {/* 🛢️ Do jakých velikostí — „12 sudů" samo ztrátovost
+                          nevysvětlí, dvanáct desítek je šestkrát víc stáčení
+                          než dvanáct padesátek. */}
+                      {popisRozpaduSudu(sudyVCyklech.get(c.id)) && (
+                        <div className="text-udaj font-semibold text-neutral-500">
+                          {popisRozpaduSudu(sudyVCyklech.get(c.id))}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -1880,7 +1292,14 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                           <td className="font-black text-udaj text-neutral-950">{c.beer_name ?? '—'}</td>
                           <td className="text-right font-bold text-neutral-900 text-udaj">{(Number(c.initial_volume_l) / 100).toFixed(2)} hl</td>
                           <td className="text-right font-black text-neutral-950 text-udaj">{(Number(c.kegged_volume_l) / 100).toFixed(2)} hl</td>
-                          <td className="text-right font-mono font-black text-neutral-950 text-udaj">{c.keg_count} ks</td>
+                          <td className="text-right font-mono font-black text-neutral-950 text-udaj">
+                            {c.keg_count} ks
+                            {popisRozpaduSudu(sudyVCyklech.get(c.id)) && (
+                              <span className="block font-sans font-semibold text-neutral-500 whitespace-nowrap">
+                                {popisRozpaduSudu(sudyVCyklech.get(c.id))}
+                              </span>
+                            )}
+                          </td>
                           <td className={`text-right text-udaj ${Number(c.loss_l) > 0 ? 'text-rose-700 font-black' : 'text-neutral-900 font-bold'}`}>{Number(c.loss_l).toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} l</td>
                           <td className={`text-right text-udaj ${Number(c.loss_pct) > 3 ? 'text-rose-700 font-black' : 'text-neutral-900 font-bold'}`}>{Number(c.loss_pct).toFixed(1)}%</td>
                           <td className="text-right text-neutral-900 font-bold text-udaj">{fmtHoursShort(c.duration_hours)}</td>
@@ -1943,6 +1362,51 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
               <div className="text-xs font-mono font-black text-sky-700">{fmtHoursShort(topStats.fastest.duration_hours)}</div>
             </div>
           )}
+
+          {/* 📦 Nejvíc stáčený obal — čeho mít doma nejvíc umytého.
+              Schválně za období zvolené na záložce Výstav, ne „za celou
+              dobu": co se stáčelo před třemi lety, dnešní přípravu neřídí. */}
+          {nejcastejsiObal && (
+            <div className="card p-5 bg-white border-2 border-amber-300 rounded space-y-2">
+              <div className="text-xs font-black uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
+                <IkonaSud size={16} className="text-amber-600" />
+                <span>Nejvíc stáčený obal ({POPIS_OBDOBI_ZEBRICEK[obdobiStat]})</span>
+              </div>
+              <div className="font-display font-black text-xl text-neutral-900">{nejcastejsiObal.nazev}</div>
+              <div className="text-xs font-bold text-neutral-600">
+                {nejcastejsiObal.kusy} ks · {(nejcastejsiObal.litry / 100).toFixed(1)} hl · {(nejcastejsiObal.podil * 100).toFixed(0)} % výstavu
+              </div>
+            </div>
+          )}
+
+          {/* 💤 Kdo přestal objednávat. Tohle je jediná karta, která mluví
+              o penězích, co přestaly chodit — zbytek Statistiky ukazuje, co
+              se stalo, tahle ukazuje, co se přestalo dít. */}
+          <div className="card p-5 bg-white border-2 border-neutral-300 rounded space-y-2 sm:col-span-2">
+            <div className="text-xs font-black uppercase tracking-wider text-neutral-700 flex items-center gap-1.5">
+              <Store size={16} className="text-neutral-500" />
+              <span>Kdo přestal objednávat</span>
+            </div>
+            {utichliOdberatele.length === 0 ? (
+              <p className="text-xs font-bold text-neutral-600">Nikdo — všichni stálí odběratelé brali za posledních 60 dní.</p>
+            ) : (
+              <>
+                <p className="text-udaj font-semibold text-neutral-500">
+                  Bez závozu 60 dní a víc; jednorázoví odběratelé se nepočítají. Řazeno podle toho, kolik u nich za celou dobu proteklo.
+                </p>
+                <div className="space-y-1">
+                  {utichliOdberatele.slice(0, 8).map((o) => (
+                    <div key={o.nazev} className="flex items-baseline justify-between gap-2 text-sm">
+                      <span className="font-bold text-neutral-900 truncate">{o.nazev}</span>
+                      <span className="text-xs font-bold text-neutral-600 shrink-0 tabular-nums">
+                        {(o.litry / 100).toFixed(1)} hl · {o.objednavek}× · naposled {new Date(o.posledni).toLocaleDateString('cs-CZ')} ({o.dnu} dní)
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
         </div>
       )}
 
@@ -1998,6 +1462,35 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                 <X size={18} />
               </button>
             </div>
+
+            {/* 🗓️ Výběr měsíců. Dřív visel na záložce „Měsíční přehledy",
+                která se zrušila — patří ale stejně sem: měsíce se vybírají
+                ve chvíli, kdy se uzávěrka tiskne, ne o dvě obrazovky dřív.
+                `tisk-skryt` drží přepínač mimo papír. */}
+            {data.length > 0 && (
+              <div className="tisk-skryt space-y-1.5">
+                <span className="block text-udaj uppercase font-black text-neutral-500">Měsíce v uzávěrce</span>
+                <div className="flex flex-wrap gap-2">
+                  {data.slice(0, 24).map((d) => (
+                    <button
+                      key={d.month}
+                      onClick={() => toggleMonth(d.month)}
+                      aria-pressed={selectedMonths.includes(d.month)}
+                      className={`tap px-3.5 py-1.5 rounded text-xs font-black transition-all border ${
+                        selectedMonths.includes(d.month)
+                          ? 'bg-neutral-900 text-white border-neutral-900 shadow-md'
+                          : 'bg-white text-neutral-700 border-neutral-200 hover:bg-amber-50'
+                      }`}
+                    >
+                      {monthLabel(d.month)}
+                    </button>
+                  ))}
+                </div>
+                {selected.length === 0 && (
+                  <p className="text-udaj font-bold text-rose-700">Vyber aspoň jeden měsíc — jinak je uzávěrka prázdná.</p>
+                )}
+              </div>
+            )}
 
             <div className="space-y-4 text-xs text-neutral-800">
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-neutral-50 p-4 rounded border border-neutral-200">

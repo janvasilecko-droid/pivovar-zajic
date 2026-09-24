@@ -28,12 +28,17 @@ const orders = [
   { id: 'o1', place_name: 'Hospoda U Lípy', delivery_date: '2026-08-28', order_date: '2026-08-24', status: 'nova' },
 ];
 const orderItems = [{ order_id: 'o1', package_id: 'keg30', quantity: 3 }];
+// Vyfasované a odepsané kusy — podklad pro kartu „Rozpočet sudů".
+const fasovani = [{ entry_date: '2026-08-26', beer_id: 'b11', package_id: 'keg30', quantity: 14 }];
+const odpisy = [{ entry_date: '2026-08-26', beer_id: 'b11', package_id: 'keg30', quantity: 1 }];
 
 function vykresli() {
   return render(
     <StatistikaVystav
       bottlingRows={bottling}
       keggingRows={kegging}
+      fasovaniRows={fasovani}
+      writeoffRows={odpisy}
       obaly={OBALY}
       piva={PIVA}
       orders={orders}
@@ -71,6 +76,8 @@ describe('Statistika — Výstav', () => {
     render(
       <StatistikaVystav
         bottlingRows={bottling}
+        fasovaniRows={fasovani}
+        writeoffRows={odpisy}
         keggingRows={[
           ...kegging,
           // Srovnání inventury: dva sudy se nenašly → −60 l, tedy −0,6 hl.
@@ -115,7 +122,7 @@ describe('Statistika — Výstav', () => {
   it('prázdné období nespadne, jen to řekne', () => {
     render(
       <StatistikaVystav
-        bottlingRows={[]} keggingRows={[]} obaly={OBALY} piva={PIVA}
+        bottlingRows={[]} keggingRows={[]} fasovaniRows={[]} writeoffRows={[]} obaly={OBALY} piva={PIVA}
         orders={[]} orderItems={[]} dnes="2026-08-27" obdobi="tyden" onObdobi={vi.fn()}
       />,
     );
@@ -170,6 +177,21 @@ describe('Statistika — konkrétní obaly místo souhrnů', () => {
     expect(within(karta).getByText('3 ks')).toBeTruthy();
     // Jedna objednávka → 3 sudy na závoz.
     expect(within(karta).getByText('3 / závoz')).toBeTruthy();
+  });
+
+  // Přesunuto sem ze zrušené záložky „Měsíční přehledy", kde to viselo jako
+  // „Ztráty KEG" jen jako souhrn za měsíc. Vzorec musí zůstat tentýž.
+  it('rozpočet sudů počítá stočeno − fasováno − odpisy, po velikostech', () => {
+    vykresli();
+    const karta = screen.getByText('Rozpočet sudů').closest('section')!;
+    // Srpen: stočeno 20, fasováno 14, odpisy 1 → nerozpočteno 5.
+    expect(within(karta).getByText('KEG 30 l')).toBeTruthy();
+    expect(within(karta).getByText('14')).toBeTruthy();
+    expect(within(karta).getByText('5')).toBeTruthy();
+    // Objednané kusy jsou vedle jen jako kontext, do rozdílu nevstupují:
+    // kdyby vstupovaly, vyšly by 2, ne 5.
+    expect(within(karta).getByText('3')).toBeTruthy();
+    expect(within(karta).queryByText('2')).toBeNull();
   });
 
   it('grafy se dají přepnout na rozpad podle obalů', () => {
