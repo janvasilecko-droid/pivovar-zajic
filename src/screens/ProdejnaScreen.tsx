@@ -19,6 +19,7 @@ import { usePosledniNacteni, prvniChyba } from '../lib/nacitani';
 import { FotkyZaznamu } from '../components/FotkyZaznamu';
 import { uloz, smaz } from '../lib/uloziste';
 import { businessDateISO } from '../lib/businessDate';
+import { ChipyPiva } from '../components/FiltrPivaAObalu';
 
 // Tři podoby jednoho výdeje ze skladu — formulář je pořád stejný, mění se
 // jen tabulka, do které se zapisuje, a jedno pole navíc. Podle toho se pak
@@ -823,14 +824,6 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                 onChange={(e) => setOverviewMonth(e.target.value)}
                 className="input !py-1.5 !px-3 text-xs font-semibold"
               />
-              <select
-                value={overviewBeerId}
-                onChange={(e) => setOverviewBeerId(e.target.value)}
-                className="input !py-1.5 !px-3 text-xs font-semibold"
-              >
-                <option value="">Všechna piva</option>
-                {beers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-              </select>
               {showWhoColumn && (
                 <input
                   type="text"
@@ -850,6 +843,8 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                 </button>
               )}
             </div>
+
+            <ChipyPiva piva={beers} vybrane={overviewBeerId} onVybrat={setOverviewBeerId} />
 
             {loading ? (
               <Spinner />

@@ -10,9 +10,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, ListOrdered } from 'lucide-react';
 import { Spinner } from './ui';
-import { beerBg, beerText, fetchAllRows, formatPackageLabel, useRealtime } from '../lib/supabase';
+import { fetchAllRows, useRealtime } from '../lib/supabase';
 import { nactiSkladovouKnihu, type SkladovaKniha } from '../lib/skladovaKnihaData';
 import { sestavPohybyObdobi, SKUPINY_POHYBU } from '../lib/pohybySkladu';
+import { ChipyPiva, ChipyObalu } from './FiltrPivaAObalu';
 import { konecMesice } from '../lib/stockLedger';
 import { nazevMesice } from '../lib/inventoryFix';
 import { isoWeekKey, shiftWeek, weekRange } from './WeeklyOrderSummaryCard';
@@ -99,7 +100,10 @@ export default function PohybySkladu() {
   // Tlačítko jen pro aktivní piva — stejný filtr jako dlaždice ve Stáčení
   // (BeerTileGrid). Zrušené/sezónní pivo nezabírá místo v tlačítkách, ale
   // dá se pořád dohledat výběrem "Všechna piva" a hledáním v seznamu dní.
-  const aktivniPiva = useMemo(() => (kniha?.piva ?? []).filter((b) => b.is_active !== false), [kniha]);
+  const aktivniPiva = useMemo(
+    () => (kniha?.piva ?? []).filter((b) => b.is_active !== false).map((b) => ({ ...b, beer_color: b.beer_color ?? null })),
+    [kniha],
+  );
 
   const vysledek = useMemo(() => {
     if (!kniha) return null;
@@ -157,46 +161,9 @@ export default function PohybySkladu() {
           </button>
         )}
 
-        {/* Pivo — tlačítko na každé aktivní pivo, jako jinde v appce (Stáčení). */}
-        <div>
-          <span className="label">Pivo</span>
-          <div className="flex flex-wrap gap-1.5">
-            <button type="button" onClick={() => setBeerId('')} className={`btn-zalozka px-3 ${beerId === '' ? 'btn-zalozka-aktivni' : ''}`}>
-              Všechna piva
-            </button>
-            {aktivniPiva.map((b) => (
-              <button
-                key={b.id}
-                type="button"
-                onClick={() => setBeerId(b.id)}
-                className={`btn-zalozka px-3 transition ${beerText(b)} ${beerId === b.id ? 'ring-2 ring-neutral-900' : 'opacity-70 hover:opacity-100'}`}
-                style={{ backgroundColor: beerBg(b), borderColor: 'transparent' }}
-              >
-                {b.name}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Obal — tlačítko na každý obal z číselníku. */}
-        <div>
-          <span className="label">Obal</span>
-          <div className="flex flex-wrap gap-1.5">
-            <button type="button" onClick={() => setPackageId('')} className={`btn-zalozka px-3 ${packageId === '' ? 'btn-zalozka-aktivni' : ''}`}>
-              Všechny obaly
-            </button>
-            {(kniha?.obaly ?? []).map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => setPackageId(p.id)}
-                className={`btn-zalozka px-3 ${packageId === p.id ? 'btn-zalozka-aktivni' : ''}`}
-              >
-                {formatPackageLabel(p.label)}
-              </button>
-            ))}
-          </div>
-        </div>
+        {/* Pivo a obal — sdílené chipy (components/FiltrPivaAObalu.tsx), stejné jako v Stáčení a Objednávkách. */}
+        <ChipyPiva piva={aktivniPiva} vybrane={beerId} onVybrat={setBeerId} />
+        <ChipyObalu obaly={kniha?.obaly ?? []} vybrane={packageId} onVybrat={setPackageId} />
 
         {/* Druh pohybu — nic vybráno = všechno */}
         <div>

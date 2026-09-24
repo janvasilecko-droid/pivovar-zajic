@@ -78,6 +78,7 @@ import { OrderCard } from '../components/objednavky/OrderCard';
 import { VraceniPiva } from '../components/objednavky/VraceniPiva';
 import { VratitPivoModal } from '../components/objednavky/VratitPivoModal';
 import { OrderDetail } from '../components/objednavky/OrderDetail';
+import { ChipyPiva, ChipyObalu } from '../components/FiltrPivaAObalu';
 
 // Pořadí obalů v plnoobrazovkovém panelu zadávání (dle požadavku):
 // 50l keg → 30l → 1,5l keg → 1l keg → 20l → 15l → 10l → 0,5l → 0,33l
@@ -2611,14 +2612,8 @@ export default function Orders({
             <option value="pet">Pouze petky (PET)</option>
             <option value="lahev">Pouze lahve (sklo)</option>
           </select>
-          <select className={`input w-auto font-bold text-xs ${itemFilterBeerId ? 'border-sky-500 ring-2 ring-sky-500/30 dark:border-sky-500' : 'border-sky-300 dark:border-sky-300'} focus:border-sky-500 focus:ring-sky-500/25 dark:focus:border-sky-500 dark:focus:ring-sky-500/25`} value={itemFilterBeerId ?? ''} onChange={(e) => setItemFilterBeerId(e.target.value || null)}>
-            <option value="">Všechna piva</option>
-            {beers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-          </select>
-          <select className={`input w-auto font-bold text-xs ${itemFilterPackageId ? 'border-emerald-500 ring-2 ring-emerald-500/30 dark:border-emerald-500' : 'border-emerald-300 dark:border-emerald-300'} focus:border-emerald-500 focus:ring-emerald-500/25 dark:focus:border-emerald-500 dark:focus:ring-emerald-500/25`} value={itemFilterPackageId ?? ''} onChange={(e) => setItemFilterPackageId(e.target.value || null)}>
-            <option value="">Konkrétní obal</option>
-            {packages.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
-          </select>
+          <ChipyPiva piva={beers} vybrane={itemFilterBeerId ?? ''} onVybrat={(id) => setItemFilterBeerId(id || null)} />
+          <ChipyObalu obaly={packages} vybrane={itemFilterPackageId ?? ''} onVybrat={(id) => setItemFilterPackageId(id || null)} popisVsech="Konkrétní obal" />
           <label className="flex items-center gap-2 text-sm text-primary-700 cursor-pointer px-2.5 py-1 rounded hover:bg-primary-50">
             <input type="checkbox" checked={groupByDay} onChange={(e) => setGroupByDay(e.target.checked)} className="w-4 h-4 rounded text-primary-600" />
             <Calendar className="ikona-text" /> Seskupit dle dne

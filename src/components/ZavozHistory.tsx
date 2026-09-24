@@ -6,6 +6,7 @@ import { DAYS } from '../lib/shared';
 import { CalendarDays, Filter, History as HistoryIcon, Check, Printer, Truck, X } from 'lucide-react';
 import { printDeliveryList } from '../lib/safePrint';
 import { businessDateISO } from '../lib/businessDate';
+import { ChipyPiva, ChipyObalu } from './FiltrPivaAObalu';
 
 type Order = {
   id: string; order_date: string; place_id: string | null; place_name: string | null;
@@ -186,22 +187,8 @@ export default function ZavozHistory() {
             <option value="">Všechna odběrná místa</option>
             {places.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
-          <select
-            value={histBeerId}
-            onChange={(e) => setHistBeerId(e.target.value)}
-            className="input !py-1.5 text-xs font-bold w-auto min-w-[150px]"
-          >
-            <option value="">Všechna piva</option>
-            {beers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-          </select>
-          <select
-            value={histPackageId}
-            onChange={(e) => setHistPackageId(e.target.value)}
-            className="input !py-1.5 text-xs font-bold w-auto min-w-[150px]"
-          >
-            <option value="">Všechny obaly</option>
-            {packages.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
-          </select>
+          <ChipyPiva piva={beers} vybrane={histBeerId} onVybrat={setHistBeerId} />
+          <ChipyObalu obaly={packages} vybrane={histPackageId} onVybrat={setHistPackageId} />
           {(histPeriod !== 'all' || histPlaceId || histBeerId || histPackageId) && (
             <button
               onClick={() => { setHistPeriod('all'); setHistPlaceId(''); setHistBeerId(''); setHistPackageId(''); }}
