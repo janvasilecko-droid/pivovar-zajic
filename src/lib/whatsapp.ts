@@ -5,8 +5,6 @@ export function shareOrderToWhatsApp(
   items: { beer_name: string | null; package_label: string | null; quantity: number }[]
 ) {
   const place = order.place_name || 'Neznámý odběratel';
-  const date = order.order_date;
-  const day = order.delivery_day ? ` (${order.delivery_day.toUpperCase()})` : '';
 
   let itemListText = items
     .map((i) => `• *${i.quantity}x* ${i.package_label ? `${i.package_label} ` : ''}${i.beer_name || 'Pivo'}`)
@@ -14,9 +12,14 @@ export function shareOrderToWhatsApp(
 
   if (!itemListText) itemListText = '_Bez položek_';
 
-  const noteText = order.note ? `\n📝 *Poznámka:* ${order.note}` : '';
+  const noteText = order.note ? `\n*Poznámka:* ${order.note}` : '';
 
-  const msg = `📅 *Datum:* ${date}${day}\n🏬 *Odběratel:* ${place}\n\n*Položky:* \n${itemListText}${noteText}`;
+  // Bez data a bez ikon/nálepky "Odběratel:" — z provozu 24. 9. 2026: „ani
+  // tam nepiš datum (datum na whatsupu vidím podle toho kdy zpráva přišla)
+  // a odběratel, bude vypadat takhle Mates rybárna na jednom řádku, řádek
+  // pod tím mezera, další řádek 2x50l 11 světlý ležák, po tom případné
+  // poznámky". Datum appka nepíše — na WhatsAppu je vidět z času zprávy.
+  const msg = `${place}\n\n${itemListText}${noteText}`;
 
   const url = `https://wa.me/?text=${encodeURIComponent(msg)}`;
   if (typeof window !== 'undefined') {
