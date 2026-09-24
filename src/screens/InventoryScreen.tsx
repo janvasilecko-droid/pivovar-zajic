@@ -6,7 +6,6 @@ import { exportHistoryDetailToExcel } from '../lib/excel';
 import { AlertTriangle, Beer as BeerIcon, Calendar, CalendarRange, Camera, ClipboardCheck, Download, Check, Lock, MinusCircle, Package as PackageIcon, Plus, RotateCcw, Save, Search, ShieldCheck } from 'lucide-react';
 import HloubkovyAuditPanel from '../components/HloubkovyAuditPanel';
 import TydenniInventuraPanel from '../components/TydenniInventuraPanel';
-import RozkladPanel from '../components/RozkladPanel';
 import { computeInventoryReconciliation } from '../lib/inventoryHelper';
 import { akceProRozdil, datumDoplnku, doplnekVBudoucnu, jeSud, kegovaniZapisy, lahvoveZapisy, nabidnoutMinulyMesic, nazevMesice, odectiZeStoceni, vychoziMesicInventury } from '../lib/inventoryFix';
 import { davkySrovnani, zapisyDavky, type DavkaPiva, type SmerSudu, type ZdrojovaSkupina } from '../lib/srovnaniDavka';
@@ -111,8 +110,8 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
   // Záložka se drží v adrese stránky (setPage), takže může přijít i hodnota,
   // která už neexistuje — třeba zrušená záložka z minulé verze. Neznámou
   // proto srazíme na inventuru, jinak by se vykreslilo prázdno.
-  const zalozka = (t: unknown): 'inventory' | 'initial_stock' | 'end_stock' | 'audit' | 'hloubkovy' | 'tydenni' | 'rozklad' =>
-    t === 'initial_stock' || t === 'end_stock' || t === 'audit' || t === 'hloubkovy' || t === 'tydenni' || t === 'rozklad' ? t : 'inventory';
+  const zalozka = (t: unknown): 'inventory' | 'initial_stock' | 'end_stock' | 'audit' | 'hloubkovy' | 'tydenni' =>
+    t === 'initial_stock' || t === 'end_stock' || t === 'audit' || t === 'hloubkovy' || t === 'tydenni' ? t : 'inventory';
 
   const [activeTab, setActiveTab] = useState(() => zalozka(initialSubTab));
 
@@ -120,7 +119,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     setActiveTab(zalozka(initialSubTab));
   }, [initialSubTab]);
 
-  function selectTab(t: 'inventory' | 'initial_stock' | 'end_stock' | 'audit' | 'hloubkovy' | 'tydenni' | 'rozklad') {
+  function selectTab(t: 'inventory' | 'initial_stock' | 'end_stock' | 'audit' | 'hloubkovy' | 'tydenni') {
     if (setPage) setPage('inventory', undefined, t);
     else setActiveTab(t);
   }
@@ -1751,20 +1750,6 @@ function exportInventoryExcel() {
           <ShieldCheck size={16} />
           <span>Hloubkový audit (týden / měsíc)</span>
         </button>
-
-        {/* 🔎 Rozklad skladu — dlaždice piva a obalu, pak zvolený týden po
-            dnech. Sem se chodí, když inventura řekne, že něco nesedí. */}
-        <button
-          onClick={() => selectTab('rozklad')}
-          className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 shrink-0 ${
-            activeTab === 'rozklad'
-              ? 'bg-amber-500 text-neutral-950 shadow-md'
-              : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
-          }`}
-        >
-          <Search size={16} />
-          <span>Rozklad</span>
-        </button>
       </div>
 
       {/* 📅 Měsíc se vybírá JEN v banneru nahoře a upozorňuje se na něj JEN
@@ -2523,8 +2508,6 @@ function exportInventoryExcel() {
       {activeTab === 'hloubkovy' && <HloubkovyAuditPanel />}
 
       {activeTab === 'tydenni' && <TydenniInventuraPanel setPage={setPage} />}
-
-      {activeTab === 'rozklad' && <RozkladPanel setPage={setPage} />}
 
       {activeTab === 'audit' && (
         <div className="space-y-3">
