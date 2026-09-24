@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase, Beer, useRealtime } from '../lib/supabase';
 import { usePosledniNacteni } from '../lib/nacitani';
 import { Spinner, EmptyState, Field } from '../components/ui';
-import { BookOpen, Calculator, FileText, Flame, FlaskConical, Check, CheckSquare, NotebookPen, Plus, Scale, Sliders, SprayCan, Truck, User, Wheat, Zap } from 'lucide-react';
+import { BookOpen, Calculator, FileText, FlaskConical, Check, CheckSquare, NotebookPen, Plus, Scale, Sliders, SprayCan, Truck, User, Wheat } from 'lucide-react';
 import { IkonaSud } from '../components/ikony';
 import { businessDateISO } from '../lib/businessDate';
 
@@ -298,13 +298,13 @@ export function ChecklistsScreen() {
 // ==========================================
 
 export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: any, sec?: string, sub?: string) => void; initialSubTab?: string } = {}) {
-  const [activeTab, setActiveTab] = useState<'keg_calc' | 'srot_calc' | 'chem_calc' | 'energy_calc' | 'units_calc'>((initialSubTab as any) || 'keg_calc');
+  const [activeTab, setActiveTab] = useState<'keg_calc' | 'chem_calc' | 'units_calc'>((initialSubTab as any) || 'keg_calc');
 
   useEffect(() => {
     setActiveTab((initialSubTab as any) || 'keg_calc');
   }, [initialSubTab]);
 
-  function selectTab(t: 'keg_calc' | 'srot_calc' | 'chem_calc' | 'energy_calc' | 'units_calc') {
+  function selectTab(t: 'keg_calc' | 'chem_calc' | 'units_calc') {
     if (setPage) setPage('concentration', undefined, t);
     else setActiveTab(t);
   }
@@ -363,26 +363,6 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
   const remFinalFix50 = remainingFor30 - auto30Count * 30;
   const totalHlFix50 = ((custom50Count * 50 + auto30Count * 30) / 100).toFixed(2);
 
-  // --- 2. ŠROTOVÁNÍ (plán šrotování: pivo → kg sladu → pytle 25 kg) ---
-  const [beers, setBeers] = useState<Beer[]>([]);
-  const [srotRows, setSrotRows] = useState<{ beerId: string; kg: string }[]>(
-    Array.from({ length: 4 }, () => ({ beerId: '', kg: '' }))
-  );
-
-  useEffect(() => {
-    supabase
-      .from('beers')
-      .select('*')
-      .eq('is_active', true)
-      .order('sort_order')
-      .then(({ data }) => setBeers((data as Beer[]) ?? []));
-  }, []);
-
-  const srotTotalKg = srotRows.reduce((sum, r) => sum + (Number(r.kg) || 0), 0);
-  const srotTotalBags = Math.ceil(srotTotalKg / 25);
-  const setSrotRow = (i: number, patch: Partial<{ beerId: string; kg: string }>) =>
-    setSrotRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
-
   // --- 3. Sanitační chemie ---
   const [chemType, setChemType] = useState<'louh' | 'persteril' | 'dusicna' | 'chlornan'>('louh');
   const [targetVolumeL, setTargetVolumeL] = useState('100');
@@ -402,27 +382,6 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
   const cTarget = Number(targetPct) || 0;
   const vChem = cStock > 0 ? (cTarget * vTotal) / cStock : 0;
   const vWater = Math.max(0, vTotal - vChem);
-
-  // --- 4. Energetická náročnost ---
-  const [energyBatchHl, setEnergyBatchHl] = useState<string>('10');
-  const [elecKwh, setElecKwh] = useState<string>('200');
-  const [elecKwc, setElecKwc] = useState<string>('5.50');
-  const [gasM3, setGasM3] = useState<string>('18');
-  const [gasKwc, setGasKwc] = useState<string>('18.50');
-  const [waterM3, setWaterM3] = useState<string>('5.0');
-  const [waterKwc, setWaterKwc] = useState<string>('110.00');
-  const [co2Kg, setCo2Kg] = useState<string>('10');
-  const [co2Kwc, setCo2Kwc] = useState<string>('25.00');
-
-  const bHl = Math.max(0.1, Number(energyBatchHl) || 10);
-  const costElec = (Number(elecKwh) || 0) * (Number(elecKwc) || 0);
-  const costGas = (Number(gasM3) || 0) * (Number(gasKwc) || 0);
-  const costWater = (Number(waterM3) || 0) * (Number(waterKwc) || 0);
-  const costCo2 = (Number(co2Kg) || 0) * (Number(co2Kwc) || 0);
-
-  const totalEnergyCostBatch = costElec + costGas + costWater + costCo2;
-  const costPerHl = totalEnergyCostBatch / bHl;
-  const costPerPint = costPerHl / 200;
 
   // --- 5. Přepočet jednotek ---
   const [volInputHl, setVolInputHl] = useState<string>('10');
@@ -481,18 +440,6 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
         </button>
 
         <button
-          onClick={() => selectTab('srot_calc')}
-          className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 shrink-0 ${
-            activeTab === 'srot_calc'
-              ? 'bg-amber-500 text-neutral-950 shadow-md'
-              : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
-          }`}
-        >
-          <Wheat size={16} />
-          <span>Šrotování sladu</span>
-        </button>
-
-        <button
           onClick={() => selectTab('chem_calc')}
           className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'chem_calc'
@@ -502,18 +449,6 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
         >
           <FlaskConical size={16} />
           <span>Sanitační chemie</span>
-        </button>
-
-        <button
-          onClick={() => selectTab('energy_calc')}
-          className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 shrink-0 ${
-            activeTab === 'energy_calc'
-              ? 'bg-amber-500 text-neutral-950 shadow-md'
-              : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
-          }`}
-        >
-          <Flame size={16} />
-          <span>Náročnost várky</span>
         </button>
 
         <button
@@ -624,73 +559,6 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
         </div>
       )}
 
-      {/* TAB 2: ŠROTOVÁNÍ SLADU */}
-      {activeTab === 'srot_calc' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 card p-6 bg-white border border-neutral-200 rounded space-y-4 shadow-sm">
-            <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
-              <Wheat className="text-amber-600" size={18} />
-              <span>Plán šrotování — kolik sladu se šrotuje</span>
-            </h3>
-
-            <div className="grid grid-cols-[1fr_auto_auto] items-center gap-3 px-1 text-udaj font-black uppercase tracking-widest text-neutral-500">
-              <span>Pivo</span>
-              <span className="w-36 text-center">Slad (kg)</span>
-              <span className="w-24 text-center">Pytlů 25 kg</span>
-            </div>
-
-            {srotRows.map((row, i) => {
-              const kg = Number(row.kg) || 0;
-              const bags = kg > 0 ? Math.ceil(kg / 25) : 0;
-              return (
-                <div key={i} className="grid grid-cols-[1fr_auto_auto] items-center gap-3">
-                  <select
-                    className="input font-bold text-sm"
-                    value={row.beerId}
-                    onChange={(e) => setSrotRow(i, { beerId: e.target.value })}
-                  >
-                    <option value="">— vyber pivo —</option>
-                    {beers.map((b) => (
-                      <option key={b.id} value={b.id}>
-                        {b.name}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="w-36">
-                    <NumberStepper value={row.kg} onChange={(v) => setSrotRow(i, { kg: v })} step={5} min={0} />
-                  </div>
-                  <div className="w-24 text-center font-mono font-black text-sm bg-neutral-100 border border-neutral-200 rounded py-2">
-                    {bags}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="card p-6 bg-white border-2 border-amber-300 rounded space-y-4 shadow-md h-fit">
-            <h3 className="font-display font-black text-lg text-amber-950 flex items-center gap-2">
-              <span><Wheat className="ikona-text" /> Celkem na šrotování</span>
-            </h3>
-
-            <div className="p-4 rounded bg-neutral-900 text-white">
-              <div className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Slad celkem</div>
-              <div className="text-3xl font-mono font-black text-amber-400 mt-1">{srotTotalKg.toFixed(0)} kg</div>
-            </div>
-
-            <div className="p-4 rounded bg-white border border-amber-200 font-mono text-xs">
-              <div className="flex justify-between">
-                <span className="font-bold text-neutral-500">Pytle 25 kg:</span>
-                <span className="font-black text-amber-950">{srotTotalBags} ks</span>
-              </div>
-            </div>
-
-            <p className="text-udaj text-neutral-500 font-medium leading-relaxed">
-              Kolik sladu se našrotuje pro danou várku. Počet pytlů 25 kg se zaokrouhluje nahoru.
-            </p>
-          </div>
-        </div>
-      )}
-
       {/* TAB 3: SANITAČNÍ CHEMIE */}
       {activeTab === 'chem_calc' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -749,59 +617,6 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
         </div>
       )}
 
-      {/* TAB 4: ENERGETICKÁ NÁROČNOST */}
-      {activeTab === 'energy_calc' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 card p-6 bg-white border border-neutral-200 rounded space-y-5 shadow-sm">
-            <div>
-              <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
-                <Flame className="text-amber-600" size={18} />
-                <span>Kalkulačka energetické náročnosti a médií (Varna & Sklep)</span>
-              </h3>
-            </div>
-
-            <div className="p-4 rounded bg-amber-50 border border-amber-200">
-              <label className="block text-xs font-black text-amber-950 mb-1">Velikost várky (Objem v hl)</label>
-              <NumberStepper value={energyBatchHl} onChange={setEnergyBatchHl} step={1} min={0.5} />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Elektřina */}
-              <div className="p-4 rounded bg-neutral-50 border border-neutral-200 space-y-2">
-                <div className="font-black text-xs text-neutral-900 uppercase"><Zap className="ikona-text" /> Elektřina (Chlazení + Čerpadla)</div>
-                <div className="grid grid-cols-2 gap-2">
-                  <Field label="kWh"><NumberStepper value={elecKwh} onChange={setElecKwh} step={10} min={0} /></Field>
-                  <Field label="Kč/kWh"><NumberStepper value={elecKwc} onChange={setElecKwc} step={0.5} min={0} /></Field>
-                </div>
-              </div>
-
-              {/* Plyn */}
-              <div className="p-4 rounded bg-neutral-50 border border-neutral-200 space-y-2">
-                <div className="font-black text-xs text-neutral-900 uppercase"><Flame className="ikona-text" /> Zemní plyn (Varna)</div>
-                <div className="grid grid-cols-2 gap-2">
-                  <Field label="m³ plynu"><NumberStepper value={gasM3} onChange={setGasM3} step={2} min={0} /></Field>
-                  <Field label="Kč/m³"><NumberStepper value={gasKwc} onChange={setGasKwc} step={0.5} min={0} /></Field>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="card p-6 bg-white border-2 border-amber-300 rounded shadow-md space-y-4">
-            <h3 className="font-display font-black text-lg text-amber-950"><Zap className="ikona-text" /> Výsledné náklady</h3>
-            <div className="space-y-3 font-mono">
-              <div className="p-4 rounded bg-neutral-900 border border-neutral-800">
-                <div className="text-udaj text-neutral-400 uppercase">Celkem na 1 várku ({bHl} hl)</div>
-                <div className="text-2xl font-black text-amber-400">{totalEnergyCostBatch.toLocaleString('cs-CZ')} Kč</div>
-              </div>
-              <div className="p-4 rounded bg-amber-500 text-neutral-950">
-                <div className="text-udaj font-black uppercase">Na 1 PŮLLITR (0.5 l)</div>
-                <div className="text-3xl font-black">{costPerPint.toFixed(2)} Kč</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* TAB 5: PŘEPOČET JEDNOTEK */}
       {activeTab === 'units_calc' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -818,7 +633,7 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
 
           <div className="card p-6 bg-white border-2 border-emerald-200 rounded space-y-4 shadow-sm">
             <h4 className="font-display font-black text-base text-emerald-950"><FlaskConical className="ikona-text" /> Stupňovitost (°P) a hustota (SG)</h4>
-            <NumberStepper value={platoInput} onChange={setPlatoInput} step={0.5} min={0} />
+            <NumberStepper value={platoInput} onChange={setPlatoInput} step={0.1} min={0} />
             <div className="p-4 rounded bg-neutral-900 text-emerald-300 font-mono text-xs space-y-1">
               <div>• Specific Gravity: <strong>{sgExact.toFixed(3)} SG</strong></div>
               <div>• Brix: <strong>{degBrix.toFixed(1)} °Bx</strong></div>
