@@ -81,7 +81,11 @@ export const NAV: NavItem[] = [
   { id: 'app_settings', label: 'Aplikace & Nastavení', icon: Settings, group: 'Nastavení' },
 
   // Stažení zálohy jako běžná dlaždice (dřív jen štítek upozornění na ploše).
-  // Otevírá obrazovku Uživatelé, kde jsou tlačítka zálohy hned nahoře.
+  // Vlastní obrazovka (screens/ZalohaScreen.tsx) — dřív otevírala celou
+  // obrazovku Uživatelé s tlačítky zálohy jen přilepenými nahoře. Zadání
+  // 24. 9. 2026: „proc sou uzivatele a prava v zaloze, to ma byt vlastni
+  // dlazdice jen pro admina" — obojí bylo admin-only už předtím, jen sdílely
+  // jednu obrazovku.
   { id: 'zaloha', label: 'Stáhnout zálohu', icon: Download, group: 'Nastavení' },
 
   // 'signout' není skutečná routovaná stránka (App.tsx pro ni nemá větev) —

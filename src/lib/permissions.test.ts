@@ -12,7 +12,7 @@ describe('PAGE_TO_MODULE — mapa obrazovka → modul', () => {
       .map((n) => n.id)
       // Záměrně bez modulu (chybějící klíč = dostupné všem):
       //  • users    — řešeno zvlášť, jen admin
-      //  • zaloha   — řešeno zvlášť, jen admin (otevírá Uživatele, nemá vlastní modul)
+      //  • zaloha   — řešeno zvlášť, jen admin (vlastní obrazovka ZalohaScreen.tsx, nemá modul oprávnění)
       //  • signout  — odhlášení, ne obrazovka
       //  • home     — úvodní plocha
       //  • stopwatch/timer/keg_timer/radio — pomůcky (stopky, časovač, stočení sudu, rádio),

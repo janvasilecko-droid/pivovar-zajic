@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import { Modal, Field, EmptyState, Spinner } from '../components/ui';
-import { createFullBackup, downloadBackupJSON, downloadGoogleSheetsExcelBackup } from '../lib/backup';
-import { Car, CheckCircle2, Crown, Download, History, Hourglass, Mail, Plus, Search, Shield, Table, Trash2, Users as UsersIcon } from 'lucide-react';
+import { Car, CheckCircle2, Crown, History, Hourglass, Mail, Plus, Search, Shield, Trash2, Users as UsersIcon } from 'lucide-react';
 import { UserPermissionsModal } from '../components/UserPermissionsModal';
 
 import { TabBar } from '../components/TabBar';
@@ -32,35 +31,10 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
   const { profile, user } = useAuth();
   const [users, setUsers] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [backingUp, setBackingUp] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<UserRow | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const isAdmin = profile?.role === 'admin' || isAdminEmail(user?.email);
-
-  async function handleBackupJSON() {
-    setBackingUp(true);
-    try {
-      const backup = await createFullBackup();
-      downloadBackupJSON(backup);
-    } catch (e: any) {
-      chyba(`Chyba zálohování: ${e.message}`);
-    } finally {
-      setBackingUp(false);
-    }
-  }
-
-  async function handleBackupGoogleSheets() {
-    setBackingUp(true);
-    try {
-      const backup = await createFullBackup();
-      downloadGoogleSheetsExcelBackup(backup);
-    } catch (e: any) {
-      chyba(`Chyba zálohování do Google Tabulek: ${e.message}`);
-    } finally {
-      setBackingUp(false);
-    }
-  }
 
   // Zámek proti zápisu ze zastaralého načtení — viz lib/nacitani.ts.
   const zacniNacteni = usePosledniNacteni();
@@ -229,14 +203,6 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
       {activeTab === 'users' && (
         <>
           <div className="flex justify-end gap-2 flex-wrap">
-            <button className="btn-amber !rounded text-xs font-black shadow-md flex items-center gap-1.5" onClick={handleBackupGoogleSheets} disabled={backingUp}>
-              <Table size={16} className="text-emerald-800" />
-              <span>{backingUp ? 'Generuji…' : 'Týdenní záloha pro Google Tabulky (.xlsx)'}</span>
-            </button>
-            <button className="btn-ghost !rounded !bg-white border-amber-300 text-xs font-black shadow-xs flex items-center gap-1.5" onClick={handleBackupJSON} disabled={backingUp}>
-              <Download size={16} />
-              <span>{backingUp ? 'Zálohuji…' : 'JSON Záloha'}</span>
-            </button>
             <button className="btn-primary !rounded text-xs font-black shadow-md" onClick={() => selectTab('emails')}><Plus className="ikona-text" /> Přidat e-mail ke schválení</button>
           </div>
           <p className="text-xs text-neutral-500 font-medium -mt-2 mb-1 text-right">

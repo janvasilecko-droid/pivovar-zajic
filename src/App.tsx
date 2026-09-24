@@ -25,6 +25,7 @@ const PackagesScreen = lazyStranka(() => import('./screens/Catalogs').then((m) =
 const PlacesScreen = lazyStranka(() => import('./screens/Catalogs').then((m) => ({ default: m.PlacesScreen })));
 const VehiclesScreen = lazyStranka(() => import('./screens/Catalogs').then((m) => ({ default: m.VehiclesScreen })));
 const Users = lazyStranka(() => import('./screens/Users'));
+const ZalohaScreen = lazyStranka(() => import('./screens/ZalohaScreen'));
 const KeggingScreen = lazyStranka(() => import('./screens/Kegging'));
 const BottlingScreen = lazyStranka(() => import('./screens/BottlingScreen'));
 const ProdejnaScreen = lazyStranka(() => import('./screens/ProdejnaScreen'));
@@ -344,7 +345,8 @@ export default function App() {
           setPage={setPage}
         />
       )}
-      {(page === 'users' || page === 'zaloha') && <Users setPage={setPage} initialSubTab={pageSubTab} />}
+      {page === 'users' && <Users setPage={setPage} initialSubTab={pageSubTab} />}
+      {page === 'zaloha' && <ZalohaScreen />}
       {(page === 'stopwatch' || page === 'timer' || page === 'keg_timer') && (
         <TimersScreen
           initialTab={page === 'timer' ? 'timer' : page === 'keg_timer' ? 'keg' : 'stopwatch'}
