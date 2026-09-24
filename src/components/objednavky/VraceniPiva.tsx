@@ -17,7 +17,7 @@ import { businessDateISO } from '../../lib/businessDate';
 import { chyba, oznam, potvrd, uspech } from '../../lib/toast';
 import { prvniChyba, usePosledniNacteni } from '../../lib/nacitani';
 import {
-  datumCesky, datumZavozu, objednavkyKVraceni, platneVraceni, poznamkaVraceni,
+  datumCesky, datumZavozu, jeRozepsanyNeuplny, objednavkyKVraceni, platneVraceni, poznamkaVraceni,
   pripojPoznamku, zaznamyDorovnaniVraceni, type PolozkaVraceni,
 } from '../../lib/vraceniZObjednavky';
 import type { Order, OrderItem } from './spolecne';
@@ -116,6 +116,13 @@ export function VraceniPiva({ orders, items, beers, packages, places, onZpet, on
 
   const celkemKusu = kUlozeni.reduce((a, p) => a + p.pocet, 0);
 
+  // 🐛 Z provozu 24. 9. 2026: „1x50 8 tam je, ale kdyz to nevidim tak
+  // nevim zda se propsali i tmavy a 12." Řádek „jiné pivo", kde chybí
+  // třeba jen obal, `platneVraceni()` tiše zahodí ze zápisu — uložení
+  // proběhne bez chyby, jen s méně položkami, než uživatel zadal. Tady se
+  // to musí odchytit PŘED uložením, ne až z toho, že v přehledu něco chybí.
+  const neuplneRadky = useMemo(() => rucni.filter(jeRozepsanyNeuplny), [rucni]);
+
   function vyprazdni() {
     setVybranaObjednavka(null);
     setOdberatelBezObjednavky('');
@@ -124,6 +131,14 @@ export function VraceniPiva({ orders, items, beers, packages, places, onZpet, on
   }
 
   async function uloz() {
+    if (neuplneRadky.length > 0) {
+      oznam(
+        neuplneRadky.length === 1
+          ? 'U řádku „jiné pivo" chybí pivo, obal nebo počet — bez toho by se vůbec nezapsal.'
+          : `U ${neuplneRadky.length} řádků „jiné pivo" chybí pivo, obal nebo počet — bez toho by se vůbec nezapsaly.`,
+      );
+      return;
+    }
     if (kUlozeni.length === 0) { oznam('Napiš, kolik čeho se vrátilo.'); return; }
     if (!objednavka && !jmenoOdberatele) {
       oznam('Vyber objednávku, nebo napiš, od koho se pivo vrátilo.');
@@ -294,9 +309,17 @@ export function VraceniPiva({ orders, items, beers, packages, places, onZpet, on
         )}
 
         {/* Ruční řádky — vrací se i to, co na vybrané objednávce není
-            (starší sud, jiný obal), a bez objednávky je to jediná cesta. */}
-        {rucni.map((r) => (
-          <div key={r.klic} className="flex items-center gap-1.5">
+            (starší sud, jiný obal), a bez objednávky je to jediná cesta.
+            Rozepsaný, ale neúplný řádek (chybí pivo/obal/počet) je
+            zarámovaný červeně — jinak by se při Uložit tiše vynechal
+            (viz jeRozepsanyNeuplny). */}
+        {rucni.map((r) => {
+          const neuplny = jeRozepsanyNeuplny(r);
+          return (
+          <div
+            key={r.klic}
+            className={`flex items-center gap-1.5 ${neuplny ? 'ring-2 ring-rose-400 rounded-lg p-1 -m-1' : ''}`}
+          >
             <select
               className="input !py-1 min-w-0 flex-1" aria-label="Pivo"
               value={r.beer_id}
@@ -327,7 +350,14 @@ export function VraceniPiva({ orders, items, beers, packages, places, onZpet, on
               <X size={14} />
             </button>
           </div>
-        ))}
+          );
+        })}
+        {neuplneRadky.length > 0 && (
+          <p className="text-udaj font-bold text-rose-700">
+            {neuplneRadky.length === 1 ? 'Řádek' : `${neuplneRadky.length} řádky`} „jiné pivo" výš nemá vyplněné
+            pivo, obal nebo počet — bez toho se {neuplneRadky.length === 1 ? 'nezapíše' : 'nezapíšou'} vůbec.
+          </p>
+        )}
 
         <button type="button" className="btn-ghost !rounded text-xs font-black" onClick={() => setRucni((l) => [...l, novyRadek()])}>
           <Plus className="ikona-text" /> Přidat jiné pivo
@@ -343,7 +373,12 @@ export function VraceniPiva({ orders, items, beers, packages, places, onZpet, on
           <button type="button" className="btn-ghost !rounded text-xs font-black" onClick={vyprazdni} disabled={ukladam}>
             Vyprázdnit
           </button>
-          <button type="button" className="btn-primary !rounded text-xs font-black" onClick={() => { void uloz(); }} disabled={ukladam || celkemKusu === 0}>
+          <button
+            type="button" className="btn-primary !rounded text-xs font-black"
+            onClick={() => { void uloz(); }}
+            disabled={ukladam || celkemKusu === 0 || neuplneRadky.length > 0}
+            title={neuplneRadky.length > 0 ? 'Nejdřív doplň nebo smaž rozepsaný řádek „jiné pivo"' : undefined}
+          >
             <Check className="ikona-text" /> {ukladam ? 'Ukládám…' : 'Uložit vrácení'}
           </button>
         </div>
