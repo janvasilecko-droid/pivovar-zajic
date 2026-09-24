@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { AlertTriangle, CalendarClock, CalendarX2, Check, ClipboardList, PartyPopper, Play } from 'lucide-react';
 import {
-  isLastWeekOfMonth, getMonthKey,
+  isLastWeekOfMonth, cleanupMonthKey,
   readMonthlyCleanupStage, writeMonthlyCleanupStage, markMonthlyLineDone,
 } from '../lib/monthlyCleanup';
 import { businessDateISO } from '../lib/businessDate';
@@ -135,7 +135,7 @@ function markMonthlyDone<T extends { id: string; text: string; category: string 
 // sanitárních deníků, beze nutnosti procházet checklist ručně.
 export function MonthlyCleanupWarning({ onOpenMonthlyChecklist, onOpenKegMonthlyChecklist }: Props) {
   const { profile } = useAuth();
-  const monthKey = getMonthKey();
+  const monthKey = cleanupMonthKey();
   const dnes = businessDateISO();
   const [open, setOpen] = useState(() => shouldShow(monthKey));
   const [done, setDone] = useState(false);

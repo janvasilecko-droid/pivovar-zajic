@@ -1332,9 +1332,9 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   }, []);
 
   // 💾 Zálohu si admin stahuje z běžné dlaždice „Stáhnout zálohu" (NAV
-  // 'zaloha' → Uživatelé, kde jsou tlačítka zálohy nahoře). Když se dlouho
-  // nestahovala, ukáže se na té dlaždici odznak s počtem dní — tichá
-  // pojistka, ať se nezapomene (jen pro admina, jen ten může zálohovat).
+  // 'zaloha' → screens/ZalohaScreen.tsx). Když se dlouho nestahovala, ukáže
+  // se na té dlaždici odznak s počtem dní — tichá pojistka, ať se nezapomene
+  // (jen pro admina, jen ten může zálohovat).
   const [zalohaDnu, setZalohaDnu] = useState<number | null>(null);
   const [zalohaChybi, setZalohaChybi] = useState(false);
   useEffect(() => {

@@ -6,7 +6,7 @@ import { davkyStaceni, denACesky } from '../lib/prehledStaceni';
 import { useAuth } from '../lib/auth';
 import { KeggingChecklistModal, KeggingChecklistBody, isStartChecklistCompleteForKeg, isMonthlyChecklistCompleteForKeg } from '../components/KeggingChecklistModal';
 import { autoLogKegSanitationFromChecklist, isLastWeekOfMonth } from '../lib/kegSanitation';
-import { getMonthKey, writeMonthlyCleanupStage, isMonthlyLineDone, markMonthlyLineDone } from '../lib/monthlyCleanup';
+import { cleanupMonthKey, writeMonthlyCleanupStage, isMonthlyLineDone, markMonthlyLineDone } from '../lib/monthlyCleanup';
 import { businessDateISO } from '../lib/businessDate';
 import { EmptyState, Spinner, Modal } from '../components/ui';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
@@ -2826,7 +2826,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
             // upozornění na měsíční úklid i dlaždici na Domů do dalšího měsíce.
             if (isMonthlyChecklistCompleteForKeg(businessDateISO())) {
               markMonthlyLineDone('keg');
-              writeMonthlyCleanupStage(getMonthKey(), 'done');
+              writeMonthlyCleanupStage(cleanupMonthKey(), 'done');
             }
           }
         }}

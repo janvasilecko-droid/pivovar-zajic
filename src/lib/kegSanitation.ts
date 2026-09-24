@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 import { zalogujANahlas } from './chybyHlaseni';
 import { uloz } from './uloziste';
+import { isLastWeekOfMonth as isLastWeekOfMonthSpolecne } from './monthlyCleanup';
 
 export type KegSanitationEntry = {
   id: string;
@@ -190,10 +191,17 @@ export async function removeKegSanEntry(id: string): Promise<void> {
   }
 }
 
-export function isLastWeekOfMonth(date: Date = new Date()): boolean {
-  const nextWeek = new Date(date.getTime() + 7 * 24 * 60 * 60 * 1000);
-  return nextWeek.getMonth() !== date.getMonth();
-}
+/**
+ * @deprecated jen re-export kvůli stávajícím importům (Kegging.tsx,
+ * KegSanitationDiary.tsx) — vlastní výpočet tu bejvala DRUHÁ KOPIE
+ * stejného významu jako lib/monthlyCleanup.ts (rozdílně napsaná, ale do
+ * 24. 9. 2026 náhodou vycházela stejně: obojí bralo „poslední týden" jako
+ * posledních 7 kalendářních dnů, ne skutečný kalendářní týden). Kdyby se
+ * opravila jen jedna kopie, KEG a lahve by se rozešly v tom, kdy se
+ * připomíná měsíční úklid — přesně proti tomu appka zadání 24. 9. 2026
+ * opravovalo. Import odsud, ale zdroj pravdy je jeden.
+ */
+export const isLastWeekOfMonth = isLastWeekOfMonthSpolecne;
 
 export async function autoLogKegSanitationFromChecklist(opts: {
   dateStr: string;
