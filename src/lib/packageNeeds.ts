@@ -28,7 +28,6 @@
 import { flattenAkceNet, AkceRow } from './inventoryHelper';
 import { buildMovements, stockAsOf, stockAtStartOfDay } from './stockLedger';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
-import { jeVyrizena } from './stavyObjednavek';
 
 export type PackageNeedsRow = {
   beer_id: string;
@@ -127,16 +126,16 @@ export function computePackageNeeds(input: PackageNeedsInput, isTargetPkg: (kind
   // Objednávky v AKTUÁLNÍM TÝDNU — VŠECHNY (i už zavezené), ať je vidět
   // celková týdenní potřeba na středu/čtvrtek/pátek zavoz, ne jen zbytek.
   //
-  // ⚠️ „Vyřízeno" se pozná přes `jeVyrizena()` (lib/stavyObjednavek.ts), ne
-  // vlastním výčtem stavů — ten dřív znal jen 'vyrizeno' a 'vyrizeno_zavoz'
-  // natvrdo, stav 'vyrizena'/'hotova' (který `jeVyrizena()` odjinud v appce
-  // taky počítá jako odbavený) mu chyběl — druhá kopie významu, co drží
-  // krok jen náhodou. Stejný filtr je i v bottlingNeeds.ts (viz jeho
-  // komentář k souvislosti s hlášením z 19. 9. 2026).
+  // ⚠️ Vyřízené (`jeVyrizena()`) se dřív vynechávaly — jenže jejich odpočet
+  // závozu se níž (`weekEndBezZavozuMap`) vrací do skladu, takže vyřízená
+  // objednávka z poptávky zmizela a její kusy se ve skladu objevily znovu:
+  // sklad, který neexistuje. Poptávka i vrácení odpočtů se teď týkají
+  // stejných objednávek (všech kromě storna) — stejně jako v keggingPlan.ts
+  // a bottlingNeeds.ts (oprava z 24. 9. 2026).
   const activeOrderIds = new Set(
     orders
       .filter((o) => {
-        if (o.status === 'storno' || jeVyrizena(o.status)) return false;
+        if (o.status === 'storno') return false;
         const targetDate = o.delivery_date || o.order_date;
         return isThisWeek(targetDate);
       })
@@ -232,16 +231,18 @@ export function computePackageNeeds(input: PackageNeedsInput, isTargetPkg: (kind
       // Sklad ukazoval −12, tady stála nula a dvě obrazovky tvrdily o tomtéž
       // pivu něco jiného. Schodek je platná odpověď a patří na oči.
       //
-      // Pozor na rozdíl: u `neededQty` níž se ořezává DÁL a je to správně —
-      // schodek z evidence nemá nafukovat, kolik se má stočit (viz komentář
-      // v keggingPlan.ts). Tady jde jen o zobrazený stav.
+      // Totéž platí i pro `neededQty` níž (oprava z 24. 9. 2026). Dřív se
+      // tam sklad ořezával na nulu — a když byl v mínusu, stočení ho jen
+      // posouvalo blíž k nule a „chybí" se nepohnulo („potřeby stáčení
+      // neodečítají stočené piva"). Plán sudů (keggingPlan.ts) záporný sklad
+      // jako dluh počítá už od 15. 9.; lahve teď taky.
       const stockQty = Number(weekEndStockMap[k] || 0);
       const orderedQty = Number(orderedMap[k] || 0);
       // Kolik ještě chybí dotočit do konce týdne — porovnává CELKOVOU
       // týdenní poptávku (orderedQty, viz výše) s tím, co bylo k dispozici
       // BEZ odečtení zavezených (ty už jsou v orderedQty zahrnuté jako
       // součást poptávky, viz komentář u weekEndBezZavozuMap).
-      const neededQty = Math.max(0, orderedQty - Math.max(0, Number(weekEndBezZavozuMap[k] || 0)));
+      const neededQty = Math.max(0, orderedQty - Number(weekEndBezZavozuMap[k] || 0));
 
       // `stockQty !== 0`, ne `> 0`: položka v mínusu je zrovna ta, kterou je
       // potřeba vidět. S ořezáváním na nulu se z výpisu tiše vypadla.
