@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  datumCesky, datumZavozu, objednavkyKVraceni, platneVraceni, poznamkaVraceni, pripojPoznamku,
+  datumCesky, datumZavozu, jeRozepsanyNeuplny, objednavkyKVraceni, platneVraceni, poznamkaVraceni, pripojPoznamku,
   vracenoPodleObjednavky, zaznamyDorovnaniVraceni, type ObjednavkaProVraceni, type PolozkaVraceni,
 } from './vraceniZObjednavky';
 
@@ -148,6 +148,33 @@ describe('datumCesky', () => {
 
   it('nesmyslný vstup vrátí, jak přišel — radši ISO než „NaN. NaN."', () => {
     expect(datumCesky('nevim')).toBe('nevim');
+  });
+});
+
+// 🐛 Z provozu 24. 9. 2026: „1x50 8 tam je, ale kdyz to nevidim tak nevim
+// zda se propsali i tmavy a 12." Tři ručně zadaná piva, jen jedno se
+// doopravdy uložilo — zbylá dvě měla něco vyplněné, ale ne všechno, a
+// platneVraceni() je tiše zahodila, beze slova.
+describe('jeRozepsanyNeuplny — pojistka proti tichému zahození řádku', () => {
+  it('prázdný řádek (ještě se nezačal vyplňovat) neúplný není', () => {
+    expect(jeRozepsanyNeuplny({ beer_id: '', package_id: '', pocet: '' })).toBe(false);
+  });
+
+  it('úplný řádek (pivo + obal + kladný počet) neúplný není', () => {
+    expect(jeRozepsanyNeuplny({ beer_id: 'b1', package_id: 'p1', pocet: '2' })).toBe(false);
+  });
+
+  it('vybrané pivo bez obalu je rozepsané a neúplné', () => {
+    expect(jeRozepsanyNeuplny({ beer_id: 'b1', package_id: '', pocet: '' })).toBe(true);
+  });
+
+  it('vybrané pivo a obal, ale bez počtu (nebo s nulou), je rozepsané a neúplné', () => {
+    expect(jeRozepsanyNeuplny({ beer_id: 'b1', package_id: 'p1', pocet: '' })).toBe(true);
+    expect(jeRozepsanyNeuplny({ beer_id: 'b1', package_id: 'p1', pocet: '0' })).toBe(true);
+  });
+
+  it('napsaný počet bez piva a obalu je taky rozepsaný a neúplný', () => {
+    expect(jeRozepsanyNeuplny({ beer_id: '', package_id: '', pocet: '3' })).toBe(true);
   });
 });
 

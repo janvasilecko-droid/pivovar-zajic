@@ -30,6 +30,28 @@ export function platneVraceni(polozky: PolozkaVraceni[]): PolozkaVraceni[] {
   return polozky.filter((p) => p.beer_id && p.package_id && p.pocet > 0);
 }
 
+/** Ručně zadaný řádek „jiné pivo" (VraceniPiva.tsx) — pole přesně tak, jak je drží formulář (text/prázdné řetězce). */
+export type RucniRadekVraceni = { beer_id: string; package_id: string; pocet: string };
+
+/**
+ * 🐛 Z provozu 24. 9. 2026: „1x50 8 tam je, ale kdyz to nevidim tak nevim
+ * zda se propsali i tmavy a 12." Vrátil tři piva, ale jen jedno se
+ * doopravdy zapsalo — zbylé dva řádky měly vyplněné pivo i počet, ale
+ * někde chybělo pár kliknutí (obal), a `platneVraceni()` je proto TIŠE
+ * zahodila. Uložit se vrátilo úspěchem, jen s menším číslem, než uživatel
+ * čekal — nic mu neřeklo, že dva řádky nikam nedošly.
+ *
+ * Řádek je ROZEPSANÝ, ale NEÚPLNÝ, když je v něm něco napsané, ale ne
+ * všechno potřebné (pivo, obal, kladný počet). Takový řádek se nemá tiše
+ * zahodit — má se buď doplnit, nebo smazat, a uživatel se to musí dozvědět
+ * PŘED uložením, ne až z toho, že mu v přehledu chybí položka.
+ */
+export function jeRozepsanyNeuplny(r: RucniRadekVraceni): boolean {
+  const rozepsany = !!r.beer_id || !!r.package_id || r.pocet.trim() !== '';
+  const uplny = !!r.beer_id && !!r.package_id && Number(r.pocet) > 0;
+  return rozepsany && !uplny;
+}
+
 /**
  * Řádky pro `inventory_adjustments` — přičtou vrácené kusy zpátky do skladu
  * k zadanému dni.
