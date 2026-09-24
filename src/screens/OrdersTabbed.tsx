@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import Orders from './Orders';
-import { ClipboardList, FileText, ChartBar } from 'lucide-react';
+import { ClipboardList, FileText, ChartBar, RotateCcw } from 'lucide-react';
 import { TabBar, type TabBarItem } from '../components/TabBar';
 
-type TopTab = 'orders' | 'detail' | 'celkem';
+type TopTab = 'orders' | 'detail' | 'celkem' | 'vraceni';
 
 interface OrdersTabbedProps {
   initialTab?: TopTab;
@@ -17,10 +17,18 @@ interface OrdersTabbedProps {
 // Závoz a Výčepy jsou teď samostatné dlaždice/stránky (viz Layout.tsx
 // EXTRA_NAV + App.tsx), ne záložky tady — dřív duplikovaly navigaci a na
 // "mini" dlaždicích/úzké obrazovce byla lišta se 4 záložkami přeplácaná.
+//
+// „Vrácení" přibylo 24. 9. 2026 — zadání „pridej tam moznost do
+// obejdnavek zalozku vratka kde se da odberatel a sud sudy, lahve ktery
+// vrati, at se nactou do skladu". Dřív šlo vrácení zadat jen přes
+// tlačítko schované v liště záložky Přehled/Celkem (components/objednavky/
+// VraceniPiva.tsx existoval už dřív) — teď je to vlastní záložka nahoře,
+// stejně viditelná jako zbytek.
 const TABS: (TabBarItem & { id: TopTab })[] = [
   { id: 'orders', label: 'Objednávky', icon: ClipboardList, color: '#38d9a9' },
   { id: 'detail', label: 'Přehled', icon: FileText, color: '#4dabf7' },
   { id: 'celkem', label: 'Celkem', icon: ChartBar, color: '#ffa94d' },
+  { id: 'vraceni', label: 'Vrácení', icon: RotateCcw, color: '#7c5cff' },
 ];
 
 // Mapování interní záložky → Page (viz App.tsx).
@@ -28,6 +36,7 @@ const TAB_TO_PAGE: Record<TopTab, string> = {
   orders: 'orders',
   detail: 'orders_detail',
   celkem: 'orders_celkem',
+  vraceni: 'orders_vraceni',
 };
 
 export default function OrdersTabbed({
@@ -66,7 +75,12 @@ export default function OrdersTabbed({
           setPage={setPage}
           autoOpenShareImport={autoOpenShareImport}
           onShareImportHandled={onShareImportHandled}
-          initialViewMode={activeTab === 'detail' ? 'detail' : activeTab === 'celkem' ? 'celkem' : 'summary'}
+          initialViewMode={
+            activeTab === 'detail' ? 'detail'
+              : activeTab === 'celkem' ? 'celkem'
+              : activeTab === 'vraceni' ? 'vraceni'
+              : 'summary'
+          }
           openOrderId={openOrderId}
         />
       </div>

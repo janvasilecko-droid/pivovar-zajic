@@ -273,9 +273,14 @@ export default function App() {
           pageSubTab={pageSubTab}
         />
       )}
-      {(page === 'orders' || page === 'orders_entry' || page === 'orders_detail' || page === 'orders_celkem') && (
+      {(page === 'orders' || page === 'orders_entry' || page === 'orders_detail' || page === 'orders_celkem' || page === 'orders_vraceni') && (
         <OrdersTabbed
-          initialTab={page === 'orders_detail' ? 'detail' : page === 'orders_celkem' ? 'celkem' : 'orders'}
+          initialTab={
+            page === 'orders_detail' ? 'detail'
+              : page === 'orders_celkem' ? 'celkem'
+              : page === 'orders_vraceni' ? 'vraceni'
+              : 'orders'
+          }
           autoOpenShareImport={autoOpenShareImport}
           onShareImportHandled={() => setAutoOpenShareImport(false)}
           setPage={setPage}
