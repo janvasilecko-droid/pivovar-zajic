@@ -85,7 +85,7 @@ export default function ExportExcelScreen() {
           // writeoffs nemá sloupec note (má reason) — s ním dotaz padal
           // a list „Vzorky promo a PR" se do sešitu vůbec nedostal.
           fetchAllRows('writeoffs', 'entry_date,beer_id,beer_name,package_id,quantity,who,reason'),
-          fetchAllRows('bottling', 'entry_date,beer_id,beer_name,package_id,quantity,note,kegs_used,kegs_used_package_id,source_volume_l'),
+          fetchAllRows('bottling', 'entry_date,beer_id,beer_name,package_id,quantity,note,kegs_used,kegs_used_package_id,source_volume_l,created_at'),
           fetchAllRows('kegging', 'entry_date,beer_id,beer_name,package_id,quantity,note,cellar_tank_id'),
           fetchAllRows('cellar_tanks', 'id,label'),
           fetchAllRows('inventory', 'entry_date,beer_id,beer_name,package_id,quantity,note'),
@@ -125,16 +125,28 @@ export default function ExportExcelScreen() {
 
     // U stáčení lahví nejsou sloupce „Z sudů" obal zápisu, ale sudy
     // SPOTŘEBOVANÉ na stočení — proto z jednoho zápisu dvě položky.
+    //
+    // `kegs_used` patří CELÉ DÁVCE, ne jednomu cílovému obalu — jedna dávka
+    // stočená do víc velikostí lahví (BottlingScreen) uloží víc řádků do
+    // `bottling`, všechny se STEJNÝM `kegs_used`. Bez dedupe (jak to bylo
+    // dřív) se sud odečetl znovu za KAŽDÝ cílový obal — stejná chyba, jakou
+    // měla skladová kniha (viz stockLedger.ts, oprava 24. 9. 2026), jen
+    // tenhle export ji ještě neměl opravenou.
+    const seenKegSource = new Set<string>();
     const lahveRadky: VydejRadek[] = data.bottling.flatMap((r: any) => {
       const out: VydejRadek[] = [{
         entry_date: r.entry_date, beer_name: r.beer_name,
         package_id: r.package_id, quantity: r.quantity, note: r.note,
       }];
       if (Number(r.kegs_used) > 0 && r.kegs_used_package_id) {
-        out.push({
-          entry_date: r.entry_date, beer_name: r.beer_name,
-          package_id: r.kegs_used_package_id, quantity: r.kegs_used, note: r.note,
-        });
+        const key = `${r.entry_date}|${r.beer_id}|${r.kegs_used}|${r.kegs_used_package_id}|${r.created_at || r.note || ''}`;
+        if (!seenKegSource.has(key)) {
+          seenKegSource.add(key);
+          out.push({
+            entry_date: r.entry_date, beer_name: r.beer_name,
+            package_id: r.kegs_used_package_id, quantity: r.kegs_used, note: r.note,
+          });
+        }
       }
       return out;
     });

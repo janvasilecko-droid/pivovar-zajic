@@ -2015,36 +2015,6 @@ export default function BottlingScreen({
             }
             return s;
           }, 0);
-          const seenKegBatches = new Set<string>();
-          // Samostatná sada pro mobilní karty — jinak by sdílený stav se
-          // desktop tabulkou způsobil, že by po vykreslení karet byly
-          // všechny dávky v tabulce mylně označené jako "stejná dávka".
-
-          // 🍾 Řádky DESKTOP TABULKY v POŘADÍ DEN → PIVO → ŠARŽE — stejném,
-          // v jakém je vidí mobilní dlaždice výš (davkyStaceni + sarzeDavky),
-          // ne v syrovém pořadí `sortedRows`. Sloupec „〃"/„└─" níž spoléhá
-          // na to, že řádky jedné šarže leží HNED VEDLE SEBE — ale
-          // `sortedRows` řadí jen podle data a `created_at`, a víc piv
-          // stočených v jednom zápisu mívá STEJNÝ `created_at`. Dál se pak
-          // řadily jen podle náhodného `id` a šarže se roztrhala po tabulce.
-          // Zadání z 20. 9. 2026: „ať jsou piva seřazeny tak, aby vše
-          // z jednoho sudu bylo v jednom poli nebo označeno spolu."
-          const tableRows: EntryRow[] = [];
-          davkyStaceni(sortedRows, (pkgId) => {
-            const pkg = packages.find((p) => p.id === pkgId);
-            return pkg ? Number(pkg.volume_l) : 0;
-          }).forEach((davka) => {
-            sarzeDavky(davka.polozky, getBatchId).forEach((sarze) => {
-              sarze.polozky.forEach((p) => tableRows.push(p.zaznam));
-            });
-          });
-
-          function formatDate(d: string | null | undefined) {
-            if (!d) return '—';
-            const parts = d.split('-');
-            if (parts.length < 3) return d;
-            return `${parts[2]}.${parts[1]}.`;
-          }
 
           return (
 
@@ -2062,8 +2032,17 @@ export default function BottlingScreen({
 
                   Zdroj nesl uvnitř šarže jen JEDEN řádek — ten, kterým se zapsal
                   odečet sudů. U ostatních se psalo jen „〃 stejná dávka" a vypadalo
-                  to, že se zdroj ztratil. Zdroj patří ŠARŽI, ne obalu. */}
-              <div className="grid grid-cols-1 gap-2 md:hidden">
+                  to, že se zdroj ztratil. Zdroj patří ŠARŽI, ne obalu.
+
+                  Zadání z 24. 9. 2026: „chci aby každý záznam měl svoji dlaždici,
+                  ve který budou všechny obaly, počty, celková výtrata." Dřív měl
+                  tenhle dlaždicový pohled jen mobil (`md:hidden`) — počítač
+                  ukazoval tabulku, kde dávky bez zdrojového sudu (každý řádek
+                  vlastní šarže, viz `getBatchId`) neměly žádné ohraničení a
+                  splývaly v jeden nerozeznatelný seznam řádků. Teď je dlaždice
+                  na šarži JEDINÝ pohled, na mobilu i na počítači — jen se na
+                  širokém displeji vejde vedle sebe víc najednou (grid níž). */}
+              <div className="grid grid-cols-1 gap-2">
                 {davkyStaceni(sortedRows, (pkgId) => {
                   const pkg = packages.find((p) => p.id === pkgId);
                   return pkg ? Number(pkg.volume_l) : 0;
@@ -2082,6 +2061,10 @@ export default function BottlingScreen({
                         <span className="ml-auto shrink-0 font-display font-black text-xl tabular-nums">{davka.celkemKs} ks</span>
                       </div>
 
+                      {/* Šarže vedle sebe na širokém displeji — na mobilu jeden
+                          sloupec, na počítači se jich vejde víc najednou, ať
+                          nevzniká dlouhý svislý seznam nerozeznatelných řádků. */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
                       {sarze.map((s) => (
                         <div key={s.klic} className="rounded-lg bg-white/95 border border-black/10 border-l-4 border-l-amber-500 p-2 space-y-2">
                           {/* 🛢️ Šarži nedrží pohromadě nadpis, ale ČÁRA PO STRANĚ (border-l).
@@ -2138,6 +2121,18 @@ export default function BottlingScreen({
                                         litry, ale ks." U obalu se počítají kusy. */}
                                     <span className="ml-auto shrink-0 font-display font-black text-lg text-amber-950 tabular-nums">{r.quantity} ks</span>
                                   </div>
+                                  {/* 🏷️ Odkud se záznam vzal — appka zapisuje do stáčení i
+                                      sama (zaškrtnutá kapka „Stočeno" u objednávky, doplňky
+                                      z inventury) a bez téhle značky vypadá takový řádek jako
+                                      ručně napsaný. Viz lib/puvodZapisu.ts — přesně tahle
+                                      chybějící značka byla za dotazem „co to je, že to
+                                      nezapsal stáčeč?" z 24. 9. 2026. */}
+                                  {puvodZapisu(r.note) && (
+                                    <div className="text-udaj font-bold text-sky-800 bg-sky-50 border border-sky-200 rounded px-1.5 py-0.5 inline-flex items-center gap-1">
+                                      <ClipboardList size={11} className="shrink-0" />
+                                      {puvodZapisu(r.note)?.popis}
+                                    </div>
+                                  )}
                                   <div className="flex items-center gap-1.5">
                                     <button type="button" onClick={() => increment(r.id, -1)} className="w-11 min-h-[44px] grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-black text-lg transition" aria-label="Ubrat kus">−</button>
                                     <button type="button" onClick={() => increment(r.id, 1)} className="w-11 min-h-[44px] grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-lg transition" aria-label="Přidat kus">+</button>
@@ -2150,6 +2145,7 @@ export default function BottlingScreen({
                           </div>
                         </div>
                       ))}
+                      </div>
                     </div>
                   );
                 })}
@@ -2160,144 +2156,6 @@ export default function BottlingScreen({
                     <span>{totalKegs > 0 ? `${totalKegs} sudů` : '—'}</span>
                   </div>
                 </div>
-              </div>
-
-              <div className="hidden md:block rounded border border-amber-300/80 bg-amber-50/90 overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="border-b border-amber-300/80 bg-amber-100/80">
-                      <th scope="col" className="text-left py-1.5 px-2 font-black text-amber-950">Datum</th>
-                      <th scope="col" className="text-left py-1.5 px-2 font-black text-amber-950">Pivo</th>
-                      <th scope="col" className="text-right py-1.5 px-2 font-black text-amber-950">Lahve</th>
-                      <th scope="col" className="text-right py-1.5 px-2 font-black text-amber-950">Ks</th>
-                      <th scope="col" className="text-right py-1.5 px-2 font-black text-amber-950">KEG</th>
-                      <th scope="col" className="text-right py-1.5 px-2 font-black text-amber-950"><IkonaSud className="ikona-text" /> Sudů</th>
-                      <th scope="col" className="text-right py-1.5 px-2 font-black text-amber-950">Litry</th>
-                      <th scope="col" className="text-right py-1.5 px-2 font-black text-amber-950"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {tableRows.map((r, index) => {
-                      const beer = beers.find((b) => b.id === r.beer_id);
-                      const pkg = packages.find((p) => p.id === r.package_id);
-                      const kegPkg = r.kegs_used_package_id ? packages.find((p) => p.id === r.kegs_used_package_id) : null;
-                      const vol = pkg ? Number(pkg.volume_l) : 0;
-                      const liters = Number(r.quantity) * vol;
-
-                      const bId = getBatchId(r);
-                      const isFirstInBatch = !seenKegBatches.has(bId);
-                      if (r.kegs_used && r.kegs_used > 0) {
-                        seenKegBatches.add(bId);
-                      }
-
-                      // Zjistíme, zda předchozí řádek patřil do stejné šarže
-                      const prevRow = index > 0 ? tableRows[index - 1] : null;
-                      const isSameBatchAsPrev = prevRow && getBatchId(prevRow) === bId;
-
-                      return (
-                        <tr
-                          key={r.id}
-                          className={`border-b transition-colors ${
-                            isSameBatchAsPrev
-                              ? 'border-amber-200/40 bg-amber-50/40 hover:bg-amber-100/60'
-                              : 'border-amber-300/70 bg-amber-100/20 hover:bg-amber-100/70'
-                          }`}
-                        >
-                          <td className="py-1.5 px-2 font-mono font-bold text-amber-950 whitespace-nowrap">
-                            {!isSameBatchAsPrev ? formatDate(r.entry_date) : <span className="text-neutral-400 font-normal">〃</span>}
-                          </td>
-                          {/* 🏷️ Odkud se záznam vzal — stejně jako u KEGů.
-                              Appka zapisuje do stáčení i sama (zaškrtnutá
-                              kapka „Stočeno" u objednávky, doplňky z inventury)
-                              a bez téhle značky vypadá takový řádek jako
-                              ručně napsaný. Viz lib/puvodZapisu.ts. */}
-                          <td className="py-1.5 px-2 font-bold text-amber-950">
-                            <div className="flex items-center gap-1.5">
-                              {!isSameBatchAsPrev ? (
-                                <>
-                                  <span className="w-2.5 h-2.5 rounded-full shrink-0 shadow-2xs border border-black/20" style={{ backgroundColor: beerBg(beer) }} />
-                                  <span className="truncate max-w-[120px]">{r.beer_name ?? beer?.name ?? '—'}</span>
-                                </>
-                              ) : (
-                                <span className="text-amber-800/60 pl-3 font-mono text-udaj">└─ <span className="truncate max-w-[100px] inline-block align-bottom text-amber-950 font-bold">{r.beer_name ?? beer?.name ?? '—'}</span></span>
-                              )}
-                            </div>
-                            {puvodZapisu(r.note) && (
-                              <div className="text-udaj font-bold text-sky-800 bg-sky-50 border border-sky-200 rounded px-1.5 py-0.5 mt-1 inline-flex items-center gap-1">
-                                <ClipboardList size={11} className="shrink-0" />
-                                {puvodZapisu(r.note)?.popis}
-                              </div>
-                            )}
-                          </td>
-                          <td className="py-1.5 px-2 text-right font-semibold text-amber-900 whitespace-nowrap">{pkg?.label ?? '—'}</td>
-                          <td className="py-1.5 px-2 text-right font-bold text-amber-950">{r.quantity}</td>
-                          <td className="py-1.5 px-2 text-right font-semibold text-amber-900 whitespace-nowrap">
-                            {isFirstInBatch ? (
-                              <select
-                                value={kegPkg?.id ?? ''}
-                                onChange={(e) => updateKegPackage(r.id, e.target.value)}
-                                className="text-xs font-bold py-0.5 px-1 rounded bg-white border border-amber-300 text-amber-950 focus:border-amber-500 shadow-2xs"
-                                title="Změnit velikost KEG sudu"
-                              >
-                                <option value="">— Vyber KEG —</option>
-                                {kegPackages.map((p) => (
-                                  <option key={p.id} value={p.id}>KEG {p.volume_l}L</option>
-                                ))}
-                              </select>
-                            ) : (
-                              <span className="text-neutral-400 font-normal">—</span>
-                            )}
-                          </td>
-
-                          <td className="py-1.5 px-2 text-right">
-                            {isFirstInBatch ? (
-                              <div className="inline-flex items-center gap-0.5 justify-end">
-                                <button
-                                  type="button"
-                                  onClick={() => incrementKegs(r.id, -1)}
-                                  className="w-6 h-6 grid place-items-center rounded bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold text-xs transition tap"
-                                  title="Snížit počet sudů" aria-label="Snížit počet sudů"
-                                >−</button>
-                                <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-amber-200/80 text-amber-950 border border-amber-400/60 text-xs font-black shadow-2xs min-w-[44px] justify-center">
-                                  {r.kegs_used && r.kegs_used > 0 ? r.kegs_used : 0}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => incrementKegs(r.id, 1)}
-                                  className="w-6 h-6 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-900 font-bold text-xs transition tap"
-                                  title="Zvýšit počet sudů" aria-label="Zvýšit počet sudů"
-                                >+</button>
-                              </div>
-                            ) : (
-                              <span className="text-neutral-400 font-normal">—</span>
-                            )}
-                          </td>
-
-                          <td className="py-1.5 px-2 text-right font-bold text-amber-950">{liters.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })}</td>
-                          <td className="py-1.5 px-2 text-right">
-                            <div className="flex items-center gap-1 justify-end">
-                              <button type="button" onClick={() => increment(r.id, -1)} className="w-6 h-6 grid place-items-center rounded bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold text-xs transition tap">−</button>
-                              <button type="button" onClick={() => increment(r.id, 1)} className="w-6 h-6 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-900 font-bold text-xs transition tap">+</button>
-                              <button type="button" onClick={() => setEditingRow(r)} className="w-6 h-6 grid place-items-center rounded bg-sky-100 hover:bg-sky-200 text-sky-700 font-bold text-xs transition tap" title="Upravit detail" aria-label="Upravit detail"><Pencil size={12} /></button>
-                              <button type="button" onClick={() => del(r.id)} className="w-6 h-6 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-xs transition tap"><X size={14} /></button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                    {/* Souhrnný řádek */}
-                    <tr className="bg-amber-200/60 font-black">
-                      <td className="py-1.5 px-2 font-black text-amber-950"></td>
-                      <td className="py-1.5 px-2 font-black text-amber-950"><PackageIcon className="ikona-text" /> Celkem</td>
-                      <td className="py-1.5 px-2 text-right font-black text-amber-950"></td>
-                      <td className="py-1.5 px-2 text-right font-black text-amber-950">{totalCount}</td>
-                      <td className="py-1.5 px-2 text-right font-black text-amber-950"></td>
-                      <td className="py-1.5 px-2 text-right font-black text-amber-950">{totalKegs > 0 ? totalKegs : '—'}</td>
-                      <td className="py-1.5 px-2 text-right font-black text-amber-950">{totalLiters.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })}</td>
-                      <td className="py-1.5 px-2 text-right"></td>
-                    </tr>
-                  </tbody>
-                </table>
               </div>
             </div>
           );
