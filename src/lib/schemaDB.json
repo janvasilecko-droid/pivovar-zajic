@@ -199,6 +199,11 @@
   "note",
   "created_at"
  ],
+ "closed_months": [
+  "month",
+  "closed_at",
+  "closed_by"
+ ],
  "cellar_tanks": [
   "id",
   "label",
