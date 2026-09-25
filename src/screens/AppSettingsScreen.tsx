@@ -1,5 +1,5 @@
 import { useState, useEffect, type FormEvent } from 'react';
-import { AlertCircle, AlertTriangle, Bell, BellOff, BookOpen, Brush, CloudDownload, Download, Eraser, Eye, CheckCircle2, Lock, MessageSquare, Monitor, Moon, Palette, Plus, RefreshCw, Settings, Smartphone, Sparkles, Stethoscope, Sun, Timer, Trash2, Users, Vibrate, Volume2, VolumeX, Zap } from 'lucide-react';
+import { AlertCircle, AlertTriangle, Bell, BellOff, BookOpen, Brush, CloudDownload, Download, Eraser, Eye, CheckCircle2, Lock, MessageSquare, Monitor, Moon, Palette, Plus, RefreshCw, Settings, Smartphone, Stethoscope, Sun, Timer, Trash2, Users, Vibrate, Volume2, VolumeX, Zap } from 'lucide-react';
 import { NavodPouziti } from '../components/NavodPouziti';
 
 import { DENSITY_OPTIONS, DensityMode, getDensity, setDensity } from '../lib/density';
@@ -19,7 +19,6 @@ import { APP_VERSION, APP_VERSION_DATE } from '../lib/version';
 import { forceRefresh } from '../lib/versionCheck';
 import { isAdminEmail } from '../lib/config';
 import { fetchWhatsAppSenders, addWhatsAppSender, removeWhatsAppSender, type WhatsAppSender } from '../lib/whatsappApi';
-import { fetchPlaceAliasesForAdmin, deletePlaceAlias, type PlaceAliasRow } from '../lib/orderParser';
 import { oznam, uspech, chyba as toastChyba } from '../lib/toast';
 import { uloz, smaz } from '../lib/uloziste';
 
@@ -36,8 +35,6 @@ export default function AppSettingsScreen({ setPage }: { setPage?: (p: any, sec?
   const [theme, setThemeState] = useState<Theme>(getTheme());
   const [notifPermission, setNotifPermission] = useState(getNotificationPermission());
   const [notifSettings, setNotifSettings] = useState<NotificationSettings>(getNotificationSettings());
-  const [placeAliases, setPlaceAliases] = useState<PlaceAliasRow[]>([]);
-  const [placeAliasesLoading, setPlaceAliasesLoading] = useState(true);
 
   // 🔔 Push i se zavřenou aplikací — odběr tohohle zařízení.
   const [pushPrihlasen, setPushPrihlasen] = useState(false);
@@ -223,21 +220,6 @@ export default function AppSettingsScreen({ setPage }: { setPage?: (p: any, sec?
 
   const userPerms = getUserPermissions(user?.id ?? '', (profile as any)?.permissions);
   const isAdmin = profile?.role === 'admin' || isAdminEmail(user?.email);
-
-  useEffect(() => {
-    if (!isAdmin) { setPlaceAliasesLoading(false); return; }
-    setPlaceAliasesLoading(true);
-    fetchPlaceAliasesForAdmin().then(setPlaceAliases).catch(() => {}).finally(() => setPlaceAliasesLoading(false));
-  }, [isAdmin]);
-
-  async function handleDeletePlaceAlias(id: string) {
-    try {
-      await deletePlaceAlias(id);
-      setPlaceAliases((rows) => rows.filter((r) => r.id !== id));
-    } catch (e) {
-      toastChyba(e);
-    }
-  }
 
   const permittedNav = NAV.filter((n) => {
     if (n.id === 'users') return isAdmin;
@@ -622,44 +604,10 @@ export default function AppSettingsScreen({ setPage }: { setPage?: (p: any, sec?
         {senderMsg && <div className="mt-2 p-2 rounded bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200">{senderMsg}</div>}
       </div>
 
-      {/* 🧠 Naučení odběratelé — přehled aliasů z omylů AI/OCR, opravovaných
-          ručně (viz docs/30-navrhu-2026-09-10.md, bod 4). Jen pro admina:
-          smazání špatného aliasu bez SQL. */}
-      {isAdmin && (
-        <div className="card p-6">
-          <h2 className="font-display font-bold text-lg flex items-center gap-2"><Sparkles size={18} /> Naučení odběratelé</h2>
-          <p className="text-sm text-neutral-600 mt-2">
-            Když se ručně opraví špatně rozpoznaný odběratel, appka si zapamatuje
-            „tenhle text = tenhle odběratel" pro příště. Tady je vidět, co všechno
-            se naučila — a dá se to smazat, pokud je naučení špatné.
-          </p>
-          <div className="mt-4 space-y-2">
-            {placeAliasesLoading && <div className="text-sm text-neutral-400 py-2">Načítám…</div>}
-            {!placeAliasesLoading && placeAliases.map((a) => (
-              <div key={a.id} className="flex items-center justify-between p-3 rounded bg-neutral-50 border border-neutral-200 gap-2">
-                <div className="min-w-0">
-                  <div className="text-sm font-black text-neutral-800 truncate">
-                    „{a.wrong_name}" → {a.correct_name || '(bez jména)'}
-                  </div>
-                  <div className="text-xs text-neutral-500">
-                    použito {a.hit_count ?? 1}× · naposledy {a.updated_at ? new Date(a.updated_at).toLocaleDateString('cs-CZ') : '—'}
-                  </div>
-                </div>
-                <button
-                  onClick={() => handleDeletePlaceAlias(a.id)}
-                  className="p-2 rounded hover:bg-rose-100 text-rose-500 hover:text-rose-700 transition shrink-0"
-                  title="Smazat naučený alias" aria-label="Smazat naučený alias"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
-            ))}
-            {!placeAliasesLoading && placeAliases.length === 0 && (
-              <div className="text-sm text-neutral-400 py-2 italic">Zatím se appka nic nenaučila.</div>
-            )}
-          </div>
-        </div>
-      )}
+      {/* 🧠 Naučení odběratelé — přesunuto na Odběratelé (Catalogs.tsx →
+          PlacesScreen), kde se dá alias i ručně přidat/upravit, ne jen
+          smazat. Bydlelo tady jen jako výpis toho, co appka sama napozorovala
+          z oprav; teď je vedle skutečného katalogu odběratelů, kde vzniká. */}
 
       {/* 👤 Změna jména */}
       <div className="card p-6">

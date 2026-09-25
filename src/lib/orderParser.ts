@@ -1383,6 +1383,65 @@ export async function deletePlaceAlias(id: string): Promise<void> {
   if (error) throw error;
 }
 
+/** Proč se ruční přidání aliasu nepovedlo — ať to jde ukázat, ne jen tiše spolknout. */
+export type ChybaPridaniAliasu = 'prazdne' | 'prilis_obecne';
+
+/**
+ * Ruční přidání/doplnění aliasu odběratele (Odběratelé → Naučení odběratelé).
+ * Na rozdíl od savePlaceAlias() (tichý zápis vedle opravy v recenzi
+ * objednávky) tahle verze VYHAZUJE chybu — kdo alias zadává ručně, čeká
+ * zpětnou vazbu, ne že zápis tiše zmizí. Stejná pojistka proti příliš
+ * obecným slovům platí i tady (viz PRILIS_OBECNA_SLOVA) — ruční zadání
+ * "sklad" by appku rozbilo stejně jako naučené.
+ */
+export async function pridejPlaceAliasRucne(wrongText: string, placeId: string, correctName: string): Promise<ChybaPridaniAliasu | null> {
+  const norm = normalizePlace(wrongText);
+  if (!norm || norm.length < 2) return 'prazdne';
+  if (PRILIS_OBECNA_SLOVA.has(norm)) return 'prilis_obecne';
+
+  const { supabase } = await import('./supabase');
+  const { data: existing } = await supabase
+    .from('place_aliases')
+    .select('id, hit_count')
+    .eq('wrong_name', norm)
+    .maybeSingle();
+  if (existing) {
+    const { error } = await supabase.from('place_aliases').update({
+      place_id: placeId || null,
+      correct_name: correctName,
+      hit_count: (existing.hit_count ?? 0) + 1,
+      updated_at: new Date().toISOString(),
+    }).eq('id', (existing as any).id);
+    if (error) throw error;
+  } else {
+    const { error } = await supabase.from('place_aliases').insert({
+      wrong_name: norm,
+      place_id: placeId || null,
+      correct_name: correctName,
+      hit_count: 1,
+    });
+    if (error) throw error;
+  }
+  return null;
+}
+
+/** Ruční úprava existujícího aliasu — jiný odběratel, nebo oprava textu. */
+export async function upravPlaceAlias(id: string, wrongText: string, placeId: string, correctName: string): Promise<ChybaPridaniAliasu | null> {
+  const norm = normalizePlace(wrongText);
+  if (!norm || norm.length < 2) return 'prazdne';
+  if (PRILIS_OBECNA_SLOVA.has(norm)) return 'prilis_obecne';
+
+  const { supabase } = await import('./supabase');
+  const { error } = await supabase.from('place_aliases').update({
+    wrong_name: norm,
+    place_id: placeId || null,
+    correct_name: correctName,
+    updated_at: new Date().toISOString(),
+  }).eq('id', id);
+  if (error) throw error;
+  return null;
+}
+
 // Načtení naučených aliasů pro místa (špatný název → placeId)
 export async function loadPlaceAliasMap(): Promise<Map<string, string>> {
   const map = new Map<string, string>();

@@ -4,10 +4,13 @@ import { getVehicleExpiryStatus } from '../lib/vozidla';
 import { najdiPodezreleDuplicity, type KandidatDuplicity } from '../lib/podezreleDuplicity';
 import { Modal, Field, EmptyState, Spinner } from '../components/ui';
 import ExcelImportModal from '../components/ExcelImportModal';
-import { AlertTriangle, Beer as BeerIcon, Car, Copy, FileSpreadsheet, Check, Mail, MapPin, Milestone, NotebookPen, Package as PackageIcon, Phone, Plus, Search, ShieldAlert, ShieldCheck, Store, Trash2, Wrench } from 'lucide-react';
+import { AlertTriangle, Beer as BeerIcon, Car, Copy, FileSpreadsheet, Check, Mail, MapPin, Milestone, NotebookPen, Package as PackageIcon, Pencil, Phone, Plus, Search, ShieldAlert, ShieldCheck, Sparkles, Store, Trash2, Wrench, X } from 'lucide-react';
 import { lookupPlaceOnline } from '../lib/placeLookup';
-import { chyba, oznam, potvrd } from '../lib/toast';
+import { chyba, oznam, potvrd, uspech } from '../lib/toast';
 import { usePosledniNacteni } from '../lib/nacitani';
+import { useAuth } from '../lib/auth';
+import { isAdminEmail } from '../lib/config';
+import { fetchPlaceAliasesForAdmin, deletePlaceAlias, pridejPlaceAliasRucne, upravPlaceAlias, type PlaceAliasRow } from '../lib/orderParser';
 
 /* ===== PIVA ===== */
 export function BeersScreen() {
@@ -296,12 +299,15 @@ function PackageForm({ pkg, onClose, onSaved }: { pkg: Package | null; onClose: 
 
 /* ===== ODBĚRATELÉ ===== */
 export function PlacesScreen() {
+  const { profile, user } = useAuth();
+  const isAdmin = profile?.role === 'admin' || isAdminEmail(user?.email);
   const [rows, setRows] = useState<(Place & { delivery_group?: string | null })[]>([]);
   const [loading, setLoading] = useState(true);
   const [show, setShow] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [showGpsBackfill, setShowGpsBackfill] = useState(false);
   const [showDuplicity, setShowDuplicity] = useState(false);
+  const [showNauceni, setShowNauceni] = useState(false);
   const [edit, setEdit] = useState<Place | null>(null);
   const [search, setSearch] = useState('');
 
@@ -360,6 +366,11 @@ export function PlacesScreen() {
         <button className="btn-ghost !rounded !py-2.5 !px-3.5 text-xs" onClick={() => setShowDuplicity(true)}>
           <Copy size={16} /> Podezřelé duplicity
         </button>
+        {isAdmin && (
+          <button className="btn-ghost !rounded !py-2.5 !px-3.5 text-xs" onClick={() => setShowNauceni(true)}>
+            <Sparkles size={16} /> Naučení odběratelé
+          </button>
+        )}
         {missingGps.length > 0 && (
           <button className="px-3.5 py-2.5 rounded bg-white border border-sky-300/80 text-sky-950 hover:bg-sky-50 font-extrabold text-xs transition flex items-center gap-1.5 shadow-xs" onClick={() => setShowGpsBackfill(true)}>
             <MapPin size={16} /> Doplnit chybějící GPS ({missingGps.length})
@@ -451,7 +462,170 @@ export function PlacesScreen() {
           onChanged={load}
         />
       )}
+      {showNauceni && (
+        <NaucenaJmenaModal places={rows} onClose={() => setShowNauceni(false)} />
+      )}
     </div>
+  );
+}
+
+/**
+ * Naučení odběratelé — přehled aliasů „špatně napsané jméno" → odběratel.
+ * Dřív jen výpis pro smazání (bylo v Nastavení); teď i ruční přidání a
+ * úprava, ať se to dá doplnit, i když se AI/OCR ještě nespletla. Zápis jde
+ * do stejné tabulky (place_aliases), kterou čte párování objednávek
+ * (lib/orderParser.ts loadPlaceAliasMap, edge funkce place-match.ts) — ruční
+ * i naučený alias se tak chová úplně stejně.
+ */
+function NaucenaJmenaModal({ places, onClose }: { places: Place[]; onClose: () => void }) {
+  const [aliasy, setAliasy] = useState<PlaceAliasRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [pridavam, setPridavam] = useState(false);
+  const [upravovanyId, setUpravovanyId] = useState<string | null>(null);
+  const [formText, setFormText] = useState('');
+  const [formPlaceId, setFormPlaceId] = useState('');
+  const [ukladam, setUkladam] = useState(false);
+
+  async function nacti() {
+    setLoading(true);
+    try {
+      setAliasy(await fetchPlaceAliasesForAdmin());
+    } catch (e) {
+      chyba(e);
+    } finally {
+      setLoading(false);
+    }
+  }
+  useEffect(() => { nacti(); }, []);
+
+  function zacniPridavat() {
+    setPridavam(true);
+    setUpravovanyId(null);
+    setFormText('');
+    setFormPlaceId('');
+  }
+  function zacniUpravovat(a: PlaceAliasRow) {
+    setUpravovanyId(a.id);
+    setPridavam(false);
+    setFormText(a.wrong_name);
+    setFormPlaceId(a.place_id ?? '');
+  }
+  function zrusFormular() {
+    setPridavam(false);
+    setUpravovanyId(null);
+  }
+
+  async function ulozFormular() {
+    const misto = places.find((p) => p.id === formPlaceId);
+    if (!formText.trim() || !misto) { oznam('Vyplň špatně napsané jméno i odběratele.'); return; }
+    setUkladam(true);
+    try {
+      const chybaVysledku = upravovanyId
+        ? await upravPlaceAlias(upravovanyId, formText, misto.id, misto.name)
+        : await pridejPlaceAliasRucne(formText, misto.id, misto.name);
+      if (chybaVysledku === 'prazdne') { oznam('Zadej, jaký text se má opravit.'); return; }
+      if (chybaVysledku === 'prilis_obecne') { oznam('Tohle slovo je moc obecné (objevuje se skoro v každé zprávě) — appka by ho pak naučila přebít i jasně napsané jméno.'); return; }
+      uspech(upravovanyId ? 'Alias upraven.' : 'Alias přidán.');
+      zrusFormular();
+      await nacti();
+    } catch (e) {
+      chyba(e);
+    } finally {
+      setUkladam(false);
+    }
+  }
+
+  async function smaz(id: string) {
+    if (!(await potvrd('Smazat naučený alias?'))) return;
+    try {
+      await deletePlaceAlias(id);
+      setAliasy((arr) => arr.filter((a) => a.id !== id));
+    } catch (e) {
+      chyba(e);
+    }
+  }
+
+  const formularOtevreny = pridavam || upravovanyId !== null;
+
+  return (
+    <Modal open={true} onClose={onClose} title="Naučení odběratelé">
+      <div className="space-y-4">
+        <p className="text-sm text-neutral-600">
+          Když appka (nebo člověk) opraví špatně rozpoznaného odběratele, zapamatuje si
+          „tenhle text = tenhle odběratel" pro příště. Tady jde vidět, co se naučila,
+          smazat špatné naučení — a taky přidat nebo upravit alias ručně, i bez toho,
+          aby se nejdřív musela splést.
+        </p>
+
+        {formularOtevreny ? (
+          <div className="p-3 rounded border border-amber-300 bg-amber-50 space-y-2.5">
+            <Field label="Špatně napsané/rozpoznané jméno">
+              <input
+                type="text" className="input w-full" value={formText}
+                onChange={(e) => setFormText(e.target.value)}
+                placeholder="např. U Krbu, hospoda na rohu…"
+              />
+            </Field>
+            <Field label="Patří odběrateli">
+              <select className="input w-full" value={formPlaceId} onChange={(e) => setFormPlaceId(e.target.value)}>
+                <option value="">— vyber odběratele —</option>
+                {places.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </Field>
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                className="btn-primary !rounded text-xs font-black flex items-center gap-1.5"
+                disabled={ukladam} onClick={ulozFormular}
+              >
+                <Check size={14} /> {ukladam ? 'Ukládám…' : upravovanyId ? 'Uložit úpravu' : 'Přidat alias'}
+              </button>
+              <button className="btn-ghost !rounded text-xs" onClick={zrusFormular}>
+                <X size={14} /> Zrušit
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button className="btn-ghost !rounded text-xs font-black flex items-center gap-1.5" onClick={zacniPridavat}>
+            <Plus size={16} /> Přidat alias ručně
+          </button>
+        )}
+
+        <div className="space-y-2 max-h-[50vh] overflow-y-auto">
+          {loading && <div className="text-sm text-neutral-400 py-2">Načítám…</div>}
+          {!loading && aliasy.map((a) => (
+            <div key={a.id} className="flex items-center justify-between p-3 rounded bg-neutral-50 border border-neutral-200 gap-2">
+              <div className="min-w-0">
+                <div className="text-sm font-black text-neutral-800 truncate">
+                  „{a.wrong_name}" → {a.correct_name || '(bez jména)'}
+                </div>
+                <div className="text-xs text-neutral-500">
+                  použito {a.hit_count ?? 1}× · naposledy {a.updated_at ? new Date(a.updated_at).toLocaleDateString('cs-CZ') : '—'}
+                </div>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  onClick={() => zacniUpravovat(a)}
+                  className="btn-ghost !rounded !p-2 !min-h-0 !border-none text-amber-600 hover:text-amber-800"
+                  title="Upravit alias" aria-label="Upravit alias"
+                >
+                  <Pencil size={16} />
+                </button>
+                <button
+                  onClick={() => smaz(a.id)}
+                  className="btn-ghost !rounded !p-2 !min-h-0 !border-none text-rose-500 hover:text-rose-700"
+                  title="Smazat naučený alias" aria-label="Smazat naučený alias"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            </div>
+          ))}
+          {!loading && aliasy.length === 0 && (
+            <div className="text-sm text-neutral-400 py-2 italic">Zatím se appka nic nenaučila.</div>
+          )}
+        </div>
+      </div>
+    </Modal>
   );
 }
 

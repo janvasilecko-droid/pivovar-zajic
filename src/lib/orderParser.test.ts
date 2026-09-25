@@ -15,6 +15,8 @@ import {
   matchPlaceFromText,
   detectOrderDupWarnings,
   placesMatch,
+  pridejPlaceAliasRucne,
+  upravPlaceAlias,
   type GeminiItem,
   type ParsedLine,
   type ImportedOrder,
@@ -98,6 +100,27 @@ describe('matchPlaceFromText — naučený alias nesmí být příliš obecné s
     const goodAliasMap = new Map([['luzec', 'p-luzec']]);
     const r = matchPlaceFromText('objednavka pro luzec 2x10 11sv', catalog, goodAliasMap);
     expect(r.placeId).toBe('p-luzec');
+  });
+});
+
+// Odběratelé → Naučení odběratelé (přesunuto z Nastavení): ruční přidání
+// a úprava aliasu musí projít stejnou pojistkou proti příliš obecným slovům
+// jako naučený alias — jinak by ruční zadání "sklad" rozbilo appku stejně,
+// jako to udělal naučený alias 10. 9. 2026 (viz test výš). Obě funkce se
+// zastaví na kontrole PŘED zápisem do databáze, takže je jde otestovat bez
+// mockování Supabase.
+describe('pridejPlaceAliasRucne / upravPlaceAlias — pojistky před zápisem', () => {
+  it('příliš obecné slovo se ručně přidat nedá', async () => {
+    expect(await pridejPlaceAliasRucne('sklad', 'p-luzec', 'Lužec')).toBe('prilis_obecne');
+  });
+
+  it('prázdný nebo jednoznakový text se nezapíše', async () => {
+    expect(await pridejPlaceAliasRucne('', 'p-luzec', 'Lužec')).toBe('prazdne');
+    expect(await pridejPlaceAliasRucne('a', 'p-luzec', 'Lužec')).toBe('prazdne');
+  });
+
+  it('úprava na příliš obecné slovo je taky odmítnutá', async () => {
+    expect(await upravPlaceAlias('alias-1', 'sklad', 'p-luzec', 'Lužec')).toBe('prilis_obecne');
   });
 });
 
