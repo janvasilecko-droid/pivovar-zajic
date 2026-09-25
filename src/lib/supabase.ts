@@ -870,15 +870,64 @@ export function fetchAllRows<T = any>(
   // dotazu vešlo do limitu serveru.
   let inFiltr: { col: string; vals: any[] } | null = null;
 
-  /** Jedna stránkovaná dávka — vrátí VŠECHNY řádky, které dotazu odpovídají. */
+  const PAGE = 1000;
+  // Kolik požadavků smí jedno volání poslat naráz — víc prohlížeč stejně
+  // neobslouží souběžně a serveru by jen přibyla fronta.
+  const SOUBEZNE = 6;
+
+  const stranka = (uprav: (q: any) => any, from: number, sPoctem: boolean) => {
+    let q: any = sPoctem
+      ? supabase.from(table).select(select, { count: 'exact' })
+      : supabase.from(table).select(select);
+    for (const k of kroky) q = k(q);
+    q = uprav(q);
+    return q.range(from, from + PAGE - 1);
+  };
+
+  /**
+   * Jedna stránkovaná dávka — vrátí VŠECHNY řádky, které dotazu odpovídají.
+   *
+   * Dřív se stránky tahaly jedna po druhé: tabulka s 5000 řádky = 5 čekání
+   * za sebou, a jak data v provozu rostla, každá obrazovka se skladem se
+   * načítala pomaleji. Teď první stránka přinese i celkový počet řádků
+   * a zbytek stránek se stáhne naráz.
+   */
   const nactiStranky = async (uprav: (q: any) => any) => {
-    const PAGE = 1000;
     const out: T[] = [];
-    for (let from = 0; ; from += PAGE) {
-      let q: any = supabase.from(table).select(select);
-      for (const k of kroky) q = k(q);
-      q = uprav(q);
-      const { data, error } = await q.range(from, from + PAGE - 1);
+    const prvni = await stranka(uprav, 0, true);
+    if (prvni.error) {
+      console.error(`fetchAllRows(${table}) selhalo:`, prvni.error.message);
+      return { data: out, error: prvni.error };
+    }
+    const prvniDavka = (prvni.data ?? []) as T[];
+    out.push(...prvniDavka);
+    if (prvniDavka.length < PAGE) return { data: out, error: null as any };
+
+    let from = PAGE;
+    // Server zná počet → zbylé stránky naráz (po SOUBEZNE kusech).
+    if (typeof prvni.count === 'number') {
+      const posledni = Math.min(prvni.count, 500_000);
+      while (from < posledni) {
+        const vlna: number[] = [];
+        for (let i = 0; i < SOUBEZNE && from < posledni; i++, from += PAGE) vlna.push(from);
+        const vysledky = await Promise.all(vlna.map((od) => stranka(uprav, od, false)));
+        for (const { data, error } of vysledky) {
+          if (error) {
+            console.error(`fetchAllRows(${table}) selhalo:`, error.message);
+            return { data: out, error };
+          }
+          const batch = (data ?? []) as T[];
+          out.push(...batch);
+          // Mezitím někdo smazal řádky → kratší stránka je konec.
+          if (batch.length < PAGE) return { data: out, error: null as any };
+        }
+      }
+    }
+
+    // Bez počtu (nebo mezitím přibyly řádky a poslední stránka je plná):
+    // dočíst postaru, stránku po stránce, dokud nepřijde neúplná.
+    for (; ; from += PAGE) {
+      const { data, error } = await stranka(uprav, from, false);
       if (error) {
         console.error(`fetchAllRows(${table}) selhalo:`, error.message);
         return { data: out, error };
@@ -900,14 +949,22 @@ export function fetchAllRows<T = any>(
 
     // Hodnoty po stovkách kvůli délce URL; každá dávka se pak sama stránkuje,
     // takže na počtu hodnot v dávce nezáleží — sto objednávek může mít klidně
-    // dva tisíce položek a všechny se načtou.
+    // dva tisíce položek a všechny se načtou. Dávky se posílají naráz (po
+    // SOUBEZNE kusech), ne jedna po druhé — „položky všech objednávek" jsou
+    // při tisícovce objednávek deset dávek a dřív to bylo deset čekání za sebou.
     const CHUNK = 100;
+    const { col, vals } = inFiltr;
+    const davky: any[][] = [];
+    for (let i = 0; i < vals.length; i += CHUNK) davky.push(vals.slice(i, i + CHUNK));
     const out: T[] = [];
-    for (let i = 0; i < inFiltr.vals.length; i += CHUNK) {
-      const cast = inFiltr.vals.slice(i, i + CHUNK);
-      const { data, error } = await nactiStranky((q) => q.in(inFiltr!.col, cast));
-      out.push(...data);
-      if (error) return { data: out, error };
+    for (let i = 0; i < davky.length; i += SOUBEZNE) {
+      const vysledky = await Promise.all(
+        davky.slice(i, i + SOUBEZNE).map((cast) => nactiStranky((q) => q.in(col, cast))),
+      );
+      for (const { data, error } of vysledky) {
+        out.push(...data);
+        if (error) return { data: out, error };
+      }
     }
     return { data: out, error: null as any };
   };
