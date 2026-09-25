@@ -12,9 +12,14 @@ type Radek = { id: number; order_id?: string };
 /** Kolik řádků má atrapa dohromady vrátit a co se jí vlastně ptali. */
 let vsechny: Radek[] = [];
 const dotazy: { rozsah: [number, number]; inHodnoty?: any[] }[] = [];
+/** Vrací atrapa na `{ count: 'exact' }` celkový počet, jako skutečný server? */
+let vracetPocet = false;
+/** Kolik dotazů běželo nejvíc naráz — ať jde poznat souběh od řady. */
+let bezi = 0;
+let nejvicNaraz = 0;
 
 vi.mock('@supabase/supabase-js', () => {
-  const dotaz = () => {
+  const dotaz = (sPoctem: boolean) => {
     let inVals: any[] | undefined;
     const q: any = {
       order: () => q,
@@ -28,14 +33,21 @@ vi.mock('@supabase/supabase-js', () => {
         const zdroj = inVals
           ? vsechny.filter((r) => inVals!.includes(r.order_id))
           : vsechny;
-        return Promise.resolve({ data: zdroj.slice(od, do_ + 1), error: null });
+        const odpoved = {
+          data: zdroj.slice(od, do_ + 1),
+          error: null,
+          ...(sPoctem && vracetPocet ? { count: zdroj.length } : {}),
+        };
+        bezi++;
+        nejvicNaraz = Math.max(nejvicNaraz, bezi);
+        return new Promise((r) => setTimeout(() => { bezi--; r(odpoved); }, 0));
       },
     };
     return q;
   };
   return {
     createClient: () => ({
-      from: () => ({ select: () => dotaz() }),
+      from: () => ({ select: (_s: string, opts?: { count?: string }) => dotaz(opts?.count === 'exact') }),
       auth: { onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }) },
       channel: () => ({ on: () => ({ subscribe: () => ({}) }), subscribe: () => ({}) }),
       removeChannel: () => {},
@@ -48,6 +60,9 @@ const { fetchAllRows } = await import('./supabase');
 beforeEach(() => {
   vsechny = [];
   dotazy.length = 0;
+  vracetPocet = false;
+  bezi = 0;
+  nejvicNaraz = 0;
 });
 
 describe('fetchAllRows', () => {
@@ -109,5 +124,59 @@ describe('fetchAllRows s .in()', () => {
       .order('created_at', { ascending: false })
       .in('order_id', ['o1']);
     expect(data).toHaveLength(1);
+  });
+});
+
+// Rychlost: stránky a dávky se stahují naráz, ne jedna po druhé. Stránky
+// načítající sklad (Objednávky, Rozvoz, Stáčení…) se se sílícími daty
+// zpomalovaly právě tím, že každá další tisícovka = další čekání za sebou.
+describe('fetchAllRows — souběžné stahování', () => {
+  it('se znalostí počtu stáhne zbylé stránky naráz, ve správném pořadí', async () => {
+    vracetPocet = true;
+    vsechny = Array.from({ length: 4500 }, (_, i) => ({ id: i }));
+
+    const { data } = await fetchAllRows<Radek>('order_items');
+
+    expect(data).toHaveLength(4500);
+    expect(data!.map((r) => r.id)).toEqual(vsechny.map((r) => r.id));
+    // Stránky 1000–4999 odešly naráz, ne každá až po té předchozí.
+    expect(nejvicNaraz).toBe(4);
+    expect(dotazy.map((d) => d.rozsah[0])).toEqual([0, 1000, 2000, 3000, 4000]);
+  });
+
+  it('při přesném násobku tisíce dočte a skončí', async () => {
+    vracetPocet = true;
+    vsechny = Array.from({ length: 2000 }, (_, i) => ({ id: i }));
+    const { data } = await fetchAllRows<Radek>('order_items');
+    expect(data).toHaveLength(2000);
+  });
+
+  it('řádky přibyté mezi zjištěním počtu a stažením se neztratí', async () => {
+    vracetPocet = true;
+    vsechny = Array.from({ length: 1500 }, (_, i) => ({ id: i }));
+    // Server nahlásí 1500, ale než se stáhne zbytek, přibyde dalších 700.
+    const puvodniPush = dotazy.push.bind(dotazy);
+    dotazy.push = (...a: any[]) => {
+      if (dotazy.length === 1) vsechny = Array.from({ length: 2200 }, (_, i) => ({ id: i }));
+      return puvodniPush(...a);
+    };
+    try {
+      const { data } = await fetchAllRows<Radek>('order_items');
+      expect(data).toHaveLength(2200);
+    } finally {
+      dotazy.push = puvodniPush;
+    }
+  });
+
+  it('dávky .in() se posílají naráz a výsledek drží pořadí', async () => {
+    vracetPocet = true;
+    const ids = Array.from({ length: 450 }, (_, i) => `o${i}`);
+    vsechny = ids.map((oid, i) => ({ id: i, order_id: oid }));
+
+    const { data } = await fetchAllRows<Radek>('order_items').in('order_id', ids);
+
+    expect(data!.map((r) => r.id)).toEqual(vsechny.map((r) => r.id));
+    // 5 dávek (100+100+100+100+50) — všechny naráz, ne pět čekání za sebou.
+    expect(nejvicNaraz).toBe(5);
   });
 });
