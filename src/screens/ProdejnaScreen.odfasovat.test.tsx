@@ -11,8 +11,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import ProdejnaScreen from './ProdejnaScreen';
+import { businessDateISO } from '../lib/businessDate';
 
-const DNES = new Date().toISOString().slice(0, 10);
+// Pozor: NE new Date().toISOString() (UTC) — odfasuj() v ProdejnaScreen.tsx
+// počítá "dnešek" přes businessDateISO() (pražský čas), takže kolem půlnoci
+// UTC (= 1-2 v noci v Praze) by se test rozešel s kódem o jeden den.
+const DNES = businessDateISO();
 
 const h = vi.hoisted(() => {
   const zapisy: any[] = [];
