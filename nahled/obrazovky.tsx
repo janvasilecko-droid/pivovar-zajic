@@ -19,6 +19,7 @@ import { ZtratyTankuPrehled } from '../src/components/ZtratyTankuPrehled';
 import CoStocitOkno from '../src/components/CoStocitOkno';
 import ProdejnaScreen from '../src/screens/ProdejnaScreen';
 import { BottlingTasksSettings } from '../src/components/BottlingTasksSettings';
+import Statistika from '../src/screens/Statistika';
 import * as data from './mock/data';
 
 const OBRAZOVKY = {
@@ -30,6 +31,7 @@ const OBRAZOVKY = {
   prodejna: { popis: 'Fasování → Prodejna (obchod)', vykresli: () => <ProdejnaScreen table="fasovani_private" title="Fasování" /> },
   personal: { popis: 'Fasování → Personál', vykresli: () => <ProdejnaScreen table="fasovani" title="Fasování" showVycep /> },
   potreby: { popis: 'Nastavení → Potřeby stáčení', vykresli: () => <BottlingTasksSettings setPage={() => {}} /> },
+  statistika: { popis: 'Statistika', vykresli: () => <Statistika /> },
 } as const;
 
 type Klic = keyof typeof OBRAZOVKY;

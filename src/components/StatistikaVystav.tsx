@@ -586,173 +586,6 @@ export default function StatistikaVystav({
         )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Podíl piv */}
-        <section className="card p-3.5 sm:p-5">
-          <Nadpis text="Které pivo táhne" popis={`Podíl na výstavu ${popisVybraneho} · celkem ${formatHl(litryObdobi)} hl`} />
-          {podlePiv.length === 0 ? (
-            <p className="text-sm text-neutral-500 font-semibold py-8 text-center">V tomhle období se nic nestočilo.</p>
-          ) : (
-            <>
-              <div className="h-[220px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={podlePiv} dataKey="litry" nameKey="nazev" innerRadius="52%" outerRadius="80%" paddingAngle={2} stroke={OBTAZENI} strokeWidth={2}>
-                      {podlePiv.map((p) => <Cell key={p.id} fill={barvaPiva.get(p.id) ?? RADA_BAREV[0]} />)}
-                    </Pie>
-                    <Tooltip {...stylTooltipu} formatter={(v: any, n: any) => [`${(Number(v) / 100).toFixed(1)} hl`, n]} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              {/* Tabulka vedle grafu — barva sama nikdy nenese informaci. */}
-              <div className="space-y-1 mt-2">
-                {podlePiv.map((p) => (
-                  <div key={p.id} className="flex items-center gap-2.5 text-sm">
-                    <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: barvaPiva.get(p.id) }} />
-                    <span className="flex-1 min-w-0 truncate font-bold text-neutral-800">{p.nazev}</span>
-                    <span className="tabular-nums font-black text-neutral-900">{formatHl(p.litry)} hl</span>
-                    <span className="tabular-nums font-semibold text-neutral-400 w-11 text-right">{(p.podil * 100).toFixed(0)} %</span>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-        </section>
-
-        {/* Podíl obalů */}
-        <section className="card p-3.5 sm:p-5">
-          <Nadpis text="Do jakých sudů" popis={`Rozpad výstavu podle velikosti sudu ${popisVybraneho}`} />
-          {podleObalu.length === 0 ? (
-            <p className="text-sm text-neutral-500 font-semibold py-8 text-center">V tomhle období se nic nestočilo.</p>
-          ) : (
-            <>
-              <div className="h-[220px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={podleObalu} dataKey="litry" nameKey="nazev" innerRadius="52%" outerRadius="80%" paddingAngle={2} stroke={OBTAZENI} strokeWidth={2}>
-                      {podleObalu.map((p) => <Cell key={p.id} fill={barvaObalu.get(p.id) ?? RADA_BAREV[1]} />)}
-                    </Pie>
-                    <Tooltip {...stylTooltipu} formatter={(v: any, n: any) => [`${(Number(v) / 100).toFixed(1)} hl`, n]} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="space-y-1 mt-2">
-                {podleObalu.map((p) => (
-                  <div key={p.id} className="flex items-center gap-2.5 text-sm">
-                    <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: barvaObalu.get(p.id) }} />
-                    <span className="flex-1 min-w-0 truncate font-bold text-neutral-800">{p.nazev}</span>
-                    <span className="tabular-nums font-black text-neutral-900">{p.kusy} ks</span>
-                    <span className="tabular-nums font-semibold text-neutral-400 w-16 text-right">{formatHl(p.litry)} hl</span>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-        </section>
-      </div>
-
-      {/* Přestočeno do lahví — údaj o tom, kam pivo z výstavu šlo dál. */}
-      <section className="card p-3.5 sm:p-5">
-        <Nadpis
-          text="Přestočeno do lahví"
-          popis={`${popisVybraneho} — lahvuje se z už stočených sudů, do výstavu se to proto NEpřičítá`}
-        />
-        {podleLahvi.length === 0 ? (
-          <p className="text-sm text-neutral-500 font-semibold py-6 text-center">V tomhle období se nelahvovalo.</p>
-        ) : (
-          <>
-            <div className="flex items-baseline gap-2 mb-3">
-              <span className="font-display font-extrabold text-2xl text-neutral-900 tabular-nums">{formatHl(litryDoLahvi)}</span>
-              <span className="text-base font-bold text-neutral-400">hl</span>
-              {litryObdobi > 0 && (
-                <span className="text-xs font-semibold text-neutral-500">
-                  = {((litryDoLahvi / litryObdobi) * 100).toFixed(0)} % výstavu
-                </span>
-              )}
-            </div>
-            <div className="space-y-1">
-              {podleLahvi.map((p) => (
-                <div key={p.id} className="flex items-center gap-2.5 text-sm">
-                  <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: barvaObalu.get(p.id) }} />
-                  <span className="flex-1 min-w-0 truncate font-bold text-neutral-800">{p.nazev}</span>
-                  <span className="tabular-nums font-black text-neutral-900">{p.kusy} ks</span>
-                  <span className="tabular-nums font-semibold text-neutral-400 w-16 text-right">{formatHl(p.litry)} hl</span>
-                </div>
-              ))}
-            </div>
-          </>
-        )}
-      </section>
-
-      {/* Odběratelé */}
-      <section className="card p-3.5 sm:p-5">
-        <Nadpis text="Největší odběratelé" popis={`Podle objednaného množství ${popisVybraneho} — rozhoduje den závozu`} />
-        {odberatele.length === 0 ? (
-          <EmptyState text="V tomhle období není žádná objednávka." icon={Store} />
-        ) : (
-          <div className="space-y-1.5">
-            {odberatele.map((o, i) => {
-              const podil = odberatele[0].litry > 0 ? o.litry / odberatele[0].litry : 0;
-              const rozbaleno = rozbalenyOdberatel === o.nazev;
-              return (
-                <div key={o.nazev}>
-                  {/* 📦 Klik rozbalí, DO ČEHO se tomu odběrateli vozí.
-                      Souhrnné „16 ks" se pro nachystání závozu použít nedá —
-                      šest padesátek a deset PET je jiná práce než šestnáct
-                      třicítek. */}
-                  <button
-                    type="button"
-                    onClick={() => setRozbalenyOdberatel(rozbaleno ? null : o.nazev)}
-                    aria-expanded={rozbaleno}
-                    className="w-full text-left flex items-center gap-3 min-h-[44px] rounded-xl hover:bg-neutral-50 px-1 -mx-1 transition"
-                  >
-                    <span className="w-6 text-right tabular-nums font-black text-neutral-400 text-xs shrink-0">{i + 1}.</span>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-baseline justify-between gap-2">
-                        <span className="font-bold text-sm text-neutral-900 truncate">{o.nazev}</span>
-                        <span className="tabular-nums font-black text-sm text-neutral-900 shrink-0">{formatHl(o.litry)} hl</span>
-                      </div>
-                      {/* Pruh je jen doplněk k číslu, ne jediný nositel informace. */}
-                      <div className="h-1.5 rounded-full bg-neutral-100 mt-1 overflow-hidden">
-                        <div className="h-full rounded-full" style={{ width: `${Math.max(2, podil * 100)}%`, backgroundColor: BARVA_LETOS }} />
-                      </div>
-                      <div className="text-udaj font-semibold text-neutral-500 mt-0.5 flex items-center gap-1">
-                        <ChevronDown className={`w-3 h-3 shrink-0 transition-transform ${rozbaleno ? 'rotate-180' : ''}`} />
-                        {o.kusy} ks · {o.objednavek} {o.objednavek === 1 ? 'objednávka' : o.objednavek < 5 ? 'objednávky' : 'objednávek'}
-                        {!rozbaleno && o.obaly.length > 0 && <span className="text-neutral-400">· do čeho ▸</span>}
-                      </div>
-                    </div>
-                  </button>
-                  {rozbaleno && (
-                    <div className="ml-9 mt-1 mb-2 rounded-xl border border-neutral-200 bg-neutral-50 p-2.5 space-y-1">
-                      {o.obaly.length === 0 ? (
-                        <p className="text-udaj font-semibold text-neutral-500">U položek není uvedený obal.</p>
-                      ) : (
-                        <>
-                          {o.obaly.map((ob) => (
-                            <div key={ob.id} className="flex items-center gap-2.5 text-sm">
-                              <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: barvaObalu.get(ob.id) ?? RADA_BAREV[1] }} />
-                              <span className="flex-1 min-w-0 truncate font-bold text-neutral-800">{ob.nazev}</span>
-                              <span className="tabular-nums font-black text-neutral-900">{ob.kusy} ks</span>
-                              <span className="tabular-nums font-semibold text-neutral-400 w-24 text-right">
-                                {o.objednavek > 0 ? `${ksFormat(ob.kusy / o.objednavek)} / závoz` : ''}
-                              </span>
-                            </div>
-                          ))}
-                          <p className="text-udaj font-semibold text-neutral-500 pt-1 border-t border-neutral-200">
-                            „/ závoz" = průměr na jednu objednávku v tomhle období — podklad pro to, co naložit.
-                          </p>
-                        </>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </section>
-
       {/* 📦 Obaly v číslech — jádro toho, kvůli čemu se sem chodí.
           Zadání 23. 9. 2026: „nestojim o data kolik celkem bylo stoceny
           lahvi a kegu najednou (udaj k nicemu, je potreba vedet konkretni
@@ -797,93 +630,278 @@ export default function StatistikaVystav({
         </section>
       )}
 
-      {/* 🛢️ Rozpočet sudů — přesunuto sem ze záložky „Měsíční přehledy",
-          kde to viselo jako „Ztráty KEG" jen jako souhrn za měsíc.
-          Vzorec je tentýž (stočeno − fasováno − odpisy), jen po konkrétních
-          velikostech a za zvolené období. */}
-      {rozpocet.length > 0 && (
+      {/* Pivo a odběratelé vedle sebe — „kdo a co" za zvolené období. */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Podíl piv */}
+        <section className="card p-3.5 sm:p-5">
+          <Nadpis text="Které pivo táhne" popis={`Podíl na výstavu ${popisVybraneho} · celkem ${formatHl(litryObdobi)} hl`} />
+          {podlePiv.length === 0 ? (
+            <p className="text-sm text-neutral-500 font-semibold py-8 text-center">V tomhle období se nic nestočilo.</p>
+          ) : (
+            <>
+              <div className="h-[220px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={podlePiv} dataKey="litry" nameKey="nazev" innerRadius="52%" outerRadius="80%" paddingAngle={2} stroke={OBTAZENI} strokeWidth={2}>
+                      {podlePiv.map((p) => <Cell key={p.id} fill={barvaPiva.get(p.id) ?? RADA_BAREV[0]} />)}
+                    </Pie>
+                    <Tooltip {...stylTooltipu} formatter={(v: any, n: any) => [`${(Number(v) / 100).toFixed(1)} hl`, n]} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              {/* Tabulka vedle grafu — barva sama nikdy nenese informaci. */}
+              <div className="space-y-1 mt-2">
+                {podlePiv.map((p) => (
+                  <div key={p.id} className="flex items-center gap-2.5 text-sm">
+                    <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: barvaPiva.get(p.id) }} />
+                    <span className="flex-1 min-w-0 truncate font-bold text-neutral-800">{p.nazev}</span>
+                    <span className="tabular-nums font-black text-neutral-900">{formatHl(p.litry)} hl</span>
+                    <span className="tabular-nums font-semibold text-neutral-400 w-11 text-right">{(p.podil * 100).toFixed(0)} %</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </section>
+
+        {/* Odběratelé */}
+        <section className="card p-3.5 sm:p-5">
+          <Nadpis text="Největší odběratelé" popis={`Podle objednaného množství ${popisVybraneho} — rozhoduje den závozu`} />
+          {odberatele.length === 0 ? (
+            <EmptyState text="V tomhle období není žádná objednávka." icon={Store} />
+          ) : (
+            <div className="space-y-1.5">
+              {odberatele.map((o, i) => {
+                const podil = odberatele[0].litry > 0 ? o.litry / odberatele[0].litry : 0;
+                const rozbaleno = rozbalenyOdberatel === o.nazev;
+                return (
+                  <div key={o.nazev}>
+                    {/* 📦 Klik rozbalí, DO ČEHO se tomu odběrateli vozí.
+                        Souhrnné „16 ks" se pro nachystání závozu použít nedá —
+                        šest padesátek a deset PET je jiná práce než šestnáct
+                        třicítek. */}
+                    <button
+                      type="button"
+                      onClick={() => setRozbalenyOdberatel(rozbaleno ? null : o.nazev)}
+                      aria-expanded={rozbaleno}
+                      className="w-full text-left flex items-center gap-3 min-h-[44px] rounded-xl hover:bg-neutral-50 px-1 -mx-1 transition"
+                    >
+                      <span className="w-6 text-right tabular-nums font-black text-neutral-400 text-xs shrink-0">{i + 1}.</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-baseline justify-between gap-2">
+                          <span className="font-bold text-sm text-neutral-900 truncate">{o.nazev}</span>
+                          <span className="tabular-nums font-black text-sm text-neutral-900 shrink-0">{formatHl(o.litry)} hl</span>
+                        </div>
+                        {/* Pruh je jen doplněk k číslu, ne jediný nositel informace. */}
+                        <div className="h-1.5 rounded-full bg-neutral-100 mt-1 overflow-hidden">
+                          <div className="h-full rounded-full" style={{ width: `${Math.max(2, podil * 100)}%`, backgroundColor: BARVA_LETOS }} />
+                        </div>
+                        <div className="text-udaj font-semibold text-neutral-500 mt-0.5 flex items-center gap-1">
+                          <ChevronDown className={`w-3 h-3 shrink-0 transition-transform ${rozbaleno ? 'rotate-180' : ''}`} />
+                          {o.kusy} ks · {o.objednavek} {o.objednavek === 1 ? 'objednávka' : o.objednavek < 5 ? 'objednávky' : 'objednávek'}
+                          {!rozbaleno && o.obaly.length > 0 && <span className="text-neutral-400">· do čeho ▸</span>}
+                        </div>
+                      </div>
+                    </button>
+                    {rozbaleno && (
+                      <div className="ml-9 mt-1 mb-2 rounded-xl border border-neutral-200 bg-neutral-50 p-2.5 space-y-1">
+                        {o.obaly.length === 0 ? (
+                          <p className="text-udaj font-semibold text-neutral-500">U položek není uvedený obal.</p>
+                        ) : (
+                          <>
+                            {o.obaly.map((ob) => (
+                              <div key={ob.id} className="flex items-center gap-2.5 text-sm">
+                                <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: barvaObalu.get(ob.id) ?? RADA_BAREV[1] }} />
+                                <span className="flex-1 min-w-0 truncate font-bold text-neutral-800">{ob.nazev}</span>
+                                <span className="tabular-nums font-black text-neutral-900">{ob.kusy} ks</span>
+                                <span className="tabular-nums font-semibold text-neutral-400 w-24 text-right">
+                                  {o.objednavek > 0 ? `${ksFormat(ob.kusy / o.objednavek)} / závoz` : ''}
+                                </span>
+                              </div>
+                            ))}
+                            <p className="text-udaj font-semibold text-neutral-500 pt-1 border-t border-neutral-200">
+                              „/ závoz" = průměr na jednu objednávku v tomhle období — podklad pro to, co naložit.
+                            </p>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+      </div>
+
+      {/* Další rozpady — sbalené. Na telefonu dělaly skoro třetinu stránky
+          a z velké části opakují, co je výš („Do jakých sudů" a „Přestočeno
+          do lahví" jsou tytéž obaly jako v tabulce „Obaly v číslech", „Piva
+          v číslech" tentýž rozpad jako graf „Které pivo táhne"). Čísla se
+          nemění, jen jsou o klepnutí dál. */}
+      <details className="group">
+        <summary className="card p-3.5 sm:p-4 cursor-pointer select-none list-none flex items-center justify-between gap-2">
+          <span>
+            <span className="block font-display font-black text-base text-neutral-900">Další rozpady</span>
+            <span className="block text-udaj font-semibold text-neutral-500">Velikosti sudů v grafu, přestočeno do lahví, rozpočet sudů, piva v číslech</span>
+          </span>
+          <ChevronDown size={18} className="shrink-0 text-neutral-500 transition group-open:rotate-180" />
+        </summary>
+        <div className="space-y-4 mt-4">
+          {/* Podíl obalů */}
+          <section className="card p-3.5 sm:p-5">
+            <Nadpis text="Do jakých sudů" popis={`Rozpad výstavu podle velikosti sudu ${popisVybraneho}`} />
+            {podleObalu.length === 0 ? (
+              <p className="text-sm text-neutral-500 font-semibold py-8 text-center">V tomhle období se nic nestočilo.</p>
+            ) : (
+              <>
+                <div className="h-[220px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={podleObalu} dataKey="litry" nameKey="nazev" innerRadius="52%" outerRadius="80%" paddingAngle={2} stroke={OBTAZENI} strokeWidth={2}>
+                        {podleObalu.map((p) => <Cell key={p.id} fill={barvaObalu.get(p.id) ?? RADA_BAREV[1]} />)}
+                      </Pie>
+                      <Tooltip {...stylTooltipu} formatter={(v: any, n: any) => [`${(Number(v) / 100).toFixed(1)} hl`, n]} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="space-y-1 mt-2">
+                  {podleObalu.map((p) => (
+                    <div key={p.id} className="flex items-center gap-2.5 text-sm">
+                      <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: barvaObalu.get(p.id) }} />
+                      <span className="flex-1 min-w-0 truncate font-bold text-neutral-800">{p.nazev}</span>
+                      <span className="tabular-nums font-black text-neutral-900">{p.kusy} ks</span>
+                      <span className="tabular-nums font-semibold text-neutral-400 w-16 text-right">{formatHl(p.litry)} hl</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </section>
+        {/* Přestočeno do lahví — údaj o tom, kam pivo z výstavu šlo dál. */}
         <section className="card p-3.5 sm:p-5">
           <Nadpis
-            text="Rozpočet sudů"
-            popis={`${popisVybraneho} — co se stočilo proti tomu, co se vyfasovalo a odepsalo`}
+            text="Přestočeno do lahví"
+            popis={`${popisVybraneho} — lahvuje se z už stočených sudů, do výstavu se to proto NEpřičítá`}
           />
-          <div className="overflow-x-auto -mx-1 px-1">
-            <table className="table-drzi-prvni-sloupec w-full text-sm">
-              <thead>
-                <tr className="text-udaj font-black uppercase tracking-wider text-neutral-500 border-b border-neutral-200">
-                  <th scope="col" className="text-left py-2">Sud</th>
-                  <th scope="col" className="text-right py-2">Stočeno</th>
-                  <th scope="col" className="text-right py-2">Fasováno</th>
-                  <th scope="col" className="text-right py-2">Odpisy</th>
-                  <th scope="col" className="text-right py-2">Objednáno</th>
-                  <th scope="col" className="text-right py-2">Nerozpočteno</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rozpocet.map((r) => (
-                  <tr key={r.id} className="border-b border-neutral-100 last:border-0">
-                    <td className="py-2.5">
-                      <span className="inline-flex items-center gap-2">
-                        <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: barvaObalu.get(r.id) ?? RADA_BAREV[1] }} />
-                        <span className="font-bold text-neutral-900">{r.nazev}</span>
-                      </span>
-                    </td>
-                    <td className="text-right tabular-nums font-black text-neutral-900">{r.stoceno}</td>
-                    <td className="text-right tabular-nums font-semibold text-neutral-700">{r.fasovano}</td>
-                    <td className="text-right tabular-nums font-semibold text-neutral-700">{r.odpisy}</td>
-                    <td className="text-right tabular-nums font-semibold text-neutral-500">{r.objednano}</td>
-                    <td className={`text-right tabular-nums font-black ${r.nerozpocteno > 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
-                      {r.nerozpocteno}
-                    </td>
-                  </tr>
+          {podleLahvi.length === 0 ? (
+            <p className="text-sm text-neutral-500 font-semibold py-6 text-center">V tomhle období se nelahvovalo.</p>
+          ) : (
+            <>
+              <div className="flex items-baseline gap-2 mb-3">
+                <span className="font-display font-extrabold text-2xl text-neutral-900 tabular-nums">{formatHl(litryDoLahvi)}</span>
+                <span className="text-base font-bold text-neutral-400">hl</span>
+                {litryObdobi > 0 && (
+                  <span className="text-xs font-semibold text-neutral-500">
+                    = {((litryDoLahvi / litryObdobi) * 100).toFixed(0)} % výstavu
+                  </span>
+                )}
+              </div>
+              <div className="space-y-1">
+                {podleLahvi.map((p) => (
+                  <div key={p.id} className="flex items-center gap-2.5 text-sm">
+                    <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: barvaObalu.get(p.id) }} />
+                    <span className="flex-1 min-w-0 truncate font-bold text-neutral-800">{p.nazev}</span>
+                    <span className="tabular-nums font-black text-neutral-900">{p.kusy} ks</span>
+                    <span className="tabular-nums font-semibold text-neutral-400 w-16 text-right">{formatHl(p.litry)} hl</span>
+                  </div>
                 ))}
-              </tbody>
-            </table>
-          </div>
-          <p className="text-udaj text-neutral-400 font-semibold mt-2">
-            Nerozpočteno = stočeno − fasováno − odpisy. Objednané kusy jsou vedle jen jako kontext (podle dne závozu),
-            do rozdílu nevstupují — objednávka není pohyb skladu.
-          </p>
+              </div>
+            </>
+          )}
         </section>
-      )}
 
-      {/* Piva v číslech — tabulka jako alternativa ke grafu */}
-      {podlePiv.length > 0 && (
-        <section className="card p-3.5 sm:p-5">
-          <Nadpis text="Piva v číslech" popis={`${popisVybraneho}${predchozi ? ` · srovnání s obdobím ${POPIS_PREDCHOZI[obdobi]}` : ''}`} />
-          <div className="overflow-x-auto -mx-1 px-1">
-            <table className="table-drzi-prvni-sloupec w-full text-sm">
-              <thead>
-                <tr className="text-udaj font-black uppercase tracking-wider text-neutral-500 border-b border-neutral-200">
-                  <th scope="col" className="text-left py-2">Pivo</th>
-                  <th scope="col" className="text-right py-2">Kusů</th>
-                  <th scope="col" className="text-right py-2">Hektolitrů</th>
-                  <th scope="col" className="text-right py-2">Podíl</th>
-                  {predchozi && <th scope="col" className="text-right py-2">Změna</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {podlePiv.map((p) => {
-                  return (
-                    <tr key={p.id} className="border-b border-neutral-100 last:border-0">
+        {/* 🛢️ Rozpočet sudů — přesunuto sem ze záložky „Měsíční přehledy",
+            kde to viselo jako „Ztráty KEG" jen jako souhrn za měsíc.
+            Vzorec je tentýž (stočeno − fasováno − odpisy), jen po konkrétních
+            velikostech a za zvolené období. */}
+        {rozpocet.length > 0 && (
+          <section className="card p-3.5 sm:p-5">
+            <Nadpis
+              text="Rozpočet sudů"
+              popis={`${popisVybraneho} — co se stočilo proti tomu, co se vyfasovalo a odepsalo`}
+            />
+            <div className="overflow-x-auto -mx-1 px-1">
+              <table className="table-drzi-prvni-sloupec w-full text-sm">
+                <thead>
+                  <tr className="text-udaj font-black uppercase tracking-wider text-neutral-500 border-b border-neutral-200">
+                    <th scope="col" className="text-left py-2">Sud</th>
+                    <th scope="col" className="text-right py-2">Stočeno</th>
+                    <th scope="col" className="text-right py-2">Fasováno</th>
+                    <th scope="col" className="text-right py-2">Odpisy</th>
+                    <th scope="col" className="text-right py-2">Objednáno</th>
+                    <th scope="col" className="text-right py-2">Nerozpočteno</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rozpocet.map((r) => (
+                    <tr key={r.id} className="border-b border-neutral-100 last:border-0">
                       <td className="py-2.5">
                         <span className="inline-flex items-center gap-2">
-                          <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: barvaPiva.get(p.id) }} />
-                          <span className="font-bold text-neutral-900">{p.nazev}</span>
+                          <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: barvaObalu.get(r.id) ?? RADA_BAREV[1] }} />
+                          <span className="font-bold text-neutral-900">{r.nazev}</span>
                         </span>
                       </td>
-                      <td className="text-right tabular-nums font-semibold text-neutral-700">{p.kusy}</td>
-                      <td className="text-right tabular-nums font-black text-neutral-900">{formatHl(p.litry)}</td>
-                      <td className="text-right tabular-nums font-semibold text-neutral-500">{(p.podil * 100).toFixed(0)} %</td>
-                      {predchozi && <td className="text-right"><Trend zmena={p.zmena} /></td>}
+                      <td className="text-right tabular-nums font-black text-neutral-900">{r.stoceno}</td>
+                      <td className="text-right tabular-nums font-semibold text-neutral-700">{r.fasovano}</td>
+                      <td className="text-right tabular-nums font-semibold text-neutral-700">{r.odpisy}</td>
+                      <td className="text-right tabular-nums font-semibold text-neutral-500">{r.objednano}</td>
+                      <td className={`text-right tabular-nums font-black ${r.nerozpocteno > 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
+                        {r.nerozpocteno}
+                      </td>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      )}
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="text-udaj text-neutral-400 font-semibold mt-2">
+              Nerozpočteno = stočeno − fasováno − odpisy. Objednané kusy jsou vedle jen jako kontext (podle dne závozu),
+              do rozdílu nevstupují — objednávka není pohyb skladu.
+            </p>
+          </section>
+        )}
+
+        {/* Piva v číslech — tabulka jako alternativa ke grafu */}
+        {podlePiv.length > 0 && (
+          <section className="card p-3.5 sm:p-5">
+            <Nadpis text="Piva v číslech" popis={`${popisVybraneho}${predchozi ? ` · srovnání s obdobím ${POPIS_PREDCHOZI[obdobi]}` : ''}`} />
+            <div className="overflow-x-auto -mx-1 px-1">
+              <table className="table-drzi-prvni-sloupec w-full text-sm">
+                <thead>
+                  <tr className="text-udaj font-black uppercase tracking-wider text-neutral-500 border-b border-neutral-200">
+                    <th scope="col" className="text-left py-2">Pivo</th>
+                    <th scope="col" className="text-right py-2">Kusů</th>
+                    <th scope="col" className="text-right py-2">Hektolitrů</th>
+                    <th scope="col" className="text-right py-2">Podíl</th>
+                    {predchozi && <th scope="col" className="text-right py-2">Změna</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {podlePiv.map((p) => {
+                    return (
+                      <tr key={p.id} className="border-b border-neutral-100 last:border-0">
+                        <td className="py-2.5">
+                          <span className="inline-flex items-center gap-2">
+                            <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: barvaPiva.get(p.id) }} />
+                            <span className="font-bold text-neutral-900">{p.nazev}</span>
+                          </span>
+                        </td>
+                        <td className="text-right tabular-nums font-semibold text-neutral-700">{p.kusy}</td>
+                        <td className="text-right tabular-nums font-black text-neutral-900">{formatHl(p.litry)}</td>
+                        <td className="text-right tabular-nums font-semibold text-neutral-500">{(p.podil * 100).toFixed(0)} %</td>
+                        {predchozi && <td className="text-right"><Trend zmena={p.zmena} /></td>}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+
+        </div>
+      </details>
 
       <p className="text-udaj text-neutral-400 font-semibold px-1">
         Výstav = objem stočených <strong>sudů</strong> (množství × objem obalu). Lahve se do něj nepočítají —

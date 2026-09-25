@@ -593,3 +593,55 @@ export function formatHl(litry: number): string {
   const v = hl(litry);
   return v.toLocaleString('cs-CZ', { maximumFractionDigits: v >= 100 ? 0 : 1 });
 }
+
+/**
+ * Objednané kusy po měsících (podle data ZADÁNÍ objednávky), bez storna.
+ *
+ * Dřív se to v History.tsx počítalo tak, že se pro KAŽDOU objednávku znovu
+ * procházely VŠECHNY položky — při tisícovce objednávek a pár tisících
+ * položek miliony porovnání při každém otevření Statistiky. Tady se položky
+ * jednou roztřídí podle objednávky; výsledek je stejný (test to porovnává
+ * s původním postupem, i v pořadí sčítání).
+ */
+export function objednanoPoMesicich(
+  objednavky: { id: string; order_date: string; status: string }[],
+  polozky: { order_id: string; quantity: number | string | null }[],
+): Map<string, number> {
+  const podleObjednavky = new Map<string, (number | string | null)[]>();
+  for (const p of polozky) {
+    const seznam = podleObjednavky.get(p.order_id);
+    if (seznam) seznam.push(p.quantity); else podleObjednavky.set(p.order_id, [p.quantity]);
+  }
+  const out = new Map<string, number>();
+  for (const o of objednavky) {
+    if (o.status === 'storno') continue;
+    const mk = o.order_date.slice(0, 7);
+    for (const q of podleObjednavky.get(o.id) ?? []) {
+      out.set(mk, (out.get(mk) ?? 0) + Number(q));
+    }
+  }
+  return out;
+}
+
+/**
+ * Pro každou dvojici pivo+obal první objednávka (v pořadí seznamu, bez storna),
+ * která ji obsahuje — kam vede klepnutí na řádek v Podrobném hledání.
+ *
+ * Dřív se to hledalo při vykreslení KAŽDÉHO řádku znovu přes všechny
+ * objednávky a jejich položky, a to dvakrát (karty pro telefon i tabulka
+ * jsou v stránce obě, jen jedna je schovaná).
+ */
+export function prvniObjednavkaPodlePolozky(
+  objednavky: { id: string; status: string }[],
+  polozkyPodleObjednavky: Record<string, { beer_id: string | null; package_id: string | null }[]>,
+): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const o of objednavky) {
+    if (o.status === 'storno') continue;
+    for (const i of polozkyPodleObjednavky[o.id] ?? []) {
+      const klic = `${i.beer_id}__${i.package_id}`;
+      if (!out.has(klic)) out.set(klic, o.id);
+    }
+  }
+  return out;
+}
