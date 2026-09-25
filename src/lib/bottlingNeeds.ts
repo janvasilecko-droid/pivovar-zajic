@@ -16,8 +16,11 @@
 //                     skutečný výdej, tady jen odhad pro dny, co teprve přijdou
 //   • planned       – naplánované stáčení v týdnu (jen 1. stáčení piva)
 //   • afterBottling – sklad + naplánováno
-//   • missing       – chybí stočit do konce týdne = max(0, objednávky + fasování − po stočení)
-//   • afterOutgoing – konec týdne = po stočení − objednávky − fasování
+//   • missing       – chybí stočit do konce týdne = max(0, JEŠTĚ NEZAVEZENÁ
+//                     část objednávek + fasování − po stočení). Pozor: ne
+//                     celé `ordered` — kusy, které už odjely, má `stock`
+//                     odečtené sám a odečíst je podruhé nafukuje potřebu.
+//   • afterOutgoing – konec týdne = po stočení − nezavezené objednávky − fasování
 //
 // Čerstvé stočení se tak projeví v „chybí stočit" OKAMŽITĚ (počítá se do
 // „stock" hned po uložení), bez čekání na to, až se nějaká JINÁ objednávka
@@ -25,6 +28,7 @@
 import { AkceRow } from './inventoryHelper';
 import { buildMovements, stockAsOf } from './stockLedger';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
+import { odecteneKusyPolozek } from './tydenniZbytek';
 import type { BottlingPlan } from './bottlingPlans';
 
 export type NeedsRow = {
@@ -34,6 +38,12 @@ export type NeedsRow = {
   package_label: string;
   volume_l: number;
   ordered: number;
+  /**
+   * Kolik z objednávek týdne ještě NEODJELO (objednáno − co už je zavezené).
+   * Proti tomuhle číslu se rozhoduje, kolik stočit — `ordered` samo o sobě
+   * u rozvezené objednávky lže, protože zavezené kusy už ze skladu odešly.
+   */
+  zbyvaZavezt: number;
   stock: number;
   planned: number;
   fasovani: number;
@@ -99,6 +109,15 @@ export function computeBottlingNeeds(input: BottlingNeedsInput): NeedsRow[] {
   //     ignoroval, zatímco Sklad i Inventura s ní počítaly hned,
   //   • přefuk a dorovnání inventury zadané tento týden se nezapočítaly vůbec,
   //   • sud spotřebovaný na stáčení lahví (kegs_used) taky ne.
+  //
+  // ⚠️ BEZ ORŘEZU NA NULU (oprava z 24. 9. 2026, „potřeby stáčení
+  // neodečítají stočené piva"). Dřív tu stálo `Math.max(0, line.qty)`.
+  // Když byl sklad v mínusu (Sklad ukazoval −1×30 12° Světlé), stočení ho
+  // jen posunulo blíž k nule a „chybí stočit" se nepohnulo vůbec nebo jen
+  // o část — ze sklad −8 a 5 stočených zůstala pořád nula. Plán sudů
+  // (keggingPlan.ts) záporný sklad jako dluh počítá už od 15. 9.; tahle
+  // obrazovka se s ním proto rozcházela. `stock` je teď stejné číslo jako
+  // Sklad, i v mínusu.
   const stockMap: Record<string, number> = {};
   stockAsOf(
     buildMovements({
@@ -106,23 +125,47 @@ export function computeBottlingNeeds(input: BottlingNeedsInput): NeedsRow[] {
       writeoffsRows, zavozDeductionRows, akceRows, prefukRows, adjustmentRows, packages,
     }),
     weekEndStr,
-  ).forEach((line, k) => { stockMap[k] = Math.max(0, line.qty); });
+  ).forEach((line, k) => { stockMap[k] = line.qty; });
 
-  // Objednávky v daném týdnu (ks na pivo + obal) — VŠECHNY, i už zavezené.
+  // Objednávky v daném týdnu (ks na pivo + obal) — VŠECHNY, i už zavezené
+  // a vyřízené, jen storno ne.
+  //
+  // ⚠️ Vyřízené (`jeVyrizena()`) se dřív vynechávaly. S dopočtem po
+  // položkách níž (`zbyvaZavezt`) to není potřeba — odjetá položka s
+  // odpočtem přidá do „zbývá zavézt" nulu sama. A vynechání škodilo:
+  // objednávka odkliknutá jako „Zavezeno" dřív, než přišel její den závozu,
+  // z potřeby zmizela, a protože odpočet ze skladu ještě nebyl, její sudy
+  // dál „ležely" ve skladu — chybí stočit vyšlo menší, než je pravda.
   const activeIds = new Set(
     orders
       .filter((o) => {
-        if (o.status === 'storno' || o.status === 'vyrizeno' || o.status === 'vyrizeno_zavoz') return false;
+        if (o.status === 'storno') return false;
         const target = o.delivery_date || o.order_date;
         return isThisWeek(target);
       })
       .map((o) => o.id)
   );
+  //
+  // 🐛 Z provozu 22. 9. 2026: „potreby staceni: neodecitaji se stocene lahve
+  // a sudy, furt mi to ukazuje vysoky cisla." Objednávka se běžně veze na
+  // dvakrát a uzavře se (a z `ordered` vypadne) teprve tehdy, když má odpočet
+  // KAŽDÁ položka — do té doby zůstávala v potřebě CELÁ, ačkoli část už
+  // fyzicky odjela a skladová kniha ji ze `stock` dávno odečetla. Tytéž kusy
+  // se tak odečetly dvakrát a „chybí stočit" přerůstalo skutečnost tím víc,
+  // čím víc rozvezených objednávek v týdnu bylo.
+  //
+  // `ordered` (sloupec „objednáno") zůstává CELÁ týdenní potřeba — tak se to
+  // čte a tak to má být. Dopočet níž ale musí jít proti tomu, co ještě
+  // NEODJELO, jinak se zavezené kusy odečtou podruhé.
+  const odecteno = odecteneKusyPolozek(zavozDeductionRows);
   const weekOrdered: Record<string, number> = {};
+  const weekZbyvaZavezt: Record<string, number> = {};
   orderItems.filter((item) => item.package_id && activeIds.has(item.order_id)).forEach((item) => {
     if (!item.beer_id || !item.package_id) return;
     const k = `${item.beer_id}__${item.package_id}`;
-    weekOrdered[k] = (weekOrdered[k] || 0) + Number(item.quantity || 0);
+    const qty = Number(item.quantity || 0);
+    weekOrdered[k] = (weekOrdered[k] || 0) + qty;
+    weekZbyvaZavezt[k] = (weekZbyvaZavezt[k] || 0) + Math.max(0, qty - (odecteno.get(item.id) ?? 0));
   });
 
   // Odhad fasování pro ZBÝVAJÍCÍ dny týdne (průměr za posledních 30 dní ×
@@ -183,6 +226,9 @@ export function computeBottlingNeeds(input: BottlingNeedsInput): NeedsRow[] {
     packages.forEach((p) => {
       const k = `${b.id}__${p.id}`;
       const ordered = weekOrdered[k] || 0;
+      // Co ještě NEODJELO — proti tomu se počítá „chybí stočit" a „konec
+      // týdne". Zavezené kusy má `stock` odečtené sám (viz weekZbyvaZavezt).
+      const zbyvaZavezt = weekZbyvaZavezt[k] || 0;
       const stock = stockMap[k] || 0;
       const planned = plannedMap[k] || 0;
       const fasovani = fasovaniEstimate[k] || 0;
@@ -195,12 +241,13 @@ export function computeBottlingNeeds(input: BottlingNeedsInput): NeedsRow[] {
         package_label: p.label,
         volume_l: Number(p.volume_l || 0),
         ordered,
+        zbyvaZavezt,
         stock,
         planned,
         fasovani,
         afterBottling,
-        missing: Math.max(0, ordered + fasovani - afterBottling),
-        afterOutgoing: afterBottling - ordered - fasovani,
+        missing: Math.max(0, zbyvaZavezt + fasovani - afterBottling),
+        afterOutgoing: afterBottling - zbyvaZavezt - fasovani,
       });
     });
   });

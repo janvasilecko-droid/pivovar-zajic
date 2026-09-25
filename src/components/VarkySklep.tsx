@@ -6,6 +6,7 @@ import { chyba, oznam, potvrd } from '../lib/toast';
 import { chybiTabulka } from '../lib/chybyHlaseni';
 import { useAuth } from '../lib/auth';
 import { bodyGrafu, dalsiGenerace, posledniStupnovitost, prokvaseni, type Mereni, type Varka } from '../lib/varky';
+import { businessDateISO } from '../lib/businessDate';
 
 /** Česky s čárkou a nejvýš jedním desetinným místem (12,1 °P, ne 12.1). */
 function cz(n: number | null | undefined): string {
@@ -59,7 +60,7 @@ export function VarkySklep({ beers, tanks }: { beers: Beer[]; tanks: CellarTank[
   if (stav === 'bez-migrace') {
     return (
       <EmptyState
-        text="Várky potřebují migraci 20261231050000_varky_mereni_a_kvasnice.sql — spusť ji v Nastavení → Diagnostika → Databázové migrace."
+        text="Várky potřebují migraci 20261231050000_varky_mereni_a_kvasnice.sql — spusť ji v dlaždici Audit → Diagnostika → Databázové migrace."
       />
     );
   }
@@ -239,7 +240,7 @@ function VarkaForm({ varka, varky, beers, tanks, onClose }: {
   const [objem, setObjem] = useState(varka?.volume_hl != null ? String(varka.volume_hl) : '');
   const [og, setOg] = useState(varka?.og != null ? String(varka.og) : '');
   const [fg, setFg] = useState(varka?.fg != null ? String(varka.fg) : '');
-  const [od, setOd] = useState(varka?.started_at?.slice(0, 10) ?? new Date().toISOString().slice(0, 10));
+  const [od, setOd] = useState(varka?.started_at?.slice(0, 10) ?? businessDateISO());
   const [doKdy, setDoKdy] = useState(varka?.finished_at?.slice(0, 10) ?? '');
   const [zdrojId, setZdrojId] = useState(varka?.kvasnice_z_varky ?? '');
   const [generace, setGenerace] = useState(varka?.kvasnice_generace != null ? String(varka.kvasnice_generace) : '1');

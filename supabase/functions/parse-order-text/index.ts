@@ -56,6 +56,8 @@ interface WhatsAppMessageHint {
 }
 
 interface AiResponse {
+  /** Otázky pro obsluhu, když si model není jistý (viz KDYŽ NEVÍŠ v pravidlech). */
+  otazky?: string[];
   items?: OrderItem[];
   raw_text?: string;
   place_name?: string | null;
@@ -310,6 +312,13 @@ Deno.serve(async (req: Request) => {
     const amendOrder = body.amendOrder as
       | { place_name: string | null; items: { beer_name: string | null; package_label: string | null; quantity: number }[] }
       | undefined;
+    // 🧠 Historie objednávek (sestavuje whatsapp-auto-parse, viz
+    // _shared/historie-objednavek.ts). Prázdné = není co říct; prázdný nadpis
+    // v promptu jen ubere pozornost od pravidel, která něco znamenají.
+    const historieSection = typeof body.historie === "string" && body.historie.trim()
+      ? body.historie
+      : "";
+
     const amendSection = amendOrder
       ? `
 
@@ -597,10 +606,17 @@ PRAVIDLA:
 - place_name se dědí odshora dolů — nikdy nenechávej null jen proto, že řádek sám o sobě jméno neobsahuje, pokud ho lze odvodit z PŘEDCHOZÍCH ŘÁDKŮ zprávy. Záhlaví zprávy / jméno odesílatele se pro odběratele NEPOUŽÍVÁ (kromě výjimky "pro mě"/"mi"/"mně"/"pro mne", kdy je odběratelem odesílatel).
 - OBECNÉ PRAVIDLO PRO CELÝ VÝSTUP: u beer_name i place_name VŽDY nejprve zkus najít shodu v existujících datech (KATALOG PIV / NAUČENÉ ZKRATKY / ZNÁMÍ ODBĚRATELÉ) — i při nepřesné, fonetické nebo překlepové shodě. Teprve když opravdu nic z existujících dat neodpovídá, ber to jako nové/neznámé (u piva vrať null, u odběratele vrať text tak, jak jsi ho přečetl). Nikdy nepřepisuj/nenahrazuj existující známou položku vlastním vymyšleným textem, pokud shoda s katalogem/seznamem je rozumně možná.
 
+${historieSection}
 ${amendSection}
 
 Vrať ČISTĚ JSON (bez markdown, bez \`\`\`), přesně v tomto formátu, a nic jiného:
-{"items":[{"quantity":4,"degree":"12°","beer_name":"12° Světlá","package_label":"KEG 50l","raw_line":"Seeberg 4x30 12sv a 2x30 12sv","place_name":"Seeberg","date":"2026-01-01"},{"quantity":2,"degree":"12°","beer_name":"12° Světlá","package_label":"KEG 30l","raw_line":"Seeberg 4x30 12sv a 2x30 12sv","place_name":"Seeberg","date":"2026-01-01"}],"place_name":"Seeberg","raw_text":"celý rozpoznaný text"}
+{"items":[{"quantity":4,"degree":"12°","beer_name":"12° Světlá","package_label":"KEG 50l","raw_line":"Seeberg 4x30 12sv a 2x30 12sv","place_name":"Seeberg","date":"2026-01-01"},{"quantity":2,"degree":"12°","beer_name":"12° Světlá","package_label":"KEG 30l","raw_line":"Seeberg 4x30 12sv a 2x30 12sv","place_name":"Seeberg","date":"2026-01-01"}],"place_name":"Seeberg","raw_text":"celý rozpoznaný text","otazky":[]}
+
+DŮLEŽITÉ — "otazky":
+Pole "otazky" je seznam vět (řetězců) pro obsluhu — viz pravidlo „KDYŽ TO NEJDE
+ROZHODNOUT — ZEPTEJ SE" výše. Vrať ho VŽDY, i prázdné. Je to jediná cesta, jak
+říct „tohle mi není jasné" místo hádání; obsluha zprávu stejně kontroluje.
+Příklad: {"items":[...],"place_name":null,"raw_text":"...","otazky":["Ve zprávě není odběratel a nedá se odvodit z citace — pro koho je '4x50 12sv'?"]}
 
 DŮLEŽITÉ — TOP-LEVEL "place_name":
 Do odpovědi VŽDY přidej i top-level pole "place_name" (na úrovni celé odpovědi, vedle "items" a "raw_text"). Toto pole = JMÉNO ODBĚRATELE, jehož objednávka je v textu NEJVÝRAZNĚJŠÍ / první / hlavní (obvykle první zpráva nahoře). Pokud je v textu více odběratelů, top-level place_name = ten první/nejvýraznější. Pokud text říká "pro mě"/"mi"/"mně"/"pro mne", použij jméno ODESÍLATELE první/nejvýraznější zprávy. Než vrátíš null, projdi bod 13 výše (KRITICKÉ PRAVIDLO PRO ODBĚRATELE) — teprve když opravdu nic nenajdeš (v textu žádný není, nebo jediný kandidát je jméno odesílatele, aniž by text říkal "pro mě"), vrať null. Příklad bez odběratele: {"items":[...],"place_name":null,"raw_text":"..."}. Toto pole je důležité, protože aplikace ho použije pro vytvoření nové objednávky.
@@ -861,6 +877,15 @@ ${photoSection}`;
       place_name: typeof it.place_name === "string" ? it.place_name : null,
       date: typeof it.date === "string" ? it.date : null,
     }));
+
+    // ❓ Otázky pro obsluhu — jediná cesta, jak model řekne „tohle mi není
+    // jasné" místo hádání. Normalizuje se tvrdě: jen neprázdné řetězce,
+    // oříznuté, nejvýš tři — dlouhý seznam otázek by obsluha přeskočila
+    // stejně jako žádný.
+    parsed.otazky = (Array.isArray((parsed as any).otazky) ? (parsed as any).otazky : [])
+      .filter((o: unknown): o is string => typeof o === "string" && o.trim().length > 0)
+      .map((o: string) => o.trim())
+      .slice(0, 3);
 
     return new Response(
       JSON.stringify(parsed),

@@ -398,7 +398,7 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
                 const hotovo = it.missing === 0;
                 const isOpen = !!expanded[it.key];
                 return (
-                  <li key={it.key} className={hotovo ? 'bg-emerald-50/40' : ''}>
+                  <li key={it.key} data-plan-radek={it.key} className={hotovo ? 'bg-emerald-50/40' : ''}>
                     {/* Řádek 1: co stočit + kolik zbývá.
                         Na telefonu jsou to dva bloky vedle sebe a nic víc —
                         tlačítka jsou pod tím na celou šířku, aby se do nich
@@ -440,8 +440,18 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
                             )}
                             {it.nachystano > 0 && it.zChladaku > 0 && ' · '}
                             {it.zChladaku > 0 && (
-                              <span title="Stočeno tenhle týden a zatím neodvezeno — leží v chlaďáku">
-                                {it.zChladaku} stočeno tento týden
+                              // ⚠️ NE „stočeno tento týden". Tohle číslo je
+                              // pokrytí ze SKUTEČNÉ zásoby skladem, tedy i
+                              // z piva stočeného dávno nebo z počátečního
+                              // stavu inventury. Popisek „stočeno tento
+                              // týden" u něj tvrdil něco, co nemusí být
+                              // pravda, a bral tak stáčeči jediné vodítko,
+                              // proč se položka tváří jako hotová
+                              // (z provozu 22. 9. 2026: „6/6 hotovo, z toho
+                              // 6 stočeno tento týden — vždyť nejsou
+                              // nastočené").
+                              <span title="Pokryto zásobou, která na skladě už leží — ne nutně stočenou tenhle týden. Zkontroluj Sklad.">
+                                {it.zChladaku} ze zásoby skladem
                               </span>
                             )}
                           </div>

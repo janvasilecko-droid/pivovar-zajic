@@ -5,6 +5,8 @@ import { orderWeightKg, fmtKg } from '../lib/weight';
 import { DAYS } from '../lib/shared';
 import { CalendarDays, Filter, History as HistoryIcon, Check, Printer, Truck, X } from 'lucide-react';
 import { printDeliveryList } from '../lib/safePrint';
+import { businessDateISO } from '../lib/businessDate';
+import { ChipyPiva, ChipyObalu } from './FiltrPivaAObalu';
 
 type Order = {
   id: string; order_date: string; place_id: string | null; place_name: string | null;
@@ -75,9 +77,9 @@ export default function ZavozHistory() {
 
   // Filtrovaná historie tras podle období, odběrného místa, piva a obalu
   const filteredHistoryByDate = useMemo(() => {
-    const today = new Date().toISOString().slice(0, 10);
-    const now = new Date();
-    const weekStart = new Date(now); weekStart.setDate(now.getDate() - now.getDay() + (now.getDay() === 0 ? -6 : 1));
+    const today = businessDateISO();
+    const now = new Date(today + 'T00:00:00Z');
+    const weekStart = new Date(now); weekStart.setUTCDate(now.getUTCDate() - now.getUTCDay() + (now.getUTCDay() === 0 ? -6 : 1));
     const weekStartISO = weekStart.toISOString().slice(0, 10);
     const monthStartISO = today.slice(0, 7) + '-01';
     const yearStartISO = today.slice(0, 4) + '-01-01';
@@ -185,22 +187,8 @@ export default function ZavozHistory() {
             <option value="">Všechna odběrná místa</option>
             {places.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
-          <select
-            value={histBeerId}
-            onChange={(e) => setHistBeerId(e.target.value)}
-            className="input !py-1.5 text-xs font-bold w-auto min-w-[150px]"
-          >
-            <option value="">Všechna piva</option>
-            {beers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-          </select>
-          <select
-            value={histPackageId}
-            onChange={(e) => setHistPackageId(e.target.value)}
-            className="input !py-1.5 text-xs font-bold w-auto min-w-[150px]"
-          >
-            <option value="">Všechny obaly</option>
-            {packages.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
-          </select>
+          <ChipyPiva piva={beers} vybrane={histBeerId} onVybrat={setHistBeerId} />
+          <ChipyObalu obaly={packages} vybrane={histPackageId} onVybrat={setHistPackageId} />
           {(histPeriod !== 'all' || histPlaceId || histBeerId || histPackageId) && (
             <button
               onClick={() => { setHistPeriod('all'); setHistPlaceId(''); setHistBeerId(''); setHistPackageId(''); }}

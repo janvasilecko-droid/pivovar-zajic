@@ -5,6 +5,8 @@ import { createReminder } from '../lib/reminders';
 import { AlertTriangle, Beer as BeerIcon, Bell, Calendar, Check, CheckCircle2, ClipboardList, Clock, DollarSign, PartyPopper, Plus, Sparkles, Star, ThumbsDown, ThumbsUp, Trash2, User, X } from 'lucide-react';
 import { oznam, potvrd } from '../lib/toast';
 import { uloz, smaz } from '../lib/uloziste';
+import { jeMesicUzamcen } from '../lib/mesicUzamcen';
+import { businessDateISO } from '../lib/businessDate';
 
 /** Řádky z DB (akce + vnořené akce_items) → tvar, se kterým pracuje obrazovka. */
 function rowsToRecords(rows: any[]): AkceRecord[] {
@@ -83,13 +85,16 @@ export default function AkceScreen() {
   const [packages, setPackages] = useState<Package[]>([]);
   const [records, setRecords] = useState<AkceRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  // Jen pro varování „tenhle měsíc je už napočítaný" (lib/mesicUzamcen.ts) —
+  // stejná pojistka jako ve Stáčení KEG a Lahvích, viz persistRecord níž.
+  const [inventoryRows, setInventoryRows] = useState<{ entry_date: string; note: string | null }[]>([]);
   const [saveErr, setSaveErr] = useState<string | null>(null);
 
   // New Event Form State
   const [showAddModal, setShowAddModal] = useState(false);
   const [name, setName] = useState('');
   const [who, setWho] = useState('Petr Bednář & Tým');
-  const [entryDate, setEntryDate] = useState(new Date().toISOString().slice(0, 10));
+  const [entryDate, setEntryDate] = useState(businessDateISO());
   const [itemRows, setItemRows] = useState<FormRow[]>(() =>
     Array.from({ length: 7 }, () => ({ beer_id: '', package_id: '', qty: '' }))
   );
@@ -118,15 +123,20 @@ export default function AkceScreen() {
 
   async function loadData(tiche = false) {
     if (!tiche) setLoading(true);
-    const [{ data: b }, { data: pk }, { data: ak }] = await Promise.all([
+    const [{ data: b }, { data: pk }, { data: ak }, { data: inv }] = await Promise.all([
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
       fetchAllRows('akce', '*, items:akce_items(id,beer_id,beer_name,package_id,package_label,quantity_taken,quantity_returned)')
         .order('entry_date', { ascending: false }),
+      // Jen entry_date + note — na víc se `jeMesicUzamcen` neptá. fetchAllRows,
+      // ne supabase.from přímo: inventory roste přes 1000 řádků a Supabase by
+      // zbytek tiše ořízl (viz strankovaniDotazu.test.ts).
+      fetchAllRows('inventory', 'entry_date,note'),
     ]);
     setBeers((b as Beer[]) ?? []);
     setPackages((pk as Package[]) ?? []);
     setRecords(rowsToRecords((ak as any[]) ?? []));
+    setInventoryRows((inv as { entry_date: string; note: string | null }[]) ?? []);
     setLoading(false);
   }
 
@@ -139,7 +149,7 @@ export default function AkceScreen() {
   // „když kliknu odečíst, vrací mě to vždycky nahoru." Vlastní zápis stránku
   // srovná kotvou (lib/drzPozici.ts), jenže 400 ms po něm dorazí realtime
   // událost o tomtéž zápisu a celou práci zahodí.
-  useRealtime(['beers', 'packages', 'akce', 'akce_items'], () => loadData(true));
+  useRealtime(['beers', 'packages', 'akce', 'akce_items', 'inventory'], () => loadData(true));
 
   // 🚚 Jednorázový převod akcí zadaných dřív, kdy se ukládaly jen do tohoto
   // prohlížeče. Bez toho by po přechodu na databázi historické akce zmizely.
@@ -284,6 +294,16 @@ export default function AkceScreen() {
       return;
     }
 
+    // 🔒 Odvoz na akci hýbe skladem stejně jako stočení nebo výdej — zápis
+    // do měsíce, který je už napočítaný, se nezakazuje (legitimní pozdější
+    // akce se stát může), jen se na to nahlas upozorní (lib/mesicUzamcen.ts).
+    if (jeMesicUzamcen(inventoryRows, entryDate)) {
+      const dotaz =
+        `Měsíc ${entryDate.slice(0, 7)} už má napočítanou inventuru. Zápis do něj teď ` +
+        'změní číslo, které je už uzavřené a dorovnané.\n\nOpravdu založit akci v už napočítaném měsíci?';
+      if (!(await potvrd(dotaz, { titulek: 'Měsíc je už napočítaný', potvrdit: 'Ano, založit' }))) return;
+    }
+
     const newRecord: AkceRecord = {
       id: crypto.randomUUID(),
       name: name.trim(),
@@ -374,6 +394,16 @@ export default function AkceScreen() {
   async function handleSaveEval(e: React.FormEvent) {
     e.preventDefault();
     if (!evalRecord) return;
+
+    // 🔒 Vyhodnocení mění quantity_returned, a tím i čistý odběr, který se
+    // počítá do skladu — akce se často vyhodnocuje až PO jejím konci, kdy už
+    // může být měsíc napočítaný (viz lib/mesicUzamcen.ts).
+    if (jeMesicUzamcen(inventoryRows, evalRecord.entry_date)) {
+      const dotaz =
+        `Měsíc ${evalRecord.entry_date.slice(0, 7)} už má napočítanou inventuru. Vyhodnocení teď ` +
+        'změní číslo, které je už uzavřené a dorovnané.\n\nOpravdu uložit vyhodnocení do už napočítaného měsíce?';
+      if (!(await potvrd(dotaz, { titulek: 'Měsíc je už napočítaný', potvrdit: 'Ano, uložit' }))) return;
+    }
 
     const updatedItems = evalRecord.items.map((it, idx) => {
       // Uživatel zadává, kolik se VYTOČILO/PRODALO; zbytek se vrací na sklad

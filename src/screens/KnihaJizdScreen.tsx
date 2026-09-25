@@ -10,6 +10,7 @@ import { computeRouteDistanceKm } from '../lib/routeDistance';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
 import { DAYS } from '../lib/shared';
 import { chyba, oznam, potvrd } from '../lib/toast';
+import { businessDateISO } from '../lib/businessDate';
 
 export type LogbookEntry = {
   id: string;
@@ -54,11 +55,11 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
 
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filterMonth, setFilterMonth] = useState<string>(() => new Date().toISOString().slice(0, 7));
+  const [filterMonth, setFilterMonth] = useState<string>(() => businessDateISO().slice(0, 7));
 
   // Manual Add Modal / Form state
   const [showModal, setShowModal] = useState(false);
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(businessDateISO());
   const [vehicleName, setVehicleName] = useState('');
   const [driver, setDriver] = useState('Petr Bednář');
   const [routeTo, setRouteTo] = useState('');
@@ -71,7 +72,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
   // z objednávek, 2) náhled dnů s editovatelným km a přepínačem vozidla (Velké auto/Kachna).
   const [showAutoModal, setShowAutoModal] = useState(false);
   const [autoStep, setAutoStep] = useState<'form' | 'preview'>('form');
-  const [autoMonth, setAutoMonth] = useState<string>(() => new Date().toISOString().slice(0, 7));
+  const [autoMonth, setAutoMonth] = useState<string>(() => businessDateISO().slice(0, 7));
   const [autoDriver, setAutoDriver] = useState('Petr Bednář');
   const [autoStartKm, setAutoStartKm] = useState<string>('120000');
   const [autoGenerating, setAutoGenerating] = useState(false);

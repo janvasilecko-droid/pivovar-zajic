@@ -1,18 +1,22 @@
 // 🔎 Detail objednávky — část obrazovky Objednávky.
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, ChevronLeft, ChevronRight, Bell, Building2, Camera, Check, ClipboardList, Copy, Package as PackageIcon, Pencil, Phone, Scroll, X } from 'lucide-react';
+import { AlertTriangle, ChevronLeft, ChevronRight, Bell, Building2, Camera, Check, ClipboardList, Copy, Package as PackageIcon, Pencil, Phone, RotateCcw, Scroll, Split, X } from 'lucide-react';
 import { Beer, Package, Place, beerBg, beerInk, supabase } from '../../lib/supabase';
 import { Field } from '../ui';
 import { weekRange, shiftWeek } from '../WeeklyOrderSummaryCard';
 
-import type {  } from '../../lib/stockLedger';
+import { stockKey } from '../../lib/stockLedger';
 
 import { DAYS } from '../../lib/shared';
 
 import type {  } from '../../lib/tankUZapisu';
 
-import { chyba, oznam } from '../../lib/toast';
+import { chyba, oznam, uspech } from '../../lib/toast';
 import { srovnaniPoUprave, type UpravaPolozky } from '../../lib/zavozSync';
+import { parseDeliveryTimeHint } from '../../lib/orderParser';
+import { createReminder, getLocalReminders } from '../../lib/reminders';
+import { businessDateISO } from '../../lib/businessDate';
+import { platneVraceni, poznamkaVraceni, pripojPoznamku, zaznamyDorovnaniVraceni } from '../../lib/vraceniZObjednavky';
 
 import { PodpisModal } from '../PodpisModal';
 import { FotkyZaznamu } from '../FotkyZaznamu';
@@ -24,8 +28,11 @@ import { StitekStavu } from '../StitekStavu';
 
 import { type Order, type OrderItem, dayColor } from './spolecne';
 import { WhatsAppOriginalBlock } from './WhatsAppOriginalBlock';
-export function OrderDetail({ order, items, beers, packages, places, priceList, remaining, onClose, onChanged, onToggleFlag, onImportImage, setItems, setOrders, allOrders, allItems, setPage, weekKey, setWeekKey }: {
-  order: Order; items: OrderItem[]; beers: Beer[]; packages: Package[]; places: Place[]; priceList: CenaPolozky[]; remaining: Map<string, number>; onClose: () => void; onChanged: () => void; onToggleFlag: (o: Order, key: 'is_prepared' | 'is_packaged' | 'is_delivered') => void; onImportImage: (o: Order) => void;
+export function OrderDetail({ order, items, beers, packages, places, priceList, remaining, onClose, onChanged, onSplit, onToggleFlag, onImportImage, setItems, setOrders, allOrders, allItems, setPage, weekKey, setWeekKey }: {
+  order: Order; items: OrderItem[]; beers: Beer[]; packages: Package[]; places: Place[]; priceList: CenaPolozky[]; remaining: Map<string, number>; onClose: () => void; onChanged: () => void;
+  /** Rozdělit na dva odběratele (viz SplitOrderModal) — jen když má 2+ položky. */
+  onSplit: (o: Order) => void;
+  onToggleFlag: (o: Order, key: 'is_prepared' | 'is_packaged' | 'is_delivered') => void; onImportImage: (o: Order) => void;
   setItems: React.Dispatch<React.SetStateAction<Record<string, OrderItem[]>>>;
   setOrders: React.Dispatch<React.SetStateAction<Order[]>>;
   setPage?: (p: any, sec?: string) => void;
@@ -94,9 +101,21 @@ export function OrderDetail({ order, items, beers, packages, places, priceList, 
   const [day, setDay] = useState(order.delivery_day ?? '');
   const [deliveryDate, setDeliveryDate] = useState(order.delivery_date ?? '');
   const [savingMeta, setSavingMeta] = useState(false);
+  // Znění originální WhatsApp zprávy (viz WhatsAppOriginalBlock níž) — kvůli
+  // odhadu času dovozu ("přijedou kolem poledne") i tehdy, když ho stáčeč
+  // ještě neuložil do poznámky ručně.
+  const [waText, setWaText] = useState('');
+  const [vytvarimUpozorneni, setVytvarimUpozorneni] = useState(false);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editBeerId, setEditBeerId] = useState('');
   const [editPkgId, setEditPkgId] = useState('');
+  // 🔄 Vrácení — sudy/lahve z TÉTO objednávky, co se přivezly zpátky
+  // (nedopité, nepoužité). Přičte se do skladu DNEŠNÍM datem (ne datem
+  // původního závozu — ten může ležet v už uzavřeném týdnu) a na objednávku
+  // se jen připíše poznámka, viz lib/vraceniZObjednavky.ts.
+  const [otevrenoVraceni, setOtevrenoVraceni] = useState(false);
+  const [vraceniPocty, setVraceniPocty] = useState<Record<string, string>>({});
+  const [ukladamVraceni, setUkladamVraceni] = useState(false);
   const [editQty, setEditQty] = useState('');
 
   async function addItem() {
@@ -179,6 +198,80 @@ export function OrderDetail({ order, items, beers, packages, places, priceList, 
     setSavingMeta(true);
     await supabase.from('orders').update({ note: note || null, delivery_day: day || null, delivery_date: deliveryDate || null }).eq('id', order.id);
     setSavingMeta(false); onChanged();
+  }
+
+  async function ulozVraceni() {
+    const polozky = platneVraceni(items.map((it) => ({
+      beer_id: it.beer_id ?? '',
+      beer_name: it.beer_name,
+      package_id: it.package_id ?? '',
+      package_label: it.package_label,
+      pocet: Number(vraceniPocty[it.id] || 0),
+    })));
+    if (polozky.length === 0) { oznam('Zadejte, kolik se čeho vrátilo.'); return; }
+    setUkladamVraceni(true);
+    try {
+      const datum = businessDateISO();
+      const { error } = await supabase.from('inventory_adjustments').insert(zaznamyDorovnaniVraceni(polozky, datum));
+      if (error) throw new Error(error.message);
+      const novaPoznamka = pripojPoznamku(note, poznamkaVraceni(polozky, datum));
+      const { error: e2 } = await supabase.from('orders').update({ note: novaPoznamka }).eq('id', order.id);
+      if (e2) throw new Error(e2.message);
+      setNote(novaPoznamka);
+      setVraceniPocty({});
+      setOtevrenoVraceni(false);
+      uspech('Vrácení zapsáno a přičteno do skladu.');
+      onChanged();
+    } catch (e: any) {
+      chyba('Vrácení se nepovedlo: ' + (e?.message || e));
+    } finally {
+      setUkladamVraceni(false);
+    }
+  }
+
+  // 🕐 Čas dovozu zmíněný v poznámce nebo v originální WhatsApp zprávě
+  // ("přijedou kolem poledne", "v 15" apod., viz orderParser.ts) — jen
+  // podklad pro tlačítko "Upozornit hodinu předem" níž, nic víc s ním appka
+  // sama neudělá.
+  const [vytvorenoTick, setVytvorenoTick] = useState(0);
+  const casDovozu = useMemo(() => parseDeliveryTimeHint(`${note} ${waText}`), [note, waText]);
+  const denDovozu = deliveryDate || order.order_date;
+  const dvoumistne = (n: number) => String(n).padStart(2, '0');
+  const znackaUpozorneni = casDovozu && denDovozu
+    ? `[dovoz-upozorneni:${order.id}:${denDovozu}:${dvoumistne(casDovozu.hodina)}${dvoumistne(casDovozu.minuta)}]`
+    : null;
+  const upozorneniJizVytvoreno = useMemo(() => {
+    if (!znackaUpozorneni) return false;
+    return getLocalReminders().some((r) => (r.note || '').includes(znackaUpozorneni));
+    // vytvorenoTick nic nečte — jen si vynutí přepočet po createReminder(),
+    // protože getLocalReminders() čte localStorage mimo Reactí stav.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [znackaUpozorneni, vytvorenoTick]);
+
+  async function vytvoritUpozorneniHodinuPredem() {
+    if (!casDovozu || !denDovozu || !znackaUpozorneni) return;
+    setVytvarimUpozorneni(true);
+    try {
+      const cilovyCas = new Date(`${denDovozu}T${dvoumistne(casDovozu.hodina)}:${dvoumistne(casDovozu.minuta)}:00`);
+      cilovyCas.setHours(cilovyCas.getHours() - 1);
+      const placeName = (order.place_name && order.place_name.trim())
+        || (order.place_id && places.find((p) => p.id === order.place_id)?.name)
+        || 'odběratel';
+      await createReminder({
+        title: `Za hodinu dovoz: ${placeName} (~${dvoumistne(casDovozu.hodina)}:${dvoumistne(casDovozu.minuta)})`,
+        note: `${znackaUpozorneni} Objednávka zmiňuje čas dovozu — appka spočítala hodinu předem.`,
+        date_time: cilovyCas.toISOString().slice(0, 16),
+        target_role: 'all',
+        display_mode: 'both',
+        created_by: 'Ruční upozornění (Objednávky)',
+      });
+      oznam('Upozornění hodinu předem je nastavené.');
+      setVytvorenoTick((t) => t + 1);
+    } catch (e) {
+      chyba(`Upozornění se nepodařilo nastavit: ${(e as Error).message ?? 'neznámá chyba'}`);
+    } finally {
+      setVytvarimUpozorneni(false);
+    }
   }
   async function toggleItemPrepared(it: OrderItem) {
     const newPrepared = !it.is_prepared;
@@ -320,6 +413,21 @@ export function OrderDetail({ order, items, beers, packages, places, priceList, 
               <Copy size={16} /> Kopírovat jako text
             </button>
 
+            {/* ✂️ Rozdělit na dva odběratele — z provozu 15. 9. 2026: „i ve
+                správě, jedna objednávka může mít víc drobných odběratelů
+                (řada, Eigl, restaurace)". Původní WhatsApp zpráva je vidět
+                hned nahoře (WhatsAppOriginalBlock), takže se dá rozdělit
+                přesně podle ní. */}
+            {items.length > 1 && (
+              <button
+                type="button"
+                onClick={() => onSplit(order)}
+                className="flex items-center gap-2 text-sm text-primary-700 px-3 py-2 rounded hover:bg-primary-50 tap"
+              >
+                <Split size={16} /> Rozdělit na dva odběratele
+              </button>
+            )}
+
             {/* ✍️ Podpis převzetí. V Závozu se podepisovalo už dřív, tady
                 ne — a přitom právě tady se objednávka řeší, když se pak
                 někdo ptá, co bylo dovezeno. */}
@@ -374,6 +482,30 @@ export function OrderDetail({ order, items, beers, packages, places, priceList, 
               <Bell className="ikona-text" /> Upomínka se automaticky vytvoří v kalendáři na <strong>{new Date(new Date(deliveryDate).getTime() - 3 * 86400000).toLocaleDateString('cs-CZ')}</strong> v 8:45.
             </div>
           )}
+          {/* 🕐 Čas dovozu z poznámky/zprávy ("přijedou kolem poledne" apod.)
+              — nabídni tlačítko na upozornění hodinu předem, ať to stáčeč
+              nemusí hlídat sám. Zmizí, jakmile je upozornění nastavené. */}
+          {casDovozu && denDovozu && (
+            <div className="mt-2 flex items-center gap-2 flex-wrap">
+              <span className="text-xs text-neutral-600">
+                Čas dovozu v textu: <strong>{dvoumistne(casDovozu.hodina)}:{dvoumistne(casDovozu.minuta)}</strong>
+              </span>
+              {upozorneniJizVytvoreno ? (
+                <span className="chip bg-emerald-100 text-emerald-800 text-xs font-bold flex items-center gap-1">
+                  <Check size={12} /> Upozornění hodinu předem nastaveno
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  disabled={vytvarimUpozorneni}
+                  onClick={vytvoritUpozorneniHodinuPredem}
+                  className="btn-ghost !rounded text-xs !py-1.5 border border-amber-300 text-amber-800 disabled:opacity-50 flex items-center gap-1"
+                >
+                  <Bell size={12} /> {vytvarimUpozorneni ? 'Nastavuji…' : `Upozornit hodinu předem (v ${dvoumistne(casDovozu.hodina === 0 ? 23 : casDovozu.hodina - 1)}:${dvoumistne(casDovozu.minuta)})`}
+                </button>
+              )}
+            </div>
+          )}
           <div className="flex justify-end mt-2">
             <button className="btn-ghost !rounded text-xs !py-1.5" disabled={savingMeta} onClick={saveMeta}>{savingMeta ? 'Ukládám…' : 'Uložit datum dodání'}</button>
           </div>
@@ -387,6 +519,7 @@ export function OrderDetail({ order, items, beers, packages, places, priceList, 
             packages={packages}
             places={places}
             onPlaceFound={onChanged}
+            onMessageLoaded={(m) => setWaText(m.message_text || m.parsed_raw_text || '')}
           />
         )}
 
@@ -395,7 +528,10 @@ export function OrderDetail({ order, items, beers, packages, places, priceList, 
           {/* Mobilní karty */}
           <div className="grid grid-cols-1 gap-2 md:hidden">
             {items.map((i) => {
-              const rem = i.beer_id ? (remaining.get(i.beer_id) ?? 0) : 0;
+              // ⚠️ Klíč je PIVO+OBAL (stockKey), ne jen pivo — bez toho se tu
+              // hledal `beer_id` v mapě klíčované `beer_id__package_id` a
+              // nikdy se netrefil: "Chybí"/"Skladem" tu nesvítilo nikdy.
+              const rem = (i.beer_id && i.package_id) ? (remaining.get(stockKey(i.beer_id, i.package_id)) ?? 0) : 0;
               const missing = rem < 0 ? -rem : 0;
               const inStock = i.beer_id ? rem >= Number(i.quantity) : false;
               const isEditing = editingItemId === i.id;
@@ -486,7 +622,7 @@ export function OrderDetail({ order, items, beers, packages, places, priceList, 
               <thead><tr><th scope="col" className="w-8"></th><th scope="col">Pivo</th><th scope="col">Obal</th><th scope="col" className="text-right">Množství</th><th scope="col"></th><th scope="col"></th><th scope="col"></th></tr></thead>
               <tbody>
                 {items.map((i) => {
-                  const rem = i.beer_id ? (remaining.get(i.beer_id) ?? 0) : 0;
+                  const rem = (i.beer_id && i.package_id) ? (remaining.get(stockKey(i.beer_id, i.package_id)) ?? 0) : 0;
                   const missing = rem < 0 ? -rem : 0;
                   const inStock = i.beer_id ? rem >= Number(i.quantity) : false;
                   const isEditing = editingItemId === i.id;
@@ -634,6 +770,43 @@ export function OrderDetail({ order, items, beers, packages, places, priceList, 
           <div className="flex gap-2">
             <button className="btn-ghost !rounded text-sm" onClick={() => setAdding(true)}>+ Přidat položku</button>
             <button className="btn-ghost !rounded text-sm" onClick={() => onImportImage(order)}><Camera className="ikona-text" /> Načíst z fotky</button>
+          </div>
+        )}
+
+        {/* 🔄 Vrácení — jen u zavezené objednávky, jinak se nemá co vracet.
+            Nemění řádky téhle objednávky (ty zůstávají svědectvím o tom, co
+            se doopravdy odvezlo) — jen přičte kusy do skladu DNEŠNÍM dnem a
+            připíše poznámku, viz lib/vraceniZObjednavky.ts. */}
+        {order.is_delivered && items.length > 0 && (
+          <div className="mt-4 pt-3 border-t border-primary-200/60">
+            {!otevrenoVraceni ? (
+              <button className="btn-ghost !rounded text-sm" onClick={() => setOtevrenoVraceni(true)}>
+                <RotateCcw className="ikona-text" /> Vrácení sudů/lahví
+              </button>
+            ) : (
+              <div className="space-y-2">
+                <label className="label">Vrácení sudů/lahví <span className="text-primary-400 font-normal">(co se přivezlo zpátky nepoužité)</span></label>
+                <div className="space-y-1.5">
+                  {items.map((it) => (
+                    <div key={it.id} className="flex items-center justify-between gap-2 text-sm">
+                      <span className="text-primary-700 truncate">{it.beer_name} — {it.package_label} <span className="text-primary-400">(zavezeno {it.quantity} ks)</span></span>
+                      <input
+                        type="number" onWheel={(e) => e.currentTarget.blur()} min={0} inputMode="numeric"
+                        className="input !w-20 !py-1 text-center shrink-0" placeholder="0"
+                        value={vraceniPocty[it.id] ?? ''}
+                        onChange={(e) => setVraceniPocty((m) => ({ ...m, [it.id]: e.target.value }))}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <div className="flex justify-end gap-2 pt-1">
+                  <button className="btn-ghost !rounded text-xs !py-1.5" onClick={() => { setOtevrenoVraceni(false); setVraceniPocty({}); }}>Zrušit</button>
+                  <button className="btn-primary !rounded text-xs !py-1.5" disabled={ukladamVraceni} onClick={ulozVraceni}>
+                    {ukladamVraceni ? 'Ukládám…' : 'Uložit vrácení'}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

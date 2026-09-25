@@ -23,12 +23,20 @@ const PRVNI_V_MESICI = PONDELI.slice(0, 8) + '01';
 const MINULY = (n: number) => posunDnu(PONDELI, n - 7);
 
 export const beers = [
-  { id: 'b-12sv', name: '12° Světlý ležák', sort_order: 1 },
-  { id: 'b-12tm', name: '12° Tmavý ležák', sort_order: 2 },
-  { id: 'b-11sv', name: '11° Světlá', sort_order: 3 },
-  { id: 'b-10de', name: '10° Desítka', sort_order: 4 },
-  { id: 'b-08os', name: 'Osma', sort_order: 5 },
-  { id: 'b-summ', name: 'Summer Ale', sort_order: 6 },
+  { id: 'b-12sv', name: '12° Světlý ležák', sort_order: 1, is_active: true },
+  { id: 'b-12tm', name: '12° Tmavý ležák', sort_order: 2, is_active: true },
+  { id: 'b-11sv', name: '11° Světlá', sort_order: 3, is_active: true },
+  { id: 'b-10de', name: '10° Desítka', sort_order: 4, is_active: true },
+  { id: 'b-08os', name: 'Osma', sort_order: 5, is_active: true },
+  { id: 'b-summ', name: 'Summer Ale', sort_order: 6, is_active: true },
+  // Piva pro pátek s deseti pivy (o-5) — bez nich order_items odkazovaly na
+  // neexistující b-13pa/b-14ip/b-citr/b-psen a panel „Co stočit" je ukázal
+  // jako „?" (pivoPodleId nenašlo shodu). Z provozu 15. 9. 2026: „co sou ty
+  // otazníky, to je nějaká chyba" — nebyla, jen chybějící vymyšlená data.
+  { id: 'b-13pa', name: '13° Pale Ale', sort_order: 7, is_active: true },
+  { id: 'b-14ip', name: '14° IPA', sort_order: 8, is_active: true },
+  { id: 'b-citr', name: 'Citron', sort_order: 9, is_active: true },
+  { id: 'b-psen', name: 'Pšeničné', sort_order: 10, is_active: true },
 ];
 
 export const packages = [
@@ -81,17 +89,20 @@ export const bottling = [
   },
 ];
 
+// `id` a `beer_name`/`package_label` tu nejsou navíc: přehled výdeje podle
+// nich řádek pozná (mazání, „Odfasovat") a vypisuje jeho popis.
 export const fasovani = [
-  { beer_id: 'b-12sv', package_id: 'p-lah05', quantity: 12, entry_date: den(1) },
-  { beer_id: 'b-10de', package_id: 'p-keg50', quantity: 1, entry_date: den(2) },
+  { id: 'fa-1', beer_id: 'b-12sv', beer_name: '12° Světlý ležák', package_id: 'p-lah05', package_label: 'Lahev 0,5l', quantity: 12, entry_date: den(1), who: 'Radek', note: null },
+  { id: 'fa-2', beer_id: 'b-10de', beer_name: '10° Desítka', package_id: 'p-keg50', package_label: 'KEG 50l', quantity: 1, entry_date: den(2), who: 'Gabi', note: null },
 ];
 
 export const fasovani_private = [
-  { beer_id: 'b-12sv', package_id: 'p-lah05', quantity: 6, entry_date: den(2) },
+  { id: 'fp-1', beer_id: 'b-12sv', beer_name: '12° Světlý ležák', package_id: 'p-lah05', package_label: 'Lahev 0,5l', quantity: 6, entry_date: den(2), who: null, note: null },
+  { id: 'fp-2', beer_id: 'b-summ', beer_name: 'Summer Ale', package_id: 'p-lah033', package_label: 'Lahev 0,33l', quantity: 24, entry_date: den(1), who: null, note: null },
 ];
 
 export const writeoffs = [
-  { beer_id: 'b-summ', package_id: 'p-lah033', quantity: 4, entry_date: den(1) },
+  { id: 'wo-1', beer_id: 'b-summ', beer_name: 'Summer Ale', package_id: 'p-lah033', package_label: 'Lahev 0,33l', quantity: 4, entry_date: den(1), who: null, reason: 'rozbitá láhev' },
 ];
 
 /** Zavezeno na objednávky — hlavní odliv. */
@@ -174,3 +185,45 @@ export const cellar_batch_mereni = [
 ];
 
 export const POPIS = { DNES, PONDELI };
+
+// Objednávky tohoto týdne — okno „Co stočit" na úvodní stránce. Dny se
+// počítají od pondělí, ne od dneška, ať je vidět den, týden i „bez termínu".
+const denTydne = (n: number) => posunDnu(PONDELI, n);
+export const orders = [
+  { id: 'o-1', order_date: denTydne(0), delivery_date: denTydne(0), delivery_day: 'po', place_name: 'Hospoda U Zajíce', status: 'nova', is_delivered: false },
+  { id: 'o-2', order_date: denTydne(0), delivery_date: denTydne(1), delivery_day: 'ut', place_name: 'Restaurace Na Mlýně', status: 'nova', is_delivered: false },
+  { id: 'o-3', order_date: denTydne(0), delivery_date: denTydne(3), delivery_day: 'ct', place_name: 'Pivnice Sokolovna', status: 'nova', is_delivered: false },
+  // Pátek s deseti pivy — ať je v náhledu vidět, jak přehled vypadá, když je stáčení hodně.
+  { id: 'o-5', order_date: denTydne(0), delivery_date: denTydne(4), delivery_day: 'pa', place_name: 'Festival', status: 'nova', is_delivered: false },
+  { id: 'o-4', order_date: denTydne(0), delivery_date: null, delivery_day: null, place_name: 'Kiosek u koupaliště', status: 'nova', is_delivered: false },
+];
+export const order_items = [
+  { id: 'oi-1', order_id: 'o-1', beer_id: 'b-12sv', package_id: 'p-keg50', quantity: 30 },
+  { id: 'oi-2', order_id: 'o-1', beer_id: 'b-12tm', package_id: 'p-keg30', quantity: 4 },
+  { id: 'oi-3', order_id: 'o-1', beer_id: 'b-12sv', package_id: 'p-lah05', quantity: 40 },
+  { id: 'oi-4', order_id: 'o-2', beer_id: 'b-11sv', package_id: 'p-keg30', quantity: 6 },
+  { id: 'oi-5', order_id: 'o-2', beer_id: 'b-10de', package_id: 'p-keg20', quantity: 5 },
+  { id: 'oi-6', order_id: 'o-3', beer_id: 'b-12tm', package_id: 'p-lah033', quantity: 60 },
+  { id: 'oi-p0', order_id: 'o-5', beer_id: 'b-12sv', package_id: 'p-keg50', quantity: 2 },
+  { id: 'oi-q0', order_id: 'o-5', beer_id: 'b-12sv', package_id: 'p-keg30', quantity: 3 },
+  { id: 'oi-p1', order_id: 'o-5', beer_id: 'b-12tm', package_id: 'p-keg30', quantity: 3 },
+  { id: 'oi-q1', order_id: 'o-5', beer_id: 'b-12tm', package_id: 'p-keg20', quantity: 12 },
+  { id: 'oi-p2', order_id: 'o-5', beer_id: 'b-11sv', package_id: 'p-keg20', quantity: 4 },
+  { id: 'oi-q2', order_id: 'o-5', beer_id: 'b-11sv', package_id: 'p-lah05', quantity: 12 },
+  { id: 'oi-p3', order_id: 'o-5', beer_id: 'b-10de', package_id: 'p-lah05', quantity: 5 },
+  { id: 'oi-q3', order_id: 'o-5', beer_id: 'b-10de', package_id: 'p-keg50', quantity: 3 },
+  { id: 'oi-p4', order_id: 'o-5', beer_id: 'b-08os', package_id: 'p-keg50', quantity: 6 },
+  { id: 'oi-q4', order_id: 'o-5', beer_id: 'b-08os', package_id: 'p-keg30', quantity: 12 },
+  { id: 'oi-p5', order_id: 'o-5', beer_id: 'b-summ', package_id: 'p-keg30', quantity: 7 },
+  { id: 'oi-q5', order_id: 'o-5', beer_id: 'b-summ', package_id: 'p-keg20', quantity: 12 },
+  { id: 'oi-p6', order_id: 'o-5', beer_id: 'b-13pa', package_id: 'p-keg20', quantity: 8 },
+  { id: 'oi-q6', order_id: 'o-5', beer_id: 'b-13pa', package_id: 'p-lah05', quantity: 3 },
+  { id: 'oi-p7', order_id: 'o-5', beer_id: 'b-14ip', package_id: 'p-lah05', quantity: 9 },
+  { id: 'oi-q7', order_id: 'o-5', beer_id: 'b-14ip', package_id: 'p-keg50', quantity: 12 },
+  { id: 'oi-p8', order_id: 'o-5', beer_id: 'b-citr', package_id: 'p-keg50', quantity: 10 },
+  { id: 'oi-q8', order_id: 'o-5', beer_id: 'b-citr', package_id: 'p-keg30', quantity: 12 },
+  { id: 'oi-p9', order_id: 'o-5', beer_id: 'b-psen', package_id: 'p-keg30', quantity: 11 },
+  { id: 'oi-q9', order_id: 'o-5', beer_id: 'b-psen', package_id: 'p-keg20', quantity: 3 },
+  { id: 'oi-7', order_id: 'o-4', beer_id: 'b-12sv', package_id: 'p-keg30', quantity: 2 },
+];
+export const kegging_plan_checks: any[] = [];

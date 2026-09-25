@@ -318,6 +318,7 @@
   "package_label",
   "quantity",
   "reason",
+  "order_id",
   "created_by",
   "created_at"
  ],

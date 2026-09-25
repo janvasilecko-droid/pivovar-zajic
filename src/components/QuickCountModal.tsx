@@ -9,6 +9,15 @@ type QuickCountModalProps = {
   beers: Beer[];
   packages: Package[];
   onConfirmCount?: (items: { beerId: string; packageId: string; count: number }[]) => void;
+  /**
+   * Co se s napočítaným stane. Ve Skladu se to UKLÁDÁ jako inventura
+   * (skladová kniha to bere jako RESET stavu k danému dni), v týdenní
+   * kontrole se jen VYPLNÍ pole „Napočítáno" a nikam se nic nezapisuje.
+   * Rozdíl musí být vidět na tlačítku, ne až v důsledcích.
+   */
+  titulek?: string;
+  popisUlozeni?: string;
+  potvrditPopisek?: string;
 };
 
 export function QuickCountModal({
@@ -17,6 +26,9 @@ export function QuickCountModal({
   beers,
   packages,
   onConfirmCount,
+  titulek = 'Rychlé mobilní sčítadlo skladu',
+  popisUlozeni,
+  potvrditPopisek = 'Potvrdit inventuru',
 }: QuickCountModalProps) {
   const [selectedBeerId, setSelectedBeerId] = useState(beers[0]?.id || '');
   const [selectedPkgId, setSelectedPkgId] = useState(packages[0]?.id || '');
@@ -50,7 +62,7 @@ export function QuickCountModal({
     <Modal
       open={isOpen}
       onClose={onClose}
-      title="Rychlé mobilní sčítadlo skladu"
+      title={titulek}
       maxWidth="max-w-lg"
     >
       <div className="space-y-4">
@@ -180,6 +192,9 @@ export function QuickCountModal({
             Celkem nasčítáno: <span className="text-amber-800 font-mono font-bold">{totalCountedAll} ks</span>
           </div>
 
+            {popisUlozeni && (
+              <p className="text-udaj font-bold text-neutral-600 w-full mb-1.5">{popisUlozeni}</p>
+            )}
           <div className="flex items-center gap-2">
             <button type="button" onClick={onClose} className="btn-secondary text-xs font-bold">
               Zavřít
@@ -198,7 +213,7 @@ export function QuickCountModal({
               }}
               className="btn-primary !rounded text-xs font-black flex items-center gap-1.5 shadow-md"
             >
-              <CheckCircle2 size={16} /> Potvrdit inventuru
+              <CheckCircle2 size={16} /> {potvrditPopisek}
             </button>
           </div>
         </div>

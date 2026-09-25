@@ -3,7 +3,9 @@ import { Modal } from './ui';
 import { AlertTriangle, Check, CheckSquare, FlaskConical, Lock, RotateCcw, ShieldCheck, Square, Unlock } from 'lucide-react';
 import { potvrd } from '../lib/toast';
 import { synchronizuj, ulozStav } from '../lib/checklistData';
+import { sZnackouKonce } from '../lib/konecStaceni';
 import { zavibruj } from '../lib/haptika';
+import { businessDateISO } from '../lib/businessDate';
 
 export type ChecklistPhase = 'start' | 'end' | 'monthly' | 'all';
 
@@ -127,7 +129,7 @@ type BodyProps = {
  * vložený do stránky (záložka "Checklist" v Kegging.tsx pro souhrnný pohled).
  */
 export function KeggingChecklistBody({ dateStr, onApplyNote, onDone, blockCloseUntilStartDone, phase = 'start', initialCategory, showSkip, isLastWeekOfMonth = false }: BodyProps) {
-  const dateKey = dateStr || new Date().toISOString().slice(0, 10);
+  const dateKey = dateStr || businessDateISO();
   const [checks, setChecks] = useState<Record<string, boolean | string>>({});
 
   // Stav se srovná s databází, takže checklist proklikaný na tabletu platí i
@@ -145,10 +147,17 @@ export function KeggingChecklistBody({ dateStr, onApplyNote, onDone, blockCloseU
     return () => { platne = false; };
   }, [dateKey]);
 
-  /** Zapíše stav do zrcadla i do databáze. Vrací ho, ať jde řetězit do setChecks. */
+  /**
+   * Zapíše stav do zrcadla i do databáze. Vrací ho, ať jde řetězit do setChecks.
+   *
+   * Spolu se stavem jde i odvozená značka „konec stáčení hotový"
+   * (lib/konecStaceni.ts) — podle ní pozná databáze, jestli má večer poslat
+   * připomínku na telefon.
+   */
   function zapis(next: Record<string, boolean | string>) {
-    void ulozStav('kegy', dateKey, next);
-    return next;
+    const sZnackou = sZnackouKonce(KEG_DEFAULT_ITEMS, next);
+    void ulozStav('kegy', dateKey, sZnackou);
+    return sZnackou;
   }
 
   const items = getFilteredKegItems(phase);
@@ -404,7 +413,7 @@ type ModalProps = {
 
 /** Modálni obal nad KeggingChecklistBody — použitý pro povinnou bránu před stáčením a rychlé otevření z lišty. */
 export function KeggingChecklistModal({ isOpen, onClose, dateStr, onApplyNote, blockCloseUntilStartDone, phase = 'start', initialCategory, showSkip }: ModalProps) {
-  const dateKey = dateStr || new Date().toISOString().slice(0, 10);
+  const dateKey = dateStr || businessDateISO();
   const isOverallStartDone = isStartChecklistCompleteForKeg(dateKey);
 
   if (!isOpen) return null;

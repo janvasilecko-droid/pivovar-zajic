@@ -1,5 +1,65 @@
-import { describe, it, expect } from 'vitest';
-import { isReminderForUser, normalizeTargetEmails, type ReminderItem } from './reminders';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+const zalogujANahlasMock = vi.hoisted(() => vi.fn());
+vi.mock('./chybyHlaseni', () => ({ zalogujANahlas: zalogujANahlasMock }));
+
+const supabaseMock = vi.hoisted(() => ({
+  insert: vi.fn(),
+  update: vi.fn(),
+  delete: vi.fn(),
+}));
+vi.mock('./supabase', () => ({
+  supabase: {
+    from: () => ({
+      insert: (...args: unknown[]) => supabaseMock.insert(...args),
+      update: (...args: unknown[]) => ({ eq: (...eqArgs: unknown[]) => supabaseMock.update(...args, ...eqArgs) }),
+      delete: () => ({ eq: (...eqArgs: unknown[]) => supabaseMock.delete(...eqArgs) }),
+    }),
+  },
+}));
+
+import { isReminderForUser, normalizeTargetEmails, createReminder, acknowledgeReminder, deleteReminder, type ReminderItem } from './reminders';
+
+// Z provozu 16. 9. 2026: skutečné odmítnutí serveru (RLS, špatná data — NE
+// výpadek sítě, ten appka sama zařadí do fronty přes offlineFetch) se dřív
+// tiše ztratilo. `fetchReminders` navíc při dalším načtení přepíše lokální
+// kopii tím, co vrátí server — připomínka pro tým beze stopy zmizela.
+// Teď se aspoň zaloguje, ať to jde dohledat v Diagnostice.
+describe('tiché selhání zápisu do databáze se loguje (ne ztrácí beze stopy)', () => {
+  beforeEach(() => {
+    zalogujANahlasMock.mockClear();
+    localStorage.clear();
+    supabaseMock.insert.mockReset();
+    supabaseMock.update.mockReset();
+    supabaseMock.delete.mockReset();
+  });
+
+  it('createReminder zaloguje skutečné odmítnutí serveru', async () => {
+    supabaseMock.insert.mockRejectedValue(new Error('new row violates row-level security policy'));
+    await createReminder({ title: 'Test', date_time: '2026-09-20T10:00', target_role: 'all', display_mode: 'both', created_by: 'a@brew.cz' });
+    expect(zalogujANahlasMock).toHaveBeenCalledTimes(1);
+    expect(zalogujANahlasMock.mock.calls[0][0]).toMatch(/připomínky/i);
+  });
+
+  it('createReminder při úspěchu nic neloguje', async () => {
+    supabaseMock.insert.mockResolvedValue({ data: null, error: null });
+    await createReminder({ title: 'Test', date_time: '2026-09-20T10:00', target_role: 'all', display_mode: 'both', created_by: 'a@brew.cz' });
+    expect(zalogujANahlasMock).not.toHaveBeenCalled();
+  });
+
+  it('acknowledgeReminder zaloguje skutečné odmítnutí serveru', async () => {
+    localStorage.setItem('reminders_list_v1', JSON.stringify([makeReminder({ id: 'r1' })]));
+    supabaseMock.update.mockRejectedValue(new Error('permission denied'));
+    await acknowledgeReminder('r1', 'a@brew.cz');
+    expect(zalogujANahlasMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('deleteReminder zaloguje skutečné odmítnutí serveru', async () => {
+    supabaseMock.delete.mockRejectedValue(new Error('permission denied'));
+    await deleteReminder('r1');
+    expect(zalogujANahlasMock).toHaveBeenCalledTimes(1);
+  });
+});
 
 function makeReminder(overrides: Partial<ReminderItem>): ReminderItem {
   return {

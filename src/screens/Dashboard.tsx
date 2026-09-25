@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase, Beer, Package, useRealtime, beerBorder, fetchAllRows } from '../lib/supabase';
 import { Kostra, EmptyState, Modal } from '../components/ui';
 import { useAuth } from '../lib/auth';
-import { AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, Calculator, ClipboardList, Check, Layers, PackageCheck, Pin, Sparkles } from 'lucide-react';
+import { AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, Calculator, Check, ClipboardList, Layers, Megaphone, PackageCheck, Pin, Sparkles } from 'lucide-react';
 import { AnnouncementManagerModal } from '../components/AnnouncementManagerModal';
 import SkloPromoScreen from './SkloPromoScreen';
 import { buildMovements, stockAsOf, stockKey } from '../lib/stockLedger';
@@ -10,9 +10,10 @@ import { QuickCountModal } from '../components/QuickCountModal';
 import { fetchLabelBalances } from '../lib/labelStock';
 import { zustatkyZavirek } from '../lib/materialSklad';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
-import { chyba, oznam } from '../lib/toast';
+import { chyba, oznam, potvrd, toastZpet } from '../lib/toast';
 import { usePosledniNacteni } from '../lib/nacitani';
 import { IkonaLahev, IkonaSud } from '../components/ikony';
+import { businessDateISO } from '../lib/businessDate';
 
 type Row = {
   entry_date: string; beer_id: string | null; beer_name: string | null;
@@ -20,7 +21,10 @@ type Row = {
 };
 
 function monthKey(d: string): string { return d.slice(0, 7); }
-function todayISO(): string { return new Date().toISOString().slice(0, 10); }
+// businessDateISO(), NE new Date().toISOString() (vždycky UTC) — jinak kolem
+// půlnoci "Stav k" i měsíční součty (entry_date <= todayISO()) počítaly s
+// jiným dnem než reálně v Praze je. Stejná chyba jako u weekKey v Kegging.tsx.
+function todayISO(): string { return businessDateISO(); }
 function startOfMonthISO(iso: string): string { return iso.slice(0, 7) + '-01'; }
 
 type StockByPkg = {
@@ -103,11 +107,39 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
       };
     });
 
-    const { error } = await supabase.from('inventory').insert(payloads);
+    // ⚠️ Inventura není jen poznámka: skladová kniha ji bere jako RESET —
+    // od tohohle dne se stav počítá od napočítaných čísel a starší pohyby už
+    // do výsledku nevstupují (viz lib/stockLedger.ts). Proto se appka ptá a
+    // napíše, co to značí — v týdenní kontrole témž sčítadlo jen vyplňuje
+    // pole a nezapisuje nic.
+    const prehled = payloads
+      .slice(0, 10)
+      .map((r) => `\u2022 ${r.quantity}× ${r.package_label ?? ''} ${r.beer_name ?? ''}`)
+      .join('\n') + (payloads.length > 10 ? `\n\u2022 … a dalších ${payloads.length - 10}` : '');
+    const ok = await potvrd(
+      `Uložit inventuru k ${today}?\n\n${prehled}\n\n`
+      + 'Od tohohle dne se skladový stav počítá od těchto čísel — co bylo předtím, '
+      + 'se do něj už nepromítá. Stáčení ani výdeje se nemění.',
+      { titulek: 'Uložit inventuru', potvrdit: `Uložit ${payloads.length} položek` },
+    );
+    if (!ok) return;
+
+    const { data: vlozene, error } = await supabase.from('inventory').insert(payloads).select('id');
     if (error) {
       chyba(`Chyba při ukládání inventury: ${error.message}`);
     } else {
-      oznam(`Inventura (${items.length} položek) úspěšně uložena!`);
+      // Vzít zpět podle id právě vložených řádků, ne podle data — jinak by
+      // se smazala i inventura, kterou dnes uložil někdo jiný.
+      const ids = ((vlozene as { id: string }[]) ?? []).map((r) => r.id);
+      if (ids.length > 0) {
+        toastZpet(`Inventura uložena (${items.length} položek).`, async () => {
+          const { error: chybaMazani } = await supabase.from('inventory').delete().in('id', ids);
+          if (chybaMazani) throw chybaMazani;
+          load();
+        });
+      } else {
+        oznam(`Inventura (${items.length} položek) úspěšně uložena!`);
+      }
       load();
     }
   }
@@ -454,7 +486,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
           onClick={() => setShowAnnouncementManager(true)}
           className="btn !rounded bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 !py-2 !px-3.5 text-xs font-black shadow-sm"
         >
-          <AlertTriangle size={16} /> Spravovat Hlášení
+          <Megaphone size={16} /> Hlášení
         </button>
       </div>
 
@@ -465,6 +497,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
           beers={beers}
           packages={packages}
           onConfirmCount={handleConfirmQuickCount}
+          popisUlozeni="Uloží se jako inventura k dnešnímu dni — od něj se skladový stav počítá od těchto čísel."
         />
       )}
       {/* Material (Labels & Bottles) Warning Banner */}

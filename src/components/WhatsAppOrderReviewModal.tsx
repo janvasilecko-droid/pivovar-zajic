@@ -2,7 +2,9 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { Beer, Package, Place, supabase } from '../lib/supabase';
 import { WhatsAppIncoming, ignoreWhatsAppMessage, updateWhatsAppParsedData, napojNaObjednavku } from '../lib/whatsappApi';
 import { parseWhatsAppOrderMessageWithAI } from '../lib/whatsappParser';
-import { loadAliasMap, saveAlias, canLearnBeerAlias, matchBeerFromHints, matchPackage, matchPlaceFromText, savePlaceAlias, normalize, type ParserAliasMap } from '../lib/orderParser';
+import { loadAliasMap, saveAlias, canLearnBeerAlias, matchBeerFromHints, matchPackage, savePlaceAlias, normalize, getOrCreatePlace, type ParserAliasMap } from '../lib/orderParser';
+import { matchAgainstCatalog } from '../../supabase/functions/_shared/place-match';
+import { oznacVlastniObjednavku } from '../lib/mojeObjednavky';
 import {
   diffOrderItems, rozsahOdpovedi, slozNavrh, potvrzeneBezPolozek, vypadaJakoPridavek,
   kandidatiNaDoplneni, datumObjednavky, vypadaJakoZmenaObjednavky,
@@ -21,13 +23,20 @@ import {
   type ReadbackMatch,
   type ReadbackStatus,
 } from '../lib/whatsappReadback';
-import { AlertCircle, AlertTriangle, Check, CheckCircle2, ChevronDown, Download, ExternalLink, Eye, FileText, Image as ImageIcon, MessageSquare, RefreshCw, ShieldAlert, ShieldCheck, ShoppingCart, UserCheck, X, ArrowDown, FilePlus, Plus } from 'lucide-react';
-import { potvrd } from '../lib/toast';
+import { AlertCircle, AlertTriangle, Check, CheckCircle2, ChevronDown, Download, ExternalLink, Eye, FileText, Image as ImageIcon, MessageSquare, CornerDownRight, HelpCircle, RefreshCw, RotateCcw, ShieldAlert, ShieldCheck, ShoppingCart, UserCheck, X, ArrowDown, FilePlus, Plus } from 'lucide-react';
+import { chyba, potvrd, uspech } from '../lib/toast';
 import { zalogujANahlas } from '../lib/chybyHlaseni';
 import { useChovaniDialogu } from '../lib/zavriNaZpet';
 import { businessDateISO } from '../lib/businessDate';
+import { rozdelVraceni, vypadaJakoVraceni } from '../lib/vraceniZeZpravy';
+import { odberatelZCitace, stojiZaHledani } from '../lib/odberatelZCitace';
+import {
+  datumCesky, datumZavozu, objednavkyKVraceni, pripojPoznamku, poznamkaVraceni,
+  zaznamyDorovnaniVraceni, type PolozkaVraceni,
+} from '../lib/vraceniZObjednavky';
 import { STAVY_OBJEDNAVKY, popisStavu } from '../lib/stavyObjednavek';
 import { uloz } from '../lib/uloziste';
+import type { Order, OrderItem } from './objednavky/spolecne';
 
 /** Jak se skupiny obalů pojmenují v přehledu úpravy. */
 const NAZVY_SKUPIN: Record<SkupinaObalu, string> = {
@@ -51,6 +60,14 @@ interface WhatsAppOrderReviewModalProps {
   places: Place[];
   onApprove: (message: WhatsAppIncoming) => Promise<void>;
   onReject: (message: WhatsAppIncoming) => Promise<void>;
+  /**
+   * Zavezené objednávky + jejich položky — jen pro nabídku „vrátit z téhle
+   * objednávky" u VRÁCENÍ (viz jeVraceni níž). Nepovinné: bez nich zprávu
+   * jde zapsat jako vrácení pořád, jen bez vazby na konkrétní objednávku
+   * (stejně jako dřív).
+   */
+  orders?: Order[];
+  orderItems?: Record<string, OrderItem[]>;
 }
 
 function ButtonSpinner() {
@@ -105,6 +122,13 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   // Interní stav zprávy — po „přečtení znovu (AI)" se aktualizuje lokálně,
   // aby se přepis, položky i kontrola čtení okamžitě překreslily.
   const [msg, setMsg] = useState<WhatsAppIncoming | null>(props.message);
+  // ↩️ „Tady vrací 1x50l. Vosmy…" — zpráva o VRÁCENÍ, ne objednávka. Musí být
+  // spočítané už tady nahoře: i když zpráva zároveň cituje jinou (a dostane
+  // amends_order_id z citace), NESMÍ se chovat jako úprava/schválení té
+  // objednávky — schválením by vznikl závoz, který nikdy nepojede, nebo by se
+  // rovnou přepsala cizí objednávka podle textu o vrácení. Viz gate níž u
+  // amend-banneru a u tlačítka Schválit.
+  const jeVraceni = vypadaJakoVraceni(msg?.message_text);
   // Rozdíl mezi současnou objednávkou a tím, co z odpovědi vyšlo.
   const [amendDiff, setAmendDiff] = useState<DiffRow[]>([]);
   const [amendPlace, setAmendPlace] = useState<string | null>(null);
@@ -129,6 +153,15 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   const [kandidatiChyba, setKandidatiChyba] = useState<string | null>(null);
   /** Id objednávky, na kterou se právě napojuje (zamyká tlačítko). */
   const [napojuji, setNapojuji] = useState<string | null>(null);
+  // ✂️ Rozdělení na dva odběratele — z provozu 15. 9. 2026: WhatsApp zpráva
+  // se dvěma odběrateli (Chmeloun a Sluhy) dorazila jako jedna objednávka.
+  // Zaškrtnuté položky odejdou po schválení do NOVÉ, druhé objednávky —
+  // viz handleApprove. Netýká se odpovědí upravujících stávající objednávku
+  // (amends_order_id) — tam by rozdělení nedávalo smysl.
+  const [splitEnabled, setSplitEnabled] = useState(false);
+  const [splitKeys, setSplitKeys] = useState<Set<string>>(new Set());
+  const [splitPlaceId, setSplitPlaceId] = useState('');
+  const [splitPlaceName, setSplitPlaceName] = useState('');
 
   // Synchronizace s prop (otevření nové zprávy).
   useEffect(() => {
@@ -156,12 +189,72 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
     let pid = msg.parsed_place_id || '';
     const pname = msg.parsed_place_name || '';
     if (!pid && pname) {
-      const matched = matchPlaceFromText(pname, props.places);
-      if (matched.placeId && matched.placeName) pid = matched.placeId;
+      // matchAgainstCatalog (ne matchPlaceFromText): `pname` je už VYBRANÉ
+      // jméno (AI ho vrátila jako place_name), ne syrový text zprávy —
+      // ukotvení v textu tu nedává smysl a stará cesta navíc jméno jako
+      // "petr" napevno vyřazovala coby zaměstnance (viz komentář u
+      // matchAgainstCatalog v _shared/place-match.ts).
+      const matched = matchAgainstCatalog(pname, props.places, []);
+      if (matched.id) pid = matched.id;
     }
     setPlaceId(pid);
     setPlaceName(pname || props.places.find((p) => p.id === pid)?.name || '');
     setOrigPlaceName(pname || null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.isOpen, msg?.id]);
+
+  // ↩️ Odpověď bez odběratele zdědí odběratele z CITOVANÉ zprávy.
+  //
+  // Z provozu 17. i 18. 9. 2026: na Radkovu objednávku přišla odpověď
+  // „60x0,5l. Grep a 40x0,5l. Citrón". Je to VLASTNÍ objednávka, jen na
+  // Radkovu navazuje — odběratel v ní není napsaný a pole zůstávalo prázdné,
+  // ačkoli appka z citace přesně ví, komu se odpovídá.
+  //
+  // Totéž umí edge funkce whatsapp-auto-parse od 17. 9., jenže ta se do
+  // Supabase nenasadila (klíč SUPABASE_ACCESS_TOKEN není v GitHubu) — viz
+  // lib/odberatelZCitace.ts. Aplikace se nasazuje sama, takže tahle cesta
+  // k uživateli doopravdy dojede.
+  //
+  // Nic se nezapisuje: jen se PŘEDVYPLNÍ pole, které člověk před schválením
+  // vidí a může přepsat. Co už napsal ručně, se nepřebíjí.
+  /**
+   * ❓ Co si AI při čtení téhle zprávy nebyla jistá.
+   *
+   * Do teď byl model nucený pokaždé hádat — „2x10" je deset piv, nebo dva
+   * sudy 10 l? má odpověď objednávku upravit, nebo je to nová? — a obsluha
+   * se o té nejistotě nedozvěděla. Teď se zeptá (viz KDYŽ NEVÍŠ
+   * v supabase/functions/_shared/order-rules.ts).
+   *
+   * Bere se ze zprávy (uloženo při automatickém čtení), a když se použije
+   * „Přečíst znovu (AI)", přepisuje se čerstvým výsledkem.
+   */
+  const [otazkyAi, setOtazkyAi] = useState<string[]>([]);
+  useEffect(() => {
+    setOtazkyAi(Array.isArray(msg?.parsed_otazky) ? msg.parsed_otazky : []);
+  }, [msg?.id, msg?.parsed_otazky]);
+
+  const [odberatelZOdpovedi, setOdberatelZOdpovedi] = useState<string | null>(null);
+  useEffect(() => {
+    setOdberatelZOdpovedi(null);
+    if (!props.isOpen || !msg || !stojiZaHledani(msg)) return;
+    let zruseno = false;
+    (async () => {
+      const { data } = await supabase
+        .from('whatsapp_incoming')
+        .select('id, created_at, message_text, quoted_text, imported_order_id, parsed_place_id, parsed_place_name')
+        .lt('created_at', msg.created_at)
+        .order('created_at', { ascending: false })
+        // Celý chat se netáhne — citace se týká něčeho z posledních dní.
+        .limit(200);
+      if (zruseno) return;
+      const nalez = odberatelZCitace(msg, (data ?? []) as any[]);
+      // Mezitím mohl člověk odběratele napsat sám — to má přednost.
+      if (!nalez || placeTouchedRef.current) return;
+      setPlaceId(nalez.placeId ?? '');
+      setPlaceName(nalez.placeName ?? '');
+      setOdberatelZOdpovedi(nalez.zCitace);
+    })();
+    return () => { zruseno = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.isOpen, msg?.id]);
 
@@ -218,8 +311,12 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   // ↩️ Když zpráva upravuje existující objednávku, načti její SOUČASNÝ obsah
   // a porovnej s tím, co z odpovědi vyšlo — obsluha pak vidí celou objednávku
   // se zvýrazněnými změnami, ne jen samotnou odpověď.
+  //
+  // NE u VRÁCENÍ (jeVraceni): i když zpráva cituje jinou a dostala
+  // amends_order_id, „upraví existující objednávku" je pro vrácení věcně
+  // špatně — objednávka se propisuje výhradně přes „Zapsat jako vrácení" výš.
   useEffect(() => {
-    if (!props.isOpen || !msg?.amends_order_id) {
+    if (!props.isOpen || !msg?.amends_order_id || jeVraceni) {
       setAmendDiff([]); setAmendPlace(null); setAmendOriginalMsg(null);
       setAmendRozsah({ nahradit: [], potvrzeno: [] });
       setAmendPotvrzenoPrazdne([]);
@@ -272,7 +369,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
     })();
     return () => { zruseno = true; };
      
-  }, [props.isOpen, msg?.amends_order_id, msg?.message_text, items, props.packages]);
+  }, [props.isOpen, msg?.amends_order_id, msg?.message_text, items, props.packages, jeVraceni]);
 
   // „Pro Radka jeste plus toto" — zpráva říká, že je to PŘÍDAVEK k něčemu, co
   // už je objednané. Jistě to z textu poznat nejde (a tichá záměna „přidat" za
@@ -295,6 +392,127 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
     !!msg?.amends_order_id && !msg?.quoted_text && !!vypadaJakoZmenaObjednavky(msg?.message_text);
   /** Jak se zpráva chová k vybrané objednávce — pro texty po napojení. */
   const druhNapojeni = napojenoRucne ? vypadaJakoZmenaObjednavky(msg?.message_text) : null;
+
+  // Rozpad na „vrácené pivo" vs. „nejspíš prázdné obaly" (jeVraceni je
+  // spočítané výš, hned u definice `msg`) dělá lib/vraceniZeZpravy.ts; řádky
+  // bez piva se nezahazují, jen se nezaškrtnou — viz pravidlo od majitele tamtéž.
+  const rozpadVraceni = useMemo(() => rozdelVraceni(
+    items.map((it) => ({
+      klic: it.key,
+      beerId: it.beerId,
+      beerName: it.beerName ?? props.beers.find((b) => b.id === it.beerId)?.name ?? null,
+      pkgId: it.pkgId,
+      packageLabel: it.packageLabel ?? props.packages.find((p) => p.id === it.pkgId)?.label ?? null,
+      pocet: Number(it.qty || 0),
+    })),
+    msg?.message_text,
+  ), [items, msg?.message_text, props.beers, props.packages]);
+  /**
+   * Které řádky se doopravdy zapíšou.
+   *
+   * Z provozu 21. 9. 2026: „v tech vratkach je nak moc polozek, ty se
+   * nevracely... pokud bude neco na vraceni tak vyhod upozadu vozorneni a
+   * rucne se musi potvrdit ze se vraci plny sud." Dřív se řádky s dohledaným
+   * pivem (rozpadVraceni.sPivem) rovnou předzaškrtly — ale `pivoJeVTextu`
+   * (viz lib/vraceniZeZpravy.ts) je jen hrubá shoda prvních tří písmen kmene
+   * kdekoli ve zprávě, takže se předzaškrtlo i pivo, které se ve
+   * skutečnosti nevracelo (jen padlo do stejné zprávy jinou souvislostí).
+   * Nezaškrtnuté nic nezahazuje — jen to čeká na ruční potvrzení, přesně
+   * jak žádá pravidlo od majitele o žádném zápisu bez jasného povelu.
+   */
+  const [vraceniZaskrtnuto, setVraceniZaskrtnuto] = useState<Record<string, boolean>>({});
+  useEffect(() => {
+    setVraceniZaskrtnuto({});
+  }, [jeVraceni, msg?.id]);
+  const [ukladamVraceni, setUkladamVraceni] = useState(false);
+
+  const vraceneRadky = [...rozpadVraceni.sPivem, ...rozpadVraceni.jenObaly]
+    .filter((r) => vraceniZaskrtnuto[r.klic]);
+  const vracenoKusu = vraceneRadky.reduce((a, r) => a + r.pocet, 0);
+
+  /**
+   * ↩️ Vrácení z WHATSAPP zprávy nabídne i propojení s konkrétní zavezenou
+   * objednávkou stejného odběratele (stejný seznam jako záložka „Vrácení
+   * piva", lib/vraceniZObjednavky.ts) — appka pak u té objednávky dopočítá
+   * efektivní množství (OrderCard.tsx), místo aby vrácení zůstalo jen
+   * volným záznamem ve skladu bez vazby na to, odkud pivo přišlo.
+   *
+   * Z provozu 21. 9. 2026: „to je ve zprave, takze normalne na cteni to
+   * precetlo vraci, tak at da volbu vratit sud z ty obednavky, at to napise
+   * puvodni a z ni to odecte." Zůstává NEPOVINNÉ a jde ručně přepnout nebo
+   * zrušit — appka nic nezapíše bez potvrzení tlačítkem — ale když zpráva
+   * cituje zprávu, ze které objednávka vznikla (amends_order_id), přednabídne
+   * ji appka rovnou, ať se nemusí hledat ručně v seznamu.
+   */
+  const [vratitZObjednavky, setVratitZObjednavky] = useState('');
+  useEffect(() => {
+    setVratitZObjednavky(msg?.amends_order_id ?? '');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jeVraceni, msg?.id]);
+  const nabidkaObjednavek = useMemo(() => {
+    if (!jeVraceni || !props.orders) return [];
+    const seznam = objednavkyKVraceni(props.orders, props.orderItems ?? {}, {
+      dnes: businessDateISO(),
+      placeId: placeId || undefined,
+    }).slice(0, 10);
+    // Objednávka, na kterou zpráva podle citace odpovídá, musí jít vybrat
+    // vždycky — i kdyby normální filtr (posledních 56 dní, stejný odběratel,
+    // max. 10 položek) na ni sám nedosáhl.
+    const cilena = msg?.amends_order_id
+      ? props.orders.find((o) => o.id === msg.amends_order_id)
+      : null;
+    if (cilena && !seznam.some((o) => o.id === cilena.id)) {
+      return [cilena, ...seznam];
+    }
+    return seznam;
+  }, [jeVraceni, props.orders, props.orderItems, placeId, msg?.amends_order_id]);
+  const vybranaObjObjednavka = vratitZObjednavky
+    ? props.orders?.find((o) => o.id === vratitZObjednavky) ?? null
+    : null;
+
+  /**
+   * Zapíše zprávu jako vrácení: kusy se přičtou na sklad DNEŠNÍM dnem
+   * (stejná cesta jako záložka „Vrácení piva", lib/vraceniZObjednavky.ts)
+   * a zpráva se odloží, ať z ní nikdo omylem nezaloží objednávku.
+   */
+  async function zapisJakoVraceni() {
+    const polozky: PolozkaVraceni[] = vraceneRadky.map((r) => ({
+      beer_id: r.beerId,
+      beer_name: r.beerName,
+      package_id: r.pkgId,
+      package_label: r.packageLabel,
+      pocet: r.pocet,
+    }));
+    const odberatel = placeName || msg?.parsed_place_name || msg?.sender_name || '';
+    const ok = await potvrd(
+      `Zapsat jako vrácení ${vracenoKusu} ks od „${odberatel || 'neznámého odběratele'}"?`
+      + (vybranaObjObjednavka ? ` Propíše se k objednávce z ${datumCesky(datumZavozu(vybranaObjObjednavka))}.` : '')
+      + ' Přičte se to na sklad dneškem a objednávka z téhle zprávy NEvznikne.',
+      { titulek: 'Vrácení piva', potvrdit: 'Zapsat vrácení' },
+    );
+    if (!ok) return;
+    setUkladamVraceni(true);
+    try {
+      const dnes = businessDateISO();
+      const { error } = await supabase
+        .from('inventory_adjustments')
+        .insert(zaznamyDorovnaniVraceni(polozky, dnes, odberatel, vybranaObjObjednavka?.id ?? null));
+      if (error) throw new Error(error.message);
+      if (vybranaObjObjednavka) {
+        const novaPoznamka = pripojPoznamku(vybranaObjObjednavka.note, poznamkaVraceni(polozky, dnes));
+        const { error: e2 } = await supabase.from('orders').update({ note: novaPoznamka }).eq('id', vybranaObjObjednavka.id);
+        if (e2) throw new Error(e2.message);
+      }
+      await ignoreWhatsAppMessage(message.id);
+      uspech(`Vráceno ${vracenoKusu} ks — přičteno na sklad. Je to vidět v Objednávkách → Vrácení piva.`);
+      props.onClose();
+      props.onDecision?.();
+    } catch (e: any) {
+      chyba('Vrácení se nepovedlo: ' + (e?.message || e));
+    } finally {
+      setUkladamVraceni(false);
+    }
+  }
 
   // ➕ Objednávky, ke kterým může přídavek patřit. Dřív musela obsluha
   // objednávku najít v seznamu, zapamatovat si ji a přepsat ručně — appka
@@ -466,6 +684,15 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
     });
   }
 
+  /** Zaškrtnutí položky pro druhého odběratele (viz splitEnabled). */
+  function toggleSplitKey(key: string) {
+    setSplitKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }
+
   function updatePlace(pid: string, pname: string) {
     placeTouchedRef.current = true;
     setPlaceId(pid);
@@ -510,6 +737,13 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   const isParsed = message.status === 'parsed';
   const isPending = message.status === 'pending';
   const isImported = message.status === 'imported';
+  // ⚠️ AI čtení může spadnout (výpadek, rate limit, chybný JSON) — edge funkce
+  // pak zprávu NEnechá viset v 'processing', ale nastaví 'error' (viz komentář
+  // u safeUpdateMessage v supabase/functions/whatsapp-auto-parse/index.ts).
+  // Bez týhle větve to ale UI ukazovalo úplně stejně jako běžící zpracování
+  // ("Zpracovává se...") a bez tlačítka na nový pokus — zpráva tak vypadala,
+  // že se pořád čte, ačkoli už dávno spadla a nikdy sama nedoběhne.
+  const isError = message.status === 'error';
   const parsedItems = message.parsed_items || [];
   const hasParsedData = parsedItems.length > 0 || message.parsed_place_name || message.parsed_delivery_date;
 
@@ -612,6 +846,13 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
       }
     }
 
+    // Rozdělení bez vybraného druhého odběratele by založilo objednávku bez
+    // jména — radši zastavit dřív, než se cokoliv zapíše.
+    if (splitEnabled && splitKeys.size > 0 && !splitPlaceId && !splitPlaceName.trim()) {
+      setStatusMessage('Vyber nebo napiš druhého odběratele — nebo rozdělení zrušit.');
+      return;
+    }
+
     setApproving(true);
     setStatusMessage('Schvaluji objednávku...');
 
@@ -624,6 +865,13 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
         savePlaceAlias(origPlaceName, placeId, finalPlaceName).catch(() => {});
       }
 
+      // ✂️ Rozdělení na dva odběratele (viz splitEnabled výš): zaškrtnuté
+      // položky odejdou stranou, schválená PRVNÍ objednávka je vůbec
+      // nedostane — jinak by je měly obě dvakrát.
+      const splitActive = splitEnabled && splitKeys.size > 0 && splitKeys.size < items.length && !message.amends_order_id;
+      const primaryItems = splitActive ? items.filter((it) => !splitKeys.has(it.key)) : items;
+      const secondItems = splitActive ? items.filter((it) => splitKeys.has(it.key)) : [];
+
       // Zkopírujeme zprávu s položkami, jak je uživatel případně opravil
       // (správné pivo/obal z katalogu, upravené množství, opravený odběratel).
       const editedMessage: WhatsAppIncoming = {
@@ -633,7 +881,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
         amends_order_id: asNew ? null : message.amends_order_id,
         parsed_place_id: placeId || message.parsed_place_id,
         parsed_place_name: placeName || message.parsed_place_name,
-        parsed_items: items.map((it) => ({
+        parsed_items: primaryItems.map((it) => ({
           beer_id: it.beerId || null,
           pkg_id: it.pkgId || null,
           qty: parseInt(it.qty, 10) || 0,
@@ -656,7 +904,41 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
       }).catch(() => {});
 
       await props.onApprove(editedMessage);
-      setStatusMessage(asNew ? 'Vytvořena nová objednávka!' : 'Objednávka byla schválena a importována!');
+
+      // Druhá objednávka (odštěpené položky) — samostatný, jednoduchý zápis,
+      // NE přes onApprove (ten by se pro stejné message.id spustil podruhé
+      // a narazil na už 'imported' zprávu). Stejný vzor jako duplicateOrder
+      // v Orders.tsx.
+      if (splitActive && secondItems.length > 0) {
+        let resolvedPlaceId = splitPlaceId || null;
+        let resolvedPlaceName = splitPlaceName.trim();
+        if (!resolvedPlaceId && resolvedPlaceName) {
+          const place = await getOrCreatePlace(resolvedPlaceName, props.places);
+          if (place) { resolvedPlaceId = place.id; resolvedPlaceName = place.name; }
+        }
+        const { data: newOrder, error: orderErr } = await supabase.from('orders').insert({
+          order_date: businessDateISO(),
+          place_id: resolvedPlaceId, place_name: resolvedPlaceName || null,
+          source: 'whatsapp', status: 'nova',
+          delivery_day: message.parsed_delivery_day ?? null,
+          delivery_date: message.parsed_delivery_date ?? null,
+          is_prepared: false, is_packaged: false, is_delivered: false,
+        }).select().single();
+        if (orderErr || !newOrder) throw new Error(orderErr?.message ?? 'Druhá objednávka se nepovedla založit.');
+        oznacVlastniObjednavku(newOrder.id);
+        const radky = secondItems.map((it) => ({
+          order_id: newOrder.id, beer_id: it.beerId || null, beer_name: it.beerName || null,
+          package_id: it.pkgId || null, package_label: it.packageLabel || null,
+          quantity: parseInt(it.qty, 10) || 0,
+        }));
+        const { error: itemsErr } = await supabase.from('order_items').insert(radky);
+        if (itemsErr) throw new Error(itemsErr.message);
+      }
+
+      setStatusMessage(
+        splitActive ? 'Schváleno — rozděleno na dvě objednávky!'
+          : asNew ? 'Vytvořena nová objednávka!' : 'Objednávka byla schválena a importována!'
+      );
 
       // Po krátké době zavřít modal a přejít na další čekající zprávu
       setTimeout(() => {
@@ -737,11 +1019,22 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
       setRebuildKey((k) => k + 1); // znovu postaví editační položky z nových parsed_items
 
       // Pokud uživatel odběratele ručně neopravil, promítneme nové místo z AI.
+      // Když nové čtení nenajde NIC (placeId i placeName prázdné), ale
+      // odběratel byl už předtím vyplněný (ať z prvního čtení, nebo ho sem
+      // ručně vyplnil někdo jiný), pole nemažeme — druhé čtení je skoro
+      // vždycky NEÚSPĚCH AI, ne důkaz, že odběratel zmizel (z provozu
+      // 16. 9. 2026: "Přečíst znovu" vymazalo už správně dosazeného
+      // odběratele, protože AI ho podruhé nenašla).
       if (!placeTouchedRef.current) {
-        setPlaceId(parsed.placeId || '');
-        setPlaceName(parsed.placeName || '');
-        setOrigPlaceName(parsed.placeName || null);
+        const nalezenoNove = !!(parsed.placeId || parsed.placeName?.trim());
+        if (nalezenoNove || !(placeId || placeName.trim())) {
+          setPlaceId(parsed.placeId || '');
+          setPlaceName(parsed.placeName || '');
+          setOrigPlaceName(parsed.placeName || null);
+        }
       }
+      // Otázky z čerstvého čtení mají přednost před těmi uloženými u zprávy.
+      setOtazkyAi(parsed.otazky ?? []);
 
       setStatusMessage(
         unmatched > 0
@@ -800,6 +1093,133 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
 
   const body = (
       <div className="space-y-6">
+        {/* ❓ NA CO SE AI PTÁ. Úplně nahoře: je to jediná věc v okně, kterou
+            appka sama nevyřeší, a bez odpovědi se schálením zapisuje odhad.
+            Do 18. 9. 2026 se model neměl jak zeptat — buď uřekl položku, nebo
+            ji zahodil, a obsluha se o té nejistotě nedozvěděla. */}
+        {otazkyAi.length > 0 && (
+          <div className="border-2 border-violet-400 rounded bg-violet-50 p-4">
+            <div className="flex items-start gap-2">
+              <HelpCircle size={18} className="text-violet-700 shrink-0 mt-0.5" />
+              <div className="min-w-0 flex-1">
+                <div className="font-display font-black text-violet-950 text-sm">
+                  {otazkyAi.length === 1 ? 'AI si není jistá jednou věcí' : `AI si není jistá (${otazkyAi.length})`}
+                </div>
+                <p className="text-xs font-bold text-violet-900 mt-1">
+                  Než objednávku schválíš, projdi tohle — položky níž jsou u těchhle míst jen odhad.
+                  Oprav je rovnou ve formuláři.
+                </p>
+                <ul className="mt-2.5 space-y-1.5">
+                  {otazkyAi.map((o, i) => (
+                    <li key={i} className="text-sm font-bold text-violet-950 bg-white/70 border border-violet-200 rounded px-2.5 py-1.5">
+                      {o}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ↩️ VRÁCENÍ — nahoře, ať se nedá přehlédnout: pod tím je normální
+            formulář objednávky a schválit ho by znamenalo odepsat ze skladu
+            pivo, které se právě vrátilo. */}
+        {jeVraceni && (
+          <div className="border-2 border-sky-300 rounded bg-sky-50 p-4">
+            <div className="flex items-start gap-2">
+              <RotateCcw size={18} className="text-sky-700 shrink-0 mt-0.5" />
+              <div className="min-w-0 flex-1">
+                <div className="font-display font-black text-sky-950 text-sm">
+                  Vypadá to na VRÁCENÍ piva, ne na objednávku
+                </div>
+                <div className="text-xs font-bold text-sky-900 mt-1">
+                  Zpráva mluví o vracení („{(message.message_text || '').slice(0, 45)}…“). Schválená
+                  jako objednávka by založila závoz, který nikdy nepojede, a pivo by se ze skladu
+                  odepsalo — přitom se právě vrátilo. Zaškrtni, co se doopravdy vrátilo, a zapiš to
+                  jako vrácení: přičte se na sklad dneškem.
+                </div>
+
+                {rozpadVraceni.sPivem.length === 0 && rozpadVraceni.jenObaly.length === 0 ? (
+                  <div className="text-xs font-bold text-sky-900 mt-3">
+                    Ze zprávy se nic k vrácení nevyčetlo. Zkontroluj položky níž, nebo zprávu ignoruj
+                    a vrácení zapiš v Objednávkách → Vrácení piva.
+                  </div>
+                ) : (
+                  <div className="mt-3 space-y-1.5">
+                    {rozpadVraceni.sPivem.map((r) => (
+                      <label key={r.klic} className="flex items-center gap-2 bg-white border border-sky-200 rounded p-2 cursor-pointer">
+                        <input
+                          type="checkbox" className="w-4 h-4 shrink-0"
+                          checked={!!vraceniZaskrtnuto[r.klic]}
+                          onChange={(e) => setVraceniZaskrtnuto((m) => ({ ...m, [r.klic]: e.target.checked }))}
+                        />
+                        <span className="text-sm font-black text-neutral-900 min-w-0 truncate">
+                          {r.pocet}× {r.packageLabel} {r.beerName}
+                        </span>
+                      </label>
+                    ))}
+
+                    {/* Prázdné obaly: pravidlo od majitele — „vrací 3x30" bez
+                        napsaného piva jsou sudy, ne pivo. Nezahazují se, jen
+                        nejsou zaškrtnuté; kdo ví, že v nich pivo bylo, zaškrtne. */}
+                    {rozpadVraceni.jenObaly.map((r) => (
+                      <label key={r.klic} className="flex items-center gap-2 bg-white border border-neutral-200 rounded p-2 cursor-pointer">
+                        <input
+                          type="checkbox" className="w-4 h-4 shrink-0"
+                          checked={!!vraceniZaskrtnuto[r.klic]}
+                          onChange={(e) => setVraceniZaskrtnuto((m) => ({ ...m, [r.klic]: e.target.checked }))}
+                        />
+                        <span className="text-sm font-bold text-neutral-600 min-w-0 truncate">
+                          {r.pocet}× {r.packageLabel}
+                          <span className="text-udaj text-neutral-500"> — u toho není napsané pivo, nejspíš prázdné obaly</span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+
+                {/* ↩️ Volitelné propojení s konkrétní zavezenou objednávkou —
+                    appka pak u ní dopočítá „počítá se X, Y vráceno" (viz
+                    OrderCard.tsx). Bez výběru zůstává vrácení jen záznamem
+                    ve skladu, stejně jako dřív. */}
+                {nabidkaObjednavek.length > 0 && (
+                  <div className="mt-3">
+                    <label className="text-udaj font-black text-sky-900 uppercase tracking-wide">
+                      Vrátit z konkrétní objednávky (nepovinné)
+                    </label>
+                    <select
+                      className="input !mt-1 !py-1.5 text-sm w-full"
+                      value={vratitZObjednavky}
+                      onChange={(e) => setVratitZObjednavky(e.target.value)}
+                    >
+                      <option value="">— bez vazby na objednávku —</option>
+                      {nabidkaObjednavek.map((o) => (
+                        <option key={o.id} value={o.id}>
+                          {datumCesky(datumZavozu(o))} · {o.place_name ?? 'bez odběratele'}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    disabled={ukladamVraceni || vracenoKusu === 0}
+                    onClick={() => { void zapisJakoVraceni(); }}
+                  >
+                    <RotateCcw size={14} /> {ukladamVraceni ? 'Zapisuji…' : `Zapsat jako vrácení (${vracenoKusu} ks)`}
+                  </button>
+                  <span className="text-udaj font-bold text-sky-900">
+                    …nebo pokračuj dole, pokud je to přece jen objednávka.
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {vypadaJakoDoplnek && (
           <div className="border-2 border-amber-300 rounded bg-amber-50 p-4">
             <div className="flex items-start gap-2">
@@ -890,8 +1310,12 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
 
         {/* ↩️ Odpověď, která upravuje dřívější objednávku. Ukáže se PŮVODNÍ
             objednávka se zvýrazněnými změnami, ať je vidět, co se potvrzuje —
-            schválení objednávku upraví, nezaloží novou. */}
-        {msg?.amends_order_id && (
+            schválení objednávku upraví, nezaloží novou.
+            NE u VRÁCENÍ (jeVraceni) — tenhle banner tvrdí, že schválení
+            „upraví existující objednávku", což by u vrácení znamenalo
+            objednávku nesmyslně přepsat podle textu o vrácení. Tam se má
+            použít jen „Zapsat jako vrácení" v banneru výš. */}
+        {msg?.amends_order_id && !jeVraceni && (
           <div className="border-2 border-violet-300 rounded bg-violet-50 overflow-hidden">
             <div className="p-4 border-b border-violet-200">
               <div className="flex items-center gap-2">
@@ -1111,11 +1535,15 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                   <span className="text-amber-600 flex items-center gap-1">
                     <AlertCircle size={14} /> Čeká na parsování
                   </span>
+                ) : isError ? (
+                  <span className="text-rose-600 flex items-center gap-1" title={message.error_message || undefined}>
+                    <AlertTriangle size={14} /> Čtení AI selhalo{message.error_message ? ` — ${message.error_message}` : ''}
+                  </span>
                 ) : (
                   <span className="text-neutral-600">Zpracovává se...</span>
                 )}
 
-                {isPending && (
+                {(isPending || isError) && (
                   <button
                     onClick={handleReparse}
                     disabled={reparsing || loading}
@@ -1123,7 +1551,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                     title="Ručně spustit AI parsování této zprávy"
             >
                     {reparsing ? <RefreshCw size={13} className="animate-spin" /> : <RefreshCw size={13} />}
-                    {reparsing ? 'Parsuji...' : 'Parsovat ručně'}
+                    {reparsing ? 'Parsuji...' : isError ? 'Zkusit znovu' : 'Parsovat ručně'}
                   </button>
                 )}
               </div>
@@ -1316,7 +1744,48 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                   )}
                 </div>
                 <PlaceCombobox value={placeId || placeName} onChange={updatePlace} places={props.places} />
+                {/* Doplnilí jsme ho z citace, ať to není potichu — appka nemá
+                    dělat nic, co se člověk nedozví. Přepisatelné jako cokoli
+                    jiného v tomhle formuláři. */}
+                {odberatelZOdpovedi && (
+                  <div className="text-udaj font-bold text-sky-800 bg-sky-50 border border-sky-200 rounded px-2 py-1 mt-1.5 inline-flex items-start gap-1">
+                    <CornerDownRight size={12} className="shrink-0 mt-0.5" />
+                    <span>
+                      Doplněno z odpovědi na zprávu „{odberatelZOdpovedi}…" — ve zprávě samotné odběratel napsaný není. Zkontroluj a případně přepiš.
+                    </span>
+                  </div>
+                )}
               </div>
+
+              {/* ✂️ Rozdělit na dva odběratele — z provozu 15. 9. 2026: WhatsApp
+                  zpráva se dvěma odběrateli (Chmeloun a Sluhy) dorazila jako
+                  jedna objednávka. Tlačítko pro ZAPNUTÍ je dole u Ignorovat/
+                  Zamítnout — tady jen rozbalený panel, jakmile je zapnuté.
+                  Bez tlačítka nahoře, protože ho tam nebylo vidět (z provozu). */}
+              {splitEnabled && !message.amends_order_id && items.length > 1 && (
+                <div className="border border-amber-300 bg-amber-50 rounded p-2.5 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-amber-800">
+                      Zaškrtni u položek níž, které patří druhému odběrateli
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => { setSplitEnabled(false); setSplitKeys(new Set()); setSplitPlaceId(''); setSplitPlaceName(''); }}
+                      className="text-xs font-bold text-neutral-500 hover:text-neutral-700 tap"
+                    >
+                      Zrušit rozdělení
+                    </button>
+                  </div>
+                  <div>
+                    <div className="text-xs text-neutral-600 mb-1">Druhý odběratel</div>
+                    <PlaceCombobox
+                      value={splitPlaceId || splitPlaceName}
+                      onChange={(id, name) => { setSplitPlaceId(id); setSplitPlaceName(name); }}
+                      places={props.places}
+                    />
+                  </div>
+                </div>
+              )}
 
               {(message.parsed_delivery_day || message.parsed_delivery_date) && (
                 <div>
@@ -1356,6 +1825,17 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                               Všechna tři pole mají stejnou velikost písma
                               i výšku na dotek. */}
                           <div className="flex items-center gap-2 flex-wrap">
+                            {splitEnabled && (
+                              <label className="flex items-center gap-1 shrink-0 text-xs font-bold text-amber-800" title="Patří druhému odběrateli">
+                                <input
+                                  type="checkbox"
+                                  className="w-5 h-5"
+                                  checked={splitKeys.has(item.key)}
+                                  onChange={() => toggleSplitKey(item.key)}
+                                />
+                                2.
+                              </label>
+                            )}
                             <select
                               value={item.beerId}
                               onChange={(e) => updateItemBeer(index, e.target.value)}
@@ -1549,14 +2029,31 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                 {rejecting ? <ButtonSpinner /> : <X size={16} />}
                 Zamítnout objednávku
               </button>
+
+              {/* ✂️ Rozdělit na dva odběratele — vedle Ignorovat/Zamítnout,
+                  ať je vidět (z provozu 15. 9. 2026: „nevidím to tlačítko,
+                  dej to k tomu ignorovat, zamítnout"). Panel s výběrem
+                  položek a druhého odběratele se rozbalí nahoře u položek. */}
+              {!message.amends_order_id && items.length > 1 && !splitEnabled && (
+                <button
+                  type="button"
+                  onClick={() => setSplitEnabled(true)}
+                  disabled={loading}
+                  className="btn-ghost"
+                >
+                  ✂️ Rozdělit na dva odběratele
+                </button>
+              )}
             </div>
 
             <button
               onClick={() => handleApprove(false)}
-              disabled={approving || loading || !isParsed || items.length === 0 || hasUnmatchedItems || (isImage ? (!!message.media_url && !photoChecked) : prisnyBlokuje)}
+              disabled={jeVraceni || approving || loading || !isParsed || items.length === 0 || hasUnmatchedItems || (isImage ? (!!message.media_url && !photoChecked) : prisnyBlokuje)}
               className="px-6 py-2.5 bg-emerald-700 text-white rounded hover:bg-emerald-800 disabled:opacity-50 flex items-center gap-2 font-medium"
               title={
-                isImage && !!message.media_url && !photoChecked
+                jeVraceni
+                  ? 'Vypadá to na vrácení piva, ne na objednávku — zapiš ho tlačítkem „Zapsat jako vrácení" výše.'
+                  : isImage && !!message.media_url && !photoChecked
                   ? 'Nejprve potvrďte, že jste fotku zkontroloval/a (tlačítko výše).'
                   : items.length === 0
                   ? 'Žádné položky k importu — smazanou položku vrátíte zavřením bez schválení nebo „Přečíst znovu (AI)".'

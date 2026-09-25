@@ -97,6 +97,14 @@
   background: rgba(43,36,56,0.08); border: 1px dashed rgba(43,36,56,0.3); border-radius: 8px;
   padding: 4px 8px; color: #2b2438; cursor: pointer;
 }
+/* Přeřadit slot doleva/doprava — jediná dřívější cesta, jak změnit pořadí,
+   byla ručně přenastavit obsah dvou rozbalovacích menu naráz. */
+.hs-dock-move {
+  width: 18px; height: 18px; border-radius: 50%; border: none; cursor: pointer;
+  background: rgba(43,36,56,0.1); color: #2b2438;
+  display: grid; place-items: center; padding: 0;
+}
+.hs-dock-move:disabled { opacity: 0.3; cursor: default; }
 
 /* Volné dlaždice mají VŽDY explicitní grid-column/-row (viz LauncherTile.tsx
    tileGridStyle, homeLayout.ts x/y) — žádné "husté" auto-balení, dlaždice
@@ -119,6 +127,25 @@
    (key={currentPageIndex} v HomeScreen.tsx tenhle prvek při přepnutí
    znovu-namountuje, takže animace vždycky naběhne od začátku). */
 .hs-swipe-area { touch-action: pan-y; display: flex; flex-direction: column; flex: 1 1 auto; min-height: 200px; }
+/* Na počítači se všechny stránky plochy kreslí pod sebe najednou (viz
+   HomeScreen.tsx, zobrazVsechnyStrankyNajednou) — mezera + jemná linka mezi
+   nimi, ať je vidět, že jde o další stránku, ne pokračování téže mřížky. */
+/* Na počítači jedou stránky plochy VEDLE SEBE, ne pod sebou (viz
+   HomeScreen.tsx, zobrazVsechnyStrankyNajednou) — z provozu 16. 9. 2026:
+   "rozáhni ty dlaždice po celou obrazovku, ne jen dolu". Sloupec mřížky má
+   pevnou šířku (HS_SLOUPEC_PX), ne 1fr přes celý kontejner — jinak by
+   krátká stránka s pár dlaždicemi vyplnila celou šířku obrazovky sama a
+   další stránka by skončila stejně jako dřív, až POD ní. */
+.hs-stranky-vedle-sebe { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 28px; }
+.hs-grid-stranka-vedle-sebe {
+  flex: 0 0 auto;
+  width: auto;
+  padding: 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(0, 0, 0, 0.015);
+}
+:root.dark .hs-grid-stranka-vedle-sebe { border-color: rgba(255, 255, 255, 0.1); background: rgba(255, 255, 255, 0.03); }
 .hs-page-enter { animation: hs-page-enter-kf 0.18s ease-out; }
 @keyframes hs-page-enter-kf {
   from { opacity: 0; transform: translateX(10px); }

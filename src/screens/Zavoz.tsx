@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState, lazy, Suspense } from 'react';
 import { Beer, Package, Place, fetchAllRows, formatPackageLabel, supabase, useRealtime } from '../lib/supabase';
+import { sestavCoNalozit } from '../lib/coNalozit';
 import { Spinner, EmptyState, Modal } from '../components/ui';
 import { orderWeightKg, fmtKg } from '../lib/weight';
 import { DAYS } from '../lib/shared';
-import { AlertTriangle, ArrowRightLeft, BarChart3, Bird, Calendar, CalendarDays, Car, Check, CheckCircle2, FileText, Map as MapIcon, MapPin, MessageCircle, Package as PackageIcon, PenTool, Pencil, Phone, Plus, Printer, Scale, Search, StickyNote, TreePine, Truck, Wine, ArrowRightCircle, Droplet, Share2 } from 'lucide-react';
+import { AlertTriangle, ArrowRightLeft, Bird, Calendar, CalendarDays, Car, Check, CheckCircle2, Map as MapIcon, MapPin, MessageCircle, Package as PackageIcon, PenTool, Pencil, Phone, Printer, Scale, Search, StickyNote, TreePine, Truck, Wine, ArrowRightCircle, Droplet, Share2 } from 'lucide-react';
 import { shareDeliveryListToWhatsApp } from '../lib/whatsapp';
-import { exportZavozToExcel } from '../lib/excel';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 import type { StockSources } from '../lib/stockLedger';
 import { zbytekKeKonciTydne, schodkyObjednavky } from '../lib/tydenniZbytek';
@@ -24,7 +24,6 @@ import { nactiHotoveUkoly, nastavUkolHotovo, klicUkolu } from '../lib/zavozUkoly
 import type { UkolKlic } from '../lib/zavozUkoly';
 import { IkonaSud } from '../components/ikony';
 import { businessDateISO } from '../lib/businessDate';
-import { zapisStaceniZPolozky, zrusStaceniZPolozky } from '../lib/staceniZPolozky';
 import type { TankKOdectu } from '../lib/tankUZapisu';
 
 // Stahuje se až při otevření — viz komentář u lazy() v Orders.tsx.
@@ -41,7 +40,7 @@ type Order = {
 };
 type OrderItem = { id: string; order_id: string; beer_id: string | null; beer_name: string | null; package_id: string | null; package_label: string | null; quantity: number; is_prepared: boolean; is_bottled: boolean };
 
-export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any, sec?: string) => void; embedded?: boolean } = {}) {
+export default function Zavoz({ setPage }: { setPage?: (p: any, sec?: string) => void } = {}) {
   const { profile } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [items, setItems] = useState<Record<string, OrderItem[]>>({});
@@ -52,7 +51,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
   const [places, setPlaces] = useState<Place[]>([]);
   const [loading, setLoading] = useState(true);
   const [editOrder, setEditOrder] = useState<Order | null>(null);
-  const [weekKey, setWeekKey] = useState(isoWeekKey(new Date().toISOString().slice(0, 10)));
+  const [weekKey, setWeekKey] = useState(isoWeekKey(businessDateISO()));
   const [hideDelivered, setHideDelivered] = useState(false);
   const [selectedDayFilter, setSelectedDayFilter] = useState<string>('all');
   const [mobileTab, setMobileTab] = useState<'routes' | 'loading'>('routes');
@@ -176,12 +175,20 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
   useEffect(() => { loadKegBalances(); }, []);
   useRealtime(['keg_returns'], loadKegBalances);
 
+  // Týden podle DATA ZÁVOZU, ne data zadání — objednávka přijatá v pondělí
+  // na příští pondělí patří do PŘÍŠTÍHO týdne v Závozu, ne do tohohle (z
+  // provozu 16. 9. 2026: "zadal sem obednavku na pondeli, v obednavkach je
+  // v dalsim tydnu, ale kdyz dam zavoz je v tomhle tydnu"). `delivery_date`
+  // appka doplňuje sama, jakmile je znám den závozu (viz migrace
+  // 20261215000000, ucinny_den_zavozu) — chybí jen u objednávek bez
+  // uvedeného dne, tam se použije den zadání jako dřív. Stejný klíč jako
+  // generátor Knihy jízd níž (`delivery_date ?? order_date`).
   const activeOrders = useMemo(() => {
-    return orders.filter((o) => isoWeekKey(o.order_date) === weekKey);
+    return orders.filter((o) => isoWeekKey(o.delivery_date || o.order_date) === weekKey);
   }, [orders, weekKey]);
 
   const weekOrders = useMemo(
-    () => orders.filter((o) => isoWeekKey(o.order_date) === weekKey && o.status !== 'storno'),
+    () => orders.filter((o) => isoWeekKey(o.delivery_date || o.order_date) === weekKey && o.status !== 'storno'),
     [orders, weekKey]
   );
 
@@ -217,42 +224,10 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
   }, [activeOrders, hideDelivered, selectedDayFilter, searchTerm, items]);
 
   const loadingListBreakdown = useMemo(() => {
-    const kegMap = new Map<string, { label: string; qty: number; preparedQty: number }>();
-    const bottleMap = new Map<string, { label: string; qty: number; preparedQty: number }>();
-    let totalKegs = 0;
-    let totalBottles = 0;
-
-    filteredOrders.forEach((o) => {
-      (items[o.id] ?? []).forEach((i) => {
-        const pkg = packages.find((p) => p.id === i.package_id);
-        const pkgLabel = i.package_label ?? pkg?.label ?? 'Neurčeno';
-        const isKeg = pkg?.kind === 'keg' || pkgLabel.toLowerCase().includes('keg') || pkgLabel.toLowerCase().includes('sud');
-        const label = `${formatPackageLabel(pkgLabel)} ${i.beer_name ?? '?'}`;
-        const qty = Number(i.quantity);
-        const preparedQty = i.is_prepared ? qty : 0;
-
-        if (isKeg) {
-          const cur = kegMap.get(label) ?? { label, qty: 0, preparedQty: 0 };
-          cur.qty += qty;
-          cur.preparedQty += preparedQty;
-          kegMap.set(label, cur);
-          totalKegs += qty;
-        } else {
-          const cur = bottleMap.get(label) ?? { label, qty: 0, preparedQty: 0 };
-          cur.qty += qty;
-          cur.preparedQty += preparedQty;
-          bottleMap.set(label, cur);
-          totalBottles += qty;
-        }
-      });
-    });
-
-    const kegs = [...kegMap.values()].sort((a, b) => b.qty - a.qty);
-    const bottles = [...bottleMap.values()].sort((a, b) => b.qty - a.qty);
-    const preparedCount = [...kegMap.values(), ...bottleMap.values()].filter((x) => x.preparedQty >= x.qty).length;
-    const totalLabels = kegMap.size + bottleMap.size;
-
-    return { kegs, bottles, totalKegs, totalBottles, totalCount: totalKegs + totalBottles, preparedCount, totalLabels };
+    // Výpočet je v lib/coNalozit.ts (má testy) — je to seznam, podle kterého
+    // se nakládá auto, takže chyba v něm znamená nedovezené pivo.
+    const vsechnyPolozky = filteredOrders.flatMap((o) => items[o.id] ?? []);
+    return sestavCoNalozit(vsechnyPolozky as any, packages as any, formatPackageLabel);
   }, [filteredOrders, items, packages]);
 
   const totalWeight = useMemo(() => {
@@ -334,14 +309,8 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
     const its = items[o.id] ?? [];
     setItems((m) => ({ ...m, [o.id]: its.map((x) => (x.id === it.id ? { ...x, is_bottled: nove } : x)) }));
 
-    // Stočeno u sudu rovnou založí (nebo při odškrtnutí zruší) skutečný
-    // záznam stáčení — viz lib/staceniZPolozky.ts a stejné místo v
-    // Orders.tsx. Lahve appka nepozná, kolik sudů surového piva se na ně
-    // spotřebovalo, takže tam se dál jen odškrtává, beze změny.
-    const chybaZapisu = nove
-      ? await zapisStaceniZPolozky(it, packages, await nactiAktivniTanky(), businessDateISO())
-      : await zrusStaceniZPolozky(it.id);
-    if (chybaZapisu) chyba(chybaZapisu);
+    // ⛔ „Stočeno" JEN odškrtne položku — do stáčení KEG se nic nezapisuje.
+    // Zrušeno 18. 9. 2026, viz stejné místo v Orders.tsx a lib/staceniZPolozky.ts.
   }
 
   // Toggle all order_items matching a loading-list label (beer_name + package)
@@ -483,65 +452,6 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
 
   return (
     <div className="space-y-6 pb-12">
-      {/* Top Navigation Tabs — zobrazeno jen na samostatné stránce Závoz (ne když je vloženo v Objednávkách) */}
-      {!embedded && (
-        <div className="flex items-center gap-1.5 flex-nowrap border-b border-neutral-200 pb-2 w-full">
-          {setPage && (
-            <button
-              onClick={() => setPage('orders_entry')}
-              className="flex-1 px-2 py-2.5 min-h-[44px] rounded font-black text-xs leading-tight transition flex items-center justify-center gap-1 bg-white hover:bg-neutral-100 active:bg-neutral-200 text-neutral-700 border border-neutral-200 shadow-xs whitespace-nowrap"
-            >
-              <Plus size={14} />
-              <span>Nové</span>
-            </button>
-          )}
-          {setPage && (
-            <button
-              onClick={() => setPage('orders')}
-              className="flex-1 px-2 py-2.5 min-h-[44px] rounded font-black text-xs leading-tight transition flex items-center justify-center gap-1 bg-white hover:bg-neutral-100 active:bg-neutral-200 text-neutral-700 border border-neutral-200 shadow-xs whitespace-nowrap"
-            >
-              <FileText size={14} />
-              <span>Přehled</span>
-            </button>
-          )}
-          <button
-            className="flex-1 px-2 py-2.5 min-h-[44px] rounded font-black text-xs leading-tight transition flex items-center justify-center gap-1 bg-white text-neutral-900 shadow-md whitespace-nowrap"
-          >
-            <Truck size={14} />
-            <span>Závoz</span>
-          </button>
-        </div>
-      )}
-
-      {/* Top Action Bar — styl jako Stáčení KEG / Lahve */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded border border-neutral-200 shadow-2xs">
-        {/* Bez nadpisu „Závoz" — jméno obrazovky nese horní lišta. Lišta tady
-            zůstává kvůli akcím (Export Excel), ne kvůli titulku. */}
-        <div className="flex items-center gap-2">
-          <div className="relative group">
-            <button className="btn-ghost !rounded !bg-white border-amber-300 text-amber-950 font-extrabold text-xs shadow-xs" disabled={!activeOrders.length}><BarChart3 className="ikona-text" /> Export Excel ▾</button>
-            {activeOrders.length > 0 && (
-              <div className="absolute right-0 top-full mt-1 z-50 bg-white border border-neutral-200 rounded shadow-lg py-1 min-w-[180px] hidden group-hover:block group-focus-within:block">
-                <button className="w-full text-left px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-amber-50 hover:text-amber-950 transition tap" onClick={() => {
-                  const rows = weekOrders.flatMap((o) => (items[o.id] ?? []).map((i) => ({
-                    order_date: o.order_date, place_name: o.place_name, delivery_day: o.delivery_day,
-                    beer_name: i.beer_name, package_label: i.package_label, quantity: i.quantity, is_delivered: o.is_delivered,
-                  })));
-                  exportZavozToExcel(rows, `tyden-${weekKey}`);
-                }}><Calendar className="ikona-text" /> Tento týden</button>
-                <button className="w-full text-left px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-amber-50 hover:text-amber-950 transition tap" onClick={() => {
-                  const rows = orders.filter((o) => o.status !== 'storno').flatMap((o) => (items[o.id] ?? []).map((i) => ({
-                    order_date: o.order_date, place_name: o.place_name, delivery_day: o.delivery_day,
-                    beer_name: i.beer_name, package_label: i.package_label, quantity: i.quantity, is_delivered: o.is_delivered,
-                  })));
-                  exportZavozToExcel(rows, 'vse');
-                }}><Calendar className="ikona-text" /> Všechno</button>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
       {/* 🛢️ KONTO SUDŮ — kdo má u sebe kolik prázdných KEGů.
           Dřív se vrácené sudy nikam neukládaly, takže se nedalo zjistit,
           kdo kolik dluží; sud přitom stojí 2–3 tisíce. */}
@@ -646,7 +556,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
               <div className="text-udaj text-neutral-500 font-bold mt-0.5">{wr.label}</div>
             </div>
             <button onClick={() => setWeekKey(shiftWeek(weekKey, 1))} className="btn-ghost !rounded !py-2 !px-3 font-black text-base" title="Následující týden" aria-label="Následující týden">›</button>
-            <button onClick={() => setWeekKey(isoWeekKey(new Date().toISOString().slice(0, 10)))} className="btn-ghost !rounded !py-2 !px-3 text-xs font-black text-amber-700">Dnes</button>
+            <button onClick={() => setWeekKey(isoWeekKey(businessDateISO()))} className="btn-ghost !rounded !py-2 !px-3 text-xs font-black text-amber-700">Dnes</button>
           </div>
 
           {/* Kompaktní přehled závozu — styl jako "Zbývá stočit keg" */}

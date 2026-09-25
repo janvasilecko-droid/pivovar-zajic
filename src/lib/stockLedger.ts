@@ -63,6 +63,8 @@ export type Movement = {
   qty: number;
   kind: MovementKind;
   note?: string | null;
+  /** U 'zavoz' id objednávky, na kterou se vydalo — pro proklik na detail. */
+  orderId?: string | null;
 };
 
 /**
@@ -96,6 +98,7 @@ export type RadekPohybu = {
 export type RadekZavozu = Omit<RadekPohybu, 'entry_date'> & {
   deduct_date?: string | null;
   order_item_id?: string | null;
+  order_id?: string | null;
 };
 
 /** Přefuk sudů: ze kterého obalu do kterého. */
@@ -190,9 +193,9 @@ export function buildMovements(src: StockSources): Movement[] {
   const out: Movement[] = [];
   const packages = src.packages ?? [];
 
-  const push = (date: any, beer: any, pkg: any, qty: number, kind: MovementKind, note?: string | null) => {
+  const push = (date: any, beer: any, pkg: any, qty: number, kind: MovementKind, note?: string | null, orderId?: string | null) => {
     if (!date || !beer || !pkg || !qty) return;
-    out.push({ date: String(date).slice(0, 10), beer_id: beer, package_id: pkg, qty, kind, note: note ?? null });
+    out.push({ date: String(date).slice(0, 10), beer_id: beer, package_id: pkg, qty, kind, note: note ?? null, orderId: orderId ?? null });
   };
 
   // Inventura — reset stavu. Při shodném datu vyhraje řádek s vyšší prioritou,
@@ -233,7 +236,7 @@ export function buildMovements(src: StockSources): Movement[] {
   (src.fasovaniRows ?? []).forEach((r) => push(r.entry_date, r.beer_id, r.package_id, -Number(r.quantity || 0), 'fasovani'));
   (src.prodejnaRows ?? []).forEach((r) => push(r.entry_date, r.beer_id, r.package_id, -Number(r.quantity || 0), 'prodejna'));
   (src.writeoffsRows ?? []).forEach((r) => push(r.entry_date, r.beer_id, r.package_id, -Number(r.quantity || 0), 'odpis'));
-  (src.zavozDeductionRows ?? []).forEach((r) => push(r.deduct_date, r.beer_id, r.package_id, -Number(r.quantity || 0), 'zavoz'));
+  (src.zavozDeductionRows ?? []).forEach((r) => push(r.deduct_date, r.beer_id, r.package_id, -Number(r.quantity || 0), 'zavoz', null, r.order_id));
   (src.adjustmentRows ?? []).forEach((r) => push(r.entry_date, r.beer_id, r.package_id, Number(r.quantity || 0), 'dorovnani', r.note));
 
   // Akce a festivaly — čistý odběr (odvezeno − vráceno).
@@ -256,7 +259,25 @@ export function buildMovements(src: StockSources): Movement[] {
   (src.bottlingRows ?? []).forEach((r) => {
     const res = resolveKegsUsed(r, packages);
     if (!res || !r.beer_id) return;
-    const dedupe = `${r.entry_date}|${r.beer_id}|${res.kegsUsed}|${res.kegPkgId}|${r.created_at || r.note || ''}`;
+    // `kegs_used` patří CELÉ DÁVCE, ne jednomu cílovému obalu — BottlingScreen
+    // (add()) z jednoho řádku formuláře uloží 1–3 řádky do `bottling` (Lahve
+    // 1/2/3, např. 1 l i 1,5 l najednou), všechny se STEJNÝM `kegs_used` a
+    // `kegs_used_package_id`, protože „je možné stočit z jednoho sudu více
+    // druhů obalů najednou". Takoví sourozenci vznikají v JEDNOM `.insert()`
+    // a Postgres jim dá STEJNÝ `created_at` (`now()` se v rámci příkazu
+    // vyhodnotí jen jednou) — podle něj se tedy pozná sdílený zdroj a sud se
+    // odečte za dávku jen JEDNOU, ne za každý cílový obal zvlášť. Bez
+    // `created_at` je 1 keg zapsaný na 1 l i 1,5 l řádku dvakrát odečtený sud
+    // navíc — přesně tenhle případ nahlásil sládek 24. 9. 2026 u 10° Desítky.
+    //
+    // Bez `created_at` (starší zápisy) se sourozenci spolehlivě poznat
+    // nedají — tam zůstává `package_id` v klíči, ať se radši nesloučí dva
+    // různé zápisy, i za cenu možné duplicity: to byl přesně opačný nález
+    // z auditu 15. 9. 2026, kdy se dva různé zápisy tiše slily a spotřeba
+    // sudů vyšla nižší, než doopravdy byla.
+    const dedupe = r.created_at
+      ? `${r.entry_date}|${r.beer_id}|${res.kegsUsed}|${res.kegPkgId}|${r.created_at}`
+      : `${r.entry_date}|${r.beer_id}|${r.package_id}|${res.kegsUsed}|${res.kegPkgId}|${r.note || ''}`;
     if (seen.has(dedupe)) return;
     seen.add(dedupe);
     // Poznámka je z řádku STÁČENÍ — díky ní je vidět, že sud ubyl (nebo se

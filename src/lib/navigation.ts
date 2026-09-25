@@ -31,7 +31,7 @@ export function buildCustomerDeliveryWhatsAppText(
   ];
 
   items.forEach((it) => {
-    lines.push(`• ${it.quantity}x ${it.beer_name || 'Pivo'} (${it.package_label || 'obal'})`);
+    lines.push(`• ${it.quantity}x ${it.package_label || 'obal'} ${it.beer_name || 'Pivo'}`);
   });
 
   if (note) {

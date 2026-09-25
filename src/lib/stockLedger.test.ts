@@ -61,6 +61,47 @@ describe('buildMovements — znaménka pohybů', () => {
     expect(m.find((x) => x.kind === 'sud_na_lahve')!.package_id).toBe(P50);
   });
 
+  // Nález z provozu 24. 9. 2026 (10° Desítka): BottlingScreen z JEDNOHO
+  // řádku formuláře uloží 1–3 cílové obaly (Lahve 1/2/3) se STEJNÝM
+  // `kegs_used`/`kegs_used_package_id` — „je možné stočit z jednoho sudu
+  // víc druhů obalů najednou" (viz BottlingScreen.tsx `add()`). Takoví
+  // sourozenci vznikají v JEDNOM `.insert()`, mají tedy STEJNÝ `created_at`
+  // (Postgres vyhodnotí `now()` jen jednou za příkaz) — podle něj se sud
+  // odečte jen JEDNOU za dávku, ne za každý cílový obal zvlášť. Bez tohohle
+  // appka u stáčení 1 l i 1,5 l z jednoho sudu tvrdila, že se spotřebovaly
+  // sudy dva.
+  it('sourozenecké řádky se stejným created_at (jedna dávka, různé lahve) sdílejí JEDEN odečet sudů', () => {
+    const pkgs = [...packages, { id: 'pet10', kind: 'bottle', volume_l: 1.0 }];
+    const m = buildMovements({
+      packages: pkgs,
+      bottlingRows: [
+        { entry_date: '2026-08-12', beer_id: B, package_id: 'pet15', quantity: 20, kegs_used: 2, kegs_used_package_id: P50, created_at: '2026-08-12T10:00:00Z', note: null },
+        { entry_date: '2026-08-12', beer_id: B, package_id: 'pet10', quantity: 30, kegs_used: 2, kegs_used_package_id: P50, created_at: '2026-08-12T10:00:00Z', note: null },
+      ],
+    });
+    const sudy = m.filter((x) => x.kind === 'sud_na_lahve');
+    expect(sudy).toHaveLength(1);
+    expect(sudy.reduce((s, x) => s + x.qty, 0)).toBe(-2);
+  });
+
+  // Nález z auditu 15. 9. 2026: u STARŠÍCH zápisů bez `created_at` se
+  // sourozenci spolehlivě poznat nedají — tam se dva různé řádky (i do
+  // jiných lahví) radši nesloučí, i za cenu možné duplicity. Sloučit dva
+  // opravdu různé zápisy by sud ztratilo úplně.
+  it('bez created_at se řádky do RŮZNÝCH lahví nesloučí (nejde poznat, že je to jedna dávka)', () => {
+    const pkgs = [...packages, { id: 'pet10', kind: 'bottle', volume_l: 1.0 }];
+    const m = buildMovements({
+      packages: pkgs,
+      bottlingRows: [
+        { entry_date: '2026-08-12', beer_id: B, package_id: 'pet15', quantity: 20, kegs_used: 2, kegs_used_package_id: P50, note: null },
+        { entry_date: '2026-08-12', beer_id: B, package_id: 'pet10', quantity: 30, kegs_used: 2, kegs_used_package_id: P50, note: null },
+      ],
+    });
+    const sudy = m.filter((x) => x.kind === 'sud_na_lahve');
+    expect(sudy).toHaveLength(2);
+    expect(sudy.reduce((s, x) => s + x.qty, 0)).toBe(-4);
+  });
+
   it('dorovnání může být i záporné (manko)', () => {
     const m = buildMovements({
       packages,

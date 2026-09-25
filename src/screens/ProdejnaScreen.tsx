@@ -1,22 +1,25 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { supabase, Beer, Package, EntryRow, useRealtime, beerBg, beerName, formatPackageLabel } from '../lib/supabase';
+import { supabase, Beer, Package, EntryRow, useRealtime, beerBg, beerName, formatPackageLabel, fetchAllRows } from '../lib/supabase';
 import { EmptyState, Spinner } from '../components/ui';
 import { isoWeekKey } from '../components/WeeklyOrderSummaryCard';
 import { VoiceRecorder } from '../components/VoiceRecorder';
 import { ProdejnaFromImage } from '../components/ProdejnaFromImage';
-import { BarChart3, Calendar, CalendarDays, Camera, Check, ClipboardList, Copy, Package as PackageIcon, PenLine, Store, Trash2, X, type LucideIcon } from 'lucide-react';
+import { BarChart3, Calendar, CalendarDays, Camera, Check, ClipboardList, Copy, Package as PackageIcon, PenLine, RotateCcw, Store, Trash2, X, type LucideIcon } from 'lucide-react';
 import { parseFreeTextEntries, loadAliasMap, emptyAliasMap, type ParserAliasMap } from '../lib/orderParser';
 import { TapReservationModal } from '../components/TapReservationModal';
 import { detectTapType } from '../lib/tapReservations';
 import type { TapReservation } from './VycepyScreen';
 import { BeerTileGrid, BeerTilePanel, TileTotalBar } from '../components/BeerTileGrid';
 import { chyba, potvrd, toastZpet } from '../lib/toast';
+import { jeMesicUzamcen } from '../lib/mesicUzamcen';
 import { podezreleMnozstvi } from '../lib/kontrolaZadani';
 import { zavibruj } from '../lib/haptika';
 import { klicVyberu, nactiNaposled, zapamatujVyber, serazPodleNaposled } from '../lib/naposledyPouzite';
 import { usePosledniNacteni, prvniChyba } from '../lib/nacitani';
 import { FotkyZaznamu } from '../components/FotkyZaznamu';
 import { uloz, smaz } from '../lib/uloziste';
+import { businessDateISO } from '../lib/businessDate';
+import { ChipyPiva } from '../components/FiltrPivaAObalu';
 
 // Tři podoby jednoho výdeje ze skladu — formulář je pořád stejný, mění se
 // jen tabulka, do které se zapisuje, a jedno pole navíc. Podle toho se pak
@@ -73,8 +76,11 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
   const [beers, setBeers] = useState<Beer[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
   const [loading, setLoading] = useState(true);
+  // Jen pro varování „tenhle měsíc je už napočítaný" (lib/mesicUzamcen.ts) —
+  // stejná pojistka jako ve Stáčení KEG a Lahvích, viz add() níž.
+  const [inventoryRows, setInventoryRows] = useState<{ entry_date: string; note: string | null }[]>([]);
 
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(businessDateISO());
   const [who, setWho] = useState('');
   const [note, setNote] = useState('');
   const [entryRows, setEntryRows] = useState<RowInput[]>(() => emptyRows(table === 'fasovani' ? FASOVANI_ROW_COUNT : ROW_COUNT));
@@ -127,7 +133,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
   const [tab, setTab] = useState<'zapis' | 'prehled'>('zapis');
 
   // Filtry v Přehledu — druh (pivo), jméno (kdo) a měsíc; výchozí je aktuální měsíc.
-  const [overviewMonth, setOverviewMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [overviewMonth, setOverviewMonth] = useState(businessDateISO().slice(0, 7));
   const [overviewBeerId, setOverviewBeerId] = useState('');
   const [overviewWho, setOverviewWho] = useState('');
 
@@ -189,16 +195,21 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
   async function load(silent = false) {
     const smiZapsat = zacniNacteni();
     if (!silent && !rows.length) setLoading(true);
-    const [fp, b, p] = await Promise.all([
+    const [fp, b, p, inv] = await Promise.all([
       supabase.from(table).select('*').order('entry_date', { ascending: false }).order('created_at', { ascending: false }),
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
+      // Jen entry_date + note — na víc se `jeMesicUzamcen` neptá (viz add() níž).
+      // fetchAllRows, ne supabase.from přímo: inventory roste přes 1000
+      // řádků a Supabase by zbytek tiše ořízl (viz strankovaniDotazu.test.ts).
+      fetchAllRows('inventory', 'entry_date,note'),
     ]);
     if (!smiZapsat()) return;
     setChybaNacteni(prvniChyba(fp, b, p));
     setRows((fp.data as EntryRow[]) ?? []);
     if (b.data) setBeers(b.data as Beer[]);
     if (p.data) setPackages(p.data as Package[]);
+    if (inv.data) setInventoryRows(inv.data as { entry_date: string; note: string | null }[]);
     setLoading(false);
   }
   // Přepnutí druhu výdeje mění tabulku, ze které se čte. Komponenta se přitom
@@ -206,7 +217,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
   // proto se musí načíst znovu podle table, jinak by v přehledu zůstal
   // seznam z předchozí tabulky.
   useEffect(() => { load(); }, [table]);
-  useRealtime([table, 'beers', 'packages'], () => load(true));
+  useRealtime([table, 'beers', 'packages', 'inventory'], () => load(true));
 
   function setRowField(i: number, field: keyof RowInput, value: string | boolean) {
     setEntryRows((rs) => rs.map((r, idx) => idx === i ? { ...r, [field]: value } : r));
@@ -255,6 +266,18 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
     }
     const filled = entryRows.filter((r) => r.beerId && r.pkgId && Number(r.qty) > 0);
     if (filled.length === 0) { setErr('Vyplň alespoň jeden řádek (pivo, obal a množství).'); return; }
+
+    // 🔒 Zápis do měsíce, který je už napočítaný (fyzická/schválená
+    // inventura), nezakazujeme — legitimní dodatečná oprava se stát může —
+    // ale nahlas na to upozorníme. Dřív měla tuhle pojistku jen Stáčení KEG
+    // a Lahve; výdej a odpis hýbou skladem stejně, takže stejně tiše
+    // rozjížděly už uzavřený měsíc (viz lib/mesicUzamcen.ts).
+    if (jeMesicUzamcen(inventoryRows, date)) {
+      const dotaz =
+        `Měsíc ${date.slice(0, 7)} už má napočítanou inventuru. Zápis do něj teď ` +
+        'změní číslo, které je už uzavřené a dorovnané.\n\nOpravdu zapsat do už napočítaného měsíce?';
+      if (!(await potvrd(dotaz, { titulek: 'Měsíc je už napočítaný', potvrdit: 'Ano, zapsat' }))) return;
+    }
 
     // Přehmat o řád (12 → 120) — stejná pojistka jako ve Stáčení KEG
     // a v Lahvích. Výdej a odpis hýbou skladem úplně stejně, takže tady
@@ -371,6 +394,85 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
     );
   }
 
+  /**
+   * ↩️ Odfasovat jeden už uložený zápis — kusy se vrátí na sklad.
+   *
+   * Zadání 22. 9. 2026 („u obchodu přidej možnost odfasovat objednávku
+   * u fasování, vrátí ji do skladu"): dosud to šlo jen přepsat ručně —
+   * v Zápisu zaškrtnout „Odfasovat" a znovu vyplnit pivo, obal a počet.
+   * Tady stačí jedno klepnutí u toho zápisu, který se vrací.
+   *
+   * Zapisuje se ZÁPORNÝ protizápis DNEŠNÍM dnem, ne oprava ani smazání
+   * původního řádku — stejné pravidlo jako u zaškrtávátka v Zápisu:
+   * co se vydalo, se doopravdy vydalo, a přepsání by ztratilo stopu
+   * a rozhýbalo měsíc, který je možná už napočítaný. Tlačítka −/+ u řádku
+   * jsou na něco jiného: ta opravují PŘEKLEP v počtu (mění původní zápis).
+   */
+  async function odfasuj(id: string) {
+    const row = rows.find((r) => r.id === id);
+    if (!row) return;
+    const ks = Number(row.quantity || 0);
+    if (ks <= 0) return;
+    const nazevPiva = row.beer_name ?? beers.find((b) => b.id === row.beer_id)?.name ?? 'pivo';
+    const popis = `${nazevPiva} ${row.package_label ?? ''} × ${ks} ks`.replace(/\s+/g, ' ').trim();
+    const dnes = businessDateISO();
+
+    if (!(await potvrd(
+      `Vrátit na sklad: ${popis}?\n\nPůvodní zápis z ${formatDate(row.entry_date)} zůstane, ` +
+      `přibude k němu záporný řádek dneškem.`,
+      { titulek: druh.tabulka === 'writeoffs' ? 'Vrátit na sklad' : 'Odfasovat', potvrdit: 'Ano, vrátit na sklad' },
+    ))) return;
+
+    // 🔒 Stejná pojistka jako u zápisu: vrácení hýbe skladem úplně stejně,
+    // takže by jinak tiše rozjelo už uzavřený měsíc (lib/mesicUzamcen.ts).
+    if (jeMesicUzamcen(inventoryRows, dnes)) {
+      const dotaz =
+        `Měsíc ${dnes.slice(0, 7)} už má napočítanou inventuru. Vrácení do něj teď ` +
+        'změní číslo, které je už uzavřené a dorovnané.\n\nOpravdu vrátit na sklad?';
+      if (!(await potvrd(dotaz, { titulek: 'Měsíc je už napočítaný', potvrdit: 'Ano, vrátit' }))) return;
+    }
+
+    const isWriteoffs = table === 'writeoffs';
+    const kdo = getRowWho(row);
+    const poznamka = `Vráceno na sklad — odfasováno ze zápisu z ${formatDate(row.entry_date)}`;
+    const zaklad = {
+      entry_date: dnes,
+      beer_id: row.beer_id, beer_name: row.beer_name ?? nazevPiva,
+      package_id: row.package_id, package_label: row.package_label ?? null,
+      quantity: -ks,
+    };
+    // Sloupec `who` chybí v některých starších podobách tabulek — stejný
+    // záchranný pokus jako v add(): při chybě na `who` se jméno přesune
+    // do poznámky, ať se vrácení neztratí kvůli názvu sloupce.
+    const sJmenem = {
+      ...zaklad,
+      ...(kdo && kdo !== '—' ? { who: kdo } : {}),
+      ...(isWriteoffs ? {} : { note: poznamka }),
+    };
+    let { data: vlozene, error } = await supabase.from(table).insert(sJmenem).select('id');
+    if (error && error.message?.includes('who')) {
+      const res = await supabase.from(table).insert({
+        ...zaklad,
+        ...(isWriteoffs ? {} : { note: kdo && kdo !== '—' ? `[${kdo}] ${poznamka}` : poznamka }),
+      }).select('id');
+      vlozene = res.data;
+      error = res.error;
+    }
+    if (error) { chyba(error); return; }
+
+    zavibruj('odskrtnuto');
+    load(true);
+
+    const idVracenych = ((vlozene as { id: string }[]) ?? []).map((v) => v.id);
+    if (idVracenych.length > 0) {
+      toastZpet(`Vráceno na sklad: ${popis}`, async () => {
+        const { error: chybaMazani } = await supabase.from(table).delete().in('id', idVracenych);
+        if (chybaMazani) throw chybaMazani;
+        load(true);
+      });
+    }
+  }
+
   async function increment(id: string, delta: number) {
     const row = rows.find((r) => r.id === id);
     if (!row) return;
@@ -400,10 +502,32 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
     setErr(null);
   }
 
-  // 🚰 Po potvrzení / přeskočení rezervace výčepu
-  // Zpracuje text naceny z fotky pri stejnem parseru zkratek jako objednavky (12, 12sv, svetly, lezak => 12° Svetla).
-  function handlePhotoText(text: string) {
-    handleVoiceResult(text);
+  /**
+   * 📷 Řádky přečtené z fotky (a zkontrolované nad ní) se doplní do formuláře.
+   *
+   * Do 22. 9. 2026 sem z fotky chodil TEXT, který se znovu rozebíral parserem
+   * zkratek — tedy dvojí překlad a dvojí ztráta („četlo to špatně“). Teď
+   * chodí rovnou pivo, obal a počet spárované s katalogem
+   * (lib/fotkaPolozky.ts), takže se nic nepřekládá znovu.
+   *
+   * Plní se do prvních volných řádků; když jich je málo, formulář se
+   * prodlouží, ať se nic nezahodí.
+   */
+  function handlePhotoRows(rows: { beerId: string; pkgId: string; qty: string }[]) {
+    if (!rows.length) return;
+    setEntryRows((rs) => {
+      const next = [...rs];
+      let cursor = 0;
+      for (const r of rows) {
+        while (cursor < next.length && (next[cursor].beerId || next[cursor].pkgId || next[cursor].qty)) cursor++;
+        const novy: RowInput = { beerId: r.beerId, pkgId: r.pkgId, qty: r.qty, vycep: false, who: '' };
+        if (cursor >= next.length) next.push(novy);
+        else next[cursor] = novy;
+        cursor++;
+      }
+      return next;
+    });
+    setErr(null);
   }
 
   function handleTapModalDone() {
@@ -617,33 +741,31 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
               Vrácení se zapisuje jako ZÁPORNÝ řádek do stejné tabulky, ne
               mazáním původního zápisu: co se vydalo, se doopravdy vydalo,
               a smazat to znamená ztratit stopu (a rozbít měsíc, který je
-              možná už napočítaný). Přepínač je vidět nahlas a tlačítko
-              změní barvu i text, ať se vrácení neuloží omylem místo výdeje. */}
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setVraceni(false)}
-              className={`px-3 py-2 rounded font-black text-xs min-h-[44px] border-2 transition ${
-                !vraceni ? 'bg-emerald-700 border-emerald-800 text-white' : 'bg-white border-neutral-300 text-neutral-600'
-              }`}
-            >
-              Vydat ze skladu
-            </button>
-            <button
-              type="button"
-              onClick={() => setVraceni(true)}
-              className={`px-3 py-2 rounded font-black text-xs min-h-[44px] border-2 transition ${
-                vraceni ? 'bg-sky-700 border-sky-800 text-white' : 'bg-white border-neutral-300 text-neutral-600'
-              }`}
-            >
+              možná už napočítaný).
+              Dřív tu byla dvě tlačítka ("Vydat ze skladu" / "Odfasovat") a
+              vedle nich ještě samostatné "Uložit fasování" — vypadalo to
+              jako dvě různá tlačítka pro totéž. Výdej je výchozí stav, na
+              nic se tedy nekliká; jediný přepínač je tenhle checkbox a
+              hlavní tlačítko dole samo změní text i barvu, ať se vrácení
+              neuloží omylem místo výdeje. */}
+          <label className={`mt-3 inline-flex items-center gap-2 px-3 py-2 rounded border-2 min-h-[44px] cursor-pointer transition select-none w-fit ${vraceni ? 'bg-sky-50 border-sky-300' : 'bg-white border-neutral-300'}`}>
+            <input
+              type="checkbox"
+              checked={vraceni}
+              onChange={(e) => setVraceni(e.target.checked)}
+              className="w-4 h-4 accent-sky-700"
+            />
+            <span className={`font-black text-xs ${vraceni ? 'text-sky-900' : 'text-neutral-600'}`}>
               ↩ Odfasovat (vrátit na sklad)
-            </button>
-            {vraceni && (
+            </span>
+          </label>
+          {vraceni && (
+            <div className="mt-2">
               <span className="text-[11px] font-bold text-sky-900 bg-sky-50 border border-sky-300 rounded px-2 py-1">
                 Zapíše se záporný řádek — kusy se vrátí na sklad.
               </span>
-            )}
-          </div>
+            </div>
+          )}
 
           <div className="flex items-center justify-between mt-4">
             <div className="flex items-center gap-2">
@@ -702,14 +824,6 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                 onChange={(e) => setOverviewMonth(e.target.value)}
                 className="input !py-1.5 !px-3 text-xs font-semibold"
               />
-              <select
-                value={overviewBeerId}
-                onChange={(e) => setOverviewBeerId(e.target.value)}
-                className="input !py-1.5 !px-3 text-xs font-semibold"
-              >
-                <option value="">Všechna piva</option>
-                {beers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-              </select>
               {showWhoColumn && (
                 <input
                   type="text"
@@ -719,16 +833,18 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                   className="input !py-1.5 !px-3 text-xs font-semibold"
                 />
               )}
-              {(overviewMonth !== new Date().toISOString().slice(0, 7) || overviewBeerId || overviewWho) && (
+              {(overviewMonth !== businessDateISO().slice(0, 7) || overviewBeerId || overviewWho) && (
                 <button
                   type="button"
-                  onClick={() => { setOverviewMonth(new Date().toISOString().slice(0, 7)); setOverviewBeerId(''); setOverviewWho(''); }}
+                  onClick={() => { setOverviewMonth(businessDateISO().slice(0, 7)); setOverviewBeerId(''); setOverviewWho(''); }}
                   className="btn-ghost !rounded text-xs font-bold !py-1.5 !px-3"
                 >
                   Zrušit filtry
                 </button>
               )}
             </div>
+
+            <ChipyPiva piva={beers} vybrane={overviewBeerId} onVybrat={setOverviewBeerId} />
 
             {loading ? (
               <Spinner />
@@ -753,7 +869,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
               // 📊 Rychlý souhrn: kolik kusů dnes / tento týden (z VŠECH záznamů,
               // ne jen z filtru měsíce) a co se ve zvoleném období prodalo nejvíc.
               // Dřív šlo z přehledu vyčíst jen měsíční součet a jednotlivé řádky.
-              const dnesISO = new Date().toISOString().slice(0, 10);
+              const dnesISO = businessDateISO();
               const tydenNyni = isoWeekKey(dnesISO);
               const soucet = (pred: (r: EntryRow) => boolean) =>
                 rows.filter(pred).reduce((s, r) => s + Number(r.quantity || 0), 0);
@@ -832,6 +948,18 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                                 jediný doklad a po měsíci si nikdo nevzpomene, jak to
                                 vypadalo. */}
                             {table === 'writeoffs' && <FotkyZaznamu typ="odpis" zaznamId={r.id} kompaktni />}
+                            {/* ↩️ Odfasovat — vrátí kusy na sklad záporným
+                                protizápisem. U už vráceného řádku (záporný)
+                                nemá co vracet, tak se neukazuje. */}
+                            {Number(r.quantity) > 0 && (
+                              <button
+                                type="button"
+                                className="w-12 min-h-[44px] grid place-items-center rounded bg-sky-100 hover:bg-sky-200 text-sky-800 font-black transition"
+                                onClick={() => odfasuj(r.id)}
+                                aria-label="Odfasovat — vrátit na sklad"
+                                title="Odfasovat — vrátit na sklad"
+                              ><RotateCcw size={18} /></button>
+                            )}
                             <button
                               type="button"
                               className="w-12 min-h-[44px] ml-2 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-black transition"
@@ -897,6 +1025,15 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                                     title="Přidat 1 ks"
                                   >+</button>
                                   {table === 'writeoffs' && <FotkyZaznamu typ="odpis" zaznamId={r.id} kompaktni />}
+                                  {Number(r.quantity) > 0 && (
+                                    <button
+                                      type="button"
+                                      className="tap w-6 h-6 grid place-items-center rounded bg-sky-100 hover:bg-sky-200 text-sky-800 font-bold text-xs transition"
+                                      onClick={() => odfasuj(r.id)}
+                                      aria-label="Odfasovat — vrátit na sklad"
+                                      title="Odfasovat — vrátit na sklad"
+                                    ><RotateCcw size={14} /></button>
+                                  )}
                                   <button
                                     type="button"
                                     className="w-6 h-6 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-xs transition"
@@ -944,7 +1081,8 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
           onClose={() => setShowPhotoModal(false)}
           beers={beers}
           packages={packages}
-          onTextExtracted={handlePhotoText}
+          onImport={handlePhotoRows}
+          popisVydeje={druh.popis}
         />
       )}
 

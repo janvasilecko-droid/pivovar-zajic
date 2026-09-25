@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within, fireEvent } from '@testing-library/react';
 import StatistikaVystav from './StatistikaVystav';
 
 // recharts měří kontejner přes ResizeObserver, který jsdom nemá. Bez něj se
@@ -28,12 +28,17 @@ const orders = [
   { id: 'o1', place_name: 'Hospoda U Lípy', delivery_date: '2026-08-28', order_date: '2026-08-24', status: 'nova' },
 ];
 const orderItems = [{ order_id: 'o1', package_id: 'keg30', quantity: 3 }];
+// Vyfasované a odepsané kusy — podklad pro kartu „Rozpočet sudů".
+const fasovani = [{ entry_date: '2026-08-26', beer_id: 'b11', package_id: 'keg30', quantity: 14 }];
+const odpisy = [{ entry_date: '2026-08-26', beer_id: 'b11', package_id: 'keg30', quantity: 1 }];
 
 function vykresli() {
   return render(
     <StatistikaVystav
       bottlingRows={bottling}
       keggingRows={kegging}
+      fasovaniRows={fasovani}
+      writeoffRows={odpisy}
       obaly={OBALY}
       piva={PIVA}
       orders={orders}
@@ -54,6 +59,42 @@ describe('Statistika — Výstav', () => {
     expect(screen.getByText('Tento měsíc')).toBeTruthy();
     expect(screen.getAllByText('6').length).toBeGreaterThan(0);
     expect(screen.queryAllByText('8').length).toBe(0);
+  });
+
+  // 🐛 Pojistka proti chybě, kterou tahle appka udělala už dvakrát jinde:
+  // přehledy stáčení i export do Excelu si seznam předfiltrovaly na KLADNÉ
+  // množství a se stejným filtrem pak počítaly i SOUČET, takže manko
+  // z inventury (záporný řádek v `kegging` — viz lib/inventoryFix.ts,
+  // odectiZeStoceni) ze součtu vypadlo a výroba vycházela vyšší, než jaká
+  // byla. Uživatel to tehdy popsal přesně: „pokud mam stoceno napr 10hl
+  // a −1hl v minusovych polozkach, tak mi vyjede 10hl, coz je spatny udaj,
+  // ja tam potrebuju videt 9hl."
+  //
+  // Výstav po měsících musí manko započítat — jinak měsíc tvrdí víc, než
+  // se doopravdy stočilo.
+  it('manko z inventury (záporný řádek) se z měsíčního výstavu odečte', () => {
+    render(
+      <StatistikaVystav
+        bottlingRows={bottling}
+        fasovaniRows={fasovani}
+        writeoffRows={odpisy}
+        keggingRows={[
+          ...kegging,
+          // Srovnání inventury: dva sudy se nenašly → −60 l, tedy −0,6 hl.
+          { entry_date: '2026-08-26', beer_id: 'b11', package_id: 'keg30', quantity: -2 },
+        ]}
+        obaly={OBALY}
+        piva={PIVA}
+        orders={orders}
+        orderItems={orderItems}
+        dnes="2026-08-27"
+        obdobi="mesic"
+        onObdobi={vi.fn()}
+      />,
+    );
+    // 600 l − 60 l = 540 l = 5,4 hl. Kdyby se záporný řádek zahodil,
+    // stálo by tu pořád 6 — o dva sudy víc, než se skutečně stočilo.
+    expect(screen.getAllByText('5,4').length).toBeGreaterThan(0);
   });
 
   it('lahvování se ukazuje zvlášť a řekne, jaký je to podíl výstavu', () => {
@@ -81,13 +122,86 @@ describe('Statistika — Výstav', () => {
   it('prázdné období nespadne, jen to řekne', () => {
     render(
       <StatistikaVystav
-        bottlingRows={[]} keggingRows={[]} obaly={OBALY} piva={PIVA}
+        bottlingRows={[]} keggingRows={[]} fasovaniRows={[]} writeoffRows={[]} obaly={OBALY} piva={PIVA}
         orders={[]} orderItems={[]} dnes="2026-08-27" obdobi="tyden" onObdobi={vi.fn()}
       />,
     );
     expect(screen.getAllByText(/V tomhle období se nic nestočilo/).length).toBe(2);
     expect(screen.getByText(/V tomhle období se nelahvovalo/)).toBeTruthy();
     expect(screen.getByText(/V tomhle období není žádná objednávka/)).toBeTruthy();
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// Zadání 23. 9. 2026: „nestojim o data kolik celkem bylo stoceny lahvi
+// a kegu najednou (udaj k nicemu, je potreba vedet konkretni obaly kolik
+// za jaky obdobi)." Každé číslo na obrazovce musí jít dohledat ke
+// KONKRÉTNÍMU obalu.
+// ───────────────────────────────────────────────────────────────────────────
+describe('Statistika — konkrétní obaly místo souhrnů', () => {
+  it('potřeba sudů se rozepíše po velikostech, ne jen jedním číslem', () => {
+    vykresli();
+    const karta = screen.getByText('Průměrná potřeba sudů').closest('section')!;
+    expect(within(karta).getByText('Velikost sudu')).toBeTruthy();
+    // Do ukončených oken spadá jen červenec (10 sudů KEG 30 l) — srpnové
+    // stáčení je v běžícím týdnu i měsíci, a ty se schválně nepočítají.
+    // 10 / 12 = 0,8 na týden i na měsíc.
+    expect(within(karta).getAllByText('KEG 30 l').length).toBe(1);
+    expect(within(karta).getAllByText('0,8 ks').length).toBe(2);
+    // Padesátky se v datech nevyskytují, takže se ani nevypisují.
+    expect(within(karta).queryByText('KEG 50 l')).toBeNull();
+  });
+
+  it('tabulka „Obaly v číslech" má řádek na každý obal a sudy sčítá zvlášť od lahví', () => {
+    vykresli();
+    const karta = screen.getByText('Obaly v číslech').closest('section')!;
+    // Skupiny jsou oddělené — sečíst sudy a lahve dohromady by tentýž objem
+    // počítalo dvakrát, protože se lahvuje z už stočených sudů.
+    expect(within(karta).getByText('Sudy (výstav)')).toBeTruthy();
+    expect(within(karta).getByText('Lahve a PET (přestočeno ze sudů)')).toBeTruthy();
+    expect(within(karta).getAllByText('KEG 30 l').length).toBe(1);
+    expect(within(karta).getAllByText('Lahev 0,5 l').length).toBe(1);
+    // Srpen: 20 sudů a 400 lahví — dvě různá čísla, nikde ne 420.
+    expect(within(karta).getAllByText('20').length).toBeGreaterThan(0);
+    expect(within(karta).getAllByText('400').length).toBeGreaterThan(0);
+    expect(within(karta).queryAllByText('420').length).toBe(0);
+  });
+
+  it('odběratel se rozklikne na to, DO ČEHO se mu vozí', () => {
+    vykresli();
+    // Zavřený řádek ukazuje jen souhrn.
+    expect(screen.queryByText(/\/ závoz/)).toBeNull();
+    fireEvent.click(screen.getByText('Hospoda U Lípy'));
+    const karta = screen.getByText('Největší odběratelé').closest('section')!;
+    expect(within(karta).getByText('KEG 30 l')).toBeTruthy();
+    expect(within(karta).getByText('3 ks')).toBeTruthy();
+    // Jedna objednávka → 3 sudy na závoz.
+    expect(within(karta).getByText('3 / závoz')).toBeTruthy();
+  });
+
+  // Přesunuto sem ze zrušené záložky „Měsíční přehledy", kde to viselo jako
+  // „Ztráty KEG" jen jako souhrn za měsíc. Vzorec musí zůstat tentýž.
+  it('rozpočet sudů počítá stočeno − fasováno − odpisy, po velikostech', () => {
+    vykresli();
+    const karta = screen.getByText('Rozpočet sudů').closest('section')!;
+    // Srpen: stočeno 20, fasováno 14, odpisy 1 → nerozpočteno 5.
+    expect(within(karta).getByText('KEG 30 l')).toBeTruthy();
+    expect(within(karta).getByText('14')).toBeTruthy();
+    expect(within(karta).getByText('5')).toBeTruthy();
+    // Objednané kusy jsou vedle jen jako kontext, do rozdílu nevstupují:
+    // kdyby vstupovaly, vyšly by 2, ne 5.
+    expect(within(karta).getByText('3')).toBeTruthy();
+    expect(within(karta).queryByText('2')).toBeNull();
+  });
+
+  it('grafy se dají přepnout na rozpad podle obalů', () => {
+    vykresli();
+    const prepinac = screen.getByRole('button', { name: 'Po obalech' });
+    expect(prepinac.getAttribute('aria-pressed')).toBe('false');
+    fireEvent.click(prepinac);
+    expect(prepinac.getAttribute('aria-pressed')).toBe('true');
+    // Popisek grafu musí říct, co je vidět — jinak se dva pohledy pletou.
+    expect(screen.getAllByText(/rozpadlý na velikosti sudů/).length).toBe(2);
   });
 });
 

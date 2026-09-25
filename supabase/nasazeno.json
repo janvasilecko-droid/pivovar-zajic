@@ -1,0 +1,16 @@
+{
+  "_poznamka": "Otisk obsahu (SHA-256 z index.ts + sdilenych souboru, ktere funkce importuje) toho, co bezi na Supabase. Pise to nasazeni z CI (scripts/zapis-nasazeni.mjs) i rucni nasazeni (scripts/deploy-function.mjs); cte to scripts/zkontroluj-nasazeni.mjs. Drive se pamatoval COMMIT, ale ten zavisi na tvaru checkoutu - CI zapsalo hashe, ktere na jinem stroji neexistovaly. Prepsano 18. 9. 2026 po behu #728.",
+  "analyze-reviews": "54f5af6e57fbaee8",
+  "auth-auto-login": "37c53111a42f45e0",
+  "count-bottles": "77b97203aa14c9fb",
+  "fix-order-dates": "77618eba98620162",
+  "manage-users": "a1d0df2079f385e6",
+  "parse-order-image": "984b2812a107cc96",
+  "parse-order-text": "c69d7c1f6a00ffdc",
+  "posli-push": "a52b0eff6206df0c",
+  "pust-migraci": "d8a6ff284352a331",
+  "transcribe-audio": "f9ac946163e10725",
+  "whatsapp-send-order": "6cdd6b834409ceaf",
+  "whatsapp-webhook": "65fafd1d28779590",
+  "whatsapp-auto-parse": "232d85c49bbe185c"
+}

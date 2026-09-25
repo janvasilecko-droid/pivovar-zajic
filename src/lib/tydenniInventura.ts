@@ -109,6 +109,8 @@ export type TydenniRadek = {
   klic: string;
   beer_id: string;
   beer_name: string;
+  /** Barva piva z katalogu (Nastavení) — pro barevné odlišení stejného piva v seznamu. */
+  beer_color: string | null;
   package_id: string;
   package_label: string;
   package_kind?: string;
@@ -124,7 +126,7 @@ export type TydenniRadek = {
   sud: boolean;
 };
 
-export type KatalogPivo = { id: string; name: string };
+export type KatalogPivo = { id: string; name: string; beer_color?: string | null };
 export type KatalogObal = { id: string; label: string; kind?: string; volume_l?: number };
 
 /**
@@ -142,6 +144,7 @@ export function radkyTydne(
   napocitano: Record<string, string>,
 ): TydenniRadek[] {
   const jmenoPiva = new Map(piva.map((b) => [b.id, b.name]));
+  const barvaPiva = new Map(piva.map((b) => [b.id, b.beer_color ?? null]));
   const poradiPiva = new Map(piva.map((b, i) => [b.id, i]));
   const obalPodleId = new Map(obaly.map((p) => [p.id, p]));
   const poradiObalu = new Map(obaly.map((p, i) => [p.id, i]));
@@ -162,6 +165,7 @@ export function radkyTydne(
       klic,
       beer_id: line.beer_id,
       beer_name: jmenoPiva.get(line.beer_id)!,
+      beer_color: barvaPiva.get(line.beer_id) ?? null,
       package_id: line.package_id,
       package_label: obal.label,
       package_kind: obal.kind,

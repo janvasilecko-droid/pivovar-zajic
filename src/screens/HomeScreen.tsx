@@ -18,15 +18,18 @@ import { Modal } from '../components/ui';
 import { useAuth } from '../lib/auth';
 import { canUserView, getUserPermissions, PAGE_TO_MODULE } from '../lib/permissions';
 import { isAdminEmail } from '../lib/config';
-import { supabase, Vehicle, fetchAllRows } from '../lib/supabase';
+import { supabase, Vehicle, fetchAllRows, useRealtime } from '../lib/supabase';
 import { getVehicleExpiryStatus } from '../lib/vozidla';
 import { businessDateISO } from '../lib/businessDate';
 import { IkonaSud, IkonaLahev, IkonaVycep } from '../components/ikony';
 import { HomeNotesModal } from '../components/HomeNotesModal';
+import CoStocitOkno from '../components/CoStocitOkno';
 // Návod je přes deset kilobajtů textu, který většina lidí za den neotevře —
 // stáhne se až při klepnutí na dlaždici.
 const NavodPouziti = lazy(() => import('../components/NavodPouziti').then((m) => ({ default: m.NavodPouziti })));
 import { HomeChecklistModal } from '../components/HomeChecklistModal';
+import { polozkyDlazdice, pocetCekajicich } from '../lib/dlazdicePoznamek';
+import { nactiSdilene, prepniHotovo, SDILENE_POZNAMKY_ZMENA, type SdilenaPoznamka } from '../lib/sdilenePoznamky';
 import { getHomeNotes, toggleHomeNote, HOME_NOTES_CHANGED_EVENT, OPEN_HOME_NOTES_EVENT, consumeOpenHomeNotesRequest, type HomeNote, toggleHomeNoteImportant, rozvrhniPoznamky, kolikPoznamekZobrazit } from '../lib/homeNotes';
 import { getDailyTasks, DAILY_CHECKLIST_CHANGED_EVENT, type DailyTask } from '../lib/homeChecklist';
 import {
@@ -35,12 +38,12 @@ import {
 import {
   getHomeLayout, saveHomeLayout, addPage, removePage, moveTileToPage, hideTile, addTile,
   mergeTiles, addToGroup, removeFromGroup, deleteGroup, isGroupId, isCountdownId, ensurePositions, ensureTrailingEmptyPage, unifyColorsByCategory, moveTileToCell, stepTileCell,
-  addDockSlot, removeDockSlot,
+  addDockSlot, removeDockSlot, moveDockSlot,
   hexToRgba,
   PAGE_CATEGORY, CATEGORY_ORDER, CATEGORY_SHADES, type Category,
   moveTileToPageCell, okrajProPrepnuti, dalsiStranka, rozdelVseDoStranek, idsKRozmisteni, vyrovnejStranku, VYCHOZI_STRANKA, type OkrajTazeni,
   MIN_OPACITY, MAX_OPACITY, MIN_TILE_GAP, MAX_TILE_GAP, MIN_W, MAX_W, MIN_H, MAX_H, TILE_COLORS, COLOR_HEX, defaultTileColor,
-  GRID_COLS_DESKTOP, GRID_COLS_MOBILE, MOBILE_BREAKPOINT_PX, ROW_HEIGHT_DESKTOP, ROW_HEIGHT_MOBILE, MIN_DOCK, MAX_DOCK,
+  GRID_COLS_DESKTOP, GRID_COLS_MOBILE, MOBILE_BREAKPOINT_PX, ROW_HEIGHT_DESKTOP, ROW_HEIGHT_MOBILE, MIN_DOCK, MAX_DOCK, UNIT_COLS,
   CO2_TILE_ID,
   type HomeLayout, type TileColor, type TileId, type GroupId, type CountdownTileId,
 } from '../lib/homeLayout';
@@ -66,6 +69,7 @@ import { requestOrdersAutoImport } from '../lib/ordersFilter';
 import { getTheme, setTheme, type Theme } from '../lib/theme';
 import { fetchLastWhatsAppAt, fetchPendingWhatsAppCount, subscribeToWhatsAppMessages } from '../lib/whatsappApi';
 import { tichoWhatsApp, type TichoWhatsApp } from '../lib/whatsappTicho';
+import { vyhodnotMostStav, type MostVarovani } from '../lib/mostStav';
 import { nactiRezervace } from '../lib/vycepyData';
 import { stariInventury, type StariInventury } from '../lib/inventuraStari';
 import { nactiBehyZalohy, vyhodnotZalohu, type StavZalohy } from '../lib/zalohaStav';
@@ -94,7 +98,7 @@ function colorInputValue(c: string): string {
 // Mapa obrazovka -> modul je sdilena v lib/permissions.ts (drive byla
 // zkopirovana na tri mistech a kopie se rozesly).
 
-type VehicleAlert = { vehicleName: string; label: string; status: 'warning' | 'expired' };
+type VehicleAlert = { vehicleName: string; kind: 'stk' | 'dalnice'; label: string; status: 'warning' | 'expired' };
 
 /** Zavřený pruh časovače na ploše — volba se pamatuje i po zavření appky. */
 export const KLIC_PRUH_CASOVACE = 'pivovar_pruh_casovace_skryt';
@@ -104,13 +108,14 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   const isAdmin = profile?.role === 'admin' || isAdminEmail(user?.email);
   const userPerms = getUserPermissions(user?.id ?? '', (profile as any)?.permissions);
 
-  const visible = useMemo(() => NAV.filter((n) => {
+  const smiVidet = (n: NavItem) => {
     if (n.id === 'users') return isAdmin;
     if (n.id === 'bottling_needs') return isAdmin;
     const modKey = PAGE_TO_MODULE[n.id];
     if (!modKey) return true;
     return canUserView(profile?.role, user?.id, modKey, userPerms);
-  }), [isAdmin, profile?.role, user?.id, userPerms]);
+  };
+  const visible = useMemo(() => NAV.filter(smiVidet), [isAdmin, profile?.role, user?.id, userPerms]);
 
   // Dlaždice „Foukání CO2" jede s běžnými dlaždicemi, i když za ní není
   // žádná obrazovka — proto se přidává až sem a ne do NAV (v menu by byla
@@ -122,8 +127,9 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   const CO2_ITEM: NavItem = { id: CO2_TILE_ID as Page, label: 'Foukání CO2', icon: Wind, group: 'Výroba' };
 
   // Rozšiřující dlaždice (EXTRA_NAV, viz Layout.tsx) — stránky/záložky, co
-  // dnes nejdou přidat jinak než ručně přes "+ Přidat dlaždici". Na rozdíl
-  // od `visible` se nepřidávají do launcheru automaticky.
+  // dnes nejdou přidat jinak než ručně přes "+ Přidat dlaždici" NEBO výběrem
+  // do spodní lišty (viz select ve „Spodní lišta" níž). Na rozdíl od
+  // `visible` se nepřidávají do launcheru automaticky.
   const extraVisible = useMemo(() => EXTRA_NAV.filter((n) => {
     const modKey = PAGE_TO_MODULE[n.id];
     if (!modKey) return true;
@@ -279,6 +285,44 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
     setEdgeHint(null);
   }
   const rowHeight = cols === GRID_COLS_MOBILE ? ROW_HEIGHT_MOBILE : ROW_HEIGHT_DESKTOP;
+  // 🖥️ Na počítači (široká obrazovka, mimo úpravu rozložení) se všechny
+  // stránky plochy zobrazí pod sebou najednou — na velkém displeji je pro
+  // ně dost místa a přepínání šipkami dává smysl jen na telefonu, kde se na
+  // obrazovku vejde jen jedna. Z provozu 16. 9. 2026: „na počítači ať mám
+  // všechny dlaždice na jedny ploše a nemusím přepínat obrazovky, to jen na
+  // telefonu". Úprava rozložení (přetahování, mazání stránek…) zůstává vždy
+  // jen na JEDNÉ stránce najednou (currentPageIndex) — přetahovat dlaždici
+  // mezi několika viditelnými mřížkami by vyžadovalo přepsat cílení buňky
+  // (cellFromPoint níž počítá z JEDINÉ `.hs-grid` v DOM).
+  const zobrazVsechnyStrankyNajednou = !editMode && cols === GRID_COLS_DESKTOP;
+  const zobrazeneStranky = zobrazVsechnyStrankyNajednou ? layout.pages.map((_, i) => i) : [currentPageIndex];
+  // 🖥️ Kolik sloupců stránka OPRAVDU využívá — z provozu 16. 9. 2026: „na
+  // notebooku rozáhni ty dlaždice po celý obrazovku, ne jen dolu". Mřížka
+  // sama je široká 18 sloupců, ale stránka s pár dlaždicemi je využije jen
+  // zčásti — když se pak stránky jen podskládají pod sebe (na celou šířku
+  // 18 sloupců každá), zbytek řádku zůstane prázdný a další stránka jede
+  // až POD tím prázdnem. Když se místo toho stránky vedle sebe vejdou na
+  // šířku obrazovky (viz .hs-stranky-vedle-sebe níž — sloupec má PEVNOU
+  // šířku, ne 1fr přes celý kontejner), skutečně se využije šířka, ne
+  // výška. Vrací se rozsah v RAW gridových sloupcích (stejná jednotka jako
+  // tileGridStyle), s dolní mezí jeden „tile unit", ať prázdná stránka
+  // nezůstane nulově úzká.
+  const strankaPouzitaSirka = (strankaIndex: number): number => {
+    const ids = ((nahledLayout ?? layout).pages[strankaIndex] ?? []).filter((id) => id !== 'signout' && id !== 'app_settings');
+    let max = UNIT_COLS;
+    for (const id of ids) {
+      const o = (nahledLayout ?? layout).overrides[id] ?? {};
+      const x = o.x ?? 0;
+      const w = o.w ?? 1;
+      const span = w === 0 ? 1 : w * UNIT_COLS;
+      if (x + span > max) max = x + span;
+    }
+    return Math.min(GRID_COLS_DESKTOP, max);
+  };
+  /** Pevná šířka sloupce (px) pro stránky vedle sebe — tak velké dlaždice
+   * vycházejí dnes běžně na jednu stránku přes celou šířku, jen se teď
+   * nenafukují donekonečna se šířkou monitoru. */
+  const HS_SLOUPEC_PX = 76;
   function cellFromPoint(clientX: number, clientY: number): { x: number; y: number } | null {
     const gridEl = document.querySelector('.hs-grid') as HTMLElement | null;
     if (!gridEl) return null;
@@ -545,6 +589,10 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   // ignorují (< 50px, nebo víc svislý než vodorovný pohyb).
   const swipeStart = useRef<{ x: number; y: number } | null>(null);
   function handleSwipePointerDown(e: React.PointerEvent) {
+    // Na počítači se stránky nepřetáčí (jsou pod sebou najednou, viz
+    // zobrazVsechnyStrankyNajednou výš) — gesto by beztak neměnilo nic
+    // vidět, jen tiše přepnulo currentPageIndex na pozadí.
+    if (zobrazVsechnyStrankyNajednou) { swipeStart.current = null; return; }
     // Gesto, které začalo uvnitř vodorovného pásku (záložky, řada
     // upozornění), patří tomu pásku — dřív se jím místo posunutí pásku
     // přetočila celá stránka launcheru. Viz jeVeVodorovnemPasku.
@@ -619,6 +667,9 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   }
   function handleRemoveDockSlot(slot: number) {
     persist(removeDockSlot(layout, slot));
+  }
+  function handleMoveDockSlot(slot: number, smer: 'doleva' | 'doprava') {
+    persist(moveDockSlot(layout, slot, smer));
   }
   function handleAddPage() {
     const next = addPage(layout);
@@ -802,18 +853,47 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   // to 1. 9. 2026 a přišlo se na to až tím, že odeslané objednávky nikde
   // nebyly. Viz lib/whatsappTicho.ts.
   const [ticho, setTicho] = useState<TichoWhatsApp | null>(null);
+  // 💓 Tep mostu — RYCHLÁ pojistka nezávislá na tom, jestli zrovna někdo
+  // píše (viz lib/mostStav.ts). `mostStavRawRef` drží poslední načtený
+  // řádek pro živý přepočet níž (posun času sám o sobě, bez nového dotazu).
+  const [mostVarovani, setMostVarovani] = useState<MostVarovani>({ varovat: false, duvod: null });
+  const mostStavRawRef = useRef<{ naposledy: string | null; pripojeno: boolean | null; poznamka: string | null } | null>(null);
+  const nactiMostStav = () => {
+    supabase
+      .from('whatsapp_most_stav')
+      .select('naposledy,pripojeno,poznamka')
+      .eq('id', 'most')
+      .maybeSingle()
+      .then(({ data }) => {
+        mostStavRawRef.current = data ?? null;
+        setMostVarovani(vyhodnotMostStav(data ?? null, new Date()));
+      });
+  };
+  useRealtime(['whatsapp_most_stav'], nactiMostStav);
   useEffect(() => {
     const nacti = () => {
       void fetchPendingWhatsAppCount().then(setPendingWhatsApp).catch(() => {});
       void fetchLastWhatsAppAt()
         .then((kdy) => setTicho(tichoWhatsApp(kdy, new Date())))
         .catch(() => {});
+      nactiMostStav();
     };
     nacti();
     // Zpráva může přijít kdykoli — realtime na tabulku příchozích zpráv.
     // Funkce vrací rovnou odhlašovací callback, ne kanál.
     const odhlas = subscribeToWhatsAppMessages(() => nacti());
-    return odhlas;
+    // ⏱️ Živý přepočet BEZ nového dotazu do databáze. `ticho` i
+    // `mostVarovani` se jinak přepočítají jen při novém fetchi (nová
+    // zpráva / nový tep) — appka nechaná dlouho otevřená (tablet,
+    // telefon na nabíječce) by pak ukazovala starý „v pořádku" stav
+    // dlouho poté, co výpadek dávno přesáhl práh, protože se čas od
+    // posledního fetche nikde nepřepočítal. Přepočet ze zapamatovaných
+    // dat je zadarmo, může běžet často.
+    const tik = setInterval(() => {
+      setTicho((t) => (t ? tichoWhatsApp(t.posledni, new Date()) : t));
+      setMostVarovani(vyhodnotMostStav(mostStavRawRef.current, new Date()));
+    }, 3 * 60 * 1000);
+    return () => { odhlas(); clearInterval(tik); };
   }, []);
 
   // 🍺 Výčepy po termínu, které se ještě nevrátily (viz lib/vycepyVenku.ts).
@@ -929,6 +1009,24 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
     return () => window.removeEventListener(HOME_NOTES_CHANGED_EVENT, handleUpdate);
   }, []);
 
+  // 📌 VZKAZY CELÉ SMĚNĚ. Poznámky jsou v appce dvoje (osobní a sdílené)
+  // a dlaždice znala jen ty osobní — kdo v okně zapnul „Poslat všem", zapsal
+  // vzkaz do té druhé přihrádky a dlaždice zůstala prázdná. Vypadalo to, že se
+  // poznámka neuložila (z provozu 19. 9. 2026).
+  const [sdilenePoznamky, setSdilenePoznamky] = useState<SdilenaPoznamka[]>([]);
+  useEffect(() => {
+    let zruseno = false;
+    const nacti = async () => {
+      const data = await nactiSdilene();
+      if (!zruseno) setSdilenePoznamky(data);
+    };
+    void nacti();
+    const obnov = () => { void nacti(); };
+    window.addEventListener(SDILENE_POZNAMKY_ZMENA, obnov);
+    return () => { zruseno = true; window.removeEventListener(SDILENE_POZNAMKY_ZMENA, obnov); };
+  }, []);
+  useRealtime(['sdilene_poznamky'], () => { void nactiSdilene().then(setSdilenePoznamky); });
+
   // ---- Denní checklist na ploše ----
   const [dailyTasks, setDailyTasks] = useState<DailyTask[]>(() => getDailyTasks().tasks);
   useEffect(() => {
@@ -939,7 +1037,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
 
   // ---- Živá dlaždice: Sklep (objem ležícího piva v hl a plné tanky) ----
   const [cellarLiveStats, setCellarLiveStats] = useState<{ activeTanks: number; totalHl: number } | null>(null);
-  useEffect(() => {
+  const nactiCellarLiveStats = () => {
     if (!visibleIds.includes('cellar')) return;
     supabase.from('cellar_tanks').select('status,current_volume_l').then(({ data }) => {
       const rows = data ?? [];
@@ -947,9 +1045,12 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
       const sumL = active.reduce((acc: number, t: any) => acc + (t.current_volume_l || 0), 0);
       if (active.length > 0) {
         setCellarLiveStats({ activeTanks: active.length, totalHl: Math.round(sumL / 100) });
+      } else {
+        setCellarLiveStats(null);
       }
     });
-  }, [visibleIds]);
+  };
+  useEffect(() => { nactiCellarLiveStats(); }, [visibleIds]);
 
   // ---- Živá dlaždice Sklep: jednotlivé tanky s objemem ----
   // Odznak výš říká jen „6 tanků, 84 hl". Když je dlaždice zvětšená, vejde
@@ -957,15 +1058,13 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   // KOLIK v něm zbývá. Byla to jedna z věcí, pro kterou se chodilo do
   // Sklepa a hned zpátky.
   const [tankyNaPlochu, setTankyNaPlochu] = useState<{ label: string; pivo: string; litry: number; staci: boolean }[]>([]);
-  useEffect(() => {
+  const nactiTankyNaPlochu = () => {
     if (!visibleIds.includes('cellar')) return;
-    let zruseno = false;
     void (async () => {
       const [{ data: tanky }, { data: piva }] = await Promise.all([
         supabase.from('cellar_tanks').select('label,current_beer_id,current_volume_l,status,kegging_active'),
         supabase.from('beers').select('id,name'),
       ]);
-      if (zruseno) return;
       const jmenoPiva = new Map(((piva as any[]) ?? []).map((b) => [b.id, b.name as string]));
       const radky = (((tanky as any[]) ?? [])
         .filter((t) => t.status !== 'empty' && Number(t.current_volume_l || 0) > 0)
@@ -980,14 +1079,13 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
         .sort((a, b) => (Number(b.staci) - Number(a.staci)) || (b.litry - a.litry)));
       setTankyNaPlochu(radky);
     })();
-    return () => { zruseno = true; };
-  }, [visibleIds]);
+  };
+  useEffect(() => { nactiTankyNaPlochu(); }, [visibleIds]);
 
   // ---- Živá dlaždice Objednávky: co se dnes veze ----
   const [dnesniZavoz, setDnesniZavoz] = useState<{ objednavek: number; kusu: number; mista: string[] } | null>(null);
-  useEffect(() => {
+  const nactiDnesniZavoz = () => {
     if (!visibleIds.includes('orders')) return;
-    let zruseno = false;
     void (async () => {
       const dnes = businessDateISO();
       // Objednávky na dnešní závoz. Storno se nepočítá — nechystá se.
@@ -1000,7 +1098,6 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
       const { data } = await fetchAllRows<any>('orders', 'id, place_name, status, order_items(quantity)')
         .eq('delivery_date', dnes)
         .neq('status', 'storno');
-      if (zruseno) return;
       const rows = ((data as any[]) ?? []);
       if (rows.length === 0) { setDnesniZavoz(null); return; }
       const kusu = rows.reduce(
@@ -1012,17 +1109,16 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
         .filter((m) => m.length > 0);
       setDnesniZavoz({ objednavek: rows.length, kusu, mista });
     })();
-    return () => { zruseno = true; };
-  }, [visibleIds]);
+  };
+  useEffect(() => { nactiDnesniZavoz(); }, [visibleIds]);
 
   // ---- Živá dlaždice Sklad: co se dnes stalo ----
   // Dosud se to skládalo z pěti obrazovek (KEG, Lahve, Fasování, Odpis,
   // Závoz) a nikdo to nedělal. Sčítají se POHYBY dne po druzích — stav
   // skladu se tu nepočítá, ten umí jedině lib/stockLedger.ts.
   const [souhrn, setSouhrn] = useState<SouhrnDne | null>(null);
-  useEffect(() => {
+  const nactiSouhrnDne = () => {
     if (!visibleIds.includes('dashboard')) return;
-    let zruseno = false;
     void (async () => {
       const dnes = businessDateISO();
       // Čte se jen dnešek: souhrn dne nepotřebuje historii a stahovat
@@ -1045,7 +1141,6 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
         // spadl a v souhrnu dne nebyl vidět ani jeden závoz.
         fetchAllRows<any>('zavoz_deductions', 'deduct_date,beer_id,package_id,quantity').eq('deduct_date', dnes),
       ]);
-      if (zruseno) return;
       const pohyby = buildMovements({
         bottlingRows: (bot.data as any[]) ?? [],
         keggingRows: (keg.data as any[]) ?? [],
@@ -1056,19 +1151,20 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
       });
       setSouhrn(souhrnDne(pohyby, dnes));
     })();
-    return () => { zruseno = true; };
-  }, [visibleIds]);
+  };
+  useEffect(() => { nactiSouhrnDne(); }, [visibleIds]);
 
   // ---- Živá dlaždice: Dnešní plánované stáčení lahví ----
   const [bottlingTodayCount, setBottlingTodayCount] = useState<number | null>(null);
-  useEffect(() => {
+  const nactiBottlingTodayCount = () => {
     if (!visibleIds.includes('bottling') && !visibleIds.includes('bottling_needs')) return;
     const dnes = businessDateISO();
     supabase.from('bottling_plans').select('id', { count: 'exact', head: true })
       .eq('planned_date', dnes)
       .eq('status', 'planned')
       .then(({ count }) => setBottlingTodayCount(count && count > 0 ? count : null));
-  }, [visibleIds]);
+  };
+  useEffect(() => { nactiBottlingTodayCount(); }, [visibleIds]);
 
   // Modál rychlých akcí (Quick Actions)
   const [quickActionsTile, setQuickActionsTile] = useState<TileId | null>(null);
@@ -1167,7 +1263,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   // v Uživatelích (nebo admin), a jen dokud to ten člověk jednou nepotvrdí.
   const canSeeVehicleAlerts = profile?.role === 'admin' || !!(profile as any)?.receive_vehicle_alerts;
   const [vehicleAlerts, setVehicleAlerts] = useState<VehicleAlert[]>([]);
-  useEffect(() => {
+  const nactiVehicleAlerts = () => {
     if (!canSeeVehicleAlerts) { setVehicleAlerts([]); return; }
     supabase.from('vehicles').select('*').then(({ data }) => {
       const rows = (data as Vehicle[]) ?? [];
@@ -1175,16 +1271,36 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
       rows.forEach((v) => {
         const stk = getVehicleExpiryStatus(v.stk_valid_until);
         if (stk.status === 'warning' || stk.status === 'expired') {
-          alerts.push({ vehicleName: v.name, label: `STK: ${stk.label}`, status: stk.status });
+          alerts.push({ vehicleName: v.name, kind: 'stk', label: `STK: ${stk.label}`, status: stk.status });
         }
         const toll = getVehicleExpiryStatus(v.highway_toll_valid_until);
         if (toll.status === 'warning' || toll.status === 'expired') {
-          alerts.push({ vehicleName: v.name, label: `Dálniční známka: ${toll.label}`, status: toll.status });
+          alerts.push({ vehicleName: v.name, kind: 'dalnice', label: `Dálniční známka: ${toll.label}`, status: toll.status });
         }
       });
       setVehicleAlerts(alerts);
     });
-  }, [canSeeVehicleAlerts]);
+  };
+  useEffect(() => { nactiVehicleAlerts(); }, [canSeeVehicleAlerts]);
+
+  // 🔴 Živé dlaždice na Domů (sklep, dnešní závoz, sklad dne, plán stáčení
+  // lahví, vozidla) se dřív načetly JEN při otevření appky — kdo měl Domů
+  // otevřené na tabletu v kanceláři a sklepník mezitím upravil tank na
+  // telefonu, viděl starý stav, dokud appku sám neobnovil (z provozu
+  // 16. 9. 2026, stejná chyba jako u Skladu/Stáčení KEG — viz useRealtime
+  // v lib/supabase.ts). Jeden odběr pro všech šest dlaždic najednou, každá
+  // funkce si sama pohlídá, jestli je vůbec na ploše vidět.
+  useRealtime(
+    ['cellar_tanks', 'beers', 'orders', 'order_items', 'bottling', 'kegging', 'fasovani', 'fasovani_private', 'writeoffs', 'zavoz_deductions', 'bottling_plans', 'vehicles'],
+    () => {
+      nactiCellarLiveStats();
+      nactiTankyNaPlochu();
+      nactiDnesniZavoz();
+      nactiSouhrnDne();
+      nactiBottlingTodayCount();
+      nactiVehicleAlerts();
+    },
+  );
 
   // Nová verze appky — dřív automaticky vyskakující modál, teď jen tichá
   // dlaždice na Domů (stejný princip jako "Vozidla — STK/známka" níže):
@@ -1216,9 +1332,9 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   }, []);
 
   // 💾 Zálohu si admin stahuje z běžné dlaždice „Stáhnout zálohu" (NAV
-  // 'zaloha' → Uživatelé, kde jsou tlačítka zálohy nahoře). Když se dlouho
-  // nestahovala, ukáže se na té dlaždici odznak s počtem dní — tichá
-  // pojistka, ať se nezapomene (jen pro admina, jen ten může zálohovat).
+  // 'zaloha' → screens/ZalohaScreen.tsx). Když se dlouho nestahovala, ukáže
+  // se na té dlaždici odznak s počtem dní — tichá pojistka, ať se nezapomene
+  // (jen pro admina, jen ten může zálohovat).
   const [zalohaDnu, setZalohaDnu] = useState<number | null>(null);
   const [zalohaChybi, setZalohaChybi] = useState(false);
   useEffect(() => {
@@ -1347,6 +1463,16 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
         setPage={setPage}
       />
 
+      {/* 🍺 Co je potřeba stočit dnes / na den / za týden, sudy nebo lahve.
+          Při úpravě plochy se schová, ať nepřekáží v přeskládávání. */}
+      {!editMode && (visibleIds.includes('kegging') || visibleIds.includes('bottling')) && (
+        <CoStocitOkno
+          setPage={setPage}
+          sudy={visibleIds.includes('kegging')}
+          lahve={visibleIds.includes('bottling')}
+        />
+      )}
+
       <div className="hs-launcher">
         {editMode && (
           <div className="hs-controls">
@@ -1436,7 +1562,30 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                     {visible.filter((n) => n.id !== 'signout').map((n) => (
                       <option key={n.id} value={n.id}>{n.label}</option>
                     ))}
+                    {extraVisible.length > 0 && (
+                      <optgroup label="Zkratky">
+                        {extraVisible.map((n) => (
+                          <option key={n.id} value={n.id}>{n.label}</option>
+                        ))}
+                      </optgroup>
+                    )}
                   </select>
+                  <button
+                    type="button"
+                    className="hs-dock-move"
+                    title="Posunout doleva"
+                    aria-label="Posunout tenhle slot doleva"
+                    disabled={i === 0}
+                    onClick={() => handleMoveDockSlot(i, 'doleva')}
+                  ><ChevronLeft size={14} /></button>
+                  <button
+                    type="button"
+                    className="hs-dock-move"
+                    title="Posunout doprava"
+                    aria-label="Posunout tenhle slot doprava"
+                    disabled={i === layout.dock.length - 1}
+                    onClick={() => handleMoveDockSlot(i, 'doprava')}
+                  ><ChevronRight size={14} /></button>
                   {layout.dock.length > MIN_DOCK && (
                     <button type="button" className="hs-dock-remove" title="Odebrat tenhle slot" aria-label="Odebrat tenhle slot" onClick={() => handleRemoveDockSlot(i)}><X size={14} /></button>
                   )}
@@ -1469,7 +1618,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
               aria-hidden="true"
               className="hs-pager-znak vlastni-vyska"
             />
-            {(layout.pages.length > 1 || editMode) && (
+            {(layout.pages.length > 1 || editMode) && !zobrazVsechnyStrankyNajednou && (
             <>
             <button
               type="button"
@@ -1611,29 +1760,37 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                   <span className="hs-badge">{pendingWhatsApp > 99 ? '99+' : pendingWhatsApp}</span>
                 </button>
               )}
-              {/* 📵 Z telefonu dlouho nic nedorazilo. Odznak výš zamrzne na
-                  starém čísle a tváří se normálně, takže výpadek příjmu se
-                  jinak pozná až tím, že objednávka někde chybí. */}
-              {ticho?.varovat && (
+              {/* 📵 WhatsApp most nechodí — DVĚ nezávislé pojistky.
+                  1) mostVarovani: most zapisuje tep do whatsapp_most_stav
+                     KAŽDOU MINUTU bez ohledu na to, jestli někdo píše —
+                     když tep zmizí nebo most hlásí odpojeno, appka to
+                     pozná do ~15 minut. Tohle je RYCHLÁ cesta.
+                  2) ticho: záložní pojistka pro případ, že by tep sám
+                     selhal — pozná výpadek jen podle ticha v chatu, a musí
+                     být benevolentní (24 pracovních hodin), protože běžná
+                     víkendová pauza vypadá stejně jako spadlý most (viz
+                     testy u tichoWhatsApp). V reálném výpadku zpravidla
+                     ohlásí mostVarovani dřív.
+                  Přesně tohle (tichý výpadek beze stopy, dokud objednávka
+                  někde nechyběla) appku potkalo 1. 9. i 21. 9. 2026. */}
+              {(mostVarovani.varovat || ticho?.varovat) && (
                 <button
                   type="button"
                   className="hs-tile hs-tile-alert vlastni-vyska"
                   onClick={() => setPage('orders')}
-                  // Rada „zkontroluj Tasker" je z doby, kdy zprávy posílal
-                  // Tasker z telefonu. Ten je pryč od verze 1.8xx, zprávy
-                  // vozí WhatsApp most na Renderu — a jeho typická porucha
-                  // je jiná: session zůstane přihlášená (most hlásí
-                  // „připojeno"), ale WhatsApp na zařízení přestane
-                  // doručovat. Sám se z toho nedostane, protože nikdy
-                  // nepřijde `loggedOut`; spraví to jen nové spárování.
-                  title={`Poslední zpráva dorazila ${new Date(ticho.posledni!).toLocaleString('cs-CZ')}.\nWhatsApp most nejspíš ztratil spárování — otevři https://whatsapp-bridge-g1v0.onrender.com/qr a načti QR ve WhatsAppu (Nastavení → Propojená zařízení).`}
+                  title={
+                    mostVarovani.duvod
+                      ?? `Poslední zpráva dorazila ${new Date(ticho!.posledni!).toLocaleString('cs-CZ')}.\nWhatsApp most nejspíš ztratil spárování — otevři https://whatsapp-bridge-g1v0.onrender.com/qr a načti QR ve WhatsAppu (Nastavení → Propojená zařízení).`
+                  }
                 >
                   <div className="hs-tile-icon-box">
                     <MessageCircle />
                   </div>
                   <div className="hs-lbl">WhatsApp nechodí</div>
                   <span className="hs-badge">
-                    {new Date(ticho.posledni!).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric' })}
+                    {mostVarovani.varovat
+                      ? '!'
+                      : new Date(ticho!.posledni!).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric' })}
                   </span>
                 </button>
               )}
@@ -1688,15 +1845,28 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
               )}
               {/* Krátký popisek schválně: štítek má 44 px a na 360px
                   displeji stojí dva vedle sebe, takže „Vozidla —
-                  STK/známka" se odseklo v půlce slova. Ikona a číslo
-                  doříkají, o co jde. */}
+                  STK/známka" se odseklo v půlce slova. Blikající dlaždice
+                  ale dřív psala jen počet („2"), takže nebylo vidět, o
+                  jaké auto ani o jaký doklad jde bez proklikání — z provozu
+                  15. 9. 2026: „napiš co je problém, ne jen STK". U jednoho
+                  upozornění proto dlaždice napíše auto + doklad + naléhavost
+                  rovnou, u víc jich zůstává počet a plný rozpis jde do title. */}
               {vehicleAlerts.length > 0 && (
-                <button type="button" className="hs-tile hs-tile-alert vlastni-vyska" onClick={() => setPage('vehicles')}>
+                <button
+                  type="button"
+                  className="hs-tile hs-tile-alert vlastni-vyska"
+                  onClick={() => setPage('vehicles')}
+                  title={vehicleAlerts.map((a) => `${a.vehicleName} — ${a.label}`).join('\n')}
+                >
                   <div className="hs-tile-icon-box">
                     <TriangleAlert />
                   </div>
-                  <div className="hs-lbl">STK a známky</div>
-                  <span className="hs-badge">{vehicleAlerts.length}</span>
+                  <div className="hs-lbl">{vehicleAlerts.length === 1 ? vehicleAlerts[0].vehicleName : 'STK a známky'}</div>
+                  <span className="hs-badge">
+                    {vehicleAlerts.length === 1
+                      ? `${vehicleAlerts[0].kind === 'stk' ? 'STK' : 'dálnice'} ${vehicleAlerts[0].status === 'expired' ? 'propadla' : 'brzy'}`
+                      : vehicleAlerts.length}
+                  </span>
                 </button>
               )}
               {/* ⏱️ Běžící odpočty. Ukazují se SAMY, dokud běží — dřív se
@@ -1791,11 +1961,25 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
           </div>
         )}
 
-        <div className={`hs-grid ${draggingId ? 'hs-mrizka-viditelna' : ''}`} style={{ ['--hs-tile-alpha' as any]: layout.tileOpacity, ['--hs-tile-gap' as any]: `${layout.tileGap}px`, ['--hs-sloupcu' as any]: cols, ['--hs-radek' as any]: `${rowHeight}px` }}>
+        <div className={zobrazVsechnyStrankyNajednou ? 'hs-stranky-vedle-sebe' : undefined}>
+        {zobrazeneStranky.map((strankaIndex) => (
+        <div
+          key={strankaIndex}
+          className={`hs-grid ${draggingId ? 'hs-mrizka-viditelna' : ''} ${zobrazVsechnyStrankyNajednou ? 'hs-grid-stranka-vedle-sebe' : ''}`}
+          style={{
+            ['--hs-tile-alpha' as any]: layout.tileOpacity,
+            ['--hs-tile-gap' as any]: `${layout.tileGap}px`,
+            ['--hs-sloupcu' as any]: cols,
+            ['--hs-radek' as any]: `${rowHeight}px`,
+            ...(zobrazVsechnyStrankyNajednou
+              ? { gridTemplateColumns: `repeat(${strankaPouzitaSirka(strankaIndex)}, ${HS_SLOUPEC_PX}px)` }
+              : null),
+          }}
+        >
           {/* Obrys buňky, kam dlaždice spadne. Kreslí se ve stejné velikosti
               jako přesouvaná dlaždice, aby bylo předem vidět, jestli se tam
               vejde — ne jen „někam sem". */}
-          {draggingId && dropCell && (
+          {draggingId && dropCell && strankaIndex === currentPageIndex && (
             <div
               className="hs-drop-ghost"
               aria-hidden="true"
@@ -1811,7 +1995,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
               uhnuly. Mimo tažení je `nahledLayout` null a platí uložený stav. */}
           {/* 'signout' se nevykresluje — odhlášení je nahoře u šipek jako
               ikona. V uloženém rozložení zůstává, ať jde vrátit beze ztráty. */}
-          {((nahledLayout ?? layout).pages[currentPageIndex] ?? []).filter((id) => id !== 'signout' && id !== 'app_settings').map((id) => {
+          {((nahledLayout ?? layout).pages[strankaIndex] ?? []).filter((id) => id !== 'signout' && id !== 'app_settings').map((id) => {
             const override = (nahledLayout ?? layout).overrides[id] ?? {};
             if (isGroupId(id)) {
               const group = layout.groups[id];
@@ -1844,11 +2028,11 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
             const item = navById.get(id as Page) ?? (id === CO2_TILE_ID ? CO2_ITEM : isCountdownId(id) ? ({ id: id as any, label: countdowns.find((c) => c.id === id.slice(3))?.label ?? 'Odpočet', icon: AlarmClock, group: 'Nástroje' as const } as NavItem) : null);
             if (!item) return null;
 
-            const activeNotesList = homeNotes.filter((n) => !n.completed).sort((a, b) => (b.important ? 1 : 0) - (a.important ? 1 : 0));
-            // Na lístečku jsou i čerstvě odškrtnuté — přeškrtnuté, ať je vidět,
-            // že se odškrtnutí povedlo, a dá se vzít zpět. Sama zmizí do 24 h
-            // (viz uklidStareOdskrtnute), takže se lísteček nezanese.
-            const notesTileList = [...activeNotesList, ...homeNotes.filter((n) => n.completed)];
+            // Osobní poznámky i vzkazy celé směně dohromady — viz
+            // lib/dlazdicePoznamek.ts. Na lístečku jsou i čerstvě odškrtnuté,
+            // přeškrtnuté, ať je vidět, že se odškrtnutí podařilo, a dá se vzít
+            // zpět. Samy zmizí do 24 h (viz uklidStareOdskrtnute).
+            const notesTileList = polozkyDlazdice(homeNotes, sdilenePoznamky);
             const doneTasksCount = dailyTasks.filter((t) => t.completed).length;
             const runningTimers = countdowns.filter((c) => c.targetAt !== null && countdownRemainingMs(c) > 0);
             const doneTimers = countdowns.filter((c) => c.targetAt !== null && countdownRemainingMs(c) === 0);
@@ -1859,8 +2043,9 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
             const badge =
               id === 'cellar' && cellarLiveStats ? `${cellarLiveStats.totalHl} hl`
               : (id === 'bottling' || id === 'bottling_needs') && bottlingTodayCount ? `${bottlingTodayCount} plán`
+              : id === 'vehicles' && vehicleAlerts.length === 1 ? `${vehicleAlerts[0].kind === 'stk' ? 'STK' : 'dálnice'} ${vehicleAlerts[0].status === 'expired' ? 'propadla' : 'brzy'}`
               : id === 'vehicles' && vehicleAlerts.length > 0 ? `${vehicleAlerts.length} STK`
-              : id === 'notes' && activeNotesList.length > 0 ? `${activeNotesList.length} vzkazů`
+              : id === 'notes' && pocetCekajicich(notesTileList) > 0 ? `${pocetCekajicich(notesTileList)} vzkazů`
               : id === 'checklists' && dailyTasks.length > 0 ? `${doneTasksCount}/${dailyTasks.length}`
               : (id === 'timer' || id === 'stopwatch') && doneTimers.length > 0 ? '⏰ Hotovo!'
               : (id === 'timer' || id === 'stopwatch') && runningTimers.length === 1 ? `⏱️ ${formatDurationMs(countdownRemainingMs(runningTimers[0]))}`
@@ -2104,20 +2289,30 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                               HomeScreen.css je globální `.hs-tile svg { width:
                               24px; height: 24px }`, které nafoukne každou
                               ikonu v dlaždici — fajfka pak leze mimo rámeček. */}
+                          {/* Odškrtnutí míří do té správné přihrádky: u vzkazu celé
+                              směně platí pro všechny, u osobní poznámky jen pro mě. */}
                           <button
                             type="button"
-                            onClick={(e) => { e.stopPropagation(); toggleHomeNote(note.id); }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (note.sdilena) {
+                                const vzkaz = sdilenePoznamky.find((v) => v.id === note.id);
+                                if (vzkaz) void prepniHotovo(vzkaz, profile?.display_name || user?.email || null);
+                              } else {
+                                toggleHomeNote(note.id);
+                              }
+                            }}
                             onPointerDown={(e) => e.stopPropagation()}
                             className="hs-note-check vlastni-vyska"
-                            title={note.completed ? 'Vrátit jako nesplněné' : 'Odškrtnout'}
-                            aria-label={note.completed ? 'Vrátit jako nesplněné' : 'Odškrtnout'}
+                            title={note.hotovo ? 'Vrátit jako nesplněné' : 'Odškrtnout'}
+                            aria-label={note.hotovo ? 'Vrátit jako nesplněné' : 'Odškrtnout'}
                           >
-                            {note.completed && <Check />}
+                            {note.hotovo && <Check />}
                           </button>
-                          {note.important && !note.completed && (
+                          {note.dulezite && !note.hotovo && (
                             <TriangleAlert className="hs-note-vykricnik" />
                           )}
-                          <span className={`text-udaj font-bold leading-tight line-clamp-2 min-w-0 ${note.completed ? 'line-through opacity-45' : ''}`}>
+                          <span className={`text-udaj font-bold leading-tight line-clamp-2 min-w-0 ${note.hotovo ? 'line-through opacity-45' : ''} ${note.sdilena ? 'italic' : ''}`}>
                             {note.text}
                           </span>
                         </div>
@@ -2326,6 +2521,8 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
               />
             );
           })}
+        </div>
+        ))}
         </div>
         </div>
       </div>

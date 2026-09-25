@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 import { isNotificationSupported, playOrderChime } from './notifications';
 import { uloz } from './uloziste';
+import { zalogujANahlas } from './chybyHlaseni';
 
 export type ReminderDisplayMode = 'desktop_push' | 'login_modal' | 'both';
 
@@ -89,7 +90,15 @@ export async function createReminder(reminder: Omit<ReminderItem, 'id' | 'create
       acknowledged_by: [],
       is_completed: false,
     });
-  } catch {}
+  } catch (e) {
+    // ⚠️ Síťový výpadek appka sama tiše zařadí do fronty (viz offlineFetch
+    // v lib/supabase.ts) — sem se propadne jen SKUTEČNÉ odmítnutí serveru
+    // (RLS, špatná data). Bez zalogování by taková připomínka pro tým tiše
+    // zmizela úplně: `fetchReminders` při dalším načtení přepíše lokální
+    // kopii tím, co vrátí server (bez téhle položky) — z provozu 16. 9.
+    // 2026, stejná třída chyby jako tichá selhání jinde v appce.
+    zalogujANahlas('Vytvoření připomínky', e);
+  }
 
   return newR;
 }
@@ -111,7 +120,9 @@ export async function acknowledgeReminder(reminderId: string, userEmail: string)
     if (target) {
       await supabase.from('reminders').update({ acknowledged_by: target.acknowledged_by }).eq('id', reminderId);
     }
-  } catch {}
+  } catch (e) {
+    zalogujANahlas('Potvrzení připomínky', e);
+  }
 }
 
 export async function deleteReminder(reminderId: string): Promise<void> {
@@ -121,7 +132,9 @@ export async function deleteReminder(reminderId: string): Promise<void> {
 
   try {
     await supabase.from('reminders').delete().eq('id', reminderId);
-  } catch {}
+  } catch (e) {
+    zalogujANahlas('Smazání připomínky', e);
+  }
 }
 
 /**

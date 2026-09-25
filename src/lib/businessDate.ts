@@ -80,3 +80,15 @@ export function posunMesic(mesic: string, delta: number): string {
   const d = new Date(Date.UTC(rok, m - 1 + delta, 1));
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
 }
+
+/**
+ * Posun kalendářního data o `delta` dní. Vstup i výstup je `YYYY-MM-DD`.
+ * Přes UTC schválně, stejně jako `posunMesic` — datum je jen kalendářní
+ * hodnota, ne okamžik v čase, a počítat ho v místní zóně by kolem přechodu
+ * na letní/zimní čas mohlo dát den navíc nebo míň.
+ */
+export function posunDen(datumISO: string, delta: number): string {
+  const [rok, mesic, den] = datumISO.split('-').map(Number);
+  const d = new Date(Date.UTC(rok, mesic - 1, den + delta));
+  return d.toISOString().slice(0, 10);
+}

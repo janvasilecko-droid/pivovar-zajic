@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { nalahvovaneLitry, navrhSudu, zdrojoveLitry, VYTEZNOST_LAHVOVANI } from './bottlingYield';
+import { nalahvovaneLitry, navrhSudu, skutecnaVytrataProcenta, zdrojoveLitry, VYTEZNOST_LAHVOVANI } from './bottlingYield';
 
 describe('nalahvovaneLitry', () => {
   it('sečte objem všech obalů v zápisu', () => {
@@ -68,5 +68,25 @@ describe('navrhSudu', () => {
   it('bez lahví nebo bez velikosti sudu nic nenavrhne', () => {
     expect(navrhSudu([], 50)).toBeNull();
     expect(navrhSudu([{ volumeL: 1, qty: 45 }], 0)).toBeNull();
+  });
+});
+
+describe('skutecnaVytrataProcenta', () => {
+  // Zadání z 19. 9. 2026: „u každého sudu bude navíc údaj stočeno litrů a
+  // výtrata v %."
+  it('spočte skutečnou ztrátu ze zapsaného počtu sudů, ne z teoretického koeficientu', () => {
+    // 1 sud 50 l, nastáčeno 45 l → 10% výtrata (stejné jako teoretický koeficient).
+    expect(skutecnaVytrataProcenta(45, 50)).toBe(10);
+  });
+
+  it('ukáže i horší výtratu, když se doopravdy ztratilo víc', () => {
+    // 1 sud 50 l, nastáčeno jen 40 l → 20% výtrata.
+    expect(skutecnaVytrataProcenta(40, 50)).toBe(20);
+  });
+
+  it('bez zdroje nebo bez nastáčeného nevrátí nic', () => {
+    expect(skutecnaVytrataProcenta(0, 50)).toBeNull();
+    expect(skutecnaVytrataProcenta(45, 0)).toBeNull();
+    expect(skutecnaVytrataProcenta(-5, 50)).toBeNull();
   });
 });

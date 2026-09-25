@@ -13,7 +13,7 @@
 import { supabase, fetchAllRows } from './supabase';
 import { buildMovements, type Movement } from './stockLedger';
 
-export type PivoZKatalogu = { id: string; name: string };
+export type PivoZKatalogu = { id: string; name: string; beer_color?: string | null; is_active?: boolean };
 export type ObalZKatalogu = { id: string; label: string; kind: string; volume_l: number };
 
 export type SkladovaKniha = {
@@ -43,7 +43,7 @@ export async function nactiSkladovouKnihu(): Promise<SkladovaKniha> {
     { data: bt }, { data: kg }, { data: fa }, { data: fp }, { data: wo },
     { data: inv }, { data: adj }, { data: zd }, { data: ak }, { data: pf },
   ] = await Promise.all([
-    supabase.from('beers').select('id,name').order('sort_order'),
+    supabase.from('beers').select('id,name,beer_color,is_active').order('sort_order'),
     supabase.from('packages').select('id,label,kind,volume_l').order('sort_order'),
 
     fetchAllRows('bottling', 'beer_id,package_id,quantity,entry_date,kegs_used,kegs_used_package_id,source_volume_l,note,created_at'),
@@ -53,7 +53,7 @@ export async function nactiSkladovouKnihu(): Promise<SkladovaKniha> {
     fetchAllRows('writeoffs', 'beer_id,package_id,quantity,entry_date,created_at'),
     fetchAllRows('inventory', 'beer_id,package_id,quantity,entry_date,note,created_at'),
     fetchAllRows('inventory_adjustments', 'beer_id,package_id,quantity,entry_date,created_at'),
-    fetchAllRows('zavoz_deductions', 'deduct_date,beer_id,package_id,quantity,created_at'),
+    fetchAllRows('zavoz_deductions', 'deduct_date,beer_id,package_id,quantity,created_at,order_id'),
     fetchAllRows('akce', 'entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
     fetchAllRows('keg_prefuk', 'entry_date,beer_id,from_package_id,from_count,to_package_id,to_count'),
   ]);

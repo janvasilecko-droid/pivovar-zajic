@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Beer, Package, fetchAllRows, supabase } from '../lib/supabase';
+import { KONTROLY_AUDITU, K_CEMU_AUDIT, popisKontroly, zaverAuditu, type KlicKontroly } from '../lib/auditPopisy';
 import { AuditReport, runOrderAudit, mergeDuplicateItemRows, OrderItemDuplicateIssue, ZavozDeductionIssue } from '../lib/orderAudit';
 import { AlertTriangle, ArrowRight, Beer as BeerIcon, Calendar, Check, CheckCircle, ChevronDown, ChevronUp, Copy, Eye, Globe, Layers, MessageSquare, MinusCircle, PlusCircle, RefreshCw, Search, ShieldCheck, Sparkles, Trash2, X } from 'lucide-react';
 import { Spinner } from './ui';
@@ -25,6 +26,24 @@ interface OrderAuditModalProps {
 }
 
 type TabType = 'all' | 'items_dup' | 'wa_mismatch' | 'order_dup' | 'unprocessed' | 'prislo' | 'odpocty';
+
+/**
+ * Hlavička sekce s nálezy. Název i věta „co s tím" se berou z lib/auditPopisy.ts,
+ * takže na dlaždici nahoře i nad seznamem stojí totéž — dřív měla každá sekce
+ * vlastní formulaci a dvě místa o témže tvrdila různé věci.
+ */
+function HlavickaSekce({ klic, pocet }: { klic: KlicKontroly; pocet: number }) {
+  const popis = popisKontroly(klic);
+  return (
+    <div className="px-1">
+      <div className="text-xs font-black text-rose-900 flex items-center gap-1.5">
+        <AlertTriangle size={16} className="text-rose-600 shrink-0" />
+        <span>{popis.co} ({pocet})</span>
+      </div>
+      <p className="text-udaj font-bold text-rose-800 mt-0.5">→ {popis.coSTim}</p>
+    </div>
+  );
+}
 
 export function OrderAuditModal({
   isOpen,
@@ -97,7 +116,11 @@ export function OrderAuditModal({
       pred.setDate(pred.getDate() - 180);
       const odIso = pred.toISOString().slice(0, 10);
       const [zpravy, objednavky, zamitnute, denikDennne, stavMostu] = await Promise.all([
-        supabase.from('whatsapp_incoming').select('id,sender_name,created_at,status').gte('created_at', odIso),
+        // fetchAllRows, ne holé .select(): 180 dní whatsapp_incoming může
+        // snadno přesáhnout tisícovku řádků a Supabase by zbytek tiše
+        // zahodil — přesně v auditu, kde by to nejvíc bolelo (viz
+        // strankovaniDotazu.test.ts).
+        fetchAllRows('whatsapp_incoming', 'id,sender_name,created_at,status').gte('created_at', odIso),
         fetchAllRows('orders', 'id,place_name,delivery_date,order_date,status').gte('order_date', odIso),
         // Tabulka vzniká migrací 20261216000000 — dokud není nasazená, chyba
         // se spolkne a zbytek kontroly funguje dál.
@@ -316,6 +339,17 @@ Skladové výpočty se tím rovnou přepočítají.`,
   const odpoctyCount = report?.zavozDeductionIssues.length || 0;
   const totalIssues = report?.totalIssuesCount || 0;
 
+  /** Kolik našla která kontrola — ať dlaždice nemusí každá zvlášť vědět,
+   *  ze kterého pole se číslo bere. */
+  const pocetNalezu = (klic: KlicKontroly): number => ({
+    items_dup: itemsDupCount,
+    wa_mismatch: waMismatchCount,
+    order_dup: orderDupCount,
+    unprocessed: unprocessedCount,
+    odpocty: odpoctyCount,
+    prislo: podezreniCelkem,
+  })[klic];
+
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-200">
       <div className="bg-neutral-50 w-full sm:max-w-4xl max-h-[94vh] sm:max-h-[90vh] rounded-t-3xl sm:rounded shadow-2xl flex flex-col overflow-hidden border border-neutral-200">
@@ -417,149 +451,57 @@ Skladové výpočty se tím rovnou přepočítají.`,
           </div>
         )}
 
-        {/* 4 Summary Dashboard Cards (Interactive filter buttons) */}
-        <div className="p-3 sm:p-4 bg-white border-b border-neutral-200 shrink-0">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {/* Card 1: Zdvojené sudy */}
-            <button
-              onClick={() => setActiveTab(activeTab === 'items_dup' ? 'all' : 'items_dup')}
-              className={`p-2.5 sm:p-3 rounded border-2 text-left transition flex flex-col justify-between select-none ${
-                activeTab === 'items_dup'
-                  ? 'bg-rose-100 border-rose-500 ring-2 ring-rose-400 shadow-sm'
-                  : itemsDupCount > 0
-                  ? 'bg-rose-50/80 border-rose-200 hover:border-rose-300'
-                  : 'bg-neutral-50 border-neutral-200 opacity-60'
-              }`}
-            >
-              <div className="flex items-center justify-between text-rose-800 mb-1">
-                <span className="text-udaj font-black uppercase tracking-wider">Zdvojené sudy</span>
-                <Layers size={16} />
-              </div>
-              <div className="flex items-baseline gap-1.5">
-                <span className={`text-xl sm:text-2xl font-black ${itemsDupCount > 0 ? 'text-rose-700' : 'text-neutral-500'}`}>
-                  {itemsDupCount}
-                </span>
-                <span className="text-udaj font-bold text-neutral-500">v objednávkách</span>
-              </div>
-            </button>
+        {/* 🔎 ZÁVĚR A ŠEST KONTROL, každá se svým jménem.
+            Dřív tu bylo šest dlaždic se zkratkami a čísly („Neshody s WA: 3",
+            „rozjetých odpočtů: 1"), ze kterých nebylo poznat, co se kontrolovalo,
+            proč na tom záleží ani co s tím — majitel: „nechápám logiku auditu".
+            Texty jsou v lib/auditPopisy.ts, ne tady: používá je i návod a nesmí se
+            rozejít. Pořadí je podle naléhavosti, nahoře to, co křiví čísla. */}
+        <div className="p-3 sm:p-4 bg-white border-b border-neutral-200 shrink-0 space-y-3">
+          <div>
+            <p className={`font-display font-black text-sm ${totalIssues === 0 ? 'text-emerald-800' : 'text-rose-900'}`}>
+              {loading ? 'Kontroluji…' : zaverAuditu(totalIssues, report?.scannedOrdersCount ?? 0)}
+            </p>
+            <p className="text-udaj text-neutral-600 mt-0.5">{K_CEMU_AUDIT}</p>
+          </div>
 
-            {/* Card 2: Neshody s WA */}
-            <button
-              onClick={() => setActiveTab(activeTab === 'wa_mismatch' ? 'all' : 'wa_mismatch')}
-              className={`p-2.5 sm:p-3 rounded border-2 text-left transition flex flex-col justify-between select-none ${
-                activeTab === 'wa_mismatch'
-                  ? 'bg-amber-100 border-amber-500 ring-2 ring-amber-400 shadow-sm'
-                  : waMismatchCount > 0
-                  ? 'bg-amber-50/80 border-amber-200 hover:border-amber-300'
-                  : 'bg-neutral-50 border-neutral-200 opacity-60'
-              }`}
-            >
-              <div className="flex items-center justify-between text-amber-800 mb-1">
-                <span className="text-udaj font-black uppercase tracking-wider">Neshody s WA</span>
-                <MessageSquare size={16} />
-              </div>
-              <div className="flex items-baseline gap-1.5">
-                <span className={`text-xl sm:text-2xl font-black ${waMismatchCount > 0 ? 'text-amber-700' : 'text-neutral-500'}`}>
-                  {waMismatchCount}
-                </span>
-                <span className="text-udaj font-bold text-neutral-500">rozdílných ks</span>
-              </div>
-            </button>
-
-            {/* Card 3: Duplicitní objednávky */}
-            <button
-              onClick={() => setActiveTab(activeTab === 'order_dup' ? 'all' : 'order_dup')}
-              className={`p-2.5 sm:p-3 rounded border-2 text-left transition flex flex-col justify-between select-none ${
-                activeTab === 'order_dup'
-                  ? 'bg-violet-100 border-violet-500 ring-2 ring-violet-400 shadow-sm'
-                  : orderDupCount > 0
-                  ? 'bg-violet-50/80 border-violet-200 hover:border-violet-300'
-                  : 'bg-neutral-50 border-neutral-200 opacity-60'
-              }`}
-            >
-              <div className="flex items-center justify-between text-violet-800 mb-1">
-                <span className="text-udaj font-black uppercase tracking-wider">Duplicitní obj.</span>
-                <Copy size={16} />
-              </div>
-              <div className="flex items-baseline gap-1.5">
-                <span className={`text-xl sm:text-2xl font-black ${orderDupCount > 0 ? 'text-violet-700' : 'text-neutral-500'}`}>
-                  {orderDupCount}
-                </span>
-                <span className="text-udaj font-bold text-neutral-500">stejný zákazník</span>
-              </div>
-            </button>
-
-            {/* Card 4: Čekající zprávy */}
-            <button
-              onClick={() => setActiveTab(activeTab === 'unprocessed' ? 'all' : 'unprocessed')}
-              className={`p-2.5 sm:p-3 rounded border-2 text-left transition flex flex-col justify-between select-none ${
-                activeTab === 'unprocessed'
-                  ? 'bg-sky-100 border-sky-500 ring-2 ring-sky-400 shadow-sm'
-                  : unprocessedCount > 0
-                  ? 'bg-sky-50/80 border-sky-200 hover:border-sky-300'
-                  : 'bg-neutral-50 border-neutral-200 opacity-60'
-              }`}
-            >
-              <div className="flex items-center justify-between text-sky-800 mb-1">
-                <span className="text-udaj font-black uppercase tracking-wider">Čekající zprávy</span>
-                <Sparkles size={16} />
-              </div>
-              <div className="flex items-baseline gap-1.5">
-                <span className={`text-xl sm:text-2xl font-black ${unprocessedCount > 0 ? 'text-sky-700' : 'text-neutral-500'}`}>
-                  {unprocessedCount}
-                </span>
-                <span className="text-udaj font-bold text-neutral-500">nezadaných</span>
-              </div>
-            </button>
-
-            {/* Card 5: Sklad podle starého zadání — objednávka se po zavozu
-                opravila, skladový odpočet zůstal. Dřív to nikdo nenašel a
-                vyplavalo to až v inventuře jako manko bez původu ve výrobě. */}
-            <button
-              onClick={() => setActiveTab(activeTab === 'odpocty' ? 'all' : 'odpocty')}
-              className={`p-2.5 sm:p-3 rounded border-2 text-left transition flex flex-col justify-between select-none ${
-                activeTab === 'odpocty'
-                  ? 'bg-rose-100 border-rose-500 ring-2 ring-rose-400 shadow-sm'
-                  : odpoctyCount > 0
-                  ? 'bg-rose-50/80 border-rose-200 hover:border-rose-300'
-                  : 'bg-neutral-50 border-neutral-200 opacity-60'
-              }`}
-            >
-              <div className="flex items-center justify-between text-rose-800 mb-1">
-                <span className="text-udaj font-black uppercase tracking-wider">Sklad vs. objednávka</span>
-                <Layers size={16} />
-              </div>
-              <div className="flex items-baseline gap-1.5">
-                <span className={`text-xl sm:text-2xl font-black ${odpoctyCount > 0 ? 'text-rose-700' : 'text-neutral-500'}`}>
-                  {odpoctyCount}
-                </span>
-                <span className="text-udaj font-bold text-neutral-500">rozjetých odpočtů</span>
-              </div>
-            </button>
-
-            {/* Card 6: Přišlo všechno? — jediná kontrola, která hledá to,
-                co v databázi CHYBÍ, ne co v ní je špatně. */}
-            <button
-              onClick={() => setActiveTab(activeTab === 'prislo' ? 'all' : 'prislo')}
-              className={`p-2.5 sm:p-3 rounded border-2 text-left transition flex flex-col justify-between select-none ${
-                activeTab === 'prislo'
-                  ? 'bg-violet-100 border-violet-500 ring-2 ring-violet-400 shadow-sm'
-                  : podezreniCelkem > 0
-                  ? 'bg-violet-50/80 border-violet-200 hover:border-violet-300'
-                  : 'bg-neutral-50 border-neutral-200 opacity-60'
-              }`}
-            >
-              <div className="flex items-center justify-between text-violet-800 mb-1">
-                <span className="text-udaj font-black uppercase tracking-wider">Přišlo všechno?</span>
-                <Search size={16} />
-              </div>
-              <div className="flex items-baseline gap-1.5">
-                <span className={`text-xl sm:text-2xl font-black ${podezreniCelkem > 0 ? 'text-violet-700' : 'text-neutral-500'}`}>
-                  {podezreniCelkem}
-                </span>
-                <span className="text-udaj font-bold text-neutral-500">podezření</span>
-              </div>
-            </button>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {KONTROLY_AUDITU.map((k) => {
+              const pocet = pocetNalezu(k.klic);
+              const vybrano = activeTab === k.klic;
+              return (
+                <button
+                  key={k.klic}
+                  onClick={() => setActiveTab(vybrano ? 'all' : k.klic)}
+                  className={`p-2.5 rounded border-2 text-left transition select-none ${
+                    vybrano
+                      ? 'bg-amber-100 border-amber-500 ring-2 ring-amber-400'
+                      : pocet > 0
+                      ? 'bg-rose-50/70 border-rose-200 hover:border-rose-300'
+                      : 'bg-neutral-50 border-neutral-200'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <span className={`font-black text-xs ${pocet > 0 ? 'text-rose-900' : 'text-neutral-500'}`}>
+                      {k.co}
+                    </span>
+                    <span className="shrink-0 font-mono font-black text-lg leading-none">
+                      {pocet > 0
+                        ? <span className="text-rose-700">{pocet} <span className="text-udaj font-bold text-neutral-500">{k.jednotka}</span></span>
+                        : <Check size={16} className="text-emerald-600" />}
+                    </span>
+                  </div>
+                  {/* Vysvětlení jen tam, kde se něco našlo — šest odstavců naráz
+                      by bylo stejně nečitelné jako šest zkratek. */}
+                  {pocet > 0 && (
+                    <>
+                      <p className="text-udaj text-rose-900/90 mt-1">{k.znamena}</p>
+                      <p className="text-udaj font-bold text-rose-800 mt-1">→ {k.coSTim}</p>
+                    </>
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -803,13 +745,7 @@ Skladové výpočty se tím rovnou přepočítají.`,
 
               {(activeTab === 'all' || activeTab === 'items_dup') && itemsDupCount > 0 && (
                 <div className="space-y-3">
-                  <div className="text-xs font-black uppercase tracking-wider text-rose-900 flex items-center justify-between px-1">
-                    <span className="flex items-center gap-1.5">
-                      <AlertTriangle size={16} className="text-rose-600" />
-                      <span>Zdvojené řádky v rámci jedné objednávky ({itemsDupCount})</span>
-                    </span>
-                    <span className="text-udaj font-normal text-rose-700">Např. omylem zapsáno 2×</span>
-                  </div>
+                  <HlavickaSekce klic="items_dup" pocet={itemsDupCount} />
 
                   {report?.duplicateItemIssues.map((issue, idx) => (
                     <div
@@ -897,13 +833,7 @@ Skladové výpočty se tím rovnou přepočítají.`,
               {/* 2. SEKCIE: NESHODY S WHATSAPP ZPRÁVAMI */}
               {(activeTab === 'all' || activeTab === 'wa_mismatch') && waMismatchCount > 0 && (
                 <div className="space-y-3">
-                  <div className="text-xs font-black uppercase tracking-wider text-amber-900 flex items-center justify-between px-1">
-                    <span className="flex items-center gap-1.5">
-                      <MessageSquare size={16} className="text-amber-600" />
-                      <span>Neshody s původní WhatsApp zprávou ({waMismatchCount})</span>
-                    </span>
-                    <span className="text-udaj font-normal text-amber-700">Porovnání objednávky s textem</span>
-                  </div>
+                  <HlavickaSekce klic="wa_mismatch" pocet={waMismatchCount} />
 
                   {report?.whatsappMismatchIssues.map((issue, idx) => {
                     const isExpanded = expandedMsgIds.has(issue.whatsappMessageId);
@@ -1021,13 +951,7 @@ Skladové výpočty se tím rovnou přepočítají.`,
               {/* 3. SEKCIE: DUPLICITNÍ CELÉ OBJEDNÁVKY */}
               {(activeTab === 'all' || activeTab === 'order_dup') && orderDupCount > 0 && (
                 <div className="space-y-3">
-                  <div className="text-xs font-black uppercase tracking-wider text-violet-900 flex items-center justify-between px-1">
-                    <span className="flex items-center gap-1.5">
-                      <Copy size={16} className="text-violet-600" />
-                      <span>Podezřelé duplicitní objednávky ({orderDupCount})</span>
-                    </span>
-                    <span className="text-udaj font-normal text-violet-700">Stejný zákazník v témže týdnu</span>
-                  </div>
+                  <HlavickaSekce klic="order_dup" pocet={orderDupCount} />
 
                   {report?.duplicateOrderIssues.map((issue, idx) => (
                     <div
@@ -1092,13 +1016,7 @@ Skladové výpočty se tím rovnou přepočítají.`,
               {/* 4. SEKCIE: ČEKAJÍCÍ / NEPROPADLÉ ZPRÁVY */}
               {(activeTab === 'all' || activeTab === 'unprocessed') && unprocessedCount > 0 && (
                 <div className="space-y-3">
-                  <div className="text-xs font-black uppercase tracking-wider text-sky-900 flex items-center justify-between px-1">
-                    <span className="flex items-center gap-1.5">
-                      <Sparkles size={16} className="text-sky-600" />
-                      <span>Čekající / Nepropadlé zprávy ({unprocessedCount})</span>
-                    </span>
-                    <span className="text-udaj font-normal text-sky-700">Zprávy s pivem bez objednávky</span>
-                  </div>
+                  <HlavickaSekce klic="unprocessed" pocet={unprocessedCount} />
 
                   {report?.unprocessedWhatsAppIssues.map((issue) => (
                     <div
@@ -1153,13 +1071,7 @@ Skladové výpočty se tím rovnou přepočítají.`,
               {/* 5. SEKCE: SKLADOVÝ ODPOČET NESEDÍ S OBJEDNÁVKOU */}
               {(activeTab === 'all' || activeTab === 'odpocty') && odpoctyCount > 0 && (
                 <div className="space-y-3">
-                  <div className="text-xs font-black uppercase tracking-wider text-rose-900 flex items-center justify-between px-1">
-                    <span className="flex items-center gap-1.5">
-                      <AlertTriangle size={16} className="text-rose-600" />
-                      <span>Sklad odepsaný podle starého zadání ({odpoctyCount})</span>
-                    </span>
-                    <span className="text-udaj font-normal text-rose-700">Objednávka se po zavozu opravila, odpočet ne</span>
-                  </div>
+                  <HlavickaSekce klic="odpocty" pocet={odpoctyCount} />
 
                   {report?.zavozDeductionIssues.map((issue) => (
                     <div key={`${issue.duvod}__${issue.orderItemId}`} className="p-3.5 sm:p-4 rounded bg-white border-2 border-rose-300 shadow-xs space-y-3">

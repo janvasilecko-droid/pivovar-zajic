@@ -433,12 +433,12 @@ export const PAGE_CATEGORY: Partial<Record<Page, Category>> = {
   exkurze: 'Výroba', orders_entry: 'Výroba', orders_detail: 'Výroba', orders_celkem: 'Výroba',
   marketing: 'Výroba',
   // Pivovar
-  dashboard: 'Pivovar', audit: 'Pivovar', sklo_promo: 'Pivovar', cellar: 'Pivovar', bottling_needs: 'Pivovar', inventory: 'Pivovar', history: 'Pivovar', stock: 'Pivovar',
+  dashboard: 'Pivovar', audit: 'Pivovar', sklo_promo: 'Pivovar', cellar: 'Pivovar', bottling_needs: 'Pivovar', inventory: 'Pivovar', history: 'Pivovar', stock: 'Pivovar', stock_pohyby: 'Pivovar',
   export_excel: 'Pivovar',
   // Nástroje
   concentration: 'Nástroje', calendar: 'Nástroje', haccp: 'Nástroje', vehicles: 'Nástroje', kniha_jizd: 'Nástroje',
   sanitace_lahve: 'Nástroje', sanitace_kegy: 'Nástroje', sanitace_vycepy: 'Nástroje', sanitace: 'Nástroje',
-  checklists: 'Nástroje', sanitation_log: 'Nástroje', reminders: 'Nástroje', notes: 'Nástroje', feedback: 'Nástroje',
+  checklists: 'Nástroje', sanitation_log: 'Nástroje', notes: 'Nástroje', feedback: 'Nástroje',
   stopwatch: 'Nástroje', timer: 'Nástroje', keg_timer: 'Nástroje', srotovani: 'Nástroje', radio: 'Nástroje',
   planning: 'Nástroje',
   // Číselníky
@@ -942,6 +942,19 @@ export function addDockSlot(layout: HomeLayout): HomeLayout {
 export function removeDockSlot(layout: HomeLayout, index: number): HomeLayout {
   if (layout.dock.length <= MIN_DOCK) return layout;
   return { ...layout, dock: layout.dock.filter((_, i) => i !== index) };
+}
+
+/**
+ * Prohodí slot spodní lišty se sousedním (doleva/doprava) — jediný způsob,
+ * jak přeřadit pořadí, byl dřív přenastavit obsah obou rozbalovacích menu
+ * ručně. Na kraji (první doleva, poslední doprava) se nic neděje.
+ */
+export function moveDockSlot(layout: HomeLayout, index: number, smer: 'doleva' | 'doprava'): HomeLayout {
+  const cil = smer === 'doleva' ? index - 1 : index + 1;
+  if (cil < 0 || cil >= layout.dock.length) return layout;
+  const dock = [...layout.dock];
+  [dock[index], dock[cil]] = [dock[cil], dock[index]];
+  return { ...layout, dock };
 }
 
 /**

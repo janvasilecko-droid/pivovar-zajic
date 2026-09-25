@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Beer, beerBg, beerInk, beerText, formatPackageLabel } from '../lib/supabase';
+import { businessDateISO } from '../lib/businessDate';
 import { AlertCircle, Beer as BeerIcon, Calendar, CheckCircle2, ChevronLeft, ChevronRight, Hourglass, LayoutGrid, ListFilter, Package as PackageIcon } from 'lucide-react';
 
 export type WeeklyOrderItem = {
@@ -137,7 +138,7 @@ export function WeeklyOrderSummaryCard({
           </div>
 
           <button
-            onClick={() => onWeekChange(isoWeekKey(new Date().toISOString().slice(0,10)))}
+            onClick={() => onWeekChange(isoWeekKey(businessDateISO()))}
             className="px-3.5 py-2 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs transition shadow-md shadow-amber-500/20"
             > 
             Aktuální týden

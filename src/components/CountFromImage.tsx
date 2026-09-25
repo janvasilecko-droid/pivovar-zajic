@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase';
 import { authenticatedFunctionHeaders } from '../lib/functionAuth';
 import { Bot, Calendar, Camera, ClipboardList, Hourglass, NotebookPen, Package as PackageIcon, RefreshCw, X, AlertCircle, CheckCircle2, ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react';
 import { uloz } from '../lib/uloziste';
+import { businessDateISO } from '../lib/businessDate';
 
 type CountItem = {
   package_label: string | null;
@@ -89,7 +90,7 @@ export function CountFromImage({ beers, packages, onClose, onSaved, table = 'inv
   table?: string;
   mode?: 'inventory' | 'kegging';
 }) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = businessDateISO();
   const [date, setDate] = useState(today);
   const [photos, setPhotos] = useState<PhotoSlot[]>([]);
   const [results, setResults] = useState<CountItem[]>([]);

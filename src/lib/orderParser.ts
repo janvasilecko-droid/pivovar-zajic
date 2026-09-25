@@ -1367,13 +1367,13 @@ export type PlaceAliasRow = {
  * databáze. Viz docs/30-navrhu-2026-09-10.md, bod 4.
  */
 export async function fetchPlaceAliasesForAdmin(): Promise<PlaceAliasRow[]> {
-  const { supabase } = await import('./supabase');
-  const { data, error } = await supabase
-    .from('place_aliases')
-    .select('id, wrong_name, correct_name, place_id, hit_count, updated_at')
+  const { fetchAllRows } = await import('./supabase');
+  // fetchAllRows, ne holé .select(): naučené aliasy odběratelů se nikdy
+  // nemažou samy (viz strankovaniDotazu.test.ts).
+  const { data, error } = await fetchAllRows('place_aliases', 'id, wrong_name, correct_name, place_id, hit_count, updated_at')
     .order('updated_at', { ascending: false });
-  if (error) throw error;
-  return data ?? [];
+  if (error) throw new Error(error.message);
+  return (data ?? []) as PlaceAliasRow[];
 }
 
 /** Smaže jeden naučený alias (omylem naučené/špatné přiřazení). */
@@ -1396,10 +1396,12 @@ export async function loadPlaceAliasMap(): Promise<Map<string, string>> {
     }
   } catch {}
 
-  // 2. Načtení ze Supabase (tabulka place_aliases)
+  // 2. Načtení ze Supabase (tabulka place_aliases) — fetchAllRows, ne holé
+  // .select(): naučené aliasy se nikdy nemažou samy (viz
+  // strankovaniDotazu.test.ts).
   try {
-    const { supabase } = await import('./supabase');
-    const { data } = await supabase.from('place_aliases').select('wrong_name, place_id').not('place_id', 'is', null);
+    const { fetchAllRows } = await import('./supabase');
+    const { data } = await fetchAllRows('place_aliases', 'wrong_name, place_id').not('place_id', 'is', null);
     for (const a of (data ?? []) as any[]) {
       if (a.place_id) map.set(a.wrong_name, a.place_id);
     }
@@ -1429,10 +1431,13 @@ export async function loadAliasMap(): Promise<ParserAliasMap> {
     }
   } catch {}
 
-  // 2. Načtení ze Supabase
+  // 2. Načtení ze Supabase — fetchAllRows, ne holé .select('*'): tabulka
+  // naučených zkratek jen roste (žádné mazání) a Supabase nad tisícovkou
+  // řádků zbytek tiše zahodí bez chyby (viz strankovaniDotazu.test.ts) —
+  // appka by pak náhodně "zapomínala" starší naučené zkratky.
   try {
-    const { supabase } = await import('./supabase');
-    const { data } = await supabase.from('parser_aliases').select('*');
+    const { fetchAllRows } = await import('./supabase');
+    const { data } = await fetchAllRows('parser_aliases', '*');
     for (const a of (data ?? []) as any[]) {
       if (a.beer_id) map.beer.set(a.alias_text, a.beer_id);
       if (a.package_id) map.package.set(a.alias_text, a.package_id);
@@ -1614,7 +1619,12 @@ const NOTE_PATTERNS: { re: RegExp; label: string | ((m: RegExpMatchArray) => str
   { re: /(?:pridat\s+|je[sš]t[íěe]?\s+|a\s+|i\s+)podt[aá]ck[y]?\b|\bpodt[aá]c[eě]k\b/i, label: 'podtácky' },
   { re: /\bzavoz\s+(v[e]?\s+)?(pondeli|utery|stredu|ctvrtek|patek|sobotu|nedeli|\d{1,2}\.\d{1,2}\.)(\s+v\s+\d{1,2}(:\d{2})?\s*(h|hod)?)?/i, label: (m) => m[0] },
   { re: /\bdodat\s+(v[e]?\s+)?(pondeli|utery|stredu|ctvrtek|patek|sobotu|nedeli|\d{1,2}\.\d{1,2}\.)(\s+v\s+\d{1,2}(:\d{2})?\s*(h|hod)?)?/i, label: (m) => m[0] },
-  { re: /\b(cas|hodin[a]|v)\s+\d{1,2}(:\d{2})?\s*(h|hod)?\b/i, label: (m) => m[0] },
+  { re: /\b(cas|hodin[a]|kolem|okolo|v)\s+\d{1,2}(:\d{2})?\s*(h|hod)?\b/i, label: (m) => m[0] },
+  // 🕐 SLOVNÍ ČAS DOVOZU — "přijedou kolem poledne" apod. Bez tohohle věta
+  // zůstala v textu zprávy, ale do poznámky se z ní nedostalo nic (na rozdíl
+  // od číselného času výš, "v 15" apod.) — viz i parseDeliveryTimeHint níž,
+  // která ze stejné věty počítá konkrétní hodinu pro upozornění předem.
+  { re: /\b(?:(?:p[řr]ijed\w*|doraz\w*|bud(?:ou|eme|e)?)\s+)?\b(kolem|okolo|v|o)\s+(poledne|p[uú]lnoci)\b/i, label: (m) => m[0].replace(/\s+/g, ' ').trim() },
   { re: /\bbez\s*etiket/i, label: 'bez etikety' },
   { re: /\bbez\s*etiket[a]?\b/i, label: 'bez etikety' },
   { re: /\(\s*bez\s*etiket/i, label: 'bez etikety' },
@@ -1644,6 +1654,54 @@ export function detectOrderNotes(rawText: string): string {
     }
   }
   return found.join(', ');
+}
+
+// 📅 Den závozu zmíněný v textu ("Závoz v úterý", "prosím na čtvrtek",
+// "dodat ve středu odpoledne"). Pivovar rozváží jen v pracovní dny, takže
+// vrací JEN po/ut/st/ct/pa — sobota/neděle v textu se nerozpozná.
+//
+// Nezávisle na diakritice: `NOTE_PATTERNS` výš má den jen jako součást
+// dlouhé fráze "zavoz v ..." zapsané BEZ diakritiky (viz testy), takže na
+// skutečné zprávě od odběratele ("Závoz v úterý", s diakritikou) nechytí
+// vůbec nic — pořadí dne pak zůstávalo schované jen v poznámce, kterou
+// bylo snadné přehlédnout, a den závozu se musel domýšlet nebo dohledávat
+// ručně. Tahle funkce normalizuje text (bez ohledu na velikost a
+// diakritiku) a vrací den jako STRUKTUROVANOU hodnotu rovnou pro políčko
+// „Den závozu", ne jen jako text poznámky.
+const DEN_V_TEXTU: { re: RegExp; v: string }[] = [
+  { re: /\bpondel(i|ku)\b/, v: 'po' },
+  { re: /\butery\b/, v: 'ut' },
+  { re: /\bstred[au]\b/, v: 'st' },
+  { re: /\bctvrtek(u|em)?\b/, v: 'ct' },
+  { re: /\bpatek(u|em)?\b/, v: 'pa' },
+];
+
+export function parseDeliveryDayFromText(rawText: string): string | null {
+  const norm = rawText.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  for (const { re, v } of DEN_V_TEXTU) {
+    if (re.test(norm)) return v;
+  }
+  return null;
+}
+
+/**
+ * Čas dovozu zmíněný v textu zprávy/poznámky — "kolem poledne", "v 15",
+ * "kolem 14:30" apod. Vrátí `null`, když text žádný čas nezmiňuje.
+ *
+ * Používá se pro tlačítko "Upozornit hodinu předem" u objednávky — appka
+ * dřív takovou zmínku jen tiše ignorovala (nešla ani do poznámky, natož
+ * aby z ní šlo spočítat, kdy poslat upozornění).
+ */
+export function parseDeliveryTimeHint(rawText: string): { hodina: number; minuta: number } | null {
+  if (/\bp[uú]lnoci?\b/i.test(rawText)) return { hodina: 0, minuta: 0 };
+  if (/\bpoledne\b/i.test(rawText)) return { hodina: 12, minuta: 0 };
+  const m = rawText.match(/\b(?:kolem|okolo|v|o|cas|casu|hodin[ae]?)\s+(\d{1,2})(?::(\d{2}))?\s*(?:h|hod)?\b/i);
+  if (m) {
+    const hodina = Number(m[1]);
+    const minuta = m[2] ? Number(m[2]) : 0;
+    if (hodina <= 23 && minuta <= 59) return { hodina, minuta };
+  }
+  return null;
 }
 
 export function parseFreeTextEntries(

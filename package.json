@@ -17,6 +17,7 @@
     "zkontroluj-velikost": "node scripts/zkontroluj-velikost.mjs",
     "zkontroluj-dotyk": "node scripts/zkontroluj-dotyk.mjs",
     "zkontroluj-popisky": "node scripts/zkontroluj-popisky.mjs",
+    "zkontroluj-edge-funkce": "node scripts/zkontroluj-edge-funkce.mjs",
     "snimky": "node scripts/snimky.mjs",
     "e2e": "node scripts/e2e.mjs",
     "vykon": "node scripts/vykon.mjs",
@@ -25,7 +26,8 @@
     "lint:fix": "eslint . --fix",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
-    "test:watch": "vitest --watch"
+    "test:watch": "vitest --watch",
+    "zkontroluj-nasazeni": "node scripts/zkontroluj-nasazeni.mjs"
   },
   "dependencies": {
     "@capacitor/app": "^8.1.1",

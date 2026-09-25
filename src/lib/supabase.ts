@@ -195,11 +195,38 @@ function signalOfflineStale(): void {
   setTimeout(() => { staleSignalCooldown = false; }, 3000);
 }
 
+/**
+ * `fetch`, ale s tvrdým stropem na dobu čekání.
+ *
+ * Nalezeno 21. 9. 2026 v poledne, ve sklepě: „nevidel sem data a nemohl sem
+ * je zadavat." `navigator.onLine` u slabého signálu hlásí `true` (telefon JE
+ * připojený k síti), ale požadavek na server nikdy nedostane odpověď ani
+ * chybu — obyčejný `fetch()` bez limitu na něj čeká klidně desítky vteřin až
+ * minuty, takže se `handleGet`/`handleWrite` níž nikdy nedostanou do `catch`
+ * větve, která by přepnula na cache/frontu. Appka pak vypadá stejně jako
+ * u bugů z 10./13. 9. (viz sliceByRange/finalizeOfflineRows), ale příčina je
+ * jiná — tam offline fallback běžel a špatně ořezával, tady se k němu vůbec
+ * nedostane. Řešení: po `TIMEOUT_MS` požadavek zahodit, ať se chová jako
+ * síťová chyba a appka spadne do stejného cache/frontového chování jako při
+ * zjevném offline stavu.
+ */
+export const OFFLINE_FETCH_TIMEOUT_MS = 10_000;
+export function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), OFFLINE_FETCH_TIMEOUT_MS);
+  const outerSignal = init?.signal;
+  if (outerSignal) {
+    if (outerSignal.aborted) controller.abort();
+    else outerSignal.addEventListener('abort', () => controller.abort(), { once: true });
+  }
+  return fetch(input, { ...init, signal: controller.signal }).finally(() => clearTimeout(timer));
+}
+
 async function handleGet(input: RequestInfo | URL, init: RequestInit | undefined, url: URL, rest: RestInfo | null): Promise<Response> {
   const prefer = getHeader(init, 'prefer') ?? '';
   const wantCount = prefer.includes('count=exact');
   try {
-    const res = await fetch(input, init);
+    const res = await fetchWithTimeout(input, init);
     if (res && res.ok) {
       const text = await res.clone().text();
       if (text && rest) {
@@ -276,13 +303,13 @@ async function handleWrite(input: RequestInfo | URL, init: RequestInit, rest: Re
   // Bezpečnostní pojistka: update/delete bez jakéhokoli filtru se nedá offline
   // bezpečně zopakovat (hrozilo by smazání všech řádků) → nikdy neřadit.
   if ((method === 'PATCH' || method === 'DELETE') && Object.keys(rest.eq).length === 0 && Object.keys(rest.inMatch).length === 0) {
-    return fetch(input, init);
+    return fetchWithTimeout(input, init);
   }
 
   // Nejdřív zkusíme síť (přeskočíme, když víme, že jsme offline).
   if (navigator.onLine) {
     try {
-      const res = await fetch(input, init);
+      const res = await fetchWithTimeout(input, init);
       if (res.ok && method === 'POST') {
         const prefer = getHeader(init, 'prefer') ?? '';
         if (prefer.includes('return=representation')) {
@@ -355,11 +382,14 @@ export function useRealtime(tables: string[], onChange: () => void) {
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => { timer = null; ref.current(); }, 400);
     };
-    // Vyzvednutí zameškaného. Bez tohohle by `zmeskano` nikdo nepřečetl:
-    // událost, která přišla na pozadí, by se poznamenala a nikdy neprojevila,
-    // takže by se člověk vrátil ke stará datům a nevěděl o tom.
+    // Návrat na viditelnou stránku VŽDY přenačte, ne jen když se cestou
+    // stihla zachytit nějaká postgres_changes událost. Z provozu 16. 9.
+    // 2026: druhá obrazovka (Sklad na tabletu v kanceláři) klidně celou
+    // dobu, co byla schovaná v pozadí, neměla vůbec spojení (viz níž,
+    // WebSocket dovede spadnout a appka o tom sama neví) — `zmeskano` by
+    // v tom případě zůstalo `false` a návrat by nic nepřenačetl.
     const naNavrat = () => {
-      if (jeSchovana() || !zmeskano) return;
+      if (jeSchovana()) return;
       zmeskano = false;
       trigger();
     };
@@ -372,16 +402,73 @@ export function useRealtime(tables: string[], onChange: () => void) {
     // přepínání obrazovek se to celé zavíralo a otevíralo znovu. Supabase
     // přitom umí navěsit víc odběrů na jeden kanál, takže z osmnácti
     // spojení je jedno a odhlášení je jedno volání místo osmnácti.
-    const kanal = supabase.channel(`rt-${Math.random().toString(36).slice(2)}`);
-    tables.forEach((t) => {
-      kanal.on('postgres_changes' as any, { event: '*', schema: 'public', table: t }, trigger);
-    });
-    kanal.subscribe();
+    //
+    // 🔌 ZNOVUPŘIPOJENÍ PŘI VÝPADKU. Z provozu 16. 9. 2026: „změním sudy ve
+    // stáčení a ve Skladu na druhé obrazovce to hned nevidím" — WebSocket
+    // realtime kanálu dovede spadnout (slabý signál ve sklepě, uspání
+    // telefonu, výpadek u poskytovatele) a supabase-js ho sám o sobě
+    // donekonečna nezkouší obnovit; appka pak tiše zůstane BEZ ŽIVÝCH
+    // aktualizací, aniž by o tom někdo věděl — vypadá to jako fungující
+    // appka se starými čísly. `subscribe(status => …)` níž pozná selhání
+    // (CHANNEL_ERROR/TIMED_OUT/CLOSED) a založí kanál znovu, se zpožděním,
+    // které při opakovaném selhání roste (2 s → … → strop 30 s), ať appka
+    // při delším výpadku nebombarduje server pokusy o spojení. Úspěšné
+    // (opětovné) připojení navíc jednou přenačte samo — co se stihlo změnit
+    // BĚHEM výpadku, kanál sám o sobě nedožene.
+    let kanal: ReturnType<typeof supabase.channel> | null = null;
+    let zpozdeniOpakovani = 2000;
+    let planZnovupripojeni: ReturnType<typeof setTimeout> | null = null;
+    let zrusen = false;
+
+    const naplanujZnovupripojeni = () => {
+      if (zrusen || planZnovupripojeni) return;
+      planZnovupripojeni = setTimeout(() => {
+        planZnovupripojeni = null;
+        if (kanal) { supabase.removeChannel(kanal); kanal = null; }
+        zpozdeniOpakovani = Math.min(zpozdeniOpakovani * 2, 30000);
+        pripoj();
+      }, zpozdeniOpakovani);
+    };
+    const pripoj = () => {
+      if (zrusen) return;
+      kanal = supabase.channel(`rt-${Math.random().toString(36).slice(2)}`);
+      tables.forEach((t) => {
+        kanal!.on('postgres_changes' as any, { event: '*', schema: 'public', table: t }, trigger);
+      });
+      kanal.subscribe((status: string) => {
+        if (status === 'SUBSCRIBED') {
+          zpozdeniOpakovani = 2000;
+          trigger();
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          naplanujZnovupripojeni();
+        }
+      });
+    };
+    pripoj();
+
+    // 💓 POJISTKA NAVÍC — bezpečnostní síť pro TICHÝ pád kanálu.
+    // Z provozu 24. 9. 2026: „kdyz ted zadam na telefonu minus jedne keg
+    // v lahvich jaktze okamzite nevidim zmenu ve skladu na pocitaci... to
+    // se musi propisovat hned" — stejný scénář jako 16. 9. výš, ale i PO
+    // tamní opravě: reconnect nahoře čeká na CHANNEL_ERROR/TIMED_OUT/
+    // CLOSED, jenže kanál dovede zůstat ve stavu SUBSCRIBED navěky, i když
+    // podkladový WebSocket už dávno mlčí — typicky NAT/router na slabší
+    // síti tiše zahodí nečinné spojení bez zavíracího rámce, takže
+    // klientská knihovna to nepozná dřív než při vlastním heartbeatu (a to
+    // dovede trvat desítky vteřin, než vůbec ZAČNE reconnect výš).
+    // Viditelná obrazovka se proto jednou za minutu i BEZ jakékoliv
+    // postgres_changes události sama přenačte — v nejhorším případě je to
+    // jeden dotaz navíc za minutu na otevřenou obrazovku, ne appka, co
+    // tiše ukazuje stará čísla, dokud si toho někdo nevšimne a nedá F5.
+    const pojistka = setInterval(() => { if (!jeSchovana()) trigger(); }, 60_000);
 
     window.addEventListener('pivovar:online-refetch', trigger);
     return () => {
+      zrusen = true;
       if (timer) clearTimeout(timer);
-      supabase.removeChannel(kanal);
+      if (planZnovupripojeni) clearTimeout(planZnovupripojeni);
+      clearInterval(pojistka);
+      if (kanal) supabase.removeChannel(kanal);
       window.removeEventListener('pivovar:online-refetch', trigger);
       document.removeEventListener('visibilitychange', naNavrat);
     };

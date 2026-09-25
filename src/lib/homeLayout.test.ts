@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   getHomeLayout, addPage, removePage, moveTileToPage, hideTile, unhideTile, addTile,
   mergeTiles, addToGroup, removeFromGroup, deleteGroup, ensurePositions, moveTileToCell, stepTileCell,
-  addDockSlot, removeDockSlot, ensureTrailingEmptyPage, unifyColorsByCategory,
+  addDockSlot, removeDockSlot, moveDockSlot, ensureTrailingEmptyPage, unifyColorsByCategory,
   MIN_OPACITY, MAX_OPACITY, MIN_TILE_GAP, MAX_TILE_GAP, DEFAULT_DOCK, MIN_DOCK, MAX_DOCK, GRID_COLS_DESKTOP,
   ROZLOZENI_VERZE, type GroupId,
 } from './homeLayout';
@@ -381,5 +381,21 @@ describe('addDockSlot / removeDockSlot', () => {
     let minned = layout;
     for (let i = 0; i < 10; i++) minned = removeDockSlot(minned, 0);
     expect(minned.dock.length).toBe(MIN_DOCK);
+  });
+
+  it('moveDockSlot prohodí slot se sousedem doleva/doprava', () => {
+    const layout = getHomeLayout(null, allDockPages);
+    const doprava = moveDockSlot(layout, 0, 'doprava');
+    expect(doprava.dock[0]).toBe(DEFAULT_DOCK[1]);
+    expect(doprava.dock[1]).toBe(DEFAULT_DOCK[0]);
+    const doleva = moveDockSlot(layout, 1, 'doleva');
+    expect(doleva.dock[0]).toBe(DEFAULT_DOCK[1]);
+    expect(doleva.dock[1]).toBe(DEFAULT_DOCK[0]);
+  });
+
+  it('moveDockSlot na kraji nic nezmění', () => {
+    const layout = getHomeLayout(null, allDockPages);
+    expect(moveDockSlot(layout, 0, 'doleva').dock).toEqual(layout.dock);
+    expect(moveDockSlot(layout, layout.dock.length - 1, 'doprava').dock).toEqual(layout.dock);
   });
 });

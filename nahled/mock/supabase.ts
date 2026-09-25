@@ -30,11 +30,40 @@ const db: Record<string, Radek[]> = {
   keg_prefuk: [...vychozi.keg_prefuk],
   cellar_tanks: vychozi.cellar_tanks.map((t) => ({ ...t })),
   tydenni_inventura: vychozi.tydenni_inventura.map((r) => ({ ...r })),
+  // Značka uzavření týdne (TydenniInventuraPanel) — v náhledu vždycky prázdná.
+  tydenni_uzaverky: [],
   // Obrazovky Sklepa (nahled/obrazovky.html).
   cellar_tank_cycles: vychozi.cellar_tank_cycles.map((r) => ({ ...r })),
   cellar_batches: vychozi.cellar_batches.map((r) => ({ ...r })),
   cellar_batch_mereni: vychozi.cellar_batch_mereni.map((r) => ({ ...r })),
+  // Okno „Co stočit" na úvodní stránce.
+  orders: [...vychozi.orders],
+  order_items: [...vychozi.order_items],
+  kegging_plan_checks: [...vychozi.kegging_plan_checks],
+  // Úkoly stáčení („Potřeby stáčení" v Nastavení) — v náhledu se začíná
+  // s prázdným týdnem, úkol si jde rovnou zkusit založit.
+  bottling_plans: [],
 };
+
+/** Kopie z produkčního modulu — barva piva na tečku v seznamu. */
+export function beerName(beer: { short_name?: string | null; name?: string | null } | null | undefined): string {
+  return beer?.short_name?.trim() || beer?.name || '';
+}
+export function beerBg(beer: { beer_color?: string | null } | null | undefined): string {
+  return beer?.beer_color ?? 'rgb(var(--bg-neutral-100))';
+}
+function beerJeTmave(beer: { beer_color?: string | null } | null | undefined): boolean {
+  const hex = (beer?.beer_color ?? '').replace('#', '');
+  if (hex.length !== 6) return false;
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b < 0.55;
+}
+export function beerText(beer: { beer_color?: string | null } | null | undefined): string {
+  return beerJeTmave(beer) ? 'text-white' : 'text-[#451f10]';
+}
+export function beerInk(beer: { beer_color?: string | null } | null | undefined): string {
+  return beerJeTmave(beer) ? '#ffffff' : '#0f172a';
+}
 
 /**
  * Realtime v náhledu: po každém zápisu se zavolají odběratelé dotčené
@@ -130,6 +159,14 @@ function dotaz(tabulka: string) {
     in(col: string, val: any[]) { filtry.push({ typ: 'in', col, val }); return api; },
     order(col: string, opts?: { ascending?: boolean }) { radit = col; sestupne = opts?.ascending === false; return api; },
     limit(n: number) { pocet = n; return api; },
+    maybeSingle() {
+      return {
+        then(splneno: (v: { data: Radek | null; error: null }) => any) {
+          const data = pouzijFiltry(db[tabulka] ?? [], filtry);
+          return Promise.resolve(splneno({ data: data[0] ?? null, error: null }));
+        },
+      };
+    },
     then(splneno: (v: { data: Radek[]; error: null }) => any) {
       let data = pouzijFiltry(db[tabulka] ?? [], filtry);
       if (radit) {
@@ -182,7 +219,14 @@ export const supabase = {
         }));
         db[tabulka] = [...(db[tabulka] ?? []), ...pole];
         zaznamenej(tabulka, 'insert', pole);
-        return Promise.resolve({ data: pole, error: null });
+        // `.select('id')` za insertem: skutečná Supabase vrací vložené řádky
+        // a appka podle jejich id staví „Vrátit zpět" (ProdejnaScreen). Bez
+        // tohohle náhled na takové obrazovce spadl na `insert(...).select
+        // is not a function` — a vypadalo to jako chyba appky, ne náhledu.
+        const vysledek = { data: pole, error: null };
+        const odpoved: any = Promise.resolve(vysledek);
+        odpoved.select = () => Promise.resolve(vysledek);
+        return odpoved;
       },
 
       upsert(radky: Radek | Radek[], opts?: { onConflict?: string }) {

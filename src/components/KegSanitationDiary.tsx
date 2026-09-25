@@ -12,8 +12,9 @@ import { SanitationStepRow } from './SanitationStepRow';
 import { Spinner } from './ui';
 import { AlertTriangle, Calendar, CalendarDays, Clock, Pencil, FileSpreadsheet, FileText, CheckCircle2, Moon, Plus, SprayCan, Sun, Trash2, User, UserCheck, X } from 'lucide-react';
 import { potvrd } from '../lib/toast';
+import { businessDateISO } from '../lib/businessDate';
 
-const todayStr = () => new Date().toISOString().slice(0, 10);
+const todayStr = () => businessDateISO();
 
 // Definice jednotlivých kroků sanitace KEGů — pro zobrazení deníku jako
 // tabulky (datum, co bylo provedeno, čím, koncentrace, čas). Chemie a
@@ -120,7 +121,7 @@ export default function KegSanitationDiary() {
     if (!isLastWeek) return false;
     
     // Check if there is already a monthly sanitation entry for the current month
-    const currentMonth = new Date().toISOString().slice(0, 7);
+    const currentMonth = businessDateISO().slice(0, 7);
     const hasMonthly = entries.some(
       (e) => e.reason === 'mesicni' && e.sanitation_date.slice(0, 7) === currentMonth
     );

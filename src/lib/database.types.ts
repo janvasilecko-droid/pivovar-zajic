@@ -1415,6 +1415,7 @@ export type Database = {
           created_by: string | null
           entry_date: string
           id: string
+          order_id: string | null
           package_id: string | null
           package_label: string | null
           quantity: number
@@ -1427,6 +1428,7 @@ export type Database = {
           created_by?: string | null
           entry_date: string
           id?: string
+          order_id?: string | null
           package_id?: string | null
           package_label?: string | null
           quantity?: number
@@ -1439,6 +1441,7 @@ export type Database = {
           created_by?: string | null
           entry_date?: string
           id?: string
+          order_id?: string | null
           package_id?: string | null
           package_label?: string | null
           quantity?: number
@@ -1450,6 +1453,13 @@ export type Database = {
             columns: ["beer_id"]
             isOneToOne: false
             referencedRelation: "beers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_adjustments_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
             referencedColumns: ["id"]
           },
           {

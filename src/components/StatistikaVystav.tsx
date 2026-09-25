@@ -14,18 +14,19 @@
 // ΔE 13,3 pro deuteranopii), takže se sousední výseče dají rozlišit i bez
 // plného vnímání barev. Vedle barvy je vždycky i popisek — barva sama nikdy
 // nenese informaci.
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts';
-import { TrendingDown, TrendingUp, Minus, Store } from 'lucide-react';
+import { TrendingDown, TrendingUp, Minus, Store, ChevronDown } from 'lucide-react';
 import { EmptyState } from './ui';
 import {
-  formatHl, hl, litryPoMesicich, litryPoTydnech, litryVRozsahu, podilPodleObalu,
-  podilPodlePiva, podleOdberatelu, posunDnu, posunMesicu, predchoziRozsah,
-  rozsahObdobi, zmenaProcent,
-  type Obal, type Obdobi, type Pivo, type VyrobniRadek,
+  formatHl, hl, litryPoMesicich, litryPoTydnech, litryPoObdobiAObalech, litryVRozsahu,
+  obalyVCislech, obalyVDatech, pivaVCislech,
+  podleOdberatelu, pondeliTydne, posunDnu, predchoziRozsah,
+  prumernaPotrebaKegu, popisRozsahu, denObdobi, rozpocetSudu, rozsahObdobi, zmenaProcent,
+  type CisloRadek, type Obal, type Obdobi, type Pivo, type VyrobniRadek,
 } from '../lib/statistika';
 
 // Pořadí je záměrné — sousední dvojice musí být rozlišitelné i při barvosleposti.
@@ -59,6 +60,9 @@ const MESICE_ZKR = ['led', 'úno', 'bře', 'dub', 'kvě', 'čvn', 'čvc', 'srp',
 type Props = {
   bottlingRows: VyrobniRadek[];
   keggingRows: VyrobniRadek[];
+  /** Vyfasované a odepsané kusy — podklad pro rozpočet sudů. */
+  fasovaniRows: VyrobniRadek[];
+  writeoffRows: VyrobniRadek[];
   obaly: Obal[];
   piva: Pivo[];
   orders: { id: string; place_name: string | null; delivery_date: string | null; order_date: string; status: string }[];
@@ -71,6 +75,10 @@ type Props = {
 const POPIS_OBDOBI: Record<Obdobi, string> = {
   tyden: 'tento týden', mesic: 'tento měsíc', rok: 'letos', vse: 'za celou dobu',
 };
+const VOLBY_OBDOBI = [
+  ['tyden', 'Týden'], ['mesic', 'Měsíc'], ['rok', 'Rok'], ['vse', 'Celkem'],
+] as const satisfies readonly (readonly [Obdobi, string])[];
+
 const POPIS_PREDCHOZI: Record<Obdobi, string> = {
   tyden: 'minulý týden', mesic: 'minulý měsíc', rok: 'loni', vse: '',
 };
@@ -116,13 +124,94 @@ function Nadpis({ text, popis }: { text: string; popis?: string }) {
   );
 }
 
+/**
+ * Segmentový přepínač — pruh voleb, ze kterých je vybraná právě jedna.
+ *
+ * Schválně jedna komponenta pro VŠECHNY přepínače na téhle obrazovce
+ * (období i pohled grafů): druhé místo se stejnými třídami by byla druhá
+ * kopie téhož významu, a ta se dřív nebo později rozejde.
+ */
+function Prepinac<T extends string>({ volby, vybrano, onZmena }: {
+  volby: readonly (readonly [T, string])[];
+  vybrano: T;
+  onZmena: (v: T) => void;
+}) {
+  return (
+    <div className="flex items-center gap-1 p-1 rounded-2xl bg-white border border-neutral-200 w-fit">
+      {volby.map(([k, popisek]) => (
+        <button
+          key={k}
+          type="button"
+          onClick={() => onZmena(k)}
+          aria-pressed={vybrano === k}
+          className={`min-h-[44px] px-3 rounded-xl text-xs font-black transition ${
+            vybrano === k ? 'bg-primary-600 text-white shadow-sm' : 'text-neutral-600 hover:bg-neutral-100'
+          }`}
+        >
+          {popisek}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** Kusy na jedno desetinné místo — průměr celé číslo skoro nikdy nevyjde. */
+const ksFormat = (v: number) => v.toLocaleString('cs-CZ', { maximumFractionDigits: 1 });
+
 const stylTooltipuZaklad = {
   contentStyle: { borderRadius: 12, fontSize: 12, fontWeight: 700 },
   labelStyle: { fontWeight: 800 },
 };
 
+/**
+ * Skupina řádků tabulky „Obaly v číslech" — mezinadpis, řádky a součet.
+ *
+ * Součet je ZÁMĚRNĚ za skupinu, ne za celou tabulku: sudy a lahve se sčítat
+ * nesmí (lahvuje se z už stočených sudů, tentýž objem by se počítal dvakrát)
+ * a „kolik celkem lahví a kegů dohromady" je stejně údaj, který nikomu
+ * neodpoví na nic.
+ */
+function SkupinaObalu({ nazev, radky, barvy, maZmenu }: {
+  nazev: string; radky: CisloRadek[]; barvy: Map<string, string>; maZmenu: boolean;
+}) {
+  if (radky.length === 0) return null;
+  const kusy = radky.reduce((s, r) => s + r.kusy, 0);
+  const litry = radky.reduce((s, r) => s + r.litry, 0);
+  return (
+    <>
+      <tr className="bg-neutral-50">
+        <th scope="colgroup" colSpan={maZmenu ? 5 : 4} className="text-left py-1.5 text-udaj font-black uppercase tracking-wider text-neutral-500">
+          {nazev}
+        </th>
+      </tr>
+      {radky.map((r) => (
+        <tr key={r.id} className="border-b border-neutral-100">
+          <td className="py-2.5">
+            <span className="inline-flex items-center gap-2">
+              <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: barvy.get(r.id) ?? RADA_BAREV[1] }} />
+              <span className="font-bold text-neutral-900">{r.nazev}</span>
+            </span>
+          </td>
+          <td className="text-right tabular-nums font-black text-neutral-900">{r.kusy.toLocaleString('cs-CZ')}</td>
+          <td className="text-right tabular-nums font-semibold text-neutral-700">{formatHl(r.litry)}</td>
+          <td className="text-right tabular-nums font-semibold text-neutral-500">{(r.podil * 100).toFixed(0)} %</td>
+          {maZmenu && <td className="text-right"><Trend zmena={r.zmena} /></td>}
+        </tr>
+      ))}
+      <tr className="border-b-2 border-neutral-200">
+        <td className="py-2 font-black text-neutral-500 text-udaj uppercase tracking-wider">Dohromady</td>
+        <td className="text-right tabular-nums font-black text-neutral-900">{kusy.toLocaleString('cs-CZ')}</td>
+        <td className="text-right tabular-nums font-black text-neutral-900">{formatHl(litry)}</td>
+        <td />
+        {maZmenu && <td />}
+      </tr>
+    </>
+  );
+}
+
 export default function StatistikaVystav({
-  bottlingRows, keggingRows, obaly, piva, orders, orderItems, dnes, obdobi, onObdobi,
+  bottlingRows, keggingRows, fasovaniRows, writeoffRows, obaly, piva, orders, orderItems,
+  dnes, obdobi, onObdobi,
 }: Props) {
   // Barvy grafu podle motivu. Přepočítají se při každém vykreslení, takže
   // přepnutí světlý/tmavý v Nastavení se projeví bez znovunačtení stránky.
@@ -147,8 +236,28 @@ export default function StatistikaVystav({
   const vyroba = keggingRows;
   const lahvovani = bottlingRows;
 
-  const { od, do: doKdy } = rozsahObdobi(obdobi, dnes);
-  const predchozi = predchoziRozsah(obdobi, dnes);
+  // O kolik období zpět se zrovna kouká (0 = to, ve kterém jsme teď).
+  // Posouvají se jím jen ROZPADY pod přepínačem; dlaždice a grafy nahoře
+  // ukazují pořád aktuální stav.
+  const [posun, setPosun] = useState(0);
+  // Grafy umí dva pohledy: souhrn (a proti loňsku) a rozpad na konkrétní
+  // obaly. Přepínač je společný pro oba grafy — jinak by šlo přepnout jeden
+  // a druhý ne a člověk by porovnával dvě různé věci.
+  const [rezimGrafu, setRezimGrafu] = useState<'celkem' | 'obaly'>('celkem');
+  // Rozbalený odběratel v žebříčku — najednou jen jeden, ať se seznam
+  // nerozjede přes celý displej.
+  const [rozbalenyOdberatel, setRozbalenyOdberatel] = useState<string | null>(null);
+  const denProObdobi = denObdobi(obdobi, dnes, posun);
+
+  // Nadpisy pod přepínačem musí říkat, co je OPRAVDU vidět. Dokud se
+  // needituje posun, zůstává zažité „tento měsíc"; po posunu se ukáže
+  // konkrétní období, ať popisek nelže.
+  const popisVybraneho = posun === 0 ? POPIS_OBDOBI[obdobi] : popisRozsahu(obdobi, denProObdobi);
+
+  const { od, do: doKdy } = rozsahObdobi(obdobi, denProObdobi);
+  // Nová identita objektu při každém renderu by shazovala každé `useMemo`,
+  // které ho má v závislostech — proto se drží stabilní přes useMemo.
+  const predchozi = useMemo(() => predchoziRozsah(obdobi, denProObdobi), [obdobi, denProObdobi]);
 
   const soucty = useMemo(() => {
     const zaObdobi = (o: Obdobi) => {
@@ -192,18 +301,53 @@ export default function StatistikaVystav({
     return out;
   }, [vyroba, mapaObalu, dnes]);
 
+  // Srovnání s předchozím obdobím se počítá rovnou u rozpadu — dřív se
+  // dopočítávalo uvnitř `.map()` tabulky, tedy celý průchod daty na každý
+  // jednotlivý řádek.
+  // ── Stohované řady podle KONKRÉTNÍHO obalu ─────────────────────────────
+  // Jeden sloupec = jeden měsíc/týden, jedna barva = jedna velikost sudu.
+  // Souhrnný sloupec neukáže, že se výroba překlopila z třicítek na
+  // padesátky — objem zůstane stejný a graf mlčí.
+  const radyObalu = useMemo(() => obalyVDatech(vyroba, mapaObalu), [vyroba, mapaObalu]);
+
+  const dataMesiceObaly = useMemo(() => {
+    const podle = litryPoObdobiAObalech(vyroba, mapaObalu, (d) => d.slice(0, 7));
+    const letos = dnes.slice(0, 4);
+    return MESICE_ZKR.map((zkr, i) => {
+      const vnitrni = podle.get(`${letos}-${String(i + 1).padStart(2, '0')}`);
+      const radek: Record<string, string | number> = { mesic: zkr };
+      for (const o of radyObalu) radek[o.id] = hl(vnitrni?.get(o.id) ?? 0);
+      return radek;
+    });
+  }, [vyroba, mapaObalu, dnes, radyObalu]);
+
+  const dataTydnyObaly = useMemo(() => {
+    const podle = litryPoObdobiAObalech(vyroba, mapaObalu, pondeliTydne);
+    const out: Record<string, string | number>[] = [];
+    for (let i = 11; i >= 0; i--) {
+      const pondeli = pondeliTydne(posunDnu(dnes, -7 * i));
+      const vnitrni = podle.get(pondeli);
+      const radek: Record<string, string | number> = {
+        tyden: `${Number(pondeli.slice(8, 10))}.${Number(pondeli.slice(5, 7))}.`,
+      };
+      for (const o of radyObalu) radek[o.id] = hl(vnitrni?.get(o.id) ?? 0);
+      out.push(radek);
+    }
+    return out;
+  }, [vyroba, mapaObalu, dnes, radyObalu]);
+
   const podlePiv = useMemo(
-    () => podilPodlePiva(vyroba, mapaObalu, piva, od, doKdy),
-    [vyroba, mapaObalu, piva, od, doKdy],
+    () => pivaVCislech(vyroba, mapaObalu, piva, od, doKdy, predchozi),
+    [vyroba, mapaObalu, piva, od, doKdy, predchozi],
   );
   const podleObalu = useMemo(
-    () => podilPodleObalu(vyroba, mapaObalu, od, doKdy),
-    [vyroba, mapaObalu, od, doKdy],
+    () => obalyVCislech(vyroba, mapaObalu, od, doKdy, predchozi),
+    [vyroba, mapaObalu, od, doKdy, predchozi],
   );
   // Kam pivo z výstavu putovalo — lahve a PET. Do výstavu se to nepřičítá.
   const podleLahvi = useMemo(
-    () => podilPodleObalu(lahvovani, mapaObalu, od, doKdy),
-    [lahvovani, mapaObalu, od, doKdy],
+    () => obalyVCislech(lahvovani, mapaObalu, od, doKdy, predchozi),
+    [lahvovani, mapaObalu, od, doKdy, predchozi],
   );
   const litryDoLahvi = useMemo(
     () => litryVRozsahu(lahvovani, mapaObalu, od, doKdy),
@@ -212,6 +356,22 @@ export default function StatistikaVystav({
   const odberatele = useMemo(
     () => podleOdberatelu(orders, orderItems, mapaObalu, od, doKdy).slice(0, 10),
     [orders, orderItems, mapaObalu, od, doKdy],
+  );
+
+  // 🛢️ Kolik sudů průměrně padne za týden a za měsíc — podklad pro to, kolik
+  // jich mít doma umytých. Počítá se z ukončených období (viz lib/statistika).
+  const potrebaKegu = useMemo(
+    () => prumernaPotrebaKegu(vyroba, mapaObalu, dnes),
+    [vyroba, mapaObalu, dnes],
+  );
+
+  // 🛢️ Rozpočet sudů — co se stočilo proti tomu, co se vyfasovalo
+  // a odepsalo. Dřív to bylo v měsíčních přehledech jako „Ztráty KEG",
+  // ale jen souhrnem za měsíc; tady je to za zvolené období a po
+  // konkrétních velikostech, protože sudy se neztrácejí rovnoměrně.
+  const rozpocet = useMemo(
+    () => rozpocetSudu(vyroba, fasovaniRows, writeoffRows, orders, orderItems, mapaObalu, od, doKdy),
+    [vyroba, fasovaniRows, writeoffRows, orders, orderItems, mapaObalu, od, doKdy],
   );
 
   // Barva podle pořadí v katalogu, ne v žebříčku — pivo si barvu drží,
@@ -239,62 +399,197 @@ export default function StatistikaVystav({
         <Dlazdice popis="Výstav celkem" litry={soucty.vse.ted} zmena={null} />
       </div>
 
+      {/* 🛢️ Průměrná potřeba sudů — v KUSECH, ne v hektolitrech: odpovídá na
+          „kolik jich musím mít doma umytých", a na to hektolitry neodpoví
+          (padesátka i desítka je pořád jeden sud). Z ukončených období —
+          běžící týden by průměr v pondělí strhl dolů. */}
+      <section className="card p-3.5 sm:p-5">
+        <Nadpis
+          text="Průměrná potřeba sudů"
+          popis={`Kolik sudů se průměrně stočí — z posledních ${potrebaKegu.tydnu} ukončených týdnů a ${potrebaKegu.mesicu} měsíců`}
+        />
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-xl border border-neutral-200 bg-white p-3">
+            <div className="text-udaj font-black uppercase tracking-wider text-neutral-500">Na týden</div>
+            <div className="font-display font-extrabold text-2xl text-neutral-900 tabular-nums mt-1">
+              {ksFormat(potrebaKegu.tyden)}{' '}
+              <span className="text-base font-bold text-neutral-400">sudů</span>
+            </div>
+          </div>
+          <div className="rounded-xl border border-neutral-200 bg-white p-3">
+            <div className="text-udaj font-black uppercase tracking-wider text-neutral-500">Na měsíc</div>
+            <div className="font-display font-extrabold text-2xl text-neutral-900 tabular-nums mt-1">
+              {ksFormat(potrebaKegu.mesic)}{' '}
+              <span className="text-base font-bold text-neutral-400">sudů</span>
+            </div>
+          </div>
+        </div>
+
+        {/* 📦 Rozpad podle VELIKOSTI sudu. Souhrnné číslo nahoře neřekne,
+            jestli mít nachystané padesátky, nebo třicítky — a přitom přesně
+            to je ta otázka, kvůli které se sem člověk dívá. */}
+        {potrebaKegu.obaly.length > 0 && (
+          <div className="mt-3 overflow-x-auto -mx-1 px-1">
+            <table className="table-drzi-prvni-sloupec w-full text-sm">
+              <thead>
+                <tr className="text-udaj font-black uppercase tracking-wider text-neutral-500 border-b border-neutral-200">
+                  <th scope="col" className="text-left py-2">Velikost sudu</th>
+                  <th scope="col" className="text-right py-2">Na týden</th>
+                  <th scope="col" className="text-right py-2">Na měsíc</th>
+                </tr>
+              </thead>
+              <tbody>
+                {potrebaKegu.obaly.map((o) => (
+                  <tr key={o.id} className="border-b border-neutral-100 last:border-0">
+                    <td className="py-2.5">
+                      <span className="inline-flex items-center gap-2">
+                        <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: barvaObalu.get(o.id) ?? RADA_BAREV[1] }} />
+                        <span className="font-bold text-neutral-900">{o.nazev}</span>
+                      </span>
+                    </td>
+                    <td className="text-right tabular-nums font-black text-neutral-900">{ksFormat(o.tyden)} ks</td>
+                    <td className="text-right tabular-nums font-semibold text-neutral-700">{ksFormat(o.mesic)} ks</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      {/* Přepínač pohledu grafů — souhrn, nebo rozpad na konkrétní obaly. */}
+      <Prepinac
+        volby={[['celkem', 'Celkem'], ['obaly', 'Po obalech']] as const}
+        vybrano={rezimGrafu}
+        onZmena={setRezimGrafu}
+      />
+
       {/* Porovnání měsíců — dvě řady ve stejné jednotce, jedna osa. */}
       <section className="card p-3.5 sm:p-5">
         <Nadpis
           text="Výstav po měsících (sudy)"
-          popis={maLonskaData ? `Hektolitry — ${dnes.slice(0, 4)} proti ${Number(dnes.slice(0, 4)) - 1}` : `Hektolitry za rok ${dnes.slice(0, 4)}`}
+          popis={
+            rezimGrafu === 'obaly'
+              ? `Hektolitry za rok ${dnes.slice(0, 4)} — sloupec rozpadlý na velikosti sudů`
+              : maLonskaData
+                ? `Hektolitry — ${dnes.slice(0, 4)} proti ${Number(dnes.slice(0, 4)) - 1}`
+                : `Hektolitry za rok ${dnes.slice(0, 4)}`
+          }
         />
         <div className="h-[240px] sm:h-[300px] -ml-3">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={dataMesice} barGap={2} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
-              <CartesianGrid stroke={MRIZKA} strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="mesic" tick={{ fontSize: 11, fill: INK_TLUMENA, fontWeight: 700 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: INK_TLUMENA }} axisLine={false} tickLine={false} width={38} />
-              <Tooltip {...stylTooltipu} formatter={(v: any, n: any) => [`${Number(v).toFixed(1)} hl`, n === 'letos' ? dnes.slice(0, 4) : String(Number(dnes.slice(0, 4)) - 1)]} />
-              {maLonskaData && <Legend wrapperStyle={{ fontSize: 12, fontWeight: 700 }} formatter={(v) => (v === 'letos' ? dnes.slice(0, 4) : String(Number(dnes.slice(0, 4)) - 1))} />}
-              {maLonskaData && <Bar dataKey="loni" fill={BARVA_LONI} radius={[4, 4, 0, 0]} maxBarSize={18} />}
-              <Bar dataKey="letos" fill={BARVA_LETOS} radius={[4, 4, 0, 0]} maxBarSize={18} />
-            </BarChart>
+            {rezimGrafu === 'obaly' ? (
+              <BarChart data={dataMesiceObaly} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
+                <CartesianGrid stroke={MRIZKA} strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="mesic" tick={{ fontSize: 11, fill: INK_TLUMENA, fontWeight: 700 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: INK_TLUMENA }} axisLine={false} tickLine={false} width={38} />
+                <Tooltip {...stylTooltipu} formatter={(v: any, n: any) => [`${Number(v).toFixed(1)} hl`, n]} />
+                <Legend wrapperStyle={{ fontSize: 12, fontWeight: 700 }} />
+                {radyObalu.map((o) => (
+                  <Bar key={o.id} dataKey={o.id} name={o.nazev} stackId="obaly" fill={barvaObalu.get(o.id) ?? RADA_BAREV[1]} maxBarSize={22} />
+                ))}
+              </BarChart>
+            ) : (
+              <BarChart data={dataMesice} barGap={2} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
+                <CartesianGrid stroke={MRIZKA} strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="mesic" tick={{ fontSize: 11, fill: INK_TLUMENA, fontWeight: 700 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: INK_TLUMENA }} axisLine={false} tickLine={false} width={38} />
+                <Tooltip {...stylTooltipu} formatter={(v: any, n: any) => [`${Number(v).toFixed(1)} hl`, n === 'letos' ? dnes.slice(0, 4) : String(Number(dnes.slice(0, 4)) - 1)]} />
+                {maLonskaData && <Legend wrapperStyle={{ fontSize: 12, fontWeight: 700 }} formatter={(v) => (v === 'letos' ? dnes.slice(0, 4) : String(Number(dnes.slice(0, 4)) - 1))} />}
+                {maLonskaData && <Bar dataKey="loni" fill={BARVA_LONI} radius={[4, 4, 0, 0]} maxBarSize={18} />}
+                <Bar dataKey="letos" fill={BARVA_LETOS} radius={[4, 4, 0, 0]} maxBarSize={18} />
+              </BarChart>
+            )}
           </ResponsiveContainer>
         </div>
       </section>
 
       {/* Týdny — jedna řada, takže bez legendy; název grafu ji pojmenuje. */}
       <section className="card p-3.5 sm:p-5">
-        <Nadpis text="Posledních 12 týdnů" popis="Hektolitry stočené v jednotlivých týdnech" />
+        <Nadpis
+          text="Posledních 12 týdnů"
+          popis={rezimGrafu === 'obaly' ? 'Hektolitry po týdnech, sloupec rozpadlý na velikosti sudů' : 'Hektolitry stočené v jednotlivých týdnech'}
+        />
         <div className="h-[200px] sm:h-[240px] -ml-3">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={dataTydny} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
-              <CartesianGrid stroke={MRIZKA} strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="tyden" tick={{ fontSize: 10, fill: INK_TLUMENA, fontWeight: 700 }} axisLine={false} tickLine={false} interval={0} />
-              <YAxis tick={{ fontSize: 11, fill: INK_TLUMENA }} axisLine={false} tickLine={false} width={38} />
-              <Tooltip {...stylTooltipu} formatter={(v: any) => [`${Number(v).toFixed(1)} hl`, 'Výstav']} labelFormatter={(l) => `Týden od ${l}`} />
-              <Bar dataKey="hl" fill={BARVA_LETOS} radius={[4, 4, 0, 0]} maxBarSize={26} />
-            </BarChart>
+            {rezimGrafu === 'obaly' ? (
+              <BarChart data={dataTydnyObaly} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
+                <CartesianGrid stroke={MRIZKA} strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="tyden" tick={{ fontSize: 10, fill: INK_TLUMENA, fontWeight: 700 }} axisLine={false} tickLine={false} interval={0} />
+                <YAxis tick={{ fontSize: 11, fill: INK_TLUMENA }} axisLine={false} tickLine={false} width={38} />
+                <Tooltip {...stylTooltipu} formatter={(v: any, n: any) => [`${Number(v).toFixed(1)} hl`, n]} labelFormatter={(l) => `Týden od ${l}`} />
+                <Legend wrapperStyle={{ fontSize: 12, fontWeight: 700 }} />
+                {radyObalu.map((o) => (
+                  <Bar key={o.id} dataKey={o.id} name={o.nazev} stackId="obaly" fill={barvaObalu.get(o.id) ?? RADA_BAREV[1]} maxBarSize={30} />
+                ))}
+              </BarChart>
+            ) : (
+              <BarChart data={dataTydny} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
+                <CartesianGrid stroke={MRIZKA} strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="tyden" tick={{ fontSize: 10, fill: INK_TLUMENA, fontWeight: 700 }} axisLine={false} tickLine={false} interval={0} />
+                <YAxis tick={{ fontSize: 11, fill: INK_TLUMENA }} axisLine={false} tickLine={false} width={38} />
+                <Tooltip {...stylTooltipu} formatter={(v: any) => [`${Number(v).toFixed(1)} hl`, 'Výstav']} labelFormatter={(l) => `Týden od ${l}`} />
+                <Bar dataKey="hl" fill={BARVA_LETOS} radius={[4, 4, 0, 0]} maxBarSize={26} />
+              </BarChart>
+            )}
           </ResponsiveContainer>
         </div>
       </section>
 
-      {/* Přepínač období pro rozpady pod ním */}
-      <div className="flex items-center gap-1 p-1 rounded-2xl bg-white border border-neutral-200 w-fit">
-        {(['tyden', 'mesic', 'rok', 'vse'] as Obdobi[]).map((o) => (
-          <button
-            key={o}
-            onClick={() => onObdobi(o)}
-            className={`min-h-[44px] px-3 rounded-xl text-xs font-black transition ${
-              obdobi === o ? 'bg-primary-600 text-white shadow-sm' : 'text-neutral-600 hover:bg-neutral-100'
-            }`}
-          >
-            {o === 'tyden' ? 'Týden' : o === 'mesic' ? 'Měsíc' : o === 'rok' ? 'Rok' : 'Celkem'}
-          </button>
-        ))}
+      {/* Přepínač období pro rozpady pod ním + posouvání šipkami.
+          Zadání 23. 9. 2026: „uprav ten filtr tyden, tento tyden at to
+          ukazuje, mesic aktualni, rok aktualni a at se daj vsechny tyto
+          udaje sipkama jednoduse posouvat." Výchozí je vždycky období,
+          ve kterém jsme teď (posun 0); šipka vlevo jde do minulosti. */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Prepinac
+          volby={VOLBY_OBDOBI}
+          vybrano={obdobi}
+          onZmena={(o) => { onObdobi(o); setPosun(0); }}
+        />
+
+        {/* U „Celkem" není co posouvat — celá doba je jen jedna. */}
+        {obdobi !== 'vse' && (
+          <div className="flex items-center gap-1 p-1 rounded-2xl bg-white border border-neutral-200 w-fit">
+            <button
+              type="button"
+              onClick={() => setPosun((p) => p - 1)}
+              className="btn-ghost !rounded-xl !py-2 !px-3 font-black text-base"
+              title="Předchozí období"
+              aria-label="Předchozí období"
+            >
+              ‹
+            </button>
+            <span className="px-2 text-xs font-black text-neutral-900 tabular-nums whitespace-nowrap">
+              {popisRozsahu(obdobi, denProObdobi)}
+            </span>
+            <button
+              type="button"
+              onClick={() => setPosun((p) => Math.min(0, p + 1))}
+              disabled={posun >= 0}
+              className="btn-ghost !rounded-xl !py-2 !px-3 font-black text-base disabled:opacity-30"
+              title="Následující období"
+              aria-label="Následující období"
+            >
+              ›
+            </button>
+            {posun !== 0 && (
+              <button
+                type="button"
+                onClick={() => setPosun(0)}
+                className="btn-ghost !rounded-xl !py-2 !px-3 text-xs font-black text-amber-700"
+              >
+                Teď
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Podíl piv */}
         <section className="card p-3.5 sm:p-5">
-          <Nadpis text="Které pivo táhne" popis={`Podíl na výstavu ${POPIS_OBDOBI[obdobi]} · celkem ${formatHl(litryObdobi)} hl`} />
+          <Nadpis text="Které pivo táhne" popis={`Podíl na výstavu ${popisVybraneho} · celkem ${formatHl(litryObdobi)} hl`} />
           {podlePiv.length === 0 ? (
             <p className="text-sm text-neutral-500 font-semibold py-8 text-center">V tomhle období se nic nestočilo.</p>
           ) : (
@@ -326,7 +621,7 @@ export default function StatistikaVystav({
 
         {/* Podíl obalů */}
         <section className="card p-3.5 sm:p-5">
-          <Nadpis text="Do jakých sudů" popis={`Rozpad výstavu podle velikosti sudu ${POPIS_OBDOBI[obdobi]}`} />
+          <Nadpis text="Do jakých sudů" popis={`Rozpad výstavu podle velikosti sudu ${popisVybraneho}`} />
           {podleObalu.length === 0 ? (
             <p className="text-sm text-neutral-500 font-semibold py-8 text-center">V tomhle období se nic nestočilo.</p>
           ) : (
@@ -360,7 +655,7 @@ export default function StatistikaVystav({
       <section className="card p-3.5 sm:p-5">
         <Nadpis
           text="Přestočeno do lahví"
-          popis={`${POPIS_OBDOBI[obdobi]} — lahvuje se z už stočených sudů, do výstavu se to proto NEpřičítá`}
+          popis={`${popisVybraneho} — lahvuje se z už stočených sudů, do výstavu se to proto NEpřičítá`}
         />
         {podleLahvi.length === 0 ? (
           <p className="text-sm text-neutral-500 font-semibold py-6 text-center">V tomhle období se nelahvovalo.</p>
@@ -391,29 +686,66 @@ export default function StatistikaVystav({
 
       {/* Odběratelé */}
       <section className="card p-3.5 sm:p-5">
-        <Nadpis text="Největší odběratelé" popis={`Podle objednaného množství ${POPIS_OBDOBI[obdobi]} — rozhoduje den závozu`} />
+        <Nadpis text="Největší odběratelé" popis={`Podle objednaného množství ${popisVybraneho} — rozhoduje den závozu`} />
         {odberatele.length === 0 ? (
           <EmptyState text="V tomhle období není žádná objednávka." icon={Store} />
         ) : (
           <div className="space-y-1.5">
             {odberatele.map((o, i) => {
               const podil = odberatele[0].litry > 0 ? o.litry / odberatele[0].litry : 0;
+              const rozbaleno = rozbalenyOdberatel === o.nazev;
               return (
-                <div key={o.nazev} className="flex items-center gap-3 min-h-[44px]">
-                  <span className="w-6 text-right tabular-nums font-black text-neutral-400 text-xs shrink-0">{i + 1}.</span>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-baseline justify-between gap-2">
-                      <span className="font-bold text-sm text-neutral-900 truncate">{o.nazev}</span>
-                      <span className="tabular-nums font-black text-sm text-neutral-900 shrink-0">{formatHl(o.litry)} hl</span>
+                <div key={o.nazev}>
+                  {/* 📦 Klik rozbalí, DO ČEHO se tomu odběrateli vozí.
+                      Souhrnné „16 ks" se pro nachystání závozu použít nedá —
+                      šest padesátek a deset PET je jiná práce než šestnáct
+                      třicítek. */}
+                  <button
+                    type="button"
+                    onClick={() => setRozbalenyOdberatel(rozbaleno ? null : o.nazev)}
+                    aria-expanded={rozbaleno}
+                    className="w-full text-left flex items-center gap-3 min-h-[44px] rounded-xl hover:bg-neutral-50 px-1 -mx-1 transition"
+                  >
+                    <span className="w-6 text-right tabular-nums font-black text-neutral-400 text-xs shrink-0">{i + 1}.</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-baseline justify-between gap-2">
+                        <span className="font-bold text-sm text-neutral-900 truncate">{o.nazev}</span>
+                        <span className="tabular-nums font-black text-sm text-neutral-900 shrink-0">{formatHl(o.litry)} hl</span>
+                      </div>
+                      {/* Pruh je jen doplněk k číslu, ne jediný nositel informace. */}
+                      <div className="h-1.5 rounded-full bg-neutral-100 mt-1 overflow-hidden">
+                        <div className="h-full rounded-full" style={{ width: `${Math.max(2, podil * 100)}%`, backgroundColor: BARVA_LETOS }} />
+                      </div>
+                      <div className="text-udaj font-semibold text-neutral-500 mt-0.5 flex items-center gap-1">
+                        <ChevronDown className={`w-3 h-3 shrink-0 transition-transform ${rozbaleno ? 'rotate-180' : ''}`} />
+                        {o.kusy} ks · {o.objednavek} {o.objednavek === 1 ? 'objednávka' : o.objednavek < 5 ? 'objednávky' : 'objednávek'}
+                        {!rozbaleno && o.obaly.length > 0 && <span className="text-neutral-400">· do čeho ▸</span>}
+                      </div>
                     </div>
-                    {/* Pruh je jen doplněk k číslu, ne jediný nositel informace. */}
-                    <div className="h-1.5 rounded-full bg-neutral-100 mt-1 overflow-hidden">
-                      <div className="h-full rounded-full" style={{ width: `${Math.max(2, podil * 100)}%`, backgroundColor: BARVA_LETOS }} />
+                  </button>
+                  {rozbaleno && (
+                    <div className="ml-9 mt-1 mb-2 rounded-xl border border-neutral-200 bg-neutral-50 p-2.5 space-y-1">
+                      {o.obaly.length === 0 ? (
+                        <p className="text-udaj font-semibold text-neutral-500">U položek není uvedený obal.</p>
+                      ) : (
+                        <>
+                          {o.obaly.map((ob) => (
+                            <div key={ob.id} className="flex items-center gap-2.5 text-sm">
+                              <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: barvaObalu.get(ob.id) ?? RADA_BAREV[1] }} />
+                              <span className="flex-1 min-w-0 truncate font-bold text-neutral-800">{ob.nazev}</span>
+                              <span className="tabular-nums font-black text-neutral-900">{ob.kusy} ks</span>
+                              <span className="tabular-nums font-semibold text-neutral-400 w-24 text-right">
+                                {o.objednavek > 0 ? `${ksFormat(ob.kusy / o.objednavek)} / závoz` : ''}
+                              </span>
+                            </div>
+                          ))}
+                          <p className="text-udaj font-semibold text-neutral-500 pt-1 border-t border-neutral-200">
+                            „/ závoz" = průměr na jednu objednávku v tomhle období — podklad pro to, co naložit.
+                          </p>
+                        </>
+                      )}
                     </div>
-                    <div className="text-udaj font-semibold text-neutral-500 mt-0.5">
-                      {o.kusy} ks · {o.objednavek} {o.objednavek === 1 ? 'objednávka' : o.objednavek < 5 ? 'objednávky' : 'objednávek'}
-                    </div>
-                  </div>
+                  )}
                 </div>
               );
             })}
@@ -421,10 +753,104 @@ export default function StatistikaVystav({
         )}
       </section>
 
+      {/* 📦 Obaly v číslech — jádro toho, kvůli čemu se sem chodí.
+          Zadání 23. 9. 2026: „nestojim o data kolik celkem bylo stoceny
+          lahvi a kegu najednou (udaj k nicemu, je potreba vedet konkretni
+          obaly kolik za jaky obdobi)." Řádek je proto JEDEN OBAL, ne skupina.
+
+          Sudy a lahve mají vlastní podíl a vlastní součet, každá skupina
+          zvlášť: sečíst je do jednoho by tentýž objem počítalo dvakrát,
+          protože se lahvuje z už stočených sudů. */}
+      {(podleObalu.length > 0 || podleLahvi.length > 0) && (
+        <section className="card p-3.5 sm:p-5">
+          <Nadpis
+            text="Obaly v číslech"
+            popis={`${popisVybraneho}${predchozi ? ` · změna proti období ${POPIS_PREDCHOZI[obdobi]}` : ''}`}
+          />
+          <div className="overflow-x-auto -mx-1 px-1">
+            <table className="table-drzi-prvni-sloupec w-full text-sm">
+              <thead>
+                <tr className="text-udaj font-black uppercase tracking-wider text-neutral-500 border-b border-neutral-200">
+                  <th scope="col" className="text-left py-2">Obal</th>
+                  <th scope="col" className="text-right py-2">Kusů</th>
+                  <th scope="col" className="text-right py-2">Hektolitrů</th>
+                  <th scope="col" className="text-right py-2">Podíl</th>
+                  {predchozi && <th scope="col" className="text-right py-2">Změna</th>}
+                </tr>
+              </thead>
+              <tbody>
+                <SkupinaObalu
+                  nazev="Sudy (výstav)"
+                  radky={podleObalu}
+                  barvy={barvaObalu}
+                  maZmenu={!!predchozi}
+                />
+                <SkupinaObalu
+                  nazev="Lahve a PET (přestočeno ze sudů)"
+                  radky={podleLahvi}
+                  barvy={barvaObalu}
+                  maZmenu={!!predchozi}
+                />
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {/* 🛢️ Rozpočet sudů — přesunuto sem ze záložky „Měsíční přehledy",
+          kde to viselo jako „Ztráty KEG" jen jako souhrn za měsíc.
+          Vzorec je tentýž (stočeno − fasováno − odpisy), jen po konkrétních
+          velikostech a za zvolené období. */}
+      {rozpocet.length > 0 && (
+        <section className="card p-3.5 sm:p-5">
+          <Nadpis
+            text="Rozpočet sudů"
+            popis={`${popisVybraneho} — co se stočilo proti tomu, co se vyfasovalo a odepsalo`}
+          />
+          <div className="overflow-x-auto -mx-1 px-1">
+            <table className="table-drzi-prvni-sloupec w-full text-sm">
+              <thead>
+                <tr className="text-udaj font-black uppercase tracking-wider text-neutral-500 border-b border-neutral-200">
+                  <th scope="col" className="text-left py-2">Sud</th>
+                  <th scope="col" className="text-right py-2">Stočeno</th>
+                  <th scope="col" className="text-right py-2">Fasováno</th>
+                  <th scope="col" className="text-right py-2">Odpisy</th>
+                  <th scope="col" className="text-right py-2">Objednáno</th>
+                  <th scope="col" className="text-right py-2">Nerozpočteno</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rozpocet.map((r) => (
+                  <tr key={r.id} className="border-b border-neutral-100 last:border-0">
+                    <td className="py-2.5">
+                      <span className="inline-flex items-center gap-2">
+                        <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: barvaObalu.get(r.id) ?? RADA_BAREV[1] }} />
+                        <span className="font-bold text-neutral-900">{r.nazev}</span>
+                      </span>
+                    </td>
+                    <td className="text-right tabular-nums font-black text-neutral-900">{r.stoceno}</td>
+                    <td className="text-right tabular-nums font-semibold text-neutral-700">{r.fasovano}</td>
+                    <td className="text-right tabular-nums font-semibold text-neutral-700">{r.odpisy}</td>
+                    <td className="text-right tabular-nums font-semibold text-neutral-500">{r.objednano}</td>
+                    <td className={`text-right tabular-nums font-black ${r.nerozpocteno > 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
+                      {r.nerozpocteno}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-udaj text-neutral-400 font-semibold mt-2">
+            Nerozpočteno = stočeno − fasováno − odpisy. Objednané kusy jsou vedle jen jako kontext (podle dne závozu),
+            do rozdílu nevstupují — objednávka není pohyb skladu.
+          </p>
+        </section>
+      )}
+
       {/* Piva v číslech — tabulka jako alternativa ke grafu */}
       {podlePiv.length > 0 && (
         <section className="card p-3.5 sm:p-5">
-          <Nadpis text="Piva v číslech" popis={`${POPIS_OBDOBI[obdobi]}${predchozi ? ` · srovnání s obdobím ${POPIS_PREDCHOZI[obdobi]}` : ''}`} />
+          <Nadpis text="Piva v číslech" popis={`${popisVybraneho}${predchozi ? ` · srovnání s obdobím ${POPIS_PREDCHOZI[obdobi]}` : ''}`} />
           <div className="overflow-x-auto -mx-1 px-1">
             <table className="table-drzi-prvni-sloupec w-full text-sm">
               <thead>
@@ -438,9 +864,6 @@ export default function StatistikaVystav({
               </thead>
               <tbody>
                 {podlePiv.map((p) => {
-                  const drive = predchozi
-                    ? podilPodlePiva(vyroba, mapaObalu, piva, predchozi.od, predchozi.do).find((x) => x.id === p.id)?.litry ?? 0
-                    : 0;
                   return (
                     <tr key={p.id} className="border-b border-neutral-100 last:border-0">
                       <td className="py-2.5">
@@ -452,7 +875,7 @@ export default function StatistikaVystav({
                       <td className="text-right tabular-nums font-semibold text-neutral-700">{p.kusy}</td>
                       <td className="text-right tabular-nums font-black text-neutral-900">{formatHl(p.litry)}</td>
                       <td className="text-right tabular-nums font-semibold text-neutral-500">{(p.podil * 100).toFixed(0)} %</td>
-                      {predchozi && <td className="text-right"><Trend zmena={zmenaProcent(p.litry, drive)} /></td>}
+                      {predchozi && <td className="text-right"><Trend zmena={p.zmena} /></td>}
                     </tr>
                   );
                 })}

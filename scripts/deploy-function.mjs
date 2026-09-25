@@ -74,4 +74,24 @@ const resp = await fetch(`https://api.supabase.com/v1/projects/${projectRef}/fun
 const text = await resp.text();
 console.log(`HTTP ${resp.status}`);
 console.log(text);
+
+// 📌 Zapsat, která verze teď na Supabase běží.
+// Bez toho se nasazení nedá odlišit od nenasazení: appka jde na Cloudflare
+// sama, edge funkce ne, a rozdíl nebylo kde vidět — oprava whatsapp-auto-parse
+// tak ležela v mainu dva dny, zatímco v provozu běžela stará (18. 9. 2026).
+// Čte to scripts/zkontroluj-nasazeni.mjs a připomíná, co ještě čeká.
+if (resp.ok) {
+  // Zapsat, která verze teď na Supabase běží — stejný výpočet jako v CI
+  // i v připomínce, jedno místo (scripts/nasazeni-zaznam.mjs).
+  try {
+    const { zaznamenejNasazeni } = await import('./nasazeni-zaznam.mjs');
+    if (zaznamenejNasazeni([slug]).length > 0) {
+      console.log(`Zapsáno do supabase/nasazeno.json: ${slug}`);
+      console.log('Nezapomeň ten soubor commitnout, ať to ví i druhý počítač.');
+    }
+  } catch (e) {
+    console.warn('Nepodařilo se zapsat supabase/nasazeno.json:', e.message);
+  }
+}
+
 process.exit(resp.ok ? 0 : 1);

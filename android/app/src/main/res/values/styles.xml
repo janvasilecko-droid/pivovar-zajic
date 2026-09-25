@@ -16,7 +16,32 @@
     </style>
 
 
+    <!-- 🐰 Úvodní obrazovka.
+         ==========================================================
+         `android:background` (obrázek @drawable/splash) platí na starších
+         Androidech. Android 12 a výš ho IGNORUJE — má vlastní systémovou
+         úvodní obrazovku a když se jí neřekne jinak, vezme si ikonu spouštěče
+         a vykreslí ji na výchozí podklad tématu. Tady se to proto říká
+         naplno: bílý podklad (stejně jako background_color ve webovém
+         manifestu) a ostrý znak z vektoru.
+
+         Z provozu 19. 9. 2026: „v telefonu když tu aplikaci po delší době
+         otevřu, objeví se nejdřív bílé pozadí s rozmazaným logem zajíce
+         v černém obdélníku." -->
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
         <item name="android:background">@drawable/splash</item>
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <!-- 🔎 Znak má VLASTNÍ velký soubor (1152 px, průhledné pozadí), ne
+             vrstvu ikony aplikace. Android 12+ kreslí znak ve 288dp, což je
+             na dnešním telefonu 864–1152 px; `ic_launcher_foreground` má ale
+             jen 432 px, takže se zvětšoval skoro trojnásobně a byl rozmazaný.
+             Z provozu 23. 9. 2026: „jako první se zobrazí rozmazaný logo
+             pivovaru v černém čtverci … až pak se tam dá to ostrý." -->
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_icon</item>
+        <!-- Podklad pod znakem výslovně bílý. Bez toho si ho systém (a na
+             některých telefonech i tmavý režim) vybarví po svém — odtud ten
+             černý čtverec kolem zajíce. -->
+        <item name="windowSplashScreenIconBackgroundColor">@color/splash_background</item>
+        <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
     </style>
 </resources>

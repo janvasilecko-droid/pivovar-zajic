@@ -11,17 +11,25 @@ import { Copy, Download, FileSpreadsheet } from 'lucide-react';
 import { fetchAllRows, Package } from '../lib/supabase';
 import { Kostra } from '../components/ui';
 import { chyba, uspech, varovani } from '../lib/toast';
+import { posunMesic } from '../lib/businessDate';
 import { zavibruj } from '../lib/haptika';
 import { nazevSouboru, poctyRadku, stahniSesit, type ListExportu } from '../lib/mesicniExport';
 import { prehledDoTsv, sestavPrehled, type VydejRadek } from '../lib/prehledVydeje';
+import { buildMovements, expectedForMonth } from '../lib/stockLedger';
+import { inventuraDoTsv, sestavInventuruExportu, type BeerProInventuru, type InventuraExportRadek } from '../lib/inventuraExport';
 
 type Nactene = {
   packages: Package[];
+  beers: BeerProInventuru[];
   fasovani: any[];
   prodejna: any[];
   odpis: any[];
   bottling: any[];
   kegging: any[];
+  inventura: any[];
+  zavoz: any[];
+  akce: any[];
+  prefuk: any[];
   tanky: { id: string; label: string | null }[];
 };
 
@@ -66,20 +74,29 @@ export default function ExportExcelScreen() {
     let zruseno = false;
     (async () => {
       try {
-        const [pk, fa, pr, wo, bt, kg, tk] = await Promise.all([
+        const [pk, bs, fa, pr, wo, bt, kg, tk, iv, zd, ak, pf] = await Promise.all([
           fetchAllRows('packages', 'id,label,kind,volume_l'),
-          fetchAllRows('fasovani', 'entry_date,beer_name,package_id,quantity,who,note'),
-          fetchAllRows('fasovani_private', 'entry_date,beer_name,package_id,quantity,who,note'),
+          // Pro list Inventura — potřebuje se vědět, které pivo je pořád
+          // aktivní (viz lib/inventuraExport.ts, stejná úvaha jako v
+          // Inventuře: skryté pivo se ukáže, jen když v měsíci mělo pohyb).
+          fetchAllRows('beers', 'id,name,is_active'),
+          fetchAllRows('fasovani', 'entry_date,beer_id,beer_name,package_id,quantity,who,note'),
+          fetchAllRows('fasovani_private', 'entry_date,beer_id,beer_name,package_id,quantity,who,note'),
           // writeoffs nemá sloupec note (má reason) — s ním dotaz padal
           // a list „Vzorky promo a PR" se do sešitu vůbec nedostal.
-          fetchAllRows('writeoffs', 'entry_date,beer_name,package_id,quantity,who,reason'),
-          fetchAllRows('bottling', 'entry_date,beer_name,package_id,quantity,note,kegs_used,kegs_used_package_id'),
-          fetchAllRows('kegging', 'entry_date,beer_name,package_id,quantity,note,cellar_tank_id'),
+          fetchAllRows('writeoffs', 'entry_date,beer_id,beer_name,package_id,quantity,who,reason'),
+          fetchAllRows('bottling', 'entry_date,beer_id,beer_name,package_id,quantity,note,kegs_used,kegs_used_package_id,source_volume_l,created_at'),
+          fetchAllRows('kegging', 'entry_date,beer_id,beer_name,package_id,quantity,note,cellar_tank_id'),
           fetchAllRows('cellar_tanks', 'id,label'),
+          fetchAllRows('inventory', 'entry_date,beer_id,beer_name,package_id,quantity,note'),
+          fetchAllRows('zavoz_deductions', 'deduct_date,beer_id,package_id,quantity'),
+          fetchAllRows('akce', 'entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
+          fetchAllRows('keg_prefuk', 'entry_date,beer_id,from_package_id,from_count,to_package_id,to_count'),
         ]);
         if (zruseno) return;
         setData({
           packages: (pk.data as Package[]) ?? [],
+          beers: (bs.data as BeerProInventuru[]) ?? [],
           fasovani: (fa.data as any[]) ?? [],
           prodejna: (pr.data as any[]) ?? [],
           // Odpis nese důvod ve sloupci reason; export ho zobrazuje
@@ -88,6 +105,10 @@ export default function ExportExcelScreen() {
           bottling: (bt.data as any[]) ?? [],
           kegging: (kg.data as any[]) ?? [],
           tanky: (tk.data as any[]) ?? [],
+          inventura: (iv.data as any[]) ?? [],
+          zavoz: (zd.data as any[]) ?? [],
+          akce: (ak.data as any[]) ?? [],
+          prefuk: (pf.data as any[]) ?? [],
         });
       } catch (e) {
         chyba(e);
@@ -104,16 +125,28 @@ export default function ExportExcelScreen() {
 
     // U stáčení lahví nejsou sloupce „Z sudů" obal zápisu, ale sudy
     // SPOTŘEBOVANÉ na stočení — proto z jednoho zápisu dvě položky.
+    //
+    // `kegs_used` patří CELÉ DÁVCE, ne jednomu cílovému obalu — jedna dávka
+    // stočená do víc velikostí lahví (BottlingScreen) uloží víc řádků do
+    // `bottling`, všechny se STEJNÝM `kegs_used`. Bez dedupe (jak to bylo
+    // dřív) se sud odečetl znovu za KAŽDÝ cílový obal — stejná chyba, jakou
+    // měla skladová kniha (viz stockLedger.ts, oprava 24. 9. 2026), jen
+    // tenhle export ji ještě neměl opravenou.
+    const seenKegSource = new Set<string>();
     const lahveRadky: VydejRadek[] = data.bottling.flatMap((r: any) => {
       const out: VydejRadek[] = [{
         entry_date: r.entry_date, beer_name: r.beer_name,
         package_id: r.package_id, quantity: r.quantity, note: r.note,
       }];
       if (Number(r.kegs_used) > 0 && r.kegs_used_package_id) {
-        out.push({
-          entry_date: r.entry_date, beer_name: r.beer_name,
-          package_id: r.kegs_used_package_id, quantity: r.kegs_used, note: r.note,
-        });
+        const key = `${r.entry_date}|${r.beer_id}|${r.kegs_used}|${r.kegs_used_package_id}|${r.created_at || r.note || ''}`;
+        if (!seenKegSource.has(key)) {
+          seenKegSource.add(key);
+          out.push({
+            entry_date: r.entry_date, beer_name: r.beer_name,
+            package_id: r.kegs_used_package_id, quantity: r.kegs_used, note: r.note,
+          });
+        }
       }
       return out;
     });
@@ -133,17 +166,60 @@ export default function ExportExcelScreen() {
       tank: r.cellar_tank_id ? (mapaTanku.get(r.cellar_tank_id) ?? '') : '',
     }));
 
+    // 🧮 „Celkem" na konci listu musí manko vidět, i když se jako řádek
+    // schovává — jinak sešit ukazuje, že se vyrobilo víc, než doopravdy bylo
+    // (radkyVcetneOprav níž nese stejná data BEZ ohledu na znaménko, jen pro
+    // dopočet součtu — viz lib/mesicniExport.ts). Z provozu 21. 9. 2026:
+    // „minulej mesic sem ucetni poslal spatny data... ty minusovy polozky...
+    // nejsou realne odecteny ze stacecich dat."
     return [
-      { nazev: 'Odběr personál', varianta: 'odberatel', radky: bezZapornych(data.fasovani) },
-      { nazev: 'Fasování prodejna', varianta: 'odberatel', radky: bezZapornych(data.prodejna) },
-      { nazev: 'Vzorky promo a PR', varianta: 'odberatel', radky: bezZapornych(data.odpis), popisOdberatele: 'Komu proč a zač' },
-      { nazev: 'Stáčení lahve', varianta: 'staceni_lahve', radky: bezZapornych(lahveRadky) },
-      { nazev: 'Stáčení KEG', varianta: 'staceni_keg', radky: bezZapornych(kegRadky) },
+      { nazev: 'Odběr personál', varianta: 'odberatel', radky: bezZapornych(data.fasovani), radkyVcetneOprav: data.fasovani },
+      { nazev: 'Fasování prodejna', varianta: 'odberatel', radky: bezZapornych(data.prodejna), radkyVcetneOprav: data.prodejna },
+      { nazev: 'Vzorky promo a PR', varianta: 'odberatel', radky: bezZapornych(data.odpis), radkyVcetneOprav: data.odpis, popisOdberatele: 'Komu proč a zač' },
+      { nazev: 'Stáčení lahve', varianta: 'staceni_lahve', radky: bezZapornych(lahveRadky), radkyVcetneOprav: lahveRadky },
+      { nazev: 'Stáčení KEG', varianta: 'staceni_keg', radky: bezZapornych(kegRadky), radkyVcetneOprav: kegRadky },
     ];
   }, [data, bezMinusu]);
 
   // Jen zaškrtnuté listy — ať jde stáhnout třeba jen KEG.
   const vybraneListy = useMemo(() => listy.filter((l) => !vynechane.has(l.nazev)), [listy, vynechane]);
+
+  /**
+   * 📒 Inventura — na rozdíl od ostatních listů NENÍ omezená na `od`/`do`
+   * po dnech: je to celá skladová kniha za měsíc (viz lib/inventuraExport.ts),
+   * stejná čísla jako záložka „Fyzická inventura" v Inventuře. Dřív se do
+   * listu braly jen uložené fyzické zápisy — pár řádků místo desítek, jako
+   * by měsíc chyběl.
+   */
+  const radkyInventury = useMemo<InventuraExportRadek[]>(() => {
+    if (!data) return [];
+    const mesicInventury = od.slice(0, 7);
+    const pohyby = buildMovements({
+      inventoryRows: data.inventura,
+      bottlingRows: data.bottling,
+      keggingRows: data.kegging,
+      fasovaniRows: data.fasovani,
+      prodejnaRows: data.prodejna,
+      writeoffsRows: data.odpis,
+      zavozDeductionRows: data.zavoz,
+      akceRows: data.akce,
+      prefukRows: data.prefuk,
+      packages: data.packages as any,
+    });
+    const expectedLedger = expectedForMonth(pohyby, mesicInventury);
+
+    // Fyzicky napočítaný stav toho měsíce — jen Fyzická/Schválená, ne
+    // „Počáteční stav" zkopírovaný z minulé uzávěrky (to není nový zápis).
+    const actualMap: Record<string, number> = {};
+    data.inventura.forEach((r: any) => {
+      if (r.entry_date?.slice(0, 7) !== mesicInventury) return;
+      if (!/fyzick|schválen|schvalen/i.test(r.note ?? '')) return;
+      if (!r.beer_id || !r.package_id) return;
+      actualMap[`${r.beer_id}__${r.package_id}`] = Number(r.quantity || 0);
+    });
+
+    return sestavInventuruExportu(data.beers, data.packages as any, expectedLedger, actualMap);
+  }, [data, od]);
 
   function prepniList(nazev: string) {
     setVynechane((prev) => {
@@ -155,17 +231,33 @@ export default function ExportExcelScreen() {
 
   const prehled = useMemo(() => {
     if (!data) return [];
-    return poctyRadku({ listy, obaly: data.packages as any, od, do: doKdy });
-  }, [listy, data, od, doKdy]);
+    return poctyRadku({ listy, obaly: data.packages as any, od, do: doKdy, inventura: radkyInventury });
+  }, [listy, data, od, doKdy, radkyInventury]);
 
   // Řádky jen ze zaškrtnutých listů — podle nich se povoluje stažení.
+  const vybraneNazvy = prehled.filter((p) => !vynechane.has(p.nazev)).map((p) => p.nazev);
   const celkemVybranych = prehled
     .filter((p) => !vynechane.has(p.nazev))
     .reduce((s, p) => s + p.pocet, 0);
+  // Jen jeden zaškrtnutý list → soubor se jmenuje po něm (viz nazevSouboru
+  // v lib/mesicniExport.ts), ať jde stažené soubory rozeznat podle jména.
+  const jedinyList = vybraneNazvy.length === 1 ? vybraneNazvy[0] : undefined;
 
   /** Zkopíruje jeden list — když nechceš celý sešit, ale jen řádky do ruky. */
   async function kopirujList(nazev: string) {
     if (!data) return;
+    // Inventura má jiný tvar než ostatní listy (viz lib/inventuraExport.ts).
+    if (nazev === 'Inventura') {
+      if (!radkyInventury.length) return;
+      try {
+        await navigator.clipboard.writeText(inventuraDoTsv(radkyInventury));
+        zavibruj('hotovo');
+        uspech(`Zkopírováno ${radkyInventury.length} řádků z listu Inventura.`);
+      } catch {
+        chyba('Schránka není dostupná — stáhni radši celý sešit.');
+      }
+      return;
+    }
     const list = listy.find((l) => l.nazev === nazev);
     if (!list) return;
     const radky = sestavPrehled(list.radky, data.packages as any, { od, do: doKdy });
@@ -187,10 +279,14 @@ export default function ExportExcelScreen() {
     if (!data) return;
     setStahuji(true);
     try {
-      const povedlo = await stahniSesit({ listy: vybraneListy, obaly: data.packages as any, od, do: doKdy });
+      const povedlo = await stahniSesit({
+        listy: vybraneListy, obaly: data.packages as any, od, do: doKdy,
+        inventura: vynechane.has('Inventura') ? [] : radkyInventury,
+        jedinyList,
+      });
       if (povedlo) {
         zavibruj('hotovo');
-        uspech(`Staženo — ${nazevSouboru(od, doKdy)}`);
+        uspech(`Staženo — ${nazevSouboru(od, doKdy, jedinyList)}`);
       } else {
         varovani('V tomhle období není žádný zápis, není co stahovat.');
       }
@@ -218,12 +314,30 @@ export default function ExportExcelScreen() {
           {!vlastniObdobi ? (
             <label className="block">
               <span className="label !mb-0.5">Měsíc</span>
-              <input
-                type="month"
-                className="input !min-h-[48px] !w-auto"
-                value={mesic}
-                onChange={(e) => setMesic(e.target.value)}
-              />
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setMesic((m) => posunMesic(m, -1))}
+                  className="btn-ghost jen-ikona !flex-none"
+                  title="Předchozí měsíc" aria-label="Předchozí měsíc"
+                >
+                  ‹
+                </button>
+                <input
+                  type="month"
+                  className="input !min-h-[48px] !w-auto"
+                  value={mesic}
+                  onChange={(e) => setMesic(e.target.value)}
+                />
+                <button
+                  type="button"
+                  onClick={() => setMesic((m) => posunMesic(m, 1))}
+                  className="btn-ghost jen-ikona !flex-none"
+                  title="Následující měsíc" aria-label="Následující měsíc"
+                >
+                  ›
+                </button>
+              </div>
             </label>
           ) : (
             <>
@@ -249,7 +363,9 @@ export default function ExportExcelScreen() {
         </div>
 
         {/* Přepínač záporných řádků — ruční opravy přepočtu se do exportu
-            ve výchozím stavu nevypisují (viz komentář u bezZapornych). */}
+            ve výchozím stavu nevypisují jako VLASTNÍ řádek (viz komentář
+            u bezZapornych), ale do „Celkem" se počítají VŽDYCKY — i při
+            zaškrtnutém přepínači (viz radkyVcetneOprav v lib/mesicniExport.ts). */}
         <label className="flex items-start gap-2 text-xs font-bold text-neutral-700 cursor-pointer rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2.5">
           <input
             type="checkbox"
@@ -258,10 +374,12 @@ export default function ExportExcelScreen() {
             className="w-5 h-5 accent-amber-500 mt-0.5 shrink-0"
           />
           <span>
-            Vynechat záporné řádky (ruční opravy)
+            Schovat záporné řádky (ruční opravy)
             <span className="block font-medium text-neutral-500 mt-0.5">
-              Minusové položky vznikají opravou přepočtu a na skutečný stav nemají vliv.
-              Odškrtni, když je chceš v sešitu vidět.
+              Minusové položky vznikají opravou přepočtu z inventury. Zaškrtnuté
+              nejsou v sešitu vidět jako vlastní řádek, ale do „Celkem" se
+              vždycky počítají — ten proto sedí se skladem, i schované.
+              Odškrtni, když je chceš vidět i jako řádek (kvůli dohledání).
             </span>
           </span>
         </label>

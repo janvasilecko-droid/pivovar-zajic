@@ -9,6 +9,7 @@ import { requestOpenHomeNotes } from './lib/homeNotes';
 // znovu a v krajním případě stránku jednou obnoví (viz lib/lazyStranka.ts).
 import { lazyStranka, uklidPojistkuReloadu } from './lib/lazyStranka';
 const AppSettingsScreen = lazyStranka(() => import('./screens/AppSettingsScreen'));
+const HlaseniScreen = lazyStranka(() => import('./screens/HlaseniScreen'));
 const AppVersionsScreen = lazyStranka(() => import('./screens/AppVersionsScreen'));
 
 import Layout, { Page, NAV, EXTRA_NAV } from './components/Layout';
@@ -24,6 +25,7 @@ const PackagesScreen = lazyStranka(() => import('./screens/Catalogs').then((m) =
 const PlacesScreen = lazyStranka(() => import('./screens/Catalogs').then((m) => ({ default: m.PlacesScreen })));
 const VehiclesScreen = lazyStranka(() => import('./screens/Catalogs').then((m) => ({ default: m.VehiclesScreen })));
 const Users = lazyStranka(() => import('./screens/Users'));
+const ZalohaScreen = lazyStranka(() => import('./screens/ZalohaScreen'));
 const KeggingScreen = lazyStranka(() => import('./screens/Kegging'));
 const BottlingScreen = lazyStranka(() => import('./screens/BottlingScreen'));
 const ProdejnaScreen = lazyStranka(() => import('./screens/ProdejnaScreen'));
@@ -93,7 +95,6 @@ export default function App() {
     return (zUrl as Page | null) ?? readPageFromHistory();
   });
   const [autoOpenShareImport, setAutoOpenShareImport] = useState(() => wasOpenedViaShare());
-  const [haccpSection, setHaccpSection] = useState<string | undefined>();
   const [pageSubTab, setPageSubTabState] = useState<string>(() => (wasOpenedViaShare() ? '' : readSubTabFromHistory()));
 
   // Appka se rozběhla — pojistka proti smyčce obnovování může jít pryč,
@@ -151,16 +152,18 @@ export default function App() {
   // ať si nová stránka neponese cizí záložku z předchozí. Kliknutí na vnitřní
   // záložku volá setPage(stejná stránka, undefined, 'nazev-zalozky').
   function setPage(p: Page, targetSection?: string, subTab?: string) {
-    // 'notes' bývalo dvoje — samostatná stránka (sdílená nástěnka bez
-    // zaškrtávání) a dlaždice na Domů (se zaškrtáváním). Sjednoceno na jedno:
-    // kdokoli zavolá setPage('notes') odkudkoli (vyhledávání, menu, záložky),
-    // skončí na Domů s otevřeným oknem poznámek — viz lib/homeNotes.ts.
-    if (p === 'notes') {
+    // ⚠️ POZNÁMKY JSOU JEDNY. Bývaly tři: samostatná stránka (tabulka `notes`),
+    // dlaždice na Domů (lib/homeNotes.ts) a vzkazy směně (sdilene_poznamky).
+    // Stránka měla vlastní tlačítko „Uložit", jenže zapisovala do úložiště,
+    // které dlaždice na hlavní straně vůbec nečte — z provozu 19. 9. 2026:
+    // „poznámka se má objevit v tom bloku na hlavní straně, ale když dám
+    // uložit, nic se nestane." Cesta na ni je proto zavřená: kdokoli zavolá
+    // setPage('notes') NEBO setPage('reminders') odkudkoli (vyhledávání, menu,
+    // záložky, stará historie prohlížeče), skončí na Domů s otevřeným blokem
+    // poznámek — tam, kde se poznámka opravdu uloží a hned ukáže.
+    if (p === 'notes' || p === 'reminders') {
       requestOpenHomeNotes();
       p = 'home';
-    }
-    if (targetSection) {
-      setHaccpSection(targetSection);
     }
     const nextSubTab = subTab ?? '';
     if (p === page && !targetSection && nextSubTab === pageSubTab) return;
@@ -175,9 +178,6 @@ export default function App() {
     }
     const onPopState = (e: PopStateEvent) => {
       const p: Page = (e.state && e.state.page) || DEFAULT_PAGE;
-      if (e.state && e.state.targetSection) {
-        setHaccpSection(e.state.targetSection);
-      }
       setPageState(p);
       setPageSubTabState((e.state && e.state.subTab) || '');
     };
@@ -261,17 +261,22 @@ export default function App() {
             : page === 'sanitace_vycepy' ? 'vycepy'
             : 'sanitation_log'
           }
-          initialSection={haccpSection}
           setPage={setPage}
           pageSubTab={pageSubTab}
         />
       )}
-      {(page === 'orders' || page === 'orders_entry' || page === 'orders_detail' || page === 'orders_celkem') && (
+      {(page === 'orders' || page === 'orders_entry' || page === 'orders_detail' || page === 'orders_celkem' || page === 'orders_vraceni') && (
         <OrdersTabbed
-          initialTab={page === 'orders_detail' ? 'detail' : page === 'orders_celkem' ? 'celkem' : 'orders'}
+          initialTab={
+            page === 'orders_detail' ? 'detail'
+              : page === 'orders_celkem' ? 'celkem'
+              : page === 'orders_vraceni' ? 'vraceni'
+              : 'orders'
+          }
           autoOpenShareImport={autoOpenShareImport}
           onShareImportHandled={() => setAutoOpenShareImport(false)}
           setPage={setPage}
+          pageSubTab={pageSubTab}
         />
       )}
 
@@ -282,7 +287,9 @@ export default function App() {
           obrazovku jako 'zavoz'. */}
       {page === 'vycepy' && <VycepyScreen />}
       {(page === 'zavoz' || page === 'orders_zavoz') && <Zavoz setPage={setPage} />}
-      {page === 'stock' && <Stock setPage={setPage} />}
+      {(page === 'stock' || page === 'stock_pohyby') && (
+        <Stock setPage={setPage} initialTopTab={page === 'stock_pohyby' ? 'pohyby' : undefined} />
+      )}
       {page === 'bottling' && <BottlingScreen setPage={setPage} initialSubTab={pageSubTab} />}
       {page === 'srotovani' && <SrotovaniScreen setPage={setPage} />}
 
@@ -312,9 +319,9 @@ export default function App() {
       )}
       {page === 'inventory' && <InventoryScreen setPage={setPage} initialSubTab={pageSubTab} />}
       {page === 'audit' && <AuditScreen setPage={setPage} />}
-      {(page === 'calendar' || page === 'feedback' || page === 'planning' || page === 'reminders' || page === 'notes') && (
+      {(page === 'calendar' || page === 'feedback' || page === 'planning') && (
         <PlanningTabbed
-          initialTab={page === 'reminders' ? 'reminders' : page === 'feedback' ? 'feedback' : page === 'notes' ? 'notes' : 'calendar'}
+          initialTab={page === 'feedback' ? 'feedback' : 'calendar'}
           setPage={setPage}
           pageSubTab={pageSubTab}
         />
@@ -337,14 +344,16 @@ export default function App() {
           setPage={setPage}
         />
       )}
-      {(page === 'users' || page === 'zaloha') && <Users setPage={setPage} initialSubTab={pageSubTab} />}
+      {page === 'users' && <Users setPage={setPage} initialSubTab={pageSubTab} />}
+      {page === 'zaloha' && <ZalohaScreen />}
       {(page === 'stopwatch' || page === 'timer' || page === 'keg_timer') && (
         <TimersScreen
           initialTab={page === 'timer' ? 'timer' : page === 'keg_timer' ? 'keg' : 'stopwatch'}
           setPage={setPage}
         />
       )}
-      {page === 'app_settings' && <AppSettingsScreen />}
+      {page === 'hlaseni' && <HlaseniScreen setPage={setPage} />}
+      {page === 'app_settings' && <AppSettingsScreen setPage={setPage} />}
       {page === 'app_versions' && <AppVersionsScreen />}
       </Suspense>
     </Layout>

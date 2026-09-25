@@ -21,6 +21,7 @@ import { getSupabase, useSupabaseAuthState, clearSession } from './lib/supabaseA
 import { createMessageGate, smiProjit } from './lib/filter.js';
 import { HistoryCollector, normTs } from './lib/history.js';
 import { spustTep, spustPrikazy } from './lib/stav.js';
+import { rozhodniOObnove, odstupMs, MAX_POKUSU } from './lib/oziveni.js';
 import { forwardToWebhook, odloZpravu, posliOdlozene } from './lib/webhook.js';
 import { prepareImageForForwarding, ensureMediaBucket, getImageMessage } from './lib/media.js';
 
@@ -45,6 +46,16 @@ const SEND_TOKEN = process.env.SEND_TOKEN || '';
 const SYNC_HISTORY = (process.env.SYNC_HISTORY || 'on') !== 'off';
 const HISTORY_MAX_MESSAGES = Math.max(0, Number(process.env.HISTORY_MAX_MESSAGES || 1000) || 0);
 const HISTORY_MAX_DAYS = Math.max(0, Number(process.env.HISTORY_MAX_DAYS || 4) || 0);
+/**
+ * Kolik fotek se nejvýš stáhne z historie po (znovu)připojení. Objednávka
+ * poslaná fotkou během výpadku přijde právě přes historii, takže se média
+ * z historie stahovat MUSÍ — ale při párování jich může přijít dávka, a
+ * stahování je pomalé. Strop drží znovupřipojení svižné; živých zpráv se
+ * netýká.
+ */
+const HISTORY_MEDIA_MAX = Math.max(0, Number(process.env.HISTORY_MEDIA_MAX || 40) || 0);
+/** Kolik fotek z historie se od startu procesu už stáhlo (strop výš). */
+let historieFotekStazeno = 0;
 
 /** In-memory dedup: `messages.upsert` může stejnou zprávu doručit vícenásobně. */
 const SEEN = new Set();
@@ -70,6 +81,8 @@ const qrState = {
   sock: null, // aktuální živý Baileys socket (přepisuje se při každém (re)připojení) — čte ho POST /send
   poznamka: null, // poslední důvod odpojení / stav — píše se do tepu
   posledniUdalost: null, // kdy naposledy něco přišlo z WhatsAppu (diagnostika hluché session)
+  odpojenoOd: null, // ISO čas posledního `close` (null = připojeno) — čte hlídač oživení
+  pokusuOObnovu: 0, // kolik znovupřipojení po sobě selhalo (nuluje se při `open`)
 };
 
 /** Bezpečné porovnání tajemství (stejná odolnost proti timing útoku jako u webhooku). */
@@ -288,13 +301,13 @@ async function handleMessage(sock, gate, supabase, msg, opts = {}) {
   let text = extractText(msg);
   if (!text) {
     if (imageMessage) {
-      if (history) {
-        // V historii stará média nestahujeme — fotka bez popisku nemá co přeposlat.
-        logger.debug('[msg] historie: fotka bez popisku — přeskočena');
-        return;
-      }
       // Fotka bez popisku — dřív se ignorovala. Teď ji přeposíláme s placeholderem,
       // aby si ji v aplikaci mohl člověk otevřít a stáhnout.
+      //
+      // Platí to i pro HISTORII: fotka objednávky poslaná během výpadku mostu
+      // přijde po znovupárování právě přes historii a dřív se zahodila úplně
+      // (objednávka se tím ztratila beze stopy). Média se z historie nově
+      // stahují taky — viz HISTORY_MEDIA_MAX níž.
       text = '📷 Fotka objednávky (bez popisu)';
       logger.info('[msg] fotka bez popisku — přeposílám s placeholderem (DeepSeek fotky nečte)');
     } else {
@@ -381,14 +394,32 @@ async function handleMessage(sock, gate, supabase, msg, opts = {}) {
   // takže kontrola objednávky z fotky je vždy na člověku. mediaUrl pošleme
   // webhooku → whatsapp_incoming.media_url.
   let mediaUrl = null;
-  if (imageMessage && !history) {
-    // Stará média z historie nestahujeme (pomalé a zbytečné) — text a popisky jdou dál.
-    mediaUrl = await prepareImageForForwarding({
-      msg,
-      supabase,
-      webhookId,
-      logger,
-    });
+  if (imageMessage) {
+    // 📷 Fotky z HISTORIE se stahují taky. Dřív se přeskakovaly jako „pomalé
+    // a zbytečné" — jenže objednávka poslaná fotkou ve chvíli, kdy most
+    // neběžel, přijde po znovupárování PRÁVĚ přes historii, a bez fotky je
+    // to prázdná objednávka bez položek (z provozu 22. 9. 2026: Maneo,
+    // „médium nebylo doručeno — webhook neposlal mediaUrl").
+    //
+    // Pojistka proti zahlcení při znovupárování: z historie se stáhne
+    // nejvýš HISTORY_MEDIA_MAX fotek. Zbytek se přepošle bez fotky, ale
+    // aspoň se o objednávce ví. Živých zpráv se strop netýká.
+    if (history && historieFotekStazeno >= HISTORY_MEDIA_MAX) {
+      logger.warn(
+        `[media] historie: strop ${HISTORY_MEDIA_MAX} stažených fotek vyčerpán — posílám zprávu bez fotky`
+      );
+    } else {
+      if (history) historieFotekStazeno += 1;
+      mediaUrl = await prepareImageForForwarding({
+        msg,
+        supabase,
+        webhookId,
+        logger,
+        // Bez soketu nejde požádat o znovunahrání média (reuploadRequest) —
+        // a přesně to starší fotky z historie potřebují.
+        sock,
+      });
+    }
   }
 
   const quotedText = extractQuotedText(msg);
@@ -433,6 +464,55 @@ let gate = null;
 /** Instance dostala SIGTERM — nesmí se už znovu připojovat (viz `ukonci`). */
 let koncim = false;
 
+/** Běží právě naplánovaná obnova? Dva souběžné `start()` by se praly o session. */
+let obnovaBezi = false;
+
+/**
+ * 🫀 Jediná cesta ke znovupřipojení — a hlavně: nikdy slepá ulička.
+ *
+ * Dřív bylo na dvou místech `setTimeout(() => start().catch(log), ms)`.
+ * Když `start()` selhal (čeká na Supabase kvůli session — stačí jeden výpadek
+ * sítě), chyba se jen zalogovala a most se už nikdy nepřipojil: proces dál
+ * žil (HTTP server + tep), takže ho Render neměl důvod restartovat a v appce
+ * svítilo „most běží", zatímco 9 hodin nedorazila jediná zpráva
+ * (21.–22. 9. 2026, podruhé). Teď se každý neúspěch počítá, zkouší znovu
+ * s rostoucím odstupem, a po `MAX_POKUSU` se proces ukončí — spadlou
+ * instanci Render nahodí a ta si session načte z databáze načisto.
+ */
+function naplanujObnovu(zaMs, duvod) {
+  if (koncim || obnovaBezi) return;
+
+  // Počítadlo roste při KAŽDÉM pokusu a nuluje ho teprve `connection: open`.
+  // Schválně ne až podle toho, jestli `start()` spadl: `start()` skončí už
+  // vytvořením socketu, ne připojením — když spojení padá dokola (kód 428
+  // znovu a znovu), `start()` nikdy nespadne a bez tohohle by se most
+  // donekonečna točil v třísekundové smyčce, aniž by se kdy restartoval.
+  if (qrState.pokusuOObnovu >= MAX_POKUSU) {
+    qrState.poznamka = `${MAX_POKUSU}× se nepodařilo připojit — restartuji se`;
+    logger.error(`[obnova] ${duvod} — ${MAX_POKUSU}. marný pokus, ukončuji proces, ať ho hosting nahodí načisto`);
+    // Krátká pauza, ať se stihne zapsat tep s poznámkou — jinak v appce
+    // svítí jen „most se neozývá" bez důvodu.
+    setTimeout(() => process.exit(1), 1500).unref?.();
+    return;
+  }
+
+  obnovaBezi = true;
+  qrState.pokusuOObnovu += 1;
+  logger.info(`[obnova] ${duvod} — zkouším znovu za ${Math.round(zaMs / 1000)} s (pokus ${qrState.pokusuOObnovu}/${MAX_POKUSU})`);
+  setTimeout(() => {
+    if (koncim) { obnovaBezi = false; return; }
+    start()
+      .then(() => { obnovaBezi = false; })
+      .catch((e) => {
+        obnovaBezi = false;
+        logger.error({ err: e }, `[obnova] znovupřipojení selhalo (pokus ${qrState.pokusuOObnovu}/${MAX_POKUSU})`);
+        // Tady byl ten nejdražší řádek celé služby: dřív se chyba jen
+        // zalogovala a tím to skončilo. Teď se zkouší dál.
+        naplanujObnovu(odstupMs(qrState.pokusuOObnovu), 'předchozí pokus selhal');
+      });
+  }, zaMs);
+}
+
 // --- Hlavní smyčka -----------------------------------------------------------
 async function start() {
   logger.info('=== WhatsApp Gateway (Baileys) ===');
@@ -476,6 +556,10 @@ async function start() {
       qrState.qr = qr;
       qrState.connected = false;
       qrState.updatedAt = new Date().toISOString();
+      // Čekáme na člověka s telefonem, ne na síť — počítadlo marných pokusů
+      // se nuluje, ať se proces nerestartuje uprostřed skenování a QR se
+      // pod rukama neměnil.
+      qrState.pokusuOObnovu = 0;
 
       console.log('\n============================================================');
       console.log('  QR kód pro spárování — v telefonu otevři:');
@@ -491,6 +575,11 @@ async function start() {
 
     if (connection === 'open') {
       qrState.connected = true;
+      // Spojení drží → hlídač oživení nemá co řešit a počítadlo marných
+      // pokusů se nuluje (jinak by pátý výpadek za den restartoval proces,
+      // i kdyby se každý z nich spravil sám na první pokus).
+      qrState.odpojenoOd = null;
+      qrState.pokusuOObnovu = 0;
       // Použitý QR musí zmizet. Je jednorázový, takže po spárování už k
       // ničemu není — ale `/qr` i `/qr/raw` jsou veřejné bez přihlášení a
       // servírovaly ho dál. Kdo stránku otevřel, viděl mrtvý kód a marně
@@ -506,6 +595,9 @@ async function start() {
 
     if (connection === 'close') {
       qrState.connected = false;
+      // Od kdy jsme dole — podle toho hlídač pozná „připojuje se" od
+      // „je to mrtvé a nikdo si toho nevšiml".
+      if (!qrState.odpojenoOd) qrState.odpojenoOd = new Date().toISOString();
       // Instance, kterou Render odepsal, se už nikdy nesmí připojit zpátky —
       // jinak vykope tu novou (viz `ukonci`).
       if (koncim) {
@@ -526,9 +618,7 @@ async function start() {
         } catch (e) {
           logger.error({ err: e }, '[conn] nelze smazat whatsapp_session');
         }
-        setTimeout(() => {
-          start().catch((e) => logger.error({ err: e }, 'Fatal chyba při znovupřipojení'));
-        }, 1000);
+        naplanujObnovu(1000, 'odhlášeno ve WhatsAppu — nové párování');
       } else {
         // KONFLIKT (statusCode 440, `stream:error` s `conflict type="replaced"`)
         // znamená, že se na TUTÉŽ session připojil někdo další — na Renderu
@@ -556,9 +646,7 @@ async function start() {
         } else {
           logger.info('[conn] Restartuji připojení za 3 sekundy...');
         }
-        setTimeout(() => {
-          start().catch((e) => logger.error({ err: e }, 'Fatal chyba při znovupřipojení'));
-        }, zaMs);
+        naplanujObnovu(zaMs, konflikt ? 'konflikt instancí' : `spojení zavřeno (kód ${code ?? '?'})`);
       }
     }
   });
@@ -633,6 +721,49 @@ function ukonci(signal) {
 
 startHttpServer(qrState);
 
+// ⏰ Sebe-buzení (keep-warm) — nejdůležitější pojistka proti „nechodí zprávy".
+// Render FREE plán uspí instanci po ~15 minutách BEZ příchozího (inbound)
+// provozu. Spící most nemá otevřené spojení s WhatsAppem → zprávy poslané
+// mezitím se ZTRATÍ, a při každém probuzení se most znovu pere o session
+// (odtud opakované odhlašování / „hluchá" session). Doteď to řešil jen externí
+// ping (cron-job.org / UptimeRobot) — když ho nikdo nenastavil nebo přestal
+// fungovat, most usínal.
+//
+// Řešení bez cizí služby: most si každých 10 minut sám sáhne na svou VEŘEJNOU
+// /health adresu. Ten požadavek jde ven a vrátí se do Renderu jako plnohodnotný
+// inbound → 15minutový časovač spánku se resetuje a instance zůstane vzhůru
+// (jedna instance 24/7 ≈ 720 h/měsíc, vejde se do free allowance). Sáhnutí na
+// vlastní adresu (ne na 127.0.0.1) je schválně — jen skutečný inbound přes
+// edge Renderu spánku zabrání.
+//
+// Bezpečné: když adresa není známá (lokální běh), tiše se to vypne; chyba
+// pingu se jen zaloguje a nikdy neshodí most.
+function spustSebeBuzeni(logger) {
+  const verejnaUrl = (process.env.RENDER_EXTERNAL_URL || process.env.BRIDGE_PUBLIC_URL || '')
+    .trim()
+    .replace(/\/+$/, '');
+  if (!verejnaUrl) {
+    logger.info('[keep-warm] veřejná adresa není známá (RENDER_EXTERNAL_URL/BRIDGE_PUBLIC_URL) — sebe-buzení vypnuto (nejspíš lokální běh)');
+    return;
+  }
+  const cil = `${verejnaUrl}/health`;
+  logger.info(`[keep-warm] most se bude budit sám každých 10 min na ${cil} (aby free instance neusnula)`);
+  const pingni = async () => {
+    const ac = new AbortController();
+    const t = setTimeout(() => ac.abort(), 20_000);
+    try {
+      const r = await fetch(cil, { signal: ac.signal, headers: { 'x-keep-warm': '1' } });
+      if (!r.ok) logger.warn(`[keep-warm] ping vrátil HTTP ${r.status}`);
+    } catch (e) {
+      logger.warn(`[keep-warm] ping selhal: ${e?.message || e}`);
+    } finally {
+      clearTimeout(t);
+    }
+  };
+  setInterval(pingni, 10 * 60 * 1000).unref?.();
+}
+spustSebeBuzeni(logger);
+
 // 💓 Tep — každou minutu „žiju" do databáze. Bez toho se v aplikaci nedá
 // odlišit „nikdo nic neposlal" od „most neběžel": obojí vypadá stejně, tedy
 // prázdno. Na bezplatném Renderu je to podstatné, instance po ~15 minutách
@@ -660,24 +791,71 @@ spustTep(
   process.env.RENDER_GIT_COMMIT?.slice(0, 7) || '',
 );
 
+// 🫀 Hlídač oživení — jednou za minutu se podívá, jestli most jen „žije", nebo
+// opravdu funguje. Bez něj se dal proces dostat do stavu, kdy tep tepal, HTTP
+// odpovídalo a spojení bylo celé hodiny mrtvé (21.–22. 9. 2026, podruhé):
+// Render pozná spadlý proces, ale ne zaseknutý. Rozhodování je v
+// lib/oziveni.js, ať jde otestovat bez socketu a bez sítě.
+setInterval(() => {
+  if (koncim) return;
+  const { akce, duvod } = rozhodniOObnove({
+    pripojeno: qrState.connected,
+    odpojenoOd: qrState.odpojenoOd,
+    posledniUdalost: qrState.posledniUdalost,
+    pokusu: qrState.pokusuOObnovu,
+    ted: new Date(),
+  });
+  if (akce === 'nic') return;
+  if (akce === 'restart') {
+    qrState.poznamka = `${duvod} — restartuji se`;
+    logger.error(`[hlídač] ${duvod} — ukončuji proces, ať ho hosting nahodí načisto`);
+    setTimeout(() => process.exit(1), 1500).unref?.();
+    return;
+  }
+  logger.warn(`[hlídač] ${duvod} — vynucuji znovupřipojení`);
+  // U hluché session posuneme značku „naposledy něco přišlo" na teď: jinak by
+  // podmínka platila i minutu po povedeném znovupřipojení a most by se
+  // překopával každých 60 s dokola. Takhle dostane spojení čistou lhůtu a
+  // teprve když je i po ní ticho, zkusí se to znovu.
+  if (qrState.connected) qrState.posledniUdalost = new Date().toISOString();
+  // Hluchou session spraví až nové spojení: starý socket se tváří živě, takže
+  // ho musíme zavřít sami. Pokud už mrtvý je, `naplanujObnovu` níž se postará
+  // o zbytek i bez toho, aby z něj přišla událost.
+  try {
+    qrState.sock?.end(new Error(`hlídač: ${duvod}`));
+  } catch (e) {
+    logger.warn({ err: e }, '[hlídač] socket se nepodařilo zavřít, připojuji se i tak');
+  }
+  naplanujObnovu(odstupMs(qrState.pokusuOObnovu), `hlídač: ${duvod}`);
+}, 60 * 1000).unref?.();
+
 // 📮 Fronta neodeslaných zpráv — pravidelný pokus o doposlání. Připojení ji
 // zkusí taky (viz connection.update), ale webhook může spadnout i za běhu,
 // kdy k žádnému novému připojení nedojde.
 setInterval(() => { posliOdlozene(supabase, logger); }, 10 * 60 * 1000).unref?.();
 
-// 📥 Příkazy z aplikace. Jediný je „srovnat": zavřít spojení a nechat most
-// znovu se připojit — WhatsApp při tom pošle historii skupiny a chybějící
-// zprávy projdou stejnou cestou jako živé (dedup podle key.id je nezdvojí).
-// Reconnect obstará existující větev connection.close, nic dalšího netřeba.
+// 📥 Příkazy z aplikace. Jediný je „srovnat": znovu navázat spojení — WhatsApp
+// při tom pošle historii skupiny a chybějící zprávy projdou stejnou cestou
+// jako živé (dedup podle key.id je nezdvojí).
+//
+// Dřív se tu jen zavolalo `sock.end()` a spoléhalo se, že z toho přijde
+// `connection.update` → close → nové připojení. Jenže v tom stavu, kvůli
+// kterému člověk na „Srovnat s WhatsAppem" mačká (socket dávno mrtvý), žádná
+// událost nepřišla a tlačítko nedělalo vůbec nic — jediná ruční záchrana byla
+// bez efektu přesně tam, kde měla zabrat (z provozu 22. 9. 2026: „furt to
+// ukazuje stejny cas posledni zpravy"). Obnova se proto plánuje rovnou.
 spustPrikazy(
   supabase,
   async () => {
-    if (!qrState.sock) throw new Error('most zatím nemá spojení, není co znovu navázat');
+    // Počítadlo marných pokusů se nuluje: tohle je vědomé rozhodnutí člověka,
+    // ať dostane plný počet pokusů a ne zbytek po předchozím kole.
+    qrState.pokusuOObnovu = 0;
     try {
-      qrState.sock.end(new Error('srovnání na žádost z aplikace'));
+      qrState.sock?.end(new Error('srovnání na žádost z aplikace'));
     } catch (e) {
-      logger.warn({ err: e }, '[prikazy] zavření socketu selhalo, zkusím pokračovat');
+      logger.warn({ err: e }, '[prikazy] zavření socketu selhalo, připojuji se i tak');
     }
+    naplanujObnovu(500, 'srovnání na žádost z aplikace');
     return 'Most se znovu připojuje; historie skupiny se dopočítá během pár minut.';
   },
   logger,

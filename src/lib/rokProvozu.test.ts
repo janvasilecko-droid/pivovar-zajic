@@ -439,7 +439,10 @@ describe('rok provozu — týdenní „co je potřeba stočit"', () => {
   it('objednávky z 51 předchozích týdnů nepřetečou do toho aktuálního', () => {
     const idTydne = new Set(
       ROK.orders
-        .filter((o) => o.status !== 'vyrizeno_zavoz' && isoWeekKey(o.delivery_date) === weekKey)
+        // Vyřízené se počítají taky (od 24. 9. 2026): jejich odpočet závozu
+        // se pro „chybí" do skladu vrací, takže bez nich by se tytéž kusy
+        // objevily ve skladu znovu. Pořád ale jen objednávky TOHOTO týdne.
+        .filter((o) => o.status !== 'storno' && isoWeekKey(o.delivery_date) === weekKey)
         .map((o) => o.id),
     );
     const ocekavano: Record<string, number> = {};

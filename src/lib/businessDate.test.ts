@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { businessDateISO, businessHour, posunMesic } from './businessDate';
+import { businessDateISO, businessHour, posunMesic, posunDen } from './businessDate';
 
 describe('business date (Europe/Prague)', () => {
   it('uses the next local day while UTC is still on the previous day in summer', () => {
@@ -44,5 +44,21 @@ describe('posunMesic', () => {
     // „2026-9" místo „2026-09" by rozbilo porovnávání řetězcem, kterým
     // obrazovky filtrují záznamy podle měsíce.
     expect(posunMesic('2026-10', -1)).toBe('2026-09');
+  });
+});
+
+describe('posunDen', () => {
+  it('posune o den dopředu i dozadu', () => {
+    expect(posunDen('2026-09-15', 1)).toBe('2026-09-16');
+    expect(posunDen('2026-09-15', -1)).toBe('2026-09-14');
+  });
+
+  it('přechod přes konec měsíce i roku', () => {
+    expect(posunDen('2026-09-30', 1)).toBe('2026-10-01');
+    expect(posunDen('2026-12-31', 1)).toBe('2027-01-01');
+  });
+
+  it('posun o nulu vrátí totéž datum', () => {
+    expect(posunDen('2026-09-15', 0)).toBe('2026-09-15');
   });
 });

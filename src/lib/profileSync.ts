@@ -24,6 +24,41 @@ let writeChain: Promise<void> = Promise.resolve();
 
 const DEBOUNCE_MS = 250;
 
+// ⏳ Jak dlouho po dokončení zápisu ještě pole bráníme před přepsáním z cloudu.
+//
+// ⚠️ PROČ TO TU JE (z provozu 19. 9. 2026: „poznámkový blok nefunguje,
+// nepřidá se na plochu do té dlaždice"): appka poslouchá realtime změny
+// `profiles` a při každé z nich přepisovala místní poznámky tím, co přišlo ze
+// serveru (viz lib/auth.tsx). Jenže ty události chodí i jako OZVĚNA vlastních
+// zápisů — a přidání poznámky se zapisuje odloženě (debounce), kdežto
+// připnutí dlaždice na plochu hned. Ozvěna toho druhého zápisu tak dorazila
+// ještě se STARÝM seznamem poznámek a čerstvou poznámku smazala zároveň
+// z úložiště i z dlaždice. Vypadalo to přesně jako „neuložilo se to".
+//
+// Okno je široké schválně: ozvěna chodí do pár set milisekund, ale na telefonu
+// v provozu (slabý signál) klidně za několik sekund.
+const OCHRANA_PO_ZAPISU_MS = 10_000;
+
+/** Pole home_layout → dokdy je místní kopie novější než cokoliv z cloudu. */
+const cerstvaPole = new Map<string, number>();
+
+function ochranej(pole: string[], dokdy: number) {
+  for (const p of pole) cerstvaPole.set(p, Math.max(cerstvaPole.get(p) ?? 0, dokdy));
+}
+
+/**
+ * Smí cloud přepsat tohle pole místní kopie?
+ *
+ * `false` znamená „máme rozepsanou nebo právě odeslanou změnu, kterou server
+ * ještě neviděl" — přijatá hodnota by byla starší než to, co máme u sebe.
+ */
+export function cloudSmiPrepsat(pole: string): boolean {
+  const dokdy = cerstvaPole.get(pole);
+  if (dokdy === undefined) return true;
+  if (Date.now() >= dokdy) { cerstvaPole.delete(pole); return true; }
+  return false;
+}
+
 function flush() {
   flushTimer = null;
   const patch = pendingPatch;
@@ -31,6 +66,7 @@ function flush() {
   if (Object.keys(patch).length === 0) return;
 
   // Sériově za předchozím zápisem — ne souběžně s ním.
+  const pole = Object.keys(patch);
   writeChain = writeChain.then(async () => {
     try {
       const { data } = await supabase.auth.getUser();
@@ -42,6 +78,11 @@ function flush() {
     } catch {
       // Tichý neúspěch — appka žije dál z localStorage, cloud dožene při
       // příštím úspěšném zápisu (další patch stejně přebije totéž pole).
+    } finally {
+      // Až teď začíná běžet ochranné okno: ozvěna vlastního zápisu přijde až
+      // po něm. Při neúspěchu je to o to důležitější — server naši změnu nemá
+      // a jeho hodnota by tu místní rovnou přebila.
+      ochranej(pole, Date.now() + OCHRANA_PO_ZAPISU_MS);
     }
   });
 }
@@ -53,8 +94,15 @@ function flush() {
  */
 export function queueHomeLayoutPatch(patch: Record<string, unknown>): void {
   pendingPatch = { ...pendingPatch, ...patch };
+  // Od téhle chvíle je místní kopie novější než cloud — i během čekání na flush.
+  ochranej(Object.keys(patch), Date.now() + DEBOUNCE_MS + OCHRANA_PO_ZAPISU_MS);
   if (flushTimer) clearTimeout(flushTimer);
   flushTimer = setTimeout(flush, DEBOUNCE_MS);
+}
+
+/** Jen pro testy — zapomene, co je rozepsané. */
+export function zapomenOchranu(): void {
+  cerstvaPole.clear();
 }
 
 // Pojistka: appka se dá na mobilu zavřít/přepnout kdykoli, i uprostřed těch

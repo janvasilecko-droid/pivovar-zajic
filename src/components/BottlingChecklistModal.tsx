@@ -1,9 +1,11 @@
 import { synchronizuj, ulozStav } from '../lib/checklistData';
+import { sZnackouKonce } from '../lib/konecStaceni';
 import { useState, useEffect } from 'react';
 import { Modal } from './ui';
 import { Check, CheckSquare, Lock, RotateCcw, ShieldCheck, Square, Unlock } from 'lucide-react';
 import { zavibruj } from '../lib/haptika';
 import { uloz } from '../lib/uloziste';
+import { businessDateISO } from '../lib/businessDate';
 
 type ChecklistItem = {
   id: string;
@@ -214,7 +216,7 @@ export function isMonthlyChecklistCompleteForDate(dateKey: string): boolean {
 }
 
 export function BottlingChecklistModal({ isOpen, onClose, dateStr, onApplyNote, blockCloseUntilStartDone, phase = 'start', initialCategory, showSkip }: Props) {
-  const dateKey = dateStr || new Date().toISOString().slice(0, 10);
+  const dateKey = dateStr || businessDateISO();
   const storageKey = 'bottling_checklist_' + dateKey;
 
   // Položky viditelné v aktuální fázi (jen příprava, konec stáčení nebo měsíční údržba).
@@ -257,9 +259,14 @@ export function BottlingChecklistModal({ isOpen, onClose, dateStr, onApplyNote, 
   // Zápis: stav v okně se překreslí hned, databáze i zrcadlo se dorovnají na
   // pozadí. Odznačené položky se schválně drží jako `false` (ne mazáním
   // klíče), aby ulozStav vědělo, co má z databáze odebrat.
+  // Spolu se stavem se ukládá odvozená značka „konec stáčení hotový"
+  // (lib/konecStaceni.ts) — podle ní pozná databáze, jestli má večer poslat
+  // připomínku na telefon. Jde do téže mapy, takže se při odškrtnutí zase
+  // sama zruší a nemůže se rozejít s tím, co je vidět v okně.
   const zapis = (next: Record<string, boolean>) => {
-    void ulozStav('lahve', dateKey, next);
-    return next;
+    const sZnackou = sZnackouKonce(DEFAULT_ITEMS, next);
+    void ulozStav('lahve', dateKey, sZnackou);
+    return sZnackou;
   };
 
   const toggleItem = (id: string) => {

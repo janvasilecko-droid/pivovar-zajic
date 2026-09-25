@@ -8,6 +8,7 @@ import { BottlingPlan, planLines, setPlanStatus, maKegovouCast, maLahvovouCast }
 import { IkonaSud } from '../components/ikony';
 import { chyba } from '../lib/toast';
 import { IkonaLahev } from '../components/ikony';
+import { businessDateISO } from '../lib/businessDate';
 
 type Props = {
   plans: BottlingPlan[];
@@ -135,7 +136,7 @@ function PlanItem({
 
 
 export function BottlingPlanBottler({ plans, beers, packages, isManager, onChanged, onFill, druh = 'lahve' }: Props) {
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = businessDateISO();
 
   const groups = useMemo(() => {
     // Stáčeč sudů nemá koukat na úkoly, které jsou čistě lahvové, a naopak —

@@ -1,7 +1,10 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { requireApprovedUser } from "../_shared/require-user.ts";
 import { normText, matchBeerId, matchPackageId } from "../_shared/beer-match.ts";
-import { normPlaceName, stripSenderName, resolvePlace } from "../_shared/place-match.ts";
+import { normPlaceName, stripSenderName, resolvePlace, odberatelZHistorie, wantsOwnOrder as textWantsOwnOrder } from "../_shared/place-match.ts";
+import { nactiHistorii } from "../_shared/historie-objednavek.ts";
+import { vypadaJakoVraceni } from "../_shared/vraceni-detekce.ts";
+import { jeVlastniHlaseniObjednavky } from "../_shared/vlastni-hlaseni-objednavky.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -380,6 +383,31 @@ Deno.serve(async (req: Request) => {
           continue;
         }
 
+        // ✅ Vlastní hlášení appky o vytvořené objednávce (whatsapp-send-order),
+        // ozvěnou vrácené jako from_me zpráva do téže skupiny — bez týhle
+        // pojistky by AI přečetla objednávku, kterou appka sama nahlásila,
+        // jako DALŠÍ novou objednávku a čekala by v Kontrole na potvrzení.
+        // Z provozu 24. 9. 2026: „uz se mi to stalo, ze ve vice obednavek
+        // sem potvrdil i obednavku vytvorenou aplikaci a pak sem ji tam
+        // mel 2x."
+        if (jeVlastniHlaseniObjednavky(message.message_text, !!message.from_me)) {
+          await safeUpdateMessage(
+            supabase,
+            message.id,
+            {
+              status: "ignored",
+              error_message: "Vlastní hlášení appky o už vytvořené objednávce — není to nová objednávka",
+            },
+            "pending"
+          );
+          results.push({
+            id: message.id,
+            status: "ignored",
+            reason: "own order confirmation echo",
+          });
+          continue;
+        }
+
         // Mark as processing — když se to nepodaří, zpráva zůstane 'pending'
         // a v této iteraci ji přeskočíme (zpracuje ji někdo příště).
         // Načteme CELOU předešlou konverzaci ze stejné skupiny/chatu (chat_id) před
@@ -471,13 +499,23 @@ Deno.serve(async (req: Request) => {
         let amendsMessageId: string | null = null;
         let amendedItems: { beer_name: string | null; package_label: string | null; quantity: number }[] = [];
         let amendedPlaceName: string | null = null;
+        // Citovaná zpráva, i když sama nezaložila objednávku (amendsOrderId
+        // zůstane null) — pořád může nést svého ROZPOZNANÉHO odběratele. Reply
+        // typu „60x0,5l. Grep a 40x0,5l. Citrón" na zprávu, kde byl odběratel
+        // napsaný, žádnou položku PŮVODNÍ objednávky nemění (není to doplnění
+        // ani oprava — je to VLASTNÍ, jinak znějící objednávka), takže
+        // amendsOrderId správně zůstává null. Ale bez odběratele z citace se
+        // založí jako „Neznámý odběratel", ačkoli appka přesně ví, na koho
+        // odpovídá (z provozu 17. 9. 2026: odpověď na Radkovu zprávu).
+        let quotedPlaceId: string | null = null;
+        let quotedPlaceName: string | null = null;
 
         if (message.quoted_text) {
           const q = normQuote(message.quoted_text);
           if (q.length >= 3) {
             const { data: drivejsi } = await supabase
               .from("whatsapp_incoming")
-              .select("id, created_at, message_text, imported_order_id")
+              .select("id, created_at, message_text, imported_order_id, parsed_place_id, parsed_place_name")
               .lt("created_at", message.created_at)
               .order("created_at", { ascending: false })
               .limit(200);
@@ -491,6 +529,8 @@ Deno.serve(async (req: Request) => {
             if (vybrany) {
               amendsMessageId = vybrany.id;
               amendsOrderId = vybrany.imported_order_id ?? null;
+              quotedPlaceId = vybrany.parsed_place_id ?? null;
+              quotedPlaceName = vybrany.parsed_place_name ?? null;
             }
           }
         }
@@ -498,19 +538,37 @@ Deno.serve(async (req: Request) => {
         if (amendsOrderId) {
           const { data: ord } = await supabase
             .from("orders")
-            .select("place_name, status, items:order_items(beer_name, package_label, quantity)")
+            .select("place_id, place_name, status, items:order_items(beer_name, package_label, quantity)")
             .eq("id", amendsOrderId)
             .maybeSingle();
           // Stornovanou objednávku nemá smysl upravovat.
           if (ord && ord.status !== "storno") {
             amendedPlaceName = ord.place_name ?? null;
             amendedItems = (ord.items ?? []) as any[];
+            // Skutečně založená objednávka je spolehlivější zdroj odběratele
+            // než rozpoznání jedné zprávy — přednost před quotedPlace* výš.
+            quotedPlaceId = ord.place_id ?? quotedPlaceId;
+            quotedPlaceName = ord.place_name ?? quotedPlaceName;
           } else {
             amendsOrderId = null;
           }
         }
 
         // Call the existing parse-order-text edge function
+        // 🧠 HISTORIE — co už víme z dřívějších objednávek.
+        // Posel posílá objednávky pořád pro tytéž hospody a hospoda bere pořád
+        // dokola totéž — to je v téhle skupině nejsilnější nápověda a AI ji
+        // dosud vůbec neviděla. Slouží jen k ROZHODNUTÍ MEZI VÝKLADY, nikdy
+        // k doplnění položek (viz _shared/historie-objednavek.ts).
+        //
+        // Dotazy jsou ve sdíleném modulu, ne tady: totéž potřebuje i „Přečíst
+        // znovu" v aplikaci (whatsappParser.ts) a dvě kopie se vždycky rozešly —
+        // právě proto celý _shared/ vznikl.
+        const { text: historieText, odberatele: historieOdberatelu } = await nactiHistorii(supabase, {
+          odesilatel: message.participant_name || message.sender_name,
+          kdy: message.created_at,
+        });
+
         const parseUrl = `${supabaseUrl}/functions/v1/parse-order-text`;
 
         const parseBody = {
@@ -520,10 +578,18 @@ Deno.serve(async (req: Request) => {
           places: places.map(p => p.name),
           aliases,
           placeAliases,
+          historie: historieText,
           // Když jde o úpravu, dostane AI SOUČASNÝ obsah objednávky a má vrátit
           // VÝSLEDNÝ stav po zapracování odpovědi — ne jen to, co je v odpovědi
           // napsané. Jinak by z „Bez summera" vyšla prázdná objednávka.
-          ...(amendsOrderId ? {
+          //
+          // Ale VRÁCENÍ piva („Vrací jednu plnou 30tku" jako odpověď na
+          // potvrzení objednávky) není úprava té objednávky — AI by z
+          // „SOUČASNÝ obsah, vrať výsledný stav" spočítala nesmysl (z provozu
+          // 21. 9. 2026: prázdné/nesmyslné parsed_items). amendsOrderId níž
+          // zůstává nastavený beze změny (posílá se s vrácením propojit),
+          // jen se s ním AI netváří jako s úpravou objednávky.
+          ...(amendsOrderId && !vypadaJakoVraceni(message.message_text) ? {
             amendOrder: {
               place_name: amendedPlaceName,
               items: amendedItems.map((i) => ({
@@ -615,10 +681,7 @@ Deno.serve(async (req: Request) => {
         // VÝJIMKA: když text zprávy říká "pro mě"/"mi"/"mně"/"pro mne" (objednávka
         // pro pisatele), je odběratelem PRÁVĚ odesílatel (jeho participant_name
         // nebo sender_name).
-        const wantsOwnOrder =
-          /(?:^|\s)pro\s+(?:m[eě]|mne|mn[eě])\b|(?:^|\s)(?:mi|mn[eě])\b|pro\s+sebe/i.test(
-            message.message_text
-          );
+        const wantsOwnOrder = textWantsOwnOrder(message.message_text);
         const senderNormPlace = normPlaceName(
           message.participant_name || message.sender_name
         );
@@ -631,6 +694,18 @@ Deno.serve(async (req: Request) => {
         // odběratele, který je napsaný uvnitř zprávy.
         const cleanTextForPlace = stripSenderName(
           message.message_text,
+          message.participant_name || message.sender_name
+        );
+
+        // ↩️ UKOTVENÍ jména smí vycházet i z CITOVANÉ zprávy. `matchPlaceSafely`
+        // požaduje, aby jméno bylo opravdu ve zprávě (jinak by ho AI mohla vymýlet)
+        // — jenže u ODPOVĚDI je odběratel napsaný v té zprávě, na kterou se
+        // odpovídá, ne v odpovědi samé. Bez tohohle „Radek: ..." v citaci a holyčké
+        // „60x0,5l. Grep" v odpovědi skončilo jako neznámý odběratel, i když AI
+        // „Radek" přečetla správně (z provozu 17. 9. 2026). Citace je skutečný text
+        // zprávy, ne vymyšlený text — ukotvit se o ni proto smí.
+        const ukotveniText = stripSenderName(
+          [message.message_text, message.quoted_text].filter(Boolean).join('\n'),
           message.participant_name || message.sender_name
         );
 
@@ -655,9 +730,47 @@ Deno.serve(async (req: Request) => {
         // od AI (viz resolvePlace v ../_shared/place-match.ts).
         const freeformCandidates = [firstItemPlaceName, topLevelPlaceName].filter(jePlatnyKandidat);
 
-        const resolved = resolvePlace(matchCandidates, freeformCandidates, cleanTextForPlace, places, placeAliases);
+        // "pro mě" bez jména v textu (typický případ): ukotvením není výskyt
+        // jména odesílatele v textu (to by skoro nikdy nebylo, jméno se naopak
+        // z textu odstraňuje), ale sama fáze "pro mě" — viz matchOwnOrderPlace
+        // v ../_shared/place-match.ts. Díky tomu odesílatel "Petr Bednář" najde
+        // odběratele "petr", i když se v textu zprávy vůbec nevyskytuje
+        // (z provozu 16. 9. 2026: "Lucka jede zitra do skoly... pro me prosim").
+        const ownOrderCandidate = wantsOwnOrder ? (message.participant_name || message.sender_name) : null;
+        const resolved = resolvePlace(matchCandidates, freeformCandidates, ukotveniText, places, placeAliases, ownOrderCandidate);
         parsedPlaceId = resolved.id;
         parsedPlaceName = resolved.name;
+
+        // ↩️ Zpráva sama žádného odběratele nejmenuje, ale je to ODPOVĚĎ na
+        // zprávu, která ho měla (viz quotedPlaceId/quotedPlaceName výš) —
+        // zdědit ho. Bez tohohle appka zprávu jako „60x0,5l. Grep a
+        // 40x0,5l. Citrón" v odpovědi na Radkovu objednávku založila jako
+        // Neznámého odběratele, i když appka přesně ví, komu ta odpověď
+        // patří (z provozu 17. 9. 2026). Vlastní odběratel v téhle zprávě
+        // (matchCandidates) má vždy přednost — zdědění platí jen jako záloha.
+        if (!parsedPlaceId && !parsedPlaceName && !wantsOwnOrder && (quotedPlaceId || quotedPlaceName)) {
+          parsedPlaceId = quotedPlaceId;
+          parsedPlaceName = quotedPlaceName;
+        }
+
+        // 🧠 Ani text, ani citace odběratele neurčily — poslední nápověda je
+        // HISTORIE. Prompt (ODBERATEL_A_HISTORIE v ../_shared/order-rules.ts) AI
+        // říká, že v takovém případě má vzít odběratele, pro kterého tenhle
+        // odesílatel objednává pořád — a `odberatelZHistorie` pak ověří, že to
+        // jméno v jeho historii OPRAVDU je. Co AI vrátí mimo ten seznam, se
+        // zahodí: objednávka u špatného zákazníka je horší než neznámý odběratel.
+        if (!parsedPlaceId && !parsedPlaceName && !wantsOwnOrder && historieOdberatelu.length > 0) {
+          const zHistorie = odberatelZHistorie(
+            [firstItemPlaceName, topLevelPlaceName],
+            historieOdberatelu,
+            places,
+            placeAliases,
+          );
+          if (zHistorie.id || zHistorie.name) {
+            parsedPlaceId = zHistorie.id;
+            parsedPlaceName = zHistorie.name;
+          }
+        }
 
         // Extract delivery day/date from message text — nejdřív konkrétní datum
         // (např. "25.8." → objednávka se přesune do týdne 25.8.), pak zítra/dnes,
@@ -792,6 +905,15 @@ Deno.serve(async (req: Request) => {
             parsed_note: note,
             parsed_raw_text: parseResult.raw_text || null,
             parsed_items: itemsForStorage,
+            // ❓ Otázky AI k téhle zprávě — uklidí se do kontroly objednávky,
+            // ať obsluha ví, co si model nebyl jistý, místo aby to uhádl.
+            // POZOR na název proměnné: odpověď z parse-order-text je
+            // `parseResult`. Od 18. 9. 2026 tu stálo `parsedData`, což v téhle
+            // funkci neexistuje — každá zpráva tak spadla na ReferenceError
+            // („parsedData is not defined"), skončila ve stavu 'error' a
+            // musela se číst ručně. Nezachytil to ani typescript (funkce se
+            // nekontrolují s appkou), ani test — proto `deno check` v CI.
+            parsed_otazky: Array.isArray(parseResult?.otazky) ? parseResult.otazky : [],
             // U fotoobjednávek nemá kontrola čtení (diff popisku zprávy vs.
             // přepisu fotky) smysl — popisek typu "Maneo" nikdy neobsahuje
             // text položek, takže by vždy hlásil nesoulady. Tam kontrolu

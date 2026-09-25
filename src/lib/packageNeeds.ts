@@ -1,7 +1,9 @@
 // ⚙️ Sdílený výpočet potřeby stáčení podle druhu obalu — „co je potřeba stočit".
 // ---------------------------------------------------------------------------
-// Stejná logika pro KEGy (kegNeeds.ts) i lahve (BottlingScreen.tsx „Lahve k
-// dotočení tento týden"), jen parametrizovaná podle druhu obalu. Sestaví
+// Parametrizovaná podle druhu obalu (isTargetPkg) — dnes ji používá jen
+// BottlingScreen.tsx („Lahve k dotočení tento týden") pro lahve. KEGy
+// obdobnou týdenní tabulku nemají — mají jen denní plán (keggingPlan.ts).
+// Sestaví
 // řádek pivo × obal s těmito sloupci (VŠE ZA AKTUÁLNÍ TÝDEN, od pondělí do
 // teď — ne za celý měsíc):
 //   • invQty      – sklad v PONDĚLÍ RÁNO (počátek týdne): počáteční stav
@@ -87,7 +89,12 @@ function resolveKegsUsed(
   return null;
 }
 
-export function computePackageNeeds(input: PackageNeedsInput, isTargetPkg: (kind: string) => boolean): PackageNeedsRow[] {
+/**
+ * `isTargetPkg` dostává `kind` I `label` — `kind` sám nestačí, obal „KEG 30l"
+ * bez vyplněného druhu jinak propadne mezi lahve (viz jeSud v inventoryFix.ts
+ * a stejná oprava v keggingPlan.ts, z provozu 18. 9. 2026).
+ */
+export function computePackageNeeds(input: PackageNeedsInput, isTargetPkg: (kind: string, label?: string | null) => boolean): PackageNeedsRow[] {
   const {
     beers,
     packages,
@@ -108,7 +115,7 @@ export function computePackageNeeds(input: PackageNeedsInput, isTargetPkg: (kind
 
   const akceOutRows = flattenAkceNet(akceRows);
 
-  const targetPkgIds = new Set(packages.filter((p) => isTargetPkg(p.kind)).map((p) => p.id));
+  const targetPkgIds = new Set(packages.filter((p) => isTargetPkg(p.kind, p.label)).map((p) => p.id));
 
   // Pondělí aktuálního týdne — hranice mezi "sklad na začátku týdne" a
   // "pohyby tento týden".
@@ -118,10 +125,17 @@ export function computePackageNeeds(input: PackageNeedsInput, isTargetPkg: (kind
 
   // Objednávky v AKTUÁLNÍM TÝDNU — VŠECHNY (i už zavezené), ať je vidět
   // celková týdenní potřeba na středu/čtvrtek/pátek zavoz, ne jen zbytek.
+  //
+  // ⚠️ Vyřízené (`jeVyrizena()`) se dřív vynechávaly — jenže jejich odpočet
+  // závozu se níž (`weekEndBezZavozuMap`) vrací do skladu, takže vyřízená
+  // objednávka z poptávky zmizela a její kusy se ve skladu objevily znovu:
+  // sklad, který neexistuje. Poptávka i vrácení odpočtů se teď týkají
+  // stejných objednávek (všech kromě storna) — stejně jako v keggingPlan.ts
+  // a bottlingNeeds.ts (oprava z 24. 9. 2026).
   const activeOrderIds = new Set(
     orders
       .filter((o) => {
-        if (o.status === 'storno' || o.status === 'vyrizeno' || o.status === 'vyrizeno_zavoz') return false;
+        if (o.status === 'storno') return false;
         const targetDate = o.delivery_date || o.order_date;
         return isThisWeek(targetDate);
       })
@@ -217,16 +231,18 @@ export function computePackageNeeds(input: PackageNeedsInput, isTargetPkg: (kind
       // Sklad ukazoval −12, tady stála nula a dvě obrazovky tvrdily o tomtéž
       // pivu něco jiného. Schodek je platná odpověď a patří na oči.
       //
-      // Pozor na rozdíl: u `neededQty` níž se ořezává DÁL a je to správně —
-      // schodek z evidence nemá nafukovat, kolik se má stočit (viz komentář
-      // v keggingPlan.ts). Tady jde jen o zobrazený stav.
+      // Totéž platí i pro `neededQty` níž (oprava z 24. 9. 2026). Dřív se
+      // tam sklad ořezával na nulu — a když byl v mínusu, stočení ho jen
+      // posouvalo blíž k nule a „chybí" se nepohnulo („potřeby stáčení
+      // neodečítají stočené piva"). Plán sudů (keggingPlan.ts) záporný sklad
+      // jako dluh počítá už od 15. 9.; lahve teď taky.
       const stockQty = Number(weekEndStockMap[k] || 0);
       const orderedQty = Number(orderedMap[k] || 0);
       // Kolik ještě chybí dotočit do konce týdne — porovnává CELKOVOU
       // týdenní poptávku (orderedQty, viz výše) s tím, co bylo k dispozici
       // BEZ odečtení zavezených (ty už jsou v orderedQty zahrnuté jako
       // součást poptávky, viz komentář u weekEndBezZavozuMap).
-      const neededQty = Math.max(0, orderedQty - Math.max(0, Number(weekEndBezZavozuMap[k] || 0)));
+      const neededQty = Math.max(0, orderedQty - Number(weekEndBezZavozuMap[k] || 0));
 
       // `stockQty !== 0`, ne `> 0`: položka v mínusu je zrovna ta, kterou je
       // potřeba vidět. S ořezáváním na nulu se z výpisu tiše vypadla.

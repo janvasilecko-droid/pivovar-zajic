@@ -10,3 +10,15 @@ export function zjistiStrankuZUrl(search: string, platneStranky: ReadonlySet<str
   const p = new URLSearchParams(search).get('page');
   return p && platneStranky.has(p) ? p : null;
 }
+
+/**
+ * Má se po otevření rovnou ukázat checklist konce stáčení?
+ *
+ * Připomínka v 16:00 a 18:00 (migrace 20261231140000) posílá
+ * `?page=bottling&checklist=konec` — zadání znělo „upozornit na telefon
+ * a tabulku k vyplnění checklistu", takže samotné přepnutí obrazovky nestačí.
+ * Jiné hodnoty se ignorují, ať adresa z cizího zdroje nic neotevírá.
+ */
+export function jeChecklistKonceZUrl(search: string): boolean {
+  return new URLSearchParams(search).get('checklist') === 'konec';
+}

@@ -1,10 +1,12 @@
 import { synchronizuj } from '../lib/checklistData';
+import { jeSud } from '../lib/inventoryFix';
 import { useEffect, useMemo, useState, lazy, Suspense } from 'react';
-import { supabase, Beer, Package, EntryRow, CellarTank, KegPrefuk, useRealtime, beerBg, beerName, formatPackageLabel, fetchAllRows } from '../lib/supabase';
+import { supabase, Beer, Package, EntryRow, CellarTank, KegPrefuk, useRealtime, beerBg, beerText, beerName, formatPackageLabel, fetchAllRows } from '../lib/supabase';
+import { davkyStaceni, denACesky } from '../lib/prehledStaceni';
 import { useAuth } from '../lib/auth';
 import { KeggingChecklistModal, KeggingChecklistBody, isStartChecklistCompleteForKeg, isMonthlyChecklistCompleteForKeg } from '../components/KeggingChecklistModal';
 import { autoLogKegSanitationFromChecklist, isLastWeekOfMonth } from '../lib/kegSanitation';
-import { getMonthKey, writeMonthlyCleanupStage, isMonthlyLineDone, markMonthlyLineDone } from '../lib/monthlyCleanup';
+import { cleanupMonthKey, writeMonthlyCleanupStage, isMonthlyLineDone, markMonthlyLineDone } from '../lib/monthlyCleanup';
 import { businessDateISO } from '../lib/businessDate';
 import { EmptyState, Spinner, Modal } from '../components/ui';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
@@ -19,19 +21,25 @@ import { markPlanSeenAt, type BottlingPlan } from '../lib/bottlingPlans';
 import KeggingDayPlan from '../components/KeggingDayPlan';
 import { AlertTriangle, BarChart3, Beer as BeerIcon, Brush, CalendarDays, Camera, Check, ClipboardList, Minus, Package as PackageIcon, PenLine, Pencil, Play, Plus, RefreshCw, Scroll, Sparkles, Trash2, X } from 'lucide-react';
 import { BeerTileGrid, BeerTilePanel } from '../components/BeerTileGrid';
-import { chyba, potvrd, toastZpet } from '../lib/toast';
+import { chyba, potvrd, toastZpet, uspech } from '../lib/toast';
 import { nejvetsiTank, radkyBezTanku, tankRadku, tankyProPivo } from '../lib/tankUZapisu';
 import { podezreleMnozstvi } from '../lib/kontrolaZadani';
 import { IkonaSud } from '../components/ikony';
 import { PrepinacObdobi } from '../components/PrepinacObdobi';
+import { ChipyPiva, ChipyObalu } from '../components/FiltrPivaAObalu';
 import { zavibruj } from '../lib/haptika';
 import { consumeKegFixRequest } from '../lib/stockFixSignal';
 import { klicVyberu, nactiNaposled, zapamatujVyber, serazPodleNaposled } from '../lib/naposledyPouzite';
 import { usePosledniNacteni, prvniChyba } from '../lib/nacitani';
 import type { RadekPohybu, RadekZavozu } from '../lib/stockLedger';
+import { zbytekKeKonciTydne } from '../lib/tydenniZbytek';
 import { soucetUlozenehoDnes } from '../lib/jizUlozeno';
 import { jeMesicUzamcen } from '../lib/mesicUzamcen';
-import { jeZeZaskrtnuti } from '../lib/staceniZPolozky';
+import { puvodZapisu, vlastniPoznamka } from '../lib/puvodZapisu';
+import { dopsaneZaskrtnutim, smazZaznamyStaceni } from '../lib/staceniZPolozky';
+import { zapamatujPozici } from '../lib/drzPozici';
+import { jeChecklistKonceZUrl } from '../lib/vstupniStranka';
+import { nejcastejsiMnozstvi } from '../lib/quickQty';
 
 // Stahuje se až při otevření — viz komentář u lazy() v Orders.tsx.
 const ImportKeggingFromImage = lazy(() => import('../components/ImportKeggingFromImage').then((m) => ({ default: m.ImportKeggingFromImage })));
@@ -41,20 +49,34 @@ type RowInput = { beerId: string; pkgId: string; qty: string; tankId: string };
 const emptyItem = (): RowInput => ({ beerId: '', pkgId: '', qty: '', tankId: '' });
 const emptyRows = (): RowInput[] => Array.from({ length: ROW_COUNT }, emptyItem);
 
-// Rychlé hodnoty počtu sudů v rozbalovacím poli (6/12/18/24/30/36 ks)
+// Záložní hodnoty počtu sudů — použijí se, jen když se dané pivo v tomhle
+// obalu ještě nestáčelo dost na to, aby se daly spočítat tři nejčastější
+// (lib/quickQty.ts). Do 22. 9. 2026 tahle čtveřice platila pro všechna piva
+// bez rozdílu, i když se konkrétní pivo stáčelo pokaždé po deseti.
 const QUICK_KEG_QTY = [6, 12, 18, 24];
 
 export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: { setPage?: (p: any, sec?: string, sub?: string) => void; mode?: 'entry_only' | 'overviews_only' | 'all'; initialSubTab?: string } = {}) {
   const [rows, setRows] = useState<EntryRow[]>([]);
   // Jen pro varování „tenhle měsíc je už napočítaný" (lib/mesicUzamcen.ts) —
   // viz add() níž.
-  const [inventoryRows, setInventoryRows] = useState<{ entry_date: string; note: string | null }[]>([]);
+  const [inventoryRows, setInventoryRows] = useState<{ entry_date: string; note: string | null; beer_id?: string | null; package_id?: string | null; quantity?: number }[]>([]);
+  // Skutečná zásoba skladem pro `keggingPlan.ts` (currentStockMap, viz komentář
+  // tam) — bez akce/dorovnání by zásoba vyšla vyšší, než ve skutečnosti je.
+  const [akceRows, setAkceRows] = useState<any[]>([]);
+  const [adjustmentRows, setAdjustmentRows] = useState<any[]>([]);
   // Úkoly zadané sládkem/šéfem (tabulka bottling_plans). Dřív je viděli jen
   // stáčeči lahví — u sudů se zadaná práce nikde neukazovala, i když v úkolu
   // sudová část byla.
   const [plany, setPlany] = useState<BottlingPlan[]>([]);
   const [cellarTanks, setCellarTanks] = useState<CellarTank[]>([]);
   const [beers, setBeers] = useState<Beer[]>([]);
+  // Jen pro jméno piva v plánu stáčení (computeKeggingPlan) — `beers` výš je
+  // záměrně jen AKTIVNÍ piva (výběr v zadávání nesmí nabízet vyřazené pivo).
+  // Objednávka na pivo, které se mezitím v katalogu vypnulo, ale pořád může
+  // ležet nestočená — bez tohohle seznamu by ji plán uměl jen tiše spočítat
+  // do součtu „zbývá stočit", ale ukázat by ji uměl jen jako "Neznámé pivo",
+  // takže by nešlo poznat, o co jde (z provozu 15. 9. 2026: „20l nevím co je").
+  const [vsechnaPivaJmena, setVsechnaPivaJmena] = useState<{ id: string; name: string }[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingRow, setEditingRow] = useState<EntryRow | null>(null);
@@ -88,7 +110,23 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   const [checklistInitialCategory, setChecklistInitialCategory] = useState<string | null>(null);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
 
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  // 🔔 Příchod z večerní připomínky (push v 16:00/18:00, viz migrace
+  // 20261231140000): `?checklist=konec` v adrese otevře rovnou tabulku
+  // k vyplnění, ne jen obrazovku. Parametr se hned uklidí, ať se okno
+  // neotevře znovu po obnovení stránky.
+  useEffect(() => {
+    if (!jeChecklistKonceZUrl(window.location.search)) return;
+    setChecklistPhase('end');
+    setChecklistGate(false);
+    setShowChecklistModal(true);
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('checklist');
+      window.history.replaceState(window.history.state, '', url);
+    } catch { /* adresa se nedala upravit — okno se prostě otevře znovu */ }
+  }, []);
+
+  const [date, setDate] = useState(businessDateISO());
   const [note, setNote] = useState('');
 
   const [entryRows, setEntryRows] = useState<RowInput[]>(emptyRows());
@@ -138,7 +176,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   const [writeoffsRows, setWriteoffsRows] = useState<RadekPohybu[]>([]);
   const [zavozDeductionRows, setZavozDeductionRows] = useState<RadekZavozu[]>([]);
   // Jen kvůli poli kegs_used (KEGy spotřebované jako zdroj stáčení lahví) —
-  // viz komentář u KegNeedsInput.bottlingRows v kegNeeds.ts.
+  // stockLedger.ts z něj počítá pohyb 'sud_na_lahve' (viz resolveKegsUsed).
   const [bottlingRows, setBottlingRows] = useState<RadekPohybu[]>([]);
   // Ruční odškrtnutí v plánu stáčení — pracovní pomůcka, ne evidence stáčení.
   const [planCheckRows, setPlanCheckRows] = useState<any[]>([]);
@@ -147,7 +185,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
 
   // Přefuk KEG sudů (přelití ze sudů jedné velikosti do jiných)
   const [prefukRows, setPrefukRows] = useState<KegPrefuk[]>([]);
-  const [pfDate, setPfDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [pfDate, setPfDate] = useState(() => businessDateISO());
   const [pfBeerId, setPfBeerId] = useState('');
   const [pfFromPkgId, setPfFromPkgId] = useState('');
   const [pfFromCount, setPfFromCount] = useState('');
@@ -162,9 +200,9 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   // Výchozí je TÝDEN — v jednom dni často není nic stočené (stáčí se v cyklech),
   // takže „den" by se otvíral prázdný. Den a měsíc jsou o klik vedle.
   const [recordsView, setRecordsView] = useState<'day' | 'week' | 'month'>('week');
-  const [recordsWeekKey, setRecordsWeekKey] = useState(() => isoWeekKey(new Date().toISOString().slice(0, 10)));
-  const [recordsMonthKey, setRecordsMonthKey] = useState(() => new Date().toISOString().slice(0, 7));
-  const [recordsDay, setRecordsDay] = useState(() => new Date().toISOString().slice(0, 10));
+  const [recordsWeekKey, setRecordsWeekKey] = useState(() => isoWeekKey(businessDateISO()));
+  const [recordsMonthKey, setRecordsMonthKey] = useState(() => businessDateISO().slice(0, 7));
+  const [recordsDay, setRecordsDay] = useState(() => businessDateISO());
   const [beerFilter, setBeerFilter] = useState('');
   const [recordPkgFilter, setRecordPkgFilter] = useState('');
   // Filtr piva a obalu pro souhrn "Stočeno KEG za týden" v záložce Zápis (nezávislý na beerFilter/recordPkgFilter v Přehledu).
@@ -173,10 +211,10 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
 
   // Posun měsíce o delta měsíců (vrací YYYY-MM)
 
-  const filteredRows = useMemo(() => {
-    // Minusové položky (ruční opravy přepočtu) se v přehledu stáčení
-    // nezobrazují — je to seznam toho, co se stočilo, ne účetní deník oprav.
-    let result = rows.filter((r) => Number(r.quantity) > 0);
+  // Období + pivo + obal — beze změny znaménka. Základ jak pro seznam
+  // (dál filtrovaný na kladné), tak pro součty (ty musí vidět i opravy).
+  const filtrObdobim = useMemo(() => {
+    let result = rows;
     if (recordsView === 'month') {
       result = result.filter((r) => r.entry_date?.startsWith(recordsMonthKey));
     } else if (recordsView === 'week') {
@@ -193,10 +231,89 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     return result;
   }, [rows, recordsView, recordsMonthKey, recordsWeekKey, recordsDay, beerFilter, recordPkgFilter]);
 
-  const [weekKey, setWeekKey] = useState(isoWeekKey(new Date().toISOString().slice(0, 10)));
+  const filteredRows = useMemo(
+    // Minusové položky (ruční opravy přepočtu z inventury) se v přehledu
+    // stáčení jako ŘÁDKY nezobrazují — je to seznam toho, co se stočilo, ne
+    // účetní deník oprav. Do SOUČTŮ ale patří (viz filtrObdobim výš) — jinak
+    // by „Celkem" po odečtu z inventury ukazovalo víc, než se doopravdy ve
+    // skladu vyrobilo. Z provozu 21. 9. 2026: „bez tech minusovych polozek
+    // to bude ukazovat spatny stoceny sud a lahve, musi se to odecitat uz ze
+    // zadanych dat, ne dat to zvlast jako polozky."
+    () => filtrObdobim.filter((r) => Number(r.quantity) > 0),
+    [filtrObdobim],
+  );
+
+  // businessDateISO(), NE new Date().toISOString() — ten je vždycky UTC.
+  // Kolem půlnoci pražského času (UTC je o 1–2 h pozadu) by vyšel jiný
+  // "dnešní" den, a v neděli večer/pondělí ráno rovnou jiný TÝDEN — přesně
+  // to způsobilo, že tahle obrazovka a plocha Domů (CoStocitOkno, která
+  // businessDateISO() už používala) ukazovaly plán za jiný týden a
+  // "zbývá stočit" se mezi nimi rozešlo (z provozu 15. 9. 2026).
+  const [weekKey, setWeekKey] = useState(isoWeekKey(businessDateISO()));
+
+  /**
+   * 🧹 Úklid řádků, které appka do stáčení dopsala sama po zaškrtnutí
+   * kapky „Stočeno" u objednávky. Zakládání je zrušené (18. 9. 2026), ale
+   * už vzniklé řádky leží v databázi dál a majitel je chtěl pryč.
+   *
+   * Mazání je natvrdo a nevrací se — proto se ptá a vyjmenuje, co zmizí.
+   */
+  /**
+   * 🚨 Řádky, které do stáčení dopsala appka sama po zaškrtnutí kapky
+   * „Stočeno" u objednávky. Zakládání je od 18. 9. 2026 zrušené, ale už
+   * vzniklé řádky leží v databázi dál.
+   *
+   * Počítá se TADY, ne uvnitř týdenní tabulky: tam to bylo schované
+   * v bloku `hidden md:block`, takže na telefonu se upozornění neukázalo
+   * vůbec a na počítači se k němu muselo dorolovat pod nadpis.
+   * Bere CELÝ seznam, ne jen zvolený týden — kdo je má uklidit, nemá je
+   * hledat po týdnech.
+   */
+  const dopsaneVse = useMemo(() => dopsaneZaskrtnutim(rows), [rows]);
+  const dopsaneKusu = useMemo(
+    () => dopsaneVse.reduce((a, r) => a + Number(r.quantity || 0), 0),
+    [dopsaneVse],
+  );
+  const [uklizim, setUklizim] = useState(false);
+  async function uklidDopsane(dopsane: typeof rows) {
+    // Do dialogu se výpis zkracuje — při dvaceti řádcích by potvrzovací
+    // tlačítko uteklo pod okraj obrazovky a nebylo by na co klepnout.
+    const MAX = 12;
+    const seznam = dopsane
+      .slice(0, MAX)
+      .map((r) => `\u2022 ${r.entry_date} — ${r.quantity}× ${r.package_label ?? ''} ${r.beer_name ?? ''}`)
+      .join('\n')
+      + (dopsane.length > MAX ? `\n\u2022 … a dalších ${dopsane.length - MAX}` : '');
+    const ok = await potvrd(
+      `Smazat ${dopsane.length} záznamů, které appka dopsala sama?\n\n${seznam}\n\n`
+      + 'Ze stáčení KEG zmizí nadobro. Objednávek se to netýká — zůstanou, jak jsou.',
+      { titulek: 'Smazat dopsané záznamy', potvrdit: `Smazat ${dopsane.length}`, nebezpecne: true },
+    );
+    if (!ok) return;
+    setUklizim(true);
+    const chybaMazani = await smazZaznamyStaceni(dopsane.map((r) => r.id));
+    setUklizim(false);
+    if (chybaMazani) { chyba('Smazání se nepovedlo: ' + chybaMazani); return; }
+    uspech(`Smazáno ${dopsane.length} záznamů.`);
+    load(true);
+  }
   const weekLabel = weekRange(weekKey).label;
 
-  const kegPackages = useMemo(() => packages.filter((p) => p.kind === 'keg').sort((a, b) => b.volume_l - a.volume_l), [packages]);
+  // Podle kindu i popisku: sud bez vyplněného `kind` by se jinak v KEGách
+  // vůbec nenabídl (a ve stáčení lahví by naopak přebýval) — viz jeSud.
+  const kegPackages = useMemo(() => packages.filter((p) => jeSud(p.kind, p.label)).sort((a, b) => b.volume_l - a.volume_l), [packages]);
+
+  // 🔢 Tři nejčastěji stáčené počty pro rozbalené pivo — pro každý obal
+  // zvlášť, z historie stáčení. Počítá se jednou za změnu historie, ne při
+  // každém překreslení panelu (ten se překresluje při každé změně počtu).
+  const rychlePoctyMapa = useMemo(() => {
+    const out = new Map<string, number[]>();
+    if (!expandedKegBeerId) return out;
+    for (const p of kegPackages) {
+      out.set(p.id, nejcastejsiMnozstvi(rows, expandedKegBeerId, p.id, QUICK_KEG_QTY));
+    }
+    return out;
+  }, [expandedKegBeerId, kegPackages, rows]);
 
   // Aktivní sklepní tanky (stáčí se z nich) — status active nebo emptying
   const activeCellarTanks = useMemo(() => cellarTanks.filter((t) => t.status === 'active' || t.status === 'emptying'), [cellarTanks]);
@@ -329,14 +446,16 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     const smiZapsat = zacniNacteni();
     if (!silent && !rows.length) setLoading(true);
     // 🚚 Co se tady načítá, se musí i používat. Do 5. 9. 2026 se tahaly
-    // navíc `inventory`, `inventory_adjustments` a `akce` — jejich výsledek
-    // se uložil do stavu, který nikdo nikdy nepřečetl. Byly to tři z
-    // sedmnácti dotazů při každém otevření obrazovky A při každém přenačtení
-    // z realtime, tedy i pokaždé, když někdo jiný cokoliv uložil.
-    const [kg, ct, b, p, ords, oi, fa, fp, wo, pf, zd, bt, pc, ukoly, inv] = await Promise.all([
+    // navíc `inventory`, `inventory_adjustments` a `akce` bez užitku a byly
+    // odstraněné — 15. 9. 2026 se vrátily zpátky, tentokrát se skutečně
+    // čtou (currentStockMap níž, pro plán „Co stočit" se skutečnou zásobou
+    // skladem, ne jen stočeným tento týden).
+    const [kg, ct, b, vsePiva, p, ords, oi, fa, fp, wo, pf, zd, bt, pc, ukoly, inv, ak, adj] = await Promise.all([
       fetchAllRows('kegging', '*').order('entry_date', { ascending: false }).order('created_at', { ascending: true }).order('id'),
       supabase.from('cellar_tanks').select('*').order('label'),
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
+      // Bez filtru na aktivní — jen jméno, pro plán stáčení (viz vsechnaPivaJmena výš).
+      supabase.from('beers').select('id,name'),
       supabase.from('packages').select('*').order('sort_order'),
       // delivery_day + place_name potřebuje denní plán stáčení (keggingPlan.ts):
       // bez delivery_day by všechny objednávky spadly na den podle delivery_date
@@ -354,9 +473,14 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
       fetchAllRows('bottling', 'entry_date,beer_id,package_id,quantity,kegs_used,kegs_used_package_id,source_volume_l,note,created_at'),
       fetchAllRows('kegging_plan_checks', 'week_key,day,beer_id,package_id,qty'),
       supabase.from('bottling_plans').select('*').order('planned_date'),
-      // Jen entry_date + note — na víc se `jeMesicUzamcen` neptá (viz níž
-      // v add()). Komentář výš platí dál: co se sem přidá, se musí i použít.
-      fetchAllRows('inventory', 'entry_date,note'),
+      // Beer_id/package_id/quantity navíc oproti `jeMesicUzamcen` potřebuje
+      // skladová kniha (currentStockMap níž) — počáteční stav zásoby.
+      fetchAllRows('inventory', 'entry_date,beer_id,package_id,quantity,note'),
+      // Akce a dorovnání zásoby — obojí potřebuje skladová kniha
+      // (lib/stockLedger.ts) pro currentStockMap, jinak by zásoba vyšla
+      // vyšší, než ve skutečnosti je (viz komentář u pool v keggingPlan.ts).
+      fetchAllRows('akce', 'entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
+      fetchAllRows('inventory_adjustments', 'beer_id,package_id,entry_date,quantity'),
     ]);
     // Mezitím mohlo začít novější načtení (realtime po cizím zápisu),
     // nebo už obrazovka není vidět. Výsledek se pak zahodí.
@@ -364,12 +488,15 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     // Selhaný dotaz se dřív tvářil jako prázdný seznam — `?? []` chybu
     // spolklo a obrazovka řekla „zatím žádné stočení", i když se jen
     // nepodařilo načíst. Teď se rozliší.
-    setChybaNacteni(prvniChyba(kg, ct, b, p, ords, oi));
+    setChybaNacteni(prvniChyba(kg, ct, b, vsePiva, p, ords, oi));
     setRows((kg.data as EntryRow[]) ?? []);
     setPlany((ukoly.data as BottlingPlan[]) ?? []);
     setInventoryRows((inv.data as { entry_date: string; note: string | null }[]) ?? []);
+    setAkceRows((ak.data as any[]) ?? []);
+    setAdjustmentRows((adj.data as any[]) ?? []);
     setCellarTanks((ct.data as CellarTank[]) ?? []);
     if (b.data) setBeers(b.data as Beer[]);
+    if (vsePiva.data) setVsechnaPivaJmena(vsePiva.data as { id: string; name: string }[]);
     if (p.data) setPackages(p.data as Package[]);
     if (ords.data) setOrders(ords.data);
     if (oi.data) setOrderItems(oi.data);
@@ -384,16 +511,45 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   }
   useEffect(() => { load(); }, []);
   // Odběr musí sedět s tím, co se načítá — jinak přenačítáme kvůli datům,
-  // která obrazovka nikde nepoužije. `inventory`, `inventory_adjustments`,
-  // `akce` a `akce_items` odsud vypadly spolu s dotazy na ně.
-  useRealtime(['kegging', 'cellar_tanks', 'beers', 'packages', 'orders', 'order_items', 'fasovani', 'fasovani_private', 'writeoffs', 'keg_prefuk', 'zavoz_deductions', 'bottling', 'kegging_plan_checks', 'inventory'], () => load(true));
+  // která obrazovka nikde nepoužije.
+  useRealtime(['kegging', 'cellar_tanks', 'beers', 'packages', 'orders', 'order_items', 'fasovani', 'fasovani_private', 'writeoffs', 'keg_prefuk', 'zavoz_deductions', 'bottling', 'kegging_plan_checks', 'inventory', 'akce', 'akce_items', 'inventory_adjustments'], () => load(true));
 
-  // 🗓️ Plán stáčení po dnech — „co stočit na středu". Na rozdíl od
-  // kegRequirements výše nestojí na měsíčním skladovém modelu, takže se do něj
-  // nepromítne schodek z minulých měsíců a čerstvé stáčení se odečte přesně
-  // o zapsané množství (viz lib/keggingPlan.ts).
+  // 📦 Skutečná zásoba skladem PRÁVĚ TEĎ — ze skladové knihy, ne jen ze
+  // stočení tohoto týdne. Z provozu 15. 9. 2026: „mám na skladě 9× 30l,
+  // appka mi stejně píše, že musím stočit další" (a předtím totéž u Němců,
+  // viz keggingPlan.ts).
+  //
+  // ⚠️ VČETNĚ zavozDeductionRows — musí to být totéž číslo, jaké ukazuje
+  // Sklad (stav PO odvozu). Do 22. 9. 2026 se tu odpočty závozu schválně
+  // vynechávaly, jenže ne jen za tento týden, ale za CELOU historii: fond
+  // pak obsahoval každý sud, který kdy odjel (změřeno: 100 stočených a
+  // 100 rozvezených → Sklad 0, fond 100) a plán svítil „pokryto" i u piva,
+  // které nikdo nestočil. Co už odjelo, se z poptávky vyřadí v
+  // keggingPlan.ts (`odectenoPolozky`), ne tím, že se to nechá v zásobě.
+  const currentStockMap = useMemo(() => zbytekKeKonciTydne({
+    inventoryRows,
+    bottlingRows,
+    keggingRows: rows,
+    fasovaniRows,
+    prodejnaRows,
+    writeoffsRows,
+    akceRows,
+    prefukRows,
+    adjustmentRows,
+    packages,
+    // Skutečná zásoba = stav PO odvozu, stejné číslo jako ukazuje Sklad.
+    // Bez odpočtů závozu tu fond obsahoval každý sud, který kdy odjel
+    // (viz smlouva u currentStockMap v lib/keggingPlan.ts).
+    zavozDeductionRows,
+  }, businessDateISO()), [inventoryRows, bottlingRows, rows, fasovaniRows, prodejnaRows, writeoffsRows, akceRows, prefukRows, adjustmentRows, packages, zavozDeductionRows]);
+
+  // 🗓️ Plán stáčení po dnech — „co stočit na středu". Poptávka (objednávky)
+  // se dál řídí jen tímhle týdnem — schodek z minulých měsíců se do ní
+  // nepromítne. Nabídka (currentStockMap výš) ale JE skutečná zásoba
+  // skladem, ne jen stočení tohoto týdne — jinak appka tvrdila „chybí
+  // stočit", i když toho bylo dost na skladě (viz lib/keggingPlan.ts).
   const keggingPlan = useMemo(() => computeKeggingPlan({
-    beers,
+    beers: vsechnaPivaJmena,
     packages,
     orders,
     orderItems,
@@ -404,26 +560,82 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     writeoffsRows,
     checkRows: planCheckRows,
     weekKey,
-  }), [beers, packages, orders, orderItems, rows, zavozDeductionRows, fasovaniRows, prodejnaRows, writeoffsRows, planCheckRows, weekKey]);
+    currentStockMap,
+  }), [vsechnaPivaJmena, packages, orders, orderItems, rows, zavozDeductionRows, fasovaniRows, prodejnaRows, writeoffsRows, planCheckRows, weekKey, currentStockMap]);
 
-  const planMissingTotal = useMemo(() => keggingPlan.reduce((s, p) => s + p.totalMissing, 0), [keggingPlan]);
+  // ✍️ TENTÝŽ plán, ale BEZ ručního odškrtnutí — „kolik je doopravdy stočeno".
+  //
+  // Odškrtnutí („Mám všech X") je pracovní pomůcka v plánu, ne evidence
+  // stáčení. Jenže jelo do JEDNOHO společného plánu, ze kterého čte i
+  // ZAPISOVÁNÍ stáčení — takže po odškrtnutí appka i při zadávání tvrdila,
+  // že je stočeno. Z provozu 22. 9. 2026: „teď zadávám stáčení a ukazuje mi
+  // to, že už to je stočený… ale není, teď jsem to teprv stočil."
+  //
+  // Odškrtnutí proto nově platí JEN v plánu „Co stočit na který den"
+  // (komponenta KeggingDayPlan, která dál dostává `keggingPlan`). Všechno
+  // ostatní — štítky u piv, dlaždice „Zbývá stočit tento týden", odznaky dnů
+  // v panelu zápisu — počítá z tohohle plánu, tedy ze skutečného stočení a
+  // skutečné zásoby.
+  const keggingPlanSkutecny = useMemo(() => computeKeggingPlan({
+    beers: vsechnaPivaJmena,
+    packages,
+    orders,
+    orderItems,
+    keggingRows: rows,
+    zavozDeductionRows,
+    fasovaniRows,
+    prodejnaRows,
+    writeoffsRows,
+    checkRows: [],
+    weekKey,
+    currentStockMap,
+  }), [vsechnaPivaJmena, packages, orders, orderItems, rows, zavozDeductionRows, fasovaniRows, prodejnaRows, writeoffsRows, weekKey, currentStockMap]);
 
-  // 🔴 Totéž „chybí stočit" po pivech pro štítek na dlaždici v Zápisu — ať je
-  // vidět bez přepínání na záložku „Potřeba stočit". Viz komentář u
-  // BeerTileGrid.missingFor.
-  const missingByBeer = useMemo(() => {
-    const m: Record<string, number> = {};
-    keggingPlan.forEach((den) => den.items.forEach((it) => { m[it.beer_id] = (m[it.beer_id] || 0) + it.missing; }));
-    return m;
-  }, [keggingPlan]);
+  const planMissingTotal = useMemo(() => keggingPlanSkutecny.reduce((s, p) => s + p.totalMissing, 0), [keggingPlanSkutecny]);
 
-  // 🛢️ Rozpad „zbývá stočit tento týden" podle VELIKOSTI SUDU, přes všechna
-  // piva — z provozu 9. 9. 2026: součet přes všechny velikosti na dlaždici
-  // („55") nic neřekne o tom, co reálně nachystat, protože sčítá padesátky
-  // s desítkami. Stejný výpočet jako „Zbývá stočit po sudech" v „Co stočit
-  // na který den" (KeggingDayPlan.tsx), jen nad zápisem.
-  const weekPlanKeg = useMemo(() => mergeWeekPlan(keggingPlan, weekLabel), [keggingPlan, weekLabel]);
+  // ⚖️ JEDEN výpočet pro všechno — z provozu 16. 9. 2026: „udělej to tak, ať
+  // to logicky všechno sedí“. Dlaždice „Zbývá stočit tento týden“, červené
+  // štítky u piv i plán „Co je potřeba stočit“ jedou ze STEJNÉHO týdenního
+  // plánu (keggingPlan), který počítá se skutečnou zásobou skladem
+  // (currentStockMap). Do 16. 9. tu byl druhý, zjednodušený vzorec a každé
+  // místo v appce hlásilo jiné číslo: „když mám na skladě 11×30, nemůže mi
+  // přece chybět 5×30“.
+  const weekPlanKeg = useMemo(() => mergeWeekPlan(keggingPlanSkutecny, weekLabel), [keggingPlanSkutecny, weekLabel]);
+  // Rozpad podle VELIKOSTI obalu, přes všechna piva — součet přes všechny
+  // velikosti („55“) neřekne, co reálně nachystat (z provozu 9. 9. 2026).
   const rozpadTydneKeg = useMemo(() => rozpadPoObalech(weekPlanKeg), [weekPlanKeg]);
+  // Rozklik jedné velikosti na jednotlivá piva — táž data, takže součet piv
+  // v rozkliku vyjde přesně na číslo na dlaždici.
+  const rozpisTydneKegPodlePiv = useMemo(() => weekPlanKeg.items
+    .filter((it) => it.missing > 0)
+    .map((it) => ({ beer_id: it.beer_id, package_id: it.package_id, missing: it.missing }))
+    .sort((a, z) => z.missing - a.missing), [weekPlanKeg]);
+  // 🏷️ „Chybí stočit" po pivech, rozepsané po VELIKOSTI SUDU — pro štítek na
+  // dlaždici v Zápisu. Nahrazuje jedno sečtené číslo („12"), které sčítalo
+  // desítky s padesátkami a neřeklo, čeho se to vlastně týká — z provozu
+  // 15. 9. 2026: „napiš vždy obal a počet chybějících", stejný nápad jako u
+  // lahví (BottlingScreen.tsx, missingBreakdownByBeer).
+  // ⚖️ Počítá se ZJEDNODUŠENÝM týdenním vzorcem (rozpisTydneKegPodlePiv), ne
+  // denním plánem — z provozu 16. 9. 2026: „to ukazuje 5 u 12ky, ale nahoře
+  // 12ka není“. Dlaždice „Zbývá stočit tento týden“ a červený štítek na pivu
+  // musí říkat totéž, jinak jedno z čísel lže.
+  const missingBreakdownByBeer = useMemo(() => {
+    const m: Record<string, { label: string; missing: number }[]> = {};
+    rozpisTydneKegPodlePiv.forEach((it) => {
+      if (it.missing <= 0) return;
+      const pkg = packages.find((p) => p.id === it.package_id);
+      (m[it.beer_id] ||= []).push({ label: (pkg?.label ?? '').trim(), missing: it.missing });
+    });
+    Object.values(m).forEach((arr) => arr.sort((a, z) => z.missing - a.missing));
+    return m;
+  }, [rozpisTydneKegPodlePiv, packages]);
+
+  /** Týdenní „chybí“ týmž zjednodušeným vzorcem, klíč `pivo__obal`. */
+  const tydenChybiPodleKlice = useMemo(() => {
+    const m: Record<string, number> = {};
+    rozpisTydneKegPodlePiv.forEach((it) => { m[`${it.beer_id}__${it.package_id}`] = it.missing; });
+    return m;
+  }, [rozpisTydneKegPodlePiv]);
   // Klik na velikost sudu v rozpadu rozklikne, kolik z toho je kterého piva
   // — z provozu: „ale když kliknu na 1l 100, tak by se mělo rozkliknout,
   // kolik jakého druhu". `weekPlanKeg.items` má už granularitu pivo+obal.
@@ -433,12 +645,12 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   // kusů tohohle piva chybí stočit konkrétně na pondělí, úterý…).
   const missingByBeerDay = useMemo(() => {
     const m: Record<string, Record<string, number>> = {};
-    keggingPlan.forEach((den) => den.items.forEach((it) => {
+    keggingPlanSkutecny.forEach((den) => den.items.forEach((it) => {
       const byDay = (m[it.beer_id] ||= {});
       byDay[den.day] = (byDay[den.day] || 0) + it.missing;
     }));
     return m;
-  }, [keggingPlan]);
+  }, [keggingPlanSkutecny]);
 
   // 🧾 Totéž, ale po KONKRÉTNÍM OBALU (ne jen souhrn za pivo) — a s rozpadem
   // po dnech, ať se z dlaždice dá rovnou zadat chybějící počet nebo odškrtnout
@@ -456,8 +668,12 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
       agg.checked += it.checked;
       agg.days.push({ day: den.day, ordered: it.ordered, missing: it.missing, checked: it.checked });
     }));
+    // Týden musí sednout s dlaždicí „Zbývá stočit tento týden“ (zjednodušený
+    // vzorec). Rozpad po DNECH zůstává z denního plánu — odpovídá na jinou
+    // otázku („na který den“), ale součet za týden se musí shodovat.
+    Object.entries(m).forEach(([k, agg]) => { agg.missing = tydenChybiPodleKlice[k] ?? 0; });
     return m;
-  }, [keggingPlan]);
+  }, [keggingPlan, tydenChybiPodleKlice]);
 
   // Otevření jiného piva (nebo zavření a otevření znovu) nastaví den zpátky
   // na nejbližší, kde ještě něco chybí — jinak by zůstal den vybraný pro
@@ -536,6 +752,25 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
 
     if (plan.druh === 'nic') { setErr(plan.duvod); return; }
 
+    // 🔒 Mění se OBJEDNÁVKA, ne jen plán — takže se appka zeptá a napíše,
+    // co přesně se v ní změní. Pravidlo od majitele (18. 9. 2026): „appka
+    // nesmí přidávat stáčení, objednávky, nebo odepisovat bez jasného povelu."
+    const kam = cilovyDen ? `na ${cilovyDen}` : 'mimo dny (bez termínu)';
+    const kolik = plan.druh === 'cely' ? 'celý řádek' : `${kusu} z ${Number(radek.quantity || 0)}`;
+    const potvrzeno = await potvrd(
+      `Přesunout ${kolik} — ${radek.beer_name ?? beers.find((b: any) => b.id === radek.beer_id)?.name ?? 'pivo'} `
+      + `${packages.find((p: any) => p.id === radek.package_id)?.label ?? ''} — ${kam}?\n\n`
+      + 'Změní to POLOŽKU OBJEDNÁVKY, nejen plán stáčení.',
+      { titulek: 'Upravit objednávku', potvrdit: 'Upravit objednávku' },
+    );
+    if (!potvrzeno) return;
+
+    // Ať obrazovka po přesunu zůstane u položky, u které se klikalo — u
+    // částečného přesunu zbylý řádek jen zmenší počet (viz lib/drzPozici.ts).
+    // U přesunu celého řádku kotva sama zmizí a zapamatujPozici v tichosti
+    // nic nedělá — ani tak neuškodí.
+    const vratPozici = zapamatujPozici(`[data-plan-radek="${radek.beer_id}__${radek.package_id}"]`);
+
     if (plan.druh === 'cely') {
       const { error } = await supabase.from('order_items').update({ delivery_day: plan.delivery_day }).eq('id', plan.id);
       if (error) { setErr(`Přesun se nepodařil: ${error.message}`); return; }
@@ -549,10 +784,12 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
       if (chybaZmenseni) {
         setErr(`Přesunutá část se založila, ale původní řádek se nezmenšil (${chybaZmenseni.message}) — v objednávce je teď o ${plan.zalozit.quantity} ks víc, oprav to prosím v Objednávkách.`);
         await load(true);
+        vratPozici();
         return;
       }
     }
     await load(true);
+    vratPozici();
   }
 
   async function togglePlanCheck(day: string, beerId: string, pkgId: string, qty: number) {
@@ -564,7 +801,12 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
         { onConflict: 'week_key,day,beer_id,package_id' }
       );
     if (error) { setErr(`Odškrtnutí se nepodařilo uložit: ${error.message}`); return; }
+    // Ať obrazovka po odškrtnutí zůstane u položky, u které se klikalo — až
+    // odškrtnutá položka zezelená a schová tlačítka, obsah nad ní se
+    // scvrkne. Stejný vzor jako Sklad/Inventura, viz lib/drzPozici.ts.
+    const vratPozici = zapamatujPozici(`[data-plan-radek="${beerId}__${pkgId}"]`);
     await load(true);
+    vratPozici();
   }
 
   // (zrušeno — pivo se nevyplňuje automaticky z tanku)
@@ -944,6 +1186,20 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     const fromPkg = packages.find((p) => p.id === pfFromPkgId);
     const toPkg = packages.find((p) => p.id === pfToPkgId);
     const beer = beers.find((b) => b.id === pfBeerId);
+    // Nález z auditu 15. 9. 2026: zadání přefuku nekontrolovalo, že v obalu
+    // ZE opravdu tolik sudů je — skladová kniha ho klidně srazila do mínusu
+    // a chybu odhalil až Hloubkový audit, ne zadání samotné. Zápis dál
+    // nezakazujeme (viz stockLedger.ts — appka schválně nic neořezává), jen
+    // se předem zeptáme, ať to není omyl v počtu.
+    const kAvailable = `${pfBeerId}__${pfFromPkgId}`;
+    const available = currentStockMap?.get(kAvailable) ?? 0;
+    if (fromCount > available) {
+      const ok = await potvrd(
+        `Ve skladu je podle skladové knihy jen ${available} × ${fromPkg?.label ?? 'ten sud'} (${beer?.name ?? 'to pivo'}), ne ${fromCount}. Přefuk by sklad poslal do mínusu — opravdu pokračovat?`,
+        { titulek: 'Sklad na tohle nestačí', potvrdit: 'Ano, zapsat i tak' }
+      );
+      if (!ok) return;
+    }
     setPfSaving(true);
     setPfErr(null);
     const { error } = await supabase.from('keg_prefuk').insert({
@@ -966,7 +1222,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     setPfToPkgId('');
     setPfToCount('');
     setPfNote('');
-    setPfDate(new Date().toISOString().slice(0, 10));
+    setPfDate(businessDateISO());
     load(true);
   }
 
@@ -1077,6 +1333,50 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
           </div>
         )}
       </div>
+
+      {/* 🚨 ZÁZNAMY, KTERÉ APPKA DOPSALA SAMA.
+          Nahoře, červeně a na všech záložkách — předchozí podoba (žlutý pruh
+          uvnitř týdenní tabulky) byla v bloku `hidden md:block`, takže na
+          telefonu nebyla vůbec a na počítači se k ní muselo dorolovat.
+          Majitel: „udělej je nějak výrazněji". */}
+      {dopsaneVse.length > 0 && (
+        <div className="card border-2 border-rose-400 bg-rose-50 p-4 space-y-3">
+          <div className="flex items-start gap-2.5">
+            <AlertTriangle size={22} className="text-rose-600 shrink-0 mt-0.5" />
+            <div className="min-w-0">
+              <h3 className="font-display font-black text-rose-950 text-base sm:text-lg">
+                {dopsaneVse.length} záznamů ve stáčení nikdo nezapsal ({dopsaneKusu} ks)
+              </h3>
+              <p className="text-sm font-bold text-rose-900 mt-1">
+                Založila je appka sama po zaškrtnutí kapky „Stočeno" u objednávky.
+                Tohle už je zrušené — od teď „Stočeno" jen odškrtne položku a do
+                stáčení nezapisuje nic. Staré řádky ale leží v databázi dál a pletou
+                se do skladu.
+              </p>
+            </div>
+          </div>
+
+          <ul className="text-sm font-bold text-rose-900 bg-white/70 rounded border border-rose-200 p-2.5 space-y-1 max-h-60 overflow-y-auto scrollbar-thin">
+            {dopsaneVse.map((r) => (
+              <li key={r.id} className="flex items-center justify-between gap-2">
+                <span className="truncate">{r.beer_name} — {r.package_label}</span>
+                <span className="font-mono shrink-0">
+                  {r.quantity}× · {r.entry_date?.slice(8, 10)}.{r.entry_date?.slice(5, 7)}.
+                </span>
+              </li>
+            ))}
+          </ul>
+
+          <button
+            type="button"
+            className="btn-danger !rounded w-full sm:w-auto !min-h-[48px] text-sm font-black"
+            disabled={uklizim}
+            onClick={() => { void uklidDopsane(dopsaneVse); }}
+          >
+            <Trash2 size={16} /> {uklizim ? 'Mažu…' : `Smazat všech ${dopsaneVse.length} záznamů`}
+          </button>
+        </div>
+      )}
 
       {/* Export Excel a foto/hlas — schválně NEUKOTVENO (viz komentář u sticky lišty výše). */}
       <div className="flex items-center gap-1.5 flex-wrap">
@@ -1204,15 +1504,13 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
               {/* Rozklik jedné velikosti sudu na jednotlivá piva — „1l 100"
                   samo o sobě neřekne, kolik je kterého piva, tak se ptá znovu. */}
               {rozpadOtevrenPkg && (() => {
-                const rozpisPiv = weekPlanKeg.items
-                  .filter((it) => it.package_id === rozpadOtevrenPkg && it.missing > 0)
-                  .sort((a, z) => z.missing - a.missing);
+                const rozpisPiv = rozpisTydneKegPodlePiv.filter((it) => it.package_id === rozpadOtevrenPkg);
                 if (rozpisPiv.length === 0) return null;
                 return (
                   <ul className="mt-1.5 flex flex-wrap gap-1.5">
                     {rozpisPiv.map((it) => (
                       <li key={it.beer_id} className="px-2 py-1 rounded bg-neutral-50 border border-neutral-200 text-udaj font-bold text-neutral-700 whitespace-nowrap">
-                        {it.beer_name} <span className="font-black text-rose-600">{it.missing}</span>
+                        {beers.find((b) => b.id === it.beer_id)?.name ?? '—'} <span className="font-black text-rose-600">{it.missing}</span>
                       </li>
                     ))}
                   </ul>
@@ -1225,7 +1523,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
             <BeerTileGrid
               beers={serazPodleNaposled(beers.filter((b) => b.is_active), (b) => b.id, naposledPiva)}
               onSelect={(b) => { setNaposledPiva(zapamatujVyber(klicPiv, b.id)); setExpandedKegBeerId(b.id); }}
-              missingFor={(b) => missingByBeer[b.id] || 0}
+              missingBadgeFor={(b) => missingBreakdownByBeer[b.id] || []}
               summaryFor={(b) => {
                 const beerRows = entryRows.filter((r) => r.beerId === b.id && Number(r.qty) > 0);
                 if (beerRows.length > 0) {
@@ -1296,17 +1594,26 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                 const qty = tileQtyFor(expandedKegBeer.id, p.id);
                 const rowTanks = activeTanksForBeer(expandedKegBeer.id);
                 const currentTankId = entryRows.find((r) => r.beerId === expandedKegBeer.id && r.pkgId === p.id)?.tankId || '';
-                const quickQtys = QUICK_KEG_QTY;
+                const quickQtys = rychlePoctyMapa.get(p.id) ?? QUICK_KEG_QTY;
                 const fullPlan = planByKey[`${expandedKegBeer.id}__${p.id}`];
                 const dayEntry = tileDay !== 'tyden' ? fullPlan?.days.find((d) => d.day === tileDay) : undefined;
                 const plan = tileDay === 'tyden' ? fullPlan : (dayEntry && { ordered: dayEntry.ordered, missing: dayEntry.missing, checked: dayEntry.checked, days: [dayEntry] });
                 const cilovyDen = plan?.days.find((d) => d.missing > 0);
+                // 🔴 Chybí „naživo" — dřív se řádek zbarvil a psal „chybí"
+                // pořád stejné číslo, i když bylo množství už rozepsané v
+                // řádku (ale ještě neuložené). Z provozu 15. 9. 2026: „ve
+                // chvíli kdy zadám stočení, ještě ho neuložím, tak už
+                // odečítej, co zbývá" — odečte se rozepsané `qty`, dokud se
+                // fyzicky neuloží (add()), plan.missing samo zůstává beze
+                // změny (je to DB pravda).
+                const liveMissing = plan ? Math.max(0, plan.missing - qty) : 0;
                 // 🏷️ Barva celého řádku podle stavu — světle červená, když
                 // ještě něco chybí, světle zelená, když je objednávka
-                // pokrytá. Z provozu 9. 9. 2026: „ať to jde líp vidět".
+                // pokrytá (i rozepsaným, ještě neuloženým množstvím).
+                // Z provozu 9. 9. 2026: „ať to jde líp vidět".
                 const radekBarva = !plan || plan.ordered === 0
                   ? 'border-neutral-200 dark:border-neutral-700'
-                  : plan.missing > 0
+                  : liveMissing > 0
                   ? 'border-rose-200 bg-rose-50 dark:border-rose-800/60 dark:bg-rose-950/20'
                   : 'border-emerald-200 bg-emerald-50 dark:border-emerald-800/60 dark:bg-emerald-950/20';
                 // 🏭 Kolik z toho, co se právě zadává, jde NAD rámec objednávky
@@ -1370,12 +1677,12 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                           title="Zobrazit objednávky s touhle položkou"
                         >
                           Objednáno: <span className="font-black text-neutral-800">{plan.ordered}</span>
-                          {' '}· Chybí: <span className={`font-black ${plan.missing > 0 ? 'text-rose-600' : 'text-emerald-700'}`}>{plan.missing}</span>
+                          {' '}· Chybí: <span className={`font-black ${liveMissing > 0 ? 'text-rose-600' : 'text-emerald-700'}`}>{liveMissing}</span>
                           {naSklad > 0 && (
                             <> · Sklad: <span className="font-black text-sky-700">{naSklad}</span></>
                           )}
                         </button>
-                        {plan.missing > 0 && (
+                        {liveMissing > 0 && (
                           <div className="flex items-center gap-1.5">
                             <button
                               type="button"
@@ -1503,9 +1810,10 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
 
           {/* Stočeno KEG za týden — jednotlivé záznamy s +/−/✕ */}
           {rows.length > 0 && (() => {
-            // Minusové položky (ruční opravy) se nezobrazují — je to seznam
-            // stočeného, ne účetní deník oprav.
-            const weekRowsAll = rows.filter((r) => isoWeekKey(r.entry_date) === weekKey && Number(r.quantity) > 0);
+            const tydenVsechno = rows.filter((r) => isoWeekKey(r.entry_date) === weekKey);
+            // Minusové položky (ruční opravy z inventury) se jako ŘÁDKY
+            // nezobrazují — je to seznam stočeného, ne účetní deník oprav.
+            const weekRowsAll = tydenVsechno.filter((r) => Number(r.quantity) > 0);
             if (weekRowsAll.length === 0) return null;
             const weekRows = weekRowsAll.filter((r) =>
               (!weekBeerFilter || r.beer_id === weekBeerFilter) &&
@@ -1516,7 +1824,13 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
               if (dateCmp !== 0) return dateCmp;
               return (a.created_at ?? '').localeCompare(b.created_at ?? '') || a.id.localeCompare(b.id);
             });
-            const totalCount = sorted.reduce((s, r) => s + Number(r.quantity), 0);
+            // Celkem počítá z tydenVsechno (kladné i opravy) — bez toho by po
+            // odečtu z inventury „Celkem" ukazovalo víc, než se doopravdy
+            // vyrobilo. Z provozu 21. 9. 2026: „musi se to odecitat uz ze
+            // zadanych dat, ne dat to zvlast jako polozky."
+            const totalCount = tydenVsechno
+              .filter((r) => (!weekBeerFilter || r.beer_id === weekBeerFilter) && (!weekPkgFilter || r.package_id === weekPkgFilter))
+              .reduce((s, r) => s + Number(r.quantity), 0);
             const weekBeerIds = new Set(weekRowsAll.map((r) => r.beer_id));
             const weekBeers = beers.filter((b) => weekBeerIds.has(b.id));
             const weekPkgIds = new Set(weekRowsAll.map((r) => r.package_id));
@@ -1554,65 +1868,106 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                   </div>
                 </div>
 
-                {/* Mobilní karty — čitelné a ovladatelné bez vodorovného scrollování */}
+                {/* 📋 Jedna dlaždice na DEN a PIVO, barevná podle piva — stejný
+                    princip jako v „Všechny záznamy" níž (davkyStaceni).
+                    Zadání z 19. 9. 2026: „i v keg stáčení ať jsou dlaždice
+                    barevný podle piva, a pokud bude jeden den stočeno od
+                    jednoho druhu piva víc druhů velikostí, tak ať je to v
+                    jedný dlaždici." Dřív tu byl řádek na každý zápis zvlášť,
+                    i když šlo o stejné pivo stočené ten den do víc velikostí
+                    sudů. Upravovat se dál musí po jednotlivých obalech —
+                    každý je v databázi vlastní řádek. */}
                 <div className="grid grid-cols-1 gap-2.5 md:hidden">
-                  {sorted.map((r) => {
-                    const beer = beers.find((b) => b.id === r.beer_id);
-                    const pkg = packages.find((p) => p.id === r.package_id);
-                    const vol = pkg ? Number(pkg.volume_l) : 0;
-                    const isEditing = editingId === r.id;
+                  {davkyStaceni(sorted, (pkgId) => {
+                    const pkg = packages.find((p) => p.id === pkgId);
+                    return pkg ? Number(pkg.volume_l) : 0;
+                  }).map((davka, iDavky, vsechnyDavky) => {
+                    const beer = beers.find((b) => b.id === davka.beerId);
+                    // 📆 Záhlaví dne u PRVNÍ dávky daného dne. Den byl dosud jen drobným
+                    // písmem v rohu a pozadí karty nese BARVU PIVA, takže dny od sebe
+                    // nešlo rozeznat (z provozu 22. 9. 2026: „to PO ÚT je hrozně malý").
+                    // Barvu piva měnit nejde — je to informace sama o sobě — proto se
+                    // den odděluje vlastním pruhem přes celou šířku karty a sousední
+                    // dny se střídají v odstínu.
+                    const novyDen = iDavky === 0 || vsechnyDavky[iDavky - 1].datum !== davka.datum;
+                    const tmavsiDen = novyDen
+                      && new Set(vsechnyDavky.slice(0, iDavky + 1).map((d) => d.datum)).size % 2 === 1;
                     return (
-                      <div key={r.id} className="rounded border border-emerald-300/80 bg-white p-3 space-y-2.5">
-                        <div className="flex items-center gap-2">
-                          <span className="shrink-0 font-mono font-bold text-xs text-emerald-800">
-                            {r.entry_date ? r.entry_date.slice(8, 10) + '.' + r.entry_date.slice(5, 7) + '.' : '—'}
-                          </span>
-                          <span className="w-2.5 h-2.5 rounded-full shrink-0 border border-black/20" style={{ backgroundColor: beerBg(beer) }} />
-                          <span className="font-black text-sm text-emerald-950 truncate min-w-0">{r.beer_name ?? beer?.name ?? '—'}</span>
-                          <span className="shrink-0 text-xs font-bold text-emerald-700">{vol > 0 ? `KEG ${vol}L` : '—'}</span>
-                          <span className="ml-auto shrink-0">
-                            {isEditing ? (
-                              <div className="flex items-center gap-1.5">
-                                <input
-                                  type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} min="0" step="1" autoFocus
-                                  className="input text-base font-black w-16 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                  value={editQty}
-                                  onChange={(e) => setEditQty(e.target.value)}
-                                  onKeyDown={(e) => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') { setEditingId(null); setEditQty(''); } }}
-                                />
-                                <button type="button" onClick={saveEdit} aria-label="Uložit množství" title="Uložit množství" className="px-3 h-10 rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xs transition"><Check size={14} /></button>
-                                <button type="button" onClick={() => { setEditingId(null); setEditQty(''); }} aria-label="Zrušit úpravu" title="Zrušit úpravu" className="px-3 h-10 rounded bg-neutral-200 hover:bg-neutral-300 text-neutral-700 font-black text-xs transition"><X size={14} /></button>
-                              </div>
-                            ) : (
-                              <span className="font-display font-black text-xl text-emerald-950">{r.quantity} ks</span>
-                            )}
-                          </span>
+                      <div
+                        key={davka.klic}
+                        className="rounded-xl border border-black/10 p-2.5 space-y-2 shadow-xs"
+                        style={{ backgroundColor: beerBg(beer) }}
+                      >
+                        {novyDen && (
+                          <div
+                            className={`-mx-2.5 -mt-2.5 mb-2 px-3 py-2 rounded-t-xl border-b-2 font-display font-black text-base tracking-wide ${
+                              tmavsiDen
+                                ? 'bg-neutral-800 border-neutral-900 text-white'
+                                : 'bg-white border-neutral-300 text-neutral-900'
+                            }`}
+                          >
+                            {denACesky(davka.datum)}
+                          </div>
+                        )}
+                        <div className={`flex items-center gap-2 flex-wrap ${beerText(beer)}`}>
+                          <span className="shrink-0 font-mono font-bold text-xs opacity-80">{denACesky(davka.datum)}</span>
+                          <span className="font-black text-sm truncate min-w-0">{davka.beerName}</span>
+                          <span className="ml-auto shrink-0 font-display font-black text-xl tabular-nums">{davka.celkemKs} ks</span>
                         </div>
-                        {/* Odkud se záznam vzal — viz stejná značka v „Všechny
-                            záznamy" níž a `jeZeZaskrtnuti` v lib. */}
-                        {jeZeZaskrtnuti(r.note) && (
-                          <div className="text-udaj font-bold text-sky-800 bg-sky-50 border border-sky-200 rounded px-1.5 py-0.5 inline-flex items-center gap-1">
-                            <ClipboardList size={11} className="shrink-0" />
-                            Založeno zaškrtnutím „Stočeno" u objednávky
-                          </div>
-                        )}
-                        {!isEditing && (
-                          <div className="flex items-center gap-1.5 pt-2 border-t border-emerald-100">
-                            <button type="button" onClick={() => setEditingRow(r)} className="btn-ghost !flex-none !w-11 !px-0 !min-h-[44px]" title="Upravit záznam" aria-label="Upravit záznam"><Pencil size={16} /></button>
-                            <button type="button" onClick={() => increment(r.id, -1)} disabled={Number(r.quantity) <= 0} className="btn-pocet !min-h-[44px]" aria-label="Ubrat sud">−</button>
-                            <button type="button" onClick={() => increment(r.id, 1)} className="btn-pocet !min-h-[44px]" aria-label="Přidat sud">+</button>
-                            <input type="number" inputMode="numeric" min="0" onWheel={(e) => e.currentTarget.blur()} key={r.quantity} defaultValue={r.quantity} onBlur={(e) => { const v = Math.max(0, Math.round(Number(e.target.value) || 0)); if (v !== Number(r.quantity)) setQty(r.id, v); }} onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }} className="min-h-[44px] rounded bg-white border border-neutral-200 text-neutral-800 font-bold text-xs px-1.5 cursor-pointer transition !w-14 text-center tabular-nums" title="Napiš počet ks (libovolné číslo)" />
-                            {/* Mazání je jediná barva v řádku a stojí za
-                                mezerou od plusu — na dotyk jsou to sousedi
-                                a záměna maže zápis. */}
-                            <button
-                              type="button"
-                              onClick={() => del(r.id)}
-                              className="btn-danger !flex-none !w-11 !px-0 !min-h-[44px] ml-2"
-                              aria-label="Smazat záznam"
-                            ><X size={18} /></button>
-                          </div>
-                        )}
+                        <div className="space-y-1.5">
+                          {davka.polozky.map(({ zaznam: r, objemL: vol }) => {
+                            const isEditing = editingId === r.id;
+                            return (
+                              <div key={r.id} className="rounded-lg bg-white/95 border border-black/10 p-3 space-y-2.5">
+                                <div className="flex items-center gap-2">
+                                  <span className="shrink-0 text-xs font-bold text-emerald-700">{vol > 0 ? `KEG ${vol}L` : '—'}</span>
+                                  <span className="ml-auto shrink-0">
+                                    {isEditing ? (
+                                      <div className="flex items-center gap-1.5">
+                                        <input
+                                          type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} min="0" step="1" autoFocus
+                                          className="input text-base font-black w-16 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                          value={editQty}
+                                          onChange={(e) => setEditQty(e.target.value)}
+                                          onKeyDown={(e) => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') { setEditingId(null); setEditQty(''); } }}
+                                        />
+                                        <button type="button" onClick={saveEdit} aria-label="Uložit množství" title="Uložit množství" className="px-3 h-10 rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xs transition"><Check size={14} /></button>
+                                        <button type="button" onClick={() => { setEditingId(null); setEditQty(''); }} aria-label="Zrušit úpravu" title="Zrušit úpravu" className="px-3 h-10 rounded bg-neutral-200 hover:bg-neutral-300 text-neutral-700 font-black text-xs transition"><X size={14} /></button>
+                                      </div>
+                                    ) : (
+                                      <span className="font-display font-black text-xl text-emerald-950">{r.quantity} ks</span>
+                                    )}
+                                  </span>
+                                </div>
+                                {/* Odkud se záznam vzal — viz stejná značka v „Všechny
+                                    záznamy" níž a `jeZeZaskrtnuti` v lib. */}
+                                {puvodZapisu(r.note) && (
+                                  <div className="text-udaj font-bold text-sky-800 bg-sky-50 border border-sky-200 rounded px-1.5 py-0.5 inline-flex items-center gap-1">
+                                    <ClipboardList size={11} className="shrink-0" />
+                                    {puvodZapisu(r.note)?.popis}
+                                  </div>
+                                )}
+                                {!isEditing && (
+                                  <div className="flex items-center gap-1.5 pt-2 border-t border-emerald-100">
+                                    <button type="button" onClick={() => setEditingRow(r)} className="btn-ghost !flex-none !w-11 !px-0 !min-h-[44px]" title="Upravit záznam" aria-label="Upravit záznam"><Pencil size={16} /></button>
+                                    <button type="button" onClick={() => increment(r.id, -1)} disabled={Number(r.quantity) <= 0} className="btn-pocet !min-h-[44px]" aria-label="Ubrat sud">−</button>
+                                    <button type="button" onClick={() => increment(r.id, 1)} className="btn-pocet !min-h-[44px]" aria-label="Přidat sud">+</button>
+                                    <input type="number" inputMode="numeric" min="0" onWheel={(e) => e.currentTarget.blur()} key={r.quantity} defaultValue={r.quantity} onBlur={(e) => { const v = Math.max(0, Math.round(Number(e.target.value) || 0)); if (v !== Number(r.quantity)) setQty(r.id, v); }} onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }} className="min-h-[44px] rounded bg-white border border-neutral-200 text-neutral-800 font-bold text-xs px-1.5 cursor-pointer transition !w-14 text-center tabular-nums" title="Napiš počet ks (libovolné číslo)" />
+                                    {/* Mazání je jediná barva v řádku a stojí za
+                                        mezerou od plusu — na dotyk jsou to sousedi
+                                        a záměna maže zápis. */}
+                                    <button
+                                      type="button"
+                                      onClick={() => del(r.id)}
+                                      className="btn-danger !flex-none !w-11 !px-0 !min-h-[44px] ml-2"
+                                      aria-label="Smazat záznam"
+                                    ><X size={18} /></button>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
                     );
                   })}
@@ -1643,9 +1998,28 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                             <td className="py-1.5 px-2 font-mono font-bold text-emerald-950 whitespace-nowrap">
                               {r.entry_date ? r.entry_date.slice(8, 10) + '.' + r.entry_date.slice(5, 7) + '.' : '—'}
                             </td>
-                            <td className="py-1.5 px-2 font-bold text-emerald-950 flex items-center gap-1.5">
-                              <span className="w-2.5 h-2.5 rounded-full shrink-0 shadow-2xs border border-black/20" style={{ backgroundColor: beerBg(beer) }} />
-                              <span className="truncate max-w-[120px]">{r.beer_name ?? beer?.name ?? '—'}</span>
+                            {/* 🏷️ ODKUD SE TEN ZÁZNAM VZAL — přímo v tabulce,
+                                ne jen v kartách na telefonu. Z provozu
+                                18. 9. 2026: „proč je zadané stáčení 14×30
+                                Desítka, to jsem nezadával?" — ptal se nad
+                                TOUHLE tabulkou a ta o původu neříkala nic.
+                                Viz lib/puvodZapisu.ts. */}
+                            <td className="py-1.5 px-2 font-bold text-emerald-950">
+                              <div className="flex items-center gap-1.5">
+                                <span className="w-2.5 h-2.5 rounded-full shrink-0 shadow-2xs border border-black/20" style={{ backgroundColor: beerBg(beer) }} />
+                                <span className="truncate max-w-[120px]">{r.beer_name ?? beer?.name ?? '—'}</span>
+                              </div>
+                              {puvodZapisu(r.note) && (
+                                <div className="text-udaj font-bold text-sky-800 bg-sky-50 border border-sky-200 rounded px-1.5 py-0.5 mt-1 inline-flex items-center gap-1">
+                                  <ClipboardList size={11} className="shrink-0" />
+                                  {puvodZapisu(r.note)?.popis}
+                                </div>
+                              )}
+                              {vlastniPoznamka(r.note) && (
+                                <div className="text-udaj text-neutral-500 mt-0.5 truncate max-w-[200px]" title={vlastniPoznamka(r.note) ?? undefined}>
+                                  {vlastniPoznamka(r.note)}
+                                </div>
+                              )}
                             </td>
                             <td className="py-1.5 px-2 text-right font-semibold text-emerald-900 whitespace-nowrap">{vol > 0 ? `${vol}L` : '—'}</td>
                             <td className="py-1.5 px-2 text-right font-bold text-emerald-950">
@@ -1747,30 +2121,6 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
           <div className="flex flex-wrap items-center gap-2">
             {rows.length > 0 && (
               <>
-                {/* Filtr podle piva */}
-                <select
-                  value={beerFilter}
-                  onChange={(e) => setBeerFilter(e.target.value)}
-                  className="input text-xs font-bold px-2 py-1 rounded border border-neutral-200 bg-white text-neutral-700 max-w-[140px]"
-                >
-                  <option value="">Všechna piva</option>
-                  {beers.map((b) => (
-                    <option key={b.id} value={b.id}>{b.name}</option>
-                  ))}
-                </select>
-
-                {/* Filtr podle obalu */}
-                <select
-                  value={recordPkgFilter}
-                  onChange={(e) => setRecordPkgFilter(e.target.value)}
-                  className="input text-xs font-bold px-2 py-1 rounded border border-neutral-200 bg-white text-neutral-700 max-w-[140px]"
-                >
-                  <option value="">Všechny obaly</option>
-                  {kegPackages.map((p) => (
-                    <option key={p.id} value={p.id}>{p.label}</option>
-                  ))}
-                </select>
-
                 {/* Přepínač období — společná komponenta. Bylo to poskládané
                     z devíti ručně malovaných tlačítek a stálo to skoro
                     stejně i ve Stáčení lahví. */}
@@ -1788,12 +2138,35 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
             )}
             {rows.length > 0 && (
               <span className="chip bg-amber-100/60 text-amber-900/70 text-xs font-bold">
-                {filteredRows.length} záznamů · <span className="text-amber-950 font-black tabular-nums">{filteredRows.reduce((s, r) => s + Number(r.quantity || 0), 0)} ks</span>
+                {/* Počet záznamů = co je vidět dole (kladné řádky); součet ks
+                    ale počítá z filtrObdobim, ať v sobě má i opravy z inventury. */}
+                {filteredRows.length} záznamů · <span className="text-amber-950 font-black tabular-nums">{filtrObdobim.reduce((s, r) => s + Number(r.quantity || 0), 0)} ks</span>
               </span>
             )}
           </div>
 
         </div>
+
+        {/* Filtr piva a obalu — chipy rovnou klikatelné, vidět hned, žádné
+            rozbalování. Zadání 24. 9. 2026: „misto rollovaciho pole udelej
+            obaly i piva rouzklikavaci ikony ktery budou videt hned, stejne
+            jako po ut st......" — stejný vzor jako dny týdne v
+            PrepinacObdobi.tsx výš. */}
+        {rows.length > 0 && (
+          <div className="sticky top-[32px] z-10 flex flex-col gap-2 bg-amber-100/60 p-2.5 rounded border border-amber-200/90 shadow-2xs">
+            <ChipyPiva piva={beers} vybrane={beerFilter} onVybrat={setBeerFilter} />
+            <ChipyObalu obaly={kegPackages} vybrane={recordPkgFilter} onVybrat={setRecordPkgFilter} />
+            {(beerFilter || recordPkgFilter) && (
+              <button
+                type="button"
+                onClick={() => { setBeerFilter(''); setRecordPkgFilter(''); }}
+                className="btn-ghost !rounded text-xs font-bold !text-rose-700 !bg-rose-50 !border-rose-200 self-start"
+              >
+                <X className="ikona-text" /> Vymazat filtry
+              </button>
+            )}
+          </div>
+        )}
 
         {loading ? (
           <Spinner />
@@ -1814,8 +2187,11 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
             if (dateCmp !== 0) return dateCmp;
             return (a.created_at ?? '').localeCompare(b.created_at ?? '') || a.id.localeCompare(b.id);
           });
-          const totalCount = sortedRows.reduce((s, r) => s + Number(r.quantity), 0);
-          const totalLiters = sortedRows.reduce((s, r) => {
+          // Celkem se počítá z filtrObdobim (kladné i opravy), ne ze
+          // sortedRows (jen kladné) — jinak by „Celkem" po odečtu z
+          // inventury ukazovalo víc, než se doopravdy vyrobilo.
+          const totalCount = filtrObdobim.reduce((s, r) => s + Number(r.quantity), 0);
+          const totalLiters = filtrObdobim.reduce((s, r) => {
             const pkg = packages.find((p) => p.id === r.package_id);
             return s + (pkg ? Number(r.quantity) * Number(pkg.volume_l) : 0);
           }, 0);
@@ -1833,74 +2209,111 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                 <BeerIcon className="ikona-text" /> {recordsView === 'month' ? `Měsíc ${recordsMonthKey}` : recordsView === 'week' ? `Týden ${recordsWeekKey}` : `Den ${recordsDay}`}
               </h3>
 
-              {/* Mobilní karty — čitelné a ovladatelné bez vodorovného scrollování */}
-              <div className="grid grid-cols-1 gap-1.5 md:hidden">
-                {sortedRows.map((r) => {
-                  const beer = beers.find((b) => b.id === r.beer_id);
-                  const pkg = packages.find((p) => p.id === r.package_id);
-                  const vol = pkg ? Number(pkg.volume_l) : 0;
-                  const liters = Number(r.quantity) * vol;
-                  const isEditing = editingId === r.id;
+              {/* 📋 Jedna dlaždice na DEN a PIVO, ne na každý obal zvlášť.
+                  Zadání z 19. 9. 2026: „na den stáčecí jen jeden záznam druhu
+                  11 sv — barevný pozadí a v tom všechny obaly a množství."
+                  Dřív ležely tři samostatné lístečky vedle sebe (padesátky,
+                  třicítky, dvacítky), každý s vlastním datem i jménem piva, a
+                  stáčeč si očima skládal, kolik toho ten den udělal.
+                  Upravovat se dál musí po jednotlivých záznamech — každý obal je
+                  v databázi vlastní řádek a nese vlastní pohyb na skladě. */}
+              <div className="grid grid-cols-1 gap-2 md:hidden">
+                {davkyStaceni(sortedRows, (pkgId) => {
+                  const pkg = packages.find((p) => p.id === pkgId);
+                  return pkg ? Number(pkg.volume_l) : 0;
+                }).map((davka, iDavky, vsechnyDavky) => {
+                  const beer = beers.find((b) => b.id === davka.beerId);
+                  // 📆 Záhlaví dne u PRVNÍ dávky daného dne. Den byl dosud jen drobným
+                  // písmem v rohu a pozadí karty nese BARVU PIVA, takže dny od sebe
+                  // nešlo rozeznat (z provozu 22. 9. 2026: „to PO ÚT je hrozně malý").
+                  // Barvu piva měnit nejde — je to informace sama o sobě — proto se
+                  // den odděluje vlastním pruhem přes celou šířku karty a sousední
+                  // dny se střídají v odstínu.
+                  const novyDen = iDavky === 0 || vsechnyDavky[iDavky - 1].datum !== davka.datum;
+                  const tmavsiDen = novyDen
+                    && new Set(vsechnyDavky.slice(0, iDavky + 1).map((d) => d.datum)).size % 2 === 1;
                   return (
-                    <div key={r.id} className="rounded border border-amber-300/80 bg-white p-2 space-y-1.5">
-                      <div className="flex items-center gap-2">
-                        <span className="shrink-0 font-mono font-bold text-xs text-amber-800">{formatDate(r.entry_date)}</span>
-                        <span className="w-2.5 h-2.5 rounded-full shrink-0 border border-black/20" style={{ backgroundColor: beerBg(beer) }} />
-                        <span className="font-black text-sm text-amber-950 truncate min-w-0">{r.beer_name ?? beer?.name ?? '—'}</span>
-                        <span className="shrink-0 text-xs font-bold text-amber-700">{pkg ? `KEG ${vol}L` : '—'}</span>
-                        <span className="ml-auto shrink-0">
-                          {isEditing ? (
-                            <div className="flex items-center gap-1.5">
-                              <input
-                                type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} min="0" step="1" autoFocus
-                                className="input text-base font-black w-16 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                value={editQty}
-                                onChange={(e) => setEditQty(e.target.value)}
-                                onKeyDown={(e) => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') { setEditingId(null); setEditQty(''); } }}
-                              />
-                              <button type="button" onClick={saveEdit} aria-label="Uložit množství" title="Uložit množství" className="px-3 h-10 rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xs transition"><Check size={14} /></button>
-                              <button type="button" onClick={() => { setEditingId(null); setEditQty(''); }} aria-label="Zrušit úpravu" title="Zrušit úpravu" className="px-3 h-10 rounded bg-neutral-200 hover:bg-neutral-300 text-neutral-700 font-black text-xs transition"><X size={14} /></button>
+                    <div
+                      key={davka.klic}
+                      className="rounded-xl border border-black/10 p-2.5 space-y-2 shadow-xs"
+                      style={{ backgroundColor: beerBg(beer) }}
+                    >
+                      {novyDen && (
+                        <div
+                          className={`-mx-2.5 -mt-2.5 mb-2 px-3 py-2 rounded-t-xl border-b-2 font-display font-black text-base tracking-wide ${
+                            tmavsiDen
+                              ? 'bg-neutral-800 border-neutral-900 text-white'
+                              : 'bg-white border-neutral-300 text-neutral-900'
+                          }`}
+                        >
+                          {denACesky(davka.datum)}
+                        </div>
+                      )}
+                      <div className={`flex items-center gap-2 flex-wrap ${beerText(beer)}`}>
+                        <span className="shrink-0 font-mono font-bold text-xs opacity-80">{denACesky(davka.datum)}</span>
+                        <span className="font-black text-base truncate min-w-0">{davka.beerName}</span>
+                        <span className="ml-auto shrink-0 font-display font-black text-xl tabular-nums">{davka.celkemKs} ks</span>
+                      </div>
+                      <div className={`text-udaj font-bold tabular-nums opacity-80 ${beerText(beer)}`}>
+                        {davka.celkemL.toLocaleString('cs-CZ', { maximumFractionDigits: 0 })} l · {(davka.celkemL / 100).toLocaleString('cs-CZ', { maximumFractionDigits: 2 })} hl
+                      </div>
+
+                      {/* Jednotlivé obaly. Podúložené bílou, ať jsou čitelné i na
+                          tmavém pivu — barva pozadí nese PIVO, ne čitelnost čísel. */}
+                      <div className="space-y-1.5">
+                        {davka.polozky.map(({ zaznam: r }) => {
+                          const isEditing = editingId === r.id;
+                          return (
+                            <div key={r.id} className="rounded-lg bg-white/95 border border-black/10 p-2 space-y-1.5">
+                              <div className="flex items-center gap-2">
+                                <span className="shrink-0 text-sm font-black text-amber-900">
+                                  {formatPackageLabel(r.package_label || packages.find((p) => p.id === r.package_id)?.label) || '—'}
+                                </span>
+                                <span className="ml-auto shrink-0">
+                                  {isEditing ? (
+                                    <div className="flex items-center gap-1.5">
+                                      <input
+                                        type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} min="0" step="1" autoFocus
+                                        className="input text-base font-black w-16 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                        value={editQty}
+                                        onChange={(e) => setEditQty(e.target.value)}
+                                        onKeyDown={(e) => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') { setEditingId(null); setEditQty(''); } }}
+                                      />
+                                      <button type="button" onClick={saveEdit} aria-label="Uložit množství" title="Uložit množství" className="px-3 h-10 rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xs transition"><Check size={14} /></button>
+                                      <button type="button" onClick={() => { setEditingId(null); setEditQty(''); }} aria-label="Zrušit úpravu" title="Zrušit úpravu" className="px-3 h-10 rounded bg-neutral-200 hover:bg-neutral-300 text-neutral-700 font-black text-xs transition"><X size={14} /></button>
+                                    </div>
+                                  ) : (
+                                    <span className="font-display font-black text-lg text-amber-950 tabular-nums">{r.quantity} ks</span>
+                                  )}
+                                </span>
+                              </div>
+                              {/* 🏷️ Odkud se ten záznam vzal — z provozu 12. 9. 2026:
+                                  „10× 12sv 50 l jsem nezadával, co to je?" Byl to záznam,
+                                  který appka založila sama po zaškrtnutí kapky „Stočeno". */}
+                              {puvodZapisu(r.note) && (
+                                <div className="text-udaj font-bold text-sky-800 bg-sky-50 border border-sky-200 rounded px-1.5 py-0.5 inline-flex items-center gap-1">
+                                  <ClipboardList size={11} className="shrink-0" />
+                                  {puvodZapisu(r.note)?.popis}
+                                </div>
+                              )}
+                              {!isEditing && (
+                                <div className="flex items-center gap-1.5 pt-1.5 border-t border-amber-100">
+                                  <button type="button" onClick={() => setEditingRow(r)} className="btn-ghost !flex-none !w-11 !px-0 !min-h-[44px]" title="Upravit záznam" aria-label="Upravit záznam"><Pencil size={16} /></button>
+                                  <button type="button" onClick={() => increment(r.id, -1)} disabled={Number(r.quantity) <= 0} className="btn-pocet !min-h-[44px]" aria-label="Ubrat sud">−</button>
+                                  <button type="button" onClick={() => increment(r.id, 1)} className="btn-pocet !min-h-[44px]" aria-label="Přidat sud">+</button>
+                                  <input type="number" inputMode="numeric" min="0" onWheel={(e) => e.currentTarget.blur()} key={r.quantity} defaultValue={r.quantity} onBlur={(e) => { const v = Math.max(0, Math.round(Number(e.target.value) || 0)); if (v !== Number(r.quantity)) setQty(r.id, v); }} onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }} className="min-h-[44px] rounded bg-white border border-neutral-200 text-neutral-800 font-bold text-xs px-1.5 cursor-pointer transition !w-14 text-center tabular-nums" title="Napiš počet ks (libovolné číslo)" />
+                                  <button
+                                    type="button"
+                                    onClick={() => del(r.id)}
+                                    className="btn-danger !flex-none !w-11 !px-0 !min-h-[44px] ml-2"
+                                    aria-label="Smazat záznam"
+                                  ><X size={18} /></button>
+                                </div>
+                              )}
                             </div>
-                          ) : (
-                            <span className="font-display font-black text-xl text-amber-950">{r.quantity} ks</span>
-                          )}
-                        </span>
+                          );
+                        })}
                       </div>
-                      {/* Litry/HL zhuštěné do jednoho řádku (dřív dvě velké
-                          dlaždice na záznam) — na telefon se tak vejde víc
-                          záznamů a pořád je to čitelné. */}
-                      <div className="text-udaj font-bold text-amber-700 tabular-nums">
-                        {liters.toLocaleString('cs-CZ', { maximumFractionDigits: 0 })} l · {(liters / 100).toLocaleString('cs-CZ', { maximumFractionDigits: 2 })} hl
-                      </div>
-                      {/* 🏷️ ODKUD SE TEN ZÁZNAM VZAL.
-                          Z provozu 12. 9. 2026: „10× 12sv 50 l jsem nezadával,
-                          co to je?" Byl to záznam, který appka založila sama
-                          po zaškrtnutí kapky „Stočeno" u objednávky. Je to
-                          správně a bylo to vyžádané — jenže v seznamu vypadal
-                          úplně stejně jako ručně napsaný, takže se v něm
-                          objevilo stáčení, o kterém stáčeč nevěděl.
-                          Poznámku nese `note`, ale ta se do téhle chvíle
-                          kreslila jen v tabulce na počítači. */}
-                      {jeZeZaskrtnuti(r.note) && (
-                        <div className="text-udaj font-bold text-sky-800 bg-sky-50 border border-sky-200 rounded px-1.5 py-0.5 inline-flex items-center gap-1">
-                          <ClipboardList size={11} className="shrink-0" />
-                          Založeno zaškrtnutím „Stočeno" u objednávky
-                        </div>
-                      )}
-                      {!isEditing && (
-                        <div className="flex items-center gap-1.5 pt-1.5 border-t border-amber-100">
-                          <button type="button" onClick={() => setEditingRow(r)} className="btn-ghost !flex-none !w-11 !px-0 !min-h-[44px]" title="Upravit záznam" aria-label="Upravit záznam"><Pencil size={16} /></button>
-                          <button type="button" onClick={() => increment(r.id, -1)} disabled={Number(r.quantity) <= 0} className="btn-pocet !min-h-[44px]" aria-label="Ubrat sud">−</button>
-                          <button type="button" onClick={() => increment(r.id, 1)} className="btn-pocet !min-h-[44px]" aria-label="Přidat sud">+</button>
-                          <input type="number" inputMode="numeric" min="0" onWheel={(e) => e.currentTarget.blur()} key={r.quantity} defaultValue={r.quantity} onBlur={(e) => { const v = Math.max(0, Math.round(Number(e.target.value) || 0)); if (v !== Number(r.quantity)) setQty(r.id, v); }} onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }} className="min-h-[44px] rounded bg-white border border-neutral-200 text-neutral-800 font-bold text-xs px-1.5 cursor-pointer transition !w-14 text-center tabular-nums" title="Napiš počet ks (libovolné číslo)" />
-                          <button
-                            type="button"
-                            onClick={() => del(r.id)}
-                            className="btn-danger !flex-none !w-11 !px-0 !min-h-[44px] ml-2"
-                            aria-label="Smazat záznam"
-                          ><X size={18} /></button>
-                        </div>
-                      )}
                     </div>
                   );
                 })}
@@ -2411,7 +2824,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
             // upozornění na měsíční úklid i dlaždici na Domů do dalšího měsíce.
             if (isMonthlyChecklistCompleteForKeg(businessDateISO())) {
               markMonthlyLineDone('keg');
-              writeMonthlyCleanupStage(getMonthKey(), 'done');
+              writeMonthlyCleanupStage(cleanupMonthKey(), 'done');
             }
           }
         }}

@@ -1,7 +1,8 @@
 // Minimal offline-first service worker for the Minipivovar PWA.
 // Cache version is fetched from version.json at install time so that
 // every deploy automatically invalidates the old cache.
-// SW_VERSION: 1.517 — change this to force SW update in browser
+// SW_VERSION: 2.441 — změň při zásahu do tohohle souboru, ať si prohlížeč
+// stáhne nový service worker (19. 9. 2026: přejmenované ikony, viz PRECACHE).
 const CACHE_PREFIX = 'pivovar-';
 const CACHE_META = `${CACHE_PREFIX}meta`;
 const CACHE_META_KEY = new URL('./__installed-cache__', self.registration.scope).href;
@@ -22,7 +23,7 @@ const SHELL = [];
 // Čtyři variabilní soubory, dohromady 96 kB.
 const PRECACHE = [
   './', './index.html', './manifest.webmanifest',
-  './icon-192.png', './icon-512.png', './favicon.ico', './version.json',
+  './icon-192-v2.png', './icon-512-v2.png', './favicon.ico', './version.json',
   './fonts/plus-jakarta-sans-latin-wght-normal.woff2',
   './fonts/plus-jakarta-sans-latin-ext-wght-normal.woff2',
   './fonts/outfit-latin-wght-normal.woff2',
@@ -421,13 +422,13 @@ self.addEventListener('push', (e) => {
   const titulek = data.titulek || 'Pivovar Zajíc';
   const moznosti = {
     body: data.telo || '',
-    icon: './icon-192.png',
-    badge: './icon-192.png',
+    icon: './icon-192-v2.png',
+    badge: './icon-192-v2.png',
     // Stejný tag = nová zpráva přepíše starou místo deseti oznámení pod
     // sebou. Bez tagu by jeden zaseknutý most vyrobil lavinu.
     tag: data.tag || 'pivovar',
     renotify: true,
-    data: { stranka: data.stranka || '' },
+    data: { stranka: data.stranka || '', parametry: data.parametry || '' },
   };
   e.waitUntil(self.registration.showNotification(titulek, moznosti));
 });
@@ -435,7 +436,14 @@ self.addEventListener('push', (e) => {
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();
   const stranka = (e.notification.data && e.notification.data.stranka) || '';
-  const cil = new URL(stranka ? `./?page=${encodeURIComponent(stranka)}` : './', self.registration.scope).href;
+  // `parametry` (např. `checklist=konec`) říkají, co se má po otevření rovnou
+  // udělat — bez nich umí odkaz jen přepnout obrazovku. Připojují se za
+  // `?page=`, takže platí jen se zvolenou stránkou.
+  const parametry = (e.notification.data && e.notification.data.parametry) || '';
+  const dotaz = stranka
+    ? `./?page=${encodeURIComponent(stranka)}${parametry ? `&${parametry}` : ''}`
+    : './';
+  const cil = new URL(dotaz, self.registration.scope).href;
   e.waitUntil((async () => {
     const okna = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     // Otevřená appka se jen vytáhne dopředu — druhé okno téže aplikace

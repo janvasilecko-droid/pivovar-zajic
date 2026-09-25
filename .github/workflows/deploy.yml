@@ -90,6 +90,14 @@ jobs:
       - name: Kontrola popisků
         run: npm run zkontroluj-popisky
 
+      # Edge funkce (supabase/functions). Běží v Denu, takže je nevidí ani
+      # `tsc` aplikace, ani vitest — překlep ve jménu proměnné se pozná až
+      # v provozu. 18. 9. 2026 se takhle do čtení WhatsAppu dostalo
+      # `parsedData` místo `parseResult`: každá objednávka od 21. 9. spadla
+      # na „parsedData is not defined" a musela se přepisovat ručně.
+      - name: Kontrola edge funkcí
+        run: npm run zkontroluj-edge-funkce
+
       # ESLint. Projekt ho do 5. 9. 2026 neměl a hned v prvním běhu našel
       # dvě skutečné chyby: hook volaný až za `return null` (React na to
       # spadne při otevření modalu) a `let mounted = true`, které se nikdy
@@ -165,7 +173,17 @@ jobs:
       # Commitnout zvýšenou verzi zpět do repozitáře PŘED deployem — i když
       # Cloudflare deploy selže, GitHub má vždy nejnovější verzi (a APK job
       # checkoutuje post-bump commit, takže APK nese stejné číslo jako web).
+      #
+      # continue-on-error: SOUBĚH dvou běhů (dva pushe do main těsně po sobě)
+      # mění TENTÝŽ soubor (verzi) — `git pull --rebase` na to narazí jako na
+      # skutečný konflikt, ne jen "pozadu", a retry (níž) ho nerozmotá. Bez
+      # continue-on-error tahle čistě kosmetická prohra (chybějící bump commit,
+      # samo se doplní příštím pushem) shodila CELÝ job — a s ním i
+      # `Deploy to Cloudflare Pages` A `build-apk` (needs: build-and-deploy),
+      # i když web i appka byly v pořádku a jen čekaly na nasazení. Z provozu
+      # 24. 9. 2026: běh #800 takhle přeskočil nasazení dvakrát za sebou.
       - name: Commit bumped version
+        continue-on-error: true
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -219,41 +237,68 @@ jobs:
           AUTO_MIGRACE: ${{ vars.AUTO_MIGRACE }}
         run: node scripts/pust-cekajici-migrace.mjs
 
-      # Nasazují se jen funkce, které se v tomhle pushi změnily. Změna
-      # v _shared/ se týká všech, takže pak jdou všechny.
+      # Nasazují se funkce, jejichž OBSAH se liší od toho, co na Supabase běží
+      # (otisk v supabase/nasazeno.json). Změna v _shared/ se propisuje do
+      # otisku každé funkce, která si ten soubor importuje, takže jdou všechny
+      # dotčené — a jen ty.
+      #
+      # ⚠️ Dřív se výběr dělal z git diffu proti předchozímu commitu. Když běh
+      # spadl dřív, než se nasadilo (třeba na testu), změna se ztratila: další
+      # běh už ve svém diffu žádnou edge funkci neviděl a nasadit ji neměl jak
+      # už nikdy. Právě tohle potkalo běhy #730 a #731 (19. 9. 2026) — oprava
+      # čtení zpráv zůstala ležet v mainu a v provozu běžela stará verze.
+      # Otisk obsahu je samoopravný: říká, co se od nahrané verze liší, takže
+      # zmeškané nasazení dojede sám další běh.
+      #
+      # `always()`: hlášení o migracích nesmí zabránit nasazení funkcí. 18. 9.
+      # 2026 krok s migracemi spadl na HTTP 403 a s ním celý job — edge funkce
+      # se pak nenasadily, přestože klíč už v repozitáři byl.
       - name: Změněné edge funkce
+        if: always()
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          PRED: ${{ github.event.before }}
         run: |
           if [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
             echo "SUPABASE_ACCESS_TOKEN není nastaven — edge funkce se nasazují ručně." | tee -a "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
-          if [ -z "$PRED" ] || ! git cat-file -e "$PRED" 2>/dev/null; then
-            ZMENY=$(ls -d supabase/functions/*/ | sed 's#/$##')
-          else
-            ZMENY=$(git diff --name-only "$PRED" "$GITHUB_SHA" -- supabase/functions | cut -d/ -f1-3 | sort -u)
-          fi
-          if echo "$ZMENY" | grep -q "supabase/functions/_shared"; then
-            ZMENY=$(ls -d supabase/functions/*/ | sed 's#/$##')
-          fi
-          FUNKCE=$(echo "$ZMENY" | xargs -r -n1 basename | grep -v '^_shared$' | sort -u)
+          FUNKCE=$(node scripts/zkontroluj-nasazeni.mjs --jen-jmena)
           if [ -z "$FUNKCE" ]; then
-            echo "Žádná edge funkce se nezměnila." | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "Edge funkce: všechno už běží v poslední verzi." | tee -a "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
           echo "### Edge funkce" >> "$GITHUB_STEP_SUMMARY"
           SELHALO=0
+          NASAZENE=""
           for f in $FUNKCE; do
             [ -f "supabase/functions/$f/index.ts" ] || continue
             if npx --yes supabase functions deploy "$f" --project-ref sasqexjadvlqyticxwja; then
               echo "- ✅ $f" >> "$GITHUB_STEP_SUMMARY"
+              NASAZENE="$NASAZENE $f"
             else
               echo "- ❌ $f" >> "$GITHUB_STEP_SUMMARY"
               SELHALO=1
             fi
           done
+
+          # Zapsat, co teď na Supabase běží. Bez toho se nasazení nedá odlišit
+          # od nenasazení a připomínka při otevření Claude Code hlásí i funkce,
+          # které dávno běží (a seznam, který je pokaždé celý, si člověk
+          # odvykne číst). Zapisují se jen ty, které se OPRAVDU nasadily.
+          if [ -n "$NASAZENE" ]; then
+            node scripts/zapis-nasazeni.mjs $NASAZENE
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add supabase/nasazeno.json
+            if ! git diff --cached --quiet; then
+              git commit -m "chore: zaznamenat nasazené edge funkce [skip ci]"
+              git push origin HEAD:main || for attempt in 1 2 3; do
+                echo "push selhal (pokus $attempt), stahuji main a zkouším znovu..."
+                git pull --rebase origin main || true
+                git push origin HEAD:main && break
+              done
+            fi
+          fi
           exit $SELHALO
 
   build-apk:
@@ -306,8 +351,16 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
+      # `packages: ''` je nutné: akce jinak ve výchozím stavu pouští
+      # `sdkmanager tools`, ale balíček `tools` Google ze SDK odstranil —
+      # sdkmanager skončí „Warning: Failed to find package 'tools'“ a návratovým
+      # kódem 1, takže celý job spadne ještě před překladečem (16. 9. 2026).
+      # Co build opravdu potřebuje (platforms, build-tools), si gradle stáhne
+      # sám a platform-tools jsou v obrazu runneru už předinstalované.
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: ''
 
       - name: Build APK
         run: cd android && ./gradlew assembleDebug

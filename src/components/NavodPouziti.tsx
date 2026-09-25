@@ -114,6 +114,10 @@ const ODDILY: Oddil[] = [
         jak: 'Vyber pivo dlaždicí, obal a počet kusů. Uložit. Před prvním stáčením dne se prokliká Příprava (Checklist) — zapíše se do sanitačního deníku.',
       },
       {
+        co: 'Konec stáčení (Checklist)',
+        jak: 'Po stáčení se prokliká úklid — i ten jde do sanitačního deníku. Musí být vyplněný každý den, kdy se stáčelo. Když v 16:00 chybí, přijde upozornění na telefon; když v 18:00 pořád chybí, přijde znovu a klepnutím se rovnou otevře tabulka k vyplnění.',
+      },
+      {
         co: 'Přehled',
         jak: 'Všechny záznamy za den, týden nebo měsíc. Nahoře je počet záznamů i celkový počet kusů. U řádku jde počet opravit (tužka nebo − / +) nebo ho smazat křížkem.',
       },
@@ -127,7 +131,7 @@ const ODDILY: Oddil[] = [
       },
       {
         co: 'Z čeho je číslo „hotovo“',
-        jak: 'Pod položkou se píše „z toho X nachystáno/zavezeno · Y stočeno tento týden“. Pozor: nachystané kusy se z těch stočených VZALY, nepřičítají se k nim.',
+        jak: 'Pod položkou se píše „z toho X nachystáno/zavezeno · Y ze zásoby skladem“. Pozor: nachystané kusy se z té zásoby VZALY, nepřičítají se k ní. A „ze zásoby skladem“ neznamená, že se stočilo tenhle týden — může to být i starší zásoba nebo počáteční stav z inventury.',
       },
       {
         co: 'Přihrádka „Bez termínu“',
@@ -231,6 +235,10 @@ const ODDILY: Oddil[] = [
         jak: 'Aktuální stav po pivech a obalech. Sloupce: Obal / Stav / Odejde / Zbude. Místo „0 (−10)“ se píše „chybí 10“.',
       },
       {
+        co: 'Sklad → Pohyby',
+        jak: 'Každý pohyb ve vybraném týdnu den po dni: stočeno, závozy s odběratelem, fasování, odpisy, inventura. Filtr pivo / obal / druh pohybu. Pod každým dnem „Stav večer“ — stejné číslo jako Sklad. Když fyzický stav nesedí, hledejte první den, kdy se stav večer od skutečnosti odchýlil.',
+      },
+      {
         co: 'Sklep a tanky',
         jak: 'Kvasné tanky na spilce a ležácké tanky, průběh kvašení a varné listy. U tanku je vidět, na kolik sudů zbývající objem vyjde.',
       },
@@ -310,6 +318,10 @@ const ODDILY: Oddil[] = [
       { co: 'Upozornění a připomínky', jak: 'Vlastní připomínky k datu. Na ploše svítí, co je po termínu.' },
       { co: 'Poznámky', jak: 'Lísteček na ploše — pro vzkazy mezi směnami.' },
       { co: 'Zpětná vazba', jak: 'Co by se mělo vylepšit nebo opravit. Vidí to všichni kolegové.' },
+      {
+        co: 'Hlášení',
+        jak: 'Vyhlásí zprávu, která všem naskočí přes celou obrazovku a musí ji odklepnout — odstávka varny, změna závozu. Napiš nadpis, text a druh (technické / důležité / informace) a vyhlas. Platí jedno hlášení najednou; zrušíš ho tamtéž.',
+      },
     ],
   },
   {

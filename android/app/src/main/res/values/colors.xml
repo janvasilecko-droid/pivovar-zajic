@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Podklad úvodní obrazovky. Bílá jako v manifestu webové verze
+         (background_color), ať appka startuje stejně, ať se pouští z APK
+         nebo z ikony přidané na plochu z prohlížeče. -->
+    <color name="splash_background">#FFFFFF</color>
+</resources>

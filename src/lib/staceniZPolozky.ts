@@ -1,25 +1,21 @@
-/**
- * Zaškrtnutí "Stočeno" u sudu na objednávce rovnou založí skutečný záznam
- * stáčení (viz migrace 20261231020000) — ať se stáčeč nemusí totéž psát
- * ještě jednou v „Začátek stáčení".
- *
- * Z provozu 12. 9. 2026: „když dám, že to mám, tak ho přidej do stáčení."
- *
- * ZATÍM JEN SUDY (KEG). U lahví appka nepozná, kolik sudů surového piva se
- * na ně spotřebovalo — to zadání vyžaduje vlastní krok ve „Začátek
- * stáčení" (obal + kolik sudů zdroje), který se z jednoho zaškrtnutí
- * nedá poctivě odvodit. Kapka Stočeno u lahvové položky se proto chová
- * dál jako dřív — jen odškrtnutí, bez založení záznamu.
- *
- * Tank se vybírá STEJNOU logikou jako výchozí volba v ručním zápisu
- * (lib/tankUZapisu.ts): největší aktivní tank se zahájeným stáčením
- * tohohle piva. Bez takového tanku se řádek uloží bez tanku a bez odečtu
- * objemu — přesně jako když totéž nastane v ručním zápisu.
- *
- * Tenhle modul jen ROZHODNE, co se má zapsat/smazat a kolik odečíst/vrátit
- * z tanku — samotné volání Supabase dělá zapisStaceniZPolozky /
- * zrusStaceniZPolozky, ať jde rozhodovací část otestovat bez databáze.
- */
+// 🧾 Značka u záznamů stáčení, které appka kdysi zakládala sama.
+// ---------------------------------------------------------------------------
+// ⛔ ZRUŠENO 18. 9. 2026 — zaškrtnutí kapky „Stočeno" u objednávky už
+// NEZAKLÁDÁ záznam ve stáčení KEG. Pravidlo od majitele: „appka nesmí
+// přidávat stáčení, objednávky, nebo odepisovat bez jasného povelu."
+// Odškrtnutí položky je poznámka k objednávce („tenhle sud je nachystaný"),
+// ne hlášení výroby — stáčení se zapisuje v KEG → Začátek stáčení, a nikde
+// jinde.
+//
+// Ptal se na to dvakrát: 12. 9. („10× 12sv 50 l jsem nezadával, co to je?")
+// a 18. 9. („proč je zadané stáčení 14×30 Desítka"). Pokaždé to byl řádek,
+// který appka založila sama.
+//
+// Co ze souboru zbylo a proč:
+//   • POZNAMKA_AUTOMATICKY + jeZeZaskrtnuti — takové řádky v databázi pořád
+//     LEŽÍ a je potřeba je poznat, aby šly najít a smazat (úklid v KEG),
+//   • naplanujZaznamZeStoceni — čistá funkce s testy, zůstává jako popis
+//     toho, co se dřív zapisovalo; při zaškrtnutí ji už nikdo nevolá.
 import { tankRadku, type TankKOdectu } from './tankUZapisu';
 import { supabase } from './supabase';
 
@@ -100,77 +96,19 @@ export function naplanujZaznamZeStoceni(
 }
 
 /**
- * Zapíše záznam stáčení za zaškrtnutou položku a odečte objem z tanku
- * (pokud se ho podařilo najít). Idempotentní vůči souběhu díky UNIQUE
- * indexu na order_item_id — druhé zaškrtnutí těsně po sobě založí jen
- * jeden řádek, druhý insert selže na konfliktu a nic dalšího neudělá.
+ * 🧹 Úklid po zrušené funkci: řádky, které appka do stáčení dopsala sama.
  *
- * Vrací chybovou hlášku k zobrazení, nebo `null`, když se povedlo (i když
- * se nezapisovalo nic, protože položka není sud).
+ * V databázi zůstávají i poté, co se zakládání zrušilo — a majitel je
+ * chtěl pryč: „vymaz všechny položky tento týden, které se takhle dopsaly."
+ * Poznají se podle poznámky, kterou nesou (viz jeZeZaskrtnuti).
  */
-export async function zapisStaceniZPolozky(
-  polozka: PolozkaKeStaceni,
-  packages: PackageKind[],
-  cellarTanks: TankKOdectu[],
-  dnesIso: string,
-): Promise<string | null> {
-  const zaznam = naplanujZaznamZeStoceni(polozka, packages, cellarTanks, dnesIso);
-  if (!zaznam) return null;
-
-  const { error } = await supabase.from('kegging').insert(zaznam);
-  if (error) {
-    // Konflikt na UNIQUE indexu = řádek už existuje (souběh dvou kliknutí,
-    // nebo appka si to jen znovu ověřuje) — to není chyba k hlášení.
-    if (error.code === '23505') return null;
-    return `Stočeno se uložilo, ale záznam stáčení se nepodařilo založit: ${error.message}`;
-  }
-
-  if (zaznam.cellar_tank_id && zaznam.source_volume_l) {
-    const { error: tankErr } = await supabase.rpc('adjust_tank_volume', {
-      p_tank_id: zaznam.cellar_tank_id,
-      p_delta_l: -zaznam.source_volume_l,
-    });
-    if (tankErr) {
-      return `Záznam stáčení je uložený, ale objem tanku se nepodařilo snížit: ${tankErr.message}`;
-    }
-    const tank = cellarTanks.find((t) => t.id === zaznam.cellar_tank_id);
-    if (tank && tank.status !== 'emptying') {
-      await supabase.from('cellar_tanks').update({ status: 'emptying', updated_at: new Date().toISOString() }).eq('id', zaznam.cellar_tank_id);
-    }
-  }
-
-  return null;
+export function dopsaneZaskrtnutim<R extends { note?: string | null }>(radky: R[]): R[] {
+  return radky.filter((r) => jeZeZaskrtnuti(r.note));
 }
 
-/**
- * Zruší zaškrtnutí — smaže záznam stáčení založený TOUHLE položkou (podle
- * order_item_id, ne podle piva/množství, ať se netrefí cizí řádek) a vrátí
- * objem do tanku, pokud se z něj odečítalo.
- *
- * Nedělá nic, pokud žádný takový záznam neexistuje (položka nebyla sud,
- * nebo se od zaškrtnutí stihla smazat ručně jinde — to je v pořádku, není
- * co rušit).
- */
-export async function zrusStaceniZPolozky(orderItemId: string): Promise<string | null> {
-  const { data, error } = await supabase
-    .from('kegging')
-    .select('id, cellar_tank_id, source_volume_l')
-    .eq('order_item_id', orderItemId)
-    .maybeSingle();
-  if (error) return `Nepodařilo se ověřit záznam stáčení: ${error.message}`;
-  if (!data) return null;
-
-  const { error: delErr } = await supabase.from('kegging').delete().eq('id', data.id);
-  if (delErr) return `Nepodařilo se zrušit záznam stáčení: ${delErr.message}`;
-
-  if (data.cellar_tank_id && data.source_volume_l) {
-    const { error: tankErr } = await supabase.rpc('adjust_tank_volume', {
-      p_tank_id: data.cellar_tank_id,
-      p_delta_l: Number(data.source_volume_l),
-    });
-    if (tankErr) {
-      return `Záznam stáčení zrušen, ale objem tanku se nepodařilo vrátit: ${tankErr.message}`;
-    }
-  }
-  return null;
+/** Smaže dané záznamy stáčení podle id. Vrací chybovou hlášku, nebo `null`. */
+export async function smazZaznamyStaceni(ids: string[]): Promise<string | null> {
+  if (ids.length === 0) return null;
+  const { error } = await supabase.from('kegging').delete().in('id', ids);
+  return error ? error.message : null;
 }

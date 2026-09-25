@@ -103,6 +103,103 @@ F) VLASTNÍ JMÉNA PIV JSOU SILNĚJŠÍ NEŽ ČÍSLA
  * Co dělat, když si AI není jistá. Vychází z toho, že špatně přiřazená
  * položka stojí víc práce než prázdná — obsluha objednávku stejně kontroluje.
  */
+
+/**
+ * Odpovědi a kontext — nejčastější zdroj špatně zapsaných objednávek v září
+ * 2026. Všechny příklady níž jsou skutečné zprávy ze skupiny „Objednávky
+ * pivovar" a u každé je napsané, co se stalo špatně.
+ */
+export const KONTEXT_A_ODPOVEDI = `
+════════════════════════════════════════════════════════════════════
+ODPOVĚDI NA ZPRÁVY (WhatsApp reply) A KONTEXT KONVERZACE
+════════════════════════════════════════════════════════════════════
+Ve skupině se na objednávku běžně ODPOVÍDÁ a ta odpověď s ní něco dělá.
+Nejdřív rozhodni CO, teprve pak čti čísla. Jsou jen čtyři možnosti:
+
+1) ÚPRAVA — odpověď říká, co má být JINAK.
+   „Nakonec summer 9x30"       → z 15 dělá 9, nepřičítá
+   „Bez summera"               → tu položku z objednávky odeber
+   „30 litrů, ne 20??"         → mění OBAL, ne množství
+   ⚠️ Mění se JEN to, co odpověď jmenuje. „Ty malé sudy budou 2x20l,
+   třicítky a petky sedí" = přepiš malé sudy, TŘICÍTKY A PETKY NECHEJ BÝT.
+   (Z provozu: bralo se to jako celý nový obsah, takže z objednávky
+   vypadly 2 třicítky a 24 petek, o kterých odběratel napsal, že sedí.)
+
+2) PŘÍDAVEK — odpověď něco PŘIDÁVÁ k tomu, co už je.
+   „Plus 3x10 11sv", „ještě dvě dvanáctky", „pro Radka ještě tohle"
+   → původní položky zůstávají, tyhle se přičtou.
+
+3) VLASTNÍ OBJEDNÁVKA, která na cizí zprávu jen navazuje.
+   Odpověď na Radkovu objednávku: „60x0,5l. Grep a 40x0,5l. Citrón"
+   → Radkovu objednávku NEMĚNÍ. Je to samostatná objednávka; z citované
+   zprávy se převezme JEN ODBĚRATEL, protože v odpovědi napsaný není.
+   Poznáš to tak, že odpověď nemluví o tom, co je v původní zprávě
+   (jiná piva, jiné obaly) a neobsahuje slova jako „nakonec", „bez",
+   „místo", „plus", „ještě".
+
+4) VRÁCENÍ — odpověď mluví o tom, že se pivo VRACÍ.
+   „Tady vrací 1x50l. Vosmy a jednu vosmu roztočenou, téměř plnou"
+   → NENÍ TO OBJEDNÁVKA, ale POLOŽKY PŘESTO PŘEČTI NORMÁLNĚ (pivo, obal,
+   množství) — appka umí vrácení propsat na sklad jen z toho, co v items
+   dostane, na výběr do zaškrtávacího seznamu, nikdy ne rovnou jako
+   objednávku (schválení jako objednávky appka pro vrácení sama blokuje).
+   Prázdné items by ten seznam nechaly prázdný a obsluha by musela vrácení
+   dohledávat ručně. Do "otazky" navíc napiš, že jde o vrácení.
+   (Z provozu: založila se z toho objednávka na dvě padesátky, která
+   nikdy nepojede, a pivo se odepsalo ze skladu — proto items nikdy
+   nesmí appka vzít jako hotovou objednávku, i když je přečte.)
+   ⚠️ Množství BEZ NAPSANÉHO PIVA („vrací 3x30") jsou prázdné obaly, ne
+   pivo — sudy se vracejí pořád, pivo v nich skoro nikdy.
+   ⚠️ „vratné lahve" a „vratný sud" v objednávce vrácení NEJSOU — to jsou
+   obaly, které se v objednávkách píšou běžně.
+
+ODBĚRATEL U ODPOVĚDI
+• Když odpověď odběratele nejmenuje, je to ten z CITOVANÉ zprávy.
+  Nehádej ho z jiných zpráv v chatu.
+• Jména se skloňují: „pro Radka" = odběratel „Radek". Ber i obecnou
+  češtinu s předsazeným v-: „Vosmy" = pivo „Osma", „vokno" = „okno".
+
+ČEMU NEPODLÉHAT
+• Zprávu, na kterou se odpovídá, čti kvůli KONTEXTU — ale NIKDY z ní
+  neber položky do téhle objednávky, pokud nejde o úpravu nebo přídavek.
+• Stupeň z jiné zprávy nebo od jiného odběratele se NEPŘENÁŠÍ nikdy.
+• Historie (blok níž, pokud je) pomáhá rozhodnout, KOMU odpověď patří —
+  ale nikdy z ní neber položky. Co ve zprávě není, do objednávky nepatří.
+`;
+
+
+/**
+ * Odběratel, který v seznamu ještě není, a historie objednávek jako nápověda.
+ * Zadání z 19. 9. 2026: „pořádně číst odběratele ve zprávách i pokud není již
+ * uložený, aby ho aplikace dokázala vždy najít."
+ */
+export const ODBERATEL_A_HISTORIE = `
+════════════════════════════════════════════════════════════════════
+ODBĚRATEL — I TEN, KTERÝ JEŠTĚ NENÍ ULOŽENÝ
+════════════════════════════════════════════════════════════════════
+Seznam ZNÁMÍ ODBĚRATELÉ je nápověda, NE číselník povolených hodnot.
+Nový odběratel přibude každou chvíli (nová hospoda, svatba, festival) a
+aplikace si ho po schválení sama založí. Tvůj úkol je ho PŘEČÍST.
+
+Postup, v tomhle pořadí:
+  1) Je jméno/místo napsané v textu zprávy? → použij ho. Když se přibližně
+     shoduje se ZNÁMÝM odběratelem (překlep, jiný pád, foneticky), vrať
+     PŘESNÝ tvar ze seznamu. Když se neshoduje s ničím, vrať ho tak, jak
+     je v textu — NENÍ to důvod k null.
+  2) Není v textu? Je to ODPOVĚĎ? → vezmi odběratele z citované zprávy.
+  3) Pořád nic? → podívej se do HISTORIE (blok níž, pokud je). Když
+     odesílatel posílal objednávky pořád pro jednoho odběratele, je to
+     skoro jistě on.
+  4) Ani to ne? → vrať place_name: null a ZEPTEJ SE (pole "otazky").
+     Nikdy nevybírej ze seznamu ZNÁMÍ ODBĚRATELÉ někoho, kdo ve zprávě
+     ani v historii není — to je vymýšlení a objednávka pak odjede
+     špatnému zákazníkovi.
+
+Jméno pište tak, jak ho píše odběratel. Pády neohýbej do 1. pádu na sílu,
+ale jméno očisti od předložky: „pro Radka" → „Radek", „na Vildštejn" →
+„Vildštejn". Když si nejsi jistý základním tvarem, nech ho, jak je.
+`;
+
 export const KDYZ_NEVIS = `
 ════════════════════════════════════════════════════════════════════
 KDYŽ SI NEJSI JISTÝ
@@ -118,7 +215,30 @@ KDYŽ SI NEJSI JISTÝ
   vrať ho s null hodnotami a doslovně ho opiš do raw_line.
 • Množství nikdy nehádej „aby to sedělo". Když u položky číslo není,
   nech quantity: null.
+
+KDYŽ TO NEJDE ROZHODNOUT — ZEPTEJ SE
+Máš k tomu pole "otazky" (seznam vět). Napiš do něj krátkou otázku pro
+obsluhu vždycky, když by sis jinak musel vybrat mezi dvěma výklady.
+Obsluha zprávu stejně kontroluje; otázka ji stojí vteřinu, špatně
+uhádnutá objednávka odjede k odběrateli.
+
+Ptej se hlavně na tohle:
+  • „Je '2x10' deset kusů 10° piva, nebo dva sudy 10 l?"
+  • „Má tahle odpověď původní objednávku upravit, nebo je to nová?"
+  • „Ve zprávě není odběratel a nedá se odvodit z citace — pro koho to je?"
+  • „Zpráva mluví o vracení — mám to zapsat jako vrácení, ne objednávku?"
+  • „U '3x30' není napsané pivo — jsou to prázdné obaly?"
+
+Pravidla pro otázky:
+  • Piš je česky, celou větou a konkrétně: vždy odcituj kus zprávy,
+    které se otázka týká. Ne „nejasná položka", ale „U '5x30' není
+    napsané pivo — které to má být?"
+  • Nejvýš tři otázky na zprávu. Když je nejasností víc, zeptej se na ty,
+    které mění MNOŽSTVÍ nebo ODBĚRATELE.
+  • Otázka NENAHRAZUJE položky: co přečíst jde, přečti a vrať v items;
+    otázka je jen k tomu, co zbylo nejisté.
+  • Když je všechno jasné, vrať "otazky": [].
 `;
 
 /** Celý blok pravidel k vložení do promptu. */
-export const PRAVIDLA_CTENI_OBJEDNAVEK = `${CISLA_STUPEN_VS_OBJEM}${VZORY_ZAPISU}${KDYZ_NEVIS}`;
+export const PRAVIDLA_CTENI_OBJEDNAVEK = `${CISLA_STUPEN_VS_OBJEM}${VZORY_ZAPISU}${KONTEXT_A_ODPOVEDI}${ODBERATEL_A_HISTORIE}${KDYZ_NEVIS}`;

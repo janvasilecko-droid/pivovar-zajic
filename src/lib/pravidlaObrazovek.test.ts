@@ -345,8 +345,7 @@ describe('rozdíl mezi „Potřeba stočit lahve" a „Co stočit na který den"
 
   it('u každého z nich stojí, co počítá a proč se liší', () => {
     expect(bottling, '„Potřeba stočit lahve" nemá vysvětlivku').toMatch(/mínus to, co už máš skladem/);
-    const planner = readFileSync('src/components/BottlingPlanPlanner.tsx', 'utf8');
-    expect(planner, '„Co je potřeba stočit" nemá vysvětlivku').toMatch(/bez zásoby/);
+    expect(bottling, '„Co stočit na který den" nemá vysvětlivku').toMatch(/bez zásoby/);
   });
 });
 
@@ -379,12 +378,13 @@ describe('oprávnění obrazovek', () => {
     home: 'plocha (launcher), ne modul s daty',
     signout: 'odhlášení, ne obrazovka',
     users: 'hlídá se přímo rolí admina (HomeScreen.tsx a Layout.tsx: if (n.id === "users") return isAdmin)',
-    zaloha: 'hlídá se přímo rolí admina (Layout.tsx: if (n.id === "zaloha") return isAdmin); otevírá Uživatele, nemá vlastní modul',
+    zaloha: 'hlídá se přímo rolí admina (Layout.tsx: if (n.id === "zaloha") return isAdmin); vlastní obrazovka ZalohaScreen.tsx',
     timer: 'časovač — nástroj bez dat pivovaru',
     stopwatch: 'stopky — nástroj bez dat pivovaru',
     keg_timer: 'odpočet ke stáčení — nástroj bez dat pivovaru',
     radio: 'rádio — nástroj bez dat pivovaru',
     navod: 'návod k použití — nápověda, ne data; zamknout ji znamená nechat člověka bez pomoci',
+    hlaseni: 'hlášení může vyhlásit každý (rozhodnutí majitele) — když bouší varna nebo se mění závoz, nemá se čekat na právo',
   };
 
   it('žádná obrazovka nezůstala bez modulu oprávnění NEDOPATŘENÍM', () => {
