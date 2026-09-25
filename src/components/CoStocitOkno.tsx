@@ -25,6 +25,7 @@ import { DAYS } from '../lib/shared';
 import { uloz } from '../lib/uloziste';
 import { IkonaSud, IkonaLahev } from './ikony';
 import type { Page } from './Layout';
+import { nactiSdilenouTabulku } from '../lib/sdilenaData';
 
 type Druh = 'sudy' | 'lahve';
 const KLIC_OBDOBI = 'pivovar_costocit_obdobi';
@@ -119,29 +120,31 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
       // potřebuje celou historii, jinak by neviděla nic stočeného dřív než
       // tenhle týden (z provozu 15. 9. 2026: „mám na skladě 9× 30l, appka
       // mi stejně píše, že musím stočit další").
-      const [b, p, o, k, bt, fa, fp, wo, pc, inv, adj, ak, pf, zd] = await Promise.all([
+      const [b, p, o, k, bt, fa, fp, wo, pc, inv, adj, ak, pf, zd, vsechnyPolozky] = await Promise.all([
         supabase.from('beers').select('*'),
         supabase.from('packages').select('id,label,kind,volume_l'),
         // Objednávka patří do týdne podle data dovozu, a když chybí, podle
         // data zadání — obojí musí být od pondělí dál.
         fetchAllRows('orders', 'id,order_date,delivery_date,delivery_day,place_name,status,is_delivered')
           .or(`delivery_date.gte.${zacatekTydne},order_date.gte.${zacatekTydne}`),
-        fetchAllRows('kegging', 'entry_date,beer_id,package_id,quantity'),
-        fetchAllRows('bottling', 'entry_date,beer_id,package_id,quantity,kegs_used,kegs_used_package_id,source_volume_l'),
-        fetchAllRows('fasovani', 'entry_date,beer_id,package_id,quantity'),
-        fetchAllRows('fasovani_private', 'entry_date,beer_id,package_id,quantity'),
-        fetchAllRows('writeoffs', 'entry_date,beer_id,package_id,quantity'),
+        nactiSdilenouTabulku('kegging'),
+        nactiSdilenouTabulku('bottling'),
+        nactiSdilenouTabulku('fasovani'),
+        nactiSdilenouTabulku('fasovani_private'),
+        nactiSdilenouTabulku('writeoffs'),
         fetchAllRows('kegging_plan_checks', 'week_key,day,beer_id,package_id,qty').eq('week_key', weekKey),
-        fetchAllRows('inventory', 'entry_date,beer_id,package_id,quantity,note'),
-        fetchAllRows('inventory_adjustments', 'beer_id,package_id,entry_date,quantity'),
-        fetchAllRows('akce', 'entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
-        fetchAllRows('keg_prefuk', 'beer_id,from_package_id,to_package_id,from_count,to_count,entry_date'),
-        fetchAllRows('zavoz_deductions', 'deduct_date,beer_id,package_id,quantity,order_item_id'),
+        nactiSdilenouTabulku('inventory'),
+        nactiSdilenouTabulku('inventory_adjustments'),
+        nactiSdilenouTabulku('akce'),
+        nactiSdilenouTabulku('keg_prefuk'),
+        nactiSdilenouTabulku('zavoz_deductions'),
+        // Položky současně s objednávkami (bez druhého kola přes .in()) a ze
+        // sdílené paměti — okno se otevírá ze Stáčení, kde už načtené jsou.
+        nactiSdilenouTabulku('order_items'),
       ]);
       const orders = (o.data as any[]) ?? [];
-      const ids = orders.map((x) => x.id);
-      // `*`: delivery_day položky nemusí na starší databázi existovat (viz Kegging.tsx).
-      const oi = ids.length ? await fetchAllRows('order_items', '*').in('order_id', ids) : { data: [], error: null };
+      const ids = new Set(orders.map((x) => x.id));
+      const oi = { data: ((vsechnyPolozky.data as any[]) ?? []).filter((i) => ids.has(i.order_id)), error: vsechnyPolozky.error };
       if (b.error || p.error || o.error || oi.error) { setChyba(true); return; }
       setChyba(false);
       setData({

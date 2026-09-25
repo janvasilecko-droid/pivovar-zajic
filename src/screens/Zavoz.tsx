@@ -4,8 +4,7 @@ import { sestavCoNalozit } from '../lib/coNalozit';
 import { Spinner, EmptyState, Modal } from '../components/ui';
 import { orderWeightKg, fmtKg } from '../lib/weight';
 import { DAYS } from '../lib/shared';
-import { AlertTriangle, ArrowRightLeft, Bird, Calendar, CalendarDays, Car, Check, CheckCircle2, Map as MapIcon, MapPin, MessageCircle, Package as PackageIcon, PenTool, Pencil, Phone, Printer, Scale, Search, StickyNote, TreePine, Truck, Wine, ArrowRightCircle, Droplet, Share2 } from 'lucide-react';
-import { shareDeliveryListToWhatsApp } from '../lib/whatsapp';
+import { AlertTriangle, ArrowRightLeft, Bird, Calendar, CalendarDays, Car, Check, CheckCircle2, Map as MapIcon, MapPin, MessageCircle, Package as PackageIcon, PenTool, Pencil, Phone, Printer, Scale, Search, StickyNote, TreePine, Truck, Wine, Droplet } from 'lucide-react';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 import type { StockSources } from '../lib/stockLedger';
 import { zbytekKeKonciTydne, schodkyObjednavky } from '../lib/tydenniZbytek';
@@ -24,7 +23,7 @@ import { nactiHotoveUkoly, nastavUkolHotovo, klicUkolu } from '../lib/zavozUkoly
 import type { UkolKlic } from '../lib/zavozUkoly';
 import { IkonaSud } from '../components/ikony';
 import { businessDateISO } from '../lib/businessDate';
-import type { TankKOdectu } from '../lib/tankUZapisu';
+import { nactiSdilenouTabulku } from '../lib/sdilenaData';
 
 // Stahuje se až při otevření — viz komentář u lazy() v Orders.tsx.
 const EditOrderModal = lazy(() => import('../components/EditOrderModal').then((m) => ({ default: m.EditOrderModal })));
@@ -78,28 +77,31 @@ export default function Zavoz({ setPage }: { setPage?: (p: any, sec?: string) =>
 
   async function load(silent = false) {
     if (!silent && !orders.length) setLoading(true);
-    const [{ data: o }, { data: p }, { data: b }, { data: pl }, sklad] = await Promise.all([
+    const [{ data: o }, { data: p }, { data: b }, { data: pl }, sklad, { data: vsechnyPolozky }] = await Promise.all([
       fetchAllRows('orders', '*').neq('status', 'storno').order('order_date', { ascending: false }),
       supabase.from('packages').select('*'),
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('places').select('*').order('name'),
       Promise.all([
-        fetchAllRows('inventory', 'entry_date,beer_id,package_id,quantity,note'),
-        fetchAllRows('bottling', 'entry_date,beer_id,package_id,quantity,kegs_used,kegs_used_package_id,source_volume_l,note,created_at'),
-        fetchAllRows('kegging', 'entry_date,beer_id,package_id,quantity'),
-        fetchAllRows('fasovani', 'entry_date,beer_id,package_id,quantity'),
-        fetchAllRows('fasovani_private', 'entry_date,beer_id,package_id,quantity'),
-        fetchAllRows('writeoffs', 'entry_date,beer_id,package_id,quantity'),
-        fetchAllRows('zavoz_deductions', 'deduct_date,beer_id,package_id,quantity,order_item_id'),
-        fetchAllRows('akce', 'entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
-        fetchAllRows('keg_prefuk', 'entry_date,beer_id,from_package_id,from_count,to_package_id,to_count'),
-        fetchAllRows('inventory_adjustments', 'entry_date,beer_id,package_id,quantity'),
+        nactiSdilenouTabulku('inventory'),
+        nactiSdilenouTabulku('bottling'),
+        nactiSdilenouTabulku('kegging'),
+        nactiSdilenouTabulku('fasovani'),
+        nactiSdilenouTabulku('fasovani_private'),
+        nactiSdilenouTabulku('writeoffs'),
+        nactiSdilenouTabulku('zavoz_deductions'),
+        nactiSdilenouTabulku('akce'),
+        nactiSdilenouTabulku('keg_prefuk'),
+        nactiSdilenouTabulku('inventory_adjustments'),
       ]).then(([inventoryRows, bottlingRows, keggingRows, fasovaniRows, prodejnaRows, writeoffsRows, zavozDeductionRows, akceRows, prefukRows, adjustmentRows]) => ({
         inventoryRows: inventoryRows.data ?? [], bottlingRows: bottlingRows.data ?? [], keggingRows: keggingRows.data ?? [],
         fasovaniRows: fasovaniRows.data ?? [], prodejnaRows: prodejnaRows.data ?? [], writeoffsRows: writeoffsRows.data ?? [],
         zavozDeductionRows: zavozDeductionRows.data ?? [], akceRows: akceRows.data ?? [], prefukRows: prefukRows.data ?? [],
         adjustmentRows: adjustmentRows.data ?? [],
       })),
+      // Položky současně s objednávkami (bez druhého kola přes .in()) —
+      // filtr na nestornované objednávky se udělá níž podle jejich id.
+      nactiSdilenouTabulku('order_items'),
     ]);
     setStockRows({ ...sklad, packages: (p as Package[]) ?? [] });
     const ords = ((o as Order[]) ?? []).map(order => {
@@ -115,9 +117,9 @@ export default function Zavoz({ setPage }: { setPage?: (p: any, sec?: string) =>
     setBeers((b as Beer[]) ?? []);
     setPlaces((pl as Place[]) ?? []);
     if (ords.length) {
-      const { data: it } = await fetchAllRows('order_items', '*').in('order_id', ords.map((x) => x.id));
+      const ids = new Set(ords.map((x) => x.id));
       const map: Record<string, OrderItem[]> = {};
-      (it as OrderItem[])?.forEach((i) => { (map[i.order_id] ??= []).push(i); });
+      ((vsechnyPolozky as OrderItem[]) ?? []).forEach((i) => { if (ids.has(i.order_id)) (map[i.order_id] ??= []).push(i); });
       setItems(map);
       // Odškrtnutá „vyzvednout sudy" a spol. Když se to nepovede, štítky se
       // ukážou jako neodškrtnuté — to je horší než pravda, ale ne nebezpečné.
@@ -283,23 +285,6 @@ export default function Zavoz({ setPage }: { setPage?: (p: any, sec?: string) =>
     }
   }
 
-  /**
-   * Odškrtnutí „stočeno" u položky. Tentýž sloupec odškrtává i přehled
-   * Objednávek — pivo se stáčí ve sklepě, ale ten, kdo nakládá auto, je
-   * často první, kdo zjistí, že hotové není. Musí to tedy jít odškrtnout
-   * (i vrátit) na obou stranách, jinak by si každá obrazovka vedla vlastní
-   * pravdu o jedné bedně piva.
-   */
-  // Aktivní tanky pro automatické stočení ze zaškrtnutí — stejná data,
-  // jaká by nabídl ruční zápis v Začátek stáčení (viz lib/tankUZapisu.ts).
-  async function nactiAktivniTanky(): Promise<TankKOdectu[]> {
-    const { data, error } = await fetchAllRows<TankKOdectu>(
-      'cellar_tanks',
-      'id,current_beer_id,kegging_active,status,current_volume_l',
-    );
-    if (error || !data) return [];
-    return data;
-  }
 
   async function toggleItemBottled(o: Order, it: OrderItem) {
     zavibruj('odskrtnuto');
@@ -375,11 +360,6 @@ export default function Zavoz({ setPage }: { setPage?: (p: any, sec?: string) =>
     if (nowDelivered && afterDeliveredCallback) afterDeliveredCallback();
   }
 
-  async function markAllAsPrepared(o: Order) {
-    const orderItems = items[o.id] ?? [];
-    if (orderItems.length === 0) return;
-    await Promise.all(orderItems.filter(it => !it.is_prepared).map(it => toggleItemPrepared(o, it)));
-  }
 
   // Konkrétní data CELÉHO závozu — pro každou objednávku dne stejný klíč, jaký používá
   // generátor Knihy jízd (delivery_date ?? order_date). Závoz může obsahovat objednávky

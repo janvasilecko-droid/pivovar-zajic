@@ -189,7 +189,6 @@ function ChybyBlok() {
   // jediné, co se dá poznat automaticky, a je to velký rozdíl proti hromadě,
   // ve které se „děje se to teď" nedá odlišit od historie (lib/chybyPrehled.ts).
   const deleni = rozdelChyby(radky, APP_VERSION);
-  const nevyrizene = radky.filter((r) => !r.vyrizeno_at);
 
   return (
     <div className="mt-5">

@@ -5,25 +5,12 @@ import { parseWhatsAppOrderMessageWithAI } from '../lib/whatsappParser';
 import { loadAliasMap, saveAlias, canLearnBeerAlias, matchBeerFromHints, matchPackage, savePlaceAlias, normalize, getOrCreatePlace, type ParserAliasMap } from '../lib/orderParser';
 import { matchAgainstCatalog } from '../../supabase/functions/_shared/place-match';
 import { oznacVlastniObjednavku } from '../lib/mojeObjednavky';
-import {
-  diffOrderItems, rozsahOdpovedi, slozNavrh, potvrzeneBezPolozek, vypadaJakoPridavek,
-  kandidatiNaDoplneni, datumObjednavky, vypadaJakoZmenaObjednavky,
-  type DiffRow, type RozsahOdpovedi, type SkupinaObalu, type ObjednavkaKandidat,
-} from '../lib/whatsappAmendment';
+import { diffOrderItems, rozsahOdpovedi, slozNavrh, potvrzeneBezPolozek, kandidatiNaDoplneni, datumObjednavky, vypadaJakoZmenaObjednavky, type DiffRow, type RozsahOdpovedi, type SkupinaObalu, type ObjednavkaKandidat } from '../lib/whatsappAmendment';
 import { PlaceCombobox } from './PlaceCombobox';
 import { Modal } from './ui';
 import { PhotoReviewPane } from './PhotoReviewPane';
-import {
-  analyzeReadback,
-  buildHighlightedSegments,
-  diffWords,
-  computeReadbackUnmatchedCount,
-  partKindLabel,
-  type ReadbackItem,
-  type ReadbackMatch,
-  type ReadbackStatus,
-} from '../lib/whatsappReadback';
-import { AlertCircle, AlertTriangle, Check, CheckCircle2, ChevronDown, Download, ExternalLink, Eye, FileText, Image as ImageIcon, MessageSquare, CornerDownRight, HelpCircle, RefreshCw, RotateCcw, ShieldAlert, ShieldCheck, ShoppingCart, UserCheck, X, ArrowDown, FilePlus, Plus } from 'lucide-react';
+import { analyzeReadback, buildHighlightedSegments, diffWords, computeReadbackUnmatchedCount, partKindLabel, type ReadbackItem, type ReadbackMatch } from '../lib/whatsappReadback';
+import { AlertCircle, AlertTriangle, Check, CheckCircle2, ChevronDown, Download, ExternalLink, Eye, FileText, Image as ImageIcon, MessageSquare, CornerDownRight, HelpCircle, RefreshCw, RotateCcw, ShieldAlert, ShieldCheck, ShoppingCart, UserCheck, X, FilePlus, Plus } from 'lucide-react';
 import { chyba, potvrd, uspech } from '../lib/toast';
 import { zalogujANahlas } from '../lib/chybyHlaseni';
 import { useChovaniDialogu } from '../lib/zavriNaZpet';

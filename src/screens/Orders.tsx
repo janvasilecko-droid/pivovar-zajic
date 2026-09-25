@@ -17,7 +17,6 @@ import { jeAutomatickyBezZavozu } from '../lib/bezZavozu';
 import { PlaceCombobox } from '../components/PlaceCombobox'; // Assuming this is needed
 import { DAYS } from '../lib/shared';
 import { vseHotovo } from '../lib/polozkyObjednavky';
-import type { TankKOdectu } from '../lib/tankUZapisu';
 import { VoiceRecorder } from '../components/VoiceRecorder';
 import { orderQuickQtys } from '../components/QuickQtySelect';
 import { BeerTileGrid, BeerTilePanel } from '../components/BeerTileGrid';
@@ -35,7 +34,7 @@ import { datumProDenVTydnu, dayKeyFromISO } from '../lib/keggingPlan';
 import { TapReservationModal } from '../components/TapReservationModal';
 import { createReminder, getLocalReminders } from '../lib/reminders';
 import { type AkceRow } from '../lib/inventoryHelper';
-import { chyba, oznam, potvrd, toastZpet, volba } from '../lib/toast';
+import { chyba, oznam, potvrd, volba } from '../lib/toast';
 
 import { IkonaVycep } from '../components/ikony';
 import { poctyPolozek } from '../lib/objednavkyStatistika';
@@ -49,6 +48,7 @@ import { type CenaPolozky } from '../lib/hodnotaObjednavky';
 
 import { STAVY_OBJEDNAVKY } from '../lib/stavyObjednavek';
 import { zalogujANahlas } from '../lib/chybyHlaseni';
+import { nactiSdilenouTabulku } from '../lib/sdilenaData';
 
 /**
  * 🐢 Těžké modály se stahují AŽ při otevření.
@@ -879,7 +879,7 @@ export default function Orders({
 
   async function load(silent = false) {
     if (!silent && !orders.length) setLoading(true);
-    const [{ data: o }, { data: pl }, { data: b }, { data: pk }, { data: bt }, { data: kg }, { data: inv }, { data: wo }, { data: zd }, { data: fa }, { data: fp }, { data: ak }, { data: pc }] = await Promise.all([
+    const [{ data: o }, { data: pl }, { data: b }, { data: pk }, { data: bt }, { data: kg }, { data: inv }, { data: wo }, { data: zd }, { data: fa }, { data: fp }, { data: ak }, { data: pc }, { data: vsechnyPolozky }] = await Promise.all([
       fetchAllRows('orders', '*').order('order_date', { ascending: false }).order('created_at', { ascending: false }),
       supabase.from('places').select('*').order('name'),
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
@@ -890,17 +890,21 @@ export default function Orders({
       // na skladovou knihu by tím odznak tiše přestal vidět cokoli.
       // Inventura potřebuje i `note` (rozlišuje počáteční stav od napočítaného),
       // stáčení lahví `kegs_used*` (sudy spotřebované na lahve).
-      fetchAllRows('bottling', 'entry_date,beer_id,package_id,quantity,kegs_used,kegs_used_package_id,source_volume_l,note,created_at'),
-      fetchAllRows('kegging', 'entry_date,beer_id,package_id,quantity'),
-      fetchAllRows('inventory', 'entry_date,beer_id,package_id,quantity,note'),
-      fetchAllRows('writeoffs', 'entry_date,beer_id,package_id,quantity'),
-      fetchAllRows('zavoz_deductions', 'order_item_id,deduct_date,beer_id,package_id,quantity'),
-      fetchAllRows('fasovani', 'entry_date,beer_id,package_id,quantity'),
-      fetchAllRows('fasovani_private', 'entry_date,beer_id,package_id,quantity'),
-      fetchAllRows('akce', 'entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
+      nactiSdilenouTabulku('bottling'),
+      nactiSdilenouTabulku('kegging'),
+      nactiSdilenouTabulku('inventory'),
+      nactiSdilenouTabulku('writeoffs'),
+      nactiSdilenouTabulku('zavoz_deductions'),
+      nactiSdilenouTabulku('fasovani'),
+      nactiSdilenouTabulku('fasovani_private'),
+      nactiSdilenouTabulku('akce'),
       // Jen pro "Hodnota objednávky" v detailu (lib/hodnotaObjednavky.ts) —
       // appka měla ceník hotový, ale nikde ho k objednávkám nepřipojila.
       fetchAllRows('price_list', 'beer_id,package_id,price_per_unit,currency,valid_from,valid_to'),
+      // Položky SOUČASNĚ s objednávkami, ne až po nich přes .in(id objednávek):
+      // načítají se tu všechny objednávky, takže to je stejná sada — jen bez
+      // druhého kola čekání a sdílená s ostatními obrazovkami (sdilenaData.ts).
+      nactiSdilenouTabulku('order_items'),
     ]);
     const rawPk = (pk as Package[]) ?? [];
     const sortedPk = [...rawPk].sort((a, b) => {
@@ -920,17 +924,18 @@ export default function Orders({
     // Přefuk a dorovnání se dotahují zvlášť — odznak „Chybí skladem" je
     // potřebuje, ale zbytek obrazovky ne, tak ať nezdržují první vykreslení.
     void Promise.all([
-      fetchAllRows('keg_prefuk', 'beer_id,from_package_id,to_package_id,from_count,to_count,entry_date'),
-      fetchAllRows('inventory_adjustments', 'beer_id,package_id,entry_date,quantity,order_id'),
+      nactiSdilenouTabulku('keg_prefuk'),
+      nactiSdilenouTabulku('inventory_adjustments'),
     ]).then(([pf, adj]) => {
       setPrefukRows((pf.data as any[]) ?? []);
       setAdjustmentRows((adj.data as any[]) ?? []);
     }).catch(() => { /* odznak se dopočítá bez nich, appka kvůli tomu nepadá */ });
-    const ids = (o as Order[])?.map((x) => x.id) ?? [];
-    if (ids.length) {
-      const { data: it } = await fetchAllRows('order_items', '*').in('order_id', ids);
+    const ids = new Set(((o as Order[]) ?? []).map((x) => x.id));
+    if (ids.size) {
       const map: Record<string, OrderItem[]> = {};
-      (it as OrderItem[])?.forEach((i) => { (map[i.order_id] ??= []).push(i); });
+      ((vsechnyPolozky as OrderItem[]) ?? []).forEach((i) => {
+        if (ids.has(i.order_id)) (map[i.order_id] ??= []).push(i);
+      });
       setItems(map);
     }
     if (!silent) setLoading(false);
@@ -1350,28 +1355,6 @@ export default function Orders({
     if (key === 'is_delivered') patch.delivered_at = !o[key] ? new Date().toISOString() : null;
     await supabase.from('orders').update(patch).eq('id', o.id);
     setOrders((arr) => arr.map((x) => x.id === o.id ? { ...x, ...patch } as Order : x));
-  }
-  /**
-   * Odškrtnutí položky — „stočeno" a „připraveno" přímo v přehledu.
-   *
-   * Zapisuje do TÝCHŽ sloupců, které odškrtává Závoz
-   * (`order_items.is_bottled` / `is_prepared`), takže se to propíše na obě
-   * strany: co se odškrtne u sklepa, vidí řidič, a co odškrtne řidič, zmizí
-   * z práce ve sklepě. Vlastní příznak jen pro tuhle obrazovku by znamenal
-   * dvě pravdy o jedné bedně piva.
-   *
-   * U „připraveno" se navíc dopočítá příznak celé objednávky — stejně jako
-   * to dělá Závoz, protože podle něj se objednávka tváří jako nachystaná.
-   */
-  // Aktivní tanky pro automatické stočení ze zaškrtnutí — stejná data,
-  // jaká by nabídl ruční zápis v Začátek stáčení (viz lib/tankUZapisu.ts).
-  async function nactiAktivniTanky(): Promise<TankKOdectu[]> {
-    const { data, error } = await fetchAllRows<TankKOdectu>(
-      'cellar_tanks',
-      'id,current_beer_id,kegging_active,status,current_volume_l',
-    );
-    if (error || !data) return [];
-    return data;
   }
 
   async function toggleItemFlag(o: Order, it: OrderItem, key: 'is_bottled' | 'is_prepared') {

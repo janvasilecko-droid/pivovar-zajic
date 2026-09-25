@@ -14,6 +14,7 @@ import { chyba, oznam, potvrd, toastZpet } from '../lib/toast';
 import { usePosledniNacteni } from '../lib/nacitani';
 import { IkonaLahev, IkonaSud } from '../components/ikony';
 import { businessDateISO } from '../lib/businessDate';
+import { nactiSdilenouTabulku } from '../lib/sdilenaData';
 
 type Row = {
   entry_date: string; beer_id: string | null; beer_name: string | null;
@@ -152,18 +153,18 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
     const [{ data: b }, { data: pk }, { data: bt }, { data: kg }, { data: wo }, { data: inv }, { data: oi }, { data: ord }, { data: ak }, { data: fa }, { data: fp }, { data: zd }, { data: adj }, { data: pf }] = await Promise.all([
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
-      fetchAllRows('bottling', 'entry_date,beer_id,package_id,quantity,kegs_used,kegs_used_package_id,source_volume_l,note,created_at'),
-      fetchAllRows('kegging', 'entry_date,beer_id,package_id,quantity'),
-      fetchAllRows('writeoffs', 'entry_date,beer_id,package_id,quantity'),
-      fetchAllRows('inventory', 'entry_date,beer_id,beer_name,package_id,package_label,quantity,note'),
-      fetchAllRows('order_items', 'beer_id,package_id,quantity,order_id'),
-      fetchAllRows('orders', 'id,order_date,delivery_date,status'),
-      fetchAllRows('akce', 'entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
-      fetchAllRows('fasovani', 'entry_date,beer_id,package_id,quantity'),
-      fetchAllRows('fasovani_private', 'entry_date,beer_id,package_id,quantity'),
-      fetchAllRows('zavoz_deductions', 'deduct_date,beer_id,package_id,quantity'),
-      fetchAllRows('inventory_adjustments', 'entry_date,beer_id,package_id,quantity'),
-      fetchAllRows('keg_prefuk', 'entry_date,beer_id,from_package_id,from_count,to_package_id,to_count'),
+      nactiSdilenouTabulku('bottling'),
+      nactiSdilenouTabulku('kegging'),
+      nactiSdilenouTabulku('writeoffs'),
+      nactiSdilenouTabulku('inventory'),
+      nactiSdilenouTabulku('order_items'),
+      nactiSdilenouTabulku('orders'),
+      nactiSdilenouTabulku('akce'),
+      nactiSdilenouTabulku('fasovani'),
+      nactiSdilenouTabulku('fasovani_private'),
+      nactiSdilenouTabulku('zavoz_deductions'),
+      nactiSdilenouTabulku('inventory_adjustments'),
+      nactiSdilenouTabulku('keg_prefuk'),
     ]);
     // Mezitím mohlo začít novější načtení (realtime po cizím zápisu),
     // nebo už obrazovka není vidět. Výsledek se pak zahodí.
@@ -187,7 +188,6 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
 
     const now = new Date();
     const curMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    const lastInvMonth = curMonth;
 
     // Podle DATA DOVOZU, ne data zadání objednávky — objednávka zadaná v jiném
     // měsíci, ale s dovozem v tomto měsíci, sem musí patřit (jinak by "Zbývá"
@@ -258,7 +258,6 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
         });
       
       pkgList.forEach((pkg) => {
-        const k = `${beer.id}__${pkg.id}`;
         const qty = ledger.get(stockKey(beer.id, pkg.id))?.baselineQty || 0;
         if (qty > 0) {
           let e = byPkg.get(pkg.id);

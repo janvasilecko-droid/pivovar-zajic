@@ -4,10 +4,7 @@
 // (localStorage, viz lib/stopwatchTimers.ts) — jde o efemérní pracovní
 // pomůcku na jednom zařízení, ne o data ke sdílení mezi uživateli.
 import { useState, useEffect, useMemo, useRef } from 'react';
-import {
-  Timer, AlarmClock, Hourglass, Play, Pause, RotateCcw, Flag, Plus, Trash2, Square, CheckCircle2,
-  Volume2, VolumeX, Smartphone, Bell, BellRing, Settings2, Sparkles, Copy, Check,
-} from 'lucide-react';
+import { Timer, AlarmClock, Hourglass, Play, Pause, RotateCcw, Flag, Plus, Trash2, Square, CheckCircle2, Volume2, VolumeX, Smartphone, Bell, BellRing, Copy, Check } from 'lucide-react';
 import {
   getStopwatchState, saveStopwatchState, stopwatchElapsedMs, type StopwatchState, type LapEntry,
   getCountdowns, saveCountdowns, countdownRemainingMs, type CountdownTimer,
@@ -22,10 +19,7 @@ import { NAV, EXTRA_NAV } from '../components/Layout';
 import { useAuth } from '../lib/auth';
 import { getHomeLayout, saveHomeLayout, addTile, hideTile, type CountdownTileId } from '../lib/homeLayout';
 import { potvrd, oznam } from '../lib/toast';
-import {
-  notifyTimerDone, getTimerAlertSettings, saveTimerAlertSettings, type TimerAlertSettings,
-  unlockAudioContext, requestNotificationPermission, getNotificationPermission, isNotificationSupported,
-} from '../lib/notifications';
+import { notifyTimerDone, getTimerAlertSettings, saveTimerAlertSettings, type TimerAlertSettings, unlockAudioContext, requestNotificationPermission, getNotificationPermission } from '../lib/notifications';
 
 type TimersTab = 'stopwatch' | 'timer' | 'keg';
 

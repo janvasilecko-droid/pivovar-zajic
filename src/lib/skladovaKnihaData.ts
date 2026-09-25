@@ -10,8 +10,9 @@
 // Načítá se přes fetchAllRows, ne obyčejným selectem: Supabase vrátí nejvýš
 // 1000 řádků a zbytek ZAHODÍ BEZ CHYBY. Kniha, které chybí půlka pohybů, je
 // horší než žádná — tvářila by se, že je všechno v pořádku.
-import { supabase, fetchAllRows } from './supabase';
+import { supabase } from './supabase';
 import { buildMovements, type Movement } from './stockLedger';
+import { nactiSdilenouTabulku } from './sdilenaData';
 
 export type PivoZKatalogu = { id: string; name: string; beer_color?: string | null; is_active?: boolean };
 export type ObalZKatalogu = { id: string; label: string; kind: string; volume_l: number };
@@ -46,16 +47,16 @@ export async function nactiSkladovouKnihu(): Promise<SkladovaKniha> {
     supabase.from('beers').select('id,name,beer_color,is_active').order('sort_order'),
     supabase.from('packages').select('id,label,kind,volume_l').order('sort_order'),
 
-    fetchAllRows('bottling', 'beer_id,package_id,quantity,entry_date,kegs_used,kegs_used_package_id,source_volume_l,note,created_at'),
-    fetchAllRows('kegging', 'beer_id,package_id,quantity,entry_date,note,cellar_tank_id,created_at'),
-    fetchAllRows('fasovani', 'beer_id,package_id,quantity,entry_date,created_at'),
-    fetchAllRows('fasovani_private', 'beer_id,package_id,quantity,entry_date'),
-    fetchAllRows('writeoffs', 'beer_id,package_id,quantity,entry_date,created_at'),
-    fetchAllRows('inventory', 'beer_id,package_id,quantity,entry_date,note,created_at'),
-    fetchAllRows('inventory_adjustments', 'beer_id,package_id,quantity,entry_date,created_at'),
-    fetchAllRows('zavoz_deductions', 'deduct_date,beer_id,package_id,quantity,created_at,order_id'),
-    fetchAllRows('akce', 'entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
-    fetchAllRows('keg_prefuk', 'entry_date,beer_id,from_package_id,from_count,to_package_id,to_count'),
+    nactiSdilenouTabulku('bottling'),
+    nactiSdilenouTabulku('kegging'),
+    nactiSdilenouTabulku('fasovani'),
+    nactiSdilenouTabulku('fasovani_private'),
+    nactiSdilenouTabulku('writeoffs'),
+    nactiSdilenouTabulku('inventory'),
+    nactiSdilenouTabulku('inventory_adjustments'),
+    nactiSdilenouTabulku('zavoz_deductions'),
+    nactiSdilenouTabulku('akce'),
+    nactiSdilenouTabulku('keg_prefuk'),
   ]);
 
   // Z katalogů se tahají jen sloupce, které kniha potřebuje (jméno pro popisek,

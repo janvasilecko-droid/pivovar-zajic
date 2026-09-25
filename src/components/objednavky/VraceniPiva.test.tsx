@@ -7,7 +7,7 @@
 // je tiše vynechala ze zápisu. Uložit proběhlo bez chyby, jen s méně
 // položkami, než uživatel zadal.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { VraceniPiva } from './VraceniPiva';
 import type { Beer, Package } from '../../lib/supabase';
 

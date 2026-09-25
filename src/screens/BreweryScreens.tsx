@@ -478,28 +478,17 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
   const pure30 = Math.floor(netLiters / 30);
   const rem30 = netLiters - pure30 * 30;
 
-  const pure20 = Math.floor(netLiters / 20);
-  const rem20 = netLiters - pure20 * 20;
 
-  const pure15 = Math.floor(netLiters / 15);
-  const rem15 = netLiters - pure15 * 15;
 
   const mix1_50 = Math.floor(netLiters / 50);
   const remAfter50 = netLiters - mix1_50 * 50;
   const mix1_30 = Math.floor(remAfter50 / 30);
-  const remM1 = remAfter50 - mix1_30 * 30;
 
   const halfVol = netLiters * 0.5;
   const mix2_50 = Math.floor(halfVol / 50);
   const remAfterMix2_50 = netLiters - mix2_50 * 50;
   const mix2_30 = Math.floor(remAfterMix2_50 / 30);
-  const remM2 = remAfterMix2_50 - mix2_30 * 30;
 
-  const target50_30pct = netLiters * 0.3;
-  const mix3_50 = Math.floor(target50_30pct / 50);
-  const remAfterMix3_50 = netLiters - mix3_50 * 50;
-  const mix3_30 = Math.floor(remAfterMix3_50 / 30);
-  const remM3 = remAfterMix3_50 - mix3_30 * 30;
 
   const [calcMode, setCalcMode] = useState<'fix30' | 'fix50'>('fix30');
   const [custom30Input, setCustom30Input] = useState<string>('10');
@@ -552,27 +541,13 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
   const vPints = vLiters * 2;
   const vKegs50 = vLiters / 50;
   const vKegs30 = vLiters / 30;
-  const vUsBbl = vLiters / 117.3477;
-  const vUsGal = vLiters / 3.78541;
-  const vUkBbl = vLiters / 163.659;
-  const vUkPints = vLiters / 0.568261;
 
   const degPlato = Math.max(0, Number(platoInput) || 0);
   const sgExact = degPlato > 0 ? 1 + (degPlato / (258.6 - (degPlato / 258.2) * 227.1)) : 1.000;
   const degBrix = degPlato / 0.96;
 
-  const ogVal = Number(ogInput) || 0;
-  const fgVal = Number(fgInput) || 0;
-  const estAbv = Math.max(0, (ogVal - fgVal) * 0.52);
-  const estAbw = estAbv * 0.8;
 
-  const weightKgVal = Math.max(0, Number(kgInput) || 0);
-  const weightLbs = weightKgVal * 2.20462;
-  const weightGrams = weightKgVal * 1000;
-  const weightOz = weightGrams / 28.3495;
 
-  const tC = Number(tempCInput) || 0;
-  const tF = tC * 1.8 + 32;
 
   return (
     <div className="space-y-6 pb-12">

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase, Beer, Package, PriceListItem, useRealtime, beerBg, beerText, pkgBg, pkgText, formatPackageLabel } from '../lib/supabase';
 import { EmptyState, Spinner } from '../components/ui';
-import { Beer as BeerIcon, Calendar, History, Package as PackageIcon } from 'lucide-react';
+import { Beer as BeerIcon, Calendar, History } from 'lucide-react';
 import { IkonaLahev, IkonaSud } from '../components/ikony';
 import { chybiTabulka } from '../lib/chybyHlaseni';
 import { businessDateISO } from '../lib/businessDate';

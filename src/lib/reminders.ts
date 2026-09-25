@@ -1,5 +1,4 @@
 import { supabase } from './supabase';
-import { isNotificationSupported, playOrderChime } from './notifications';
 import { uloz } from './uloziste';
 import { zalogujANahlas } from './chybyHlaseni';
 

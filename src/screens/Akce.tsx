@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { Beer, Package, beerBg, fetchAllRows, formatPackageLabel, pkgBg, supabase, useRealtime, beerText, pkgText } from '../lib/supabase';
+import { Beer, Package, beerBg, fetchAllRows, formatPackageLabel, pkgBg, supabase, useRealtime } from '../lib/supabase';
 import { EmptyState, Kostra } from '../components/ui';
 import { createReminder } from '../lib/reminders';
 import { AlertTriangle, Beer as BeerIcon, Bell, Calendar, Check, CheckCircle2, ClipboardList, Clock, DollarSign, PartyPopper, Plus, Sparkles, Star, ThumbsDown, ThumbsUp, Trash2, User, X } from 'lucide-react';
@@ -7,6 +7,7 @@ import { oznam, potvrd } from '../lib/toast';
 import { uloz, smaz } from '../lib/uloziste';
 import { jeMesicUzamcen } from '../lib/mesicUzamcen';
 import { businessDateISO } from '../lib/businessDate';
+import { nactiSdilenouTabulku } from '../lib/sdilenaData';
 
 /** Řádky z DB (akce + vnořené akce_items) → tvar, se kterým pracuje obrazovka. */
 function rowsToRecords(rows: any[]): AkceRecord[] {
@@ -131,7 +132,7 @@ export default function AkceScreen() {
       // Jen entry_date + note — na víc se `jeMesicUzamcen` neptá. fetchAllRows,
       // ne supabase.from přímo: inventory roste přes 1000 řádků a Supabase by
       // zbytek tiše ořízl (viz strankovaniDotazu.test.ts).
-      fetchAllRows('inventory', 'entry_date,note'),
+      nactiSdilenouTabulku('inventory'),
     ]);
     setBeers((b as Beer[]) ?? []);
     setPackages((pk as Package[]) ?? []);
@@ -478,8 +479,6 @@ export default function AkceScreen() {
             {records.map((r) => {
               const isDone = r.status === 'completed';
               const totalTaken = r.items.reduce((s, i) => s + i.quantity_taken, 0);
-              const totalReturned = r.items.reduce((s, i) => s + i.quantity_returned, 0);
-              const totalSold = totalTaken - totalReturned;
 
               return (
                 <div

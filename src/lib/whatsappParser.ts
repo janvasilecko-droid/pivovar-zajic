@@ -342,7 +342,6 @@ function dayRegex(...alts: string[]): RegExp {
 // („Po: 5x30"). Bez toho se z „na příští týden úterý PO Normě" stalo
 // pondělí a objednávka spadla o den (a o týden) vedle.
 const ZKRATKA_PO = '(?:(?:v|na)\\s+po|(?:^|\\n)\\s*po\\s*(?=[:\\-–]))';
-const ZKRATKA_NE = '(?:(?:v|na)\\s+ne|(?:^|\\n)\\s*ne\\s*(?=[:\\-–]))';
 
 const DAY_MAP: { regex: RegExp; code: string }[] = [
   { regex: dayRegex('(?:v\\s+|na\\s+)?pond[eě]l[ií]', ZKRATKA_PO), code: 'po' },

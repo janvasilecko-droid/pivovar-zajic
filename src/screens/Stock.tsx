@@ -16,6 +16,7 @@ import { requestKegFix, requestBottlingFix } from '../lib/stockFixSignal';
 import { usePosledniNacteni, prvniChyba } from '../lib/nacitani';
 import type { Page } from '../components/Layout';
 import { businessDateISO } from '../lib/businessDate';
+import { nactiSdilenouTabulku } from '../lib/sdilenaData';
 
 type StockByPkg = {
   package_id: string; label: string; volume_l: number; kind: string;
@@ -149,18 +150,18 @@ export default function Stock({ setPage, initialTopTab }: { setPage?: (p: Page, 
 
     const [{ data: invData }, { data: botData }, { data: kegData }, { data: ordItemsData }, { data: ordData }, { data: woData }, { data: akData }, { data: faData }, { data: fpData }, { data: pfData }, { data: zdData }, { data: adjData }] =
       await Promise.all([
-        fetchAllRows('inventory', '*'),
-        fetchAllRows('bottling', '*'),
-        fetchAllRows('kegging', '*'),
-        fetchAllRows('order_items', '*'),
-        fetchAllRows('orders', 'id, order_date, delivery_date, status, is_delivered'),
-        fetchAllRows('writeoffs', '*'),
-        fetchAllRows('akce', 'entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
-        fetchAllRows('fasovani', '*'),
-        fetchAllRows('fasovani_private', '*'),
-        fetchAllRows('keg_prefuk', '*'),
-        fetchAllRows('zavoz_deductions', 'deduct_date,beer_id,package_id,quantity,order_item_id'),
-        fetchAllRows('inventory_adjustments', 'entry_date,beer_id,package_id,quantity'),
+        nactiSdilenouTabulku('inventory'),
+        nactiSdilenouTabulku('bottling'),
+        nactiSdilenouTabulku('kegging'),
+        nactiSdilenouTabulku('order_items'),
+        nactiSdilenouTabulku('orders'),
+        nactiSdilenouTabulku('writeoffs'),
+        nactiSdilenouTabulku('akce'),
+        nactiSdilenouTabulku('fasovani'),
+        nactiSdilenouTabulku('fasovani_private'),
+        nactiSdilenouTabulku('keg_prefuk'),
+        nactiSdilenouTabulku('zavoz_deductions'),
+        nactiSdilenouTabulku('inventory_adjustments'),
       ]);
 
     const inv = (invData ?? []) as { entry_date: string; beer_id: string | null; package_id: string | null; quantity: number; note?: string }[];
@@ -340,7 +341,7 @@ export default function Stock({ setPage, initialTopTab }: { setPage?: (p: Page, 
       supabase.from('packages').select('*').order('sort_order'),
       fetchAllRows('bottling', 'entry_date, beer_id, package_id, quantity').gte('entry_date', brewFrom).lte('entry_date', brewTo),
       fetchAllRows('kegging', 'entry_date, beer_id, package_id, quantity').gte('entry_date', brewFrom).lte('entry_date', brewTo),
-      fetchAllRows('order_items', 'order_id, beer_id, package_id, quantity'),
+      nactiSdilenouTabulku('order_items'),
       fetchAllRows('orders', 'id, order_date, status').gte('order_date', brewFrom).lte('order_date', brewTo),
     ]);
     const beerList = (b as Beer[]) ?? [];

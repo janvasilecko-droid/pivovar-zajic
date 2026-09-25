@@ -1,14 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { supabase, Beer, Package, EntryRow, useRealtime, beerBg, beerName, formatPackageLabel, fetchAllRows } from '../lib/supabase';
+import { supabase, Beer, Package, EntryRow, useRealtime, beerBg, beerName, formatPackageLabel } from '../lib/supabase';
 import { EmptyState, Spinner } from '../components/ui';
 import { isoWeekKey } from '../components/WeeklyOrderSummaryCard';
 import { VoiceRecorder } from '../components/VoiceRecorder';
 import { ProdejnaFromImage } from '../components/ProdejnaFromImage';
-import { BarChart3, Calendar, CalendarDays, Camera, Check, ClipboardList, Copy, Package as PackageIcon, PenLine, RotateCcw, Store, Trash2, X, type LucideIcon } from 'lucide-react';
+import { BarChart3, CalendarDays, Camera, Check, ClipboardList, Package as PackageIcon, PenLine, RotateCcw, Store, Trash2, X, type LucideIcon } from 'lucide-react';
 import { parseFreeTextEntries, loadAliasMap, emptyAliasMap, type ParserAliasMap } from '../lib/orderParser';
 import { TapReservationModal } from '../components/TapReservationModal';
 import { detectTapType } from '../lib/tapReservations';
-import type { TapReservation } from './VycepyScreen';
 import { BeerTileGrid, BeerTilePanel, TileTotalBar } from '../components/BeerTileGrid';
 import { chyba, potvrd, toastZpet } from '../lib/toast';
 import { jeMesicUzamcen } from '../lib/mesicUzamcen';
@@ -20,6 +19,7 @@ import { FotkyZaznamu } from '../components/FotkyZaznamu';
 import { uloz, smaz } from '../lib/uloziste';
 import { businessDateISO } from '../lib/businessDate';
 import { ChipyPiva } from '../components/FiltrPivaAObalu';
+import { nactiSdilenouTabulku } from '../lib/sdilenaData';
 
 // Tři podoby jednoho výdeje ze skladu — formulář je pořád stejný, mění se
 // jen tabulka, do které se zapisuje, a jedno pole navíc. Podle toho se pak
@@ -202,7 +202,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
       // Jen entry_date + note — na víc se `jeMesicUzamcen` neptá (viz add() níž).
       // fetchAllRows, ne supabase.from přímo: inventory roste přes 1000
       // řádků a Supabase by zbytek tiše ořízl (viz strankovaniDotazu.test.ts).
-      fetchAllRows('inventory', 'entry_date,note'),
+      nactiSdilenouTabulku('inventory'),
     ]);
     if (!smiZapsat()) return;
     setChybaNacteni(prvniChyba(fp, b, p));
@@ -219,9 +219,6 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
   useEffect(() => { load(); }, [table]);
   useRealtime([table, 'beers', 'packages', 'inventory'], () => load(true));
 
-  function setRowField(i: number, field: keyof RowInput, value: string | boolean) {
-    setEntryRows((rs) => rs.map((r, idx) => idx === i ? { ...r, [field]: value } : r));
-  }
 
   // Zadávání přes dlaždice piv: čte/zapisuje do stejného pole entryRows (fixní
   // řádky) jako tabulka níže — najde existující řádek pro dané pivo+obal, jinak

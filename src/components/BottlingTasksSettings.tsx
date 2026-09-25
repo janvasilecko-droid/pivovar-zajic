@@ -14,7 +14,7 @@
 // automaticky se propíše do formuláře stáčení (Lahve) — stáčeč ho tam vidí
 // jako „Úkoly ke stočení“ a jediným klikem „Naplnit“ doplní jen počty lahví.
 import { useEffect, useMemo, useState } from 'react';
-import { supabase, useRealtime, Beer, Package, beerBg, fetchAllRows } from '../lib/supabase';
+import { supabase, useRealtime, Beer, Package, beerBg } from '../lib/supabase';
 import { isoWeekKey, weekRange, shiftWeek } from './WeeklyOrderSummaryCard';
 import { computeBottlingNeeds, NeedsRow, seskupPodlePiva } from '../lib/bottlingNeeds';
 import {
@@ -33,6 +33,7 @@ import { chyba, potvrd } from '../lib/toast';
 import { IkonaLahev, IkonaSud } from '../components/ikony';
 import { requestOrdersItemFilter } from '../lib/ordersFilter';
 import { businessDateISO } from '../lib/businessDate';
+import { nactiSdilenouTabulku } from '../lib/sdilenaData';
 
 // Povolené velikosti lahví v dropdownu (shodné se zápisem stáčení)
 const ALLOWED_BOTTLE_VOLUMES = [1.5, 1, 0.5, 0.33];
@@ -120,18 +121,18 @@ export function BottlingTasksSettings({ setPage }: Props = {}) {
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
       supabase.from('bottling_plans').select('*').order('planned_date'),
-      fetchAllRows('orders', 'id,order_date,delivery_date,status,is_delivered'),
-      fetchAllRows('order_items', 'id,order_id,beer_id,package_id,quantity'),
-      fetchAllRows('inventory', 'entry_date,beer_id,package_id,quantity,note'),
-      fetchAllRows('bottling', 'entry_date,beer_id,package_id,quantity,kegs_used,kegs_used_package_id,source_volume_l,note,created_at'),
-      fetchAllRows('kegging', 'entry_date,beer_id,package_id,quantity'),
-      fetchAllRows('fasovani', 'entry_date,beer_id,package_id,quantity'),
-      fetchAllRows('fasovani_private', 'entry_date,beer_id,package_id,quantity'),
-      fetchAllRows('writeoffs', 'entry_date,beer_id,package_id,quantity'),
-      fetchAllRows('zavoz_deductions', 'deduct_date,beer_id,package_id,quantity,order_item_id'),
-      fetchAllRows('akce', 'entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
-      fetchAllRows('keg_prefuk', 'entry_date,beer_id,from_package_id,from_count,to_package_id,to_count'),
-      fetchAllRows('inventory_adjustments', 'entry_date,beer_id,package_id,quantity'),
+      nactiSdilenouTabulku('orders'),
+      nactiSdilenouTabulku('order_items'),
+      nactiSdilenouTabulku('inventory'),
+      nactiSdilenouTabulku('bottling'),
+      nactiSdilenouTabulku('kegging'),
+      nactiSdilenouTabulku('fasovani'),
+      nactiSdilenouTabulku('fasovani_private'),
+      nactiSdilenouTabulku('writeoffs'),
+      nactiSdilenouTabulku('zavoz_deductions'),
+      nactiSdilenouTabulku('akce'),
+      nactiSdilenouTabulku('keg_prefuk'),
+      nactiSdilenouTabulku('inventory_adjustments'),
     ]);
     if (b.data) setBeers(b.data as Beer[]);
     if (p.data) setPackages(p.data as Package[]);
@@ -247,10 +248,6 @@ export function BottlingTasksSettings({ setPage }: Props = {}) {
     [packages]
   );
 
-  // ---- Tlačítko „🍾 Stočit“ — otevře menu s velikostmi obalů + KEG ----
-  function openStocit(row: NeedsRow) {
-    openStocitGroup([row]);
-  }
 
   /**
    * Otevře menu „Stočit" za celé pivo naráz, ne jen za jeden obal.

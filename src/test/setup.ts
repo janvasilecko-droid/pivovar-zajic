@@ -1,6 +1,9 @@
 import '@testing-library/jest-dom'
 import { expect, afterEach } from 'vitest'
 import { cleanup } from '@testing-library/react'
+// Jen verze tabulek, bez závislostí — import lib/sdilenaData by tu natáhl
+// skutečné supabase dřív, než si ho test stihne nahradit atrapou.
+import { zneplatniVse } from '../lib/zneplatneni'
 
 // jsdom neimplementuje ResizeObserver (komponenty jako PhotoReviewPane ho
 // používají k auto-fit fotky do plochy náhledu) — bez stubu render spadne.
@@ -22,6 +25,9 @@ if (typeof Element !== 'undefined' && !Element.prototype.scrollIntoView) {
 
 // Automatically cleanup after each test
 afterEach(() => {
+  // Paměť sdílená mezi obrazovkami (lib/sdilenaData.ts) nesmí přenést data
+  // z jednoho testu do druhého.
+  zneplatniVse()
   cleanup()
 })
 

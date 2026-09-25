@@ -3,7 +3,7 @@ import { CellarTank, Beer, CellarTankCycle, useRealtime } from '../lib/supabase'
 import { KLIC_VARKY, nactiVarky, prenesZProhlizece, smazVarku, ulozVarku } from '../lib/varkyData';
 import { rozdilProUlozeni } from '../lib/vycepyData';
 import { chyba as chybaOznam } from '../lib/toast';
-import { AlertTriangle, BarChart3, Calendar, Circle, Clock, Check, Plus, ShieldAlert, X, CheckCircle2, Sparkles } from 'lucide-react';
+import { AlertTriangle, BarChart3, Calendar, Circle, Clock, Check, Plus, ShieldAlert, X } from 'lucide-react';
 import { uloz } from '../lib/uloziste';
 import { businessDateISO } from '../lib/businessDate';
 

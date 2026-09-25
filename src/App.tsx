@@ -17,31 +17,20 @@ import { zjistiStrankuZUrl } from './lib/vstupniStranka';
 import AuthScreen from './screens/AuthScreen';
 const Dashboard = lazyStranka(() => import('./screens/Dashboard'));
 import HomeScreen from './screens/HomeScreen';
-const Orders = lazyStranka(() => import('./screens/Orders'));
 const Zavoz = lazyStranka(() => import('./screens/Zavoz'));
 const Stock = lazyStranka(() => import('./screens/Stock'));
-const BeersScreen = lazyStranka(() => import('./screens/Catalogs').then((m) => ({ default: m.BeersScreen })));
-const PackagesScreen = lazyStranka(() => import('./screens/Catalogs').then((m) => ({ default: m.PackagesScreen })));
-const PlacesScreen = lazyStranka(() => import('./screens/Catalogs').then((m) => ({ default: m.PlacesScreen })));
-const VehiclesScreen = lazyStranka(() => import('./screens/Catalogs').then((m) => ({ default: m.VehiclesScreen })));
 const Users = lazyStranka(() => import('./screens/Users'));
 const ZalohaScreen = lazyStranka(() => import('./screens/ZalohaScreen'));
 const KeggingScreen = lazyStranka(() => import('./screens/Kegging'));
 const BottlingScreen = lazyStranka(() => import('./screens/BottlingScreen'));
 const ProdejnaScreen = lazyStranka(() => import('./screens/ProdejnaScreen'));
-const AkceScreen = lazyStranka(() => import('./screens/Akce'));
 const Statistika = lazyStranka(() => import('./screens/Statistika'));
 const ExportExcelScreen = lazyStranka(() => import('./screens/ExportExcelScreen'));
-const PriceListScreen = lazyStranka(() => import('./screens/PriceList'));
 const CellarScreen = lazyStranka(() => import('./screens/Cellar'));
 const SrotovaniScreen = lazyStranka(() => import('./screens/BreweryScreens').then((m) => ({ default: m.SrotovaniScreen })));
-const ChecklistsScreen = lazyStranka(() => import('./screens/BreweryScreens').then((m) => ({ default: m.ChecklistsScreen })));
 const ConcentrationScreen = lazyStranka(() => import('./screens/BreweryScreens').then((m) => ({ default: m.ConcentrationScreen })));
 const InventoryScreen = lazyStranka(() => import('./screens/InventoryScreen'));
-const KnihaJizdScreen = lazyStranka(() => import('./screens/KnihaJizdScreen'));
-const SkloPromoScreen = lazyStranka(() => import('./screens/SkloPromoScreen'));
 const VycepyScreen = lazyStranka(() => import('./screens/VycepyScreen'));
-const ExkurzeScreen = lazyStranka(() => import('./screens/ExkurzeScreen'));
 const VehiclesTabbed = lazyStranka(() => import('./screens/VehiclesTabbed'));
 const DepozitarTabbed = lazyStranka(() => import('./screens/DepozitarTabbed'));
 const SanitaceTabbed = lazyStranka(() => import('./screens/SanitaceTabbed'));
@@ -61,6 +50,7 @@ const BottlingTasksSettings = lazyStranka(() => import('./components/BottlingTas
 import { Spinner, Kostra } from './components/ui';
 import { scheduleNightlyCheck } from './lib/zavozDeduction';
 import { nactiVPredstihu } from './lib/predstih';
+import { uklidStareOdpovedi } from './lib/offlineCache';
 import { hlidejPlynulost } from './lib/plynulost';
 import { varovani, uspech } from './lib/toast';
 
@@ -127,6 +117,8 @@ export default function App() {
     if (!session) return;
     let zruseno = false;
     void nactiVPredstihu();
+    // Úklid offline úložiště až po startu, ať nekonkuruje prvnímu načtení.
+    const uklid = setTimeout(() => { void uklidStareOdpovedi(); }, 20_000);
     void hlidejPlynulost((text, zapnout) => {
       if (zruseno) return;
       varovani(text, {
@@ -137,7 +129,7 @@ export default function App() {
         },
       });
     });
-    return () => { zruseno = true; };
+    return () => { zruseno = true; clearTimeout(uklid); };
   }, [session]);
 
   // Automatický odpočet závozu ze skladu (spuštěn po přihlášení, každý den v 01:00)

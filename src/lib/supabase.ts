@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { useEffect, useRef } from 'react';
 import { cacheGetResponse, getCachedResponse, getTableRows, upsertTableRows } from './offlineCache';
 import { enqueue, getQueue } from './offline';
+import { zneplatniTabulku, zneplatniVse } from './zneplatneni';
 
 const url = import.meta.env.VITE_SUPABASE_URL as string;
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
@@ -227,17 +228,22 @@ async function handleGet(input: RequestInfo | URL, init: RequestInit | undefined
   const wantCount = prefer.includes('count=exact');
   try {
     const res = await fetchWithTimeout(input, init);
-    if (res && res.ok) {
-      const text = await res.clone().text();
-      if (text && rest) {
+    if (res && res.ok && rest) {
+      // Uložení pro offline až POTOM, ne před vrácením odpovědi. Dřív se
+      // každá odpověď (i každá tisícová stránka historie) nejdřív celá
+      // přečetla a rozparsovala a teprve pak ji dostala obrazovka — při
+      // ~15 dotazech na obrazovku to bylo znát hlavně na telefonu.
+      const kopie = res.clone();
+      const cr = res.headers.get('content-range');
+      void kopie.text().then((text) => {
+        if (!text) return;
         try {
           const rows = JSON.parse(text);
           const arr = Array.isArray(rows) ? rows : [rows];
-          const cr = res.headers.get('content-range');
           if (arr.length > 0 || cr) cacheGetResponse(url.toString(), arr, cr);
           if (arr.length > 0) upsertTableRows(rest.table, arr);
         } catch { /* non-JSON body — nothing to cache */ }
-      }
+      }).catch(() => { /* offline cache je jen bonus */ });
     }
     return res;
   } catch {
@@ -330,14 +336,33 @@ async function handleWrite(input: RequestInfo | URL, init: RequestInit, rest: Re
   return synthesizeWrite(init, rest, method);
 }
 
+/**
+ * Zápis mění data, která může mít lib/sdilenaData.ts v paměti. Zneplatní se
+ * před odesláním i po dokončení: načtení, které se rozběhne MEZITÍM, by jinak
+ * mohlo uložit do paměti stav ještě před zápisem.
+ */
+function sledujZapis(odpoved: Promise<Response>, zneplatni: () => void): Promise<Response> {
+  zneplatni();
+  return odpoved.finally(zneplatni);
+}
+
 async function offlineFetch(input: RequestInfo | URL, init?: RequestInit, opts?: { admin?: boolean }): Promise<Response> {
   const url = getUrl(input);
+  const method = (init?.method ?? 'GET').toUpperCase();
+  // Edge funkce (import objednávek z WhatsAppu apod.) zapisují do tabulek,
+  // o kterých appka dopředu neví.
+  if (url && url.pathname.includes('/functions/v1/') && method !== 'GET') {
+    return sledujZapis(fetch(input, init), zneplatniVse);
+  }
   if (!url || !url.pathname.includes(REST_PREFIX) || opts?.admin) return fetch(input, init);
   const rest = parseRest(url);
-  const method = (init?.method ?? 'GET').toUpperCase();
 
   if (method === 'GET') return handleGet(input, init, url, rest);
-  if ((method === 'POST' || method === 'PATCH' || method === 'DELETE') && rest) return handleWrite(input, init ?? {}, rest);
+  if ((method === 'POST' || method === 'PATCH' || method === 'DELETE') && rest) {
+    // RPC (/rest/v1/rpc/…) může sáhnout do čehokoli.
+    const zneplatni = rest.table === 'rpc' ? zneplatniVse : () => zneplatniTabulku(rest.table);
+    return sledujZapis(handleWrite(input, init ?? {}, rest), zneplatni);
+  }
   return fetch(input, init);
 }
 
@@ -377,6 +402,11 @@ export function useRealtime(tables: string[], onChange: () => void) {
     let timer: ReturnType<typeof setTimeout> | null = null;
     let zmeskano = false;
     const jeSchovana = () => typeof document !== 'undefined' && document.visibilityState === 'hidden';
+    // Tabulky téhle obrazovky v paměti sdílené mezi obrazovkami
+    // (lib/sdilenaData.ts) — přenačtení, které má přinést ČERSTVÁ data
+    // (návrat do appky, obnovené spojení, minutová pojistka), je musí
+    // nejdřív zahodit, jinak by dostalo to, co už v paměti leží.
+    const zahodPamet = () => { tables.forEach(zneplatniTabulku); };
     const trigger = () => {
       if (jeSchovana()) { zmeskano = true; return; }
       if (timer) clearTimeout(timer);
@@ -391,6 +421,7 @@ export function useRealtime(tables: string[], onChange: () => void) {
     const naNavrat = () => {
       if (jeSchovana()) return;
       zmeskano = false;
+      zahodPamet();
       trigger();
     };
     document.addEventListener('visibilitychange', naNavrat);
@@ -419,6 +450,7 @@ export function useRealtime(tables: string[], onChange: () => void) {
     let zpozdeniOpakovani = 2000;
     let planZnovupripojeni: ReturnType<typeof setTimeout> | null = null;
     let zrusen = false;
+    let prvniPripojeni = true;
 
     const naplanujZnovupripojeni = () => {
       if (zrusen || planZnovupripojeni) return;
@@ -433,11 +465,22 @@ export function useRealtime(tables: string[], onChange: () => void) {
       if (zrusen) return;
       kanal = supabase.channel(`rt-${Math.random().toString(36).slice(2)}`);
       tables.forEach((t) => {
-        kanal!.on('postgres_changes' as any, { event: '*', schema: 'public', table: t }, trigger);
+        // Změnila se jen tahle tabulka — ostatní smějí zůstat v paměti, takže
+        // se přenačte jen ona, ne všech ~15 dotazů obrazovky.
+        kanal!.on('postgres_changes' as any, { event: '*', schema: 'public', table: t }, () => {
+          zneplatniTabulku(t);
+          trigger();
+        });
       });
       kanal.subscribe((status: string) => {
         if (status === 'SUBSCRIBED') {
           zpozdeniOpakovani = 2000;
+          // Při PRVNÍM připojení obrazovka data právě načetla a paměť hlídá
+          // vlastní kanál (sdilenaData.ts) — zahodit ji by znamenalo stáhnout
+          // vteřinu po otevření všechno podruhé. Po výpadku ale mohlo cokoli
+          // utéct, tam se zahodit musí.
+          if (!prvniPripojeni) zahodPamet();
+          prvniPripojeni = false;
           trigger();
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
           naplanujZnovupripojeni();
@@ -460,16 +503,17 @@ export function useRealtime(tables: string[], onChange: () => void) {
     // postgres_changes události sama přenačte — v nejhorším případě je to
     // jeden dotaz navíc za minutu na otevřenou obrazovku, ne appka, co
     // tiše ukazuje stará čísla, dokud si toho někdo nevšimne a nedá F5.
-    const pojistka = setInterval(() => { if (!jeSchovana()) trigger(); }, 60_000);
+    const pojistka = setInterval(() => { if (!jeSchovana()) { zahodPamet(); trigger(); } }, 60_000);
 
-    window.addEventListener('pivovar:online-refetch', trigger);
+    const poPripojeni = () => { zahodPamet(); trigger(); };
+    window.addEventListener('pivovar:online-refetch', poPripojeni);
     return () => {
       zrusen = true;
       if (timer) clearTimeout(timer);
       if (planZnovupripojeni) clearTimeout(planZnovupripojeni);
       clearInterval(pojistka);
       if (kanal) supabase.removeChannel(kanal);
-      window.removeEventListener('pivovar:online-refetch', trigger);
+      window.removeEventListener('pivovar:online-refetch', poPripojeni);
       document.removeEventListener('visibilitychange', naNavrat);
     };
   }, [tables.join(',')]);

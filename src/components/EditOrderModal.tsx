@@ -56,8 +56,6 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
   const [pendingSave, setPendingSave] = useState(false); // true when save() was triggered but waiting for tap modal
   const [tapWasConfirmed, setTapWasConfirmed] = useState(false); // true if user confirmed reservation in modal
 
-  const oldPlaceId = order.place_id;
-  const oldPlaceName = order.place_name;
 
   function setRow(idx: number, field: 'beerId' | 'pkgId' | 'qty', value: string) {
     setRows((rs) => rs.map((r, i) => i === idx ? { ...r, [field]: value } : r));

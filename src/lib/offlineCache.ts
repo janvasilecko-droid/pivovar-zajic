@@ -64,14 +64,62 @@ export function getCachedResponse(url: string): Promise<CachedResponse | null> {
   );
 }
 
-/** Upsert rows into the per-table store (merged by row id). */
+const frontaTabulek = new Map<string, Promise<void>>();
+
+/**
+ * Upsert rows into the per-table store (merged by row id).
+ *
+ * Běží po tabulkách jedna po druhé: souběžné stránky téže tabulky (stahují
+ * se naráz, viz fetchAllRows) by si jinak navzájem přepsaly výsledek —
+ * obě přečtou stejný starý obsah a vyhraje ta, co zapíše poslední.
+ *
+ * Řádky bez `id` (většina výčtů sloupců u pohybů) se uložit nedají — dřív se
+ * kvůli nim stejně přečetla a znovu zapsala celá uložená tabulka, zbytečně.
+ */
 export function upsertTableRows(table: string, rows: any[]): Promise<void> {
-  return tx(TABLES_STORE, 'readonly', (s) => s.get(table)).then((existing) => {
+  const sId = rows.filter((r) => r && typeof r.id === 'string');
+  if (sId.length === 0) return Promise.resolve();
+  const predchozi = frontaTabulek.get(table) ?? Promise.resolve();
+  const dalsi = predchozi.then(() => tx(TABLES_STORE, 'readonly', (s) => s.get(table)).then((existing) => {
     const map = new Map<string, any>();
     for (const r of (existing?.rows as any[]) ?? []) if (r && typeof r.id === 'string') map.set(r.id, r);
-    for (const r of rows) if (r && typeof r.id === 'string') map.set(r.id, r);
+    for (const r of sId) map.set(r.id, r);
     const merged = Array.from(map.values());
     return tx(TABLES_STORE, 'readwrite', (s) => s.put({ rows: merged }, table)).then(() => undefined);
+  })).catch(() => undefined);
+  frontaTabulek.set(table, dalsi);
+  void dalsi.then(() => { if (frontaTabulek.get(table) === dalsi) frontaTabulek.delete(table); });
+  return dalsi;
+}
+
+/**
+ * Smaže uložené odpovědi starší než `maxStariMs`. Dřív se nemazalo nic:
+ * každá jiná adresa dotazu (jiné datum, jiná dávka objednávek…) přidala
+ * trvalý záznam, takže úložiště v telefonu jen rostlo.
+ */
+export function uklidStareOdpovedi(maxStariMs = 30 * 24 * 3600_000): Promise<number> {
+  return openDb().then((db) => {
+    if (!db) return 0;
+    return new Promise<number>((resolve) => {
+      let smazano = 0;
+      try {
+        const hranice = Date.now() - maxStariMs;
+        const t = db.transaction(RESPONSES_STORE, 'readwrite');
+        const req = t.objectStore(RESPONSES_STORE).openCursor();
+        req.onsuccess = () => {
+          const kurzor = req.result;
+          if (!kurzor) return;
+          const v = kurzor.value as { t?: number } | undefined;
+          if (!v || typeof v.t !== 'number' || v.t < hranice) { kurzor.delete(); smazano++; }
+          kurzor.continue();
+        };
+        t.oncomplete = () => resolve(smazano);
+        t.onerror = () => resolve(smazano);
+        t.onabort = () => resolve(smazano);
+      } catch {
+        resolve(smazano);
+      }
+    });
   });
 }
 
