@@ -10,7 +10,7 @@
 // Zapisuje se stejnými funkcemi jako u měsíční uzávěrky (lib/inventoryFix.ts,
 // lib/tankZapis.ts). Vlastní verze zápisu by byla druhá pravda o tomtéž.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CalendarRange, Calculator, Check, ChevronLeft, ChevronRight, ClipboardList, ExternalLink, ListChecks, Lock, LockOpen, MinusCircle, Plus, RefreshCw, Save, Search } from 'lucide-react';
+import { CalendarRange, Calculator, Check, ChevronLeft, ChevronRight, ClipboardList, ExternalLink, ListChecks, Lock, LockOpen, MinusCircle, Plus, RefreshCw, Save, Search, SkipForward, Wand2 } from 'lucide-react';
 import { supabase, fetchAllRows, formatPackageLabel, beerBg, beerText } from '../lib/supabase';
 import { Spinner } from './ui';
 import { QuickCountModal } from './QuickCountModal';
@@ -24,7 +24,7 @@ import {
   jenAktivni, popisTydne, radkyTydne, souhrnTydne, stitekTydne, tydenObdobi, vychoziTyden,
   zaznamKontroly, zaznamDorovnani, type TydenniRadek, type TydenObdobi,
 } from '../lib/tydenniInventura';
-import type { ReactNode } from 'react';
+import type { Dispatch, ReactNode, SetStateAction } from 'react';
 import { popisPolozek, objednavkaShoduje, zapisShoduje, type PrehledObjednavka, type PrehledZapis } from '../lib/tydenniPrehled';
 import { StitekStavu } from './StitekStavu';
 import { lzeUlozitKoncept, slucInventuru } from '../lib/rozepsanaInventura';
@@ -52,6 +52,15 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
     () => (nactiJson<'vse' | 'lahve' | 'sudy'>('tydenni_inventura_filtr_obalu', 'vse')),
   );
   useEffect(() => { ulozJson('tydenni_inventura_filtr_obalu', filtrObalu); }, [filtrObalu]);
+  // 🚶 Popořadě — na sklepě/skladu se počítá tak, jak police jdou za sebou,
+  // ne jak appka zrovna seřadila seznam. Zadání z provozu: "budou vyskakovat
+  // jednotlivý obaly od piva, keg nebo lahve, zadám počet, potvrdím, skočí
+  // další položka." Na rozdíl od sčítadla (QuickCountModal — volný výběr
+  // z celého katalogu, tapání +1/+5) tohle prochází JEN položky, co se
+  // v tomhle týdnu opravdu počítají (radkyKPocitani), v pořadí, v jakém je
+  // appka řadí — a rovnou píše do stejného `napocitano`, co vidí Seznam.
+  const [zpusobPocitani, setZpusobPocitani] = useState<'seznam' | 'poporade'>('seznam');
+  const [indexPoporade, setIndexPoporade] = useState(0);
   // 💾 Rozepsané (ještě neuložené) napočítání se nesmí ztratit — viz
   // lib/rozepsanaInventura.ts. Bez tohohle `nacti()` (při přenačtení, po
   // zápisu i při návratu na stejný týden) tiše přepsalo naťukaná čísla jen
@@ -175,6 +184,18 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
       return `${r.beer_name} ${r.package_label}`.toLowerCase().includes(q);
     });
   }, [radkyObalu, hledat, jenRozdily]);
+
+  // Popořadě prochází VŠECHNO (bez „Jen rozdíly" — to je filtr na kontrolu
+  // POTÉ, co je spočítáno, ne na počítání samotné), ale respektuje hledání
+  // a přepínač Vše/Lahve/Sudy — stejný rozsah, jaký je vidět v Seznamu.
+  const radkyKPocitani = useMemo(() => {
+    const q = hledat.trim().toLowerCase();
+    return radkyObalu.filter((r) => !q || `${r.beer_name} ${r.package_label}`.toLowerCase().includes(q));
+  }, [radkyObalu, hledat]);
+
+  useEffect(() => {
+    setIndexPoporade((i) => Math.min(i, Math.max(0, radkyKPocitani.length - 1)));
+  }, [radkyKPocitani.length]);
 
   const otevrenyRadekObj = useMemo(
     () => vsechnyRadky.find((r) => r.klic === otevrenyRadek) ?? null,
@@ -428,6 +449,26 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
               ))}
             </div>
 
+            {/* 📋/🚶 Seznam (všechno naráz, jako dřív) vs. Popořadě (jedna
+                položka na obrazovku, zadat, potvrdit, skočí další). */}
+            <div className="flex items-stretch gap-1 rounded bg-neutral-100 border border-neutral-200 p-1">
+              {([
+                { klic: 'seznam' as const, popisek: 'Seznam', Ikona: ListChecks },
+                { klic: 'poporade' as const, popisek: 'Popořadě', Ikona: Wand2 },
+              ]).map(({ klic, popisek, Ikona }) => (
+                <button
+                  key={klic}
+                  type="button"
+                  onClick={() => setZpusobPocitani(klic)}
+                  className={`flex-1 !rounded !px-3 !py-2.5 !min-h-[44px] font-black text-xs transition flex items-center justify-center gap-1.5 ${
+                    zpusobPocitani === klic ? 'btn-amber' : 'btn-ghost !border-none'
+                  }`}
+                >
+                  <Ikona size={14} /> {popisek}
+                </button>
+              ))}
+            </div>
+
             <div className="flex flex-wrap items-center gap-2">
               <label className="relative flex-1 min-w-[180px]">
                 <Search size={16} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400" />
@@ -438,17 +479,19 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
                   className="input !pl-8 min-h-[44px] w-full"
                 />
               </label>
-              <button
-                type="button"
-                onClick={() => setJenRozdily((v) => !v)}
-                className={`px-3.5 py-2.5 rounded font-black text-xs transition min-h-[44px] ${
-                  jenRozdily
-                    ? 'bg-rose-600 text-white shadow-md'
-                    : 'bg-neutral-100 text-neutral-700 border border-neutral-200 hover:bg-neutral-200'
-                }`}
-              >
-                Jen rozdíly
-              </button>
+              {zpusobPocitani === 'seznam' && (
+                <button
+                  type="button"
+                  onClick={() => setJenRozdily((v) => !v)}
+                  className={`px-3.5 py-2.5 rounded font-black text-xs transition min-h-[44px] ${
+                    jenRozdily
+                      ? 'bg-rose-600 text-white shadow-md'
+                      : 'bg-neutral-100 text-neutral-700 border border-neutral-200 hover:bg-neutral-200'
+                  }`}
+                >
+                  Jen rozdíly
+                </button>
+              )}
               {/* 🧮 Dotykové sčítadlo — stejné jako ve Skladu, ale TADY
                   jen VYPLNÍ pole „Napočítáno". Nic se nikam nezapisuje: co se
                   má se skladem stát, rozhoduje až „Dopsat stáčení" u konkrétního
@@ -493,7 +536,17 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
 
       {rezim === 'pocitani' && bezi && <Spinner />}
 
-      {rezim === 'pocitani' && !bezi && radky.length === 0 && (
+      {rezim === 'pocitani' && !bezi && zpusobPocitani === 'poporade' && (
+        <PoporadeVstup
+          radky={radkyKPocitani}
+          index={indexPoporade}
+          setIndex={setIndexPoporade}
+          napocitano={napocitano}
+          setNapocitano={setNapocitano}
+        />
+      )}
+
+      {rezim === 'pocitani' && zpusobPocitani === 'seznam' && !bezi && radky.length === 0 && (
         <div className="card p-6 text-center text-sm font-bold text-neutral-500">
           {vsechnyRadky.length === 0
             ? 'Za tenhle týden není co počítat — sklad je prázdný a nic se nehýbalo.'
@@ -501,7 +554,7 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
         </div>
       )}
 
-      {rezim === 'pocitani' && !bezi && radky.length > 0 && (
+      {rezim === 'pocitani' && zpusobPocitani === 'seznam' && !bezi && radky.length > 0 && (
         <div className="space-y-2">
           {radky.map((r) => {
             const sedi = r.napocitano !== null && r.rozdil === 0;
@@ -623,6 +676,132 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
         popisUlozeni="Vyplní se tím pole ‚Napočítáno‘. Nic se neukládá — čísla si pak projdi a ulož tlačítkem ‚Uložit kontrolu‘."
         potvrditPopisek="Vyplnit do kontroly"
       />
+    </div>
+  );
+}
+
+/**
+ * 🚶 Popořadě — jedna položka na obrazovku, velké pole, Potvrdit skočí na
+ * další. Zapisuje se do STEJNÉHO `napocitano`, jaké vidí Seznam — je to jen
+ * jiný způsob, jak se do něj dostat, ne druhá pravda o tom, co je spočítáno.
+ */
+function PoporadeVstup({
+  radky,
+  index,
+  setIndex,
+  napocitano,
+  setNapocitano,
+}: {
+  radky: TydenniRadek[];
+  index: number;
+  setIndex: Dispatch<SetStateAction<number>>;
+  napocitano: Record<string, string>;
+  setNapocitano: Dispatch<SetStateAction<Record<string, string>>>;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const r = radky[index] ?? null;
+  const [hodnota, setHodnota] = useState('');
+
+  // Při skoku na novou položku (potvrzením, šipkou, i návratem přes Zpět)
+  // se pole vyplní tím, co v napočítáno případně už je, a focusne se — ruce
+  // jsou volné jen na psaní čísla, ne na hledání pole prstem.
+  useEffect(() => {
+    if (!r) return;
+    setHodnota(napocitano[r.klic] ?? '');
+    inputRef.current?.focus();
+    inputRef.current?.select();
+  }, [r?.klic]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (radky.length === 0) {
+    return (
+      <div className="card p-6 text-center text-sm font-bold text-neutral-500">
+        Za tenhle týden (a zvolený filtr) není co počítat.
+      </div>
+    );
+  }
+
+  function potvrdit() {
+    if (!r) return;
+    setNapocitano((m) => ({ ...m, [r.klic]: hodnota }));
+    setIndex((i) => i + 1);
+  }
+
+  if (!r) {
+    return (
+      <div className="card p-6 text-center space-y-3">
+        <p className="font-black text-lg text-emerald-700">
+          <Check className="ikona-text" /> Hotovo — projel jsi celý seznam.
+        </p>
+        <button type="button" onClick={() => setIndex(0)} className="btn-secondary !rounded">
+          <RefreshCw size={16} /> Začít znovu od první položky
+        </button>
+      </div>
+    );
+  }
+
+  const inkTrida = beerText({ beer_color: r.beer_color });
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between text-xs font-black text-neutral-500 px-1">
+        <span>{index + 1} / {radky.length}</span>
+        <div className="flex gap-1">
+          <button
+            type="button"
+            onClick={() => setIndex((i) => Math.max(0, i - 1))}
+            disabled={index === 0}
+            className="btn-ghost !rounded !py-1.5 !px-2.5 disabled:opacity-30"
+            aria-label="Předchozí položka"
+          >
+            <ChevronLeft size={16} />
+          </button>
+          <button
+            type="button"
+            onClick={() => setIndex((i) => Math.min(radky.length - 1, i + 1))}
+            disabled={index >= radky.length - 1}
+            className="btn-ghost !rounded !py-1.5 !px-2.5 disabled:opacity-30"
+            aria-label="Další položka"
+          >
+            <ChevronRight size={16} />
+          </button>
+        </div>
+      </div>
+
+      <div
+        className="card p-5 border-2 border-amber-300 text-center space-y-4"
+        style={{ backgroundColor: beerBg({ beer_color: r.beer_color }) }}
+      >
+        <div>
+          <p className={`font-display font-black text-2xl break-words ${inkTrida}`}>{r.beer_name}</p>
+          <p className={`text-sm font-bold opacity-80 mt-0.5 ${inkTrida}`}>{formatPackageLabel(r.package_label)}</p>
+        </div>
+
+        <p className={`text-xs font-bold opacity-70 ${inkTrida}`}>Čeká se: {r.ocekavano} ks</p>
+
+        {/* Desetinné ANO — stejně jako v Seznamu: lahve po kusech, načatý sud na půlky. */}
+        <input
+          ref={inputRef}
+          inputMode="decimal"
+          value={hodnota}
+          onChange={(e) => setHodnota(normalizujCislo(e.target.value, true))}
+          onKeyDown={(e) => { if (e.key === 'Enter') potvrdit(); }}
+          placeholder="—"
+          className="input !text-center !text-3xl !font-black !py-4 !w-44 mx-auto tabular-nums bg-white"
+        />
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setIndex((i) => i + 1)}
+            className="btn-secondary !rounded flex-1 min-h-[48px]"
+          >
+            <SkipForward size={16} /> Přeskočit
+          </button>
+          <button type="button" onClick={potvrdit} className="btn-primary !rounded flex-[2] min-h-[48px] text-base">
+            <Check size={18} /> Potvrdit a další
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
