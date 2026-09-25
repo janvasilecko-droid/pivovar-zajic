@@ -10,16 +10,19 @@ import { chyba, oznam, potvrd, uspech } from '../lib/toast';
 import { usePosledniNacteni } from '../lib/nacitani';
 import { useAuth } from '../lib/auth';
 import { isAdminEmail } from '../lib/config';
-import { fetchPlaceAliasesForAdmin, deletePlaceAlias, pridejPlaceAliasRucne, upravPlaceAlias, type PlaceAliasRow } from '../lib/orderParser';
+import { fetchPlaceAliasesForAdmin, deletePlaceAlias, pridejPlaceAliasRucne, upravPlaceAlias, type PlaceAliasRow, fetchAliasesForAdmin, deleteAlias, pridejAliasRucne, upravAlias, type ParserAliasRow } from '../lib/orderParser';
 
 /* ===== PIVA ===== */
 export function BeersScreen() {
+  const { profile, user } = useAuth();
+  const isAdmin = profile?.role === 'admin' || isAdminEmail(user?.email);
   const [rows, setRows] = useState<Beer[]>([]);
   const [loading, setLoading] = useState(true);
   const [show, setShow] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [edit, setEdit] = useState<Beer | null>(null);
   const [search, setSearch] = useState('');
+  const [showNaucene, setShowNaucene] = useState(false);
 
   // Zámek proti zápisu ze zastaralého načtení — viz lib/nacitani.ts.
   const zacniNacteni = usePosledniNacteni();
@@ -57,6 +60,11 @@ export function BeersScreen() {
   return (
     <div className="space-y-6 pb-12">
       <div className="flex flex-wrap items-center justify-end gap-2">
+        {isAdmin && (
+          <button className="btn-ghost !rounded !py-2.5 !px-3.5 text-xs" onClick={() => setShowNaucene(true)}>
+            <Sparkles size={16} /> Naučené zkratky
+          </button>
+        )}
         <button className="px-3.5 py-2.5 rounded bg-white border border-amber-300/80 text-amber-950 hover:bg-amber-50 font-extrabold text-xs transition flex items-center gap-1.5 shadow-xs" onClick={() => setShowImport(true)}>
           <FileSpreadsheet size={16} /> Import z Excelu
         </button>
@@ -112,6 +120,7 @@ export function BeersScreen() {
         </div>
       )}
       {show && <BeerForm beer={edit} onClose={() => setShow(false)} onSaved={() => { setShow(false); load(); }} />}
+      {showNaucene && <NauceneZkratkyModal beers={rows} onClose={() => setShowNaucene(false)} />}
     </div>
   );
 }
@@ -184,6 +193,182 @@ function BeerForm({ beer, onClose, onSaved }: { beer: Beer | null; onClose: () =
         <div className="flex justify-end gap-2 pt-2">
           <button className="btn-ghost !rounded" onClick={onClose}>Zrušit</button>
           <button className="btn-primary !rounded" disabled={busy || !name} onClick={save}>{busy ? 'Ukládám…' : 'Uložit'}</button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+/**
+ * Naučené zkratky piv/obalů — přehled toho, co si appka zapamatovala při
+ * rozpoznávání WhatsApp/hlasových/fotoobjednávek (tabulka parser_aliases,
+ * čtená matchBeerFromHints/matchPackage v lib/orderParser.ts). Stejně jako
+ * u Naučených odběratelů jde zkratku i ručně přidat nebo upravit — zápis
+ * jde do stejné tabulky, takže se ruční a naučená zkratka chovají stejně.
+ */
+function NauceneZkratkyModal({ beers, onClose }: { beers: Beer[]; onClose: () => void }) {
+  const [zkratky, setZkratky] = useState<ParserAliasRow[]>([]);
+  const [packages, setPackages] = useState<Package[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [pridavam, setPridavam] = useState(false);
+  const [upravovanyId, setUpravovanyId] = useState<string | null>(null);
+  const [formText, setFormText] = useState('');
+  const [formBeerId, setFormBeerId] = useState('');
+  const [formPackageId, setFormPackageId] = useState('');
+  const [ukladam, setUkladam] = useState(false);
+
+  async function nacti() {
+    setLoading(true);
+    try {
+      const [z, p] = await Promise.all([
+        fetchAliasesForAdmin(),
+        supabase.from('packages').select('id,code,kind,volume_l,label,sort_order').order('sort_order'),
+      ]);
+      setZkratky(z);
+      setPackages((p.data as Package[]) ?? []);
+    } catch (e) {
+      chyba(e);
+    } finally {
+      setLoading(false);
+    }
+  }
+  useEffect(() => { nacti(); }, []);
+
+  function zacniPridavat() {
+    setPridavam(true);
+    setUpravovanyId(null);
+    setFormText('');
+    setFormBeerId('');
+    setFormPackageId('');
+  }
+  function zacniUpravovat(z: ParserAliasRow) {
+    setUpravovanyId(z.id);
+    setPridavam(false);
+    setFormText(z.alias_text);
+    setFormBeerId(z.beer_id ?? '');
+    setFormPackageId(z.package_id ?? '');
+  }
+  function zrusFormular() {
+    setPridavam(false);
+    setUpravovanyId(null);
+  }
+
+  async function ulozFormular() {
+    if (!formText.trim() || (!formBeerId && !formPackageId)) { oznam('Vyplň text zkratky a vyber pivo nebo obal.'); return; }
+    setUkladam(true);
+    try {
+      const chybaVysledku = upravovanyId
+        ? await upravAlias(upravovanyId, formText, formBeerId || null, formPackageId || null)
+        : await pridejAliasRucne(formText, formBeerId || null, formPackageId || null);
+      if (chybaVysledku === 'prazdne') { oznam('Zadej text zkratky.'); return; }
+      if (chybaVysledku === 'neplatna_zkratka') { oznam('Tahle zkratka pivo dostatečně nepojmenovává (musí obsahovat aspoň 3 písmena z názvu, nebo stupeň s barvou) — jako trvalé pravidlo by mohla přebít jiné pivo.'); return; }
+      uspech(upravovanyId ? 'Zkratka upravena.' : 'Zkratka přidána.');
+      zrusFormular();
+      await nacti();
+    } catch (e) {
+      chyba(e);
+    } finally {
+      setUkladam(false);
+    }
+  }
+
+  async function smaz(id: string) {
+    if (!(await potvrd('Smazat naučenou zkratku?'))) return;
+    try {
+      await deleteAlias(id);
+      setZkratky((arr) => arr.filter((z) => z.id !== id));
+    } catch (e) {
+      chyba(e);
+    }
+  }
+
+  const formularOtevreny = pridavam || upravovanyId !== null;
+
+  return (
+    <Modal open={true} onClose={onClose} title="Naučené zkratky">
+      <div className="space-y-4">
+        <p className="text-sm text-neutral-600">
+          Když appka (nebo člověk) opraví špatně rozpoznané pivo nebo obal, zapamatuje si
+          „tenhle text = tohle pivo/obal" pro příště. Tady jde vidět, co se naučila,
+          smazat špatné naučení — a taky přidat nebo upravit zkratku ručně.
+        </p>
+
+        {formularOtevreny ? (
+          <div className="p-3 rounded border border-amber-300 bg-amber-50 space-y-2.5">
+            <Field label="Text zkratky">
+              <input
+                type="text" className="input w-full" value={formText}
+                onChange={(e) => setFormText(e.target.value)}
+                placeholder="např. desitka, jant, 12sv…"
+              />
+            </Field>
+            <Field label="Pivo (nepovinné)">
+              <select className="input w-full" value={formBeerId} onChange={(e) => setFormBeerId(e.target.value)}>
+                <option value="">— nevázat na pivo —</option>
+                {beers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+              </select>
+            </Field>
+            <Field label="Obal (nepovinné)">
+              <select className="input w-full" value={formPackageId} onChange={(e) => setFormPackageId(e.target.value)}>
+                <option value="">— nevázat na obal —</option>
+                {packages.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+              </select>
+            </Field>
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                className="btn-primary !rounded text-xs font-black flex items-center gap-1.5"
+                disabled={ukladam} onClick={ulozFormular}
+              >
+                <Check size={14} /> {ukladam ? 'Ukládám…' : upravovanyId ? 'Uložit úpravu' : 'Přidat zkratku'}
+              </button>
+              <button className="btn-ghost !rounded text-xs" onClick={zrusFormular}>
+                <X size={14} /> Zrušit
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button className="btn-ghost !rounded text-xs font-black flex items-center gap-1.5" onClick={zacniPridavat}>
+            <Plus size={16} /> Přidat zkratku ručně
+          </button>
+        )}
+
+        <div className="space-y-2 max-h-[50vh] overflow-y-auto">
+          {loading && <div className="text-sm text-neutral-400 py-2">Načítám…</div>}
+          {!loading && zkratky.map((z) => {
+            const pivo = beers.find((b) => b.id === z.beer_id);
+            const obal = packages.find((p) => p.id === z.package_id);
+            return (
+              <div key={z.id} className="flex items-center justify-between p-3 rounded bg-neutral-50 border border-neutral-200 gap-2">
+                <div className="min-w-0">
+                  <div className="text-sm font-black text-neutral-800 truncate">
+                    „{z.alias_text}" → {[pivo?.name, obal?.label].filter(Boolean).join(' / ') || '(bez přiřazení)'}
+                  </div>
+                  <div className="text-xs text-neutral-500">
+                    použito {z.hit_count ?? 1}× · naposledy {z.updated_at ? new Date(z.updated_at).toLocaleDateString('cs-CZ') : '—'}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    onClick={() => zacniUpravovat(z)}
+                    className="btn-ghost !rounded !p-2 !min-h-0 !border-none text-amber-600 hover:text-amber-800"
+                    title="Upravit zkratku" aria-label="Upravit zkratku"
+                  >
+                    <Pencil size={16} />
+                  </button>
+                  <button
+                    onClick={() => smaz(z.id)}
+                    className="btn-ghost !rounded !p-2 !min-h-0 !border-none text-rose-500 hover:text-rose-700"
+                    title="Smazat naučenou zkratku" aria-label="Smazat naučenou zkratku"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+          {!loading && zkratky.length === 0 && (
+            <div className="text-sm text-neutral-400 py-2 italic">Zatím se appka nic nenaučila.</div>
+          )}
         </div>
       </div>
     </Modal>

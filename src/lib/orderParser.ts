@@ -1291,6 +1291,93 @@ export async function saveAlias(aliasText: string, beerId: string | null, packag
   } catch {}
 }
 
+export type ParserAliasRow = {
+  id: string;
+  alias_text: string;
+  beer_id: string | null;
+  package_id: string | null;
+  hit_count: number | null;
+  updated_at: string | null;
+};
+
+/**
+ * Přehled naučených zkratek piv/obalů pro admina (Piva → Naučené zkratky) —
+ * stejný účel jako fetchPlaceAliasesForAdmin, jen pro tabulku parser_aliases.
+ */
+export async function fetchAliasesForAdmin(): Promise<ParserAliasRow[]> {
+  const { fetchAllRows } = await import('./supabase');
+  const { data, error } = await fetchAllRows('parser_aliases', 'id, alias_text, beer_id, package_id, hit_count, updated_at')
+    .order('updated_at', { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as ParserAliasRow[];
+}
+
+/** Smaže jednu naučenou zkratku piva/obalu (omylem naučené/špatné přiřazení). */
+export async function deleteAlias(id: string): Promise<void> {
+  const { supabase } = await import('./supabase');
+  const { error } = await supabase.from('parser_aliases').delete().eq('id', id);
+  if (error) throw error;
+}
+
+/** Proč se ruční přidání/úprava zkratky nepovedla. */
+export type ChybaPridaniZkratky = 'prazdne' | 'neplatna_zkratka';
+
+/**
+ * Ruční přidání/doplnění zkratky piva/obalu (Piva → Naučené zkratky).
+ * Na rozdíl od saveAlias() (tichý zápis vedle opravy v recenzi objednávky)
+ * tahle verze VYHAZUJE chybu. Když se zkratka váže na pivo, musí projít
+ * stejnou kontrolou jako automatické učení (isUsefulBeerAlias) — jinak by
+ * šlo ručně přidat třeba "2x10" jako zkratku piva a rozbít párování stejně,
+ * jako to popisuje komentář u isUsefulBeerAlias výš.
+ */
+export async function pridejAliasRucne(aliasText: string, beerId: string | null, packageId: string | null): Promise<ChybaPridaniZkratky | null> {
+  const norm = normalize(aliasText);
+  if (!norm || norm.length < 2) return 'prazdne';
+  if (beerId && !isUsefulBeerAlias(aliasText)) return 'neplatna_zkratka';
+
+  const { supabase } = await import('./supabase');
+  const { data: existing } = await supabase
+    .from('parser_aliases')
+    .select('id, hit_count')
+    .eq('alias_text', norm)
+    .maybeSingle();
+  if (existing) {
+    const { error } = await supabase.from('parser_aliases').update({
+      beer_id: beerId ?? null,
+      package_id: packageId ?? null,
+      hit_count: (existing.hit_count ?? 0) + 1,
+      updated_at: new Date().toISOString(),
+    }).eq('id', (existing as any).id);
+    if (error) throw error;
+  } else {
+    const { error } = await supabase.from('parser_aliases').insert({
+      alias_text: norm,
+      beer_id: beerId ?? null,
+      package_id: packageId ?? null,
+      hit_count: 1,
+    });
+    if (error) throw error;
+  }
+  return null;
+}
+
+/** Ruční úprava existující zkratky — jiné pivo/obal, nebo oprava textu. */
+export async function upravAlias(id: string, aliasText: string, beerId: string | null, packageId: string | null): Promise<ChybaPridaniZkratky | null> {
+  const norm = normalize(aliasText);
+  if (!norm || norm.length < 2) return 'prazdne';
+  if (beerId && !isUsefulBeerAlias(aliasText)) return 'neplatna_zkratka';
+
+  const { supabase } = await import('./supabase');
+  const { error } = await supabase.from('parser_aliases').update({
+    alias_text: norm,
+    beer_id: beerId ?? null,
+    package_id: packageId ?? null,
+    updated_at: new Date().toISOString(),
+  }).eq('id', id);
+  if (error) throw error;
+  return null;
+}
+
 // 🚫 Slova, která se NESMÍ naučit jako alias odběratele — jsou běžná
 // v textu skoro každé objednávky, takže by po naučení přebila i výslovně
 // napsané jméno. Z provozu 10. 9. 2026: naučený alias "sklad" → Lužec
