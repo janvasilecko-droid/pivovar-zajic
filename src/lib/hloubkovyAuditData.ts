@@ -13,6 +13,7 @@ import { expectedForMonth, stockForMonth } from './stockLedger';
 import { nactiSkladovouKnihu } from './skladovaKnihaData';
 import { obdobiAuditu, type VstupAuditu } from './hloubkovyAudit';
 import { porovnejCteni } from './kontrolaCteniWhatsApp';
+import { nactiSdilenouTabulku } from './sdilenaData';
 
 export type RezimAuditu = 'tyden' | 'mesic';
 
@@ -37,7 +38,7 @@ export async function nactiPodkladyAuditu(rezim: RezimAuditu, dnesISO: string): 
     // Objednávky — širší okno než období, aby šlo počítat rytmus odběratelů
     // a pokrytí proti minulému týdnu.
     fetchAllRows('orders', 'id,place_name,delivery_date,order_date,status,is_delivered').gte('order_date', posunOMesice(od, -3)),
-    fetchAllRows('order_items', 'order_id,beer_id,package_id,quantity'),
+    nactiSdilenouTabulku('order_items'),
 
     // Zprávy: 90 dní zpátky. Kratší okno by u odběratele, co píše jednou za
     // tři týdny, nestačilo na spočítání jeho obvyklého rytmu.

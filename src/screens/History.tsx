@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { Beer, beerBorder, fetchAllRows, formatPackageLabel, Package, Place, supabase, useRealtime } from '../lib/supabase';
 import { Kostra, Spinner, EmptyState } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
-import { orderWeightKg } from '../lib/weight';
 
 import { AlertTriangle, ChevronDown, ChevronUp, ArrowDownRight, ArrowUpRight, ChevronsUpDown, Download, Package as PackageIcon, Printer, Receipt, Save, Search, ShieldAlert, ShoppingCart, Snowflake, Star, Store, TrendingDown, TrendingUp, Trophy, Truck, X, Zap, type LucideIcon } from 'lucide-react';
 import { WeeklyOrderSummaryCard, WeeklyOrderItem, isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
@@ -17,6 +16,7 @@ import { usePosledniNacteni } from '../lib/nacitani';
 import { useChovaniDialogu } from '../lib/zavriNaZpet';
 import { businessDateISO } from '../lib/businessDate';
 import { uloz } from '../lib/uloziste';
+import { nactiSdilenouTabulku } from '../lib/sdilenaData';
 
 type MonthData = {
   month: string;
@@ -234,19 +234,21 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
   const [places, setPlaces] = useState<Place[]>([]);
 
   async function loadDeliveries() {
-    const [{ data: o }, { data: p }, { data: pl }] = await Promise.all([
+    const [{ data: o }, { data: p }, { data: pl }, { data: vsechnyPolozky }] = await Promise.all([
       fetchAllRows('orders', '*').neq('status', 'storno').order('order_date', { ascending: false }),
       supabase.from('packages').select('*'),
       supabase.from('places').select('*').order('name'),
+      // Položky současně s objednávkami, ne až po nich přes .in() (druhé kolo).
+      nactiSdilenouTabulku('order_items'),
     ]);
     const ords = (o as DeliveryOrder[]) ?? [];
     setDelOrders(ords);
     setDelPackages((p as Package[]) ?? []);
     setPlaces((pl as Place[]) ?? []);
     if (ords.length) {
-      const { data: it } = await fetchAllRows('order_items', '*').in('order_id', ords.map((x) => x.id));
+      const ids = new Set(ords.map((x) => x.id));
       const map: Record<string, DeliveryItem[]> = {};
-      (it as DeliveryItem[])?.forEach((i) => { (map[i.order_id] ??= []).push(i); });
+      ((vsechnyPolozky as DeliveryItem[]) ?? []).forEach((i) => { if (ids.has(i.order_id)) (map[i.order_id] ??= []).push(i); });
       setDelItems(map);
     }
     setDelLoading(false);
@@ -263,19 +265,6 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
   useEffect(() => { loadDeliveries(); }, []);
   useRealtime(['orders', 'order_items', 'packages'], loadDeliveries);
 
-  const delHistoryByDate = useMemo(() => {
-    const map = new Map<string, { date: string; orders: DeliveryOrder[]; totalWeight: number; totalQty: number }>();
-    delOrders.forEach((o) => {
-      const dateKey = o.order_date;
-      const cur = map.get(dateKey) || { date: dateKey, orders: [], totalWeight: 0, totalQty: 0 };
-      cur.orders.push(o);
-      const oItems = delItems[o.id] ?? [];
-      cur.totalWeight += orderWeightKg(oItems, delPackages);
-      cur.totalQty += oItems.reduce((s, i) => s + Number(i.quantity), 0);
-      map.set(dateKey, cur);
-    });
-    return [...map.values()].sort((a, b) => b.date.localeCompare(a.date));
-  }, [delOrders, delItems, delPackages]);
 
   // ---- Seskupení podrobného hledání ----
   const [groupBy, setGroupBy] = useState<'none' | 'month' | 'year'>('none');
@@ -307,13 +296,13 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
     const smiZapsat = zacniNacteni();
     if (!tiche) setLoading(true);
     const [{ data: bt }, { data: kg }, { data: fa }, { data: wo }, { data: ak }, { data: oi }, { data: ord }, { data: b }, { data: pk }] = await Promise.all([
-      fetchAllRows('bottling', 'entry_date,beer_id,package_id,quantity'),
-      fetchAllRows('kegging', 'entry_date,beer_id,package_id,quantity'),
-      fetchAllRows('fasovani', 'entry_date,beer_id,package_id,quantity'),
-      fetchAllRows('writeoffs', 'entry_date,beer_id,package_id,quantity'),
+      nactiSdilenouTabulku('bottling'),
+      nactiSdilenouTabulku('kegging'),
+      nactiSdilenouTabulku('fasovani'),
+      nactiSdilenouTabulku('writeoffs'),
       fetchAllRows('akce', 'entry_date,revenue,items:akce_items(beer_id,quantity_taken,quantity_returned,quantity)'),
-      fetchAllRows('order_items', 'beer_id,package_id,quantity,order_id'),
-      fetchAllRows('orders', 'id,order_date,delivery_date,status,place_name'),
+      nactiSdilenouTabulku('order_items'),
+      nactiSdilenouTabulku('orders'),
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
     ]);
@@ -495,7 +484,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
 
     // Detailní hledání data
     setDetailLoading(true);
-    const { data: faPriv } = await fetchAllRows('fasovani_private', 'entry_date,beer_id,package_id,quantity');
+    const { data: faPriv } = await nactiSdilenouTabulku('fasovani_private');
     const faPrivRows = (faPriv as FilterableEntry[]) ?? [];
     const ordDateById = new Map(ordRows.map((o) => [o.id, o.order_date] as const));
     const ordStatusById = new Map(ordRows.map((o) => [o.id, o.status] as const));
@@ -524,7 +513,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
     // `keg_count`), takže se dopočítá z řádků stáčení — viz lib/cyklyTanku.
     const [{ data: cy }, { data: kg }] = await Promise.all([
       supabase.from('cellar_tank_cycles').select('*').order('ended_at', { ascending: false }).limit(300),
-      fetchAllRows('kegging', 'cellar_tank_id,package_id,quantity,created_at'),
+      nactiSdilenouTabulku('kegging'),
     ]);
     setTankCycles((cy as TankCycleRow[]) ?? []);
     setStaceniProCykly((kg as StaceniRadek[]) ?? []);
@@ -777,39 +766,8 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
     };
   }, [data, currentYear]);
 
-  // ---- TOP piva za celé období ----
-  const topBeersOverall = useMemo(() => {
-    const m = new Map<string, { name: string; totalQty: number; totalHl: number }>();
-    detailResults.forEach(r => {
-      const key = r.beer_id ?? 'unknown';
-      if (!m.has(key)) m.set(key, { name: r.beer_name, totalQty: 0, totalHl: 0 });
-      const e = m.get(key)!;
-      e.totalQty += r.totalQty;
-      e.totalHl += r.totalLiters / 100;
-    });
-    return [...m.values()].sort((a, b) => b.totalQty - a.totalQty).slice(0, 10);
-  }, [detailResults]);
 
-  // ---- TOP obaly za celé období ----
-  const topPackagesOverall = useMemo(() => {
-    const m = new Map<string, { label: string; totalQty: number }>();
-    detailResults.forEach(r => {
-      const key = r.package_id ?? 'unknown';
-      if (!m.has(key)) m.set(key, { label: r.package_label, totalQty: 0 });
-      m.get(key)!.totalQty += r.totalQty;
-    });
-    return [...m.values()].sort((a, b) => b.totalQty - a.totalQty).slice(0, 10);
-  }, [detailResults]);
 
-  // ---- Celková ztrátovost tanků ----
-  const totalTankStats = useMemo(() => {
-    const totalInitial = tankCycles.reduce((s, c) => s + Number(c.initial_volume_l ?? 0), 0);
-    const totalKegged = tankCycles.reduce((s, c) => s + Number(c.kegged_volume_l ?? 0), 0);
-    const totalLoss = tankCycles.reduce((s, c) => s + Number(c.loss_l ?? 0), 0);
-    const avgLossPct = totalInitial > 0 ? (totalLoss / totalInitial) * 100 : 0;
-    const avgDuration = tankCycles.filter(c => c.duration_hours != null).reduce((s, c) => s + Number(c.duration_hours), 0) / (tankCycles.filter(c => c.duration_hours != null).length || 1);
-    return { totalInitial, totalKegged, totalLoss, avgLossPct, avgDuration, cycleCount: tankCycles.length };
-  }, [tankCycles]);
 
   // Kostra místo kolečka: obsah se neodmountuje do prázdna, takže se
   // stránka po načtení neposkočí. Viz Kostra v components/ui.tsx.
@@ -1580,21 +1538,3 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
   );
 }
 
-function Stat({ label, value, icon, tone }: { label: string; value: number; icon: string | LucideIcon; tone?: string }) {
-  const Ikona = typeof icon === 'string' ? null : icon;
-  const znak = typeof icon === 'string' ? icon : null;
-  const c = tone === 'amber' ? 'text-amber-900 bg-amber-100/80 border-amber-300'
-    : tone === 'danger' ? 'text-rose-900 bg-rose-100/80 border-rose-300'
-    : tone === 'success' ? 'text-emerald-900 bg-emerald-100/80 border-emerald-300'
-    : tone === 'warning' ? 'text-amber-900 bg-amber-100/80 border-amber-300'
-    : 'text-neutral-900 bg-neutral-100 border-neutral-200';
-  return (
-    <div className="rounded p-3 border shadow-2xs bg-white">
-      <div className="flex items-center gap-1.5 mb-1">
-        <span className={`w-6 h-6 rounded grid place-items-center text-xs font-bold border ${c}`}>{Ikona ? <Ikona size={14} /> : znak}</span>
-        <span className="text-udaj font-black uppercase tracking-wider text-neutral-600 truncate">{label}</span>
-      </div>
-      <div className="text-base font-display font-black text-neutral-900">{value} ks</div>
-    </div>
-  );
-}

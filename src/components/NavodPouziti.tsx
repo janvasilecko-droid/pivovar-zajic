@@ -1,9 +1,5 @@
 import { useState } from 'react';
-import {
-  AlarmClock, BarChart3, Beer as BeerIcon, Bell, Car, ChevronDown, ClipboardCheck,
-  ClipboardList, FileSpreadsheet, FlaskConical, Factory, GlassWater, LayoutGrid,
-  Info, type LucideIcon, Settings, Shield, Snowflake, Sparkles, Store, Tag, Truck, Users,
-} from 'lucide-react';
+import { AlarmClock, BarChart3, Car, ChevronDown, ClipboardList, FileSpreadsheet, FlaskConical, LayoutGrid, Info, type LucideIcon, Settings, Shield, Sparkles, Store, Tag, Users } from 'lucide-react';
 import { IkonaSud, IkonaLahev } from './ikony';
 import { APP_VERSION, APP_VERSION_DATE } from '../lib/version';
 

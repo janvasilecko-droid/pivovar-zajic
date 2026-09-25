@@ -4,10 +4,10 @@ import { AlertTriangle, ArrowLeftRight, Beer as BeerIcon, CalendarDays, Check, C
 import { VarkySklep } from '../components/VarkySklep';
 import { ZtratyTankuPrehled } from '../components/ZtratyTankuPrehled';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
-import { HlavickaStranky } from '../components/HlavickaStranky';
 
 import { nesedici, zkontrolujTanky } from '../lib/tankKontrola';
 import { Beer, CellarTank, CellarTankCycle, CellarTransfer, EntryRow, Package, beerBorder, fetchAllRows, supabase, useRealtime } from '../lib/supabase';
+import { nactiSdilenouTabulku } from '../lib/sdilenaData';
 import { EmptyState, Field, Kostra, Modal, UkazatelPlnosti } from '../components/ui';
 import { TankOccupancyPlanner } from '../components/TankOccupancyPlanner';
 import { chyba, oznam, potvrd } from '../lib/toast';
@@ -217,20 +217,21 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
   const zacniNacteniObjednavek = usePosledniNacteni();
   async function loadOrders() {
     const smiZapsat = zacniNacteniObjednavek();
-    const { data: ords } = await fetchAllRows('orders', 'id,order_date,delivery_date,status').neq('status', 'storno');
+    // Položky současně s objednávkami (bez druhého kola přes .in()) a ze
+    // sdílené paměti (lib/sdilenaData.ts).
+    const [{ data: ords }, { data: vsechnyPolozky }] = await Promise.all([
+      fetchAllRows('orders', 'id,order_date,delivery_date,status').neq('status', 'storno'),
+      nactiSdilenouTabulku('order_items'),
+    ]);
     if (!smiZapsat()) return;
     const list = (ords as OrderRow[]) ?? [];
     setOrders(list);
-    if (!list.length) { setOrderItems([]); return; }
-    const { data: its } = await fetchAllRows('order_items', 'order_id,beer_id,package_id,quantity').in('order_id', list.map((o) => o.id));
-    if (!smiZapsat()) return;
-    setOrderItems((its as OrderItemRow[]) ?? []);
+    const ids = new Set(list.map((o) => o.id));
+    setOrderItems(((vsechnyPolozky as OrderItemRow[]) ?? []).filter((i) => ids.has(i.order_id)));
   }
   useEffect(() => { loadOrders(); }, []);
   useRealtime(['orders', 'order_items'], loadOrders);
 
-  const beerName = (id: string | null) => beers.find((b) => b.id === id)?.name ?? '—';
-  const tankLabel = (id: string | null) => tanks.find((t) => t.id === id)?.label ?? '—';
 
   // Celkový objem v hl (hektolitrech) daného piva, který je objednaný a nestočený pro zvolený týden
   const orderedHlByBeer = useMemo(() => {
@@ -378,16 +379,6 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
     return m;
   }, [cycles]);
 
-  async function clearTank(t: CellarTank) {
-    if (!potvrd(`Vyprázdnit ${t.label} (nastavit objem na 0 a stav na prázdný)?`)) return;
-    await supabase.from('cellar_tanks').update({
-      current_volume_l: 0, current_beer_id: null, current_beer_name: null, status: 'empty',
-      started_at: null, initial_volume_l: null,
-      kegging_active: false, kegging_ended_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }).eq('id', t.id);
-    load();
-  }
 
   // Ukončit aktivní tank -> spočítat stočeno/ztrátu/dobu trvání, uložit do historie cyklů, přejít do sanitace
   async function endTank(t: CellarTank) {

@@ -1,5 +1,5 @@
 import { ReactNode, useState, useEffect, useRef, lazy, Suspense } from 'react';
-import { AlarmClock, AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, Bell, BookOpen, CalendarDays, Car, ClipboardCheck, ClipboardList, Compass, Download, FilePlus, FileSpreadsheet, FileText, FlaskConical, GlassWater, History as HistoryIcon, Home, Hourglass, Info, ListOrdered, LogOut, MapPin, Megaphone, MessageCircle, Package as PackageIcon, Radio, Receipt, Search, Settings, Shield, ShieldCheck, Smartphone, Snowflake, Sparkles, StickyNote, Store, Tag, Timer, TrendingDown, Truck, type LucideIcon, Users, Wifi, WifiOff, X, XCircle } from 'lucide-react';
+import { AlarmClock, AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, BookOpen, CalendarDays, Car, ClipboardCheck, ClipboardList, Compass, Download, FilePlus, FileSpreadsheet, FileText, FlaskConical, GlassWater, History as HistoryIcon, Home, Hourglass, Info, ListOrdered, LogOut, MapPin, Megaphone, MessageCircle, Package as PackageIcon, Radio, Receipt, Search, Settings, Shield, ShieldCheck, Smartphone, Snowflake, Sparkles, StickyNote, Store, Tag, Timer, TrendingDown, Truck, type LucideIcon, Users, Wifi, WifiOff, X, XCircle } from 'lucide-react';
 import { BreweryRadioBar } from './BreweryRadioBar';
 import { BreweryRadioModal } from './BreweryRadioModal';
 
@@ -10,13 +10,11 @@ import { supabase, Beer, Package, Place } from '../lib/supabase';
 
 // Načte se až při otevření — viz komentář u <EditOrderModal /> níž.
 const EditOrderModal = lazy(() => import('./EditOrderModal').then((m) => ({ default: m.EditOrderModal })));
-import { requestNotificationPermission, getNotificationPermission, notifyNewOrder, notifyNewWhatsAppMessage, NewOrderNotifyData } from '../lib/notifications';
+import { getNotificationPermission, notifyNewOrder, notifyNewWhatsAppMessage, NewOrderNotifyData } from '../lib/notifications';
 import { subscribeToWhatsAppMessages, fetchWhatsAppSenders, fetchPendingWhatsAppCount, isSenderAllowed, triggerAutoParse, type WhatsAppSender, type WhatsAppIncoming } from '../lib/whatsappApi';
 import { requestOrdersAutoImport } from '../lib/ordersFilter';
 import { getDensity, DensityMode } from '../lib/density';
-import { canUserView, getUserPermissions, PAGE_TO_MODULE } from '../lib/permissions';
 import { QuickSearchModal } from './QuickSearchModal';
-import { isAdminEmail } from '../lib/config';
 import { BugReportModal } from './BugReportModal';
 
 import { onNewVersion, forceRefresh, type VersionInfo } from '../lib/versionCheck';
@@ -29,15 +27,11 @@ import { nastavObrazovkuProChyby, zalogujANahlas } from '../lib/chybyHlaseni';
 // importuje každá obrazovka — takže dynamický import nic nešetřil a build
 // to hlásil: „dynamic import will not move module into another chunk".
 // Jediné, co přinášel, byla asynchronní obsluha tam, kde stačí volání.
-import {
-  queueLength, onQueueChange, onConnectivityChange, syncQueue, clearQueue,
-  getQueue, getLastSyncFailures, popisOperace, removeOp,
-} from '../lib/offline';
+import { queueLength, onQueueChange, onConnectivityChange, syncQueue, getQueue, getLastSyncFailures, popisOperace, removeOp } from '../lib/offline';
 import { DEFAULT_DOCK, COLOR_HEX, type TileColor } from '../lib/homeLayout';
 import { zavibruj } from '../lib/haptika';
 import { IkonaSud, IkonaLahev, IkonaVycep } from './ikony';
 import '../screens/HomeScreen.css';
-import { uloz } from '../lib/uloziste';
 
 export type NavItem = { id: Page; label: string; icon: LucideIcon; group: string };
 
@@ -295,12 +289,6 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
   const [showQuickAddOrder, setShowQuickAddOrder] = useState(false);
   const [showBugModal, setShowBugModal] = useState(false);
   const [pendingWhatsAppCount, setPendingWhatsAppCount] = useState(0);
-  // WhatsApp z horní hlavičky — přepne na Objednávky a otevře seznam
-  // příchozích WhatsApp objednávek (hromadné zpracování).
-  const openWhatsApp = () => {
-    requestOrdersAutoImport();
-    setPage('orders');
-  };
   // Horní hlavička ukazuje jen upozornění, ne trvalou lištu tlačítek — počet
   // nových (ještě nezpracovaných) objednávek, ať se ikona objeví jen když je
   // co řešit.
@@ -358,13 +346,8 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
   type BannerData = NewOrderNotifyData & { kind?: 'order' | 'whatsapp'; sender_name?: string; message_text?: string; autoHideSeconds?: number };
   const [activeNewOrderBanner, setActiveNewOrderBanner] = useState<BannerData | null>(null);
 
-  const isAdmin = profile?.role === 'admin' || isAdminEmail(user?.email);
 
-  // Mapa obrazovka → modul je sdílená v lib/permissions.ts. Dřív byla
-  // zkopírovaná na třech místech a kopie se rozešly (viz komentář tam).
-  const pageToModuleMap = PAGE_TO_MODULE;
 
-  const userPerms = getUserPermissions(user?.id ?? '', (profile as any)?.permissions);
 
   const [hiddenModules, setHiddenModules] = useState<string[]>(() => {
     try {
@@ -373,24 +356,8 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
       return saved ? JSON.parse(saved) : [];
     } catch { return []; }
   });
-  function saveHiddenModules(newHidden: string[]) {
-    setHiddenModules(newHidden);
-    try {
-      const key = `user_hidden_modules_${user?.id || 'guest'}`;
-      uloz(key, JSON.stringify(newHidden));
-    } catch {}
-  }
 
-  const permittedNav = NAV.filter((n) => {
-    if (n.id === 'users') return isAdmin;
-    if (n.id === 'zaloha') return isAdmin;
-    if (n.id === 'bottling_needs') return isAdmin;
-    const modKey = pageToModuleMap[n.id];
-    if (!modKey) return true;
-    return canUserView(profile?.role, user?.id, modKey, userPerms);
-  });
 
-  const visibleNav = permittedNav.filter((n) => !hiddenModules.includes(n.id));
 
   useEffect(() => {
     const handler = (e: Event) => {
@@ -674,23 +641,8 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
     };
   }, []);
 
-  const handleInstall = async () => {
-    if (installPrompt) {
-      await installPrompt.prompt();
-      const { outcome } = await installPrompt.userChoice;
-      if (outcome === 'accepted') setInstalled(true);
-      setInstallPrompt(null);
-    } else {
-      setShowInstallModal(true);
-    }
-  };
 
-  const isStandalone = installed || (typeof window !== 'undefined' && window.matchMedia('(display-mode: standalone)').matches);
 
-  const handleToggleNotifications = async () => {
-    const granted = await requestNotificationPermission();
-    setNotifPermission(getNotificationPermission());
-  };
 
   // Modál pro pivovarské rádio a hudbu na pozadí
   const [showRadioModal, setShowRadioModal] = useState(false);

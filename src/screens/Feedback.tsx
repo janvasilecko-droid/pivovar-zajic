@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { supabase, useRealtime } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import { EmptyState, Spinner } from '../components/ui';
-import { HlavickaStranky } from '../components/HlavickaStranky';
 import { UntappdAiAnalyzer } from '../components/UntappdAiAnalyzer';
 import { Bug, HelpCircle, Lightbulb, MessageCircle, MessageSquare, NotebookPen, Sparkles, type LucideIcon } from 'lucide-react';
 import { potvrd } from '../lib/toast';

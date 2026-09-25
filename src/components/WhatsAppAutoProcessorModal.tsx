@@ -4,7 +4,7 @@ import { WhatsAppIncoming, fetchPendingWhatsAppMessages, updateWhatsAppMessageSt
 import { parseWhatsAppOrderMessageWithAI } from '../lib/whatsappParser';
 import { analyzeReadback, findRepeatedReadbackErrors, findSimilarMessages, type RepeatedReadbackError } from '../lib/whatsappReadback';
 import { Modal, Spinner } from './ui';
-import { AlertCircle, AlertTriangle, ArrowDownUp, Check, CheckSquare, Clock, Copy, Download, Filter, Image as ImageIcon, MessageSquare, RefreshCw, Square, Trash2, X, XCircle } from 'lucide-react';
+import { AlertCircle, AlertTriangle, ArrowDownUp, Check, CheckSquare, Clock, Copy, Download, Filter, MessageSquare, RefreshCw, Square, Trash2, X, XCircle } from 'lucide-react';
 import { zalogujANahlas } from '../lib/chybyHlaseni';
 import { businessDateISO } from '../lib/businessDate';
 

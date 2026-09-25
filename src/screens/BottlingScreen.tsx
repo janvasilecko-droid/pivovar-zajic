@@ -42,6 +42,7 @@ import type { RadekPohybu, RadekZavozu } from '../lib/stockLedger';
 import { soucetUlozenehoDnes } from '../lib/jizUlozeno';
 import { jeMesicUzamcen } from '../lib/mesicUzamcen';
 import { zapamatujPozici } from '../lib/drzPozici';
+import { nactiSdilenouTabulku } from '../lib/sdilenaData';
 
 // Stahuje se až při otevření — viz komentář u lazy() v Orders.tsx.
 const ImportBottlingFromImage = lazy(() => import('../components/ImportBottlingFromImage').then((m) => ({ default: m.ImportBottlingFromImage })));
@@ -247,11 +248,6 @@ export default function BottlingScreen({
       .filter((p) => p.volumeL > 0 && p.qty > 0);
     return navrhSudu(polozky, Number(kegPkg.volume_l ?? 0));
   }, [tileDraft, packages]);
-  // Kolik kusů (lahve + KEG) už je v zápisu pro dané pivo — pro popisek na dlaždici.
-  const tileQtyFor = (beerId: string) =>
-    entryRows
-      .filter((r) => r.beerId === beerId)
-      .reduce((s, r) => s + Number(r.qty || 0) + Number(r.qty2 || 0) + Number(r.qty3 || 0) + Number(r.kegQty || 0), 0);
   // Rozepsaná dlaždice → řádek zápisu, nebo null když nic nevyplnil.
   // Vytažené z applyTile() jako čistá funkce (bez setState), aby ji šlo
   // použít i v confirmTileAndMaybeSave — ta potřebuje výsledný řádek HNED,
@@ -783,23 +779,6 @@ export default function BottlingScreen({
     }
   }
 
-  // Souhrn zapisovaných řádků
-  const rowsSummary = useMemo(() => {
-    let totalQty = 0;
-    let totalL = 0;
-    entryRows.forEach((r) => {
-      const pkg1 = packages.find((p) => p.id === r.pkgId || p.id === r.kegPkgId);
-      const pkg2 = packages.find((p) => p.id === r.pkg2Id);
-      const pkg3 = packages.find((p) => p.id === r.pkg3Id);
-      const n1 = Number(r.qty || 0);
-      const n2 = Number(r.qty2 || 0);
-      const n3 = Number(r.qty3 || 0);
-      if (pkg1 && n1 > 0) { totalQty += n1; totalL += n1 * Number(pkg1.volume_l); }
-      if (pkg2 && n2 > 0) { totalQty += n2; totalL += n2 * Number(pkg2.volume_l); }
-      if (pkg3 && n3 > 0) { totalQty += n3; totalL += n3 * Number(pkg3.volume_l); }
-    });
-    return { totalQty, totalL };
-  }, [entryRows, packages]);
 
   async function saveEditedRow(e: React.FormEvent) {
     e.preventDefault();
@@ -873,20 +852,20 @@ export default function BottlingScreen({
       // Bez filtru na aktivní — jen jméno, pro plán stáčení (viz vsechnaPivaJmena výš).
       supabase.from('beers').select('id,name'),
       supabase.from('packages').select('*').order('sort_order'),
-      fetchAllRows('orders', 'id,order_date,delivery_date,delivery_day,place_name,status,is_delivered'),
+      nactiSdilenouTabulku('orders'),
       // `*` místo výčtu: delivery_day (vlastní den položky) přidává migrace
       // 20261231070000, která jde pustit až PO nasazení — viz Kegging.tsx.
-      fetchAllRows('order_items', '*'),
-      fetchAllRows('inventory', 'entry_date,beer_id,package_id,quantity,note'),
-      fetchAllRows('fasovani', 'entry_date,beer_id,package_id,quantity'),
-      fetchAllRows('fasovani_private', 'entry_date,beer_id,package_id,quantity'),
-      fetchAllRows('writeoffs', 'entry_date,beer_id,package_id,quantity'),
-      fetchAllRows('kegging', 'entry_date,beer_id,package_id,quantity'),
+      nactiSdilenouTabulku('order_items'),
+      nactiSdilenouTabulku('inventory'),
+      nactiSdilenouTabulku('fasovani'),
+      nactiSdilenouTabulku('fasovani_private'),
+      nactiSdilenouTabulku('writeoffs'),
+      nactiSdilenouTabulku('kegging'),
       supabase.from('bottling_plans').select('*').order('planned_date'),
-      fetchAllRows('zavoz_deductions', 'deduct_date,beer_id,package_id,quantity,order_item_id'),
-      fetchAllRows('inventory_adjustments', 'entry_date,beer_id,package_id,quantity'),
-      fetchAllRows('akce', 'entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
-      fetchAllRows('kegging_plan_checks', 'week_key,day,beer_id,package_id,qty'),
+      nactiSdilenouTabulku('zavoz_deductions'),
+      nactiSdilenouTabulku('inventory_adjustments'),
+      nactiSdilenouTabulku('akce'),
+      nactiSdilenouTabulku('kegging_plan_checks'),
     ]);
     // Mezitím mohlo začít novější načtení (realtime po cizím zápisu),
     // nebo už obrazovka není vidět. Výsledek se pak zahodí.
@@ -1107,20 +1086,6 @@ export default function BottlingScreen({
     setRows((rs) => rs.map((r) => r.id === id ? { ...r, quantity: newQty } : r));
   }
 
-  // Uloží počet stočených sudů (kegs_used) pro daný záznam.
-  // Zároveň přepočítá zdrojový objem (source_volume_l = počet sudů × objem sudu),
-  // aby vytrata (ztráta ze sudů) zůstala konzistentní.
-  async function updateKegs(id: string, value: string) {
-    const newKegs = Number(value);
-    if (isNaN(newKegs) || newKegs < 0) return;
-    const kegs = newKegs > 0 ? newKegs : null;
-    const row = rows.find((r) => r.id === id);
-    const kegPkg = row?.kegs_used_package_id ? packages.find((p) => p.id === row.kegs_used_package_id) : null;
-    const sourceL = kegs && kegPkg ? kegs * Number(kegPkg.volume_l) : null;
-    const { error } = await supabase.from('bottling').update({ kegs_used: kegs, source_volume_l: sourceL }).eq('id', id);
-    if (error) { setErr(error.message); return; }
-    setRows((rs) => rs.map((r) => r.id === id ? { ...r, kegs_used: kegs, source_volume_l: sourceL } : r));
-  }
 
   // Identifikátor šarže (skupina záznamů ze stejného zdroje sudů).
   // Záznamy vložené najednou sdílí stejné created_at.
@@ -1250,17 +1215,6 @@ export default function BottlingScreen({
   }, 0);
   const totalCount = sizeBuckets.reduce((s, b) => s + b.count, 0) + kegBuckets.reduce((s, b) => s + b.count, 0) + otherCount;
   const totalLiters = sizeBuckets.reduce((s, b) => s + b.liters, 0) + kegBuckets.reduce((s, b) => s + b.liters, 0) + otherLiters;
-  // Celkový počet použitých sudů (kegs_used) — deduplikace zdroje (jeden sud může plnit více druhů obalů)
-  const totalKegs = (() => {
-    const seen = new Set<string>();
-    return periodRows.reduce((s, r) => {
-      if (r.kegs_used && r.kegs_used > 0) {
-        const key = `${r.entry_date}|${r.beer_id}|${r.kegs_used}|${r.kegs_used_package_id}`;
-        if (!seen.has(key)) { seen.add(key); return s + Number(r.kegs_used); }
-      }
-      return s;
-    }, 0);
-  })();
 
   return (
     <div className="space-y-6 pb-12">

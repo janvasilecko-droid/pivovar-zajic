@@ -1,7 +1,7 @@
 const KEG_ONLY_VOLS = new Set(['50', '30', '20', '15', '10']);
 const BEER_DEGREES = new Set(['8', '10', '11', '12', '13', '14', '15', '16']);
 
-import type { Beer, Package, Place, ParserAlias } from './supabase';
+import type { Beer, Package, Place } from './supabase';
 import { uloz } from './uloziste';
 
 export type ParsedVoiceOrder = {
@@ -490,7 +490,6 @@ export function parseOrderText(
   const flatLines = rawText.split(/\n/).map((l) => ocrNormalizeLine(l.trim())).filter((l) => l.length > 0);
 
   const results: ParsedLine[] = [];
-  const seen = new Set<string>();
 
   // 🧠 "VŠE [stupeň]" NA KONCI OBJEDNÁVKY — aplikuj na všechny položky
   const globalDegree = extractGlobalDegree(rawText);

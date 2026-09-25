@@ -4,7 +4,7 @@ import { ImageEditor } from './ImageEditor';
 import type { Beer, Package } from '../lib/supabase';
 import { supabase } from '../lib/supabase';
 import { authenticatedFunctionHeaders } from '../lib/functionAuth';
-import { Bot, Calendar, Camera, ClipboardList, Hourglass, NotebookPen, Package as PackageIcon, RefreshCw, X, AlertCircle, CheckCircle2, ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react';
+import { Bot, Calendar, Camera, ClipboardList, Hourglass, NotebookPen, Package as PackageIcon, RefreshCw, X } from 'lucide-react';
 import { uloz } from '../lib/uloziste';
 import { businessDateISO } from '../lib/businessDate';
 

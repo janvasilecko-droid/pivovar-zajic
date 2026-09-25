@@ -1,6 +1,6 @@
 import { Fragment, useState, useEffect, useMemo, useRef, lazy, Suspense, type Dispatch, type SetStateAction } from 'react';
 
-import { Beer, beerBg, beerInk, beerText, fetchAllRows, formatPackageLabel, Package, supabase, useRealtime, beerName } from '../lib/supabase';
+import { Beer, beerBg, beerInk, beerText, formatPackageLabel, Package, supabase, useRealtime } from '../lib/supabase';
 import { Kostra } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
 import { AlertTriangle, Beer as BeerIcon, Calendar, CalendarRange, Camera, ChevronLeft, ChevronRight, ClipboardCheck, Download, Check, ListChecks, Lock, MinusCircle, Package as PackageIcon, Plus, RotateCcw, Save, Search, ShieldCheck, SkipForward, Wand2 } from 'lucide-react';
@@ -13,7 +13,7 @@ import { zapamatujPozici } from '../lib/drzPozici';
 import { vyrovnaniZaMesic } from '../lib/vyrovnani';
 import { lzeUlozitKoncept, slucInventuru } from '../lib/rozepsanaInventura';
 import { normalizujCislo } from '../lib/cisloVstup';
-import { rozdelSudyDoTanku, zmenaOtevreni, type RozdeleniSudu, type TankProRozdeleni, popisRozdeleni } from '../lib/tankRozdeleni';
+import { rozdelSudyDoTanku, zmenaOtevreni, type RozdeleniSudu, type TankProRozdeleni } from '../lib/tankRozdeleni';
 import { stavPolicka, tridyPolicka } from '../lib/polickoInventury';
 import { odectiZTanku as odectiZTankuDB, vratDoTanku } from '../lib/tankZapis';
 
@@ -28,6 +28,7 @@ import { uloz } from '../lib/uloziste';
 import { useAuth } from '../lib/auth';
 import { jeMesicVSeznamuUzavren, nactiZavreneMesice, otevriMesic, zavriMesic, type ZavrenyMesic } from '../lib/closedMonths';
 import { jeLimonada } from '../lib/limonady';
+import { nactiSdilenouTabulku } from '../lib/sdilenaData';
 
 // Stahuje se až při otevření — viz komentář u lazy() v Orders.tsx.
 const CountFromImage = lazy(() => import('../components/CountFromImage').then((m) => ({ default: m.CountFromImage })));
@@ -60,11 +61,6 @@ type InventoryRow = {
   diffAfterCzk: number;  // Finanční rozdíl po dorovnání
 };
 
-function getPrevMonthKey(monthKey: string): string {
-  const [y, m] = monthKey.split('-').map(Number);
-  const d = new Date(Date.UTC(y, m - 2, 1));
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
-}
 
 function computeInitialStockForMonth(
   monthKey: string,
@@ -381,18 +377,18 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
       // monthBeers níž, který ho do tabulek vrátí podle pohybu v měsíci.
       supabase.from('beers').select('*').order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
-      fetchAllRows('bottling', 'beer_id,package_id,quantity,entry_date,kegs_used,kegs_used_package_id,source_volume_l,note,created_at'),
-      fetchAllRows('kegging', 'beer_id,package_id,quantity,entry_date,note'),
-      fetchAllRows('fasovani', 'beer_id,package_id,quantity,entry_date'),
-      fetchAllRows('fasovani_private', 'beer_id,package_id,quantity,entry_date'),
-      fetchAllRows('writeoffs', 'beer_id,package_id,quantity,entry_date'),
-      fetchAllRows('inventory', 'beer_id,package_id,quantity,entry_date,note'),
-      fetchAllRows('inventory_adjustments', 'beer_id,package_id,quantity,entry_date,created_at'),
+      nactiSdilenouTabulku('bottling'),
+      nactiSdilenouTabulku('kegging'),
+      nactiSdilenouTabulku('fasovani'),
+      nactiSdilenouTabulku('fasovani_private'),
+      nactiSdilenouTabulku('writeoffs'),
+      nactiSdilenouTabulku('inventory'),
+      nactiSdilenouTabulku('inventory_adjustments'),
       // Odpočet objednávek — stejný zdroj (zavoz_deductions) jako obrazovka Sklad, aby se
       // čísla shodovala i po dodatečné změně data doručení objednávky (viz Stock.tsx).
-      fetchAllRows('zavoz_deductions', 'deduct_date,beer_id,package_id,quantity'),
-      fetchAllRows('akce', 'entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
-      fetchAllRows('keg_prefuk', 'entry_date,beer_id,from_package_id,from_count,to_package_id,to_count'),
+      nactiSdilenouTabulku('zavoz_deductions'),
+      nactiSdilenouTabulku('akce'),
+      nactiSdilenouTabulku('keg_prefuk'),
       // 🛢️ Tanky — doplněné kegování z inventury z nich odečítá objem, aby
       // sklep nezůstal nafouklý (viz tankRozdeleni.ts).
       supabase.from('cellar_tanks').select('id,label,current_beer_id,current_volume_l,status,started_at,kegging_active'),
@@ -1439,8 +1435,6 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
       package_kind: r.package_kind,
       diffQty: r.diffQty,
     };
-    const popis = `${r.beer_name} · ${formatPackageLabel(r.package_label)}`;
-    const dnes = businessDateISO();
 
     if (akce === 'zapsat_staceni') {
       // LAHVE: zapíšou se rovnou, bez ptaní a BEZ sudů. Kolik sudů se

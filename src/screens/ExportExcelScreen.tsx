@@ -17,6 +17,7 @@ import { nazevSouboru, poctyRadku, stahniSesit, type ListExportu } from '../lib/
 import { prehledDoTsv, sestavPrehled, type VydejRadek } from '../lib/prehledVydeje';
 import { buildMovements, expectedForMonth } from '../lib/stockLedger';
 import { inventuraDoTsv, sestavInventuruExportu, type BeerProInventuru, type InventuraExportRadek } from '../lib/inventuraExport';
+import { nactiSdilenouTabulku } from '../lib/sdilenaData';
 
 type Nactene = {
   packages: Package[];
@@ -88,10 +89,10 @@ export default function ExportExcelScreen() {
           fetchAllRows('bottling', 'entry_date,beer_id,beer_name,package_id,quantity,note,kegs_used,kegs_used_package_id,source_volume_l,created_at'),
           fetchAllRows('kegging', 'entry_date,beer_id,beer_name,package_id,quantity,note,cellar_tank_id'),
           fetchAllRows('cellar_tanks', 'id,label'),
-          fetchAllRows('inventory', 'entry_date,beer_id,beer_name,package_id,quantity,note'),
-          fetchAllRows('zavoz_deductions', 'deduct_date,beer_id,package_id,quantity'),
-          fetchAllRows('akce', 'entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
-          fetchAllRows('keg_prefuk', 'entry_date,beer_id,from_package_id,from_count,to_package_id,to_count'),
+          nactiSdilenouTabulku('inventory'),
+          nactiSdilenouTabulku('zavoz_deductions'),
+          nactiSdilenouTabulku('akce'),
+          nactiSdilenouTabulku('keg_prefuk'),
         ]);
         if (zruseno) return;
         setData({

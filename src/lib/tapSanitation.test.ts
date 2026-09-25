@@ -27,7 +27,7 @@ vi.mock('./supabase', () => ({
   },
 }));
 
-import { newTapSanEntry, nowTimeStr, DEFAULT_TAP_SANITATION_STEPS, TAP_SAN_REASON_LABELS, type TapSanitationEntry } from './tapSanitation';
+import { newTapSanEntry, nowTimeStr, DEFAULT_TAP_SANITATION_STEPS, TAP_SAN_REASON_LABELS } from './tapSanitation';
 
 describe('newTapSanEntry (nový záznam sanitačního deníku výčepu)', () => {
   it('vytvoří záznam se všemi 6 výchozími kroky a aktuálním časem', () => {

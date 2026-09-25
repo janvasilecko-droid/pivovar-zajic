@@ -40,6 +40,7 @@ import { dopsaneZaskrtnutim, smazZaznamyStaceni } from '../lib/staceniZPolozky';
 import { zapamatujPozici } from '../lib/drzPozici';
 import { jeChecklistKonceZUrl } from '../lib/vstupniStranka';
 import { nejcastejsiMnozstvi } from '../lib/quickQty';
+import { nactiSdilenouTabulku } from '../lib/sdilenaData';
 
 // Stahuje se až při otevření — viz komentář u lazy() v Orders.tsx.
 const ImportKeggingFromImage = lazy(() => import('../components/ImportKeggingFromImage').then((m) => ({ default: m.ImportKeggingFromImage })));
@@ -359,17 +360,6 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     });
   }
 
-  // Souhrn zapisovaných řádků: celkový počet ks a litrů podle vyplněných řádků formuláře
-  const rowsSummary = useMemo(() => {
-    let totalQty = 0;
-    let totalL = 0;
-    entryRows.forEach((r) => {
-      const pkg = packages.find((p) => p.id === r.pkgId);
-      const n = Number(r.qty);
-      if (pkg && n > 0) { totalQty += n; totalL += n * Number(pkg.volume_l); }
-    });
-    return { totalQty, totalL };
-  }, [entryRows, packages]);
 
   // Souhrn odečtu podle tanku pro pivo na každém řádku. Řádek použije buď ručně vybraný
   // tank (r.tankId), nebo automaticky největší aktivní tank s tímto pivem.
@@ -460,27 +450,27 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
       // delivery_day + place_name potřebuje denní plán stáčení (keggingPlan.ts):
       // bez delivery_day by všechny objednávky spadly na den podle delivery_date
       // a ručně přehozený den závozu by se ignoroval.
-      fetchAllRows('orders', 'id,order_date,delivery_date,delivery_day,place_name,status,is_delivered'),
+      nactiSdilenouTabulku('orders'),
       // `*` místo výčtu: delivery_day (vlastní den položky) přidává migrace
       // 20261231070000, která jde pustit až PO nasazení. Výčet se sloupcem,
       // který ještě neexistuje, by obrazovku do té doby shodil.
-      fetchAllRows('order_items', '*'),
-      fetchAllRows('fasovani', 'entry_date,beer_id,package_id,quantity'),
-      fetchAllRows('fasovani_private', 'entry_date,beer_id,package_id,quantity'),
-      fetchAllRows('writeoffs', 'entry_date,beer_id,package_id,quantity'),
+      nactiSdilenouTabulku('order_items'),
+      nactiSdilenouTabulku('fasovani'),
+      nactiSdilenouTabulku('fasovani_private'),
+      nactiSdilenouTabulku('writeoffs'),
       fetchAllRows('keg_prefuk', '*').order('entry_date', { ascending: false }).order('created_at', { ascending: true }).order('id'),
-      fetchAllRows('zavoz_deductions', 'deduct_date,beer_id,package_id,quantity,order_item_id'),
-      fetchAllRows('bottling', 'entry_date,beer_id,package_id,quantity,kegs_used,kegs_used_package_id,source_volume_l,note,created_at'),
-      fetchAllRows('kegging_plan_checks', 'week_key,day,beer_id,package_id,qty'),
+      nactiSdilenouTabulku('zavoz_deductions'),
+      nactiSdilenouTabulku('bottling'),
+      nactiSdilenouTabulku('kegging_plan_checks'),
       supabase.from('bottling_plans').select('*').order('planned_date'),
       // Beer_id/package_id/quantity navíc oproti `jeMesicUzamcen` potřebuje
       // skladová kniha (currentStockMap níž) — počáteční stav zásoby.
-      fetchAllRows('inventory', 'entry_date,beer_id,package_id,quantity,note'),
+      nactiSdilenouTabulku('inventory'),
       // Akce a dorovnání zásoby — obojí potřebuje skladová kniha
       // (lib/stockLedger.ts) pro currentStockMap, jinak by zásoba vyšla
       // vyšší, než ve skutečnosti je (viz komentář u pool v keggingPlan.ts).
-      fetchAllRows('akce', 'entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
-      fetchAllRows('inventory_adjustments', 'beer_id,package_id,entry_date,quantity'),
+      nactiSdilenouTabulku('akce'),
+      nactiSdilenouTabulku('inventory_adjustments'),
     ]);
     // Mezitím mohlo začít novější načtení (realtime po cizím zápisu),
     // nebo už obrazovka není vidět. Výsledek se pak zahodí.
@@ -818,9 +808,6 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   // množství by z toho vyšlo NaN a celý součet tanku by zmizel. Kdyby se
   // souhrn stáčení z tanku někdy hodil, počítá totéž Cellar.tsx.
 
-  function setRowField(i: number, field: keyof RowInput, value: string) {
-    setEntryRows((rs) => rs.map((r, idx) => idx === i ? { ...r, [field]: value } : r));
-  }
 
   // Hlasový zápis: přepis se rozparsuje a naplní se první volné prázdné řádky.
   // Pro KEG režim preferujeme obaly druhu 'keg'
@@ -1129,13 +1116,6 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     if (errMsg) { setErr(errMsg); return; }
   }
 
-  // Spustí editaci záznamu — naplní pole pro úpravu
-  function startEdit(id: string) {
-    const row = rows.find((r) => r.id === id);
-    if (!row) return;
-    setEditingId(id);
-    setEditQty(String(row.quantity));
-  }
 
   // Uloží upravené množství záznamu
   async function saveEdit() {
@@ -1149,28 +1129,6 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     setErr(null);
   }
 
-  // Prehled podle velikosti kegu (50/30/20/15/10 l + ostatni)
-  const KEG_SIZES = [50, 30, 20, 15, 10];
-  const sizeBuckets = KEG_SIZES.map((size) => {
-    const sizeRows = rows.filter((r) => {
-      const pkg = packages.find((p) => p.id === r.package_id);
-      return pkg && Number(pkg.volume_l) === size;
-    });
-    const count = sizeRows.reduce((s, r) => s + Number(r.quantity), 0);
-    const liters = sizeRows.reduce((s, r) => s + Number(r.quantity) * size, 0);
-    return { size, count, liters };
-  });
-  const otherRows = rows.filter((r) => {
-    const pkg = packages.find((p) => p.id === r.package_id);
-    return !pkg || !KEG_SIZES.includes(Number(pkg.volume_l));
-  });
-  const otherCount = otherRows.reduce((s, r) => s + Number(r.quantity), 0);
-  const otherLiters = otherRows.reduce((s, r) => {
-    const pkg = packages.find((p) => p.id === r.package_id);
-    return s + (pkg ? Number(r.quantity) * Number(pkg.volume_l) : 0);
-  }, 0);
-  const totalCount = sizeBuckets.reduce((s, b) => s + b.count, 0) + otherCount;
-  const totalLiters = sizeBuckets.reduce((s, b) => s + b.liters, 0) + otherLiters;
 
   // Uložení přefuku KEG sudů — sudy ZE se odečtou ze skladu, sudy DO se přičtou
   async function addPrefuk(e: React.FormEvent) {
@@ -2872,11 +2830,3 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   );
 }
 
-function Field2({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
-  return (
-    <div>
-      <label className="label">{label}</label>
-      <input className="input" value={value} onChange={(e) => onChange(e.target.value)} placeholder="poznámka" />
-    </div>
-  );
-}

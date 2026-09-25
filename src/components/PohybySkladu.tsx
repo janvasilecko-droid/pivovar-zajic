@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, ListOrdered } from 'lucide-react';
 import { Spinner } from './ui';
-import { fetchAllRows, useRealtime } from '../lib/supabase';
+import { useRealtime } from '../lib/supabase';
 import { nactiSkladovouKnihu, type SkladovaKniha } from '../lib/skladovaKnihaData';
 import { sestavPohybyObdobi, SKUPINY_POHYBU } from '../lib/pohybySkladu';
 import { ChipyPiva, ChipyObalu } from './FiltrPivaAObalu';
@@ -20,6 +20,7 @@ import { isoWeekKey, shiftWeek, weekRange } from './WeeklyOrderSummaryCard';
 import { businessDateISO, posunMesic } from '../lib/businessDate';
 import { zalogujANahlas } from '../lib/chybyHlaseni';
 import { nactiJson, ulozJson } from '../lib/uloziste';
+import { nactiSdilenouTabulku } from '../lib/sdilenaData';
 
 const DNY = ['Ne', 'Po', 'Út', 'St', 'Čt', 'Pá', 'So'];
 const LS_FILTR = 'pohyby_skladu_filtr_v1';
@@ -59,7 +60,7 @@ export default function PohybySkladu() {
     try {
       const [k, { data: objednavky }] = await Promise.all([
         nactiSkladovouKnihu(),
-        fetchAllRows('orders', 'id,place_name'),
+        nactiSdilenouTabulku('orders'),
       ]);
       setKniha(k);
       setJmena(new Map(((objednavky as { id: string; place_name: string | null }[]) ?? [])

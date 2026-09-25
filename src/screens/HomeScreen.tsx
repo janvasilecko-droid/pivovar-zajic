@@ -6,11 +6,7 @@
 // zobrazuje se jen komu je nastaveno (Uživatelé → "Dostává upozornění na
 // vozidla") a musí ho jednou potvrdit, pak zmizí (dokud se stav nezmění).
 import { lazy, Suspense, useEffect, useMemo, useState, useRef } from 'react';
-import {
-  CalendarX2, CloudUpload, Download, Check, ChevronLeft, ChevronRight, Lightbulb, LogOut, Palette, Plus, Search, SlidersHorizontal, Trash2, TriangleAlert, X,
-  Truck, ClipboardList, MessageCircle, PlusCircle, Snowflake, FlaskConical, CalendarDays, BarChart3, Package as PackageIcon, TrendingDown, GlassWater, BookOpen, Droplet, Car, FileText, ClipboardCheck, Shield, Store, Receipt, MapPin, Beer as BeerIcon, Tag, Sparkles, Compass, Wheat, Zap, ArrowLeftRight, StickyNote,
-  AlarmClock, Play, Pause, RotateCcw, Pin, Radio, SkipForward, Flame, Settings, LayoutGrid, Wind,
-} from 'lucide-react';
+import { CalendarX2, CloudUpload, Download, Check, ChevronLeft, ChevronRight, Lightbulb, LogOut, Palette, Plus, Search, SlidersHorizontal, Trash2, TriangleAlert, X, Truck, ClipboardList, MessageCircle, PlusCircle, Snowflake, FlaskConical, CalendarDays, BarChart3, TrendingDown, GlassWater, BookOpen, Droplet, Car, FileText, ClipboardCheck, Shield, Store, Receipt, MapPin, Beer as BeerIcon, Tag, Sparkles, Compass, Wheat, ArrowLeftRight, StickyNote, AlarmClock, Play, Pause, RotateCcw, Pin, Radio, SkipForward, Flame, Settings, LayoutGrid, Wind } from 'lucide-react';
 import { NAV, EXTRA_NAV, type Page, type NavItem } from '../components/Layout';
 import LauncherTile, { tileGridStyle } from '../components/LauncherTile';
 import { QuickSearchModal } from '../components/QuickSearchModal';
@@ -24,36 +20,22 @@ import { businessDateISO } from '../lib/businessDate';
 import { IkonaSud, IkonaLahev, IkonaVycep } from '../components/ikony';
 import { HomeNotesModal } from '../components/HomeNotesModal';
 import CoStocitOkno from '../components/CoStocitOkno';
+import { nactiSdilenouTabulku } from '../lib/sdilenaData';
 // Návod je přes deset kilobajtů textu, který většina lidí za den neotevře —
 // stáhne se až při klepnutí na dlaždici.
 const NavodPouziti = lazy(() => import('../components/NavodPouziti').then((m) => ({ default: m.NavodPouziti })));
 import { HomeChecklistModal } from '../components/HomeChecklistModal';
 import { polozkyDlazdice, pocetCekajicich } from '../lib/dlazdicePoznamek';
 import { nactiSdilene, prepniHotovo, SDILENE_POZNAMKY_ZMENA, type SdilenaPoznamka } from '../lib/sdilenePoznamky';
-import { getHomeNotes, toggleHomeNote, HOME_NOTES_CHANGED_EVENT, OPEN_HOME_NOTES_EVENT, consumeOpenHomeNotesRequest, type HomeNote, toggleHomeNoteImportant, rozvrhniPoznamky, kolikPoznamekZobrazit } from '../lib/homeNotes';
+import { getHomeNotes, toggleHomeNote, HOME_NOTES_CHANGED_EVENT, OPEN_HOME_NOTES_EVENT, consumeOpenHomeNotesRequest, type HomeNote, rozvrhniPoznamky, kolikPoznamekZobrazit } from '../lib/homeNotes';
 import { getDailyTasks, DAILY_CHECKLIST_CHANGED_EVENT, type DailyTask } from '../lib/homeChecklist';
 import {
   getRadioState, toggleRadio, nextStation, RADIO_STATIONS, RADIO_STATE_EVENT, type RadioState,
 } from '../lib/breweryRadio';
-import {
-  getHomeLayout, saveHomeLayout, addPage, removePage, moveTileToPage, hideTile, addTile,
-  mergeTiles, addToGroup, removeFromGroup, deleteGroup, isGroupId, isCountdownId, ensurePositions, ensureTrailingEmptyPage, unifyColorsByCategory, moveTileToCell, stepTileCell,
-  addDockSlot, removeDockSlot, moveDockSlot,
-  hexToRgba,
-  PAGE_CATEGORY, CATEGORY_ORDER, CATEGORY_SHADES, type Category,
-  moveTileToPageCell, okrajProPrepnuti, dalsiStranka, rozdelVseDoStranek, idsKRozmisteni, vyrovnejStranku, VYCHOZI_STRANKA, type OkrajTazeni,
-  MIN_OPACITY, MAX_OPACITY, MIN_TILE_GAP, MAX_TILE_GAP, MIN_W, MAX_W, MIN_H, MAX_H, TILE_COLORS, COLOR_HEX, defaultTileColor,
-  GRID_COLS_DESKTOP, GRID_COLS_MOBILE, MOBILE_BREAKPOINT_PX, ROW_HEIGHT_DESKTOP, ROW_HEIGHT_MOBILE, MIN_DOCK, MAX_DOCK, UNIT_COLS,
-  CO2_TILE_ID,
-  type HomeLayout, type TileColor, type TileId, type GroupId, type CountdownTileId,
-} from '../lib/homeLayout';
+import { getHomeLayout, saveHomeLayout, addPage, removePage, moveTileToPage, hideTile, addTile, mergeTiles, addToGroup, removeFromGroup, deleteGroup, isGroupId, isCountdownId, ensurePositions, ensureTrailingEmptyPage, unifyColorsByCategory, stepTileCell, addDockSlot, removeDockSlot, moveDockSlot, PAGE_CATEGORY, CATEGORY_ORDER, CATEGORY_SHADES, type Category, moveTileToPageCell, okrajProPrepnuti, dalsiStranka, rozdelVseDoStranek, idsKRozmisteni, vyrovnejStranku, VYCHOZI_STRANKA, type OkrajTazeni, MIN_OPACITY, MAX_OPACITY, MIN_TILE_GAP, MAX_TILE_GAP, MIN_W, MAX_W, MIN_H, MAX_H, TILE_COLORS, COLOR_HEX, defaultTileColor, GRID_COLS_DESKTOP, GRID_COLS_MOBILE, MOBILE_BREAKPOINT_PX, ROW_HEIGHT_DESKTOP, ROW_HEIGHT_MOBILE, MIN_DOCK, MAX_DOCK, UNIT_COLS, CO2_TILE_ID, type HomeLayout, type TileColor, type TileId, type GroupId, type CountdownTileId } from '../lib/homeLayout';
 import { co2Bezi, co2Zbyva, prepniCo2, zastavOdpocetVSeznamu, CO2_ID } from '../lib/co2Foukani';
 import { zavibruj } from '../lib/haptika';
-import {
-  getKegTimerState, formatDurationMs, getCountdowns, saveCountdowns, countdownRemainingMs, toggleCountdown, resetCountdown,
-  startAllCountdowns, pauseAllCountdowns, resetAllCountdowns, COUNTDOWN_CHANGED_EVENT, type CountdownTimer,
-  getStopwatchState, saveStopwatchState, stopwatchElapsedMs, STOPWATCH_CHANGED_EVENT, type StopwatchState,
-} from '../lib/stopwatchTimers';
+import { getKegTimerState, formatDurationMs, getCountdowns, saveCountdowns, countdownRemainingMs, toggleCountdown, resetCountdown, startAllCountdowns, pauseAllCountdowns, COUNTDOWN_CHANGED_EVENT, type CountdownTimer, getStopwatchState, saveStopwatchState, stopwatchElapsedMs, STOPWATCH_CHANGED_EVENT, type StopwatchState } from '../lib/stopwatchTimers';
 import { onNewVersion, forceRefresh, type VersionInfo } from '../lib/versionCheck';
 import { zavrenaVerzeListy, VERZE_LISTA_EVENT } from '../lib/verzeLista';
 import { vyhodnotGesto, rychlostPosunu, jeVeVodorovnemPasku, stavPodrzeni } from '../lib/gestaPlochy';
@@ -911,7 +893,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   useEffect(() => {
     void (async () => {
       try {
-        const { data } = await fetchAllRows('inventory', 'entry_date,note');
+        const { data } = await nactiSdilenouTabulku('inventory');
         setStariInv(stariInventury((data as any[]) ?? [], businessDateISO()));
       } catch { /* upozornění není kritické — radši mlčet než rozbít plochu */ }
     })();
@@ -2065,7 +2047,6 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
             if (id === CO2_TILE_ID) {
               const bezi = co2Bezi(countdowns);
               const zbyva = co2Zbyva(countdowns);
-              const dobehlo = bezi && zbyva === 0;
               // Na dlaždici je jen „CO2" a čas. Celé „Foukání CO2" se do
               // dlaždice na telefonu nevešlo a zbyla z něj nečitelná drť;
               // co to je, řekne ikona a hlavně pásek upozornění nahoře,

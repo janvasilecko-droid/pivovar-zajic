@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Beer, Package, Place, fetchAllRows, formatPackageLabel, supabase, useRealtime } from '../lib/supabase';
+import { nactiSdilenouTabulku } from '../lib/sdilenaData';
 import { Spinner, EmptyState } from './ui';
 import { orderWeightKg, fmtKg } from '../lib/weight';
 import { DAYS } from '../lib/shared';
@@ -33,11 +34,13 @@ export default function ZavozHistory() {
 
   async function load(silent = false) {
     if (!silent && !orders.length) setLoading(true);
-    const [{ data: o }, { data: p }, { data: b }, { data: pl }] = await Promise.all([
+    const [{ data: o }, { data: p }, { data: b }, { data: pl }, { data: vsechnyPolozky }] = await Promise.all([
       fetchAllRows('orders', '*').neq('status', 'storno').order('order_date', { ascending: false }),
       supabase.from('packages').select('*'),
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('places').select('*').order('name'),
+      // Položky současně s objednávkami, ne až po nich přes .in() (druhé kolo).
+      nactiSdilenouTabulku('order_items'),
     ]);
     const ords = ((o as Order[]) ?? []).map(order => {
       const place = (pl as Place[] ?? []).find(p => p.id === order.place_id);
@@ -48,9 +51,9 @@ export default function ZavozHistory() {
     setBeers((b as Beer[]) ?? []);
     setPlaces((pl as Place[]) ?? []);
     if (ords.length) {
-      const { data: it } = await fetchAllRows('order_items', '*').in('order_id', ords.map((x) => x.id));
+      const ids = new Set(ords.map((x) => x.id));
       const map: Record<string, OrderItem[]> = {};
-      (it as OrderItem[])?.forEach((i) => { (map[i.order_id] ??= []).push(i); });
+      ((vsechnyPolozky as OrderItem[]) ?? []).forEach((i) => { if (ids.has(i.order_id)) (map[i.order_id] ??= []).push(i); });
       setItems(map);
     }
     if (!silent) setLoading(false);
@@ -59,21 +62,6 @@ export default function ZavozHistory() {
   useEffect(() => { load(); }, []);
   useRealtime(['orders', 'order_items', 'packages', 'beers', 'places'], () => load(true));
 
-  // Skupiny v historii závozů podle přesných kalendářních dnů
-  const historyByDate = useMemo(() => {
-    const map = new Map<string, { date: string; orders: Order[]; totalWeight: number; totalQty: number }>();
-    orders.forEach((o) => {
-      const dateKey = o.order_date;
-      const cur = map.get(dateKey) || { date: dateKey, orders: [], totalWeight: 0, totalQty: 0 };
-      cur.orders.push(o);
-      const oItems = items[o.id] ?? [];
-      cur.totalWeight += orderWeightKg(oItems, packages);
-      cur.totalQty += oItems.reduce((s, i) => s + Number(i.quantity), 0);
-      map.set(dateKey, cur);
-    });
-
-    return [...map.values()].sort((a, b) => b.date.localeCompare(a.date));
-  }, [orders, items, packages]);
 
   // Filtrovaná historie tras podle období, odběrného místa, piva a obalu
   const filteredHistoryByDate = useMemo(() => {

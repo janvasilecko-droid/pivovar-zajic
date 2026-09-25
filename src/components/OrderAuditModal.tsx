@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Beer, Package, fetchAllRows, supabase } from '../lib/supabase';
 import { KONTROLY_AUDITU, K_CEMU_AUDIT, popisKontroly, zaverAuditu, type KlicKontroly } from '../lib/auditPopisy';
 import { AuditReport, runOrderAudit, mergeDuplicateItemRows, OrderItemDuplicateIssue, ZavozDeductionIssue } from '../lib/orderAudit';
-import { AlertTriangle, ArrowRight, Beer as BeerIcon, Calendar, Check, CheckCircle, ChevronDown, ChevronUp, Copy, Eye, Globe, Layers, MessageSquare, MinusCircle, PlusCircle, RefreshCw, Search, ShieldCheck, Sparkles, Trash2, X } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Beer as BeerIcon, Calendar, Check, CheckCircle, ChevronDown, ChevronUp, Eye, Globe, Layers, MessageSquare, MinusCircle, PlusCircle, RefreshCw, Search, ShieldCheck, Trash2, X } from 'lucide-react';
 import { Spinner } from './ui';
 import { stavPrijmu } from '../lib/stavPrijmu';
 import { fetchLastWhatsAppAt } from '../lib/whatsappApi';

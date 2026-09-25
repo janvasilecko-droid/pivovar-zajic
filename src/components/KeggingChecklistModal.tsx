@@ -178,11 +178,6 @@ export function KeggingChecklistBody({ dateStr, onApplyNote, onDone, blockCloseU
 
   const currentCategoryItems = items.filter((it) => it.category === activeCategory);
 
-  const allCategoryDone = currentCategoryItems.every((it) => {
-    if (checks[it.id]) return true;
-    if (it.weekly && isWeeklyItemSatisfiedForKeg(dateKey, it)) return true;
-    return false;
-  });
 
   const isOverallStartDone = isStartChecklistCompleteForKeg(dateKey);
 
