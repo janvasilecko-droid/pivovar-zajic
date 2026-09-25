@@ -3,14 +3,14 @@ import { Beer, beerBorder, fetchAllRows, formatPackageLabel, Package, Place, sup
 import { Kostra, Spinner, EmptyState } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
 
-import { AlertTriangle, ChevronDown, ChevronUp, ArrowDownRight, ArrowUpRight, ChevronsUpDown, Download, Package as PackageIcon, Printer, Receipt, Save, Search, ShieldAlert, ShoppingCart, Snowflake, Star, Store, TrendingDown, TrendingUp, Trophy, Truck, X, Zap, type LucideIcon } from 'lucide-react';
-import { WeeklyOrderSummaryCard, WeeklyOrderItem, isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
+import { AlertTriangle, ChevronDown, ChevronUp, ArrowDownRight, ArrowUpRight, ChevronsUpDown, Download, Package as PackageIcon, Printer, Receipt, Save, Search, ShieldAlert, Snowflake, Star, Store, TrendingDown, TrendingUp, Trophy, Truck, X, Zap, type LucideIcon } from 'lucide-react';
 import { EditOrderModal } from '../components/EditOrderModal';
+import { TabBar, type TabBarItem } from '../components/TabBar';
 import ZavozHistory from '../components/ZavozHistory';
 import { IkonaLahev, IkonaSud } from '../components/ikony';
 import StatistikaVystav from '../components/StatistikaVystav';
 import type { Obdobi, VyrobniRadek } from '../lib/statistika';
-import { kdoPrestalObjednavat, podilPodleObalu, rozsahObdobi, denObdobi } from '../lib/statistika';
+import { kdoPrestalObjednavat, podilPodleObalu, rozsahObdobi, denObdobi, objednanoPoMesicich, prvniObjednavkaPodlePolozky } from '../lib/statistika';
 import { rozpadSuduVCyklech, popisRozpaduSudu, type StaceniRadek } from '../lib/cyklyTanku';
 import { usePosledniNacteni } from '../lib/nacitani';
 import { useChovaniDialogu } from '../lib/zavriNaZpet';
@@ -154,8 +154,19 @@ type DeliveryOrder = {
 };
 type DeliveryItem = { id: string; order_id: string; beer_id: string | null; beer_name: string | null; package_id: string | null; package_label: string | null; quantity: number; is_prepared: boolean };
 
-type Zalozka = 'vystav' | 'detail' | 'cycles' | 'stats' | 'orders' | 'deliveries';
-const ZALOZKY: Zalozka[] = ['vystav', 'detail', 'cycles', 'stats', 'orders', 'deliveries'];
+// „Objednávky" (týdenní součet kusů podle piva a obalu) se zrušila 25. 9. 2026
+// — ukazovala totéž co Objednávky → Celkem, která navíc umí měsíc i vše.
+// Starý odkaz na ni skončí na Výstavu (zalozkaZAdresy níž).
+type Zalozka = 'vystav' | 'detail' | 'cycles' | 'stats' | 'deliveries';
+const ZALOZKY: Zalozka[] = ['vystav', 'detail', 'cycles', 'stats', 'deliveries'];
+
+const LISTA_ZALOZEK: (TabBarItem & { id: Zalozka })[] = [
+  { id: 'vystav', label: 'Výstav', icon: TrendingUp, color: '#f59f00' },
+  { id: 'detail', label: 'Hledání', icon: Search, color: '#4dabf7' },
+  { id: 'cycles', label: 'Cykly tanků', icon: IkonaSud, color: '#ffa94d' },
+  { id: 'stats', label: 'Žebříčky', icon: Trophy, color: '#38d9a9' },
+  { id: 'deliveries', label: 'Trasy', icon: Truck, color: '#7c5cff' },
+];
 
 /**
  * Záložka z adresy se musí ověřit, ne jen přetypovat.
@@ -197,12 +208,6 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
   const [loading, setLoading] = useState(true);
   const [selectedMonths, setSelectedMonths] = useState<string[]>([]);
 
-  // ---- Přehled objednávek (týdenní) ----
-  const [ordWeekKey, setOrdWeekKey] = useState(isoWeekKey(businessDateISO()));
-  type OrdItem = { order_id: string; beer_id: string | null; beer_name: string | null; package_id: string | null; package_label: string | null; quantity: number };
-  type OrdRow = { id: string; order_date: string; delivery_date: string | null; status: string };
-  const [ordItems, setOrdItems] = useState<OrdItem[]>([]);
-  const [ordRows, setOrdRows] = useState<OrdRow[]>([]);
   // Modal pro tisk uzávěrky
   const [showPrintModal, setShowPrintModal] = useState(false);
   // Zpět zavře tiskový náhled místo odchodu z historie.
@@ -225,8 +230,6 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
   // ---- Historie nákladek (přesunuto z původní obrazovky Závoz) ----
   const [delOrders, setDelOrders] = useState<DeliveryOrder[]>([]);
   const [delItems, setDelItems] = useState<Record<string, DeliveryItem[]>>({});
-  const [delPackages, setDelPackages] = useState<Package[]>([]);
-  const [delLoading, setDelLoading] = useState(true);
 
   // ---- Editace objednávek z přehledu ----
   const [editOrder, setEditOrder] = useState<DeliveryOrder | null>(null);
@@ -234,16 +237,14 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
   const [places, setPlaces] = useState<Place[]>([]);
 
   async function loadDeliveries() {
-    const [{ data: o }, { data: p }, { data: pl }, { data: vsechnyPolozky }] = await Promise.all([
+    const [{ data: o }, { data: pl }, { data: vsechnyPolozky }] = await Promise.all([
       fetchAllRows('orders', '*').neq('status', 'storno').order('order_date', { ascending: false }),
-      supabase.from('packages').select('*'),
       supabase.from('places').select('*').order('name'),
       // Položky současně s objednávkami, ne až po nich přes .in() (druhé kolo).
       nactiSdilenouTabulku('order_items'),
     ]);
     const ords = (o as DeliveryOrder[]) ?? [];
     setDelOrders(ords);
-    setDelPackages((p as Package[]) ?? []);
     setPlaces((pl as Place[]) ?? []);
     if (ords.length) {
       const ids = new Set(ords.map((x) => x.id));
@@ -251,7 +252,6 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
       ((vsechnyPolozky as DeliveryItem[]) ?? []).forEach((i) => { if (ids.has(i.order_id)) (map[i.order_id] ??= []).push(i); });
       setDelItems(map);
     }
-    setDelLoading(false);
   }
 
   async function openEditOrder(orderId: string) {
@@ -262,12 +262,21 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
     setEditItems(items);
   }
 
-  useEffect(() => { loadDeliveries(); }, []);
-  useRealtime(['orders', 'order_items', 'packages'], loadDeliveries);
+  // Všechny objednávky i s položkami potřebuje jen Hledání (kam vede
+  // klepnutí na řádek). Dřív se stahovaly při KAŽDÉM otevření
+  // Statistiky, i když se člověk podíval jen na Výstav.
+  const potrebujeObjednavky = activeTab === 'detail';
+  const [objednavkyNacteny, setObjednavkyNacteny] = useState(false);
+  useEffect(() => {
+    if (potrebujeObjednavky && !objednavkyNacteny) {
+      setObjednavkyNacteny(true);
+      loadDeliveries();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [potrebujeObjednavky]);
+  useRealtime(['orders', 'order_items', 'places'], () => { if (objednavkyNacteny) loadDeliveries(); });
 
 
-  // ---- Seskupení podrobného hledání ----
-  const [groupBy, setGroupBy] = useState<'none' | 'month' | 'year'>('none');
 
   // ---- Uložené oblíbené filtry (localStorage) ----
   const [savedFilters, setSavedFilters] = useState<SavedFilter[]>(() => {
@@ -295,7 +304,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
   async function load(tiche = false) {
     const smiZapsat = zacniNacteni();
     if (!tiche) setLoading(true);
-    const [{ data: bt }, { data: kg }, { data: fa }, { data: wo }, { data: ak }, { data: oi }, { data: ord }, { data: b }, { data: pk }] = await Promise.all([
+    const [{ data: bt }, { data: kg }, { data: fa }, { data: wo }, { data: ak }, { data: oi }, { data: ord }, { data: b }, { data: pk }, { data: faPriv }] = await Promise.all([
       nactiSdilenouTabulku('bottling'),
       nactiSdilenouTabulku('kegging'),
       nactiSdilenouTabulku('fasovani'),
@@ -305,6 +314,8 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
       nactiSdilenouTabulku('orders'),
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
+      // Pro Podrobné hledání — dřív se dotahovalo až ve druhém kole.
+      nactiSdilenouTabulku('fasovani_private'),
     ]);
     // Mezitím mohlo začít novější načtení, nebo už obrazovka není vidět.
     if (!smiZapsat()) return;
@@ -335,10 +346,12 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
       return m;
     };
     const pkList = (pk as Package[]) ?? [];
+    // Obal podle id z mapy, ne `pkList.find` pro každý řádek pohybu.
+    const obalPodleId = new Map(pkList.map((p) => [p.id, p] as const));
     const aggLiters = (rows: FilterableEntry[]) => {
       const m = new Map<string, number>();
       rows.forEach((r) => {
-        const pkg = pkList.find((p) => p.id === r.package_id);
+        const pkg = r.package_id ? obalPodleId.get(r.package_id) : undefined;
         if (!pkg) return;
         m.set(monthKey(r.entry_date), (m.get(monthKey(r.entry_date)) ?? 0) + Number(r.quantity) * Number(pkg.volume_l));
       });
@@ -361,7 +374,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
     [...btRows, ...kgRows].forEach((r) => {
       const mk = monthKey(r.entry_date);
       const key = r.beer_id ?? 'unknown';
-      const pkg = pkList.find((p) => p.id === r.package_id);
+      const pkg = r.package_id ? obalPodleId.get(r.package_id) : undefined;
       if (!pkg) return;
 
       if (!brewedByBeerHl.has(mk)) {
@@ -391,22 +404,14 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
 
     const ordRows = (ord as { id: string; order_date: string; delivery_date: string | null; status: string }[]) ?? [];
     const oiRows = (oi as { beer_id: string | null; package_id: string | null; quantity: number; order_id: string }[]) ?? [];
-    // Save for weekly orders tab
-    setOrdRows(ordRows);
-    setOrdItems(oiRows.map(i => ({ order_id: i.order_id, beer_id: i.beer_id, beer_name: null, package_id: i.package_id, package_label: null, quantity: Number(i.quantity) })));
-    const ordM = new Map<string, number>();
-    ordRows.filter((o) => o.status !== 'storno').forEach((o) => {
-      const mk = monthKey(o.order_date);
-      oiRows.filter((i) => i.order_id === o.id).forEach((i) => {
-        ordM.set(mk, (ordM.get(mk) ?? 0) + Number(i.quantity));
-      });
-    });
+    // Dřív pro každou objednávku průchod VŠEMI položkami (viz lib/statistika).
+    const ordM = objednanoPoMesicich(ordRows, oiRows);
 
     // Výpočet rozpadu KEG vs PET podle druhů obalů
     const calcKegHl = (rows: FilterableEntry[]) => {
       const m = new Map<string, number>();
       rows.forEach((r) => {
-        const pkg = pkList.find((p) => p.id === r.package_id);
+        const pkg = r.package_id ? obalPodleId.get(r.package_id) : undefined;
         if (!pkg || pkg.kind !== 'keg') return;
         m.set(monthKey(r.entry_date), (m.get(monthKey(r.entry_date)) ?? 0) + Number(r.quantity) * Number(pkg.volume_l));
       });
@@ -415,7 +420,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
     const calcBottleHl = (rows: FilterableEntry[]) => {
       const m = new Map<string, number>();
       rows.forEach((r) => {
-        const pkg = pkList.find((p) => p.id === r.package_id);
+        const pkg = r.package_id ? obalPodleId.get(r.package_id) : undefined;
         if (!pkg || pkg.kind !== 'bottle') return;
         m.set(monthKey(r.entry_date), (m.get(monthKey(r.entry_date)) ?? 0) + Number(r.quantity) * Number(pkg.volume_l));
       });
@@ -424,7 +429,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
     const calcByBeerKindHl = (rows: FilterableEntry[], kind: 'keg' | 'bottle') => {
       const m = new Map<string, Map<string, number>>();
       rows.forEach((r) => {
-        const pkg = pkList.find((p) => p.id === r.package_id);
+        const pkg = r.package_id ? obalPodleId.get(r.package_id) : undefined;
         if (!pkg || pkg.kind !== kind) return;
         const mk = monthKey(r.entry_date);
         const key = r.beer_id ?? 'unknown';
@@ -437,7 +442,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
     const calcByPackageKind = (rows: FilterableEntry[]) => {
       const m = new Map<string, Map<string, { ks: number; hl: number }>>();
       rows.forEach((r) => {
-        const pkg = pkList.find((p) => p.id === r.package_id);
+        const pkg = r.package_id ? obalPodleId.get(r.package_id) : undefined;
         if (!pkg) return;
         const mk = monthKey(r.entry_date);
         const kind = pkg.kind;
@@ -483,8 +488,6 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
     setLoading(false);
 
     // Detailní hledání data
-    setDetailLoading(true);
-    const { data: faPriv } = await nactiSdilenouTabulku('fasovani_private');
     const faPrivRows = (faPriv as FilterableEntry[]) ?? [];
     const ordDateById = new Map(ordRows.map((o) => [o.id, o.order_date] as const));
     const ordStatusById = new Map(ordRows.map((o) => [o.id, o.status] as const));
@@ -529,46 +532,6 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
   // událost o tomtéž zápisu a celou práci zahodí.
   useRealtime(['bottling', 'kegging', 'fasovani', 'fasovani_private', 'writeoffs', 'orders', 'order_items', 'akce', 'akce_items', 'beers', 'packages'], () => load(true));
   useRealtime(['cellar_tank_cycles'], loadTankCycles);
-
-  // ---- Tydenny prehled objednavek ----
-  const ordWr = useMemo(() => weekRange(ordWeekKey), [ordWeekKey]);
-  const weeklyOrderItemsList = useMemo((): WeeklyOrderItem[] => {
-    const { start, end } = ordWr;
-    const activeOrdIds = new Set(
-      ordRows
-        .filter(o => o.status !== 'storno')
-        // Datum dodání (delivery_date), pokud je vyplněné — objednávka zadaná dřív, ale
-        // dodávaná v tomto týdnu, se jinak z týdenního přehledu ztratí.
-        .filter(o => { const target = o.delivery_date || o.order_date; const d = new Date(target + 'T00:00:00Z'); return d >= start && d <= end; })
-        .map(o => o.id)
-    );
-    const grouped = new Map<string, { beerName: string; volume: number; packageLabel: string; beerId: string; packageId: string; ordered: number }>();
-    ordItems
-      .filter(i => activeOrdIds.has(i.order_id))
-      .forEach(i => {
-        const beer = beers.find(b => b.id === i.beer_id);
-        const pkg = packages.find(p => p.id === i.package_id);
-        const beerName = beer?.name ?? '?';
-        const pkgLabel = pkg?.label ?? '?';
-        const volume = Number(pkg?.volume_l ?? 0);
-        const key = `${i.beer_id ?? ''}__${i.package_id ?? ''}`;
-        if (!grouped.has(key)) {
-          grouped.set(key, { beerName, volume, packageLabel: pkgLabel, beerId: i.beer_id ?? '', packageId: i.package_id ?? '', ordered: 0 });
-        }
-        grouped.get(key)!.ordered += i.quantity;
-      });
-    return [...grouped.values()].map(g => ({
-      beerKey: `${g.beerId}__${g.packageId}`,
-      beerName: g.beerName,
-      volume: g.volume,
-      packageLabel: g.packageLabel,
-      ordered: g.ordered,
-      remaining: g.ordered,
-      stock: 0,
-      beerId: g.beerId,
-      packageId: g.packageId,
-    }));
-  }, [ordRows, ordItems, beers, packages, ordWeekKey, ordWr]);
 
   function toggleMonth(m: string) {
     setSelectedMonths((s) => s.includes(m) ? s.filter((x) => x !== m) : [...s, m].sort().reverse());
@@ -616,6 +579,13 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
     });
     return [...m.values()].sort((a, b) => b.totalQty - a.totalQty);
   }, [detailFiltered, beers, packages]);
+
+  // Kam vede klepnutí na řádek Podrobného hledání — spočítané jednou, ne při
+  // vykreslení každého řádku (viz prvniObjednavkaPodlePolozky).
+  const objednavkaProRadek = useMemo(
+    () => prvniObjednavkaPodlePolozky(delOrders, delItems),
+    [delOrders, delItems],
+  );
 
   const detailResultsSorted = useMemo(() => sortRows(detailResults, detailSortKey, detailSortDir), [detailResults, detailSortKey, detailSortDir]);
   const tankCyclesSorted = useMemo(() => sortRows(tankCycles, cycleSortKey, cycleSortDir), [tankCycles, cycleSortKey, cycleSortDir]);
@@ -775,140 +745,11 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
 
   return (
     <div className="space-y-6 pb-12">
-      {/* 🏆 GLOBÁLNÍ KPI DASHBOARD — aktuální rok */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5">
-        <div className="rounded p-3 bg-white border-2 border-amber-300 shadow-xs">
-          <div className="text-udaj font-black uppercase tracking-wider text-amber-700">Uvařeno {currentYear}</div>
-          <div className="text-lg font-display font-black text-neutral-900">{yearData.totalBrewed} ks</div>
-          <div className="text-udaj font-bold text-neutral-500">{yearData.totalBrewedHl.toFixed(1)} hl</div>
-        </div>
-        <div className="rounded p-3 bg-white border-2 border-sky-300 shadow-xs">
-          <div className="text-udaj font-black uppercase tracking-wider text-sky-700">Lahve</div>
-          <div className="text-lg font-display font-black text-neutral-900">{yearData.totalBottled} ks</div>
-        </div>
-        <div className="rounded p-3 bg-white border-2 border-amber-500 shadow-xs">
-          <div className="text-udaj font-black uppercase tracking-wider text-amber-800">Sudy (KEG)</div>
-          <div className="text-lg font-display font-black text-neutral-900">{yearData.totalKegged} ks</div>
-        </div>
-        <div className="rounded p-3 bg-white border-2 border-emerald-300 shadow-xs">
-          <div className="text-udaj font-black uppercase tracking-wider text-emerald-700">Fasováno</div>
-          <div className="text-lg font-display font-black text-neutral-900">{yearData.totalFasovani} ks</div>
-        </div>
-        <div className="rounded p-3 bg-white border-2 border-rose-300 shadow-xs">
-          <div className="text-udaj font-black uppercase tracking-wider text-rose-700">Odpisy</div>
-          <div className="text-lg font-display font-black text-neutral-900">{yearData.totalWriteoffs} ks</div>
-        </div>
-        <div className="rounded p-3 bg-white border-2 border-violet-300 shadow-xs">
-          <div className="text-udaj font-black uppercase tracking-wider text-violet-700">Objednáno</div>
-          <div className="text-lg font-display font-black text-neutral-900">{yearData.totalOrdered} ks</div>
-        </div>
-        <div className="rounded p-3 bg-white border-2 border-emerald-300 shadow-xs">
-          <div className="text-udaj font-black uppercase tracking-wider text-emerald-700">Tržby akce</div>
-          <div className="text-lg font-display font-black text-neutral-900">{yearData.totalAkceRevenue.toLocaleString('cs-CZ')} Kč</div>
-        </div>
-        <div className="rounded p-3 bg-white border-2 border-neutral-300 shadow-xs">
-          <div className="text-udaj font-black uppercase tracking-wider text-neutral-600">Ø měsíčně</div>
-          <div className="text-lg font-display font-black text-neutral-900">{yearData.avgMonthlyBrewed} ks</div>
-          <div className="text-udaj font-bold text-neutral-500">{yearData.monthCount} měsíců</div>
-        </div>
-      </div>
-
-      {/* Top Header Navigation Tabs — přilepené nahoře (tlačítko tiskové
-          uzávěrky je mimo přilepený pruh, ať má pruh pořád stejnou výšku a
-          nepřekrývá se s filtry pod ním). Na mobilu kratší popisky, ať se
-          vejde víc záložek na obrazovku a je míň nutné vodorovně scrollovat. */}
-      {/* Na telefonu se pruh ZALAMUJE a není přilepený nahoře. Osm záložek
-          mělo dohromady 876 px, ale pruh jich má 347 — vidět byly necelé tři
-          a na zbytek se muselo naslepo rolovat do strany. Zalomené jsou
-          všechny vidět naráz; přilepení se pouští až od `sm`, kde se pruh
-          vejde na jeden řádek a nezabírá tak třetinu displeje. */}
-      <div className="sm:sticky top-0 z-20 bg-neutral-100 pt-1 flex items-center gap-2 border-b border-neutral-200 pb-2">
-        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap sm:flex-nowrap sm:overflow-x-auto scrollbar-thin">
-          <button
-            onClick={() => selectTab('vystav')}
-            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded font-black text-xs transition flex items-center gap-1.5 sm:gap-2 shrink-0 min-h-[44px] ${
-              activeTab === 'vystav'
-                ? 'bg-amber-500 text-neutral-950 shadow-md'
-                : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
-            }`}
-          >
-            <TrendingUp size={16} />
-            <span>Výstav</span>
-          </button>
-
-          <button
-            onClick={() => selectTab('detail')}
-            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded font-black text-xs transition flex items-center gap-1.5 sm:gap-2 shrink-0 ${
-              activeTab === 'detail'
-                ? 'bg-amber-500 text-neutral-950 shadow-md'
-                : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
-            }`}
-          >
-            <Search size={16} />
-            <span><span className="sm:hidden">Hledání</span><span className="hidden sm:inline">Podrobné hledání & Filtry</span></span>
-          </button>
-
-          <button
-            onClick={() => selectTab('cycles')}
-            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded font-black text-xs transition flex items-center gap-1.5 sm:gap-2 shrink-0 ${
-              activeTab === 'cycles'
-                ? 'bg-amber-500 text-neutral-950 shadow-md'
-                : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
-            }`}
-          >
-            <IkonaSud size={16} />
-            <span><span className="sm:hidden">Cykly ({tankCycles.length})</span><span className="hidden sm:inline">Cykly tanků & Ztráty ({tankCycles.length})</span></span>
-          </button>
-
-          <button
-            onClick={() => selectTab('stats')}
-            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded font-black text-xs transition flex items-center gap-1.5 sm:gap-2 shrink-0 ${
-              activeTab === 'stats'
-                ? 'bg-amber-500 text-neutral-950 shadow-md'
-                : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
-            }`}
-          >
-            <Trophy size={16} />
-            <span>TOP Žebříčky</span>
-          </button>
-
-          <button
-            onClick={() => selectTab('orders')}
-            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded font-black text-xs transition flex items-center gap-1.5 sm:gap-2 shrink-0 ${
-              activeTab === 'orders'
-                ? 'bg-amber-500 text-neutral-950 shadow-md'
-                : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
-            }`}
-          >
-            <ShoppingCart size={16} />
-            <span><span className="sm:hidden">Objednávky</span><span className="hidden sm:inline">Přehled objednávek</span></span>
-          </button>
-
-          <button
-            onClick={() => selectTab('deliveries')}
-            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded font-black text-xs transition flex items-center gap-1.5 sm:gap-2 shrink-0 ${
-              activeTab === 'deliveries'
-                ? 'bg-amber-500 text-neutral-950 shadow-md'
-                : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
-            }`}
-          >
-            <Truck size={16} />
-            <span><span className="sm:hidden">Trasy</span><span className="hidden sm:inline">Historie a přehled tras</span></span>
-          </button>
-        </div>
-      </div>
-
-      {/* 🖨️ Tlačítko tiskové uzávěrky pro sládka — schválně mimo přilepený
-          pruh záložek výše, ať má ten pruh stálou výšku. */}
-      <div className="flex justify-end">
-        <button
-          onClick={() => setShowPrintModal(true)}
-          className="px-3 sm:px-4 py-2 sm:py-2.5 rounded bg-neutral-900 hover:bg-neutral-800 text-amber-300 font-black text-xs transition shadow-md flex items-center gap-1.5 shrink-0"
-        >
-          <Printer size={16} />
-          <span><span className="sm:hidden">Uzávěrka</span><span className="hidden sm:inline">Měsíční uzávěrka (PDF/Tisk)</span></span>
-        </button>
-      </div>
+      {/* Stejná lišta záložek jako zbytek appky (components/TabBar.tsx) —
+          dřív tu byla vlastní kopie s dlouhými popisky a nad ní osm barevných
+          dlaždic za rok, které byly vidět na každé záložce. Ty jsou teď jako
+          karta „Letos v kusech" na Výstavu, kam patří. */}
+      <TabBar items={LISTA_ZALOZEK} activeId={activeTab} onSelect={(id) => selectTab(id as Zalozka)} />
 
       {/* ZÁLOŽKA 1: VÝSTAV
           Pohltila dřívější „Měsíční přehledy & Porovnání" a „Výstav (HL) &
@@ -918,6 +759,14 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
           třetinu displeje. Co tam bylo navíc (ztráty KEG), je teď karta
           „Rozpočet sudů"; vlastní rozsah dat zůstal v „Podrobném hledání". */}
       {activeTab === 'vystav' && (
+        <div className="space-y-4">
+        {/* 🖨️ Tisková uzávěrka pro sládka — počítá se z měsíčních součtů,
+            takže patří k Výstavu, ne na každou záložku. */}
+        <div className="flex justify-end">
+          <button onClick={() => setShowPrintModal(true)} className="btn-ghost !rounded text-xs flex items-center gap-1.5">
+            <Printer size={16} /> Měsíční uzávěrka (tisk)
+          </button>
+        </div>
         <StatistikaVystav
           bottlingRows={vyrobaLahve}
           keggingRows={vyrobaSudy}
@@ -931,6 +780,36 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
           obdobi={obdobiStat}
           onObdobi={setObdobiStat}
         />
+
+        {/* 📋 Letos v kusech. Dřív osm barevných dlaždic nad záložkami, na
+            každé záložce — a první se jmenovala „Uvařeno", i když sčítá
+            stočené kusy (lahve + sudy). Výstav výš počítá jen sudy
+            v hektolitrech, takže se čísla liší; poznámka to říká rovnou. */}
+        <section className="card p-3.5 sm:p-5">
+          <h3 className="font-display font-black text-base text-neutral-900">Letos v kusech ({currentYear})</h3>
+          <p className="text-udaj font-semibold text-neutral-500 mt-0.5 mb-3">
+            Všechny obaly dohromady, v kusech. Výstav výš počítá jen sudy v hektolitrech — proto se čísla liší.
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-3">
+            {([
+              ['Stočeno (lahve + sudy)', `${yearData.totalBrewed} ks`, `${yearData.totalBrewedHl.toFixed(1)} hl`],
+              ['Do lahví', `${yearData.totalBottled} ks`, null],
+              ['Do sudů', `${yearData.totalKegged} ks`, null],
+              ['Ø stočeno za měsíc', `${yearData.avgMonthlyBrewed} ks`, `z ${yearData.monthCount} měsíců`],
+              ['Objednáno', `${yearData.totalOrdered} ks`, null],
+              ['Fasováno', `${yearData.totalFasovani} ks`, null],
+              ['Odpisy', `${yearData.totalWriteoffs} ks`, null],
+              ['Tržby z akcí', `${yearData.totalAkceRevenue.toLocaleString('cs-CZ')} Kč`, null],
+            ] as const).map(([popis, hodnota, pod]) => (
+              <div key={popis}>
+                <div className="text-udaj font-black uppercase tracking-wider text-neutral-500">{popis}</div>
+                <div className="text-lg font-display font-black text-neutral-900 tabular-nums">{hodnota}</div>
+                {pod && <div className="text-udaj font-bold text-neutral-500">{pod}</div>}
+              </div>
+            ))}
+          </div>
+        </section>
+        </div>
       )}
 
 
@@ -939,31 +818,10 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
       {activeTab === 'detail' && (
         <div className="space-y-6">
           <div className="card p-5 bg-white border border-neutral-200 rounded space-y-5 shadow-xs">
-            {/* Uložené oblíbené filtry */}
-            <div className="rounded border border-amber-300/80 bg-amber-50/50 p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-black uppercase tracking-wider text-amber-950 flex items-center gap-1.5">
-                  <span><Star className="ikona-text" /> Uložené filtry</span>
-                </label>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {savedFilters.length === 0 && <span className="text-xs text-neutral-500">Zatím žádné uložené filtry.</span>}
-                {savedFilters.map((f) => (
-                  <span key={f.name} className="px-3 py-1.5 rounded bg-white border border-amber-300 text-amber-950 text-xs font-bold shadow-2xs flex items-center gap-2">
-                    <button type="button" className="hover:underline" onClick={() => applyFilter(f)}>{f.name}</button>
-                    <button type="button" className="text-rose-600 hover:text-rose-800 font-bold" onClick={() => deleteFilter(f.name)} title="Smazat filtr" aria-label="Smazat filtr"><X size={14} /></button>
-                  </span>
-                ))}
-              </div>
-              <div className="flex gap-2">
-                <input className="input !py-1.5 text-xs font-semibold flex-1" placeholder="Název filtru (např. 12° lahve za tento měsíc)" value={newFilterName} onChange={(e) => setNewFilterName(e.target.value)} />
-                <button type="button" className="px-3.5 py-1.5 rounded bg-neutral-900 hover:bg-neutral-800 text-amber-300 font-black text-xs shadow-xs tap" onClick={saveCurrentFilter}><Save className="ikona-text" /> Uložit aktuální</button>
-              </div>
-            </div>
-
-            {/* Zdroje aktivit + Date range — přilepené nahoře, ať jde měnit
-                filtr i uprostřed prohlížení výsledků dole. */}
-            <div className="sticky top-0 z-10 bg-white space-y-3 py-1 -mx-5 px-5">
+            {/* Zdroje aktivit + období + pivo/obal — přilepené nahoře, ať jde
+                měnit filtr i uprostřed prohlížení výsledků dole. Na telefonu
+                ne: blok je vysoký a zakryl by půlku displeje. */}
+            <div className="sm:sticky sm:top-0 sm:z-10 bg-white space-y-3 py-1 -mx-5 px-5">
               <div>
                 <label className="label mb-2">Aktivita / zdroj dat</label>
                 <div className="flex flex-wrap gap-2">
@@ -993,6 +851,32 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                   <label className="block text-udaj font-black uppercase text-neutral-600 mb-1">Do</label>
                   <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="input !py-1.5 text-xs font-mono font-bold" />
                 </div>
+                {/* Pivo a obal — stav filtru tu byl odjakživa (a ukládal se i do
+                    uložených filtrů), jen ho nešlo nikde nastavit. */}
+                <div>
+                  <label htmlFor="hledani-pivo" className="block text-udaj font-black uppercase text-neutral-600 mb-1">Pivo</label>
+                  <select
+                    id="hledani-pivo"
+                    className="input !py-1.5 text-xs font-bold"
+                    value={selBeers.size === 1 ? [...selBeers][0] : ''}
+                    onChange={(e) => setSelBeers(e.target.value ? new Set([e.target.value]) : new Set())}
+                  >
+                    <option value="">Všechna piva</option>
+                    {beers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="hledani-obal" className="block text-udaj font-black uppercase text-neutral-600 mb-1">Obal</label>
+                  <select
+                    id="hledani-obal"
+                    className="input !py-1.5 text-xs font-bold"
+                    value={selPackages.size === 1 ? [...selPackages][0] : ''}
+                    onChange={(e) => setSelPackages(e.target.value ? new Set([e.target.value]) : new Set())}
+                  >
+                    <option value="">Všechny obaly</option>
+                    {packages.map((p) => <option key={p.id} value={p.id}>{formatPackageLabel(p.label)}</option>)}
+                  </select>
+                </div>
                 <div className="flex flex-wrap gap-1.5">
                   <button className="px-2.5 py-1.5 rounded bg-white border border-neutral-300 text-xs font-bold tap" onClick={() => setQuickRange('week')}>Týden</button>
                   <button className="px-2.5 py-1.5 rounded bg-white border border-neutral-300 text-xs font-bold tap" onClick={() => setQuickRange('month')}>Měsíc</button>
@@ -1001,6 +885,28 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                 </div>
               </div>
             </div>
+
+
+            {/* Uložené filtry — pod filtry a sbalené: používají se občas,
+                dřív ale zabíraly celý vršek záložky před samotnými filtry. */}
+            <details className="rounded border border-amber-300/80 bg-amber-50/50 p-4 space-y-3">
+              <summary className="text-xs font-black uppercase tracking-wider text-amber-950 cursor-pointer select-none">
+                <Star className="ikona-text" /> Uložené filtry ({savedFilters.length})
+              </summary>
+              <div className="flex flex-wrap gap-2">
+                {savedFilters.length === 0 && <span className="text-xs text-neutral-500">Zatím žádné uložené filtry.</span>}
+                {savedFilters.map((f) => (
+                  <span key={f.name} className="px-3 py-1.5 rounded bg-white border border-amber-300 text-amber-950 text-xs font-bold shadow-2xs flex items-center gap-2">
+                    <button type="button" className="hover:underline" onClick={() => applyFilter(f)}>{f.name}</button>
+                    <button type="button" className="text-rose-600 hover:text-rose-800 font-bold" onClick={() => deleteFilter(f.name)} title="Smazat filtr" aria-label="Smazat filtr"><X size={14} /></button>
+                  </span>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <input className="input !py-1.5 text-xs font-semibold flex-1" placeholder="Název filtru (např. 12° lahve za tento měsíc)" value={newFilterName} onChange={(e) => setNewFilterName(e.target.value)} />
+                <button type="button" className="px-3.5 py-1.5 rounded bg-neutral-900 hover:bg-neutral-800 text-amber-300 font-black text-xs shadow-xs tap" onClick={saveCurrentFilter}><Save className="ikona-text" /> Uložit aktuální</button>
+              </div>
+            </details>
 
             {/* Souhrn výsledků */}
             <div className="rounded bg-neutral-900 text-white p-5 flex flex-wrap items-center justify-between gap-6 shadow-md">
@@ -1035,19 +941,14 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
               <div className="grid grid-cols-1 gap-2.5 md:hidden">
                 {detailResultsSorted.map((r) => {
                   const beer = beers.find((b) => b.id === r.beer_id);
-                  const matchingOrderIds = new Set(
-                    delOrders
-                      .filter(o => o.status !== 'storno')
-                      .filter(o => (delItems[o.id] ?? []).some(i => i.beer_id === r.beer_id && i.package_id === r.package_id))
-                      .map(o => o.id)
-                  );
-                  const hasOrders = matchingOrderIds.size > 0;
+                  const idObjednavky = objednavkaProRadek.get(`${r.beer_id}__${r.package_id}`);
+                  const hasOrders = !!idObjednavky;
                   return (
                     <div
                       key={`${r.beer_id}__${r.package_id}`}
                       className={`rounded bg-white border-2 p-3 space-y-1.5 ${hasOrders ? 'cursor-pointer' : ''}`}
                       style={{ borderColor: beerBorder(beer) }}
-                      onClick={() => { if (hasOrders) openEditOrder([...matchingOrderIds][0]); }}
+                      onClick={() => { if (idObjednavky) openEditOrder(idObjednavky); }}
                     >
                       <div className="flex items-center justify-between gap-2 font-black text-sm text-neutral-950">
                         <span>{r.beer_name} <span className="font-bold opacity-80">· {formatPackageLabel(r.package_label)}</span></span>
@@ -1080,28 +981,14 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                   <tbody>
                     {detailResultsSorted.map((r) => {
                       const beer = beers.find((b) => b.id === r.beer_id);
-                      // Najdeme objednávky obsahující toto pivo+obal
-                      const matchingOrderIds = new Set(
-                        delOrders
-                          .filter(o => o.status !== 'storno')
-                          .filter(o => {
-                            const oItems = delItems[o.id] ?? [];
-                            return oItems.some(i => i.beer_id === r.beer_id && i.package_id === r.package_id);
-                          })
-                          .map(o => o.id)
-                      );
-                      const hasOrders = matchingOrderIds.size > 0;
+                      const idObjednavky = objednavkaProRadek.get(`${r.beer_id}__${r.package_id}`);
+                      const hasOrders = !!idObjednavky;
                       return (
                         <tr
                           key={`${r.beer_id}__${r.package_id}`}
                           className={`transition-colors bg-white ${hasOrders ? 'cursor-pointer hover:bg-neutral-50' : 'hover:bg-neutral-50/60'}`}
                           style={{ borderLeft: `4px solid ${beerBorder(beer)}` }}
-                          onClick={() => {
-                            if (hasOrders) {
-                              const firstOrderId = [...matchingOrderIds][0];
-                              openEditOrder(firstOrderId);
-                            }
-                          }}
+                          onClick={() => { if (idObjednavky) openEditOrder(idObjednavky); }}
                           title={hasOrders ? 'Kliknutím upravíte objednávku' : undefined}
                         >
                           <td className="font-black text-udaj text-neutral-950">{r.beer_name}</td>
@@ -1365,35 +1252,6 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
               </>
             )}
           </div>
-        </div>
-      )}
-
-      {/* TAB 5: TÝDENNÍ PŘEHLED OBJEDNÁVEK */}
-      {activeTab === 'orders' && (
-        <div className="space-y-6">
-          <WeeklyOrderSummaryCard
-            items={weeklyOrderItemsList}
-            beers={beers}
-            weekKey={ordWeekKey}
-            onWeekChange={setOrdWeekKey}
-            weekLabel={ordWr.label}
-            title="Týdenní přehled objednávek"
-            subtitle="Součet kusů z objednávek (bez storna) v daném týdnu — kliknutím na řádek upravíte objednávku"
-            onItemClick={(beerId, packageId) => {
-              // Najdeme objednávky v aktuálním týdnu, které obsahují toto pivo+obal
-              const { start, end } = ordWr;
-              const matchingOrders = delOrders
-                .filter(o => o.status !== 'storno')
-                .filter(o => { const target = o.delivery_date || o.order_date; const d = new Date(target + 'T00:00:00Z'); return d >= start && d <= end; })
-                .filter(o => {
-                  const oItems = delItems[o.id] ?? [];
-                  return oItems.some(i => i.beer_id === beerId && i.package_id === packageId);
-                });
-              if (matchingOrders.length > 0) {
-                openEditOrder(matchingOrders[0].id);
-              }
-            }}
-          />
         </div>
       )}
 

@@ -49,6 +49,9 @@ const db: Record<string, Radek[]> = {
 export function beerName(beer: { short_name?: string | null; name?: string | null } | null | undefined): string {
   return beer?.short_name?.trim() || beer?.name || '';
 }
+export function beerBorder(beer: { beer_color?: string | null } | null | undefined): string {
+  return beer?.beer_color ?? 'rgb(var(--bd-neutral-200))';
+}
 export function beerBg(beer: { beer_color?: string | null } | null | undefined): string {
   return beer?.beer_color ?? 'rgb(var(--bg-neutral-100))';
 }

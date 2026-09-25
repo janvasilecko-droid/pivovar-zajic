@@ -486,3 +486,64 @@ describe('rozpočet sudů', () => {
     }]);
   });
 });
+
+// Zrychlení Statistiky nesmí změnit ani jedno číslo: nové funkce se tu
+// porovnávají s PŮVODNÍM postupem (přepsaným doslova z History.tsx) na
+// náhodných datech, včetně storen, prázdných objednávek a položek bez
+// objednávky.
+describe('zrychlené součty Statistiky = původní výpočet', () => {
+  function nahodna(seed: number) {
+    let s = seed;
+    const r = () => { s = (s * 1103515245 + 12345) % 2147483648; return s / 2147483648; };
+    const objednavky = Array.from({ length: 300 }, (_, i) => ({
+      id: `o${i}`,
+      order_date: `2026-${String(1 + Math.floor(r() * 12)).padStart(2, '0')}-${String(1 + Math.floor(r() * 28)).padStart(2, '0')}`,
+      status: r() < 0.15 ? 'storno' : 'nova',
+    }));
+    const piva = ['b1', 'b2', 'b3', null];
+    const obaly = ['p1', 'p2', null];
+    const polozky = Array.from({ length: 1200 }, () => ({
+      order_id: `o${Math.floor(r() * 330)}`, // i objednávky, které neexistují
+      beer_id: piva[Math.floor(r() * piva.length)],
+      package_id: obaly[Math.floor(r() * obaly.length)],
+      quantity: r() < 0.1 ? String(Math.floor(r() * 9)) : Math.floor(r() * 20) - 2,
+    }));
+    return { objednavky, polozky };
+  }
+
+  it('objednanoPoMesicich', async () => {
+    const { objednanoPoMesicich } = await import('./statistika');
+    for (const seed of [1, 7, 42, 2026]) {
+      const { objednavky, polozky } = nahodna(seed);
+      // Původní kód z History.tsx:
+      const puvodni = new Map<string, number>();
+      objednavky.filter((o) => o.status !== 'storno').forEach((o) => {
+        const mk = o.order_date.slice(0, 7);
+        polozky.filter((i) => i.order_id === o.id).forEach((i) => {
+          puvodni.set(mk, (puvodni.get(mk) ?? 0) + Number(i.quantity));
+        });
+      });
+      expect(objednanoPoMesicich(objednavky, polozky)).toEqual(puvodni);
+    }
+  });
+
+  it('prvniObjednavkaPodlePolozky', async () => {
+    const { prvniObjednavkaPodlePolozky } = await import('./statistika');
+    for (const seed of [3, 11, 99]) {
+      const { objednavky, polozky } = nahodna(seed);
+      const podle: Record<string, typeof polozky> = {};
+      polozky.forEach((i) => { (podle[i.order_id] ??= []).push(i); });
+      const mapa = prvniObjednavkaPodlePolozky(objednavky, podle);
+      for (const beer_id of ['b1', 'b2', 'b3', null]) {
+        for (const package_id of ['p1', 'p2', null]) {
+          // Původní kód z History.tsx (hledání při vykreslení řádku):
+          const shoda = objednavky
+            .filter((o) => o.status !== 'storno')
+            .filter((o) => (podle[o.id] ?? []).some((i) => i.beer_id === beer_id && i.package_id === package_id))
+            .map((o) => o.id);
+          expect(mapa.get(`${beer_id}__${package_id}`)).toBe(shoda[0]);
+        }
+      }
+    }
+  });
+});
