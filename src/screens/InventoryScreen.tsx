@@ -1,9 +1,9 @@
-import { Fragment, useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
+import { Fragment, useState, useEffect, useMemo, useRef, lazy, Suspense, type Dispatch, type SetStateAction } from 'react';
 
 import { Beer, beerBg, beerInk, beerText, fetchAllRows, formatPackageLabel, Package, supabase, useRealtime, beerName } from '../lib/supabase';
 import { Kostra } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
-import { AlertTriangle, Beer as BeerIcon, Calendar, CalendarRange, Camera, ClipboardCheck, Download, Check, Lock, MinusCircle, Package as PackageIcon, Plus, RotateCcw, Save, Search, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, Beer as BeerIcon, Calendar, CalendarRange, Camera, ChevronLeft, ChevronRight, ClipboardCheck, Download, Check, ListChecks, Lock, MinusCircle, Package as PackageIcon, Plus, RotateCcw, Save, Search, ShieldCheck, SkipForward, Wand2 } from 'lucide-react';
 import HloubkovyAuditPanel from '../components/HloubkovyAuditPanel';
 import TydenniInventuraPanel from '../components/TydenniInventuraPanel';
 import { computeInventoryReconciliation } from '../lib/inventoryHelper';
@@ -103,6 +103,140 @@ function computeInitialStockForMonth(
   return map;
 }
 
+/**
+ * 🚶 Popořadě — jedna položka na obrazovku, velké pole, Potvrdit skočí na
+ * další. Stejný vzor jako u týdenní inventury (TydenniInventuraPanel.tsx),
+ * jen píše do `actualStock` místo `napocitano` — je to jiný způsob, jak se
+ * dostat do STEJNÉHO pole „Inventura", ne druhá pravda o tom, co je spočítáno.
+ */
+function PoporadeVstupMesic({
+  radky,
+  index,
+  setIndex,
+  actualStock,
+  setActualStock,
+  beers,
+}: {
+  radky: InventoryRow[];
+  index: number;
+  setIndex: Dispatch<SetStateAction<number>>;
+  actualStock: Record<string, string>;
+  setActualStock: Dispatch<SetStateAction<Record<string, string>>>;
+  beers: Beer[];
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const r = radky[index] ?? null;
+  const klic = r ? `${r.beer_id}__${r.package_id}` : null;
+  const [hodnota, setHodnota] = useState('');
+
+  // Při skoku na novou položku (Potvrdit, šipky, i návrat Zpět) se pole
+  // vyplní tím, co v inventuře případně už je, a focusne se.
+  useEffect(() => {
+    if (!klic) return;
+    setHodnota(actualStock[klic] ?? '');
+    inputRef.current?.focus();
+    inputRef.current?.select();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [klic]);
+
+  if (radky.length === 0) {
+    return (
+      <div className="card p-6 text-center text-sm font-bold text-neutral-500">
+        Pro zvolený filtr není co počítat.
+      </div>
+    );
+  }
+
+  function potvrdit() {
+    if (!klic) return;
+    setActualStock((m) => ({ ...m, [klic]: hodnota }));
+    setIndex((i) => i + 1);
+  }
+
+  if (!r || !klic) {
+    return (
+      <div className="card p-6 text-center space-y-3">
+        <p className="font-black text-lg text-emerald-700">
+          <Check className="ikona-text" /> Hotovo — projel jsi celý seznam.
+        </p>
+        <button type="button" onClick={() => setIndex(0)} className="btn-secondary !rounded">
+          <RotateCcw size={16} /> Začít znovu od první položky
+        </button>
+      </div>
+    );
+  }
+
+  const beer = beers.find((b) => b.id === r.beer_id);
+  const textTrida = beer && beerText(beer) === 'text-white' ? 'text-white' : 'text-neutral-950';
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between text-xs font-black text-neutral-500 px-1">
+        <span>{index + 1} / {radky.length}</span>
+        <div className="flex gap-1">
+          <button
+            type="button"
+            onClick={() => setIndex((i) => Math.max(0, i - 1))}
+            disabled={index === 0}
+            className="btn-ghost !rounded !py-1.5 !px-2.5 disabled:opacity-30"
+            aria-label="Předchozí položka"
+          >
+            <ChevronLeft size={16} />
+          </button>
+          <button
+            type="button"
+            onClick={() => setIndex((i) => Math.min(radky.length - 1, i + 1))}
+            disabled={index >= radky.length - 1}
+            className="btn-ghost !rounded !py-1.5 !px-2.5 disabled:opacity-30"
+            aria-label="Další položka"
+          >
+            <ChevronRight size={16} />
+          </button>
+        </div>
+      </div>
+
+      <div
+        className={`card p-5 border-2 border-amber-300 text-center space-y-4 ${textTrida}`}
+        style={beer ? { backgroundColor: beerBg(beer), ['--ink-plochy' as any]: beerInk(beer) } : undefined}
+      >
+        <div>
+          <p className="font-display font-black text-2xl break-words">{r.beer_name}</p>
+          <p className="text-sm font-bold opacity-80 mt-0.5">{formatPackageLabel(r.package_label)}</p>
+        </div>
+
+        <p className="text-xs font-bold opacity-70">
+          Očekáváno: <span className={r.expectedQty < 0 ? 'text-rose-300' : ''}>{r.expectedQty} ks</span>
+        </p>
+
+        <input
+          ref={inputRef}
+          type="number" onWheel={(e) => e.currentTarget.blur()}
+          min="0"
+          inputMode="numeric"
+          value={hodnota}
+          onChange={(e) => setHodnota(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') potvrdit(); }}
+          placeholder="—"
+          className="input !text-center !text-3xl !font-black !py-4 !w-44 mx-auto tabular-nums bg-white text-neutral-950"
+        />
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setIndex((i) => i + 1)}
+            className="btn-secondary !rounded flex-1 min-h-[48px]"
+          >
+            <SkipForward size={16} /> Přeskočit
+          </button>
+          <button type="button" onClick={potvrdit} className="btn-primary !rounded flex-[2] min-h-[48px] text-base">
+            <Check size={18} /> Potvrdit a další
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: (p: any, sec?: string, sub?: string) => void; initialSubTab?: string } = {}) {
   const [beers, setBeers] = useState<Beer[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
@@ -161,6 +295,11 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
   // Lahve a sudy se ve skladu počítají zvlášť (jiné regály, jiný člověk), tak
   // ať se nemíchají v jednom dlouhém seznamu. Skládá se s filtrem výše.
   const [druhFiltr, setDruhFiltr] = useState<'vse' | 'lahve' | 'sudy'>('vse');
+  // 🚶 Popořadě — jako u týdenní inventury: jedna položka na obrazovku,
+  // zadat počet, Potvrdit skočí na další. Vedle Seznamu (karty naráz),
+  // jen na mobilu — na počítači slouží tabulka.
+  const [zpusobPocitani, setZpusobPocitani] = useState<'seznam' | 'poporade'>('seznam');
+  const [indexPoporade, setIndexPoporade] = useState(0);
   /** Klíč řádku, u kterého právě běží zápis doplňku — blokuje dvojklik. */
   const [doplnujeSe, setDoplnujeSe] = useState<string | null>(null);
   /** Otevřený dialog doplnění stočení LAHVÍ (výběr zdrojových sudů). */
@@ -896,6 +1035,10 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     const chceSudy = druhFiltr === 'sudy';
     return vybrane.filter((r) => jeSud(r.package_kind, r.package_label) === chceSudy);
   }, [rows, pocitaniFiltr, druhFiltr, actualStock]);
+
+  useEffect(() => {
+    setIndexPoporade((i) => Math.min(i, Math.max(0, zobrazeneRadky.length - 1)));
+  }, [zobrazeneRadky.length]);
 
   /** Položky, které se letos hýbaly, ale při inventuře se nespočítaly. */
   // Počítání po kusech: „+" a „−" u inventurního pole. Při ručním počítání
@@ -2069,10 +2212,46 @@ function exportInventoryExcel() {
                   ))}
                 </div>
               </div>
+
+              {/* 📋/🚶 Seznam (karty naráz) vs. Popořadě (jedna položka,
+                  zadat, Potvrdit skočí na další) — jen na mobilu, na počítači
+                  slouží tabulka níž. Stejný vzor jako u týdenní inventury. */}
+              <div className="flex items-stretch gap-1 rounded bg-neutral-100 border border-neutral-200 p-1 md:hidden">
+                {([
+                  { klic: 'seznam' as const, popisek: 'Seznam', Ikona: ListChecks },
+                  { klic: 'poporade' as const, popisek: 'Popořadě', Ikona: Wand2 },
+                ]).map(({ klic, popisek, Ikona }) => (
+                  <button
+                    key={klic}
+                    type="button"
+                    onClick={() => setZpusobPocitani(klic)}
+                    className={`flex-1 !rounded !px-3 !py-2.5 !min-h-[44px] font-black text-xs transition flex items-center justify-center gap-1.5 ${
+                      zpusobPocitani === klic ? 'btn-amber' : 'btn-ghost !border-none'
+                    }`}
+                  >
+                    <Ikona size={14} /> {popisek}
+                  </button>
+                ))}
+              </div>
+
+              {zpusobPocitani === 'poporade' && (
+                <div className="md:hidden">
+                  <PoporadeVstupMesic
+                    radky={zobrazeneRadky}
+                    index={indexPoporade}
+                    setIndex={setIndexPoporade}
+                    actualStock={actualStock}
+                    setActualStock={setActualStock}
+                    beers={beers}
+                  />
+                </div>
+              )}
+
               {/* Mobilní karty — editace inventury a dorovnání bez vodorovného scrollování.
                   Fieldset uzavřeného měsíce vypne inputy i tlačítka uvnitř
                   jedním atributem, ať se při přidávání nové akce nezapomene
                   zamknout i ta nová (viz mesicUzavren výš). */}
+              {zpusobPocitani === 'seznam' && (
               <fieldset disabled={mesicUzavren} className="grid grid-cols-1 gap-2.5 md:hidden border-0 p-0 m-0 min-w-0">
                 {zobrazeneRadky.map((r, i) => {
                   const k = `${r.beer_id}__${r.package_id}`;
@@ -2219,6 +2398,7 @@ function exportInventoryExcel() {
                   );
                 })}
               </fieldset>
+              )}
 
               <fieldset disabled={mesicUzavren} className="hidden md:block overflow-x-auto scrollbar-thin border-0 p-0 m-0 min-w-0">
                 <table className="table text-xs w-full">
