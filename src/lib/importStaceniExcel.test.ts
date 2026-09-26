@@ -3,7 +3,7 @@
 // sudy C–G (50/30/20/15/10 l), lahve H–K (1,5/1,0/0,5/0,33 l), poznámka P.
 import { describe, it, expect } from 'vitest';
 import {
-  naparsujRadkyStaceniLahvi, normalizujNazev, popisProblemu,
+  naparsujRadkyStaceniLahvi, naparsujRadkyZMrizky, normalizujNazev, popisProblemu,
   pripravImportStaceniLahvi, najdiJizNaimportovaneOtisky,
   type ExcelRadekStaceni,
 } from './importStaceniExcel';
@@ -169,5 +169,51 @@ describe('najdiJizNaimportovaneOtisky', () => {
   it('vytáhne otisk ze značky v poznámce a ignoruje řádky appky bez značky', () => {
     const r = najdiJizNaimportovaneOtisky(['ruční zápis', '#xls-lahve:abc123', 'sud vrácen #xls-lahve:xyz z importu', null]);
     expect(r).toEqual(new Set(['abc123', 'xyz']));
+  });
+});
+
+// Vložená mřížka: appka žádné dopočítané sloupce neukazuje, poznámka je
+// hned za lahvemi (index 11, ne 15 jako v excelu) a nepředchází jí legenda —
+// mřížka drží jen data. Hodnoty jsou vždycky text (buňka appky nebo
+// vložený text ze schránky), včetně data v českém tvaru „4.11.2024".
+describe('naparsujRadkyZMrizky', () => {
+  // [datum, pivo, 50,30,20,15,10, 1.5,1.0,0.5,0.33, poznámka] — 12 sloupců
+  const radek = (datum: string, pivo: string, sud50: string, l10: string, l05: string, pozn = '') =>
+    [datum, pivo, sud50, '', '', '', '', '', l10, l05, '', pozn];
+
+  it('český formát data (kolega ho tak píše ručně) i české desetinné čárky u počtu', () => {
+    const r = naparsujRadkyZMrizky([radek('4.11.2024', '12 Světlá', '1', '31', '', '')]);
+    expect(r).toEqual([{
+      cisloRadku: 1, datum: '2024-11-04', datumNejdePrecist: null, pivoRaw: '12 Světlá',
+      sudy: [{ objemL: 50, hodnota: 1 }], lahve: [{ objemL: 1, hodnota: 31 }], poznamka: null,
+    }]);
+  });
+
+  it('mezery kolem teček v datu (jak to Sheets/Excel občas zformátuje) se tolerují', () => {
+    const r = naparsujRadkyZMrizky([radek('4. 11. 2024', '12 Světlá', '1', '31', '')]);
+    expect(r[0].datum).toBe('2024-11-04');
+  });
+
+  it('neexistující den v měsíci se nedomýšlí — jde do datumNejdePrecist', () => {
+    const r = naparsujRadkyZMrizky([radek('31.9.2026', '12 Tmavá', '', '', '28')]);
+    expect(r[0].datumNejdePrecist).toBe('31.9.2026');
+  });
+
+  it('datum se doplní z řádku nad sebou, i v mřížce (prázdná buňka)', () => {
+    const r = naparsujRadkyZMrizky([
+      radek('4.11.2024', '12 Světlá', '1', '31', ''),
+      radek('', '11° sv.ležák', '', '', '12', 'druhý řádek stejného dne'),
+    ]);
+    expect(r[1].datum).toBe('2024-11-04');
+    expect(r[1].poznamka).toBe('druhý řádek stejného dne');
+  });
+
+  it('prázdný řádek (nic nevyplněno) se přeskočí, číslování řádků na to nezapomene', () => {
+    const r = naparsujRadkyZMrizky([
+      radek('4.11.2024', '12 Světlá', '1', '31', ''),
+      ['', '', '', '', '', '', '', '', '', '', '', ''],
+      radek('5.11.2024', 'Jantar', '1', '37', '11'),
+    ]);
+    expect(r.map((x) => x.cisloRadku)).toEqual([1, 3]);
   });
 });

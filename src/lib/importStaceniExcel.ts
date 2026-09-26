@@ -31,7 +31,7 @@ export type ExcelRadekStaceni = {
   poznamka: string | null;
 };
 
-/** Sloupce C–G: kolik sudů dané velikosti se spotřebovalo. */
+/** Sloupce C–G v excelu / 3.–7. sloupec ve vkládané mřížce: kolik sudů dané velikosti se spotřebovalo. Stejné velikosti jako Export do Excelu (lib/prehledVydeje.ts SLOUPCE_SUDY). */
 const KEG_SLOUPCE = [
   { idx: 2, objemL: 50 },
   { idx: 3, objemL: 30 },
@@ -39,7 +39,7 @@ const KEG_SLOUPCE = [
   { idx: 5, objemL: 15 },
   { idx: 6, objemL: 10 },
 ];
-/** Sloupce H–K: kolik lahví dané velikosti se stočilo. */
+/** Sloupce H–K / 8.–11. sloupec: kolik lahví dané velikosti se stočilo (SLOUPCE_LAHVE). */
 const LAHEV_SLOUPCE = [
   { idx: 7, objemL: 1.5 },
   { idx: 8, objemL: 1.0 },
@@ -48,51 +48,79 @@ const LAHEV_SLOUPCE = [
 ];
 const DATUM_IDX = 0;
 const PIVO_IDX = 1;
-const POZNAMKA_IDX = 15;
 /** Data v listu 1 začínají na řádku 19 (1–18 je legenda piv a záhlaví). */
 const PRVNI_DATOVY_RADEK = 19;
+/** V excelu jsou mezi lahvemi a poznámkou 4 dopočítané sloupce (Spotřeba/Stočeno/Výtrata hl, Výtrata %). */
+const POZNAMKA_IDX_EXCEL = 15;
+/** Ve vkládané mřížce appka žádné dopočítané sloupce neukazuje — poznámka je hned za lahvemi. */
+const POZNAMKA_IDX_MRIZKA = 11;
+
+type SloupceConfig = { datumIdx: number; pivoIdx: number; poznamkaIdx: number };
 
 function jePrazdna(v: unknown): boolean {
   return v === null || v === undefined || v === '';
 }
 
-/** Excel/JS datum → ISO, nebo null (řetězec z ručního zápisu se nehádá). */
+/** Den v měsíci existuje (30. únor ne) — pro ruční/vložené datum, kde appka nemůže věřit kalendáři tabulkového procesoru. */
+function platneDatum(rok: number, mesic: number, den: number): string | null {
+  if (mesic < 1 || mesic > 12 || den < 1) return null;
+  const posledniDenMesice = new Date(Date.UTC(rok, mesic, 0)).getUTCDate();
+  if (den > posledniDenMesice) return null;
+  return `${rok}-${String(mesic).padStart(2, '0')}-${String(den).padStart(2, '0')}`;
+}
+
+/** „4.11.2024", „4. 11. 2024" (kolega píše ručně), nebo ISO „2024-11-04" (vloženo/vklepnuto). */
+function naIsoZTextu(text: string): string | null {
+  const t = text.trim();
+  let m = t.match(/^(\d{1,2})\s*\.\s*(\d{1,2})\s*\.\s*(\d{4})\.?$/);
+  if (m) return platneDatum(Number(m[3]), Number(m[2]), Number(m[1]));
+  m = t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (m) return platneDatum(Number(m[1]), Number(m[2]), Number(m[3]));
+  return null;
+}
+
+/** Excel/JS datum (typovaná buňka) nebo text („4.11.2024", ISO) → ISO, jinak null — nehádá se. */
 function naIso(v: unknown): string | null {
   if (v instanceof Date) {
     const y = v.getFullYear(), m = String(v.getMonth() + 1).padStart(2, '0'), d = String(v.getDate()).padStart(2, '0');
     return `${y}-${m}-${d}`;
   }
-  if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v)) return v.slice(0, 10);
+  if (typeof v === 'string') return naIsoZTextu(v);
   return null;
 }
 
+/** Číslo z typované buňky (xlsx), nebo z textu (vložená mřížka — „8", i s českou desetinnou čárkou „1,5"). */
+function zHodnoty(v: unknown): number | 'neplatne' {
+  if (typeof v === 'number') return Number.isFinite(v) ? v : 'neplatne';
+  if (typeof v === 'string') {
+    const t = v.trim().replace(',', '.');
+    return /^-?\d+(\.\d+)?$/.test(t) ? Number(t) : 'neplatne';
+  }
+  return 'neplatne';
+}
+
 /**
- * Rozparsuje syrové řádky listu (od buňky A1) na datové řádky. Přeskočí
- * legendu/záhlaví (1–18) a řádky bez jediné produkční hodnoty (jen vzorce
- * dopočítávající 0, nebo čistě poznámkové řádky bez čísel).
- *
- * Datum: kolega ho píše jen na první řádek dne, další řádky pod ním ho
- * nechává prázdné — proto se prázdná buňka doplní z posledního datumu nad
- * sebou. Když buňka NENÍ prázdná, ale nejde přečíst (typo), datum se
- * NEDOPLŇUJE potichu — jde do `datumNejdePrecist` k ruční kontrole, protože
- * kolega zjevně chtěl napsat jiné datum, jen se to nepovedlo.
+ * Společné jádro pro oba vstupy (soubor i vkládaná mřížka): řádky bez
+ * jediné produkční hodnoty se přeskočí (jen poznámka / prázdný vzorcový
+ * chvost), datum se doplňuje z řádku nad sebou (kolega/appka ho píše jen na
+ * první řádek dne), nečitelné datum se nedoplňuje potichu.
  */
-export function naparsujRadkyStaceniLahvi(aoa: unknown[][]): ExcelRadekStaceni[] {
+function zpracujRadky(aoa: unknown[][], cfg: SloupceConfig, cisloPrvnihoRadku: number): ExcelRadekStaceni[] {
   const out: ExcelRadekStaceni[] = [];
   let posledniDatum: string | null = null;
-  for (let i = PRVNI_DATOVY_RADEK - 1; i < aoa.length; i++) {
+  for (let i = 0; i < aoa.length; i++) {
     const row = aoa[i] ?? [];
     const sudy = KEG_SLOUPCE
       .map((s) => ({ objemL: s.objemL, hodnota: row[s.idx] }))
       .filter((s) => !jePrazdna(s.hodnota))
-      .map((s) => ({ objemL: s.objemL, hodnota: typeof s.hodnota === 'number' ? s.hodnota : 'neplatne' as const }));
+      .map((s) => ({ objemL: s.objemL, hodnota: zHodnoty(s.hodnota) }));
     const lahve = LAHEV_SLOUPCE
       .map((s) => ({ objemL: s.objemL, hodnota: row[s.idx] }))
       .filter((s) => !jePrazdna(s.hodnota))
-      .map((s) => ({ objemL: s.objemL, hodnota: typeof s.hodnota === 'number' ? s.hodnota : 'neplatne' as const }));
-    if (sudy.length === 0 && lahve.length === 0) continue; // jen poznámka / prázdný vzorcový chvost
+      .map((s) => ({ objemL: s.objemL, hodnota: zHodnoty(s.hodnota) }));
+    if (sudy.length === 0 && lahve.length === 0) continue;
 
-    const datumBunka = row[DATUM_IDX];
+    const datumBunka = row[cfg.datumIdx];
     let datum: string | null;
     let datumNejdePrecist: string | null = null;
     if (jePrazdna(datumBunka)) {
@@ -104,16 +132,38 @@ export function naparsujRadkyStaceniLahvi(aoa: unknown[][]): ExcelRadekStaceni[]
     }
 
     out.push({
-      cisloRadku: i + 1,
+      cisloRadku: cisloPrvnihoRadku + i,
       datum,
       datumNejdePrecist,
-      pivoRaw: jePrazdna(row[PIVO_IDX]) ? null : String(row[PIVO_IDX]).trim(),
+      pivoRaw: jePrazdna(row[cfg.pivoIdx]) ? null : String(row[cfg.pivoIdx]).trim(),
       sudy,
       lahve,
-      poznamka: jePrazdna(row[POZNAMKA_IDX]) ? null : String(row[POZNAMKA_IDX]).trim(),
+      poznamka: jePrazdna(row[cfg.poznamkaIdx]) ? null : String(row[cfg.poznamkaIdx]).trim(),
     });
   }
   return out;
+}
+
+/**
+ * Rozparsuje syrové řádky excelového listu (od buňky A1, tak jak je přečte
+ * xlsx-js-style). Přeskočí legendu/záhlaví (1–18) — data začínají na řádku 19.
+ */
+export function naparsujRadkyStaceniLahvi(aoa: unknown[][]): ExcelRadekStaceni[] {
+  return zpracujRadky(
+    aoa.slice(PRVNI_DATOVY_RADEK - 1),
+    { datumIdx: DATUM_IDX, pivoIdx: PIVO_IDX, poznamkaIdx: POZNAMKA_IDX_EXCEL },
+    PRVNI_DATOVY_RADEK,
+  );
+}
+
+/**
+ * Rozparsuje řádky vložené (vkopírované) do mřížky v appce — stejný tvar
+ * jako excel, jen bez dopočítaných sloupců (appka je neukazuje) a bez
+ * legendy (mřížka drží jen data). Hodnoty jsou vždycky text (buňka mřížky
+ * nebo vložený text ze schránky), proto `zHodnoty`/`naIso` čtou i text.
+ */
+export function naparsujRadkyZMrizky(radky: unknown[][]): ExcelRadekStaceni[] {
+  return zpracujRadky(radky, { datumIdx: DATUM_IDX, pivoIdx: PIVO_IDX, poznamkaIdx: POZNAMKA_IDX_MRIZKA }, 1);
 }
 
 export type ProblemRadku =

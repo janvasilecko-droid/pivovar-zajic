@@ -10,14 +10,18 @@
 // z WhatsApp objednávek) a zapisuje.
 import { useMemo, useState } from 'react';
 import { Modal, Spinner } from './ui';
-import { AlertTriangle, CheckCircle2, CloudDownload, FileSpreadsheet, Upload } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ClipboardPaste, CloudDownload, FileSpreadsheet, Upload } from 'lucide-react';
 import { supabase, fetchAllRows, type Beer, type Package } from '../lib/supabase';
 import { saveAlias, fetchAliasesForAdmin } from '../lib/orderParser';
 import { authenticatedFunctionHeaders } from '../lib/functionAuth';
+import MrizkaVlozeniDat from './MrizkaVlozeniDat';
 import {
-  naparsujRadkyStaceniLahvi, pripravImportStaceniLahvi, popisProblemu, najdiJizNaimportovaneOtisky,
+  naparsujRadkyStaceniLahvi, naparsujRadkyZMrizky, pripravImportStaceniLahvi, popisProblemu, najdiJizNaimportovaneOtisky,
   normalizujNazev, type ExcelRadekStaceni, type RadekKZapisu,
 } from '../lib/importStaceniExcel';
+
+/** Stejné pořadí sloupců, jaké appka čte z mřížky (viz naparsujRadkyZMrizky). */
+const SLOUPCE_MRIZKY = ['Datum', 'Pivo', '50l', '30l', '20l', '15l', '10l', '1,5l', '1,0l', '0,5l', '0,33l', 'Poznámka'];
 
 type Props = { open: boolean; onClose: () => void; beers: Beer[]; packages: Package[]; onImported: () => void };
 
@@ -36,6 +40,8 @@ function base64NaBajty(b64: string): Uint8Array {
 export default function ImportStaceniLahviExcel({ open, onClose, beers, packages, onImported }: Props) {
   const [nacita, setNacita] = useState(false);
   const [nacitaZDisku, setNacitaZDisku] = useState(false);
+  const [zobrazitMrizku, setZobrazitMrizku] = useState(false);
+  const [zpracovavaMrizku, setZpracovavaMrizku] = useState(false);
   const [chybaSouboru, setChybaSouboru] = useState<string | null>(null);
   const [nazevSouboru, setNazevSouboru] = useState<string | null>(null);
   const [radky, setRadky] = useState<ExcelRadekStaceni[] | null>(null);
@@ -55,15 +61,14 @@ export default function ImportStaceniLahviExcel({ open, onClose, beers, packages
   );
 
   function zavrit() {
-    setRadky(null); setChybaSouboru(null); setNazevSouboru(null); setVyberProNezname({});
+    setRadky(null); setChybaSouboru(null); setNazevSouboru(null); setVyberProNezname({}); setZobrazitMrizku(false);
     setChybaZapisu(null); setHotovo(null);
     onClose();
   }
 
-  /** Společné pro nahraný soubor i pro obsah stažený z Disku. */
-  async function zpracujBajty(buf: Uint8Array, nazev: string) {
-    const [XLSX, aliasRows, notyRes] = await Promise.all([
-      import('xlsx-js-style'),
+  /** Dotáhne naučené zkratky piv a otisky už zapsaných řádků — společné pro všechny tři cesty vstupu. */
+  async function pouzijRadky(parsed: ExcelRadekStaceni[], nazev: string) {
+    const [aliasRows, notyRes] = await Promise.all([
       fetchAliasesForAdmin(),
       // `bottling` časem přeroste tisícovku řádků — fetchAllRows stránkuje,
       // holé `.select().ilike()` by nad tisícovkou tiše ořízlo výsledek
@@ -71,6 +76,19 @@ export default function ImportStaceniLahviExcel({ open, onClose, beers, packages
       fetchAllRows<{ note: string | null }>('bottling', 'note').filter('note', 'ilike', '%#xls-lahve:%'),
     ]);
     if (notyRes.error) throw new Error(notyRes.error.message);
+    if (parsed.length === 0) {
+      throw new Error('Nenašel jsem žádné řádky se stáčením — zkontroluj, že sloupce jsou ve stejném pořadí jako Datum/Pivo/Sudy/Lahve.');
+    }
+    setNazevSouboru(nazev);
+    setRadky(parsed);
+    setAliasy(Object.fromEntries(aliasRows.filter((a) => a.beer_id).map((a) => [a.alias_text, a.beer_id as string])));
+    const notyRadky = (notyRes.data ?? []) as { note: string | null }[];
+    setJizNaimportovaneNoty(notyRadky.map((n) => n.note ?? ''));
+  }
+
+  /** Společné pro nahraný soubor i pro obsah stažený z Disku. */
+  async function zpracujBajty(buf: Uint8Array, nazev: string) {
+    const XLSX = await import('xlsx-js-style');
     const wb = XLSX.read(buf, { type: 'array', cellDates: true });
     const ws = wb.Sheets[wb.SheetNames[0]];
     const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: null }) as unknown[][];
@@ -78,11 +96,19 @@ export default function ImportStaceniLahviExcel({ open, onClose, beers, packages
     if (parsed.length === 0) {
       throw new Error('V souboru appka nenašla žádné řádky se stáčením (čeká List1, data od řádku 19 — stejný tvar jako „Zápis stáčení lahve").');
     }
-    setNazevSouboru(nazev);
-    setRadky(parsed);
-    setAliasy(Object.fromEntries(aliasRows.filter((a) => a.beer_id).map((a) => [a.alias_text, a.beer_id as string])));
-    const notyRadky = (notyRes.data ?? []) as { note: string | null }[];
-    setJizNaimportovaneNoty(notyRadky.map((n) => n.note ?? ''));
+    await pouzijRadky(parsed, nazev);
+  }
+
+  async function zpracujMrizku(data: string[][]) {
+    setZpracovavaMrizku(true); setChybaSouboru(null); setHotovo(null); setVyberProNezname({});
+    try {
+      await pouzijRadky(naparsujRadkyZMrizky(data), 'vloženo ze schránky');
+    } catch (err: any) {
+      setChybaSouboru(err?.message ?? 'Vložená data se nepodařilo zpracovat.');
+      setRadky(null);
+    } finally {
+      setZpracovavaMrizku(false);
+    }
   }
 
   async function vyberSoubor(e: React.ChangeEvent<HTMLInputElement>) {
@@ -158,8 +184,8 @@ export default function ImportStaceniLahviExcel({ open, onClose, beers, packages
           v souboru objeví nové řádky, příště se naimportují jen ty.
         </p>
 
-        {!radky && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {!radky && !zobrazitMrizku && (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <button
               type="button"
               onClick={nacistZDisku}
@@ -170,6 +196,15 @@ export default function ImportStaceniLahviExcel({ open, onClose, beers, packages
               <span className="font-bold text-sm text-amber-900">Načíst přímo z Disku</span>
               <span className="text-udaj font-semibold text-amber-700">Bez stahování a nahrávání</span>
             </button>
+            <button
+              type="button"
+              onClick={() => setZobrazitMrizku(true)}
+              className="flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-emerald-300 bg-emerald-50/40 p-8 hover:bg-emerald-50 transition"
+            >
+              <ClipboardPaste className="w-8 h-8 text-emerald-700" />
+              <span className="font-bold text-sm text-emerald-900">Vložit zkopírované řádky</span>
+              <span className="text-udaj font-semibold text-emerald-700">Ctrl+C v tabulce, Ctrl+V sem</span>
+            </button>
             <label className="flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-neutral-300 p-8 cursor-pointer hover:border-amber-400 hover:bg-amber-50/40 transition">
               <Upload className="w-8 h-8 text-neutral-400" />
               <span className="font-bold text-sm text-neutral-700">Vyber soubor .xlsx</span>
@@ -178,6 +213,22 @@ export default function ImportStaceniLahviExcel({ open, onClose, beers, packages
             </label>
           </div>
         )}
+
+        {!radky && zobrazitMrizku && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm font-semibold text-neutral-600">
+                Ve zdrojové tabulce označ řádky ve sloupcích <b>Datum až Poznámka</b> (bez dopočítaných sloupců hl),
+                zkopíruj (Ctrl+C) a vlož (Ctrl+V) sem do libovolné buňky — mřížka se vyplní sama.
+              </p>
+              <button type="button" onClick={() => setZobrazitMrizku(false)} className="btn-ghost !rounded-xl !py-2 !px-3 text-xs font-black shrink-0">
+                Zpět
+              </button>
+            </div>
+            <MrizkaVlozeniDat sloupce={SLOUPCE_MRIZKY} zpracovava={zpracovavaMrizku} onZpracovat={zpracujMrizku} />
+          </div>
+        )}
+
         {nacita && <div className="flex items-center gap-2 text-sm font-semibold text-neutral-500"><Spinner /> Čtu soubor…</div>}
         {chybaSouboru && (
           <p className="text-sm font-bold text-rose-700 bg-rose-50 border border-rose-200 rounded-lg p-3">{chybaSouboru}</p>
