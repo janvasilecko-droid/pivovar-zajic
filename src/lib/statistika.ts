@@ -705,6 +705,11 @@ export type SkupinaPoPivech = { obaly: RadekPoPivech[]; kusy: number[]; litry: n
  * z daných období. Sudy = tabulka stáčení KEG, lahve = stáčení lahví (vč.
  * PET) — přesně tak, jak se to zapisuje. Obaly bez jediného kusu ve všech
  * obdobích se nevypisují.
+ *
+ * Opravy z inventury (manko) jsou v zápisech záporné řádky a odečítají se.
+ * Stočit se ale nedá méně než nic: když v období u obalu vyjde součet pod
+ * nulou (jen oprava, žádné stáčení), je tam 0. Součty skupiny jsou součtem
+ * obalů po tomhle ořezu, aby tabulka vždy seděla.
  */
 export function staceniPivaPoObdobich(
   sudy: VyrobniRadek[],
@@ -716,8 +721,6 @@ export function staceniPivaPoObdobich(
   const skupina = (radky: VyrobniRadek[]): SkupinaPoPivech => {
     const n = obdobi.length;
     const podleObalu = new Map<string, RadekPoPivech>();
-    const kusy = new Array(n).fill(0);
-    const litry = new Array(n).fill(0);
     for (const r of radky) {
       if (r.beer_id !== pivoId || !r.entry_date || !r.package_id) continue;
       const ks = Number(r.quantity || 0);
@@ -731,9 +734,16 @@ export function staceniPivaPoObdobich(
         z.kusy[i] += ks;
         z.litry[i] += l;
         podleObalu.set(r.package_id!, z);
-        kusy[i] += ks;
-        litry[i] += l;
       });
+    }
+    const kusy = new Array(n).fill(0);
+    const litry = new Array(n).fill(0);
+    for (const z of podleObalu.values()) {
+      for (let i = 0; i < n; i++) {
+        if (z.kusy[i] < 0) { z.kusy[i] = 0; z.litry[i] = 0; }
+        kusy[i] += z.kusy[i];
+        litry[i] += z.litry[i];
+      }
     }
     const obj = (id: string) => objem(obaly.get(id));
     return { obaly: [...podleObalu.values()].sort((a, b) => obj(b.id) - obj(a.id)), kusy, litry };
