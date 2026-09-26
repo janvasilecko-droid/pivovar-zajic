@@ -25,7 +25,7 @@ import {
   formatHl, hl, litryPoMesicich, litryPoTydnech, litryPoObdobiAObalech, litryVRozsahu,
   obalyVCislech, obalyVDatech, pivaVCislech,
   podleOdberatelu, pondeliTydne, posunDnu, predchoziRozsah,
-  prumernaPotrebaKegu, popisRozsahu, denObdobi, rozpocetSudu, rozsahObdobi, zmenaProcent, podilSudyLahve,
+  prumernaPotrebaKegu, popisRozsahu, denObdobi, rozpocetSudu, rozsahObdobi, zmenaProcent, podilSudyLahve, odberatelPoMesicich,
   type CisloRadek, type Obal, type Obdobi, type Pivo, type VyrobniRadek,
 } from '../lib/statistika';
 
@@ -61,6 +61,61 @@ function popisSudyLahve(v: any, n: any, polozka: any): [string, string] {
   const celkem = Number(p.sudy ?? 0) + Number(p.lahve ?? 0);
   const podil = celkem > 0 ? ` (${Math.round((Number(v) / celkem) * 100)} %)` : '';
   return [`${Number(v).toFixed(1)} hl${podil}`, n];
+}
+
+/** Sloupcový graf „jak odběratel objednával" — hl po měsících. */
+function GrafOdberatele({ data, zvyraznitOd, zvyraznitDo, stylTooltipu, mrizka, inkTlumena, barvaOstatni }: {
+  data: { mesic: string; litry: number; kusy: number }[];
+  zvyraznitOd: string;
+  zvyraznitDo: string;
+  stylTooltipu: any;
+  mrizka: string;
+  inkTlumena: string;
+  /** Barva měsíců mimo vybrané období (z motivu, viz BARVA_LONI). */
+  barvaOstatni: string;
+}) {
+  const body = data.map((d) => ({
+    // Číslo měsíce, ne zkratka: 12 zkratek se na telefonu do šířky nevejde
+    // a slévaly se. Celý název s rokem je v bublině po klepnutí.
+    popis: `${Number(d.mesic.slice(5, 7))}.`,
+    hl: hl(d.litry),
+    kusy: d.kusy,
+    vybrano: d.mesic >= zvyraznitOd && d.mesic <= zvyraznitDo,
+    mesic: d.mesic,
+  }));
+  const celkem = data.reduce((s, d) => s + d.litry, 0);
+  return (
+    <div className="pt-2 mt-1 border-t border-neutral-200">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-udaj font-black uppercase tracking-wider text-neutral-500">Jak objednával — posledních 12 měsíců</span>
+        <span className="text-udaj font-bold text-neutral-500 tabular-nums shrink-0">{formatHl(celkem)} hl</span>
+      </div>
+      {celkem === 0 ? (
+        <p className="text-udaj font-semibold text-neutral-500 py-2">Za posledních 12 měsíců nic neobjednal.</p>
+      ) : (
+        <div className="h-[140px] -ml-3 mt-1">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={body} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+              <CartesianGrid stroke={mrizka} strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="popis" tick={{ fontSize: 10, fill: inkTlumena, fontWeight: 700 }} axisLine={false} tickLine={false} interval={0} />
+              <YAxis tick={{ fontSize: 10, fill: inkTlumena }} axisLine={false} tickLine={false} width={30} />
+              <Tooltip
+                {...stylTooltipu}
+                formatter={(v: any, _n: any, polozka: any) => [`${Number(v).toFixed(1)} hl · ${polozka?.payload?.kusy ?? 0} ks`, 'Objednáno']}
+                labelFormatter={(_l: any, p: any) => {
+                  const m = p?.[0]?.payload?.mesic as string | undefined;
+                  return m ? `${MESICE_ZKR[Number(m.slice(5, 7)) - 1]} ${m.slice(0, 4)}` : '';
+                }}
+              />
+              <Bar dataKey="hl" radius={[3, 3, 0, 0]} maxBarSize={22}>
+                {body.map((b) => <Cell key={b.mesic} fill={b.vybrano ? BARVA_LETOS : barvaOstatni} />)}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+    </div>
+  );
 }
 
 const MESICE_ZKR = ['led', 'úno', 'bře', 'dub', 'kvě', 'čvn', 'čvc', 'srp', 'zář', 'říj', 'lis', 'pro'];
@@ -890,6 +945,22 @@ export default function StatistikaVystav({
                             </p>
                           </>
                         )}
+                        {/* 📈 Jak objednával v čase — zadání 26. 9. 2026: „dej tam
+                            možnost u odběratelů graf, jak objednával v čase každý
+                            měsíc". 12 měsíců končících vybraným obdobím; měsíce
+                            vybraného období jsou zvýrazněné. */}
+                        <GrafOdberatele
+                          data={odberatelPoMesicich(
+                            orders, orderItems, mapaObalu, o.nazev,
+                            (rozsahOdberatelu.do.slice(0, 7) < dnes.slice(0, 7) ? rozsahOdberatelu.do : dnes).slice(0, 7),
+                          )}
+                          zvyraznitOd={rozsahOdberatelu.od.slice(0, 7)}
+                          zvyraznitDo={rozsahOdberatelu.do.slice(0, 7)}
+                          stylTooltipu={stylTooltipu}
+                          mrizka={MRIZKA}
+                          inkTlumena={INK_TLUMENA}
+                          barvaOstatni={BARVA_LONI}
+                        />
                       </div>
                     )}
                   </div>

@@ -670,3 +670,39 @@ export function podilSudyLahve(vystavL: number, doLahviL: number): {
     zDrivejsich: lahveL > vystavL,
   };
 }
+
+/**
+ * Jak odběratel objednával v čase — hektolitry a kusy po měsících za
+ * `mesicu` měsíců končících měsícem `konecMesic` (RRRR-MM). Stejná pravidla
+ * jako podleOdberatelu: den závozu (jinak den zadání), bez storna, odběratel
+ * podle jména — takže součet měsíce sedí s řádkem v žebříčku.
+ */
+export function odberatelPoMesicich(
+  orders: { id: string; place_name: string | null; delivery_date: string | null; order_date: string; status: string }[],
+  polozky: { order_id: string; package_id: string | null; quantity: number | null }[],
+  obaly: Map<string, Obal>,
+  nazev: string,
+  konecMesic: string,
+  mesicu = 12,
+): { mesic: string; litry: number; kusy: number }[] {
+  const mesice = Array.from({ length: mesicu }, (_, i) => posunMesicu(konecMesic, i - (mesicu - 1)));
+  const out = new Map(mesice.map((m) => [m, { mesic: m, litry: 0, kusy: 0 }]));
+  const mesicObjednavky = new Map<string, string>();
+  for (const o of orders) {
+    if (o.status === 'storno') continue;
+    if ((o.place_name || 'Neuvedený odběratel') !== nazev) continue;
+    const den = o.delivery_date || o.order_date;
+    if (!den) continue;
+    const m = den.slice(0, 7);
+    if (out.has(m)) mesicObjednavky.set(o.id, m);
+  }
+  for (const p of polozky) {
+    const m = mesicObjednavky.get(p.order_id);
+    if (!m) continue;
+    const z = out.get(m)!;
+    const ks = Number(p.quantity || 0);
+    z.kusy += ks;
+    z.litry += ks * objem(p.package_id ? obaly.get(p.package_id) : undefined);
+  }
+  return mesice.map((m) => out.get(m)!);
+}

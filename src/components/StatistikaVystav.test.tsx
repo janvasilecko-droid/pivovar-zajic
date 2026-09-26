@@ -228,6 +228,15 @@ describe('Statistika — konkrétní obaly místo souhrnů', () => {
     expect(within(karta).getByText('3 / závoz')).toBeTruthy();
   });
 
+  it('rozkliknutý odběratel ukáže graf, jak objednával po měsících', () => {
+    vykresli();
+    fireEvent.click(screen.getByText('Hospoda U Lípy'));
+    const karta = screen.getByText('Největší odběratelé').closest('section')!;
+    expect(within(karta).getByText(/Jak objednával — posledních 12 měsíců/)).toBeTruthy();
+    // Za 12 měsíců jen srpnový závoz: 3 × 30 l = 0,9 hl.
+    expect(karta.textContent).toMatch(/posledních 12 měsíců\s*0,9 hl/);
+  });
+
   // Přesunuto sem ze zrušené záložky „Měsíční přehledy", kde to viselo jako
   // „Ztráty KEG" jen jako souhrn za měsíc. Vzorec musí zůstat tentýž.
   it('rozpočet sudů počítá stočeno − fasováno − odpisy, po velikostech', () => {
