@@ -2,8 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { Beer, fetchAllRows, Package, supabase, useRealtime } from '../lib/supabase';
 import { Kostra } from '../components/ui';
 
-import { Banknote, Printer, Store, TrendingUp, Trophy, Truck, X } from 'lucide-react';
+import { Banknote, Beer as BeerIcon, Printer, Store, TrendingUp, Trophy, Truck, X } from 'lucide-react';
 import StatistikaTrzby from '../components/StatistikaTrzby';
+import StatistikaPoPivech from '../components/StatistikaPoPivech';
 import StatistikaTrendy from '../components/StatistikaTrendy';
 import type { CenaPolozky } from '../lib/hodnotaObjednavky';
 import { TabBar, type TabBarItem } from '../components/TabBar';
@@ -65,11 +66,12 @@ const POPIS_OBDOBI_ZEBRICEK: Record<Obdobi, string> = {
 // — zrušeno 26. 9. 2026 na přání provozu, nikdo nevěděl, k čemu je.
 // A „Cykly tanků" (ztrátovost a historie cyklů tanků) — týž den, taky na
 // přání; ztráty při stáčení jsou dál ve Sklepě (ZtratyTankuPrehled).
-type Zalozka = 'vystav' | 'trzby' | 'stats' | 'deliveries';
-const ZALOZKY: Zalozka[] = ['vystav', 'trzby', 'stats', 'deliveries'];
+type Zalozka = 'vystav' | 'piva' | 'trzby' | 'stats' | 'deliveries';
+const ZALOZKY: Zalozka[] = ['vystav', 'piva', 'trzby', 'stats', 'deliveries'];
 
 const LISTA_ZALOZEK: (TabBarItem & { id: Zalozka })[] = [
   { id: 'vystav', label: 'Výstav', icon: TrendingUp, color: '#f59f00' },
+  { id: 'piva', label: 'Po pivech', icon: BeerIcon, color: '#fab005' },
   { id: 'trzby', label: 'Tržby', icon: Banknote, color: '#40c057' },
   { id: 'stats', label: 'Žebříčky', icon: Trophy, color: '#38d9a9' },
   { id: 'deliveries', label: 'Trasy', icon: Truck, color: '#7c5cff' },
@@ -460,6 +462,11 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
 
 
       {/* TAB 4: TOP ŽEBRÍČKY & STATISTIKY */}
+      {/* 🍺 Po pivech — sudy a lahve jednoho piva po obdobích. */}
+      {activeTab === 'piva' && (
+        <StatistikaPoPivech sudy={vyrobaSudy} lahve={vyrobaLahve} obaly={packages as any} piva={beers as any} dnes={todayISO()} />
+      )}
+
       {/* 💰 Tržby podle ceníku (components/StatistikaTrzby.tsx). */}
       {activeTab === 'trzby' && (
         <StatistikaTrzby orders={objednavkyStat} orderItems={polozkyStat} cenik={cenik} dnes={todayISO()} />
