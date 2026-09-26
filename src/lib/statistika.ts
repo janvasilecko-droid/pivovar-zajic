@@ -683,3 +683,60 @@ export function odberatelPoMesicich(
   }
   return mesice.map((m) => out.get(m)!);
 }
+
+/** Šest období pro tabulku „Po pivech" — tento/minulý týden, měsíc a rok. */
+export function obdobiPoPivech(dnes: string): { klic: string; popis: string; od: string; do: string }[] {
+  const o = (obdobi: Obdobi, posun: number) => rozsahObdobi(obdobi, denObdobi(obdobi, dnes, posun));
+  return [
+    { klic: 'tyden', popis: 'Tento týden', ...o('tyden', 0) },
+    { klic: 'tyden-1', popis: 'Minulý týden', ...o('tyden', -1) },
+    { klic: 'mesic', popis: 'Tento měsíc', ...o('mesic', 0) },
+    { klic: 'mesic-1', popis: 'Minulý měsíc', ...o('mesic', -1) },
+    { klic: 'rok', popis: 'Letos', ...o('rok', 0) },
+    { klic: 'rok-1', popis: 'Loni', ...o('rok', -1) },
+  ];
+}
+
+export type RadekPoPivech = { id: string; nazev: string; kusy: number[]; litry: number[] };
+export type SkupinaPoPivech = { obaly: RadekPoPivech[]; kusy: number[]; litry: number[] };
+
+/**
+ * Kolik se stočilo jednoho piva do sudů a do lahví, po obalech, v každém
+ * z daných období. Sudy = tabulka stáčení KEG, lahve = stáčení lahví (vč.
+ * PET) — přesně tak, jak se to zapisuje. Obaly bez jediného kusu ve všech
+ * obdobích se nevypisují.
+ */
+export function staceniPivaPoObdobich(
+  sudy: VyrobniRadek[],
+  lahve: VyrobniRadek[],
+  obaly: Map<string, Obal>,
+  pivoId: string,
+  obdobi: { od: string; do: string }[],
+): { sudy: SkupinaPoPivech; lahve: SkupinaPoPivech } {
+  const skupina = (radky: VyrobniRadek[]): SkupinaPoPivech => {
+    const n = obdobi.length;
+    const podleObalu = new Map<string, RadekPoPivech>();
+    const kusy = new Array(n).fill(0);
+    const litry = new Array(n).fill(0);
+    for (const r of radky) {
+      if (r.beer_id !== pivoId || !r.entry_date || !r.package_id) continue;
+      const ks = Number(r.quantity || 0);
+      const l = litryRadku(r, obaly);
+      obdobi.forEach((ob, i) => {
+        if (r.entry_date! < ob.od || r.entry_date! > ob.do) return;
+        const z = podleObalu.get(r.package_id!) ?? {
+          id: r.package_id!, nazev: obaly.get(r.package_id!)?.label ?? 'Neznámý obal',
+          kusy: new Array(n).fill(0), litry: new Array(n).fill(0),
+        };
+        z.kusy[i] += ks;
+        z.litry[i] += l;
+        podleObalu.set(r.package_id!, z);
+        kusy[i] += ks;
+        litry[i] += l;
+      });
+    }
+    const obj = (id: string) => objem(obaly.get(id));
+    return { obaly: [...podleObalu.values()].sort((a, b) => obj(b.id) - obj(a.id)), kusy, litry };
+  };
+  return { sudy: skupina(sudy), lahve: skupina(lahve) };
+}

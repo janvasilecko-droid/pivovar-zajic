@@ -590,3 +590,29 @@ describe('odberatelPoMesicich — jak odběratel objednával v čase', () => {
     expect(mesic.kusy).toBe(zebricek.kusy);
   });
 });
+
+describe('staceniPivaPoObdobich — záložka Po pivech', () => {
+  it('sudy a lahve jednoho piva po obalech v každém období', async () => {
+    const { staceniPivaPoObdobich, obdobiPoPivech } = await import('./statistika');
+    const obaly = new Map<string, Obal>([
+      ...OBALY,
+      ['keg50', { id: 'keg50', label: 'KEG 50 l', kind: 'keg', volume_l: 50 }],
+    ]);
+    const obdobi = obdobiPoPivech('2026-09-16'); // středa
+    const sudy = [
+      { entry_date: '2026-09-14', beer_id: 'b11', package_id: 'keg30', quantity: 4 }, // tento týden, měsíc, rok
+      { entry_date: '2026-09-08', beer_id: 'b11', package_id: 'keg50', quantity: 2 }, // minulý týden
+      { entry_date: '2026-08-20', beer_id: 'b11', package_id: 'keg30', quantity: 5 }, // minulý měsíc
+      { entry_date: '2025-06-01', beer_id: 'b11', package_id: 'keg30', quantity: 7 }, // loni
+      { entry_date: '2026-09-14', beer_id: 'b12', package_id: 'keg30', quantity: 99 }, // jiné pivo
+    ];
+    const lahve = [{ entry_date: '2026-09-15', beer_id: 'b11', package_id: 'lahev', quantity: 200 }];
+    const r = staceniPivaPoObdobich(sudy, lahve, obaly, 'b11', obdobi);
+    // [tento týden, minulý týden, tento měsíc, minulý měsíc, letos, loni]
+    expect(r.sudy.kusy).toEqual([4, 2, 6, 5, 11, 7]);
+    expect(r.sudy.litry).toEqual([120, 100, 220, 150, 370, 210]);
+    expect(r.sudy.obaly.map((o) => o.id)).toEqual(['keg50', 'keg30']); // větší sud první
+    expect(r.lahve.kusy).toEqual([200, 0, 200, 0, 200, 0]);
+    expect(r.lahve.litry[0]).toBe(100);
+  });
+});
