@@ -12,5 +12,6 @@
   "transcribe-audio": "f9ac946163e10725",
   "whatsapp-send-order": "6cdd6b834409ceaf",
   "whatsapp-webhook": "65fafd1d28779590",
-  "whatsapp-auto-parse": "232d85c49bbe185c"
+  "whatsapp-auto-parse": "232d85c49bbe185c",
+  "import-google-drive": "b39bc9cf58ef1a59"
 }
