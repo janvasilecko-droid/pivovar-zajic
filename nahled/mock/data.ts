@@ -196,6 +196,12 @@ export const orders = [
   // Pátek s deseti pivy — ať je v náhledu vidět, jak přehled vypadá, když je stáčení hodně.
   { id: 'o-5', order_date: denTydne(0), delivery_date: denTydne(4), delivery_day: 'pa', place_name: 'Festival', status: 'nova', is_delivered: false },
   { id: 'o-4', order_date: denTydne(0), delivery_date: null, delivery_day: null, place_name: 'Kiosek u koupaliště', status: 'nova', is_delivered: false },
+  // Statistika → Žebříčky „Kdo by měl brzy objednat": pravidelný odběratel
+  // každých 14 dní, poslední závoz před 17 dny → 3 dny po termínu.
+  ...[59, 45, 31, 17].map((dnu, i) => ({
+    id: `o-h${i}`, order_date: posunDnu(DNES, -dnu - 2), delivery_date: posunDnu(DNES, -dnu), delivery_day: null,
+    place_name: 'Hostinec Pod Lípou', status: 'nova', is_delivered: true,
+  })),
 ];
 export const order_items = [
   { id: 'oi-1', order_id: 'o-1', beer_id: 'b-12sv', package_id: 'p-keg50', quantity: 30 },
@@ -225,5 +231,17 @@ export const order_items = [
   { id: 'oi-p9', order_id: 'o-5', beer_id: 'b-psen', package_id: 'p-keg30', quantity: 11 },
   { id: 'oi-q9', order_id: 'o-5', beer_id: 'b-psen', package_id: 'p-keg20', quantity: 3 },
   { id: 'oi-7', order_id: 'o-4', beer_id: 'b-12sv', package_id: 'p-keg30', quantity: 2 },
+  ...[0, 1, 2, 3].map((i) => ({ id: `oi-h${i}`, order_id: `o-h${i}`, beer_id: 'b-12sv', package_id: 'p-keg50', quantity: 2 + i })),
+];
+
+// Ceník — Statistika → Tržby. Schválně ne pro všechno, ať je v náhledu
+// vidět i upozornění „položky bez ceny".
+export const price_list = [
+  { beer_id: 'b-12sv', package_id: 'p-keg50', price_per_unit: 3200, currency: 'CZK', valid_from: null, valid_to: null },
+  { beer_id: 'b-12sv', package_id: 'p-keg30', price_per_unit: 2000, currency: 'CZK', valid_from: null, valid_to: null },
+  { beer_id: 'b-12sv', package_id: 'p-lah05', price_per_unit: 45, currency: 'CZK', valid_from: null, valid_to: null },
+  { beer_id: 'b-12tm', package_id: 'p-keg30', price_per_unit: 2100, currency: 'CZK', valid_from: null, valid_to: null },
+  { beer_id: 'b-11sv', package_id: 'p-keg30', price_per_unit: 1800, currency: 'CZK', valid_from: null, valid_to: null },
+  { beer_id: 'b-10de', package_id: 'p-keg20', price_per_unit: 1100, currency: 'CZK', valid_from: null, valid_to: null },
 ];
 export const kegging_plan_checks: any[] = [];
