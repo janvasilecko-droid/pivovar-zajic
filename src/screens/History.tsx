@@ -2,7 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { Beer, fetchAllRows, Package, supabase, useRealtime } from '../lib/supabase';
 import { Kostra } from '../components/ui';
 
-import { Printer, Store, TrendingUp, Trophy, Truck, X } from 'lucide-react';
+import { Banknote, Printer, Store, TrendingUp, Trophy, Truck, X } from 'lucide-react';
+import StatistikaTrzby from '../components/StatistikaTrzby';
+import StatistikaTrendy from '../components/StatistikaTrendy';
+import type { CenaPolozky } from '../lib/hodnotaObjednavky';
 import { TabBar, type TabBarItem } from '../components/TabBar';
 import ZavozHistory from '../components/ZavozHistory';
 import { IkonaSud } from '../components/ikony';
@@ -62,11 +65,12 @@ const POPIS_OBDOBI_ZEBRICEK: Record<Obdobi, string> = {
 // — zrušeno 26. 9. 2026 na přání provozu, nikdo nevěděl, k čemu je.
 // A „Cykly tanků" (ztrátovost a historie cyklů tanků) — týž den, taky na
 // přání; ztráty při stáčení jsou dál ve Sklepě (ZtratyTankuPrehled).
-type Zalozka = 'vystav' | 'stats' | 'deliveries';
-const ZALOZKY: Zalozka[] = ['vystav', 'stats', 'deliveries'];
+type Zalozka = 'vystav' | 'trzby' | 'stats' | 'deliveries';
+const ZALOZKY: Zalozka[] = ['vystav', 'trzby', 'stats', 'deliveries'];
 
 const LISTA_ZALOZEK: (TabBarItem & { id: Zalozka })[] = [
   { id: 'vystav', label: 'Výstav', icon: TrendingUp, color: '#f59f00' },
+  { id: 'trzby', label: 'Tržby', icon: Banknote, color: '#40c057' },
   { id: 'stats', label: 'Žebříčky', icon: Trophy, color: '#38d9a9' },
   { id: 'deliveries', label: 'Trasy', icon: Truck, color: '#7c5cff' },
 ];
@@ -108,6 +112,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
   const [polozkyStat, setPolozkyStat] = useState<any[]>([]);
   const [obdobiStat, setObdobiStat] = useState<Obdobi>('mesic');
   const [packages, setPackages] = useState<Package[]>([]);
+  const [cenik, setCenik] = useState<CenaPolozky[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMonths, setSelectedMonths] = useState<string[]>([]);
 
@@ -121,7 +126,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
   async function load(tiche = false) {
     const smiZapsat = zacniNacteni();
     if (!tiche) setLoading(true);
-    const [{ data: bt }, { data: kg }, { data: fa }, { data: wo }, { data: ak }, { data: oi }, { data: ord }, { data: b }, { data: pk }] = await Promise.all([
+    const [{ data: bt }, { data: kg }, { data: fa }, { data: wo }, { data: ak }, { data: oi }, { data: ord }, { data: b }, { data: pk }, { data: cen }] = await Promise.all([
       nactiSdilenouTabulku('bottling'),
       nactiSdilenouTabulku('kegging'),
       nactiSdilenouTabulku('fasovani'),
@@ -131,6 +136,8 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
       nactiSdilenouTabulku('orders'),
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
+      // Ceník pro záložku Tržby — stejný výběr jako v Objednávkách.
+      fetchAllRows('price_list', 'beer_id,package_id,price_per_unit,currency,valid_from,valid_to'),
     ]);
     // Mezitím mohlo začít novější načtení, nebo už obrazovka není vidět.
     if (!smiZapsat()) return;
@@ -143,6 +150,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
     setObjednavkyStat((ord as any[]) ?? []);
     setPolozkyStat((oi as any[]) ?? []);
     setPackages((pk as Package[]) ?? []);
+    setCenik((cen as CenaPolozky[]) ?? []);
 
     const agg = (rows: FilterableEntry[]) => {
       const m = new Map<string, number>();
@@ -310,7 +318,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
   // „když kliknu odečíst, vrací mě to vždycky nahoru." Vlastní zápis stránku
   // srovná kotvou (lib/drzPozici.ts), jenže 400 ms po něm dorazí realtime
   // událost o tomtéž zápisu a celou práci zahodí.
-  useRealtime(['bottling', 'kegging', 'fasovani', 'writeoffs', 'orders', 'order_items', 'akce', 'akce_items', 'beers', 'packages'], () => load(true));
+  useRealtime(['bottling', 'kegging', 'fasovani', 'writeoffs', 'orders', 'order_items', 'akce', 'akce_items', 'beers', 'packages', 'price_list'], () => load(true));
 
   function toggleMonth(m: string) {
     setSelectedMonths((s) => s.includes(m) ? s.filter((x) => x !== m) : [...s, m].sort().reverse());
@@ -452,7 +460,13 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
 
 
       {/* TAB 4: TOP ŽEBRÍČKY & STATISTIKY */}
+      {/* 💰 Tržby podle ceníku (components/StatistikaTrzby.tsx). */}
+      {activeTab === 'trzby' && (
+        <StatistikaTrzby orders={objednavkyStat} orderItems={polozkyStat} cenik={cenik} dnes={todayISO()} />
+      )}
+
       {activeTab === 'stats' && (
+        <div className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {topStats.topBeer && (
             <div className="card p-5 bg-white border-2 border-amber-300 rounded space-y-2">
@@ -509,6 +523,16 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
               </>
             )}
           </div>
+        </div>
+        {/* Kdo by měl brzy objednat, piva proti loňsku, odpisy v čase. */}
+        <StatistikaTrendy
+          sudy={vyrobaSudy}
+          odpisy={odpisyStat}
+          obaly={packages as any}
+          piva={beers as any}
+          orders={objednavkyStat}
+          dnes={todayISO()}
+        />
         </div>
       )}
 

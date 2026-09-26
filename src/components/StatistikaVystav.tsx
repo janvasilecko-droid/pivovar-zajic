@@ -52,8 +52,8 @@ export function barvaZMotivu(promenna: string, zaloha: string): string {
   return hodnota ? `rgb(${hodnota.split(/\s+/).join(' ')})` : zaloha;
 }
 
-const RADA_BAREV = ['#b3730a', '#0369a1', '#15803d', '#7e22ce', '#c85f1e', '#0891b2', '#65a30d', '#be123c'];
-const BARVA_LETOS = '#b3730a';
+export const RADA_BAREV = ['#b3730a', '#0369a1', '#15803d', '#7e22ce', '#c85f1e', '#0891b2', '#65a30d', '#be123c'];
+export const BARVA_LETOS = '#b3730a';
 
 /** Popisek v bublině grafu KEG vs lahve: hektolitry a podíl v tom sloupci. */
 function popisSudyLahve(v: any, n: any, polozka: any): [string, string] {
@@ -118,7 +118,7 @@ function GrafOdberatele({ data, zvyraznitOd, zvyraznitDo, stylTooltipu, mrizka, 
   );
 }
 
-const MESICE_ZKR = ['led', 'úno', 'bře', 'dub', 'kvě', 'čvn', 'čvc', 'srp', 'zář', 'říj', 'lis', 'pro'];
+export const MESICE_ZKR = ['led', 'úno', 'bře', 'dub', 'kvě', 'čvn', 'čvc', 'srp', 'zář', 'říj', 'lis', 'pro'];
 
 type Props = {
   bottlingRows: VyrobniRadek[];
@@ -146,7 +146,7 @@ const POPIS_PREDCHOZI: Record<Obdobi, string> = {
   tyden: 'minulý týden', mesic: 'minulý měsíc', rok: 'loni', vse: '',
 };
 
-function Trend({ zmena }: { zmena: number | null }) {
+export function Trend({ zmena }: { zmena: number | null }) {
   if (zmena === null) return null;
   const roste = zmena > 1, klesa = zmena < -1;
   const Ikona = roste ? TrendingUp : klesa ? TrendingDown : Minus;
@@ -178,7 +178,7 @@ function Dlazdice({ popis, litry, zmena, protiCemu }: {
 }
 
 /** Popisek nad grafem — název nese informaci, takže u jedné řady netřeba legendu. */
-function Nadpis({ text, popis }: { text: string; popis?: string }) {
+export function Nadpis({ text, popis }: { text: string; popis?: string }) {
   return (
     <div className="mb-3">
       <h3 className="font-display font-extrabold text-sm text-neutral-900">{text}</h3>
@@ -194,7 +194,7 @@ function Nadpis({ text, popis }: { text: string; popis?: string }) {
  * (období i pohled grafů): druhé místo se stejnými třídami by byla druhá
  * kopie téhož významu, a ta se dřív nebo později rozejde.
  */
-function Prepinac<T extends string>({ volby, vybrano, onZmena }: {
+export function Prepinac<T extends string>({ volby, vybrano, onZmena }: {
   volby: readonly (readonly [T, string])[];
   vybrano: T;
   onZmena: (v: T) => void;
@@ -221,7 +221,7 @@ function Prepinac<T extends string>({ volby, vybrano, onZmena }: {
 /** Kusy na jedno desetinné místo — průměr celé číslo skoro nikdy nevyjde. */
 const ksFormat = (v: number) => v.toLocaleString('cs-CZ', { maximumFractionDigits: 1 });
 
-const stylTooltipuZaklad = {
+export const stylTooltipuZaklad = {
   contentStyle: { borderRadius: 12, fontSize: 12, fontWeight: 700 },
   labelStyle: { fontWeight: 800 },
 };
@@ -270,6 +270,29 @@ function SkupinaObalu({ nazev, radky, barvy, maZmenu }: {
       </tr>
     </>
   );
+}
+
+/**
+ * Barvy grafů podle motivu pro další karty Statistiky (Tržby, trendy) —
+ * stejné, jaké si počítá Výstav níž, ať grafy vypadají všude stejně.
+ */
+export function barvyGrafu() {
+  const MRIZKA = barvaZMotivu('--bd-neutral-200', '#e2e8f0');
+  const OBTAZENI = barvaZMotivu('--bg-white', '#ffffff');
+  return {
+    INK_TLUMENA: barvaZMotivu('--ink-neutral-500', '#64748b'),
+    MRIZKA,
+    BARVA_LONI: barvaZMotivu('--ink-neutral-400', '#94a3b8'),
+    stylTooltipu: {
+      contentStyle: {
+        ...stylTooltipuZaklad.contentStyle,
+        border: `1px solid ${MRIZKA}`,
+        background: OBTAZENI,
+        color: barvaZMotivu('--ink-neutral-900', '#0f172a'),
+      },
+      labelStyle: { ...stylTooltipuZaklad.labelStyle, color: barvaZMotivu('--ink-neutral-900', '#0f172a') },
+    },
+  };
 }
 
 export default function StatistikaVystav({

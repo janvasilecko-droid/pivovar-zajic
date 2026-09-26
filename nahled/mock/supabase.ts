@@ -43,6 +43,8 @@ const db: Record<string, Radek[]> = {
   // Úkoly stáčení („Potřeby stáčení" v Nastavení) — v náhledu se začíná
   // s prázdným týdnem, úkol si jde rovnou zkusit založit.
   bottling_plans: [],
+  // Statistika → Tržby.
+  price_list: [...vychozi.price_list],
 };
 
 /** Kopie z produkčního modulu — barva piva na tečku v seznamu. */
