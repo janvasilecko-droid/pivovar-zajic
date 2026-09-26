@@ -1,5 +1,5 @@
 import { ReactNode, useState, useEffect, useRef, lazy, Suspense } from 'react';
-import { AlarmClock, AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, BookOpen, CalendarDays, Car, ClipboardCheck, ClipboardList, Compass, Download, FilePlus, FileSpreadsheet, FileText, FlaskConical, GlassWater, History as HistoryIcon, Home, Hourglass, Info, ListOrdered, LogOut, MapPin, Megaphone, MessageCircle, Package as PackageIcon, Radio, Receipt, Search, Settings, Shield, ShieldCheck, Smartphone, Snowflake, Sparkles, StickyNote, Store, Tag, Timer, TrendingDown, Truck, type LucideIcon, Users, Wifi, WifiOff, X, XCircle } from 'lucide-react';
+import { AlarmClock, AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, BookOpen, CalendarDays, Car, ClipboardCheck, ClipboardList, Compass, Download, FilePlus, FileSpreadsheet, FileText, FlaskConical, GlassWater, History as HistoryIcon, Home, Hourglass, Info, ListOrdered, LogOut, MapPin, Megaphone, MessageCircle, Package as PackageIcon, Radio, Receipt, Search, Settings, Shield, ShieldCheck, Smartphone, Snowflake, Sparkles, StickyNote, Store, Tag, Timer, TrendingDown, Truck, Upload, type LucideIcon, Users, Wifi, WifiOff, X, XCircle } from 'lucide-react';
 import { BreweryRadioBar } from './BreweryRadioBar';
 import { BreweryRadioModal } from './BreweryRadioModal';
 
@@ -35,7 +35,7 @@ import '../screens/HomeScreen.css';
 
 export type NavItem = { id: Page; label: string; icon: LucideIcon; group: string };
 
-export type Page = 'export_excel' | 'home' | 'sanitace' | 'marketing' | 'planning' | 'depozitar' | 'dashboard' | 'concentration' | 'srotovani' | 'checklists' | 'haccp' | 'sanitation_log' | 'sanitace_lahve' | 'sanitace_kegy' | 'sanitace_vycepy' | 'history' | 'orders_entry' | 'orders' | 'orders_detail' | 'orders_celkem' | 'orders_vraceni' | 'orders_zavoz' | 'zavoz' | 'kniha_jizd' | 'stock' | 'stock_pohyby' | 'bottling' | 'kegging' | 'fasovani' | 'prodejna' | 'akce' | 'sklo_promo' | 'vycepy' | 'exkurze' | 'reminders' | 'notes' | 'writeoffs' | 'inventory' | 'calendar' | 'feedback' | 'places' | 'beers' | 'packages' | 'pricelist' | 'vehicles' | 'cellar' | 'users' | 'app_settings' | 'app_versions' | 'bottling_needs' | 'stopwatch' | 'timer' | 'keg_timer' | 'radio' | 'zaloha' | 'co2' | 'navod' | 'hlaseni' | 'audit' | 'signout';
+export type Page = 'export_excel' | 'import_excel' | 'home' | 'sanitace' | 'marketing' | 'planning' | 'depozitar' | 'dashboard' | 'concentration' | 'srotovani' | 'checklists' | 'haccp' | 'sanitation_log' | 'sanitace_lahve' | 'sanitace_kegy' | 'sanitace_vycepy' | 'history' | 'orders_entry' | 'orders' | 'orders_detail' | 'orders_celkem' | 'orders_vraceni' | 'orders_zavoz' | 'zavoz' | 'kniha_jizd' | 'stock' | 'stock_pohyby' | 'bottling' | 'kegging' | 'fasovani' | 'prodejna' | 'akce' | 'sklo_promo' | 'vycepy' | 'exkurze' | 'reminders' | 'notes' | 'writeoffs' | 'inventory' | 'calendar' | 'feedback' | 'places' | 'beers' | 'packages' | 'pricelist' | 'vehicles' | 'cellar' | 'users' | 'app_settings' | 'app_versions' | 'bottling_needs' | 'stopwatch' | 'timer' | 'keg_timer' | 'radio' | 'zaloha' | 'co2' | 'navod' | 'hlaseni' | 'audit' | 'signout';
 
 export const NAV: NavItem[] = [
   // --- VÝROBA ---
@@ -55,6 +55,7 @@ export const NAV: NavItem[] = [
   { id: 'inventory', label: 'Inventura', icon: ClipboardCheck, group: 'Pivovar' },
   { id: 'history', label: 'Statistika', icon: HistoryIcon, group: 'Pivovar' },
   { id: 'export_excel', label: 'Export do Excelu', icon: FileSpreadsheet, group: 'Pivovar' },
+  { id: 'import_excel', label: 'Načíst z Excelu', icon: Upload, group: 'Pivovar' },
   // Všechny audity a kontroly na jednom místě (screens/AuditScreen.tsx) —
   // dřív rozházené po Inventuře, Objednávkách, Nastavení a Uživatelích.
   { id: 'audit', label: 'Audit', icon: ClipboardCheck, group: 'Pivovar' },
