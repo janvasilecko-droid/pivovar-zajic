@@ -5,7 +5,7 @@ import {
   podilPodlePiva, podilPodleObalu, podleOdberatelu, zmenaProcent, formatHl,
   prumernaPotrebaKegu, denObdobi, popisRozsahu,
   obalyVCislech, pivaVCislech, litryPoObdobiAObalech, obalyVDatech,
-  kdoPrestalObjednavat, rozpocetSudu, pondeliTydne as pondeli,
+  kdoPrestalObjednavat, rozpocetSudu, pondeliTydne as pondeli, odberatelPoMesicich,
   type Obal, type VyrobniRadek,
 } from './statistika';
 
@@ -571,5 +571,42 @@ describe('podilSudyLahve — KEG vs lahve', () => {
     expect(r.sudyL).toBe(0);
     expect(r.podilLahve).toBe(1);
     expect(r.zDrivejsich).toBe(true);
+  });
+});
+
+describe('odberatelPoMesicich — jak odběratel objednával v čase', () => {
+  const objednavky = [
+    { id: 'a', place_name: 'U Lípy', delivery_date: '2026-08-28', order_date: '2026-08-20', status: 'nova' },
+    { id: 'b', place_name: 'U Lípy', delivery_date: null, order_date: '2026-06-03', status: 'nova' },
+    { id: 'c', place_name: 'U Lípy', delivery_date: '2026-08-02', order_date: '2026-07-30', status: 'storno' },
+    { id: 'd', place_name: 'Jinde', delivery_date: '2026-08-10', order_date: '2026-08-01', status: 'nova' },
+    { id: 'e', place_name: 'U Lípy', delivery_date: '2025-01-15', order_date: '2025-01-10', status: 'nova' },
+  ];
+  const polozky = [
+    { order_id: 'a', package_id: 'keg30', quantity: 2 },
+    { order_id: 'a', package_id: 'keg50', quantity: 1 },
+    { order_id: 'b', package_id: 'keg30', quantity: 3 },
+    { order_id: 'c', package_id: 'keg50', quantity: 9 },
+    { order_id: 'd', package_id: 'keg50', quantity: 4 },
+    { order_id: 'e', package_id: 'keg50', quantity: 7 },
+  ];
+
+  it('12 měsíců, den závozu, bez storna a cizích odběratelů', () => {
+    const r = odberatelPoMesicich(objednavky, polozky, OBALY, 'U Lípy', '2026-09');
+    expect(r).toHaveLength(12);
+    expect(r[0].mesic).toBe('2025-10');
+    expect(r[11].mesic).toBe('2026-09');
+    const podle = Object.fromEntries(r.map((x) => [x.mesic, x]));
+    expect(podle['2026-08']).toEqual({ mesic: '2026-08', litry: 110, kusy: 3 });
+    expect(podle['2026-06']).toEqual({ mesic: '2026-06', litry: 90, kusy: 3 }); // bez data závozu → den zadání
+    expect(podle['2026-07'].litry).toBe(0); // storno se nepočítá
+    expect(r.reduce((s, x) => s + x.kusy, 0)).toBe(6); // leden 2025 je mimo okno
+  });
+
+  it('měsíc sedí s řádkem v žebříčku odběratelů', () => {
+    const mesic = odberatelPoMesicich(objednavky, polozky, OBALY, 'U Lípy', '2026-08').at(-1)!;
+    const zebricek = podleOdberatelu(objednavky, polozky, OBALY, '2026-08-01', '2026-08-31').find((o) => o.nazev === 'U Lípy')!;
+    expect(mesic.litry).toBe(zebricek.litry);
+    expect(mesic.kusy).toBe(zebricek.kusy);
   });
 });
