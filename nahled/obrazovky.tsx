@@ -20,6 +20,7 @@ import CoStocitOkno from '../src/components/CoStocitOkno';
 import ProdejnaScreen from '../src/screens/ProdejnaScreen';
 import { BottlingTasksSettings } from '../src/components/BottlingTasksSettings';
 import Statistika from '../src/screens/Statistika';
+import ImportStaceniLahviExcel from '../src/components/ImportStaceniLahviExcel';
 import * as data from './mock/data';
 
 const OBRAZOVKY = {
@@ -32,6 +33,12 @@ const OBRAZOVKY = {
   personal: { popis: 'Fasování → Personál', vykresli: () => <ProdejnaScreen table="fasovani" title="Fasování" showVycep /> },
   potreby: { popis: 'Nastavení → Potřeby stáčení', vykresli: () => <BottlingTasksSettings setPage={() => {}} /> },
   statistika: { popis: 'Statistika', vykresli: () => <Statistika /> },
+  importStaceni: {
+    popis: 'Stáčení lahví → Import z Excelu',
+    vykresli: () => (
+      <ImportStaceniLahviExcel open onClose={() => {}} beers={data.beers as any} packages={data.packages as any} onImported={() => {}} />
+    ),
+  },
 } as const;
 
 type Klic = keyof typeof OBRAZOVKY;

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useRef, lazy, Suspense } from 'react';
 import { supabase, Beer, Package, EntryRow, useRealtime, beerBg, beerText, beerName, formatPackageLabel, fetchAllRows } from '../lib/supabase';
 import { EmptyState, Spinner, Modal } from '../components/ui';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
-import { AlertTriangle, ArrowRight, BarChart3, Brush, CalendarDays, Camera, Check, CheckCircle2, ClipboardList, Lightbulb, ListChecks, Megaphone, Minus, Package as PackageIcon, PenLine, Pencil, Play, Plus, RefreshCw, Sparkles, Trash2, Wine, X } from 'lucide-react';
+import { AlertTriangle, ArrowRight, BarChart3, Brush, CalendarDays, Camera, Check, CheckCircle2, ClipboardList, FileSpreadsheet, Lightbulb, ListChecks, Megaphone, Minus, Package as PackageIcon, PenLine, Pencil, Play, Plus, RefreshCw, Sparkles, Trash2, Wine, X } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { BottlingPlan, getPlanSeenAt, markPlanSeenAt, isPlanUnseen, isBottlingManager, setPlanStatus, saveBottlingPlan, deleteBottlingPlan } from '../lib/bottlingPlans';
 import { BottlingPlanBottler } from '../components/BottlingPlanBottler';
@@ -46,6 +46,7 @@ import { nactiSdilenouTabulku } from '../lib/sdilenaData';
 
 // Stahuje se až při otevření — viz komentář u lazy() v Orders.tsx.
 const ImportBottlingFromImage = lazy(() => import('../components/ImportBottlingFromImage').then((m) => ({ default: m.ImportBottlingFromImage })));
+const ImportStaceniLahviExcel = lazy(() => import('../components/ImportStaceniLahviExcel'));
 
 const ROW_COUNT = 12;
 type RowInput = { beerId: string; pkgId: string; pkg2Id: string; pkg3Id: string; kegPkgId: string; kegQty: string; qty: string; qty2: string; qty3: string };
@@ -90,6 +91,7 @@ export default function BottlingScreen({
   const [flash, setFlash] = useState(false);
 
   const [showImageImport, setShowImageImport] = useState(false);
+  const [showExcelImport, setShowExcelImport] = useState(false);
   const [showChecklistModal, setShowChecklistModal] = useState(false);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   // Při automatickém otevření (povinná brána) se modal nesmí zavřít, dokud
@@ -1293,6 +1295,16 @@ export default function BottlingScreen({
               <VoiceRecorder onResult={handleVoiceResult} beerNames={beers.map((b) => b.name)} />
             </>
           )}
+          {tab === 'zapis' && (
+            <button
+              type="button"
+              onClick={() => setShowExcelImport(true)}
+              className="btn-ghost !rounded !bg-white border-neutral-300 text-neutral-700 font-extrabold text-xs shadow-xs flex items-center gap-1.5"
+              title="Naimportovat řádky z excelu, do kterého zapisuje kolega mimo appku"
+            >
+              <FileSpreadsheet size={14} /> Import z Excelu
+            </button>
+          )}
           </div>
         </div>
 
@@ -2474,6 +2486,17 @@ export default function BottlingScreen({
           packages={packages}
           onImport={handleApplyPhotoRows}
         />
+        </Suspense>
+      )}
+      {showExcelImport && (
+        <Suspense fallback={null}>
+          <ImportStaceniLahviExcel
+            open={showExcelImport}
+            onClose={() => setShowExcelImport(false)}
+            beers={beers}
+            packages={packages}
+            onImported={() => load(true)}
+          />
         </Suspense>
       )}
       {editingRow && (
