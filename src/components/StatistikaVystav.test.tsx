@@ -144,6 +144,22 @@ describe('Statistika — Výstav', () => {
     expect(karta.textContent).toMatch(/za rok 2026/);
   });
 
+  it('odběratelé se dají šipkou posunout do minulého měsíce', () => {
+    render(
+      <StatistikaVystav
+        bottlingRows={bottling} keggingRows={kegging} fasovaniRows={fasovani} writeoffRows={odpisy}
+        obaly={OBALY} piva={PIVA} dnes="2026-09-10" obdobi="mesic" onObdobi={vi.fn()}
+        orders={orders} orderItems={orderItems}
+      />,
+    );
+    const karta = screen.getByRole('heading', { name: 'Největší odběratelé' }).closest('section')!;
+    // V září nic — závoz Hospody U Lípy byl 28. 8.
+    expect(karta.textContent).not.toContain('Hospoda U Lípy');
+    fireEvent.click(screen.getByRole('button', { name: 'Předchozí období odběratelů' }));
+    expect(karta.textContent).toContain('Hospoda U Lípy');
+    expect(karta.textContent).toMatch(/za měsíc srpen 2026/);
+  });
+
   it('žebříček odběratelů bere den závozu', () => {
     vykresli();
     expect(screen.getByText('Hospoda U Lípy')).toBeTruthy();

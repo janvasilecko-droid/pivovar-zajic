@@ -391,7 +391,11 @@ export default function StatistikaVystav({
   // odběratelů dej nejen za měsíc, ale ať se dá překliknout i na rok").
   // Bere se aktuální měsíc / rok — žebříček se čte hlavně „kdo teď bere nejvíc".
   const [obdobiOdberatelu, setObdobiOdberatelu] = useState<'mesic' | 'rok'>('mesic');
-  const rozsahOdberatelu = rozsahObdobi(obdobiOdberatelu, dnes);
+  // Šipkami zpátky do minulých měsíců / let (0 = teď), stejně jako přepínač
+  // období výš — jen vlastní, ať se dá listovat odběrateli zvlášť.
+  const [posunOdberatelu, setPosunOdberatelu] = useState(0);
+  const denOdberatelu = denObdobi(obdobiOdberatelu, dnes, posunOdberatelu);
+  const rozsahOdberatelu = rozsahObdobi(obdobiOdberatelu, denOdberatelu);
   const odberatele = useMemo(
     () => podleOdberatelu(orders, orderItems, mapaObalu, rozsahOdberatelu.od, rozsahOdberatelu.do).slice(0, 10),
     [orders, orderItems, mapaObalu, rozsahOdberatelu.od, rozsahOdberatelu.do],
@@ -787,14 +791,47 @@ export default function StatistikaVystav({
         <section className="card p-3.5 sm:p-5">
           <Nadpis
             text="Největší odběratelé"
-            popis={`Podle objednaného množství ${obdobiOdberatelu === 'rok' ? 'za rok' : 'za měsíc'} ${popisRozsahu(obdobiOdberatelu, dnes)} — rozhoduje den závozu`}
+            popis={`Podle objednaného množství ${obdobiOdberatelu === 'rok' ? 'za rok' : 'za měsíc'} ${popisRozsahu(obdobiOdberatelu, denOdberatelu)} — rozhoduje den závozu`}
           />
-          <div className="mb-3">
+          <div className="mb-3 flex flex-wrap items-center gap-2">
             <Prepinac
               volby={[['mesic', 'Měsíc'], ['rok', 'Rok']] as const}
               vybrano={obdobiOdberatelu}
-              onZmena={setObdobiOdberatelu}
+              onZmena={(o) => { setObdobiOdberatelu(o); setPosunOdberatelu(0); }}
             />
+            <div className="flex items-center gap-1 p-1 rounded-2xl bg-white border border-neutral-200 w-fit">
+              <button
+                type="button"
+                onClick={() => setPosunOdberatelu((p) => p - 1)}
+                className="btn-ghost !rounded-xl !py-2 !px-3 font-black text-base"
+                title="Předchozí období odběratelů"
+                aria-label="Předchozí období odběratelů"
+              >
+                ‹
+              </button>
+              <span className="px-2 text-xs font-black text-neutral-900 tabular-nums whitespace-nowrap">
+                {popisRozsahu(obdobiOdberatelu, denOdberatelu)}
+              </span>
+              <button
+                type="button"
+                onClick={() => setPosunOdberatelu((p) => Math.min(0, p + 1))}
+                disabled={posunOdberatelu >= 0}
+                className="btn-ghost !rounded-xl !py-2 !px-3 font-black text-base disabled:opacity-30"
+                title="Následující období odběratelů"
+                aria-label="Následující období odběratelů"
+              >
+                ›
+              </button>
+              {posunOdberatelu !== 0 && (
+                <button
+                  type="button"
+                  onClick={() => setPosunOdberatelu(0)}
+                  className="btn-ghost !rounded-xl !py-2 !px-3 text-xs font-black text-amber-700"
+                >
+                  Teď
+                </button>
+              )}
+            </div>
           </div>
           {odberatele.length === 0 ? (
             <EmptyState text="V tomhle období není žádná objednávka." icon={Store} />
