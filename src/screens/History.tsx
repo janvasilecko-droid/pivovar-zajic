@@ -1,16 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Beer, beerBorder, fetchAllRows, Package, supabase, useRealtime } from '../lib/supabase';
-import { Kostra, Spinner, EmptyState } from '../components/ui';
-import { exportHistoryDetailToExcel } from '../lib/excel';
+import { Beer, fetchAllRows, Package, supabase, useRealtime } from '../lib/supabase';
+import { Kostra } from '../components/ui';
 
-import { AlertTriangle, ChevronDown, ChevronUp, ArrowDownRight, ArrowUpRight, ChevronsUpDown, Download, Printer, ShieldAlert, Snowflake, Store, TrendingUp, Trophy, Truck, X, Zap } from 'lucide-react';
+import { Printer, Store, TrendingUp, Trophy, Truck, X } from 'lucide-react';
 import { TabBar, type TabBarItem } from '../components/TabBar';
 import ZavozHistory from '../components/ZavozHistory';
 import { IkonaSud } from '../components/ikony';
 import StatistikaVystav from '../components/StatistikaVystav';
 import type { Obdobi, VyrobniRadek } from '../lib/statistika';
 import { kdoPrestalObjednavat, podilPodleObalu, rozsahObdobi, denObdobi, objednanoPoMesicich } from '../lib/statistika';
-import { rozpadSuduVCyklech, popisRozpaduSudu, type StaceniRadek } from '../lib/cyklyTanku';
 import { usePosledniNacteni } from '../lib/nacitani';
 import { useChovaniDialogu } from '../lib/zavriNaZpet';
 import { businessDateISO } from '../lib/businessDate';
@@ -52,63 +50,23 @@ function monthLabel(m: string): string {
 function todayISO(): string { return businessDateISO(); }
 function startOfYearISO(iso: string): string { return iso.slice(0, 4) + '-01-01'; }
 
-type TankCycleRow = {
-  id: string;
-  /** Tank, kterému cyklus patří — podle něj se k cyklu dohledá stáčení. */
-  tank_id: string | null;
-  tank_label: string;
-  beer_name: string | null;
-  initial_volume_l: number;
-  kegged_volume_l: number;
-  keg_count: number;
-  loss_l: number;
-  loss_pct: number;
-  started_at: string | null;
-  ended_at: string;
-  duration_hours: number | null;
-};
-
 /** Popis období pro nadpis karty v žebříčcích — bere se z volby na Výstavu. */
 const POPIS_OBDOBI_ZEBRICEK: Record<Obdobi, string> = {
   tyden: 'tento týden', mesic: 'tento měsíc', rok: 'letos', vse: 'za celou dobu',
 };
-
-function fmtHoursShort(h: number | null | undefined): string {
-  if (h == null) return '—';
-  if (h < 24) return `${h.toFixed(1)} h`;
-  return `${(h / 24).toFixed(1)} dní`;
-}
-
-type SortDir = 'asc' | 'desc';
-function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
-  if (!active) return <ChevronsUpDown size={14} className="inline text-neutral-300 ml-1" />;
-  const Sipka = dir === 'asc' ? ChevronUp : ChevronDown;
-  return <Sipka size={14} className="inline text-neutral-900 ml-1" />;
-}
-function sortRows<T>(rows: T[], key: keyof T | null, dir: SortDir): T[] {
-  if (!key) return rows;
-  const copy = [...rows];
-  copy.sort((a, b) => {
-    const av = a[key]; const bv = b[key];
-    let cmp = 0;
-    if (typeof av === 'number' && typeof bv === 'number') cmp = av - bv;
-    else cmp = String(av ?? '').localeCompare(String(bv ?? ''), 'cs');
-    return dir === 'asc' ? cmp : -cmp;
-  });
-  return copy;
-}
 
 // „Objednávky" (týdenní součet kusů podle piva a obalu) se zrušila 25. 9. 2026
 // — ukazovala totéž co Objednávky → Celkem, která navíc umí měsíc i vše.
 // Starý odkaz na ni skončí na Výstavu (zalozkaZAdresy níž).
 // Stejně tak „Hledání" (vlastní součty podle zdroje, období, piva a obalu)
 // — zrušeno 26. 9. 2026 na přání provozu, nikdo nevěděl, k čemu je.
-type Zalozka = 'vystav' | 'cycles' | 'stats' | 'deliveries';
-const ZALOZKY: Zalozka[] = ['vystav', 'cycles', 'stats', 'deliveries'];
+// A „Cykly tanků" (ztrátovost a historie cyklů tanků) — týž den, taky na
+// přání; ztráty při stáčení jsou dál ve Sklepě (ZtratyTankuPrehled).
+type Zalozka = 'vystav' | 'stats' | 'deliveries';
+const ZALOZKY: Zalozka[] = ['vystav', 'stats', 'deliveries'];
 
 const LISTA_ZALOZEK: (TabBarItem & { id: Zalozka })[] = [
   { id: 'vystav', label: 'Výstav', icon: TrendingUp, color: '#f59f00' },
-  { id: 'cycles', label: 'Cykly tanků', icon: IkonaSud, color: '#ffa94d' },
   { id: 'stats', label: 'Žebříčky', icon: Trophy, color: '#38d9a9' },
   { id: 'deliveries', label: 'Trasy', icon: Truck, color: '#7c5cff' },
 ];
@@ -157,20 +115,6 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
   const [showPrintModal, setShowPrintModal] = useState(false);
   // Zpět zavře tiskový náhled místo odchodu z historie.
   useChovaniDialogu(showPrintModal, () => setShowPrintModal(false));
-
-  // ---- Historie cyklů tanků ----
-  const [tankCycles, setTankCycles] = useState<TankCycleRow[]>([]);
-  const [tankCyclesLoading, setTankCyclesLoading] = useState(true);
-  const [staceniProCykly, setStaceniProCykly] = useState<StaceniRadek[]>([]);
-
-  // ---- Řazení tabulek ----
-  const [cycleSortKey, setCycleSortKey] = useState<keyof TankCycleRow | null>(null);
-  const [cycleSortDir, setCycleSortDir] = useState<SortDir>('desc');
-
-  function onSortCycle(key: keyof TankCycleRow) {
-    if (cycleSortKey === key) setCycleSortDir((d) => d === 'asc' ? 'desc' : 'asc');
-    else { setCycleSortKey(key); setCycleSortDir('desc'); }
-  }
 
   // Zámek proti zápisu ze zastaralého načtení — viz lib/nacitani.ts.
   const zacniNacteni = usePosledniNacteni();
@@ -359,20 +303,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
     setLoading(false);
   }
 
-  async function loadTankCycles() {
-    setTankCyclesLoading(true);
-    // Rozpad sudů podle velikosti si tabulka cyklů nepamatuje (má jen
-    // `keg_count`), takže se dopočítá z řádků stáčení — viz lib/cyklyTanku.
-    const [{ data: cy }, { data: kg }] = await Promise.all([
-      supabase.from('cellar_tank_cycles').select('*').order('ended_at', { ascending: false }).limit(300),
-      nactiSdilenouTabulku('kegging'),
-    ]);
-    setTankCycles((cy as TankCycleRow[]) ?? []);
-    setStaceniProCykly((kg as StaceniRadek[]) ?? []);
-    setTankCyclesLoading(false);
-  }
-
-  useEffect(() => { load(); loadTankCycles(); }, []);
+  useEffect(() => { load(); }, []);
   // 🔇 Realtime přenačítá TIŠE. Bez toho zavolá loadData() bez parametru,
   // rozsvítí se spinner přes celou obrazovku (`if (loading) return <Kostra/>`),
   // obsah se odmountuje — a s ním spadne odrolování na nulu. Z provozu:
@@ -380,7 +311,6 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
   // srovná kotvou (lib/drzPozici.ts), jenže 400 ms po něm dorazí realtime
   // událost o tomtéž zápisu a celou práci zahodí.
   useRealtime(['bottling', 'kegging', 'fasovani', 'writeoffs', 'orders', 'order_items', 'akce', 'akce_items', 'beers', 'packages'], () => load(true));
-  useRealtime(['cellar_tank_cycles'], loadTankCycles);
 
   function toggleMonth(m: string) {
     setSelectedMonths((s) => s.includes(m) ? s.filter((x) => x !== m) : [...s, m].sort().reverse());
@@ -388,36 +318,6 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
 
   const selected = data.filter((d) => selectedMonths.includes(d.month));
 
-
-  const tankCyclesSorted = useMemo(() => sortRows(tankCycles, cycleSortKey, cycleSortDir), [tankCycles, cycleSortKey, cycleSortDir]);
-
-  // 🛢️ Do jakých velikostí sudů se v jednotlivých cyklech stáčelo.
-  // Samotné „Sudů: 12" ztrátovost nevysvětlí — dvanáct desítek je šestkrát
-  // víc stáčení (a šestkrát víc příležitostí něco ztratit) než dvanáct
-  // padesátek.
-  const sudyVCyklech = useMemo(
-    () => rozpadSuduVCyklech(tankCycles, staceniProCykly, new Map(packages.map((p) => [p.id, { label: p.label }]))),
-    [tankCycles, staceniProCykly, packages],
-  );
-
-  // Diagnostika ztrátovosti podle tanků
-  const tankLossDiagnostics = useMemo(() => {
-    const m = new Map<string, { count: number; totalLossL: number; totalInitialL: number; avgLossPct: number }>();
-    tankCycles.forEach((c) => {
-      const label = c.tank_label;
-      if (!m.has(label)) m.set(label, { count: 0, totalLossL: 0, totalInitialL: 0, avgLossPct: 0 });
-      const e = m.get(label)!;
-      e.count += 1;
-      e.totalLossL += Number(c.loss_l ?? 0);
-      e.totalInitialL += Number(c.initial_volume_l ?? 0);
-    });
-    return [...m.entries()].map(([label, e]) => ({
-      tank_label: label,
-      count: e.count,
-      totalLossL: e.totalLossL,
-      avgLossPct: e.totalInitialL > 0 ? (e.totalLossL / e.totalInitialL) * 100 : 0,
-    })).sort((a, b) => b.avgLossPct - a.avgLossPct);
-  }, [tankCycles]);
 
   const topStats = useMemo(() => {
     // Nejvíc stočené pivo+obal letos — ze stáčení (lahve + sudy). Dřív se
@@ -436,13 +336,8 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
       souctyStaceni.set(klic, z);
     });
     const topBeer = [...souctyStaceni.values()].sort((a, b) => b.totalQty - a.totalQty)[0] ?? null;
-    const lowestLoss = tankCycles.length ? [...tankCycles].sort((a, b) => Number(a.loss_pct) - Number(b.loss_pct))[0] : null;
-    const highestLoss = tankCycles.length ? [...tankCycles].sort((a, b) => Number(b.loss_pct) - Number(a.loss_pct))[0] : null;
-    const withDuration = tankCycles.filter((c) => c.duration_hours != null);
-    const fastest = withDuration.length ? [...withDuration].sort((a, b) => Number(a.duration_hours) - Number(b.duration_hours))[0] : null;
-    const slowest = withDuration.length ? [...withDuration].sort((a, b) => Number(b.duration_hours) - Number(a.duration_hours))[0] : null;
-    return { topBeer, lowestLoss, highestLoss, fastest, slowest };
-  }, [vyrobaLahve, vyrobaSudy, beers, packages, tankCycles]);
+    return { topBeer };
+  }, [vyrobaLahve, vyrobaSudy, beers, packages]);
 
   // 📦 Nejvíc stáčený OBAL za zvolené období — ne „nejvíc kusů dohromady".
   // Jde o to, do čeho se nejvíc stáčí, tedy čeho mít doma nejvíc.
@@ -458,22 +353,6 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
     () => kdoPrestalObjednavat(objednavkyStat, polozkyStat, new Map(packages.map((p) => [p.id, p as any])), todayISO()),
     [objednavkyStat, polozkyStat, packages],
   );
-
-  function exportCyclesExcel() {
-    const rows = tankCyclesSorted.map((c) => ({
-      tank_label: c.tank_label, beer_name: c.beer_name ?? '', initial_hl: (Number(c.initial_volume_l) / 100).toFixed(2),
-      kegged_hl: (Number(c.kegged_volume_l) / 100).toFixed(2), keg_count: c.keg_count,
-      keg_rozpad: popisRozpaduSudu(sudyVCyklech.get(c.id)),
-      loss_l: Number(c.loss_l).toFixed(1), loss_pct: Number(c.loss_pct).toFixed(1),
-      duration: fmtHoursShort(c.duration_hours), ended_at: new Date(c.ended_at).toLocaleDateString('cs-CZ'),
-    }));
-    exportHistoryDetailToExcel(
-      rows,
-      ['Tank', 'Pivo', 'Počáteční (hl)', 'Stočeno (hl)', 'Sudů', 'Do jakých sudů', 'Ztráta (l)', 'Ztráta (%)', 'Doba', 'Ukončeno'],
-      ['tank_label', 'beer_name', 'initial_hl', 'kegged_hl', 'keg_count', 'keg_rozpad', 'loss_l', 'loss_pct', 'duration', 'ended_at'],
-      'historie-cykly-tanku.xlsx'
-    );
-  }
 
   // ---- Celkové KPI za aktuální rok ----
   const currentYear = new Date().getFullYear().toString();
@@ -572,157 +451,6 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
 
 
 
-      {/* TAB 3: CYKLY TANKŮ & DIAGNOSTIKA ZTRÁT */}
-      {activeTab === 'cycles' && (
-        <div className="space-y-6">
-          {/* Diagnostický přehled ztrát podle tanků */}
-          <div className="card p-5 bg-white border border-neutral-200 rounded space-y-4 shadow-xs">
-            <div className="flex items-center justify-between border-b border-neutral-200 pb-3">
-              <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
-                <ShieldAlert size={18} className="text-amber-600" />
-                <span>Diagnostika průměrné ztrátovosti podle tanků</span>
-              </h3>
-              <span className="text-xs font-mono font-bold bg-neutral-100 px-3 py-1 rounded text-neutral-600 border border-neutral-200">
-                {tankLossDiagnostics.length} Tanků sledováno
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              {tankLossDiagnostics.map((t) => {
-                const isHighLoss = t.avgLossPct > 5.0;
-                return (
-                  <div
-                    key={t.tank_label}
-                    className={`p-3.5 rounded bg-white border-2 transition-all ${
-                      isHighLoss ? 'border-rose-400' : 'border-neutral-200'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-black text-base text-neutral-900">{t.tank_label}</span>
-                      <span className={`font-mono font-black text-xs px-2 py-0.5 rounded ${isHighLoss ? 'bg-rose-600 text-white' : 'bg-neutral-100 text-neutral-700'}`}>
-                        {t.avgLossPct.toFixed(1)}% ztráta
-                      </span>
-                    </div>
-                    <div className="text-udaj text-neutral-500 flex justify-between">
-                      <span>{t.count} cyklů</span>
-                      <span>Celkem ztráta {t.totalLossL.toFixed(0)} l</span>
-                    </div>
-                    {isHighLoss && (
-                      <div className="mt-2 text-udaj font-bold text-rose-700 bg-rose-50 p-1.5 rounded border border-rose-200">
-                        <AlertTriangle className="ikona-text" /> Vyšší ztrátovost (kontrola hradícího ventilu & těsnění klapky)
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="card p-5 bg-white border border-neutral-200 rounded space-y-4 shadow-xs">
-            <div className="flex items-center justify-between pb-3 border-b border-neutral-200">
-              <div>
-                <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
-                  <IkonaSud size={18} className="text-amber-600" />
-                  <span>Detailní historie cyklů tanků</span>
-                </h3>
-                <p className="text-xs text-neutral-500 font-medium mt-0.5">Přehled stočeného objemu, sudů a procenta ztrát pro každý cyklus tanku</p>
-              </div>
-              <button
-                type="button"
-                onClick={exportCyclesExcel}
-                className="px-3.5 py-2 rounded bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-black shadow-md transition flex items-center gap-1.5"
-              >
-                <Download size={16} />
-                <span>Export cyklů</span>
-              </button>
-            </div>
-
-            {tankCyclesLoading ? (
-              <Spinner />
-            ) : tankCycles.length === 0 ? (
-              <EmptyState text="Zatím žádné ukončené cykly tanků." icon={Snowflake} />
-            ) : (
-              <>
-              {/* Mobilní karty */}
-              <div className="grid grid-cols-1 gap-2.5 md:hidden">
-                {tankCyclesSorted.map((c) => {
-                  const beer = c.beer_name ? beers.find((b) => b.name === c.beer_name) : null;
-                  const highLoss = Number(c.loss_pct) > 3;
-                  return (
-                    <div key={c.id} className="rounded bg-white border-2 p-3 space-y-1.5" style={{ borderColor: beerBorder(beer) }}>
-                      <div className="flex items-center justify-between gap-2 font-black text-sm text-neutral-950">
-                        <span>{c.tank_label} <span className="font-bold opacity-80">· {c.beer_name ?? '—'}</span></span>
-                        <span className={`shrink-0 px-2 py-0.5 rounded text-xs font-black ${highLoss ? 'bg-rose-600 text-white' : 'bg-neutral-100 text-neutral-700'}`}>{Number(c.loss_pct).toFixed(1)}% ztráta</span>
-                      </div>
-                      <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs font-bold text-neutral-700">
-                        <span>Poč. {(Number(c.initial_volume_l) / 100).toFixed(2)} hl</span>
-                        <span>Stoč. {(Number(c.kegged_volume_l) / 100).toFixed(2)} hl</span>
-                        <span>{c.keg_count} sudů</span>
-                        <span>Ztr. {Number(c.loss_l).toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} l</span>
-                        <span>{fmtHoursShort(c.duration_hours)}</span>
-                        <span>{new Date(c.ended_at).toLocaleDateString('cs-CZ')}</span>
-                      </div>
-                      {/* 🛢️ Do jakých velikostí — „12 sudů" samo ztrátovost
-                          nevysvětlí, dvanáct desítek je šestkrát víc stáčení
-                          než dvanáct padesátek. */}
-                      {popisRozpaduSudu(sudyVCyklech.get(c.id)) && (
-                        <div className="text-udaj font-semibold text-neutral-500">
-                          {popisRozpaduSudu(sudyVCyklech.get(c.id))}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="hidden md:block overflow-x-auto scrollbar-thin">
-                <table className="table text-xs">
-                  <thead>
-                    <tr>
-                      <th scope="col" className="cursor-pointer select-none" onClick={() => onSortCycle('tank_label')}>Tank<SortIcon active={cycleSortKey === 'tank_label'} dir={cycleSortDir} /></th>
-                      <th scope="col" className="cursor-pointer select-none" onClick={() => onSortCycle('beer_name')}>Pivo<SortIcon active={cycleSortKey === 'beer_name'} dir={cycleSortDir} /></th>
-                      <th scope="col" className="text-right cursor-pointer select-none" onClick={() => onSortCycle('initial_volume_l')}>Poč.<SortIcon active={cycleSortKey === 'initial_volume_l'} dir={cycleSortDir} /></th>
-                      <th scope="col" className="text-right cursor-pointer select-none" onClick={() => onSortCycle('kegged_volume_l')}>Stoč.<SortIcon active={cycleSortKey === 'kegged_volume_l'} dir={cycleSortDir} /></th>
-                      <th scope="col" className="text-right cursor-pointer select-none" onClick={() => onSortCycle('keg_count')}>Sudů<SortIcon active={cycleSortKey === 'keg_count'} dir={cycleSortDir} /></th>
-                      <th scope="col" className="text-right cursor-pointer select-none" onClick={() => onSortCycle('loss_l')}>Ztr.<SortIcon active={cycleSortKey === 'loss_l'} dir={cycleSortDir} /></th>
-                      <th scope="col" className="text-right cursor-pointer select-none" onClick={() => onSortCycle('loss_pct')}>Ztr.%<SortIcon active={cycleSortKey === 'loss_pct'} dir={cycleSortDir} /></th>
-                      <th scope="col" className="text-right cursor-pointer select-none" onClick={() => onSortCycle('duration_hours')}>Doba<SortIcon active={cycleSortKey === 'duration_hours'} dir={cycleSortDir} /></th>
-                      <th scope="col" className="cursor-pointer select-none" onClick={() => onSortCycle('ended_at')}>Konec<SortIcon active={cycleSortKey === 'ended_at'} dir={cycleSortDir} /></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {tankCyclesSorted.map((c) => {
-                      const beer = c.beer_name ? beers.find((b) => b.name === c.beer_name) : null;
-                      return (
-                        <tr key={c.id} className="hover:bg-neutral-50 transition-colors bg-white" style={{ borderLeft: `4px solid ${beerBorder(beer)}` }}>
-                          <td className="font-black text-udaj text-neutral-950">{c.tank_label}</td>
-                          <td className="font-black text-udaj text-neutral-950">{c.beer_name ?? '—'}</td>
-                          <td className="text-right font-bold text-neutral-900 text-udaj">{(Number(c.initial_volume_l) / 100).toFixed(2)} hl</td>
-                          <td className="text-right font-black text-neutral-950 text-udaj">{(Number(c.kegged_volume_l) / 100).toFixed(2)} hl</td>
-                          <td className="text-right font-mono font-black text-neutral-950 text-udaj">
-                            {c.keg_count} ks
-                            {popisRozpaduSudu(sudyVCyklech.get(c.id)) && (
-                              <span className="block font-sans font-semibold text-neutral-500 whitespace-nowrap">
-                                {popisRozpaduSudu(sudyVCyklech.get(c.id))}
-                              </span>
-                            )}
-                          </td>
-                          <td className={`text-right text-udaj ${Number(c.loss_l) > 0 ? 'text-rose-700 font-black' : 'text-neutral-900 font-bold'}`}>{Number(c.loss_l).toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} l</td>
-                          <td className={`text-right text-udaj ${Number(c.loss_pct) > 3 ? 'text-rose-700 font-black' : 'text-neutral-900 font-bold'}`}>{Number(c.loss_pct).toFixed(1)}%</td>
-                          <td className="text-right text-neutral-900 font-bold text-udaj">{fmtHoursShort(c.duration_hours)}</td>
-                          <td className="text-neutral-900 font-bold whitespace-nowrap text-udaj">{new Date(c.ended_at).toLocaleDateString('cs-CZ')}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
-
       {/* TAB 4: TOP ŽEBRÍČKY & STATISTIKY */}
       {activeTab === 'stats' && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -734,39 +462,6 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
               </div>
               <div className="font-display font-black text-xl text-neutral-900">{topStats.topBeer.beer_name}</div>
               <div className="text-xs font-bold text-neutral-600">{topStats.topBeer.totalQty} ks · {topStats.topBeer.package_label}</div>
-            </div>
-          )}
-
-          {topStats.lowestLoss && (
-            <div className="card p-5 bg-white border-2 border-emerald-300 rounded space-y-2">
-              <div className="text-xs font-black uppercase tracking-wider text-emerald-900 flex items-center gap-1.5">
-                <ArrowDownRight size={16} className="text-emerald-600" />
-                <span>Nejnižší ztráta cyklu</span>
-              </div>
-              <div className="font-display font-black text-xl text-neutral-900">{topStats.lowestLoss.tank_label} — {topStats.lowestLoss.beer_name ?? '—'}</div>
-              <div className="text-xs font-mono font-black text-emerald-700">{Number(topStats.lowestLoss.loss_pct).toFixed(1)}% ztráta</div>
-            </div>
-          )}
-
-          {topStats.highestLoss && (
-            <div className="card p-5 bg-white border-2 border-rose-300 rounded space-y-2">
-              <div className="text-xs font-black uppercase tracking-wider text-rose-900 flex items-center gap-1.5">
-                <ArrowUpRight size={16} className="text-rose-600" />
-                <span>Nejvyšší ztráta cyklu</span>
-              </div>
-              <div className="font-display font-black text-xl text-neutral-900">{topStats.highestLoss.tank_label} — {topStats.highestLoss.beer_name ?? '—'}</div>
-              <div className="text-xs font-mono font-black text-rose-700">{Number(topStats.highestLoss.loss_pct).toFixed(1)}% ztráta</div>
-            </div>
-          )}
-
-          {topStats.fastest && (
-            <div className="card p-5 bg-white border-2 border-sky-300 rounded space-y-2">
-              <div className="text-xs font-black uppercase tracking-wider text-sky-900 flex items-center gap-1.5">
-                <Zap size={16} className="text-sky-600" />
-                <span>Nejrychlejší cyklus tanku</span>
-              </div>
-              <div className="font-display font-black text-xl text-neutral-900">{topStats.fastest.tank_label} — {topStats.fastest.beer_name ?? '—'}</div>
-              <div className="text-xs font-mono font-black text-sky-700">{fmtHoursShort(topStats.fastest.duration_hours)}</div>
             </div>
           )}
 
