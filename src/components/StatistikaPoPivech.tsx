@@ -222,7 +222,7 @@ export default function StatistikaPoPivech({ sudy, lahve, obaly, piva, dnes }: P
       </section>
 
       <p className="text-udaj font-semibold text-neutral-400 px-1">
-        Sudy = zápisy stáčení KEG, lahve = zápisy stáčení lahví. Lahve se plní ze stočených sudů, proto se sudy a lahve nesčítají.
+        Sudy = zápisy stáčení KEG, lahve = zápisy stáčení lahví. Lahve se plní ze stočených sudů, proto se sudy a lahve nesčítají. Opravy z inventury (manko) se odečítají, ale stočeno nikdy nejde pod nulu.
       </p>
     </div>
   );

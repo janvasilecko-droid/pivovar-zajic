@@ -615,4 +615,33 @@ describe('staceniPivaPoObdobich — záložka Po pivech', () => {
     expect(r.lahve.kusy).toEqual([200, 0, 200, 0, 200, 0]);
     expect(r.lahve.litry[0]).toBe(100);
   });
+
+  it('oprava z inventury (manko) se odečte, ale stočeno nikdy nejde pod nulu', async () => {
+    const { staceniPivaPoObdobich, obdobiPoPivech } = await import('./statistika');
+    const obaly = new Map<string, Obal>([
+      ...OBALY,
+      ['keg50', { id: 'keg50', label: 'KEG 50 l', kind: 'keg', volume_l: 50 }],
+    ]);
+    const obdobi = obdobiPoPivech('2026-09-16');
+    const sudy = [
+      // Tento měsíc: u KEG 50 jen manko z inventury, žádné stáčení → 0, ne −1.
+      { entry_date: '2026-09-10', beer_id: 'b11', package_id: 'keg50', quantity: -1 },
+      // U KEG 30 stáčení 5 a manko −1 → 4.
+      { entry_date: '2026-09-11', beer_id: 'b11', package_id: 'keg30', quantity: 5 },
+      { entry_date: '2026-09-12', beer_id: 'b11', package_id: 'keg30', quantity: -1 },
+      // Letos u KEG 50 stáčení 3 v červnu → letos 3 − 1 = 2.
+      { entry_date: '2026-06-01', beer_id: 'b11', package_id: 'keg50', quantity: 3 },
+    ];
+    const r = staceniPivaPoObdobich(sudy, [], obaly, 'b11', obdobi);
+    const keg50 = r.sudy.obaly.find((o) => o.id === 'keg50')!;
+    const keg30 = r.sudy.obaly.find((o) => o.id === 'keg30')!;
+    // [tento týden, minulý týden, tento měsíc, minulý měsíc, letos, loni]
+    expect(keg50.kusy).toEqual([0, 0, 0, 0, 2, 0]);
+    expect(keg50.litry[2]).toBe(0);
+    expect(keg30.kusy[2]).toBe(4);
+    expect(r.sudy.kusy[2]).toBe(4); // součet = obaly po ořezu, ne 5 − 1 − 1 = 3
+    expect(r.sudy.litry[2]).toBe(120);
+    expect(r.sudy.kusy[4]).toBe(6);
+    expect(r.sudy.kusy.every((k) => k >= 0)).toBe(true);
+  });
 });
