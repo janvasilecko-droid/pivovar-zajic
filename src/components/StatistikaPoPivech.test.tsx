@@ -1,4 +1,4 @@
-// Statistika → Po pivech: vybrané pivo, sudy a lahve po obdobích.
+// Statistika → Po pivech: vybrané pivo, teď proti minule, sudy a lahve zvlášť.
 import { describe, it, expect } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import StatistikaPoPivech from './StatistikaPoPivech';
@@ -12,24 +12,36 @@ const SUDY = [
   { entry_date: '2026-09-15', beer_id: 'b12', package_id: 'keg50', quantity: 8 },
   { entry_date: '2026-08-10', beer_id: 'b12', package_id: 'keg50', quantity: 5 },
   { entry_date: '2026-09-15', beer_id: 'b11', package_id: 'keg50', quantity: 1 },
+  { entry_date: '2025-05-01', beer_id: 'b12', package_id: 'keg50', quantity: 30 },
 ];
 const LAHVE = [{ entry_date: '2026-09-16', beer_id: 'b12', package_id: 'lah05', quantity: 180 }];
 
+const karta = (nazev: string) => screen.getByRole('region', { name: nazev });
+const radek = (nazev: string, obal: string) =>
+  [...karta(nazev).querySelectorAll('tbody tr')].find((tr) => tr.textContent!.startsWith(obal))!;
+
 describe('StatistikaPoPivech', () => {
-  it('výchozí je pivo s největším výstavem tento měsíc; tento a minulý měsíc zvlášť', () => {
+  it('výchozí pivo s největším výstavem, tento měsíc proti minulému, po obalech', () => {
     render(<StatistikaPoPivech sudy={SUDY} lahve={LAHVE} obaly={OBALY} piva={PIVA} dnes="2026-09-17" />);
     expect(screen.getByRole('heading', { name: '12° Světlý — stočeno' })).toBeTruthy();
-    const mesic = screen.getByText('Tento měsíc').closest('tr')!;
-    expect(mesic.textContent).toMatch(/8 ks.*4 hl.*8× KEG 50l/);
-    expect(mesic.textContent).toMatch(/180 ks.*0,9 hl.*180× Lahev 0,5l/);
-    const minuly = screen.getByText('Minulý měsíc').closest('tr')!;
-    expect(minuly.textContent).toMatch(/5 ks/);
+    expect(karta('Sudy (KEG)').textContent).toMatch(/Tento měsíc8 ks4 hl/);
+    expect(karta('Sudy (KEG)').textContent).toMatch(/Minulý měsíc5 ks2,5 hl/);
+    expect(karta('Sudy (KEG)').textContent).toMatch(/\+60 %/);
+    expect(radek('Sudy (KEG)', 'KEG 50l').textContent).toBe('KEG 50l8 ks5 ks');
+    expect(radek('Lahve a PET', 'Lahev 0,5l').textContent).toBe('Lahev 0,5l180 ks–');
+    // Přehled všech piv za tento měsíc.
+    const vsechna = screen.getByRole('heading', { name: 'Všechna piva — tento měsíc' }).closest('section')!;
+    expect(vsechna.textContent).toMatch(/12° Světlý8 ks4 hl180 ks0,9 hl/);
+    expect(vsechna.textContent).toMatch(/11° Světlá1 ks0,5 hl–/);
   });
 
-  it('přepnutí na jiné pivo', () => {
+  it('přepnutí na rok a na jiné pivo', () => {
     render(<StatistikaPoPivech sudy={SUDY} lahve={LAHVE} obaly={OBALY} piva={PIVA} dnes="2026-09-17" />);
-    fireEvent.click(screen.getByRole('button', { name: '11° Světlá' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Rok' }));
+    expect(radek('Sudy (KEG)', 'KEG 50l').textContent).toBe('KEG 50l13 ks30 ks');
+    fireEvent.click(screen.getAllByRole('button', { name: '11° Světlá' })[0]);
     expect(screen.getByRole('heading', { name: '11° Světlá — stočeno' })).toBeTruthy();
-    expect(screen.getByText('Tento měsíc').closest('tr')!.textContent).toMatch(/1 ks/);
+    expect(radek('Sudy (KEG)', 'KEG 50l').textContent).toBe('KEG 50l1 ks–');
+    expect(karta('Lahve a PET').textContent).toMatch(/Ani teď, ani minule se nestáčelo/);
   });
 });
