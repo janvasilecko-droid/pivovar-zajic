@@ -25,7 +25,7 @@ import {
   formatHl, hl, litryPoMesicich, litryPoTydnech, litryPoObdobiAObalech, litryVRozsahu,
   obalyVCislech, obalyVDatech, pivaVCislech,
   podleOdberatelu, pondeliTydne, posunDnu, predchoziRozsah,
-  prumernaPotrebaKegu, popisRozsahu, denObdobi, rozpocetSudu, rozsahObdobi, zmenaProcent,
+  prumernaPotrebaKegu, popisRozsahu, denObdobi, rozpocetSudu, rozsahObdobi, zmenaProcent, podilSudyLahve,
   type CisloRadek, type Obal, type Obdobi, type Pivo, type VyrobniRadek,
 } from '../lib/statistika';
 
@@ -388,6 +388,8 @@ export default function StatistikaVystav({
   }, [obaly]);
 
   const litryObdobi = litryVRozsahu(vyroba, mapaObalu, od, doKdy);
+  const sudyVsLahve = podilSudyLahve(litryObdobi, litryDoLahvi);
+  const kusuLahvi = podleLahvi.reduce((s, p) => s + p.kusy, 0);
 
   return (
     <div className="space-y-4">
@@ -585,6 +587,57 @@ export default function StatistikaVystav({
           </div>
         )}
       </div>
+
+      {/* 🛢️🍾 KEG vs lahve — zadání 26. 9. 2026: „dej ať je tam určitě podíl
+          keg vs lahve". Lahve se plní z už stočených sudů, takže nejsou
+          navíc k výstavu, ale jeho část: v sudech zůstal výstav minus to,
+          co se přestočilo do lahví (lib/statistika.ts, podilSudyLahve). */}
+      <section className="card p-3.5 sm:p-5">
+        <Nadpis
+          text="KEG vs lahve"
+          popis={`${popisVybraneho} — kolik stočeného piva zůstalo v sudech a kolik šlo do lahví`}
+        />
+        {sudyVsLahve.sudyL + sudyVsLahve.lahveL === 0 ? (
+          <p className="text-sm text-neutral-500 font-semibold py-4 text-center">V tomhle období se nic nestočilo.</p>
+        ) : (
+          <>
+            <div
+              className="flex h-4 rounded-full overflow-hidden bg-neutral-100"
+              role="img"
+              aria-label={`Sudy ${(sudyVsLahve.podilSudy * 100).toFixed(0)} %, lahve ${(sudyVsLahve.podilLahve * 100).toFixed(0)} %`}
+            >
+              <div style={{ width: `${sudyVsLahve.podilSudy * 100}%`, backgroundColor: RADA_BAREV[0] }} />
+              <div style={{ width: `${sudyVsLahve.podilLahve * 100}%`, backgroundColor: RADA_BAREV[1] }} />
+            </div>
+            <div className="grid grid-cols-2 gap-3 mt-3">
+              <div>
+                <div className="flex items-center gap-2 text-udaj font-black uppercase tracking-wider text-neutral-500">
+                  <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: RADA_BAREV[0] }} />
+                  V sudech (KEG)
+                </div>
+                <div className="font-display font-extrabold text-2xl text-neutral-900 tabular-nums mt-1">
+                  {(sudyVsLahve.podilSudy * 100).toFixed(0)} %
+                </div>
+                <div className="text-xs font-semibold text-neutral-500 tabular-nums">{formatHl(sudyVsLahve.sudyL)} hl</div>
+              </div>
+              <div>
+                <div className="flex items-center gap-2 text-udaj font-black uppercase tracking-wider text-neutral-500">
+                  <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: RADA_BAREV[1] }} />
+                  V lahvích
+                </div>
+                <div className="font-display font-extrabold text-2xl text-neutral-900 tabular-nums mt-1">
+                  {(sudyVsLahve.podilLahve * 100).toFixed(0)} %
+                </div>
+                <div className="text-xs font-semibold text-neutral-500 tabular-nums">{formatHl(sudyVsLahve.lahveL)} hl · {kusuLahvi} ks</div>
+              </div>
+            </div>
+            <p className="text-udaj text-neutral-400 font-semibold mt-2">
+              Lahve se plní ze stočených sudů, proto jsou podílem výstavu ({formatHl(litryObdobi)} hl), ne něčím navíc.
+              {sudyVsLahve.zDrivejsich && ' V tomhle období se lahvovalo víc, než se stočilo — i ze sudů stočených dřív.'}
+            </p>
+          </>
+        )}
+      </section>
 
       {/* 📦 Obaly v číslech — jádro toho, kvůli čemu se sem chodí.
           Zadání 23. 9. 2026: „nestojim o data kolik celkem bylo stoceny
