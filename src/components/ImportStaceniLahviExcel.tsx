@@ -10,9 +10,10 @@
 // z WhatsApp objednávek) a zapisuje.
 import { useMemo, useState } from 'react';
 import { Modal, Spinner } from './ui';
-import { AlertTriangle, CheckCircle2, FileSpreadsheet, Upload } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, CloudDownload, FileSpreadsheet, Upload } from 'lucide-react';
 import { supabase, fetchAllRows, type Beer, type Package } from '../lib/supabase';
 import { saveAlias, fetchAliasesForAdmin } from '../lib/orderParser';
+import { authenticatedFunctionHeaders } from '../lib/functionAuth';
 import {
   naparsujRadkyStaceniLahvi, pripravImportStaceniLahvi, popisProblemu, najdiJizNaimportovaneOtisky,
   normalizujNazev, type ExcelRadekStaceni, type RadekKZapisu,
@@ -24,8 +25,17 @@ const MAX_MB = 15;
 /** Po kolika řádcích se zapisuje najednou — ať jeden veliký insert nespadne na limitu. */
 const DAVKA = 400;
 
+/** base64 → bajty, pro obsah stažený edge funkcí `import-google-drive`. */
+function base64NaBajty(b64: string): Uint8Array {
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+
 export default function ImportStaceniLahviExcel({ open, onClose, beers, packages, onImported }: Props) {
   const [nacita, setNacita] = useState(false);
+  const [nacitaZDisku, setNacitaZDisku] = useState(false);
   const [chybaSouboru, setChybaSouboru] = useState<string | null>(null);
   const [nazevSouboru, setNazevSouboru] = useState<string | null>(null);
   const [radky, setRadky] = useState<ExcelRadekStaceni[] | null>(null);
@@ -50,6 +60,31 @@ export default function ImportStaceniLahviExcel({ open, onClose, beers, packages
     onClose();
   }
 
+  /** Společné pro nahraný soubor i pro obsah stažený z Disku. */
+  async function zpracujBajty(buf: Uint8Array, nazev: string) {
+    const [XLSX, aliasRows, notyRes] = await Promise.all([
+      import('xlsx-js-style'),
+      fetchAliasesForAdmin(),
+      // `bottling` časem přeroste tisícovku řádků — fetchAllRows stránkuje,
+      // holé `.select().ilike()` by nad tisícovkou tiše ořízlo výsledek
+      // (viz lib/strankovaniDotazu.test.ts).
+      fetchAllRows<{ note: string | null }>('bottling', 'note').filter('note', 'ilike', '%#xls-lahve:%'),
+    ]);
+    if (notyRes.error) throw new Error(notyRes.error.message);
+    const wb = XLSX.read(buf, { type: 'array', cellDates: true });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: null }) as unknown[][];
+    const parsed = naparsujRadkyStaceniLahvi(aoa);
+    if (parsed.length === 0) {
+      throw new Error('V souboru appka nenašla žádné řádky se stáčením (čeká List1, data od řádku 19 — stejný tvar jako „Zápis stáčení lahve").');
+    }
+    setNazevSouboru(nazev);
+    setRadky(parsed);
+    setAliasy(Object.fromEntries(aliasRows.filter((a) => a.beer_id).map((a) => [a.alias_text, a.beer_id as string])));
+    const notyRadky = (notyRes.data ?? []) as { note: string | null }[];
+    setJizNaimportovaneNoty(notyRadky.map((n) => n.note ?? ''));
+  }
+
   async function vyberSoubor(e: React.ChangeEvent<HTMLInputElement>) {
     const soubor = e.target.files?.[0];
     e.target.value = '';
@@ -59,34 +94,34 @@ export default function ImportStaceniLahviExcel({ open, onClose, beers, packages
       return;
     }
     setNacita(true); setChybaSouboru(null); setHotovo(null); setVyberProNezname({});
-    setNazevSouboru(soubor.name);
     try {
-      const [buf, XLSX, aliasRows, notyRes] = await Promise.all([
-        soubor.arrayBuffer(),
-        import('xlsx-js-style'),
-        fetchAliasesForAdmin(),
-        // `bottling` časem přeroste tisícovku řádků — fetchAllRows stránkuje,
-        // holé `.select().ilike()` by nad tisícovkou tiše ořízlo výsledek
-        // (viz lib/strankovaniDotazu.test.ts).
-        fetchAllRows<{ note: string | null }>('bottling', 'note').filter('note', 'ilike', '%#xls-lahve:%'),
-      ]);
-      if (notyRes.error) throw new Error(notyRes.error.message);
-      const wb = XLSX.read(buf, { type: 'array', cellDates: true });
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: null }) as unknown[][];
-      const parsed = naparsujRadkyStaceniLahvi(aoa);
-      if (parsed.length === 0) {
-        throw new Error('V souboru appka nenašla žádné řádky se stáčením (čeká List1, data od řádku 19 — stejný tvar jako „Zápis stáčení lahve").');
-      }
-      setRadky(parsed);
-      setAliasy(Object.fromEntries(aliasRows.filter((a) => a.beer_id).map((a) => [a.alias_text, a.beer_id as string])));
-      const notyRadky = (notyRes.data ?? []) as { note: string | null }[];
-      setJizNaimportovaneNoty(notyRadky.map((n) => n.note ?? ''));
+      await zpracujBajty(new Uint8Array(await soubor.arrayBuffer()), soubor.name);
     } catch (err: any) {
       setChybaSouboru(err?.message ?? 'Soubor se nepodařilo přečíst.');
       setRadky(null);
     } finally {
       setNacita(false);
+    }
+  }
+
+  async function nacistZDisku() {
+    setNacitaZDisku(true); setChybaSouboru(null); setHotovo(null); setVyberProNezname({});
+    try {
+      const fnUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/import-google-drive`;
+      const resp = await fetch(fnUrl, {
+        method: 'POST',
+        headers: await authenticatedFunctionHeaders(),
+        body: JSON.stringify({ soubor: 'stac_lahve' }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok || data.error) throw new Error(data.error ?? `HTTP ${resp.status}`);
+      const bytes = base64NaBajty(data.base64 as string);
+      await zpracujBajty(bytes, data.nazevSouboru ?? 'z Google Disku');
+    } catch (err: any) {
+      setChybaSouboru(err?.message ?? 'Načtení z Disku se nepodařilo.');
+      setRadky(null);
+    } finally {
+      setNacitaZDisku(false);
     }
   }
 
@@ -118,17 +153,30 @@ export default function ImportStaceniLahviExcel({ open, onClose, beers, packages
     <Modal open={open} onClose={zavrit} title="Import stáčení lahví z Excelu" wide>
       <div className="space-y-4">
         <p className="text-sm font-semibold text-neutral-600">
-          Nahraj soubor, do kterého zapisuje kolega (List1, tvar jako „Zápis stáčení lahve"). Appka ukáže náhled a zapíše
-          teprve po potvrzení — nic se nestane automaticky. Když soubor nahraješ znovu později s novými řádky, appka
-          naimportuje jen ty nové.
+          Soubor, do kterého zapisuje kolega (List1, tvar jako „Zápis stáčení lahve") — appka ho umí načíst rovnou z Disku, nebo
+          ho nahraj ručně. V obou případech ukáže náhled a zapíše teprve po potvrzení — nic se nestane automaticky. Když se
+          v souboru objeví nové řádky, příště se naimportují jen ty.
         </p>
 
         {!radky && (
-          <label className="flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-neutral-300 p-8 cursor-pointer hover:border-amber-400 hover:bg-amber-50/40 transition">
-            <Upload className="w-8 h-8 text-neutral-400" />
-            <span className="font-bold text-sm text-neutral-700">Vyber soubor .xlsx</span>
-            <input type="file" accept=".xlsx,.xls" className="hidden" onChange={vyberSoubor} />
-          </label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={nacistZDisku}
+              disabled={nacitaZDisku}
+              className="flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-amber-300 bg-amber-50/40 p-8 hover:bg-amber-50 transition disabled:opacity-60"
+            >
+              {nacitaZDisku ? <Spinner className="w-8 h-8" /> : <CloudDownload className="w-8 h-8 text-amber-700" />}
+              <span className="font-bold text-sm text-amber-900">Načíst přímo z Disku</span>
+              <span className="text-udaj font-semibold text-amber-700">Bez stahování a nahrávání</span>
+            </button>
+            <label className="flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-neutral-300 p-8 cursor-pointer hover:border-amber-400 hover:bg-amber-50/40 transition">
+              <Upload className="w-8 h-8 text-neutral-400" />
+              <span className="font-bold text-sm text-neutral-700">Vyber soubor .xlsx</span>
+              <span className="text-udaj font-semibold text-neutral-400">Ruční nahrání</span>
+              <input type="file" accept=".xlsx,.xls" className="hidden" onChange={vyberSoubor} />
+            </label>
+          </div>
         )}
         {nacita && <div className="flex items-center gap-2 text-sm font-semibold text-neutral-500"><Spinner /> Čtu soubor…</div>}
         {chybaSouboru && (
