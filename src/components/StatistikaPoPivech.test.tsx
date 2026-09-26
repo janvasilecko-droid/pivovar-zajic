@@ -27,8 +27,9 @@ describe('StatistikaPoPivech', () => {
     expect(karta('Sudy (KEG)').textContent).toMatch(/Tento měsíc8 ks4 hl/);
     expect(karta('Sudy (KEG)').textContent).toMatch(/Minulý měsíc5 ks2,5 hl/);
     expect(karta('Sudy (KEG)').textContent).toMatch(/\+60 %/);
-    expect(radek('Sudy (KEG)', 'KEG 50l').textContent).toBe('KEG 50l8 ks5 ks');
-    expect(radek('Lahve a PET', 'Lahev 0,5l').textContent).toBe('Lahev 0,5l180 ks–');
+    expect(radek('Sudy (KEG)', 'KEG 50l').textContent).toBe('KEG 50l8 ks5 ks13 ks');
+    expect(karta('Sudy (KEG)').textContent).toMatch(/Celkem letos \(2026\)13 ks · 6,5 hl/);
+    expect(radek('Lahve a PET', 'Lahev 0,5l').textContent).toBe('Lahev 0,5l180 ks–180 ks');
     // Přehled všech piv za tento měsíc.
     const vsechna = screen.getByRole('heading', { name: 'Všechna piva — tento měsíc' }).closest('section')!;
     expect(vsechna.textContent).toMatch(/12° Světlý8 ks4 hl180 ks0,9 hl/);
@@ -38,10 +39,12 @@ describe('StatistikaPoPivech', () => {
   it('přepnutí na rok a na jiné pivo', () => {
     render(<StatistikaPoPivech sudy={SUDY} lahve={LAHVE} obaly={OBALY} piva={PIVA} dnes="2026-09-17" />);
     fireEvent.click(screen.getByRole('button', { name: 'Rok' }));
+    // U roku je letošek nahoře — řádek „Celkem letos" ani sloupec Letos se neopakují.
+    expect(karta('Sudy (KEG)').textContent).not.toMatch(/Celkem letos/);
     expect(radek('Sudy (KEG)', 'KEG 50l').textContent).toBe('KEG 50l13 ks30 ks');
     fireEvent.click(screen.getAllByRole('button', { name: '11° Světlá' })[0]);
     expect(screen.getByRole('heading', { name: '11° Světlá — stočeno' })).toBeTruthy();
     expect(radek('Sudy (KEG)', 'KEG 50l').textContent).toBe('KEG 50l1 ks–');
-    expect(karta('Lahve a PET').textContent).toMatch(/Ani teď, ani minule se nestáčelo/);
+    expect(karta('Lahve a PET').textContent).toMatch(/Ani letos, ani loni se nestáčelo/);
   });
 });
