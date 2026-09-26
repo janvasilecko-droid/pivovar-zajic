@@ -104,6 +104,15 @@ describe('Statistika — Výstav', () => {
     expect(screen.getByText(/33 % výstavu/)).toBeTruthy();
   });
 
+  it('podíl KEG vs lahve: lahve jsou část výstavu, ne navíc', () => {
+    vykresli();
+    const karta = screen.getByText('KEG vs lahve').closest('section')!;
+    // 600 l stočeno do sudů, z toho 200 l do lahví → v sudech 400 l = 67 %, v lahvích 33 %.
+    expect(karta.textContent).toMatch(/V sudech \(KEG\)\s*67 %/);
+    expect(karta.textContent).toMatch(/V lahvích\s*33 %/);
+    expect(karta.textContent).toMatch(/400 ks/);
+  });
+
   it('ukáže rozpad podle piv i podle obalů, ne jen barevný graf', () => {
     vykresli();
     // Barva sama nesmí nést informaci — u každé výseče je popisek i číslo.
@@ -126,7 +135,8 @@ describe('Statistika — Výstav', () => {
         orders={[]} orderItems={[]} dnes="2026-08-27" obdobi="tyden" onObdobi={vi.fn()}
       />,
     );
-    expect(screen.getAllByText(/V tomhle období se nic nestočilo/).length).toBe(2);
+    // Graf piv, graf obalů a karta KEG vs lahve.
+    expect(screen.getAllByText(/V tomhle období se nic nestočilo/).length).toBe(3);
     expect(screen.getByText(/V tomhle období se nelahvovalo/)).toBeTruthy();
     expect(screen.getByText(/V tomhle období není žádná objednávka/)).toBeTruthy();
   });

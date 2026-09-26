@@ -547,3 +547,29 @@ describe('zrychlené součty Statistiky = původní výpočet', () => {
     }
   });
 });
+
+describe('podilSudyLahve — KEG vs lahve', () => {
+  it('lahve jsou část výstavu, ne navíc', async () => {
+    const { podilSudyLahve } = await import('./statistika');
+    // 1680 l stočeno do sudů, z toho 180 l přestočeno do lahví
+    const r = podilSudyLahve(1680, 180);
+    expect(r.sudyL).toBe(1500);
+    expect(r.lahveL).toBe(180);
+    expect(r.podilSudy + r.podilLahve).toBeCloseTo(1);
+    expect(r.podilLahve).toBeCloseTo(180 / 1680);
+    expect(r.zDrivejsich).toBe(false);
+  });
+
+  it('nic se nestočilo → nuly, žádné dělení nulou', async () => {
+    const { podilSudyLahve } = await import('./statistika');
+    expect(podilSudyLahve(0, 0)).toEqual({ sudyL: 0, lahveL: 0, podilSudy: 0, podilLahve: 0, zDrivejsich: false });
+  });
+
+  it('lahvovalo se víc, než se stočilo (ze sudů z dřívějška)', async () => {
+    const { podilSudyLahve } = await import('./statistika');
+    const r = podilSudyLahve(100, 300);
+    expect(r.sudyL).toBe(0);
+    expect(r.podilLahve).toBe(1);
+    expect(r.zDrivejsich).toBe(true);
+  });
+});

@@ -645,3 +645,28 @@ export function prvniObjednavkaPodlePolozky(
   }
   return out;
 }
+
+/**
+ * Podíl KEG vs lahve za období.
+ *
+ * Lahvuje se z už stočených sudů, takže lahve jsou ČÁST výstavu, ne něco
+ * navíc: v sudech zůstalo „výstav − přestočeno do lahví". Sečíst výstav
+ * s lahvemi by tentýž objem počítalo dvakrát (viz komentář ve
+ * StatistikaVystav.tsx). Když se v období lahvovalo víc, než se stočilo
+ * (lahve ze sudů stočených dřív), sudy vyjdou na nulu a `zDrivejsich` to
+ * řekne, ať to nevypadá jako chyba.
+ */
+export function podilSudyLahve(vystavL: number, doLahviL: number): {
+  sudyL: number; lahveL: number; podilSudy: number; podilLahve: number; zDrivejsich: boolean;
+} {
+  const lahveL = Math.max(0, doLahviL);
+  const sudyL = Math.max(0, vystavL - lahveL);
+  const celkem = sudyL + lahveL;
+  return {
+    sudyL,
+    lahveL,
+    podilSudy: celkem > 0 ? sudyL / celkem : 0,
+    podilLahve: celkem > 0 ? lahveL / celkem : 0,
+    zDrivejsich: lahveL > vystavL,
+  };
+}
