@@ -40,8 +40,8 @@ describe('uložený záznam sedí s repozitářem', () => {
     JSON.parse(readFileSync('supabase/nasazeno.json', 'utf8')) as Record<string, string>;
   const funkce = (z: Record<string, string>) => Object.keys(z).filter((k) => !k.startsWith('_'));
 
-  it('obsahuje všech třináct funkcí', () => {
-    expect(funkce(zaznam())).toHaveLength(13);
+  it('obsahuje všech čtrnáct funkcí', () => {
+    expect(funkce(zaznam())).toHaveLength(14);
   });
 
   it('klíčem je otisk obsahu, ne commit', () => {
