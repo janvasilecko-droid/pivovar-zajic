@@ -106,7 +106,7 @@ describe('Statistika — Výstav', () => {
 
   it('podíl KEG vs lahve: lahve jsou část výstavu, ne navíc', () => {
     vykresli();
-    const karta = screen.getByText('KEG vs lahve').closest('section')!;
+    const karta = screen.getByRole('heading', { name: 'KEG vs lahve' }).closest('section')!;
     // 600 l stočeno do sudů, z toho 200 l do lahví → v sudech 400 l = 67 %, v lahvích 33 %.
     expect(karta.textContent).toMatch(/V sudech \(KEG\)\s*67 %/);
     expect(karta.textContent).toMatch(/V lahvích\s*33 %/);
@@ -119,6 +119,29 @@ describe('Statistika — Výstav', () => {
     expect(screen.getAllByText('11° Světlá').length).toBeGreaterThan(0);
     expect(screen.getAllByText('KEG 30 l').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Lahev 0,5 l').length).toBeGreaterThan(0);
+  });
+
+  it('odběratelé se dají přepnout z měsíce na rok', () => {
+    render(
+      <StatistikaVystav
+        bottlingRows={bottling} keggingRows={kegging} fasovaniRows={fasovani} writeoffRows={odpisy}
+        obaly={OBALY} piva={PIVA} dnes="2026-08-27" obdobi="mesic" onObdobi={vi.fn()}
+        orders={[
+          ...orders,
+          // Závoz v březnu — do srpna nepatří, do roku ano.
+          { id: 'o2', place_name: 'Pivnice Na Rohu', delivery_date: '2026-03-10', order_date: '2026-03-08', status: 'nova' },
+        ]}
+        orderItems={[...orderItems, { order_id: 'o2', package_id: 'keg30', quantity: 5 }]}
+      />,
+    );
+    const karta = screen.getByRole('heading', { name: 'Největší odběratelé' }).closest('section')!;
+    expect(karta.textContent).toContain('Hospoda U Lípy');
+    expect(karta.textContent).not.toContain('Pivnice Na Rohu');
+    const rok = [...karta.querySelectorAll('button')].find((b) => b.textContent === 'Rok')!;
+    fireEvent.click(rok);
+    expect(karta.textContent).toContain('Pivnice Na Rohu');
+    expect(karta.textContent).toContain('Hospoda U Lípy');
+    expect(karta.textContent).toMatch(/za rok 2026/);
   });
 
   it('žebříček odběratelů bere den závozu', () => {
@@ -212,6 +235,15 @@ describe('Statistika — konkrétní obaly místo souhrnů', () => {
     expect(prepinac.getAttribute('aria-pressed')).toBe('true');
     // Popisek grafu musí říct, co je vidět — jinak se dva pohledy pletou.
     expect(screen.getAllByText(/rozpadlý na velikosti sudů/).length).toBe(2);
+  });
+
+  it('grafy se dají přepnout na KEG vs lahve', () => {
+    vykresli();
+    const prepinac = screen.getByRole('button', { name: 'KEG vs lahve' });
+    fireEvent.click(prepinac);
+    expect(prepinac.getAttribute('aria-pressed')).toBe('true');
+    // Oba grafy (měsíce i týdny) řeknou, co ukazují.
+    expect(screen.getAllByText(/co zůstalo v sudech a co šlo do lahví/).length).toBe(2);
   });
 });
 

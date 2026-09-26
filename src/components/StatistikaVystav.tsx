@@ -55,6 +55,14 @@ export function barvaZMotivu(promenna: string, zaloha: string): string {
 const RADA_BAREV = ['#b3730a', '#0369a1', '#15803d', '#7e22ce', '#c85f1e', '#0891b2', '#65a30d', '#be123c'];
 const BARVA_LETOS = '#b3730a';
 
+/** Popisek v bublině grafu KEG vs lahve: hektolitry a podíl v tom sloupci. */
+function popisSudyLahve(v: any, n: any, polozka: any): [string, string] {
+  const p = polozka?.payload ?? {};
+  const celkem = Number(p.sudy ?? 0) + Number(p.lahve ?? 0);
+  const podil = celkem > 0 ? ` (${Math.round((Number(v) / celkem) * 100)} %)` : '';
+  return [`${Number(v).toFixed(1)} hl${podil}`, n];
+}
+
 const MESICE_ZKR = ['led', 'úno', 'bře', 'dub', 'kvě', 'čvn', 'čvc', 'srp', 'zář', 'říj', 'lis', 'pro'];
 
 type Props = {
@@ -243,7 +251,7 @@ export default function StatistikaVystav({
   // Grafy umí dva pohledy: souhrn (a proti loňsku) a rozpad na konkrétní
   // obaly. Přepínač je společný pro oba grafy — jinak by šlo přepnout jeden
   // a druhý ne a člověk by porovnával dvě různé věci.
-  const [rezimGrafu, setRezimGrafu] = useState<'celkem' | 'obaly'>('celkem');
+  const [rezimGrafu, setRezimGrafu] = useState<'celkem' | 'sudyLahve' | 'obaly'>('celkem');
   // Rozbalený odběratel v žebříčku — najednou jen jeden, ať se seznam
   // nerozjede přes celý displej.
   const [rozbalenyOdberatel, setRozbalenyOdberatel] = useState<string | null>(null);
@@ -336,6 +344,32 @@ export default function StatistikaVystav({
     return out;
   }, [vyroba, mapaObalu, dnes, radyObalu]);
 
+  // ── KEG vs lahve po měsících a týdnech ─────────────────────────────────
+  // Stejný výpočet jako karta „KEG vs lahve" (podilSudyLahve): lahve jsou
+  // část výstavu, v sudech zůstal výstav − přestočeno do lahví.
+  const dataMesiceSudyLahve = useMemo(() => {
+    const sudy = litryPoMesicich(vyroba, mapaObalu);
+    const lahve = litryPoMesicich(lahvovani, mapaObalu);
+    const letos = dnes.slice(0, 4);
+    return MESICE_ZKR.map((zkr, i) => {
+      const k = `${letos}-${String(i + 1).padStart(2, '0')}`;
+      const r = podilSudyLahve(sudy.get(k) ?? 0, lahve.get(k) ?? 0);
+      return { mesic: zkr, sudy: hl(r.sudyL), lahve: hl(r.lahveL) };
+    });
+  }, [vyroba, lahvovani, mapaObalu, dnes]);
+
+  const dataTydnySudyLahve = useMemo(() => {
+    const sudy = litryPoTydnech(vyroba, mapaObalu);
+    const lahve = litryPoTydnech(lahvovani, mapaObalu);
+    const out: { tyden: string; sudy: number; lahve: number }[] = [];
+    for (let i = 11; i >= 0; i--) {
+      const pondeli = pondeliTydne(posunDnu(dnes, -7 * i));
+      const r = podilSudyLahve(sudy.get(pondeli) ?? 0, lahve.get(pondeli) ?? 0);
+      out.push({ tyden: `${Number(pondeli.slice(8, 10))}.${Number(pondeli.slice(5, 7))}.`, sudy: hl(r.sudyL), lahve: hl(r.lahveL) });
+    }
+    return out;
+  }, [vyroba, lahvovani, mapaObalu, dnes]);
+
   const podlePiv = useMemo(
     () => pivaVCislech(vyroba, mapaObalu, piva, od, doKdy, predchozi),
     [vyroba, mapaObalu, piva, od, doKdy, predchozi],
@@ -353,9 +387,14 @@ export default function StatistikaVystav({
     () => litryVRozsahu(lahvovani, mapaObalu, od, doKdy),
     [lahvovani, mapaObalu, od, doKdy],
   );
+  // Odběratelé mají vlastní přepínač Měsíc / Rok (zadání 26. 9. 2026: „u
+  // odběratelů dej nejen za měsíc, ale ať se dá překliknout i na rok").
+  // Bere se aktuální měsíc / rok — žebříček se čte hlavně „kdo teď bere nejvíc".
+  const [obdobiOdberatelu, setObdobiOdberatelu] = useState<'mesic' | 'rok'>('mesic');
+  const rozsahOdberatelu = rozsahObdobi(obdobiOdberatelu, dnes);
   const odberatele = useMemo(
-    () => podleOdberatelu(orders, orderItems, mapaObalu, od, doKdy).slice(0, 10),
-    [orders, orderItems, mapaObalu, od, doKdy],
+    () => podleOdberatelu(orders, orderItems, mapaObalu, rozsahOdberatelu.od, rozsahOdberatelu.do).slice(0, 10),
+    [orders, orderItems, mapaObalu, rozsahOdberatelu.od, rozsahOdberatelu.do],
   );
 
   // 🛢️ Kolik sudů průměrně padne za týden a za měsíc — podklad pro to, kolik
@@ -459,9 +498,10 @@ export default function StatistikaVystav({
         )}
       </section>
 
-      {/* Přepínač pohledu grafů — souhrn, nebo rozpad na konkrétní obaly. */}
+      {/* Přepínač pohledu grafů — souhrn, KEG vs lahve, nebo rozpad na
+          konkrétní obaly. */}
       <Prepinac
-        volby={[['celkem', 'Celkem'], ['obaly', 'Po obalech']] as const}
+        volby={[['celkem', 'Celkem'], ['sudyLahve', 'KEG vs lahve'], ['obaly', 'Po obalech']] as const}
         vybrano={rezimGrafu}
         onZmena={setRezimGrafu}
       />
@@ -471,7 +511,9 @@ export default function StatistikaVystav({
         <Nadpis
           text="Výstav po měsících (sudy)"
           popis={
-            rezimGrafu === 'obaly'
+            rezimGrafu === 'sudyLahve'
+              ? `Hektolitry za rok ${dnes.slice(0, 4)} — co zůstalo v sudech a co šlo do lahví`
+              : rezimGrafu === 'obaly'
               ? `Hektolitry za rok ${dnes.slice(0, 4)} — sloupec rozpadlý na velikosti sudů`
               : maLonskaData
                 ? `Hektolitry — ${dnes.slice(0, 4)} proti ${Number(dnes.slice(0, 4)) - 1}`
@@ -480,7 +522,17 @@ export default function StatistikaVystav({
         />
         <div className="h-[240px] sm:h-[300px] -ml-3">
           <ResponsiveContainer width="100%" height="100%">
-            {rezimGrafu === 'obaly' ? (
+            {rezimGrafu === 'sudyLahve' ? (
+              <BarChart data={dataMesiceSudyLahve} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
+                <CartesianGrid stroke={MRIZKA} strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="mesic" tick={{ fontSize: 11, fill: INK_TLUMENA, fontWeight: 700 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: INK_TLUMENA }} axisLine={false} tickLine={false} width={38} />
+                <Tooltip {...stylTooltipu} formatter={popisSudyLahve} />
+                <Legend wrapperStyle={{ fontSize: 12, fontWeight: 700 }} />
+                <Bar dataKey="sudy" name="V sudech (KEG)" stackId="sl" fill={RADA_BAREV[0]} maxBarSize={22} />
+                <Bar dataKey="lahve" name="V lahvích" stackId="sl" fill={RADA_BAREV[1]} maxBarSize={22} />
+              </BarChart>
+            ) : rezimGrafu === 'obaly' ? (
               <BarChart data={dataMesiceObaly} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
                 <CartesianGrid stroke={MRIZKA} strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="mesic" tick={{ fontSize: 11, fill: INK_TLUMENA, fontWeight: 700 }} axisLine={false} tickLine={false} />
@@ -510,11 +562,25 @@ export default function StatistikaVystav({
       <section className="card p-3.5 sm:p-5">
         <Nadpis
           text="Posledních 12 týdnů"
-          popis={rezimGrafu === 'obaly' ? 'Hektolitry po týdnech, sloupec rozpadlý na velikosti sudů' : 'Hektolitry stočené v jednotlivých týdnech'}
+          popis={
+            rezimGrafu === 'sudyLahve' ? 'Hektolitry po týdnech — co zůstalo v sudech a co šlo do lahví'
+              : rezimGrafu === 'obaly' ? 'Hektolitry po týdnech, sloupec rozpadlý na velikosti sudů'
+                : 'Hektolitry stočené v jednotlivých týdnech'
+          }
         />
         <div className="h-[200px] sm:h-[240px] -ml-3">
           <ResponsiveContainer width="100%" height="100%">
-            {rezimGrafu === 'obaly' ? (
+            {rezimGrafu === 'sudyLahve' ? (
+              <BarChart data={dataTydnySudyLahve} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
+                <CartesianGrid stroke={MRIZKA} strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="tyden" tick={{ fontSize: 10, fill: INK_TLUMENA, fontWeight: 700 }} axisLine={false} tickLine={false} interval={0} />
+                <YAxis tick={{ fontSize: 11, fill: INK_TLUMENA }} axisLine={false} tickLine={false} width={38} />
+                <Tooltip {...stylTooltipu} formatter={popisSudyLahve} labelFormatter={(l) => `Týden od ${l}`} />
+                <Legend wrapperStyle={{ fontSize: 12, fontWeight: 700 }} />
+                <Bar dataKey="sudy" name="V sudech (KEG)" stackId="sl" fill={RADA_BAREV[0]} maxBarSize={30} />
+                <Bar dataKey="lahve" name="V lahvích" stackId="sl" fill={RADA_BAREV[1]} maxBarSize={30} />
+              </BarChart>
+            ) : rezimGrafu === 'obaly' ? (
               <BarChart data={dataTydnyObaly} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
                 <CartesianGrid stroke={MRIZKA} strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="tyden" tick={{ fontSize: 10, fill: INK_TLUMENA, fontWeight: 700 }} axisLine={false} tickLine={false} interval={0} />
@@ -719,7 +785,17 @@ export default function StatistikaVystav({
 
         {/* Odběratelé */}
         <section className="card p-3.5 sm:p-5">
-          <Nadpis text="Největší odběratelé" popis={`Podle objednaného množství ${popisVybraneho} — rozhoduje den závozu`} />
+          <Nadpis
+            text="Největší odběratelé"
+            popis={`Podle objednaného množství ${obdobiOdberatelu === 'rok' ? 'za rok' : 'za měsíc'} ${popisRozsahu(obdobiOdberatelu, dnes)} — rozhoduje den závozu`}
+          />
+          <div className="mb-3">
+            <Prepinac
+              volby={[['mesic', 'Měsíc'], ['rok', 'Rok']] as const}
+              vybrano={obdobiOdberatelu}
+              onZmena={setObdobiOdberatelu}
+            />
+          </div>
           {odberatele.length === 0 ? (
             <EmptyState text="V tomhle období není žádná objednávka." icon={Store} />
           ) : (
