@@ -263,6 +263,10 @@ const ODDILY: Oddil[] = [
         co: 'Export do Excelu',
         jak: 'U každého listu je zaškrtávátko — dá se stáhnout jen KEG nebo jen Lahve. Záporné řádky (ruční opravy přepočtu) se ve výchozím stavu vynechávají.',
       },
+      {
+        co: 'Načíst z Excelu',
+        jak: 'Pro sešity, do kterých zapisuje kolega mimo appku (evidence mimo appku). Nahraješ soubor, appka ukáže náhled — co jde zapsat rovnou a co potřebuje kontrolu — a zapíše teprve po potvrzení. Druhé nahrání stejného souboru přidá jen nové řádky.',
+      },
     ],
   },
   {

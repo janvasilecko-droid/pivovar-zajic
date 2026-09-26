@@ -220,6 +220,9 @@ export const PAGE_TO_MODULE: Record<string, ModuleKey> = {
   // Měsíční export čte zápisy stáčení a výdeje — spadá pod stejný modul
   // jako ony, aby ho neviděl někdo, kdo na ta data nemá právo.
   export_excel: 'entry',
+  // Import z Excelu zapisuje do stejných tabulek jako ruční zápis (zatím
+  // stáčení lahví) — stejný modul, stejné právo jako u ručního zápisu.
+  import_excel: 'entry',
   kegging: 'entry',
   bottling: 'entry',
   orders_entry: 'entry',

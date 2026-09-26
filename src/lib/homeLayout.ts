@@ -242,7 +242,7 @@ export const STRANKY_PLOCHY: Array<{ nazev: string; ids: Page[] }> = [
     nazev: 'Výpočty a přehledy',
     ids: [
       'concentration', 'inventory', 'calendar', 'timer', 'history',
-      'export_excel', 'haccp', 'vehicles', 'dashboard', 'audit', 'zaloha', 'navod',
+      'export_excel', 'import_excel', 'haccp', 'vehicles', 'dashboard', 'audit', 'zaloha', 'navod',
     ],
   },
   {
@@ -434,7 +434,7 @@ export const PAGE_CATEGORY: Partial<Record<Page, Category>> = {
   marketing: 'Výroba',
   // Pivovar
   dashboard: 'Pivovar', audit: 'Pivovar', sklo_promo: 'Pivovar', cellar: 'Pivovar', bottling_needs: 'Pivovar', inventory: 'Pivovar', history: 'Pivovar', stock: 'Pivovar', stock_pohyby: 'Pivovar',
-  export_excel: 'Pivovar',
+  export_excel: 'Pivovar', import_excel: 'Pivovar',
   // Nástroje
   concentration: 'Nástroje', calendar: 'Nástroje', haccp: 'Nástroje', vehicles: 'Nástroje', kniha_jizd: 'Nástroje',
   sanitace_lahve: 'Nástroje', sanitace_kegy: 'Nástroje', sanitace_vycepy: 'Nástroje', sanitace: 'Nástroje',

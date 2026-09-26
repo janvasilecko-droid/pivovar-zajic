@@ -21,6 +21,7 @@ import ProdejnaScreen from '../src/screens/ProdejnaScreen';
 import { BottlingTasksSettings } from '../src/components/BottlingTasksSettings';
 import Statistika from '../src/screens/Statistika';
 import ImportStaceniLahviExcel from '../src/components/ImportStaceniLahviExcel';
+import ImportExcelScreen from '../src/screens/ImportExcelScreen';
 import * as data from './mock/data';
 
 const OBRAZOVKY = {
@@ -39,6 +40,7 @@ const OBRAZOVKY = {
       <ImportStaceniLahviExcel open onClose={() => {}} beers={data.beers as any} packages={data.packages as any} onImported={() => {}} />
     ),
   },
+  importExcel: { popis: 'Načíst z Excelu (rozcestník)', vykresli: () => <ImportExcelScreen /> },
 } as const;
 
 type Klic = keyof typeof OBRAZOVKY;
