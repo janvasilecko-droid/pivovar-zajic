@@ -624,29 +624,6 @@ export function objednanoPoMesicich(
 }
 
 /**
- * Pro každou dvojici pivo+obal první objednávka (v pořadí seznamu, bez storna),
- * která ji obsahuje — kam vede klepnutí na řádek v Podrobném hledání.
- *
- * Dřív se to hledalo při vykreslení KAŽDÉHO řádku znovu přes všechny
- * objednávky a jejich položky, a to dvakrát (karty pro telefon i tabulka
- * jsou v stránce obě, jen jedna je schovaná).
- */
-export function prvniObjednavkaPodlePolozky(
-  objednavky: { id: string; status: string }[],
-  polozkyPodleObjednavky: Record<string, { beer_id: string | null; package_id: string | null }[]>,
-): Map<string, string> {
-  const out = new Map<string, string>();
-  for (const o of objednavky) {
-    if (o.status === 'storno') continue;
-    for (const i of polozkyPodleObjednavky[o.id] ?? []) {
-      const klic = `${i.beer_id}__${i.package_id}`;
-      if (!out.has(klic)) out.set(klic, o.id);
-    }
-  }
-  return out;
-}
-
-/**
  * Podíl KEG vs lahve za období.
  *
  * Lahvuje se z už stočených sudů, takže lahve jsou ČÁST výstavu, ne něco

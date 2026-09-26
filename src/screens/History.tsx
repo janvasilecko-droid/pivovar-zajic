@@ -1,21 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Beer, beerBorder, fetchAllRows, formatPackageLabel, Package, Place, supabase, useRealtime } from '../lib/supabase';
+import { Beer, beerBorder, fetchAllRows, Package, supabase, useRealtime } from '../lib/supabase';
 import { Kostra, Spinner, EmptyState } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
 
-import { AlertTriangle, ChevronDown, ChevronUp, ArrowDownRight, ArrowUpRight, ChevronsUpDown, Download, Package as PackageIcon, Printer, Receipt, Save, Search, ShieldAlert, Snowflake, Star, Store, TrendingDown, TrendingUp, Trophy, Truck, X, Zap, type LucideIcon } from 'lucide-react';
-import { EditOrderModal } from '../components/EditOrderModal';
+import { AlertTriangle, ChevronDown, ChevronUp, ArrowDownRight, ArrowUpRight, ChevronsUpDown, Download, Printer, ShieldAlert, Snowflake, Store, TrendingUp, Trophy, Truck, X, Zap } from 'lucide-react';
 import { TabBar, type TabBarItem } from '../components/TabBar';
 import ZavozHistory from '../components/ZavozHistory';
-import { IkonaLahev, IkonaSud } from '../components/ikony';
+import { IkonaSud } from '../components/ikony';
 import StatistikaVystav from '../components/StatistikaVystav';
 import type { Obdobi, VyrobniRadek } from '../lib/statistika';
-import { kdoPrestalObjednavat, podilPodleObalu, rozsahObdobi, denObdobi, objednanoPoMesicich, prvniObjednavkaPodlePolozky } from '../lib/statistika';
+import { kdoPrestalObjednavat, podilPodleObalu, rozsahObdobi, denObdobi, objednanoPoMesicich } from '../lib/statistika';
 import { rozpadSuduVCyklech, popisRozpaduSudu, type StaceniRadek } from '../lib/cyklyTanku';
 import { usePosledniNacteni } from '../lib/nacitani';
 import { useChovaniDialogu } from '../lib/zavriNaZpet';
 import { businessDateISO } from '../lib/businessDate';
-import { uloz } from '../lib/uloziste';
 import { nactiSdilenouTabulku } from '../lib/sdilenaData';
 
 type MonthData = {
@@ -53,42 +51,6 @@ function monthLabel(m: string): string {
 // v Praze je. Stejná chyba jako u weekKey v Kegging.tsx.
 function todayISO(): string { return businessDateISO(); }
 function startOfYearISO(iso: string): string { return iso.slice(0, 4) + '-01-01'; }
-function startOfMonthISO(iso: string): string { return iso.slice(0, 7) + '-01'; }
-function addDaysISO(iso: string, delta: number): string {
-  const d = new Date(iso + 'T00:00:00Z');
-  d.setUTCDate(d.getUTCDate() + delta);
-  return d.toISOString().slice(0, 10);
-}
-
-// ---- Detailní hledání: definice zdrojů aktivit ----
-type ActivitySourceKey = 'bottling' | 'kegging' | 'fasovani' | 'fasovani_private' | 'writeoffs' | 'order_items';
-const ACTIVITY_SOURCES: { key: ActivitySourceKey; label: string; icon: LucideIcon; dateField: 'entry_date' | 'order_date'; hasVolume: boolean }[] = [
-  { key: 'bottling', label: 'Stáčení lahví', icon: IkonaLahev, dateField: 'entry_date', hasVolume: true },
-  { key: 'kegging', label: 'Stáčení kegů', icon: IkonaSud, dateField: 'entry_date', hasVolume: true },
-  { key: 'fasovani', label: 'Fasování', icon: PackageIcon, dateField: 'entry_date', hasVolume: true },
-  { key: 'fasovani_private', label: 'Prodejna', icon: Store, dateField: 'entry_date', hasVolume: true },
-  { key: 'writeoffs', label: 'Odpisy', icon: TrendingDown, dateField: 'entry_date', hasVolume: true },
-  { key: 'order_items', label: 'Objednávky', icon: Receipt, dateField: 'order_date', hasVolume: true },
-];
-
-type DetailRow = {
-  source: ActivitySourceKey;
-  entry_date: string;
-  beer_id: string | null;
-  package_id: string | null;
-  quantity: number;
-};
-
-type DetailResultRow = {
-  beer_id: string | null;
-  beer_name: string;
-  package_id: string | null;
-  package_label: string;
-  volume_l: number;
-  qtyBySource: Record<ActivitySourceKey, number>;
-  totalQty: number;
-  totalLiters: number;
-};
 
 type TankCycleRow = {
   id: string;
@@ -136,33 +98,16 @@ function sortRows<T>(rows: T[], key: keyof T | null, dir: SortDir): T[] {
   return copy;
 }
 
-type SavedFilter = {
-  name: string;
-  selSources: ActivitySourceKey[];
-  selBeers: string[];
-  selPackages: string[];
-  dateFrom: string;
-  dateTo: string;
-};
-
-type DeliveryOrder = {
-  id: string; order_date: string; place_id: string | null; place_name: string | null;
-  status: string; delivery_day: string | null; is_prepared: boolean; is_packaged: boolean;
-  is_delivered: boolean; note: string | null; source: string; delivered_at: string | null;
-  created_at: string; delivery_date: string | null;
-  place_phone?: string | null;
-};
-type DeliveryItem = { id: string; order_id: string; beer_id: string | null; beer_name: string | null; package_id: string | null; package_label: string | null; quantity: number; is_prepared: boolean };
-
 // „Objednávky" (týdenní součet kusů podle piva a obalu) se zrušila 25. 9. 2026
 // — ukazovala totéž co Objednávky → Celkem, která navíc umí měsíc i vše.
 // Starý odkaz na ni skončí na Výstavu (zalozkaZAdresy níž).
-type Zalozka = 'vystav' | 'detail' | 'cycles' | 'stats' | 'deliveries';
-const ZALOZKY: Zalozka[] = ['vystav', 'detail', 'cycles', 'stats', 'deliveries'];
+// Stejně tak „Hledání" (vlastní součty podle zdroje, období, piva a obalu)
+// — zrušeno 26. 9. 2026 na přání provozu, nikdo nevěděl, k čemu je.
+type Zalozka = 'vystav' | 'cycles' | 'stats' | 'deliveries';
+const ZALOZKY: Zalozka[] = ['vystav', 'cycles', 'stats', 'deliveries'];
 
 const LISTA_ZALOZEK: (TabBarItem & { id: Zalozka })[] = [
   { id: 'vystav', label: 'Výstav', icon: TrendingUp, color: '#f59f00' },
-  { id: 'detail', label: 'Hledání', icon: Search, color: '#4dabf7' },
   { id: 'cycles', label: 'Cykly tanků', icon: IkonaSud, color: '#ffa94d' },
   { id: 'stats', label: 'Žebříčky', icon: Trophy, color: '#38d9a9' },
   { id: 'deliveries', label: 'Trasy', icon: Truck, color: '#7c5cff' },
@@ -213,87 +158,15 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
   // Zpět zavře tiskový náhled místo odchodu z historie.
   useChovaniDialogu(showPrintModal, () => setShowPrintModal(false));
 
-  // ---- Detailní hledání state ----
-  const [detailRows, setDetailRows] = useState<DetailRow[]>([]);
-  const [detailLoading, setDetailLoading] = useState(true);
-  const [selSources, setSelSources] = useState<Set<ActivitySourceKey>>(new Set(ACTIVITY_SOURCES.map((s) => s.key)));
-  const [selBeers, setSelBeers] = useState<Set<string>>(new Set());
-  const [selPackages, setSelPackages] = useState<Set<string>>(new Set());
-  const [dateFrom, setDateFrom] = useState<string>(startOfYearISO(todayISO()));
-  const [dateTo, setDateTo] = useState<string>(todayISO());
-
   // ---- Historie cyklů tanků ----
   const [tankCycles, setTankCycles] = useState<TankCycleRow[]>([]);
   const [tankCyclesLoading, setTankCyclesLoading] = useState(true);
   const [staceniProCykly, setStaceniProCykly] = useState<StaceniRadek[]>([]);
 
-  // ---- Historie nákladek (přesunuto z původní obrazovky Závoz) ----
-  const [delOrders, setDelOrders] = useState<DeliveryOrder[]>([]);
-  const [delItems, setDelItems] = useState<Record<string, DeliveryItem[]>>({});
-
-  // ---- Editace objednávek z přehledu ----
-  const [editOrder, setEditOrder] = useState<DeliveryOrder | null>(null);
-  const [editItems, setEditItems] = useState<DeliveryItem[]>([]);
-  const [places, setPlaces] = useState<Place[]>([]);
-
-  async function loadDeliveries() {
-    const [{ data: o }, { data: pl }, { data: vsechnyPolozky }] = await Promise.all([
-      fetchAllRows('orders', '*').neq('status', 'storno').order('order_date', { ascending: false }),
-      supabase.from('places').select('*').order('name'),
-      // Položky současně s objednávkami, ne až po nich přes .in() (druhé kolo).
-      nactiSdilenouTabulku('order_items'),
-    ]);
-    const ords = (o as DeliveryOrder[]) ?? [];
-    setDelOrders(ords);
-    setPlaces((pl as Place[]) ?? []);
-    if (ords.length) {
-      const ids = new Set(ords.map((x) => x.id));
-      const map: Record<string, DeliveryItem[]> = {};
-      ((vsechnyPolozky as DeliveryItem[]) ?? []).forEach((i) => { if (ids.has(i.order_id)) (map[i.order_id] ??= []).push(i); });
-      setDelItems(map);
-    }
-  }
-
-  async function openEditOrder(orderId: string) {
-    const order = delOrders.find((o) => o.id === orderId);
-    if (!order) return;
-    const items = delItems[orderId] ?? [];
-    setEditOrder(order);
-    setEditItems(items);
-  }
-
-  // Všechny objednávky i s položkami potřebuje jen Hledání (kam vede
-  // klepnutí na řádek). Dřív se stahovaly při KAŽDÉM otevření
-  // Statistiky, i když se člověk podíval jen na Výstav.
-  const potrebujeObjednavky = activeTab === 'detail';
-  const [objednavkyNacteny, setObjednavkyNacteny] = useState(false);
-  useEffect(() => {
-    if (potrebujeObjednavky && !objednavkyNacteny) {
-      setObjednavkyNacteny(true);
-      loadDeliveries();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [potrebujeObjednavky]);
-  useRealtime(['orders', 'order_items', 'places'], () => { if (objednavkyNacteny) loadDeliveries(); });
-
-
-
-  // ---- Uložené oblíbené filtry (localStorage) ----
-  const [savedFilters, setSavedFilters] = useState<SavedFilter[]>(() => {
-    try { return JSON.parse(localStorage.getItem('history_saved_filters') || '[]'); } catch { return []; }
-  });
-  const [newFilterName, setNewFilterName] = useState('');
-
   // ---- Řazení tabulek ----
-  const [detailSortKey, setDetailSortKey] = useState<keyof DetailResultRow | null>(null);
-  const [detailSortDir, setDetailSortDir] = useState<SortDir>('desc');
   const [cycleSortKey, setCycleSortKey] = useState<keyof TankCycleRow | null>(null);
   const [cycleSortDir, setCycleSortDir] = useState<SortDir>('desc');
 
-  function onSortDetail(key: keyof DetailResultRow) {
-    if (detailSortKey === key) setDetailSortDir((d) => d === 'asc' ? 'desc' : 'asc');
-    else { setDetailSortKey(key); setDetailSortDir('desc'); }
-  }
   function onSortCycle(key: keyof TankCycleRow) {
     if (cycleSortKey === key) setCycleSortDir((d) => d === 'asc' ? 'desc' : 'asc');
     else { setCycleSortKey(key); setCycleSortDir('desc'); }
@@ -304,7 +177,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
   async function load(tiche = false) {
     const smiZapsat = zacniNacteni();
     if (!tiche) setLoading(true);
-    const [{ data: bt }, { data: kg }, { data: fa }, { data: wo }, { data: ak }, { data: oi }, { data: ord }, { data: b }, { data: pk }, { data: faPriv }] = await Promise.all([
+    const [{ data: bt }, { data: kg }, { data: fa }, { data: wo }, { data: ak }, { data: oi }, { data: ord }, { data: b }, { data: pk }] = await Promise.all([
       nactiSdilenouTabulku('bottling'),
       nactiSdilenouTabulku('kegging'),
       nactiSdilenouTabulku('fasovani'),
@@ -314,8 +187,6 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
       nactiSdilenouTabulku('orders'),
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
-      // Pro Podrobné hledání — dřív se dotahovalo až ve druhém kole.
-      nactiSdilenouTabulku('fasovani_private'),
     ]);
     // Mezitím mohlo začít novější načtení, nebo už obrazovka není vidět.
     if (!smiZapsat()) return;
@@ -486,28 +357,6 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
     setData(result);
     if (result.length > 0) setSelectedMonths([result[0].month]);
     setLoading(false);
-
-    // Detailní hledání data
-    const faPrivRows = (faPriv as FilterableEntry[]) ?? [];
-    const ordDateById = new Map(ordRows.map((o) => [o.id, o.order_date] as const));
-    const ordStatusById = new Map(ordRows.map((o) => [o.id, o.status] as const));
-
-    const rows: DetailRow[] = [
-      ...btRows.filter((r) => r && r.entry_date).map((r) => ({ source: 'bottling' as ActivitySourceKey, entry_date: r.entry_date, beer_id: r.beer_id, package_id: r.package_id, quantity: Number(r.quantity) })),
-      ...kgRows.filter((r) => r && r.entry_date).map((r) => ({ source: 'kegging' as ActivitySourceKey, entry_date: r.entry_date, beer_id: r.beer_id, package_id: r.package_id, quantity: Number(r.quantity) })),
-      ...faRows.filter((r) => r && r.entry_date).map((r) => ({ source: 'fasovani' as ActivitySourceKey, entry_date: r.entry_date, beer_id: r.beer_id, package_id: r.package_id, quantity: Number(r.quantity) })),
-      ...faPrivRows.filter((r) => r && r.entry_date).map((r) => ({ source: 'fasovani_private' as ActivitySourceKey, entry_date: r.entry_date, beer_id: r.beer_id, package_id: r.package_id, quantity: Number(r.quantity) })),
-      ...woRows.filter((r) => r && r.entry_date).map((r) => ({ source: 'writeoffs' as ActivitySourceKey, entry_date: r.entry_date, beer_id: r.beer_id, package_id: r.package_id, quantity: Number(r.quantity) })),
-      ...oiRows.filter((i) => ordStatusById.get(i.order_id) !== 'storno' && ordDateById.get(i.order_id)).map((i) => ({
-        source: 'order_items' as ActivitySourceKey,
-        entry_date: ordDateById.get(i.order_id) as string,
-        beer_id: i.beer_id,
-        package_id: i.package_id,
-        quantity: Number(i.quantity),
-      })),
-    ];
-    setDetailRows(rows);
-    setDetailLoading(false);
   }
 
   async function loadTankCycles() {
@@ -530,7 +379,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
   // „když kliknu odečíst, vrací mě to vždycky nahoru." Vlastní zápis stránku
   // srovná kotvou (lib/drzPozici.ts), jenže 400 ms po něm dorazí realtime
   // událost o tomtéž zápisu a celou práci zahodí.
-  useRealtime(['bottling', 'kegging', 'fasovani', 'fasovani_private', 'writeoffs', 'orders', 'order_items', 'akce', 'akce_items', 'beers', 'packages'], () => load(true));
+  useRealtime(['bottling', 'kegging', 'fasovani', 'writeoffs', 'orders', 'order_items', 'akce', 'akce_items', 'beers', 'packages'], () => load(true));
   useRealtime(['cellar_tank_cycles'], loadTankCycles);
 
   function toggleMonth(m: string) {
@@ -540,54 +389,6 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
   const selected = data.filter((d) => selectedMonths.includes(d.month));
 
 
-  function toggleSet<T>(set: Set<T>, val: T): Set<T> {
-    const n = new Set(set);
-    if (n.has(val)) n.delete(val); else n.add(val);
-    return n;
-  }
-
-  const detailFiltered = useMemo(() => {
-    return detailRows.filter((r) => {
-      if (!selSources.has(r.source)) return false;
-      if (r.entry_date < dateFrom || r.entry_date > dateTo) return false;
-      if (selBeers.size > 0 && (!r.beer_id || !selBeers.has(r.beer_id))) return false;
-      if (selPackages.size > 0 && (!r.package_id || !selPackages.has(r.package_id))) return false;
-      return true;
-    });
-  }, [detailRows, selSources, dateFrom, dateTo, selBeers, selPackages]);
-
-  const detailResults = useMemo(() => {
-    const m = new Map<string, DetailResultRow>();
-    detailFiltered.forEach((r) => {
-      const beer = beers.find((b) => b.id === r.beer_id);
-      const pkg = packages.find((p) => p.id === r.package_id);
-      const key = `${r.beer_id ?? 'x'}__${r.package_id ?? 'x'}`;
-      let e = m.get(key);
-      if (!e) {
-        e = {
-          beer_id: r.beer_id, beer_name: beer?.name ?? 'Neznámé pivo',
-          package_id: r.package_id, package_label: pkg?.label ?? 'Neznámý obal',
-          volume_l: pkg?.volume_l ?? 0,
-          qtyBySource: Object.fromEntries(ACTIVITY_SOURCES.map((s) => [s.key, 0])) as Record<ActivitySourceKey, number>,
-          totalQty: 0, totalLiters: 0,
-        };
-        m.set(key, e);
-      }
-      e.qtyBySource[r.source] += r.quantity;
-      e.totalQty += r.quantity;
-      e.totalLiters += r.quantity * (pkg?.volume_l ?? 0);
-    });
-    return [...m.values()].sort((a, b) => b.totalQty - a.totalQty);
-  }, [detailFiltered, beers, packages]);
-
-  // Kam vede klepnutí na řádek Podrobného hledání — spočítané jednou, ne při
-  // vykreslení každého řádku (viz prvniObjednavkaPodlePolozky).
-  const objednavkaProRadek = useMemo(
-    () => prvniObjednavkaPodlePolozky(delOrders, delItems),
-    [delOrders, delItems],
-  );
-
-  const detailResultsSorted = useMemo(() => sortRows(detailResults, detailSortKey, detailSortDir), [detailResults, detailSortKey, detailSortDir]);
   const tankCyclesSorted = useMemo(() => sortRows(tankCycles, cycleSortKey, cycleSortDir), [tankCycles, cycleSortKey, cycleSortDir]);
 
   // 🛢️ Do jakých velikostí sudů se v jednotlivých cyklech stáčelo.
@@ -619,14 +420,29 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
   }, [tankCycles]);
 
   const topStats = useMemo(() => {
-    const topBeer = detailResults.length ? [...detailResults].sort((a, b) => b.totalQty - a.totalQty)[0] : null;
+    // Nejvíc stočené pivo+obal letos — ze stáčení (lahve + sudy). Dřív se
+    // bralo z Hledání, které sčítalo i fasování a objednávky.
+    const odRoku = startOfYearISO(todayISO());
+    const souctyStaceni = new Map<string, { beer_name: string; package_label: string; totalQty: number }>();
+    [...vyrobaLahve, ...vyrobaSudy].forEach((r) => {
+      if (!r.entry_date || r.entry_date < odRoku) return;
+      const klic = `${r.beer_id}__${r.package_id}`;
+      const z = souctyStaceni.get(klic) ?? {
+        beer_name: beers.find((b) => b.id === r.beer_id)?.name ?? 'Neznámé pivo',
+        package_label: packages.find((p) => p.id === r.package_id)?.label ?? 'Neznámý obal',
+        totalQty: 0,
+      };
+      z.totalQty += Number(r.quantity || 0);
+      souctyStaceni.set(klic, z);
+    });
+    const topBeer = [...souctyStaceni.values()].sort((a, b) => b.totalQty - a.totalQty)[0] ?? null;
     const lowestLoss = tankCycles.length ? [...tankCycles].sort((a, b) => Number(a.loss_pct) - Number(b.loss_pct))[0] : null;
     const highestLoss = tankCycles.length ? [...tankCycles].sort((a, b) => Number(b.loss_pct) - Number(a.loss_pct))[0] : null;
     const withDuration = tankCycles.filter((c) => c.duration_hours != null);
     const fastest = withDuration.length ? [...withDuration].sort((a, b) => Number(a.duration_hours) - Number(b.duration_hours))[0] : null;
     const slowest = withDuration.length ? [...withDuration].sort((a, b) => Number(b.duration_hours) - Number(a.duration_hours))[0] : null;
     return { topBeer, lowestLoss, highestLoss, fastest, slowest };
-  }, [detailResults, tankCycles]);
+  }, [vyrobaLahve, vyrobaSudy, beers, packages, tankCycles]);
 
   // 📦 Nejvíc stáčený OBAL za zvolené období — ne „nejvíc kusů dohromady".
   // Jde o to, do čeho se nejvíc stáčí, tedy čeho mít doma nejvíc.
@@ -643,17 +459,6 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
     [objednavkyStat, polozkyStat, packages],
   );
 
-  function exportDetailExcel() {
-    const rows = detailResultsSorted.map((r) => ({
-      beer_name: r.beer_name, package_label: r.package_label,
-      ...Object.fromEntries(ACTIVITY_SOURCES.map((s) => [s.key, r.qtyBySource[s.key]])),
-      totalQty: r.totalQty, totalLiters: Math.round(r.totalLiters),
-    }));
-    const headers = ['Pivo', 'Obal', ...ACTIVITY_SOURCES.map((s) => s.label), 'Celkem ks', 'Celkem litrů'];
-    const keys = ['beer_name', 'package_label', ...ACTIVITY_SOURCES.map((s) => s.key), 'totalQty', 'totalLiters'];
-    exportHistoryDetailToExcel(rows, headers, keys, 'historie-podrobne-hledani.xlsx');
-  }
-
   function exportCyclesExcel() {
     const rows = tankCyclesSorted.map((c) => ({
       tank_label: c.tank_label, beer_name: c.beer_name ?? '', initial_hl: (Number(c.initial_volume_l) / 100).toFixed(2),
@@ -669,53 +474,6 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
       'historie-cykly-tanku.xlsx'
     );
   }
-
-  function saveCurrentFilter() {
-    const name = newFilterName.trim();
-    if (!name) return;
-    const f: SavedFilter = {
-      name,
-      selSources: [...selSources],
-      selBeers: [...selBeers],
-      selPackages: [...selPackages],
-      dateFrom, dateTo,
-    };
-    const next = [...savedFilters.filter((x) => x.name !== name), f];
-    setSavedFilters(next);
-    uloz('history_saved_filters', JSON.stringify(next));
-    setNewFilterName('');
-  }
-  function applyFilter(f: SavedFilter) {
-    setSelSources(new Set(f.selSources));
-    setSelBeers(new Set(f.selBeers));
-    setSelPackages(new Set(f.selPackages));
-    setDateFrom(f.dateFrom);
-    setDateTo(f.dateTo);
-  }
-  function deleteFilter(name: string) {
-    const next = savedFilters.filter((x) => x.name !== name);
-    setSavedFilters(next);
-    uloz('history_saved_filters', JSON.stringify(next));
-  }
-
-  const detailTotals = useMemo(() => {
-    const bySource = Object.fromEntries(ACTIVITY_SOURCES.map((s) => [s.key, 0])) as Record<ActivitySourceKey, number>;
-    let totalQty = 0, totalLiters = 0;
-    detailResults.forEach((r) => {
-      totalQty += r.totalQty;
-      totalLiters += r.totalLiters;
-      ACTIVITY_SOURCES.forEach((s) => { bySource[s.key] += r.qtyBySource[s.key]; });
-    });
-    return { bySource, totalQty, totalLiters };
-  }, [detailResults]);
-
-  const setQuickRange = (kind: 'week' | 'month' | 'year' | 'all') => {
-    const today = todayISO();
-    if (kind === 'week') { setDateFrom(addDaysISO(today, -6)); setDateTo(today); }
-    else if (kind === 'month') { setDateFrom(startOfMonthISO(today)); setDateTo(today); }
-    else if (kind === 'year') { setDateFrom(startOfYearISO(today)); setDateTo(today); }
-    else { setDateFrom('2000-01-01'); setDateTo(today); }
-  };
 
   // ---- Celkové KPI za aktuální rok ----
   const currentYear = new Date().getFullYear().toString();
@@ -813,202 +571,6 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
       )}
 
 
-
-      {/* TAB 3: PODROBNÉ HLEDÁNÍ & FILTRY */}
-      {activeTab === 'detail' && (
-        <div className="space-y-6">
-          <div className="card p-5 bg-white border border-neutral-200 rounded space-y-5 shadow-xs">
-            {/* Zdroje aktivit + období + pivo/obal — přilepené nahoře, ať jde
-                měnit filtr i uprostřed prohlížení výsledků dole. Na telefonu
-                ne: blok je vysoký a zakryl by půlku displeje. */}
-            <div className="sm:sticky sm:top-0 sm:z-10 bg-white space-y-3 py-1 -mx-5 px-5">
-              <div>
-                <label className="label mb-2">Aktivita / zdroj dat</label>
-                <div className="flex flex-wrap gap-2">
-                  {ACTIVITY_SOURCES.map((s) => {
-                    const active = selSources.has(s.key);
-                    return (
-                      <button
-                        key={s.key}
-                        type="button"
-                        onClick={() => setSelSources((set) => toggleSet(set, s.key))}
-                        className={`tap px-3 py-1.5 rounded text-xs font-black transition ${active ? 'bg-amber-500 text-neutral-950 shadow-md' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'}`}
-                      >
-                        <s.icon className="ikona-text" /> {s.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Date range */}
-              <div className="flex flex-wrap items-end gap-3 bg-neutral-50 p-3.5 rounded border border-neutral-200">
-                <div>
-                  <label className="block text-udaj font-black uppercase text-neutral-600 mb-1">Od</label>
-                  <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="input !py-1.5 text-xs font-mono font-bold" />
-                </div>
-                <div>
-                  <label className="block text-udaj font-black uppercase text-neutral-600 mb-1">Do</label>
-                  <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="input !py-1.5 text-xs font-mono font-bold" />
-                </div>
-                {/* Pivo a obal — stav filtru tu byl odjakživa (a ukládal se i do
-                    uložených filtrů), jen ho nešlo nikde nastavit. */}
-                <div>
-                  <label htmlFor="hledani-pivo" className="block text-udaj font-black uppercase text-neutral-600 mb-1">Pivo</label>
-                  <select
-                    id="hledani-pivo"
-                    className="input !py-1.5 text-xs font-bold"
-                    value={selBeers.size === 1 ? [...selBeers][0] : ''}
-                    onChange={(e) => setSelBeers(e.target.value ? new Set([e.target.value]) : new Set())}
-                  >
-                    <option value="">Všechna piva</option>
-                    {beers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label htmlFor="hledani-obal" className="block text-udaj font-black uppercase text-neutral-600 mb-1">Obal</label>
-                  <select
-                    id="hledani-obal"
-                    className="input !py-1.5 text-xs font-bold"
-                    value={selPackages.size === 1 ? [...selPackages][0] : ''}
-                    onChange={(e) => setSelPackages(e.target.value ? new Set([e.target.value]) : new Set())}
-                  >
-                    <option value="">Všechny obaly</option>
-                    {packages.map((p) => <option key={p.id} value={p.id}>{formatPackageLabel(p.label)}</option>)}
-                  </select>
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  <button className="px-2.5 py-1.5 rounded bg-white border border-neutral-300 text-xs font-bold tap" onClick={() => setQuickRange('week')}>Týden</button>
-                  <button className="px-2.5 py-1.5 rounded bg-white border border-neutral-300 text-xs font-bold tap" onClick={() => setQuickRange('month')}>Měsíc</button>
-                  <button className="px-2.5 py-1.5 rounded bg-white border border-neutral-300 text-xs font-bold tap" onClick={() => setQuickRange('year')}>Rok</button>
-                  <button className="px-2.5 py-1.5 rounded bg-white border border-neutral-300 text-xs font-bold tap" onClick={() => setQuickRange('all')}>Vše</button>
-                </div>
-              </div>
-            </div>
-
-
-            {/* Uložené filtry — pod filtry a sbalené: používají se občas,
-                dřív ale zabíraly celý vršek záložky před samotnými filtry. */}
-            <details className="rounded border border-amber-300/80 bg-amber-50/50 p-4 space-y-3">
-              <summary className="text-xs font-black uppercase tracking-wider text-amber-950 cursor-pointer select-none">
-                <Star className="ikona-text" /> Uložené filtry ({savedFilters.length})
-              </summary>
-              <div className="flex flex-wrap gap-2">
-                {savedFilters.length === 0 && <span className="text-xs text-neutral-500">Zatím žádné uložené filtry.</span>}
-                {savedFilters.map((f) => (
-                  <span key={f.name} className="px-3 py-1.5 rounded bg-white border border-amber-300 text-amber-950 text-xs font-bold shadow-2xs flex items-center gap-2">
-                    <button type="button" className="hover:underline" onClick={() => applyFilter(f)}>{f.name}</button>
-                    <button type="button" className="text-rose-600 hover:text-rose-800 font-bold" onClick={() => deleteFilter(f.name)} title="Smazat filtr" aria-label="Smazat filtr"><X size={14} /></button>
-                  </span>
-                ))}
-              </div>
-              <div className="flex gap-2">
-                <input className="input !py-1.5 text-xs font-semibold flex-1" placeholder="Název filtru (např. 12° lahve za tento měsíc)" value={newFilterName} onChange={(e) => setNewFilterName(e.target.value)} />
-                <button type="button" className="px-3.5 py-1.5 rounded bg-neutral-900 hover:bg-neutral-800 text-amber-300 font-black text-xs shadow-xs tap" onClick={saveCurrentFilter}><Save className="ikona-text" /> Uložit aktuální</button>
-              </div>
-            </details>
-
-            {/* Souhrn výsledků */}
-            <div className="rounded bg-neutral-900 text-white p-5 flex flex-wrap items-center justify-between gap-6 shadow-md">
-              <div className="flex items-center gap-6">
-                <div>
-                  <div className="text-udaj uppercase tracking-wider text-amber-400 font-extrabold">Celkem kusů</div>
-                  <div className="font-display font-black text-2xl sm:text-3xl text-white">{detailTotals.totalQty.toLocaleString('cs-CZ')}</div>
-                </div>
-                <div>
-                  <div className="text-udaj uppercase tracking-wider text-amber-400 font-extrabold">Celkem litrů</div>
-                  <div className="font-display font-black text-2xl sm:text-3xl text-white">{detailTotals.totalLiters.toLocaleString('cs-CZ', { maximumFractionDigits: 0 })} l</div>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={exportDetailExcel}
-                className="px-4 py-2.5 rounded bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-black shadow-md transition flex items-center gap-2"
-              >
-                <Download size={16} />
-                <span>Exportovat do Excelu</span>
-              </button>
-            </div>
-
-            {/* Detail results table */}
-            {detailLoading ? (
-              <Spinner />
-            ) : detailResults.length === 0 ? (
-              <div className="p-8 text-center text-xs font-bold text-neutral-500">Žádné výsledky pro zvolené filtry.</div>
-            ) : (
-              <>
-              {/* Mobilní karty */}
-              <div className="grid grid-cols-1 gap-2.5 md:hidden">
-                {detailResultsSorted.map((r) => {
-                  const beer = beers.find((b) => b.id === r.beer_id);
-                  const idObjednavky = objednavkaProRadek.get(`${r.beer_id}__${r.package_id}`);
-                  const hasOrders = !!idObjednavky;
-                  return (
-                    <div
-                      key={`${r.beer_id}__${r.package_id}`}
-                      className={`rounded bg-white border-2 p-3 space-y-1.5 ${hasOrders ? 'cursor-pointer' : ''}`}
-                      style={{ borderColor: beerBorder(beer) }}
-                      onClick={() => { if (idObjednavky) openEditOrder(idObjednavky); }}
-                    >
-                      <div className="flex items-center justify-between gap-2 font-black text-sm text-neutral-950">
-                        <span>{r.beer_name} <span className="font-bold opacity-80">· {formatPackageLabel(r.package_label)}</span></span>
-                        <span className="shrink-0 font-mono text-sm">{r.totalQty} ks</span>
-                      </div>
-                      <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs font-bold text-neutral-700">
-                        {ACTIVITY_SOURCES.filter((s) => selSources.has(s.key)).map((s) => (
-                          <span key={s.key}><s.icon className="ikona-text" /> {r.qtyBySource[s.key] || 0}</span>
-                        ))}
-                        <span>· {r.totalLiters.toLocaleString('cs-CZ', { maximumFractionDigits: 0 })} l</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="hidden md:block overflow-x-auto scrollbar-thin">
-                <table className="table text-xs">
-                  <thead>
-                    <tr>
-                      <th scope="col" className="cursor-pointer select-none" onClick={() => onSortDetail('beer_name')}>Pivo<SortIcon active={detailSortKey === 'beer_name'} dir={detailSortDir} /></th>
-                      <th scope="col" className="cursor-pointer select-none" onClick={() => onSortDetail('package_label')}>Obal<SortIcon active={detailSortKey === 'package_label'} dir={detailSortDir} /></th>
-                      {ACTIVITY_SOURCES.filter((s) => selSources.has(s.key)).map((s) => (
-                        <th scope="col" key={s.key} className="text-right"><s.icon className="ikona-text" /> {s.label}</th>
-                      ))}
-                      <th scope="col" className="text-right cursor-pointer select-none" onClick={() => onSortDetail('totalQty')}>Celkem<SortIcon active={detailSortKey === 'totalQty'} dir={detailSortDir} /></th>
-                      <th scope="col" className="text-right cursor-pointer select-none" onClick={() => onSortDetail('totalLiters')}>Litrů<SortIcon active={detailSortKey === 'totalLiters'} dir={detailSortDir} /></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {detailResultsSorted.map((r) => {
-                      const beer = beers.find((b) => b.id === r.beer_id);
-                      const idObjednavky = objednavkaProRadek.get(`${r.beer_id}__${r.package_id}`);
-                      const hasOrders = !!idObjednavky;
-                      return (
-                        <tr
-                          key={`${r.beer_id}__${r.package_id}`}
-                          className={`transition-colors bg-white ${hasOrders ? 'cursor-pointer hover:bg-neutral-50' : 'hover:bg-neutral-50/60'}`}
-                          style={{ borderLeft: `4px solid ${beerBorder(beer)}` }}
-                          onClick={() => { if (idObjednavky) openEditOrder(idObjednavky); }}
-                          title={hasOrders ? 'Kliknutím upravíte objednávku' : undefined}
-                        >
-                          <td className="font-black text-udaj text-neutral-950">{r.beer_name}</td>
-                          <td className="font-extrabold text-neutral-950 text-udaj">{formatPackageLabel(r.package_label)}</td>
-                          {ACTIVITY_SOURCES.filter((s) => selSources.has(s.key)).map((s) => (
-                            <td key={s.key} className="text-right font-bold text-neutral-900 text-udaj">{r.qtyBySource[s.key] || '—'}</td>
-                          ))}
-                          <td className="text-right font-mono font-black text-neutral-950 text-udaj">{r.totalQty} ks</td>
-                          <td className="text-right font-black text-neutral-900 text-udaj">{r.totalLiters.toLocaleString('cs-CZ', { maximumFractionDigits: 0 })} l</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* TAB 3: CYKLY TANKŮ & DIAGNOSTIKA ZTRÁT */}
       {activeTab === 'cycles' && (
@@ -1168,7 +730,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
             <div className="card p-5 bg-white border-2 border-amber-300 rounded space-y-2">
               <div className="text-xs font-black uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
                 <Trophy size={16} className="text-amber-600" />
-                <span>Nejvíc stočené pivo</span>
+                <span>Nejvíc stočené pivo (letos)</span>
               </div>
               <div className="font-display font-black text-xl text-neutral-900">{topStats.topBeer.beer_name}</div>
               <div className="text-xs font-bold text-neutral-600">{topStats.topBeer.totalQty} ks · {topStats.topBeer.package_label}</div>
@@ -1379,19 +941,6 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
         </div>
       )}
 
-      {/* ✎ MODAL PRO EDITACI OBJEDNÁVKY */}
-      {editOrder && (
-        <EditOrderModal
-          order={editOrder}
-          items={editItems}
-          beers={beers}
-          packages={packages}
-          places={places}
-          onClose={() => { setEditOrder(null); setEditItems([]); }}
-          onSaved={() => { loadDeliveries(); }}
-          onPlacesChanged={() => { loadDeliveries(); }}
-        />
-      )}
     </div>
   );
 }

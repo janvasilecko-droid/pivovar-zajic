@@ -526,26 +526,6 @@ describe('zrychlené součty Statistiky = původní výpočet', () => {
       expect(objednanoPoMesicich(objednavky, polozky)).toEqual(puvodni);
     }
   });
-
-  it('prvniObjednavkaPodlePolozky', async () => {
-    const { prvniObjednavkaPodlePolozky } = await import('./statistika');
-    for (const seed of [3, 11, 99]) {
-      const { objednavky, polozky } = nahodna(seed);
-      const podle: Record<string, typeof polozky> = {};
-      polozky.forEach((i) => { (podle[i.order_id] ??= []).push(i); });
-      const mapa = prvniObjednavkaPodlePolozky(objednavky, podle);
-      for (const beer_id of ['b1', 'b2', 'b3', null]) {
-        for (const package_id of ['p1', 'p2', null]) {
-          // Původní kód z History.tsx (hledání při vykreslení řádku):
-          const shoda = objednavky
-            .filter((o) => o.status !== 'storno')
-            .filter((o) => (podle[o.id] ?? []).some((i) => i.beer_id === beer_id && i.package_id === package_id))
-            .map((o) => o.id);
-          expect(mapa.get(`${beer_id}__${package_id}`)).toBe(shoda[0]);
-        }
-      }
-    }
-  });
 });
 
 describe('podilSudyLahve — KEG vs lahve', () => {
