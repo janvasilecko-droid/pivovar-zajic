@@ -108,3 +108,50 @@ export function cilPoPrecerpani(
   if (bezi) return { initial_volume_l: Number(cil.initial_volume_l), started_at: cil.started_at! };
   return { initial_volume_l: pritekloL, started_at: ted };
 }
+
+export type UlozenyCyklus = {
+  tank_id: string | null;
+  initial_volume_l: number | string | null;
+  kegged_volume_l: number | string | null;
+  loss_l: number | string | null;
+  loss_pct: number | string | null;
+  started_at: string | null;
+  ended_at: string;
+};
+
+/**
+ * Ztráta už uloženého cyklu přepočtená i s přečerpáním.
+ *
+ * Cykly zavřené před opravou z 27. 9. 2026 mají v `loss_l` uloženo
+ * počátek − stočeno, takže přefuk do jiného tanku v nich vypadá jako
+ * ztracené pivo. Přehled ztrát i „Poslední cykly" na kartě tanku proto
+ * ztrátu dopočítají znovu ze zapsaných přečerpání (stejná pravidla jako
+ * `souhrnCyklu`). U cyklů zavřených po opravě vyjde totéž, co je uložené.
+ * Databáze se nemění — přepočet je jen pro zobrazení.
+ */
+export function cyklusSPrecerpanim<T extends UlozenyCyklus>(c: T, precerpani: PrecerpaniVstup[]): T {
+  if (!c.tank_id || !c.started_at) return c;
+  const start = c.started_at.slice(0, 10);
+  const konec = c.ended_at.slice(0, 10);
+  let precerpanoL = 0;
+  let priteklo = 0;
+  for (const p of precerpani) {
+    if (p.transfer_date <= start || p.transfer_date > konec) continue;
+    if (p.from_tank_id === c.tank_id) precerpanoL -= Number(p.volume_l || 0) + Number(p.loss_l || 0);
+    if (p.to_tank_id === c.tank_id) {
+      precerpanoL += Number(p.volume_l || 0);
+      priteklo += Number(p.volume_l || 0);
+    }
+  }
+  if (precerpanoL === 0) return c;
+  const pocatek = Number(c.initial_volume_l || 0);
+  const stoceno = Number(c.kegged_volume_l || 0);
+  const ztrata = Math.max(0, Math.round((pocatek + precerpanoL - stoceno) * 10) / 10);
+  const zaklad = pocatek + priteklo;
+  return {
+    ...c,
+    loss_l: ztrata,
+    loss_pct: zaklad > 0 ? Math.round((ztrata / zaklad) * 1000) / 10 : 0,
+    initial_volume_l: zaklad,
+  };
+}

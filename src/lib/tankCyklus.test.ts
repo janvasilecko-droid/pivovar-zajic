@@ -1,6 +1,6 @@
 // Zadání 27. 9. 2026: „zkontroluj ten sklep… ať ukazuje správný údaje."
 import { describe, it, expect } from 'vitest';
-import { souhrnCyklu, cilPoPrecerpani } from './tankCyklus';
+import { souhrnCyklu, cilPoPrecerpani, cyklusSPrecerpanim } from './tankCyklus';
 
 const tank = { id: 't1', initial_volume_l: 7500, started_at: '2026-09-01T08:00:00Z', status: 'active' };
 
@@ -62,5 +62,28 @@ describe('cilPoPrecerpani', () => {
   it('vymytý tank se starým počátkem začíná nový cyklus', () => {
     const r = cilPoPrecerpani({ id: 't2', initial_volume_l: 7500, started_at: '2026-08-01T08:00:00Z', status: 'sanitizing' }, 2500, '2026-09-10T10:00:00Z');
     expect(r.initial_volume_l).toBe(2500);
+  });
+});
+
+describe('cyklusSPrecerpanim', () => {
+  const stary = {
+    tank_id: 't1', initial_volume_l: 7500, kegged_volume_l: 5400,
+    loss_l: 2100, loss_pct: 28, // uloženo před opravou: přefuk 2000 l jako ztráta
+    started_at: '2026-09-01T08:00:00Z', ended_at: '2026-09-20T15:00:00Z',
+  };
+
+  it('přefuk jinam se z uložené ztráty starého cyklu odečte', () => {
+    const r = cyklusSPrecerpanim(stary, [
+      { transfer_date: '2026-09-03', from_tank_id: 't1', to_tank_id: 't2', volume_l: 2000, loss_l: 0 },
+    ]);
+    expect(r.loss_l).toBe(100);
+    expect(r.loss_pct).toBe(1.3);
+  });
+
+  it('přečerpání mimo dobu cyklu se nepočítá — cyklus zůstane beze změny', () => {
+    const r = cyklusSPrecerpanim(stary, [
+      { transfer_date: '2026-09-25', from_tank_id: 't1', to_tank_id: 't2', volume_l: 2000, loss_l: 0 },
+    ]);
+    expect(r).toBe(stary);
   });
 });

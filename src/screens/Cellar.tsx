@@ -6,7 +6,7 @@ import { ZtratyTankuPrehled } from '../components/ZtratyTankuPrehled';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 
 import { nesedici, zkontrolujTanky } from '../lib/tankKontrola';
-import { souhrnCyklu, cilPoPrecerpani } from '../lib/tankCyklus';
+import { souhrnCyklu, cilPoPrecerpani, cyklusSPrecerpanim } from '../lib/tankCyklus';
 import { Beer, CellarTank, CellarTankCycle, CellarTransfer, EntryRow, Package, beerBorder, fetchAllRows, supabase, useRealtime } from '../lib/supabase';
 import { nactiSdilenouTabulku } from '../lib/sdilenaData';
 import { EmptyState, Field, Kostra, Modal, UkazatelPlnosti } from '../components/ui';
@@ -375,15 +375,22 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
   }, [kegging, cycleStartByTank]);
 
   // Poslední cykly podle tanku (pro mini historii pod kartou)
+  // Starší cykly mají ve ztrátě započtený i přefuk do jiného tanku — pro
+  // zobrazení se přepočítají s přečerpáním (lib/tankCyklus.ts).
+  const cyklySPrecerpanim = useMemo(
+    () => cycles.map((c) => cyklusSPrecerpanim(c, transfers as any[])),
+    [cycles, transfers],
+  );
+
   const cyclesByTank = useMemo(() => {
     const m = new Map<string, CellarTankCycle[]>();
-    cycles.forEach((c) => {
+    cyklySPrecerpanim.forEach((c) => {
       if (!c.tank_id) return;
       if (!m.has(c.tank_id)) m.set(c.tank_id, []);
       m.get(c.tank_id)!.push(c);
     });
     return m;
-  }, [cycles]);
+  }, [cyklySPrecerpanim]);
 
 
   // Ukončit aktivní tank -> spočítat stočeno/ztrátu/dobu trvání, uložit do historie cyklů, přejít do sanitace
@@ -690,7 +697,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
       ) : activeTab === 'varky' ? (
         <VarkySklep beers={beers} tanks={tanks} />
       ) : activeTab === 'ztraty' ? (
-        <ZtratyTankuPrehled cycles={cycles} />
+        <ZtratyTankuPrehled cycles={cyklySPrecerpanim} />
       ) : (
         <>
           {/* Tanky grid */}
