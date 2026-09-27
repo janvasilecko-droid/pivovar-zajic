@@ -121,6 +121,7 @@ function ulozKopii(klic: string, data: unknown): void {
  * v pivovaru vypadává signál a prázdný seznam by byl horší než starší.
  */
 export async function nactiVycepy(): Promise<TapEquipment[]> {
+  await zajistiMigraci();
   const { data, error } = await supabase.from('vycepy').select('*').order('poradi').order('nazev');
   if (error || !data) return nactiKopii<TapEquipment>(KLIC_VYCEPY);
   const vycepy = (data as VycepRadek[]).map(naVycep);
@@ -129,6 +130,7 @@ export async function nactiVycepy(): Promise<TapEquipment[]> {
 }
 
 export async function nactiRezervace(): Promise<TapReservation[]> {
+  await zajistiMigraci();
   const { data, error } = await supabase
     .from('vycepy_rezervace').select('*').order('datum_od', { ascending: false });
   if (error || !data) return nactiKopii<TapReservation>(KLIC_REZERVACE);
@@ -190,9 +192,33 @@ export async function smazRezervaci(id: string): Promise<string | null> {
  * je, nahraje se to tam. Bez toho by lidem po nasazení „zmizely“ výčepy, které
  * si roky vedli — jen proto, že se přesunuly do cloudu.
  *
+ * ⚠️ 27. 9. 2026: přesně tohle se stalo. `nactiVycepy`/`nactiRezervace` po
+ * úspěšném (byť prázdném) čtení z databáze přepíšou offline kopii v
+ * prohlížeči — a tahle migrace se dřív volala jen z VycepyScreen.tsx. Jenže
+ * `autoReserveTapIfNeeded` (Orders.tsx) a HomeScreen (výčepy po termínu)
+ * sahají na `nactiVycepy`/`nactiRezervace` NAPŘÍMO, bez migrace napřed —
+ * a HomeScreen se načte při každém spuštění appky dřív, než kdo stihne
+ * otevřít Výčepy. Stará data v prohlížeči tak zmizela ještě předtím, než
+ * měla šanci se migrace vůbec spustit. Proto teď migraci spouští
+ * `nactiVycepy`/`nactiRezervace` samy, ať se to nepovede zapomenout na
+ * žádném vstupním bodě — a `zajistiMigraci` hlídá, ať se pokus o migraci
+ * (a tedy čtení+případný insert) neudělá vícekrát v jedné session.
+ *
  * Vrací počet přenesených záznamů (0 = nebylo co přenášet).
  */
-export async function prenesZProhlizece(): Promise<{ vycepu: number; rezervaci: number }> {
+let migraceSlib: Promise<{ vycepu: number; rezervaci: number }> | null = null;
+
+function zajistiMigraci(): Promise<{ vycepu: number; rezervaci: number }> {
+  if (!migraceSlib) migraceSlib = provedMigraci();
+  return migraceSlib;
+}
+
+/** Pro testy: zapomenout, že migrace už proběhla. */
+export function vycistiMigraciProTesty(): void {
+  migraceSlib = null;
+}
+
+async function provedMigraci(): Promise<{ vycepu: number; rezervaci: number }> {
   const mistniVycepy = nactiKopii<TapEquipment>(KLIC_VYCEPY);
   const mistniRezervace = nactiKopii<TapReservation>(KLIC_REZERVACE);
   if (mistniVycepy.length === 0 && mistniRezervace.length === 0) return { vycepu: 0, rezervaci: 0 };
