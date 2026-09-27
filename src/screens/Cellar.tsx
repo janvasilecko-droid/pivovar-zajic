@@ -795,7 +795,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                   {/* Grafické znázornění nerezového ležáckého tanku */}
                   <div className="my-3 p-3 bg-neutral-900/90 rounded border border-neutral-800 text-white flex items-center gap-4 shadow-inner">
                     {/* SVG 3D Tank Cylindrical Graphic */}
-                    <div className="relative w-14 h-24 shrink-0 flex items-center justify-center">
+                    <div className="relative w-20 h-32 shrink-0 flex items-center justify-center">
                       <svg viewBox="0 0 60 100" className="w-full h-full drop-shadow-md">
                         {/* Outer Tank Steel Shell */}
                         <path d="M 10 20 C 10 5, 50 5, 50 20 L 50 80 L 30 95 L 10 80 Z" fill={remaining === 0 || isEmpty ? '#1e293b' : '#334155'} stroke="#94a3b8" strokeWidth="2.5" />
