@@ -15,6 +15,9 @@ import { usePosledniNacteni, prvniChyba } from '../lib/nacitani';
 import { IkonaSud } from '../components/ikony';
 import { businessDateISO } from '../lib/businessDate';
 import { uloz } from '../lib/uloziste';
+import { objednavkyZTanku } from '../lib/objednavkyZTanku';
+import { nactiSkladovouKnihu } from '../lib/skladovaKnihaData';
+import { stockAsOf } from '../lib/stockLedger';
 
 const STATUS_LABELS: Record<CellarTank['status'], string> = {
   empty: 'Prázdný', filling: 'Plní se', active: 'Aktivní', emptying: 'Stáčí se',
@@ -44,7 +47,7 @@ const DEFAULT_INITIAL_VOLUME = 7500;
 const LOW_VOLUME_THRESHOLD = 300; // l — upozornění na blížící se konec stáčení
 
 type OrderRow = { id: string; order_date: string; delivery_date: string | null; status: string };
-type OrderItemRow = { order_id: string; beer_id: string | null; package_id: string | null; quantity: number };
+type OrderItemRow = { id?: string; order_id: string; beer_id: string | null; package_id: string | null; quantity: number };
 
 function fmtHours(h: number | null | undefined): string {
   if (h == null) return '—';
@@ -88,6 +91,8 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [orderItems, setOrderItems] = useState<OrderItemRow[]>([]);
   const [weekKey, setWeekKey] = useState(isoWeekKey(businessDateISO()));
+  const [skladTed, setSkladTed] = useState<Map<string, number>>(() => new Map());
+  const [odjelePolozky, setOdjelePolozky] = useState<Set<string>>(() => new Set());
   /** Nepodařilo se načíst data (na rozdíl od „ve sklepě nic není"). */
   const [chybaNacteni, setChybaNacteni] = useState<string | null>(null);
 
@@ -221,125 +226,42 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
     const smiZapsat = zacniNacteniObjednavek();
     // Položky současně s objednávkami (bez druhého kola přes .in()) a ze
     // sdílené paměti (lib/sdilenaData.ts).
-    const [{ data: ords }, { data: vsechnyPolozky }] = await Promise.all([
+    const [{ data: ords }, { data: vsechnyPolozky }, kniha] = await Promise.all([
       fetchAllRows('orders', 'id,order_date,delivery_date,status').neq('status', 'storno'),
       nactiSdilenouTabulku('order_items'),
+      // Stav skladu teď a co už odjelo — stejný zdroj jako Sklad.
+      nactiSkladovouKnihu().catch(() => null),
     ]);
     if (!smiZapsat()) return;
+    if (kniha) {
+      const sklad = new Map<string, number>();
+      stockAsOf(kniha.pohyby, businessDateISO()).forEach((r, k) => sklad.set(k, r.qty));
+      setSkladTed(sklad);
+      setOdjelePolozky(new Set(kniha.zavozy.map((z: { order_item_id?: string | null }) => z.order_item_id).filter((x): x is string => !!x)));
+    }
     const list = (ords as OrderRow[]) ?? [];
     setOrders(list);
     const ids = new Set(list.map((o) => o.id));
     setOrderItems(((vsechnyPolozky as OrderItemRow[]) ?? []).filter((i) => ids.has(i.order_id)));
   }
   useEffect(() => { loadOrders(); }, []);
-  useRealtime(['orders', 'order_items'], loadOrders);
+  useRealtime(['orders', 'order_items', 'kegging', 'bottling', 'zavoz_deductions', 'inventory'], loadOrders);
 
 
-  // Celkový objem v hl (hektolitrech) daného piva, který je objednaný a nestočený pro zvolený týden
-  const orderedHlByBeer = useMemo(() => {
-    const beerJantar = beers.find(b => b.name.toLowerCase().includes('jantar'));
-    const beer12Sv = beers.find(b => b.name.toLowerCase().includes('12° svět') || b.name.toLowerCase().includes('12sv'));
-    const beerDark = beers.find(b => b.name.toLowerCase().includes('tmav'));
-
-    const m = new Map<string, number>(); // beer_id -> liters
-    const needsBottling = new Set<string>();
-
-    // Filtrujeme objednávky patřící do vybraného týdne — podle data DOVOZU, ne
-    // zadání (objednávka zadaná dřív s dovozem v tomto týdnu sem musí patřit).
-    // Stornované objednávky se nepočítají — na rozdíl od zbytku appky tu dřív
-    // chybělo vyloučení, takže zrušená objednávka zbytečně nafukovala potřebu.
-    const activeOrderIds = new Set(
-      orders
-        .filter((o) => {
-          if (o.status === 'storno') return false;
-          const target = o.delivery_date || o.order_date;
-          return !!target && isoWeekKey(target) === weekKey;
-        })
-        .map((o) => o.id)
-    );
-
-    orderItems.forEach((i) => {
-      if (!i.beer_id || !activeOrderIds.has(i.order_id)) return;
-      const pkg = packages.find((p) => p.id === i.package_id);
-      if (!pkg) return;
-
-      const volL = Number(pkg.volume_l) || 50;
-      const liters = Number(i.quantity) * volL;
-
-      if (pkg.kind === 'bottle' && Number(i.quantity) > 0) {
-        needsBottling.add(i.beer_id);
-      }
-
-      m.set(i.beer_id, (m.get(i.beer_id) ?? 0) + liters);
-    });
-
-    // 1) Připočtení 50l za lahve (lahvování) PŘED rozdělením Jantaru
-    // "pokud budou potreba stocit lahve tak pridej 50l danyh piva"
-    needsBottling.forEach((beerId) => {
-      m.set(beerId, (m.get(beerId) ?? 0) + 50);
-    });
-
-    // 2) Rozdělení Jantaru (80% do 12sv, 20% do tmavého)
-    if (beerJantar) {
-      const jantarLiters = m.get(beerJantar.id) ?? 0;
-      if (jantarLiters > 0) {
-        if (beer12Sv) {
-          m.set(beer12Sv.id, (m.get(beer12Sv.id) ?? 0) + jantarLiters * 0.8);
-        }
-        if (beerDark) {
-          m.set(beerDark.id, (m.get(beerDark.id) ?? 0) + jantarLiters * 0.2);
-        }
-        m.set(beerJantar.id, 0); // Jantar sám se ze sklepa přímo nestáčí (míchá se ze 12sv a tmavého)
-      }
-    }
-
-    // 3) Zjištění již stočených sudů (kegging) pro vybraný týden
-    // "od toho obednano vzdy odecitej stoceny sudy ten tyden, vzdy at je to na tyden objednavky vs staceni keg"
-    const keggedLitersByBeer = new Map<string, number>();
-    kegging.forEach((r) => {
-      if (!r.beer_id || !r.entry_date || isoWeekKey(r.entry_date) !== weekKey) return;
-      // Objem sudu z číselníku obalů, stejně jako u objednávek výš — dřív
-      // se luštil z textu popisku a u popisku bez „l" se tipovalo 50 l.
-      const pkgVol = Number(packages.find((p) => p.id === r.package_id)?.volume_l) || 0;
-      const sizeMatch = (r.package_label ?? '').match(/(\d+(?:[.,]\d+)?)\s*l/i);
-      const size = pkgVol > 0 ? pkgVol : sizeMatch ? Number(sizeMatch[1].replace(',', '.')) : 50;
-      const liters = Number(r.quantity ?? 0) * size;
-      keggedLitersByBeer.set(r.beer_id, (keggedLitersByBeer.get(r.beer_id) ?? 0) + liters);
-    });
-
-    // Rozdělení stáčení Jantaru (kegging) do 12sv a tmavého
-    if (beerJantar) {
-      const jantarKegged = keggedLitersByBeer.get(beerJantar.id) ?? 0;
-      if (jantarKegged > 0) {
-        if (beer12Sv) {
-          keggedLitersByBeer.set(beer12Sv.id, (keggedLitersByBeer.get(beer12Sv.id) ?? 0) + jantarKegged * 0.8);
-        }
-        if (beerDark) {
-          keggedLitersByBeer.set(beerDark.id, (keggedLitersByBeer.get(beerDark.id) ?? 0) + jantarKegged * 0.2);
-        }
-        keggedLitersByBeer.set(beerJantar.id, 0);
-      }
-    }
-
-    // 4) Převod na hektolitry: objednáno, stočeno a co zbývá stočit (min. 0 hl).
-    // Vrací se všechna tři čísla — dřív jen zbytek, a když byl týden už
-    // stočený (0 hl), údaj na kartě tanku úplně zmizel a nebylo poznat,
-    // jestli se vůbec něco objednalo (27. 9. 2026: „já tam ten údaj
-    // objednáno nevidím").
-    const hlMap = new Map<string, { objednanoHl: number; stocenoHl: number; zbyvaHl: number }>();
-    const vsechnaPiva = new Set<string>([...m.keys(), ...keggedLitersByBeer.keys()]);
-    vsechnaPiva.forEach((beerId) => {
-      const orderedLiters = m.get(beerId) ?? 0;
-      const keggedLiters = keggedLitersByBeer.get(beerId) ?? 0;
-      hlMap.set(beerId, {
-        objednanoHl: orderedLiters / 100,
-        stocenoHl: keggedLiters / 100,
-        zbyvaHl: Math.max(0, orderedLiters - keggedLiters) / 100,
-      });
-    });
-
-    return hlMap;
-  }, [orderItems, orders, packages, weekKey, kegging, beers]);
+  // Objednávky vybraného týdne proti skladu — kolik se musí stočit z tanku
+  // (lib/objednavkyZTanku.ts). Dřív objednáno − stočeno tento týden, což
+  // hlásilo „zbývá stočit" i u objednávek pokrytých sudy z minulého týdne.
+  const orderedHlByBeer = useMemo(() => objednavkyZTanku({
+    objednavky: orders,
+    polozky: orderItems,
+    obaly: packages,
+    piva: beers,
+    tyden: weekKey,
+    tydenDnes: isoWeekKey(businessDateISO()),
+    tydenKlic: isoWeekKey,
+    odjeleIds: odjelePolozky,
+    sklad: skladTed,
+  }), [orders, orderItems, packages, beers, weekKey, odjelePolozky, skladTed]);
 
   // Souhrn stáčení z tanku (kegging) — jen pro AKTUÁLNÍ (nedokončený) cyklus
   // daného tanku, ne kumulativně napříč všemi cykly, co kdy z tabulky kegging
@@ -848,22 +770,24 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                       tanku s pivem, i když je týden už stočený nebo nic
                       objednané, ať je vidět, že se to počítá. */}
                   {(t.status === 'active' || t.status === 'emptying' || t.status === 'filling') && pivoId && (() => {
-                    const o = objednavkyPiva ?? { objednanoHl: 0, stocenoHl: 0, zbyvaHl: 0 };
+                    const o = objednavkyPiva ?? { objednanoHl: 0, cekaHl: 0, zbyvaHl: 0 };
                     const tyden = weekKey.split('-')[1];
                     const remainingHl = remaining / 100;
                     const chybiHl = o.zbyvaHl - remainingHl;
-                    const souhrn = `Objednáno na týden ${tyden}: ${o.objednanoHl.toFixed(1)} hl · stočeno ${o.stocenoHl.toFixed(1)} hl`;
+                    const souhrn = `Objednáno na týden ${tyden}: ${o.objednanoHl.toFixed(1)} hl`;
                     if (o.zbyvaHl > 0 && chybiHl > 0) {
                       return (
                         <div className="mt-2 text-xs text-rose-700 bg-rose-50 rounded px-2.5 py-1.5 font-bold border border-rose-200">
-                          <AlertTriangle className="ikona-text" /> {souhrn} · zbývá stočit {o.zbyvaHl.toFixed(1)} hl — v tanku chybí {chybiHl.toFixed(1)} hl, nutno stočit z jiného tanku
+                          <AlertTriangle className="ikona-text" /> {souhrn} · na skladě chybí {o.zbyvaHl.toFixed(1)} hl — v tanku je o {chybiHl.toFixed(1)} hl méně, nutno stočit i z jiného tanku
                         </div>
                       );
                     }
                     return (
-                      <div className="mt-2 text-xs text-primary-700 bg-primary-50 rounded px-2.5 py-1.5 font-bold">
+                      <div className={`mt-2 text-xs rounded px-2.5 py-1.5 font-bold ${o.zbyvaHl > 0 ? 'text-amber-800 bg-amber-50' : 'text-primary-700 bg-primary-50'}`}>
                         <ClipboardList className="ikona-text" /> {souhrn}
-                        {o.zbyvaHl > 0 ? ` · zbývá stočit ${o.zbyvaHl.toFixed(1)} hl` : o.objednanoHl > 0 ? ' · vše stočeno' : ''}
+                        {o.zbyvaHl > 0
+                          ? ` · na skladě chybí — stočit ${o.zbyvaHl.toFixed(1)} hl`
+                          : o.cekaHl > 0 ? ' · pokryto skladem' : o.objednanoHl > 0 ? ' · vše odvezeno' : ''}
                       </div>
                     );
                   })()}
