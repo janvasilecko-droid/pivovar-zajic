@@ -792,12 +792,102 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                     );
                   })()}
 
-                  {/* Co se z tanku za tenhle cyklus stočilo. Dřív tu byla
-                      ještě tmavá grafika tanku s procentem, druhý pruh plnosti
-                      a „% vystočeno" — tři ukazatele téhož, každý počítaný
-                      z jiného čísla, takže se klidně rozcházely (27. 9. 2026:
-                      „ať je to přehledný, jednoduchý a ukazuje správný
-                      údaje"). Plnost ukazuje jeden pruh výš. */}
+                  {/* Grafické znázornění nerezového ležáckého tanku */}
+                  <div className="my-3 p-3 bg-neutral-900/90 rounded border border-neutral-800 text-white flex items-center gap-4 shadow-inner">
+                    {/* SVG 3D Tank Cylindrical Graphic */}
+                    <div className="relative w-14 h-24 shrink-0 flex items-center justify-center">
+                      <svg viewBox="0 0 60 100" className="w-full h-full drop-shadow-md">
+                        {/* Outer Tank Steel Shell */}
+                        <path d="M 10 20 C 10 5, 50 5, 50 20 L 50 80 L 30 95 L 10 80 Z" fill={remaining === 0 || isEmpty ? '#1e293b' : '#334155'} stroke="#94a3b8" strokeWidth="2.5" />
+                        {/* Top Cap Curved Lines */}
+                        <path d="M 10 20 C 10 10, 50 10, 50 20" fill="none" stroke="#64748b" strokeWidth="1.5" />
+                        
+                        {/* Beer Liquid Level Clip Area (Pokud zbývá 0 l nebo je tank prázdný, zůstane vnitřek průhledný / bílo-šedý) */}
+                        {remaining > 0 && !isEmpty && (() => {
+                          const liquidPct = Math.min(1, Math.max(0, remaining / initialVol));
+                          const fillH = liquidPct * 65;
+                          const fillY = 80 - fillH;
+                          // Barva piva podle typu — tmavé = hnědá, světlé = jantarová
+                          const isDark = t.current_beer_name?.toLowerCase().includes('tmav');
+                          const baseColor = isDark ? '#78350f' : '#f59e0b';
+                          // Intenzita barvy podle procenta naplnění — čím méně piva, tím světlejší
+                          const intensity = 0.35 + liquidPct * 0.6; // 0.35 (málo) až 0.95 (plný)
+                          return (
+                            <g clipPath={`url(#tank-clip-${t.id})`}>
+                              <rect
+                                x="12"
+                                y={fillY}
+                                width="36"
+                                height={fillH}
+                                fill={baseColor}
+                                opacity={intensity}
+                              />
+                              {/* Liquid Surface Wave Shimmer */}
+                              <line
+                                x1="12"
+                                y1={fillY}
+                                x2="48"
+                                y2={fillY}
+                                stroke="#fef08a"
+                                strokeWidth="2"
+                              />
+                            </g>
+                          );
+                        })()}
+
+                        <clipPath id={`tank-clip-${t.id}`}>
+                          <path d="M 12 20 C 12 8, 48 8, 48 20 L 48 78 L 30 92 L 12 78 Z" />
+                        </clipPath>
+
+                        {/* Tank Valve Legs */}
+                        <line x1="20" y1="92" x2="16" y2="99" stroke="#64748b" strokeWidth="2" />
+                        <line x1="40" y1="92" x2="44" y2="99" stroke="#64748b" strokeWidth="2" />
+                      </svg>
+
+                      {/* Percentage Badge */}
+                      <span className={`absolute text-udaj font-black font-mono px-1.5 py-0.5 rounded border ${remaining === 0 || isEmpty ? 'bg-neutral-800 text-neutral-300 border-neutral-600' : 'bg-neutral-950/90 text-amber-300 border-neutral-700'}`}>
+                        {isEmpty ? '0%' : `${Math.round((remaining / initialVol) * 100)}%`}
+                      </span>
+                    </div>
+
+                    {/* Right details panel inside tank graphic */}
+                    <div className="flex-1 space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-neutral-400 font-medium">Stav náplně:</span>
+                        <span className={`font-bold font-mono ${remaining === 0 || isEmpty ? 'text-neutral-300' : 'text-amber-400'}`}>
+                          {isEmpty ? '0 %' : `${Math.round((remaining / initialVol) * 100)} %`}
+                          <span className="ml-1 text-neutral-400">· {isEmpty ? '0 hl' : `${(remaining / 100).toFixed(2)} hl`}</span>
+                        </span>
+                      </div>
+                      <div className="w-full bg-neutral-800 h-2 rounded-full overflow-hidden border border-neutral-700">
+                        <div
+                          className={`h-full rounded-full transition-all duration-500 ${isEmpty ? 'bg-neutral-600' : isLow ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                          style={{ width: isEmpty ? '0%' : `${Math.max(Math.round((remaining / initialVol) * 100), 2)}%` }}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between text-udaj text-neutral-300 font-medium pt-0.5">
+                        <span>Výstav {t.current_beer_name ? `${(initialVol / 100).toFixed(1)} hl` : `z ${t.capacity_l.toLocaleString('cs-CZ')} l`}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Fill bar (active/emptying) — kolik zbývá v tanku */}
+                  {(t.status === 'active' || t.status === 'emptying') && (
+                    <div className="mt-1">
+                      <div className="flex items-end justify-between mb-1">
+                        <div>
+                          <span className="text-xl font-display font-extrabold text-primary-900 tabular-nums">{Math.min(100, initialVol > 0 ? (souhrnCyklu(t, kegging as any[], transfers as any[]).stocenoL / initialVol) * 100 : 0).toFixed(0)}<span className="text-sm text-primary-500">%</span></span>
+                          <span className="ml-2 text-xs text-primary-500">vystočeno</span>
+                        </div>
+                        <span className="text-xs font-semibold text-primary-700 tabular-nums">{(souhrnCyklu(t, kegging as any[], transfers as any[]).stocenoL / 100).toFixed(2)} hl stočeno</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Co se z tanku za tenhle cyklus stočilo. Grafika tanku
+                      a „% vystočeno" nad tím jsou vrácené na přání z provozu
+                      (27. 9. 2026: „vrať ty vizualizace tanku, jak tam byly");
+                      „% vystočeno" se počítá ze stejného souhrnu cyklu. */}
                   {(t.status === 'active' || t.status === 'emptying' || t.status === 'filling') && (() => {
                     const c = souhrnCyklu(t, kegging as any[], transfers as any[]);
                     return (
