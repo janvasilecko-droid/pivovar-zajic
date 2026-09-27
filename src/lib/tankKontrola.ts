@@ -71,6 +71,8 @@ export type TankRozdil = {
   vystocenoL: number;
   /** Litry z přečerpávání: kladné přiteklo, záporné odteklo. */
   precerpanoL: number;
+  /** Počáteční objem cyklu, od kterého se počítá. */
+  pocatekL: number;
 };
 
 /** Patří pohyb do právě probíhajícího cyklu tanku? */
@@ -142,6 +144,7 @@ export function zkontrolujTanky(
         nesedi: Math.abs(rozdilL) > toleranceL,
         vystocenoL: Math.round(vystocenoL * 10) / 10,
         precerpanoL: Math.round(precerpanoL * 10) / 10,
+        pocatekL: Number(t.initial_volume_l),
       };
     });
 }

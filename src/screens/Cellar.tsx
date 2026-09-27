@@ -5,8 +5,8 @@ import { VarkySklep } from '../components/VarkySklep';
 import { ZtratyTankuPrehled } from '../components/ZtratyTankuPrehled';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 
-import { nesedici, zkontrolujTanky } from '../lib/tankKontrola';
-import { souhrnCyklu, cilPoPrecerpani, cyklusSPrecerpanim } from '../lib/tankCyklus';
+import { nesedici, zkontrolujTanky, type TankRozdil } from '../lib/tankKontrola';
+import { souhrnCyklu, cilPoPrecerpani, cyklusSPrecerpanim, STAVY_S_PIVEM } from '../lib/tankCyklus';
 import { Beer, CellarTank, CellarTankCycle, CellarTransfer, EntryRow, Package, beerBorder, fetchAllRows, supabase, useRealtime } from '../lib/supabase';
 import { nactiSdilenouTabulku } from '../lib/sdilenaData';
 import { EmptyState, Field, Kostra, Modal, UkazatelPlnosti } from '../components/ui';
@@ -440,6 +440,28 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
     }
   }
 
+  // Srovnání tanku, u kterého nesedí objem. „Platí zápisy" = stav tanku se
+  // nastaví na dopočítanou hodnotu. „Platí tank" = změřený stav zůstane a
+  // o rozdíl se opraví počátek cyklu (jinak by se upozornění ukazovalo dál
+  // a rozdíl by se při zavření tanku zapsal jako ztráta).
+  async function srovnatTank(r: TankRozdil, zpusob: 'zapisy' | 'tank') {
+    const t = tanks.find((x) => x.id === r.id);
+    if (!t) return;
+    const otazka = zpusob === 'zapisy'
+      ? `${r.label}: nastavit stav tanku na ${r.dopocitanoL} l (teď ${r.evidovanoL} l)?`
+      : `${r.label}: ponechat v tanku ${r.evidovanoL} l a počátek cyklu opravit z ${r.pocatekL} l na ${Math.round((r.pocatekL + r.rozdilL) * 10) / 10} l?`;
+    if (!(await potvrd(otazka))) return;
+    const patch = zpusob === 'zapisy'
+      ? { current_volume_l: Math.max(0, r.dopocitanoL) }
+      : { initial_volume_l: Math.round((r.pocatekL + r.rozdilL) * 10) / 10 };
+    const { error } = await supabase.from('cellar_tanks')
+      .update({ ...patch, updated_at: new Date().toISOString() })
+      .eq('id', r.id);
+    if (error) { chyba(`Tank se nepodařilo srovnat: ${error.message}`); return; }
+    oznam(`${r.label} srovnán.`);
+    load(true);
+  }
+
   // Inline uložení piva a počátečního objemu přímo z karty tanku
   async function saveInlineTank(t: CellarTank) {
     if (!inlineBeerId) { oznam('Vyber pivo.'); return; }
@@ -448,12 +470,36 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
     setInlineBusy(true);
     const beer = beers.find((b) => b.id === inlineBeerId);
     const now = new Date();
+    // Tank, ve kterém už běží cyklus: jde o OPRAVU piva nebo počátečního
+    // objemu, ne o nové naplnění. Dřív se tu stav tanku přepsal na počáteční
+    // objem (co se mezitím stočilo, zmizelo) a navíc se zapsalo přečerpání
+    // do tanku — Sklep pak hlásil „nesedí objem" o celý objem tanku
+    // (27. 9. 2026: „co je to, že nesedí objem"). Teď se oprava počátku
+    // promítne do stavu jen rozdílem a žádné přečerpání se nezapisuje.
+    const bezi = !!t.started_at && (STAVY_S_PIVEM as readonly string[]).includes(t.status)
+      && t.initial_volume_l != null && Number(t.initial_volume_l) > 0;
+    if (bezi) {
+      const posun = v - Number(t.initial_volume_l);
+      const { error } = await supabase.from('cellar_tanks').update({
+        current_beer_id: inlineBeerId,
+        current_beer_name: beer?.name ?? null,
+        initial_volume_l: v,
+        current_volume_l: Math.max(0, Number(t.current_volume_l ?? 0) + posun),
+        updated_at: now.toISOString(),
+      }).eq('id', t.id);
+      setInlineBusy(false);
+      if (error) { chyba(`Tank se nepodařilo upravit: ${error.message}`); return; }
+      setInlineEditId(null);
+      load();
+      return;
+    }
+    // Prázdný tank: nový cyklus začíná teď.
     await supabase.from('cellar_tanks').update({
       current_beer_id: inlineBeerId,
       current_beer_name: beer?.name ?? null,
       current_volume_l: v,
       initial_volume_l: v,
-      started_at: t.started_at ?? now.toISOString(),
+      started_at: now.toISOString(),
       status: 'active',
       kegging_date: now.toISOString().slice(0, 10),
       updated_at: now.toISOString(),
@@ -538,20 +584,31 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                 {nesediciTanky.length === 1 ? 'U jednoho tanku nesedí objem' : `U ${nesediciTanky.length} tanků nesedí objem`}
               </div>
               <p className="text-udaj font-bold text-amber-800 mt-1">
-                Evidovaný objem se liší od toho, co vychází ze zapsaného stáčení a přečerpávání.
-                Obvyklá příčina: stáčení se uložilo, ale odečet z tanku neprošel.
-                Zkontroluj a sroven objem ručně v úpravě tanku.
+                Stav v tanku se liší od toho, co vychází ze zápisů: počátek − stočeno ± přečerpáno.
+                Obvyklé příčiny: odečet po stáčení neprošel, nebo se u běžícího tanku přes „Změnit pivo"
+                přepsal objem (to je od 27. 9. opravené). Změř tank a vyber, co platí.
               </p>
-              <div className="mt-2.5 flex flex-wrap gap-1.5">
+              <div className="mt-2.5 space-y-2">
                 {nesediciTanky.map((t) => (
-                  <span key={t.id} className="px-2 py-1 rounded bg-white border border-amber-300 text-udaj font-bold text-neutral-800">
-                    {t.label}: <span className="font-mono">{t.evidovanoL} l</span>
-                    <span className="text-neutral-500"> místo </span>
-                    <span className="font-mono">{t.dopocitanoL} l</span>
-                    <span className={t.rozdilL < 0 ? 'text-rose-700' : 'text-emerald-700'}>
-                      {' '}({t.rozdilL > 0 ? '+' : ''}{t.rozdilL} l)
-                    </span>
-                  </span>
+                  <div key={t.id} className="px-2.5 py-2 rounded bg-white border border-amber-300 text-udaj text-neutral-800">
+                    <div className="font-bold">
+                      {t.label}: v tanku <span className="font-mono">{t.evidovanoL} l</span>, podle zápisů <span className="font-mono">{t.dopocitanoL} l</span>
+                      <span className={t.rozdilL < 0 ? 'text-rose-700' : 'text-emerald-700'}>
+                        {' '}({t.rozdilL > 0 ? '+' : ''}{t.rozdilL} l)
+                      </span>
+                    </div>
+                    <div className="text-neutral-600 mt-0.5 font-mono">
+                      počátek {t.pocatekL} l − stočeno {t.vystocenoL} l {t.precerpanoL >= 0 ? '+' : '−'} přečerpáno {Math.abs(t.precerpanoL)} l = {t.dopocitanoL} l
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 mt-1.5">
+                      <button type="button" className="btn-primary !rounded !text-xs" onClick={() => srovnatTank(t, 'zapisy')}>
+                        Platí zápisy — nastavit {t.dopocitanoL} l
+                      </button>
+                      <button type="button" className="btn-ghost !rounded !text-xs" onClick={() => srovnatTank(t, 'tank')}>
+                        Platí tank — ponechat {t.evidovanoL} l
+                      </button>
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
