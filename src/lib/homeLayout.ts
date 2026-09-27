@@ -242,23 +242,23 @@ export const STRANKY_PLOCHY: Array<{ nazev: string; ids: Page[] }> = [
     nazev: 'Výpočty a přehledy',
     ids: [
       'concentration', 'inventory', 'calendar', 'timer', 'history',
-      'export_excel', 'import_excel', 'haccp', 'vehicles', 'dashboard', 'audit', 'zaloha', 'navod',
+      'export_excel', 'haccp', 'vehicles', 'dashboard', 'audit', 'zaloha', 'navod',
     ],
   },
   {
     // ÚVODNÍ stránka (otevírá se jako první) — schválně KRÁTKÁ. To, na co se
-    // sahá každý den: stočit (KEG, Lahve), objednávky, fasování a vzkazy.
-    // Čím víc se sem přidá, tím hůř se to hledá; zbytek je jedno přejetí
-    // prstem daleko.
+    // sahá každý den: stočit (KEG, Lahve), objednávky, prodejna/fasování
+    // a vzkazy. Čím víc se sem přidá, tím hůř se to hledá; zbytek je jedno
+    // přejetí prstem daleko.
     nazev: 'Stáčení a objednávky',
-    ids: ['kegging', 'bottling', 'orders', 'fasovani', 'notes'],
+    ids: ['kegging', 'bottling', 'orders', 'prodejna', 'notes'],
   },
   {
-    // VPRAVO — ostatní: prodejna, potřeby stáčení, odpisy, akce, sklep, sklo,
-    // číselníky a nastavení/uživatelé.
+    // VPRAVO — ostatní: potřeby stáčení, akce, sklep, sklo, číselníky
+    // a nastavení/uživatelé.
     nazev: 'Ostatní',
     ids: [
-      'bottling_needs', 'prodejna', 'writeoffs', 'akce', 'cellar', 'sklo_promo',
+      'bottling_needs', 'akce', 'cellar', 'sklo_promo',
       'depozitar', 'users', 'app_settings', 'signout',
     ],
   },

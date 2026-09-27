@@ -23,13 +23,13 @@ describe('rozdelDoStranek — tři stránky podle toho, co člověk dělá', () 
   });
 
   it('úvodní stránka je krátká a je na ní to, na co se sahá denně', () => {
-    // Schválně jen pět dlaždic: stočit (KEG, Lahve), objednávky, fasování,
+    // Schválně jen pět dlaždic: stočit (KEG, Lahve), objednávky, prodejna,
     // vzkazy. Čím víc se sem přidá, tím hůř se to hledá — zbytek je jedno
     // přejetí prstem daleko.
     const stranky = rozdelDoStranek(VSECHNY as TileId[]);
     expect(STRANKY_PLOCHY[VYCHOZI_STRANKA].nazev).toBe('Stáčení a objednávky');
     const uvod = stranky[VYCHOZI_STRANKA];
-    expect(uvod).toEqual(['kegging', 'bottling', 'orders', 'fasovani', 'notes']);
+    expect(uvod).toEqual(['kegging', 'bottling', 'orders', 'prodejna', 'notes']);
   });
 
   it('úvodní stránka se nesmí rozjet do seznamu — nejvýš šest dlaždic', () => {
@@ -48,9 +48,9 @@ describe('rozdelDoStranek — tři stránky podle toho, co člověk dělá', () 
 
   it('dlaždice, na které uživatel nemá právo, nenechají prázdné místo', () => {
     // Kdo vidí jen výrobu, dostane JEDNU stránku — ne tři s dvěma prázdnými.
-    const stranky = rozdelDoStranek(['kegging', 'bottling', 'orders', 'fasovani'] as TileId[]);
+    const stranky = rozdelDoStranek(['kegging', 'bottling', 'orders', 'prodejna'] as TileId[]);
     expect(stranky).toHaveLength(1);
-    expect(stranky[0]).toEqual(['kegging', 'bottling', 'orders', 'fasovani']);
+    expect(stranky[0]).toEqual(['kegging', 'bottling', 'orders', 'prodejna']);
   });
 
   it('neznámá dlaždice (nový modul, skupina, odpočet) padne na poslední stránku', () => {

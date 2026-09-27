@@ -29,7 +29,6 @@ describe('návod k použití', () => {
     history: 'statistika',
     concentration: 'kalkulacky',
     haccp: 'sanitacni denik',
-    bottling_needs: 'potreby staceni',
     orders_zavoz: 'rozvoz',
     depozitar: 'odberatel',
     app_settings: 'nastaveni',

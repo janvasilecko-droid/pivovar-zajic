@@ -6,8 +6,7 @@
 // Nic se tu nedomýšlí: dokud appka tvar souboru nezná, karta řekne, co
 // pro import ještě potřebuje, místo aby tvářila funkčnost, která není.
 import { lazy, Suspense, useEffect, useState } from 'react';
-import { FileSpreadsheet, Upload, type LucideIcon } from 'lucide-react';
-import { HlavickaStranky } from '../components/HlavickaStranky';
+import { FileSpreadsheet, type LucideIcon } from 'lucide-react';
 import { Beer, Package, supabase } from '../lib/supabase';
 import { oznam } from '../lib/toast';
 
@@ -86,11 +85,9 @@ export default function ImportExcelScreen() {
 
   return (
     <div className="max-w-4xl mx-auto p-3 sm:p-4 space-y-4">
-      <HlavickaStranky
-        titul="Načíst z Excelu"
-        ikona={Upload}
-        podtitul="Excelové sešity, do kterých kolega zapisuje mimo appku — appka je umí nahrát a zapsat, každý svým vlastním importem."
-      />
+      <p className="text-popisek font-semibold text-neutral-500 px-1">
+        Excelové sešity, do kterých kolega zapisuje mimo appku — appka je umí nahrát a zapsat, každý svým vlastním importem.
+      </p>
 
       <div className="grid gap-3 sm:grid-cols-2">
         {SOUBORY.map((s) => (

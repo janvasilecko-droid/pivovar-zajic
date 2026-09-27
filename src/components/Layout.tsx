@@ -1,5 +1,5 @@
 import { ReactNode, useState, useEffect, useRef, lazy, Suspense } from 'react';
-import { AlarmClock, AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, BookOpen, CalendarDays, Car, ClipboardCheck, ClipboardList, Compass, Download, FilePlus, FileSpreadsheet, FileText, FlaskConical, GlassWater, History as HistoryIcon, Home, Hourglass, Info, ListOrdered, LogOut, MapPin, Megaphone, MessageCircle, Package as PackageIcon, Radio, Receipt, Search, Settings, Shield, ShieldCheck, Smartphone, Snowflake, Sparkles, StickyNote, Store, Tag, Timer, TrendingDown, Truck, Upload, type LucideIcon, Users, Wifi, WifiOff, X, XCircle } from 'lucide-react';
+import { AlarmClock, AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, BookOpen, CalendarDays, Car, ClipboardCheck, ClipboardList, Compass, Download, FilePlus, FileSpreadsheet, FileText, FlaskConical, GlassWater, History as HistoryIcon, Home, Info, ListOrdered, LogOut, MapPin, Megaphone, MessageCircle, Package as PackageIcon, Radio, Receipt, Search, Settings, Shield, ShieldCheck, Smartphone, Snowflake, Sparkles, StickyNote, Store, Tag, Timer, Truck, type LucideIcon, Wifi, WifiOff, X, XCircle } from 'lucide-react';
 import { BreweryRadioBar } from './BreweryRadioBar';
 import { BreweryRadioModal } from './BreweryRadioModal';
 
@@ -42,20 +42,26 @@ export const NAV: NavItem[] = [
   { id: 'kegging', label: 'KEG', icon: IkonaSud, group: 'Výroba' },
   { id: 'bottling', label: 'Lahve', icon: IkonaLahev, group: 'Výroba' },
   { id: 'orders', label: 'Objednávky', icon: ClipboardList, group: 'Výroba' },
-  { id: 'fasovani', label: 'Fasování', icon: Users, group: 'Výroba' },
-  { id: 'prodejna', label: 'Prodejna', icon: Store, group: 'Výroba' },
-  { id: 'writeoffs', label: 'Odpis', icon: TrendingDown, group: 'Výroba' },
+  // Fasování/Odpis/Prodejna byly 3 dlaždice na jednu a tu samou obrazovku
+  // (ProdejnaScreen.tsx, viz App.tsx) — ta má odjakživa svůj vlastní
+  // přepínač „Kam se vydává" hned v zápisu, takže tři vstupy na plochu byly
+  // čistá duplicita. Zůstává jeden, přepínání zůstává uvnitř.
+  { id: 'prodejna', label: 'Prodejna, Fasování, Odpis', icon: Store, group: 'Výroba' },
   { id: 'akce', label: 'Akce, Exkurze', icon: Sparkles, group: 'Výroba' },
 
   // --- PIVOVAR ---
   { id: 'dashboard', label: 'Sklad', icon: BarChart3, group: 'Pivovar' },
   { id: 'sklo_promo', label: 'Sklo, Etikety, Podtáčky', icon: GlassWater, group: 'Pivovar' },
   { id: 'cellar', label: 'Sklep', icon: Snowflake, group: 'Pivovar' },
-  { id: 'bottling_needs', label: 'Potřeby stáčení', icon: IkonaLahev, group: 'Pivovar' },
+  // Přejmenováno z „Potřeby stáčení" — plétlo se to se záložkou „Potřeba
+  // stočit lahve" uvnitř Lahví (jiná obrazovka, skoro stejné jméno).
+  { id: 'bottling_needs', label: 'Plán stáčení', icon: IkonaLahev, group: 'Pivovar' },
   { id: 'inventory', label: 'Inventura', icon: ClipboardCheck, group: 'Pivovar' },
   { id: 'history', label: 'Statistika', icon: HistoryIcon, group: 'Pivovar' },
-  { id: 'export_excel', label: 'Export do Excelu', icon: FileSpreadsheet, group: 'Pivovar' },
-  { id: 'import_excel', label: 'Načíst z Excelu', icon: Upload, group: 'Pivovar' },
+  // Export a Import byly 2 dlaždice na jednu obrazovku se záložkami
+  // (ExcelTabbed.tsx) — zrcadlová akce (ven/dovnitř), sloučeno stejně jako
+  // Objednávky nebo Sanitační deníky.
+  { id: 'export_excel', label: 'Excel (Export, Import)', icon: FileSpreadsheet, group: 'Pivovar' },
   // Všechny audity a kontroly na jednom místě (screens/AuditScreen.tsx) —
   // dřív rozházené po Inventuře, Objednávkách, Nastavení a Uživatelích.
   { id: 'audit', label: 'Audit', icon: ClipboardCheck, group: 'Pivovar' },
@@ -64,11 +70,11 @@ export const NAV: NavItem[] = [
   { id: 'concentration', label: 'Kalkulačky', icon: FlaskConical, group: 'Nástroje' },
   { id: 'calendar', label: 'Kalendář & Upozornění', icon: CalendarDays, group: 'Nástroje' },
   { id: 'timer', label: 'Časovač', icon: AlarmClock, group: 'Nástroje' },
-  { id: 'haccp', label: 'Sanitační deníky', icon: Shield, group: 'Nástroje' },
+  { id: 'haccp', label: 'Sanitace', icon: Shield, group: 'Nástroje' },
   { id: 'vehicles', label: 'Auta', icon: Car, group: 'Nástroje' },
 
   // --- ČÍSELNÍKY ---
-  { id: 'depozitar', label: 'Odběratelé, Piva, Obaly, Ceník', icon: Tag, group: 'Číselníky' },
+  { id: 'depozitar', label: 'Číselníky', icon: Tag, group: 'Číselníky' },
 
   // --- NASTAVENÍ ---
   { id: 'users', label: 'Uživatelé', icon: ShieldCheck, group: 'Nastavení' },
@@ -110,7 +116,6 @@ export const EXTRA_NAV: NavItem[] = [
   { id: 'notes', label: 'Poznámky', icon: StickyNote, group: 'Nástroje' },
   { id: 'exkurze', label: 'Exkurze', icon: Compass, group: 'Výroba' },
   { id: 'stopwatch', label: 'Stopky', icon: Timer, group: 'Nástroje' },
-  { id: 'keg_timer', label: 'Stočení sudu', icon: Hourglass, group: 'Nástroje' },
   { id: 'radio', label: 'Pivovarské Rádio', icon: Radio, group: 'Nástroje' },
   // Info — návody ke všem funkcím a údaje o aplikaci. Jako dlaždice na ploše,
   // protože „?" v horní liště je malé a kdo appku teprve poznává, hledá spíš
@@ -150,6 +155,9 @@ export const PAGE_GROUP_PARENT: Partial<Record<Page, Page>> = {
   notes: 'calendar',
   exkurze: 'akce',
   stock_pohyby: 'dashboard',
+  fasovani: 'prodejna',
+  writeoffs: 'prodejna',
+  import_excel: 'export_excel',
 };
 
 /** Vrátí Page, pod kterou se má daná stránka zvýraznit/pojmenovat v menu. */
@@ -160,7 +168,7 @@ function navPageFor(page: Page): Page {
 // Top-level stránky, co mají vlastní TabBar (viz src/components/TabBar.tsx) —
 // ta záložka nahoře už jméno sekce ukazuje, takže mobilní hlavička ho
 // nezobrazuje znovu (viz její render níže).
-const TABBED_PAGES = new Set<Page>(['orders', 'akce', 'haccp', 'vehicles', 'depozitar', 'calendar']);
+const TABBED_PAGES = new Set<Page>(['orders', 'akce', 'haccp', 'vehicles', 'depozitar', 'calendar', 'export_excel']);
 
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;

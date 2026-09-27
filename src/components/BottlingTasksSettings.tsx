@@ -619,7 +619,7 @@ export function BottlingTasksSettings({ setPage }: Props = {}) {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <h2 className="font-display font-bold text-base sm:text-lg flex items-center gap-2">
           <span className="text-xl"><IkonaLahev className="ikona-text" /></span>
-          <span>Potřeby stáčení</span>
+          <span>Plán stáčení</span>
           <span className="ml-1 px-2 py-0.5 rounded-full bg-amber-500 text-neutral-950 font-black text-udaj uppercase tracking-wider">ADMIN</span>
         </h2>
         <div className="flex items-center gap-1.5">
