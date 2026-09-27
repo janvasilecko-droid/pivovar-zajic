@@ -7,6 +7,7 @@ import { AlertTriangle, Bird, ChevronLeft, Calendar, Car, CheckCircle2, Download
 import { isOrderKachna } from '../lib/zavozSecondCar';
 import { printTable } from '../lib/safePrint';
 import { computeRouteDistanceKm, popisTrasyDne } from '../lib/routeDistance';
+import { POZNAMKA_VYGENEROVANO, posledniTachometrPred, rozepisTachometr } from '../lib/knihaJizd';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
 import { DAYS } from '../lib/shared';
 import { chyba, oznam, potvrd } from '../lib/toast';
@@ -74,7 +75,10 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
   const [autoStep, setAutoStep] = useState<'form' | 'preview'>('form');
   const [autoMonth, setAutoMonth] = useState<string>(() => businessDateISO().slice(0, 7));
   const [autoDriver, setAutoDriver] = useState('Petr Bednář');
+  // Každé auto má vlastní tachometr (lib/knihaJizd.ts) — dřív byl jeden pro
+  // obě a km Kachny se přičítaly Velkému autu.
   const [autoStartKm, setAutoStartKm] = useState<string>('120000');
+  const [autoStartKmKachna, setAutoStartKmKachna] = useState<string>('0');
   const [autoGenerating, setAutoGenerating] = useState(false);
   const [previewDays, setPreviewDays] = useState<{ date: string; routeTo: string; stopsCount: number; isKachna: boolean; km: string; missingCoords: string[] }[]>([]);
 
@@ -235,6 +239,29 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
       vehicles[1];
     return second ? (second.spz ? `${second.name} (${second.spz})` : second.name) : 'Kachna (Kačena)';
   }, [vehicles]);
+
+  // Tachometry na začátku generovaného měsíce se předvyplní z poslední jízdy
+  // každého auta PŘED tím měsícem — ne z poslední jízdy vůbec, jinak by se
+  // při opakovaném generování měsíc napojil sám na sebe.
+  useEffect(() => {
+    if (!showAutoModal) return;
+    const zacatek = `${autoMonth}-01`;
+    const velke = posledniTachometrPred(entries, bigVehicleLabel, zacatek);
+    const kachna = posledniTachometrPred(entries, secondVehicleLabel, zacatek);
+    if (velke != null) setAutoStartKm(String(velke));
+    if (kachna != null) setAutoStartKmKachna(String(kachna));
+    // Jen při otevření a změně měsíce — ne při každé změně jízd, jinak by
+    // realtime přepsal číslo, které člověk zrovna opravuje.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showAutoModal, autoMonth, bigVehicleLabel, secondVehicleLabel]);
+
+  // Ručně zapsané jízdy ve dnech, které se generují — generátor je nechá být
+  // (dřív je smazal spolu se starými vygenerovanými), ale je potřeba na ně
+  // upozornit, ať se tatáž jízda nezapíše dvakrát.
+  const rucneZapsaneVeDnech = useMemo(() => {
+    const dny = new Set(previewDays.map((d) => d.date));
+    return entries.filter((e) => dny.has(e.date) && !(e.note ?? '').startsWith(POZNAMKA_VYGENEROVANO));
+  }, [entries, previewDays]);
 
   // ---- KROK 1: NAČÍST DNY ZÁVOZU Z OBJEDNÁVEK ----
   async function handleBuildPreview(e: React.FormEvent) {
@@ -403,12 +430,11 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
     if (previewDays.some((d) => !d.km || Number(d.km) <= 0)) {
       if (!(await potvrd('Některé dny nemají vyplněné ujeté km. Pokračovat i tak (budou mít 0 km)?'))) return;
     }
-    let currentKm = Number(autoStartKm) || 0;
-    const generatedEntries: LogbookEntry[] = previewDays.map((d) => {
-      const driven = Math.max(0, Number(d.km) || 0);
-      const kmStartVal = currentKm;
-      const kmEndVal = currentKm + driven;
-      currentKm = kmEndVal;
+    const tachometr = rozepisTachometr(
+      previewDays.map((d) => ({ date: d.date, isKachna: d.isKachna, km: Number(d.km) || 0 })),
+      { velke: Number(autoStartKm) || 0, kachna: Number(autoStartKmKachna) || 0 },
+    );
+    const generatedEntries: LogbookEntry[] = previewDays.map((d, i) => {
       const missingNote = d.missingCoords.length > 0
         ? ` — km odhad neúplný, chybí souřadnice u: ${d.missingCoords.join(', ')} (doplň v Odběratelích)`
         : '';
@@ -420,22 +446,28 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
         route_from: HOME_BASE,
         route_to: d.routeTo,
         purpose: 'Rozvoz piva z objednávek & Svoz obalů',
-        km_start: kmStartVal,
-        km_end: kmEndVal,
-        km_driven: driven,
-        note: `Vygenerováno z objednávek (${d.stopsCount} zastávek v daný den)${d.isKachna ? ' — auto Kachna' : ' — Velké auto'}${missingNote}`,
+        km_start: tachometr[i].km_start,
+        km_end: tachometr[i].km_end,
+        km_driven: tachometr[i].km_driven,
+        note: `${POZNAMKA_VYGENEROVANO} (${d.stopsCount} zastávek v daný den, každá zastávka cesta tam a zpět)${d.isKachna ? ' — auto Kachna' : ' — Velké auto'}${missingNote}`,
       };
     });
 
-    // Znovu-vygenerování za stejné dny nahradí předchozí záznamy pro tyto
-    // dny, ať se při opakovaném běhu nehromadí duplicity.
+    // Znovu-vygenerování za stejné dny nahradí předchozí VYGENEROVANÉ
+    // záznamy pro tyto dny, ať se při opakovaném běhu nehromadí duplicity.
+    // Ručně zapsané jízdy (třeba pro sladovnu nebo do servisu) zůstanou —
+    // dřív se mazalo všechno z těch dnů a ruční zápis tiše zmizel.
     const affectedDates = Array.from(new Set(previewDays.map((d) => d.date)));
-    const { error: delError } = await supabase.from('logbook_entries').delete().in('entry_date', affectedDates);
+    const { error: delError } = await supabase
+      .from('logbook_entries')
+      .delete()
+      .in('entry_date', affectedDates)
+      .like('note', `${POZNAMKA_VYGENEROVANO}%`);
     if (delError) {
       chyba(`Nepodařilo se nahradit stávající záznamy: ${delError.message}`);
       return;
     }
-    setEntries((prev) => prev.filter((e) => !affectedDates.includes(e.date)));
+    setEntries((prev) => prev.filter((e) => !(affectedDates.includes(e.date) && (e.note ?? '').startsWith(POZNAMKA_VYGENEROVANO))));
 
     await persistNewEntries(generatedEntries);
     setFilterMonth(autoMonth);
@@ -711,10 +743,10 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
                 <div className="p-3 bg-amber-50 border border-amber-200 rounded text-xs text-amber-950 font-medium space-y-1">
                   <p className="font-bold flex items-center gap-1 text-amber-900">
                     <CheckCircle2 size={14} className="text-amber-600" />
-                    <span>Trasa Kynšperk → Zastávky → Kynšperk</span>
+                    <span>Km počítá zvlášť pro každou zastávku</span>
                   </p>
                   <p>
-                    Načtou se dny, které mají v objednávkách nastavený <strong>den závozu</strong>. V dalším kroku pro každý den zvolíš vozidlo (výchozí Velké auto, nebo zaškrtneš Kachnu) a doplníš skutečně ujeté km.
+                    Trasa je pivovar → zastávka → pivovar, samostatně pro <strong>každou</strong> zastávku dne — auto se mezi dodávkami vrací naložit, ne jeden okruh přes všechny. Načtou se dny s nastaveným <strong>dnem závozu</strong>. V dalším kroku pro každý den zvolíš vozidlo (výchozí Velké auto, nebo zaškrtneš Kachnu) a km jde ještě ručně opravit.
                   </p>
                 </div>
 
@@ -741,16 +773,31 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-black text-neutral-700 mb-1">Tachometr na začátku měsíce (km)</label>
-                  <input
-                    type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()}
-                    required
-                    value={autoStartKm}
-                    onChange={(e) => setAutoStartKm(e.target.value)}
-                    className="input font-mono font-bold text-xs"
-                    placeholder="Např. 120000"
-                  />
+                {/* Každé auto svůj tachometr — předvyplněno z jeho poslední
+                    jízdy před tímhle měsícem. */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-black text-neutral-700 mb-1">Tachometr {bigVehicleLabel} na začátku měsíce (km)</label>
+                    <input
+                      type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()}
+                      required
+                      value={autoStartKm}
+                      onChange={(e) => setAutoStartKm(e.target.value)}
+                      className="input font-mono font-bold text-xs"
+                      placeholder="Např. 120000"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-black text-neutral-700 mb-1">Tachometr {secondVehicleLabel} na začátku měsíce (km)</label>
+                    <input
+                      type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()}
+                      required
+                      value={autoStartKmKachna}
+                      onChange={(e) => setAutoStartKmKachna(e.target.value)}
+                      className="input font-mono font-bold text-xs"
+                      placeholder="Např. 85000"
+                    />
+                  </div>
                 </div>
 
                 <div className="pt-3 flex justify-end gap-2 border-t border-neutral-100">
@@ -774,8 +821,14 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
             ) : (
               <div className="space-y-3">
                 <p className="text-udaj text-neutral-500 font-bold leading-snug">
-                  Nalezeno <strong>{previewDays.length}</strong> {previewDays.length === 1 ? 'jízda' : 'jízd'} se závozem v {autoMonth} — vozidlo je předvyplněné podle značení <strong><Bird className="ikona-text" /> Kačena</strong> u jednotlivých objednávek v Závozu (smíšený den = dvě jízdy). Klidně přeškrtni, jinak se použije <strong>{bigVehicleLabel}</strong>. Km jsou předvyplněná reálnou jízdní vzdálenostní trasy pivovar → zastávky → pivovar — klidně uprav podle tachometru, pokud se liší.
+                  Nalezeno <strong>{previewDays.length}</strong> {previewDays.length === 1 ? 'jízda' : 'jízd'} se závozem v {autoMonth} — vozidlo je předvyplněné podle značení <strong><Bird className="ikona-text" /> Kačena</strong> u jednotlivých objednávek v Závozu (smíšený den = dvě jízdy). Klidně přeškrtni, jinak se použije <strong>{bigVehicleLabel}</strong>. Km jsou předvyplněná podle mapy jako součet cest pivovar → zastávka → pivovar pro každou zastávku — klidně uprav podle tachometru, pokud se liší.
                 </p>
+
+                {rucneZapsaneVeDnech.length > 0 && (
+                  <div className="text-udaj text-amber-800 bg-amber-50 border border-amber-200 rounded px-2 py-1.5 font-semibold leading-snug">
+                    <AlertTriangle className="ikona-text" /> V těchto dnech už {rucneZapsaneVeDnech.length === 1 ? 'je 1 ručně zapsaná jízda' : `jsou ${rucneZapsaneVeDnech.length} ručně zapsané jízdy`} ({Array.from(new Set(rucneZapsaneVeDnech.map((e) => new Date(e.date).toLocaleDateString('cs-CZ')))).join(', ')}). Zůstanou — zkontroluj, ať tentýž rozvoz nebude zapsaný dvakrát.
+                  </div>
+                )}
 
                 <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
                   {previewDays.map((d, i) => (
@@ -792,7 +845,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
                       <div className="text-udaj text-neutral-600 font-medium leading-snug">{d.routeTo}</div>
                       {d.missingCoords.length > 0 && (
                         <div className="text-udaj text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 font-semibold leading-snug">
-                          <AlertTriangle className="ikona-text" /> Chybí souřadnice u: {d.missingCoords.join(', ')} — km je jen odhad zbylých zastávek, doplň v Odběratelích nebo uprav ručně.
+                          <AlertTriangle className="ikona-text" /> Chybí souřadnice u: {d.missingCoords.join(', ')} — cesta tam a zpět k téhle zastávce se do km nezapočítala, doplň souřadnice v Odběratelích nebo km uprav ručně.
                         </div>
                       )}
                       <div className="flex items-center gap-2">
