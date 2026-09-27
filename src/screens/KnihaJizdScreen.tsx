@@ -6,7 +6,7 @@ import { exportHistoryDetailToExcel } from '../lib/excel';
 import { AlertTriangle, Bird, ChevronLeft, Calendar, Car, CheckCircle2, Download, Plus, Printer, Sparkles, Trash2, X, Zap } from 'lucide-react';
 import { isOrderKachna } from '../lib/zavozSecondCar';
 import { printTable } from '../lib/safePrint';
-import { computeRouteDistanceKm } from '../lib/routeDistance';
+import { computeRouteDistanceKm, popisTrasyDne } from '../lib/routeDistance';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
 import { DAYS } from '../lib/shared';
 import { chyba, oznam, potvrd } from '../lib/toast';
@@ -327,7 +327,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
 
       const buildRoute = (dayOrders: any[]) => {
         const placeNames = Array.from(new Set(dayOrders.map((o) => o.place_name || 'Místní odběratel')));
-        return placeNames.length > 0 ? `${placeNames.join(' → ')} → Kynšperk nad Ohří` : 'Kynšperk nad Ohří (Okruh)';
+        return popisTrasyDne(placeNames);
       };
 
       // Zastávky dne v pořadí prvního výskytu — pro OSRM výpočet reálné jízdní
