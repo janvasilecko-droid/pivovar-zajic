@@ -43,7 +43,7 @@ describe('rozdelDoStranek — tři stránky podle toho, co člověk dělá', () 
     expect(nastroje).toContain('concentration'); // Kalkulačky
     expect(nastroje).toContain('timer');
     expect(zbytek).toContain('app_settings');
-    expect(zbytek).toContain('pricelist');
+    expect(zbytek).toContain('depozitar'); // Číselníky
   });
 
   it('dlaždice, na které uživatel nemá právo, nenechají prázdné místo', () => {

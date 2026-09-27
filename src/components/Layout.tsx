@@ -96,7 +96,6 @@ export const NAV: NavItem[] = [
 // NEpřidávají automaticky do launcheru — uživatel si je musí ručně přidat
 // přes "+ Přidat dlaždici" (viz homeLayout.ts getHomeLayout extraIds).
 export const EXTRA_NAV: NavItem[] = [
-  { id: 'kniha_jizd', label: 'Kniha jízd', icon: BookOpen, group: 'Nástroje' },
   { id: 'vycepy', label: 'Výčepy', icon: IkonaVycep, group: 'Výroba' },
   { id: 'orders_zavoz', label: 'Rozvoz objednávek', icon: Truck, group: 'Výroba' },
   // Zkratky přímo na záložky Objednávek (viz OrdersTabbed.tsx) — hlavně pro
@@ -108,17 +107,7 @@ export const EXTRA_NAV: NavItem[] = [
   // pivo/obal — z provozu 24. 9. 2026, ale bez vlastní dlaždice se to nedalo
   // najít jinak, než proklikat celý Sklad a trefit záložku.
   { id: 'stock_pohyby', label: 'Pohyby', icon: ListOrdered, group: 'Pivovar' },
-  { id: 'places', label: 'Odběratelé', icon: MapPin, group: 'Číselníky' },
-  { id: 'beers', label: 'Piva', icon: BeerIcon, group: 'Číselníky' },
-  { id: 'packages', label: 'Obaly', icon: PackageIcon, group: 'Číselníky' },
-  { id: 'pricelist', label: 'Ceník', icon: Receipt, group: 'Číselníky' },
-  { id: 'sanitace_lahve', label: 'Sanitace lahví', icon: IkonaLahev, group: 'Nástroje' },
-  { id: 'sanitace_kegy', label: 'Sanitace kegů', icon: IkonaSud, group: 'Nástroje' },
-  { id: 'sanitace_vycepy', label: 'Sanitace výčepů', icon: IkonaVycep, group: 'Nástroje' },
-  { id: 'checklists', label: 'Checklisty', icon: ClipboardCheck, group: 'Nástroje' },
-  { id: 'sanitation_log', label: 'Sanitační deník', icon: FileText, group: 'Nástroje' },
   { id: 'notes', label: 'Poznámky', icon: StickyNote, group: 'Nástroje' },
-  { id: 'feedback', label: 'Zpětná vazba', icon: MessageCircle, group: 'Nástroje' },
   { id: 'exkurze', label: 'Exkurze', icon: Compass, group: 'Výroba' },
   { id: 'stopwatch', label: 'Stopky', icon: Timer, group: 'Nástroje' },
   { id: 'keg_timer', label: 'Stočení sudu', icon: Hourglass, group: 'Nástroje' },
