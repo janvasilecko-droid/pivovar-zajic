@@ -4,7 +4,7 @@ import { EmptyState } from '../components/ui';
 
 import { AlertTriangle, Calendar, CalendarDays, Check, CheckCircle2, Droplet, Droplets, FlaskConical, Phone, Plus, RefreshCw, ShieldAlert, Trash2, Wrench, X } from 'lucide-react';
 import { chyba as chybaOznam, oznam, potvrd } from '../lib/toast';
-import { KLIC_REZERVACE, KLIC_VYCEPY, nactiRezervace, nactiVycepy, prenesZProhlizece, rozdilProUlozeni, smazRezervaci, smazVycep, ulozRezervaci, ulozVycep } from '../lib/vycepyData';
+import { KLIC_REZERVACE, KLIC_VYCEPY, nactiRezervace, nactiVycepy, rozdilProUlozeni, smazRezervaci, smazVycep, ulozRezervaci, ulozVycep } from '../lib/vycepyData';
 import { IkonaVycep } from '../components/ikony';
 import { uloz } from '../lib/uloziste';
 import { businessDateISO } from '../lib/businessDate';
@@ -76,10 +76,10 @@ export default function VycepyScreen() {
 
   // 🌐 Načtení z databáze. Do 31. 8. 2026 žily výčepy jen v localStorage, takže
   // rezervace zadaná na mobilu nebyla vidět na tabletu. Teď je originál v
-  // cloudu; co komu zůstalo v prohlížeči, se při prvním načtení přenese
-  // (prenesZProhlizece), ať lidem „nezmizí“ výčepy, které si roky vedli.
+  // cloudu; co komu zůstalo v prohlížeči, se při prvním načtení přenese —
+  // migraci si `nactiVycepy`/`nactiRezervace` spustí samy (viz vycepyData.ts),
+  // ať k ní dojde na jakémkoli vstupním bodě appky, ne jen tady.
   async function nactiZCloudu() {
-    await prenesZProhlizece();
     const [v, r] = await Promise.all([nactiVycepy(), nactiRezervace()]);
     setTaps(v);
     setReservations(r);
