@@ -10,7 +10,6 @@ import { souhrnCyklu, cilPoPrecerpani, cyklusSPrecerpanim } from '../lib/tankCyk
 import { Beer, CellarTank, CellarTankCycle, CellarTransfer, EntryRow, Package, beerBorder, fetchAllRows, supabase, useRealtime } from '../lib/supabase';
 import { nactiSdilenouTabulku } from '../lib/sdilenaData';
 import { EmptyState, Field, Kostra, Modal, UkazatelPlnosti } from '../components/ui';
-import { TankOccupancyPlanner } from '../components/TankOccupancyPlanner';
 import { chyba, oznam, potvrd } from '../lib/toast';
 import { usePosledniNacteni, prvniChyba } from '../lib/nacitani';
 import { IkonaSud } from '../components/ikony';
@@ -32,12 +31,11 @@ const STATUS_COLORS: Record<CellarTank['status'], string> = {
 };
 
 
-type ZalozkaSklepa = 'lezacke' | 'spilka' | 'planovac' | 'varky' | 'ztraty';
+type ZalozkaSklepa = 'lezacke' | 'spilka' | 'varky' | 'ztraty';
 
 const ZALOZKY_SKLEPA: { id: ZalozkaSklepa; popis: string; Ikona: LucideIcon | typeof BeerIcon }[] = [
   { id: 'lezacke', popis: 'Ležácké tanky (1–8)', Ikona: BeerIcon },
   { id: 'spilka', popis: 'Spilka (3 kvasné tanky)', Ikona: Factory },
-  { id: 'planovac', popis: 'Plánovač obsazenosti & Zrání (Gantt)', Ikona: CalendarDays },
   { id: 'varky', popis: 'Várky & kvašení', Ikona: FlaskConical },
   { id: 'ztraty', popis: 'Ztráty při stáčení', Ikona: TrendingDown },
 ];
@@ -639,7 +637,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
         </div>
 
         <div className="sticky top-0 z-20 bg-neutral-100 py-1 flex flex-wrap items-center gap-2 w-full">
-          {/* Tab Selector: Ležácké vs Spilka vs Plánovač — přilepený nahoře. */}
+          {/* Výběr záložky sklepa — přilepený nahoře. */}
           <div className="flex items-center gap-1.5 p-1 rounded w-full sm:w-auto sm:flex-1 min-w-0 overflow-x-auto scrollbar-thin flex-nowrap">
             {ZALOZKY_SKLEPA.map(({ id, popis, Ikona }) => (
               <button
@@ -656,8 +654,12 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
             ))}
           </div>
 
-          {/* Týdenní selector pro výpočet objednávek */}
-          <div className="flex items-center gap-1 bg-white p-1 rounded border border-neutral-200 shadow-2xs">
+          {/* Týden objednávek: na kartě tanku se podle něj ukáže „Objednáno X hl
+              tohoto piva (nestočeno)" = objednávky s dovozem v tom týdnu minus
+              sudy, co se ten týden už stočily. Má smysl jen u tanků, proto se
+              u Várek a Ztrát neukazuje. */}
+          {(activeTab === 'lezacke' || activeTab === 'spilka') && (
+          <div className="flex items-center gap-1 bg-white p-1 rounded border border-neutral-200 shadow-2xs" title="Kolik piva z tanku je objednáno na vybraný týden a ještě není stočené — ukazuje se na kartě tanku">
             <button
               type="button"
               onClick={() => setWeekKey(shiftWeek(weekKey, -1))}
@@ -667,7 +669,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
               <ChevronLeft size={16} />
             </button>
             <div className="px-2 text-xs font-bold text-amber-800 text-center min-w-[90px]">
-              Objednávky · týden {weekKey.split('-')[1]}
+              Objednáno na týden {weekKey.split('-')[1]}
               <div className="text-udaj text-neutral-500 font-normal">
                 ({weekRange(weekKey).label})
               </div>
@@ -681,6 +683,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
               <ChevronRight size={16} />
             </button>
           </div>
+          )}
 
           <button className="btn-primary !rounded" onClick={() => setShowTransfer(true)}><ArrowLeftRight className="ikona-text" /> Přetáčení (Přefuk ze Spilky)</button>
         </div>
@@ -692,8 +695,6 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
           text={`Sklep se nepodařilo načíst: ${chybaNacteni}`}
           akce={{ popis: 'Zkusit znovu', onClick: () => load() }}
         />
-      ) : activeTab === 'planovac' ? (
-        <TankOccupancyPlanner tanks={tanks} beers={beers} cycles={cycles} />
       ) : activeTab === 'varky' ? (
         <VarkySklep beers={beers} tanks={tanks} />
       ) : activeTab === 'ztraty' ? (

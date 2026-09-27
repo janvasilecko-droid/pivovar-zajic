@@ -1175,7 +1175,6 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
     cellar: [
       { id: 'lezacke', label: 'Ležácké tanky', sublabel: 'Stav tanků, stupňovitost, objemy a ležení', icon: Snowflake, onClick: () => setPage('cellar', undefined, 'lezacke') },
       { id: 'spilka', label: 'Spilka (hlavní kvašení)', sublabel: 'Kvasné tanky, mladina a kvašení', icon: FlaskConical, onClick: () => setPage('cellar', undefined, 'spilka') },
-      { id: 'planovac', label: 'Plánovač obsazenosti', sublabel: 'Přehled obsazení sklepa v čase', icon: CalendarDays, onClick: () => setPage('cellar', undefined, 'planovac') },
     ],
     dashboard: [
       { id: 'sklad', label: 'Přehled skladu', sublabel: 'Kompletní stav piv a zásob', icon: BarChart3, onClick: () => setPage('dashboard') },
