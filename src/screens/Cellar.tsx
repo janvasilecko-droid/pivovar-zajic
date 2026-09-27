@@ -321,12 +321,21 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
       }
     }
 
-    // 4) Převod na hektolitry a odečtení stočeného piva (objem nemůže být záporný, minimum je 0 hl)
-    const hlMap = new Map<string, number>();
-    m.forEach((orderedLiters, beerId) => {
+    // 4) Převod na hektolitry: objednáno, stočeno a co zbývá stočit (min. 0 hl).
+    // Vrací se všechna tři čísla — dřív jen zbytek, a když byl týden už
+    // stočený (0 hl), údaj na kartě tanku úplně zmizel a nebylo poznat,
+    // jestli se vůbec něco objednalo (27. 9. 2026: „já tam ten údaj
+    // objednáno nevidím").
+    const hlMap = new Map<string, { objednanoHl: number; stocenoHl: number; zbyvaHl: number }>();
+    const vsechnaPiva = new Set<string>([...m.keys(), ...keggedLitersByBeer.keys()]);
+    vsechnaPiva.forEach((beerId) => {
+      const orderedLiters = m.get(beerId) ?? 0;
       const keggedLiters = keggedLitersByBeer.get(beerId) ?? 0;
-      const remainingLiters = Math.max(0, orderedLiters - keggedLiters);
-      hlMap.set(beerId, remainingLiters / 100);
+      hlMap.set(beerId, {
+        objednanoHl: orderedLiters / 100,
+        stocenoHl: keggedLiters / 100,
+        zbyvaHl: Math.max(0, orderedLiters - keggedLiters) / 100,
+      });
     });
 
     return hlMap;
@@ -717,7 +726,9 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
               const isEmpty = t.status === 'empty' || t.status === 'sanitizing' || t.status === 'rinsing' || t.status === 'cleaning';
               const sizeKeys = Object.keys(s.bySize).map(Number).sort((a, b) => b - a);
               const isLow = t.status === 'active' && remaining > 0 && remaining < LOW_VOLUME_THRESHOLD;
-              const orderedHlForBeer = t.current_beer_id ? (orderedHlByBeer.get(t.current_beer_id) ?? 0) : 0;
+              // Starší tanky mají u piva jen jméno bez ID — dohledá se podle jména.
+              const pivoId = t.current_beer_id ?? beers.find((b) => b.name === t.current_beer_name)?.id ?? null;
+              const objednavkyPiva = pivoId ? orderedHlByBeer.get(pivoId) : undefined;
               const recentCycles = (cyclesByTank.get(t.id) ?? []).slice(0, 3);
 
               return (
@@ -833,17 +844,26 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                     </div>
                   )}
 
-                  {orderedHlForBeer > 0 && t.status === 'active' && (() => {
+                  {/* Objednávky vybraného týdne (přepínač nahoře) — u každého
+                      tanku s pivem, i když je týden už stočený nebo nic
+                      objednané, ať je vidět, že se to počítá. */}
+                  {(t.status === 'active' || t.status === 'emptying' || t.status === 'filling') && pivoId && (() => {
+                    const o = objednavkyPiva ?? { objednanoHl: 0, stocenoHl: 0, zbyvaHl: 0 };
+                    const tyden = weekKey.split('-')[1];
                     const remainingHl = remaining / 100;
-                    const isDeficit = orderedHlForBeer > remainingHl;
-                    const missingHl = orderedHlForBeer - remainingHl;
-                    return isDeficit ? (
-                      <div className="mt-2 text-xs text-rose-700 bg-rose-50 rounded px-2.5 py-1.5 font-bold border border-rose-200">
-                        <AlertTriangle className="ikona-text" /> Objednáno {orderedHlForBeer.toFixed(1)} hl (v tanku chybí {missingHl.toFixed(1)} hl, nutno stočit z jiného tanku)
-                      </div>
-                    ) : (
+                    const chybiHl = o.zbyvaHl - remainingHl;
+                    const souhrn = `Objednáno na týden ${tyden}: ${o.objednanoHl.toFixed(1)} hl · stočeno ${o.stocenoHl.toFixed(1)} hl`;
+                    if (o.zbyvaHl > 0 && chybiHl > 0) {
+                      return (
+                        <div className="mt-2 text-xs text-rose-700 bg-rose-50 rounded px-2.5 py-1.5 font-bold border border-rose-200">
+                          <AlertTriangle className="ikona-text" /> {souhrn} · zbývá stočit {o.zbyvaHl.toFixed(1)} hl — v tanku chybí {chybiHl.toFixed(1)} hl, nutno stočit z jiného tanku
+                        </div>
+                      );
+                    }
+                    return (
                       <div className="mt-2 text-xs text-primary-700 bg-primary-50 rounded px-2.5 py-1.5 font-bold">
-                        <ClipboardList className="ikona-text" /> Objednáno {orderedHlForBeer.toFixed(1)} hl tohoto piva (nestočeno)
+                        <ClipboardList className="ikona-text" /> {souhrn}
+                        {o.zbyvaHl > 0 ? ` · zbývá stočit ${o.zbyvaHl.toFixed(1)} hl` : o.objednanoHl > 0 ? ' · vše stočeno' : ''}
                       </div>
                     );
                   })()}
