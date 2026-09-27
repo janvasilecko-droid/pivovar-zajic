@@ -4,10 +4,11 @@ import { nactiSdilenouTabulku } from '../lib/sdilenaData';
 import { Spinner, EmptyState } from './ui';
 import { orderWeightKg, fmtKg } from '../lib/weight';
 import { DAYS } from '../lib/shared';
-import { CalendarDays, Filter, History as HistoryIcon, Check, Printer, Truck, X } from 'lucide-react';
+import { CalendarDays, Filter, History as HistoryIcon, Check, Pencil, Printer, Truck, X } from 'lucide-react';
 import { printDeliveryList } from '../lib/safePrint';
 import { businessDateISO } from '../lib/businessDate';
 import { ChipyPiva, ChipyObalu } from './FiltrPivaAObalu';
+import { EditOrderModal } from './EditOrderModal';
 
 type Order = {
   id: string; order_date: string; place_id: string | null; place_name: string | null;
@@ -25,6 +26,16 @@ export default function ZavozHistory() {
   const [beers, setBeers] = useState<Beer[]>([]);
   const [places, setPlaces] = useState<Place[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Editace objednávky přímo z historie tras (zadání 24. 9. 2026: „dej ji
+  // moznost editovat" — dřív šlo jen dohledat a vytisknout trasovku, ne
+  // opravit chybu v už zavezené objednávce).
+  const [editOrder, setEditOrder] = useState<Order | null>(null);
+  const [editItems, setEditItems] = useState<OrderItem[]>([]);
+  function openEditOrder(order: Order) {
+    setEditOrder(order);
+    setEditItems(items[order.id] ?? []);
+  }
 
   // ---- Filtry historie tras ----
   const [histPeriod, setHistPeriod] = useState<'all' | 'week' | 'month' | 'year'>('all');
@@ -220,11 +231,22 @@ export default function ZavozHistory() {
                   const wKg = orderWeightKg(oItems, packages);
                   return (
                     <div key={o.id} className="p-3.5 rounded bg-neutral-50 border border-neutral-200/80 space-y-2">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between gap-2">
                         <span className="font-black text-sm text-neutral-900 truncate">{o.place_name}</span>
-                        <span className={`px-2 py-0.5 rounded-full text-udaj font-black ${o.is_delivered ? 'bg-emerald-100 text-emerald-900 border border-emerald-300' : 'bg-amber-100 text-amber-900'}`}>
-                          {o.is_delivered ? <><Check className="ikona-text" /> Zavezeno</> : 'Čeká'}
-                        </span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className={`px-2 py-0.5 rounded-full text-udaj font-black whitespace-nowrap ${o.is_delivered ? 'bg-emerald-100 text-emerald-900 border border-emerald-300' : 'bg-amber-100 text-amber-900'}`}>
+                            {o.is_delivered ? <><Check className="ikona-text" /> Zavezeno</> : 'Čeká'}
+                          </span>
+                          <button
+                            type="button"
+                            className="btn-ikona bg-amber-500 hover:bg-amber-400 text-neutral-950"
+                            onClick={() => openEditOrder(o)}
+                            title="Upravit objednávku"
+                            aria-label="Upravit objednávku"
+                          >
+                            <Pencil size={14} />
+                          </button>
+                        </div>
                       </div>
 
                       <div className="space-y-1 text-xs">
@@ -247,6 +269,19 @@ export default function ZavozHistory() {
           );
         })}
       </div>
+      )}
+
+      {editOrder && (
+        <EditOrderModal
+          order={editOrder}
+          items={editItems}
+          beers={beers}
+          packages={packages}
+          places={places}
+          onClose={() => setEditOrder(null)}
+          onSaved={() => { setEditOrder(null); load(true); }}
+          onPlacesChanged={() => load(true)}
+        />
       )}
     </div>
   );
