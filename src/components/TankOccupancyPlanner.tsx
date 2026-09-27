@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { CellarTank, Beer, CellarTankCycle, useRealtime } from '../lib/supabase';
-import { KLIC_VARKY, nactiVarky, prenesZProhlizece, smazVarku, ulozVarku } from '../lib/varkyData';
+import { KLIC_VARKY, nactiVarky, smazVarku, ulozVarku } from '../lib/varkyData';
 import { rozdilProUlozeni } from '../lib/vycepyData';
 import { chyba as chybaOznam } from '../lib/toast';
 import { AlertTriangle, BarChart3, Calendar, Circle, Clock, Check, Plus, ShieldAlert, X } from 'lucide-react';
@@ -45,10 +45,10 @@ export function TankOccupancyPlanner({
 
   // 🌐 Načtení z databáze. Do 31. 8. 2026 žily plánované várky jen v
   // prohlížeči, takže kdo plánoval na tabletu, na mobilu to neviděl.
-  // Co komu zůstalo v prohlížeči, se při prvním načtení přenese.
+  // Co komu zůstalo v prohlížeči, se při prvním načtení přenese — migraci si
+  // nactiVarky spustí sama (viz varkyData.ts).
   async function nactiZCloudu() {
-    await prenesZProhlizece(new Set(tanks.map((t) => t.id)));
-    setPlannedBatches(await nactiVarky());
+    setPlannedBatches(await nactiVarky(new Set(tanks.map((t) => t.id))));
   }
   useEffect(() => { void nactiZCloudu(); }, [tanks.length]);
   useRealtime(['planovane_varky'], () => { void nactiZCloudu(); });

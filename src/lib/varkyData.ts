@@ -53,8 +53,15 @@ function ulozKopii(data: PlannedBatch[]): void {
   try { uloz(KLIC_VARKY, JSON.stringify(data)); } catch { /* plná paměť */ }
 }
 
-/** Načte plánované várky; bez sítě vrátí poslední známou kopii. */
-export async function nactiVarky(): Promise<PlannedBatch[]> {
+/**
+ * Načte plánované várky; bez sítě vrátí poslední známou kopii.
+ *
+ * `platneTankIds` je pro jednorázovou migraci z prohlížeče (viz níž) — kdo
+ * volá bez zájmu o migraci (typicky nikdo dnes), může poslat prázdnou
+ * množinu, migrace se pak jen přeskočí bez chyby.
+ */
+export async function nactiVarky(platneTankIds: Set<string>): Promise<PlannedBatch[]> {
+  await zajistiMigraci(platneTankIds);
   const { data, error } = await supabase
     .from('planovane_varky').select('*').order('datum_od', { ascending: false });
   if (error || !data) return nactiKopii();
@@ -80,8 +87,27 @@ export async function smazVarku(id: string): Promise<string | null> {
  * by je odmítla — proto se každé nahradí novým. Várky vázané na tank, který
  * mezitím zmizel, se přeskočí: cizí klíč by celý převod shodil a kvůli jedné
  * osiřelé várce by se nepřenesla ani jedna platná.
+ *
+ * Spouští ji `nactiVarky` sama (viz `zajistiMigraci` níž) — ne zvlášť
+ * volající komponenta. Stejná chyba jako u výčepů (27. 9. 2026, viz
+ * vycepyData.ts): kdyby migraci spouštěl jen jeden konkrétní vstupní bod
+ * a jinde v appce se čas od času zavolalo `nactiVarky` přímo, první (prázdné)
+ * čtení by tiše přepsalo zálohu v prohlížeči dřív, než by se stihla nahrát
+ * do databáze.
  */
-export async function prenesZProhlizece(platneTankIds: Set<string>): Promise<number> {
+let migraceSlib: Promise<number> | null = null;
+
+function zajistiMigraci(platneTankIds: Set<string>): Promise<number> {
+  if (!migraceSlib) migraceSlib = provedMigraci(platneTankIds);
+  return migraceSlib;
+}
+
+/** Pro testy: zapomenout, že migrace už proběhla. */
+export function vycistiMigraciProTesty(): void {
+  migraceSlib = null;
+}
+
+async function provedMigraci(platneTankIds: Set<string>): Promise<number> {
   const mistni = nactiKopii();
   if (mistni.length === 0) return 0;
 
