@@ -60,6 +60,7 @@ function ulozKopii(data: ExkurzeEntry[]): void {
 
 /** Načte exkurze; bez sítě vrátí poslední známou kopii. */
 export async function nactiExkurze(): Promise<ExkurzeEntry[]> {
+  await zajistiMigraci();
   const { data, error } = await supabase
     .from('exkurze').select('*').order('datum', { ascending: false });
   if (error || !data) return nactiKopii();
@@ -87,8 +88,28 @@ export async function smazExkurzi(id: string): Promise<string | null> {
  *
  * Stará id (`crypto.randomUUID()` i starší tvary) se nahrazují novými: kdyby
  * některé nebylo platné uuid, databáze by celý převod odmítla.
+ *
+ * Spouští ji `nactiExkurze` sama (viz `zajistiMigraci` níž) — ne zvlášť
+ * volající obrazovka. Stejná chyba jako u výčepů (27. 9. 2026, viz
+ * vycepyData.ts): kdyby migraci spouštěl jen jeden konkrétní vstupní bod
+ * a někde jinde v appce se čas od času zavolalo `nactiExkurze` přímo, první
+ * (prázdné) čtení by tiše přepsalo zálohu v prohlížeči dřív, než by se
+ * stihla nahrát do databáze. Dnes na `nactiExkurze` sahá jen ExkurzeScreen,
+ * ale nemusí to tak zůstat.
  */
-export async function prenesZProhlizece(): Promise<number> {
+let migraceSlib: Promise<number> | null = null;
+
+function zajistiMigraci(): Promise<number> {
+  if (!migraceSlib) migraceSlib = provedMigraci();
+  return migraceSlib;
+}
+
+/** Pro testy: zapomenout, že migrace už proběhla. */
+export function vycistiMigraciProTesty(): void {
+  migraceSlib = null;
+}
+
+async function provedMigraci(): Promise<number> {
   const mistni = nactiKopii();
   if (mistni.length === 0) return 0;
 

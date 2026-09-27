@@ -4,7 +4,7 @@ import { EmptyState } from '../components/ui';
 import { Archive, BarChart3, Calendar, Download, ChevronDown, ChevronUp, Landmark, Plus, Trash2, User, UserCheck, UserRound } from 'lucide-react';
 import { exportHistoryDetailToExcel } from '../lib/excel';
 import { chyba as chybaOznam, oznam, potvrd } from '../lib/toast';
-import { KLIC_EXKURZE, nactiExkurze, prenesZProhlizece, smazExkurzi, ulozExkurzi } from '../lib/exkurzeData';
+import { KLIC_EXKURZE, nactiExkurze, smazExkurzi, ulozExkurzi } from '../lib/exkurzeData';
 import { rozdilProUlozeni } from '../lib/vycepyData';
 import { uloz } from '../lib/uloziste';
 import { businessDateISO } from '../lib/businessDate';
@@ -44,9 +44,9 @@ export default function ExkurzeScreen() {
 
   // 🌐 Načtení z databáze. Do 31. 8. 2026 žily exkurze jen v prohlížeči —
   // rezervace zadaná na tabletu nebyla na mobilu a s ní ani tržba, což je
-  // účetní údaj. Co komu zůstalo v prohlížeči, se při prvním načtení přenese.
+  // účetní údaj. Co komu zůstalo v prohlížeči, se při prvním načtení přenese —
+  // migraci si nactiExkurze spustí sama (viz exkurzeData.ts).
   async function nactiZCloudu() {
-    await prenesZProhlizece();
     setEntries(await nactiExkurze());
   }
   useEffect(() => { void nactiZCloudu(); }, []);
