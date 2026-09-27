@@ -455,6 +455,16 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
     oplach_vodou: 10, louh: 20, kyselina_dusicna: 20, kombinovana: 20, persteril: 15,
   };
 
+  // Co se o kroku sanitace zapíše do Sanitačního deníku — přesný postup
+  // podle provozu (zadání 27. 9. 2026: „louhová do deníku se napíše Louh 2 %
+  // 20 min, poté 3× 2 min oplach vodou; kyselinou kyselina dusičná 2 %, poté
+  // oplach vodou 3× 2 minuty"). Oplach vodou jde zapsat i samostatně.
+  const POSTUP_SANITACE: Partial<Record<string, string>> = {
+    oplach_vodou: 'Oplach vodou',
+    louh: 'Louh 2 % 20 min, poté oplach vodou 3× 2 min',
+    kyselina_dusicna: 'Kyselina dusičná 2 %, poté oplach vodou 3× 2 min',
+  };
+
   async function recordSanitation(methodToSave: 'louh' | 'kyselina_dusicna' | 'oplach_vodou' | 'persteril' | 'kombinovana', targetTank: CellarTank, customNote?: string, concentrationPct?: number | '', durationMinutes?: number | '') {
     const labels: Record<string, string> = {
       louh: 'Louh (NaOH)',
@@ -476,7 +486,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
       method_label: labels[methodToSave] ?? methodToSave,
       concentration_pct: concentrationPct !== undefined && concentrationPct !== '' ? Number(concentrationPct) : DEFAULT_CONCENTRATION[methodToSave],
       performed_by: userName,
-      note: customNote?.trim() || null,
+      note: customNote?.trim() || POSTUP_SANITACE[methodToSave] || null,
       created_at: new Date().toISOString(),
     };
 
@@ -920,8 +930,13 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                         <button
                           className="min-h-[44px] text-xs px-1.5 py-2 rounded bg-sky-100 text-sky-900 font-bold hover:bg-sky-200 shadow-xs border border-sky-300 flex flex-col items-center justify-center gap-0.5"
                           onClick={async () => {
-                            await recordSanitation('oplach_vodou', t, 'Rychlý oplach vodou z karty tanku', undefined, 10);
-                            await supabase.from('cellar_tanks').update({ status: 'rinsing', updated_at: new Date().toISOString() }).eq('id', t.id);
+                            await recordSanitation('oplach_vodou', t, POSTUP_SANITACE.oplach_vodou, undefined, 10);
+                            // Oplach může být i samostatný (běžné propláchnutí
+                            // prázdného tanku) — do postupu „další krok: Louh" se
+                            // tank posune jen hned po zavření, ne pokaždé.
+                            if (t.status === 'sanitizing') {
+                              await supabase.from('cellar_tanks').update({ status: 'rinsing', updated_at: new Date().toISOString() }).eq('id', t.id);
+                            }
                             load();
                             oznam(`Oplach vodou pro ${t.label} byl zapsán (Provedl: ${userName})`);
                           }}
@@ -932,7 +947,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                         <button
                           className="min-h-[44px] text-xs px-1.5 py-2 rounded bg-amber-100 text-amber-950 font-bold hover:bg-amber-200 shadow-xs border border-amber-300 flex flex-col items-center justify-center gap-0.5"
                           onClick={async () => {
-                            await recordSanitation('louh', t, 'Sanitace louhem NaOH z karty tanku', 2, 20);
+                            await recordSanitation('louh', t, POSTUP_SANITACE.louh, 2, 20);
                             await supabase.from('cellar_tanks').update({ status: 'cleaning', updated_at: new Date().toISOString() }).eq('id', t.id);
                             load();
                             oznam(`Sanitace louhem pro ${t.label} byla zapsána (Provedl: ${userName})`);
@@ -940,6 +955,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                         >
                           <span className="text-base leading-none"><SprayCan className="ikona-text" /></span>
                           <span>Louh</span>
+                          <span className="text-udaj font-semibold leading-tight">2 % 20 min + 3× voda</span>
                         </button>
                         <button
                           className="min-h-[44px] text-xs px-1.5 py-2 rounded bg-rose-100 text-rose-950 font-bold hover:bg-rose-200 shadow-xs border border-rose-300 flex flex-col items-center justify-center gap-0.5"
@@ -952,7 +968,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                               ? `\n\nPOZOR: tank ${t.label} se tím vyprázdní — zmizí přiřazené pivo (${t.current_beer_name}), počáteční objem i začátek cyklu. Nejde to vrátit zpět.`
                               : `\n\nTank ${t.label} se tím označí jako prázdný.`;
                             if (!(await potvrd(`Zapsat sanitaci kyselinou dusičnou?${varovani}`))) return;
-                            await recordSanitation('kyselina_dusicna', t, 'Sanitace kyselinou dusičnou z karty tanku', 2, 20);
+                            await recordSanitation('kyselina_dusicna', t, POSTUP_SANITACE.kyselina_dusicna, 2, 20);
                             const { error } = await supabase.from('cellar_tanks').update({
                               status: 'empty', current_beer_id: null, current_beer_name: null,
                               started_at: null, initial_volume_l: null, updated_at: new Date().toISOString(),
@@ -967,6 +983,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                         >
                           <span className="text-base leading-none"><FlaskConical className="ikona-text" /></span>
                           <span>Kyselina</span>
+                          <span className="text-udaj font-semibold leading-tight">2 % + 3× voda</span>
                         </button>
                       </div>
                       <button
@@ -1069,7 +1086,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
             </Field>
 
             <Field label="Poznámka / Detaily (nepovinné)">
-              <input type="text" className="input w-full" placeholder="např. Oplach na pH 7.0 chráněn" value={sanitationNote} onChange={(e) => setSanitationNote(e.target.value)} />
+              <input type="text" className="input w-full" placeholder={POSTUP_SANITACE[sanitationMethod] ?? 'např. Oplach na pH 7.0 chráněn'} value={sanitationNote} onChange={(e) => setSanitationNote(e.target.value)} />
             </Field>
 
             <div className="flex justify-end gap-2 pt-2">
