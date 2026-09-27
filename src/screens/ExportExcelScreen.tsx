@@ -6,8 +6,7 @@
 // každý zápis svůj list — se stejným rozvržením, jaké má pivovar v ručních
 // listech, aby se z něj dalo rovnou kopírovat.
 import { useEffect, useMemo, useState } from 'react';
-import { HlavickaStranky } from '../components/HlavickaStranky';
-import { Copy, Download, FileSpreadsheet } from 'lucide-react';
+import { Copy, Download } from 'lucide-react';
 import { fetchAllRows, Package } from '../lib/supabase';
 import { Kostra } from '../components/ui';
 import { chyba, uspech, varovani } from '../lib/toast';
@@ -302,13 +301,9 @@ export default function ExportExcelScreen() {
 
   return (
     <div className="space-y-4 max-w-3xl">
-      <div className="card p-4 sm:p-5">
-        <HlavickaStranky
-          titul="Export do Excelu"
-          ikona={FileSpreadsheet}
-          podtitul="Jeden sešit, ve kterém má každý zápis svůj list. Rozvržení sedí s ručními listy, takže se z něj dá rovnou kopírovat."
-        />
-      </div>
+      <p className="text-popisek font-semibold text-neutral-500 px-1">
+        Jeden sešit, ve kterém má každý zápis svůj list. Rozvržení sedí s ručními listy, takže se z něj dá rovnou kopírovat.
+      </p>
 
       <div className="card p-4 sm:p-5 space-y-3">
         <div className="flex flex-wrap items-end gap-3">

@@ -156,8 +156,8 @@ const ODDILY: Oddil[] = [
         jak: 'Vlastní záložka na obalový materiál: nákupy a spotřeba. Korunky a PET víčka se odečítají zvlášť — jedna zavřená lahev = jedna závěrka.',
       },
       {
-        co: 'Potřeby stáčení',
-        jak: 'Samostatná obrazovka: kolik je skladem proti tomu, co je objednané.',
+        co: 'Plán stáčení',
+        jak: 'Samostatná obrazovka: kolik chybí stočit proti tomu, co je objednané. Založí úkol, který se pak sám nabídne v zápisu stáčení.',
       },
     ],
   },

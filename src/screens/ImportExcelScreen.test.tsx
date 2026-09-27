@@ -20,7 +20,6 @@ vi.mock('../lib/toast', () => ({ oznam: vi.fn() }));
 describe('ImportExcelScreen', () => {
   it('ukáže kartu pro každý soubor ze sdílené evidence, jen Stáčení lahví je připravené', () => {
     render(<ImportExcelScreen />);
-    expect(screen.getByRole('heading', { name: 'Načíst z Excelu' })).toBeTruthy();
     for (const nazev of ['Stáčení lahví', 'Stáčení KEG', 'Fasování', 'Inventura', 'Odběr personál', 'Řezání', 'Výdej objednávek', 'Vzorky a promo']) {
       expect(screen.getByText(nazev)).toBeTruthy();
     }
