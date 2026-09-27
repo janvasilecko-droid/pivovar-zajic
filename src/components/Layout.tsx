@@ -1,5 +1,5 @@
 import { ReactNode, useState, useEffect, useRef, lazy, Suspense } from 'react';
-import { AlarmClock, AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, BookOpen, CalendarDays, Car, ClipboardCheck, ClipboardList, Compass, Download, FilePlus, FileSpreadsheet, FileText, FlaskConical, GlassWater, History as HistoryIcon, Home, Info, ListOrdered, LogOut, MapPin, Megaphone, MessageCircle, Package as PackageIcon, Radio, Receipt, Search, Settings, Shield, ShieldCheck, Smartphone, Snowflake, Sparkles, StickyNote, Store, Tag, Timer, Truck, type LucideIcon, Wifi, WifiOff, X, XCircle } from 'lucide-react';
+import { AlarmClock, AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, BookOpen, CalendarDays, Car, ClipboardCheck, ClipboardList, Compass, Download, FilePlus, FileSpreadsheet, FileText, FlaskConical, GlassWater, History as HistoryIcon, Home, Info, ListOrdered, LogOut, MapPin, Megaphone, MessageCircle, Package as PackageIcon, Radio, Receipt, Search, Settings, Shield, ShieldCheck, Smartphone, Snowflake, Sparkles, StickyNote, Store, Tag, Truck, type LucideIcon, Wifi, WifiOff, X, XCircle } from 'lucide-react';
 import { BreweryRadioBar } from './BreweryRadioBar';
 import { BreweryRadioModal } from './BreweryRadioModal';
 
@@ -115,7 +115,6 @@ export const EXTRA_NAV: NavItem[] = [
   { id: 'stock_pohyby', label: 'Pohyby', icon: ListOrdered, group: 'Pivovar' },
   { id: 'notes', label: 'Poznámky', icon: StickyNote, group: 'Nástroje' },
   { id: 'exkurze', label: 'Exkurze', icon: Compass, group: 'Výroba' },
-  { id: 'stopwatch', label: 'Stopky', icon: Timer, group: 'Nástroje' },
   { id: 'radio', label: 'Pivovarské Rádio', icon: Radio, group: 'Nástroje' },
   // Info — návody ke všem funkcím a údaje o aplikaci. Jako dlaždice na ploše,
   // protože „?" v horní liště je malé a kdo appku teprve poznává, hledá spíš
