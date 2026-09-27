@@ -6,6 +6,7 @@ import { ZtratyTankuPrehled } from '../components/ZtratyTankuPrehled';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 
 import { nesedici, zkontrolujTanky } from '../lib/tankKontrola';
+import { souhrnCyklu, cilPoPrecerpani } from '../lib/tankCyklus';
 import { Beer, CellarTank, CellarTankCycle, CellarTransfer, EntryRow, Package, beerBorder, fetchAllRows, supabase, useRealtime } from '../lib/supabase';
 import { nactiSdilenouTabulku } from '../lib/sdilenaData';
 import { EmptyState, Field, Kostra, Modal, UkazatelPlnosti } from '../components/ui';
@@ -198,7 +199,10 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
       return {
         ...tk,
         capacity_l: targetCap,
-        initial_volume_l: tk.initial_volume_l ?? targetCap,
+        // Chybějící počáteční objem se NEdoplňuje kapacitou. Dřív tu stálo
+        // `?? targetCap` a přečerpání do prázdného tanku pak převzalo 7 500 l
+        // jako počátek cyklu, i když přiteklo 3 000 l (lib/tankCyklus.ts).
+        initial_volume_l: tk.initial_volume_l ?? null,
       };
     });
 
@@ -296,10 +300,12 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
     const keggedLitersByBeer = new Map<string, number>();
     kegging.forEach((r) => {
       if (!r.beer_id || !r.entry_date || isoWeekKey(r.entry_date) !== weekKey) return;
+      // Objem sudu z číselníku obalů, stejně jako u objednávek výš — dřív
+      // se luštil z textu popisku a u popisku bez „l" se tipovalo 50 l.
+      const pkgVol = Number(packages.find((p) => p.id === r.package_id)?.volume_l) || 0;
       const sizeMatch = (r.package_label ?? '').match(/(\d+(?:[.,]\d+)?)\s*l/i);
-      const size = sizeMatch ? Number(sizeMatch[1].replace(',', '.')) : 0;
-      const vol = size > 0 ? size : 50; // fallback 50l
-      const liters = Number(r.quantity ?? 0) * vol;
+      const size = pkgVol > 0 ? pkgVol : sizeMatch ? Number(sizeMatch[1].replace(',', '.')) : 50;
+      const liters = Number(r.quantity ?? 0) * size;
       keggedLitersByBeer.set(r.beer_id, (keggedLitersByBeer.get(r.beer_id) ?? 0) + liters);
     });
 
@@ -381,40 +387,47 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
 
 
   // Ukončit aktivní tank -> spočítat stočeno/ztrátu/dobu trvání, uložit do historie cyklů, přejít do sanitace
+  //
+  // Oprava 27. 9. 2026: (1) potvrzení se nečekalo (`!potvrd(...)` je vždy
+  // false, protože potvrd vrací Promise) — tank se zavřel hned, i když
+  // člověk v dialogu dal Zrušit. (2) Ztráta nepočítala přečerpání — přefuk
+  // do jiného tanku se zapsal jako ztracené pivo. Teď lib/tankCyklus.ts.
   async function endTank(t: CellarTank) {
-    const s = tankSummary.get(t.id) ?? { kegCount: 0, sourceL: 0, lossL: 0, bySize: {} };
+    const c = souhrnCyklu(t, kegging as any[], transfers as any[]);
     const initialVol = Number(t.initial_volume_l ?? t.capacity_l);
-    const keggedL = s.sourceL;
-    const lossL = Math.max(initialVol - keggedL, 0);
-    const lossPct = initialVol > 0 ? (lossL / initialVol) * 100 : 0;
     const startedAt = t.started_at ? new Date(t.started_at) : null;
     const endedAt = new Date();
     const durationHours = startedAt ? (endedAt.getTime() - startedAt.getTime()) / 3600000 : null;
+    const precerpanoText = c.precerpanoL !== 0
+      ? `\nPřečerpáno: ${c.precerpanoL > 0 ? '+' : ''}${(c.precerpanoL / 100).toFixed(2)} hl`
+      : '';
 
-    if (!potvrd(`Ukončit ${t.label}?\n\nStočeno: ${(keggedL / 100).toFixed(2)} hl\nZtráta (auto): ${lossL.toFixed(1)} l (${lossPct.toFixed(1)}%)\nDoba: ${durationHours != null ? fmtHours(durationHours) : '—'}\n\nTank přejde do stavu Sanitace.`)) return;
+    if (!(await potvrd(`Zavřít ${t.label}?\n\nStočeno: ${(c.stocenoL / 100).toFixed(2)} hl (${c.sudu} sudů)${precerpanoText}\nZtráta: ${c.ztrataL.toFixed(0)} l (${c.ztrataPct.toFixed(1)} %)\nDoba: ${durationHours != null ? fmtHours(durationHours) : '—'}\n\nTank přejde do sanitace (nejdřív oplach).`))) return;
 
-    await supabase.from('cellar_tank_cycles').insert({
+    const { error: errCyklus } = await supabase.from('cellar_tank_cycles').insert({
       tank_id: t.id,
       tank_label: t.label,
       beer_id: t.current_beer_id,
       beer_name: t.current_beer_name,
       initial_volume_l: initialVol,
-      kegged_volume_l: keggedL,
-      keg_count: s.kegCount,
-      loss_l: lossL,
-      loss_pct: lossPct,
+      kegged_volume_l: c.stocenoL,
+      keg_count: c.sudu,
+      loss_l: c.ztrataL,
+      loss_pct: c.ztrataPct,
       started_at: t.started_at,
       ended_at: endedAt.toISOString(),
       duration_hours: durationHours,
     });
+    if (errCyklus) { chyba(`Tank se nepodařilo zavřít: ${errCyklus.message}`); return; }
 
-    await supabase.from('cellar_tanks').update({
+    const { error: errTank } = await supabase.from('cellar_tanks').update({
       status: 'sanitizing', // Po H2O
       current_volume_l: 0,
       kegging_active: false,
       kegging_ended_at: endedAt.toISOString(),
       updated_at: endedAt.toISOString(),
     }).eq('id', t.id);
+    if (errTank) { chyba(`Historie cyklu se uložila, ale tank se nepřepnul do sanitace: ${errTank.message}`); }
     load();
   }
 
@@ -637,7 +650,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
               <ChevronLeft size={16} />
             </button>
             <div className="px-2 text-xs font-bold text-amber-800 text-center min-w-[90px]">
-              Týden {weekKey.split('-')[1]}
+              Objednávky · týden {weekKey.split('-')[1]}
               <div className="text-udaj text-neutral-500 font-normal">
                 ({weekRange(weekKey).label})
               </div>
@@ -682,8 +695,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
               const remaining = currentVol > 0 || s.sourceL > 0
                 ? Math.max(currentVol, 0)
                 : Math.max(initialVol, 0);
-              const pct = initialVol > 0 ? Math.min((s.sourceL / initialVol) * 100, 100) : 0;
-              // Tank bez piva (prázdný nebo ve fázi sanitace) — grafika ukazuje 0 %
+              // Tank bez piva (prázdný nebo ve fázi sanitace) — pruh plnosti se nekreslí
               const isEmpty = t.status === 'empty' || t.status === 'sanitizing' || t.status === 'rinsing' || t.status === 'cleaning';
               const sizeKeys = Object.keys(s.bySize).map(Number).sort((a, b) => b - a);
               const isLow = t.status === 'active' && remaining > 0 && remaining < LOW_VOLUME_THRESHOLD;
@@ -818,112 +830,36 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                     );
                   })()}
 
-                  {/* Grafické znázornění nerezového ležáckého tanku */}
-                  <div className="my-3 p-3 bg-neutral-900/90 rounded border border-neutral-800 text-white flex items-center gap-4 shadow-inner">
-                    {/* SVG 3D Tank Cylindrical Graphic */}
-                    <div className="relative w-14 h-24 shrink-0 flex items-center justify-center">
-                      <svg viewBox="0 0 60 100" className="w-full h-full drop-shadow-md">
-                        {/* Outer Tank Steel Shell */}
-                        <path d="M 10 20 C 10 5, 50 5, 50 20 L 50 80 L 30 95 L 10 80 Z" fill={remaining === 0 || isEmpty ? '#1e293b' : '#334155'} stroke="#94a3b8" strokeWidth="2.5" />
-                        {/* Top Cap Curved Lines */}
-                        <path d="M 10 20 C 10 10, 50 10, 50 20" fill="none" stroke="#64748b" strokeWidth="1.5" />
-                        
-                        {/* Beer Liquid Level Clip Area (Pokud zbývá 0 l nebo je tank prázdný, zůstane vnitřek průhledný / bílo-šedý) */}
-                        {remaining > 0 && !isEmpty && (() => {
-                          const liquidPct = Math.min(1, Math.max(0, remaining / initialVol));
-                          const fillH = liquidPct * 65;
-                          const fillY = 80 - fillH;
-                          // Barva piva podle typu — tmavé = hnědá, světlé = jantarová
-                          const isDark = t.current_beer_name?.toLowerCase().includes('tmav');
-                          const baseColor = isDark ? '#78350f' : '#f59e0b';
-                          // Intenzita barvy podle procenta naplnění — čím méně piva, tím světlejší
-                          const intensity = 0.35 + liquidPct * 0.6; // 0.35 (málo) až 0.95 (plný)
-                          return (
-                            <g clipPath={`url(#tank-clip-${t.id})`}>
-                              <rect
-                                x="12"
-                                y={fillY}
-                                width="36"
-                                height={fillH}
-                                fill={baseColor}
-                                opacity={intensity}
-                              />
-                              {/* Liquid Surface Wave Shimmer */}
-                              <line
-                                x1="12"
-                                y1={fillY}
-                                x2="48"
-                                y2={fillY}
-                                stroke="#fef08a"
-                                strokeWidth="2"
-                              />
-                            </g>
-                          );
-                        })()}
-
-                        <clipPath id={`tank-clip-${t.id}`}>
-                          <path d="M 12 20 C 12 8, 48 8, 48 20 L 48 78 L 30 92 L 12 78 Z" />
-                        </clipPath>
-
-                        {/* Tank Valve Legs */}
-                        <line x1="20" y1="92" x2="16" y2="99" stroke="#64748b" strokeWidth="2" />
-                        <line x1="40" y1="92" x2="44" y2="99" stroke="#64748b" strokeWidth="2" />
-                      </svg>
-
-                      {/* Percentage Badge */}
-                      <span className={`absolute text-udaj font-black font-mono px-1.5 py-0.5 rounded border ${remaining === 0 || isEmpty ? 'bg-neutral-800 text-neutral-300 border-neutral-600' : 'bg-neutral-950/90 text-amber-300 border-neutral-700'}`}>
-                        {isEmpty ? '0%' : `${Math.round((remaining / initialVol) * 100)}%`}
-                      </span>
-                    </div>
-
-                    {/* Right details panel inside tank graphic */}
-                    <div className="flex-1 space-y-1">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-neutral-400 font-medium">Stav náplně:</span>
-                        <span className={`font-bold font-mono ${remaining === 0 || isEmpty ? 'text-neutral-300' : 'text-amber-400'}`}>
-                          {isEmpty ? '0 %' : `${Math.round((remaining / initialVol) * 100)} %`}
-                          <span className="ml-1 text-neutral-400">· {isEmpty ? '0 hl' : `${(remaining / 100).toFixed(2)} hl`}</span>
-                        </span>
-                      </div>
-                      <div className="w-full bg-neutral-800 h-2 rounded-full overflow-hidden border border-neutral-700">
-                        <div
-                          className={`h-full rounded-full transition-all duration-500 ${isEmpty ? 'bg-neutral-600' : isLow ? 'bg-amber-500' : 'bg-emerald-500'}`}
-                          style={{ width: isEmpty ? '0%' : `${Math.max(Math.round((remaining / initialVol) * 100), 2)}%` }}
-                        />
-                      </div>
-                      <div className="flex items-center justify-between text-udaj text-neutral-300 font-medium pt-0.5">
-                        <span>Výstav {t.current_beer_name ? `${(initialVol / 100).toFixed(1)} hl` : `z ${t.capacity_l.toLocaleString('cs-CZ')} l`}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Fill bar (active/emptying) — kolik zbývá v tanku */}
-                  {(t.status === 'active' || t.status === 'emptying') && (
-                    <div className="mt-1">
-                      <div className="flex items-end justify-between mb-1">
-                        <div>
-                          <span className="text-xl font-display font-extrabold text-primary-900 tabular-nums">{pct.toFixed(0)}<span className="text-sm text-primary-500">%</span></span>
-                          <span className="ml-2 text-xs text-primary-500">vystočeno</span>
+                  {/* Co se z tanku za tenhle cyklus stočilo. Dřív tu byla
+                      ještě tmavá grafika tanku s procentem, druhý pruh plnosti
+                      a „% vystočeno" — tři ukazatele téhož, každý počítaný
+                      z jiného čísla, takže se klidně rozcházely (27. 9. 2026:
+                      „ať je to přehledný, jednoduchý a ukazuje správný
+                      údaje"). Plnost ukazuje jeden pruh výš. */}
+                  {(t.status === 'active' || t.status === 'emptying' || t.status === 'filling') && (() => {
+                    const c = souhrnCyklu(t, kegging as any[], transfers as any[]);
+                    return (
+                      <div className="mt-3 pt-3 border-t border-primary-100 text-xs space-y-1">
+                        <div className="flex justify-between gap-2">
+                          <span className="text-primary-500">Stočeno z tanku:</span>
+                          <span className="font-semibold text-primary-800 tabular-nums">{c.sudu} sudů · {(c.stocenoL / 100).toFixed(2)} hl</span>
                         </div>
-                        <span className="text-xs font-semibold text-primary-700 tabular-nums">{(s.sourceL / 100).toFixed(2)} hl stočeno</span>
+                        {sizeKeys.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {sizeKeys.map((sz) => (
+                              <span key={sz} className="chip bg-primary-100 text-primary-700 text-udaj">{sz} l × {s.bySize[sz]}</span>
+                            ))}
+                          </div>
+                        )}
+                        {c.precerpanoL !== 0 && (
+                          <div className="flex justify-between gap-2">
+                            <span className="text-primary-500">Přečerpáno:</span>
+                            <span className="font-semibold text-primary-800 tabular-nums">{c.precerpanoL > 0 ? '+' : ''}{(c.precerpanoL / 100).toFixed(2)} hl</span>
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  )}
-
-                  {/* Souhrn stáčení aktuálního cyklu */}
-                  {(t.status === 'active' || t.status === 'emptying') && (
-                    <div className="mt-3 pt-3 border-t border-primary-100 text-xs space-y-1">
-                      <div className="flex justify-between"><span className="text-primary-500">Stočeno sudů:</span><span className="font-semibold text-primary-800">{s.kegCount} ks</span></div>
-                      {sizeKeys.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {sizeKeys.map((sz) => (
-                            <span key={sz} className="chip bg-primary-100 text-primary-700 text-udaj">{sz}l × {s.bySize[sz]} ks</span>
-                          ))}
-                        </div>
-                      )}
-                      <div className="flex justify-between"><span className="text-primary-500">Stočeno celkem:</span><span className="font-semibold text-primary-800">{(s.sourceL / 100).toFixed(2)} hl</span></div>
-                    </div>
-                  )}
+                    );
+                  })()}
 
                   {/* Mini historie posledních cyklů */}
                   {recentCycles.length > 0 && (
@@ -1273,16 +1209,20 @@ function TransferForm({ tanks, beers, initialFromId, initialBeerId, initialVolum
     }).eq('id', fromId);
     if (toId) {
       const toTank = tanks.find((t) => t.id === toId);
-      const toNewVol = Number(toTank?.current_volume_l ?? 0) + (v - lossV);
-      // Počáteční objem cyklu zachováme, pokud už tank cyklus má; jinak nastavíme nový (začátek nového cyklu)
-      const toInitialVol = toTank?.initial_volume_l ?? toNewVol;
+      const cyklus = toTank
+        ? cilPoPrecerpani(toTank, v - lossV, new Date().toISOString())
+        : { initial_volume_l: v - lossV, started_at: new Date().toISOString() };
+      // Prázdný/vymytý tank začíná nový cyklus s tím, co přiteklo — jeho
+      // zbytek z minula se nepočítá (lib/tankCyklus.ts).
+      const novyCyklus = !toTank || cyklus.started_at !== toTank.started_at;
+      const toNewVol = (novyCyklus ? 0 : Number(toTank?.current_volume_l ?? 0)) + (v - lossV);
       await supabase.from('cellar_tanks').update({
         current_volume_l: toNewVol,
         current_beer_id: beerId || (fromTank?.current_beer_id ?? null),
         current_beer_name: beer?.name ?? fromTank?.current_beer_name ?? null,
-        status: 'filling',
-        started_at: toTank?.started_at ?? new Date().toISOString(),
-        initial_volume_l: toInitialVol,
+        status: novyCyklus ? 'filling' : (toTank?.status ?? 'filling'),
+        started_at: cyklus.started_at,
+        initial_volume_l: cyklus.initial_volume_l,
         updated_at: new Date().toISOString(),
       }).eq('id', toId);
     }
