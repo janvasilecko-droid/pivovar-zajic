@@ -244,7 +244,7 @@ export default function App() {
         <Dashboard setPage={setPage} initialTab={page === 'sklo_promo' ? 'sklo_promo' : 'sklad'} />
       )}
       {page === 'concentration' && <ConcentrationScreen setPage={setPage} initialSubTab={pageSubTab} />}
-      {(page === 'checklists' || page === 'haccp' || page === 'sanitation_log' || page === 'sanitace' || page === 'sanitace_lahve' || page === 'sanitace_kegy' || page === 'sanitace_vycepy') && (
+      {(page === 'checklists' || page === 'haccp' || page === 'sanitation_log' || page === 'sanitace_lahve' || page === 'sanitace_kegy' || page === 'sanitace_vycepy') && (
         <SanitaceTabbed
           initialTab={
             page === 'haccp' ? 'haccp'
@@ -302,7 +302,7 @@ export default function App() {
             : {})}
         />
       )}
-      {(page === 'akce' || page === 'exkurze' || page === 'marketing') && (
+      {(page === 'akce' || page === 'exkurze') && (
         <MarketingTabbed
           initialTab={
             page === 'exkurze' ? 'exkurze' : 'akce'
@@ -312,7 +312,7 @@ export default function App() {
       )}
       {page === 'inventory' && <InventoryScreen setPage={setPage} initialSubTab={pageSubTab} />}
       {page === 'audit' && <AuditScreen setPage={setPage} />}
-      {(page === 'calendar' || page === 'feedback' || page === 'planning') && (
+      {(page === 'calendar' || page === 'feedback') && (
         <PlanningTabbed
           initialTab={page === 'feedback' ? 'feedback' : 'calendar'}
           setPage={setPage}
