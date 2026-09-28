@@ -299,6 +299,17 @@ describe('jednorázové přeskládání plochy (ROZLOZENI_VERZE)', () => {
     expect(layout.overrides.cellar?.color).toBe('teal');
   });
 
+  it('plocha z verze 8 dostane dlaždici Rozvoz přes celou šířku (co naložit)', () => {
+    const verze8 = {
+      pages: [['orders', 'orders_zavoz', 'cellar'], ['app_settings']],
+      overrides: { orders_zavoz: { w: 1, h: 2 }, cellar: { w: 3, h: 2 } },
+      rozlozeniVerze: 8,
+    };
+    const layout = getHomeLayout(verze8, viditelne, ['orders_zavoz'], GRID_COLS_MOBILE);
+    expect(layout.overrides.orders_zavoz?.w).toBe(3);
+    expect(layout.overrides.cellar?.w).toBe(3);
+  });
+
   it('plochu se značkou už NEPŘESKLÁDÁ — kdo si ji naskládal, o ni nepřijde', () => {
     const moje = {
       pages: [['kegging'], ['bottling']],

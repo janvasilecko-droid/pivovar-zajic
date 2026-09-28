@@ -16,7 +16,7 @@ import { canUserView, getUserPermissions, PAGE_TO_MODULE } from '../lib/permissi
 import { isAdminEmail } from '../lib/config';
 import { supabase, Vehicle, fetchAllRows, useRealtime } from '../lib/supabase';
 import { getVehicleExpiryStatus } from '../lib/vozidla';
-import { businessDateISO } from '../lib/businessDate';
+import { businessDateISO, posunDen } from '../lib/businessDate';
 import { IkonaSud, IkonaLahev, IkonaVycep } from '../components/ikony';
 import { HomeNotesModal } from '../components/HomeNotesModal';
 import CoStocitOkno from '../components/CoStocitOkno';
@@ -39,6 +39,7 @@ import { vyhodnotGesto, rychlostPosunu, jeVeVodorovnemPasku, stavPodrzeni } from
 import { maSeZobrazit, oznacZobrazenou } from '../lib/napovedy';
 import { queueLength, onQueueChange, syncQueue, isOnline } from '../lib/offline';
 import { litryJakoHl, kusy } from '../lib/cisla';
+import { coNalozitNaZavoz, type NalozitNaZavoz } from '../lib/nalozitNaZavoz';
 import { dnuOdZalohy, isWeeklyBackupDue } from '../lib/backup';
 import { souhrnDne, type SouhrnDne } from '../lib/souhrnDne';
 import { buildMovements } from '../lib/stockLedger';
@@ -1085,6 +1086,25 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
     })();
   };
   useEffect(() => { nactiDnesniZavoz(); }, [visibleIds]);
+
+  // ---- Živá dlaždice Rozvoz: co naložit na nejbližší závoz ----
+  // Z provozu 28. 9. 2026: „dej tam, co naložit na závoz na další den."
+  // Výpočet v lib/nalozitNaZavoz.ts; čte se týden dopředu, aby v pátek
+  // ukázal pondělí.
+  const [nalozit, setNalozit] = useState<NalozitNaZavoz | null>(null);
+  const nactiNalozit = () => {
+    if (!visibleIds.includes('orders_zavoz') && !layout.pages.some((p) => p.includes('orders_zavoz'))) return;
+    void (async () => {
+      const dnes = businessDateISO();
+      const { data } = await fetchAllRows<any>('orders', 'delivery_date, status, place_name, order_items(beer_name, package_label, quantity)')
+        .gt('delivery_date', dnes)
+        .lte('delivery_date', posunDen(dnes, 7))
+        .neq('status', 'storno');
+      setNalozit(coNalozitNaZavoz((data as any[]) ?? [], dnes));
+    })();
+  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { nactiNalozit(); }, [visibleIds]);
 
   // ---- Živá dlaždice Sklad: co se dnes stalo ----
   // Dosud se to skládalo z pěti obrazovek (KEG, Lahve, Fasování, Odpis,
@@ -2406,6 +2426,43 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                     <span>{dnesniZavoz.objednavek} obj.</span>
                     <span>Objednávky ➔</span>
                   </div>
+                </div>
+              );
+            }
+
+            // Widget Rozvoz (orders_zavoz) — co naložit na nejbližší závoz.
+            if (id === 'orders_zavoz' && ((override.w ?? 1) >= 2 || (override.h ?? 1) >= 2)) {
+              const den = nalozit ? new Date(nalozit.datum + 'T00:00:00').toLocaleDateString('cs-CZ', { weekday: 'short', day: 'numeric', month: 'numeric' }) : '';
+              const kolik = (override.w ?? 1) >= 2 ? 8 : 4;
+              const vidno = nalozit?.polozky.slice(0, kolik) ?? [];
+              const zbyva = (nalozit?.polozky.length ?? 0) - vidno.length;
+              customContent = (
+                <div className="w-full h-full flex flex-col p-2.5 text-left select-none overflow-hidden">
+                  <div className="flex items-center justify-between gap-2 border-b border-black/10 pb-1">
+                    <span className="font-extrabold text-xs uppercase tracking-wider flex items-center gap-1.5 opacity-90 truncate">
+                      <Truck size={14} /> {nalozit ? `Naložit · ${den}` : 'Rozvoz'}
+                    </span>
+                    {nalozit && <span className="text-udaj font-bold opacity-80 shrink-0">{kusy(nalozit.kusuCelkem)}</span>}
+                  </div>
+                  {nalozit ? (
+                    <div className={`flex-1 min-h-0 pt-1 grid gap-x-3 content-start ${(override.w ?? 1) >= 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                      {vidno.map((p) => (
+                        <div key={`${p.pivo}__${p.obal}`} className="flex items-baseline gap-1 text-xs font-bold leading-snug min-w-0">
+                          <span className="truncate">{p.pivo}</span>
+                          <span className="opacity-70 truncate">{p.obal}</span>
+                          <span className="ml-auto shrink-0 tabular-nums">× {p.kusu}</span>
+                        </div>
+                      ))}
+                      {zbyva > 0 && <div className="text-udaj font-bold opacity-70">+{zbyva} další</div>}
+                    </div>
+                  ) : (
+                    <div className="my-auto text-xs font-bold opacity-80">Na příští dny zatím nic k závozu.</div>
+                  )}
+                  {nalozit && (
+                    <div className="text-udaj font-bold opacity-60 pt-1 border-t border-black/10 truncate">
+                      {nalozit.objednavek} obj. · {nalozit.mista.slice(0, 3).join(', ')}{nalozit.mista.length > 3 ? '…' : ''}
+                    </div>
+                  )}
                 </div>
               );
             }
