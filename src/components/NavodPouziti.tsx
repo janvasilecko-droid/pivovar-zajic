@@ -197,7 +197,7 @@ const ODDILY: Oddil[] = [
       },
       {
         co: 'Přehled na úvodní stránce',
-        jak: 'Úplně nahoře na ploše jsou ležácké tanky 1–8 (pivo v barvě z nastavení piv, hl a pruh plnosti) — klepnutí otevře Sklep. Pod nimi okno „Co stočit" — po otevření je sbalené na jeden řádek s počty, klepnutím se rozbalí. První dlaždice je Nakládka závoz: pivo × obal × kusy na nejbližší závoz — klepnutí otevře Rozvoz rovnou na „Co naložit do auta" pro ten den.',
+        jak: 'Úplně nahoře na ploše jsou ležácké tanky 1–8 (pivo v barvě z nastavení piv, hl a pruh plnosti) — klepnutí otevře Sklep. Pod nimi okno „Co stočit" — po otevření je sbalené na jeden řádek s počty, klepnutím se rozbalí. Dlaždici Nakládka závoz (pivo × obal × kusy na nejbližší závoz) si můžeš přidat přes úpravu plochy → Přidat dlaždici — klepnutí na ni otevře Rozvoz rovnou na „Co naložit do auta" pro ten den.',
       },
       {
         co: 'Rozvoz a podpis',

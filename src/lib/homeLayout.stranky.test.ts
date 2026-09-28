@@ -28,15 +28,26 @@ describe('rozdelDoStranek — jedna stránka pod sebou (28. 9. 2026, na zkoušku
     expect(VYCHOZI_STRANKA).toBe(0);
     expect(STRANKY_PLOCHY).toHaveLength(1);
     expect(stranky).toHaveLength(1);
-    // Nakládka závoz první (28. 9. 2026: „ten rozvoz zhora vymaž, ale přidej
-    // na úvodní plochu dlaždici nakládka závoz"), pak denní práce.
-    expect(stranky[0].slice(0, 8)).toEqual(
-      ['nakladka', 'orders_zavoz', 'cellar', 'notes', 'prodejna', 'bottling_needs', 'timer', 'history'],
+    // Nakládka závoz na ploše sama není — přidává se ručně (28. 9. 2026:
+    // „ten závoz tam nedávej, dej tam možnost si ho ale na plochu přidat").
+    expect(stranky[0].slice(0, 7)).toEqual(
+      ['orders_zavoz', 'cellar', 'notes', 'prodejna', 'bottling_needs', 'timer', 'history'],
     );
     // Co bylo na „Další", je pod tím.
     expect(stranky[0]).toContain('kegging');
     expect(stranky[0]).toContain('depozitar'); // Číselníky
     expect(stranky[0].indexOf('kegging')).toBeGreaterThan(stranky[0].indexOf('history'));
+  });
+
+  it('Nakládka závoz: z plochy jednou dolů, ručně přidaná pak zůstane', () => {
+    const zVerze17 = { pages: [['nakladka', 'orders_zavoz', 'cellar']], overrides: { nakladka: { w: 3, h: 2 } }, rozlozeniVerze: 17 };
+    const po = getHomeLayout(zVerze17, NAV.map((n) => n.id), EXTRA_NAV.map((n) => n.id), GRID_COLS_MOBILE);
+    expect(po.pages.flat()).not.toContain('nakladka');
+    // Kdo si ji potom přidá, tomu ji další načtení nesundá.
+    const pridana = { ...po, pages: [['nakladka', ...po.pages[0]], ...po.pages.slice(1)] };
+    const znovu = getHomeLayout(pridana, NAV.map((n) => n.id), EXTRA_NAV.map((n) => n.id), GRID_COLS_MOBILE);
+    expect(znovu.pages.flat()).toContain('nakladka');
+    expect(znovu.overrides.nakladka?.w).toBe(3);
   });
 
   it('Nastavení a Odhlásit (ikony v liště) jsou úplně na konci — jinak by v mřížce zbyla díra', () => {

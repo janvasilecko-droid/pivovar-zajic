@@ -30,7 +30,7 @@ import { polozkyDlazdice, pocetCekajicich } from '../lib/dlazdicePoznamek';
 import { nactiSdilene, prepniHotovo, SDILENE_POZNAMKY_ZMENA, type SdilenaPoznamka } from '../lib/sdilenePoznamky';
 import { getHomeNotes, toggleHomeNote, HOME_NOTES_CHANGED_EVENT, OPEN_HOME_NOTES_EVENT, consumeOpenHomeNotesRequest, type HomeNote, rozvrhniPoznamky, kolikPoznamekZobrazit } from '../lib/homeNotes';
 import { getDailyTasks, DAILY_CHECKLIST_CHANGED_EVENT, type DailyTask } from '../lib/homeChecklist';
-import { getHomeLayout, saveHomeLayout, addPage, removePage, moveTileToPage, hideTile, addTile, mergeTiles, addToGroup, removeFromGroup, deleteGroup, isGroupId, isCountdownId, ensurePositions, ensureTrailingEmptyPage, unifyColorsByCategory, stepTileCell, addDockSlot, removeDockSlot, moveDockSlot, PAGE_CATEGORY, CATEGORY_ORDER, CATEGORY_SHADES, type Category, moveTileToPageCell, okrajProPrepnuti, dalsiStranka, rozdelVseDoStranek, idsKRozmisteni, vyrovnejStranku, VYCHOZI_STRANKA, type OkrajTazeni, MIN_OPACITY, MAX_OPACITY, MIN_TILE_GAP, MAX_TILE_GAP, MIN_W, MAX_W, MIN_H, MAX_H, TILE_COLORS, COLOR_HEX, defaultTileColor, GRID_COLS_DESKTOP, GRID_COLS_MOBILE, MOBILE_BREAKPOINT_PX, ROW_HEIGHT_DESKTOP, ROW_HEIGHT_MOBILE, MIN_DOCK, MAX_DOCK, UNIT_COLS, CO2_TILE_ID, type HomeLayout, type TileColor, type TileId, type GroupId, type CountdownTileId } from '../lib/homeLayout';
+import { getHomeLayout, saveHomeLayout, pouzijPozadavekNakladky, type PozadavekNakladky, addPage, removePage, moveTileToPage, hideTile, addTile, mergeTiles, addToGroup, removeFromGroup, deleteGroup, isGroupId, isCountdownId, ensurePositions, ensureTrailingEmptyPage, unifyColorsByCategory, stepTileCell, addDockSlot, removeDockSlot, moveDockSlot, PAGE_CATEGORY, CATEGORY_ORDER, CATEGORY_SHADES, type Category, moveTileToPageCell, okrajProPrepnuti, dalsiStranka, rozdelVseDoStranek, idsKRozmisteni, vyrovnejStranku, VYCHOZI_STRANKA, type OkrajTazeni, MIN_OPACITY, MAX_OPACITY, MIN_TILE_GAP, MAX_TILE_GAP, MIN_W, MAX_W, MIN_H, MAX_H, TILE_COLORS, COLOR_HEX, defaultTileColor, GRID_COLS_DESKTOP, GRID_COLS_MOBILE, MOBILE_BREAKPOINT_PX, ROW_HEIGHT_DESKTOP, ROW_HEIGHT_MOBILE, MIN_DOCK, MAX_DOCK, UNIT_COLS, CO2_TILE_ID, type HomeLayout, type TileColor, type TileId, type GroupId, type CountdownTileId } from '../lib/homeLayout';
 import { co2Bezi, co2Zbyva, prepniCo2, zastavOdpocetVSeznamu, CO2_ID } from '../lib/co2Foukani';
 import { zavibruj } from '../lib/haptika';
 import { getKegTimerState, formatDurationMs, getCountdowns, saveCountdowns, countdownRemainingMs, toggleCountdown, resetCountdown, startAllCountdowns, pauseAllCountdowns, COUNTDOWN_CHANGED_EVENT, type CountdownTimer, getStopwatchState, saveStopwatchState, stopwatchElapsedMs, STOPWATCH_CHANGED_EVENT, type StopwatchState } from '../lib/stopwatchTimers';
@@ -1119,8 +1119,25 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   // Výpočet v lib/nalozitNaZavoz.ts; čte se týden dopředu, aby v pátek
   // ukázal pondělí.
   const [nalozit, setNalozit] = useState<NalozitNaZavoz | null>(null);
+  // ✅ Zaškrtávátko „Přehled nakládky na ploše" v Rozvozu nechá v home_layout
+  // požadavek (lib/homeLayout.ts) — tady se provede a smaže. Smazání musí jít
+  // i do cloudu (null), jinak by se při dalším načtení provedl znovu.
+  const pozadavekNakladky = (profile as any)?.home_layout?.nakladkaPozadavek as PozadavekNakladky | undefined;
+  useEffect(() => {
+    if (pozadavekNakladky !== 'pridat' && pozadavekNakladky !== 'odebrat') return;
+    const next = ensureTrailingEmptyPage(ensurePositions(pouzijPozadavekNakladky(layout, pozadavekNakladky), cols));
+    setLayout(next);
+    setHasCustomLayout(true);
+    patchProfile({ home_layout: next as any });
+    if (user?.id) saveHomeLayout(user.id, { ...next, nakladkaPozadavek: null } as any);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pozadavekNakladky]);
+
+  // Nakládka se načítá, jen když dlaždici někdo na ploše má (od 28. 9. 2026
+  // si ji každý přidává sám).
+  const maNakladku = layout.pages.some((p) => p.includes('nakladka'));
   const nactiNalozit = () => {
-    if (!extraVisibleIds.includes('nakladka')) return;
+    if (!extraVisibleIds.includes('nakladka') || !maNakladku) return;
     void (async () => {
       const dnes = businessDateISO();
       const { data } = await fetchAllRows<any>('orders', 'delivery_date, status, place_name, order_items(beer_name, package_label, quantity)')
@@ -1131,7 +1148,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
     })();
   };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { nactiNalozit(); }, [visibleIds]);
+  useEffect(() => { nactiNalozit(); }, [visibleIds, maNakladku]);
 
   // ---- Živá dlaždice Sklad: co se dnes stalo ----
   // Dosud se to skládalo z pěti obrazovek (KEG, Lahve, Fasování, Odpis,

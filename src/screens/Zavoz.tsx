@@ -17,6 +17,8 @@ import { useAuth } from '../lib/auth';
 import { openNavigation, buildCustomerDeliveryWhatsAppText, openCustomerWhatsApp } from '../lib/navigation';
 import { printDeliveryList } from '../lib/safePrint';
 import { chyba, oznam } from '../lib/toast';
+import { jeNakladkaNaPlose } from '../lib/homeLayout';
+import { queueHomeLayoutPatch } from '../lib/profileSync';
 import { zavibruj } from '../lib/haptika';
 import { UkolyObjednavky, UkolyDne } from '../components/ZavozUkoly';
 import { nactiHotoveUkoly, nastavUkolHotovo, klicUkolu } from '../lib/zavozUkolyDb';
@@ -46,7 +48,18 @@ export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
   /** Kód dne závozu (po…ne), na který dlaždice ukazovala. */
   denNakladky?: string;
 } = {}) {
-  const { profile } = useAuth();
+  const { profile, patchProfile } = useAuth();
+  // ✅ „Přehled nakládky na ploše" — zaškrtnutím se dlaždice Nakládka závoz
+  // přidá nahoru na plochu, odškrtnutím zmizí (28. 9. 2026: „dej možnost do
+  // závozu dát tam zaškrtávací pole přidat přehled na plochu"). Provede to
+  // plocha při dalším otevření (lib/homeLayout.ts, pouzijPozadavekNakladky).
+  const nakladkaNaPlose = jeNakladkaNaPlose((profile as any)?.home_layout);
+  const prepniNakladkuNaPlose = (chci: boolean) => {
+    const pozadavek = chci ? 'pridat' : 'odebrat';
+    patchProfile({ home_layout: { ...((profile as any)?.home_layout ?? {}), nakladkaPozadavek: pozadavek } as any });
+    queueHomeLayoutPatch({ nakladkaPozadavek: pozadavek });
+    oznam(chci ? 'Přehled nakládky bude nahoře na ploše.' : 'Přehled nakládky z plochy zmizí.');
+  };
   const [orders, setOrders] = useState<Order[]>([]);
   const [items, setItems] = useState<Record<string, OrderItem[]>>({});
   // Odškrtnuté úkoly k závozu (`objednávka:druh`) — viz lib/zavozUkolyDb.ts.
@@ -734,6 +747,16 @@ export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
                       {loadingListBreakdown.totalCount} ks
                     </span>
                   </div>
+
+                  <label className="tap flex items-center gap-2.5 cursor-pointer select-none text-sm font-bold text-neutral-900">
+                    <input
+                      type="checkbox"
+                      checked={nakladkaNaPlose}
+                      onChange={(e) => prepniNakladkuNaPlose(e.target.checked)}
+                      className="w-5 h-5 rounded accent-amber-600"
+                    />
+                    <span>Přehled nakládky na ploše</span>
+                  </label>
 
                   {/* Progress indicator */}
                   {loadingListBreakdown.totalLabels > 0 && (

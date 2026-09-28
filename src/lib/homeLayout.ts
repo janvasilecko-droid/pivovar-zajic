@@ -251,10 +251,11 @@ const DEFAULT_SIZE: Partial<Record<Page, { w: number; h: number }>> = {
 // Přehledové dlaždice (co naložit, tanky 1–8) jsou široké a nahoře; obyčejné
 // dlaždice Rozvoz a Sklep hned pod nimi (28. 9. 2026).
 // Od verze 16 byly přehledy tanků a „co naložit" okna nahoře na ploše.
-// Od verze 17 je „co naložit" zase dlaždice — Nakládka závoz, první na úvodní
-// stránce (28. 9. 2026: „ten rozvoz zhora vymaž, ale přidej na úvodní plochu
-// dlaždici nakládka závoz"). Tanky zůstávají nahoře mimo dlaždice.
-export const DLAZDICE_DENNI_PRACE: Page[] = ['nakladka'];
+// Od verze 17 byla „co naložit" dlaždice Nakládka závoz první na úvodní
+// stránce. Od verze 19 na ploše sama není — jde si ji přidat přes úpravu
+// plochy → Přidat dlaždici (28. 9. 2026: „ten závoz tam nedávej, dej tam
+// možnost si ho ale na plochu přidat").
+export const DLAZDICE_DENNI_PRACE: Page[] = [];
 
 /** Dlaždice, které z úvodní stránky odešly na „Další" — zase běžná velikost. */
 const Z_UVODU_NA_DALSI: Page[] = ['orders_entry', 'orders', 'kegging', 'bottling', 'dashboard'];
@@ -305,7 +306,7 @@ export const STRANKY_PLOCHY: Array<{ nazev: string; ids: Page[] }> = [
 // patří mezi denní práci na úvodní stránce (28. 9. 2026).
 // Přehledové dlaždice Sklep a Rozvoz nejsou obrazovky, ale patří na úvodní
 // stránku (28. 9. 2026).
-export const DLAZDICE_MIMO_TABULKU_ZAMERNE: Page[] = ['notes', 'navod', 'orders_entry', 'orders_zavoz', 'nakladka'];
+export const DLAZDICE_MIMO_TABULKU_ZAMERNE: Page[] = ['notes', 'navod', 'orders_entry', 'orders_zavoz'];
 
 /**
  * Které dlaždice smí rozdělení rozmístit: hlavní moduly, na které má
@@ -332,7 +333,7 @@ export function idsKRozmisteni(visibleIds: Page[], extraIds: Page[] = []): Page[
  * Použij to jen tehdy, když se rozdělení mění pro VŠECHNY schválně. Cizí
  * rozmístění se tím zahazuje a nejde vzít zpět.
  */
-export const ROZLOZENI_VERZE = 18;
+export const ROZLOZENI_VERZE = 19;
 
 /** Stránka, na které se plocha otevírá — první, „Denní práce". */
 export const VYCHOZI_STRANKA = 0;
@@ -1003,6 +1004,12 @@ export function getHomeLayout(raw: unknown, visibleIds: Page[], extraIds: Page[]
     kRozdeleni = { ...kRozdeleni, overrides };
   }
 
+  // Verze 19: Nakládka závoz z plochy jednou dolů — kdo ji chce, přidá si ji
+  // (a pak už zůstane, protože značka verze se uloží).
+  if (!uzRozdeleno && !jenZalozena && zname < 19) {
+    kRozdeleni = { ...kRozdeleni, pages: kRozdeleni.pages.map((p) => p.filter((id) => id !== 'nakladka')) };
+  }
+
   // Dlaždice, které přibyly až přeskládáním (třeba nové přehledové dlaždice),
   // ještě nemají velikost ani barvu — doplní se stejně jako výš.
   const chybi = kRozdeleni.pages.flat().filter((id) => !kRozdeleni.overrides[id]);
@@ -1016,6 +1023,46 @@ export function getHomeLayout(raw: unknown, visibleIds: Page[], extraIds: Page[]
   }
 
   return ensureTrailingEmptyPage(ensurePositions(kRozdeleni, cols));
+}
+
+// ── Přehled nakládky na ploše z Rozvozu ─────────────────────────────────────
+// Z provozu 28. 9. 2026: „dej možnost do závozu dát tam zaškrtávací pole
+// přidat přehled na plochu." Rozvoz nemá v ruce celé rozložení plochy (to
+// skládá HomeScreen podle práv), proto jen uloží POŽADAVEK do home_layout
+// a plocha ho při dalším otevření provede a smaže (pouzijPozadavekNakladky).
+export const NAKLADKA_ID: TileId = 'nakladka';
+export type PozadavekNakladky = 'pridat' | 'odebrat';
+
+/** Je přehled nakládky na ploše (nebo o to už někdo požádal)? */
+export function jeNakladkaNaPlose(raw: unknown): boolean {
+  const hl = (raw ?? {}) as { pages?: unknown; nakladkaPozadavek?: unknown };
+  if (hl.nakladkaPozadavek === 'pridat') return true;
+  if (hl.nakladkaPozadavek === 'odebrat') return false;
+  return Array.isArray(hl.pages) && (hl.pages as unknown[]).some((p) => Array.isArray(p) && p.includes(NAKLADKA_ID));
+}
+
+/**
+ * Provede požadavek z Rozvozu. „Přidat" dá dlaždici úplně nahoru na první
+ * stránku (přes celou šířku) a stránku znovu seřadí shora dolů, ať se nová
+ * dlaždice neodsune až pod všechny ostatní. „Odebrat" ji z plochy sundá, ale
+ * NEschová — jde si ji zase přidat.
+ */
+export function pouzijPozadavekNakladky(layout: HomeLayout, pozadavek: PozadavekNakladky): HomeLayout {
+  const bez = layout.pages.map((p) => p.filter((id) => id !== NAKLADKA_ID));
+  if (pozadavek === 'odebrat') return { ...layout, pages: bez };
+  const prvni = [NAKLADKA_ID, ...(bez[0] ?? [])];
+  const pages = [prvni, ...bez.slice(1)];
+  const overrides = { ...layout.overrides };
+  for (const id of prvni) {
+    const o = overrides[id];
+    if (o) overrides[id] = { ...o, x: undefined, y: undefined };
+  }
+  const vel = DEFAULT_SIZE.nakladka ?? { w: 3, h: 2 };
+  overrides[NAKLADKA_ID] = {
+    ...(overrides[NAKLADKA_ID] ?? { color: defaultColorFor(NAKLADKA_ID, 0) }),
+    w: vel.w, h: vel.h, x: undefined, y: undefined,
+  };
+  return { ...layout, pages, overrides, hidden: layout.hidden.filter((id) => id !== NAKLADKA_ID) };
 }
 
 export async function saveHomeLayout(userId: string, layout: HomeLayout): Promise<void> {
