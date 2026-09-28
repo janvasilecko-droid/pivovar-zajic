@@ -1037,7 +1037,11 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
       ]);
       const jmenoPiva = new Map(((piva as any[]) ?? []).map((b) => [b.id, b.name as string]));
       const spilka = (l: string) => l.toLowerCase().includes('spilka');
+      // Jen ležácké tanky 1–8 — Spilka na dlaždici nepatří (28. 9. 2026:
+      // „1–8 stačí, když tam budou ležácké tanky, musí jít vidět, co je tam
+      // za pivo a kolik").
       const radky = (((tanky as any[]) ?? [])
+        .filter((t) => !spilka(String(t.label ?? '')))
         .map((t) => {
           const litry = Math.round(Number(t.current_volume_l || 0));
           return {
@@ -1050,8 +1054,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
             prazdny: t.status === 'empty' || litry <= 0,
           };
         })
-        .sort((a, b) => (Number(spilka(b.label)) - Number(spilka(a.label)))
-          || a.label.localeCompare(b.label, 'cs', { numeric: true })));
+        .sort((a, b) => a.label.localeCompare(b.label, 'cs', { numeric: true })));
       setTankyNaPlochu(radky);
     })();
   };
@@ -2323,7 +2326,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
               );
             }
 
-            // Widget Sklep (cellar) — VŠECHNY tanky jako malé nádoby s hladinou.
+            // Widget Sklep (cellar) — ležácké tanky 1–8: pivo, hl a pruh plnosti.
             if (id === 'cellar' && ((override.w ?? 1) >= 2 || (override.h ?? 1) >= 2) && tankyNaPlochu.length > 0) {
               const celkemLitru = tankyNaPlochu.reduce((a, t) => a + t.litry, 0);
               const kratce = (l: string) => l.replace(/spilka\s*/i, 'S').replace(/tank\s*/i, 'T');
@@ -2335,20 +2338,19 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                     </span>
                     <span className="text-udaj font-bold opacity-80">{litryJakoHl(celkemLitru)}</span>
                   </div>
-                  <div className="flex-1 min-h-0 flex items-stretch gap-1 pt-1">
+                  <div className="flex-1 min-h-0 grid grid-cols-4 gap-x-2 gap-y-1 pt-1 content-center">
                     {tankyNaPlochu.map((t) => {
                       const pct = t.prazdny ? 0 : Math.min(100, Math.max(4, Math.round((t.litry / t.kapacita) * 100)));
                       return (
-                        <div
-                          key={t.label}
-                          className="flex-1 min-w-0 flex flex-col items-center gap-0.5"
-                          title={`${t.label}${t.pivo ? ` — ${t.pivo}` : ''}: ${t.prazdny ? 'prázdný' : `${(t.litry / 100).toFixed(1)} hl`}`}
-                        >
-                          <span className="text-udaj font-bold tabular-nums leading-none">{t.prazdny ? '—' : Math.round(t.litry / 100)}</span>
-                          <div className="relative flex-1 w-full rounded-sm bg-black/15 overflow-hidden">
-                            <div className="absolute bottom-0 inset-x-0 opacity-80" style={{ height: `${pct}%`, backgroundColor: 'currentColor' }} />
+                        <div key={t.label} className="min-w-0 flex flex-col gap-0.5">
+                          <div className="flex items-baseline justify-between gap-1 text-xs font-black leading-none">
+                            <span className="truncate">{kratce(t.label)}{t.staci ? ' 🍺' : ''}</span>
+                            <span className="tabular-nums shrink-0">{t.prazdny ? '—' : `${(t.litry / 100).toFixed(t.litry < 1000 ? 1 : 0)} hl`}</span>
                           </div>
-                          <span className="text-udaj font-black leading-none truncate max-w-full">{t.staci ? '🍺' : kratce(t.label)}</span>
+                          <div className="text-udaj font-bold leading-tight truncate opacity-90">{t.prazdny ? 'prázdný' : (t.pivo || '—')}</div>
+                          <div className="h-1.5 w-full rounded-sm bg-black/15 overflow-hidden">
+                            <div className="h-full opacity-80" style={{ width: `${pct}%`, backgroundColor: 'currentColor' }} />
+                          </div>
                         </div>
                       );
                     })}
