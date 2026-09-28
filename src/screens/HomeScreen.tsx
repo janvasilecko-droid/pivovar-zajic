@@ -1943,9 +1943,9 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                   <div className="hs-tile-icon-box">
                     <CalendarX2 />
                   </div>
-                  {/* Přejmenováno z „Měsíční úklid" — nebylo jasné, o co jde
-                      (28. 9. 2026). Klepnutí otevře rovnou checklist. */}
-                  <div className="hs-lbl">Měsíční údržba linek</div>
+                  {/* Název podle provozu 28. 9. 2026 („měsíční úklid
+                      stáčečky/lahve"). Klepnutí otevře rovnou checklist. */}
+                  <div className="hs-lbl">Měsíční úklid stáčečky/lahve</div>
                 </button>
               )}
               {/* ☁️ Zápisy pořízené bez signálu čekají ve frontě v prohlížeči.

@@ -297,12 +297,12 @@ export function MonthlyCleanupWarning({ onOpenMonthlyChecklist, onOpenKegMonthly
           </div>
           <div>
             <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-rose-600">
-              <span><AlertTriangle className="ikona-text" /> Měsíční údržba linek</span>
+              <span><AlertTriangle className="ikona-text" /> Měsíční úklid stáčečky/lahve</span>
               <span>•</span>
               <span>poslední týden měsíce</span>
             </div>
             <h2 className="text-xl sm:text-2xl font-display font-black text-neutral-950 leading-tight mt-1">
-              V tomto týdnu je potřeba udělat měsíční údržbu linek
+              V tomto týdnu je potřeba udělat měsíční úklid stáčečky a lahví
             </h2>
           </div>
         </div>
