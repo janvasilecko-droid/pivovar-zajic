@@ -68,3 +68,48 @@ export function radkyBezTanku<R extends { beerId: string; qty: string | number }
 ): R[] {
   return radky.filter((r) => Number(r.qty) > 0 && !tankRadku(tanky, r.beerId, tankRadkuId(r)));
 }
+
+/** Tank, ze kterého by stáčení vzalo víc, než v něm je. */
+export type PrecerpanyTank = { tankId: string; label: string; vTankuL: number; chceL: number };
+
+/**
+ * Přečerpaný tank: stáčení by z něj vzalo víc piva, než v tanku je.
+ *
+ * Zadání 28. 9. 2026: „pokud se přečerpá tank, jen na to upozorni a stáčení
+ * neodečítej z žádného tanku, dej k tankům záložku, kam se to bude psát,
+ * a pak můžu ručně přidat to stáčení k nějakému tanku."
+ *
+ * Dřív se odečet provedl stejně — databáze stav tanku zastavila na nule
+ * (adjust_tank_volume: GREATEST(…, 0)), ale řádek stáčení nesl celé litry,
+ * takže kontrola hned hlásila „nesedí objem". Teď se řádky z takového tanku
+ * uloží BEZ tanku a bez odečtu; najdou se ve Sklepě na záložce „Stáčení bez
+ * tanku", kde se dají přiřadit ručně.
+ *
+ * Řádky jednoho uložení se sčítají po tancích (dva řádky po 40 sudech
+ * z tanku s 3 000 l ho přečerpají, i když každý zvlášť by se vešel).
+ */
+export function odpojPrecerpane<
+  R extends { cellar_tank_id: string | null; source_volume_l: number | null },
+  T extends TankKOdectu & { label?: string },
+>(radky: R[], tanky: T[], toleranceL = 1): { radky: R[]; precerpane: PrecerpanyTank[] } {
+  const chce = new Map<string, number>();
+  for (const r of radky) {
+    if (r.cellar_tank_id && r.source_volume_l) {
+      chce.set(r.cellar_tank_id, (chce.get(r.cellar_tank_id) ?? 0) + Number(r.source_volume_l));
+    }
+  }
+  const precerpane: PrecerpanyTank[] = [];
+  for (const [tankId, chceL] of chce) {
+    const t = tanky.find((x) => x.id === tankId);
+    const vTankuL = Number(t?.current_volume_l ?? 0);
+    if (chceL > vTankuL + toleranceL) precerpane.push({ tankId, label: t?.label ?? 'tank', vTankuL, chceL });
+  }
+  if (precerpane.length === 0) return { radky, precerpane };
+  const odpojit = new Set(precerpane.map((p) => p.tankId));
+  return {
+    radky: radky.map((r) => (r.cellar_tank_id && odpojit.has(r.cellar_tank_id)
+      ? { ...r, cellar_tank_id: null, source_volume_l: null }
+      : r)),
+    precerpane,
+  };
+}

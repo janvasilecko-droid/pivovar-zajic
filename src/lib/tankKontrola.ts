@@ -82,19 +82,49 @@ function vCyklu(datum: string, startCyklu: string | null): boolean {
 }
 
 /**
- * Přečerpání, kterým se tank naplnil, se do výpočtu NEPOČÍTÁ.
+ * Přečerpání, které patří do cyklu tanku: kolik přiteklo a odteklo.
  *
- * Naplnění se zapisuje dvakrát: jednou jako `initial_volume_l` na tanku a
- * jednou jako přečerpání do tanku k témuž dni. Kdyby se počítalo obojí, vyšel
- * by dvojnásobek — přesně to se stalo při prvním měření na ostrých datech,
- * kde Tank 8 vycházel na 15 000 l místo 7 500.
+ * JAK SE PŘEČERPÁNÍ ZAPISUJE (TransferForm v Cellar.tsx): `volume_l` je to,
+ * co odteklo ze zdrojového tanku, `loss_l` je jeho část, která se cestou
+ * ztratila — do cílového tanku přiteče `volume_l − loss_l`. Do 28. 9. 2026
+ * tu bylo naopak (zdroj −(objem + ztráta), cíl +objem), takže KAŽDÉ
+ * přečerpání se ztrátou rozhodilo oba tanky o velikost ztráty a Sklep
+ * hlásil „nesedí objem".
  *
- * Cena za to: přečerpání VEN provedené v den zahájení cyklu se přehlédne.
- * To je vzácné a lepší než hlásit schodek u každého právě naplněného tanku.
+ * NAPLNĚNÍ V DEN ZAČÁTKU CYKLU: naplnění se zapisuje dvakrát — jako
+ * `initial_volume_l` na tanku a jako přečerpání do tanku k témuž dni
+ * (na ostrých datech kvůli tomu Tank 8 vycházel na 15 000 l místo 7 500).
+ * Z přítoku v den začátku se proto počítá jen to, co přesahuje počáteční
+ * objem — druhé dolití téhož dne se tak už neztratí. Odtok v den začátku
+ * se počítá vždycky.
+ *
+ * `konec` (včetně) omezuje uložené, už zavřené cykly.
  */
-function poZacatkuCyklu(datum: string, startCyklu: string | null): boolean {
-  if (!startCyklu) return true;
-  return datum > startCyklu.slice(0, 10);
+export function precerpaniVCyklu(
+  tankId: string,
+  pocatekL: number,
+  startCyklu: string | null,
+  precerpani: PrecerpaniVstup[],
+  konec: string | null = null,
+): { precerpanoL: number; pritekloL: number } {
+  const start = startCyklu ? startCyklu.slice(0, 10) : null;
+  let precerpanoL = 0;
+  let pritekloL = 0;
+  let pritokVDenStartu = 0;
+  for (const p of precerpani) {
+    if (start && p.transfer_date < start) continue;
+    if (konec && p.transfer_date > konec) continue;
+    if (p.from_tank_id === tankId) precerpanoL -= Number(p.volume_l || 0);
+    if (p.to_tank_id === tankId) {
+      const cisty = Math.max(0, Number(p.volume_l || 0) - Number(p.loss_l || 0));
+      if (start && p.transfer_date === start) pritokVDenStartu += cisty;
+      else { precerpanoL += cisty; pritekloL += cisty; }
+    }
+  }
+  const navic = Math.max(0, pritokVDenStartu - Math.max(0, pocatekL));
+  precerpanoL += navic;
+  pritekloL += navic;
+  return { precerpanoL, pritekloL };
 }
 
 /**
@@ -122,14 +152,7 @@ export function zkontrolujTanky(
         vystocenoL += Number(s.source_volume_l || 0) + Number(s.loss_l || 0);
       }
 
-      let precerpanoL = 0;
-      for (const p of precerpani) {
-        if (!poZacatkuCyklu(p.transfer_date, start)) continue;
-        // Z tanku odchází objem i ztráta při přečerpání; do tanku přiteče
-        // jen čistý objem — ztráta se cestou nikam nedostane.
-        if (p.from_tank_id === t.id) precerpanoL -= Number(p.volume_l || 0) + Number(p.loss_l || 0);
-        if (p.to_tank_id === t.id) precerpanoL += Number(p.volume_l || 0);
-      }
+      const { precerpanoL } = precerpaniVCyklu(t.id, Number(t.initial_volume_l), start, precerpani);
 
       const dopocitanoL = Math.round((Number(t.initial_volume_l) - vystocenoL + precerpanoL) * 10) / 10;
       const evidovanoL = Math.round(Number(t.current_volume_l || 0) * 10) / 10;

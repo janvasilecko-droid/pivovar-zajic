@@ -15,7 +15,7 @@
 //     kapacitou. Tank s 3 000 l pak ukazoval 40 % a kontrola objemu hlásila
 //     schodek 4 500 l.
 
-import type { StaceniVstup, PrecerpaniVstup } from './tankKontrola';
+import { precerpaniVCyklu, type StaceniVstup, type PrecerpaniVstup } from './tankKontrola';
 
 /** Stavy, ve kterých tank právě drží pivo (cyklus běží). */
 export const STAVY_S_PIVEM = ['filling', 'active', 'emptying'] as const;
@@ -46,8 +46,8 @@ type StaceniSKusy = StaceniVstup & { quantity?: number | null };
 
 /**
  * Souhrn aktuálního cyklu tanku — stejná pravidla jako kontrola objemu
- * (lib/tankKontrola.ts): stáčení od dne začátku cyklu, přečerpání až PO dni
- * začátku (to v den začátku je samo naplnění, už je v počátečním objemu).
+ * (lib/tankKontrola.ts): stáčení od dne začátku cyklu, přečerpání podle
+ * precerpaniVCyklu (naplnění v den začátku už je v počátečním objemu).
  */
 export function souhrnCyklu(
   tank: TankProCyklus,
@@ -66,16 +66,7 @@ export function souhrnCyklu(
     sudu += Number(s.quantity || 0);
   }
 
-  let precerpanoL = 0;
-  let priteklo = 0;
-  for (const p of precerpani) {
-    if (start && p.transfer_date <= start) continue;
-    if (p.from_tank_id === tank.id) precerpanoL -= Number(p.volume_l || 0) + Number(p.loss_l || 0);
-    if (p.to_tank_id === tank.id) {
-      precerpanoL += Number(p.volume_l || 0);
-      priteklo += Number(p.volume_l || 0);
-    }
-  }
+  const { precerpanoL, pritekloL: priteklo } = precerpaniVCyklu(tank.id, pocatekL, tank.started_at, precerpani);
 
   const ztrataL = Math.max(0, Math.round((pocatekL + precerpanoL - stocenoL) * 10) / 10);
   const zaklad = pocatekL + priteklo;
@@ -131,20 +122,11 @@ export type UlozenyCyklus = {
  */
 export function cyklusSPrecerpanim<T extends UlozenyCyklus>(c: T, precerpani: PrecerpaniVstup[]): T {
   if (!c.tank_id || !c.started_at) return c;
-  const start = c.started_at.slice(0, 10);
-  const konec = c.ended_at.slice(0, 10);
-  let precerpanoL = 0;
-  let priteklo = 0;
-  for (const p of precerpani) {
-    if (p.transfer_date <= start || p.transfer_date > konec) continue;
-    if (p.from_tank_id === c.tank_id) precerpanoL -= Number(p.volume_l || 0) + Number(p.loss_l || 0);
-    if (p.to_tank_id === c.tank_id) {
-      precerpanoL += Number(p.volume_l || 0);
-      priteklo += Number(p.volume_l || 0);
-    }
-  }
-  if (precerpanoL === 0) return c;
   const pocatek = Number(c.initial_volume_l || 0);
+  const { precerpanoL, pritekloL: priteklo } = precerpaniVCyklu(
+    c.tank_id, pocatek, c.started_at, precerpani, c.ended_at.slice(0, 10),
+  );
+  if (precerpanoL === 0) return c;
   const stoceno = Number(c.kegged_volume_l || 0);
   const ztrata = Math.max(0, Math.round((pocatek + precerpanoL - stoceno) * 10) / 10);
   const zaklad = pocatek + priteklo;

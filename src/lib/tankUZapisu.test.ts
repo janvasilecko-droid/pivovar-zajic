@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { nejvetsiTank, radkyBezTanku, tankRadku, tankyProPivo } from './tankUZapisu';
+import { nejvetsiTank, odpojPrecerpane, radkyBezTanku, tankRadku, tankyProPivo } from './tankUZapisu';
 
 const SVETLA = 'b-svetla';
 const TMAVA = 'b-tmava';
@@ -62,5 +62,31 @@ describe('řádky, které by se uložily bez tanku', () => {
 
   it('když tanky sedí, nevrátí nic', () => {
     expect(radkyBezTanku([{ beerId: SVETLA, qty: '5', tankId: null }], tanky, (r) => r.tankId)).toEqual([]);
+  });
+});
+
+describe('odpojPrecerpane', () => {
+  const tanky = [
+    { id: 't1', label: 'Tank 1', current_volume_l: 3000 },
+    { id: 't2', label: 'Tank 2', current_volume_l: 7000 },
+  ];
+  const radek = (tank: string | null, l: number | null) => ({ cellar_tank_id: tank, source_volume_l: l });
+
+  it('co se do tanku vejde, zůstává beze změny', () => {
+    const r = odpojPrecerpane([radek('t1', 2000), radek('t2', 500)], tanky);
+    expect(r.precerpane).toEqual([]);
+    expect(r.radky[0]).toEqual(radek('t1', 2000));
+  });
+
+  it('přečerpaný tank: řádky se uloží bez tanku a bez litrů, ostatní zůstanou', () => {
+    const r = odpojPrecerpane([radek('t1', 2000), radek('t1', 2000), radek('t2', 500)], tanky);
+    expect(r.precerpane).toEqual([{ tankId: 't1', label: 'Tank 1', vTankuL: 3000, chceL: 4000 }]);
+    expect(r.radky[0]).toEqual(radek(null, null));
+    expect(r.radky[1]).toEqual(radek(null, null));
+    expect(r.radky[2]).toEqual(radek('t2', 500));
+  });
+
+  it('do litru navíc se nepočítá jako přečerpání (zaokrouhlení)', () => {
+    expect(odpojPrecerpane([radek('t1', 3000.5)], tanky).precerpane).toEqual([]);
   });
 });

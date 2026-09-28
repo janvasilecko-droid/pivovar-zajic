@@ -22,7 +22,7 @@ import KeggingDayPlan from '../components/KeggingDayPlan';
 import { AlertTriangle, BarChart3, Beer as BeerIcon, Brush, CalendarDays, Camera, Check, ClipboardList, Minus, Package as PackageIcon, PenLine, Pencil, Play, Plus, RefreshCw, Scroll, Sparkles, Trash2, X } from 'lucide-react';
 import { BeerTileGrid, BeerTilePanel } from '../components/BeerTileGrid';
 import { chyba, potvrd, toastZpet, uspech } from '../lib/toast';
-import { nejvetsiTank, radkyBezTanku, tankRadku, tankyProPivo } from '../lib/tankUZapisu';
+import { nejvetsiTank, odpojPrecerpane, radkyBezTanku, tankRadku, tankyProPivo } from '../lib/tankUZapisu';
 import { podezreleMnozstvi } from '../lib/kontrolaZadani';
 import { IkonaSud } from '../components/ikony';
 import { PrepinacObdobi } from '../components/PrepinacObdobi';
@@ -963,7 +963,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     // vybraného tanku): přednost má ručně zvolený tank (r.tankId), jinak se automaticky
     // přiřadí největší aktivní tank s daným pivem. Pokud pro dané pivo není žádný aktivní
     // tank, řádek se přesto uloží, jen bez vazby na tank a bez odečtu objemu.
-    const payloads = filled.map((r) => {
+    const navrh = filled.map((r) => {
       const beer = beers.find((b) => b.id === r.beerId);
       const pkg = packages.find((p) => p.id === r.pkgId);
       const n = Number(r.qty);
@@ -979,6 +979,24 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
         source_volume_l: sourceL || null,
       };
     });
+
+    // 🛢️ Přečerpaný tank: stáčení by vzalo víc, než v tanku je. Jen se na to
+    // upozorní a řádky z něj se uloží BEZ tanku — ve Sklepě na záložce
+    // „Stáčení bez tanku" se pak přiřadí ručně (lib/tankUZapisu.ts,
+    // zadání 28. 9. 2026).
+    const { radky: payloads, precerpane } = odpojPrecerpane(navrh, cellarTanks);
+    if (precerpane.length > 0) {
+      const seznam = precerpane
+        .map((p) => `• ${p.label}: v tanku ${Math.round(p.vTankuL)} l, stáčí se ${Math.round(p.chceL)} l`)
+        .join('\n');
+      const dotaz =
+        `Tank by se přečerpal:\n\n${seznam}\n\n` +
+        'Stáčení se uloží, ale z tanku se nic neodečte. Najdeš ho ve Sklepě na záložce ' +
+        '„Stáčení bez tanku" a tam ho přiřadíš k tanku, ze kterého se opravdu stáčelo.';
+      setSaving(false);
+      if (!(await potvrd(dotaz, { titulek: 'Tank by se přečerpal', potvrdit: 'Uložit bez tanku' }))) return false;
+      setSaving(true);
+    }
 
     // Souhrn odečtu podle tanku (více řádků může brát ze stejného, nebo i z různých tanků)
     const deductByTank = new Map<string, number>();

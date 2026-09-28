@@ -142,18 +142,30 @@ describe('zkontrolujTanky — přečerpávání mezi tanky', () => {
     expect(r.nesedi).toBe(false);
   });
 
-  it('ztráta při přečerpání jde k tíži zdrojového tanku, ne cílového', () => {
-    const zdroj = zkontrolujTanky([tank({ current_volume_l: 680 })], [], [prec({ loss_l: 20 })])[0];
-    expect(zdroj.precerpanoL).toBe(-320);
+  it('ztráta při přečerpání je součást přelitého objemu — do cíle přiteče objem − ztráta', () => {
+    // Tak to zapisuje formulář Přetáčení (Cellar.tsx): ze zdroje odteče
+    // „Objem", do cíle přiteče „Objem − Ztráta". Do 28. 9. 2026 to kontrola
+    // brala jinak a každé přečerpání se ztrátou rozhodilo oba tanky.
+    const zdroj = zkontrolujTanky([tank({ current_volume_l: 700 })], [], [prec({ loss_l: 20 })])[0];
+    expect(zdroj.precerpanoL).toBe(-300);
     expect(zdroj.nesedi).toBe(false);
 
     const cil = zkontrolujTanky(
-      [tank({ id: 't2', label: 'Tank 2', initial_volume_l: 0, current_volume_l: 300 })],
+      [tank({ id: 't2', label: 'Tank 2', initial_volume_l: 100, current_volume_l: 380 })],
       [], [prec({ loss_l: 20 })],
-    );
-    // Tank s nulovým počátečním objemem se přeskakuje — ověřuje se jen,
-    // že se sem ztráta nepřipsala; k tomu stačí případ výše.
-    expect(cil).toEqual([]);
+    )[0];
+    expect(cil.precerpanoL).toBe(280);
+    expect(cil.nesedi).toBe(false);
+  });
+
+  it('druhé dolití v den začátku cyklu se počítá — jen naplnění ne', () => {
+    const t = tank({ initial_volume_l: 3000, current_volume_l: 5000, started_at: '2026-08-09' });
+    const [r] = zkontrolujTanky([t], [], [
+      prec({ transfer_date: '2026-08-09', from_tank_id: 't8', to_tank_id: 't1', volume_l: 3000 }),
+      prec({ transfer_date: '2026-08-09', from_tank_id: 't9', to_tank_id: 't1', volume_l: 2000 }),
+    ]);
+    expect(r.precerpanoL).toBe(2000);
+    expect(r.nesedi).toBe(false);
   });
 
   it('přečerpání z minulého cyklu se nepočítá', () => {

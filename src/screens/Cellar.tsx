@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../lib/auth';
-import { AlertTriangle, ArrowLeftRight, Beer as BeerIcon, CalendarDays, Check, ChevronLeft, ChevronRight, ClipboardList, Droplet, Factory, FlaskConical, NotebookPen, Play, SprayCan, Square, TrendingDown, Warehouse, type LucideIcon } from 'lucide-react';
+import { AlertTriangle, ArrowLeftRight, Beer as BeerIcon, CalendarDays, Check, ChevronLeft, ChevronRight, ClipboardList, Droplet, Factory, FlaskConical, NotebookPen, Play, SprayCan, Square, TrendingDown, Unlink, Warehouse, type LucideIcon } from 'lucide-react';
 import { VarkySklep } from '../components/VarkySklep';
+import { StaceniBezTanku, type RadekStaceni } from '../components/StaceniBezTanku';
 import { ZtratyTankuPrehled } from '../components/ZtratyTankuPrehled';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 
@@ -13,7 +14,7 @@ import { EmptyState, Field, Kostra, Modal, UkazatelPlnosti } from '../components
 import { chyba, oznam, potvrd } from '../lib/toast';
 import { usePosledniNacteni, prvniChyba } from '../lib/nacitani';
 import { IkonaSud } from '../components/ikony';
-import { businessDateISO } from '../lib/businessDate';
+import { businessDateISO, posunDen } from '../lib/businessDate';
 import { uloz } from '../lib/uloziste';
 import { objednavkyZTanku } from '../lib/objednavkyZTanku';
 import { nactiSkladovouKnihu } from '../lib/skladovaKnihaData';
@@ -34,13 +35,14 @@ const STATUS_COLORS: Record<CellarTank['status'], string> = {
 };
 
 
-type ZalozkaSklepa = 'lezacke' | 'spilka' | 'varky' | 'ztraty';
+type ZalozkaSklepa = 'lezacke' | 'spilka' | 'varky' | 'ztraty' | 'bez_tanku';
 
 const ZALOZKY_SKLEPA: { id: ZalozkaSklepa; popis: string; Ikona: LucideIcon | typeof BeerIcon }[] = [
   { id: 'lezacke', popis: 'Ležácké tanky (1–8)', Ikona: BeerIcon },
   { id: 'spilka', popis: 'Spilka (3 kvasné tanky)', Ikona: Factory },
   { id: 'varky', popis: 'Várky & kvašení', Ikona: FlaskConical },
   { id: 'ztraty', popis: 'Ztráty při stáčení', Ikona: TrendingDown },
+  { id: 'bez_tanku', popis: 'Stáčení bez tanku', Ikona: Unlink },
 ];
 
 const DEFAULT_INITIAL_VOLUME = 7500;
@@ -562,6 +564,14 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
   }
 
 
+  // Počet stáčení bez tanku za posledních 60 dní — na záložce, ať je vidět,
+  // že tam něco čeká na přiřazení (components/StaceniBezTanku.tsx).
+  const pocetBezTanku = useMemo(() => {
+    const od = posunDen(businessDateISO(), -60);
+    return (kegging as unknown as RadekStaceni[])
+      .filter((r) => !r.cellar_tank_id && r.beer_id && Number(r.quantity) > 0 && r.entry_date >= od).length;
+  }, [kegging]);
+
   const displayedTanks = useMemo(() => {
     if (activeTab === 'spilka') {
       return tanks.filter((t) => t.label.toLowerCase().includes('spilka'));
@@ -637,7 +647,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                   activeTab === id ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
                 }`}
               >
-                <span className="inline-flex items-center gap-1.5"><Ikona size={14} /> {popis}</span>
+                <span className="inline-flex items-center gap-1.5"><Ikona size={14} /> {popis}{id === 'bez_tanku' && pocetBezTanku > 0 ? ` (${pocetBezTanku})` : ''}</span>
               </button>
             ))}
           </div>
@@ -687,6 +697,14 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
         <VarkySklep beers={beers} tanks={tanks} />
       ) : activeTab === 'ztraty' ? (
         <ZtratyTankuPrehled cycles={cyklySPrecerpanim} />
+      ) : activeTab === 'bez_tanku' ? (
+        <StaceniBezTanku
+          kegging={kegging as unknown as RadekStaceni[]}
+          tanks={tanks}
+          beers={beers}
+          packages={packages}
+          onZmena={() => load(true)}
+        />
       ) : (
         <>
           {/* Tanky grid */}
