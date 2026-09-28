@@ -280,6 +280,9 @@ export default function App() {
           obrazovku jako 'zavoz'. */}
       {page === 'vycepy' && <VycepyScreen />}
       {(page === 'zavoz' || page === 'orders_zavoz') && <Zavoz setPage={setPage} />}
+      {/* Dlaždice „Nakládka závoz" — Rozvoz rovnou na „Co naložit do auta"
+          pro den, který dlaždice ukazuje (pageSubTab = kód dne, např. „ut"). */}
+      {page === 'nakladka' && <Zavoz setPage={setPage} nakladka denNakladky={pageSubTab} />}
       {page === 'stock' && <Stock setPage={setPage} />}
       {/* Pohyby a Inventura jsou záložky Skladu (components/SkladZalozky.tsx,
           28. 9. 2026) — nahoře stejná lišta jako na Stavu skladu. */}

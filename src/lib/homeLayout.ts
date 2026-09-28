@@ -221,7 +221,8 @@ export function defaultTileColor(id: string): TileColor {
 // i v rukavicích. Platí pro nově zakládanou plochu a pro jednorázové
 // přeskládání na verzi 4 (viz getHomeLayout).
 const DEFAULT_SIZE: Partial<Record<Page, { w: number; h: number }>> = {
-  // Přehledové dlaždice přes celou šířku (28. 9. 2026).
+  // Nakládka přes celou šířku a na dvě řady — vejde se 8 položek pivo × obal.
+  nakladka: { w: 3, h: 2 },
 };
 
 /**
@@ -249,9 +250,11 @@ const DEFAULT_SIZE: Partial<Record<Page, { w: number; h: number }>> = {
 // keg") — na ty se sahá ze spodní lišty.
 // Přehledové dlaždice (co naložit, tanky 1–8) jsou široké a nahoře; obyčejné
 // dlaždice Rozvoz a Sklep hned pod nimi (28. 9. 2026).
-// Od verze 16 žádné — přehledy tanků a „co naložit" jsou okna nahoře na
-// ploše, mimo dlaždice (28. 9. 2026).
-export const DLAZDICE_DENNI_PRACE: Page[] = [];
+// Od verze 16 byly přehledy tanků a „co naložit" okna nahoře na ploše.
+// Od verze 17 je „co naložit" zase dlaždice — Nakládka závoz, první na úvodní
+// stránce (28. 9. 2026: „ten rozvoz zhora vymaž, ale přidej na úvodní plochu
+// dlaždici nakládka závoz"). Tanky zůstávají nahoře mimo dlaždice.
+export const DLAZDICE_DENNI_PRACE: Page[] = ['nakladka'];
 
 /** Dlaždice, které z úvodní stránky odešly na „Další" — zase běžná velikost. */
 const Z_UVODU_NA_DALSI: Page[] = ['orders_entry', 'orders', 'kegging', 'bottling', 'dashboard'];
@@ -297,7 +300,7 @@ export const STRANKY_PLOCHY: Array<{ nazev: string; ids: Page[] }> = [
 // patří mezi denní práci na úvodní stránce (28. 9. 2026).
 // Přehledové dlaždice Sklep a Rozvoz nejsou obrazovky, ale patří na úvodní
 // stránku (28. 9. 2026).
-export const DLAZDICE_MIMO_TABULKU_ZAMERNE: Page[] = ['notes', 'navod', 'orders_entry', 'orders_zavoz'];
+export const DLAZDICE_MIMO_TABULKU_ZAMERNE: Page[] = ['notes', 'navod', 'orders_entry', 'orders_zavoz', 'nakladka'];
 
 /**
  * Které dlaždice smí rozdělení rozmístit: hlavní moduly, na které má
@@ -324,7 +327,7 @@ export function idsKRozmisteni(visibleIds: Page[], extraIds: Page[] = []): Page[
  * Použij to jen tehdy, když se rozdělení mění pro VŠECHNY schválně. Cizí
  * rozmístění se tím zahazuje a nejde vzít zpět.
  */
-export const ROZLOZENI_VERZE = 16;
+export const ROZLOZENI_VERZE = 17;
 
 /** Stránka, na které se plocha otevírá — první, „Denní práce". */
 export const VYCHOZI_STRANKA = 0;
@@ -442,7 +445,7 @@ export const CATEGORY_SHADES: Record<Category, TileColor[]> = {
 export const PAGE_CATEGORY: Partial<Record<Page, Category>> = {
   // Výroba
   kegging: 'Výroba', bottling: 'Výroba', orders: 'Výroba', fasovani: 'Výroba', prodejna: 'Výroba',
-  writeoffs: 'Výroba', akce: 'Výroba', vycepy: 'Výroba', orders_zavoz: 'Výroba', zavoz: 'Výroba',
+  writeoffs: 'Výroba', akce: 'Výroba', vycepy: 'Výroba', orders_zavoz: 'Výroba', nakladka: 'Výroba', zavoz: 'Výroba',
   exkurze: 'Výroba', orders_entry: 'Výroba', orders_detail: 'Výroba', orders_celkem: 'Výroba',
   // Pivovar
   dashboard: 'Pivovar', sklo_promo: 'Pivovar', cellar: 'Pivovar', bottling_needs: 'Pivovar', inventory: 'Pivovar', history: 'Pivovar', stock: 'Pivovar', stock_pohyby: 'Pivovar',

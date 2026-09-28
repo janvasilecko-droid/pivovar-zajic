@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, lazy, Suspense } from 'react';
+import { useEffect, useMemo, useRef, useState, lazy, Suspense } from 'react';
 import { Beer, Package, Place, fetchAllRows, formatPackageLabel, supabase, useRealtime } from '../lib/supabase';
 import { sestavCoNalozit } from '../lib/coNalozit';
 import { Spinner, EmptyState, Modal } from '../components/ui';
@@ -39,7 +39,13 @@ type Order = {
 };
 type OrderItem = { id: string; order_id: string; beer_id: string | null; beer_name: string | null; package_id: string | null; package_label: string | null; quantity: number; is_prepared: boolean; is_bottled: boolean };
 
-export default function Zavoz({ setPage }: { setPage?: (p: any, sec?: string) => void } = {}) {
+export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
+  setPage?: (p: any, sec?: string) => void;
+  /** Otevřeno z dlaždice „Nakládka závoz" — rovnou seznam „Co naložit do auta". */
+  nakladka?: boolean;
+  /** Kód dne závozu (po…ne), na který dlaždice ukazovala. */
+  denNakladky?: string;
+} = {}) {
   const { profile } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [items, setItems] = useState<Record<string, OrderItem[]>>({});
@@ -53,7 +59,7 @@ export default function Zavoz({ setPage }: { setPage?: (p: any, sec?: string) =>
   const [weekKey, setWeekKey] = useState(isoWeekKey(businessDateISO()));
   const [hideDelivered, setHideDelivered] = useState(false);
   const [selectedDayFilter, setSelectedDayFilter] = useState<string>('all');
-  const [mobileTab, setMobileTab] = useState<'routes' | 'loading'>('routes');
+  const [mobileTab, setMobileTab] = useState<'routes' | 'loading'>(nakladka ? 'loading' : 'routes');
   const [searchTerm, setSearchTerm] = useState('');
   const [moveDay, setMoveDay] = useState<{ source: string | null; label: string; orderIds: string[] } | null>(null);
   const [moveTarget, setMoveTarget] = useState<string | null>(null);
@@ -206,6 +212,16 @@ export default function Zavoz({ setPage }: { setPage?: (p: any, sec?: string) =>
     });
     return m;
   }, [weekOrders, items]);
+
+  // Z dlaždice „Nakládka závoz": jednou předvybrat den, který dlaždice
+  // ukazovala — ale jen když na něj v týdnu něco jede, jinak by seznam byl
+  // prázdný a vypadalo by to, že není co nakládat.
+  const denPredvybran = useRef(false);
+  useEffect(() => {
+    if (!nakladka || !denNakladky || denPredvybran.current || dayStats.size === 0) return;
+    denPredvybran.current = true;
+    if (dayStats.has(denNakladky)) setSelectedDayFilter(denNakladky);
+  }, [nakladka, denNakladky, dayStats]);
 
   const filteredOrders = useMemo(() => {
     return activeOrders.filter((o) => {

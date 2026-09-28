@@ -22,14 +22,16 @@ describe('rozdelDoStranek — Denní práce a Další (28. 9. 2026)', () => {
     expect([...vsechnyVeStrankach].sort()).toEqual([...VSECHNY].sort());
   });
 
-  it('úvodní stránka: rozvoz, sklep, poznámky, prodejna, plán stáčení, časovač, statistika', () => {
+  it('úvodní stránka: nakládka, rozvoz, sklep, poznámky, prodejna, plán stáčení, časovač, statistika', () => {
     // „Ať je tam klidně míň funkcí, ale víc funkčních" — úvodní stránka má
     // jen to, co se dělá každý den. Zbytek je jedno přejetí prstem daleko.
     const stranky = rozdelDoStranek(VSECHNY as TileId[]);
     expect(VYCHOZI_STRANKA).toBe(0);
     expect(STRANKY_PLOCHY[VYCHOZI_STRANKA].nazev).toBe('Denní práce');
     expect(stranky[VYCHOZI_STRANKA]).toEqual(
-      ['orders_zavoz', 'cellar', 'notes', 'prodejna', 'bottling_needs', 'timer', 'history'],
+      // Nakládka závoz první (28. 9. 2026: „ten rozvoz zhora vymaž, ale přidej
+      // na úvodní plochu dlaždici nakládka závoz").
+      ['nakladka', 'orders_zavoz', 'cellar', 'notes', 'prodejna', 'bottling_needs', 'timer', 'history'],
     );
   });
 

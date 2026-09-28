@@ -27,7 +27,10 @@ import type { Page } from './Layout';
 
 type Druh = 'sudy' | 'lahve';
 const KLIC_OBDOBI = 'pivovar_costocit_obdobi';
-const KLIC_SBALENO = 'pivovar_costocit_sbaleno';
+// Od 28. 9. 2026 je okno po otevření sbalené (z provozu: plocha s daty byla
+// celá zabraná přehledy a k dlaždicím se muselo posouvat). Nový klíč, ať se
+// sbalí všem jednou — kdo si ho pak rozbalí, tomu zůstane rozbalené.
+const KLIC_SBALENO = 'pivovar_costocit_sbaleno2';
 
 const cti = (klic: string) => { try { return localStorage.getItem(klic); } catch { return null; } };
 
@@ -97,7 +100,7 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
     if (ulozeno === 'dnes') return dnesniDen;
     return vychoziDenCoStocit(dnes);
   });
-  const [sbaleno, setSbaleno] = useState(() => cti(KLIC_SBALENO) === '1');
+  const [sbaleno, setSbaleno] = useState(() => cti(KLIC_SBALENO) !== '0');
   /** Klepl si uživatel sám na den? Pak mu ho automatika nesmí přehodit. */
   const rucniVyber = useRef(false);
 

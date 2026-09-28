@@ -14,14 +14,13 @@ import { Modal } from '../components/ui';
 import { useAuth } from '../lib/auth';
 import { canUserView, getUserPermissions, PAGE_TO_MODULE, vidiMesicniUklid } from '../lib/permissions';
 import { isAdminEmail } from '../lib/config';
-import { supabase, Vehicle, fetchAllRows, useRealtime } from '../lib/supabase';
+import { supabase, Vehicle, fetchAllRows, useRealtime, beerBg, beerText } from '../lib/supabase';
 import { getVehicleExpiryStatus } from '../lib/vozidla';
 import { businessDateISO, posunDen } from '../lib/businessDate';
 import { IkonaSud, IkonaLahev, IkonaVycep } from '../components/ikony';
 import { HomeNotesModal } from '../components/HomeNotesModal';
 import CoStocitOkno from '../components/CoStocitOkno';
 import { PrehledTankuPlocha } from '../components/PrehledTankuPlocha';
-import { CoNalozitOkno } from '../components/CoNalozitOkno';
 import { nactiSdilenouTabulku } from '../lib/sdilenaData';
 // Návod je přes deset kilobajtů textu, který většina lidí za den neotevře —
 // stáhne se až při klepnutí na dlaždici.
@@ -775,7 +774,13 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
       setShowNavodModal(true);
       return;
     }
-    // Přehledové dlaždice nejsou obrazovky — vedou na podrobnosti.
+    // Nakládka závoz → Rozvoz rovnou na „Co naložit do auta" pro ten den,
+    // který dlaždice ukazuje (kód dne jde jako podzáložka, viz App.tsx).
+    if (id === 'nakladka') {
+      const kodDne = nalozit ? ['ne', 'po', 'ut', 'st', 'ct', 'pa', 'so'][new Date(nalozit.datum + 'T00:00:00').getDay()] : undefined;
+      setPage('nakladka', undefined, kodDne);
+      return;
+    }
     if (id === 'signout') {
       if ((await potvrd('Odhlásit se z appky?'))) signOut();
       return;
@@ -1110,7 +1115,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   // ukázal pondělí.
   const [nalozit, setNalozit] = useState<NalozitNaZavoz | null>(null);
   const nactiNalozit = () => {
-    if (!extraVisibleIds.includes('orders_zavoz')) return;
+    if (!extraVisibleIds.includes('nakladka')) return;
     void (async () => {
       const dnes = businessDateISO();
       const { data } = await fetchAllRows<any>('orders', 'delivery_date, status, place_name, order_items(beer_name, package_label, quantity)')
@@ -1472,12 +1477,6 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
           (28. 9. 2026). Klepnutí otevře Sklep. */}
       {!editMode && visibleIds.includes('cellar') && (
         <PrehledTankuPlocha tanky={tankyNaPlochu} onOtevrit={() => setPage('cellar')} />
-      )}
-
-      {/* 🚚 Co naložit na nejbližší závoz — sbalené, když nic není
-          (28. 9. 2026: „ten rozvoz udělej tak jako co stočit"). */}
-      {!editMode && extraVisibleIds.includes('orders_zavoz') && (
-        <CoNalozitOkno nalozit={nalozit} barvyPiv={barvyPiv} onOtevrit={() => setPage('orders_zavoz')} />
       )}
 
       {/* 🍺 Co je potřeba stočit dnes / na den / za týden, sudy nebo lahve.
@@ -2064,7 +2063,6 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
               : (id === 'bottling' || id === 'bottling_needs') && bottlingTodayCount ? `${bottlingTodayCount} plán`
               : id === 'vehicles' && vehicleAlerts.length === 1 ? `${vehicleAlerts[0].kind === 'stk' ? 'STK' : 'dálnice'} ${vehicleAlerts[0].status === 'expired' ? 'propadla' : 'brzy'}`
               : id === 'vehicles' && vehicleAlerts.length > 0 ? `${vehicleAlerts.length} STK`
-              : id === 'notes' && pocetCekajicich(notesTileList) > 0 ? `${pocetCekajicich(notesTileList)} vzkazů`
               : id === 'checklists' && dailyTasks.length > 0 ? `${doneTasksCount}/${dailyTasks.length}`
               : (id === 'timer' || id === 'stopwatch') && doneTimers.length > 0 ? '⏰ Hotovo!'
               : (id === 'timer' || id === 'stopwatch') && runningTimers.length === 1 ? `⏱️ ${formatDurationMs(countdownRemainingMs(runningTimers[0]))}`
@@ -2212,8 +2210,11 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
             // velikosti 1×1 se zadaná poznámka nezobrazila vůbec a vypadalo
             // to jako by se neuložila. Místo dvou různých podob podle
             // velikosti je tu jedna: lísteček je vstup do poznámek, číst a
-            // odškrtávat se dá v okně. Kolik jich čeká, říká odznak na
-            // dlaždici (proměnná `badge` výš).
+            // odškrtávat se dá v okně. Kolik jich čeká, říká řádek dole —
+            // odznak v rohu překrýval text první poznámky (simulace plochy
+            // 28. 9. 2026), proto ho lísteček nemá. Kolik se jich na dlaždici
+            // opravdu vejde, závisí na délce textu, takže se píše celkový
+            // počet, ne „+N další".
             if (id === 'notes') {
               // Kolik se jich vejde — roste s plochou dlaždice, ať zvětšení
               // něco přineslo. Na nejmenší se vejde jedna, ale ta se ukáže
@@ -2243,7 +2244,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                        celý (viz rozvrhniPoznamky) — vejde se jich víc a
                        přitom se žádná neořízne v půlce slova. */
                     <div
-                      className="flex-1 grid gap-x-2 gap-y-1 content-start overflow-hidden"
+                      className="flex-1 min-h-0 grid gap-x-2 gap-y-1 content-start overflow-hidden"
                       style={{ gridTemplateColumns: `repeat(${sloupcu}, minmax(0, 1fr))` }}
                     >
                       {kZobrazeni.map(({ poznamka: note, pres2Sloupce }) => (
@@ -2288,6 +2289,14 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                       ))}
                     </div>
                   )}
+                  {(() => {
+                    const ceka = pocetCekajicich(notesTileList);
+                    return ceka >= 2 ? (
+                      <div className="shrink-0 text-[11px] font-black opacity-75 leading-none text-right">
+                        {ceka} {ceka <= 4 ? 'vzkazy' : 'vzkazů'}
+                      </div>
+                    ) : null;
+                  })()}
                 </div>
               );
             }
@@ -2423,6 +2432,55 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                     <span>{dnesniZavoz.objednavek} obj.</span>
                     <span>Objednávky ➔</span>
                   </div>
+                </div>
+              );
+            }
+
+            // 🚚 Nakládka závoz — co naložit na nejbližší závoz (28. 9. 2026:
+            // „ten rozvoz zhora vymaž, ale přidej na úvodní plochu dlaždici
+            // nakládka závoz"). Klepnutí otevře Rozvoz na „Co naložit do auta".
+            if (id === 'nakladka') {
+              const den = nalozit ? new Date(nalozit.datum + 'T00:00:00').toLocaleDateString('cs-CZ', { weekday: 'short', day: 'numeric', month: 'numeric' }) : '';
+              const siroka = (override.w ?? 1) >= 2;
+              // Řádků se vejde: na výšku 1 jeden, na výšku 2 čtyři (+ hlavička a patička).
+              const vyska = override.h ?? 1;
+              const kolik = (siroka ? 2 : 1) * (vyska <= 1 ? 1 : vyska * 2);
+              const vidno = nalozit?.polozky.slice(0, kolik) ?? [];
+              const zbyva = (nalozit?.polozky.length ?? 0) - vidno.length;
+              customContent = (
+                <div className="absolute inset-0 flex flex-col p-2 text-left select-none overflow-hidden">
+                  <div className="flex items-center justify-between gap-2 border-b border-black/10 pb-0.5">
+                    <span className="font-black text-xs truncate">{nalozit ? `Nakládka · ${den}` : 'Nakládka závoz'}</span>
+                    {nalozit && <span className="text-xs font-black shrink-0 tabular-nums">{kusy(nalozit.kusuCelkem)}</span>}
+                  </div>
+                  {nalozit ? (
+                    <div className={`flex-1 min-h-0 overflow-hidden pt-1 grid gap-1 content-start ${siroka ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                      {vidno.map((p) => {
+                        // Pivo v barvě z nastavení piv — rozdíl mezi pivy je
+                        // vidět na první pohled.
+                        const pivoRadku = { beer_color: barvyPiv.get(p.pivo.trim().toLowerCase()) ?? null };
+                        const pismoRadku = beerText(pivoRadku);
+                        return (
+                          <div
+                            key={`${p.pivo}__${p.obal}`}
+                            className={`flex items-baseline gap-1 text-udaj font-bold leading-snug min-w-0 rounded px-1.5 py-0.5 ${pismoRadku}`}
+                            style={{ backgroundColor: beerBg(pivoRadku) }}
+                          >
+                            <span className="truncate">{p.pivo}</span>
+                            <span className="opacity-80 truncate">{p.obal}</span>
+                            <span className="ml-auto shrink-0 tabular-nums">× {p.kusu}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="my-auto text-xs font-bold opacity-80">Na příštích 7 dní nic k závozu.</div>
+                  )}
+                  {nalozit && (
+                    <div className="shrink-0 text-udaj font-bold opacity-70 pt-0.5 truncate">
+                      {zbyva > 0 ? `+${zbyva} další · ` : ''}{nalozit.objednavek} obj. · {nalozit.mista.join(', ')}
+                    </div>
+                  )}
                 </div>
               );
             }
