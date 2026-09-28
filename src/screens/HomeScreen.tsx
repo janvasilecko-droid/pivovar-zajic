@@ -38,7 +38,7 @@ import { zavrenaVerzeListy, VERZE_LISTA_EVENT } from '../lib/verzeLista';
 import { vyhodnotGesto, rychlostPosunu, jeVeVodorovnemPasku, stavPodrzeni } from '../lib/gestaPlochy';
 import { maSeZobrazit, oznacZobrazenou } from '../lib/napovedy';
 import { queueLength, onQueueChange, syncQueue, isOnline } from '../lib/offline';
-import { litryJakoHl, kusy } from '../lib/cisla';
+import { kusy } from '../lib/cisla';
 import { coNalozitNaZavoz, type NalozitNaZavoz } from '../lib/nalozitNaZavoz';
 import { dnuOdZalohy, isWeeklyBackupDue } from '../lib/backup';
 import { souhrnDne, type SouhrnDne } from '../lib/souhrnDne';
@@ -2343,40 +2343,40 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
             // Přehledová dlaždice Sklep (prehled_sklep) — ležácké tanky 1–8:
             // pivo, hl a pruh plnosti. Klepnutí vede na Sklep.
             if (id === 'prehled_sklep' && tankyNaPlochu.length > 0) {
-              const celkemLitru = tankyNaPlochu.reduce((a, t) => a + t.litry, 0);
               const kratce = (l: string) => l.replace(/spilka\s*/i, 'S').replace(/tank\s*/i, 'T');
+              // Bez nadpisu — celá dlaždice patří tankům (28. 9. 2026: „vymaž
+              // ten nápis sklep, ať můžou být ty dlaždice větší, využij celý
+              // prostor"). Plnost ukazuje svislý sloupec vpravo u každého tanku
+              // a procento — „zlepši viditelnost naplněnosti tanků".
               customContent = (
-                <div className="w-full h-full flex flex-col p-2 text-left select-none overflow-hidden">
-                  {/* Nápis malým písmem — místo patří tankům (28. 9. 2026). */}
-                  <div className="flex items-center justify-between gap-2 border-b border-black/10 pb-0.5">
-                    <span className="font-bold text-udaj opacity-70">Sklep</span>
-                    <span className="text-udaj font-bold opacity-70">{litryJakoHl(celkemLitru)}</span>
-                  </div>
-                  <div className="flex-1 min-h-0 grid grid-cols-4 gap-1 pt-1 content-center">
-                    {tankyNaPlochu.map((t) => {
-                      const pct = t.prazdny ? 0 : Math.min(100, Math.max(4, Math.round((t.litry / t.kapacita) * 100)));
-                      const pivoTanku = { beer_color: t.barva };
-                      const pismoTanku = t.prazdny ? 'bg-black/20' : beerText(pivoTanku);
-                      return (
-                        // Každý tank v barvě svého piva (nastavení piv); prázdný
-                        // tank je jen tmavý obrys, ať se neplete s pivem.
-                        <div
-                          key={t.label}
-                          className={`min-w-0 flex flex-col gap-0.5 rounded px-1.5 py-1 ${pismoTanku}`}
-                          style={t.prazdny ? undefined : { backgroundColor: beerBg(pivoTanku) }}
-                        >
+                <div className="w-full h-full grid grid-cols-4 grid-rows-2 gap-1 p-1 text-left select-none overflow-hidden">
+                  {tankyNaPlochu.map((t) => {
+                    const pct = t.prazdny ? 0 : Math.min(100, Math.max(3, Math.round((t.litry / t.kapacita) * 100)));
+                    const pivoTanku = { beer_color: t.barva };
+                    const pismoTanku = t.prazdny ? 'bg-black/20' : beerText(pivoTanku);
+                    return (
+                      // Každý tank v barvě svého piva (nastavení piv); prázdný
+                      // tank je jen tmavé políčko, ať se neplete s pivem.
+                      <div
+                        key={t.label}
+                        className={`min-w-0 min-h-0 flex items-stretch gap-1 rounded px-1.5 py-1 ${pismoTanku}`}
+                        style={t.prazdny ? undefined : { backgroundColor: beerBg(pivoTanku) }}
+                      >
+                        <div className="min-w-0 flex-1 flex flex-col justify-between">
                           <div className="flex items-baseline justify-between gap-1 text-xs font-black leading-none">
                             <span className="truncate">{kratce(t.label)}</span>
-                            <span className="tabular-nums shrink-0">{t.prazdny ? '—' : `${(t.litry / 100).toFixed(t.litry < 1000 ? 1 : 0)} hl`}</span>
+                            <span className="tabular-nums shrink-0">{t.prazdny ? '' : `${pct} %`}</span>
                           </div>
                           <div className="text-udaj font-bold leading-tight truncate">{t.prazdny ? 'prázdný' : (t.pivo || '—')}</div>
-                          <div className="h-1 w-full rounded-sm bg-black/20 overflow-hidden">
-                            <div className="h-full opacity-70" style={{ width: `${pct}%`, backgroundColor: 'currentColor' }} />
-                          </div>
+                          <div className="text-xs font-black tabular-nums leading-none">{t.prazdny ? '—' : `${(t.litry / 100).toFixed(t.litry < 1000 ? 1 : 0)} hl`}</div>
                         </div>
-                      );
-                    })}
-                  </div>
+                        {/* Svislý sloupec plnosti — hladina odspodu. */}
+                        <div className="relative w-2.5 shrink-0 rounded-sm bg-black/25 overflow-hidden">
+                          <div className="absolute bottom-0 inset-x-0" style={{ height: `${pct}%`, backgroundColor: 'currentColor' }} />
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               );
             }
