@@ -2334,9 +2334,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                 <div className="w-full h-full flex flex-col p-2 text-left select-none overflow-hidden">
                   {/* Nápis malým písmem — místo patří tankům (28. 9. 2026). */}
                   <div className="flex items-center justify-between gap-2 border-b border-black/10 pb-0.5">
-                    <span className="font-bold text-udaj uppercase tracking-wider flex items-center gap-1 opacity-70">
-                      <Snowflake size={10} /> Sklep
-                    </span>
+                    <span className="font-bold text-udaj opacity-70">Sklep</span>
                     <span className="text-udaj font-bold opacity-70">{litryJakoHl(celkemLitru)}</span>
                   </div>
                   <div className="flex-1 min-h-0 grid grid-cols-4 gap-x-2 gap-y-1 pt-1 content-center">
@@ -2443,15 +2441,13 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                 <div className="w-full h-full flex flex-col p-2 text-left select-none overflow-hidden">
                   {/* Nápis malým písmem — místo patří tomu, co naložit (28. 9. 2026). */}
                   <div className="flex items-center justify-between gap-2 border-b border-black/10 pb-0.5">
-                    <span className="font-bold text-udaj uppercase tracking-wider flex items-center gap-1 opacity-70 truncate">
-                      <Truck size={10} /> {nalozit ? `Naložit · ${den}` : 'Rozvoz'}
-                    </span>
+                    <span className="font-bold text-udaj opacity-70 truncate">{nalozit ? `Naložit · ${den}` : 'Rozvoz'}</span>
                     {nalozit && <span className="text-udaj font-bold opacity-70 shrink-0">{kusy(nalozit.kusuCelkem)}</span>}
                   </div>
                   {nalozit ? (
                     <div className={`flex-1 min-h-0 pt-1 grid gap-x-3 content-start ${(override.w ?? 1) >= 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
                       {vidno.map((p) => (
-                        <div key={`${p.pivo}__${p.obal}`} className="flex items-baseline gap-1 text-xs font-bold leading-snug min-w-0">
+                        <div key={`${p.pivo}__${p.obal}`} className="flex items-baseline gap-1 text-udaj font-bold leading-snug min-w-0">
                           <span className="truncate">{p.pivo}</span>
                           <span className="opacity-70 truncate">{p.obal}</span>
                           <span className="ml-auto shrink-0 tabular-nums">× {p.kusu}</span>

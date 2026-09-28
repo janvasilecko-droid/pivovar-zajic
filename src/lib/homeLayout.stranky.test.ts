@@ -22,14 +22,14 @@ describe('rozdelDoStranek — Denní práce a Další (28. 9. 2026)', () => {
     expect([...vsechnyVeStrankach].sort()).toEqual([...VSECHNY].sort());
   });
 
-  it('úvodní stránka je denní práce: objednávky, stáčení, rozvoz, sklad, sklep', () => {
+  it('úvodní stránka: rozvoz, sklep, poznámky, prodejna, plán stáčení, časovač, statistika', () => {
     // „Ať je tam klidně míň funkcí, ale víc funkčních" — úvodní stránka má
     // jen to, co se dělá každý den. Zbytek je jedno přejetí prstem daleko.
     const stranky = rozdelDoStranek(VSECHNY as TileId[]);
     expect(VYCHOZI_STRANKA).toBe(0);
     expect(STRANKY_PLOCHY[VYCHOZI_STRANKA].nazev).toBe('Denní práce');
     expect(stranky[VYCHOZI_STRANKA]).toEqual(
-      ['orders_zavoz', 'cellar', 'orders_entry', 'orders', 'kegging', 'bottling', 'dashboard', 'notes', 'prodejna', 'bottling_needs', 'timer', 'history'],
+      ['orders_zavoz', 'cellar', 'notes', 'prodejna', 'bottling_needs', 'timer', 'history'],
     );
   });
 
@@ -75,8 +75,11 @@ describe('rozdelDoStranek — Denní práce a Další (28. 9. 2026)', () => {
     expect(sObsahem).toHaveLength(2);
     expect(layout.pages[layout.pages.length - 1]).toEqual([]);
     // První je denní práce — na ní se plocha otevírá, s velkými dlaždicemi.
-    expect(sObsahem[VYCHOZI_STRANKA]).toContain('kegging');
-    expect(layout.overrides.kegging?.h).toBe(2);
+    expect(sObsahem[VYCHOZI_STRANKA]).toContain('cellar');
+    expect(layout.overrides.cellar?.w).toBe(3);
+    // KEG, Lahve, Objednávky, Nová obj. a Sklad jsou na „Další" (28. 9. 2026).
+    expect(sObsahem[1]).toContain('kegging');
+    expect(layout.overrides.kegging?.h).toBe(1);
   });
 
   it('rozšiřující dlaždice se do nové plochy NEPŘIDAJÍ samy', () => {
@@ -256,10 +259,11 @@ describe('jednorázové přeskládání plochy (ROZLOZENI_VERZE)', () => {
   it('přeskládání zachová barvu i velikost dlaždice', () => {
     const layout = getHomeLayout(stara, viditelne, [], GRID_COLS_MOBILE);
     expect(layout.overrides.kegging?.color).toBe('sky');
-    expect(layout.overrides.kegging?.h).toBe(2);
+    // KEG odešel z úvodní stránky na „Další" — zase běžná velikost (verze 11).
+    expect(layout.overrides.kegging?.h).toBe(1);
   });
 
-  it('plocha z verze 3 dostane úvodní stránku Denní práce s velkými dlaždicemi', () => {
+  it('plocha z verze 3 dostane úvodní stránku Denní práce', () => {
     const verze3 = {
       pages: [['history', 'dashboard'], ['kegging', 'bottling', 'orders', 'notes'], ['cellar', 'app_settings']],
       overrides: { dashboard: { w: 1, h: 1, color: 'teal' }, notes: { w: 1, h: 1 } },
@@ -267,10 +271,11 @@ describe('jednorázové přeskládání plochy (ROZLOZENI_VERZE)', () => {
     };
     const layout = getHomeLayout(verze3, viditelne, ['notes'], GRID_COLS_MOBILE);
     const [uvod, dalsi] = layout.pages.filter((p) => p.length > 0);
-    expect(uvod).toEqual(['cellar', 'orders', 'kegging', 'bottling', 'dashboard', 'notes', 'prodejna', 'bottling_needs', 'timer', 'history']);
+    expect(uvod).toEqual(['cellar', 'notes', 'prodejna', 'bottling_needs', 'timer', 'history']);
     expect(dalsi).not.toContain('timer');
     expect(dalsi).toContain('app_settings');
-    expect(layout.overrides.dashboard?.h).toBe(2);
+    expect(dalsi).toContain('dashboard');
+    expect(layout.overrides.dashboard?.h).toBe(1);
     expect(layout.overrides.dashboard?.color).toBe('teal');
     expect(layout.overrides.notes?.h).toBe(1);
   });

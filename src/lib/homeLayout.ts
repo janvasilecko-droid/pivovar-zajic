@@ -221,8 +221,6 @@ export function defaultTileColor(id: string): TileColor {
 // i v rukavicích. Platí pro nově zakládanou plochu a pro jednorázové
 // přeskládání na verzi 4 (viz getHomeLayout).
 const DEFAULT_SIZE: Partial<Record<Page, { w: number; h: number }>> = {
-  orders_entry: { w: 1, h: 2 }, orders: { w: 1, h: 2 }, kegging: { w: 1, h: 2 }, bottling: { w: 1, h: 2 },
-  dashboard: { w: 1, h: 2 },
   // Rozvoz přes celou šířku — ukazuje, co naložit na další závoz (28. 9. 2026).
   orders_zavoz: { w: 3, h: 2 },
   // Sklep přes celou šířku — ukazuje všechny tanky (28. 9. 2026).
@@ -249,9 +247,13 @@ const DEFAULT_SIZE: Partial<Record<Page, { w: number; h: number }>> = {
  */
 // Široké dlaždice (Rozvoz — co naložit, Sklep — tanky) úplně nahoře
 // (28. 9. 2026: „dej ty podélné listy úplně nahoru"), pod nimi velké dlaždice.
-export const DLAZDICE_DENNI_PRACE: Page[] = [
-  'orders_zavoz', 'cellar', 'orders_entry', 'orders', 'kegging', 'bottling', 'dashboard',
-];
+// Nová obj., Objednávky, KEG, Lahve a Sklad jsou od 28. 9. 2026 na stránce
+// „Další" („vymaž z úvodní stránky nová objednávka, objednávka, lahve, sklad,
+// keg") — na ty se sahá ze spodní lišty.
+export const DLAZDICE_DENNI_PRACE: Page[] = ['orders_zavoz', 'cellar'];
+
+/** Dlaždice, které z úvodní stránky odešly na „Další" — zase běžná velikost. */
+const Z_UVODU_NA_DALSI: Page[] = ['orders_entry', 'orders', 'kegging', 'bottling', 'dashboard'];
 
 export const STRANKY_PLOCHY: Array<{ nazev: string; ids: Page[] }> = [
   // Pod velkými dlaždicemi běžná velikost: lísteček s poznámkami, Prodejna
@@ -263,7 +265,7 @@ export const STRANKY_PLOCHY: Array<{ nazev: string; ids: Page[] }> = [
   {
     nazev: 'Další',
     ids: [
-      'akce',
+      'orders', 'kegging', 'bottling', 'dashboard', 'orders_entry', 'akce',
       'sklo_promo', 'vehicles', 'haccp', 'calendar', 'export_excel', 'depozitar',
       'navod', 'audit', 'users', 'app_settings', 'zaloha', 'signout',
     ],
@@ -319,7 +321,7 @@ export function idsKRozmisteni(visibleIds: Page[], extraIds: Page[] = []): Page[
  * Použij to jen tehdy, když se rozdělení mění pro VŠECHNY schválně. Cizí
  * rozmístění se tím zahazuje a nejde vzít zpět.
  */
-export const ROZLOZENI_VERZE = 10;
+export const ROZLOZENI_VERZE = 11;
 
 /** Stránka, na které se plocha otevírá — první, „Denní práce". */
 export const VYCHOZI_STRANKA = 0;
@@ -933,6 +935,15 @@ export function getHomeLayout(raw: unknown, visibleIds: Page[], extraIds: Page[]
   }
   // Verze 8: dlaždice Sklep přes celou šířku, ať jsou vidět všechny tanky.
   // Verze 9: totéž Rozvoz — ukazuje, co naložit na další závoz.
+  // Verze 11: dlaždice, které odešly z úvodní stránky, zase běžná velikost.
+  if (!uzRozdeleno && !jenZalozena && zname < 11) {
+    const overrides = { ...kRozdeleni.overrides };
+    for (const id of Z_UVODU_NA_DALSI) {
+      const o = overrides[id];
+      if (o) overrides[id] = { ...o, w: 1, h: 1, x: undefined, y: undefined };
+    }
+    kRozdeleni = { ...kRozdeleni, overrides };
+  }
   const siroke: [TileId, number][] = [['cellar', 8], ['orders_zavoz', 9]];
   for (const [id, verze] of siroke) {
     if (uzRozdeleno || jenZalozena || zname >= verze) continue;
