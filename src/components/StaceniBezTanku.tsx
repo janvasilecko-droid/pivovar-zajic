@@ -14,6 +14,9 @@ import { supabase } from '../lib/supabase';
 import { chyba, oznam, potvrd } from '../lib/toast';
 import { businessDateISO, posunDen } from '../lib/businessDate';
 import { EmptyState } from './ui';
+import { jeJantar, pivaJantaru, pivoZdrojovehoTanku, rozdelJantar } from '../lib/jantar';
+import { odectiTmavouJantaru } from '../lib/jantarZapis';
+import { tankRadku } from '../lib/tankUZapisu';
 
 export type RadekStaceni = {
   id: string;
@@ -55,19 +58,24 @@ export function StaceniBezTanku({ kegging, tanks, beers, packages, onZmena }: {
    * pivo nebylo v žádném tanku, nabízely všechny — u 10° Desítky tak vyskočil
    * Tank 1 s tmavým (28. 9. 2026: „proč je u 10ky tmavý pivo možno přiřadit").
    */
+  // Jantar nemá vlastní tank — přiřazuje se k tanku 12° Světlé (80 %),
+  // tmavá složka se odečte sama (lib/jantar.ts).
   const moznosti = (r: RadekStaceni) => tanks
-    .filter((t) => t.current_beer_id === r.beer_id && Number(t.current_volume_l) > 0)
+    .filter((t) => t.current_beer_id === pivoZdrojovehoTanku(r.beer_id ?? '', beers) && Number(t.current_volume_l) > 0)
     .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
 
   async function priradit(r: RadekStaceni) {
     const tankId = vybrano[r.id] ?? moznosti(r)[0]?.id;
     const t = tanks.find((x) => x.id === tankId);
     if (!t) { oznam('Vyber tank.'); return; }
-    const l = litry(r);
-    if (l <= 0) { chyba('U obalu chybí objem — nejde spočítat, kolik litrů odečíst.'); return; }
+    const celkemL = litry(r);
+    if (celkemL <= 0) { chyba('U obalu chybí objem — nejde spočítat, kolik litrů odečíst.'); return; }
+    const jantar = jeJantar(r.beer_id, beers);
+    const l = jantar ? rozdelJantar(celkemL).svetlaL : celkemL;
     const pivo = r.beer_name ?? beers.find((b) => b.id === r.beer_id)?.name ?? 'pivo';
     const vTanku = Number(t.current_volume_l || 0);
     const otazka = `Přiřadit ${r.quantity}× ${r.package_label ?? ''} ${pivo} (${Math.round(l)} l) k ${t.label} a odečíst z něj?`
+      + (jantar ? `\n\nJantar: z ${t.label} jde 80 % (${l} l), 20 % (${rozdelJantar(celkemL).tmavaL} l) se odečte z tanku tmavého.` : '')
       + (l > vTanku + 1 ? `\n\nPOZOR: v ${t.label} je jen ${Math.round(vTanku)} l — tank skončí na nule.` : '');
     if (!(await potvrd(otazka, { titulek: 'Přiřadit stáčení k tanku', potvrdit: 'Přiřadit' }))) return;
 
@@ -82,7 +90,19 @@ export function StaceniBezTanku({ kegging, tanks, beers, packages, onZmena }: {
     if (errTank) {
       chyba(`Stáčení je přiřazené, ale z ${t.label} se nepodařilo odečíst: ${errTank.message}. Zkontroluj stav tanku ve Sklepě.`);
     } else {
-      oznam(`Přiřazeno k ${t.label}, odečteno ${Math.round(l)} l.`);
+      let varovani: string | null = null;
+      if (jantar) {
+        const { tmava } = pivaJantaru(beers);
+        varovani = await odectiTmavouJantaru({
+          keggingId: r.id,
+          tank: tmava ? tankRadku(tanks, tmava.id) : undefined,
+          tmavaL: rozdelJantar(celkemL).tmavaL,
+          datum: r.entry_date,
+          tmavaPivo: tmava,
+          popis: `${r.quantity}× ${r.package_label ?? ''}`,
+        });
+      }
+      oznam(`Přiřazeno k ${t.label}, odečteno ${Math.round(l)} l.${varovani ? ` ${varovani}.` : ''}`);
     }
     onZmena();
   }

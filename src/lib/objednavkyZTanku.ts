@@ -16,6 +16,7 @@
 //   • Když chybí lahve, bere se z tanku 50 l navíc (ztráta na lince; zadání
 //     sládka).
 import type { DayPlan } from './keggingPlan';
+import { pivaJantaru, PODIL_SVETLE } from './jantar';
 
 export type PivoProVypocet = { id: string; name: string };
 
@@ -54,15 +55,14 @@ export function objednavkyZTanku(
   }
 
   // Jantar se ze sklepa nestáčí — míchá se z 80 % 12° Světlé a 20 % tmavého.
-  const jantar = piva.find((b) => b.name.toLowerCase().includes('jantar'));
-  const svetla = piva.find((b) => b.name.toLowerCase().includes('12° svět') || b.name.toLowerCase().includes('12sv'));
-  const tmave = piva.find((b) => b.name.toLowerCase().includes('tmav'));
+  // Stejná pravidla jako zápis stáčení Jantaru (lib/jantar.ts).
+  const { jantar, svetla, tmava: tmave } = pivaJantaru(piva);
   if (jantar) {
     for (const m of [litry.objednano, litry.pokryto, litry.zbyva]) {
       const l = m.get(jantar.id) ?? 0;
       if (l <= 0) continue;
-      if (svetla) pricti(m, svetla.id, l * 0.8);
-      if (tmave) pricti(m, tmave.id, l * 0.2);
+      if (svetla) pricti(m, svetla.id, l * PODIL_SVETLE);
+      if (tmave) pricti(m, tmave.id, l * (1 - PODIL_SVETLE));
       m.set(jantar.id, 0);
     }
   }

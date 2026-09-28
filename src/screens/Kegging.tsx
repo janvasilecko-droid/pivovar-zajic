@@ -23,6 +23,8 @@ import { AlertTriangle, BarChart3, Beer as BeerIcon, CalendarDays, Camera, Check
 import { BeerTileGrid, BeerTilePanel } from '../components/BeerTileGrid';
 import { chyba, oznam, potvrd, toastZpet, uspech } from '../lib/toast';
 import { nejvetsiTank, odpojPrecerpane, radkyBezTanku, tankRadku, tankyProPivo } from '../lib/tankUZapisu';
+import { jeJantar, pivaJantaru, pivoZdrojovehoTanku, rozdelJantar, PODIL_SVETLE } from '../lib/jantar';
+import { odectiTmavouJantaru, upravTmavouJantaru, vratTmavouJantaru } from '../lib/jantarZapis';
 import { podezreleMnozstvi } from '../lib/kontrolaZadani';
 import { IkonaSud } from '../components/ikony';
 import { PrepinacObdobi } from '../components/PrepinacObdobi';
@@ -325,8 +327,10 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   // Pravidlo „ze kterého tanku se stáčí" bydlí v lib/tankUZapisu.ts — obrazovka
   // ho jen volá. Bylo rozepsané na dvou místech a rozejít se nesmí: podle něj
   // se řádku přiřadí tank A ZÁROVEŇ se z tanku odečte objem.
+  // Jantar nemá vlastní tank — stáčí se z tanku 12° Světlé (80 %) a
+  // tmavého (20 %, viz lib/jantar.ts). Nabízí se proto tanky Světlé.
   function activeTanksForBeer(beerId: string): CellarTank[] {
-    return tankyProPivo(cellarTanks, beerId);
+    return tankyProPivo(cellarTanks, pivoZdrojovehoTanku(beerId, beers));
   }
   function largestTank(tanks: CellarTank[]): CellarTank | undefined {
     return nejvetsiTank(tanks);
@@ -375,7 +379,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
       if (rowTanks.length > 1) ambiguousCount++;
       const tank = (r.tankId ? rowTanks.find((t) => t.id === r.tankId) : undefined) ?? largestTank(rowTanks);
       if (!tank) { missingCount++; return; }
-      const l = n * Number(pkg.volume_l);
+      const l = n * Number(pkg.volume_l) * (jeJantar(r.beerId, beers) ? PODIL_SVETLE : 1);
       perTank.set(tank.id, (perTank.get(tank.id) ?? 0) + l);
     });
     return { perTank, missingCount, ambiguousCount };
@@ -391,7 +395,9 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
       const newTankId = editingRow.cellar_tank_id || null;
       // Nový zdrojový objem stejným vzorcem jako při vzniku záznamu (add()) —
       // bez tanku se objem neváže na nic a needeukuje se.
-      const newSourceL = selectedPkg && newTankId ? newQty * Number(selectedPkg.volume_l) : 0;
+      const newSourceL = selectedPkg && newTankId
+        ? newQty * Number(selectedPkg.volume_l) * (jeJantar(editingRow.beer_id, beers) ? PODIL_SVETLE : 1)
+        : 0;
 
       // Původní stav záznamu (před úpravou) — potřeba pro vrácení objemu
       // starému tanku, pokud se tank/množství/obal změnily. Dřív se objem
@@ -420,6 +426,22 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
 
       if (oldTankId && oldSourceL) await adjustTankVolume(oldTankId, oldSourceL);
       if (newTankId && newSourceL) await adjustTankVolume(newTankId, -newSourceL);
+
+      // Tmavá složka Jantaru (lib/jantar.ts): stará se vrátí, nová se odečte
+      // podle upraveného řádku — změnit se mohlo pivo, obal i počet.
+      await vratTmavouJantaru(editingRow.id);
+      if (jeJantar(editingRow.beer_id, beers) && selectedPkg && newTankId) {
+        const { tmava } = pivaJantaru(beers);
+        const upozorneni = await odectiTmavouJantaru({
+          keggingId: editingRow.id,
+          tank: tmava ? tankRadku(cellarTanks, tmava.id) : undefined,
+          tmavaL: rozdelJantar(newQty * Number(selectedPkg.volume_l)).tmavaL,
+          datum: editingRow.entry_date,
+          tmavaPivo: tmava,
+          popis: `${newQty}× ${selectedPkg.label}`,
+        });
+        if (upozorneni) oznam(upozorneni);
+      }
 
       setEditingRow(null);
       load(true);
@@ -948,7 +970,11 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     // Od 28. 9. 2026 se na to už neptá (míň oken při stáčení) — uloží se a
     // krátce se upozorní. Takové stáčení čeká ve Sklepě na záložce „Stáčení
     // bez tanku", kde se přiřadí k tanku jedním klepnutím.
-    const bezTanku = radkyBezTanku(filled, cellarTanks, (r) => r.tankId);
+    const bezTanku = radkyBezTanku(
+      filled.map((r) => ({ ...r, beerId: pivoZdrojovehoTanku(r.beerId, beers) })),
+      cellarTanks,
+      (r) => r.tankId,
+    );
     const upozorneni: string[] = [];
     if (bezTanku.length > 0) {
       upozorneni.push(`${bezTanku.length === 1 ? '1 řádek je' : `${bezTanku.length} řádky jsou`} bez tanku`);
@@ -966,8 +992,9 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
       const n = Number(r.qty);
       // Zdrojový tank řádku: přednost má ručně vybraný (r.tankId), jinak se automaticky
       // přiřadí největší aktivní tank se stejným pivem (largestTank).
-      const tank = tankRadku(cellarTanks, r.beerId, r.tankId);
-      const sourceL = pkg && tank ? n * Number(pkg.volume_l) : 0;
+      // Jantar jde z tanku 12° Světlé a nese jen jeho 80 % (lib/jantar.ts).
+      const tank = tankRadku(cellarTanks, pivoZdrojovehoTanku(r.beerId, beers), r.tankId);
+      const sourceL = pkg && tank ? n * Number(pkg.volume_l) * (jeJantar(r.beerId, beers) ? PODIL_SVETLE : 1) : 0;
       return {
         entry_date: date, beer_id: r.beerId || null, beer_name: beer?.name ?? null,
         package_id: r.pkgId, package_label: pkg?.label ?? null, quantity: n,
@@ -994,8 +1021,26 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
       }
     });
 
-    const { error } = await supabase.from('kegging').insert(payloads);
+    const { data: vlozene, error } = await supabase.from('kegging').insert(payloads).select('id, beer_id, quantity, package_id, cellar_tank_id');
     if (error) { setSaving(false); setErr(error.message); return false; }
+
+    // 🍺 Jantar: tmavá složka (20 %) z tanku tmavého — jen u řádků, které se
+    // opravdu odečetly ze Světlé (bez tanku zůstávají celé „bez tanku").
+    const { tmava } = pivaJantaru(beers);
+    for (const v of ((vlozene as any[]) ?? [])) {
+      if (!jeJantar(v.beer_id, beers) || !v.cellar_tank_id) continue;
+      const pkg = packages.find((p) => p.id === v.package_id);
+      if (!pkg) continue;
+      const varovani = await odectiTmavouJantaru({
+        keggingId: v.id,
+        tank: tmava ? tankRadku(cellarTanks, tmava.id) : undefined,
+        tmavaL: rozdelJantar(Number(v.quantity) * Number(pkg.volume_l)).tmavaL,
+        datum: date,
+        tmavaPivo: tmava,
+        popis: `${v.quantity}× ${pkg.label}`,
+      });
+      if (varovani) upozorneni.push(varovani);
+    }
 
     // Odečti stočený objem z každého dotčeného tanku. RELATIVNĚ přes RPC —
     // dřív se počítala absolutní hodnota z React state, takže když stáčeli
@@ -1078,6 +1123,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     const { error } = await supabase.from('kegging').update(patch).eq('id', id);
     if (error) return error.message;
     if (deltaL !== 0) await adjustTankVolume(row.cellar_tank_id, -deltaL);
+    if (jeJantar(row.beer_id, beers)) await upravTmavouJantaru(id, oldQty, newQty);
     load(true);
     return null;
   }
@@ -1092,6 +1138,8 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
       load(true);
     }
     if (!row) return;
+    // Tmavá složka Jantaru se vrací spolu s řádkem (lib/jantar.ts).
+    const vracenaTmava = jeJantar(row.beer_id, beers) ? await vratTmavouJantaru(row.id) : 0;
 
     // Místo ptaní se předem: smaž a pár vteřin nabídni návrat. Na telefonu je
     // to o klepnutí míň pokaždé, i když se člověk nespletl.
@@ -1105,6 +1153,18 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
         // jinak by tank po smazání a vrácení ukazoval víc, než v něm je.
         if (row.cellar_tank_id && row.source_volume_l) {
           await adjustTankVolume(row.cellar_tank_id, -Number(row.source_volume_l));
+        }
+        if (vracenaTmava > 0) {
+          const { tmava } = pivaJantaru(beers);
+          const pkg = packages.find((p) => p.id === row.package_id);
+          await odectiTmavouJantaru({
+            keggingId: row.id,
+            tank: tmava ? tankRadku(cellarTanks, tmava.id) : undefined,
+            tmavaL: vracenaTmava,
+            datum: row.entry_date,
+            tmavaPivo: tmava,
+            popis: `${row.quantity}× ${pkg?.label ?? ''}`,
+          });
         }
         load(true);
       },

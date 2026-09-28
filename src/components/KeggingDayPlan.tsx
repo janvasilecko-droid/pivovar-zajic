@@ -70,7 +70,8 @@ function RozpadObalu({ rozpad, jednotka }: { rozpad: RozpadObalu[]; jednotka: st
   return (
     <div className="mt-2">
       <div className="text-udaj font-black uppercase tracking-wide text-neutral-500 mb-1">
-        Zbývá stočit po sudech
+        {/* U lahví „po sudech" nedávalo smysl (simulace 28. 9. 2026). */}
+        {jednotka === 'sudů' ? 'Zbývá stočit po sudech' : 'Zbývá stočit po obalech'}
       </div>
       {zbyva.length === 0 ? (
         <div className="text-udaj font-bold text-emerald-700">Všechny velikosti jsou stočené.</div>

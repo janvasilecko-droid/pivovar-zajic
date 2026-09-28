@@ -569,7 +569,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
       {/* Legend explaining the stock icons */}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-udaj font-semibold text-neutral-500 mb-4 px-1">
         <span className="flex items-center gap-1.5"><PackageCheck size={14} className="text-neutral-900" /> Stav = aktuální sklad</span>
-        <span className="flex items-center gap-1.5"><AlertTriangle size={14} className="text-neutral-900" /> Odejde = objednáno tento měsíc</span>
+        <span className="flex items-center gap-1.5"><AlertTriangle size={14} className="text-neutral-900" /> Odejde = objednáno tento měsíc, ještě nerozvezeno</span>
         <span className="flex items-center gap-1.5"><Layers size={14} className="text-neutral-900" /> Zbude = zůstane po odebrání</span>
       </div>
 

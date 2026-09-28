@@ -2213,9 +2213,9 @@ export default function BottlingScreen({
           {/* Souhrnné karty */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="card p-4 bg-white border border-neutral-200 rounded space-y-1">
-              <span className="text-udaj font-black uppercase text-neutral-500">Objednáno tento týden</span>
+              <span className="text-udaj font-black uppercase text-neutral-500">Objednáno — zbývá rozvézt</span>
               <div className="font-display font-black text-xl text-sky-700">{reqTotals.ordered} ks</div>
-              <span className="text-udaj text-neutral-500">Aktivní objednávky s dovozem {weekLabel}</span>
+              <span className="text-udaj text-neutral-500">Nerozvezené objednávky s dovozem {weekLabel}</span>
             </div>
             <div className="card p-4 bg-white border border-neutral-200 rounded space-y-1">
               <span className="text-udaj font-black uppercase text-neutral-500">Na skladě</span>

@@ -458,7 +458,7 @@ export function BottlingTasksSettings({ setPage }: Props = {}) {
     if (chybejici.length === 0) {
       return (
         <p className="text-xs font-bold text-emerald-800 py-1">
-          <Check className="ikona-text" /> {isKeg ? 'Sudy' : 'Lahve'} tenhle týden stáčet netřeba — objednávky pokryje sklad.
+          <Check className="ikona-text" /> {isKeg ? 'Sudy' : 'Lahve'} tenhle týden stáčet netřeba — vše je stočené nebo pokryté skladem.
         </p>
       );
     }

@@ -225,6 +225,25 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
     lahve: mergeWeekPlan(planyLahve, ''),
   }, beers), [planySudy, planyLahve, beers]);
 
+  // U kterého tanku se řádek „Objednáno na týden" ukáže. Číslo je za PIVO, ne
+  // za tank — když bylo stejné pivo ve dvou tancích, stálo u obou a vypadalo
+  // to jako dvojnásobek (simulace 28. 9. 2026). Ukáže se u tanku, ze kterého
+  // se stáčí (zahájené stáčení); když se z žádného nestáčí, u nejplnějšího.
+  const tankSObjednavkou = useMemo(() => {
+    const pivoTanku = (t: CellarTank) => t.current_beer_id ?? beers.find((b) => b.name === t.current_beer_name)?.id ?? null;
+    const vProvozu = tanks.filter((t) => (t.status === 'active' || t.status === 'emptying' || t.status === 'filling') && pivoTanku(t));
+    const vybrane = new Map<string, CellarTank>();
+    for (const t of vProvozu) {
+      const pivo = pivoTanku(t)!;
+      const dosud = vybrane.get(pivo);
+      const lepsi = !dosud
+        || (t.kegging_active && !dosud.kegging_active)
+        || (!!t.kegging_active === !!dosud.kegging_active && Number(t.current_volume_l || 0) > Number(dosud.current_volume_l || 0));
+      if (lepsi) vybrane.set(pivo, t);
+    }
+    return new Set([...vybrane.values()].map((t) => t.id));
+  }, [tanks, beers]);
+
   // Souhrn stáčení z tanku (kegging) — jen pro AKTUÁLNÍ (nedokončený) cyklus
   // daného tanku, ne kumulativně napříč všemi cykly, co kdy z tabulky kegging
   // přes daný cellar_tank_id prošly. Bez tohohle omezení se po opakovaném
@@ -736,7 +755,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                   {/* Objednávky vybraného týdne (přepínač nahoře) — u každého
                       tanku s pivem, i když je týden už stočený nebo nic
                       objednané, ať je vidět, že se to počítá. */}
-                  {(t.status === 'active' || t.status === 'emptying' || t.status === 'filling') && pivoId && (() => {
+                  {(t.status === 'active' || t.status === 'emptying' || t.status === 'filling') && pivoId && tankSObjednavkou.has(t.id) && (() => {
                     const o = objednavkyPiva ?? { objednanoHl: 0, pokrytoHl: 0, zbyvaHl: 0 };
                     const tyden = weekKey.split('-')[1];
                     const remainingHl = remaining / 100;
