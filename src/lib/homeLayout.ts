@@ -223,7 +223,6 @@ export function defaultTileColor(id: string): TileColor {
 const DEFAULT_SIZE: Partial<Record<Page, { w: number; h: number }>> = {
   prehled_rozvoz: { w: 3, h: 2 },
   // Přehledové dlaždice přes celou šířku (28. 9. 2026).
-  prehled_sklep: { w: 3, h: 2 },
 };
 
 /**
@@ -251,7 +250,7 @@ const DEFAULT_SIZE: Partial<Record<Page, { w: number; h: number }>> = {
 // keg") — na ty se sahá ze spodní lišty.
 // Přehledové dlaždice (co naložit, tanky 1–8) jsou široké a nahoře; obyčejné
 // dlaždice Rozvoz a Sklep hned pod nimi (28. 9. 2026).
-export const DLAZDICE_DENNI_PRACE: Page[] = ['prehled_rozvoz', 'prehled_sklep'];
+export const DLAZDICE_DENNI_PRACE: Page[] = ['prehled_rozvoz'];
 
 /** Dlaždice, které z úvodní stránky odešly na „Další" — zase běžná velikost. */
 const Z_UVODU_NA_DALSI: Page[] = ['orders_entry', 'orders', 'kegging', 'bottling', 'dashboard'];
@@ -297,7 +296,7 @@ export const STRANKY_PLOCHY: Array<{ nazev: string; ids: Page[] }> = [
 // patří mezi denní práci na úvodní stránce (28. 9. 2026).
 // Přehledové dlaždice Sklep a Rozvoz nejsou obrazovky, ale patří na úvodní
 // stránku (28. 9. 2026).
-export const DLAZDICE_MIMO_TABULKU_ZAMERNE: Page[] = ['notes', 'navod', 'orders_entry', 'orders_zavoz', 'prehled_rozvoz', 'prehled_sklep'];
+export const DLAZDICE_MIMO_TABULKU_ZAMERNE: Page[] = ['notes', 'navod', 'orders_entry', 'orders_zavoz', 'prehled_rozvoz'];
 
 /**
  * Které dlaždice smí rozdělení rozmístit: hlavní moduly, na které má
@@ -324,7 +323,7 @@ export function idsKRozmisteni(visibleIds: Page[], extraIds: Page[] = []): Page[
  * Použij to jen tehdy, když se rozdělení mění pro VŠECHNY schválně. Cizí
  * rozmístění se tím zahazuje a nejde vzít zpět.
  */
-export const ROZLOZENI_VERZE = 14;
+export const ROZLOZENI_VERZE = 15;
 
 /** Stránka, na které se plocha otevírá — první, „Denní práce". */
 export const VYCHOZI_STRANKA = 0;
@@ -445,7 +444,7 @@ export const PAGE_CATEGORY: Partial<Record<Page, Category>> = {
   writeoffs: 'Výroba', akce: 'Výroba', vycepy: 'Výroba', orders_zavoz: 'Výroba', prehled_rozvoz: 'Výroba', zavoz: 'Výroba',
   exkurze: 'Výroba', orders_entry: 'Výroba', orders_detail: 'Výroba', orders_celkem: 'Výroba',
   // Pivovar
-  dashboard: 'Pivovar', sklo_promo: 'Pivovar', cellar: 'Pivovar', prehled_sklep: 'Pivovar', bottling_needs: 'Pivovar', inventory: 'Pivovar', history: 'Pivovar', stock: 'Pivovar', stock_pohyby: 'Pivovar',
+  dashboard: 'Pivovar', sklo_promo: 'Pivovar', cellar: 'Pivovar', bottling_needs: 'Pivovar', inventory: 'Pivovar', history: 'Pivovar', stock: 'Pivovar', stock_pohyby: 'Pivovar',
   export_excel: 'Pivovar', import_excel: 'Pivovar',
   // Nástroje
   calendar: 'Nástroje', haccp: 'Nástroje', vehicles: 'Nástroje', kniha_jizd: 'Nástroje',
@@ -468,7 +467,6 @@ const FALLBACK_CYCLE: TileColor[] = ['indigo', 'orchid', 'forest', 'plum', 'citr
 // Světle modrá (vlastní hex — přednastavené odstíny jsou na to moc syté);
 // z provozu 28. 9. 2026: „to pozadí udělej světlejší, klidně světle modré".
 export const BARVA_PREHLEDU: Partial<Record<Page, string>> = {
-  prehled_sklep: '#a5d8ff',
   prehled_rozvoz: '#a5d8ff',
 };
 
@@ -963,7 +961,8 @@ export function getHomeLayout(raw: unknown, visibleIds: Page[], extraIds: Page[]
     kRozdeleni = { ...kRozdeleni, overrides };
   }
   // Verze 12: přehled tanků a „co naložit" mají vlastní dlaždice
-  // (prehled_sklep, prehled_rozvoz); Sklep a Rozvoz jsou zase obyčejné.
+  // (prehled_rozvoz; přehled tanků je od verze 15 pruh nahoře mimo dlaždice);
+  // Sklep a Rozvoz jsou zase obyčejné.
   // Verze 13/14: přehledové dlaždice dostanou svoje pozadí (BARVA_PREHLEDU).
   if (!uzRozdeleno && !jenZalozena && zname < 14) {
     const overrides = { ...kRozdeleni.overrides };

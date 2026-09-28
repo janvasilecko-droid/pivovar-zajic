@@ -159,7 +159,6 @@ export default function App() {
       p = 'home';
     }
     // Přehledové dlaždice plochy nejsou obrazovky — vedou na svoji stránku.
-    if (p === 'prehled_sklep') p = 'cellar';
     if (p === 'prehled_rozvoz') p = 'orders_zavoz';
     const nextSubTab = subTab ?? '';
     if (p === page && !targetSection && nextSubTab === pageSubTab) return;

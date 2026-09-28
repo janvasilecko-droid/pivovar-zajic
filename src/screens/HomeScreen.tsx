@@ -20,6 +20,7 @@ import { businessDateISO, posunDen } from '../lib/businessDate';
 import { IkonaSud, IkonaLahev, IkonaVycep } from '../components/ikony';
 import { HomeNotesModal } from '../components/HomeNotesModal';
 import CoStocitOkno from '../components/CoStocitOkno';
+import { PrehledTankuPlocha } from '../components/PrehledTankuPlocha';
 import { nactiSdilenouTabulku } from '../lib/sdilenaData';
 // Návod je přes deset kilobajtů textu, který většina lidí za den neotevře —
 // stáhne se až při klepnutí na dlaždici.
@@ -774,7 +775,6 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
       return;
     }
     // Přehledové dlaždice nejsou obrazovky — vedou na podrobnosti.
-    if (id === 'prehled_sklep') { setPage('cellar'); return; }
     if (id === 'prehled_rozvoz') { setPage('orders_zavoz'); return; }
     if (id === 'signout') {
       if ((await potvrd('Odhlásit se z appky?'))) signOut();
@@ -1467,6 +1467,12 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
         countdowns={countdowns}
         setPage={setPage}
       />
+
+      {/* 🛢️ Ležácké tanky 1–8 úplně nahoře, mimo dlaždice, bílé pozadí
+          (28. 9. 2026). Klepnutí otevře Sklep. */}
+      {!editMode && visibleIds.includes('cellar') && (
+        <PrehledTankuPlocha tanky={tankyNaPlochu} onOtevrit={() => setPage('cellar')} />
+      )}
 
       {/* 🍺 Co je potřeba stočit dnes / na den / za týden, sudy nebo lahve.
           Při úpravě plochy se schová, ať nepřekáží v přeskládávání. */}
@@ -2336,47 +2342,6 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                     <span>Plánovač</span>
                     <span>Kalendář ➔</span>
                   </div>
-                </div>
-              );
-            }
-
-            // Přehledová dlaždice Sklep (prehled_sklep) — ležácké tanky 1–8:
-            // pivo, hl a pruh plnosti. Klepnutí vede na Sklep.
-            if (id === 'prehled_sklep' && tankyNaPlochu.length > 0) {
-              const kratce = (l: string) => l.replace(/spilka\s*/i, 'S').replace(/tank\s*/i, 'T');
-              // Bez nadpisu — celá dlaždice patří tankům (28. 9. 2026: „vymaž
-              // ten nápis sklep, ať můžou být ty dlaždice větší, využij celý
-              // prostor"). Plnost ukazuje svislý sloupec vpravo u každého tanku
-              // a procento — „zlepši viditelnost naplněnosti tanků".
-              customContent = (
-                <div className="w-full h-full grid grid-cols-4 grid-rows-2 gap-1 p-1 text-left select-none overflow-hidden">
-                  {tankyNaPlochu.map((t) => {
-                    const pct = t.prazdny ? 0 : Math.min(100, Math.max(3, Math.round((t.litry / t.kapacita) * 100)));
-                    const pivoTanku = { beer_color: t.barva };
-                    const pismoTanku = t.prazdny ? 'bg-black/20' : beerText(pivoTanku);
-                    return (
-                      // Každý tank v barvě svého piva (nastavení piv); prázdný
-                      // tank je jen tmavé políčko, ať se neplete s pivem.
-                      <div
-                        key={t.label}
-                        className={`min-w-0 min-h-0 flex items-stretch gap-1 rounded px-1.5 py-1 ${pismoTanku}`}
-                        style={t.prazdny ? undefined : { backgroundColor: beerBg(pivoTanku) }}
-                      >
-                        <div className="min-w-0 flex-1 flex flex-col justify-between">
-                          <div className="flex items-baseline justify-between gap-1 text-xs font-black leading-none">
-                            <span className="truncate">{kratce(t.label)}</span>
-                            <span className="tabular-nums shrink-0">{t.prazdny ? '' : `${pct} %`}</span>
-                          </div>
-                          <div className="text-udaj font-bold leading-tight truncate">{t.prazdny ? 'prázdný' : (t.pivo || '—')}</div>
-                          <div className="text-xs font-black tabular-nums leading-none">{t.prazdny ? '—' : `${(t.litry / 100).toFixed(t.litry < 1000 ? 1 : 0)} hl`}</div>
-                        </div>
-                        {/* Svislý sloupec plnosti — hladina odspodu. */}
-                        <div className="relative w-2.5 shrink-0 rounded-sm bg-black/25 overflow-hidden">
-                          <div className="absolute bottom-0 inset-x-0" style={{ height: `${pct}%`, backgroundColor: 'currentColor' }} />
-                        </div>
-                      </div>
-                    );
-                  })}
                 </div>
               );
             }

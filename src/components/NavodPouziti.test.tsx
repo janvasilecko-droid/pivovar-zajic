@@ -30,7 +30,6 @@ describe('návod k použití', () => {
     haccp: 'sanitacni denik',
     orders_zavoz: 'rozvoz',
     prehled_rozvoz: 'co nalozit',
-    prehled_sklep: 'prehled tanku',
     depozitar: 'odberatel',
     app_settings: 'nastaveni',
     zaloha: 'zalohu',

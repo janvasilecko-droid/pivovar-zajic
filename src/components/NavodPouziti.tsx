@@ -197,7 +197,7 @@ const ODDILY: Oddil[] = [
       },
       {
         co: 'Přehled na úvodní stránce',
-        jak: 'Nahoře na ploše jsou dva široké přehledy: „Rozvoz — co naložit" (pivo × obal na nejbližší závoz) a „Sklep — přehled tanků" (tanky 1–8, pivo a hl). Klepnutí otevře Rozvoz nebo Sklep s podrobnostmi.',
+        jak: 'Úplně nahoře na ploše jsou ležácké tanky 1–8 (pivo v barvě z nastavení piv, hl a pruh plnosti) — klepnutí otevře Sklep. Mezi dlaždicemi je široký přehled „Rozvoz — co naložit" (pivo × obal na nejbližší závoz), klepnutí otevře Rozvoz.',
       },
       {
         co: 'Rozvoz a podpis',
