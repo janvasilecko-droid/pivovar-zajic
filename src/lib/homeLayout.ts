@@ -248,11 +248,13 @@ export const DLAZDICE_DENNI_PRACE: Page[] = [
 ];
 
 export const STRANKY_PLOCHY: Array<{ nazev: string; ids: Page[] }> = [
-  { nazev: 'Denní práce', ids: DLAZDICE_DENNI_PRACE },
+  // Lísteček s poznámkami patří k denní práci (28. 9. 2026: „na úvodní
+  // stránku dej ten lístek na poznámky") — běžná velikost, ne velká.
+  { nazev: 'Denní práce', ids: [...DLAZDICE_DENNI_PRACE, 'notes'] },
   {
     nazev: 'Další',
     ids: [
-      'notes', 'prodejna', 'akce', 'bottling_needs', 'history',
+      'prodejna', 'akce', 'bottling_needs', 'history',
       'sklo_promo', 'vehicles', 'haccp', 'calendar', 'timer', 'export_excel', 'depozitar',
       'navod', 'audit', 'users', 'app_settings', 'zaloha', 'signout',
     ],
@@ -308,7 +310,7 @@ export function idsKRozmisteni(visibleIds: Page[], extraIds: Page[] = []): Page[
  * Použij to jen tehdy, když se rozdělení mění pro VŠECHNY schválně. Cizí
  * rozmístění se tím zahazuje a nejde vzít zpět.
  */
-export const ROZLOZENI_VERZE = 4;
+export const ROZLOZENI_VERZE = 5;
 
 /** Stránka, na které se plocha otevírá — první, „Denní práce". */
 export const VYCHOZI_STRANKA = 0;

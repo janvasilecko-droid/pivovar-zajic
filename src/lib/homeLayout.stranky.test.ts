@@ -29,13 +29,13 @@ describe('rozdelDoStranek — Denní práce a Další (28. 9. 2026)', () => {
     expect(VYCHOZI_STRANKA).toBe(0);
     expect(STRANKY_PLOCHY[VYCHOZI_STRANKA].nazev).toBe('Denní práce');
     expect(stranky[VYCHOZI_STRANKA]).toEqual(
-      ['orders_entry', 'orders', 'kegging', 'bottling', 'orders_zavoz', 'dashboard', 'cellar'],
+      ['orders_entry', 'orders', 'kegging', 'bottling', 'orders_zavoz', 'dashboard', 'cellar', 'notes'],
     );
   });
 
-  it('úvodní stránka se nesmí rozjet do seznamu — nejvýš sedm dlaždic', () => {
+  it('úvodní stránka se nesmí rozjet do seznamu — nejvýš osm dlaždic', () => {
     // Pojistka proti tomu, aby se sem postupně naskládalo všechno.
-    expect(STRANKY_PLOCHY[VYCHOZI_STRANKA].ids.length).toBeLessThanOrEqual(7);
+    expect(STRANKY_PLOCHY[VYCHOZI_STRANKA].ids.length).toBeLessThanOrEqual(8);
   });
 
   it('na stránce Další jsou nástroje, číselníky a nastavení', () => {
@@ -45,7 +45,6 @@ describe('rozdelDoStranek — Denní práce a Další (28. 9. 2026)', () => {
     expect(dalsi).toContain('timer');
     expect(dalsi).toContain('app_settings');
     expect(dalsi).toContain('depozitar'); // Číselníky
-    expect(dalsi).toContain('notes');
   });
 
   it('dlaždice, na které uživatel nemá právo, nenechají prázdné místo', () => {
@@ -268,11 +267,23 @@ describe('jednorázové přeskládání plochy (ROZLOZENI_VERZE)', () => {
     };
     const layout = getHomeLayout(verze3, viditelne, ['notes'], GRID_COLS_MOBILE);
     const [uvod, dalsi] = layout.pages.filter((p) => p.length > 0);
-    expect(uvod).toEqual(['orders', 'kegging', 'bottling', 'dashboard', 'cellar']);
-    expect(dalsi).toContain('notes');
+    expect(uvod).toEqual(['orders', 'kegging', 'bottling', 'dashboard', 'cellar', 'notes']);
     expect(dalsi).toContain('history');
     expect(layout.overrides.dashboard?.h).toBe(2);
     expect(layout.overrides.dashboard?.color).toBe('teal');
+    expect(layout.overrides.notes?.h).toBe(1);
+  });
+
+  it('plocha z verze 4 dostane lísteček s poznámkami na úvodní stránku', () => {
+    const verze4 = {
+      pages: [['orders', 'kegging', 'dashboard'], ['notes', 'history']],
+      overrides: { kegging: { w: 1, h: 2, color: 'sky' }, notes: { w: 1, h: 1 } },
+      rozlozeniVerze: 4,
+    };
+    const layout = getHomeLayout(verze4, viditelne, ['notes'], GRID_COLS_MOBILE);
+    const [uvod] = layout.pages.filter((p) => p.length > 0);
+    expect(uvod).toContain('notes');
+    expect(layout.overrides.kegging?.color).toBe('sky');
     expect(layout.overrides.notes?.h).toBe(1);
   });
 
