@@ -21,10 +21,9 @@ describe('getHomeLayout', () => {
     const layout = getHomeLayout(null, [A, B, C]);
     // Nová plocha se zakládá rozdělená do stránek podle STRANKY_PLOCHY, takže
     // rozmístění i pořadí určuje TA TABULKA, ne pořadí ve visibleIds:
-    // dashboard (Sklad) patří na „Výpočty a přehledy" (1. stránka), kegging
-    // a orders na „Stáčení a objednávky" (úvodní, 2. stránka). Poslední
-    // prázdná stránka je místo na přidávání (ensureTrailingEmptyPage).
-    expect(layout.pages).toEqual([[C], [A, B], []]);
+    // objednávky, stáčení i sklad patří na „Denní práce". Poslední prázdná
+    // stránka je místo na přidávání (ensureTrailingEmptyPage).
+    expect(layout.pages).toEqual([[B, A, C], []]);
     expect(layout.tileOpacity).toBeCloseTo(0.62);
     // 'bottling' ani 'notes' nejsou v visibleIds, takže i výchozí slot
     // spodní lišty se ověří a spadne na 'home' — viz "spodní lišta: home je

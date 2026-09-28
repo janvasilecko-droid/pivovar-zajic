@@ -217,49 +217,44 @@ export function defaultTileColor(id: string): TileColor {
 // Výchozí velikost pro dlaždice — standardně jednotné čtvercové dlaždice 1x1,
 // které tvoří čistou, zarovnanou a přehlednou mřížku. Uživatel si je v edit módu
 // může dle potřeby libovolně zvětšit nebo zmenšit.
-const DEFAULT_SIZE: Partial<Record<Page, { w: number; h: number }>> = {};
+// Denní práce jsou velké dlaždice (dvojnásobná výška) — snadno se trefí
+// i v rukavicích. Platí pro nově zakládanou plochu a pro jednorázové
+// přeskládání na verzi 4 (viz getHomeLayout).
+const DEFAULT_SIZE: Partial<Record<Page, { w: number; h: number }>> = {
+  orders_entry: { w: 1, h: 2 }, orders: { w: 1, h: 2 }, kegging: { w: 1, h: 2 }, bottling: { w: 1, h: 2 },
+  orders_zavoz: { w: 1, h: 2 }, dashboard: { w: 1, h: 2 }, cellar: { w: 1, h: 2 },
+};
 
 /**
- * 🗂️ Tři stránky plochy podle toho, co člověk zrovna dělá.
+ * 🗂️ Dvě stránky plochy: „Denní práce" a „Další".
  *
- * Dřív žádné rozdělení neexistovalo: bez uloženého rozložení se všech ~44
- * dlaždic naskládalo na JEDNU stránku a hledalo se v nich očima. Nově se
- * plocha zakládá rozdělená a otevírá se PROSTŘEDNÍ (výroba) — z ní je to na
- * obě strany jedno přejetí prstem.
+ * Zadání 28. 9. 2026: „ať je tam klidně míň funkcí, ale víc funkčních,
+ * hlavně dobrá a jednoduchá ovladatelnost." Úvodní stránka má jen to, co se
+ * dělá každý den — objednávky, stáčení, rozvoz, sklad a sklep — jako velké
+ * dlaždice (DLAZDICE_DENNI_PRACE, výška 2). Všechno ostatní je o jedno
+ * přejetí prstem vedle na stránce „Další".
+ *
+ * Dřív (do 28. 9.) byly stránky tři — nástroje / výroba / ostatní — a
+ * otevírala se prostřední; hledalo se tak na obě strany.
  *
  * Pořadí v seznamu je zároveň pořadím na stránce. Co v tabulce není (nový
- * modul, vlastní odpočet, skupina), padá na poslední stránku — „zbytek" je
- * schválně poslední, aby měl kam.
+ * modul, vlastní odpočet, skupina), padá na poslední stránku.
  *
  * Není to zámek: dlaždici jde přetáhnout kamkoliv i mezi stránkami a tohle
- * platí jen pro nově zakládanou (nebo obnovenou) plochu.
+ * platí jen pro nově zakládanou (nebo jednou přeskládanou) plochu.
  */
+export const DLAZDICE_DENNI_PRACE: Page[] = [
+  'orders_entry', 'orders', 'kegging', 'bottling', 'orders_zavoz', 'dashboard', 'cellar',
+];
+
 export const STRANKY_PLOCHY: Array<{ nazev: string; ids: Page[] }> = [
+  { nazev: 'Denní práce', ids: DLAZDICE_DENNI_PRACE },
   {
-    // VLEVO — výpočty a přehledy: kalkulačky, inventura, kalendář a nástroje
-    // (časovač, statistika, export, sanitační deníky, auta, sklad) + stažení
-    // zálohy. Sem se sahá spíš občas, ne každý den.
-    nazev: 'Výpočty a přehledy',
+    nazev: 'Další',
     ids: [
-      'inventory', 'calendar', 'timer', 'history',
-      'export_excel', 'haccp', 'vehicles', 'dashboard', 'audit', 'zaloha', 'navod',
-    ],
-  },
-  {
-    // ÚVODNÍ stránka (otevírá se jako první) — schválně KRÁTKÁ. To, na co se
-    // sahá každý den: stočit (KEG, Lahve), objednávky, prodejna/fasování
-    // a vzkazy. Čím víc se sem přidá, tím hůř se to hledá; zbytek je jedno
-    // přejetí prstem daleko.
-    nazev: 'Stáčení a objednávky',
-    ids: ['kegging', 'bottling', 'orders', 'prodejna', 'notes'],
-  },
-  {
-    // VPRAVO — ostatní: potřeby stáčení, akce, sklep, sklo, číselníky
-    // a nastavení/uživatelé.
-    nazev: 'Ostatní',
-    ids: [
-      'bottling_needs', 'akce', 'cellar', 'sklo_promo',
-      'depozitar', 'users', 'app_settings', 'signout',
+      'notes', 'prodejna', 'akce', 'bottling_needs', 'inventory', 'history',
+      'sklo_promo', 'vehicles', 'haccp', 'calendar', 'timer', 'export_excel', 'depozitar',
+      'navod', 'audit', 'users', 'app_settings', 'zaloha', 'signout',
     ],
   },
 ];
@@ -284,7 +279,9 @@ export const STRANKY_PLOCHY: Array<{ nazev: string; ids: Page[] }> = [
  */
 // Lísteček s poznámkami (widget, který jinde než na ploše nedává smysl)
 // a návod k použití (otevírá se v okně nad plochou, není to obrazovka).
-export const DLAZDICE_MIMO_TABULKU_ZAMERNE: Page[] = ['notes', 'navod'];
+// Nová objednávka a Rozvoz jsou formálně záložky Objednávek (EXTRA_NAV), ale
+// patří mezi denní práci na úvodní stránce (28. 9. 2026).
+export const DLAZDICE_MIMO_TABULKU_ZAMERNE: Page[] = ['notes', 'navod', 'orders_entry', 'orders_zavoz'];
 
 /**
  * Které dlaždice smí rozdělení rozmístit: hlavní moduly, na které má
@@ -311,10 +308,10 @@ export function idsKRozmisteni(visibleIds: Page[], extraIds: Page[] = []): Page[
  * Použij to jen tehdy, když se rozdělení mění pro VŠECHNY schválně. Cizí
  * rozmístění se tím zahazuje a nejde vzít zpět.
  */
-export const ROZLOZENI_VERZE = 3;
+export const ROZLOZENI_VERZE = 4;
 
-/** Stránka, na které se plocha otevírá — prostřední, tedy výroba. */
-export const VYCHOZI_STRANKA = 1;
+/** Stránka, na které se plocha otevírá — první, „Denní práce". */
+export const VYCHOZI_STRANKA = 0;
 
 /**
  * Rozdělí dlaždice do stránek podle STRANKY_PLOCHY.
@@ -818,10 +815,9 @@ export function getHomeLayout(raw: unknown, visibleIds: Page[], extraIds: Page[]
     // rozložení (viz rozdelVseDoStranek).
     pages.push(...rozdelDoStranek(idsKRozmisteni(newIds, extraIds.filter((id) => !seen.has(id) && !hiddenSet.has(id)))));
   } else if (newIds.length > 0) {
-    // Nová dlaždice patří na stránku, na které plocha startuje (výroba) —
-    // ne na poslední. Na poslední stránku se přejde jen schválně, takže
-    // dlaždice, o které nikdo neví, tam čeká, dokud na ni někdo nenarazí.
-    const kam = Math.min(VYCHOZI_STRANKA, pages.length - 1);
+    // Nová dlaždice patří na stránku „Další" — úvodní stránka je jen pro
+    // denní práci a nesmí se sama rozrůstat (28. 9. 2026).
+    const kam = Math.min(1, pages.length - 1);
     pages[kam] = [...pages[kam], ...newIds];
   }
 
@@ -910,9 +906,20 @@ export function getHomeLayout(raw: unknown, visibleIds: Page[], extraIds: Page[]
     : 0;
   const uzRozdeleno = zname >= ROZLOZENI_VERZE;
   const jenZalozena = rawPages.length === 0;
-  const kRozdeleni = uzRozdeleno || jenZalozena
+  let kRozdeleni = uzRozdeleno || jenZalozena
     ? layout
     : rozdelVseDoStranek(layout, idsKRozmisteni(visibleIds, extraIds).filter((id) => !hiddenSet.has(id)));
+  // Přechod na verzi 4 (úvodní stránka „Denní práce"): denní dlaždice
+  // dostanou jednou velkou velikost, ať je to na první pohled poznat.
+  // Barvy a popisky zůstávají; kdo si je potom zmenší, tomu to zůstane.
+  if (!uzRozdeleno && !jenZalozena && zname < 4) {
+    const overrides = { ...kRozdeleni.overrides };
+    for (const id of DLAZDICE_DENNI_PRACE) {
+      const o = overrides[id];
+      if (o) overrides[id] = { ...o, w: 1, h: 2, x: undefined, y: undefined };
+    }
+    kRozdeleni = { ...kRozdeleni, overrides };
+  }
 
   return ensureTrailingEmptyPage(ensurePositions(kRozdeleni, cols));
 }
