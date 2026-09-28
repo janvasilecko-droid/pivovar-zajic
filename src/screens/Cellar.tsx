@@ -6,7 +6,6 @@ import { StaceniBezTanku, type RadekStaceni } from '../components/StaceniBezTank
 import { ZtratyTankuPrehled } from '../components/ZtratyTankuPrehled';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 
-import { nesedici, zkontrolujTanky, type TankRozdil } from '../lib/tankKontrola';
 import { souhrnCyklu, cilPoPrecerpani, cyklusSPrecerpanim, STAVY_S_PIVEM } from '../lib/tankCyklus';
 import { Beer, CellarTank, CellarTankCycle, CellarTransfer, EntryRow, Package, beerBorder, fetchAllRows, supabase, useRealtime } from '../lib/supabase';
 import { nactiSdilenouTabulku } from '../lib/sdilenaData';
@@ -105,8 +104,8 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
     if (!silent && !tanks.length) setLoading(true);
     const [t, tr, cy, kg, b, pkg] = await Promise.all([
       supabase.from('cellar_tanks').select('*').order('label'),
-      // Přečerpávání se načítá CELÉ, ne posledních 50: kontrola objemu tanků
-      // (nesediciTanky níž) potřebuje všechna přečerpání aktuálního cyklu.
+      // Přečerpávání se načítá CELÉ, ne posledních 50: souhrn cyklu tanku
+      // a přepočet ztrát potřebují všechna přečerpání aktuálního cyklu.
       // S oříznutím na 50 chyběla starší odchozí přečerpání, takže tank
       // vycházel plnější, než je, a upozornění hlásilo schodek u tanků,
       // které ve skutečnosti sedí.
@@ -265,6 +264,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
     sklad: skladTed,
   }), [orders, orderItems, packages, beers, weekKey, odjelePolozky, skladTed]);
 
+
   // Souhrn stáčení z tanku (kegging) — jen pro AKTUÁLNÍ (nedokončený) cyklus
   // daného tanku, ne kumulativně napříč všemi cykly, co kdy z tabulky kegging
   // přes daný cellar_tank_id prošly. Bez tohohle omezení se po opakovaném
@@ -279,13 +279,6 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
     });
     return m;
   }, [tanks]);
-  // Tanky, u kterých evidovaný objem nesedí s tím, co vychází ze zapsaných
-  // pohybů. Kontrolují se jen tanky s živým cyklem — u vymytého by schodek
-  // svítil pořád (viz tankKontrola.ts).
-  const nesediciTanky = useMemo(
-    () => nesedici(zkontrolujTanky(tanks, kegging as any[], transfers as any[])),
-    [tanks, kegging, transfers],
-  );
 
   const tankSummary = useMemo(() => {
     const m = new Map<string, { kegCount: number; sourceL: number; lossL: number; bySize: Record<number, number> }>();
@@ -442,52 +435,6 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
     }
   }
 
-  // Srovnání tanku, u kterého nesedí objem. „Platí zápisy" = stav tanku se
-  // nastaví na dopočítanou hodnotu. „Platí tank" = změřený stav zůstane a
-  // o rozdíl se opraví počátek cyklu (jinak by se upozornění ukazovalo dál
-  // a rozdíl by se při zavření tanku zapsal jako ztráta).
-  async function srovnatTank(r: TankRozdil, zpusob: 'zapisy' | 'tank') {
-    const t = tanks.find((x) => x.id === r.id);
-    if (!t) return;
-    const otazka = zpusob === 'zapisy'
-      ? `${r.label}: nastavit stav tanku na ${r.dopocitanoL} l (teď ${r.evidovanoL} l)?`
-      : `${r.label}: ponechat v tanku ${r.evidovanoL} l a počátek cyklu opravit z ${r.pocatekL} l na ${Math.round((r.pocatekL + r.rozdilL) * 10) / 10} l?`;
-    if (!(await potvrd(otazka))) return;
-    const patch = zpusob === 'zapisy'
-      ? { current_volume_l: Math.max(0, r.dopocitanoL) }
-      : { initial_volume_l: Math.round((r.pocatekL + r.rozdilL) * 10) / 10 };
-    const { error } = await supabase.from('cellar_tanks')
-      .update({ ...patch, updated_at: new Date().toISOString() })
-      .eq('id', r.id);
-    if (error) { chyba(`Tank se nepodařilo srovnat: ${error.message}`); return; }
-    oznam(`${r.label} srovnán.`);
-    load(true);
-  }
-
-  // „Vymaž to stáčení, co nesedí, ať se u těch tanků neukazuje" (28. 9. 2026).
-  // Řádky stáčení se NEMAŽOU — jsou to sudy ve skladu a jejich smazání by je
-  // ze skladu i z inventury ubralo. Místo toho se u všech nesedících tanků
-  // najednou ponechá stav, který v tanku je, a o rozdíl se opraví počátek
-  // cyklu. Upozornění tím zmizí a sklad zůstane beze změny.
-  async function srovnatVse() {
-    if (nesediciTanky.length === 0) return;
-    const seznam = nesediciTanky.map((r) => `• ${r.label}: ponechat ${r.evidovanoL} l`).join('\n');
-    if (!(await potvrd(
-      `Srovnat všechny tanky podle toho, co v nich je?\n\n${seznam}\n\nStáčení ani sklad se nemění — opraví se jen počáteční objem cyklu, ať upozornění zmizí.`,
-      { titulek: 'Srovnat tanky', potvrdit: 'Srovnat vše' },
-    ))) return;
-    const chyby: string[] = [];
-    for (const r of nesediciTanky) {
-      const { error } = await supabase.from('cellar_tanks')
-        .update({ initial_volume_l: Math.round((r.pocatekL + r.rozdilL) * 10) / 10, updated_at: new Date().toISOString() })
-        .eq('id', r.id);
-      if (error) chyby.push(`${r.label} (${error.message})`);
-    }
-    if (chyby.length > 0) chyba(`Nepodařilo se srovnat: ${chyby.join(', ')}`);
-    else oznam(nesediciTanky.length === 1 ? 'Tank srovnán.' : `Srovnáno ${nesediciTanky.length} tanků.`);
-    load(true);
-  }
-
   // Inline uložení piva a počátečního objemu přímo z karty tanku
   async function saveInlineTank(t: CellarTank) {
     if (!inlineBeerId) { oznam('Vyber pivo.'); return; }
@@ -605,54 +552,12 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
 
   return (
     <div>
-      {/* 🛢️ Tanky, u kterých nesedí objem. Odečet z tanku běží zvlášť od
-          zápisu stáčení (RPC adjust_tank_volume), takže když selže, stáčení
-          se uloží a tank zůstane plný — a nikde se to už nepřipomene.
-          Tohle to připomene. Viz lib/tankKontrola.ts. */}
-      {nesediciTanky.length > 0 && (
-        <div className="mb-4 rounded border-2 border-amber-400 bg-amber-50 p-4">
-          <div className="flex items-start gap-3">
-            <AlertTriangle size={18} className="text-amber-600 shrink-0 mt-0.5" />
-            <div className="min-w-0 flex-1">
-              <div className="font-display font-black text-amber-900 text-sm">
-                {nesediciTanky.length === 1 ? 'U jednoho tanku nesedí objem' : `U ${nesediciTanky.length} tanků nesedí objem`}
-              </div>
-              <button type="button" className="btn-primary !rounded !text-xs mt-2" onClick={srovnatVse}>
-                Srovnat vše — platí, co je v tancích
-              </button>
-              <p className="text-udaj font-bold text-amber-800 mt-1">
-                Stav v tanku se liší od toho, co vychází ze zápisů: počátek − stočeno ± přečerpáno.
-                Obvyklé příčiny: odečet po stáčení neprošel, nebo se u běžícího tanku přes „Změnit pivo"
-                přepsal objem (to je od 27. 9. opravené). Změř tank a vyber, co platí.
-              </p>
-              <div className="mt-2.5 space-y-2">
-                {nesediciTanky.map((t) => (
-                  <div key={t.id} className="px-2.5 py-2 rounded bg-white border border-amber-300 text-udaj text-neutral-800">
-                    <div className="font-bold">
-                      {t.label}: v tanku <span className="font-mono">{t.evidovanoL} l</span>, podle zápisů <span className="font-mono">{t.dopocitanoL} l</span>
-                      <span className={t.rozdilL < 0 ? 'text-rose-700' : 'text-emerald-700'}>
-                        {' '}({t.rozdilL > 0 ? '+' : ''}{t.rozdilL} l)
-                      </span>
-                    </div>
-                    <div className="text-neutral-600 mt-0.5 font-mono">
-                      počátek {t.pocatekL} l − stočeno {t.vystocenoL} l {t.precerpanoL >= 0 ? '+' : '−'} přečerpáno {Math.abs(t.precerpanoL)} l = {t.dopocitanoL} l
-                    </div>
-                    <div className="flex flex-wrap gap-1.5 mt-1.5">
-                      <button type="button" className="btn-primary !rounded !text-xs" onClick={() => srovnatTank(t, 'zapisy')}>
-                        Platí zápisy — nastavit {t.dopocitanoL} l
-                      </button>
-                      <button type="button" className="btn-ghost !rounded !text-xs" onClick={() => srovnatTank(t, 'tank')}>
-                        Platí tank — ponechat {t.evidovanoL} l
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
+      {/* Upozornění „nesedí objem" (kontrola evidovaného objemu tanku proti
+          zápisům stáčení a přečerpání, lib/tankKontrola.ts) je z obrazovky
+          pryč na přání z provozu (28. 9. 2026: „jak se tam vypisují ty
+          nesrovnalosti ve stáčení z tanku, to vymaž"). Stáčení, které by
+          tank přečerpalo, se dál neodečítá a čeká na záložce „Stáčení bez
+          tanku". */}
       <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
         {/* Na telefonu se nadpis nekreslí — jméno obrazovky nese horní lišta
             (stejně jako u KEG a Lahví). Na počítači zůstává i s popiskem. */}

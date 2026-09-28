@@ -79,7 +79,7 @@ export function StaceniBezTanku({ kegging, tanks, beers, packages, onZmena }: {
     const { error: errTank } = await supabase.rpc('adjust_tank_volume', { p_tank_id: t.id, p_delta_l: -l });
     setUklada(null);
     if (errTank) {
-      chyba(`Stáčení je přiřazené, ale z ${t.label} se nepodařilo odečíst: ${errTank.message}. Sklep ho ukáže v „nesedí objem".`);
+      chyba(`Stáčení je přiřazené, ale z ${t.label} se nepodařilo odečíst: ${errTank.message}. Zkontroluj stav tanku ve Sklepě.`);
     } else {
       oznam(`Přiřazeno k ${t.label}, odečteno ${Math.round(l)} l.`);
     }
