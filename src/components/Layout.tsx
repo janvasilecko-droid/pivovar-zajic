@@ -1,7 +1,5 @@
 import { ReactNode, useState, useEffect, useRef, lazy, Suspense } from 'react';
-import { AlarmClock, AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, BookOpen, CalendarDays, Car, ClipboardCheck, ClipboardList, Compass, Download, FilePlus, FileSpreadsheet, FileText, FlaskConical, GlassWater, History as HistoryIcon, Home, Info, ListOrdered, LogOut, MapPin, Megaphone, MessageCircle, Package as PackageIcon, Radio, Receipt, Search, Settings, Shield, ShieldCheck, Smartphone, Snowflake, Sparkles, StickyNote, Store, Tag, Truck, type LucideIcon, Wifi, WifiOff, X, XCircle } from 'lucide-react';
-import { BreweryRadioBar } from './BreweryRadioBar';
-import { BreweryRadioModal } from './BreweryRadioModal';
+import { AlarmClock, AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, BookOpen, CalendarDays, Car, ClipboardCheck, ClipboardList, Compass, Download, FilePlus, FileSpreadsheet, FileText, FlaskConical, GlassWater, History as HistoryIcon, Home, Info, ListOrdered, LogOut, MapPin, Megaphone, MessageCircle, Package as PackageIcon, Receipt, Search, Settings, Shield, ShieldCheck, Smartphone, Snowflake, Sparkles, StickyNote, Store, Tag, Truck, type LucideIcon, Wifi, WifiOff, X, XCircle } from 'lucide-react';
 
 import { useAuth } from '../lib/auth';
 import { potvrd } from '../lib/toast';
@@ -35,7 +33,7 @@ import '../screens/HomeScreen.css';
 
 export type NavItem = { id: Page; label: string; icon: LucideIcon; group: string };
 
-export type Page = 'export_excel' | 'import_excel' | 'home' | 'depozitar' | 'dashboard' | 'concentration' | 'srotovani' | 'checklists' | 'haccp' | 'sanitation_log' | 'sanitace_lahve' | 'sanitace_kegy' | 'sanitace_vycepy' | 'history' | 'orders_entry' | 'orders' | 'orders_detail' | 'orders_celkem' | 'orders_vraceni' | 'orders_zavoz' | 'zavoz' | 'kniha_jizd' | 'historie_tras' | 'stock' | 'stock_pohyby' | 'bottling' | 'kegging' | 'fasovani' | 'prodejna' | 'akce' | 'sklo_promo' | 'vycepy' | 'exkurze' | 'reminders' | 'notes' | 'writeoffs' | 'inventory' | 'calendar' | 'feedback' | 'places' | 'beers' | 'packages' | 'pricelist' | 'vehicles' | 'cellar' | 'users' | 'app_settings' | 'app_versions' | 'bottling_needs' | 'stopwatch' | 'timer' | 'keg_timer' | 'radio' | 'zaloha' | 'co2' | 'navod' | 'hlaseni' | 'audit' | 'signout';
+export type Page = 'export_excel' | 'import_excel' | 'home' | 'depozitar' | 'dashboard' | 'srotovani' | 'checklists' | 'haccp' | 'sanitation_log' | 'sanitace_lahve' | 'sanitace_kegy' | 'sanitace_vycepy' | 'history' | 'orders_entry' | 'orders' | 'orders_detail' | 'orders_celkem' | 'orders_vraceni' | 'orders_zavoz' | 'zavoz' | 'kniha_jizd' | 'historie_tras' | 'stock' | 'stock_pohyby' | 'bottling' | 'kegging' | 'fasovani' | 'prodejna' | 'akce' | 'sklo_promo' | 'vycepy' | 'exkurze' | 'reminders' | 'notes' | 'writeoffs' | 'inventory' | 'calendar' | 'feedback' | 'places' | 'beers' | 'packages' | 'pricelist' | 'vehicles' | 'cellar' | 'users' | 'app_settings' | 'app_versions' | 'bottling_needs' | 'stopwatch' | 'timer' | 'keg_timer' | 'zaloha' | 'co2' | 'navod' | 'hlaseni' | 'audit' | 'signout';
 
 export const NAV: NavItem[] = [
   // --- VÝROBA ---
@@ -64,10 +62,9 @@ export const NAV: NavItem[] = [
   { id: 'export_excel', label: 'Excel (Export, Import)', icon: FileSpreadsheet, group: 'Pivovar' },
   // Všechny audity a kontroly na jednom místě (screens/AuditScreen.tsx) —
   // dřív rozházené po Inventuře, Objednávkách, Nastavení a Uživatelích.
-  { id: 'audit', label: 'Audit', icon: ClipboardCheck, group: 'Pivovar' },
+  { id: 'audit', label: 'Audit', icon: ClipboardCheck, group: 'Nastavení' },
 
   // --- NÁSTROJE ---
-  { id: 'concentration', label: 'Kalkulačky', icon: FlaskConical, group: 'Nástroje' },
   { id: 'calendar', label: 'Kalendář & Upozornění', icon: CalendarDays, group: 'Nástroje' },
   { id: 'timer', label: 'Časovač', icon: AlarmClock, group: 'Nástroje' },
   { id: 'haccp', label: 'Sanitace', icon: Shield, group: 'Nástroje' },
@@ -115,7 +112,6 @@ export const EXTRA_NAV: NavItem[] = [
   { id: 'stock_pohyby', label: 'Pohyby', icon: ListOrdered, group: 'Pivovar' },
   { id: 'notes', label: 'Poznámky', icon: StickyNote, group: 'Nástroje' },
   { id: 'exkurze', label: 'Exkurze', icon: Compass, group: 'Výroba' },
-  { id: 'radio', label: 'Pivovarské Rádio', icon: Radio, group: 'Nástroje' },
   // Info — návody ke všem funkcím a údaje o aplikaci. Jako dlaždice na ploše,
   // protože „?" v horní liště je malé a kdo appku teprve poznává, hledá spíš
   // ikonu než otazník. Id zůstává 'navod': mění se jen popisek, takže komu
@@ -641,14 +637,6 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
 
 
 
-  // Modál pro pivovarské rádio a hudbu na pozadí
-  const [showRadioModal, setShowRadioModal] = useState(false);
-  useEffect(() => {
-    const onOpenRadio = () => setShowRadioModal(true);
-    window.addEventListener('pivovar:open-radio', onOpenRadio);
-    return () => window.removeEventListener('pivovar:open-radio', onOpenRadio);
-  }, []);
-
   // Bez neprůhledného pozadí (dřív bg-neutral-50) — jinak tenhle wrapper, i
   // když je position:static, svým vlastním pozadím vždycky přemaloval
   // barevnou scénu (.hs-fullscreen-scene, position:fixed, z-index:-1) přes
@@ -852,9 +840,6 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
             odeslat totéž, ale detail s důvodem a tlačítkem Zahodit nešel
             nikdy otevřít, právě proto, že šlo o tabbed obrazovku. */}
         <SyncDetailModal open={showSyncInfo} onClose={() => setShowSyncInfo(false)} online={online} pending={pending} syncing={syncing} onSync={syncNyni} />
-
-        <BreweryRadioBar onOpenModal={() => setShowRadioModal(true)} />
-        <BreweryRadioModal open={showRadioModal} onClose={() => setShowRadioModal(false)} />
 
         {showQuickAddOrder && (
           <Suspense fallback={null}>

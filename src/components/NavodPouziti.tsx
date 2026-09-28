@@ -248,7 +248,7 @@ const ODDILY: Oddil[] = [
       },
       {
         co: 'Audit',
-        jak: 'Dlaždice Audit sdružuje všechny kontroly. Hloubkový audit se pouští za týden nebo měsíc a mimo jiné porovná objednávky z WhatsAppu se zprávami (tmavé zapsané jako světlé svítí červeně). Dál jsou tam audit objednávek, příjem WhatsAppu, Inventura vs. Sklad a pro admina Diagnostika a historie změn.',
+        jak: 'Dlaždice Audit (odkaz je i v Nastavení) sdružuje všechny kontroly. Hloubkový audit se pouští za týden nebo měsíc a mimo jiné porovná objednávky z WhatsAppu se zprávami (tmavé zapsané jako světlé svítí červeně). Dál jsou tam audit objednávek, příjem WhatsAppu, Inventura vs. Sklad a pro admina Diagnostika a historie změn.',
       },
     ],
   },
@@ -271,17 +271,13 @@ const ODDILY: Oddil[] = [
   },
   {
     klic: 'nastroje',
-    nazev: 'Kalkulačky a časovače',
+    nazev: 'Časovače a šrotování',
     ikona: FlaskConical,
-    kCemu: 'Výpočty, které se dřív dělaly na papíře.',
+    kCemu: 'Pomůcky při vaření a stáčení.',
     body: [
-      {
-        co: 'Kalkulačky',
-        jak: 'Dotáčení KEG sudů (kolik sudů vyjde z tanku), šrotování sladu, sanitační chemie, náročnost várky a přepočet jednotek.',
-      },
       { co: 'Časovač a stopky', jak: 'Odpočet s alarmem (kotel, chmelení) a stopky s mezičasy. Alarm zazvoní i při zamčeném telefonu.' },
       { co: 'Stočení sudu', jak: 'Odpočet přímo pro stáčení jednoho sudu.' },
-      { co: 'Pivovarské rádio', jak: 'Hraje při práci, ovládá se z lišty dole.' },
+      { co: 'Šrotování sladu', jak: 'Deník šrotování — najdeš ho ve Sklepu (dlaždice Sklep → Šrotování sladu).' },
     ],
   },
   {
@@ -320,7 +316,7 @@ const ODDILY: Oddil[] = [
       { co: 'Zpětná vazba', jak: 'Co by se mělo vylepšit nebo opravit. Vidí to všichni kolegové.' },
       {
         co: 'Hlášení',
-        jak: 'Vyhlásí zprávu, která všem naskočí přes celou obrazovku a musí ji odklepnout — odstávka varny, změna závozu. Napiš nadpis, text a druh (technické / důležité / informace) a vyhlas. Platí jedno hlášení najednou; zrušíš ho tamtéž.',
+        jak: 'Najdeš ho v Nastavení (tlačítko „Otevřít Hlášení“). Vyhlásí zprávu, která všem naskočí přes celou obrazovku a musí ji odklepnout — odstávka varny, změna závozu. Napiš nadpis, text a druh (technické / důležité / informace) a vyhlas. Platí jedno hlášení najednou; zrušíš ho tamtéž.',
       },
     ],
   },

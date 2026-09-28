@@ -40,7 +40,7 @@ describe('rozdelDoStranek — tři stránky podle toho, co člověk dělá', () 
 
   it('vlevo jsou výpočty a nástroje, vpravo číselníky a nastavení', () => {
     const [nastroje, , zbytek] = rozdelDoStranek(VSECHNY as TileId[]);
-    expect(nastroje).toContain('concentration'); // Kalkulačky
+    expect(nastroje).toContain('inventory');
     expect(nastroje).toContain('timer');
     expect(zbytek).toContain('app_settings');
     expect(zbytek).toContain('depozitar'); // Číselníky

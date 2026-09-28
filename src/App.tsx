@@ -28,7 +28,6 @@ const Statistika = lazyStranka(() => import('./screens/Statistika'));
 const ExcelTabbed = lazyStranka(() => import('./screens/ExcelTabbed'));
 const CellarScreen = lazyStranka(() => import('./screens/Cellar'));
 const SrotovaniScreen = lazyStranka(() => import('./screens/BreweryScreens').then((m) => ({ default: m.SrotovaniScreen })));
-const ConcentrationScreen = lazyStranka(() => import('./screens/BreweryScreens').then((m) => ({ default: m.ConcentrationScreen })));
 const InventoryScreen = lazyStranka(() => import('./screens/InventoryScreen'));
 const VycepyScreen = lazyStranka(() => import('./screens/VycepyScreen'));
 const VehiclesTabbed = lazyStranka(() => import('./screens/VehiclesTabbed'));
@@ -242,7 +241,6 @@ export default function App() {
       {(page === 'dashboard' || page === 'sklo_promo') && (
         <Dashboard setPage={setPage} initialTab={page === 'sklo_promo' ? 'sklo_promo' : 'sklad'} />
       )}
-      {page === 'concentration' && <ConcentrationScreen setPage={setPage} initialSubTab={pageSubTab} />}
       {(page === 'checklists' || page === 'haccp' || page === 'sanitation_log' || page === 'sanitace_lahve' || page === 'sanitace_kegy' || page === 'sanitace_vycepy') && (
         <SanitaceTabbed
           initialTab={

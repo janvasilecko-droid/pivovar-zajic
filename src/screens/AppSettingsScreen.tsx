@@ -1,5 +1,5 @@
 import { useState, useEffect, type FormEvent } from 'react';
-import { AlertCircle, AlertTriangle, Bell, BellOff, BookOpen, Brush, CloudDownload, Download, Eraser, Eye, CheckCircle2, Lock, MessageSquare, Monitor, Moon, Palette, Plus, RefreshCw, Settings, Smartphone, Stethoscope, Sun, Timer, Trash2, Users, Vibrate, Volume2, VolumeX, Zap } from 'lucide-react';
+import { AlertCircle, AlertTriangle, Bell, BellOff, BookOpen, Brush, CloudDownload, Download, Eraser, Eye, CheckCircle2, Lock, Megaphone, MessageSquare, Monitor, Moon, Palette, Plus, RefreshCw, Settings, Smartphone, Stethoscope, Sun, Timer, Trash2, Users, Vibrate, Volume2, VolumeX, Zap } from 'lucide-react';
 import { NavodPouziti } from '../components/NavodPouziti';
 
 import { DENSITY_OPTIONS, DensityMode, getDensity, setDensity } from '../lib/density';
@@ -661,6 +661,25 @@ export default function AppSettingsScreen({ setPage }: { setPage?: (p: any, sec?
             {passwordBusy ? 'Ukládám…' : 'Uložit nové heslo'}
           </button>
         </form>
+      </div>
+
+      {/* 📣 Hlášení — zpráva přes celou obrazovku pro všechny. Z plochy se
+          28. 9. 2026 přesunulo sem („hlášení a audit schovat do Nastavení"),
+          vyhlásit ho může dál každý. */}
+      <div className="card p-4 space-y-2">
+        <h2 className="font-display font-bold text-lg flex items-center gap-2">
+          <Megaphone size={18} /> Hlášení
+        </h2>
+        <p className="text-xs text-neutral-600 dark:text-neutral-400">
+          Zpráva přes celou obrazovku, kterou musí každý odklepnout.
+        </p>
+        <button
+          type="button"
+          onClick={() => setPage?.('hlaseni')}
+          className="btn-primary !rounded text-sm font-black w-full sm:w-auto"
+        >
+          Otevřít Hlášení
+        </button>
       </div>
 
       {isAdmin && (

@@ -241,7 +241,7 @@ export const STRANKY_PLOCHY: Array<{ nazev: string; ids: Page[] }> = [
     // zálohy. Sem se sahá spíš občas, ne každý den.
     nazev: 'Výpočty a přehledy',
     ids: [
-      'concentration', 'inventory', 'calendar', 'timer', 'history',
+      'inventory', 'calendar', 'timer', 'history',
       'export_excel', 'haccp', 'vehicles', 'dashboard', 'audit', 'zaloha', 'navod',
     ],
   },
@@ -432,17 +432,17 @@ export const PAGE_CATEGORY: Partial<Record<Page, Category>> = {
   writeoffs: 'Výroba', akce: 'Výroba', vycepy: 'Výroba', orders_zavoz: 'Výroba', zavoz: 'Výroba',
   exkurze: 'Výroba', orders_entry: 'Výroba', orders_detail: 'Výroba', orders_celkem: 'Výroba',
   // Pivovar
-  dashboard: 'Pivovar', audit: 'Pivovar', sklo_promo: 'Pivovar', cellar: 'Pivovar', bottling_needs: 'Pivovar', inventory: 'Pivovar', history: 'Pivovar', stock: 'Pivovar', stock_pohyby: 'Pivovar',
+  dashboard: 'Pivovar', sklo_promo: 'Pivovar', cellar: 'Pivovar', bottling_needs: 'Pivovar', inventory: 'Pivovar', history: 'Pivovar', stock: 'Pivovar', stock_pohyby: 'Pivovar',
   export_excel: 'Pivovar', import_excel: 'Pivovar',
   // Nástroje
-  concentration: 'Nástroje', calendar: 'Nástroje', haccp: 'Nástroje', vehicles: 'Nástroje', kniha_jizd: 'Nástroje',
+  calendar: 'Nástroje', haccp: 'Nástroje', vehicles: 'Nástroje', kniha_jizd: 'Nástroje',
   sanitace_lahve: 'Nástroje', sanitace_kegy: 'Nástroje', sanitace_vycepy: 'Nástroje',
   checklists: 'Nástroje', sanitation_log: 'Nástroje', notes: 'Nástroje', feedback: 'Nástroje',
-  stopwatch: 'Nástroje', timer: 'Nástroje', keg_timer: 'Nástroje', srotovani: 'Nástroje', radio: 'Nástroje',
+  stopwatch: 'Nástroje', timer: 'Nástroje', keg_timer: 'Nástroje', srotovani: 'Nástroje',
   // Číselníky
   depozitar: 'Číselníky', places: 'Číselníky', beers: 'Číselníky', packages: 'Číselníky', pricelist: 'Číselníky',
   // Nastavení
-  users: 'Nastavení', app_settings: 'Nastavení', app_versions: 'Nastavení', signout: 'Nastavení', zaloha: 'Nastavení',
+  users: 'Nastavení', app_settings: 'Nastavení', app_versions: 'Nastavení', signout: 'Nastavení', zaloha: 'Nastavení', audit: 'Nastavení',
   navod: 'Nastavení',
 };
 const FALLBACK_CYCLE: TileColor[] = ['indigo', 'orchid', 'forest', 'plum', 'citrus'];

@@ -6,7 +6,7 @@
 // zobrazuje se jen komu je nastaveno (Uživatelé → "Dostává upozornění na
 // vozidla") a musí ho jednou potvrdit, pak zmizí (dokud se stav nezmění).
 import { lazy, Suspense, useEffect, useMemo, useState, useRef } from 'react';
-import { CalendarX2, CloudUpload, Download, Check, ChevronLeft, ChevronRight, Lightbulb, LogOut, Palette, Plus, Search, SlidersHorizontal, Trash2, TriangleAlert, X, Truck, ClipboardList, MessageCircle, PlusCircle, Snowflake, FlaskConical, CalendarDays, BarChart3, TrendingDown, GlassWater, BookOpen, Droplet, Car, FileText, ClipboardCheck, Shield, Store, Receipt, MapPin, Beer as BeerIcon, Tag, Sparkles, Compass, Wheat, ArrowLeftRight, StickyNote, AlarmClock, Play, Pause, RotateCcw, Pin, Radio, SkipForward, Flame, Settings, LayoutGrid, Wind } from 'lucide-react';
+import { CalendarX2, CloudUpload, Download, Check, ChevronLeft, ChevronRight, Lightbulb, LogOut, Palette, Plus, Search, SlidersHorizontal, Trash2, TriangleAlert, X, Truck, ClipboardList, MessageCircle, PlusCircle, Snowflake, FlaskConical, CalendarDays, BarChart3, TrendingDown, GlassWater, BookOpen, Droplet, Car, FileText, ClipboardCheck, Shield, Store, Receipt, MapPin, Beer as BeerIcon, Tag, Sparkles, Compass, Wheat, ArrowLeftRight, StickyNote, AlarmClock, Play, Pause, RotateCcw, Pin, Flame, Settings, LayoutGrid, Wind } from 'lucide-react';
 import { NAV, EXTRA_NAV, type Page, type NavItem } from '../components/Layout';
 import LauncherTile, { tileGridStyle } from '../components/LauncherTile';
 import { QuickSearchModal } from '../components/QuickSearchModal';
@@ -29,9 +29,6 @@ import { polozkyDlazdice, pocetCekajicich } from '../lib/dlazdicePoznamek';
 import { nactiSdilene, prepniHotovo, SDILENE_POZNAMKY_ZMENA, type SdilenaPoznamka } from '../lib/sdilenePoznamky';
 import { getHomeNotes, toggleHomeNote, HOME_NOTES_CHANGED_EVENT, OPEN_HOME_NOTES_EVENT, consumeOpenHomeNotesRequest, type HomeNote, rozvrhniPoznamky, kolikPoznamekZobrazit } from '../lib/homeNotes';
 import { getDailyTasks, DAILY_CHECKLIST_CHANGED_EVENT, type DailyTask } from '../lib/homeChecklist';
-import {
-  getRadioState, toggleRadio, nextStation, RADIO_STATIONS, RADIO_STATE_EVENT, type RadioState,
-} from '../lib/breweryRadio';
 import { getHomeLayout, saveHomeLayout, addPage, removePage, moveTileToPage, hideTile, addTile, mergeTiles, addToGroup, removeFromGroup, deleteGroup, isGroupId, isCountdownId, ensurePositions, ensureTrailingEmptyPage, unifyColorsByCategory, stepTileCell, addDockSlot, removeDockSlot, moveDockSlot, PAGE_CATEGORY, CATEGORY_ORDER, CATEGORY_SHADES, type Category, moveTileToPageCell, okrajProPrepnuti, dalsiStranka, rozdelVseDoStranek, idsKRozmisteni, vyrovnejStranku, VYCHOZI_STRANKA, type OkrajTazeni, MIN_OPACITY, MAX_OPACITY, MIN_TILE_GAP, MAX_TILE_GAP, MIN_W, MAX_W, MIN_H, MAX_H, TILE_COLORS, COLOR_HEX, defaultTileColor, GRID_COLS_DESKTOP, GRID_COLS_MOBILE, MOBILE_BREAKPOINT_PX, ROW_HEIGHT_DESKTOP, ROW_HEIGHT_MOBILE, MIN_DOCK, MAX_DOCK, UNIT_COLS, CO2_TILE_ID, type HomeLayout, type TileColor, type TileId, type GroupId, type CountdownTileId } from '../lib/homeLayout';
 import { co2Bezi, co2Zbyva, prepniCo2, zastavOdpocetVSeznamu, CO2_ID } from '../lib/co2Foukani';
 import { zavibruj } from '../lib/haptika';
@@ -769,10 +766,6 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
       }
       return;
     }
-    if (id === 'radio') {
-      toggleRadio();
-      return;
-    }
     // Návod se otevře v okně nad plochou — je to čtení, ne obrazovka,
     // na kterou se odchází a pak se z ní musí vracet zpátky.
     if (id === 'navod') {
@@ -897,14 +890,6 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
         setStariInv(stariInventury((data as any[]) ?? [], businessDateISO()));
       } catch { /* upozornění není kritické — radši mlčet než rozbít plochu */ }
     })();
-  }, []);
-
-  // ---- Pivovarské Rádio na ploše ----
-  const [radioState, setRadioState] = useState<RadioState>(() => getRadioState());
-  useEffect(() => {
-    const handleRadio = () => setRadioState(getRadioState());
-    window.addEventListener(RADIO_STATE_EVENT, handleRadio);
-    return () => window.removeEventListener(RADIO_STATE_EVENT, handleRadio);
   }, []);
 
   // ---- Vlastní odpočty & časovače na ploše ----
@@ -1175,6 +1160,9 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
     cellar: [
       { id: 'lezacke', label: 'Ležácké tanky', sublabel: 'Stav tanků, stupňovitost, objemy a ležení', icon: Snowflake, onClick: () => setPage('cellar', undefined, 'lezacke') },
       { id: 'spilka', label: 'Spilka (hlavní kvašení)', sublabel: 'Kvasné tanky, mladina a kvašení', icon: FlaskConical, onClick: () => setPage('cellar', undefined, 'spilka') },
+      // Šrotování sladu — deník, ne kalkulačka; po zrušení Kalkulaček
+      // (28. 9. 2026) visí tady u výroby piva.
+      { id: 'srotovani', label: 'Šrotování sladu', sublabel: 'Zápis šrotování sladu', icon: Wheat, onClick: () => setPage('srotovani') },
       { id: 'bez_tanku', label: 'Stáčení bez tanku', sublabel: 'Přiřadit stáčení k tanku, ze kterého se stáčelo', icon: ArrowLeftRight, onClick: () => setPage('cellar', undefined, 'bez_tanku') },
     ],
     dashboard: [
@@ -1225,16 +1213,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
       { id: 'exkurze', label: 'Exkurze pivovaru', sublabel: 'Prohlídky a degustace', icon: Compass, onClick: () => setPage('exkurze') },
       { id: 'vycepy', label: 'Půjčovna výčepů', sublabel: 'Evidence zapůjčených chlazení', icon: IkonaVycep, onClick: () => setPage('vycepy') },
     ],
-    concentration: [
-      { id: 'kalkulacka', label: 'Kalkulačka ředění & koncentrace', sublabel: 'Výpočty pro mladinu a sanitaci', icon: FlaskConical, onClick: () => setPage('concentration') },
-      { id: 'srotovani', label: 'Šrotování sladu', sublabel: 'Sypání a poměry sladů', icon: Wheat, onClick: () => setPage('srotovani') },
-    ],
-    radio: [
-      { id: 'toggle', label: radioState.playing ? 'Pozastavit rádio' : 'Spustit rádio', sublabel: 'Přehrávání hudby na pozadí', icon: radioState.playing ? Pause : Play, onClick: () => toggleRadio() },
-      { id: 'next', label: 'Další stanice', sublabel: 'Přepnout na další stanici', icon: SkipForward, onClick: () => nextStation() },
-      { id: 'modal', label: 'Vybrat stanici', sublabel: 'Otevřít seznam stanic a nastavení', icon: Radio, onClick: () => window.dispatchEvent(new CustomEvent('pivovar:open-radio')) },
-    ],
-  }), [setPage, radioState.playing]);
+  }), [setPage]);
 
   // ---- Hledat a WhatsApp — přesunuté z hlavičky (Layout.tsx) sem jako
   // dlaždice, ať jsou na Domů ve stejném stylu jako zbytek launcheru.
@@ -2032,7 +2011,6 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
               : (id === 'timer' || id === 'stopwatch') && doneTimers.length > 0 ? '⏰ Hotovo!'
               : (id === 'timer' || id === 'stopwatch') && runningTimers.length === 1 ? `⏱️ ${formatDurationMs(countdownRemainingMs(runningTimers[0]))}`
               : (id === 'timer' || id === 'stopwatch') && runningTimers.length > 1 ? `⏱️ ${runningTimers.length} běží (${formatDurationMs(countdownRemainingMs(shortestRunning!))})`
-              : id === 'radio' && radioState.playing ? `📻 ${RADIO_STATIONS.find((s) => s.id === radioState.stationId)?.name || 'Hraje'}`
               : id === 'keg_timer' && kegLastDuration ? kegLastDuration
               : id === 'zaloha' && (nocniZaloha === 'selhala' || nocniZaloha === 'stara') ? '⚠ noční neběží'
               : id === 'zaloha' && zalohaChybi ? (zalohaDnu === null ? '⚠ nikdy' : `⚠ ${zalohaDnu} dní`)
@@ -2167,54 +2145,6 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                   </div>
                 </div>
               );
-            }
-
-            // Widget Pivovarské Rádio (radio):
-            if (id === 'radio') {
-              const st = RADIO_STATIONS.find((s) => s.id === radioState.stationId) || RADIO_STATIONS[0];
-              if ((override.w ?? 1) >= 2 || (override.h ?? 1) >= 2) {
-                customContent = (
-                  <div className="w-full h-full flex flex-col justify-between p-3 text-left select-none overflow-hidden">
-                    <div className="flex items-center justify-between gap-2 border-b border-black/10 pb-1">
-                      <span className="font-extrabold text-xs uppercase tracking-wider flex items-center gap-1.5 opacity-90">
-                        <Radio size={14} /> Pivovarské Rádio
-                      </span>
-                      <span className="text-udaj font-bold opacity-75">{radioState.playing ? 'Hraje na pozadí' : 'Vypnuto'}</span>
-                    </div>
-                    <div className="my-auto py-1 flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-2xl shrink-0">{st.icon}</span>
-                        <div className="min-w-0">
-                          <div className="font-black text-sm truncate">{st.name}</div>
-                          <div className="text-udaj opacity-75 font-semibold truncate">{st.genre}</div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1 shrink-0">
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); toggleRadio(); }}
-                          className="p-2 rounded-full bg-black/15 hover:bg-black/25 active:scale-95 transition"
-                          title={radioState.playing ? 'Pozastavit' : 'Přehrát'}
-                        >
-                          {radioState.playing ? <Pause size={16} className="fill-current" /> : <Play size={16} className="fill-current ml-0.5" />}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); nextStation(); }}
-                          className="p-2 rounded-full bg-black/15 hover:bg-black/25 active:scale-95 transition"
-                          title="Další stanice" aria-label="Další stanice"
-                        >
-                          <SkipForward size={16} />
-                        </button>
-                      </div>
-                    </div>
-                    <div className="text-udaj font-bold opacity-60 flex items-center justify-between pt-1 border-t border-black/10">
-                      <span>{radioState.playing ? 'Přehrává se' : 'Klepnutím spustit'}</span>
-                      <span onClick={(e) => { e.stopPropagation(); window.dispatchEvent(new CustomEvent('pivovar:open-radio')); }}>Změnit stanici ➔</span>
-                    </div>
-                  </div>
-                );
-              }
             }
 
             // Widget Poznámky (notes):
