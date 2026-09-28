@@ -773,6 +773,9 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
       setShowNavodModal(true);
       return;
     }
+    // Přehledové dlaždice nejsou obrazovky — vedou na podrobnosti.
+    if (id === 'prehled_sklep') { setPage('cellar'); return; }
+    if (id === 'prehled_rozvoz') { setPage('orders_zavoz'); return; }
     if (id === 'signout') {
       if ((await potvrd('Odhlásit se z appky?'))) signOut();
       return;
@@ -1096,7 +1099,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   // ukázal pondělí.
   const [nalozit, setNalozit] = useState<NalozitNaZavoz | null>(null);
   const nactiNalozit = () => {
-    if (!visibleIds.includes('orders_zavoz') && !layout.pages.some((p) => p.includes('orders_zavoz'))) return;
+    if (!layout.pages.some((p) => p.includes('prehled_rozvoz') || p.includes('orders_zavoz'))) return;
     void (async () => {
       const dnes = businessDateISO();
       const { data } = await fetchAllRows<any>('orders', 'delivery_date, status, place_name, order_items(beer_name, package_label, quantity)')
@@ -2326,8 +2329,9 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
               );
             }
 
-            // Widget Sklep (cellar) — ležácké tanky 1–8: pivo, hl a pruh plnosti.
-            if (id === 'cellar' && ((override.w ?? 1) >= 2 || (override.h ?? 1) >= 2) && tankyNaPlochu.length > 0) {
+            // Přehledová dlaždice Sklep (prehled_sklep) — ležácké tanky 1–8:
+            // pivo, hl a pruh plnosti. Klepnutí vede na Sklep.
+            if (id === 'prehled_sklep' && tankyNaPlochu.length > 0) {
               const celkemLitru = tankyNaPlochu.reduce((a, t) => a + t.litry, 0);
               const kratce = (l: string) => l.replace(/spilka\s*/i, 'S').replace(/tank\s*/i, 'T');
               customContent = (
@@ -2431,8 +2435,9 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
               );
             }
 
-            // Widget Rozvoz (orders_zavoz) — co naložit na nejbližší závoz.
-            if (id === 'orders_zavoz' && ((override.w ?? 1) >= 2 || (override.h ?? 1) >= 2)) {
+            // Přehledová dlaždice Rozvoz (prehled_rozvoz) — co naložit na
+            // nejbližší závoz. Klepnutí vede na Rozvoz.
+            if (id === 'prehled_rozvoz') {
               const den = nalozit ? new Date(nalozit.datum + 'T00:00:00').toLocaleDateString('cs-CZ', { weekday: 'short', day: 'numeric', month: 'numeric' }) : '';
               const kolik = (override.w ?? 1) >= 2 ? 8 : 4;
               const vidno = nalozit?.polozky.slice(0, kolik) ?? [];

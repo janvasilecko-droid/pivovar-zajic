@@ -196,6 +196,10 @@ const ODDILY: Oddil[] = [
         jak: 'Když vyfiltruješ jednoho odběratele, ukáže se, kdy bral naposledy, jak často bere a co nejvíc. Tlačítko založí novou objednávku se stejnými položkami jako minule.',
       },
       {
+        co: 'Přehled na úvodní stránce',
+        jak: 'Nahoře na ploše jsou dva široké přehledy: „Rozvoz — co naložit" (pivo × obal na nejbližší závoz) a „Sklep — přehled tanků" (tanky 1–8, pivo a hl). Klepnutí otevře Rozvoz nebo Sklep s podrobnostmi.',
+      },
+      {
         co: 'Rozvoz a podpis',
         jak: 'V Rozvozu se objednávky odškrtávají po dnech. „Podpis převzetí“ (v Rozvozu i v detailu objednávky) rovnou označí objednávku jako zavezenou.',
       },

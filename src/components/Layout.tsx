@@ -33,7 +33,7 @@ import '../screens/HomeScreen.css';
 
 export type NavItem = { id: Page; label: string; icon: LucideIcon; group: string };
 
-export type Page = 'export_excel' | 'import_excel' | 'home' | 'depozitar' | 'dashboard' | 'srotovani' | 'checklists' | 'haccp' | 'sanitation_log' | 'sanitace_lahve' | 'sanitace_kegy' | 'sanitace_vycepy' | 'history' | 'orders_entry' | 'orders' | 'orders_detail' | 'orders_celkem' | 'orders_vraceni' | 'orders_zavoz' | 'zavoz' | 'kniha_jizd' | 'historie_tras' | 'stock' | 'stock_pohyby' | 'bottling' | 'kegging' | 'fasovani' | 'prodejna' | 'akce' | 'sklo_promo' | 'vycepy' | 'exkurze' | 'reminders' | 'notes' | 'writeoffs' | 'inventory' | 'calendar' | 'feedback' | 'places' | 'beers' | 'packages' | 'pricelist' | 'vehicles' | 'cellar' | 'users' | 'app_settings' | 'app_versions' | 'bottling_needs' | 'stopwatch' | 'timer' | 'keg_timer' | 'zaloha' | 'co2' | 'navod' | 'hlaseni' | 'audit' | 'signout';
+export type Page = 'export_excel' | 'import_excel' | 'home' | 'depozitar' | 'dashboard' | 'srotovani' | 'checklists' | 'haccp' | 'sanitation_log' | 'sanitace_lahve' | 'sanitace_kegy' | 'sanitace_vycepy' | 'history' | 'orders_entry' | 'orders' | 'orders_detail' | 'orders_celkem' | 'orders_vraceni' | 'orders_zavoz' | 'zavoz' | 'kniha_jizd' | 'historie_tras' | 'stock' | 'stock_pohyby' | 'bottling' | 'kegging' | 'fasovani' | 'prodejna' | 'akce' | 'sklo_promo' | 'vycepy' | 'exkurze' | 'reminders' | 'notes' | 'writeoffs' | 'inventory' | 'calendar' | 'feedback' | 'places' | 'beers' | 'packages' | 'pricelist' | 'vehicles' | 'cellar' | 'users' | 'app_settings' | 'app_versions' | 'bottling_needs' | 'stopwatch' | 'timer' | 'keg_timer' | 'zaloha' | 'co2' | 'prehled_sklep' | 'prehled_rozvoz' | 'navod' | 'hlaseni' | 'audit' | 'signout';
 
 export const NAV: NavItem[] = [
   // --- VÝROBA ---
@@ -105,6 +105,12 @@ export const EXTRA_NAV: NavItem[] = [
   // rovnou po zadání nebo po přehledu (z provozu 15. 9. 2026).
   { id: 'orders_entry', label: 'Nová obj.', icon: FilePlus, group: 'Výroba' },
   { id: 'orders_detail', label: 'Obj. přehled', icon: FileText, group: 'Výroba' },
+  // Přehledové dlaždice na ploše (28. 9. 2026: „udělej je jako přehledové
+  // dlaždice, ale když se na ně klikne, odkáže mě to na podrobnosti na
+  // stránku, a normálně přidej dlaždici sklep a rozvoz"). Obrazovka to není —
+  // klepnutí vede na Sklep / Rozvoz (HomeScreen.tsx, App.tsx přesměrování).
+  { id: 'prehled_sklep', label: 'Sklep — přehled tanků', icon: Snowflake, group: 'Pivovar' },
+  { id: 'prehled_rozvoz', label: 'Rozvoz — co naložit', icon: Truck, group: 'Výroba' },
   // Pohyby už nejsou dlaždice — od 28. 9. 2026 jsou záložkou Skladu
   // (components/SkladZalozky.tsx; „dlaždici pohyby vymaž, dej ji do skladu
   // jako záložku"). Stránka 'stock_pohyby' zůstává kvůli tlačítku Zpět.
@@ -155,6 +161,8 @@ export const PAGE_GROUP_PARENT: Partial<Record<Page, Page>> = {
   exkurze: 'akce',
   stock_pohyby: 'dashboard',
   inventory: 'dashboard',
+  prehled_sklep: 'cellar',
+  prehled_rozvoz: 'orders_zavoz',
   fasovani: 'prodejna',
   writeoffs: 'prodejna',
   import_excel: 'export_excel',
