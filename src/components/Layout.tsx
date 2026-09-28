@@ -54,7 +54,6 @@ export const NAV: NavItem[] = [
   // Přejmenováno z „Potřeby stáčení" — plétlo se to se záložkou „Potřeba
   // stočit lahve" uvnitř Lahví (jiná obrazovka, skoro stejné jméno).
   { id: 'bottling_needs', label: 'Plán stáčení', icon: IkonaLahev, group: 'Pivovar' },
-  { id: 'inventory', label: 'Inventura', icon: ClipboardCheck, group: 'Pivovar' },
   { id: 'history', label: 'Statistika', icon: HistoryIcon, group: 'Pivovar' },
   // Export a Import byly 2 dlaždice na jednu obrazovku se záložkami
   // (ExcelTabbed.tsx) — zrcadlová akce (ven/dovnitř), sloučeno stejně jako
@@ -110,6 +109,9 @@ export const EXTRA_NAV: NavItem[] = [
   // pivo/obal — z provozu 24. 9. 2026, ale bez vlastní dlaždice se to nedalo
   // najít jinak, než proklikat celý Sklad a trefit záložku.
   { id: 'stock_pohyby', label: 'Pohyby', icon: ListOrdered, group: 'Pivovar' },
+  // Inventura je od 28. 9. 2026 záložka Skladu (components/SkladZalozky.tsx) —
+  // hlavní dlaždice byla navíc vedle Skladu. Kdo ji chce na ploše, přidá si ji.
+  { id: 'inventory', label: 'Inventura', icon: ClipboardCheck, group: 'Pivovar' },
   { id: 'notes', label: 'Poznámky', icon: StickyNote, group: 'Nástroje' },
   { id: 'exkurze', label: 'Exkurze', icon: Compass, group: 'Výroba' },
   // Info — návody ke všem funkcím a údaje o aplikaci. Jako dlaždice na ploše,
@@ -153,6 +155,7 @@ export const PAGE_GROUP_PARENT: Partial<Record<Page, Page>> = {
   notes: 'calendar',
   exkurze: 'akce',
   stock_pohyby: 'dashboard',
+  inventory: 'dashboard',
   fasovani: 'prodejna',
   writeoffs: 'prodejna',
   import_excel: 'export_excel',

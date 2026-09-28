@@ -41,7 +41,7 @@ describe('rozdelDoStranek — Denní práce a Další (28. 9. 2026)', () => {
   it('na stránce Další jsou nástroje, číselníky a nastavení', () => {
     const [, dalsi] = rozdelDoStranek(VSECHNY as TileId[]);
     expect(STRANKY_PLOCHY[1].nazev).toBe('Další');
-    expect(dalsi).toContain('inventory');
+    expect(dalsi).toContain('history');
     expect(dalsi).toContain('timer');
     expect(dalsi).toContain('app_settings');
     expect(dalsi).toContain('depozitar'); // Číselníky

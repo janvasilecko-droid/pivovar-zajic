@@ -1,3 +1,4 @@
+import { SkladZalozky } from './components/SkladZalozky';
 import { useEffect, useState, Suspense } from 'react';
 import { Package as PackageIcon, TrendingDown } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
@@ -18,6 +19,7 @@ import AuthScreen from './screens/AuthScreen';
 const Dashboard = lazyStranka(() => import('./screens/Dashboard'));
 import HomeScreen from './screens/HomeScreen';
 const Zavoz = lazyStranka(() => import('./screens/Zavoz'));
+const PohybySkladu = lazyStranka(() => import('./components/PohybySkladu'));
 const Stock = lazyStranka(() => import('./screens/Stock'));
 const Users = lazyStranka(() => import('./screens/Users'));
 const ZalohaScreen = lazyStranka(() => import('./screens/ZalohaScreen'));
@@ -277,8 +279,14 @@ export default function App() {
           obrazovku jako 'zavoz'. */}
       {page === 'vycepy' && <VycepyScreen />}
       {(page === 'zavoz' || page === 'orders_zavoz') && <Zavoz setPage={setPage} />}
-      {(page === 'stock' || page === 'stock_pohyby') && (
-        <Stock setPage={setPage} initialTopTab={page === 'stock_pohyby' ? 'pohyby' : undefined} />
+      {page === 'stock' && <Stock setPage={setPage} />}
+      {/* Pohyby a Inventura jsou záložky Skladu (components/SkladZalozky.tsx,
+          28. 9. 2026) — nahoře stejná lišta jako na Stavu skladu. */}
+      {page === 'stock_pohyby' && (
+        <div>
+          <SkladZalozky aktivni="stock_pohyby" setPage={setPage} />
+          <PohybySkladu />
+        </div>
       )}
       {page === 'bottling' && <BottlingScreen setPage={setPage} initialSubTab={pageSubTab} />}
       {page === 'srotovani' && <SrotovaniScreen setPage={setPage} />}
@@ -307,7 +315,12 @@ export default function App() {
           setPage={setPage}
         />
       )}
-      {page === 'inventory' && <InventoryScreen setPage={setPage} initialSubTab={pageSubTab} />}
+      {page === 'inventory' && (
+        <div>
+          <SkladZalozky aktivni="inventory" setPage={setPage} />
+          <InventoryScreen setPage={setPage} initialSubTab={pageSubTab} />
+        </div>
+      )}
       {page === 'audit' && <AuditScreen setPage={setPage} />}
       {(page === 'calendar' || page === 'feedback') && (
         <PlanningTabbed

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase, Beer, Package, useRealtime, beerBorder, fetchAllRows } from '../lib/supabase';
 import { Kostra, EmptyState, Modal } from '../components/ui';
 import { useAuth } from '../lib/auth';
-import { AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, Calculator, Check, ClipboardList, Layers, Megaphone, PackageCheck, Pin, Sparkles } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Beer as BeerIcon, Calculator, Check, ClipboardList, Layers, Megaphone, PackageCheck, Pin } from 'lucide-react';
 import { AnnouncementManagerModal } from '../components/AnnouncementManagerModal';
 import SkloPromoScreen from './SkloPromoScreen';
 import { buildMovements, stockAsOf, stockKey } from '../lib/stockLedger';
@@ -15,6 +15,7 @@ import { usePosledniNacteni } from '../lib/nacitani';
 import { IkonaLahev, IkonaSud } from '../components/ikony';
 import { businessDateISO } from '../lib/businessDate';
 import { nactiSdilenouTabulku } from '../lib/sdilenaData';
+import { SkladZalozky } from '../components/SkladZalozky';
 
 type Row = {
   entry_date: string; beer_id: string | null; beer_name: string | null;
@@ -441,34 +442,9 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
 
   return (
     <div>
-      {/* Tab Navigation — přilepená nahoře, ať jde přepínat záložku i uprostřed scrollování.
-          Stejný jazyk jako Objednávky: neoznačená záložka černá s bílým textem,
-          označená se obrací na bílou s tmavým textem. */}
-      <div className="sticky top-0 z-20 bg-neutral-100 pt-1 flex items-center gap-2 pb-2 overflow-x-auto scrollbar-thin mb-4">
-        <button
-          onClick={() => (setPage ? setPage('dashboard') : setActiveTab('sklad'))}
-          className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 shrink-0 ${
-            activeTab === 'sklad'
-              ? 'bg-amber-500 text-neutral-950 shadow-md'
-              : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
-          }`}
-        >
-          <BarChart3 size={16} />
-          <span>Sklad</span>
-        </button>
-
-        <button
-          onClick={() => (setPage ? setPage('sklo_promo') : setActiveTab('sklo_promo'))}
-          className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 shrink-0 ${
-            activeTab === 'sklo_promo'
-              ? 'bg-amber-500 text-neutral-950 shadow-md'
-              : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
-          }`}
-        >
-          <Sparkles size={16} />
-          <span>Sklo, Etikety, Podtáčky</span>
-        </button>
-      </div>
+      {/* Záložky Skladu (Stav · Pohyby · Inventura · Sklo) — jedna lišta pro
+          všechny čtyři obrazovky, viz components/SkladZalozky.tsx. */}
+      <SkladZalozky aktivni={activeTab === 'sklad' ? 'dashboard' : 'sklo_promo'} setPage={setPage} />
 
       {activeTab === 'sklad' ? (
         <>

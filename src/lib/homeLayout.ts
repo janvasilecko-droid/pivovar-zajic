@@ -252,7 +252,7 @@ export const STRANKY_PLOCHY: Array<{ nazev: string; ids: Page[] }> = [
   {
     nazev: 'Další',
     ids: [
-      'notes', 'prodejna', 'akce', 'bottling_needs', 'inventory', 'history',
+      'notes', 'prodejna', 'akce', 'bottling_needs', 'history',
       'sklo_promo', 'vehicles', 'haccp', 'calendar', 'timer', 'export_excel', 'depozitar',
       'navod', 'audit', 'users', 'app_settings', 'zaloha', 'signout',
     ],
