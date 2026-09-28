@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useRef, lazy, Suspense } from 'react';
 import { supabase, Beer, Package, EntryRow, useRealtime, beerBg, beerText, beerName, formatPackageLabel, fetchAllRows } from '../lib/supabase';
 import { EmptyState, Spinner, Modal } from '../components/ui';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
-import { AlertTriangle, ArrowRight, BarChart3, Brush, CalendarDays, Camera, Check, CheckCircle2, ClipboardList, FileSpreadsheet, Lightbulb, ListChecks, Megaphone, Minus, Package as PackageIcon, PenLine, Pencil, Play, Plus, RefreshCw, Sparkles, Trash2, Wine, X } from 'lucide-react';
+import { AlertTriangle, ArrowRight, BarChart3, CalendarDays, Camera, Check, CheckCircle2, ClipboardList, FileSpreadsheet, Lightbulb, ListChecks, Megaphone, Minus, Package as PackageIcon, PenLine, Pencil, Play, Plus, Sparkles, Trash2, Wine, X } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { BottlingPlan, getPlanSeenAt, markPlanSeenAt, isPlanUnseen, isBottlingManager, setPlanStatus, saveBottlingPlan, deleteBottlingPlan } from '../lib/bottlingPlans';
 import { BottlingPlanBottler } from '../components/BottlingPlanBottler';
@@ -93,7 +93,6 @@ export default function BottlingScreen({
   const [showImageImport, setShowImageImport] = useState(false);
   const [showExcelImport, setShowExcelImport] = useState(false);
   const [showChecklistModal, setShowChecklistModal] = useState(false);
-  const [showEndConfirm, setShowEndConfirm] = useState(false);
   // Při automatickém otevření (povinná brána) se modal nesmí zavřít, dokud
   // není splněná sekce „1. Začátek stáčení"; ruční otevření z lišty neblokuje.
   const [checklistGate, setChecklistGate] = useState(false);
@@ -1058,7 +1057,8 @@ export default function BottlingScreen({
     setFlash(true); setTimeout(() => setFlash(false), 800);
     load(true);
 
-    setShowEndConfirm(true);
+    // Okno „Budete pokračovat, nebo končíte?" po každém uložení je pryč —
+    // konec lahvování je tlačítko „Konec stáčení" nahoře (28. 9. 2026).
     return true;
   }
 
@@ -2599,39 +2599,6 @@ export default function BottlingScreen({
               <button type="submit" className="btn-primary !rounded">Uložit změny</button>
             </div>
           </form>
-        </Modal>
-      )}
-      {showEndConfirm && (
-        <Modal open onClose={() => setShowEndConfirm(false)} title="Dokončeno stáčení lahví">
-          <div className="space-y-4 text-center py-2">
-            <p className="text-sm font-semibold text-neutral-700">
-              Stáčení lahví bylo úspěšně uloženo do databáze.
-            </p>
-            <h3 className="font-display font-black text-base text-neutral-900">
-              Budete dnes ještě pokračovat ve stáčení lahví, nebo končíte?
-            </h3>
-            <div className="flex flex-col sm:flex-row justify-center gap-3 pt-3">
-              <button
-                onClick={() => {
-                  setShowEndConfirm(false);
-                }}
-                className="btn-amber !px-5 !py-3 !rounded !font-black text-xs !shadow-md"
-              >
-                <RefreshCw className="ikona-text" /> Budu pokračovat ve stáčení
-              </button>
-              <button
-                onClick={() => {
-                  setShowEndConfirm(false);
-                  setChecklistPhase('end');
-                  setChecklistGate(false);
-                  setShowChecklistModal(true);
-                }}
-                className="px-5 py-3 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-700 border border-neutral-300 font-black text-xs transition shadow-md"
-              >
-                <Brush className="ikona-text" /> Končím (otevřít Úklidový checklist)
-              </button>
-            </div>
-          </div>
         </Modal>
       )}
     </div>

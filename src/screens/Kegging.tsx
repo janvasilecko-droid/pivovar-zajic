@@ -19,9 +19,9 @@ import { naplanujPresun } from '../lib/presunPolozky';
 import { BottlingPlanBottler } from '../components/BottlingPlanBottler';
 import { markPlanSeenAt, type BottlingPlan } from '../lib/bottlingPlans';
 import KeggingDayPlan from '../components/KeggingDayPlan';
-import { AlertTriangle, BarChart3, Beer as BeerIcon, Brush, CalendarDays, Camera, Check, ClipboardList, Minus, Package as PackageIcon, PenLine, Pencil, Play, Plus, RefreshCw, Scroll, Sparkles, Trash2, X } from 'lucide-react';
+import { AlertTriangle, BarChart3, Beer as BeerIcon, CalendarDays, Camera, Check, ClipboardList, Minus, Package as PackageIcon, PenLine, Pencil, Play, Plus, RefreshCw, Scroll, Sparkles, Trash2, X } from 'lucide-react';
 import { BeerTileGrid, BeerTilePanel } from '../components/BeerTileGrid';
-import { chyba, potvrd, toastZpet, uspech } from '../lib/toast';
+import { chyba, oznam, potvrd, toastZpet, uspech } from '../lib/toast';
 import { nejvetsiTank, odpojPrecerpane, radkyBezTanku, tankRadku, tankyProPivo } from '../lib/tankUZapisu';
 import { podezreleMnozstvi } from '../lib/kontrolaZadani';
 import { IkonaSud } from '../components/ikony';
@@ -109,7 +109,6 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   const [checklistGate, setChecklistGate] = useState(false);
   const [checklistPhase, setChecklistPhase] = useState<'start' | 'end' | 'monthly'>('start');
   const [checklistInitialCategory, setChecklistInitialCategory] = useState<string | null>(null);
-  const [showEndConfirm, setShowEndConfirm] = useState(false);
 
   // 🔔 Příchod z večerní připomínky (push v 16:00/18:00, viz migrace
   // 20261231140000): `?checklist=konec` v adrese otevře rovnou tabulku
@@ -945,16 +944,14 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     // i odečet objemu ze sklepa. Takhle se ztratil tank u 82 ze 198 zápisů
     // stáčení a Spilka 1 s Tankem 6 se rozešly o 2 000 a 5 400 litrů. Nikde to
     // nesvítilo: řádek vypadal uloženě, protože uložený byl.
+    //
+    // Od 28. 9. 2026 se na to už neptá (míň oken při stáčení) — uloží se a
+    // krátce se upozorní. Takové stáčení čeká ve Sklepě na záložce „Stáčení
+    // bez tanku", kde se přiřadí k tanku jedním klepnutím.
     const bezTanku = radkyBezTanku(filled, cellarTanks, (r) => r.tankId);
+    const upozorneni: string[] = [];
     if (bezTanku.length > 0) {
-      const seznam = bezTanku
-        .map((r) => `• ${beers.find((b) => b.id === r.beerId)?.name ?? 'Pivo'} ${packages.find((p) => p.id === r.pkgId)?.label ?? ''} — ${r.qty} ks`)
-        .join('\n');
-      const dotaz =
-        `Tyhle řádky nemají tank, ze kterého se stáčelo:\n\n${seznam}\n\n` +
-        'Uloží se bez čísla tanku a ze žádného tanku se neodečte objem — sklep pak ukazuje víc piva, než v něm je.\n\n' +
-        'Stáčelo se z tanku? Zavři tohle, ve Sklepě u něj dej „Zahájit stáčení" a ulož znovu.';
-      if (!(await potvrd(dotaz, { titulek: 'Chybí tank', potvrdit: 'Uložit bez tanku' }))) return false;
+      upozorneni.push(`${bezTanku.length === 1 ? '1 řádek je' : `${bezTanku.length} řádky jsou`} bez tanku`);
     }
 
     setSaving(true);
@@ -985,17 +982,8 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     // „Stáčení bez tanku" se pak přiřadí ručně (lib/tankUZapisu.ts,
     // zadání 28. 9. 2026).
     const { radky: payloads, precerpane } = odpojPrecerpane(navrh, cellarTanks);
-    if (precerpane.length > 0) {
-      const seznam = precerpane
-        .map((p) => `• ${p.label}: v tanku ${Math.round(p.vTankuL)} l, stáčí se ${Math.round(p.chceL)} l`)
-        .join('\n');
-      const dotaz =
-        `Tank by se přečerpal:\n\n${seznam}\n\n` +
-        'Stáčení se uloží, ale z tanku se nic neodečte. Najdeš ho ve Sklepě na záložce ' +
-        '„Stáčení bez tanku" a tam ho přiřadíš k tanku, ze kterého se opravdu stáčelo.';
-      setSaving(false);
-      if (!(await potvrd(dotaz, { titulek: 'Tank by se přečerpal', potvrdit: 'Uložit bez tanku' }))) return false;
-      setSaving(true);
+    for (const p of precerpane) {
+      upozorneni.push(`${p.label} by se přečerpal (v tanku ${Math.round(p.vTankuL)} l, stáčí se ${Math.round(p.chceL)} l) — z tanku se nic neodečetlo`);
     }
 
     // Souhrn odečtu podle tanku (více řádků může brát ze stejného, nebo i z různých tanků)
@@ -1042,7 +1030,12 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     setFlash(true); setTimeout(() => setFlash(false), 800);
     load(true);
 
-    setShowEndConfirm(true);
+    // Dřív tu po KAŽDÉM uložení vyskočilo okno „Budete pokračovat, nebo
+    // končíte?" — stáčí se průběžně, takže to jen zdržovalo. Konec stáčení
+    // je tlačítko „Konec stáčení" nahoře (28. 9. 2026).
+    if (upozorneni.length > 0) {
+      oznam(`Uloženo. ${upozorneni.join('; ')}. Přiřadíš ve Sklepě → Stáčení bez tanku.`);
+    }
     return true;
   }
 
@@ -2811,39 +2804,6 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
         onApplyNote={(nText: string) => setNote((prev) => (prev ? prev + ' | ' + nText : nText))}
         showSkip={isManager}
       />
-      {showEndConfirm && (
-        <Modal open onClose={() => setShowEndConfirm(false)} title="Dokončeno stáčení KEG">
-          <div className="space-y-4 text-center py-2">
-            <p className="text-sm font-semibold text-neutral-700">
-              Stáčení KEGů bylo úspěšně uloženo do databáze.
-            </p>
-            <h3 className="font-display font-black text-base text-neutral-900">
-              Budete dnes ještě pokračovat ve stáčení KEGů, nebo končíte?
-            </h3>
-            <div className="flex flex-col sm:flex-row justify-center gap-3 pt-3">
-              <button
-                onClick={() => {
-                  setShowEndConfirm(false);
-                }}
-                className="btn-amber !px-5 !py-3 !rounded !font-black text-xs !shadow-md"
-              >
-                <RefreshCw className="ikona-text" /> Budu pokračovat ve stáčení
-              </button>
-              <button
-                onClick={() => {
-                  setShowEndConfirm(false);
-                  setChecklistPhase('end');
-                  setChecklistGate(false);
-                  setShowChecklistModal(true);
-                }}
-                className="px-5 py-3 rounded bg-sky-700 hover:bg-sky-800 text-white font-black text-xs transition shadow-md"
-              >
-                <Brush className="ikona-text" /> Končím (otevřít Úklidový checklist)
-              </button>
-            </div>
-          </div>
-        </Modal>
-      )}
     </div>
   );
 }

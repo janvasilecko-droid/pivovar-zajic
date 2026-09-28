@@ -78,6 +78,8 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
   const [transferVolume, setTransferVolume] = useState('');
   const [showStart, setShowStart] = useState<CellarTank | null>(null);
   const [editTank, setEditTank] = useState<CellarTank | null>(null);
+  /** Tanky s rozbaleným detailem (stočené sudy, poslední cykly). */
+  const [detailTanky, setDetailTanky] = useState<Set<string>>(() => new Set());
 
   // Inline úprava piva a objemu přímo na kartě tanku (bez otevírání modalu)
   const [inlineEditId, setInlineEditId] = useState<string | null>(null);
@@ -853,7 +855,10 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                       a „% vystočeno" nad tím jsou vrácené na přání z provozu
                       (27. 9. 2026: „vrať ty vizualizace tanku, jak tam byly");
                       „% vystočeno" se počítá ze stejného souhrnu cyklu. */}
-                  {(t.status === 'active' || t.status === 'emptying' || t.status === 'filling') && (() => {
+                  {/* Stočené sudy a poslední cykly jsou pod „Detail" (28. 9. 2026:
+                      „víc funkční, jednodušší ovládání") — na kartě zůstává
+                      obrázek tanku, objednávky a akce. */}
+                  {detailTanky.has(t.id) && (t.status === 'active' || t.status === 'emptying' || t.status === 'filling') && (() => {
                     const c = souhrnCyklu(t, kegging as any[], transfers as any[]);
                     return (
                       <div className="mt-3 pt-3 border-t border-primary-100 text-xs space-y-1">
@@ -879,7 +884,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                   })()}
 
                   {/* Mini historie posledních cyklů */}
-                  {recentCycles.length > 0 && (
+                  {detailTanky.has(t.id) && recentCycles.length > 0 && (
                     <div className="mt-3 pt-3 border-t border-primary-100">
                       <div className="text-udaj uppercase tracking-wider text-primary-400 mb-1">Poslední cykly</div>
                       <div className="space-y-1">
@@ -1012,6 +1017,14 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
 
                     {/* Vedlejší akce */}
                     <div className="pt-1 flex flex-wrap gap-1.5">
+                      <button
+                        type="button"
+                        className="min-h-[44px] text-xs px-3 py-2 rounded bg-neutral-200/80 text-neutral-800 hover:bg-neutral-300 font-medium"
+                        aria-expanded={detailTanky.has(t.id)}
+                        onClick={() => setDetailTanky((d) => { const n = new Set(d); if (n.has(t.id)) n.delete(t.id); else n.add(t.id); return n; })}
+                      >
+                        {detailTanky.has(t.id) ? 'Skrýt detail' : 'Detail'}
+                      </button>
                       <button className="min-h-[44px] text-xs px-3 py-2 rounded bg-neutral-200/80 text-neutral-800 hover:bg-neutral-300 font-medium" onClick={() => setEditTank(t)}>Upravit</button>
                       {t.label.toLowerCase().includes('spilka') && (t.status === 'active' || t.status === 'filling' || Number(t.current_volume_l) > 0) && (
                         <button
