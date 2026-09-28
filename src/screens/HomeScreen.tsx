@@ -6,7 +6,7 @@
 // zobrazuje se jen komu je nastaveno (Uživatelé → "Dostává upozornění na
 // vozidla") a musí ho jednou potvrdit, pak zmizí (dokud se stav nezmění).
 import { lazy, Suspense, useEffect, useMemo, useState, useRef } from 'react';
-import { CalendarX2, CloudUpload, Download, Check, ChevronLeft, ChevronRight, Lightbulb, LogOut, Palette, Plus, Search, SlidersHorizontal, Trash2, TriangleAlert, X, Truck, ClipboardList, MessageCircle, PlusCircle, Snowflake, FlaskConical, CalendarDays, BarChart3, TrendingDown, GlassWater, BookOpen, Droplet, Car, FileText, ClipboardCheck, Shield, Store, Receipt, MapPin, Beer as BeerIcon, Tag, Sparkles, Compass, Wheat, ArrowLeftRight, StickyNote, AlarmClock, Play, Pause, RotateCcw, Pin, Flame, Settings, LayoutGrid, Wind } from 'lucide-react';
+import { CalendarX2, CloudUpload, Download, Check, ChevronLeft, ChevronRight, Lightbulb, LogOut, Palette, Plus, SlidersHorizontal, Trash2, TriangleAlert, X, Truck, ClipboardList, MessageCircle, PlusCircle, Snowflake, FlaskConical, CalendarDays, BarChart3, TrendingDown, GlassWater, BookOpen, Droplet, Car, FileText, ClipboardCheck, Shield, Store, Receipt, MapPin, Beer as BeerIcon, Tag, Sparkles, Compass, Wheat, ArrowLeftRight, StickyNote, AlarmClock, Play, Pause, RotateCcw, Pin, Flame, Settings, LayoutGrid, Wind } from 'lucide-react';
 import { NAV, EXTRA_NAV, type Page, type NavItem } from '../components/Layout';
 import LauncherTile, { tileGridStyle } from '../components/LauncherTile';
 import { QuickSearchModal } from '../components/QuickSearchModal';
@@ -32,6 +32,7 @@ import { getHomeNotes, toggleHomeNote, HOME_NOTES_CHANGED_EVENT, OPEN_HOME_NOTES
 import { getDailyTasks, DAILY_CHECKLIST_CHANGED_EVENT, type DailyTask } from '../lib/homeChecklist';
 import { getHomeLayout, saveHomeLayout, pouzijPozadavekNakladky, type PozadavekNakladky, addPage, removePage, moveTileToPage, hideTile, addTile, mergeTiles, addToGroup, removeFromGroup, deleteGroup, isGroupId, isCountdownId, ensurePositions, ensureTrailingEmptyPage, unifyColorsByCategory, stepTileCell, addDockSlot, removeDockSlot, moveDockSlot, PAGE_CATEGORY, CATEGORY_ORDER, CATEGORY_SHADES, type Category, moveTileToPageCell, okrajProPrepnuti, dalsiStranka, rozdelVseDoStranek, idsKRozmisteni, vyrovnejStranku, VYCHOZI_STRANKA, type OkrajTazeni, MIN_OPACITY, MAX_OPACITY, MIN_TILE_GAP, MAX_TILE_GAP, MIN_W, MAX_W, MIN_H, MAX_H, TILE_COLORS, COLOR_HEX, defaultTileColor, GRID_COLS_DESKTOP, GRID_COLS_MOBILE, MOBILE_BREAKPOINT_PX, ROW_HEIGHT_DESKTOP, ROW_HEIGHT_MOBILE, MIN_DOCK, MAX_DOCK, UNIT_COLS, CO2_TILE_ID, type HomeLayout, type TileColor, type TileId, type GroupId, type CountdownTileId } from '../lib/homeLayout';
 import { co2Bezi, co2Zbyva, prepniCo2, zastavOdpocetVSeznamu, CO2_ID } from '../lib/co2Foukani';
+import { RYCHLE_ODPOCTY, prepniRychlyOdpocet, rychlyBezi, rychlyZbyva, rychlyOdpocet } from '../lib/rychleOdpocty';
 import { zavibruj } from '../lib/haptika';
 import { getKegTimerState, formatDurationMs, getCountdowns, saveCountdowns, countdownRemainingMs, toggleCountdown, resetCountdown, startAllCountdowns, pauseAllCountdowns, COUNTDOWN_CHANGED_EVENT, type CountdownTimer, getStopwatchState, saveStopwatchState, stopwatchElapsedMs, STOPWATCH_CHANGED_EVENT, type StopwatchState } from '../lib/stopwatchTimers';
 import { onNewVersion, forceRefresh, type VersionInfo } from '../lib/versionCheck';
@@ -1537,16 +1538,42 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
           </button>
           </>
           )}
-          {/* Ovládání launcheru — malé ikony místo velkých dlaždic. */}
-          <button
-            type="button"
-            className="hs-pager-manage vlastni-vyska"
-            title="Hledat"
-            aria-label="Hledat"
-            onClick={() => setShowSearchModal(true)}
-          >
-            <Search size={16} />
-          </button>
+          {/* ⏱️ Rychlé odpočty místo lupy (28. 9. 2026: „nahoru, jak je lupa,
+              dej kulatou ikonu CO2 … kotel 2 minuty, sud malý 8 minut, velký
+              15 minut"; „tu lupu můžeš vymazat"). Klepnutí spustí, další
+              zastaví — stejně jako dlaždice CO2 (lib/rychleOdpocty.ts).
+              Hledání zůstává na přetažení plochy dolů. */}
+          {RYCHLE_ODPOCTY.map((r) => {
+            const bezi = rychlyBezi(countdowns, r.id);
+            const zbyva = rychlyZbyva(countdowns, r.id);
+            const minut = Math.round(r.delkaMs / 60000);
+            return (
+              <button
+                key={r.id}
+                type="button"
+                className={`hs-pager-manage hs-rychly vlastni-vyska ${bezi ? 'hs-rychly-bezi' : ''}`}
+                title={bezi ? `${r.popis} — zbývá ${formatDurationMs(zbyva)}, klepnutím zastavíš` : `${r.popis} — spustit odpočet ${minut} min`}
+                aria-label={bezi ? `${r.popis}: zbývá ${formatDurationMs(zbyva)}, zastavit` : `${r.popis}: spustit ${minut} minut`}
+                onClick={() => {
+                  zavibruj('odskrtnuto');
+                  saveCountdowns(prepniRychlyOdpocet(getCountdowns(), r.id));
+                  setCountdowns(getCountdowns());
+                }}
+              >
+                {bezi ? (
+                  <span className="hs-rychly-cas">{formatDurationMs(zbyva)}</span>
+                ) : r.id === CO2_ID ? (
+                  <span className="hs-rychly-co2">CO2</span>
+                ) : r.id === 'rychly-kotel' ? (
+                  <Flame size={17} />
+                ) : r.id === 'rychly-sud-maly' ? (
+                  <IkonaSud className="hs-sud-maly" />
+                ) : (
+                  <IkonaSud className="hs-sud-velky" />
+                )}
+              </button>
+            );
+          })}
           <button
             type="button"
             className={`hs-pager-manage vlastni-vyska ${editMode ? 'hs-pager-manage-on' : ''}`}
@@ -1941,9 +1968,9 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                     title={dobehl ? `Odpočet „${c.label}" doběhl — klepnutím zavřeš` : `Odpočet „${c.label}" — zbývá ${formatDurationMs(zbyva)}, klepnutím zastavíš`}
                   >
                     <div className="hs-tile-icon-box">
-                      {c.id === CO2_ID ? <Wind /> : <AlarmClock />}
+                      {c.id === CO2_ID ? <Wind /> : c.id === 'rychly-kotel' ? <Flame /> : c.id.startsWith('rychly-sud') ? <IkonaSud /> : <AlarmClock />}
                     </div>
-                    <div className="hs-lbl">{c.id === CO2_ID ? 'CO2' : c.label}</div>
+                    <div className="hs-lbl">{rychlyOdpocet(c.id)?.kratce ?? c.label}</div>
                     <span className="hs-badge">{dobehl ? 'STOP' : `${formatDurationMs(zbyva)} · STOP`}</span>
                   </button>
                 );
@@ -2249,7 +2276,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
               const kolikSeVejde = kolikPoznamekZobrazit(sirkaDlazdice, override.h ?? 1);
               const kZobrazeni = rozvrhniPoznamky(notesTileList.slice(0, kolikSeVejde), sloupcu);
               customContent = (
-                <div className="w-full h-full flex flex-col p-2 gap-1 text-left select-none overflow-hidden">
+                <div className="absolute inset-0 flex flex-col p-2 gap-1 text-left select-none overflow-hidden">
                   {/* Hlavička „Poznámky" jen na prázdném lístečku. Jakmile
                       na něm něco je, je zbytečná — ukradla by řádek textu,
                       a co to je, se pozná podle poznámek samotných. */}
@@ -2257,9 +2284,9 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                     <>
                       <div className="flex items-center gap-1 shrink-0 opacity-80">
                         <StickyNote size={11} className="shrink-0" />
-                        <span className="text-[11px] font-black uppercase tracking-wider truncate">Poznámky</span>
+                        <span className="text-listek font-black uppercase tracking-wider truncate">Poznámky</span>
                       </div>
-                      <div className="flex-1 grid place-items-center text-[11px] font-bold opacity-70 leading-tight px-1 text-center">
+                      <div className="flex-1 grid place-items-center text-listek font-bold opacity-70 leading-tight px-1 text-center">
                         Klepnutím přidáte poznámku
                       </div>
                     </>
@@ -2306,7 +2333,9 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                           {note.dulezite && !note.hotovo && (
                             <TriangleAlert className="hs-note-vykricnik" />
                           )}
-                          <span className={`text-udaj font-bold leading-tight line-clamp-2 min-w-0 ${note.hotovo ? 'line-through opacity-45' : ''} ${note.sdilena ? 'italic' : ''}`}>
+                          {/* Menší písmo (28. 9. 2026: „nápis poznámky udělej mnohem menším
+                              písmem") — na lísteček se tak vejde víc textu. */}
+                          <span className={`text-listek font-semibold line-clamp-3 min-w-0 ${note.hotovo ? 'line-through opacity-45' : ''} ${note.sdilena ? 'italic' : ''}`}>
                             {note.text}
                           </span>
                         </div>
@@ -2316,7 +2345,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                   {(() => {
                     const ceka = pocetCekajicich(notesTileList);
                     return ceka >= 2 ? (
-                      <div className="shrink-0 text-[11px] font-black opacity-75 leading-none text-right">
+                      <div className="shrink-0 text-listek font-black opacity-75 leading-none text-right">
                         {ceka} {ceka <= 4 ? 'vzkazy' : 'vzkazů'}
                       </div>
                     ) : null;

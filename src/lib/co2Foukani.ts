@@ -73,5 +73,8 @@ export function prepniCo2(list: CountdownTimer[], ted: number = Date.now()): Cou
  */
 export function zastavOdpocetVSeznamu(list: CountdownTimer[], id: string): CountdownTimer[] {
   if (id === CO2_ID) return zastavCo2(list);
+  // Rychlé odpočty z lišty (kotel, sudy — lib/rychleOdpocty.ts) mizí celé,
+  // stejně jako foukání CO2. Id mají předponu `rychly-`.
+  if (id.startsWith('rychly-')) return list.filter((t) => t.id !== id);
   return list.map((t) => (t.id === id ? { ...t, targetAt: null, durationMs: t.initialDurationMs || t.durationMs, notifiedAt: null } : t));
 }

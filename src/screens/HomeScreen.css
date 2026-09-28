@@ -595,6 +595,32 @@
 .hs-pager-manage:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.95);
 }
+
+/* ⏱️ Rychlé odpočty v liště (CO2, kotel, malý a velký sud — lib/rychleOdpocty.ts).
+   Barevné kulaté ikony, ať se na první pohled liší od ovládání plochy
+   (28. 9. 2026: „ať je ikona barevná"). Běžící odpočet zčervená a ukáže čas. */
+.hs-rychly,
+.hs-rychly:hover:not(:disabled) {
+  width: 38px;
+  height: 38px;
+  background: #0e7490;
+  border-color: #0e7490;
+  color: #ffffff;
+  font-weight: 800;
+}
+.hs-rychly.hs-rychly-bezi,
+.hs-rychly.hs-rychly-bezi:hover:not(:disabled) {
+  background: #c1121f;
+  border-color: #c1121f;
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+.hs-rychly-co2 { font-size: 11px; letter-spacing: -0.02em; }
+.hs-rychly-cas { font-size: 10.5px; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.hs-rychly .hs-sud-maly { width: 13px; height: 13px; }
+.hs-rychly .hs-sud-velky { width: 21px; height: 21px; }
+@media (prefers-reduced-motion: reduce) {
+  .hs-rychly.hs-rychly-bezi { animation: none; }
+}
 .hs-pager-manage-on {
   background: #2b2438 !important;
   color: #fff !important;

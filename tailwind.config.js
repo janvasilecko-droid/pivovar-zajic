@@ -69,6 +69,10 @@ export default {
        * ROLI — pak se dá celá appka zvětšit změnou téhle tabulky.
        */
       fontSize: {
+        // Lísteček poznámek na ploše — JEDINÁ výjimka pod 11 px, na přání
+        // majitele 28. 9. 2026 („nápis poznámky udělej mnohem menším
+        // písmem"). Hlídá to test v lib/jednotnyVzhled.test.ts.
+        listek: ['9px', { lineHeight: '1.2' }],
         udaj: ['11px', { lineHeight: '1.35' }],       // číslo v hustém řádku
         popisek: ['12px', { lineHeight: '1.4' }],      // popis pod údajem
         text: ['14px', { lineHeight: '1.5' }],         // běžný text

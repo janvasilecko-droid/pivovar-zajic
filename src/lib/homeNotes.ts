@@ -226,7 +226,8 @@ export function rozvrhniPoznamky<T extends { text: string }>(
  * žádná a vypadalo to, že se poznámka neuložila.
  */
 export function kolikPoznamekZobrazit(sirka: number, vyska: number): number {
-  const radku = Math.max(1, vyska * 3);
+  // Od 28. 9. 2026 menší písmo na lístečku → vejdou se čtyři řádky na výšku.
+  const radku = Math.max(1, vyska * 4);
   const sloupcu = sirka >= 2 ? 2 : 1;
   return Math.max(1, radku * sloupcu);
 }

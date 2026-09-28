@@ -74,6 +74,16 @@ describe('velikost písma', () => {
 
     expect(nalezy).toEqual([]);
   });
+
+  it('drobné písmo lístečku (text-listek, 9 px) jen na lístečku poznámek na ploše', () => {
+    // Jediná výjimka z 11 px — majitel ji chtěl výslovně (28. 9. 2026).
+    // Kdyby se token rozlezl jinam, vrátilo by se nečitelné písmo.
+    const kde: string[] = [];
+    for (const soubor of zdrojoveSoubory('src')) {
+      if (readFileSync(soubor, 'utf8').includes('text-listek')) kde.push(soubor.replace(/\\/g, '/'));
+    }
+    expect(kde.filter((s) => !s.endsWith('screens/HomeScreen.tsx') && !s.endsWith('jednotnyVzhled.test.ts'))).toEqual([]);
+  });
 });
 
 // 👆 Nejmenší cíl pro prst.
