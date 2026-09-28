@@ -464,6 +464,30 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
     load(true);
   }
 
+  // „Vymaž to stáčení, co nesedí, ať se u těch tanků neukazuje" (28. 9. 2026).
+  // Řádky stáčení se NEMAŽOU — jsou to sudy ve skladu a jejich smazání by je
+  // ze skladu i z inventury ubralo. Místo toho se u všech nesedících tanků
+  // najednou ponechá stav, který v tanku je, a o rozdíl se opraví počátek
+  // cyklu. Upozornění tím zmizí a sklad zůstane beze změny.
+  async function srovnatVse() {
+    if (nesediciTanky.length === 0) return;
+    const seznam = nesediciTanky.map((r) => `• ${r.label}: ponechat ${r.evidovanoL} l`).join('\n');
+    if (!(await potvrd(
+      `Srovnat všechny tanky podle toho, co v nich je?\n\n${seznam}\n\nStáčení ani sklad se nemění — opraví se jen počáteční objem cyklu, ať upozornění zmizí.`,
+      { titulek: 'Srovnat tanky', potvrdit: 'Srovnat vše' },
+    ))) return;
+    const chyby: string[] = [];
+    for (const r of nesediciTanky) {
+      const { error } = await supabase.from('cellar_tanks')
+        .update({ initial_volume_l: Math.round((r.pocatekL + r.rozdilL) * 10) / 10, updated_at: new Date().toISOString() })
+        .eq('id', r.id);
+      if (error) chyby.push(`${r.label} (${error.message})`);
+    }
+    if (chyby.length > 0) chyba(`Nepodařilo se srovnat: ${chyby.join(', ')}`);
+    else oznam(nesediciTanky.length === 1 ? 'Tank srovnán.' : `Srovnáno ${nesediciTanky.length} tanků.`);
+    load(true);
+  }
+
   // Inline uložení piva a počátečního objemu přímo z karty tanku
   async function saveInlineTank(t: CellarTank) {
     if (!inlineBeerId) { oznam('Vyber pivo.'); return; }
@@ -593,6 +617,9 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
               <div className="font-display font-black text-amber-900 text-sm">
                 {nesediciTanky.length === 1 ? 'U jednoho tanku nesedí objem' : `U ${nesediciTanky.length} tanků nesedí objem`}
               </div>
+              <button type="button" className="btn-primary !rounded !text-xs mt-2" onClick={srovnatVse}>
+                Srovnat vše — platí, co je v tancích
+              </button>
               <p className="text-udaj font-bold text-amber-800 mt-1">
                 Stav v tanku se liší od toho, co vychází ze zápisů: počátek − stočeno ± přečerpáno.
                 Obvyklé příčiny: odečet po stáčení neprošel, nebo se u běžícího tanku přes „Změnit pivo"
