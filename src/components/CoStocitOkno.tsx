@@ -13,19 +13,17 @@
 //
 // Volba týden/dnes a sbalení okna se pamatuje v telefonu.
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { jeSud } from '../lib/inventoryFix';
 import { AlertTriangle, CalendarDays, Check, ChevronDown, ChevronRight } from 'lucide-react';
-import { supabase, fetchAllRows, useRealtime, beerBg, beerName } from '../lib/supabase';
+import { beerBg, beerName } from '../lib/supabase';
 import { businessDateISO } from '../lib/businessDate';
 import { isoWeekKey, weekRange } from './WeeklyOrderSummaryCard';
-import { computeKeggingPlan, dayKeyFromISO, BEZ_TERMINU, type DayPlan } from '../lib/keggingPlan';
-import { zbytekKeKonciTydne } from '../lib/tydenniZbytek';
+import { dayKeyFromISO, BEZ_TERMINU, type DayPlan } from '../lib/keggingPlan';
+import { usePlanStaceni } from '../lib/usePlanStaceni';
 import { planProVyber, vychoziDenCoStocit, chybiMimoVyber as spoctiChybiMimoVyber } from '../lib/coStocit';
 import { DAYS } from '../lib/shared';
 import { uloz } from '../lib/uloziste';
 import { IkonaSud, IkonaLahev } from './ikony';
 import type { Page } from './Layout';
-import { nactiSdilenouTabulku } from '../lib/sdilenaData';
 
 type Druh = 'sudy' | 'lahve';
 const KLIC_OBDOBI = 'pivovar_costocit_obdobi';
@@ -33,13 +31,6 @@ const KLIC_SBALENO = 'pivovar_costocit_sbaleno';
 
 const cti = (klic: string) => { try { return localStorage.getItem(klic); } catch { return null; } };
 
-type Data = {
-  beers: any[]; packages: any[]; orders: any[]; orderItems: any[];
-  kegging: any[]; bottling: any[]; fasovani: any[]; prodejna: any[]; writeoffs: any[]; checks: any[];
-  // Skutečná zásoba skladem (currentStockMap, viz keggingPlan.ts) — na rozdíl
-  // od výše (jen aktuální týden) potřebuje CELOU historii + inventuru.
-  inventory: any[]; adjustments: any[]; akce: any[]; prefuk: any[]; zavozDeductions: any[];
-};
 
 type Sloupec = { package_id: string; label: string; druh: Druh; volume_l: number };
 type Radek = { beer_id: string; chybi: Map<string, number>; objednano: Set<string>; celkem: number };
@@ -91,8 +82,7 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
 }) {
   const dnes = businessDateISO();
   const weekKey = isoWeekKey(dnes);
-  const { start, label: weekLabel } = weekRange(weekKey);
-  const zacatekTydne = start.toISOString().slice(0, 10);
+  const { label: weekLabel } = weekRange(weekKey);
   const dnesniDen = dayKeyFromISO(dnes);
 
   // 'tyden' nebo den v týdnu. Pamatuje se jen týden/dnes — konkrétní jiný
@@ -108,113 +98,12 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
     return vychoziDenCoStocit(dnes);
   });
   const [sbaleno, setSbaleno] = useState(() => cti(KLIC_SBALENO) === '1');
-  const [data, setData] = useState<Data | null>(null);
-  const [chyba, setChyba] = useState(false);
   /** Klepl si uživatel sám na den? Pak mu ho automatika nesmí přehodit. */
   const rucniVyber = useRef(false);
 
-  async function nacti() {
-    try {
-      // 📦 Kegging/bottling/fasování/prodejna/odpisy se čtou BEZ omezení na
-      // aktuální týden — currentStockMap (skutečná zásoba skladem, viz níž)
-      // potřebuje celou historii, jinak by neviděla nic stočeného dřív než
-      // tenhle týden (z provozu 15. 9. 2026: „mám na skladě 9× 30l, appka
-      // mi stejně píše, že musím stočit další").
-      const [b, p, o, k, bt, fa, fp, wo, pc, inv, adj, ak, pf, zd, vsechnyPolozky] = await Promise.all([
-        supabase.from('beers').select('*'),
-        supabase.from('packages').select('id,label,kind,volume_l'),
-        // Objednávka patří do týdne podle data dovozu, a když chybí, podle
-        // data zadání — obojí musí být od pondělí dál.
-        fetchAllRows('orders', 'id,order_date,delivery_date,delivery_day,place_name,status,is_delivered')
-          .or(`delivery_date.gte.${zacatekTydne},order_date.gte.${zacatekTydne}`),
-        nactiSdilenouTabulku('kegging'),
-        nactiSdilenouTabulku('bottling'),
-        nactiSdilenouTabulku('fasovani'),
-        nactiSdilenouTabulku('fasovani_private'),
-        nactiSdilenouTabulku('writeoffs'),
-        fetchAllRows('kegging_plan_checks', 'week_key,day,beer_id,package_id,qty').eq('week_key', weekKey),
-        nactiSdilenouTabulku('inventory'),
-        nactiSdilenouTabulku('inventory_adjustments'),
-        nactiSdilenouTabulku('akce'),
-        nactiSdilenouTabulku('keg_prefuk'),
-        nactiSdilenouTabulku('zavoz_deductions'),
-        // Položky současně s objednávkami (bez druhého kola přes .in()) a ze
-        // sdílené paměti — okno se otevírá ze Stáčení, kde už načtené jsou.
-        nactiSdilenouTabulku('order_items'),
-      ]);
-      const orders = (o.data as any[]) ?? [];
-      const ids = new Set(orders.map((x) => x.id));
-      const oi = { data: ((vsechnyPolozky.data as any[]) ?? []).filter((i) => ids.has(i.order_id)), error: vsechnyPolozky.error };
-      if (b.error || p.error || o.error || oi.error) { setChyba(true); return; }
-      setChyba(false);
-      setData({
-        beers: b.data ?? [], packages: p.data ?? [], orders, orderItems: oi.data ?? [],
-        kegging: k.data ?? [], bottling: bt.data ?? [], fasovani: fa.data ?? [], prodejna: fp.data ?? [],
-        writeoffs: wo.data ?? [], checks: pc.data ?? [],
-        inventory: inv.data ?? [], adjustments: adj.data ?? [], akce: ak.data ?? [], prefuk: pf.data ?? [],
-        zavozDeductions: zd.data ?? [],
-      });
-    } catch {
-      setChyba(true);
-    }
-  }
-  useEffect(() => { void nacti(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [weekKey]);
-  useRealtime(['orders', 'order_items', 'kegging', 'bottling', 'fasovani', 'fasovani_private', 'writeoffs', 'kegging_plan_checks', 'inventory', 'inventory_adjustments', 'akce', 'akce_items', 'keg_prefuk', 'zavoz_deductions'], () => { void nacti(); });
-
-  // Nezávisí na `druh` (sudy/lahve) — vrací zásobu pro VŠECHNA pivo×obal,
-  // stačí spočítat jednou a použít pro oba plány níž.
-  //
-  // ⚠️ BEZ zavozDeductionRows — jde jen do keggingPlan.ts jako `pool` (viz
-  // stejný komentář v Kegging.tsx/BottlingScreen.tsx). Ten odpočet ze
-  // skladu sám o sobě nepovažuje za stočení; kdyby ho tahle zásoba
-  // zahrnula, ubraly by se tytéž kusy dvakrát u objednávky, kterou nikdo
-  // v Závozu neoznačil, a připravily by o zásobu jiný den (z provozu
-  // 15. 9. 2026: „stočil jsem 21×30, appka mi přesto píše, že 4 chybí").
-  const currentStockMap = useMemo(() => {
-    if (!data) return undefined;
-    return zbytekKeKonciTydne({
-      inventoryRows: data.inventory,
-      bottlingRows: data.bottling,
-      keggingRows: data.kegging,
-      fasovaniRows: data.fasovani,
-      prodejnaRows: data.prodejna,
-      writeoffsRows: data.writeoffs,
-      akceRows: data.akce,
-      prefukRows: data.prefuk,
-      adjustmentRows: data.adjustments,
-      packages: data.packages,
-      // Viz Kegging.tsx — skutečná zásoba včetně odpočtů závozu.
-      zavozDeductionRows: data.zavozDeductions,
-    }, businessDateISO());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data]);
-
-  const planyDruhu = (druh: Druh): DayPlan[] => {
-    if (!data) return [];
-    return computeKeggingPlan({
-      beers: data.beers,
-      packages: data.packages,
-      orders: data.orders,
-      orderItems: data.orderItems,
-      keggingRows: druh === 'sudy' ? data.kegging : data.bottling,
-      // Bez nich by se už zavezené objednávky odečetly dvakrát — viz
-      // keggingPlan.ts (vrácení závozů do zásoby u currentStockMap).
-      zavozDeductionRows: data.zavozDeductions,
-      fasovaniRows: data.fasovani,
-      prodejnaRows: data.prodejna,
-      writeoffsRows: data.writeoffs,
-      checkRows: data.checks,
-      weekKey,
-      jeCilovyObal: druh === 'sudy'
-        ? (kind, label) => jeSud(kind, label)
-        : (kind, label) => !jeSud(kind, label),
-      currentStockMap,
-    });
-  };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const planySudy = useMemo(() => (sudy ? planyDruhu('sudy') : []), [data, sudy, weekKey]);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const planyLahve = useMemo(() => (lahve ? planyDruhu('lahve') : []), [data, lahve, weekKey]);
+  // Data i plán sudů a lahví — sdílené se Sklepem (lib/usePlanStaceni.ts),
+  // ať obě místa počítají „co stočit" jedním výpočtem.
+  const { data, chyba, planySudy, planyLahve } = usePlanStaceni(weekKey, { sudy, lahve });
 
   // 🔜 Přehled na ploše má ukazovat, co chybí stočit na NEJBLIŽŠÍ den — z
   // provozu 16. 9. 2026: „na hlavní straně nahoře ten přehled má ukazovat, co

@@ -8,7 +8,6 @@ import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSumma
 
 import { souhrnCyklu, cilPoPrecerpani, cyklusSPrecerpanim, STAVY_S_PIVEM } from '../lib/tankCyklus';
 import { Beer, CellarTank, CellarTankCycle, CellarTransfer, EntryRow, Package, beerBorder, fetchAllRows, supabase, useRealtime } from '../lib/supabase';
-import { nactiSdilenouTabulku } from '../lib/sdilenaData';
 import { EmptyState, Field, Kostra, Modal, UkazatelPlnosti } from '../components/ui';
 import { chyba, oznam, potvrd } from '../lib/toast';
 import { usePosledniNacteni, prvniChyba } from '../lib/nacitani';
@@ -16,8 +15,8 @@ import { IkonaSud } from '../components/ikony';
 import { businessDateISO, posunDen } from '../lib/businessDate';
 import { uloz } from '../lib/uloziste';
 import { objednavkyZTanku } from '../lib/objednavkyZTanku';
-import { nactiSkladovouKnihu } from '../lib/skladovaKnihaData';
-import { stockAsOf } from '../lib/stockLedger';
+import { usePlanStaceni } from '../lib/usePlanStaceni';
+import { mergeWeekPlan } from '../lib/keggingPlan';
 
 const STATUS_LABELS: Record<CellarTank['status'], string> = {
   empty: 'Prázdný', filling: 'Plní se', active: 'Aktivní', emptying: 'Stáčí se',
@@ -47,8 +46,6 @@ const ZALOZKY_SKLEPA: { id: ZalozkaSklepa; popis: string; Ikona: LucideIcon | ty
 const DEFAULT_INITIAL_VOLUME = 7500;
 const LOW_VOLUME_THRESHOLD = 300; // l — upozornění na blížící se konec stáčení
 
-type OrderRow = { id: string; order_date: string; delivery_date: string | null; status: string };
-type OrderItemRow = { id?: string; order_id: string; beer_id: string | null; package_id: string | null; quantity: number };
 
 function fmtHours(h: number | null | undefined): string {
   if (h == null) return '—';
@@ -89,11 +86,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
   const [inlineBusy, setInlineBusy] = useState(false);
 
   // Objednávky (pro propojení: kolik kegů z aktuálního piva je objednáno)
-  const [orders, setOrders] = useState<OrderRow[]>([]);
-  const [orderItems, setOrderItems] = useState<OrderItemRow[]>([]);
   const [weekKey, setWeekKey] = useState(isoWeekKey(businessDateISO()));
-  const [skladTed, setSkladTed] = useState<Map<string, number>>(() => new Map());
-  const [odjelePolozky, setOdjelePolozky] = useState<Set<string>>(() => new Set());
   /** Nepodařilo se načíst data (na rozdíl od „ve sklepě nic není"). */
   const [chybaNacteni, setChybaNacteni] = useState<string | null>(null);
 
@@ -221,49 +214,14 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
   useEffect(() => { load(); }, []);
   useRealtime(['cellar_tanks', 'cellar_transfers', 'cellar_tank_cycles', 'kegging', 'beers'], () => load(true));
 
-  // Objednávky bez storna — pro propojení s aktuálním pivem v tanku
-  const zacniNacteniObjednavek = usePosledniNacteni();
-  async function loadOrders() {
-    const smiZapsat = zacniNacteniObjednavek();
-    // Položky současně s objednávkami (bez druhého kola přes .in()) a ze
-    // sdílené paměti (lib/sdilenaData.ts).
-    const [{ data: ords }, { data: vsechnyPolozky }, kniha] = await Promise.all([
-      fetchAllRows('orders', 'id,order_date,delivery_date,status').neq('status', 'storno'),
-      nactiSdilenouTabulku('order_items'),
-      // Stav skladu teď a co už odjelo — stejný zdroj jako Sklad.
-      nactiSkladovouKnihu().catch(() => null),
-    ]);
-    if (!smiZapsat()) return;
-    if (kniha) {
-      const sklad = new Map<string, number>();
-      stockAsOf(kniha.pohyby, businessDateISO()).forEach((r, k) => sklad.set(k, r.qty));
-      setSkladTed(sklad);
-      setOdjelePolozky(new Set(kniha.zavozy.map((z: { order_item_id?: string | null }) => z.order_item_id).filter((x): x is string => !!x)));
-    }
-    const list = (ords as OrderRow[]) ?? [];
-    setOrders(list);
-    const ids = new Set(list.map((o) => o.id));
-    setOrderItems(((vsechnyPolozky as OrderItemRow[]) ?? []).filter((i) => ids.has(i.order_id)));
-  }
-  useEffect(() => { loadOrders(); }, []);
-  useRealtime(['orders', 'order_items', 'kegging', 'bottling', 'zavoz_deductions', 'inventory'], loadOrders);
 
-
-  // Objednávky vybraného týdne proti skladu — kolik se musí stočit z tanku
-  // (lib/objednavkyZTanku.ts). Dřív objednáno − stočeno tento týden, což
-  // hlásilo „zbývá stočit" i u objednávek pokrytých sudy z minulého týdne.
+  // Plán stáčení vybraného týdne — tentýž jako okno „Co stočit" na ploše
+  // a obrazovky KEG a Lahve (lib/usePlanStaceni.ts).
+  const { planySudy, planyLahve } = usePlanStaceni(weekKey);
   const orderedHlByBeer = useMemo(() => objednavkyZTanku({
-    objednavky: orders,
-    polozky: orderItems,
-    obaly: packages,
-    piva: beers,
-    tyden: weekKey,
-    tydenDnes: isoWeekKey(businessDateISO()),
-    tydenKlic: isoWeekKey,
-    odjeleIds: odjelePolozky,
-    sklad: skladTed,
-  }), [orders, orderItems, packages, beers, weekKey, odjelePolozky, skladTed]);
-
+    sudy: mergeWeekPlan(planySudy, ''),
+    lahve: mergeWeekPlan(planyLahve, ''),
+  }, beers), [planySudy, planyLahve, beers]);
 
   // Souhrn stáčení z tanku (kegging) — jen pro AKTUÁLNÍ (nedokončený) cyklus
   // daného tanku, ne kumulativně napříč všemi cykly, co kdy z tabulky kegging
@@ -584,10 +542,10 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
             ))}
           </div>
 
-          {/* Týden objednávek: na kartě tanku se podle něj ukáže „Objednáno X hl
-              tohoto piva (nestočeno)" = objednávky s dovozem v tom týdnu minus
-              sudy, co se ten týden už stočily. Má smysl jen u tanků, proto se
-              u Várek a Ztrát neukazuje. */}
+          {/* Týden objednávek: na kartě tanku se podle něj ukáže „Objednáno na
+              týden N · zbývá stočit" z plánu stáčení (stejné číslo jako „Co
+              stočit" na ploše). Má smysl jen u tanků, proto se u Várek a Ztrát
+              neukazuje. */}
           {(activeTab === 'lezacke' || activeTab === 'spilka') && (
           <div className="flex items-center gap-1 bg-white p-1 rounded border border-neutral-200 shadow-2xs" title="Kolik piva z tanku je objednáno na vybraný týden a ještě není stočené — ukazuje se na kartě tanku">
             <button
@@ -777,7 +735,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                       tanku s pivem, i když je týden už stočený nebo nic
                       objednané, ať je vidět, že se to počítá. */}
                   {(t.status === 'active' || t.status === 'emptying' || t.status === 'filling') && pivoId && (() => {
-                    const o = objednavkyPiva ?? { objednanoHl: 0, cekaHl: 0, zbyvaHl: 0 };
+                    const o = objednavkyPiva ?? { objednanoHl: 0, pokrytoHl: 0, zbyvaHl: 0 };
                     const tyden = weekKey.split('-')[1];
                     const remainingHl = remaining / 100;
                     const chybiHl = o.zbyvaHl - remainingHl;
@@ -794,7 +752,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                         <ClipboardList className="ikona-text" /> {souhrn}
                         {o.zbyvaHl > 0
                           ? ` · na skladě chybí — stočit ${o.zbyvaHl.toFixed(1)} hl`
-                          : o.cekaHl > 0 ? ' · pokryto skladem' : o.objednanoHl > 0 ? ' · vše odvezeno' : ''}
+                          : o.objednanoHl > 0 ? ' · vše stočeno' : ''}
                       </div>
                     );
                   })()}

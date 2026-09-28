@@ -17,6 +17,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase, useRealtime, Beer, Package, beerBg } from '../lib/supabase';
 import { isoWeekKey, weekRange, shiftWeek } from './WeeklyOrderSummaryCard';
 import { computeBottlingNeeds, NeedsRow, seskupPodlePiva } from '../lib/bottlingNeeds';
+import { usePlanStaceni } from '../lib/usePlanStaceni';
+import { mergeWeekPlan } from '../lib/keggingPlan';
 import {
   BottlingPlan,
   BottlingPlanInput,
@@ -163,6 +165,20 @@ export function BottlingTasksSettings({ setPage }: Props = {}) {
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
+  // ---- „Chybí" z PLÁNU STÁČENÍ — stejné číslo jako okno „Co stočit",
+  // obrazovky KEG a Lahve i Sklep (lib/usePlanStaceni.ts). Zadání 28. 9.
+  // 2026: „ať znova nemusíme řešit, že všude se ukazuje co stočit jinak."
+  // Ostatní sloupce (sklad, objednáno, naplánováno, fasování) zůstávají.
+  const { planySudy, planyLahve } = usePlanStaceni(weekKey);
+  const chybiPodlePlanu = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const it of [...mergeWeekPlan(planySudy, '').items, ...mergeWeekPlan(planyLahve, '').items]) {
+      const k = `${it.beer_id}__${it.package_id}`;
+      m.set(k, (m.get(k) ?? 0) + it.missing);
+    }
+    return m;
+  }, [planySudy, planyLahve]);
+
   // ---- Přehled potřeby (sklad vs. objednávky vs. fasování vs. plán) ----
   const needs = useMemo(
     () =>
@@ -184,8 +200,8 @@ export function BottlingTasksSettings({ setPage }: Props = {}) {
         adjustmentRows,
         weekKey,
         todayStr,
-      }),
-    [beers, packages, plans, orders, orderItems, inventoryRows, rows, keggingRows, fasovaniRows, prodejnaRows, writeoffsRows, zavozDeductionRows, akceRows, prefukRows, adjustmentRows, weekKey, todayStr]
+      }).map((r) => ({ ...r, missing: chybiPodlePlanu.get(`${r.beer_id}__${r.package_id}`) ?? 0 })),
+    [beers, packages, plans, orders, orderItems, inventoryRows, rows, keggingRows, fasovaniRows, prodejnaRows, writeoffsRows, zavozDeductionRows, akceRows, prefukRows, adjustmentRows, weekKey, todayStr, chybiPodlePlanu]
   );
 
   const isKegPkg = (pkgId: string) => packages.find((p) => p.id === pkgId)?.kind === 'keg';
@@ -756,7 +772,7 @@ export function BottlingTasksSettings({ setPage }: Props = {}) {
         <div className="text-xs font-black text-neutral-800 mb-2"><IkonaSud className="ikona-text" /> Potřeba KEG sudů (týden {weekLabel})</div>
         {renderTable(kegRows, true)}
         <p className="text-udaj text-neutral-400 mt-1.5">
-          „Chybí stočit“ = objednávky + odhad fasování − sklad − naplánováno. Klepnutím na číslo se otevřou
+          „Chybí stočit“ je stejné číslo jako v okně „Co stočit“ na ploše, na obrazovkách KEG a Lahve i ve Sklepu (plán stáčení týdne). Klepnutím na číslo se otevřou
           objednávky s tou položkou; podrobná čísla (sklad, objednávky, fasování) jsou ve Skladu a v Objednávkách.
         </p>
       </div>

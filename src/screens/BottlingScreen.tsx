@@ -681,6 +681,15 @@ export default function BottlingScreen({
 
   const bottleRequirements = useMemo(() => {
     const todayStr = businessDateISO();
+    // „Chybí" bere z PLÁNU STÁČENÍ (weekPlanLahvi), ne z vlastního vzorce
+    // objednáno − sklad. Zadání 28. 9. 2026: „ať znova nemusíme řešit, že
+    // všude se ukazuje co stočit jinak." Plán navíc počítá ruční odškrtnutí
+    // a rozložení po dnech; sloupce Objednáno a Sklad zůstávají pro přehled.
+    const chybiPodlePlanu = new Map<string, number>();
+    for (const it of weekPlanLahvi.items) {
+      const k = `${it.beer_id}__${it.package_id}`;
+      chybiPodlePlanu.set(k, (chybiPodlePlanu.get(k) ?? 0) + it.missing);
+    }
     return computePackageNeeds(
       {
         // Nález z auditu 15. 9. 2026: se seznamem jen aktivních piv řádek
@@ -704,8 +713,8 @@ export default function BottlingScreen({
         todayStr,
       },
       (kind, label) => !jeSud(kind, label)
-    );
-  }, [vsechnaPivaJmena, packages, orders, orderItems, inventoryRows, rows, fasovaniRows, prodejnaRows, writeoffsRows, keggingRows, zavozDeductionRows, adjustmentRows, akceRows, weekKey]);
+    ).map((r) => ({ ...r, neededQty: chybiPodlePlanu.get(`${r.beer_id}__${r.package_id}`) ?? 0 }));
+  }, [vsechnaPivaJmena, packages, orders, orderItems, inventoryRows, rows, fasovaniRows, prodejnaRows, writeoffsRows, keggingRows, zavozDeductionRows, adjustmentRows, akceRows, weekKey, weekPlanLahvi]);
 
   const filteredRequirements = useMemo(() => {
     let list = bottleRequirements;
@@ -2223,7 +2232,7 @@ export default function BottlingScreen({
                 )}
                 <span className="text-sm font-bold text-neutral-500">({reqTotals.neededLiters.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} L)</span>
               </div>
-              <span className="text-udaj text-neutral-500">{reqTotals.needed > 0 ? 'Objednáno víc, než je na skladě' : <><Check className="ikona-text" /> Všechny objednávky týdne pokryty</>}</span>
+              <span className="text-udaj text-neutral-500">{reqTotals.needed > 0 ? 'Chybí stočit podle plánu stáčení' : <><Check className="ikona-text" /> Všechny objednávky týdne pokryty</>}</span>
             </div>
           </div>
 
