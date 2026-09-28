@@ -29,19 +29,19 @@ describe('rozdelDoStranek — Denní práce a Další (28. 9. 2026)', () => {
     expect(VYCHOZI_STRANKA).toBe(0);
     expect(STRANKY_PLOCHY[VYCHOZI_STRANKA].nazev).toBe('Denní práce');
     expect(stranky[VYCHOZI_STRANKA]).toEqual(
-      ['orders_entry', 'orders', 'kegging', 'bottling', 'orders_zavoz', 'dashboard', 'cellar', 'notes', 'prodejna', 'bottling_needs', 'timer'],
+      ['orders_entry', 'orders', 'kegging', 'bottling', 'orders_zavoz', 'dashboard', 'cellar', 'notes', 'prodejna', 'bottling_needs', 'timer', 'history'],
     );
   });
 
-  it('úvodní stránka se nesmí rozjet do seznamu — nejvýš jedenáct dlaždic', () => {
+  it('úvodní stránka se nesmí rozjet do seznamu — nejvýš dvanáct dlaždic', () => {
     // Pojistka proti tomu, aby se sem postupně naskládalo všechno.
-    expect(STRANKY_PLOCHY[VYCHOZI_STRANKA].ids.length).toBeLessThanOrEqual(11);
+    expect(STRANKY_PLOCHY[VYCHOZI_STRANKA].ids.length).toBeLessThanOrEqual(12);
   });
 
   it('na stránce Další jsou nástroje, číselníky a nastavení', () => {
     const [, dalsi] = rozdelDoStranek(VSECHNY as TileId[]);
     expect(STRANKY_PLOCHY[1].nazev).toBe('Další');
-    expect(dalsi).toContain('history');
+    expect(dalsi).toContain('app_settings');
     expect(dalsi).toContain('calendar');
     expect(dalsi).toContain('app_settings');
     expect(dalsi).toContain('depozitar'); // Číselníky
@@ -267,9 +267,9 @@ describe('jednorázové přeskládání plochy (ROZLOZENI_VERZE)', () => {
     };
     const layout = getHomeLayout(verze3, viditelne, ['notes'], GRID_COLS_MOBILE);
     const [uvod, dalsi] = layout.pages.filter((p) => p.length > 0);
-    expect(uvod).toEqual(['orders', 'kegging', 'bottling', 'dashboard', 'cellar', 'notes', 'prodejna', 'bottling_needs', 'timer']);
+    expect(uvod).toEqual(['orders', 'kegging', 'bottling', 'dashboard', 'cellar', 'notes', 'prodejna', 'bottling_needs', 'timer', 'history']);
     expect(dalsi).not.toContain('timer');
-    expect(dalsi).toContain('history');
+    expect(dalsi).toContain('app_settings');
     expect(layout.overrides.dashboard?.h).toBe(2);
     expect(layout.overrides.dashboard?.color).toBe('teal');
     expect(layout.overrides.notes?.h).toBe(1);

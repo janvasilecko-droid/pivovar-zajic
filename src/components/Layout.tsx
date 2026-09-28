@@ -1,5 +1,5 @@
 import { ReactNode, useState, useEffect, useRef, lazy, Suspense } from 'react';
-import { AlarmClock, AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, BookOpen, CalendarDays, Car, ClipboardCheck, ClipboardList, Compass, Download, FilePlus, FileSpreadsheet, FileText, FlaskConical, GlassWater, History as HistoryIcon, Home, Info, ListOrdered, LogOut, MapPin, Megaphone, MessageCircle, Package as PackageIcon, Receipt, Search, Settings, Shield, ShieldCheck, Smartphone, Snowflake, Sparkles, StickyNote, Store, Tag, Truck, type LucideIcon, Wifi, WifiOff, X, XCircle } from 'lucide-react';
+import { AlarmClock, AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, BookOpen, CalendarDays, Car, ClipboardCheck, ClipboardList, Compass, Download, FilePlus, FileSpreadsheet, FileText, FlaskConical, GlassWater, History as HistoryIcon, Home, Info, LogOut, MapPin, Megaphone, MessageCircle, Package as PackageIcon, Receipt, Search, Settings, Shield, ShieldCheck, Smartphone, Snowflake, Sparkles, StickyNote, Store, Tag, Truck, type LucideIcon, Wifi, WifiOff, X, XCircle } from 'lucide-react';
 
 import { useAuth } from '../lib/auth';
 import { potvrd } from '../lib/toast';
@@ -105,10 +105,9 @@ export const EXTRA_NAV: NavItem[] = [
   // rovnou po zadání nebo po přehledu (z provozu 15. 9. 2026).
   { id: 'orders_entry', label: 'Nová obj.', icon: FilePlus, group: 'Výroba' },
   { id: 'orders_detail', label: 'Obj. přehled', icon: FileText, group: 'Výroba' },
-  // Sklad → Pohyby (Stock.tsx): každý pohyb ve vybraném týdnu s filtrem
-  // pivo/obal — z provozu 24. 9. 2026, ale bez vlastní dlaždice se to nedalo
-  // najít jinak, než proklikat celý Sklad a trefit záložku.
-  { id: 'stock_pohyby', label: 'Pohyby', icon: ListOrdered, group: 'Pivovar' },
+  // Pohyby už nejsou dlaždice — od 28. 9. 2026 jsou záložkou Skladu
+  // (components/SkladZalozky.tsx; „dlaždici pohyby vymaž, dej ji do skladu
+  // jako záložku"). Stránka 'stock_pohyby' zůstává kvůli tlačítku Zpět.
   // Inventura je od 28. 9. 2026 záložka Skladu (components/SkladZalozky.tsx) —
   // hlavní dlaždice byla navíc vedle Skladu. Kdo ji chce na ploše, přidá si ji.
   { id: 'inventory', label: 'Inventura', icon: ClipboardCheck, group: 'Pivovar' },
