@@ -544,6 +544,19 @@ export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
               <span>Skrýt zavezené</span>
             </label>
 
+            {/* Přehled nakládky na plochu — hned vedle „Skrýt zavezené"
+                (28. 9. 2026: „rozvoz objednávek vedle skrýt zavezené přidej
+                pole: přehled na plochu"). */}
+            <label className="flex items-center gap-2 text-xs font-extrabold text-amber-950 cursor-pointer px-3.5 py-2.5 rounded bg-white border border-amber-300/80 hover:bg-amber-50 transition shadow-xs">
+              <input
+                type="checkbox"
+                checked={nakladkaNaPlose}
+                onChange={(e) => prepniNakladkuNaPlose(e.target.checked)}
+                className="w-4 h-4 rounded text-amber-500 focus:ring-amber-400 accent-amber-500"
+              />
+              <span>Přehled na plochu</span>
+            </label>
+
             <button
               onClick={() => printDeliveryListForOrders(filteredOrders, `týden ${weekKey}`)}
               disabled={!activeOrders.length}
@@ -747,16 +760,6 @@ export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
                       {loadingListBreakdown.totalCount} ks
                     </span>
                   </div>
-
-                  <label className="tap flex items-center gap-2.5 cursor-pointer select-none text-sm font-bold text-neutral-900">
-                    <input
-                      type="checkbox"
-                      checked={nakladkaNaPlose}
-                      onChange={(e) => prepniNakladkuNaPlose(e.target.checked)}
-                      className="w-5 h-5 rounded accent-amber-600"
-                    />
-                    <span>Přehled nakládky na ploše</span>
-                  </label>
 
                   {/* Progress indicator */}
                   {loadingListBreakdown.totalLabels > 0 && (
