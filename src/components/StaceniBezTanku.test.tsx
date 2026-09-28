@@ -22,7 +22,7 @@ const packages: any[] = [{ id: 'k50', label: 'KEG 50l', kind: 'keg', volume_l: 5
 const beers: any[] = [{ id: 'b12', name: '12° Světlá' }];
 
 describe('StaceniBezTanku', () => {
-  it('ukáže jen nedávné stáčení bez tanku a nabídne nejdřív tank se stejným pivem', () => {
+  it('ukáže jen nedávné stáčení bez tanku a nabídne jen tank se stejným pivem', () => {
     render(
       <StaceniBezTanku
         kegging={[
@@ -42,6 +42,21 @@ describe('StaceniBezTanku', () => {
     expect(screen.getByText(/1000 l/)).toBeTruthy();
     const select = screen.getByLabelText('Tank, ze kterého se stáčelo') as HTMLSelectElement;
     expect(select.value).toBe('t1');
+    expect(select.options.length).toBe(1);
+  });
+
+  it('pivo, které není v žádném tanku, nenabídne tank s jiným pivem', () => {
+    render(
+      <StaceniBezTanku
+        kegging={[{ id: 'k9', entry_date: '2026-09-27', beer_id: 'b11', beer_name: '10° Desítka', package_id: 'k50', package_label: 'KEG 50l', quantity: 3, cellar_tank_id: null }]}
+        tanks={tanks}
+        beers={beers}
+        packages={packages}
+        onZmena={() => {}}
+      />,
+    );
+    expect(screen.queryByLabelText('Tank, ze kterého se stáčelo')).toBeNull();
+    expect(screen.getByText('Toto pivo teď není v žádném tanku.')).toBeTruthy();
   });
 
   it('bez nepřiřazeného stáčení napíše, že nic nečeká', () => {

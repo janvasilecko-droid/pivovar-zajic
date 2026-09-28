@@ -50,11 +50,14 @@ export function StaceniBezTanku({ kegging, tanks, beers, packages, onZmena }: {
   const litry = (r: RadekStaceni) =>
     Number(r.quantity || 0) * Number(packages.find((p) => p.id === r.package_id)?.volume_l || 0);
 
-  /** Tanky, ze kterých se dá odečíst: nejdřív ty se stejným pivem. */
+  /**
+   * Tanky, ze kterých se dá odečíst: JEN ty se stejným pivem. Dřív se, když
+   * pivo nebylo v žádném tanku, nabízely všechny — u 10° Desítky tak vyskočil
+   * Tank 1 s tmavým (28. 9. 2026: „proč je u 10ky tmavý pivo možno přiřadit").
+   */
   const moznosti = (r: RadekStaceni) => tanks
-    .filter((t) => Number(t.current_volume_l) > 0)
-    .sort((a, b) => Number(b.current_beer_id === r.beer_id) - Number(a.current_beer_id === r.beer_id)
-      || a.label.localeCompare(b.label, undefined, { numeric: true }));
+    .filter((t) => t.current_beer_id === r.beer_id && Number(t.current_volume_l) > 0)
+    .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
 
   async function priradit(r: RadekStaceni) {
     const tankId = vybrano[r.id] ?? moznosti(r)[0]?.id;
@@ -64,10 +67,8 @@ export function StaceniBezTanku({ kegging, tanks, beers, packages, onZmena }: {
     if (l <= 0) { chyba('U obalu chybí objem — nejde spočítat, kolik litrů odečíst.'); return; }
     const pivo = r.beer_name ?? beers.find((b) => b.id === r.beer_id)?.name ?? 'pivo';
     const vTanku = Number(t.current_volume_l || 0);
-    const jinePivo = t.current_beer_id && t.current_beer_id !== r.beer_id;
     const otazka = `Přiřadit ${r.quantity}× ${r.package_label ?? ''} ${pivo} (${Math.round(l)} l) k ${t.label} a odečíst z něj?`
-      + (l > vTanku + 1 ? `\n\nPOZOR: v ${t.label} je jen ${Math.round(vTanku)} l — tank skončí na nule.` : '')
-      + (jinePivo ? `\n\nPOZOR: v ${t.label} je ${t.current_beer_name ?? 'jiné pivo'}.` : '');
+      + (l > vTanku + 1 ? `\n\nPOZOR: v ${t.label} je jen ${Math.round(vTanku)} l — tank skončí na nule.` : '');
     if (!(await potvrd(otazka, { titulek: 'Přiřadit stáčení k tanku', potvrdit: 'Přiřadit' }))) return;
 
     setUklada(r.id);
@@ -108,7 +109,7 @@ export function StaceniBezTanku({ kegging, tanks, beers, packages, onZmena }: {
               </div>
             </div>
             {tanks.length === 0 || tanky.length === 0 ? (
-              <span className="text-xs text-primary-500">Žádný tank s pivem.</span>
+              <span className="text-xs text-primary-500">Toto pivo teď není v žádném tanku.</span>
             ) : (
               <>
                 <select
