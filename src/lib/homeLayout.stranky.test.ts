@@ -29,7 +29,7 @@ describe('rozdelDoStranek — Denní práce a Další (28. 9. 2026)', () => {
     expect(VYCHOZI_STRANKA).toBe(0);
     expect(STRANKY_PLOCHY[VYCHOZI_STRANKA].nazev).toBe('Denní práce');
     expect(stranky[VYCHOZI_STRANKA]).toEqual(
-      ['orders_entry', 'orders', 'kegging', 'bottling', 'orders_zavoz', 'dashboard', 'cellar', 'notes', 'prodejna', 'bottling_needs', 'timer', 'history'],
+      ['orders_zavoz', 'cellar', 'orders_entry', 'orders', 'kegging', 'bottling', 'dashboard', 'notes', 'prodejna', 'bottling_needs', 'timer', 'history'],
     );
   });
 
@@ -267,7 +267,7 @@ describe('jednorázové přeskládání plochy (ROZLOZENI_VERZE)', () => {
     };
     const layout = getHomeLayout(verze3, viditelne, ['notes'], GRID_COLS_MOBILE);
     const [uvod, dalsi] = layout.pages.filter((p) => p.length > 0);
-    expect(uvod).toEqual(['orders', 'kegging', 'bottling', 'dashboard', 'cellar', 'notes', 'prodejna', 'bottling_needs', 'timer', 'history']);
+    expect(uvod).toEqual(['cellar', 'orders', 'kegging', 'bottling', 'dashboard', 'notes', 'prodejna', 'bottling_needs', 'timer', 'history']);
     expect(dalsi).not.toContain('timer');
     expect(dalsi).toContain('app_settings');
     expect(layout.overrides.dashboard?.h).toBe(2);

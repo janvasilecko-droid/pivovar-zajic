@@ -247,8 +247,10 @@ const DEFAULT_SIZE: Partial<Record<Page, { w: number; h: number }>> = {
  * Není to zámek: dlaždici jde přetáhnout kamkoliv i mezi stránkami a tohle
  * platí jen pro nově zakládanou (nebo jednou přeskládanou) plochu.
  */
+// Široké dlaždice (Rozvoz — co naložit, Sklep — tanky) úplně nahoře
+// (28. 9. 2026: „dej ty podélné listy úplně nahoru"), pod nimi velké dlaždice.
 export const DLAZDICE_DENNI_PRACE: Page[] = [
-  'orders_entry', 'orders', 'kegging', 'bottling', 'orders_zavoz', 'dashboard', 'cellar',
+  'orders_zavoz', 'cellar', 'orders_entry', 'orders', 'kegging', 'bottling', 'dashboard',
 ];
 
 export const STRANKY_PLOCHY: Array<{ nazev: string; ids: Page[] }> = [
@@ -317,7 +319,7 @@ export function idsKRozmisteni(visibleIds: Page[], extraIds: Page[] = []): Page[
  * Použij to jen tehdy, když se rozdělení mění pro VŠECHNY schválně. Cizí
  * rozmístění se tím zahazuje a nejde vzít zpět.
  */
-export const ROZLOZENI_VERZE = 9;
+export const ROZLOZENI_VERZE = 10;
 
 /** Stránka, na které se plocha otevírá — první, „Denní práce". */
 export const VYCHOZI_STRANKA = 0;
