@@ -288,6 +288,17 @@ describe('jednorázové přeskládání plochy (ROZLOZENI_VERZE)', () => {
     expect(layout.overrides.notes?.h).toBe(1);
   });
 
+  it('plocha z verze 7 dostane dlaždici Sklep přes celou šířku (všechny tanky)', () => {
+    const verze7 = {
+      pages: [['orders', 'cellar'], ['app_settings']],
+      overrides: { cellar: { w: 1, h: 2, color: 'teal' } },
+      rozlozeniVerze: 7,
+    };
+    const layout = getHomeLayout(verze7, viditelne, [], GRID_COLS_MOBILE);
+    expect(layout.overrides.cellar?.w).toBe(3);
+    expect(layout.overrides.cellar?.color).toBe('teal');
+  });
+
   it('plochu se značkou už NEPŘESKLÁDÁ — kdo si ji naskládal, o ni nepřijde', () => {
     const moje = {
       pages: [['kegging'], ['bottling']],

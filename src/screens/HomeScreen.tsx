@@ -38,7 +38,7 @@ import { zavrenaVerzeListy, VERZE_LISTA_EVENT } from '../lib/verzeLista';
 import { vyhodnotGesto, rychlostPosunu, jeVeVodorovnemPasku, stavPodrzeni } from '../lib/gestaPlochy';
 import { maSeZobrazit, oznacZobrazenou } from '../lib/napovedy';
 import { queueLength, onQueueChange, syncQueue, isOnline } from '../lib/offline';
-import { litry, litryJakoHl, kusy } from '../lib/cisla';
+import { litryJakoHl, kusy } from '../lib/cisla';
 import { dnuOdZalohy, isWeeklyBackupDue } from '../lib/backup';
 import { souhrnDne, type SouhrnDne } from '../lib/souhrnDne';
 import { buildMovements } from '../lib/stockLedger';
@@ -1024,26 +1024,33 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   // se to, na co se člověk ve sklepě opravdu dívá: KTERÝ tank, JAKÉ pivo a
   // KOLIK v něm zbývá. Byla to jedna z věcí, pro kterou se chodilo do
   // Sklepa a hned zpátky.
-  const [tankyNaPlochu, setTankyNaPlochu] = useState<{ label: string; pivo: string; litry: number; staci: boolean }[]>([]);
+  // Od 28. 9. 2026 VŠECHNY tanky, i prázdné („dlaždici sklep udělej tak, aby
+  // šly vidět všechny tanky") — Spilka nejdřív, pak Tanky podle čísla.
+  const [tankyNaPlochu, setTankyNaPlochu] = useState<{ label: string; pivo: string; litry: number; kapacita: number; staci: boolean; prazdny: boolean }[]>([]);
   const nactiTankyNaPlochu = () => {
     if (!visibleIds.includes('cellar')) return;
     void (async () => {
       const [{ data: tanky }, { data: piva }] = await Promise.all([
-        supabase.from('cellar_tanks').select('label,current_beer_id,current_volume_l,status,kegging_active'),
+        supabase.from('cellar_tanks').select('label,current_beer_id,current_volume_l,capacity_l,status,kegging_active'),
         supabase.from('beers').select('id,name'),
       ]);
       const jmenoPiva = new Map(((piva as any[]) ?? []).map((b) => [b.id, b.name as string]));
+      const spilka = (l: string) => l.toLowerCase().includes('spilka');
       const radky = (((tanky as any[]) ?? [])
-        .filter((t) => t.status !== 'empty' && Number(t.current_volume_l || 0) > 0)
-        .map((t) => ({
-          label: String(t.label ?? '?'),
-          pivo: jmenoPiva.get(t.current_beer_id) ?? '—',
-          litry: Math.round(Number(t.current_volume_l || 0)),
-          // Tank, ze kterého se právě stáčí — ten je ze všech nejzajímavější.
-          staci: !!t.kegging_active,
-        }))
-        // Stáčený tank nahoru, pak podle objemu — nejvíc piva první.
-        .sort((a, b) => (Number(b.staci) - Number(a.staci)) || (b.litry - a.litry)));
+        .map((t) => {
+          const litry = Math.round(Number(t.current_volume_l || 0));
+          return {
+            label: String(t.label ?? '?'),
+            pivo: jmenoPiva.get(t.current_beer_id) ?? '',
+            litry,
+            kapacita: Number(t.capacity_l) || (spilka(String(t.label ?? '')) ? 8000 : 7500),
+            // Tank, ze kterého se právě stáčí — označí se.
+            staci: !!t.kegging_active,
+            prazdny: t.status === 'empty' || litry <= 0,
+          };
+        })
+        .sort((a, b) => (Number(spilka(b.label)) - Number(spilka(a.label)))
+          || a.label.localeCompare(b.label, 'cs', { numeric: true })));
       setTankyNaPlochu(radky);
     })();
   };
@@ -2296,39 +2303,35 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
               );
             }
 
-            // Widget Sklep (cellar) — objemy v jednotlivých tancích.
+            // Widget Sklep (cellar) — VŠECHNY tanky jako malé nádoby s hladinou.
             if (id === 'cellar' && ((override.w ?? 1) >= 2 || (override.h ?? 1) >= 2) && tankyNaPlochu.length > 0) {
-              // Kolik řádků se vejde: na dvouřádkové dlaždici tři, na vyšší
-              // víc. Zbytek se sečte do „+3 další", ať nic nevypadne beze
-              // stopy — číslo v součtu je pořád informace.
-              const kolik = (override.h ?? 1) >= 3 ? 6 : 3;
-              const vidno = tankyNaPlochu.slice(0, kolik);
-              const zbyva = tankyNaPlochu.length - vidno.length;
               const celkemLitru = tankyNaPlochu.reduce((a, t) => a + t.litry, 0);
+              const kratce = (l: string) => l.replace(/spilka\s*/i, 'S').replace(/tank\s*/i, 'T');
               customContent = (
-                <div className="w-full h-full flex flex-col justify-between p-3 text-left select-none overflow-hidden">
+                <div className="w-full h-full flex flex-col p-2 text-left select-none overflow-hidden">
                   <div className="flex items-center justify-between gap-2 border-b border-black/10 pb-1">
                     <span className="font-extrabold text-xs uppercase tracking-wider flex items-center gap-1.5 opacity-90">
                       <Snowflake size={14} /> Sklep
                     </span>
                     <span className="text-udaj font-bold opacity-80">{litryJakoHl(celkemLitru)}</span>
                   </div>
-                  <div className="my-auto py-1 space-y-0.5">
-                    {vidno.map((t) => (
-                      <div key={t.label} className="flex items-baseline gap-1.5 text-xs font-bold leading-snug">
-                        {/* Stáčený tank je označený, ne jen seřazený nahoru —
-                            pořadí samo o sobě nic neřekne. */}
-                        <span className="shrink-0 tabular-nums">{t.staci ? '🍺' : '•'}</span>
-                        <span className="truncate">{t.label}</span>
-                        <span className="opacity-70 truncate">{t.pivo}</span>
-                        <span className="ml-auto shrink-0 tabular-nums">{litry(t.litry)}</span>
-                      </div>
-                    ))}
-                    {zbyva > 0 && <div className="text-udaj font-bold opacity-70">+{zbyva} další</div>}
-                  </div>
-                  <div className="text-udaj font-bold opacity-60 flex items-center justify-between pt-1 border-t border-black/10">
-                    <span>{tankyNaPlochu.some((t) => t.staci) ? 'Stáčí se z 🍺' : 'Nestáčí se'}</span>
-                    <span>Sklep ➔</span>
+                  <div className="flex-1 min-h-0 flex items-stretch gap-1 pt-1">
+                    {tankyNaPlochu.map((t) => {
+                      const pct = t.prazdny ? 0 : Math.min(100, Math.max(4, Math.round((t.litry / t.kapacita) * 100)));
+                      return (
+                        <div
+                          key={t.label}
+                          className="flex-1 min-w-0 flex flex-col items-center gap-0.5"
+                          title={`${t.label}${t.pivo ? ` — ${t.pivo}` : ''}: ${t.prazdny ? 'prázdný' : `${(t.litry / 100).toFixed(1)} hl`}`}
+                        >
+                          <span className="text-udaj font-bold tabular-nums leading-none">{t.prazdny ? '—' : Math.round(t.litry / 100)}</span>
+                          <div className="relative flex-1 w-full rounded-sm bg-black/15 overflow-hidden">
+                            <div className="absolute bottom-0 inset-x-0 opacity-80" style={{ height: `${pct}%`, backgroundColor: 'currentColor' }} />
+                          </div>
+                          <span className="text-udaj font-black leading-none truncate max-w-full">{t.staci ? '🍺' : kratce(t.label)}</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               );

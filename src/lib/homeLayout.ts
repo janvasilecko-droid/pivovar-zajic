@@ -222,7 +222,9 @@ export function defaultTileColor(id: string): TileColor {
 // přeskládání na verzi 4 (viz getHomeLayout).
 const DEFAULT_SIZE: Partial<Record<Page, { w: number; h: number }>> = {
   orders_entry: { w: 1, h: 2 }, orders: { w: 1, h: 2 }, kegging: { w: 1, h: 2 }, bottling: { w: 1, h: 2 },
-  orders_zavoz: { w: 1, h: 2 }, dashboard: { w: 1, h: 2 }, cellar: { w: 1, h: 2 },
+  orders_zavoz: { w: 1, h: 2 }, dashboard: { w: 1, h: 2 },
+  // Sklep přes celou šířku — ukazuje všechny tanky (28. 9. 2026).
+  cellar: { w: 3, h: 2 },
 };
 
 /**
@@ -313,7 +315,7 @@ export function idsKRozmisteni(visibleIds: Page[], extraIds: Page[] = []): Page[
  * Použij to jen tehdy, když se rozdělení mění pro VŠECHNY schválně. Cizí
  * rozmístění se tím zahazuje a nejde vzít zpět.
  */
-export const ROZLOZENI_VERZE = 7;
+export const ROZLOZENI_VERZE = 8;
 
 /** Stránka, na které se plocha otevírá — první, „Denní práce". */
 export const VYCHOZI_STRANKA = 0;
@@ -924,6 +926,11 @@ export function getHomeLayout(raw: unknown, visibleIds: Page[], extraIds: Page[]
       if (o) overrides[id] = { ...o, w: 1, h: 2, x: undefined, y: undefined };
     }
     kRozdeleni = { ...kRozdeleni, overrides };
+  }
+  // Verze 8: dlaždice Sklep přes celou šířku, ať jsou vidět všechny tanky.
+  if (!uzRozdeleno && !jenZalozena && zname < 8) {
+    const o = kRozdeleni.overrides.cellar;
+    if (o) kRozdeleni = { ...kRozdeleni, overrides: { ...kRozdeleni.overrides, cellar: { ...o, w: 3, h: 2, x: undefined, y: undefined } } };
   }
 
   return ensureTrailingEmptyPage(ensurePositions(kRozdeleni, cols));
