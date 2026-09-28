@@ -108,6 +108,18 @@ export function readMonthlyCleanupStage(monthKey: string): MonthlyCleanupStage |
 // (modál MonthlyCleanupWarning žije v App.tsx nezávisle na Domů).
 export const MONTHLY_CLEANUP_CHANGED_EVENT = 'pivovar:monthly-cleanup-changed';
 
+/**
+ * Otevře okno měsíčního úklidu (MonthlyCleanupWarning v App.tsx) — volá ho
+ * červená dlaždice „Měsíční úklid" na ploše. Dřív ta dlaždice otevírala
+ * obrazovku Lahve, takže se k checklistu úklidu nedalo dostat (z provozu
+ * 28. 9. 2026: „co je to ten měsíční úklid, k čemu to je, že to bliká
+ * červeně a otevře se přehled lahve").
+ */
+export const OTEVRIT_MESICNI_UKLID_EVENT = 'pivovar:open-monthly-cleanup';
+export function otevriMesicniUklid(): void {
+  window.dispatchEvent(new CustomEvent(OTEVRIT_MESICNI_UKLID_EVENT));
+}
+
 export function writeMonthlyCleanupStage(monthKey: string, stage: MonthlyCleanupStage) {
   try {
     uloz(DISMISS_KEY_PREFIX + monthKey, stage);

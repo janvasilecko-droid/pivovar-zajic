@@ -45,7 +45,7 @@ import { coNalozitNaZavoz, type NalozitNaZavoz } from '../lib/nalozitNaZavoz';
 import { dnuOdZalohy, isWeeklyBackupDue } from '../lib/backup';
 import { souhrnDne, type SouhrnDne } from '../lib/souhrnDne';
 import { buildMovements } from '../lib/stockLedger';
-import { isMonthlyCleanupPending, MONTHLY_CLEANUP_CHANGED_EVENT } from '../lib/monthlyCleanup';
+import { isMonthlyCleanupPending, MONTHLY_CLEANUP_CHANGED_EVENT, otevriMesicniUklid } from '../lib/monthlyCleanup';
 import { potvrd, oznam } from '../lib/toast';
 import { requestOrdersAutoImport } from '../lib/ordersFilter';
 import { getTheme, setTheme, type Theme } from '../lib/theme';
@@ -1939,7 +1939,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                 </button>
               )}
               {monthlyCleanupPending && (
-                <button type="button" className="hs-tile hs-tile-alert vlastni-vyska" onClick={() => setPage('bottling')}>
+                <button type="button" className="hs-tile hs-tile-alert vlastni-vyska" onClick={otevriMesicniUklid}>
                   <div className="hs-tile-icon-box">
                     <CalendarX2 />
                   </div>

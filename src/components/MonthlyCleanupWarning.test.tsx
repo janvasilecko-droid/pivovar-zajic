@@ -4,9 +4,9 @@
 // jen tehdy, když si to odložím na konec týdne. Přidej tlačítko Začít — když
 // ho dám, objeví se checklist a po provedení upozornění zmizí."
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { MonthlyCleanupWarning } from './MonthlyCleanupWarning';
-import { getMonthKey, readMonthlyCleanupStage } from '../lib/monthlyCleanup';
+import { getMonthKey, readMonthlyCleanupStage, otevriMesicniUklid } from '../lib/monthlyCleanup';
 
 // Test nesmí záviset na tom, kolikátého se zrovna pouští.
 vi.mock('../lib/monthlyCleanup', async () => {
@@ -75,6 +75,16 @@ describe('Upozornění na měsíční úklid', () => {
     const dnes = Object.keys(localStorage).find((k) => k.startsWith('bottling_checklist_'));
     expect(dnes).toBeTruthy();
     expect(JSON.parse(localStorage.getItem(dnes!)!)).toHaveProperty('month_1', true);
+  });
+
+  it('odložené okno otevře dlaždice „Měsíční úklid" rovnou s checklistem', () => {
+    // Z provozu 28. 9. 2026: dlaždice dřív otevírala obrazovku Lahve.
+    localStorage.setItem('monthly_cleanup_dismiss_' + getMonthKey(), 'week_start');
+    const { container } = render(<MonthlyCleanupWarning />);
+    expect(container.firstChild).toBeNull();
+    act(() => otevriMesicniUklid());
+    expect(screen.getByText('Stáčení lahví')).toBeTruthy();
+    expect(screen.getByText('Stáčení KEGů')).toBeTruthy();
   });
 
   it('když je měsíc označený jako hotový, upozornění se vůbec neukáže', () => {

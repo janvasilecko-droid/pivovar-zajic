@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AlertTriangle, CalendarClock, CalendarX2, Check, ClipboardList, PartyPopper, Play } from 'lucide-react';
 import {
   isLastWeekOfMonth, cleanupMonthKey,
-  readMonthlyCleanupStage, writeMonthlyCleanupStage, markMonthlyLineDone,
+  readMonthlyCleanupStage, writeMonthlyCleanupStage, markMonthlyLineDone, OTEVRIT_MESICNI_UKLID_EVENT,
 } from '../lib/monthlyCleanup';
 import { businessDateISO } from '../lib/businessDate';
 import { useAuth } from '../lib/auth';
@@ -142,6 +142,14 @@ export function MonthlyCleanupWarning({ onOpenMonthlyChecklist, onOpenKegMonthly
   // Checklist rozbalený rovnou v upozornění (tlačítko „Začít").
   const [checklist, setChecklist] = useState(false);
   const [odskrtnuto, setOdskrtnuto] = useState<Record<string, boolean>>(() => nactiOdskrtnuta(dnes));
+
+  // Dlaždice „Měsíční úklid" na ploše okno otevře znovu, i když ho někdo
+  // předtím odložil — rovnou s checklistem (lib/monthlyCleanup.ts).
+  useEffect(() => {
+    const otevri = () => { setOpen(true); setChecklist(true); };
+    window.addEventListener(OTEVRIT_MESICNI_UKLID_EVENT, otevri);
+    return () => window.removeEventListener(OTEVRIT_MESICNI_UKLID_EVENT, otevri);
+  }, []);
 
   if (!open) return null;
 
