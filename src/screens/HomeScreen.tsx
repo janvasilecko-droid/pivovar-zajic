@@ -14,7 +14,7 @@ import { Modal } from '../components/ui';
 import { useAuth } from '../lib/auth';
 import { canUserView, getUserPermissions, PAGE_TO_MODULE } from '../lib/permissions';
 import { isAdminEmail } from '../lib/config';
-import { supabase, Vehicle, fetchAllRows, useRealtime } from '../lib/supabase';
+import { supabase, Vehicle, fetchAllRows, useRealtime, beerBg, beerText } from '../lib/supabase';
 import { getVehicleExpiryStatus } from '../lib/vozidla';
 import { businessDateISO, posunDen } from '../lib/businessDate';
 import { IkonaSud, IkonaLahev, IkonaVycep } from '../components/ikony';
@@ -1030,15 +1030,25 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   // Sklepa a hned zpátky.
   // Od 28. 9. 2026 VŠECHNY tanky, i prázdné („dlaždici sklep udělej tak, aby
   // šly vidět všechny tanky") — Spilka nejdřív, pak Tanky podle čísla.
-  const [tankyNaPlochu, setTankyNaPlochu] = useState<{ label: string; pivo: string; litry: number; kapacita: number; staci: boolean; prazdny: boolean }[]>([]);
+  const [tankyNaPlochu, setTankyNaPlochu] = useState<{ label: string; pivo: string; barva: string | null; litry: number; kapacita: number; staci: boolean; prazdny: boolean }[]>([]);
+  // Barvy piv z nastavení piv — přehledové dlaždice podle nich barví jednotlivá
+  // piva, ať je na první pohled vidět rozdíl (28. 9. 2026). Klíč je id i jméno
+  // (malými písmeny), protože řádky objednávek nesou jméno piva.
+  const [barvyPiv, setBarvyPiv] = useState<Map<string, string | null>>(() => new Map());
   const nactiTankyNaPlochu = () => {
     if (!visibleIds.includes('cellar')) return;
     void (async () => {
       const [{ data: tanky }, { data: piva }] = await Promise.all([
         supabase.from('cellar_tanks').select('label,current_beer_id,current_volume_l,capacity_l,status,kegging_active'),
-        supabase.from('beers').select('id,name'),
+        supabase.from('beers').select('id,name,beer_color'),
       ]);
       const jmenoPiva = new Map(((piva as any[]) ?? []).map((b) => [b.id, b.name as string]));
+      const barvy = new Map<string, string | null>();
+      for (const b of (piva as any[]) ?? []) {
+        barvy.set(b.id, b.beer_color ?? null);
+        if (b.name) barvy.set(String(b.name).trim().toLowerCase(), b.beer_color ?? null);
+      }
+      setBarvyPiv(barvy);
       const spilka = (l: string) => l.toLowerCase().includes('spilka');
       // Jen ležácké tanky 1–8 — Spilka na dlaždici nepatří (28. 9. 2026:
       // „1–8 stačí, když tam budou ležácké tanky, musí jít vidět, co je tam
@@ -1050,6 +1060,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
           return {
             label: String(t.label ?? '?'),
             pivo: jmenoPiva.get(t.current_beer_id) ?? '',
+            barva: barvy.get(t.current_beer_id) ?? null,
             litry,
             kapacita: Number(t.capacity_l) || (spilka(String(t.label ?? '')) ? 8000 : 7500),
             // Tank, ze kterého se právě stáčí — označí se.
@@ -2341,18 +2352,26 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                     <span className="font-bold text-udaj opacity-70">Sklep</span>
                     <span className="text-udaj font-bold opacity-70">{litryJakoHl(celkemLitru)}</span>
                   </div>
-                  <div className="flex-1 min-h-0 grid grid-cols-4 gap-x-2 gap-y-1 pt-1 content-center">
+                  <div className="flex-1 min-h-0 grid grid-cols-4 gap-1 pt-1 content-center">
                     {tankyNaPlochu.map((t) => {
                       const pct = t.prazdny ? 0 : Math.min(100, Math.max(4, Math.round((t.litry / t.kapacita) * 100)));
+                      const pivoTanku = { beer_color: t.barva };
+                      const pismoTanku = t.prazdny ? 'bg-black/20' : beerText(pivoTanku);
                       return (
-                        <div key={t.label} className="min-w-0 flex flex-col gap-0.5">
+                        // Každý tank v barvě svého piva (nastavení piv); prázdný
+                        // tank je jen tmavý obrys, ať se neplete s pivem.
+                        <div
+                          key={t.label}
+                          className={`min-w-0 flex flex-col gap-0.5 rounded px-1.5 py-1 ${pismoTanku}`}
+                          style={t.prazdny ? undefined : { backgroundColor: beerBg(pivoTanku) }}
+                        >
                           <div className="flex items-baseline justify-between gap-1 text-xs font-black leading-none">
                             <span className="truncate">{kratce(t.label)}{t.staci ? ' 🍺' : ''}</span>
                             <span className="tabular-nums shrink-0">{t.prazdny ? '—' : `${(t.litry / 100).toFixed(t.litry < 1000 ? 1 : 0)} hl`}</span>
                           </div>
-                          <div className="text-udaj font-bold leading-tight truncate opacity-90">{t.prazdny ? 'prázdný' : (t.pivo || '—')}</div>
-                          <div className="h-1.5 w-full rounded-sm bg-black/15 overflow-hidden">
-                            <div className="h-full opacity-80" style={{ width: `${pct}%`, backgroundColor: 'currentColor' }} />
+                          <div className="text-udaj font-bold leading-tight truncate">{t.prazdny ? 'prázdný' : (t.pivo || '—')}</div>
+                          <div className="h-1 w-full rounded-sm bg-black/20 overflow-hidden">
+                            <div className="h-full opacity-70" style={{ width: `${pct}%`, backgroundColor: 'currentColor' }} />
                           </div>
                         </div>
                       );
@@ -2450,14 +2469,24 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                     {nalozit && <span className="text-udaj font-bold opacity-70 shrink-0">{kusy(nalozit.kusuCelkem)}</span>}
                   </div>
                   {nalozit ? (
-                    <div className={`flex-1 min-h-0 pt-1 grid gap-x-3 content-start ${(override.w ?? 1) >= 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
-                      {vidno.map((p) => (
-                        <div key={`${p.pivo}__${p.obal}`} className="flex items-baseline gap-1 text-udaj font-bold leading-snug min-w-0">
-                          <span className="truncate">{p.pivo}</span>
-                          <span className="opacity-70 truncate">{p.obal}</span>
-                          <span className="ml-auto shrink-0 tabular-nums">× {p.kusu}</span>
-                        </div>
-                      ))}
+                    <div className={`flex-1 min-h-0 pt-1 grid gap-1 content-start ${(override.w ?? 1) >= 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                      {vidno.map((p) => {
+                        // Pivo v barvě z nastavení piv — rozdíl mezi pivy je
+                        // vidět na první pohled (28. 9. 2026).
+                        const pivoRadku = { beer_color: barvyPiv.get(p.pivo.trim().toLowerCase()) ?? null };
+                        const pismoRadku = beerText(pivoRadku);
+                        return (
+                          <div
+                            key={`${p.pivo}__${p.obal}`}
+                            className={`flex items-baseline gap-1 text-udaj font-bold leading-snug min-w-0 rounded px-1.5 py-0.5 ${pismoRadku}`}
+                            style={{ backgroundColor: beerBg(pivoRadku) }}
+                          >
+                            <span className="truncate">{p.pivo}</span>
+                            <span className="opacity-80 truncate">{p.obal}</span>
+                            <span className="ml-auto shrink-0 tabular-nums">× {p.kusu}</span>
+                          </div>
+                        );
+                      })}
                       {zbyva > 0 && <div className="text-udaj font-bold opacity-70">+{zbyva} další</div>}
                     </div>
                   ) : (

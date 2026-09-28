@@ -324,7 +324,7 @@ export function idsKRozmisteni(visibleIds: Page[], extraIds: Page[] = []): Page[
  * Použij to jen tehdy, když se rozdělení mění pro VŠECHNY schválně. Cizí
  * rozmístění se tím zahazuje a nejde vzít zpět.
  */
-export const ROZLOZENI_VERZE = 12;
+export const ROZLOZENI_VERZE = 13;
 
 /** Stránka, na které se plocha otevírá — první, „Denní práce". */
 export const VYCHOZI_STRANKA = 0;
@@ -460,7 +460,19 @@ export const PAGE_CATEGORY: Partial<Record<Page, Category>> = {
 };
 const FALLBACK_CYCLE: TileColor[] = ['indigo', 'orchid', 'forest', 'plum', 'citrus'];
 
+/**
+ * Přehledové dlaždice mají vlastní tmavé pozadí, ať se odliší od ostatních
+ * a barvy piv v nich vyniknou (28. 9. 2026: „udělej pozadí sklepa a rozvozu
+ * jinou barvou").
+ */
+export const BARVA_PREHLEDU: Partial<Record<Page, TileColor>> = {
+  prehled_sklep: 'navy',
+  prehled_rozvoz: 'charcoal',
+};
+
 function defaultColorFor(id: TileId, indexInFallback: number): TileColor {
+  const prehled = BARVA_PREHLEDU[id as Page];
+  if (prehled) return prehled;
   const category = PAGE_CATEGORY[id as Page];
   if (category) return CATEGORY_COLOR[category];
   return FALLBACK_CYCLE[indexInFallback % FALLBACK_CYCLE.length];
@@ -949,6 +961,15 @@ export function getHomeLayout(raw: unknown, visibleIds: Page[], extraIds: Page[]
   }
   // Verze 12: přehled tanků a „co naložit" mají vlastní dlaždice
   // (prehled_sklep, prehled_rozvoz); Sklep a Rozvoz jsou zase obyčejné.
+  // Verze 13: přehledové dlaždice dostanou svoje tmavé pozadí (BARVA_PREHLEDU).
+  if (!uzRozdeleno && !jenZalozena && zname < 13) {
+    const overrides = { ...kRozdeleni.overrides };
+    for (const [id, barva] of Object.entries(BARVA_PREHLEDU) as [TileId, TileColor][]) {
+      const o = overrides[id];
+      if (o) overrides[id] = { ...o, color: barva };
+    }
+    kRozdeleni = { ...kRozdeleni, overrides };
+  }
   if (!uzRozdeleno && !jenZalozena && zname < 12) {
     const overrides = { ...kRozdeleni.overrides };
     for (const id of ['cellar', 'orders_zavoz'] as TileId[]) {
