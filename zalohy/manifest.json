@@ -1,7 +1,7 @@
 {
  "format": "pivovar-zaloha-manifest",
  "v": 1,
- "datum": "2026-09-27T08:22:25.601Z",
+ "datum": "2026-09-28T08:48:17.189Z",
  "tabulky": {
   "beers": {
    "radku": 13,
@@ -21,7 +21,7 @@
   },
   "profiles": {
    "radku": 2,
-   "sha256": "d4967e1ba1b246366d25fa7d6223437c5cf3e528a8b8453943653811d4f198b4"
+   "sha256": "6d5a961a59e5d2ea9c927a34abc51e35dced2a1b936e3df907df7608b00c310d"
   },
   "allowed_emails": {
    "radku": 2,
@@ -200,8 +200,8 @@
    "sha256": "471cda4b7f2f44cd0aa440e18714023852d902db397167d97e1b50419cec3997"
   },
   "logbook_entries": {
-   "radku": 0,
-   "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+   "radku": 16,
+   "sha256": "0299d4f3b8cc8a0c68d472b1c669a8b0df8ab06388202aaad185046f38be24d5"
   },
   "festival_equipment_loans": {
    "radku": 0,
