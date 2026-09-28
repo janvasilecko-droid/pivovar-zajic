@@ -2366,7 +2366,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                           style={t.prazdny ? undefined : { backgroundColor: beerBg(pivoTanku) }}
                         >
                           <div className="flex items-baseline justify-between gap-1 text-xs font-black leading-none">
-                            <span className="truncate">{kratce(t.label)}{t.staci ? ' 🍺' : ''}</span>
+                            <span className="truncate">{kratce(t.label)}</span>
                             <span className="tabular-nums shrink-0">{t.prazdny ? '—' : `${(t.litry / 100).toFixed(t.litry < 1000 ? 1 : 0)} hl`}</span>
                           </div>
                           <div className="text-udaj font-bold leading-tight truncate">{t.prazdny ? 'prázdný' : (t.pivo || '—')}</div>

@@ -324,7 +324,7 @@ export function idsKRozmisteni(visibleIds: Page[], extraIds: Page[] = []): Page[
  * Použij to jen tehdy, když se rozdělení mění pro VŠECHNY schválně. Cizí
  * rozmístění se tím zahazuje a nejde vzít zpět.
  */
-export const ROZLOZENI_VERZE = 13;
+export const ROZLOZENI_VERZE = 14;
 
 /** Stránka, na které se plocha otevírá — první, „Denní práce". */
 export const VYCHOZI_STRANKA = 0;
@@ -465,14 +465,17 @@ const FALLBACK_CYCLE: TileColor[] = ['indigo', 'orchid', 'forest', 'plum', 'citr
  * a barvy piv v nich vyniknou (28. 9. 2026: „udělej pozadí sklepa a rozvozu
  * jinou barvou").
  */
-export const BARVA_PREHLEDU: Partial<Record<Page, TileColor>> = {
-  prehled_sklep: 'navy',
-  prehled_rozvoz: 'charcoal',
+// Světle modrá (vlastní hex — přednastavené odstíny jsou na to moc syté);
+// z provozu 28. 9. 2026: „to pozadí udělej světlejší, klidně světle modré".
+export const BARVA_PREHLEDU: Partial<Record<Page, string>> = {
+  prehled_sklep: '#a5d8ff',
+  prehled_rozvoz: '#a5d8ff',
 };
 
 function defaultColorFor(id: TileId, indexInFallback: number): TileColor {
   const prehled = BARVA_PREHLEDU[id as Page];
-  if (prehled) return prehled;
+  // Vlastní hex je v přebarvení dlaždice dovolený stejně jako přednastavený odstín.
+  if (prehled) return prehled as TileColor;
   const category = PAGE_CATEGORY[id as Page];
   if (category) return CATEGORY_COLOR[category];
   return FALLBACK_CYCLE[indexInFallback % FALLBACK_CYCLE.length];
@@ -961,10 +964,10 @@ export function getHomeLayout(raw: unknown, visibleIds: Page[], extraIds: Page[]
   }
   // Verze 12: přehled tanků a „co naložit" mají vlastní dlaždice
   // (prehled_sklep, prehled_rozvoz); Sklep a Rozvoz jsou zase obyčejné.
-  // Verze 13: přehledové dlaždice dostanou svoje tmavé pozadí (BARVA_PREHLEDU).
-  if (!uzRozdeleno && !jenZalozena && zname < 13) {
+  // Verze 13/14: přehledové dlaždice dostanou svoje pozadí (BARVA_PREHLEDU).
+  if (!uzRozdeleno && !jenZalozena && zname < 14) {
     const overrides = { ...kRozdeleni.overrides };
-    for (const [id, barva] of Object.entries(BARVA_PREHLEDU) as [TileId, TileColor][]) {
+    for (const [id, barva] of Object.entries(BARVA_PREHLEDU) as [TileId, string][]) {
       const o = overrides[id];
       if (o) overrides[id] = { ...o, color: barva };
     }

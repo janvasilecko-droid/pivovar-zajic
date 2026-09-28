@@ -312,15 +312,15 @@ describe('jednorázové přeskládání plochy (ROZLOZENI_VERZE)', () => {
     expect(layout.overrides.orders_zavoz?.w).toBe(1);
   });
 
-  it('přehledové dlaždice mají vlastní tmavé pozadí (verze 13)', () => {
+  it('přehledové dlaždice mají vlastní světle modré pozadí (verze 14)', () => {
     const verze12 = {
       pages: [['prehled_rozvoz', 'prehled_sklep', 'cellar'], ['app_settings']],
       overrides: { prehled_rozvoz: { w: 3, h: 2, color: 'amber2' }, prehled_sklep: { w: 3, h: 2, color: 'cobalt' }, cellar: { w: 1, h: 1, color: 'teal' } },
       rozlozeniVerze: 12,
     };
     const layout = getHomeLayout(verze12, viditelne, ['prehled_rozvoz', 'prehled_sklep'], GRID_COLS_MOBILE);
-    expect(layout.overrides.prehled_sklep?.color).toBe('navy');
-    expect(layout.overrides.prehled_rozvoz?.color).toBe('charcoal');
+    expect(layout.overrides.prehled_sklep?.color).toBe('#a5d8ff');
+    expect(layout.overrides.prehled_rozvoz?.color).toBe('#a5d8ff');
     expect(layout.overrides.cellar?.color).toBe('teal');
   });
 
