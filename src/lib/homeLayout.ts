@@ -248,14 +248,16 @@ export const DLAZDICE_DENNI_PRACE: Page[] = [
 ];
 
 export const STRANKY_PLOCHY: Array<{ nazev: string; ids: Page[] }> = [
-  // Lísteček s poznámkami patří k denní práci (28. 9. 2026: „na úvodní
-  // stránku dej ten lístek na poznámky") — běžná velikost, ne velká.
-  { nazev: 'Denní práce', ids: [...DLAZDICE_DENNI_PRACE, 'notes'] },
+  // Pod velkými dlaždicemi běžná velikost: lísteček s poznámkami, Prodejna
+  // (fasování, odpis), Plán stáčení a Časovač — z provozu 28. 9. 2026: „na
+  // úvodní stránku dej ten lístek na poznámky", „fasování, odpis, prodejna
+  // musí být na úvodní stránce", „plán stáčení taky", „časovač taky".
+  { nazev: 'Denní práce', ids: [...DLAZDICE_DENNI_PRACE, 'notes', 'prodejna', 'bottling_needs', 'timer'] },
   {
     nazev: 'Další',
     ids: [
-      'prodejna', 'akce', 'bottling_needs', 'history',
-      'sklo_promo', 'vehicles', 'haccp', 'calendar', 'timer', 'export_excel', 'depozitar',
+      'akce', 'history',
+      'sklo_promo', 'vehicles', 'haccp', 'calendar', 'export_excel', 'depozitar',
       'navod', 'audit', 'users', 'app_settings', 'zaloha', 'signout',
     ],
   },
@@ -310,7 +312,7 @@ export function idsKRozmisteni(visibleIds: Page[], extraIds: Page[] = []): Page[
  * Použij to jen tehdy, když se rozdělení mění pro VŠECHNY schválně. Cizí
  * rozmístění se tím zahazuje a nejde vzít zpět.
  */
-export const ROZLOZENI_VERZE = 5;
+export const ROZLOZENI_VERZE = 6;
 
 /** Stránka, na které se plocha otevírá — první, „Denní práce". */
 export const VYCHOZI_STRANKA = 0;
