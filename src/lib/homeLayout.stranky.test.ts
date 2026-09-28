@@ -29,7 +29,7 @@ describe('rozdelDoStranek — Denní práce a Další (28. 9. 2026)', () => {
     expect(VYCHOZI_STRANKA).toBe(0);
     expect(STRANKY_PLOCHY[VYCHOZI_STRANKA].nazev).toBe('Denní práce');
     expect(stranky[VYCHOZI_STRANKA]).toEqual(
-      ['prehled_rozvoz', 'orders_zavoz', 'cellar', 'notes', 'prodejna', 'bottling_needs', 'timer', 'history'],
+      ['orders_zavoz', 'cellar', 'notes', 'prodejna', 'bottling_needs', 'timer', 'history'],
     );
   });
 
@@ -76,8 +76,7 @@ describe('rozdelDoStranek — Denní práce a Další (28. 9. 2026)', () => {
     expect(layout.pages[layout.pages.length - 1]).toEqual([]);
     // První je denní práce — na ní se plocha otevírá, s velkými dlaždicemi.
     expect(sObsahem[VYCHOZI_STRANKA]).toContain('cellar');
-    expect(sObsahem[VYCHOZI_STRANKA]).toContain('prehled_rozvoz');
-    expect(layout.overrides.prehled_rozvoz?.w).toBe(3);
+    expect(sObsahem[VYCHOZI_STRANKA]).toContain('orders_zavoz');
     expect(layout.overrides.cellar?.w).toBe(1);
     // KEG, Lahve, Objednávky, Nová obj. a Sklad jsou na „Další" (28. 9. 2026).
     expect(sObsahem[1]).toContain('kegging');
@@ -295,30 +294,19 @@ describe('jednorázové přeskládání plochy (ROZLOZENI_VERZE)', () => {
     expect(layout.overrides.notes?.h).toBe(1);
   });
 
-  it('plocha z verze 11 dostane přehled Rozvozu a Sklep s Rozvozem zase malé', () => {
-    const verze11 = {
-      pages: [['orders_zavoz', 'cellar', 'notes'], ['app_settings']],
-      overrides: { orders_zavoz: { w: 3, h: 2 }, cellar: { w: 3, h: 2, color: 'teal' } },
-      rozlozeniVerze: 11,
+  it('plocha z verze 15 ztratí přehledové dlaždice; Sklep a Rozvoz jsou obyčejné', () => {
+    // Přehledy tanků a „co naložit" jsou od 28. 9. 2026 okna nahoře na ploše,
+    // mimo dlaždice — stará dlaždice prehled_* z plochy zmizí sama.
+    const verze15 = {
+      pages: [['prehled_rozvoz', 'orders_zavoz', 'cellar', 'notes'], ['app_settings']],
+      overrides: { prehled_rozvoz: { w: 3, h: 2 }, orders_zavoz: { w: 1, h: 1 }, cellar: { w: 1, h: 1, color: 'teal' } },
+      rozlozeniVerze: 15,
     };
-    const layout = getHomeLayout(verze11, viditelne, ['orders_zavoz', 'notes', 'prehled_rozvoz'], GRID_COLS_MOBILE);
+    const layout = getHomeLayout(verze15, viditelne, ['orders_zavoz', 'notes'], GRID_COLS_MOBILE);
     const [uvod] = layout.pages.filter((p) => p.length > 0);
-    expect(uvod.slice(0, 3)).toEqual(['prehled_rozvoz', 'orders_zavoz', 'cellar']);
-    expect(layout.overrides.prehled_rozvoz?.w).toBe(3);
+    expect(layout.pages.flat()).not.toContain('prehled_rozvoz');
+    expect(uvod.slice(0, 2)).toEqual(['orders_zavoz', 'cellar']);
     expect(layout.overrides.cellar?.w).toBe(1);
-    expect(layout.overrides.cellar?.h).toBe(1);
-    expect(layout.overrides.cellar?.color).toBe('teal');
-    expect(layout.overrides.orders_zavoz?.w).toBe(1);
-  });
-
-  it('přehled Rozvozu má vlastní světle modré pozadí (verze 14)', () => {
-    const verze12 = {
-      pages: [['prehled_rozvoz', 'cellar'], ['app_settings']],
-      overrides: { prehled_rozvoz: { w: 3, h: 2, color: 'amber2' }, cellar: { w: 1, h: 1, color: 'teal' } },
-      rozlozeniVerze: 12,
-    };
-    const layout = getHomeLayout(verze12, viditelne, ['prehled_rozvoz'], GRID_COLS_MOBILE);
-    expect(layout.overrides.prehled_rozvoz?.color).toBe('#a5d8ff');
     expect(layout.overrides.cellar?.color).toBe('teal');
   });
 

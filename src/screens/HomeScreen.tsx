@@ -14,13 +14,14 @@ import { Modal } from '../components/ui';
 import { useAuth } from '../lib/auth';
 import { canUserView, getUserPermissions, PAGE_TO_MODULE } from '../lib/permissions';
 import { isAdminEmail } from '../lib/config';
-import { supabase, Vehicle, fetchAllRows, useRealtime, beerBg, beerText } from '../lib/supabase';
+import { supabase, Vehicle, fetchAllRows, useRealtime } from '../lib/supabase';
 import { getVehicleExpiryStatus } from '../lib/vozidla';
 import { businessDateISO, posunDen } from '../lib/businessDate';
 import { IkonaSud, IkonaLahev, IkonaVycep } from '../components/ikony';
 import { HomeNotesModal } from '../components/HomeNotesModal';
 import CoStocitOkno from '../components/CoStocitOkno';
 import { PrehledTankuPlocha } from '../components/PrehledTankuPlocha';
+import { CoNalozitOkno } from '../components/CoNalozitOkno';
 import { nactiSdilenouTabulku } from '../lib/sdilenaData';
 // Návod je přes deset kilobajtů textu, který většina lidí za den neotevře —
 // stáhne se až při klepnutí na dlaždici.
@@ -775,7 +776,6 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
       return;
     }
     // Přehledové dlaždice nejsou obrazovky — vedou na podrobnosti.
-    if (id === 'prehled_rozvoz') { setPage('orders_zavoz'); return; }
     if (id === 'signout') {
       if ((await potvrd('Odhlásit se z appky?'))) signOut();
       return;
@@ -1110,7 +1110,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   // ukázal pondělí.
   const [nalozit, setNalozit] = useState<NalozitNaZavoz | null>(null);
   const nactiNalozit = () => {
-    if (!layout.pages.some((p) => p.includes('prehled_rozvoz') || p.includes('orders_zavoz'))) return;
+    if (!extraVisibleIds.includes('orders_zavoz')) return;
     void (async () => {
       const dnes = businessDateISO();
       const { data } = await fetchAllRows<any>('orders', 'delivery_date, status, place_name, order_items(beer_name, package_label, quantity)')
@@ -1472,6 +1472,12 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
           (28. 9. 2026). Klepnutí otevře Sklep. */}
       {!editMode && visibleIds.includes('cellar') && (
         <PrehledTankuPlocha tanky={tankyNaPlochu} onOtevrit={() => setPage('cellar')} />
+      )}
+
+      {/* 🚚 Co naložit na nejbližší závoz — sbalené, když nic není
+          (28. 9. 2026: „ten rozvoz udělej tak jako co stočit"). */}
+      {!editMode && extraVisibleIds.includes('orders_zavoz') && (
+        <CoNalozitOkno nalozit={nalozit} barvyPiv={barvyPiv} onOtevrit={() => setPage('orders_zavoz')} />
       )}
 
       {/* 🍺 Co je potřeba stočit dnes / na den / za týden, sudy nebo lahve.
@@ -2415,53 +2421,6 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                     <span>{dnesniZavoz.objednavek} obj.</span>
                     <span>Objednávky ➔</span>
                   </div>
-                </div>
-              );
-            }
-
-            // Přehledová dlaždice Rozvoz (prehled_rozvoz) — co naložit na
-            // nejbližší závoz. Klepnutí vede na Rozvoz.
-            if (id === 'prehled_rozvoz') {
-              const den = nalozit ? new Date(nalozit.datum + 'T00:00:00').toLocaleDateString('cs-CZ', { weekday: 'short', day: 'numeric', month: 'numeric' }) : '';
-              const kolik = (override.w ?? 1) >= 2 ? 8 : 4;
-              const vidno = nalozit?.polozky.slice(0, kolik) ?? [];
-              const zbyva = (nalozit?.polozky.length ?? 0) - vidno.length;
-              customContent = (
-                <div className="w-full h-full flex flex-col p-2 text-left select-none overflow-hidden">
-                  {/* Nápis malým písmem — místo patří tomu, co naložit (28. 9. 2026). */}
-                  <div className="flex items-center justify-between gap-2 border-b border-black/10 pb-0.5">
-                    <span className="font-bold text-udaj opacity-70 truncate">{nalozit ? `Naložit · ${den}` : 'Rozvoz'}</span>
-                    {nalozit && <span className="text-udaj font-bold opacity-70 shrink-0">{kusy(nalozit.kusuCelkem)}</span>}
-                  </div>
-                  {nalozit ? (
-                    <div className={`flex-1 min-h-0 pt-1 grid gap-1 content-start ${(override.w ?? 1) >= 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
-                      {vidno.map((p) => {
-                        // Pivo v barvě z nastavení piv — rozdíl mezi pivy je
-                        // vidět na první pohled (28. 9. 2026).
-                        const pivoRadku = { beer_color: barvyPiv.get(p.pivo.trim().toLowerCase()) ?? null };
-                        const pismoRadku = beerText(pivoRadku);
-                        return (
-                          <div
-                            key={`${p.pivo}__${p.obal}`}
-                            className={`flex items-baseline gap-1 text-udaj font-bold leading-snug min-w-0 rounded px-1.5 py-0.5 ${pismoRadku}`}
-                            style={{ backgroundColor: beerBg(pivoRadku) }}
-                          >
-                            <span className="truncate">{p.pivo}</span>
-                            <span className="opacity-80 truncate">{p.obal}</span>
-                            <span className="ml-auto shrink-0 tabular-nums">× {p.kusu}</span>
-                          </div>
-                        );
-                      })}
-                      {zbyva > 0 && <div className="text-udaj font-bold opacity-70">+{zbyva} další</div>}
-                    </div>
-                  ) : (
-                    <div className="my-auto text-xs font-bold opacity-80">Na příští dny zatím nic k závozu.</div>
-                  )}
-                  {nalozit && (
-                    <div className="text-udaj font-bold opacity-60 pt-1 border-t border-black/10 truncate">
-                      {nalozit.objednavek} obj. · {nalozit.mista.slice(0, 3).join(', ')}{nalozit.mista.length > 3 ? '…' : ''}
-                    </div>
-                  )}
                 </div>
               );
             }

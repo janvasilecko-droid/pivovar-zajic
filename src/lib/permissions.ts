@@ -233,7 +233,6 @@ export const PAGE_TO_MODULE: Record<string, ModuleKey> = {
   orders_detail: 'orders',
   orders_celkem: 'orders',
   orders_zavoz: 'zavoz',
-  prehled_rozvoz: 'zavoz',
   zavoz: 'zavoz',
   kniha_jizd: 'kniha_jizd',
   stock: 'stock',
