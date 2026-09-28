@@ -14,8 +14,10 @@ vi.mock('../lib/monthlyCleanup', async () => {
   return { ...skutecne, isLastWeekOfMonth: () => true };
 });
 
+// Profil jde v testu přepnout — admin určuje, komu se okno ukazuje.
+let profil: { display_name: string; permissions?: unknown } | null = { display_name: 'Vasil' };
 vi.mock('../lib/auth', () => ({
-  useAuth: () => ({ profile: { display_name: 'Vasil' } }),
+  useAuth: () => ({ profile: profil }),
 }));
 
 const zapisLahve = vi.fn().mockResolvedValue(undefined);
@@ -29,6 +31,7 @@ vi.mock('../lib/kegSanitation', () => ({
 
 describe('Upozornění na měsíční úklid', () => {
   beforeEach(() => {
+    profil = { display_name: 'Vasil' };
     localStorage.clear();
     zapisLahve.mockClear();
     zapisKeg.mockClear();
@@ -91,5 +94,25 @@ describe('Upozornění na měsíční úklid', () => {
     localStorage.setItem('monthly_cleanup_dismiss_' + getMonthKey(), 'done');
     const { container } = render(<MonthlyCleanupWarning />);
     expect(container.firstChild).toBeNull();
+  });
+
+  // Z provozu 28. 9. 2026: „já jako admin určím, komu se to zobrazí."
+  it('komu admin úklid vypnul, tomu se okno neukáže — ani z dlaždice', () => {
+    profil = { display_name: 'Pepa', permissions: { mesicni_uklid: false } };
+    const { container } = render(<MonthlyCleanupWarning />);
+    act(() => otevriMesicniUklid());
+    expect(container.innerHTML).toBe('');
+  });
+
+  it('dokud se profil nenačte, okno nebliká', () => {
+    profil = null;
+    const { container } = render(<MonthlyCleanupWarning />);
+    expect(container.innerHTML).toBe('');
+  });
+
+  it('kdo nastavení nemá (dřívější uživatelé), okno vidí dál', () => {
+    profil = { display_name: 'Vasil', permissions: { cellar: { view: true, edit: true } } };
+    render(<MonthlyCleanupWarning />);
+    expect(screen.getByText(/^Začít/)).toBeTruthy();
   });
 });

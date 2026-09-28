@@ -16,11 +16,14 @@ export function UserPermissionsModal({
   onClose,
   onSaveSuccess,
 }: {
-  user: { id: string; email: string; display_name: string | null; role: string };
+  user: { id: string; email: string; display_name: string | null; role: string; permissions?: unknown };
   onClose: () => void;
   onSaveSuccess: () => void;
 }) {
-  const [permissions, setPermissions] = useState<UserPermissions>(() => getUserPermissions(user.id));
+  // Práva ze serveru (seznam uživatelů je vrací z manage-users) — dřív se
+  // četla jen z tohohle zařízení, takže admin na jiném telefonu viděl plná
+  // práva a uložením by je přepsal.
+  const [permissions, setPermissions] = useState<UserPermissions>(() => getUserPermissions(user.id, user.permissions));
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -53,7 +56,8 @@ export function UserPermissionsModal({
   }
 
   function applyPreset(preset: typeof PRESET_ROLES[0]) {
-    setPermissions(preset.permissions);
+    // Předvolba mění jen moduly — upozornění na měsíční úklid nechá, jak je.
+    setPermissions((prev) => ({ ...preset.permissions, mesicni_uklid: prev.mesicni_uklid }));
   }
 
   async function handleSave() {
@@ -207,6 +211,23 @@ export function UserPermissionsModal({
               );
             })}
           </div>
+        </div>
+
+        {/* Upozornění — komu se ukazuje okno měsíčního úklidu (lib/permissions.ts). */}
+        <div className="p-3.5 rounded bg-rose-50/60 border border-rose-200 space-y-1.5">
+          <label className="flex items-center gap-2.5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={permissions.mesicni_uklid !== false}
+              onChange={(e) => setPermissions((prev) => ({ ...prev, mesicni_uklid: e.target.checked }))}
+              className="w-5 h-5 rounded accent-rose-600"
+            />
+            <span className="text-sm font-bold text-neutral-900">Zobrazovat „Měsíční úklid stáčečky/lahve"</span>
+          </label>
+          <p className="text-udaj text-neutral-600 font-medium pl-7">
+            V posledním týdnu měsíce se po otevření aplikace ukáže checklist úklidu stáčeček a KEGů.
+            „Udělám na konci týdne" ho odloží — v pátek se připomene znovu.
+          </p>
         </div>
 
         {/* Footer Actions */}

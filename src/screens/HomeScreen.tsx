@@ -12,7 +12,7 @@ import LauncherTile, { tileGridStyle } from '../components/LauncherTile';
 import { QuickSearchModal } from '../components/QuickSearchModal';
 import { Modal } from '../components/ui';
 import { useAuth } from '../lib/auth';
-import { canUserView, getUserPermissions, PAGE_TO_MODULE } from '../lib/permissions';
+import { canUserView, getUserPermissions, PAGE_TO_MODULE, vidiMesicniUklid } from '../lib/permissions';
 import { isAdminEmail } from '../lib/config';
 import { supabase, Vehicle, fetchAllRows, useRealtime } from '../lib/supabase';
 import { getVehicleExpiryStatus } from '../lib/vozidla';
@@ -1938,7 +1938,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                   <div className="hs-lbl">Nová verze {newVersionInfo.version}</div>
                 </button>
               )}
-              {monthlyCleanupPending && (
+              {monthlyCleanupPending && vidiMesicniUklid((profile as any)?.permissions) && (
                 <button type="button" className="hs-tile hs-tile-alert vlastni-vyska" onClick={otevriMesicniUklid}>
                   <div className="hs-tile-icon-box">
                     <CalendarX2 />

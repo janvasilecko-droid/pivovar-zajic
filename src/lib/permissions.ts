@@ -28,7 +28,24 @@ export type ModuleAccess = {
   edit: boolean;
 };
 
-export type UserPermissions = Record<ModuleKey, ModuleAccess>;
+export type UserPermissions = Record<ModuleKey, ModuleAccess> & {
+  /** Viz vidiMesicniUklid() níž. Chybí = zobrazuje se (dřívější chování). */
+  mesicni_uklid?: boolean;
+};
+
+/**
+ * Zobrazuje se tomuhle uživateli okno „Měsíční úklid stáčečky/lahve"
+ * v posledním týdnu měsíce (a červená dlaždice na ploše)? Určuje admin
+ * v Uživatelé → Práva. Z provozu 28. 9. 2026: „já jako admin určím, komu
+ * se to zobrazí."
+ *
+ * Platí i pro adminy — ani majiteli se to nemusí ukazovat. Kdo nastavení
+ * nemá (všichni před touto změnou), okno vidí dál.
+ */
+export function vidiMesicniUklid(rawPermissionsJson?: unknown): boolean {
+  if (!rawPermissionsJson || typeof rawPermissionsJson !== 'object') return true;
+  return (rawPermissionsJson as { mesicni_uklid?: unknown }).mesicni_uklid !== false;
+}
 
 export const MODULE_DEFINITIONS: { id: ModuleKey; label: string; icon: LucideIcon; desc: string }[] = [
   { id: 'dashboard', label: 'Sklad', icon: BarChart3, desc: 'Přehled týdnů, zásoby piv na skladě, vyčerpání a STK vozidel.' },

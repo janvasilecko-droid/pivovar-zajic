@@ -11,6 +11,7 @@ import { KEG_DEFAULT_ITEMS, KEG_MONTHLY_CATEGORY_PREFIX } from './KeggingCheckli
 import { autoLogBottleSanitationFromChecklist } from '../lib/bottleSanitation';
 import { autoLogKegSanitationFromChecklist } from '../lib/kegSanitation';
 import { uloz } from '../lib/uloziste';
+import { vidiMesicniUklid } from '../lib/permissions';
 
 type Props = {
   // Volitelné: tlačítko, které rovnou otevře stáčení lahví (a tam se po splnění
@@ -151,7 +152,9 @@ export function MonthlyCleanupWarning({ onOpenMonthlyChecklist, onOpenKegMonthly
     return () => window.removeEventListener(OTEVRIT_MESICNI_UKLID_EVENT, otevri);
   }, []);
 
-  if (!open) return null;
+  // Komu se okno ukazuje, určuje admin (Uživatelé → Práva). Dokud se profil
+  // nenačte, nic se neukáže — jinak by na chvíli bliklo i tomu, kdo ho mít nemá.
+  if (!open || !profile || !vidiMesicniUklid((profile as { permissions?: unknown }).permissions)) return null;
 
   const vsechnyPolozky = [...MESICNI_LAHVE, ...MESICNI_KEG];
   const hotovoKusu = vsechnyPolozky.filter((it) => odskrtnuto[it.id]).length;

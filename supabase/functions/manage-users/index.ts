@@ -68,7 +68,7 @@ Deno.serve(async (req: Request) => {
       const users = (data.users ?? []).map((u: any) => ({
         id: u.id, email: u.email, created_at: u.created_at, last_sign_in_at: u.last_sign_in_at,
       }));
-      const { data: profiles } = await adminClient.from("profiles").select("id, display_name, role");
+      const { data: profiles } = await adminClient.from("profiles").select("id, display_name, role, permissions");
       const profMap = new Map((profiles ?? []).map((p: any) => [p.id, p]));
       const { data: emails } = await adminClient.from("allowed_emails").select("email, status, created_at").order("email");
       return json({ users: users.map((u: any) => ({ ...u, ...profMap.get(u.id) })), emails: emails ?? [] });

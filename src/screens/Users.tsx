@@ -14,6 +14,8 @@ type UserRow = {
   id: string; email: string; display_name: string | null;
   role: 'admin' | 'user'; created_at: string; last_sign_in_at: string | null;
   receive_vehicle_alerts?: boolean | null;
+  /** Práva ze serveru (manage-users GET) — pro okno Práva. */
+  permissions?: unknown;
 };
 
 /** Záložky obrazovky. Barvy jsou stejný jazyk jako u ostatních „Tabbed" stránek. */
