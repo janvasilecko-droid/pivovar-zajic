@@ -277,6 +277,11 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   // (cellFromPoint níž počítá z JEDINÉ `.hs-grid` v DOM).
   const zobrazVsechnyStrankyNajednou = !editMode && cols === GRID_COLS_DESKTOP;
   const zobrazeneStranky = zobrazVsechnyStrankyNajednou ? layout.pages.map((_, i) => i) : [currentPageIndex];
+  // 🧪 Jedna stránka dlaždic (od ROZLOZENI_VERZE 18, na zkoušku 28. 9. 2026:
+  // „dej všechny dlaždice na jednu stránku dolů"). Prázdná stránka na konci
+  // je jen pro přetažení v úpravě — mimo ni se nelistuje a šipky s tečkami
+  // se neukazují.
+  const jednaStranka = !editMode && layout.pages.filter((p) => p.length > 0).length <= 1;
   // 🖥️ Kolik sloupců stránka OPRAVDU využívá — z provozu 16. 9. 2026: „na
   // notebooku rozáhni ty dlaždice po celý obrazovku, ne jen dolu". Mřížka
   // sama je široká 18 sloupců, ale stránka s pár dlaždicemi je využije jen
@@ -573,7 +578,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
     // Na počítači se stránky nepřetáčí (jsou pod sebou najednou, viz
     // zobrazVsechnyStrankyNajednou výš) — gesto by beztak neměnilo nic
     // vidět, jen tiše přepnulo currentPageIndex na pozadí.
-    if (zobrazVsechnyStrankyNajednou) { swipeStart.current = null; return; }
+    if (zobrazVsechnyStrankyNajednou || jednaStranka) { swipeStart.current = null; return; }
     // Gesto, které začalo uvnitř vodorovného pásku (záložky, řada
     // upozornění), patří tomu pásku — dřív se jím místo posunutí pásku
     // přetočila celá stránka launcheru. Viz jeVeVodorovnemPasku.
@@ -1466,6 +1471,115 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
 
   return (
     <div className="flex flex-col gap-4 min-h-full">
+      {/* Lišta (zajíc, lupa, úprava, nastavení, odhlášení) úplně nahoře
+          (28. 9. 2026: „to menu logo zajíc, lupa, nastavení, odhlášení dej
+          úplně nahoru"). */}
+      <div className="hs-pager" style={{ marginBottom: 0 }}>
+          {/* Značka pivovaru vlevo nahoře — jen zajíc s půllitrem, celý
+              nápis by se do lišty nevešel. Je to obrázek, ne tlačítko:
+              klepnutí sem nesmí nic udělat, prst si na horním okraji
+              odpočívá. */}
+          <img
+            src="/logo-zajic-znak.svg"
+            alt=""
+            aria-hidden="true"
+            className="hs-pager-znak vlastni-vyska"
+          />
+          {(layout.pages.length > 1 || editMode) && !zobrazVsechnyStrankyNajednou && !jednaStranka && (
+          <>
+          <button
+            type="button"
+            className="hs-pager-arrow vlastni-vyska"
+            disabled={currentPageIndex === 0}
+            onClick={() => setCurrentPageIndex((i) => Math.max(0, i - 1))}
+            title="Předchozí stránka"
+            aria-label="Předchozí stránka"
+          >
+            <ChevronLeft size={18} />
+          </button>
+          <div className="hs-pager-dots">
+            {layout.pages.map((_, i) => (
+              <button
+                key={i}
+                type="button"
+                className={`hs-pager-dot vlastni-vyska ${i === currentPageIndex ? 'active' : ''}`}
+                onClick={() => setCurrentPageIndex(i)}
+                title={`Stránka ${i + 1}`}
+              />
+            ))}
+          </div>
+          <button
+            type="button"
+            className="hs-pager-arrow vlastni-vyska"
+            disabled={currentPageIndex === layout.pages.length - 1}
+            onClick={() => setCurrentPageIndex((i) => Math.min(layout.pages.length - 1, i + 1))}
+            title="Další stránka"
+            aria-label="Další stránka"
+          >
+            <ChevronRight size={18} />
+          </button>
+          </>
+          )}
+          {/* Ovládání launcheru — malé ikony místo velkých dlaždic. */}
+          <button
+            type="button"
+            className="hs-pager-manage vlastni-vyska"
+            title="Hledat"
+            aria-label="Hledat"
+            onClick={() => setShowSearchModal(true)}
+          >
+            <Search size={16} />
+          </button>
+          <button
+            type="button"
+            className={`hs-pager-manage vlastni-vyska ${editMode ? 'hs-pager-manage-on' : ''}`}
+            title={editMode ? 'Hotovo' : 'Upravit rozložení'}
+            aria-label={editMode ? 'Hotovo' : 'Upravit rozložení'}
+            onClick={() => { setEditMode((v) => !v); setSelectedTileId(null); }}
+          >
+            {editMode ? <Check size={16} /> : <SlidersHorizontal size={16} />}
+          </button>
+          {/* Nastavení je malá ikona, ne dlaždice — sahá se na ně jednou za
+              měsíc a v mřížce zabíralo místo, které si zaslouží něco, co
+              člověk otevírá denně. Z uloženého rozložení se NEVYHAZUJE (jen
+              se nevykresluje v mřížce), takže se dá kdykoliv vrátit —
+              stejným postupem jako „Odhlásit se". */}
+          <button
+            type="button"
+            className="hs-pager-manage vlastni-vyska"
+            title="Aplikace & Nastavení"
+            aria-label="Aplikace & Nastavení"
+            onClick={() => setPage('app_settings')}
+          >
+            <Settings size={16} />
+          </button>
+          <button
+            type="button"
+            className="hs-pager-manage vlastni-vyska"
+            title="Odhlásit se"
+            aria-label="Odhlásit se"
+            onClick={async () => { if (await potvrd('Odhlásit se z aplikace?', { potvrdit: 'Odhlásit' })) signOut(); }}
+          >
+            <LogOut size={16} />
+          </button>
+          {editMode && (
+            <>
+              <button type="button" className="hs-pager-manage hs-pager-manage-labeled vlastni-vyska" onClick={handleAddPage}>
+                <Plus size={16} /> Přidat stránku
+              </button>
+              {layout.pages.length > 1 && (
+                <button type="button" className="hs-pager-manage vlastni-vyska" title="Smazat tuhle stránku" onClick={handleRemoveCurrentPage} aria-label="Smazat tuhle stránku">
+                  <Trash2 size={16} />
+                </button>
+              )}
+              {addableItems.length > 0 && (
+                <button type="button" className="hs-pager-manage hs-pager-manage-labeled vlastni-vyska" onClick={() => setShowAddTileModal(true)}>
+                  <Plus size={16} /> Přidat dlaždici
+                </button>
+              )}
+            </>
+          )}
+        </div>
       {/* Živý pruh varny / stopky / odpočet — zobrazí se nahoře jen když běží stopky nebo odpočet */}
       <BrewKettleTopBanner
         stopwatchState={stopwatchState}
@@ -1622,113 +1736,6 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
             </div>
           </div>
         )}
-
-        <div className="hs-pager">
-            {/* Značka pivovaru vlevo nahoře — jen zajíc s půllitrem, celý
-                nápis by se do lišty nevešel. Je to obrázek, ne tlačítko:
-                klepnutí sem nesmí nic udělat, prst si na horním okraji
-                odpočívá. */}
-            <img
-              src="/logo-zajic-znak.svg"
-              alt=""
-              aria-hidden="true"
-              className="hs-pager-znak vlastni-vyska"
-            />
-            {(layout.pages.length > 1 || editMode) && !zobrazVsechnyStrankyNajednou && (
-            <>
-            <button
-              type="button"
-              className="hs-pager-arrow vlastni-vyska"
-              disabled={currentPageIndex === 0}
-              onClick={() => setCurrentPageIndex((i) => Math.max(0, i - 1))}
-              title="Předchozí stránka"
-              aria-label="Předchozí stránka"
-            >
-              <ChevronLeft size={18} />
-            </button>
-            <div className="hs-pager-dots">
-              {layout.pages.map((_, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  className={`hs-pager-dot vlastni-vyska ${i === currentPageIndex ? 'active' : ''}`}
-                  onClick={() => setCurrentPageIndex(i)}
-                  title={`Stránka ${i + 1}`}
-                />
-              ))}
-            </div>
-            <button
-              type="button"
-              className="hs-pager-arrow vlastni-vyska"
-              disabled={currentPageIndex === layout.pages.length - 1}
-              onClick={() => setCurrentPageIndex((i) => Math.min(layout.pages.length - 1, i + 1))}
-              title="Další stránka"
-              aria-label="Další stránka"
-            >
-              <ChevronRight size={18} />
-            </button>
-            </>
-            )}
-            {/* Ovládání launcheru — malé ikony místo velkých dlaždic. */}
-            <button
-              type="button"
-              className="hs-pager-manage vlastni-vyska"
-              title="Hledat"
-              aria-label="Hledat"
-              onClick={() => setShowSearchModal(true)}
-            >
-              <Search size={16} />
-            </button>
-            <button
-              type="button"
-              className={`hs-pager-manage vlastni-vyska ${editMode ? 'hs-pager-manage-on' : ''}`}
-              title={editMode ? 'Hotovo' : 'Upravit rozložení'}
-              aria-label={editMode ? 'Hotovo' : 'Upravit rozložení'}
-              onClick={() => { setEditMode((v) => !v); setSelectedTileId(null); }}
-            >
-              {editMode ? <Check size={16} /> : <SlidersHorizontal size={16} />}
-            </button>
-            {/* Nastavení je malá ikona, ne dlaždice — sahá se na ně jednou za
-                měsíc a v mřížce zabíralo místo, které si zaslouží něco, co
-                člověk otevírá denně. Z uloženého rozložení se NEVYHAZUJE (jen
-                se nevykresluje v mřížce), takže se dá kdykoliv vrátit —
-                stejným postupem jako „Odhlásit se". */}
-            <button
-              type="button"
-              className="hs-pager-manage vlastni-vyska"
-              title="Aplikace & Nastavení"
-              aria-label="Aplikace & Nastavení"
-              onClick={() => setPage('app_settings')}
-            >
-              <Settings size={16} />
-            </button>
-            <button
-              type="button"
-              className="hs-pager-manage vlastni-vyska"
-              title="Odhlásit se"
-              aria-label="Odhlásit se"
-              onClick={async () => { if (await potvrd('Odhlásit se z aplikace?', { potvrdit: 'Odhlásit' })) signOut(); }}
-            >
-              <LogOut size={16} />
-            </button>
-            {editMode && (
-              <>
-                <button type="button" className="hs-pager-manage hs-pager-manage-labeled vlastni-vyska" onClick={handleAddPage}>
-                  <Plus size={16} /> Přidat stránku
-                </button>
-                {layout.pages.length > 1 && (
-                  <button type="button" className="hs-pager-manage vlastni-vyska" title="Smazat tuhle stránku" onClick={handleRemoveCurrentPage} aria-label="Smazat tuhle stránku">
-                    <Trash2 size={16} />
-                  </button>
-                )}
-                {addableItems.length > 0 && (
-                  <button type="button" className="hs-pager-manage hs-pager-manage-labeled vlastni-vyska" onClick={() => setShowAddTileModal(true)}>
-                    <Plus size={16} /> Přidat dlaždici
-                  </button>
-                )}
-              </>
-            )}
-          </div>
 
         {/* Přejetí prstem kdekoliv nad dlaždicemi (mimo edit mód) přepíná
             stránku launcheru — viz handleSwipePointerDown/Up výš. */}

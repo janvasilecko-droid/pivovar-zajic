@@ -13,7 +13,7 @@ import type { Page } from '../components/Layout';
 
 const VSECHNY: Page[] = [...NAV.map((n) => n.id), ...EXTRA_NAV.map((n) => n.id)];
 
-describe('rozdelDoStranek — Denní práce a Další (28. 9. 2026)', () => {
+describe('rozdelDoStranek — jedna stránka pod sebou (28. 9. 2026, na zkoušku)', () => {
   it('rozdělí VŠECHNY dlaždice a žádnou neztratí ani nezdvojí', () => {
     const stranky = rozdelDoStranek(VSECHNY as TileId[]);
     const vsechnyVeStrankach = stranky.flat();
@@ -22,31 +22,28 @@ describe('rozdelDoStranek — Denní práce a Další (28. 9. 2026)', () => {
     expect([...vsechnyVeStrankach].sort()).toEqual([...VSECHNY].sort());
   });
 
-  it('úvodní stránka: nakládka, rozvoz, sklep, poznámky, prodejna, plán stáčení, časovač, statistika', () => {
-    // „Ať je tam klidně míň funkcí, ale víc funkčních" — úvodní stránka má
-    // jen to, co se dělá každý den. Zbytek je jedno přejetí prstem daleko.
+  it('všechno na jedné stránce: nahoře denní práce, pod ní zbytek', () => {
+    // „Dej všechny dlaždice na jednu stránku dolů, na zkoušku" (28. 9. 2026).
     const stranky = rozdelDoStranek(VSECHNY as TileId[]);
     expect(VYCHOZI_STRANKA).toBe(0);
-    expect(STRANKY_PLOCHY[VYCHOZI_STRANKA].nazev).toBe('Denní práce');
-    expect(stranky[VYCHOZI_STRANKA]).toEqual(
-      // Nakládka závoz první (28. 9. 2026: „ten rozvoz zhora vymaž, ale přidej
-      // na úvodní plochu dlaždici nakládka závoz").
+    expect(STRANKY_PLOCHY).toHaveLength(1);
+    expect(stranky).toHaveLength(1);
+    // Nakládka závoz první (28. 9. 2026: „ten rozvoz zhora vymaž, ale přidej
+    // na úvodní plochu dlaždici nakládka závoz"), pak denní práce.
+    expect(stranky[0].slice(0, 8)).toEqual(
       ['nakladka', 'orders_zavoz', 'cellar', 'notes', 'prodejna', 'bottling_needs', 'timer', 'history'],
     );
+    // Co bylo na „Další", je pod tím.
+    expect(stranky[0]).toContain('kegging');
+    expect(stranky[0]).toContain('depozitar'); // Číselníky
+    expect(stranky[0].indexOf('kegging')).toBeGreaterThan(stranky[0].indexOf('history'));
   });
 
-  it('úvodní stránka se nesmí rozjet do seznamu — nejvýš dvanáct dlaždic', () => {
-    // Pojistka proti tomu, aby se sem postupně naskládalo všechno.
-    expect(STRANKY_PLOCHY[VYCHOZI_STRANKA].ids.length).toBeLessThanOrEqual(12);
-  });
-
-  it('na stránce Další jsou nástroje, číselníky a nastavení', () => {
-    const [, dalsi] = rozdelDoStranek(VSECHNY as TileId[]);
-    expect(STRANKY_PLOCHY[1].nazev).toBe('Další');
-    expect(dalsi).toContain('app_settings');
-    expect(dalsi).toContain('calendar');
-    expect(dalsi).toContain('app_settings');
-    expect(dalsi).toContain('depozitar'); // Číselníky
+  it('Nastavení a Odhlásit (ikony v liště) jsou úplně na konci — jinak by v mřížce zbyla díra', () => {
+    // Simulace plochy 28. 9. 2026: mezi „Uživatelé" a „Stáhnout zálohu"
+    // zůstalo prázdné místo, kde by stála nekreslená dlaždice Nastavení.
+    const [stranka] = rozdelDoStranek([...VSECHNY, 'co2', 'grp_neco'] as TileId[]);
+    expect(stranka.slice(-2)).toEqual(['app_settings', 'signout']);
   });
 
   it('dlaždice, na které uživatel nemá právo, nenechají prázdné místo', () => {
@@ -62,26 +59,24 @@ describe('rozdelDoStranek — Denní práce a Další (28. 9. 2026)', () => {
     expect(stranky[stranky.length - 1]).toContain('cd_t_1');
   });
 
-  it('nová plocha se zakládá rozdělená, ne jako jedna hromada', () => {
-    // Tohle je ta věc, kvůli které se to dělalo: dřív se dlaždice naskládaly
-    // na jednu stránku a hledalo se v nich očima.
+  it('nová plocha se zakládá jako jedna stránka, denní práce nahoře', () => {
     const layout = getHomeLayout(
       null,
       NAV.map((n) => n.id),
       EXTRA_NAV.map((n) => n.id),
       GRID_COLS_MOBILE,
     );
-    // Dvě stránky s obsahem + jedna prázdná na konci: tu appka drží
-    // schválně, ať je kam přidávat dlaždice (ensureTrailingEmptyPage).
+    // Jedna stránka s obsahem + jedna prázdná na konci: tu appka drží
+    // schválně, ať je kam přetáhnout dlaždici v úpravě (ensureTrailingEmptyPage).
     const sObsahem = layout.pages.filter((p) => p.length > 0);
-    expect(sObsahem).toHaveLength(2);
+    expect(sObsahem).toHaveLength(1);
     expect(layout.pages[layout.pages.length - 1]).toEqual([]);
     // První je denní práce — na ní se plocha otevírá, s velkými dlaždicemi.
     expect(sObsahem[VYCHOZI_STRANKA]).toContain('cellar');
     expect(sObsahem[VYCHOZI_STRANKA]).toContain('orders_zavoz');
     expect(layout.overrides.cellar?.w).toBe(1);
-    // KEG, Lahve, Objednávky, Nová obj. a Sklad jsou na „Další" (28. 9. 2026).
-    expect(sObsahem[1]).toContain('kegging');
+    // KEG, Lahve, Objednávky, Nová obj. a Sklad jsou pod denní prací.
+    expect(sObsahem[0]).toContain('kegging');
     expect(layout.overrides.kegging?.h).toBe(1);
   });
 
@@ -253,9 +248,13 @@ describe('jednorázové přeskládání plochy (ROZLOZENI_VERZE)', () => {
   };
   const viditelne = NAV.map((n) => n.id);
 
-  it('plochu bez značky jednou přeskládá do stránek', () => {
+  it('plochu bez značky jednou přeskládá podle STRANKY_PLOCHY', () => {
     const layout = getHomeLayout(stara, viditelne, [], GRID_COLS_MOBILE);
-    expect(layout.pages.filter((p) => p.length > 0).length).toBeGreaterThan(1);
+    // Od verze 18 (na zkoušku) je stránka jedna — přeskládání doplní
+    // všechny hlavní moduly v pořadí denní práce nahoře.
+    const sObsahem = layout.pages.filter((p) => p.length > 0);
+    expect(sObsahem).toHaveLength(STRANKY_PLOCHY.length);
+    expect(sObsahem[0].length).toBeGreaterThan(stara.pages[0].length);
     expect(layout.rozlozeniVerze).toBe(ROZLOZENI_VERZE);
   });
 
@@ -266,18 +265,17 @@ describe('jednorázové přeskládání plochy (ROZLOZENI_VERZE)', () => {
     expect(layout.overrides.kegging?.h).toBe(1);
   });
 
-  it('plocha z verze 3 dostane úvodní stránku Denní práce', () => {
+  it('plocha z verze 3 dostane denní práci nahoru', () => {
     const verze3 = {
       pages: [['history', 'dashboard'], ['kegging', 'bottling', 'orders', 'notes'], ['cellar', 'app_settings']],
       overrides: { dashboard: { w: 1, h: 1, color: 'teal' }, notes: { w: 1, h: 1 } },
       rozlozeniVerze: 3,
     };
     const layout = getHomeLayout(verze3, viditelne, ['notes'], GRID_COLS_MOBILE);
-    const [uvod, dalsi] = layout.pages.filter((p) => p.length > 0);
-    expect(uvod).toEqual(['cellar', 'notes', 'prodejna', 'bottling_needs', 'timer', 'history']);
-    expect(dalsi).not.toContain('timer');
-    expect(dalsi).toContain('app_settings');
-    expect(dalsi).toContain('dashboard');
+    const [uvod] = layout.pages.filter((p) => p.length > 0);
+    expect(uvod.slice(0, 6)).toEqual(['cellar', 'notes', 'prodejna', 'bottling_needs', 'timer', 'history']);
+    expect(uvod).toContain('app_settings');
+    expect(uvod).toContain('dashboard');
     expect(layout.overrides.dashboard?.h).toBe(1);
     expect(layout.overrides.dashboard?.color).toBe('teal');
     expect(layout.overrides.notes?.h).toBe(1);

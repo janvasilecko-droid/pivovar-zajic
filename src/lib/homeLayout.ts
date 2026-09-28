@@ -265,10 +265,15 @@ export const STRANKY_PLOCHY: Array<{ nazev: string; ids: Page[] }> = [
   // úvodní stránku dej ten lístek na poznámky", „fasování, odpis, prodejna
   // musí být na úvodní stránce", „plán stáčení taky", „časovač taky".
   // + Statistika („statistiku taky na úvodní stránku").
-  { nazev: 'Denní práce', ids: [...DLAZDICE_DENNI_PRACE, 'orders_zavoz', 'cellar', 'notes', 'prodejna', 'bottling_needs', 'timer', 'history'] },
+  //
+  // 🧪 Od verze 18 (28. 9. 2026, na zkoušku) JEDNA stránka: „dej všechny
+  // dlaždice na jednu stránku dolů, na zkoušku, když tak to vrátíme". Nahoře
+  // denní práce, pod ní to, co bylo na „Další". Vrácení = zase dvě položky
+  // (Denní práce / Další) a ROZLOZENI_VERZE o jedna výš.
   {
-    nazev: 'Další',
+    nazev: 'Plocha',
     ids: [
+      ...DLAZDICE_DENNI_PRACE, 'orders_zavoz', 'cellar', 'notes', 'prodejna', 'bottling_needs', 'timer', 'history',
       'orders', 'kegging', 'bottling', 'dashboard', 'orders_entry', 'akce',
       'sklo_promo', 'vehicles', 'haccp', 'calendar', 'export_excel', 'depozitar',
       'navod', 'audit', 'users', 'app_settings', 'zaloha', 'signout',
@@ -327,7 +332,7 @@ export function idsKRozmisteni(visibleIds: Page[], extraIds: Page[] = []): Page[
  * Použij to jen tehdy, když se rozdělení mění pro VŠECHNY schválně. Cizí
  * rozmístění se tím zahazuje a nejde vzít zpět.
  */
-export const ROZLOZENI_VERZE = 17;
+export const ROZLOZENI_VERZE = 18;
 
 /** Stránka, na které se plocha otevírá — první, „Denní práce". */
 export const VYCHOZI_STRANKA = 0;
@@ -340,6 +345,9 @@ export const VYCHOZI_STRANKA = 0;
  * co nesmí vidět. Prázdná stránka se nezakládá: kdo má práva jen na výrobu,
  * dostane jednu stránku, ne tři s dvěma prázdnými.
  */
+/** Dlaždice, které HomeScreen v mřížce nekreslí (jsou jako ikony v liště). */
+const NEKRESLENE_V_MRIZCE: TileId[] = ['app_settings', 'signout'];
+
 export function rozdelDoStranek(ids: TileId[]): TileId[][] {
   const zbyva = new Set(ids);
   const stranky: TileId[][] = STRANKY_PLOCHY.map((s) => {
@@ -357,6 +365,17 @@ export function rozdelDoStranek(ids: TileId[]): TileId[][] {
   // na tu poslední, když jsou všechny prázdné.
   const zbytek = [...zbyva];
   if (zbytek.length > 0) stranky[stranky.length - 1].push(...zbytek);
+
+  // Nastavení a Odhlásit jsou ikony v liště nahoře a v mřížce se nekreslí —
+  // jejich místo by uprostřed stránky zůstalo prázdné (díra mezi dlaždicemi).
+  // Proto vždycky úplně na konec poslední stránky, kde díra nevadí.
+  const posledni = stranky[stranky.length - 1];
+  for (const id of NEKRESLENE_V_MRIZCE) {
+    for (const st of stranky) {
+      const i = st.indexOf(id);
+      if (i >= 0) { st.splice(i, 1); posledni.push(id); break; }
+    }
+  }
 
   const neprazdne = stranky.filter((s) => s.length > 0);
   return neprazdne.length > 0 ? neprazdne : [[]];
