@@ -4,11 +4,16 @@
 // začátku zadat." Vedle je vidět, jaké datum z toho vyjde.
 import { DAYS } from '../lib/shared';
 
-export function DenZavozuTlacitka({ den, datum, onDen }: {
+export function DenZavozuTlacitka({ den, datum, onDen, poznamka, zavoz, onZavoz }: {
   den: string | null;
   /** Datum, které z volby vyjde (YYYY-MM-DD). */
   datum: string | null;
   onDen: (den: string | null) => void;
+  /** Např. „obvykle Út" — den předvyplněný podle zvyklostí odběratele. */
+  poznamka?: string | null;
+  /** 1. / 2. závoz — když je předaný, ukážou se i tlačítka závozu. */
+  zavoz?: number;
+  onZavoz?: (cislo: number) => void;
 }) {
   return (
     <div className="space-y-1">
@@ -20,6 +25,7 @@ export function DenZavozuTlacitka({ den, datum, onDen }: {
           </span>
         )}
         {!den && <span className="ml-1.5 font-bold text-amber-800">nevybráno</span>}
+        {poznamka && <span className="ml-1.5 font-bold text-neutral-600">({poznamka})</span>}
       </div>
       <div className="flex gap-1.5 flex-wrap">
         {DAYS.slice(0, 5).map((d) => (
@@ -32,6 +38,18 @@ export function DenZavozuTlacitka({ den, datum, onDen }: {
             title={den === d.v ? `Zrušit den závozu (${d.label})` : `Den závozu: ${d.label}`}
           >
             {d.label}
+          </button>
+        ))}
+        {onZavoz && [1, 2].map((c) => (
+          <button
+            key={`z${c}`}
+            type="button"
+            className={`btn-den ${(zavoz ?? 1) === c ? 'btn-den-aktivni' : ''}`}
+            onClick={() => onZavoz(c)}
+            aria-pressed={(zavoz ?? 1) === c}
+            title={`Pojede ${c}. závozem toho dne`}
+          >
+            {c}.z
           </button>
         ))}
       </div>

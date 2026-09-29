@@ -21,6 +21,7 @@ import { IkonaSud, IkonaLahev, IkonaVycep } from '../components/ikony';
 import { HomeNotesModal } from '../components/HomeNotesModal';
 import CoStocitOkno from '../components/CoStocitOkno';
 import NakladkaOkno from '../components/NakladkaOkno';
+import { NezavezeneMinule } from '../components/NezavezeneMinule';
 import { PrehledTankuPlocha } from '../components/PrehledTankuPlocha';
 import { nactiSdilenouTabulku } from '../lib/sdilenaData';
 // Návod je přes deset kilobajtů textu, který většina lidí za den neotevře —
@@ -1682,6 +1683,9 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
           onOtevrit={() => handleTileClick('nakladka')}
         />
       )}
+
+      {/* 🧹 Nezavezené objednávky z minulých dnů (29. 9. 2026) — jen když nějaké jsou. */}
+      {!editMode && (visibleIds.includes('orders') || extraVisibleIds.includes('orders_zavoz')) && <NezavezeneMinule />}
 
       <div className="hs-launcher">
         {editMode && (

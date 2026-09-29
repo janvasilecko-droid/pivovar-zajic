@@ -20,6 +20,7 @@ import { uloz } from '../lib/uloziste';
 import { businessDateISO } from '../lib/businessDate';
 import { nejblizsiDatumDne } from '../lib/keggingPlan';
 import { DenZavozuTlacitka } from './DenZavozuTlacitka';
+import { nactiZvyklosti, neobvykleMnozstvi, type Zvyklosti } from '../lib/zvyklostiOdberatele';
 import { matchAgainstCatalog } from '../../supabase/functions/_shared/place-match';
 
 type ExistingItem = { beer_id: string | null; package_id: string | null; quantity: number };
@@ -55,6 +56,21 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
   // 📅 Den závozu hned u fotky (29. 9. 2026) — nejbližší takový den od dneška.
   const [denZavozu, setDenZavozu] = useState<string | null>(null);
   const datumDneZavozu = denZavozu ? nejblizsiDatumDne(denZavozu, businessDateISO()) : null;
+  // 🧭 Zvyklosti odběratele: obvyklý den se předvyplní, neobvyklé množství
+  // se u řádku označí (29. 9. 2026, lib/zvyklostiOdberatele.ts).
+  const [zvyklosti, setZvyklosti] = useState<Zvyklosti | null>(null);
+  const [denZHistorie, setDenZHistorie] = useState(false);
+  useEffect(() => {
+    let zruseno = false;
+    nactiZvyklosti(placeId || null, placeName || null)
+      .then((z) => {
+        if (zruseno) return;
+        setZvyklosti(z);
+        if (z?.obvyklyDen) setDenZavozu((d) => { if (d) return d; setDenZHistorie(true); return z.obvyklyDen; });
+      })
+      .catch(() => {});
+    return () => { zruseno = true; };
+  }, [placeId, placeName]);
   const [confirmed, setConfirmed] = useState(false);
   const [userAllowedDups, setUserAllowedDups] = useState<Set<number>>(new Set());
   const [skipReason, setSkipReason] = useState<string | null>(null);
@@ -751,7 +767,12 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
               </div>
             </div>
             <div className="mt-3">
-              <DenZavozuTlacitka den={denZavozu} datum={datumDneZavozu} onDen={setDenZavozu} />
+              <DenZavozuTlacitka
+                den={denZavozu}
+                datum={datumDneZavozu}
+                onDen={(d) => { setDenZavozu(d); setDenZHistorie(false); }}
+                poznamka={denZHistorie ? 'obvyklý den odběratele' : null}
+              />
             </div>
           </div>
         )}
@@ -1215,6 +1236,16 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                             if (typeof p.line.photo_index === 'number') setActivePhotoIdx(p.line.photo_index);
                           }}
                         />
+                        {/* Neobvyklé množství u hlavního odběratele (ne u řádků pro jiného). */}
+                        {(() => {
+                          const jinyOdberatel = p.line.place_name?.trim() && p.line.place_name.trim() !== placeName.trim();
+                          const obvykle = jinyOdberatel ? null : neobvykleMnozstvi(zvyklosti, p.line.beer_id ?? null, p.line.package_id ?? null, Number(p.line.quantity) || 0);
+                          return obvykle != null ? (
+                            <span className="text-udaj font-black text-amber-900 bg-amber-100 border border-amber-400 rounded px-1" role="alert">
+                              Obvykle {obvykle}× — zkontroluj
+                            </span>
+                          ) : null;
+                        })()}
                       </div>
                       {/* Tlačítko odstranit */}
                       <div className="flex items-end col-span-1 justify-end">

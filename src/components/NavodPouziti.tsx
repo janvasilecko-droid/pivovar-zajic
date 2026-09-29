@@ -208,6 +208,10 @@ const ODDILY: Oddil[] = [
         jak: 'V Rozvozu má každá objednávka tlačítka „1. závoz" / „2. závoz" a výběr „Přesunout na…" jiný den týdne (posune se i datum). Když má den něco ve 2. závozu, nahoře se objeví přepínač Oba / 1. závoz / 2. závoz — podle něj se filtruje trasa i Co naložit. Přepínač Sudy / Lahve / Vše nahoře platí pro trasy i Co naložit; volba se pamatuje v telefonu, takže kdo chystá lahve, vidí jen lahve. 1. / 2. závoz jde nastavit i v Objednávkách (tlačítka „1.z" / „2.z" vedle dnů). Při čtení objednávky z WhatsAppu nebo z fotky jsou nahoře tlačítka Po–Pá — den závozu se vybere hned (nejbližší takový den).',
       },
       {
+        co: 'Hlídání při zadávání a ranní úklid',
+        jak: 'Při čtení objednávky z WhatsAppu nebo fotky appka zná zvyklosti odběratele: když zpráva den neuvede, předvyplní jeho obvyklý den (a 2. závoz, jezdí-li jím) a u položky s neobvykle vysokým množstvím ukáže „obvykle N× — zkontroluj". Když by objednávka spadla do minulého týdne, appka se před uložením zeptá. Nahoře v Rozvozu a na ploše je „Nezavezeno z minulých dnů" — objednávky, které měly jet a nejsou odškrtnuté: Zavezeno / Dnes / Zrušit (odepsané se ruší s vrácením na sklad dnešním dnem).',
+      },
+      {
         co: 'Rozvoz a podpis',
         jak: 'V Rozvozu se objednávky odškrtávají po dnech. „Podpis převzetí“ (v Rozvozu i v detailu objednávky) rovnou označí objednávku jako zavezenou.',
       },

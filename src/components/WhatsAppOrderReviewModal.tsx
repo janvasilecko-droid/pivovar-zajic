@@ -26,6 +26,7 @@ import { uloz } from '../lib/uloziste';
 import { pocetZRadku, pocetZTabulky } from '../lib/pocetZRadku';
 import { nejblizsiDatumDne } from '../lib/keggingPlan';
 import { DenZavozuTlacitka } from './DenZavozuTlacitka';
+import { nactiZvyklosti, neobvykleMnozstvi, type Zvyklosti } from '../lib/zvyklostiOdberatele';
 import { useMaleSudy, useHlidaniMalychSudu } from '../lib/useMaleSudy';
 import { rozdelMaleSudyVObjednavce, silaPiva } from '../lib/maleSudy';
 import { MaleSudyRadek, tridaRadkuSudu } from './MaleSudyVolne';
@@ -97,6 +98,11 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   // 📅 Den závozu hned při čtení zprávy (29. 9. 2026) — předvyplní se tím,
   // co přečetla AI nebo co je v textu („závoz v úterý"), a jde změnit.
   const [denZavozu, setDenZavozu] = useState<string | null>(null);
+  // 🧭 Zvyklosti odběratele (lib/zvyklostiOdberatele.ts): obvyklý den
+  // a závoz se předvyplní, neobvyklé množství se u položky označí.
+  const [zvyklosti, setZvyklosti] = useState<Zvyklosti | null>(null);
+  const [denZHistorie, setDenZHistorie] = useState(false);
+  const [zavozCislo, setZavozCislo] = useState(1);
   const [placeId, setPlaceId] = useState('');
   const [placeName, setPlaceName] = useState('');
   const [origPlaceName, setOrigPlaceName] = useState<string | null>(null);
@@ -268,6 +274,8 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
       if (cancelled) return;
 
       setDenZavozu(msg!.parsed_delivery_day || parseDeliveryDayFromText(msg!.message_text || '') || null);
+      setDenZHistorie(false);
+      setZavozCislo(1);
       const parsedItems = msg!.parsed_items || [];
       const initItems: ReviewItem[] = parsedItems.map((item, i) => {
         const beer =
@@ -313,6 +321,26 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.isOpen, msg?.id, rebuildKey]);
+
+  useEffect(() => {
+    if (!props.isOpen || !msg) return;
+    let zruseno = false;
+    const id = placeId || msg.parsed_place_id || null;
+    const jmeno = placeName || msg.parsed_place_name || null;
+    nactiZvyklosti(id, jmeno).then((z) => { if (!zruseno) setZvyklosti(z); }).catch(() => {});
+    return () => { zruseno = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.isOpen, msg?.id, placeId, placeName]);
+  // Den ze zprávy chybí → obvyklý den; závoz podle zvyklostí.
+  useEffect(() => {
+    if (!zvyklosti) return;
+    setDenZavozu((d) => {
+      if (d || !zvyklosti.obvyklyDen) return d;
+      setDenZHistorie(true);
+      return zvyklosti.obvyklyDen;
+    });
+    if (zvyklosti.obvyklyZavoz === 2) setZavozCislo(2);
+  }, [zvyklosti]);
 
   // ↩️ Když zpráva upravuje existující objednávku, načti její SOUČASNÝ obsah
   // a porovnej s tím, co z odpovědi vyšlo — obsluha pak vidí celou objednávku
@@ -906,6 +934,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
         parsed_place_name: placeName || message.parsed_place_name,
         parsed_delivery_day: denZavozu,
         parsed_delivery_date: datumDneZavozu,
+        zavoz_cislo: zavozCislo,
         parsed_items: primaryItems.map((it) => ({
           beer_id: it.beerId || null,
           pkg_id: it.pkgId || null,
@@ -952,6 +981,10 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
           is_prepared: false, is_packaged: false, is_delivered: false,
         }).select().single();
         if (orderErr || !newOrder) throw new Error(orderErr?.message ?? 'Druhá objednávka se nepovedla založit.');
+        if (zavozCislo !== 1) {
+          // Bez migrace zavoz_cislo to jen tiše neprojde — objednávka platí.
+          await supabase.from('orders').update({ zavoz_cislo: zavozCislo }).eq('id', newOrder.id).then(() => {}, () => {});
+        }
         oznacVlastniObjednavku(newOrder.id);
         const radky = secondItems.map((it) => ({
           order_id: newOrder.id, beer_id: it.beerId || null, beer_name: it.beerName || null,
@@ -1814,7 +1847,14 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                 </div>
               )}
 
-              <DenZavozuTlacitka den={denZavozu} datum={datumDneZavozu} onDen={setDenZavozu} />
+              <DenZavozuTlacitka
+                den={denZavozu}
+                datum={datumDneZavozu}
+                onDen={(d) => { setDenZavozu(d); setDenZHistorie(false); }}
+                poznamka={denZHistorie ? 'obvyklý den odběratele' : null}
+                zavoz={zavozCislo}
+                onZavoz={setZavozCislo}
+              />
 
               {items.length > 0 && (
                 <div>
@@ -1902,6 +1942,15 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                               <span>Počet opraven podle textu zprávy — AI četla {item.aiQty}×. Zkontroluj.</span>
                             </div>
                           )}
+                          {(() => {
+                            const obvykle = neobvykleMnozstvi(zvyklosti, item.beerId || null, item.pkgId || null, Number(item.qty) || 0);
+                            return obvykle != null ? (
+                              <div className="text-xs mt-1 font-black text-amber-900 bg-amber-100 border border-amber-400 rounded px-2 py-1 flex items-start gap-1" role="alert">
+                                <AlertTriangle size={12} className="mt-0.5 shrink-0" />
+                                <span>Neobvyklé množství — tenhle odběratel bere obvykle {obvykle}×. Zkontroluj, jestli je {item.qty}× správně.</span>
+                              </div>
+                            ) : null;
+                          })()}
                           <MaleSudyRadek prideleni={prideleniSudu.get(item.key)} obal={props.packages.find((p) => p.id === item.pkgId)?.label ?? ''} />
                           {item.rawLine && (() => {
                             if (rbItem?.status === 'unmatched') {

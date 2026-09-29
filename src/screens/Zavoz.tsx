@@ -27,6 +27,7 @@ import { IkonaSud } from '../components/ikony';
 import { businessDateISO } from '../lib/businessDate';
 import { nactiSdilenouTabulku } from '../lib/sdilenaData';
 import { ZavozVolba } from '../components/zavoz/ZavozVolba';
+import { NezavezeneMinule } from '../components/NezavezeneMinule';
 import { datumProDenObjednavky } from '../lib/keggingPlan';
 import { uloz } from '../lib/uloziste';
 
@@ -715,6 +716,9 @@ export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
               </div>
             )}
           </div>
+
+          {/* 🧹 Nezavezené z minulých dnů — ranní úklid (29. 9. 2026). */}
+          <NezavezeneMinule onZmena={() => load(true)} vychoziRozbaleno />
 
           {/* Interactive Day Filter Tabs — jediná ukotvená lišta v Zavozu (spolu s přepínačem Trasy/Co naložit níže). */}
           <div className="sticky top-0 z-20 flex items-center gap-2 overflow-x-auto scrollbar-thin bg-neutral-100 pb-2 pt-1">

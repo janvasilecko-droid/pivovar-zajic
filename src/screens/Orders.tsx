@@ -33,7 +33,7 @@ import { oznacVlastniObjednavku } from '../lib/mojeObjednavky';
 import { subscribeToWhatsAppMessages, fetchPendingWhatsAppMessages, fetchWhatsAppMessage, ignoreWhatsAppMessage, WhatsAppIncoming, fetchWhatsAppSenders, isSenderAllowed, triggerAutoParse, type WhatsAppSender } from '../lib/whatsappApi';
 import { autoReserveTapIfNeeded, isTapMentioned, detectTapType } from '../lib/tapReservations';
 import { findDuplicateOrders, formatDuplicateMessage } from '../lib/orderDuplicates';
-import { datumProDenObjednavky, dayKeyFromISO } from '../lib/keggingPlan';
+import { datumProDenObjednavky, dayKeyFromISO, jeVMinulemTydnu } from '../lib/keggingPlan';
 import { TapReservationModal } from '../components/TapReservationModal';
 import { createReminder, getLocalReminders } from '../lib/reminders';
 import { type AkceRow } from '../lib/inventoryHelper';
@@ -46,7 +46,7 @@ import { kusy } from '../lib/cisla';
 
 import { uloz } from '../lib/uloziste';
 import { smazObjednavky } from '../lib/smazaniObjednavek';
-import { nactiOdpocty, vraceniZOdpoctu, zruseniSVracenim } from '../lib/zruseniObjednavky';
+import { nactiOdpocty, zrusOdepsaneSVracenim } from '../lib/zruseniObjednavky';
 import { najdiZdvojene, popisZdvojeni } from '../lib/zdvojenePolozky';
 
 import { type CenaPolozky } from '../lib/hodnotaObjednavky';
@@ -725,6 +725,10 @@ export default function Orders({
         }
       }
 
+      if (jeVMinulemTydnu(message.parsed_delivery_date, today)
+        && !(await potvrd(`Závoz ${datumKratce(message.parsed_delivery_date!)} je v MINULÉM týdnu. Opravdu tam objednávku uložit?`))) {
+        throw new Error('Objednávka nebyla vytvořena — oprav den závozu.');
+      }
       const { data: newOrder, error } = await supabase
         .from('orders')
         .insert({
@@ -745,6 +749,11 @@ export default function Orders({
 
       if (error || !newOrder) throw new Error(error?.message || 'Chyba při vytváření objednávky');
       oznacVlastniObjednavku(newOrder.id);
+      // 2. závoz vybraný při kontrole zprávy (29. 9. 2026). Zvlášť, ať bez
+      // migrace zavoz_cislo neselže celé schválení.
+      if (message.zavoz_cislo && message.zavoz_cislo !== 1) {
+        await supabase.from('orders').update({ zavoz_cislo: message.zavoz_cislo }).eq('id', newOrder.id).then(() => {}, () => {});
+      }
 
       // Převést rozparsované položky na formát pro order_items. Pokud položka
       // nemá ID piva/obalu, dohledáme je v katalogu podle názvu/stupně/balení.
@@ -1137,6 +1146,9 @@ export default function Orders({
     const filled = rows.filter((r) => r.beerId && r.pkgId && Number(r.qty) > 0);
     if (!filled.length) { setErr('Vyplň alespoň jednu položku (pivo, obal, množství) nebo napiš objednávku textem výše.'); return; }
     if (deliveryInFutureMonth && !confirmNextMonth) { setErr('Potvrď zaškrtnutím výše, že závoz spadá do jiného měsíce, nebo uprav datum závozu.'); return; }
+    // Závoz v minulém týdnu je skoro vždycky omyl (29. 9. 2026).
+    if (jeVMinulemTydnu(deliveryDate, businessDateISO())
+      && !(await potvrd(`Závoz ${datumKratce(deliveryDate)} je v MINULÉM týdnu. Opravdu tam objednávku uložit?`))) return;
     setSaving(true);
 
     const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
@@ -1359,32 +1371,7 @@ export default function Orders({
   // (uzavřený týden), kusy se vrátí na sklad DNEŠNÍM dnem jako vrácení přes
   // formulář, objednávka → storno (lib/zruseniObjednavky.ts, 29. 9. 2026).
   // Vrací počet takto zrušených objednávek, null = žádná nebyla odepsaná.
-  async function zrusSVracenim(vybrane: Order[], sePtat: boolean): Promise<number | null> {
-    const { data: odpocty, chyba: chybaOdpoctu } = await nactiOdpocty(vybrane.map((o) => o.id));
-    if (chybaOdpoctu) { chyba('Odpočty ze skladu se nepodařilo načíst: ' + chybaOdpoctu); return 0; }
-    const odepsane = vybrane.filter((o) => odpocty.some((d) => d.order_id === o.id));
-    if (odepsane.length === 0) return null;
-    const kusu = odpocty.filter((d) => odepsane.some((o) => o.id === d.order_id)).reduce((n, d) => n + Number(d.quantity || 0), 0);
-    if (sePtat && !(await potvrd(
-      `${odepsane.length === 1 ? 'Objednávka už je odepsaná' : `${odepsane.length} objednávky už jsou odepsané`} ze skladu (${kusu} ks). `
-      + 'Zruším ji a kusy vrátím na sklad DNEŠNÍM dnem — minulý týden a jeho inventura zůstanou beze změny. Pokračovat?',
-    ))) return 0;
-    const dnes = businessDateISO();
-    for (const o of odepsane) {
-      const vraceni = vraceniZOdpoctu(odpocty.filter((d) => d.order_id === o.id), items[o.id] ?? []);
-      const { zaznamy, poznamka } = zruseniSVracenim(o, vraceni, dnes);
-      if (zaznamy.length > 0) {
-        const { error } = await supabase.from('inventory_adjustments').insert(zaznamy);
-        if (error) { chyba(`Vrácení na sklad (${o.place_name ?? 'objednávka'}) se nepovedlo: ${error.message}`); return 0; }
-      }
-      // Stav přímo, NE přes set_order_status — ta by se pokusila smazat
-      // odpočet a změnit tím uzavřený týden.
-      const { error: e2 } = await supabase.from('orders').update({ status: 'storno', note: poznamka }).eq('id', o.id);
-      if (e2) { chyba(`Zrušení (${o.place_name ?? 'objednávka'}) se nepovedlo: ${e2.message}`); return 0; }
-    }
-    uspech(`Zrušeno ${odepsane.length} ${odepsane.length === 1 ? 'objednávka' : 'objednávky'}, ${kusu} ks vráceno na sklad dnešním dnem.`);
-    return odepsane.length;
-  }
+  const zrusSVracenim = (vybrane: Order[], sePtat: boolean) => zrusOdepsaneSVracenim(vybrane, items, sePtat);
 
   // 🚚 1. / 2. závoz toho dne (29. 9. 2026: „dej ten druhý závoz i na objednávkách").
   async function updateZavoz(o: Order, cislo: number) {
@@ -3182,4 +3169,9 @@ function linkLatestReservationToOrder(orderId: string): void {
     list[realIdx] = { ...list[realIdx], order_id: orderId };
     uloz('vycepy_reservations_v1', JSON.stringify(list));
   } catch { /* tichá chyba */ }
+}
+
+/** „22. 9." — krátké datum do otázek. */
+function datumKratce(datum: string): string {
+  return new Date(datum.slice(0, 10) + 'T00:00:00').toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric' });
 }

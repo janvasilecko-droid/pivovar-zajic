@@ -5,6 +5,8 @@ import { zalogujANahlas } from './chybyHlaseni';
 // Interface for WhatsApp incoming message
 export interface WhatsAppIncoming {
   id: string;
+  /** Jen v appce při schvalování: 1. / 2. závoz nové objednávky (29. 9. 2026). */
+  zavoz_cislo?: number | null;
   created_at: string;
   sender_name: string;
   /** Skutečný pisatel zprávy VE SKUPINOVÉM chatu — u skupiny je `sender_name`

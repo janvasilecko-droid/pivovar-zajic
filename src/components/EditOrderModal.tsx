@@ -2,7 +2,8 @@ import { useMaleSudy, useHlidaniMalychSudu } from '../lib/useMaleSudy';
 import { jeOtevrena, volneProObjednavku, rozdelMaleSudyVObjednavce, silaPiva } from '../lib/maleSudy';
 import { MaleSudyVolne, MaleSudyRadek, tridaRadkuSudu } from './MaleSudyVolne';
 import { useState } from 'react';
-import { datumProDenObjednavky } from '../lib/keggingPlan';
+import { potvrd } from '../lib/toast';
+import { datumProDenObjednavky, jeVMinulemTydnu } from '../lib/keggingPlan';
 import { businessDateISO } from '../lib/businessDate';
 import { Modal } from './ui';
 import { X } from 'lucide-react';
@@ -102,6 +103,9 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
     setErr(null);
     const validRows = visibleRows.filter((r) => r.beerId && r.pkgId && Number(r.qty) > 0);
     if (!validRows.length) { setErr('Vyplň alespoň jednu položku (pivo, obal, množství).'); return; }
+    // Přesun do minulého týdne je skoro vždycky omyl — zeptat se (29. 9. 2026).
+    if (deliveryDate !== (order.delivery_date ?? '') && jeVMinulemTydnu(deliveryDate, businessDateISO())
+      && !(await potvrd(`Závoz ${new Date(deliveryDate + 'T00:00:00').toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric' })} je v MINULÉM týdnu. Opravdu tam objednávku přesunout?`))) return;
 
     setSaving(true);
     try {

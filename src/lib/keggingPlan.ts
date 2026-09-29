@@ -198,6 +198,18 @@ export function datumProDenVTydnu(den: string, kotva: string): string | null {
 }
 
 /**
+ * Leží datum závozu v minulém (nebo starším) týdnu? Před uložením se na to
+ * appka zeptá (29. 9. 2026, návrh 2: „když objednávka spadne do minulého
+ * týdne, zeptat se ‚opravdu 22. 9.?'") — přesně takhle dnes restaurace
+ * skončila v minulém týdnu.
+ */
+export function jeVMinulemTydnu(datum: string | null | undefined, dnes: string): boolean {
+  if (!datum) return false;
+  const pondeli = datumProDenVTydnu('po', dnes);
+  return !!pondeli && datum.slice(0, 10) < pondeli;
+}
+
+/**
  * Nejbližší takový den od dneška (dnešek včetně) — pro NOVOU objednávku,
  * kde se den vybírá hned při čtení zprávy / fotky (29. 9. 2026: „přidej
  * tlačítka Po Út St… den závozu už při čtení objednávky z WhatsAppu, fotky").
