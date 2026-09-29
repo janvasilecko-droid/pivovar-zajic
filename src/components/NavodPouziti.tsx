@@ -204,6 +204,10 @@ const ODDILY: Oddil[] = [
         jak: 'Dlaždice Malé sudy (a záložka v Objednávkách) — naklikáš, kolik máš KEG 20, 15 a 10 l. Při zadání i úpravě objednávky pak u malého sudu uvidíš „můžeš dát max N“; co je navíc a nemá sud, svítí červeně. Dlaždice na ploše ukazuje, kolik sudů je ještě volných.',
       },
       {
+        co: 'Dva závozy za den, Sudy / Lahve v nakládce',
+        jak: 'V Rozvozu má každá objednávka tlačítka „1. závoz" / „2. závoz" a výběr „Přesunout na…" jiný den týdne (posune se i datum). Když má den něco ve 2. závozu, nahoře se objeví přepínač Oba / 1. závoz / 2. závoz — podle něj se filtruje trasa i Co naložit. V Co naložit si vybereš Sudy, Lahve nebo Vše; volba se pamatuje v telefonu, takže kdo chystá lahve, vidí jen lahve.',
+      },
+      {
         co: 'Rozvoz a podpis',
         jak: 'V Rozvozu se objednávky odškrtávají po dnech. „Podpis převzetí“ (v Rozvozu i v detailu objednávky) rovnou označí objednávku jako zavezenou.',
       },

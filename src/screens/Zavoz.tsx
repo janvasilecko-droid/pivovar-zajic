@@ -26,6 +26,9 @@ import type { UkolKlic } from '../lib/zavozUkoly';
 import { IkonaSud } from '../components/ikony';
 import { businessDateISO } from '../lib/businessDate';
 import { nactiSdilenouTabulku } from '../lib/sdilenaData';
+import { ZavozVolba } from '../components/zavoz/ZavozVolba';
+import { datumProDenObjednavky } from '../lib/keggingPlan';
+import { uloz } from '../lib/uloziste';
 
 // Stahuje se až při otevření — viz komentář u lazy() v Orders.tsx.
 const EditOrderModal = lazy(() => import('../components/EditOrderModal').then((m) => ({ default: m.EditOrderModal })));
@@ -38,6 +41,8 @@ type Order = {
   place_phone?: string | null;
   signature_url?: string | null;
   signature_name?: string | null;
+  /** 1. / 2. závoz toho dne (migrace 20261231180000). */
+  zavoz_cislo?: number | null;
 };
 type OrderItem = { id: string; order_id: string; beer_id: string | null; beer_name: string | null; package_id: string | null; package_label: string | null; quantity: number; is_prepared: boolean; is_bottled: boolean };
 
@@ -74,6 +79,17 @@ export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
   const [selectedDayFilter, setSelectedDayFilter] = useState<string>('all');
   const [mobileTab, setMobileTab] = useState<'routes' | 'loading'>(nakladka ? 'loading' : 'routes');
   const [searchTerm, setSearchTerm] = useState('');
+  // 🚚 Víc závozů za den (29. 9. 2026): 0 = oba, 1 / 2 = jen ten závoz.
+  const [zavozFiltr, setZavozFiltr] = useState<0 | 1 | 2>(0);
+  // 🧺 Co naložit: sudy a lahve většinou chystají dva lidé (29. 9. 2026:
+  // „ať se jim to neplete") — volba se pamatuje v telefonu.
+  const [druhNakladky, setDruhNakladky] = useState<'vse' | 'sudy' | 'lahve'>(() => {
+    try {
+      const v = localStorage.getItem('pivovar_nakladka_druh');
+      return v === 'sudy' || v === 'lahve' ? v : 'vse';
+    } catch { return 'vse'; }
+  });
+  const zvolDruhNakladky = (d: 'vse' | 'sudy' | 'lahve') => { setDruhNakladky(d); uloz('pivovar_nakladka_druh', d); };
   const [moveDay, setMoveDay] = useState<{ source: string | null; label: string; orderIds: string[] } | null>(null);
   const [moveTarget, setMoveTarget] = useState<string | null>(null);
   // 📒 Skladová kniha — jen pro odznak „chybí skladem" u objednávky (stejný
@@ -239,6 +255,7 @@ export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
   const filteredOrders = useMemo(() => {
     return activeOrders.filter((o) => {
       if (hideDelivered && o.is_delivered) return false;
+      if (zavozFiltr && (o.zavoz_cislo ?? 1) !== zavozFiltr) return false;
       if (selectedDayFilter !== 'all') {
         if (selectedDayFilter === '_none' && o.delivery_day) return false;
         if (selectedDayFilter !== '_none' && o.delivery_day !== selectedDayFilter) return false;
@@ -252,14 +269,53 @@ export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
       }
       return true;
     });
-  }, [activeOrders, hideDelivered, selectedDayFilter, searchTerm, items]);
+  }, [activeOrders, hideDelivered, selectedDayFilter, searchTerm, items, zavozFiltr]);
+
+  // Sloupec zavoz_cislo v databázi už je (bez migrace se 1./2. závoz neukáže).
+  const zavozyDostupne = orders.some((o) => o.zavoz_cislo !== undefined);
+  // Kolik objednávek vybraného dne jede kterým závozem — pro přepínač nahoře.
+  const zavozyDne = useMemo(() => {
+    const vDni = activeOrders.filter((o) => selectedDayFilter === 'all' || (selectedDayFilter === '_none' ? !o.delivery_day : o.delivery_day === selectedDayFilter));
+    return { 1: vDni.filter((o) => (o.zavoz_cislo ?? 1) === 1).length, 2: vDni.filter((o) => (o.zavoz_cislo ?? 1) === 2).length };
+  }, [activeOrders, selectedDayFilter]);
+
+  async function nastavZavozCislo(o: Order, cislo: number) {
+    const { error } = await supabase.from('orders').update({ zavoz_cislo: cislo }).eq('id', o.id);
+    if (error) { chyba('Závoz se nepodařilo změnit: ' + error.message); return; }
+    setOrders((arr) => arr.map((x) => (x.id === o.id ? { ...x, zavoz_cislo: cislo } : x)));
+  }
+
+  // Přesun jedné objednávky na jiný den tohoto týdne — s dnem i DATUM
+  // (lib/keggingPlan.ts datumProDenObjednavky), ať objednávka nevisí jinde.
+  async function presunNaDen(o: Order, den: string) {
+    const datum = datumProDenObjednavky(den, o.delivery_date || o.order_date, businessDateISO());
+    const patch: Record<string, unknown> = { delivery_day: den };
+    if (datum) patch.delivery_date = datum;
+    const { error } = await supabase.from('orders').update(patch).eq('id', o.id);
+    if (error) { chyba('Přesun se nepovedl: ' + error.message); return; }
+    setOrders((arr) => arr.map((x) => (x.id === o.id ? ({ ...x, ...patch } as Order) : x)));
+    oznam(`${o.place_name ?? 'Objednávka'} → ${DAYS.find((d) => d.v === den)?.label ?? den}${datum ? ` ${new Date(datum + 'T00:00:00').toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric' })}` : ''}`);
+  }
 
   const loadingListBreakdown = useMemo(() => {
     // Výpočet je v lib/coNalozit.ts (má testy) — je to seznam, podle kterého
     // se nakládá auto, takže chyba v něm znamená nedovezené pivo.
     const vsechnyPolozky = filteredOrders.flatMap((o) => items[o.id] ?? []);
-    return sestavCoNalozit(vsechnyPolozky as any, packages as any, formatPackageLabel);
-  }, [filteredOrders, items, packages]);
+    const vse = sestavCoNalozit(vsechnyPolozky as any, packages as any, formatPackageLabel);
+    // Filtr Sudy / Lahve — kdo chystá jen jedno, nevidí druhé.
+    if (druhNakladky === 'vse') return vse;
+    const kegs = druhNakladky === 'sudy' ? vse.kegs : [];
+    const bottles = druhNakladky === 'lahve' ? vse.bottles : [];
+    const radky = [...kegs, ...bottles];
+    return {
+      ...vse,
+      kegs,
+      bottles,
+      totalCount: druhNakladky === 'sudy' ? vse.totalKegs : vse.totalBottles,
+      totalLabels: radky.length,
+      preparedCount: radky.filter((r) => r.preparedQty >= r.qty).length,
+    };
+  }, [filteredOrders, items, packages, druhNakladky]);
 
   const totalWeight = useMemo(() => {
     return filteredOrders.reduce((sum, o) => {
@@ -273,7 +329,10 @@ export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
     const dayGroups: { dayKey: string; label: string; orders: any[] }[] = [];
 
     for (const dKey of orderDays) {
-        const dayOrders = filteredOrders.filter((o) => (dKey === '_none' ? !o.delivery_day : o.delivery_day === dKey));
+        const dayOrders = filteredOrders
+          .filter((o) => (dKey === '_none' ? !o.delivery_day : o.delivery_day === dKey))
+          // 1. závoz nahoře, 2. pod ním.
+          .sort((a, b) => (a.zavoz_cislo ?? 1) - (b.zavoz_cislo ?? 1));
         if (dayOrders.length === 0) continue;
 
         const groupedByDelivery = new Map<string, any[]>();
@@ -682,6 +741,24 @@ export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
             })}
           </div>
 
+          {/* 🚚 Víc závozů za den (29. 9. 2026) — přepínač se ukáže, jakmile
+              má vybraný den něco ve 2. závozu. Filtruje trasu i Co naložit. */}
+          {zavozyDostupne && (zavozyDne[2] > 0 || zavozFiltr !== 0) && (
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-xs font-black text-neutral-700">Závoz:</span>
+              {([0, 1, 2] as const).map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setZavozFiltr(c)}
+                  className={`btn-zalozka !py-1 !px-3 text-xs ${zavozFiltr === c ? 'btn-zalozka-aktivni' : ''}`}
+                >
+                  {c === 0 ? `Oba (${zavozyDne[1] + zavozyDne[2]})` : `${c}. závoz (${zavozyDne[c]})`}
+                </button>
+              ))}
+            </div>
+          )}
+
           {/* Top Quick Search & Weight Bar */}
           <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded border border-neutral-200/90 shadow-xs">
             <div className="relative flex-1 min-w-[240px] flex items-center gap-2">
@@ -759,6 +836,21 @@ export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
                     <span className="px-3 py-1 rounded-full bg-amber-500 text-neutral-950 font-mono font-black text-sm shadow-xs">
                       {loadingListBreakdown.totalCount} ks
                     </span>
+                  </div>
+
+                  {/* 🧺 Sudy / Lahve — jeden chystá lahve, druhý sudy (29. 9. 2026). */}
+                  <div className="flex items-center gap-1.5" role="group" aria-label="Co chystám">
+                    {([['vse', 'Vše'], ['sudy', 'Sudy'], ['lahve', 'Lahve']] as const).map(([k, popis]) => (
+                      <button
+                        key={k}
+                        type="button"
+                        onClick={() => zvolDruhNakladky(k)}
+                        aria-pressed={druhNakladky === k}
+                        className={`btn-zalozka flex-1 text-xs ${druhNakladky === k ? 'btn-zalozka-aktivni' : ''}`}
+                      >
+                        {k === 'sudy' && <IkonaSud size={14} />}{k === 'lahve' && <Wine size={14} />} {popis}
+                      </button>
+                    ))}
                   </div>
 
                   {/* Progress indicator */}
@@ -980,6 +1072,7 @@ export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
                                             <a onClick={() => setPage && setPage('orders', o.id)} className="font-bold text-sm text-neutral-900 hover:underline cursor-pointer">{o.place_name}</a>
                                             {o.note && <div className="text-xs text-neutral-600 font-medium mt-1 bg-amber-100/60 px-2.5 py-1 rounded italic flex items-start gap-1"><StickyNote size={12} className="mt-0.5 shrink-0" /> {o.note}</div>}
                                             <UkolyObjednavky poznamka={o.note} orderId={o.id} hotove={hotoveUkoly} onPrepni={prepniUkol} />
+                                            <div className="mt-2"><ZavozVolba cislo={o.zavoz_cislo ?? 1} den={o.delivery_day} dostupne={zavozyDostupne} onCislo={(c) => nastavZavozCislo(o, c)} onDen={(d) => presunNaDen(o, d)} /></div>
                                           </div>
                                           <div className="flex items-center gap-1.5">
                                             <button
@@ -1087,6 +1180,7 @@ export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
                                     </div>
                                   )}
                                   <UkolyObjednavky poznamka={o.note} orderId={o.id} hotove={hotoveUkoly} onPrepni={prepniUkol} />
+                                  <div className="mt-2"><ZavozVolba cislo={o.zavoz_cislo ?? 1} den={o.delivery_day} dostupne={zavozyDostupne} onCislo={(c) => nastavZavozCislo(o, c)} onDen={(d) => presunNaDen(o, d)} /></div>
                                 </div>
                               </div>
 
