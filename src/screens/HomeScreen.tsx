@@ -20,6 +20,7 @@ import { businessDateISO, posunDen } from '../lib/businessDate';
 import { IkonaSud, IkonaLahev, IkonaVycep } from '../components/ikony';
 import { HomeNotesModal } from '../components/HomeNotesModal';
 import CoStocitOkno from '../components/CoStocitOkno';
+import NakladkaOkno from '../components/NakladkaOkno';
 import { PrehledTankuPlocha } from '../components/PrehledTankuPlocha';
 import { nactiSdilenouTabulku } from '../lib/sdilenaData';
 // Návod je přes deset kilobajtů textu, který většina lidí za den neotevře —
@@ -305,11 +306,26 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   // výška. Vrací se rozsah v RAW gridových sloupcích (stejná jednotka jako
   // tileGridStyle), s dolní mezí jeden „tile unit", ať prázdná stránka
   // nezůstane nulově úzká.
+  // 🚚 Nakládka je mimo úpravu plochy OKNO nad dlaždicemi (NakladkaOkno,
+  // 29. 9. 2026), ne dlaždice — z mřížky se vynechá a stránka se srovná,
+  // ať po ní nezůstane díra. V úpravě plochy zůstává dlaždicí (přesunout,
+  // odebrat). Jen pro kreslení, uložené rozložení se nemění.
+  const kreslenyLayout = useMemo(() => {
+    const zaklad = nahledLayout ?? layout;
+    if (editMode) return zaklad;
+    let vysledek = zaklad;
+    zaklad.pages.forEach((p, i) => {
+      if (!p.includes('nakladka')) return;
+      const bez = { ...vysledek, pages: vysledek.pages.map((x, j) => (j === i ? x.filter((id) => id !== 'nakladka') : x)) };
+      vysledek = vyrovnejStranku(bez, i, cols);
+    });
+    return vysledek;
+  }, [nahledLayout, layout, editMode, cols]);
   const strankaPouzitaSirka = (strankaIndex: number): number => {
-    const ids = ((nahledLayout ?? layout).pages[strankaIndex] ?? []).filter((id) => id !== 'signout' && id !== 'app_settings');
+    const ids = (kreslenyLayout.pages[strankaIndex] ?? []).filter((id) => id !== 'signout' && id !== 'app_settings');
     let max = UNIT_COLS;
     for (const id of ids) {
-      const o = (nahledLayout ?? layout).overrides[id] ?? {};
+      const o = kreslenyLayout.overrides[id] ?? {};
       const x = o.x ?? 0;
       const w = o.w ?? 1;
       const span = w === 0 ? 1 : w * UNIT_COLS;
@@ -1658,6 +1674,15 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
         />
       )}
 
+      {/* 🚚 Nakládka na nejbližší závoz — sbalitelné okno (29. 9. 2026). */}
+      {!editMode && maNakladku && extraVisibleIds.includes('nakladka') && (
+        <NakladkaOkno
+          nalozit={nalozit}
+          barvaPiva={(pivo) => barvyPiv.get(pivo.trim().toLowerCase()) ?? null}
+          onOtevrit={() => handleTileClick('nakladka')}
+        />
+      )}
+
       <div className="hs-launcher">
         {editMode && (
           <div className="hs-controls">
@@ -2075,8 +2100,8 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
               uhnuly. Mimo tažení je `nahledLayout` null a platí uložený stav. */}
           {/* 'signout' se nevykresluje — odhlášení je nahoře u šipek jako
               ikona. V uloženém rozložení zůstává, ať jde vrátit beze ztráty. */}
-          {((nahledLayout ?? layout).pages[strankaIndex] ?? []).filter((id) => id !== 'signout' && id !== 'app_settings').map((id) => {
-            const override = (nahledLayout ?? layout).overrides[id] ?? {};
+          {(kreslenyLayout.pages[strankaIndex] ?? []).filter((id) => id !== 'signout' && id !== 'app_settings').map((id) => {
+            const override = kreslenyLayout.overrides[id] ?? {};
             if (isGroupId(id)) {
               const group = layout.groups[id];
               if (!group) return null;
