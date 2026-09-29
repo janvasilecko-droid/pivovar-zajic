@@ -209,7 +209,7 @@ const ODDILY: Oddil[] = [
       },
       {
         co: 'Hlídání při zadávání a ranní úklid',
-        jak: 'Při čtení objednávky z WhatsAppu nebo fotky appka zná zvyklosti odběratele: když zpráva den neuvede, předvyplní jeho obvyklý den (a 2. závoz, jezdí-li jím) a u položky s neobvykle vysokým množstvím ukáže „obvykle N× — zkontroluj". Když by objednávka spadla do minulého týdne, appka se před uložením zeptá. Nahoře v Rozvozu a na ploše je „Nezavezeno z minulých dnů" — objednávky, které měly jet a nejsou odškrtnuté: Zavezeno / Dnes / Zrušit (odepsané se ruší s vrácením na sklad dnešním dnem).',
+        jak: 'Při čtení objednávky z WhatsAppu nebo fotky appka zná zvyklosti odběratele: když zpráva den neuvede, předvyplní jeho obvyklý den (a 2. závoz, jezdí-li jím) a u položky s neobvykle vysokým množstvím ukáže „obvykle N× — zkontroluj". Když by objednávka spadla do minulého týdne, appka se před uložením zeptá. Objednávky se závozem v minulosti se berou jako zavezené (každou noc se samy odškrtnou) — co nejelo, se smaže nebo řeší přes Vrácení.',
       },
       {
         co: 'Rozvoz a podpis',

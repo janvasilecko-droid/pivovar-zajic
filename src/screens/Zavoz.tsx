@@ -27,7 +27,6 @@ import { IkonaSud } from '../components/ikony';
 import { businessDateISO } from '../lib/businessDate';
 import { nactiSdilenouTabulku } from '../lib/sdilenaData';
 import { ZavozVolba } from '../components/zavoz/ZavozVolba';
-import { NezavezeneMinule } from '../components/NezavezeneMinule';
 import { datumProDenObjednavky } from '../lib/keggingPlan';
 import { uloz } from '../lib/uloziste';
 
@@ -123,6 +122,18 @@ export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
 
   async function load(silent = false) {
     if (!silent && !orders.length) setLoading(true);
+    // ✅ Závoz v minulosti = zavezeno (29. 9. 2026: „vše ber jako zavezeno —
+    // pokud není zavezeno, je buď smazáno, nebo ve Vrácení"). Totéž dělá
+    // databáze každou noc (migrace 20261231190000); appka jednou denně hned,
+    // ať se nečeká na migraci. Chyba (třeba bez práv) nic neblokuje.
+    const dnes = businessDateISO();
+    let uzDnes = false;
+    try { uzDnes = localStorage.getItem('pivovar_minule_zavezeno') === dnes; } catch { /* nic */ }
+    if (!uzDnes) {
+      const { error } = await supabase.from('orders').update({ is_delivered: true })
+        .eq('is_delivered', false).neq('status', 'storno').lt('delivery_date', dnes);
+      if (!error) uloz('pivovar_minule_zavezeno', dnes);
+    }
     const [{ data: o }, { data: p }, { data: b }, { data: pl }, sklad, { data: vsechnyPolozky }] = await Promise.all([
       fetchAllRows('orders', '*').neq('status', 'storno').order('order_date', { ascending: false }),
       supabase.from('packages').select('*'),
@@ -716,9 +727,6 @@ export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
               </div>
             )}
           </div>
-
-          {/* 🧹 Nezavezené z minulých dnů — ranní úklid (29. 9. 2026). */}
-          <NezavezeneMinule onZmena={() => load(true)} vychoziRozbaleno />
 
           {/* Interactive Day Filter Tabs — jediná ukotvená lišta v Zavozu (spolu s přepínačem Trasy/Co naložit níže). */}
           <div className="sticky top-0 z-20 flex items-center gap-2 overflow-x-auto scrollbar-thin bg-neutral-100 pb-2 pt-1">

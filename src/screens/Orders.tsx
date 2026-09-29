@@ -1524,7 +1524,7 @@ export default function Orders({
     return zaklad.filter((o) => {
       if (zavozOnly && o.is_delivered) return false;
       // Stejná podmínka jako řádek „nevyřízené objednávky po termínu" v Dnesek.tsx.
-      if (overdueOnly && (o.status !== 'nova' || !o.delivery_date || o.delivery_date > dnes)) return false;
+      if (overdueOnly && (o.is_delivered || o.status !== 'nova' || !o.delivery_date || o.delivery_date > dnes)) return false;
       if (statusFilter && o.status !== statusFilter) return false;
       if (deliveryDayFilter !== 'all') {
         if (deliveryDayFilter === '_none' && o.delivery_day) return false;
