@@ -219,3 +219,14 @@ describe('popisOperace', () => {
       .toBe('neco_noveho — nový zápis');
   });
 });
+
+describe('odpočty pro push do fronty nepatří (29. 9. 2026)', () => {
+  it('starý zápis odpocty_push se z fronty vyhodí', async () => {
+    const { getQueue } = await import('./offline');
+    localStorage.setItem('pivovar_offline_queue_v1', JSON.stringify([
+      { id: 'a', table: 'odpocty_push', op: 'upsert', ts: 1 },
+      { id: 'b', table: 'kegging', op: 'insert', ts: 2 },
+    ]));
+    expect(getQueue().map((o) => o.table)).toEqual(['kegging']);
+  });
+});

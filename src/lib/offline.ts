@@ -22,8 +22,16 @@ export type QueuedOp = {
   ts: number;
 };
 
+// Zápisy, které do fronty nepatří (supabase.ts MIMO_FRONTU je už ani
+// nezařadí) — tady se vyhodí i ty, co tam zůstaly z dřívějška: konec
+// odpočtu pro push (odpocty_push) je po chvíli k ničemu (29. 9. 2026).
+const ZAHODIT_Z_FRONTY = new Set(['odpocty_push']);
+
 function read(): QueuedOp[] {
-  try { return JSON.parse(localStorage.getItem(KEY) ?? '[]'); } catch { return []; }
+  try {
+    const q: QueuedOp[] = JSON.parse(localStorage.getItem(KEY) ?? '[]');
+    return q.filter((op) => !ZAHODIT_Z_FRONTY.has(op.table));
+  } catch { return []; }
 }
 function write(q: QueuedOp[]) {
   try {
@@ -126,6 +134,7 @@ const NAZVY_TABULEK: Record<string, string> = {
   kegging_plan_checks: 'Odškrtnutí v plánu stáčení',
   cellar_tanks: 'Tank ve sklepě',
   keg_returns: 'Vrácení sudů',
+  odpocty_push: 'Odpočet (upozornění na telefon)',
 };
 
 const NAZVY_OPERACI: Record<QueuedOp['op'], string> = {

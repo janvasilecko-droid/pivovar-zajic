@@ -26,8 +26,12 @@ const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 
 const REST_PREFIX = '/rest/v1/';
 const FILTER_RE = /^(eq|neq|gt|gte|lt|lte|in|is|like|ilike|match|or|not|cs|cd|ov|sl|sr|nxr|nxl|adj|fts|plfts|phfts|wfts)\./;
-// Telemetrie, kterou nemá smysl řadit do offline fronty.
-const TELEMETRY_TABLES = new Set(['user_app_versions', 'app_versions']);
+// Telemetrie a zápisy, které nemá smysl řadit do offline fronty — po návratu
+// signálu by byly k ničemu. `odpocty_push` (konec běžícího odpočtu pro push,
+// lib/odpoctyPush.ts): za dvě minuty je pasé a appka ho při příští změně
+// zapíše znovu. Ve frontě jen strašil jako „zápisy k odeslání" (29. 9. 2026).
+export const MIMO_FRONTU = new Set(['user_app_versions', 'app_versions', 'odpocty_push']);
+const TELEMETRY_TABLES = MIMO_FRONTU;
 
 type RestInfo = { table: string; eq: Record<string, any>; inMatch: Record<string, any[]>; onConflict: string | null };
 
