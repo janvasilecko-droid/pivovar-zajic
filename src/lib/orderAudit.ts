@@ -606,7 +606,25 @@ export async function runOrderAudit({
         'zavoz_deductions',
         'order_id, order_item_id, beer_id, package_id, quantity, deduct_date',
       ).in('order_id', stornoOrders.map((o) => o.id));
-      const visici = odpoctyStornovanych(stornoOrders.map((o) => o.id), (stornoDed || []) as any[]);
+      const visiciVse = odpoctyStornovanych(stornoOrders.map((o) => o.id), (stornoDed || []) as any[]);
+      // Zrušená objednávka, jejíž kusy se vrátily na sklad dnešním dnem
+      // (lib/zruseniObjednavky.ts, 29. 9. 2026): odpočet v uzavřeném týdnu
+      // zůstává schválně a vrácení (inventory_adjustments s order_id) ho
+      // vyrovnává — to není chyba a „uklidit" ji nesmí.
+      const { data: vracenoData } = await fetchAllRows('inventory_adjustments', 'order_id, beer_id, package_id, quantity')
+        .in('order_id', stornoOrders.map((o) => o.id));
+      const vraceno = new Map<string, number>();
+      for (const v of (vracenoData || []) as any[]) {
+        const k = `${v.order_id}__${v.beer_id}__${v.package_id}`;
+        vraceno.set(k, (vraceno.get(k) ?? 0) + Number(v.quantity || 0));
+      }
+      const visici = visiciVse.filter((d: any) => {
+        const k = `${d.order_id}__${d.beer_id}__${d.package_id}`;
+        const zbyva = vraceno.get(k) ?? 0;
+        const vyrovnano = Math.min(zbyva, Number(d.quantity || 0));
+        vraceno.set(k, zbyva - vyrovnano);
+        return Number(d.quantity || 0) - vyrovnano > 0;
+      });
       const stornoById = new Map(stornoOrders.map((o) => [o.id, o]));
       for (const d of visici) {
         const o: any = stornoById.get(d.order_id);

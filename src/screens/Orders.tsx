@@ -37,7 +37,7 @@ import { datumProDenObjednavky, dayKeyFromISO } from '../lib/keggingPlan';
 import { TapReservationModal } from '../components/TapReservationModal';
 import { createReminder, getLocalReminders } from '../lib/reminders';
 import { type AkceRow } from '../lib/inventoryHelper';
-import { chyba, oznam, potvrd, volba } from '../lib/toast';
+import { chyba, oznam, potvrd, uspech, volba } from '../lib/toast';
 
 import { IkonaVycep } from '../components/ikony';
 import { poctyPolozek } from '../lib/objednavkyStatistika';
@@ -46,6 +46,7 @@ import { kusy } from '../lib/cisla';
 
 import { uloz } from '../lib/uloziste';
 import { smazObjednavky } from '../lib/smazaniObjednavek';
+import { nactiOdpocty, vraceniZOdpoctu, zruseniSVracenim } from '../lib/zruseniObjednavky';
 import { najdiZdvojene, popisZdvojeni } from '../lib/zdvojenePolozky';
 
 import { type CenaPolozky } from '../lib/hodnotaObjednavky';
@@ -1354,7 +1355,42 @@ export default function Orders({
     await supabase.from('orders').update(patch).eq('id', o.id);
     setOrders((arr) => arr.map((x) => x.id === o.id ? { ...x, ...patch } as Order : x));
   }
+  // ↩️ Zrušit objednávky, které už jsou odepsané ze skladu: odpočet zůstane
+  // (uzavřený týden), kusy se vrátí na sklad DNEŠNÍM dnem jako vrácení přes
+  // formulář, objednávka → storno (lib/zruseniObjednavky.ts, 29. 9. 2026).
+  // Vrací počet takto zrušených objednávek, null = žádná nebyla odepsaná.
+  async function zrusSVracenim(vybrane: Order[], sePtat: boolean): Promise<number | null> {
+    const { data: odpocty, chyba: chybaOdpoctu } = await nactiOdpocty(vybrane.map((o) => o.id));
+    if (chybaOdpoctu) { chyba('Odpočty ze skladu se nepodařilo načíst: ' + chybaOdpoctu); return 0; }
+    const odepsane = vybrane.filter((o) => odpocty.some((d) => d.order_id === o.id));
+    if (odepsane.length === 0) return null;
+    const kusu = odpocty.filter((d) => odepsane.some((o) => o.id === d.order_id)).reduce((n, d) => n + Number(d.quantity || 0), 0);
+    if (sePtat && !(await potvrd(
+      `${odepsane.length === 1 ? 'Objednávka už je odepsaná' : `${odepsane.length} objednávky už jsou odepsané`} ze skladu (${kusu} ks). `
+      + 'Zruším ji a kusy vrátím na sklad DNEŠNÍM dnem — minulý týden a jeho inventura zůstanou beze změny. Pokračovat?',
+    ))) return 0;
+    const dnes = businessDateISO();
+    for (const o of odepsane) {
+      const vraceni = vraceniZOdpoctu(odpocty.filter((d) => d.order_id === o.id), items[o.id] ?? []);
+      const { zaznamy, poznamka } = zruseniSVracenim(o, vraceni, dnes);
+      if (zaznamy.length > 0) {
+        const { error } = await supabase.from('inventory_adjustments').insert(zaznamy);
+        if (error) { chyba(`Vrácení na sklad (${o.place_name ?? 'objednávka'}) se nepovedlo: ${error.message}`); return 0; }
+      }
+      // Stav přímo, NE přes set_order_status — ta by se pokusila smazat
+      // odpočet a změnit tím uzavřený týden.
+      const { error: e2 } = await supabase.from('orders').update({ status: 'storno', note: poznamka }).eq('id', o.id);
+      if (e2) { chyba(`Zrušení (${o.place_name ?? 'objednávka'}) se nepovedlo: ${e2.message}`); return 0; }
+    }
+    uspech(`Zrušeno ${odepsane.length} ${odepsane.length === 1 ? 'objednávka' : 'objednávky'}, ${kusu} ks vráceno na sklad dnešním dnem.`);
+    return odepsane.length;
+  }
+
   async function setStatus(o: Order, status: string) {
+    if (status === 'storno') {
+      const zruseno = await zrusSVracenim([o], true);
+      if (zruseno !== null) { load(); return; }
+    }
     // Přes RPC, aby se při stornu zároveň uklidil odpočet závozu. Ten se
     // dělá automaticky v 1:00 ráno v den závozu — když odběratel objednávku
     // dopoledne zruší, odpočet dřív zůstal navždy a sklad byl trvale nižší
@@ -1402,8 +1438,13 @@ export default function Orders({
 
   async function del(id: string) {
     if (!(await potvrd('Smazat objednávku?'))) return;
-    // I s proběhlým odpočtem závozu (lib/smazaniObjednavek.ts) — dřív to
-    // u objednávek z minulého týdne končilo „nelze smazat" (29. 9. 2026).
+    // Už odepsaná ze skladu → nemazat (změnil by se uzavřený týden), ale
+    // zrušit a vrátit kusy dnešním dnem (29. 9. 2026).
+    const objednavka = orders.find((x) => x.id === id);
+    if (objednavka) {
+      const zruseno = await zrusSVracenim([objednavka], true);
+      if (zruseno !== null) { load(); return; }
+    }
     const chybaMazani = await smazObjednavky([id]);
     if (chybaMazani) { chyba('Smazání se nepodařilo: ' + chybaMazani); return; }
     load();
@@ -1576,8 +1617,19 @@ export default function Orders({
     // stav a při stornu nechával odpočet zavozu ležet — sklad pak zůstal
     // trvale nižší o zrušené zboží a v inventuře z toho byl nevysvětlitelný
     // přebytek. Hromadné RPC neexistuje a objednávek je málo, takže smyčka.
+    let ids = [...selectedIds];
+    // Storno u už odepsaných: vrácení dnešním dnem, odpočet zůstane.
+    if (status === 'storno') {
+      const { data: odpocty } = await nactiOdpocty(ids);
+      const odepsane = new Set(odpocty.map((d) => d.order_id));
+      if (odepsane.size > 0) {
+        const zruseno = await zrusSVracenim(orders.filter((x) => odepsane.has(x.id)), true);
+        if (!zruseno) { load(); return; }
+        ids = ids.filter((x) => !odepsane.has(x));
+      }
+    }
     const nepovedlo: string[] = [];
-    for (const id of [...selectedIds]) {
+    for (const id of ids) {
       const { error } = await supabase.rpc('set_order_status', { p_order_id: id, p_status: status });
       if (error) nepovedlo.push(error.message);
     }
@@ -1595,7 +1647,16 @@ export default function Orders({
     if (!selectedIds.size) return;
     if (!(await potvrd(`Smazat ${selectedIds.size} vybraných objednávek?`))) return;
     const ids = [...selectedIds];
-    const chybaMazani = await smazObjednavky(ids);
+    // Odepsané ze skladu se nemažou, ale ruší s vrácením dnešním dnem.
+    const vybrane = orders.filter((x) => ids.includes(x.id));
+    const { data: odpocty } = await nactiOdpocty(ids);
+    const odepsaneIds = new Set(odpocty.map((d) => d.order_id));
+    if (odepsaneIds.size > 0) {
+      const zruseno = await zrusSVracenim(vybrane.filter((x) => odepsaneIds.has(x.id)), true);
+      if (!zruseno) { load(); return; }
+    }
+    const kMazani = ids.filter((x) => !odepsaneIds.has(x));
+    const chybaMazani = await smazObjednavky(kMazani);
     if (chybaMazani) { chyba('Smazání se nepodařilo: ' + chybaMazani); load(); return; }
     clearSelection(); load();
   }
