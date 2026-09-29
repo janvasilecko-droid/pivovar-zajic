@@ -236,6 +236,10 @@ export default {
         // Pruh „je nová verze" nahoře (Layout.tsx). Třikrát poskočí a přestane;
         // věčné poskakování by u lišty, která zůstává na obrazovce, otravovalo.
         'bounce-short': 'bounceShort 1.1s ease-in-out 3',
+        // Totéž poskočení pro prvek, který NENÍ vystředěný přes translate
+        // (okno „Časovač vypršel") — bounceShort by ho posunul o půl šířky
+        // doleva mimo displej (29. 9. 2026).
+        'poskoc': 'poskoc 1.1s ease-in-out 3',
       },
       keyframes: {
         fadeIn:  { from: { opacity: '0', transform: 'translateY(4px)' }, to: { opacity: '1', transform: 'translateY(0)' } },
@@ -253,6 +257,10 @@ export default {
         bounceShort: {
           '0%, 100%': { transform: 'translate(-50%, 0)' },
           '50%': { transform: 'translate(-50%, -6px)' },
+        },
+        poskoc: {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-6px)' },
         },
       },
     },

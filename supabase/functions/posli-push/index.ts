@@ -36,6 +36,10 @@ type Telo = {
   parametry?: string;
   /** Stejný tag = nová zpráva přepíše starou místo laviny oznámení. */
   tag?: string;
+  /** Poslat jen zařízením tohoto uživatele (konec odpočtu). Bez něj všem. */
+  uzivatel?: string;
+  /** Alarm: dlouhé vibrace a upozornění nezmizí samo (konec odpočtu). */
+  alarm?: boolean;
 };
 
 Deno.serve(async (req: Request) => {
@@ -75,9 +79,11 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const { data: odbery, error } = await supabase
+    let dotaz = supabase
       .from("push_odbery")
       .select("endpoint, p256dh, auth");
+    if (body.uzivatel) dotaz = dotaz.eq("user_id", body.uzivatel);
+    const { data: odbery, error } = await dotaz;
     if (error) {
       return new Response(
         JSON.stringify({ error: `Odběry se nepodařilo načíst: ${error.message}` }),
@@ -91,6 +97,7 @@ Deno.serve(async (req: Request) => {
       stranka: body.stranka ?? "",
       parametry: body.parametry ?? "",
       tag: body.tag ?? "pivovar",
+      alarm: body.alarm === true,
     });
 
     let odeslano = 0;

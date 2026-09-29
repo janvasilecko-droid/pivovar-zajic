@@ -66,7 +66,7 @@ export function TimerDoneAlertModal() {
         paddingBottom: 'max(1rem, env(safe-area-inset-bottom))',
       }}
     >
-      <div className="w-full max-w-sm my-auto bg-neutral-900 border-2 border-amber-500 rounded-2xl p-5 sm:p-6 text-white shadow-2xl shadow-amber-500/30 flex flex-col items-center text-center relative animate-bounce-short">
+      <div className="w-full max-w-sm my-auto bg-neutral-900 border-2 border-amber-500 rounded-2xl p-5 sm:p-6 text-white shadow-2xl shadow-amber-500/30 flex flex-col items-center text-center relative animate-poskoc">
         {/* Zavírací křížek */}
         <button
           type="button"

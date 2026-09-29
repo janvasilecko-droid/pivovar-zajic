@@ -430,6 +430,12 @@ self.addEventListener('push', (e) => {
     renotify: true,
     data: { stranka: data.stranka || '', parametry: data.parametry || '' },
   };
+  // Konec odpočtu (odpocty_push): upozornění nezmizí samo a dlouze vibruje,
+  // ať ho člověk se zhasnutým displejem nepřehlédne.
+  if (data.alarm) {
+    moznosti.requireInteraction = true;
+    moznosti.vibrate = [500, 200, 500, 200, 800, 300, 1200];
+  }
   e.waitUntil(self.registration.showNotification(titulek, moznosti));
 });
 

@@ -5,6 +5,7 @@ import {
   COUNTDOWN_CHANGED_EVENT,
 } from '../lib/stopwatchTimers';
 import { notifyTimerDone } from '../lib/notifications';
+import { synchronizujOdpocty } from '../lib/odpoctyPush';
 
 const POLL_MS = 1000;
 
@@ -37,6 +38,10 @@ export function KegTimerNotificationManager() {
           return { ...t, notifiedAt: Date.now() };
         });
         if (changed) saveCountdowns(next);
+        // Konec běžících odpočtů na server — push i se zhasnutým displejem
+        // (lib/odpoctyPush.ts). Posílá se jen změna, takže každou sekundu
+        // se nic nezapisuje.
+        void synchronizujOdpocty(changed ? next : countdowns);
       } finally {
         checkingRef.current = false;
       }
