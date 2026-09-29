@@ -76,3 +76,52 @@ describe('volné malé sudy pro jednu objednávku', () => {
     expect(volneProObjednavku([{ package_id: 'k15', mame: 3, objednano: 5, nad: 2 }], 'k15')).toBe(-2);
   });
 });
+
+import { rozdelMaleSudyVObjednavce, silaPiva } from './maleSudy';
+
+describe('malé sudy po řádcích objednávky', () => {
+  // „mám 1× 20 a 2× 15, je tam 2× 20 12° → oranžově −1× 20; 2× 15 normálně;
+  // zbytek malých červeně; 30 l a PET normálně"
+  const souhrn = [
+    { package_id: 'k20', mame: 1, objednano: 0, nad: 0 },
+    { package_id: 'k15', mame: 2, objednano: 0, nad: 0 },
+  ];
+  it('příklad z provozu', () => {
+    const r = rozdelMaleSudyVObjednavce(souhrn, [
+      { klic: 'a', pkgId: 'k20', qty: 2, sila: 12 },
+      { klic: 'b', pkgId: 'k15', qty: 2, sila: 12 },
+      { klic: 'c', pkgId: 'k15', qty: 1, sila: 10 },
+      { klic: 'd', pkgId: 'k30', qty: 4, sila: 12 },
+      { klic: 'e', pkgId: 'pet1', qty: 20, sila: 12 },
+    ]);
+    expect(r.get('a')).toEqual({ kryto: 1, chybi: 1 });
+    expect(r.get('b')).toEqual({ kryto: 2, chybi: 0 });
+    expect(r.get('c')).toEqual({ kryto: 0, chybi: 1 });
+    expect(r.has('d')).toBe(false);
+    expect(r.has('e')).toBe(false);
+  });
+  it('nejsilnější pivo dostane sud první, i když je v objednávce níž', () => {
+    const r = rozdelMaleSudyVObjednavce(souhrn, [
+      { klic: 'desitka', pkgId: 'k20', qty: 1, sila: 10 },
+      { klic: 'dvanactka', pkgId: 'k20', qty: 1, sila: 12 },
+    ]);
+    expect(r.get('dvanactka')).toEqual({ kryto: 1, chybi: 0 });
+    expect(r.get('desitka')).toEqual({ kryto: 0, chybi: 1 });
+  });
+  it('síla piva z degree nebo z názvu', () => {
+    expect(silaPiva({ degree: '12°' })).toBe(12);
+    expect(silaPiva({ degree: '11,5' })).toBe(11.5);
+    expect(silaPiva({ degree: null, name: '10 Výčepní' })).toBe(10);
+    expect(silaPiva({ name: 'Jantar' })).toBe(0);
+  });
+  it('mezi objednávkami platí dovoz, uvnitř objednávky síla', () => {
+    const r = hlidejMaleSudy(
+      { k20: 1 },
+      [o('A', '2026-09-30')],
+      [{ id: 'x10', order_id: 'A', package_id: 'k20', quantity: 1, beer_id: 'b10' }, { id: 'x12', order_id: 'A', package_id: 'k20', quantity: 1, beer_id: 'b12' }],
+      new Map([['b10', 10], ['b12', 12]]),
+    );
+    expect(r.nadPoPolozce.get('x12')).toBeUndefined();
+    expect(r.nadPoPolozce.get('x10')).toBe(1);
+  });
+});

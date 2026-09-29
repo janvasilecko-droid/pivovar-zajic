@@ -30,7 +30,7 @@ export type ObjednavkaProSudy = {
   order_date?: string | null;
   created_at?: string | null;
 };
-export type PolozkaProSudy = { id: string; order_id: string; package_id: string | null; quantity: number | string };
+export type PolozkaProSudy = { id: string; order_id: string; package_id: string | null; quantity: number | string; beer_id?: string | null };
 
 /** Objednávka, na kterou se sudy teprve chystají. */
 export function jeOtevrena(o: ObjednavkaProSudy): boolean {
@@ -54,6 +54,8 @@ export function hlidejMaleSudy(
   zasoba: Record<string, number>,
   objednavky: ObjednavkaProSudy[],
   polozky: PolozkaProSudy[],
+  /** Síla piva podle beer_id — v rámci objednávky dostane sud nejdřív nejsilnější. */
+  silaPodleId?: Map<string, number>,
 ): VysledekMalychSudu {
   const otevrene = objednavky.filter(jeOtevrena);
   const poradi = new Map(
@@ -72,7 +74,9 @@ export function hlidejMaleSudy(
 
   const hlidane = polozky
     .filter((p) => p.package_id && zasoba[p.package_id] != null && poradi.has(p.order_id) && Number(p.quantity) > 0)
-    .sort((a, b) => poradi.get(a.order_id)! - poradi.get(b.order_id)! || (a.id < b.id ? -1 : 1));
+    .sort((a, b) => poradi.get(a.order_id)! - poradi.get(b.order_id)!
+      || silaZ(silaPodleId, b.beer_id) - silaZ(silaPodleId, a.beer_id)
+      || (a.id < b.id ? -1 : 1));
 
   const zbyva: Record<string, number> = { ...zasoba };
   const objednano: Record<string, number> = {};
@@ -111,4 +115,55 @@ export function volneProObjednavku(
   const s = souhrn.find((x) => x.package_id === packageId);
   if (!s) return null;
   return s.mame - (s.objednano - uzVTetoObjednavce);
+}
+
+function silaZ(mapa: Map<string, number> | undefined, beerId: string | null | undefined): number {
+  return (beerId && mapa?.get(beerId)) || 0;
+}
+
+/** Síla piva ve stupních — z `degree` („12", „12°", „11,5"), jinak z názvu („12 Světlý"). */
+export function silaPiva(beer: { degree?: string | null; name?: string | null } | null | undefined): number {
+  for (const zdroj of [beer?.degree, beer?.name]) {
+    const m = String(zdroj ?? '').match(/(\d+(?:[.,]\d+)?)/);
+    if (m) return Number(m[1].replace(',', '.'));
+  }
+  return 0;
+}
+
+export type RadekSudu = { klic: string; pkgId: string | null | undefined; qty: number; sila: number };
+export type PrideleniRadku = { kryto: number; chybi: number };
+
+/**
+ * Rozdělí volné malé sudy po řádcích JEDNÉ objednávky (29. 9. 2026: „má to
+ * vzít od nejsilnějších a přiřadit prázdné malé sudy — mám 1× 20 a 2× 15,
+ * je tam 2× 20 12° → částečně, řádek oranžový a pod tím −1× 20; 2× 15
+ * normálně; zbytek malých červeně, protože pro ně nejsou sudy; 30 l a PET
+ * normálně").
+ *
+ * V každém obalu dostanou sudy řádky od nejsilnějšího piva. Řádky s
+ * nehlídaným obalem (velké sudy, lahve) ve výsledku nejsou.
+ */
+export function rozdelMaleSudyVObjednavce(
+  souhrn: SouhrnMalychSudu[],
+  radky: RadekSudu[],
+  uzVTetoObjednavce: (pkgId: string) => number = () => 0,
+): Map<string, PrideleniRadku> {
+  const vysledek = new Map<string, PrideleniRadku>();
+  const zbyva = new Map<string, number>();
+  const serazene = radky
+    .map((r, i) => ({ r, i }))
+    .sort((a, b) => b.r.sila - a.r.sila || a.i - b.i);
+  for (const { r } of serazene) {
+    if (!r.pkgId || !(r.qty > 0)) continue;
+    if (!zbyva.has(r.pkgId)) {
+      const volne = volneProObjednavku(souhrn, r.pkgId, uzVTetoObjednavce(r.pkgId));
+      if (volne == null) continue;
+      zbyva.set(r.pkgId, Math.max(0, volne));
+    }
+    const mam = zbyva.get(r.pkgId)!;
+    const kryto = Math.min(mam, r.qty);
+    zbyva.set(r.pkgId, mam - kryto);
+    vysledek.set(r.klic, { kryto, chybi: r.qty - kryto });
+  }
+  return vysledek;
 }

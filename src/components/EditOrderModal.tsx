@@ -1,6 +1,6 @@
 import { useMaleSudy, useHlidaniMalychSudu } from '../lib/useMaleSudy';
-import { jeOtevrena, volneProObjednavku } from '../lib/maleSudy';
-import { MaleSudyVolne } from './MaleSudyVolne';
+import { jeOtevrena, volneProObjednavku, rozdelMaleSudyVObjednavce, silaPiva } from '../lib/maleSudy';
+import { MaleSudyVolne, MaleSudyRadek, tridaRadkuSudu } from './MaleSudyVolne';
 import { useState } from 'react';
 import { Modal } from './ui';
 import { X } from 'lucide-react';
@@ -62,6 +62,12 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
   const otevrena = jeOtevrena(order);
   const puvodneVObalu = (pkgId: string) => (otevrena ? items.filter((i) => i.package_id === pkgId).reduce((sum, i) => sum + Number(i.quantity || 0), 0) : 0);
   const zadanoVObalu = (pkgId: string) => rows.filter((x) => !x.removed && x.pkgId === pkgId).reduce((sum, x) => sum + (Number(x.qty) || 0), 0);
+  // Po řádcích od nejsilnějšího piva: část bez sudu oranžově, celé červeně.
+  const prideleniSudu = rozdelMaleSudyVObjednavce(
+    souhrnMalychSudu,
+    rows.map((r, i) => ({ klic: String(i), pkgId: r.removed ? null : r.pkgId, qty: Number(r.qty) || 0, sila: silaPiva(beers.find((b) => b.id === r.beerId)) })),
+    puvodneVObalu,
+  );
 
   // 🚰 Rezervace výčepu — modal
   const [showTapModal, setShowTapModal] = useState(false);
@@ -249,7 +255,7 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
                 <button type="button" className="btn-ghost !rounded text-xs !py-1 !px-2" onClick={() => restoreRow(i)}>Vrátit</button>
               </div>
             ) : (
-              <div key={r.id ?? `new-${i}`} className="grid grid-cols-1 sm:grid-cols-12 gap-2 sm:items-center p-2.5 sm:p-0 rounded-none border border-neutral-200 sm:border-none bg-neutral-50/60 sm:bg-transparent">
+              <div key={r.id ?? `new-${i}`} className={`grid grid-cols-1 sm:grid-cols-12 gap-2 sm:items-center p-2.5 rounded-none border ${tridaRadkuSudu(prideleniSudu.get(String(i)), 'border-neutral-200 sm:border-none bg-neutral-50/60 sm:bg-transparent sm:p-0')}`}>
                 <div className="sm:col-span-5">
                   <label className="sm:hidden text-udaj font-black uppercase text-neutral-500 mb-1 block">Pivo</label>
                   <select className="input !py-2 text-sm" value={r.beerId} onChange={(e) => setRow(i, 'beerId', e.target.value)}>
@@ -280,10 +286,14 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
                   </div>
                 </div>
                 <div className="sm:col-span-12">
-                  <MaleSudyVolne
-                    volne={volneProObjednavku(souhrnMalychSudu, r.pkgId, puvodneVObalu(r.pkgId))}
-                    zadano={zadanoVObalu(r.pkgId)}
-                  />
+                  {(prideleniSudu.get(String(i))?.chybi ?? 0) > 0 ? (
+                    <MaleSudyRadek prideleni={prideleniSudu.get(String(i))} obal={packages.find((p) => p.id === r.pkgId)?.label ?? ''} />
+                  ) : (
+                    <MaleSudyVolne
+                      volne={volneProObjednavku(souhrnMalychSudu, r.pkgId, puvodneVObalu(r.pkgId))}
+                      zadano={zadanoVObalu(r.pkgId)}
+                    />
+                  )}
                 </div>
                 <div className="flex justify-end sm:col-span-1">
                   <button type="button" className="text-rose-400 hover:text-rose-600 px-2 py-1.5 sm:py-0 tap" onClick={() => removeRow(i)} title="Odstranit položku"><X className="ikona-text" /> Odstranit</button>

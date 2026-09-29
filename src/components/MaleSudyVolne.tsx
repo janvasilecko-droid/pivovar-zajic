@@ -29,3 +29,27 @@ export function MaleSudyVolne({ volne, zadano }: {
     </div>
   );
 }
+
+// Řádek objednávky podle přidělených malých sudů (lib/maleSudy.ts
+// rozdelMaleSudyVObjednavce): část bez sudu → oranžově a pod tím „−N×",
+// celý bez sudu → červeně (29. 9. 2026).
+export function tridaRadkuSudu(p: { kryto: number; chybi: number } | undefined, obycejna: string): string {
+  if (!p || p.chybi <= 0) return obycejna;
+  return p.kryto > 0 ? 'bg-amber-100 border-amber-500' : 'bg-rose-50 border-rose-400';
+}
+
+export function MaleSudyRadek({ prideleni, obal }: { prideleni: { kryto: number; chybi: number } | undefined; obal: string }) {
+  if (!prideleni || prideleni.chybi <= 0) return null;
+  if (prideleni.kryto > 0) {
+    return (
+      <div className="w-full text-xs font-black text-amber-900">
+        −{prideleni.chybi}× {obal} — na tolik není prázdný sud (jde {prideleni.kryto})
+      </div>
+    );
+  }
+  return (
+    <div className="w-full text-xs font-black text-rose-800" role="alert">
+      {prideleni.chybi}× {obal} — není prázdný sud
+    </div>
+  );
+}

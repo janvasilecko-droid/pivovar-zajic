@@ -1,5 +1,6 @@
 // 📦 Karta jedné objednávky v přehledu — část obrazovky Objednávky.
 
+import { MaleSudyRadek, tridaRadkuSudu } from '../MaleSudyVolne';
 import { AlertTriangle, Ban, Beer as BeerIcon, Calendar, Check, CheckCircle2, Hourglass, MessageCircle, NotebookPen, Pencil, Phone, RotateCcw, Split, Trash2, Truck, Undo2, Droplet } from 'lucide-react';
 import { Beer, Package, Place, beerBg, formatPackageLabel } from '../../lib/supabase';
 
@@ -223,14 +224,17 @@ export function OrderCard({ o, items, stockRemainingForOrder, nadPocetMalychSudu
               const isPkgMatch = !!(activePackageId && i.package_id === activePackageId);
               const bothActive = !!(activeBeerId && activePackageId);
               const zvyrazneno = bothActive ? (isBeerMatch && isPkgMatch) : (isBeerMatch || isPkgMatch);
+              // Malé sudy: část bez sudu oranžově, celé bez sudu červeně.
+              const nadKusu = odbaveno ? 0 : (nadPocetMalychSudu?.get(i.id) ?? 0);
+              const sudyPolozky = nadKusu > 0 ? { kryto: Math.max(0, i.quantity - nadKusu), chybi: nadKusu } : undefined;
               const vraceno = jizVraceno && i.beer_id && i.package_id
                 ? (jizVraceno.get(`${i.beer_id}__${i.package_id}`) ?? 0)
                 : 0;
               return (
                 <div
                   key={i.id}
-                  className={`flex items-center gap-2 rounded px-1.5 py-1 min-w-0 ${
-                    zvyrazneno ? 'bg-violet-100 ring-1 ring-violet-400' : ''
+                  className={`flex items-center gap-2 ${sudyPolozky ? 'flex-wrap' : ''} rounded px-1.5 py-1 min-w-0 ${
+                    zvyrazneno ? 'bg-violet-100 ring-1 ring-violet-400' : sudyPolozky ? `border ${tridaRadkuSudu(sudyPolozky, '')}` : ''
                   }`}
                 >
                   <button
@@ -284,6 +288,7 @@ export function OrderCard({ o, items, stockRemainingForOrder, nadPocetMalychSudu
                       ↩ počítá se {Math.max(0, i.quantity - vraceno)}, {vraceno} vráceno
                     </span>
                   )}
+                  <MaleSudyRadek prideleni={sudyPolozky} obal={formatPackageLabel(i.package_label)} />
                 </div>
               );
             })}
@@ -324,7 +329,7 @@ export function OrderCard({ o, items, stockRemainingForOrder, nadPocetMalychSudu
           {!odbaveno && nadMale.length > 0 && (
             <span
               className="flex items-center gap-1 text-udaj font-black text-rose-950 bg-rose-100 border border-rose-300 rounded-lg px-2 py-0.5 shadow-2xs"
-              title="Malých sudů tohoto obalu je v otevřených objednávkách víc, než je naklikáno ve Stáčení KEG → Malé sudy. Sudy se přidělují od nejbližšího dovozu."
+              title="Malých sudů tohoto obalu je v otevřených objednávkách víc, než je naklikáno v Objednávky → Malé sudy. Sudy se přidělují od nejbližšího dovozu, v objednávce od nejsilnějšího piva."
             >
               <AlertTriangle size={12} />
               <span>Malé sudy nad počet: {nadMale.map((d) => `${d.name} ${d.nad} ks`).join(', ')}</span>

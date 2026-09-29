@@ -57,7 +57,7 @@ export function useMaleSudy(): {
  * Hlídání malých sudů nad OTEVŘENÝMI objednávkami — jeden výpočet pro
  * záložku Malé sudy i Objednávky, ať ukazují totéž.
  */
-export function useHlidaniMalychSudu(zasoba: Record<string, number>): VysledekMalychSudu & { nacteno: boolean } {
+export function useHlidaniMalychSudu(zasoba: Record<string, number>, silaPodleId?: Map<string, number>): VysledekMalychSudu & { nacteno: boolean } {
   const [data, setData] = useState<{ o: ObjednavkaProSudy[]; p: PolozkaProSudy[] } | null>(null);
   async function nacti() {
     // Nezavezené a nestornované — to jsou ty, na které se sudy ještě chystají.
@@ -67,7 +67,7 @@ export function useHlidaniMalychSudu(zasoba: Record<string, number>): VysledekMa
     const o = ((obj as any[]) ?? []) as ObjednavkaProSudy[];
     const ids = o.map((x) => x.id);
     const { data: pol } = ids.length
-      ? await fetchAllRows<any>('order_items', 'id,order_id,package_id,quantity').in('order_id', ids)
+      ? await fetchAllRows<any>('order_items', 'id,order_id,package_id,quantity,beer_id').in('order_id', ids)
       : { data: [] };
     setData({ o, p: ((pol as any[]) ?? []) as PolozkaProSudy[] });
   }
@@ -76,6 +76,6 @@ export function useHlidaniMalychSudu(zasoba: Record<string, number>): VysledekMa
   const hlida = Object.keys(zasoba).length > 0;
   useEffect(() => { if (hlida) void nacti(); }, [hlida]);
   useRealtime(['orders', 'order_items'], () => { if (hlida) void nacti(); });
-  const vysledek = data ? hlidejMaleSudy(zasoba, data.o, data.p) : { souhrn: [], nadPoPolozce: new Map<string, number>() };
+  const vysledek = data ? hlidejMaleSudy(zasoba, data.o, data.p, silaPodleId) : { souhrn: [], nadPoPolozce: new Map<string, number>() };
   return { ...vysledek, nacteno: !!data };
 }

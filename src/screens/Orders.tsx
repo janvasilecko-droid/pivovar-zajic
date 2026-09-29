@@ -5,8 +5,8 @@ import { useEffect, useMemo, useState, useCallback, useRef, lazy, Suspense } fro
 import { AlertTriangle, Calendar, CalendarDays, Camera, Check, CheckCircle2, CheckSquare, ChevronLeft, ChevronRight, ClipboardList, Clock, Copy, FilePlus, Globe, Mail, MessageCircle, Package as PackageIcon, PackageCheck, Plus, Receipt, Search, ShieldAlert, Trash2, Truck, User, X, Zap } from 'lucide-react';
 import { Beer, EntryRow, Package, Place, beerName, fetchAllRows, formatPackageLabel, supabase, useRealtime } from '../lib/supabase';
 import { useMaleSudy, useHlidaniMalychSudu } from '../lib/useMaleSudy';
-import { volneProObjednavku } from '../lib/maleSudy';
-import { MaleSudyVolne } from '../components/MaleSudyVolne';
+import { volneProObjednavku, rozdelMaleSudyVObjednavce, silaPiva } from '../lib/maleSudy';
+import { MaleSudyVolne, MaleSudyRadek, tridaRadkuSudu } from '../components/MaleSudyVolne';
 import { EmptyState, Spinner } from '../components/ui';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 import { zbytekKeKonciTydne, zbytekPodleObjednavek, type ObjednavkaKPrioritě } from '../lib/tydenniZbytek';
@@ -116,7 +116,9 @@ export default function Orders({
   const [packages, setPackages] = useState<Package[]>([]);
   // Malé sudy (KEG 20/15/10 l) nad naklikaný počet — lib/maleSudy.ts.
   const { zasoba: zasobaMalychSudu } = useMaleSudy();
-  const maleSudy = useHlidaniMalychSudu(zasobaMalychSudu);
+  // Uvnitř objednávky dostane sud nejdřív nejsilnější pivo (29. 9. 2026).
+  const silaPodleId = useMemo(() => new Map(beers.map((b) => [b.id, silaPiva(b)])), [beers]);
+  const maleSudy = useHlidaniMalychSudu(zasobaMalychSudu, silaPodleId);
   const [bottling, setBottling] = useState<EntryRow[]>([]);
   const [kegging, setKegging] = useState<EntryRow[]>([]);
   const [inventory, setInventory] = useState<EntryRow[]>([]);
@@ -262,6 +264,12 @@ export default function Orders({
   }
 
   const filledBeerRows = beerRows.filter((r) => r.beerId && r.pkgId && Number(r.qty) > 0);
+  // 🛢️ Volné malé sudy rozdělené po řádcích zadávané objednávky — od
+  // nejsilnějšího piva (lib/maleSudy.ts rozdelMaleSudyVObjednavce).
+  const prideleniSudu = rozdelMaleSudyVObjednavce(
+    maleSudy.souhrn,
+    filledBeerRows.map((r, i) => ({ klic: String(i), pkgId: r.pkgId, qty: Number(r.qty) || 0, sila: silaPodleId.get(r.beerId) ?? 0 })),
+  );
 
   // Dvakrát totéž pivo ve stejném obalu pro TÉHOŽ odběratele (lib/zdvojenePolozky.ts).
   // Do jedné mřížky se píše i pro víc hospod naráz, proto se seskupuje i podle
@@ -2107,7 +2115,14 @@ export default function Orders({
                 // piva v tomhle obalu dohromady) — lib/maleSudy.ts.
                 const volneSudy = volneProObjednavku(maleSudy.souhrn, p.id);
                 const zadanoVObalu = beerRows.filter((r) => r.pkgId === p.id).reduce((sum, r) => sum + (Number(r.qty) || 0), 0);
-                const nadSudy = volneSudy != null && zadanoVObalu > Math.max(0, volneSudy) && qty > 0;
+                let kryto = 0; let chybi = 0;
+                filledBeerRows.forEach((r, i) => {
+                  if (r.beerId !== expandedBeer.id || r.pkgId !== p.id) return;
+                  const x = prideleniSudu.get(String(i));
+                  if (x) { kryto += x.kryto; chybi += x.chybi; }
+                });
+                const sudyRadku = chybi > 0 ? { kryto, chybi } : undefined;
+                const nadSudy = !!sudyRadku;
                 return (
                   <div key={p.id} className="flex items-center justify-between gap-2 rounded-xl border border-neutral-200 dark:border-neutral-700 py-1.5 px-2 flex-wrap">
                     <span className="text-sm font-bold text-neutral-700 dark:text-neutral-200 truncate">{formatPackageLabel(p.label)}</span>
@@ -2153,7 +2168,7 @@ export default function Orders({
                           if (v === '') { setPkgAbsolute(expandedBeer.id, p.id, 0); return; }
                           setPkgAbsolute(expandedBeer.id, p.id, Number(v));
                         }}
-                        className={`w-14 h-10 text-center text-lg font-black bg-white dark:bg-neutral-900/60 border-2 rounded-lg ${nadSudy ? 'border-rose-500 text-rose-700' : 'border-amber-200 dark:border-neutral-700 text-neutral-800 dark:text-neutral-100'}`}
+                        className={`w-14 h-10 text-center text-lg font-black bg-white dark:bg-neutral-900/60 border-2 rounded-lg ${nadSudy ? (sudyRadku!.kryto > 0 ? 'border-amber-500 text-amber-900' : 'border-rose-500 text-rose-700') : 'border-amber-200 dark:border-neutral-700 text-neutral-800 dark:text-neutral-100'}`}
                         title="Napiš počet ručně"
                       />
                       <button
@@ -2162,7 +2177,9 @@ export default function Orders({
                         className="btn-pocet"
                       >+</button>
                     </div>
-                    <MaleSudyVolne volne={volneSudy} zadano={zadanoVObalu} />
+                    {sudyRadku
+                      ? <MaleSudyRadek prideleni={sudyRadku} obal={formatPackageLabel(p.label)} />
+                      : <MaleSudyVolne volne={volneSudy} zadano={zadanoVObalu} />}
                   </div>
                 );
               })}
@@ -2179,12 +2196,10 @@ export default function Orders({
                 {filledBeerRows.map((r, i) => {
                   const beer = beers.find((b) => b.id === r.beerId);
                   const pkg = packages.find((p) => p.id === r.pkgId);
-                  // Malé sudy nad počet → řádek červeně (lib/maleSudy.ts).
-                  const volneSudy = volneProObjednavku(maleSudy.souhrn, r.pkgId);
-                  const nadSudy = volneSudy != null
-                    && filledBeerRows.filter((x) => x.pkgId === r.pkgId).reduce((sum, x) => sum + (Number(x.qty) || 0), 0) > Math.max(0, volneSudy);
+                  // Malé sudy: část bez sudu oranžově, celé bez sudu červeně.
+                  const sudy = prideleniSudu.get(String(i));
                   return (
-                    <li key={`${r.beerId}-${r.pkgId}-${i}`} className={`flex items-center justify-between gap-2 rounded px-2.5 py-1.5 border ${nadSudy ? 'bg-rose-50 border-rose-400' : 'bg-neutral-50 dark:bg-neutral-900/60 border-neutral-200/70 dark:border-neutral-700'}`}>
+                    <li key={`${r.beerId}-${r.pkgId}-${i}`} className={`flex items-center justify-between gap-2 ${sudy && sudy.chybi > 0 ? 'flex-wrap' : ''} rounded px-2.5 py-1.5 border ${tridaRadkuSudu(sudy, 'bg-neutral-50 dark:bg-neutral-900/60 border-neutral-200/70 dark:border-neutral-700')}`}>
                       <button
                         type="button"
                         onClick={() => setExpandedBeerId(expandedBeerId === r.beerId ? null : r.beerId)}
@@ -2213,6 +2228,7 @@ export default function Orders({
                         <button type="button" onClick={() => setPkgQty(r.beerId, r.pkgId, 1)} className="btn-pocet">+</button>
                         <button type="button" onClick={() => setPkgQty(r.beerId, r.pkgId, -Number(r.qty))} className="w-10 h-10 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-black text-xl transition select-none tap" title="Odebrat položku" aria-label="Odebrat položku"><X size={18} /></button>
                       </div>
+                      <MaleSudyRadek prideleni={sudy} obal={formatPackageLabel(pkg?.label)} />
                     </li>
                   );
                 })}
