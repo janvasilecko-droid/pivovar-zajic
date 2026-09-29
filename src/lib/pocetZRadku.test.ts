@@ -20,3 +20,22 @@ describe('počet kusů z textu řádku (pojistka proti AI)', () => {
     expect(pocetZRadku(null, 30)).toBeNull();
   });
 });
+
+import { pocetZTabulky } from './pocetZRadku';
+
+describe('množství ze sloupce „Množství" (Maneo, 29. 9. 2026)', () => {
+  const zprava = 'Maneo objednávka\nPivo\tObal\tMnožství\n10° světlé\t30 l\t2\n12° světlé\t15 l\t3';
+  it('bere číslo ze sloupce Množství, ne stupeň', () => {
+    expect(pocetZTabulky(zprava, '10° světlé\t30 l\t2')).toBe(2);
+    // AI v raw_line tabulátory často nahradí mezerami — řádek se pozná i tak.
+    expect(pocetZTabulky(zprava, '12° světlé 15 l 3')).toBe(3);
+  });
+  it('tabulka zarovnaná mezerami', () => {
+    const z = 'Pivo        Obal    Množství\n10 sv       30      2\n12 sv       50      1';
+    expect(pocetZTabulky(z, '10 sv       30      2')).toBe(2);
+    expect(pocetZTabulky(z, '12 sv       50      1')).toBe(1);
+  });
+  it('bez záhlaví Množství → null', () => {
+    expect(pocetZTabulky('10sv 2x30', '10sv 2x30')).toBeNull();
+  });
+});

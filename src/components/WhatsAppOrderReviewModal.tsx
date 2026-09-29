@@ -23,7 +23,7 @@ import {
 } from '../lib/vraceniZObjednavky';
 import { STAVY_OBJEDNAVKY, popisStavu } from '../lib/stavyObjednavek';
 import { uloz } from '../lib/uloziste';
-import { pocetZRadku } from '../lib/pocetZRadku';
+import { pocetZRadku, pocetZTabulky } from '../lib/pocetZRadku';
 import { useMaleSudy, useHlidaniMalychSudu } from '../lib/useMaleSudy';
 import { rozdelMaleSudyVObjednavce, silaPiva } from '../lib/maleSudy';
 import { MaleSudyRadek, tridaRadkuSudu } from './MaleSudyVolne';
@@ -286,7 +286,9 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
           );
         // Pojistka: řádek výslovně píše „2x30" → platí 2, i kdyby AI
         // přečetla stupeň „10°" jako počet (lib/pocetZRadku.ts).
-        const zTextu = pocetZRadku(item.raw_line, Number(pkg?.volume_l ?? 0));
+        // Tabulka se sloupcem „Množství" (Maneo) má přednost.
+        const zTextu = pocetZTabulky(msg!.message_text, item.raw_line)
+          ?? pocetZRadku(item.raw_line, Number(pkg?.volume_l ?? 0));
         const aiQty = item.qty ?? 1;
         return {
           key: `item-${msg!.id}-${i}-${Date.now()}`,

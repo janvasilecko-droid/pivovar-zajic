@@ -24,3 +24,36 @@ export function pocetZRadku(radek: string | null | undefined, objemObalu: number
   }
   return nalezy.length === 1 && nalezy[0] > 0 ? nalezy[0] : null;
 }
+
+// ── Tabulka se sloupcem „Množství" ──────────────────────────────────────────
+// Z provozu 29. 9. 2026: „to Maneo množství mají ve sloupci Množství, oprav
+// to." Když zpráva obsahuje záhlaví s Množství/Počet/Ks, platí číslo z toho
+// sloupce řádku, ze kterého AI položku přečetla.
+
+const ZAHLAVI_MNOZSTVI = /^(mno[žz]stv[íi]|mn\.?|po[čc]et|ks|kus[ůu]?|kusy)$/i;
+
+function bunky(radek: string): string[] {
+  const oddelovac = /\t|\||;/.test(radek) ? /\s*(?:\t|\||;)\s*/ : /\s{2,}/;
+  return radek.trim().replace(/^\||\|$/g, '').split(oddelovac).map((b) => b.trim());
+}
+
+const normalizuj = (t: string) => t.toLowerCase().replace(/\s+/g, ' ').trim();
+
+export function pocetZTabulky(zprava: string | null | undefined, radekPolozky: string | null | undefined): number | null {
+  if (!zprava || !radekPolozky) return null;
+  const radky = zprava.split(/\r?\n/).filter((r) => r.trim().length > 0);
+  const iZahlavi = radky.findIndex((r) => bunky(r).some((b) => ZAHLAVI_MNOZSTVI.test(b.replace(/[:.]$/, ''))));
+  if (iZahlavi < 0) return null;
+  const zahlavi = bunky(radky[iZahlavi]);
+  const sloupec = zahlavi.findIndex((b) => ZAHLAVI_MNOZSTVI.test(b.replace(/[:.]$/, '')));
+  const hledany = normalizuj(radekPolozky);
+  for (const r of radky.slice(iZahlavi + 1)) {
+    const n = normalizuj(r);
+    if (!(n === hledany || n.includes(hledany) || hledany.includes(n))) continue;
+    const b = bunky(r);
+    if (b.length !== zahlavi.length) continue;
+    const m = (b[sloupec] ?? '').match(/^(\d+)\s*(?:ks|x)?$/i);
+    if (m && Number(m[1]) > 0) return Number(m[1]);
+  }
+  return null;
+}

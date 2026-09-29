@@ -97,6 +97,19 @@ F) VLASTNÍ JMÉNA PIV JSOU SILNĚJŠÍ NEŽ ČÍSLA
      • "limo citron", "citr", "cit."              → Citron
      • "limo grep"                                → Grep
    Když je v textu jméno piva, má přednost před jakýmkoli stupněm.
+
+G) TABULKA SE SLOUPCEM „MNOŽSTVÍ" (Maneo a další, kdo posílají tabulku
+   nebo fotku objednávkového formuláře)
+   Když má objednávka ZÁHLAVÍ SLOUPCŮ a jeden z nich je „Množství",
+   „Počet", „Ks", „Kusů" nebo „Mn.", bere se množství VÝHRADNĚ z toho
+   sloupce. Stupeň ve sloupci piva (10°, 10 sv, 12) ani objem ve sloupci
+   obalu (30, 50, 30 l) NIKDY nejsou množství.
+       Pivo        Obal   Množství
+       10° světlé  30 l   2
+   → 2× KEG 30l piva 10°. NE 10× 30l.
+   Skutečná chyba (29. 9. 2026, Maneo): AI vzala stupeň 10 ze sloupce
+   piva jako počet a zapsala 10× 30l místo 2× 30l.
+   Prázdná buňka množství nebo 0 = položka se neobjednává, vynech ji.
 `;
 
 /**
