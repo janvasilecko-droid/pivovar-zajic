@@ -45,6 +45,7 @@ import { kartaOdberatele } from '../lib/kartaOdberatele';
 import { kusy } from '../lib/cisla';
 
 import { uloz } from '../lib/uloziste';
+import { smazObjednavky } from '../lib/smazaniObjednavek';
 import { najdiZdvojene, popisZdvojeni } from '../lib/zdvojenePolozky';
 
 import { type CenaPolozky } from '../lib/hodnotaObjednavky';
@@ -1401,14 +1402,10 @@ export default function Orders({
 
   async function del(id: string) {
     if (!(await potvrd('Smazat objednávku?'))) return;
-    // Objednávka už mohla mít proběhlý automatický odpočet závozu
-    // (zavoz_deductions) — bez smazání těchto řádků FK constraint smazání
-    // objednávky odmítne (409) a bez kontroly chyby to vypadá, že se
-    // "nic nestalo".
-    await supabase.from('zavoz_deductions').delete().eq('order_id', id);
-    await supabase.from('order_items').delete().eq('order_id', id);
-    const { error } = await supabase.from('orders').delete().eq('id', id);
-    if (error) { chyba('Smazání se nepodařilo: ' + error.message); return; }
+    // I s proběhlým odpočtem závozu (lib/smazaniObjednavek.ts) — dřív to
+    // u objednávek z minulého týdne končilo „nelze smazat" (29. 9. 2026).
+    const chybaMazani = await smazObjednavky([id]);
+    if (chybaMazani) { chyba('Smazání se nepodařilo: ' + chybaMazani); return; }
     load();
   }
 
@@ -1598,10 +1595,8 @@ export default function Orders({
     if (!selectedIds.size) return;
     if (!(await potvrd(`Smazat ${selectedIds.size} vybraných objednávek?`))) return;
     const ids = [...selectedIds];
-    await supabase.from('zavoz_deductions').delete().in('order_id', ids);
-    await supabase.from('order_items').delete().in('order_id', ids);
-    const { error } = await supabase.from('orders').delete().in('id', ids);
-    if (error) { chyba('Smazání se nepodařilo: ' + error.message); return; }
+    const chybaMazani = await smazObjednavky(ids);
+    if (chybaMazani) { chyba('Smazání se nepodařilo: ' + chybaMazani); load(); return; }
     clearSelection(); load();
   }
 
