@@ -37,3 +37,20 @@ describe('coNalozitNaZavoz', () => {
     ], '2026-09-28')).toBeNull();
   });
 });
+
+import { tabulkaNakladky } from './nalozitNaZavoz';
+
+describe('nakládka jako tabulka (styl Co stočit)', () => {
+  it('řádek = pivo, sloupce sudy od největšího, pak lahve, součty', () => {
+    const t = tabulkaNakladky([
+      { pivo: '12° Světlá', obal: 'KEG 50l', kusu: 7 },
+      { pivo: '12° Světlá', obal: 'KEG 30l', kusu: 3 },
+      { pivo: '10° Desítka', obal: 'KEG 50l', kusu: 2 },
+      { pivo: '10° Desítka', obal: 'Lahve 0,5l', kusu: 20 },
+    ]);
+    expect(t.sloupce.map((s) => s.kratce)).toEqual(['50l', '30l', '0,5l']);
+    expect(t.radky.map((r) => r.pivo)).toEqual(['10° Desítka', '12° Světlá']);
+    expect(t.radky[1].kusy.get('KEG 50l')).toBe(7);
+    expect(t.soucty.get('KEG 50l')).toBe(9);
+  });
+});

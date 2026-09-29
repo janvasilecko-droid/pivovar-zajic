@@ -1,9 +1,9 @@
 // 🚚 Nakládka na nejbližší závoz — okno na ploše ve stylu „Co stočit".
 // ---------------------------------------------------------------------------
 // Z provozu 29. 9. 2026: „dej možnost tu nakládku na ploše minimalizovat
-// (sbalit stejně jako Co stočit), udělej ji ve stejném stylu, ale dej to do
-// 2 sloupců po 3 řádcích, když bude potřeba víc, tak po víc, ale primárně
-// po 3" + „když tak zmenši písmo, ať ušetříme místo".
+// (sbalit stejně jako Co stočit)" a pak „udělej ji ve stejném stylu jako
+// tu tabulku Co stočit" — řádek = pivo, sloupec = obal, dole součet
+// (lib/nalozitNaZavoz.ts tabulkaNakladky).
 //
 // Dřív to byla dlaždice v mřížce (3×2) — do ní se vešlo jen pár položek a
 // nešla sbalit. Na plochu se dál přidává stejně (zaškrtnutím „Přehled na
@@ -11,20 +11,16 @@
 // jako dlaždice, aby šla přesunout nebo odebrat.
 //
 // Sbalení se pamatuje v telefonu. Výpočet je v lib/nalozitNaZavoz.ts.
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ChevronDown, ChevronRight, Package as PackageIcon } from 'lucide-react';
-import { beerBg, beerText } from '../lib/supabase';
+import { beerBg } from '../lib/supabase';
+import { IkonaSud, IkonaLahev } from './ikony';
 import { kusy } from '../lib/cisla';
 import { uloz } from '../lib/uloziste';
-import type { NalozitNaZavoz } from '../lib/nalozitNaZavoz';
+import { tabulkaNakladky, type NalozitNaZavoz } from '../lib/nalozitNaZavoz';
 
 const KLIC_SBALENO = 'pivovar_nakladka_sbaleno';
 const cti = (klic: string) => { try { return localStorage.getItem(klic); } catch { return null; } };
-
-/** Řádků v každém ze dvou sloupců: primárně 3, víc jen když je víc položek. */
-export function radkuNakladky(polozek: number): number {
-  return Math.max(3, Math.ceil(polozek / 2));
-}
 
 export default function NakladkaOkno({ nalozit, barvaPiva, onOtevrit }: {
   nalozit: NalozitNaZavoz | null;
@@ -39,8 +35,13 @@ export default function NakladkaOkno({ nalozit, barvaPiva, onOtevrit }: {
   const den = nalozit
     ? new Date(nalozit.datum + 'T00:00:00').toLocaleDateString('cs-CZ', { weekday: 'short', day: 'numeric', month: 'numeric' })
     : '';
-  const polozky = nalozit?.polozky ?? [];
-  const radku = radkuNakladky(polozky.length);
+  const tabulka = useMemo(() => tabulkaNakladky(nalozit?.polozky ?? []), [nalozit]);
+  const sloupceSudu = tabulka.sloupce.filter((s) => s.druh === 'sudy').length;
+  const sloupceLahvi = tabulka.sloupce.length - sloupceSudu;
+  // Stejné buňky a předěl sudy/lahve jako tabulka Co stočit.
+  const bunka = 'px-1 py-1 text-center tabular-nums w-11 border-l border-neutral-200';
+  const hranice = (i: number) =>
+    i > 0 && tabulka.sloupce[i].druh === 'lahve' && tabulka.sloupce[i - 1].druh === 'sudy' ? 'border-l-2 border-sky-300' : '';
 
   return (
     <section className="bg-white rounded border border-neutral-200/90 shadow-xs overflow-hidden">
@@ -70,25 +71,56 @@ export default function NakladkaOkno({ nalozit, barvaPiva, onOtevrit }: {
             <p className="text-sm font-bold text-neutral-600">Na příštích 7 dní nic k závozu.</p>
           ) : (
             <>
-              {/* Dva sloupce, plní se shora dolů: 1–3 vlevo, 4–6 vpravo. */}
-              <div
-                className="grid grid-cols-2 grid-flow-col gap-x-1.5 gap-y-1"
-                style={{ gridTemplateRows: `repeat(${radku}, auto)` }}
-              >
-                {polozky.map((p) => {
-                  const pivo = { beer_color: barvaPiva(p.pivo) };
-                  return (
-                    <div
-                      key={`${p.pivo}__${p.obal}`}
-                      className={`flex items-baseline gap-1 text-udaj font-bold min-w-0 rounded px-1.5 py-0.5 ${beerText(pivo)}`}
-                      style={{ backgroundColor: beerBg(pivo) }}
-                    >
-                      <span className="truncate">{p.pivo}</span>
-                      <span className="opacity-80 truncate">{p.obal}</span>
-                      <span className="ml-auto shrink-0 tabular-nums font-black">× {p.kusu}</span>
-                    </div>
-                  );
-                })}
+              <div className="overflow-x-auto -mx-1">
+                <table className="w-full text-sm border-collapse">
+                  <thead>
+                    {sloupceSudu > 0 && sloupceLahvi > 0 && (
+                      <tr className="text-udaj font-black text-neutral-500">
+                        <th />
+                        <th colSpan={sloupceSudu} className="px-1 pt-0.5 text-center border-b-2 border-amber-300">
+                          <span className="inline-flex items-center gap-1"><IkonaSud size={12} /> Sudy</span>
+                        </th>
+                        <th colSpan={sloupceLahvi} className="px-1 pt-0.5 text-center border-b-2 border-sky-300">
+                          <span className="inline-flex items-center gap-1"><IkonaLahev size={12} /> Lahve</span>
+                        </th>
+                      </tr>
+                    )}
+                    <tr className="text-udaj font-black text-neutral-600 border-b border-neutral-200">
+                      <th className="text-left px-1 py-1">Pivo</th>
+                      {tabulka.sloupce.map((s, i) => (
+                        <th key={s.obal} title={s.obal} className={`${bunka} whitespace-nowrap ${hranice(i)}`}>{s.kratce}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tabulka.radky.map((r) => (
+                      <tr key={r.pivo} className="border-b border-neutral-200 even:bg-neutral-100/80">
+                        <td className="px-1 py-1 max-w-0 w-full">
+                          <span className="flex items-center gap-1.5 min-w-0">
+                            <span className="w-2.5 h-2.5 rounded-full shrink-0 border border-neutral-300" style={{ background: beerBg({ beer_color: barvaPiva(r.pivo) }) }} />
+                            <span className="truncate font-bold text-neutral-900">{r.pivo}</span>
+                          </span>
+                        </td>
+                        {tabulka.sloupce.map((s, i) => {
+                          const n = r.kusy.get(s.obal) ?? 0;
+                          return (
+                            <td key={s.obal} className={`${bunka} ${hranice(i)}`}>
+                              {n > 0 ? <span className="font-display font-black text-neutral-950">{n}</span> : <span className="text-neutral-300">·</span>}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t-2 border-neutral-300 font-black">
+                      <td className="px-1 py-1 text-udaj text-neutral-600">Celkem</td>
+                      {tabulka.sloupce.map((s, i) => (
+                        <td key={s.obal} className={`${bunka} ${hranice(i)} font-display text-neutral-950`}>{tabulka.soucty.get(s.obal) || ''}</td>
+                      ))}
+                    </tr>
+                  </tfoot>
+                </table>
               </div>
               <div className="flex items-center justify-between gap-2">
                 <span className="text-udaj font-bold text-neutral-600 truncate">
