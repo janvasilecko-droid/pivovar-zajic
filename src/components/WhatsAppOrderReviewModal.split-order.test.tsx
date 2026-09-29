@@ -8,6 +8,10 @@ import { WhatsAppOrderReviewModal } from './WhatsAppOrderReviewModal';
 
 const { insertCalls } = vi.hoisted(() => ({ insertCalls: [] as { table: string; payload: any }[] }));
 
+vi.mock('../lib/useMaleSudy', () => ({
+  useMaleSudy: () => ({ zasoba: {}, nacteno: true, chybiMigrace: false, ulozit: async () => null }),
+  useHlidaniMalychSudu: () => ({ souhrn: [], nadPoPolozce: new Map(), nacteno: true }),
+}));
 vi.mock('../lib/supabase', () => {
   const supabase = {
     from: vi.fn((table: string) => ({

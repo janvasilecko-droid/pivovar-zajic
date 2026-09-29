@@ -4,6 +4,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { WhatsAppOrderReviewModal } from './WhatsAppOrderReviewModal';
 
+vi.mock('../lib/useMaleSudy', () => ({
+  useMaleSudy: () => ({ zasoba: {}, nacteno: true, chybiMigrace: false, ulozit: async () => null }),
+  useHlidaniMalychSudu: () => ({ souhrn: [], nadPoPolozce: new Map(), nacteno: true }),
+}));
 vi.mock('../lib/supabase', () => {
   const stub = () => ({
     select: vi.fn().mockReturnValue(Promise.resolve({ data: [], error: null })),

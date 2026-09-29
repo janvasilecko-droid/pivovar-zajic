@@ -38,13 +38,18 @@ export default function NakladkaOkno({ nalozit, barvaPiva, onOtevrit }: {
   const tabulka = useMemo(() => tabulkaNakladky(nalozit?.polozky ?? []), [nalozit]);
   const sloupceSudu = tabulka.sloupce.filter((s) => s.druh === 'sudy').length;
   const sloupceLahvi = tabulka.sloupce.length - sloupceSudu;
-  // Stejné buňky a předěl sudy/lahve jako tabulka Co stočit.
-  const bunka = 'px-1 py-1 text-center tabular-nums w-11 border-l border-neutral-200';
+  // Stejný vzhled jako tabulka Co stočit, ale VŽDY na šířku telefonu
+  // (29. 9. 2026: „proč je to teď tak roztažené, dej to tak, ať se to vejde
+  // na velikost telefonního displeje"): pevné rozvržení, pivo má třetinu
+  // šířky, obaly se dělí o zbytek. Při hodně obalech menší písmo a bez „l".
+  const husta = tabulka.sloupce.length > 5;
+  const bunka = `px-0.5 py-1 text-center tabular-nums border-l border-neutral-200 ${husta ? 'text-udaj' : ''}`;
+  const popisek = (kratce: string) => (tabulka.sloupce.length > 6 ? kratce.replace(/l$/i, '') : kratce);
   const hranice = (i: number) =>
     i > 0 && tabulka.sloupce[i].druh === 'lahve' && tabulka.sloupce[i - 1].druh === 'sudy' ? 'border-l-2 border-sky-300' : '';
 
   return (
-    <section className="bg-white rounded border border-neutral-200/90 shadow-xs overflow-hidden">
+    <section className="bg-white rounded border border-neutral-200/90 shadow-xs overflow-hidden min-w-0 max-w-full">
       <button
         type="button"
         onClick={prepniSbaleni}
@@ -72,7 +77,11 @@ export default function NakladkaOkno({ nalozit, barvaPiva, onOtevrit }: {
           ) : (
             <>
               <div className="overflow-x-auto -mx-1">
-                <table className="w-full text-sm border-collapse">
+                <table className="w-full table-fixed text-sm border-collapse">
+                  <colgroup>
+                    <col style={{ width: husta ? '30%' : '40%' }} />
+                    {tabulka.sloupce.map((s) => <col key={s.obal} />)}
+                  </colgroup>
                   <thead>
                     {sloupceSudu > 0 && sloupceLahvi > 0 && (
                       <tr className="text-udaj font-black text-neutral-500">
@@ -88,14 +97,14 @@ export default function NakladkaOkno({ nalozit, barvaPiva, onOtevrit }: {
                     <tr className="text-udaj font-black text-neutral-600 border-b border-neutral-200">
                       <th className="text-left px-1 py-1">Pivo</th>
                       {tabulka.sloupce.map((s, i) => (
-                        <th key={s.obal} title={s.obal} className={`${bunka} whitespace-nowrap ${hranice(i)}`}>{s.kratce}</th>
+                        <th key={s.obal} title={s.obal} className={`${bunka} whitespace-nowrap overflow-hidden ${hranice(i)}`}>{popisek(s.kratce)}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {tabulka.radky.map((r) => (
                       <tr key={r.pivo} className="border-b border-neutral-200 even:bg-neutral-100/80">
-                        <td className="px-1 py-1 max-w-0 w-full">
+                        <td className="px-1 py-1">
                           <span className="flex items-center gap-1.5 min-w-0">
                             <span className="w-2.5 h-2.5 rounded-full shrink-0 border border-neutral-300" style={{ background: beerBg({ beer_color: barvaPiva(r.pivo) }) }} />
                             <span className="truncate font-bold text-neutral-900">{r.pivo}</span>

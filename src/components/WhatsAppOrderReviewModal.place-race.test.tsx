@@ -8,6 +8,10 @@ const supabaseMock = vi.hoisted(() => ({
   resolveSelect: null as (() => void) | null,
   fromCalls: [] as string[],
 }));
+vi.mock('../lib/useMaleSudy', () => ({
+  useMaleSudy: () => ({ zasoba: {}, nacteno: true, chybiMigrace: false, ulozit: async () => null }),
+  useHlidaniMalychSudu: () => ({ souhrn: [], nadPoPolozce: new Map(), nacteno: true }),
+}));
 vi.mock('../lib/supabase', () => {
   const stub = () => ({
     select: vi.fn().mockImplementation(() => {

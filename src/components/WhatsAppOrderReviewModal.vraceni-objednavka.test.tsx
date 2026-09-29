@@ -12,6 +12,10 @@ import { WhatsAppOrderReviewModal } from './WhatsAppOrderReviewModal';
 const inserted: any[] = [];
 const updated: any[] = [];
 
+vi.mock('../lib/useMaleSudy', () => ({
+  useMaleSudy: () => ({ zasoba: {}, nacteno: true, chybiMigrace: false, ulozit: async () => null }),
+  useHlidaniMalychSudu: () => ({ souhrn: [], nadPoPolozce: new Map(), nacteno: true }),
+}));
 vi.mock('../lib/supabase', async () => {
   const actual = await vi.importActual<any>('../lib/supabase');
   return {

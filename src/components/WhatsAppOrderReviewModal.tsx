@@ -23,6 +23,10 @@ import {
 } from '../lib/vraceniZObjednavky';
 import { STAVY_OBJEDNAVKY, popisStavu } from '../lib/stavyObjednavek';
 import { uloz } from '../lib/uloziste';
+import { pocetZRadku } from '../lib/pocetZRadku';
+import { useMaleSudy, useHlidaniMalychSudu } from '../lib/useMaleSudy';
+import { rozdelMaleSudyVObjednavce, silaPiva } from '../lib/maleSudy';
+import { MaleSudyRadek, tridaRadkuSudu } from './MaleSudyVolne';
 import type { Order, OrderItem } from './objednavky/spolecne';
 
 /** Jak se skupiny obalů pojmenují v přehledu úpravy. */
@@ -70,6 +74,8 @@ interface ReviewItem {
   beerName?: string | null;
   packageLabel?: string | null;
   rawLine?: string | null;
+  /** Počet, který přečetla AI, když ho pojistka opravila podle textu řádku. */
+  aiQty?: number | null;
 }
 
 /** Klíč přísného režimu (blokace schválení při nesouladu) v localStorage. */
@@ -278,11 +284,16 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
             props.packages,
             aliasMap
           );
+        // Pojistka: řádek výslovně píše „2x30" → platí 2, i kdyby AI
+        // přečetla stupeň „10°" jako počet (lib/pocetZRadku.ts).
+        const zTextu = pocetZRadku(item.raw_line, Number(pkg?.volume_l ?? 0));
+        const aiQty = item.qty ?? 1;
         return {
           key: `item-${msg!.id}-${i}-${Date.now()}`,
           beerId: beer?.id || '',
           pkgId: pkg?.id || '',
-          qty: String(item.qty ?? 1),
+          qty: String(zTextu ?? aiQty),
+          aiQty: zTextu != null && zTextu !== Number(aiQty) ? Number(aiQty) : null,
           degree: item.degree,
           beerName: item.beer_name,
           packageLabel: item.package_label,
@@ -626,7 +637,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
 
   function updateItemQty(index: number, qty: string) {
     const next = [...items];
-    next[index] = { ...next[index], qty };
+    next[index] = { ...next[index], qty, aiQty: null };
     setItems(next);
   }
 
@@ -706,6 +717,17 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
       return () => clearTimeout(t);
     }
   }, [props.isOpen, firstMismatchIndex]);
+
+  // 🛢️ Malé sudy i u objednávky z WhatsAppu (29. 9. 2026: „furt nevidím
+  // v objednávce Maneo upozornění a červené objednávky malých sudů, na které
+  // nejsou sudy"). Stejné rozdělení jako ruční zadání — od nejsilnějšího piva.
+  const { zasoba: zasobaMalychSudu } = useMaleSudy();
+  const silaPodleId = useMemo(() => new Map(props.beers.map((b) => [b.id, silaPiva(b)])), [props.beers]);
+  const { souhrn: souhrnMalychSudu } = useHlidaniMalychSudu(zasobaMalychSudu, silaPodleId);
+  const prideleniSudu = rozdelMaleSudyVObjednavce(
+    souhrnMalychSudu,
+    items.map((it) => ({ klic: it.key, pkgId: it.pkgId, qty: Number(it.qty) || 0, sila: silaPodleId.get(it.beerId) ?? 0 })),
+  );
 
   if (!props.isOpen || !msg) return null;
 
@@ -1800,8 +1822,8 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                         <div
                           key={item.key}
                           ref={(el) => { itemRefs.current[index] = el; }}
-                          className={`p-2 bg-white rounded border ${
-                            isMismatch ? 'border-amber-300 ring-2 ring-amber-200' : ''
+                          className={`p-2 rounded border ${
+                            isMismatch ? 'bg-white border-amber-300 ring-2 ring-amber-200' : tridaRadkuSudu(prideleniSudu.get(item.key), 'bg-white')
                           }`}
                         >
                           {/* Pořadí je pořadí, ve kterém se objednávka čte:
@@ -1864,6 +1886,13 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                             </button>
                           </div>
 
+                          {item.aiQty != null && (
+                            <div className="text-xs mt-1 font-bold text-amber-900 flex items-start gap-1">
+                              <AlertTriangle size={12} className="mt-0.5 shrink-0" />
+                              <span>Počet opraven podle textu zprávy — AI četla {item.aiQty}×. Zkontroluj.</span>
+                            </div>
+                          )}
+                          <MaleSudyRadek prideleni={prideleniSudu.get(item.key)} obal={props.packages.find((p) => p.id === item.pkgId)?.label ?? ''} />
                           {item.rawLine && (() => {
                             if (rbItem?.status === 'unmatched') {
                               return (
