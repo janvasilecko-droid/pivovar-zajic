@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, lazy, Suspense } from 'react';
 import { Beer, Package, Place, fetchAllRows, formatPackageLabel, supabase, useRealtime } from '../lib/supabase';
-import { sestavCoNalozit, jeSudovyObal } from '../lib/coNalozit';
+import { sestavCoNalozit, jeSudovyObal, klicNakladky } from '../lib/coNalozit';
 import { Spinner, EmptyState, Modal } from '../components/ui';
 import { orderWeightKg, fmtKg } from '../lib/weight';
 import { DAYS } from '../lib/shared';
@@ -410,17 +410,15 @@ export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
   }
 
   // Toggle all order_items matching a loading-list label (beer_name + package)
-  async function toggleLoadingLabel(label: string, currentlyAllPrepared: boolean, jenZavoz?: number) {
+  async function toggleLoadingLabel(klic: string, currentlyAllPrepared: boolean, jenZavoz?: number) {
     const newPrepared = !currentlyAllPrepared;
     // Find all order_items across filteredOrders that match this label
     // (při rozdělené nakládce jen v tom jednom závozu).
     const toUpdate: { orderId: string; itemId: string }[] = [];
     filteredOrders.filter((o) => !jenZavoz || (o.zavoz_cislo ?? 1) === jenZavoz).forEach((o) => {
       (items[o.id] ?? []).forEach((it) => {
-        const pkg = packages.find((p) => p.id === it.package_id);
-        const pkgLabel = it.package_label ?? pkg?.label ?? 'Neurčeno';
-        const itemLabel = `${formatPackageLabel(pkgLabel)} ${it.beer_name ?? '?'}`;
-        if (itemLabel === label) toUpdate.push({ orderId: o.id, itemId: it.id });
+        // Podle identity pivo × obal, ne podle napsaného názvu (29. 9. 2026).
+        if (klicNakladky(it as any, packages as any) === klic) toUpdate.push({ orderId: o.id, itemId: it.id });
       });
     });
     if (!toUpdate.length) return;
@@ -916,8 +914,8 @@ export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
                           const allPrepared = k.preparedQty >= k.qty;
                           return (
                             <button
-                              key={k.label}
-                              onClick={() => toggleLoadingLabel(k.label, allPrepared, cislo || undefined)}
+                              key={k.klic}
+                              onClick={() => toggleLoadingLabel(k.klic, allPrepared, cislo || undefined)}
                               className={`w-full flex items-center justify-between p-2.5 rounded border shadow-xs transition text-left ${
                                 allPrepared
                                   ? 'bg-emerald-50 border-emerald-300 opacity-80'
@@ -955,8 +953,8 @@ export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
                           const allPrepared = lb.preparedQty >= lb.qty;
                           return (
                             <button
-                              key={lb.label}
-                              onClick={() => toggleLoadingLabel(lb.label, allPrepared, cislo || undefined)}
+                              key={lb.klic}
+                              onClick={() => toggleLoadingLabel(lb.klic, allPrepared, cislo || undefined)}
                               className={`w-full flex items-center justify-between p-2.5 rounded border shadow-xs transition text-left ${
                                 allPrepared
                                   ? 'bg-emerald-50 border-emerald-300 opacity-80'

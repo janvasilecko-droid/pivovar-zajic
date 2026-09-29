@@ -83,3 +83,19 @@ describe('sestavCoNalozit', () => {
     expect(r.kegs).toEqual([]);
   });
 });
+
+import { klicNakladky } from './coNalozit';
+
+describe('odškrtnutí „připraveno" podle identity (29. 9. 2026)', () => {
+  // „furt mi nejde zaškrtnout, že mám připravený 12 50l 4×"
+  it('položky s různě napsaným názvem piva mají stejný klíč jako jejich řádek', () => {
+    const obaly = [{ id: 'k50', label: 'KEG 50l', kind: 'keg' }];
+    const a = { beer_id: 'b12', beer_name: '12° Světlá', package_id: 'k50', package_label: 'KEG 50l', quantity: 2 };
+    const b = { beer_id: 'b12', beer_name: '12 světlá', package_id: 'k50', package_label: 'KEG 50l', quantity: 2 };
+    const r = sestavCoNalozit([a, b], obaly);
+    expect(r.kegs).toHaveLength(1);
+    expect(r.kegs[0].qty).toBe(4);
+    expect(klicNakladky(a, obaly)).toBe(r.kegs[0].klic);
+    expect(klicNakladky(b, obaly)).toBe(r.kegs[0].klic);
+  });
+});

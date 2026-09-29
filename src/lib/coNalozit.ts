@@ -22,7 +22,26 @@ export type NalozitPolozka = {
 
 export type NalozitObal = { id: string; label?: string | null; kind?: string | null };
 
-export type NalozitRadek = { label: string; qty: number; preparedQty: number };
+export type NalozitRadek = {
+  label: string;
+  qty: number;
+  preparedQty: number;
+  /** Identita řádku (pivo × obal) — podle ní se řádek i odškrtává. */
+  klic: string;
+};
+
+/**
+ * Klíč řádku nakládky: id piva a obalu, bez id normalizovaný název.
+ * Stejný klíč musí použít sečtení i odškrtnutí „připraveno" — z provozu
+ * 29. 9. 2026: „furt mi nejde zaškrtnout, že mám připravený 12 50l 4×".
+ * Odškrtávalo se podle napsaného popisku, jenže řádek sčítá položky
+ * s různě napsaným názvem piva — část se neodškrtla a řádek nezezelenal.
+ */
+export function klicNakladky(i: NalozitPolozka, obaly: NalozitObal[]): string {
+  const pkg = obaly.find((p) => p.id === i.package_id);
+  const pkgLabel = i.package_label ?? pkg?.label ?? 'Neurčeno';
+  return `${i.beer_id ?? `n:${(i.beer_name ?? '?').trim().toLowerCase()}`}__${i.package_id ?? `l:${pkgLabel.trim().toLowerCase()}`}`;
+}
 
 export type CoNalozit = {
   kegs: NalozitRadek[];
@@ -66,12 +85,12 @@ export function sestavCoNalozit(
     const label = `${formatObal(pkgLabel)} ${i.beer_name ?? '?'}`;
     // Bez id (starší nebo ručně psaný záznam) se spadne zpátky na
     // normalizovaný název — pořád lepší než syrový popisek.
-    const klic = `${i.beer_id ?? `n:${(i.beer_name ?? '?').trim().toLowerCase()}`}__${i.package_id ?? `l:${pkgLabel.trim().toLowerCase()}`}`;
+    const klic = klicNakladky(i, obaly);
     const qty = Number(i.quantity) || 0;
     const preparedQty = i.is_prepared ? qty : 0;
 
     const mapa = isKeg ? kegMap : bottleMap;
-    const cur = mapa.get(klic) ?? { label, qty: 0, preparedQty: 0 };
+    const cur = mapa.get(klic) ?? { label, qty: 0, preparedQty: 0, klic };
     cur.qty += qty;
     cur.preparedQty += preparedQty;
     mapa.set(klic, cur);
