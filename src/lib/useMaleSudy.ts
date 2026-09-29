@@ -37,8 +37,8 @@ export function useMaleSudy(): {
     setChybiMigrace(false);
     setNacteno(true);
   }
-  useEffect(() => { void nacti(); }, []);
-  useRealtime(['male_sudy'], () => { void nacti(); });
+  useEffect(() => { nacti().catch(() => setNacteno(true)); }, []);
+  useRealtime(['male_sudy'], () => { nacti().catch(() => {}); });
 
   /** `pocet = null` → obal přestane hlídat (řádek se smaže). */
   async function ulozit(packageId: string, pocet: number | null, kdo?: string | null): Promise<string | null> {
@@ -69,15 +69,11 @@ export function useHlidaniMalychSudu(zasoba: Record<string, number>, silaPodleId
   const [data, setData] = useState<{ o: ObjednavkaProSudy[]; p: PolozkaProSudy[] } | null>(null);
   async function nacti() {
     // Nezavezené a nestornované — to jsou ty, na které se sudy ještě chystají.
-    // Jen závoz od dneška (nebo bez data a objednané v posledním týdnu) —
-    // staré nezavezené objednávky sudy nedrží (maleSudy.ts chystaSeOd).
-    const dnes = businessDateISO();
-    const tyden = new Date(dnes + 'T00:00:00Z');
-    tyden.setUTCDate(tyden.getUTCDate() - 7);
+    // Staré nezavezené objednávky (závoz před dneškem) odfiltruje výpočet
+    // (maleSudy.ts chystaSeOd) — tady jen nezavezené a nestornované.
     const { data: obj } = await fetchAllRows<any>('orders', 'id,status,is_delivered,delivery_date,order_date,created_at')
       .eq('is_delivered', false)
-      .neq('status', 'storno')
-      .or(`delivery_date.gte.${dnes},and(delivery_date.is.null,order_date.gte.${tyden.toISOString().slice(0, 10)})`);
+      .neq('status', 'storno');
     const o = ((obj as any[]) ?? []) as ObjednavkaProSudy[];
     const ids = o.map((x) => x.id);
     const { data: pol } = ids.length
@@ -88,8 +84,10 @@ export function useHlidaniMalychSudu(zasoba: Record<string, number>, silaPodleId
   // Dokud nikdo nenaklikal žádný počet, není co hlídat — objednávky se
   // zbytečně nenačítají (hook běží i na ploše kvůli dlaždici).
   const hlida = Object.keys(zasoba).length > 0;
-  useEffect(() => { if (hlida) void nacti(); }, [hlida]);
-  useRealtime(['orders', 'order_items'], () => { if (hlida) void nacti(); });
+  // Chyba načtení nesmí shodit obrazovku — hlídání pak jen chvíli chybí.
+  const nactiBezpecne = () => { nacti().catch(() => {}); };
+  useEffect(() => { if (hlida) nactiBezpecne(); }, [hlida]);
+  useRealtime(['orders', 'order_items'], () => { if (hlida) nactiBezpecne(); });
   const vysledek = data ? hlidejMaleSudy(zasoba, data.o, data.p, silaPodleId, businessDateISO()) : { souhrn: [], nadPoPolozce: new Map<string, number>(), poPolozce: new Map<string, { kryto: number; chybi: number }>() };
   return { ...vysledek, nacteno: !!data };
 }
