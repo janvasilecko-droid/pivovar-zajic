@@ -19,7 +19,7 @@ import { vracenoPodleObjednavky } from '../../lib/vraceniZObjednavky';
 
 import { type Order, type OrderItem, dayColor, getTapNameForOrder } from './spolecne';
 
-export function OrderCard({ o, items, stockRemainingForOrder, nadPocetMalychSudu, sudyPoPolozce, selected, onToggleSelect, onClick, onToggleFlag, onToggleItemFlag, onUpdateDeliveryDay, onSetStatus, onDelete, onEdit, onSplit, onOpenWhatsApp, onVratitPivo, vracenoZaznamy, beers, packages, places, activeBeerId, activePackageId, itemMatchesFilter }: {
+export function OrderCard({ o, items, stockRemainingForOrder, nadPocetMalychSudu, sudyPoPolozce, selected, onToggleSelect, onClick, onToggleFlag, onToggleItemFlag, onUpdateDeliveryDay, onUpdateZavoz, onSetStatus, onDelete, onEdit, onSplit, onOpenWhatsApp, onVratitPivo, vracenoZaznamy, beers, packages, places, activeBeerId, activePackageId, itemMatchesFilter }: {
   o: Order; items: OrderItem[];
   /**
    * Zbytek skladu ke konci týdne PRO TUHLE KONKRÉTNÍ objednávku — objednávky
@@ -36,6 +36,8 @@ export function OrderCard({ o, items, stockRemainingForOrder, nadPocetMalychSudu
   onToggleFlag: (o: Order, key: 'is_prepared' | 'is_packaged' | 'is_delivered') => void;
   onToggleItemFlag: (o: Order, it: OrderItem, key: 'is_bottled' | 'is_prepared') => void;
   onUpdateDeliveryDay: (o: Order, day: string) => void;
+  /** 1. / 2. závoz (29. 9. 2026: „dej ten druhý závoz i na objednávkách"). */
+  onUpdateZavoz?: (o: Order, cislo: number) => void;
   onSetStatus: (o: Order, status: string) => void;
   onDelete: (id: string) => void;
   onEdit: (o: Order) => void;
@@ -366,6 +368,19 @@ export function OrderCard({ o, items, stockRemainingForOrder, nadPocetMalychSudu
                 title={o.delivery_day === d.v ? `Zrušit den závozu (${d.label})` : `Nastavit den závozu: ${d.label}`}
               >
                 {d.label}
+              </button>
+            ))}
+            {/* 1. / 2. závoz — jen když je sloupec v databázi (po migraci). */}
+            {onUpdateZavoz && o.zavoz_cislo !== undefined && o.delivery_day && [1, 2].map((c) => (
+              <button
+                key={`z${c}`}
+                type="button"
+                className={`btn-den ${(o.zavoz_cislo ?? 1) === c ? 'btn-den-aktivni' : ''}`}
+                onClick={() => onUpdateZavoz(o, c)}
+                aria-pressed={(o.zavoz_cislo ?? 1) === c}
+                title={`Pojede ${c}. závozem toho dne`}
+              >
+                {c}.z
               </button>
             ))}
             {/* 🔸 Akce jsou jen ikony (32×32), jednotně ve všech kartách —

@@ -198,6 +198,20 @@ export function datumProDenVTydnu(den: string, kotva: string): string | null {
 }
 
 /**
+ * Nejbližší takový den od dneška (dnešek včetně) — pro NOVOU objednávku,
+ * kde se den vybírá hned při čtení zprávy / fotky (29. 9. 2026: „přidej
+ * tlačítka Po Út St… den závozu už při čtení objednávky z WhatsAppu, fotky").
+ */
+export function nejblizsiDatumDne(den: string, dnes: string): string | null {
+  const vTydnu = datumProDenVTydnu(den, dnes);
+  if (!vTydnu) return null;
+  if (vTydnu >= dnes) return vTydnu;
+  const d = new Date(vTydnu + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() + 7);
+  return d.toISOString().slice(0, 10);
+}
+
+/**
  * Datum pro den závozu zvolený u objednávky (tlačítko dne, výběr v úpravě).
  *
  * Den se bere v AKTUÁLNÍM týdnu — i když už minul. Z provozu 29. 9. 2026

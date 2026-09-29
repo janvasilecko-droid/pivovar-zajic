@@ -1386,6 +1386,13 @@ export default function Orders({
     return odepsane.length;
   }
 
+  // 🚚 1. / 2. závoz toho dne (29. 9. 2026: „dej ten druhý závoz i na objednávkách").
+  async function updateZavoz(o: Order, cislo: number) {
+    const { error } = await supabase.from('orders').update({ zavoz_cislo: cislo }).eq('id', o.id);
+    if (error) { chyba('Závoz se nepodařilo změnit: ' + error.message); return; }
+    setOrders((arr) => arr.map((x) => (x.id === o.id ? { ...x, zavoz_cislo: cislo } : x)));
+  }
+
   async function setStatus(o: Order, status: string) {
     if (status === 'storno') {
       const zruseno = await zrusSVracenim([o], true);
@@ -2817,7 +2824,7 @@ export default function Orders({
                   <div key={o.id} className="space-y-3">
                     <OrderCard o={o} items={items[o.id] ?? []} stockRemainingForOrder={stockRemainingForOrder} nadPocetMalychSudu={maleSudy.nadPoPolozce} sudyPoPolozce={maleSudy.poPolozce}
                       selected={selectedIds.has(o.id)} onToggleSelect={() => toggleSelect(o.id)}
-                      onClick={() => openDetail(o)} onToggleFlag={toggleFlag} onToggleItemFlag={toggleItemFlag} onUpdateDeliveryDay={updateDeliveryDay}
+                      onClick={() => openDetail(o)} onToggleFlag={toggleFlag} onToggleItemFlag={toggleItemFlag} onUpdateDeliveryDay={updateDeliveryDay} onUpdateZavoz={updateZavoz}
                       onSetStatus={setStatus} onDelete={del} onEdit={setEditOrder} onSplit={setSplitOrder} onOpenWhatsApp={handleOpenWhatsAppMessage} beers={beers} packages={packages} places={places}
                       activeBeerId={itemFilterBeerId} activePackageId={itemFilterPackageId}
                       onVratitPivo={setVratitObjednavka} vracenoZaznamy={vraceniPodleObjednavky[o.id]}
@@ -2859,7 +2866,7 @@ export default function Orders({
             <div key={o.id} className="space-y-3">
               <OrderCard o={o} items={items[o.id] ?? []} stockRemainingForOrder={stockRemainingForOrder} nadPocetMalychSudu={maleSudy.nadPoPolozce} sudyPoPolozce={maleSudy.poPolozce}
                 selected={selectedIds.has(o.id)} onToggleSelect={() => toggleSelect(o.id)}
-                onClick={() => openDetail(o)} onToggleFlag={toggleFlag} onToggleItemFlag={toggleItemFlag} onUpdateDeliveryDay={updateDeliveryDay}
+                onClick={() => openDetail(o)} onToggleFlag={toggleFlag} onToggleItemFlag={toggleItemFlag} onUpdateDeliveryDay={updateDeliveryDay} onUpdateZavoz={updateZavoz}
                 onSetStatus={setStatus} onDelete={del} onEdit={setEditOrder} onSplit={setSplitOrder} onOpenWhatsApp={handleOpenWhatsAppMessage} beers={beers} packages={packages} places={places}
                 activeBeerId={itemFilterBeerId} activePackageId={itemFilterPackageId}
                 onVratitPivo={setVratitObjednavka} vracenoZaznamy={vraceniPodleObjednavky[o.id]}
@@ -3045,8 +3052,9 @@ export default function Orders({
                   // bez dne by objednávka spadla do přihrádky „bez termínu“
                   // a v denním plánu stáčení by ji nikdo neviděl.
                   source: 'fotka', status: 'nova',
-                  delivery_day: deliveryDay || parseDeliveryDayFromText(meta.note || '') || null,
-                  delivery_date: deliveryDate || null,
+                  // Den vybraný přímo u fotky má přednost (29. 9. 2026).
+                  delivery_day: meta.den || deliveryDay || parseDeliveryDayFromText(meta.note || '') || null,
+                  delivery_date: (meta.den ? meta.datumZavozu : deliveryDate) || null,
                   is_prepared: false, is_packaged: false,
                   note: meta.note || null,
                 }).select().single();

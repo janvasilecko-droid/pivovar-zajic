@@ -18,6 +18,8 @@ import {
 } from '../lib/orderParser';
 import { uloz } from '../lib/uloziste';
 import { businessDateISO } from '../lib/businessDate';
+import { nejblizsiDatumDne } from '../lib/keggingPlan';
+import { DenZavozuTlacitka } from './DenZavozuTlacitka';
 import { matchAgainstCatalog } from '../../supabase/functions/_shared/place-match';
 
 type ExistingItem = { beer_id: string | null; package_id: string | null; quantity: number };
@@ -26,7 +28,7 @@ type PhotoEntry = { dataUrl: string; name: string; fingerprint: string };
 export function ImportFromImage({ beers, packages, places, existing, targetLabel, initialFiles, onClose, onImport, onPlacesChanged }: {
   beers: Beer[]; packages: Package[]; places: Place[]; existing: ExistingItem[]; targetLabel: string | null;
   initialFiles?: File[];
-  onClose: () => void; onImport: (items: { beer_id: string; package_id: string; quantity: number; place_name: string | null; date?: string | null }[], meta: { placeId: string; placeName: string; date: string; note: string }) => void;
+  onClose: () => void; onImport: (items: { beer_id: string; package_id: string; quantity: number; place_name: string | null; date?: string | null }[], meta: { placeId: string; placeName: string; date: string; note: string; den?: string | null; datumZavozu?: string | null }) => void;
 
   onPlacesChanged?: () => void;
 }) {
@@ -50,6 +52,9 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
   const [editBeforeOcr, setEditBeforeOcr] = useState(false);
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const [note, setNote] = useState('');
+  // 📅 Den závozu hned u fotky (29. 9. 2026) — nejbližší takový den od dneška.
+  const [denZavozu, setDenZavozu] = useState<string | null>(null);
+  const datumDneZavozu = denZavozu ? nejblizsiDatumDne(denZavozu, businessDateISO()) : null;
   const [confirmed, setConfirmed] = useState(false);
   const [userAllowedDups, setUserAllowedDups] = useState<Set<number>>(new Set());
   const [skipReason, setSkipReason] = useState<string | null>(null);
@@ -592,7 +597,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
     try {
       // Rezervace výčepu se vytvoří až v Orders.tsx po vytvoření objednávky,
       // aby byla správně spárovaná s objednávkou (order_id).
-      await onImport(items, { placeId, placeName: placeName.trim(), date, note: note.trim() });
+      await onImport(items, { placeId, placeName: placeName.trim(), date, note: note.trim(), den: denZavozu, datumZavozu: datumDneZavozu });
 
       // Remember the imported items so an overlapping photo (same customer,
       // date, pivo, obal, mnozstvi) is marked as duplicate and not re-imported.
@@ -744,6 +749,9 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                 <label className="label">Datum</label>
                 <input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} />
               </div>
+            </div>
+            <div className="mt-3">
+              <DenZavozuTlacitka den={denZavozu} datum={datumDneZavozu} onDen={setDenZavozu} />
             </div>
           </div>
         )}

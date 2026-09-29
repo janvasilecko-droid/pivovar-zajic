@@ -10,6 +10,8 @@ export type Order = {
   /** Podpis převzetí (data URL) a jméno toho, kdo přebíral — píše Závoz i detail objednávky. */
   signature_url?: string | null; signature_name?: string | null; 
   place_phone?: string | null; // Add place_phone to Order type
+  /** 1. / 2. závoz toho dne (migrace 20261231180000); undefined = sloupec ještě není. */
+  zavoz_cislo?: number | null;
   whatsapp_message_id?: string | null; // WhatsApp zpráva, ze které objednávka vznikla (#18)
   /** Bez závozu — odběratel si pivo bere sám, nejde do trasy. Viz lib/bezZavozu.ts. */
   no_delivery?: boolean;

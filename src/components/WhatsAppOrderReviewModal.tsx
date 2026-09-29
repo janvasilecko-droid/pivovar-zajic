@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { Beer, Package, Place, supabase } from '../lib/supabase';
 import { WhatsAppIncoming, ignoreWhatsAppMessage, updateWhatsAppParsedData, napojNaObjednavku } from '../lib/whatsappApi';
 import { parseWhatsAppOrderMessageWithAI } from '../lib/whatsappParser';
-import { loadAliasMap, saveAlias, canLearnBeerAlias, matchBeerFromHints, matchPackage, savePlaceAlias, normalize, getOrCreatePlace, type ParserAliasMap } from '../lib/orderParser';
+import { parseDeliveryDayFromText, loadAliasMap, saveAlias, canLearnBeerAlias, matchBeerFromHints, matchPackage, savePlaceAlias, normalize, getOrCreatePlace, type ParserAliasMap } from '../lib/orderParser';
 import { matchAgainstCatalog } from '../../supabase/functions/_shared/place-match';
 import { oznacVlastniObjednavku } from '../lib/mojeObjednavky';
 import { diffOrderItems, rozsahOdpovedi, slozNavrh, potvrzeneBezPolozek, kandidatiNaDoplneni, datumObjednavky, vypadaJakoZmenaObjednavky, type DiffRow, type RozsahOdpovedi, type SkupinaObalu, type ObjednavkaKandidat } from '../lib/whatsappAmendment';
@@ -24,6 +24,8 @@ import {
 import { STAVY_OBJEDNAVKY, popisStavu } from '../lib/stavyObjednavek';
 import { uloz } from '../lib/uloziste';
 import { pocetZRadku, pocetZTabulky } from '../lib/pocetZRadku';
+import { nejblizsiDatumDne } from '../lib/keggingPlan';
+import { DenZavozuTlacitka } from './DenZavozuTlacitka';
 import { useMaleSudy, useHlidaniMalychSudu } from '../lib/useMaleSudy';
 import { rozdelMaleSudyVObjednavce, silaPiva } from '../lib/maleSudy';
 import { MaleSudyRadek, tridaRadkuSudu } from './MaleSudyVolne';
@@ -92,6 +94,9 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   const [reparsing, setReparsing] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [items, setItems] = useState<ReviewItem[]>([]);
+  // 📅 Den závozu hned při čtení zprávy (29. 9. 2026) — předvyplní se tím,
+  // co přečetla AI nebo co je v textu („závoz v úterý"), a jde změnit.
+  const [denZavozu, setDenZavozu] = useState<string | null>(null);
   const [placeId, setPlaceId] = useState('');
   const [placeName, setPlaceName] = useState('');
   const [origPlaceName, setOrigPlaceName] = useState<string | null>(null);
@@ -262,6 +267,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
       try { aliasMap = await loadAliasMap(); } catch { /* bez aliasů pokračujeme */ }
       if (cancelled) return;
 
+      setDenZavozu(msg!.parsed_delivery_day || parseDeliveryDayFromText(msg!.message_text || '') || null);
       const parsedItems = msg!.parsed_items || [];
       const initItems: ReviewItem[] = parsedItems.map((item, i) => {
         const beer =
@@ -731,6 +737,12 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
     items.map((it) => ({ klic: it.key, pkgId: it.pkgId, qty: Number(it.qty) || 0, sila: silaPodleId.get(it.beerId) ?? 0 })),
   );
 
+  // Datum k vybranému dni: co přečetla AI (když den sedí), jinak nejbližší
+  // takový den od dneška.
+  const datumDneZavozu = !denZavozu ? null
+    : denZavozu === msg?.parsed_delivery_day && msg?.parsed_delivery_date ? msg.parsed_delivery_date
+    : nejblizsiDatumDne(denZavozu, businessDateISO());
+
   if (!props.isOpen || !msg) return null;
 
   const message = msg;
@@ -892,6 +904,8 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
         amends_order_id: asNew ? null : message.amends_order_id,
         parsed_place_id: placeId || message.parsed_place_id,
         parsed_place_name: placeName || message.parsed_place_name,
+        parsed_delivery_day: denZavozu,
+        parsed_delivery_date: datumDneZavozu,
         parsed_items: primaryItems.map((it) => ({
           beer_id: it.beerId || null,
           pkg_id: it.pkgId || null,
@@ -912,6 +926,8 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
         parsedPlaceId: editedMessage.parsed_place_id || null,
         parsedPlaceName: editedMessage.parsed_place_name || null,
         parsedItems: editedMessage.parsed_items,
+        parsedDeliveryDay: denZavozu,
+        parsedDeliveryDate: datumDneZavozu,
       }).catch(() => {});
 
       await props.onApprove(editedMessage);
@@ -931,8 +947,8 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
           order_date: businessDateISO(),
           place_id: resolvedPlaceId, place_name: resolvedPlaceName || null,
           source: 'whatsapp', status: 'nova',
-          delivery_day: message.parsed_delivery_day ?? null,
-          delivery_date: message.parsed_delivery_date ?? null,
+          delivery_day: denZavozu,
+          delivery_date: datumDneZavozu,
           is_prepared: false, is_packaged: false, is_delivered: false,
         }).select().single();
         if (orderErr || !newOrder) throw new Error(orderErr?.message ?? 'Druhá objednávka se nepovedla založit.');
@@ -1798,15 +1814,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                 </div>
               )}
 
-              {(message.parsed_delivery_day || message.parsed_delivery_date) && (
-                <div>
-                  <div className="text-sm text-neutral-600">Datum dodání</div>
-                  <div className="font-medium">
-                    {message.parsed_delivery_day && `Den: ${message.parsed_delivery_day}`}
-                    {message.parsed_delivery_date && ` Datum: ${message.parsed_delivery_date}`}
-                  </div>
-                </div>
-              )}
+              <DenZavozuTlacitka den={denZavozu} datum={datumDneZavozu} onDen={setDenZavozu} />
 
               {items.length > 0 && (
                 <div>

@@ -759,3 +759,13 @@ describe('den závozu u objednávky = aktuální týden (29. 9. 2026)', () => {
     expect(datumProDenObjednavky('st', null, '2026-09-29')).toBe('2026-09-30');
   });
 });
+
+import { nejblizsiDatumDne } from './keggingPlan';
+
+describe('den závozu u nové objednávky ze zprávy / fotky (29. 9. 2026)', () => {
+  it('nejbližší takový den od dneška, dnešek včetně', () => {
+    expect(nejblizsiDatumDne('ut', '2026-09-29')).toBe('2026-09-29');
+    expect(nejblizsiDatumDne('ct', '2026-09-29')).toBe('2026-10-01');
+    expect(nejblizsiDatumDne('po', '2026-09-29')).toBe('2026-10-05');
+  });
+});
