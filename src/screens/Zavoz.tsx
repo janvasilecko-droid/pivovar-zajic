@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, lazy, Suspense } from 'react';
 import { Beer, Package, Place, fetchAllRows, formatPackageLabel, supabase, useRealtime } from '../lib/supabase';
-import { sestavCoNalozit } from '../lib/coNalozit';
+import { sestavCoNalozit, jeSudovyObal } from '../lib/coNalozit';
 import { Spinner, EmptyState, Modal } from '../components/ui';
 import { orderWeightKg, fmtKg } from '../lib/weight';
 import { DAYS } from '../lib/shared';
@@ -90,6 +90,16 @@ export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
     } catch { return 'vse'; }
   });
   const zvolDruhNakladky = (d: 'vse' | 'sudy' | 'lahve') => { setDruhNakladky(d); uloz('pivovar_nakladka_druh', d); };
+  /** Položky objednávky podle volby Sudy / Lahve (Vše = všechny). */
+  const polozkyDruhu = (orderId: string): OrderItem[] => {
+    const vse = items[orderId] ?? [];
+    if (druhNakladky === 'vse') return vse;
+    return vse.filter((it) => {
+      const pkg = packages.find((p) => p.id === it.package_id);
+      const sud = jeSudovyObal(pkg?.kind, it.package_label ?? pkg?.label ?? '');
+      return druhNakladky === 'sudy' ? sud : !sud;
+    });
+  };
   const [moveDay, setMoveDay] = useState<{ source: string | null; label: string; orderIds: string[] } | null>(null);
   const [moveTarget, setMoveTarget] = useState<string | null>(null);
   // 📒 Skladová kniha — jen pro odznak „chybí skladem" u objednávky (stejný
@@ -256,6 +266,8 @@ export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
     return activeOrders.filter((o) => {
       if (hideDelivered && o.is_delivered) return false;
       if (zavozFiltr && (o.zavoz_cislo ?? 1) !== zavozFiltr) return false;
+      // Filtr Sudy / Lahve: objednávka bez takových položek se neukazuje.
+      if (druhNakladky !== 'vse' && polozkyDruhu(o.id).length === 0) return false;
       if (selectedDayFilter !== 'all') {
         if (selectedDayFilter === '_none' && o.delivery_day) return false;
         if (selectedDayFilter !== '_none' && o.delivery_day !== selectedDayFilter) return false;
@@ -269,7 +281,8 @@ export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
       }
       return true;
     });
-  }, [activeOrders, hideDelivered, selectedDayFilter, searchTerm, items, zavozFiltr]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeOrders, hideDelivered, selectedDayFilter, searchTerm, items, zavozFiltr, druhNakladky, packages]);
 
   // Sloupec zavoz_cislo v databázi už je (bez migrace se 1./2. závoz neukáže).
   const zavozyDostupne = orders.some((o) => o.zavoz_cislo !== undefined);
@@ -297,10 +310,10 @@ export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
     oznam(`${o.place_name ?? 'Objednávka'} → ${DAYS.find((d) => d.v === den)?.label ?? den}${datum ? ` ${new Date(datum + 'T00:00:00').toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric' })}` : ''}`);
   }
 
-  const loadingListBreakdown = useMemo(() => {
-    // Výpočet je v lib/coNalozit.ts (má testy) — je to seznam, podle kterého
-    // se nakládá auto, takže chyba v něm znamená nedovezené pivo.
-    const vsechnyPolozky = filteredOrders.flatMap((o) => items[o.id] ?? []);
+  // Výpočet je v lib/coNalozit.ts (má testy) — je to seznam, podle kterého
+  // se nakládá auto, takže chyba v něm znamená nedovezené pivo.
+  const nakladkaPro = (seznam: Order[]) => {
+    const vsechnyPolozky = seznam.flatMap((o) => items[o.id] ?? []);
     const vse = sestavCoNalozit(vsechnyPolozky as any, packages as any, formatPackageLabel);
     // Filtr Sudy / Lahve — kdo chystá jen jedno, nevidí druhé.
     if (druhNakladky === 'vse') return vse;
@@ -315,7 +328,17 @@ export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
       totalLabels: radky.length,
       preparedCount: radky.filter((r) => r.preparedQty >= r.qty).length,
     };
-  }, [filteredOrders, items, packages, druhNakladky]);
+  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const loadingListBreakdown = useMemo(() => nakladkaPro(filteredOrders), [filteredOrders, items, packages, druhNakladky]);
+  // 🚚 Když něco jede 2. závozem a nahoře jsou „Oba", nakládka se rozdělí na
+  // 1. a 2. závoz — jinak by se sudy Seeberga ze 2. závozu naložily do 1.
+  // (29. 9. 2026).
+  const nakladkaPoZavozech = useMemo(() => {
+    if (zavozFiltr !== 0 || !filteredOrders.some((o) => (o.zavoz_cislo ?? 1) === 2)) return null;
+    return ([1, 2] as const).map((c) => ({ cislo: c, b: nakladkaPro(filteredOrders.filter((o) => (o.zavoz_cislo ?? 1) === c)) }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredOrders, items, packages, druhNakladky, zavozFiltr]);
 
   const totalWeight = useMemo(() => {
     return filteredOrders.reduce((sum, o) => {
@@ -387,11 +410,12 @@ export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
   }
 
   // Toggle all order_items matching a loading-list label (beer_name + package)
-  async function toggleLoadingLabel(label: string, currentlyAllPrepared: boolean) {
+  async function toggleLoadingLabel(label: string, currentlyAllPrepared: boolean, jenZavoz?: number) {
     const newPrepared = !currentlyAllPrepared;
     // Find all order_items across filteredOrders that match this label
+    // (při rozdělené nakládce jen v tom jednom závozu).
     const toUpdate: { orderId: string; itemId: string }[] = [];
-    filteredOrders.forEach((o) => {
+    filteredOrders.filter((o) => !jenZavoz || (o.zavoz_cislo ?? 1) === jenZavoz).forEach((o) => {
       (items[o.id] ?? []).forEach((it) => {
         const pkg = packages.find((p) => p.id === it.package_id);
         const pkgLabel = it.package_label ?? pkg?.label ?? 'Neurčeno';
@@ -759,6 +783,23 @@ export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
             </div>
           )}
 
+          {/* 🧺 Sudy / Lahve — jeden chystá lahve, druhý sudy (29. 9. 2026).
+              Platí pro trasy (lahve se chystají na každou objednávku zvlášť)
+              i pro Co naložit. Volba se pamatuje v telefonu. */}
+          <div className="flex items-center gap-1.5" role="group" aria-label="Co chystám">
+            {([['vse', 'Vše'], ['sudy', 'Sudy'], ['lahve', 'Lahve']] as const).map(([k, popis]) => (
+              <button
+                key={k}
+                type="button"
+                onClick={() => zvolDruhNakladky(k)}
+                aria-pressed={druhNakladky === k}
+                className={`btn-zalozka flex-1 text-xs ${druhNakladky === k ? 'btn-zalozka-aktivni' : ''}`}
+              >
+                {k === 'sudy' && <IkonaSud size={14} />}{k === 'lahve' && <Wine size={14} />} {popis}
+              </button>
+            ))}
+          </div>
+
           {/* Top Quick Search & Weight Bar */}
           <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded border border-neutral-200/90 shadow-xs">
             <div className="relative flex-1 min-w-[240px] flex items-center gap-2">
@@ -838,21 +879,6 @@ export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
                     </span>
                   </div>
 
-                  {/* 🧺 Sudy / Lahve — jeden chystá lahve, druhý sudy (29. 9. 2026). */}
-                  <div className="flex items-center gap-1.5" role="group" aria-label="Co chystám">
-                    {([['vse', 'Vše'], ['sudy', 'Sudy'], ['lahve', 'Lahve']] as const).map(([k, popis]) => (
-                      <button
-                        key={k}
-                        type="button"
-                        onClick={() => zvolDruhNakladky(k)}
-                        aria-pressed={druhNakladky === k}
-                        className={`btn-zalozka flex-1 text-xs ${druhNakladky === k ? 'btn-zalozka-aktivni' : ''}`}
-                      >
-                        {k === 'sudy' && <IkonaSud size={14} />}{k === 'lahve' && <Wine size={14} />} {popis}
-                      </button>
-                    ))}
-                  </div>
-
                   {/* Progress indicator */}
                   {loadingListBreakdown.totalLabels > 0 && (
                     <div className="flex items-center gap-2 text-xs font-bold">
@@ -868,21 +894,30 @@ export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
                     </div>
                   )}
 
+                  {(nakladkaPoZavozech ?? [{ cislo: 0, b: loadingListBreakdown }]).map(({ cislo, b }) => (
+                  <div key={cislo} className={cislo ? 'space-y-4 rounded border-2 border-amber-300 p-3' : 'space-y-5'}>
+                  {cislo > 0 && (
+                    <div className="flex items-center justify-between font-display font-black text-neutral-950">
+                      <span className="flex items-center gap-1.5"><Truck size={16} /> {cislo}. závoz</span>
+                      <span className="px-2.5 py-0.5 rounded-full bg-amber-500 text-neutral-950 font-mono text-sm">{b.totalCount} ks</span>
+                    </div>
+                  )}
+                  {cislo > 0 && b.totalCount === 0 && <p className="text-xs font-bold text-neutral-600">Nic k naložení.</p>}
                   {/* Kegs Section */}
-                  {loadingListBreakdown.kegs.length > 0 && (
+                  {b.kegs.length > 0 && (
                     <div>
                       <div className="flex items-center justify-between text-xs font-black uppercase tracking-wider text-neutral-900 mb-2.5 pb-1 border-b border-amber-200/80">
                         <span className="flex items-center gap-1.5"><IkonaSud size={14} className="text-amber-700" /> Sudy & Kegy</span>
-                        <span className="font-mono text-neutral-950 bg-amber-200 px-2 py-0.5 rounded-md font-bold">{loadingListBreakdown.totalKegs} ks</span>
+                        <span className="font-mono text-neutral-950 bg-amber-200 px-2 py-0.5 rounded-md font-bold">{b.totalKegs} ks</span>
                       </div>
 
                       <div className="space-y-1.5">
-                        {loadingListBreakdown.kegs.map((k) => {
+                        {b.kegs.map((k) => {
                           const allPrepared = k.preparedQty >= k.qty;
                           return (
                             <button
                               key={k.label}
-                              onClick={() => toggleLoadingLabel(k.label, allPrepared)}
+                              onClick={() => toggleLoadingLabel(k.label, allPrepared, cislo || undefined)}
                               className={`w-full flex items-center justify-between p-2.5 rounded border shadow-xs transition text-left ${
                                 allPrepared
                                   ? 'bg-emerald-50 border-emerald-300 opacity-80'
@@ -908,20 +943,20 @@ export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
                   )}
 
                   {/* Bottles Section */}
-                  {loadingListBreakdown.bottles.length > 0 && (
+                  {b.bottles.length > 0 && (
                     <div>
                       <div className="flex items-center justify-between text-xs font-black uppercase tracking-wider text-emerald-900 mb-2.5 pb-1 border-b border-emerald-200/80">
                         <span className="flex items-center gap-1.5"><Wine size={14} className="text-emerald-700" /> Lahve</span>
-                        <span className="font-mono text-emerald-950 bg-emerald-200 px-2 py-0.5 rounded-md font-bold">{loadingListBreakdown.totalBottles} ks</span>
+                        <span className="font-mono text-emerald-950 bg-emerald-200 px-2 py-0.5 rounded-md font-bold">{b.totalBottles} ks</span>
                       </div>
 
                       <div className="space-y-1.5 max-h-[350px] overflow-y-auto scrollbar-thin pr-1">
-                        {loadingListBreakdown.bottles.map((b) => {
-                          const allPrepared = b.preparedQty >= b.qty;
+                        {b.bottles.map((lb) => {
+                          const allPrepared = lb.preparedQty >= lb.qty;
                           return (
                             <button
-                              key={b.label}
-                              onClick={() => toggleLoadingLabel(b.label, allPrepared)}
+                              key={lb.label}
+                              onClick={() => toggleLoadingLabel(lb.label, allPrepared, cislo || undefined)}
                               className={`w-full flex items-center justify-between p-2.5 rounded border shadow-xs transition text-left ${
                                 allPrepared
                                   ? 'bg-emerald-50 border-emerald-300 opacity-80'
@@ -934,17 +969,19 @@ export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
                                 }`}>{allPrepared ? <Check className="ikona-text" /> : ''}</span>
                                 <span className={`font-extrabold text-xs truncate ${
                                   allPrepared ? 'text-emerald-800 line-through' : 'text-neutral-900'
-                                }`}>{b.label}</span>
+                                }`}>{lb.label}</span>
                               </div>
                               <span className={`px-2.5 py-1 rounded font-mono font-black text-xs shrink-0 shadow-xs ml-2 ${
                                 allPrepared ? 'bg-emerald-700 text-white' : 'bg-emerald-700 text-white'
-                              }`}>{b.qty} ks</span>
+                              }`}>{lb.qty} ks</span>
                             </button>
                           );
                         })}
                       </div>
                     </div>
                   )}
+                  </div>
+                  ))}
                 </div>
 
                 {/* RIGHT COLUMN: ODBĚRATELÉ A ROZVOZOVÉ TRASY */}
@@ -974,7 +1011,7 @@ export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
 
                         <div className="flex items-center gap-2.5 flex-wrap justify-end">
                           <span className="chip bg-amber-500 text-neutral-950 font-mono font-black text-xs">
-                            {group.orders.reduce((s, o) => s + (items[o.id] ?? []).reduce((x, i) => x + Number(i.quantity), 0), 0)} ks celkem
+                            {gOrderIds.reduce((s: number, id: string) => s + polozkyDruhu(id).reduce((x, i) => x + Number(i.quantity), 0), 0)} ks celkem
                           </span>
                           <button
                             onClick={() => toggleSecondCarForDay(gOrderIds)}
@@ -1053,7 +1090,7 @@ export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
                                 </div>
                                 <div className="mt-3 pt-3 border-t border-amber-200/60 space-y-3">
                                   {groupOrders.map((o: Order) => {
-                                    const orderItems = items[o.id] ?? [];
+                                    const orderItems = polozkyDruhu(o.id);
                                     // Appka ví, co je objednáno a kolik je doopravdy stočeno (skladová
                                     // kniha), ale dřív to nikde před závozem nesrovnala — jen se
                                     // ručně odškrtávalo "stočeno" bez ověření. Stejný výpočet jako
@@ -1131,7 +1168,7 @@ export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
                           }
 
                           const o = orderOrGroup;
-                          const orderItems = items[o.id] ?? [];
+                          const orderItems = polozkyDruhu(o.id);
                           const weightKg = orderWeightKg(orderItems, packages);
                           const totalQty = orderItems.reduce((s, i) => s + Number(i.quantity), 0);
 
@@ -1283,7 +1320,7 @@ export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
                                   <button
                                     onClick={() => toggleDelivered(o, () => {
                                       // Po zavezení: nabídni dialog pro vrácené sudy (pokud má KEGy)
-                                      const hasKegs = orderItems.some(it => {
+                                      const hasKegs = (items[o.id] ?? []).some(it => {
                                         const pkg = packages.find(p => p.id === it.package_id);
                                         return pkg?.kind === 'keg' || (it.package_label || '').toLowerCase().includes('sud') || (it.package_label || '').toLowerCase().includes('keg');
                                       });
