@@ -198,18 +198,22 @@ export function datumProDenVTydnu(den: string, kotva: string): string | null {
 }
 
 /**
- * Jako datumProDenVTydnu, ale den, který už minul, se posune na příští
- * týden. Z provozu 29. 9. 2026 (úterý): „klikl jsem u restaurace na
- * 2 objednávky na pondělí a přesunulo mi to do minulého týdne — tohle mi
- * rozhází sudy." Závoz do minulosti nikdo nezadává; zpětné datum jde dál
- * zadat přímo polem s datem.
+ * Datum pro den závozu zvolený u objednávky (tlačítko dne, výběr v úpravě).
+ *
+ * Den se bere v AKTUÁLNÍM týdnu — i když už minul. Z provozu 29. 9. 2026
+ * (úterý): „dal jsem restauraci na pondělí a zase se přehodila na minulý
+ * týden, fasovalo se v pondělí tenhle týden." Dřív se den počítal v týdnu
+ * PŮVODNÍHO data objednávky (často minulý týden, kdy přišla), a mezitím
+ * (verze 2.662) jsem ho mylně posouval na příští týden.
+ *
+ * Objednávka, která už leží v budoucím týdnu, v něm zůstane — „Po" u
+ * objednávky na příští týden je příští pondělí.
  */
-export function datumProDenOdDneska(den: string, kotva: string, dnes: string): string | null {
-  const datum = datumProDenVTydnu(den, kotva);
-  if (!datum || datum >= dnes) return datum;
-  const d = new Date(datum + 'T00:00:00Z');
-  while (d.toISOString().slice(0, 10) < dnes) d.setUTCDate(d.getUTCDate() + 7);
-  return d.toISOString().slice(0, 10);
+export function datumProDenObjednavky(den: string, datumObjednavky: string | null | undefined, dnes: string): string | null {
+  const tydenDnes = datumProDenVTydnu('po', dnes);
+  const tydenObjednavky = datumObjednavky ? datumProDenVTydnu('po', datumObjednavky.slice(0, 10)) : null;
+  const kotva = tydenObjednavky && tydenDnes && tydenObjednavky > tydenDnes ? datumObjednavky!.slice(0, 10) : dnes;
+  return datumProDenVTydnu(den, kotva);
 }
 
 /**

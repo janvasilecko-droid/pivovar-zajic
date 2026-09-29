@@ -33,7 +33,7 @@ import { oznacVlastniObjednavku } from '../lib/mojeObjednavky';
 import { subscribeToWhatsAppMessages, fetchPendingWhatsAppMessages, fetchWhatsAppMessage, ignoreWhatsAppMessage, WhatsAppIncoming, fetchWhatsAppSenders, isSenderAllowed, triggerAutoParse, type WhatsAppSender } from '../lib/whatsappApi';
 import { autoReserveTapIfNeeded, isTapMentioned, detectTapType } from '../lib/tapReservations';
 import { findDuplicateOrders, formatDuplicateMessage } from '../lib/orderDuplicates';
-import { datumProDenOdDneska, dayKeyFromISO } from '../lib/keggingPlan';
+import { datumProDenObjednavky, dayKeyFromISO } from '../lib/keggingPlan';
 import { TapReservationModal } from '../components/TapReservationModal';
 import { createReminder, getLocalReminders } from '../lib/reminders';
 import { type AkceRow } from '../lib/inventoryHelper';
@@ -221,19 +221,13 @@ export default function Orders({
     setDeliveryDay(dayV);
     const idx = DAYS.findIndex((d) => d.v === dayV);
     if (idx >= 0) {
-      // Den, který v aktuálním týdnu už minul (v úterý „Po"), je příští
-      // týden — a přepne se i zobrazený týden, ať je to vidět (29. 9. 2026).
-      // Kdo si šipkami schválně otevřel minulý týden (dopsání staré
-      // objednávky), tomu se nic neposouvá.
-      const start = weekRange(weekKey).start.toISOString().slice(0, 10);
-      const dnes = businessDateISO();
-      const datum = weekKey < isoWeekKey(dnes)
-        ? datumProDenOdDneska(dayV, start, start)
-        : datumProDenOdDneska(dayV, start, dnes);
-      if (!datum) return;
-      setDeliveryDate(datum);
-      const wk = isoWeekKey(datum);
-      if (wk !== weekKey) setWeekKey(wk);
+      // Den v týdnu, který je ve formuláři zvolený (výchozí je aktuální
+      // týden) — i když už minul: „fasovalo se v pondělí tenhle týden"
+      // (29. 9. 2026). Na jiný týden se přepíná šipkami.
+      const start = weekRange(weekKey).start;
+      const d = new Date(start);
+      d.setUTCDate(d.getUTCDate() + idx);
+      setDeliveryDate(d.toISOString().slice(0, 10));
     }
   }
 
@@ -1352,8 +1346,9 @@ export default function Orders({
     // a přehledy datem: objednávka přehozená ze středy na úterý pak byla
     // v plánu na úterý a v datu pořád na středě.
     const patch: Record<string, unknown> = { delivery_day: day || null };
-    // Den, který už v tom týdnu minul, znamená příští týden (29. 9. 2026).
-    const noveDatum = day ? datumProDenOdDneska(day, o.delivery_date || o.order_date, businessDateISO()) : null;
+    // Den v AKTUÁLNÍM týdnu (objednávka z minulého týdne se přesune sem,
+    // na budoucí týden zůstane) — lib/keggingPlan.ts datumProDenObjednavky.
+    const noveDatum = day ? datumProDenObjednavky(day, o.delivery_date || o.order_date, businessDateISO()) : null;
     if (noveDatum) patch.delivery_date = noveDatum;
     await supabase.from('orders').update(patch).eq('id', o.id);
     setOrders((arr) => arr.map((x) => x.id === o.id ? { ...x, ...patch } as Order : x));

@@ -2,6 +2,8 @@ import { useMaleSudy, useHlidaniMalychSudu } from '../lib/useMaleSudy';
 import { jeOtevrena, volneProObjednavku, rozdelMaleSudyVObjednavce, silaPiva } from '../lib/maleSudy';
 import { MaleSudyVolne, MaleSudyRadek, tridaRadkuSudu } from './MaleSudyVolne';
 import { useState } from 'react';
+import { datumProDenObjednavky } from '../lib/keggingPlan';
+import { businessDateISO } from '../lib/businessDate';
 import { Modal } from './ui';
 import { X } from 'lucide-react';
 import { PlaceCombobox } from './PlaceCombobox';
@@ -235,7 +237,14 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
           </div>
           <div className="col-span-1 sm:col-span-1">
             <label className="label">Den dodání</label>
-            <select className="input" value={deliveryDay} onChange={(e) => setDeliveryDay(e.target.value)}>
+            <select className="input" value={deliveryDay} onChange={(e) => {
+              // S dnem se posune i DATUM — jinak zůstalo původní (třeba z
+              // minulého týdne) a objednávka se ukazovala tam (29. 9. 2026).
+              const den = e.target.value;
+              setDeliveryDay(den);
+              const datum = den ? datumProDenObjednavky(den, deliveryDate || order.order_date, businessDateISO()) : null;
+              if (datum) setDeliveryDate(datum);
+            }}>
               <option value="">—</option>
               {DAYS.map((d) => <option key={d.v} value={d.v}>{d.label}</option>)}
             </select>

@@ -740,21 +740,22 @@ describe('objednavkyVTydnu', () => {
   });
 });
 
-import { datumProDenOdDneska } from './keggingPlan';
+import { datumProDenObjednavky } from './keggingPlan';
 
-describe('den závozu nesmí skočit do minulosti', () => {
-  // Úterý 29. 9. 2026: „Po" u objednávky na tento týden = příští pondělí.
-  it('v úterý „Po" → příští pondělí', () => {
-    expect(datumProDenOdDneska('po', '2026-09-30', '2026-09-29')).toBe('2026-10-05');
+describe('den závozu u objednávky = aktuální týden (29. 9. 2026)', () => {
+  // Úterý 29. 9.: „dal jsem restauraci na pondělí a přehodila se na minulý
+  // týden, fasovalo se v pondělí tenhle týden."
+  it('objednávka z minulého týdne, „Po" → toto pondělí 28. 9.', () => {
+    expect(datumProDenObjednavky('po', '2026-09-22', '2026-09-29')).toBe('2026-09-28');
   });
-  it('dnešek i pozdější dny zůstávají v týdnu', () => {
-    expect(datumProDenOdDneska('ut', '2026-09-30', '2026-09-29')).toBe('2026-09-29');
-    expect(datumProDenOdDneska('pa', '2026-09-30', '2026-09-29')).toBe('2026-10-02');
+  it('objednávka tento týden, „Po" → toto pondělí (i když už minulo)', () => {
+    expect(datumProDenObjednavky('po', '2026-09-30', '2026-09-29')).toBe('2026-09-28');
+    expect(datumProDenObjednavky('pa', '2026-09-30', '2026-09-29')).toBe('2026-10-02');
   });
-  it('objednávka z příštího týdne zůstává v příštím týdnu', () => {
-    expect(datumProDenOdDneska('po', '2026-10-07', '2026-09-29')).toBe('2026-10-05');
+  it('objednávka na příští týden zůstává v příštím týdnu', () => {
+    expect(datumProDenObjednavky('po', '2026-10-07', '2026-09-29')).toBe('2026-10-05');
   });
-  it('stará objednávka z minulého týdne jde na nejbližší takový den', () => {
-    expect(datumProDenOdDneska('st', '2026-09-22', '2026-09-29')).toBe('2026-09-30');
+  it('bez data objednávky → aktuální týden', () => {
+    expect(datumProDenObjednavky('st', null, '2026-09-29')).toBe('2026-09-30');
   });
 });
