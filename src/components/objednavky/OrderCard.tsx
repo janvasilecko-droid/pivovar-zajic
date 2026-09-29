@@ -18,7 +18,7 @@ import { vracenoPodleObjednavky } from '../../lib/vraceniZObjednavky';
 
 import { type Order, type OrderItem, dayColor, getTapNameForOrder } from './spolecne';
 
-export function OrderCard({ o, items, stockRemainingForOrder, selected, onToggleSelect, onClick, onToggleFlag, onToggleItemFlag, onUpdateDeliveryDay, onSetStatus, onDelete, onEdit, onSplit, onOpenWhatsApp, onVratitPivo, vracenoZaznamy, beers, packages, places, activeBeerId, activePackageId, itemMatchesFilter }: {
+export function OrderCard({ o, items, stockRemainingForOrder, nadPocetMalychSudu, selected, onToggleSelect, onClick, onToggleFlag, onToggleItemFlag, onUpdateDeliveryDay, onSetStatus, onDelete, onEdit, onSplit, onOpenWhatsApp, onVratitPivo, vracenoZaznamy, beers, packages, places, activeBeerId, activePackageId, itemMatchesFilter }: {
   o: Order; items: OrderItem[];
   /**
    * Zbytek skladu ke konci týdne PRO TUHLE KONKRÉTNÍ objednávku — objednávky
@@ -27,6 +27,8 @@ export function OrderCard({ o, items, stockRemainingForOrder, selected, onToggle
    * mohou pro stejné pivo+obal dostat různý zbytek.
    */
   stockRemainingForOrder: (o: Order) => Map<string, number>;
+  /** Kusy položek nad naklikaný počet malých sudů (id položky → kusy), lib/maleSudy.ts. */
+  nadPocetMalychSudu?: Map<string, number>;
   selected: boolean; onToggleSelect: () => void; onClick: () => void;
   onToggleFlag: (o: Order, key: 'is_prepared' | 'is_packaged' | 'is_delivered') => void;
   onToggleItemFlag: (o: Order, it: OrderItem, key: 'is_bottled' | 'is_prepared') => void;
@@ -83,6 +85,13 @@ export function OrderCard({ o, items, stockRemainingForOrder, selected, onToggle
     };
   });
   
+  const nadMale = items
+    .filter((it) => (nadPocetMalychSudu?.get(it.id) ?? 0) > 0)
+    .map((it) => {
+      const obal = packages.find((p) => p.id === it.package_id);
+      return { name: `${it.beer_name ?? ''} ${obal ? formatPackageLabel(obal.label) : it.package_label ?? ''}`.trim(), nad: nadPocetMalychSudu!.get(it.id)! };
+    });
+
   // Seřadit položky: nejdříve kegy, pak lahve podle názvu
   const sortedItems = [...items].sort((a, b) => {
     const pkgA = packages.find((p) => p.id === a.package_id);
@@ -310,6 +319,17 @@ export function OrderCard({ o, items, stockRemainingForOrder, selected, onToggle
 
         {/* Řádek 3: sklad + připraveno + den + akce */}
         <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+          {/* 🛢️ Malé sudy nad počet (29. 9. 2026) — kolik kusů téhle objednávky
+              se už do naklikaného počtu nevejde (Stáčení KEG → Malé sudy). */}
+          {!odbaveno && nadMale.length > 0 && (
+            <span
+              className="flex items-center gap-1 text-udaj font-black text-rose-950 bg-rose-100 border border-rose-300 rounded-lg px-2 py-0.5 shadow-2xs"
+              title="Malých sudů tohoto obalu je v otevřených objednávkách víc, než je naklikáno ve Stáčení KEG → Malé sudy. Sudy se přidělují od nejbližšího dovozu."
+            >
+              <AlertTriangle size={12} />
+              <span>Malé sudy nad počet: {nadMale.map((d) => `${d.name} ${d.nad} ks`).join(', ')}</span>
+            </span>
+          )}
           {uniqueDeficits.length > 0 ? (
             <span
               className="flex items-center gap-1 text-udaj font-black text-rose-950 bg-rose-100 border border-rose-300 rounded-lg px-2 py-0.5 shadow-2xs"

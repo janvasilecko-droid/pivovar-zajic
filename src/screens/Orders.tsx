@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useCallback, useRef, lazy, Suspense } fro
 
 import { AlertTriangle, Calendar, CalendarDays, Camera, Check, CheckCircle2, CheckSquare, ChevronLeft, ChevronRight, ClipboardList, Clock, Copy, FilePlus, Globe, Mail, MessageCircle, Package as PackageIcon, PackageCheck, Plus, Receipt, Search, ShieldAlert, Trash2, Truck, User, X, Zap } from 'lucide-react';
 import { Beer, EntryRow, Package, Place, beerName, fetchAllRows, formatPackageLabel, supabase, useRealtime } from '../lib/supabase';
+import { useMaleSudy, useHlidaniMalychSudu } from '../lib/useMaleSudy';
 import { EmptyState, Spinner } from '../components/ui';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 import { zbytekKeKonciTydne, zbytekPodleObjednavek, type ObjednavkaKPrioritě } from '../lib/tydenniZbytek';
@@ -111,6 +112,9 @@ export default function Orders({
   const [beers, setBeers] = useState<Beer[]>([]);
   const [priceList, setPriceList] = useState<CenaPolozky[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
+  // Malé sudy (KEG 20/15/10 l) nad naklikaný počet — lib/maleSudy.ts.
+  const { zasoba: zasobaMalychSudu } = useMaleSudy();
+  const maleSudy = useHlidaniMalychSudu(zasobaMalychSudu);
   const [bottling, setBottling] = useState<EntryRow[]>([]);
   const [kegging, setKegging] = useState<EntryRow[]>([]);
   const [inventory, setInventory] = useState<EntryRow[]>([]);
@@ -2689,6 +2693,23 @@ export default function Orders({
         <VariantTotalsPanel totals={variantTotals} beers={beers} packages={packages} timeScope={timeScope} onPick={handleItemClick} />
       )}
 
+      {/* 🛢️ Malé sudy nad počet (29. 9. 2026: „když mám 3× 15, hlídej, že můžu
+          celkem použít jen 3× 15"). Počet se zadává ve stáčení KEG → Malé sudy. */}
+      {viewMode !== 'celkem' && viewMode !== 'text' && maleSudy.souhrn.some((x) => x.nad > 0) && (
+        <div className="rounded border-2 border-rose-300 bg-rose-50 p-3 text-sm text-rose-950 space-y-1" role="alert">
+          <div className="font-black flex items-center gap-1.5"><AlertTriangle size={16} /> Malých sudů je objednáno víc, než máš</div>
+          {maleSudy.souhrn.filter((x) => x.nad > 0).map((x) => {
+            const obal = packages.find((p) => p.id === x.package_id);
+            return (
+              <div key={x.package_id} className="font-bold">
+                {formatPackageLabel(obal?.label ?? '')}: máš {x.mame}, otevřené objednávky chtějí {x.objednano} — o {x.nad} víc
+              </div>
+            );
+          })}
+          <div className="text-xs">Položky nad počet jsou u objednávek označené červeně (nejdřív se sudy přidělí nejbližším dovozům).</div>
+        </div>
+      )}
+
       {/* Při načítání se dřív nezobrazovalo nic — na pomalém připojení bylo pod
           filtry prázdno a objednávky se pak „samy objevily". Nešlo poznat,
           jestli se načítá, nebo je opravdu prázdno. */}
@@ -2705,7 +2726,7 @@ export default function Orders({
               <div className="space-y-3">
                 {grp.orders.map((o) => (
                   <div key={o.id} className="space-y-3">
-                    <OrderCard o={o} items={items[o.id] ?? []} stockRemainingForOrder={stockRemainingForOrder}
+                    <OrderCard o={o} items={items[o.id] ?? []} stockRemainingForOrder={stockRemainingForOrder} nadPocetMalychSudu={maleSudy.nadPoPolozce}
                       selected={selectedIds.has(o.id)} onToggleSelect={() => toggleSelect(o.id)}
                       onClick={() => openDetail(o)} onToggleFlag={toggleFlag} onToggleItemFlag={toggleItemFlag} onUpdateDeliveryDay={updateDeliveryDay}
                       onSetStatus={setStatus} onDelete={del} onEdit={setEditOrder} onSplit={setSplitOrder} onOpenWhatsApp={handleOpenWhatsAppMessage} beers={beers} packages={packages} places={places}
@@ -2747,7 +2768,7 @@ export default function Orders({
         <div className="space-y-3">
           {searchedFiltered.map((o) => (
             <div key={o.id} className="space-y-3">
-              <OrderCard o={o} items={items[o.id] ?? []} stockRemainingForOrder={stockRemainingForOrder}
+              <OrderCard o={o} items={items[o.id] ?? []} stockRemainingForOrder={stockRemainingForOrder} nadPocetMalychSudu={maleSudy.nadPoPolozce}
                 selected={selectedIds.has(o.id)} onToggleSelect={() => toggleSelect(o.id)}
                 onClick={() => openDetail(o)} onToggleFlag={toggleFlag} onToggleItemFlag={toggleItemFlag} onUpdateDeliveryDay={updateDeliveryDay}
                 onSetStatus={setStatus} onDelete={del} onEdit={setEditOrder} onSplit={setSplitOrder} onOpenWhatsApp={handleOpenWhatsAppMessage} beers={beers} packages={packages} places={places}
