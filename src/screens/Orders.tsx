@@ -5,6 +5,8 @@ import { useEffect, useMemo, useState, useCallback, useRef, lazy, Suspense } fro
 import { AlertTriangle, Calendar, CalendarDays, Camera, Check, CheckCircle2, CheckSquare, ChevronLeft, ChevronRight, ClipboardList, Clock, Copy, FilePlus, Globe, Mail, MessageCircle, Package as PackageIcon, PackageCheck, Plus, Receipt, Search, ShieldAlert, Trash2, Truck, User, X, Zap } from 'lucide-react';
 import { Beer, EntryRow, Package, Place, beerName, fetchAllRows, formatPackageLabel, supabase, useRealtime } from '../lib/supabase';
 import { useMaleSudy, useHlidaniMalychSudu } from '../lib/useMaleSudy';
+import { volneProObjednavku } from '../lib/maleSudy';
+import { MaleSudyVolne } from '../components/MaleSudyVolne';
 import { EmptyState, Spinner } from '../components/ui';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 import { zbytekKeKonciTydne, zbytekPodleObjednavek, type ObjednavkaKPrioritě } from '../lib/tydenniZbytek';
@@ -2091,6 +2093,11 @@ export default function Orders({
                 // podle typu obalu slouží jen jako výplň, když historie
                 // nestačí (viz lib/quickQty.ts).
                 const commonQtys = rychlePocty(p.id) ?? [];
+                // 🛢️ Malé sudy: kolik jich tahle objednávka ještě smí (všechna
+                // piva v tomhle obalu dohromady) — lib/maleSudy.ts.
+                const volneSudy = volneProObjednavku(maleSudy.souhrn, p.id);
+                const zadanoVObalu = beerRows.filter((r) => r.pkgId === p.id).reduce((sum, r) => sum + (Number(r.qty) || 0), 0);
+                const nadSudy = volneSudy != null && zadanoVObalu > Math.max(0, volneSudy) && qty > 0;
                 return (
                   <div key={p.id} className="flex items-center justify-between gap-2 rounded-xl border border-neutral-200 dark:border-neutral-700 py-1.5 px-2 flex-wrap">
                     <span className="text-sm font-bold text-neutral-700 dark:text-neutral-200 truncate">{formatPackageLabel(p.label)}</span>
@@ -2136,7 +2143,7 @@ export default function Orders({
                           if (v === '') { setPkgAbsolute(expandedBeer.id, p.id, 0); return; }
                           setPkgAbsolute(expandedBeer.id, p.id, Number(v));
                         }}
-                        className="w-14 h-10 text-center text-lg font-black text-neutral-800 dark:text-neutral-100 bg-white dark:bg-neutral-900/60 border-2 border-amber-200 dark:border-neutral-700 rounded-lg"
+                        className={`w-14 h-10 text-center text-lg font-black bg-white dark:bg-neutral-900/60 border-2 rounded-lg ${nadSudy ? 'border-rose-500 text-rose-700' : 'border-amber-200 dark:border-neutral-700 text-neutral-800 dark:text-neutral-100'}`}
                         title="Napiš počet ručně"
                       />
                       <button
@@ -2145,6 +2152,7 @@ export default function Orders({
                         className="btn-pocet"
                       >+</button>
                     </div>
+                    <MaleSudyVolne volne={volneSudy} zadano={zadanoVObalu} />
                   </div>
                 );
               })}
@@ -2161,8 +2169,12 @@ export default function Orders({
                 {filledBeerRows.map((r, i) => {
                   const beer = beers.find((b) => b.id === r.beerId);
                   const pkg = packages.find((p) => p.id === r.pkgId);
+                  // Malé sudy nad počet → řádek červeně (lib/maleSudy.ts).
+                  const volneSudy = volneProObjednavku(maleSudy.souhrn, r.pkgId);
+                  const nadSudy = volneSudy != null
+                    && filledBeerRows.filter((x) => x.pkgId === r.pkgId).reduce((sum, x) => sum + (Number(x.qty) || 0), 0) > Math.max(0, volneSudy);
                   return (
-                    <li key={`${r.beerId}-${r.pkgId}-${i}`} className="flex items-center justify-between gap-2 rounded bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200/70 dark:border-neutral-700 px-2.5 py-1.5">
+                    <li key={`${r.beerId}-${r.pkgId}-${i}`} className={`flex items-center justify-between gap-2 rounded px-2.5 py-1.5 border ${nadSudy ? 'bg-rose-50 border-rose-400' : 'bg-neutral-50 dark:bg-neutral-900/60 border-neutral-200/70 dark:border-neutral-700'}`}>
                       <button
                         type="button"
                         onClick={() => setExpandedBeerId(expandedBeerId === r.beerId ? null : r.beerId)}

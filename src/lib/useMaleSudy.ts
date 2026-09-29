@@ -71,8 +71,11 @@ export function useHlidaniMalychSudu(zasoba: Record<string, number>): VysledekMa
       : { data: [] };
     setData({ o, p: ((pol as any[]) ?? []) as PolozkaProSudy[] });
   }
-  useEffect(() => { void nacti(); }, []);
-  useRealtime(['orders', 'order_items'], () => { void nacti(); });
+  // Dokud nikdo nenaklikal žádný počet, není co hlídat — objednávky se
+  // zbytečně nenačítají (hook běží i na ploše kvůli dlaždici).
+  const hlida = Object.keys(zasoba).length > 0;
+  useEffect(() => { if (hlida) void nacti(); }, [hlida]);
+  useRealtime(['orders', 'order_items'], () => { if (hlida) void nacti(); });
   const vysledek = data ? hlidejMaleSudy(zasoba, data.o, data.p) : { souhrn: [], nadPoPolozce: new Map<string, number>() };
   return { ...vysledek, nacteno: !!data };
 }

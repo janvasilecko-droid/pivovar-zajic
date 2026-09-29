@@ -92,3 +92,23 @@ export function hlidejMaleSudy(
   });
   return { souhrn, nadPoPolozce };
 }
+
+/**
+ * Kolik malých sudů daného obalu smí ještě dostat JEDNA objednávka — pro
+ * formulář zadání a úpravy (29. 9. 2026: „v objednávce Maneo chci vidět, na
+ * kolik sudů mě to pustí, na co není sud, udělej červeně").
+ *
+ * `uzVTetoObjednavce` = kolik kusů tohoto obalu už objednávka měla před
+ * úpravou (ty jsou v `objednano` započítané a uvolní se). Vrací null, když
+ * se obal nehlídá.
+ */
+export function volneProObjednavku(
+  souhrn: SouhrnMalychSudu[],
+  packageId: string | null | undefined,
+  uzVTetoObjednavce = 0,
+): number | null {
+  if (!packageId) return null;
+  const s = souhrn.find((x) => x.package_id === packageId);
+  if (!s) return null;
+  return s.mame - (s.objednano - uzVTetoObjednavce);
+}

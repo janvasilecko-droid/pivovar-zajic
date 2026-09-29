@@ -1,13 +1,19 @@
-// 🛢️ Záložka „Malé sudy" na obrazovce KEG — kolik máme KEG 20/15/10 l.
+// 🛢️ Malé sudy — kolik máme KEG 20/15/10 l. Záložka v Objednávkách
+// a samostatná dlaždice na ploše (29. 9. 2026: „ty malé sudy udělej jako
+// samostatnou dlaždici a záložku dej k objednávkám"; dřív byla v KEG).
 //
 // Z provozu 29. 9. 2026: „pro stáčení sudů připrav záložku malé sudy, tam
 // naklikám počet malých sudů 20, 15, 10, a pak mi v objednávkách hlídej…"
 // Počet se ukládá do tabulky male_sudy (sdílená pro všechny), Objednávky
 // podle něj označí položky nad počet (lib/maleSudy.ts).
+import { useEffect, useState } from 'react';
 import { Minus, Plus } from 'lucide-react';
+import { supabase, formatPackageLabel } from '../lib/supabase';
+import { useAuth } from '../lib/auth';
+import { canUserEdit, getUserPermissions } from '../lib/permissions';
+import { Spinner } from './ui';
 import { jeMalySud, type ObalProSudy } from '../lib/maleSudy';
 import { useHlidaniMalychSudu, useMaleSudy } from '../lib/useMaleSudy';
-import { formatPackageLabel } from '../lib/supabase';
 import { chyba } from '../lib/toast';
 
 export function MaleSudyPanel({ packages, canEdit, kdo }: {
@@ -93,4 +99,22 @@ export function MaleSudyPanel({ packages, canEdit, kdo }: {
       })}
     </div>
   );
+}
+
+/** Celá obrazovka (záložka Objednávek / dlaždice): sama si načte obaly a práva. */
+export function MaleSudyObrazovka() {
+  const { profile, user } = useAuth();
+  const [packages, setPackages] = useState<(ObalProSudy & { sort_order?: number | null })[] | null>(null);
+  useEffect(() => {
+    let zivy = true;
+    supabase.from('packages').select('id, kind, volume_l, label, sort_order').order('sort_order').then(({ data }) => {
+      if (zivy) setPackages((data ?? []) as (ObalProSudy & { sort_order?: number | null })[]);
+    });
+    return () => { zivy = false; };
+  }, []);
+  if (!packages) return <Spinner />;
+  // Zápis do male_sudy hlídá databáze podle práva na KEG (migrace
+  // 20261231160000_male_sudy.sql) — tlačítka tomu odpovídají.
+  const canEdit = canUserEdit(profile?.role, user?.id, 'kegging', getUserPermissions(user?.id ?? '', (profile as any)?.permissions));
+  return <MaleSudyPanel packages={packages} canEdit={canEdit} kdo={profile?.display_name ?? null} />;
 }

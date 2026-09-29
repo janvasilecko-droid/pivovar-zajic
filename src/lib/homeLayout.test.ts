@@ -185,9 +185,20 @@ describe('addPage / removePage / moveTileToPage', () => {
   });
 });
 
+describe('nová dlaždice u uložené plochy', () => {
+  it('na jediné stránce jde nová dlaždice na ni, ne na prázdnou poslední', () => {
+    const layout = getHomeLayout({ rozlozeniVerze: ROZLOZENI_VERZE, pages: [[A], []] }, [A, B]);
+    expect(layout.pages).toEqual([[A, B], []]);
+  });
+  it('se dvěma stránkami jde dál na druhou („Další")', () => {
+    const layout = getHomeLayout({ rozlozeniVerze: ROZLOZENI_VERZE, pages: [[A], [B]] }, [A, B, C]);
+    expect(layout.pages).toEqual([[A], [B, C], []]);
+  });
+});
+
 describe('addTile', () => {
   it('přidá dlaždici, co je zrovna schovaná, zpátky na zvolenou stránku a odebere z hidden', () => {
-    const layout = hideTile(getHomeLayout({ rozlozeniVerze: ROZLOZENI_VERZE, pages: [[A], []] }, [A, B]), B);
+    const layout = hideTile(getHomeLayout({ rozlozeniVerze: ROZLOZENI_VERZE, pages: [[A], [B]] }, [A, B]), B);
     const next = addTile(layout, B, 1);
     expect(next.pages).toEqual([[A], [B], []]);
     expect(next.hidden).toEqual([]);

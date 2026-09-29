@@ -61,6 +61,7 @@ import { nazevMesice } from '../lib/inventoryFix';
 const MESICE_KRATCE = ['leden', 'únor', 'březen', 'duben', 'květen', 'červen',
   'červenec', 'srpen', 'září', 'říjen', 'listopad', 'prosinec'];
 import { kauceVenku, vycepyVenku, type VycepVenku } from '../lib/vycepyVenku';
+import { useMaleSudy, useHlidaniMalychSudu } from '../lib/useMaleSudy';
 import './HomeScreen.css';
 import { uloz } from '../lib/uloziste';
 
@@ -118,6 +119,16 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
     return canUserView(profile?.role, user?.id, modKey, userPerms);
   }), [profile?.role, user?.id, userPerms]);
   const extraVisibleIds = useMemo(() => extraVisible.map((n) => n.id), [extraVisible]);
+
+  // 🛢️ Dlaždice Malé sudy: kolik jich je ještě volných, nebo kolik chybí
+  // (29. 9. 2026: „ty malé sudy udělej jako samostatnou dlaždici").
+  const { souhrn: souhrnMalychSudu } = useHlidaniMalychSudu(useMaleSudy().zasoba);
+  const maleSudyStitek = useMemo(() => {
+    if (souhrnMalychSudu.length === 0) return undefined;
+    const nad = souhrnMalychSudu.reduce((a, s) => a + s.nad, 0);
+    if (nad > 0) return `⚠ ${nad} ks nemá sud`;
+    return `volné ${souhrnMalychSudu.reduce((a, s) => a + Math.max(0, s.mame - s.objednano), 0)} ks`;
+  }, [souhrnMalychSudu]);
 
   const navById = useMemo(() => new Map<Page, NavItem>([...visible, ...extraVisible].map((n) => [n.id, n])), [visible, extraVisible]);
 
@@ -2110,7 +2121,8 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
               : null;
 
             const badge =
-              id === 'cellar' && cellarLiveStats ? `${cellarLiveStats.totalHl} hl`
+              id === 'male_sudy' && maleSudyStitek ? maleSudyStitek
+              : id === 'cellar' && cellarLiveStats ? `${cellarLiveStats.totalHl} hl`
               : (id === 'bottling' || id === 'bottling_needs') && bottlingTodayCount ? `${bottlingTodayCount} plán`
               : id === 'vehicles' && vehicleAlerts.length === 1 ? `${vehicleAlerts[0].kind === 'stk' ? 'STK' : 'dálnice'} ${vehicleAlerts[0].status === 'expired' ? 'propadla' : 'brzy'}`
               : id === 'vehicles' && vehicleAlerts.length > 0 ? `${vehicleAlerts.length} STK`

@@ -1,3 +1,6 @@
+import { useMaleSudy, useHlidaniMalychSudu } from '../lib/useMaleSudy';
+import { jeOtevrena, volneProObjednavku } from '../lib/maleSudy';
+import { MaleSudyVolne } from './MaleSudyVolne';
 import { useState } from 'react';
 import { Modal } from './ui';
 import { X } from 'lucide-react';
@@ -50,6 +53,15 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
   );
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  // 🛢️ Malé sudy (29. 9. 2026: „v objednávce Maneo chci vidět, na kolik sudů
+  // mě to pustí, na co není sud, udělej červeně"). Původní kusy téhle
+  // objednávky se při úpravě uvolní — započítá se až to, co je zadáno teď.
+  const { zasoba: zasobaMalychSudu } = useMaleSudy();
+  const { souhrn: souhrnMalychSudu } = useHlidaniMalychSudu(zasobaMalychSudu);
+  const otevrena = jeOtevrena(order);
+  const puvodneVObalu = (pkgId: string) => (otevrena ? items.filter((i) => i.package_id === pkgId).reduce((sum, i) => sum + Number(i.quantity || 0), 0) : 0);
+  const zadanoVObalu = (pkgId: string) => rows.filter((x) => !x.removed && x.pkgId === pkgId).reduce((sum, x) => sum + (Number(x.qty) || 0), 0);
 
   // 🚰 Rezervace výčepu — modal
   const [showTapModal, setShowTapModal] = useState(false);
@@ -266,6 +278,12 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
                       onSelect={(q) => setRow(i, 'qty', String(q))}
                     />
                   </div>
+                </div>
+                <div className="sm:col-span-12">
+                  <MaleSudyVolne
+                    volne={volneProObjednavku(souhrnMalychSudu, r.pkgId, puvodneVObalu(r.pkgId))}
+                    zadano={zadanoVObalu(r.pkgId)}
+                  />
                 </div>
                 <div className="flex justify-end sm:col-span-1">
                   <button type="button" className="text-rose-400 hover:text-rose-600 px-2 py-1.5 sm:py-0 tap" onClick={() => removeRow(i)} title="Odstranit položku"><X className="ikona-text" /> Odstranit</button>

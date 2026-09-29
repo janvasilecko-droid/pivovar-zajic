@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import Orders from './Orders';
 import { ClipboardList, FileText, ChartBar, RotateCcw } from 'lucide-react';
+import { IkonaSud } from '../components/ikony';
+import { MaleSudyObrazovka } from '../components/MaleSudyPanel';
 import { TabBar, type TabBarItem } from '../components/TabBar';
 
-type TopTab = 'orders' | 'detail' | 'celkem' | 'vraceni';
+type TopTab = 'orders' | 'detail' | 'celkem' | 'vraceni' | 'male';
 
 interface OrdersTabbedProps {
   initialTab?: TopTab;
@@ -29,6 +31,9 @@ const TABS: (TabBarItem & { id: TopTab })[] = [
   { id: 'detail', label: 'Přehled', icon: FileText, color: '#4dabf7' },
   { id: 'celkem', label: 'Celkem', icon: ChartBar, color: '#ffa94d' },
   { id: 'vraceni', label: 'Vrácení', icon: RotateCcw, color: '#7c5cff' },
+  // Malé sudy (29. 9. 2026: „záložku dej k objednávkám") — počet KEG
+  // 20/15/10 l, podle kterého objednávky hlídají, kolik jich jde dát.
+  { id: 'male', label: 'Malé sudy', icon: IkonaSud, color: '#e8590c' },
 ];
 
 // Mapování interní záložky → Page (viz App.tsx).
@@ -37,6 +42,7 @@ const TAB_TO_PAGE: Record<TopTab, string> = {
   detail: 'orders_detail',
   celkem: 'orders_celkem',
   vraceni: 'orders_vraceni',
+  male: 'male_sudy',
 };
 
 export default function OrdersTabbed({
@@ -69,6 +75,7 @@ export default function OrdersTabbed({
 
       {/* Screen Render */}
       <div className="transition-all duration-200">
+        {activeTab === 'male' ? <MaleSudyObrazovka /> : (
         <Orders
           key={activeTab}
           mode="all"
@@ -83,6 +90,7 @@ export default function OrdersTabbed({
           }
           openOrderId={openOrderId}
         />
+        )}
       </div>
     </div>
   );

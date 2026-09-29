@@ -275,7 +275,7 @@ export const STRANKY_PLOCHY: Array<{ nazev: string; ids: Page[] }> = [
     nazev: 'Plocha',
     ids: [
       ...DLAZDICE_DENNI_PRACE, 'orders_zavoz', 'cellar', 'notes', 'prodejna', 'bottling_needs', 'timer', 'history',
-      'orders', 'kegging', 'bottling', 'dashboard', 'orders_entry', 'akce',
+      'orders', 'male_sudy', 'kegging', 'bottling', 'dashboard', 'orders_entry', 'akce',
       'sklo_promo', 'vehicles', 'haccp', 'calendar', 'export_excel', 'depozitar',
       'navod', 'audit', 'users', 'app_settings', 'zaloha', 'signout',
     ],
@@ -464,7 +464,7 @@ export const CATEGORY_SHADES: Record<Category, TileColor[]> = {
 };
 export const PAGE_CATEGORY: Partial<Record<Page, Category>> = {
   // Výroba
-  kegging: 'Výroba', bottling: 'Výroba', orders: 'Výroba', fasovani: 'Výroba', prodejna: 'Výroba',
+  kegging: 'Výroba', bottling: 'Výroba', orders: 'Výroba', male_sudy: 'Výroba', fasovani: 'Výroba', prodejna: 'Výroba',
   writeoffs: 'Výroba', akce: 'Výroba', vycepy: 'Výroba', orders_zavoz: 'Výroba', nakladka: 'Výroba', zavoz: 'Výroba',
   exkurze: 'Výroba', orders_entry: 'Výroba', orders_detail: 'Výroba', orders_celkem: 'Výroba',
   // Pivovar
@@ -869,7 +869,10 @@ export function getHomeLayout(raw: unknown, visibleIds: Page[], extraIds: Page[]
   } else if (newIds.length > 0) {
     // Nová dlaždice patří na stránku „Další" — úvodní stránka je jen pro
     // denní práci a nesmí se sama rozrůstat (28. 9. 2026).
-    const kam = Math.min(1, pages.length - 1);
+    // Na jediné stránce (od verze 18) jde nová dlaždice na ni — ne na
+    // prázdnou poslední stránku, kterou by nikdo nenašel.
+    const jedina = pages.slice(1).every((p) => p.length === 0);
+    const kam = jedina ? 0 : Math.min(1, pages.length - 1);
     pages[kam] = [...pages[kam], ...newIds];
   }
 

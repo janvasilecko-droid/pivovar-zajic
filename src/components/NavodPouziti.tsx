@@ -200,6 +200,10 @@ const ODDILY: Oddil[] = [
         jak: 'Úplně nahoře na ploše jsou ležácké tanky 1–8 (pivo v barvě z nastavení piv, hl a pruh plnosti) — klepnutí otevře Sklep. Pod nimi okno „Co stočit" — po otevření je sbalené na jeden řádek s počty, klepnutím se rozbalí. Přehled nakládky — dlaždici Nakládka závoz (pivo × obal × kusy na nejbližší závoz) — si dáš na plochu zaškrtnutím „Přehled na plochu" v Rozvozu (vedle „Skrýt zavezené"), nebo přes úpravu plochy → Přidat dlaždici — klepnutí na něj otevře Rozvoz rovnou na „Co naložit do auta" pro ten den.',
       },
       {
+        co: 'Malé sudy',
+        jak: 'Dlaždice Malé sudy (a záložka v Objednávkách) — naklikáš, kolik máš KEG 20, 15 a 10 l. Při zadání i úpravě objednávky pak u malého sudu uvidíš „můžeš dát max N“; co je navíc a nemá sud, svítí červeně. Dlaždice na ploše ukazuje, kolik sudů je ještě volných.',
+      },
+      {
         co: 'Rozvoz a podpis',
         jak: 'V Rozvozu se objednávky odškrtávají po dnech. „Podpis převzetí“ (v Rozvozu i v detailu objednávky) rovnou označí objednávku jako zavezenou.',
       },

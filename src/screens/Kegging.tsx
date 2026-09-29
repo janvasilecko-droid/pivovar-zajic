@@ -25,7 +25,6 @@ import { chyba, oznam, potvrd, toastZpet, uspech } from '../lib/toast';
 import { nejvetsiTank, odpojPrecerpane, radkyBezTanku, tankRadku, tankyProPivo } from '../lib/tankUZapisu';
 import { jeJantar, pivaJantaru, pivoZdrojovehoTanku, rozdelJantar, PODIL_SVETLE } from '../lib/jantar';
 import { odectiTmavouJantaru, upravTmavouJantaru, vratTmavouJantaru } from '../lib/jantarZapis';
-import { MaleSudyPanel } from '../components/MaleSudyPanel';
 import { canUserEdit, getUserPermissions } from '../lib/permissions';
 import { podezreleMnozstvi } from '../lib/kontrolaZadani';
 import { IkonaSud } from '../components/ikony';
@@ -95,7 +94,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   const [naposledPiva, setNaposledPiva] = useState<string[]>(() => nactiNaposled(klicPiv));
 
   // Zápis / Přehled / Potřeba stočit KEGy / Přefuk KEG / Checklist záložky
-  const [tab, setTab] = useState<'zapis' | 'prehled' | 'plan' | 'prefuk' | 'male' | 'checklist'>((initialSubTab as any) || 'zapis');
+  const [tab, setTab] = useState<'zapis' | 'prehled' | 'plan' | 'prefuk' | 'checklist'>((initialSubTab as any) || 'zapis');
 
   // Sync ze subTab v historii (viz App.tsx) — jinak tlačítko Zpět z téhle
   // záložky nevrátí předchozí záložku, ale rovnou vyskočí do menu.
@@ -103,7 +102,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     setTab((initialSubTab as any) || 'zapis');
   }, [initialSubTab]);
 
-  function selectTab(t: 'zapis' | 'prehled' | 'plan' | 'prefuk' | 'male' | 'checklist') {
+  function selectTab(t: 'zapis' | 'prehled' | 'plan' | 'prefuk' | 'checklist') {
     if (setPage) setPage('kegging', undefined, t);
     else setTab(t);
   }
@@ -1335,15 +1334,6 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                 <span className="px-1.5 py-0.5 rounded-full bg-sky-200 text-sky-900 text-udaj font-black">{prefukRows.length}</span>
               )}
             </button>
-            {/* Malé sudy (29. 9. 2026) — počet KEG 20/15/10 l, podle kterého
-                Objednávky hlídají, aby se nepřečerpaly (lib/maleSudy.ts). */}
-            <button
-              type="button"
-              onClick={() => selectTab('male')}
-              className={`btn-zalozka shrink-0 min-h-[44px] ${tab === 'male' ? 'btn-zalozka-aktivni' : ''}`}
-            >
-              <span className="inline-flex items-center gap-1.5"><IkonaSud size={14} /> Malé sudy</span>
-            </button>
             <button
               type="button"
               onClick={() => selectTab('checklist')}
@@ -2517,13 +2507,6 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
             onShowOrders={(beerId, packageId) => { requestOrdersItemFilter({ beerId, packageId }); setPage?.('orders'); }}
           />
         </div>
-      )}
-      {mode === 'all' && tab === 'male' && (
-        <MaleSudyPanel
-          packages={packages}
-          canEdit={canUserEdit(profile?.role, user?.id, 'kegging', getUserPermissions(user?.id ?? '', (profile as any)?.permissions))}
-          kdo={profile?.display_name ?? null}
-        />
       )}
       {/* TAB 4: PŘEFUK KEG SUDŮ — přelití ze sudů jedné velikosti do jiných */}
       {(mode === 'all' && tab === 'prefuk') && (

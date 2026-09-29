@@ -57,3 +57,22 @@ describe('malé sudy', () => {
     expect(r.nadPoPolozce.get('a')).toBe(1);
   });
 });
+
+import { volneProObjednavku } from './maleSudy';
+
+describe('volné malé sudy pro jednu objednávku', () => {
+  const souhrn = [{ package_id: 'k15', mame: 3, objednano: 2, nad: 0 }];
+  it('nová objednávka smí jen to, co zbylo', () => {
+    expect(volneProObjednavku(souhrn, 'k15')).toBe(1);
+  });
+  it('úprava objednávky uvolní její původní kusy', () => {
+    expect(volneProObjednavku(souhrn, 'k15', 2)).toBe(3);
+  });
+  it('nehlídaný obal → null', () => {
+    expect(volneProObjednavku(souhrn, 'k20')).toBeNull();
+    expect(volneProObjednavku(souhrn, null)).toBeNull();
+  });
+  it('když je přečerpáno, vyjde záporné číslo', () => {
+    expect(volneProObjednavku([{ package_id: 'k15', mame: 3, objednano: 5, nad: 2 }], 'k15')).toBe(-2);
+  });
+});
