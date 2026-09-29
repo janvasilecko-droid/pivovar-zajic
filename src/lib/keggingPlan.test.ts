@@ -739,3 +739,22 @@ describe('objednavkyVTydnu', () => {
     expect(objednavkyVTydnu(orders, orderItems, WEEK)).toEqual([]);
   });
 });
+
+import { datumProDenOdDneska } from './keggingPlan';
+
+describe('den závozu nesmí skočit do minulosti', () => {
+  // Úterý 29. 9. 2026: „Po" u objednávky na tento týden = příští pondělí.
+  it('v úterý „Po" → příští pondělí', () => {
+    expect(datumProDenOdDneska('po', '2026-09-30', '2026-09-29')).toBe('2026-10-05');
+  });
+  it('dnešek i pozdější dny zůstávají v týdnu', () => {
+    expect(datumProDenOdDneska('ut', '2026-09-30', '2026-09-29')).toBe('2026-09-29');
+    expect(datumProDenOdDneska('pa', '2026-09-30', '2026-09-29')).toBe('2026-10-02');
+  });
+  it('objednávka z příštího týdne zůstává v příštím týdnu', () => {
+    expect(datumProDenOdDneska('po', '2026-10-07', '2026-09-29')).toBe('2026-10-05');
+  });
+  it('stará objednávka z minulého týdne jde na nejbližší takový den', () => {
+    expect(datumProDenOdDneska('st', '2026-09-22', '2026-09-29')).toBe('2026-09-30');
+  });
+});
