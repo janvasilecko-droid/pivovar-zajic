@@ -2,8 +2,9 @@
 // Sdílí obrazovka KEG (zadávání) a Objednávky (hlídání).
 import { useEffect, useState } from 'react';
 import { supabase, useRealtime, fetchAllRows } from './supabase';
-import { hlidejMaleSudy, type VysledekMalychSudu, type ObjednavkaProSudy, type PolozkaProSudy } from './maleSudy';
+import { hlidejMaleSudy, jeMalySud, type VysledekMalychSudu, type ObjednavkaProSudy, type PolozkaProSudy, type ObalProSudy } from './maleSudy';
 import { chybiTabulka } from './chybyHlaseni';
+import { businessDateISO } from './businessDate';
 
 export function useMaleSudy(): {
   zasoba: Record<string, number>;
@@ -25,6 +26,13 @@ export function useMaleSudy(): {
     }
     const z: Record<string, number> = {};
     for (const r of (data as any[]) ?? []) z[r.package_id] = Number(r.pocet) || 0;
+    // Jakmile je zadaný aspoň jeden malý sud, ostatní malé bez čísla = 0 —
+    // „ručně zadané 1× 20 a 2× 15" znamená, že 10 l není žádný
+    // (29. 9. 2026). Bez jediného zadaného počtu se nehlídá nic.
+    if (Object.keys(z).length > 0) {
+      const { data: obaly } = await supabase.from('packages').select('id, kind, volume_l');
+      for (const o of ((obaly ?? []) as ObalProSudy[])) if (jeMalySud(o) && z[o.id] == null) z[o.id] = 0;
+    }
     setZasoba(z);
     setChybiMigrace(false);
     setNacteno(true);
@@ -61,9 +69,15 @@ export function useHlidaniMalychSudu(zasoba: Record<string, number>, silaPodleId
   const [data, setData] = useState<{ o: ObjednavkaProSudy[]; p: PolozkaProSudy[] } | null>(null);
   async function nacti() {
     // Nezavezené a nestornované — to jsou ty, na které se sudy ještě chystají.
+    // Jen závoz od dneška (nebo bez data a objednané v posledním týdnu) —
+    // staré nezavezené objednávky sudy nedrží (maleSudy.ts chystaSeOd).
+    const dnes = businessDateISO();
+    const tyden = new Date(dnes + 'T00:00:00Z');
+    tyden.setUTCDate(tyden.getUTCDate() - 7);
     const { data: obj } = await fetchAllRows<any>('orders', 'id,status,is_delivered,delivery_date,order_date,created_at')
       .eq('is_delivered', false)
-      .neq('status', 'storno');
+      .neq('status', 'storno')
+      .or(`delivery_date.gte.${dnes},and(delivery_date.is.null,order_date.gte.${tyden.toISOString().slice(0, 10)})`);
     const o = ((obj as any[]) ?? []) as ObjednavkaProSudy[];
     const ids = o.map((x) => x.id);
     const { data: pol } = ids.length
@@ -76,6 +90,6 @@ export function useHlidaniMalychSudu(zasoba: Record<string, number>, silaPodleId
   const hlida = Object.keys(zasoba).length > 0;
   useEffect(() => { if (hlida) void nacti(); }, [hlida]);
   useRealtime(['orders', 'order_items'], () => { if (hlida) void nacti(); });
-  const vysledek = data ? hlidejMaleSudy(zasoba, data.o, data.p, silaPodleId) : { souhrn: [], nadPoPolozce: new Map<string, number>() };
+  const vysledek = data ? hlidejMaleSudy(zasoba, data.o, data.p, silaPodleId, businessDateISO()) : { souhrn: [], nadPoPolozce: new Map<string, number>(), poPolozce: new Map<string, { kryto: number; chybi: number }>() };
   return { ...vysledek, nacteno: !!data };
 }

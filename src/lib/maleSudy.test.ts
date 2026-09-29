@@ -125,3 +125,25 @@ describe('malé sudy po řádcích objednávky', () => {
     expect(r.nadPoPolozce.get('x10')).toBe(1);
   });
 });
+
+import { chystaSeOd } from './maleSudy';
+
+describe('staré nezavezené objednávky sudy nedrží (29. 9. 2026)', () => {
+  // „v malých sudech mi to píše, že chybí přes 100 sudů"
+  it('objednávka z minulého týdne se nepočítá, dnešní a pozdější ano', () => {
+    const r = hlidejMaleSudy(
+      { k15: 2 },
+      [o('stara', '2026-09-15'), o('dnes', '2026-09-29'), o('zitra', '2026-09-30')],
+      [p('s', 'stara', 'k15', 50), p('d', 'dnes', 'k15', 1), p('z', 'zitra', 'k15', 1)],
+      undefined,
+      '2026-09-29',
+    );
+    expect(r.souhrn[0]).toMatchObject({ objednano: 2, nad: 0 });
+    expect(r.poPolozce.get('d')).toEqual({ kryto: 1, chybi: 0 });
+    expect(r.poPolozce.has('s')).toBe(false);
+  });
+  it('bez data závozu: týden od objednání', () => {
+    expect(chystaSeOd({ id: 'a', delivery_date: null, order_date: '2026-09-25' }, '2026-09-29')).toBe(true);
+    expect(chystaSeOd({ id: 'a', delivery_date: null, order_date: '2026-09-01' }, '2026-09-29')).toBe(false);
+  });
+});

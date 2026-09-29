@@ -37,6 +37,21 @@ export function jeOtevrena(o: ObjednavkaProSudy): boolean {
   return o.status !== 'storno' && !o.is_delivered && !jeVyrizena(o.status);
 }
 
+/**
+ * Chystá se na ni sud TEĎ — závoz dnes nebo později. Z provozu 29. 9. 2026:
+ * „v malých sudech mi to píše, že chybí přes 100 sudů" — počítaly se i staré
+ * objednávky z minulých týdnů, které nikdo neoznačil jako zavezené. Ty jsou
+ * dávno pryč a sudy nedrží. Bez data závozu se bere týden od objednání.
+ */
+export function chystaSeOd(o: ObjednavkaProSudy, dnes: string): boolean {
+  if (o.delivery_date) return o.delivery_date.slice(0, 10) >= dnes;
+  const objednano = (o.order_date ?? o.created_at ?? '').slice(0, 10);
+  if (!objednano) return false;
+  const tydenZpet = new Date(dnes + 'T00:00:00Z');
+  tydenZpet.setUTCDate(tydenZpet.getUTCDate() - 7);
+  return objednano >= tydenZpet.toISOString().slice(0, 10);
+}
+
 export type SouhrnMalychSudu = { package_id: string; mame: number; objednano: number; nad: number };
 
 export type VysledekMalychSudu = {
@@ -44,6 +59,8 @@ export type VysledekMalychSudu = {
   souhrn: SouhrnMalychSudu[];
   /** Kolik kusů položky je nad počet (id položky → kusy). Chybí = v pořádku. */
   nadPoPolozce: Map<string, number>;
+  /** Každá hlídaná položka: kolik kusů má sud a kolik ne (zelená/oranžová/červená). */
+  poPolozce: Map<string, { kryto: number; chybi: number }>;
 };
 
 /**
@@ -56,8 +73,10 @@ export function hlidejMaleSudy(
   polozky: PolozkaProSudy[],
   /** Síla piva podle beer_id — v rámci objednávky dostane sud nejdřív nejsilnější. */
   silaPodleId?: Map<string, number>,
+  /** Dnešek (YYYY-MM-DD) — starší objednávky se nepočítají (chystaSeOd). */
+  dnes?: string,
 ): VysledekMalychSudu {
-  const otevrene = objednavky.filter(jeOtevrena);
+  const otevrene = objednavky.filter((o) => jeOtevrena(o) && (!dnes || chystaSeOd(o, dnes)));
   const poradi = new Map(
     [...otevrene]
       .sort((a, b) => {
@@ -81,6 +100,7 @@ export function hlidejMaleSudy(
   const zbyva: Record<string, number> = { ...zasoba };
   const objednano: Record<string, number> = {};
   const nadPoPolozce = new Map<string, number>();
+  const poPolozce = new Map<string, { kryto: number; chybi: number }>();
   for (const p of hlidane) {
     const obal = p.package_id!;
     const kusu = Number(p.quantity);
@@ -88,13 +108,14 @@ export function hlidejMaleSudy(
     const vejde = Math.max(0, Math.min(kusu, zbyva[obal]));
     zbyva[obal] -= vejde;
     if (kusu > vejde) nadPoPolozce.set(p.id, kusu - vejde);
+    poPolozce.set(p.id, { kryto: vejde, chybi: kusu - vejde });
   }
 
   const souhrn = Object.entries(zasoba).map(([package_id, mame]) => {
     const obj = objednano[package_id] ?? 0;
     return { package_id, mame, objednano: obj, nad: Math.max(0, obj - mame) };
   });
-  return { souhrn, nadPoPolozce };
+  return { souhrn, nadPoPolozce, poPolozce };
 }
 
 /**

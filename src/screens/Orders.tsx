@@ -2759,7 +2759,7 @@ export default function Orders({
               <div className="space-y-3">
                 {grp.orders.map((o) => (
                   <div key={o.id} className="space-y-3">
-                    <OrderCard o={o} items={items[o.id] ?? []} stockRemainingForOrder={stockRemainingForOrder} nadPocetMalychSudu={maleSudy.nadPoPolozce}
+                    <OrderCard o={o} items={items[o.id] ?? []} stockRemainingForOrder={stockRemainingForOrder} nadPocetMalychSudu={maleSudy.nadPoPolozce} sudyPoPolozce={maleSudy.poPolozce}
                       selected={selectedIds.has(o.id)} onToggleSelect={() => toggleSelect(o.id)}
                       onClick={() => openDetail(o)} onToggleFlag={toggleFlag} onToggleItemFlag={toggleItemFlag} onUpdateDeliveryDay={updateDeliveryDay}
                       onSetStatus={setStatus} onDelete={del} onEdit={setEditOrder} onSplit={setSplitOrder} onOpenWhatsApp={handleOpenWhatsAppMessage} beers={beers} packages={packages} places={places}
@@ -2801,7 +2801,7 @@ export default function Orders({
         <div className="space-y-3">
           {searchedFiltered.map((o) => (
             <div key={o.id} className="space-y-3">
-              <OrderCard o={o} items={items[o.id] ?? []} stockRemainingForOrder={stockRemainingForOrder} nadPocetMalychSudu={maleSudy.nadPoPolozce}
+              <OrderCard o={o} items={items[o.id] ?? []} stockRemainingForOrder={stockRemainingForOrder} nadPocetMalychSudu={maleSudy.nadPoPolozce} sudyPoPolozce={maleSudy.poPolozce}
                 selected={selectedIds.has(o.id)} onToggleSelect={() => toggleSelect(o.id)}
                 onClick={() => openDetail(o)} onToggleFlag={toggleFlag} onToggleItemFlag={toggleItemFlag} onUpdateDeliveryDay={updateDeliveryDay}
                 onSetStatus={setStatus} onDelete={del} onEdit={setEditOrder} onSplit={setSplitOrder} onOpenWhatsApp={handleOpenWhatsAppMessage} beers={beers} packages={packages} places={places}

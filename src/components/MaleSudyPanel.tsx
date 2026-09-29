@@ -85,14 +85,9 @@ export function MaleSudyPanel({ packages, canEdit, kdo }: {
                   V otevřených objednávkách {s?.objednano ?? 0} ks
                   {s && s.nad > 0 ? ` — o ${s.nad} víc, než máš` : ` — zbývá ${mame - (s?.objednano ?? 0)}`}
                 </span>
-                {canEdit && (
-                  <button type="button" className="btn-ghost !rounded text-xs" onClick={() => nastav(pk.id, null)}>
-                    Nehlídat
-                  </button>
-                )}
               </div>
             ) : (
-              <div className="text-xs text-neutral-500">Nehlídá se — klepni na + a zadej, kolik jich máš.</div>
+              <div className="text-xs text-neutral-500">Zatím se nehlídá — klepni na + a zadej, kolik jich máš. Ostatní malé sudy bez čísla se pak berou jako 0.</div>
             )}
           </div>
         );

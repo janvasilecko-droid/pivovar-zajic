@@ -19,7 +19,7 @@ import { vracenoPodleObjednavky } from '../../lib/vraceniZObjednavky';
 
 import { type Order, type OrderItem, dayColor, getTapNameForOrder } from './spolecne';
 
-export function OrderCard({ o, items, stockRemainingForOrder, nadPocetMalychSudu, selected, onToggleSelect, onClick, onToggleFlag, onToggleItemFlag, onUpdateDeliveryDay, onSetStatus, onDelete, onEdit, onSplit, onOpenWhatsApp, onVratitPivo, vracenoZaznamy, beers, packages, places, activeBeerId, activePackageId, itemMatchesFilter }: {
+export function OrderCard({ o, items, stockRemainingForOrder, nadPocetMalychSudu, sudyPoPolozce, selected, onToggleSelect, onClick, onToggleFlag, onToggleItemFlag, onUpdateDeliveryDay, onSetStatus, onDelete, onEdit, onSplit, onOpenWhatsApp, onVratitPivo, vracenoZaznamy, beers, packages, places, activeBeerId, activePackageId, itemMatchesFilter }: {
   o: Order; items: OrderItem[];
   /**
    * Zbytek skladu ke konci týdne PRO TUHLE KONKRÉTNÍ objednávku — objednávky
@@ -30,6 +30,8 @@ export function OrderCard({ o, items, stockRemainingForOrder, nadPocetMalychSudu
   stockRemainingForOrder: (o: Order) => Map<string, number>;
   /** Kusy položek nad naklikaný počet malých sudů (id položky → kusy), lib/maleSudy.ts. */
   nadPocetMalychSudu?: Map<string, number>;
+  /** Přidělení malých sudů po položce — zelená / oranžová / červená. */
+  sudyPoPolozce?: Map<string, { kryto: number; chybi: number }>;
   selected: boolean; onToggleSelect: () => void; onClick: () => void;
   onToggleFlag: (o: Order, key: 'is_prepared' | 'is_packaged' | 'is_delivered') => void;
   onToggleItemFlag: (o: Order, it: OrderItem, key: 'is_bottled' | 'is_prepared') => void;
@@ -225,15 +227,14 @@ export function OrderCard({ o, items, stockRemainingForOrder, nadPocetMalychSudu
               const bothActive = !!(activeBeerId && activePackageId);
               const zvyrazneno = bothActive ? (isBeerMatch && isPkgMatch) : (isBeerMatch || isPkgMatch);
               // Malé sudy: část bez sudu oranžově, celé bez sudu červeně.
-              const nadKusu = odbaveno ? 0 : (nadPocetMalychSudu?.get(i.id) ?? 0);
-              const sudyPolozky = nadKusu > 0 ? { kryto: Math.max(0, i.quantity - nadKusu), chybi: nadKusu } : undefined;
+              const sudyPolozky = odbaveno ? undefined : sudyPoPolozce?.get(i.id);
               const vraceno = jizVraceno && i.beer_id && i.package_id
                 ? (jizVraceno.get(`${i.beer_id}__${i.package_id}`) ?? 0)
                 : 0;
               return (
                 <div
                   key={i.id}
-                  className={`flex items-center gap-2 ${sudyPolozky ? 'flex-wrap' : ''} rounded px-1.5 py-1 min-w-0 ${
+                  className={`flex items-center gap-2 ${sudyPolozky && sudyPolozky.chybi > 0 ? 'flex-wrap' : ''} rounded px-1.5 py-1 min-w-0 ${
                     zvyrazneno ? 'bg-violet-100 ring-1 ring-violet-400' : sudyPolozky ? `border ${tridaRadkuSudu(sudyPolozky, '')}` : ''
                   }`}
                 >

@@ -30,11 +30,13 @@ export function MaleSudyVolne({ volne, zadano }: {
   );
 }
 
-// Řádek objednávky podle přidělených malých sudů (lib/maleSudy.ts
-// rozdelMaleSudyVObjednavce): část bez sudu → oranžově a pod tím „−N×",
-// celý bez sudu → červeně (29. 9. 2026).
+// Řádek objednávky podle přidělených malých sudů (lib/maleSudy.ts) — jen
+// u malých sudů 20/15/10 l, zbytek objednávky beze změny (29. 9. 2026):
+// sudy jsou → zelený řádek, jen část → oranžový s „−N×", žádný → červený
+// s nápisem „nejsou sudy".
 export function tridaRadkuSudu(p: { kryto: number; chybi: number } | undefined, obycejna: string): string {
-  if (!p || p.chybi <= 0) return obycejna;
+  if (!p) return obycejna;
+  if (p.chybi <= 0) return 'bg-emerald-50 border-emerald-400';
   return p.kryto > 0 ? 'bg-amber-100 border-amber-500' : 'bg-rose-50 border-rose-400';
 }
 
@@ -43,13 +45,13 @@ export function MaleSudyRadek({ prideleni, obal }: { prideleni: { kryto: number;
   if (prideleni.kryto > 0) {
     return (
       <div className="w-full text-xs font-black text-amber-900">
-        −{prideleni.chybi}× {obal} — na tolik není prázdný sud (jde {prideleni.kryto})
+        −{prideleni.chybi}× {obal} — sudy jen na {prideleni.kryto}
       </div>
     );
   }
   return (
     <div className="w-full text-xs font-black text-rose-800" role="alert">
-      {prideleni.chybi}× {obal} — není prázdný sud
+      Nejsou sudy ({prideleni.chybi}× {obal})
     </div>
   );
 }

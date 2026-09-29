@@ -6,7 +6,7 @@ import { WhatsAppOrderReviewModal } from './WhatsAppOrderReviewModal';
 
 vi.mock('../lib/useMaleSudy', () => ({
   useMaleSudy: () => ({ zasoba: {}, nacteno: true, chybiMigrace: false, ulozit: async () => null }),
-  useHlidaniMalychSudu: () => ({ souhrn: [], nadPoPolozce: new Map(), nacteno: true }),
+  useHlidaniMalychSudu: () => ({ souhrn: [], nadPoPolozce: new Map(), poPolozce: new Map(), nacteno: true }),
 }));
 vi.mock('../lib/supabase', () => {
   const stub = () => ({
