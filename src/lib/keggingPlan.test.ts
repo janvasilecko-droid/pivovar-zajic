@@ -587,6 +587,32 @@ describe('z čeho je „hotovo" — rozpad, který si vyžádal provoz', () => {
       expect(day(p, 'st').items[0].missing).toBe(3);
     });
 
+    // Z provozu 30. 9. 2026: „1× 30 l Osma, píše mi stočit 2 — na skladě −1,
+    // v pondělí byl 0". Odpočet s datem minulého týdne, objednávka tento.
+    it('odpočet objednávky tohoto týdne se vrátí, i když je datovaný minulým týdnem', () => {
+      const p = plan({
+        orders: [objednavka('o1', '2026-08-26')],
+        orderItems: [polozka('o1', 'b-des', 'p30', 1)],
+        zavozDeductionRows: [{ deduct_date: '2026-08-20', beer_id: 'b-des', package_id: 'p30', quantity: 1, order_id: 'o1' }],
+        currentStockMap: new Map([['b-des__p30', -1]]),
+      });
+      const it0 = day(p, 'st').items[0];
+      expect(it0.missing).toBe(1);
+      expect(it0.dluh ?? 0).toBe(0);
+    });
+
+    it('odpočet objednávky z jiného týdne se nevrací — skutečný mínus zůstane', () => {
+      const p = plan({
+        orders: [objednavka('o1', '2026-08-26'), objednavka('stara', '2026-08-19')],
+        orderItems: [polozka('o1', 'b-des', 'p30', 1)],
+        zavozDeductionRows: [{ deduct_date: '2026-08-26', beer_id: 'b-des', package_id: 'p30', quantity: 1, order_id: 'stara' }],
+        currentStockMap: new Map([['b-des__p30', -1]]),
+      });
+      const it0 = day(p, 'st').items[0];
+      expect(it0.missing).toBe(2);
+      expect(it0.dluh).toBe(1);
+    });
+
     it('bez currentStockMap se chová jako dřív — jen tento týden', () => {
       const p = plan({
         orders: [objednavka('o1', '2026-08-26')],

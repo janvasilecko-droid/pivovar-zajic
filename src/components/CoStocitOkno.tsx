@@ -319,6 +319,19 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
             </div>
           )}
 
+          {/* ➖ Mínus ve skladu je v číslech připočtený (30. 9. 2026: „proč když
+              je v objednávce 1× 30 l Osma, mi to píše, že mám stočit 2"). */}
+          {data && (() => {
+            const sDluhem = [...planSudy.items, ...planLahve.items].filter((it) => (it.dluh ?? 0) > 0);
+            return sDluhem.length > 0 ? (
+              <p className="text-udaj font-black text-amber-900 bg-amber-50 border border-amber-300 rounded px-2 py-1.5">
+                V číslech je připočtený mínus ve skladu:{' '}
+                {sDluhem.map((it) => `${pivoPodleId.get(it.beer_id) ? beerName(pivoPodleId.get(it.beer_id)!) : it.beer_name} ${kratkyObal(it.package_label)} +${it.dluh}`).join(', ')}
+                {' '}— vydalo se víc, než se zapsalo do stáčení. Když sud skutečně máš, oprav stav inventurou.
+              </p>
+            ) : null;
+          })()}
+
           {/* ⚠️ Schodek, který na vybraný den nevidíš. Bez tohohle řádku
               tvrdil denní pohled „vše stočeno", zatímco Sklad ukazoval
               mínus — a chybějící sud se našel až u závozu. */}

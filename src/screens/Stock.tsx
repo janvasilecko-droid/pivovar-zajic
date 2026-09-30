@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ZavozDeductionRow } from '../lib/zavozDeduction';
 
-import { supabase, Beer, Package, KegPrefuk, useRealtime, beerBorder, fetchAllRows } from '../lib/supabase';
+import { supabase, Beer, Package, KegPrefuk, useRealtime, beerBorder, beerBg, fetchAllRows } from '../lib/supabase';
 import { buildMovements, stockForMonth, stockKey, type Movement } from '../lib/stockLedger';
 import { predpovedDojiti, type Predpoved } from '../lib/predpovedDojiti';
 import { trvanlivostSkladu, type TrvanlivostSkladu } from '../lib/trvanlivostSarzi';
@@ -394,6 +394,12 @@ export default function Stock({ setPage, initialTopTab }: { setPage?: (p: Page, 
   const brewTotalLiters = brewStats.reduce((s, r) => s + r.totalLiters, 0);
 
   const [topTab, setTopTab] = useState<'stock' | 'pohyby'>(initialTopTab ?? 'stock');
+  // 🍺 Výběr jednoho piva nahoře (30. 9. 2026: „ve skladu nahoře dej
+  // tlačítka všech aktivních piv, když na něj kliknu, ukáže se sklad
+  // daného piva"). Druhé klepnutí nebo „Všechna" výběr zruší.
+  const [vybranePivo, setVybranePivo] = useState<string | null>(null);
+  const zobrazeneRadky = vybranePivo ? rows.filter((r) => r.beer.id === vybranePivo) : rows;
+  const aktivniPiva = beers.filter((b) => b.is_active !== false);
   const zalozky: { id: typeof topTab; label: string; ikona: JSX.Element }[] = [
     { id: 'stock', label: 'Skladové zásoby piv', ikona: <Warehouse size={16} /> },
     // Každý pohyb ve vybraném týdnu s filtrem — z provozu 24. 9. 2026:
@@ -423,6 +429,30 @@ export default function Stock({ setPage, initialTopTab }: { setPage?: (p: Page, 
 
       {topTab === 'stock' && (
         <>
+          {aktivniPiva.length > 0 && (
+            <div className="flex gap-1.5 flex-wrap" role="group" aria-label="Sklad piva">
+              <button
+                type="button"
+                onClick={() => setVybranePivo(null)}
+                aria-pressed={vybranePivo === null}
+                className={`btn-zalozka text-xs ${vybranePivo === null ? 'btn-zalozka-aktivni' : ''}`}
+              >
+                Všechna piva
+              </button>
+              {aktivniPiva.map((b) => (
+                <button
+                  key={b.id}
+                  type="button"
+                  onClick={() => setVybranePivo(vybranePivo === b.id ? null : b.id)}
+                  aria-pressed={vybranePivo === b.id}
+                  className={`btn-zalozka text-xs ${vybranePivo === b.id ? 'btn-zalozka-aktivni' : ''}`}
+                >
+                  <span className="w-2.5 h-2.5 rounded-full border border-black/20 shrink-0" style={{ backgroundColor: beerBg(b) }} />
+                  {b.name}
+                </button>
+              ))}
+            </div>
+          )}
           {/* ⚠️ Položky, u kterých evidence nesedí — vydalo se víc, než kolik
               aplikace zná. Dřív se každý takový schodek ořezal na nulu a nikde
               nebyl vidět; sklad pak tvrdil „0 ks" i tam, kde chybělo 160 kusů.
@@ -569,7 +599,7 @@ export default function Stock({ setPage, initialTopTab }: { setPage?: (p: Page, 
             ) : <EmptyState text="Žádná piva na skladě." icon={PackageIcon} />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {rows.map((r) => {
+              {zobrazeneRadky.map((r) => {
                 const isDeficit = r.remaining < 0;
                 const isZero = r.remaining === 0;
 
@@ -905,7 +935,7 @@ export default function Stock({ setPage, initialTopTab }: { setPage?: (p: Page, 
             </div>
             {/* Mobilní karty */}
             <div className="grid grid-cols-1 gap-2 md:hidden">
-              {rows.map((r) => (
+              {zobrazeneRadky.map((r) => (
                 <div key={r.beer.id} className="rounded border border-neutral-200 p-3 flex items-center justify-between gap-2">
                   <span className="font-bold text-sm text-neutral-800 truncate">{r.beer.name}</span>
                   <div className="flex items-center gap-3 text-xs font-mono shrink-0">
@@ -930,7 +960,7 @@ export default function Stock({ setPage, initialTopTab }: { setPage?: (p: Page, 
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((r) => (
+                  {zobrazeneRadky.map((r) => (
                     <tr key={r.beer.id} className="border-b border-neutral-100">
                       <td className="py-2 pr-2 font-bold text-neutral-800">{r.beer.name}</td>
                       <td className="py-2 px-2 text-right font-mono">{r.stockKegs}</td>

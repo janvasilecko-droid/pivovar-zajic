@@ -70,6 +70,12 @@ export type PlanItem = {
   checked: number;
   /** Kolik ještě chybí stočit. */
   missing: number;
+  /**
+   * Kolik z `missing` je mínus ve skladu (vydalo se víc, než bylo stočeno) —
+   * proto může být „stočit 2" u objednávky na 1 kus (30. 9. 2026: „proč
+   * když je v objednávce 1× 30 l Osma, mi to píše, že mám stočit 2").
+   */
+  dluh?: number;
   orders: PlanOrderRef[];
 };
 
@@ -331,9 +337,21 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
     // ⚠️ Vrací se JEN pro klíč, který v currentStockMap SKUTEČNĚ existuje —
     // to je jediný důkaz, že se to pivo+obal opravdu stáčelo. Bez toho by
     // appka věřila kalendáři místo stočení (migrace 20261231010000).
+    //
+    // 🔗 Odpočet s vazbou na objednávku se vrací podle OBJEDNÁVKY, ne podle
+    // data odpočtu: vrací se přesně ty, které poptávka tohoto týdne počítá.
+    // Z provozu 30. 9. 2026: „v objednávce 1× 30 l Osma, píše mi stočit 2 —
+    // na skladě −1, v pondělí byl 0". Objednávka odepsaná s datem minulého
+    // týdne a pak přesunutá do tohoto se počítala dvakrát: jako objednávka
+    // a znovu jako mínus ve skladu. Starý odpočet bez order_id jde dál
+    // podle data.
+    const objednavkyTydne = new Set(orders
+      .filter((o) => o.status !== 'storno' && inWeek(o.delivery_date || o.order_date))
+      .map((o) => o.id));
     const vracenoZaZavozy: Record<string, number> = {};
     zavozDeductionRows.forEach((r: any) => {
-      if (!r.beer_id || !r.package_id || !kegPkgs.has(r.package_id) || !inWeek(r.deduct_date)) return;
+      if (!r.beer_id || !r.package_id || !kegPkgs.has(r.package_id)) return;
+      if (r.order_id ? !objednavkyTydne.has(r.order_id) : !inWeek(r.deduct_date)) return;
       const k = `${r.beer_id}__${r.package_id}`;
       if (!input.currentStockMap!.has(k)) return;
       vracenoZaZavozy[k] = (vracenoZaZavozy[k] || 0) + Number(r.quantity || 0);
@@ -491,6 +509,7 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
         zChladaku: fromPool,
         checked,
         missing: Math.max(0, b.ordered - done) + deficit,
+        dluh: deficit,
         orders: b.orders,
       };
     });
@@ -584,6 +603,7 @@ export function mergeWeekPlan(plans: DayPlan[], weekLabel: string): DayPlan {
       prev.zChladaku += it.zChladaku;
       prev.checked += it.checked;
       prev.missing += it.missing;
+      prev.dluh = (prev.dluh ?? 0) + (it.dluh ?? 0);
       prev.orders.push(...it.orders);
     });
   });

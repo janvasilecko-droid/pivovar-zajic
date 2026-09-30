@@ -431,6 +431,11 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
                             fyzicky odešlo nebo je nachystané a kolik leží
                             stočené v chlaďáku. Ukazuje se jen když je co
                             vysvětlovat — u nedotčené položky by to byl šum. */}
+                        {(it.dluh ?? 0) > 0 && (
+                          <div className="text-udaj font-black text-amber-900 mt-0.5" title="Ve skladu je tohle pivo v tomhle obalu v mínusu — vydalo se víc, než se kdy zapsalo do stáčení. Buď se nezapsalo stáčení, nebo je potřeba opravit inventuru.">
+                            z toho +{it.dluh} mínus ve skladu (objednáno {it.ordered})
+                          </div>
+                        )}
                         {(it.nachystano > 0 || it.zChladaku > 0) && (
                           <div className="text-udaj font-bold text-neutral-400 mt-0.5">
                             z toho{' '}
