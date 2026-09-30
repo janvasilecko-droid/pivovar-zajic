@@ -11,14 +11,18 @@
 // lib/vraceniZObjednavky.ts). Objednávka dostane stav storno a poznámku.
 import { fetchAllRows, supabase } from './supabase';
 import { businessDateISO } from './businessDate';
-import { chyba, potvrd, uspech } from './toast';
-import { platneVraceni, poznamkaVraceni, pripojPoznamku, zaznamyDorovnaniVraceni, type PolozkaVraceni } from './vraceniZObjednavky';
+import { chyba, oznam, potvrd, uspech } from './toast';
+import { platneVraceni, poznamkaVraceni, pripojPoznamku, vracenoPodleObjednavky, zaznamyDorovnaniVraceni, type PolozkaVraceni, type VraceniZaznam } from './vraceniZObjednavky';
 
 export type OdpocetObjednavky = { order_id: string; beer_id: string | null; package_id: string | null; quantity: number };
 export type PolozkaProNazev = { beer_id: string | null; beer_name: string | null; package_id: string | null; package_label: string | null };
 
-/** Odepsané kusy jedné objednávky → položky k vrácení (po pivu a obalu). */
-export function vraceniZOdpoctu(odpocty: OdpocetObjednavky[], polozky: PolozkaProNazev[]): PolozkaVraceni[] {
+/**
+ * Odepsané kusy jedné objednávky → položky k vrácení (po pivu a obalu).
+ * `uzVraceno` (klíč beer_id__package_id) = co se z ní už vrátilo dřív přes
+ * formulář Vrácení piva — to se odečte, ať se nevrací podruhé.
+ */
+export function vraceniZOdpoctu(odpocty: OdpocetObjednavky[], polozky: PolozkaProNazev[], uzVraceno?: Map<string, number>): PolozkaVraceni[] {
   const soucty = new Map<string, PolozkaVraceni>();
   for (const o of odpocty) {
     if (!o.beer_id || !o.package_id || !(Number(o.quantity) > 0)) continue;
@@ -33,6 +37,9 @@ export function vraceniZOdpoctu(odpocty: OdpocetObjednavky[], polozky: PolozkaPr
     };
     r.pocet += Number(o.quantity);
     soucty.set(klic, r);
+  }
+  if (uzVraceno) {
+    for (const [klic, r] of soucty) r.pocet = Math.max(0, r.pocet - (uzVraceno.get(klic) ?? 0));
   }
   return platneVraceni([...soucty.values()]);
 }
@@ -77,19 +84,45 @@ export async function zrusOdepsaneSVracenim(
     `${odepsane.length === 1 ? 'Objednávka už je odepsaná' : `${odepsane.length} objednávky už jsou odepsané`} ze skladu (${kusu} ks). `
     + 'Zruším ji a kusy vrátím na sklad DNEŠNÍM dnem — minulý týden a jeho inventura zůstanou beze změny. Pokračovat?',
   ))) return 0;
+  // Co se z nich už vrátilo dřív (formulář Vrácení piva) — neodečíst by
+  // znamenalo vrátit ty kusy podruhé.
+  const { data: drivVraceno, error: chybaVraceni } = await fetchAllRows<VraceniZaznam & { order_id: string }>(
+    'inventory_adjustments', 'order_id,beer_id,package_id,quantity',
+  ).in('order_id', odepsane.map((o) => o.id));
+  if (chybaVraceni) { chyba('Dřívější vrácení se nepodařilo načíst: ' + chybaVraceni.message); return 0; }
+
   const dnes = businessDateISO();
+  let zruseno = 0;
   for (const o of odepsane) {
-    const vraceni = vraceniZOdpoctu(odpocty.filter((d) => d.order_id === o.id), polozkyPodleId[o.id] ?? []);
+    const uzVraceno = vracenoPodleObjednavky(((drivVraceno ?? []) as (VraceniZaznam & { order_id: string })[]).filter((z) => z.order_id === o.id));
+    const vraceni = vraceniZOdpoctu(odpocty.filter((d) => d.order_id === o.id), polozkyPodleId[o.id] ?? [], uzVraceno);
     const { zaznamy, poznamka } = zruseniSVracenim(o, vraceni, dnes);
-    if (zaznamy.length > 0) {
-      const { error } = await supabase.from('inventory_adjustments').insert(zaznamy);
-      if (error) { chyba(`Vrácení na sklad (${o.place_name ?? 'objednávka'}) se nepovedlo: ${error.message}`); return 0; }
+    // ⚠️ 30. 9. 2026: dřív se tu vrácení zapsalo zvlášť a stav storno
+    // přímým UPDATE — jenže změna stavu v databázi spustí srovnání odpočtů,
+    // které u storna odpočet SMAZALO → kusy se vrátily DVAKRÁT (Maneo,
+    // Mutěnice, 10l sudy). Teď obojí dělá jedna funkce v databázi (migrace
+    // 20261231200000): v jedné transakci, jen jednou, a odpočet v uzavřeném
+    // týdnu nechá být. Bez migrace se radši nic nezapíše.
+    const { data, error } = await supabase.rpc('zrusit_odepsanou_objednavku', {
+      p_order_id: o.id,
+      p_zaznamy: zaznamy,
+      p_poznamka: poznamka,
+    });
+    if (error) {
+      chyba(chybiFunkce(error)
+        ? 'Zrušení s vrácením potřebuje migraci 20261231200000 — spusť ji v Audit → Diagnostika → Databázové migrace. Nic se nezapsalo.'
+        : `Zrušení (${o.place_name ?? 'objednávka'}) se nepovedlo: ${error.message}`);
+      return zruseno;
     }
-    // Stav přímo, NE přes set_order_status — ta by se pokusila smazat
-    // odpočet a změnit tím uzavřený týden.
-    const { error: e2 } = await supabase.from('orders').update({ status: 'storno', note: poznamka }).eq('id', o.id);
-    if (e2) { chyba(`Zrušení (${o.place_name ?? 'objednávka'}) se nepovedlo: ${e2.message}`); return 0; }
+    if (data === true) zruseno++;
   }
-  uspech(`Zrušeno ${odepsane.length} ${odepsane.length === 1 ? 'objednávka' : 'objednávky'}, ${kusu} ks vráceno na sklad dnešním dnem.`);
-  return odepsane.length;
+  if (zruseno > 0) uspech(`Zrušeno ${zruseno} ${zruseno === 1 ? 'objednávka' : 'objednávky'}, kusy vráceny na sklad dnešním dnem.`);
+  else oznam('Objednávka už byla zrušená — nic se znovu nevracelo.');
+  return zruseno;
+}
+
+/** Funkce v databázi ještě není (migrace neproběhla). */
+export function chybiFunkce(error: { code?: string; message?: string } | null): boolean {
+  if (!error) return false;
+  return error.code === 'PGRST202' || error.code === '42883' || /could not find the function|does not exist/i.test(error.message ?? '');
 }
