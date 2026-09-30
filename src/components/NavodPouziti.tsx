@@ -204,6 +204,10 @@ const ODDILY: Oddil[] = [
         jak: 'Dlaždice Malé sudy (a záložka v Objednávkách) — naklikáš, kolik máš KEG 20, 15 a 10 l. Při zadání i úpravě objednávky pak u malého sudu uvidíš „můžeš dát max N“; co je navíc a nemá sud, svítí červeně. Dlaždice na ploše ukazuje, kolik sudů je ještě volných.',
       },
       {
+        co: 'Rozbor',
+        jak: 'Oranžová dlaždice Rozbor s čerchovaným okrajem — všechny položky objednané tento týden (obj. N · stočit N, případně mínus ve skladu). Klepnutí na položku otevře Sklad → Pohyby toho piva a obalu za týden: co se stočilo, co odjelo v závozech, vrácení a inventury. Období a pivo jdou v Pohybech přepnout.',
+      },
+      {
         co: 'Dva závozy za den, Sudy / Lahve v nakládce',
         jak: 'V Rozvozu má každá objednávka tlačítka „1. závoz" / „2. závoz" a výběr „Přesunout na…" jiný den týdne (posune se i datum). Když má den něco ve 2. závozu, nahoře se objeví přepínač Oba / 1. závoz / 2. závoz — podle něj se filtruje trasa i Co naložit. Přepínač Sudy / Lahve / Vše nahoře platí pro trasy i Co naložit; volba se pamatuje v telefonu, takže kdo chystá lahve, vidí jen lahve. 1. / 2. závoz jde nastavit i v Objednávkách (tlačítka „1.z" / „2.z" vedle dnů). Při čtení objednávky z WhatsAppu nebo z fotky jsou nahoře tlačítka Po–Pá — den závozu se vybere hned (nejbližší takový den).',
       },

@@ -10,6 +10,7 @@ import { requestOpenHomeNotes } from './lib/homeNotes';
 // znovu a v krajním případě stránku jednou obnoví (viz lib/lazyStranka.ts).
 import { lazyStranka, uklidPojistkuReloadu } from './lib/lazyStranka';
 const AppSettingsScreen = lazyStranka(() => import('./screens/AppSettingsScreen'));
+const RozborScreen = lazyStranka(() => import('./screens/RozborScreen'));
 const HlaseniScreen = lazyStranka(() => import('./screens/HlaseniScreen'));
 const AppVersionsScreen = lazyStranka(() => import('./screens/AppVersionsScreen'));
 
@@ -285,6 +286,7 @@ export default function App() {
           pro den, který dlaždice ukazuje (pageSubTab = kód dne, např. „ut"). */}
       {page === 'nakladka' && <Zavoz setPage={setPage} nakladka denNakladky={pageSubTab} />}
       {page === 'stock' && <Stock setPage={setPage} />}
+      {page === 'rozbor' && <RozborScreen setPage={setPage} />}
       {/* Pohyby a Inventura jsou záložky Skladu (components/SkladZalozky.tsx,
           28. 9. 2026) — nahoře stejná lišta jako na Stavu skladu. */}
       {page === 'stock_pohyby' && (
