@@ -15,6 +15,7 @@ import { nactiSdilenouTabulku } from './sdilenaData';
 import { businessDateISO } from './businessDate';
 import { jeSud } from './inventoryFix';
 import { computeKeggingPlan, type DayPlan } from './keggingPlan';
+import { buildMovements, MOVEMENT_LABELS } from './stockLedger';
 import { zbytekKeKonciTydne } from './tydenniZbytek';
 import { weekRange } from '../components/WeeklyOrderSummaryCard';
 
@@ -34,6 +35,11 @@ export type PlanStaceni = {
   /** Plán lahví po dnech (+ přihrádka bez termínu). */
   planyLahve: DayPlan[];
   nacti: () => Promise<void>;
+  /**
+   * Odkud je mínus ve skladu: pohyby toho piva a obalu od poslední inventury
+   * (30. 9. 2026: „furt tu vidím Osma 2×" — ať je vidět, co ten mínus dělá).
+   */
+  puvodMinusu: (beerId: string, packageId: string) => { datum: string; popis: string; kusu: number }[];
 };
 
 /**
@@ -140,5 +146,35 @@ export function usePlanStaceni(weekKey: string, { sudy = true, lahve = true }: {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const planyLahve = useMemo(() => (lahve ? planyDruhu('lahve') : []), [data, lahve, weekKey, currentStockMap]);
 
-  return { data, chyba, planySudy, planyLahve, nacti };
+  // Pohyby skladu ze stejných zdrojů jako currentStockMap.
+  const pohyby = useMemo(() => {
+    if (!data) return [];
+    return buildMovements({
+      inventoryRows: data.inventory, bottlingRows: data.bottling, keggingRows: data.kegging,
+      fasovaniRows: data.fasovani, prodejnaRows: data.prodejna, writeoffsRows: data.writeoffs,
+      akceRows: data.akce, prefukRows: data.prefuk, adjustmentRows: data.adjustments,
+      packages: data.packages, zavozDeductionRows: data.zavozDeductions,
+    });
+  }, [data]);
+  const puvodMinusu = (beerId: string, packageId: string) => {
+    const dnes = businessDateISO();
+    const moje = pohyby
+      .filter((m) => m.beer_id === beerId && m.package_id === packageId && m.date <= dnes)
+      .sort((a, z) => a.date.localeCompare(z.date));
+    // Od poslední inventury (reset stavu) — tam začíná to, co dnes sklad ukazuje.
+    let od = 0;
+    moje.forEach((m, i) => { if (m.kind === 'inventura') od = i; });
+    const mistoObjednavky = new Map((data?.orders ?? []).map((o: any) => [o.id, o.place_name as string | null]));
+    return moje.slice(od).map((m) => ({
+      datum: m.date,
+      kusu: m.qty,
+      popis: m.kind === 'inventura'
+        ? `inventura = ${m.qty}`
+        : m.kind === 'zavoz'
+          ? `závoz${m.orderId && mistoObjednavky.get(m.orderId) ? ` ${mistoObjednavky.get(m.orderId)}` : ''}`
+          : MOVEMENT_LABELS[m.kind].toLowerCase(),
+    }));
+  };
+
+  return { data, chyba, planySudy, planyLahve, nacti, puvodMinusu };
 }

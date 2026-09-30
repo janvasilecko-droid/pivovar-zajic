@@ -106,7 +106,7 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
 
   // Data i plán sudů a lahví — sdílené se Sklepem (lib/usePlanStaceni.ts),
   // ať obě místa počítají „co stočit" jedním výpočtem.
-  const { data, chyba, planySudy, planyLahve } = usePlanStaceni(weekKey, { sudy, lahve });
+  const { data, chyba, planySudy, planyLahve, puvodMinusu } = usePlanStaceni(weekKey, { sudy, lahve });
 
   // 🔜 Přehled na ploše má ukazovat, co chybí stočit na NEJBLIŽŠÍ den — z
   // provozu 16. 9. 2026: „na hlavní straně nahoře ten přehled má ukazovat, co
@@ -323,13 +323,38 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
               je v objednávce 1× 30 l Osma, mi to píše, že mám stočit 2"). */}
           {data && (() => {
             const sDluhem = [...planSudy.items, ...planLahve.items].filter((it) => (it.dluh ?? 0) > 0);
-            return sDluhem.length > 0 ? (
-              <p className="text-udaj font-black text-amber-900 bg-amber-50 border border-amber-300 rounded px-2 py-1.5">
-                V číslech je připočtený mínus ve skladu:{' '}
-                {sDluhem.map((it) => `${pivoPodleId.get(it.beer_id) ? beerName(pivoPodleId.get(it.beer_id)!) : it.beer_name} ${kratkyObal(it.package_label)} +${it.dluh}`).join(', ')}
-                {' '}— vydalo se víc, než se zapsalo do stáčení. Když sud skutečně máš, oprav stav inventurou.
-              </p>
-            ) : null;
+            if (sDluhem.length === 0) return null;
+            const datum = (d: string) => new Date(d + 'T00:00:00').toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric' });
+            return (
+              // Karta rozboru (30. 9. 2026: „ten rozbor udělej jako dlaždici,
+              // oranžovou se žlutým čerchováním jako okraj").
+              <div className="text-xs font-bold text-neutral-950 bg-amber-500 border-[3px] border-dashed border-amber-200 rounded-lg p-3 space-y-1.5">
+                <div className="font-display font-black text-sm flex items-center gap-1.5">
+                  <AlertTriangle size={14} className="shrink-0" /> Rozbor mínusu ve skladu
+                </div>
+                <div>V číslech „Co stočit" je připočtený mínus — vydalo se víc, než se zapsalo do stáčení:</div>
+                {sDluhem.map((it) => {
+                  const pivo = pivoPodleId.get(it.beer_id);
+                  const pohyby = puvodMinusu(it.beer_id, it.package_id);
+                  return (
+                    <div key={it.key} className="bg-white/60 rounded px-2 py-1.5">
+                      <div className="font-black">{pivo ? beerName(pivo) : it.beer_name} {kratkyObal(it.package_label)} — chybí navíc {it.dluh}</div>
+                      {pohyby.length > 0 && (
+                        <ul className="mt-0.5 space-y-0.5">
+                          {pohyby.map((m, i) => (
+                            <li key={i} className="flex justify-between gap-2 tabular-nums">
+                              <span>{datum(m.datum)} {m.popis}</span>
+                              {!m.popis.startsWith('inventura') && <span className="font-black">{m.kusu > 0 ? '+' : ''}{m.kusu}</span>}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  );
+                })}
+                <div>Když sud skutečně máš, chybí zápis stočení nebo je potřeba opravit inventuru.</div>
+              </div>
+            );
           })()}
 
           {/* ⚠️ Schodek, který na vybraný den nevidíš. Bez tohohle řádku
