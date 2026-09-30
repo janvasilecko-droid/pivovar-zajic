@@ -244,7 +244,12 @@ export default function PohybySkladu() {
                   <table className="w-full text-xs">
                     <tbody>
                       {d.radky.map((r, j) => (
-                        <tr key={j} className="border-t border-neutral-100 first:border-t-0 align-top">
+                        // 30. 9. 2026: „zeleně označ plusové položky (naštočeno),
+                        // červeně odfasováno, odešlo…" — celý řádek v barvě,
+                        // ne jen číslo, ať je příjem a výdej vidět na první pohled.
+                        <tr key={j} className={`border-t border-neutral-100 first:border-t-0 align-top border-l-4 ${
+                          r.druh === 'inventura' ? 'bg-sky-50 border-l-sky-500' : r.mnozstvi > 0 ? 'bg-emerald-50 border-l-emerald-500' : 'bg-rose-50 border-l-rose-500'
+                        }`}>
                           <td className={`px-3 py-1.5 w-16 text-right font-black tabular-nums whitespace-nowrap ${
                             r.druh === 'inventura' ? 'text-sky-800' : r.mnozstvi > 0 ? 'text-emerald-800' : 'text-rose-800'
                           }`}>
