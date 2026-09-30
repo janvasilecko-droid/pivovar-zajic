@@ -204,6 +204,10 @@ const ODDILY: Oddil[] = [
         jak: 'Dlaždice Malé sudy (a záložka v Objednávkách) — naklikáš, kolik máš KEG 20, 15 a 10 l. Při zadání i úpravě objednávky pak u malého sudu uvidíš „můžeš dát max N“; co je navíc a nemá sud, svítí červeně. Dlaždice na ploše ukazuje, kolik sudů je ještě volných.',
       },
       {
+        co: 'Oříznout fotku',
+        jak: 'Při čtení z fotky (objednávky, stáčení lahví a KEG, prodejna) je na liště nad fotkou tlačítko „✂️ Oříznout" — ořízneš nebo otočíš fotku a appka ji přečte znovu (u objednávky nahradí položky z té fotky, ručně přidané zůstanou). Tlačítko „Oříznout fotku" u fotoaparátu zapne ořez ještě před prvním čtením; volba se pamatuje v telefonu.',
+      },
+      {
         co: 'Rozbor',
         jak: 'Oranžová dlaždice Rozbor s čerchovaným okrajem — všechny položky objednané tento týden (obj. N · stočit N, případně mínus ve skladu). Klepnutí na položku otevře Sklad → Pohyby toho piva a obalu za týden: co se stočilo, co odjelo v závozech, vrácení a inventury. Období a pivo jdou v Pohybech přepnout.',
       },

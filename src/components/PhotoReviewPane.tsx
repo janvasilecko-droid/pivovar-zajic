@@ -8,6 +8,8 @@ type Props = {
   activeIndex: number;
   onChangeIndex: (i: number) => void;
   activeBbox?: Bbox;
+  /** ✂️ Oříznout zobrazenou fotku a přečíst ji znovu (30. 9. 2026). */
+  onOrez?: () => void;
 };
 
 /**
@@ -16,7 +18,7 @@ type Props = {
  * between multiple uploaded photos. If a bbox estimate is available for
  * the currently selected item, draws an orientational rectangle over it.
  */
-export function PhotoReviewPane({ photos, activeIndex, onChangeIndex, activeBbox }: Props) {
+export function PhotoReviewPane({ photos, activeIndex, onChangeIndex, activeBbox, onOrez }: Props) {
   const [scale, setScale] = useState(1);
   const [pos, setPos] = useState({ x: 0, y: 0 });
   const dragRef = useRef<{ dragging: boolean; startX: number; startY: number; startPosX: number; startPosY: number }>({
@@ -143,6 +145,11 @@ export function PhotoReviewPane({ photos, activeIndex, onChangeIndex, activeBbox
       <div className="flex items-center justify-between px-3 py-2 bg-primary-900/80 text-white text-xs shrink-0 z-10">
         <span className="text-white/60">Přibliž kolečkem myši / prsty, táhni pro posun</span>
         <div className="flex items-center gap-2">
+          {onOrez && (
+            <button type="button" className="btn-ghost !min-h-0 !py-1 !px-2.5 text-xs !bg-amber-500 !border-amber-500 !text-neutral-950" onClick={onOrez} title="Oříznout fotku a přečíst ji znovu">
+              ✂️ Oříznout
+            </button>
+          )}
           <button className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-base tap" onClick={() => zoomBy(1 / 1.3)} title="Oddálit" aria-label="Oddálit">−</button>
           <button className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-base tap" onClick={() => zoomBy(1.3)} title="Přiblížit" aria-label="Přiblížit">+</button>
           <button className="px-2 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center tap" onClick={resetView} title="Reset">Reset</button>

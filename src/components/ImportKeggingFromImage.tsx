@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { Modal } from './ui';
 import { PhotoReviewPane } from './PhotoReviewPane';
-import { ImageEditor } from './ImageEditor';
+import { ImageEditorOverlay } from './ImageEditor';
+import PrepinacOrezu, { useOrezFotky } from './PrepinacOrezu';
 import type { Beer, Package } from '../lib/supabase';
 import { authenticatedFunctionHeaders } from '../lib/functionAuth';
 import { typObrazku, zmensenyDataUrl } from '../lib/obrazek';
@@ -48,7 +49,7 @@ export function ImportKeggingFromImage({ isOpen, onClose, beers, packages, onImp
   // Fotky, které už prošly (nebo vědomě neprošly) editorem — viz
   // ImportBottlingFromImage.
   const [upraveno, setUpraveno] = useState<Record<number, boolean>>({});
-  const [editBeforeOcr, setEditBeforeOcr] = useState(false);
+  const [editBeforeOcr, setEditBeforeOcr] = useOrezFotky();
 
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
@@ -307,10 +308,7 @@ export function ImportKeggingFromImage({ isOpen, onClose, beers, packages, onImp
               <button className="btn-secondary flex items-center gap-2 border-neutral-300 text-neutral-800 bg-white hover:bg-neutral-50" onClick={() => fileRef.current?.click()} disabled={busy}>
                 <Upload size={16} /> Vybrat fotku z galerie
               </button>
-              <label className="flex items-center gap-2 text-xs text-primary-600 cursor-pointer select-none">
-                <input type="checkbox" checked={editBeforeOcr} onChange={(e) => setEditBeforeOcr(e.target.checked)} className="accent-primary-600" />
-                <span>Oříznout / Otočit fotku před čtením</span>
-              </label>
+              <PrepinacOrezu zapnuto={editBeforeOcr} onZmena={setEditBeforeOcr} />
             </div>
             <span className="text-udaj text-neutral-500">
               <Camera className="ikona-text" /> Obrázek můžete také vložit zkopírovaný stisknutím <strong>Ctrl+V</strong>.
@@ -335,7 +333,7 @@ export function ImportKeggingFromImage({ isOpen, onClose, beers, packages, onImp
           {photos.length > 0 && (
             <div className="sticky top-0 z-20 -mx-6 -mt-6 bg-white border-b-2 border-primary-200 shadow-md">
               <div className="h-[42vh] sm:h-[45vh]">
-                <PhotoReviewPane photos={photos} activeIndex={Math.min(activeIndex, Math.max(0, photos.length - 1))} onChangeIndex={goToPhoto} />
+                <PhotoReviewPane photos={photos} activeIndex={Math.min(activeIndex, Math.max(0, photos.length - 1))} onChangeIndex={goToPhoto} onOrez={busy ? undefined : () => { const f = photos[activeIndex]; if (f) setEditingImage(f.dataUrl); }} />
               </div>
             </div>
           )}
@@ -435,7 +433,7 @@ export function ImportKeggingFromImage({ isOpen, onClose, beers, packages, onImp
       </Modal>
 
       {editingImage && (
-        <ImageEditor src={editingImage} onConfirm={onEditorConfirm} onCancel={onEditorCancel} />
+        <ImageEditorOverlay src={editingImage} onConfirm={onEditorConfirm} onCancel={onEditorCancel} />
       )}
     </>
   );

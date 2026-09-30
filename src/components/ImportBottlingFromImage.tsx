@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { Modal, Spinner } from './ui';
 import { PhotoReviewPane } from './PhotoReviewPane';
-import { ImageEditor } from './ImageEditor';
+import { ImageEditorOverlay } from './ImageEditor';
+import PrepinacOrezu, { useOrezFotky } from './PrepinacOrezu';
 import type { Beer, Package } from '../lib/supabase';
 import { authenticatedFunctionHeaders } from '../lib/functionAuth';
 import { typObrazku, zmensenyDataUrl } from '../lib/obrazek';
@@ -43,7 +44,7 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
   // Fotky, které už prošly (nebo vědomě neprošly) editorem — ať se ořez
   // nenabízí pořád dokola u té samé fotky.
   const [upraveno, setUpraveno] = useState<Record<number, boolean>>({});
-  const [editBeforeOcr, setEditBeforeOcr] = useState(false);
+  const [editBeforeOcr, setEditBeforeOcr] = useOrezFotky();
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [activeIndex, setActiveIndex] = useState(0);
   const [rowsMap, setRowsMap] = useState<Record<number, RowInput[]>>({});
@@ -386,6 +387,7 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
             <div className="sticky top-0 z-20 -mx-6 -mt-6 bg-white border-b-2 border-primary-200 shadow-md">
               <div className="h-[42vh] sm:h-[45vh]">
                 <PhotoReviewPane
+                  onOrez={busy ? undefined : () => { const f = photos[activeIndex]; if (f) setEditingImage(f.dataUrl); }}
                   photos={photos}
                   activeIndex={Math.min(activeIndex, Math.max(0, photos.length - 1))}
                   onChangeIndex={goToPhoto}
@@ -445,10 +447,7 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
                 <Upload size={16} /> Vybrat fotku / soubor z galerie
               </button>
 
-              <label className="flex items-center gap-2 text-xs text-primary-600 cursor-pointer select-none">
-                <input type="checkbox" checked={editBeforeOcr} onChange={(e) => setEditBeforeOcr(e.target.checked)} className="accent-primary-600" />
-                <span>Oříznout / Otočit fotku před čtením</span>
-              </label>
+              <PrepinacOrezu zapnuto={editBeforeOcr} onZmena={setEditBeforeOcr} />
             </div>
             <span className="text-udaj text-neutral-500">
               <Lightbulb className="ikona-text" /> Obrázek/snímek obrazovky můžeš také přímo vložit zkopírováním a stisknutím <strong>Ctrl+V</strong> (Vložit).
@@ -714,7 +713,7 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
 
       {/* Editor image dialog */}
       {editingImage && (
-        <ImageEditor
+        <ImageEditorOverlay
           src={editingImage}
           onConfirm={onEditorConfirm}
           onCancel={onEditorCancel}

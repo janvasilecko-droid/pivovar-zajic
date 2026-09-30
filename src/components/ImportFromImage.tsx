@@ -2,7 +2,8 @@ import { AlertTriangle, Camera, Check, ChevronLeft, FileText, Image as ImageIcon
 import{ useState, useRef, useEffect } from 'react';
 import { Modal, Spinner } from './ui';
 import { PlaceCombobox } from './PlaceCombobox';
-import { ImageEditor } from './ImageEditor';
+import { ImageEditorOverlay } from './ImageEditor';
+import PrepinacOrezu, { useOrezFotky } from './PrepinacOrezu';
 import { PhotoReviewPane } from './PhotoReviewPane';
 
 import { isTapMentioned } from '../lib/tapReservations';
@@ -50,7 +51,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [dupFilesPending, setDupFilesPending] = useState<File[] | null>(null);
   const [editingImage, setEditingImage] = useState<string | null>(null);
-  const [editBeforeOcr, setEditBeforeOcr] = useState(false);
+  const [editBeforeOcr, setEditBeforeOcr] = useOrezFotky();
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const [note, setNote] = useState('');
   // 📅 Den závozu hned u fotky (29. 9. 2026) — nejbližší takový den od dneška.
@@ -520,8 +521,36 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
     }
   }
 
+  // ✂️ Ořez už přečtené fotky (30. 9. 2026: „ve čtení z fotek dej možnost
+  // oříznout fotku"): fotka se nahradí oříznutou, její položky se zahodí
+  // a přečte se znovu. Ručně přidané řádky a položky z jiných fotek zůstanou.
+  const orezIdxRef = useRef<number | null>(null);
+  function oriznoutFotku(i: number) {
+    const f = photos[i];
+    if (!f || busy) return;
+    orezIdxRef.current = i;
+    setEditingImage(f.dataUrl);
+  }
+  async function precistOriznutou(i: number, dataUrl: string) {
+    setPhotos((prev) => prev.map((f, j) => (j === i ? { ...f, dataUrl } : f)));
+    setFocusedLine(null);
+    setParsed((prev) => (prev ? prev.filter((p) => p.line._manual || p.line.photo_index !== i) : prev));
+    setBusy(true);
+    try {
+      await runOcrFromBase64(dataUrl.split(',')[1] ?? '', 'image/jpeg', true, i);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function onEditorConfirm(editedDataUrl: string) {
     setEditingImage(null);
+    if (orezIdxRef.current != null) {
+      const i = orezIdxRef.current;
+      orezIdxRef.current = null;
+      void precistOriznutou(i, editedDataUrl);
+      return;
+    }
     if (editorResolveRef.current) {
       editorResolveRef.current(editedDataUrl);
       editorResolveRef.current = null;
@@ -530,6 +559,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
 
   function onEditorCancel() {
     setEditingImage(null);
+    orezIdxRef.current = null;
     if (editorResolveRef.current) {
       editorResolveRef.current(null);
       editorResolveRef.current = null;
@@ -833,10 +863,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
             </div>
             {busy && <span className="text-xs font-bold text-amber-700">Čtu z fotky… {progress}%</span>}
 
-            <label className="flex items-center gap-2 text-xs text-primary-600 cursor-pointer select-none">
-              <input type="checkbox" checked={editBeforeOcr} onChange={(e) => setEditBeforeOcr(e.target.checked)} className="accent-primary-600" />
-              Upravit fotky před čtením (oříznutí / otočení)
-            </label>
+            <PrepinacOrezu zapnuto={editBeforeOcr} onZmena={setEditBeforeOcr} />
             {queueLeft > 0 && <span className="text-xs text-primary-400">Ve frontě: {queueLeft}</span>}
           </div>
           <span className="text-udaj text-neutral-500">
@@ -844,15 +871,6 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
           </span>
         </div>
 
-        {editingImage && (
-          <div className="card p-4">
-            <ImageEditor
-              src={editingImage}
-              onConfirm={onEditorConfirm}
-              onCancel={onEditorCancel}
-            />
-          </div>
-        )}
 
         {dupFilesPending && dupFilesPending.length > 0 && (
           <div className="card !bg-amber-50/60 border border-amber-300 p-4 space-y-2">
@@ -946,6 +964,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
             activeIndex={Math.min(activePhotoIdx, Math.max(0, photos.length - 1))}
             onChangeIndex={setActivePhotoIdx}
             activeBbox={focusedLine != null ? parsed[focusedLine]?.line.bbox : undefined}
+            onOrez={busy ? undefined : () => oriznoutFotku(Math.min(activePhotoIdx, Math.max(0, photos.length - 1)))}
           />
         </div>
 
@@ -1331,6 +1350,13 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
         </div>
       </div>
     )}
+      {editingImage && (
+        <ImageEditorOverlay
+          src={editingImage}
+          onConfirm={onEditorConfirm}
+          onCancel={onEditorCancel}
+        />
+      )}
     </>
   );
 

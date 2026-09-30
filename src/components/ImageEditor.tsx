@@ -172,3 +172,18 @@ export function ImageEditor({ src, onConfirm, onCancel }: Props) {
     </div>
   );
 }
+
+/**
+ * Editor přes celou obrazovku — nad oknem čtení z fotky i nad kontrolou
+ * položek. U stáčení, sudů a prodejny se editor dřív vykresloval za oknem
+ * (mimo modál), takže „oříznout před čtením" nebylo vidět (30. 9. 2026).
+ */
+export function ImageEditorOverlay(props: Props) {
+  return (
+    <div className="fixed inset-0 z-toast bg-white overflow-auto p-4" role="dialog" aria-modal="true" aria-label="Oříznout fotku">
+      <div className="max-w-3xl mx-auto">
+        <ImageEditor {...props} />
+      </div>
+    </div>
+  );
+}
