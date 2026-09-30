@@ -338,3 +338,55 @@ export function pripravImportStaceniLahvi(
 
   return { pripravene, jizNaimportovane, prazdne, problemy, neznamaPiva: [...neznamaPiva] };
 }
+
+// ---------------------------------------------------------------------------
+// 📅 Jen vybrané období. Z provozu 30. 9. 2026: „hlavně tam musí být i to, že
+// načtu jen vybraná data… třeba stáčení ze včerejšího dne, ne stáčení 2 roky
+// nazpět, které tam je." Soubor má historii za roky; zapsat se má jen to, co
+// si vybereš. Výchozí je včerejšek.
+
+export type ObdobiImportu = 'vcera' | 'dnes' | 'tyden' | 'mesic' | 'vlastni' | 'vse';
+
+export const OBDOBI_IMPORTU: { id: ObdobiImportu; popis: string }[] = [
+  { id: 'vcera', popis: 'Včera' },
+  { id: 'dnes', popis: 'Dnes' },
+  { id: 'tyden', popis: 'Tento týden' },
+  { id: 'mesic', popis: 'Tento měsíc' },
+  { id: 'vlastni', popis: 'Od – do' },
+  { id: 'vse', popis: 'Vše' },
+];
+
+function posunDen(iso: string, dny: number): string {
+  const d = new Date(iso + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() + dny);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Rozsah dnů (včetně krajních) pro vybrané období; null = bez omezení. */
+export function rozsahObdobiImportu(
+  obdobi: ObdobiImportu,
+  dnes: string,
+  vlastni: { od: string; do: string } = { od: '', do: '' },
+): { od: string | null; do: string | null } {
+  switch (obdobi) {
+    case 'vcera': { const v = posunDen(dnes, -1); return { od: v, do: v }; }
+    case 'dnes': return { od: dnes, do: dnes };
+    case 'tyden': {
+      const denTydne = (new Date(dnes + 'T00:00:00Z').getUTCDay() + 6) % 7; // po = 0
+      return { od: posunDen(dnes, -denTydne), do: dnes };
+    }
+    case 'mesic': return { od: dnes.slice(0, 8) + '01', do: dnes };
+    case 'vlastni': return { od: vlastni.od || null, do: vlastni.do || null };
+    case 'vse': return { od: null, do: null };
+  }
+}
+
+/**
+ * Řádky, které spadají do období. Řádek bez data se při omezeném období
+ * vynechá (nedá se říct, kam patří); nečitelné datum zůstane, pokud den
+ * dopočítaný z řádku nad ním spadá do období — ať ho v náhledu vidíš.
+ */
+export function radkyVObdobi(radky: ExcelRadekStaceni[], od: string | null, doDne: string | null): ExcelRadekStaceni[] {
+  if (!od && !doDne) return radky;
+  return radky.filter((r) => !!r.datum && (!od || r.datum >= od) && (!doDne || r.datum <= doDne));
+}

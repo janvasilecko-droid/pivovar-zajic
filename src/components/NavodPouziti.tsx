@@ -285,7 +285,7 @@ const ODDILY: Oddil[] = [
       },
       {
         co: 'Načíst z Excelu',
-        jak: 'Pro sešity, do kterých zapisuje kolega mimo appku (evidence mimo appku). „Načíst přímo z Disku" stáhne soubor automaticky (jednou nastavený servisní účet appky), nebo ho nahraj ručně. Appka ukáže náhled — co jde zapsat rovnou a co potřebuje kontrolu — a zapíše teprve po potvrzení. Druhé nahrání/načtení stejného souboru přidá jen nové řádky.',
+        jak: 'Pro sešity, do kterých zapisuje kolega mimo appku (evidence mimo appku). „Načíst přímo z Disku" stáhne soubor automaticky (jednou nastavený servisní účet appky), nebo ho nahraj ručně. Nahoře v náhledu vybereš, které dny načíst (Včera — výchozí, Dnes, Tento týden, Tento měsíc, Od – do, Vše) — starší historie ze souboru se nezapíše. Appka ukáže, co jde zapsat rovnou a co potřebuje kontrolu, a zapíše teprve po potvrzení. Druhé nahrání/načtení stejného souboru přidá jen nové řádky.',
       },
     ],
   },

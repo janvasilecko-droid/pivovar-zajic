@@ -17,8 +17,10 @@ import { authenticatedFunctionHeaders } from '../lib/functionAuth';
 import MrizkaVlozeniDat from './MrizkaVlozeniDat';
 import {
   naparsujRadkyStaceniLahvi, naparsujRadkyZMrizky, pripravImportStaceniLahvi, popisProblemu, najdiJizNaimportovaneOtisky,
-  normalizujNazev, type ExcelRadekStaceni, type RadekKZapisu,
+  normalizujNazev, OBDOBI_IMPORTU, radkyVObdobi, rozsahObdobiImportu,
+  type ExcelRadekStaceni, type ObdobiImportu, type RadekKZapisu,
 } from '../lib/importStaceniExcel';
+import { businessDateISO } from '../lib/businessDate';
 
 /** Stejné pořadí sloupců, jaké appka čte z mřížky (viz naparsujRadkyZMrizky). */
 const SLOUPCE_MRIZKY = ['Datum', 'Pivo', '50l', '30l', '20l', '15l', '10l', '1,5l', '1,0l', '0,5l', '0,33l', 'Poznámka'];
@@ -55,13 +57,20 @@ export default function ImportStaceniLahviExcel({ open, onClose, beers, packages
 
   const otisky = useMemo(() => najdiJizNaimportovaneOtisky(jizNaimportovaneNoty), [jizNaimportovaneNoty]);
   const mapovaniPiv = useMemo(() => ({ ...aliasy, ...vyberProNezname }), [aliasy, vyberProNezname]);
+  // 📅 Jen vybrané období (výchozí včerejšek) — soubor má historii za roky.
+  const [obdobi, setObdobi] = useState<ObdobiImportu>('vcera');
+  const [vlastni, setVlastni] = useState({ od: '', do: '' });
+  const rozsah = useMemo(() => rozsahObdobiImportu(obdobi, businessDateISO(), vlastni), [obdobi, vlastni]);
+  const radkyObdobi = useMemo(() => (radky ? radkyVObdobi(radky, rozsah.od, rozsah.do) : null), [radky, rozsah]);
   const vysledek = useMemo(
-    () => (radky ? pripravImportStaceniLahvi(radky, beers, mapovaniPiv, packages, otisky) : null),
-    [radky, beers, mapovaniPiv, packages, otisky],
+    () => (radkyObdobi ? pripravImportStaceniLahvi(radkyObdobi, beers, mapovaniPiv, packages, otisky) : null),
+    [radkyObdobi, beers, mapovaniPiv, packages, otisky],
   );
+  const datumCesky = (iso: string | null) => (iso ? new Date(iso + 'T00:00:00').toLocaleDateString('cs-CZ') : '…');
 
   function zavrit() {
     setRadky(null); setChybaSouboru(null); setNazevSouboru(null); setVyberProNezname({}); setZobrazitMrizku(false);
+    setObdobi('vcera'); setVlastni({ od: '', do: '' });
     setChybaZapisu(null); setHotovo(null);
     onClose();
   }
@@ -239,6 +248,41 @@ export default function ImportStaceniLahviExcel({ open, onClose, beers, packages
             <div className="flex items-center gap-2 text-sm font-bold text-neutral-700">
               <FileSpreadsheet className="w-4 h-4 text-neutral-400" /> {nazevSouboru}
             </div>
+
+            <section className="rounded-xl border border-neutral-200 bg-neutral-50 p-3 space-y-2">
+              <h4 className="font-black text-sm text-neutral-800">Které dny načíst</h4>
+              <div className="flex flex-wrap gap-1.5">
+                {OBDOBI_IMPORTU.map((o) => (
+                  <button
+                    key={o.id}
+                    type="button"
+                    onClick={() => setObdobi(o.id)}
+                    aria-pressed={obdobi === o.id}
+                    className={`btn-zalozka ${obdobi === o.id ? 'btn-zalozka-aktivni' : ''}`}
+                  >
+                    {o.popis}
+                  </button>
+                ))}
+              </div>
+              {obdobi === 'vlastni' && (
+                <div className="flex flex-wrap items-center gap-2 text-sm font-bold text-neutral-700">
+                  <label className="flex items-center gap-1.5">od
+                    <input type="date" className="input !w-auto" value={vlastni.od} onChange={(e) => setVlastni((v) => ({ ...v, od: e.target.value }))} />
+                  </label>
+                  <label className="flex items-center gap-1.5">do
+                    <input type="date" className="input !w-auto" value={vlastni.do} onChange={(e) => setVlastni((v) => ({ ...v, do: e.target.value }))} />
+                  </label>
+                </div>
+              )}
+              <p className="text-xs font-semibold text-neutral-600">
+                {rozsah.od || rozsah.do
+                  ? `${rozsah.od === rozsah.do ? datumCesky(rozsah.od) : `${datumCesky(rozsah.od)} – ${datumCesky(rozsah.do)}`}: ${radkyObdobi?.length ?? 0} z ${radky?.length ?? 0} řádků v souboru. Ostatní se nezapíšou.`
+                  : `Celý soubor: ${radky?.length ?? 0} řádků.`}
+              </p>
+              {radkyObdobi && radkyObdobi.length === 0 && (
+                <p className="text-sm font-bold text-amber-800">V tomhle období v souboru nic není — vyber jiné dny.</p>
+              )}
+            </section>
 
             <div className="grid grid-cols-3 gap-2.5">
               <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3">

@@ -4,7 +4,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   naparsujRadkyStaceniLahvi, naparsujRadkyZMrizky, normalizujNazev, popisProblemu,
-  pripravImportStaceniLahvi, najdiJizNaimportovaneOtisky,
+  pripravImportStaceniLahvi, najdiJizNaimportovaneOtisky, rozsahObdobiImportu, radkyVObdobi,
   type ExcelRadekStaceni,
 } from './importStaceniExcel';
 import type { Obal, Pivo } from './statistika';
@@ -215,5 +215,26 @@ describe('naparsujRadkyZMrizky', () => {
       radek('5.11.2024', 'Jantar', '1', '37', '11'),
     ]);
     expect(r.map((x) => x.cisloRadku)).toEqual([1, 3]);
+  });
+});
+
+describe('období importu', () => {
+  const r = (datum: string | null, cisloRadku = 1) => ({ cisloRadku, datum, datumNejdePrecist: null, pivoRaw: 'x', sudy: [], lahve: [], poznamka: null });
+
+  it('včera, týden od pondělí, měsíc od prvního', () => {
+    expect(rozsahObdobiImportu('vcera', '2026-09-30')).toEqual({ od: '2026-09-29', do: '2026-09-29' });
+    expect(rozsahObdobiImportu('vcera', '2026-10-01')).toEqual({ od: '2026-09-30', do: '2026-09-30' });
+    expect(rozsahObdobiImportu('tyden', '2026-09-30')).toEqual({ od: '2026-09-28', do: '2026-09-30' });
+    expect(rozsahObdobiImportu('tyden', '2026-10-04')).toEqual({ od: '2026-09-28', do: '2026-10-04' });
+    expect(rozsahObdobiImportu('mesic', '2026-09-30')).toEqual({ od: '2026-09-01', do: '2026-09-30' });
+    expect(rozsahObdobiImportu('vse', '2026-09-30')).toEqual({ od: null, do: null });
+    expect(rozsahObdobiImportu('vlastni', '2026-09-30', { od: '2024-01-01', do: '' })).toEqual({ od: '2024-01-01', do: null });
+  });
+
+  it('nechá jen řádky z období, bez data jen u „Vše"', () => {
+    const radky = [r('2024-05-02', 1), r('2026-09-29', 2), r(null, 3), r('2026-09-30', 4)];
+    expect(radkyVObdobi(radky, '2026-09-29', '2026-09-29').map((x) => x.cisloRadku)).toEqual([2]);
+    expect(radkyVObdobi(radky, null, null)).toHaveLength(4);
+    expect(radkyVObdobi(radky, '2026-09-01', null).map((x) => x.cisloRadku)).toEqual([2, 4]);
   });
 });
