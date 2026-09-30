@@ -5,10 +5,10 @@
 //
 // Přístup: servisní účet appky (Google Cloud) má sdílenou složku „Evidence
 // HP Kynšperk" jako čtenář. Přihlašovací JSON klíč je v `app_secrets` pod
-// klíčem GOOGLE_SERVICE_ACCOUNT_KEY (návod: Nastavení → Načíst z Excelu).
+// klíčem GOOGLE_SERVICE_ACCOUNT_KEY (vkládá se ručně v Supabase → Table Editor).
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { readJsonWithLimit, requireApprovedUser } from "../_shared/require-user.ts";
-import { najdiSoubor, vytvorPodepsanyJwt, zakodujBase64, type ServiceAccountKey, type SouborNaDisku } from "../_shared/google-drive.ts";
+import { adresaStazeni, najdiSoubor, vytvorPodepsanyJwt, zakodujBase64, type ServiceAccountKey, type SouborNaDisku } from "../_shared/google-drive.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -49,7 +49,7 @@ Deno.serve(async (req: Request) => {
       .maybeSingle();
     if (secretErr || !secretRow?.value) {
       return jsonResponse({
-        error: "GOOGLE_SERVICE_ACCOUNT_KEY není nastavený v app_secrets — viz návod v appce (Nastavení → Načíst z Excelu).",
+        error: "GOOGLE_SERVICE_ACCOUNT_KEY není nastavený v app_secrets — vlož do Supabase (Table Editor → app_secrets) řádek s tímto klíčem a obsahem staženého JSON souboru servisního účtu.",
       }, 500);
     }
 
@@ -81,7 +81,7 @@ Deno.serve(async (req: Request) => {
     // 2) Seznam souborů ve sdílené složce — hledá se podle jména, ne podle
     // pevného ID, protože kolega soubor občas nahradí novým (jiné ID).
     const seznamRes = await fetch(
-      `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(`'${FOLDER_ID}' in parents and trashed = false`)}&fields=${encodeURIComponent("files(id,name,modifiedTime)")}&pageSize=100`,
+      `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(`'${FOLDER_ID}' in parents and trashed = false`)}&fields=${encodeURIComponent("files(id,name,modifiedTime,mimeType)")}&pageSize=100`,
       { headers: { Authorization: `Bearer ${accessToken}` } },
     );
     const seznamData = await seznamRes.json();
@@ -100,7 +100,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // 3) Stažení obsahu.
-    const obsahRes = await fetch(`https://www.googleapis.com/drive/v3/files/${nalezeny.id}?alt=media`, {
+    const obsahRes = await fetch(adresaStazeni(nalezeny), {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
     if (!obsahRes.ok) {

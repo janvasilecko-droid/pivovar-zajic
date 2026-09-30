@@ -2,7 +2,7 @@
 // skutečným RS256 (lokálně vygenerovaný testovací klíč, žádná síť/Google).
 import { describe, it, expect } from 'vitest';
 import { generateKeyPairSync } from 'node:crypto';
-import { najdiSoubor, vytvorPodepsanyJwt, zakodujBase64, type SouborNaDisku } from './google-drive';
+import { adresaStazeni, najdiSoubor, vytvorPodepsanyJwt, zakodujBase64, type SouborNaDisku } from './google-drive';
 
 describe('najdiSoubor', () => {
   const SOUBORY: SouborNaDisku[] = [
@@ -94,5 +94,17 @@ describe('vytvorPodepsanyJwt', () => {
     );
     const obsah = JSON.parse(Buffer.from(jwt.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8'));
     expect(obsah.aud).toBe('https://vlastni.example/token');
+  });
+});
+
+describe('adresaStazeni', () => {
+  it('nahraný .xlsx stáhne rovnou', () => {
+    expect(adresaStazeni({ id: 'abc', name: 'Stáčení lahve.xlsx', modifiedTime: '', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }))
+      .toBe('https://www.googleapis.com/drive/v3/files/abc?alt=media');
+  });
+  it('Google Tabulku exportuje do .xlsx', () => {
+    const url = adresaStazeni({ id: 'abc', name: 'Stáčení lahve', modifiedTime: '', mimeType: 'application/vnd.google-apps.spreadsheet' });
+    expect(url).toContain('/files/abc/export?mimeType=');
+    expect(decodeURIComponent(url)).toContain('spreadsheetml.sheet');
   });
 });

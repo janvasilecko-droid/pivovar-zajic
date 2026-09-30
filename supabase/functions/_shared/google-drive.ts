@@ -14,7 +14,23 @@ export type ServiceAccountKey = {
   token_uri?: string;
 };
 
-export type SouborNaDisku = { id: string; name: string; modifiedTime: string };
+export type SouborNaDisku = { id: string; name: string; modifiedTime: string; mimeType?: string };
+
+const GOOGLE_TABULKA = 'application/vnd.google-apps.spreadsheet';
+const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+/**
+ * Odkud soubor stáhnout. Nahraný .xlsx jde stáhnout rovnou (`alt=media`),
+ * ale sešit převedený na Google Tabulku Disk takhle nevydá („Only files with
+ * binary content can be downloaded") — ten se musí exportovat do .xlsx.
+ * Appka pak dostane v obou případech stejný excelový soubor.
+ */
+export function adresaStazeni(soubor: SouborNaDisku): string {
+  const zaklad = `https://www.googleapis.com/drive/v3/files/${soubor.id}`;
+  return soubor.mimeType === GOOGLE_TABULKA
+    ? `${zaklad}/export?mimeType=${encodeURIComponent(XLSX)}`
+    : `${zaklad}?alt=media`;
+}
 
 /** Který soubor appka hledá pro který import (viz ImportExcelScreen.tsx). */
 export const HLEDANI_PODLE_SOUBORU: Record<string, string> = {
