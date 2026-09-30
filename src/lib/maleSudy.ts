@@ -59,8 +59,8 @@ export type VysledekMalychSudu = {
   souhrn: SouhrnMalychSudu[];
   /** Kolik kusů položky je nad počet (id položky → kusy). Chybí = v pořádku. */
   nadPoPolozce: Map<string, number>;
-  /** Každá hlídaná položka: kolik kusů má sud a kolik ne (zelená/oranžová/červená). */
-  poPolozce: Map<string, { kryto: number; chybi: number }>;
+  /** Každá hlídaná položka: kolik kusů má sud a kolik ne (zelená/oranžová/červená); `zeSkladu` = kolik pokryly plné sudy skladem. */
+  poPolozce: Map<string, { kryto: number; chybi: number; zeSkladu?: number }>;
 };
 
 /**
@@ -75,8 +75,19 @@ export function hlidejMaleSudy(
   silaPodleId?: Map<string, number>,
   /** Dnešek (YYYY-MM-DD) — starší objednávky se nepočítají (chystaSeOd). */
   dnes?: string,
+  /**
+   * 30. 9. 2026: „v otevřených objednávkách mi píše, že chybí malé sudy —
+   * všechny malé sudy odešly, 1× 20 l 11° jsem stáhl ze zrušeného Manea,
+   * naopak mám 2× 20 a 1× 15 na skladě."
+   *
+   * `odepsane` = objednávky už odepsané ze skladu (odpočet závozu proběhl —
+   * den závozu nastal, sudy jsou pryč). Z naklikaného počtu nic neberou.
+   * `skladem` = stočené pivo skladem (beer_id__package_id → kusy): plný sud
+   * na skladě pokryje objednávku sám, prázdný sud z počtu nepotřebuje.
+   */
+  volby: { odepsane?: Set<string>; skladem?: Map<string, number> } = {},
 ): VysledekMalychSudu {
-  const otevrene = objednavky.filter((o) => jeOtevrena(o) && (!dnes || chystaSeOd(o, dnes)));
+  const otevrene = objednavky.filter((o) => jeOtevrena(o) && (!dnes || chystaSeOd(o, dnes)) && !volby.odepsane?.has(o.id));
   const poradi = new Map(
     [...otevrene]
       .sort((a, b) => {
@@ -98,17 +109,24 @@ export function hlidejMaleSudy(
       || (a.id < b.id ? -1 : 1));
 
   const zbyva: Record<string, number> = { ...zasoba };
+  const zbyvaSkladem = new Map<string, number>();
+  volby.skladem?.forEach((n, k) => { if (n > 0) zbyvaSkladem.set(k, n); });
   const objednano: Record<string, number> = {};
   const nadPoPolozce = new Map<string, number>();
-  const poPolozce = new Map<string, { kryto: number; chybi: number }>();
+  const poPolozce = new Map<string, { kryto: number; chybi: number; zeSkladu?: number }>();
   for (const p of hlidane) {
     const obal = p.package_id!;
     const kusu = Number(p.quantity);
-    objednano[obal] = (objednano[obal] ?? 0) + kusu;
-    const vejde = Math.max(0, Math.min(kusu, zbyva[obal]));
+    // Nejdřív plné sudy toho piva skladem, prázdný sud z počtu jen na zbytek.
+    const klicSkladu = `${p.beer_id ?? ''}__${obal}`;
+    const zeSkladu = Math.min(kusu, zbyvaSkladem.get(klicSkladu) ?? 0);
+    if (zeSkladu > 0) zbyvaSkladem.set(klicSkladu, (zbyvaSkladem.get(klicSkladu) ?? 0) - zeSkladu);
+    const potreba = kusu - zeSkladu;
+    objednano[obal] = (objednano[obal] ?? 0) + potreba;
+    const vejde = Math.max(0, Math.min(potreba, zbyva[obal]));
     zbyva[obal] -= vejde;
-    if (kusu > vejde) nadPoPolozce.set(p.id, kusu - vejde);
-    poPolozce.set(p.id, { kryto: vejde, chybi: kusu - vejde });
+    if (potreba > vejde) nadPoPolozce.set(p.id, potreba - vejde);
+    poPolozce.set(p.id, { kryto: zeSkladu + vejde, chybi: potreba - vejde, zeSkladu });
   }
 
   const souhrn = Object.entries(zasoba).map(([package_id, mame]) => {

@@ -5,6 +5,8 @@ import { supabase, useRealtime, fetchAllRows } from './supabase';
 import { hlidejMaleSudy, jeMalySud, type VysledekMalychSudu, type ObjednavkaProSudy, type PolozkaProSudy, type ObalProSudy } from './maleSudy';
 import { chybiTabulka } from './chybyHlaseni';
 import { businessDateISO } from './businessDate';
+import { nactiSkladovouKnihu } from './skladovaKnihaData';
+import { stockAsOf } from './stockLedger';
 
 export function useMaleSudy(): {
   zasoba: Record<string, number>;
@@ -66,7 +68,7 @@ export function useMaleSudy(): {
  * záložku Malé sudy i Objednávky, ať ukazují totéž.
  */
 export function useHlidaniMalychSudu(zasoba: Record<string, number>, silaPodleId?: Map<string, number>): VysledekMalychSudu & { nacteno: boolean } {
-  const [data, setData] = useState<{ o: ObjednavkaProSudy[]; p: PolozkaProSudy[] } | null>(null);
+  const [data, setData] = useState<{ o: ObjednavkaProSudy[]; p: PolozkaProSudy[]; odepsane: Set<string>; skladem: Map<string, number> } | null>(null);
   async function nacti() {
     // Nezavezené a nestornované — to jsou ty, na které se sudy ještě chystají.
     // Staré nezavezené objednávky (závoz před dneškem) odfiltruje výpočet
@@ -76,10 +78,25 @@ export function useHlidaniMalychSudu(zasoba: Record<string, number>, silaPodleId
       .neq('status', 'storno');
     const o = ((obj as any[]) ?? []) as ObjednavkaProSudy[];
     const ids = o.map((x) => x.id);
-    const { data: pol } = ids.length
-      ? await fetchAllRows<any>('order_items', 'id,order_id,package_id,quantity,beer_id').in('order_id', ids)
-      : { data: [] };
-    setData({ o, p: ((pol as any[]) ?? []) as PolozkaProSudy[] });
+    const [{ data: pol }, { data: odp }, kniha] = await Promise.all([
+      ids.length
+        ? fetchAllRows<any>('order_items', 'id,order_id,package_id,quantity,beer_id').in('order_id', ids)
+        : Promise.resolve({ data: [] as any[] }),
+      // Už odepsané ze skladu = sudy odjely (30. 9. 2026) — viz maleSudy.ts.
+      ids.length
+        ? fetchAllRows<any>('zavoz_deductions', 'order_id').in('order_id', ids)
+        : Promise.resolve({ data: [] as any[] }),
+      // Stočené pivo skladem pokryje objednávku bez prázdného sudu.
+      nactiSkladovouKnihu().catch(() => null),
+    ]);
+    const skladem = new Map<string, number>();
+    if (kniha) stockAsOf(kniha.pohyby, businessDateISO()).forEach((r, k) => skladem.set(k, r.qty));
+    setData({
+      o,
+      p: ((pol as any[]) ?? []) as PolozkaProSudy[],
+      odepsane: new Set(((odp as any[]) ?? []).map((r) => r.order_id as string)),
+      skladem,
+    });
   }
   // Dokud nikdo nenaklikal žádný počet, není co hlídat — objednávky se
   // zbytečně nenačítají (hook běží i na ploše kvůli dlaždici).
@@ -87,7 +104,7 @@ export function useHlidaniMalychSudu(zasoba: Record<string, number>, silaPodleId
   // Chyba načtení nesmí shodit obrazovku — hlídání pak jen chvíli chybí.
   const nactiBezpecne = () => { nacti().catch(() => {}); };
   useEffect(() => { if (hlida) nactiBezpecne(); }, [hlida]);
-  useRealtime(['orders', 'order_items'], () => { if (hlida) nactiBezpecne(); });
-  const vysledek = data ? hlidejMaleSudy(zasoba, data.o, data.p, silaPodleId, businessDateISO()) : { souhrn: [], nadPoPolozce: new Map<string, number>(), poPolozce: new Map<string, { kryto: number; chybi: number }>() };
+  useRealtime(['orders', 'order_items', 'zavoz_deductions', 'kegging', 'inventory', 'inventory_adjustments'], () => { if (hlida) nactiBezpecne(); });
+  const vysledek = data ? hlidejMaleSudy(zasoba, data.o, data.p, silaPodleId, businessDateISO(), { odepsane: data.odepsane, skladem: data.skladem }) : { souhrn: [], nadPoPolozce: new Map<string, number>(), poPolozce: new Map<string, { kryto: number; chybi: number }>() };
   return { ...vysledek, nacteno: !!data };
 }

@@ -139,11 +139,47 @@ describe('staré nezavezené objednávky sudy nedrží (29. 9. 2026)', () => {
       '2026-09-29',
     );
     expect(r.souhrn[0]).toMatchObject({ objednano: 2, nad: 0 });
-    expect(r.poPolozce.get('d')).toEqual({ kryto: 1, chybi: 0 });
+    expect(r.poPolozce.get('d')).toMatchObject({ kryto: 1, chybi: 0 });
     expect(r.poPolozce.has('s')).toBe(false);
   });
   it('bez data závozu: týden od objednání', () => {
     expect(chystaSeOd({ id: 'a', delivery_date: null, order_date: '2026-09-25' }, '2026-09-29')).toBe(true);
     expect(chystaSeOd({ id: 'a', delivery_date: null, order_date: '2026-09-01' }, '2026-09-29')).toBe(false);
+  });
+});
+
+// 30. 9. 2026: „v otevřených objednávkách mi píše, že chybí malé sudy —
+// všechny malé sudy odešly, 1× 20 11° jsem stáhl ze zrušeného Manea."
+describe('malé sudy — odjeté a stočené skladem', () => {
+  it('objednávka už odepsaná ze skladu (sudy odjely) nebere sud z počtu', () => {
+    const r = hlidejMaleSudy(
+      { k20: 1 },
+      [o('DNES', '2026-09-30'), o('ZITRA', '2026-10-01')],
+      [p('a', 'DNES', 'k20', 1), p('b', 'ZITRA', 'k20', 1)],
+      undefined, '2026-09-30', { odepsane: new Set(['DNES']) },
+    );
+    expect(r.souhrn).toEqual([{ package_id: 'k20', mame: 1, objednano: 1, nad: 0 }]);
+    expect(r.poPolozce.has('a')).toBe(false);
+  });
+
+  it('plný sud toho piva skladem pokryje objednávku bez prázdného sudu', () => {
+    const r = hlidejMaleSudy(
+      { k20: 0 },
+      [o('A', '2026-10-01')],
+      [{ ...p('a', 'A', 'k20', 2), beer_id: 'b11' }],
+      undefined, '2026-09-30', { skladem: new Map([['b11__k20', 1]]) },
+    );
+    expect(r.souhrn[0]).toMatchObject({ objednano: 1, nad: 1 });
+    expect(r.poPolozce.get('a')).toEqual({ kryto: 1, chybi: 1, zeSkladu: 1 });
+  });
+
+  it('záporný stav skladu nic nepokrývá', () => {
+    const r = hlidejMaleSudy(
+      { k20: 1 },
+      [o('A', '2026-10-01')],
+      [{ ...p('a', 'A', 'k20', 1), beer_id: 'b11' }],
+      undefined, '2026-09-30', { skladem: new Map([['b11__k20', -2]]) },
+    );
+    expect(r.poPolozce.get('a')).toEqual({ kryto: 1, chybi: 0, zeSkladu: 0 });
   });
 });
