@@ -27,10 +27,22 @@ export type QueuedOp = {
 // odpočtu pro push (odpocty_push) je po chvíli k ničemu (29. 9. 2026).
 const ZAHODIT_Z_FRONTY = new Set(['odpocty_push']);
 
+/**
+ * Hromadné „zavezeno" z Rozvozu (29. 9. 2026) se mohlo zařadit jen s
+ * podmínkou is_delivered = false (bez „závoz před dneškem") — po odeslání by
+ * označilo jako zavezené i budoucí objednávky. Takový zápis se zahodí; noční
+ * úloha v databázi ho udělá správně.
+ */
+function jeNebezpecneOznaceniZavozu(op: QueuedOp): boolean {
+  if (op.table !== 'orders' || op.op !== 'update') return false;
+  const m = op.match ?? {};
+  return Object.keys(m).length === 1 && 'is_delivered' in m && !op.inMatch;
+}
+
 function read(): QueuedOp[] {
   try {
     const q: QueuedOp[] = JSON.parse(localStorage.getItem(KEY) ?? '[]');
-    return q.filter((op) => !ZAHODIT_Z_FRONTY.has(op.table));
+    return q.filter((op) => !ZAHODIT_Z_FRONTY.has(op.table) && !jeNebezpecneOznaceniZavozu(op));
   } catch { return []; }
 }
 function write(q: QueuedOp[]) {

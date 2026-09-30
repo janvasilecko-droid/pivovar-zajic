@@ -230,3 +230,14 @@ describe('odpočty pro push do fronty nepatří (29. 9. 2026)', () => {
     expect(getQueue().map((o) => o.table)).toEqual(['kegging']);
   });
 });
+
+describe('nebezpečné hromadné „zavezeno" z fronty pryč (30. 9. 2026)', () => {
+  it('update orders jen podle is_delivered se zahodí, běžný update zůstane', async () => {
+    const { getQueue } = await import('./offline');
+    localStorage.setItem('pivovar_offline_queue_v1', JSON.stringify([
+      { id: 'a', table: 'orders', op: 'update', match: { is_delivered: 'false' }, row: { is_delivered: true }, ts: 1 },
+      { id: 'b', table: 'orders', op: 'update', match: { id: 'x' }, row: { status: 'storno' }, ts: 2 },
+    ]));
+    expect(getQueue().map((o) => o.id)).toEqual(['b']);
+  });
+});

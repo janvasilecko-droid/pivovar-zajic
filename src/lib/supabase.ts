@@ -33,7 +33,13 @@ const FILTER_RE = /^(eq|neq|gt|gte|lt|lte|in|is|like|ilike|match|or|not|cs|cd|ov
 export const MIMO_FRONTU = new Set(['user_app_versions', 'app_versions', 'odpocty_push']);
 const TELEMETRY_TABLES = MIMO_FRONTU;
 
-type RestInfo = { table: string; eq: Record<string, any>; inMatch: Record<string, any[]>; onConflict: string | null };
+type RestInfo = {
+  table: string; eq: Record<string, any>; inMatch: Record<string, any[]>; onConflict: string | null;
+  /** V adrese je i jiný filtr než eq/in (neq, lt, gt, is, or…). Fronta si
+   *  pamatuje jen eq/in — takový zápis by po návratu signálu zasáhl víc
+   *  řádků, než měl (30. 9. 2026). */
+  jineFiltry: boolean;
+};
 
 function getUrl(input: RequestInfo | URL): URL | null {
   try {
@@ -64,12 +70,14 @@ function parseRest(url: URL): RestInfo | null {
   const eq: Record<string, any> = {};
   const inMatch: Record<string, any[]> = {};
   let onConflict: string | null = null;
+  let jineFiltry = false;
   for (const [k, v] of url.searchParams) {
     if (k === 'on_conflict') { onConflict = v; continue; }
     if (v.startsWith('eq.')) eq[k] = v.slice(3);
     else if (v.startsWith('in.')) inMatch[k] = v.slice(3).split(',').map((s) => s.trim());
+    else if (k === 'or' || k === 'and' || FILTER_RE.test(v)) jineFiltry = true;
   }
-  return { table, eq, inMatch, onConflict };
+  return { table, eq, inMatch, onConflict, jineFiltry };
 }
 
 function hasRowFilters(url: URL): boolean {
@@ -313,6 +321,11 @@ async function handleWrite(input: RequestInfo | URL, init: RequestInit, rest: Re
   // Bezpečnostní pojistka: update/delete bez jakéhokoli filtru se nedá offline
   // bezpečně zopakovat (hrozilo by smazání všech řádků) → nikdy neřadit.
   if ((method === 'PATCH' || method === 'DELETE') && Object.keys(rest.eq).length === 0 && Object.keys(rest.inMatch).length === 0) {
+    return fetchWithTimeout(input, init);
+  }
+  // Totéž, když má zápis filtr, který fronta neumí zopakovat (lt, neq…) —
+  // replay jen s eq by zasáhl i řádky, kterých se to týkat nemělo.
+  if ((method === 'PATCH' || method === 'DELETE') && rest.jineFiltry) {
     return fetchWithTimeout(input, init);
   }
 

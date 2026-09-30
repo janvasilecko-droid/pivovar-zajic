@@ -2784,8 +2784,20 @@ export default function Orders({
           {maleSudy.souhrn.filter((x) => x.nad > 0).map((x) => {
             const obal = packages.find((p) => p.id === x.package_id);
             return (
-              <div key={x.package_id} className="font-bold">
-                {formatPackageLabel(obal?.label ?? '')}: máš {x.mame}, otevřené objednávky chtějí {x.objednano} — o {x.nad} víc
+              <div key={x.package_id}>
+                <div className="font-bold">
+                  {formatPackageLabel(obal?.label ?? '')}: máš {x.mame}, otevřené objednávky chtějí {x.objednano} — o {x.nad} víc
+                </div>
+                {/* Které objednávky ty sudy berou (30. 9. 2026: „to je blbost,
+                    malé sudy byly přesně…") — ať je vidět, odkud číslo je. */}
+                <div className="text-xs">
+                  {orders
+                    .flatMap((o) => (items[o.id] ?? [])
+                      .filter((it) => it.package_id === x.package_id && maleSudy.poPolozce.has(it.id))
+                      .map((it) => ({ o, it })))
+                    .map(({ o, it }) => `${o.place_name ?? '?'} ${new Date((o.delivery_date || o.order_date) + 'T00:00:00').toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric' })} ${it.quantity}×`)
+                    .join(' · ')}
+                </div>
               </div>
             );
           })}
