@@ -24,6 +24,7 @@ import { DAYS } from '../lib/shared';
 import { uloz } from '../lib/uloziste';
 import { IkonaSud, IkonaLahev } from './ikony';
 import type { Page } from './Layout';
+import { predvyberPohyby } from '../lib/pohybyPredvyber';
 
 type Druh = 'sudy' | 'lahve';
 const KLIC_OBDOBI = 'pivovar_costocit_obdobi';
@@ -106,7 +107,7 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
 
   // Data i plán sudů a lahví — sdílené se Sklepem (lib/usePlanStaceni.ts),
   // ať obě místa počítají „co stočit" jedním výpočtem.
-  const { data, chyba, planySudy, planyLahve, puvodMinusu } = usePlanStaceni(weekKey, { sudy, lahve });
+  const { data, chyba, planySudy, planyLahve } = usePlanStaceni(weekKey, { sudy, lahve });
 
   // 🔜 Přehled na ploše má ukazovat, co chybí stočit na NEJBLIŽŠÍ den — z
   // provozu 16. 9. 2026: „na hlavní straně nahoře ten přehled má ukazovat, co
@@ -321,38 +322,41 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
 
           {/* ➖ Mínus ve skladu je v číslech připočtený (30. 9. 2026: „proč když
               je v objednávce 1× 30 l Osma, mi to píše, že mám stočit 2"). */}
+          {/* 🔎 Rozbor všech položek — klepnutí otevře historii pohybů toho
+              piva a obalu za týden (Sklad → Pohyby). 30. 9. 2026: „ať je to
+              rozbor všech položek, když na to kliknu, ať se jednoduše
+              prokliknu k historii". */}
           {data && (() => {
-            const sDluhem = [...planSudy.items, ...planLahve.items].filter((it) => (it.dluh ?? 0) > 0);
-            if (sDluhem.length === 0) return null;
-            const datum = (d: string) => new Date(d + 'T00:00:00').toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric' });
+            const polozky = [...planSudy.items, ...planLahve.items].filter((it) => it.ordered > 0);
+            if (polozky.length === 0) return null;
             return (
-              // Karta rozboru (30. 9. 2026: „ten rozbor udělej jako dlaždici,
-              // oranžovou se žlutým čerchováním jako okraj").
-              <div className="text-xs font-bold text-neutral-950 bg-amber-500 border-[3px] border-dashed border-amber-200 rounded-lg p-3 space-y-1.5">
-                <div className="font-display font-black text-sm flex items-center gap-1.5">
-                  <AlertTriangle size={14} className="shrink-0" /> Rozbor mínusu ve skladu
+              <div className="bg-amber-500 border-[3px] border-dashed border-amber-200 rounded-lg p-2.5 space-y-1.5">
+                <div className="font-display font-black text-sm text-neutral-950">Rozbor</div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                  {polozky.map((it) => {
+                    const pivo = pivoPodleId.get(it.beer_id);
+                    return (
+                      <button
+                        key={it.key}
+                        type="button"
+                        onClick={() => { predvyberPohyby(it.beer_id, it.package_id); setPage('stock_pohyby'); }}
+                        className="w-full min-h-[44px] flex items-center justify-between gap-2 rounded bg-white/80 hover:bg-white px-2.5 py-1.5 text-left text-xs font-bold text-neutral-950"
+                        title="Otevřít historii pohybů (stočeno, zavezeno…) za týden"
+                      >
+                        <span className="flex items-center gap-1.5 min-w-0">
+                          <span className="w-2.5 h-2.5 rounded-full shrink-0 border border-neutral-300" style={{ background: beerBg(pivo) }} />
+                          <span className="truncate font-black">{pivo ? beerName(pivo) : it.beer_name} {kratkyObal(it.package_label)}</span>
+                        </span>
+                        <span className="shrink-0 tabular-nums">
+                          obj. {it.ordered}
+                          {it.missing > 0 ? <span className="font-black"> · stočit {it.missing}</span> : <span> · <Check size={12} className="inline" /></span>}
+                          {(it.dluh ?? 0) > 0 && <span className="font-black"> (−{it.dluh} sklad)</span>}
+                          <ChevronRight size={12} className="inline ml-0.5" />
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
-                <div>V číslech „Co stočit" je připočtený mínus — vydalo se víc, než se zapsalo do stáčení:</div>
-                {sDluhem.map((it) => {
-                  const pivo = pivoPodleId.get(it.beer_id);
-                  const pohyby = puvodMinusu(it.beer_id, it.package_id);
-                  return (
-                    <div key={it.key} className="bg-white/60 rounded px-2 py-1.5">
-                      <div className="font-black">{pivo ? beerName(pivo) : it.beer_name} {kratkyObal(it.package_label)} — chybí navíc {it.dluh}</div>
-                      {pohyby.length > 0 && (
-                        <ul className="mt-0.5 space-y-0.5">
-                          {pohyby.map((m, i) => (
-                            <li key={i} className="flex justify-between gap-2 tabular-nums">
-                              <span>{datum(m.datum)} {m.popis}</span>
-                              {!m.popis.startsWith('inventura') && <span className="font-black">{m.kusu > 0 ? '+' : ''}{m.kusu}</span>}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  );
-                })}
-                <div>Když sud skutečně máš, chybí zápis stočení nebo je potřeba opravit inventuru.</div>
               </div>
             );
           })()}

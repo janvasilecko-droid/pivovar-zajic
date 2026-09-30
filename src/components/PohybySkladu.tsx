@@ -23,8 +23,7 @@ import { nactiJson, ulozJson } from '../lib/uloziste';
 import { nactiSdilenouTabulku } from '../lib/sdilenaData';
 
 const DNY = ['Ne', 'Po', 'Út', 'St', 'Čt', 'Pá', 'So'];
-const LS_FILTR = 'pohyby_skladu_filtr_v1';
-const LS_REZIM = 'pohyby_skladu_rezim_v1';
+import { LS_POHYBY_FILTR as LS_FILTR, LS_POHYBY_REZIM as LS_REZIM } from '../lib/pohybyPredvyber';
 
 function denPopis(iso: string): string {
   const d = new Date(iso + 'T00:00:00Z');
