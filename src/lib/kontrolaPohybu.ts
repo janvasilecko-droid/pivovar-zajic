@@ -16,6 +16,15 @@ export type ObjednavkaProKontrolu = {
   order_date?: string | null;
 };
 export type PolozkaProKontrolu = { order_id: string; beer_id?: string | null; package_id?: string | null; quantity?: number | string | null };
+export type StaceniProKontrolu = {
+  entry_date: string;
+  beer_id?: string | null;
+  quantity?: number | string | null;
+  kegs_used?: number | string | null;
+  kegs_used_package_id?: string | null;
+  created_at?: string | null;
+  note?: string | null;
+};
 
 export type Nalez = {
   datum: string;
@@ -154,4 +163,42 @@ export function najdiPodezrele(vstup: {
   });
 
   return out.sort((a, b) => (a.vaha === b.vaha ? a.datum.localeCompare(b.datum) : a.vaha === 'chyba' ? -1 : 1));
+}
+
+/**
+ * Stočení lahví bez zapsaného zdrojového sudu — z provozu 1. 10. 2026: „lahve
+ * se stáčí ze sudu, to znamená že vždy bude odebrán sud… když se ten sud
+ * neodečte a přičtou se jen lahve, nesedí mi sudy."
+ *
+ * `stockLedger.ts` (resolveKegsUsed) takový řádek tiše přeskočí — bez
+ * `kegs_used_package_id` nejde poznat, KTERÝ sud ubyl, takže se neodečte
+ * vůbec. Tahle kontrola to dohledá v syrových řádcích `bottling` (Movement[]
+ * už tu stopu nenese — řádek bez zdroje žádný pohyb nevytvoří).
+ *
+ * Jeden nález na dávku (stejné seskupení jako dedup v buildMovements), ne na
+ * každý cílový obal zvlášť — jinak by 1 chybějící sud ohlásil třikrát, když
+ * se z něj stáčelo do tří velikostí lahví najednou.
+ */
+export function najdiChybejiciZdrojSudu(
+  bottlingRows: StaceniProKontrolu[],
+  filtr: { od: string; doDne: string; beerId?: string },
+): Nalez[] {
+  const { od, doDne, beerId } = filtr;
+  const videno = new Set<string>();
+  const out: Nalez[] = [];
+  for (const r of bottlingRows) {
+    if (!r.beer_id || !(Number(r.quantity) > 0)) continue;
+    const datum = String(r.entry_date).slice(0, 10);
+    if (datum < od || datum > doDne) continue;
+    if (beerId && r.beer_id !== beerId) continue;
+    if (Number(r.kegs_used || 0) > 0 && r.kegs_used_package_id) continue; // zdroj je zapsaný
+    const klic = r.created_at ? `${datum}|${r.beer_id}|${r.created_at}` : `${datum}|${r.beer_id}|${r.note || ''}`;
+    if (videno.has(klic)) continue;
+    videno.add(klic);
+    out.push({
+      datum, beer_id: r.beer_id, package_id: '', vaha: 'chyba',
+      text: 'stočení lahví bez zapsaného zdrojového sudu — sklad sudů se u něj neodečetl (oprav přes tužku u řádku ve Stáčení lahví)',
+    });
+  }
+  return out;
 }

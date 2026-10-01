@@ -21,7 +21,7 @@ import { businessDateISO, posunMesic } from '../lib/businessDate';
 import { zalogujANahlas } from '../lib/chybyHlaseni';
 import { nactiJson, ulozJson } from '../lib/uloziste';
 import { nactiSdilenouTabulku } from '../lib/sdilenaData';
-import { najdiPodezrele, type Nalez, type ObjednavkaProKontrolu, type PolozkaProKontrolu } from '../lib/kontrolaPohybu';
+import { najdiPodezrele, najdiChybejiciZdrojSudu, type Nalez, type ObjednavkaProKontrolu, type PolozkaProKontrolu } from '../lib/kontrolaPohybu';
 
 const DNY = ['Ne', 'Po', 'Út', 'St', 'Čt', 'Pá', 'So'];
 const LS_ROZDELIT = 'pohyby_skladu_rozdelit_mesice_v2';
@@ -407,10 +407,14 @@ export default function PohybySkladu() {
               setKontroluji(true);
               try {
                 const { data: pol } = await nactiSdilenouTabulku('order_items');
-                setNalezy(najdiPodezrele({
-                  pohyby: kniha.pohyby, objednavky, polozky: (pol as PolozkaProKontrolu[]) ?? [],
-                  od, doDne, beerId: beerId || undefined, packageId: packageId || undefined,
-                }));
+                const chybiSud = najdiChybejiciZdrojSudu(kniha.bottling, { od, doDne, beerId: beerId || undefined });
+                setNalezy([
+                  ...chybiSud,
+                  ...najdiPodezrele({
+                    pohyby: kniha.pohyby, objednavky, polozky: (pol as PolozkaProKontrolu[]) ?? [],
+                    od, doDne, beerId: beerId || undefined, packageId: packageId || undefined,
+                  }),
+                ]);
               } catch (e: any) {
                 zalogujANahlas('[PohybySkladu] kontrola selhala', e);
               } finally {
@@ -421,14 +425,14 @@ export default function PohybySkladu() {
             🔎 {kontroluji ? 'Kontroluji…' : `Najít možné chyby (${label})`}
           </button>
           {nalezy && nalezy.length === 0 && (
-            <p className="text-sm font-bold text-emerald-800">V tomhle období jsem nic podezřelého nenašel (dvojité zápisy, odpočty zrušených a smazaných objednávek, odepsáno víc než objednáno, vráceno víc než odepsáno, zdvojené objednávky).</p>
+            <p className="text-sm font-bold text-emerald-800">V tomhle období jsem nic podezřelého nenašel (dvojité zápisy, stáčení bez zdrojového sudu, odpočty zrušených a smazaných objednávek, odepsáno víc než objednáno, vráceno víc než odepsáno, zdvojené objednávky).</p>
           )}
           {nalezy && nalezy.length > 0 && (
             <ul className="space-y-1.5">
               {nalezy.map((n, i) => (
                 <li key={i} className={`rounded border-l-4 px-2.5 py-1.5 text-xs ${n.vaha === 'chyba' ? 'border-l-rose-500 bg-rose-50' : 'border-l-amber-500 bg-amber-50'}`}>
                   <div className="font-black text-neutral-950">
-                    {denPopis(n.datum)} · {nazevPiva.get(n.beer_id) || '?'} · {nazevObalu.get(n.package_id) || '?'}
+                    {denPopis(n.datum)} · {nazevPiva.get(n.beer_id) || '?'}{n.package_id && <> · {nazevObalu.get(n.package_id) || '?'}</>}
                     {n.dopad ? <span className={n.dopad < 0 ? 'text-rose-800' : 'text-emerald-800'}> · sklad {n.dopad > 0 ? '+' : ''}{n.dopad}</span> : null}
                   </div>
                   <div className="font-semibold text-neutral-800">{n.text}</div>
