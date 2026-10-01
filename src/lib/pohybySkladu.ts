@@ -92,6 +92,21 @@ function dnyObdobi(od: string, doDne: string): string[] {
   return out;
 }
 
+/**
+ * Popisek pohybu. U 'dorovnani' podle toho, co to doopravdy je — vrácení
+ * z objednávky a zrušení s vrácením nejsou dorovnání inventury (1. 10. 2026:
+ * „u Mutěnic je dorovnání inventury, ale to není pravda, jedná se o vrácení
+ * objednávky Mutěnice").
+ */
+export function popisPohybu(m: Pick<Movement, 'kind' | 'note' | 'orderId' | 'ztrata'>): string {
+  if (m.kind !== 'dorovnani') return MOVEMENT_LABELS[m.kind];
+  const duvod = (m.note ?? '').trim();
+  if (duvod.startsWith('Zrušená objednávka')) return 'Vráceno na sklad — zrušená objednávka';
+  if (m.orderId || duvod.startsWith('Vráceno z objednávky')) return 'Vráceno z objednávky';
+  if (m.ztrata) return 'Ztráta (měsíční inventura)';
+  return MOVEMENT_LABELS.dorovnani;
+}
+
 export function sestavPohybyObdobi(
   pohyby: Movement[],
   filtr: FiltrPohybu,
@@ -156,7 +171,7 @@ export function sestavPohybyObdobi(
       .map<RadekPohybu>((m) => ({
         datum,
         druh: m.kind,
-        popis: MOVEMENT_LABELS[m.kind],
+        popis: popisPohybu(m),
         beer_id: m.beer_id,
         package_id: m.package_id,
         mnozstvi: m.qty,
