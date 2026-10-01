@@ -196,7 +196,7 @@ export default function PohybySkladu() {
                 {s1.srovnani !== 0 && (
                   <div className="rounded border border-sky-300 bg-sky-50 px-2 py-1.5 text-xs font-bold text-sky-950">
                     {s1.inventura
-                      ? <>Inventura{s1.inventuraDatum ? ` ${denPopis(s1.inventuraDatum).slice(3)}` : ''}{s1.inventuraStav != null ? ` napočítala ${s1.inventuraStav}` : ''} — srovnala stav o <b className="tabular-nums">{s1.srovnani > 0 ? '+' : ''}{s1.srovnani}</b>.</>
+                      ? <>Inventura{s1.inventuraDatum ? ` ${denPopis(s1.inventuraDatum).slice(3)}` : ''}{s1.inventuraStav != null ? ` napočítala ${s1.inventuraStav}` : ''}, podle evidence by mělo být <b className="tabular-nums">{s1.konec - s1.srovnani}</b> — srovnala stav o <b className="tabular-nums">{s1.srovnani > 0 ? '+' : ''}{s1.srovnani}</b>.</>
                       : <>Pohyby se stavem nesouhlasí o <b className="tabular-nums">{s1.srovnani > 0 ? '+' : ''}{s1.srovnani}</b> — pošli screenshot, prověřím.</>}
                     {' '}{s1.rano} {s1.prijem ? `+ ${s1.prijem}` : ''} {s1.vydej ? `− ${s1.vydej}` : ''} {s1.srovnani > 0 ? '+' : '−'} {Math.abs(s1.srovnani)} = {s1.konec}
                   </div>
@@ -286,6 +286,12 @@ export default function PohybySkladu() {
                           {/* Stav po tomhle pohybu (1. 10. 2026: „ať jde po každém
                               odečtení vidět aktuální stav"). */}
                           <td className="px-2 py-1.5 w-20 text-right align-top whitespace-nowrap">
+                            {r.druh === 'inventura' && r.podleEvidence != null && r.podleEvidence !== r.mnozstvi && (
+                              <>
+                                <div className="text-udaj font-bold text-neutral-500">evidence</div>
+                                <div className="text-sm font-black tabular-nums text-sky-800">{r.podleEvidence}</div>
+                              </>
+                            )}
                             {r.druh !== 'inventura' && (
                               <>
                                 <div className="text-udaj font-bold text-neutral-500">na skladě</div>

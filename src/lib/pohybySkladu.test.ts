@@ -126,3 +126,17 @@ describe('souhrn s inventurou v období', () => {
     expect(s).toMatchObject({ rano: 0, konec: 4, srovnani: 4, inventuraStav: 4 });
   });
 });
+
+describe('inventura: napočítáno vs. podle evidence', () => {
+  it('u řádku inventury je i stav podle evidence těsně před ní', () => {
+    const pohyby: Movement[] = [
+      { date: '2026-09-01', beer_id: 'b', package_id: 'l15', qty: 40, kind: 'inventura', note: 'Počáteční stav' },
+      { date: '2026-09-30', beer_id: 'b', package_id: 'l15', qty: 5, kind: 'staceni' },
+      { date: '2026-09-30', beer_id: 'b', package_id: 'l15', qty: 10, kind: 'inventura', note: 'Fyzická inventura' },
+    ];
+    const v = sestavPohybyObdobi(pohyby, { od: '2026-09-28', doDne: '2026-10-04' });
+    const inv = v.dny.flatMap((d) => d.radky).find((r) => r.druh === 'inventura')!;
+    expect(inv).toMatchObject({ mnozstvi: 10, podleEvidence: 45 });
+    expect(v.souhrn[0].konec - v.souhrn[0].srovnani).toBe(45);
+  });
+});

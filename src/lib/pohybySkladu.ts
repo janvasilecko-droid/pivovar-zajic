@@ -52,6 +52,12 @@ export type RadekPohybu = {
    * odečtení vidět aktuální stav — objednávka Maneo −2× 30, na skladě 6").
    */
   stavPo: number;
+  /**
+   * U inventury: kolik podle evidence (pohybů) mělo být těsně před ní —
+   * vedle napočítaného čísla (1. 10. 2026: „musí být těch 10, ale přidej
+   * tam údaj, že by mělo být 45").
+   */
+  podleEvidence?: number;
   orderId: string | null;
 };
 
@@ -148,18 +154,24 @@ export function sestavPohybyObdobi(
   // Skladem. Inventura stav nastaví; napočítaná inventura je závěr dne
   // (stockLedger.ts), takže když jinak nesedí stav večer, jde až na konec.
   const predchoziDen = (iso: string) => { const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - 1); return d.toISOString().slice(0, 10); };
-  const stavyPoPohybu = (datum: string, vsechny: Movement[]): Map<Movement, number> => {
+  const stavyPoPohybu = (datum: string, vsechny: Movement[]): { po: Map<Movement, number>; pred: Map<Movement, number> } => {
     const rano = stockAsOf(pohyby, predchoziDen(datum));
     const vecer = stockAsOf(pohyby, datum);
     const out = new Map<Movement, number>();
+    const pred = new Map<Movement, number>();
     const poKlici = new Map<string, Movement[]>();
     vsechny.forEach((m) => { const k = stockKey(m.beer_id, m.package_id); poKlici.set(k, [...(poKlici.get(k) ?? []), m]); });
     poKlici.forEach((list, k) => {
       const projdi = (poradi: Movement[]) => {
         let stav = rano.get(k)?.qty ?? 0;
         const vys = new Map<Movement, number>();
-        for (const m of poradi) { stav = m.kind === 'inventura' ? m.qty : stav + m.qty; vys.set(m, stav); }
-        return { vys, stav };
+        const vysPred = new Map<Movement, number>();
+        for (const m of poradi) {
+          if (m.kind === 'inventura') vysPred.set(m, stav);
+          stav = m.kind === 'inventura' ? m.qty : stav + m.qty;
+          vys.set(m, stav);
+        }
+        return { vys, vysPred, stav };
       };
       let r = projdi(list);
       const cil = vecer.get(k)?.qty ?? 0;
@@ -167,8 +179,9 @@ export function sestavPohybyObdobi(
         r = projdi([...list.filter((m) => m.kind !== 'inventura'), ...list.filter((m) => m.kind === 'inventura')]);
       }
       r.vys.forEach((v, m) => out.set(m, v));
+      r.vysPred.forEach((v, m) => pred.set(m, v));
     });
-    return out;
+    return { po: out, pred };
   };
 
   const dny: DenPohybu[] = dnyObdobi(od, doDne).map((datum) => {
@@ -188,7 +201,8 @@ export function sestavPohybyObdobi(
         kdo: (m.orderId && jmenoOdberatele(m.orderId)) || '',
         poznamka: (m.note ?? '').trim(),
         orderId: m.orderId ?? null,
-        stavPo: stavPo.get(m) ?? 0,
+        stavPo: stavPo.po.get(m) ?? 0,
+        ...(m.kind === 'inventura' ? { podleEvidence: stavPo.pred.get(m) ?? 0 } : {}),
       }));
     return { datum, radky, vecer: stavy(stockAsOf(pohyby, datum)) };
   });
