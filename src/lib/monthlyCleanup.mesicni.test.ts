@@ -8,6 +8,7 @@
 // Dokončení se proto drží zvlášť — na měsíc a linku (lahve / KEG).
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
+  cleanupMonthKey,
   isMonthlyLineDone, markMonthlyLineDone,
   readMonthlyCleanupStage, isMonthlyCleanupPending,
 } from './monthlyCleanup';
@@ -49,7 +50,9 @@ describe('Měsíční úklid — dokončení platí na celý měsíc, ne na jede
   });
 
   it('po dokončení obou linek už úklid nečeká (dlaždice na Domů zmizí)', () => {
-    const monthKey = new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0');
+    // Měsíc, jehož úklid se právě řeší — v přesahu posledního týdne do
+    // nového měsíce (např. 1. 10.) je to ještě ten předchozí.
+    const monthKey = cleanupMonthKey();
     markMonthlyLineDone('bottle', monthKey);
     markMonthlyLineDone('keg', monthKey);
     // Mimo poslední týden měsíce nečeká nikdy; v posledním týdnu to teď

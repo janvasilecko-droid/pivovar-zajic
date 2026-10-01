@@ -6,8 +6,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { MonthlyCleanupWarning } from './MonthlyCleanupWarning';
-import { getMonthKey, readMonthlyCleanupStage, otevriMesicniUklid } from '../lib/monthlyCleanup';
+import { cleanupMonthKey, readMonthlyCleanupStage, otevriMesicniUklid } from '../lib/monthlyCleanup';
 
+// Klíč měsíce, jehož úklid se řeší — v přesahu posledního týdne do nového
+// měsíce (1. 10.) je to ještě září. getMonthKey() by vracel říjen a test
+// padal podle toho, kterého se pouští.
 // Test nesmí záviset na tom, kolikátého se zrovna pouští.
 vi.mock('../lib/monthlyCleanup', async () => {
   const skutecne = await vi.importActual<typeof import('../lib/monthlyCleanup')>('../lib/monthlyCleanup');
@@ -63,7 +66,7 @@ describe('Upozornění na měsíční úklid', () => {
     const hotovo = await screen.findByText(/Hotovo — zapsat do deníků/);
     fireEvent.click(hotovo);
 
-    await waitFor(() => expect(readMonthlyCleanupStage(getMonthKey())).toBe('done'));
+    await waitFor(() => expect(readMonthlyCleanupStage(cleanupMonthKey())).toBe('done'));
     expect(zapisLahve).toHaveBeenCalledTimes(1);
     expect(zapisKeg).toHaveBeenCalledTimes(1);
     expect(screen.getByText(/Zapsáno do sanitárních deníků/)).toBeTruthy();
@@ -82,7 +85,7 @@ describe('Upozornění na měsíční úklid', () => {
 
   it('odložené okno otevře dlaždice „Měsíční úklid" rovnou s checklistem', () => {
     // Z provozu 28. 9. 2026: dlaždice dřív otevírala obrazovku Lahve.
-    localStorage.setItem('monthly_cleanup_dismiss_' + getMonthKey(), 'week_start');
+    localStorage.setItem('monthly_cleanup_dismiss_' + cleanupMonthKey(), 'week_start');
     const { container } = render(<MonthlyCleanupWarning />);
     expect(container.firstChild).toBeNull();
     act(() => otevriMesicniUklid());
@@ -91,7 +94,7 @@ describe('Upozornění na měsíční úklid', () => {
   });
 
   it('když je měsíc označený jako hotový, upozornění se vůbec neukáže', () => {
-    localStorage.setItem('monthly_cleanup_dismiss_' + getMonthKey(), 'done');
+    localStorage.setItem('monthly_cleanup_dismiss_' + cleanupMonthKey(), 'done');
     const { container } = render(<MonthlyCleanupWarning />);
     expect(container.firstChild).toBeNull();
   });

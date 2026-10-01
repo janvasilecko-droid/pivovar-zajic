@@ -193,7 +193,37 @@ export default function PohybySkladu() {
 
       {!bezi && vysledek && (
         <>
-          {/* Souhrn týdne — tohle číslo „konec" je stav ve Skladu k neděli. */}
+          {/* 1. 10. 2026: „udělej ten rozbor přehlednější" — jedno pivo a obal
+              = čtyři velká čísla místo tabulky. */}
+          {vysledek.souhrn.length === 1 ? (() => {
+            const s1 = vysledek.souhrn[0];
+            return (
+              <div className="rounded-xl border-2 border-neutral-300 bg-white p-2.5 space-y-2">
+                <div className="text-sm font-black text-neutral-950">
+                  {nazevPiva.get(s1.beer_id) || '?'} · {nazevObalu.get(s1.package_id) || '?'}
+                  {s1.inventura && <span className="ml-1 text-udaj font-bold text-sky-800">(inventura v období)</span>}
+                </div>
+                <div className="grid grid-cols-4 gap-1.5 text-center">
+                  <div className="rounded bg-neutral-100 p-1.5">
+                    <div className="text-udaj font-black uppercase text-neutral-600">Na začátku</div>
+                    <div className="text-xl font-black tabular-nums text-neutral-950">{s1.rano}</div>
+                  </div>
+                  <div className="rounded bg-emerald-50 border border-emerald-200 p-1.5">
+                    <div className="text-udaj font-black uppercase text-emerald-800">Přibylo</div>
+                    <div className="text-xl font-black tabular-nums text-emerald-800">+{s1.prijem}</div>
+                  </div>
+                  <div className="rounded bg-rose-50 border border-rose-200 p-1.5">
+                    <div className="text-udaj font-black uppercase text-rose-800">Ubylo</div>
+                    <div className="text-xl font-black tabular-nums text-rose-800">−{s1.vydej}</div>
+                  </div>
+                  <div className="rounded bg-neutral-800 p-1.5">
+                    <div className="text-udaj font-black uppercase text-white">Teď</div>
+                    <div className={`text-xl font-black tabular-nums ${s1.konec < 0 ? 'text-rose-300' : 'text-white'}`}>{s1.konec}</div>
+                  </div>
+                </div>
+              </div>
+            );
+          })() : (
           <div className="rounded-xl border-2 border-neutral-300 bg-white overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
@@ -224,6 +254,7 @@ export default function PohybySkladu() {
               </tbody>
             </table>
           </div>
+          )}
 
           {skupiny.length > 0 && (
             <p className="text-udaj font-bold text-neutral-600">
@@ -233,7 +264,11 @@ export default function PohybySkladu() {
 
           {/* Den po dni. Dny se střídají odstínem, ať je hranice dne vidět. */}
           <div className="space-y-2">
-            {vysledek.dny.map((d, i) => (
+            {vysledek.souhrn.length > 0 && vysledek.dny.filter((d) => d.radky.length > 0).length === 0 && (
+              <p className="rounded-xl border border-neutral-300 bg-white px-3 py-3 text-sm font-bold text-neutral-600">V tomhle období žádný pohyb.</p>
+            )}
+            {/* Dny bez pohybu se nevypisují — stav se v nich nemění. */}
+            {vysledek.dny.filter((d) => d.radky.length > 0).map((d, i) => (
               <div key={d.datum} className={`rounded-xl border overflow-hidden ${i % 2 === 0 ? 'border-neutral-300 bg-white' : 'border-neutral-300 bg-neutral-50'}`}>
                 <div className={`px-3 py-1.5 text-sm font-black ${i % 2 === 0 ? 'bg-neutral-800 text-white' : 'bg-neutral-200 text-neutral-950'}`}>
                   {denPopis(d.datum)}
@@ -257,7 +292,8 @@ export default function PohybySkladu() {
                           </td>
                           <td className="px-2 py-1.5">
                             <div className="font-black text-neutral-900">{r.popis}{r.kdo && <span className="font-bold text-neutral-700"> · {r.kdo}</span>}</div>
-                            <div className="text-udaj font-semibold text-neutral-600">{nazevKlice(r.beer_id, r.package_id)}</div>
+                            {!(beerId && packageId) && <div className="text-udaj font-semibold text-neutral-600">{nazevKlice(r.beer_id, r.package_id)}</div>}
+                            {r.poznamka && <div className="text-udaj font-semibold italic text-neutral-500">pozn.: {r.poznamka}</div>}
                           </td>
                         </tr>
                       ))}

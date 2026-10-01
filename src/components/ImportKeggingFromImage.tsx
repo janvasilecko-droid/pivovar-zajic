@@ -185,7 +185,9 @@ export function ImportKeggingFromImage({ isOpen, onClose, beers, packages, onImp
       }
       setEntryRows(rows);
       setRowsMap((prev) => ({ ...prev, [targetIdx]: rows }));
-      if (data?.raw_text) setNote(data.raw_text.slice(0, 100));
+      // Přečtený text fotky se do poznámky už NEDÁVÁ (1. 10. 2026): uložil
+      // se ke každému řádku a v Pohybech pak u 12° Světlé stálo „11 Jantar…"
+      // — začátek fotky, ne poznámka k tomu stáčení.
       setProgress(100);
     } catch (e: any) {
       setErr('Čtení z fotky selhalo: ' + (e?.message ?? String(e)));

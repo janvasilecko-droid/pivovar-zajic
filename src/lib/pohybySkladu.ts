@@ -43,8 +43,10 @@ export type RadekPohybu = {
   package_id: string;
   /** + příjem, − výdej. U inventury nastavený stav. */
   mnozstvi: number;
-  /** Komu (u závozu odběratel) nebo poznámka. */
+  /** Komu — odběratel u závozu / vrácení z objednávky. */
   kdo: string;
+  /** Poznámka zápisu (stáčení, odpis…) — zvlášť, ne jako „komu" (1. 10. 2026). */
+  poznamka: string;
   orderId: string | null;
 };
 
@@ -120,7 +122,8 @@ export function sestavPohybyObdobi(
         beer_id: m.beer_id,
         package_id: m.package_id,
         mnozstvi: m.qty,
-        kdo: (m.orderId && jmenoOdberatele(m.orderId)) || (m.note ?? '').trim(),
+        kdo: (m.orderId && jmenoOdberatele(m.orderId)) || '',
+        poznamka: (m.note ?? '').trim(),
         orderId: m.orderId ?? null,
       }))
       .sort((a, b) => PORADI[a.druh] - PORADI[b.druh] || a.beer_id.localeCompare(b.beer_id) || a.package_id.localeCompare(b.package_id));

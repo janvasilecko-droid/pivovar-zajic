@@ -21,6 +21,7 @@ import { businessDateISO, posunMesic } from '../lib/businessDate';
 import { buildMovements, expectedForMonth, stockAtStartOfDay, stockForMonth, type StockLine } from '../lib/stockLedger';
 import { AUDIT_NADPISY, AUDIT_SLOUPCE, bunkaAuditu, maCoUkazat, porovnejPolozku, type AuditSloupec } from '../lib/auditSkladu';
 import { chyba, oznam, potvrd, toastZpet, uspech } from '../lib/toast';
+import { chybiFunkce } from '../lib/zruseniObjednavky';
 import { zavibruj } from '../lib/haptika';
 import { usePosledniNacteni } from '../lib/nacitani';
 import { IkonaSud } from '../components/ikony';
@@ -289,7 +290,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
   // Dorovnání (±) — uchovává se BOKEM (mimo stáčení a odpočty), klíč: `${beer_id}__${package_id}`
   const [dorovnatMap, setDorovnatMap] = useState<Record<string, string>>(() => {
     try {
-      const saved = localStorage.getItem(`inventory_adjustments_${currentMonth}`);
+      const saved = localStorage.getItem(`inventura_ztraty_v2_${currentMonth}`);
       return saved ? JSON.parse(saved) : {};
     } catch { return {}; }
   });
@@ -486,11 +487,18 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     // 3a. Základ = localStorage inventory_adjustments_YYYY-MM
     let curAdj: Record<string, string> = {};
     try {
-      const savedAdj = localStorage.getItem(`inventory_adjustments_${currentMonth}`);
+      const savedAdj = localStorage.getItem(`inventura_ztraty_v2_${currentMonth}`);
       if (savedAdj) curAdj = JSON.parse(savedAdj) ?? {};
     } catch {}
     // 3b. Pokud je v DB uložené dorovnání, má přednost a uloží i do localStorage.
-    const adjRowsForCurMonth = ((adj as any[]) ?? []).filter((r) => r.entry_date?.slice(0, 7) === currentMonth);
+    // Jen ZTRÁTY zapsané touhle inventurou (bez objednávky, bez důvodu). Vrácení
+    // z objednávek, zrušení s vrácením a dorovnání týdenní inventury leží ve
+    // stejné tabulce, ale ztráty to nejsou — jsou už v očekávaném stavu
+    // a dřív se tu ukazovaly podruhé jako „Očekáváno po ztrátách" (1. 10. 2026:
+    // „co to píše v inventuře očekáváno po ztrátách… žádné ztráty nejsou").
+    // Starý klíč v telefonu (inventory_adjustments_…) je tím pádem neplatný.
+    const adjRowsForCurMonth = ((adj as any[]) ?? []).filter((r) => r.entry_date?.slice(0, 7) === currentMonth
+      && !r.order_id && !String(r.reason ?? '').trim());
     if (adjRowsForCurMonth.length > 0) {
       const dbAdjMap: Record<string, string> = {};
       adjRowsForCurMonth.forEach((r) => {
@@ -500,7 +508,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
         if (v !== 0) dbAdjMap[k] = String(v);
       });
       curAdj = dbAdjMap;
-      try { uloz(`inventory_adjustments_${currentMonth}`, JSON.stringify(dbAdjMap)); } catch {}
+      try { uloz(`inventura_ztraty_v2_${currentMonth}`, JSON.stringify(dbAdjMap)); } catch {}
     }
     if (shouldReloadState) {
       setDorovnatMap((prev) => slucInventuru(curAdj, prev, zmenaMesice));
@@ -697,7 +705,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
 
   useEffect(() => {
     if (!lzeUlozitKoncept(loadedMonthRef.current, currentMonth)) return;
-    try { uloz(`inventory_adjustments_${currentMonth}`, JSON.stringify(dorovnatMap)); } catch {}
+    try { uloz(`inventura_ztraty_v2_${currentMonth}`, JSON.stringify(dorovnatMap)); } catch {}
   }, [dorovnatMap, currentMonth]);
 
   useRealtime(['beers', 'packages', 'bottling', 'kegging', 'fasovani', 'fasovani_private', 'writeoffs', 'inventory', 'inventory_adjustments', 'zavoz_deductions', 'akce', 'akce_items', 'keg_prefuk'], () => loadData(true));
@@ -835,16 +843,25 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
         })
         .filter((row): row is NonNullable<typeof row> => row !== null);
 
-      const { error } = await supabase.rpc('save_physical_inventory', {
+      // _v2 (migrace 20261231210000) maže a přepisuje JEN ztráty. Stará
+      // funkce smazala celý měsíc včetně vrácení z objednávek — appka už
+      // ztráty posílá bez nich, takže by je stará funkce smazala natrvalo.
+      // Bez migrace se proto radši neukládá nic.
+      const { error } = await supabase.rpc('save_physical_inventory_v2', {
         p_entry_date: entryDate,
         p_rows: snapshotRows,
         p_adjustments: adjustmentRows,
       });
+      if (error && chybiFunkce(error)) {
+        chyba('Uložení inventury potřebuje migraci 20261231210000 — spusť ji v Audit → Diagnostika → Databázové migrace. Nic se neuložilo, napočítané stavy zůstávají v telefonu.');
+        setBusy(false);
+        return;
+      }
       if (error) throw new Error(error.message);
 
       // Lokální kopii aktualizujeme až po úspěšném potvrzení celé DB transakce.
       uloz(`actual_inventory_${currentMonth}`, JSON.stringify(actualStock));
-      uloz(`inventory_adjustments_${currentMonth}`, JSON.stringify(dorovnatMap));
+      uloz(`inventura_ztraty_v2_${currentMonth}`, JSON.stringify(dorovnatMap));
 
       uspech('Fyzická inventura i dorovnání byla v pořádku uložena do databáze!');
       forceReloadRef.current = true;
@@ -2173,6 +2190,7 @@ function exportInventoryExcel() {
                 {totals.diffQty > 0 ? `+${totals.diffQty}` : totals.diffQty} ks ({totals.diffCzk.toLocaleString('cs-CZ')} Kč)
               </div>
               <span className="text-udaj text-neutral-500">Fyzický vs Systémový stav</span>
+              {dorovnaneRadky > 0 && (<>
               <span className="block pt-1 border-t border-neutral-200 text-udaj font-bold text-neutral-600">
                 Ztráty: {totals.dorovnat > 0 ? `+${totals.dorovnat}` : totals.dorovnat} ks ·
                 <span className={totals.diffAfterQty === 0 ? 'text-emerald-700' : totals.diffAfterQty < 0 ? 'text-rose-700' : 'text-amber-700'}>
@@ -2180,6 +2198,7 @@ function exportInventoryExcel() {
                 </span>
               </span>
               <span className="text-udaj text-neutral-500">Ztráty se ukládají bokem a nepočítají se do stáčení ani odpočtů.</span>
+              </>)}
             </div>
           </div>
 
@@ -2381,6 +2400,9 @@ function exportInventoryExcel() {
                               >+</button>
                             </div>
                           </label>
+                          {/* 1. 10. 2026: „žádné ztráty nejsou, nic takového tam
+                              nedávej" — pole jen když už nějaká ztráta zapsaná je. */}
+                          {dorovnaneRadky > 0 && (
                           <label className="block">
                             <span className="text-udaj font-black uppercase text-sky-800 bg-sky-50 px-1.5 py-0.5 rounded-md inline-block mb-1">Ztráty (±)</span>
                             <div className="flex items-center gap-1">
@@ -2394,6 +2416,7 @@ function exportInventoryExcel() {
                               />
                             </div>
                           </label>
+                          )}
                           {/* Tohle tlačítko ⟳ vypadá jako „srovnej to" a sedí
                               hned u jediného pole, na které jde v řádku sáhnout.
                               Jenže dorovnání je jen zápis bokem — stáčení
@@ -2489,10 +2512,10 @@ function exportInventoryExcel() {
                       <th scope="col" className="py-2.5 px-2 text-right text-amber-800">Výdej (−)</th>
                       <th scope="col" className="py-2.5 px-3 text-right bg-emerald-700 !text-white font-black rounded-t-lg">ZBYDE (Oček.)</th>
                       <th scope="col" className="py-2.5 px-3 text-right bg-amber-500 text-neutral-950 font-black rounded-t-lg">INVENTURA</th>
-                      <th scope="col" className="py-2.5 px-3 text-right bg-sky-700 !text-white font-black rounded-t-lg" title="Ztráty a rozbité kusy (±). Poznámka bokem — NEZAKLÁDÁ stáčení, neodečítá sudy a se stavem skladu nehne. Na to je sloupec VYROVNAT.">ZTRÁTY (±)</th>
+                      {dorovnaneRadky > 0 && <th scope="col" className="py-2.5 px-3 text-right bg-sky-700 !text-white font-black rounded-t-lg" title="Ztráty a rozbité kusy (±). Poznámka bokem — NEZAKLÁDÁ stáčení, neodečítá sudy a se stavem skladu nehne. Na to je sloupec VYROVNAT.">ZTRÁTY (±)</th>}
                       <th scope="col" className="py-2.5 px-2 text-right font-black" title="Kolik kusů se u téhle položky už srovnalo z inventury tohoto měsíce. Prázdné = nesrovnávalo se.">VYROVNÁNO</th>
                       <th scope="col" className="py-2.5 px-2 text-right font-black">MANKO</th>
-                      <th scope="col" className="py-2.5 px-2 text-right font-black" title="Manko po započtení ztrát (INVENTURA − očekávaný stav se ztrátami)">PO ZTRÁTÁCH</th>
+                      {dorovnaneRadky > 0 && <th scope="col" className="py-2.5 px-2 text-right font-black" title="Manko po započtení ztrát (INVENTURA − očekávaný stav se ztrátami)">PO ZTRÁTÁCH</th>}
                       <th scope="col" className="py-2.5 px-3 text-right font-black">ROZDÍL (Kč)</th>
                       <th scope="col" className="py-2.5 px-2 text-center font-black" title="Srovnat rozdíl tam, kam patří: přebytek = chybějící zápis stočení, manko = odečet ze stáčení.">SROVNAT</th>
                     </tr>
@@ -2545,6 +2568,7 @@ function exportInventoryExcel() {
                               <button type="button" onClick={() => posunInventuru(k, 1)} title="O jeden kus víc" aria-label="O jeden kus víc" className="shrink-0 w-9 h-9 grid place-items-center rounded-lg bg-emerald-200/80 hover:bg-emerald-300 text-emerald-950 font-black transition active:scale-95 tap">+</button>
                             </div>
                           </td>
+                          {dorovnaneRadky > 0 && (
                           <td className="text-right bg-sky-50/90 border-x border-sky-300 px-2 py-2">
                             <div className="flex items-center justify-end gap-1">
                               <input
@@ -2562,6 +2586,7 @@ function exportInventoryExcel() {
                               </div>
                             )}
                           </td>
+                          )}
                           <td className="text-right font-mono font-black text-udaj px-2 py-2">
                             {vyrovnaniMap.has(k) ? (
                               <span className="px-1.5 py-0.5 rounded bg-emerald-700 text-white whitespace-nowrap">
@@ -2576,6 +2601,7 @@ function exportInventoryExcel() {
                           }`}>
                             {r.diffQty > 0 ? `+${r.diffQty}` : r.diffQty} ks
                           </td>
+                          {dorovnaneRadky > 0 && (
                           <td className={`text-right font-mono font-black text-udaj px-2 py-2 ${
                             r.diffAfterQty < 0 ? (isDark ? 'text-rose-900' : 'text-rose-800') : r.diffAfterQty > 0 ? (isDark ? 'text-emerald-900' : 'text-emerald-800') : textColor
                           }`}>
@@ -2584,6 +2610,7 @@ function exportInventoryExcel() {
                               <span className="ml-1 text-udaj font-black text-emerald-700"><Check className="ikona-text" /> sedí se ztrátami</span>
                             )}
                           </td>
+                          )}
                           <td className={`text-right font-black text-udaj px-3 py-2 ${
                             r.diffCzk < 0 ? (isDark ? 'text-rose-900' : 'text-rose-800') : r.diffCzk > 0 ? (isDark ? 'text-emerald-900' : 'text-emerald-800') : textColor
                           }`}>
@@ -2623,7 +2650,7 @@ function exportInventoryExcel() {
                         </tr>
                         {posledniPiva && davky.some((x) => x.beer_id === r.beer_id) && (
                           <tr>
-                            <td colSpan={14} className="px-3 py-2 bg-white">
+                            <td colSpan={dorovnaneRadky > 0 ? 14 : 12} className="px-3 py-2 bg-white">
                               {panelDavky(r.beer_id)}
                             </td>
                           </tr>
@@ -2645,18 +2672,22 @@ function exportInventoryExcel() {
                           : 'bg-emerald-950/80 text-emerald-300 border-emerald-700 font-black'
                       }`}>{totals.expected} ks</td>
                       <td className="text-right px-3 py-2.5 text-amber-300 font-mono text-sm bg-amber-950/80 border-x border-amber-700">{totals.actual} ks</td>
+                      {dorovnaneRadky > 0 && (
                       <td className={`text-right px-3 py-2.5 font-mono text-sm bg-sky-950/80 border-x border-sky-700 ${totals.dorovnat === 0 ? 'text-sky-300' : totals.dorovnat < 0 ? 'text-rose-300' : 'text-sky-200'}`}>
                         {totals.dorovnat > 0 ? `+${totals.dorovnat}` : totals.dorovnat} ks
                       </td>
+                      )}
                       <td className="text-right px-2 py-2.5 font-mono text-sm text-emerald-900">
                         {totals.vyrovnano === 0 ? '—' : `${totals.vyrovnano > 0 ? '+' : ''}${totals.vyrovnano} ks`}
                       </td>
                       <td className={`text-right px-2 py-2.5 font-mono text-sm ${totals.diffQty < 0 ? 'text-rose-900' : totals.diffQty > 0 ? 'text-emerald-900' : 'text-neutral-950'}`}>
                         {totals.diffQty > 0 ? `+${totals.diffQty}` : totals.diffQty} ks
                       </td>
+                      {dorovnaneRadky > 0 && (
                       <td className={`text-right px-2 py-2.5 font-mono text-sm ${totals.diffAfterQty < 0 ? 'text-rose-900' : totals.diffAfterQty > 0 ? 'text-emerald-900' : 'text-neutral-950'}`}>
                         {totals.diffAfterQty > 0 ? `+${totals.diffAfterQty}` : totals.diffAfterQty} ks
                       </td>
+                      )}
                       <td className={`text-right px-3 py-2.5 ${totals.diffCzk < 0 ? 'text-rose-900' : totals.diffCzk > 0 ? 'text-emerald-900' : 'text-neutral-950'}`}>
                         {totals.diffCzk.toLocaleString('cs-CZ')} Kč
                       </td>

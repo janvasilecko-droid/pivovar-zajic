@@ -251,7 +251,9 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
 
       setEntryRows(consolidatedRows);
       setRowsMap((prev) => ({ ...prev, [targetIdx]: consolidatedRows }));
-      if (data?.raw_text) setNote(data.raw_text.slice(0, 100));
+      // Přečtený text fotky se do poznámky už NEDÁVÁ (1. 10. 2026): uložil
+      // se ke každému řádku a v Pohybech pak u 12° Světlé stálo „11 Jantar…"
+      // — začátek fotky, ne poznámka k tomu stáčení.
       setProgress(100);
     } catch (e: any) {
       setErr('Čtení z fotky selhalo: ' + (e?.message ?? String(e)));

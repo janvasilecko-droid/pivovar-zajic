@@ -31,7 +31,7 @@ export const SLOUPCE = {
   fasovani_private: 'entry_date,beer_id,package_id,quantity',
   writeoffs: 'entry_date,beer_id,package_id,quantity,created_at',
   inventory: 'entry_date,beer_id,beer_name,package_id,package_label,quantity,note,created_at',
-  inventory_adjustments: 'entry_date,beer_id,package_id,quantity,order_id,created_at',
+  inventory_adjustments: 'entry_date,beer_id,package_id,quantity,order_id,reason,created_at',
   zavoz_deductions: 'deduct_date,beer_id,package_id,quantity,order_item_id,order_id,created_at',
   akce: 'entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)',
   keg_prefuk: 'entry_date,beer_id,from_package_id,from_count,to_package_id,to_count',
