@@ -854,7 +854,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
         p_adjustments: adjustmentRows,
       });
       if (error && chybiFunkce(error)) {
-        chyba('Uložení inventury potřebuje migraci 20261231210000 — spusť ji v Audit → Diagnostika → Databázové migrace. Nic se neuložilo, napočítané stavy zůstávají v telefonu.');
+        chyba('Uložení inventury potřebuje migraci 20261231210000 — spusť ji v Audit → Databázové migrace (nahoře). Nic se neuložilo, napočítané stavy zůstávají v telefonu.');
         setBusy(false);
         return;
       }

@@ -272,7 +272,7 @@ const ODDILY: Oddil[] = [
       },
       {
         co: 'Audit',
-        jak: 'Dlaždice Audit (odkaz je i v Nastavení) sdružuje všechny kontroly. Hloubkový audit se pouští za týden nebo měsíc a mimo jiné porovná objednávky z WhatsAppu se zprávami (tmavé zapsané jako světlé svítí červeně). Dál jsou tam audit objednávek, příjem WhatsAppu, Inventura vs. Sklad a pro admina Diagnostika a historie změn.',
+        jak: 'Dlaždice Audit (odkaz je i v Nastavení) sdružuje všechny kontroly. Hloubkový audit se pouští za týden nebo měsíc a mimo jiné porovná objednávky z WhatsAppu se zprávami (tmavé zapsané jako světlé svítí červeně). Adminovi je úplně nahoře blok Databázové migrace (po nasazení tlačítko „Spustit“). Dál jsou tam audit objednávek, příjem WhatsAppu, Inventura vs. Sklad a pro admina Diagnostika a historie změn.',
       },
     ],
   },
