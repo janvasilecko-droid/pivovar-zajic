@@ -134,14 +134,17 @@ function simulujRok() {
       }
       inventuraKPrvnimu.set(den.slice(0, 7), zapsano);
     }
+    // Ráno se zapisuje PŘED fyzickou inventurou: napočítaný stav je závěr
+    // dne (stockAsOf), ráno toho dne ještě neplatil. Počáteční stav (výš)
+    // naopak ráno popisuje, takže je v ranním čísle už započtený.
+    ranoDne.set(den, { ...stav });
+
     if (den === FYZICKA_INVENTURA_DEN) {
       const [beer_id, package_id] = FYZICKA_INVENTURA_KLIC.split('__');
       const mnozstvi = (stav[FYZICKA_INVENTURA_KLIC] ?? 0) + FYZICKA_INVENTURA_PREBYTEK;
       inventoryRows.push({ entry_date: den, beer_id, package_id, quantity: mnozstvi, note: 'Fyzická inventura' });
       reset(FYZICKA_INVENTURA_KLIC, mnozstvi);
     }
-
-    ranoDne.set(den, { ...stav });
 
     // ── Výroba ───────────────────────────────────────────────────────────
     for (const pivo of dt <= 4 ? PIVA : []) {
@@ -313,7 +316,7 @@ describe('rok provozu — skladová kniha', () => {
     expect(rozdily.slice(0, 10)).toEqual([]);
   });
 
-  it('stav k RÁNU každého dne sedí — inventura toho dne se započítá, pohyby ne', () => {
+  it('stav k RÁNU každého dne sedí — počáteční stav toho dne se započítá, napočítaná inventura a pohyby ne', () => {
     const rozdily: string[] = [];
     for (let i = 0; i < DNU; i++) {
       const den = posun(ZACATEK, i);

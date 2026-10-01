@@ -400,13 +400,20 @@ export function stockAsOf(movements: Movement[], dateISO: string): Map<string, S
 /**
  * Stav skladu k RÁNU zadaného dne (než se ten den cokoli stočí nebo vydá).
  *
- * Inventura datovaná na ten den se ZAPOČÍTÁ — dělá se ráno a popisuje právě
- * ten výchozí stav. Ostatní pohyby toho dne se nezapočítají, ty patří už do
- * probíhajícího dne. Používá „co je potřeba stočit" pro stav v pondělí ráno.
+ * „Počáteční stav" datovaný na ten den se ZAPOČÍTÁ — popisuje právě ráno.
+ * NAPOČÍTANÝ stav (fyzická/schválená inventura) z téhož dne ale ne: ten je
+ * závěr dne (viz stockAsOf), ráno ještě neplatil. Dřív se započítal taky —
+ * Pohyby pak u týdne, který začínal dnem inventury, ukazovaly „Na začátku"
+ * napočítané číslo z večera místo skutečného ranního stavu (1. 10. 2026:
+ * „na začátku týdne 4, byla 0… konečný výsledek sedí").
+ * Ostatní pohyby toho dne se nezapočítají, ty patří už do probíhajícího dne.
  */
 export function stockAtStartOfDay(movements: Movement[], dateISO: string): Map<string, StockLine> {
   return stockAsOf(
-    movements.filter((m) => (m.kind === 'inventura' ? m.date <= dateISO : m.date < dateISO)),
+    movements.filter((m) => {
+      if (m.kind !== 'inventura') return m.date < dateISO;
+      return m.date < dateISO || (m.date === dateISO && !jeNapocitanyStav(m.note));
+    }),
     dateISO
   );
 }
