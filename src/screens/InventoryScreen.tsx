@@ -26,11 +26,12 @@ import { predvyberPohyby } from '../lib/pohybyPredvyber';
 import { zavibruj } from '../lib/haptika';
 import { usePosledniNacteni } from '../lib/nacitani';
 import { IkonaSud } from '../components/ikony';
-import { uloz } from '../lib/uloziste';
+import { nactiJson, uloz, ulozJson } from '../lib/uloziste';
 import { useAuth } from '../lib/auth';
 import { jeMesicVSeznamuUzavren, nactiZavreneMesice, otevriMesic, zavriMesic, type ZavrenyMesic } from '../lib/closedMonths';
 import { jeLimonada } from '../lib/limonady';
 import { nactiSdilenouTabulku } from '../lib/sdilenaData';
+import { lzePocitatKDnesku, naDnes, posunPoKonciMesice, zDnes, type PosunPoKonci } from '../lib/inventuraKDnesku';
 
 // Stahuje se až při otevření — viz komentář u lazy() v Orders.tsx.
 const CountFromImage = lazy(() => import('../components/CountFromImage').then((m) => ({ default: m.CountFromImage })));
@@ -103,6 +104,18 @@ function computeInitialStockForMonth(
   return map;
 }
 
+/** Pod Očekáváno: odkud je rozdíl proti konci měsíce. */
+function PoznamkaKDnesku({ posun, kKonci, datum }: { posun?: PosunPoKonci; kKonci: number; datum: string }) {
+  if (!posun || posun.celkem === 0) return null;
+  return (
+    <div className="mt-1 text-udaj font-bold text-sky-900 leading-tight whitespace-nowrap">
+      k {datum}: {kKonci}
+      {posun.odjelo > 0 && <> · odjelo −{posun.odjelo}</>}
+      {posun.pribylo > 0 && <> · přibylo +{posun.pribylo}</>}
+    </div>
+  );
+}
+
 /**
  * 🚶 Popořadě — jedna položka na obrazovku, velké pole, Potvrdit skočí na
  * další. Stejný vzor jako u týdenní inventury (TydenniInventuraPanel.tsx),
@@ -116,6 +129,7 @@ function PoporadeVstupMesic({
   actualStock,
   setActualStock,
   beers,
+  posunK,
 }: {
   radky: InventoryRow[];
   index: number;
@@ -123,6 +137,7 @@ function PoporadeVstupMesic({
   actualStock: Record<string, string>;
   setActualStock: Dispatch<SetStateAction<Record<string, string>>>;
   beers: Beer[];
+  posunK: (klic: string) => number;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const r = radky[index] ?? null;
@@ -133,7 +148,7 @@ function PoporadeVstupMesic({
   // vyplní tím, co v inventuře případně už je, a focusne se.
   useEffect(() => {
     if (!klic) return;
-    setHodnota(actualStock[klic] ?? '');
+    setHodnota(naDnes(actualStock[klic], posunK(klic)));
     inputRef.current?.focus();
     inputRef.current?.select();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -149,7 +164,7 @@ function PoporadeVstupMesic({
 
   function potvrdit() {
     if (!klic) return;
-    setActualStock((m) => ({ ...m, [klic]: hodnota }));
+    setActualStock((m) => ({ ...m, [klic]: zDnes(hodnota, posunK(klic)) }));
     setIndex((i) => i + 1);
   }
 
@@ -205,7 +220,7 @@ function PoporadeVstupMesic({
         </div>
 
         <p className="text-xs font-bold opacity-70">
-          Očekáváno: <span className={r.expectedQty < 0 ? 'text-rose-300' : ''}>{r.expectedQty} ks</span>
+          Očekáváno: <span className={r.expectedQty + posunK(klic!) < 0 ? 'text-rose-300' : ''}>{r.expectedQty + posunK(klic!)} ks</span>
         </p>
 
         <input
@@ -325,6 +340,11 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
   const [stacenoKegMap, setStacenoKegMap] = useState<Record<string, number>>({}); // Stáčení KEG
   // 📒 Očekávaný stav ze skladové knihy — jediný zdroj pravdy pro sklad.
   const [expectedLedger, setExpectedLedger] = useState<Map<string, StockLine>>(new Map());
+  // 📅 Pohyby od konce měsíce do dneška — inventura se počítá až po konci
+  // měsíce (lib/inventuraKDnesku.ts). Ukládá se pořád ke konci měsíce.
+  const [posunMap, setPosunMap] = useState<Map<string, PosunPoKonci>>(new Map());
+  const [kDneskuZapnuto, setKDneskuZapnuto] = useState(false);
+  useEffect(() => { setKDneskuZapnuto(nactiJson<boolean>(`inventura_k_dnesku_${currentMonth}`, false)); }, [currentMonth]);
   // 🔍 Druhá strana auditu: tentýž měsíc očima Skladu — počátek k prvnímu
   // dni dopočítaný z celé historie a k němu pohyby OD 1. DO POSLEDNÍHO.
   // Stejné okno jako u Inventury, aby se sloupce daly porovnat kus na kus;
@@ -427,6 +447,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     // 📒 Očekávaný (teoretický) stav ke konci měsíce ze skladové knihy —
     // stejná matematika jako Sklad, Dashboard a „co stočit na který den".
     setExpectedLedger(expectedForMonth(pohyby, currentMonth));
+    setPosunMap(posunPoKonciMesice(pohyby, currentMonth, businessDateISO()));
     setAuditInventura(expectedForMonth(pohyby, currentMonth, true));
     setVyrovnaniMap(vyrovnaniZaMesic(pohyby, currentMonth));
     // 🔍 Tatáž kniha očima Skladu — měsíční rozpad, ne od začátku evidence.
@@ -1101,10 +1122,11 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
   // pomalejší a snadněji se u toho ztratí počet. Prázdné pole = nula, takže
   // první „+" zapíše 1. Pod nulu to nejde, kusy záporné nejsou.
   function posunInventuru(klic: string, o: number) {
+    const posun = posunK(klic);
     setActualStock((prev) => {
-      const soucasne = Number(String(prev[klic] ?? '').replace(',', '.') || 0);
+      const soucasne = Number(naDnes(prev[klic], posun).replace(',', '.') || 0);
       const nova = Math.max(0, Math.round(soucasne + o));
-      return { ...prev, [klic]: String(nova) };
+      return { ...prev, [klic]: zDnes(String(nova), posun) };
     });
     zavibruj('odskrtnuto');
   }
@@ -1775,6 +1797,29 @@ function exportInventoryExcel() {
   // viz komentář u mesicSchvalenPoznamkou výš. Měsíc zavřený kterýmkoli
   // způsobem se má chovat stejně: jen ke čtení.
   const mesicUzavren = mesicSchvalenPoznamkou || jeMesicVSeznamuUzavren(zavreneMesice, currentMonth);
+  // 📅 Počítá se až po konci měsíce → Očekáváno i Inventura k dnešku
+  // (lib/inventuraKDnesku.ts). Uzavřený měsíc se už jen prohlíží.
+  const kDnesku = !mesicUzavren && kDneskuZapnuto && lzePocitatKDnesku(currentMonth, businessDateISO());
+  // Přepnutí nesmí pohnout čísly, která už jsou napsaná: zapnutí = „ta čísla
+  // jsem napočítal dnes", takže se uložená hodnota přepočte ke konci měsíce
+  // a na obrazovce zůstane totéž. Vypnutí naopak.
+  function prepniKDnesku(zapnout: boolean) {
+    setActualStock((prev) => {
+      const out: Record<string, string> = {};
+      for (const [k, v] of Object.entries(prev)) {
+        const posun = posunMap.get(k)?.celkem ?? 0;
+        out[k] = zapnout ? zDnes(v ?? '', posun) : naDnes(v, posun);
+      }
+      return out;
+    });
+    setKDneskuZapnuto(zapnout);
+    ulozJson(`inventura_k_dnesku_${currentMonth}`, zapnout);
+  }
+  const posunK = (klic: string): number => (kDnesku ? posunMap.get(klic)?.celkem ?? 0 : 0);
+  const konecMesiceText = (() => { const [, m] = currentMonth.split('-').map(Number); const d = new Date(Date.UTC(Number(currentMonth.slice(0, 4)), m, 0)); return `${d.getUTCDate()}. ${m}.`; })();
+  const dnesText = (() => { const d = businessDateISO(); return `${Number(d.slice(8, 10))}. ${Number(d.slice(5, 7))}.`; })();
+  const posunCelkem = rows.reduce((n, r) => n + posunK(`${r.beer_id}__${r.package_id}`), 0);
+  const pocetPosunutych = kDnesku ? [...posunMap.values()].filter((p) => p.celkem !== 0).length : 0;
   const zaznamUzavreni = zavreneMesice.find((m) => m.month === currentMonth);
   const smiOdemykat = profile?.role === 'admin';
 
@@ -2185,10 +2230,10 @@ function exportInventoryExcel() {
             <div className="card p-3.5 bg-white border border-neutral-200 rounded space-y-1">
               <span className="text-udaj font-black uppercase text-neutral-500"><PackageIcon className="ikona-text" /> ZBYDE SKLADEM (Oček.)</span>
               <div className="font-display font-black text-xl">
-                {totals.expected < 0 ? (
-                  <span className="px-2 py-0.5 rounded bg-rose-600 text-white">{totals.expected} ks</span>
+                {totals.expected + posunCelkem < 0 ? (
+                  <span className="px-2 py-0.5 rounded bg-rose-600 text-white">{totals.expected + posunCelkem} ks</span>
                 ) : (
-                  <span className="text-emerald-700">{totals.expected} ks</span>
+                  <span className="text-emerald-700">{totals.expected + posunCelkem} ks</span>
                 )}
               </div>
               <span className="text-udaj text-neutral-500">Teoretický zůstatek</span>
@@ -2348,6 +2393,7 @@ function exportInventoryExcel() {
                     actualStock={actualStock}
                     setActualStock={setActualStock}
                     beers={beers}
+                    posunK={posunK}
                   />
                 </div>
               )}
@@ -2356,6 +2402,25 @@ function exportInventoryExcel() {
                   Fieldset uzavřeného měsíce vypne inputy i tlačítka uvnitř
                   jedním atributem, ať se při přidávání nové akce nezapomene
                   zamknout i ta nová (viz mesicUzavren výš). */}
+              {!mesicUzavren && lzePocitatKDnesku(currentMonth, businessDateISO()) && (
+                <div className="rounded border-2 border-sky-300 bg-sky-50 p-3 text-sm text-sky-950 space-y-1.5">
+                  <p className="font-black">
+                    {kDnesku
+                      ? `Počítáš k dnešku (${dnesText}): Očekáváno i Inventura zahrnují i to, co od ${konecMesiceText} odjelo a přibylo.`
+                      : `Očekáváno je ke konci měsíce (${konecMesiceText}). Pokud počítáš až dnes, zaškrtni — pak se započte i to, co mezitím odjelo (závozy) a přibylo (stáčení).`}
+                  </p>
+                  {kDnesku && (
+                    <p className="text-xs font-semibold">
+                      Napočítej, co v chlaďáku je teď. Uloží se to jako stav k {konecMesiceText} (odjeté se přičte, dnes stočené odečte), ať se v říjnu nic neodečte dvakrát.
+                      {pocetPosunutych > 0 ? ` Týká se ${pocetPosunutych} položek — u každé je to rozepsané pod Očekáváno.` : ' Zatím se od konce měsíce nic nehýbalo.'}
+                    </p>
+                  )}
+                  <label className="flex items-center gap-2 text-xs font-bold min-h-[44px]">
+                    <input type="checkbox" className="w-5 h-5" checked={kDneskuZapnuto} onChange={(e) => prepniKDnesku(e.target.checked)} />
+                    Čísla v Inventuře jsem napočítal dnes ({dnesText}), ne {konecMesiceText} večer
+                  </label>
+                </div>
+              )}
               {zpusobPocitani === 'seznam' && (
               <fieldset disabled={mesicUzavren} className="grid grid-cols-1 gap-2.5 md:hidden border-0 p-0 m-0 min-w-0">
                 {zobrazeneRadky.map((r, i) => {
@@ -2380,9 +2445,10 @@ function exportInventoryExcel() {
                             title="Ukázat všechny pohyby za měsíc — odkud očekávaný stav je"
                             className={`shrink-0 min-h-[44px] px-2 py-1 rounded text-xs font-black underline decoration-dotted ${r.expectedQty < 0 ? 'bg-rose-600 text-white' : 'bg-emerald-300/80 text-emerald-950'}`}
                           >
-                            Oček. {r.expectedQty} ks ›
+                            Oček. {r.expectedQty + posunK(k)} ks ›
                           </button>
                         </div>
+                        <PoznamkaKDnesku posun={posunK(k) ? posunMap.get(k) : undefined} kKonci={r.expectedQty} datum={konecMesiceText} />
 
                         <div className="grid grid-cols-2 gap-2">
                           <label className="block">
@@ -2403,9 +2469,9 @@ function exportInventoryExcel() {
                                    šedá = ve skladu něco je a nespočítalo se, zelená = sedí,
                                    červená = nesedí. */
                                 className={`input !py-2 text-center font-mono font-black text-base w-full min-w-0 rounded shadow-inner focus:ring-2 focus:ring-amber-500 ${tridyPolicka(stavPolicka(actualStock[k], r.expectedQty))}`}
-                                value={actualStock[k] !== undefined ? actualStock[k] : ''}
+                                value={naDnes(actualStock[k], posunK(k))}
                                 onFocus={(e) => e.currentTarget.select()}
-                                onChange={(e) => setActualStock((prev) => ({ ...prev, [k]: e.target.value }))}
+                                onChange={(e) => setActualStock((prev) => ({ ...prev, [k]: zDnes(e.target.value, posunK(k)) }))}
                               />
                               <button
                                 type="button"
@@ -2569,8 +2635,9 @@ function exportInventoryExcel() {
                                 ? 'bg-rose-600 text-white border-rose-700 shadow-sm'
                                 : 'bg-emerald-300/80 text-emerald-950 border-emerald-500/60'
                             }`}>
-                              {r.expectedQty} ks
+                              {r.expectedQty + posunK(k)} ks
                             </span>
+                            <PoznamkaKDnesku posun={posunK(k) ? posunMap.get(k) : undefined} kKonci={r.expectedQty} datum={konecMesiceText} />
                           </td>
                           <td className="text-right bg-amber-50/90 border-x border-amber-300 px-2 py-2">
                             {/* Počítá se po kusech i tady — u dlouhého seznamu je klepnutí
@@ -2581,9 +2648,9 @@ function exportInventoryExcel() {
                                 type="number" inputMode="numeric" onWheel={(e) => e.currentTarget.blur()}
                                 min="0"
                                 className={`input !py-1 text-center font-mono font-black text-xs w-16 rounded shadow-inner focus:ring-2 focus:ring-amber-500 ${tridyPolicka(stavPolicka(actualStock[k], r.expectedQty))}`}
-                                value={actualStock[k] !== undefined ? actualStock[k] : ''}
+                                value={naDnes(actualStock[k], posunK(k))}
                                 onFocus={(e) => e.currentTarget.select()}
-                                onChange={(e) => setActualStock((prev) => ({ ...prev, [k]: e.target.value }))}
+                                onChange={(e) => setActualStock((prev) => ({ ...prev, [k]: zDnes(e.target.value, posunK(k)) }))}
                               />
                               <button type="button" onClick={() => posunInventuru(k, 1)} title="O jeden kus víc" aria-label="O jeden kus víc" className="shrink-0 w-9 h-9 grid place-items-center rounded-lg bg-emerald-200/80 hover:bg-emerald-300 text-emerald-950 font-black transition active:scale-95 tap">+</button>
                             </div>
@@ -2687,10 +2754,10 @@ function exportInventoryExcel() {
                       <td className="text-right px-2 py-2.5 text-rose-900">-{totals.odpis}</td>
                       <td className="text-right px-2 py-2.5 text-amber-950">-{totals.vydej}</td>
                       <td className={`text-right px-3 py-2.5 font-mono text-sm border-x ${
-                        totals.expected < 0
+                        totals.expected + posunCelkem < 0
                           ? 'bg-rose-950/90 text-rose-300 border-rose-700 font-black'
                           : 'bg-emerald-950/80 text-emerald-300 border-emerald-700 font-black'
-                      }`}>{totals.expected} ks</td>
+                      }`}>{totals.expected + posunCelkem} ks</td>
                       <td className="text-right px-3 py-2.5 text-amber-300 font-mono text-sm bg-amber-950/80 border-x border-amber-700">{totals.actual} ks</td>
                       {dorovnaneRadky > 0 && (
                       <td className={`text-right px-3 py-2.5 font-mono text-sm bg-sky-950/80 border-x border-sky-700 ${totals.dorovnat === 0 ? 'text-sky-300' : totals.dorovnat < 0 ? 'text-rose-300' : 'text-sky-200'}`}>
