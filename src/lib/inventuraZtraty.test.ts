@@ -19,7 +19,7 @@ describe('inventura: ztráty nejsou vrácení', () => {
   });
 
   it('sdílené načtení vrací i důvod (bez něj by filtr nefungoval)', () => {
-    expect(readFileSync('src/lib/sdilenaData.ts', 'utf8')).toMatch(/inventory_adjustments: '[^']*\breason\b/);
+    expect(readFileSync('src/lib/sdilenaDataSloupce.ts', 'utf8')).toMatch(/inventory_adjustments: '[^']*\breason\b/);
   });
 });
 
@@ -43,5 +43,47 @@ describe('měsíční očekávaný stav: vrácení ano, ztráty zvlášť', () =
   it('vrácené sudy a týdenní dorovnání jsou v očekávaném stavu, ztráta ne', () => {
     expect(expectedForMonth(pohyby, '2026-09').get('b__k20')?.qty).toBe(0 - 2 + 2 + 1);
     expect(expectedForMonth(pohyby, '2026-09', true).get('b__k20')?.qty).toBe(0 - 2 + 2 + 1 - 1);
+  });
+});
+
+// Stará save_physical_inventory (telefon / APK se starou verzí appky) smaže
+// všechna dorovnání měsíce a zapíše je zpátky jako ztráty bez objednávky
+// a bez důvodu. Migrace 20261231220000 ji proto zavírá.
+describe('stará funkce uložení inventury nesmí přepsat vrácení', () => {
+  const zavreni = readFileSync('supabase/migrations/20261231220000_stara_inventura_nepise.sql', 'utf8');
+  const telo = zavreni.slice(zavreni.indexOf('CREATE OR REPLACE FUNCTION public.save_physical_inventory('));
+
+  it('migrace starou funkci jen odmítne — nic nemaže ani nezapisuje', () => {
+    expect(telo).toMatch(/RAISE EXCEPTION/);
+    expect(telo).not.toMatch(/\b(DELETE|INSERT|UPDATE)\b/);
+  });
+
+  it('přepsané vrácení a týdenní dorovnání vypadnou z očekávaného stavu — proto se stará funkce zavírá', () => {
+    const zaklad = [
+      { entry_date: '2026-09-01', beer_id: 'b', package_id: 'k20', quantity: 0, note: 'Počáteční stav' },
+      { entry_date: '2026-09-01', beer_id: 'b', package_id: 'k50', quantity: 4, note: 'Počáteční stav' },
+    ];
+    const odpocet = [{ deduct_date: '2026-09-22', beer_id: 'b', package_id: 'k20', quantity: 2, order_id: 'maneo' }];
+    const puvodni = buildMovements({
+      inventoryRows: zaklad,
+      zavozDeductionRows: odpocet,
+      adjustmentRows: [
+        { entry_date: '2026-09-29', beer_id: 'b', package_id: 'k20', quantity: 2, order_id: 'maneo', reason: 'Zrušená objednávka, vráceno na sklad — 2× KEG 20l' },
+        { entry_date: '2026-09-27', beer_id: 'b', package_id: 'k50', quantity: 2, reason: 'Dorovnání z inventury týden 39 — KEG 50l' },
+      ],
+    });
+    // Totéž po uložení starou funkcí: k poslednímu dni, bez objednávky a důvodu.
+    const prepsane = buildMovements({
+      inventoryRows: zaklad,
+      zavozDeductionRows: odpocet,
+      adjustmentRows: [
+        { entry_date: '2026-09-30', beer_id: 'b', package_id: 'k20', quantity: 2 },
+        { entry_date: '2026-09-30', beer_id: 'b', package_id: 'k50', quantity: 2 },
+      ],
+    });
+    expect(expectedForMonth(puvodni, '2026-09').get('b__k20')?.qty).toBe(0);
+    expect(expectedForMonth(puvodni, '2026-09').get('b__k50')?.qty).toBe(6);
+    expect(expectedForMonth(prepsane, '2026-09').get('b__k20')?.qty).toBe(-2);
+    expect(expectedForMonth(prepsane, '2026-09').get('b__k50')?.qty).toBe(4);
   });
 });
