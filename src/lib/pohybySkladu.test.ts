@@ -94,3 +94,13 @@ describe('stav po každém pohybu', () => {
     expect(den.vecer[0].mnozstvi).toBe(14);
   });
 });
+
+describe('popis vrácení', () => {
+  it('vrácení z objednávky není dorovnání inventury', async () => {
+    const { popisPohybu } = await import('./pohybySkladu');
+    expect(popisPohybu({ kind: 'dorovnani', note: 'Zrušená objednávka, vráceno na sklad — 1× KEG 15l (Mutěnice)', orderId: 'o' })).toBe('Vráceno na sklad — zrušená objednávka');
+    expect(popisPohybu({ kind: 'dorovnani', note: 'Vráceno z objednávky — 2× KEG 30l', orderId: 'o' })).toBe('Vráceno z objednávky');
+    expect(popisPohybu({ kind: 'dorovnani', note: 'Dorovnání z inventury týden 39 — KEG 30l', orderId: null })).toBe('Dorovnání inventury');
+    expect(popisPohybu({ kind: 'dorovnani', note: null, orderId: null, ztrata: true })).toBe('Ztráta (měsíční inventura)');
+  });
+});
