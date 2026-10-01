@@ -69,7 +69,17 @@ export type PohybyObdobi = {
   rano: StavKlice[];
   dny: DenPohybu[];
   /** Po pivu a obalu: ráno, přibylo, ubylo, večer posledního dne. */
-  souhrn: { beer_id: string; package_id: string; rano: number; prijem: number; vydej: number; inventura: boolean; konec: number }[];
+  souhrn: {
+    beer_id: string; package_id: string; rano: number; prijem: number; vydej: number; inventura: boolean; konec: number;
+    /**
+     * O kolik stav srovnala inventura v období: konec − (ráno + přibylo − ubylo).
+     * Bez ní souhrn „začátek 2, +2, −2, teď 4" nedával smysl (1. 10. 2026).
+     */
+    srovnani: number;
+    /** Poslední inventura v období — datum a napočítaný stav. */
+    inventuraDatum: string | null;
+    inventuraStav: number | null;
+  }[];
 };
 
 // Pořadí v rámci dne: nejdřív inventura (výchozí bod), pak co přibylo,
@@ -189,12 +199,20 @@ export function sestavPohybyObdobi(
     let prijem = 0;
     let vydej = 0;
     let inventura = false;
+    let inventuraDatum: string | null = null;
+    let inventuraStav: number | null = null;
     vObdobi.forEach((m) => {
       if (m.beer_id !== beer_id || m.package_id !== package_id) return;
-      if (m.kind === 'inventura') { inventura = true; return; }
+      if (m.kind === 'inventura') {
+        inventura = true;
+        if (!inventuraDatum || m.date >= inventuraDatum) { inventuraDatum = m.date; inventuraStav = m.qty; }
+        return;
+      }
       if (m.qty > 0) prijem += m.qty; else vydej -= m.qty;
     });
-    return { beer_id, package_id, rano: ranoMapa.get(k)?.qty ?? 0, prijem, vydej, inventura, konec: konecMapa.get(k)?.qty ?? 0 };
+    const rano = ranoMapa.get(k)?.qty ?? 0;
+    const konec = konecMapa.get(k)?.qty ?? 0;
+    return { beer_id, package_id, rano, prijem, vydej, inventura, konec, srovnani: konec - (rano + prijem - vydej), inventuraDatum, inventuraStav };
   });
 
   return { rano: stavy(ranoMapa), dny, souhrn };

@@ -190,6 +190,17 @@ export default function PohybySkladu() {
                     <div className={`text-xl font-black tabular-nums ${s1.konec < 0 ? 'text-rose-300' : 'text-white'}`}>{s1.konec}</div>
                   </div>
                 </div>
+                {/* Cesta k číslu „Teď" musí jít sečíst — inventura v období
+                    stav přepíše, tak ji ukázat (1. 10. 2026: „ukazuje to
+                    správně 4, ale ta cesta k cíli je divná"). */}
+                {s1.srovnani !== 0 && (
+                  <div className="rounded border border-sky-300 bg-sky-50 px-2 py-1.5 text-xs font-bold text-sky-950">
+                    {s1.inventura
+                      ? <>Inventura{s1.inventuraDatum ? ` ${denPopis(s1.inventuraDatum).slice(3)}` : ''}{s1.inventuraStav != null ? ` napočítala ${s1.inventuraStav}` : ''} — srovnala stav o <b className="tabular-nums">{s1.srovnani > 0 ? '+' : ''}{s1.srovnani}</b>.</>
+                      : <>Pohyby se stavem nesouhlasí o <b className="tabular-nums">{s1.srovnani > 0 ? '+' : ''}{s1.srovnani}</b> — pošli screenshot, prověřím.</>}
+                    {' '}{s1.rano} {s1.prijem ? `+ ${s1.prijem}` : ''} {s1.vydej ? `− ${s1.vydej}` : ''} {s1.srovnani > 0 ? '+' : '−'} {Math.abs(s1.srovnani)} = {s1.konec}
+                  </div>
+                )}
               </div>
             );
           })() : (
@@ -209,7 +220,7 @@ export default function PohybySkladu() {
                   <tr key={`${s.beer_id}-${s.package_id}`} className="border-t border-neutral-200">
                     <td className="px-2 py-1.5 font-black text-neutral-900">
                       {nazevKlice(s.beer_id, s.package_id)}
-                      {s.inventura && <span className="ml-1 text-udaj font-bold text-sky-800">(inventura v týdnu)</span>}
+                      {s.inventura && <span className="ml-1 text-udaj font-bold text-sky-800">(inventura{s.srovnani ? ` srovnala ${s.srovnani > 0 ? '+' : ''}${s.srovnani}` : ''})</span>}
                     </td>
                     <td className="px-2 py-1.5 text-right tabular-nums">{s.rano}</td>
                     <td className="px-2 py-1.5 text-right tabular-nums font-bold text-emerald-800">+{s.prijem}</td>

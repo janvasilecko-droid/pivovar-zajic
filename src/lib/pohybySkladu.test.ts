@@ -104,3 +104,16 @@ describe('popis vrácení', () => {
     expect(popisPohybu({ kind: 'dorovnani', note: null, orderId: null, ztrata: true })).toBe('Ztráta (měsíční inventura)');
   });
 });
+
+describe('souhrn s inventurou v období', () => {
+  it('začátek + přibylo − ubylo ± srovnání inventurou = teď', () => {
+    const pohyby: Movement[] = [
+      { date: '2026-09-01', beer_id: 'b', package_id: 'k', qty: 2, kind: 'inventura', note: 'Počáteční stav' },
+      { date: '2026-09-29', beer_id: 'b', package_id: 'k', qty: 2, kind: 'kegovani' },
+      { date: '2026-09-29', beer_id: 'b', package_id: 'k', qty: -2, kind: 'zavoz', orderId: 'o' },
+      { date: '2026-09-30', beer_id: 'b', package_id: 'k', qty: 4, kind: 'inventura', note: 'Fyzická inventura' },
+    ];
+    const s = sestavPohybyObdobi(pohyby, { od: '2026-09-28', doDne: '2026-10-04' }).souhrn[0];
+    expect(s).toMatchObject({ rano: 2, prijem: 2, vydej: 2, konec: 4, srovnani: 2, inventuraDatum: '2026-09-30', inventuraStav: 4 });
+  });
+});
