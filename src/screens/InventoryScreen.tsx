@@ -18,7 +18,7 @@ import { stavPolicka, tridyPolicka } from '../lib/polickoInventury';
 import { odectiZTanku as odectiZTankuDB, vratDoTanku } from '../lib/tankZapis';
 
 import { businessDateISO, posunMesic } from '../lib/businessDate';
-import { buildMovements, expectedForMonth, stockAtStartOfDay, stockForMonth, type StockLine } from '../lib/stockLedger';
+import { buildMovements, expectedForMonth, konecMesice, stockAsOf, stockAtStartOfDay, stockForMonth, type StockLine } from '../lib/stockLedger';
 import { AUDIT_NADPISY, AUDIT_SLOUPCE, bunkaAuditu, maCoUkazat, porovnejPolozku, type AuditSloupec } from '../lib/auditSkladu';
 import { chyba, oznam, potvrd, toastZpet, uspech } from '../lib/toast';
 import { chybiFunkce } from '../lib/zruseniObjednavky';
@@ -53,7 +53,8 @@ type InventoryRow = {
   odpisQty: number;   // Odpis (zápis v odpisech)
   vydejQty: number;   // Vytočeno (Fasování + Prodejna + Objednávky + Stáčení lahví + Akce - BEZ odpisů)
 
-  expectedQty: number; // Vypočtená teoretická zásoba
+  expectedQty: number; // SKLAD — stav ve Skladu ke konci měsíce (bez napočítané inventury toho měsíce); s ním se inventura porovnává
+  evidenceQty: number;  // Očekáváno podle evidence měsíce (počáteční + stočeno − odpis − výdej)
   actualQty: number;   // Zadaná skutečná fyzická inventura
   diffQty: number;     // Odchylka (Skutečnost - Očekávání)
   diffCzk: number;     // Finanční odchylka v Kč
@@ -220,7 +221,8 @@ function PoporadeVstupMesic({
         </div>
 
         <p className="text-xs font-bold opacity-70">
-          Očekáváno: <span className={r.expectedQty + posunK(klic!) < 0 ? 'text-rose-300' : ''}>{r.expectedQty + posunK(klic!)} ks</span>
+          Sklad: <span className={r.expectedQty + posunK(klic!) < 0 ? 'text-rose-300' : ''}>{r.expectedQty + posunK(klic!)} ks</span>
+          {r.evidenceQty !== r.expectedQty && <span className="opacity-80"> · oček. podle evidence {r.evidenceQty} ks</span>}
         </p>
 
         <input
@@ -350,6 +352,11 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
   // Stejné okno jako u Inventury, aby se sloupce daly porovnat kus na kus;
   // rozdíl smí být jen v tom počátku (viz lib/auditSkladu.ts).
   const [skladLedger, setSkladLedger] = useState<Map<string, StockLine>>(new Map());
+  // 📦 Stav ve Skladu ke konci měsíce — hlavní číslo inventury (1. 10. 2026:
+  // „udělej tam údaj Sklad místo Očekáváno jako hlavní, ať se inventura
+  // porovnává se skladem"). Bez napočítané/schválené inventury toho měsíce,
+  // jinak by rozdíl po uložení vyšel vždycky nula.
+  const [skladKonec, setSkladKonec] = useState<Map<string, StockLine>>(new Map());
   // Inventurní strana auditu se od expectedLedger liší jedinou věcí: má
   // započítané dorovnání. Obrazovka ho přičítá sama ve sloupci „Po dorovnání",
   // takže ho v expectedLedger mít nesmí — v auditu by ale jeho chybění
@@ -452,6 +459,10 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     setVyrovnaniMap(vyrovnaniZaMesic(pohyby, currentMonth));
     // 🔍 Tatáž kniha očima Skladu — měsíční rozpad, ne od začátku evidence.
     setSkladLedger(stockForMonth(pohyby, currentMonth));
+    setSkladKonec(stockAsOf(
+      pohyby.filter((m) => !(m.kind === 'inventura' && m.date.slice(0, 7) === currentMonth && /Fyzick|Schválen|Schvalen/.test(m.note ?? ''))),
+      konecMesice(currentMonth),
+    ));
 
     // Přepnutí měsíce a přenačtení po zápisu se chovají JINAK: při přepnutí
     // se musí načíst všechno znovu, po zápisu se nesmí přepsat rozepsaná
@@ -1010,7 +1021,9 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
 
         // Může být ZÁPORNÝ — pak evidence nesedí a inventura je právě ta
         // příležitost to srovnat.
-        const expectedQty = line?.qty ?? (initialQty + stacenoQty - odpisQty - vydejQty);
+        const evidenceQty = line?.qty ?? (initialQty + stacenoQty - odpisQty - vydejQty);
+        // Hlavní srovnání je se SKLADEM (zahrnuje i týdenní inventury a opravy).
+        const expectedQty = skladKonec.get(k)?.qty ?? evidenceQty;
 
         // Pokud je zadaný fyzický stav v políčku, použijeme ho, jinak dědí hodnotu z počáteční zásoby
         const actualInputStr = actualStock[k];
@@ -1046,6 +1059,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
           odpisQty,
           vydejQty,
           expectedQty,
+          evidenceQty,
           actualQty,
           diffQty,
           diffCzk,
@@ -1058,7 +1072,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     });
 
     return list;
-  }, [monthBeers, packages, initialStock, actualStock, dorovnatMap, stacenoMap, odpisyMap, vydejMap, expectedLedger]);
+  }, [monthBeers, packages, initialStock, actualStock, dorovnatMap, stacenoMap, odpisyMap, vydejMap, expectedLedger, skladKonec]);
 
   // Totals
   const totals = useMemo(() => {
@@ -1069,6 +1083,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
         acc.odpis += r.odpisQty;
         acc.vydej += r.vydejQty;
         acc.expected += r.expectedQty;
+        acc.evidence += r.evidenceQty;
         acc.actual += r.actualQty;
         acc.diffQty += r.diffQty;
         acc.diffCzk += r.diffCzk;
@@ -1078,7 +1093,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
         acc.vyrovnano += vyrovnaniMap.get(`${r.beer_id}__${r.package_id}`) ?? 0;
         return acc;
       },
-      { initial: 0, staceno: 0, odpis: 0, vydej: 0, expected: 0, actual: 0, diffQty: 0, diffCzk: 0, dorovnat: 0, diffAfterQty: 0, diffAfterCzk: 0, vyrovnano: 0 }
+      { initial: 0, staceno: 0, odpis: 0, vydej: 0, expected: 0, evidence: 0, actual: 0, diffQty: 0, diffCzk: 0, dorovnat: 0, diffAfterQty: 0, diffAfterCzk: 0, vyrovnano: 0 }
     );
   }, [rows, vyrovnaniMap]);
 
@@ -2406,8 +2421,8 @@ function exportInventoryExcel() {
                 <div className="rounded border-2 border-sky-300 bg-sky-50 p-3 text-sm text-sky-950 space-y-1.5">
                   <p className="font-black">
                     {kDnesku
-                      ? `Počítáš k dnešku (${dnesText}): Očekáváno i Inventura zahrnují i to, co od ${konecMesiceText} odjelo a přibylo.`
-                      : `Očekáváno je ke konci měsíce (${konecMesiceText}). Pokud počítáš až dnes, zaškrtni — pak se započte i to, co mezitím odjelo (závozy) a přibylo (stáčení).`}
+                      ? `Počítáš k dnešku (${dnesText}): Sklad i Inventura zahrnují i to, co od ${konecMesiceText} odjelo a přibylo.`
+                      : `Inventura se porovnává se Skladem ke konci měsíce (${konecMesiceText}). Pokud počítáš až dnes, zaškrtni — pak se započte i to, co mezitím odjelo (závozy) a přibylo (stáčení).`}
                   </p>
                   {kDnesku && (
                     <p className="text-xs font-semibold">
@@ -2445,10 +2460,15 @@ function exportInventoryExcel() {
                             title="Ukázat všechny pohyby za měsíc — odkud očekávaný stav je"
                             className={`shrink-0 min-h-[44px] px-2 py-1 rounded text-xs font-black underline decoration-dotted ${r.expectedQty < 0 ? 'bg-rose-600 text-white' : 'bg-emerald-300/80 text-emerald-950'}`}
                           >
-                            Oček. {r.expectedQty + posunK(k)} ks ›
+                            Sklad {r.expectedQty + posunK(k)} ks ›
                           </button>
                         </div>
                         <PoznamkaKDnesku posun={posunK(k) ? posunMap.get(k) : undefined} kKonci={r.expectedQty} datum={konecMesiceText} />
+                        {r.evidenceQty !== r.expectedQty && (
+                          <button type="button" onClick={() => otevriPohyby(r.beer_id, r.package_id)} className="block min-h-[44px] text-xs font-bold underline decoration-dotted text-left">
+                            Očekáváno podle evidence {r.evidenceQty} ks (proti skladu {r.evidenceQty - r.expectedQty > 0 ? '+' : ''}{r.evidenceQty - r.expectedQty}) ›
+                          </button>
+                        )}
 
                         <div className="grid grid-cols-2 gap-2">
                           <label className="block">
@@ -2592,8 +2612,9 @@ function exportInventoryExcel() {
                       <th scope="col" className="py-2.5 px-2 text-right text-amber-700">Stočeno (+)</th>
                       <th scope="col" className="py-2.5 px-2 text-right text-rose-700">Odpis (−)</th>
                       <th scope="col" className="py-2.5 px-2 text-right text-amber-800">Výdej (−)</th>
-                      <th scope="col" className="py-2.5 px-3 text-right bg-emerald-700 !text-white font-black rounded-t-lg">ZBYDE (Oček.)</th>
+                      <th scope="col" className="py-2.5 px-3 text-right bg-emerald-700 !text-white font-black rounded-t-lg">SKLAD</th>
                       <th scope="col" className="py-2.5 px-3 text-right bg-amber-500 text-neutral-950 font-black rounded-t-lg">INVENTURA</th>
+                      <th scope="col" className="py-2.5 px-2 text-right font-black" title="Očekáváno podle pohybů měsíce: počáteční + stočeno − odpis − výdej. Když se liší od Skladu, je v evidenci něco navíc nebo chybí (proklik ukáže pohyby).">OČEK. (EVIDENCE)</th>
                       {dorovnaneRadky > 0 && <th scope="col" className="py-2.5 px-3 text-right bg-sky-700 !text-white font-black rounded-t-lg" title="Ztráty a rozbité kusy (±). Poznámka bokem — NEZAKLÁDÁ stáčení, neodečítá sudy a se stavem skladu nehne. Na to je sloupec VYROVNAT.">ZTRÁTY (±)</th>}
                       <th scope="col" className="py-2.5 px-2 text-right font-black" title="Kolik kusů se u téhle položky už srovnalo z inventury tohoto měsíce. Prázdné = nesrovnávalo se.">VYROVNÁNO</th>
                       <th scope="col" className="py-2.5 px-2 text-right font-black">MANKO</th>
@@ -2654,6 +2675,14 @@ function exportInventoryExcel() {
                               />
                               <button type="button" onClick={() => posunInventuru(k, 1)} title="O jeden kus víc" aria-label="O jeden kus víc" className="shrink-0 w-9 h-9 grid place-items-center rounded-lg bg-emerald-200/80 hover:bg-emerald-300 text-emerald-950 font-black transition active:scale-95 tap">+</button>
                             </div>
+                          </td>
+                          <td className={`text-right font-mono font-black text-udaj px-2 py-2 ${textColor}`}>
+                            {r.evidenceQty} ks
+                            {r.evidenceQty !== r.expectedQty && (
+                              <button type="button" className="block ml-auto min-h-[44px] text-udaj font-bold underline decoration-dotted" onClick={() => otevriPohyby(r.beer_id, r.package_id)} title="Ukázat pohyby — odkud je rozdíl">
+                                proti skladu {r.evidenceQty - r.expectedQty > 0 ? '+' : ''}{r.evidenceQty - r.expectedQty} ›
+                              </button>
+                            )}
                           </td>
                           {dorovnaneRadky > 0 && (
                           <td className="text-right bg-sky-50/90 border-x border-sky-300 px-2 py-2">
@@ -2737,7 +2766,7 @@ function exportInventoryExcel() {
                         </tr>
                         {posledniPiva && davky.some((x) => x.beer_id === r.beer_id) && (
                           <tr>
-                            <td colSpan={dorovnaneRadky > 0 ? 14 : 12} className="px-3 py-2 bg-white">
+                            <td colSpan={dorovnaneRadky > 0 ? 15 : 13} className="px-3 py-2 bg-white">
                               {panelDavky(r.beer_id)}
                             </td>
                           </tr>
@@ -2759,6 +2788,7 @@ function exportInventoryExcel() {
                           : 'bg-emerald-950/80 text-emerald-300 border-emerald-700 font-black'
                       }`}>{totals.expected + posunCelkem} ks</td>
                       <td className="text-right px-3 py-2.5 text-amber-300 font-mono text-sm bg-amber-950/80 border-x border-amber-700">{totals.actual} ks</td>
+                      <td className="text-right px-2 py-2.5 font-mono text-sm text-neutral-950">{totals.evidence} ks</td>
                       {dorovnaneRadky > 0 && (
                       <td className={`text-right px-3 py-2.5 font-mono text-sm bg-sky-950/80 border-x border-sky-700 ${totals.dorovnat === 0 ? 'text-sky-300' : totals.dorovnat < 0 ? 'text-rose-300' : 'text-sky-200'}`}>
                         {totals.dorovnat > 0 ? `+${totals.dorovnat}` : totals.dorovnat} ks
