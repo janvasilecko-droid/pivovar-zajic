@@ -459,10 +459,17 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     setVyrovnaniMap(vyrovnaniZaMesic(pohyby, currentMonth));
     // 🔍 Tatáž kniha očima Skladu — měsíční rozpad, ne od začátku evidence.
     setSkladLedger(stockForMonth(pohyby, currentMonth));
-    setSkladKonec(stockAsOf(
-      pohyby.filter((m) => !(m.kind === 'inventura' && m.date.slice(0, 7) === currentMonth && /Fyzick|Schválen|Schvalen/.test(m.note ?? ''))),
-      konecMesice(currentMonth),
-    ));
+    // Stav skladu k večeru posledního dne měsíce (v běžícím měsíci k dnešku)
+    // — totéž číslo, které ukáže Sklad hned po konci měsíce: se všemi
+    // inventurami (i týdenními) a opravami (1. 10. 2026: „ve sloupci Sklad
+    // musí být stejná data jako ve Skladu"). Napočítaná inventura toho
+    // měsíce v něm po uložení je taky — pak Sklad = Inventura a rozdíl proti
+    // evidenci ukazuje sloupec OČEK. (EVIDENCE).
+    {
+      const konec = konecMesice(currentMonth);
+      const dnes = businessDateISO();
+      setSkladKonec(stockAsOf(pohyby, konec > dnes ? dnes : konec));
+    }
 
     // Přepnutí měsíce a přenačtení po zápisu se chovají JINAK: při přepnutí
     // se musí načíst všechno znovu, po zápisu se nesmí přepsat rozepsaná
@@ -1023,7 +1030,8 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
         // příležitost to srovnat.
         const evidenceQty = line?.qty ?? (initialQty + stacenoQty - odpisQty - vydejQty);
         // Hlavní srovnání je se SKLADEM (zahrnuje i týdenní inventury a opravy).
-        const expectedQty = skladKonec.get(k)?.qty ?? evidenceQty;
+        // Sklad ukazuje záporný stav jako 0 — tady stejně.
+        const expectedQty = Math.max(0, skladKonec.get(k)?.qty ?? 0);
 
         // Pokud je zadaný fyzický stav v políčku, použijeme ho, jinak dědí hodnotu z počáteční zásoby
         const actualInputStr = actualStock[k];
