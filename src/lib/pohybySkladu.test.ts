@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildMovements } from './stockLedger';
+import { buildMovements, type Movement } from './stockLedger';
 import { sestavPohybyObdobi } from './pohybySkladu';
 
 // Týden 21.–27. 9. 2026, 12° Světlá (b12) v sudech 30 l a 50 l.
@@ -74,5 +74,23 @@ describe('sestavPohybyObdobi', () => {
   it('bez filtru piva jsou vidět všechna piva, co se hýbala', () => {
     const r = sestavPohybyObdobi(pohyby, { od: PO, doDne: NE }, odberatel);
     expect(new Set(r.souhrn.map((s) => s.beer_id))).toEqual(new Set(['b12', 'b10']));
+  });
+});
+
+// 1. 10. 2026: „ať jde po každém odečtení vidět aktuální stav — objednávka
+// Maneo −2× 30, na skladě 6, stočeno 18, na skladě 24…"
+describe('stav po každém pohybu', () => {
+  it('jde krok po kroku od večera předchozího dne a sedí se stavem večer', () => {
+    const pohyby: Movement[] = [
+      { date: '2026-09-01', beer_id: 'b', package_id: 'k30', qty: 8, kind: 'inventura', note: 'Počáteční stav' },
+      { date: '2026-09-02', beer_id: 'b', package_id: 'k30', qty: -2, kind: 'zavoz', orderId: 'maneo' },
+      { date: '2026-09-02', beer_id: 'b', package_id: 'k30', qty: 18, kind: 'kegovani' },
+      { date: '2026-09-02', beer_id: 'b', package_id: 'k30', qty: -10, kind: 'zavoz', orderId: 'jiny' },
+    ];
+    const v = sestavPohybyObdobi(pohyby, { od: '2026-09-02', doDne: '2026-09-02' });
+    const den = v.dny[0];
+    // Pořadí dne: nejdřív co přibylo (stáčení), pak co ubylo.
+    expect(den.radky.map((r) => [r.mnozstvi, r.stavPo])).toEqual([[18, 26], [-2, 24], [-10, 14]]);
+    expect(den.vecer[0].mnozstvi).toBe(14);
   });
 });

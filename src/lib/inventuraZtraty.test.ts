@@ -22,3 +22,26 @@ describe('inventura: ztráty nejsou vrácení', () => {
     expect(readFileSync('src/lib/sdilenaData.ts', 'utf8')).toMatch(/inventory_adjustments: '[^']*\breason\b/);
   });
 });
+
+import { buildMovements, expectedForMonth } from './stockLedger';
+
+describe('měsíční očekávaný stav: vrácení ano, ztráty zvlášť', () => {
+  const zaklad = { entry_date: '2026-09-01', beer_id: 'b', package_id: 'k20', quantity: 0, note: 'Počáteční stav' };
+  const pohyby = buildMovements({
+    inventoryRows: [zaklad],
+    zavozDeductionRows: [{ deduct_date: '2026-09-22', beer_id: 'b', package_id: 'k20', quantity: 2, order_id: 'maneo' }],
+    adjustmentRows: [
+      // zrušení Manea s vrácením — patří do očekávaného stavu
+      { entry_date: '2026-09-29', beer_id: 'b', package_id: 'k20', quantity: 2, order_id: 'maneo', reason: 'Zrušená objednávka, vráceno na sklad — 2× KEG 20l' },
+      // dorovnání týdenní inventury — taky
+      { entry_date: '2026-09-27', beer_id: 'b', package_id: 'k20', quantity: 1, reason: 'Dorovnání z inventury týden 39 — KEG 20l' },
+      // ztráta z měsíční inventury — ne (přičítá ji obrazovka zvlášť)
+      { entry_date: '2026-09-30', beer_id: 'b', package_id: 'k20', quantity: -1 },
+    ],
+  });
+
+  it('vrácené sudy a týdenní dorovnání jsou v očekávaném stavu, ztráta ne', () => {
+    expect(expectedForMonth(pohyby, '2026-09').get('b__k20')?.qty).toBe(0 - 2 + 2 + 1);
+    expect(expectedForMonth(pohyby, '2026-09', true).get('b__k20')?.qty).toBe(0 - 2 + 2 + 1 - 1);
+  });
+});

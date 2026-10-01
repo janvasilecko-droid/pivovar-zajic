@@ -65,6 +65,14 @@ export type Movement = {
   note?: string | null;
   /** U 'zavoz' id objednávky, na kterou se vydalo — pro proklik na detail. */
   orderId?: string | null;
+  /**
+   * U 'dorovnani': ZTRÁTA zapsaná měsíční inventurou (bez objednávky a bez
+   * důvodu). Jen ty měsíční inventura přičítá zvlášť ve sloupci Ztráty —
+   * vrácení z objednávek a dorovnání týdenní inventury patří do
+   * očekávaného stavu (1. 10. 2026: „v datech inventury nejsou přičtené
+   * sudy ze zrušené objednávky Maneo a Mutěnice").
+   */
+  ztrata?: boolean;
 };
 
 /**
@@ -86,6 +94,9 @@ export type RadekPohybu = {
   package_id?: string | null;
   quantity?: number | string | null;
   note?: string | null;
+  /** inventory_adjustments: důvod a objednávka (vrácení) — viz Movement.ztrata. */
+  reason?: string | null;
+  order_id?: string | null;
   /** Rozlišuje dva zápisy se stejným datem, pivem a počtem (viz `seen` níž). */
   created_at?: string | null;
   /** Stáčení lahví: kolik sudů se na ně spotřebovalo a jakých. */
@@ -237,7 +248,14 @@ export function buildMovements(src: StockSources): Movement[] {
   (src.prodejnaRows ?? []).forEach((r) => push(r.entry_date, r.beer_id, r.package_id, -Number(r.quantity || 0), 'prodejna'));
   (src.writeoffsRows ?? []).forEach((r) => push(r.entry_date, r.beer_id, r.package_id, -Number(r.quantity || 0), 'odpis'));
   (src.zavozDeductionRows ?? []).forEach((r) => push(r.deduct_date, r.beer_id, r.package_id, -Number(r.quantity || 0), 'zavoz', null, r.order_id));
-  (src.adjustmentRows ?? []).forEach((r) => push(r.entry_date, r.beer_id, r.package_id, Number(r.quantity || 0), 'dorovnani', r.note));
+  (src.adjustmentRows ?? []).forEach((r) => {
+    // Ztrátu pozná DŮVOD (reason) a objednávka — sloupec `note` tabulka
+    // dorovnání nemá, slouží jen k popisu.
+    const duvod = String(r.reason ?? '').trim();
+    const pred = out.length;
+    push(r.entry_date, r.beer_id, r.package_id, Number(r.quantity || 0), 'dorovnani', duvod || r.note || null, r.order_id ?? null);
+    if (out.length > pred && !r.order_id && !duvod) out[out.length - 1].ztrata = true;
+  });
 
   // Akce a festivaly — čistý odběr (odvezeno − vráceno).
   (src.akceRows ?? []).forEach((r) => {
@@ -469,7 +487,9 @@ function rozpadObdobi(
 
   for (const mv of movements) {
     if (mv.kind === 'inventura') continue;
-    if (!sDorovnanim && mv.kind === 'dorovnani') continue;
+    // Bez dorovnání = bez ZTRÁT měsíční inventury (ty přičítá obrazovka sama);
+    // vrácení z objednávek a týdenní dorovnání se počítají vždycky.
+    if (!sDorovnanim && mv.kind === 'dorovnani' && mv.ztrata) continue;
     if (mv.date < od || mv.date > doDne) continue;
     const line = zaloz(mv.beer_id, mv.package_id);
     line.qty += mv.qty;

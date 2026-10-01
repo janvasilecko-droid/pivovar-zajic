@@ -23,7 +23,7 @@ import { nactiJson, ulozJson } from '../lib/uloziste';
 import { nactiSdilenouTabulku } from '../lib/sdilenaData';
 
 const DNY = ['Ne', 'Po', 'Út', 'St', 'Čt', 'Pá', 'So'];
-const LS_ROZDELIT = 'pohyby_skladu_rozdelit_mesice_v1';
+const LS_ROZDELIT = 'pohyby_skladu_rozdelit_mesice_v2';
 import { LS_POHYBY_FILTR as LS_FILTR, LS_POHYBY_REZIM as LS_REZIM, LS_POHYBY_MESIC as LS_MESIC } from '../lib/pohybyPredvyber';
 import { smaz } from '../lib/uloziste';
 
@@ -118,10 +118,13 @@ export default function PohybySkladu() {
   }, [kniha, jmena, od, doDne, beerId, packageId, skupiny]);
 
   // 📆 Týden přes hranici měsíce (28. 9. – 4. 10.) — 1. 10. 2026: „nemůžeš do
-  // rozkladu počítat data z 1. 10., to už je další měsíc, to musí být zvlášť,
-  // nebo tam dej možnost". Výchozí je zvlášť (každý měsíc svůj souhrn).
+  // rozkladu počítat data z 1. 10., to už je další měsíc… dej tam možnost".
+  // Přepínač Celý týden / Zvlášť po měsících.
   const prekrocMesic = od.slice(0, 7) !== doDne.slice(0, 7);
-  const [rozdelit, setRozdelit] = useState(() => nactiJson<boolean>(LS_ROZDELIT, true));
+  // Výchozí je CELÝ týden (Sklad, přehled, týdenní inventura); zvlášť po
+  // měsících jen na přání — pro měsíční inventuru (1. 10. 2026: „ve skladu
+  // a přehledu to má ukazovat celý týden… inventura měsíční ne").
+  const [rozdelit, setRozdelit] = useState(() => nactiJson<boolean>(LS_ROZDELIT, false));
   useEffect(() => { ulozJson(LS_ROZDELIT, rozdelit); }, [rozdelit]);
   const casti = useMemo(() => {
     if (!kniha || !prekrocMesic) return [];
@@ -260,6 +263,16 @@ export default function PohybySkladu() {
                             {r.poznamka && <div className="text-udaj font-semibold italic text-neutral-500">pozn.: {r.poznamka}</div>}
                             {dvojity && <div className="text-udaj font-black text-amber-900 bg-amber-100 border border-amber-400 rounded px-1.5 py-0.5 mt-0.5 inline-block">⚠️ stejný zápis tento den víckrát — zkontroluj, jestli není dvakrát</div>}
                           </td>
+                          {/* Stav po tomhle pohybu (1. 10. 2026: „ať jde po každém
+                              odečtení vidět aktuální stav"). */}
+                          <td className="px-2 py-1.5 w-20 text-right align-top whitespace-nowrap">
+                            {r.druh !== 'inventura' && (
+                              <>
+                                <div className="text-udaj font-bold text-neutral-500">na skladě</div>
+                                <div className={`text-sm font-black tabular-nums ${r.stavPo < 0 ? 'text-rose-700' : 'text-neutral-950'}`}>{r.stavPo}</div>
+                              </>
+                            )}
+                          </td>
                         </tr>
                         );
                       })}
@@ -321,7 +334,7 @@ export default function PohybySkladu() {
         {rezim === 'tyden' && prekrocMesic && (
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="text-udaj font-black text-amber-950">Týden přes dva měsíce:</span>
-            {([[true, 'Zvlášť po měsících'], [false, 'Dohromady']] as const).map(([v, popisek]) => (
+            {([[false, 'Celý týden'], [true, 'Zvlášť po měsících']] as const).map(([v, popisek]) => (
               <button
                 key={popisek}
                 type="button"

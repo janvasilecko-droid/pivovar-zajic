@@ -981,9 +981,11 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
         const initialQty = line?.baselineQty ?? Number(initialStock[k] || 0);
         const stacenoQty = (kinds.kegovani ?? 0) + (kinds.staceni ?? 0) + (kinds.prefuk_do ?? 0);
         const odpisQty = -(kinds.odpis ?? 0);
+        // Vrácení z objednávek a dorovnání týdenní inventury (kinds.dorovnani,
+        // bez ztrát) výdej snižují — ať sloupce dál dávají dohromady Zbyde.
         const vydejQty =
           -((kinds.fasovani ?? 0) + (kinds.prodejna ?? 0) + (kinds.zavoz ?? 0) +
-            (kinds.akce ?? 0) + (kinds.sud_na_lahve ?? 0) + (kinds.prefuk_z ?? 0));
+            (kinds.akce ?? 0) + (kinds.sud_na_lahve ?? 0) + (kinds.prefuk_z ?? 0) + (kinds.dorovnani ?? 0));
 
         // Může být ZÁPORNÝ — pak evidence nesedí a inventura je právě ta
         // příležitost to srovnat.
