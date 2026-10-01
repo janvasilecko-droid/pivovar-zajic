@@ -10,6 +10,7 @@ import { businessDateISO } from '../lib/businessDate';
 const OrderAuditModal = lazy(() => import('../components/OrderAuditModal').then((m) => ({ default: m.OrderAuditModal })));
 const WhatsAppAuditModal = lazy(() => import('../components/WhatsAppAuditModal').then((m) => ({ default: m.WhatsAppAuditModal })));
 const AdminDiagnostika = lazy(() => import('../components/AdminDiagnostika'));
+const MigraceBlok = lazy(() => import('../components/AdminDiagnostika').then((m) => ({ default: m.MigraceBlok })));
 const AuditLogViewer = lazy(() => import('../components/AuditLogViewer').then((m) => ({ default: m.AuditLogViewer })));
 
 /**
@@ -49,6 +50,15 @@ export default function AuditScreen({ setPage }: { setPage?: (p: any, sec?: stri
       <p className="text-sm text-neutral-600 dark:text-neutral-400">
         Všechny kontroly dat na jednom místě. Začni hloubkovým auditem — ukáže, co nesedí, a odkáže na podrobnou kontrolu.
       </p>
+
+      {/* 🗄️ Migrace úplně nahoře — spouštějí se po každém nasazení. */}
+      {isAdmin && (
+        <Suspense fallback={null}>
+          <div className="card p-4 border-2 border-amber-300 bg-white rounded shadow-xs">
+            <MigraceBlok nahore />
+          </div>
+        </Suspense>
+      )}
 
       <Karta ikona={ShieldCheck} nazev="Hloubkový audit" popis="Sklad, objednávky, závozy, odpočty i správnost načtení WhatsApp objednávek za zvolené období.">
         <HloubkovyAuditPanel />

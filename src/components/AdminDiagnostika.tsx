@@ -288,7 +288,7 @@ function ChybyBlok() {
 }
 
 /** 🗄️ Které migrace jsou aplikované a které čekají. */
-function MigraceBlok() {
+export function MigraceBlok({ nahore = false }: { nahore?: boolean } = {}) {
   const [radky, setRadky] = useState<MigraceRadek[]>([]);
   const [navic, setNavic] = useState<string[]>([]);
   const [stav, setStav] = useState<'nacitam' | 'ok' | 'bez-tabulky' | 'bez-seznamu' | 'chyba'>('nacitam');
@@ -379,7 +379,7 @@ function MigraceBlok() {
   }
 
   return (
-    <div className="mt-6 pt-5 border-t border-neutral-200">
+    <div className={nahore ? '' : 'mt-6 pt-5 border-t border-neutral-200'}>
       <div className="flex items-center gap-2">
         <Database className="ikona-text" />
         <span className="text-xs font-black uppercase tracking-wider text-neutral-700">Databázové migrace</span>
@@ -578,13 +578,14 @@ export default function AdminDiagnostika() {
         </span>
       </h2>
       <p className="text-sm text-neutral-600 mt-2">
-        Chyby aplikace, stav databázových migrací a nedokončené odečty z tanků — tři věci,
-        které se dřív nedaly zjistit jinak než tím, že něco nefungovalo.
+        Chyby aplikace a nedokončené odečty z tanků — věci, které se dřív nedaly
+        zjistit jinak než tím, že něco nefungovalo. Databázové migrace jsou nahoře v Auditu.
       </p>
       <NasazeniBlok />
       <ZalohaBlok />
       <ChybyBlok />
-      <MigraceBlok />
+      {/* Migrace jsou nahoře v Auditu (1. 10. 2026: „spuštění migrace dej
+          v tom auditu nahoru, ať při nasazování nemusím scrollovat dolů"). */}
       <TankFrontaBlok />
     </div>
   );

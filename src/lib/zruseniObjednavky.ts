@@ -110,7 +110,7 @@ export async function zrusOdepsaneSVracenim(
     });
     if (error) {
       chyba(chybiFunkce(error)
-        ? 'Zrušení s vrácením potřebuje migraci 20261231200000 — spusť ji v Audit → Diagnostika → Databázové migrace. Nic se nezapsalo.'
+        ? 'Zrušení s vrácením potřebuje migraci 20261231200000 — spusť ji v Audit → Databázové migrace (nahoře). Nic se nezapsalo.'
         : `Zrušení (${o.place_name ?? 'objednávka'}) se nepovedlo: ${error.message}`);
       return zruseno;
     }
