@@ -2454,7 +2454,7 @@ function exportInventoryExcel() {
                   const posledniPiva = zobrazeneRadky[i + 1]?.beer_id !== r.beer_id;
                   return (
                     <Fragment key={k}>
-                    <div data-inv-radek={k} className="plocha-z-dat plocha-z-dat-tlumena rounded border border-neutral-200 overflow-hidden" style={beer ? { backgroundColor: beerBg(beer), ['--ink-plochy' as any]: beerInk(beer) } : undefined}>
+                    <div data-inv-radek={k} className={`plocha-z-dat plocha-z-dat-tlumena rounded border overflow-hidden ${stavPolicka(actualStock[k], r.expectedQty) === 'sedi' ? 'border-emerald-600 border-l-8' : stavPolicka(actualStock[k], r.expectedQty) === 'nesedi' ? 'border-rose-600 border-l-8' : 'border-neutral-200'}`} style={beer ? { backgroundColor: beerBg(beer), ['--ink-plochy' as any]: beerInk(beer) } : undefined}>
                       <div className="p-3 space-y-2">
                         <div className="flex items-center justify-between gap-2">
                           <div className={`font-black text-sm ${beer && beerText(beer) === 'text-white' ? 'text-white' : 'text-neutral-950'}`}>
@@ -2668,7 +2668,7 @@ function exportInventoryExcel() {
                             </span>
                             <PoznamkaKDnesku posun={posunK(k) ? posunMap.get(k) : undefined} kKonci={r.expectedQty} datum={konecMesiceText} />
                           </td>
-                          <td className="text-right bg-amber-50/90 border-x border-amber-300 px-2 py-2">
+                          <td className={`text-right border-x px-2 py-2 ${stavPolicka(actualStock[k], r.expectedQty) === 'sedi' ? 'bg-emerald-200 border-emerald-500' : stavPolicka(actualStock[k], r.expectedQty) === 'nesedi' ? 'bg-rose-200 border-rose-500' : 'bg-amber-50/90 border-amber-300'}`}>
                             {/* Počítá se po kusech i tady — u dlouhého seznamu je klepnutí
                                 rychlejší a spolehlivější než přepisování čísla. */}
                             <div className="flex items-center justify-end gap-1">

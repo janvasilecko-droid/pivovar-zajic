@@ -854,6 +854,11 @@ html.density-xl .table thead th {
   color-scheme: light;
   -webkit-color-scheme: light;
 }
+/* Pole inventury: shoduje se se Skladem = zelené, neshoduje = červené,
+   nespočítané = šedé (lib/polickoInventury.ts). Musí přebít bílé pozadí výš. */
+:root .input.pole-inv-sedi { background-color: #047857 !important; color: #ffffff !important; border-color: #064e3b !important; }
+:root .input.pole-inv-nesedi { background-color: #be123c !important; color: #ffffff !important; border-color: #881337 !important; }
+:root .input.pole-inv-nespocitano { background-color: #525252 !important; color: #ffffff !important; border-color: #262626 !important; }
 
 /* Tmavý režim má vlastní hodnoty — ale taky s !important, jinak by je přebily
    utility bg-white/text-neutral-900 zapsané přímo u polí. */

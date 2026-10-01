@@ -38,9 +38,12 @@ export function stavPolicka(napocitano: string | number | undefined | null, skla
  */
 export function tridyPolicka(stav: StavPolicka): string {
   switch (stav) {
-    case 'nespocitano': return 'border-neutral-800 bg-neutral-600 text-white';
-    case 'sedi': return 'border-emerald-900 bg-emerald-700 text-white';
-    case 'nesedi': return 'border-rose-900 bg-rose-700 text-white';
+    // pole-inv-* přebije bílé pozadí, které `.input` ve světlém režimu
+    // vynucuje přes !important (index.css) — bez nich byla pole jen bílá
+    // s barevným rámečkem (1. 10. 2026: „shodné zeleně, neshodné červeně").
+    case 'nespocitano': return 'pole-inv-nespocitano border-neutral-800 bg-neutral-600 text-white';
+    case 'sedi': return 'pole-inv-sedi border-emerald-900 bg-emerald-700 text-white';
+    case 'nesedi': return 'pole-inv-nesedi border-rose-900 bg-rose-700 text-white';
     default: return 'border-amber-400 bg-amber-100/80 text-neutral-950';
   }
 }
