@@ -23,7 +23,9 @@ import { nactiJson, ulozJson } from '../lib/uloziste';
 import { nactiSdilenouTabulku } from '../lib/sdilenaData';
 
 const DNY = ['Ne', 'Po', 'Út', 'St', 'Čt', 'Pá', 'So'];
-import { LS_POHYBY_FILTR as LS_FILTR, LS_POHYBY_REZIM as LS_REZIM } from '../lib/pohybyPredvyber';
+const LS_ROZDELIT = 'pohyby_skladu_rozdelit_mesice_v1';
+import { LS_POHYBY_FILTR as LS_FILTR, LS_POHYBY_REZIM as LS_REZIM, LS_POHYBY_MESIC as LS_MESIC } from '../lib/pohybyPredvyber';
+import { smaz } from '../lib/uloziste';
 
 function denPopis(iso: string): string {
   const d = new Date(iso + 'T00:00:00Z');
@@ -45,7 +47,12 @@ export default function PohybySkladu() {
   // je jen na 'od'/'doDne', nezáleží mu, jak dlouhé období to je).
   const [rezim, setRezim] = useState<'tyden' | 'mesic'>(() => nactiJson<'tyden' | 'mesic'>(LS_REZIM, 'tyden'));
   const [tyden, setTyden] = useState(() => isoWeekKey(businessDateISO()));
-  const [mesic, setMesic] = useState(() => businessDateISO().slice(0, 7));
+  // Měsíc předvybraný z Inventury platí jen pro tohle otevření.
+  const [mesic, setMesic] = useState(() => {
+    const m = nactiJson<string>(LS_MESIC, '');
+    if (m) smaz(LS_MESIC);
+    return /^\d{4}-\d{2}$/.test(m) ? m : businessDateISO().slice(0, 7);
+  });
   const [beerId, setBeerId] = useState(() => nactiFiltr().beerId);
   const [packageId, setPackageId] = useState(() => nactiFiltr().packageId);
   const [skupiny, setSkupiny] = useState<string[]>([]);
@@ -105,10 +112,28 @@ export default function PohybySkladu() {
     [kniha],
   );
 
-  const vysledek = useMemo(() => {
+  const vysledekCely = useMemo(() => {
     if (!kniha) return null;
     return sestavPohybyObdobi(kniha.pohyby, { od, doDne, beerId, packageId, skupiny }, (id) => jmena.get(id) || undefined);
   }, [kniha, jmena, od, doDne, beerId, packageId, skupiny]);
+
+  // 📆 Týden přes hranici měsíce (28. 9. – 4. 10.) — 1. 10. 2026: „nemůžeš do
+  // rozkladu počítat data z 1. 10., to už je další měsíc, to musí být zvlášť,
+  // nebo tam dej možnost". Výchozí je zvlášť (každý měsíc svůj souhrn).
+  const prekrocMesic = od.slice(0, 7) !== doDne.slice(0, 7);
+  const [rozdelit, setRozdelit] = useState(() => nactiJson<boolean>(LS_ROZDELIT, true));
+  useEffect(() => { ulozJson(LS_ROZDELIT, rozdelit); }, [rozdelit]);
+  const casti = useMemo(() => {
+    if (!kniha || !prekrocMesic) return [];
+    const konecPrvniho = konecMesice(od.slice(0, 7));
+    const zacatekDruheho = `${doDne.slice(0, 7)}-01`;
+    const popis = (a: string, b: string) => `${nazevMesice(a.slice(0, 7))} (${denPopis(a).slice(3)} – ${denPopis(b).slice(3)})`;
+    return [[od, konecPrvniho], [zacatekDruheho, doDne]].map(([a, b]) => ({
+      od: a,
+      nazev: popis(a, b),
+      vysledek: sestavPohybyObdobi(kniha.pohyby, { od: a, doDne: b, beerId, packageId, skupiny }, (id) => jmena.get(id) || undefined),
+    }));
+  }, [kniha, jmena, od, doDne, beerId, packageId, skupiny, prekrocMesic]);
 
   const nazevPiva = useMemo(() => new Map((kniha?.piva ?? []).map((b) => [b.id, b.name])), [kniha]);
   const nazevObalu = useMemo(() => new Map((kniha?.obaly ?? []).map((p) => [p.id, String(p.label ?? '').trim()])), [kniha]);
@@ -119,80 +144,12 @@ export default function PohybySkladu() {
   const prepniSkupinu = (id: string) =>
     setSkupiny((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
 
-  const pocetRadku = vysledek?.dny.reduce((a, d) => a + d.radky.length, 0) ?? 0;
-
-  return (
-    <div className="space-y-3">
-      <div className="rounded-xl border-2 border-amber-300 bg-amber-50 p-3 space-y-3">
-        <div className="flex items-center gap-2 text-amber-950">
-          <ListOrdered className="ikona-text" />
-          <span className="text-xs font-black uppercase tracking-wider">Pohyby skladu — každý pohyb ve vybraném období</span>
-        </div>
-
-        {/* Týden, nebo celý měsíc */}
-        <div className="flex items-stretch gap-1 rounded bg-white/70 border border-amber-200 p-1">
-          {([['tyden', 'Týden'], ['mesic', 'Měsíc']] as const).map(([r, popisek]) => (
-            <button
-              key={r}
-              type="button"
-              onClick={() => setRezim(r)}
-              className={`flex-1 !rounded !px-3 !py-2 !min-h-[44px] font-black text-xs transition ${rezim === r ? 'btn-amber' : 'btn-ghost !border-none'}`}
-            >
-              {popisek}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button type="button" className="btn-secondary btn-sm" onClick={() => posunObdobi(-1)} aria-label={rezim === 'mesic' ? 'Předchozí měsíc' : 'Předchozí týden'}>
-            <ChevronLeft className="ikona-text" />
-          </button>
-          <div className="flex-1 text-center">
-            <div className="text-sm font-black text-neutral-950 tabular-nums">{label}</div>
-            {rezim === 'tyden' && <div className="text-udaj font-bold text-neutral-600">týden {tyden.split('-')[1]}</div>}
-          </div>
-          <button type="button" className="btn-secondary btn-sm" onClick={() => posunObdobi(1)} aria-label={rezim === 'mesic' ? 'Další měsíc' : 'Další týden'}>
-            <ChevronRight className="ikona-text" />
-          </button>
-        </div>
-        {!jeAktualni && (
-          <button type="button" className="btn-ghost btn-sm w-full" onClick={zpetNaAktualni}>
-            {rezim === 'mesic' ? 'Zpět na tento měsíc' : 'Zpět na tento týden'}
-          </button>
-        )}
-
-        {/* Pivo a obal — sdílené chipy (components/FiltrPivaAObalu.tsx), stejné jako v Stáčení a Objednávkách. */}
-        <ChipyPiva piva={aktivniPiva} vybrane={beerId} onVybrat={setBeerId} />
-        <ChipyObalu obaly={kniha?.obaly ?? []} vybrane={packageId} onVybrat={setPackageId} />
-
-        {/* Druh pohybu — nic vybráno = všechno */}
-        <div>
-          <span className="label">Druh pohybu {skupiny.length === 0 && <span className="normal-case font-semibold text-neutral-600">(ukazuje se všechno)</span>}</span>
-          <div className="flex flex-wrap gap-1.5">
-            {SKUPINY_POHYBU.map((s) => (
-              <button
-                key={s.id}
-                type="button"
-                aria-pressed={skupiny.includes(s.id)}
-                onClick={() => prepniSkupinu(s.id)}
-                className={`btn-zalozka px-3 ${skupiny.includes(s.id) ? 'btn-zalozka-aktivni' : ''}`}
-              >
-                {s.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {bezi && <Spinner />}
-      {!bezi && chybaNacteni && (
-        <p className="rounded border-2 border-rose-300 bg-rose-50 p-3 text-sm font-bold text-rose-800">
-          Pohyby se nepodařilo načíst: {chybaNacteni}
-        </p>
-      )}
-
-      {!bezi && vysledek && (
-        <>
+  // Vykreslení jednoho výsledku (souhrn + dny) — týden přes hranici měsíce
+  // se kreslí dvakrát, zvlášť pro každý měsíc.
+  const vykresli = (vysledek: NonNullable<typeof vysledekCely>) => {
+    const pocetRadku = vysledek.dny.reduce((a, d) => a + d.radky.length, 0);
+    return (
+      <>
           {/* 1. 10. 2026: „udělej ten rozbor přehlednější" — jedno pivo a obal
               = čtyři velká čísla místo tabulky. */}
           {vysledek.souhrn.length === 1 ? (() => {
@@ -229,7 +186,7 @@ export default function PohybySkladu() {
               <thead>
                 <tr className="bg-neutral-100 text-neutral-700">
                   <th scope="col" className="text-left px-2 py-1.5 font-black">{beerId ? 'Obal' : 'Pivo · obal'}</th>
-                  <th scope="col" className="text-right px-2 py-1.5 font-black">Po ráno</th>
+                  <th scope="col" className="text-right px-2 py-1.5 font-black">Na začátku</th>
                   <th scope="col" className="text-right px-2 py-1.5 font-black">Přibylo</th>
                   <th scope="col" className="text-right px-2 py-1.5 font-black">Ubylo</th>
                   <th scope="col" className="text-right px-2 py-1.5 font-black">Konec</th>
@@ -278,7 +235,14 @@ export default function PohybySkladu() {
                 ) : (
                   <table className="w-full text-xs">
                     <tbody>
-                      {d.radky.map((r, j) => (
+                      {d.radky.map((r, j) => {
+                        // ⚠️ Stejný zápis dvakrát v jednom dni (stejný druh,
+                        // pivo, obal i počet — u závozu i stejný odběratel).
+                        // Typicky stáčení zapsané ručně i z Excelu/fotky.
+                        // 1. 10. 2026: „nesedí mi data v inventuře, projdi to".
+                        const dvojity = r.druh !== 'inventura' && d.radky.filter((x) => x.druh === r.druh && x.beer_id === r.beer_id
+                          && x.package_id === r.package_id && x.mnozstvi === r.mnozstvi && x.orderId === r.orderId).length > 1;
+                        return (
                         // 30. 9. 2026: „zeleně označ plusové položky (naštočeno),
                         // červeně odfasováno, odešlo…" — celý řádek v barvě,
                         // ne jen číslo, ať je příjem a výdej vidět na první pohled.
@@ -294,9 +258,11 @@ export default function PohybySkladu() {
                             <div className="font-black text-neutral-900">{r.popis}{r.kdo && <span className="font-bold text-neutral-700"> · {r.kdo}</span>}</div>
                             {!(beerId && packageId) && <div className="text-udaj font-semibold text-neutral-600">{nazevKlice(r.beer_id, r.package_id)}</div>}
                             {r.poznamka && <div className="text-udaj font-semibold italic text-neutral-500">pozn.: {r.poznamka}</div>}
+                            {dvojity && <div className="text-udaj font-black text-amber-900 bg-amber-100 border border-amber-400 rounded px-1.5 py-0.5 mt-0.5 inline-block">⚠️ stejný zápis tento den víckrát — zkontroluj, jestli není dvakrát</div>}
                           </td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 )}
@@ -314,8 +280,106 @@ export default function PohybySkladu() {
               </div>
             ))}
           </div>
-        </>
+      </>
+    );
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="rounded-xl border-2 border-amber-300 bg-amber-50 p-3 space-y-3">
+        <div className="flex items-center gap-2 text-amber-950">
+          <ListOrdered className="ikona-text" />
+          <span className="text-xs font-black uppercase tracking-wider">Pohyby skladu — každý pohyb ve vybraném období</span>
+        </div>
+
+        {/* Týden, nebo celý měsíc */}
+        <div className="flex items-stretch gap-1 rounded bg-white/70 border border-amber-200 p-1">
+          {([['tyden', 'Týden'], ['mesic', 'Měsíc']] as const).map(([r, popisek]) => (
+            <button
+              key={r}
+              type="button"
+              onClick={() => setRezim(r)}
+              className={`flex-1 !rounded !px-3 !py-2 !min-h-[44px] font-black text-xs transition ${rezim === r ? 'btn-amber' : 'btn-ghost !border-none'}`}
+            >
+              {popisek}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button type="button" className="btn-secondary btn-sm" onClick={() => posunObdobi(-1)} aria-label={rezim === 'mesic' ? 'Předchozí měsíc' : 'Předchozí týden'}>
+            <ChevronLeft className="ikona-text" />
+          </button>
+          <div className="flex-1 text-center">
+            <div className="text-sm font-black text-neutral-950 tabular-nums">{label}</div>
+            {rezim === 'tyden' && <div className="text-udaj font-bold text-neutral-600">týden {tyden.split('-')[1]}</div>}
+          </div>
+          <button type="button" className="btn-secondary btn-sm" onClick={() => posunObdobi(1)} aria-label={rezim === 'mesic' ? 'Další měsíc' : 'Další týden'}>
+            <ChevronRight className="ikona-text" />
+          </button>
+        </div>
+        {rezim === 'tyden' && prekrocMesic && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-udaj font-black text-amber-950">Týden přes dva měsíce:</span>
+            {([[true, 'Zvlášť po měsících'], [false, 'Dohromady']] as const).map(([v, popisek]) => (
+              <button
+                key={popisek}
+                type="button"
+                aria-pressed={rozdelit === v}
+                onClick={() => setRozdelit(v)}
+                className={`btn-zalozka px-3 ${rozdelit === v ? 'btn-zalozka-aktivni' : ''}`}
+              >
+                {popisek}
+              </button>
+            ))}
+          </div>
+        )}
+        {!jeAktualni && (
+          <button type="button" className="btn-ghost btn-sm w-full" onClick={zpetNaAktualni}>
+            {rezim === 'mesic' ? 'Zpět na tento měsíc' : 'Zpět na tento týden'}
+          </button>
+        )}
+
+        {/* Pivo a obal — sdílené chipy (components/FiltrPivaAObalu.tsx), stejné jako v Stáčení a Objednávkách. */}
+        <ChipyPiva piva={aktivniPiva} vybrane={beerId} onVybrat={setBeerId} />
+        <ChipyObalu obaly={kniha?.obaly ?? []} vybrane={packageId} onVybrat={setPackageId} />
+
+        {/* Druh pohybu — nic vybráno = všechno */}
+        <div>
+          <span className="label">Druh pohybu {skupiny.length === 0 && <span className="normal-case font-semibold text-neutral-600">(ukazuje se všechno)</span>}</span>
+          <div className="flex flex-wrap gap-1.5">
+            {SKUPINY_POHYBU.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                aria-pressed={skupiny.includes(s.id)}
+                onClick={() => prepniSkupinu(s.id)}
+                className={`btn-zalozka px-3 ${skupiny.includes(s.id) ? 'btn-zalozka-aktivni' : ''}`}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {bezi && <Spinner />}
+      {!bezi && chybaNacteni && (
+        <p className="rounded border-2 border-rose-300 bg-rose-50 p-3 text-sm font-bold text-rose-800">
+          Pohyby se nepodařilo načíst: {chybaNacteni}
+        </p>
       )}
+
+      {!bezi && vysledekCely && (prekrocMesic && rozdelit ? (
+        <div className="space-y-4">
+          {casti.map((c) => (
+            <section key={c.od} className="space-y-2">
+              <h3 className="rounded bg-neutral-800 text-white px-3 py-2 text-sm font-black">{c.nazev}</h3>
+              {vykresli(c.vysledek)}
+            </section>
+          ))}
+        </div>
+      ) : vykresli(vysledekCely))}
     </div>
   );
 }

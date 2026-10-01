@@ -22,6 +22,7 @@ import { buildMovements, expectedForMonth, stockAtStartOfDay, stockForMonth, typ
 import { AUDIT_NADPISY, AUDIT_SLOUPCE, bunkaAuditu, maCoUkazat, porovnejPolozku, type AuditSloupec } from '../lib/auditSkladu';
 import { chyba, oznam, potvrd, toastZpet, uspech } from '../lib/toast';
 import { chybiFunkce } from '../lib/zruseniObjednavky';
+import { predvyberPohyby } from '../lib/pohybyPredvyber';
 import { zavibruj } from '../lib/haptika';
 import { usePosledniNacteni } from '../lib/nacitani';
 import { IkonaSud } from '../components/ikony';
@@ -1638,6 +1639,12 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     });
   }
 
+  /** 🔎 Proklik na Sklad → Pohyby: tahle položka, celý měsíc inventury. */
+  function otevriPohyby(beerId: string, packageId: string) {
+    predvyberPohyby(beerId, packageId, currentMonth);
+    setPage?.('stock_pohyby');
+  }
+
   /** Kolik řádků má naťukanou inventuru, která zatím leží jen v prohlížeči. */
   const rozepsanychRadku = useMemo(
     () => Object.values(actualStock).filter((v) => String(v).trim() !== '').length,
@@ -2363,9 +2370,16 @@ function exportInventoryExcel() {
                           <div className={`font-black text-sm ${beer && beerText(beer) === 'text-white' ? 'text-white' : 'text-neutral-950'}`}>
                             {r.beer_name} <span className="font-bold opacity-80">· {formatPackageLabel(r.package_label)}</span>
                           </div>
-                          <span className={`shrink-0 px-2 py-1 rounded text-xs font-black ${r.expectedQty < 0 ? 'bg-rose-600 text-white' : 'bg-emerald-300/80 text-emerald-950'}`}>
-                            Oček. {r.expectedQty} ks
-                          </span>
+                          {/* Klepnutí = všechny pohyby té položky za měsíc (1. 10. 2026:
+                              „nesedí mi data v inventuře, projdi to"). */}
+                          <button
+                            type="button"
+                            onClick={() => otevriPohyby(r.beer_id, r.package_id)}
+                            title="Ukázat všechny pohyby za měsíc — odkud očekávaný stav je"
+                            className={`shrink-0 min-h-[44px] px-2 py-1 rounded text-xs font-black underline decoration-dotted ${r.expectedQty < 0 ? 'bg-rose-600 text-white' : 'bg-emerald-300/80 text-emerald-950'}`}
+                          >
+                            Oček. {r.expectedQty} ks ›
+                          </button>
                         </div>
 
                         <div className="grid grid-cols-2 gap-2">
@@ -2533,7 +2547,11 @@ function exportInventoryExcel() {
                         <Fragment key={k}>
                         {/* data-inv-radek = kotva, aby obrazovka po zápisu neodskočila (lib/drzPozici.ts) */}
                         <tr data-inv-radek={k} className="plocha-z-dat plocha-z-dat-tlumena hover:brightness-95 transition-colors border-b border-neutral-200/60" style={beer ? { backgroundColor: beerBg(beer), ['--ink-plochy' as any]: beerInk(beer) } : undefined}>
-                          <td className={`font-black text-udaj px-3 py-2 ${textColor}`}>{r.beer_name}</td>
+                          <td className={`font-black text-udaj px-3 py-2 ${textColor}`}>
+                            <button type="button" className="underline decoration-dotted text-left" onClick={() => otevriPohyby(r.beer_id, r.package_id)} title="Ukázat všechny pohyby za měsíc">
+                              {r.beer_name}
+                            </button>
+                          </td>
                           <td className={`font-extrabold text-udaj px-3 py-2 ${textColor}`}>{formatPackageLabel(r.package_label)}</td>
                           <td className={`text-right font-black text-udaj px-2 py-2 ${textColor}`}>{r.initialQty} ks</td>
                           <td className={`text-right font-black text-udaj px-2 py-2 text-amber-900 font-black`}>+{r.stacenoQty}</td>

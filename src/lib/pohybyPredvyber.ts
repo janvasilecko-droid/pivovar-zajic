@@ -7,7 +7,14 @@ import { ulozJson } from './uloziste';
 export const LS_POHYBY_FILTR = 'pohyby_skladu_filtr_v1';
 export const LS_POHYBY_REZIM = 'pohyby_skladu_rezim_v1';
 
-export function predvyberPohyby(beerId: string, packageId: string) {
+export const LS_POHYBY_MESIC = 'pohyby_skladu_mesic_v1';
+
+/**
+ * `mesic` (YYYY-MM) = otevřít celý měsíc — z Inventury (1. 10. 2026: „nesedí
+ * mi data v inventuře, projdi to"), jinak aktuální týden.
+ */
+export function predvyberPohyby(beerId: string, packageId: string, mesic?: string) {
   ulozJson(LS_POHYBY_FILTR, { beerId, packageId });
-  ulozJson(LS_POHYBY_REZIM, 'tyden');
+  ulozJson(LS_POHYBY_REZIM, mesic ? 'mesic' : 'tyden');
+  if (mesic) ulozJson(LS_POHYBY_MESIC, mesic);
 }
