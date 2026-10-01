@@ -1,6 +1,6 @@
 // 1. 10. 2026: „nesedí mi data v inventuře… projdi to všechno pořádně".
 import { describe, it, expect } from 'vitest';
-import { najdiPodezrele } from './kontrolaPohybu';
+import { najdiPodezrele, najdiChybejiciZdrojSudu } from './kontrolaPohybu';
 import type { Movement } from './stockLedger';
 
 const m = (date: string, kind: Movement['kind'], qty: number, extra: Partial<Movement> = {}): Movement =>
@@ -66,5 +66,44 @@ describe('kontrola pohybů', () => {
     });
     expect(n).toHaveLength(1);
     expect(n[0]).toMatchObject({ vaha: 'pozor', dopad: -2 });
+  });
+});
+
+describe('chybějící zdrojový sud u stáčení lahví', () => {
+  const b = (entry_date: string, extra: Partial<Parameters<typeof najdiChybejiciZdrojSudu>[0][number]> = {}) =>
+    ({ entry_date, beer_id: 'b12', quantity: 40, kegs_used: null, kegs_used_package_id: null, created_at: null, note: null, ...extra });
+
+  it('stočení bez zapsaného sudu = nález', () => {
+    const n = najdiChybejiciZdrojSudu([b('2026-09-29')], zaklad);
+    expect(n).toHaveLength(1);
+    expect(n[0]).toMatchObject({ vaha: 'chyba', beer_id: 'b12', package_id: '' });
+  });
+
+  it('kegs_used vyplněné, ale bez obalu sudu = pořád nález (přesně tenhle případ hlásil sládek)', () => {
+    const n = najdiChybejiciZdrojSudu([b('2026-09-29', { kegs_used: 2, kegs_used_package_id: null })], zaklad);
+    expect(n).toHaveLength(1);
+  });
+
+  it('sud zapsaný (kegs_used i obal) = v pořádku', () => {
+    const n = najdiChybejiciZdrojSudu([b('2026-09-29', { kegs_used: 2, kegs_used_package_id: 'keg50' })], zaklad);
+    expect(n).toEqual([]);
+  });
+
+  it('tři cílové obaly ze stejné dávky (stejný created_at) = jeden nález, ne tři', () => {
+    const n = najdiChybejiciZdrojSudu([
+      b('2026-09-29', { created_at: '2026-09-29T10:00:00Z' }),
+      b('2026-09-29', { created_at: '2026-09-29T10:00:00Z' }),
+      b('2026-09-29', { created_at: '2026-09-29T10:00:00Z' }),
+    ], zaklad);
+    expect(n).toHaveLength(1);
+  });
+
+  it('množství 0 nebo jiné pivo/mimo období se vynechá', () => {
+    const n = najdiChybejiciZdrojSudu([
+      b('2026-09-29', { quantity: 0 }),
+      b('2026-09-29', { beer_id: 'jine' }),
+      b('2026-08-01'),
+    ], { ...zaklad, beerId: 'b12' });
+    expect(n).toEqual([]);
   });
 });
