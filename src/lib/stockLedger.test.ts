@@ -333,6 +333,16 @@ describe('stockAtStartOfDay — stav k ránu', () => {
     expect(stockMapAsOf(mv, '2026-08-24')[K]).toBe(21);
   });
 
+  it('napočítaná inventura z toho dne je večer, ne ráno', () => {
+    // Pohyby za týden začínající dnem inventury: ráno 0, večer napočítáno 4.
+    const mv = buildMovements({
+      packages,
+      inventoryRows: [{ entry_date: '2026-08-31', beer_id: B, package_id: P30, quantity: 4, note: 'Fyzická inventura' }],
+    });
+    expect(stockAtStartOfDay(mv, '2026-08-31').get(K)?.qty ?? 0).toBe(0);
+    expect(stockMapAsOf(mv, '2026-08-31')[K]).toBe(4);
+  });
+
   it('pohyby z předchozích dnů se počítají', () => {
     const mv = buildMovements({
       packages,

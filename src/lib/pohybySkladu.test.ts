@@ -116,4 +116,13 @@ describe('souhrn s inventurou v období', () => {
     const s = sestavPohybyObdobi(pohyby, { od: '2026-09-28', doDne: '2026-10-04' }).souhrn[0];
     expect(s).toMatchObject({ rano: 2, prijem: 2, vydej: 2, konec: 4, srovnani: 2, inventuraDatum: '2026-09-30', inventuraStav: 4 });
   });
+
+  it('inventura napočítaná první den období se nepočítá do „Na začátku"', () => {
+    // 1. 10. 2026: „na začátku týdne 4, byla 0… konečný výsledek sedí".
+    const pohyby: Movement[] = [
+      { date: '2026-08-31', beer_id: 'b', package_id: 'k', qty: 4, kind: 'inventura', note: 'Fyzická inventura' },
+    ];
+    const s = sestavPohybyObdobi(pohyby, { od: '2026-08-31', doDne: '2026-09-06' }).souhrn[0];
+    expect(s).toMatchObject({ rano: 0, konec: 4, srovnani: 4, inventuraStav: 4 });
+  });
 });
