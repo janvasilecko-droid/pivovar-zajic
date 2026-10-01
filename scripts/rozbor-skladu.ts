@@ -20,7 +20,9 @@
 import { createClient } from '@supabase/supabase-js';
 import { buildMovements, expectedForMonth, konecMesice, stockAsOf, stockKey, type Movement } from '../src/lib/stockLedger';
 import { najdiPodezrele } from '../src/lib/kontrolaPohybu';
-import { SLOUPCE } from '../src/lib/sdilenaData';
+// Ne z sdilenaData.ts — ta při načtení zakládá klienta appky z VITE_* proměnných
+// a skript na tom padal dřív, než se vůbec přihlásil.
+import { SLOUPCE } from '../src/lib/sdilenaDataSloupce';
 
 const URL_DB = process.env.PIVOVAR_SUPABASE_URL || 'https://sasqexjadvlqyticxwja.supabase.co';
 const APPKA = process.env.PIVOVAR_APP_URL || 'https://zajic-pivovar.pages.dev';
@@ -51,6 +53,12 @@ async function main() {
   const heslo = process.env.PIVOVAR_HESLO;
   if (!email || !heslo) {
     console.error('Chybí PIVOVAR_EMAIL / PIVOVAR_HESLO v prostředí (nastavení cloudového prostředí → Environment variables).');
+    process.exit(2);
+  }
+  // Zástupný text („…") místo skutečných údajů dopadne na serveru jako
+  // „Invalid login credentials" a vypadá to jako špatné heslo.
+  if (!email.includes('@')) {
+    console.error('PIVOVAR_EMAIL není e-mail (je v něm jen zástupný text?) — v nastavení cloudového prostředí musí být skutečné přihlašovací údaje do appky.');
     process.exit(2);
   }
   const db = createClient(URL_DB, await anonKlic(), { auth: { persistSession: false } });
@@ -111,8 +119,14 @@ async function main() {
       const predtim = new Date(od + 'T00:00:00Z'); predtim.setUTCDate(predtim.getUTCDate() - 1);
       let stav = stockAsOf(pohyby, predtim.toISOString().slice(0, 10)).get(k)?.qty ?? 0;
       console.log(`stav ${predtim.toISOString().slice(0, 10)} večer: ${stav}`);
-      const vMesici = mojePohyby.filter((m) => m.date >= od && m.date <= doDne).sort((a, b) => a.date.localeCompare(b.date));
+      // V rámci dne: počáteční stav je RÁNO (první), napočítaná inventura
+      // ZÁVĚR dne (poslední) — stejně jako ve stockLedger.ts. Jinak by se
+      // pohyby posledního dne přičetly až k napočítanému číslu.
+      const poradiVeDni = (m: Movement) => (m.kind !== 'inventura' ? 1 : /fyzick|schválen|schvalen/i.test(m.note ?? '') ? 2 : 0);
+      const vMesici = mojePohyby.filter((m) => m.date >= od && m.date <= doDne)
+        .sort((a, b) => a.date.localeCompare(b.date) || poradiVeDni(a) - poradiVeDni(b));
       for (const m of vMesici) {
+        if (poradiVeDni(m) === 2) console.log(`            podle pohybů před inventurou: ${stav}, napočítáno ${m.qty} → rozdíl ${m.qty - stav > 0 ? '+' : ''}${m.qty - stav}`);
         stav = m.kind === 'inventura' ? m.qty : stav + m.qty;
         const komu = m.orderId ? (objPodleId.get(m.orderId)?.place_name ?? `objednávka ${m.orderId.slice(0, 8)} (NEEXISTUJE)`) : '';
         const stavObj = m.orderId && objPodleId.get(m.orderId)?.status === 'storno' ? ' [STORNO]' : '';
@@ -148,6 +162,19 @@ async function main() {
           console.log(`  ODPOČET ${d.deduct_date}: −${d.quantity}× ${jmenoObalu.get(d.package_id)} ${jmenoPiva.get(d.beer_id)}`));
         dorovnani.filter((a: any) => a.order_id === o.id).forEach((a: any) =>
           console.log(`  VRÁCENO ${a.entry_date}: +${a.quantity}× ${jmenoObalu.get(a.package_id)} ${jmenoPiva.get(a.beer_id)} | ${a.reason ?? ''}`));
+        // Zrušená objednávka má mít u každého piva × obalu vráceno tolik,
+        // kolik se odepsalo — jinak kusy ve skladu chybí (nebo přebývají).
+        if (o.status === 'storno') {
+          const bilance = new Map<string, number>();
+          odpocty.filter((d: any) => d.order_id === o.id).forEach((d: any) => bilance.set(stockKey(d.beer_id, d.package_id), (bilance.get(stockKey(d.beer_id, d.package_id)) ?? 0) - Number(d.quantity || 0)));
+          dorovnani.filter((a: any) => a.order_id === o.id && a.beer_id).forEach((a: any) => bilance.set(stockKey(a.beer_id, a.package_id), (bilance.get(stockKey(a.beer_id, a.package_id)) ?? 0) + Number(a.quantity || 0)));
+          bilance.forEach((v, k) => {
+            const [b, p] = k.split('__');
+            console.log(v === 0
+              ? `  ✓ ${jmenoObalu.get(p)} ${jmenoPiva.get(b)}: odepsáno i vráceno stejně`
+              : `  ⚠️ ${jmenoObalu.get(p)} ${jmenoPiva.get(b)}: ${v < 0 ? `vráceno o ${-v} míň, než se odepsalo — sklad je o ${-v} níž` : `vráceno o ${v} víc, než se odepsalo — sklad je o ${v} výš`}`);
+          });
+        }
       }
     }
   }
@@ -156,7 +183,10 @@ async function main() {
   const bezObj = dorovnani.filter((a: any) => String(a.entry_date).slice(0, 7) === mesic && !a.order_id);
   if (bezObj.length && (pivoArg || objArg)) {
     console.log(`\n══ Dorovnání bez objednávky v ${mesic} (${bezObj.length}) ══`);
-    bezObj.forEach((a: any) => console.log(`  ${a.entry_date} ${a.quantity > 0 ? '+' : ''}${a.quantity}× ${jmenoObalu.get(a.package_id)} ${jmenoPiva.get(a.beer_id)} | ${a.reason ?? '(bez důvodu = ztráta)'}`));
+    // Zapsáno kdy: řádky se stejným časem zápisu k poslednímu dni měsíce
+    // vznikly jedním uložením inventury — stará verze appky tak přepsala
+    // vrácení i týdenní dorovnání na „ztráty" bez objednávky a důvodu.
+    bezObj.forEach((a: any) => console.log(`  ${a.entry_date} ${a.quantity > 0 ? '+' : ''}${a.quantity}× ${jmenoObalu.get(a.package_id)} ${jmenoPiva.get(a.beer_id)} | ${a.reason ?? '(bez důvodu = ztráta)'} | zapsáno ${String(a.created_at ?? '?').slice(0, 16)}`));
   }
   await db.auth.signOut();
 }

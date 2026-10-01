@@ -19,7 +19,7 @@ describe('inventura: ztráty nejsou vrácení', () => {
   });
 
   it('sdílené načtení vrací i důvod (bez něj by filtr nefungoval)', () => {
-    expect(readFileSync('src/lib/sdilenaData.ts', 'utf8')).toMatch(/inventory_adjustments: '[^']*\breason\b/);
+    expect(readFileSync('src/lib/sdilenaDataSloupce.ts', 'utf8')).toMatch(/inventory_adjustments: '[^']*\breason\b/);
   });
 });
 
