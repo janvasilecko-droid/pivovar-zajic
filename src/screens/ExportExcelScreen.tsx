@@ -30,6 +30,7 @@ type Nactene = {
   zavoz: any[];
   akce: any[];
   prefuk: any[];
+  dorovnani: any[];
   tanky: { id: string; label: string | null }[];
 };
 
@@ -74,7 +75,7 @@ export default function ExportExcelScreen() {
     let zruseno = false;
     (async () => {
       try {
-        const [pk, bs, fa, pr, wo, bt, kg, tk, iv, zd, ak, pf] = await Promise.all([
+        const [pk, bs, fa, pr, wo, bt, kg, tk, iv, zd, ak, pf, adj] = await Promise.all([
           fetchAllRows('packages', 'id,label,kind,volume_l'),
           // Pro list Inventura — potřebuje se vědět, které pivo je pořád
           // aktivní (viz lib/inventuraExport.ts, stejná úvaha jako v
@@ -92,6 +93,9 @@ export default function ExportExcelScreen() {
           nactiSdilenouTabulku('zavoz_deductions'),
           nactiSdilenouTabulku('akce'),
           nactiSdilenouTabulku('keg_prefuk'),
+          // Vrácení z objednávek a dorovnání — ať list Inventura vybírá
+          // položky ze stejné skladové knihy jako appka.
+          nactiSdilenouTabulku('inventory_adjustments'),
         ]);
         if (zruseno) return;
         setData({
@@ -109,6 +113,7 @@ export default function ExportExcelScreen() {
           zavoz: (zd.data as any[]) ?? [],
           akce: (ak.data as any[]) ?? [],
           prefuk: (pf.data as any[]) ?? [],
+          dorovnani: (adj.data as any[]) ?? [],
         });
       } catch (e) {
         chyba(e);
@@ -204,6 +209,7 @@ export default function ExportExcelScreen() {
       zavozDeductionRows: data.zavoz,
       akceRows: data.akce,
       prefukRows: data.prefuk,
+      adjustmentRows: data.dorovnani,
       packages: data.packages as any,
     });
     const expectedLedger = expectedForMonth(pohyby, mesicInventury);
