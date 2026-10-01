@@ -21,6 +21,7 @@ import { businessDateISO, posunMesic } from '../lib/businessDate';
 import { zalogujANahlas } from '../lib/chybyHlaseni';
 import { nactiJson, ulozJson } from '../lib/uloziste';
 import { nactiSdilenouTabulku } from '../lib/sdilenaData';
+import { najdiPodezrele, type Nalez, type ObjednavkaProKontrolu, type PolozkaProKontrolu } from '../lib/kontrolaPohybu';
 
 const DNY = ['Ne', 'Po', 'Út', 'St', 'Čt', 'Pá', 'So'];
 const LS_ROZDELIT = 'pohyby_skladu_rozdelit_mesice_v2';
@@ -56,11 +57,18 @@ export default function PohybySkladu() {
   const [beerId, setBeerId] = useState(() => nactiFiltr().beerId);
   const [packageId, setPackageId] = useState(() => nactiFiltr().packageId);
   const [skupiny, setSkupiny] = useState<string[]>([]);
+  // 🔎 Kontrola (1. 10. 2026: „projdi data, nesedí mi inventura") — běží
+  // v appce pod přihlášením, nad stejnými daty jako Sklad.
+  const [objednavky, setObjednavky] = useState<ObjednavkaProKontrolu[]>([]);
+  const [nalezy, setNalezy] = useState<Nalez[] | null>(null);
+  const [kontroluji, setKontroluji] = useState(false);
 
   useEffect(() => {
     ulozJson(LS_FILTR, { beerId, packageId });
   }, [beerId, packageId]);
   useEffect(() => { ulozJson(LS_REZIM, rezim); }, [rezim]);
+  // Jiné období nebo pivo = staré nálezy už neplatí.
+  useEffect(() => { setNalezy(null); }, [rezim, tyden, mesic, beerId, packageId]);
 
   const nacti = useCallback(async () => {
     try {
@@ -71,6 +79,7 @@ export default function PohybySkladu() {
       setKniha(k);
       setJmena(new Map(((objednavky as { id: string; place_name: string | null }[]) ?? [])
         .map((o) => [o.id, (o.place_name ?? '').trim()])));
+      setObjednavky((objednavky as ObjednavkaProKontrolu[]) ?? []);
       setChybaNacteni(null);
     } catch (e: any) {
       zalogujANahlas('[PohybySkladu] načtení selhalo', e);
@@ -377,6 +386,48 @@ export default function PohybySkladu() {
       </div>
 
       {bezi && <Spinner />}
+      {!bezi && kniha && (
+        <div className="rounded-xl border-2 border-neutral-300 bg-white p-3 space-y-2">
+          <button
+            type="button"
+            className="btn-ghost w-full"
+            disabled={kontroluji}
+            onClick={async () => {
+              setKontroluji(true);
+              try {
+                const { data: pol } = await nactiSdilenouTabulku('order_items');
+                setNalezy(najdiPodezrele({
+                  pohyby: kniha.pohyby, objednavky, polozky: (pol as PolozkaProKontrolu[]) ?? [],
+                  od, doDne, beerId: beerId || undefined, packageId: packageId || undefined,
+                }));
+              } catch (e: any) {
+                zalogujANahlas('[PohybySkladu] kontrola selhala', e);
+              } finally {
+                setKontroluji(false);
+              }
+            }}
+          >
+            🔎 {kontroluji ? 'Kontroluji…' : `Najít možné chyby (${label})`}
+          </button>
+          {nalezy && nalezy.length === 0 && (
+            <p className="text-sm font-bold text-emerald-800">V tomhle období jsem nic podezřelého nenašel (dvojité zápisy, odpočty zrušených a smazaných objednávek, odepsáno víc než objednáno, vráceno víc než odepsáno, zdvojené objednávky).</p>
+          )}
+          {nalezy && nalezy.length > 0 && (
+            <ul className="space-y-1.5">
+              {nalezy.map((n, i) => (
+                <li key={i} className={`rounded border-l-4 px-2.5 py-1.5 text-xs ${n.vaha === 'chyba' ? 'border-l-rose-500 bg-rose-50' : 'border-l-amber-500 bg-amber-50'}`}>
+                  <div className="font-black text-neutral-950">
+                    {denPopis(n.datum)} · {nazevPiva.get(n.beer_id) || '?'} · {nazevObalu.get(n.package_id) || '?'}
+                    {n.dopad ? <span className={n.dopad < 0 ? 'text-rose-800' : 'text-emerald-800'}> · sklad {n.dopad > 0 ? '+' : ''}{n.dopad}</span> : null}
+                  </div>
+                  <div className="font-semibold text-neutral-800">{n.text}</div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
       {!bezi && chybaNacteni && (
         <p className="rounded border-2 border-rose-300 bg-rose-50 p-3 text-sm font-bold text-rose-800">
           Pohyby se nepodařilo načíst: {chybaNacteni}
