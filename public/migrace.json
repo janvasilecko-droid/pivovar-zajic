@@ -156,6 +156,12 @@
     "20261231120000_otazky_ke_zprave.sql",
     "20261231130000_vraceni_order_id.sql",
     "20261231140000_pripominka_konce_staceni.sql",
-    "20261231150000_objednavka_bez_zavozu.sql"
+    "20261231150000_objednavka_bez_zavozu.sql",
+    "20261231160000_male_sudy.sql",
+    "20261231170000_odpocty_push.sql",
+    "20261231180000_zavoz_cislo.sql",
+    "20261231190000_minule_zavozy_zavezene.sql",
+    "20261231200000_zruseni_s_vracenim_bez_zdvojeni.sql",
+    "20261231210000_inventura_nemaze_vraceni.sql"
   ]
 }

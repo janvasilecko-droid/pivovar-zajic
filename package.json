@@ -27,7 +27,8 @@
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
     "test:watch": "vitest --watch",
-    "zkontroluj-nasazeni": "node scripts/zkontroluj-nasazeni.mjs"
+    "zkontroluj-nasazeni": "node scripts/zkontroluj-nasazeni.mjs",
+    "rozbor-skladu": "NODE_USE_ENV_PROXY=1 vite-node scripts/rozbor-skladu.ts --"
   },
   "dependencies": {
     "@capacitor/app": "^8.1.1",
