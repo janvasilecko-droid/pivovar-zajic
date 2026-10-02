@@ -152,7 +152,7 @@ describe('WhatsAppOrderReviewModal — vrácení propojené s objednávkou', () 
     expect(updated).toHaveLength(0);
   });
 
-  it('u vrácení s amends_order_id se NEUKÁŽE banner „upraví existující objednávku" a Schválit je zamčené', async () => {
+  it('u vrácení s amends_order_id se NEUKÁŽE banner „upraví existující objednávku" (Schválit jde vždycky)', async () => {
     renderModal({
       orders: [order],
       orderItems,
@@ -162,8 +162,10 @@ describe('WhatsAppOrderReviewModal — vrácení propojené s objednávkou', () 
     await waitFor(() => expect(screen.getByText('1× KEG 50l Osma')).toBeTruthy());
     expect(screen.queryByText('Tohle je odpověď — upraví už existující objednávku')).toBeNull();
 
-    const schvalit = screen.getByText(/^Schválit/i).closest('button') as HTMLButtonElement;
-    expect(schvalit).toBeDisabled();
+    // Schválit jde vždycky (2. 10. 2026) — vrácení se jen ohlásí v dotazu
+    // (viz WhatsAppOrderReviewModal.neni-vraceni.test.tsx).
+    const schvalit = screen.getByText('Schválit a odeslat do objednávek').closest('button') as HTMLButtonElement;
+    expect(schvalit).not.toBeDisabled();
   });
 
   it('zpráva odpovídající na objednávku (amends_order_id) ji rovnou přednabídne vybranou', async () => {
