@@ -174,10 +174,13 @@ describe('vrácení jako odpověď s citací se nechová jako úprava objednávk
     expect(autoParse).toMatch(/amendsOrderId && !vypadaJakoVraceni\(message\.message_text\)/);
   });
 
-  it('modál nikdy nenechá vrácení schválit jako přepis/založení objednávky', () => {
+  it('u vrácení se Schválit nezamyká, ale vrácení se ohlásí v dotazu; banner úpravy se neukáže', () => {
     const modal = readFileSync('src/components/WhatsAppOrderReviewModal.tsx', 'utf8');
-    // Schválit je u vrácení vždy zamčené…
-    expect(modal).toMatch(/disabled=\{jeVraceni \|\| approving/);
+    // 2. 10. 2026: „musí jít vždy schválit a odeslat do objednávek" —
+    // tlačítko zamyká jen probíhající schvalování (dvojí klik)…
+    expect(modal).toMatch(/disabled=\{approving\}/);
+    // …a odhad „je to vrácení" se ukáže v dotazu Přesto schválit.
+    expect(modal).toMatch(/if \(jeVraceni\) p\.push\(/);
     // …a banner „upraví existující objednávku" se u vrácení vůbec neukáže.
     expect(modal).toMatch(/msg\?\.amends_order_id && !jeVraceni && \(/);
   });

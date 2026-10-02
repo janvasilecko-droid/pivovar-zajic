@@ -132,7 +132,15 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   // objednávky — schválením by vznikl závoz, který nikdy nepojede, nebo by se
   // rovnou přepsala cizí objednávka podle textu o vrácení. Viz gate níž u
   // amend-banneru a u tlačítka Schválit.
-  const jeVraceni = vypadaJakoVraceni(msg?.message_text);
+  //
+  // Odhad podle slov („vrací", „vrátil"…) se ale plete: objednávka typu
+  // „…a vrátíme prázdné sudy" pak nešla schválit vůbec — panel psal
+  // „pokračuj dole, pokud je to přece jen objednávka", jenže tlačítko dole
+  // bylo zamčené natvrdo (z provozu 2. 10. 2026: „zase mám objednávku
+  // a nejde potvrdit"). Člověk to proto smí přebít: „Není to vrácení".
+  const [neniVraceni, setNeniVraceni] = useState(false);
+  useEffect(() => { setNeniVraceni(false); }, [msg?.id]);
+  const jeVraceni = vypadaJakoVraceni(msg?.message_text) && !neniVraceni;
   // Rozdíl mezi současnou objednávkou a tím, co z odpovědi vyšlo.
   const [amendDiff, setAmendDiff] = useState<DiffRow[]>([]);
   const [amendPlace, setAmendPlace] = useState<string | null>(null);
@@ -873,7 +881,39 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
     </div>
   );
 
-  const handleApprove = async (asNew = false) => {
+  /**
+   * ✅ Schválit jde VŽDYCKY — rozhodnutí majitele 2. 10. 2026: „dej tam to
+   * tlačítko schválit permanentně, musí jít vždy schválit a odeslat do
+   * objednávek, neexistuje, že nepůjde objednávka potvrdit". Co dřív tlačítko
+   * zamykalo (vypadá jako vrácení, chybí pivo/obal, nezkontrolovaná fotka,
+   * přísný režim, prázdné položky), se teď vypíše do jednoho dotazu
+   * „Přesto schválit?" — rozhoduje člověk, ne appka.
+   */
+  const problemySchvaleni = (): string[] => {
+    const p: string[] = [];
+    if (loading) p.push('Zpráva se ještě načítá — schválí se to, co je vidět teď.');
+    if (!isParsed) p.push('Zpráva ještě není přečtená — objednávka se založí bez položek, doplníš je v Objednávkách.');
+    else if (items.length === 0) p.push('Žádné položky — založí se prázdná objednávka, položky doplníš v Objednávkách.');
+    if (jeVraceni) p.push('Zpráva vypadá na VRÁCENÍ piva — schválením vznikne objednávka a závoz.');
+    if (hasUnmatchedItems) p.push('U některé položky chybí pivo nebo obal — uloží se, ale ze skladu se neodečte, dokud ji v Objednávkách nedoplníš.');
+    if (isImage && !!message.media_url && !photoChecked) p.push('Fotka nebyla zkontrolovaná proti přepisu.');
+    if (!isImage && readback.mismatchCount > 0) p.push(`${readback.mismatchCount} z ${readback.items.length} položek nesouhlasí s originálem (AI mohla špatně přečíst).`);
+    return p;
+  };
+
+  const schvalitVzdy = async () => {
+    const p = problemySchvaleni();
+    if (p.length > 0) {
+      const ok = await potvrd(
+        `${p.map((x) => '• ' + x).join('\n')}\n\nPřesto schválit a odeslat do objednávek?`,
+        { titulek: 'Schválit objednávku', potvrdit: 'Přesto schválit' },
+      );
+      if (!ok) return;
+    }
+    await handleApprove(false, true);
+  };
+
+  const handleApprove = async (asNew = false, uzPotvrzeno = false) => {
     // asNew = schválit jako NOVOU objednávku i u zprávy, která upravuje jinou
     // (odpověď „…budou…, petky sedí"). Použije se, když se původní objednávka
     // pořádně nenačte (petky v ní nejsou) — pak je lepší založit novou, než
@@ -883,7 +923,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
     // řeší tlačítko "Zkontrolovat fotku a potvrdit" (photoChecked) níže.
     // V přísném režimu je tlačítko rovnou neaktivní; jinak se zeptáme a
     // uživatel může vědomě pokračovat.
-    if (!isImage && readback.mismatchCount > 0 && !prisnyBlokuje) {
+    if (!uzPotvrzeno && !isImage && readback.mismatchCount > 0 && !prisnyBlokuje) {
       const ok = (await potvrd(
         `${readback.mismatchCount} z ${readback.items.length} položek nesouhlasí s originálem (AI mohla špatně přečíst).\n\n` +
         `Pokračovat a i přesto objednávku schválit?` +
@@ -1271,9 +1311,13 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                   >
                     <RotateCcw size={14} /> {ukladamVraceni ? 'Zapisuji…' : `Zapsat jako vrácení (${vracenoKusu} ks)`}
                   </button>
-                  <span className="text-udaj font-bold text-sky-900">
-                    …nebo pokračuj dole, pokud je to přece jen objednávka.
-                  </span>
+                  <button
+                    type="button"
+                    className="btn-ghost"
+                    onClick={() => setNeniVraceni(true)}
+                  >
+                    Není to vrácení — je to objednávka
+                  </button>
                 </div>
               </div>
             </div>
@@ -2122,35 +2166,12 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
             </div>
 
             <button
-              onClick={() => handleApprove(false)}
-              disabled={jeVraceni || approving || loading || !isParsed || items.length === 0 || hasUnmatchedItems || (isImage ? (!!message.media_url && !photoChecked) : prisnyBlokuje)}
+              onClick={() => { void schvalitVzdy(); }}
+              disabled={approving}
               className="px-6 py-2.5 bg-emerald-700 text-white rounded hover:bg-emerald-800 disabled:opacity-50 flex items-center gap-2 font-medium"
-              title={
-                jeVraceni
-                  ? 'Vypadá to na vrácení piva, ne na objednávku — zapiš ho tlačítkem „Zapsat jako vrácení" výše.'
-                  : isImage && !!message.media_url && !photoChecked
-                  ? 'Nejprve potvrďte, že jste fotku zkontroloval/a (tlačítko výše).'
-                  : items.length === 0
-                  ? 'Žádné položky k importu — smazanou položku vrátíte zavřením bez schválení nebo „Přečíst znovu (AI)".'
-                  : hasUnmatchedItems
-                    ? 'U některé položky chybí přiřazené pivo nebo obal — vyberte je z nabídky (jinak by položka zmizela ze skladu).'
-                  : prisnyBlokuje
-                    ? 'Přísný režim je zapnutý — opravte nesouhlasící položky, nebo schválení odemkněte tlačítkem výše.'
-                    : undefined
-              }
             >
               {approving ? <ButtonSpinner /> : <UserCheck size={16} />}
-              {isParsed
-                ? (isImage && !!message.media_url && !photoChecked
-                    ? 'Nejprve zkontrolujte fotku…'
-                    : hasUnmatchedItems
-                      ? 'Doplňte pivo/obal…'
-                    : prisnyBlokuje
-                      ? `Opravte ${readback.mismatchCount} nesouladů…`
-                      : items.length === 0
-                        ? 'Žádné položky…'
-                        : 'Schválit a importovat')
-                : 'Čeká na parsování...'}
+              {approving ? 'Schvaluji…' : 'Schválit a odeslat do objednávek'}
             </button>
             </div>
           </div>

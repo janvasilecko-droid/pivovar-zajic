@@ -121,7 +121,7 @@ describe('WhatsAppOrderReviewModal — pole odběratele (repro)', () => {
     const suggestion = await screen.findByRole('button', { name: /Kiosek/ });
     fireEvent.click(suggestion);
 
-    const approveBtn = await screen.findByRole('button', { name: /Schválit a importovat/ });
+    const approveBtn = await screen.findByRole('button', { name: /Schválit a odeslat do objednávek/ });
     fireEvent.click(approveBtn);
 
     await waitFor(() => expect(onApprove).toHaveBeenCalledTimes(1));

@@ -558,8 +558,11 @@ export default function Orders({
   // Schválení WhatsApp objednávky - vytvoří objednávku z rozparsované zprávy
   const handleApproveWhatsAppOrder = useCallback(async (message: WhatsAppIncoming) => {
     try {
-      if (!message.parsed_items || message.parsed_items.length === 0) {
-        throw new Error('Objednávka nemá žádné rozparsované položky');
+      // Prázdná objednávka jde založit (Schválit jde vždycky, 2. 10. 2026) —
+      // položky se doplní v Objednávkách. U ODPOVĚDI na existující objednávku
+      // ale ne: přepis bez položek by ji vyprázdnil.
+      if (message.amends_order_id && (!message.parsed_items || message.parsed_items.length === 0)) {
+        throw new Error('Odpověď nemá žádné položky — upravovaná objednávka by se vyprázdnila. Schval ji jako novou, nebo zprávu ignoruj.');
       }
 
       const today = businessDateISO();
@@ -757,7 +760,7 @@ export default function Orders({
 
       // Převést rozparsované položky na formát pro order_items. Pokud položka
       // nemá ID piva/obalu, dohledáme je v katalogu podle názvu/stupně/balení.
-      const rows = message.parsed_items.map((item) => {
+      const rows = (message.parsed_items ?? []).map((item) => {
         const beer =
           beers.find((b) => b.id === item.beer_id) ??
           // Přednost má původní text objednávky (raw_line) — název od AI může být špatný
@@ -788,8 +791,10 @@ export default function Orders({
         };
       });
 
-      const { error: itemsErr } = await supabase.from('order_items').insert(rows);
-      if (itemsErr) throw new Error(itemsErr.message);
+      if (rows.length > 0) {
+        const { error: itemsErr } = await supabase.from('order_items').insert(rows);
+        if (itemsErr) throw new Error(itemsErr.message);
+      }
 
       // Označit zprávu jako importovanou + audit kontroly čtení (#10)
       const { data: authData } = await supabase.auth.getUser();

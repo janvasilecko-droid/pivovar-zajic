@@ -100,7 +100,7 @@ describe('WhatsAppOrderReviewModal — rozdělit na dva odběratele', () => {
     const { onApprove } = renderModal();
     await waitFor(() => expect(screen.queryAllByRole('spinbutton')).toHaveLength(2));
 
-    fireEvent.click(screen.getByText('Schválit a importovat'));
+    fireEvent.click(screen.getByText('Schválit a odeslat do objednávek'));
     await waitFor(() => expect(onApprove).toHaveBeenCalledTimes(1));
     expect(onApprove.mock.calls[0][0].parsed_items).toHaveLength(2);
     expect(insertCalls).toHaveLength(0);
@@ -126,7 +126,7 @@ describe('WhatsAppOrderReviewModal — rozdělit na dva odběratele', () => {
     const navrh = await screen.findByRole('button', { name: /Sluhy/ });
     fireEvent.click(navrh);
 
-    fireEvent.click(screen.getByText('Schválit a importovat'));
+    fireEvent.click(screen.getByText('Schválit a odeslat do objednávek'));
     await waitFor(() => expect(onApprove).toHaveBeenCalledTimes(1));
 
     // Prvnímu (schválenému přes onApprove) zůstane jen nezaškrtnutá položka.
@@ -157,7 +157,7 @@ describe('WhatsAppOrderReviewModal — rozdělit na dva odběratele', () => {
     fireEvent.click(checkboxes[1]);
     // Druhý odběratel se NEVYBRAL.
 
-    fireEvent.click(screen.getByText('Schválit a importovat'));
+    fireEvent.click(screen.getByText('Schválit a odeslat do objednávek'));
     await waitFor(() => expect(screen.getByText(/Vyber nebo napiš druhého odběratele/)).toBeTruthy());
     expect(onApprove).not.toHaveBeenCalled();
   });

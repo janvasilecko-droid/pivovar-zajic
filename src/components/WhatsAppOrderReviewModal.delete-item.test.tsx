@@ -105,7 +105,7 @@ describe('WhatsAppOrderReviewModal — křížek na smazání položky', () => {
     expect(screen.getByText(/AI četla z originálu: „4x Summer PET/)).toBeTruthy();
 
     // Schválení → do importu i do DB jde už jen zbylá položka.
-    fireEvent.click(screen.getByText('Schválit a importovat'));
+    fireEvent.click(screen.getByText('Schválit a odeslat do objednávek'));
     await waitFor(() => expect(onApprove).toHaveBeenCalledTimes(1));
 
     const approveArg = onApprove.mock.calls[0][0];
@@ -120,8 +120,11 @@ describe('WhatsAppOrderReviewModal — křížek na smazání položky', () => {
     expect(parsedItemsCall[1].parsedItems[0].raw_line).toBe('4x Summer PET 1.5l');
   });
 
-  it('2. po smazání všech položek nelze objednávku schválit', async () => {
-    renderModal(parsedMessage);
+  // 2. 10. 2026: „musí jít vždy schválit a odeslat do objednávek" — prázdná
+  // objednávka a položka bez piva/obalu už tlačítko nezamykají, jen se
+  // ohlásí v dotazu „Přesto schválit?". Bez souhlasu se nic neodešle.
+  it('2. po smazání všech položek se Schválit zeptá a bez souhlasu nic neodešle', async () => {
+    const { onApprove } = renderModal(parsedMessage);
     await waitFor(() => expect(screen.queryAllByRole('spinbutton')).toHaveLength(2));
 
     fireEvent.click(screen.getAllByLabelText('Smazat položku')[0]);
@@ -131,11 +134,17 @@ describe('WhatsAppOrderReviewModal — křížek na smazání položky', () => {
     fireEvent.click(screen.getAllByLabelText('Smazat položku')[0]);
     await waitFor(() => expect(screen.queryAllByRole('spinbutton')).toHaveLength(0));
 
-    const disabledBtn = await screen.findByText('Žádné položky…');
-    expect((disabledBtn.closest('button') as HTMLButtonElement).disabled).toBe(true);
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const btn = screen.getByText('Schválit a odeslat do objednávek').closest('button') as HTMLButtonElement;
+    expect(btn.disabled).toBe(false);
+    fireEvent.click(btn);
+    await waitFor(() => expect(confirm).toHaveBeenCalled());
+    expect(confirm.mock.calls[0][0]).toMatch(/Žádné položky/);
+    expect(onApprove).not.toHaveBeenCalled();
+    confirm.mockRestore();
   });
 
-  it('3. položku bez rozpoznaného piva/obalu nelze schválit (zmizela by ze skladu)', async () => {
+  it('3. položka bez rozpoznaného piva/obalu: Schválit varuje, že se neodečte ze skladu', async () => {
     // AI nerozpoznala pivo/obal u druhé položky — beer_name/package_label
     // neodpovídá žádnému katalogovému záznamu ani žádnému fallback pravidlu.
     const unmatchedMessage = {
@@ -147,11 +156,17 @@ describe('WhatsAppOrderReviewModal — křížek na smazání položky', () => {
       ],
       parsed_raw_text: '2x KEG30 12sv\nXY neznámá položka',
     };
-    renderModal(unmatchedMessage);
+    const { onApprove } = renderModal(unmatchedMessage);
     await waitFor(() => expect(screen.queryAllByRole('spinbutton')).toHaveLength(2));
 
     expect(screen.getByText(/Pivo\/obal se nepodařilo přiřadit automaticky/)).toBeTruthy();
-    const btn = await screen.findByText('Doplňte pivo/obal…');
-    expect((btn.closest('button') as HTMLButtonElement).disabled).toBe(true);
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const btn = screen.getByText('Schválit a odeslat do objednávek').closest('button') as HTMLButtonElement;
+    expect(btn.disabled).toBe(false);
+    fireEvent.click(btn);
+    await waitFor(() => expect(confirm).toHaveBeenCalled());
+    expect(confirm.mock.calls[0][0]).toMatch(/chybí pivo nebo obal/);
+    expect(onApprove).not.toHaveBeenCalled();
+    confirm.mockRestore();
   });
 });
