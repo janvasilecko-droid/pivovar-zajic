@@ -7,6 +7,7 @@ import { chybiTabulka } from '../lib/chybyHlaseni';
 import { useAuth } from '../lib/auth';
 import { bodyGrafu, dalsiGenerace, posledniStupnovitost, prokvaseni, type Mereni, type Varka } from '../lib/varky';
 import { businessDateISO } from '../lib/businessDate';
+import { vNovemSklepu } from '../lib/sklepOd';
 
 /** Česky s čárkou a nejvýš jedním desetinným místem (12,1 °P, ne 12.1). */
 function cz(n: number | null | undefined): string {
@@ -37,8 +38,12 @@ export function VarkySklep({ beers, tanks }: { beers: Beer[]; tanks: CellarTank[
     ]);
     const err = v.error ?? m.error;
     if (err) { setStav(chybiTabulka(err) || /kvasnice_/.test(err.message ?? '') ? 'bez-migrace' : 'chyba'); return; }
-    setVarky((v.data as Varka[]) ?? []);
-    setMereni((m.data as Mereni[]) ?? []);
+    // Sklep od 1. 10. 2026 znovu (lib/sklepOd.ts) — starší várky zůstávají
+    // v databázi, jen se tu neukazují.
+    const nove = ((v.data as Varka[]) ?? []).filter((x) => vNovemSklepu(x.started_at ?? x.created_at));
+    const idNovych = new Set(nove.map((x) => x.id));
+    setVarky(nove);
+    setMereni(((m.data as Mereni[]) ?? []).filter((x) => idNovych.has(x.batch_id)));
     setStav('ok');
   }
   useEffect(() => { void nacti(); }, []);
