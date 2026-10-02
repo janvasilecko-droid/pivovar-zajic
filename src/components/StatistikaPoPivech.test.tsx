@@ -47,4 +47,14 @@ describe('StatistikaPoPivech', () => {
     expect(radek('Sudy (KEG)', 'KEG 50l').textContent).toBe('KEG 50l1 ks–');
     expect(karta('Lahve a PET').textContent).toMatch(/Ani letos, ani loni se nestáčelo/);
   });
+
+  it('šipkou do minulého měsíce: srpen proti červenci (2. 10. 2026)', () => {
+    render(<StatistikaPoPivech sudy={SUDY} lahve={LAHVE} obaly={OBALY} piva={PIVA} dnes="2026-09-17" />);
+    expect(screen.getByRole('button', { name: 'Následující měsíc' }).hasAttribute('disabled')).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Předchozí měsíc' }));
+    // Srpen je teď „vybraný", ne „minulý": 5 sudů 50l.
+    expect(karta('Sudy (KEG)').textContent).toMatch(/srpen 20265 ks2,5 hl/);
+    fireEvent.click(screen.getByRole('button', { name: 'Teď' }));
+    expect(karta('Sudy (KEG)').textContent).toMatch(/Minulý měsíc5 ks2,5 hl/);
+  });
 });

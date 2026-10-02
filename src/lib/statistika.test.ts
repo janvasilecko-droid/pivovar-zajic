@@ -498,6 +498,7 @@ describe('zrychlené součty Statistiky = původní výpočet', () => {
     const objednavky = Array.from({ length: 300 }, (_, i) => ({
       id: `o${i}`,
       order_date: `2026-${String(1 + Math.floor(r() * 12)).padStart(2, '0')}-${String(1 + Math.floor(r() * 28)).padStart(2, '0')}`,
+      delivery_date: r() < 0.3 ? null : `2026-${String(1 + Math.floor(r() * 12)).padStart(2, '0')}-15`,
       status: r() < 0.15 ? 'storno' : 'nova',
     }));
     const piva = ['b1', 'b2', 'b3', null];
@@ -515,10 +516,10 @@ describe('zrychlené součty Statistiky = původní výpočet', () => {
     const { objednanoPoMesicich } = await import('./statistika');
     for (const seed of [1, 7, 42, 2026]) {
       const { objednavky, polozky } = nahodna(seed);
-      // Původní kód z History.tsx:
+      // Původní kód z History.tsx (od 2. 10. 2026 podle dne závozu):
       const puvodni = new Map<string, number>();
       objednavky.filter((o) => o.status !== 'storno').forEach((o) => {
-        const mk = o.order_date.slice(0, 7);
+        const mk = (o.delivery_date || o.order_date).slice(0, 7);
         polozky.filter((i) => i.order_id === o.id).forEach((i) => {
           puvodni.set(mk, (puvodni.get(mk) ?? 0) + Number(i.quantity));
         });
@@ -643,5 +644,44 @@ describe('staceniPivaPoObdobich — záložka Po pivech', () => {
     expect(r.sudy.litry[2]).toBe(120);
     expect(r.sudy.kusy[4]).toBe(6);
     expect(r.sudy.kusy.every((k) => k >= 0)).toBe(true);
+  });
+});
+
+describe('objednávky po měsících podle dne závozu', () => {
+  it('zadáno v srpnu, závoz v září → září (NORMA, 2. 10. 2026)', async () => {
+    const { objednanoPoMesicich } = await import('./statistika');
+    const m = objednanoPoMesicich(
+      [{ id: 'n', order_date: '2026-08-28', delivery_date: '2026-09-03', status: 'nova' }],
+      [{ order_id: 'n', quantity: 10 }],
+    );
+    expect(m.get('2026-09')).toBe(10);
+    expect(m.has('2026-08')).toBe(false);
+  });
+});
+
+describe('staceniAObjednavkyPoMesicich', () => {
+  it('stočeno podle data stáčení, objednáno podle dne závozu, bez storna', async () => {
+    const { staceniAObjednavkyPoMesicich } = await import('./statistika');
+    const obaly = new Map([['k50', { id: 'k50', label: 'KEG 50l', kind: 'keg', volume_l: 50 }], ['l05', { id: 'l05', label: '0,5 l', kind: 'bottle', volume_l: 0.5 }]]) as any;
+    const r = staceniAObjednavkyPoMesicich(
+      [
+        { entry_date: '2026-08-20', beer_id: 'b', package_id: 'k50', quantity: 4 } as any,
+        { entry_date: '2026-09-02', beer_id: 'b', package_id: 'k50', quantity: 1 } as any,
+      ],
+      [
+        { id: 'n', order_date: '2026-08-28', delivery_date: '2026-09-03', status: 'nova' },
+        { id: 's', order_date: '2026-09-01', delivery_date: '2026-09-05', status: 'storno' },
+      ],
+      [
+        { order_id: 'n', package_id: 'k50', quantity: 3 },
+        { order_id: 'n', package_id: 'l05', quantity: 100 },
+        { order_id: 's', package_id: 'k50', quantity: 9 },
+      ],
+      obaly, '2026-09', 2,
+    );
+    expect(r).toEqual([
+      { mesic: '2026-08', stocenoL: 200, objednanoL: 0 },
+      { mesic: '2026-09', stocenoL: 50, objednanoL: 200 },
+    ]);
   });
 });

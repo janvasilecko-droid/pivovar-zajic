@@ -9,6 +9,10 @@ import { printDeliveryList } from '../lib/safePrint';
 import { businessDateISO } from '../lib/businessDate';
 import { ChipyPiva, ChipyObalu } from './FiltrPivaAObalu';
 import { EditOrderModal } from './EditOrderModal';
+import { SipkyObdobi } from './SipkyObdobi';
+import { denObdobi, popisRozsahu, rozsahObdobi, type Obdobi } from '../lib/statistika';
+
+const OBDOBI: Record<'week' | 'month' | 'year', Obdobi> = { week: 'tyden', month: 'mesic', year: 'rok' };
 
 type Order = {
   id: string; order_date: string; place_id: string | null; place_name: string | null;
@@ -39,6 +43,11 @@ export default function ZavozHistory() {
 
   // ---- Filtry historie tras ----
   const [histPeriod, setHistPeriod] = useState<'all' | 'week' | 'month' | 'year'>('all');
+  // ‹ září 2026 › — posun období (2. 10. 2026: „udělej to všude, ať tam bude
+  // říjen a šipka před a po"). Dřív Týden/Měsíc/Rok = jen „od začátku
+  // aktuálního", do minulého měsíce se podívat nešlo.
+  const [histPosun, setHistPosun] = useState(0);
+  const histDen = histPeriod === 'all' ? '' : denObdobi(OBDOBI[histPeriod], businessDateISO(), histPosun);
   const [histPlaceId, setHistPlaceId] = useState<string>('');
   const [histBeerId, setHistBeerId] = useState<string>('');
   const [histPackageId, setHistPackageId] = useState<string>('');
@@ -76,18 +85,11 @@ export default function ZavozHistory() {
 
   // Filtrovaná historie tras podle období, odběrného místa, piva a obalu
   const filteredHistoryByDate = useMemo(() => {
-    const today = businessDateISO();
-    const now = new Date(today + 'T00:00:00Z');
-    const weekStart = new Date(now); weekStart.setUTCDate(now.getUTCDate() - now.getUTCDay() + (now.getUTCDay() === 0 ? -6 : 1));
-    const weekStartISO = weekStart.toISOString().slice(0, 10);
-    const monthStartISO = today.slice(0, 7) + '-01';
-    const yearStartISO = today.slice(0, 4) + '-01-01';
+    const rozsah = histPeriod === 'all' ? null : rozsahObdobi(OBDOBI[histPeriod], histDen);
 
     const matchesOrder = (o: Order): boolean => {
       // Období
-      if (histPeriod === 'week' && o.order_date < weekStartISO) return false;
-      if (histPeriod === 'month' && o.order_date < monthStartISO) return false;
-      if (histPeriod === 'year' && o.order_date < yearStartISO) return false;
+      if (rozsah && (o.order_date < rozsah.od || o.order_date > rozsah.do)) return false;
       // Odběrné místo
       if (histPlaceId && o.place_id !== histPlaceId) return false;
       // Pivo / obal — musí být v položkách objednávky
@@ -115,7 +117,7 @@ export default function ZavozHistory() {
     });
 
     return [...map.values()].sort((a, b) => b.date.localeCompare(a.date));
-  }, [orders, items, packages, histPeriod, histPlaceId, histBeerId, histPackageId]);
+  }, [orders, items, packages, histPeriod, histDen, histPlaceId, histBeerId, histPackageId]);
 
   function printDeliveryListForOrders(toPrint: Order[], titleLabel: string) {
     printDeliveryList({
@@ -167,7 +169,7 @@ export default function ZavozHistory() {
             {([['all', 'Vše'], ['week', 'Týden'], ['month', 'Měsíc'], ['year', 'Rok']] as const).map(([k, lbl]) => (
               <button
                 key={k}
-                onClick={() => setHistPeriod(k)}
+                onClick={() => { setHistPeriod(k); setHistPosun(0); }}
                 className={`tap px-3 py-1.5 rounded font-black text-udaj transition ${
                   histPeriod === k ? 'bg-white text-neutral-900 shadow-xs' : 'text-neutral-600 hover:bg-white'
                 }`}
@@ -176,6 +178,14 @@ export default function ZavozHistory() {
               </button>
             ))}
           </div>
+          {histPeriod !== 'all' && (
+            <SipkyObdobi
+              popis={popisRozsahu(OBDOBI[histPeriod], histDen)}
+              posun={histPosun}
+              onPosun={setHistPosun}
+              nazev={histPeriod === 'week' ? 'týden' : histPeriod === 'month' ? 'měsíc' : 'rok'}
+            />
+          )}
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <select
@@ -190,7 +200,7 @@ export default function ZavozHistory() {
           <ChipyObalu obaly={packages} vybrane={histPackageId} onVybrat={setHistPackageId} />
           {(histPeriod !== 'all' || histPlaceId || histBeerId || histPackageId) && (
             <button
-              onClick={() => { setHistPeriod('all'); setHistPlaceId(''); setHistBeerId(''); setHistPackageId(''); }}
+              onClick={() => { setHistPeriod('all'); setHistPosun(0); setHistPlaceId(''); setHistBeerId(''); setHistPackageId(''); }}
               className="btn-ghost !rounded !py-1.5 text-xs font-black text-amber-900"
             >
               <X className="ikona-text" /> Zrušit filtr

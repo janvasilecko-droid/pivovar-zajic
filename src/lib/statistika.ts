@@ -604,7 +604,7 @@ export function formatHl(litry: number): string {
  * s původním postupem, i v pořadí sčítání).
  */
 export function objednanoPoMesicich(
-  objednavky: { id: string; order_date: string; status: string }[],
+  objednavky: { id: string; order_date: string; delivery_date?: string | null; status: string }[],
   polozky: { order_id: string; quantity: number | string | null }[],
 ): Map<string, number> {
   const podleObjednavky = new Map<string, (number | string | null)[]>();
@@ -615,7 +615,10 @@ export function objednanoPoMesicich(
   const out = new Map<string, number>();
   for (const o of objednavky) {
     if (o.status === 'storno') continue;
-    const mk = o.order_date.slice(0, 7);
+    // DEN ZÁVOZU, ne den zadání — stejně jako Největší odběratelé a odpočet
+    // ze skladu (2. 10. 2026: „NORMA stočena v srpnu, v září odešla — není
+    // i v srpnu?"). Objednávka zadaná v srpnu na září patří do září.
+    const mk = (o.delivery_date || o.order_date).slice(0, 7);
     for (const q of podleObjednavky.get(o.id) ?? []) {
       out.set(mk, (out.get(mk) ?? 0) + Number(q));
     }
@@ -749,4 +752,41 @@ export function staceniPivaPoObdobich(
     return { obaly: [...podleObalu.values()].sort((a, b) => obj(b.id) - obj(a.id)), kusy, litry };
   };
   return { sudy: skupina(sudy), lahve: skupina(lahve) };
+}
+
+/**
+ * Stočeno proti objednanému po měsících, v litrech — 2. 10. 2026: „udělej
+ * tabulku, kde bude stáčení a pak objednávky, ta by se měla rozcházet o něco".
+ *
+ * Stočeno = výstav (sudy z tanku; lahve se plní ze sudů, takže v něm už jsou).
+ * Objednáno = položky objednávek bez storna podle DNE ZÁVOZU (stejně jako
+ * podleOdberatelu). Rozdíl je normální: co se stočí na konci měsíce, odjede
+ * v dalším, a část piva jde na fasování, prodejnu a akce, ne na objednávky.
+ */
+export function staceniAObjednavkyPoMesicich(
+  vystav: VyrobniRadek[],
+  orders: { id: string; delivery_date: string | null; order_date: string; status: string }[],
+  polozky: { order_id: string; package_id: string | null; quantity: number | null }[],
+  obaly: Map<string, Obal>,
+  konecMesic: string,
+  mesicu = 6,
+): { mesic: string; stocenoL: number; objednanoL: number }[] {
+  const mesice = Array.from({ length: mesicu }, (_, i) => posunMesicu(konecMesic, i - (mesicu - 1)));
+  const out = new Map(mesice.map((m) => [m, { mesic: m, stocenoL: 0, objednanoL: 0 }]));
+  for (const r of vystav) {
+    const z = r.entry_date ? out.get(r.entry_date.slice(0, 7)) : undefined;
+    if (z) z.stocenoL += litryRadku(r, obaly);
+  }
+  const mesicObjednavky = new Map<string, string>();
+  for (const o of orders) {
+    if (o.status === 'storno') continue;
+    const den = o.delivery_date || o.order_date;
+    if (den && out.has(den.slice(0, 7))) mesicObjednavky.set(o.id, den.slice(0, 7));
+  }
+  for (const p of polozky) {
+    const m = mesicObjednavky.get(p.order_id);
+    if (!m) continue;
+    out.get(m)!.objednanoL += Number(p.quantity || 0) * objem(p.package_id ? obaly.get(p.package_id) : undefined);
+  }
+  return mesice.map((m) => out.get(m)!);
 }

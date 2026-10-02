@@ -21,11 +21,15 @@ import {
 } from 'recharts';
 import { TrendingDown, TrendingUp, Minus, Store, ChevronDown } from 'lucide-react';
 import { EmptyState } from './ui';
+import { SipkyObdobi } from './SipkyObdobi';
+
+export { SipkyObdobi };
 import {
   formatHl, hl, litryPoMesicich, litryPoTydnech, litryPoObdobiAObalech, litryVRozsahu,
   obalyVCislech, obalyVDatech, pivaVCislech,
   podleOdberatelu, pondeliTydne, posunDnu, predchoziRozsah,
   prumernaPotrebaKegu, popisRozsahu, denObdobi, rozpocetSudu, rozsahObdobi, zmenaProcent, podilSudyLahve, odberatelPoMesicich,
+  posunMesicu, staceniAObjednavkyPoMesicich,
   type CisloRadek, type Obal, type Obdobi, type Pivo, type VyrobniRadek,
 } from '../lib/statistika';
 
@@ -321,6 +325,11 @@ export default function StatistikaVystav({
   // Výstav = stočené SUDY. Lahvování se sleduje zvlášť (viz komentář nahoře).
   const vyroba = keggingRows;
   const lahvovani = bottlingRows;
+  const [posunSrovnani, setPosunSrovnani] = useState(0);
+  const staceniVsObjednavky = useMemo(
+    () => staceniAObjednavkyPoMesicich(vyroba, orders, orderItems, mapaObalu, posunMesicu(dnes.slice(0, 7), posunSrovnani), 6),
+    [vyroba, orders, orderItems, mapaObalu, dnes, posunSrovnani],
+  );
 
   // O kolik období zpět se zrovna kouká (0 = to, ve kterém jsme teď).
   // Posouvají se jím jen ROZPADY pod přepínačem; dlaždice a grafy nahoře
@@ -1000,6 +1009,46 @@ export default function StatistikaVystav({
           do lahví" jsou tytéž obaly jako v tabulce „Obaly v číslech", „Piva
           v číslech" tentýž rozpad jako graf „Které pivo táhne"). Čísla se
           nemění, jen jsou o klepnutí dál. */}
+      {/* Stočeno vs. objednáno po měsících — 2. 10. 2026: „udělej tabulku,
+          kde bude stáčení a pak objednávky, ta by se měla rozcházet o něco". */}
+      <section className="card p-3.5 sm:p-5">
+        <Nadpis
+          text="Stočeno vs. objednáno"
+          popis="Po měsících, v hl. Stočeno = výstav (sudy z tanku, lahve se plní z nich). Objednáno = objednávky bez storna podle dne závozu."
+        />
+        <div className="mb-3">
+          <SipkyObdobi popis={`${popisRozsahu('mesic', (staceniVsObjednavky[0]?.mesic ?? dnes.slice(0, 7)) + '-01')} – ${popisRozsahu('mesic', (staceniVsObjednavky[staceniVsObjednavky.length - 1]?.mesic ?? dnes.slice(0, 7)) + '-01')}`} posun={posunSrovnani} onPosun={setPosunSrovnani} nazev="měsíc" />
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-udaj font-black uppercase tracking-wide text-neutral-500 border-b border-neutral-200">
+                <th scope="col" className="text-left py-1.5 pr-2">Měsíc</th>
+                <th scope="col" className="text-right py-1.5 px-2">Stočeno</th>
+                <th scope="col" className="text-right py-1.5 px-2">Objednáno</th>
+                <th scope="col" className="text-right py-1.5 pl-2">Rozdíl</th>
+              </tr>
+            </thead>
+            <tbody>
+              {staceniVsObjednavky.map((r) => {
+                const rozdil = r.stocenoL - r.objednanoL;
+                return (
+                  <tr key={r.mesic} className="border-b border-neutral-100">
+                    <td className="py-1.5 pr-2 font-bold text-neutral-900 whitespace-nowrap">{popisRozsahu('mesic', r.mesic + '-01')}</td>
+                    <td className="py-1.5 px-2 text-right tabular-nums font-black text-neutral-900">{formatHl(r.stocenoL)} hl</td>
+                    <td className="py-1.5 px-2 text-right tabular-nums font-black text-neutral-900">{formatHl(r.objednanoL)} hl</td>
+                    <td className={`py-1.5 pl-2 text-right tabular-nums font-bold ${rozdil < 0 ? 'text-rose-700' : 'text-neutral-600'}`}>{rozdil > 0 ? '+' : rozdil < 0 ? '−' : ''}{formatHl(Math.abs(rozdil))} hl</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <p className="mt-2 text-udaj font-semibold text-neutral-500">
+          Rozdíl je normální: co se stočí na konci měsíce, často odjede až v dalším, a část piva jde na fasování, prodejnu a akce. Velký rozdíl několik měsíců po sobě stojí za kontrolu.
+        </p>
+      </section>
+
       <details className="group">
         <summary className="card p-3.5 sm:p-4 cursor-pointer select-none list-none flex items-center justify-between gap-2">
           <span>
