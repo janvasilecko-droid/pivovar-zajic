@@ -85,7 +85,9 @@ describe('Upozornění na měsíční úklid', () => {
 
   it('odložené okno otevře dlaždice „Měsíční úklid" rovnou s checklistem', () => {
     // Z provozu 28. 9. 2026: dlaždice dřív otevírala obrazovku Lahve.
-    localStorage.setItem('monthly_cleanup_dismiss_' + cleanupMonthKey(), 'week_start');
+    // 'friday' = odloženo podruhé, skryté v KAŽDÝ den. 'week_start' se od
+    // pátku samo znovu ukazuje, takže test v pátek padal (2. 10. 2026).
+    localStorage.setItem('monthly_cleanup_dismiss_' + cleanupMonthKey(), 'friday');
     const { container } = render(<MonthlyCleanupWarning />);
     expect(container.firstChild).toBeNull();
     act(() => otevriMesicniUklid());
