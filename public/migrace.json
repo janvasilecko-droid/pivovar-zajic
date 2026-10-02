@@ -164,6 +164,7 @@
     "20261231200000_zruseni_s_vracenim_bez_zdvojeni.sql",
     "20261231210000_inventura_nemaze_vraceni.sql",
     "20261231220000_obnov_vraceni_po_inventure.sql",
-    "20261231220000_stara_inventura_nepise.sql"
+    "20261231220000_stara_inventura_nepise.sql",
+    "20261231240000_sklep_od_rijna.sql"
   ]
 }

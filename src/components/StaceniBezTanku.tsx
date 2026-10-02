@@ -17,6 +17,7 @@ import { EmptyState } from './ui';
 import { jeJantar, pivaJantaru, pivoZdrojovehoTanku, rozdelJantar } from '../lib/jantar';
 import { odectiTmavouJantaru } from '../lib/jantarZapis';
 import { tankRadku } from '../lib/tankUZapisu';
+import { SKLEP_OD } from '../lib/sklepOd';
 
 export type RadekStaceni = {
   id: string;
@@ -42,7 +43,10 @@ export function StaceniBezTanku({ kegging, tanks, beers, packages, onZmena }: {
   const [vybrano, setVybrano] = useState<Record<string, string>>({});
   const [uklada, setUklada] = useState<string | null>(null);
 
-  const od = posunDen(businessDateISO(), -DNU_ZPET);
+  // Ne dřív než nový začátek sklepa (lib/sklepOd.ts): zářijové stáčení
+  // k vyprázdněným tankům přiřazovat nejde.
+  const odPred = posunDen(businessDateISO(), -DNU_ZPET);
+  const od = odPred > SKLEP_OD ? odPred : SKLEP_OD;
   const radky = useMemo(
     () => kegging
       .filter((r) => !r.cellar_tank_id && r.beer_id && Number(r.quantity) > 0 && r.entry_date >= od)

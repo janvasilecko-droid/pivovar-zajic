@@ -4,7 +4,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 
 vi.mock('../lib/businessDate', () => ({
-  businessDateISO: () => '2026-09-28',
+  businessDateISO: () => '2026-10-28',
   posunDen: (d: string, n: number) => {
     const x = new Date(d + 'T00:00:00Z'); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10);
   },
@@ -26,8 +26,8 @@ describe('StaceniBezTanku', () => {
     render(
       <StaceniBezTanku
         kegging={[
-          { id: 'k1', entry_date: '2026-09-27', beer_id: 'b12', beer_name: '12° Světlá', package_id: 'k50', package_label: 'KEG 50l', quantity: 20, cellar_tank_id: null },
-          { id: 'k2', entry_date: '2026-09-27', beer_id: 'b12', beer_name: '12° Světlá', package_id: 'k50', package_label: 'KEG 50l', quantity: 5, cellar_tank_id: 't1' },
+          { id: 'k1', entry_date: '2026-10-27', beer_id: 'b12', beer_name: '12° Světlá', package_id: 'k50', package_label: 'KEG 50l', quantity: 20, cellar_tank_id: null },
+          { id: 'k2', entry_date: '2026-10-27', beer_id: 'b12', beer_name: '12° Světlá', package_id: 'k50', package_label: 'KEG 50l', quantity: 5, cellar_tank_id: 't1' },
           { id: 'k3', entry_date: '2026-05-01', beer_id: 'b12', beer_name: '12° Světlá', package_id: 'k50', package_label: 'KEG 50l', quantity: 7, cellar_tank_id: null },
         ]}
         tanks={tanks}
@@ -48,7 +48,7 @@ describe('StaceniBezTanku', () => {
   it('pivo, které není v žádném tanku, nenabídne tank s jiným pivem', () => {
     render(
       <StaceniBezTanku
-        kegging={[{ id: 'k9', entry_date: '2026-09-27', beer_id: 'b11', beer_name: '10° Desítka', package_id: 'k50', package_label: 'KEG 50l', quantity: 3, cellar_tank_id: null }]}
+        kegging={[{ id: 'k9', entry_date: '2026-10-27', beer_id: 'b11', beer_name: '10° Desítka', package_id: 'k50', package_label: 'KEG 50l', quantity: 3, cellar_tank_id: null }]}
         tanks={tanks}
         beers={beers}
         packages={packages}
@@ -62,5 +62,18 @@ describe('StaceniBezTanku', () => {
   it('bez nepřiřazeného stáčení napíše, že nic nečeká', () => {
     render(<StaceniBezTanku kegging={[]} tanks={tanks} beers={beers} packages={packages} onZmena={() => {}} />);
     expect(screen.getByText(/Žádné stáčení bez tanku/)).toBeTruthy();
+  });
+
+  it('zářijové stáčení se nenabízí — sklep začíná znovu od 1. 10. 2026 (lib/sklepOd.ts)', () => {
+    render(
+      <StaceniBezTanku
+        kegging={[{ id: 'k8', entry_date: '2026-09-30', beer_id: 'b12', beer_name: '12° Světlá', package_id: 'k50', package_label: 'KEG 50l', quantity: 4, cellar_tank_id: null }]}
+        tanks={tanks}
+        beers={beers}
+        packages={packages}
+        onZmena={() => {}}
+      />,
+    );
+    expect(screen.queryByText(/× 4$/)).toBeNull();
   });
 });

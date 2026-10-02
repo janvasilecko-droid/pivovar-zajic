@@ -17,6 +17,7 @@ import { uloz } from '../lib/uloziste';
 import { objednavkyZTanku } from '../lib/objednavkyZTanku';
 import { usePlanStaceni } from '../lib/usePlanStaceni';
 import { mergeWeekPlan } from '../lib/keggingPlan';
+import { vNovemSklepu } from '../lib/sklepOd';
 
 const STATUS_LABELS: Record<CellarTank['status'], string> = {
   empty: 'Prázdný', filling: 'Plní se', active: 'Aktivní', emptying: 'Stáčí se',
@@ -206,9 +207,11 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
     });
 
     setTanks(adjustedTankList);
-    setTransfers((tr.data as CellarTransfer[]) ?? []);
-    setCycles((cy.data as CellarTankCycle[]) ?? []);
-    setKegging((kg.data as EntryRow[]) ?? []);
+    // Sklep od 1. 10. 2026 znovu (lib/sklepOd.ts) — starší historie zůstává
+    // v databázi, jen se tu neukazuje.
+    setTransfers(((tr.data as CellarTransfer[]) ?? []).filter((x) => vNovemSklepu(x.transfer_date)));
+    setCycles(((cy.data as CellarTankCycle[]) ?? []).filter((x) => vNovemSklepu(x.ended_at)));
+    setKegging(((kg.data as EntryRow[]) ?? []).filter((x) => vNovemSklepu(x.entry_date)));
     setBeers((b.data as Beer[]) ?? []);
     setPackages((pkg.data as Package[]) ?? []);
     setLoading(false);
