@@ -5,9 +5,9 @@
 // minule" — zvlášť sudy, zvlášť lahve, po obalech. Dole přehled všech piv
 // za stejné období. Výpočet: lib/statistika.ts (staceniPivaPoObdobich).
 import { useMemo, useState } from 'react';
-import { Nadpis, Prepinac, Trend } from './StatistikaVystav';
+import { Nadpis, Prepinac, SipkyObdobi, Trend } from './StatistikaVystav';
 import {
-  formatHl, obdobiPoPivech, popisRozsahu, staceniPivaPoObdobich, zmenaProcent,
+  denObdobi, formatHl, obdobiPoPivech, popisRozsahu, staceniPivaPoObdobich, zmenaProcent,
   type Obal, type Obdobi, type Pivo, type SkupinaPoPivech, type VyrobniRadek,
 } from '../lib/statistika';
 
@@ -103,11 +103,20 @@ function KartaSkupiny({ nazev, data, ted, minule, popisTed, popisMinule, proti, 
 
 export default function StatistikaPoPivech({ sudy, lahve, obaly, piva, dnes }: Props) {
   const mapaObalu = useMemo(() => new Map(obaly.map((o) => [o.id, o])), [obaly]);
-  const obdobi = useMemo(() => obdobiPoPivech(dnes), [dnes]);
+  const obdobiDnes = useMemo(() => obdobiPoPivech(dnes), [dnes]);
+  const [druh, setDruh] = useState<Druh>('mesic');
+  // ‹ září 2026 › — o kolik týdnů/měsíců/let zpět (2. 10. 2026: „nejde tam
+  // přesouvat měsíc"). Celá sada období se staví od posunutého dne, takže
+  // „minule" je vždycky to předchozí k vybranému.
+  const [posun, setPosun] = useState(0);
+  const obdobi = useMemo(
+    () => (posun === 0 ? obdobiDnes : obdobiPoPivech(denObdobi(druh, dnes, posun))),
+    [obdobiDnes, druh, dnes, posun],
+  );
 
   // Výchozí pivo: to, kterého se tento měsíc stočilo nejvíc (sudy i lahve).
   const vychozi = useMemo(() => {
-    const m = obdobi[2];
+    const m = obdobiDnes[2];
     const litry = new Map<string, number>();
     for (const r of [...sudy, ...lahve]) {
       if (!r.beer_id || !r.entry_date || r.entry_date < m.od || r.entry_date > m.do) continue;
@@ -115,9 +124,8 @@ export default function StatistikaPoPivech({ sudy, lahve, obaly, piva, dnes }: P
       litry.set(r.beer_id, (litry.get(r.beer_id) ?? 0) + Number(r.quantity || 0) * Number(o?.volume_l ?? 0));
     }
     return [...litry.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? piva[0]?.id ?? '';
-  }, [sudy, lahve, mapaObalu, obdobi, piva]);
+  }, [sudy, lahve, mapaObalu, obdobiDnes, piva]);
   const [vybrane, setVybrane] = useState<string | null>(null);
-  const [druh, setDruh] = useState<Druh>('mesic');
   const pivoId = vybrane ?? vychozi;
   const pivo = piva.find((p) => p.id === pivoId);
 
@@ -128,9 +136,10 @@ export default function StatistikaPoPivech({ sudy, lahve, obaly, piva, dnes }: P
 
   const ted = INDEX[druh];
   const minule = ted + 1;
-  const popisTed = obdobi[ted].popis;
-  const popisMinule = obdobi[minule].popis;
   const rozsah = (i: number) => popisRozsahu(obdobi[i].klic.split('-')[0] as Obdobi, obdobi[i].od);
+  // Posunuté období se jmenuje datem, ne „Tento měsíc".
+  const popisTed = posun === 0 ? obdobi[ted].popis : rozsah(ted);
+  const popisMinule = posun === 0 ? obdobi[minule].popis : rozsah(minule);
 
   // Všechna piva za vybrané období — stejný výpočet jako pro jedno pivo.
   const vsechna = useMemo(() => {
@@ -162,15 +171,18 @@ export default function StatistikaPoPivech({ sudy, lahve, obaly, piva, dnes }: P
           <Prepinac
             volby={[['tyden', 'Týden'], ['mesic', 'Měsíc'], ['rok', 'Rok']] as const}
             vybrano={druh}
-            onZmena={setDruh}
+            onZmena={(d) => { setDruh(d); setPosun(0); }}
           />
+        </div>
+        <div className="mt-2">
+          <SipkyObdobi popis={rozsah(ted)} posun={posun} onPosun={setPosun} nazev={druh === 'tyden' ? 'týden' : druh === 'rok' ? 'rok' : 'měsíc'} />
         </div>
       </section>
 
       <div>
         <h2 className="font-display font-extrabold text-lg text-neutral-900 px-1">{pivo ? pivo.name : 'Pivo'} — stočeno</h2>
         <p className="text-udaj font-semibold text-neutral-500 px-1">
-          {popisTed} ({rozsah(ted)}) {PROTI[druh]} ({rozsah(minule)})
+          {posun === 0 ? `${popisTed} (${rozsah(ted)})` : popisTed} {PROTI[druh]} ({rozsah(minule)})
         </p>
       </div>
 

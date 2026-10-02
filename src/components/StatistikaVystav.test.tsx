@@ -162,9 +162,10 @@ describe('Statistika — Výstav', () => {
 
   it('žebříček odběratelů bere den závozu', () => {
     vykresli();
-    expect(screen.getByText('Hospoda U Lípy')).toBeTruthy();
+    const karta = screen.getByRole('heading', { name: 'Největší odběratelé' }).closest('section')!;
+    expect(karta.textContent).toContain('Hospoda U Lípy');
     // 3 sudy × 30 l = 90 l = 0,9 hl
-    expect(screen.getByText('0,9 hl')).toBeTruthy();
+    expect(karta.textContent).toContain('0,9 hl');
   });
 
   it('prázdné období nespadne, jen to řekne', () => {
@@ -286,5 +287,23 @@ describe('barvy grafu podle motivu', () => {
   it('bez proměnné vrátí zálohu, takže graf nezmizí', async () => {
     const { barvaZMotivu } = await import('./StatistikaVystav');
     expect(barvaZMotivu('--tahle-neexistuje', '#abcdef')).toBe('#abcdef');
+  });
+
+  it('Stočeno vs. objednáno: objednávka podle dne závozu, šipkou do minulého měsíce', () => {
+    render(
+      <StatistikaVystav
+        bottlingRows={bottling} keggingRows={kegging} fasovaniRows={fasovani} writeoffRows={odpisy}
+        obaly={OBALY} piva={PIVA} dnes="2026-09-10" obdobi="mesic" onObdobi={vi.fn()}
+        orders={orders} orderItems={orderItems}
+      />,
+    );
+    const karta = screen.getByRole('heading', { name: 'Stočeno vs. objednáno' }).closest('section')!;
+    const radek = (mesic: string) => [...karta.querySelectorAll('tr')].find((r) => r.textContent?.startsWith(mesic))!;
+    // Závoz Hospody U Lípy 28. 8. → srpen, 0,9 hl.
+    expect(radek('srpen 2026').textContent).toContain('0,9 hl');
+    expect(karta.textContent).toContain('září 2026');
+    fireEvent.click(screen.getByRole('button', { name: 'Předchozí měsíc' }));
+    expect(karta.textContent).not.toContain('září 2026');
+    expect(karta.textContent).toContain('březen 2026 – srpen 2026');
   });
 });
