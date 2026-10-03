@@ -1,6 +1,6 @@
 # Zálohy
 
-Poslední záloha: **2026-10-02** · tabulek 68 · přepsáno 12
+Poslední záloha: **2026-10-03** · tabulek 68 · přepsáno 3
 
 🔐 **Soubory jsou zašifrované** (AES-256-GCM). Bez hesla `ZALOHA_HESLO` je
 nikdo nepřečte — a bez něj je nejde ani obnovit. Heslo musí být uložené i mimo GitHub.
