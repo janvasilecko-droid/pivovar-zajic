@@ -1,7 +1,7 @@
 {
  "format": "pivovar-zaloha-manifest",
  "v": 1,
- "datum": "2026-10-03T08:20:02.862Z",
+ "datum": "2026-10-04T08:36:04.848Z",
  "tabulky": {
   "beers": {
    "radku": 13,
@@ -244,12 +244,12 @@
    "sha256": "c740ab223ec74ba375416f5a2d833f4d09d2eec6fa51cddeafc28f5a8e02c73f"
   },
   "whatsapp_incoming": {
-   "radku": 310,
-   "sha256": "7c8fc1f8e844967d589d8da35698eda5f886ba5d8c7863d9061bca24df73ddf4"
+   "radku": 311,
+   "sha256": "0a3e6a5950f35cf03c9c7f3a656fa049cd9d28f78e570b2df3b845ddc76406a9"
   },
   "whatsapp_prijem_log": {
-   "radku": 214,
-   "sha256": "d37a804263e6e4260537e67a6b775ef8d891c358e08c862c08cf7bb6214cd2df"
+   "radku": 215,
+   "sha256": "7be2795166752134da53dc986091f304feacefb0dec1c65c5d589a83cc548a3d"
   },
   "order_items": {
    "radku": 721,
