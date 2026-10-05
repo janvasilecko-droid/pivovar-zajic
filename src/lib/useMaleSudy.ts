@@ -2,7 +2,7 @@
 // Sdílí obrazovka KEG (zadávání) a Objednávky (hlídání).
 import { useEffect, useState } from 'react';
 import { supabase, useRealtime, fetchAllRows } from './supabase';
-import { hlidejMaleSudy, jeMalySud, type VysledekMalychSudu, type ObjednavkaProSudy, type PolozkaProSudy, type ObalProSudy } from './maleSudy';
+import { hlidejMaleSudy, jeMalySud, prazdneMaleSudy, type RadekMalychSudu, type StoceniMalehoSudu, type VysledekMalychSudu, type ObjednavkaProSudy, type PolozkaProSudy, type ObalProSudy } from './maleSudy';
 import { chybiTabulka } from './chybyHlaseni';
 import { businessDateISO } from './businessDate';
 import { nactiSkladovouKnihu } from './skladovaKnihaData';
@@ -20,14 +20,21 @@ export function useMaleSudy(): {
   const [chybiMigrace, setChybiMigrace] = useState(false);
 
   async function nacti() {
-    const { data, error } = await supabase.from('male_sudy').select('package_id, pocet');
+    const { data, error } = await supabase.from('male_sudy').select('package_id, pocet, updated_at');
     if (error) {
       if (chybiTabulka(error)) setChybiMigrace(true);
       setNacteno(true);
       return;
     }
-    const z: Record<string, number> = {};
-    for (const r of (data as any[]) ?? []) z[r.package_id] = Number(r.pocet) || 0;
+    const radky = ((data as any[]) ?? []) as RadekMalychSudu[];
+    // Stočené do malých sudů od nejstaršího zadání — ty už prázdné nejsou
+    // (5. 10. 2026). Počet platí jen v týdnu zadání (prazdneMaleSudy).
+    const nejstarsi = radky.map((r) => r.updated_at).filter(Boolean).sort()[0];
+    const { data: stoc } = radky.length && nejstarsi
+      ? await supabase.from('kegging').select('package_id, quantity, created_at')
+        .in('package_id', radky.map((r) => r.package_id)).gt('created_at', nejstarsi)
+      : { data: [] as any[] };
+    const z = prazdneMaleSudy(radky, ((stoc as any[]) ?? []) as StoceniMalehoSudu[], businessDateISO(), (iso) => businessDateISO(new Date(iso)));
     // Jakmile je zadaný aspoň jeden malý sud, ostatní malé bez čísla = 0 —
     // „ručně zadané 1× 20 a 2× 15" znamená, že 10 l není žádný
     // (29. 9. 2026). Bez jediného zadaného počtu se nehlídá nic.
@@ -40,7 +47,7 @@ export function useMaleSudy(): {
     setNacteno(true);
   }
   useEffect(() => { nacti().catch(() => setNacteno(true)); }, []);
-  useRealtime(['male_sudy'], () => { nacti().catch(() => {}); });
+  useRealtime(['male_sudy', 'kegging'], () => { nacti().catch(() => {}); });
 
   /** `pocet = null` → obal přestane hlídat (řádek se smaže). */
   async function ulozit(packageId: string, pocet: number | null, kdo?: string | null): Promise<string | null> {
