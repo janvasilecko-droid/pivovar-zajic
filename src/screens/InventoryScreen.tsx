@@ -2177,29 +2177,6 @@ function exportInventoryExcel() {
             </div>
           )}
 
-          {dorovnaneRadky > 0 && (
-            <div className="rounded border-2 border-sky-300 bg-sky-50 p-3.5 flex flex-wrap items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="font-display font-black text-sky-900 text-sm">
-                  Ztráty jsou vyplněné u {dorovnaneRadky} položek
-                </div>
-                <p className="text-udaj font-bold text-sky-800 mt-1 leading-relaxed">
-                  Sloupec ZTRÁTY <strong>se stavem skladu nehne</strong> — je to poznámka na rozbité
-                  a ztracené kusy a mění jen sloupec vedle. Když se zboží doopravdy stočilo nebo
-                  nestočilo, patří to do <strong>Vyrovnat</strong> (panel pod pivem u lahví, tlačítko
-                  v řádku u sudů) — jedině to sáhne na sklad a zvedne počet nastáčených.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setDorovnatMap({})}
-                className="shrink-0 px-3 py-2 rounded bg-sky-700 hover:bg-sky-700 text-white font-black text-xs transition"
-              >
-                Vymazat všechny ztráty
-              </button>
-            </div>
-          )}
-
           {nespocitane.length > 0 && (
             <div className="rounded border-2 border-amber-400 bg-amber-50 p-4">
               <div className="flex items-start gap-3">
@@ -2228,56 +2205,6 @@ function exportInventoryExcel() {
               </div>
             </div>
           )}
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-            <div className="card p-3.5 bg-white border border-neutral-200 rounded space-y-1">
-              <span className="text-udaj font-black uppercase text-neutral-500">Počáteční stav</span>
-              <div className="font-display font-black text-lg text-neutral-900">{totals.initial} ks</div>
-              <span className="text-udaj text-neutral-500">Převedeno z minulého měsíce</span>
-            </div>
-            <div className="card p-3.5 bg-white border border-neutral-200 rounded space-y-1">
-              <span className="text-udaj font-black uppercase text-amber-700">Nově stočeno (+)</span>
-              <div className="font-display font-black text-lg text-amber-600">+{totals.staceno} ks</div>
-              <span className="text-udaj text-neutral-500">Zapsáno ve Stáčení</span>
-            </div>
-            <div className="card p-3.5 bg-white border border-rose-200 rounded space-y-1">
-              <span className="text-udaj font-black uppercase text-rose-600">Odpisy (− odpis)</span>
-              <div className="font-display font-black text-lg text-rose-700">-{totals.odpis} ks</div>
-              <span className="text-udaj text-neutral-500">Zapsáno v Odpisech</span>
-            </div>
-            <div className="card p-3.5 bg-white border border-neutral-200 rounded space-y-1">
-              <span className="text-udaj font-black uppercase text-amber-800">Vytočeno/Výdej (−)</span>
-              <div className="font-display font-black text-lg text-amber-800">-{totals.vydej} ks</div>
-              <span className="text-udaj text-neutral-500">Fasování + Prodejna + Objednávky</span>
-            </div>
-            <div className="card p-3.5 bg-white border border-neutral-200 rounded space-y-1">
-              <span className="text-udaj font-black uppercase text-neutral-500"><PackageIcon className="ikona-text" /> ZBYDE SKLADEM (Oček.)</span>
-              <div className="font-display font-black text-xl">
-                {totals.expected + posunCelkem < 0 ? (
-                  <span className="px-2 py-0.5 rounded bg-rose-600 text-white">{totals.expected + posunCelkem} ks</span>
-                ) : (
-                  <span className="text-emerald-700">{totals.expected + posunCelkem} ks</span>
-                )}
-              </div>
-              <span className="text-udaj text-neutral-500">Teoretický zůstatek</span>
-            </div>
-            <div className="card p-3.5 bg-white border border-neutral-200 rounded space-y-1">
-              <span className="text-udaj font-black uppercase text-neutral-500">Celkové Manko/Přebytek</span>
-              <div className={`font-display font-black text-lg ${totals.diffQty < 0 ? 'text-rose-700' : totals.diffQty > 0 ? 'text-emerald-700' : 'text-neutral-900'}`}>
-                {totals.diffQty > 0 ? `+${totals.diffQty}` : totals.diffQty} ks ({totals.diffCzk.toLocaleString('cs-CZ')} Kč)
-              </div>
-              <span className="text-udaj text-neutral-500">Fyzický vs Systémový stav</span>
-              {dorovnaneRadky > 0 && (<>
-              <span className="block pt-1 border-t border-neutral-200 text-udaj font-bold text-neutral-600">
-                Ztráty: {totals.dorovnat > 0 ? `+${totals.dorovnat}` : totals.dorovnat} ks ·
-                <span className={totals.diffAfterQty === 0 ? 'text-emerald-700' : totals.diffAfterQty < 0 ? 'text-rose-700' : 'text-amber-700'}>
-                  {' '}po ztrátách: {totals.diffAfterQty > 0 ? `+${totals.diffAfterQty}` : totals.diffAfterQty} ks ({totals.diffAfterCzk.toLocaleString('cs-CZ')} Kč)
-                </span>
-              </span>
-              <span className="text-udaj text-neutral-500">Ztráty se ukládají bokem a nepočítají se do stáčení ani odpočtů.</span>
-              </>)}
-            </div>
-          </div>
 
           <div data-inv-kotva="bilance" className="card p-5 bg-white border border-neutral-200/90 rounded shadow-xs space-y-4">
             <div className="flex items-center justify-between border-b border-neutral-100 pb-3 flex-wrap gap-2">
@@ -2519,25 +2446,13 @@ function exportInventoryExcel() {
                               <input
                                 type="number" onWheel={(e) => e.currentTarget.blur()}
                                 inputMode="numeric"
-                                className="input !py-2 text-center font-mono font-black text-base text-neutral-950 border-sky-400 bg-sky-100/80 w-full rounded shadow-inner focus:ring-2 focus:ring-sky-500"
+                                className={`input !py-2 text-center font-mono font-black text-base w-full rounded shadow-inner focus:ring-2 ${Number(dorovnatMap[k] || 0) !== 0 ? 'text-rose-700 border-rose-500 bg-rose-50 focus:ring-rose-500' : 'text-neutral-950 border-sky-400 bg-sky-100/80 focus:ring-sky-500'}`}
                                 placeholder="±"
                                 value={dorovnatMap[k] !== undefined ? dorovnatMap[k] : ''}
                                 onChange={(e) => setDorovnatMap((prev) => ({ ...prev, [k]: e.target.value }))}
                               />
                             </div>
                           </label>
-                          )}
-                          {/* Tohle tlačítko ⟳ vypadá jako „srovnej to" a sedí
-                              hned u jediného pole, na které jde v řádku sáhnout.
-                              Jenže dorovnání je jen zápis bokem — stáčení
-                              nezaloží a sudy neodečte. Bez téhle věty to z
-                              obrazovky nikdo nepozná. */}
-                          {(dorovnatMap[k] ?? '') !== '' && Number(dorovnatMap[k]) !== 0 && (
-                            <p className="text-udaj font-bold text-amber-800 bg-amber-50 border border-amber-300 rounded px-2 py-1.5 mt-1.5">
-                              Ztráty <strong>nezaloží stáčení ani neodečtou sudy</strong> — jsou na rozbité
-                              a ztracené kusy. Když se to stočilo a jen se to nezapsalo, smaž tohle pole
-                              a vyrovnej to v panelu pod pivem.
-                            </p>
                           )}
                         </div>
 
@@ -2697,7 +2612,7 @@ function exportInventoryExcel() {
                             <div className="flex items-center justify-end gap-1">
                               <input
                                 type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()}
-                                className="input !py-1 text-right font-mono font-black text-xs text-neutral-950 border-sky-400 bg-sky-100/80 w-20 ml-auto rounded shadow-inner focus:ring-2 focus:ring-sky-500"
+                                className={`input !py-1 text-right font-mono font-black text-xs w-20 ml-auto rounded shadow-inner focus:ring-2 ${Number(dorovnatMap[k] || 0) !== 0 ? 'text-rose-700 border-rose-500 bg-rose-50 focus:ring-rose-500' : 'text-neutral-950 border-sky-400 bg-sky-100/80 focus:ring-sky-500'}`}
                                 placeholder="±"
                                 value={dorovnatMap[k] !== undefined ? dorovnatMap[k] : ''}
                                 onChange={(e) => setDorovnatMap((prev) => ({ ...prev, [k]: e.target.value }))}
@@ -2798,7 +2713,7 @@ function exportInventoryExcel() {
                       <td className="text-right px-3 py-2.5 text-amber-300 font-mono text-sm bg-amber-950/80 border-x border-amber-700">{totals.actual} ks</td>
                       <td className="text-right px-2 py-2.5 font-mono text-sm text-neutral-950">{totals.evidence} ks</td>
                       {dorovnaneRadky > 0 && (
-                      <td className={`text-right px-3 py-2.5 font-mono text-sm bg-sky-950/80 border-x border-sky-700 ${totals.dorovnat === 0 ? 'text-sky-300' : totals.dorovnat < 0 ? 'text-rose-300' : 'text-sky-200'}`}>
+                      <td className={`text-right px-3 py-2.5 font-mono text-sm bg-sky-950/80 border-x border-sky-700 ${totals.dorovnat === 0 ? 'text-sky-300' : 'text-rose-400'}`}>
                         {totals.dorovnat > 0 ? `+${totals.dorovnat}` : totals.dorovnat} ks
                       </td>
                       )}
