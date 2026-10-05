@@ -295,12 +295,16 @@ const ODDILY: Oddil[] = [
   },
   {
     klic: 'nastroje',
-    nazev: 'Časovače a šrotování',
+    nazev: 'Kalkulačky, časovače a šrotování',
     ikona: FlaskConical,
     kCemu: 'Pomůcky při vaření a stáčení.',
     body: [
       { co: 'Časovač a stopky', jak: 'Odpočet s alarmem (kotel, chmelení) a stopky s mezičasy. Alarm zazvoní i při zamčeném telefonu.' },
       { co: 'Stočení sudu', jak: 'Odpočet přímo pro stáčení jednoho sudu.' },
+      {
+        co: 'Kalkulačky',
+        jak: 'Dlaždice Kalkulačky (Nástroje): kolik sudů vyjde z množství v tanku, ředění sanitační chemie a převod jednotek.',
+      },
       { co: 'Šrotování sladu', jak: 'Deník šrotování — najdeš ho ve Sklepu (dlaždice Sklep → Šrotování sladu).' },
     ],
   },
