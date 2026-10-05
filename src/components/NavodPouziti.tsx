@@ -169,7 +169,7 @@ const ODDILY: Oddil[] = [
     body: [
       {
         co: 'Pět způsobů zadání',
-        jak: 'Ručně dlaždicemi piv, hlasem (Hlasové zadání), vložením textu, z WhatsApp zprávy nebo vyfocením papíru.',
+        jak: 'Klepni na tlačítko Odběratel — v okně ho napiš, nebo vyber z tlačítek (nejčastější jsou nahoře). Pak piva dlaždicemi, nebo vložením textu, z WhatsApp zprávy či vyfocením papíru. Bez závozu a Stočit dnes jsou pod pivy.',
       },
       {
         co: 'Kontrola WhatsApp zpráv',
