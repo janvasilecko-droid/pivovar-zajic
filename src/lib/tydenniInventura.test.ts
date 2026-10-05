@@ -59,6 +59,16 @@ describe('období týdne', () => {
     expect(t.uzavreny).toBe(true);
   });
 
+  it('minulý týden počítaný v pondělí/úterý jde po dnešek — jako Sklad (5. 10. 2026)', () => {
+    // Víkendový závoz se napočítá jako pryč, takže musí být pryč i v očekávaném stavu.
+    expect(tydenObdobi('2026-10-05', -1)).toMatchObject({ od: '2026-09-28', do: '2026-10-04', doPocitani: '2026-10-05', uzavreny: true });
+    expect(tydenObdobi('2026-10-06', -1).doPocitani).toBe('2026-10-06');
+    // Od středy už zase po neděli.
+    expect(tydenObdobi('2026-10-07', -1).doPocitani).toBe('2026-10-04');
+    // Starší týdny vždycky po neděli.
+    expect(tydenObdobi('2026-10-05', -2).doPocitani).toBe('2026-09-27');
+  });
+
   it('neděle běžícího týdne je pořád ještě dnešek, ne budoucnost', () => {
     const t = tydenObdobi('2026-09-06');
     expect(t.do).toBe('2026-09-06');
