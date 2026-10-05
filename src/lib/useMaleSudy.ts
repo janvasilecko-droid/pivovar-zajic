@@ -31,7 +31,7 @@ export function useMaleSudy(): {
     // (5. 10. 2026). Počet platí jen v týdnu zadání (prazdneMaleSudy).
     const nejstarsi = radky.map((r) => r.updated_at).filter(Boolean).sort()[0];
     const { data: stoc } = radky.length && nejstarsi
-      ? await supabase.from('kegging').select('package_id, quantity, created_at')
+      ? await fetchAllRows<any>('kegging', 'package_id, quantity, created_at')
         .in('package_id', radky.map((r) => r.package_id)).gt('created_at', nejstarsi)
       : { data: [] as any[] };
     const z = prazdneMaleSudy(radky, ((stoc as any[]) ?? []) as StoceniMalehoSudu[], businessDateISO(), (iso) => businessDateISO(new Date(iso)));
