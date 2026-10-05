@@ -263,6 +263,7 @@ export const PAGE_TO_MODULE: Record<string, ModuleKey> = {
   audit: 'inventory',
   srotovani: 'srotovani',
   checklists: 'haccp',
+  concentration: 'cellar',
   cellar: 'cellar',
   history: 'cellar',
   haccp: 'haccp',

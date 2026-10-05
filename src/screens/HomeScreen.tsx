@@ -1264,6 +1264,10 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
       { id: 'srotovani', label: 'Šrotování sladu', sublabel: 'Zápis šrotování sladu', icon: Wheat, onClick: () => setPage('srotovani') },
       { id: 'bez_tanku', label: 'Stáčení bez tanku', sublabel: 'Přiřadit stáčení k tanku, ze kterého se stáčelo', icon: ArrowLeftRight, onClick: () => setPage('cellar', undefined, 'bez_tanku') },
     ],
+    // Kalkulačky vrácené 5. 10. 2026 („kalkulačky tam vrať, jak byly").
+    concentration: [
+      { id: 'kalkulacka', label: 'Kalkulačka ředění & koncentrace', sublabel: 'Sudy z množství, chemie, převod jednotek', icon: FlaskConical, onClick: () => setPage('concentration') },
+    ],
     dashboard: [
       { id: 'sklad', label: 'Přehled skladu', sublabel: 'Kompletní stav piv a zásob', icon: BarChart3, onClick: () => setPage('dashboard') },
       { id: 'vratky', label: 'Evidence vratek sudů', sublabel: 'Příjem a evidence prázdných kegů', icon: IkonaSud, onClick: () => setPage('stock') },

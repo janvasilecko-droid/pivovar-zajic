@@ -2,9 +2,58 @@ import { useEffect, useState } from 'react';
 import { supabase, Beer, useRealtime } from '../lib/supabase';
 import { usePosledniNacteni } from '../lib/nacitani';
 import { Spinner, EmptyState, Field } from '../components/ui';
-import { FileText, FlaskConical, Check, CheckSquare, Flame, NotebookPen, Plus, RotateCcw, Truck, User, Wheat } from 'lucide-react';
+import { Calculator, FileText, FlaskConical, Check, CheckSquare, Flame, NotebookPen, Plus, RotateCcw, Scale, Sliders, SprayCan, Truck, User, Wheat } from 'lucide-react';
+import { IkonaSud } from '../components/ikony';
 import { businessDateISO } from '../lib/businessDate';
 import { nactiJson, ulozJson } from '../lib/uloziste';
+
+/**
+ * Krokovací číselník kalkulaček.
+ *
+ * VEN z komponenty schválně: funkce deklarovaná uvnitř jiné komponenty vzniká
+ * při každém překreslení znovu, takže ji React nepozná jako tutéž a celý její
+ * podstrom zahodí a postaví od nuly (viz lib/komponentaUvnitrKomponenty.test.ts).
+ */
+function NumberStepper({
+  value,
+  onChange,
+  step = 1,
+  min = 0,
+  placeholder,
+  className = '',
+}: {
+  value: string | number;
+  onChange: (val: string) => void;
+  step?: number;
+  min?: number;
+  placeholder?: string;
+  className?: string;
+}) {
+  const numVal = Number(value) || 0;
+  return (
+    <div className="flex items-center gap-1">
+      <button
+        type="button"
+        onClick={() => onChange(String(Math.max(min, Number((numVal - step).toFixed(2)))))}
+        className="w-8 h-8 shrink-0 grid place-items-center rounded bg-neutral-200 hover:bg-amber-200 text-neutral-900 font-black text-sm select-none active:scale-95 transition tap"
+        title={`- ${step}`}
+      >
+        −
+      </button>
+      <span className={`w-20 min-w-[4rem] px-2 text-center font-mono font-black bg-white border border-neutral-200 rounded py-2 shadow-2xs ${className ?? ''}`}>
+        {value || '0'}
+      </span>
+      <button
+        type="button"
+        onClick={() => onChange(String(Number((numVal + step).toFixed(2))))}
+        className="w-8 h-8 shrink-0 grid place-items-center rounded bg-amber-950 hover:bg-amber-900 text-white font-black text-sm select-none active:scale-95 transition tap"
+        title={`+ ${step}`}
+      >
+        +
+      </button>
+    </div>
+  );
+}
 
 type SrotovaniRow = {
   id?: string;
@@ -393,6 +442,333 @@ export function ChecklistsScreen() {
                 </div>
               );
             })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ==========================================
+// 4. CHYTRÉ KALKULAČKY PIVOVARU (KEGy, Chemie, Energie, Jednotky)
+// ==========================================
+
+export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: any, sec?: string, sub?: string) => void; initialSubTab?: string } = {}) {
+  const [activeTab, setActiveTab] = useState<'keg_calc' | 'chem_calc' | 'units_calc'>((initialSubTab as any) || 'keg_calc');
+
+  useEffect(() => {
+    setActiveTab((initialSubTab as any) || 'keg_calc');
+  }, [initialSubTab]);
+
+  function selectTab(t: 'keg_calc' | 'chem_calc' | 'units_calc') {
+    if (setPage) setPage('concentration', undefined, t);
+    else setActiveTab(t);
+  }
+
+  // --- 1. KEG Kalkulačka dotáčení z tanku ---
+  const [tankVolumeHl, setTankVolumeHl] = useState<string>('15');
+  const [trubkyLossPct, setTrubkyLossPct] = useState<string>('2.5');
+
+  const tankLiters = Math.max(0, (Number(tankVolumeHl) || 0) * 100);
+  const netLiters = tankLiters * (1 - (Number(trubkyLossPct) || 0) / 100);
+
+  const pure50 = Math.floor(netLiters / 50);
+  const rem50 = netLiters - pure50 * 50;
+
+  const pure30 = Math.floor(netLiters / 30);
+  const rem30 = netLiters - pure30 * 30;
+
+
+
+  const mix1_50 = Math.floor(netLiters / 50);
+  const remAfter50 = netLiters - mix1_50 * 50;
+  const mix1_30 = Math.floor(remAfter50 / 30);
+
+  const halfVol = netLiters * 0.5;
+  const mix2_50 = Math.floor(halfVol / 50);
+  const remAfterMix2_50 = netLiters - mix2_50 * 50;
+  const mix2_30 = Math.floor(remAfterMix2_50 / 30);
+
+
+  const [calcMode, setCalcMode] = useState<'fix30' | 'fix50'>('fix30');
+  const [custom30Input, setCustom30Input] = useState<string>('10');
+  const [custom50Input, setCustom50Input] = useState<string>('15');
+
+  const custom30Count = Math.max(0, Number(custom30Input) || 0);
+  const litersInCustom30 = custom30Count * 30;
+  const remainingFor50 = Math.max(0, netLiters - litersInCustom30);
+  const auto50Count = Math.floor(remainingFor50 / 50);
+  const remFinalFix30 = remainingFor50 - auto50Count * 50;
+  const totalHlFix30 = ((custom30Count * 30 + auto50Count * 50) / 100).toFixed(2);
+
+  const custom50Count = Math.max(0, Number(custom50Input) || 0);
+  const litersInCustom50 = custom50Count * 50;
+  const remainingFor30 = Math.max(0, netLiters - litersInCustom50);
+  const auto30Count = Math.floor(remainingFor30 / 30);
+  const remFinalFix50 = remainingFor30 - auto30Count * 30;
+  const totalHlFix50 = ((custom50Count * 50 + auto30Count * 30) / 100).toFixed(2);
+
+  // --- 3. Sanitační chemie ---
+  const [chemType, setChemType] = useState<'louh' | 'persteril' | 'dusicna' | 'chlornan'>('louh');
+  const [targetVolumeL, setTargetVolumeL] = useState('100');
+  const [stockPct, setStockPct] = useState('100');
+  const [targetPct, setTargetPct] = useState('2.0');
+
+  function selectPreset(type: 'louh' | 'persteril' | 'dusicna' | 'chlornan') {
+    setChemType(type);
+    if (type === 'louh') { setStockPct('100'); setTargetPct('2.0'); }
+    else if (type === 'persteril') { setStockPct('15'); setTargetPct('0.5'); }
+    else if (type === 'dusicna') { setStockPct('53'); setTargetPct('1.5'); }
+    else if (type === 'chlornan') { setStockPct('15'); setTargetPct('0.5'); }
+  }
+
+  const vTotal = Number(targetVolumeL) || 0;
+  const cStock = Number(stockPct) || 0;
+  const cTarget = Number(targetPct) || 0;
+  const vChem = cStock > 0 ? (cTarget * vTotal) / cStock : 0;
+  const vWater = Math.max(0, vTotal - vChem);
+
+  // --- 5. Přepočet jednotek ---
+  const [volInputHl, setVolInputHl] = useState<string>('10');
+  const [platoInput, setPlatoInput] = useState<string>('12');
+  const [ogInput, setOgInput] = useState<string>('12');
+  const [fgInput, setFgInput] = useState<string>('2.5');
+  const [kgInput, setKgInput] = useState<string>('100');
+  const [tempCInput, setTempCInput] = useState<string>('65');
+
+  const vHl = Math.max(0, Number(volInputHl) || 0);
+  const vLiters = vHl * 100;
+  const vPints = vLiters * 2;
+  const vKegs50 = vLiters / 50;
+  const vKegs30 = vLiters / 30;
+
+  const degPlato = Math.max(0, Number(platoInput) || 0);
+  const sgExact = degPlato > 0 ? 1 + (degPlato / (258.6 - (degPlato / 258.2) * 227.1)) : 1.000;
+  const degBrix = degPlato / 0.96;
+
+
+
+
+  return (
+    <div className="space-y-6 pb-12">
+      {/* Uvítací banner (nadpis „Kalkulačky pro sládka & technologa" a popis
+          toho, co obrazovka umí) je pryč. Na telefonu zabíral půl displeje a
+          neříkal nic, co by uživatel nevěděl — přišel sem schválně a názvy
+          jednotlivých kalkulaček jsou hned pod tím. */}
+
+      {/* Tabs — přilepené nahoře, ať jde přepínat záložku i uprostřed scrollování. */}
+      <div className="sticky top-0 z-20 bg-neutral-100 pt-1 flex items-center gap-2 overflow-x-auto scrollbar-thin pb-2 border-b border-neutral-200">
+        <button
+          onClick={() => selectTab('keg_calc')}
+          className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 shrink-0 ${
+            activeTab === 'keg_calc'
+              ? 'bg-amber-500 text-neutral-950 shadow-md'
+              : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
+          }`}
+        >
+          <IkonaSud size={16} />
+          <span>Dotáčení KEG sudů</span>
+        </button>
+
+        <button
+          onClick={() => selectTab('chem_calc')}
+          className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 shrink-0 ${
+            activeTab === 'chem_calc'
+              ? 'bg-amber-500 text-neutral-950 shadow-md'
+              : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
+          }`}
+        >
+          <FlaskConical size={16} />
+          <span>Sanitační chemie</span>
+        </button>
+
+        <button
+          onClick={() => selectTab('units_calc')}
+          className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 shrink-0 ${
+            activeTab === 'units_calc'
+              ? 'bg-amber-500 text-neutral-950 shadow-md'
+              : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
+          }`}
+        >
+          <Calculator size={16} />
+          <span>Přepočet jednotek</span>
+        </button>
+      </div>
+
+      {/* TAB 1: KEG KALKULAČKA */}
+      {activeTab === 'keg_calc' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 card p-6 bg-white border border-neutral-200 rounded space-y-5 shadow-sm">
+            <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
+              <IkonaSud className="text-amber-600" size={18} />
+              <span>Kalkulačka potřebných sudů na stáčení z tanku</span>
+            </h3>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Field label="Objem piva v tanku (hl)">
+                <NumberStepper value={tankVolumeHl} onChange={setTankVolumeHl} step={1} min={0.5} />
+              </Field>
+
+              <Field label="Výtrata kalů / trubek (%)">
+                <NumberStepper value={trubkyLossPct} onChange={setTrubkyLossPct} step={0.5} min={0} />
+              </Field>
+            </div>
+
+            <div className="p-4 rounded bg-neutral-900 text-white space-y-2 font-mono text-xs">
+              <div className="flex justify-between">
+                <span className="text-neutral-400">Hrubý objem piva:</span>
+                <span className="font-black text-amber-400">{tankLiters} l ({(tankLiters / 100).toFixed(2)} hl)</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-neutral-400">Čistý stočitelný objem (-{trubkyLossPct}% kaly):</span>
+                <span className="font-black text-emerald-400">{netLiters.toFixed(0)} l ({(netLiters / 100).toFixed(2)} hl)</span>
+              </div>
+            </div>
+
+            {/* Simulátor */}
+            <div className="p-5 rounded bg-amber-50/80 border-2 border-amber-300 space-y-4">
+              <div className="flex items-center justify-between border-b border-amber-200 pb-2">
+                <h4 className="font-display font-black text-base text-amber-950"><Sliders className="ikona-text" /> Ruční volba sudů (30L vs 50L)</h4>
+                <div className="flex items-center gap-1 bg-white p-1 rounded border border-amber-300">
+                  <button type="button" onClick={() => setCalcMode('fix30')} className={`tap px-3 py-1 rounded text-xs font-black ${calcMode === 'fix30' ? 'bg-white text-amber-900 ring-2 ring-amber-300' : 'text-neutral-600'}`}>Zadám 30L</button>
+                  <button type="button" onClick={() => setCalcMode('fix50')} className={`tap px-3 py-1 rounded text-xs font-black ${calcMode === 'fix50' ? 'bg-white text-amber-900 ring-2 ring-amber-300' : 'text-neutral-600'}`}>Zadám 50L</button>
+                </div>
+              </div>
+
+              {calcMode === 'fix30' ? (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <label className="text-xs font-black text-neutral-800">Chci stočit přesně 30L sudů:</label>
+                    <NumberStepper value={custom30Input} onChange={setCustom30Input} step={1} min={0} />
+                  </div>
+                  <div className="p-3.5 rounded bg-neutral-900 text-amber-300 font-mono text-xs space-y-1">
+                    <div>• Zadala jsi: <strong className="text-amber-400 font-black">{custom30Count}× 30L sudů</strong> ({custom30Count * 30} L)</div>
+                    <div>• Automaticky dopočítáno: <strong className="text-emerald-400 font-black">{auto50Count}× 50L sudů</strong> ({auto50Count * 50} L)</div>
+                    <div className="pt-1 border-t border-neutral-700 flex justify-between text-xs">
+                      <span>Celkem stočeno: <strong>{totalHlFix30} hl</strong></span>
+                      <span className="text-amber-400">Zbytek: <strong>{remFinalFix30.toFixed(0)} L</strong></span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <label className="text-xs font-black text-neutral-800">Chci stočit přesně 50L sudů:</label>
+                    <NumberStepper value={custom50Input} onChange={setCustom50Input} step={1} min={0} />
+                  </div>
+                  <div className="p-3.5 rounded bg-neutral-900 text-amber-300 font-mono text-xs space-y-1">
+                    <div>• Zadala jsi: <strong className="text-amber-400 font-black">{custom50Count}× 50L sudů</strong> ({custom50Count * 50} L)</div>
+                    <div>• Automaticky dopočítáno: <strong className="text-emerald-400 font-black">{auto30Count}× 30L sudů</strong> ({auto30Count * 30} L)</div>
+                    <div className="pt-1 border-t border-neutral-700 flex justify-between text-xs">
+                      <span>Celkem stočeno: <strong>{totalHlFix50} hl</strong></span>
+                      <span className="text-amber-400">Zbytek: <strong>{remFinalFix50.toFixed(0)} L</strong></span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="card p-6 bg-white border-2 border-amber-300 rounded space-y-4 shadow-md">
+            <h3 className="font-display font-black text-lg text-amber-950"><IkonaSud className="ikona-text" /> Varianty v sudování</h3>
+            <div className="space-y-3 font-mono text-xs">
+              <div className="p-3 rounded bg-white border border-amber-300 space-y-1">
+                <span className="text-udaj font-black uppercase text-amber-900">1 Typ sudů:</span>
+                <div>• {pure50}× 50L (zb. {rem50.toFixed(0)}l)</div>
+                <div>• {pure30}× 30L (zb. {rem30.toFixed(0)}l)</div>
+              </div>
+              <div className="p-3 rounded bg-neutral-900 text-amber-300 space-y-1">
+                <div className="text-udaj font-black text-white uppercase">MIX 1 (Max 50L):</div>
+                <div>• {mix1_50}× 50L + {mix1_30}× 30L</div>
+              </div>
+              <div className="p-3 rounded bg-neutral-900 text-emerald-300 space-y-1">
+                <div className="text-udaj font-black text-white uppercase">MIX 2 (50% / 50%):</div>
+                <div>• {mix2_50}× 50L + {mix2_30}× 30L</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 3: SANITAČNÍ CHEMIE */}
+      {activeTab === 'chem_calc' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 card p-5 bg-white border border-neutral-200/90 rounded shadow-sm space-y-4">
+            <h3 className="font-display font-black text-lg text-neutral-900">1. Výběr chemické látky & Parametry</h3>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <button type="button" onClick={() => selectPreset('louh')} className={`p-3 rounded font-black text-xs transition shadow-2xs flex flex-col items-center gap-1 ${chemType === 'louh' ? 'bg-amber-500 text-neutral-950 ring-2 ring-amber-400 scale-[1.02]' : 'bg-neutral-50 text-neutral-800 hover:bg-neutral-100 border border-neutral-200'}`}>
+                <span className="text-lg"><FlaskConical className="ikona-text" /></span><span>Louh 100%</span>
+              </button>
+              <button type="button" onClick={() => selectPreset('persteril')} className={`p-3 rounded font-black text-xs transition shadow-2xs flex flex-col items-center gap-1 ${chemType === 'persteril' ? 'bg-amber-500 text-neutral-950 ring-2 ring-amber-400 scale-[1.02]' : 'bg-neutral-50 text-neutral-800 hover:bg-neutral-100 border border-neutral-200'}`}>
+                <span className="text-lg"><SprayCan className="ikona-text" /></span><span>Persteril 15%</span>
+              </button>
+              <button type="button" onClick={() => selectPreset('dusicna')} className={`p-3 rounded font-black text-xs transition shadow-2xs flex flex-col items-center gap-1 ${chemType === 'dusicna' ? 'bg-amber-500 text-neutral-950 ring-2 ring-amber-400 scale-[1.02]' : 'bg-neutral-50 text-neutral-800 hover:bg-neutral-100 border border-neutral-200'}`}>
+                <FlaskConical className="ikona-text" /><span>Kyselina dusičná 53%</span>
+              </button>
+              <button type="button" onClick={() => selectPreset('chlornan')} className={`p-3 rounded font-black text-xs transition shadow-2xs flex flex-col items-center gap-1 ${chemType === 'chlornan' ? 'bg-amber-500 text-neutral-950 ring-2 ring-amber-400 scale-[1.02]' : 'bg-neutral-50 text-neutral-800 hover:bg-neutral-100 border border-neutral-200'}`}>
+                <SprayCan className="ikona-text" /><span>Chlornan 15%</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+              <Field label="Požadovaný objem roztoku (L)">
+                <NumberStepper value={targetVolumeL} onChange={setTargetVolumeL} step={10} min={1} />
+              </Field>
+              <Field label="Koncentrace nezředěného roztoku (%)">
+                <NumberStepper value={stockPct} onChange={setStockPct} step={5} min={0.1} />
+              </Field>
+              <Field label="Požadovaná cílová síla (%)">
+                <NumberStepper value={targetPct} onChange={setTargetPct} step={0.5} min={0.1} />
+              </Field>
+            </div>
+          </div>
+
+          <div className="card p-5 bg-white border-2 border-amber-300 rounded shadow-md space-y-4">
+            <h3 className="font-display font-black text-lg text-amber-950 flex items-center gap-2">
+              <span><Scale className="ikona-text" /> Výsledek dávkování</span>
+            </h3>
+
+            <div className="space-y-3">
+              <div className="p-3.5 rounded bg-white border border-amber-300 shadow-2xs">
+                <div className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Množství chemie (koncentrátu)</div>
+                <div className="text-2xl font-mono font-black text-amber-950 mt-1">
+                  {vChem.toFixed(2)} L <span className="text-sm font-bold text-neutral-500">({(vChem * 1000).toFixed(0)} ml / g)</span>
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded bg-white border border-sky-200 shadow-2xs">
+                <div className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Množství vody k doplnění</div>
+                <div className="text-2xl font-mono font-black text-sky-950 mt-1">
+                  {vWater.toFixed(2)} L
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 5: PŘEPOČET JEDNOTEK */}
+      {activeTab === 'units_calc' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="card p-6 bg-white border-2 border-amber-200 rounded space-y-4 shadow-sm">
+            <h4 className="font-display font-black text-base text-amber-950"><IkonaSud className="ikona-text" /> Přepočet objemu (Hektolimetry hl)</h4>
+            <NumberStepper value={volInputHl} onChange={setVolInputHl} step={1} min={0} />
+            <div className="p-4 rounded bg-neutral-900 text-amber-300 font-mono text-xs space-y-1">
+              <div>• Litry: <strong>{vLiters.toLocaleString('cs-CZ')} L</strong></div>
+              <div>• Půllitry: <strong>{vPints.toLocaleString('cs-CZ')} ks</strong></div>
+              <div>• Sudy 50L: <strong>{vKegs50.toFixed(1)} ks</strong></div>
+              <div>• Sudy 30L: <strong>{vKegs30.toFixed(1)} ks</strong></div>
+            </div>
+          </div>
+
+          <div className="card p-6 bg-white border-2 border-emerald-200 rounded space-y-4 shadow-sm">
+            <h4 className="font-display font-black text-base text-emerald-950"><FlaskConical className="ikona-text" /> Stupňovitost (°P) a hustota (SG)</h4>
+            <NumberStepper value={platoInput} onChange={setPlatoInput} step={0.1} min={0} />
+            <div className="p-4 rounded bg-neutral-900 text-emerald-300 font-mono text-xs space-y-1">
+              <div>• Specific Gravity: <strong>{sgExact.toFixed(3)} SG</strong></div>
+              <div>• Brix: <strong>{degBrix.toFixed(1)} °Bx</strong></div>
+            </div>
           </div>
         </div>
       )}
