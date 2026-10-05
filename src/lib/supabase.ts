@@ -318,6 +318,15 @@ function synthesizeWrite(init: RequestInit, rest: RestInfo, method: string): Res
 async function handleWrite(input: RequestInfo | URL, init: RequestInit, rest: RestInfo): Promise<Response> {
   const method = (init.method ?? 'GET').toUpperCase();
 
+  // RPC (/rest/v1/rpc/<funkce>) se do fronty NIKDY neřadí. Fronta si pamatuje
+  // jen „tabulku" a řádek — z RPC by zbylo „rpc · nový zápis" bez jména
+  // funkce, které už nikdy nejde odeslat (5. 10. 2026: 22 takových zápisů
+  // z 2. 10. viselo ve frontě s chybou „Could not find the table public.rpc").
+  // Selhání sítě se ukáže hned tam, kde se volalo.
+  if (rest.table === 'rpc') {
+    return fetchWithTimeout(input, init);
+  }
+
   // Bezpečnostní pojistka: update/delete bez jakéhokoli filtru se nedá offline
   // bezpečně zopakovat (hrozilo by smazání všech řádků) → nikdy neřadit.
   if ((method === 'PATCH' || method === 'DELETE') && Object.keys(rest.eq).length === 0 && Object.keys(rest.inMatch).length === 0) {

@@ -1,5 +1,6 @@
 
 
+import { OdberatelTlacitko } from '../components/OdberatelTlacitko';
 import { useEffect, useMemo, useState, useCallback, useRef, lazy, Suspense } from 'react';
 
 import { AlertTriangle, Calendar, CalendarDays, Camera, Check, CheckCircle2, CheckSquare, ChevronLeft, ChevronRight, ClipboardList, Clock, Copy, FilePlus, Globe, Mail, MessageCircle, Package as PackageIcon, PackageCheck, Plus, Receipt, Search, ShieldAlert, Trash2, Truck, User, X, Zap } from 'lucide-react';
@@ -20,7 +21,6 @@ import { jeAutomatickyBezZavozu } from '../lib/bezZavozu';
 import { PlaceCombobox } from '../components/PlaceCombobox'; // Assuming this is needed
 import { DAYS } from '../lib/shared';
 import { vseHotovo } from '../lib/polozkyObjednavky';
-import { VoiceRecorder } from '../components/VoiceRecorder';
 import { orderQuickQtys } from '../components/QuickQtySelect';
 import { BeerTileGrid, BeerTilePanel } from '../components/BeerTileGrid';
 import { nejcastejsiMnozstvi } from '../lib/quickQty';
@@ -1888,13 +1888,6 @@ export default function Orders({
                 <Plus size={14} /> Nové
               </button>
             )}
-            <VoiceRecorder
-              compact
-              dark
-              beerNames={beers.map((b) => b.name)}
-              placeNames={places.map((p) => p.name)}
-              onResult={handleVoiceResult}
-            />
             {mode !== 'entry_only' && (
               <button
                 className={`btn-ghost !rounded !min-h-[44px] !py-1.5 font-black text-xs shadow-xs flex items-center gap-1.5 ${viewMode === 'text' ? '!bg-amber-500 !border-amber-500 !text-[#0f172a]' : '!bg-amber-50 !border-amber-200 !text-amber-900 hover:!bg-amber-100'}`}
@@ -1917,8 +1910,6 @@ export default function Orders({
                 </span>
               )}
             </button>
-            <button className="btn-ghost !rounded !min-h-[44px] !py-1.5 !bg-amber-50 !border-amber-200 !text-amber-900 font-extrabold text-xs shadow-xs flex items-center gap-1.5 hover:!bg-amber-100" title="Kontrola — zobrazí VŠECHNY WhatsApp zprávy za období, i chybové a ignorované" onClick={() => setShowWhatsAppAudit(true)}><ShieldAlert size={14} /> Kontrola zpráv</button>
-            <button className="btn-ghost !rounded !min-h-[44px] !py-1.5 !bg-amber-50 !border-amber-200 !text-amber-900 font-extrabold text-xs shadow-xs flex items-center gap-1.5 hover:!bg-amber-100" title="Audit objednávek — najde duplicitní položky, nesrovnalosti proti WhatsAppu a nezpracované zprávy" onClick={() => setShowOrderAudit(true)}><ShieldAlert size={14} /> Audit objednávek</button>
             <button className="btn-ghost !rounded !min-h-[44px] !py-1.5 !bg-amber-50 !border-amber-200 !text-amber-900 font-extrabold text-xs shadow-xs flex items-center gap-1.5 hover:!bg-amber-100" title="Načíst z fotky/e-mailu" onClick={() => { setImportTarget(null); setShowImport(true); }}><Camera size={14} /> Fotka/AI</button>
           </div>
           )}
@@ -1934,7 +1925,7 @@ export default function Orders({
           {/* Odběratel */}
           <div className="mb-4">
             <label className="label dark:text-white">Odběratel</label>
-            <PlaceCombobox value={placeId} onChange={(id, name) => { setPlaceId(id); setPlaceNameFree(name); }} places={places} onPlacesChanged={load} />
+            <OdberatelTlacitko placeId={placeId} placeName={placeNameFree} places={places} objednavky={orders} onChange={(id, name) => { setPlaceId(id); setPlaceNameFree(name); }} onPlacesChanged={load} />
 
             {/* Chytrá doporučení: Duplicita v týdnu & Zopakovat objednávku */}
             {(placeId || placeNameFree.trim()) && (() => {
@@ -2052,59 +2043,6 @@ export default function Orders({
                   karta tmavá a popisek na ní byl černý na černém. */}
               <span className="text-udaj text-neutral-600 font-bold">upřesnění data dodání</span>
             </div>
-
-            {/* 🚚❌ Bez závozu — odběratel si pivo bere sám, nejde do trasy.
-                Zadání 24. 9. 2026: „pridej zaskrtavaci volbu bez zavozu,
-                automaticky ji zaskrtni kdyz bude mates,jitka,restaurace,
-                terasa u zbytku se musi zadat rucne." U jmenovaných
-                odběratelů se zaškrtne samo (lib/bezZavozu.ts) při psaní
-                jména výš; jakmile se pole jednou přepne ručně, appka ho
-                dál sama nepřepisuje. */}
-            <label className="mt-2 flex items-start gap-2 p-2.5 rounded-xl bg-neutral-100 border-2 border-neutral-200 text-neutral-800 text-xs font-bold cursor-pointer">
-              <input
-                type="checkbox"
-                checked={noDelivery}
-                onChange={(e) => { setNoDelivery(e.target.checked); setNoDeliveryTouched(true); }}
-                className="w-4 h-4 mt-0.5 rounded text-neutral-700 focus:ring-neutral-500 accent-neutral-700 shrink-0"
-              />
-              <span>Bez závozu — odběratel si bere pivo sám, nejde do trasy.</span>
-            </label>
-
-            {/* 🚨 Výjimka „Stočit dnes" — sud/lahev potřebuje den na dozrání,
-                takže normálně se stáčí na den PŘED závozem (viz Domů, „Co
-                stočit"). Tahle objednávka ale musí být hotová hned dneska
-                (den závozu prošel, nebo se přidala pozdě) — zaškrtnutí ji
-                zařadí do dnešního plánu stáčení (delivery_day = dnešek),
-                ale ze skladu se odečte až zítra (delivery_date = zítřek),
-                ať automatický noční odpočet neubere sklad dřív, než se
-                doopravdy stočí a vyveze. Platí pro celou objednávku —
-                lahve i sudy na ní. Odškrtnutí vrátí den i datum na dnešek. */}
-            {(() => {
-              const dnesKlic = dayKeyFromISO(businessDateISO());
-              const zitrejsiDatum = posunDen(businessDateISO(), 1);
-              const jeVyjimkaDnes = deliveryDay === dnesKlic && deliveryDate === zitrejsiDatum;
-              return (
-                <label className="mt-2 flex items-start gap-2 p-2.5 rounded-xl bg-sky-50 border-2 border-sky-200 text-sky-900 text-xs font-bold cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={jeVyjimkaDnes}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setWeekKey(isoWeekKey(businessDateISO()));
-                        setDeliveryDay(dnesKlic);
-                        setDeliveryDate(zitrejsiDatum);
-                      } else {
-                        pickDeliveryDay(dnesKlic);
-                      }
-                    }}
-                    className="w-4 h-4 mt-0.5 rounded text-sky-600 focus:ring-sky-500 accent-sky-600 shrink-0"
-                  />
-                  <span>
-                    Stočit dnes (výjimka) — ze skladu se odečte až zítra, ať se to nesplete s dnešním ranním odpočtem.
-                  </span>
-                </label>
-              );
-            })()}
 
             {/* Výchozí den závozu je st/čt/pá, ale ke konci měsíce (např.
                 objednávka zadaná v pondělí poslední týden měsíce) může
@@ -2235,6 +2173,63 @@ export default function Orders({
               })}
             </BeerTilePanel>
           )}
+
+          {/* Bez závozu a Stočit dnes — pod pivy (5. 10. 2026: „bez závozu
+              a stočit dnes dej dolů pod piva"). */}
+          <div className="mb-4">
+          {/* 🚚❌ Bez závozu — odběratel si pivo bere sám, nejde do trasy.
+              Zadání 24. 9. 2026: „pridej zaskrtavaci volbu bez zavozu,
+              automaticky ji zaskrtni kdyz bude mates,jitka,restaurace,
+              terasa u zbytku se musi zadat rucne." U jmenovaných
+              odběratelů se zaškrtne samo (lib/bezZavozu.ts) při psaní
+              jména výš; jakmile se pole jednou přepne ručně, appka ho
+              dál sama nepřepisuje. */}
+          <label className="mt-2 flex items-start gap-2 p-2.5 rounded-xl bg-neutral-100 border-2 border-neutral-200 text-neutral-800 text-xs font-bold cursor-pointer">
+            <input
+              type="checkbox"
+              checked={noDelivery}
+              onChange={(e) => { setNoDelivery(e.target.checked); setNoDeliveryTouched(true); }}
+              className="w-4 h-4 mt-0.5 rounded text-neutral-700 focus:ring-neutral-500 accent-neutral-700 shrink-0"
+            />
+            <span>Bez závozu — odběratel si bere pivo sám, nejde do trasy.</span>
+          </label>
+
+          {/* 🚨 Výjimka „Stočit dnes" — sud/lahev potřebuje den na dozrání,
+              takže normálně se stáčí na den PŘED závozem (viz Domů, „Co
+              stočit"). Tahle objednávka ale musí být hotová hned dneska
+              (den závozu prošel, nebo se přidala pozdě) — zaškrtnutí ji
+              zařadí do dnešního plánu stáčení (delivery_day = dnešek),
+              ale ze skladu se odečte až zítra (delivery_date = zítřek),
+              ať automatický noční odpočet neubere sklad dřív, než se
+              doopravdy stočí a vyveze. Platí pro celou objednávku —
+              lahve i sudy na ní. Odškrtnutí vrátí den i datum na dnešek. */}
+          {(() => {
+            const dnesKlic = dayKeyFromISO(businessDateISO());
+            const zitrejsiDatum = posunDen(businessDateISO(), 1);
+            const jeVyjimkaDnes = deliveryDay === dnesKlic && deliveryDate === zitrejsiDatum;
+            return (
+              <label className="mt-2 flex items-start gap-2 p-2.5 rounded-xl bg-sky-50 border-2 border-sky-200 text-sky-900 text-xs font-bold cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={jeVyjimkaDnes}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      setWeekKey(isoWeekKey(businessDateISO()));
+                      setDeliveryDay(dnesKlic);
+                      setDeliveryDate(zitrejsiDatum);
+                    } else {
+                      pickDeliveryDay(dnesKlic);
+                    }
+                  }}
+                  className="w-4 h-4 mt-0.5 rounded text-sky-600 focus:ring-sky-500 accent-sky-600 shrink-0"
+                />
+                <span>
+                  Stočit dnes (výjimka) — ze skladu se odečte až zítra, ať se to nesplete s dnešním ranním odpočtem.
+                </span>
+              </label>
+            );
+          })()}
+          </div>
 
           {/* 📋 Souhrn objednávky — pod dlaždicemi, editovatelný jako dlaždice */}
           {filledBeerRows.length > 0 && (
