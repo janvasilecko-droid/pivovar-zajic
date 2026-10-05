@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { najdiRozjetaData, najdiRozjeteOdpocty, odpoctyStornovanych, srovnaniPoUprave, type PolozkaObjednavky } from './zavozSync';
+import { najdiRozjetaData, najdiRozjeteOdpocty, odpoctyStornovanych, polozkyBezOdpoctu, srovnaniPoUprave, type PolozkaObjednavky } from './zavozSync';
 
 const polozka: PolozkaObjednavky = {
   id: 'oi-1',
@@ -202,5 +202,60 @@ describe('najdiRozjetaData', () => {
       { order_id: 'o-1', order_item_id: 'oi-1', deduct_date: null },
       { order_id: 'o-1', order_item_id: null, deduct_date: '2026-08-05' },
     ])).toEqual([]);
+  });
+});
+
+describe('polozkyBezOdpoctu', () => {
+  // 5. 10. 2026: objednávky zadané v pondělí se závozem v sobotu 3. 10.
+  // čekaly na hodinový odpočet a inventura je ještě počítala ve skladu.
+  const obj = (id: string, extra: Record<string, unknown> = {}) => ({
+    id, order_date: '2026-10-05', delivery_day: null, delivery_date: '2026-10-03', status: 'nova', place_name: 'Restaurace', ...extra,
+  });
+  const pol = (id: string, order_id: string, extra: Record<string, unknown> = {}) => ({
+    id, order_id, beer_id: 'b12', package_id: 'k50', quantity: 2, ...extra,
+  });
+
+  it('zpětně zadaná objednávka bez odpočtu se hlásí, odečtená ne', () => {
+    const vysledek = polozkyBezOdpoctu(
+      [obj('o1')],
+      [pol('i1', 'o1'), pol('i2', 'o1', { package_id: 'k30', quantity: 1 })],
+      [{ order_item_id: 'i2' }],
+      '2026-10-05',
+    );
+    expect(vysledek).toEqual([{
+      order_id: 'o1', order_item_id: 'i1', place_name: 'Restaurace', denZavozu: '2026-10-03',
+      beer_id: 'b12', package_id: 'k50', quantity: 2,
+    }]);
+  });
+
+  it('dnešní závoz se hlásí, zítřejší ne (odečte se až v ten den)', () => {
+    const vysledek = polozkyBezOdpoctu(
+      [obj('dnes', { delivery_date: '2026-10-05' }), obj('zitra', { delivery_date: '2026-10-06' })],
+      [pol('i1', 'dnes'), pol('i2', 'zitra')],
+      [],
+      '2026-10-05',
+    );
+    expect(vysledek.map((p) => p.order_item_id)).toEqual(['i1']);
+  });
+
+  it('storno, nulové množství a položka bez piva se neodečítají — nehlásí se', () => {
+    const vysledek = polozkyBezOdpoctu(
+      [obj('storno', { status: 'storno' }), obj('o1')],
+      [pol('i1', 'storno'), pol('i2', 'o1', { quantity: 0 }), pol('i3', 'o1', { beer_id: null })],
+      [],
+      '2026-10-05',
+    );
+    expect(vysledek).toEqual([]);
+  });
+
+  it('bez data závozu bere den v týdnu stejně jako odpočet (computeDeliveryDateISO)', () => {
+    // Objednáno v pondělí 28. 9. na „so" = sobota 3. 10.
+    const vysledek = polozkyBezOdpoctu(
+      [obj('o1', { order_date: '2026-09-28', delivery_date: null, delivery_day: 'so' })],
+      [pol('i1', 'o1')],
+      [],
+      '2026-10-05',
+    );
+    expect(vysledek[0]?.denZavozu).toBe('2026-10-03');
   });
 });

@@ -13,6 +13,7 @@ import { IkonaLahev, IkonaSud } from '../components/ikony';
 import { businessDateISO } from '../lib/businessDate';
 import { nactiSdilenouTabulku } from '../lib/sdilenaData';
 import { SkladZalozky } from '../components/SkladZalozky';
+import CekaNaOdpocet from '../components/CekaNaOdpocet';
 import { odejdeDoKonceTydne, type ObjednavkaProOdchod, type OdpocetProOdchod, type PolozkaProOdchod } from '../lib/odejdeDoKonceTydne';
 
 // 📦 Sklad — zadání 2. 10. 2026: „přepracuj sklad, ať je tam jen stav a
@@ -247,6 +248,14 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
               </button>
             </div>
           </div>
+
+          {/* Závoz do dneška, který ještě není odečtený — Stav by jinak tiše
+              ukazoval víc, než je na skladě (5. 10. 2026). */}
+          <CekaNaOdpocet
+            className="mb-4"
+            jmenoPiva={(id) => beers.find((b) => b.id === id)?.name ?? '?'}
+            jmenoObalu={(id) => String(packages.find((p) => p.id === id)?.label ?? '').trim() || '?'}
+          />
 
           {stats.length === 0 ? <EmptyState text="Žádná piva v evidenci." icon={BeerIcon} /> : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-8">

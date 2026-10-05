@@ -108,14 +108,24 @@ async function main() {
   const pivoArg = arg('pivo');
   const obalArg = arg('obal');
   if (pivoArg) {
-    const pivo = piva.find((b: any) => b.name.toLowerCase().includes(pivoArg.toLowerCase()));
-    const kandidati = obaly.filter((p: any) => !obalArg || String(p.label).toLowerCase().includes(obalArg.toLowerCase()));
-    if (!pivo) throw new Error(`Pivo „${pivoArg}" nenalezeno.`);
-    for (const obal of kandidati) {
+    // VŠECHNA piva, která jménu odpovídají — ne jen první. Dvě piva se
+    // stejným jménem (5. 10. 2026: „10ka je tam zase 2× všechno") mají
+    // každé svoje zápisy a s prvním nalezeným by druhá půlka ve výpisu chyběla.
+    const nalezenaPiva = piva.filter((b: any) => b.name.toLowerCase().includes(pivoArg.toLowerCase()));
+    // „--obal KEG" (sudy) — v názvu obalu slovo KEG není („50l", „30l"),
+    // sud se pozná podle druhu obalu.
+    const jenSudy = !!obalArg && /^(keg|kegy|sud|sudy)$/i.test(obalArg.trim());
+    const kandidati = obaly.filter((p: any) => !obalArg
+      || (jenSudy ? p.kind === 'keg' : String(p.label).toLowerCase().includes(obalArg.toLowerCase())));
+    if (!nalezenaPiva.length) throw new Error(`Pivo „${pivoArg}" nenalezeno.`);
+    if (nalezenaPiva.length > 1) {
+      console.log(`Pozor: „${pivoArg}" odpovídá ${nalezenaPiva.length} pivům: ${nalezenaPiva.map((b: any) => `${b.name} [${b.id.slice(0, 8)}]`).join(', ')}`);
+    }
+    for (const pivo of nalezenaPiva) for (const obal of kandidati) {
       const k = stockKey(pivo.id, obal.id);
       const mojePohyby = pohyby.filter((m) => stockKey(m.beer_id, m.package_id) === k);
       if (!mojePohyby.some((m) => m.date >= od && m.date <= doDne)) continue;
-      console.log(`\n══ ${pivo.name} · ${obal.label} ══`);
+      console.log(`\n══ ${pivo.name}${nalezenaPiva.length > 1 ? ` [${pivo.id.slice(0, 8)}]` : ''} · ${obal.label} ══`);
       const predtim = new Date(od + 'T00:00:00Z'); predtim.setUTCDate(predtim.getUTCDate() - 1);
       let stav = stockAsOf(pohyby, predtim.toISOString().slice(0, 10)).get(k)?.qty ?? 0;
       console.log(`stav ${predtim.toISOString().slice(0, 10)} večer: ${stav}`);
@@ -177,6 +187,62 @@ async function main() {
         }
       }
     }
+  }
+
+  // ── Co se zapsalo od zadaného dne (i se zpětným datem) ──
+  // 5. 10. 2026: „o víkendu odešly sudy… zadával jsem dnes se zpětným
+  // datem" — podle data pohybu se takový zápis hledá špatně, podle času
+  // zápisu (created_at) je vidět hned, kam a s jakým datem dopadl.
+  const zapsanoOd = arg('zapsano-od');
+  if (zapsanoOd) {
+    const zdroje: [string, any[], string][] = [
+      ['stáčení lahví', bottling, 'entry_date'], ['stáčení sudů', kegging, 'entry_date'],
+      ['fasování', fasovani, 'entry_date'], ['odpis', odpisy, 'entry_date'],
+      ['inventura', inventura, 'entry_date'], ['dorovnání', dorovnani, 'entry_date'],
+      ['závoz', odpocty, 'deduct_date'],
+    ];
+    const zapsane = zdroje.flatMap(([co, radky, sloupecData]) => radky
+      .filter((r: any) => String(r.created_at ?? '') >= zapsanoOd)
+      .map((r: any) => ({ co, r, datum: String(r[sloupecData] ?? '?').slice(0, 10) })))
+      .sort((a, b) => String(a.r.created_at).localeCompare(String(b.r.created_at)));
+    console.log(`\n══ Zapsáno od ${zapsanoOd} (${zapsane.length}) ══`);
+    zapsane.forEach(({ co, r, datum }) => {
+      const sudy = Number(r.kegs_used || 0)
+        ? ` · sudů na to ${r.kegs_used}× ${r.kegs_used_package_id ? jmenoObalu.get(r.kegs_used_package_id) : 'BEZ OBALU SUDU'}` : '';
+      console.log(`  zapsáno ${String(r.created_at).slice(0, 16)} · ${co.padEnd(13)} · k datu ${datum} · ${r.quantity}× ${jmenoObalu.get(r.package_id) ?? '?'} ${jmenoPiva.get(r.beer_id) ?? '?'} [${String(r.beer_id ?? '').slice(0, 8)}]${sudy}${r.note ? ` | ${String(r.note).replace(/\n/g, ' / ').slice(0, 80)}` : ''}`);
+    });
+
+    // Objednávky zapsané od toho dne a jestli se jejich položky odečetly ze
+    // skladu. Den závozu stejně jako computeDeliveryDateISO v appce
+    // (zavozDeduction.ts jde importovat jen s klientem appky, proto opsáno).
+    const ucinnyDen = (o: any): string => {
+      if (o.delivery_date) return String(o.delivery_date).slice(0, 10);
+      const den = String(o.delivery_day || 'pa').split('/')[0].trim();
+      const posun = ({ po: 0, ut: 1, st: 2, ct: 3, pa: 4, so: 5, ne: 6 } as Record<string, number>)[den] ?? 4;
+      const d = new Date(String(o.order_date).slice(0, 10) + 'T00:00:00Z');
+      d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7) + posun);
+      return d.toISOString().slice(0, 10);
+    };
+    const odectenePolozky = new Set(odpocty.map((d: any) => d.order_item_id).filter(Boolean));
+    const noveObj = objednavky.filter((o: any) => String(o.created_at ?? '') >= zapsanoOd)
+      .sort((a: any, b: any) => String(a.created_at).localeCompare(String(b.created_at)));
+    console.log(`\n══ Objednávky zapsané od ${zapsanoOd} (${noveObj.length}) ══`);
+    for (const o of noveObj) {
+      console.log(`  zapsáno ${String(o.created_at).slice(0, 16)} · ${o.place_name} · závoz ${ucinnyDen(o)} · stav ${o.status}`);
+      polozky.filter((p: any) => p.order_id === o.id).forEach((p: any) =>
+        console.log(`    ${p.quantity}× ${jmenoObalu.get(p.package_id)} ${jmenoPiva.get(p.beer_id)} — ${odectenePolozky.has(p.id) ? 'odečteno' : 'NEODEČTENO'}`));
+    }
+    // Každá položka se závozem do dneška (bez storna) má mít odpočet.
+    const dnes = new Date().toISOString().slice(0, 10);
+    const chybi = polozky.filter((p: any) => {
+      const o = objPodleId.get(p.order_id);
+      return o && o.status !== 'storno' && Number(p.quantity) > 0 && ucinnyDen(o) <= dnes && !odectenePolozky.has(p.id);
+    });
+    console.log(`\n══ Položky se závozem do dneška BEZ odpočtu ze skladu (${chybi.length}) ══`);
+    chybi.forEach((p: any) => {
+      const o = objPodleId.get(p.order_id);
+      console.log(`  závoz ${ucinnyDen(o)} · ${o.place_name} · ${p.quantity}× ${jmenoObalu.get(p.package_id)} ${jmenoPiva.get(p.beer_id)} · objednávka zapsána ${String(o.created_at ?? '?').slice(0, 16)}`);
+    });
   }
 
   // ── Ztráty / dorovnání bez objednávky v měsíci (co inventura bere jako ztráty) ──
