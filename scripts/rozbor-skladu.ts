@@ -19,7 +19,7 @@
 // z PIVOVAR_ANON_KEY, jinak ho přečte z nasazené appky.
 import { createClient } from '@supabase/supabase-js';
 import { buildMovements, expectedForMonth, konecMesice, stockAsOf, stockKey, type Movement } from '../src/lib/stockLedger';
-import { najdiPodezrele } from '../src/lib/kontrolaPohybu';
+import { najdiChybejiciZdrojSudu, najdiPodezrele } from '../src/lib/kontrolaPohybu';
 // Ne z sdilenaData.ts — ta při načtení zakládá klienta appky z VITE_* proměnných
 // a skript na tom padal dřív, než se vůbec přihlásil.
 import { SLOUPCE } from '../src/lib/sdilenaDataSloupce';
@@ -81,7 +81,8 @@ async function main() {
     vse('bottling', SLOUPCE.bottling),
     vse('kegging', SLOUPCE.kegging),
     vse('fasovani', SLOUPCE.fasovani),
-    vse('fasovani_private', SLOUPCE.fasovani_private),
+    // + created_at: zápis z Fasování (Prodejna) jde jinak v --zapsano-od přehlédnout.
+    vse('fasovani_private', `${SLOUPCE.fasovani_private},created_at`),
     vse('writeoffs', SLOUPCE.writeoffs),
     vse('inventory', SLOUPCE.inventory),
     vse('inventory_adjustments', SLOUPCE.inventory_adjustments),
@@ -154,6 +155,23 @@ async function main() {
     }
   }
 
+  // ── Stáčení lahví bez zdrojového sudu (sud se ve skladu neodečetl) ──
+  // 5. 10. 2026: „v rozboru ti chybí sudy ze stáčení lahví u 12sv". Stejná
+  // kontrola jako tlačítko „Najít možné chyby" v Pohybech.
+  if (pivoArg) {
+    for (const pivo of piva.filter((b: any) => b.name.toLowerCase().includes(pivoArg.toLowerCase()))) {
+      const bezSudu = najdiChybejiciZdrojSudu(bottling, { od, doDne, beerId: pivo.id });
+      console.log(`\n══ ${pivo.name}: stáčení lahví bez zdrojového sudu v ${mesic} (${bezSudu.length}) ══`);
+      // Nález je na dávku; vypíše se každý den jednou se všemi jeho řádky.
+      [...new Set(bezSudu.map((n) => n.datum))].forEach((datum) => {
+        const radky = bottling.filter((r: any) => r.beer_id === pivo.id && String(r.entry_date).slice(0, 10) === datum
+          && Number(r.quantity) > 0 && !(Number(r.kegs_used || 0) > 0 && r.kegs_used_package_id));
+        const litru = radky.reduce((a: number, r: any) => a + Number(r.quantity) * (Number(obaly.find((p: any) => p.id === r.package_id)?.volume_l) || 0), 0);
+        console.log(`  ${datum}: ${radky.map((r: any) => `${r.quantity}× ${jmenoObalu.get(r.package_id)}${r.note ? ` (${String(r.note).split('\n')[0].slice(0, 50)})` : ''}`).join(', ')} — ${Math.round(litru)} l bez odečteného sudu`);
+      });
+    }
+  }
+
   // ── Objednávky podle jména ──
   const objArg = arg('objednavky');
   if (objArg) {
@@ -197,7 +215,7 @@ async function main() {
   if (zapsanoOd) {
     const zdroje: [string, any[], string][] = [
       ['stáčení lahví', bottling, 'entry_date'], ['stáčení sudů', kegging, 'entry_date'],
-      ['fasování', fasovani, 'entry_date'], ['odpis', odpisy, 'entry_date'],
+      ['fasování', fasovani, 'entry_date'], ['prodejna', prodejna, 'entry_date'], ['odpis', odpisy, 'entry_date'],
       ['inventura', inventura, 'entry_date'], ['dorovnání', dorovnani, 'entry_date'],
       ['závoz', odpocty, 'deduct_date'],
     ];
