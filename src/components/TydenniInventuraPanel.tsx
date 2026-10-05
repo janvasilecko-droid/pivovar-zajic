@@ -16,13 +16,13 @@ import { Spinner } from './ui';
 import { QuickCountModal } from './QuickCountModal';
 import { businessDateISO } from '../lib/businessDate';
 import { nactiSkladovouKnihu, type SkladovaKniha } from '../lib/skladovaKnihaData';
-import { MOVEMENT_LABELS, movementsFor, stockAsOf, stockForObdobi, stockKey } from '../lib/stockLedger';
+import { MOVEMENT_LABELS, movementsFor, stockKey } from '../lib/stockLedger';
 import { kegovaniZapisy, lahvoveZapisy, odectiZeStoceni } from '../lib/inventoryFix';
 import { rozdelSudyDoTanku, type TankProRozdeleni } from '../lib/tankRozdeleni';
 import { odectiZTanku } from '../lib/tankZapis';
 import {
-  jenAktivni, popisTydne, radkyTydne, souhrnTydne, stitekTydne, tydenObdobi, vychoziTyden,
-  zaznamKontroly, zaznamDorovnani, type TydenniRadek, type TydenObdobi,
+  jenAktivni, ocekavanyStavTydne, popisTydne, posunDnu, radkyTydne, souhrnTydne, stitekTydne, tydenObdobi, vychoziTyden,
+  zaznamKontroly, zaznamDorovnani, type MinulyTydenStav, type TydenniRadek, type TydenObdobi,
 } from '../lib/tydenniInventura';
 import type { Dispatch, ReactNode, SetStateAction } from 'react';
 import { popisPolozek, objednavkaShoduje, zapisShoduje, type PrehledObjednavka, type PrehledZapis } from '../lib/tydenniPrehled';
@@ -39,6 +39,8 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
   const obdobi = useMemo(() => tydenObdobi(dnes, posun), [dnes, posun]);
 
   const [kniha, setKniha] = useState<SkladovaKniha | null>(null);
+  /** Napočítáno minulý týden (beer__package → kusy) — základ očekávaného stavu. */
+  const [minulyTyden, setMinulyTyden] = useState<Record<string, MinulyTydenStav>>({});
   const [tanky, setTanky] = useState<TankProRozdeleni[]>([]);
   const [napocitano, setNapocitano] = useState<Record<string, string>>({});
   const [bezi, setBezi] = useState(true);
@@ -126,11 +128,19 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
   const nacti = useCallback(async () => {
     setBezi(true);
     try {
-      const [k, { data: t }, { data: ulozene }] = await Promise.all([
+      const [k, { data: t }, { data: ulozene }, { data: minule }] = await Promise.all([
         nactiSkladovouKnihu(),
         supabase.from('cellar_tanks').select('id,label,current_beer_id,current_volume_l,status,started_at,kegging_active'),
         supabase.from('tydenni_inventura').select('beer_id,package_id,napocitano').eq('tyden_od', obdobi.od),
+        supabase.from('tydenni_inventura').select('beer_id,package_id,napocitano,updated_at').eq('tyden_od', posunDnu(obdobi.od, -7)),
       ]);
+      const mt: Record<string, MinulyTydenStav> = {};
+      for (const r of ((minule as any[]) ?? [])) {
+        const n = Number(r.napocitano);
+        if (r.napocitano == null || !Number.isFinite(n) || !r.updated_at) continue;
+        mt[`${r.beer_id}__${r.package_id}`] = { kusu: n, den: businessDateISO(new Date(r.updated_at)) };
+      }
+      setMinulyTyden(mt);
       setKniha(k);
       setTanky((t as TankProRozdeleni[]) ?? []);
       // Co se v tomhle týdnu už napočítalo, se vrátí do políček. Kontrola se
@@ -161,18 +171,11 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
 
   const vsechnyRadky = useMemo(() => {
     if (!kniha) return [];
-    const sklad = stockForObdobi(kniha.pohyby, obdobi.od, obdobi.doPocitani);
-    // Očekávaný stav = totéž číslo, jaké ukazuje Sklad k tomu dni. Rozpad
-    // týdne přeskakuje inventury, takže měsíční napočítaný stav uprostřed
-    // týdne (např. 30. 9.) by se v něm ztratil a týden by s Skladem nesouhlasil
-    // (5. 10. 2026: „v týdenní inventuře 5× 50 12° Sv., ve skladu dobře 3").
-    stockAsOf(kniha.pohyby, obdobi.doPocitani).forEach((l, k) => {
-      const radek = sklad.get(k);
-      if (radek) radek.qty = l.qty;
-      else sklad.set(k, { ...l, byKind: {}, baselineQty: l.qty, baselineDate: obdobi.od });
-    });
+    // Základ = napočítáno minulý týden + pohyby tohoto týdne; kde se minulý
+    // týden nepočítalo, stav skladu (jako Sklad). Viz ocekavanyStavTydne.
+    const sklad = ocekavanyStavTydne(kniha.pohyby, obdobi.od, obdobi.doPocitani, minulyTyden);
     return jenAktivni(radkyTydne(sklad, kniha.piva, kniha.obaly, napocitano));
-  }, [kniha, obdobi.od, obdobi.doPocitani, napocitano]);
+  }, [kniha, obdobi.od, obdobi.doPocitani, napocitano, minulyTyden]);
 
   // Přepínač nahoře (Lahve/Sudy) omezuje i souhrn a počítadlo „X / Y
   // spočítáno" — jinak by ukazovaly zbytek skladu, na který se teď vůbec
