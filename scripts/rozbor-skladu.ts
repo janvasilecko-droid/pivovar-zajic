@@ -18,7 +18,7 @@
 // Veřejný (anon) klíč je v každé stránce appky — skript si ho vezme
 // z PIVOVAR_ANON_KEY, jinak ho přečte z nasazené appky.
 import { createClient } from '@supabase/supabase-js';
-import { buildMovements, expectedForMonth, konecMesice, stockAsOf, stockKey, type Movement } from '../src/lib/stockLedger';
+import { buildMovements, expectedForMonth, konecMesice, stockAsOf, stockForMonth, stockKey, type Movement } from '../src/lib/stockLedger';
 import { najdiChybejiciZdrojSudu, najdiPodezrele } from '../src/lib/kontrolaPohybu';
 // Ne z sdilenaData.ts — ta při načtení zakládá klienta appky z VITE_* proměnných
 // a skript na tom padal dřív, než se vůbec přihlásil.
@@ -153,6 +153,24 @@ async function main() {
       console.log(nalezy.length ? 'Podezřelé:' : 'Podezřelé: nic');
       nalezy.forEach((n) => console.log(`  [${n.vaha}] ${n.datum} ${n.text}${n.dopad ? ` (sklad ${n.dopad > 0 ? '+' : ''}${n.dopad})` : ''}`));
     }
+  }
+
+  // ── Audit: Inventura vs. Sklad za měsíc, položku po položce ──
+  // 5. 10. 2026: „mám rozdílná data, audit vs sklad, musí být stejný" a
+  // „v inventuře očekávání musí být stejná data jako ve skladu". Inventura
+  // počítá od zapsaného Počátečního stavu, Sklad od stavu dopočítaného
+  // z historie; rozdíl je vždycky v počátku (chybí nebo nesedí zápis).
+  if (process.argv.includes('--audit')) {
+    const inv = expectedForMonth(pohyby, mesic, true);
+    const sklad = stockForMonth(pohyby, mesic);
+    const klice = [...new Set([...inv.keys(), ...sklad.keys()])];
+    const rozdily = klice.map((k) => ({ k, i: inv.get(k), s: sklad.get(k) }))
+      .filter(({ i, s }) => (i?.qty ?? 0) !== (s?.qty ?? 0));
+    console.log(`\n══ Audit ${mesic}: Inventura (zapsaný počátek) ≠ Sklad (dopočítaný počátek) — ${rozdily.length} položek ══`);
+    rozdily.forEach(({ k, i, s }) => {
+      const [b, p] = k.split('__');
+      console.log(`  ${jmenoPiva.get(b)} · ${jmenoObalu.get(p)}: inventura ${i?.qty ?? 0} (počátek ${i?.baselineQty ?? 0} ${i?.baselineNote ?? ''}) · sklad ${s?.qty ?? 0} (počátek ${s?.baselineQty ?? 0})`);
+    });
   }
 
   // ── Stáčení lahví bez zdrojového sudu (sud se ve skladu neodečetl) ──
