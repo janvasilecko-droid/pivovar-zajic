@@ -63,10 +63,17 @@ export function tydenObdobi(dnesISO: string, posun = 0): TydenObdobi {
   const od = posunDnu(pondeliTydne(dnesISO), posun * 7);
   const doNedele = posunDnu(od, 6);
   const uzavreny = doNedele < dnesISO;
+  // Minulý týden se počítá v pondělí a v úterý (vychoziTyden) — a napočítá
+  // se stav, jaký je na skladě TEĎ. Co mezitím odjelo (víkendový nebo
+  // pondělní závoz), musí být v očekávaném stavu taky, jinak to vyjde jako
+  // přebytek. 5. 10. 2026: „v týdenní inventuře mám pořád 5× 50 12° Sv.,
+  // má tam být 3× 50 — ty 2× 50 odešly o víkendu, ve skladu to ukazuje
+  // dobře." Proto se v tyhle dva dny počítá po dnešek, stejně jako Sklad.
+  const pocitaSeTed = uzavreny && dnesISO <= posunDnu(doNedele, 2);
   return {
     od,
     do: doNedele,
-    doPocitani: doNedele <= dnesISO ? doNedele : dnesISO,
+    doPocitani: doNedele >= dnesISO || pocitaSeTed ? dnesISO : doNedele,
     uzavreny,
   };
 }

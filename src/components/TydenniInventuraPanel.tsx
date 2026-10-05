@@ -16,7 +16,7 @@ import { Spinner } from './ui';
 import { QuickCountModal } from './QuickCountModal';
 import { businessDateISO } from '../lib/businessDate';
 import { nactiSkladovouKnihu, type SkladovaKniha } from '../lib/skladovaKnihaData';
-import { MOVEMENT_LABELS, movementsFor, stockForObdobi, stockKey } from '../lib/stockLedger';
+import { MOVEMENT_LABELS, movementsFor, stockAsOf, stockForObdobi, stockKey } from '../lib/stockLedger';
 import { kegovaniZapisy, lahvoveZapisy, odectiZeStoceni } from '../lib/inventoryFix';
 import { rozdelSudyDoTanku, type TankProRozdeleni } from '../lib/tankRozdeleni';
 import { odectiZTanku } from '../lib/tankZapis';
@@ -162,6 +162,15 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
   const vsechnyRadky = useMemo(() => {
     if (!kniha) return [];
     const sklad = stockForObdobi(kniha.pohyby, obdobi.od, obdobi.doPocitani);
+    // Očekávaný stav = totéž číslo, jaké ukazuje Sklad k tomu dni. Rozpad
+    // týdne přeskakuje inventury, takže měsíční napočítaný stav uprostřed
+    // týdne (např. 30. 9.) by se v něm ztratil a týden by s Skladem nesouhlasil
+    // (5. 10. 2026: „v týdenní inventuře 5× 50 12° Sv., ve skladu dobře 3").
+    stockAsOf(kniha.pohyby, obdobi.doPocitani).forEach((l, k) => {
+      const radek = sklad.get(k);
+      if (radek) radek.qty = l.qty;
+      else sklad.set(k, { ...l, byKind: {}, baselineQty: l.qty, baselineDate: obdobi.od });
+    });
     return jenAktivni(radkyTydne(sklad, kniha.piva, kniha.obaly, napocitano));
   }, [kniha, obdobi.od, obdobi.doPocitani, napocitano]);
 
@@ -374,7 +383,9 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
             </p>
             <p className="text-udaj font-bold text-neutral-500 mt-0.5">
               {obdobi.uzavreny
-                ? 'Uzavřený týden'
+                ? (obdobi.doPocitani > obdobi.do
+                  ? `Uzavřený týden — počítá se po dnešek (${obdobi.doPocitani}), i co odjelo po neděli`
+                  : 'Uzavřený týden')
                 : `Běžící týden — počítá se po dnešek (${obdobi.doPocitani})`}
             </p>
           </div>
