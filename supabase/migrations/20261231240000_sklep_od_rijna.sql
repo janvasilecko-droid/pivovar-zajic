@@ -49,7 +49,11 @@ BEGIN
     kegging_date       = NULL,
     kegging_started_at = NULL,
     kegging_ended_at   = NULL,
-    updated_at         = now();
+    updated_at         = now()
+  -- Supabase (pg_safeupdate) odmítne UPDATE bez WHERE — 5. 10. 2026 na tom
+  -- migrace padala: „UPDATE requires a WHERE clause". Vyprázdnit se mají
+  -- záměrně všechny tanky.
+  WHERE id IS NOT NULL;
 
   RAISE NOTICE 'Sklep: % tanků archivováno a vyprázdněno.', v_archivovano;
 END $$;
