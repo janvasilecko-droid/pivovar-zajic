@@ -33,6 +33,8 @@ export type FiltrPohybu = {
   packageId?: string;
   /** Id skupin ze SKUPINY_POHYBU. Prázdné = všechny druhy. */
   skupiny?: string[];
+  /** Dnešní den (businessDateISO) — podle něj se pozná stav „teď". */
+  dnes?: string;
 };
 
 export type RadekPohybu = {
@@ -68,6 +70,12 @@ export type DenPohybu = {
   radky: RadekPohybu[];
   /** Stav na konci dne — stejné číslo jako Sklad k tomu dni. */
   vecer: StavKlice[];
+  /**
+   * Stav po tomhle dni platí pořád — poslední den s pohybem do dneška
+   * v období, které dnešek obsahuje. Popisek pak „teď", ne „večer"
+   * (1. 10. 2026, čtvrtek: „proč u rozboru píšeš středa večer, piš teď").
+   */
+  ted: boolean;
 };
 
 export type PohybyObdobi = {
@@ -204,8 +212,18 @@ export function sestavPohybyObdobi(
         stavPo: stavPo.po.get(m) ?? 0,
         ...(m.kind === 'inventura' ? { podleEvidence: stavPo.pred.get(m) ?? 0 } : {}),
       }));
-    return { datum, radky, vecer: stavy(stockAsOf(pohyby, datum)) };
+    return { datum, radky, vecer: stavy(stockAsOf(pohyby, datum)), ted: false };
   });
+
+  // „Teď" = poslední den do dneška, kdy se v období cokoli hnulo (i pohyb
+  // schovaný filtrem druhu — jinak by „teď" ukázal stav, který už neplatí).
+  // Jen když období dnešek obsahuje; minulý týden je pořád „večer".
+  const { dnes } = filtr;
+  if (dnes && od <= dnes && dnes <= doDne) {
+    const posledni = [...new Set(vObdobi.map((m) => m.date))].filter((d) => d <= dnes).sort().pop();
+    const den = dny.find((d) => d.datum === posledni);
+    if (den) den.ted = true;
+  }
 
   const konecMapa = stockAsOf(pohyby, doDne);
   const souhrn = serazeneKlice.map((k) => {
