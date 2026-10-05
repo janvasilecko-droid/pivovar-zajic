@@ -17,7 +17,8 @@
 //     knihy, tedy stejná matematika jako Sklad a měsíční inventura. Kdyby si
 //     tenhle soubor počítal po svém, vyrobil by třetí verzi pravdy — přesně
 //     to, co má týdenní kontrola odhalovat.
-import type { StockLine } from './stockLedger';
+import type { Movement, StockLine } from './stockLedger';
+import { stockAsOf, stockForObdobi } from './stockLedger';
 import { jeSud } from './inventoryFix';
 
 export type TydenObdobi = {
@@ -268,4 +269,63 @@ export function zaznamKontroly(
     vyreseno,
     updated_at: new Date().toISOString(),
   };
+}
+
+
+/** Co se napočítalo minulý týden: kusy a den, kdy se to počítalo (Praha). */
+export type MinulyTydenStav = { kusu: number; den: string };
+
+/**
+ * Očekávaný stav pro týdenní inventuru.
+ *
+ * 5. 10. 2026: „čeká se má být údaj uzavřený týden + stočený − objednávky
+ * a fasování." Základ je to, co se NAPOČÍTALO minulý týden (tabulka
+ * tydenni_inventura), a k němu pohyby od toho počítání (stočeno, objednávky,
+ * fasování, prodejna, odpisy…). Pohyby ze dne počítání se nepřičítají —
+ * napočítaný stav už je obsahuje (počítá se typicky v pondělí ráno za
+ * minulý týden).
+ *
+ * Kde minulý týden napočítaný není, platí stav skladu k dni počítání —
+ * stejné číslo, jaké ukazuje Sklad. Totéž, když po minulém počítání leží
+ * měsíční napočítaná inventura: ta je novější.
+ */
+export function ocekavanyStavTydne(
+  pohyby: Movement[],
+  od: string,
+  doPocitani: string,
+  minulyTyden: Record<string, MinulyTydenStav>,
+): Map<string, StockLine> {
+  const rozpad = stockForObdobi(pohyby, od, doPocitani);
+  const sklad = stockAsOf(pohyby, doPocitani);
+  const out = new Map<string, StockLine>();
+  const klice = new Set<string>([...rozpad.keys(), ...sklad.keys(), ...Object.keys(minulyTyden)]);
+  for (const k of klice) {
+    const r = rozpad.get(k);
+    const [beer_id, package_id] = k.split('__');
+    const pohybyTydne = r ? r.qty - r.baselineQty : 0;
+    const minule = minulyTyden[k];
+    const novejsiInventura = minule && pohyby.some((m) => m.kind === 'inventura'
+      && `${m.beer_id}__${m.package_id}` === k && m.date >= minule.den && m.date <= doPocitani);
+    if (minule && !novejsiInventura) {
+      const odDne = minule.den >= od ? posunDnu(minule.den, 1) : od;
+      const pohybyOdPocitani = pohyby
+        .filter((m) => m.kind !== 'inventura' && `${m.beer_id}__${m.package_id}` === k && m.date >= odDne && m.date <= doPocitani)
+        .reduce((a, m) => a + m.qty, 0);
+      out.set(k, {
+        ...(r ?? { key: k, beer_id, package_id, byKind: {} }),
+        baselineDate: minule.den,
+        baselineQty: minule.kusu,
+        baselineNote: 'Napočítáno minulý týden',
+        qty: minule.kusu + pohybyOdPocitani,
+      } as StockLine);
+    } else {
+      const qty = sklad.get(k)?.qty ?? r?.qty ?? 0;
+      out.set(k, {
+        ...(r ?? { key: k, beer_id, package_id, byKind: {}, baselineNote: null, baselineDate: od }),
+        baselineQty: qty - pohybyTydne,
+        qty,
+      } as StockLine);
+    }
+  }
+  return out;
 }

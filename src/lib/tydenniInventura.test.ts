@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import {
   pondeliTydne, posunDnu, tydenObdobi, vychoziTyden, popisTydne, stitekTydne,
-  radkyTydne, jenAktivni, souhrnTydne, zaznamKontroly,
+  radkyTydne, jenAktivni, souhrnTydne, zaznamKontroly, ocekavanyStavTydne,
   type TydenniRadek,
 } from './tydenniInventura';
-import { buildMovements, stockForObdobi, type StockLine } from './stockLedger';
+import { buildMovements, stockForObdobi, type Movement, type StockLine } from './stockLedger';
 
 const PIVA = [{ id: 'b1', name: '12° Světlá' }, { id: 'b2', name: '11° Světlá' }];
 const OBALY = [
@@ -249,5 +249,32 @@ describe('očekávaný stav za týden vychází ze skladové knihy', () => {
     const [r] = radkyTydne(m, [{ id: 'b1', name: '12° Světlá' }], OBALY, { b1__p1: '21' });
     expect(r.ocekavano).toBe(23);
     expect(r.rozdil).toBe(-2);
+  });
+});
+
+describe('ocekavanyStavTydne — základ z minulého týdne (5. 10. 2026)', () => {
+  const pohyby: Movement[] = [
+    { date: '2026-09-15', beer_id: 'b1', package_id: 'p1', qty: 40, kind: 'kegovani' },
+    { date: '2026-10-05', beer_id: 'b1', package_id: 'p1', qty: -2, kind: 'zavoz' },  // v den počítání
+    { date: '2026-10-06', beer_id: 'b1', package_id: 'p1', qty: 6, kind: 'kegovani' },
+    { date: '2026-10-07', beer_id: 'b1', package_id: 'p1', qty: -3, kind: 'zavoz' },
+    { date: '2026-10-07', beer_id: 'b1', package_id: 'p1', qty: -1, kind: 'fasovani' },
+  ];
+
+  it('napočítáno minulý týden + stočeno − objednávky − fasování od počítání', () => {
+    const m = ocekavanyStavTydne(pohyby, '2026-10-05', '2026-10-07', { b1__p1: { kusu: 14, den: '2026-10-05' } });
+    expect(m.get('b1__p1')!.qty).toBe(14 + 6 - 3 - 1);
+    expect(m.get('b1__p1')!.baselineQty).toBe(14);
+  });
+
+  it('bez minulého počítání je to stav skladu', () => {
+    const m = ocekavanyStavTydne(pohyby, '2026-10-05', '2026-10-07', {});
+    expect(m.get('b1__p1')!.qty).toBe(40 - 2 + 6 - 3 - 1);
+  });
+
+  it('novější měsíční inventura má přednost', () => {
+    const sInventurou: Movement[] = [...pohyby, { date: '2026-10-06', beer_id: 'b1', package_id: 'p1', qty: 30, kind: 'inventura', note: 'Fyzická inventura' }];
+    const m = ocekavanyStavTydne(sInventurou, '2026-10-05', '2026-10-07', { b1__p1: { kusu: 14, den: '2026-10-05' } });
+    expect(m.get('b1__p1')!.qty).toBe(30 - 3 - 1);
   });
 });
