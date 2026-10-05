@@ -36,11 +36,7 @@ export function OdberatelTlacitko({ placeId, placeName, places, objednavky, onCh
       <button
         type="button"
         onClick={() => setOtevreno(true)}
-        className={`tap w-full min-h-[48px] px-3 rounded border-2 flex items-center gap-2 text-left font-black text-sm transition ${
-          vybrany
-            ? 'bg-amber-500 border-amber-500 text-neutral-950'
-            : 'bg-amber-50 border-amber-200 text-amber-900 hover:bg-amber-100'
-        }`}
+        className={`${vybrany ? 'btn-primary' : 'btn-ghost'} w-full min-h-[48px] !justify-start text-left`}
       >
         <Store size={18} className="shrink-0" />
         <span className="truncate">{vybrany || 'Vybrat odběratele'}</span>
@@ -60,11 +56,7 @@ export function OdberatelTlacitko({ placeId, placeName, places, objednavky, onCh
                 key={p.id}
                 type="button"
                 onClick={() => vyber(p.id, p.name)}
-                className={`tap min-h-[44px] px-2 py-2 rounded border text-sm font-bold text-left transition ${
-                  p.id === placeId
-                    ? 'bg-amber-500 border-amber-500 text-neutral-950'
-                    : 'bg-white border-neutral-200 text-neutral-900 hover:bg-amber-50 hover:border-amber-300'
-                }`}
+                className={`${p.id === placeId ? 'btn-primary' : 'btn-ghost'} min-h-[44px] !justify-start text-left`}
               >
                 {p.name}
               </button>
