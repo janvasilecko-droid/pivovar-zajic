@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { plnostTanku, popisPlnosti, PRAH_DOJEZD, PRAH_PLNY } from './tankPlnost';
+import { kapacitaTanku, plnostTanku, popisPlnosti, PRAH_DOJEZD, PRAH_PLNY } from './tankPlnost';
 
 describe('plnostTanku', () => {
   it('spočítá podíl a procenta', () => {
@@ -39,5 +39,17 @@ describe('plnostTanku', () => {
     expect(popisPlnosti(plnostTanku(200, 4000))).toContain('dojezd');
     expect(popisPlnosti(plnostTanku(2000, 4000))).toBe('50 % objemu');
     expect(popisPlnosti(plnostTanku(3800, 4000))).toContain('skoro plný');
+  });
+});
+
+describe('kapacitaTanku — procenta vždy z nominálu nádoby (6. 10. 2026)', () => {
+  it('ležácký tank 7 500 l, spilka 8 000 l — bez ohledu na zapsanou kapacitu', () => {
+    expect(kapacitaTanku('Tank 3')).toBe(7500);
+    expect(kapacitaTanku('Ležák 8')).toBe(7500);
+    expect(kapacitaTanku('Spilka 2')).toBe(8000);
+    expect(kapacitaTanku(null)).toBe(7500);
+  });
+  it('3 000 l v ležáckém tanku = 40 %', () => {
+    expect(plnostTanku(3000, kapacitaTanku('Tank 1')).procent).toBe(40);
   });
 });

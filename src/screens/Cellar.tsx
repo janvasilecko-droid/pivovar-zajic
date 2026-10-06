@@ -18,6 +18,7 @@ import { objednavkyZTanku } from '../lib/objednavkyZTanku';
 import { usePlanStaceni } from '../lib/usePlanStaceni';
 import { mergeWeekPlan } from '../lib/keggingPlan';
 import { vNovemSklepu } from '../lib/sklepOd';
+import { kapacitaTanku } from '../lib/tankPlnost';
 
 const STATUS_LABELS: Record<CellarTank['status'], string> = {
   empty: 'Prázdný', filling: 'Plní se', active: 'Aktivní', emptying: 'Stáčí se',
@@ -194,8 +195,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
     // dopočítanou při ukončení tanku. Kapacita je vlastnost nádoby, počáteční
     // objem je to, co se do ní skutečně napustilo — plést je dohromady nejde.
     const adjustedTankList = tankList.map((tk) => {
-      const isSpilka = tk.label.toLowerCase().includes('spilka');
-      const targetCap = isSpilka ? 8000 : 7500;
+      const targetCap = kapacitaTanku(tk.label);
       return {
         ...tk,
         capacity_l: targetCap,
@@ -635,6 +635,12 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                 : Math.max(initialVol, 0);
               // Tank bez piva (prázdný nebo ve fázi sanitace) — pruh plnosti se nekreslí
               const isEmpty = t.status === 'empty' || t.status === 'sanitizing' || t.status === 'rinsing' || t.status === 'cleaning';
+              // Náplň v % vždy z nominálu tanku (7 500 l, spilka 8 000 l) — ne
+              // z výstavu: tank s 3 000 l se tvářil jako 100 % (6. 10. 2026:
+              // „počítej vždy procenta v tanku z 7500 l"). „% vystočeno" níž
+              // se dál počítá z výstavu — to je podíl várky, ne náplň tanku.
+              const kapacitaPct = kapacitaTanku(t.label);
+              const naplnPct = isEmpty ? 0 : Math.round(Math.min(1, Math.max(0, remaining / kapacitaPct)) * 100);
               const sizeKeys = Object.keys(s.bySize).map(Number).sort((a, b) => b - a);
               const isLow = t.status === 'active' && remaining > 0 && remaining < LOW_VOLUME_THRESHOLD;
               // Starší tanky mají u piva jen jméno bez ID — dohledá se podle jména.
@@ -793,7 +799,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                         
                         {/* Beer Liquid Level Clip Area (Pokud zbývá 0 l nebo je tank prázdný, zůstane vnitřek průhledný / bílo-šedý) */}
                         {remaining > 0 && !isEmpty && (() => {
-                          const liquidPct = Math.min(1, Math.max(0, remaining / initialVol));
+                          const liquidPct = Math.min(1, Math.max(0, remaining / kapacitaPct));
                           const fillH = liquidPct * 65;
                           const fillY = 80 - fillH;
                           // Barva piva podle typu — tmavé = hnědá, světlé = jantarová
@@ -835,7 +841,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
 
                       {/* Percentage Badge */}
                       <span className={`absolute text-udaj font-black font-mono px-1.5 py-0.5 rounded border ${remaining === 0 || isEmpty ? 'bg-neutral-800 text-neutral-300 border-neutral-600' : 'bg-neutral-950/90 text-amber-300 border-neutral-700'}`}>
-                        {isEmpty ? '0%' : `${Math.round((remaining / initialVol) * 100)}%`}
+                        {`${naplnPct}%`}
                       </span>
                     </div>
 
@@ -844,14 +850,14 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-neutral-400 font-medium">Stav náplně:</span>
                         <span className={`font-bold font-mono ${remaining === 0 || isEmpty ? 'text-neutral-300' : 'text-amber-400'}`}>
-                          {isEmpty ? '0 %' : `${Math.round((remaining / initialVol) * 100)} %`}
+                          {`${naplnPct} %`}
                           <span className="ml-1 text-neutral-400">· {isEmpty ? '0 hl' : `${(remaining / 100).toFixed(2)} hl`}</span>
                         </span>
                       </div>
                       <div className="w-full bg-neutral-800 h-2 rounded-full overflow-hidden border border-neutral-700">
                         <div
                           className={`h-full rounded-full transition-all duration-500 ${isEmpty ? 'bg-neutral-600' : isLow ? 'bg-amber-500' : 'bg-emerald-500'}`}
-                          style={{ width: isEmpty ? '0%' : `${Math.max(Math.round((remaining / initialVol) * 100), 2)}%` }}
+                          style={{ width: isEmpty ? '0%' : `${Math.max(naplnPct, 2)}%` }}
                         />
                       </div>
                       <div className="flex items-center justify-between text-udaj text-neutral-300 font-medium pt-0.5">

@@ -65,6 +65,7 @@ import { kauceVenku, vycepyVenku, type VycepVenku } from '../lib/vycepyVenku';
 import { useMaleSudy, useHlidaniMalychSudu } from '../lib/useMaleSudy';
 import './HomeScreen.css';
 import { uloz } from '../lib/uloziste';
+import { kapacitaTanku } from '../lib/tankPlnost';
 
 /** true = jméno přednastaveného odstínu (CSS třída c-*); false = vlastní hex barva (inline styl). */
 function isPresetColor(c: string): c is TileColor {
@@ -1101,7 +1102,8 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
             pivo: jmenoPiva.get(t.current_beer_id) ?? '',
             barva: barvy.get(t.current_beer_id) ?? null,
             litry,
-            kapacita: Number(t.capacity_l) || (spilka(String(t.label ?? '')) ? 8000 : 7500),
+            // Procenta vždy z 7 500 l (spilka 8 000), ne ze zapsané kapacity (6. 10. 2026).
+            kapacita: kapacitaTanku(String(t.label ?? '')),
             // Tank, ze kterého se právě stáčí — označí se.
             staci: !!t.kegging_active,
             prazdny: t.status === 'empty' || litry <= 0,
