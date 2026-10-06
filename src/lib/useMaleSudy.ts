@@ -74,8 +74,8 @@ export function useMaleSudy(): {
  * Hlídání malých sudů nad OTEVŘENÝMI objednávkami — jeden výpočet pro
  * záložku Malé sudy i Objednávky, ať ukazují totéž.
  */
-export function useHlidaniMalychSudu(zasoba: Record<string, number>, silaPodleId?: Map<string, number>): VysledekMalychSudu & { nacteno: boolean } {
-  const [data, setData] = useState<{ o: ObjednavkaProSudy[]; p: PolozkaProSudy[]; odepsane: Set<string>; skladem: Map<string, number> } | null>(null);
+export function useHlidaniMalychSudu(zasoba: Record<string, number>, silaPodleId?: Map<string, number>): VysledekMalychSudu & { nacteno: boolean; jmenaPiv: Map<string, string> } {
+  const [data, setData] = useState<{ o: ObjednavkaProSudy[]; p: PolozkaProSudy[]; odepsane: Set<string>; skladem: Map<string, number>; jmenaPiv: Map<string, string> } | null>(null);
   async function nacti() {
     // Nezavezené a nestornované — to jsou ty, na které se sudy ještě chystají.
     // Staré nezavezené objednávky (závoz před dneškem) odfiltruje výpočet
@@ -103,6 +103,8 @@ export function useHlidaniMalychSudu(zasoba: Record<string, number>, silaPodleId
       p: ((pol as any[]) ?? []) as PolozkaProSudy[],
       odepsane: new Set(((odp as any[]) ?? []).map((r) => r.order_id as string)),
       skladem,
+      // Jména piv pro rozpad „plné skladem" v panelu Malé sudy.
+      jmenaPiv: new Map((kniha?.piva ?? []).map((b) => [b.id, b.name])),
     });
   }
   // Dokud nikdo nenaklikal žádný počet, není co hlídat — objednávky se
@@ -113,5 +115,5 @@ export function useHlidaniMalychSudu(zasoba: Record<string, number>, silaPodleId
   useEffect(() => { if (hlida) nactiBezpecne(); }, [hlida]);
   useRealtime(['orders', 'order_items', 'zavoz_deductions', 'kegging', 'inventory', 'inventory_adjustments'], () => { if (hlida) nactiBezpecne(); });
   const vysledek = data ? hlidejMaleSudy(zasoba, data.o, data.p, silaPodleId, businessDateISO(), { odepsane: data.odepsane, skladem: data.skladem }) : { souhrn: [], nadPoPolozce: new Map<string, number>(), poPolozce: new Map<string, { kryto: number; chybi: number }>() };
-  return { ...vysledek, nacteno: !!data };
+  return { ...vysledek, nacteno: !!data, jmenaPiv: data?.jmenaPiv ?? new Map() };
 }

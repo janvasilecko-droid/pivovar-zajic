@@ -2794,9 +2794,9 @@ export default function Orders({
                   {orders
                     .flatMap((o) => (items[o.id] ?? [])
                       .filter((it) => it.package_id === x.package_id && maleSudy.poPolozce.has(it.id))
-                      // Jen kusy, které berou sud z počtu — co pokryly plné
-                      // sudy skladem, se nevypisuje (30. 9. 2026).
-                      .map((it) => ({ o, it, kusu: Number(it.quantity) - (maleSudy.poPolozce.get(it.id)?.zeSkladu ?? 0) }))
+                      // Každý objednaný malý sud bere prázdný — plné sudy
+                      // skladem počet nemění (6. 10. 2026).
+                      .map((it) => ({ o, it, kusu: Number(it.quantity) }))
                       .filter((r) => r.kusu > 0))
                     .map(({ o, kusu }) => `${o.place_name ?? '?'} ${new Date((o.delivery_date || o.order_date) + 'T00:00:00').toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric' })} ${kusu}×`)
                     .join(' · ')}

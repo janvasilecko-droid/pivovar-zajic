@@ -52,15 +52,29 @@ export function chystaSeOd(o: ObjednavkaProSudy, dnes: string): boolean {
   return objednano >= tydenZpet.toISOString().slice(0, 10);
 }
 
-export type SouhrnMalychSudu = { package_id: string; mame: number; objednano: number; nad: number };
+export type SouhrnMalychSudu = {
+  package_id: string;
+  /** Prázdných sudů (naklikaný počet minus stočené od zadání). */
+  mame: number;
+  /** Kolik sudů otevřené objednávky chtějí — každý si vezme jeden prázdný. */
+  objednano: number;
+  nad: number;
+  /**
+   * Plné sudy skladem u piv, která otevřené objednávky v tomhle obalu chtějí
+   * (beer_id → kusy). JEN UPOZORNĚNÍ — počet prázdných nemění. 6. 10. 2026:
+   * „žádné plné, tohle jsou prázdné, z těch se dělají objednávky — pokud jsou
+   * na skladě plné, upozorni na to akorát."
+   */
+  plneSkladem?: Record<string, number>;
+};
 
 export type VysledekMalychSudu = {
   /** Jen obaly s naklikaným počtem. */
   souhrn: SouhrnMalychSudu[];
   /** Kolik kusů položky je nad počet (id položky → kusy). Chybí = v pořádku. */
   nadPoPolozce: Map<string, number>;
-  /** Každá hlídaná položka: kolik kusů má sud a kolik ne (zelená/oranžová/červená); `zeSkladu` = kolik pokryly plné sudy skladem. */
-  poPolozce: Map<string, { kryto: number; chybi: number; zeSkladu?: number }>;
+  /** Každá hlídaná položka: kolik kusů má prázdný sud a kolik ne (zelená/oranžová/červená). */
+  poPolozce: Map<string, { kryto: number; chybi: number }>;
 };
 
 /**
@@ -82,8 +96,9 @@ export function hlidejMaleSudy(
    *
    * `odepsane` = objednávky už odepsané ze skladu (odpočet závozu proběhl —
    * den závozu nastal, sudy jsou pryč). Z naklikaného počtu nic neberou.
-   * `skladem` = stočené pivo skladem (beer_id__package_id → kusy): plný sud
-   * na skladě pokryje objednávku sám, prázdný sud z počtu nepotřebuje.
+   * `skladem` = stočené pivo skladem (beer_id__package_id → kusy). Počet
+   * prázdných NEMĚNÍ — každý objednaný malý sud si vezme prázdný; plné sudy
+   * skladem se jen ukážou jako upozornění (souhrn.plneSkladem, 6. 10. 2026).
    */
   volby: { odepsane?: Set<string>; skladem?: Map<string, number> } = {},
 ): VysledekMalychSudu {
@@ -109,29 +124,26 @@ export function hlidejMaleSudy(
       || (a.id < b.id ? -1 : 1));
 
   const zbyva: Record<string, number> = { ...zasoba };
-  const zbyvaSkladem = new Map<string, number>();
-  volby.skladem?.forEach((n, k) => { if (n > 0) zbyvaSkladem.set(k, n); });
   const objednano: Record<string, number> = {};
+  const plne: Record<string, Record<string, number>> = {};
   const nadPoPolozce = new Map<string, number>();
-  const poPolozce = new Map<string, { kryto: number; chybi: number; zeSkladu?: number }>();
+  const poPolozce = new Map<string, { kryto: number; chybi: number }>();
   for (const p of hlidane) {
     const obal = p.package_id!;
     const kusu = Number(p.quantity);
-    // Nejdřív plné sudy toho piva skladem, prázdný sud z počtu jen na zbytek.
-    const klicSkladu = `${p.beer_id ?? ''}__${obal}`;
-    const zeSkladu = Math.min(kusu, zbyvaSkladem.get(klicSkladu) ?? 0);
-    if (zeSkladu > 0) zbyvaSkladem.set(klicSkladu, (zbyvaSkladem.get(klicSkladu) ?? 0) - zeSkladu);
-    const potreba = kusu - zeSkladu;
-    objednano[obal] = (objednano[obal] ?? 0) + potreba;
-    const vejde = Math.max(0, Math.min(potreba, zbyva[obal]));
+    objednano[obal] = (objednano[obal] ?? 0) + kusu;
+    const vejde = Math.max(0, Math.min(kusu, zbyva[obal]));
     zbyva[obal] -= vejde;
-    if (potreba > vejde) nadPoPolozce.set(p.id, potreba - vejde);
-    poPolozce.set(p.id, { kryto: zeSkladu + vejde, chybi: potreba - vejde, zeSkladu });
+    if (kusu > vejde) nadPoPolozce.set(p.id, kusu - vejde);
+    poPolozce.set(p.id, { kryto: vejde, chybi: kusu - vejde });
+    // Plné sudy toho piva skladem — jen pro upozornění.
+    const skladem = volby.skladem?.get(`${p.beer_id ?? ''}__${obal}`) ?? 0;
+    if (p.beer_id && skladem > 0) (plne[obal] ??= {})[p.beer_id] = skladem;
   }
 
   const souhrn = Object.entries(zasoba).map(([package_id, mame]) => {
     const obj = objednano[package_id] ?? 0;
-    return { package_id, mame, objednano: obj, nad: Math.max(0, obj - mame) };
+    return { package_id, mame, objednano: obj, nad: Math.max(0, obj - mame), plneSkladem: plne[package_id] ?? {} };
   });
   return { souhrn, nadPoPolozce, poPolozce };
 }

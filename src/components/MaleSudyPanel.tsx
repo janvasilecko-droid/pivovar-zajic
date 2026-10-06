@@ -22,7 +22,7 @@ export function MaleSudyPanel({ packages, canEdit, kdo }: {
   kdo?: string | null;
 }) {
   const { zasoba, nacteno, chybiMigrace, ulozit } = useMaleSudy();
-  const { souhrn } = useHlidaniMalychSudu(zasoba);
+  const { souhrn, jmenaPiv } = useHlidaniMalychSudu(zasoba);
   const male = packages
     .filter(jeMalySud)
     .sort((a, b) => Number(b.volume_l) - Number(a.volume_l));
@@ -84,14 +84,22 @@ export function MaleSudyPanel({ packages, canEdit, kdo }: {
                 </button>
               </div>
             </div>
-            {hlida ? (
+            {hlida && (
               <div className="flex items-center justify-between gap-2 text-sm">
                 <span className={`font-bold ${s && s.nad > 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
                   Prázdných celkem {mame}, v otevřených objednávkách {objednano}
                   {s && s.nad > 0 ? ` — o ${s.nad} víc, než máš` : ''}
                 </span>
               </div>
-            ) : (
+            )}
+            {/* Plné sudy skladem počet prázdných nemění — jen upozornění
+                (6. 10. 2026: „pokud jsou na skladě plné, upozorni na to akorát"). */}
+            {hlida && s && Object.keys(s.plneSkladem ?? {}).length > 0 && (
+              <div className="rounded border border-amber-300 bg-amber-50 px-2 py-1.5 text-xs font-bold text-amber-950">
+                Pozor, skladem jsou plné: {Object.entries(s.plneSkladem ?? {}).map(([b, n]) => `${n}× ${jmenaPiv.get(b) ?? '?'}`).join(', ')} — objednávce můžou stačit bez prázdného sudu.
+              </div>
+            )}
+            {!hlida && (
               <div className="text-xs text-neutral-500">Zatím se nehlídá — klepni na + a zadej, kolik jich máš. Ostatní malé sudy bez čísla se pak berou jako 0.</div>
             )}
           </div>
