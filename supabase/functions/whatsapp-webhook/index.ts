@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { jeVlastniHlaseniObjednavky } from "../_shared/vlastni-hlaseni-objednavky.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -583,7 +584,8 @@ Deno.serve(async (req: Request) => {
     // o zprávu OD zákazníka. Ověření stejným interním secretem jako u cronu
     // (viz migrace 20261121000000 a 20261230010000) — posli-push tenhle
     // vzorec už umí (_shared/require-user.ts).
-    if (!fromMe) {
+    // Ani zpráva odeslaná z appky (neviditelná značka) — objednávka už v appce je.
+    if (!fromMe && !jeVlastniHlaseniObjednavky(record.message_text, false)) {
       try {
         const { data: secretRow } = await supabase
           .from("app_secrets")
