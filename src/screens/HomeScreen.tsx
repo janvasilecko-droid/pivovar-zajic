@@ -42,7 +42,7 @@ import { vyhodnotGesto, rychlostPosunu, jeVeVodorovnemPasku, stavPodrzeni } from
 import { maSeZobrazit, oznacZobrazenou } from '../lib/napovedy';
 import { queueLength, onQueueChange, syncQueue, isOnline } from '../lib/offline';
 import { kusy } from '../lib/cisla';
-import { coNalozitNaZavoz, type NalozitNaZavoz } from '../lib/nalozitNaZavoz';
+import { nakladkyPoDnech, vychoziNakladka, BEZ_DATA, type NalozitNaZavoz } from '../lib/nalozitNaZavoz';
 import { dnuOdZalohy, isWeeklyBackupDue } from '../lib/backup';
 import { souhrnDne, type SouhrnDne } from '../lib/souhrnDne';
 import { buildMovements } from '../lib/stockLedger';
@@ -1149,7 +1149,13 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   // Z provozu 28. 9. 2026: „dej tam, co naložit na závoz na další den."
   // Výpočet v lib/nalozitNaZavoz.ts; čte se týden dopředu, aby v pátek
   // ukázal pondělí.
-  const [nalozit, setNalozit] = useState<NalozitNaZavoz | null>(null);
+  // Všechny nakládky po dnech (okno má přepínač dnů) a výchozí z nich —
+  // tu ukazuje dlaždice v úpravě plochy a na ni se otevírá Rozvoz.
+  const [nakladky, setNakladky] = useState<NalozitNaZavoz[]>([]);
+  const nalozit = useMemo(() => {
+    const vychozi = vychoziNakladka(nakladky, businessDateISO());
+    return nakladky.find((n) => n.datum === vychozi && n.datum !== BEZ_DATA) ?? null;
+  }, [nakladky]);
   // ✅ Zaškrtávátko „Přehled nakládky na ploše" v Rozvozu nechá v home_layout
   // požadavek (lib/homeLayout.ts) — tady se provede a smaže. Smazání musí jít
   // i do cloudu (null), jinak by se při dalším načtení provedl znovu.
@@ -1187,11 +1193,14 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
     if (!extraVisibleIds.includes('nakladka') || !maNakladku) return;
     void (async () => {
       const dnes = businessDateISO();
-      const { data } = await fetchAllRows<any>('orders', 'delivery_date, status, place_name, order_items(beer_name, package_label, quantity)')
-        .gt('delivery_date', dnes)
-        .lte('delivery_date', posunDen(dnes, 7))
-        .neq('status', 'storno');
-      setNalozit(coNalozitNaZavoz((data as any[]) ?? [], dnes));
+      const sloupce = 'delivery_date, status, place_name, is_delivered, order_items(beer_name, package_label, quantity)';
+      // Dnes až týden dopředu + nezavezené bez data závozu z posledního
+      // týdne („Neuvedeno", 6. 10. 2026).
+      const [{ data: sDatem }, { data: bezData }] = await Promise.all([
+        fetchAllRows<any>('orders', sloupce).gte('delivery_date', dnes).lte('delivery_date', posunDen(dnes, 7)).neq('status', 'storno'),
+        fetchAllRows<any>('orders', sloupce).is('delivery_date', null).gte('order_date', posunDen(dnes, -7)).eq('is_delivered', false).neq('status', 'storno'),
+      ]);
+      setNakladky(nakladkyPoDnech([...((sDatem as any[]) ?? []), ...((bezData as any[]) ?? [])], dnes));
     })();
   };
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1700,9 +1709,9 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
       {/* 🚚 Nakládka na nejbližší závoz — sbalitelné okno (29. 9. 2026). */}
       {!editMode && maNakladku && extraVisibleIds.includes('nakladka') && (
         <NakladkaOkno
-          nalozit={nalozit}
+          nakladky={nakladky}
           barvaPiva={(pivo) => barvyPiv.get(pivo.trim().toLowerCase()) ?? null}
-          onOtevrit={() => handleTileClick('nakladka')}
+          onOtevrit={(datum) => setPage('nakladka', undefined, datum ? ['ne', 'po', 'ut', 'st', 'ct', 'pa', 'so'][new Date(datum + 'T00:00:00').getDay()] : undefined)}
         />
       )}
 

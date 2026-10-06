@@ -28,8 +28,39 @@ export function coNalozitNaZavoz(objednavky: ObjednavkaNaZavoz[], dnesISO: strin
   const platne = objednavky.filter((o) => o.status !== 'storno' && !!o.delivery_date && o.delivery_date > dnesISO);
   if (platne.length === 0) return null;
   const datum = platne.map((o) => o.delivery_date!).sort()[0];
-  const toho = platne.filter((o) => o.delivery_date === datum);
+  return secti(datum, platne.filter((o) => o.delivery_date === datum));
+}
 
+/** Klíč nakládky bez data závozu. */
+export const BEZ_DATA = '';
+
+/**
+ * Nakládky po dnech — dnes (co ještě neodjelo), dalších 7 dní a „Neuvedeno"
+ * (objednávky bez data závozu). Z provozu 6. 10. 2026: „přidej tam možnost
+ * kliknout na dny, kdy jsou další nakládky, pokud není datum, tak dej bez
+ * dne, takže třeba Po St Čt Neuvedeno, a já si můžu rozklikávat, co se veze
+ * kdy." Dny jsou seřazené, „Neuvedeno" na konci; den bez objednávek se
+ * nevypisuje.
+ */
+export function nakladkyPoDnech(
+  objednavky: (ObjednavkaNaZavoz & { is_delivered?: boolean | null })[],
+  dnesISO: string,
+): NalozitNaZavoz[] {
+  const platne = objednavky.filter((o) => o.status !== 'storno'
+    && (o.delivery_date ? o.delivery_date > dnesISO || (o.delivery_date === dnesISO && !o.is_delivered) : !o.is_delivered));
+  const dny = [...new Set(platne.map((o) => o.delivery_date ?? BEZ_DATA))]
+    .sort((a, b) => (a === BEZ_DATA ? 1 : b === BEZ_DATA ? -1 : a.localeCompare(b)));
+  return dny
+    .map((d) => secti(d, platne.filter((o) => (o.delivery_date ?? BEZ_DATA) === d)))
+    .filter((n) => n.kusuCelkem > 0);
+}
+
+/** Výchozí den v okně: nejbližší závoz PO dnešku, jinak cokoli, co je. */
+export function vychoziNakladka(nakladky: NalozitNaZavoz[], dnesISO: string): string | null {
+  return (nakladky.find((n) => n.datum !== BEZ_DATA && n.datum > dnesISO) ?? nakladky[0])?.datum ?? null;
+}
+
+function secti(datum: string, toho: ObjednavkaNaZavoz[]): NalozitNaZavoz {
   const soucty = new Map<string, { pivo: string; obal: string; kusu: number }>();
   for (const o of toho) {
     for (const i of o.order_items ?? []) {
