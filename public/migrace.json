@@ -167,6 +167,7 @@
     "20261231220000_stara_inventura_nepise.sql",
     "20261231240000_sklep_od_rijna.sql",
     "20261231250000_odpocet_hned_pri_zapisu.sql",
+    "20261231260000_pevny_den_odberatele.sql",
     "20261231260100_male_sudy_zapocitat_plne.sql"
   ]
 }
