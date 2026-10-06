@@ -185,6 +185,9 @@ export async function syncQueue(): Promise<{ ok: number; failed: number; remaini
   let ok = 0, failed = 0;
   const failures: SyncFailure[] = [];
   for (const op of q) {
+    // Zbytky z doby, kdy se do fronty řadila i RPC volání (do 5. 10. 2026):
+    // bez jména funkce se odeslat nedají, takže se zahodí.
+    if (op.table === 'rpc') { removeOp(op.id); continue; }
     let res: { error: any } | null = null;
     try {
       if (op.op === 'insert') res = await supabase.from(op.table).insert(op.row ?? {});

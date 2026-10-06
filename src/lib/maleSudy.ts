@@ -206,3 +206,45 @@ export function rozdelMaleSudyVObjednavce(
   }
   return vysledek;
 }
+
+/** Pondělí týdne, do kterého spadá den `datum` (YYYY-MM-DD). */
+function pondeliTydne(datum: string): string {
+  const d = new Date(datum + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
+  return d.toISOString().slice(0, 10);
+}
+
+export type RadekMalychSudu = { package_id: string; pocet: number | string; updated_at?: string | null };
+export type StoceniMalehoSudu = { package_id: string | null; quantity: number | string; created_at?: string | null };
+
+/**
+ * Kolik PRÁZDNÝCH malých sudů je teď k dispozici.
+ *
+ * 5. 10. 2026: „pořád to ukazuje 3 malé sudy — sudy se ukazují vždy jen na
+ * týden, navíc tyto byly stočeny, to znamená, že se nemají ukazovat jako
+ * prázdné."
+ *  • Naklikaný počet platí jen v TÝDNU, kdy byl zadaný (po–ne, podle Prahy).
+ *    Z minulého týdne se nehlídá nic — stáčeč počet zadá znovu.
+ *  • Co se od zadání stočilo do daného obalu (Stáčení KEG), už prázdné není
+ *    a od počtu se odečte.
+ *
+ * `denZadani` převádí updated_at na pražský den (businessDateISO).
+ */
+export function prazdneMaleSudy(
+  radky: RadekMalychSudu[],
+  stoceni: StoceniMalehoSudu[],
+  dnes: string,
+  denZadani: (iso: string) => string,
+): Record<string, number> {
+  const tyden = pondeliTydne(dnes);
+  const z: Record<string, number> = {};
+  for (const r of radky) {
+    if (r.updated_at && pondeliTydne(denZadani(r.updated_at)) < tyden) continue;
+    const od = r.updated_at ? Date.parse(r.updated_at) : Number.NEGATIVE_INFINITY;
+    const stoceno = stoceni
+      .filter((s) => s.package_id === r.package_id && (!s.created_at || Date.parse(s.created_at) > od))
+      .reduce((a, s) => a + (Number(s.quantity) || 0), 0);
+    z[r.package_id] = Math.max(0, (Number(r.pocet) || 0) - stoceno);
+  }
+  return z;
+}

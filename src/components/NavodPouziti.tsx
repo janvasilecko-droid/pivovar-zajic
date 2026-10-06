@@ -169,7 +169,7 @@ const ODDILY: Oddil[] = [
     body: [
       {
         co: 'Pět způsobů zadání',
-        jak: 'Ručně dlaždicemi piv, hlasem (Hlasové zadání), vložením textu, z WhatsApp zprávy nebo vyfocením papíru.',
+        jak: 'Klepni na tlačítko Odběratel — v okně ho napiš, nebo vyber z tlačítek (nejčastější jsou nahoře). Pak piva dlaždicemi, nebo vložením textu, z WhatsApp zprávy či vyfocením papíru. Bez závozu a Stočit dnes jsou pod pivy.',
       },
       {
         co: 'Kontrola WhatsApp zpráv',
@@ -295,12 +295,16 @@ const ODDILY: Oddil[] = [
   },
   {
     klic: 'nastroje',
-    nazev: 'Časovače a šrotování',
+    nazev: 'Kalkulačky, časovače a šrotování',
     ikona: FlaskConical,
     kCemu: 'Pomůcky při vaření a stáčení.',
     body: [
       { co: 'Časovač a stopky', jak: 'Odpočet s alarmem (kotel, chmelení) a stopky s mezičasy. Alarm zazvoní i při zamčeném telefonu.' },
       { co: 'Stočení sudu', jak: 'Odpočet přímo pro stáčení jednoho sudu.' },
+      {
+        co: 'Kalkulačky',
+        jak: 'Dlaždice Kalkulačky (Nástroje): kolik sudů vyjde z množství v tanku, ředění sanitační chemie a převod jednotek.',
+      },
       { co: 'Šrotování sladu', jak: 'Deník šrotování — najdeš ho ve Sklepu (dlaždice Sklep → Šrotování sladu).' },
     ],
   },

@@ -43,7 +43,7 @@ export function MaleSudyPanel({ packages, canEdit, kdo }: {
   return (
     <div className="space-y-3">
       <p className="text-sm text-neutral-600">
-        Naklikej, kolik máš malých sudů. Objednávky pak hlídají, aby je otevřené objednávky dohromady
+        Naklikej, kolik máš prázdných malých sudů. Velké číslo je, kolik jich zbývá po otevřených objednávkách. Objednávky hlídají, aby je otevřené objednávky dohromady
         nepřečerpaly — co je navíc, označí červeně.
       </p>
       {male.length === 0 && <div className="card p-4 text-sm text-neutral-600">V obalech není žádný malý sud (KEG pod 30 l).</div>}
@@ -51,6 +51,11 @@ export function MaleSudyPanel({ packages, canEdit, kdo }: {
         const mame = zasoba[pk.id];
         const hlida = mame != null;
         const s = souhrn.find((x) => x.package_id === pk.id);
+        // Velké číslo = kolik jich ještě zbývá po otevřených objednávkách
+        // (5. 10. 2026: „mám 2× 20 l, v objednávce 2× 20 l 12° Světlá —
+        // v malých se po objednávce ukáže 0 u 20 l").
+        const objednano = s?.objednano ?? 0;
+        const volne = hlida ? Math.max(0, mame - objednano) : 0;
         return (
           <div key={pk.id} className="card p-4 space-y-2">
             <div className="flex items-center justify-between gap-3">
@@ -60,13 +65,13 @@ export function MaleSudyPanel({ packages, canEdit, kdo }: {
                   type="button"
                   className="btn-ghost !rounded !px-3"
                   aria-label={`Ubrat ${pk.label}`}
-                  disabled={!canEdit || !hlida || mame <= 0}
+                  disabled={!canEdit || !hlida || volne <= 0}
                   onClick={() => nastav(pk.id, (mame ?? 0) - 1)}
                 >
                   <Minus size={18} />
                 </button>
                 <span className="w-12 text-center text-2xl font-black tabular-nums text-neutral-950" aria-live="polite">
-                  {nacteno ? (hlida ? mame : '–') : '…'}
+                  {nacteno ? (hlida ? volne : '–') : '…'}
                 </span>
                 <button
                   type="button"
@@ -82,8 +87,8 @@ export function MaleSudyPanel({ packages, canEdit, kdo }: {
             {hlida ? (
               <div className="flex items-center justify-between gap-2 text-sm">
                 <span className={`font-bold ${s && s.nad > 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
-                  V otevřených objednávkách {s?.objednano ?? 0} ks
-                  {s && s.nad > 0 ? ` — o ${s.nad} víc, než máš` : ` — zbývá ${mame - (s?.objednano ?? 0)}`}
+                  Prázdných celkem {mame}, v otevřených objednávkách {objednano}
+                  {s && s.nad > 0 ? ` — o ${s.nad} víc, než máš` : ''}
                 </span>
               </div>
             ) : (

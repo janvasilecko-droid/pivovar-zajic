@@ -1,7 +1,7 @@
 // Z provozu 29. 9. 2026: „když mám 3× 15, hlídej, že můžu celkem použít
 // jen 3× 15, ne třeba 6× 15."
 import { describe, it, expect } from 'vitest';
-import { hlidejMaleSudy, jeMalySud } from './maleSudy';
+import { hlidejMaleSudy, jeMalySud, prazdneMaleSudy } from './maleSudy';
 
 const o = (id: string, delivery_date: string | null, extra: Record<string, unknown> = {}) => ({ id, delivery_date, status: 'nova', is_delivered: false, ...extra });
 const p = (id: string, order_id: string, package_id: string, quantity: number) => ({ id, order_id, package_id, quantity });
@@ -181,5 +181,32 @@ describe('malé sudy — odjeté a stočené skladem', () => {
       undefined, '2026-09-30', { skladem: new Map([['b11__k20', -2]]) },
     );
     expect(r.poPolozce.get('a')).toEqual({ kryto: 1, chybi: 0, zeSkladu: 0 });
+  });
+});
+
+describe('prazdneMaleSudy — počet platí týden a stočené se odečte (5. 10. 2026)', () => {
+  const den = (iso: string) => iso.slice(0, 10);
+  const r = (pocet: number, updated_at: string) => ({ package_id: 'p15', pocet, updated_at });
+
+  it('stočené od zadání už nejsou prázdné', () => {
+    const z = prazdneMaleSudy([r(3, '2026-10-05T06:00:00Z')], [
+      { package_id: 'p15', quantity: 2, created_at: '2026-10-05T08:00:00Z' },
+      { package_id: 'p15', quantity: 5, created_at: '2026-10-04T08:00:00Z' }, // před zadáním
+      { package_id: 'p20', quantity: 1, created_at: '2026-10-05T08:00:00Z' }, // jiný obal
+    ], '2026-10-05', den);
+    expect(z).toEqual({ p15: 1 });
+  });
+
+  it('nikdy pod nulu', () => {
+    const z = prazdneMaleSudy([r(3, '2026-10-05T06:00:00Z')], [
+      { package_id: 'p15', quantity: 5, created_at: '2026-10-05T08:00:00Z' },
+    ], '2026-10-05', den);
+    expect(z).toEqual({ p15: 0 });
+  });
+
+  it('počet z minulého týdne se nehlídá', () => {
+    expect(prazdneMaleSudy([r(3, '2026-10-01T06:00:00Z')], [], '2026-10-05', den)).toEqual({});
+    // Neděle téhož týdne ještě platí.
+    expect(prazdneMaleSudy([r(3, '2026-10-05T06:00:00Z')], [], '2026-10-11', den)).toEqual({ p15: 3 });
   });
 });

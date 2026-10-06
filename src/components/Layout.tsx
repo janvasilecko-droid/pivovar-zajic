@@ -33,7 +33,7 @@ import '../screens/HomeScreen.css';
 
 export type NavItem = { id: Page; label: string; icon: LucideIcon; group: string };
 
-export type Page = 'export_excel' | 'import_excel' | 'home' | 'depozitar' | 'dashboard' | 'srotovani' | 'checklists' | 'haccp' | 'sanitation_log' | 'sanitace_lahve' | 'sanitace_kegy' | 'sanitace_vycepy' | 'history' | 'orders_entry' | 'orders' | 'orders_detail' | 'orders_celkem' | 'orders_vraceni' | 'orders_zavoz' | 'zavoz' | 'kniha_jizd' | 'historie_tras' | 'stock' | 'stock_pohyby' | 'bottling' | 'kegging' | 'fasovani' | 'prodejna' | 'akce' | 'sklo_promo' | 'vycepy' | 'exkurze' | 'reminders' | 'notes' | 'writeoffs' | 'inventory' | 'calendar' | 'feedback' | 'places' | 'beers' | 'packages' | 'pricelist' | 'vehicles' | 'cellar' | 'users' | 'app_settings' | 'app_versions' | 'bottling_needs' | 'stopwatch' | 'timer' | 'keg_timer' | 'zaloha' | 'co2' | 'nakladka' | 'male_sudy' | 'rozbor' | 'navod' | 'hlaseni' | 'audit' | 'signout';
+export type Page = 'export_excel' | 'import_excel' | 'home' | 'depozitar' | 'dashboard' | 'concentration' | 'srotovani' | 'checklists' | 'haccp' | 'sanitation_log' | 'sanitace_lahve' | 'sanitace_kegy' | 'sanitace_vycepy' | 'history' | 'orders_entry' | 'orders' | 'orders_detail' | 'orders_celkem' | 'orders_vraceni' | 'orders_zavoz' | 'zavoz' | 'kniha_jizd' | 'historie_tras' | 'stock' | 'stock_pohyby' | 'bottling' | 'kegging' | 'fasovani' | 'prodejna' | 'akce' | 'sklo_promo' | 'vycepy' | 'exkurze' | 'reminders' | 'notes' | 'writeoffs' | 'inventory' | 'calendar' | 'feedback' | 'places' | 'beers' | 'packages' | 'pricelist' | 'vehicles' | 'cellar' | 'users' | 'app_settings' | 'app_versions' | 'bottling_needs' | 'stopwatch' | 'timer' | 'keg_timer' | 'zaloha' | 'co2' | 'nakladka' | 'male_sudy' | 'rozbor' | 'navod' | 'hlaseni' | 'audit' | 'signout';
 
 export const NAV: NavItem[] = [
   // --- VÝROBA ---
@@ -68,6 +68,7 @@ export const NAV: NavItem[] = [
   { id: 'audit', label: 'Audit', icon: ClipboardCheck, group: 'Nastavení' },
 
   // --- NÁSTROJE ---
+  { id: 'concentration', label: 'Kalkulačky', icon: FlaskConical, group: 'Nástroje' },
   { id: 'calendar', label: 'Kalendář & Upozornění', icon: CalendarDays, group: 'Nástroje' },
   { id: 'timer', label: 'Časovač', icon: AlarmClock, group: 'Nástroje' },
   { id: 'haccp', label: 'Sanitace', icon: Shield, group: 'Nástroje' },

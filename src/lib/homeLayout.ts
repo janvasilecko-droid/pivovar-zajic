@@ -276,7 +276,7 @@ export const STRANKY_PLOCHY: Array<{ nazev: string; ids: Page[] }> = [
     ids: [
       ...DLAZDICE_DENNI_PRACE, 'orders_zavoz', 'cellar', 'notes', 'prodejna', 'bottling_needs', 'timer', 'history',
       'orders', 'male_sudy', 'rozbor', 'kegging', 'bottling', 'dashboard', 'orders_entry', 'akce',
-      'sklo_promo', 'vehicles', 'haccp', 'calendar', 'export_excel', 'depozitar',
+      'sklo_promo', 'vehicles', 'haccp', 'calendar', 'concentration', 'export_excel', 'depozitar',
       'navod', 'audit', 'users', 'app_settings', 'zaloha', 'signout',
     ],
   },
@@ -471,7 +471,7 @@ export const PAGE_CATEGORY: Partial<Record<Page, Category>> = {
   dashboard: 'Pivovar', sklo_promo: 'Pivovar', cellar: 'Pivovar', bottling_needs: 'Pivovar', inventory: 'Pivovar', history: 'Pivovar', stock: 'Pivovar', stock_pohyby: 'Pivovar',
   export_excel: 'Pivovar', import_excel: 'Pivovar',
   // Nástroje
-  calendar: 'Nástroje', haccp: 'Nástroje', vehicles: 'Nástroje', kniha_jizd: 'Nástroje',
+  concentration: 'Nástroje', calendar: 'Nástroje', haccp: 'Nástroje', vehicles: 'Nástroje', kniha_jizd: 'Nástroje',
   sanitace_lahve: 'Nástroje', sanitace_kegy: 'Nástroje', sanitace_vycepy: 'Nástroje',
   checklists: 'Nástroje', sanitation_log: 'Nástroje', notes: 'Nástroje', feedback: 'Nástroje',
   stopwatch: 'Nástroje', timer: 'Nástroje', keg_timer: 'Nástroje', srotovani: 'Nástroje',
