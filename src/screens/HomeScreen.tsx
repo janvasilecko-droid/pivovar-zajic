@@ -31,7 +31,7 @@ import { polozkyDlazdice, pocetCekajicich } from '../lib/dlazdicePoznamek';
 import { nactiSdilene, prepniHotovo, SDILENE_POZNAMKY_ZMENA, type SdilenaPoznamka } from '../lib/sdilenePoznamky';
 import { getHomeNotes, toggleHomeNote, HOME_NOTES_CHANGED_EVENT, OPEN_HOME_NOTES_EVENT, consumeOpenHomeNotesRequest, type HomeNote, rozvrhniPoznamky, kolikPoznamekZobrazit } from '../lib/homeNotes';
 import { getDailyTasks, DAILY_CHECKLIST_CHANGED_EVENT, type DailyTask } from '../lib/homeChecklist';
-import { getHomeLayout, saveHomeLayout, pouzijPozadavekNakladky, type PozadavekNakladky, addPage, removePage, moveTileToPage, hideTile, addTile, mergeTiles, addToGroup, removeFromGroup, deleteGroup, isGroupId, isCountdownId, ensurePositions, ensureTrailingEmptyPage, unifyColorsByCategory, stepTileCell, addDockSlot, removeDockSlot, moveDockSlot, PAGE_CATEGORY, CATEGORY_ORDER, CATEGORY_SHADES, type Category, moveTileToPageCell, okrajProPrepnuti, dalsiStranka, rozdelVseDoStranek, idsKRozmisteni, vyrovnejStranku, VYCHOZI_STRANKA, type OkrajTazeni, MIN_OPACITY, MAX_OPACITY, MIN_TILE_GAP, MAX_TILE_GAP, MIN_W, MAX_W, MIN_H, MAX_H, TILE_COLORS, COLOR_HEX, defaultTileColor, GRID_COLS_DESKTOP, GRID_COLS_MOBILE, MOBILE_BREAKPOINT_PX, ROW_HEIGHT_DESKTOP, ROW_HEIGHT_MOBILE, MIN_DOCK, MAX_DOCK, UNIT_COLS, CO2_TILE_ID, type HomeLayout, type TileColor, type TileId, type GroupId, type CountdownTileId } from '../lib/homeLayout';
+import { getHomeLayout, saveHomeLayout, pouzijPozadavekNakladky, ciselnikyNaPlochu, type PozadavekNakladky, addPage, removePage, moveTileToPage, hideTile, addTile, mergeTiles, addToGroup, removeFromGroup, deleteGroup, isGroupId, isCountdownId, ensurePositions, ensureTrailingEmptyPage, unifyColorsByCategory, stepTileCell, addDockSlot, removeDockSlot, moveDockSlot, PAGE_CATEGORY, CATEGORY_ORDER, CATEGORY_SHADES, type Category, moveTileToPageCell, okrajProPrepnuti, dalsiStranka, rozdelVseDoStranek, idsKRozmisteni, vyrovnejStranku, VYCHOZI_STRANKA, type OkrajTazeni, MIN_OPACITY, MAX_OPACITY, MIN_TILE_GAP, MAX_TILE_GAP, MIN_W, MAX_W, MIN_H, MAX_H, TILE_COLORS, COLOR_HEX, defaultTileColor, GRID_COLS_DESKTOP, GRID_COLS_MOBILE, MOBILE_BREAKPOINT_PX, ROW_HEIGHT_DESKTOP, ROW_HEIGHT_MOBILE, MIN_DOCK, MAX_DOCK, UNIT_COLS, CO2_TILE_ID, type HomeLayout, type TileColor, type TileId, type GroupId, type CountdownTileId } from '../lib/homeLayout';
 import { co2Bezi, co2Zbyva, prepniCo2, zastavOdpocetVSeznamu, CO2_ID } from '../lib/co2Foukani';
 import { RYCHLE_ODPOCTY, prepniRychlyOdpocet, rychlyBezi, rychlyZbyva, rychlyOdpocet } from '../lib/rychleOdpocty';
 import { zavibruj } from '../lib/haptika';
@@ -1163,6 +1163,22 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
     if (user?.id) saveHomeLayout(user.id, { ...next, nakladkaPozadavek: null } as any);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pozadavekNakladky]);
+
+  // 🗂️ Odběratelé, piva, obaly (Číselníky) jednou na první stránku plochy
+  // (6. 10. 2026: „kde najdu seznam odběratelů a piv a obalů, udělej na to
+  // dlaždici na ploše") — jen komu je modul dostupný. Značka se uloží
+  // s plochou, ať se to při dalším otevření neopakuje.
+  const ciselnikyHotovo = !!(profile as any)?.home_layout?.ciselnikyNaPlose;
+  const smiCiselniky = visibleIds.includes('depozitar');
+  useEffect(() => {
+    if (ciselnikyHotovo || !smiCiselniky || !user?.id || layout.pages.length === 0) return;
+    const next = ensureTrailingEmptyPage(ensurePositions(ciselnikyNaPlochu(layout), cols));
+    setLayout(next);
+    setHasCustomLayout(true);
+    patchProfile({ home_layout: { ...next, ciselnikyNaPlose: true } as any });
+    saveHomeLayout(user.id, { ...next, ciselnikyNaPlose: true } as any);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ciselnikyHotovo, smiCiselniky, user?.id]);
 
   // Nakládka se načítá, jen když dlaždici někdo na ploše má (od 28. 9. 2026
   // si ji každý přidává sám).

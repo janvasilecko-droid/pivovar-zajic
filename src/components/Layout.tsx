@@ -75,7 +75,9 @@ export const NAV: NavItem[] = [
   { id: 'vehicles', label: 'Auta', icon: Car, group: 'Nástroje' },
 
   // --- ČÍSELNÍKY ---
-  { id: 'depozitar', label: 'Číselníky', icon: Tag, group: 'Číselníky' },
+  // „Odběratelé, piva, obaly" místo „Číselníky" — z názvu nebylo poznat, co
+  // v dlaždici je (6. 10. 2026: „kde najdu seznam odběratelů a piv a obalů").
+  { id: 'depozitar', label: 'Odběratelé, piva, obaly', icon: Tag, group: 'Číselníky' },
 
   // --- NASTAVENÍ ---
   { id: 'users', label: 'Uživatelé', icon: ShieldCheck, group: 'Nastavení' },
