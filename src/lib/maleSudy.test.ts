@@ -20,7 +20,7 @@ describe('malé sudy', () => {
       [o('A', '2026-09-30'), o('B', '2026-10-01')],
       [p('a1', 'A', 'k15', 2), p('b1', 'B', 'k15', 4)],
     );
-    expect(r.souhrn).toEqual([{ package_id: 'k15', mame: 3, objednano: 6, nad: 3, plneSkladem: {} }]);
+    expect(r.souhrn).toEqual([{ package_id: 'k15', mame: 3, objednano: 6, nad: 3, plneSkladem: {}, zapocitanoPlnych: 0 }]);
     // Dřívější dovoz má přednost: A se vejde celá, B jen 1 ze 4.
     expect(r.nadPoPolozce.get('a1')).toBeUndefined();
     expect(r.nadPoPolozce.get('b1')).toBe(3);
@@ -172,7 +172,7 @@ describe('malé sudy — odjeté a stočené skladem', () => {
       undefined, '2026-09-30', { skladem: new Map([['b11__k20', 1]]) },
     );
     expect(r.souhrn[0]).toMatchObject({ objednano: 2, nad: 2, plneSkladem: { b11: 1 } });
-    expect(r.poPolozce.get('a')).toEqual({ kryto: 0, chybi: 2 });
+    expect(r.poPolozce.get('a')).toEqual({ kryto: 0, chybi: 2, zeSkladu: 0 });
   });
 
   it('záporný stav skladu se jako plné sudy neukáže', () => {
@@ -182,7 +182,7 @@ describe('malé sudy — odjeté a stočené skladem', () => {
       [{ ...p('a', 'A', 'k20', 1), beer_id: 'b11' }],
       undefined, '2026-09-30', { skladem: new Map([['b11__k20', -2]]) },
     );
-    expect(r.poPolozce.get('a')).toEqual({ kryto: 1, chybi: 0 });
+    expect(r.poPolozce.get('a')).toEqual({ kryto: 1, chybi: 0, zeSkladu: 0 });
     expect(r.souhrn[0].plneSkladem).toEqual({});
   });
 });
@@ -228,6 +228,21 @@ describe('malé sudy — každý objednaný sud bere prázdný (6. 10. 2026)', (
     const k10 = r.souhrn.find((s) => s.package_id === 'k10');
     expect(k20).toMatchObject({ mame: 3, objednano: 3, nad: 0, plneSkladem: { b10: 2 } });
     expect(k10).toMatchObject({ mame: 4, objednano: 2, nad: 0, plneSkladem: {} });
-    expect(r.poPolozce.get('a')).toEqual({ kryto: 3, chybi: 0 });
+    expect(r.poPolozce.get('a')).toEqual({ kryto: 3, chybi: 0, zeSkladu: 0 });
+  });
+
+  // „…přidej otázku, zda se mají započítat — když ne, nepočítej je, když jo,
+  // tak je počítej."
+  it('se „započítat plné" u 20 l pokryjí plné Desítky dva sudy, prázdný se bere na zbytek', () => {
+    const r = hlidejMaleSudy(
+      { k20: 3, k10: 4 },
+      [o('FOOD', '2026-10-07')],
+      [{ ...p('a', 'FOOD', 'k20', 3), beer_id: 'b10' }, { ...p('b', 'FOOD', 'k10', 2), beer_id: 'b10' }],
+      undefined, '2026-10-06', { skladem: new Map([['b10__k20', 2], ['b10__k10', 1]]), zapocitatPlne: new Set(['k20']) },
+    );
+    expect(r.souhrn.find((s) => s.package_id === 'k20')).toMatchObject({ objednano: 1, zapocitanoPlnych: 2, plneSkladem: { b10: 2 } });
+    // 10 l se nezapočítává — plný 10l sud skladem jen upozorní.
+    expect(r.souhrn.find((s) => s.package_id === 'k10')).toMatchObject({ objednano: 2, zapocitanoPlnych: 0, plneSkladem: { b10: 1 } });
+    expect(r.poPolozce.get('a')).toEqual({ kryto: 3, chybi: 0, zeSkladu: 2 });
   });
 });

@@ -60,8 +60,8 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
   // 🛢️ Malé sudy (29. 9. 2026: „v objednávce Maneo chci vidět, na kolik sudů
   // mě to pustí, na co není sud, udělej červeně"). Původní kusy téhle
   // objednávky se při úpravě uvolní — započítá se až to, co je zadáno teď.
-  const { zasoba: zasobaMalychSudu } = useMaleSudy();
-  const { souhrn: souhrnMalychSudu } = useHlidaniMalychSudu(zasobaMalychSudu);
+  const { zasoba: zasobaMalychSudu, zapocitatPlne } = useMaleSudy();
+  const { souhrn: souhrnMalychSudu } = useHlidaniMalychSudu(zasobaMalychSudu, undefined, zapocitatPlne);
   const otevrena = jeOtevrena(order);
   const puvodneVObalu = (pkgId: string) => (otevrena ? items.filter((i) => i.package_id === pkgId).reduce((sum, i) => sum + Number(i.quantity || 0), 0) : 0);
   const zadanoVObalu = (pkgId: string) => rows.filter((x) => !x.removed && x.pkgId === pkgId).reduce((sum, x) => sum + (Number(x.qty) || 0), 0);

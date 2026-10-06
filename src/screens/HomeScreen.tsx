@@ -123,7 +123,8 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
 
   // 🛢️ Dlaždice Malé sudy: kolik jich je ještě volných, nebo kolik chybí
   // (29. 9. 2026: „ty malé sudy udělej jako samostatnou dlaždici").
-  const { souhrn: souhrnMalychSudu } = useHlidaniMalychSudu(useMaleSudy().zasoba);
+  const maleSudyZasoba = useMaleSudy();
+  const { souhrn: souhrnMalychSudu } = useHlidaniMalychSudu(maleSudyZasoba.zasoba, undefined, maleSudyZasoba.zapocitatPlne);
   const maleSudyStitek = useMemo(() => {
     if (souhrnMalychSudu.length === 0) return undefined;
     const nad = souhrnMalychSudu.reduce((a, s) => a + s.nad, 0);
