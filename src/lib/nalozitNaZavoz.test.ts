@@ -1,6 +1,6 @@
 // Z provozu 28. 9. 2026: dlaždice Rozvoz ukazuje, co naložit na další závoz.
 import { describe, it, expect } from 'vitest';
-import { coNalozitNaZavoz } from './nalozitNaZavoz';
+import { coNalozitNaZavoz, nakladkyPoDnech, vychoziNakladka, BEZ_DATA } from './nalozitNaZavoz';
 
 const o = (delivery_date: string, items: [string, string, number][], status = 'nova', place_name = 'U Zajíce') => ({
   delivery_date, status, place_name,
@@ -52,5 +52,36 @@ describe('nakládka jako tabulka (styl Co stočit)', () => {
     expect(t.radky.map((r) => r.pivo)).toEqual(['10° Desítka', '12° Světlá']);
     expect(t.radky[1].kusy.get('KEG 50l')).toBe(7);
     expect(t.soucty.get('KEG 50l')).toBe(9);
+  });
+});
+
+// 6. 10. 2026: „přidej tam možnost kliknout na dny, kdy jsou další nakládky,
+// pokud není datum, tak dej bez dne — Po St Čt Neuvedeno."
+describe('nakladkyPoDnech', () => {
+  const o = (delivery_date: string | null, kusu: number, extra: Record<string, unknown> = {}) => ({
+    delivery_date, status: 'nova', place_name: 'Hospoda',
+    order_items: [{ beer_name: '12° Světlá', package_label: 'KEG 50l', quantity: kusu }], ...extra,
+  });
+
+  it('dny se zbožím seřazené, Neuvedeno na konci, staré a storno pryč', () => {
+    const n = nakladkyPoDnech([
+      o('2026-10-08', 2), o(null, 1), o('2026-10-07', 3), o('2026-10-07', 1),
+      o('2026-10-05', 9), o('2026-10-09', 4, { status: 'storno' }),
+    ], '2026-10-06');
+    expect(n.map((x) => [x.datum, x.kusuCelkem])).toEqual([['2026-10-07', 4], ['2026-10-08', 2], [BEZ_DATA, 1]]);
+  });
+
+  it('dnešek jen s tím, co ještě neodjelo; bez data jen nezavezené', () => {
+    const n = nakladkyPoDnech([
+      o('2026-10-06', 2), o('2026-10-06', 5, { is_delivered: true }), o(null, 3, { is_delivered: true }),
+    ], '2026-10-06');
+    expect(n.map((x) => [x.datum, x.kusuCelkem])).toEqual([['2026-10-06', 2]]);
+  });
+
+  it('výchozí je nejbližší závoz po dnešku, jinak to, co je', () => {
+    const n = nakladkyPoDnech([o('2026-10-06', 2), o('2026-10-08', 1), o(null, 1)], '2026-10-06');
+    expect(vychoziNakladka(n, '2026-10-06')).toBe('2026-10-08');
+    expect(vychoziNakladka(nakladkyPoDnech([o(null, 1)], '2026-10-06'), '2026-10-06')).toBe(BEZ_DATA);
+    expect(vychoziNakladka([], '2026-10-06')).toBeNull();
   });
 });

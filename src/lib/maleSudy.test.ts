@@ -246,3 +246,17 @@ describe('malé sudy — každý objednaný sud bere prázdný (6. 10. 2026)', (
     expect(r.poPolozce.get('a')).toEqual({ kryto: 3, chybi: 0, zeSkladu: 2 });
   });
 });
+
+// 6. 10. 2026: „…to samý Martin malý sudy" — vozí si svoje.
+describe('malé sudy — odběratel s vlastními sudy nebere prázdné pivovaru', () => {
+  it('Martinova objednávka 2× 20 l z naklikaných prázdných nic nebere', () => {
+    const r = hlidejMaleSudy(
+      { k20: 3 },
+      [{ ...o('M', '2026-10-07'), place_name: 'MARTIN' }, { ...o('H', '2026-10-07'), place_name: 'Hospoda' }],
+      [p('m', 'M', 'k20', 2), p('h', 'H', 'k20', 1)],
+      undefined, '2026-10-06',
+    );
+    expect(r.souhrn[0]).toMatchObject({ mame: 3, objednano: 1, nad: 0 });
+    expect(r.poPolozce.has('m')).toBe(false);
+  });
+});

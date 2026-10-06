@@ -15,6 +15,7 @@ import { TapReservationModal } from './TapReservationModal';
 import { QuickQtySelect } from './QuickQtySelect';
 import { IkonaVycep } from '../components/ikony';
 import { najdiZdvojene, slucZdvojene, popisZdvojeni } from '../lib/zdvojenePolozky';
+import { vlastniSudyOdberatele } from '../lib/vlastniSudy';
 
 type Order = {
   id: string; order_date: string; place_id: string | null; place_name: string | null;
@@ -63,12 +64,16 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
   const { zasoba: zasobaMalychSudu, zapocitatPlne } = useMaleSudy();
   const { souhrn: souhrnMalychSudu } = useHlidaniMalychSudu(zasobaMalychSudu, undefined, zapocitatPlne);
   const otevrena = jeOtevrena(order);
-  const puvodneVObalu = (pkgId: string) => (otevrena ? items.filter((i) => i.package_id === pkgId).reduce((sum, i) => sum + Number(i.quantity || 0), 0) : 0);
+  // Odběratel s vlastními sudy malé sudy pivovaru nebere — ani původně
+  // (v souhrnu jeho objednávka není), ani teď (lib/vlastniSudy.ts).
+  const puvodneVlastni = !!vlastniSudyOdberatele(order.place_name);
+  const vlastniSudy = !!vlastniSudyOdberatele(placeName);
+  const puvodneVObalu = (pkgId: string) => (otevrena && !puvodneVlastni ? items.filter((i) => i.package_id === pkgId).reduce((sum, i) => sum + Number(i.quantity || 0), 0) : 0);
   const zadanoVObalu = (pkgId: string) => rows.filter((x) => !x.removed && x.pkgId === pkgId).reduce((sum, x) => sum + (Number(x.qty) || 0), 0);
   // Po řádcích od nejsilnějšího piva: část bez sudu oranžově, celé červeně.
   const prideleniSudu = rozdelMaleSudyVObjednavce(
     souhrnMalychSudu,
-    rows.map((r, i) => ({ klic: String(i), pkgId: r.removed ? null : r.pkgId, qty: Number(r.qty) || 0, sila: silaPiva(beers.find((b) => b.id === r.beerId)) })),
+    rows.map((r, i) => ({ klic: String(i), pkgId: r.removed || vlastniSudy ? null : r.pkgId, qty: Number(r.qty) || 0, sila: silaPiva(beers.find((b) => b.id === r.beerId)) })),
     puvodneVObalu,
   );
 

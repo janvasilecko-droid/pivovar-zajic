@@ -11,30 +11,49 @@
 // jako dlaždice, aby šla přesunout nebo odebrat.
 //
 // Sbalení se pamatuje v telefonu. Výpočet je v lib/nalozitNaZavoz.ts.
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ChevronDown, ChevronRight, Package as PackageIcon } from 'lucide-react';
 import { beerBg } from '../lib/supabase';
 import { IkonaSud, IkonaLahev } from './ikony';
 import { kusy } from '../lib/cisla';
 import { uloz } from '../lib/uloziste';
-import { tabulkaNakladky, type NalozitNaZavoz } from '../lib/nalozitNaZavoz';
+import { tabulkaNakladky, vychoziNakladka, BEZ_DATA, type NalozitNaZavoz } from '../lib/nalozitNaZavoz';
+import { businessDateISO } from '../lib/businessDate';
+
+const DNY = ['Ne', 'Po', 'Út', 'St', 'Čt', 'Pá', 'So'];
+/** Popisek dne v přepínači: Dnes / St 7. 10. / Neuvedeno. */
+function popisDne(datum: string, dnes: string): string {
+  if (datum === BEZ_DATA) return 'Neuvedeno';
+  if (datum === dnes) return 'Dnes';
+  const d = new Date(datum + 'T00:00:00');
+  return `${DNY[d.getDay()]} ${d.getDate()}. ${d.getMonth() + 1}.`;
+}
 
 const KLIC_SBALENO = 'pivovar_nakladka_sbaleno';
 const cti = (klic: string) => { try { return localStorage.getItem(klic); } catch { return null; } };
 
-export default function NakladkaOkno({ nalozit, barvaPiva, onOtevrit }: {
-  nalozit: NalozitNaZavoz | null;
+export default function NakladkaOkno({ nakladky, barvaPiva, onOtevrit }: {
+  /** Nakládky po dnech (lib/nalozitNaZavoz.ts nakladkyPoDnech), „Neuvedeno" na konci. */
+  nakladky: NalozitNaZavoz[];
   /** Barva piva z nastavení piv (podle názvu). */
   barvaPiva: (pivo: string) => string | null;
-  onOtevrit: () => void;
+  /** Otevře Rozvoz na vybraném dni (null = bez data). */
+  onOtevrit: (datum: string | null) => void;
 }) {
   const [sbaleno, setSbaleno] = useState(() => cti(KLIC_SBALENO) === '1');
   function prepniSbaleni() {
     setSbaleno((s) => { uloz(KLIC_SBALENO, s ? '0' : '1'); return !s; });
   }
-  const den = nalozit
-    ? new Date(nalozit.datum + 'T00:00:00').toLocaleDateString('cs-CZ', { weekday: 'short', day: 'numeric', month: 'numeric' })
-    : '';
+  // 📅 Den, na který se kouká (6. 10. 2026: „přidej tam možnost kliknout na
+  // dny, kdy jsou další nakládky… Po St Čt Neuvedeno"). Výchozí nejbližší
+  // závoz po dnešku; když vybraný den z dat zmizí, vrátí se na výchozí.
+  const dnes = businessDateISO();
+  const [vybrany, setVybrany] = useState<string | null>(null);
+  useEffect(() => {
+    if (vybrany === null || !nakladky.some((n) => n.datum === vybrany)) setVybrany(vychoziNakladka(nakladky, dnes));
+  }, [nakladky, vybrany, dnes]);
+  const nalozit = nakladky.find((n) => n.datum === vybrany) ?? null;
+  const den = nalozit ? popisDne(nalozit.datum, dnes) : '';
   const tabulka = useMemo(() => tabulkaNakladky(nalozit?.polozky ?? []), [nalozit]);
   const sloupceSudu = tabulka.sloupce.filter((s) => s.druh === 'sudy').length;
   const sloupceLahvi = tabulka.sloupce.length - sloupceSudu;
@@ -58,7 +77,7 @@ export default function NakladkaOkno({ nalozit, barvaPiva, onOtevrit }: {
       >
         <span className="font-display font-black text-neutral-950 flex items-center gap-2 min-w-0">
           <PackageIcon size={18} className="shrink-0" />
-          <span className="truncate">{nalozit ? `Nakládka ${den}` : 'Nakládka závoz'}</span>
+          <span className="truncate">{nalozit ? `Nakládka ${nalozit.datum === BEZ_DATA ? '— bez data' : den}` : 'Nakládka závoz'}</span>
         </span>
         <span className="flex items-center gap-1.5 shrink-0">
           {nalozit && (
@@ -72,6 +91,20 @@ export default function NakladkaOkno({ nalozit, barvaPiva, onOtevrit }: {
 
       {!sbaleno && (
         <div className="px-3 pb-2.5 pt-2 space-y-1.5">
+          {nakladky.length > 1 && (
+            <div className="flex gap-1.5 overflow-x-auto scrollbar-none">
+              {nakladky.map((n) => {
+                const aktivni = n.datum === vybrany;
+                return (
+                  <button key={n.datum || 'bez'} type="button" onClick={() => setVybrany(n.datum)} aria-pressed={aktivni}
+                    className={`btn-zalozka !px-3 !gap-1.5 ${aktivni ? 'btn-zalozka-aktivni' : ''}`}>
+                    {popisDne(n.datum, dnes)}
+                    <span className={`px-1.5 rounded-full text-udaj font-black ${aktivni ? 'bg-neutral-950 text-amber-300' : 'bg-amber-300 text-amber-950'}`}>{n.kusuCelkem}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
           {!nalozit ? (
             <p className="text-sm font-bold text-neutral-600">Na příštích 7 dní nic k závozu.</p>
           ) : (
@@ -135,7 +168,7 @@ export default function NakladkaOkno({ nalozit, barvaPiva, onOtevrit }: {
                 <span className="text-udaj font-bold text-neutral-600 truncate">
                   {nalozit.objednavek} obj. · {nalozit.mista.join(', ')}
                 </span>
-                <button type="button" className="btn-ghost !rounded !py-1 !px-2 text-xs shrink-0" onClick={onOtevrit}>
+                <button type="button" className="btn-ghost !rounded !py-1 !px-2 text-xs shrink-0" onClick={() => onOtevrit(nalozit.datum === BEZ_DATA ? null : nalozit.datum)}>
                   Otevřít rozvoz
                 </button>
               </div>

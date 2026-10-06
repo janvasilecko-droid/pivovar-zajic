@@ -11,7 +11,9 @@
 /** Jednotný výčet sloupců — nadmnožina toho, co kterákoli obrazovka potřebuje. */
 export const SLOUPCE = {
   bottling: 'entry_date,beer_id,package_id,quantity,kegs_used,kegs_used_package_id,source_volume_l,note,created_at',
-  kegging: 'entry_date,beer_id,package_id,quantity,note,cellar_tank_id,created_at',
+  // order_item_id: stočení přes „Stočeno" u položky — plán podle něj pozná
+  // naplněné sudy odběratele s vlastními sudy (lib/vlastniSudy.ts).
+  kegging: 'entry_date,beer_id,package_id,quantity,note,cellar_tank_id,created_at,order_item_id',
   fasovani: 'entry_date,beer_id,package_id,quantity,created_at',
   fasovani_private: 'entry_date,beer_id,package_id,quantity',
   writeoffs: 'entry_date,beer_id,package_id,quantity,created_at',

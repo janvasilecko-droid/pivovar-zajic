@@ -1,4 +1,5 @@
 // Pomocné funkce pro 1-Click navigaci řidiče a WhatsApp komunikaci
+import { oznacZpravuZAplikace } from '../../supabase/functions/_shared/vlastni-hlaseni-objednavky';
 
 export type NavigationApp = 'google' | 'waze' | 'mapycz';
 
@@ -47,7 +48,9 @@ export function buildCustomerDeliveryWhatsAppText(
 
 export function openCustomerWhatsApp(phone: string | undefined, message: string) {
   const cleanPhone = (phone || '').replace(/\s+/g, '').replace(/[^\d+]/g, '');
-  const encodedMsg = encodeURIComponent(message);
+  // Neviditelná značka „odesláno z appky" — zpráva řidiče se položkami
+  // nesmí po návratu přes most vypadat jako nová objednávka (6. 10. 2026).
+  const encodedMsg = encodeURIComponent(oznacZpravuZAplikace(message));
   if (cleanPhone) {
     window.open(`https://wa.me/${cleanPhone}?text=${encodedMsg}`, '_blank');
   } else {

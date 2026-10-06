@@ -12,6 +12,7 @@
 // který nikdo počet nezadal, se nehlídá — appka by jinak hlásila nedostatek
 // všude, kde se jen nic nevyplnilo.
 import { jeVyrizena } from './stavyObjednavek';
+import { vlastniSudyOdberatele } from './vlastniSudy';
 
 export type ObalProSudy = { id: string; kind?: string | null; volume_l?: number | string | null; label?: string | null };
 
@@ -29,6 +30,8 @@ export type ObjednavkaProSudy = {
   delivery_date?: string | null;
   order_date?: string | null;
   created_at?: string | null;
+  /** Odběratel s vlastními sudy (lib/vlastniSudy.ts) prázdné sudy pivovaru nebere. */
+  place_name?: string | null;
 };
 export type PolozkaProSudy = { id: string; order_id: string; package_id: string | null; quantity: number | string; beer_id?: string | null };
 
@@ -107,7 +110,11 @@ export function hlidejMaleSudy(
    */
   volby: { odepsane?: Set<string>; skladem?: Map<string, number>; zapocitatPlne?: Set<string> } = {},
 ): VysledekMalychSudu {
-  const otevrene = objednavky.filter((o) => jeOtevrena(o) && (!dnes || chystaSeOd(o, dnes)) && !volby.odepsane?.has(o.id));
+  // Odběratel s vlastními sudy (Duck and Dog, Michal Fojtovice, Martin —
+  // lib/vlastniSudy.ts) se stáčí do svých sudů: z prázdných malých sudů
+  // pivovaru nebere nic (6. 10. 2026: „to samý Martin malý sudy").
+  const otevrene = objednavky.filter((o) => jeOtevrena(o) && (!dnes || chystaSeOd(o, dnes)) && !volby.odepsane?.has(o.id)
+    && !vlastniSudyOdberatele(o.place_name));
   const poradi = new Map(
     [...otevrene]
       .sort((a, b) => {

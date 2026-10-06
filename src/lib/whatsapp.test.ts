@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { shareOrderToWhatsApp, shareDeliveryListToWhatsApp } from './whatsapp';
+import { shareOrderToWhatsApp, shareDeliveryListToWhatsApp, textObjednavkyProWhatsApp } from './whatsapp';
+import { jeVlastniHlaseniObjednavky, ZNACKA_Z_APLIKACE } from '../../supabase/functions/_shared/vlastni-hlaseni-objednavky';
 
 // Obal hned za množstvím, ne za pivem — z provozu 15. 9. 2026: „piš 4x 1l
 // jantar, 3x10l keg 11sv, v tomhle pořadí, ať je obal za množstvím".
@@ -44,7 +45,9 @@ describe('shareOrderToWhatsApp — pořadí obal hned za množstvím', () => {
       { place_name: 'Mates rybárna', order_date: '2026-09-24', delivery_day: 'pá' },
       [{ beer_name: '11° Světlá', package_label: '50 L KEG', quantity: 2 }],
     );
-    const text = decodeURIComponent(hrefUrl.split('text=')[1]);
+    // Viditelný text — neviditelná značka „odesláno z appky" (6. 10. 2026)
+    // stojí za jménem, ale na WhatsAppu ji nikdo nevidí.
+    const text = decodeURIComponent(hrefUrl.split('text=')[1]).replaceAll(ZNACKA_Z_APLIKACE, '');
     expect(text.startsWith('Mates rybárna\n\n')).toBe(true);
     expect(text).not.toContain('Datum');
     expect(text).not.toContain('2026-09-24');
@@ -83,5 +86,23 @@ describe('shareDeliveryListToWhatsApp — stejné pořadí jako u jedné objedn�
     ]);
     const text = decodeURIComponent(hrefUrl.split('text=')[1]);
     expect(text).toContain('3x 10 L KEG 11° Světlá');
+  });
+});
+
+// 6. 10. 2026: objednávka sdílená z appky na WhatsApp se přes most vracela
+// do appky a AI ji zpracovala podruhé jako novou objednávku.
+describe('textObjednavkyProWhatsApp — odesláno z appky', () => {
+  const text = textObjednavkyProWhatsApp(
+    { place_name: 'Mates Rybárna', order_date: '2026-10-06', note: 'zadem' },
+    [{ beer_name: '11° Světlá', package_label: '50l', quantity: 2 }],
+  );
+
+  it('viditelný tvar zůstává: odběratel, mezera, položky, poznámka', () => {
+    expect(text.replaceAll(ZNACKA_Z_APLIKACE, '')).toBe('Mates Rybárna\n\n• *2x* 50l 11° Světlá\n*Poznámka:* zadem');
+  });
+
+  it('nese neviditelnou značku, podle které se po návratu nezpracuje podruhé', () => {
+    expect(jeVlastniHlaseniObjednavky(text, true)).toBe(true);
+    expect(jeVlastniHlaseniObjednavky(text, false)).toBe(true);
   });
 });

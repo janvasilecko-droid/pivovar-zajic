@@ -1,9 +1,25 @@
 // WhatsApp Sharing Utility for Minipivovar Zajíc
+//
+// Každá zpráva odsud nese NEVIDITELNOU značku (oznacZpravuZAplikace) —
+// když dorazí zpátky přes most do appky, databáze i whatsapp-auto-parse ji
+// poznají jako odeslanou z appky a nezpracují ji podruhé jako novou
+// objednávku (6. 10. 2026). Viditelný text se nemění.
+import { oznacZpravuZAplikace } from '../../supabase/functions/_shared/vlastni-hlaseni-objednavky';
 
-export function shareOrderToWhatsApp(
-  order: { place_name: string | null; order_date: string; delivery_day?: string | null; delivery_date?: string | null; note?: string | null },
-  items: { beer_name: string | null; package_label: string | null; quantity: number }[]
-) {
+type ObjednavkaKeSdileni = { place_name: string | null; order_date: string; delivery_day?: string | null; delivery_date?: string | null; note?: string | null };
+type PolozkaKeSdileni = { beer_name: string | null; package_label: string | null; quantity: number };
+
+export function shareOrderToWhatsApp(order: ObjednavkaKeSdileni, items: PolozkaKeSdileni[]) {
+  const url = `https://wa.me/?text=${encodeURIComponent(textObjednavkyProWhatsApp(order, items))}`;
+  if (typeof window !== 'undefined') {
+    // Přímá navigace (ne nová záložka) — na mobilu spolehlivěji předá odkaz
+    // rovnou nainstalované appce, místo aby zůstala viset prázdná záložka.
+    window.location.href = url;
+  }
+}
+
+/** Text objednávky ke sdílení — i s neviditelnou značkou „odesláno z appky". */
+export function textObjednavkyProWhatsApp(order: ObjednavkaKeSdileni, items: PolozkaKeSdileni[]): string {
   const place = order.place_name || 'Neznámý odběratel';
 
   let itemListText = items
@@ -19,14 +35,7 @@ export function shareOrderToWhatsApp(
   // a odběratel, bude vypadat takhle Mates rybárna na jednom řádku, řádek
   // pod tím mezera, další řádek 2x50l 11 světlý ležák, po tom případné
   // poznámky". Datum appka nepíše — na WhatsAppu je vidět z času zprávy.
-  const msg = `${place}\n\n${itemListText}${noteText}`;
-
-  const url = `https://wa.me/?text=${encodeURIComponent(msg)}`;
-  if (typeof window !== 'undefined') {
-    // Přímá navigace (ne nová záložka) — na mobilu spolehlivěji předá odkaz
-    // rovnou nainstalované appce, místo aby zůstala viset prázdná záložka.
-    window.location.href = url;
-  }
+  return oznacZpravuZAplikace(`${place}\n\n${itemListText}${noteText}`);
 }
 
 export function shareDeliveryListToWhatsApp(
@@ -44,7 +53,7 @@ export function shareDeliveryListToWhatsApp(
     body += `\n`;
   });
 
-  const url = `https://wa.me/?text=${encodeURIComponent(body.trim())}`;
+  const url = `https://wa.me/?text=${encodeURIComponent(oznacZpravuZAplikace(body.trim()))}`;
   if (typeof window !== 'undefined') {
     window.location.href = url;
   }

@@ -137,6 +137,16 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
     .reduce((s, it) => s + Math.max(0, Math.min(it.checked, it.ordered) - it.autoDone), 0);
   const chybiVeVyberu = planSudy.totalMissing + planLahve.totalMissing;
   const chybiMimoVyber = spoctiChybiMimoVyber(planySudy, obdobi) + spoctiChybiMimoVyber(planyLahve, obdobi);
+  // 🛢️ Do vlastních sudů odběratelů (Duck and Dog, Michal Fojtovice, Martin
+  // u malých — lib/vlastniSudy.ts) — sklad to nepokryje, ukáže se zvlášť
+  // (6. 10. 2026: „počítej zvlášť, mimo zásoby skladu").
+  const doVlastnichSudu = planSudy.items
+    .filter((it) => (it.doVlastnichSudu ?? 0) > 0)
+    .map((it) => {
+      const kdo = [...new Set(it.orders.filter((o) => o.doVlastnichSudu && !o.delivered).map((o) => o.place_name))];
+      const pivo = pivoPodleId.get(it.beer_id);
+      return `${it.doVlastnichSudu}× ${kratkyObal(it.package_label)} ${pivo ? beerName(pivo) : it.beer_name} (${kdo.join(', ')})`;
+    });
   const bezTerminu = (planySudy.find((p) => p.day === BEZ_TERMINU)?.totalMissing ?? 0)
     + (planyLahve.find((p) => p.day === BEZ_TERMINU)?.totalMissing ?? 0);
 
@@ -310,6 +320,13 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
           {/* ⚠️ Schodek, který na vybraný den nevidíš. Bez tohohle řádku
               tvrdil denní pohled „vše stočeno", zatímco Sklad ukazoval
               mínus — a chybějící sud se našel až u závozu. */}
+          {data && doVlastnichSudu.length > 0 && (
+            <p className="text-udaj font-bold text-sky-950 bg-sky-50 border border-sky-300 rounded px-2 py-1.5">
+              <IkonaSud size={12} className="inline mr-1" />
+              Z toho do vlastních sudů odběratelů (sklad je nepokryje): {doVlastnichSudu.join(' · ')}
+            </p>
+          )}
+
           {data && chybiMimoVyber > 0 && (
             <p className="text-udaj font-black text-amber-900 bg-amber-50 border border-amber-300 rounded px-2 py-1.5 flex items-start gap-1.5">
               <AlertTriangle size={12} className="shrink-0 mt-0.5" />
