@@ -23,6 +23,7 @@ import { DAYS } from './shared';
 import { jeSud } from './inventoryFix';
 import { jeVyrizena } from './stavyObjednavek';
 import { weekRange } from '../components/WeeklyOrderSummaryCard';
+import { doSuduOdberatele } from './vlastniSudy';
 
 export type PlanOrderRef = {
   order_id: string;
@@ -37,6 +38,8 @@ export type PlanOrderRef = {
    * šlo v plánu poznat a vrátit ručně přesunutý řádek.
    */
   vlastniDen: string | null;
+  /** Stáčí se do vlastního sudu odběratele (lib/vlastniSudy.ts) — sklad ji nekryje. */
+  doVlastnichSudu?: boolean;
 };
 
 export type PlanItem = {
@@ -76,6 +79,8 @@ export type PlanItem = {
    * když je v objednávce 1× 30 l Osma, mi to píše, že mám stočit 2").
    */
   dluh?: number;
+  /** Kolik z `missing` se musí stočit do vlastních sudů odběratele (sklad to nepokryje). */
+  doVlastnichSudu?: number;
   orders: PlanOrderRef[];
 };
 
@@ -309,6 +314,26 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
   const kegPkgs = new Map(packages.filter((p) => jeCilovy(p.kind, p.label)).map((p) => [p.id, p]));
   const beerName = new Map(beers.map((b) => [b.id, b.name]));
 
+  // 🛢️ Položky, které se stáčí do VLASTNÍCH sudů odběratele (Duck and Dog,
+  // Michal Fojtovice, Martin u malých — lib/vlastniSudy.ts). 6. 10. 2026:
+  // „počítej zvlášť, mimo zásoby skladu, stáčí se do jejich sudů."
+  //  • zásoba skladem (sudy pivovaru) je nepokryje — pokryje je jen jejich
+  //    vlastní stočení přes „Stočeno" u položky (kegging.order_item_id),
+  //    ruční odškrtnutí v plánu nebo zavezení;
+  //  • jejich naplněné sudy zase nepokryjí ostatní: stočení přes „Stočeno"
+  //    u jejich položky se z fondu odečte, dokud objednávka neodjela.
+  const objednavkaPodleId = new Map(orders.map((o) => [o.id, o]));
+  const vlastniPolozky = new Set(orderItems
+    .filter((it) => it.package_id && kegPkgs.has(it.package_id)
+      && doSuduOdberatele(objednavkaPodleId.get(it.order_id)?.place_name, kegPkgs.get(it.package_id)))
+    .map((it) => it.id as string));
+  const stocenoDoVlastnich = new Map<string, number>();
+  keggingRows.forEach((r) => {
+    if (!r.order_item_id || !vlastniPolozky.has(r.order_item_id)) return;
+    stocenoDoVlastnich.set(r.order_item_id, (stocenoDoVlastnich.get(r.order_item_id) ?? 0) + Number(r.quantity || 0));
+  });
+  const odepsanePolozky = new Set(zavozDeductionRows.map((r: any) => r.order_item_id).filter(Boolean));
+
   // ── Zásoba k rozdělení. Se skutečnou zásobou (currentStockMap, viz
   // komentář u typu výš) se bere PŘÍMO ta — skladová kniha už stočení
   // tohoto týdne i výdeje (fasování/prodejna/odpisy) sama zahrnuje. Bez ní
@@ -352,11 +377,22 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
     zavozDeductionRows.forEach((r: any) => {
       if (!r.beer_id || !r.package_id || !kegPkgs.has(r.package_id)) return;
       if (r.order_id ? !objednavkyTydne.has(r.order_id) : !inWeek(r.deduct_date)) return;
+      // Sudy odběratele nikdy nebyly zásobou pivovaru — jejich odvoz se do
+      // fondu nevrací (fond by jinak „pokryl" ostatní sudy, které neexistují).
+      if (r.order_item_id && vlastniPolozky.has(r.order_item_id)) return;
       const k = `${r.beer_id}__${r.package_id}`;
       if (!input.currentStockMap!.has(k)) return;
       vracenoZaZavozy[k] = (vracenoZaZavozy[k] || 0) + Number(r.quantity || 0);
     });
     input.currentStockMap.forEach((qty, k) => { pool[k] = qty + (vracenoZaZavozy[k] || 0); });
+    // Naplněné sudy odběratele leží v chlaďáku (sklad je počítá), dokud
+    // neodjedou — pro ostatní objednávky ale nejsou.
+    orderItems.forEach((it) => {
+      const stoceno = stocenoDoVlastnich.get(it.id) ?? 0;
+      if (!stoceno || odepsanePolozky.has(it.id)) return;
+      const k = `${it.beer_id}__${it.package_id}`;
+      if (k in pool) pool[k] -= stoceno;
+    });
     // NEořezávat na nulu tady: záporná hodnota (i po vrácení závozů) je
     // skutečný dluh (vydalo se víc, než kdy bylo stočeno) a `sestavDen` níž
     // ho musí umět připočítat k tomu, co ještě chybí stočit — jinak by appka
@@ -365,6 +401,8 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
   } else {
     keggingRows.filter((r) => inWeek(r.entry_date)).forEach((r) => {
       if (!r.beer_id || !r.package_id || !kegPkgs.has(r.package_id)) return;
+      // Stočeno do sudů odběratele — není to zásoba pro ostatní.
+      if (r.order_item_id && vlastniPolozky.has(r.order_item_id)) return;
       const k = `${r.beer_id}__${r.package_id}`;
       pool[k] = (pool[k] || 0) + Number(r.quantity || 0);
     });
@@ -425,7 +463,9 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
   // Co se opravdu stočilo, pozná plán ze stáčení (zásoba v chlaďáku) a z ručního
   // odškrtnutí (kegging_plan_checks).
 
-  type Bucket = { ordered: number; covered: number; orders: PlanOrderRef[] };
+  // `vlastni*` = položky do sudů odběratele: kryje je jen jejich stočení,
+  // ne fond (viz `vlastniPolozky` výš).
+  type Bucket = { ordered: number; covered: number; vlastniOrdered: number; vlastniCovered: number; orders: PlanOrderRef[] };
   const byDay: Record<string, Record<string, Bucket>> = {};
   DAYS.forEach((d) => { byDay[d.v] = {}; });
   byDay[BEZ_TERMINU] = {};
@@ -446,8 +486,25 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
     const qty = Number(it.quantity || 0);
     if (qty <= 0) return;
     const k = `${it.beer_id}__${it.package_id}`;
-    const bucket = (byDay[day][k] ||= { ordered: 0, covered: 0, orders: [] });
+    const bucket = (byDay[day][k] ||= { ordered: 0, covered: 0, vlastniOrdered: 0, vlastniCovered: 0, orders: [] });
     const wholeOrderDone = !!ord?.is_delivered || jeVyrizena(ord?.status);
+    if (vlastniPolozky.has(it.id)) {
+      // Do sudů odběratele: hotovo, když odjelo, jinak kolik se jim stočilo.
+      const hotovo = wholeOrderDone ? qty : Math.min(qty, stocenoDoVlastnich.get(it.id) ?? 0);
+      bucket.ordered += qty;
+      bucket.vlastniOrdered += qty;
+      bucket.vlastniCovered += hotovo;
+      bucket.orders.push({
+        order_id: it.order_id,
+        order_item_id: it.id,
+        place_name: ord?.place_name || 'Neznámý odběratel',
+        quantity: qty,
+        delivered: hotovo >= qty,
+        vlastniDen,
+        doVlastnichSudu: true,
+      });
+      return;
+    }
     // Se skutečnou zásobou skladem (currentStockMap) se zavezená objednávka
     // NEBERE jako vykrytá tady — kryje ji fond výš (`vracenoZaZavozy`), který
     // ji do fondu vrátil. Dvojí odečet (jednou tady, podruhé z fondu) by
@@ -486,10 +543,11 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
       // znovu. Kladná část fondu se pak čerpá jako dřív.
       const deficit = Math.max(0, -(pool[k] || 0));
       const poolKladny = Math.max(0, pool[k] || 0);
-      const stillNeeded = Math.max(0, b.ordered - b.covered);
+      // Fond kryje jen sudy pivovaru — sudy odběratele mají vlastní krytí.
+      const stillNeeded = Math.max(0, (b.ordered - b.vlastniOrdered) - b.covered);
       const fromPool = Math.min(stillNeeded, poolKladny);
       pool[k] = poolKladny - fromPool;
-      const autoDone = b.covered + fromPool;
+      const autoDone = b.covered + fromPool + b.vlastniCovered;
       // Ruční odškrtnutí a doložený stav se skládají přes MAX. Součet by
       // položku započítal dvakrát ve chvíli, kdy si ji stáčeč odškrtne a pak
       // ji poctivě zapíše i do stáčení — a to je běžný postup, ne výjimka.
@@ -510,6 +568,7 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
         checked,
         missing: Math.max(0, b.ordered - done) + deficit,
         dluh: deficit,
+        doVlastnichSudu: Math.max(0, b.vlastniOrdered - b.vlastniCovered),
         orders: b.orders,
       };
     });
@@ -604,6 +663,7 @@ export function mergeWeekPlan(plans: DayPlan[], weekLabel: string): DayPlan {
       prev.checked += it.checked;
       prev.missing += it.missing;
       prev.dluh = (prev.dluh ?? 0) + (it.dluh ?? 0);
+      prev.doVlastnichSudu = (prev.doVlastnichSudu ?? 0) + (it.doVlastnichSudu ?? 0);
       prev.orders.push(...it.orders);
     });
   });

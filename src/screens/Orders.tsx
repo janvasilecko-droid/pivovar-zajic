@@ -7,6 +7,7 @@ import { AlertTriangle, Calendar, CalendarDays, Camera, Check, CheckCircle2, Che
 import { Beer, EntryRow, Package, Place, beerName, fetchAllRows, formatPackageLabel, supabase, useRealtime } from '../lib/supabase';
 import { useMaleSudy, useHlidaniMalychSudu } from '../lib/useMaleSudy';
 import { volneProObjednavku, rozdelMaleSudyVObjednavce, silaPiva } from '../lib/maleSudy';
+import { vlastniSudyOdberatele } from '../lib/vlastniSudy';
 import { MaleSudyVolne, MaleSudyRadek, tridaRadkuSudu } from '../components/MaleSudyVolne';
 import { EmptyState, Spinner } from '../components/ui';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
@@ -262,9 +263,13 @@ export default function Orders({
   const filledBeerRows = beerRows.filter((r) => r.beerId && r.pkgId && Number(r.qty) > 0);
   // 🛢️ Volné malé sudy rozdělené po řádcích zadávané objednávky — od
   // nejsilnějšího piva (lib/maleSudy.ts rozdelMaleSudyVObjednavce).
+  // Odběratel řádku (do mřížky se píše i pro víc hospod naráz) — kdo má
+  // vlastní sudy, malé sudy pivovaru nebere (lib/vlastniSudy.ts).
+  const odberatelRadku = (r: BeerRowItem) => (r.placeId ? places.find((p) => p.id === r.placeId)?.name : r.placeNameFree)
+    || placeNameFree || places.find((p) => p.id === placeId)?.name || '';
   const prideleniSudu = rozdelMaleSudyVObjednavce(
     maleSudy.souhrn,
-    filledBeerRows.map((r, i) => ({ klic: String(i), pkgId: r.pkgId, qty: Number(r.qty) || 0, sila: silaPodleId.get(r.beerId) ?? 0 })),
+    filledBeerRows.map((r, i) => ({ klic: String(i), pkgId: vlastniSudyOdberatele(odberatelRadku(r)) ? null : r.pkgId, qty: Number(r.qty) || 0, sila: silaPodleId.get(r.beerId) ?? 0 })),
   );
 
   // Dvakrát totéž pivo ve stejném obalu pro TÉHOŽ odběratele (lib/zdvojenePolozky.ts).

@@ -31,6 +31,7 @@ import { useMaleSudy, useHlidaniMalychSudu } from '../lib/useMaleSudy';
 import { rozdelMaleSudyVObjednavce, silaPiva } from '../lib/maleSudy';
 import { MaleSudyRadek, tridaRadkuSudu } from './MaleSudyVolne';
 import type { Order, OrderItem } from './objednavky/spolecne';
+import { vlastniSudyOdberatele } from '../lib/vlastniSudy';
 
 /** Jak se skupiny obalů pojmenují v přehledu úpravy. */
 const NAZVY_SKUPIN: Record<SkupinaObalu, string> = {
@@ -770,7 +771,8 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   const { souhrn: souhrnMalychSudu } = useHlidaniMalychSudu(zasobaMalychSudu, silaPodleId, zapocitatPlne);
   const prideleniSudu = rozdelMaleSudyVObjednavce(
     souhrnMalychSudu,
-    items.map((it) => ({ klic: it.key, pkgId: it.pkgId, qty: Number(it.qty) || 0, sila: silaPodleId.get(it.beerId) ?? 0 })),
+    // Odběratel s vlastními sudy malé sudy pivovaru nebere (lib/vlastniSudy.ts).
+    items.map((it) => ({ klic: it.key, pkgId: vlastniSudyOdberatele(placeName) ? null : it.pkgId, qty: Number(it.qty) || 0, sila: silaPodleId.get(it.beerId) ?? 0 })),
   );
 
   // Datum k vybranému dni: co přečetla AI (když den sedí), jinak nejbližší

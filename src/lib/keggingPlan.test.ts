@@ -795,3 +795,69 @@ describe('den závozu u nové objednávky ze zprávy / fotky (29. 9. 2026)', () 
     expect(nejblizsiDatumDne('po', '2026-09-29')).toBe('2026-10-05');
   });
 });
+
+// 6. 10. 2026: „Duck and Dog a Michal Fojtovice počítej zvlášť, mimo zásoby
+// skladu, stáčí se do jejich sudů, to samý Martin malý sudy."
+describe('odběratelé s vlastními sudy (lib/vlastniSudy.ts)', () => {
+  const PKGS = [...packages, { id: 'p20', label: '20l', kind: 'keg', volume_l: 20 }];
+  const obj = (id: string, place_name: string, extra: any = {}) => ({
+    id, delivery_date: '2026-08-26', order_date: '2026-08-24', status: 'nova', place_name, ...extra,
+  });
+  const pol = (id: string, order_id: string, package_id: string, quantity: number) => ({ id, order_id, beer_id: 'b-des', package_id, quantity });
+
+  it('zásoba skladem jejich objednávku nepokryje — sudy pivovaru jdou jen ostatním', () => {
+    const p = plan({
+      packages: PKGS,
+      orders: [obj('dd', 'Duck and Dog'), obj('h', 'Hospoda')],
+      orderItems: [pol('i-dd', 'dd', 'p50', 4), pol('i-h', 'h', 'p50', 2)],
+      currentStockMap: new Map([['b-des__p50', 10]]),
+    });
+    const it = day(p, 'st').items[0];
+    expect(it.missing).toBe(4);          // do sudů Duck and Dog se musí stočit všechny 4
+    expect(it.doVlastnichSudu).toBe(4);
+    expect(it.zChladaku).toBe(2);        // sklad pokryl jen Hospodu
+  });
+
+  it('„Stočeno" u jejich položky je pokryje a jejich naplněné sudy nepokryjí ostatní', () => {
+    // Sklad 10 = 6 sudů pivovaru + 4 naplněné sudy Michala Fojtovice (Stočeno).
+    const p = plan({
+      packages: PKGS,
+      orders: [obj('mf', 'Michal fojtovice'), obj('h', 'Hospoda')],
+      orderItems: [pol('i-mf', 'mf', 'p50', 4), pol('i-h', 'h', 'p50', 8)],
+      keggingRows: [{ entry_date: '2026-08-25', beer_id: 'b-des', package_id: 'p50', quantity: 4, order_item_id: 'i-mf' }],
+      currentStockMap: new Map([['b-des__p50', 10]]),
+    });
+    const it = day(p, 'st').items[0];
+    expect(it.doVlastnichSudu).toBe(0);
+    expect(it.zChladaku).toBe(6);        // ne 8 — 4 sudy patří Fojtovicím
+    expect(it.missing).toBe(2);          // Hospodě chybí 2
+  });
+
+  it('Martin: vlastní jen malé sudy — jeho 50 l kryje sklad normálně, 20 l ne', () => {
+    const p = plan({
+      packages: PKGS,
+      orders: [obj('m', 'MARTIN')],
+      orderItems: [pol('i-m50', 'm', 'p50', 1), pol('i-m20', 'm', 'p20', 2)],
+      currentStockMap: new Map([['b-des__p50', 5], ['b-des__p20', 5]]),
+    });
+    const st = day(p, 'st');
+    expect(st.items.find((x) => x.package_id === 'p50')?.missing).toBe(0);
+    expect(st.items.find((x) => x.package_id === 'p20')?.missing).toBe(2);
+  });
+
+  it('zavezená objednávka odběratele je hotová a její odvoz se do fondu nevrací', () => {
+    const p = plan({
+      packages: PKGS,
+      orders: [obj('dd', 'Duck and Dog', { is_delivered: true }), obj('h', 'Hospoda')],
+      orderItems: [pol('i-dd', 'dd', 'p50', 4), pol('i-h', 'h', 'p50', 3)],
+      zavozDeductionRows: [{ deduct_date: '2026-08-26', order_id: 'dd', order_item_id: 'i-dd', beer_id: 'b-des', package_id: 'p50', quantity: 4 }],
+      // Stočeno 4 do jejich sudů a odvezeno 4 → sklad pivovaru 2.
+      keggingRows: [{ entry_date: '2026-08-25', beer_id: 'b-des', package_id: 'p50', quantity: 4, order_item_id: 'i-dd' }],
+      currentStockMap: new Map([['b-des__p50', 2]]),
+    });
+    const it = day(p, 'st').items[0];
+    expect(it.doVlastnichSudu).toBe(0);
+    expect(it.zChladaku).toBe(2);
+    expect(it.missing).toBe(1);          // Hospoda 3, sklad pivovaru 2
+  });
+});

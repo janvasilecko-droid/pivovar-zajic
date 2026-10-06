@@ -114,7 +114,7 @@ export function useHlidaniMalychSudu(
     // Nezavezené a nestornované — to jsou ty, na které se sudy ještě chystají.
     // Staré nezavezené objednávky (závoz před dneškem) odfiltruje výpočet
     // (maleSudy.ts chystaSeOd) — tady jen nezavezené a nestornované.
-    const { data: obj } = await fetchAllRows<any>('orders', 'id,status,is_delivered,delivery_date,order_date,created_at')
+    const { data: obj } = await fetchAllRows<any>('orders', 'id,status,is_delivered,delivery_date,order_date,created_at,place_name')
       .eq('is_delivered', false)
       .neq('status', 'storno');
     const o = ((obj as any[]) ?? []) as ObjednavkaProSudy[];
