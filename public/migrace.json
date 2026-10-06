@@ -166,6 +166,6 @@
     "20261231220000_obnov_vraceni_po_inventure.sql",
     "20261231220000_stara_inventura_nepise.sql",
     "20261231240000_sklep_od_rijna.sql",
-    "20261231250000_odpocet_hned_po_zapisu.sql"
+    "20261231250000_odpocet_hned_pri_zapisu.sql"
   ]
 }

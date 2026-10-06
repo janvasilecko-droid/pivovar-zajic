@@ -5,7 +5,8 @@
 // nesedí, když se neodečetly objednávky z víkendu." Objednávky zapsané
 // v pondělí se závozem v sobotu čekaly na hodinový odpočet (v :05).
 //
-// Databáze je od migrace 20261231250000 odečítá hned při zápisu, takže tahle
+// Databáze je od migrace 20261231250000_odpocet_hned_pri_zapisu odečítá hned
+// při zápisu, takže tahle
 // karta má být skoro pořád schovaná. Je tu pro chvíli, než se migrace pustí,
 // a pro případ, že by okamžitý odpočet selhal — a tlačítkem jde odpočet
 // dohnat hned (stejná funkce, kterou volá hodinový běh).

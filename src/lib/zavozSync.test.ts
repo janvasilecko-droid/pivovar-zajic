@@ -258,4 +258,15 @@ describe('polozkyBezOdpoctu', () => {
     );
     expect(vysledek[0]?.denZavozu).toBe('2026-10-03');
   });
+
+  it('bez data: den v týdnu před dnem objednání = až příští týden (jako ucinny_den_zavozu)', () => {
+    // Objednáno v sobotu 3. 10. „na pátek" = pátek 9. 10., ne 2. 10.
+    const vysledek = polozkyBezOdpoctu(
+      [obj('o1', { order_date: '2026-10-03', delivery_date: null, delivery_day: 'pa' })],
+      [pol('i1', 'o1')],
+      [],
+      '2026-10-05',
+    );
+    expect(vysledek).toEqual([]);
+  });
 });

@@ -250,13 +250,17 @@ async function main() {
 
     // Objednávky zapsané od toho dne a jestli se jejich položky odečetly ze
     // skladu. Den závozu stejně jako computeDeliveryDateISO v appce
-    // (zavozDeduction.ts jde importovat jen s klientem appky, proto opsáno).
+    // (ucinny_den_zavozu v databázi; zavozDeduction.ts jde importovat jen
+    // s klientem appky, proto opsáno).
     const ucinnyDen = (o: any): string => {
       if (o.delivery_date) return String(o.delivery_date).slice(0, 10);
       const den = String(o.delivery_day || 'pa').split('/')[0].trim();
       const posun = ({ po: 0, ut: 1, st: 2, ct: 3, pa: 4, so: 5, ne: 6 } as Record<string, number>)[den] ?? 4;
-      const d = new Date(String(o.order_date).slice(0, 10) + 'T00:00:00Z');
+      const objednano = String(o.order_date).slice(0, 10);
+      const d = new Date(objednano + 'T00:00:00Z');
       d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7) + posun);
+      // Jako ucinny_den_zavozu: den, který už byl před objednáním = příští týden.
+      if (d.toISOString().slice(0, 10) < objednano) d.setUTCDate(d.getUTCDate() + 7);
       return d.toISOString().slice(0, 10);
     };
     const odectenePolozky = new Set(odpocty.map((d: any) => d.order_item_id).filter(Boolean));
