@@ -11,22 +11,24 @@
 // Sudy a Lahve (lib/keggingPlan.ts) — plocha a obrazovka stáčení se tak
 // nemůžou rozejít. Načítá se jen aktuální týden, ne celá historie.
 //
-// Volba týden/dnes a sbalení okna se pamatuje v telefonu.
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, CalendarDays, Check, ChevronDown, ChevronRight } from 'lucide-react';
+// Volba období (týden nebo den v týdnu) a sbalení okna se pamatuje v telefonu.
+import { useMemo, useState } from 'react';
+import { AlertTriangle, CalendarDays, Check, ChevronDown, ChevronRight, Truck } from 'lucide-react';
 import { beerBg, beerName } from '../lib/supabase';
 import { businessDateISO } from '../lib/businessDate';
 import { isoWeekKey, weekRange } from './WeeklyOrderSummaryCard';
 import { dayKeyFromISO, BEZ_TERMINU, type DayPlan } from '../lib/keggingPlan';
 import { usePlanStaceni } from '../lib/usePlanStaceni';
-import { planProVyber, vychoziDenCoStocit, chybiMimoVyber as spoctiChybiMimoVyber } from '../lib/coStocit';
+import { planProVyber, ulozeneObdobi, denDalsihoZavozu, chybiMimoVyber as spoctiChybiMimoVyber } from '../lib/coStocit';
 import { DAYS } from '../lib/shared';
 import { uloz } from '../lib/uloziste';
 import { IkonaSud, IkonaLahev } from './ikony';
 import type { Page } from './Layout';
 
 type Druh = 'sudy' | 'lahve';
-const KLIC_OBDOBI = 'pivovar_costocit_obdobi';
+// Nový klíč od 6. 10. 2026 — výchozí je celý týden pro všechny, i kdo měl
+// uložené „dnes" (viz ulozeneObdobi).
+const KLIC_OBDOBI = 'pivovar_costocit_obdobi2';
 // Od 28. 9. 2026 je okno po otevření sbalené (z provozu: plocha s daty byla
 // celá zabraná přehledy a k dlaždicím se muselo posouvat). Nový klíč, ať se
 // sbalí všem jednou — kdo si ho pak rozbalí, tomu zůstane rozbalené.
@@ -88,39 +90,19 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
   const { label: weekLabel } = weekRange(weekKey);
   const dnesniDen = dayKeyFromISO(dnes);
 
-  // 'tyden' nebo den v týdnu. Pamatuje se jen týden/dnes — konkrétní jiný
-  // den by příští otevření ukázalo jako „dnes" a mátlo by to.
-  //
-  // Když si uživatel nic nezapamatoval, výchozí není dnešek, ale ZÍTŘEK
-  // (vychoziDenCoStocit) — co jede zítra na zavoz, se musí stočit dneska.
-  // Výslovná volba „Dnes"/„Týden" (uložená v localStorage) má přednost.
-  const [obdobi, setObdobi] = useState<string>(() => {
-    const ulozeno = cti(KLIC_OBDOBI);
-    if (ulozeno === 'tyden') return 'tyden';
-    if (ulozeno === 'dnes') return dnesniDen;
-    return vychoziDenCoStocit(dnes);
-  });
+  // 'tyden' nebo den v týdnu — výchozí celý týden, zvolený den se pamatuje,
+  // dokud se neklikne na jiný (6. 10. 2026, lib/coStocit.ts ulozeneObdobi).
+  const [obdobi, setObdobi] = useState<string>(() => ulozeneObdobi(cti(KLIC_OBDOBI), dnesniDen));
   const [sbaleno, setSbaleno] = useState(() => cti(KLIC_SBALENO) !== '0');
-  /** Klepl si uživatel sám na den? Pak mu ho automatika nesmí přehodit. */
-  const rucniVyber = useRef(false);
 
   // Data i plán sudů a lahví — sdílené se Sklepem (lib/usePlanStaceni.ts),
   // ať obě místa počítají „co stočit" jedním výpočtem.
   const { data, chyba, planySudy, planyLahve } = usePlanStaceni(weekKey, { sudy, lahve });
 
-  // 🔜 Přehled na ploše má ukazovat, co chybí stočit na NEJBLIŽŠÍ den — z
-  // provozu 16. 9. 2026: „na hlavní straně nahoře ten přehled má ukazovat, co
-  // chybí stočit na další den“. Dokud si uživatel den nepřepne sám (nebo nemá
-  // uložený týden), vybere se první den od dneška, kde ještě něco chybí.
-  useEffect(() => {
-    if (rucniVyber.current || cti(KLIC_OBDOBI) === 'tyden' || !data) return;
-    const poradi: string[] = DAYS.map((d) => d.v);
-    const odDneska = poradi.slice(poradi.indexOf(dnesniDen)).concat(poradi.slice(0, poradi.indexOf(dnesniDen)));
-    const chybiVDen = (den: string) => (planySudy.find((p) => p.day === den)?.totalMissing ?? 0)
-      + (planyLahve.find((p) => p.day === den)?.totalMissing ?? 0);
-    const nejblizsi = odDneska.find((d) => chybiVDen(d) > 0);
-    if (nejblizsi && nejblizsi !== obdobi) setObdobi(nejblizsi);
-  }, [data, planySudy, planyLahve, dnesniDen, obdobi]);
+  // 🚚 Den dalšího závozu se jen barevně označí, nevybírá se (6. 10. 2026:
+  // „den dalšího závozu jen označ barevně, třeba šedě"). Dřív se na nejbližší
+  // den s chybějícím stočením okno samo přepínalo a zvolený den nedrželo.
+  const dalsiZavoz = useMemo(() => denDalsihoZavozu([...planySudy, ...planyLahve], dnes), [planySudy, planyLahve, dnes]);
 
   const planSudy = useMemo(() => planProVyber(planySudy, obdobi, weekLabel), [planySudy, obdobi, weekLabel]);
   const planLahve = useMemo(() => planProVyber(planyLahve, obdobi, weekLabel), [planyLahve, obdobi, weekLabel]);
@@ -163,17 +145,18 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
     : obdobi === dnesniDen ? 'dnes' : `na ${DAYS.find((d) => d.v === obdobi)?.label ?? obdobi}`;
 
   function zvolObdobi(o: string) {
-    rucniVyber.current = true;
     setObdobi(o);
-    if (o === 'tyden' || o === dnesniDen) uloz(KLIC_OBDOBI, o === 'tyden' ? 'tyden' : 'dnes');
+    uloz(KLIC_OBDOBI, o);
   }
   function prepniSbaleni() {
     setSbaleno((s) => { uloz(KLIC_SBALENO, s ? '0' : '1'); return !s; });
   }
 
-  const tlacitko = (aktivni: boolean) =>
+  const tlacitko = (aktivni: boolean, zavoz = false) =>
     `px-3 py-1.5 rounded font-black text-xs shrink-0 flex items-center gap-1.5 min-h-[36px] transition ${
-      aktivni ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-white text-neutral-700 border border-neutral-200 hover:bg-amber-50'
+      aktivni ? 'bg-amber-500 text-neutral-950 shadow-xs'
+        : zavoz ? 'bg-neutral-200 text-neutral-950 border border-neutral-400 hover:bg-amber-50'
+          : 'bg-white text-neutral-700 border border-neutral-200 hover:bg-amber-50'
     }`;
   // 🧱 Řádky i sloupce potřebovaly víc kontrastu — z provozu 15. 9. 2026:
   // „ať jsou vidět řádky i sloupce líp, hodně to splívá". Každá datová
@@ -235,7 +218,9 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
               const chybi = (planySudy.find((x) => x.day === d.v)?.totalMissing ?? 0)
                 + (planyLahve.find((x) => x.day === d.v)?.totalMissing ?? 0);
               return (
-                <button key={d.v} type="button" className={tlacitko(obdobi === d.v)} onClick={() => zvolObdobi(d.v)}>
+                <button key={d.v} type="button" className={tlacitko(obdobi === d.v, d.v === dalsiZavoz)} onClick={() => zvolObdobi(d.v)}
+                  title={d.v === dalsiZavoz ? 'Den dalšího závozu' : undefined}>
+                  {d.v === dalsiZavoz && <Truck size={12} className="shrink-0" />}
                   {d.v === dnesniDen ? 'Dnes' : d.label}
                   {chybi > 0 && (
                     <span className={`px-1.5 rounded-full text-udaj font-black ${obdobi === d.v ? 'bg-neutral-950 text-amber-300' : 'bg-amber-300 text-amber-950'}`}>

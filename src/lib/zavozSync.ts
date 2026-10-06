@@ -227,3 +227,62 @@ export function najdiRozjetaData(
 
   return nalezene;
 }
+
+/** Položka objednávky, jejíž závoz už nastal, ale ze skladu odečtená není. */
+export type PolozkaBezOdpoctu = {
+  order_id: string;
+  order_item_id: string;
+  place_name: string;
+  denZavozu: string;
+  beer_id: string;
+  package_id: string;
+  quantity: number;
+};
+
+/**
+ * Den závozu PŘESNĚ jako databáze (ucinny_den_zavozu, migrace 20261215000000):
+ * bez data závozu den v týdnu objednání, a když ten už byl před dnem
+ * objednání, o týden dál. computeDeliveryDateISO ten posun nemá — objednávka
+ * ze soboty „na pátek" by tu jinak navždy čekala na odpočet, který databáze
+ * (správně) založí až příští pátek.
+ */
+function ucinnyDenZavozu(o: ObjednavkaProOdpocet): string {
+  const den = computeDeliveryDateISO(o.order_date, o.delivery_day, o.delivery_date);
+  if (o.delivery_date || !den || den >= String(o.order_date).slice(0, 10)) return den;
+  const d = new Date(den + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() + 7);
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Položky se závozem DO DNEŠKA (i zpětně zadané), které ještě nemají odpočet.
+ *
+ * Odpočet dělá databáze — od migrace 20261231250000_odpocet_hned_pri_zapisu
+ * hned při zápisu, předtím jen hodinový běh v :05. Do té doby sklad i inventura ukazují víc,
+ * než ve skladu leží (5. 10. 2026: „počítám inventuru a logicky mi to
+ * nesedí, když se neodečetly objednávky z víkendu… musí tam být nějaké
+ * upozornění"). Storno, nulové množství a položka bez piva nebo obalu se
+ * neodečítají nikdy, takže se nehlásí.
+ */
+export function polozkyBezOdpoctu(
+  objednavky: (ObjednavkaProOdpocet & { status?: string | null; place_name?: string | null })[],
+  polozky: { id: string; order_id: string; beer_id: string | null; package_id: string | null; quantity: number | string | null }[],
+  odpocty: { order_item_id: string | null }[],
+  dnes: string,
+): PolozkaBezOdpoctu[] {
+  const podleId = new Map(objednavky.map((o) => [o.id, o]));
+  const odectene = new Set(odpocty.map((d) => d.order_item_id).filter(Boolean));
+  const out: PolozkaBezOdpoctu[] = [];
+  for (const p of polozky) {
+    const o = podleId.get(p.order_id);
+    const ks = Number(p.quantity);
+    if (!o || o.status === 'storno' || !p.beer_id || !p.package_id || !(ks > 0) || odectene.has(p.id)) continue;
+    const denZavozu = ucinnyDenZavozu(o);
+    if (!denZavozu || denZavozu > dnes) continue;
+    out.push({
+      order_id: o.id, order_item_id: p.id, place_name: (o.place_name ?? '').trim() || 'objednávka',
+      denZavozu, beer_id: p.beer_id, package_id: p.package_id, quantity: ks,
+    });
+  }
+  return out.sort((a, b) => a.denZavozu.localeCompare(b.denZavozu) || a.place_name.localeCompare(b.place_name));
+}

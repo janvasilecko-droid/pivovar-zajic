@@ -51,3 +51,15 @@ export function popisPlnosti(p: Plnost): string {
     default: return `skoro plný (${p.procent} %)`;
   }
 }
+
+/**
+ * Z kolika litrů se počítají PROCENTA náplně tanku — vždy z nominálu nádoby:
+ * ležácký tank 7 500 l, spilka 8 000 l. Ne z výstavu ani z kapacity zapsané
+ * u tanku (6. 10. 2026: „u tanků jsem to zadal, počítej vždy procenta
+ * v tanku z 7500 l"). Tank s 3 000 l je tak 40 %, ne „plný".
+ */
+export const KAPACITA_LEZACKY_L = 7500;
+export const KAPACITA_SPILKA_L = 8000;
+export function kapacitaTanku(label: string | null | undefined): number {
+  return String(label ?? '').toLowerCase().includes('spilka') ? KAPACITA_SPILKA_L : KAPACITA_LEZACKY_L;
+}

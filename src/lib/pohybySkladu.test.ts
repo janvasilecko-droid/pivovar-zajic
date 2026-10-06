@@ -140,3 +140,23 @@ describe('inventura: napočítáno vs. podle evidence', () => {
     expect(v.souhrn[0].konec - v.souhrn[0].srovnani).toBe(45);
   });
 });
+
+describe('stav „teď" místo „večer"', () => {
+  it('poslední den s pohybem do dneška je „teď", když období dnešek obsahuje', () => {
+    // Čtvrtek 24. 9.: poslední pohyb byl ve středu → středa je „teď".
+    const r = sestavPohybyObdobi(pohyby, { od: PO, doDne: NE, beerId: 'b12', dnes: '2026-09-24' }, odberatel);
+    expect(r.dny.filter((d) => d.ted).map((d) => d.datum)).toEqual([ST]);
+  });
+
+  it('minulý týden (bez dneška) nemá „teď" nikde', () => {
+    const r = sestavPohybyObdobi(pohyby, { od: PO, doDne: NE, beerId: 'b12', dnes: '2026-10-01' }, odberatel);
+    expect(r.dny.some((d) => d.ted)).toBe(false);
+  });
+
+  it('pohyb schovaný filtrem druhu „teď" posune — stav ze dne předtím už neplatí', () => {
+    // S filtrem jen Stočeno je vidět jen úterý. Ve středu je ale závoz, takže
+    // „teď" patří (schované) středě a úterý zůstane „večer".
+    const r = sestavPohybyObdobi(pohyby, { od: PO, doDne: NE, beerId: 'b12', skupiny: ['stoceno'], dnes: '2026-09-24' }, odberatel);
+    expect(r.dny.find((d) => d.ted)?.datum).toBe(ST);
+  });
+});

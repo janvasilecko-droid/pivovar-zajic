@@ -52,14 +52,30 @@ export function chystaSeOd(o: ObjednavkaProSudy, dnes: string): boolean {
   return objednano >= tydenZpet.toISOString().slice(0, 10);
 }
 
-export type SouhrnMalychSudu = { package_id: string; mame: number; objednano: number; nad: number };
+export type SouhrnMalychSudu = {
+  package_id: string;
+  /** Prázdných sudů (naklikaný počet minus stočené od zadání). */
+  mame: number;
+  /** Kolik sudů otevřené objednávky chtějí — každý si vezme jeden prázdný. */
+  objednano: number;
+  nad: number;
+  /**
+   * Plné sudy skladem u piv, která otevřené objednávky v tomhle obalu chtějí
+   * (beer_id → kusy). Samy počet prázdných nemění (6. 10. 2026: „žádné plné,
+   * tohle jsou prázdné, z těch se dělají objednávky"); panel se zeptá, jestli
+   * je započítat.
+   */
+  plneSkladem?: Record<string, number>;
+  /** Kolik objednaných sudů pokryly plné sudy skladem (jen u obalu se „započítat"). */
+  zapocitanoPlnych?: number;
+};
 
 export type VysledekMalychSudu = {
   /** Jen obaly s naklikaným počtem. */
   souhrn: SouhrnMalychSudu[];
   /** Kolik kusů položky je nad počet (id položky → kusy). Chybí = v pořádku. */
   nadPoPolozce: Map<string, number>;
-  /** Každá hlídaná položka: kolik kusů má sud a kolik ne (zelená/oranžová/červená); `zeSkladu` = kolik pokryly plné sudy skladem. */
+  /** Každá hlídaná položka: kolik kusů má sud a kolik ne (zelená/oranžová/červená); `zeSkladu` = kolik pokryly započítané plné sudy skladem. */
   poPolozce: Map<string, { kryto: number; chybi: number; zeSkladu?: number }>;
 };
 
@@ -82,10 +98,14 @@ export function hlidejMaleSudy(
    *
    * `odepsane` = objednávky už odepsané ze skladu (odpočet závozu proběhl —
    * den závozu nastal, sudy jsou pryč). Z naklikaného počtu nic neberou.
-   * `skladem` = stočené pivo skladem (beer_id__package_id → kusy): plný sud
-   * na skladě pokryje objednávku sám, prázdný sud z počtu nepotřebuje.
+   * `skladem` = stočené pivo skladem (beer_id__package_id → kusy). Samo počet
+   * prázdných NEMĚNÍ — každý objednaný malý sud si vezme prázdný; plné sudy
+   * skladem se ukážou v souhrn.plneSkladem (6. 10. 2026).
+   * `zapocitatPlne` = obaly, u kterých stáčeč na otázku „započítat plné?"
+   * řekl ano: tam plné sudy toho piva skladem pokryjí objednávku napřed
+   * a prázdný sud se bere jen na zbytek.
    */
-  volby: { odepsane?: Set<string>; skladem?: Map<string, number> } = {},
+  volby: { odepsane?: Set<string>; skladem?: Map<string, number>; zapocitatPlne?: Set<string> } = {},
 ): VysledekMalychSudu {
   const otevrene = objednavky.filter((o) => jeOtevrena(o) && (!dnes || chystaSeOd(o, dnes)) && !volby.odepsane?.has(o.id));
   const poradi = new Map(
@@ -112,15 +132,22 @@ export function hlidejMaleSudy(
   const zbyvaSkladem = new Map<string, number>();
   volby.skladem?.forEach((n, k) => { if (n > 0) zbyvaSkladem.set(k, n); });
   const objednano: Record<string, number> = {};
+  const plne: Record<string, Record<string, number>> = {};
+  const zapocitano: Record<string, number> = {};
   const nadPoPolozce = new Map<string, number>();
   const poPolozce = new Map<string, { kryto: number; chybi: number; zeSkladu?: number }>();
   for (const p of hlidane) {
     const obal = p.package_id!;
     const kusu = Number(p.quantity);
-    // Nejdřív plné sudy toho piva skladem, prázdný sud z počtu jen na zbytek.
     const klicSkladu = `${p.beer_id ?? ''}__${obal}`;
-    const zeSkladu = Math.min(kusu, zbyvaSkladem.get(klicSkladu) ?? 0);
-    if (zeSkladu > 0) zbyvaSkladem.set(klicSkladu, (zbyvaSkladem.get(klicSkladu) ?? 0) - zeSkladu);
+    const skladem = volby.skladem?.get(klicSkladu) ?? 0;
+    if (p.beer_id && skladem > 0) (plne[obal] ??= {})[p.beer_id] = skladem;
+    // Plné sudy skladem jen když je stáčeč u obalu započítal.
+    const zeSkladu = volby.zapocitatPlne?.has(obal) ? Math.min(kusu, zbyvaSkladem.get(klicSkladu) ?? 0) : 0;
+    if (zeSkladu > 0) {
+      zbyvaSkladem.set(klicSkladu, (zbyvaSkladem.get(klicSkladu) ?? 0) - zeSkladu);
+      zapocitano[obal] = (zapocitano[obal] ?? 0) + zeSkladu;
+    }
     const potreba = kusu - zeSkladu;
     objednano[obal] = (objednano[obal] ?? 0) + potreba;
     const vejde = Math.max(0, Math.min(potreba, zbyva[obal]));
@@ -131,7 +158,10 @@ export function hlidejMaleSudy(
 
   const souhrn = Object.entries(zasoba).map(([package_id, mame]) => {
     const obj = objednano[package_id] ?? 0;
-    return { package_id, mame, objednano: obj, nad: Math.max(0, obj - mame) };
+    return {
+      package_id, mame, objednano: obj, nad: Math.max(0, obj - mame),
+      plneSkladem: plne[package_id] ?? {}, zapocitanoPlnych: zapocitano[package_id] ?? 0,
+    };
   });
   return { souhrn, nadPoPolozce, poPolozce };
 }
@@ -208,7 +238,7 @@ export function rozdelMaleSudyVObjednavce(
 }
 
 /** Pondělí týdne, do kterého spadá den `datum` (YYYY-MM-DD). */
-function pondeliTydne(datum: string): string {
+export function pondeliTydne(datum: string): string {
   const d = new Date(datum + 'T00:00:00Z');
   d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
   return d.toISOString().slice(0, 10);

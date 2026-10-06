@@ -117,10 +117,10 @@ export default function Orders({
   const [priceList, setPriceList] = useState<CenaPolozky[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
   // Malé sudy (KEG 20/15/10 l) nad naklikaný počet — lib/maleSudy.ts.
-  const { zasoba: zasobaMalychSudu } = useMaleSudy();
+  const { zasoba: zasobaMalychSudu, zapocitatPlne } = useMaleSudy();
   // Uvnitř objednávky dostane sud nejdřív nejsilnější pivo (29. 9. 2026).
   const silaPodleId = useMemo(() => new Map(beers.map((b) => [b.id, silaPiva(b)])), [beers]);
-  const maleSudy = useHlidaniMalychSudu(zasobaMalychSudu, silaPodleId);
+  const maleSudy = useHlidaniMalychSudu(zasobaMalychSudu, silaPodleId, zapocitatPlne);
   const [bottling, setBottling] = useState<EntryRow[]>([]);
   const [kegging, setKegging] = useState<EntryRow[]>([]);
   const [inventory, setInventory] = useState<EntryRow[]>([]);
@@ -2794,8 +2794,8 @@ export default function Orders({
                   {orders
                     .flatMap((o) => (items[o.id] ?? [])
                       .filter((it) => it.package_id === x.package_id && maleSudy.poPolozce.has(it.id))
-                      // Jen kusy, které berou sud z počtu — co pokryly plné
-                      // sudy skladem, se nevypisuje (30. 9. 2026).
+                      // Jen kusy, které berou prázdný sud — co pokryly
+                      // započítané plné sudy skladem, se nevypisuje.
                       .map((it) => ({ o, it, kusu: Number(it.quantity) - (maleSudy.poPolozce.get(it.id)?.zeSkladu ?? 0) }))
                       .filter((r) => r.kusu > 0))
                     .map(({ o, kusu }) => `${o.place_name ?? '?'} ${new Date((o.delivery_date || o.order_date) + 'T00:00:00').toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric' })} ${kusu}×`)

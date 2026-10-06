@@ -31,6 +31,7 @@ import { useAuth } from '../lib/auth';
 import { jeMesicVSeznamuUzavren, nactiZavreneMesice, otevriMesic, zavriMesic, type ZavrenyMesic } from '../lib/closedMonths';
 import { jeLimonada } from '../lib/limonady';
 import { nactiSdilenouTabulku } from '../lib/sdilenaData';
+import CekaNaOdpocet from '../components/CekaNaOdpocet';
 import { lzePocitatKDnesku, naDnes, posunPoKonciMesice, zDnes, type PosunPoKonci } from '../lib/inventuraKDnesku';
 
 // Stahuje se až při otevření — viz komentář u lazy() v Orders.tsx.
@@ -1862,6 +1863,13 @@ function exportInventoryExcel() {
 
   return (
     <div className="space-y-6 pb-12">
+      {/* Neodečtený závoz do dneška — bez upozornění se napočítané sudy
+          porovnávaly se skladem, ze kterého víkendové objednávky ještě
+          neubyly (5. 10. 2026). */}
+      <CekaNaOdpocet
+        jmenoPiva={(id) => beers.find((b) => b.id === id)?.name ?? '?'}
+        jmenoObalu={(id) => String(packages.find((p) => p.id === id)?.label ?? '').trim() || '?'}
+      />
       {/* Lišta akcí (docs/jednotny-styl.md, kámen K1).
           Dřív tu byl tmavý panel se čtyřmi tlačítky přes celou šířku:
           čtyři pruhy po ~90 px plus měsíc daly ~700 px, takže první

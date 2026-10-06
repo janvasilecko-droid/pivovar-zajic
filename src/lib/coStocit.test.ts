@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { planProVyber, coZbyvaStocit, vychoziDenCoStocit, chybiMimoVyber } from './coStocit';
+import { planProVyber, coZbyvaStocit, ulozeneObdobi, denDalsihoZavozu, chybiMimoVyber } from './coStocit';
 import type { DayPlan, PlanItem } from './keggingPlan';
 
 const polozka = (key: string, beer: string, ordered: number, missing: number): PlanItem => ({
@@ -42,23 +42,38 @@ describe('okno „Co stočit" na úvodní stránce', () => {
   });
 });
 
-describe('vychoziDenCoStocit — výchozí den je zítřek, ne dnešek', () => {
-  // Co jede zítra na zavoz, se musí stočit dneska — sud/lahev potřebuje čas
-  // na dozrání a dnešní vlastní odpočet ze skladu už proběhl brzo ráno.
-  it('v úterý ukáže středu', () => {
-    expect(vychoziDenCoStocit('2026-09-15')).toBe('st'); // úterý → středa
+describe('ulozeneObdobi — výchozí týden, zvolený den se pamatuje (6. 10. 2026)', () => {
+  // „primárně ať to ukazuje na týden, pokud si překliknu na středu, ať si
+  // to pamatuje středu a ukazuje to středu, dokud nekliknu na jiný."
+  it('bez uložené volby je celý týden', () => {
+    expect(ulozeneObdobi(null, 'ut')).toBe('tyden');
+    expect(ulozeneObdobi('nesmysl', 'ut')).toBe('tyden');
   });
 
-  it('v sobotu ukáže neděli', () => {
-    expect(vychoziDenCoStocit('2026-09-19')).toBe('ne');
+  it('zvolená středa zůstane středou i další den', () => {
+    expect(ulozeneObdobi('st', 'ut')).toBe('st');
+    expect(ulozeneObdobi('st', 'ct')).toBe('st');
   });
 
-  it('v neděli zůstává dnešek — zítřek (pondělí) je už v jiném týdnu', () => {
-    expect(vychoziDenCoStocit('2026-09-20')).toBe('ne');
+  it('uložený týden zůstává týdnem; stará hodnota „dnes" = dnešní den', () => {
+    expect(ulozeneObdobi('tyden', 'ut')).toBe('tyden');
+    expect(ulozeneObdobi('dnes', 'ct')).toBe('ct');
+  });
+});
+
+describe('denDalsihoZavozu — jen barevné označení dalšího závozu', () => {
+  const plany = [den('ut', [polozka('b__k', 'X', 2, 0)]), den('st', [polozka('b__k', 'X', 3, 3)]), den('pa', [polozka('b__k', 'X', 1, 0)])];
+
+  it('v úterý je dalším závozem středa (dnešek se nepočítá)', () => {
+    expect(denDalsihoZavozu(plany, '2026-10-06')).toBe('st');
   });
 
-  it('v pátek ukáže sobotu', () => {
-    expect(vychoziDenCoStocit('2026-09-18')).toBe('so');
+  it('ve čtvrtek pátek — i když je na něj všechno stočené', () => {
+    expect(denDalsihoZavozu(plany, '2026-10-08')).toBe('pa');
+  });
+
+  it('po posledním závozu týdne žádný', () => {
+    expect(denDalsihoZavozu(plany, '2026-10-10')).toBeNull();
   });
 });
 

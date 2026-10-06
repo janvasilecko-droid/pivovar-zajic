@@ -123,7 +123,7 @@ export default function PohybySkladu() {
 
   const vysledekCely = useMemo(() => {
     if (!kniha) return null;
-    return sestavPohybyObdobi(kniha.pohyby, { od, doDne, beerId, packageId, skupiny }, (id) => jmena.get(id) || undefined);
+    return sestavPohybyObdobi(kniha.pohyby, { od, doDne, beerId, packageId, skupiny, dnes: businessDateISO() }, (id) => jmena.get(id) || undefined);
   }, [kniha, jmena, od, doDne, beerId, packageId, skupiny]);
 
   // 📆 Týden přes hranici měsíce (28. 9. – 4. 10.) — 1. 10. 2026: „nemůžeš do
@@ -143,7 +143,7 @@ export default function PohybySkladu() {
     return [[od, konecPrvniho], [zacatekDruheho, doDne]].map(([a, b]) => ({
       od: a,
       nazev: popis(a, b),
-      vysledek: sestavPohybyObdobi(kniha.pohyby, { od: a, doDne: b, beerId, packageId, skupiny }, (id) => jmena.get(id) || undefined),
+      vysledek: sestavPohybyObdobi(kniha.pohyby, { od: a, doDne: b, beerId, packageId, skupiny, dnes: businessDateISO() }, (id) => jmena.get(id) || undefined),
     }));
   }, [kniha, jmena, od, doDne, beerId, packageId, skupiny, prekrocMesic]);
 
@@ -307,7 +307,7 @@ export default function PohybySkladu() {
                 )}
                 {d.vecer.length > 0 && (
                   <div className="px-3 py-1.5 border-t border-neutral-200 flex flex-wrap gap-x-3 gap-y-1 text-udaj font-bold text-neutral-700">
-                    <span className="uppercase tracking-wide text-neutral-500">Stav večer:</span>
+                    <span className="uppercase tracking-wide text-neutral-500">{d.ted ? 'Stav teď:' : 'Stav večer:'}</span>
                     {d.vecer.map((v) => (
                       <span key={`${v.beer_id}-${v.package_id}`} className="tabular-nums">
                         {nazevKlice(v.beer_id, v.package_id)}{' '}

@@ -765,9 +765,9 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   // 🛢️ Malé sudy i u objednávky z WhatsAppu (29. 9. 2026: „furt nevidím
   // v objednávce Maneo upozornění a červené objednávky malých sudů, na které
   // nejsou sudy"). Stejné rozdělení jako ruční zadání — od nejsilnějšího piva.
-  const { zasoba: zasobaMalychSudu } = useMaleSudy();
+  const { zasoba: zasobaMalychSudu, zapocitatPlne } = useMaleSudy();
   const silaPodleId = useMemo(() => new Map(props.beers.map((b) => [b.id, silaPiva(b)])), [props.beers]);
-  const { souhrn: souhrnMalychSudu } = useHlidaniMalychSudu(zasobaMalychSudu, silaPodleId);
+  const { souhrn: souhrnMalychSudu } = useHlidaniMalychSudu(zasobaMalychSudu, silaPodleId, zapocitatPlne);
   const prideleniSudu = rozdelMaleSudyVObjednavce(
     souhrnMalychSudu,
     items.map((it) => ({ klic: it.key, pkgId: it.pkgId, qty: Number(it.qty) || 0, sila: silaPodleId.get(it.beerId) ?? 0 })),
