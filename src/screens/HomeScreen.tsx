@@ -6,7 +6,7 @@
 // zobrazuje se jen komu je nastaveno (Uživatelé → "Dostává upozornění na
 // vozidla") a musí ho jednou potvrdit, pak zmizí (dokud se stav nezmění).
 import { lazy, Suspense, useEffect, useMemo, useState, useRef } from 'react';
-import { CalendarX2, CloudUpload, Download, Check, ChevronLeft, ChevronRight, Lightbulb, LogOut, Palette, Plus, SlidersHorizontal, Trash2, TriangleAlert, X, Truck, ClipboardList, MessageCircle, PlusCircle, Snowflake, FlaskConical, CalendarDays, BarChart3, TrendingDown, GlassWater, BookOpen, Droplet, Car, FileText, ClipboardCheck, Shield, Store, Receipt, MapPin, Beer as BeerIcon, Tag, Sparkles, Compass, Wheat, ArrowLeftRight, StickyNote, AlarmClock, Play, Pause, RotateCcw, Pin, Flame, Settings, LayoutGrid, ListChecks, Wind } from 'lucide-react';
+import { CalendarX2, CloudUpload, Download, Check, ChevronLeft, ChevronRight, Lightbulb, LogOut, Palette, Plus, SlidersHorizontal, Trash2, TriangleAlert, X, Truck, ClipboardList, MessageCircle, PlusCircle, Snowflake, FlaskConical, CalendarDays, BarChart3, TrendingDown, GlassWater, BookOpen, Droplet, Car, FileText, ClipboardCheck, Shield, Store, Receipt, MapPin, Beer as BeerIcon, Tag, Sparkles, Compass, Wheat, ArrowLeftRight, StickyNote, AlarmClock, Play, Pause, RotateCcw, Pin, Flame, Settings, LayoutGrid, ListChecks, Scissors, Wind } from 'lucide-react';
 import { NAV, EXTRA_NAV, type Page, type NavItem } from '../components/Layout';
 import LauncherTile, { tileGridStyle } from '../components/LauncherTile';
 import { QuickSearchModal } from '../components/QuickSearchModal';
@@ -1253,6 +1253,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
       { id: 'prehled', label: 'Přehled stočení', sublabel: 'Historie a statistika stočených sudů', icon: BarChart3, onClick: () => setPage('kegging', undefined, 'prehled') },
       { id: 'potreba', label: 'Potřeba sudů na závoz', sublabel: 'Výpočet chybějících sudů pro závozy', icon: TrendingDown, onClick: () => setPage('kegging', undefined, 'potreba') },
       { id: 'prefuk', label: 'Přefukování sudů', sublabel: 'Zápis a evidence přefuků', icon: ArrowLeftRight, onClick: () => setPage('kegging', undefined, 'prefuk') },
+      { id: 'rezani', label: 'Řezání piva', sublabel: 'Stáčení ze dvou tanků v poměru', icon: Scissors, onClick: () => setPage('kegging', undefined, 'rezani') },
     ],
     bottling: [
       { id: 'zapis', label: 'Nové lahvování', sublabel: 'Zápis stočených lahví do skladu', icon: IkonaLahev, onClick: () => setPage('bottling', undefined, 'zapis') },
