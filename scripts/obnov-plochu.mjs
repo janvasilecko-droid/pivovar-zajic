@@ -50,6 +50,10 @@ export function obnovenaPlocha(zaloha, ted) {
   for (const k of OBSAH) {
     if (k in t) vysledek[k] = t[k];
   }
+  // Značka zastaví chybný krok ve verzích z 6. 10. (před #234), které ještě
+  // můžou běžet na jiném zařízení: bez ní by stará appka po téhle změně
+  // profilu plochu znovu přepsala tím, co má zrovna v paměti.
+  vysledek.ciselnikyNaPlose = true;
   return vysledek;
 }
 
