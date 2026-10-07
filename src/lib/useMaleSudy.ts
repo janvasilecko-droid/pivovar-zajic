@@ -7,6 +7,18 @@ import { chybiTabulka } from './chybyHlaseni';
 import { businessDateISO } from './businessDate';
 import { nactiSkladovouKnihu } from './skladovaKnihaData';
 import { stockAsOf } from './stockLedger';
+import { vlastniSudyOdberatele } from './vlastniSudy';
+
+/** Které z položek objednávek patří odběratelům s vlastními sudy (lib/vlastniSudy.ts). */
+async function stocenoDoSuduOdberatelu(polozkyIds: string[]): Promise<Set<string>> {
+  if (polozkyIds.length === 0) return new Set();
+  const { data: pol } = await fetchAllRows<any>('order_items', 'id, order_id').in('id', polozkyIds);
+  const objIds = [...new Set(((pol as any[]) ?? []).map((r) => r.order_id as string))];
+  if (objIds.length === 0) return new Set();
+  const { data: obj } = await fetchAllRows<any>('orders', 'id, place_name').in('id', objIds);
+  const vlastni = new Set(((obj as any[]) ?? []).filter((o) => vlastniSudyOdberatele(o.place_name)).map((o) => o.id as string));
+  return new Set(((pol as any[]) ?? []).filter((r) => vlastni.has(r.order_id)).map((r) => r.id as string));
+}
 
 export function useMaleSudy(): {
   zasoba: Record<string, number>;
@@ -45,10 +57,14 @@ export function useMaleSudy(): {
     // (5. 10. 2026). Počet platí jen v týdnu zadání (prazdneMaleSudy).
     const nejstarsi = radky.map((r) => r.updated_at).filter(Boolean).sort()[0];
     const { data: stoc } = radky.length && nejstarsi
-      ? await fetchAllRows<any>('kegging', 'package_id, quantity, created_at')
+      ? await fetchAllRows<any>('kegging', 'package_id, quantity, created_at, order_item_id')
         .in('package_id', radky.map((r) => r.package_id)).gt('created_at', nejstarsi)
       : { data: [] as any[] };
-    const z = prazdneMaleSudy(radky, ((stoc as any[]) ?? []) as StoceniMalehoSudu[], businessDateISO(), (iso) => businessDateISO(new Date(iso)));
+    // Stočené do sudů odběratele (Martin — lib/stoceniDoVlastnich.ts) jsou
+    // jeho sudy, prázdné sudy pivovaru nebraly (7. 10. 2026).
+    const doCizich = await stocenoDoSuduOdberatelu(((stoc as any[]) ?? []).map((r) => r.order_item_id).filter(Boolean));
+    const nasStoc = ((stoc as any[]) ?? []).filter((r) => !r.order_item_id || !doCizich.has(r.order_item_id));
+    const z = prazdneMaleSudy(radky, nasStoc as StoceniMalehoSudu[], businessDateISO(), (iso) => businessDateISO(new Date(iso)));
     // Jakmile je zadaný aspoň jeden malý sud, ostatní malé bez čísla = 0 —
     // „ručně zadané 1× 20 a 2× 15" znamená, že 10 l není žádný
     // (29. 9. 2026). Bez jediného zadaného počtu se nehlídá nic.
@@ -132,6 +148,19 @@ export function useHlidaniMalychSudu(
     ]);
     const skladem = new Map<string, number>();
     if (kniha) stockAsOf(kniha.pohyby, businessDateISO()).forEach((r, k) => skladem.set(k, r.qty));
+    // 🛢️ Naplněné sudy odběratelů s vlastními sudy (stočené s vazbou na jejich
+    // položku, lib/stoceniDoVlastnich.ts) leží ve skladu, dokud neodjedou —
+    // ostatním objednávkám ale nepatří (7. 10. 2026).
+    const odepsaneObj = new Set(((odp as any[]) ?? []).map((r) => r.order_id as string));
+    const vlastniObj = new Set(o.filter((x) => vlastniSudyOdberatele(x.place_name) && !odepsaneObj.has(x.id)).map((x) => x.id));
+    const vlastniPolozky = ((pol as any[]) ?? []).filter((x) => vlastniObj.has(x.order_id)).map((x) => x.id as string);
+    if (vlastniPolozky.length) {
+      const { data: stocene } = await fetchAllRows<any>('kegging', 'order_item_id, beer_id, package_id, quantity').in('order_item_id', vlastniPolozky);
+      for (const r of ((stocene as any[]) ?? [])) {
+        const k = `${r.beer_id}__${r.package_id}`;
+        if (skladem.has(k)) skladem.set(k, (skladem.get(k) ?? 0) - Number(r.quantity || 0));
+      }
+    }
     setData({
       o,
       p: ((pol as any[]) ?? []) as PolozkaProSudy[],

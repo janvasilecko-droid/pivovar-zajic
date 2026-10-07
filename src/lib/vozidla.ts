@@ -36,3 +36,15 @@ export function getVehicleExpiryStatus(dateStr: string | null | undefined): {
     return { daysLeft, status: 'ok', label: `Platné do ${fmtDate}` };
   }
 }
+
+/** Upozornění na doklad auta (STK / dálniční známka), jak ho ukazuje plocha. */
+export type UpozorneniAuta = { vehicleName: string; kind: 'stk' | 'dalnice'; status: 'warning' | 'expired' };
+
+/**
+ * Krátký text na dlaždici Auta: „Kachna: dálnice propadla".
+ * Zadání 7. 10. 2026: „vezmi to blikání Kachna bez dálnice, udělej červené
+ * upozornění na dlaždici auta" — žádný zvláštní blikající štítek.
+ */
+export function textUpozorneniAuta(a: UpozorneniAuta): string {
+  return `${a.vehicleName}: ${a.kind === 'stk' ? 'STK' : 'dálnice'} ${a.status === 'expired' ? 'propadla' : 'brzy'}`;
+}

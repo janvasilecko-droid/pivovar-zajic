@@ -743,6 +743,11 @@
   50% { background: #b00016; color: #fff; }
 }
 .hs-tile-alert .hs-badge { animation: hs-tile-alert-badge-kf 1.25s ease-in-out infinite; }
+/* Upozornění na auta bez blikání (7. 10. 2026) — plná červená. */
+.hs-tile-alert.hs-tile-alert-klid,
+.hs-tile-alert.hs-tile-alert-klid svg,
+.hs-tile-alert.hs-tile-alert-klid .hs-badge { animation: none; }
+.hs-tile-alert.hs-tile-alert-klid { background: rgba(185,28,28,0.95); color: #fff; }
 @media (prefers-reduced-motion: reduce) {
   /* Komu blikání vadí, tomu zůstane plná červená — upozornění nesmí zmizet,
      jen přestane blikat. Vypnout se musí i ikona s odznakem, jinak by

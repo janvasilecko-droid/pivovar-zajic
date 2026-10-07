@@ -21,7 +21,8 @@ import { markPlanSeenAt, type BottlingPlan } from '../lib/bottlingPlans';
 import KeggingDayPlan from '../components/KeggingDayPlan';
 import { AlertTriangle, BarChart3, Beer as BeerIcon, CalendarDays, Camera, Check, ClipboardList, Minus, Package as PackageIcon, PenLine, Pencil, Play, Plus, RefreshCw, Scissors, Scroll, Sparkles, Trash2, X } from 'lucide-react';
 import { BeerTileGrid, BeerTilePanel } from '../components/BeerTileGrid';
-import { chyba, oznam, potvrd, toastZpet, uspech } from '../lib/toast';
+import { chyba, oznam, potvrd, toastZpet, uspech, volba } from '../lib/toast';
+import { otevrenePolozkyVlastnich, priradDoVlastnich, rozdelRadkyNaVlastni } from '../lib/stoceniDoVlastnich';
 import { nejvetsiTank, odpojPrecerpane, radkyBezTanku, tankRadku, tankyProPivo } from '../lib/tankUZapisu';
 import { jeJantar, pivaJantaru, pivoZdrojovehoTanku, rozdelJantar, PODIL_SVETLE } from '../lib/jantar';
 import { obnovPreliti, odectiPodilRezu, odectiTmavouJantaru, prelitiKRadku, upravTmavouJantaru, vratPrelitiRadku, vratTmavouJantaru } from '../lib/jantarZapis';
@@ -991,6 +992,42 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
       if (dotaz && !(await potvrd(dotaz, { titulek: 'Zkontrolujte množství', potvrdit: 'Ano, uložit' }))) return false;
     }
 
+    // 🛢️ Do sudů odběratele s vlastními sudy (Duck and Dog, Michal
+    // Fojtovice, Martin u malých — lib/stoceniDoVlastnich.ts). Když pivo
+    // a obal sedí na jejich otevřenou objednávku, zeptá se. „Do jejich" =
+    // řádek se připojí k jejich položce: počítá se do stáčení, skladu
+    // i inventury, ale plán ho na ostatní objednávky nepoužije.
+    const otevreneVlastni = otevrenePolozkyVlastnich({
+      objednavky: orders,
+      polozky: orderItems,
+      obaly: packages,
+      stoceni: rows as { order_item_id?: string | null }[],
+      odepsanePolozky: new Set(zavozDeductionRows.map((r: any) => r.order_item_id).filter(Boolean)),
+    });
+    const prirazeniVlastnich = priradDoVlastnich(
+      filled.map((r) => ({ beerId: r.beerId, pkgId: r.pkgId, pocet: Number(r.qty) })),
+      otevreneVlastni,
+    );
+    let radkyKUlozeni = filled.map((r) => ({ ...r, orderItemId: null as string | null }));
+    if (prirazeniVlastnich.length > 0) {
+      const seznam = prirazeniVlastnich.map((p) => {
+        const r = filled[p.radek];
+        return `• ${p.odberatel}: ${p.kusu}× ${packages.find((x) => x.id === r.pkgId)?.label ?? 'sud'} ${beers.find((b) => b.id === r.beerId)?.name ?? ''}`;
+      }).join('\n');
+      const odpoved = await volba(
+        `Stáčelo se tohle do sudů odběratele?\n\n${seznam}\n\n` +
+        'Do jejich sudů: započítá se do stáčení, skladu i inventury, ale na ostatní objednávky se nepoužije.\n' +
+        'Do našich sudů: jsou to sudy pivovaru jako vždycky.',
+        [
+          { klic: 'jejich', label: 'Do jejich sudů', ton: 'hlavni' },
+          { klic: 'nase', label: 'Do našich sudů', ton: 'vedlejsi' },
+        ],
+        { titulek: 'Vlastní sudy odběratele' },
+      );
+      if (odpoved === null) return false;
+      if (odpoved === 'jejich') radkyKUlozeni = rozdelRadkyNaVlastni(filled, prirazeniVlastnich);
+    }
+
     // 🛢️ Zápis bez tanku se dřív uložil TIŠE — a spolu s číslem tanku zmizel
     // i odečet objemu ze sklepa. Takhle se ztratil tank u 82 ze 198 zápisů
     // stáčení a Spilka 1 s Tankem 6 se rozešly o 2 000 a 5 400 litrů. Nikde to
@@ -1000,7 +1037,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     // krátce se upozorní. Takové stáčení čeká ve Sklepě na záložce „Stáčení
     // bez tanku", kde se přiřadí k tanku jedním klepnutím.
     const bezTanku = radkyBezTanku(
-      filled.map((r) => ({ ...r, beerId: pivoZdrojovehoTanku(r.beerId, beers) })),
+      radkyKUlozeni.map((r) => ({ ...r, beerId: pivoZdrojovehoTanku(r.beerId, beers) })),
       cellarTanks,
       (r) => r.tankId,
     );
@@ -1015,7 +1052,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     // vybraného tanku): přednost má ručně zvolený tank (r.tankId), jinak se automaticky
     // přiřadí největší aktivní tank s daným pivem. Pokud pro dané pivo není žádný aktivní
     // tank, řádek se přesto uloží, jen bez vazby na tank a bez odečtu objemu.
-    const navrh = filled.map((r) => {
+    const navrh = radkyKUlozeni.map((r) => {
       const beer = beers.find((b) => b.id === r.beerId);
       const pkg = packages.find((p) => p.id === r.pkgId);
       const n = Number(r.qty);
@@ -1030,6 +1067,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
         note: note || null,
         cellar_tank_id: tank?.id ?? null,
         source_volume_l: sourceL || null,
+        ...(r.orderItemId ? { order_item_id: r.orderItemId } : {}),
       };
     });
 
