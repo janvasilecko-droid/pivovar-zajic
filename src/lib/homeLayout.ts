@@ -1068,30 +1068,6 @@ export function pouzijPozadavekNakladky(layout: HomeLayout, pozadavek: Pozadavek
   return { ...layout, pages, overrides, hidden: layout.hidden.filter((id) => id !== NAKLADKA_ID) };
 }
 
-// ── Odběratelé, piva, obaly (Číselníky) na plochu ────────────────────────────
-// Z provozu 6. 10. 2026: „kde najdu seznam odběratelů a piv a obalů, udělej
-// na to dlaždici na ploše." Dlaždice Číselníky (depozitar) existovala, jen
-// byla na konci plochy (nebo schovaná) a z názvu nebylo poznat, co v ní je.
-// Jednou se vrátí na první stránku a odkryje — jako u Nakládky: ostatní
-// dlaždice zůstávají na svých místech, tahle dostane první volné místo.
-// Značka `ciselnikyNaPlose` se uloží s plochou, víc se to neopakuje.
-export const CISELNIKY_ID: TileId = 'depozitar';
-
-export function ciselnikyNaPlochu(layout: HomeLayout): HomeLayout {
-  const naPrvni = (layout.pages[0] ?? []).includes(CISELNIKY_ID);
-  const schovana = layout.hidden.includes(CISELNIKY_ID);
-  if (naPrvni && !schovana) return layout;
-  const bez = layout.pages.map((p) => p.filter((id) => id !== CISELNIKY_ID));
-  const pages = [[...(bez[0] ?? []), CISELNIKY_ID], ...bez.slice(1)];
-  const overrides = { ...layout.overrides };
-  const o = overrides[CISELNIKY_ID];
-  overrides[CISELNIKY_ID] = {
-    ...(o ?? { color: defaultColorFor(CISELNIKY_ID, 0) }),
-    w: o?.w ?? DEFAULT_W, h: o?.h ?? DEFAULT_H, x: undefined, y: undefined,
-  };
-  return { ...layout, pages, overrides, hidden: layout.hidden.filter((id) => id !== CISELNIKY_ID) };
-}
-
 export async function saveHomeLayout(userId: string, layout: HomeLayout): Promise<void> {
   // `userId` se dřív používalo přímo pro dotaz — teď ho za appku zjišťuje
   // queueHomeLayoutPatch (vždy podle AKTUÁLNĚ přihlášeného uživatele), ale
