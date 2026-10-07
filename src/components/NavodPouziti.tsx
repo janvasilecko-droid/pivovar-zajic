@@ -209,7 +209,7 @@ const ODDILY: Oddil[] = [
       },
       {
         co: 'Rozbor',
-        jak: 'Oranžová dlaždice Rozbor s čerchovaným okrajem — všechny položky objednané tento týden (obj. N · stočit N, případně mínus ve skladu). Klepnutí na položku otevře Sklad → Pohyby toho piva a obalu za týden: co se stočilo, co odjelo v závozech, vrácení a inventury. Období a pivo jdou v Pohybech přepnout.',
+        jak: 'Žlutá dlaždice Rozbor s červeně šrafovaným okrajem — všechny položky objednané tento týden (obj. N · stočit N, případně mínus ve skladu). Klepnutí na položku otevře Sklad → Pohyby toho piva a obalu za týden: co se stočilo, co odjelo v závozech, vrácení a inventury. Období a pivo jdou v Pohybech přepnout.',
       },
       {
         co: 'Dva závozy za den, Sudy / Lahve v nakládce',

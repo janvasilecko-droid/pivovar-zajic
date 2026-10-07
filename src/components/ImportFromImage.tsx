@@ -19,7 +19,8 @@ import {
 } from '../lib/orderParser';
 import { uloz } from '../lib/uloziste';
 import { businessDateISO } from '../lib/businessDate';
-import { nejblizsiDatumDne } from '../lib/keggingPlan';
+import { dayKeyFromISO, nejblizsiDatumDne } from '../lib/keggingPlan';
+import { objednavkyZFotky, odberatelRadku } from '../lib/fotkaObjednavky';
 import { DenZavozuTlacitka } from './DenZavozuTlacitka';
 import { nactiZvyklosti, neobvykleMnozstvi, type Zvyklosti } from '../lib/zvyklostiOdberatele';
 import { matchAgainstCatalog } from '../../supabase/functions/_shared/place-match';
@@ -56,7 +57,11 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
   const [note, setNote] = useState('');
   // 📅 Den závozu hned u fotky (29. 9. 2026) — nejbližší takový den od dneška.
   const [denZavozu, setDenZavozu] = useState<string | null>(null);
-  const datumDneZavozu = denZavozu ? nejblizsiDatumDne(denZavozu, businessDateISO()) : null;
+  // 📅 …nebo konkrétní datum, i zpětně (7. 10. 2026: „ať můžu změnit datum
+  // závozu a datum objednávky, když se načtou fotky, ne zpětně") — víkendová
+  // objednávka zapsaná v pondělí nemusí čekat na úpravu po uložení.
+  const [datumZavozuRucne, setDatumZavozuRucne] = useState<string | null>(null);
+  const datumDneZavozu = datumZavozuRucne ?? (denZavozu ? nejblizsiDatumDne(denZavozu, businessDateISO()) : null);
   // 🧭 Zvyklosti odběratele: obvyklý den se předvyplní, neobvyklé množství
   // se u řádku označí (29. 9. 2026, lib/zvyklostiOdberatele.ts).
   const [zvyklosti, setZvyklosti] = useState<Zvyklosti | null>(null);
@@ -628,9 +633,11 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
     // Každá položka si nese vlastního odběratele (place_name) rozpoznaného z fotky.
     // Pokud ho AI neurčila, použijeme globálně vybraného odběratele (placeName).
     // Díky tomu se objednávky z více WhatsApp oken na jedné fotce rozdělí správně.
-    const items = parsed
-      .filter((p, idx) => (!p.duplicate || userAllowedDups.has(idx)) && !p.line._removed && p.line.beer_id && p.line.package_id && p.line.quantity)
-      .map((p) => ({ beer_id: p.line.beer_id!, package_id: p.line.package_id!, quantity: p.line.quantity!, place_name: p.line.place_name?.trim() || placeName.trim() || null, date: p.line.date ?? null }));
+    // Odběratel jen u části řádků platí pro celou fotku (lib/fotkaObjednavky.ts).
+    const vybrane = parsed.filter((p, idx) => (!p.duplicate || userAllowedDups.has(idx)) && !p.line._removed && p.line.beer_id && p.line.package_id && p.line.quantity);
+    const odberatele = odberatelRadku(vybrane.map((p) => p.line.place_name), placeName);
+    const items = vybrane
+      .map((p, k) => ({ beer_id: p.line.beer_id!, package_id: p.line.package_id!, quantity: p.line.quantity!, place_name: odberatele[k] || null, date: p.line.date ?? null }));
 
     if (!items.length) {
       // Všechny položky jsou odstraněné/duplicitní → přeskoč na další fotku
@@ -741,7 +748,10 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
   const okCount = parsed?.filter((p) => p.line.confidence === 'high' && !p.duplicate && !p.line._removed).length ?? 0;
   const dupCount = parsed?.filter((p, idx) => p.duplicate && !userAllowedDups.has(idx)).length ?? 0;
   const unknownCount = parsed?.filter((p) => p.line.confidence === 'unknown' && !p.duplicate && !p.line._removed).length ?? 0;
-  const readyCount = parsed?.filter((p, idx) => (!p.duplicate || userAllowedDups.has(idx)) && !p.line._removed && p.line.beer_id && p.line.package_id && p.line.quantity).length ?? 0;
+  const pripraveneRadky = parsed?.filter((p, idx) => (!p.duplicate || userAllowedDups.has(idx)) && !p.line._removed && p.line.beer_id && p.line.package_id && p.line.quantity) ?? [];
+  const readyCount = pripraveneRadky.length;
+  // Kolik objednávek uložení založí — víc než jedna se řekne před uložením.
+  const ulozeniDo = targetLabel ? [] : objednavkyZFotky(odberatelRadku(pripraveneRadky.map((p) => p.line.place_name), placeName));
   const queueLeft = pendingFiles.length;
   const activeLineIdx = focusedLine ?? 0;
   const activeLineWrapper = parsed ? parsed[activeLineIdx] : null;
@@ -792,15 +802,25 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
               </div>
 
               <div>
-                <label className="label">Datum</label>
-                <input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} />
+                <label className="label">Datum objednávky</label>
+                <input
+                  type="date" className="input" value={date}
+                  onChange={(e) => {
+                    setDate(e.target.value);
+                    // Datum přečtené u řádku by ručně zadané přebilo
+                    // (Orders.tsx bere datum řádku před tímhle) — platí pro všechny.
+                    setParsed((prev) => prev ? prev.map((p) => ({ ...p, line: { ...p.line, date: null } })) : prev);
+                  }}
+                />
               </div>
             </div>
             <div className="mt-3">
               <DenZavozuTlacitka
                 den={denZavozu}
                 datum={datumDneZavozu}
-                onDen={(d) => { setDenZavozu(d); setDenZHistorie(false); }}
+                onDen={(d) => { setDenZavozu(d); setDatumZavozuRucne(null); setDenZHistorie(false); }}
+                onDatum={(d) => { setDatumZavozuRucne(d); setDenZavozu(d ? dayKeyFromISO(d) : null); setDenZHistorie(false); }}
+                dnes={today}
                 poznamka={denZHistorie ? 'obvyklý den odběratele' : null}
               />
             </div>
@@ -1289,6 +1309,13 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
           </div>
 
           <div className="border-t border-primary-100 px-4 py-3 shrink-0 bg-white space-y-2">
+            {ulozeniDo.length > 1 && (
+              <div role="alert" className="text-sm text-amber-950 bg-amber-50 border-2 border-amber-400 rounded px-3 py-2 font-semibold">
+                <AlertTriangle className="ikona-text" /> Uloží se jako {ulozeniDo.length} {ulozeniDo.length < 5 ? 'objednávky' : 'objednávek'}:{' '}
+                {ulozeniDo.map((o) => `${o.odberatel || 'bez odběratele'} (${o.polozek} ${o.polozek === 1 ? 'položka' : o.polozek < 5 ? 'položky' : 'položek'})`).join(' · ')}.
+                {' '}Patří všechno jednomu odběrateli? Vyber ho nahoře — propíše se ke všem položkám.
+              </div>
+            )}
             <label className="flex items-center gap-2 text-sm text-primary-700 cursor-pointer select-none">
               <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} className="w-4 h-4 accent-primary-600" />
               Zkontroloval jsem data podle fotky a souhlasí

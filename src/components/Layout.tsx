@@ -1,4 +1,4 @@
-import { ReactNode, useState, useEffect, useRef, lazy, Suspense } from 'react';
+import { ReactNode, type CSSProperties, useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { AlarmClock, AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, BookOpen, CalendarDays, Car, ClipboardCheck, ClipboardList, Compass, Download, FilePlus, FileSpreadsheet, FileText, FlaskConical, GlassWater, History as HistoryIcon, Home, Info, ListChecks, LogOut, MapPin, Megaphone, MessageCircle, Package as PackageIcon, Receipt, Search, Settings, Shield, ShieldCheck, Smartphone, Snowflake, Sparkles, StickyNote, Store, Tag, Truck, type LucideIcon, Wifi, WifiOff, X, XCircle } from 'lucide-react';
 
 import { useAuth } from '../lib/auth';
@@ -26,7 +26,8 @@ import { nastavObrazovkuProChyby, zalogujANahlas } from '../lib/chybyHlaseni';
 // to hlásil: „dynamic import will not move module into another chunk".
 // Jediné, co přinášel, byla asynchronní obsluha tam, kde stačí volání.
 import { queueLength, onQueueChange, onConnectivityChange, syncQueue, getQueue, getLastSyncFailures, popisOperace, removeOp } from '../lib/offline';
-import { DEFAULT_DOCK, COLOR_HEX, type TileColor } from '../lib/homeLayout';
+import { DEFAULT_DOCK, COLOR_HEX, defaultTileColor, type TileColor } from '../lib/homeLayout';
+import { citelnaNaPodkladu, pismoNaBarve, PODKLAD_SVETLY, PODKLAD_TMAVY } from '../lib/barvaDoku';
 import { zavibruj } from '../lib/haptika';
 import { IkonaSud, IkonaLahev, IkonaVycep } from './ikony';
 import '../screens/HomeScreen.css';
@@ -209,8 +210,9 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
   const homeOverrides = ((profile as any)?.home_layout?.overrides ?? {}) as Record<string, { color?: string }>;
   function dockAccentColor(dockId: Page): string {
     if (dockId === 'home') return COLOR_HEX.indigo;
-    const raw = homeOverrides[dockId]?.color;
-    if (!raw) return COLOR_HEX.slate;
+    // Bez vlastní barvy má dlaždice výchozí odstín (defaultTileColor) —
+    // lišta ho ukáže stejně, ne šedou, která na ploše nikde není.
+    const raw = homeOverrides[dockId]?.color ?? defaultTileColor(dockId);
     return (raw in COLOR_HEX) ? COLOR_HEX[raw as TileColor] : raw;
   }
   const [densityState, setDensityState] = useState<DensityMode>(getDensity());
@@ -972,9 +974,12 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
             // nerozsvítily samy, protože navPageFor(page) je normalizuje
             // obě na rodiče 'orders'. Obecná dlaždice (bez PAGE_GROUP_PARENT)
             // se dál chová jako dřív — rozsvítí se za celou svou skupinu.
+            // Je-li v liště přímo tahle stránka („Nová obj."), svítí jen ona —
+            // ne k tomu ještě rodič „Objednávky" (7. 10. 2026: „ať jde líp
+            // vidět, kdy je ta strana aktuální").
             const isActive = dockId === 'home'
               ? navPageFor(page) === 'home'
-              : page === dockId || (!PAGE_GROUP_PARENT[dockId] && navPageFor(page) === dockId);
+              : page === dockId || (!dockPages.includes(page) && !PAGE_GROUP_PARENT[dockId] && navPageFor(page) === dockId);
             const info = dockId === 'home'
               ? { label: 'Domů', icon: Home }
               : NAV.find((n) => n.id === dockId) ?? EXTRA_NAV.find((n) => n.id === dockId);
@@ -990,9 +995,15 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
                 onPointerLeave={ukonciStisk}
                 onContextMenu={(e) => e.preventDefault()}
                 title={predchoziStranka.current ? 'Podržením se vrátíte na předchozí obrazovku' : undefined}
-                style={isActive ? { color: accent } : undefined}
+                // Ikona a nápis v barvě dlaždice (čitelně ztmavené), aktuální
+                // stránka vyplněná plnou barvou — bílé podbarvení na bílé
+                // liště nebylo vidět (7. 10. 2026, lib/barvaDoku.ts).
+                style={isActive
+                  ? { background: accent, color: pismoNaBarve(accent) }
+                  : { '--dok-barva': citelnaNaPodkladu(accent, PODKLAD_SVETLY), '--dok-barva-tmave': citelnaNaPodkladu(accent, PODKLAD_TMAVY) } as CSSProperties}
+                aria-current={isActive ? 'page' : undefined}
                 className={`tap flex flex-col items-center justify-center py-1 px-1 sm:px-2.5 rounded transition-all relative flex-1 font-bold ${
-                  isActive ? 'bg-white/60 shadow-sm scale-105' : 'text-neutral-700 hover:text-neutral-900'
+                  isActive ? 'shadow-md scale-105' : 'hs-dok-polozka'
                 }`}
               >
                 <div className="relative">
