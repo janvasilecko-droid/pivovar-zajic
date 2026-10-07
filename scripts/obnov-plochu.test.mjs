@@ -27,7 +27,8 @@ describe('obnovenaPlocha', () => {
     expect(v.overrides).toEqual(zaloha.overrides);
     expect(v.dock).toEqual(zaloha.dock);
     expect(v.hidden).toEqual(zaloha.hidden);
-    expect('ciselnikyNaPlose' in v).toBe(false);
+    // Značka kvůli starým verzím appky — bez ní by plochu znovu přepsaly.
+    expect(v.ciselnikyNaPlose).toBe(true);
   });
 
   it('poznámky a odpočty nechá aktuální', () => {
