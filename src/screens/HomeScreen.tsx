@@ -2223,14 +2223,21 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
               );
             }
 
-            // 🔎 Rozbor: oranžová dlaždice se žlutým čerchovaným okrajem
+            // 🔎 Rozbor: žlutá dlaždice s červeně šrafovaným okrajem
             // (30. 9. 2026: „udělej to jako dlaždici, kliknu na to, jen když
-            // budu potřebovat vidět pohyb"). Klepnutí otevře stránku Rozbor.
+            // budu potřebovat vidět pohyb"; 7. 10. 2026: „udělej žlutou barvou
+            // a červený šrafování"). Klepnutí otevře stránku Rozbor.
             if (id === 'rozbor') {
               customContent = (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 select-none overflow-hidden bg-amber-500 text-neutral-950 border-[3px] border-dashed border-amber-200 rounded-[inherit]">
-                  <ListChecks size={22} className="shrink-0" />
-                  <div className="text-base font-black leading-none">Rozbor</div>
+                <div
+                  className="absolute inset-0 select-none overflow-hidden rounded-[inherit]"
+                  style={{ background: 'repeating-linear-gradient(-45deg, #dc2626 0 6px, #fde047 6px 12px)' }}
+                >
+                  {/* Barvy napevno (inline) — žlutá s černým písmem i v tmavém režimu. */}
+                  <div className="absolute inset-[6px] flex flex-col items-center justify-center gap-1 rounded" style={{ background: '#fde047', color: '#0a0a0a' }}>
+                    <ListChecks size={22} className="shrink-0" />
+                    <div className="text-base font-black leading-none">Rozbor</div>
+                  </div>
                 </div>
               );
             }
