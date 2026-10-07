@@ -1,0 +1,71 @@
+name: Obnovit plochu ze zálohy
+
+# Vrátí vzhled plochy (rozložení, barvy, spodní lištu) JEDNOMU profilu ze
+# šifrované denní zálohy — scripts/obnov-plochu.mjs. Poznámky a odpočty
+# zůstávají aktuální. Bez „opravdu" se nic nezapíše, jen se vypíše, co by se
+# změnilo; bez „profil" se vypíše, čí plocha se od zálohy liší.
+#
+# Z provozu 7. 10. 2026: chybný jednorázový krok z 6. 10. přepisoval plochu
+# po každé úpravě. Spouští se ručně: Actions → Obnovit plochu ze zálohy.
+#
+# Potřebuje secrety VITE_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY a ZALOHA_HESLO
+# (stejné jako denní záloha).
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: 'Commit se zálohou (6cb6d60 = záloha 6. 10. 2026 v 11:08)'
+        required: true
+        default: '6cb6d60'
+      profil:
+        description: 'Id profilu (prázdné = jen vypsat, čí plocha se liší)'
+        required: false
+        default: ''
+      opravdu:
+        description: 'Opravdu zapsat'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: obnov-plochu
+  cancel-in-progress: false
+
+jobs:
+  obnova:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Obnova plochy
+        env:
+          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ZALOHA_HESLO: ${{ secrets.ZALOHA_HESLO }}
+          COMMIT: ${{ inputs.commit }}
+          PROFIL: ${{ inputs.profil }}
+          OPRAVDU: ${{ inputs.opravdu }}
+        run: |
+          set -- --commit "$COMMIT"
+          if [ -n "$PROFIL" ]; then set -- "$@" --profil "$PROFIL"; fi
+          if [ "$OPRAVDU" = "true" ]; then set -- "$@" --opravdu; fi
+          node scripts/obnov-plochu.mjs "$@"
+
+      # Předchozí stav (bez poznámek) — kdyby bylo potřeba obnovu vrátit.
+      - name: Uložit předchozí stav plochy
+        if: inputs.opravdu
+        uses: actions/upload-artifact@v4
+        with:
+          name: predchozi-plocha
+          path: predchozi-plocha.json
+          retention-days: 14
+          if-no-files-found: ignore
