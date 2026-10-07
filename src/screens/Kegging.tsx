@@ -19,12 +19,14 @@ import { naplanujPresun } from '../lib/presunPolozky';
 import { BottlingPlanBottler } from '../components/BottlingPlanBottler';
 import { markPlanSeenAt, type BottlingPlan } from '../lib/bottlingPlans';
 import KeggingDayPlan from '../components/KeggingDayPlan';
-import { AlertTriangle, BarChart3, Beer as BeerIcon, CalendarDays, Camera, Check, ClipboardList, Minus, Package as PackageIcon, PenLine, Pencil, Play, Plus, RefreshCw, Scroll, Sparkles, Trash2, X } from 'lucide-react';
+import { AlertTriangle, BarChart3, Beer as BeerIcon, CalendarDays, Camera, Check, ClipboardList, Minus, Package as PackageIcon, PenLine, Pencil, Play, Plus, RefreshCw, Scissors, Scroll, Sparkles, Trash2, X } from 'lucide-react';
 import { BeerTileGrid, BeerTilePanel } from '../components/BeerTileGrid';
 import { chyba, oznam, potvrd, toastZpet, uspech } from '../lib/toast';
 import { nejvetsiTank, odpojPrecerpane, radkyBezTanku, tankRadku, tankyProPivo } from '../lib/tankUZapisu';
 import { jeJantar, pivaJantaru, pivoZdrojovehoTanku, rozdelJantar, PODIL_SVETLE } from '../lib/jantar';
-import { odectiTmavouJantaru, upravTmavouJantaru, vratTmavouJantaru } from '../lib/jantarZapis';
+import { obnovPreliti, odectiPodilRezu, odectiTmavouJantaru, prelitiKRadku, upravTmavouJantaru, vratPrelitiRadku, vratTmavouJantaru } from '../lib/jantarZapis';
+import { jeZnackaRezu, prepocetRezu } from '../lib/rezani';
+import RezaniPiva from '../components/RezaniPiva';
 import { canUserEdit, getUserPermissions } from '../lib/permissions';
 import { podezreleMnozstvi } from '../lib/kontrolaZadani';
 import { IkonaSud } from '../components/ikony';
@@ -94,7 +96,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   const [naposledPiva, setNaposledPiva] = useState<string[]>(() => nactiNaposled(klicPiv));
 
   // Zápis / Přehled / Potřeba stočit KEGy / Přefuk KEG / Checklist záložky
-  const [tab, setTab] = useState<'zapis' | 'prehled' | 'plan' | 'prefuk' | 'checklist'>((initialSubTab as any) || 'zapis');
+  const [tab, setTab] = useState<'zapis' | 'prehled' | 'plan' | 'prefuk' | 'rezani' | 'checklist'>((initialSubTab as any) || 'zapis');
 
   // Sync ze subTab v historii (viz App.tsx) — jinak tlačítko Zpět z téhle
   // záložky nevrátí předchozí záložku, ale rovnou vyskočí do menu.
@@ -102,7 +104,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     setTab((initialSubTab as any) || 'zapis');
   }, [initialSubTab]);
 
-  function selectTab(t: 'zapis' | 'prehled' | 'plan' | 'prefuk' | 'checklist') {
+  function selectTab(t: 'zapis' | 'prehled' | 'plan' | 'prefuk' | 'rezani' | 'checklist') {
     if (setPage) setPage('kegging', undefined, t);
     else setTab(t);
   }
@@ -396,7 +398,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
       const newTankId = editingRow.cellar_tank_id || null;
       // Nový zdrojový objem stejným vzorcem jako při vzniku záznamu (add()) —
       // bez tanku se objem neváže na nic a needeukuje se.
-      const newSourceL = selectedPkg && newTankId
+      let newSourceL = selectedPkg && newTankId
         ? newQty * Number(selectedPkg.volume_l) * (jeJantar(editingRow.beer_id, beers) ? PODIL_SVETLE : 1)
         : 0;
 
@@ -407,6 +409,21 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
       const original = rows.find((r) => r.id === editingRow.id);
       const oldTankId = original?.cellar_tank_id || null;
       const oldSourceL = Number(original?.source_volume_l ?? 0);
+
+      // ✂️ Řez ze dvou tanků (lib/rezani.ts): poměr zůstává, jaký byl při
+      // zápisu — tank řádku nese svůj podíl, tank B svůj (přetočení).
+      const prelitiRezu = (await prelitiKRadku(editingRow.id)).filter((r) => jeZnackaRezu(r.note));
+      const puvodniObal = packages.find((p) => p.id === original?.package_id);
+      const rez = prelitiRezu.length > 0 && original && puvodniObal && selectedPkg
+        ? prepocetRezu({
+          staryPocet: Number(original.quantity),
+          staryObjemL: Number(puvodniObal.volume_l),
+          prelitoBL: prelitiRezu.reduce((s, r) => s + r.volume_l, 0),
+          novyPocet: newQty,
+          novyObjemL: Number(selectedPkg.volume_l),
+        })
+        : null;
+      if (rez && newTankId) newSourceL = rez.aL;
 
       const { error } = await supabase
         .from('kegging')
@@ -431,7 +448,18 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
       // Tmavá složka Jantaru (lib/jantar.ts): stará se vrátí, nová se odečte
       // podle upraveného řádku — změnit se mohlo pivo, obal i počet.
       await vratTmavouJantaru(editingRow.id);
-      if (jeJantar(editingRow.beer_id, beers) && selectedPkg && newTankId) {
+      const tankB = prelitiRezu[0]?.from_tank_id;
+      if (rez && newTankId && tankB && selectedPkg) {
+        const t = cellarTanks.find((x) => x.id === tankB);
+        const upozorneni = await odectiPodilRezu({
+          keggingId: editingRow.id,
+          tank: t ?? { id: tankB, label: 'tank B' },
+          litry: rez.bL,
+          datum: editingRow.entry_date,
+          popis: `${selectedBeer?.name ?? 'pivo'} ${newQty}× ${selectedPkg.label}`,
+        });
+        if (upozorneni) oznam(upozorneni);
+      } else if (jeJantar(editingRow.beer_id, beers) && selectedPkg && newTankId) {
         const { tmava } = pivaJantaru(beers);
         const upozorneni = await odectiTmavouJantaru({
           keggingId: editingRow.id,
@@ -1124,7 +1152,8 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     const { error } = await supabase.from('kegging').update(patch).eq('id', id);
     if (error) return error.message;
     if (deltaL !== 0) await adjustTankVolume(row.cellar_tank_id, -deltaL);
-    if (jeJantar(row.beer_id, beers)) await upravTmavouJantaru(id, oldQty, newQty);
+    // Navázané přetočení (Jantar i řez ze dvou tanků) jde ve stejném poměru.
+    if (row.cellar_tank_id) await upravTmavouJantaru(id, oldQty, newQty);
     load(true);
     return null;
   }
@@ -1139,8 +1168,9 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
       load(true);
     }
     if (!row) return;
-    // Tmavá složka Jantaru se vrací spolu s řádkem (lib/jantar.ts).
-    const vracenaTmava = jeJantar(row.beer_id, beers) ? await vratTmavouJantaru(row.id) : 0;
+    // Tmavá složka Jantaru i podíl tanku B u řezu se vrací spolu s řádkem
+    // (lib/jantar.ts, lib/rezani.ts).
+    const vracenaPreliti = await vratPrelitiRadku(row.id);
 
     // Místo ptaní se předem: smaž a pár vteřin nabídni návrat. Na telefonu je
     // to o klepnutí míň pokaždé, i když se člověk nespletl.
@@ -1155,18 +1185,8 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
         if (row.cellar_tank_id && row.source_volume_l) {
           await adjustTankVolume(row.cellar_tank_id, -Number(row.source_volume_l));
         }
-        if (vracenaTmava > 0) {
-          const { tmava } = pivaJantaru(beers);
-          const pkg = packages.find((p) => p.id === row.package_id);
-          await odectiTmavouJantaru({
-            keggingId: row.id,
-            tank: tmava ? tankRadku(cellarTanks, tmava.id) : undefined,
-            tmavaL: vracenaTmava,
-            datum: row.entry_date,
-            tmavaPivo: tmava,
-            popis: `${row.quantity}× ${pkg?.label ?? ''}`,
-          });
-        }
+        // Přetočení se zapíšou zpátky přesně jak byla (stejný tank i litry).
+        await obnovPreliti(vracenaPreliti);
         load(true);
       },
     );
@@ -1333,6 +1353,13 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
               {prefukRows.length > 0 && (
                 <span className="px-1.5 py-0.5 rounded-full bg-sky-200 text-sky-900 text-udaj font-black">{prefukRows.length}</span>
               )}
+            </button>
+            <button
+              type="button"
+              onClick={() => selectTab('rezani')}
+              className={`px-3.5 py-2 rounded text-xs font-black transition flex items-center gap-1.5 shrink-0 min-h-[44px] ${tab === 'rezani' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'}`}
+            >
+              <span className="inline-flex items-center gap-1.5"><Scissors size={14} /> Řezání</span>
             </button>
             <button
               type="button"
@@ -2706,6 +2733,16 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
       )}
 
       {/* TAB 5: CHECKLIST — celý checklist (začátek, konec, měsíční údržba) na jedné stránce k nahlédnutí */}
+      {/* ŘEZÁNÍ — pivo ze dvou tanků v poměru (lib/rezani.ts) */}
+      {(mode === 'all' && tab === 'rezani') && (
+        <RezaniPiva
+          beers={beers}
+          kegPackages={kegPackages}
+          cellarTanks={cellarTanks}
+          mesicUzamcen={(d) => jeMesicUzamcen(inventoryRows, d)}
+          onUlozeno={() => load(true)}
+        />
+      )}
       {(mode === 'all' && tab === 'checklist') && (
         <div className="card p-4 sm:p-5">
           <div className="text-sm font-display font-black text-amber-950 mb-4"><ClipboardList className="ikona-text" /> Checklist stáčení KEG — kompletní přehled</div>
