@@ -15,7 +15,7 @@ import { useAuth } from '../lib/auth';
 import { canUserView, getUserPermissions, PAGE_TO_MODULE, vidiMesicniUklid } from '../lib/permissions';
 import { isAdminEmail } from '../lib/config';
 import { supabase, Vehicle, fetchAllRows, useRealtime, beerBg, beerText } from '../lib/supabase';
-import { getVehicleExpiryStatus } from '../lib/vozidla';
+import { getVehicleExpiryStatus, textUpozorneniAuta } from '../lib/vozidla';
 import { businessDateISO, posunDen } from '../lib/businessDate';
 import { IkonaSud, IkonaLahev, IkonaVycep } from '../components/ikony';
 import { HomeNotesModal } from '../components/HomeNotesModal';
@@ -1359,6 +1359,8 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
     });
   };
   useEffect(() => { nactiVehicleAlerts(); }, [canSeeVehicleAlerts]);
+  // Je dlaždice Auta přímo na ploše (ne ve složce)? Pak upozornění nese ona.
+  const autaNaPlose = kreslenyLayout.pages.some((stranka) => stranka.includes('vehicles' as any));
 
   // 🔴 Živé dlaždice na Domů (sklep, dnešní závoz, sklad dne, plán stáčení
   // lahví, vozidla) se dřív načetly JEN při otevření appky — kdo měl Domů
@@ -1971,10 +1973,15 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                   15. 9. 2026: „napiš co je problém, ne jen STK". U jednoho
                   upozornění proto dlaždice napíše auto + doklad + naléhavost
                   rovnou, u víc jich zůstává počet a plný rozpis jde do title. */}
-              {vehicleAlerts.length > 0 && (
+              {/* 7. 10. 2026: „vezmi to blikání Kachna bez dálnice, udělej
+                  červené upozornění na dlaždici auta". Když je dlaždice Auta
+                  na ploše, upozornění je na ní (červená, neblikají) a tenhle
+                  štítek se neukazuje. Bez dlaždice Aut by upozornění zmizelo
+                  úplně — tak zůstane štítek, ale taky bez blikání. */}
+              {vehicleAlerts.length > 0 && !autaNaPlose && (
                 <button
                   type="button"
-                  className="hs-tile hs-tile-alert vlastni-vyska"
+                  className="hs-tile hs-tile-alert hs-tile-alert-klid vlastni-vyska"
                   onClick={() => setPage('vehicles')}
                   title={vehicleAlerts.map((a) => `${a.vehicleName} — ${a.label}`).join('\n')}
                 >
@@ -2166,8 +2173,6 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
               id === 'male_sudy' && maleSudyStitek ? maleSudyStitek
               : id === 'cellar' && cellarLiveStats ? `${cellarLiveStats.totalHl} hl`
               : (id === 'bottling' || id === 'bottling_needs') && bottlingTodayCount ? `${bottlingTodayCount} plán`
-              : id === 'vehicles' && vehicleAlerts.length === 1 ? `${vehicleAlerts[0].kind === 'stk' ? 'STK' : 'dálnice'} ${vehicleAlerts[0].status === 'expired' ? 'propadla' : 'brzy'}`
-              : id === 'vehicles' && vehicleAlerts.length > 0 ? `${vehicleAlerts.length} STK`
               : id === 'checklists' && dailyTasks.length > 0 ? `${doneTasksCount}/${dailyTasks.length}`
               : (id === 'timer' || id === 'stopwatch') && doneTimers.length > 0 ? '⏰ Hotovo!'
               : (id === 'timer' || id === 'stopwatch') && runningTimers.length === 1 ? `⏱️ ${formatDurationMs(countdownRemainingMs(runningTimers[0]))}`
@@ -2204,6 +2209,25 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                   ) : (
                     <div className="text-[11px] font-bold opacity-90 leading-none">2 min</div>
                   )}
+                </div>
+              );
+            }
+
+            // 🚗 Auta: propadlá nebo brzy končící STK / dálniční známka udělá
+            // dlaždici červenou s textem, co je špatně (bez blikání).
+            if (id === 'vehicles' && vehicleAlerts.length > 0) {
+              customContent = (
+                <div
+                  className="absolute inset-0 flex flex-col items-center justify-center gap-1 p-1.5 text-center select-none overflow-hidden rounded-[inherit]"
+                  style={{ background: '#b91c1c', color: '#ffffff' }}
+                  title={vehicleAlerts.map((a) => `${a.vehicleName} — ${a.label}`).join('\n')}
+                >
+                  <div className="flex items-center gap-1"><TriangleAlert size={18} className="shrink-0" /><Car size={18} className="shrink-0" /></div>
+                  <div className="text-sm font-black leading-none">Auta</div>
+                  {vehicleAlerts.slice(0, 2).map((a, i) => (
+                    <div key={i} className="text-[11px] font-bold leading-tight line-clamp-2">{textUpozorneniAuta(a)}</div>
+                  ))}
+                  {vehicleAlerts.length > 2 && <div className="text-[11px] font-bold leading-none">+{vehicleAlerts.length - 2} další</div>}
                 </div>
               );
             }

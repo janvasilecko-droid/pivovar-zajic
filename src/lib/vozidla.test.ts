@@ -30,3 +30,11 @@ describe('getVehicleExpiryStatus — dnešek a cíl se počítají stejně (žá
     vi.restoreAllMocks();
   });
 });
+
+describe('textUpozorneniAuta', () => {
+  it('napíše auto, doklad a naléhavost', async () => {
+    const { textUpozorneniAuta } = await import('./vozidla');
+    expect(textUpozorneniAuta({ vehicleName: 'Kachna', kind: 'dalnice', status: 'expired' })).toBe('Kachna: dálnice propadla');
+    expect(textUpozorneniAuta({ vehicleName: 'Velké auto', kind: 'stk', status: 'warning' })).toBe('Velké auto: STK brzy');
+  });
+});
