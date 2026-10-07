@@ -911,6 +911,14 @@
   border-color: rgba(255, 255, 255, 0.12) !important;
 }
 
+/* Spodní lišta: ikona a nápis v barvě dlaždice (7. 10. 2026). Odstín
+   čitelný na světlém i tmavém skle počítá lib/barvaDoku.ts a Layout ho
+   předá proměnnými; aktuální stránka je vyplněná plnou barvou dlaždice. */
+.hs-dok-polozka { color: var(--dok-barva, #374151); }
+.hs-dok-polozka:hover { background: rgba(0, 0, 0, 0.05); }
+:root.dark .hs-dok-polozka { color: var(--dok-barva-tmave, #e5e7eb); }
+:root.dark .hs-dok-polozka:hover { background: rgba(255, 255, 255, 0.08); }
+
 /* ⇄ Tažení dlaždice mezi stránkami — nápověda u okraje.
    Když se dlaždice v edit módu podrží u kraje mřížky, za půl vteřiny se
    přetočí stránka. Tenhle pruh to ohlásí dopředu, ať to nevypadá, že se
