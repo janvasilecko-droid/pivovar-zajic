@@ -321,7 +321,8 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
   //    vlastní stočení přes „Stočeno" u položky (kegging.order_item_id),
   //    ruční odškrtnutí v plánu nebo zavezení;
   //  • jejich naplněné sudy zase nepokryjí ostatní: stočení přes „Stočeno"
-  //    u jejich položky se z fondu odečte, dokud objednávka neodjela.
+  //    u jejich položky se z fondu odečte a jejich odvoz (odpočet závozu) se
+  //    do fondu vrátí — jejich tok se tak ve fondu vždy vyruší na nulu.
   const objednavkaPodleId = new Map(orders.map((o) => [o.id, o]));
   const vlastniPolozky = new Set(orderItems
     .filter((it) => it.package_id && kegPkgs.has(it.package_id)
@@ -332,7 +333,6 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
     if (!r.order_item_id || !vlastniPolozky.has(r.order_item_id)) return;
     stocenoDoVlastnich.set(r.order_item_id, (stocenoDoVlastnich.get(r.order_item_id) ?? 0) + Number(r.quantity || 0));
   });
-  const odepsanePolozky = new Set(zavozDeductionRows.map((r: any) => r.order_item_id).filter(Boolean));
 
   // ── Zásoba k rozdělení. Se skutečnou zásobou (currentStockMap, viz
   // komentář u typu výš) se bere PŘÍMO ta — skladová kniha už stočení
@@ -377,19 +377,26 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
     zavozDeductionRows.forEach((r: any) => {
       if (!r.beer_id || !r.package_id || !kegPkgs.has(r.package_id)) return;
       if (r.order_id ? !objednavkyTydne.has(r.order_id) : !inWeek(r.deduct_date)) return;
-      // Sudy odběratele nikdy nebyly zásobou pivovaru — jejich odvoz se do
-      // fondu nevrací (fond by jinak „pokryl" ostatní sudy, které neexistují).
-      if (r.order_item_id && vlastniPolozky.has(r.order_item_id)) return;
+      // Vrací se I odpočet sudů odběratele (Duck and Dog…). Sklad ho odepsal
+      // jako každý jiný (automatický odpočet podle dne závozu), jenže jejich
+      // sudy nikdy nebyly zásobou pivovaru a jejich stočení se řeší zvlášť.
+      // Bez vrácení se tentýž odvoz počítal dvakrát: jednou jako objednávka,
+      // která se musí stočit, a podruhé jako „dluh" ve skladu (z provozu
+      // 8. 10. 2026: DaD 10× 50 l a 8× 20 l, sklad −4 a −8, „Co stočit dnes"
+      // 14 a 16). Naplněné sudy odběratele se naopak odečítají níž, takže
+      // jeho tok se ve fondu vždy vyruší na nulu — ať už je stočený,
+      // odvezený, nebo obojí.
       const k = `${r.beer_id}__${r.package_id}`;
       if (!input.currentStockMap!.has(k)) return;
       vracenoZaZavozy[k] = (vracenoZaZavozy[k] || 0) + Number(r.quantity || 0);
     });
     input.currentStockMap.forEach((qty, k) => { pool[k] = qty + (vracenoZaZavozy[k] || 0); });
-    // Naplněné sudy odběratele leží v chlaďáku (sklad je počítá), dokud
-    // neodjedou — pro ostatní objednávky ale nejsou.
+    // Naplněné sudy odběratele sklad počítá (stáčení je v knize +) — pro
+    // ostatní objednávky ale nejsou. Jejich odvoz se výš vrátil, takže tady
+    // se odečtou vždy, ne jen dokud neodjedou.
     orderItems.forEach((it) => {
       const stoceno = stocenoDoVlastnich.get(it.id) ?? 0;
-      if (!stoceno || odepsanePolozky.has(it.id)) return;
+      if (!stoceno) return;
       const k = `${it.beer_id}__${it.package_id}`;
       if (k in pool) pool[k] -= stoceno;
     });

@@ -39,3 +39,20 @@ export function doSuduOdberatele(placeName: string | null | undefined, obal: Oba
   const objem = Number(obal.volume_l ?? 0);
   return vlastni === 'vse' || (objem > 0 && objem < 30);
 }
+
+/**
+ * Položky objednávky BEZ těch, co se stáčí do sudů odběratele.
+ *
+ * Odznak „chybí skladem" porovnává objednávku se zásobou pivovaru. Sudy
+ * odběratele (Duck and Dog…) ale zásobou pivovaru nikdy nebyly — stáčí se do
+ * jejich vlastních sudů a řeší se zvlášť (8. 10. 2026: „DaD se nemá počítat
+ * do počítání"; u jejich objednávky svítilo „chybí 50 l 4 ks, 20 l 8 ks", což
+ * byl jen automatický odpočet závozu proti skladu).
+ */
+export function bezSuduOdberatele<T extends { package_id: string | null }>(
+  placeName: string | null | undefined,
+  polozky: T[],
+  obaly: { id: string; kind?: string | null; volume_l?: number | string | null }[],
+): T[] {
+  return polozky.filter((p) => !doSuduOdberatele(placeName, obaly.find((o) => o.id === p.package_id)));
+}

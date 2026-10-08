@@ -912,6 +912,56 @@ describe('odběratelé s vlastními sudy (lib/vlastniSudy.ts)', () => {
       expect(nalezt(p, 'ct', 'p50').dluh).toBe(2);
     });
 
+    // Skutečný stav z 8. 10. 2026: sklad 11° 50 l = 2 na začátku týdne + 5 stočeno
+    // − 1 na lahve = 6, k tomu dnešní AUTOMATICKÝ odpočet závozu Duck and Dog −10
+    // (odepisuje se podle dne závozu, ne podle stočení) → kniha ukazuje −4.
+    const odpocet = (order_id: string, order_item_id: string, package_id: string, quantity: number) => ({
+      deduct_date: '2026-08-27', order_id, order_item_id, beer_id: 'b-11', package_id, quantity,
+    });
+
+    it('odpočet závozu DaD se nepočítá jako dluh: chybí jen jejich objednávka', () => {
+      const p = plan({
+        packages: PKGS2,
+        orders: [objDD('dd', '2026-08-27')],
+        orderItems: [polDD('i50', 'dd', 'p50', 10), polDD('i20', 'dd', 'p20', 8)],
+        zavozDeductionRows: [odpocet('dd', 'i50', 'p50', 10), odpocet('dd', 'i20', 'p20', 8)],
+        currentStockMap: new Map([['b-11__p50', -4], ['b-11__p20', -8]]),
+      });
+      expect(nalezt(p, 'ct', 'p50').missing).toBe(10);
+      expect(nalezt(p, 'ct', 'p50').dluh ?? 0).toBe(0);
+      expect(nalezt(p, 'ct', 'p20').missing).toBe(8);
+      expect(day(p, 'ct').totalMissing).toBe(18);
+    });
+
+    it('6 sudů, co opravdu leží ve skladu, pokryje jiného odběratele, i když odvoz DaD sklad už odepsal', () => {
+      const p = plan({
+        packages: PKGS2,
+        orders: [objDD('dd', '2026-08-27'), objDD('h', '2026-08-28', 'Hospoda')],
+        orderItems: [polDD('i50', 'dd', 'p50', 10), polDD('i-h', 'h', 'p50', 3)],
+        zavozDeductionRows: [odpocet('dd', 'i50', 'p50', 10)],
+        currentStockMap: new Map([['b-11__p50', -4]]),
+      });
+      expect(nalezt(p, 'ct', 'p50').missing).toBe(10);   // DaD: celé do jejich sudů
+      expect(nalezt(p, 'pa', 'p50').missing).toBe(0);    // Hospoda: 3 z 6 skladem
+      expect(nalezt(p, 'pa', 'p50').zChladaku).toBe(3);
+    });
+
+    it('část už stočená do jejich sudů: doplní se jen zbytek, sklad pivovaru zůstane 6', () => {
+      // Kniha: 6 + 4 (stočeno do sudů DaD) − 10 (odpočet) = 0.
+      const p = plan({
+        packages: PKGS2,
+        orders: [objDD('dd', '2026-08-27'), objDD('h', '2026-08-28', 'Hospoda')],
+        orderItems: [polDD('i50', 'dd', 'p50', 10), polDD('i-h', 'h', 'p50', 6)],
+        zavozDeductionRows: [odpocet('dd', 'i50', 'p50', 10)],
+        keggingRows: [{ entry_date: '2026-08-26', beer_id: 'b-11', package_id: 'p50', quantity: 4, order_item_id: 'i50' }],
+        currentStockMap: new Map([['b-11__p50', 0]]),
+      });
+      expect(nalezt(p, 'ct', 'p50').doVlastnichSudu).toBe(6);
+      expect(nalezt(p, 'ct', 'p50').missing).toBe(6);
+      expect(nalezt(p, 'pa', 'p50').zChladaku).toBe(6);
+      expect(nalezt(p, 'pa', 'p50').missing).toBe(0);
+    });
+
     it('když se na tom dni stáčí i do sudů pivovaru, dluh se připočítá jako dřív', () => {
       const p = plan({
         packages: PKGS2,

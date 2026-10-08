@@ -8,6 +8,7 @@ import { AlertTriangle, ArrowRightLeft, Bird, Calendar, CalendarDays, Car, Check
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 import type { StockSources } from '../lib/stockLedger';
 import { zbytekKeKonciTydne, schodkyObjednavky } from '../lib/tydenniZbytek';
+import { bezSuduOdberatele } from '../lib/vlastniSudy';
 import { getSecondCarOrderIds, toggleOrderKachna, toggleOrdersKachna, migrateSecondCarDatesToOrders } from '../lib/zavozSecondCar';
 import { PodpisModal } from '../components/PodpisModal';
 import { KegReturnModal } from '../components/KegReturnModal';
@@ -1105,7 +1106,7 @@ export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
                                     // kniha), ale dřív to nikde před závozem nesrovnala — jen se
                                     // ručně odškrtávalo "stočeno" bez ověření. Stejný výpočet jako
                                     // odznak "chybí skladem" v Objednávkách.
-                                    const schodky = o.is_delivered ? [] : schodkyObjednavky(orderItems, zbytek);
+                                    const schodky = o.is_delivered ? [] : schodkyObjednavky(bezSuduOdberatele(o.place_name, orderItems, packages), zbytek);
                                     return (
                                       <div key={o.id} className={`p-3 rounded border ${o.is_delivered ? 'bg-emerald-100/50 border-emerald-200' : 'bg-white border-neutral-200'}`}>
                                         {schodky.length > 0 && (

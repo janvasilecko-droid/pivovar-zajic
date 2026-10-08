@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { doSuduOdberatele, vlastniSudyOdberatele } from './vlastniSudy';
+import { bezSuduOdberatele, doSuduOdberatele, vlastniSudyOdberatele } from './vlastniSudy';
 
 // 6. 10. 2026: „Duck and Dog a Michal Fojtovice počítej zvlášť, mimo zásoby
 // skladu, stáčí se do jejich sudů, to samý Martin malý sudy."
@@ -36,5 +36,21 @@ describe('doSuduOdberatele', () => {
     expect(doSuduOdberatele('Duck and Dog', s50)).toBe(true);
     expect(doSuduOdberatele('Duck and Dog', s20)).toBe(true);
     expect(doSuduOdberatele('Duck and Dog', lahev)).toBe(false);
+  });
+});
+
+describe('bezSuduOdberatele', () => {
+  const obaly = [
+    { id: 'k50', kind: 'keg', volume_l: 50 },
+    { id: 'k20', kind: 'keg', volume_l: 20 },
+    { id: 'pet', kind: 'bottle', volume_l: 1 },
+  ];
+  const polozky = [{ package_id: 'k50' }, { package_id: 'k20' }, { package_id: 'pet' }];
+
+  it('Duck and Dog: sudy vypadnou z kontroly skladu, lahve zůstanou', () => {
+    expect(bezSuduOdberatele('Duck and Dog', polozky, obaly)).toEqual([{ package_id: 'pet' }]);
+  });
+  it('běžný odběratel: nic se nevyřazuje', () => {
+    expect(bezSuduOdberatele('Hospoda U Lva', polozky, obaly)).toEqual(polozky);
   });
 });
