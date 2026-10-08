@@ -27,19 +27,31 @@ const polozky = [
 
 describe('stáčení do vlastních sudů odběratele', () => {
   it('nabídne jen otevřené položky odběratelů s vlastními sudy, nejdřívější napřed', () => {
-    const o = otevrenePolozkyVlastnich({ objednavky, polozky, obaly, stoceni: [{ order_item_id: 'i7' }], odepsanePolozky: new Set() });
+    const o = otevrenePolozkyVlastnich({ objednavky, polozky, obaly, stoceni: [{ order_item_id: 'i7' }] });
     // Martin jen malé sudy (15 l ano, 50 l ne); běžná restaurace, storno,
     // zavezené a už stočená položka ne.
     expect(o.map((x) => x.polozkaId)).toEqual(['i2', 'i3', 'i1']);
   });
 
-  it('odepsaná položka (už odjela) se nenabízí', () => {
-    const o = otevrenePolozkyVlastnich({ objednavky, polozky, obaly, stoceni: [], odepsanePolozky: new Set(['i2', 'i3', 'i7']) });
-    expect(o.map((x) => x.polozkaId)).toEqual(['i1']);
+  // 8. 10. 2026: sklad se odepisuje automaticky ráno v den závozu, ne po
+  // stočení — položka „odepsaná" proto NEZNAMENÁ, že odjela. Bez nabídky
+  // „Do jejich sudů?" zůstalo „Zbývá stočit" i po zapsaném stáčení.
+  it('položka odepsaná automatickým odpočtem závozu se nabízí dál', () => {
+    const o = otevrenePolozkyVlastnich({ objednavky, polozky, obaly, stoceni: [] });
+    expect(o.map((x) => x.polozkaId)).toEqual(['i2', 'i3', 'i1', 'i7']);
+  });
+
+  it('objednávka ve stavu Zavezeno se nenabízí', () => {
+    const o = otevrenePolozkyVlastnich({
+      objednavky: [{ id: 'oz', place_name: 'Duck and Dog', status: 'vyrizeno_zavoz', is_delivered: false, delivery_date: '2026-10-08' }],
+      polozky: [{ id: 'iz', order_id: 'oz', beer_id: 'b12', package_id: 'k30', quantity: 2 }],
+      obaly, stoceni: [],
+    });
+    expect(o).toEqual([]);
   });
 
   it('rozdělí řádek: část do sudů odběratelů, zbytek do sudů pivovaru', () => {
-    const otevrene = otevrenePolozkyVlastnich({ objednavky, polozky, obaly, stoceni: [], odepsanePolozky: new Set() });
+    const otevrene = otevrenePolozkyVlastnich({ objednavky, polozky, obaly, stoceni: [] });
     const radky = [{ beerId: 'b12', pkgId: 'k30', qty: '10', tankId: 't1' }, { beerId: 'b10', pkgId: 'k50', qty: '4', tankId: '' }];
     const prirazeni = priradDoVlastnich(radky.map((r) => ({ beerId: r.beerId, pkgId: r.pkgId, pocet: Number(r.qty) })), otevrene);
     expect(prirazeni).toEqual([
@@ -58,7 +70,7 @@ describe('stáčení do vlastních sudů odběratele', () => {
   });
 
   it('méně sudů, než odběratel chce: celý řádek jde k jeho položce', () => {
-    const otevrene = otevrenePolozkyVlastnich({ objednavky, polozky, obaly, stoceni: [], odepsanePolozky: new Set() });
+    const otevrene = otevrenePolozkyVlastnich({ objednavky, polozky, obaly, stoceni: [] });
     const prirazeni = priradDoVlastnich([{ beerId: 'b12', pkgId: 'k30', pocet: 1 }], otevrene);
     expect(prirazeni).toEqual([{ radek: 0, polozkaId: 'i2', odberatel: 'Michal fojtovice', kusu: 1 }]);
     expect(rozdelRadkyNaVlastni([{ qty: '1' }], prirazeni)).toEqual([{ qty: '1', orderItemId: 'i2' }]);

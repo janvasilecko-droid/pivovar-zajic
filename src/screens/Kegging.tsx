@@ -1002,7 +1002,6 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
       polozky: orderItems,
       obaly: packages,
       stoceni: rows as { order_item_id?: string | null }[],
-      odepsanePolozky: new Set(zavozDeductionRows.map((r: any) => r.order_item_id).filter(Boolean)),
     });
     const prirazeniVlastnich = priradDoVlastnich(
       filled.map((r) => ({ beerId: r.beerId, pkgId: r.pkgId, pocet: Number(r.qty) })),

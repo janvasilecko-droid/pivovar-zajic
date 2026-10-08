@@ -18,6 +18,7 @@
 // je na ostatní objednávky nepoužije, dokud jejich objednávka neodjede.
 
 import { doSuduOdberatele, type ObalSudu } from './vlastniSudy';
+import { jeVyrizena } from './stavyObjednavek';
 
 export type ObjednavkaVlastnich = {
   id: string;
@@ -46,15 +47,22 @@ export type OtevrenaPolozkaVlastnich = {
 
 /**
  * Položky odběratelů s vlastními sudy, na které se ještě stáčí: objednávka
- * není storno ani zavezená, položka ještě nemá svůj řádek stáčení (v databázi
- * smí mít jen jeden — unikátní index) a ještě se neodepsala ze skladu.
+ * není storno ani zavezená a položka ještě nemá svůj řádek stáčení (v databázi
+ * smí mít jen jeden — unikátní index).
+ *
+ * ⚠️ Odpis ze skladu (zavoz_deductions) se NEKONTROLUJE. Od 13. 9. 2026 se
+ * sklad odepisuje automaticky ráno v den závozu, bez ohledu na stáčení — a
+ * stáčí se právě ten den. Z provozu 8. 10. 2026: DaD měl dnes závoz, jeho
+ * položky už byly „odepsané", appka se proto při zápisu stáčení nezeptala
+ * „Do jejich sudů?", zápis skončil jako sud pivovaru a „Zbývá stočit"
+ * zůstalo na plných 10× 50 l a 8× 20 l. Co odjelo, pozná `is_delivered` /
+ * stav objednávky.
  */
 export function otevrenePolozkyVlastnich(p: {
   objednavky: ObjednavkaVlastnich[];
   polozky: PolozkaVlastnich[];
   obaly: (ObalSudu & { id: string })[];
   stoceni: { order_item_id?: string | null }[];
-  odepsanePolozky: Set<string>;
 }): OtevrenaPolozkaVlastnich[] {
   const objednavka = new Map(p.objednavky.map((o) => [o.id, o]));
   const obal = new Map(p.obaly.map((o) => [o.id, o]));
@@ -62,11 +70,11 @@ export function otevrenePolozkyVlastnich(p: {
   const vysledek: OtevrenaPolozkaVlastnich[] = [];
   for (const it of p.polozky) {
     const o = objednavka.get(it.order_id);
-    if (!o || o.status === 'storno' || o.is_delivered) continue;
+    if (!o || o.status === 'storno' || o.is_delivered || jeVyrizena(o.status)) continue;
     if (!it.beer_id || !it.package_id) continue;
     const kusu = Number(it.quantity ?? 0);
     if (!(kusu > 0)) continue;
-    if (propojene.has(it.id) || p.odepsanePolozky.has(it.id)) continue;
+    if (propojene.has(it.id)) continue;
     if (!doSuduOdberatele(o.place_name, obal.get(it.package_id))) continue;
     vysledek.push({
       polozkaId: it.id,
