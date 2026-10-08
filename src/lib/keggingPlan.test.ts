@@ -860,4 +860,66 @@ describe('odběratelé s vlastními sudy (lib/vlastniSudy.ts)', () => {
     expect(it.zChladaku).toBe(2);
     expect(it.missing).toBe(1);          // Hospoda 3, sklad pivovaru 2
   });
+
+  // 8. 10. 2026: „Co stočit dnes" ukazovalo 14× 50 l a 16× 20 l, přitom v
+  // objednávkách (Nakládka dnes) bylo jen Duck and Dog 10× 50 l a 8× 20 l —
+  // zbytek bylo mínus ve skladu (−4 a −8), které se přilepilo na den, kde se
+  // stáčí jen do jejich vlastních sudů. Takový dluh nejde stočením do jejich
+  // sudů nikdy smazat (sklad je nepočítá do fondu), takže „chybí" zůstalo.
+  describe('mínus ve skladu u dne, kde je pivo jen do vlastních sudů', () => {
+    const PKGS2 = [...packages, { id: 'p20', label: '20l', kind: 'keg', volume_l: 20 }];
+    const objDD = (id: string, date: string, place = 'Duck and Dog') => ({
+      id, delivery_date: date, order_date: '2026-08-24', status: 'nova', place_name: place,
+    });
+    const polDD = (id: string, order_id: string, package_id: string, quantity: number) => ({ id, order_id, beer_id: 'b-11', package_id, quantity });
+    const nalezt = (p: ReturnType<typeof plan>, d: string, pkg: string) => day(p, d).items.find((x) => x.package_id === pkg)!;
+
+    it('chybí jen to, co je v objednávce — ne 14 a 16, ale 10 a 8', () => {
+      const p = plan({
+        packages: PKGS2,
+        orders: [objDD('dd', '2026-08-27')],
+        orderItems: [polDD('i50', 'dd', 'p50', 10), polDD('i20', 'dd', 'p20', 8)],
+        currentStockMap: new Map([['b-11__p50', -4], ['b-11__p20', -8]]),
+      });
+      expect(nalezt(p, 'ct', 'p50').missing).toBe(10);
+      expect(nalezt(p, 'ct', 'p20').missing).toBe(8);
+      expect(nalezt(p, 'ct', 'p50').dluh ?? 0).toBe(0);
+      expect(day(p, 'ct').totalMissing).toBe(18);
+    });
+
+    it('po stočení všeho do jejich sudů je hotovo, mínus ve skladu to nevrátí zpátky', () => {
+      // Stočeno 10 do sudů Duck and Dog: sklad −4 + 10 = 6, z toho 10 jsou jejich sudy.
+      const p = plan({
+        packages: PKGS2,
+        orders: [objDD('dd', '2026-08-27')],
+        orderItems: [polDD('i50', 'dd', 'p50', 10)],
+        keggingRows: [{ entry_date: '2026-08-26', beer_id: 'b-11', package_id: 'p50', quantity: 10, order_item_id: 'i50' }],
+        currentStockMap: new Map([['b-11__p50', 6]]),
+      });
+      expect(nalezt(p, 'ct', 'p50').doVlastnichSudu).toBe(0);
+      expect(nalezt(p, 'ct', 'p50').missing).toBe(0);
+    });
+
+    it('dluh se nepropadne: převezme ho první den, kde se stáčí i do sudů pivovaru', () => {
+      const p = plan({
+        packages: PKGS2,
+        orders: [objDD('dd', '2026-08-26'), objDD('h', '2026-08-27', 'Hospoda')], // st = jen DaD, čt = Hospoda
+        orderItems: [polDD('i-dd', 'dd', 'p50', 4), polDD('i-h', 'h', 'p50', 3)],
+        currentStockMap: new Map([['b-11__p50', -2]]),
+      });
+      expect(nalezt(p, 'st', 'p50').missing).toBe(4);   // jen jejich objednávka
+      expect(nalezt(p, 'ct', 'p50').missing).toBe(5);   // Hospoda 3 + dluh 2
+      expect(nalezt(p, 'ct', 'p50').dluh).toBe(2);
+    });
+
+    it('když se na tom dni stáčí i do sudů pivovaru, dluh se připočítá jako dřív', () => {
+      const p = plan({
+        packages: PKGS2,
+        orders: [objDD('dd', '2026-08-26'), objDD('h', '2026-08-26', 'Hospoda')],
+        orderItems: [polDD('i-dd', 'dd', 'p50', 4), polDD('i-h', 'h', 'p50', 2)],
+        currentStockMap: new Map([['b-11__p50', -3]]),
+      });
+      expect(nalezt(p, 'st', 'p50').missing).toBe(9);   // 4 + 2 + dluh 3
+    });
+  });
 });

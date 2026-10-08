@@ -541,12 +541,21 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
       // kde se na tenhle klíč sáhne: připočítá se k tomu, co chybí, a fond
       // se od něj očistí (na 0), ať ho žádný další den v týdnu nezpracoval
       // znovu. Kladná část fondu se pak čerpá jako dřív.
-      const deficit = Math.max(0, -(pool[k] || 0));
+      //
+      // ⚠️ Výjimka: den, kde se tohle pivo stáčí JEN do vlastních sudů
+      // odběratele (Duck and Dog…), dluh nepřevezme. Mínus ve skladu je dluh
+      // sudů pivovaru, a stočení do jejich sudů ho nikdy nesmaže (jejich sudy
+      // se z fondu odečítají). Z provozu 8. 10. 2026: objednávka Duck and Dog
+      // 10× 50 l a 8× 20 l, ve skladu −4 a −8 → „Co stočit dnes" ukazovalo
+      // 14 a 16 a po stočení všeho by pořád chybělo 4 a 8. Dluh zůstane ve
+      // fondu a převezme ho první den, kde se stáčí i do sudů pivovaru.
+      const jenVlastniSudy = b.ordered > 0 && b.vlastniOrdered >= b.ordered;
+      const deficit = jenVlastniSudy ? 0 : Math.max(0, -(pool[k] || 0));
       const poolKladny = Math.max(0, pool[k] || 0);
       // Fond kryje jen sudy pivovaru — sudy odběratele mají vlastní krytí.
       const stillNeeded = Math.max(0, (b.ordered - b.vlastniOrdered) - b.covered);
       const fromPool = Math.min(stillNeeded, poolKladny);
-      pool[k] = poolKladny - fromPool;
+      pool[k] = jenVlastniSudy ? (pool[k] || 0) : poolKladny - fromPool;
       const autoDone = b.covered + fromPool + b.vlastniCovered;
       // Ruční odškrtnutí a doložený stav se skládají přes MAX. Součet by
       // položku započítal dvakrát ve chvíli, kdy si ji stáčeč odškrtne a pak
