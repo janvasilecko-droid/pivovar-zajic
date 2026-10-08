@@ -138,3 +138,66 @@ export function rozdelRadkyNaVlastni<R extends { qty: string | number }>(
   });
   return vysledek;
 }
+
+export type ZapsaneStaceni = {
+  id: string;
+  beer_id?: string | null;
+  package_id?: string | null;
+  quantity?: number | string | null;
+  entry_date?: string | null;
+  order_item_id?: string | null;
+};
+
+export type NavrhPripojeni = {
+  radekId: string;
+  polozkaId: string;
+  odberatel: string;
+  beerId: string;
+  pkgId: string;
+  kusu: number;
+};
+
+/**
+ * Už ZAPSANÉ stáčení (bez vazby na položku), které sedí na otevřenou položku
+ * odběratele s vlastními sudy — pro případ, že se při zápisu nikdo nezeptal
+ * „Do jejich sudů?" (8. 10. 2026: u položek odepsaných automatickým odpočtem
+ * závozu se appka dřív neptala) nebo se odpovědělo „do našich".
+ *
+ * Návrh, ne automat: nic se nepřipojuje bez potvrzení (zadání 7. 10. 2026 —
+ * stáčení se k odběrateli váže jen z vůli stáčeče). Celý řádek jde k jedné
+ * položce, a jen když se do ní vejde (řádek většího počtu by se musel dělit —
+ * ten se nenavrhuje, zapíše se znovu). Jedna položka dostane nejvýš jeden
+ * řádek (unikátní index na kegging.order_item_id).
+ */
+export function navrhniPripojeniZapsaneho(p: {
+  objednavky: ObjednavkaVlastnich[];
+  polozky: PolozkaVlastnich[];
+  obaly: (ObalSudu & { id: string })[];
+  stoceni: ZapsaneStaceni[];
+  /** Nejstarší datum zápisu, které se ještě bere v úvahu (pondělí týdne). */
+  odData: string;
+}): NavrhPripojeni[] {
+  const otevrene = otevrenePolozkyVlastnich({
+    objednavky: p.objednavky, polozky: p.polozky, obaly: p.obaly, stoceni: p.stoceni,
+  });
+  const jeSudObal = new Set(p.obaly.filter((o) => o.kind === 'keg').map((o) => o.id));
+  const pouzite = new Set<string>();
+  const vysledek: NavrhPripojeni[] = [];
+  const volne = p.stoceni
+    .filter((r) => !r.order_item_id && r.beer_id && r.package_id && jeSudObal.has(r.package_id)
+      && (r.entry_date ?? '').slice(0, 10) >= p.odData)
+    .sort((a, b) => (a.entry_date ?? '').localeCompare(b.entry_date ?? '') || a.id.localeCompare(b.id));
+  for (const r of volne) {
+    const kusu = Number(r.quantity ?? 0);
+    if (!(kusu > 0)) continue;
+    const polozka = otevrene.find((o) => !pouzite.has(o.polozkaId)
+      && o.beerId === r.beer_id && o.pkgId === r.package_id && kusu <= o.kusu);
+    if (!polozka) continue;
+    pouzite.add(polozka.polozkaId);
+    vysledek.push({
+      radekId: r.id, polozkaId: polozka.polozkaId, odberatel: polozka.odberatel,
+      beerId: polozka.beerId, pkgId: polozka.pkgId, kusu,
+    });
+  }
+  return vysledek;
+}

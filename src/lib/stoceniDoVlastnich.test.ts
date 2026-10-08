@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { otevrenePolozkyVlastnich, priradDoVlastnich, rozdelRadkyNaVlastni } from './stoceniDoVlastnich';
+import { navrhniPripojeniZapsaneho, otevrenePolozkyVlastnich, priradDoVlastnich, rozdelRadkyNaVlastni } from './stoceniDoVlastnich';
 
 const obaly = [
   { id: 'k30', kind: 'keg', volume_l: 30 },
@@ -74,5 +74,50 @@ describe('stáčení do vlastních sudů odběratele', () => {
     const prirazeni = priradDoVlastnich([{ beerId: 'b12', pkgId: 'k30', pocet: 1 }], otevrene);
     expect(prirazeni).toEqual([{ radek: 0, polozkaId: 'i2', odberatel: 'Michal fojtovice', kusu: 1 }]);
     expect(rozdelRadkyNaVlastni([{ qty: '1' }], prirazeni)).toEqual([{ qty: '1', orderItemId: 'i2' }]);
+  });
+});
+
+// 8. 10. 2026: stáčení zapsané bez dotazu „Do jejich sudů?" zůstalo sudem
+// pivovaru a „Zbývá stočit" u DaD se nehnulo.
+describe('navrhniPripojeniZapsaneho', () => {
+  const dd = [{ id: 'od', place_name: 'Duck and Dog', status: 'nova', is_delivered: false, delivery_date: '2026-10-08' }];
+  const polDD = [
+    { id: 'p50', order_id: 'od', beer_id: 'b11', package_id: 'k50', quantity: 10 },
+    { id: 'p30', order_id: 'od', beer_id: 'b11', package_id: 'k30', quantity: 17 },
+  ];
+  const radek = (id: string, pkg: string, qty: number, extra: object = {}) => ({
+    id, beer_id: 'b11', package_id: pkg, quantity: qty, entry_date: '2026-10-08', order_item_id: null, ...extra,
+  });
+  const navrh = (stoceni: ReturnType<typeof radek>[]) => navrhniPripojeniZapsaneho({
+    objednavky: dd, polozky: polDD, obaly, stoceni, odData: '2026-10-05',
+  });
+
+  it('řádek, který sedí na položku DaD, navrhne připojit', () => {
+    expect(navrh([radek('r1', 'k50', 10), radek('r2', 'k30', 17)]).map((n) => [n.radekId, n.polozkaId, n.kusu]))
+      .toEqual([['r1', 'p50', 10], ['r2', 'p30', 17]]);
+  });
+  it('menší počet než objednávka se připojí celý (zbytek zůstane k stočení)', () => {
+    expect(navrh([radek('r1', 'k50', 4)]).map((n) => [n.polozkaId, n.kusu])).toEqual([['p50', 4]]);
+  });
+  it('větší počet než položka se nenavrhuje (musel by se dělit)', () => {
+    expect(navrh([radek('r1', 'k50', 14)])).toEqual([]);
+  });
+  it('už připojený řádek, jiné pivo, starší týden a lahve se nenavrhují', () => {
+    expect(navrh([
+      radek('r1', 'k50', 10, { order_item_id: 'p50' }),
+      radek('r2', 'k30', 17, { beer_id: 'b12' }),
+      radek('r3', 'k30', 17, { entry_date: '2026-10-02' }),
+    ])).toEqual([]);
+  });
+  it('jedna položka dostane nejvýš jeden řádek', () => {
+    const n = navrh([radek('r1', 'k50', 5), radek('r2', 'k50', 5)]);
+    expect(n.map((x) => x.radekId)).toEqual(['r1']);
+  });
+  it('objednávka běžné restaurace se nenabízí', () => {
+    const n = navrhniPripojeniZapsaneho({
+      objednavky: [{ id: 'od', place_name: 'Restaurace U Zajíce', status: 'nova', is_delivered: false, delivery_date: '2026-10-08' }],
+      polozky: polDD, obaly, stoceni: [radek('r1', 'k50', 10)], odData: '2026-10-05',
+    });
+    expect(n).toEqual([]);
   });
 });

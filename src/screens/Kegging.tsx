@@ -22,7 +22,7 @@ import KeggingDayPlan from '../components/KeggingDayPlan';
 import { AlertTriangle, BarChart3, Beer as BeerIcon, CalendarDays, Camera, Check, ClipboardList, Minus, Package as PackageIcon, PenLine, Pencil, Play, Plus, RefreshCw, Scissors, Scroll, Sparkles, Trash2, X } from 'lucide-react';
 import { BeerTileGrid, BeerTilePanel } from '../components/BeerTileGrid';
 import { chyba, oznam, potvrd, toastZpet, uspech, volba } from '../lib/toast';
-import { otevrenePolozkyVlastnich, priradDoVlastnich, rozdelRadkyNaVlastni } from '../lib/stoceniDoVlastnich';
+import { navrhniPripojeniZapsaneho, otevrenePolozkyVlastnich, priradDoVlastnich, rozdelRadkyNaVlastni } from '../lib/stoceniDoVlastnich';
 import { nejvetsiTank, odpojPrecerpane, radkyBezTanku, tankRadku, tankyProPivo } from '../lib/tankUZapisu';
 import { jeJantar, pivaJantaru, pivoZdrojovehoTanku, rozdelJantar, PODIL_SVETLE } from '../lib/jantar';
 import { obnovPreliti, odectiPodilRezu, odectiTmavouJantaru, prelitiKRadku, upravTmavouJantaru, vratPrelitiRadku, vratTmavouJantaru } from '../lib/jantarZapis';
@@ -304,6 +304,38 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     load(true);
   }
   const weekLabel = weekRange(weekKey).label;
+
+  // 🛢️ Už zapsané stáčení, které sedí na položku odběratele s vlastními sudy
+  // (Duck and Dog…), ale nemá na ni vazbu — „Zbývá stočit" u nich se pak
+  // nehne (viz lib/stoceniDoVlastnich.ts → navrhniPripojeniZapsaneho).
+  const navrhPripojeni = useMemo(() => navrhniPripojeniZapsaneho({
+    objednavky: orders,
+    polozky: orderItems,
+    obaly: packages,
+    stoceni: rows,
+    odData: weekRange(weekKey).start.toISOString().slice(0, 10),
+  }), [orders, orderItems, packages, rows, weekKey]);
+
+  async function pripojKVlastnim() {
+    const seznam = navrhPripojeni.map((n) => {
+      const pkg = packages.find((x) => x.id === n.pkgId);
+      const pivo = beers.find((b) => b.id === n.beerId) ?? vsechnaPivaJmena.find((b) => b.id === n.beerId);
+      return `• ${n.odberatel}: ${n.kusu}× ${pkg?.label ?? 'sud'} ${pivo?.name ?? ''}`;
+    }).join('\n');
+    const ok = await potvrd(
+      `Přiřadit zapsané stáčení k objednávkám do jejich sudů?\n\n${seznam}\n\n` +
+      'Započítá se do stáčení, skladu i inventury, ale na ostatní objednávky se nepoužije.',
+      { titulek: 'Do sudů odběratele', potvrdit: 'Přiřadit' },
+    );
+    if (!ok) return;
+    let chybne = 0;
+    for (const n of navrhPripojeni) {
+      const { error } = await supabase.from('kegging').update({ order_item_id: n.polozkaId }).eq('id', n.radekId);
+      if (error) { chybne++; chyba(error); }
+    }
+    await load(true);
+    if (chybne === 0) uspech('Přiřazeno k objednávkám do jejich sudů.');
+  }
 
   // Podle kindu i popisku: sud bez vyplněného `kind` by se jinak v KEGách
   // vůbec nenabídl (a ve stáčení lahví by naopak přebýval) — viz jeSud.
@@ -1578,6 +1610,19 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
               dlaždici je součet přes VŠECHNY velikosti, takže sám o sobě
               neřekne, co reálně nachystat (padesátky, nebo desítky?). Viz
               komentář u rozpadTydneKeg výš. */}
+          {navrhPripojeni.length > 0 && (
+            <div className="mb-3 rounded border border-sky-300 bg-sky-50 px-2.5 py-2 text-udaj font-bold text-sky-950">
+              <p>
+                🛢️ Zapsané stáčení sedí na objednávku do jejich sudů ({[...new Set(navrhPripojeni.map((n) => n.odberatel))].join(', ')}):{' '}
+                {navrhPripojeni.map((n) => `${n.kusu}× ${packages.find((x) => x.id === n.pkgId)?.label ?? 'sud'}`).join(', ')}.
+                {' '}Dokud se k nim nepřiřadí, počítá se jako sud pivovaru a „Zbývá stočit" se nesníží.
+              </p>
+              <button type="button" onClick={pripojKVlastnim} className="btn-primary mt-1.5 !min-h-[44px]">
+                Přiřadit do jejich sudů
+              </button>
+            </div>
+          )}
+
           {rozpadTydneKeg.some((r) => r.missing > 0) && (
             <div className="mb-3">
               <div className="flex flex-wrap items-center gap-1.5">
