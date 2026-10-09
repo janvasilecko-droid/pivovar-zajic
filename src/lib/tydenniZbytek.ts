@@ -16,6 +16,7 @@
 //
 // Teď se ptáme skladové knihy na stav ke konci týdne závozu, po pivu A OBALU.
 import { buildMovements, stockAsOf, stockKey, type StockSources } from './stockLedger';
+import { bezSuduOdberatele, doSuduOdberatele } from './vlastniSudy';
 
 /** Stav skladu ke konci daného týdne, klíč `beer_id__package_id`. */
 export function zbytekKeKonciTydne(
@@ -181,4 +182,61 @@ export function zbytekPodleObjednavek(
     i = j;
   }
   return vysledek;
+}
+
+/**
+ * ⚖️ „Chybí skladem" pro všechny objednávky jednoho týdne — JEDEN výpočet
+ * pro Objednávky i Závoz.
+ *
+ * Audit 9. 10. 2026 našel dvě místa, která si to počítala jinak:
+ *  1. Závoz porovnával každou objednávku s celým zbytkem zvlášť — ostatní
+ *     objednávky týdne nevěděly o sobě, takže „chybí" skoro nikdy nesvítilo,
+ *     zatímco Objednávky (zbytekPodleObjednavek) u téže objednávky ano.
+ *  2. Objednávky ani Závoz nevyřazovaly sudy odběratelů s vlastními sudy
+ *     (Duck and Dog, Michal Fojtovice, Martin u malých — lib/vlastniSudy.ts):
+ *     jejich naplněné sudy v chlaďáku „kryly" ostatní objednávky a jejich
+ *     objednávky si zásobu pivovaru ubíraly. Plán stáčení (keggingPlan.ts)
+ *     je vyřazoval odjakživa.
+ *
+ * Teď: zásoba ke konci týdne MÍNUS naplněné sudy odběratelů, které ještě
+ * neodjely (stáčení s vazbou na jejich položku, bez odpočtu závozu), a
+ * poptávka BEZ jejich položek, rozdělená podle dne závozu.
+ */
+export function chybiSklademTydne(p: {
+  zdroje: StockSources;
+  konecTydneISO: string;
+  /** Nestornované objednávky TOHOTO týdne. */
+  objednavky: { id: string; place_name?: string | null; delivery_date?: string | null; order_date: string }[];
+  polozky: (orderId: string) => { id: string; beer_id: string | null; package_id: string | null; beer_name?: string | null; quantity: number | string }[];
+  /** Všechny objednávky a položky, které obrazovka zná — kvůli sudům odběratelů z jiných týdnů. */
+  vsechnyObjednavky: { id: string; place_name?: string | null }[];
+  vsechnyPolozky: { id: string; order_id: string; beer_id: string | null; package_id: string | null }[];
+  obaly: { id: string; kind?: string | null; volume_l?: number | string | null }[];
+}): Map<string, Map<string, number>> {
+  const zbytek = zbytekKeKonciTydne(p.zdroje, p.konecTydneISO);
+  const obal = new Map(p.obaly.map((o) => [o.id, o]));
+  const mistoObjednavky = new Map(p.vsechnyObjednavky.map((o) => [o.id, o.place_name ?? null]));
+  const polozkaPodleId = new Map(p.vsechnyPolozky.map((it) => [it.id, it]));
+  const odepsane = new Set((p.zdroje.zavozDeductionRows ?? []).map((r: any) => r.order_item_id).filter(Boolean));
+  // Naplněné sudy odběratele, které ještě neodjely: sklad je má (+ ze
+  // stáčení), ostatním objednávkám ale nepatří.
+  for (const r of (p.zdroje.keggingRows ?? []) as any[]) {
+    const it = r.order_item_id ? polozkaPodleId.get(r.order_item_id) : undefined;
+    if (!it || odepsane.has(it.id) || !it.beer_id || !it.package_id) continue;
+    if (!doSuduOdberatele(mistoObjednavky.get(it.order_id), obal.get(it.package_id))) continue;
+    const k = stockKey(it.beer_id, it.package_id);
+    if (zbytek.has(k)) zbytek.set(k, (zbytek.get(k) ?? 0) - Number(r.quantity || 0));
+  }
+  const objednavky: ObjednavkaKPrioritě[] = p.objednavky.map((o) => ({
+    order_id: o.id,
+    poradiDatum: o.delivery_date || o.order_date,
+    polozky: bezSuduOdberatele(o.place_name, p.polozky(o.id), p.obaly).map((it) => ({
+      order_item_id: it.id,
+      beer_id: it.beer_id,
+      package_id: it.package_id,
+      beer_name: it.beer_name,
+      quantity: Number(it.quantity),
+    })),
+  }));
+  return zbytekPodleObjednavek(objednavky, zbytek, odepsane as Set<string>);
 }

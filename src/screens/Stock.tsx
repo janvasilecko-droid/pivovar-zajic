@@ -1,3 +1,4 @@
+import { jeSud } from '../lib/inventoryFix';
 import { useEffect, useState } from 'react';
 import { ZavozDeductionRow } from '../lib/zavozDeduction';
 
@@ -259,7 +260,9 @@ export default function Stock({ setPage, initialTopTab }: { setPage?: (p: Page, 
         // u 34 z 56 položek) a čerstvé stáčení nejdřív umazávalo neexistující
         // dluh, místo aby zvedlo stav.
         const rawStock = line?.qty ?? 0;
-        const currentStock = Math.max(0, rawStock);
+        // Bez ořezání na nulu (audit 9. 10. 2026): Dashboard i Pohyby ukazují
+        // mínus — Sklad ho dřív schoval jako 0 a „Zbývá" pak vycházelo vyšší.
+        const currentStock = rawStock;
 
         // 📉 Za kolik dní dojde. Bere se RAW stav (i záporný — to je platná
         // odpověď skladové knihy) a pohyby TÉHOŽ piva a obalu za poslední
@@ -298,8 +301,8 @@ export default function Stock({ setPage, initialTopTab }: { setPage?: (p: Page, 
         };
       });
 
-      const stockBottles = stockByPkg.filter((p) => p.kind === 'bottle').reduce((s, p) => s + p.currentStock, 0);
-      const stockKegs = stockByPkg.filter((p) => p.kind === 'keg').reduce((s, p) => s + p.currentStock, 0);
+      const stockBottles = stockByPkg.filter((p) => !jeSud(p.kind, p.label)).reduce((s, p) => s + p.currentStock, 0);
+      const stockKegs = stockByPkg.filter((p) => jeSud(p.kind, p.label)).reduce((s, p) => s + p.currentStock, 0);
       const stockTotal = stockBottles + stockKegs;
       const stockLiters = pkgLiters(stockByPkg.map((p) => ({ quantity: p.currentStock, volume_l: p.volume_l })));
 
@@ -342,13 +345,16 @@ export default function Stock({ setPage, initialTopTab }: { setPage?: (p: Page, 
       fetchAllRows('bottling', 'entry_date, beer_id, package_id, quantity').gte('entry_date', brewFrom).lte('entry_date', brewTo),
       fetchAllRows('kegging', 'entry_date, beer_id, package_id, quantity').gte('entry_date', brewFrom).lte('entry_date', brewTo),
       nactiSdilenouTabulku('order_items'),
-      fetchAllRows('orders', 'id, order_date, status').gte('order_date', brewFrom).lte('order_date', brewTo),
+      // Objednávka patří do období podle DATA ZÁVOZU (bez něj podle zadání) —
+      // stejně jako Statistika (audit 9. 10. 2026; dřív jen order_date).
+      fetchAllRows('orders', 'id, order_date, delivery_date, status').or(`delivery_date.gte.${brewFrom},order_date.gte.${brewFrom}`),
     ]);
     const beerList = (b as Beer[]) ?? [];
     const pkgList = (pk as Package[]) ?? [];
     const bot = (botData ?? []) as BrewRow[];
     const keg = (kegData ?? []) as BrewRow[];
-    const ords = (ordData ?? []) as { id: string; order_date: string; status: string }[];
+    const ords = ((ordData ?? []) as { id: string; order_date: string; delivery_date: string | null; status: string }[])
+      .filter((o) => { const d = (o.delivery_date || o.order_date || '').slice(0, 10); return d >= brewFrom && d <= brewTo; });
     const ordItems = (ordItemsData ?? []) as { order_id: string; beer_id: string | null; package_id: string; quantity: number }[];
     const validOrdIds = new Set(ords.filter((o) => o.status !== 'storno').map((o) => o.id));
 
@@ -358,12 +364,12 @@ export default function Stock({ setPage, initialTopTab }: { setPage?: (p: Page, 
         const ordered = ordItems.filter((i) => validOrdIds.has(i.order_id) && i.beer_id === beer.id && i.package_id === pkg.id).reduce((s, i) => s + Number(i.quantity), 0);
         return { package_id: pkg.id, label: pkg.label, kind: pkg.kind, volume_l: Number(pkg.volume_l), quantity: qty, ordered };
       });
-      const totalKegs = byPkg.filter((p) => p.kind === 'keg').reduce((s, p) => s + p.quantity, 0);
-      const totalBottles = byPkg.filter((p) => p.kind === 'bottle').reduce((s, p) => s + p.quantity, 0);
+      const totalKegs = byPkg.filter((p) => jeSud(p.kind, p.label)).reduce((s, p) => s + p.quantity, 0);
+      const totalBottles = byPkg.filter((p) => !jeSud(p.kind, p.label)).reduce((s, p) => s + p.quantity, 0);
       const totalQty = totalKegs + totalBottles;
       const totalLiters = pkgLiters(byPkg);
-      const orderedKegs = byPkg.filter((p) => p.kind === 'keg').reduce((s, p) => s + p.ordered, 0);
-      const orderedBottles = byPkg.filter((p) => p.kind === 'bottle').reduce((s, p) => s + p.ordered, 0);
+      const orderedKegs = byPkg.filter((p) => jeSud(p.kind, p.label)).reduce((s, p) => s + p.ordered, 0);
+      const orderedBottles = byPkg.filter((p) => !jeSud(p.kind, p.label)).reduce((s, p) => s + p.ordered, 0);
       const orderedQty = orderedKegs + orderedBottles;
 
       return { beer, byPkg: byPkg.filter((p) => p.quantity > 0 || p.ordered > 0), totalKegs, totalBottles, totalQty, totalLiters, orderedKegs, orderedBottles, orderedQty };
@@ -603,8 +609,9 @@ export default function Stock({ setPage, initialTopTab }: { setPage?: (p: Page, 
                 const isDeficit = r.remaining < 0;
                 const isZero = r.remaining === 0;
 
-                const kegs = r.stockByPkg.filter((p) => p.kind === 'keg' && (p.currentStock > 0 || p.outgoing > 0));
-                const bottles = r.stockByPkg.filter((p) => p.kind === 'bottle' && (p.currentStock > 0 || p.outgoing > 0));
+                // Sud = stejné pravidlo jako zbytek appky (jeSud: druh i název), audit 9. 10. 2026.
+                const kegs = r.stockByPkg.filter((p) => jeSud(p.kind, p.label) && (p.currentStock !== 0 || p.outgoing > 0));
+                const bottles = r.stockByPkg.filter((p) => !jeSud(p.kind, p.label) && (p.currentStock !== 0 || p.outgoing > 0));
 
                 return (
                   <div
@@ -672,8 +679,7 @@ export default function Stock({ setPage, initialTopTab }: { setPage?: (p: Page, 
                                       title="Ukázat, z čeho se stav skládá"
                                       className="w-full min-h-[44px] py-1 px-1 text-center font-extrabold text-neutral-900 bg-neutral-100 rounded-md hover:bg-amber-100 active:scale-95 transition underline decoration-dotted decoration-neutral-400 underline-offset-2"
                                     >
-                                      {p.currentStock}
-                                      {p.rawStock < 0 && <span className="block text-udaj font-black text-rose-600 font-mono" title="Vydáno víc, než evidence zná">({p.rawStock})</span>}
+                                      <span className={p.currentStock < 0 ? 'text-rose-700' : undefined} title={p.currentStock < 0 ? 'Vydáno víc, než evidence zná' : undefined}>{p.currentStock}</span>
                                       {/* 📉 Za kolik dní dojde. Píše se jen když
                                           DOCHÁZÍ — u dobře zásobeného piva by to
                                           byl jen šum a to podstatné by se v něm
@@ -738,8 +744,7 @@ export default function Stock({ setPage, initialTopTab }: { setPage?: (p: Page, 
                                       title="Ukázat, z čeho se stav skládá"
                                       className="w-full min-h-[44px] py-1 px-1 text-center font-extrabold text-neutral-900 bg-neutral-100 rounded-md hover:bg-amber-100 active:scale-95 transition underline decoration-dotted decoration-neutral-400 underline-offset-2"
                                     >
-                                      {p.currentStock}
-                                      {p.rawStock < 0 && <span className="block text-udaj font-black text-rose-600 font-mono" title="Vydáno víc, než evidence zná">({p.rawStock})</span>}
+                                      <span className={p.currentStock < 0 ? 'text-rose-700' : undefined} title={p.currentStock < 0 ? 'Vydáno víc, než evidence zná' : undefined}>{p.currentStock}</span>
                                       {/* 📉 Za kolik dní dojde. Píše se jen když
                                           DOCHÁZÍ — u dobře zásobeného piva by to
                                           byl jen šum a to podstatné by se v něm
@@ -889,7 +894,7 @@ export default function Stock({ setPage, initialTopTab }: { setPage?: (p: Page, 
                           {p.rawStock < 0 && (
                             <div className="mt-1.5 text-udaj font-bold text-rose-700 flex items-start gap-1.5">
                               <AlertTriangle size={12} className="shrink-0 mt-0.5" />
-                              <span>Evidence vychází do mínusu o {Math.abs(p.rawStock)} ks — vydalo se víc, než kolik se kdy naskladnilo. Na skladě výše se to ukazuje jako 0, rozdíl je potřeba dohledat (chybějící stočení, špatně zapsaný počáteční stav, nebo duplicitní odpočet).</span>
+                              <span>Evidence vychází do mínusu o {Math.abs(p.rawStock)} ks — vydalo se víc, než kolik se kdy naskladnilo. Na skladě výše je proto červený mínus, rozdíl je potřeba dohledat (chybějící stočení, špatně zapsaný počáteční stav, nebo duplicitní odpočet).</span>
                             </div>
                           )}
                         </div>
