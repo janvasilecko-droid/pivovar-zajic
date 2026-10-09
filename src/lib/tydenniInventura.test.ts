@@ -278,3 +278,28 @@ describe('ocekavanyStavTydne — základ z minulého týdne (5. 10. 2026)', () =
     expect(m.get('b1__p1')!.qty).toBe(30 - 3 - 1);
   });
 });
+
+describe('ocekavanyStavTydne — pohyby ze dne počítání (9. 10. 2026: „nemám započítané lahve")', () => {
+  const cas = '2026-10-05T07:00:00.000Z'; // počítalo se v pondělí ráno
+  const zaklad = { b1__l1: { kusu: 50, den: '2026-10-05', cas } };
+
+  it('lahve stočené v den počítání PO počítání se přičtou, ty před ním ne', () => {
+    const pohyby: Movement[] = [
+      { date: '2026-10-05', beer_id: 'b1', package_id: 'l1', qty: 100, kind: 'staceni', createdAt: '2026-10-05T12:30:00+00:00' },
+      { date: '2026-10-05', beer_id: 'b1', package_id: 'l1', qty: 20, kind: 'staceni', createdAt: '2026-10-05T06:00:00+00:00' },
+      { date: '2026-10-06', beer_id: 'b1', package_id: 'l1', qty: -10, kind: 'zavoz' },
+    ];
+    const m = ocekavanyStavTydne(pohyby, '2026-10-05', '2026-10-07', zaklad);
+    expect(m.get('b1__l1')!.qty).toBe(50 + 100 - 10);
+  });
+
+  it('srovnání z minulotýdenní kontroly se nepřičítá podruhé', () => {
+    const pohyby: Movement[] = [
+      { date: '2026-10-05', beer_id: 'b1', package_id: 'l1', qty: 5, kind: 'staceni', createdAt: '2026-10-05T08:00:00Z', note: 'Doplněno z inventury týdne 2026-09-28 — Lahev (přebytek 5 ks)' },
+      { date: '2026-10-06', beer_id: 'b1', package_id: 'l1', qty: -2, kind: 'dorovnani', note: 'Dorovnání z inventury týdne 2026-09-28 — Lahev' },
+      { date: '2026-10-06', beer_id: 'b1', package_id: 'l1', qty: 30, kind: 'staceni' },
+    ];
+    const m = ocekavanyStavTydne(pohyby, '2026-10-05', '2026-10-07', zaklad);
+    expect(m.get('b1__l1')!.qty).toBe(50 + 30);
+  });
+});

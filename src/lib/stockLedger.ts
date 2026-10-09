@@ -73,6 +73,12 @@ export type Movement = {
    * sudy ze zrušené objednávky Maneo a Mutěnice").
    */
   ztrata?: boolean;
+  /**
+   * Kdy se zápis uložil (created_at zdrojového řádku), když ho tabulka má.
+   * Týdenní inventura podle něj pozná pohyb ze dne počítání, který přišel
+   * AŽ PO počítání (9. 10. 2026: „v týdenní inventuře nemám započítané lahve").
+   */
+  createdAt?: string | null;
 };
 
 /**
@@ -204,9 +210,9 @@ export function buildMovements(src: StockSources): Movement[] {
   const out: Movement[] = [];
   const packages = src.packages ?? [];
 
-  const push = (date: any, beer: any, pkg: any, qty: number, kind: MovementKind, note?: string | null, orderId?: string | null) => {
+  const push = (date: any, beer: any, pkg: any, qty: number, kind: MovementKind, note?: string | null, orderId?: string | null, createdAt?: string | null) => {
     if (!date || !beer || !pkg || !qty) return;
-    out.push({ date: String(date).slice(0, 10), beer_id: beer, package_id: pkg, qty, kind, note: note ?? null, orderId: orderId ?? null });
+    out.push({ date: String(date).slice(0, 10), beer_id: beer, package_id: pkg, qty, kind, note: note ?? null, orderId: orderId ?? null, ...(createdAt ? { createdAt } : {}) });
   };
 
   // Inventura — reset stavu. Při shodném datu vyhraje řádek s vyšší prioritou,
@@ -242,18 +248,18 @@ export function buildMovements(src: StockSources): Movement[] {
   // Poznámka se u stáčení nese dál — podle ní se pozná zápis, který vznikl
   // srovnáním inventury (viz lib/vyrovnani.ts). Bez ní by se srovnaný kus
   // nedal odlišit od běžné výroby.
-  (src.keggingRows ?? []).forEach((r) => push(r.entry_date, r.beer_id, r.package_id, Number(r.quantity || 0), 'kegovani', r.note));
-  (src.bottlingRows ?? []).forEach((r) => push(r.entry_date, r.beer_id, r.package_id, Number(r.quantity || 0), 'staceni', r.note));
-  (src.fasovaniRows ?? []).forEach((r) => push(r.entry_date, r.beer_id, r.package_id, -Number(r.quantity || 0), 'fasovani'));
-  (src.prodejnaRows ?? []).forEach((r) => push(r.entry_date, r.beer_id, r.package_id, -Number(r.quantity || 0), 'prodejna'));
-  (src.writeoffsRows ?? []).forEach((r) => push(r.entry_date, r.beer_id, r.package_id, -Number(r.quantity || 0), 'odpis'));
-  (src.zavozDeductionRows ?? []).forEach((r) => push(r.deduct_date, r.beer_id, r.package_id, -Number(r.quantity || 0), 'zavoz', null, r.order_id));
+  (src.keggingRows ?? []).forEach((r) => push(r.entry_date, r.beer_id, r.package_id, Number(r.quantity || 0), 'kegovani', r.note, null, r.created_at));
+  (src.bottlingRows ?? []).forEach((r) => push(r.entry_date, r.beer_id, r.package_id, Number(r.quantity || 0), 'staceni', r.note, null, r.created_at));
+  (src.fasovaniRows ?? []).forEach((r) => push(r.entry_date, r.beer_id, r.package_id, -Number(r.quantity || 0), 'fasovani', null, null, r.created_at));
+  (src.prodejnaRows ?? []).forEach((r) => push(r.entry_date, r.beer_id, r.package_id, -Number(r.quantity || 0), 'prodejna', null, null, r.created_at));
+  (src.writeoffsRows ?? []).forEach((r) => push(r.entry_date, r.beer_id, r.package_id, -Number(r.quantity || 0), 'odpis', null, null, r.created_at));
+  (src.zavozDeductionRows ?? []).forEach((r) => push(r.deduct_date, r.beer_id, r.package_id, -Number(r.quantity || 0), 'zavoz', null, r.order_id, r.created_at));
   (src.adjustmentRows ?? []).forEach((r) => {
     // Ztrátu pozná DŮVOD (reason) a objednávka — sloupec `note` tabulka
     // dorovnání nemá, slouží jen k popisu.
     const duvod = String(r.reason ?? '').trim();
     const pred = out.length;
-    push(r.entry_date, r.beer_id, r.package_id, Number(r.quantity || 0), 'dorovnani', duvod || r.note || null, r.order_id ?? null);
+    push(r.entry_date, r.beer_id, r.package_id, Number(r.quantity || 0), 'dorovnani', duvod || r.note || null, r.order_id ?? null, r.created_at);
     if (out.length > pred && !r.order_id && !duvod) out[out.length - 1].ztrata = true;
   });
 
@@ -300,7 +306,7 @@ export function buildMovements(src: StockSources): Movement[] {
     seen.add(dedupe);
     // Poznámka je z řádku STÁČENÍ — díky ní je vidět, že sud ubyl (nebo se
     // vrátil) kvůli srovnání inventury, ne kvůli běžnému stáčení.
-    push(r.entry_date, r.beer_id, res.kegPkgId, -res.kegsUsed, 'sud_na_lahve', r.note);
+    push(r.entry_date, r.beer_id, res.kegPkgId, -res.kegsUsed, 'sud_na_lahve', r.note, null, r.created_at);
   });
 
   return out;
