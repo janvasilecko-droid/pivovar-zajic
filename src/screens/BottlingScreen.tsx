@@ -355,6 +355,8 @@ export default function BottlingScreen({
   const [writeoffsRows, setWriteoffsRows] = useState<RadekPohybu[]>([]);
   const [zavozDeductionRows, setZavozDeductionRows] = useState<RadekZavozu[]>([]);
   const [adjustmentRows, setAdjustmentRows] = useState<RadekPohybu[]>([]);
+  // Přefuk do zásoby — stejné zdroje jako Sklad (audit 9. 10. 2026).
+  const [prefukRows, setPrefukRows] = useState<any[]>([]);
   const [akceRows, setAkceRows] = useState<any[]>([]);
 
   // Filtry pro "Potřeba stočit lahve"
@@ -479,11 +481,12 @@ export default function BottlingScreen({
     prodejnaRows,
     writeoffsRows,
     akceRows,
+    prefukRows,
     adjustmentRows,
     packages,
     // Viz Kegging.tsx — skutečná zásoba včetně odpočtů závozu.
     zavozDeductionRows,
-  }, businessDateISO()), [inventoryRows, rows, keggingRows, fasovaniRows, prodejnaRows, writeoffsRows, akceRows, adjustmentRows, packages, zavozDeductionRows]);
+  }, businessDateISO()), [inventoryRows, rows, keggingRows, fasovaniRows, prodejnaRows, writeoffsRows, akceRows, prefukRows, adjustmentRows, packages, zavozDeductionRows]);
 
   // Výpočet potřeby stočení lahví — objednávky AKTUÁLNÍHO TÝDNE vs. sklad
   // (stav v pondělí ráno + stočeno tento týden − výdej tento týden). Sdílená
@@ -856,7 +859,7 @@ export default function BottlingScreen({
     const smiZapsat = zacniNacteni();
     const loadId = ++loadCountRef.current;
     if (!silent && !rows.length) setLoading(true);
-    const [bt, b, vsePiva, p, ords, oi, inv, fa, fp, wo, kg, pl, zd, adj, ak, checks] = await Promise.all([
+    const [bt, b, vsePiva, p, ords, oi, inv, fa, fp, wo, kg, pl, zd, adj, ak, checks, pf] = await Promise.all([
       fetchAllRows('bottling', '*').order('entry_date', { ascending: false }).order('created_at', { ascending: true }).order('id'),
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       // Bez filtru na aktivní — jen jméno, pro plán stáčení (viz vsechnaPivaJmena výš).
@@ -876,6 +879,7 @@ export default function BottlingScreen({
       nactiSdilenouTabulku('inventory_adjustments'),
       nactiSdilenouTabulku('akce'),
       nactiSdilenouTabulku('kegging_plan_checks'),
+      nactiSdilenouTabulku('keg_prefuk'),
     ]);
     // Mezitím mohlo začít novější načtení (realtime po cizím zápisu),
     // nebo už obrazovka není vidět. Výsledek se pak zahodí.
@@ -897,11 +901,12 @@ export default function BottlingScreen({
     if (pl.data) setPlans(pl.data);
     if (zd.data) setZavozDeductionRows(zd.data);
     if (adj.data) setAdjustmentRows(adj.data);
+    if (pf.data) setPrefukRows(pf.data as any[]);
     if (ak.data) setAkceRows(ak.data);
     setLoading(false);
   }
   useEffect(() => { load(); }, []);
-  useRealtime(['bottling', 'beers', 'packages', 'orders', 'order_items', 'inventory', 'fasovani', 'fasovani_private', 'writeoffs', 'kegging', 'bottling_plans', 'zavoz_deductions', 'inventory_adjustments', 'akce', 'akce_items', 'kegging_plan_checks'], () => load(true));
+  useRealtime(['bottling', 'beers', 'packages', 'orders', 'order_items', 'inventory', 'fasovani', 'fasovani_private', 'writeoffs', 'kegging', 'bottling_plans', 'zavoz_deductions', 'inventory_adjustments', 'akce', 'akce_items', 'kegging_plan_checks', 'keg_prefuk'], () => load(true));
 
   // Vrací true jen po SKUTEČNÉM uložení — díky tomu si volající (fajfka
   // „Hotovo" v dlaždici, viz confirmTileAndMaybeSave) může ověřit, jestli se
