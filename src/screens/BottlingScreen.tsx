@@ -29,7 +29,7 @@ import { computeKeggingPlan, mergeWeekPlan, rozpadPoObalech, BEZ_TERMINU } from 
 import { zbytekKeKonciTydne } from '../lib/tydenniZbytek';
 import { naplanujPresun } from '../lib/presunPolozky';
 import KeggingDayPlan from '../components/KeggingDayPlan';
-import { chyba, potvrd, toastZpet, volba } from '../lib/toast';
+import { chyba, potvrd, toastZpet, uspech, volba } from '../lib/toast';
 import { zavibruj } from '../lib/haptika';
 import { podezreleMnozstvi } from '../lib/kontrolaZadani';
 import { IkonaLahev, IkonaSud } from '../components/ikony';
@@ -44,14 +44,16 @@ import { jeMesicUzamcen } from '../lib/mesicUzamcen';
 import { zapamatujPozici } from '../lib/drzPozici';
 import { nactiSdilenouTabulku } from '../lib/sdilenaData';
 import { davkySudyBezVelikosti } from '../lib/kontrolaPohybu';
+import { rozdelLahvePodleSudu } from '../lib/dalsiSud';
 
 // Stahuje se až při otevření — viz komentář u lazy() v Orders.tsx.
 const ImportBottlingFromImage = lazy(() => import('../components/ImportBottlingFromImage').then((m) => ({ default: m.ImportBottlingFromImage })));
 const ImportStaceniLahviExcel = lazy(() => import('../components/ImportStaceniLahviExcel'));
 
 const ROW_COUNT = 12;
-type RowInput = { beerId: string; pkgId: string; pkg2Id: string; pkg3Id: string; kegPkgId: string; kegQty: string; qty: string; qty2: string; qty3: string };
-const emptyItem = (): RowInput => ({ beerId: '', pkgId: '', pkg2Id: '', pkg3Id: '', kegPkgId: '', kegQty: '', qty: '', qty2: '', qty3: '' });
+// keg2*: druhá velikost zdrojového sudu (lib/dalsiSud.ts) — prázdná = jen jeden sud.
+type RowInput = { beerId: string; pkgId: string; pkg2Id: string; pkg3Id: string; kegPkgId: string; kegQty: string; keg2PkgId?: string; keg2Qty?: string; qty: string; qty2: string; qty3: string };
+const emptyItem = (): RowInput => ({ beerId: '', pkgId: '', pkg2Id: '', pkg3Id: '', kegPkgId: '', kegQty: '', keg2PkgId: '', keg2Qty: '', qty: '', qty2: '', qty3: '' });
 const emptyRows = (): RowInput[] => Array.from({ length: ROW_COUNT }, emptyItem);
 
 // Povolené velikosti lahví v dropdownu
@@ -172,8 +174,8 @@ export default function BottlingScreen({
     { pkg: 'pkg2Id', qty: 'qty2', key: 2 },
     { pkg: 'pkg3Id', qty: 'qty3', key: 3 },
   ] as const;
-  const [tileDraft, setTileDraft] = useState<{ pkgId: string; qty: string; pkg2Id: string; qty2: string; pkg3Id: string; qty3: string; kegPkgId: string; kegQty: string }>({
-    pkgId: '', qty: '', pkg2Id: '', qty2: '', pkg3Id: '', qty3: '', kegPkgId: '', kegQty: '',
+  const [tileDraft, setTileDraft] = useState<{ pkgId: string; qty: string; pkg2Id: string; qty2: string; pkg3Id: string; qty3: string; kegPkgId: string; kegQty: string; keg2PkgId: string; keg2Qty: string }>({
+    pkgId: '', qty: '', pkg2Id: '', qty2: '', pkg3Id: '', qty3: '', kegPkgId: '', kegQty: '', keg2PkgId: '', keg2Qty: '',
   });
   const openTile = (b: Beer) => {
     // Předvyplnění z řádku, který už tohle pivo má (snadné doladění počtu).
@@ -187,13 +189,17 @@ export default function BottlingScreen({
       pkg3Id: existing.pkg3Id, qty3: existing.qty3,
       kegPkgId: existing.kegPkgId || vychoziZdrojovySud(kegPackages),
       kegQty: existing.kegQty,
+      keg2PkgId: existing.keg2PkgId ?? '', keg2Qty: existing.keg2Qty ?? '',
     } : {
       pkgId: '', qty: '', pkg2Id: '', qty2: '', pkg3Id: '', qty3: '',
-      kegPkgId: vychoziZdrojovySud(kegPackages), kegQty: '',
+      kegPkgId: vychoziZdrojovySud(kegPackages), kegQty: '', keg2PkgId: '', keg2Qty: '',
     });
+    setDruhySudOtevren(false);
     setTileBeer(b);
   };
   const closeTile = () => setTileBeer(null);
+  // Sekce „Další sud" v dlaždici je zavřená, dokud ji stáčeč neotevře.
+  const [druhySudOtevren, setDruhySudOtevren] = useState(false);
   // 📅 Který den v panelu zápisu prohlížíme (přepínač nahoře) — „tyden" je
   // souhrn přes celý týden (výchozí). Stejný nápad jako u KEGů (Kegging.tsx).
   const [tileDay, setTileDay] = useState<string>('tyden');
@@ -229,7 +235,7 @@ export default function BottlingScreen({
   }, [beers.length]);
   const setTile = (field: keyof typeof tileDraft, value: string) =>
     setTileDraft((d) => ({ ...d, [field]: value }));
-  const bumpTile = (field: 'qty' | 'qty2' | 'qty3' | 'kegQty', delta: number) =>
+  const bumpTile = (field: 'qty' | 'qty2' | 'qty3' | 'kegQty' | 'keg2Qty', delta: number) =>
     setTileDraft((d) => {
       const cur = Number(d[field] || 0);
       const next = Math.max(0, cur + delta);
@@ -264,6 +270,7 @@ export default function BottlingScreen({
       pkg2Id: tileDraft.pkg2Id, qty2: tileDraft.qty2,
       pkg3Id: tileDraft.pkg3Id, qty3: tileDraft.qty3,
       kegPkgId: tileDraft.kegPkgId, kegQty: tileDraft.kegQty,
+      keg2PkgId: tileDraft.keg2PkgId, keg2Qty: tileDraft.keg2Qty,
     };
   }
   // Zapíše řádek do prvního řádku s tímto pivem; jinak do příštího prázdného.
@@ -317,7 +324,7 @@ export default function BottlingScreen({
       for (const p of parsed) {
         while (cursor < next.length && (next[cursor].beerId || next[cursor].qty)) cursor++;
         if (cursor >= next.length) {
-          next.push({ beerId: p.beer_id ?? '', pkgId: p.package_id ?? '', pkg2Id: '', pkg3Id: '', kegPkgId: '', kegQty: '', qty: p.quantity != null ? String(p.quantity) : '', qty2: '', qty3: '' });
+          next.push({ beerId: p.beer_id ?? '', pkgId: p.package_id ?? '', pkg2Id: '', pkg3Id: '', kegPkgId: '', kegQty: '', keg2PkgId: '', keg2Qty: '', qty: p.quantity != null ? String(p.quantity) : '', qty2: '', qty3: '' });
         } else {
           next[cursor] = { ...next[cursor], beerId: p.beer_id ?? '', pkgId: p.package_id ?? '', qty: p.quantity != null ? String(p.quantity) : '' };
           cursor++;
@@ -852,6 +859,7 @@ export default function BottlingScreen({
         qty2: plan.qty2 > 0 ? String(plan.qty2) : '',
         pkg3Id: plan.pkg3_id || '',
         qty3: plan.qty3 > 0 ? String(plan.qty3) : '',
+        keg2PkgId: '', keg2Qty: '',
       };
       next[0] = row;
       return next;
@@ -1002,14 +1010,50 @@ export default function BottlingScreen({
       if (!(await potvrd(dotaz, { titulek: 'Chybí zdrojový sud', potvrdit: 'Ano, uložit bez sudů' }))) return false;
     }
 
+    // Druhý sud (lib/dalsiSud.ts) — taky jen s velikostí, jinou než první,
+    // a jen vedle prvního; lahve se mezi sudy rozpočítají podle litrů.
+    for (const r of filled) {
+      if (!r.keg2PkgId && !(Number(r.keg2Qty) > 0)) continue;
+      const nazevPiva = beers.find((b) => b.id === r.beerId)?.name ?? 'Pivo';
+      if (!r.keg2PkgId || !(Number(r.keg2Qty) > 0)) { chyba(`${nazevPiva}: u druhého sudu vyber velikost i počet.`); return false; }
+      if (!r.kegPkgId || !(Number(r.kegQty) > 0)) { chyba(`${nazevPiva}: druhý sud jde zapsat jen vedle prvního — vyplň nejdřív první sud.`); return false; }
+      if (r.keg2PkgId === r.kegPkgId) { chyba(`${nazevPiva}: druhý sud má stejnou velikost jako první — zvyš radši počet u prvního.`); return false; }
+    }
+
     setSaving(true);
 
     // Z každého řádku vytvoříme 1–3 záznamy (Lahve 1, Lahve 2 a/nebo Lahve 3).
     // Všechny sdílí stejný zdroj ze sudů (kegs_used + source_volume_l), takže
     // je možné stočit z jednoho sudu více druhů obalů najednou.
     const payloads: any[] = [];
+    let nelzeRozdelit = '';
     filled.forEach((r) => {
       const beer = beers.find((b) => b.id === r.beerId);
+      // Dva sudy různé velikosti: řádek stáčení unese jen jednu, tak se lahve
+      // rozpočítají mezi sudy podle litrů (lib/dalsiSud.ts). Všechny řádky
+      // jdou v jednom insertu = stejné created_at = jedna dávka.
+      const keg2Pkg = r.keg2PkgId && Number(r.keg2Qty) > 0 ? packages.find((p) => p.id === r.keg2PkgId) : null;
+      const keg1Pkg = r.kegPkgId ? packages.find((p) => p.id === r.kegPkgId) : null;
+      if (keg2Pkg && keg1Pkg) {
+        const lahve = [[r.pkgId, r.qty], [r.pkg2Id, r.qty2], [r.pkg3Id, r.qty3]]
+          .map(([pkgId, q]) => ({ pkgId, qty: Number(q) }))
+          .filter((l) => l.pkgId && l.qty > 0);
+        const casti = rozdelLahvePodleSudu(lahve, [
+          { kegPkgId: keg1Pkg.id, kegQty: Number(r.kegQty), kegVolumeL: Number(keg1Pkg.volume_l) },
+          { kegPkgId: keg2Pkg.id, kegQty: Number(r.keg2Qty), kegVolumeL: Number(keg2Pkg.volume_l) },
+        ]);
+        if (!casti) { nelzeRozdelit = beer?.name ?? 'Pivo'; return; }
+        for (const c of casti) {
+          const pkg = packages.find((p) => p.id === c.pkgId);
+          payloads.push({
+            entry_date: date, beer_id: r.beerId || null, beer_name: beer?.name ?? null,
+            package_id: c.pkgId, package_label: pkg?.label ?? null, quantity: c.qty,
+            kegs_used: c.kegQty, kegs_used_package_id: c.kegPkgId, source_volume_l: c.sourceL,
+            note: note || null,
+          });
+        }
+        return;
+      }
       const kegsUsed = Number(r.kegQty || 0);
       const kegPkg = r.kegPkgId ? packages.find((p) => p.id === r.kegPkgId) : null;
       // Zdrojový objem = počet sudů × objem sudu (např. 6×50L = 300L).
@@ -1042,6 +1086,7 @@ export default function BottlingScreen({
       }
     });
 
+    if (nelzeRozdelit) { chyba(`${nelzeRozdelit}: lahví je míň než sudů — mezi dva sudy je nejde rozdělit.`); setSaving(false); return false; }
     if (payloads.length === 0) { setErr('Vyplň alespoň jeden řádek (obal a množství).'); setSaving(false); return false; }
 
     const { error } = await supabase.from('bottling').insert(payloads);
@@ -1120,10 +1165,13 @@ export default function BottlingScreen({
 
 
   // Identifikátor šarže (skupina záznamů ze stejného zdroje sudů).
-  // Záznamy vložené najednou sdílí stejné created_at.
+  // Záznamy vložené najednou sdílí stejné created_at. Dávka ze dvou velikostí
+  // sudů (lib/dalsiSud.ts) má stejné created_at, ale každá velikost je vlastní
+  // šarže — proto je ve klíči i velikost sudu (stejně jako dedupe ve skladové
+  // knize, stockLedger.ts).
   function getBatchId(r: EntryRow): string {
     if (r.created_at) {
-      return `${r.entry_date}_${r.beer_id}_${r.created_at.slice(0, 19)}`;
+      return `${r.entry_date}_${r.beer_id}_${r.created_at.slice(0, 19)}_${r.kegs_used_package_id ?? ''}`;
     }
     return `${r.entry_date}_${r.beer_id}_${r.kegs_used}_${r.kegs_used_package_id}`;
   }
@@ -1179,10 +1227,80 @@ export default function BottlingScreen({
     const batchId = getBatchId(row);
     const batchRows = rows.filter((r) => getBatchId(r) === batchId);
     const batchIds = batchRows.map((r) => r.id);
+    // Druhá šarže téže dávky (dva sudy) už tuhle velikost má — sloučením by
+    // skladová kniha odečetla jen jednu z nich (dedupe podle velikosti).
+    if (row.created_at && rows.some((r) => r.created_at === row.created_at && r.beer_id === row.beer_id
+      && r.kegs_used_package_id === packageId && !batchIds.includes(r.id))) {
+      chyba('Tahle dávka už má sud této velikosti — uprav radši počet u něj.');
+      return;
+    }
 
     const { error } = await supabase.from('bottling').update({ kegs_used_package_id: packageId, source_volume_l: sourceL }).in('id', batchIds);
     if (error) { setErr(error.message); return; }
     setRows((rs) => rs.map((r) => batchIds.includes(r.id) ? { ...r, kegs_used_package_id: packageId, source_volume_l: sourceL } : r));
+  }
+
+  // ➕ Další sud k už uložené dávce (lib/dalsiSud.ts) — 9. 10. 2026: 10°
+  // Desítka z 6. 10. se stáčela z 1× 50 l a 1× 20 l, zapsaná je jen
+  // padesátka. Lahve šarže se rozpočítají mezi oba sudy podle litrů: nové
+  // řádky dostanou STEJNÉ created_at (= pořád jedna dávka) a původní řádky
+  // se o ně zmenší, takže součet lahví zůstane stejný.
+  async function pridejDalsiSud(zaznamy: EntryRow[], zdrojPackageId: string, sudu: number) {
+    const prvni = zaznamy[0];
+    if (!prvni?.created_at) { chyba('Starší zápis — další sud dopiš přes tužku u řádku.'); return; }
+    const obaly = zaznamy.map((r) => r.package_id);
+    if (new Set(obaly).size !== obaly.length) { chyba('V dávce je jeden obal víckrát — uprav ji přes tužku u řádků.'); return; }
+    const uzMa = new Set(rows.filter((r) => r.created_at === prvni.created_at && r.beer_id === prvni.beer_id).map((r) => r.kegs_used_package_id));
+    const velikost = await volba(
+      'Z jakého dalšího sudu se stáčelo? Lahve se mezi sudy rozpočítají podle litrů.',
+      kegPackages.filter((p) => !uzMa.has(p.id)).map((p) => ({ klic: p.id, label: p.label, ton: 'hlavni' as const })),
+      { titulek: 'Další sud' },
+    );
+    if (!velikost) return;
+    const pocetTxt = await volba(
+      'Kolik sudů této velikosti?',
+      [1, 2, 3, 4, 5, 6].map((n) => ({ klic: String(n), label: String(n), ton: 'hlavni' as const })),
+      { titulek: 'Počet sudů' },
+    );
+    if (!pocetTxt) return;
+    const pocet = Number(pocetTxt);
+    const novy = packages.find((p) => p.id === velikost);
+    const puvodni = packages.find((p) => p.id === zdrojPackageId);
+    if (!novy || !puvodni) return;
+    const casti = rozdelLahvePodleSudu(
+      zaznamy.map((r) => ({ pkgId: r.package_id ?? '', qty: Number(r.quantity) })),
+      [
+        { kegPkgId: puvodni.id, kegQty: sudu, kegVolumeL: Number(puvodni.volume_l) },
+        { kegPkgId: novy.id, kegQty: pocet, kegVolumeL: Number(novy.volume_l) },
+      ],
+    );
+    if (!casti) { chyba('Lahví je míň než sudů — mezi sudy je nejde rozdělit.'); return; }
+    const zustava = (r: EntryRow) => casti.find((c) => c.kegPkgId === puvodni.id && c.pkgId === r.package_id)?.qty ?? 0;
+    if (zaznamy.some((r) => zustava(r) === 0)) { chyba('Některý obal by u původního sudu zůstal na nule — dávku uprav přes tužku u řádků.'); return; }
+    const nove = casti.filter((c) => c.kegPkgId === novy.id).map((c) => {
+      const vzor = zaznamy.find((r) => r.package_id === c.pkgId)!;
+      return {
+        entry_date: vzor.entry_date, beer_id: vzor.beer_id, beer_name: vzor.beer_name,
+        package_id: c.pkgId, package_label: vzor.package_label, quantity: c.qty,
+        kegs_used: c.kegQty, kegs_used_package_id: c.kegPkgId, source_volume_l: c.sourceL,
+        note: vzor.note, created_at: vzor.created_at,
+      };
+    });
+    const { data: vlozene, error } = await supabase.from('bottling').insert(nove).select('id');
+    if (error) { chyba('Další sud se nepodařilo zapsat: ' + error.message); return; }
+    for (const r of zaznamy) {
+      const { error: chybaUpravy } = await supabase.from('bottling').update({ quantity: zustava(r) }).eq('id', r.id);
+      if (chybaUpravy) {
+        // Vrátit, ať lahve nejsou zapsané dvakrát.
+        await supabase.from('bottling').delete().in('id', ((vlozene as { id: string }[]) ?? []).map((v) => v.id));
+        for (const z of zaznamy) await supabase.from('bottling').update({ quantity: z.quantity }).eq('id', z.id);
+        chyba('Další sud se nepodařilo zapsat: ' + chybaUpravy.message);
+        load(true);
+        return;
+      }
+    }
+    uspech(`Přidáno: ${pocet}× ${novy.label} — sklad sudů ho odečte.`);
+    load(true);
   }
 
   // Přehled podle velikosti lahví
@@ -1493,6 +1611,7 @@ export default function BottlingScreen({
                   addPart(row.pkg2Id, row.qty2);
                   addPart(row.pkg3Id, row.qty3);
                   addPart(row.kegPkgId, row.kegQty);
+                  addPart(row.keg2PkgId ?? '', row.keg2Qty ?? '');
                   if (parts.length > 0) return { filled: true, label: parts.join(', ') };
                 }
                 // Nic se zrovna nezadává — ukázat, co už je za tenhle den u
@@ -1720,6 +1839,52 @@ export default function BottlingScreen({
                   </div>
                 </div>
 
+                {/* 🛢️🛢️ Druhá velikost sudu (lib/dalsiSud.ts) — 9. 10. 2026:
+                    „přidej možnost do stáčení přidat další volbu sudu".
+                    Lahve se mezi sudy rozpočítají podle litrů. */}
+                {druhySudOtevren || tileDraft.keg2PkgId || tileDraft.keg2Qty ? (
+                  <div className="rounded border border-sky-300 bg-white/80 p-2 space-y-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-udaj font-black uppercase tracking-wider text-sky-900"><IkonaSud className="ikona-text" /> Další sud</span>
+                      <button
+                        type="button"
+                        className="btn-ghost min-h-[44px] !text-xs"
+                        onClick={() => { setTileDraft((d) => ({ ...d, keg2PkgId: '', keg2Qty: '' })); setDruhySudOtevren(false); }}
+                      >
+                        <X size={14} /> Zrušit
+                      </button>
+                    </div>
+                    <VyberZdrojovehoSudu
+                      sudy={kegPackages.filter((p) => p.id !== tileDraft.kegPkgId)}
+                      vybrany={tileDraft.keg2PkgId}
+                      sBezSudu={false}
+                      zmen={(id) => setTile('keg2PkgId', id)}
+                    />
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-udaj font-extrabold uppercase text-neutral-500">Počet sudů</span>
+                      <div className="flex items-center gap-1">
+                        <button type="button" onClick={() => bumpTile('keg2Qty', -1)} className="btn-pocet !w-11">−</button>
+                        <input
+                          type="number" onWheel={(e) => e.currentTarget.blur()}
+                          min={0}
+                          inputMode="numeric"
+                          aria-label="Počet sudů druhé velikosti"
+                          className="w-16 h-9 text-center bg-white border border-sky-300 text-neutral-950 font-black text-sm rounded"
+                          value={tileDraft.keg2Qty}
+                          onChange={(e) => setTile('keg2Qty', e.target.value.replace(/[^0-9]/g, ''))}
+                          placeholder="0"
+                        />
+                        <button type="button" onClick={() => bumpTile('keg2Qty', 1)} className="btn-pocet !w-11">+</button>
+                      </div>
+                    </div>
+                    <p className="text-udaj text-sky-900">Lahve se mezi sudy rozpočítají podle litrů.</p>
+                  </div>
+                ) : (
+                  <button type="button" className="btn-ghost min-h-[44px] !text-xs" onClick={() => setDruhySudOtevren(true)}>
+                    <Plus size={14} /> Další sud (jiná velikost)
+                  </button>
+                )}
+
                 {/* 🍾 Dopočet z nastáčených lahví (10% ztráta). Nikdy se
                     nevyplní samo — kolik sudů se opravdu načalo ví jen
                     stáčeč, tohle je návrh na jedno kliknutí. */}
@@ -1753,7 +1918,7 @@ export default function BottlingScreen({
 
           {/* 📋 Souhrn zápisu — pod dlaždicemi, editovatelný jako dlaždice */}
           {(() => {
-            type SummaryLine = { rowIndex: number; field: 'qty' | 'qty2' | 'qty3' | 'kegQty'; beerId: string; label: string; qty: number };
+            type SummaryLine = { rowIndex: number; field: 'qty' | 'qty2' | 'qty3' | 'kegQty' | 'keg2Qty'; beerId: string; label: string; qty: number };
             const lines: SummaryLine[] = [];
             entryRows.forEach((r, i) => {
               if (!r.beerId) return;
@@ -1768,6 +1933,7 @@ export default function BottlingScreen({
               pushLine('qty2', r.pkg2Id, r.qty2, false);
               pushLine('qty3', r.pkg3Id, r.qty3, false);
               pushLine('kegQty', r.kegPkgId, r.kegQty, true);
+              pushLine('keg2Qty', r.keg2PkgId ?? '', r.keg2Qty ?? '', true);
             });
             if (lines.length === 0) return null;
             const updateQty = (rowIndex: number, field: SummaryLine['field'], value: string) =>
@@ -2046,9 +2212,7 @@ export default function BottlingScreen({
           const seenKegsTotal = new Set<string>();
           const totalKegs = filtrObdobim.reduce((s, r) => {
             if (r.kegs_used && r.kegs_used > 0) {
-              const bId = r.created_at
-                ? `${r.entry_date}_${r.beer_id}_${r.created_at.slice(0, 19)}`
-                : `${r.entry_date}_${r.beer_id}_${r.kegs_used}_${r.kegs_used_package_id}`;
+              const bId = getBatchId(r);
               if (!seenKegsTotal.has(bId)) { seenKegsTotal.add(bId); return s + Number(r.kegs_used); }
             }
             return s;
@@ -2128,6 +2292,15 @@ export default function BottlingScreen({
                               <span className="text-base font-black text-amber-900 tabular-nums">{s.sudu} <IkonaSud className="ikona-text" /></span>
                               <button type="button" onClick={() => incrementKegs(s.nositelZdroje!.id, 1)} className="w-9 h-9 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-900 font-black text-base transition tap" aria-label="Přidat sud">+</button>
                             </span>
+                            {s.zdrojPackageId && s.sudu > 0 && (
+                              <button
+                                type="button"
+                                className="basis-full btn-ghost min-h-[44px] !text-xs"
+                                onClick={() => { void pridejDalsiSud(s.polozky.map((p) => p.zaznam), s.zdrojPackageId!, s.sudu); }}
+                              >
+                                <Plus size={14} /> Další sud (jiná velikost)
+                              </button>
+                            )}
                           </div>
 
                           {/* 📐 Stočeno litrů + výtrata % — zpětný dopočet ze
