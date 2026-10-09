@@ -240,3 +240,38 @@ export function davkyBezZdrojeSudu(
   }
   return [...davky.values()].sort((a, b) => a.datum.localeCompare(b.datum));
 }
+
+/** Dávka, u které je zapsaný POČET sudů, ale ne jejich velikost. */
+export type DavkaSudyBezVelikosti = DavkaBezSudu & {
+  sudu: number;
+  /** Řádek dávky, přes který se velikost doplní (ostatní se dohledají podle šarže). */
+  id: string;
+};
+
+/**
+ * Dávky stočení lahví se zapsaným počtem sudů BEZ velikosti sudu.
+ *
+ * 9. 10. 2026: „když je zadaný množství, musí být zadaná velikost sudu" —
+ * u 12° Světlé z 6. 10. byly 3 sudy bez velikosti a sklad je neodečetl
+ * (resolveKegsUsed v stockLedger.ts nemá z čeho poznat obal). Na rozdíl od
+ * davkyBezZdrojeSudu sem nepatří dávky úplně bez sudu (doplněné
+ * z inventury, stáčení rovnou z tanku) — tady víme, že sud byl, jen ne jaký.
+ */
+export function davkySudyBezVelikosti(
+  bottlingRows: (StaceniProKontrolu & { id?: string | null; package_id?: string | null; source_volume_l?: number | string | null })[],
+): DavkaSudyBezVelikosti[] {
+  const davky = new Map<string, DavkaSudyBezVelikosti>();
+  for (const r of bottlingRows) {
+    const sudu = Number(r.kegs_used || 0);
+    if (!r.id || !r.beer_id || !(sudu > 0) || r.kegs_used_package_id || Number(r.source_volume_l || 0) > 0) continue;
+    const datum = String(r.entry_date).slice(0, 10);
+    const klic = r.created_at ? `${datum}|${r.beer_id}|${r.created_at}` : `${datum}|${r.beer_id}|${r.id}`;
+    const d = davky.get(klic) ?? { klic, datum, beer_id: r.beer_id, created_at: r.created_at ?? null, lahve: [], sudu, id: r.id };
+    if (r.package_id && Number(r.quantity) > 0) {
+      const l = d.lahve.find((x) => x.package_id === r.package_id);
+      if (l) l.kusu += Number(r.quantity); else d.lahve.push({ package_id: r.package_id, kusu: Number(r.quantity) });
+    }
+    davky.set(klic, d);
+  }
+  return [...davky.values()].sort((a, b) => b.datum.localeCompare(a.datum));
+}

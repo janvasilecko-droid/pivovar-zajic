@@ -1,6 +1,6 @@
 // 1. 10. 2026: „nesedí mi data v inventuře… projdi to všechno pořádně".
 import { describe, it, expect } from 'vitest';
-import { najdiPodezrele, najdiChybejiciZdrojSudu } from './kontrolaPohybu';
+import { najdiPodezrele, najdiChybejiciZdrojSudu, davkySudyBezVelikosti } from './kontrolaPohybu';
 import type { Movement } from './stockLedger';
 
 const m = (date: string, kind: Movement['kind'], qty: number, extra: Partial<Movement> = {}): Movement =>
@@ -120,5 +120,26 @@ describe('davkyBezZdrojeSudu (9. 10. 2026: „nevidím tam 3× 50 ze stáčení 
       { entry_date: '2026-10-01', beer_id: 'sv', package_id: 'l05', quantity: 10, kegs_used: null, created_at: 'z' },
     ] as any, { od: '2026-10-05', doDne: '2026-10-11', beerId: 'sv' });
     expect(d).toEqual([{ klic: `2026-10-06|sv|${c}`, datum: '2026-10-06', beer_id: 'sv', created_at: c, lahve: [{ package_id: 'l05', kusu: 120 }, { package_id: 'l1', kusu: 30 }] }]);
+  });
+});
+
+describe('davkySudyBezVelikosti (9. 10. 2026: „když je zadaný množství, musí být zadaná velikost sudu")', () => {
+  const T = '2026-10-06T21:13:47.838433+00:00';
+  it('najde dávku se 3 sudy bez velikosti jednou za celou šarži', () => {
+    const d = davkySudyBezVelikosti([
+      { id: 'a', entry_date: '2026-10-06', beer_id: 'sv12', package_id: 'l1', quantity: 93, kegs_used: 3, kegs_used_package_id: null, created_at: T },
+      { id: 'b', entry_date: '2026-10-06', beer_id: 'sv12', package_id: 'l15', quantity: 24, kegs_used: 3, kegs_used_package_id: null, created_at: T },
+      { id: 'c', entry_date: '2026-10-06', beer_id: 'sv12', package_id: 'l05', quantity: 20, kegs_used: 3, kegs_used_package_id: null, created_at: T },
+    ]);
+    expect(d).toHaveLength(1);
+    expect(d[0]).toMatchObject({ sudu: 3, id: 'a', datum: '2026-10-06', created_at: T });
+    expect(d[0].lahve.map((l) => l.kusu)).toEqual([93, 24, 20]);
+  });
+  it('dávku s velikostí, s dopočitatelným objemem nebo úplně bez sudu nehlásí', () => {
+    expect(davkySudyBezVelikosti([
+      { id: 'a', entry_date: '2026-10-02', beer_id: 'sv12', package_id: 'l15', quantity: 31, kegs_used: 1, kegs_used_package_id: 'k50', created_at: T },
+      { id: 'b', entry_date: '2026-10-02', beer_id: 'sv12', package_id: 'l1', quantity: 10, kegs_used: 2, source_volume_l: 100, created_at: 'x' },
+      { id: 'c', entry_date: '2026-09-20', beer_id: 'sv12', package_id: 'l15', quantity: 38, kegs_used: null, created_at: 'y' },
+    ])).toEqual([]);
   });
 });

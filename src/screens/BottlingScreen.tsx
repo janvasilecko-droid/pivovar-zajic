@@ -43,6 +43,7 @@ import { soucetUlozenehoDnes } from '../lib/jizUlozeno';
 import { jeMesicUzamcen } from '../lib/mesicUzamcen';
 import { zapamatujPozici } from '../lib/drzPozici';
 import { nactiSdilenouTabulku } from '../lib/sdilenaData';
+import { davkySudyBezVelikosti } from '../lib/kontrolaPohybu';
 
 // Stahuje se až při otevření — viz komentář u lazy() v Orders.tsx.
 const ImportBottlingFromImage = lazy(() => import('../components/ImportBottlingFromImage').then((m) => ({ default: m.ImportBottlingFromImage })));
@@ -460,6 +461,9 @@ export default function BottlingScreen({
   }, [tileBeer, bottlePackages, rows]);
 
   // KEG obaly
+  // Dávky se zapsaným počtem sudů, ale bez velikosti (viz banner nahoře).
+  const sudyBezVelikosti = useMemo(() => davkySudyBezVelikosti(rows), [rows]);
+
   const kegPackages = useMemo(() =>
     packages
       .filter((p) => jeSud(p.kind, p.label) && KEG_SIZES.includes(Number(p.volume_l)))
@@ -796,6 +800,11 @@ export default function BottlingScreen({
   async function saveEditedRow(e: React.FormEvent) {
     e.preventDefault();
     if (!editingRow) return;
+    // Počet sudů bez velikosti sklad neodečte — viz add() (9. 10. 2026).
+    if (Number(editingRow.kegs_used || 0) > 0 && !editingRow.kegs_used_package_id) {
+      chyba('Je zadaný počet sudů, ale ne jejich velikost. Vyber velikost sudu — bez ní se sudy ze skladu neodečtou.');
+      return;
+    }
     try {
       const selectedBeer = beers.find(b => b.id === editingRow.beer_id);
       const selectedPkg = packages.find(p => p.id === editingRow.package_id);
@@ -981,6 +990,13 @@ export default function BottlingScreen({
       const maSudPocet = Number(r.kegQty) > 0;
       if (maSudVelikost && maSudPocet) continue;
       const nazevPiva = beers.find((b) => b.id === r.beerId)?.name ?? 'Pivo';
+      // 9. 10. 2026: „když je zadaný množství, musí být zadaná velikost sudu".
+      // Počet bez velikosti sklad neodečte (nepozná, který sud ubyl) — tohle
+      // se uložit nedá vůbec, ne jen s potvrzením.
+      if (maSudPocet && !maSudVelikost) {
+        chyba(`${nazevPiva}: je zadaný počet sudů (${Number(r.kegQty)}), ale ne jejich velikost. Vyber velikost sudu — bez ní se sudy ze skladu neodečtou.`);
+        return false;
+      }
       const chybi = !maSudVelikost && !maSudPocet ? 'obal ani počet sudů' : !maSudPocet ? 'počet sudů' : 'obal sudu';
       const dotaz = `${nazevPiva}: chybí ${chybi}, ze kterých se stáčelo — sklad sudů se bez toho neodečte.\n\nOpravdu uložit bez toho?`;
       if (!(await potvrd(dotaz, { titulek: 'Chybí zdrojový sud', potvrdit: 'Ano, uložit bez sudů' }))) return false;
@@ -1335,6 +1351,34 @@ export default function BottlingScreen({
           )}
           </div>
         </div>
+
+      {/* ⚠️ Počet sudů bez velikosti — 9. 10. 2026: „na tohle nějak upozorni,
+          když je zadaný množství, musí být zadaná velikost sudu". Sklad takové
+          sudy neodečte, tak to svítí nahoře na každé záložce, dokud se velikost
+          nevyklikne (uloží se hned pro celou šarži, viz updateKegPackage). */}
+      {sudyBezVelikosti.length > 0 && (
+        <div role="alert" className="rounded-xl border-2 border-rose-300 bg-rose-50 p-3 space-y-2">
+          <p className="text-sm font-black text-rose-900 flex items-center gap-1.5">
+            <AlertTriangle size={16} className="shrink-0" />
+            Sudy bez velikosti — sklad je neodečte ({sudyBezVelikosti.length})
+          </p>
+          {sudyBezVelikosti.map((d) => (
+            <div key={d.klic} className="rounded border border-rose-200 bg-white p-2 space-y-2">
+              <p className="text-xs font-bold text-neutral-900">
+                {denACesky(d.datum)} · {vsechnaPivaJmena.find((b) => b.id === d.beer_id)?.name ?? beerName(beers.find((b) => b.id === d.beer_id))}
+                {' · '}{d.lahve.map((l) => `${l.kusu}× ${packages.find((p) => p.id === l.package_id)?.label ?? '?'}`).join(', ')}
+                {' · '}<span className="text-rose-700">{d.sudu} {d.sudu === 1 ? 'sud' : d.sudu < 5 ? 'sudy' : 'sudů'} — jaké velikosti?</span>
+              </p>
+              <VyberZdrojovehoSudu
+                sudy={kegPackages}
+                vybrany=""
+                sBezSudu={false}
+                zmen={(id) => { void updateKegPackage(d.id, id); }}
+              />
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Zápis stáčení — multi-row (12 řádků pivo+obal+množství najednou) */}
       {tab === 'zapis' && (
