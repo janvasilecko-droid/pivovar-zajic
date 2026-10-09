@@ -32,6 +32,8 @@ import { nactiJson, ulozJson } from '../lib/uloziste';
 import { chyba, oznam, potvrd, uspech } from '../lib/toast';
 import { zapamatujPozici } from '../lib/drzPozici';
 import { normalizujCislo } from '../lib/cisloVstup';
+import { puvodStavu } from '../lib/puvodMinusu';
+import { nactiSdilenouTabulku } from '../lib/sdilenaData';
 
 export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, sec?: string, sub?: string) => void } = {}) {
   const dnes = businessDateISO();
@@ -39,6 +41,13 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
   const obdobi = useMemo(() => tydenObdobi(dnes, posun), [dnes, posun]);
 
   const [kniha, setKniha] = useState<SkladovaKniha | null>(null);
+  // Jména odběratelů k závozům — pro rozpis „odkud je mínus" (9. 10. 2026).
+  const [mistoObjednavky, setMistoObjednavky] = useState<Map<string, string | null>>(new Map());
+  useEffect(() => {
+    nactiSdilenouTabulku('orders')
+      .then(({ data }) => setMistoObjednavky(new Map(((data as any[]) ?? []).map((o) => [o.id as string, (o.place_name ?? null) as string | null]))))
+      .catch(() => {});
+  }, [kniha]);
   /** Napočítáno minulý týden (beer__package → kusy) — základ očekávaného stavu. */
   const [minulyTyden, setMinulyTyden] = useState<Record<string, MinulyTydenStav>>({});
   const [tanky, setTanky] = useState<TankProRozdeleni[]>([]);
@@ -636,6 +645,33 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
                     </div>
                   </div>
                 </div>
+
+                {/* ➖ Mínus v „Čeká se" = vydalo se víc, než se zapsalo do
+                    stáčení. Rozpis pohybů od poslední inventury ukáže, který
+                    závoz/výdej ho udělal (9. 10. 2026: „mám mínus 12 sv 50 l"). */}
+                {r.ocekavano < 0 && kniha && (
+                  <details className="mt-2.5 rounded-lg border border-rose-300 bg-white px-3 py-2">
+                    <summary className="cursor-pointer min-h-[44px] flex items-center text-xs font-black text-rose-800">
+                      Odkud je mínus {r.ocekavano}? Vydalo se víc, než se zapsalo do stáčení.
+                    </summary>
+                    <ul className="mt-1 space-y-0.5 text-xs text-neutral-800">
+                      {puvodStavu(kniha.pohyby, r.beer_id, r.package_id, obdobi.doPocitani, mistoObjednavky).map((p, i) => (
+                        <li key={i} className="flex justify-between gap-2 tabular-nums">
+                          <span className="min-w-0">
+                            {p.datum.slice(8, 10)}. {p.datum.slice(5, 7)}. {p.popis}
+                            {p.vlastniSudy && <span className="font-black text-rose-800"> — vlastní sudy: chybí k tomu zápis stáčení „Do jejich sudů“?</span>}
+                          </span>
+                          <span className="shrink-0 font-bold">
+                            {p.popis.startsWith('Inventura') ? '' : p.kusu > 0 ? `+${p.kusu}` : p.kusu} → <span className={p.stavPo < 0 ? 'text-rose-700' : ''}>{p.stavPo}</span>
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="mt-1.5 text-xs text-neutral-700">
+                      Když sudy fyzicky stočené jsou, ale nejsou zapsané: zapiš je ve stáčení (u odběratele s vlastními sudy volbou „Do jejich sudů“). Když se nestočily, sklad pivovaru opravdu chybí.
+                    </p>
+                  </details>
+                )}
 
                 {jeRozdil && (
                   <div className="mt-2.5 pt-2.5 border-t border-black/10 flex flex-wrap items-center gap-2">
