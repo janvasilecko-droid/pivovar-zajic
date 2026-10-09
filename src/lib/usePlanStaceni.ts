@@ -40,6 +40,8 @@ export type PlanStaceni = {
    * (30. 9. 2026: „furt tu vidím Osma 2×" — ať je vidět, co ten mínus dělá).
    */
   puvodMinusu: (beerId: string, packageId: string) => { datum: string; popis: string; kusu: number }[];
+  /** Stav skladem teď (skladová kniha), klíč `beer_id__package_id`. */
+  zasoba?: Map<string, number>;
 };
 
 /**
@@ -176,5 +178,5 @@ export function usePlanStaceni(weekKey: string, { sudy = true, lahve = true }: {
     }));
   };
 
-  return { data, chyba, planySudy, planyLahve, nacti, puvodMinusu };
+  return { data, chyba, planySudy, planyLahve, nacti, puvodMinusu, zasoba: currentStockMap };
 }
