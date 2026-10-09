@@ -29,7 +29,7 @@ import { computeKeggingPlan, mergeWeekPlan, rozpadPoObalech, BEZ_TERMINU } from 
 import { zbytekKeKonciTydne } from '../lib/tydenniZbytek';
 import { naplanujPresun } from '../lib/presunPolozky';
 import KeggingDayPlan from '../components/KeggingDayPlan';
-import { chyba, potvrd, toastZpet } from '../lib/toast';
+import { chyba, potvrd, toastZpet, volba } from '../lib/toast';
 import { zavibruj } from '../lib/haptika';
 import { podezreleMnozstvi } from '../lib/kontrolaZadani';
 import { IkonaLahev, IkonaSud } from '../components/ikony';
@@ -1122,7 +1122,20 @@ export default function BottlingScreen({
     const newKegs = current + delta;
     if (newKegs < 0) return;
     const kegs = newKegs > 0 ? newKegs : null;
-    const kegPkg = row.kegs_used_package_id ? packages.find((p) => p.id === row.kegs_used_package_id) : null;
+    let kegPkg = row.kegs_used_package_id ? packages.find((p) => p.id === row.kegs_used_package_id) : null;
+    // 9. 10. 2026: „doplnil jsem ho později, to se musí propsat rovnou". Počet
+    // sudů bez velikosti sklad neodečte (nepozná, který sud ubyl) — proto se
+    // bez vybrané velikosti zeptá, místo aby uložil „bez sudu".
+    if (kegs && !kegPkg) {
+      const vyber = await volba(
+        'Z jakých sudů se stáčelo? Bez velikosti sudu se sudy ze skladu neodečtou.',
+        kegPackages.map((p) => ({ klic: p.id, label: p.label, ton: 'hlavni' as const })),
+        { titulek: 'Velikost sudu' },
+      );
+      if (!vyber) return;
+      kegPkg = packages.find((p) => p.id === vyber) ?? null;
+      if (!kegPkg) return;
+    }
     const sourceL = kegs && kegPkg ? kegs * Number(kegPkg.volume_l) : null;
 
     // Najdeme všechny řádky stejné šarže (stejný zdroj ze sudů)
@@ -1130,9 +1143,10 @@ export default function BottlingScreen({
     const batchRows = rows.filter((r) => getBatchId(r) === batchId);
     const batchIds = batchRows.map((r) => r.id);
 
-    const { error } = await supabase.from('bottling').update({ kegs_used: kegs, source_volume_l: sourceL }).in('id', batchIds);
+    const zmena = { kegs_used: kegs, source_volume_l: sourceL, ...(kegPkg ? { kegs_used_package_id: kegPkg.id } : {}) };
+    const { error } = await supabase.from('bottling').update(zmena).in('id', batchIds);
     if (error) { setErr(error.message); return; }
-    setRows((rs) => rs.map((r) => batchIds.includes(r.id) ? { ...r, kegs_used: kegs, source_volume_l: sourceL } : r));
+    setRows((rs) => rs.map((r) => batchIds.includes(r.id) ? { ...r, ...zmena } : r));
   }
 
   // Změní velikost (typ) KEG sudu, ze kterého bylo stočeno, pro celou šarži.
@@ -2062,6 +2076,9 @@ export default function BottlingScreen({
                                 zmen={(id) => updateKegPackage(s.nositelZdroje!.id, id)}
                               />
                             </div>
+                            {s.sudu > 0 && !s.zdrojPackageId && (
+                              <p className="basis-full text-xs font-black text-rose-700">Vyber velikost sudu — bez ní se {s.sudu} sudy ze skladu neodečtou.</p>
+                            )}
                             <span className="ml-auto flex items-center gap-1 shrink-0">
                               <button type="button" onClick={() => incrementKegs(s.nositelZdroje!.id, -1)} className="w-9 h-9 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-800 font-black text-base transition tap" aria-label="Ubrat sud">−</button>
                               <span className="text-base font-black text-amber-900 tabular-nums">{s.sudu} <IkonaSud className="ikona-text" /></span>
