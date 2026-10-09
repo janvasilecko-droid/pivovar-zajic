@@ -107,3 +107,18 @@ describe('chybějící zdrojový sud u stáčení lahví', () => {
     expect(n).toEqual([]);
   });
 });
+
+describe('davkyBezZdrojeSudu (9. 10. 2026: „nevidím tam 3× 50 ze stáčení lahví")', () => {
+  it('jedna dávka na stočení, jen ty, které kniha ze sudů neodečte', async () => {
+    const { davkyBezZdrojeSudu } = await import('./kontrolaPohybu');
+    const c = '2026-10-06T10:00:00+00:00';
+    const d = davkyBezZdrojeSudu([
+      { entry_date: '2026-10-06', beer_id: 'sv', package_id: 'l05', quantity: 120, kegs_used: null, created_at: c },
+      { entry_date: '2026-10-06', beer_id: 'sv', package_id: 'l1', quantity: 30, kegs_used: null, created_at: c },
+      { entry_date: '2026-10-07', beer_id: 'sv', package_id: 'l05', quantity: 50, kegs_used: 2, kegs_used_package_id: 'k50', created_at: 'x' },
+      { entry_date: '2026-10-07', beer_id: 'sv', package_id: 'l05', quantity: 50, kegs_used: 1, source_volume_l: 50, created_at: 'y' },
+      { entry_date: '2026-10-01', beer_id: 'sv', package_id: 'l05', quantity: 10, kegs_used: null, created_at: 'z' },
+    ] as any, { od: '2026-10-05', doDne: '2026-10-11', beerId: 'sv' });
+    expect(d).toEqual([{ klic: `2026-10-06|sv|${c}`, datum: '2026-10-06', beer_id: 'sv', created_at: c, lahve: [{ package_id: 'l05', kusu: 120 }, { package_id: 'l1', kusu: 30 }] }]);
+  });
+});

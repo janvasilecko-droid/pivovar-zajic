@@ -12,6 +12,7 @@ import { ChevronLeft, ChevronRight, ListOrdered } from 'lucide-react';
 import { Spinner } from './ui';
 import { useRealtime } from '../lib/supabase';
 import { nactiSkladovouKnihu, type SkladovaKniha } from '../lib/skladovaKnihaData';
+import { DoplnitZdrojSudu } from './DoplnitZdrojSudu';
 import { sestavPohybyObdobi, SKUPINY_POHYBU } from '../lib/pohybySkladu';
 import { ChipyPiva, ChipyObalu } from './FiltrPivaAObalu';
 import { konecMesice } from '../lib/stockLedger';
@@ -21,7 +22,7 @@ import { businessDateISO, posunMesic } from '../lib/businessDate';
 import { zalogujANahlas } from '../lib/chybyHlaseni';
 import { nactiJson, ulozJson } from '../lib/uloziste';
 import { nactiSdilenouTabulku } from '../lib/sdilenaData';
-import { najdiPodezrele, najdiChybejiciZdrojSudu, type Nalez, type ObjednavkaProKontrolu, type PolozkaProKontrolu } from '../lib/kontrolaPohybu';
+import { najdiPodezrele, najdiChybejiciZdrojSudu, davkyBezZdrojeSudu, type Nalez, type ObjednavkaProKontrolu, type PolozkaProKontrolu } from '../lib/kontrolaPohybu';
 
 const DNY = ['Ne', 'Po', 'Út', 'St', 'Čt', 'Pá', 'So'];
 const LS_ROZDELIT = 'pohyby_skladu_rozdelit_mesice_v2';
@@ -403,6 +404,15 @@ export default function PohybySkladu() {
       </div>
 
       {bezi && <Spinner />}
+      {!bezi && kniha && (
+        <DoplnitZdrojSudu
+          davky={davkyBezZdrojeSudu(kniha.bottling, { od, doDne, beerId: beerId || undefined })}
+          obaly={kniha.obaly as any}
+          piva={kniha.piva}
+          vychoziObal={packageId || undefined}
+          onUlozeno={() => { void nacti(); }}
+        />
+      )}
       {!bezi && kniha && (
         <div className="rounded-xl border-2 border-neutral-300 bg-white p-3 space-y-2">
           <button

@@ -202,3 +202,41 @@ export function najdiChybejiciZdrojSudu(
   }
   return out;
 }
+
+/** Dávka stočení lahví, u které sklad sudů neví, ze kterého sudu se stáčelo. */
+export type DavkaBezSudu = {
+  klic: string;
+  datum: string;
+  beer_id: string;
+  /** Podle něj se dávka v databázi najde (všechny její řádky mají stejný). Bez něj nejde doplnit odsud. */
+  created_at: string | null;
+  lahve: { package_id: string; kusu: number }[];
+};
+
+/**
+ * Dávky stočení lahví, které skladová kniha NEODEČTE ze sudů — chybí počet
+ * sudů, nebo obal sudu a nejde ho dopočítat z objemu (stejné pravidlo jako
+ * resolveKegsUsed v stockLedger.ts). 9. 10. 2026: „nevidím tam 3× 50 ze
+ * stáčení lahví" — Pohyby to teď ukážou samy, bez hledání.
+ */
+export function davkyBezZdrojeSudu(
+  bottlingRows: (StaceniProKontrolu & { package_id?: string | null; source_volume_l?: number | string | null })[],
+  filtr: { od: string; doDne: string; beerId?: string },
+): DavkaBezSudu[] {
+  const davky = new Map<string, DavkaBezSudu>();
+  for (const r of bottlingRows) {
+    if (!r.beer_id || !(Number(r.quantity) > 0) || !r.package_id) continue;
+    const datum = String(r.entry_date).slice(0, 10);
+    if (datum < filtr.od || datum > filtr.doDne) continue;
+    if (filtr.beerId && r.beer_id !== filtr.beerId) continue;
+    const kegs = Number(r.kegs_used || 0);
+    const odecte = kegs > 0 && (!!r.kegs_used_package_id || Number(r.source_volume_l || 0) > 0);
+    if (odecte) continue;
+    const klic = r.created_at ? `${datum}|${r.beer_id}|${r.created_at}` : `${datum}|${r.beer_id}|${r.note || ''}`;
+    const d = davky.get(klic) ?? { klic, datum, beer_id: r.beer_id, created_at: r.created_at ?? null, lahve: [] };
+    const l = d.lahve.find((x) => x.package_id === r.package_id);
+    if (l) l.kusu += Number(r.quantity); else d.lahve.push({ package_id: r.package_id, kusu: Number(r.quantity) });
+    davky.set(klic, d);
+  }
+  return [...davky.values()].sort((a, b) => a.datum.localeCompare(b.datum));
+}
