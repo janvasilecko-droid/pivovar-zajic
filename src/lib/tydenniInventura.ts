@@ -273,7 +273,16 @@ export function zaznamKontroly(
 
 
 /** Co se napočítalo minulý týden: kusy a den, kdy se to počítalo (Praha). */
-export type MinulyTydenStav = { kusu: number; den: string };
+export type MinulyTydenStav = {
+  kusu: number;
+  den: string;
+  /**
+   * Přesný čas počítání (ISO). Pohyb ze DNE počítání se přičte, když se
+   * zapsal až po něm — lahve stočené v pondělí odpoledne po ranním počítání
+   * jinak v „Čeká se" chyběly (9. 10. 2026).
+   */
+  cas?: string | null;
+};
 
 /**
  * Očekávaný stav pro týdenní inventuru.
@@ -308,8 +317,16 @@ export function ocekavanyStavTydne(
       && `${m.beer_id}__${m.package_id}` === k && m.date >= minule.den && m.date <= doPocitani);
     if (minule && !novejsiInventura) {
       const odDne = minule.den >= od ? posunDnu(minule.den, 1) : od;
+      const poPocitaniVTenDen = (m: Movement) => !!minule.cas && minule.den >= od && m.date === minule.den
+        && !!m.createdAt && Date.parse(m.createdAt) > Date.parse(minule.cas);
+      // Srovnání z minulotýdenní kontroly („Zapsat do stáčení", „Dorovnat")
+      // srovnává knihu NA napočítané číslo — základ už ho obsahuje, přičíst
+      // ho znovu by ho započítalo dvakrát.
+      const srovnaniMinulehoTydne = `inventury ${stitekTydne(posunDnu(od, -7))}`;
       const pohybyOdPocitani = pohyby
-        .filter((m) => m.kind !== 'inventura' && `${m.beer_id}__${m.package_id}` === k && m.date >= odDne && m.date <= doPocitani)
+        .filter((m) => m.kind !== 'inventura' && `${m.beer_id}__${m.package_id}` === k && m.date <= doPocitani
+          && (m.date >= odDne || poPocitaniVTenDen(m))
+          && !(m.note ?? '').includes(srovnaniMinulehoTydne))
         .reduce((a, m) => a + m.qty, 0);
       out.set(k, {
         ...(r ?? { key: k, beer_id, package_id, byKind: {} }),

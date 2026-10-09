@@ -77,6 +77,10 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
   // zápisu i při návratu na stejný týden) tiše přepsalo naťukaná čísla jen
   // tím, co už je uložené v DB.
   const loadedTydenRef = useRef<string | null>(null);
+  // Co je v databázi napočítané za TENHLE týden. Opakované uložení stejného
+  // čísla nesmí posunout čas počítání (updated_at) — podle něj se k počtu
+  // přičítají pohyby, které přišly po počítání (9. 10. 2026).
+  const ulozenePoctyRef = useRef<Map<string, number>>(new Map());
   // 🔎 Detail rozdílu — rozbalí se u řádku, který nesedí: odkud se vzal
   // (jaké pohyby se s ním za ten týden dělo) a proklik na objednávky, které
   // se do toho počítaly (viz zavoz_deductions.order_id).
@@ -147,7 +151,7 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
       for (const r of ((minule as any[]) ?? [])) {
         const n = Number(r.napocitano);
         if (r.napocitano == null || !Number.isFinite(n) || !r.updated_at) continue;
-        mt[`${r.beer_id}__${r.package_id}`] = { kusu: n, den: businessDateISO(new Date(r.updated_at)) };
+        mt[`${r.beer_id}__${r.package_id}`] = { kusu: n, den: businessDateISO(new Date(r.updated_at)), cas: r.updated_at };
       }
       setMinulyTyden(mt);
       setKniha(k);
@@ -157,6 +161,7 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
       // zpátky se rozdělaná práce nesmí ztratit.
       const mapaDB: Record<string, string> = {};
       for (const r of ((ulozene as any[]) ?? [])) mapaDB[`${r.beer_id}__${r.package_id}`] = String(r.napocitano);
+      ulozenePoctyRef.current = new Map(((ulozene as any[]) ?? []).map((r) => [`${r.beer_id}__${r.package_id}`, Number(r.napocitano)]));
       // Základ = koncept z localStorage pro TENHLE týden (přežije refresh i
       // uspání telefonu), DB má přednost tam, kde už je něco oficiálně uloženo.
       const koncept = nactiJson<Record<string, string>>(`tydenni_napocitano_${obdobi.od}`, {});
@@ -351,10 +356,29 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
 
   /** Záznam o kontrole. Jedno pivo × obal má v týdnu jediný řádek — přepisuje se. */
   async function ulozZaznam(r: TydenniRadek, vyreseno: 'staceni' | 'dorovnani' | 'ponechano' | null) {
-    const { error } = await supabase
-      .from('tydenni_inventura')
-      .upsert([zaznamKontroly(r, obdobi, vyreseno)], { onConflict: 'tyden_od,beer_id,package_id' });
-    if (error) chyba('Záznam o kontrole se neuložil: ' + error.message);
+    const error = await upsertKontrol([r], () => vyreseno);
+    if (error) chyba('Záznam o kontrole se neuložil: ' + error);
+  }
+
+  /**
+   * Uloží záznamy kontroly. Řádky se STEJNÝM napočítaným číslem jako
+   * v databázi si nechají původní čas počítání (zvlášť upsert bez
+   * updated_at), nové a změněné dostanou nový čas.
+   */
+  async function upsertKontrol(radky: TydenniRadek[], vyreseno: (r: TydenniRadek) => 'staceni' | 'dorovnani' | 'ponechano' | null): Promise<string | null> {
+    const stejne = radky.filter((r) => ulozenePoctyRef.current.get(r.klic) === r.napocitano);
+    const zmenene = radky.filter((r) => ulozenePoctyRef.current.get(r.klic) !== r.napocitano);
+    const davky = [
+      stejne.map((r) => { const { updated_at: _cas, ...bezCasu } = zaznamKontroly(r, obdobi, vyreseno(r)); return bezCasu; }),
+      zmenene.map((r) => zaznamKontroly(r, obdobi, vyreseno(r))),
+    ];
+    for (const davka of davky) {
+      if (davka.length === 0) continue;
+      const { error } = await supabase.from('tydenni_inventura').upsert(davka, { onConflict: 'tyden_od,beer_id,package_id' });
+      if (error) return error.message;
+    }
+    for (const r of radky) if (r.napocitano !== null) ulozenePoctyRef.current.set(r.klic, r.napocitano);
+    return null;
   }
 
   /** Uloží všechno napočítané naráz — rozdíly nechá být, ty se řeší po řádcích. */
@@ -363,10 +387,8 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
     if (spocitane.length === 0) { oznam('Není co uložit — zatím není nic napočítané.'); return; }
     setUklada('vse');
     try {
-      const { error } = await supabase
-        .from('tydenni_inventura')
-        .upsert(spocitane.map((r) => zaznamKontroly(r, obdobi, r.rozdil === 0 ? null : 'ponechano')), { onConflict: 'tyden_od,beer_id,package_id' });
-      if (error) throw error;
+      const error = await upsertKontrol(spocitane, (r) => (r.rozdil === 0 ? null : 'ponechano'));
+      if (error) throw new Error(error);
       uspech(`Uloženo ${spocitane.length} napočítaných položek za týden ${popisTydne(obdobi.od, obdobi.do)}.`);
     } catch (e: any) {
       chyba('Uložení se nepovedlo: ' + (e?.message || e));
