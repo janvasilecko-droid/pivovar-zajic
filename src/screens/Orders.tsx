@@ -11,7 +11,7 @@ import { vlastniSudyOdberatele } from '../lib/vlastniSudy';
 import { MaleSudyVolne, MaleSudyRadek, tridaRadkuSudu } from '../components/MaleSudyVolne';
 import { EmptyState, Spinner } from '../components/ui';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
-import { zbytekKeKonciTydne, zbytekPodleObjednavek, type ObjednavkaKPrioritě } from '../lib/tydenniZbytek';
+import { chybiSklademTydne } from '../lib/tydenniZbytek';
 import type { StockSources } from '../lib/stockLedger';
 import { consumeOrdersItemFilter, consumeOrdersAutoImportRequest, consumeOrdersOverdueFilter, consumeOrdersPendingFilter, consumeOrdersHledani, ORDERS_AUTO_IMPORT_EVENT, ORDERS_HLEDANI_EVENT } from '../lib/ordersFilter';
 import { businessDateISO, posunMesic, posunDen } from '../lib/businessDate';
@@ -1099,30 +1099,23 @@ export default function Orders({
   // Rozhodnutí uživatele: priorita podle dne dovozu, viz zbytekPodleObjednavek
   // v lib/tydenniZbytek.ts.
   const zbytkyPodleTydne = useRef(new Map<string, Map<string, Map<string, number>>>());
-  useEffect(() => { zbytkyPodleTydne.current = new Map(); }, [pohybySkladu, orders, items]);
+  useEffect(() => { zbytkyPodleTydne.current = new Map(); }, [pohybySkladu, orders, items, packages]);
   function stockRemainingForOrder(o: Order): Map<string, number> {
     const wk = orderWeekKey(o);
     let hotove = zbytkyPodleTydne.current.get(wk);
     if (!hotove) {
-      const konec = weekRange(wk).end.toISOString().slice(0, 10);
-      const zbytek = zbytekKeKonciTydne(pohybySkladu, konec);
-      const objednavkyTydne: ObjednavkaKPrioritě[] = orders
-        .filter((ord) => ord.status !== 'storno' && orderWeekKey(ord) === wk)
-        .map((ord) => ({
-          order_id: ord.id,
-          poradiDatum: ord.delivery_date || ord.order_date,
-          polozky: (items[ord.id] ?? []).map((it) => ({
-            order_item_id: it.id,
-            beer_id: it.beer_id,
-            package_id: it.package_id,
-            beer_name: it.beer_name,
-            quantity: Number(it.quantity),
-          })),
-        }));
-      const jizOdecteno = new Set(
-        zavozDeductionRows.filter((r) => r.order_item_id).map((r) => r.order_item_id as string)
-      );
-      hotove = zbytekPodleObjednavek(objednavkyTydne, zbytek, jizOdecteno);
+      // Jeden výpočet s Závozem (lib/tydenniZbytek.ts, audit 9. 10. 2026) —
+      // včetně vyřazení sudů odběratelů s vlastními sudy.
+      const vsechnyPolozky = Object.values(items).flat();
+      hotove = chybiSklademTydne({
+        zdroje: pohybySkladu,
+        konecTydneISO: weekRange(wk).end.toISOString().slice(0, 10),
+        objednavky: orders.filter((ord) => ord.status !== 'storno' && orderWeekKey(ord) === wk),
+        polozky: (id) => items[id] ?? [],
+        vsechnyObjednavky: orders,
+        vsechnyPolozky,
+        obaly: packages,
+      });
       zbytkyPodleTydne.current.set(wk, hotove);
     }
     return hotove.get(o.id) ?? new Map();

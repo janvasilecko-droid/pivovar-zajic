@@ -7,7 +7,7 @@ import { DAYS } from '../lib/shared';
 import { AlertTriangle, ArrowRightLeft, Bird, Calendar, CalendarDays, Car, Check, CheckCircle2, Map as MapIcon, MapPin, MessageCircle, Package as PackageIcon, PenTool, Pencil, Phone, Printer, Scale, Search, StickyNote, TreePine, Truck, Wine, Droplet } from 'lucide-react';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 import type { StockSources } from '../lib/stockLedger';
-import { zbytekKeKonciTydne, schodkyObjednavky } from '../lib/tydenniZbytek';
+import { chybiSklademTydne, schodkyObjednavky } from '../lib/tydenniZbytek';
 import { bezSuduOdberatele } from '../lib/vlastniSudy';
 import { getSecondCarOrderIds, toggleOrderKachna, toggleOrdersKachna, migrateSecondCarDatesToOrders } from '../lib/zavozSecondCar';
 import { PodpisModal } from '../components/PodpisModal';
@@ -218,9 +218,22 @@ export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
 
   // Stav skladu ke KONCI vybraného týdne — stejný výpočet jako u odznaku
   // „chybí skladem" v Objednávkách (lib/tydenniZbytek.ts), ne nový čtvrtý.
-  const zbytek = useMemo(
-    () => zbytekKeKonciTydne(stockRows, weekRange(weekKey).end.toISOString().slice(0, 10)),
-    [stockRows, weekKey]
+  // Audit 9. 10. 2026: dřív se tu každá objednávka porovnávala s celým
+  // zbytkem zvlášť (o ostatních objednávkách týdne nevěděla) a „chybí" se
+  // rozcházelo s Objednávkami. Teď stejný výpočet jako Objednávky
+  // (chybiSklademTydne) — zásoba rozdělená podle dne závozu, bez sudů
+  // odběratelů s vlastními sudy.
+  const zbytekPodleObjednavky = useMemo(
+    () => chybiSklademTydne({
+      zdroje: stockRows,
+      konecTydneISO: weekRange(weekKey).end.toISOString().slice(0, 10),
+      objednavky: orders.filter((o) => o.status !== 'storno' && isoWeekKey(o.delivery_date || o.order_date) === weekKey),
+      polozky: (id) => items[id] ?? [],
+      vsechnyObjednavky: orders,
+      vsechnyPolozky: Object.values(items).flat(),
+      obaly: packages,
+    }),
+    [stockRows, weekKey, orders, items, packages]
   );
 
   // Konto sudů se počítá ze všech pohybů (odvezeno/vráceno) — načítá se zvlášť,
@@ -1106,7 +1119,7 @@ export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
                                     // kniha), ale dřív to nikde před závozem nesrovnala — jen se
                                     // ručně odškrtávalo "stočeno" bez ověření. Stejný výpočet jako
                                     // odznak "chybí skladem" v Objednávkách.
-                                    const schodky = o.is_delivered ? [] : schodkyObjednavky(bezSuduOdberatele(o.place_name, orderItems, packages), zbytek);
+                                    const schodky = o.is_delivered ? [] : schodkyObjednavky(bezSuduOdberatele(o.place_name, orderItems, packages), zbytekPodleObjednavky.get(o.id) ?? new Map());
                                     return (
                                       <div key={o.id} className={`p-3 rounded border ${o.is_delivered ? 'bg-emerald-100/50 border-emerald-200' : 'bg-white border-neutral-200'}`}>
                                         {schodky.length > 0 && (

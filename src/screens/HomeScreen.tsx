@@ -1205,8 +1205,10 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
       // Supabase zahodí všechno nad tisícovkou bez chyby. Za jeden den se
       // tisíc zápisů nesejde, ale tohle je přesně ta úvaha, po které za rok
       // v souhrnu chybí kusy a nikdo neví proč (hlídá test strankovaniDotazu).
-      const [bot, keg, fa, fp, wo, zd] = await Promise.all([
-        fetchAllRows<any>('bottling', 'entry_date,beer_id,package_id,quantity').eq('entry_date', dnes),
+      // Audit 9. 10. 2026: souhrn dne dřív neznal akce, přefuk, sudy
+      // spotřebované na lahve ani dorovnání — teď stejné zdroje jako Sklad.
+      const [bot, keg, fa, fp, wo, zd, ak, pf, adj, obaly] = await Promise.all([
+        fetchAllRows<any>('bottling', 'entry_date,beer_id,package_id,quantity,kegs_used,kegs_used_package_id,source_volume_l,note,created_at').eq('entry_date', dnes),
         // POZOR: kegs_used/kegs_used_package_id jsou sloupce BOTTLING (sudy
         // spotřebované na stáčení lahví), ne kegging. Když se vyžádaly tady,
         // celý dotaz spadl na 'column kegging.kegs_used does not exist' —
@@ -1218,8 +1220,16 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
         // Sloupec se jmenuje deduct_date, ne deducted_date — dotaz proto vždy
         // spadl a v souhrnu dne nebyl vidět ani jeden závoz.
         fetchAllRows<any>('zavoz_deductions', 'deduct_date,beer_id,package_id,quantity').eq('deduct_date', dnes),
+        fetchAllRows<any>('akce', 'entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)').eq('entry_date', dnes),
+        fetchAllRows<any>('keg_prefuk', 'entry_date,beer_id,from_package_id,from_count,to_package_id,to_count').eq('entry_date', dnes),
+        fetchAllRows<any>('inventory_adjustments', 'entry_date,beer_id,package_id,quantity,order_id,reason').eq('entry_date', dnes),
+        supabase.from('packages').select('id,kind,volume_l,label'),
       ]);
       const pohyby = buildMovements({
+        akceRows: (ak.data as any[]) ?? [],
+        prefukRows: (pf.data as any[]) ?? [],
+        adjustmentRows: (adj.data as any[]) ?? [],
+        packages: (obaly.data as any[]) ?? [],
         bottlingRows: (bot.data as any[]) ?? [],
         keggingRows: (keg.data as any[]) ?? [],
         fasovaniRows: (fa.data as any[]) ?? [],
