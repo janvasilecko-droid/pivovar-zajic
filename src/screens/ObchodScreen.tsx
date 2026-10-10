@@ -20,8 +20,7 @@ import { EmptyState, Spinner } from '../components/ui';
 import { useAuth } from '../lib/auth';
 import { businessDateISO } from '../lib/businessDate';
 import { useObchod } from '../lib/obchodData';
-import { stavySkladu, varovaniZasob, fasovaniBezZbozi } from '../lib/obchodSklad';
-import { inventuraObchoduChybi } from '../lib/obchodInventura';
+import { spoctiUpozorneni } from '../lib/obchodUpozorneni';
 import ProdejnaScreen from './ProdejnaScreen';
 import { ObchodPrehled } from '../components/obchod/ObchodPrehled';
 import { ObchodUzaverky } from '../components/obchod/ObchodUzaverky';
@@ -53,12 +52,9 @@ export default function ObchodScreen({ setPage, pageSubTab }: {
   }
 
   const dnes = businessDateISO();
-  const pocetUpozorneni = useMemo(() => {
-    if (data.chyba) return 0;
-    const stavy = stavySkladu(data.vstup, dnes);
-    return varovaniZasob(stavy).length + fasovaniBezZbozi(data.vstup).length;
-  }, [data.chyba, data.vstup, dnes]);
-  const chybiInventura = !data.chyba && inventuraObchoduChybi(data.inventury, dnes) != null;
+  const upozorneni = useMemo(() => (data.chyba ? null : spoctiUpozorneni(data.vstup, data.zavreno, dnes)), [data.chyba, data.vstup, data.zavreno, dnes]);
+  const pocetUpozorneni = upozorneni ? upozorneni.zasoby + upozorneni.fasovaniBezZbozi + upozorneni.mezery : 0;
+  const chybiInventura = upozorneni?.inventura ?? false;
 
   const taby: (TabBarItem & { id: ObchodTab })[] = [
     { id: 'prehled', label: 'Sklad', icon: Warehouse, color: '#e8590c', badge: pocetUpozorneni > 0 ? pocetUpozorneni : undefined },
@@ -81,6 +77,21 @@ export default function ObchodScreen({ setPage, pageSubTab }: {
           <div className="text-xs font-semibold">
             Spusť migraci <strong>20261231270000_obchod</strong>: v appce Audit → Databázové migrace (tlačítko níže), pak tu stránku obnov.
             Fasování do obchodu funguje i bez ní.
+          </div>
+          {setPage && (
+            <button type="button" className="btn-primary !rounded min-h-[48px]" onClick={() => setPage('audit')}>
+              Otevřít Audit → Databázové migrace
+            </button>
+          )}
+        </div>
+      )}
+
+      {potrebujeTabulky && !data.chybiTabulky && !data.chyba && !data.nacitam && data.chybiOdpisAZavreno && (
+        <div role="note" className="rounded-xl border-2 border-amber-400 bg-amber-50 p-3 space-y-2 text-amber-950">
+          <div className="text-sm font-black">Chybí druhá migrace obchodu.</div>
+          <div className="text-xs font-semibold">
+            Odpis zboží a označení „zavřeno" (u hlídání mezer v uzávěrkách) potřebují migraci <strong>20261231280000_obchod_odpis_zavreno</strong>.
+            Zbytek Obchodu funguje i bez ní.
           </div>
           {setPage && (
             <button type="button" className="btn-primary !rounded min-h-[48px]" onClick={() => setPage('audit')}>

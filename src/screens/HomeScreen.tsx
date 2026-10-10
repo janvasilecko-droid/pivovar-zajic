@@ -13,6 +13,7 @@ import { QuickSearchModal } from '../components/QuickSearchModal';
 import { Modal } from '../components/ui';
 import { useAuth } from '../lib/auth';
 import { canUserView, getUserPermissions, PAGE_TO_MODULE, vidiMesicniUklid } from '../lib/permissions';
+import { useObchodUpozorneni } from '../lib/useObchodUpozorneni';
 import { isAdminEmail } from '../lib/config';
 import { supabase, Vehicle, fetchAllRows, useRealtime, beerBg, beerText } from '../lib/supabase';
 import { getVehicleExpiryStatus, textUpozorneniAuta } from '../lib/vozidla';
@@ -1371,6 +1372,10 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   useEffect(() => { nactiVehicleAlerts(); }, [canSeeVehicleAlerts]);
   // Je dlaždice Auta přímo na ploše (ne ve složce)? Pak upozornění nese ona.
   const autaNaPlose = kreslenyLayout.pages.some((stranka) => stranka.includes('vehicles' as any));
+  // Odznak dlaždice Obchod (počet upozornění) — načítá se jen tomu, kdo Obchod
+  // vidí a má dlaždici přímo na ploše.
+  const obchodNaPlose = kreslenyLayout.pages.some((stranka) => stranka.includes('obchod' as any));
+  const obchodUpozorneni = useObchodUpozorneni(obchodNaPlose && canUserView(profile?.role, user?.id, 'entry', userPerms));
 
   // 🔴 Živé dlaždice na Domů (sklep, dnešní závoz, sklad dne, plán stáčení
   // lahví, vozidla) se dřív načetly JEN při otevření appky — kdo měl Domů
@@ -2190,6 +2195,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
               : id === 'keg_timer' && kegLastDuration ? kegLastDuration
               : id === 'zaloha' && (nocniZaloha === 'selhala' || nocniZaloha === 'stara') ? '⚠ noční neběží'
               : id === 'zaloha' && zalohaChybi ? (zalohaDnu === null ? '⚠ nikdy' : `⚠ ${zalohaDnu} dní`)
+              : id === 'obchod' && obchodUpozorneni && obchodUpozorneni.celkem > 0 ? `⚠ ${obchodUpozorneni.celkem}`
               : undefined;
 
             let customContent: React.ReactNode = undefined;

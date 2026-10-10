@@ -18,7 +18,8 @@ import { authenticatedFunctionHeaders } from '../../lib/functionAuth';
 import { typObrazku, zmensenyDataUrl } from '../../lib/obrazek';
 import { businessDateISO } from '../../lib/businessDate';
 import { chyba as toastChyba, uspech } from '../../lib/toast';
-import { NAZVY_TYPU, type TypUzaverky } from '../../lib/obchodSklad';
+import { NAZVY_TYPU, uzaverkyPresInventuru, type TypUzaverky } from '../../lib/obchodSklad';
+import { vysvetleniPresInventuru } from './ObchodMezery';
 import {
   datumZVytisteno, navrhZbozi, obdobiUzaverky, pripravZapis, type PrirazeniRadku,
 } from '../../lib/obchodUzaverka';
@@ -55,10 +56,12 @@ function prirazeniZVolby(r: Radek): PrirazeniRadku {
   return { druh: 'nevyreseno' };
 }
 
-export function UzaverkaImport({ data, zapsal, vychoziTyp, onClose, onUlozeno }: {
+export function UzaverkaImport({ data, zapsal, vychoziTyp, vychoziObdobi, onClose, onUlozeno }: {
   data: DataObchodu;
   zapsal: string | null;
   vychoziTyp: TypUzaverky | null;
+  /** Období předvyplněné zvenku (třeba z mezery v uzávěrkách) — nepřepočítává se podle data tisku. */
+  vychoziObdobi?: { od: string; do: string };
   onClose: () => void;
   onUlozeno: () => void;
 }) {
@@ -72,11 +75,12 @@ export function UzaverkaImport({ data, zapsal, vychoziTyp, onClose, onUlozeno }:
   const [stredisko, setStredisko] = useState('');
   const [vytisteno, setVytisteno] = useState<string | null>(null);
   const [celkem, setCelkem] = useState('');
-  const [od, setOd] = useState(dnes);
-  const [doDne, setDoDne] = useState(dnes);
-  const [obdobiRucne, setObdobiRucne] = useState(false);
+  const [od, setOd] = useState(vychoziObdobi?.od ?? dnes);
+  const [doDne, setDoDne] = useState(vychoziObdobi?.do ?? dnes);
+  const [obdobiRucne, setObdobiRucne] = useState(!!vychoziObdobi);
   const [poznamka, setPoznamka] = useState('');
   const [potvrzeno, setPotvrzeno] = useState(false);
+  const [souhlasPresInventuru, setSouhlasPresInventuru] = useState(false);
   const [uklada, setUklada] = useState(false);
   const [chyby, setChyby] = useState<string[]>([]);
   const dalsiId = useRef(1);
@@ -205,6 +209,19 @@ export function UzaverkaImport({ data, zapsal, vychoziTyp, onClose, onUlozeno }:
   const problemyRadku = (i: number): ProblemUzaverky[] => kontrola.problemy.filter((p) => p.radek === i);
   const problemyCelku = kontrola.problemy.filter((p) => p.radek === null);
   const nepotvrzeno = platne.filter((r) => !r.zname && !r.volba.ostatni && !r.volba.potvrzeno && r.volba.beerId && r.volba.pkgId);
+  // Řádky, u kterých appka nenavrhla (nebo nenašla) pivo a obal — bez výběru nejde zapsat.
+  const nevyreseno = platne.filter((r) => !r.zname && !r.volba.ostatni && !(r.volba.beerId && r.volba.pkgId));
+  const chybyRef = useRef<HTMLUListElement>(null);
+  // Období téhle uzávěrky přetíná inventuru → prodej před ní by se odečetl podruhé.
+  const presInventuru = useMemo(
+    () => uzaverkyPresInventuru([{ id: 'nova', datum_od: od, datum_do: doDne, cislo: null }], data.inventury),
+    [od, doDne, data.inventury],
+  );
+
+  /** Odroluje na řádek (okno je dlouhé a nahoře drží fotka — chyba dole by jinak nebyla vidět). */
+  function skocNaRadek(id: number) {
+    document.getElementById(`uz-radek-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }
 
   function potvrdVse() {
     setRadky((rs) => (rs ?? []).map((r) => (!r.zname && !r.volba.ostatni && r.volba.beerId && r.volba.pkgId ? { ...r, volba: { ...r.volba, potvrzeno: true } } : r)));
@@ -219,7 +236,12 @@ export function UzaverkaImport({ data, zapsal, vychoziTyp, onClose, onUlozeno }:
       znameZbozi: data.zbozi,
       existujiciUzaverky: data.uzaverky,
     });
-    if (zapis.chyby.length > 0) { setChyby(zapis.chyby); return; }
+    if (zapis.chyby.length > 0) {
+      setChyby(zapis.chyby);
+      // Seznam chyb je pod celým seznamem řádků — bez odrolování by klepnutí na „Uložit" vypadalo, že se nic nestalo.
+      setTimeout(() => chybyRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }), 50);
+      return;
+    }
     if (!typ) return;
     setUklada(true);
     try {
@@ -241,7 +263,8 @@ export function UzaverkaImport({ data, zapsal, vychoziTyp, onClose, onUlozeno }:
   }
 
   const soucet = souctRadku(uctenka.radky);
-  const lzeUlozit = !!typ && platne.length > 0 && kontrola.problemy.length === 0 && nepotvrzeno.length === 0 && potvrzeno && !uklada;
+  const lzeUlozit = !!typ && platne.length > 0 && kontrola.problemy.length === 0 && nevyreseno.length === 0 && nepotvrzeno.length === 0 && (presInventuru.length === 0 || souhlasPresInventuru) && potvrzeno && !uklada;
+  const prvniProblemRadek = kontrola.problemy.find((x) => x.radek !== null)?.radek ?? null;
 
   return (
     <Modal open onClose={onClose} title="Zadat uzávěrku z pokladny" wide maxWidth="max-w-5xl">
@@ -323,6 +346,18 @@ export function UzaverkaImport({ data, zapsal, vychoziTyp, onClose, onUlozeno }:
               {vytisteno ? <> Vytištěno {vytisteno.replace('T', ' ')}.</> : null}
             </div>
 
+            {presInventuru.length > 0 && (
+              <div role="alert" className="rounded-xl border-2 border-rose-400 bg-rose-50 p-3 space-y-2 text-rose-950">
+                <div className="text-sm font-black flex items-center gap-1.5"><AlertTriangle size={16} /> Tahle uzávěrka přetíná inventuru</div>
+                <div className="text-xs font-bold">{vysvetleniPresInventuru(presInventuru[0])}</div>
+                <div className="text-[11px] font-semibold">Lepší je zadat denní uzávěrky, nebo mít inventuru k poslednímu dni uzávěrky ({doDne}).</div>
+                <label className="flex items-start gap-2 text-xs font-bold cursor-pointer select-none">
+                  <input type="checkbox" className="w-5 h-5 shrink-0" checked={souhlasPresInventuru} onChange={(e) => setSouhlasPresInventuru(e.target.checked)} />
+                  Přesto uložit — vím, že sklad bude o prodej do {Number(presInventuru[0].inventura.slice(8, 10))}. {Number(presInventuru[0].inventura.slice(5, 7))}. nižší.
+                </label>
+              </div>
+            )}
+
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <h3 className="text-sm font-black text-neutral-900 flex items-center gap-1.5">
                 <Sparkles size={14} className="text-primary-600" /> Přečtené řádky ke kontrole ({platne.length})
@@ -359,7 +394,8 @@ export function UzaverkaImport({ data, zapsal, vychoziTyp, onClose, onUlozeno }:
                 return (
                   <li
                     key={r.id}
-                    className={`p-2.5 rounded-xl border-2 space-y-2 ${problemy.length ? 'border-rose-400 bg-rose-50' : navrzeno ? 'border-amber-300 bg-amber-50' : 'border-neutral-200 bg-white'}`}
+                    id={`uz-radek-${r.id}`}
+                    className={`p-2.5 rounded-xl border-2 space-y-2 ${problemy.length || nevyreseno.includes(r) ? 'border-rose-400 bg-rose-50' : navrzeno ? 'border-amber-300 bg-amber-50' : 'border-neutral-200 bg-white'}`}
                   >
                     <div className="flex items-start gap-2">
                       <div className="flex-1 min-w-0 grid grid-cols-[6rem_1fr] gap-2">
@@ -470,9 +506,40 @@ export function UzaverkaImport({ data, zapsal, vychoziTyp, onClose, onUlozeno }:
             </label>
 
             {chyby.length > 0 && (
-              <ul role="alert" className="text-xs font-bold text-rose-800 bg-rose-50 border-2 border-rose-300 rounded-lg px-4 py-2 space-y-0.5 list-disc">
+              <ul ref={chybyRef} role="alert" className="text-xs font-bold text-rose-800 bg-rose-50 border-2 border-rose-300 rounded-lg px-4 py-2 space-y-0.5 list-disc">
                 {chyby.map((c) => <li key={c}>{c}</li>)}
               </ul>
+            )}
+
+            {!lzeUlozit && !uklada && (
+              <div role="status" aria-label="Co ještě chybí k uložení" className="rounded-xl border-2 border-amber-400 bg-amber-50 p-3 space-y-1.5 text-amber-950">
+                <div className="text-sm font-black">Než půjde uzávěrka uložit:</div>
+                <ul className="space-y-1.5 text-sm font-bold">
+                  {!typ && <li>• Vyber typ uzávěrky (Denní / Týdenní / Měsíční) nahoře.</li>}
+                  {kontrola.problemy.length > 0 && (
+                    <li className="flex flex-wrap items-center gap-2">
+                      • Oprav {kontrola.problemy.length} {kontrola.problemy.length === 1 ? 'problém' : 'problémů'} (červené řádky a hlášky u částek).
+                      {prvniProblemRadek !== null && platne[prvniProblemRadek] && (
+                        <button type="button" className="btn-ghost !rounded !py-1 text-xs font-bold" onClick={() => skocNaRadek(platne[prvniProblemRadek].id)}>Ukázat první</button>
+                      )}
+                    </li>
+                  )}
+                  {nevyreseno.length > 0 && (
+                    <li className="flex flex-wrap items-center gap-2">
+                      • U {nevyreseno.length} {nevyreseno.length === 1 ? 'řádku' : 'řádků'} vyber pivo a obal, nebo zaškrtni „ostatní".
+                      <button type="button" className="btn-ghost !rounded !py-1 text-xs font-bold" onClick={() => skocNaRadek(nevyreseno[0].id)}>Ukázat první</button>
+                    </li>
+                  )}
+                  {nepotvrzeno.length > 0 && (
+                    <li className="flex flex-wrap items-center gap-2">
+                      • Potvrď navržené zboží ({nepotvrzeno.length} {nepotvrzeno.length === 1 ? 'řádek' : 'řádků'}).
+                      <button type="button" className="btn-emerald !rounded !py-1 text-xs" onClick={potvrdVse}>Potvrdit navržené</button>
+                    </li>
+                  )}
+                  {presInventuru.length > 0 && !souhlasPresInventuru && <li>• Uzávěrka přetíná inventuru — zaškrtni „Přesto uložit" výše, nebo změň období.</li>}
+                  {!potvrzeno && <li>• Zaškrtni „Zkontroloval jsem řádky podle fotky".</li>}
+                </ul>
+              </div>
             )}
 
             <div className="flex justify-end gap-2 pt-1 border-t border-neutral-100">
@@ -481,14 +548,6 @@ export function UzaverkaImport({ data, zapsal, vychoziTyp, onClose, onUlozeno }:
                 {uklada ? 'Ukládám…' : 'Uložit uzávěrku a odečíst ze skladu'}
               </button>
             </div>
-            {!lzeUlozit && !uklada && (
-              <div className="text-[11px] font-semibold text-neutral-600">
-                {!typ ? 'Vyber typ uzávěrky. ' : ''}
-                {kontrola.problemy.length > 0 ? `Oprav ${kontrola.problemy.length} problémů výše. ` : ''}
-                {nepotvrzeno.length > 0 ? 'Potvrď navržené zboží. ' : ''}
-                {!potvrzeno ? 'Zaškrtni kontrolu podle fotky.' : ''}
-              </div>
-            )}
           </div>
         )}
       </div>

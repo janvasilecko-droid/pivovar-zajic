@@ -4,7 +4,8 @@ import { useMemo, useState } from 'react';
 import { Minus, Plus, Scissors } from 'lucide-react';
 import { supabase, type Beer, type CellarTank, type Package } from '../lib/supabase';
 import { businessDateISO } from '../lib/businessDate';
-import { litryRezu, popisRezu, problemyRezu, rozdelRez, tankyKRezu } from '../lib/rezani';
+import { litryRezu, popisRezu, problemyRezu, rozdelPodilB, rozdelRez, tankyKRezu } from '../lib/rezani';
+import { odectiSudyDoRezu } from '../lib/rezaniSudy';
 import { odectiPodilRezu } from '../lib/jantarZapis';
 import { chyba, oznam, potvrd, uspech } from '../lib/toast';
 
@@ -15,6 +16,7 @@ export default function RezaniPiva({
   kegPackages,
   cellarTanks,
   mesicUzamcen,
+  skladKusu,
   onUlozeno,
 }: {
   beers: Beer[];
@@ -22,6 +24,8 @@ export default function RezaniPiva({
   cellarTanks: CellarTank[];
   /** Zápis do už napočítaného měsíce se potvrzuje (lib/mesicUzamcen.ts). */
   mesicUzamcen: (datum: string) => boolean;
+  /** Kolik sudů daného piva a obalu je podle skladové knihy na skladě (pro sudy ze skladu). */
+  skladKusu?: (beerId: string, pkgId: string) => number;
   onUlozeno: () => void;
 }) {
   const [datum, setDatum] = useState(businessDateISO());
@@ -30,6 +34,9 @@ export default function RezaniPiva({
   const [tankBId, setTankBId] = useState('');
   const [podilA, setPodilA] = useState(50);
   const [pocty, setPocty] = useState<Record<string, number>>({});
+  // Sudy ze skladu jako (část) podílu B — viz lib/rezani.ts a lib/rezaniSudy.ts.
+  const [sudyPivoId, setSudyPivoId] = useState('');
+  const [sudyPocty, setSudyPocty] = useState<Record<string, number>>({});
   const [poznamka, setPoznamka] = useState('');
   const [uklada, setUklada] = useState(false);
 
@@ -41,6 +48,12 @@ export default function RezaniPiva({
     .filter((r) => r.pocet > 0);
   const litry = litryRezu(radky.map((r) => ({ pocet: r.pocet, objemL: Number(r.obal.volume_l) })));
   const { aL, bL } = rozdelRez(litry, podilA);
+  const sudyRadky = kegPackages
+    .map((p) => ({ obal: p, pocet: sudyPocty[p.id] ?? 0 }))
+    .filter((r) => r.pocet > 0);
+  const sudyL = litryRezu(sudyRadky.map((r) => ({ pocet: r.pocet, objemL: Number(r.obal.volume_l) })));
+  const tankBL = rozdelPodilB(bL, sudyL).tankBL;
+  const sudyPrebyva = sudyL > bL + 1;
 
   function vyberTankA(id: string) {
     setTankAId(id);
@@ -52,6 +65,9 @@ export default function RezaniPiva({
   function zmenPocet(pkgId: string, delta: number) {
     setPocty((p) => ({ ...p, [pkgId]: Math.max(0, (p[pkgId] ?? 0) + delta) }));
   }
+  function zmenSudy(pkgId: string, delta: number) {
+    setSudyPocty((p) => ({ ...p, [pkgId]: Math.max(0, (p[pkgId] ?? 0) + delta) }));
+  }
 
   async function uloz() {
     const chyby = problemyRezu({
@@ -60,8 +76,24 @@ export default function RezaniPiva({
       tankB,
       podilA,
       radky: radky.map((r) => ({ pocet: r.pocet, objemL: Number(r.obal.volume_l) })),
+      sudy: sudyL > 0 ? { litry: sudyL, pivoId: sudyPivoId } : undefined,
     });
     if (chyby.length) { chyba(chyby.join(' ')); return; }
+    // Sudy ze skladu: stejně jako u Přefuku se předem zeptáme, když sklad na tolik nestačí
+    // (skladová kniha nic neořezává, viz stockLedger.ts — jen ať to není omyl v počtu).
+    if (sudyL > 0 && skladKusu) {
+      const nedostatek = sudyRadky
+        .map((r) => ({ obal: r.obal, chce: r.pocet, je: skladKusu(sudyPivoId, r.obal.id) }))
+        .filter((r) => r.chce > r.je);
+      if (nedostatek.length) {
+        const pivoSudu = beers.find((b) => b.id === sudyPivoId)?.name ?? 'to pivo';
+        const ok = await potvrd(
+          `Ve skladu podle skladové knihy není dost sudů (${pivoSudu}): ${nedostatek.map((r) => `${r.obal.label} je ${r.je}, chce se ${r.chce}`).join('; ')}.\n\nSklad by šel do mínusu — opravdu pokračovat?`,
+          { titulek: 'Sklad na tohle nestačí', potvrdit: 'Ano, zapsat i tak' },
+        );
+        if (!ok) return;
+      }
+    }
     if (mesicUzamcen(datum)) {
       const ok = await potvrd(
         `Měsíc ${datum.slice(0, 7)} už má napočítanou inventuru. Zápis do něj změní číslo, které je už uzavřené.\n\nOpravdu zapsat do už napočítaného měsíce?`,
@@ -70,7 +102,7 @@ export default function RezaniPiva({
       if (!ok) return;
     }
     const pivo = beers.find((b) => b.id === pivoId);
-    const popis = popisRezu(tankA!.label, tankB!.label, podilA);
+    const popis = popisRezu(tankA!.label, tankB?.label ?? null, podilA, sudyL);
     setUklada(true);
     try {
       // Každý řádek se dělí zvlášť, ať úprava nebo smazání jednoho řádku
@@ -102,14 +134,30 @@ export default function RezaniPiva({
         if (!obal) continue;
         const dil = rozdelRez(Number(v.quantity) * Number(obal.volume_l), podilA);
         odectenoA += dil.aL;
-        const varovani = await odectiPodilRezu({
-          keggingId: v.id,
-          tank: tankB!,
-          litry: dil.bL,
+        // Z tanku B jen to, co nepokryly sudy ze skladu — poměrně k řádku.
+        const zTankuB = tankB && bL > 0 ? Math.round(dil.bL * (tankBL / bL) * 10) / 10 : 0;
+        if (tankB && zTankuB > 0) {
+          const varovani = await odectiPodilRezu({
+            keggingId: v.id,
+            tank: tankB,
+            litry: zTankuB,
+            datum,
+            popis: `${pivo?.name ?? 'pivo'} ${v.quantity}× ${obal.label}`,
+          });
+          if (varovani) upozorneni.push(varovani);
+        }
+      }
+      // Sudy ze skladu se vážou na první řádek řezu (smaže-li se, vrátí se na sklad).
+      if (sudyL > 0 && ((vlozene as any[]) ?? [])[0]) {
+        const pivoSudu = beers.find((b) => b.id === sudyPivoId);
+        const e = await odectiSudyDoRezu({
+          keggingId: ((vlozene as any[])[0]).id,
+          beer: { id: sudyPivoId, name: pivoSudu?.name ?? '' },
+          sudy: sudyRadky.map((r) => ({ pkgId: r.obal.id, label: r.obal.label, pocet: r.pocet })),
           datum,
-          popis: `${pivo?.name ?? 'pivo'} ${v.quantity}× ${obal.label}`,
+          popis,
         });
-        if (varovani) upozorneni.push(varovani);
+        if (e) upozorneni.push(e);
       }
       // Tank A: stejně jako běžné stáčení — relativně přes RPC.
       const { error: chybaA } = await supabase.rpc('adjust_tank_volume', { p_tank_id: tankA!.id, p_delta_l: -Math.round(odectenoA * 10) / 10 });
@@ -119,8 +167,14 @@ export default function RezaniPiva({
       }
 
       if (upozorneni.length) oznam(`Řez uložen, ale: ${upozorneni.join('; ')}`);
-      else uspech(`Řez uložen: z ${tankA!.label} ${aL} l, z ${tankB!.label} ${bL} l.`);
+      else {
+        const zdroje = [`z ${tankA!.label} ${aL} l`];
+        if (tankB && tankBL > 0) zdroje.push(`z ${tankB.label} ${tankBL} l`);
+        if (sudyL > 0) zdroje.push(`ze sudů ze skladu ${sudyL} l`);
+        uspech(`Řez uložen: ${zdroje.join(', ')}.`);
+      }
       setPocty({});
+      setSudyPocty({});
       setPoznamka('');
       onUlozeno();
     } finally {
@@ -162,7 +216,7 @@ export default function RezaniPiva({
         <div>
           <label className="label" htmlFor="rez-tank-b">Tank B</label>
           <select id="rez-tank-b" className="input" value={tankBId} onChange={(e) => setTankBId(e.target.value)}>
-            <option value="">— vyber tank —</option>
+            <option value="">{sudyL > 0 ? '— bez tanku B (podíl B pokryjí sudy) —' : '— vyber tank —'}</option>
             {tanky.map((t) => <option key={t.id} value={t.id} disabled={t.id === tankAId}>{popisTanku(t)}</option>)}
           </select>
         </div>
@@ -227,6 +281,48 @@ export default function RezaniPiva({
         </div>
       </div>
 
+      <div className="space-y-2">
+        <div className="label">Sudy ze skladu do podílu B (nepovinné)</div>
+        <p className="text-xs text-neutral-500">
+          Když část piva do řezu nešla z tanku, ale z hotových sudů na skladě (třeba 1× 30 l, 1× 20 l a 1× 15 l desítky). Odečtou se ze skladu a jejich litry se počítají do podílu B.
+        </p>
+        <div>
+          <label className="label" htmlFor="rez-sudy-pivo">Pivo ze sudů ze skladu</label>
+          <select id="rez-sudy-pivo" className="input" value={sudyPivoId} onChange={(e) => setSudyPivoId(e.target.value)}>
+            <option value="">— vyber pivo —</option>
+            {beers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+          </select>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {kegPackages.map((p) => {
+            const naSklade = skladKusu && sudyPivoId ? skladKusu(sudyPivoId, p.id) : null;
+            return (
+              <div key={p.id} className="flex items-center justify-between gap-2 rounded border border-neutral-200 bg-white px-3 py-1.5">
+                <span className="text-sm font-bold text-neutral-800">
+                  {p.label}
+                  {naSklade != null && <span className="block text-[11px] font-semibold text-neutral-500">na skladě {naSklade}</span>}
+                </span>
+                <div className="flex items-center gap-1">
+                  <button type="button" aria-label={`Méně ${p.label} ze skladu`} onClick={() => zmenSudy(p.id, -1)} className="btn-pocet !min-h-[44px]"><Minus size={16} /></button>
+                  <input
+                    type="number"
+                    onWheel={(e) => e.currentTarget.blur()}
+                    min={0}
+                    step={1}
+                    inputMode="numeric"
+                    aria-label={`Počet ${p.label} ze skladu`}
+                    className="input !w-16 text-center"
+                    value={sudyPocty[p.id] ?? 0}
+                    onChange={(e) => setSudyPocty((x) => ({ ...x, [p.id]: Math.max(0, Math.round(Number(e.target.value) || 0)) }))}
+                  />
+                  <button type="button" aria-label={`Více ${p.label} ze skladu`} onClick={() => zmenSudy(p.id, 1)} className="btn-pocet !min-h-[44px]"><Plus size={16} /></button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       <div>
         <label className="label" htmlFor="rez-poznamka">Poznámka (nepovinné)</label>
         <input id="rez-poznamka" type="text" className="input" value={poznamka} onChange={(e) => setPoznamka(e.target.value)} />
@@ -234,7 +330,16 @@ export default function RezaniPiva({
 
       {litry > 0 && (
         <div className="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
-          Celkem <b>{litry} l</b> → z {tankA?.label ?? 'tanku A'} <b>{aL} l</b>, z {tankB?.label ?? 'tanku B'} <b>{bL} l</b>
+          Celkem <b>{litry} l</b> → z {tankA?.label ?? 'tanku A'} <b>{aL} l</b>
+          {sudyL > 0 ? (
+            <>
+              , podíl B <b>{bL} l</b>: sudy ze skladu <b>{sudyL} l</b>
+              {tankBL > 0 && <> + z {tankB?.label ?? 'tanku B'} <b>{tankBL} l</b></>}
+              {sudyPrebyva && <span className="block mt-1 font-bold text-rose-700">Sudy ze skladu jsou víc než podíl B — uprav poměr nebo počet sudů.</span>}
+            </>
+          ) : (
+            <>, z {tankB?.label ?? 'tanku B'} <b>{bL} l</b></>
+          )}
         </div>
       )}
 

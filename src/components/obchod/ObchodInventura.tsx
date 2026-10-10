@@ -12,6 +12,8 @@ import { chyba as toastChyba, potvrd, uspech } from '../../lib/toast';
 import { stavySkladu } from '../../lib/obchodSklad';
 import { rozdilyInventury } from '../../lib/obchodInventura';
 import { zapisInventuru, type DataObchodu } from '../../lib/obchodData';
+import { uzaverkyPresInventuru } from '../../lib/obchodSklad';
+import { vysvetleniPresInventuru } from './ObchodMezery';
 
 const cs = (n: number) => String(Math.round(n * 100) / 100).replace('.', ',');
 const dat = (iso: string) => `${Number(iso.slice(8, 10))}. ${Number(iso.slice(5, 7))}. ${iso.slice(0, 4)}`;
@@ -30,6 +32,8 @@ export function ObchodInventura({ data, zapsal }: { data: DataObchodu; zapsal: s
   const [otevrenaHistorie, setOtevrenaHistorie] = useState<string | null>(null);
 
   const stavy = useMemo(() => stavySkladu(data.vstup, datum), [data.vstup, datum]);
+  // Uzávěrky, které by tahle inventura přetnula — jejich prodej před ní by se odečetl podruhé.
+  const presDatum = useMemo(() => uzaverkyPresInventuru(data.uzaverky, [{ kod: '*', datum }]), [data.uzaverky, datum]);
   const piva = stavy.filter((s) => data.zbozi.find((z) => z.kod === s.kod)?.beer_id);
   const ostatni = stavy.filter((s) => !data.zbozi.find((z) => z.kod === s.kod)?.beer_id);
 
@@ -129,6 +133,12 @@ export function ObchodInventura({ data, zapsal }: { data: DataObchodu; zapsal: s
             Konec minulého měsíce
           </button>
         </div>
+        {presDatum.length > 0 && (
+          <div role="alert" className="rounded-lg border-2 border-rose-400 bg-rose-50 p-2 text-xs font-bold text-rose-950 space-y-1">
+            {presDatum.map((u) => <div key={u.id}>{u.cislo ? `Č. ${u.cislo}: ` : ''}{vysvetleniPresInventuru(u)}</div>)}
+            <div className="font-semibold">Zvol datum inventury jako poslední den té uzávěrky ({presDatum[0].datum_do}), nebo uzávěrku nahraď denními.</div>
+          </div>
+        )}
         <div className="text-[11px] font-semibold text-neutral-600">
           Spočítej, co je opravdu na regálu. Co se ten den zapsalo (fasování, uzávěrka), už v čísle je. První inventura je počáteční stav obchodu.
         </div>

@@ -138,6 +138,10 @@ const ODDILY: Oddil[] = [
         jak: 'Zaškrtnutí kapky u položky objednávky (jen u sudů) rovnou založí záznam ve stáčení, ať se totéž nepíše dvakrát. V seznamu záznamů je takový řádek označený „Založeno zaškrtnutím Stočeno u objednávky" — podle toho poznáš, že ho appka napsala sama.',
       },
       {
+        co: 'Řezání piva (tank A + tank B + sudy ze skladu)',
+        jak: 'Tlačítko „Řezání“ ve stáčení: vybereš tank A, tank B, poměr a kolik sudů se stočilo — litry se z tanků odečtou podle poměru. Když část piva do řezu nešla z tanku, ale z hotových sudů na skladě (třeba 1× 30 l, 1× 20 l a 1× 15 l desítky), vyplň „Sudy ze skladu do podílu B“: vyber pivo a počty sudů. Jejich litry se počítají do podílu B (tank B pak může zůstat prázdný, nebo pokryje jen zbytek) a sudy se ze skladu odečtou — ve Skladu i Pohybech je uvidíš jako přefuk „do řezu“. Když sklad na tolik sudů nestačí, appka se zeptá. Smazáním prvního řádku řezu ve stáčení se sudy vrátí na sklad. U řádků, ke kterým jsou sudy navázané, nejde měnit počet ani obal — smaž řádek a zapiš řez znovu.',
+      },
+      {
         co: 'Odškrtávátko v PLÁNU stáčení nezapisuje',
         jak: 'Fajfky v plánu jsou jen pracovní pomůcka pro stáčeče. Skutečný zápis se dělá v „Začátek stáčení“, jinak by vznikl dvojí záznam.',
       },
@@ -252,11 +256,15 @@ const ODDILY: Oddil[] = [
     body: [
       {
         co: 'Sklad obchodu',
-        jak: 'Obchod má vlastní sklad — nejsou v něm jen piva, ale i ostatní zboží. Stav se nikde neukládá, počítá se: poslední inventura + fasování z pivovaru + příjem − prodej z uzávěrek. Zboží, které ještě nemá inventuru, ukazuje „bez inventury“, ne nulu.',
+        jak: 'Obchod má vlastní sklad — nejsou v něm jen piva, ale i ostatní zboží. Stav se nikde neukládá, počítá se: poslední inventura + fasování z pivovaru + příjem − prodej z uzávěrek − odpis. Zboží, které ještě nemá inventuru, ukazuje „bez inventury“, ne nulu.',
       },
       {
         co: 'Uzávěrka z pokladny',
         jak: 'V záložce Uzávěrky zvol Denní, Týdenní nebo Měsíční a vyfoť účtenku „Sumář prodeje“. Appka přečte zboží a množství, zkontroluje, že kusy × cena sedí na částku i na „Celkem“, a teprve potom jde uložit. Co nesedí, je vidět u řádku, i s nabídkou „Podle částky je to N ks“.',
+      },
+      {
+        co: 'Přidat zboží dlaždicemi',
+        jak: 'Ve Skladu „Přidat zboží“: nejdřív skupina (Piva, Půllitry, Kosmetika, Ostatní), v ní dlaždice zboží — klepáním se jich vybere víc a „Přidat vybrané“ je přidá najednou. Je tu připravené zboží z účtenky „Sumář prodeje“ (kód z pokladny, název a cena). U piva je vidět, ke kterému pivu a obalu se přiřadí; kdo v katalogu piv a obalů chybí, má dlaždici šedou a řekne proč. Co v nabídce není, jde přidat ručně přes „Jiné zboží“.',
       },
       {
         co: 'Nové zboží z pokladny',
@@ -277,6 +285,22 @@ const ODDILY: Oddil[] = [
       {
         co: 'Statistika',
         jak: 'Tržba po dnech, týdnech a měsících, prodej po pivech v litrech a nejprodávanější zboží — vše z uzávěrek. Prodej se připisuje ke konci období uzávěrky.',
+      },
+      {
+        co: 'Odpis zboží',
+        jak: 'Rozbitá láhev, prošlé zboží, ztráta: ve Skladu tlačítko „Odpis“ (nahoře, nebo v rozbaleném zboží). Zvol důvod a kusy — odečte se ze skladu obchodu. Pivo z pivovaru se tím nevrací, to se odečetlo už Fasováním. Omylem zapsaný odpis nebo příjem jde smazat v „Posledních pohybech“ zboží.',
+      },
+      {
+        co: 'Uzávěrka přes inventuru',
+        jak: 'Inventura na konci měsíce a týdenní uzávěrka, která začíná před ní a končí po ní (třeba týden 26. 10.–1. 11. a inventura 31. 10.): prodej do inventury už je v napočítaném stavu a odečetl by se podruhé. Appka to pozná, napíše nahoře ve Skladu, u Inventury i při zadávání uzávěrky a bez tvého souhlasu ji neuloží. Správně: za ty dny zadat denní uzávěrky, nebo dělat inventuru k poslednímu dni uzávěrky.',
+      },
+      {
+        co: 'Chybějící uzávěrky',
+        jak: 'Chybí-li uzávěrka za nějaké dny, sklad obchodu ukazuje víc, než je na regálu — appka to napíše nahoře ve Skladu i v Uzávěrkách. Tam u každé mezery zvolíš „Zadat uzávěrku“, nebo „Zavřeno“, když se ten den neprodávalo (neděle, svátek). Označení jde zase zrušit. Hlídá se posledních asi dva měsíce a dnešek se nepočítá, uzávěrka se dělá večer.',
+      },
+      {
+        co: 'Odznak na dlaždici',
+        jak: 'Na dlaždici Obchod na ploše je číslo se znakem ⚠ — kolik věcí čeká: zboží pod minimem nebo v mínusu, chybějící uzávěrky, fasování bez zboží a chybějící inventura. Co přesně, uvidíš po otevření dlaždice.',
       },
       {
         co: 'Smazání uzávěrky',
@@ -305,6 +329,10 @@ const ODDILY: Oddil[] = [
       {
         co: 'Inventura',
         jak: 'Zadává se na konci měsíce. „Spočítat z fotek“ přečte napsané počty z fotky papíru. „Schválit & převést“ stavy uzamkne a přenese do počátečního stavu dalšího měsíce — to je krok, který nejde vzít zpět.',
+      },
+      {
+        co: 'Týdenní inventura a její hodnota',
+        jak: 'Na každém řádku je „Čeká se“, ty napíšeš „Napočítáno“ a vyjde rozdíl. Pod počty je rámeček Hodnota napočítaného v Kč a Rozdíl proti skladu (přebytky minus manka); u každého přebytku a manka je i jeho částka. Cena je z Ceníku (Číselníky) platná ke dni počítání; kde v ceníku chybí, počítá se orientačně podle velikosti obalu (sud 1 500 Kč, velká lahev 250 Kč, malá 45 Kč — stejně jako v měsíční inventuře) a rámeček to napíše. Počítají se jen řádky, které už jsi napočítal, a jen ty, které jsou vidět (přepínač Vše / Lahve / Sudy). Je to prodejní cena, ne nákladová — slouží k představě, jak velký rozdíl je, ne jako účetní hodnota.',
       },
       {
         co: 'Rozpad piva',

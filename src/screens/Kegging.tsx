@@ -28,6 +28,7 @@ import { jeJantar, pivaJantaru, pivoZdrojovehoTanku, rozdelJantar, PODIL_SVETLE 
 import { obnovPreliti, odectiPodilRezu, odectiTmavouJantaru, prelitiKRadku, upravTmavouJantaru, vratPrelitiRadku, vratTmavouJantaru } from '../lib/jantarZapis';
 import { jeZnackaRezu, prepocetRezu } from '../lib/rezani';
 import RezaniPiva from '../components/RezaniPiva';
+import { obnovSudy, sudyKRadku, vratSudyRadku } from '../lib/rezaniSudy';
 import { canUserEdit, getUserPermissions } from '../lib/permissions';
 import { podezreleMnozstvi } from '../lib/kontrolaZadani';
 import { IkonaSud } from '../components/ikony';
@@ -429,6 +430,14 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
       const selectedPkg = packages.find(p => p.id === editingRow.package_id);
       const newQty = Number(editingRow.quantity);
       const newTankId = editingRow.cellar_tank_id || null;
+      // ✂️ Řez se sudy ze skladu: počet ani obal se nemění (sudy jsou celé kusy a
+      // poměr by se rozjel) — smazat řádek a zapsat řez znovu.
+      const puvodniRadek = rows.find((r) => r.id === editingRow.id);
+      if (puvodniRadek && (newQty !== Number(puvodniRadek.quantity) || editingRow.package_id !== puvodniRadek.package_id)
+        && (await sudyKRadku(editingRow.id)).length > 0) {
+        setErr('Tenhle řez má sudy ze skladu — počet ani obal se tu měnit nedá. Smaž řádek a zapiš řez znovu.');
+        return;
+      }
       // Nový zdrojový objem stejným vzorcem jako při vzniku záznamu (add()) —
       // bez tanku se objem neváže na nic a needeukuje se.
       let newSourceL = selectedPkg && newTankId
@@ -1209,6 +1218,9 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     const row = rows.find((r) => r.id === id);
     if (!row) return 'Záznam nenalezen.';
     const oldQty = Number(row.quantity);
+    if (newQty !== oldQty && (await sudyKRadku(id)).length > 0) {
+      return 'Tenhle řez má sudy ze skladu — počet se tu měnit nedá. Smaž řádek a zapiš řez znovu.';
+    }
     const oldSourceL = Number(row.source_volume_l ?? 0);
     const patch: Record<string, unknown> = { quantity: newQty };
     let deltaL = 0;
@@ -1240,6 +1252,8 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     // Tmavá složka Jantaru i podíl tanku B u řezu se vrací spolu s řádkem
     // (lib/jantar.ts, lib/rezani.ts).
     const vracenaPreliti = await vratPrelitiRadku(row.id);
+    // Sudy ze skladu použité do řezu se vrací na sklad (lib/rezaniSudy.ts).
+    const vracenaSudy = await vratSudyRadku(row.id);
 
     // Místo ptaní se předem: smaž a pár vteřin nabídni návrat. Na telefonu je
     // to o klepnutí míň pokaždé, i když se člověk nespletl.
@@ -1256,6 +1270,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
         }
         // Přetočení se zapíšou zpátky přesně jak byla (stejný tank i litry).
         await obnovPreliti(vracenaPreliti);
+        await obnovSudy(vracenaSudy);
         load(true);
       },
     );
@@ -2789,7 +2804,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                           </td>
                           <td className="p-2.5">
                             <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-black text-udaj border border-emerald-200 whitespace-nowrap">
-                              + {r.to_count} × {r.to_package_label ?? '?'}
+                              {r.to_package_id ? `+ ${r.to_count} × ${r.to_package_label ?? '?'}` : 'do řezu'}
                             </span>
                           </td>
                           <td className="p-2.5 text-neutral-500">{r.note ?? ''}</td>
@@ -2822,6 +2837,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
           kegPackages={kegPackages}
           cellarTanks={cellarTanks}
           mesicUzamcen={(d) => jeMesicUzamcen(inventoryRows, d)}
+          skladKusu={(beerId, pkgId) => currentStockMap?.get(`${beerId}__${pkgId}`) ?? 0}
           onUlozeno={() => load(true)}
         />
       )}

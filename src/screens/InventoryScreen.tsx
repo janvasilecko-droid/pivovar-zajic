@@ -31,6 +31,7 @@ import { useAuth } from '../lib/auth';
 import { jeMesicVSeznamuUzavren, nactiZavreneMesice, otevriMesic, zavriMesic, type ZavrenyMesic } from '../lib/closedMonths';
 import { jeLimonada } from '../lib/limonady';
 import { nactiSdilenouTabulku } from '../lib/sdilenaData';
+import { orientacniCena } from '../lib/hodnotaInventury';
 import CekaNaOdpocet from '../components/CekaNaOdpocet';
 import { lzePocitatKDnesku, naDnes, posunPoKonciMesice, zDnes, type PosunPoKonci } from '../lib/inventuraKDnesku';
 
@@ -1038,7 +1039,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
         const actualInputStr = actualStock[k];
         const actualQty = actualInputStr !== undefined && actualInputStr !== '' ? Number(actualInputStr) : 0;
 
-        const priceCzk = p.volume_l > 20 ? 1500 : p.volume_l > 0.6 ? 250 : 45; // Orientační hodnota
+        const priceCzk = orientacniCena(p.volume_l); // Orientační hodnota (lib/hodnotaInventury.ts)
 
         // Dorovnání (±) — přičte/odečte k očekávanému stavu, aby seděl s fyzickou realitou (manko).
         // Ukládá se BOKEM a NEpočítá se do stáčení ani odpočtů.

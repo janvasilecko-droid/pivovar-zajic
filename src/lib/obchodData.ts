@@ -10,9 +10,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { fetchAllRows, supabase, useRealtime } from './supabase';
 import { prvniChyba, usePosledniNacteni } from './nacitani';
 import type {
-  FasovaniRadek, InventuraRadek, PrijemRadek, ProdanyRadek, TypUzaverky, UzaverkaHlavicka, VstupSkladu, Zbozi,
+  DuvodOdpisu, FasovaniRadek, InventuraRadek, OdpisRadek, PrijemRadek, ProdanyRadek, TypUzaverky, UzaverkaHlavicka, VstupSkladu, Zbozi,
 } from './obchodSklad';
 import type { NoveZbozi } from './obchodUzaverka';
+import type { ZapisZDlazdic } from './obchodKatalog';
 
 export type Uzaverka = UzaverkaHlavicka & {
   typ: TypUzaverky;
@@ -25,6 +26,8 @@ export type Uzaverka = UzaverkaHlavicka & {
 export type ZboziDB = Zbozi & { aktivni: boolean };
 export type PrijemDB = PrijemRadek & { id: string; poznamka: string | null; zapsal: string | null; created_at: string };
 export type InventuraDB = InventuraRadek & { id: string; poznamka: string | null; zapsal: string | null };
+export type OdpisDB = OdpisRadek & { id: string; duvod: DuvodOdpisu; poznamka: string | null; zapsal: string | null; created_at: string };
+export type ZavrenoDB = { datum: string; poznamka: string | null; zapsal: string | null };
 export type PivoKatalog = { id: string; name: string; degree: string | null; short_name?: string | null; is_active?: boolean; sort_order?: number };
 export type ObalKatalog = { id: string; label: string; kind: string; volume_l: number; sort_order?: number };
 
@@ -34,6 +37,12 @@ export type DataObchodu = {
   uzaverky: Uzaverka[];
   radky: ProdanyRadek[];
   inventury: InventuraDB[];
+  /** Odpis zboží v obchodě (druhá migrace; do jejího spuštění prázdné). */
+  odpisy: OdpisDB[];
+  /** Dny, kdy se neprodávalo (druhá migrace; do jejího spuštění prázdné). */
+  zavreno: ZavrenoDB[];
+  /** Druhá migrace (odpis, zavřeno) ještě neběžela — tyhle dvě funkce nejdou použít. */
+  chybiOdpisAZavreno: boolean;
   fasovani: FasovaniRadek[];
   piva: PivoKatalog[];
   obaly: ObalKatalog[];
@@ -47,7 +56,10 @@ export type DataObchodu = {
   znovu: () => void;
 };
 
-const TABULKY_OBCHODU = ['obchod_zbozi', 'obchod_prijem', 'obchod_uzaverky', 'obchod_uzaverky_radky', 'obchod_inventura', 'fasovani_private'];
+const TABULKY_OBCHODU = [
+  'obchod_zbozi', 'obchod_prijem', 'obchod_uzaverky', 'obchod_uzaverky_radky', 'obchod_inventura', 'fasovani_private',
+  'obchod_odpis', 'obchod_zavreno',
+];
 
 /** Chyba „tabulka neexistuje" (PostgREST PGRST205 / PostgreSQL 42P01) — migrace ještě neběžela. */
 export function jeChybejiciTabulka(zprava: string | null | undefined): boolean {
@@ -60,6 +72,9 @@ export function useObchod(): DataObchodu {
   const [uzaverky, setUzaverky] = useState<Uzaverka[]>([]);
   const [radky, setRadky] = useState<ProdanyRadek[]>([]);
   const [inventury, setInventury] = useState<InventuraDB[]>([]);
+  const [odpisy, setOdpisy] = useState<OdpisDB[]>([]);
+  const [zavreno, setZavreno] = useState<ZavrenoDB[]>([]);
+  const [chybiOdpisAZavreno, setChybiOdpisAZavreno] = useState(false);
   const [fasovani, setFasovani] = useState<FasovaniRadek[]>([]);
   const [piva, setPiva] = useState<PivoKatalog[]>([]);
   const [obaly, setObaly] = useState<ObalKatalog[]>([]);
@@ -69,7 +84,7 @@ export function useObchod(): DataObchodu {
 
   const nacti = useCallback(async () => {
     const smiZapsat = zacniNacteni();
-    const [z, p, u, r, i, f, b, o] = await Promise.all([
+    const [z, p, u, r, i, f, b, o, od, zv] = await Promise.all([
       fetchAllRows<ZboziDB>('obchod_zbozi', 'kod,nazev,beer_id,package_id,cena,min_ks,aktivni').order('kod'),
       fetchAllRows<PrijemDB>('obchod_prijem', 'id,datum,kod,mnozstvi,poznamka,zapsal,created_at').order('datum'),
       fetchAllRows<Uzaverka>('obchod_uzaverky', 'id,cislo,stredisko,typ,datum_od,datum_do,vytisteno,trzba,poznamka,zapsal,created_at').order('datum_do', { ascending: false }),
@@ -78,11 +93,19 @@ export function useObchod(): DataObchodu {
       fetchAllRows<FasovaniRadek>('fasovani_private', 'beer_id,package_id,quantity,entry_date'),
       fetchAllRows<PivoKatalog>('beers', 'id,name,degree,short_name,is_active,sort_order').order('sort_order'),
       fetchAllRows<ObalKatalog>('packages', 'id,label,kind,volume_l,sort_order').order('sort_order'),
+      // Druhá migrace — kdo ji ještě nepustil, o odpis a „zavřeno" přijde, ale zbytek Obchodu funguje.
+      fetchAllRows<OdpisDB>('obchod_odpis', 'id,datum,kod,mnozstvi,duvod,poznamka,zapsal,created_at').order('datum'),
+      fetchAllRows<ZavrenoDB>('obchod_zavreno', 'datum,poznamka,zapsal').order('datum'),
     ]);
     if (!smiZapsat()) return;
-    const err = prvniChyba(z, p, u, r, i, f, b, o);
+    const volitelne = [od, zv];
+    const chybi = volitelne.some((v) => jeChybejiciTabulka(v.error?.message));
+    const err = prvniChyba(z, p, u, r, i, f, b, o, ...volitelne.filter((v) => !jeChybejiciTabulka(v.error?.message)));
     setChyba(err);
     if (!err) {
+      setOdpisy(od.data ?? []);
+      setZavreno(zv.data ?? []);
+      setChybiOdpisAZavreno(chybi);
       setZbozi(z.data ?? []);
       setPrijmy(p.data ?? []);
       setUzaverky(u.data ?? []);
@@ -99,12 +122,12 @@ export function useObchod(): DataObchodu {
   useRealtime(TABULKY_OBCHODU, () => { void nacti(); });
 
   const vstup = useMemo<VstupSkladu>(
-    () => ({ zbozi, fasovani, prijmy, uzaverky, radky, inventury }),
-    [zbozi, fasovani, prijmy, uzaverky, radky, inventury],
+    () => ({ zbozi, fasovani, prijmy, odpisy, uzaverky, radky, inventury }),
+    [zbozi, fasovani, prijmy, odpisy, uzaverky, radky, inventury],
   );
 
   return {
-    zbozi, prijmy, uzaverky, radky, inventury, fasovani, piva, obaly, vstup, nacitam,
+    zbozi, prijmy, uzaverky, radky, inventury, odpisy, zavreno, chybiOdpisAZavreno, fasovani, piva, obaly, vstup, nacitam,
     chyba,
     chybiTabulky: jeChybejiciTabulka(chyba),
     znovu: () => { void nacti(); },
@@ -177,6 +200,33 @@ export async function smazPrijem(id: string): Promise<string | null> {
   return error ? error.message : null;
 }
 
+export async function zapisOdpis(o: { datum: string; kod: string; mnozstvi: number; duvod: DuvodOdpisu; poznamka?: string | null; zapsal: string | null }): Promise<string | null> {
+  const { error } = await supabase.from('obchod_odpis').insert({
+    datum: o.datum, kod: o.kod, mnozstvi: o.mnozstvi, duvod: o.duvod, poznamka: o.poznamka ?? null, zapsal: o.zapsal,
+  });
+  return error ? error.message : null;
+}
+
+export async function smazOdpis(id: string): Promise<string | null> {
+  const { error } = await supabase.from('obchod_odpis').delete().eq('id', id);
+  return error ? error.message : null;
+}
+
+/** Označí dny jako „zavřeno / nic se neprodávalo" (opakovaný zápis téhož dne nevadí). */
+export async function zapisZavreno(dny: string[], zapsal: string | null, poznamka?: string | null): Promise<string | null> {
+  if (dny.length === 0) return null;
+  const { error } = await supabase.from('obchod_zavreno').upsert(
+    dny.map((datum) => ({ datum, poznamka: poznamka ?? null, zapsal })),
+    { onConflict: 'datum' },
+  );
+  return error ? error.message : null;
+}
+
+export async function smazZavreno(datum: string): Promise<string | null> {
+  const { error } = await supabase.from('obchod_zavreno').delete().eq('datum', datum);
+  return error ? error.message : null;
+}
+
 /** Inventura: jeden řádek na zboží a den; opakovaný zápis téhož dne přepíše předchozí. */
 export async function zapisInventuru(
   datum: string,
@@ -199,6 +249,28 @@ export async function zalozZbozi(z: { kod: string; nazev: string; beer_id: strin
   return /duplicate|unique/i.test(error.message)
     ? 'Zboží s tímhle kódem nebo s tímhle pivem a obalem už v obchodě je.'
     : error.message;
+}
+
+/**
+ * Zboží zvolené dlaždicemi: nové se vloží jedním zápisem (buď všechno, nebo nic),
+ * vypnuté se zase zapne.
+ */
+export async function pridejZboziZDlazdic(z: ZapisZDlazdic, zapsal: string | null): Promise<string | null> {
+  if (z.nove.length > 0) {
+    const { error } = await supabase.from('obchod_zbozi').insert(
+      z.nove.map((n) => ({ kod: n.kod, nazev: n.nazev, beer_id: n.beer_id, package_id: n.package_id, cena: n.cena, updated_by: zapsal })),
+    );
+    if (error) {
+      return /duplicate|unique/i.test(error.message)
+        ? 'Některé zboží (stejný kód, nebo stejné pivo v tomhle obalu) už v obchodě je. Obnov stránku a zkus to znovu.'
+        : error.message;
+    }
+  }
+  for (const kod of z.zapnout) {
+    const e = await upravZbozi(kod, { aktivni: true }, zapsal);
+    if (e) return e;
+  }
+  return null;
 }
 
 export async function upravZbozi(

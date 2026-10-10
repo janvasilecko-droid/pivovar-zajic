@@ -41,7 +41,20 @@ export type FasovaniRadek = {
   entry_date: string;
 };
 
-export type PrijemRadek = { kod: string; datum: string; mnozstvi: number | string };
+export type PrijemRadek = { id?: string; kod: string; datum: string; mnozstvi: number | string };
+
+export type DuvodOdpisu = 'rozbite' | 'prosle' | 'ztrata' | 'vlastni' | 'jine';
+
+export const NAZVY_DUVODU: Record<DuvodOdpisu, string> = {
+  rozbite: 'Rozbité',
+  prosle: 'Prošlé',
+  ztrata: 'Ztráta / manko',
+  vlastni: 'Vlastní spotřeba',
+  jine: 'Jiné',
+};
+
+/** Odpis zboží ze skladu obchodu (kusy se zapisují kladně, ubývá jimi). */
+export type OdpisRadek = { id?: string; kod: string; datum: string; mnozstvi: number | string; duvod?: DuvodOdpisu | string | null };
 
 export type UzaverkaHlavicka = {
   id: string;
@@ -73,6 +86,8 @@ export type VstupSkladu = {
   zbozi: Zbozi[];
   fasovani: FasovaniRadek[];
   prijmy: PrijemRadek[];
+  /** Odpis zboží (rozbité, prošlé…). Nepovinný — dokud neběží migrace, není co odečítat. */
+  odpisy?: OdpisRadek[];
   uzaverky: UzaverkaHlavicka[];
   radky: ProdanyRadek[];
   inventury: InventuraRadek[];
@@ -89,6 +104,8 @@ export type StavZbozi = {
   fasovano: number;
   prijato: number;
   prodano: number;
+  /** Odepsáno od inventury (rozbité, prošlé, ztráta). */
+  odepsano: number;
   min: number | null;
 };
 
@@ -147,6 +164,10 @@ export function stavySkladu(vstup: VstupSkladu, kDatu: string): StavZbozi[] {
   for (const p of vstup.prijmy) {
     (prijato.get(p.kod) ?? prijato.set(p.kod, []).get(p.kod)!).push({ datum: p.datum, ks: cislo(p.mnozstvi) });
   }
+  const odepsano = new Map<string, { datum: string; ks: number }[]>();
+  for (const o of vstup.odpisy ?? []) {
+    (odepsano.get(o.kod) ?? odepsano.set(o.kod, []).get(o.kod)!).push({ datum: o.datum, ks: cislo(o.mnozstvi) });
+  }
   const prodano = new Map<string, { datum: string; ks: number }[]>();
   for (const r of vstup.radky) {
     const datum = dnyUzaverek.get(r.uzaverka_id);
@@ -164,20 +185,62 @@ export function stavySkladu(vstup: VstupSkladu, kDatu: string): StavZbozi[] {
       const f = soucet(fasovano);
       const p = soucet(prijato);
       const s = soucet(prodano);
+      const o = soucet(odepsano);
       const min = z.min_ks == null || z.min_ks === '' ? null : cislo(z.min_ks);
       return {
         kod: z.kod,
         nazev: z.nazev,
-        stav: i ? zaokr(cislo(i.napocitano) + f + p - s) : null,
+        stav: i ? zaokr(cislo(i.napocitano) + f + p - s - o) : null,
         odInventury: od,
         napocitano: i ? cislo(i.napocitano) : null,
         fasovano: f,
         prijato: p,
         prodano: s,
+        odepsano: o,
         min,
       };
     })
     .sort((a, b) => a.nazev.localeCompare(b.nazev, 'cs', { numeric: true }));
+}
+
+/** Uzávěrka, jejíž období zasahuje přes den, ke kterému se zboží napočítalo. */
+export type UzaverkaPresInventuru = {
+  id: string;
+  cislo: string | null;
+  datum_od: string;
+  datum_do: string;
+  /** Den inventury uprostřed období uzávěrky. */
+  inventura: string;
+};
+
+/**
+ * Uzávěrky, které přetínají inventuru: `datum_od ≤ den inventury < datum_do`.
+ *
+ * Sklad se počítá od inventury a uzávěrka se odečítá celá ke dni svého konce.
+ * Uzávěrka, která začíná PŘED inventurou a končí PO ní, v sobě ale nese i prodej
+ * před inventurou — ten už je v napočítaném čísle, takže by se odečetl podruhé
+ * a sklad by ukazoval míň, než je. Rozdělit ji na „před" a „po" nejde (z jedné
+ * uzávěrky se den neodvodí), proto se tu jen hlásí, ať se to opraví.
+ *
+ * Počítají se jen inventury, od kterých se sklad OPRAVDU počítá (poslední
+ * inventura nějakého zboží) — starší už přepsala novější.
+ */
+export function uzaverkyPresInventuru(
+  uzaverky: Pick<UzaverkaHlavicka, 'id' | 'datum_od' | 'datum_do' | 'cislo'>[],
+  inventury: Pick<InventuraRadek, 'kod' | 'datum'>[],
+): UzaverkaPresInventuru[] {
+  const posledniPoKodu = new Map<string, string>();
+  for (const i of inventury) {
+    const dosud = posledniPoKodu.get(i.kod);
+    if (!dosud || i.datum > dosud) posledniPoKodu.set(i.kod, i.datum);
+  }
+  const dny = [...new Set(posledniPoKodu.values())].sort();
+  const out: UzaverkaPresInventuru[] = [];
+  for (const u of uzaverky) {
+    const x = dny.filter((d) => u.datum_od <= d && d < u.datum_do).pop();
+    if (x) out.push({ id: u.id, cislo: u.cislo ?? null, datum_od: u.datum_od, datum_do: u.datum_do, inventura: x });
+  }
+  return out;
 }
 
 /** Fasování do obchodu, které nemá zboží — kusy se nikam nepřipsaly. */
@@ -263,10 +326,12 @@ export function dnyZasoby(stav: number | null, prumerZaDen: number | null): numb
 
 export type PohybZbozi = {
   datum: string;
-  druh: 'fasovani' | 'prijem' | 'prodej' | 'inventura';
+  druh: 'fasovani' | 'prijem' | 'prodej' | 'odpis' | 'inventura';
   /** Kladné přibylo, záporné ubylo; u inventury napočítaný stav. */
   ks: number;
   popis: string;
+  /** Id zápisu u příjmu a odpisu — dá se podle něj smazat, když se zapsal omylem. */
+  id?: string;
 };
 
 /** Pohyby jednoho zboží, nejnovější první — historie pod položkou skladu. */
@@ -283,7 +348,12 @@ export function pohybyZbozi(kod: string, vstup: VstupSkladu, limit = 40): PohybZ
     }
   }
   for (const p of vstup.prijmy) {
-    if (p.kod === kod) out.push({ datum: p.datum, druh: 'prijem', ks: cislo(p.mnozstvi), popis: 'Příjem zboží' });
+    if (p.kod === kod) out.push({ datum: p.datum, druh: 'prijem', ks: cislo(p.mnozstvi), popis: 'Příjem zboží', id: p.id });
+  }
+  for (const o of vstup.odpisy ?? []) {
+    if (o.kod !== kod) continue;
+    const duvod = NAZVY_DUVODU[o.duvod as DuvodOdpisu];
+    out.push({ datum: o.datum, druh: 'odpis', ks: -cislo(o.mnozstvi), popis: duvod ? `Odpis — ${duvod.toLowerCase()}` : 'Odpis', id: o.id });
   }
   const uz = new Map(vstup.uzaverky.map((u) => [u.id, u]));
   for (const r of vstup.radky) {

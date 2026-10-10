@@ -52,6 +52,7 @@ export const TABULKY = [
   // Obchod (prodejna): zboží → příjem, uzávěrky (+ řádky), inventura.
   ['obchod_zbozi', 'kod'], ['obchod_prijem', 'id'], ['obchod_uzaverky', 'id'],
   ['obchod_uzaverky_radky', 'id'], ['obchod_inventura', 'id'],
+  ['obchod_odpis', 'id'], ['obchod_zavreno', 'datum'],
 ];
 
 export const NEZALOHOVAT = [
