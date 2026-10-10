@@ -138,6 +138,10 @@ const ODDILY: Oddil[] = [
         jak: 'Zaškrtnutí kapky u položky objednávky (jen u sudů) rovnou založí záznam ve stáčení, ať se totéž nepíše dvakrát. V seznamu záznamů je takový řádek označený „Založeno zaškrtnutím Stočeno u objednávky" — podle toho poznáš, že ho appka napsala sama.',
       },
       {
+        co: 'Řezání piva (tank A + tank B + sudy ze skladu)',
+        jak: 'Tlačítko „Řezání“ ve stáčení: vybereš tank A, tank B, poměr a kolik sudů se stočilo — litry se z tanků odečtou podle poměru. Když část piva do řezu nešla z tanku, ale z hotových sudů na skladě (třeba 1× 30 l, 1× 20 l a 1× 15 l desítky), vyplň „Sudy ze skladu do podílu B“: vyber pivo a počty sudů. Jejich litry se počítají do podílu B (tank B pak může zůstat prázdný, nebo pokryje jen zbytek) a sudy se ze skladu odečtou — ve Skladu i Pohybech je uvidíš jako přefuk „do řezu“. Když sklad na tolik sudů nestačí, appka se zeptá. Smazáním prvního řádku řezu ve stáčení se sudy vrátí na sklad. U řádků, ke kterým jsou sudy navázané, nejde měnit počet ani obal — smaž řádek a zapiš řez znovu.',
+      },
+      {
         co: 'Odškrtávátko v PLÁNU stáčení nezapisuje',
         jak: 'Fajfky v plánu jsou jen pracovní pomůcka pro stáčeče. Skutečný zápis se dělá v „Začátek stáčení“, jinak by vznikl dvojí záznam.',
       },

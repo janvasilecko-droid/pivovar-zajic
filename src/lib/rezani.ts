@@ -13,6 +13,12 @@
 //     i smazání řádku stáčení najdou (lib/jantarZapis.ts).
 // Sklad dostane sudy vybraného piva — jako u každého jiného stáčení.
 //
+// Sudy ze skladu (zadání 10. 10. 2026: „vyřezal jsem 11ku z 12ky z tanku a z 10ky,
+// ale část 10ky šla ze sudů 1×30, 1×20 a 1×15, které mám na skladě"): podíl B
+// se dá pokrýt hotovými sudy ze skladu. Jejich litry se počítají do podílu B,
+// ze skladu se odečtou jako Přefuk „do řezu" (keg_prefuk, lib/rezaniSudy.ts)
+// a z tanku B se vezme jen zbytek podílu — nebo nic, když sudy stačí.
+//
 // Tady jsou jen pravidla (testy bez databáze); zápis je v lib/jantarZapis.ts.
 
 /** Značka v poznámce přetočení, která ho váže na řádek stáčení. */
@@ -33,6 +39,16 @@ const naDesetiny = (n: number) => Math.round(n * 10) / 10;
 export function rozdelRez(litry: number, podilAProcent: number): { aL: number; bL: number } {
   const aL = naDesetiny(litry * podilAProcent / 100);
   return { aL, bL: naDesetiny(litry - aL) };
+}
+
+/**
+ * Podíl B se skládá ze sudů ze skladu a z tanku B: sudy dají `sudyL`, tank B
+ * zbytek. Dávají-li sudy víc než podíl B, z tanku se nebere nic.
+ */
+export function rozdelPodilB(bL: number, sudyL: number): { sudyL: number; tankBL: number } {
+  const sudy = naDesetiny(Math.max(0, sudyL));
+  const zbytek = naDesetiny(bL - sudy);
+  return { sudyL: sudy, tankBL: zbytek > 0 ? zbytek : 0 };
 }
 
 /** Tank tak, jak ho řezání potřebuje. */
@@ -70,17 +86,39 @@ export function problemyRezu(p: {
   tankB?: TankKRezu;
   podilA: number;
   radky: RadekRezu[];
+  /** Sudy ze skladu jako (část) podílu B: kolik litrů dávají a z jakého jsou piva. */
+  sudy?: { litry: number; pivoId: string };
 }): string[] {
   const chyby: string[] = [];
+  const sudyL = p.sudy && p.sudy.litry > 0 ? p.sudy.litry : 0;
   if (!p.pivoId) chyby.push('Vyber pivo, které se stáčí.');
-  if (!p.tankA || !p.tankB) chyby.push('Vyber oba tanky.');
+  if (sudyL > 0 && !p.sudy?.pivoId) chyby.push('Vyber pivo, ze kterého jsou sudy ze skladu.');
+  if (sudyL > 0) {
+    // Tank B je u sudů nepovinný — jestli je potřeba, se ukáže až podle litrů níž.
+    if (!p.tankA) chyby.push('Vyber tank A.');
+    else if (p.tankB && p.tankA.id === p.tankB.id) chyby.push('Tank A a tank B musí být různé.');
+  } else if (!p.tankA || !p.tankB) chyby.push('Vyber oba tanky.');
   else if (p.tankA.id === p.tankB.id) chyby.push('Tank A a tank B musí být různé.');
   if (!(p.podilA >= 1 && p.podilA <= 99)) chyby.push('Poměr musí být mezi 1 a 99 %.');
   const litry = litryRezu(p.radky);
   if (!(litry > 0)) chyby.push('Zadej, kolik sudů se stočilo.');
   if (chyby.length) return chyby;
   const { aL, bL } = rozdelRez(litry, p.podilA);
-  for (const [tank, chce] of [[p.tankA!, aL], [p.tankB!, bL]] as const) {
+  let tankBL = bL;
+  if (sudyL > 0) {
+    // Tolerance 1 l: sudy se leští po celých kusech, poměr je přibližný.
+    if (sudyL > bL + 1) {
+      chyby.push(`Sudy ze skladu (${naDesetiny(sudyL)} l) jsou víc než podíl B (${bL} l) — uprav poměr nebo počet sudů.`);
+      return chyby;
+    }
+    tankBL = rozdelPodilB(bL, sudyL).tankBL;
+    if (tankBL > 1 && !p.tankB) {
+      chyby.push(`Podíl B je ${bL} l, sudy ze skladu dávají ${naDesetiny(sudyL)} l — zbývá ${tankBL} l. Vyber tank B, nebo uprav poměr či sudy.`);
+      return chyby;
+    }
+  }
+  for (const [tank, chce] of [[p.tankA!, aL], [p.tankB, tankBL]] as const) {
+    if (!tank || !(chce > 0)) continue;
     const vTanku = Number(tank.current_volume_l ?? 0);
     // Tolerance 1 l jako u Jantaru (lib/jantarZapis.ts).
     if (chce > vTanku + 1) chyby.push(`${tank.label} by se přečerpal (v tanku ${Math.round(vTanku)} l, chce se ${chce} l).`);
@@ -89,8 +127,13 @@ export function problemyRezu(p: {
 }
 
 /** Popis do poznámky řádku stáčení — je pak vidět i v přehledu. */
-export function popisRezu(tankA: string, tankB: string, podilA: number): string {
-  return `Řez: ${tankA} ${podilA} % + ${tankB} ${100 - podilA} %`;
+export function popisRezu(tankA: string, tankB: string | null, podilA: number, sudyL = 0): string {
+  const podilB = 100 - podilA;
+  if (!(sudyL > 0)) return `Řez: ${tankA} ${podilA} % + ${tankB} ${podilB} %`;
+  const sudy = naDesetiny(sudyL);
+  return tankB
+    ? `Řez: ${tankA} ${podilA} % + ${tankB} ${podilB} % (z toho sudy ze skladu ${sudy} l)`
+    : `Řez: ${tankA} ${podilA} % + sudy ze skladu ${podilB} % (${sudy} l)`;
 }
 
 /**
