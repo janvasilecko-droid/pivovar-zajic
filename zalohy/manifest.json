@@ -1,7 +1,7 @@
 {
  "format": "pivovar-zaloha-manifest",
  "v": 1,
- "datum": "2026-10-09T09:19:35.844Z",
+ "datum": "2026-10-10T08:40:51.793Z",
  "tabulky": {
   "beers": {
    "radku": 13,
@@ -141,23 +141,23 @@
   },
   "bottling": {
    "radku": 205,
-   "sha256": "b6abb0495706bc4349482e0d65ef9dc3e91e4b0b83d2263dc0f20607c7d2a57b"
+   "sha256": "3877beecfd47335880f87213eea3eea7ef49f3110069bfcc1343cea68685315f"
   },
   "fasovani": {
    "radku": 26,
    "sha256": "daa87db98d38f6d602595c2022eef1f4815f287f272c0c372d868c723cbe44ff"
   },
   "fasovani_private": {
-   "radku": 142,
-   "sha256": "2e3120ef24b7f4f30ccdb718c20038e35d999ba0ff5b07dd0f058dd516f9e393"
+   "radku": 143,
+   "sha256": "74b0acbf0284da921ba47d4117a9797514054a6595d120d5035fea85d4b802a3"
   },
   "inventory": {
    "radku": 259,
-   "sha256": "6e43f9d4d1fbffbb88e7f89e82e4137e03b7ba36c9d25818458801136df0795b"
+   "sha256": "4729ac9507b135f0627b68440a9e8e607a8baed0aa30e07ab1dcd6e8bd7070a7"
   },
   "inventory_adjustments": {
    "radku": 12,
-   "sha256": "e8f4d518e7108e820b145de538d076d817956c90b9d5c68bfca1e86aaf248ef0"
+   "sha256": "3606d36fdb07732f3bcd67f1dcdbaee72b0c2e7e4c782b599369e0a8f7df3049"
   },
   "keg_prefuk": {
    "radku": 1,
@@ -180,8 +180,8 @@
    "sha256": "c9e9f2a92fd2e8e022735b368373e86ffc2131f9304d3d6a57a91e759ea96142"
   },
   "tydenni_inventura": {
-   "radku": 58,
-   "sha256": "375d0afdebd5f7053fa3d2d789e646141319162525ea309b35eac0f929d40a37"
+   "radku": 84,
+   "sha256": "a7005ba175516f449397439697a9dafa4c170a16c3ed08f5714e42a307a044d1"
   },
   "label_purchases": {
    "radku": 0,
@@ -241,7 +241,7 @@
   },
   "orders": {
    "radku": 267,
-   "sha256": "dbbf25205c5055f58c15f9122d27095d34b4f921a3626649e9875e2597075704"
+   "sha256": "d17ed50c072cc0429dc9563f9124f3c32fab7969d459edb855040343750d6336"
   },
   "whatsapp_incoming": {
    "radku": 341,
@@ -256,8 +256,8 @@
    "sha256": "80e6c1a452e06c172af44515b0bbda07af161d783e153d1679281dddcb5f6dc8"
   },
   "kegging": {
-   "radku": 362,
-   "sha256": "3b16b86d59029691130d8efa115d3bc55043a081fe1de1d03650904e01a07522"
+   "radku": 358,
+   "sha256": "3acefe22ffd39aa07fb3c5d3c01c77bb45f278e7e6ab44c7f7212d30394b7f6c"
   },
   "zavoz_deductions": {
    "radku": 757,
