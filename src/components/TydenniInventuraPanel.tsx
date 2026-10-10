@@ -34,6 +34,8 @@ import { zapamatujPozici } from '../lib/drzPozici';
 import { normalizujCislo } from '../lib/cisloVstup';
 import { puvodStavu } from '../lib/puvodMinusu';
 import { nactiSdilenouTabulku } from '../lib/sdilenaData';
+import { cenaKusu, formatKc, hodnotaInventury } from '../lib/hodnotaInventury';
+import type { CenaPolozky } from '../lib/hodnotaObjednavky';
 
 export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, sec?: string, sub?: string) => void } = {}) {
   const dnes = businessDateISO();
@@ -51,6 +53,9 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
   /** Napočítáno minulý týden (beer__package → kusy) — základ očekávaného stavu. */
   const [minulyTyden, setMinulyTyden] = useState<Record<string, MinulyTydenStav>>({});
   const [tanky, setTanky] = useState<TankProRozdeleni[]>([]);
+  // Ceník kvůli hodnotě inventury v Kč (lib/hodnotaInventury.ts). Když se
+  // nenačte, hodnota jede na orientační ceny — inventura kvůli tomu nesmí stát.
+  const [cenik, setCenik] = useState<CenaPolozky[]>([]);
   const [napocitano, setNapocitano] = useState<Record<string, string>>({});
   const [bezi, setBezi] = useState(true);
   const [uklada, setUklada] = useState<string | null>(null);
@@ -141,12 +146,14 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
   const nacti = useCallback(async () => {
     setBezi(true);
     try {
-      const [k, { data: t }, { data: ulozene }, { data: minule }] = await Promise.all([
+      const [k, { data: t }, { data: ulozene }, { data: minule }, { data: ceny }] = await Promise.all([
         nactiSkladovouKnihu(),
         supabase.from('cellar_tanks').select('id,label,current_beer_id,current_volume_l,status,started_at,kegging_active'),
         supabase.from('tydenni_inventura').select('beer_id,package_id,napocitano').eq('tyden_od', obdobi.od),
         supabase.from('tydenni_inventura').select('beer_id,package_id,napocitano,updated_at').eq('tyden_od', posunDnu(obdobi.od, -7)),
+        fetchAllRows<CenaPolozky>('price_list', 'beer_id,package_id,price_per_unit,currency,valid_from,valid_to'),
       ]);
+      setCenik(ceny ?? []);
       const mt: Record<string, MinulyTydenStav> = {};
       for (const r of ((minule as any[]) ?? [])) {
         const n = Number(r.napocitano);
@@ -258,6 +265,19 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
   }, [pohybyOtevrenehoRadku, objednavkyInfo]);
 
   const souhrn = useMemo(() => souhrnTydne(radkyObalu), [radkyObalu]);
+
+  // 💰 Hodnota v Kč: cena z ceníku ke dni, ke kterému se počítá; kde chybí,
+  // orientační podle obalu (jako měsíční inventura). Stejný rozsah řádků jako
+  // souhrn výš (respektuje Lahve/Sudy).
+  const objemObalu = useMemo(
+    () => new Map((kniha?.obaly ?? []).map((o) => [o.id, Number(o.volume_l ?? 0)])),
+    [kniha],
+  );
+  const cenaRadku = useCallback(
+    (r: TydenniRadek) => cenaKusu(r, objemObalu.get(r.package_id) ?? 0, cenik, obdobi.doPocitani),
+    [objemObalu, cenik, obdobi.doPocitani],
+  );
+  const hodnota = useMemo(() => hodnotaInventury(radkyObalu, cenaRadku), [radkyObalu, cenaRadku]);
 
   /**
    * Propíše rozdíl do stáčení — tam, kde vznikl.
@@ -563,14 +583,39 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
                 </span>
                 {souhrn.prebytku > 0 && (
                   <span className="chip bg-sky-100 text-sky-900 border-sky-300">
-                    <Plus size={14} /> {souhrn.prebytku} přebytků (+{souhrn.prebytekKusu} ks)
+                    <Plus size={14} /> {souhrn.prebytku} přebytků (+{souhrn.prebytekKusu} ks, {formatKc(hodnota.prebytekKc, true)})
                   </span>
                 )}
                 {souhrn.manek > 0 && (
                   <span className="chip bg-rose-100 text-rose-900 border-rose-300">
-                    <MinusCircle size={14} /> {souhrn.manek} manek (−{souhrn.mankoKusu} ks)
+                    <MinusCircle size={14} /> {souhrn.manek} manek (−{souhrn.mankoKusu} ks, {formatKc(-hodnota.mankoKc)})
                   </span>
                 )}
+              </div>
+            )}
+
+            {/* 💰 Hodnota inventury (10. 10. 2026: „přidej do týdenní inventury
+                i hodnotu"). Cena z ceníku; kde chybí, orientační podle obalu. */}
+            {!bezi && hodnota.spocitano > 0 && (
+              <div data-hodnota-inventury className="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2.5 space-y-1">
+                <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                  <p className="text-sm font-black text-neutral-900">
+                    Hodnota napočítaného: <span className="tabular-nums">{formatKc(hodnota.napocitanoKc)}</span>
+                  </p>
+                  {souhrn.sedi < souhrn.spocitano && (
+                    <p className={`text-sm font-black tabular-nums ${hodnota.rozdilKc < 0 ? 'text-rose-700' : hodnota.rozdilKc > 0 ? 'text-sky-700' : 'text-neutral-700'}`}>
+                      Rozdíl proti skladu: {formatKc(hodnota.rozdilKc, true)}
+                    </p>
+                  )}
+                </div>
+                <p className="text-udaj font-semibold text-neutral-600">
+                  {hodnota.orientacnichRadku === 0
+                    ? 'Podle ceníku.'
+                    : hodnota.orientacnichRadku === hodnota.spocitano
+                      ? 'Orientačně — v ceníku chybí ceny, počítá se podle velikosti obalu (jako v měsíční inventuře).'
+                      : `Podle ceníku; u ${hodnota.orientacnichRadku} ${hodnota.orientacnichRadku === 1 ? 'položky' : 'položek'} cena v ceníku chybí, počítá se orientačně podle velikosti obalu.`}
+                  {souhrn.spocitano < radkyObalu.length && ` Jen spočítané řádky (${souhrn.spocitano} z ${radkyObalu.length}).`}
+                </p>
               </div>
             )}
           </>
@@ -699,8 +744,8 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
                   <div className="mt-2.5 pt-2.5 border-t border-black/10 flex flex-wrap items-center gap-2">
                     <p className={`text-xs font-bold opacity-90 flex-1 min-w-[180px] ${inkTrida}`}>
                       {r.rozdil > 0
-                        ? `Přebytek ${r.rozdil} ks — nejspíš se stočilo a nezapsalo.`
-                        : `Manko ${Math.abs(r.rozdil)} ks — nejspíš se zapsalo víc, než se vyrobilo.`}
+                        ? `Přebytek ${r.rozdil} ks (${formatKc(r.rozdil * cenaRadku(r).cena, true)}) — nejspíš se stočilo a nezapsalo.`
+                        : `Manko ${Math.abs(r.rozdil)} ks (${formatKc(r.rozdil * cenaRadku(r).cena)}) — nejspíš se zapsalo víc, než se vyrobilo.`}
                     </p>
                     <button
                       type="button"

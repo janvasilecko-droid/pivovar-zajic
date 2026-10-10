@@ -331,6 +331,10 @@ const ODDILY: Oddil[] = [
         jak: 'Zadává se na konci měsíce. „Spočítat z fotek“ přečte napsané počty z fotky papíru. „Schválit & převést“ stavy uzamkne a přenese do počátečního stavu dalšího měsíce — to je krok, který nejde vzít zpět.',
       },
       {
+        co: 'Týdenní inventura a její hodnota',
+        jak: 'Na každém řádku je „Čeká se“, ty napíšeš „Napočítáno“ a vyjde rozdíl. Pod počty je rámeček Hodnota napočítaného v Kč a Rozdíl proti skladu (přebytky minus manka); u každého přebytku a manka je i jeho částka. Cena je z Ceníku (Číselníky) platná ke dni počítání; kde v ceníku chybí, počítá se orientačně podle velikosti obalu (sud 1 500 Kč, velká lahev 250 Kč, malá 45 Kč — stejně jako v měsíční inventuře) a rámeček to napíše. Počítají se jen řádky, které už jsi napočítal, a jen ty, které jsou vidět (přepínač Vše / Lahve / Sudy). Je to prodejní cena, ne nákladová — slouží k představě, jak velký rozdíl je, ne jako účetní hodnota.',
+      },
+      {
         co: 'Rozpad piva',
         jak: 'Každý pohyb jednoho piva za libovolné období — odkud se vzalo a kam šlo. Tohle je místo, kde se dohledává, proč nějaké číslo nesedí.',
       },
