@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AlarmClock, BarChart3, Car, ChevronDown, ClipboardList, FileSpreadsheet, FlaskConical, LayoutGrid, Info, type LucideIcon, Settings, Shield, Sparkles, Store, Tag, Users } from 'lucide-react';
+import { AlarmClock, BarChart3, Car, ChevronDown, ClipboardList, FileSpreadsheet, FlaskConical, LayoutGrid, Info, type LucideIcon, Settings, Shield, ShoppingBag, Sparkles, Store, Tag, Users } from 'lucide-react';
 import { IkonaSud, IkonaLahev } from './ikony';
 import { APP_VERSION, APP_VERSION_DATE } from '../lib/version';
 
@@ -241,6 +241,46 @@ const ODDILY: Oddil[] = [
       {
         co: 'Vrátit zpět',
         jak: 'Hned po uložení se nabídne „Vrátit zpět“. Maže přesně to, co se právě uložilo, i kdyby někdo zapsal totéž ve stejnou chvíli.',
+      },
+    ],
+  },
+  {
+    klic: 'obchod',
+    nazev: 'Obchod',
+    ikona: ShoppingBag,
+    kCemu: 'Všechno o podnikové prodejně na jednom místě — vlastní sklad obchodu, uzávěrky z pokladny, fasování, inventura a statistiky.',
+    body: [
+      {
+        co: 'Sklad obchodu',
+        jak: 'Obchod má vlastní sklad — nejsou v něm jen piva, ale i ostatní zboží. Stav se nikde neukládá, počítá se: poslední inventura + fasování z pivovaru + příjem − prodej z uzávěrek. Zboží, které ještě nemá inventuru, ukazuje „bez inventury“, ne nulu.',
+      },
+      {
+        co: 'Uzávěrka z pokladny',
+        jak: 'V záložce Uzávěrky zvol Denní, Týdenní nebo Měsíční a vyfoť účtenku „Sumář prodeje“. Appka přečte zboží a množství, zkontroluje, že kusy × cena sedí na částku i na „Celkem“, a teprve potom jde uložit. Co nesedí, je vidět u řádku, i s nabídkou „Podle částky je to N ks“.',
+      },
+      {
+        co: 'Nové zboží z pokladny',
+        jak: 'Když je v uzávěrce kód, který appka nezná, navrhne k němu pivo a obal. Navržené spojení musíš jednou potvrdit (nebo zvolit „ostatní zboží“) — pak si ho pamatuje a příště už se neptá.',
+      },
+      {
+        co: 'Fasování do obchodu',
+        jak: 'Záložka Fasování je stávající „Fasování → Prodejna“. Co se tam nafasuje ze skladu pivovaru, odečte se ze skladu pivovaru a přičte do skladu obchodu (u piv a obalů, ke kterým je zboží spárované).',
+      },
+      {
+        co: 'Inventura na konci měsíce',
+        jak: 'V záložce Inventura napočítáš, co je na regálu; „Sedí“ doplní očekávaný stav. První inventura je počáteční stav obchodu. Rozdíl proti očekávanému stavu se ukáže před uložením a zůstane v historii. Konec měsíce a první dny dalšího to appka připomene nahoře ve Skladu obchodu.',
+      },
+      {
+        co: 'Hlídání zásob',
+        jak: 'U zboží si v rozbaleném řádku nastavíš minimum. Pod ním, na nule nebo do mínusu se zboží ukáže nahoře ve Skladu s upozorněním. Mínus obvykle znamená, že chybí fasování nebo příjem.',
+      },
+      {
+        co: 'Statistika',
+        jak: 'Tržba po dnech, týdnech a měsících, prodej po pivech v litrech a nejprodávanější zboží — vše z uzávěrek. Prodej se připisuje ke konci období uzávěrky.',
+      },
+      {
+        co: 'Smazání uzávěrky',
+        jak: 'Smazáním uzávěrky se prodané kusy vrátí do skladu obchodu. Překrývající se období stejné pokladny appka nepustí, aby se prodej neodečetl dvakrát.',
       },
     ],
   },
