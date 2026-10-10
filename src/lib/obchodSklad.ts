@@ -203,6 +203,46 @@ export function stavySkladu(vstup: VstupSkladu, kDatu: string): StavZbozi[] {
     .sort((a, b) => a.nazev.localeCompare(b.nazev, 'cs', { numeric: true }));
 }
 
+/** Uzávěrka, jejíž období zasahuje přes den, ke kterému se zboží napočítalo. */
+export type UzaverkaPresInventuru = {
+  id: string;
+  cislo: string | null;
+  datum_od: string;
+  datum_do: string;
+  /** Den inventury uprostřed období uzávěrky. */
+  inventura: string;
+};
+
+/**
+ * Uzávěrky, které přetínají inventuru: `datum_od ≤ den inventury < datum_do`.
+ *
+ * Sklad se počítá od inventury a uzávěrka se odečítá celá ke dni svého konce.
+ * Uzávěrka, která začíná PŘED inventurou a končí PO ní, v sobě ale nese i prodej
+ * před inventurou — ten už je v napočítaném čísle, takže by se odečetl podruhé
+ * a sklad by ukazoval míň, než je. Rozdělit ji na „před" a „po" nejde (z jedné
+ * uzávěrky se den neodvodí), proto se tu jen hlásí, ať se to opraví.
+ *
+ * Počítají se jen inventury, od kterých se sklad OPRAVDU počítá (poslední
+ * inventura nějakého zboží) — starší už přepsala novější.
+ */
+export function uzaverkyPresInventuru(
+  uzaverky: Pick<UzaverkaHlavicka, 'id' | 'datum_od' | 'datum_do' | 'cislo'>[],
+  inventury: Pick<InventuraRadek, 'kod' | 'datum'>[],
+): UzaverkaPresInventuru[] {
+  const posledniPoKodu = new Map<string, string>();
+  for (const i of inventury) {
+    const dosud = posledniPoKodu.get(i.kod);
+    if (!dosud || i.datum > dosud) posledniPoKodu.set(i.kod, i.datum);
+  }
+  const dny = [...new Set(posledniPoKodu.values())].sort();
+  const out: UzaverkaPresInventuru[] = [];
+  for (const u of uzaverky) {
+    const x = dny.filter((d) => u.datum_od <= d && d < u.datum_do).pop();
+    if (x) out.push({ id: u.id, cislo: u.cislo ?? null, datum_od: u.datum_od, datum_do: u.datum_do, inventura: x });
+  }
+  return out;
+}
+
 /** Fasování do obchodu, které nemá zboží — kusy se nikam nepřipsaly. */
 export type FasovaniBezZbozi = { beer_id: string; package_id: string; ks: number; poslednDatum: string };
 

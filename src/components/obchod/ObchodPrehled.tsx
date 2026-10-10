@@ -14,7 +14,7 @@ import {
 import { inventuraObchoduChybi } from '../../lib/obchodInventura';
 import { smazOdpis, smazPrijem, upravZbozi, type DataObchodu } from '../../lib/obchodData';
 import { OdpisZbozi, PrijemZbozi, PridatZbozi } from './ZboziOkna';
-import { UpozorneniMezery, useMezery } from './ObchodMezery';
+import { UpozorneniMezery, UpozorneniPresInventuru, useMezery, usePresInventuru } from './ObchodMezery';
 import type { ObchodTab } from '../../screens/ObchodScreen';
 
 const nazvyMesicu = ['leden', 'únor', 'březen', 'duben', 'květen', 'červen', 'červenec', 'srpen', 'září', 'říjen', 'listopad', 'prosinec'];
@@ -39,6 +39,7 @@ export function ObchodPrehled({ data, zapsal, jdiNa }: {
   const [prijem, setPrijem] = useState<{ kod?: string } | null>(null);
   const [odpis, setOdpis] = useState<{ kod?: string } | null>(null);
   const mezery = useMezery(data);
+  const presInventuru = usePresInventuru(data);
   const [pridat, setPridat] = useState<{ beerId?: string; pkgId?: string } | null>(null);
 
   const piva = stavy.filter((s) => zboziPodleKodu.get(s.kod)?.beer_id);
@@ -78,6 +79,8 @@ export function ObchodPrehled({ data, zapsal, jdiNa }: {
           </div>
         </div>
       )}
+
+      <UpozorneniPresInventuru uzaverky={presInventuru} />
 
       <UpozorneniMezery mezery={mezery} jdiNaUzaverky={() => jdiNa('uzaverky')} />
 

@@ -10,7 +10,7 @@ import { businessDateISO } from '../../lib/businessDate';
 import { chyba as toastChyba, potvrd, uspech } from '../../lib/toast';
 import { dnyMezery, mezeryUzaverek, textMezery, type Mezera } from '../../lib/obchodMezery';
 import { smazZavreno, zapisZavreno, type DataObchodu } from '../../lib/obchodData';
-import type { TypUzaverky } from '../../lib/obchodSklad';
+import { uzaverkyPresInventuru, type TypUzaverky, type UzaverkaPresInventuru } from '../../lib/obchodSklad';
 
 const dnuText = (n: number) => `${n} ${n === 1 ? 'den' : n >= 2 && n <= 4 ? 'dny' : 'dní'}`;
 
@@ -122,5 +122,31 @@ export function ZavrenoDny({ data }: { data: DataObchodu }) {
         ))}
       </ul>
     </section>
+  );
+}
+
+const dat = (iso: string) => `${Number(iso.slice(8, 10))}. ${Number(iso.slice(5, 7))}.`;
+
+/** Uzávěrky, které přetínají inventuru (hook pro Sklad i Inventuru). */
+export function usePresInventuru(data: Pick<DataObchodu, 'uzaverky' | 'inventury'>): UzaverkaPresInventuru[] {
+  return useMemo(() => uzaverkyPresInventuru(data.uzaverky, data.inventury), [data.uzaverky, data.inventury]);
+}
+
+/** Text vysvětlující, proč uzávěrka přes inventuru dělá potíž a jak ji opravit. */
+export const vysvetleniPresInventuru = (u: Pick<UzaverkaPresInventuru, 'datum_od' | 'datum_do' | 'inventura'>) =>
+  `Uzávěrka ${dat(u.datum_od)}–${dat(u.datum_do)} zasahuje přes inventuru z ${dat(u.inventura)}: prodej do ${dat(u.inventura)} už je v napočítaném stavu a odečte se ještě jednou, takže sklad ukazuje míň, než je.`;
+
+export function UpozorneniPresInventuru({ uzaverky }: { uzaverky: UzaverkaPresInventuru[] }) {
+  if (uzaverky.length === 0) return null;
+  return (
+    <div role="alert" className="rounded-xl border-2 border-rose-400 bg-rose-50 p-3 space-y-1.5 text-rose-950">
+      <div className="text-sm font-black flex items-center gap-1.5"><AlertTriangle size={16} /> Uzávěrka přes inventuru — sklad nesedí</div>
+      <ul className="space-y-1 text-xs font-bold">
+        {uzaverky.map((u) => <li key={u.id}>{u.cislo ? `č. ${u.cislo}: ` : ''}{vysvetleniPresInventuru(u)}</li>)}
+      </ul>
+      <div className="text-[11px] font-semibold">
+        Oprava: smaž tuhle uzávěrku a zadej místo ní denní uzávěrky, nebo dělej inventuru k poslednímu dni uzávěrky.
+      </div>
+    </div>
   );
 }

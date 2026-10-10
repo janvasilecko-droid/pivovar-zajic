@@ -283,6 +283,10 @@ const ODDILY: Oddil[] = [
         jak: 'Rozbitá láhev, prošlé zboží, ztráta: ve Skladu tlačítko „Odpis“ (nahoře, nebo v rozbaleném zboží). Zvol důvod a kusy — odečte se ze skladu obchodu. Pivo z pivovaru se tím nevrací, to se odečetlo už Fasováním. Omylem zapsaný odpis nebo příjem jde smazat v „Posledních pohybech“ zboží.',
       },
       {
+        co: 'Uzávěrka přes inventuru',
+        jak: 'Inventura na konci měsíce a týdenní uzávěrka, která začíná před ní a končí po ní (třeba týden 26. 10.–1. 11. a inventura 31. 10.): prodej do inventury už je v napočítaném stavu a odečetl by se podruhé. Appka to pozná, napíše nahoře ve Skladu, u Inventury i při zadávání uzávěrky a bez tvého souhlasu ji neuloží. Správně: za ty dny zadat denní uzávěrky, nebo dělat inventuru k poslednímu dni uzávěrky.',
+      },
+      {
         co: 'Chybějící uzávěrky',
         jak: 'Chybí-li uzávěrka za nějaké dny, sklad obchodu ukazuje víc, než je na regálu — appka to napíše nahoře ve Skladu i v Uzávěrkách. Tam u každé mezery zvolíš „Zadat uzávěrku“, nebo „Zavřeno“, když se ten den neprodávalo (neděle, svátek). Označení jde zase zrušit. Hlídá se posledních asi dva měsíce a dnešek se nepočítá, uzávěrka se dělá večer.',
       },
