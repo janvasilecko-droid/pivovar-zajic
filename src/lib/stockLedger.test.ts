@@ -269,16 +269,15 @@ describe('expectedForMonth — základ pro inventuru', () => {
     expect(stockMapAsOf(buildMovements(src), '2026-08-31')[K]).toBe(15);
   });
 
-  it('bez zapsaného počátečního stavu počítá měsíc od NULY', () => {
-    // Napočítaná inventura z minulého měsíce základem pro tenhle NENÍ. Uzávěrka
-    // měsíce zapisuje „Počáteční stav" na první den toho dalšího a teprve ten
-    // je výchozím bodem. Když chybí, je počátek nula — a karta Auditu to
-    // pojmenuje jako chybějící údaj (viz lib/auditSkladu.ts).
+  it('bez zapsaného počátečního stavu navazuje na Sklad k poslednímu dni minulého měsíce', () => {
+    // 10. 10. 2026: „začátek měsíce je 1. každý měsíc, inventura a konečný
+    // stav je k poslednímu dni měsíce". Počátek měsíce = Sklad ráno 1. dne,
+    // tedy napočítaná inventura k 31. 7. (závěr dne) — stejné číslo jako ve
+    // Skladu. Dřív tu byla nula a Inventura počítala od jiného čísla než Sklad.
     //
-    // Dřív se bral jako základ poslední inventurní řádek, ať ležel kdekoli.
-    // Rozpad pak sahal až k němu a sloupec „Stočeno" ukazoval i výrobu
-    // předchozích měsíců: Summer Ale 15 l se v srpnu 2026 stočil 2×, tabulka
-    // psala 5.
+    // Rozpad ale pořád popisuje JEN měsíc: sloupec „Stočeno" nesmí ukázat
+    // i červencovou výrobu (Summer Ale 15 l: v srpnu 2026 stočeno 2×, tabulka
+    // psala 5).
     const src = {
       packages,
       inventoryRows: [{ entry_date: '2026-07-31', beer_id: B, package_id: P30, quantity: 8, note: 'Schválená inventura' }],
@@ -288,9 +287,9 @@ describe('expectedForMonth — základ pro inventuru', () => {
       ],
     };
     const e = expectedForMonth(buildMovements(src), '2026-08');
-    expect(e.get(K)!.baselineQty).toBe(0);
+    expect(e.get(K)!.baselineQty).toBe(8);
     expect(e.get(K)!.byKind.kegovani).toBe(2); // jen srpen, ne 5 z července
-    expect(e.get(K)!.qty).toBe(2);
+    expect(e.get(K)!.qty).toBe(10);
     expect(e.get(K)!.baselineDate).toBe('2026-08-01');
   });
 

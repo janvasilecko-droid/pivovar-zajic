@@ -15,7 +15,9 @@ export const SLOUPCE = {
   // naplněné sudy odběratele s vlastními sudy (lib/vlastniSudy.ts).
   kegging: 'entry_date,beer_id,package_id,quantity,note,cellar_tank_id,created_at,order_item_id',
   fasovani: 'entry_date,beer_id,package_id,quantity,created_at',
-  fasovani_private: 'entry_date,beer_id,package_id,quantity',
+  // created_at: týdenní inventura podle něj pozná prodej ze dne počítání
+  // zapsaný až po počítání (stejně jako u fasování personálu).
+  fasovani_private: 'entry_date,beer_id,package_id,quantity,created_at',
   writeoffs: 'entry_date,beer_id,package_id,quantity,created_at',
   inventory: 'entry_date,beer_id,beer_name,package_id,package_label,quantity,note,created_at',
   inventory_adjustments: 'entry_date,beer_id,package_id,quantity,order_id,reason,created_at',

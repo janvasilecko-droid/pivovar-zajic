@@ -191,13 +191,16 @@ describe('chybějící počáteční stav', () => {
   });
 
   it('rozdíl zůstane JEN v počátečním stavu a v konci', () => {
+    // Inventura počítá od Skladu RÁNO 1. 7. (23 z června), schválená
+    // inventura z 1. 7. je závěr toho dne (3) — staré uložení k prvnímu dni.
     expect(por.rozdilne).toEqual(['pocatecni', 'konec']);
-    expect(por.inventura.pocatecni).toBe(0);
+    expect(por.inventura.pocatecni).toBe(23);
     expect(por.sklad.pocatecni).toBe(3);
   });
 
-  it('pojmenuje se jako chybějící údaj, ne jako chyba výpočtu', () => {
-    expect(por.chybiZaklad).toBe(true);
+  it('počátek se už nedosazuje nulou — nehlásí se jako chybějící údaj', () => {
+    // 10. 10. 2026: začátek měsíce = Sklad ráno 1. dne, žádná nula.
+    expect(por.chybiZaklad).toBe(false);
   });
 
   it('se zadaným počátečním stavem se nehlásí nic', () => {
@@ -235,13 +238,13 @@ describe('chybějící počáteční stav', () => {
     // Obě strany počítají TÝŽ měsíc — sloupce pohybů musí sedět na kus.
     expect(srpen.inventura.stoceno).toBe(2);
     expect(srpen.sklad.stoceno).toBe(2);
-    expect(srpen.rozdilne).toEqual(['pocatecni', 'konec']);
 
-    // Liší se jen počátek: Inventura ho zapsaný nemá (nula), Sklad si ho
-    // dopočítal z července. Přesně tohle je ta chybějící informace.
-    expect(srpen.inventura.pocatecni).toBe(0);
+    // Obě strany počítají od TÉHOŽ počátku — Skladu ráno 1. 8. (3 sudy
+    // z července). 10. 10. 2026: „začátek měsíce je 1. každý měsíc".
+    expect(srpen.inventura.pocatecni).toBe(3);
     expect(srpen.sklad.pocatecni).toBe(3);
-    expect(srpen.chybiZaklad).toBe(true);
+    expect(srpen.rozdilne).toEqual([]);
+    expect(srpen.chybiZaklad).toBe(false);
 
     // A červenec vidí své tři, ne dva ani pět.
     expect(expectedForMonth(bezInventury, '2026-07', true).get(k)!.byKind.kegovani).toBe(3);

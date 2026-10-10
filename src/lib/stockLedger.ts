@@ -528,7 +528,12 @@ export function expectedForMonth(
   monthKey: string,
   sDorovnanim = false,
 ): Map<string, StockLine> {
-  return rozpadObdobi(movements, `${monthKey}-01`, konecMesice(monthKey), 'zapsany', sDorovnanim);
+  // Počátek = Sklad ráno 1. dne (konec minulého měsíce včetně jeho napočítané
+  // inventury, nebo zapsaný „Počáteční stav" k 1. dni) — 10. 10. 2026:
+  // „začátek měsíce je 1. každý měsíc, inventura a konečný stav je
+  // k poslednímu dni měsíce". Dřív se bral jen zapsaný řádek k 1. dni a když
+  // chyběl, nula — Inventura pak počítala od jiného čísla než Sklad.
+  return rozpadObdobi(movements, `${monthKey}-01`, konecMesice(monthKey), 'dopocitany', sDorovnanim);
 }
 
 /** Poslední den měsíce, YYYY-MM-DD. */
