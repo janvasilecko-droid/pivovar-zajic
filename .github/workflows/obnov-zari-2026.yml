@@ -1,0 +1,62 @@
+name: Vrátit zářijovou inventuru ze zálohy
+
+# Jednorázová oprava dat (scripts/obnov-zari-2026.mjs): 9. 10. 2026 se do
+# uzavřeného září uložila čísla napočítaná 9. 10. a smazala schválenou
+# inventuru k 30. 9. i zářijové ztráty. Tohle je vrátí přesně ze zálohy
+# z 5. 10. 2026 (commit 3e06e48). Majitel 10. 10. 2026: „ano".
+#
+# Bez „opravdu" se nic nezapíše. Do logu jdou jen počty (repozitář je veřejný).
+# Potřebuje secrety VITE_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY a ZALOHA_HESLO.
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: 'Commit se zálohou (3e06e48 = záloha 5. 10. 2026)'
+        required: true
+        default: '3e06e48'
+      opravdu:
+        description: 'Opravdu zapsat'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: obnov-zari-2026
+  cancel-in-progress: false
+
+jobs:
+  obnova:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Obnova září
+        env:
+          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ZALOHA_HESLO: ${{ secrets.ZALOHA_HESLO }}
+          COMMIT: ${{ inputs.commit }}
+          OPRAVDU: ${{ inputs.opravdu }}
+        run: |
+          set -- --commit "$COMMIT"
+          if [ "$OPRAVDU" = "true" ]; then set -- "$@" --opravdu; fi
+          node scripts/obnov-zari-2026.mjs "$@"
+
+      # Stav před obnovou, zašifrovaný heslem zálohy — kdyby bylo potřeba vrátit.
+      - name: Uložit předchozí stav
+        if: inputs.opravdu
+        uses: actions/upload-artifact@v4
+        with:
+          name: predchozi-zari
+          path: predchozi-zari.json.enc
+          retention-days: 30
+          if-no-files-found: ignore
