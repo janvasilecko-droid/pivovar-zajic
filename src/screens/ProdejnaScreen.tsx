@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { obalyProdejny } from '../lib/obchodKatalog';
 import { supabase, Beer, Package, EntryRow, useRealtime, beerBg, beerName, formatPackageLabel } from '../lib/supabase';
 import { EmptyState, Spinner } from '../components/ui';
 import { isoWeekKey } from '../components/WeeklyOrderSummaryCard';
@@ -174,14 +175,9 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
     return { totalQty, totalL };
   }, [entryRows, packages]);
 
-  // Prodejna = lahve + sudy (lahve na začátku)
-  const ALLOWED_PKG_VOLUMES = [50, 30, 20, 15, 10, 1.5, 1, 0.5, 0.33];
-  const shopPackages = useMemo(() => {
-    const allowed = (p: Package) => ALLOWED_PKG_VOLUMES.includes(Number(p.volume_l));
-    const bottles = packages.filter((p) => p.kind === 'bottle' && allowed(p)).sort((a, b) => b.volume_l - a.volume_l);
-    const kegs = packages.filter((p) => p.kind === 'keg' && allowed(p)).sort((a, b) => b.volume_l - a.volume_l);
-    return [...bottles, ...kegs];
-  }, [packages]);
+  // Prodejna = lahve + sudy (lahve na začátku). Stejná nabídka je i v Obchodě
+  // při přidávání zboží (lib/obchodKatalog.ts), ať se velikosti nerozejdou.
+  const shopPackages = useMemo(() => obalyProdejny(packages), [packages]);
 
   /**
    * Poslední načtení vyhrává a selhání se pozná od prázdna.

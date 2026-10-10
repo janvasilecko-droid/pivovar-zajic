@@ -264,7 +264,7 @@ const ODDILY: Oddil[] = [
       },
       {
         co: 'Přidat zboží dlaždicemi',
-        jak: 'Ve Skladu „Přidat zboží“: nejdřív skupina (Piva, Půllitry, Kosmetika, Ostatní), v ní dlaždice zboží — klepáním se jich vybere víc a „Přidat vybrané“ je přidá najednou. Je tu připravené zboží z účtenky „Sumář prodeje“ (kód z pokladny, název a cena). U piva je vidět, ke kterému pivu a obalu se přiřadí; kdo v katalogu piv a obalů chybí, má dlaždici šedou a řekne proč. Co v nabídce není, jde přidat ručně přes „Jiné zboží“.',
+        jak: 'Ve Skladu „Přidat zboží“ je to stejné jako ve Fasování: piva jsou dlaždice v barvě piva, klepnutím na pivo se otevřou jeho velikosti (lahve a PET, pak sudy) a ty, které se v obchodě prodávají, zvolíš tlačítkem „Přidat“. U velikosti, která byla na účtence „Sumář prodeje“ z pokladny, je vidět kód a cena a stačí klepnout. U velikosti, která na účtence nebyla, doplň kód z pokladny (a případně cenu) — kód se nehádá. Co už v obchodě je, je označené „✓ už v obchodě“, vypnuté zboží se zase zapne tlačítkem „Zapnout“. Dlaždice piva se po výběru roztáhne a ukáže zvolené velikosti. Pod pivy jsou skupiny Půllitry, Kosmetika a Ostatní se zbožím z účtenky. „Přidat vybrané“ přidá všechno najednou; co v nabídce není, jde přidat ručně přes „Jiné zboží“.',
       },
       {
         co: 'Nové zboží z pokladny',

@@ -132,7 +132,7 @@ export function dlazdiceSkupiny(
 /** Co se zapíše do databáze za zvolené dlaždice. */
 export type ZapisZDlazdic = {
   /** Nové zboží (řádky pro obchod_zbozi). */
-  nove: { kod: string; nazev: string; beer_id: string | null; package_id: string | null; cena: number }[];
+  nove: { kod: string; nazev: string; beer_id: string | null; package_id: string | null; cena: number | null }[];
   /** Kódy vypnutého zboží, které se má zase zapnout. */
   zapnout: string[];
 };
@@ -159,4 +159,158 @@ export function zapisZDlazdic(vybrane: Dlazdice[]): ZapisZDlazdic {
     });
   }
   return { nove, zapnout };
+}
+
+// ── Pivo → velikosti (stejně jako ve Fasování) ───────────────────────────
+//
+// Z provozu 10. 10. 2026: „to zboží na sklad udělej stejně jako fasování —
+// název piva rozkliknu, objeví se velikosti a ty přidávám, a barevně označený
+// jako všude jinde." Pivo je tedy dlaždice v barvě piva a po klepnutí se
+// nabídnou jeho velikosti (obaly prodejny).
+
+/** Objemy obalů, které prodejna prodává — táž nabídka jako Fasování (ProdejnaScreen). */
+export const OBJEMY_PRODEJNY = [50, 30, 20, 15, 10, 1.5, 1, 0.5, 0.33];
+
+/**
+ * Obaly prodejny: lahve (včetně PET, ten je v databázi taky „bottle") od
+ * největší, pak sudy od největšího. Jedno místo pro Fasování i Obchod, ať
+ * se nabídka velikostí nerozejde.
+ */
+export function obalyProdejny<T extends { kind?: string | null; volume_l?: number | string | null }>(obaly: T[]): T[] {
+  const povolene = (o: T) => OBJEMY_PRODEJNY.includes(Number(o.volume_l));
+  const poObjemu = (a: T, b: T) => Number(b.volume_l) - Number(a.volume_l);
+  const lahve = obaly.filter((o) => o.kind === 'bottle' && povolene(o)).sort(poObjemu);
+  const sudy = obaly.filter((o) => o.kind === 'keg' && povolene(o)).sort(poObjemu);
+  return [...lahve, ...sudy];
+}
+
+/** Název zboží, když ho nikdo nepřevzal z účtenky (stejný tvar jako při ručním přidání). */
+export const nazevZboziPiva = (obal: { label: string }, pivo: { name: string }) => `Pivo ${obal.label} ${pivo.name}`;
+
+/** Klíč velikosti piva — pivo + obal. */
+export const klicVelikosti = (pivoId: string, obalId: string) => `${pivoId}|${obalId}`;
+
+/**
+ *  - `nove`: pivo v tomhle obalu v obchodě ještě není;
+ *  - `v_obchode`: už tam je (aktivní);
+ *  - `vypnute`: bylo v obchodě a přestalo se sledovat — zvolením se zase zapne.
+ */
+export type StavVelikosti = 'nove' | 'v_obchode' | 'vypnute';
+
+export type Velikost = {
+  klic: string;
+  obal: KatalogObal;
+  stav: StavVelikosti;
+  /** Kód zboží: u `v_obchode`/`vypnute` ten stávající, u `nove` z účtenky; jinak prázdný — píše se ručně. */
+  kod: string | null;
+  nazev: string;
+  cena: number | null;
+  /** Kód a cena jsou z účtenky z pokladny — stačí klepnout. Jinak se musí doplnit kód. */
+  zUctenky: boolean;
+  /** U `nove` z účtenky: dlaždice, ze které se zapisuje. */
+  dlazdice?: Dlazdice;
+};
+
+type ZboziProVelikosti = Pick<Zbozi, 'kod' | 'nazev' | 'beer_id' | 'package_id' | 'aktivni' | 'cena'>;
+
+const cenaNaCislo = (c: number | string | null | undefined): number | null => {
+  if (c == null || c === '') return null;
+  const n = Number(c);
+  return Number.isFinite(n) ? n : null;
+};
+
+/**
+ * Velikosti jednoho piva k přidání. Co v obchodě je (nebo bylo), se pozná podle
+ * dvojice pivo + obal — ne podle kódu —, protože právě dvojice je v databázi
+ * jednoznačná (jedno aktivní zboží na pivo v obalu).
+ *
+ * `obaly` jsou obaly k zobrazení (obalyProdejny), `dlazdicePiv` dlaždice skupiny
+ * „piva" z `dlazdiceSkupiny` — z nich se bere kód a cena z účtenky.
+ */
+export function velikostiPiva(
+  pivo: { id: string; name: string },
+  obaly: KatalogObal[],
+  zbozi: ZboziProVelikosti[],
+  dlazdicePiv: Dlazdice[],
+): Velikost[] {
+  return obaly.map((obal) => {
+    const klic = klicVelikosti(pivo.id, obal.id);
+    const stavajici = zbozi.filter((z) => z.beer_id === pivo.id && z.package_id === obal.id);
+    const aktivni = stavajici.find((z) => z.aktivni !== false);
+    if (aktivni) {
+      return { klic, obal, stav: 'v_obchode', kod: aktivni.kod, nazev: aktivni.nazev, cena: cenaNaCislo(aktivni.cena), zUctenky: true };
+    }
+    const vypnute = stavajici[0];
+    if (vypnute) {
+      return { klic, obal, stav: 'vypnute', kod: vypnute.kod, nazev: vypnute.nazev, cena: cenaNaCislo(vypnute.cena), zUctenky: true };
+    }
+    const zUctenky = dlazdicePiv.find((d) => d.stav === 'nove' && d.pivo?.id === pivo.id && d.obal?.id === obal.id);
+    if (zUctenky) {
+      return {
+        klic, obal, stav: 'nove', kod: zUctenky.polozka.kod, nazev: zUctenky.polozka.nazev, cena: zUctenky.polozka.cena,
+        zUctenky: true, dlazdice: zUctenky,
+      };
+    }
+    return { klic, obal, stav: 'nove', kod: null, nazev: nazevZboziPiva(obal, pivo), cena: null, zUctenky: false };
+  });
+}
+
+/** Zboží s kódem, který se píše ručně (velikost, která na účtence z pokladny nebyla). */
+export type RucniPolozka = { kod: string; nazev: string; beer_id: string; package_id: string; cena: number | null };
+
+/** Co si obsluha zvolila: dlaždici z účtenky, zapnutí vypnutého zboží, nebo ručně zadané zboží. */
+export type Volba =
+  | { druh: 'dlazdice'; d: Dlazdice }
+  | { druh: 'zapnout'; kod: string }
+  | { druh: 'rucne'; polozka: RucniPolozka };
+
+/**
+ * Co se zapíše za zvolené velikosti a dlaždice. Pravidla jako u `zapisZDlazdic`:
+ * jedno pivo v jednom obalu se nezapíše dvakrát a stejný kód taky ne.
+ */
+export function zapisZVoleb(volby: Volba[]): ZapisZDlazdic {
+  const z = zapisZDlazdic(volby.flatMap((v) => (v.druh === 'dlazdice' ? [v.d] : [])));
+  const kody = new Set([...z.nove.map((n) => n.kod), ...z.zapnout]);
+  const dvojice = new Set(z.nove.filter((n) => n.beer_id && n.package_id).map((n) => klicVelikosti(n.beer_id!, n.package_id!)));
+  for (const v of volby) {
+    if (v.druh === 'zapnout') {
+      if (kody.has(v.kod)) continue;
+      kody.add(v.kod);
+      z.zapnout.push(v.kod);
+    } else if (v.druh === 'rucne') {
+      const p = v.polozka;
+      const k = klicVelikosti(p.beer_id, p.package_id);
+      if (kody.has(p.kod) || dvojice.has(k)) continue;
+      kody.add(p.kod);
+      dvojice.add(k);
+      z.nove.push({ kod: p.kod, nazev: p.nazev, beer_id: p.beer_id, package_id: p.package_id, cena: p.cena });
+    }
+  }
+  return z;
+}
+
+/**
+ * Proč se ručně zadaný kód nedá použít, nebo null. `jineVybrane` jsou kódy
+ * ostatního zvoleného zboží — dva řádky se stejným kódem by se v databázi
+ * porazily (kód je klíč zboží).
+ */
+export function chybaKoduRucne(
+  kod: string,
+  existujici: { kod: string; nazev: string }[],
+  jineVybrane: string[],
+): string | null {
+  const k = kod.trim();
+  if (k === '') return 'Doplň kód z pokladny.';
+  const ma = existujici.find((z) => z.kod === k);
+  if (ma) return `Kód ${k} už má zboží „${ma.nazev}“.`;
+  if (jineVybrane.includes(k)) return `Kód ${k} je zvolený u jiného zboží.`;
+  return null;
+}
+
+/** Cena z políčka: prázdné = bez ceny, jinak kladné číslo (čárka nebo tečka); jinak `'chyba'`. */
+export function cenaZPolicka(text: string): number | null | 'chyba' {
+  const t = text.trim().replace(',', '.');
+  if (t === '') return null;
+  const n = Number(t);
+  return Number.isFinite(n) && n >= 0 ? n : 'chyba';
 }

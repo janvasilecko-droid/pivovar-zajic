@@ -1,16 +1,28 @@
 import { ReactNode } from 'react';
-import { Beer, beerBg, beerText, beerName } from '../lib/supabase';
+import { beerBg, beerText, beerName } from '../lib/supabase';
 import { Check, X } from 'lucide-react';
+
+/**
+ * Z piva dlaždice čtou jen tohle. Plný `Beer` sem pasuje, ale obrazovky, které
+ * si z katalogu načítají jen pár sloupců (Obchod), nemusí vymýšlet zbytek.
+ */
+export type PivoDlazdice = {
+  id: string;
+  name: string;
+  short_name?: string | null;
+  degree?: string | null;
+  beer_color?: string | null;
+};
 
 type TileSummary = {
   filled: boolean;
   label: string;
 };
 
-type BeerTileGridProps = {
-  beers: Beer[];
-  onSelect: (beer: Beer) => void;
-  summaryFor: (beer: Beer) => TileSummary;
+type BeerTileGridProps<B extends PivoDlazdice> = {
+  beers: B[];
+  onSelect: (beer: B) => void;
+  summaryFor: (beer: B) => TileSummary;
   /**
    * Kolik kusů tohohle piva ještě chybí stočit do konce týdne, rozepsané po
    * VELIKOSTI OBALU — místo jednoho sečteného čísla („55", což je 0,5l a 1l
@@ -22,7 +34,7 @@ type BeerTileGridProps = {
    * Objednávkách/Fasování/Prodejně tohle číslo nemají a štítek se u nich
    * nezobrazí.
    */
-  missingBadgeFor?: (beer: Beer) => { label: string; missing: number }[];
+  missingBadgeFor?: (beer: B) => { label: string; missing: number }[];
 };
 
 /**
@@ -49,7 +61,7 @@ type BeerTileGridProps = {
  * zůstávají malá a rychle klikatelná. Rozpis se může zalomit, dlaždice
  * poroste s ním.
  */
-export function BeerTileGrid({ beers, onSelect, summaryFor, missingBadgeFor }: BeerTileGridProps) {
+export function BeerTileGrid<B extends PivoDlazdice>({ beers, onSelect, summaryFor, missingBadgeFor }: BeerTileGridProps<B>) {
   return (
     <div className="grid grid-cols-3 gap-2">
       {beers.map((b) => {
@@ -113,7 +125,7 @@ export function TileTotalBar({ label, value }: TileTotalBarProps) {
 }
 
 type BeerTilePanelProps = {
-  beer: Beer;
+  beer: PivoDlazdice;
   onClose: () => void;
   children: ReactNode;
   headerRight?: ReactNode;

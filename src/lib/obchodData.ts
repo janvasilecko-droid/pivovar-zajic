@@ -28,7 +28,7 @@ export type PrijemDB = PrijemRadek & { id: string; poznamka: string | null; zaps
 export type InventuraDB = InventuraRadek & { id: string; poznamka: string | null; zapsal: string | null };
 export type OdpisDB = OdpisRadek & { id: string; duvod: DuvodOdpisu; poznamka: string | null; zapsal: string | null; created_at: string };
 export type ZavrenoDB = { datum: string; poznamka: string | null; zapsal: string | null };
-export type PivoKatalog = { id: string; name: string; degree: string | null; short_name?: string | null; is_active?: boolean; sort_order?: number };
+export type PivoKatalog = { id: string; name: string; degree: string | null; short_name?: string | null; beer_color?: string | null; is_active?: boolean; sort_order?: number };
 export type ObalKatalog = { id: string; label: string; kind: string; volume_l: number; sort_order?: number };
 
 export type DataObchodu = {
@@ -91,7 +91,7 @@ export function useObchod(): DataObchodu {
       fetchAllRows<ProdanyRadek>('obchod_uzaverky_radky', 'id,uzaverka_id,kod,nazev,mnozstvi,cena,celkem'),
       fetchAllRows<InventuraDB>('obchod_inventura', 'id,datum,kod,napocitano,ocekavano,poznamka,zapsal').order('datum'),
       fetchAllRows<FasovaniRadek>('fasovani_private', 'beer_id,package_id,quantity,entry_date'),
-      fetchAllRows<PivoKatalog>('beers', 'id,name,degree,short_name,is_active,sort_order').order('sort_order'),
+      fetchAllRows<PivoKatalog>('beers', 'id,name,degree,short_name,beer_color,is_active,sort_order').order('sort_order'),
       fetchAllRows<ObalKatalog>('packages', 'id,label,kind,volume_l,sort_order').order('sort_order'),
       // Druhá migrace — kdo ji ještě nepustil, o odpis a „zavřeno" přijde, ale zbytek Obchodu funguje.
       fetchAllRows<OdpisDB>('obchod_odpis', 'id,datum,kod,mnozstvi,duvod,poznamka,zapsal,created_at').order('datum'),
