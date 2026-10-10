@@ -14,6 +14,7 @@ import {
 import { inventuraObchoduChybi } from '../../lib/obchodInventura';
 import { smazOdpis, smazPrijem, upravZbozi, type DataObchodu } from '../../lib/obchodData';
 import { OdpisZbozi, PrijemZbozi, PridatZbozi } from './ZboziOkna';
+import { PridatZboziDlazdice } from './PridatZboziDlazdice';
 import { UpozorneniMezery, UpozorneniPresInventuru, useMezery, usePresInventuru } from './ObchodMezery';
 import type { ObchodTab } from '../../screens/ObchodScreen';
 
@@ -41,6 +42,7 @@ export function ObchodPrehled({ data, zapsal, jdiNa }: {
   const mezery = useMezery(data);
   const presInventuru = usePresInventuru(data);
   const [pridat, setPridat] = useState<{ beerId?: string; pkgId?: string } | null>(null);
+  const [dlazdice, setDlazdice] = useState(false);
 
   const piva = stavy.filter((s) => zboziPodleKodu.get(s.kod)?.beer_id);
   const ostatni = stavy.filter((s) => !zboziPodleKodu.get(s.kod)?.beer_id);
@@ -50,14 +52,15 @@ export function ObchodPrehled({ data, zapsal, jdiNa }: {
       <div className="space-y-3">
         <EmptyState
           icon={Receipt}
-          text="V obchodě zatím není žádné zboží. Vznikne z první uzávěrky z pokladny (zboží se pozná podle kódu), nebo se dá přidat ručně."
+          text="V obchodě zatím není žádné zboží. Vyber ho dlaždicemi (piva, půllitry, kosmetika…), nebo vznikne z první uzávěrky z pokladny — zboží se pozná podle kódu."
           akce={{ popis: 'Zadat uzávěrku', onClick: () => jdiNa('uzaverky') }}
         />
         <div className="text-center">
-          <button type="button" className="btn-ghost !rounded text-sm font-bold" onClick={() => setPridat({})}>
-            <Plus size={14} className="inline mr-1" /> Přidat zboží ručně
+          <button type="button" className="btn-primary !rounded text-sm font-bold min-h-[48px]" onClick={() => setDlazdice(true)}>
+            <Plus size={14} className="inline mr-1" /> Přidat zboží
           </button>
         </div>
+        {dlazdice && <PridatZboziDlazdice data={data} zapsal={zapsal} onClose={() => setDlazdice(false)} onUlozeno={data.znovu} onRucne={() => { setDlazdice(false); setPridat({}); }} />}
         {pridat && <PridatZbozi data={data} zapsal={zapsal} vychozi={pridat} onClose={() => setPridat(null)} onUlozeno={data.znovu} />}
       </div>
     );
@@ -138,7 +141,7 @@ export function ObchodPrehled({ data, zapsal, jdiNa }: {
         <button type="button" className="btn-ghost !rounded text-sm font-bold flex items-center gap-1.5" onClick={() => setOdpis({})}>
           <PackageMinus size={15} /> Odpis
         </button>
-        <button type="button" className="btn-ghost !rounded text-sm font-bold flex items-center gap-1.5" onClick={() => setPridat({})}>
+        <button type="button" className="btn-ghost !rounded text-sm font-bold flex items-center gap-1.5" onClick={() => setDlazdice(true)}>
           <Plus size={15} /> Přidat zboží
         </button>
         <button type="button" className="btn-ghost !rounded text-sm font-bold flex items-center gap-1.5" onClick={() => jdiNa('fasovani')}>
@@ -151,6 +154,7 @@ export function ObchodPrehled({ data, zapsal, jdiNa }: {
 
       {prijem && <PrijemZbozi data={data} zapsal={zapsal} kodVychozi={prijem.kod} onClose={() => setPrijem(null)} onUlozeno={data.znovu} />}
       {odpis && <OdpisZbozi data={data} zapsal={zapsal} kodVychozi={odpis.kod} onClose={() => setOdpis(null)} onUlozeno={data.znovu} />}
+      {dlazdice && <PridatZboziDlazdice data={data} zapsal={zapsal} onClose={() => setDlazdice(false)} onUlozeno={data.znovu} onRucne={() => { setDlazdice(false); setPridat({}); }} />}
       {pridat && <PridatZbozi data={data} zapsal={zapsal} vychozi={pridat} onClose={() => setPridat(null)} onUlozeno={data.znovu} />}
     </div>
   );

@@ -13,6 +13,7 @@ import type {
   DuvodOdpisu, FasovaniRadek, InventuraRadek, OdpisRadek, PrijemRadek, ProdanyRadek, TypUzaverky, UzaverkaHlavicka, VstupSkladu, Zbozi,
 } from './obchodSklad';
 import type { NoveZbozi } from './obchodUzaverka';
+import type { ZapisZDlazdic } from './obchodKatalog';
 
 export type Uzaverka = UzaverkaHlavicka & {
   typ: TypUzaverky;
@@ -248,6 +249,28 @@ export async function zalozZbozi(z: { kod: string; nazev: string; beer_id: strin
   return /duplicate|unique/i.test(error.message)
     ? 'Zboží s tímhle kódem nebo s tímhle pivem a obalem už v obchodě je.'
     : error.message;
+}
+
+/**
+ * Zboží zvolené dlaždicemi: nové se vloží jedním zápisem (buď všechno, nebo nic),
+ * vypnuté se zase zapne.
+ */
+export async function pridejZboziZDlazdic(z: ZapisZDlazdic, zapsal: string | null): Promise<string | null> {
+  if (z.nove.length > 0) {
+    const { error } = await supabase.from('obchod_zbozi').insert(
+      z.nove.map((n) => ({ kod: n.kod, nazev: n.nazev, beer_id: n.beer_id, package_id: n.package_id, cena: n.cena, updated_by: zapsal })),
+    );
+    if (error) {
+      return /duplicate|unique/i.test(error.message)
+        ? 'Některé zboží (stejný kód, nebo stejné pivo v tomhle obalu) už v obchodě je. Obnov stránku a zkus to znovu.'
+        : error.message;
+    }
+  }
+  for (const kod of z.zapnout) {
+    const e = await upravZbozi(kod, { aktivni: true }, zapsal);
+    if (e) return e;
+  }
+  return null;
 }
 
 export async function upravZbozi(

@@ -259,6 +259,10 @@ const ODDILY: Oddil[] = [
         jak: 'V záložce Uzávěrky zvol Denní, Týdenní nebo Měsíční a vyfoť účtenku „Sumář prodeje“. Appka přečte zboží a množství, zkontroluje, že kusy × cena sedí na částku i na „Celkem“, a teprve potom jde uložit. Co nesedí, je vidět u řádku, i s nabídkou „Podle částky je to N ks“.',
       },
       {
+        co: 'Přidat zboží dlaždicemi',
+        jak: 'Ve Skladu „Přidat zboží“: nejdřív skupina (Piva, Půllitry, Kosmetika, Ostatní), v ní dlaždice zboží — klepáním se jich vybere víc a „Přidat vybrané“ je přidá najednou. Je tu připravené zboží z účtenky „Sumář prodeje“ (kód z pokladny, název a cena). U piva je vidět, ke kterému pivu a obalu se přiřadí; kdo v katalogu piv a obalů chybí, má dlaždici šedou a řekne proč. Co v nabídce není, jde přidat ručně přes „Jiné zboží“.',
+      },
+      {
         co: 'Nové zboží z pokladny',
         jak: 'Když je v uzávěrce kód, který appka nezná, navrhne k němu pivo a obal. Navržené spojení musíš jednou potvrdit (nebo zvolit „ostatní zboží“) — pak si ho pamatuje a příště už se neptá.',
       },
