@@ -6,7 +6,7 @@
 // zobrazuje se jen komu je nastaveno (Uživatelé → "Dostává upozornění na
 // vozidla") a musí ho jednou potvrdit, pak zmizí (dokud se stav nezmění).
 import { lazy, Suspense, useEffect, useMemo, useState, useRef } from 'react';
-import { CalendarX2, CloudUpload, Download, Check, ChevronLeft, ChevronRight, Lightbulb, LogOut, Palette, Plus, SlidersHorizontal, Trash2, TriangleAlert, X, Truck, ClipboardList, MessageCircle, PlusCircle, Snowflake, FlaskConical, CalendarDays, BarChart3, TrendingDown, GlassWater, BookOpen, Droplet, Car, FileText, ClipboardCheck, Shield, Store, Receipt, MapPin, Beer as BeerIcon, Tag, Sparkles, Compass, Wheat, ArrowLeftRight, StickyNote, AlarmClock, Play, Pause, RotateCcw, Pin, Flame, Settings, LayoutGrid, ListChecks, Scissors, Wind } from 'lucide-react';
+import { CalendarX2, CloudUpload, Download, Check, ChevronLeft, ChevronRight, Lightbulb, LogOut, Palette, Plus, SlidersHorizontal, Trash2, TriangleAlert, X, Truck, ClipboardList, MessageCircle, PlusCircle, Snowflake, FlaskConical, CalendarDays, BarChart3, TrendingDown, GlassWater, BookOpen, Droplet, Car, FileText, ClipboardCheck, Shield, Store, Receipt, MapPin, Beer as BeerIcon, Tag, Sparkles, Compass, Wheat, ArrowLeftRight, StickyNote, AlarmClock, Play, Pause, RotateCcw, Pin, Flame, Settings, LayoutGrid, ArrowUpDown, Scissors, Wind } from 'lucide-react';
 import { NAV, EXTRA_NAV, type Page, type NavItem } from '../components/Layout';
 import LauncherTile, { tileGridStyle } from '../components/LauncherTile';
 import { QuickSearchModal } from '../components/QuickSearchModal';
@@ -2245,7 +2245,8 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
             // 🔎 Rozbor: žlutá dlaždice s červeně šrafovaným okrajem
             // (30. 9. 2026: „udělej to jako dlaždici, kliknu na to, jen když
             // budu potřebovat vidět pohyb"; 7. 10. 2026: „udělej žlutou barvou
-            // a červený šrafování"). Klepnutí otevře stránku Rozbor.
+            // a červený šrafování"). Ikona: šipka nahoru a dolů — fasování
+            // a odvody (7. 10. 2026). Klepnutí otevře stránku Rozbor.
             if (id === 'rozbor') {
               customContent = (
                 <div
@@ -2254,7 +2255,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                 >
                   {/* Barvy napevno (inline) — žlutá s černým písmem i v tmavém režimu. */}
                   <div className="absolute inset-[6px] flex flex-col items-center justify-center gap-1 rounded" style={{ background: '#fde047', color: '#0a0a0a' }}>
-                    <ListChecks size={22} className="shrink-0" />
+                    <ArrowUpDown size={22} className="shrink-0" />
                     <div className="text-base font-black leading-none">Rozbor</div>
                   </div>
                 </div>
