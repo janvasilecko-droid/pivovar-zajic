@@ -252,7 +252,7 @@ const ODDILY: Oddil[] = [
     body: [
       {
         co: 'Sklad obchodu',
-        jak: 'Obchod má vlastní sklad — nejsou v něm jen piva, ale i ostatní zboží. Stav se nikde neukládá, počítá se: poslední inventura + fasování z pivovaru + příjem − prodej z uzávěrek. Zboží, které ještě nemá inventuru, ukazuje „bez inventury“, ne nulu.',
+        jak: 'Obchod má vlastní sklad — nejsou v něm jen piva, ale i ostatní zboží. Stav se nikde neukládá, počítá se: poslední inventura + fasování z pivovaru + příjem − prodej z uzávěrek − odpis. Zboží, které ještě nemá inventuru, ukazuje „bez inventury“, ne nulu.',
       },
       {
         co: 'Uzávěrka z pokladny',
@@ -277,6 +277,18 @@ const ODDILY: Oddil[] = [
       {
         co: 'Statistika',
         jak: 'Tržba po dnech, týdnech a měsících, prodej po pivech v litrech a nejprodávanější zboží — vše z uzávěrek. Prodej se připisuje ke konci období uzávěrky.',
+      },
+      {
+        co: 'Odpis zboží',
+        jak: 'Rozbitá láhev, prošlé zboží, ztráta: ve Skladu tlačítko „Odpis“ (nahoře, nebo v rozbaleném zboží). Zvol důvod a kusy — odečte se ze skladu obchodu. Pivo z pivovaru se tím nevrací, to se odečetlo už Fasováním. Omylem zapsaný odpis nebo příjem jde smazat v „Posledních pohybech“ zboží.',
+      },
+      {
+        co: 'Chybějící uzávěrky',
+        jak: 'Chybí-li uzávěrka za nějaké dny, sklad obchodu ukazuje víc, než je na regálu — appka to napíše nahoře ve Skladu i v Uzávěrkách. Tam u každé mezery zvolíš „Zadat uzávěrku“, nebo „Zavřeno“, když se ten den neprodávalo (neděle, svátek). Označení jde zase zrušit. Hlídá se posledních asi dva měsíce a dnešek se nepočítá, uzávěrka se dělá večer.',
+      },
+      {
+        co: 'Odznak na dlaždici',
+        jak: 'Na dlaždici Obchod na ploše je číslo se znakem ⚠ — kolik věcí čeká: zboží pod minimem nebo v mínusu, chybějící uzávěrky, fasování bez zboží a chybějící inventura. Co přesně, uvidíš po otevření dlaždice.',
       },
       {
         co: 'Smazání uzávěrky',

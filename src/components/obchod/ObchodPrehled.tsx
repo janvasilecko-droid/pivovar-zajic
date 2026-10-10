@@ -4,16 +4,17 @@
 // a příjmy − prodej z uzávěrek. Tady se ukazuje a hlídá — záporný stav
 // a stav pod nastaveným minimem svítí nahoře.
 import { useMemo, useState } from 'react';
-import { AlertTriangle, ChevronDown, ChevronUp, ClipboardCheck, PackagePlus, Plus, Receipt } from 'lucide-react';
+import { AlertTriangle, ChevronDown, ChevronUp, ClipboardCheck, PackageMinus, PackagePlus, Plus, Receipt } from 'lucide-react';
 import { EmptyState } from '../ui';
 import { businessDateISO } from '../../lib/businessDate';
-import { chyba as toastChyba, uspech } from '../../lib/toast';
+import { chyba as toastChyba, potvrd, uspech } from '../../lib/toast';
 import {
   dnyZasoby, fasovaniBezZbozi, pohybyZbozi, prumernyDenniProdej, stavySkladu, varovaniZasob, type StavZbozi,
 } from '../../lib/obchodSklad';
 import { inventuraObchoduChybi } from '../../lib/obchodInventura';
-import { upravZbozi, type DataObchodu } from '../../lib/obchodData';
-import { PrijemZbozi, PridatZbozi } from './ZboziOkna';
+import { smazOdpis, smazPrijem, upravZbozi, type DataObchodu } from '../../lib/obchodData';
+import { OdpisZbozi, PrijemZbozi, PridatZbozi } from './ZboziOkna';
+import { UpozorneniMezery, useMezery } from './ObchodMezery';
 import type { ObchodTab } from '../../screens/ObchodScreen';
 
 const nazvyMesicu = ['leden', 'únor', 'březen', 'duben', 'květen', 'červen', 'červenec', 'srpen', 'září', 'říjen', 'listopad', 'prosinec'];
@@ -36,6 +37,8 @@ export function ObchodPrehled({ data, zapsal, jdiNa }: {
 
   const [otevreno, setOtevreno] = useState<string | null>(null);
   const [prijem, setPrijem] = useState<{ kod?: string } | null>(null);
+  const [odpis, setOdpis] = useState<{ kod?: string } | null>(null);
+  const mezery = useMezery(data);
   const [pridat, setPridat] = useState<{ beerId?: string; pkgId?: string } | null>(null);
 
   const piva = stavy.filter((s) => zboziPodleKodu.get(s.kod)?.beer_id);
@@ -75,6 +78,8 @@ export function ObchodPrehled({ data, zapsal, jdiNa }: {
           </div>
         </div>
       )}
+
+      <UpozorneniMezery mezery={mezery} jdiNaUzaverky={() => jdiNa('uzaverky')} />
 
       {upozorneniInventury && (
         <div role="alert" className={`rounded-xl border-2 p-3 flex items-start gap-2 ${upozorneniInventury.naleha ? 'border-rose-500 bg-rose-50 text-rose-950' : 'border-amber-400 bg-amber-50 text-amber-950'}`}>
@@ -127,6 +132,9 @@ export function ObchodPrehled({ data, zapsal, jdiNa }: {
         <button type="button" className="btn-ghost !rounded text-sm font-bold flex items-center gap-1.5" onClick={() => setPrijem({})}>
           <PackagePlus size={15} /> Příjem zboží
         </button>
+        <button type="button" className="btn-ghost !rounded text-sm font-bold flex items-center gap-1.5" onClick={() => setOdpis({})}>
+          <PackageMinus size={15} /> Odpis
+        </button>
         <button type="button" className="btn-ghost !rounded text-sm font-bold flex items-center gap-1.5" onClick={() => setPridat({})}>
           <Plus size={15} /> Přidat zboží
         </button>
@@ -135,16 +143,17 @@ export function ObchodPrehled({ data, zapsal, jdiNa }: {
         </button>
       </div>
 
-      <Sekce nadpis="Piva" polozky={piva} {...{ data, otevreno, setOtevreno, zapsal, dnes, otevriPrijem: (kod) => setPrijem({ kod }) }} />
-      <Sekce nadpis="Ostatní zboží" polozky={ostatni} {...{ data, otevreno, setOtevreno, zapsal, dnes, otevriPrijem: (kod) => setPrijem({ kod }) }} />
+      <Sekce nadpis="Piva" polozky={piva} {...{ data, otevreno, setOtevreno, zapsal, dnes, otevriPrijem: (kod) => setPrijem({ kod }), otevriOdpis: (kod) => setOdpis({ kod }) }} />
+      <Sekce nadpis="Ostatní zboží" polozky={ostatni} {...{ data, otevreno, setOtevreno, zapsal, dnes, otevriPrijem: (kod) => setPrijem({ kod }), otevriOdpis: (kod) => setOdpis({ kod }) }} />
 
       {prijem && <PrijemZbozi data={data} zapsal={zapsal} kodVychozi={prijem.kod} onClose={() => setPrijem(null)} onUlozeno={data.znovu} />}
+      {odpis && <OdpisZbozi data={data} zapsal={zapsal} kodVychozi={odpis.kod} onClose={() => setOdpis(null)} onUlozeno={data.znovu} />}
       {pridat && <PridatZbozi data={data} zapsal={zapsal} vychozi={pridat} onClose={() => setPridat(null)} onUlozeno={data.znovu} />}
     </div>
   );
 }
 
-function Sekce({ nadpis, polozky, data, otevreno, setOtevreno, zapsal, dnes, otevriPrijem }: {
+function Sekce({ nadpis, polozky, data, otevreno, setOtevreno, zapsal, dnes, otevriPrijem, otevriOdpis }: {
   nadpis: string;
   polozky: StavZbozi[];
   data: DataObchodu;
@@ -153,6 +162,7 @@ function Sekce({ nadpis, polozky, data, otevreno, setOtevreno, zapsal, dnes, ote
   zapsal: string | null;
   dnes: string;
   otevriPrijem: (kod: string) => void;
+  otevriOdpis: (kod: string) => void;
 }) {
   if (polozky.length === 0) return null;
   return (
@@ -160,14 +170,14 @@ function Sekce({ nadpis, polozky, data, otevreno, setOtevreno, zapsal, dnes, ote
       <h3 className="text-xs font-black uppercase tracking-wide text-neutral-600">{nadpis} ({polozky.length})</h3>
       <ul className="space-y-1.5">
         {polozky.map((s) => (
-          <Polozka key={s.kod} s={s} data={data} otevreno={otevreno === s.kod} prepni={() => setOtevreno(otevreno === s.kod ? null : s.kod)} zapsal={zapsal} dnes={dnes} otevriPrijem={otevriPrijem} />
+          <Polozka key={s.kod} s={s} data={data} otevreno={otevreno === s.kod} prepni={() => setOtevreno(otevreno === s.kod ? null : s.kod)} zapsal={zapsal} dnes={dnes} otevriPrijem={otevriPrijem} otevriOdpis={otevriOdpis} />
         ))}
       </ul>
     </section>
   );
 }
 
-function Polozka({ s, data, otevreno, prepni, zapsal, dnes, otevriPrijem }: {
+function Polozka({ s, data, otevreno, prepni, zapsal, dnes, otevriPrijem, otevriOdpis }: {
   s: StavZbozi;
   data: DataObchodu;
   otevreno: boolean;
@@ -175,6 +185,7 @@ function Polozka({ s, data, otevreno, prepni, zapsal, dnes, otevriPrijem }: {
   zapsal: string | null;
   dnes: string;
   otevriPrijem: (kod: string) => void;
+  otevriOdpis: (kod: string) => void;
 }) {
   const zbozi = data.zbozi.find((z) => z.kod === s.kod);
   const [min, setMin] = useState(s.min == null ? '' : String(s.min));
@@ -194,6 +205,16 @@ function Polozka({ s, data, otevreno, prepni, zapsal, dnes, otevriPrijem }: {
     } finally {
       setUklada(false);
     }
+  }
+
+  async function smazZapis(p: { id?: string; druh: string; datum: string; ks: number }) {
+    if (!p.id) return;
+    const co = p.druh === 'odpis' ? 'odpis' : 'příjem';
+    if (!(await potvrd(`Smazat ${co} ${cs(Math.abs(p.ks))} ks z ${datumKratce(p.datum)}? Sklad obchodu se přepočítá.`, { titulek: `Smazat ${co}`, potvrdit: 'Smazat' }))) return;
+    const e = p.druh === 'odpis' ? await smazOdpis(p.id) : await smazPrijem(p.id);
+    if (e) { toastChyba(e); return; }
+    uspech('Smazáno, sklad obchodu se přepočítal.');
+    data.znovu();
   }
 
   return (
@@ -221,6 +242,7 @@ function Polozka({ s, data, otevreno, prepni, zapsal, dnes, otevriPrijem }: {
             <div>Naskladněno od té doby<div className="text-base font-black text-emerald-800">+{cs(s.fasovano + s.prijato)}</div></div>
             <div>Prodáno od té doby<div className="text-base font-black text-rose-800">−{cs(s.prodano)}</div></div>
           </div>
+          {s.odepsano > 0 && <div className="text-xs font-bold text-rose-800">Odepsáno od té doby: −{cs(s.odepsano)}</div>}
 
           <div className="grid grid-cols-[1fr_6rem] gap-2 items-end">
             <label className="text-[11px] font-black uppercase text-neutral-500">
@@ -244,6 +266,7 @@ function Polozka({ s, data, otevreno, prepni, zapsal, dnes, otevriPrijem }: {
               Uložit
             </button>
             <button type="button" className="btn-ghost !rounded !py-1.5 text-xs font-bold" onClick={() => otevriPrijem(s.kod)}>Příjem</button>
+            <button type="button" className="btn-ghost !rounded !py-1.5 text-xs font-bold" onClick={() => otevriOdpis(s.kod)}>Odpis</button>
             <button type="button" className="btn-danger !rounded !py-1.5 text-xs font-bold" disabled={uklada} onClick={() => void uloz({ aktivni: false })}>
               Přestat sledovat
             </button>
@@ -253,10 +276,15 @@ function Polozka({ s, data, otevreno, prepni, zapsal, dnes, otevriPrijem }: {
             <div className="text-[11px] font-black uppercase text-neutral-500 mb-1">Poslední pohyby</div>
             <ul className="space-y-0.5">
               {pohybyZbozi(s.kod, data.vstup, 10).map((p, i) => (
-                <li key={i} className="flex justify-between gap-2 text-xs font-semibold text-neutral-700">
+                <li key={i} className="flex items-center justify-between gap-2 text-xs font-semibold text-neutral-700">
                   <span>{datumKratce(p.datum)} · {p.popis}</span>
-                  <span className={`font-black tabular-nums ${p.druh === 'inventura' ? 'text-neutral-800' : p.ks > 0 ? 'text-emerald-800' : 'text-rose-800'}`}>
-                    {p.druh === 'inventura' ? `= ${cs(p.ks)}` : `${p.ks > 0 ? '+' : ''}${cs(p.ks)}`}
+                  <span className="flex items-center gap-2 shrink-0">
+                    <span className={`font-black tabular-nums ${p.druh === 'inventura' ? 'text-neutral-800' : p.ks > 0 ? 'text-emerald-800' : 'text-rose-800'}`}>
+                      {p.druh === 'inventura' ? `= ${cs(p.ks)}` : `${p.ks > 0 ? '+' : ''}${cs(p.ks)}`}
+                    </span>
+                    {p.id && (p.druh === 'prijem' || p.druh === 'odpis') && (
+                      <button type="button" className="btn-ghost !rounded !py-0.5 !px-2 text-[11px] font-bold" onClick={() => void smazZapis(p)}>Smazat</button>
+                    )}
                   </span>
                 </li>
               ))}

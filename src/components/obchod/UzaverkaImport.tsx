@@ -55,10 +55,12 @@ function prirazeniZVolby(r: Radek): PrirazeniRadku {
   return { druh: 'nevyreseno' };
 }
 
-export function UzaverkaImport({ data, zapsal, vychoziTyp, onClose, onUlozeno }: {
+export function UzaverkaImport({ data, zapsal, vychoziTyp, vychoziObdobi, onClose, onUlozeno }: {
   data: DataObchodu;
   zapsal: string | null;
   vychoziTyp: TypUzaverky | null;
+  /** Období předvyplněné zvenku (třeba z mezery v uzávěrkách) — nepřepočítává se podle data tisku. */
+  vychoziObdobi?: { od: string; do: string };
   onClose: () => void;
   onUlozeno: () => void;
 }) {
@@ -72,9 +74,9 @@ export function UzaverkaImport({ data, zapsal, vychoziTyp, onClose, onUlozeno }:
   const [stredisko, setStredisko] = useState('');
   const [vytisteno, setVytisteno] = useState<string | null>(null);
   const [celkem, setCelkem] = useState('');
-  const [od, setOd] = useState(dnes);
-  const [doDne, setDoDne] = useState(dnes);
-  const [obdobiRucne, setObdobiRucne] = useState(false);
+  const [od, setOd] = useState(vychoziObdobi?.od ?? dnes);
+  const [doDne, setDoDne] = useState(vychoziObdobi?.do ?? dnes);
+  const [obdobiRucne, setObdobiRucne] = useState(!!vychoziObdobi);
   const [poznamka, setPoznamka] = useState('');
   const [potvrzeno, setPotvrzeno] = useState(false);
   const [uklada, setUklada] = useState(false);

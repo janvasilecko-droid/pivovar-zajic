@@ -23,6 +23,45 @@ const zaklad = (p: Partial<VstupSkladu> = {}): VstupSkladu => ({
 
 const stav = (v: VstupSkladu, kDatu: string, kod: string) => stavySkladu(v, kDatu).find((s) => s.kod === kod)!;
 
+describe('odpis zboží v obchodě', () => {
+  const inv = [{ kod: '1106', datum: '2026-10-05', napocitano: 10 }];
+
+  it('odpis po inventuře ze skladu ubývá, odpis v den inventury a před ní už je v napočítaném čísle', () => {
+    const v = zaklad({
+      inventury: inv,
+      odpisy: [
+        { kod: '1106', datum: '2026-10-06', mnozstvi: 2, duvod: 'rozbite' },
+        { kod: '1106', datum: '2026-10-05', mnozstvi: 5, duvod: 'prosle' },
+        { kod: '1106', datum: '2026-10-01', mnozstvi: 3, duvod: 'prosle' },
+      ],
+    });
+    expect(stav(v, '2026-10-10', '1106')).toMatchObject({ stav: 8, odepsano: 2 });
+  });
+
+  it('odpis po zvoleném dni se do stavu k tomu dni nepočítá', () => {
+    const v = zaklad({ inventury: inv, odpisy: [{ kod: '1106', datum: '2026-10-09', mnozstvi: 4, duvod: 'ztrata' }] });
+    expect(stav(v, '2026-10-08', '1106').stav).toBe(10);
+    expect(stav(v, '2026-10-09', '1106').stav).toBe(6);
+  });
+
+  it('bez odpisů (migrace ještě neběžela) se stav počítá jako dřív', () => {
+    expect(stav(zaklad({ inventury: inv }), '2026-10-10', '1106')).toMatchObject({ stav: 10, odepsano: 0 });
+  });
+
+  it('odpis může stav stáhnout do mínusu a hlídání zásob na to upozorní', () => {
+    const v = zaklad({ inventury: inv, odpisy: [{ kod: '1106', datum: '2026-10-07', mnozstvi: 12, duvod: 'ztrata' }] });
+    const s = stavySkladu(v, '2026-10-10');
+    expect(varovaniZasob(s).find((x) => x.kod === '1106')).toMatchObject({ druh: 'zaporny', stav: -2 });
+  });
+
+  it('v pohybech zboží je odpis se zápornými kusy a důvodem', () => {
+    const v = zaklad({ inventury: inv, odpisy: [{ kod: '1106', datum: '2026-10-06', mnozstvi: 2, duvod: 'rozbite' }] });
+    expect(pohybyZbozi('1106', v).find((p) => p.druh === 'odpis')).toEqual({
+      datum: '2026-10-06', druh: 'odpis', ks: -2, popis: 'Odpis — rozbité',
+    });
+  });
+});
+
 describe('stavySkladu', () => {
   it('bez inventury je stav neznámý (null), ne nula', () => {
     const v = zaklad({ fasovani: [{ beer_id: 'b12s', package_id: 'p1', quantity: 20, entry_date: '2026-10-08' }] });
@@ -125,12 +164,12 @@ describe('fasovaniBezZbozi', () => {
 describe('varovaniZasob', () => {
   it('záporný, vyprodaný a pod minimem; neznámý stav se nehlídá', () => {
     const stavy = [
-      { kod: 'a', nazev: 'A', stav: -2, odInventury: 'x', napocitano: 0, fasovano: 0, prijato: 0, prodano: 2, min: null },
-      { kod: 'b', nazev: 'B', stav: 0, odInventury: 'x', napocitano: 0, fasovano: 0, prijato: 0, prodano: 0, min: 5 },
-      { kod: 'c', nazev: 'C', stav: 3, odInventury: 'x', napocitano: 3, fasovano: 0, prijato: 0, prodano: 0, min: 5 },
-      { kod: 'd', nazev: 'D', stav: 5, odInventury: 'x', napocitano: 5, fasovano: 0, prijato: 0, prodano: 0, min: 5 },
-      { kod: 'e', nazev: 'E', stav: null, odInventury: null, napocitano: null, fasovano: 0, prijato: 0, prodano: 0, min: 5 },
-      { kod: 'f', nazev: 'F', stav: 0, odInventury: 'x', napocitano: 0, fasovano: 0, prijato: 0, prodano: 0, min: null },
+      { kod: 'a', nazev: 'A', stav: -2, odInventury: 'x', napocitano: 0, fasovano: 0, prijato: 0, prodano: 2, odepsano: 0, min: null },
+      { kod: 'b', nazev: 'B', stav: 0, odInventury: 'x', napocitano: 0, fasovano: 0, prijato: 0, prodano: 0, odepsano: 0, min: 5 },
+      { kod: 'c', nazev: 'C', stav: 3, odInventury: 'x', napocitano: 3, fasovano: 0, prijato: 0, prodano: 0, odepsano: 0, min: 5 },
+      { kod: 'd', nazev: 'D', stav: 5, odInventury: 'x', napocitano: 5, fasovano: 0, prijato: 0, prodano: 0, odepsano: 0, min: 5 },
+      { kod: 'e', nazev: 'E', stav: null, odInventury: null, napocitano: null, fasovano: 0, prijato: 0, prodano: 0, odepsano: 0, min: 5 },
+      { kod: 'f', nazev: 'F', stav: 0, odInventury: 'x', napocitano: 0, fasovano: 0, prijato: 0, prodano: 0, odepsano: 0, min: null },
     ];
     expect(varovaniZasob(stavy).map((v) => [v.kod, v.druh])).toEqual([['a', 'zaporny'], ['b', 'nula'], ['c', 'pod_minimem']]);
   });

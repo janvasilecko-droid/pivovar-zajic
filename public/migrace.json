@@ -170,6 +170,7 @@
     "20261231260000_pevny_den_odberatele.sql",
     "20261231260100_male_sudy_zapocitat_plne.sql",
     "20261231260200_whatsapp_z_aplikace.sql",
-    "20261231270000_obchod.sql"
+    "20261231270000_obchod.sql",
+    "20261231280000_obchod_odpis_zavreno.sql"
   ]
 }

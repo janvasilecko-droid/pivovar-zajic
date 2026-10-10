@@ -11,6 +11,7 @@ import { castkaRadku } from '../../lib/obchodStatistika';
 import { NAZVY_TYPU, type TypUzaverky } from '../../lib/obchodSklad';
 import { smazUzaverku, type DataObchodu } from '../../lib/obchodData';
 import { UzaverkaImport } from './UzaverkaImport';
+import { MezeryUzaverek, ZavrenoDny, typProMezeru, useMezery } from './ObchodMezery';
 
 const kc = (n: number) => `${new Intl.NumberFormat('cs-CZ', { maximumFractionDigits: 2 }).format(n)} Kč`;
 const dat = (iso: string) => `${Number(iso.slice(8, 10))}. ${Number(iso.slice(5, 7))}. ${iso.slice(0, 4)}`;
@@ -22,7 +23,8 @@ const obdobi = (od: string, do_: string) => {
 };
 
 export function ObchodUzaverky({ data, zapsal }: { data: DataObchodu; zapsal: string | null }) {
-  const [import_, setImport] = useState<{ typ: TypUzaverky | null } | null>(null);
+  const [import_, setImport] = useState<{ typ: TypUzaverky | null; obdobi?: { od: string; do: string } } | null>(null);
+  const mezery = useMezery(data);
   const [otevreno, setOtevreno] = useState<string | null>(null);
   const zbozi = useMemo(() => new Map(data.zbozi.map((z) => [z.kod, z])), [data.zbozi]);
 
@@ -54,6 +56,13 @@ export function ObchodUzaverky({ data, zapsal }: { data: DataObchodu; zapsal: st
           Vyfoť účtenku „Sumář prodeje" — appka přečte zboží a množství, zkontroluje čísla a odečte prodej ze skladu obchodu.
         </div>
       </div>
+
+      <MezeryUzaverek
+        data={data}
+        zapsal={zapsal}
+        mezery={mezery}
+        zadejUzaverku={(m) => setImport({ typ: typProMezeru(m), obdobi: { od: m.od, do: m.do } })}
+      />
 
       {data.uzaverky.length === 0 ? (
         <EmptyState icon={Receipt} text="Zatím tu není žádná uzávěrka. Vyfoť první — zboží z ní se založí v obchodě." />
@@ -101,11 +110,14 @@ export function ObchodUzaverky({ data, zapsal }: { data: DataObchodu; zapsal: st
         </ul>
       )}
 
+      <ZavrenoDny data={data} />
+
       {import_ && (
         <UzaverkaImport
           data={data}
           zapsal={zapsal}
           vychoziTyp={import_.typ}
+          vychoziObdobi={import_.obdobi}
           onClose={() => setImport(null)}
           onUlozeno={data.znovu}
         />

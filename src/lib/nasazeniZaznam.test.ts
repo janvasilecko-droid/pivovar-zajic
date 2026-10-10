@@ -15,7 +15,7 @@
 // je stejně poctivější — ověří se i to, že vůbec nastartuje.
 import { describe, it, expect } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 const ZDROJ = readFileSync('scripts/nasazeni-zaznam.mjs', 'utf8');
 /** Zdroj bez komentářů — jinak si test sáhne na popis chyby, kterou hlídá. */
@@ -40,8 +40,16 @@ describe('uložený záznam sedí s repozitářem', () => {
     JSON.parse(readFileSync('supabase/nasazeno.json', 'utf8')) as Record<string, string>;
   const funkce = (z: Record<string, string>) => Object.keys(z).filter((k) => !k.startsWith('_'));
 
-  it('obsahuje všech čtrnáct funkcí', () => {
-    expect(funkce(zaznam())).toHaveLength(14);
+  it('nepřišel o žádnou z původních čtrnácti funkcí', () => {
+    // Přesný počet se tu schválně nehlídá: každá NOVÁ edge funkce (naposledy
+    // parse-uzaverka-image, 10. 10. 2026) se do záznamu dostane až po nasazení
+    // a napevno zapsané číslo by po něm vždycky spadlo.
+    expect(funkce(zaznam()).length).toBeGreaterThanOrEqual(14);
+  });
+
+  it('každý záznam patří funkci, která v repozitáři opravdu je (nic zastaralého)', () => {
+    const chybi = funkce(zaznam()).filter((f) => !existsSync(`supabase/functions/${f}/index.ts`));
+    expect(chybi, 'záznam obsahuje funkce, které už v repozitáři nejsou').toEqual([]);
   });
 
   it('klíčem je otisk obsahu, ne commit', () => {
