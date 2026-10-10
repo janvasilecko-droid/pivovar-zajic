@@ -27,6 +27,7 @@ const ZalohaScreen = lazyStranka(() => import('./screens/ZalohaScreen'));
 const KeggingScreen = lazyStranka(() => import('./screens/Kegging'));
 const BottlingScreen = lazyStranka(() => import('./screens/BottlingScreen'));
 const ProdejnaScreen = lazyStranka(() => import('./screens/ProdejnaScreen'));
+const ObchodScreen = lazyStranka(() => import('./screens/ObchodScreen'));
 const Statistika = lazyStranka(() => import('./screens/Statistika'));
 const ExcelTabbed = lazyStranka(() => import('./screens/ExcelTabbed'));
 const CellarScreen = lazyStranka(() => import('./screens/Cellar'));
@@ -316,6 +317,7 @@ export default function App() {
             : {})}
         />
       )}
+      {page === 'obchod' && <ObchodScreen setPage={setPage} pageSubTab={pageSubTab} />}
       {(page === 'akce' || page === 'exkurze') && (
         <MarketingTabbed
           initialTab={

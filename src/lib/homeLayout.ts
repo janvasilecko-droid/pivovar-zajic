@@ -274,7 +274,7 @@ export const STRANKY_PLOCHY: Array<{ nazev: string; ids: Page[] }> = [
   {
     nazev: 'Plocha',
     ids: [
-      ...DLAZDICE_DENNI_PRACE, 'orders_zavoz', 'cellar', 'notes', 'prodejna', 'bottling_needs', 'timer', 'history',
+      ...DLAZDICE_DENNI_PRACE, 'orders_zavoz', 'cellar', 'notes', 'prodejna', 'bottling_needs', 'timer', 'history', 'obchod',
       'orders', 'male_sudy', 'rozbor', 'kegging', 'bottling', 'dashboard', 'orders_entry', 'akce',
       'sklo_promo', 'vehicles', 'haccp', 'calendar', 'concentration', 'export_excel', 'depozitar',
       'navod', 'audit', 'users', 'app_settings', 'zaloha', 'signout',
@@ -464,7 +464,7 @@ export const CATEGORY_SHADES: Record<Category, TileColor[]> = {
 };
 export const PAGE_CATEGORY: Partial<Record<Page, Category>> = {
   // Výroba
-  kegging: 'Výroba', bottling: 'Výroba', orders: 'Výroba', male_sudy: 'Výroba', rozbor: 'Výroba', fasovani: 'Výroba', prodejna: 'Výroba',
+  kegging: 'Výroba', bottling: 'Výroba', orders: 'Výroba', male_sudy: 'Výroba', rozbor: 'Výroba', fasovani: 'Výroba', prodejna: 'Výroba', obchod: 'Výroba',
   writeoffs: 'Výroba', akce: 'Výroba', vycepy: 'Výroba', orders_zavoz: 'Výroba', nakladka: 'Výroba', zavoz: 'Výroba',
   exkurze: 'Výroba', orders_entry: 'Výroba', orders_detail: 'Výroba', orders_celkem: 'Výroba',
   // Pivovar

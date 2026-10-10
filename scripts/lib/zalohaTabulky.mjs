@@ -49,6 +49,9 @@ export const TABULKY = [
   ['orders', 'id'], ['whatsapp_incoming', 'id'], ['whatsapp_prijem_log', 'id'], ['order_items', 'id'],
   ['kegging', 'id'], ['zavoz_deductions', 'id'], ['keg_returns', 'id'], ['vycepy_rezervace', 'id'],
   ['zavoz_ukoly_hotovo', 'id'],
+  // Obchod (prodejna): zboží → příjem, uzávěrky (+ řádky), inventura.
+  ['obchod_zbozi', 'kod'], ['obchod_prijem', 'id'], ['obchod_uzaverky', 'id'],
+  ['obchod_uzaverky_radky', 'id'], ['obchod_inventura', 'id'],
 ];
 
 export const NEZALOHOVAT = [

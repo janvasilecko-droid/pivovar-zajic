@@ -1,5 +1,5 @@
 import { ReactNode, type CSSProperties, useState, useEffect, useRef, lazy, Suspense } from 'react';
-import { AlarmClock, AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, BookOpen, CalendarDays, Car, ClipboardCheck, ClipboardList, Compass, Download, FilePlus, FileSpreadsheet, FileText, FlaskConical, GlassWater, History as HistoryIcon, Home, Info, ArrowUpDown, LogOut, MapPin, Megaphone, MessageCircle, Package as PackageIcon, Receipt, Search, Settings, Shield, ShieldCheck, Smartphone, Snowflake, Sparkles, StickyNote, Store, Tag, Truck, type LucideIcon, Wifi, WifiOff, X, XCircle } from 'lucide-react';
+import { AlarmClock, AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, BookOpen, CalendarDays, Car, ClipboardCheck, ClipboardList, Compass, Download, FilePlus, FileSpreadsheet, FileText, FlaskConical, GlassWater, History as HistoryIcon, Home, Info, ArrowUpDown, LogOut, MapPin, Megaphone, MessageCircle, Package as PackageIcon, Receipt, Search, Settings, Shield, ShieldCheck, ShoppingBag, Smartphone, Snowflake, Sparkles, StickyNote, Store, Tag, Truck, type LucideIcon, Wifi, WifiOff, X, XCircle } from 'lucide-react';
 
 import { useAuth } from '../lib/auth';
 import { potvrd } from '../lib/toast';
@@ -34,7 +34,7 @@ import '../screens/HomeScreen.css';
 
 export type NavItem = { id: Page; label: string; icon: LucideIcon; group: string };
 
-export type Page = 'export_excel' | 'import_excel' | 'home' | 'depozitar' | 'dashboard' | 'concentration' | 'srotovani' | 'checklists' | 'haccp' | 'sanitation_log' | 'sanitace_lahve' | 'sanitace_kegy' | 'sanitace_vycepy' | 'history' | 'orders_entry' | 'orders' | 'orders_detail' | 'orders_celkem' | 'orders_vraceni' | 'orders_zavoz' | 'zavoz' | 'kniha_jizd' | 'historie_tras' | 'stock' | 'stock_pohyby' | 'bottling' | 'kegging' | 'fasovani' | 'prodejna' | 'akce' | 'sklo_promo' | 'vycepy' | 'exkurze' | 'reminders' | 'notes' | 'writeoffs' | 'inventory' | 'calendar' | 'feedback' | 'places' | 'beers' | 'packages' | 'pricelist' | 'vehicles' | 'cellar' | 'users' | 'app_settings' | 'app_versions' | 'bottling_needs' | 'stopwatch' | 'timer' | 'keg_timer' | 'zaloha' | 'co2' | 'nakladka' | 'male_sudy' | 'rozbor' | 'navod' | 'hlaseni' | 'audit' | 'signout';
+export type Page = 'export_excel' | 'import_excel' | 'home' | 'depozitar' | 'dashboard' | 'concentration' | 'srotovani' | 'checklists' | 'haccp' | 'sanitation_log' | 'sanitace_lahve' | 'sanitace_kegy' | 'sanitace_vycepy' | 'history' | 'orders_entry' | 'orders' | 'orders_detail' | 'orders_celkem' | 'orders_vraceni' | 'orders_zavoz' | 'zavoz' | 'kniha_jizd' | 'historie_tras' | 'stock' | 'stock_pohyby' | 'bottling' | 'kegging' | 'fasovani' | 'prodejna' | 'obchod' | 'akce' | 'sklo_promo' | 'vycepy' | 'exkurze' | 'reminders' | 'notes' | 'writeoffs' | 'inventory' | 'calendar' | 'feedback' | 'places' | 'beers' | 'packages' | 'pricelist' | 'vehicles' | 'cellar' | 'users' | 'app_settings' | 'app_versions' | 'bottling_needs' | 'stopwatch' | 'timer' | 'keg_timer' | 'zaloha' | 'co2' | 'nakladka' | 'male_sudy' | 'rozbor' | 'navod' | 'hlaseni' | 'audit' | 'signout';
 
 export const NAV: NavItem[] = [
   // --- VÝROBA ---
@@ -51,6 +51,10 @@ export const NAV: NavItem[] = [
   // přepínač „Kam se vydává" hned v zápisu, takže tři vstupy na plochu byly
   // čistá duplicita. Zůstává jeden, přepínání zůstává uvnitř.
   { id: 'prodejna', label: 'Prodejna, Fasování, Odpis', icon: Store, group: 'Výroba' },
+  // Obchod (10. 10. 2026): vlastní sklad obchodu, uzávěrky z pokladny z fotky,
+  // inventura, statistiky prodeje, hlídání zásob a fasování do obchodu na
+  // jednom místě (screens/ObchodScreen.tsx).
+  { id: 'obchod', label: 'Obchod', icon: ShoppingBag, group: 'Výroba' },
   { id: 'akce', label: 'Akce, Exkurze', icon: Sparkles, group: 'Výroba' },
 
   // --- PIVOVAR ---
@@ -185,7 +189,7 @@ function navPageFor(page: Page): Page {
 // Top-level stránky, co mají vlastní TabBar (viz src/components/TabBar.tsx) —
 // ta záložka nahoře už jméno sekce ukazuje, takže mobilní hlavička ho
 // nezobrazuje znovu (viz její render níže).
-const TABBED_PAGES = new Set<Page>(['orders', 'akce', 'haccp', 'vehicles', 'depozitar', 'calendar', 'export_excel']);
+const TABBED_PAGES = new Set<Page>(['orders', 'akce', 'haccp', 'vehicles', 'depozitar', 'calendar', 'export_excel', 'obchod']);
 
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;

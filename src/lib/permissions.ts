@@ -245,6 +245,8 @@ export const PAGE_TO_MODULE: Record<string, ModuleKey> = {
   orders_entry: 'entry',
   fasovani: 'entry',
   prodejna: 'entry',
+  // Obchod (10. 10. 2026) — stejné právo jako Prodejna: zapisuje se do skladu obchodu.
+  obchod: 'entry',
   writeoffs: 'entry',
   orders: 'orders',
   orders_detail: 'orders',
