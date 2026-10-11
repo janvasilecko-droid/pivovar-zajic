@@ -33,7 +33,14 @@ export type RadekRozboru = {
   /** Stav skladem teď (skladová kniha); null = neznámý. */
   skladem: number | null;
   lahve: boolean;
+  /**
+   * Napočítáno v týdenní inventuře (11. 10. 2026: „v rozboru chci vidět
+   * i počet u týdenní inventury, když je zadáno"). null = nezadáno.
+   */
+  inventura: { kusu: number; den: string; minulyTyden: boolean } | null;
 };
+
+export type InventuraRozboru = { kusu: number; den: string; minulyTyden: boolean };
 
 export function radkyRozboru(p: {
   planSudy: PolozkaPlanuRozboru[];
@@ -44,7 +51,9 @@ export function radkyRozboru(p: {
   doDne: string;
   zasoba?: Map<string, number>;
   piva: { id: string; name: string }[];
-  obaly: { id: string; label: string }[];
+  obaly: { id: string; label: string; kind?: string | null }[];
+  /** Napočítané v týdenní inventuře, klíč `beer_id__package_id`. */
+  inventura?: Map<string, InventuraRozboru>;
 }): RadekRozboru[] {
   const radky = new Map<string, RadekRozboru>();
   const jmenoPiva = new Map(p.piva.map((b) => [b.id, b.name]));
@@ -60,6 +69,7 @@ export function radkyRozboru(p: {
         stoceno: 0, objednano: 0, stocit: 0, dluh: 0,
         skladem: p.zasoba ? (p.zasoba.get(key) ?? 0) : null,
         lahve,
+        inventura: p.inventura?.get(key) ?? null,
       };
       radky.set(key, r);
     }
@@ -85,6 +95,18 @@ export function radkyRozboru(p: {
       radek(z.beer_id, z.package_id, lahve).stoceno += n;
     }
   }
+  // Napočítané v týdenní inventuře se ukážou, i když se s nimi tento týden
+  // nic nedělo — číslo je zadané, má být vidět.
+  const obalPodleId = new Map(p.obaly.map((o) => [o.id, o]));
+  p.inventura?.forEach((_, key) => {
+    if (radky.has(key)) return;
+    const [beerId, pkgId] = key.split('__');
+    if (!jmenoPiva.has(beerId) || !obalPodleId.has(pkgId)) return;
+    const o = obalPodleId.get(pkgId)!;
+    const sud = o.kind === 'keg' || /keg|sud/i.test(o.label ?? '');
+    radek(beerId, pkgId, !sud);
+  });
+
   // Sudy napřed, pak lahve; uvnitř podle piva a obalu.
   return [...radky.values()].sort((a, b) =>
     Number(a.lahve) - Number(b.lahve)

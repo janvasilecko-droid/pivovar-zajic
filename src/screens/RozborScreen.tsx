@@ -9,13 +9,14 @@
 // 9. 10. 2026: „nemám v rozboru započítané stáčení lahví" — Rozbor bral jen
 // objednané položky, lahve stočené do zásoby v něm chyběly. Teď jsou v něm
 // i stočené položky bez objednávky (lib/rozbor.ts).
+import { useEffect, useState } from 'react';
 import { Check, ChevronRight } from 'lucide-react';
-import { beerBg, beerName } from '../lib/supabase';
+import { beerBg, beerName, supabase, useRealtime } from '../lib/supabase';
 import { businessDateISO } from '../lib/businessDate';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
 import { usePlanStaceni } from '../lib/usePlanStaceni';
 import { mergeWeekPlan } from '../lib/keggingPlan';
-import { radkyRozboru } from '../lib/rozbor';
+import { radkyRozboru, type InventuraRozboru } from '../lib/rozbor';
 import { predvyberPohyby } from '../lib/pohybyPredvyber';
 import { Spinner, EmptyState } from '../components/ui';
 import type { Page } from '../components/Layout';
@@ -28,6 +29,33 @@ function kratkyObal(label: string): string {
 export default function RozborScreen({ setPage }: { setPage: (p: Page) => void }) {
   const weekKey = isoWeekKey(businessDateISO());
   const { data, chyba, planySudy, planyLahve, zasoba } = usePlanStaceni(weekKey);
+  // 🧮 Napočítáno v týdenní inventuře — tento týden, jinak minulý
+  // (11. 10. 2026: „v rozboru chci vidět i počet u týdenní inventury").
+  const pondeli = weekRange(weekKey).start.toISOString().slice(0, 10);
+  const [inventura, setInventura] = useState<Map<string, InventuraRozboru>>(new Map());
+  const nactiInventuru = () => {
+    const minule = new Date(pondeli + 'T00:00:00Z');
+    minule.setUTCDate(minule.getUTCDate() - 7);
+    const minulePondeli = minule.toISOString().slice(0, 10);
+    supabase.from('tydenni_inventura').select('beer_id,package_id,napocitano,updated_at,tyden_od')
+      .in('tyden_od', [pondeli, minulePondeli])
+      .then(({ data: radky }) => {
+        const m = new Map<string, InventuraRozboru>();
+        // Minulý týden napřed, tento ho přepíše.
+        const serazene = ((radky as any[]) ?? []).sort((a, b) => String(a.tyden_od).localeCompare(String(b.tyden_od)));
+        for (const r of serazene) {
+          if (!r.beer_id || !r.package_id || r.napocitano == null) continue;
+          m.set(`${r.beer_id}__${r.package_id}`, {
+            kusu: Number(r.napocitano),
+            den: r.updated_at ? businessDateISO(new Date(r.updated_at)) : String(r.tyden_od),
+            minulyTyden: r.tyden_od !== pondeli,
+          });
+        }
+        setInventura(m);
+      });
+  };
+  useEffect(() => { nactiInventuru(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [pondeli]);
+  useRealtime(['tydenni_inventura'], () => nactiInventuru());
   if (chyba && !data) return <EmptyState varianta="chyba" text="Rozbor se nepodařilo načíst." />;
   if (!data) return <Spinner />;
   const pivoPodleId = new Map(data.beers.map((b) => [b.id, b]));
@@ -42,12 +70,13 @@ export default function RozborScreen({ setPage }: { setPage: (p: Page) => void }
     zasoba,
     piva: data.beers,
     obaly: data.packages,
+    inventura,
   });
 
   return (
     <div className="space-y-3 pb-12">
       <p className="text-sm font-bold text-neutral-700">
-        Objednáno a stočeno tento týden — sudy i lahve. Klepni na položku — otevře se historie pohybů (stočeno, závozy…).
+        Objednáno a stočeno tento týden — sudy i lahve, „inv." = napočítáno v týdenní inventuře. Klepni na položku — otevře se historie pohybů (stočeno, závozy…).
       </p>
       {polozky.length === 0 ? (
         <EmptyState text="Tento týden nic objednaného ani stočeného." />
@@ -75,6 +104,11 @@ export default function RozborScreen({ setPage }: { setPage: (p: Page) => void }
                     : <span className="text-emerald-700"> · <Check size={12} className="inline" /></span>)}
                   {it.dluh > 0 && <span className="font-black text-rose-700"> (−{it.dluh} sklad)</span>}
                   {it.skladem !== null && <span className={it.skladem < 0 ? 'font-black text-rose-700' : 'text-neutral-600'}> · sklad {it.skladem}</span>}
+                  {it.inventura && (
+                    <span className="font-black text-sky-800" title={it.inventura.minulyTyden ? 'Napočítáno v týdenní inventuře minulého týdne' : 'Napočítáno v týdenní inventuře'}>
+                      {' '}· inv. {it.inventura.kusu} ({Number(it.inventura.den.slice(8, 10))}. {Number(it.inventura.den.slice(5, 7))}.)
+                    </span>
+                  )}
                   <ChevronRight size={14} className="inline ml-1" />
                 </span>
               </button>
