@@ -10,7 +10,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, ListOrdered } from 'lucide-react';
 import { Spinner } from './ui';
-import { useRealtime } from '../lib/supabase';
+import { supabase, useRealtime } from '../lib/supabase';
+import { radkyTydenniInventury, type ZaznamTydenniInventury } from '../lib/tydenniVPohybech';
 import { nactiSkladovouKnihu, type SkladovaKniha } from '../lib/skladovaKnihaData';
 import { DoplnitZdrojSudu } from './DoplnitZdrojSudu';
 import { sestavPohybyObdobi, SKUPINY_POHYBU } from '../lib/pohybySkladu';
@@ -61,6 +62,8 @@ export default function PohybySkladu() {
   // 🔎 Kontrola (1. 10. 2026: „projdi data, nesedí mi inventura") — běží
   // v appce pod přihlášením, nad stejnými daty jako Sklad.
   const [objednavky, setObjednavky] = useState<ObjednavkaProKontrolu[]>([]);
+  // Napočítané v týdenní inventuře — vedle pohybů, ať jde číslo porovnat s realitou.
+  const [tydenni, setTydenni] = useState<ZaznamTydenniInventury[]>([]);
   const [nalezy, setNalezy] = useState<Nalez[] | null>(null);
   const [kontroluji, setKontroluji] = useState(false);
 
@@ -90,7 +93,14 @@ export default function PohybySkladu() {
     }
   }, []);
 
-  useEffect(() => { void nacti(); }, [nacti]);
+  const nactiTydenni = useCallback(() => {
+    supabase.from('tydenni_inventura')
+      .select('tyden_od,tyden_do,beer_id,package_id,ocekavano,napocitano,rozdil,vyreseno,updated_at')
+      .order('tyden_od', { ascending: false }).limit(2000)
+      .then(({ data }) => setTydenni(((data as any[]) ?? []) as ZaznamTydenniInventury[]));
+  }, []);
+  useEffect(() => { void nacti(); nactiTydenni(); }, [nacti, nactiTydenni]);
+  useRealtime(['tydenni_inventura'], () => { nactiTydenni(); });
   useRealtime(
     ['kegging', 'bottling', 'fasovani', 'fasovani_private', 'writeoffs', 'inventory', 'inventory_adjustments', 'zavoz_deductions', 'akce', 'akce_items', 'keg_prefuk'],
     () => { void nacti(); },
@@ -404,6 +414,37 @@ export default function PohybySkladu() {
       </div>
 
       {bezi && <Spinner />}
+      {!bezi && kniha && (() => {
+        const r = radkyTydenniInventury({
+          zaznamy: tydenni, pohyby: kniha.pohyby, od, doDne,
+          beerId: beerId || undefined, packageId: packageId || undefined,
+          dnes: businessDateISO(), denPodleCasu: (iso) => businessDateISO(new Date(iso)),
+        });
+        if (r.length === 0) return null;
+        return (
+          <div className="rounded-xl border-2 border-sky-300 bg-sky-50 p-3 space-y-2">
+            <p className="text-sm font-black text-sky-950">Týdenní inventura — co se napočítalo ({r.length})</p>
+            <ul className="space-y-1.5">
+              {r.map((x) => (
+                <li key={`${x.tyden_od}-${x.beer_id}-${x.package_id}`} className="rounded border border-sky-200 bg-white px-2.5 py-1.5 text-xs">
+                  <div className="font-black text-neutral-950">
+                    {nazevPiva.get(x.beer_id) || '?'} · {nazevObalu.get(x.package_id) || '?'}
+                    <span className="font-bold text-neutral-600"> · {denPopis(x.den)}</span>
+                  </div>
+                  <div className="flex flex-wrap gap-x-3 gap-y-0.5 font-bold text-neutral-800 tabular-nums">
+                    <span>napočítáno <b className="text-sky-900">{x.napocitano}</b></span>
+                    <span>appka čekala <b>{x.ocekavano}</b></span>
+                    <span className={x.rozdil === 0 ? 'text-emerald-800' : 'text-rose-800'}>
+                      {x.rozdil === 0 ? 'sedělo' : `rozdíl ${x.rozdil > 0 ? '+' : ''}${x.rozdil}`}
+                    </span>
+                    <span>sklad teď <b className={x.ted < 0 ? 'text-rose-700' : ''}>{x.ted}</b>{x.ted !== x.napocitano && <span className="text-neutral-600"> (od počítání {x.ted - x.napocitano > 0 ? '+' : ''}{x.ted - x.napocitano})</span>}</span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })()}
       {!bezi && kniha && (
         <DoplnitZdrojSudu
           davky={davkyBezZdrojeSudu(kniha.bottling, { od, doDne, beerId: beerId || undefined })}
