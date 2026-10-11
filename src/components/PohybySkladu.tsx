@@ -30,6 +30,20 @@ const LS_ROZDELIT = 'pohyby_skladu_rozdelit_mesice_v2';
 import { LS_POHYBY_FILTR as LS_FILTR, LS_POHYBY_REZIM as LS_REZIM, LS_POHYBY_MESIC as LS_MESIC } from '../lib/pohybyPredvyber';
 import { smaz } from '../lib/uloziste';
 
+/** Rozepsané počty týdenní inventury ze zařízení pro týdny, které období zasahuje. */
+function konceptyTydnu(od: string, doDne: string): Record<string, Record<string, string>> {
+  const out: Record<string, Record<string, string>> = {};
+  const d = new Date(od + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); // pondělí týdne
+  for (let i = 0; i < 10 && d.toISOString().slice(0, 10) <= doDne; i++) {
+    const pondeli = d.toISOString().slice(0, 10);
+    const k = nactiJson<Record<string, string>>(`tydenni_napocitano_${pondeli}`, {});
+    if (k && Object.keys(k).length > 0) out[pondeli] = k;
+    d.setUTCDate(d.getUTCDate() + 7);
+  }
+  return out;
+}
+
 function denPopis(iso: string): string {
   const d = new Date(iso + 'T00:00:00Z');
   return `${DNY[d.getUTCDay()]} ${d.getUTCDate()}. ${d.getUTCMonth() + 1}.`;
@@ -419,11 +433,17 @@ export default function PohybySkladu() {
           zaznamy: tydenni, pohyby: kniha.pohyby, od, doDne,
           beerId: beerId || undefined, packageId: packageId || undefined,
           dnes: businessDateISO(), denPodleCasu: (iso) => businessDateISO(new Date(iso)),
+          koncepty: konceptyTydnu(od, doDne),
         });
-        if (r.length === 0) return null;
         return (
           <div className="rounded-xl border-2 border-sky-300 bg-sky-50 p-3 space-y-2">
             <p className="text-sm font-black text-sky-950">Týdenní inventura — co se napočítalo ({r.length})</p>
+            {r.length === 0 && (
+              <p className="text-xs font-bold text-sky-950">
+                Pro tenhle výběr a období není v týdenní inventuře nic napočítáno. Počty se ukládají tlačítkem „Uložit vše" v Týdenní inventuře
+                (Sklad → Inventura); rozepsané, neuložené počty se ukážou jen v zařízení, kde byly zadané.
+              </p>
+            )}
             <ul className="space-y-1.5">
               {r.map((x) => (
                 <li key={`${x.tyden_od}-${x.beer_id}-${x.package_id}`} className="rounded border border-sky-200 bg-white px-2.5 py-1.5 text-xs">
@@ -432,11 +452,13 @@ export default function PohybySkladu() {
                     <span className="font-bold text-neutral-600"> · {denPopis(x.den)}</span>
                   </div>
                   <div className="flex flex-wrap gap-x-3 gap-y-0.5 font-bold text-neutral-800 tabular-nums">
-                    <span>napočítáno <b className="text-sky-900">{x.napocitano}</b></span>
-                    <span>appka čekala <b>{x.ocekavano}</b></span>
-                    <span className={x.rozdil === 0 ? 'text-emerald-800' : 'text-rose-800'}>
-                      {x.rozdil === 0 ? 'sedělo' : `rozdíl ${x.rozdil > 0 ? '+' : ''}${x.rozdil}`}
-                    </span>
+                    <span>napočítáno <b className="text-sky-900">{x.napocitano}</b>{x.rozepsano && <i className="font-bold text-amber-800"> (rozepsáno, neuloženo)</i>}</span>
+                    {x.ocekavano !== null && <span>appka čekala <b>{x.ocekavano}</b></span>}
+                    {x.ocekavano !== null && (
+                      <span className={x.rozdil === 0 ? 'text-emerald-800' : 'text-rose-800'}>
+                        {x.rozdil === 0 ? 'sedělo' : `rozdíl ${x.rozdil > 0 ? '+' : ''}${x.rozdil}`}
+                      </span>
+                    )}
                     <span>sklad teď <b className={x.ted < 0 ? 'text-rose-700' : ''}>{x.ted}</b>{x.ted !== x.napocitano && <span className="text-neutral-600"> (od počítání {x.ted - x.napocitano > 0 ? '+' : ''}{x.ted - x.napocitano})</span>}</span>
                   </div>
                 </li>
