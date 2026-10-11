@@ -86,9 +86,11 @@ import { VratitPivoModal } from '../components/objednavky/VratitPivoModal';
 import { OrderDetail } from '../components/objednavky/OrderDetail';
 import { ChipyPiva, ChipyObalu } from '../components/FiltrPivaAObalu';
 
-// Pořadí obalů v plnoobrazovkovém panelu zadávání (dle požadavku):
-// 50l keg → 30l → 1,5l keg → 1l keg → 20l → 15l → 10l → 0,5l → 0,33l
-const PKG_PANEL_ORDER = [50, 30, 1.5, 1, 20, 15, 10, 0.5, 0.33];
+// Pořadí obalů v plnoobrazovkovém panelu zadávání. Od 11. 10. 2026 OBRÁCENĚ:
+// nejčastější 50 l a 30 l jsou dole u palce, ať jde panel ovládat jednou rukou
+// („dej 50 dolů, ať se to dá líp ovládat jedním prstem"):
+// 0,33l → 0,5l → 10l → 15l → 20l → 1l → 1,5l → 30l → 50l
+const PKG_PANEL_ORDER = [0.33, 0.5, 10, 15, 20, 1, 1.5, 30, 50];
 function pkgPanelIndex(p: Package): number {
   const i = PKG_PANEL_ORDER.indexOf(p.volume_l);
   return i === -1 ? 999 : i;
