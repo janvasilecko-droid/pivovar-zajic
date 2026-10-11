@@ -7,8 +7,12 @@ describe('Kniha jízd — pravidla', () => {
     expect(jeMimoKnihuJizd(' petr ')).toBe(true);
     expect(jeMimoKnihuJizd('Restaurace')).toBe(true);
     expect(jeMimoKnihuJizd('Restaurace Na Růžku')).toBe(false);
-    expect(jeMimoKnihuJizd('Petr Moravčík prodejna')).toBe(false);
+    expect(jeMimoKnihuJizd('Petr Moravčík')).toBe(false);
     expect(jeMimoKnihuJizd(null)).toBe(false);
+    // Prodejna: slovo v názvu, ale ne „Prodejní sklad" apod.
+    expect(jeMimoKnihuJizd('Prodejna')).toBe(true);
+    expect(jeMimoKnihuJizd('Pivovar prodejna')).toBe(true);
+    expect(jeMimoKnihuJizd('Prodejní hospoda')).toBe(false);
   });
 
   it('+30 km za každou zastávku ve velkém městě (adresa i název, různé pády)', () => {
