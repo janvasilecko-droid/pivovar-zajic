@@ -107,14 +107,17 @@ export default function PohybySkladu() {
     }
   }, []);
 
-  const nactiTydenni = useCallback(() => {
+  // Jen týdny zasahující do zvoleného období — tabulka roste o ~60 řádků
+  // týdně, po 24 měsících by „posledních 2000" starší týdny neukázalo.
+  const nactiTydenni = useCallback((odDne: string, doDne: string) => {
     supabase.from('tydenni_inventura')
       .select('tyden_od,tyden_do,beer_id,package_id,ocekavano,napocitano,rozdil,vyreseno,updated_at')
-      .order('tyden_od', { ascending: false }).limit(2000)
+      .gte('tyden_do', odDne).lte('tyden_od', doDne)
+      .order('tyden_od', { ascending: false }).limit(5000)
       .then(({ data }) => setTydenni(((data as any[]) ?? []) as ZaznamTydenniInventury[]));
   }, []);
-  useEffect(() => { void nacti(); nactiTydenni(); }, [nacti, nactiTydenni]);
-  useRealtime(['tydenni_inventura'], () => { nactiTydenni(); });
+  useEffect(() => { void nacti(); }, [nacti]);
+  // (nactiTydenni se volá níž, jakmile je známé období — viz useEffect po výpočtu od/doDne)
   useRealtime(
     ['kegging', 'bottling', 'fasovani', 'fasovani_private', 'writeoffs', 'inventory', 'inventory_adjustments', 'zavoz_deductions', 'akce', 'akce_items', 'keg_prefuk'],
     () => { void nacti(); },
@@ -125,6 +128,10 @@ export default function PohybySkladu() {
     const { start, end, label: l } = weekRange(tyden);
     return { od: start.toISOString().slice(0, 10), doDne: end.toISOString().slice(0, 10), label: l };
   }, [rezim, tyden, mesic]);
+
+  // Týdenní inventura za zvolené období; obnoví se i při změně tabulky.
+  useEffect(() => { nactiTydenni(od, doDne); }, [nactiTydenni, od, doDne]);
+  useRealtime(['tydenni_inventura'], () => { nactiTydenni(od, doDne); });
 
   function posunObdobi(delta: number) {
     if (rezim === 'mesic') setMesic((m) => posunMesic(m, delta));
