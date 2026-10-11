@@ -44,7 +44,10 @@ describe('Přidat zboží dlaždicemi', () => {
   it('zvolím pivo, půllitr a kosmetiku v různých skupinách a přidám je jedním klepnutím', async () => {
     vykresli();
     fireEvent.click(screen.getByRole('button', { name: /Piva/ }));
-    fireEvent.click(screen.getByRole('button', { name: /12° Světlá.*Lahve 0\.5l/s }));
+    // Barevná dlaždice piva → po klepnutí se ukážou obaly (11. 10. 2026).
+    fireEvent.click(screen.getByRole('button', { name: /^12° Světlá/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Lahve 0\.5l/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Zavřít a vrátit se k dlaždicím/ }));
     fireEvent.click(screen.getByRole('button', { name: /Skupiny/ }));
     fireEvent.click(screen.getByRole('button', { name: /Půllitry/ }));
     fireEvent.click(screen.getByRole('button', { name: /Půllitr Mannheim/ }));
@@ -71,10 +74,11 @@ describe('Přidat zboží dlaždicemi', () => {
     vykresli(); // v katalogu je jen 0,5l láhev a KEG 30l → PET a 0,33l se spárovat nedají
     fireEvent.click(screen.getByRole('button', { name: /Piva/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Vybrat všechno nové' }));
-    const volitelnych = screen.getAllByRole('button', { pressed: true }).length;
+    const volitelnych = Number(/\((\d+)\)/.exec(pridat().textContent ?? '')?.[1]);
     expect(volitelnych).toBeGreaterThan(0);
     expect(volitelnych).toBeLessThan(20);
-    // dlaždice, kterou nejde spárovat, je zablokovaná a vysvětluje proč
+    // zboží, které nejde spárovat, je zablokované a vysvětluje proč
+    fireEvent.click(screen.getByRole('button', { name: /^12° Světlá/ }));
     const pet = screen.getByRole('button', { name: /Pivo PET 1,5l 12° světlá/ });
     expect(pet).toBeDisabled();
     expect(pet.textContent).toContain('V katalogu chybí pivo nebo obal');
@@ -85,7 +89,8 @@ describe('Přidat zboží dlaždicemi', () => {
   it('zboží, které už v obchodě je, je vidět jako „už v obchodě" a nedá se zvolit', () => {
     vykresli(data({ zbozi: [{ kod: '11001', nazev: 'Pivo sklo 12° světlá 0,5l', beer_id: 'b12s', package_id: 'l05', aktivni: true } as never] }));
     fireEvent.click(screen.getByRole('button', { name: /Piva/ }));
-    const uz = screen.getByRole('button', { name: /Pivo sklo 12° světlá 0,5l/ });
+    fireEvent.click(screen.getByRole('button', { name: /^12° Světlá/ }));
+    const uz = screen.getByRole('button', { name: /Lahve 0\.5l/ });
     expect(uz).toBeDisabled();
     expect(uz.textContent).toContain('✓ už v obchodě');
   });

@@ -8,6 +8,8 @@ import { useMemo, useState } from 'react';
 import { ArrowLeft, Beer, Check, GlassWater, Plus, ShoppingBasket, Sparkles } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Modal } from '../ui';
+import { BeerTileGrid, BeerTilePanel } from '../BeerTileGrid';
+import type { Beer as PivoTyp } from '../../lib/supabase';
 import { chyba as toastChyba, uspech } from '../../lib/toast';
 import { pridejZboziZDlazdic, type DataObchodu } from '../../lib/obchodData';
 import {
@@ -59,6 +61,8 @@ export function PridatZboziDlazdice({ data, zapsal, onClose, onUlozeno, onRucne 
 }) {
   const dlazdice = useMemo(() => dlazdiceSkupiny(data.zbozi, data.piva, data.obaly), [data.zbozi, data.piva, data.obaly]);
   const [skupina, setSkupina] = useState<SkupinaZbozi | null>(null);
+  // Otevřené pivo: po klepnutí na barevnou dlaždici piva se ukážou jeho obaly.
+  const [otevrenePivo, setOtevrenePivo] = useState<string | null>(null);
   const [vybrano, setVybrano] = useState<Set<string>>(new Set());
   const [chyba, setChyba] = useState<string | null>(null);
   const [uklada, setUklada] = useState(false);
@@ -108,6 +112,36 @@ export function PridatZboziDlazdice({ data, zapsal, onClose, onUlozeno, onRucne 
 
   const aktualni = skupina ? SKUPINY.find((s) => s.id === skupina)! : null;
 
+  // Pivo k dlaždici: z katalogu, nebo — když už je zboží v obchodě — podle
+  // zboží (beer_id), ať je i „už v obchodě" pod svým pivem.
+  function pivoDlazdice(d: Dlazdice) {
+    const id = d.pivo?.id ?? data.zbozi.find((z) => z.kod === d.polozka.kod)?.beer_id ?? null;
+    return id ? (data.piva.find((b) => b.id === id) ?? d.pivo ?? null) : null;
+  }
+  function obalDlazdice(d: Dlazdice): string {
+    if (d.obal) return d.obal.label;
+    const pid = data.zbozi.find((z) => z.kod === d.polozka.kod)?.package_id;
+    return (pid && data.obaly.find((o) => o.id === pid)?.label) || d.polozka.nazev;
+  }
+
+  // 🍺 Skupina Piva: barevné dlaždice piv jako ve zbytku appky (Objednávky,
+  // Stáčení…); obaly se ukážou po klepnutí na pivo (11. 10. 2026: „udělej to
+  // jako ostatní barevné dlaždice piva, a po rozkliknutí se ukáže obal").
+  // Zboží, které se k pivu z katalogu nepodařilo přiřadit, zůstává pod nimi.
+  const pivaSObaly = useMemo(() => {
+    const m = new Map<string, { pivo: PivoTyp; dlazdice: Dlazdice[] }>();
+    for (const d of dlazdice.piva) {
+      const pivo = pivoDlazdice(d);
+      if (!pivo) continue;
+      const e = m.get(pivo.id) ?? { pivo: pivo as unknown as PivoTyp, dlazdice: [] };
+      e.dlazdice.push(d);
+      m.set(pivo.id, e);
+    }
+    return m;
+  }, [dlazdice.piva, data.piva]);
+  const bezPiva = useMemo(() => dlazdice.piva.filter((d) => !pivoDlazdice(d)), [dlazdice.piva]);
+  const otevrene = otevrenePivo ? pivaSObaly.get(otevrenePivo) : undefined;
+
   return (
     <Modal open onClose={onClose} title="Přidat zboží do obchodu">
       <div className="space-y-3">
@@ -153,8 +187,22 @@ export function PridatZboziDlazdice({ data, zapsal, onClose, onUlozeno, onRucne 
                 <button type="button" className="btn-ghost !rounded !py-1.5 text-xs font-bold" onClick={() => zrusVyber(aktualni.id)}>Zrušit výběr</button>
               </div>
             </div>
+            {aktualni.id === 'piva' && pivaSObaly.size > 0 && (
+              <BeerTileGrid
+                beers={[...pivaSObaly.values()].map((e) => e.pivo)}
+                onSelect={(b) => setOtevrenePivo(b.id)}
+                summaryFor={(b) => {
+                  const e = pivaSObaly.get(b.id)!;
+                  const zvoleno = e.dlazdice.filter((d) => vybrano.has(d.polozka.kod) && jeVolitelna(d));
+                  return {
+                    filled: zvoleno.length > 0,
+                    label: `✓ ${zvoleno.map((d) => obalDlazdice(d)).join(', ')}`,
+                  };
+                }}
+              />
+            )}
             <div className="grid grid-cols-2 gap-2">
-              {dlazdice[aktualni.id].map((d) => {
+              {(aktualni.id === 'piva' ? bezPiva : dlazdice[aktualni.id]).map((d) => {
                 const p = popisDlazdice(d);
                 const volitelna = jeVolitelna(d);
                 const zvolena = vybrano.has(d.polozka.kod) && volitelna;
@@ -176,6 +224,35 @@ export function PridatZboziDlazdice({ data, zapsal, onClose, onUlozeno, onRucne 
               })}
             </div>
           </>
+        )}
+
+        {otevrene && (
+          <BeerTilePanel beer={otevrene.pivo} onClose={() => setOtevrenePivo(null)}>
+            {otevrene.dlazdice.map((d) => {
+              const p = popisDlazdice(d);
+              const volitelna = jeVolitelna(d);
+              const zvolena = vybrano.has(d.polozka.kod) && volitelna;
+              return (
+                <button
+                  key={d.polozka.kod}
+                  type="button"
+                  disabled={!volitelna}
+                  aria-pressed={volitelna ? zvolena : undefined}
+                  onClick={() => prepni(d.polozka.kod)}
+                  className={`w-full min-h-[56px] flex items-center justify-between gap-2 rounded-xl border-2 px-3 py-2 text-left ${
+                    zvolena ? 'border-primary-600 bg-primary-50' : 'border-neutral-200 bg-white'
+                  } ${volitelna ? '' : 'opacity-60'}`}
+                >
+                  <span className="min-w-0">
+                    <span className="block text-sm font-black text-neutral-950">{obalDlazdice(d)}</span>
+                    <span className="block text-[11px] font-semibold text-neutral-700">kód {d.polozka.kod} · {kc(d.polozka.cena)}</span>
+                    {p.poznamka && <span className="block text-[11px] font-bold text-neutral-800">{p.poznamka}</span>}
+                  </span>
+                  {zvolena && <Check size={20} className="shrink-0 text-primary-700" />}
+                </button>
+              );
+            })}
+          </BeerTilePanel>
         )}
 
         {chyba && <div role="alert" className="text-sm font-bold text-rose-800 bg-rose-50 border border-rose-300 rounded px-3 py-2">{chyba}</div>}
