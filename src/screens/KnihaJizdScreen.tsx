@@ -7,6 +7,7 @@ import { AlertTriangle, Bird, ChevronLeft, Calendar, Car, CheckCircle2, Download
 import { isOrderKachna } from '../lib/zavozSecondCar';
 import { printTable } from '../lib/safePrint';
 import { computeRouteDistanceKm, popisTrasyDne } from '../lib/routeDistance';
+import { jeMimoKnihuJizd, priplatekDne, PRIPLATEK_MESTO_KM } from '../lib/knihaJizdPravidla';
 import { POZNAMKA_VYGENEROVANO, posledniTachometrPred, rozepisTachometr } from '../lib/knihaJizd';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
 import { DAYS } from '../lib/shared';
@@ -80,7 +81,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
   const [autoStartKm, setAutoStartKm] = useState<string>('120000');
   const [autoStartKmKachna, setAutoStartKmKachna] = useState<string>('0');
   const [autoGenerating, setAutoGenerating] = useState(false);
-  const [previewDays, setPreviewDays] = useState<{ date: string; routeTo: string; stopsCount: number; isKachna: boolean; km: string; missingCoords: string[] }[]>([]);
+  const [previewDays, setPreviewDays] = useState<{ date: string; routeTo: string; stopsCount: number; isKachna: boolean; km: string; missingCoords: string[]; priplatekKm?: number; mesta?: string[] }[]>([]);
 
   function openAutoModal() {
     setAutoStep('form');
@@ -300,7 +301,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
             `and(delivery_date.gte.${monthStart},delivery_date.lte.${monthEnd}),and(order_date.gte.${bufStart},order_date.lte.${bufEnd})`
           )
           .order('order_date', { ascending: true }),
-        supabase.from('places').select('id, name, lat, lng'),
+        supabase.from('places').select('id, name, lat, lng, address'),
       ]);
 
       const dayCodeOffset = (code: string | null | undefined): number | null => {
@@ -323,16 +324,18 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
 
       const ordersList = ((rawOrders as any[]) ?? [])
         .map((o) => ({ ...o, _effectiveDate: effectiveDeliveryDate(o) }))
-        .filter((o) => o._effectiveDate && o._effectiveDate >= monthStart && o._effectiveDate <= monthEnd);
+        .filter((o) => o._effectiveDate && o._effectiveDate >= monthStart && o._effectiveDate <= monthEnd)
+        // Matěs, Petr a Restaurace se do Knihy jízd nepočítají (11. 10. 2026).
+        .filter((o) => !jeMimoKnihuJizd(o.place_name));
 
       const skippedNoDay = ((rawOrders as any[]) ?? []).filter((o) => !effectiveDeliveryDate(o)).length;
 
-      const placesById = new Map<string, { lat: number | null; lng: number | null }>(
-        ((rawPlaces as any[]) ?? []).map((p) => [p.id, { lat: p.lat, lng: p.lng }])
+      const placesById = new Map<string, { lat: number | null; lng: number | null; address: string | null }>(
+        ((rawPlaces as any[]) ?? []).map((p) => [p.id, { lat: p.lat, lng: p.lng, address: p.address ?? null }])
       );
 
       if (!ordersList.length) {
-        oznam(`V měsíci ${autoMonth} nebyly nalezeny žádné objednávky s rozpoznatelným dnem rozvozu.`);
+        oznam(`V měsíci ${autoMonth} nebyly nalezeny žádné objednávky s rozpoznatelným dnem rozvozu (Matěs, Petr a Restaurace se do knihy jízd nepočítají).`);
         setAutoGenerating(false);
         return;
       }
@@ -362,19 +365,19 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
       // souřadnic (u odběratele) se do výpočtu nezapočítají.
       const buildStops = (dayOrders: any[]) => {
         const seen = new Set<string>();
-        const stops: { name: string; lat: number | null; lng: number | null }[] = [];
+        const stops: { name: string; lat: number | null; lng: number | null; address?: string | null }[] = [];
         dayOrders.forEach((o) => {
           const name = o.place_name || 'Místní odběratel';
           const key = o.place_id || name;
           if (seen.has(key)) return;
           seen.add(key);
           const p = o.place_id ? placesById.get(o.place_id) : undefined;
-          stops.push({ name, lat: p?.lat ?? null, lng: p?.lng ?? null });
+          stops.push({ name, lat: p?.lat ?? null, lng: p?.lng ?? null, address: p?.address ?? null });
         });
         return stops;
       };
 
-      const groups: { date: string; routeTo: string; stopsCount: number; isKachna: boolean; stops: { name: string; lat: number | null; lng: number | null }[] }[] = [];
+      const groups: { date: string; routeTo: string; stopsCount: number; isKachna: boolean; stops: { name: string; lat: number | null; lng: number | null; address?: string | null }[] }[] = [];
       [...dateGroups.entries()]
         .sort((a, b) => a[0].localeCompare(b[0]))
         .forEach(([dDate, dayOrders]) => {
@@ -405,13 +408,19 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
       const days: typeof previewDays = await Promise.all(
         groups.map(async (g) => {
           const { km, missingCoords } = await computeRouteDistanceKm(g.stops);
+          // +30 km za každou jízdu do velkého města (Praha, Hradec…) — viz
+          // lib/knihaJizdPravidla.ts. Zahrnuto v km, které jde v náhledu ručně opravit.
+          const priplatek = priplatekDne(g.stops);
+          const celkem = Math.round((km + priplatek.km) * 10) / 10;
           return {
             date: g.date,
             routeTo: g.routeTo,
             stopsCount: g.stopsCount,
             isKachna: g.isKachna,
-            km: km > 0 ? String(km) : '',
+            km: celkem > 0 ? String(celkem) : '',
             missingCoords,
+            priplatekKm: priplatek.km,
+            mesta: priplatek.mesta,
           };
         })
       );
@@ -449,7 +458,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
         km_start: tachometr[i].km_start,
         km_end: tachometr[i].km_end,
         km_driven: tachometr[i].km_driven,
-        note: `${POZNAMKA_VYGENEROVANO} (${d.stopsCount} zastávek v daný den, každá zastávka cesta tam a zpět)${d.isKachna ? ' — auto Kachna' : ' — Velké auto'}${missingNote}`,
+        note: `${POZNAMKA_VYGENEROVANO} (${d.stopsCount} zastávek v daný den, každá zastávka cesta tam a zpět)${d.isKachna ? ' — auto Kachna' : ' — Velké auto'}${d.priplatekKm ? ` — v km je příplatek +${PRIPLATEK_MESTO_KM} km za každou jízdu do města (${(d.mesta ?? []).join(', ')})` : ''}${missingNote}`,
       };
     });
 
@@ -843,6 +852,11 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
                         <span className="text-udaj font-bold text-neutral-500">{d.stopsCount} zastávek</span>
                       </div>
                       <div className="text-udaj text-neutral-600 font-medium leading-snug">{d.routeTo}</div>
+                      {!!d.priplatekKm && (
+                        <div className="text-udaj text-sky-800 bg-sky-50 border border-sky-200 rounded px-2 py-1 font-semibold leading-snug">
+                          V km je příplatek +{d.priplatekKm} km za jízdu do města ({(d.mesta ?? []).join(', ')}).
+                        </div>
+                      )}
                       {d.missingCoords.length > 0 && (
                         <div className="text-udaj text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 font-semibold leading-snug">
                           <AlertTriangle className="ikona-text" /> Chybí souřadnice u: {d.missingCoords.join(', ')} — cesta tam a zpět k téhle zastávce se do km nezapočítala, doplň souřadnice v Odběratelích nebo km uprav ručně.
