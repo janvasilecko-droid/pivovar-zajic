@@ -41,3 +41,15 @@ describe('Rozbor — týdenní inventura (11. 10. 2026)', () => {
     expect(r.find((x) => x.key === 'tm__l033')).toEqual(expect.objectContaining({ stoceno: 0, objednano: 0, lahve: true, inventura: expect.objectContaining({ kusu: 40 }) }));
   });
 });
+
+describe('slucInventuruSKonceptem', () => {
+  it('rozepsané doplní jen to, co v databázi není, a neplatné vynechá', async () => {
+    const { slucInventuruSKonceptem } = await import('./rozbor');
+    const db = new Map([['a__b', { kusu: 5, den: '2026-10-06', minulyTyden: false }]]);
+    const m = slucInventuruSKonceptem(db, { 'a__b': '9', 'c__d': '3,5', 'e__f': '', 'g__h': 'x' }, '2026-10-11');
+    expect(m.get('a__b')!.kusu).toBe(5);
+    expect(m.get('c__d')).toEqual({ kusu: 3.5, den: '2026-10-11', minulyTyden: false, rozepsano: true });
+    expect(m.has('e__f')).toBe(false);
+    expect(m.has('g__h')).toBe(false);
+  });
+});

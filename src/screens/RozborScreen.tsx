@@ -16,7 +16,8 @@ import { businessDateISO } from '../lib/businessDate';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
 import { usePlanStaceni } from '../lib/usePlanStaceni';
 import { mergeWeekPlan } from '../lib/keggingPlan';
-import { radkyRozboru, type InventuraRozboru } from '../lib/rozbor';
+import { radkyRozboru, slucInventuruSKonceptem, type InventuraRozboru } from '../lib/rozbor';
+import { nactiJson } from '../lib/uloziste';
 import { predvyberPohyby } from '../lib/pohybyPredvyber';
 import { Spinner, EmptyState } from '../components/ui';
 import type { Page } from '../components/Layout';
@@ -60,6 +61,8 @@ export default function RozborScreen({ setPage }: { setPage: (p: Page) => void }
   if (!data) return <Spinner />;
   const pivoPodleId = new Map(data.beers.map((b) => [b.id, b]));
   const { start, end } = weekRange(weekKey);
+  // Rozepsané (zatím neuložené) počty z týdenní inventury — leží v zařízení.
+  const koncept = nactiJson<Record<string, string>>(`tydenni_napocitano_${pondeli}`, {});
   const polozky = radkyRozboru({
     planSudy: mergeWeekPlan(planySudy, 'týden').items,
     planLahve: mergeWeekPlan(planyLahve, 'týden').items,
@@ -70,7 +73,7 @@ export default function RozborScreen({ setPage }: { setPage: (p: Page) => void }
     zasoba,
     piva: data.beers,
     obaly: data.packages,
-    inventura,
+    inventura: slucInventuruSKonceptem(inventura, koncept, businessDateISO()),
   });
 
   return (
@@ -106,7 +109,7 @@ export default function RozborScreen({ setPage }: { setPage: (p: Page) => void }
                   {it.skladem !== null && <span className={it.skladem < 0 ? 'font-black text-rose-700' : 'text-neutral-600'}> · sklad {it.skladem}</span>}
                   {it.inventura && (
                     <span className="font-black text-sky-800" title={it.inventura.minulyTyden ? 'Napočítáno v týdenní inventuře minulého týdne' : 'Napočítáno v týdenní inventuře'}>
-                      {' '}· inv. {it.inventura.kusu} ({Number(it.inventura.den.slice(8, 10))}. {Number(it.inventura.den.slice(5, 7))}.)
+                      {' '}· inv. {it.inventura.kusu} {it.inventura.rozepsano ? '(rozepsáno)' : `(${Number(it.inventura.den.slice(8, 10))}. ${Number(it.inventura.den.slice(5, 7))}.)`}
                     </span>
                   )}
                   <ChevronRight size={14} className="inline ml-1" />
