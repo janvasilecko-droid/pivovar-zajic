@@ -6,7 +6,18 @@ import { buildMovements } from '../lib/stockLedger';
 
 vi.mock('../lib/businessDate', () => ({ businessDateISO: () => '2026-09-24' }));
 vi.mock('../lib/chybyHlaseni', () => ({ zalogujANahlas: vi.fn() }));
+// Týdenní inventura v Pohybech (11. 10. 2026): jeden zápis z pátku.
+const tydenniZaznamy = [{
+  tyden_od: '2026-09-21', tyden_do: '2026-09-27', beer_id: 'b12', package_id: 'k30',
+  ocekavano: 7, napocitano: 6, rozdil: -1, vyreseno: null, updated_at: '2026-09-23T15:00:00Z',
+}];
 vi.mock('../lib/supabase', () => ({
+  supabase: {
+    from: () => {
+      const q: any = { select: () => q, order: () => q, limit: () => Promise.resolve({ data: tydenniZaznamy, error: null }) };
+      return q;
+    },
+  },
   useRealtime: () => {},
   fetchAllRows: () => Promise.resolve({ data: [{ id: 'o1', place_name: 'U Zajíce' }], error: null }),
   beerBg: vi.fn(() => '#f59e0b'),
@@ -44,6 +55,14 @@ describe('PohybySkladu', () => {
     const dny = screen.getAllByText('Stav večer:').length;
     expect(dny).toBeGreaterThan(0);
     expect(dny).toBeLessThan(7);
+  });
+
+  it('ukáže napočítané hodnoty týdenní inventury (co appka čekala a jaký je sklad teď)', async () => {
+    render(<PohybySkladu />);
+    await waitFor(() => expect(screen.getByText(/Týdenní inventura — co se napočítalo/)).toBeTruthy());
+    expect(screen.getByText(/napočítáno/)).toBeTruthy();
+    expect(screen.getByText(/appka čekala/)).toBeTruthy();
+    expect(screen.getByText(/rozdíl -1/)).toBeTruthy();
   });
 
   it('filtr piva schová ostatní piva', async () => {
