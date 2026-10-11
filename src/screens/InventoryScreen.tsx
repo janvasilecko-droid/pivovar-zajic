@@ -2186,34 +2186,9 @@ function exportInventoryExcel() {
             </div>
           )}
 
-          {nespocitane.length > 0 && (
-            <div className="rounded border-2 border-amber-400 bg-amber-50 p-4">
-              <div className="flex items-start gap-3">
-                <AlertTriangle size={18} className="text-amber-600 shrink-0 mt-0.5" />
-                <div className="min-w-0 flex-1">
-                  <div className="font-display font-black text-amber-900 text-sm">
-                    {nespocitane.length} {nespocitane.length === 1 ? 'položka nemá' : nespocitane.length < 5 ? 'položky nemají' : 'položek nemá'} vyplněnou inventuru
-                  </div>
-                  <p className="text-udaj font-bold text-amber-800 mt-1">
-                    Tyhle položky se tenhle měsíc hýbaly (stáčely nebo vydávaly) a pole INVENTURA u nich
-                    zůstalo prázdné. <strong>Prázdné se bere jako nula a jako nula se i uloží</strong> —
-                    takže když jich fyzicky nula je, není co dělat. Tenhle seznam je jen připomínka, ať
-                    se nula nezapíše omylem u něčeho, co se ještě nestihlo spočítat.
-                  </p>
-                  <div className="mt-2.5 flex flex-wrap gap-1.5">
-                    {nespocitane.slice(0, 24).map((r) => (
-                      <span key={`${r.beer_id}__${r.package_id}`} className="px-2 py-1 rounded bg-white border border-amber-300 text-udaj font-bold text-neutral-700">
-                        {r.beer_name} <span className="text-neutral-500">{String(r.package_label).trim()}</span>
-                      </span>
-                    ))}
-                    {nespocitane.length > 24 && (
-                      <span className="px-2 py-1 text-udaj font-bold text-amber-800">… a dalších {nespocitane.length - 24}</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+          {/* Žlutý rámeček „N položek nemá vyplněnou inventuru" je pryč
+              (11. 10. 2026: „tohle tam nedávej"). Filtr „Chybí spočítat"
+              v seznamu počítání zůstává. */}
 
           <div data-inv-kotva="bilance" className="card p-5 bg-white border border-neutral-200/90 rounded shadow-xs space-y-4">
             <div className="flex items-center justify-between border-b border-neutral-100 pb-3 flex-wrap gap-2">
