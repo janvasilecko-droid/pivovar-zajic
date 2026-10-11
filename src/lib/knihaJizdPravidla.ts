@@ -1,7 +1,7 @@
 // 🚐 Pravidla Knihy jízd pro generování z objednávek.
 // ---------------------------------------------------------------------------
 // Zadání 11. 10. 2026: „kniha jízd ukazuje špatně: Matěs, Petr, restaurace se
-// nepočítá do knihy jízd, ostatní má generovat Kynšperk, místa trasy a zase
+// nepočítá do knihy jízd (+ prodejna), ostatní má generovat Kynšperk, místa trasy a zase
 // Kynšperk, ke každé jízdě do Prahy, Hradce… +30 km."
 
 const norm = (s: string | null | undefined) =>
@@ -10,9 +10,15 @@ const norm = (s: string | null | undefined) =>
 /** Odběratelé, kteří se do Knihy jízd NEpočítají (přesný název, ne podřetězec). */
 const MIMO_KNIHU_JIZD = ['mates', 'petr', 'restaurace'];
 
+/**
+ * Prodejna (11. 10. 2026: „na prodejnu se nic taky nepočítá"): odběratel, ve
+ * jehož názvu je slovo „prodejna" (Prodejna, Petr Moravčík prodejna…).
+ */
+const PRODEJNA = /\bprodejn(a|u|e|y|ou)\b/;
+
 export function jeMimoKnihuJizd(placeName: string | null | undefined): boolean {
   const n = norm(placeName);
-  return !!n && MIMO_KNIHU_JIZD.includes(n);
+  return !!n && (MIMO_KNIHU_JIZD.includes(n) || PRODEJNA.test(n));
 }
 
 /** Příplatek za jízdu do velkého města v km (městský provoz, hledání zastávky…). */

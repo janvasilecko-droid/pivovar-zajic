@@ -335,7 +335,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
       );
 
       if (!ordersList.length) {
-        oznam(`V měsíci ${autoMonth} nebyly nalezeny žádné objednávky s rozpoznatelným dnem rozvozu (Matěs, Petr a Restaurace se do knihy jízd nepočítají).`);
+        oznam(`V měsíci ${autoMonth} nebyly nalezeny žádné objednávky s rozpoznatelným dnem rozvozu (Matěs, Petr, Restaurace a prodejna se do knihy jízd nepočítají).`);
         setAutoGenerating(false);
         return;
       }
