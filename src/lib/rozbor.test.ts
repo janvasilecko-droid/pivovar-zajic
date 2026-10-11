@@ -23,3 +23,21 @@ describe('Rozbor', () => {
     ]);
   });
 });
+
+describe('Rozbor — týdenní inventura (11. 10. 2026)', () => {
+  it('ukáže napočítaný počet u položky i položku jen s napočítaným počtem', () => {
+    const r = radkyRozboru({
+      planSudy: [], planLahve: [],
+      kegging: [{ entry_date: '2026-10-06', beer_id: 'sv', package_id: 'k50', quantity: 3 }],
+      bottling: [],
+      od: '2026-10-05', doDne: '2026-10-11',
+      piva, obaly: [...obaly.map((o) => ({ ...o, kind: o.id === 'k50' ? 'keg' : 'bottle' }))],
+      inventura: new Map([
+        ['sv__k50', { kusu: 7, den: '2026-10-06', minulyTyden: false }],
+        ['tm__l033', { kusu: 40, den: '2026-10-06', minulyTyden: false }],
+      ]),
+    });
+    expect(r.find((x) => x.key === 'sv__k50')!.inventura).toEqual({ kusu: 7, den: '2026-10-06', minulyTyden: false });
+    expect(r.find((x) => x.key === 'tm__l033')).toEqual(expect.objectContaining({ stoceno: 0, objednano: 0, lahve: true, inventura: expect.objectContaining({ kusu: 40 }) }));
+  });
+});
