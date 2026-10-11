@@ -37,10 +37,37 @@ export type RadekRozboru = {
    * Napočítáno v týdenní inventuře (11. 10. 2026: „v rozboru chci vidět
    * i počet u týdenní inventury, když je zadáno"). null = nezadáno.
    */
-  inventura: { kusu: number; den: string; minulyTyden: boolean } | null;
+  inventura: InventuraRozboru | null;
 };
 
-export type InventuraRozboru = { kusu: number; den: string; minulyTyden: boolean };
+export type InventuraRozboru = {
+  kusu: number;
+  den: string;
+  minulyTyden: boolean;
+  /** Zadané v týdenní inventuře, ale ještě neuložené („Uložit vše") — leží jen v tomhle zařízení. */
+  rozepsano?: boolean;
+};
+
+/**
+ * Rozepsané počty z týdenní inventuře (koncept v zařízení, klíč → text z políčka)
+ * doplní to, co v databázi ještě není. Uložené v databázi má přednost
+ * (stejné pravidlo jako v panelu týdenní inventury).
+ */
+export function slucInventuruSKonceptem(
+  uložené: Map<string, InventuraRozboru>,
+  koncept: Record<string, string>,
+  dnes: string,
+): Map<string, InventuraRozboru> {
+  const out = new Map(uložené);
+  for (const [klic, text] of Object.entries(koncept ?? {})) {
+    const t = String(text ?? '').trim().replace(',', '.');
+    if (t === '' || out.has(klic)) continue;
+    const n = Number(t);
+    if (!Number.isFinite(n)) continue;
+    out.set(klic, { kusu: n, den: dnes, minulyTyden: false, rozepsano: true });
+  }
+  return out;
+}
 
 export function radkyRozboru(p: {
   planSudy: PolozkaPlanuRozboru[];
