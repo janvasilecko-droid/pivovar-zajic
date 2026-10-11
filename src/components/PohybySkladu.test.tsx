@@ -14,7 +14,7 @@ const tydenniZaznamy = [{
 vi.mock('../lib/supabase', () => ({
   supabase: {
     from: () => {
-      const q: any = { select: () => q, order: () => q, limit: () => Promise.resolve({ data: tydenniZaznamy, error: null }) };
+      const q: any = { select: () => q, gte: () => q, lte: () => q, order: () => q, limit: () => Promise.resolve({ data: tydenniZaznamy, error: null }) };
       return q;
     },
   },

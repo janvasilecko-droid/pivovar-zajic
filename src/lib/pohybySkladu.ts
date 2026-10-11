@@ -131,12 +131,50 @@ export function popisPohybu(m: Pick<Movement, 'kind' | 'note' | 'orderId' | 'ztr
   return MOVEMENT_LABELS.dorovnani;
 }
 
+/**
+ * Pohyby bez historie, která už pro období nic neznamená.
+ *
+ * 11. 10. 2026 (simulace růstu dat): Pohyby pro každý den období počítaly stav
+ * celou historií znovu — čas rostl s CELOU historií, ne s délkou období
+ * (měsíc: 100 ms dnes, 740 ms po 24 měsících). Pro každou položku ale platí:
+ * stav ke dni od `od − 1` dál začíná nejpozdější inventurou do `od − 1` a
+ * všechno starší (pohyby i starší inventury) se ve stavu neprojeví — viz
+ * stockAsOf (starší než základ se přeskakuje). Tady se to starší zahodí.
+ * Položky bez inventury před obdobím se nechávají celé.
+ */
+export function pohybyBezStareHistorie(pohyby: Movement[], od: string): Movement[] {
+  const hranice = new Map<string, string>(); // klíč → datum nejpozdější inventury ≤ od − 1
+  const predOd = (() => { const d = new Date(od + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - 1); return d.toISOString().slice(0, 10); })();
+  for (const m of pohyby) {
+    if (m.kind !== 'inventura' || m.date > predOd) continue;
+    const k = stockKey(m.beer_id, m.package_id);
+    const h = hranice.get(k);
+    if (h === undefined || m.date > h) hranice.set(k, m.date);
+  }
+  if (hranice.size === 0) return pohyby;
+  return pohyby.filter((m) => {
+    const h = hranice.get(stockKey(m.beer_id, m.package_id));
+    return h === undefined || m.date >= h;
+  });
+}
+
 export function sestavPohybyObdobi(
-  pohyby: Movement[],
+  vsechnyPohyby: Movement[],
   filtr: FiltrPohybu,
   jmenoOdberatele: (orderId: string) => string | undefined = () => undefined,
 ): PohybyObdobi {
   const { od, doDne, beerId, packageId } = filtr;
+  // Všechny stavy v téhle funkci jsou ke dni ≥ od − 1, takže stačí pohyby od
+  // poslední inventury před obdobím (viz pohybyBezStareHistorie).
+  const pohyby = pohybyBezStareHistorie(vsechnyPohyby, od);
+  // Stav ke dni se v jednom běhu počítá jednou: večer dne D je ráno dne D + 1
+  // a totéž číslo se použije i pro „Stav večer".
+  const stavPametDne = new Map<string, Map<string, { qty: number }>>();
+  const stockAsOfDne = (datum: string) => {
+    let m = stavPametDne.get(datum);
+    if (!m) { m = stockAsOf(pohyby, datum) as unknown as Map<string, { qty: number }>; stavPametDne.set(datum, m); }
+    return m;
+  };
   const povoleneDruhy = filtr.skupiny && filtr.skupiny.length > 0
     ? new Set(SKUPINY_POHYBU.filter((s) => filtr.skupiny!.includes(s.id)).flatMap((s) => s.druhy))
     : null;
@@ -163,8 +201,8 @@ export function sestavPohybyObdobi(
   // (stockLedger.ts), takže když jinak nesedí stav večer, jde až na konec.
   const predchoziDen = (iso: string) => { const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - 1); return d.toISOString().slice(0, 10); };
   const stavyPoPohybu = (datum: string, vsechny: Movement[]): { po: Map<Movement, number>; pred: Map<Movement, number> } => {
-    const rano = stockAsOf(pohyby, predchoziDen(datum));
-    const vecer = stockAsOf(pohyby, datum);
+    const rano = stockAsOfDne(predchoziDen(datum));
+    const vecer = stockAsOfDne(datum);
     const out = new Map<Movement, number>();
     const pred = new Map<Movement, number>();
     const poKlici = new Map<string, Movement[]>();
@@ -212,7 +250,7 @@ export function sestavPohybyObdobi(
         stavPo: stavPo.po.get(m) ?? 0,
         ...(m.kind === 'inventura' ? { podleEvidence: stavPo.pred.get(m) ?? 0 } : {}),
       }));
-    return { datum, radky, vecer: stavy(stockAsOf(pohyby, datum)), ted: false };
+    return { datum, radky, vecer: stavy(stockAsOfDne(datum)), ted: false };
   });
 
   // „Teď" = poslední den do dneška, kdy se v období cokoli hnulo (i pohyb
@@ -225,7 +263,7 @@ export function sestavPohybyObdobi(
     if (den) den.ted = true;
   }
 
-  const konecMapa = stockAsOf(pohyby, doDne);
+  const konecMapa = stockAsOfDne(doDne);
   const souhrn = serazeneKlice.map((k) => {
     const { beer_id, package_id } = rozloz(k);
     let prijem = 0;
