@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { requireApprovedUser } from "../_shared/require-user.ts";
 import { normText, matchBeerId, matchPackageId } from "../_shared/beer-match.ts";
+import { doplnChybejiciZPrepisu } from "../_shared/prepis-fotky.ts";
 import { normPlaceName, stripSenderName, resolvePlace, odberatelZHistorie, wantsOwnOrder as textWantsOwnOrder } from "../_shared/place-match.ts";
 import { nactiHistorii } from "../_shared/historie-objednavek.ts";
 import { vypadaJakoVraceni } from "../_shared/vraceni-detekce.ts";
@@ -883,6 +884,17 @@ Deno.serve(async (req: Request) => {
           };
         });
 
+        // 📷 Fotka: řádky přepisu, které AI nevložila do položek, se doplní
+        // (12. 10. 2026: z 22 přečtených řádků skončilo v položkách 13).
+        const doplneno = message.media_url
+          ? doplnChybejiciZPrepisu(parseResult.raw_text, itemsForStorage as any, { beers: beers as any, packages: packages as any, aliasMap })
+          : [];
+        if (doplneno.length) itemsForStorage.push(...(doplneno as any));
+        const otazkyZpravy: string[] = Array.isArray(parseResult?.otazky) ? [...parseResult.otazky] : [];
+        if (doplneno.length) {
+          otazkyZpravy.push(`Z přepisu fotky se doplnilo ${doplneno.length} řádků, které AI nevložila do položek — zkontroluj je (označené na konci seznamu).`);
+        }
+
         // ✅ Zdroj objednávek je jediná WhatsApp skupina „Objednávky pivovar"
         // (whitelist odesílatelů — webhook jiné zprávy neuloží). Všechny zprávy
         // z ní jsou objednávky, takže se uloží jako 'parsed' a v aplikaci se
@@ -913,7 +925,7 @@ Deno.serve(async (req: Request) => {
             // („parsedData is not defined"), skončila ve stavu 'error' a
             // musela se číst ručně. Nezachytil to ani typescript (funkce se
             // nekontrolují s appkou), ani test — proto `deno check` v CI.
-            parsed_otazky: Array.isArray(parseResult?.otazky) ? parseResult.otazky : [],
+            parsed_otazky: otazkyZpravy,
             // U fotoobjednávek nemá kontrola čtení (diff popisku zprávy vs.
             // přepisu fotky) smysl — popisek typu "Maneo" nikdy neobsahuje
             // text položek, takže by vždy hlásil nesoulady. Tam kontrolu
