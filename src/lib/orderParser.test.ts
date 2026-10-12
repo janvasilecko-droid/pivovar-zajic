@@ -740,3 +740,18 @@ describe('jeLitrPsanyJakoJedenact', () => {
     expect(jeLitrPsanyJakoJedenact('2x30 11sv')).toBe(false);
   });
 });
+
+describe('pivoNapsanePodleJmena', () => {
+  const beers = [
+    { id: 'a', name: '12° Světlá', degree: '12°' },
+    { id: 'w', name: 'winter', degree: '12' },
+    { id: 'j', name: 'Jantar', degree: null },
+  ];
+  it('Winter v řádku má přednost před stupněm 12°', async () => {
+    const { pivoNapsanePodleJmena } = await import('./orderParser');
+    expect(pivoNapsanePodleJmena('10x 11 12° WINTER', '12°', beers)?.id).toBe('w');
+    expect(pivoNapsanePodleJmena('10x 11 12°sv.', '12°', beers)).toBeNull();
+    expect(pivoNapsanePodleJmena('10x 11 11° winter', '11°', beers)).toBeNull(); // stupeň nesedí
+    expect(pivoNapsanePodleJmena('winter a jantar', null, beers)).toBeNull();      // dvě piva v řádku
+  });
+});

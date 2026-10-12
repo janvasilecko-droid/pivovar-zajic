@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { Beer, Package, Place, supabase } from '../lib/supabase';
 import { WhatsAppIncoming, ignoreWhatsAppMessage, updateWhatsAppParsedData, napojNaObjednavku } from '../lib/whatsappApi';
 import { parseWhatsAppOrderMessageWithAI } from '../lib/whatsappParser';
-import { parseDeliveryDayFromText, loadAliasMap, saveAlias, canLearnBeerAlias, matchBeerFromHints, matchPackage, jeLitrPsanyJakoJedenact, savePlaceAlias, normalize, getOrCreatePlace, type ParserAliasMap } from '../lib/orderParser';
+import { parseDeliveryDayFromText, loadAliasMap, saveAlias, canLearnBeerAlias, matchBeerFromHints, matchPackage, jeLitrPsanyJakoJedenact, pivoNapsanePodleJmena, savePlaceAlias, normalize, getOrCreatePlace, type ParserAliasMap } from '../lib/orderParser';
 import { matchAgainstCatalog } from '../../supabase/functions/_shared/place-match';
 import { oznacVlastniObjednavku } from '../lib/mojeObjednavky';
 import { diffOrderItems, rozsahOdpovedi, slozNavrh, potvrzeneBezPolozek, kandidatiNaDoplneni, datumObjednavky, vypadaJakoZmenaObjednavky, type DiffRow, type RozsahOdpovedi, type SkupinaObalu, type ObjednavkaKandidat } from '../lib/whatsappAmendment';
@@ -287,7 +287,10 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
       setZavozCislo(1);
       const parsedItems = msg!.parsed_items || [];
       const initItems: ReviewItem[] = parsedItems.map((item, i) => {
+        // Pivo napsané v řádku celým názvem (Winter…) má přednost před uloženým
+        // beer_id — starší zpracování z toho udělalo 12° Světlou podle stupně.
         const beer =
+          pivoNapsanePodleJmena(item.raw_line, item.degree, props.beers) ??
           props.beers.find((b) => b.id === item.beer_id) ??
           // Přednost má původní text objednávky (raw_line) — název od AI může být špatný
           matchBeerFromHints(
