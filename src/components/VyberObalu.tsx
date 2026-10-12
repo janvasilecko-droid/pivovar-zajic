@@ -30,6 +30,7 @@ export default function VyberObalu({
   prazdnyPopis,
   prazdnyVybrany = 'btn-secondary',
   ariaLabel,
+  doprava = false,
 }: {
   obaly: ObalKVyberu[];
   vybrany: string;
@@ -41,9 +42,11 @@ export default function VyberObalu({
   /** Třída pro vybranou prázdnou volbu — jinde má jinou váhu. */
   prazdnyVybrany?: string;
   ariaLabel: string;
+  /** Tlačítka zarovnat doprava (ovládání pravou rukou). */
+  doprava?: boolean;
 }) {
   return (
-    <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label={ariaLabel}>
+    <div className={`flex flex-wrap gap-1.5${doprava ? ' justify-end' : ''}`} role="radiogroup" aria-label={ariaLabel}>
       {obaly.map((obal) => {
         const jeVybrany = vybrany === obal.id;
         return (

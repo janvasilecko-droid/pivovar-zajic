@@ -257,8 +257,8 @@ export default function BottlingScreen({
     return navrhSudu(polozky, Number(kegPkg.volume_l ?? 0));
   }, [tileDraft, packages]);
   // Rozepsaná dlaždice → řádek zápisu, nebo null když nic nevyplnil.
-  // Vytažené z applyTile() jako čistá funkce (bez setState), aby ji šlo
-  // použít i v confirmTileAndMaybeSave — ta potřebuje výsledný řádek HNED,
+  // Čistá funkce (bez setState), aby ji šlo použít v confirmTileAndMaybeSave —
+  // ta potřebuje výsledný řádek HNED,
   // ne až po překreslení, které by setEntryRows jinak vyžadovalo.
   function buildRowFromTileDraft(): RowInput | null {
     if (!tileBeer) return null;
@@ -282,15 +282,6 @@ export default function BottlingScreen({
     if (emptyIdx >= 0) { next[emptyIdx] = row; return next; }
     return [...next, row];
   }
-
-  // Zápis z dlaždicového overlaye do seznamu řádků zápisu.
-  const applyTile = () => {
-    const row = buildRowFromTileDraft();
-    if (!row || !tileBeer) { setErr('Zadej aspoň jedno množství (láhev nebo KEG) v dlaždici.'); return; }
-    setErr(null);
-    setEntryRows((prev) => mergeRowIntoRows(prev, tileBeer.id, row));
-    setTileBeer(null);
-  };
 
   // Fajfka „Hotovo": pokud je v dlaždici něco vyplněné, rovnou to uloží
   // (add() — stejná funkce jako tlačítko „Uložit stáčení lahví" dole).
@@ -1640,8 +1631,12 @@ export default function BottlingScreen({
                 </span>
               ) : undefined}
               footer={
-                <div className="flex items-center gap-2 pt-1">
-                  <button type="button" onClick={applyTile} className="btn-primary !rounded flex-1 text-xs font-black shadow-md min-h-[44px]"><Plus className="ikona-text" /> Přidat do zápisu</button>
+                // Jediné potvrzení je fajfka v liště nahoře: rovnou zapíše stáčení
+                // (confirmTileAndMaybeSave). Tlačítko „Přidat do zápisu" jen
+                // vkládalo řádek do seznamu dole — majitel 12. 10. 2026: „odeber
+                // položku přidat do zápisu, chci jen tu fajfku, když se klikne,
+                // tak se zapíše stáčení".
+                <div className="flex items-center justify-end gap-2 pt-1">
                   <button type="button" onClick={closeTile} className="btn-ghost !rounded text-xs font-bold min-h-[44px] px-3">Zpět</button>
                 </div>
               }
@@ -1729,9 +1724,12 @@ export default function BottlingScreen({
                             popis={(o) => o.label || objemCesky(o.volume_l) || 'obal'}
                             prazdnyPopis={`prázdný ${slot.key}`}
                             ariaLabel={`Obal ${slot.key}`}
+                            doprava
                           />
                         </div>
-                        <div className="flex items-center gap-1">
+                        {/* Všechno ovládací zarovnané doprava — ať se to líp ovládá
+                            pravou rukou (majitel 12. 10. 2026). */}
+                        <div className="w-full flex items-center justify-end gap-1">
                           {quickQtys.map((q) => (
                             <button
                               key={q}
@@ -1764,7 +1762,7 @@ export default function BottlingScreen({
                             Ať se dá vidět a hned zapsat (nebo odškrtnout jako
                             nachystané) bez přeskakování na jinou záložku. */}
                         {plan && plan.ordered > 0 && (
-                          <div className="w-full flex items-center justify-between gap-2 flex-wrap">
+                          <div className="w-full flex items-center justify-end gap-2 flex-wrap">
                             {/* Text zůstává neutrální, barvu nese jen ČÍSLO —
                                 snáz se čte, které z obou je „chybí" (červené)
                                 a které je jen souhrn objednávky. „Objednáno"
