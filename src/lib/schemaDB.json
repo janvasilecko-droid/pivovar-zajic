@@ -469,6 +469,11 @@
   "created_by",
   "created_at"
  ],
+ "ocr_pouziti": [
+  "mesic",
+  "pocet",
+  "naposledy"
+ ],
  "order_items": [
   "id",
   "order_id",

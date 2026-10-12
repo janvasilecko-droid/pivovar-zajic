@@ -7,15 +7,12 @@
 // přepis — jako text, na který mají bezplatné kvóty mnohem větší než na fotky.
 // (Za 30 dní do 12. 10. 2026 přišlo 9 fotek, nejvíc 2 za den.)
 //
-// Vision je zdarma do 1 000 fotek měsíčně, pak placený. Proto pojistka
-// OCR_LIMIT_DEN: nejvýš 30 přepisů za 24 h → i za 32 započatých dní < 1 000.
+// Vision je zdarma do 1 000 fotek měsíčně, pak placený (~1,50 USD za dalších
+// 1 000). Majitel: „to omezení obrázků nedávej… ať se to nezastaví, dej
+// u případně 900 obrázků varování do aplikace". Každý přepis se proto jen
+// započte do ocr_pouziti (migrace 20261231290000_ocr_pocitadlo) a aplikace
+// od 900 za měsíc varuje (src/lib/ocrPouziti.ts). Nic se nezastavuje.
 // Zapne se, až je v app_secrets klíč GOOGLE_VISION_API_KEY.
-
-/** Nejvýš tolik přepisů za 24 h (30 × 32 dní = 960 < 1 000 zdarma). */
-export const OCR_LIMIT_DEN = 30;
-/** Pevné „uživatelské" id počítadla v edge_rate_limits (sdílí ho všechny funkce). */
-const OCR_POCITADLO_ID = "00000000-0000-0000-0000-000000000000";
-const OCR_POCITADLO = "google-vision-ocr";
 
 /** Text z odpovědi images:annotate (DOCUMENT_TEXT_DETECTION); "" když nic. */
 // deno-lint-ignore no-explicit-any
@@ -62,21 +59,18 @@ export async function prepisFotkyGoogle(opts: {
   chyby: string[];
   timeoutMs?: number;
 }): Promise<string> {
-  // Pojistka proti placení: bez potvrzeného počítadla se OCR nevolá.
-  const { data: smi, error } = await opts.admin.rpc("consume_edge_rate_limit", {
-    p_user_id: OCR_POCITADLO_ID,
-    p_bucket: OCR_POCITADLO,
-    p_limit: OCR_LIMIT_DEN,
-    p_window_seconds: 86_400,
-  });
-  if (error) {
-    opts.chyby.push(`ocr: počítadlo nedostupné (${error.message ?? "chyba"}) — přeskočeno`);
-    return "";
-  }
-  if (smi !== true) {
-    opts.chyby.push(`ocr: denní limit ${OCR_LIMIT_DEN} přepisů vyčerpán (bezplatná kvóta) — přeskočeno`);
-    return "";
-  }
+  // Započítat do měsíčního počtu (varování v aplikaci od 900) — jen když
+  // Google požadavek zpracoval (odpověděl, nebo nestihl odpovědět; odmítnutý
+  // požadavek se neplatí). Přepis se nezastaví ani bez počítadla (např. než
+  // se spustí migrace).
+  const zapocti = async (): Promise<string> => {
+    try {
+      const { data, error } = await opts.admin.rpc("zapocti_ocr_fotky");
+      return error ? ` (počítadlo nedostupné: ${error.message ?? "chyba"})` : `, ${data}. v měsíci`;
+    } catch (err) {
+      return ` (počítadlo nedostupné: ${err instanceof Error ? err.message : "chyba"})`;
+    }
+  };
   try {
     const resp = await fetch(
       `https://vision.googleapis.com/v1/images:annotate?key=${encodeURIComponent(opts.klic)}`,
@@ -99,17 +93,18 @@ export async function prepisFotkyGoogle(opts: {
       opts.chyby.push(`ocr: HTTP ${resp.status} ${errText.slice(0, 200)}`);
       return "";
     }
+    const poradi = await zapocti();
     const data = await resp.json();
     const chyba = data?.responses?.[0]?.error?.message;
     if (chyba) {
-      opts.chyby.push(`ocr: ${String(chyba).slice(0, 200)}`);
+      opts.chyby.push(`ocr: ${String(chyba).slice(0, 200)}${poradi}`);
       return "";
     }
     const text = textZOdpovediVision(data);
-    opts.chyby.push(text ? `ocr: přepsáno ${text.split("\n").length} řádků` : "ocr: na fotce nenašel text");
+    opts.chyby.push((text ? `ocr: přepsáno ${text.split("\n").length} řádků` : "ocr: na fotce nenašel text") + poradi);
     return text;
   } catch (err) {
-    opts.chyby.push(`ocr: ${err instanceof Error ? err.name : "chyba"}`);
+    opts.chyby.push(`ocr: ${err instanceof Error ? err.name : "chyba"}${await zapocti()}`);
     return "";
   }
 }

@@ -1,11 +1,11 @@
 import { afterEach, describe, it, expect, vi } from 'vitest';
-import { OCR_LIMIT_DEN, prepisFotkyGoogle, sekceOcr, textSOcr, textZOdpovediVision } from './google-ocr';
+import { prepisFotkyGoogle, sekceOcr, textSOcr, textZOdpovediVision } from './google-ocr';
 
 describe('Přepis fotky přes Google Vision', () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  const admin = (smi: boolean | null, chyba: string | null = null) => ({
-    rpc: vi.fn(async () => ({ data: smi, error: chyba ? { message: chyba } : null })),
+  const admin = (data: number | null, chyba: string | null = null) => ({
+    rpc: vi.fn(async () => ({ data, error: chyba ? { message: chyba } : null })),
   });
 
   it('vezme celý text dokumentu, řádky zachová', () => {
@@ -15,37 +15,29 @@ describe('Přepis fotky přes Google Vision', () => {
     expect(textZOdpovediVision(null)).toBe('');
   });
 
-  it('limit drží měsíc pod 1 000 přepisy zdarma', () => {
-    expect(OCR_LIMIT_DEN * 32).toBeLessThan(1000);
-  });
-
-  it('bez potvrzeného počítadla Google nevolá (pojistka proti placení)', async () => {
-    const f = vi.fn();
-    vi.stubGlobal('fetch', f);
-    for (const a of [admin(false), admin(null, 'nedostupné')]) {
-      const chyby: string[] = [];
-      expect(await prepisFotkyGoogle({ klic: 'k', imageBase64: 'x', admin: a, chyby })).toBe('');
-      expect(chyby[0]).toMatch(/^ocr: /);
-    }
-    expect(f).not.toHaveBeenCalled();
-  });
-
-  it('počítadlo: 30 za 24 h pro všechny funkce dohromady', async () => {
+  it('každý přepis se započte do měsíce', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ responses: [{ fullTextAnnotation: { text: 'a\nb' } }] }))));
-    const a = admin(true);
+    const a = admin(901);
     const chyby: string[] = [];
     expect(await prepisFotkyGoogle({ klic: 'k', imageBase64: 'x', admin: a, chyby })).toBe('a\nb');
-    expect(a.rpc).toHaveBeenCalledWith('consume_edge_rate_limit', expect.objectContaining({
-      p_bucket: 'google-vision-ocr', p_limit: OCR_LIMIT_DEN, p_window_seconds: 86_400,
-    }));
-    expect(chyby).toEqual(['ocr: přepsáno 2 řádků']);
+    expect(a.rpc).toHaveBeenCalledWith('zapocti_ocr_fotky');
+    expect(chyby).toEqual(['ocr: přepsáno 2 řádků, 901. v měsíci']);
+  });
+
+  it('nezastaví se ani nad limitem, ani bez počítadla (např. před migrací)', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ responses: [{ fullTextAnnotation: { text: 'x' } }] }))));
+    for (const a of [admin(1500), admin(null, 'function does not exist')]) {
+      const chyby: string[] = [];
+      expect(await prepisFotkyGoogle({ klic: 'k', imageBase64: 'x', admin: a, chyby })).toBe('x');
+    }
   });
 
   it('chyba Googlu → prázdný přepis a důvod', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response('{"error":{"message":"billing"}}', { status: 403 })));
     const chyby: string[] = [];
-    expect(await prepisFotkyGoogle({ klic: 'k', imageBase64: 'x', admin: admin(true), chyby })).toBe('');
+    expect(await prepisFotkyGoogle({ klic: 'k', imageBase64: 'x', admin: admin(1), chyby })).toBe('');
     expect(chyby[0]).toMatch(/HTTP 403/);
+    expect(chyby[0]).not.toMatch(/v měsíci/); // odmítnutý požadavek Google neúčtuje
   });
 
   it('prompt: s fotkou platí fotka, bez ní se čte z přepisu', () => {
