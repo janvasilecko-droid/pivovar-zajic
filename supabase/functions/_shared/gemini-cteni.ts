@@ -51,9 +51,13 @@ export function planPokusuFoto(dostupne: string[] | null): PokusGemini[] {
   return plan;
 }
 
-/** Plán pro text: jeden pokus jako dřív (text mají v záloze Groq a Mistral). */
-export function planPokusuText(): PokusGemini[] {
-  return [{ model: HLAVNI, json: true, pauzaMs: 0 }];
+/**
+ * Plán pro text: hlavní model a hned další bezplatné flash verze (bez pauz —
+ * v záloze jsou Groq a Mistral). 12. 10. 2026 jediný pokus nestačil: hlavní
+ * model byl přetížený a Groq/Mistral měly vyřazené modely.
+ */
+export function planPokusuText(dostupne: string[] | null = null): PokusGemini[] {
+  return planPokusuFoto(dostupne).filter((p) => p.pauzaMs === 0 && p.json);
 }
 
 /** Modely, které klíč nabízí (pro planPokusuFoto); null při chybě. */

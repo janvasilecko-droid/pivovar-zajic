@@ -467,10 +467,17 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     // musí být stejná data jako ve Skladu"). Napočítaná inventura toho
     // měsíce v něm po uložení je taky — pak Sklad = Inventura a rozdíl proti
     // evidenci ukazuje sloupec OČEK. (EVIDENCE).
+    //
+    // 12. 10. 2026: „očekává se má být shodné se skladem, přebytky se musí
+    // ukázat vedle". Vlastní napočítaná inventura TOHOTO měsíce se do
+    // očekávaného nepočítá — po uložení by jinak Sklad = Inventura a rozdíl
+    // (přebytky/manka) by zmizel. Týdenní inventury a opravy se počítají.
     {
       const konec = konecMesice(currentMonth);
       const dnes = businessDateISO();
-      setSkladKonec(stockAsOf(pohyby, konec > dnes ? dnes : konec));
+      const bezVlastniInventury = pohyby.filter((m) => !(m.kind === 'inventura'
+        && m.date === konec && /fyzick|schválen|schvalen/i.test(m.note ?? '')));
+      setSkladKonec(stockAsOf(bezVlastniInventury, konec > dnes ? dnes : konec));
     }
 
     // Přepnutí měsíce a přenačtení po zápisu se chovají JINAK: při přepnutí
@@ -1032,8 +1039,9 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
         // příležitost to srovnat.
         const evidenceQty = line?.qty ?? (initialQty + stacenoQty - odpisQty - vydejQty);
         // Hlavní srovnání je se SKLADEM (zahrnuje i týdenní inventury a opravy).
-        // Sklad ukazuje záporný stav jako 0 — tady stejně.
-        const expectedQty = Math.max(0, skladKonec.get(k)?.qty ?? 0);
+        // Sklad ukazuje i záporný stav (Stock.tsx) — tady stejně, jinak by
+        // očekávané nesedělo se Skladem a manko by vyšlo menší.
+        const expectedQty = skladKonec.get(k)?.qty ?? 0;
 
         // Pokud je zadaný fyzický stav v políčku, použijeme ho, jinak dědí hodnotu z počáteční zásoby
         const actualInputStr = actualStock[k];
