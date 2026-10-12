@@ -37,6 +37,9 @@ const GROQ_MODELY_FOTO = [
 ];
 // pixtral-large-latest Mistral 12. 10. 2026 už nezná („Invalid model").
 const MISTRAL_MODELY_FOTO = ["mistral-large-latest", "mistral-medium-latest", "mistral-small-latest"];
+// Text: mistral-large-latest 12. 10. 2026 „not available in your subscription
+// tier" (403) — bezplatný tarif bere menší modely.
+const MISTRAL_MODELY_TEXT = ["mistral-medium-latest", "mistral-small-latest", "mistral-large-latest", "open-mistral-nemo"];
 
 // Groq modely v pořadí preference — první, který odpoví, se použije.
 // Seznam existuje proto, že Groq modely vyřazuje bez náhrady (viz komentář
@@ -718,11 +721,11 @@ ${photoSection}`;
     // téhož klíče (viz _shared/gemini-cteni.ts) — jeho čtení rukopisu je
     // výrazně lepší než ostatní (12. 10. 2026: Gemini 21/21 řádků správně).
     if (!text && geminiKey && !vynechat.has("gemini")) {
-      const dostupne = imageBase64 ? await dostupneModelyGemini(geminiKey) : null;
-      if (imageBase64) {
-        chybyProvideru.push(`gemini nabízí: ${dostupne ? dostupne.filter((m) => /flash|gemma/.test(m)).join(", ") : "seznam nenačten"}`);
-      }
-      const plan = imageBase64 ? planPokusuFoto(dostupne) : planPokusuText();
+      // I text: 12. 10. 2026 byl gemini-3.5-flash přetížený (503) a jediný
+      // pokus nestačil — zkusí se i další bezplatné verze (vlastní kvóty).
+      const dostupne = await dostupneModelyGemini(geminiKey);
+      chybyProvideru.push(`gemini nabízí: ${dostupne ? dostupne.filter((m) => /flash|gemma/.test(m)).join(", ") : "seznam nenačten"}`);
+      const plan = imageBase64 ? planPokusuFoto(dostupne) : planPokusuText(dostupne);
       text = await ctiPresGemini({
         klic: geminiKey,
         plan,
@@ -750,26 +753,30 @@ ${photoSection}`;
     //    zase přejmenuje, záloha se opraví sama.
     if (!text && groqKey && !vynechat.has("groq") && zbyvaMs() > 5_000) {
       const groqUrl = "https://api.groq.com/openai/v1/chat/completions";
-      // Groq modely s obrazem průběžně mění (12. 10. 2026: Llama 4 už 404) —
-      // u fotky se doplní ty, které Groq právě nabízí a podle jména umí obraz.
-      let groqModelyFoto = GROQ_MODELY_FOTO;
-      if (imageBase64) {
-        try {
-          const seznam = await fetch("https://api.groq.com/openai/v1/models", {
-            signal: AbortSignal.timeout(5_000),
-            headers: { "Authorization": `Bearer ${groqKey}` },
-          });
-          if (seznam.ok) {
-            const ids: string[] = ((await seznam.json())?.data ?? []).map((m: any) => String(m?.id ?? ""));
-            const sObrazem = ids.filter((id) => /vision|llama-4|scout|maverick|-vl\b|vl-|gemma-3|pixtral|llava/i.test(id));
-            // Seznam je k dispozici a nic s obrazem v něm není (12. 10. 2026:
-            // 11 modelů, žádný) → pevné názvy by jen vracely 404.
-            groqModelyFoto = sObrazem;
-            chybyProvideru.push(`groq modely s obrazem: ${sObrazem.join(", ") || "žádné"} (z ${ids.length})`);
+      // Groq modely průběžně vyřazuje (12. 10. 2026: llama-3.3/3.1/4 už 404,
+      // zbyl gpt-oss-120b s limitem 8000 tokenů/min) — model se vybere podle
+      // toho, co Groq právě nabízí. Fotka jen modely s obrazem.
+      let groqModely = imageBase64 ? GROQ_MODELY_FOTO : GROQ_MODELY;
+      try {
+        const seznam = await fetch("https://api.groq.com/openai/v1/models", {
+          signal: AbortSignal.timeout(5_000),
+          headers: { "Authorization": `Bearer ${groqKey}` },
+        });
+        if (seznam.ok) {
+          const ids: string[] = ((await seznam.json())?.data ?? [])
+            .filter((m: any) => m?.active !== false)
+            .map((m: any) => String(m?.id ?? ""));
+          if (imageBase64) {
+            groqModely = ids.filter((id) => /vision|llama-4|scout|maverick|-vl\b|vl-|gemma-3|pixtral|llava/i.test(id));
+          } else {
+            const textove = ids.filter((id) => !/whisper|guard|tts|playai|orpheus|compound|distil|embed/i.test(id));
+            // Známé dobré napřed, ostatní dostupné za nimi.
+            groqModely = [...GROQ_MODELY.filter((m) => textove.includes(m)), ...textove.filter((m) => !GROQ_MODELY.includes(m))];
           }
-        } catch { /* bez seznamu zkusí pevné názvy */ }
-      }
-      for (const model of imageBase64 ? groqModelyFoto : GROQ_MODELY) {
+          chybyProvideru.push(`groq nabízí: ${ids.join(", ") || "nic"}`);
+        }
+      } catch { /* bez seznamu zkusí pevné názvy */ }
+      for (const model of groqModely) {
         if (text || zbyvaMs() < 5_000) break;
         try {
           const groqResp = await fetch(groqUrl, {
@@ -794,7 +801,8 @@ ${photoSection}`;
             // Model neexistuje (404) nebo je na něj prompt moc velký (413) →
             // zkus další model. Jiná chyba (limit, výpadek) → další model to
             // nespraví, jdi rovnou na dalšího poskytovatele.
-            if (groqResp.status !== 404 && groqResp.status !== 413 && groqResp.status !== 400) break;
+            // 429 = limit modelu (Groq má limity po modelech) → další model.
+            if (![400, 404, 413, 429].includes(groqResp.status)) break;
           }
         } catch (err) {
           console.warn(`Groq API exception (model ${model}, timeout nebo síť): ${err instanceof Error ? err.name + ": " + err.message : err}`);
@@ -807,7 +815,7 @@ ${photoSection}`;
     //    i Groq (HTTP 429/500), přepneme OKAMŽITĚ dál — bez čekání, řádově 0,5 s.
     if (!text && mistralKey && !vynechat.has("mistral") && zbyvaMs() > 5_000) {
       const mistralUrl = "https://api.mistral.ai/v1/chat/completions";
-      for (const model of imageBase64 ? MISTRAL_MODELY_FOTO : [mistralBody.model]) {
+      for (const model of imageBase64 ? MISTRAL_MODELY_FOTO : MISTRAL_MODELY_TEXT) {
         if (text || zbyvaMs() < 5_000) break;
         try {
           const mistralResp = await fetch(mistralUrl, {

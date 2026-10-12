@@ -11,8 +11,9 @@ describe('Plán čtení fotky přes Gemini (zdarma, víc pokusů)', () => {
   it('bez seznamu modelů: hlavní model a Gemma', () => {
     expect(planPokusuFoto(null).map((p) => p.model)).toEqual(['gemini-3.5-flash', 'gemini-3.5-flash', 'gemini-3.5-flash', 'gemma-3-27b-it']);
   });
-  it('text jen jedním pokusem jako dřív', () => {
+  it('text: hlavní model a další flash verze bez pauz', () => {
     expect(planPokusuText()).toHaveLength(1);
+    expect(planPokusuText(['gemini-3.5-flash', 'gemini-flash-latest', 'gemma-4-31b-it']).map((p) => p.model)).toEqual(['gemini-3.5-flash', 'gemini-flash-latest']);
   });
 });
 
