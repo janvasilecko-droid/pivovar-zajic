@@ -6,6 +6,7 @@ describe('Plán čtení fotky přes Gemini (zdarma, víc pokusů)', () => {
     const plan = planPokusuFoto(['gemini-3.5-flash', 'gemini-3.0-flash', 'gemini-3.5-flash-lite', 'gemini-3.5-flash-image', 'gemma-3-27b-it']);
     expect(plan.map((p) => `${p.model}${p.pauzaMs ? `+${p.pauzaMs}` : ''}${p.json ? '' : ' (bez JSON)'}`)).toEqual([
       'gemini-3.5-flash', 'gemini-3.5-flash+3000', 'gemini-3.0-flash', 'gemini-3.5-flash+8000', 'gemma-3-27b-it (bez JSON)',
+      'gemini-3.5-flash-lite',
     ]);
   });
   it('bez seznamu modelů: hlavní model a Gemma', () => {
@@ -13,7 +14,8 @@ describe('Plán čtení fotky přes Gemini (zdarma, víc pokusů)', () => {
   });
   it('text: hlavní model a další flash verze bez pauz', () => {
     expect(planPokusuText()).toHaveLength(1);
-    expect(planPokusuText(['gemini-3.5-flash', 'gemini-flash-latest', 'gemma-4-31b-it']).map((p) => p.model)).toEqual(['gemini-3.5-flash', 'gemini-flash-latest']);
+    expect(planPokusuText(['gemini-3.5-flash', 'gemini-flash-latest', 'gemini-2.5-flash-lite', 'gemini-flash-lite-latest', 'gemma-4-31b-it']).map((p) => p.model))
+      .toEqual(['gemini-flash-lite-latest', 'gemini-2.5-flash-lite', 'gemini-3.5-flash', 'gemini-flash-latest']);
   });
 });
 
@@ -33,6 +35,7 @@ describe('Skutečná nabídka klíče 12. 10. 2026', () => {
       'gemini-flash-latest', 'gemini-flash-lite-latest', 'gemini-2.5-flash-lite', 'gemini-2.5-flash-image', 'gemini-3.5-flash']);
     expect(plan.map((p) => p.model)).toEqual([
       'gemini-3.5-flash', 'gemini-3.5-flash', 'gemini-flash-latest', 'gemini-2.5-flash', 'gemini-3.5-flash', 'gemma-4-31b-it',
+      'gemini-flash-lite-latest',
     ]);
   });
 });
