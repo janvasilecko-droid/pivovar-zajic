@@ -22,6 +22,7 @@
  */
 import { fetchAllRows, supabase } from './supabase';
 import { NADRAZENE, verzeTabulky, zneplatniVse } from './zneplatneni';
+import { tydenniJakoInventura } from './tydenniInventura';
 
 // Výčet sloupců je ve vlastním souboru bez vedlejších účinků (skript
 // rozbor-skladu ho potřebuje bez klienta Supabase z VITE_* proměnných).
@@ -100,7 +101,9 @@ export async function nactiSdilenouTabulku<T = any>(tabulka: SdilenaTabulka): Pr
 
   let bezici = probiha.get(tabulka);
   if (!bezici || bezici.verze !== verze) {
-    const slib = Promise.resolve(fetchAllRows<unknown>(tabulka, SLOUPCE[tabulka])).then((r) => {
+    const slib = Promise.resolve(fetchAllRows<unknown>(tabulka, SLOUPCE[tabulka]))
+      .then((r) => (tabulka === 'inventory' && !r.error ? sTydenniInventurou(r) : r))
+      .then((r) => {
       // Mezitím přišel zápis → tahle data už nemusí platit, do paměti ne.
       if (!r.error && verzeTabulky(tabulka) === verze) {
         pamet.set(tabulka, { data: r.data ?? [], kdy: Date.now(), verze });
@@ -114,6 +117,26 @@ export async function nactiSdilenouTabulku<T = any>(tabulka: SdilenaTabulka): Pr
 
   const r = await bezici.slib;
   return { data: r.data ? kopie(r.data as T[]) : r.data as null, error: r.error };
+}
+
+/**
+ * K inventuře se přidají uložené týdenní inventury jako stav v pondělí ráno
+ * (tydenniJakoInventura) — Sklad pak v pondělí ukazuje napočítané a všechny
+ * obrazovky počítají ze stejného. Když se týdenní inventura nenačte, zůstane
+ * jen měsíční (a zapíše se varování) — Sklad se kvůli tomu nesmí rozbít.
+ */
+async function sTydenniInventurou(r: Vysledek<unknown>): Promise<Vysledek<unknown>> {
+  try {
+    const t = await fetchAllRows<any>('tydenni_inventura', 'tyden_od,tyden_do,beer_id,beer_name,package_id,package_label,napocitano,updated_at');
+    if (t?.error || !Array.isArray(t?.data)) {
+      if (t?.error) console.warn('[sdilenaData] týdenní inventura se nenačetla:', t.error.message);
+      return r;
+    }
+    return { data: [...(r.data ?? []), ...tydenniJakoInventura(t.data)], error: null };
+  } catch (e) {
+    console.warn('[sdilenaData] týdenní inventura se nenačetla:', e);
+    return r;
+  }
 }
 
 /** Pro testy: zapomenout všechno. */

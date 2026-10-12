@@ -304,32 +304,31 @@ describe('ocekavanyStavTydne — pohyby ze dne počítání (9. 10. 2026: „nem
   });
 });
 
-describe('dorovnaniNaSklad — sklad se po uložení rovná napočítanému (12. 10. 2026)', () => {
-  const pohyb = (date: string, qty: number, kind: Movement['kind'], pkg = 'p1'): Movement => ({ date, beer_id: 'b1', package_id: pkg, qty, kind });
-  const radek = (klic: string, napocitano: number | null, ocekavano = 0) => ({
-    klic, beer_id: 'b1', beer_name: 'Pivo', beer_color: null, package_id: klic.split('__')[1], package_label: klic,
-    ocekavano, napocitano, rozdil: napocitano === null ? 0 : napocitano - ocekavano, pohybuVTydnu: 0, sud: false,
-  });
-  const obdobi = { od: '2026-10-05', do: '2026-10-11', doPocitani: '2026-10-12', uzavreny: true };
+describe('tydenniJakoInventura — Sklad v pondělí = týdenní inventura (12. 10. 2026)', () => {
+  const pohyb = (date: string, qty: number, kind: Movement['kind']): Movement => ({ date, beer_id: 'b1', package_id: 'p1', qty, kind });
+  const ulozeny = { tyden_od: '2026-10-05', tyden_do: '2026-10-11', beer_id: 'b1', package_id: 'p1', napocitano: 33, updated_at: '2026-10-12T06:56:00Z' };
 
-  it('zapíše rozdíl proti SKLADU, ne proti očekávanému, a sklad pak sedí', async () => {
-    const { dorovnaniNaSklad } = await import('./tydenniInventura');
-    const { stockAsOf } = await import('./stockLedger');
-    const pohyby = [pohyb('2026-10-01', 45, 'inventura'), pohyb('2026-10-03', -2, 'zavoz')]; // sklad 43
-    const sklad = stockAsOf(pohyby, '2026-10-12') as unknown as Map<string, { qty: number }>;
-    const r = radek('b1__p1', 19, 40); // očekávané 40 (jiný základ), sklad 43
-    const d = dorovnaniNaSklad([r], sklad, obdobi);
-    expect(d).toHaveLength(1);
-    expect(d[0].zmena).toBe(-24);
-    const po = stockAsOf([...pohyby, pohyb('2026-10-12', d[0].zmena, 'dorovnani')], '2026-10-12');
-    expect(po.get('b1__p1')?.qty).toBe(19);
+  it('napočítané = stav v pondělí ráno; víkendové fasování dopsané zpětně se neodečte znovu, pondělní stáčení se přičte', async () => {
+    const { tydenniJakoInventura } = await import('./tydenniInventura');
+    const { buildMovements, stockAsOf } = await import('./stockLedger');
+    const inv = tydenniJakoInventura([ulozeny]);
+    expect(inv[0]).toMatchObject({ entry_date: '2026-10-12', quantity: 33 });
+    const ostatni = buildMovements({ inventoryRows: [{ entry_date: '2026-10-01', beer_id: 'b1', package_id: 'p1', quantity: 45, note: 'Počáteční stav' }] } as any);
+    const kniha = [...buildMovements({ inventoryRows: inv } as any), ...ostatni,
+      pohyb('2026-10-10', -4, 'fasovani'),   // sobotní fasování dopsané v pondělí
+      pohyb('2026-10-12', 20, 'staceni'),    // pondělní stáčení
+      pohyb('2026-10-13', -5, 'zavoz'),
+    ];
+    expect(stockAsOf(kniha, '2026-10-11').get('b1__p1')?.qty).toBe(41); // neděle ještě podle zápisů
+    expect(stockAsOf(kniha, '2026-10-12').get('b1__p1')?.qty).toBe(53); // 33 + 20
+    expect(stockAsOf(kniha, '2026-10-13').get('b1__p1')?.qty).toBe(48);
   });
 
-  it('nespočítané a už sedící řádky nechává být; druhé volání nic nezapíše', async () => {
-    const { dorovnaniNaSklad } = await import('./tydenniInventura');
-    const { stockAsOf } = await import('./stockLedger');
-    const pohyby = [pohyb('2026-10-01', 10, 'inventura'), pohyb('2026-10-01', 5, 'inventura', 'p2')];
-    const sklad = stockAsOf(pohyby, '2026-10-12') as unknown as Map<string, { qty: number }>;
-    expect(dorovnaniNaSklad([radek('b1__p1', 10), radek('b1__p2', null)], sklad, obdobi)).toEqual([]);
+  it('nezamkne měsíc a nepočítá nespočítané', async () => {
+    const { tydenniJakoInventura } = await import('./tydenniInventura');
+    const { jeMesicUzamcen } = await import('./mesicUzamcen');
+    const inv = tydenniJakoInventura([ulozeny, { ...ulozeny, package_id: 'p2', napocitano: null }]);
+    expect(inv).toHaveLength(1);
+    expect(jeMesicUzamcen(inv as any, '2026-10-12')).toBe(false);
   });
 });
