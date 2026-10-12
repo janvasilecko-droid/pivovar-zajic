@@ -50,7 +50,7 @@ export const NAV: NavItem[] = [
   // (ProdejnaScreen.tsx, viz App.tsx) — ta má odjakživa svůj vlastní
   // přepínač „Kam se vydává" hned v zápisu, takže tři vstupy na plochu byly
   // čistá duplicita. Zůstává jeden, přepínání zůstává uvnitř.
-  { id: 'prodejna', label: 'Prodejna, Fasování, Odpis', icon: Store, group: 'Výroba' },
+  { id: 'prodejna', label: 'Fasování', icon: Store, group: 'Výroba' },
   // Obchod (10. 10. 2026): vlastní sklad obchodu, uzávěrky z pokladny z fotky,
   // inventura, statistiky prodeje, hlídání zásob a fasování do obchodu na
   // jednom místě (screens/ObchodScreen.tsx).
