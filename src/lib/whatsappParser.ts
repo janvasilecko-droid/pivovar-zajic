@@ -744,12 +744,15 @@ export async function parseWhatsAppOrderMessageWithAI(
     const zTextu = parseOrderText(rawTextFromAi || rawMessage, beers, packages, aliasMap);
     const klic = (l: { beer_id: string | null; package_id: string | null; quantity: number | null }) =>
       `${l.beer_id ?? '?'}__${l.package_id ?? '?'}__${l.quantity ?? 0}`;
-    const uzMame = new Set(items.map(klic));
+    // Podle POČTU výskytů: stejný řádek ve dvou částech fotky (např. 10× 1l
+    // Jantar u Jonáše i ve skladu) jsou dvě položky, ne jedna.
+    const uzMame = new Map<string, number>();
+    for (const it of items) uzMame.set(klic(it), (uzMame.get(klic(it)) ?? 0) + 1);
     for (const l of zTextu) {
       // Jen jednoznačné řádky: bez piva nebo bez obalu by to byl šum.
       if (!l.beer_id || !l.package_id || !l.quantity) continue;
-      if (uzMame.has(klic(l))) continue;
-      uzMame.add(klic(l));
+      const mam = uzMame.get(klic(l)) ?? 0;
+      if (mam > 0) { uzMame.set(klic(l), mam - 1); continue; }
       items.push({ ...l, confidence: 'low' });
     }
   } catch (e) {
