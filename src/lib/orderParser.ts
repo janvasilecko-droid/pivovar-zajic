@@ -289,6 +289,11 @@ function pickPackageByVolume(v: number, packages: Package[], norm: string): Pack
   return candidates[0];
 }
 
+/** Ručně psané „1l" přečtené jako „11" („10x 11 11°sv.") — viz server beer-match.ts. */
+export function jeLitrPsanyJakoJedenact(raw: string): boolean {
+  return /(?:^|\s)\d{1,3}\s*x\s+(?:11|1l)\s+\d{1,2}\s*(?:°|sv|tm)/i.test(normalize(raw));
+}
+
 export function matchPackage(norm: string, packages: Package[], aliasMap: ParserAliasMap): Package | null {
   if (!packages || !packages.length) return null;
 

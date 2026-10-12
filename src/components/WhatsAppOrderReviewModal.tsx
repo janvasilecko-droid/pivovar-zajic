@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { Beer, Package, Place, supabase } from '../lib/supabase';
 import { WhatsAppIncoming, ignoreWhatsAppMessage, updateWhatsAppParsedData, napojNaObjednavku } from '../lib/whatsappApi';
 import { parseWhatsAppOrderMessageWithAI } from '../lib/whatsappParser';
-import { parseDeliveryDayFromText, loadAliasMap, saveAlias, canLearnBeerAlias, matchBeerFromHints, matchPackage, savePlaceAlias, normalize, getOrCreatePlace, type ParserAliasMap } from '../lib/orderParser';
+import { parseDeliveryDayFromText, loadAliasMap, saveAlias, canLearnBeerAlias, matchBeerFromHints, matchPackage, jeLitrPsanyJakoJedenact, savePlaceAlias, normalize, getOrCreatePlace, type ParserAliasMap } from '../lib/orderParser';
 import { matchAgainstCatalog } from '../../supabase/functions/_shared/place-match';
 import { oznacVlastniObjednavku } from '../lib/mojeObjednavky';
 import { diffOrderItems, rozsahOdpovedi, slozNavrh, potvrzeneBezPolozek, kandidatiNaDoplneni, datumObjednavky, vypadaJakoZmenaObjednavky, type DiffRow, type RozsahOdpovedi, type SkupinaObalu, type ObjednavkaKandidat } from '../lib/whatsappAmendment';
@@ -300,7 +300,10 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
             props.beers,
             aliasMap
           ).beer;
+        const litrJakoJedenact = jeLitrPsanyJakoJedenact(item.raw_line || '')
+          && !/\b(keg|sud)\s*(50|20|15|10)/i.test(item.package_label || '');
         const pkg =
+          (litrJakoJedenact ? props.packages.find((p) => Number(p.volume_l) === 1) : undefined) ??
           props.packages.find((p) => p.id === item.pkg_id) ??
           matchPackage(
             normalize([item.package_label, item.raw_line].filter(Boolean).join(' ')),

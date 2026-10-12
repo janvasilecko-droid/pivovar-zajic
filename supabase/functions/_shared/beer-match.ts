@@ -273,6 +273,34 @@ export function isUsefulBeerAlias(aliasText: string): boolean {
   return hasDegree && hasColor;
 }
 
+// Obecná slova v názvech piv — nejsou vlastní jméno, nesmí samotná piva rozlišovat.
+const OBECNA_SLOVA_PIV = new Set([
+  "svetla", "svetly", "svetle", "tmava", "tmavy", "tmave", "lezak", "lezaky", "pivo", "nefiltrovane",
+  "filtrovane", "vycepni", "special", "light", "dark", "lager", "plzen", "pilsner", "keg", "pet",
+  "polotmava", "polotmavy", "sezonni", "cerne", "cerna", "pale",
+]);
+
+/**
+ * Vlastní jména piv přímo z katalogu (Jantar, Summer, Winter… cokoli, co majitel
+ * přidá) — slovo z názvu, které není stupeň ani obecné „světlá/ležák". Kdo ho
+ * napíše, myslí právě to pivo. Slovo sdílené víc pivy se nebere (nerozlišuje).
+ */
+export function vlastniJmenaPiv(beers: { id: string; name: string; short_name?: string | null }[]): Map<string, string> {
+  const poSlovech = new Map<string, Set<string>>();
+  for (const b of beers) {
+    for (const zdroj of [b.name, b.short_name]) {
+      for (const w of normText(zdroj || "").split(" ")) {
+        if (w.length < 4 || /[0-9°]/.test(w) || OBECNA_SLOVA_PIV.has(w)) continue;
+        if (!poSlovech.has(w)) poSlovech.set(w, new Set());
+        poSlovech.get(w)!.add(b.id);
+      }
+    }
+  }
+  const vysledek = new Map<string, string>();
+  for (const [w, ids] of poSlovech) if (ids.size === 1) vysledek.set(w, [...ids][0]);
+  return vysledek;
+}
+
 // Pivo pojmenované vlastním jménem (Jantar, Summer, Hazy, Bunny) — tyhle
 // názvy jsou jednoznačné a nesmí je přebít naučená zkratka ani stupeň.
 export function matchDistinctiveName(
@@ -290,6 +318,12 @@ export function matchDistinctiveName(
       const hit = beers.find((b) => normText(b.name).includes(token));
       if (hit) return hit.id;
     }
+  }
+  // Cokoli dalšího, co je v katalogu (nové pivo, např. Winter): celé slovo,
+  // nebo slovo s příponou („winterka", „winteru").
+  const slova = text.split(" ");
+  for (const [jmeno, id] of vlastniJmenaPiv(beers)) {
+    if (slova.some((w) => w === jmeno || (jmeno.length >= 5 && w.startsWith(jmeno) && w.length <= jmeno.length + 3))) return id;
   }
   return null;
 }
@@ -415,6 +449,16 @@ export function matchBeerInText(
   return null;
 }
 
+/**
+ * Ručně psané „1l" AI často přečte jako „11": „10x 1l 11°sv." → „10x 11 11°sv.".
+ * Číslo hned za „Nx" následované dalším stupněm (11°, 12sv…) je objem 1 l (PET),
+ * ne stupeň — a už vůbec ne výchozí sud 30 l.
+ */
+export function jeLitrPsanyJakoJedenact(raw: string): boolean {
+  const t = normText(raw);
+  return /(?:^|\s)\d{1,3}\s*x\s+(?:11|1l)\s+\d{1,2}\s*(?:°|sv|tm)/.test(t);
+}
+
 export function matchPackageId(
   item: any,
   packages: { id: string; label: string; volume_l?: number | null }[],
@@ -429,6 +473,12 @@ export function matchPackageId(
   const rawText = normText(item.raw_line || "");
   const text = labelText || rawText;
   if (!text) return null;
+
+  // Ručně psané „1l" přečtené jako „11" → PET/lahev 1 l (AI k tomu dává výchozí KEG 30l).
+  if (jeLitrPsanyJakoJedenact(item.raw_line || "") && !/\b(keg|sud)\s*(50|20|15|10)/.test(labelText)) {
+    const hit = packages.find((p) => Number(p.volume_l) === 1) ?? packages.find((p) => /(^|\D)1\s*l/i.test(p.label));
+    if (hit) return hit.id;
+  }
 
   // 1) Přesná shoda s názvem obalu (např. "50l")
   let best: string | null = null;

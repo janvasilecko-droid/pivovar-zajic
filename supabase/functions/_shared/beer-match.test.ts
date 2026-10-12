@@ -211,3 +211,38 @@ describe('Zkratka „tm" je tmavá', () => {
     expect(pivo({ degree: '12°', quantity: 1, raw_line: '1x50 12 atm' })).toBe('12° Světlá');
   });
 });
+
+describe('Ručně psané „1l" přečtené jako „11"', () => {
+  const pkgs = [
+    { id: 'k30', label: '30l', volume_l: 30 },
+    { id: 'k10', label: '10l', volume_l: 10 },
+    { id: 'p1', label: 'PET 1l', volume_l: 1 },
+    { id: 'p15', label: 'PET 1.5l', volume_l: 1.5 },
+  ];
+  const am = { beer: new Map<string, string>(), package: new Map<string, string>() };
+  it('„10x 11 11°sv." je PET 1l, ne výchozí sud 30l', () => {
+    for (const raw of ['10x 11 11°sv.', '10x 11 12°-Jantar', '15x 1l 11°']) {
+      for (const label of ['KEG 30l', null, '11']) {
+        expect(matchPackageId({ package_label: label, raw_line: raw }, pkgs, am)).toBe('p1');
+      }
+    }
+  });
+  it('nezasahuje do běžných zápisů', () => {
+    expect(matchPackageId({ package_label: 'KEG 30l', raw_line: '2x30 11sv' }, pkgs, am)).toBe('k30');
+    expect(matchPackageId({ package_label: null, raw_line: '10x 11sv' }, pkgs, am)).not.toBe('p1');
+  });
+});
+
+describe('Nově přidané pivo se čte bez úprav kódu', () => {
+  const beers = [
+    { id: 'b12', name: '12° Světlá', degree: '12°' },
+    { id: 'b13', name: '13° Jantar', degree: '13°' },
+    { id: 'bw', name: 'Winter', degree: '14°' },
+  ];
+  const am = { beer: new Map<string, string>(), package: new Map<string, string>() };
+  it('pozná Winter i s příponou a přes stupeň od AI', () => {
+    expect(matchBeerId({ raw_line: '2x30 winter', degree: null, beer_name: 'Winter' }, beers, am)).toBe('bw');
+    expect(matchBeerId({ raw_line: '3x50 Winterka', degree: '14°' }, beers, am)).toBe('bw');
+    expect(matchBeerId({ raw_line: '2x30 12sv', degree: '12°' }, beers, am)).toBe('b12');
+  });
+});

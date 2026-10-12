@@ -730,3 +730,13 @@ describe('canLearnBeerAlias — z čeho se smí stát trvalé pravidlo', () => {
     expect(canLearnBeerAlias('4x11sv', 'b-11', katalog)).toBe(true);
   });
 });
+
+describe('jeLitrPsanyJakoJedenact', () => {
+  it('pozná „10x 11 11°sv." a nezasáhne „10x 11sv"', async () => {
+    const { jeLitrPsanyJakoJedenact } = await import('./orderParser');
+    expect(jeLitrPsanyJakoJedenact('10x 11 11°sv.')).toBe(true);
+    expect(jeLitrPsanyJakoJedenact('10x 11 12°-Jantar')).toBe(true);
+    expect(jeLitrPsanyJakoJedenact('10x 11sv')).toBe(false);
+    expect(jeLitrPsanyJakoJedenact('2x30 11sv')).toBe(false);
+  });
+});

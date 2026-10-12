@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { readJsonWithLimit, requireApprovedUser } from "../_shared/require-user.ts";
+import { vlastniJmenaPiv } from "../_shared/beer-match.ts";
 import { PRAVIDLA_CTENI_OBJEDNAVEK } from "../_shared/order-rules.ts";
 
 
@@ -123,7 +124,8 @@ Deno.serve(async (req: Request) => {
     }
 
     // Build a catalog hint so the model returns ids we can match directly.
-    const beerList = beers.map((b) => `${b.id}: ${b.name} (${b.degree})`).join("\n");
+    const beerList = beers.map((b) => `${b.id}: ${b.name} (${b.degree})`).join("\n")
+      + (vlastniJmenaPiv(beers).size ? `\nVLASTNÍ NÁZVY PIV (slovo v textu = přesně toto pivo, NE stupeň ani 12° světlá; např. u nově přidaného piva): ${[...vlastniJmenaPiv(beers).keys()].join(", ")}` : "");
     const pkgList = packages.map((p) => `${p.id}: ${p.label}`).join("\n");
     const placesList = places.length ? places.join(", ") : "(žádní uložení odběratelé zatím)";
     const beerAliases = aliases.filter((a) => a.beer_name);
