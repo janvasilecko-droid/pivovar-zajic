@@ -14,6 +14,44 @@
 // od 900 za měsíc varuje (src/lib/ocrPouziti.ts). Nic se nezastavuje.
 // Zapne se, až je v app_secrets klíč GOOGLE_VISION_API_KEY.
 
+/**
+ * Opraví typické chyby OCR u ručně psaných objednávek, než text dostane AI.
+ * Google Vision se trénovat nedá (12. 10. 2026 majitel: „nauč to Vision, ať
+ * to čte správně"; ani model pro rukopis „cs-t-i0-handwrit" nečetl líp).
+ * Pravidla jsou z lístku Radka (21 řádků) a mění jen jednoznačné vzory —
+ * „11" jako obal před stupněm je vždy „1l" (obal „11 l" neexistuje).
+ */
+export function opravOcrObjednavky(text: string): string {
+  return text.split("\n").map(opravRadek).join("\n");
+}
+
+function opravRadek(radek: string): string {
+  let r = radek
+    // cyrilské „х" a „×" → x
+    .replace(/[х×]/g, "x")
+    // „SX 20l" / „S x" na začátku = „5x"
+    .replace(/^S\s*[xX](?=\s|\d)/, "5x");
+  // Počet × obal: „10x 11 12°", „15x11 11°", „35 x 11, 12° sv." → „10x 1l 12°".
+  r = r.replace(/^(\s*\d{1,3})\s*[xX]\s*/, "$1x ");
+  const m = r.match(/^(\s*\d{1,3}x )(\S+)(.*)$/);
+  if (m) {
+    let [, pocet, obal, zbytek] = m;
+    const dale = zbytek.trimStart();
+    const stupenDal = /^\d{2}\s*(?:°|"|'|\s|$)|^\d{2}[a-zA-Z]/.test(dale) || /^\d{2}0\b/.test(dale);
+    // „11", „1", „11," — a „12"/„13"/„17" (l přečtené jako 2/3/7; obal 12 l
+    // ani 13 l neexistuje), když za ním stojí stupeň.
+    if (/^(?:1{1,2}|1[237])[,.]?$/.test(obal) && stupenDal) obal = "1l";
+    else if (/^1{1,2}(1[0-3])[0°]$/.test(obal)) obal = obal.replace(/^1{1,2}(1[0-3])[0°]$/, "1l $1°"); // „1120" = „1l 12°"
+    else if (/^0[,.]33[1l"')!]?$/.test(obal)) obal = "0,33l";
+    else if (/^[01][,.]5[1l"')!]?$/.test(obal)) obal = obal.replace(/^([01])[,.]5.*$/, "$1,5l"); // „1,51", „0,5)"
+    else if (/^(10|15|20|25|30|50)[1h]$/.test(obal)) obal = obal.slice(0, -1) + "l"; // „101", „15h"
+    r = pocet + obal + zbytek;
+    // Stupeň za obalem: „120" → „12°", „12"" → „12°".
+    r = r.replace(/(^\s*\d{1,3}x \S+(?: \d{1,2}°)?\s+)(1[0-3])(?:0|["'])(?=\s|$|[a-zA-Z])/, "$1$2°");
+  }
+  return r;
+}
+
 /** Text z odpovědi images:annotate (DOCUMENT_TEXT_DETECTION); "" když nic. */
 // deno-lint-ignore no-explicit-any
 export function textZOdpovediVision(data: any): string {
@@ -100,7 +138,7 @@ export async function prepisFotkyGoogle(opts: {
       opts.chyby.push(`ocr: ${String(chyba).slice(0, 200)}${poradi}`);
       return "";
     }
-    const text = textZOdpovediVision(data);
+    const text = opravOcrObjednavky(textZOdpovediVision(data));
     opts.chyby.push((text ? `ocr: přepsáno ${text.split("\n").length} řádků` : "ocr: na fotce nenašel text") + poradi);
     return text;
   } catch (err) {
