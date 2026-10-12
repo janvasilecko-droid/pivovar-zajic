@@ -4,7 +4,7 @@ import { WhatsAppIncoming, ignoreWhatsAppMessage, updateWhatsAppParsedData, napo
 import { parseWhatsAppOrderMessageWithAI } from '../lib/whatsappParser';
 import { parseDeliveryDayFromText, loadAliasMap, saveAlias, canLearnBeerAlias, matchBeerFromHints, matchPackage, jeLitrPsanyJakoJedenact, pivoNapsanePodleJmena, savePlaceAlias, normalize, getOrCreatePlace, type ParserAliasMap } from '../lib/orderParser';
 import { matchAgainstCatalog } from '../../supabase/functions/_shared/place-match';
-import { doplnChybejiciZPrepisu } from '../../supabase/functions/_shared/prepis-fotky';
+import { poradiPodlePrepisu } from '../../supabase/functions/_shared/prepis-fotky';
 import { oznacVlastniObjednavku } from '../lib/mojeObjednavky';
 import { diffOrderItems, rozsahOdpovedi, slozNavrh, potvrzeneBezPolozek, kandidatiNaDoplneni, datumObjednavky, vypadaJakoZmenaObjednavky, type DiffRow, type RozsahOdpovedi, type SkupinaObalu, type ObjednavkaKandidat } from '../lib/whatsappAmendment';
 import { PlaceCombobox } from './PlaceCombobox';
@@ -332,13 +332,15 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
           rawLine: item.raw_line,
         };
       });
-      // 📷 Fotka: řádky přepisu, které v položkách chybí, se doplní hned při
-      // otevření — i u zpráv přečtených dřív (12. 10. 2026: přepis měl 22
-      // řádků, uložených položek bylo 13). Porovnává se podle počtu výskytů
-      // (pivo × obal × kusy), stejně jako na serveru (_shared/prepis-fotky.ts).
+      // 📷 Fotka: položky se seřadí tak, jak jdou řádky na fotce, a řádky
+      // přepisu, které v položkách chybí, se doplní na své místo — i u zpráv
+      // přečtených dřív (12. 10. 2026: přepis měl 22 řádků, položek bylo 13
+      // a doplněné limonády skončily na konci). Pravidla jsou stejná jako na
+      // serveru (_shared/prepis-fotky.ts).
+      let vysledneItems = initItems;
       if (msg!.media_url && msg!.parsed_raw_text) {
         try {
-          const doplneno = doplnChybejiciZPrepisu(
+          const poradi = poradiPodlePrepisu(
             msg!.parsed_raw_text,
             initItems.map((it) => ({
               beer_id: it.beerId || null, pkg_id: it.pkgId || null, qty: Number(it.qty) || null,
@@ -346,10 +348,14 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
             })),
             { beers: props.beers as any, packages: props.packages as any, aliasMap },
           );
-          doplneno.forEach((d, j) => {
+          let doplneno = 0;
+          vysledneItems = poradi.map((r, j) => {
+            if (!r.nova) return initItems[r.index];
+            doplneno++;
+            const d = r.nova;
             const pkg = props.packages.find((p) => p.id === d.pkg_id);
             const litr = jeLitrPsanyJakoJedenact(d.raw_line || '') ? props.packages.find((p) => Number(p.volume_l) === 1) : undefined;
-            initItems.push({
+            return {
               key: `item-${msg!.id}-prepis-${j}-${Date.now()}`,
               beerId: (pivoNapsanePodleJmena(d.raw_line, d.degree, props.beers)?.id) || d.beer_id || '',
               pkgId: (litr ?? pkg)?.id || '',
@@ -359,16 +365,17 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
               beerName: d.beer_name,
               packageLabel: d.package_label,
               rawLine: d.raw_line,
-            });
+            };
           });
-          if (doplneno.length) {
-            setStatusMessage(`Z přepisu fotky doplněno ${doplneno.length} řádků, které AI nedala do položek — zkontroluj je na konci seznamu.`);
+          if (doplneno) {
+            setStatusMessage(`Z přepisu fotky doplněno ${doplneno} řádků, které AI nedala do položek — jsou na svém místě podle fotky, zkontroluj je.`);
           }
         } catch (e) {
-          console.warn('[WhatsAppOrderReviewModal] doplnění z přepisu selhalo:', e);
+          console.warn('[WhatsAppOrderReviewModal] řazení podle přepisu selhalo:', e);
+          vysledneItems = initItems;
         }
       }
-      setItems(initItems);
+      setItems(vysledneItems);
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1807,6 +1814,16 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
             {!useFullscreenTextLayout && originalMessageBlock}
 
             <div>
+              {/* ⚠️ Přepis s „Nx 11 <stupeň>" je nejistý: ručně psané 1l a 1,5l
+                  se tak přečte obojí a čtení často vynechá řádky (12. 10. 2026). */}
+              {isImage && /(?:^|\n)\s*\d{1,3}\s*x\s+11\s+\d/i.test(message.parsed_raw_text || '') && (
+                <div data-nejisty-prepis className="mb-2 rounded border border-amber-300 bg-amber-50 p-2 text-sm text-amber-900">
+                  Přepis fotky je nejistý — objem „11" je ručně psaný 1l nebo 1,5l a některé řádky mohou chybět.
+                  <button type="button" onClick={handleReparse} disabled={reparsing} className="btn-primary !rounded mt-2 w-full min-h-[44px]">
+                    {reparsing ? 'Čtu znovu...' : 'Přečíst fotku znovu (AI)'}
+                  </button>
+                </div>
+              )}
               <div className="text-xs font-medium text-neutral-500 mb-1 flex items-center gap-1">
                 <FileText size={12} /> {isImage ? 'Přepis fotky od AI' : 'Přepis AI (diff proti originálu)'}
               </div>

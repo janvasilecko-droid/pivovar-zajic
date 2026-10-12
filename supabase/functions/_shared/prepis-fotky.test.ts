@@ -68,3 +68,19 @@ describe('Řádky přepisu fotky, které chybí v položkách', () => {
     expect(doplnChybejiciZPrepisu(PREPIS, vse, katalog)).toEqual([]);
   });
 });
+
+describe('Pořadí podle fotky (12. 10. 2026: „máš na konci limonády")', () => {
+  it('položky jdou jako řádky přepisu, doplněné na svém místě, nespárované na konci', async () => {
+    const { poradiPodlePrepisu } = await import('./prepis-fotky');
+    const prepis = '10x 11 11°sv.\n20x 0.5l 10°\n35x 11 12°sv.\n3x 10 11°sv.';
+    const mam = [
+      polozka('b11', 'k10', 3, '3x 10 11°sv.'),
+      polozka('b11', 'p1', 10, '10x 11 11°sv.'),
+      polozka('bx', 'k30', 7, 'něco navíc'),
+    ];
+    const r = poradiPodlePrepisu(prepis, mam, katalog);
+    expect(r.map((x) => (x.nova ? `+${x.nova.raw_line}` : `#${x.index}`))).toEqual([
+      '#1', '+20x 0.5l 10°', '+35x 11 12°sv.', '#0', '#2',
+    ]);
+  });
+});

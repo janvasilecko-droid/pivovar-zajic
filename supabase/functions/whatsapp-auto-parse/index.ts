@@ -1,7 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { requireApprovedUser } from "../_shared/require-user.ts";
 import { normText, matchBeerId, matchPackageId, jeLitrPsanyJakoJedenact } from "../_shared/beer-match.ts";
-import { doplnChybejiciZPrepisu } from "../_shared/prepis-fotky.ts";
+import { poradiPodlePrepisu } from "../_shared/prepis-fotky.ts";
 import { normPlaceName, stripSenderName, resolvePlace, odberatelZHistorie, wantsOwnOrder as textWantsOwnOrder } from "../_shared/place-match.ts";
 import { nactiHistorii } from "../_shared/historie-objednavek.ts";
 import { vypadaJakoVraceni } from "../_shared/vraceni-detekce.ts";
@@ -886,13 +886,18 @@ Deno.serve(async (req: Request) => {
 
         // 📷 Fotka: řádky přepisu, které AI nevložila do položek, se doplní
         // (12. 10. 2026: z 22 přečtených řádků skončilo v položkách 13).
-        const doplneno = message.media_url
-          ? doplnChybejiciZPrepisu(parseResult.raw_text, itemsForStorage as any, { beers: beers as any, packages: packages as any, aliasMap })
+        // Pořadí jako na fotce, doplněné řádky na svém místě (poradiPodlePrepisu).
+        const poradi = message.media_url
+          ? poradiPodlePrepisu(parseResult.raw_text, itemsForStorage as any, { beers: beers as any, packages: packages as any, aliasMap })
           : [];
-        if (doplneno.length) itemsForStorage.push(...(doplneno as any));
+        const doplneno = poradi.filter((r) => r.nova);
+        if (poradi.length) {
+          const serazene = poradi.map((r) => (r.nova ? (r.nova as any) : itemsForStorage[r.index!]));
+          itemsForStorage.splice(0, itemsForStorage.length, ...serazene);
+        }
         const otazkyZpravy: string[] = Array.isArray(parseResult?.otazky) ? [...parseResult.otazky] : [];
         if (doplneno.length) {
-          otazkyZpravy.push(`Z přepisu fotky se doplnilo ${doplneno.length} řádků, které AI nevložila do položek — zkontroluj je (označené na konci seznamu).`);
+          otazkyZpravy.push(`Z přepisu fotky se doplnilo ${doplneno.length} řádků, které AI nevložila do položek — zkontroluj je (jsou na svém místě podle fotky).`);
         }
 
         // „Nx 11 12°" z ručního písma = 1l, nebo 1,5l? Z textu se to nepozná
