@@ -14,9 +14,14 @@ import { PRAVIDLA_CTENI_OBJEDNAVEK } from "../_shared/order-rules.ts";
 // Součet stropů musí zůstat bezpečně pod 150 s.
 const AI_TIMEOUT_MS = {
   // Jen u fotek (viz níž); Groq a Mistral fotku nevidí, u fotek se přeskakují,
-  // takže součet u fotky je 60 + 30 + 30 s.
-  anthropic: 60_000,
+  // takže součet u fotky je 40 + 55 + 45 s.
+  anthropic: 40_000,
   gemini: 30_000,
+  // Ručně psaná fotka trvá Gemini déle než 30 s — 12. 10. 2026 při 30 s
+  // spadla na gpt-4o-mini, který vynechal půlku řádků; Gemini sám ji
+  // přečetl celou (21/21).
+  geminiFoto: 55_000,
+  openaiFoto: 45_000,
   groq: 25_000,
   mistral: 25_000,
   openai: 30_000,
@@ -769,7 +774,7 @@ ${photoSection}`;
 
         const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${encodeURIComponent(geminiKey)}`;
         const geminiResp = await fetch(geminiUrl, {
-          signal: AbortSignal.timeout(AI_TIMEOUT_MS.gemini),
+          signal: AbortSignal.timeout(imageBase64 ? AI_TIMEOUT_MS.geminiFoto : AI_TIMEOUT_MS.gemini),
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -872,7 +877,8 @@ ${photoSection}`;
     if (!text && openaiKey) {
       isOpenAiUsed = true;
       const openaiBody = {
-        model: "gpt-4o-mini",
+        // Fotku čte plný gpt-4o — mini na ručním písmu vynechával řádky.
+        model: imageBase64 ? "gpt-4o" : "gpt-4o-mini",
         temperature: 0.1,
         response_format: { type: "json_object" },
         messages: [
@@ -899,7 +905,7 @@ ${photoSection}`;
 
       const openaiUrl = "https://api.openai.com/v1/chat/completions";
       const openaiResp = await fetch(openaiUrl, {
-          signal: AbortSignal.timeout(AI_TIMEOUT_MS.openai),
+          signal: AbortSignal.timeout(imageBase64 ? AI_TIMEOUT_MS.openaiFoto : AI_TIMEOUT_MS.openai),
         method: "POST",
         headers: {
           "Content-Type": "application/json",
