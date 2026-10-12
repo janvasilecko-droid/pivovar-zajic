@@ -71,15 +71,36 @@ export function poradiPodlePrepisu(
   });
   const pouzite = new Set<number>();
   const vysledek: PolozkaVPoradi[] = [];
+  // Položka, jejíž raw_line je doslova tenhle řádek, k němu patří vždy —
+  // i když by párování podle piva × obalu vyšlo jinak (12. 10. 2026:
+  // „20x 0,5l 10°" se z řádku přečetlo jako 10l a lahve se zdvojily).
+  const radekKlic = (t: string | null | undefined) => (t ?? "").toLowerCase().replace(/\s+/g, " ").trim();
+  const podleRadku = new Map<string, number[]>();
+  polozky.forEach((it, i) => {
+    const k = radekKlic(it.raw_line);
+    if (k) podleRadku.set(k, [...(podleRadku.get(k) ?? []), i]);
+  });
+  const vezmi = (i: number) => {
+    pouzite.add(i);
+    for (const seznam of volne.values()) { const j = seznam.indexOf(i); if (j >= 0) seznam.splice(j, 1); }
+    for (const seznam of podleRadku.values()) { const j = seznam.indexOf(i); if (j >= 0) seznam.splice(j, 1); }
+  };
   for (const { qty, radek } of radkyObjednavky(prepis)) {
+    const stejnyRadek = podleRadku.get(radekKlic(radek));
+    if (stejnyRadek && stejnyRadek.length) {
+      const i = stejnyRadek[0];
+      vezmi(i);
+      vysledek.push({ index: i });
+      continue;
+    }
     const degree = stupenZRadku(radek);
     const pseudo = { raw_line: radek, quantity: qty, degree, beer_name: null, package_label: null };
     const beerId = matchBeerId(pseudo, katalog.beers, katalog.aliasMap);
     const pkgId = matchPackageId(pseudo, katalog.packages, katalog.aliasMap);
     const kandidati = volne.get(klic(beerId, pkgId, qty));
     if (kandidati && kandidati.length) {
-      const i = kandidati.shift()!;
-      pouzite.add(i);
+      const i = kandidati[0];
+      vezmi(i);
       vysledek.push({ index: i });
       continue;
     }

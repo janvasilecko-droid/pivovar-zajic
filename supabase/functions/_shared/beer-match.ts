@@ -469,8 +469,11 @@ export function matchPackageId(
   // 24x1,5l PET + 20x0,5l lahev") — párovat proti celému raw_line by přiřadilo
   // všem položkám řádku jeden (nejdelší) obal. raw_line použij JEN jako zálohu,
   // když AI obal nevrátila.
-  const labelText = normText(item.package_label || "");
-  const rawText = normText(item.raw_line || "");
+  // Desetinná čárka jako tečka („0,5l" = obal „0.5l"), jinak by přesná shoda
+  // s názvem obalu níž „0,5l" nepoznala (12. 10. 2026: „20x 0,5l 10°" → 10l).
+  const tecka = (t: string) => t.replace(/(\d),(\d)/g, "$1.$2");
+  const labelText = tecka(normText(item.package_label || ""));
+  const rawText = tecka(normText(item.raw_line || ""));
   const text = labelText || rawText;
   if (!text) return null;
 
@@ -503,7 +506,8 @@ export function matchPackageId(
   // — to by z něj dělalo množství: v „20x0,5l" je objem 0,5, ne 20.
   const maObjem = (v: number): boolean => {
     const cislo = String(v).replace('.', '[.,]');
-    return new RegExp(`(?:^|[^0-9.,])${cislo}(?:\\s*l\\b|(?![0-9.,x]))`, 'i').test(text);
+    // Za číslem nesmí být „°" — „10°" je stupeň, ne sud 10 l.
+    return new RegExp(`(?:^|[^0-9.,])${cislo}(?:\\s*l\\b|(?![0-9.,x°]))`, 'i').test(text);
   };
 
   const pickVol = (v: number): string | null => {
