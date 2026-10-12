@@ -5,8 +5,9 @@ import { PRAVIDLA_CTENI_OBJEDNAVEK } from "../_shared/order-rules.ts";
 
 // ⏱️ Časové stropy pro jednotlivé AI poskytovatele.
 // ---------------------------------------------------------------------------
-// Funkce zkouší Gemini → Groq → Mistral → OpenAI a při chybě přepne na
-// dalšího. Dokud tady timeouty nebyly, platilo to jen pro poskytovatele, který
+// Funkce zkouší Gemini → Groq → Mistral (jen bezplatné tarify — 12. 10. 2026
+// majitel: „chci to zadarmo"; placené OpenAI a Claude se nevolají) a při chybě
+// přepne na dalšího. Dokud tady timeouty nebyly, platilo to jen pro poskytovatele, který
 // ODPOVĚDĚL chybou — když se některý zasekl a neodpověděl vůbec, čekalo se na
 // něj až do tvrdého limitu platformy (150 s) a záložní poskytovatelé se nikdy
 // nespustili. Volání skončilo HTTP 546/504 a objednávka se nepřečetla vůbec,
@@ -20,7 +21,6 @@ const AI_TIMEOUT_MS = {
   geminiFoto: 55_000,
   groq: 25_000,
   mistral: 25_000,
-  openai: 30_000,
 };
 
 // Celkový čas na čtení — pod tvrdým limitem platformy 150 s. Každý další
@@ -245,17 +245,16 @@ Deno.serve(async (req: Request) => {
     const { data: secretRows, error: secretsErr } = await supabase
       .from("app_secrets")
       .select("key, value")
-      .in("key", ["GEMINI_API_KEY", "GROQ_API_KEY", "MISTRAL_API_KEY", "OPENAI_API_KEY"]);
+      .in("key", ["GEMINI_API_KEY", "GROQ_API_KEY", "MISTRAL_API_KEY"]);
 
     const secretsMap = new Map((secretRows ?? []).map((s) => [s.key, s.value]));
     const geminiKey = secretsMap.get("GEMINI_API_KEY");
     const groqKey = secretsMap.get("GROQ_API_KEY");
     const mistralKey = secretsMap.get("MISTRAL_API_KEY");
-    const openaiKey = secretsMap.get("OPENAI_API_KEY");
 
-    if (secretsErr || (!geminiKey && !groqKey && !mistralKey && !openaiKey)) {
+    if (secretsErr || (!geminiKey && !groqKey && !mistralKey)) {
       return new Response(
-        JSON.stringify({ error: "Neither GEMINI_API_KEY nor GROQ_API_KEY nor MISTRAL_API_KEY nor OPENAI_API_KEY is configured in app_secrets" }),
+        JSON.stringify({ error: "Neither GEMINI_API_KEY nor GROQ_API_KEY nor MISTRAL_API_KEY is configured in app_secrets" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
@@ -697,7 +696,6 @@ ${photoSection}`;
     // Kolik smí trvat další volání: nominální strop, ale nejvýš co zbývá z celku.
     const zbyvaMs = () => CELKOVY_STROP_MS - (Date.now() - zacatekCteni);
     const strop = (ms: number) => Math.max(1_000, Math.min(ms, zbyvaMs()));
-    let isOpenAiUsed = false;
 
     // Který provider odpověděl a proč ostatní ne — vrací se v odpovědi
     // (_provider, _provider_chyby), ať jde čtení fotky zpětně dohledat.
@@ -719,9 +717,9 @@ ${photoSection}`;
     // čtení rukopisu je výrazně lepší než záloha (12. 10. 2026: Gemini 21/21
     // řádků správně, záloha při 503 vynechala 1,5l i druhé 35× 1l).
     let geminiPretizeny = false;
-    for (let pokusGemini = 1; pokusGemini <= (imageBase64 ? 2 : 1) && !text && geminiKey && !vynechat.has("gemini"); pokusGemini++) {
+    for (let pokusGemini = 1; pokusGemini <= (imageBase64 ? 3 : 1) && !text && geminiKey && !vynechat.has("gemini"); pokusGemini++) {
       if (pokusGemini > 1) {
-        if (!geminiPretizeny) break;
+        if (!geminiPretizeny || zbyvaMs() < 20_000) break;
         await new Promise((r) => setTimeout(r, 2000));
       }
       geminiPretizeny = false;
@@ -773,11 +771,12 @@ ${photoSection}`;
           const errText = await geminiResp.text();
           console.warn(`Gemini API error (status ${geminiResp.status}): ${errText}`);
           chybyProvideru.push(`gemini: HTTP ${geminiResp.status} ${errText.slice(0, 300)}`);
-          geminiPretizeny = geminiResp.status === 503 || geminiResp.status === 429;
+          geminiPretizeny = geminiResp.status === 503 || geminiResp.status === 429 || geminiResp.status >= 500;
         }
       } catch (err) {
         console.warn(`Gemini API exception (timeout nebo síť): ${err instanceof Error ? err.name + ": " + err.message : err}`);
         chybyProvideru.push(`gemini: ${err instanceof Error ? err.name : "chyba"}`);
+        geminiPretizeny = true; // timeout/síť — u fotky zkusit znovu, dokud je čas
       }
     }
 
@@ -884,62 +883,9 @@ ${photoSection}`;
       }
     }
 
-    // 4) Poslední záchrana: OpenAI (gpt-4o-mini) — kdyby selhaly Gemini, Groq i Mistral.
-    if (!text && openaiKey && !vynechat.has("openai") && zbyvaMs() > 5_000) {
-      isOpenAiUsed = true;
-      const openaiBody = {
-        model: "gpt-4o-mini",
-        temperature: 0.1,
-        response_format: { type: "json_object" },
-        messages: [
-          {
-            role: "system",
-            content: prompt,
-          },
-          {
-            role: "user",
-            content: imageBase64
-              ? [
-                  { type: "text", text: `TEXT OBJEDNÁVKY Z WHATSAPP:\n"""\n${rawText}\n"""` },
-                  {
-                    type: "image_url",
-                    image_url: {
-                      url: `data:${imageMimeType};base64,${imageBase64}`,
-                    },
-                  },
-                ]
-              : `TEXT OBJEDNÁVKY Z WHATSAPP:\n"""\n${rawText}\n"""`,
-          },
-        ],
-      };
-
-      const openaiUrl = "https://api.openai.com/v1/chat/completions";
-      const openaiResp = await fetch(openaiUrl, {
-          signal: AbortSignal.timeout(strop(AI_TIMEOUT_MS.openai)),
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${openaiKey}`,
-        },
-        body: JSON.stringify(openaiBody),
-      });
-
-      if (!openaiResp.ok) {
-        const errText = await openaiResp.text();
-        return new Response(
-          JSON.stringify({ error: `LLM service failed. OpenAI API error (${openaiResp.status}): ${errText}` }),
-          { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-        );
-      }
-
-      const openaiData = await openaiResp.json();
-      const candidate = openaiData?.choices?.[0]?.message?.content ?? "";
-      text = prijmi("openai", candidate);
-    }
-
     if (!text) {
       return new Response(
-        JSON.stringify({ error: "Failed to get response from any LLM provider (Gemini, Groq, Mistral, OpenAI)", _provider_chyby: chybyProvideru }),
+        JSON.stringify({ error: "Failed to get response from any LLM provider (Gemini, Groq, Mistral)", _provider_chyby: chybyProvideru }),
         { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }

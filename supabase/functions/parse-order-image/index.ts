@@ -18,11 +18,13 @@ const corsHeaders = {
 // tvrdého limitu platformy (150 s) a záložní poskytovatelé se nikdy
 // nespustili. Volání pak skončilo HTTP 546/504 a objednávka se nepřečetla.
 // Součet stropů musí zůstat bezpečně pod 150 s.
+// 12. 10. 2026: majitel chce čtení zdarma — jen Gemini (bezplatný tarif).
+// Claude ani OpenAI se nevolají. Gemini dostane až 3 pokusy (přetížení 503/429
+// nebo timeout), celkem pod CELKOVY_STROP_MS.
 const AI_TIMEOUT_MS = {
-  gemini: 30_000,
-  anthropic: 30_000,
-  openai: 30_000,
+  gemini: 55_000,
 };
+const CELKOVY_STROP_MS = 140_000;
 
 interface OrderItem {
   quantity: number | null;
@@ -88,16 +90,14 @@ Deno.serve(async (req: Request) => {
     const { data: secretRows, error: secretsErr } = await supabase
       .from("app_secrets")
       .select("key, value")
-      .in("key", ["GEMINI_API_KEY", "ANTHROPIC_API_KEY", "OPENAI_API_KEY"]);
+      .in("key", ["GEMINI_API_KEY"]);
 
     const secretsMap = new Map((secretRows ?? []).map((s) => [s.key, s.value]));
     const geminiKey = secretsMap.get("GEMINI_API_KEY");
-    const apiKey = secretsMap.get("ANTHROPIC_API_KEY");
-    const openaiKey = secretsMap.get("OPENAI_API_KEY");
 
-    if (secretsErr || (!geminiKey && !apiKey && !openaiKey)) {
+    if (secretsErr || !geminiKey) {
       return new Response(
-        JSON.stringify({ error: "Neither GEMINI_API_KEY nor ANTHROPIC_API_KEY nor OPENAI_API_KEY is configured in app_secrets" }),
+        JSON.stringify({ error: "GEMINI_API_KEY is not configured in app_secrets" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
@@ -389,37 +389,21 @@ Do odpovědi VŽDY přidej i top-level pole "place_name" (na úrovni celé odpov
 
 
 
-    const anthropicBody = {
-      model: "claude-sonnet-4-5-20250929",
-      max_tokens: 8192,
-      temperature: 0.1,
-      messages: [
-        {
-          role: "user",
-          content: [
-            { type: "text", text: prompt },
-            {
-              type: "image",
-              source: {
-                type: "base64",
-                media_type: imageMimeType,
-                data: imageBase64,
-              },
-            },
-          ],
-        },
-      ],
-    };
-
-
     let text = "";
-    let isOpenAiUsed = false;
+    const zacatekCteni = Date.now();
+    let geminiZnovu = false;
 
     // 1) Primární provider: Google Gemini (nativní JSON mode, vision).
     //    Gemini má velkorysé rate limity a čtení funguje bez Anthropic kreditů.
     //    Pozn.: "gemini-2.5-flash" už Google nezpřístupňuje novým klíčům (HTTP 404),
     //    proto používáme gemini-3.5-flash (GA, stejná kategorie flash).
-    if (!text && geminiKey) {
+    for (let pokus = 1; pokus <= 3 && !text; pokus++) {
+      const zbyva = CELKOVY_STROP_MS - (Date.now() - zacatekCteni);
+      if (pokus > 1) {
+        if (!geminiZnovu || zbyva < 20_000) break;
+        await new Promise((r) => setTimeout(r, 2000));
+      }
+      geminiZnovu = false;
       try {
         const geminiBody = {
           contents: [
@@ -445,7 +429,7 @@ Do odpovědi VŽDY přidej i top-level pole "place_name" (na úrovni celé odpov
 
         const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${encodeURIComponent(geminiKey)}`;
         const geminiResp = await fetch(geminiUrl, {
-          signal: AbortSignal.timeout(AI_TIMEOUT_MS.gemini),
+          signal: AbortSignal.timeout(Math.max(5_000, Math.min(AI_TIMEOUT_MS.gemini, CELKOVY_STROP_MS - (Date.now() - zacatekCteni)))),
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -462,95 +446,17 @@ Do odpovědi VŽDY přidej i top-level pole "place_name" (na úrovni celé odpov
         } else {
           const errText = await geminiResp.text();
           console.warn(`Gemini API error (status ${geminiResp.status}): ${errText}`);
+          geminiZnovu = geminiResp.status === 503 || geminiResp.status === 429 || geminiResp.status >= 500;
         }
       } catch (err) {
         console.warn(`Gemini API exception (timeout nebo síť): ${err instanceof Error ? err.name + ": " + err.message : err}`);
+        geminiZnovu = true;
       }
-    }
-
-    // 2) Fallback k Anthropic
-    if (apiKey) {
-      try {
-        const anthropicUrl = "https://api.anthropic.com/v1/messages";
-        const anthropicResp = await fetch(anthropicUrl, {
-          signal: AbortSignal.timeout(AI_TIMEOUT_MS.anthropic),
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": apiKey,
-            "anthropic-version": "2023-06-01",
-          },
-          body: JSON.stringify(anthropicBody),
-        });
-
-        if (anthropicResp.ok) {
-          const anthropicData = await anthropicResp.json();
-          text = anthropicData?.content?.[0]?.text ?? "";
-        } else {
-          const errText = await anthropicResp.text();
-          console.warn(`Anthropic API error (status ${anthropicResp.status}): ${errText}`);
-        }
-      } catch (err) {
-        console.warn(`Anthropic API exception (timeout nebo síť): ${err instanceof Error ? err.name + ": " + err.message : err}`);
-      }
-    }
-
-    // Fallback k OpenAI (Vision API)
-    if (!text && openaiKey) {
-      isOpenAiUsed = true;
-      const openaiBody = {
-        model: "gpt-4o",
-        temperature: 0.1,
-        response_format: { type: "json_object" },
-        messages: [
-          {
-            role: "system",
-            content: prompt,
-          },
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: "Here is the image of the order. Please parse it according to the instructions.",
-              },
-              {
-                type: "image_url",
-                image_url: {
-                  url: `data:${imageMimeType};base64,${imageBase64}`,
-                },
-              },
-            ],
-          },
-        ],
-      };
-
-      const openaiUrl = "https://api.openai.com/v1/chat/completions";
-      const openaiResp = await fetch(openaiUrl, {
-          signal: AbortSignal.timeout(AI_TIMEOUT_MS.openai),
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${openaiKey}`,
-        },
-        body: JSON.stringify(openaiBody),
-      });
-
-      if (!openaiResp.ok) {
-        const errText = await openaiResp.text();
-        return new Response(
-          JSON.stringify({ error: `LLM service failed. OpenAI API error (${openaiResp.status}): ${errText}` }),
-          { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-        );
-      }
-
-      const openaiData = await openaiResp.json();
-      text = openaiData?.choices?.[0]?.message?.content ?? "";
     }
 
     if (!text) {
       return new Response(
-        JSON.stringify({ error: "Failed to get response from any LLM provider (Gemini, Anthropic, OpenAI)" }),
+        JSON.stringify({ error: "Gemini nepřečetl fotku (ani po opakování) — zkus to za chvíli znovu." }),
         { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
