@@ -4,6 +4,7 @@ import { WhatsAppIncoming, ignoreWhatsAppMessage, updateWhatsAppParsedData, napo
 import { parseWhatsAppOrderMessageWithAI } from '../lib/whatsappParser';
 import { parseDeliveryDayFromText, loadAliasMap, saveAlias, canLearnBeerAlias, matchBeerFromHints, matchPackage, jeLitrPsanyJakoJedenact, pivoNapsanePodleJmena, savePlaceAlias, normalize, getOrCreatePlace, type ParserAliasMap } from '../lib/orderParser';
 import { matchAgainstCatalog } from '../../supabase/functions/_shared/place-match';
+import { doplnChybejiciZPrepisu } from '../../supabase/functions/_shared/prepis-fotky';
 import { oznacVlastniObjednavku } from '../lib/mojeObjednavky';
 import { diffOrderItems, rozsahOdpovedi, slozNavrh, potvrzeneBezPolozek, kandidatiNaDoplneni, datumObjednavky, vypadaJakoZmenaObjednavky, type DiffRow, type RozsahOdpovedi, type SkupinaObalu, type ObjednavkaKandidat } from '../lib/whatsappAmendment';
 import { PlaceCombobox } from './PlaceCombobox';
@@ -331,6 +332,42 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
           rawLine: item.raw_line,
         };
       });
+      // 📷 Fotka: řádky přepisu, které v položkách chybí, se doplní hned při
+      // otevření — i u zpráv přečtených dřív (12. 10. 2026: přepis měl 22
+      // řádků, uložených položek bylo 13). Porovnává se podle počtu výskytů
+      // (pivo × obal × kusy), stejně jako na serveru (_shared/prepis-fotky.ts).
+      if (msg!.media_url && msg!.parsed_raw_text) {
+        try {
+          const doplneno = doplnChybejiciZPrepisu(
+            msg!.parsed_raw_text,
+            initItems.map((it) => ({
+              beer_id: it.beerId || null, pkg_id: it.pkgId || null, qty: Number(it.qty) || null,
+              degree: null, beer_name: null, package_label: null, raw_line: it.rawLine ?? null,
+            })),
+            { beers: props.beers as any, packages: props.packages as any, aliasMap },
+          );
+          doplneno.forEach((d, j) => {
+            const pkg = props.packages.find((p) => p.id === d.pkg_id);
+            const litr = jeLitrPsanyJakoJedenact(d.raw_line || '') ? props.packages.find((p) => Number(p.volume_l) === 1) : undefined;
+            initItems.push({
+              key: `item-${msg!.id}-prepis-${j}-${Date.now()}`,
+              beerId: (pivoNapsanePodleJmena(d.raw_line, d.degree, props.beers)?.id) || d.beer_id || '',
+              pkgId: (litr ?? pkg)?.id || '',
+              qty: String(d.qty ?? 1),
+              aiQty: null,
+              degree: d.degree,
+              beerName: d.beer_name,
+              packageLabel: d.package_label,
+              rawLine: d.raw_line,
+            });
+          });
+          if (doplneno.length) {
+            setStatusMessage(`Z přepisu fotky doplněno ${doplneno.length} řádků, které AI nedala do položek — zkontroluj je na konci seznamu.`);
+          }
+        } catch (e) {
+          console.warn('[WhatsAppOrderReviewModal] doplnění z přepisu selhalo:', e);
+        }
+      }
       setItems(initItems);
     })();
     return () => { cancelled = true; };

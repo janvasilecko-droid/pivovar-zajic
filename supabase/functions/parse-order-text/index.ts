@@ -13,6 +13,9 @@ import { PRAVIDLA_CTENI_OBJEDNAVEK } from "../_shared/order-rules.ts";
 // přestože tři funkční záložní poskytovatelé byli k dispozici.
 // Součet stropů musí zůstat bezpečně pod 150 s.
 const AI_TIMEOUT_MS = {
+  // Jen u fotek (viz níž); Groq a Mistral fotku nevidí, u fotek se přeskakují,
+  // takže součet u fotky je 60 + 30 + 30 s.
+  anthropic: 60_000,
   gemini: 30_000,
   groq: 25_000,
   mistral: 25_000,
@@ -227,13 +230,14 @@ Deno.serve(async (req: Request) => {
     const { data: secretRows, error: secretsErr } = await supabase
       .from("app_secrets")
       .select("key, value")
-      .in("key", ["GEMINI_API_KEY", "GROQ_API_KEY", "MISTRAL_API_KEY", "OPENAI_API_KEY"]);
+      .in("key", ["GEMINI_API_KEY", "GROQ_API_KEY", "MISTRAL_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY"]);
 
     const secretsMap = new Map((secretRows ?? []).map((s) => [s.key, s.value]));
     const geminiKey = secretsMap.get("GEMINI_API_KEY");
     const groqKey = secretsMap.get("GROQ_API_KEY");
     const mistralKey = secretsMap.get("MISTRAL_API_KEY");
     const openaiKey = secretsMap.get("OPENAI_API_KEY");
+    const anthropicKey = secretsMap.get("ANTHROPIC_API_KEY");
 
     if (secretsErr || (!geminiKey && !groqKey && !mistralKey && !openaiKey)) {
       return new Response(
@@ -662,6 +666,60 @@ ${photoSection}`;
     let text = "";
     let isOpenAiUsed = false;
 
+    // 0) FOTKA: nejdřív Claude. 12. 10. 2026 Gemini Flash na ručně psaném
+    //    lístku (Radek, 22 řádků) opakovaně vynechal celý blok „35x 1l …"
+    //    a „1l"/„1,5l" přepisoval jako „11" — objednávka v appce chyběla.
+    //    Claude čte rukopis spolehlivěji; Gemini a OpenAI zůstávají jako záloha.
+    if (!text && imageBase64 && anthropicKey) {
+      try {
+        const claudeResp = await fetch("https://api.anthropic.com/v1/messages", {
+          signal: AbortSignal.timeout(AI_TIMEOUT_MS.anthropic),
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": anthropicKey,
+            "anthropic-version": "2023-06-01",
+            "anthropic-beta": "server-side-fallback-2026-07-01",
+          },
+          body: JSON.stringify({
+            model: "claude-opus-5-5",
+            max_tokens: 16000,
+            output_config: { effort: "medium" },
+            fallbacks: "default",
+            system: prompt,
+            messages: [
+              {
+                role: "user",
+                content: [
+                  { type: "image", source: { type: "base64", media_type: imageMimeType, data: imageBase64 } },
+                  {
+                    type: "text",
+                    text: `TEXT OBJEDNÁVKY Z WHATSAPP:\n"""\n${rawText}\n"""\n\nPřečti z fotky VŠECHNY řádky objednávky (i pod čarou a na konci stránky) a vrať jen JSON podle zadání.`,
+                  },
+                ],
+              },
+            ],
+          }),
+        });
+        if (claudeResp.ok) {
+          const claudeData = await claudeResp.json();
+          if (claudeData?.stop_reason === "refusal") {
+            console.warn("Claude odmítl čtení fotky — zkouším dalšího providera");
+          } else {
+            const candidate = (claudeData?.content ?? [])
+              .filter((b: any) => b?.type === "text")
+              .map((b: any) => b.text || "")
+              .join("");
+            text = acceptOutput("anthropic", candidate, beerNameKeys, pkgLabelKeys);
+          }
+        } else {
+          console.warn(`Claude API error (status ${claudeResp.status}): ${await claudeResp.text()}`);
+        }
+      } catch (err) {
+        console.warn(`Claude API exception (timeout nebo síť): ${err instanceof Error ? err.name + ": " + err.message : err}`);
+      }
+    }
+
     // 1) Primární provider: Google Gemini (nativní JSON mode).
     //    Gemini má velkorysé rate limity (na rozdíl od OpenAI TPM limitů)
     //    a čtení funguje bez kreditů navíc.
@@ -731,7 +789,7 @@ ${photoSection}`;
     //    logovalo jen jako varování. Proto se zkouší několik modelů za sebou:
     //    404 přijde řádově do 200 ms, takže to nic nestojí, a když Groq model
     //    zase přejmenuje, záloha se opraví sama.
-    if (!text && groqKey) {
+    if (!text && groqKey && !imageBase64) {
       const groqUrl = "https://api.groq.com/openai/v1/chat/completions";
       for (const model of GROQ_MODELY) {
         if (text) break;
@@ -768,7 +826,7 @@ ${photoSection}`;
 
     // 3) Další pojistka: Mistral (mistral-large-latest). Když vyčerpá limit
     //    i Groq (HTTP 429/500), přepneme OKAMŽITĚ dál — bez čekání, řádově 0,5 s.
-    if (!text && mistralKey) {
+    if (!text && mistralKey && !imageBase64) {
       try {
         const mistralUrl = "https://api.mistral.ai/v1/chat/completions";
         const mistralResp = await fetch(mistralUrl, {
