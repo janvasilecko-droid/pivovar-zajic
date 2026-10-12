@@ -2,7 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { readJsonWithLimit, requireApprovedUser } from "../_shared/require-user.ts";
 import { vlastniJmenaPiv } from "../_shared/beer-match.ts";
 import { ctiPresGemini, dostupneModelyGemini, planPokusuFoto, planPokusuText } from "../_shared/gemini-cteni.ts";
-import { PRAVIDLA_CTENI_OBJEDNAVEK } from "../_shared/order-rules.ts";
+import { PRAVIDLA_CTENI_OBJEDNAVEK, RUKOPIS_LISTKU } from "../_shared/order-rules.ts";
 import { prepisFotkyGoogle, sekceOcr, textSOcr } from "../_shared/google-ocr.ts";
 
 // ⏱️ Časové stropy pro jednotlivé AI poskytovatele.
@@ -424,7 +424,8 @@ K této objednávce je přiložená i FOTKA (viz obrázek v požadavku). Přečt
 - raw_text = doslovný přepis CELÉHO textu z fotky, řádek po řádku, v pořadí jako na fotce (i nečitelné části).
 - Ke KAŽDÉMU řádku fotky s objednávkovým údajem MUSÍ existovat položka v items (viz pravidla výše).
 - Čísla čti VELMI POZORNĚ (5x30 ≠ 5x50, 3 vs 5 vs 8, 0 vs 6).
-- Text zprávy níže je jen doplněk k fotce — má přednost to, co je na fotce.`;
+- Text zprávy níže je jen doplněk k fotce — má přednost to, co je na fotce.
+${RUKOPIS_LISTKU}`;
 
     const prompt = `Jsi asistent pro pivovar. Níže je text objednávky piva z WhatsApp (může to být celý měsíc konverzace od VÍCE odběratelů).
 Přečti VŠECHNY objednávky a vrať je jako strukturovaná data. NIKDY nevynechávej žádnou položku objednávky — i když si nejsi jistý, vrať ji s tím, co jsi rozpoznal, a nech neznámé hodnoty jako null.

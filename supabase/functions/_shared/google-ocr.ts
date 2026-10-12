@@ -14,6 +14,8 @@
 // od 900 za měsíc varuje (src/lib/ocrPouziti.ts). Nic se nezastavuje.
 // Zapne se, až je v app_secrets klíč GOOGLE_VISION_API_KEY.
 
+import { RUKOPIS_LISTKU } from "./order-rules.ts";
+
 /**
  * Opraví typické chyby OCR u ručně psaných objednávek, než text dostane AI.
  * Google Vision se trénovat nedá (12. 10. 2026 majitel: „nauč to Vision, ať
@@ -34,20 +36,34 @@ export function opravOcrObjednavky(text: string): string {
 /** Stupeň: 8°, 10°–13° (Osma je 8°). */
 const STUPEN = "(?:8|1[0-3])";
 
+/** Slova, která OCR u našich lístků komolí (z fotek srpen–říjen 2026). */
+const SLOVA: [RegExp, string][] = [
+  [/\bJANTA[NK]\b/g, "JANTAR"],
+  [/\bSOMMER\b/g, "SUMMER"],
+  [/\bKIUI\b/g, "KIWI"],
+];
+/** Nadpis „SKLAD" psaný rukou: OCR čte „SULAD", „SKLAN", „SUCOS", „SULLAIS"… */
+const SKLAD = /^(\W*)(?:SULL?AD|SKLAN|SUCOS|SULA|SULLAIS|SUAD)\b/;
+
 function opravRadek(radek: string): string {
   let r = radek
     // cyrilské „х" a „×" → x
     .replace(/[х×]/g, "x")
     // „30|LIMO" → „30l LIMO" (svislé l), „0,5/12°" → „0,5 12°"
     .replace(/(\d)\s*\|\s*/g, "$1l ")
-    .replace(/(\d)\/(?=\d)/g, "$1 ");
-  // Počet × obal: „3<301", „1K 30", „35 x 11" → „3x 301", „1x 30", „35x 11".
+    .replace(/(\d)\/(?=\d)/g, "$1 ")
+    .replace(SKLAD, "$1SKLAD");
+  for (const [vzor, slovo] of SLOVA) r = r.replace(vzor, slovo);
+  // „+ 10x 1,5l" — znaménko před řádkem (dopsaná položka) odložit stranou.
+  const plus = r.match(/^\s*[+•]\s*/)?.[0] ?? "";
+  r = r.slice(plus.length);
+  // Počet × obal: „3<301", „1K 30", „5+30l", „35 x 11" → „3x 301", „1x 30", „5x 30l", „35x 11".
   // „S" (5 nebo 8) zůstává — jen se srovná oddělovač, ať se opraví zbytek řádku.
-  r = r.replace(/^(\s*(?:\d{1,3}|[sS]))\s*(?:[xX<]|K(?=\s*\d))\s*(?=\S)/, "$1x ");
+  r = r.replace(/^(\s*(?:\d{1,3}|[sS]))\s*(?:[xX<]|K(?=\s*\d)|\+(?=\d))\s*(?=\S)/, "$1x ");
   // „2005 LIMO" = „20x 0,5 LIMO" (x mezi počtem a 0,5 vypadlo).
   r = r.replace(/^(\s*(?:10|15|20|25|30|40|50))0[,.]?5(?=\s)/, "$1x 0,5l");
   const m = r.match(/^(\s*(?:\d{1,3}|[sS])x )(\S+)(.*)$/);
-  if (!m) return r;
+  if (!m) return plus + r;
   const pocet = m[1];
   let obal = m[2];
   // „11°" psané jako „M°", „Mo sv.", „Mosv.", „M's".
@@ -68,6 +84,8 @@ function opravRadek(radek: string): string {
     obal = obal.slice(0, -1) + "l"; // „101", „15h", „10f", „30%"
   } else if (/^(10|15|20|30|50)0$/.test(obal) && stupenDal) {
     obal = obal.slice(0, -1) + "l"; // „4x 300 11°" = „4x 30l 11°"
+  } else if (new RegExp(`^(${STUPEN})[0"']$`).test(obal) && !stupenDal) {
+    obal = obal.slice(0, -1) + "°"; // „10x 120" = „10x 12°" (obal nenapsaný)
   } else if (/^[sS][oO0][lI1]$/.test(obal)) {
     obal = "30l"; // „5x sol 10°"
   } else if (/^45[lI1]?$/.test(obal)) {
@@ -80,7 +98,7 @@ function opravRadek(radek: string): string {
     "$1$2°",
   );
   r = r.replace(/(^\s*\d{1,3}x 1l\s+)&/, "$18°");
-  return r;
+  return plus + r;
 }
 
 /** Text z odpovědi images:annotate (DOCUMENT_TEXT_DETECTION); "" když nic. */
@@ -109,7 +127,8 @@ ${zaklad}
 - Čísla čti VELMI POZORNĚ (5x30 ≠ 5x50, 3 vs 5 vs 8, 0 vs 6).
 - OCR u rukopisu plete znaky: „1l"/„1,5l" přečte jako „11"/„1,51"/„15l", „0,5" jako „05"/„0.5", „x" jako „×"/„k"/„<", „0"↔„O", „1"↔„l"/„I". Typické chyby už jsou v přepisu opravené; zbytek oprav podle smyslu a pravidel výše (stupeň vs. objem).
 - Ručně psaná „1" s dlouhou nožičkou vypadá jako „7" nebo „4" a „11°" jako „M°". „8" vypadá jako „S" nebo „&". Číslo, které z toho nejde jistě rozhodnout (např. „Sx 30l 12°" = 5x, nebo 8x?), rozhodni podle fotky; když fotku nevidíš, dej položku a do "otazky" napiš, ať obsluha počet zkontroluje.
-- Text zprávy je jen doplněk k fotce — má přednost to, co je na fotce.`;
+- Text zprávy je jen doplněk k fotce — má přednost to, co je na fotce.
+${RUKOPIS_LISTKU}`;
 }
 
 /** Uživatelská část požadavku: text zprávy + přepis fotky. */
