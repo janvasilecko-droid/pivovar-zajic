@@ -15,3 +15,13 @@ describe('Plán čtení fotky přes Gemini (zdarma, víc pokusů)', () => {
     expect(planPokusuText()).toHaveLength(1);
   });
 });
+
+describe('Gemma podle nabídky klíče', () => {
+  it('bez 27B vezme největší Gemmu s obrazem, 1B ne', () => {
+    const plan = planPokusuFoto(['gemini-3.5-flash', 'gemma-3-1b-it', 'gemma-3-12b-it', 'gemma-3-4b-it']);
+    expect(plan[plan.length - 1].model).toBe('gemma-3-12b-it');
+  });
+  it('bez Gemmy v nabídce žádná Gemma', () => {
+    expect(planPokusuFoto(['gemini-3.5-flash']).some((p) => p.model.startsWith('gemma'))).toBe(false);
+  });
+});

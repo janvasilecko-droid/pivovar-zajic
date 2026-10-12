@@ -38,7 +38,13 @@ export function planPokusuFoto(dostupne: string[] | null): PokusGemini[] {
   ];
   if (jinyFlash) plan.push({ model: jinyFlash, json: true, pauzaMs: 0 });
   plan.push({ model: HLAVNI, json: true, pauzaMs: 8_000 });
-  if (ma(GEMMA)) plan.push({ model: GEMMA, json: false, pauzaMs: 0 });
+  // Gemma s obrazem: preferovaná 27B, jinak největší nabízená (1B obraz neumí).
+  const velikost = (m: string) => Number(m.match(/-(\d+)b-it$/)?.[1] ?? 0);
+  const gemma = ma(GEMMA)
+    ? GEMMA
+    : (dostupne ?? []).filter((m) => /^gemma-[\d.]+n?-(?:e)?\d+b-it$/.test(m) && velikost(m) >= 4)
+      .sort((a, b) => velikost(b) - velikost(a) || b.localeCompare(a, "en", { numeric: true }))[0];
+  if (gemma) plan.push({ model: gemma, json: false, pauzaMs: 0 });
   return plan;
 }
 
