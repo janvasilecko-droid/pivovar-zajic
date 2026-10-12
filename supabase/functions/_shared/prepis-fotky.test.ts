@@ -84,3 +84,16 @@ describe('Pořadí podle fotky (12. 10. 2026: „máš na konci limonády")', ()
     ]);
   });
 });
+
+describe('Řádek „20x 0,5l 10°" (12. 10. 2026)', () => {
+  it('je lahev 0,5l, ne sud 10l, a nezdvojí se', async () => {
+    const { poradiPodlePrepisu } = await import('./prepis-fotky');
+    const { matchPackageId } = await import('./beer-match');
+    expect(matchPackageId({ raw_line: '20x 0,5l 10°', package_label: null }, packages, katalog.aliasMap)).toBe('l05');
+    const r = poradiPodlePrepisu('20x 0,5l 10°\n3x 10 11°sv.', [
+      polozka('b10', 'l05', 20, '20x 0,5l 10°'),
+      polozka('b11', 'k10', 3, '3x 10 11°sv.'),
+    ], katalog);
+    expect(r).toEqual([{ index: 0 }, { index: 1 }]);
+  });
+});

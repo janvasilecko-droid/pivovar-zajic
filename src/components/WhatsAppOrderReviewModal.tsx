@@ -1988,8 +1988,10 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                               s přednastavenými počty, takže na řádku byla dvě
                               místa s množstvím a nebylo poznat, které platí.
                               Všechna tři pole mají stejnou velikost písma
-                              i výšku na dotek. */}
-                          <div className="flex items-center gap-2 flex-wrap">
+                              i výšku na dotek. Vše v JEDNOM řádku i na mobilu
+                              (12. 10. 2026: „pivo, obal a množství přehledně
+                              v jednom řádku") — pole se zúží, nezalamují. */}
+                          <div className="flex items-center gap-1.5">
                             {splitEnabled && (
                               <label className="flex items-center gap-1 shrink-0 text-xs font-bold text-amber-800" title="Patří druhému odběrateli">
                                 <input
@@ -2004,7 +2006,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                             <select
                               value={item.beerId}
                               onChange={(e) => updateItemBeer(index, e.target.value)}
-                              className="select !py-1 text-sm font-black min-h-[44px] flex-1 min-w-[130px]"
+                              className="select !py-1 !px-2 text-sm font-black min-h-[44px] flex-[3] min-w-0"
                               title="Pivo"
                             >
                               <option value="">(Vyber pivo)</option>
@@ -2015,7 +2017,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                             <select
                               value={item.pkgId}
                               onChange={(e) => updateItemPkg(index, e.target.value)}
-                              className="select !py-1 text-sm font-black min-h-[44px] flex-1 min-w-[120px]"
+                              className="select !py-1 !px-2 text-sm font-black min-h-[44px] flex-[2] min-w-0"
                               title="Obal / objem"
                             >
                               <option value="">(Vyber obal)</option>
@@ -2028,7 +2030,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                               min={1}
                               value={item.qty}
                               onChange={(e) => updateItemQty(index, e.target.value)}
-                              className="input !py-1 !px-2 text-sm font-black w-20 text-center shrink-0 min-h-[44px]"
+                              className="input !py-1 !px-1 text-sm font-black w-14 text-center shrink-0 min-h-[44px]"
                               title="Počet kusů"
                             />
                             <button
