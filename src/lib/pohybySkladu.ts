@@ -17,7 +17,7 @@ import { MOVEMENT_LABELS, stockAsOf, stockAtStartOfDay, stockKey, type Movement,
 export const SKUPINY_POHYBU: { id: string; label: string; druhy: MovementKind[] }[] = [
   { id: 'stoceno', label: 'Stočeno', druhy: ['staceni', 'kegovani'] },
   { id: 'zavoz', label: 'Závozy', druhy: ['zavoz'] },
-  { id: 'fasovani', label: 'Fasování a prodejna', druhy: ['fasovani', 'prodejna'] },
+  { id: 'fasovani', label: 'Fasování', druhy: ['fasovani', 'prodejna'] },
   { id: 'akce', label: 'Akce', druhy: ['akce'] },
   { id: 'odpis', label: 'Odpisy', druhy: ['odpis'] },
   { id: 'inventura', label: 'Inventura a dorovnání', druhy: ['inventura', 'dorovnani'] },

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useRef, lazy, Suspense } from 'react';
 import { supabase, Beer, Package, EntryRow, useRealtime, beerBg, beerText, beerName, formatPackageLabel, fetchAllRows } from '../lib/supabase';
 import { EmptyState, Spinner, Modal } from '../components/ui';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
-import { AlertTriangle, ArrowRight, BarChart3, CalendarDays, Camera, Check, CheckCircle2, ClipboardList, FileSpreadsheet, Lightbulb, ListChecks, Megaphone, Minus, Package as PackageIcon, PenLine, Pencil, Play, Plus, Sparkles, Trash2, Wine, X } from 'lucide-react';
+import { AlertTriangle, ArrowRight, BarChart3, CalendarDays, Camera, Check, CheckCircle2, ClipboardList, FileSpreadsheet, Lightbulb, ListChecks, Megaphone, Minus, Package as PackageIcon, PenLine, Pencil, Play, Plus, Sparkles, Trash2, X } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { BottlingPlan, getPlanSeenAt, markPlanSeenAt, isPlanUnseen, isBottlingManager, setPlanStatus, saveBottlingPlan, deleteBottlingPlan } from '../lib/bottlingPlans';
 import { BottlingPlanBottler } from '../components/BottlingPlanBottler';
@@ -25,6 +25,7 @@ import { navrhSudu, skutecnaVytrataProcenta } from '../lib/bottlingYield';
 import { synchronizuj } from '../lib/checklistData';
 import { computePackageNeeds, PackageNeedsRow } from '../lib/packageNeeds';
 import { jeSud } from '../lib/inventoryFix';
+import { FILTR_SUDU, odpovidaFiltruObalu } from '../lib/filtrSudu';
 import { computeKeggingPlan, mergeWeekPlan, rozpadPoObalech, BEZ_TERMINU } from '../lib/keggingPlan';
 import { zbytekKeKonciTydne } from '../lib/tydenniZbytek';
 import { naplanujPresun } from '../lib/presunPolozky';
@@ -376,12 +377,10 @@ export default function BottlingScreen({
   const [weekKey, setWeekKey] = useState(() => isoWeekKey(businessDateISO()));
   const weekLabel = weekRange(weekKey).label;
   // Posun měsíce o delta měsíců (vrací YYYY-MM)
-  // Záložka záznamů: lahve / KEG / vše
-  const [recordsTab, setRecordsTab] = useState<'lahve' | 'keg' | 'vse'>('lahve');
   const [recordsBeerFilter, setRecordsBeerFilter] = useState('');
   const [recordsPkgFilter, setRecordsPkgFilter] = useState('');
 
-  // Období + záložka (lahve/KEG/vše) + pivo + obal — beze změny znaménka.
+  // Období + pivo + obal (lahev, nebo sud 50 / 30 / ostatní) — beze změny znaménka.
   // Základ jak pro seznam (dál filtrovaný na kladné), tak pro součty (ty
   // musí vidět i opravy z inventury).
   const filtrObdobim = useMemo(() => {
@@ -393,25 +392,14 @@ export default function BottlingScreen({
     } else {
       result = result.filter((r) => isoWeekKey(r.entry_date) === recordsWeekKey);
     }
-    if (recordsTab === 'lahve') {
-      result = result.filter((r) => {
-        const pkg = packages.find((p) => p.id === r.package_id);
-        return !pkg || !jeSud(pkg.kind, pkg.label);
-      });
-    } else if (recordsTab === 'keg') {
-      result = result.filter((r) => {
-        const pkg = packages.find((p) => p.id === r.package_id);
-        return pkg && jeSud(pkg.kind, pkg.label);
-      });
-    }
     if (recordsBeerFilter) {
       result = result.filter((r) => r.beer_id === recordsBeerFilter);
     }
     if (recordsPkgFilter) {
-      result = result.filter((r) => r.package_id === recordsPkgFilter);
+      result = result.filter((r) => odpovidaFiltruObalu(r.package_id, recordsPkgFilter, packages));
     }
     return result;
-  }, [rows, recordsView, recordsDay, recordsMonthKey, recordsWeekKey, recordsTab, recordsBeerFilter, recordsPkgFilter, packages]);
+  }, [rows, recordsView, recordsDay, recordsMonthKey, recordsWeekKey, recordsBeerFilter, recordsPkgFilter, packages]);
 
   const filteredRows = useMemo(
     // Minusové položky (ruční opravy z inventury) se v přehledu stáčení
@@ -1294,20 +1282,6 @@ export default function BottlingScreen({
     load(true);
   }
 
-  // Přehled podle velikosti lahví
-
-  const BOTTLE_SIZES = [1.5, 1, 0.5, 0.33];
-
-  const sizeBuckets = BOTTLE_SIZES.map((size) => {
-    const sizeRows = periodRows.filter((r) => {
-      const pkg = packages.find((p) => p.id === r.package_id);
-      return pkg && Math.abs(Number(pkg.volume_l) - size) < 0.01;
-    });
-    const count = sizeRows.reduce((s, r) => s + Number(r.quantity), 0);
-    const liters = sizeRows.reduce((s, r) => s + Number(r.quantity) * size, 0);
-    return { size, count, liters };
-  });
-
   // Přehled podle velikosti KEG
   const kegBuckets = KEG_SIZES.map((size) => {
     const sizeRows = periodRows.filter((r) => {
@@ -1358,18 +1332,6 @@ export default function BottlingScreen({
     const lossPct = totalSourceL > 0 ? (lossL / totalSourceL * 100) : 0;
     return { totalKegCount, totalKegLiters, totalSourceL, totalBottledL, lossL, lossPct };
   }, [periodRows, packages]);
-
-  const otherRows = periodRows.filter((r) => {
-    const pkg = packages.find((p) => p.id === r.package_id);
-    return !pkg || (!BOTTLE_SIZES.some((s) => Math.abs(Number(pkg.volume_l) - s) < 0.01) && !KEG_SIZES.includes(Number(pkg.volume_l)));
-  });
-  const otherCount = otherRows.reduce((s, r) => s + Number(r.quantity), 0);
-  const otherLiters = otherRows.reduce((s, r) => {
-    const pkg = packages.find((p) => p.id === r.package_id);
-    return s + (pkg ? Number(r.quantity) * Number(pkg.volume_l) : 0);
-  }, 0);
-  const totalCount = sizeBuckets.reduce((s, b) => s + b.count, 0) + kegBuckets.reduce((s, b) => s + b.count, 0) + otherCount;
-  const totalLiters = sizeBuckets.reduce((s, b) => s + b.liters, 0) + kegBuckets.reduce((s, b) => s + b.liters, 0) + otherLiters;
 
   return (
     <div className="space-y-6 pb-12">
@@ -1992,38 +1954,6 @@ export default function BottlingScreen({
         </>
       )}
 
-      {/* Přehled: Stočeno lahví — velikosti */}
-      {tab === 'prehled' && rows.length > 0 && (
-        <div className="card p-3 mb-4 border-2 border-emerald-300/80 bg-white">
-          <div className="flex items-center justify-between mb-2">
-            <span className="font-display font-black text-amber-950 text-xs"><IkonaLahev className="ikona-text" /> Přehled stočených lahví</span>
-            <span className="text-udaj font-bold text-neutral-400 uppercase tracking-wide">
-              {recordsView === 'day' ? recordsDay : recordsView === 'week' ? weekRange(recordsWeekKey).label : recordsMonthKey}
-            </span>
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            {sizeBuckets.map((b) => (
-              <div key={b.size} className="flex items-center gap-1 bg-emerald-100/80 rounded px-2.5 py-1.5 border border-emerald-300/60 shadow-2xs">
-                <span className="text-udaj font-bold text-emerald-950 whitespace-nowrap">{b.size}L</span>
-                <span className="text-xs font-black text-emerald-800">{b.count} ks</span>
-                <span className="text-udaj text-emerald-700/70">({b.liters.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} L)</span>
-              </div>
-            ))}
-            {otherCount > 0 && (
-              <div className="flex items-center gap-1 bg-emerald-100/80 rounded px-2.5 py-1.5 border border-emerald-300/60 shadow-2xs">
-                <span className="text-udaj font-bold text-emerald-950 whitespace-nowrap">Ostatní</span>
-                <span className="text-xs font-black text-emerald-800">{otherCount} ks</span>
-              </div>
-            )}
-            <div className="flex items-center gap-1 bg-emerald-200/80 rounded px-2.5 py-1.5 border border-emerald-400/60 shadow-2xs">
-              <span className="text-udaj font-bold text-emerald-950 whitespace-nowrap"><PackageIcon className="ikona-text" /> Celkem</span>
-              <span className="text-xs font-black text-emerald-800">{totalCount} ks</span>
-              <span className="text-udaj text-emerald-700/70">({totalLiters.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} L)</span>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Přehled: Stočeno KEG — velikosti + ztráta */}
       {tab === 'prehled' && rows.length > 0 && kegBuckets.some((b) => b.count > 0) && (
         <div className="card p-3 mb-4 border-2 border-amber-300/80 bg-white">
@@ -2082,50 +2012,11 @@ export default function BottlingScreen({
         <div className="sticky top-0 z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-neutral-100 py-1.5 -mx-4 px-4 sm:mx-0 sm:px-0">
           <div className="text-xs font-black uppercase tracking-wider text-amber-950/60 flex items-center gap-2">
             <span><ClipboardList className="ikona-text" /></span>
-            <span>
-              {recordsTab === 'lahve'
-                ? 'Všechny záznamy stáčení lahví'
-                : recordsTab === 'keg'
-                ? 'Všechny záznamy stáčení KEG sudů'
-                : 'Všechny záznamy stáčení (Lahve & KEG)'}
-            </span>
+            <span>Všechny záznamy stáčení</span>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             {rows.length > 0 && (
               <>
-                <button
-                  type="button"
-                  onClick={() => setRecordsTab('lahve')}
-                  className={`tap inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded border transition ${
-                    recordsTab === 'lahve'
-                      ? 'bg-emerald-200 border-emerald-300 text-emerald-950'
-                      : 'bg-white border-neutral-200 text-neutral-600'
-                  }`}
-                >
-                  <Wine size={14} /> Lahve
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRecordsTab('keg')}
-                  className={`tap inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded border transition ${
-                    recordsTab === 'keg'
-                      ? 'bg-amber-200 border-amber-300 text-amber-950'
-                      : 'bg-white border-neutral-200 text-neutral-600'
-                  }`}
-                >
-                  <IkonaSud size={14} /> KEG
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRecordsTab('vse')}
-                  className={`tap inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded border transition ${
-                    recordsTab === 'vse'
-                      ? 'bg-amber-200 border-amber-300 text-amber-950'
-                      : 'bg-white border-neutral-200 text-neutral-600'
-                  }`}
-                >
-                  <PackageIcon size={14} /> Vše
-                </button>
                 {/* Přepínač období — společná komponenta (viz KEG, kde
                     stálo totéž). Tady byly pilulky a šipky promíchané
                     a v pořadí Den → Měsíc → Týden.
@@ -2164,8 +2055,13 @@ export default function BottlingScreen({
           <div className="sticky top-[32px] z-10 flex flex-col gap-2 bg-amber-100/60 p-2.5 rounded border border-amber-200/90 shadow-2xs">
             <ChipyPiva piva={beers} vybrane={recordsBeerFilter} onVybrat={setRecordsBeerFilter} />
             <ChipyObalu
-              obaly={(recordsTab === 'lahve' ? bottlePackages : recordsTab === 'keg' ? kegPackages : packages)
-                .map((p) => ({ id: p.id, label: p.label || `${p.volume_l}L` }))}
+              obaly={[
+                ...bottlePackages.map((p) => ({ id: p.id, label: p.label || `${p.volume_l}L` })),
+                // Sudy jen ve třech skupinách (majitel 12. 10. 2026): 50, 30
+                // a „Ost." = 20/15/10 — stáčí se výjimečně, ať se dá
+                // vyfiltrovat třeba kolik sudů 12° se stočilo.
+                ...FILTR_SUDU.map((f) => ({ id: f.id, label: f.label })),
+              ]}
               vybrane={recordsPkgFilter}
               onVybrat={setRecordsPkgFilter}
             />
@@ -2321,36 +2217,42 @@ export default function BottlingScreen({
                             );
                           })()}
 
-                          {/* … a co se z něj stočilo. */}
-                          <div className="space-y-1.5 pt-1.5 border-t border-amber-100">
+                          {/* … a co se z něj stočilo. Každý záznam na JEDNOM řádku:
+                              obal, kusy, odkud se vzal a tlačítka (−, +, úprava,
+                              smazání). Dřív měl každý záznam vlastní kartu na
+                              tři řádky a přehled byl roztažený (majitel 12. 10.
+                              2026: „stáčení přehled udělej přehlednější, ideálně
+                              do jednoho řádku, ať to není tak roztažený"). */}
+                          <div className="space-y-1 pt-1.5 border-t border-amber-100">
                             {s.polozky.map(({ zaznam: r }) => {
                               const pkg = packages.find((p) => p.id === r.package_id);
+                              const puvod = puvodZapisu(r.note);
                               return (
-                                <div key={r.id} className="rounded bg-amber-50/70 border border-amber-100 p-2 space-y-1.5">
-                                  <div className="flex items-center gap-2">
-                                    <span className="shrink-0 text-sm font-black text-amber-900">{pkg?.label ?? r.package_label ?? '—'}</span>
-                                    {/* ⚠️ KUSY, ne litry — z provozu 19. 9. 2026: „nejsou to
-                                        litry, ale ks." U obalu se počítají kusy. */}
-                                    <span className="ml-auto shrink-0 font-display font-black text-lg text-amber-950 tabular-nums">{r.quantity} ks</span>
-                                  </div>
+                                <div key={r.id} className="flex items-center gap-1.5 rounded bg-amber-50/70 border border-amber-100 pl-2 pr-1 py-0.5">
+                                  <span className="shrink-0 text-sm font-black text-amber-900 whitespace-nowrap">{pkg?.label ?? r.package_label ?? '—'}</span>
+                                  {/* ⚠️ KUSY, ne litry — z provozu 19. 9. 2026: „nejsou to
+                                      litry, ale ks." U obalu se počítají kusy. */}
+                                  <span className="shrink-0 font-display font-black text-base text-amber-950 tabular-nums whitespace-nowrap">{r.quantity} ks</span>
                                   {/* 🏷️ Odkud se záznam vzal — appka zapisuje do stáčení i
                                       sama (zaškrtnutá kapka „Stočeno" u objednávky, doplňky
                                       z inventury) a bez téhle značky vypadá takový řádek jako
                                       ručně napsaný. Viz lib/puvodZapisu.ts — přesně tahle
                                       chybějící značka byla za dotazem „co to je, že to
-                                      nezapsal stáčeč?" z 24. 9. 2026. */}
-                                  {puvodZapisu(r.note) && (
-                                    <div className="text-udaj font-bold text-sky-800 bg-sky-50 border border-sky-200 rounded px-1.5 py-0.5 inline-flex items-center gap-1">
+                                      nezapsal stáčeč?" z 24. 9. 2026. Na jednom řádku se
+                                      zkrátí; celý text je v nápovědě. */}
+                                  {puvod ? (
+                                    <span
+                                      className="min-w-0 flex-1 truncate text-[11px] leading-4 font-bold text-sky-800 bg-sky-50 border border-sky-200 rounded px-1.5 py-0.5 inline-flex items-center gap-1"
+                                      title={puvod.popis}
+                                    >
                                       <ClipboardList size={11} className="shrink-0" />
-                                      {puvodZapisu(r.note)?.popis}
-                                    </div>
-                                  )}
-                                  <div className="flex items-center gap-1.5">
-                                    <button type="button" onClick={() => increment(r.id, -1)} className="w-11 min-h-[44px] grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-black text-lg transition" aria-label="Ubrat kus">−</button>
-                                    <button type="button" onClick={() => increment(r.id, 1)} className="w-11 min-h-[44px] grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-lg transition" aria-label="Přidat kus">+</button>
-                                    <button type="button" onClick={() => setEditingRow(r)} className="btn-ghost !flex-none !w-11 !px-0 !min-h-[44px]" title="Upravit záznam" aria-label="Upravit záznam"><Pencil size={16} /></button>
-                                    <button type="button" onClick={() => del(r.id)} className="btn-danger !flex-none !w-11 !px-0 !min-h-[44px] ml-2" title="Smazat záznam" aria-label="Smazat záznam"><X size={18} /></button>
-                                  </div>
+                                      <span className="truncate">{puvod.popis}</span>
+                                    </span>
+                                  ) : <span className="flex-1" />}
+                                  <button type="button" onClick={() => increment(r.id, -1)} className="shrink-0 w-11 min-h-[44px] grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-black text-lg transition" aria-label="Ubrat kus">−</button>
+                                  <button type="button" onClick={() => increment(r.id, 1)} className="shrink-0 w-11 min-h-[44px] grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-lg transition" aria-label="Přidat kus">+</button>
+                                  <button type="button" onClick={() => setEditingRow(r)} className="btn-ghost !flex-none !w-11 !px-0 !min-h-[44px]" title="Upravit záznam" aria-label="Upravit záznam"><Pencil size={16} /></button>
+                                  <button type="button" onClick={() => del(r.id)} className="btn-danger !flex-none !w-11 !px-0 !min-h-[44px]" title="Smazat záznam" aria-label="Smazat záznam"><X size={18} /></button>
                                 </div>
                               );
                             })}

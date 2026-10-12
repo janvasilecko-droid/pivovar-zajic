@@ -698,8 +698,13 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                         />
                         <button type="button" onClick={() => setTileRow(expandedProdejnaBeer.id, p.id, { qty: String(qty + 1) })} className="w-11 h-11 grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xl transition select-none">+</button>
                         {/* +5: po jednom se přidává jen zbytek, celé pády sudů
-                            a přepravek jdou po pěti. Dvě klepnutí místo deseti. */}
-                        <button type="button" onClick={() => setTileRow(expandedProdejnaBeer.id, p.id, { qty: String(qty + 5) })} className="w-11 h-11 grid place-items-center rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-950 font-black text-sm transition select-none">+5</button>
+                            a přepravek jdou po pěti. Dvě klepnutí místo deseti.
+                            +12: karton / přepravka po dvanácti — jen u fasování
+                            (majitel 12. 10. 2026: „do fasování přidej tak jak je
+                            +5, přidej +12"), v odpisu by to nedávalo smysl. */}
+                        {(table === 'writeoffs' ? [5] : [5, 12]).map((krok) => (
+                          <button key={krok} type="button" onClick={() => setTileRow(expandedProdejnaBeer.id, p.id, { qty: String(qty + krok) })} className="w-11 h-11 grid place-items-center rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-950 font-black text-sm transition select-none">+{krok}</button>
+                        ))}
                       </div>
                   </div>
                 );
