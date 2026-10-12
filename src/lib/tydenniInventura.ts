@@ -7,9 +7,10 @@
 //
 // DVĚ VĚCI, KTERÉ TENHLE MODUL SCHVÁLNĚ NEDĚLÁ:
 //
-//  (Od 12. 10. 2026 „Uložit kontrolu" Sklad srovná na napočítané vyrovnávacími
-//  zápisy — srovnaniPodlePocitani níž. Majitel: „v pondělí je sklad stejný jako
-//  týdenní inventura". Bod 1 platí dál: neukládá se RESET do `inventory`.)
+//  (Od 12. 10. 2026 se uložené počty promítají do Skladu jako stav v pondělí
+//  ráno po kontrolovaném týdnu — tydenniJakoInventura níž; skladová kniha je
+//  dostává přes sdílenou tabulku `inventory`. Do tabulky `inventory` se pořád
+//  nic nezapisuje. Majitel: „v pondělí je sklad stejný jako týdenní inventura".)
 //
 //  1. NEZAPISUJE RESET. Řádek v `inventory` je podle skladové knihy reset —
 //     k jeho datu se stav ROVNÁ zapsanému číslu a starší pohyby padají pod
@@ -24,7 +25,6 @@
 import type { Movement, StockLine } from './stockLedger';
 import { stockAsOf, stockForObdobi } from './stockLedger';
 import { jeSud } from './inventoryFix';
-import { businessDateISO } from './businessDate';
 
 export type TydenObdobi = {
   /** Pondělí kontrolovaného týdne, YYYY-MM-DD. */
@@ -256,60 +256,48 @@ export function zaznamDorovnani(r: TydenniRadek, obdobi: TydenObdobi): Record<st
   };
 }
 
+/** Poznámka řádku, kterým se týdenní inventura promítne do Skladu. */
+export function poznamkaTydenniInventury(tydenOd: string): string {
+  return `Týdenní inventura ${stitekTydne(tydenOd)}`;
+}
+
 /**
- * Vyrovnávací zápisy, po kterých Sklad V OKAMŽIKU POČÍTÁNÍ odpovídá
- * napočítanému — a co se stalo PO počítání (lahve stočené odpoledne, závoz),
- * se k tomu dál přičítá.
+ * Uložené počty týdenní inventury jako řádky inventury pro skladovou knihu:
+ * stav RÁNO v pondělí po kontrolovaném týdnu = napočítané.
  *
- * 12. 10. 2026: „v pondělí je sklad stejný jako týdenní inventura" — první
- * verze srovnávala proti Skladu ke chvíli ULOŽENÍ, takže lahve stočené po
- * ranním počítání ze Skladu zmizely („čeká, ale lahve co se stočily dneska
- * nejsou"). Teď se bere stav ke chvíli počítání (`casPocitani` = updated_at
- * záznamu kontroly; pohyb ze dne počítání se počítá jen, když se zapsal
- * dřív).
- *
- * Opakovatelné: všechny vyrovnávací zápisy téhle inventury (poznámka obsahuje
- * „inventury <týden>": Srovnání, Dorovnat, Zapsat do stáčení) se při výpočtu
- * stavu vynechají a jejich součet se odečte — zapíše se jen rozdíl, který
- * ještě chybí (i oprava dřívějšího chybného srovnání). Druhé volání nic
- * nezapíše. Nespočítané položky se nedotýká.
+ * 12. 10. 2026, majitel: „v pondělí je sklad stejný jako týdenní inventura…
+ * v pátek spočítám sklad, v pondělí podle víkendového fasování si ho zavřu,
+ * ať mám v Co stočit aktuální data, a fasování z víkendu dopíšu zpětně."
+ * Proto:
+ *  • pohyby do neděle (i víkendové fasování dopsané až v pondělí) jsou už
+ *    v napočítaném čísle — nepřičítají se znovu,
+ *  • co se stočí / zaveze od pondělí, se k napočítanému přičte (lahve stočené
+ *    v pondělí po uložení zůstanou).
+ * Poznámka nesmí obsahovat „fyzická/schválená/počáteční" — jinak by řádek
+ * zamkl měsíc (mesicUzamcen) nebo se bral jako závěr dne (stockLedger).
  */
-export function srovnaniPodlePocitani(
-  radky: TydenniRadek[],
-  pohyby: Movement[],
-  obdobi: TydenObdobi,
-  casPocitani: Record<string, string | null | undefined>,
-  ted: string = new Date().toISOString(),
-): { radek: TydenniRadek; zmena: number; zaznam: Record<string, unknown> }[] {
-  const znacka = `inventury ${stitekTydne(obdobi.od)}`;
-  const vysledek: { radek: TydenniRadek; zmena: number; zaznam: Record<string, unknown> }[] = [];
-  for (const r of radky) {
-    if (r.napocitano === null) continue;
-    const cas = casPocitani[r.klic] || ted;
-    const den = businessDateISO(new Date(cas));
-    const moje = pohyby.filter((m) => `${m.beer_id}__${m.package_id}` === r.klic);
-    const jeSrovnani = (m: Movement) => m.kind !== 'inventura' && (m.note ?? '').includes(znacka);
-    const uzSrovnano = moje.filter(jeSrovnani).reduce((a, m) => a + m.qty, 0);
-    const predPocitanim = moje.filter((m) => !jeSrovnani(m) && (m.date < den || (m.date === den
-      && (m.kind === 'inventura' || !m.createdAt || Date.parse(m.createdAt) <= Date.parse(cas)))));
-    const stavPriPocitani = stockAsOf(predPocitanim, den).get(r.klic)?.qty ?? 0;
-    const zmena = Math.round((r.napocitano - stavPriPocitani - uzSrovnano) * 1000) / 1000;
-    if (zmena === 0) continue;
-    vysledek.push({
-      radek: r,
-      zmena,
-      zaznam: {
-        entry_date: den,
-        beer_id: r.beer_id,
-        beer_name: r.beer_name,
-        package_id: r.package_id,
-        package_label: r.package_label,
-        quantity: zmena,
-        reason: `Srovnání skladu podle ${znacka} — ${r.package_label}`,
-      },
-    });
-  }
-  return vysledek;
+export function tydenniJakoInventura(radky: {
+  tyden_od: string;
+  tyden_do: string;
+  beer_id: string;
+  beer_name?: string | null;
+  package_id: string;
+  package_label?: string | null;
+  napocitano: number | string | null;
+  updated_at?: string | null;
+}[]): Record<string, unknown>[] {
+  return radky
+    .filter((r) => r.napocitano !== null && r.napocitano !== '' && Number.isFinite(Number(r.napocitano)))
+    .map((r) => ({
+      entry_date: posunDnu(String(r.tyden_do).slice(0, 10), 1),
+      beer_id: r.beer_id,
+      beer_name: r.beer_name ?? null,
+      package_id: r.package_id,
+      package_label: r.package_label ?? null,
+      quantity: Number(r.napocitano),
+      note: poznamkaTydenniInventury(String(r.tyden_od).slice(0, 10)),
+      created_at: r.updated_at ?? null,
+    }));
 }
 
 export function zaznamKontroly(

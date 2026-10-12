@@ -19,6 +19,9 @@ export function verzeTabulky(tabulka: string): string {
  */
 export const NADRAZENE: Record<string, string[]> = {
   akce_items: ['akce'],
+  // Týdenní inventura se do skladové knihy dostává jako řádky `inventory`
+  // (sdilenaData.ts → tydenniJakoInventura).
+  tydenni_inventura: ['inventory'],
 };
 
 /** Data tabulky se změnila (vlastní zápis, cizí zápis přes realtime…). */

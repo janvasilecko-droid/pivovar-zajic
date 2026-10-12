@@ -304,48 +304,31 @@ describe('ocekavanyStavTydne — pohyby ze dne počítání (9. 10. 2026: „nem
   });
 });
 
-describe('srovnaniPodlePocitani — Sklad = napočítané ke chvíli počítání (12. 10. 2026)', () => {
-  const pohyb = (date: string, qty: number, kind: Movement['kind'], extra: Partial<Movement> = {}): Movement =>
-    ({ date, beer_id: 'b1', package_id: 'p1', qty, kind, ...extra });
-  const radek = (napocitano: number | null, ocekavano = 0) => ({
-    klic: 'b1__p1', beer_id: 'b1', beer_name: 'Pivo', beer_color: null, package_id: 'p1', package_label: '1l',
-    ocekavano, napocitano, rozdil: napocitano === null ? 0 : napocitano - ocekavano, pohybuVTydnu: 0, sud: false,
-  });
-  const obdobi = { od: '2026-10-05', do: '2026-10-11', doPocitani: '2026-10-12', uzavreny: true };
-  const cas = { b1__p1: '2026-10-12T06:56:00Z' }; // počítáno ráno (Praha 8:56)
+describe('tydenniJakoInventura — Sklad v pondělí = týdenní inventura (12. 10. 2026)', () => {
+  const pohyb = (date: string, qty: number, kind: Movement['kind']): Movement => ({ date, beer_id: 'b1', package_id: 'p1', qty, kind });
+  const ulozeny = { tyden_od: '2026-10-05', tyden_do: '2026-10-11', beer_id: 'b1', package_id: 'p1', napocitano: 33, updated_at: '2026-10-12T06:56:00Z' };
 
-  it('lahve stočené PO počítání zůstanou ve Skladu', async () => {
-    const { srovnaniPodlePocitani } = await import('./tydenniInventura');
-    const { stockAsOf } = await import('./stockLedger');
-    const pohyby = [
-      pohyb('2026-10-01', 45, 'inventura'),
-      pohyb('2026-10-12', 20, 'staceni', { createdAt: '2026-10-12T11:46:00Z' }), // odpoledne
+  it('napočítané = stav v pondělí ráno; víkendové fasování dopsané zpětně se neodečte znovu, pondělní stáčení se přičte', async () => {
+    const { tydenniJakoInventura } = await import('./tydenniInventura');
+    const { buildMovements, stockAsOf } = await import('./stockLedger');
+    const inv = tydenniJakoInventura([ulozeny]);
+    expect(inv[0]).toMatchObject({ entry_date: '2026-10-12', quantity: 33 });
+    const ostatni = buildMovements({ inventoryRows: [{ entry_date: '2026-10-01', beer_id: 'b1', package_id: 'p1', quantity: 45, note: 'Počáteční stav' }] } as any);
+    const kniha = [...buildMovements({ inventoryRows: inv } as any), ...ostatni,
+      pohyb('2026-10-10', -4, 'fasovani'),   // sobotní fasování dopsané v pondělí
+      pohyb('2026-10-12', 20, 'staceni'),    // pondělní stáčení
+      pohyb('2026-10-13', -5, 'zavoz'),
     ];
-    const d = srovnaniPodlePocitani([radek(33)], pohyby, obdobi, cas);
-    expect(d.map((x) => x.zmena)).toEqual([-12]); // 33 − 45, stáčení se nepočítá
-    const po = stockAsOf([...pohyby, pohyb('2026-10-12', -12, 'dorovnani', { note: d[0].zaznam.reason as string })], '2026-10-12');
-    expect(po.get('b1__p1')?.qty).toBe(53); // 33 napočítaných + 20 stočených po počítání
+    expect(stockAsOf(kniha, '2026-10-11').get('b1__p1')?.qty).toBe(41); // neděle ještě podle zápisů
+    expect(stockAsOf(kniha, '2026-10-12').get('b1__p1')?.qty).toBe(53); // 33 + 20
+    expect(stockAsOf(kniha, '2026-10-13').get('b1__p1')?.qty).toBe(48);
   });
 
-  it('opraví dřívější chybné srovnání a podruhé už nic nezapíše', async () => {
-    const { srovnaniPodlePocitani } = await import('./tydenniInventura');
-    const spatne = pohyb('2026-10-12', -32, 'dorovnani', { note: 'Srovnání skladu podle inventury 2026-41 — 1l', createdAt: '2026-10-12T12:00:00Z' });
-    const pohyby = [
-      pohyb('2026-10-01', 45, 'inventura'),
-      pohyb('2026-10-12', 20, 'staceni', { createdAt: '2026-10-12T11:46:00Z' }),
-      { ...spatne, note: (spatne.note ?? '').replace('2026-41', '') },
-    ];
-    // Štítek týdne podle stitekTydne — srovnání nese stejnou značku jako nové zápisy.
-    const { stitekTydne } = await import('./tydenniInventura');
-    pohyby[2].note = `Srovnání skladu podle inventury ${stitekTydne(obdobi.od)} — 1l`;
-    const d = srovnaniPodlePocitani([radek(33)], pohyby, obdobi, cas);
-    expect(d.map((x) => x.zmena)).toEqual([20]); // −12 mělo být, −32 se zapsalo → +20
-    const znovu = [...pohyby, pohyb('2026-10-12', 20, 'dorovnani', { note: d[0].zaznam.reason as string })];
-    expect(srovnaniPodlePocitani([radek(33)], znovu, obdobi, cas)).toEqual([]);
-  });
-
-  it('nespočítané položky se nedotýká', async () => {
-    const { srovnaniPodlePocitani } = await import('./tydenniInventura');
-    expect(srovnaniPodlePocitani([radek(null)], [pohyb('2026-10-01', 5, 'inventura')], obdobi, cas)).toEqual([]);
+  it('nezamkne měsíc a nepočítá nespočítané', async () => {
+    const { tydenniJakoInventura } = await import('./tydenniInventura');
+    const { jeMesicUzamcen } = await import('./mesicUzamcen');
+    const inv = tydenniJakoInventura([ulozeny, { ...ulozeny, package_id: 'p2', napocitano: null }]);
+    expect(inv).toHaveLength(1);
+    expect(jeMesicUzamcen(inv as any, '2026-10-12')).toBe(false);
   });
 });
