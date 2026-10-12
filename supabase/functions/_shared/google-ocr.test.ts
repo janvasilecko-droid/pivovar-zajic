@@ -1,4 +1,5 @@
 import { afterEach, describe, it, expect, vi } from 'vitest';
+import { VZORKY_OCR } from './ocr-vzorky';
 import { opravOcrObjednavky, prepisFotkyGoogle, sekceOcr, textSOcr, textZOdpovediVision } from './google-ocr';
 
 describe('Přepis fotky přes Google Vision', () => {
@@ -78,7 +79,7 @@ describe('Oprava typických chyb OCR u objednávek', () => {
     ['17 x 30% 100', '17x 30l 10°'],
     ['3x 10f 110', '3x 10l 11°'],
     ['20x0,51 12"', '20x 0,5l 12°'],
-    ['1x 30|LIMO KIUI', '1x 30l LIMO KIUI'],
+    ['1x 30|LIMO KIUI', '1x 30l LIMO KIWI'],
     ['25x11 12°', '25x 1l 12°'],
     ['8x301 100', '8x 30l 10°'],
     ['10x 18 10°', '10x 1l 10°'],
@@ -108,5 +109,31 @@ describe('Oprava typických chyb OCR u objednávek', () => {
     for (const r of ['JONA', '② DROBAN (NORAW)', 'Seeberg 4x30 12sv', '2x 30 11sv', '5x 11 sv', '3x 50l 12°', '10x 12 sv', '4x 10 11sv', '3x 50l 12° JANTAR', '1x 10l 12° PETASNER !', 'Maneo', 'Mobil: 728 405 407 Mira', '2x 30 LIMO CIT.', 'Bez summera']) {
       expect(opravOcrObjednavky(r)).toBe(r);
     }
+  });
+});
+
+describe('Všechny fotky objednávek: přepis Google Vision → co je na lístku', () => {
+  /** Význam řádku: počet, obal (bez „l"), stupeň. Slova a interpunkce nehrají roli. */
+  const vyznam = (r: string) => {
+    const t = r.replace(/^\s*[+•]\s*/, '');
+    const pocet = t.match(/^\s*(\d{1,3}|[sS])x\b/)?.[1] ?? null;
+    const obal = t.match(/^\s*(?:\d{1,3}|[sS])x\s+(\d+(?:,\d+)?)l?\b(?!°)/)?.[1] ?? null;
+    const stupen = t.match(/(?:^|\s|x)(8|1[0-3])°/)?.[1] ?? t.match(/\s(8|1[0-3])(?=\s+[A-Z]|$)/)?.[1] ?? null;
+    return { pocet, obal, stupen };
+  };
+  const vse = Object.entries(VZORKY_OCR).flatMap(([foto, radky]) => radky.map((r) => ({ foto, r })));
+
+  it.each(vse.filter(({ r }) => !r[2]).map(({ foto, r }) => [foto, r[0], r[1]]))(
+    '%s: „%s" → „%s"',
+    (_foto, ocr, listek) => {
+      expect(vyznam(opravOcrObjednavky(ocr))).toEqual(vyznam(listek));
+    },
+  );
+
+  it('pravidla opraví aspoň 85 % řádků (zbytek přečte Gemini z fotky)', () => {
+    const ok = vse.filter(({ r }) => JSON.stringify(vyznam(opravOcrObjednavky(r[0]))) === JSON.stringify(vyznam(r[1])));
+    const pred = vse.filter(({ r }) => JSON.stringify(vyznam(r[0])) === JSON.stringify(vyznam(r[1])));
+    console.log(`OCR bez oprav: ${pred.length}/${vse.length} řádků, s opravami: ${ok.length}/${vse.length}`);
+    expect(ok.length / vse.length).toBeGreaterThanOrEqual(0.85);
   });
 });

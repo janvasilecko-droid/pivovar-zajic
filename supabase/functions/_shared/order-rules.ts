@@ -263,5 +263,43 @@ Pravidla pro otázky:
   • Když je všechno jasné, vrať "otazky": [].
 `;
 
+/**
+ * Rukopis našich lístků — ukázky pro čtení FOTKY (Gemini i AI nad přepisem).
+ * Vzniklo prohlédnutím všech ručně psaných fotek objednávek (srpen–říjen
+ * 2026) a porovnáním s potvrzenými objednávkami; sada je i v testu
+ * (_shared/ocr-vzorky.ts). Majitel 12. 10. 2026: „nauč ho všechny překlepy
+ * a to, co čte špatně". Vkládá se jen k fotkám, text zpráv to nezatěžuje.
+ */
+export const RUKOPIS_LISTKU = `
+════════════════════════════════════════════════════════════════════
+RUKOPIS NAŠICH LÍSTKŮ (ověřeno na skutečných fotkách objednávek)
+════════════════════════════════════════════════════════════════════
+• „1" se píše s dlouhou nožičkou — vypadá jako „7", „4" nebo „λ". Číslo
+  přesto čti tak, jak je napsané: „17x 30l" je opravdu 17 kusů.
+• „l" (litr) se píše se smyčkou, takže „1l" vypadá jako „11", „18", „12"
+  nebo „1f". Řádek „10x 11 12°" je VŽDY „10x 1l 12°" — obal 11 l, 18 l
+  ani 12 l neexistuje. Stejně „10x 1,51" = „10x 1,5l", „3x 101" = 3x 10l,
+  „2x 151" = 2x 15l, „5x 301" = 5x 30l.
+• „11°" vypadá jako „M°" nebo „ʎʎ°" — je to 11°. „8°" (Osma) vypadá jako
+  „&" nebo „S°". Kroužek stupně často chybí nebo vypadá jako „0":
+  „12" = „120" = 12°.
+• „5" a „8" na začátku řádku vypadají podobně („S", „J", „ʃ"). Na fotce
+  rozhoduje tvar: „8" má dvě uzavřená očka, „5" nahoře rovnou čárku.
+  Když to z fotky jistě nepoznáš, napiš do "otazky": „Je na řádku
+  '…' 5x, nebo 8x?"
+• „12%" / „10%" = 12° / 10° (procento místo stupně), „TM" = tmavé.
+• Pořadí může být obrácené: „1,5l 12% 6x" = 6x 1,5l 12°.
+• „-11-" nebo „——" = „stejně jako řádek nad" (ditto):
+  „20x 0,5l LIMO CIT." a pod tím „20x 0,5l -11- GREP" = 20x 0,5l limo Grep.
+• Nadpis „SKLAD" (rukou, OCR ho čte jako „SULAD", „SKLAN", „SUCOS") je
+  odběratel Sklad. Čísla v kroužku ①②③ jsou pořadí zastávek, ne množství.
+• Řádek bez obalu u zastávky, která bere lahve (např. JONA: „20x 11° SV",
+  „10x 12°"), má stejný obal jako ostatní řádky té zastávky (1l).
+• „1x 10l NEBO 15l 12°" → vezmi první možnost a zeptej se v "otazky".
+• Přeškrtnutý nebo začmáraný řádek vynech. Poznámky „PETASNER!",
+  „(2x VÝMĚNA)", „+ TÁCKY", „+ LIMO REKLAMACE", „2x KRABICE SKLO" nejsou
+  položky piva (u „1x 10l 12° PETASNER!" je položka 1x 10l 12°).
+`;
+
 /** Celý blok pravidel k vložení do promptu. */
 export const PRAVIDLA_CTENI_OBJEDNAVEK = `${CISLA_STUPEN_VS_OBJEM}${VZORY_ZAPISU}${KONTEXT_A_ODPOVEDI}${ODBERATEL_A_HISTORIE}${KDYZ_NEVIS}`;
