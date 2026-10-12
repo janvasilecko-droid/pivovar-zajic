@@ -54,6 +54,7 @@ import { getTheme, setTheme, type Theme } from '../lib/theme';
 import { fetchLastWhatsAppAt, fetchPendingWhatsAppCount, subscribeToWhatsAppMessages } from '../lib/whatsappApi';
 import { tichoWhatsApp, type TichoWhatsApp } from '../lib/whatsappTicho';
 import { vyhodnotMostStav, type MostVarovani } from '../lib/mostStav';
+import { mesicOcr, ocrVarovani, OCR_ZDARMA_MESICNE, type OcrVarovani } from '../lib/ocrPouziti';
 import { nactiRezervace } from '../lib/vycepyData';
 import { stariInventury, type StariInventury } from '../lib/inventuraStari';
 import { nactiBehyZalohy, vyhodnotZalohu, type StavZalohy } from '../lib/zalohaStav';
@@ -890,6 +891,20 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
       });
   };
   useRealtime(['whatsapp_most_stav'], nactiMostStav);
+  // 🔎 Kolik fotek tento měsíc přepsal Google Vision — od 900 varování
+  // (zdarma je 1 000, pak se platí; přepis se nezastavuje). Bez migrace
+  // 20261231290000_ocr_pocitadlo dotaz selže a dlaždice prostě nesvítí.
+  const [ocr, setOcr] = useState<OcrVarovani>(ocrVarovani(0));
+  const nactiOcr = () => {
+    supabase
+      .from('ocr_pouziti')
+      .select('pocet')
+      .eq('mesic', mesicOcr(new Date()))
+      .maybeSingle()
+      .then(({ data }) => setOcr(ocrVarovani(data?.pocet ?? 0)));
+  };
+  useRealtime(['ocr_pouziti'], nactiOcr);
+  useEffect(nactiOcr, []);
   useEffect(() => {
     const nacti = () => {
       void fetchPendingWhatsAppCount().then(setPendingWhatsApp).catch(() => {});
@@ -1955,6 +1970,20 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
               )}
               {/* 📅 Dlouho se nedělala inventura. Ukáže se až po 40 dnech,
                   takže při běžném měsíčním rytmu mlčí. */}
+              {ocr.varovat && (
+                <button
+                  type="button"
+                  className="hs-tile hs-tile-alert vlastni-vyska"
+                  onClick={() => window.open('https://console.cloud.google.com/billing', '_blank', 'noopener')}
+                  title={ocr.popis}
+                >
+                  <div className="hs-tile-icon-box">
+                    <FileText />
+                  </div>
+                  <div className="hs-lbl">Přepis fotek</div>
+                  <span className="hs-badge">{ocr.pocet}/{OCR_ZDARMA_MESICNE}</span>
+                </button>
+              )}
               {stariInv?.pripomenout && (
                 <button
                   type="button"

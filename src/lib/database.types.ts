@@ -2096,6 +2096,24 @@ export type Database = {
         }
         Relationships: []
       }
+      ocr_pouziti: {
+        Row: {
+          mesic: string
+          naposledy: string
+          pocet: number
+        }
+        Insert: {
+          mesic: string
+          naposledy?: string
+          pocet?: number
+        }
+        Update: {
+          mesic?: string
+          naposledy?: string
+          pocet?: number
+        }
+        Relationships: []
+      }
       order_items: {
         Row: {
           beer_id: string | null
@@ -3861,6 +3879,7 @@ export type Database = {
       user_can_edit_module: { Args: { p_module: string }; Returns: boolean }
       wake_whatsapp_bridge: { Args: never; Returns: undefined }
       whatsapp_norm: { Args: { s: string }; Returns: string }
+      zapocti_ocr_fotky: { Args: never; Returns: number }
     }
     Enums: {
       [_ in never]: never

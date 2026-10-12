@@ -58,6 +58,8 @@ export const TABULKY = [
 export const NEZALOHOVAT = [
   'app_secrets', 'whatsapp_session', 'push_odbery', 'edge_rate_limits',
   'whatsapp_most_stav', 'app_errors', 'user_app_versions',
+  // Jen počítadlo přepisů fotek (Google Vision) za měsíc — žádná data pivovaru.
+  'ocr_pouziti',
 ];
 
 /** Sloupce, které se při obnově zapíšou až ve druhém kole (kruhové a vlastní odkazy). */
