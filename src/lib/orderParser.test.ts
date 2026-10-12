@@ -755,3 +755,15 @@ describe('pivoNapsanePodleJmena', () => {
     expect(pivoNapsanePodleJmena('winter a jantar', null, beers)).toBeNull();      // dvě piva v řádku
   });
 });
+
+describe('matchPackage: „10x 11 12° winter" je obal 1 l', () => {
+  it('místo výchozího sudu', async () => {
+    const { matchPackage, normalize, emptyAliasMap } = await import('./orderParser');
+    const pk: any[] = [
+      { id: 'k30', label: '30l', volume_l: 30, kind: 'keg' },
+      { id: 'p1', label: '1l', volume_l: 1, kind: 'bottle' },
+    ];
+    expect(matchPackage(normalize('30l 10x 11 12° WINTER'), pk, emptyAliasMap())?.id).toBe('p1');
+    expect(matchPackage(normalize('2x30 11sv'), pk, emptyAliasMap())?.id).toBe('k30');
+  });
+});

@@ -325,6 +325,12 @@ export function jeLitrPsanyJakoJedenact(raw: string): boolean {
 export function matchPackage(norm: string, packages: Package[], aliasMap: ParserAliasMap): Package | null {
   if (!packages || !packages.length) return null;
 
+  // Ručně psané „1l" přečtené jako „11" („10x 11 12° winter") → obal 1 l.
+  if (jeLitrPsanyJakoJedenact(norm)) {
+    const litr = packages.find((p) => Number(p.volume_l) === 1);
+    if (litr) return litr;
+  }
+
   // 0. POJISTKA: holé číslo "15" (BEZ desetinné čárky) vedle slova "pet"/
   // "petka"/"petr" je skoro jistě "1,5" se ztracenou čárkou (typický přepis
   // "PET 1,5" → "PET 15"), NE sud 15l — bez tohohle by ho o pár řádků níž
