@@ -15,6 +15,7 @@
 // přepočítání obrazovky přesáhnout rozumný čas na mobilu (×8 pomalejším než
 // tenhle běh).
 import { describe, it, expect } from 'vitest';
+import { gzipSync } from 'node:zlib';
 import { buildMovements, stockAsOf, expectedForMonth, stockForObdobi, stockKey } from './stockLedger';
 import { sestavPohybyObdobi } from './pohybySkladu';
 import { computeKeggingPlan } from './keggingPlan';
@@ -134,6 +135,9 @@ function zmer(d: Data) {
   const radkuCelkem = Object.values(tabulky).reduce((s, t) => s + t.length, 0);
   // Stažení jedné obrazovky (Sklad/Inventura/Plán): ~12 tabulek celé historie.
   const bajtu = Object.entries(tabulky).filter(([k]) => k !== 'tydenni_inventura').reduce((s, [, t]) => s + JSON.stringify(t).length, 0);
+  // Po síti jde odpověď serveru komprimovaná (gzip) — ta se počítá do limitu přenosu.
+  // Skutečné ID jsou náhodnější než tady, proto je to spodní odhad (počítej ~×4).
+  const bajtuGzip = gzipSync(JSON.stringify(Object.entries(tabulky).filter(([k]) => k !== 'tydenni_inventura'))).length;
   const pozadavku = Object.entries(tabulky).filter(([k]) => k !== 'tydenni_inventura').reduce((s, [, t]) => s + Math.max(1, Math.ceil(t.length / 1000)), 0);
 
   const pohyby = buildMovements(z);
@@ -161,7 +165,7 @@ function zmer(d: Data) {
   }));
   // Kopie dat při předání obrazovce (sdilenaData.kopie = structuredClone).
   vysledky['Paměť: kopie 12 tabulek'] = cas(() => { for (const t of Object.values(tabulky)) structuredClone(t); }, 2);
-  return { radkuCelkem, bajtu, pozadavku, pohybu: pohyby.length, vysledky };
+  return { radkuCelkem, bajtu, bajtuGzip, pozadavku, pohybu: pohyby.length, vysledky };
 }
 
 // Obrazovka = součet toho, co se přepočítá po otevření/změně (nejhorší pohled: Sklad + Pohyby + Plán).
@@ -182,7 +186,7 @@ describe('růst dat — 12 a 24 měsíců', () => {
       const obrazovka = OBRAZOVKA.reduce((s, k) => s + v.vysledky[k], 0);
       return {
         scénář: v.popis, 'řádků v DB': v.radkuCelkem, 'pohybů v knize': v.pohybu,
-        'stažení celé historie (MB)': Number((v.bajtu / 1e6).toFixed(2)), 'požadavků na server': v.pozadavku,
+        'stažení celé historie (MB)': Number((v.bajtu / 1e6).toFixed(2)), 'po síti gzip, odhad ×4 (MB)': Number(((v.bajtuGzip * 4) / 1e6).toFixed(2)), 'požadavků na server': v.pozadavku,
         'přepočet obrazovky (ms)': Math.round(obrazovka * 10) / 10,
         'v mobilu ~8× (ms)': Math.round(obrazovka * 8),
       };
