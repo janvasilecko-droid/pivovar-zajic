@@ -260,3 +260,30 @@ describe('resolvePlace s textem včetně citace', () => {
       .toEqual({ id: 'p-seeberg', name: 'Seeberg' });
   });
 });
+
+describe('„pro mě"/„mi": odběratel pojmenovaný jako odesílatel vyhrává (12. 10. 2026)', () => {
+  const katalog = [
+    { id: 'p1', name: 'petr' },
+    { id: 'p2', name: 'Petr moravcik prodejna' },
+    { id: 'r1', name: 'Radek' },
+  ];
+  const text = 'Gabi pripis mi k tomu sudu prosim petky 1,5l: 6x11 4x10 2xVosma';
+
+  it('Petr Bednář píše „mi" → „petr", ne „Petr moravcik prodejna"', () => {
+    expect(resolvePlace([], [], text, katalog, [], 'Petr Bednář').name).toBe('petr');
+  });
+
+  it('i když AI tipne jiného odběratele, který v textu není jmenovaný', () => {
+    expect(resolvePlace(['Petr moravcik prodejna'], [], text + ' Petr moravcik prodejna', katalog, [], 'Petr Bednář').name)
+      .toBe('Petr moravcik prodejna'); // výslovně jmenovaný celým názvem smí přebít
+    expect(resolvePlace(['Petr moravcik prodejna'], [], text, katalog, [], 'Petr Bednář').name).toBe('petr');
+  });
+
+  it('výslovně jmenovaný jiný odběratel („mi, ale pro Radka") zůstává', () => {
+    expect(resolvePlace(['Radek'], [], 'posli mi pro Radek 2x30', katalog, [], 'Petr Bednář').name).toBe('Radek');
+  });
+
+  it('bez „pro mě" se nic nemění', () => {
+    expect(resolvePlace(['Radek'], [], 'Radek 2x30', katalog, [], null).name).toBe('Radek');
+  });
+});

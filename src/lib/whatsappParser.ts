@@ -748,11 +748,24 @@ export async function parseWhatsAppOrderMessageWithAI(
     // Jantar u Jonáše i ve skladu) jsou dvě položky, ne jedna.
     const uzMame = new Map<string, number>();
     for (const it of items) uzMame.set(klic(it), (uzMame.get(klic(it)) ?? 0) + 1);
+    // Fragment řádku bez piva („KEG + 10x0,5l lahev.") zdědí od lokálního
+    // parseru špatné pivo — z provozu 12. 10. 2026: u „Jantar 12 = 1x30l KEG +
+    // 10x0,5l lahev." přibyla k správným řádkům AI ještě „12° Světlá 10× 0,5l".
+    // Pokud AI už přečetla řádek, ve kterém ten fragment stojí, se stejným
+    // obalem a počtem, je fragment ten samý údaj — jen s jiným pivem.
+    const sNorm = (t: string) => t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+    const pokrytyRadkem = (l: { raw?: string; originalLine?: string; package_id: string | null; quantity: number | null }) => {
+      const kus = sNorm(l.originalLine ?? l.raw ?? '');
+      if (kus.length < 6) return false;
+      return items.some((it) => it.package_id === l.package_id && it.quantity === l.quantity
+        && sNorm((it as { raw?: string }).raw ?? '').includes(kus));
+    };
     for (const l of zTextu) {
       // Jen jednoznačné řádky: bez piva nebo bez obalu by to byl šum.
       if (!l.beer_id || !l.package_id || !l.quantity) continue;
       const mam = uzMame.get(klic(l)) ?? 0;
       if (mam > 0) { uzMame.set(klic(l), mam - 1); continue; }
+      if (pokrytyRadkem(l)) continue;
       items.push({ ...l, confidence: 'low' });
     }
   } catch (e) {

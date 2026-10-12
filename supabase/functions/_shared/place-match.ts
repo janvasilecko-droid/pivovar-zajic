@@ -252,6 +252,25 @@ const MAX_FREEFORM_PLACE_LEN = 60;
 export type ResolvedPlace = { id: string | null; name: string | null };
 
 /**
+ * Odběratel, který se jmenuje PŘESNĚ jako odesílatel — celým jménem, nebo
+ * křestním („Petr Bednář" → odběratel „petr"). Nejednoznačné shody (dva
+ * odběratelé téhož názvu) se nevrací.
+ */
+export function exaktniOdberatelOdesilatele(
+  sender: string,
+  places: { id: string; name: string }[],
+): ResolvedPlace | null {
+  const cele = normPlaceName(sender);
+  const krestni = cele.split(" ")[0] ?? "";
+  for (const klic of [cele, krestni]) {
+    if (klic.length < 3) continue;
+    const shody = places.filter((p) => normPlaceName(p.name) === klic);
+    if (shody.length === 1) return { id: shody[0].id, name: shody[0].name };
+  }
+  return null;
+}
+
+/**
  * Rozhodne, kdo je odběratel zprávy.
  *
  * `matchCandidates` (v pořadí důvěryhodnosti — typicky place_name z první
@@ -284,11 +303,24 @@ export function resolvePlace(
   /** Odesílatel zprávy, když text říká "pro mě"/"mi"/"mně"/"pro mne" — jinak `null`. */
   ownOrderCandidate?: string | null
 ): ResolvedPlace {
+  // „Pro mě"/„mi" a odesílatel má v katalogu odběratele PŘESNĚ pod svým jménem
+  // (celé, nebo křestní) — z provozu 12. 10. 2026: Petr Bednář napsal „Gabi
+  // připiš mi k tomu sudu petky…", a objednávka skončila u „Petr moravcik
+  // prodejna" místo u „petr". Majitel: „kontext té zprávy jasně říká, že to
+  // píše Petr, takže objednávka je Petr, ne Petr Moravčík nebo jiný." Takový
+  // odběratel vyhrává nad hádáním z katalogu; přebít ho smí jen jiný odběratel
+  // výslovně jmenovaný v textu zprávy (celým názvem).
+  const vlastniExaktni = ownOrderCandidate ? exaktniOdberatelOdesilatele(ownOrderCandidate, places) : null;
+  const vTextu = normPlaceName(messageText);
   for (const candidate of matchCandidates) {
     if (!candidate) continue;
     const matched = matchPlaceSafely(candidate, messageText, places, placeAliases);
-    if (matched.id) return matched;
+    if (!matched.id) continue;
+    if (vlastniExaktni && matched.id !== vlastniExaktni.id
+      && !(normPlaceName(matched.name).length >= 3 && vTextu.includes(normPlaceName(matched.name)))) continue;
+    return matched;
   }
+  if (vlastniExaktni) return vlastniExaktni;
   if (ownOrderCandidate) {
     const matched = matchOwnOrderPlace(ownOrderCandidate, places, placeAliases);
     if (matched.id) return matched;
