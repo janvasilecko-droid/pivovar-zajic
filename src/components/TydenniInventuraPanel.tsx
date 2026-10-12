@@ -23,7 +23,7 @@ import { odectiZTanku } from '../lib/tankZapis';
 import {
   jenAktivni, ocekavanyStavTydne, popisTydne, posunDnu, radkyTydne, souhrnTydne, stitekTydne, tydenObdobi, vychoziTyden,
   zaznamKontroly, zaznamDorovnani, type MinulyTydenStav, type TydenniRadek, type TydenObdobi,
- dorovnaniNaSklad } from '../lib/tydenniInventura';
+ srovnaniPodlePocitani } from '../lib/tydenniInventura';
 import type { Dispatch, ReactNode, SetStateAction } from 'react';
 import { popisPolozek, objednavkaShoduje, zapisShoduje, type PrehledObjednavka, type PrehledZapis } from '../lib/tydenniPrehled';
 import { StitekStavu } from './StitekStavu';
@@ -86,10 +86,9 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
   // čísla nesmí posunout čas počítání (updated_at) — podle něj se k počtu
   // přičítají pohyby, které přišly po počítání (9. 10. 2026).
   const ulozenePoctyRef = useRef<Map<string, number>>(new Map());
-  // Položky, kde už je Sklad srovnaný na uložené číslo (Dorovnat / Zapsat do
-  // stáčení / Srovnat Sklad). Opakované „Uložit kontrolu" je znovu nesrovnává —
-  // Sklad se od počítání mohl hýbat (závoz, stáčení) a srovnání by to smazalo.
-  const srovnaneRef = useRef<Set<string>>(new Set());
+  // Kdy se která položka napočítala (updated_at uloženého záznamu) — Sklad se
+  // srovnává ke chvíli počítání, ne uložení (srovnaniPodlePocitani).
+  const casyPocitaniRef = useRef<Record<string, string>>({});
   // 🔎 Detail rozdílu — rozbalí se u řádku, který nesedí: odkud se vzal
   // (jaké pohyby se s ním za ten týden dělo) a proklik na objednávky, které
   // se do toho počítaly (viz zavoz_deductions.order_id).
@@ -153,7 +152,7 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
       const [k, { data: t }, { data: ulozene }, { data: minule }, { data: ceny }] = await Promise.all([
         nactiSkladovouKnihu(),
         supabase.from('cellar_tanks').select('id,label,current_beer_id,current_volume_l,status,started_at,kegging_active'),
-        supabase.from('tydenni_inventura').select('beer_id,package_id,napocitano,vyreseno').eq('tyden_od', obdobi.od),
+        supabase.from('tydenni_inventura').select('beer_id,package_id,napocitano,updated_at').eq('tyden_od', obdobi.od),
         supabase.from('tydenni_inventura').select('beer_id,package_id,napocitano,updated_at').eq('tyden_od', posunDnu(obdobi.od, -7)),
         fetchAllRows<CenaPolozky>('price_list', 'beer_id,package_id,price_per_unit,currency,valid_from,valid_to'),
       ]);
@@ -173,9 +172,9 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
       const mapaDB: Record<string, string> = {};
       for (const r of ((ulozene as any[]) ?? [])) mapaDB[`${r.beer_id}__${r.package_id}`] = String(r.napocitano);
       ulozenePoctyRef.current = new Map(((ulozene as any[]) ?? []).map((r) => [`${r.beer_id}__${r.package_id}`, Number(r.napocitano)]));
-      srovnaneRef.current = new Set(((ulozene as any[]) ?? [])
-        .filter((r) => r.vyreseno === 'dorovnani' || r.vyreseno === 'staceni')
-        .map((r) => `${r.beer_id}__${r.package_id}`));
+      casyPocitaniRef.current = Object.fromEntries(((ulozene as any[]) ?? [])
+        .filter((r) => r.updated_at)
+        .map((r) => [`${r.beer_id}__${r.package_id}`, String(r.updated_at)]));
       // Základ = koncept z localStorage pro TENHLE týden (přežije refresh i
       // uspání telefonu), DB má přednost tam, kde už je něco oficiálně uloženo.
       const koncept = nactiJson<Record<string, string>>(`tydenni_napocitano_${obdobi.od}`, {});
@@ -205,11 +204,11 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
     return jenAktivni(radkyTydne(sklad, kniha.piva, kniha.obaly, napocitano));
   }, [kniha, obdobi.od, obdobi.doPocitani, napocitano, minulyTyden]);
 
-  // Co by se muselo zapsat, aby se SKLAD rovnal napočítanému (viz dorovnaniNaSklad).
+  // Co by se muselo zapsat, aby Sklad v okamžiku počítání odpovídal
+  // napočítanému (viz srovnaniPodlePocitani) — pohyby po počítání zůstanou.
   const srovnaniSkladu = useMemo(() => {
     if (!kniha) return [];
-    const sklad = stockAsOf(kniha.pohyby, obdobi.doPocitani) as unknown as Map<string, { qty: number }>;
-    return dorovnaniNaSklad(vsechnyRadky, sklad, obdobi);
+    return srovnaniPodlePocitani(vsechnyRadky, kniha.pohyby, obdobi, casyPocitaniRef.current);
   }, [kniha, vsechnyRadky, obdobi]);
 
   // Přepínač nahoře (Lahve/Sudy) omezuje i souhrn a počítadlo „X / Y
@@ -392,7 +391,6 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
   async function ulozZaznam(r: TydenniRadek, vyreseno: 'staceni' | 'dorovnani' | 'ponechano' | null) {
     const error = await upsertKontrol([r], () => vyreseno);
     if (error) chyba('Záznam o kontrole se neuložil: ' + error);
-    else if (vyreseno === 'staceni' || vyreseno === 'dorovnani') srovnaneRef.current.add(r.klic);
   }
 
   /**
@@ -413,6 +411,9 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
       if (error) return error.message;
     }
     for (const r of radky) if (r.napocitano !== null) ulozenePoctyRef.current.set(r.klic, r.napocitano);
+    // Nový nebo změněný počet = počítalo se teď (updated_at dostal čas uložení).
+    const ted = new Date().toISOString();
+    for (const r of zmenene) if (r.napocitano !== null) casyPocitaniRef.current[r.klic] = ted;
     return null;
   }
 
@@ -422,9 +423,10 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
    * objednávky a tanky se nemění — viz „Dorovnat" výš, tohle je totéž pro
    * všechny řádky naráz a proti Skladu.
    */
-  async function srovnatSklad(automaticky = false, uzSrovnane: Set<string> = new Set()) {
-    if (uklada) return;
-    const zapisy = srovnaniSkladu.filter((z) => !uzSrovnane.has(z.radek.klic));
+  async function srovnatSklad(automaticky = false) {
+    if (uklada || !kniha) return;
+    // Čerstvě — časy počítání se uložením právě mohly změnit.
+    const zapisy = srovnaniPodlePocitani(vsechnyRadky, kniha.pohyby, obdobi, casyPocitaniRef.current);
     if (zapisy.length === 0) { if (!automaticky) oznam('Sklad už sedí s napočítaným.'); return; }
     const soucet = zapisy.reduce((a, z) => a + z.zmena, 0);
     // Po „Uložit kontrolu" bez ptaní (12. 10. 2026: „to automaticky… v pondělí
@@ -438,7 +440,6 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
       const { error } = await supabase.from('inventory_adjustments').insert(zapisy.map((z) => z.zaznam));
       if (error) throw error;
       const chybaZaznamu = await upsertKontrol(zapisy.map((z) => z.radek), () => 'dorovnani');
-      zapisy.forEach((z) => srovnaneRef.current.add(z.radek.klic));
       if (chybaZaznamu) chyba('Záznam o kontrole se neuložil: ' + chybaZaznamu);
       uspech(`Sklad srovnán podle týdenní inventury: ${zapisy.length} položek (${soucet > 0 ? '+' : ''}${soucet} ks).`);
       await nacti();
@@ -453,14 +454,9 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
   async function ulozVse() {
     const spocitane = vsechnyRadky.filter((r) => r.napocitano !== null);
     if (spocitane.length === 0) { oznam('Není co uložit — zatím není nic napočítané.'); return; }
-    // Srovnané a od té doby nezměněné počty se znovu nesrovnávají (srovnaneRef).
-    const uzSrovnane = new Set(spocitane
-      .filter((r) => srovnaneRef.current.has(r.klic) && ulozenePoctyRef.current.get(r.klic) === r.napocitano)
-      .map((r) => r.klic));
-    spocitane.forEach((r) => { if (!uzSrovnane.has(r.klic)) srovnaneRef.current.delete(r.klic); });
     setUklada('vse');
     try {
-      const error = await upsertKontrol(spocitane, (r) => (uzSrovnane.has(r.klic) ? 'dorovnani' : r.rozdil === 0 ? null : 'ponechano'));
+      const error = await upsertKontrol(spocitane, (r) => (r.rozdil === 0 ? null : 'ponechano'));
       if (error) throw new Error(error);
       uspech(`Uloženo ${spocitane.length} napočítaných položek za týden ${popisTydne(obdobi.od, obdobi.do)}.`);
     } catch (e: any) {
@@ -470,7 +466,7 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
       setUklada(null);
     }
     // Uložením se Sklad srovná na napočítané — automaticky, bez ptaní.
-    if (srovnaniSkladu.length > 0) await srovnatSklad(true, uzSrovnane);
+    if (srovnaniSkladu.length > 0) await srovnatSklad(true);
   }
 
   return (

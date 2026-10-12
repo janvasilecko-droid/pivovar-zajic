@@ -8,7 +8,7 @@
 // DVĚ VĚCI, KTERÉ TENHLE MODUL SCHVÁLNĚ NEDĚLÁ:
 //
 //  (Od 12. 10. 2026 „Uložit kontrolu" Sklad srovná na napočítané vyrovnávacími
-//  zápisy — dorovnaniNaSklad níž. Majitel: „v pondělí je sklad stejný jako
+//  zápisy — srovnaniPodlePocitani níž. Majitel: „v pondělí je sklad stejný jako
 //  týdenní inventura". Bod 1 platí dál: neukládá se RESET do `inventory`.)
 //
 //  1. NEZAPISUJE RESET. Řádek v `inventory` je podle skladové knihy reset —
@@ -24,6 +24,7 @@
 import type { Movement, StockLine } from './stockLedger';
 import { stockAsOf, stockForObdobi } from './stockLedger';
 import { jeSud } from './inventoryFix';
+import { businessDateISO } from './businessDate';
 
 export type TydenObdobi = {
   /** Pondělí kontrolovaného týdne, YYYY-MM-DD. */
@@ -256,34 +257,55 @@ export function zaznamDorovnani(r: TydenniRadek, obdobi: TydenObdobi): Record<st
 }
 
 /**
- * Vyrovnávací zápisy, po kterých se SKLAD rovná napočítanému. Počítá se proti
- * skladové knize k dni počítání (tedy proti tomu, co ukazuje Sklad), ne proti
- * „očekávanému" stavu týdenní kontroly — ty se po neřešených týdnech
- * rozcházejí (12. 10. 2026: „je pondělí, sklad a týdenní inventura musí být
- * stejné"). Spočítaná položka, která už sedí, se nezapisuje; nespočítané
- * se nedotýká.
+ * Vyrovnávací zápisy, po kterých Sklad V OKAMŽIKU POČÍTÁNÍ odpovídá
+ * napočítanému — a co se stalo PO počítání (lahve stočené odpoledne, závoz),
+ * se k tomu dál přičítá.
+ *
+ * 12. 10. 2026: „v pondělí je sklad stejný jako týdenní inventura" — první
+ * verze srovnávala proti Skladu ke chvíli ULOŽENÍ, takže lahve stočené po
+ * ranním počítání ze Skladu zmizely („čeká, ale lahve co se stočily dneska
+ * nejsou"). Teď se bere stav ke chvíli počítání (`casPocitani` = updated_at
+ * záznamu kontroly; pohyb ze dne počítání se počítá jen, když se zapsal
+ * dřív).
+ *
+ * Opakovatelné: všechny vyrovnávací zápisy téhle inventury (poznámka obsahuje
+ * „inventury <týden>": Srovnání, Dorovnat, Zapsat do stáčení) se při výpočtu
+ * stavu vynechají a jejich součet se odečte — zapíše se jen rozdíl, který
+ * ještě chybí (i oprava dřívějšího chybného srovnání). Druhé volání nic
+ * nezapíše. Nespočítané položky se nedotýká.
  */
-export function dorovnaniNaSklad(
+export function srovnaniPodlePocitani(
   radky: TydenniRadek[],
-  sklad: Map<string, { qty: number }>,
+  pohyby: Movement[],
   obdobi: TydenObdobi,
+  casPocitani: Record<string, string | null | undefined>,
+  ted: string = new Date().toISOString(),
 ): { radek: TydenniRadek; zmena: number; zaznam: Record<string, unknown> }[] {
+  const znacka = `inventury ${stitekTydne(obdobi.od)}`;
   const vysledek: { radek: TydenniRadek; zmena: number; zaznam: Record<string, unknown> }[] = [];
   for (const r of radky) {
     if (r.napocitano === null) continue;
-    const zmena = Math.round((r.napocitano - (sklad.get(r.klic)?.qty ?? 0)) * 1000) / 1000;
+    const cas = casPocitani[r.klic] || ted;
+    const den = businessDateISO(new Date(cas));
+    const moje = pohyby.filter((m) => `${m.beer_id}__${m.package_id}` === r.klic);
+    const jeSrovnani = (m: Movement) => m.kind !== 'inventura' && (m.note ?? '').includes(znacka);
+    const uzSrovnano = moje.filter(jeSrovnani).reduce((a, m) => a + m.qty, 0);
+    const predPocitanim = moje.filter((m) => !jeSrovnani(m) && (m.date < den || (m.date === den
+      && (m.kind === 'inventura' || !m.createdAt || Date.parse(m.createdAt) <= Date.parse(cas)))));
+    const stavPriPocitani = stockAsOf(predPocitanim, den).get(r.klic)?.qty ?? 0;
+    const zmena = Math.round((r.napocitano - stavPriPocitani - uzSrovnano) * 1000) / 1000;
     if (zmena === 0) continue;
     vysledek.push({
       radek: r,
       zmena,
       zaznam: {
-        entry_date: obdobi.doPocitani,
+        entry_date: den,
         beer_id: r.beer_id,
         beer_name: r.beer_name,
         package_id: r.package_id,
         package_label: r.package_label,
         quantity: zmena,
-        reason: `Srovnání skladu podle inventury ${stitekTydne(obdobi.od)} — ${r.package_label}`,
+        reason: `Srovnání skladu podle ${znacka} — ${r.package_label}`,
       },
     });
   }
