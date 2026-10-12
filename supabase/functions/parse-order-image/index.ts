@@ -1,7 +1,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { readJsonWithLimit, requireApprovedUser } from "../_shared/require-user.ts";
 import { vlastniJmenaPiv } from "../_shared/beer-match.ts";
-import { ctiPresGemini, dostupneModelyGemini, planPokusuFoto } from "../_shared/gemini-cteni.ts";
+import { ctiPresGemini, dostupneModelyGemini, planPokusuFoto, planPokusuText } from "../_shared/gemini-cteni.ts";
+import { prepisFotkyGoogle } from "../_shared/google-ocr.ts";
 import { PRAVIDLA_CTENI_OBJEDNAVEK } from "../_shared/order-rules.ts";
 
 
@@ -91,10 +92,12 @@ Deno.serve(async (req: Request) => {
     const { data: secretRows, error: secretsErr } = await supabase
       .from("app_secrets")
       .select("key, value")
-      .in("key", ["GEMINI_API_KEY"]);
+      .in("key", ["GEMINI_API_KEY", "GOOGLE_VISION_API_KEY"]);
 
     const secretsMap = new Map((secretRows ?? []).map((s) => [s.key, s.value]));
     const geminiKey = secretsMap.get("GEMINI_API_KEY");
+    // Přepis fotky na text (Google Vision) — viz _shared/google-ocr.ts.
+    const visionKey = secretsMap.get("GOOGLE_VISION_API_KEY");
 
     if (secretsErr || !geminiKey) {
       return new Response(
@@ -400,19 +403,47 @@ Do odpovědi VŽDY přidej i top-level pole "place_name" (na úrovni celé odpov
     // Víc pokusů s pauzami a jiné bezplatné modely téhož klíče — viz
     // _shared/gemini-cteni.ts (12. 10. 2026: Gemini přetížený, záloha četla špatně).
     const chybyGemini: string[] = [];
+    const zbyvaMs = () => CELKOVY_STROP_MS - (Date.now() - zacatekCteni);
+    // 🔎 Fotka se nejdřív přepíše na text (Google Vision). Gemini dostane fotku
+    // i přepis; když fotku nepřečte, čte se objednávka z přepisu jako text
+    // (lite modely mají velkou bezplatnou kvótu).
+    const ocrText = visionKey
+      ? await prepisFotkyGoogle({ klic: visionKey, imageBase64, admin: supabase, chyby: chybyGemini, timeoutMs: 15_000 })
+      : "";
+    const prepis = ocrText
+      ? `\n\nPŘEPIS FOTKY (OCR — strojový přepis, u rukopisu plete znaky: „1l"/„1,5l" jako „11"/„1,51", „0,5" jako „05", „5"↔„S", „0"↔„O"):\n"""\n${ocrText}\n"""`
+      : "";
+    const dostupne = await dostupneModelyGemini(geminiKey);
     text = await ctiPresGemini({
       klic: geminiKey,
-      plan: planPokusuFoto(await dostupneModelyGemini(geminiKey)),
+      plan: planPokusuFoto(dostupne),
       parts: [
         { text: prompt },
-        { text: "Toto je fotka objednávky piva. Přečti ji přesně podle instrukcí a vrať JSON." },
+        {
+          text: "Toto je fotka objednávky piva. Přečti ji přesně podle instrukcí a vrať JSON."
+            + (ocrText ? " Čti z fotky; přepis OCR níže je pomůcka, ať nevynecháš žádný řádek — když se s fotkou liší, platí fotka." + prepis : ""),
+        },
         { inline_data: { mime_type: imageMimeType, data: imageBase64 } },
       ],
       timeoutMs: AI_TIMEOUT_MS.gemini,
-      zbyvaMs: () => CELKOVY_STROP_MS - (Date.now() - zacatekCteni),
+      zbyvaMs: ocrText ? () => zbyvaMs() - 40_000 : zbyvaMs,
       prijmi: (_model, candidate) => (candidate.includes("{") ? candidate : ""),
       chyby: chybyGemini,
     });
+    if (!text && ocrText) {
+      text = await ctiPresGemini({
+        klic: geminiKey,
+        plan: planPokusuText(dostupne),
+        parts: [
+          { text: prompt },
+          { text: "Fotku objednávky piva přepsalo OCR (přepis níže). Přečti objednávku z přepisu přesně podle instrukcí, zjevné chyby OCR oprav podle smyslu, a vrať JSON." + prepis },
+        ],
+        timeoutMs: AI_TIMEOUT_MS.gemini,
+        zbyvaMs,
+        prijmi: (_model, candidate) => (candidate.includes("{") ? candidate : ""),
+        chyby: chybyGemini,
+      });
+    }
 
     if (!text) {
       return new Response(

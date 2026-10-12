@@ -3,6 +3,7 @@ import { readJsonWithLimit, requireApprovedUser } from "../_shared/require-user.
 import { vlastniJmenaPiv } from "../_shared/beer-match.ts";
 import { ctiPresGemini, dostupneModelyGemini, planPokusuFoto, planPokusuText } from "../_shared/gemini-cteni.ts";
 import { PRAVIDLA_CTENI_OBJEDNAVEK } from "../_shared/order-rules.ts";
+import { prepisFotkyGoogle, sekceOcr, textSOcr } from "../_shared/google-ocr.ts";
 
 // ⏱️ Časové stropy pro jednotlivé AI poskytovatele.
 // ---------------------------------------------------------------------------
@@ -28,6 +29,9 @@ const AI_TIMEOUT_MS = {
 // Celkový čas na čtení — pod tvrdým limitem platformy 150 s. Každý další
 // provider dostane nejvýš to, co zbývá (u fotky se Gemini může zkoušet dvakrát).
 const CELKOVY_STROP_MS = 140_000;
+// Když je fotka přepsaná (OCR), Gemini smí číst fotku jen do téhle rezervy —
+// zbytek času dostanou AI, které čtou přepis jako text.
+const REZERVA_PRO_TEXT_MS = 40_000;
 
 // Fotku umí z bezplatných poskytovatelů jen modely s obrazem. Groq je
 // průběžně mění (12. 10. 2026 neměl žádný — Llama 4 vyřazena), proto se
@@ -255,7 +259,7 @@ Deno.serve(async (req: Request) => {
     const { data: secretRows, error: secretsErr } = await supabase
       .from("app_secrets")
       .select("key, value")
-      .in("key", ["GEMINI_API_KEY", "GROQ_API_KEY", "MISTRAL_API_KEY", "OPENROUTER_API_KEY"]);
+      .in("key", ["GEMINI_API_KEY", "GROQ_API_KEY", "MISTRAL_API_KEY", "OPENROUTER_API_KEY", "GOOGLE_VISION_API_KEY"]);
 
     const secretsMap = new Map((secretRows ?? []).map((s) => [s.key, s.value]));
     const geminiKey = secretsMap.get("GEMINI_API_KEY");
@@ -263,6 +267,8 @@ Deno.serve(async (req: Request) => {
     const mistralKey = secretsMap.get("MISTRAL_API_KEY");
     // Volitelný 4. bezplatný poskytovatel — jen modely „:free" (12. 10. 2026).
     const openrouterKey = secretsMap.get("OPENROUTER_API_KEY");
+    // Přepis fotky na text (Google Vision) — viz _shared/google-ocr.ts.
+    const visionKey = secretsMap.get("GOOGLE_VISION_API_KEY");
 
     if (secretsErr || (!geminiKey && !groqKey && !mistralKey && !openrouterKey)) {
       return new Response(
@@ -394,18 +400,31 @@ PŘÍKLAD PŘIDÁNÍ (přesně tenhle případ se v provozu spletl):
   stupeň vs. objem výše.)`
       : "";
 
+    // Jen pro interní volání (pg_cron secret): vynechat vybrané providery —
+    // slouží k ověření záložních čtení fotky, když Gemini zrovna funguje.
+    const vynechat = new Set<string>(
+      auth.user.id === "system-cron" && Array.isArray(body._vynechat) ? body._vynechat : [],
+    );
+    const zacatekCteni = Date.now();
+
+    // 🔎 Fotka se nejdřív přepíše na text (Google Vision, 12. 10. 2026 majitel:
+    // „ať to rovnou udělá Google Vision a pak teprve AI čte ten text"). Gemini
+    // pak dostane fotku i přepis, ostatní AI čtou přepis jako text.
+    const chybyOcr: string[] = [];
+    const ocrText = imageBase64 && visionKey && !vynechat.has("ocr")
+      ? await prepisFotkyGoogle({ klic: visionKey, imageBase64, admin: supabase, chyby: chybyOcr, timeoutMs: 15_000 })
+      : "";
+
     // Když je ke zprávě přiložená i FOTKA, AI ji přečte taky (Gemini vision).
     // Fotka je zdrojová objednávka; text zprávy je jen doplněk (popisek).
-    const photoSection = imageBase64
-      ? `
+    const photoSection = !imageBase64 ? "" : ocrText ? sekceOcr(true) : `
 
 📷 FOTKA OBJEDNÁVKY Z WHATSAPP:
 K této objednávce je přiložená i FOTKA (viz obrázek v požadavku). Přečti objednávku PŘEDEVŠÍM Z FOTKY.
 - raw_text = doslovný přepis CELÉHO textu z fotky, řádek po řádku, v pořadí jako na fotce (i nečitelné části).
 - Ke KAŽDÉMU řádku fotky s objednávkovým údajem MUSÍ existovat položka v items (viz pravidla výše).
 - Čísla čti VELMI POZORNĚ (5x30 ≠ 5x50, 3 vs 5 vs 8, 0 vs 6).
-- Text zprávy níže je jen doplněk k fotce — má přednost to, co je na fotce.`
-      : "";
+- Text zprávy níže je jen doplněk k fotce — má přednost to, co je na fotce.`;
 
     const prompt = `Jsi asistent pro pivovar. Níže je text objednávky piva z WhatsApp (může to být celý měsíc konverzace od VÍCE odběratelů).
 Přečti VŠECHNY objednávky a vrať je jako strukturovaná data. NIKDY nevynechávej žádnou položku objednávky — i když si nejsi jistý, vrať ji s tím, co jsi rozpoznal, a nech neznámé hodnoty jako null.
@@ -654,6 +673,12 @@ Do odpovědi VŽDY přidej i top-level pole "place_name" (na úrovni celé odpov
 ${photoSection}`;
 
 
+    // Ostatní AI (Groq, Mistral, OpenRouter): s přepisem čtou jen text — na text
+    // mají větší bezplatné kvóty a víc modelů; bez přepisu dostanou fotku.
+    const fotkaOstatnim = !!imageBase64 && !ocrText;
+    const promptOstatni = ocrText ? prompt.slice(0, prompt.length - photoSection.length) + sekceOcr(false) : prompt;
+    const textOstatnim = ocrText ? textSOcr(rawText, ocrText) : `TEXT OBJEDNÁVKY Z WHATSAPP:\n"""\n${rawText}\n"""`;
+
     const groqBody = {
       model: "llama-3.3-70b-versatile",
       temperature: 0.1,
@@ -661,16 +686,16 @@ ${photoSection}`;
       messages: [
         {
           role: "system",
-          content: prompt,
+          content: promptOstatni,
         },
         {
           role: "user",
-          content: imageBase64
+          content: fotkaOstatnim
             ? [
-                { type: "text", text: `TEXT OBJEDNÁVKY Z WHATSAPP:\n"""\n${rawText}\n"""` },
+                { type: "text", text: textOstatnim },
                 { type: "image_url", image_url: { url: `data:${imageMimeType};base64,${imageBase64}` } },
               ]
-            : `TEXT OBJEDNÁVKY Z WHATSAPP:\n"""\n${rawText}\n"""`,
+            : textOstatnim,
         },
       ],
     };
@@ -683,28 +708,22 @@ ${photoSection}`;
       messages: [
         {
           role: "system",
-          content: prompt,
+          content: promptOstatni,
         },
         {
           role: "user",
-          content: imageBase64
+          content: fotkaOstatnim
             ? [
-                { type: "text", text: `TEXT OBJEDNÁVKY Z WHATSAPP:\n"""\n${rawText}\n"""` },
+                { type: "text", text: textOstatnim },
                 { type: "image_url", image_url: `data:${imageMimeType};base64,${imageBase64}` },
               ]
-            : `TEXT OBJEDNÁVKY Z WHATSAPP:\n"""\n${rawText}\n"""`,
+            : textOstatnim,
         },
       ],
     };
 
 
     let text = "";
-    // Jen pro interní volání (pg_cron secret): vynechat vybrané providery —
-    // slouží k ověření záložních čtení fotky, když Gemini zrovna funguje.
-    const vynechat = new Set<string>(
-      auth.user.id === "system-cron" && Array.isArray(body._vynechat) ? body._vynechat : [],
-    );
-    const zacatekCteni = Date.now();
     // Kolik smí trvat další volání: nominální strop, ale nejvýš co zbývá z celku.
     const zbyvaMs = () => CELKOVY_STROP_MS - (Date.now() - zacatekCteni);
     const strop = (ms: number) => Math.max(1_000, Math.min(ms, zbyvaMs()));
@@ -712,10 +731,10 @@ ${photoSection}`;
     // Který provider odpověděl a proč ostatní ne — vrací se v odpovědi
     // (_provider, _provider_chyby), ať jde čtení fotky zpětně dohledat.
     let pouzityProvider = "";
-    const chybyProvideru: string[] = [];
+    const chybyProvideru: string[] = [...chybyOcr];
     const prijmi = (provider: string, candidate: string): string => {
       const t = acceptOutput(provider, candidate, beerNameKeys, pkgLabelKeys);
-      if (t) pouzityProvider = provider;
+      if (t) pouzityProvider = ocrText ? `ocr+${provider}` : provider;
       else chybyProvideru.push(`${provider}: ${candidate ? "nevalidní výstup" : "prázdná odpověď"}`);
       return t;
     };
@@ -739,11 +758,12 @@ ${photoSection}`;
         plan,
         parts: [
           { text: prompt },
-          { text: `TEXT OBJEDNÁVKY Z WHATSAPP:\n"""\n${rawText}\n"""` },
+          { text: ocrText ? textSOcr(rawText, ocrText) : `TEXT OBJEDNÁVKY Z WHATSAPP:\n"""\n${rawText}\n"""` },
           ...(imageBase64 ? [{ inline_data: { mime_type: imageMimeType, data: imageBase64 } }] : []),
         ],
         timeoutMs: imageBase64 ? AI_TIMEOUT_MS.geminiFoto : AI_TIMEOUT_MS.gemini,
-        zbyvaMs,
+        // S přepisem nechá Gemini čas i AI na text (fotku pak čtou z přepisu).
+        zbyvaMs: ocrText ? () => zbyvaMs() - REZERVA_PRO_TEXT_MS : zbyvaMs,
         prijmi: (model, candidate) => prijmi(model === "gemini-3.5-flash" ? "gemini" : `gemini:${model}`, candidate),
         chyby: chybyProvideru,
       });
@@ -764,7 +784,7 @@ ${photoSection}`;
       // Groq modely průběžně vyřazuje (12. 10. 2026: llama-3.3/3.1/4 už 404,
       // zbyl gpt-oss-120b s limitem 8000 tokenů/min) — model se vybere podle
       // toho, co Groq právě nabízí. Fotka jen modely s obrazem.
-      let groqModely = imageBase64 ? GROQ_MODELY_FOTO : GROQ_MODELY;
+      let groqModely = fotkaOstatnim ? GROQ_MODELY_FOTO : GROQ_MODELY;
       try {
         const seznam = await fetch("https://api.groq.com/openai/v1/models", {
           signal: AbortSignal.timeout(5_000),
@@ -774,7 +794,7 @@ ${photoSection}`;
           const ids: string[] = ((await seznam.json())?.data ?? [])
             .filter((m: any) => m?.active !== false)
             .map((m: any) => String(m?.id ?? ""));
-          if (imageBase64) {
+          if (fotkaOstatnim) {
             groqModely = ids.filter((id) => /vision|llama-4|scout|maverick|-vl\b|vl-|gemma-3|pixtral|llava/i.test(id));
           } else {
             const textove = ids.filter((id) => !/whisper|guard|tts|playai|orpheus|compound|distil|embed/i.test(id));
@@ -823,7 +843,7 @@ ${photoSection}`;
     //    i Groq (HTTP 429/500), přepneme OKAMŽITĚ dál — bez čekání, řádově 0,5 s.
     if (!text && mistralKey && !vynechat.has("mistral") && zbyvaMs() > 5_000) {
       const mistralUrl = "https://api.mistral.ai/v1/chat/completions";
-      for (const model of imageBase64 ? MISTRAL_MODELY_FOTO : MISTRAL_MODELY_TEXT) {
+      for (const model of fotkaOstatnim ? MISTRAL_MODELY_FOTO : MISTRAL_MODELY_TEXT) {
         if (text || zbyvaMs() < 5_000) break;
         try {
           const mistralResp = await fetch(mistralUrl, {
@@ -863,14 +883,14 @@ ${photoSection}`;
     //    vybral bezpečnostní model, který objednávku nečte. Zapne se, až je
     //    v app_secrets klíč OPENROUTER_API_KEY.
     if (!text && openrouterKey && !vynechat.has("openrouter") && zbyvaMs() > 5_000) {
-      let modely = imageBase64 ? OPENROUTER_FOTO : OPENROUTER_TEXT;
+      let modely = fotkaOstatnim ? OPENROUTER_FOTO : OPENROUTER_TEXT;
       try {
         const seznam = await fetch("https://openrouter.ai/api/v1/models", { signal: AbortSignal.timeout(5_000) });
         if (seznam.ok) {
           const nabidka = ((await seznam.json())?.data ?? []) as any[];
           const zdarma = nabidka.filter((m) => String(m?.id ?? "").endsWith(":free")
             && !/safety|guard|code|coder|laguna|lfm|apodex/i.test(String(m.id))
-            && (!imageBase64 || (m?.architecture?.input_modalities ?? []).includes("image")));
+            && (!fotkaOstatnim || (m?.architecture?.input_modalities ?? []).includes("image")));
           const ids = zdarma.map((m) => String(m.id));
           const znamePrvni = modely.filter((m) => ids.includes(m));
           modely = [...znamePrvni, ...ids.filter((m) => !znamePrvni.includes(m))].slice(0, 4);
