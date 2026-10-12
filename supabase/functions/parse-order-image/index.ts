@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { readJsonWithLimit, requireApprovedUser } from "../_shared/require-user.ts";
 import { vlastniJmenaPiv } from "../_shared/beer-match.ts";
+import { ctiPresGemini, dostupneModelyGemini, planPokusuFoto } from "../_shared/gemini-cteni.ts";
 import { PRAVIDLA_CTENI_OBJEDNAVEK } from "../_shared/order-rules.ts";
 
 
@@ -391,72 +392,31 @@ Do odpovědi VŽDY přidej i top-level pole "place_name" (na úrovni celé odpov
 
     let text = "";
     const zacatekCteni = Date.now();
-    let geminiZnovu = false;
 
     // 1) Primární provider: Google Gemini (nativní JSON mode, vision).
     //    Gemini má velkorysé rate limity a čtení funguje bez Anthropic kreditů.
     //    Pozn.: "gemini-2.5-flash" už Google nezpřístupňuje novým klíčům (HTTP 404),
     //    proto používáme gemini-3.5-flash (GA, stejná kategorie flash).
-    for (let pokus = 1; pokus <= 3 && !text; pokus++) {
-      const zbyva = CELKOVY_STROP_MS - (Date.now() - zacatekCteni);
-      if (pokus > 1) {
-        if (!geminiZnovu || zbyva < 20_000) break;
-        await new Promise((r) => setTimeout(r, 2000));
-      }
-      geminiZnovu = false;
-      try {
-        const geminiBody = {
-          contents: [
-            {
-              role: "user",
-              parts: [
-                { text: prompt },
-                { text: "Toto je fotka objednávky piva. Přečti ji přesně podle instrukcí a vrať JSON." },
-                {
-                  inline_data: {
-                    mime_type: imageMimeType,
-                    data: imageBase64,
-                  },
-                },
-              ],
-            },
-          ],
-          generationConfig: {
-            temperature: 0.1,
-            responseMimeType: "application/json",
-          },
-        };
-
-        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${encodeURIComponent(geminiKey)}`;
-        const geminiResp = await fetch(geminiUrl, {
-          signal: AbortSignal.timeout(Math.max(5_000, Math.min(AI_TIMEOUT_MS.gemini, CELKOVY_STROP_MS - (Date.now() - zacatekCteni)))),
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(geminiBody),
-        });
-
-        if (geminiResp.ok) {
-          const geminiData = await geminiResp.json();
-          text =
-            geminiData?.candidates?.[0]?.content?.parts
-              ?.map((p: any) => p.text || "")
-              .join("") ?? "";
-        } else {
-          const errText = await geminiResp.text();
-          console.warn(`Gemini API error (status ${geminiResp.status}): ${errText}`);
-          geminiZnovu = geminiResp.status === 503 || geminiResp.status === 429 || geminiResp.status >= 500;
-        }
-      } catch (err) {
-        console.warn(`Gemini API exception (timeout nebo síť): ${err instanceof Error ? err.name + ": " + err.message : err}`);
-        geminiZnovu = true;
-      }
-    }
+    // Víc pokusů s pauzami a jiné bezplatné modely téhož klíče — viz
+    // _shared/gemini-cteni.ts (12. 10. 2026: Gemini přetížený, záloha četla špatně).
+    const chybyGemini: string[] = [];
+    text = await ctiPresGemini({
+      klic: geminiKey,
+      plan: planPokusuFoto(await dostupneModelyGemini(geminiKey)),
+      parts: [
+        { text: prompt },
+        { text: "Toto je fotka objednávky piva. Přečti ji přesně podle instrukcí a vrať JSON." },
+        { inline_data: { mime_type: imageMimeType, data: imageBase64 } },
+      ],
+      timeoutMs: AI_TIMEOUT_MS.gemini,
+      zbyvaMs: () => CELKOVY_STROP_MS - (Date.now() - zacatekCteni),
+      prijmi: (_model, candidate) => (candidate.includes("{") ? candidate : ""),
+      chyby: chybyGemini,
+    });
 
     if (!text) {
       return new Response(
-        JSON.stringify({ error: "Gemini nepřečetl fotku (ani po opakování) — zkus to za chvíli znovu." }),
+        JSON.stringify({ error: "Gemini nepřečetl fotku (ani po opakování) — zkus to za chvíli znovu.", _chyby: chybyGemini }),
         { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
