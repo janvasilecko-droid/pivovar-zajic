@@ -13,19 +13,27 @@ import { PRAVIDLA_CTENI_OBJEDNAVEK } from "../_shared/order-rules.ts";
 // přestože tři funkční záložní poskytovatelé byli k dispozici.
 // Součet stropů musí zůstat bezpečně pod 150 s.
 const AI_TIMEOUT_MS = {
-  // Jen u fotek (viz níž); Groq a Mistral fotku nevidí, u fotek se přeskakují,
-  // takže součet u fotky je 40 + 55 + 45 s.
-  anthropic: 40_000,
   gemini: 30_000,
   // Ručně psaná fotka trvá Gemini déle než 30 s — 12. 10. 2026 při 30 s
   // spadla na gpt-4o-mini, který vynechal půlku řádků; Gemini sám ji
-  // přečetl celou (21/21).
+  // přečetl celou (21/21). U fotky hlídá celkový strop CELKOVY_STROP_MS.
   geminiFoto: 55_000,
-  openaiFoto: 45_000,
   groq: 25_000,
   mistral: 25_000,
   openai: 30_000,
 };
+
+// Celkový čas na čtení — pod tvrdým limitem platformy 150 s. Každý další
+// provider dostane nejvýš to, co zbývá (u fotky se Gemini může zkoušet dvakrát).
+const CELKOVY_STROP_MS = 140_000;
+
+// Fotku umí z bezplatných poskytovatelů jen modely s obrazem: u Groqu Llama 4,
+// u Mistralu medium/pixtral. Neexistující model vrátí rychle 4xx → další.
+const GROQ_MODELY_FOTO = [
+  "meta-llama/llama-4-scout-17b-16e-instruct",
+  "meta-llama/llama-4-maverick-17b-128e-instruct",
+];
+const MISTRAL_MODELY_FOTO = ["mistral-medium-latest", "pixtral-large-latest", "mistral-small-latest"];
 
 // Groq modely v pořadí preference — první, který odpoví, se použije.
 // Seznam existuje proto, že Groq modely vyřazuje bez náhrady (viz komentář
@@ -235,14 +243,13 @@ Deno.serve(async (req: Request) => {
     const { data: secretRows, error: secretsErr } = await supabase
       .from("app_secrets")
       .select("key, value")
-      .in("key", ["GEMINI_API_KEY", "GROQ_API_KEY", "MISTRAL_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY"]);
+      .in("key", ["GEMINI_API_KEY", "GROQ_API_KEY", "MISTRAL_API_KEY", "OPENAI_API_KEY"]);
 
     const secretsMap = new Map((secretRows ?? []).map((s) => [s.key, s.value]));
     const geminiKey = secretsMap.get("GEMINI_API_KEY");
     const groqKey = secretsMap.get("GROQ_API_KEY");
     const mistralKey = secretsMap.get("MISTRAL_API_KEY");
     const openaiKey = secretsMap.get("OPENAI_API_KEY");
-    const anthropicKey = secretsMap.get("ANTHROPIC_API_KEY");
 
     if (secretsErr || (!geminiKey && !groqKey && !mistralKey && !openaiKey)) {
       return new Response(
@@ -645,7 +652,12 @@ ${photoSection}`;
         },
         {
           role: "user",
-          content: `TEXT OBJEDNÁVKY Z WHATSAPP:\n"""\n${rawText}\n"""`,
+          content: imageBase64
+            ? [
+                { type: "text", text: `TEXT OBJEDNÁVKY Z WHATSAPP:\n"""\n${rawText}\n"""` },
+                { type: "image_url", image_url: { url: `data:${imageMimeType};base64,${imageBase64}` } },
+              ]
+            : `TEXT OBJEDNÁVKY Z WHATSAPP:\n"""\n${rawText}\n"""`,
         },
       ],
     };
@@ -662,13 +674,27 @@ ${photoSection}`;
         },
         {
           role: "user",
-          content: `TEXT OBJEDNÁVKY Z WHATSAPP:\n"""\n${rawText}\n"""`,
+          content: imageBase64
+            ? [
+                { type: "text", text: `TEXT OBJEDNÁVKY Z WHATSAPP:\n"""\n${rawText}\n"""` },
+                { type: "image_url", image_url: `data:${imageMimeType};base64,${imageBase64}` },
+              ]
+            : `TEXT OBJEDNÁVKY Z WHATSAPP:\n"""\n${rawText}\n"""`,
         },
       ],
     };
 
 
     let text = "";
+    // Jen pro interní volání (pg_cron secret): vynechat vybrané providery —
+    // slouží k ověření záložních čtení fotky, když Gemini zrovna funguje.
+    const vynechat = new Set<string>(
+      auth.user.id === "system-cron" && Array.isArray(body._vynechat) ? body._vynechat : [],
+    );
+    const zacatekCteni = Date.now();
+    // Kolik smí trvat další volání: nominální strop, ale nejvýš co zbývá z celku.
+    const zbyvaMs = () => CELKOVY_STROP_MS - (Date.now() - zacatekCteni);
+    const strop = (ms: number) => Math.max(1_000, Math.min(ms, zbyvaMs()));
     let isOpenAiUsed = false;
 
     // Který provider odpověděl a proč ostatní ne — vrací se v odpovědi
@@ -682,63 +708,6 @@ ${photoSection}`;
       return t;
     };
 
-    // 0) FOTKA: nejdřív Claude. 12. 10. 2026 Gemini Flash na ručně psaném
-    //    lístku (Radek, 22 řádků) opakovaně vynechal celý blok „35x 1l …"
-    //    a „1l"/„1,5l" přepisoval jako „11" — objednávka v appce chyběla.
-    //    Claude čte rukopis spolehlivěji; Gemini a OpenAI zůstávají jako záloha.
-    if (!text && imageBase64 && anthropicKey) {
-      try {
-        const claudeResp = await fetch("https://api.anthropic.com/v1/messages", {
-          signal: AbortSignal.timeout(AI_TIMEOUT_MS.anthropic),
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": anthropicKey,
-            "anthropic-version": "2023-06-01",
-            "anthropic-beta": "server-side-fallback-2026-07-01",
-          },
-          body: JSON.stringify({
-            model: "claude-opus-5-5",
-            max_tokens: 16000,
-            output_config: { effort: "medium" },
-            fallbacks: "default",
-            system: prompt,
-            messages: [
-              {
-                role: "user",
-                content: [
-                  { type: "image", source: { type: "base64", media_type: imageMimeType, data: imageBase64 } },
-                  {
-                    type: "text",
-                    text: `TEXT OBJEDNÁVKY Z WHATSAPP:\n"""\n${rawText}\n"""\n\nPřečti z fotky VŠECHNY řádky objednávky (i pod čarou a na konci stránky) a vrať jen JSON podle zadání.`,
-                  },
-                ],
-              },
-            ],
-          }),
-        });
-        if (claudeResp.ok) {
-          const claudeData = await claudeResp.json();
-          if (claudeData?.stop_reason === "refusal") {
-            console.warn("Claude odmítl čtení fotky — zkouším dalšího providera");
-          } else {
-            const candidate = (claudeData?.content ?? [])
-              .filter((b: any) => b?.type === "text")
-              .map((b: any) => b.text || "")
-              .join("");
-            text = prijmi("anthropic", candidate);
-          }
-        } else {
-          const chybaText = await claudeResp.text();
-          console.warn(`Claude API error (status ${claudeResp.status}): ${chybaText}`);
-          chybyProvideru.push(`anthropic: HTTP ${claudeResp.status} ${chybaText.slice(0, 300)}`);
-        }
-      } catch (err) {
-        console.warn(`Claude API exception (timeout nebo síť): ${err instanceof Error ? err.name + ": " + err.message : err}`);
-        chybyProvideru.push(`anthropic: ${err instanceof Error ? err.name : "chyba"}`);
-      }
-    }
-
     // 1) Primární provider: Google Gemini (nativní JSON mode).
     //    Gemini má velkorysé rate limity (na rozdíl od OpenAI TPM limitů)
     //    a čtení funguje bez kreditů navíc.
@@ -746,9 +715,9 @@ ${photoSection}`;
     //    proto používáme gemini-3.5-flash (GA, stejná kategorie flash).
     // U fotky se při přetížení (503/429) Gemini zkusí ještě jednou — jeho
     // čtení rukopisu je výrazně lepší než záloha (12. 10. 2026: Gemini 21/21
-    // řádků správně, gpt-4o při 503 vynechal 1,5l i druhé 35× 1l).
+    // řádků správně, záloha při 503 vynechala 1,5l i druhé 35× 1l).
     let geminiPretizeny = false;
-    for (let pokusGemini = 1; pokusGemini <= (imageBase64 ? 2 : 1) && !text && geminiKey; pokusGemini++) {
+    for (let pokusGemini = 1; pokusGemini <= (imageBase64 ? 2 : 1) && !text && geminiKey && !vynechat.has("gemini"); pokusGemini++) {
       if (pokusGemini > 1) {
         if (!geminiPretizeny) break;
         await new Promise((r) => setTimeout(r, 2000));
@@ -783,7 +752,7 @@ ${photoSection}`;
 
         const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${encodeURIComponent(geminiKey)}`;
         const geminiResp = await fetch(geminiUrl, {
-          signal: AbortSignal.timeout(imageBase64 ? AI_TIMEOUT_MS.geminiFoto : AI_TIMEOUT_MS.gemini),
+          signal: AbortSignal.timeout(strop(imageBase64 ? AI_TIMEOUT_MS.geminiFoto : AI_TIMEOUT_MS.gemini)),
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -820,13 +789,13 @@ ${photoSection}`;
     //    logovalo jen jako varování. Proto se zkouší několik modelů za sebou:
     //    404 přijde řádově do 200 ms, takže to nic nestojí, a když Groq model
     //    zase přejmenuje, záloha se opraví sama.
-    if (!text && groqKey && !imageBase64) {
+    if (!text && groqKey && !vynechat.has("groq") && zbyvaMs() > 5_000) {
       const groqUrl = "https://api.groq.com/openai/v1/chat/completions";
-      for (const model of GROQ_MODELY) {
-        if (text) break;
+      for (const model of imageBase64 ? GROQ_MODELY_FOTO : GROQ_MODELY) {
+        if (text || zbyvaMs() < 5_000) break;
         try {
           const groqResp = await fetch(groqUrl, {
-            signal: AbortSignal.timeout(AI_TIMEOUT_MS.groq),
+            signal: AbortSignal.timeout(strop(AI_TIMEOUT_MS.groq)),
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -843,10 +812,11 @@ ${photoSection}`;
           } else {
             const errText = await groqResp.text();
             console.warn(`Groq API error (model ${model}, status ${groqResp.status}): ${errText.slice(0, 200)}`);
+            chybyProvideru.push(`groq ${model}: HTTP ${groqResp.status} ${errText.slice(0, 200)}`);
             // Model neexistuje (404) nebo je na něj prompt moc velký (413) →
             // zkus další model. Jiná chyba (limit, výpadek) → další model to
             // nespraví, jdi rovnou na dalšího poskytovatele.
-            if (groqResp.status !== 404 && groqResp.status !== 413) break;
+            if (groqResp.status !== 404 && groqResp.status !== 413 && groqResp.status !== 400) break;
           }
         } catch (err) {
           console.warn(`Groq API exception (model ${model}, timeout nebo síť): ${err instanceof Error ? err.name + ": " + err.message : err}`);
@@ -857,38 +827,46 @@ ${photoSection}`;
 
     // 3) Další pojistka: Mistral (mistral-large-latest). Když vyčerpá limit
     //    i Groq (HTTP 429/500), přepneme OKAMŽITĚ dál — bez čekání, řádově 0,5 s.
-    if (!text && mistralKey && !imageBase64) {
-      try {
-        const mistralUrl = "https://api.mistral.ai/v1/chat/completions";
-        const mistralResp = await fetch(mistralUrl, {
-          signal: AbortSignal.timeout(AI_TIMEOUT_MS.mistral),
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${mistralKey}`,
-          },
-          body: JSON.stringify(mistralBody),
-        });
+    if (!text && mistralKey && !vynechat.has("mistral") && zbyvaMs() > 5_000) {
+      const mistralUrl = "https://api.mistral.ai/v1/chat/completions";
+      for (const model of imageBase64 ? MISTRAL_MODELY_FOTO : [mistralBody.model]) {
+        if (text || zbyvaMs() < 5_000) break;
+        try {
+          const mistralResp = await fetch(mistralUrl, {
+            signal: AbortSignal.timeout(strop(AI_TIMEOUT_MS.mistral)),
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${mistralKey}`,
+            },
+            body: JSON.stringify({ ...mistralBody, model }),
+          });
 
-        if (mistralResp.ok) {
-          const mistralData = await mistralResp.json();
-          const candidate = mistralData?.choices?.[0]?.message?.content ?? "";
-          text = prijmi("mistral", candidate);
-        } else {
-          const errText = await mistralResp.text();
-          console.warn(`Mistral API error (status ${mistralResp.status}): ${errText}`);
+          if (mistralResp.ok) {
+            const mistralData = await mistralResp.json();
+            const candidate = mistralData?.choices?.[0]?.message?.content ?? "";
+            text = prijmi("mistral", candidate);
+            if (text) console.log(`Mistral: použit model ${model}`);
+          } else {
+            const errText = await mistralResp.text();
+            console.warn(`Mistral API error (model ${model}, status ${mistralResp.status}): ${errText}`);
+            chybyProvideru.push(`mistral ${model}: HTTP ${mistralResp.status} ${errText.slice(0, 200)}`);
+            // Model neexistuje / neumí obrázek → zkus další; limit nebo výpadek → dál.
+            if (mistralResp.status !== 404 && mistralResp.status !== 400 && mistralResp.status !== 422) break;
+          }
+        } catch (err) {
+          console.warn(`Mistral API exception (model ${model}, timeout nebo síť): ${err instanceof Error ? err.name + ": " + err.message : err}`);
+          chybyProvideru.push(`mistral ${model}: ${err instanceof Error ? err.name : "chyba"}`);
+          break;
         }
-      } catch (err) {
-        console.warn(`Mistral API exception (timeout nebo síť): ${err instanceof Error ? err.name + ": " + err.message : err}`);
       }
     }
 
     // 4) Poslední záchrana: OpenAI (gpt-4o-mini) — kdyby selhaly Gemini, Groq i Mistral.
-    if (!text && openaiKey) {
+    if (!text && openaiKey && !vynechat.has("openai") && zbyvaMs() > 5_000) {
       isOpenAiUsed = true;
       const openaiBody = {
-        // Fotku čte plný gpt-4o — mini na ručním písmu vynechával řádky.
-        model: imageBase64 ? "gpt-4o" : "gpt-4o-mini",
+        model: "gpt-4o-mini",
         temperature: 0.1,
         response_format: { type: "json_object" },
         messages: [
@@ -915,7 +893,7 @@ ${photoSection}`;
 
       const openaiUrl = "https://api.openai.com/v1/chat/completions";
       const openaiResp = await fetch(openaiUrl, {
-          signal: AbortSignal.timeout(imageBase64 ? AI_TIMEOUT_MS.openaiFoto : AI_TIMEOUT_MS.openai),
+          signal: AbortSignal.timeout(strop(AI_TIMEOUT_MS.openai)),
         method: "POST",
         headers: {
           "Content-Type": "application/json",
