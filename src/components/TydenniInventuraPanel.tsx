@@ -10,7 +10,7 @@
 // Zapisuje se stejnými funkcemi jako u měsíční uzávěrky (lib/inventoryFix.ts,
 // lib/tankZapis.ts). Vlastní verze zápisu by byla druhá pravda o tomtéž.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CalendarRange, Calculator, Check, ChevronLeft, ChevronRight, ClipboardList, ExternalLink, ListChecks, Lock, LockOpen, MinusCircle, Plus, RefreshCw, Save, Search, SkipForward, Wand2 } from 'lucide-react';
+import { CalendarRange, Calculator, Check, ChevronLeft, ChevronRight, ClipboardList, ExternalLink, ListChecks, MinusCircle, Plus, RefreshCw, Save, Search, SkipForward, Wand2 } from 'lucide-react';
 import { supabase, fetchAllRows, formatPackageLabel, beerBg, beerText } from '../lib/supabase';
 import { Spinner } from './ui';
 import { QuickCountModal } from './QuickCountModal';
@@ -29,7 +29,7 @@ import { popisPolozek, objednavkaShoduje, zapisShoduje, type PrehledObjednavka, 
 import { StitekStavu } from './StitekStavu';
 import { lzeUlozitKoncept, slucInventuru } from '../lib/rozepsanaInventura';
 import { nactiJson, ulozJson } from '../lib/uloziste';
-import { chyba, oznam, potvrd, uspech } from '../lib/toast';
+import { chyba, oznam, uspech } from '../lib/toast';
 import { zapamatujPozici } from '../lib/drzPozici';
 import { normalizujCislo } from '../lib/cisloVstup';
 import { puvodStavu } from '../lib/puvodMinusu';
@@ -92,8 +92,7 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
   const [otevrenyRadek, setOtevrenyRadek] = useState<string | null>(null);
   const [objednavkyInfo, setObjednavkyInfo] = useState<Record<string, { place_name: string | null; delivery_date: string | null; status: string | null }>>({});
 
-  // 📋 Přehled týdne (vedle počítání kusů) a značka uzavření — viz
-  // lib/tydenniPrehled.ts a migrace tydenni_uzaverky.
+  // 📋 Přehled týdne (vedle počítání kusů) — viz lib/tydenniPrehled.ts.
   const [rezim, setRezim] = useState<'pocitani' | 'prehled'>('pocitani');
   /**
    * 🧮 Dotykové sčítadlo. Napočítané kusy jen PŘEDVYPLNÍ pole
@@ -110,39 +109,6 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
     });
     oznam(`Vyplněno ${polozky.length} položek do „Napočítáno". Zkontroluj čísla a ulož.`);
   }
-  const [uzavreno, setUzavreno] = useState<{ at: string; by: string | null } | null>(null);
-  const [uzaviram, setUzaviram] = useState(false);
-
-  useEffect(() => {
-    let zruseno = false;
-    supabase.from('tydenni_uzaverky').select('uzavreno_at, uzavreno_by').eq('tyden_od', obdobi.od).maybeSingle()
-      .then(({ data }) => { if (!zruseno) setUzavreno(data ? { at: data.uzavreno_at, by: data.uzavreno_by } : null); });
-    return () => { zruseno = true; };
-  }, [obdobi.od]);
-
-  async function uzavritTyden() {
-    if (!(await potvrd(`Uzavřít týden ${popisTydne(obdobi.od, obdobi.do)}? Je to jen značka pro přehled — nic nezamkne, jde kdykoli zase otevřít.`))) return;
-    setUzaviram(true);
-    const { data: { user } } = await supabase.auth.getUser().catch(() => ({ data: { user: null } } as any));
-    const { error } = await supabase.from('tydenni_uzaverky').upsert(
-      { tyden_od: obdobi.od, uzavreno_at: new Date().toISOString(), uzavreno_by: user?.email ?? null },
-      { onConflict: 'tyden_od' },
-    );
-    setUzaviram(false);
-    if (error) { chyba('Uzavření se nepovedlo: ' + error.message); return; }
-    setUzavreno({ at: new Date().toISOString(), by: user?.email ?? null });
-    uspech(`Týden ${popisTydne(obdobi.od, obdobi.do)} uzavřen.`);
-  }
-
-  async function otevritTyden() {
-    if (!(await potvrd('Otevřít týden znovu?'))) return;
-    setUzaviram(true);
-    const { error } = await supabase.from('tydenni_uzaverky').delete().eq('tyden_od', obdobi.od);
-    setUzaviram(false);
-    if (error) { chyba('Otevření se nepovedlo: ' + error.message); return; }
-    setUzavreno(null);
-  }
-
   const nacti = useCallback(async () => {
     setBezi(true);
     try {
@@ -449,8 +415,8 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
             <p className="text-udaj font-bold text-neutral-500 mt-0.5">
               {obdobi.uzavreny
                 ? (obdobi.doPocitani > obdobi.do
-                  ? `Uzavřený týden — počítá se po dnešek (${obdobi.doPocitani}), i co odjelo po neděli`
-                  : 'Uzavřený týden')
+                  ? `Minulý týden — počítá se po dnešek (${obdobi.doPocitani}), i co odjelo po neděli`
+                  : 'Minulý týden')
                 : `Běžící týden — počítá se po dnešek (${obdobi.doPocitani})`}
             </p>
           </div>
@@ -465,24 +431,9 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
           </button>
         </div>
 
-        {/* ✅ Značka uzavření týdne — jen přehled, nic nezamyká (viz uzavritTyden). */}
-        <div className="flex items-center gap-2">
-          {uzavreno ? (
-            <>
-              <span className="chip bg-emerald-100 text-emerald-900 border-emerald-300 flex-1 justify-start">
-                <Lock size={14} /> Uzavřeno{uzavreno.by ? ` — ${uzavreno.by}` : ''}
-              </span>
-              <button type="button" onClick={otevritTyden} disabled={uzaviram} className="btn-secondary !rounded !text-xs min-h-[44px]">
-                <LockOpen size={14} /> Otevřít znovu
-              </button>
-            </>
-          ) : (
-            <button type="button" onClick={uzavritTyden} disabled={uzaviram} className="btn-primary !rounded w-full min-h-[44px]">
-              <Lock size={16} /> Uzavřít týden
-            </button>
-          )}
-        </div>
-
+        {/* Týden se neuzavírá (majitel 12. 10. 2026: „týdenní kontrolu
+            neuzavírej, jen měsíční"). Napočítané kusy platí, jakmile se uloží,
+            a jdou kdykoli přepsat a uložit znovu. Uzavírá se jen měsíc. */}
         {/* 📋 Počítání kusů, nebo přehled všeho, co se v týdnu dělo. */}
         <div className="flex items-stretch gap-1 rounded bg-neutral-100 border border-neutral-200 p-1">
           {([
