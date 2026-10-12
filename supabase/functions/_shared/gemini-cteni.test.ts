@@ -25,3 +25,13 @@ describe('Gemma podle nabídky klíče', () => {
     expect(planPokusuFoto(['gemini-3.5-flash']).some((p) => p.model.startsWith('gemma'))).toBe(false);
   });
 });
+
+describe('Skutečná nabídka klíče 12. 10. 2026', () => {
+  it('po vyčerpaném 3.5-flash zkusí flash-latest, 2.5-flash a Gemmu 4', () => {
+    const plan = planPokusuFoto(['gemini-2.5-flash', 'gemini-2.5-flash-preview-tts', 'gemma-4-26b-a4b-it', 'gemma-4-31b-it',
+      'gemini-flash-latest', 'gemini-flash-lite-latest', 'gemini-2.5-flash-lite', 'gemini-2.5-flash-image', 'gemini-3.5-flash']);
+    expect(plan.map((p) => p.model)).toEqual([
+      'gemini-3.5-flash', 'gemini-3.5-flash', 'gemini-flash-latest', 'gemini-2.5-flash', 'gemini-3.5-flash', 'gemma-4-31b-it',
+    ]);
+  });
+});
