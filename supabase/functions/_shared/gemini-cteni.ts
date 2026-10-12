@@ -29,14 +29,17 @@ export function planPokusuFoto(dostupne: string[] | null): PokusGemini[] {
   const ma = (m: string) => !dostupne || dostupne.includes(m);
   // Jiná „flash" verze jako záloha při přetížení hlavní (ne lite — ta čte hůř,
   // ne image/tts/live varianty, které obyčejný dotaz neberou).
-  const jinyFlash = (dostupne ?? [])
+  // Každá verze má vlastní bezplatnou kvótu (12. 10. 2026: gemini-3.5-flash
+  // vyčerpal denní limit, gemini-flash-latest přečetl lístek 21/21).
+  const jineFlash = (dostupne ?? [])
     .filter((m) => /^gemini-[\d.]+-flash(-latest|-\d+)?$|^gemini-flash-latest$/.test(m) && m !== HLAVNI)
-    .sort((a, b) => b.localeCompare(a, "en", { numeric: true }))[0];
+    .sort((a, b) => (a === "gemini-flash-latest" ? -1 : b === "gemini-flash-latest" ? 1 : b.localeCompare(a, "en", { numeric: true })))
+    .slice(0, 2);
   const plan: PokusGemini[] = [
     { model: HLAVNI, json: true, pauzaMs: 0 },
     { model: HLAVNI, json: true, pauzaMs: 3_000 },
   ];
-  if (jinyFlash) plan.push({ model: jinyFlash, json: true, pauzaMs: 0 });
+  for (const m of jineFlash) plan.push({ model: m, json: true, pauzaMs: 0 });
   plan.push({ model: HLAVNI, json: true, pauzaMs: 8_000 });
   // Gemma s obrazem: preferovaná 27B, jinak největší nabízená (1B obraz neumí).
   const velikost = (m: string) => Number(m.match(/-(\d+)b-it$/)?.[1] ?? 0);
@@ -82,7 +85,10 @@ export async function ctiPresGemini(opts: {
   prijmi: (model: string, candidate: string) => string;
   chyby: string[];
 }): Promise<string> {
+  // Model s vyčerpanou kvótou (429) se už v tomhle čtení nezkouší znovu.
+  const vycerpane = new Set<string>();
   for (const pokus of opts.plan) {
+    if (vycerpane.has(pokus.model)) continue;
     if (pokus.pauzaMs) {
       if (opts.zbyvaMs() < pokus.pauzaMs + 15_000) break;
       await new Promise((r) => setTimeout(r, pokus.pauzaMs));
@@ -113,6 +119,7 @@ export async function ctiPresGemini(opts: {
       const errText = await resp.text();
       console.warn(`Gemini ${pokus.model} error (status ${resp.status}): ${errText.slice(0, 300)}`);
       opts.chyby.push(`gemini ${pokus.model}: HTTP ${resp.status} ${errText.slice(0, 200)}`);
+      if (resp.status === 429) vycerpane.add(pokus.model);
       // Špatný klíč/požadavek se opakováním nespraví; neznámý model ano (další v plánu).
       if (resp.status === 400 || resp.status === 401 || resp.status === 403) {
         if (pokus.model === HLAVNI) break;
