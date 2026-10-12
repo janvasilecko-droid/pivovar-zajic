@@ -7,6 +7,10 @@
 //
 // DVĚ VĚCI, KTERÉ TENHLE MODUL SCHVÁLNĚ NEDĚLÁ:
 //
+//  (Od 12. 10. 2026 „Uložit kontrolu" Sklad srovná na napočítané vyrovnávacími
+//  zápisy — dorovnaniNaSklad níž. Majitel: „v pondělí je sklad stejný jako
+//  týdenní inventura". Bod 1 platí dál: neukládá se RESET do `inventory`.)
+//
 //  1. NEZAPISUJE RESET. Řádek v `inventory` je podle skladové knihy reset —
 //     k jeho datu se stav ROVNÁ zapsanému číslu a starší pohyby padají pod
 //     stůl. Uložit týdenní počítání tudy by každý rozdíl tiše spolklo: číslo
