@@ -787,9 +787,11 @@ ${photoSection}`;
         } else {
           const errText = await geminiResp.text();
           console.warn(`Gemini API error (status ${geminiResp.status}): ${errText}`);
+          chybyProvideru.push(`gemini: HTTP ${geminiResp.status} ${errText.slice(0, 300)}`);
         }
       } catch (err) {
         console.warn(`Gemini API exception (timeout nebo síť): ${err instanceof Error ? err.name + ": " + err.message : err}`);
+        chybyProvideru.push(`gemini: ${err instanceof Error ? err.name : "chyba"}`);
       }
     }
 
