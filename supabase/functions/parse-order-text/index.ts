@@ -42,6 +42,11 @@ const MISTRAL_MODELY_FOTO = ["mistral-large-latest", "mistral-medium-latest", "m
 // tier" (403) — bezplatný tarif bere menší modely.
 const MISTRAL_MODELY_TEXT = ["mistral-medium-latest", "mistral-small-latest", "mistral-large-latest", "open-mistral-nemo"];
 
+// OpenRouter: bezplatné modely v pořadí preference (doplní se z jejich
+// aktuálního seznamu). Gemma 4 a Inkling umí i obrázek.
+const OPENROUTER_FOTO = ["google/gemma-4-31b-it:free", "thinkingmachines/inkling:free", "google/gemma-4-26b-a4b-it:free"];
+const OPENROUTER_TEXT = ["google/gemma-4-31b-it:free", "nvidia/nemotron-3-super-120b-a12b:free", "thinkingmachines/inkling:free", "nvidia/nemotron-3-ultra-550b-a55b:free"];
+
 // Groq modely v pořadí preference — první, který odpoví, se použije.
 // Seznam existuje proto, že Groq modely vyřazuje bez náhrady (viz komentář
 // u volání Groqu níže). Neexistující model vrátí 404 do ~200 ms.
@@ -852,32 +857,51 @@ ${photoSection}`;
       }
     }
 
-    // 4) OpenRouter — jen bezplatné modely. „openrouter/free" sám vybere
-    //    bezplatný model, který umí, co dotaz potřebuje (i obrázek). Zapne
-    //    se, až je v app_secrets klíč OPENROUTER_API_KEY.
+    // 4) OpenRouter — jen bezplatné modely („:free"). Seznam se bere z jejich
+    //    veřejného přehledu (mění se), u fotky jen modely s obrazem, bez
+    //    „content-safety"/„guard" — automatický „openrouter/free" 12. 10. 2026
+    //    vybral bezpečnostní model, který objednávku nečte. Zapne se, až je
+    //    v app_secrets klíč OPENROUTER_API_KEY.
     if (!text && openrouterKey && !vynechat.has("openrouter") && zbyvaMs() > 5_000) {
+      let modely = imageBase64 ? OPENROUTER_FOTO : OPENROUTER_TEXT;
       try {
-        const orResp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-          signal: AbortSignal.timeout(strop(AI_TIMEOUT_MS.openrouter)),
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${openrouterKey}`,
-            "X-Title": "Pivovar Zajic",
-          },
-          body: JSON.stringify({ ...groqBody, model: "openrouter/free" }),
-        });
-        if (orResp.ok) {
-          const orData = await orResp.json();
-          const candidate = orData?.choices?.[0]?.message?.content ?? "";
-          text = prijmi(`openrouter:${orData?.model ?? "free"}`, candidate);
-        } else {
-          const errText = await orResp.text();
-          console.warn(`OpenRouter API error (status ${orResp.status}): ${errText.slice(0, 300)}`);
-          chybyProvideru.push(`openrouter: HTTP ${orResp.status} ${errText.slice(0, 200)}`);
+        const seznam = await fetch("https://openrouter.ai/api/v1/models", { signal: AbortSignal.timeout(5_000) });
+        if (seznam.ok) {
+          const nabidka = ((await seznam.json())?.data ?? []) as any[];
+          const zdarma = nabidka.filter((m) => String(m?.id ?? "").endsWith(":free")
+            && !/safety|guard|code|coder|laguna|lfm|apodex/i.test(String(m.id))
+            && (!imageBase64 || (m?.architecture?.input_modalities ?? []).includes("image")));
+          const ids = zdarma.map((m) => String(m.id));
+          const znamePrvni = modely.filter((m) => ids.includes(m));
+          modely = [...znamePrvni, ...ids.filter((m) => !znamePrvni.includes(m))].slice(0, 4);
+          chybyProvideru.push(`openrouter zdarma: ${modely.join(", ") || "nic"}`);
         }
-      } catch (err) {
-        chybyProvideru.push(`openrouter: ${err instanceof Error ? err.name : "chyba"}`);
+      } catch { /* bez seznamu zkusí známé modely */ }
+      for (const model of modely) {
+        if (text || zbyvaMs() < 8_000) break;
+        try {
+          const orResp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+            signal: AbortSignal.timeout(strop(AI_TIMEOUT_MS.openrouter)),
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${openrouterKey}`,
+              "X-Title": "Pivovar Zajic",
+            },
+            body: JSON.stringify({ ...groqBody, model }),
+          });
+          if (orResp.ok) {
+            const orData = await orResp.json();
+            const candidate = orData?.choices?.[0]?.message?.content ?? "";
+            text = prijmi(`openrouter:${model}`, candidate);
+          } else {
+            const errText = await orResp.text();
+            console.warn(`OpenRouter ${model} error (status ${orResp.status}): ${errText.slice(0, 300)}`);
+            chybyProvideru.push(`openrouter ${model}: HTTP ${orResp.status} ${errText.slice(0, 200)}`);
+          }
+        } catch (err) {
+          chybyProvideru.push(`openrouter ${model}: ${err instanceof Error ? err.name : "chyba"}`);
+        }
       }
     }
 
