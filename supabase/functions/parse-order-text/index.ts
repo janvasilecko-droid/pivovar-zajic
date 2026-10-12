@@ -718,7 +718,11 @@ ${photoSection}`;
     // téhož klíče (viz _shared/gemini-cteni.ts) — jeho čtení rukopisu je
     // výrazně lepší než ostatní (12. 10. 2026: Gemini 21/21 řádků správně).
     if (!text && geminiKey && !vynechat.has("gemini")) {
-      const plan = imageBase64 ? planPokusuFoto(await dostupneModelyGemini(geminiKey)) : planPokusuText();
+      const dostupne = imageBase64 ? await dostupneModelyGemini(geminiKey) : null;
+      if (imageBase64) {
+        chybyProvideru.push(`gemini nabízí: ${dostupne ? dostupne.filter((m) => /flash|gemma/.test(m)).join(", ") : "seznam nenačten"}`);
+      }
+      const plan = imageBase64 ? planPokusuFoto(dostupne) : planPokusuText();
       text = await ctiPresGemini({
         klic: geminiKey,
         plan,

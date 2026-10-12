@@ -973,13 +973,19 @@ Deno.serve(async (req: Request) => {
       } catch (error: any) {
         console.error(`Error processing message ${message.id}:`, error);
 
+        // AI je přetížená / bez kvóty (parse-order-text 502 = žádný bezplatný
+        // poskytovatel neodpověděl) → zpráva zůstane čekat a cron (každé 3 min)
+        // ji zkusí znovu. Jen první hodinu — pak 'error' a „Přečíst znovu" ručně.
+        // (12. 10. 2026: „ať to zkouší víckrát, po nějaké době")
+        const aiNedostupna = /Parse API error: 50[234]/.test(String(error?.message ?? ""));
+        const staraMs = Date.now() - new Date(message.created_at).getTime();
+        const zkusitZnovu = aiNedostupna && staraMs < 60 * 60 * 1000;
         await safeUpdateMessage(
           supabase,
           message.id,
-          {
-            status: "error",
-            error_message: error.message || "Unknown processing error"
-          },
+          zkusitZnovu
+            ? { status: "pending", error_message: "AI je teď přetížená — zkusí se znovu automaticky za pár minut." }
+            : { status: "error", error_message: error.message || "Unknown processing error" },
           "pending"
         );
 
