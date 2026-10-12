@@ -666,6 +666,17 @@ ${photoSection}`;
     let text = "";
     let isOpenAiUsed = false;
 
+    // Který provider odpověděl a proč ostatní ne — vrací se v odpovědi
+    // (_provider, _provider_chyby), ať jde čtení fotky zpětně dohledat.
+    let pouzityProvider = "";
+    const chybyProvideru: string[] = [];
+    const prijmi = (provider: string, candidate: string): string => {
+      const t = acceptOutput(provider, candidate, beerNameKeys, pkgLabelKeys);
+      if (t) pouzityProvider = provider;
+      else chybyProvideru.push(`${provider}: ${candidate ? "nevalidní výstup" : "prázdná odpověď"}`);
+      return t;
+    };
+
     // 0) FOTKA: nejdřív Claude. 12. 10. 2026 Gemini Flash na ručně psaném
     //    lístku (Radek, 22 řádků) opakovaně vynechal celý blok „35x 1l …"
     //    a „1l"/„1,5l" přepisoval jako „11" — objednávka v appce chyběla.
@@ -710,13 +721,16 @@ ${photoSection}`;
               .filter((b: any) => b?.type === "text")
               .map((b: any) => b.text || "")
               .join("");
-            text = acceptOutput("anthropic", candidate, beerNameKeys, pkgLabelKeys);
+            text = prijmi("anthropic", candidate);
           }
         } else {
-          console.warn(`Claude API error (status ${claudeResp.status}): ${await claudeResp.text()}`);
+          const chybaText = await claudeResp.text();
+          console.warn(`Claude API error (status ${claudeResp.status}): ${chybaText}`);
+          chybyProvideru.push(`anthropic: HTTP ${claudeResp.status} ${chybaText.slice(0, 300)}`);
         }
       } catch (err) {
         console.warn(`Claude API exception (timeout nebo síť): ${err instanceof Error ? err.name + ": " + err.message : err}`);
+        chybyProvideru.push(`anthropic: ${err instanceof Error ? err.name : "chyba"}`);
       }
     }
 
@@ -769,7 +783,7 @@ ${photoSection}`;
             geminiData?.candidates?.[0]?.content?.parts
               ?.map((p: any) => p.text || "")
               .join("") ?? "";
-          text = acceptOutput("gemini", candidate, beerNameKeys, pkgLabelKeys);
+          text = prijmi("gemini", candidate);
         } else {
           const errText = await geminiResp.text();
           console.warn(`Gemini API error (status ${geminiResp.status}): ${errText}`);
@@ -807,7 +821,7 @@ ${photoSection}`;
           if (groqResp.ok) {
             const groqData = await groqResp.json();
             const candidate = groqData?.choices?.[0]?.message?.content ?? "";
-            text = acceptOutput("groq", candidate, beerNameKeys, pkgLabelKeys);
+            text = prijmi("groq", candidate);
             if (text) console.log(`Groq: použit model ${model}`);
           } else {
             const errText = await groqResp.text();
@@ -842,7 +856,7 @@ ${photoSection}`;
         if (mistralResp.ok) {
           const mistralData = await mistralResp.json();
           const candidate = mistralData?.choices?.[0]?.message?.content ?? "";
-          text = acceptOutput("mistral", candidate, beerNameKeys, pkgLabelKeys);
+          text = prijmi("mistral", candidate);
         } else {
           const errText = await mistralResp.text();
           console.warn(`Mistral API error (status ${mistralResp.status}): ${errText}`);
@@ -902,7 +916,7 @@ ${photoSection}`;
 
       const openaiData = await openaiResp.json();
       const candidate = openaiData?.choices?.[0]?.message?.content ?? "";
-      text = acceptOutput("openai", candidate, beerNameKeys, pkgLabelKeys);
+      text = prijmi("openai", candidate);
     }
 
     if (!text) {
@@ -948,7 +962,7 @@ ${photoSection}`;
       .slice(0, 3);
 
     return new Response(
-      JSON.stringify(parsed),
+      JSON.stringify({ ...parsed, _provider: pouzityProvider, _provider_chyby: chybyProvideru }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (err: any) {
