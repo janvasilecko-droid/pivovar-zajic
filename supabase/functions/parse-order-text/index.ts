@@ -22,6 +22,7 @@ const AI_TIMEOUT_MS = {
   geminiFoto: 55_000,
   groq: 25_000,
   mistral: 25_000,
+  openrouter: 40_000,
 };
 
 // Celkový čas na čtení — pod tvrdým limitem platformy 150 s. Každý další
@@ -249,14 +250,16 @@ Deno.serve(async (req: Request) => {
     const { data: secretRows, error: secretsErr } = await supabase
       .from("app_secrets")
       .select("key, value")
-      .in("key", ["GEMINI_API_KEY", "GROQ_API_KEY", "MISTRAL_API_KEY"]);
+      .in("key", ["GEMINI_API_KEY", "GROQ_API_KEY", "MISTRAL_API_KEY", "OPENROUTER_API_KEY"]);
 
     const secretsMap = new Map((secretRows ?? []).map((s) => [s.key, s.value]));
     const geminiKey = secretsMap.get("GEMINI_API_KEY");
     const groqKey = secretsMap.get("GROQ_API_KEY");
     const mistralKey = secretsMap.get("MISTRAL_API_KEY");
+    // Volitelný 4. bezplatný poskytovatel — jen modely „:free" (12. 10. 2026).
+    const openrouterKey = secretsMap.get("OPENROUTER_API_KEY");
 
-    if (secretsErr || (!geminiKey && !groqKey && !mistralKey)) {
+    if (secretsErr || (!geminiKey && !groqKey && !mistralKey && !openrouterKey)) {
       return new Response(
         JSON.stringify({ error: "Neither GEMINI_API_KEY nor GROQ_API_KEY nor MISTRAL_API_KEY is configured in app_secrets" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
@@ -849,9 +852,38 @@ ${photoSection}`;
       }
     }
 
+    // 4) OpenRouter — jen bezplatné modely. „openrouter/free" sám vybere
+    //    bezplatný model, který umí, co dotaz potřebuje (i obrázek). Zapne
+    //    se, až je v app_secrets klíč OPENROUTER_API_KEY.
+    if (!text && openrouterKey && !vynechat.has("openrouter") && zbyvaMs() > 5_000) {
+      try {
+        const orResp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          signal: AbortSignal.timeout(strop(AI_TIMEOUT_MS.openrouter)),
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${openrouterKey}`,
+            "X-Title": "Pivovar Zajic",
+          },
+          body: JSON.stringify({ ...groqBody, model: "openrouter/free" }),
+        });
+        if (orResp.ok) {
+          const orData = await orResp.json();
+          const candidate = orData?.choices?.[0]?.message?.content ?? "";
+          text = prijmi(`openrouter:${orData?.model ?? "free"}`, candidate);
+        } else {
+          const errText = await orResp.text();
+          console.warn(`OpenRouter API error (status ${orResp.status}): ${errText.slice(0, 300)}`);
+          chybyProvideru.push(`openrouter: HTTP ${orResp.status} ${errText.slice(0, 200)}`);
+        }
+      } catch (err) {
+        chybyProvideru.push(`openrouter: ${err instanceof Error ? err.name : "chyba"}`);
+      }
+    }
+
     if (!text) {
       return new Response(
-        JSON.stringify({ error: "Failed to get response from any LLM provider (Gemini, Groq, Mistral)", _provider_chyby: chybyProvideru }),
+        JSON.stringify({ error: "Failed to get response from any LLM provider (Gemini, Groq, Mistral, OpenRouter)", _provider_chyby: chybyProvideru }),
         { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }

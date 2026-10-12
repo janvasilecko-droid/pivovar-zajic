@@ -48,16 +48,27 @@ export function planPokusuFoto(dostupne: string[] | null): PokusGemini[] {
     : (dostupne ?? []).filter((m) => /^gemma-[\d.]+n?-(?:e)?\d+b-it$/.test(m) && velikost(m) >= 4)
       .sort((a, b) => velikost(b) - velikost(a) || b.localeCompare(a, "en", { numeric: true }))[0];
   if (gemma) plan.push({ model: gemma, json: false, pauzaMs: 0 });
+  // Poslední záchrana: lite (čte rukopis hůř, ale má velkou bezplatnou kvótu).
+  for (const m of liteVerze(dostupne).slice(0, 1)) plan.push({ model: m, json: true, pauzaMs: 0 });
   return plan;
 }
 
+/** Bezplatné „flash-lite" verze, které klíč nabízí (nejnovější první). */
+function liteVerze(dostupne: string[] | null): string[] {
+  return (dostupne ?? [])
+    .filter((m) => /^gemini-flash-lite-latest$|^gemini-[\d.]+-flash-lite$/.test(m))
+    .sort((a, b) => (a === "gemini-flash-lite-latest" ? -1 : b === "gemini-flash-lite-latest" ? 1 : b.localeCompare(a, "en", { numeric: true })));
+}
+
 /**
- * Plán pro text: hlavní model a hned další bezplatné flash verze (bez pauz —
- * v záloze jsou Groq a Mistral). 12. 10. 2026 jediný pokus nestačil: hlavní
- * model byl přetížený a Groq/Mistral měly vyřazené modely.
+ * Plán pro text. Bezplatný Gemini Flash má jen ~20 dotazů denně (12. 10. 2026
+ * vyčerpaný), „flash-lite" řádově stovky — text ho čte stejně dobře. Proto
+ * text jde napřed na lite verze a plné flash verze šetří pro fotky.
  */
 export function planPokusuText(dostupne: string[] | null = null): PokusGemini[] {
-  return planPokusuFoto(dostupne).filter((p) => p.pauzaMs === 0 && p.json);
+  const lite = liteVerze(dostupne).map((model) => ({ model, json: true, pauzaMs: 0 }));
+  const jine = planPokusuFoto(dostupne).filter((p) => p.pauzaMs === 0 && p.json && !lite.some((l) => l.model === p.model));
+  return [...lite, ...jine];
 }
 
 /** Modely, které klíč nabízí (pro planPokusuFoto); null při chybě. */
