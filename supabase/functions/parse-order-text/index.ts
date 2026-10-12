@@ -791,7 +791,24 @@ ${photoSection}`;
     //    zase přejmenuje, záloha se opraví sama.
     if (!text && groqKey && !vynechat.has("groq") && zbyvaMs() > 5_000) {
       const groqUrl = "https://api.groq.com/openai/v1/chat/completions";
-      for (const model of imageBase64 ? GROQ_MODELY_FOTO : GROQ_MODELY) {
+      // Groq modely s obrazem průběžně mění (12. 10. 2026: Llama 4 už 404) —
+      // u fotky se doplní ty, které Groq právě nabízí a podle jména umí obraz.
+      let groqModelyFoto = GROQ_MODELY_FOTO;
+      if (imageBase64) {
+        try {
+          const seznam = await fetch("https://api.groq.com/openai/v1/models", {
+            signal: AbortSignal.timeout(5_000),
+            headers: { "Authorization": `Bearer ${groqKey}` },
+          });
+          if (seznam.ok) {
+            const ids: string[] = ((await seznam.json())?.data ?? []).map((m: any) => String(m?.id ?? ""));
+            const sObrazem = ids.filter((id) => /vision|llama-4|scout|maverick|-vl\b|vl-|gemma-3|pixtral|llava/i.test(id));
+            groqModelyFoto = [...new Set([...sObrazem, ...GROQ_MODELY_FOTO])];
+            chybyProvideru.push(`groq modely s obrazem: ${sObrazem.join(", ") || "žádné"} (z ${ids.length})`);
+          }
+        } catch { /* bez seznamu zkusí pevné názvy */ }
+      }
+      for (const model of imageBase64 ? groqModelyFoto : GROQ_MODELY) {
         if (text || zbyvaMs() < 5_000) break;
         try {
           const groqResp = await fetch(groqUrl, {
@@ -852,7 +869,8 @@ ${photoSection}`;
             console.warn(`Mistral API error (model ${model}, status ${mistralResp.status}): ${errText}`);
             chybyProvideru.push(`mistral ${model}: HTTP ${mistralResp.status} ${errText.slice(0, 200)}`);
             // Model neexistuje / neumí obrázek → zkus další; limit nebo výpadek → dál.
-            if (mistralResp.status !== 404 && mistralResp.status !== 400 && mistralResp.status !== 422) break;
+            // 429 jde dál taky — limit bývá na model, ne na celý účet.
+            if (![400, 404, 422, 429].includes(mistralResp.status)) break;
           }
         } catch (err) {
           console.warn(`Mistral API exception (model ${model}, timeout nebo síť): ${err instanceof Error ? err.name + ": " + err.message : err}`);
