@@ -1,5 +1,6 @@
 // 📦 Karta jedné objednávky v přehledu — část obrazovky Objednávky.
 
+import { poradiPolozekObjednavky } from '../../lib/poradiPolozek';
 import { MaleSudyRadek, tridaRadkuSudu } from '../MaleSudyVolne';
 import { AlertTriangle, Ban, Beer as BeerIcon, Calendar, Check, CheckCircle2, Hourglass, MessageCircle, NotebookPen, Pencil, Phone, RotateCcw, Split, Trash2, Truck, Undo2, Droplet } from 'lucide-react';
 import { Beer, Package, Place, beerBg, formatPackageLabel } from '../../lib/supabase';
@@ -98,32 +99,9 @@ export function OrderCard({ o, items, stockRemainingForOrder, nadPocetMalychSudu
       return { name: `${it.beer_name ?? ''} ${obal ? formatPackageLabel(obal.label) : it.package_label ?? ''}`.trim(), nad: nadPocetMalychSudu!.get(it.id)! };
     });
 
-  // Seřadit položky: nejdříve kegy, pak lahve podle názvu
-  const sortedItems = [...items].sort((a, b) => {
-    const pkgA = packages.find((p) => p.id === a.package_id);
-    const pkgB = packages.find((p) => p.id === b.package_id);
-    const kindA = pkgA?.kind ?? 'bottle';
-    const kindB = pkgB?.kind ?? 'bottle';
-    
-    // Nejdříve seřadit podle druhu: keg před bottle
-    if (kindA === 'keg' && kindB !== 'keg') return -1;
-    if (kindA !== 'keg' && kindB === 'keg') return 1;
-    
-    // Uvnitř stejného druhu seřadit podle názvu obalu
-    const labelA = a.package_label ?? '';
-    const labelB = b.package_label ?? '';
-    const podleObalu = labelA.localeCompare(labelB, 'cs');
-    if (podleObalu !== 0) return podleObalu;
-
-    // A při shodném obalu podle piva, nakonec podle id.
-    //
-    // PROČ AŽ TAK DOPODROBNA: bez toho rozhodovalo pořadí z databáze —
-    // a to se u upraveného řádku mění (Postgres ho po UPDATE vrátí jinde).
-    // Odškrtnutí „stočeno" tedy řádek přehodilo na konec seznamu, takže
-    // se pod prstem hýbaly položky, které se nikdo nechystal měnit.
-    const podlePiva = (a.beer_name ?? '').localeCompare(b.beer_name ?? '', 'cs');
-    return podlePiva !== 0 ? podlePiva : a.id.localeCompare(b.id);
-  });
+  // Seřadit položky: nejdřív sudy, pak lahve; uvnitř od největšího obalu po
+  // nejmenší, při stejném obalu podle piva (viz lib/poradiPolozek.ts).
+  const sortedItems = poradiPolozekObjednavky(items, packages);
 
   // Karta se ukazuje celá, jakmile filtru vyhoví JEDEN řádek — řádky, které
   // nevyhovují, se ale v seznamu nezobrazují (viz itemMatchesFilter výše).
