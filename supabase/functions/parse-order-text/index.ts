@@ -27,13 +27,15 @@ const AI_TIMEOUT_MS = {
 // provider dostane nejvýš to, co zbývá (u fotky se Gemini může zkoušet dvakrát).
 const CELKOVY_STROP_MS = 140_000;
 
-// Fotku umí z bezplatných poskytovatelů jen modely s obrazem: u Groqu Llama 4,
-// u Mistralu medium/pixtral. Neexistující model vrátí rychle 4xx → další.
+// Fotku umí z bezplatných poskytovatelů jen modely s obrazem. Groq je
+// průběžně mění (12. 10. 2026 neměl žádný — Llama 4 vyřazena), proto se
+// u fotky čte jeho aktuální seznam. Neexistující model vrátí rychle 4xx → další.
 const GROQ_MODELY_FOTO = [
   "meta-llama/llama-4-scout-17b-16e-instruct",
   "meta-llama/llama-4-maverick-17b-128e-instruct",
 ];
-const MISTRAL_MODELY_FOTO = ["mistral-medium-latest", "pixtral-large-latest", "mistral-small-latest"];
+// pixtral-large-latest Mistral 12. 10. 2026 už nezná („Invalid model").
+const MISTRAL_MODELY_FOTO = ["mistral-large-latest", "mistral-medium-latest", "mistral-small-latest"];
 
 // Groq modely v pořadí preference — první, který odpoví, se použije.
 // Seznam existuje proto, že Groq modely vyřazuje bez náhrady (viz komentář
@@ -803,7 +805,9 @@ ${photoSection}`;
           if (seznam.ok) {
             const ids: string[] = ((await seznam.json())?.data ?? []).map((m: any) => String(m?.id ?? ""));
             const sObrazem = ids.filter((id) => /vision|llama-4|scout|maverick|-vl\b|vl-|gemma-3|pixtral|llava/i.test(id));
-            groqModelyFoto = [...new Set([...sObrazem, ...GROQ_MODELY_FOTO])];
+            // Seznam je k dispozici a nic s obrazem v něm není (12. 10. 2026:
+            // 11 modelů, žádný) → pevné názvy by jen vracely 404.
+            groqModelyFoto = sObrazem;
             chybyProvideru.push(`groq modely s obrazem: ${sObrazem.join(", ") || "žádné"} (z ${ids.length})`);
           }
         } catch { /* bez seznamu zkusí pevné názvy */ }
