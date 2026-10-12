@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { readJsonWithLimit, requireApprovedUser } from "../_shared/require-user.ts";
 import { vlastniJmenaPiv } from "../_shared/beer-match.ts";
+import { ctiPresGemini, dostupneModelyGemini, planPokusuFoto, planPokusuText } from "../_shared/gemini-cteni.ts";
 import { PRAVIDLA_CTENI_OBJEDNAVEK } from "../_shared/order-rules.ts";
 
 // ⏱️ Časové stropy pro jednotlivé AI poskytovatele.
@@ -713,71 +714,24 @@ ${photoSection}`;
     //    a čtení funguje bez kreditů navíc.
     //    Pozn.: "gemini-2.5-flash" už Google nezpřístupňuje novým klíčům (HTTP 404),
     //    proto používáme gemini-3.5-flash (GA, stejná kategorie flash).
-    // U fotky se při přetížení (503/429) Gemini zkusí ještě jednou — jeho
-    // čtení rukopisu je výrazně lepší než záloha (12. 10. 2026: Gemini 21/21
-    // řádků správně, záloha při 503 vynechala 1,5l i druhé 35× 1l).
-    let geminiPretizeny = false;
-    for (let pokusGemini = 1; pokusGemini <= (imageBase64 ? 3 : 1) && !text && geminiKey && !vynechat.has("gemini"); pokusGemini++) {
-      if (pokusGemini > 1) {
-        if (!geminiPretizeny || zbyvaMs() < 20_000) break;
-        await new Promise((r) => setTimeout(r, 2000));
-      }
-      geminiPretizeny = false;
-      try {
-        const geminiBody = {
-          contents: [
-            {
-              role: "user",
-              parts: [
-                { text: prompt },
-                { text: `TEXT OBJEDNÁVKY Z WHATSAPP:\n"""\n${rawText}\n"""` },
-                ...(imageBase64
-                  ? [
-                      {
-                        inline_data: {
-                          mime_type: imageMimeType,
-                          data: imageBase64,
-                        },
-                      },
-                    ]
-                  : []),
-              ],
-            },
-          ],
-          generationConfig: {
-            temperature: 0.1,
-            responseMimeType: "application/json",
-          },
-        };
-
-        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${encodeURIComponent(geminiKey)}`;
-        const geminiResp = await fetch(geminiUrl, {
-          signal: AbortSignal.timeout(strop(imageBase64 ? AI_TIMEOUT_MS.geminiFoto : AI_TIMEOUT_MS.gemini)),
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(geminiBody),
-        });
-
-        if (geminiResp.ok) {
-          const geminiData = await geminiResp.json();
-          const candidate =
-            geminiData?.candidates?.[0]?.content?.parts
-              ?.map((p: any) => p.text || "")
-              .join("") ?? "";
-          text = prijmi("gemini", candidate);
-        } else {
-          const errText = await geminiResp.text();
-          console.warn(`Gemini API error (status ${geminiResp.status}): ${errText}`);
-          chybyProvideru.push(`gemini: HTTP ${geminiResp.status} ${errText.slice(0, 300)}`);
-          geminiPretizeny = geminiResp.status === 503 || geminiResp.status === 429 || geminiResp.status >= 500;
-        }
-      } catch (err) {
-        console.warn(`Gemini API exception (timeout nebo síť): ${err instanceof Error ? err.name + ": " + err.message : err}`);
-        chybyProvideru.push(`gemini: ${err instanceof Error ? err.name : "chyba"}`);
-        geminiPretizeny = true; // timeout/síť — u fotky zkusit znovu, dokud je čas
-      }
+    // U fotky se Gemini zkouší víckrát s pauzami a s jinými bezplatnými modely
+    // téhož klíče (viz _shared/gemini-cteni.ts) — jeho čtení rukopisu je
+    // výrazně lepší než ostatní (12. 10. 2026: Gemini 21/21 řádků správně).
+    if (!text && geminiKey && !vynechat.has("gemini")) {
+      const plan = imageBase64 ? planPokusuFoto(await dostupneModelyGemini(geminiKey)) : planPokusuText();
+      text = await ctiPresGemini({
+        klic: geminiKey,
+        plan,
+        parts: [
+          { text: prompt },
+          { text: `TEXT OBJEDNÁVKY Z WHATSAPP:\n"""\n${rawText}\n"""` },
+          ...(imageBase64 ? [{ inline_data: { mime_type: imageMimeType, data: imageBase64 } }] : []),
+        ],
+        timeoutMs: imageBase64 ? AI_TIMEOUT_MS.geminiFoto : AI_TIMEOUT_MS.gemini,
+        zbyvaMs,
+        prijmi: (model, candidate) => prijmi(model === "gemini-3.5-flash" ? "gemini" : `gemini:${model}`, candidate),
+        chyby: chybyProvideru,
+      });
     }
 
     // 2) Fallback: Groq. Jakmile Gemini vrátí chybu nebo vyčerpá denní limit
