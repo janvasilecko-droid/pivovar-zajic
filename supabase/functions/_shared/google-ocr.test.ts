@@ -69,7 +69,35 @@ describe('Oprava typických chyb OCR u objednávek', () => {
     ['2x 15h 11°sv', '2x 15l 11°sv'],
     ['2 x 151 12° WINTER', '2x 15l 12° WINTER'],
     ['1x 15 120', '1x 15 12°'],
-    ['SX 20l 120', '5x 20l 12°'],
+    ['SX 20l 120', 'Sx 20l 12°'], // S = 5 nebo 8 — nerozhoduje se
+    // Další fotky (srpen–říjen 2026) → co stojí v potvrzené objednávce.
+    ['2x 201 110', '2x 20l 11°'],
+    ['17 x 30l Mo', '17x 30l 11°'],
+    ['20x 05 11°su.', '20x 0,5l 11°su.'],
+    ['20x0,5/12°', '20x 0,5l 12°'],
+    ['17 x 30% 100', '17x 30l 10°'],
+    ['3x 10f 110', '3x 10l 11°'],
+    ['20x0,51 12"', '20x 0,5l 12°'],
+    ['1x 30|LIMO KIUI', '1x 30l LIMO KIUI'],
+    ['25x11 12°', '25x 1l 12°'],
+    ['8x301 100', '8x 30l 10°'],
+    ['10x 18 10°', '10x 1l 10°'],
+    ['10x11 80', '10x 1l 8°'],
+    ['3<301 LIMO', '3x 30l LIMO'],
+    ['4x 300 11°', '4x 30l 11°'],
+    ['15x 18 120', '15x 1l 12°'],
+    ['15< 11 11°', '15x 1l 11°'],
+    ['2005 LIMO CIT.', '20x 0,5l LIMO CIT.'],
+    ['10x 11 120.', '10x 1l 12°.'],
+    ['10x 11.8°', '10x 1l 8°'],
+    ['Sx 11 Mosv.', 'Sx 1l 11°sv.'],
+    ['10x 1l M°sv.', '10x 1l 11°sv.'],
+    ['10x11 &', '10x 1l 8°'],
+    ['5x sol 100', '5x 30l 10°'],
+    ['1x 45 120', '1x 15l 12°'],
+    ['10x 7l 11°', '10x 1l 11°'],
+    ['10x 7,5l 12°', '10x 1,5l 12°'],
+    ['15x30 11 SUMMER', '15x 30 11 SUMMER'],
     ['15х10 110', '15x 10 11°'],
   ];
   it.each(pripady)('%s → %s', (ocr, ma) => {
@@ -77,7 +105,7 @@ describe('Oprava typických chyb OCR u objednávek', () => {
   });
 
   it('nesahá na jména, poznámky ani na sudy psané správně', () => {
-    for (const r of ['JONA', '② DROBAN (NORAW)', 'Seeberg 4x30 12sv', '2x 30 11sv', '5x 11 sv', '3x 50l 12°', '10x 12 sv', '4x 10 11sv', 'Bez summera']) {
+    for (const r of ['JONA', '② DROBAN (NORAW)', 'Seeberg 4x30 12sv', '2x 30 11sv', '5x 11 sv', '3x 50l 12°', '10x 12 sv', '4x 10 11sv', '3x 50l 12° JANTAR', '1x 10l 12° PETASNER !', 'Maneo', 'Mobil: 728 405 407 Mira', '2x 30 LIMO CIT.', 'Bez summera']) {
       expect(opravOcrObjednavky(r)).toBe(r);
     }
   });

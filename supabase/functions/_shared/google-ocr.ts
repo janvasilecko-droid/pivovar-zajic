@@ -18,37 +18,68 @@
  * Opraví typické chyby OCR u ručně psaných objednávek, než text dostane AI.
  * Google Vision se trénovat nedá (12. 10. 2026 majitel: „nauč to Vision, ať
  * to čte správně"; ani model pro rukopis „cs-t-i0-handwrit" nečetl líp).
- * Pravidla jsou z lístku Radka (21 řádků) a mění jen jednoznačné vzory —
- * „11" jako obal před stupněm je vždy „1l" (obal „11 l" neexistuje).
+ * Pravidla jsou z přepisů všech 16 fotek, ze kterých do 12. 10. 2026 vznikla
+ * objednávka, porovnaných s potvrzenými objednávkami. Mění jen jednoznačné
+ * vzory — např. „11" jako obal před stupněm je vždy „1l" (sud 11 l není).
+ *
+ * Radek píše „1" s dlouhou nožičkou: OCR ji čte jako „7", „4" nebo „l"
+ * a dvojici „11°" jako „M°"/„Mo". Jeho „8" čte jako „S" nebo „&" — ale
+ * „S" na začátku řádku bylo v objednávkách jednou 5 a jindy 8, takže se
+ * NEOPRAVUJE (rozhodne AI podle fotky, nebo se zeptá — viz sekceOcr).
  */
 export function opravOcrObjednavky(text: string): string {
   return text.split("\n").map(opravRadek).join("\n");
 }
 
+/** Stupeň: 8°, 10°–13° (Osma je 8°). */
+const STUPEN = "(?:8|1[0-3])";
+
 function opravRadek(radek: string): string {
   let r = radek
     // cyrilské „х" a „×" → x
     .replace(/[х×]/g, "x")
-    // „SX 20l" / „S x" na začátku = „5x"
-    .replace(/^S\s*[xX](?=\s|\d)/, "5x");
-  // Počet × obal: „10x 11 12°", „15x11 11°", „35 x 11, 12° sv." → „10x 1l 12°".
-  r = r.replace(/^(\s*\d{1,3})\s*[xX]\s*/, "$1x ");
-  const m = r.match(/^(\s*\d{1,3}x )(\S+)(.*)$/);
-  if (m) {
-    let [, pocet, obal, zbytek] = m;
-    const dale = zbytek.trimStart();
-    const stupenDal = /^\d{2}\s*(?:°|"|'|\s|$)|^\d{2}[a-zA-Z]/.test(dale) || /^\d{2}0\b/.test(dale);
-    // „11", „1", „11," — a „12"/„13"/„17" (l přečtené jako 2/3/7; obal 12 l
-    // ani 13 l neexistuje), když za ním stojí stupeň.
-    if (/^(?:1{1,2}|1[237])[,.]?$/.test(obal) && stupenDal) obal = "1l";
-    else if (/^1{1,2}(1[0-3])[0°]$/.test(obal)) obal = obal.replace(/^1{1,2}(1[0-3])[0°]$/, "1l $1°"); // „1120" = „1l 12°"
-    else if (/^0[,.]33[1l"')!]?$/.test(obal)) obal = "0,33l";
-    else if (/^[01][,.]5[1l"')!]?$/.test(obal)) obal = obal.replace(/^([01])[,.]5.*$/, "$1,5l"); // „1,51", „0,5)"
-    else if (/^(10|15|20|25|30|50)[1h]$/.test(obal)) obal = obal.slice(0, -1) + "l"; // „101", „15h"
-    r = pocet + obal + zbytek;
-    // Stupeň za obalem: „120" → „12°", „12"" → „12°".
-    r = r.replace(/(^\s*\d{1,3}x \S+(?: \d{1,2}°)?\s+)(1[0-3])(?:0|["'])(?=\s|$|[a-zA-Z])/, "$1$2°");
+    // „30|LIMO" → „30l LIMO" (svislé l), „0,5/12°" → „0,5 12°"
+    .replace(/(\d)\s*\|\s*/g, "$1l ")
+    .replace(/(\d)\/(?=\d)/g, "$1 ");
+  // Počet × obal: „3<301", „1K 30", „35 x 11" → „3x 301", „1x 30", „35x 11".
+  // „S" (5 nebo 8) zůstává — jen se srovná oddělovač, ať se opraví zbytek řádku.
+  r = r.replace(/^(\s*(?:\d{1,3}|[sS]))\s*(?:[xX<]|K(?=\s*\d))\s*(?=\S)/, "$1x ");
+  // „2005 LIMO" = „20x 0,5 LIMO" (x mezi počtem a 0,5 vypadlo).
+  r = r.replace(/^(\s*(?:10|15|20|25|30|40|50))0[,.]?5(?=\s)/, "$1x 0,5l");
+  const m = r.match(/^(\s*(?:\d{1,3}|[sS])x )(\S+)(.*)$/);
+  if (!m) return r;
+  const pocet = m[1];
+  let obal = m[2];
+  // „11°" psané jako „M°", „Mo sv.", „Mosv.", „M's".
+  const zbytek = m[3].replace(/(^|\s)M(?:°|'s|[oO](?=\s|$|[sS][vVuU]))/g, "$111°");
+  const dale = zbytek.trimStart();
+  const stupenDal = new RegExp(`^${STUPEN}(?:\\s*[°"'.,]|\\s|$|[a-zA-Z]|0\\b)|^&|^11°`).test(dale);
+  if (/^(?:1{1,2}|1[2378]|7[lI1]?)[,.]?$/.test(obal) && stupenDal) {
+    // „11", „1", „11," — a „12"/„13"/„17"/„18" (l přečtené jako 2/3/7/8)
+    // nebo „7"/„7l" (jednička jako sedmička); obaly 7/11/12/13/18 l nejsou.
+    obal = "1l";
+  } else if (new RegExp(`^1{1,2}[.,]?(${STUPEN})[0°]$`).test(obal)) {
+    obal = obal.replace(new RegExp(`^1{1,2}[.,]?(${STUPEN})[0°]$`), "1l $1°"); // „1120" = „1l 12°", „11.8°" = „1l 8°"
+  } else if (/^0[,.]33[1l"')!]?$/.test(obal)) {
+    obal = "0,33l";
+  } else if (/^(?:[017][,.]5|05)[1l"')!]?$/.test(obal)) {
+    obal = obal.startsWith("0") ? "0,5l" : "1,5l"; // „1,51", „7,5l", „0,5)", „05"
+  } else if (/^(10|15|20|25|30|50)[1hfI%]$/.test(obal)) {
+    obal = obal.slice(0, -1) + "l"; // „101", „15h", „10f", „30%"
+  } else if (/^(10|15|20|30|50)0$/.test(obal) && stupenDal) {
+    obal = obal.slice(0, -1) + "l"; // „4x 300 11°" = „4x 30l 11°"
+  } else if (/^[sS][oO0][lI1]$/.test(obal)) {
+    obal = "30l"; // „5x sol 10°"
+  } else if (/^45[lI1]?$/.test(obal)) {
+    obal = "15l"; // jednička jako čtyřka; sud 45 l není
   }
+  r = pocet + obal + zbytek;
+  // Stupeň za obalem: „120" → „12°", „12"" → „12°", „80" → „8°", „&" → „8°".
+  r = r.replace(
+    new RegExp(`(^\\s*(?:\\d{1,3}|[sS])x \\S+(?: \\d{1,2}°)?\\s+)(${STUPEN})(?:0|["'])(?=\\s|$|[a-zA-Z.,])`),
+    "$1$2°",
+  );
+  r = r.replace(/(^\s*\d{1,3}x 1l\s+)&/, "$18°");
   return r;
 }
 
@@ -76,7 +107,8 @@ ${zaklad}
 - raw_text = doslovný přepis CELÉHO textu z fotky, řádek po řádku, v pořadí jako na fotce (zjevné chyby OCR oprav).
 - Ke KAŽDÉMU řádku fotky s objednávkovým údajem MUSÍ existovat položka v items (viz pravidla výše).
 - Čísla čti VELMI POZORNĚ (5x30 ≠ 5x50, 3 vs 5 vs 8, 0 vs 6).
-- OCR u rukopisu plete znaky: „1l"/„1,5l" přečte jako „11"/„1,51"/„15l", „0,5" jako „05"/„0.5", „x" jako „×"/„k"/„X", „5"↔„S", „0"↔„O", „1"↔„l"/„I". Oprav to podle smyslu a pravidel výše (stupeň vs. objem).
+- OCR u rukopisu plete znaky: „1l"/„1,5l" přečte jako „11"/„1,51"/„15l", „0,5" jako „05"/„0.5", „x" jako „×"/„k"/„<", „0"↔„O", „1"↔„l"/„I". Typické chyby už jsou v přepisu opravené; zbytek oprav podle smyslu a pravidel výše (stupeň vs. objem).
+- Ručně psaná „1" s dlouhou nožičkou vypadá jako „7" nebo „4" a „11°" jako „M°". „8" vypadá jako „S" nebo „&". Číslo, které z toho nejde jistě rozhodnout (např. „Sx 30l 12°" = 5x, nebo 8x?), rozhodni podle fotky; když fotku nevidíš, dej položku a do "otazky" napiš, ať obsluha počet zkontroluje.
 - Text zprávy je jen doplněk k fotce — má přednost to, co je na fotce.`;
 }
 
