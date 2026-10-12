@@ -47,35 +47,61 @@ function stupenZRadku(radek: string): string | null {
   return m ? `${m[1]}°` : null;
 }
 
+/** Jeden řádek výsledku: buď existující položka (index), nebo nová z přepisu. */
+export type PolozkaVPoradi = { index: number; nova?: undefined } | { index?: undefined; nova: PolozkaUlozena };
+
 /**
- * Položky pro řádky přepisu, které v `polozky` chybí. Řádek, ze kterého se
- * nepozná ani pivo, ani obal, se nepřidává (nejspíš to není položka).
+ * Položky seřazené tak, jak jdou řádky na fotce (12. 10. 2026: „položky
+ * rovnou stejně, jak jdou popořadě — máš na konci limonády"). Každý řádek
+ * přepisu si vezme první ještě nepoužitou položku se stejným pivem × obalem ×
+ * kusy; řádek bez takové položky se doplní jako nová. Položky, které žádnému
+ * řádku neodpovídají, zůstanou na konci v původním pořadí — nic se neztratí.
+ * Řádek, ze kterého se nepozná ani pivo, ani obal, se nepřidává.
  */
-export function doplnChybejiciZPrepisu(
+export function poradiPodlePrepisu(
   prepis: string | null | undefined,
   polozky: PolozkaUlozena[],
   katalog: Katalog,
-): PolozkaUlozena[] {
+): PolozkaVPoradi[] {
   const klic = (b: string | null, p: string | null, q: number | null) => `${b ?? ""}|${p ?? ""}|${q ?? ""}`;
-  const mam = new Map<string, number>();
-  for (const it of polozky) mam.set(klic(it.beer_id, it.pkg_id, it.qty), (mam.get(klic(it.beer_id, it.pkg_id, it.qty)) ?? 0) + 1);
-
-  const doplnene: PolozkaUlozena[] = [];
+  const volne = new Map<string, number[]>();
+  polozky.forEach((it, i) => {
+    const k = klic(it.beer_id, it.pkg_id, it.qty);
+    volne.set(k, [...(volne.get(k) ?? []), i]);
+  });
+  const pouzite = new Set<number>();
+  const vysledek: PolozkaVPoradi[] = [];
   for (const { qty, radek } of radkyObjednavky(prepis)) {
     const degree = stupenZRadku(radek);
     const pseudo = { raw_line: radek, quantity: qty, degree, beer_name: null, package_label: null };
     const beerId = matchBeerId(pseudo, katalog.beers, katalog.aliasMap);
     const pkgId = matchPackageId(pseudo, katalog.packages, katalog.aliasMap);
-    const k = klic(beerId, pkgId, qty);
-    const zbyva = mam.get(k) ?? 0;
-    if (zbyva > 0) { mam.set(k, zbyva - 1); continue; }
+    const kandidati = volne.get(klic(beerId, pkgId, qty));
+    if (kandidati && kandidati.length) {
+      const i = kandidati.shift()!;
+      pouzite.add(i);
+      vysledek.push({ index: i });
+      continue;
+    }
     if (!beerId && !pkgId) continue;
     const beer = beerId ? katalog.beers.find((b) => b.id === beerId) : null;
     const pkg = pkgId ? katalog.packages.find((p) => p.id === pkgId) : null;
-    doplnene.push({
-      beer_id: beerId, pkg_id: pkgId, qty, degree,
-      beer_name: beer?.name ?? null, package_label: pkg?.label ?? null, raw_line: radek,
+    vysledek.push({
+      nova: {
+        beer_id: beerId, pkg_id: pkgId, qty, degree,
+        beer_name: beer?.name ?? null, package_label: pkg?.label ?? null, raw_line: radek,
+      },
     });
   }
-  return doplnene;
+  polozky.forEach((_, i) => { if (!pouzite.has(i)) vysledek.push({ index: i }); });
+  return vysledek;
+}
+
+/** Jen položky pro řádky přepisu, které v `polozky` chybí (viz poradiPodlePrepisu). */
+export function doplnChybejiciZPrepisu(
+  prepis: string | null | undefined,
+  polozky: PolozkaUlozena[],
+  katalog: Katalog,
+): PolozkaUlozena[] {
+  return poradiPodlePrepisu(prepis, polozky, katalog).flatMap((r) => (r.nova ? [r.nova] : []));
 }
