@@ -873,8 +873,8 @@ ${photoSection}`;
             console.warn(`Mistral API error (model ${model}, status ${mistralResp.status}): ${errText}`);
             chybyProvideru.push(`mistral ${model}: HTTP ${mistralResp.status} ${errText.slice(0, 200)}`);
             // Model neexistuje / neumí obrázek → zkus další; limit nebo výpadek → dál.
-            // 429 jde dál taky — limit bývá na model, ne na celý účet.
-            if (![400, 404, 422, 429].includes(mistralResp.status)) break;
+            // 429 a 403 (model mimo bezplatný tarif) jdou dál taky — limit/tarif bývá na model.
+            if (![400, 403, 404, 422, 429].includes(mistralResp.status)) break;
           }
         } catch (err) {
           console.warn(`Mistral API exception (model ${model}, timeout nebo síť): ${err instanceof Error ? err.name + ": " + err.message : err}`);
