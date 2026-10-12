@@ -1,6 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { requireApprovedUser } from "../_shared/require-user.ts";
-import { normText, matchBeerId, matchPackageId } from "../_shared/beer-match.ts";
+import { normText, matchBeerId, matchPackageId, jeLitrPsanyJakoJedenact } from "../_shared/beer-match.ts";
 import { doplnChybejiciZPrepisu } from "../_shared/prepis-fotky.ts";
 import { normPlaceName, stripSenderName, resolvePlace, odberatelZHistorie, wantsOwnOrder as textWantsOwnOrder } from "../_shared/place-match.ts";
 import { nactiHistorii } from "../_shared/historie-objednavek.ts";
@@ -893,6 +893,13 @@ Deno.serve(async (req: Request) => {
         const otazkyZpravy: string[] = Array.isArray(parseResult?.otazky) ? [...parseResult.otazky] : [];
         if (doplneno.length) {
           otazkyZpravy.push(`Z přepisu fotky se doplnilo ${doplneno.length} řádků, které AI nevložila do položek — zkontroluj je (označené na konci seznamu).`);
+        }
+
+        // „Nx 11 12°" z ručního písma = 1l, nebo 1,5l? Z textu se to nepozná
+        // (AI čte obojí jako „11") — obal 1 l je výchozí, obsluha se na to zeptá.
+        const nejasnyLitr = itemsForStorage.filter((i: any) => jeLitrPsanyJakoJedenact(i.raw_line || "") && /(?:^|\s)\d{1,3}\s*x\s+11\s/i.test(i.raw_line || "")).length;
+        if (nejasnyLitr) {
+          otazkyZpravy.push(`${nejasnyLitr} řádků má ručně psaný objem „11" — dosadil jsem PET 1 l, ale může to být i 1,5 l. Porovnej s fotkou.`);
         }
 
         // ✅ Zdroj objednávek je jediná WhatsApp skupina „Objednávky pivovar"
