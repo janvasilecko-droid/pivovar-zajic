@@ -44,6 +44,16 @@ Z toho plyne tvrdé pravidlo, které NIKDY neporušuj:
 
   • Číslo hned za "x" nebo "×" je objem NEBO stupeň podle tabulky výše;
     číslo PŘED "x" je vždy MNOŽSTVÍ. "14x30" = 14 kusů, 30l sud.
+
+  • RUČNĚ PSANÉ „1l" A „1,5l" VYPADAJÍ JAKO „11" (jednička + dlouhé „l"
+    vypadá jako dvě jedničky). Má-li řádek za „Nx" DVĚ čísla a druhé je
+    stupeň ("10x 1l 11° sv.", "10x 1,5l 11° sv.", "35x 1l 12° sv."), je
+    PRVNÍ z nich OBJEM obalu: 1l, 1,5l, 0,5l, 10l, 15l… — nikdy "11".
+    Dvojici „Nx 11 12°" proto do přepisu ani do položek NEPIŠ: podívej se na
+    obrázek znovu a přepiš objem jako „1l" (jedna jednička s dlouhým „l")
+    nebo „1,5l" (čárka a pětka za jedničkou). Obal je pak PET 1l / PET 1.5l.
+    Skutečný případ z 12. 10. 2026: lístek „10x 1l 11° sv." a „10x 1,5l 11° sv."
+    se přečetl jako dvakrát „10x 11 11° sv." — jedna z objednávek zmizela.
 `;
 
 /**
