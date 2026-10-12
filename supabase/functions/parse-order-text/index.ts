@@ -935,7 +935,7 @@ ${photoSection}`;
 
     if (!text) {
       return new Response(
-        JSON.stringify({ error: "Failed to get response from any LLM provider (Gemini, Groq, Mistral, OpenAI)" }),
+        JSON.stringify({ error: "Failed to get response from any LLM provider (Gemini, Groq, Mistral, OpenAI)", _provider_chyby: chybyProvideru }),
         { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
