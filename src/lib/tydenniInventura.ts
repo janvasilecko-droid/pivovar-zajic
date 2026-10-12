@@ -251,6 +251,41 @@ export function zaznamDorovnani(r: TydenniRadek, obdobi: TydenObdobi): Record<st
   };
 }
 
+/**
+ * Vyrovnávací zápisy, po kterých se SKLAD rovná napočítanému. Počítá se proti
+ * skladové knize k dni počítání (tedy proti tomu, co ukazuje Sklad), ne proti
+ * „očekávanému" stavu týdenní kontroly — ty se po neřešených týdnech
+ * rozcházejí (12. 10. 2026: „je pondělí, sklad a týdenní inventura musí být
+ * stejné"). Spočítaná položka, která už sedí, se nezapisuje; nespočítané
+ * se nedotýká.
+ */
+export function dorovnaniNaSklad(
+  radky: TydenniRadek[],
+  sklad: Map<string, { qty: number }>,
+  obdobi: TydenObdobi,
+): { radek: TydenniRadek; zmena: number; zaznam: Record<string, unknown> }[] {
+  const vysledek: { radek: TydenniRadek; zmena: number; zaznam: Record<string, unknown> }[] = [];
+  for (const r of radky) {
+    if (r.napocitano === null) continue;
+    const zmena = Math.round((r.napocitano - (sklad.get(r.klic)?.qty ?? 0)) * 1000) / 1000;
+    if (zmena === 0) continue;
+    vysledek.push({
+      radek: r,
+      zmena,
+      zaznam: {
+        entry_date: obdobi.doPocitani,
+        beer_id: r.beer_id,
+        beer_name: r.beer_name,
+        package_id: r.package_id,
+        package_label: r.package_label,
+        quantity: zmena,
+        reason: `Srovnání skladu podle inventury ${stitekTydne(obdobi.od)} — ${r.package_label}`,
+      },
+    });
+  }
+  return vysledek;
+}
+
 export function zaznamKontroly(
   r: TydenniRadek,
   obdobi: TydenObdobi,

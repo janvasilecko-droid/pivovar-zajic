@@ -16,14 +16,14 @@ import { Spinner } from './ui';
 import { QuickCountModal } from './QuickCountModal';
 import { businessDateISO } from '../lib/businessDate';
 import { nactiSkladovouKnihu, type SkladovaKniha } from '../lib/skladovaKnihaData';
-import { MOVEMENT_LABELS, movementsFor, stockKey } from '../lib/stockLedger';
+import { MOVEMENT_LABELS, movementsFor, stockAsOf, stockKey } from '../lib/stockLedger';
 import { kegovaniZapisy, lahvoveZapisy, odectiZeStoceni } from '../lib/inventoryFix';
 import { rozdelSudyDoTanku, type TankProRozdeleni } from '../lib/tankRozdeleni';
 import { odectiZTanku } from '../lib/tankZapis';
 import {
   jenAktivni, ocekavanyStavTydne, popisTydne, posunDnu, radkyTydne, souhrnTydne, stitekTydne, tydenObdobi, vychoziTyden,
   zaznamKontroly, zaznamDorovnani, type MinulyTydenStav, type TydenniRadek, type TydenObdobi,
-} from '../lib/tydenniInventura';
+ dorovnaniNaSklad } from '../lib/tydenniInventura';
 import type { Dispatch, ReactNode, SetStateAction } from 'react';
 import { popisPolozek, objednavkaShoduje, zapisShoduje, type PrehledObjednavka, type PrehledZapis } from '../lib/tydenniPrehled';
 import { StitekStavu } from './StitekStavu';
@@ -197,6 +197,13 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
     const sklad = ocekavanyStavTydne(kniha.pohyby, obdobi.od, obdobi.doPocitani, minulyTyden);
     return jenAktivni(radkyTydne(sklad, kniha.piva, kniha.obaly, napocitano));
   }, [kniha, obdobi.od, obdobi.doPocitani, napocitano, minulyTyden]);
+
+  // Co by se muselo zapsat, aby se SKLAD rovnal napočítanému (viz dorovnaniNaSklad).
+  const srovnaniSkladu = useMemo(() => {
+    if (!kniha) return [];
+    const sklad = stockAsOf(kniha.pohyby, obdobi.doPocitani) as unknown as Map<string, { qty: number }>;
+    return dorovnaniNaSklad(vsechnyRadky, sklad, obdobi);
+  }, [kniha, vsechnyRadky, obdobi]);
 
   // Přepínač nahoře (Lahve/Sudy) omezuje i souhrn a počítadlo „X / Y
   // spočítáno" — jinak by ukazovaly zbytek skladu, na který se teď vůbec
@@ -401,6 +408,34 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
     return null;
   }
 
+  /**
+   * Srovná SKLAD podle napočítaného: ke každé spočítané položce, která se od
+   * Skladu liší, zapíše vyrovnávací zápis (inventory_adjustments). Výroba,
+   * objednávky a tanky se nemění — viz „Dorovnat" výš, tohle je totéž pro
+   * všechny řádky naráz a proti Skladu.
+   */
+  async function srovnatSklad(zUlozeni = false) {
+    if (uklada) return;
+    const zapisy = srovnaniSkladu;
+    if (zapisy.length === 0) { oznam('Sklad už sedí s napočítaným.'); return; }
+    const soucet = zapisy.reduce((a, z) => a + z.zmena, 0);
+    const text = `Srovnat Sklad podle týdenní inventury? Změní se ${zapisy.length} položek (celkem ${soucet > 0 ? '+' : ''}${soucet} ks). Ke každé se zapíše vyrovnávací zápis; Stáčení, objednávky ani tanky se nemění.`;
+    if (!(await potvrd(text))) return;
+    setUklada('vse');
+    try {
+      const { error } = await supabase.from('inventory_adjustments').insert(zapisy.map((z) => z.zaznam));
+      if (error) throw error;
+      const chybaZaznamu = await upsertKontrol(zapisy.map((z) => z.radek), () => 'dorovnani');
+      if (chybaZaznamu) chyba('Záznam o kontrole se neuložil: ' + chybaZaznamu);
+      uspech(`Sklad srovnán podle inventury: ${zapisy.length} položek.`);
+      await nacti();
+    } catch (e: any) {
+      chyba('Srovnání skladu se nepovedlo: ' + (e?.message || e));
+    } finally {
+      setUklada(null);
+    }
+  }
+
   /** Uloží všechno napočítané naráz — rozdíly nechá být, ty se řeší po řádcích. */
   async function ulozVse() {
     const spocitane = vsechnyRadky.filter((r) => r.napocitano !== null);
@@ -412,9 +447,12 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
       uspech(`Uloženo ${spocitane.length} napočítaných položek za týden ${popisTydne(obdobi.od, obdobi.do)}.`);
     } catch (e: any) {
       chyba('Uložení se nepovedlo: ' + (e?.message || e));
+      return;
     } finally {
       setUklada(null);
     }
+    // Sklad se uložením týdenní kontroly sám NEmění — nabídne se srovnání.
+    if (srovnaniSkladu.length > 0) await srovnatSklad(true);
   }
 
   return (
@@ -571,6 +609,11 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
               <button type="button" onClick={ulozVse} disabled={!!uklada || bezi} className="btn-primary !rounded min-h-[44px]">
                 <Save size={16} /> Uložit kontrolu
               </button>
+              {srovnaniSkladu.length > 0 && (
+                <button type="button" onClick={() => srovnatSklad()} disabled={!!uklada || bezi} className="btn-secondary !rounded min-h-[44px]" data-srovnat-sklad>
+                  <Wand2 size={16} /> Srovnat Sklad ({srovnaniSkladu.length})
+                </button>
+              )}
             </div>
 
             {!bezi && (

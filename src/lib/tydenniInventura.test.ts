@@ -303,3 +303,33 @@ describe('ocekavanyStavTydne — pohyby ze dne počítání (9. 10. 2026: „nem
     expect(m.get('b1__l1')!.qty).toBe(50 + 30);
   });
 });
+
+describe('dorovnaniNaSklad — sklad se po uložení rovná napočítanému (12. 10. 2026)', () => {
+  const pohyb = (date: string, qty: number, kind: Movement['kind'], pkg = 'p1'): Movement => ({ date, beer_id: 'b1', package_id: pkg, qty, kind });
+  const radek = (klic: string, napocitano: number | null, ocekavano = 0) => ({
+    klic, beer_id: 'b1', beer_name: 'Pivo', beer_color: null, package_id: klic.split('__')[1], package_label: klic,
+    ocekavano, napocitano, rozdil: napocitano === null ? 0 : napocitano - ocekavano, pohybuVTydnu: 0, sud: false,
+  });
+  const obdobi = { od: '2026-10-05', do: '2026-10-11', doPocitani: '2026-10-12', uzavreny: true };
+
+  it('zapíše rozdíl proti SKLADU, ne proti očekávanému, a sklad pak sedí', async () => {
+    const { dorovnaniNaSklad } = await import('./tydenniInventura');
+    const { stockAsOf } = await import('./stockLedger');
+    const pohyby = [pohyb('2026-10-01', 45, 'inventura'), pohyb('2026-10-03', -2, 'zavoz')]; // sklad 43
+    const sklad = stockAsOf(pohyby, '2026-10-12') as unknown as Map<string, { qty: number }>;
+    const r = radek('b1__p1', 19, 40); // očekávané 40 (jiný základ), sklad 43
+    const d = dorovnaniNaSklad([r], sklad, obdobi);
+    expect(d).toHaveLength(1);
+    expect(d[0].zmena).toBe(-24);
+    const po = stockAsOf([...pohyby, pohyb('2026-10-12', d[0].zmena, 'dorovnani')], '2026-10-12');
+    expect(po.get('b1__p1')?.qty).toBe(19);
+  });
+
+  it('nespočítané a už sedící řádky nechává být; druhé volání nic nezapíše', async () => {
+    const { dorovnaniNaSklad } = await import('./tydenniInventura');
+    const { stockAsOf } = await import('./stockLedger');
+    const pohyby = [pohyb('2026-10-01', 10, 'inventura'), pohyb('2026-10-01', 5, 'inventura', 'p2')];
+    const sklad = stockAsOf(pohyby, '2026-10-12') as unknown as Map<string, { qty: number }>;
+    expect(dorovnaniNaSklad([radek('b1__p1', 10), radek('b1__p2', null)], sklad, obdobi)).toEqual([]);
+  });
+});
