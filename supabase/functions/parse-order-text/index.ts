@@ -744,7 +744,16 @@ ${photoSection}`;
     //    a čtení funguje bez kreditů navíc.
     //    Pozn.: "gemini-2.5-flash" už Google nezpřístupňuje novým klíčům (HTTP 404),
     //    proto používáme gemini-3.5-flash (GA, stejná kategorie flash).
-    if (!text && geminiKey) {
+    // U fotky se při přetížení (503/429) Gemini zkusí ještě jednou — jeho
+    // čtení rukopisu je výrazně lepší než záloha (12. 10. 2026: Gemini 21/21
+    // řádků správně, gpt-4o při 503 vynechal 1,5l i druhé 35× 1l).
+    let geminiPretizeny = false;
+    for (let pokusGemini = 1; pokusGemini <= (imageBase64 ? 2 : 1) && !text && geminiKey; pokusGemini++) {
+      if (pokusGemini > 1) {
+        if (!geminiPretizeny) break;
+        await new Promise((r) => setTimeout(r, 2000));
+      }
+      geminiPretizeny = false;
       try {
         const geminiBody = {
           contents: [
@@ -793,6 +802,7 @@ ${photoSection}`;
           const errText = await geminiResp.text();
           console.warn(`Gemini API error (status ${geminiResp.status}): ${errText}`);
           chybyProvideru.push(`gemini: HTTP ${geminiResp.status} ${errText.slice(0, 300)}`);
+          geminiPretizeny = geminiResp.status === 503 || geminiResp.status === 429;
         }
       } catch (err) {
         console.warn(`Gemini API exception (timeout nebo síť): ${err instanceof Error ? err.name + ": " + err.message : err}`);
