@@ -117,7 +117,7 @@ type BeerTilePanelProps = {
   onClose: () => void;
   children: ReactNode;
   headerRight?: ReactNode;
-  /** Vlastní patička (např. „Přidat do zápisu“ / „Zpět“ u stáčení). Bez zadání se zobrazí výchozí tlačítko „Hotovo ✓“. */
+  /** Vlastní patička (např. „Zpět“ u stáčení lahví). Bez zadání se zobrazí výchozí tlačítko „Hotovo ✓“. */
   footer?: ReactNode;
   /**
    * Co udělá fajfka („Hotovo") — na rozdíl od křížku, který jen zavírá.
