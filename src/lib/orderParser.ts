@@ -289,6 +289,34 @@ function pickPackageByVolume(v: number, packages: Package[], norm: string): Pack
   return candidates[0];
 }
 
+/**
+ * Pivo, které je v textu řádku napsané CELÝM NÁZVEM z katalogu (např. „winter").
+ * Použije se jen když je takový název v řádku právě jeden, název není generický
+ * (nezačíná stupněm, není „světlá/tmavá…") a stupeň piva sedí k položce — pak
+ * má přednost před tím, co k položce uložila AI/server (stupeň 12° ≠ pivo).
+ */
+export function pivoNapsanePodleJmena<B extends { id: string; name: string; degree?: string | null }>(
+  radek: string | null | undefined,
+  stupen: string | null | undefined,
+  beers: B[],
+): B | null {
+  const text = normalize(radek || '');
+  if (!text) return null;
+  const slova = text.split(' ');
+  const obecna = new Set(['svetla', 'svetly', 'svetle', 'tmava', 'tmavy', 'tmave', 'lezak', 'pivo', 'nefiltrovane', 'vycepni', 'special', 'light', 'dark', 'lager', 'polotmava']);
+  const nalezy = beers.filter((b) => {
+    const n = normalize(b.name);
+    if (n.length < 4 || /^[0-9]/.test(n) || obecna.has(n)) return false;
+    return n.includes(' ') ? text.includes(n) : slova.some((w) => w === n || (n.length >= 5 && w.startsWith(n) && w.length <= n.length + 3));
+  });
+  if (nalezy.length !== 1) return null;
+  const pivo = nalezy[0];
+  const sPivo = (pivo.degree || '').replace('°', '').trim();
+  const sPolozky = (stupen || '').replace('°', '').trim();
+  if (sPivo && sPolozky && sPivo !== sPolozky) return null;
+  return pivo;
+}
+
 /** Ručně psané „1l" přečtené jako „11" („10x 11 11°sv.") — viz server beer-match.ts. */
 export function jeLitrPsanyJakoJedenact(raw: string): boolean {
   return /(?:^|\s)\d{1,3}\s*x\s+(?:11|1l)\s+\d{1,2}\s*(?:°|sv|tm)/i.test(normalize(raw));
