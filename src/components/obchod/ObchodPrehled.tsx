@@ -6,18 +6,19 @@
 import { useMemo, useState } from 'react';
 import { AlertTriangle, ChevronDown, ChevronUp, ClipboardCheck, PackageMinus, PackagePlus, Plus, Receipt } from 'lucide-react';
 import { EmptyState } from '../ui';
-import { beerBorder, beerBg } from '../../lib/supabase';
+import { beerBorder, beerBg, beerInk } from '../../lib/supabase';
 import { jeSud } from '../../lib/inventoryFix';
 import { IkonaLahev, IkonaSud } from '../ikony';
 import { businessDateISO } from '../../lib/businessDate';
 import { chyba as toastChyba, potvrd, uspech } from '../../lib/toast';
 import {
-  dnyZasoby, fasovaniBezZbozi, pohybyZbozi, prumernyDenniProdej, sledujeSklad, stavySkladu, varovaniZasob, type StavZbozi,
+  dnyZasoby, fasovaniBezZbozi, pohybyZbozi, prumernyDenniProdej, jeBezKodu, sledujeSklad, stavySkladu, varovaniZasob, type StavZbozi,
 } from '../../lib/obchodSklad';
 import { inventuraObchoduChybi } from '../../lib/obchodInventura';
 import { smazOdpis, smazPrijem, upravZbozi, type DataObchodu } from '../../lib/obchodData';
 import { OdpisZbozi, PrijemZbozi, PridatZbozi } from './ZboziOkna';
 import { PridatZboziDlazdice } from './PridatZboziDlazdice';
+import { ObchodNaskladneni } from './ObchodNaskladneni';
 import { UpozorneniMezery, UpozorneniPresInventuru, useMezery, usePresInventuru } from './ObchodMezery';
 import type { ObchodTab } from '../../screens/ObchodScreen';
 
@@ -32,12 +33,12 @@ export function ObchodPrehled({ data, zapsal, jdiNa }: {
   jdiNa: (tab: ObchodTab) => void;
 }) {
   const dnes = businessDateISO();
-  const stavy = useMemo(() => stavySkladu(data.vstup, dnes), [data.vstup, dnes]);
+  const stavy = useMemo(() => stavySkladu(data.vstupSklad, dnes), [data.vstupSklad, dnes]);
   const varovani = useMemo(() => varovaniZasob(stavy), [stavy]);
   const bezZbozi = useMemo(() => fasovaniBezZbozi(data.vstup), [data.vstup]);
   const upozorneniInventury = inventuraObchoduChybi(data.inventury, dnes);
   const bezInventury = stavy.filter((s) => s.stav == null && s.sklad);
-  const zboziPodleKodu = useMemo(() => new Map(data.zbozi.map((z) => [z.kod, z])), [data.zbozi]);
+  const zboziPodleKodu = useMemo(() => new Map(data.vstupSklad.zbozi.map((z) => [z.kod, z])), [data.vstupSklad.zbozi]);
 
   const [otevreno, setOtevreno] = useState<string | null>(null);
   const [prijem, setPrijem] = useState<{ kod?: string } | null>(null);
@@ -105,7 +106,7 @@ export function ObchodPrehled({ data, zapsal, jdiNa }: {
 
       {bezZbozi.length > 0 && (
         <div role="alert" className="rounded-xl border-2 border-rose-400 bg-rose-50 p-3 space-y-2 text-rose-950">
-          <div className="text-sm font-black flex items-center gap-1.5"><AlertTriangle size={16} /> Nafasováno do obchodu, ale zboží tu chybí</div>
+          <div className="text-sm font-black flex items-center gap-1.5"><AlertTriangle size={16} /> Nafasováno do obchodu, ale zboží s kódem z pokladny tu chybí</div>
           <ul className="space-y-1.5">
             {bezZbozi.map((b) => (
               <li key={`${b.beer_id}|${b.package_id}`} className="flex items-center justify-between gap-2 text-xs font-bold">
@@ -116,7 +117,7 @@ export function ObchodPrehled({ data, zapsal, jdiNa }: {
               </li>
             ))}
           </ul>
-          <div className="text-[11px] font-semibold">Dokud zboží nemá kód z pokladny, kusy se do skladu obchodu nepřipíšou.</div>
+          <div className="text-[11px] font-semibold">Kusy se do skladu obchodu připisují hned (řádek „bez kódu“ ve Skladu), prodej z uzávěrky se ale odečte až se zbožím s kódem z pokladny.</div>
         </div>
       )}
 
@@ -159,8 +160,10 @@ export function ObchodPrehled({ data, zapsal, jdiNa }: {
 
       <PivaKarty
         stavy={piva} data={data} dnes={dnes} otevreno={otevreno} setOtevreno={setOtevreno}
-        detail={(s) => <Polozka s={s} data={data} otevreno prepni={() => setOtevreno(null)} zapsal={zapsal} dnes={dnes} otevriPrijem={(kod) => setPrijem({ kod })} otevriOdpis={(kod) => setOdpis({ kod })} jenDetail />}
+        detail={(s) => <Polozka s={s} data={data} otevreno prepni={() => setOtevreno(null)} zapsal={zapsal} dnes={dnes} otevriPrijem={(kod) => setPrijem({ kod })} otevriOdpis={(kod) => setOdpis({ kod })} jenDetail pridatKod={(beerId, pkgId) => setPridat({ beerId, pkgId })} />}
       />
+      <ObchodNaskladneni data={data} dnes={dnes} />
+
       {palenka.length > 0 && (
         <SeznamProdeje
           nadpis="Pálenka" stavy={palenka} dnes={dnes} otevreno={otevreno} setOtevreno={setOtevreno} sSkladem
@@ -192,7 +195,7 @@ function PivaKarty({ stavy, data, dnes, otevreno, setOtevreno, detail }: {
   setOtevreno: (k: string | null) => void;
   detail: (s: StavZbozi) => JSX.Element;
 }) {
-  const zbozi = new Map(data.zbozi.map((z) => [z.kod, z]));
+  const zbozi = new Map(data.vstupSklad.zbozi.map((z) => [z.kod, z]));
   const obaly = new Map(data.obaly.map((o) => [o.id, o]));
   const karty = data.piva
     .filter((b) => b.is_active !== false || stavy.some((s) => zbozi.get(s.kod)?.beer_id === b.id))
@@ -215,14 +218,15 @@ function PivaKarty({ stavy, data, dnes, otevreno, setOtevreno, detail }: {
           const otevrena = vse.find((p) => p.s.kod === otevreno);
           const zaporny = vse.some((p) => (p.s.stav ?? 0) < 0);
           return (
-            <div key={beer.id} className={`card p-4 border-2 ${zaporny ? 'ring-2 ring-rose-500/50' : ''}`} style={{ borderColor: beerBorder(beer) }}>
+            <div
+              key={beer.id}
+              className={`plocha-z-dat plocha-z-dat-tlumena rounded-xl border-2 p-4 ${zaporny ? 'ring-2 ring-rose-500/50' : ''}`}
+              style={{ backgroundColor: beerBg(beer), borderColor: beerBorder(beer), ['--ink-plochy' as any]: beerInk(beer) }}
+            >
               <div className="flex items-start justify-between gap-2 mb-2">
                 <div className="min-w-0">
-                  <h4 className="font-display font-black text-base text-neutral-900 truncate">
-                    <span className="inline-block w-2.5 h-2.5 rounded-full border border-black/20 mr-1.5 align-middle" style={{ backgroundColor: beerBg(beer) }} />
-                    {beer.name}
-                  </h4>
-                  {beer.degree && <span className="text-xs font-bold text-neutral-600">{beer.degree}</span>}
+                  <h4 className={`font-display font-black text-lg truncate ${beerInk(beer) === '#ffffff' ? 'text-white' : 'text-neutral-900'}`}>{beer.name}</h4>
+                  {beer.degree && <span className={`text-xs font-bold ${beerInk(beer) === '#ffffff' ? 'text-white/80' : 'text-neutral-700'}`}>{beer.degree}</span>}
                 </div>
               </div>
               {[{ nazev: 'Sudy', ikona: <IkonaSud className="ikona-text" />, radky: sudy }, { nazev: 'Lahve', ikona: <IkonaLahev className="ikona-text" />, radky: lahve }]
@@ -241,7 +245,10 @@ function PivaKarty({ stavy, data, dnes, otevreno, setOtevreno, detail }: {
                       <tbody>
                         {t.radky.map(({ s, obal }) => (
                           <tr key={s.kod}>
-                            <td className="py-1 pr-1 whitespace-nowrap text-neutral-500 text-xs font-bold">{obal?.label ?? s.nazev}</td>
+                            <td className="py-1 pr-1 whitespace-nowrap text-neutral-500 text-xs font-bold">
+                              {obal?.label ?? s.nazev}
+                              {jeBezKodu(s.kod) && <span className="block text-udaj font-black text-amber-800" title="Nafasováno z aplikace, ale zboží nemá kód z pokladny">bez kódu</span>}
+                            </td>
                             <td className="p-0">
                               <button
                                 type="button"
@@ -319,7 +326,7 @@ function SeznamProdeje({ nadpis, stavy, dnes, otevreno, setOtevreno, detail, sSk
   );
 }
 
-function Polozka({ s, data, otevreno, prepni, zapsal, dnes, otevriPrijem, otevriOdpis, jenDetail = false, sklad = true }: {
+function Polozka({ s, data, otevreno, prepni, zapsal, dnes, otevriPrijem, otevriOdpis, jenDetail = false, sklad = true, pridatKod }: {
   s: StavZbozi;
   data: DataObchodu;
   otevreno: boolean;
@@ -332,6 +339,8 @@ function Polozka({ s, data, otevreno, prepni, zapsal, dnes, otevriPrijem, otevri
   jenDetail?: boolean;
   /** Sleduje se sklad? U ostatního zboží ne — jen prodej. */
   sklad?: boolean;
+  /** Přidat zboží s kódem k nafasovanému pivu a obalu (u řádků bez kódu). */
+  pridatKod?: (beerId?: string, pkgId?: string) => void;
 }) {
   const zbozi = data.zbozi.find((z) => z.kod === s.kod);
   const [min, setMin] = useState(s.min == null ? '' : String(s.min));
@@ -363,7 +372,24 @@ function Polozka({ s, data, otevreno, prepni, zapsal, dnes, otevriPrijem, otevri
     data.znovu();
   }
 
-  const telo = (
+  const bezKodu = jeBezKodu(s.kod);
+  const zbozVirt = bezKodu ? data.vstupSklad.zbozi.find((z) => z.kod === s.kod) : undefined;
+  const telo = bezKodu ? (
+    <div className="border-t border-neutral-200 p-3 space-y-2 text-xs font-semibold text-neutral-800">
+      <div>
+        Nafasováno z aplikace od nulového stavu obchodu: <strong>{cs(s.fasovano)} ks</strong>, ze skladu se z toho nic neodečítá, dokud pivo nemá kód z pokladny.
+      </div>
+      <button type="button" className="btn-primary !rounded !py-1.5 text-xs" onClick={() => pridatKod?.(zbozVirt?.beer_id ?? undefined, zbozVirt?.package_id ?? undefined)}>
+        Přidat zboží s kódem z pokladny
+      </button>
+      <div className="font-black uppercase text-[11px] text-neutral-600 mt-2">Poslední pohyby</div>
+      <ul className="space-y-0.5">
+        {pohybyZbozi(s.kod, data.vstupSklad, 10).map((p, i) => (
+          <li key={i} className="flex justify-between gap-2"><span>{datumKratce(p.datum)} · {p.popis}</span><span className="font-black tabular-nums text-emerald-800">+{cs(p.ks)}</span></li>
+        ))}
+      </ul>
+    </div>
+  ) : (
         <div className="border-t border-neutral-200 p-3 space-y-3">
           {!sklad && (
             <div className="text-center text-[11px] font-bold text-neutral-600">
@@ -410,7 +436,7 @@ function Polozka({ s, data, otevreno, prepni, zapsal, dnes, otevriPrijem, otevri
           {sklad && <div>
             <div className="text-[11px] font-black uppercase text-neutral-500 mb-1">Poslední pohyby</div>
             <ul className="space-y-0.5">
-              {pohybyZbozi(s.kod, data.vstup, 10).map((p, i) => (
+              {pohybyZbozi(s.kod, data.vstupSklad, 10).map((p, i) => (
                 <li key={i} className="flex items-center justify-between gap-2 text-xs font-semibold text-neutral-700">
                   <span>{datumKratce(p.datum)} · {p.popis}</span>
                   <span className="flex items-center gap-2 shrink-0">
@@ -423,7 +449,7 @@ function Polozka({ s, data, otevreno, prepni, zapsal, dnes, otevriPrijem, otevri
                   </span>
                 </li>
               ))}
-              {pohybyZbozi(s.kod, data.vstup, 1).length === 0 && <li className="text-xs text-neutral-500">Zatím žádné.</li>}
+              {pohybyZbozi(s.kod, data.vstupSklad, 1).length === 0 && <li className="text-xs text-neutral-500">Zatím žádné.</li>}
             </ul>
           </div>}
           {sklad && zbozi && !zbozi.beer_id && <div className="text-[11px] text-neutral-500">Naskladňuje se příjmem.</div>}

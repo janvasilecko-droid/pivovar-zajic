@@ -394,3 +394,44 @@ export function pohybyZbozi(kod: string, vstup: VstupSkladu, limit = 40): PohybZ
   }
   return out.sort((a, b) => b.datum.localeCompare(a.datum)).slice(0, limit);
 }
+
+
+// ── Fasování z aplikace bez kódu z pokladny ───────────────────────────────
+// 13. 10. 2026: „fasování obchod z aplikace se musí naskladňovat na sklad."
+// Dokud pivo v tomhle obalu nemá v obchodě zboží (kód z pokladny), nesměly se
+// kusy nikam připsat. Teď se pro takové pivo + obal založí v paměti "zboží
+// bez kódu": stav se počítá od data nulového stavu obchodu (poslední inventura
+// jakéhokoli zboží) a přibývá fasováním a příjmem. Do databáze se nic
+// nezapisuje; až se zboží s kódem přidá, zmizí samo a převezme to pravé.
+
+export const PREDPONA_BEZ_KODU = 'fas:';
+export const jeBezKodu = (kod: string): boolean => kod.startsWith(PREDPONA_BEZ_KODU);
+
+export type NazvyKatalogu = {
+  piva: { id: string; name: string }[];
+  obaly: { id: string; label: string }[];
+};
+
+/** Vstup rozšířený o zboží bez kódu (jen pro zobrazení skladu — ne pro zápis). */
+export function sNafasovanymBezKodu(vstup: VstupSkladu, katalog: NazvyKatalogu): VstupSkladu {
+  const nulovyStav = vstup.inventury.reduce<string | null>((max, i) => (max == null || i.datum > max ? i.datum : max), null);
+  if (nulovyStav == null) return vstup;
+  const poPivu = zboziPodlePivaObalu(vstup.zbozi);
+  const jmenaPiv = new Map(katalog.piva.map((p) => [p.id, p.name]));
+  const jmenaObalu = new Map(katalog.obaly.map((o) => [o.id, o.label]));
+  const nove = new Map<string, Zbozi>();
+  for (const f of vstup.fasovani) {
+    if (!f.beer_id || !f.package_id || !cislo(f.quantity) || f.entry_date <= nulovyStav) continue;
+    const k = klicPivaObalu(f.beer_id, f.package_id);
+    if (poPivu.has(k) || nove.has(k)) continue;
+    const nazev = `${jmenaPiv.get(f.beer_id) ?? 'Pivo'} ${String(jmenaObalu.get(f.package_id) ?? '').trim()}`.trim();
+    if (jeLimonada({ nazev })) continue;
+    nove.set(k, { kod: PREDPONA_BEZ_KODU + k, nazev, beer_id: f.beer_id, package_id: f.package_id, aktivni: true });
+  }
+  if (nove.size === 0) return vstup;
+  return {
+    ...vstup,
+    zbozi: [...vstup.zbozi, ...nove.values()],
+    inventury: [...vstup.inventury, ...[...nove.values()].map((z) => ({ kod: z.kod, datum: nulovyStav, napocitano: 0 }))],
+  };
+}
