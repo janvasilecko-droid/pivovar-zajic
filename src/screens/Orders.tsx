@@ -3,7 +3,7 @@
 import { OdberatelTlacitko } from '../components/OdberatelTlacitko';
 import { useEffect, useMemo, useState, useCallback, useRef, lazy, Suspense } from 'react';
 
-import { AlertTriangle, Calendar, CalendarDays, Camera, Check, CheckCircle2, CheckSquare, ChevronLeft, ChevronRight, ClipboardList, Clock, Copy, FilePlus, Globe, Mail, MessageCircle, Package as PackageIcon, PackageCheck, Plus, Receipt, Search, ShieldAlert, Trash2, Truck, User, X, Zap } from 'lucide-react';
+import { AlertTriangle, Calendar, CalendarDays, Camera, Check, CheckCircle2, CheckSquare, ChevronLeft, ChevronRight, ClipboardList, Clock, Copy, FilePlus, Mail, MessageCircle, Package as PackageIcon, PackageCheck, Plus, Receipt, ShieldAlert, Trash2, Truck, User, X, Zap } from 'lucide-react';
 import { Beer, EntryRow, Package, Place, beerName, fetchAllRows, formatPackageLabel, supabase, useRealtime } from '../lib/supabase';
 import { useMaleSudy, useHlidaniMalychSudu } from '../lib/useMaleSudy';
 import { volneProObjednavku, rozdelMaleSudyVObjednavce, silaPiva } from '../lib/maleSudy';
@@ -16,7 +16,7 @@ import type { StockSources } from '../lib/stockLedger';
 import { consumeOrdersItemFilter, consumeOrdersAutoImportRequest, consumeOrdersOverdueFilter, consumeOrdersPendingFilter, consumeOrdersHledani, ORDERS_AUTO_IMPORT_EVENT, ORDERS_HLEDANI_EVENT } from '../lib/ordersFilter';
 import { businessDateISO, posunMesic, posunDen } from '../lib/businessDate';
 import { computeVariantTotals } from '../lib/variantTotals';
-import { vyhovujeDruhu, NAZEV_DRUHU, type DruhObaluFiltr } from '../lib/druhObalu';
+import { vyhovujeDruhu, type DruhObaluFiltr } from '../lib/druhObalu';
 import { jeAutomatickyBezZavozu } from '../lib/bezZavozu';
 
 import { PlaceCombobox } from '../components/PlaceCombobox'; // Assuming this is needed
@@ -41,7 +41,6 @@ import { type AkceRow } from '../lib/inventoryHelper';
 import { chyba, oznam, potvrd, uspech, volba } from '../lib/toast';
 
 import { IkonaVycep } from '../components/ikony';
-import { poctyPolozek } from '../lib/objednavkyStatistika';
 import { kartaOdberatele } from '../lib/kartaOdberatele';
 import { kusy } from '../lib/cisla';
 
@@ -1555,44 +1554,6 @@ export default function Orders({
   // v aktuálně zvoleném rozsahu (týden / měsíc / vše). Storno se nepočítá.
   const variantTotals = useMemo(() => computeVariantTotals(filtered, items), [filtered, items]);
 
-  // Počítání vytažené do lib/objednavkyStatistika.ts (má vlastní testy).
-  // Tady zůstalo jen to, co bez obrazovky nemá smysl: KTERÉ položky filtru
-  // vyhovují. Součty samotné se daly zkazit tiše — „NaN ks" nebo započtené
-  // storno — a přitom je to číslo, podle kterého se chystá pivo.
-  const itemAuditStats = useMemo(() => {
-    if (!itemFilterBeerId && !itemFilterPackageId && packageKindFilter === 'all' && !searchText.trim()) {
-      return null;
-    }
-
-    const matchItem = (item: OrderItem) => {
-      if (!matchesItemFilters(item)) return false;
-      if (searchText.trim()) {
-        const q = norm(searchText);
-        const bName = norm(item.beer_name ?? '');
-        if (!bName.includes(q)) return false;
-      }
-      return true;
-    };
-
-    const p = poctyPolozek({
-      videne: searchedFiltered,
-      vsechny: orders,
-      polozky: items,
-      vyhovuje: matchItem,
-    });
-
-    // Jména polí zůstávají, jak byla — obrazovka je má na šesti místech
-    // a přejmenovat je není součástí téhle úpravy.
-    return {
-      currentViewQty: p.kusyVeVyberu,
-      currentViewOrdersCount: p.objednavekVeVyberu,
-      currentViewItemsCount: p.polozekVeVyberu,
-      allOrdersQty: p.kusyCelkem,
-      allOrdersCount: p.objednavekCelkem,
-      hasHiddenOrders: p.jsouSkryteObjednavky,
-    };
-  }, [itemFilterBeerId, itemFilterPackageId, packageKindFilter, searchText, searchedFiltered, orders, items, packages]);
-
   const groupedByDay = useMemo(() => {
     if (!groupByDay) return null;
     const map = new Map<string, Order[]>();
@@ -2558,62 +2519,11 @@ export default function Orders({
           pár řádcích scrollování. */}
       {mode !== 'entry_only' && viewMode === 'detail' && ( // Render only in detail view
         <>
-          {(itemFilterBeerId || itemFilterPackageId || packageKindFilter !== 'all' || timeScope !== 'week' || searchText.trim()) && (
-            <div className="mb-3 p-3.5 rounded-2xl bg-amber-100/90 border-2 border-amber-400 text-amber-800 text-xs font-bold shadow-xs flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2 flex-wrap">
-                <Search className="ikona-text" />
-                <span>
-                  Aktivní filtry:{' '}
-                  {timeScope === 'month' ? `[Měsíc: ${selectedMonth}] ` : timeScope === 'all' ? '[Všechny objednávky] ' : ''}
-                  {packageKindFilter !== 'all' ? `[${NAZEV_DRUHU[packageKindFilter]}] ` : ''}
-                  {itemFilterBeerId ? `[Pivo: ${beers.find(b => b.id === itemFilterBeerId)?.name}] ` : ''}
-                  {itemFilterPackageId ? `[Obal: ${packages.find(p => p.id === itemFilterPackageId)?.label}] ` : ''}
-                  {searchText.trim() ? `[Hledání: "${searchText}"${timeScope !== 'all' ? ' — všechna období' : ''}] ` : ''}
-                </span>
-
-                {itemAuditStats && (
-                  <span className="ml-1 px-2.5 py-1 rounded-xl bg-amber-500 text-neutral-950 font-black text-xs shadow-xs">
-                    Vyfiltrováno: {itemAuditStats.currentViewItemsCount} položek — {itemAuditStats.currentViewQty} ks ({itemAuditStats.currentViewOrdersCount} obj.)
-                  </span>
-                )}
-
-                {itemAuditStats?.hasHiddenOrders && (
-                  <span className="text-amber-800 font-black bg-amber-200 border border-amber-400 px-2.5 py-1 rounded-xl">
-                    <AlertTriangle className="ikona-text" /> V jiných filtrech/týdnech je dalších {itemAuditStats.allOrdersQty - itemAuditStats.currentViewQty} ks (Celkem {itemAuditStats.allOrdersQty} ks ve {itemAuditStats.allOrdersCount} obj.)
-                  </span>
-                )}
-              </div>
-
-              <div className="flex items-center gap-2">
-                {itemAuditStats?.hasHiddenOrders && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setTimeScope('all');
-                      setStatusFilter('');
-                      setDeliveryDayFilter('all');
-                      setZavozOnly(false);
-                    }}
-                    className="btn-primary !rounded !py-1 !px-3 text-xs font-black shadow-md shrink-0 bg-amber-700 hover:bg-amber-800 text-white"
-                  >
-                    <Globe className="ikona-text" /> Zobrazit všech {itemAuditStats.allOrdersQty} ks
-                  </button>
-                )}
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setTimeScope('week'); setPackageKindFilter('all');
-                    setItemFilterBeerId(null); setItemFilterPackageId(null);
-                    setSearchText(''); setStatusFilter(''); setDeliveryDayFilter('all');
-                  }}
-                  className="btn-ghost !rounded !py-1 !px-2.5 text-xs font-black text-rose-900 bg-rose-100 hover:bg-rose-200 border border-rose-300"
-                >
-                  <X className="ikona-text" /> Zrušit filtry
-                </button>
-              </div>
-            </div>
-          )}
+          {/* Žlutý panel „Aktivní filtry … Vyfiltrováno … Zrušit filtry" je pryč
+              (majitel 13. 10. 2026: „tohle můžeš dát pryč, akorát to překáží,
+              vidím v tom, kam zadávám, co hledám") — při psaní do hledání
+              zabíral půlku displeje nad polem. Filtry se ruší přímo v chipech
+              a v poli hledání. */}
 
         {/* Delivery Day quick selector tabs — jediná přilepená lišta v Objednávkách (přepínač období a vyhledávací filtry pod ní se scrollují normálně).
             Stejný jazyk jako zbytek tlačítek appky: černá/bílý text, označený
