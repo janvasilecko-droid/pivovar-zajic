@@ -579,7 +579,7 @@ export default function AdminDiagnostika() {
       </h2>
       <p className="text-sm text-neutral-600 mt-2">
         Chyby aplikace a nedokončené odečty z tanků — věci, které se dřív nedaly
-        zjistit jinak než tím, že něco nefungovalo. Databázové migrace jsou nahoře v Auditu.
+        zjistit jinak než tím, že něco nefungovalo. Databázové migrace jsou nahoře v Systému.
       </p>
       <NasazeniBlok />
       <ZalohaBlok />
