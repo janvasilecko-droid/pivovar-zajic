@@ -454,7 +454,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
       const obaly = props.packages.map((p) => ({
         id: p.id, label: p.label, kind: (p as any).kind, volume_l: (p as any).volume_l,
       }));
-      const navrh = slozNavrh({ soucasne, zOdpovedi, text: msg.message_text, obaly });
+      const navrh = slozNavrh({ soucasne, zOdpovedi, text: msg.message_text, obaly, zOdpovediJePlnyStav: (msg.parsed_items ?? []).some((i) => i.plny_stav) });
 
       setAmendDiff(diffOrderItems(soucasne, navrh));
       setAmendPotvrzenoPrazdne(potvrzeneBezPolozek({ soucasne, potvrzeno: rozsah.potvrzeno, obaly }));

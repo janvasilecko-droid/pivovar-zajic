@@ -252,6 +252,33 @@ const MAX_FREEFORM_PLACE_LEN = 60;
 export type ResolvedPlace = { id: string | null; name: string | null };
 
 /**
+ * „Petr moravcik prodejna" není jiný odběratel než „petr" — majitel 12. a
+ * 13. 10. 2026: „včera jsme řešili, že Petr Moravčík není, je to jen Petr,
+ * tohle máš číst z objednávek, z kontextu."
+ *
+ * Když odesílatel má v katalogu odběratele přesně pod svým jménem (celým nebo
+ * křestním) a vybraný odběratel je jen DLOUHÁ VARIANTA téhož jména („petr" →
+ * „Petr moravcik prodejna"), platí ten přesný. Jinak by ho AI a historie
+ * (v ní jsou starší objednávky pod oběma názvy) vybraly podle toho, co se jim
+ * zrovna líbí. Výjimka: dlouhý název je ve zprávě napsaný celý.
+ */
+export function preferujExaktniOdberatele(
+  vybrany: ResolvedPlace,
+  odesilatel: string | null | undefined,
+  places: { id: string; name: string }[],
+  textZpravy: string,
+): ResolvedPlace {
+  if (!vybrany.name || !odesilatel) return vybrany;
+  const exaktni = exaktniOdberatelOdesilatele(odesilatel, places);
+  if (!exaktni || !exaktni.name || exaktni.id === vybrany.id) return vybrany;
+  const kratky = normPlaceName(exaktni.name);
+  const dlouhy = normPlaceName(vybrany.name);
+  if (!kratky || dlouhy === kratky || dlouhy.split(" ")[0] !== kratky) return vybrany;
+  if (normPlaceName(textZpravy).includes(dlouhy)) return vybrany;
+  return exaktni;
+}
+
+/**
  * Odběratel, který se jmenuje PŘESNĚ jako odesílatel — celým jménem, nebo
  * křestním („Petr Bednář" → odběratel „petr"). Nejednoznačné shody (dva
  * odběratelé téhož názvu) se nevrací.

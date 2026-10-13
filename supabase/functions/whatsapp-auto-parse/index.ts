@@ -2,7 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { requireApprovedUser } from "../_shared/require-user.ts";
 import { normText, matchBeerId, matchPackageId, jeLitrPsanyJakoJedenact } from "../_shared/beer-match.ts";
 import { poradiPodlePrepisu } from "../_shared/prepis-fotky.ts";
-import { normPlaceName, stripSenderName, resolvePlace, odberatelZHistorie, wantsOwnOrder as textWantsOwnOrder } from "../_shared/place-match.ts";
+import { normPlaceName, stripSenderName, resolvePlace, odberatelZHistorie, preferujExaktniOdberatele, wantsOwnOrder as textWantsOwnOrder } from "../_shared/place-match.ts";
 import { nactiHistorii } from "../_shared/historie-objednavek.ts";
 import { vypadaJakoVraceni } from "../_shared/vraceni-detekce.ts";
 import { jeVlastniHlaseniObjednavky } from "../_shared/vlastni-hlaseni-objednavky.ts";
@@ -773,6 +773,20 @@ Deno.serve(async (req: Request) => {
           }
         }
 
+        // „Petr moravcik prodejna" není jiný odběratel než „petr" — když odesílatel
+        // má v katalogu odběratele přesně pod svým jménem, platí on (viz
+        // preferujExaktniOdberatele v ../_shared/place-match.ts).
+        {
+          const upraveny = preferujExaktniOdberatele(
+            { id: parsedPlaceId, name: parsedPlaceName },
+            message.participant_name || message.sender_name,
+            places,
+            ukotveniText,
+          );
+          parsedPlaceId = upraveny.id;
+          parsedPlaceName = upraveny.name;
+        }
+
         // Extract delivery day/date from message text — nejdřív konkrétní datum
         // (např. "25.8." → objednávka se přesune do týdne 25.8.), pak zítra/dnes,
         // pak název dne.
@@ -881,6 +895,12 @@ Deno.serve(async (req: Request) => {
             beer_name: beer?.name ?? item.beer_name ?? null,
             package_label: pkg?.label ?? item.package_label ?? null,
             raw_line: item.raw_line || null,
+            // Odpověď upravující objednávku: AI dostala současný obsah a vrací
+            // VÝSLEDNÝ stav celé objednávky, ne jen to, co zpráva říká. Aplikace
+            // to pozná podle téhle značky a „plus 1x50" k objednávce nepřičte
+            // celou odpověď znovu (12. 10. 2026: Malešice 2x50 + „ještě plus
+            // 1x50l" dalo 5x50 a zdvojené všechny ostatní řádky).
+            ...(amendsOrderId && !vypadaJakoVraceni(message.message_text) ? { plny_stav: true } : {}),
           };
         });
 

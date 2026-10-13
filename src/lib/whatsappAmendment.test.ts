@@ -467,3 +467,55 @@ describe('vypadaJakoZmenaObjednavky — přídavek vs. úprava', () => {
     expect(vypadaJakoZmenaObjednavky('')).toBe(null);
   });
 });
+
+// ---------------------------------------------------------------------------
+// „Ještě plus 1x50l 12sv" k objednávce, kterou AI vrací jako VÝSLEDNÝ stav.
+//
+// Z provozu 12. 10. 2026 (Malešice): objednávka 2x50 + 2x30 + 12×1,5l + …,
+// odpověď „Jeste plus 1x50l 12sv". Server (AI dostala obsah objednávky) vrátil
+// celý výsledný stav včetně nové položky. Aplikace ho jako „přídavek" PŘIČETLA
+// k objednávce: 5x50 místo 3x50 a zdvojené všechny ostatní řádky.
+// ---------------------------------------------------------------------------
+describe('slozNavrh — přídavek, když odpověď obsahuje celou objednávku', () => {
+  const OBALY = [
+    { id: 'keg50', label: 'KEG 50l', kind: 'keg', volume_l: 50 },
+    { id: 'keg30', label: 'KEG 30l', kind: 'keg', volume_l: 30 },
+    { id: 'pet15', label: 'PET 1,5l', kind: 'pet', volume_l: 1.5 },
+    { id: 'lah05', label: 'Lahev 0,5l', kind: 'bottle', volume_l: 0.5 },
+  ];
+  const MALESICE = [
+    { beer_id: 'sv12', package_id: 'keg50', quantity: 2 },
+    { beer_id: 'sv12', package_id: 'keg30', quantity: 2 },
+    { beer_id: 'sv12', package_id: 'pet15', quantity: 12 },
+    { beer_id: 'sv12', package_id: 'lah05', quantity: 20 },
+    { beer_id: 'jantar', package_id: 'keg30', quantity: 1 },
+    { beer_id: 'jantar', package_id: 'lah05', quantity: 10 },
+  ];
+  const VYSLEDNY_STAV_OD_AI = [...MALESICE, { beer_id: 'sv12', package_id: 'keg50', quantity: 1 }];
+  const text = 'Jeste plus 1x50l 12sv';
+
+  it('s oznámením „výsledný stav" se přičte jen to nové (3x50, zbytek beze změny)', () => {
+    const navrh = slozNavrh({ soucasne: MALESICE, zOdpovedi: VYSLEDNY_STAV_OD_AI, text, obaly: OBALY, zOdpovediJePlnyStav: true });
+    expect(navrh).toEqual([
+      { beer_id: 'sv12', package_id: 'keg50', quantity: 3 },
+      { beer_id: 'sv12', package_id: 'keg30', quantity: 2 },
+      { beer_id: 'sv12', package_id: 'pet15', quantity: 12 },
+      { beer_id: 'sv12', package_id: 'lah05', quantity: 20 },
+      { beer_id: 'jantar', package_id: 'keg30', quantity: 1 },
+      { beer_id: 'jantar', package_id: 'lah05', quantity: 10 },
+    ]);
+  });
+
+  it('bez oznámení (odpověď jen s tím, co zpráva říká) se dál přičítá', () => {
+    const navrh = slozNavrh({ soucasne: MALESICE, zOdpovedi: [{ beer_id: 'sv12', package_id: 'keg50', quantity: 1 }], text, obaly: OBALY });
+    expect(navrh.find((i) => i.beer_id === 'sv12' && i.package_id === 'keg50')?.quantity).toBe(3);
+    expect(navrh).toHaveLength(6);
+  });
+
+  it('chyba z provozu: s výsledným stavem se NEsmí přičítat k objednávce (dřív 5x50)', () => {
+    const spatne = slozNavrh({ soucasne: MALESICE, zOdpovedi: VYSLEDNY_STAV_OD_AI, text, obaly: OBALY });
+    expect(spatne.find((i) => i.beer_id === 'sv12' && i.package_id === 'keg50')?.quantity).toBe(5);
+    const dobre = slozNavrh({ soucasne: MALESICE, zOdpovedi: VYSLEDNY_STAV_OD_AI, text, obaly: OBALY, zOdpovediJePlnyStav: true });
+    expect(dobre.reduce((s, i) => s + i.quantity, 0)).toBe(2 + 2 + 12 + 20 + 1 + 10 + 1);
+  });
+});
