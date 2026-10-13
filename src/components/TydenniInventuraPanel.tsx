@@ -707,16 +707,21 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
                     <p className={`text-xs font-bold opacity-90 flex-1 min-w-[180px] ${inkTrida}`}>
                       {r.rozdil > 0
                         ? `Přebytek ${r.rozdil} ks (${formatKc(r.rozdil * cenaRadku(r).cena, true)}) — nejspíš se stočilo a nezapsalo.`
-                        : `Manko ${Math.abs(r.rozdil)} ks (${formatKc(r.rozdil * cenaRadku(r).cena)}) — nejspíš se zapsalo víc, než se vyrobilo.`}
+                        : `Manko ${Math.abs(r.rozdil)} ks (${formatKc(r.rozdil * cenaRadku(r).cena)}) — srovná se tlačítkem Dorovnat (do stáčení se nezapisuje).`}
                     </p>
-                    <button
-                      type="button"
-                      onClick={() => srovnat(r)}
-                      disabled={!!uklada}
-                      className="btn-primary !rounded !text-xs min-h-[44px]"
-                    >
-                      {uklada === r.klic ? '…' : r.rozdil > 0 ? 'Zapsat do stáčení' : 'Odečíst ze stáčení'}
-                    </button>
+                    {/* Manko se do stáčení nezapisuje (13. 10. 2026: „manko z inventury se
+                        neposílá, to se dorovnává"). Do stáčení jde jen chybějící zápis
+                        (přebytek); manko se srovná tlačítkem Dorovnat. */}
+                    {r.rozdil > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => srovnat(r)}
+                        disabled={!!uklada}
+                        className="btn-primary !rounded !text-xs min-h-[44px]"
+                      >
+                        {uklada === r.klic ? '…' : 'Zapsat do stáčení'}
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => dorovnat(r)}
