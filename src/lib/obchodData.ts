@@ -12,6 +12,7 @@ import { prvniChyba, usePosledniNacteni } from './nacitani';
 import type {
   DuvodOdpisu, FasovaniRadek, InventuraRadek, OdpisRadek, PrijemRadek, ProdanyRadek, TypUzaverky, UzaverkaHlavicka, VstupSkladu, Zbozi,
 } from './obchodSklad';
+import { sNafasovanymBezKodu } from './obchodSklad';
 import type { NoveZbozi } from './obchodUzaverka';
 import type { ZapisZDlazdic } from './obchodKatalog';
 
@@ -48,6 +49,8 @@ export type DataObchodu = {
   obaly: ObalKatalog[];
   /** Vstup pro lib/obchodSklad.ts. */
   vstup: VstupSkladu;
+  /** Totéž + zboží bez kódu z pokladny z fasování (jen pro zobrazení skladu, viz sNafasovanymBezKodu). */
+  vstupSklad: VstupSkladu;
   nacitam: boolean;
   /** Text chyby načtení, nebo null. */
   chyba: string | null;
@@ -126,8 +129,10 @@ export function useObchod(): DataObchodu {
     [zbozi, fasovani, prijmy, odpisy, uzaverky, radky, inventury],
   );
 
+  const vstupSklad = useMemo(() => sNafasovanymBezKodu(vstup, { piva, obaly }), [vstup, piva, obaly]);
+
   return {
-    zbozi, prijmy, uzaverky, radky, inventury, odpisy, zavreno, chybiOdpisAZavreno, fasovani, piva, obaly, vstup, nacitam,
+    zbozi, prijmy, uzaverky, radky, inventury, odpisy, zavreno, chybiOdpisAZavreno, fasovani, piva, obaly, vstup, vstupSklad, nacitam,
     chyba,
     chybiTabulky: jeChybejiciTabulka(chyba),
     znovu: () => { void nacti(); },

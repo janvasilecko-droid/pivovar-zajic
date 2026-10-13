@@ -119,7 +119,7 @@ export default function ObchodScreen({ setPage, pageSubTab }: {
       {tab === 'fasovani' && (
         <div className="space-y-3">
           <div role="note" className="rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-950">
-            Fasování do obchodu odečte pivo ze skladu pivovaru a přidá ho do skladu obchodu. Zboží musí v obchodě existovat (vzniká z první uzávěrky nebo ve Skladu → Přidat zboží).
+            Fasování do obchodu odečte pivo ze skladu pivovaru a hned ho naskladní do skladu obchodu (Sklad → karta piva a tabulka po týdnech). Kód z pokladny se doplní později — prodej z uzávěrek se odečte až s ním.
           </div>
           <ProdejnaScreen setPage={setPage} />
         </div>

@@ -37,18 +37,18 @@ const vstup = {
 };
 const data = {
   zbozi, prijmy: [], uzaverky: vstup.uzaverky, radky: vstup.radky, inventury: vstup.inventury, odpisy: [], zavreno: [],
-  chybiOdpisAZavreno: false, fasovani: [], piva, obaly, vstup, nacitam: false, chyba: null, chybiTabulky: false, znovu: () => {},
+  chybiOdpisAZavreno: false, fasovani: [], piva, obaly, vstup, vstupSklad: vstup, nacitam: false, chyba: null, chybiTabulky: false, znovu: () => {},
 } as unknown as DataObchodu;
 
 describe('Obchod → Sklad', () => {
   it('piva mají kartu s tabulkami Sudy a Lahve, stav a prodej od začátku měsíce', () => {
     render(<ObchodPrehled data={data} zapsal="Honza" jdiNa={() => {}} />);
-    const svetla = screen.getByRole('heading', { name: /12° Světlá/ }).closest('.card') as HTMLElement;
+    const svetla = screen.getByRole('heading', { name: /12° Světlá/ }).closest('.plocha-z-dat') as HTMLElement;
     const radek = within(svetla).getByText('PET 1l').closest('tr') as HTMLElement;
     expect(within(radek).getByText('7')).toBeTruthy(); // 10 − 3 prodané po inventuře
     expect(radek.textContent).toMatch(/7.*3$/); // Naskladněno 7, Prodáno 3
     expect(within(svetla).getByText('PET 1.5l')).toBeTruthy();
-    const tmava = screen.getByRole('heading', { name: /12° Tmavá/ }).closest('.card') as HTMLElement;
+    const tmava = screen.getByRole('heading', { name: /12° Tmavá/ }).closest('.plocha-z-dat') as HTMLElement;
     expect(within(tmava).getByText('Sudy')).toBeTruthy();
     expect(within(tmava).getByText('KEG 30l')).toBeTruthy();
   });
@@ -69,5 +69,27 @@ describe('Obchod → Sklad', () => {
     expect(screen.queryByText(/Minimum \(ks\)/)).toBeNull();
     expect(screen.getByText(/Prodáno tento měsíc/)).toBeTruthy();
     expect(stavySkladu(vstup as any, '2026-10-13').length).toBe(5);
+  });
+});
+
+describe('Obchod → Sklad: naskladněno po týdnech a fasování bez kódu', () => {
+  const dataF = {
+    ...data,
+    fasovani: [
+      { beer_id: 'b12s', package_id: 'p1', quantity: 12, entry_date: '2026-10-13' },
+      { beer_id: 'b12t', package_id: 'p15', quantity: 5, entry_date: '2026-10-07' },
+    ],
+  } as unknown as DataObchodu;
+  const dataFv = { ...dataF, vstup: { ...(dataF as any).vstup, fasovani: (dataF as any).fasovani }, vstupSklad: { ...(dataF as any).vstup, fasovani: (dataF as any).fasovani } } as unknown as DataObchodu;
+
+  it('týdenní tabulka: aktuální týden je rozbalený, ukazuje pivo a obal s kusy', () => {
+    render(<ObchodPrehled data={dataFv} zapsal="Honza" jdiNa={() => {}} />);
+    const sekce = screen.getByRole('region', { name: 'Naskladněno po týdnech' });
+    expect(within(sekce).getByText('Týden 42')).toBeTruthy();
+    expect(within(sekce).getAllByText('+12').length).toBeGreaterThan(0);
+    expect(within(sekce).getByText('PET 1l')).toBeTruthy();
+    // Minulý týden je sbalený, po klepnutí se ukáže 12° Tmavá 5 ks.
+    fireEvent.click(within(sekce).getByText('Týden 41'));
+    expect(within(sekce).getByText('12° Tmavá')).toBeTruthy();
   });
 });
