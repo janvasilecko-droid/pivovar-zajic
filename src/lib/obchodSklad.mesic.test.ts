@@ -51,3 +51,25 @@ describe('co se u zboží sleduje na skladě', () => {
     expect(sledujeSklad(zbozi[1])).toBe(false);
   });
 });
+
+describe('limonády se do skladu nepočítají (13. 10. 2026)', () => {
+  const limoPivo = { kod: '15160', nazev: '0,5l limo sklo Kiwi', beer_id: 'kiwi', package_id: 'p05' };
+  const vstup = v({ zbozi: [...zbozi, limoPivo], inventury: [{ kod: '15160', datum: '2026-10-01', napocitano: 5 }], uzaverky: [{ id: 'u1', datum_od: '2026-10-05', datum_do: '2026-10-05' }], radky: [{ uzaverka_id: 'u1', kod: '15160', mnozstvi: 9 }] });
+
+  it('i vedená jako pivo se limonáda sleduje jen jako prodej', async () => {
+    const { jeLimonada, varovaniZasob } = await import('./obchodSklad');
+    expect(jeLimonada(limoPivo)).toBe(true);
+    expect(sledujeSklad(limoPivo)).toBe(false);
+    const s = stavySkladu(vstup, '2026-10-13').find((x) => x.kod === '15160')!;
+    expect(s).toMatchObject({ sklad: false, limonada: true, prodanoMesic: 9 });
+    // Záporný stav (5 − 9) nevyvolá hlídání zásob.
+    expect(varovaniZasob(stavySkladu(vstup, '2026-10-13')).some((x) => x.kod === '15160')).toBe(false);
+  });
+
+  it('do litrů a kusů piva ve Statistice nejde', async () => {
+    const { prodejPoZbozi, prodejPoPivech } = await import('./obchodStatistika');
+    const st = { zbozi: [limoPivo], uzaverky: vstup.uzaverky, radky: vstup.radky, obaly: [{ id: 'p05', volume_l: 0.5 }], piva: [{ id: 'kiwi', name: 'Kiwi' }] } as any;
+    expect(prodejPoZbozi(st)[0]).toMatchObject({ jePivo: false, ks: 9, litry: 0 });
+    expect(prodejPoPivech(st)).toEqual([]);
+  });
+});

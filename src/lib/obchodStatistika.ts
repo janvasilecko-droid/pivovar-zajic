@@ -3,7 +3,7 @@
 // Prodej se připisuje ke dni KONCE období uzávěrky (stejně jako u skladu,
 // lib/obchodSklad.ts), tržba se bere z řádků (částka × kusy), u uzávěrky bez
 // částek z jejího „Celkem". Litry jen u piv, u kterých je obal znám.
-import type { ProdanyRadek, UzaverkaHlavicka, Zbozi } from './obchodSklad';
+import { jeLimonada, type ProdanyRadek, type UzaverkaHlavicka, type Zbozi } from './obchodSklad';
 
 export type Rozliseni = 'den' | 'tyden' | 'mesic';
 
@@ -23,6 +23,9 @@ export type ObdobiProdeje = {
   litry: number;
   uzaverek: number;
 };
+
+/** Pivo (ne limonáda) s známým obalem — jen takové jde do kusů a litrů piva. */
+const jePivoSObalem = (z: Zbozi | undefined): z is Zbozi & { beer_id: string; package_id: string } => !!z?.beer_id && !!z.package_id && !jeLimonada(z);
 
 const cislo = (v: unknown): number => {
   const n = Number(v);
@@ -83,7 +86,7 @@ export function prodejPoObdobich(v: VstupStatistiky, rozliseni: Rozliseni, od?: 
     for (const r of radky) {
       const z = zbozi.get(r.kod);
       // Do kusů a litrů jdou jen piva — limo a saponát by je zkreslily.
-      if (!z?.beer_id || !z.package_id) continue;
+      if (!jePivoSObalem(z)) continue;
       const ks = cislo(r.mnozstvi);
       o.ks += ks;
       o.litry += ks * (objem.get(z.package_id) ?? 0);
@@ -115,12 +118,12 @@ export function prodejPoZbozi(v: VstupStatistiky, od?: string, do_?: string): Pr
     if (!uzaverky.has(r.uzaverka_id)) continue;
     const z = zbozi.get(r.kod);
     const dosud = m.get(r.kod) ?? {
-      kod: r.kod, nazev: z?.nazev ?? r.nazev ?? r.kod, jePivo: !!(z?.beer_id && z.package_id), ks: 0, litry: 0, trzba: 0,
+      kod: r.kod, nazev: z?.nazev ?? r.nazev ?? r.kod, jePivo: jePivoSObalem(z), ks: 0, litry: 0, trzba: 0,
     };
     const ks = cislo(r.mnozstvi);
     dosud.ks += ks;
     dosud.trzba += castkaRadku(r);
-    if (z?.beer_id && z.package_id) dosud.litry += ks * (objem.get(z.package_id) ?? 0);
+    if (jePivoSObalem(z)) dosud.litry += ks * (objem.get(z.package_id) ?? 0);
     m.set(r.kod, dosud);
   }
   return [...m.values()]
@@ -137,7 +140,7 @@ export function prodejPoPivech(v: VstupStatistiky, od?: string, do_?: string): P
   const m = new Map<string, ProdejPiva>();
   for (const p of prodejPoZbozi(v, od, do_)) {
     const z = zbozi.get(p.kod);
-    if (!z?.beer_id) continue;
+    if (!z?.beer_id || jeLimonada(z)) continue;
     const dosud = m.get(z.beer_id) ?? { beerId: z.beer_id, nazev: jmena.get(z.beer_id) ?? z.nazev, ks: 0, litry: 0, trzba: 0 };
     dosud.ks += p.ks;
     dosud.litry += p.litry;

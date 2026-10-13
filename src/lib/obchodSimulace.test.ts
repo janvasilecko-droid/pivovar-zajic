@@ -3,6 +3,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   fasovaniBezZbozi, pohybyZbozi, stavySkladu, uzaverkyPresInventuru, varovaniZasob, type VstupSkladu,
+  jeLimonada,
 } from './obchodSklad';
 import { prodejPoObdobich, prodejPoPivech, prodejPoZbozi, souhrnObdobi } from './obchodStatistika';
 import { inventuraObchoduChybi, rozdilyInventury } from './obchodInventura';
@@ -91,6 +92,7 @@ describe('hlídání zásob a upozornění — shodně s účetní knihou', () =
     for (const d of dnyMeziData('2026-09-30', '2026-11-10')) {
       const oc = new Set<string>();
       for (const z of ZBOZI) {
+        if (jeLimonada(z)) continue; // limonády se do skladu nepočítají (13. 10. 2026)
         const k = stavPodleKnihy(sInventurou, z.kod, d);
         const min = z.min_ks == null ? null : Number(z.min_ks);
         if (k != null && (k < 0 || (min != null && min > 0 && k < min) || (min != null && min > 0 && k === 0))) oc.add(z.kod);

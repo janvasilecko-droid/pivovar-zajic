@@ -31,7 +31,7 @@ import { spoctiUpozorneni } from './obchodUpozorneni';
 function naplnDb() {
   db.obchod_zbozi = [
     { kod: 'A', nazev: 'Pivo A', beer_id: 'b1', package_id: 'p1', min_ks: 10, aktivni: true },
-    { kod: 'B', nazev: 'Limo', beer_id: null, package_id: null, min_ks: 5, aktivni: true },
+    { kod: 'B', nazev: 'Saponát', beer_id: null, package_id: null, min_ks: 5, aktivni: true },
   ];
   db.obchod_inventura = [
     { kod: 'A', datum: '2026-08-31', napocitano: 500 }, // stará inventura — nahrazená

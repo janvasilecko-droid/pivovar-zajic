@@ -36,7 +36,7 @@ export function ObchodPrehled({ data, zapsal, jdiNa }: {
   const varovani = useMemo(() => varovaniZasob(stavy), [stavy]);
   const bezZbozi = useMemo(() => fasovaniBezZbozi(data.vstup), [data.vstup]);
   const upozorneniInventury = inventuraObchoduChybi(data.inventury, dnes);
-  const bezInventury = stavy.filter((s) => s.stav == null);
+  const bezInventury = stavy.filter((s) => s.stav == null && s.sklad);
   const zboziPodleKodu = useMemo(() => new Map(data.zbozi.map((z) => [z.kod, z])), [data.zbozi]);
 
   const [otevreno, setOtevreno] = useState<string | null>(null);
@@ -47,7 +47,7 @@ export function ObchodPrehled({ data, zapsal, jdiNa }: {
   const [pridat, setPridat] = useState<{ beerId?: string; pkgId?: string } | null>(null);
   const [dlazdice, setDlazdice] = useState(false);
 
-  const piva = stavy.filter((s) => zboziPodleKodu.get(s.kod)?.beer_id);
+  const piva = stavy.filter((s) => { const z = zboziPodleKodu.get(s.kod); return !!z?.beer_id && sledujeSklad(z); });
   const palenka = stavy.filter((s) => { const z = zboziPodleKodu.get(s.kod); return z && !z.beer_id && sledujeSklad(z); });
   const ostatni = stavy.filter((s) => { const z = zboziPodleKodu.get(s.kod); return !z || !sledujeSklad(z); });
 
@@ -77,7 +77,7 @@ export function ObchodPrehled({ data, zapsal, jdiNa }: {
         <div role="note" className="rounded-xl border-2 border-amber-400 bg-amber-50 p-3 flex items-start gap-2 text-amber-950">
           <ClipboardCheck size={18} className="shrink-0 mt-0.5" />
           <div className="flex-1 text-sm font-bold">
-            {bezInventury.length === stavy.length
+            {bezInventury.length === stavy.filter((s) => s.sklad).length
               ? 'Obchod ještě nemá počáteční stav. Napočítej zboží v Inventuře — od ní se sklad počítá.'
               : `${bezInventury.length} ${bezInventury.length === 1 ? 'zboží nemá' : 'zboží nemá'} napočítaný stav (v seznamu níže „bez inventury").`}
             <div>
