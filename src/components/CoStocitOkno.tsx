@@ -287,14 +287,9 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
                           const n = r.chybi.get(s.package_id) ?? 0;
                           return (
                             <td key={s.package_id} className={`${bunka} ${hranicaSkupiny(i)}`}>
-                              {n > 0
-                                ? <span className="font-display font-black text-amber-800">{n}</span>
-                                : r.objednano.has(s.package_id)
-                                  // "Pokryto", ne "stočeno" — od zapojení skutečné zásoby
-                                  // skladem (currentStockMap, 15. 9. 2026) to nemusí
-                                  // znamenat stočení TENTO týden, ale i starší zásobu.
-                                  ? <span title="Objednávka je pokrytá — stočením nebo zásobou skladem"><Check size={12} className="inline text-emerald-700" aria-label="pokryto" /></span>
-                                  : <span className="text-neutral-300">·</span>}
+                              {/* Jen to, co je potřeba stočit — pokryté položky se nezobrazují
+                                  (13. 10. 2026: „jen ukazuj, čeho je potřeba stočit"). */}
+                              {n > 0 ? <span className="font-display font-black text-amber-800">{n}</span> : null}
                             </td>
                           );
                         })}
@@ -351,11 +346,8 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
             </p>
           )}
 
-          {data && (matice.hotovaPiva.size > 0 || (bezTerminu > 0 && obdobi === 'tyden')) && (
-            <p className="text-udaj font-bold text-neutral-500">
-              {matice.hotovaPiva.size > 0 && <><Check size={11} className="inline text-emerald-700" /> Už pokryto: {matice.hotovaPiva.size} {matice.hotovaPiva.size === 1 ? 'pivo' : matice.hotovaPiva.size < 5 ? 'piva' : 'piv'} (stočením nebo zásobou skladem). </>}
-              {bezTerminu > 0 && obdobi === 'tyden' && <>Včetně {bezTerminu} ks z objednávek bez dne dovozu.</>}
-            </p>
+          {data && bezTerminu > 0 && obdobi === 'tyden' && (
+            <p className="text-udaj font-bold text-neutral-500">Včetně {bezTerminu} ks z objednávek bez dne dovozu.</p>
           )}
 
           <div className="flex gap-3">
