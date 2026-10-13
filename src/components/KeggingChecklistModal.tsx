@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { CHECKLISTY_ZAPNUTE } from '../lib/skryteModuly';
 import { Modal } from './ui';
 import { AlertTriangle, Check, CheckSquare, FlaskConical, Lock, RotateCcw, ShieldCheck, Square, Unlock } from 'lucide-react';
 import { potvrd } from '../lib/toast';
@@ -86,6 +87,7 @@ export function getFilteredKegItems(phase: ChecklistPhase): KegChecklistItem[] {
 }
 
 export function isStartChecklistCompleteForKeg(dateKey: string): boolean {
+  if (!CHECKLISTY_ZAPNUTE) return true; // check-listy jsou zatím skryté — brána „před stáčením“ se nehlídá
   try {
     const raw = localStorage.getItem('keg_checklist_' + dateKey);
     if (!raw) return false;
@@ -99,6 +101,7 @@ export function isStartChecklistCompleteForKeg(dateKey: string): boolean {
 }
 
 export function isMonthlyChecklistCompleteForKeg(dateKey: string): boolean {
+  if (!CHECKLISTY_ZAPNUTE) return true;
   try {
     const raw = localStorage.getItem('keg_checklist_' + dateKey);
     if (!raw) return false;

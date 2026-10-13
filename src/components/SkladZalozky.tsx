@@ -10,6 +10,7 @@ import { useAuth } from '../lib/auth';
 import { isAdminEmail } from '../lib/config';
 import { canUserView, getUserPermissions, PAGE_TO_MODULE } from '../lib/permissions';
 import type { Page } from './Layout';
+import { jeStrankaSkryta } from '../lib/skryteModuly';
 
 export type SkladZalozka = 'dashboard' | 'stock_pohyby' | 'inventory' | 'sklo_promo';
 
@@ -32,7 +33,7 @@ export function SkladZalozky({ aktivni, setPage }: { aktivni: SkladZalozka; setP
 
   return (
     <div className="sticky top-0 z-20 bg-neutral-100 pt-1 pb-2 mb-4 flex items-center gap-2 overflow-x-auto scrollbar-thin -mx-1 px-1">
-      {ZALOZKY.filter((z) => z.id === aktivni || smi(z.id)).map(({ id, label, Ikona }) => (
+      {ZALOZKY.filter((z) => (z.id === aktivni || smi(z.id)) && !jeStrankaSkryta(z.id)).map(({ id, label, Ikona }) => (
         <button
           key={id}
           type="button"

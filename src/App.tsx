@@ -1,4 +1,5 @@
 import { SkladZalozky } from './components/SkladZalozky';
+import { jeStrankaSkryta } from './lib/skryteModuly';
 import { useEffect, useState, Suspense } from 'react';
 import { Package as PackageIcon, TrendingDown } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
@@ -148,6 +149,8 @@ export default function App() {
   // ať si nová stránka neponese cizí záložku z předchozí. Kliknutí na vnitřní
   // záložku volá setPage(stejná stránka, undefined, 'nazev-zalozky').
   function setPage(p: Page, targetSection?: string, subTab?: string) {
+    // Zatím skryté části (sanitace, check-listy, Sklo/Etikety/Podtáčky) — viz lib/skryteModuly.ts.
+    if (jeStrankaSkryta(p)) p = 'home';
     // ⚠️ POZNÁMKY JSOU JEDNY. Bývaly tři: samostatná stránka (tabulka `notes`),
     // dlaždice na Domů (lib/homeNotes.ts) a vzkazy směně (sdilene_poznamky).
     // Stránka měla vlastní tlačítko „Uložit", jenže zapisovala do úložiště,

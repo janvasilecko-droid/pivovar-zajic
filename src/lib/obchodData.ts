@@ -4,7 +4,7 @@
 // obchodStatistika.ts a obchodUzaverka.ts. Tady je jen komunikace s databází.
 //
 // Tabulky vznikají migrací 20261231270000_obchod.sql, která se pouští ručně
-// v appce (Audit → Databázové migrace). Dokud neběžela, načtení hlásí
+// v appce (Systém → Databázové migrace). Dokud neběžela, načtení hlásí
 // `chybiTabulky` a obrazovka řekne, co udělat — místo prázdných čísel.
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { fetchAllRows, supabase, useRealtime } from './supabase';

@@ -1,4 +1,5 @@
 import { synchronizuj, ulozStav } from '../lib/checklistData';
+import { CHECKLISTY_ZAPNUTE } from '../lib/skryteModuly';
 import { sZnackouKonce } from '../lib/konecStaceni';
 import { useState, useEffect } from 'react';
 import { Modal } from './ui';
@@ -188,6 +189,7 @@ export function getChecklistItemsForPhase(phase: ChecklistPhase, dateKey?: strin
 }
 
 export function isStartChecklistCompleteForDate(dateKey: string): boolean {
+  if (!CHECKLISTY_ZAPNUTE) return true; // check-listy jsou zatím skryté — brána „před stáčením“ se nehlídá
   try {
     const raw = localStorage.getItem('bottling_checklist_' + dateKey);
     if (!raw) return false;
@@ -203,6 +205,7 @@ export function isStartChecklistCompleteForDate(dateKey: string): boolean {
 // Je sekce „4. Měsíční údržba" pro dané datum úplně odškrtnutá? Po splnění už
 // se okno s měsíčním checklistem po začátku stáčení samo neotevírá.
 export function isMonthlyChecklistCompleteForDate(dateKey: string): boolean {
+  if (!CHECKLISTY_ZAPNUTE) return true;
   try {
     const raw = localStorage.getItem('bottling_checklist_' + dateKey);
     if (!raw) return false;

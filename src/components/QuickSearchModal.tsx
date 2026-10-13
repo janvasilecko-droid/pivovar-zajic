@@ -12,6 +12,7 @@ import { lazy, Suspense, useEffect, useState, useRef, useMemo } from 'react';
 import { Search, ArrowRight, MapPin, Beer as BeerIcon, ClipboardList, Package as PackageIcon, BookOpen } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { NAV, EXTRA_NAV, Page } from './Layout';
+import { smiBytDlazdici } from '../lib/skryteModuly';
 import { requestOrdersHledani } from '../lib/ordersFilter';
 import { popisStavu } from '../lib/stavyObjednavek';
 // Návod se stahuje AŽ při otevření. Hledání visí v horní liště, takže je
@@ -116,7 +117,7 @@ export function QuickSearchModal({ isOpen, onClose, onSelectPage }: QuickSearchM
   const strankyList = useMemo(
     () =>
       [...NAV, ...EXTRA_NAV]
-        .filter((n) => n.id !== 'signout')
+        .filter((n) => n.id !== 'signout' && smiBytDlazdici(n.id))
         .map((n) => ({ id: n.id, title: n.label, subtitle: POPISY[n.id] ?? n.group, icon: n.icon })),
     []
   );

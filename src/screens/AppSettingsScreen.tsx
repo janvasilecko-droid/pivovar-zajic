@@ -696,14 +696,14 @@ export default function AppSettingsScreen({ setPage }: { setPage?: (p: any, sec?
             </h2>
             <p className="text-xs text-neutral-600 dark:text-neutral-400">
               Chyby aplikace, stav databázových migrací, zálohy a všechny audity jsou pohromadě
-              v dlaždici <strong>Audit</strong>.
+              v dlaždici <strong>Systém</strong>.
             </p>
             <button
               type="button"
               onClick={() => setPage?.('audit')}
               className="btn-primary !rounded text-sm font-black w-full sm:w-auto"
             >
-              Otevřít Audit
+              Otevřít Systém
             </button>
           </div>
         </>

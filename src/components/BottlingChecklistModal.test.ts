@@ -1,4 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { vi } from 'vitest';
+vi.mock('../lib/skryteModuly', () => ({ CHECKLISTY_ZAPNUTE: true }));
 import { isChecklistCompleteForDate, isStartChecklistCompleteForDate, isMonthlyChecklistCompleteForDate, DEFAULT_ITEMS, START_CATEGORY_PREFIX, MONTHLY_CATEGORY_PREFIX, MONTHLY_CATEGORY, getChecklistItemsForPhase, getWeekStartDate, isWeeklyItemDoneForWeek } from './BottlingChecklistModal';
 
 // Checklist „Stáčecí den" se ukládá do localStorage jako bottling_checklist_<datum>.
