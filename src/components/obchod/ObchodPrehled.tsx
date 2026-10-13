@@ -293,7 +293,7 @@ function SeznamProdeje({ nadpis, stavy, dnes, otevreno, setOtevreno, detail, sSk
       {podpis && <div className="text-[11px] font-semibold text-neutral-600">{podpis}</div>}
       <ul className="space-y-1.5">
         {serazeno.map((s) => (
-          <li key={s.kod} className="rounded-xl border-2 border-neutral-200 bg-white">
+          <li key={s.kod} className={`rounded-xl ${sSkladem ? 'bg-violet-100' : 'bg-sky-100'}`}>
             <button type="button" className="w-full flex items-center gap-3 p-3 text-left" onClick={() => setOtevreno(otevreno === s.kod ? null : s.kod)} aria-expanded={otevreno === s.kod}>
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-black text-neutral-950 truncate">{s.nazev}</div>
@@ -433,7 +433,7 @@ function Polozka({ s, data, otevreno, prepni, zapsal, dnes, otevriPrijem, otevri
   if (jenDetail) return <div>{telo}</div>;
 
   return (
-    <li className={`rounded-xl border-2 bg-white ${spatny ? 'border-rose-400' : 'border-neutral-200'}`}>
+    <li className={`rounded-xl ${spatny ? 'bg-rose-100' : 'bg-sky-100'}`}>
       <button type="button" className="w-full flex items-center gap-3 p-3 text-left" onClick={prepni} aria-expanded={otevreno}>
         <div className="flex-1 min-w-0">
           <div className="text-sm font-black text-neutral-950 truncate">{s.nazev}</div>

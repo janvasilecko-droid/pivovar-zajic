@@ -45,10 +45,10 @@ function rozsahDat(r: Rozsah, dnes: string): { od?: string; do?: string } {
   return {};
 }
 
-function Stitek({ popis, hodnota, podpis }: { popis: string; hodnota: string; podpis?: string }) {
+function Stitek({ popis, hodnota, podpis, barva = 'bg-amber-100' }: { popis: string; hodnota: string; podpis?: string; barva?: string }) {
   return (
-    <div className="p-3 rounded bg-white border border-amber-300/80 shadow-xs text-center">
-      <div className="text-udaj font-black uppercase text-amber-800">{popis}</div>
+    <div className={`p-3 rounded-xl text-center ${barva}`}>
+      <div className="text-udaj font-black uppercase text-neutral-700">{popis}</div>
       <div className="text-xl font-display font-black text-neutral-900 tabular-nums">{hodnota}</div>
       {podpis && <div className="text-[11px] font-semibold text-neutral-600">{podpis}</div>}
     </div>
@@ -114,9 +114,9 @@ export function ObchodStatistika({ data }: { data: DataObchodu }) {
         <>
           <div className="grid grid-cols-2 gap-2">
             <Stitek popis="Tržba" hodnota={kc(souhrn.trzba)} podpis={`z toho ostatní zboží ${kc(souhrn.trzbaOstatni)}`} />
-            <Stitek popis="Piva" hodnota={`${cs(souhrn.litry)} l`} podpis={`${cs(souhrn.ks)} ks`} />
-            <Stitek popis="Uzávěrek" hodnota={String(souhrn.uzaverek)} />
-            <Stitek popis="Průměr na uzávěrku" hodnota={kc(souhrn.uzaverek ? souhrn.trzba / souhrn.uzaverek : 0)} />
+            <Stitek barva="bg-emerald-100" popis="Piva" hodnota={`${cs(souhrn.litry)} l`} podpis={`${cs(souhrn.ks)} ks`} />
+            <Stitek barva="bg-sky-100" popis="Uzávěrek" hodnota={String(souhrn.uzaverek)} />
+            <Stitek barva="bg-violet-100" popis="Průměr na uzávěrku" hodnota={kc(souhrn.uzaverek ? souhrn.trzba / souhrn.uzaverek : 0)} />
           </div>
 
           <section aria-label="Vývoj prodeje" className="space-y-2">
