@@ -46,6 +46,7 @@ import { kusy } from '../lib/cisla';
 
 import { uloz } from '../lib/uloziste';
 import { smazObjednavky } from '../lib/smazaniObjednavek';
+import { navrhSlouceni } from '../lib/slucObjednavky';
 import { nactiOdpocty, zrusOdepsaneSVracenim } from '../lib/zruseniObjednavky';
 import { najdiZdvojene, popisZdvojeni } from '../lib/zdvojenePolozky';
 
@@ -1607,6 +1608,34 @@ export default function Orders({
     await supabase.from('orders').update(patch).in('id', [...selectedIds]);
     clearSelection(); load();
   }
+  // 🔗 Sloučí vybrané objednávky TÉHOŽ odběratele do nejstarší z nich (stejné
+  // pivo + obal se sečte), ostatní smaže. Když něco nesedí (jiný odběratel,
+  // rozpracované objednávky, různé dny závozu), řekne proč a nic nezmění.
+  async function slucVybrane() {
+    const ids = [...selectedIds];
+    if (ids.length < 2) return;
+    const vybrane = orders.filter((x) => ids.includes(x.id));
+    const navrh = navrhSlouceni(
+      vybrane as any,
+      Object.fromEntries(ids.map((id) => [id, (items[id] ?? []) as any])),
+    );
+    if (!navrh.ok) { chyba(navrh.duvod); return; }
+    const { data: odpocty, chyba: chybaOdpoctu } = await nactiOdpocty(ids);
+    if (chybaOdpoctu) { chyba('Odpočty ze skladu se nepodařilo načíst: ' + chybaOdpoctu); return; }
+    if (odpocty.length > 0) { chyba('Některá z objednávek je už odepsaná ze skladu — takovou sloučit nejde.'); return; }
+    if (!(await potvrd(`Sloučit: ${navrh.popis}?\n\nOstatní objednávky se smažou, jejich položky zůstanou v té nejstarší.`))) return;
+    const { error: chybaRpc } = await supabase.rpc('replace_order_with_items', {
+      p_order_id: navrh.cilId, p_order: navrh.hlavicka, p_items: navrh.polozky,
+    });
+    if (chybaRpc) { chyba('Sloučení se nepovedlo: ' + chybaRpc.message); load(); return; }
+    const chybaMazani = await smazObjednavky(navrh.kSmazani);
+    if (chybaMazani) {
+      chyba('Položky jsou sloučené, ale ostatní objednávky se nepodařilo smazat: ' + chybaMazani + ' Smaž je ručně, ať se nedoplňují dvakrát.');
+      clearSelection(); load(); return;
+    }
+    uspech('Objednávky sloučeny do jedné.');
+    clearSelection(); load();
+  }
   async function bulkDelete() {
     if (!selectedIds.size) return;
     if (!(await potvrd(`Smazat ${selectedIds.size} vybraných objednávek?`))) return;
@@ -2647,6 +2676,9 @@ export default function Orders({
             <button className="chip bg-primary-200 text-primary-800 hover:bg-primary-300 flex items-center gap-1" onClick={() => bulkToggleFlag('is_packaged')}><PackageCheck size={12} /> Fasování</button>
             <button className="chip bg-emerald-200 text-emerald-800 hover:bg-emerald-300 flex items-center gap-1" onClick={() => bulkToggleFlag('is_delivered')}><Truck size={12} /> Zavezenné</button>
             <button className="chip bg-amber-100 text-amber-700 hover:bg-amber-200" onClick={() => bulkSetStatus('expedovana')}>Expedovat</button>
+            {selectedIds.size >= 2 && (
+              <button className="chip bg-sky-100 text-sky-800 hover:bg-sky-200 flex items-center gap-1" onClick={slucVybrane}><Copy size={12} /> Sloučit</button>
+            )}
             <button className="chip bg-rose-50 text-rose-700 hover:bg-rose-100 flex items-center gap-1" onClick={bulkDelete}><Trash2 size={12} /> Smazat</button>
             <button className="chip bg-white border border-primary-200 text-primary-600 hover:bg-primary-50" onClick={clearSelection}><X className="ikona-text" /> Zrušit výběr</button>
           </div>
@@ -2969,8 +3001,16 @@ export default function Orders({
             const targetDate = importTarget?.order_date ?? meta.date;
             if (!orderId) {
               const groups = new Map<string, typeof items>();
+              // Skupiny se dělí podle odběratele BEZ ohledu na velikost písmen,
+              // diakritiku a mezery — „Restaurace" a „restaurace " jsou jedna
+              // objednávka, ne dvě (13. 10. 2026). Jméno bere první výskyt.
+              const normSkupiny = (t: string) => t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+              const jmenoSkupiny = new Map<string, string>();
               for (const it of items) {
-                const key = (it.place_name && it.place_name.trim()) || meta.placeName || '';
+                const surove = (it.place_name && it.place_name.trim()) || meta.placeName || '';
+                const nk = normSkupiny(surove);
+                if (!jmenoSkupiny.has(nk)) jmenoSkupiny.set(nk, surove);
+                const key = jmenoSkupiny.get(nk)!;
                 (groups.get(key) ?? groups.set(key, []).get(key)!).push(it);
               }
               const created: string[] = [];
