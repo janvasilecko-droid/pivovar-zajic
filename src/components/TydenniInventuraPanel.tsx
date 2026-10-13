@@ -300,8 +300,7 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
         // Manko ve stáčení KEG bez záporného řádku: odečte se přímo od stočených
         // sudů téhož piva a obalu v témže měsíci (lib/odecteniZKegovani.ts).
         const mesic = kdy.slice(0, 7);
-        const { data: stocene, error: chybaCteni } = await supabase
-          .from('kegging').select('id,entry_date,quantity')
+        const { data: stocene, error: chybaCteni } = await fetchAllRows('kegging', 'id,entry_date,quantity')
           .eq('beer_id', r.beer_id).eq('package_id', r.package_id)
           .gte('entry_date', `${mesic}-01`).lte('entry_date', `${mesic}-31`);
         if (chybaCteni) throw chybaCteni;
