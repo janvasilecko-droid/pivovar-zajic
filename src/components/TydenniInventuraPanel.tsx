@@ -18,7 +18,7 @@ import { businessDateISO } from '../lib/businessDate';
 import { nactiSkladovouKnihu, type SkladovaKniha } from '../lib/skladovaKnihaData';
 import { MOVEMENT_LABELS, movementsFor, stockAsOf, stockKey } from '../lib/stockLedger';
 import { kegovaniZapisy, lahvoveZapisy, odectiZeStoceni } from '../lib/inventoryFix';
-import { planOdecteniZKegovani } from '../lib/odecteniZKegovani';
+import { datumDoplnkuStaceni, planOdecteniZKegovani, zdrojeOdecteni } from '../lib/odecteniZKegovani';
 import { rozdelSudyDoTanku, type TankProRozdeleni } from '../lib/tankRozdeleni';
 import { odectiZTanku } from '../lib/tankZapis';
 import {
@@ -271,8 +271,19 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
         package_kind: r.package_kind,
         diffQty: r.rozdil,
       };
-      const kdy = obdobi.doPocitani;
+      // Odečet jde ke dni kontroly; chybějící stočení (přebytek) se přičte k poslednímu
+      // dni měsíce (v běžícím měsíci k dnešku, do budoucnosti ne).
+      const kdy = r.rozdil > 0 ? datumDoplnkuStaceni(obdobi.doPocitani, dnes) : obdobi.doPocitani;
       const stitek = stitekTydne(obdobi.od);
+      const zalogujUpravu = async (druh: 'odecteno' | 'doplneno', kusu: number, zdroje: unknown[]) => {
+        // Deník úprav; když tabulka ještě neexistuje (migrace), nic se neděje.
+        try {
+          await supabase.from('stoceni_upravy').insert([{
+            mesic: kdy.slice(0, 7), entry_date: kdy, beer_id: r.beer_id, beer_name: r.beer_name,
+            package_id: r.package_id, package_label: r.package_label, druh, kusu, zdroje, tyden_od: obdobi.od,
+          }]);
+        } catch { /* deník je doplněk */ }
+      };
 
       if (r.rozdil > 0 && r.sud) {
         // 🛢️ Sudy se berou z tanků se stejným pivem — bez toho zůstane sklep
@@ -282,6 +293,7 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
         const rady = kegovaniZapisy(polozka, kdy, stitek, rozdeleni);
         const { error } = await supabase.from('kegging').insert(rady);
         if (error) throw error;
+        await zalogujUpravu('doplneno', r.rozdil, []);
         const tankChyba = await odectiZTanku(tanky, rozdeleni, r.beer_id);
         if (tankChyba) chyba(tankChyba);
         uspech(
@@ -319,6 +331,7 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
             if (error) throw error;
           }
         }
+        await zalogujUpravu('odecteno', Math.abs(r.rozdil), zdrojeOdecteni(plan, (stocene ?? []) as any[]));
         uspech(`Odečteno ${Math.abs(r.rozdil)} ks ze stočených sudů${plan.zbytek > 0 ? ` (${plan.zbytek} ks se nenašlo, zapsáno jako oprava)` : ''}.`);
       } else {
         const zapisy = odectiZeStoceni(polozka, kdy, stitek);

@@ -35,3 +35,36 @@ export function planOdecteniZKegovani(radky: RadekStoceni[], datum: string, kusy
   }
   return { upravit, smazat, zbytek: zbyva };
 }
+
+/** Poslední den měsíce, do kterého datum patří (YYYY-MM-DD). */
+export function konecMesiceData(datum: string): string {
+  const [r, m] = datum.split('-').map(Number);
+  return new Date(Date.UTC(r, m, 0)).toISOString().slice(0, 10);
+}
+
+/**
+ * Datum, ke kterému se chybějící stočení (přebytek z inventury) připíše:
+ * poslední den měsíce. Do budoucnosti ne — zápis výroby nesmí spadnout za
+ * dnešek, takže v běžícím měsíci je to dnešek.
+ */
+export function datumDoplnkuStaceni(doPocitani: string, dnes: string): string {
+  const konec = konecMesiceData(doPocitani);
+  return konec > dnes ? dnes : konec;
+}
+
+/** Z čeho se odečítalo — pro záznam, ať se na to dá později podívat. */
+export type ZdrojOdecteni = { id: string; entry_date: string; pred: number; po: number };
+
+export function zdrojeOdecteni(plan: PlanOdecteni, radky: RadekStoceni[]): ZdrojOdecteni[] {
+  const podleId = new Map(radky.map((r) => [r.id, r]));
+  const out: ZdrojOdecteni[] = [];
+  for (const u of plan.upravit) {
+    const r = podleId.get(u.id);
+    if (r) out.push({ id: u.id, entry_date: r.entry_date, pred: Number(r.quantity), po: u.quantity });
+  }
+  for (const id of plan.smazat) {
+    const r = podleId.get(id);
+    if (r) out.push({ id, entry_date: r.entry_date, pred: Number(r.quantity), po: 0 });
+  }
+  return out.sort((a, b) => a.entry_date.localeCompare(b.entry_date));
+}

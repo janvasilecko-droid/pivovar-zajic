@@ -21,3 +21,21 @@ describe('odečtení manka od stočených sudů', () => {
     expect(planOdecteniZKegovani(radky, '2026-09-20', 0)).toEqual({ upravit: [], smazat: [], zbytek: 0 });
   });
 });
+
+import { datumDoplnkuStaceni, konecMesiceData, zdrojeOdecteni } from './odecteniZKegovani';
+
+describe('datum doplnění a záznam odečtu', () => {
+  it('chybějící stočení jde na poslední den měsíce, v běžícím měsíci na dnešek', () => {
+    expect(konecMesiceData('2026-09-14')).toBe('2026-09-30');
+    expect(datumDoplnkuStaceni('2026-09-27', '2026-10-13')).toBe('2026-09-30');
+    expect(datumDoplnkuStaceni('2026-10-13', '2026-10-13')).toBe('2026-10-13');
+  });
+  it('záznam říká, z kterých řádků se odečetlo a jak', () => {
+    const r = [{ id: 'a', entry_date: '2026-10-05', quantity: 6 }, { id: 'b', entry_date: '2026-10-07', quantity: 2 }];
+    const plan = planOdecteniZKegovani(r, '2026-10-07', 4);
+    expect(zdrojeOdecteni(plan, r)).toEqual([
+      { id: 'a', entry_date: '2026-10-05', pred: 6, po: 4 },
+      { id: 'b', entry_date: '2026-10-07', pred: 2, po: 0 },
+    ]);
+  });
+});
