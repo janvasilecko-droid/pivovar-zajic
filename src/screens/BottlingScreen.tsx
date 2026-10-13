@@ -2163,7 +2163,7 @@ export default function BottlingScreen({
                       {/* Šarže vedle sebe na širokém displeji — na mobilu jeden
                           sloupec, na počítači se jich vejde víc najednou, ať
                           nevzniká dlouhý svislý seznam nerozeznatelných řádků. */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
+                      <div className={`grid grid-cols-1 gap-2 ${sarze.length > 1 ? '2xl:grid-cols-2' : ''}`}>
                       {sarze.map((s) => (
                         <div key={s.klic} className="rounded-lg bg-white/95 border border-black/10 border-l-4 border-l-amber-500 p-2 space-y-2">
                           {/* 🛢️ Šarži nedrží pohromadě nadpis, ale ČÁRA PO STRANĚ (border-l).
