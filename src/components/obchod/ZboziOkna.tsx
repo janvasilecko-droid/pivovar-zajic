@@ -132,7 +132,7 @@ export function OdpisZbozi({ data, zapsal, kodVychozi, onClose, onUlozeno }: {
       <div className="space-y-3">
         {data.chybiOdpisAZavreno && (
           <div role="alert" className="text-sm font-bold text-amber-950 bg-amber-50 border-2 border-amber-400 rounded px-3 py-2">
-            Odpis potřebuje druhou migraci obchodu (<strong>20261231280000_obchod_odpis_zavreno</strong>) — spusť ji v Auditu → Databázové migrace.
+            Odpis potřebuje druhou migraci obchodu (<strong>20261231280000_obchod_odpis_zavreno</strong>) — spusť ji v Systému → Databázové migrace.
           </div>
         )}
         <div>

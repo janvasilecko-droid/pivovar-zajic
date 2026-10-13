@@ -88,7 +88,7 @@ export function MezeryUzaverek({ data, zapsal, mezery, zadejUzaverku }: {
         ))}
       </ul>
       {data.chybiOdpisAZavreno && (
-        <div className="text-[11px] font-bold">„Zavřeno" potřebuje druhou migraci obchodu (20261231280000_obchod_odpis_zavreno) — spusť ji v Auditu → Databázové migrace.</div>
+        <div className="text-[11px] font-bold">„Zavřeno" potřebuje druhou migraci obchodu (20261231280000_obchod_odpis_zavreno) — spusť ji v Systému → Databázové migrace.</div>
       )}
     </section>
   );

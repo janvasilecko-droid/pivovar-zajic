@@ -686,8 +686,8 @@ export default function AppSettingsScreen({ setPage }: { setPage?: (p: any, sec?
         <>
           <AdminVersionSyncSection />
           {/* 🔎 Diagnostika (chyby aplikace, stav migrací, nedokončené odečty
-              z tanků) se 22. 9. 2026 přesunula do dlaždice Audit — ze zadání
-              „odstraň z nastavení ty audity, dej je jen do dlaždice Audit".
+              z tanků) se 22. 9. 2026 přesunula do dlaždice Systém — ze zadání
+              „odstraň z nastavení ty audity, dej je jen do dlaždice Audit (dnes Systém)".
               Tady zůstává jen rozcestník, ať se po ní nemusí pátrat a ať
               fungují starší návody, které posílaly do Nastavení. */}
           <div className="card p-4 space-y-2">

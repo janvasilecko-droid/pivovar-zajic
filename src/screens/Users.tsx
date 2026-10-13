@@ -20,7 +20,7 @@ type UserRow = {
 
 /** Záložky obrazovky. Barvy jsou stejný jazyk jako u ostatních „Tabbed" stránek. */
 // „Auditní stopa" tu byla do 22. 9. 2026 jako třetí záložka. Ze zadání
-// („odstraň z nastavení ty audity, dej je jen do dlaždice Audit") se přesunula
+// („odstraň z nastavení ty audity, dej je jen do dlaždice Audit (dnes Systém)") se přesunula
 // tam, kde jsou všechny kontroly pohromadě — v dlaždici Systém jako „Historie
 // změn". Odkaz na ni zůstává pod seznamem uživatelů, ať se na ni dá dostat
 // i odsud. Stará adresa (users → podzáložka 'audit') proto přesměrovává.
@@ -218,7 +218,7 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
               onClick={() => setPage?.('audit')}
               className="tap font-black text-amber-800 hover:underline decoration-dotted underline-offset-2 inline-flex items-center gap-1"
             >
-              <History className="ikona-text" /> Kdo co kdy změnil → dlaždice Audit
+              <History className="ikona-text" /> Kdo co kdy změnil → dlaždice Systém
             </button>
           </p>
 
