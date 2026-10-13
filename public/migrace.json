@@ -174,6 +174,7 @@
     "20261231280000_obchod_odpis_zavreno.sql",
     "20261231290000_ocr_pocitadlo.sql",
     "20261231300000_obchod_nulovy_stav.sql",
-    "20261231310000_zpetne_objednavky_zavezene.sql"
+    "20261231310000_zpetne_objednavky_zavezene.sql",
+    "20261231330000_opravit_malesice_zdvojeni.sql"
   ]
 }
