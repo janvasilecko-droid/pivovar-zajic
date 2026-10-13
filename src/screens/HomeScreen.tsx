@@ -28,7 +28,7 @@ import { nactiSdilenouTabulku } from '../lib/sdilenaData';
 // stáhne se až při klepnutí na dlaždici.
 const NavodPouziti = lazy(() => import('../components/NavodPouziti').then((m) => ({ default: m.NavodPouziti })));
 import { HomeChecklistModal } from '../components/HomeChecklistModal';
-import { smiBytDlazdici, CHECKLISTY_ZAPNUTE } from '../lib/skryteModuly';
+import { smiBytDlazdici, CHECKLISTY_ZAPNUTE, CO2_ZAPNUTO } from '../lib/skryteModuly';
 import { polozkyDlazdice, pocetCekajicich } from '../lib/dlazdicePoznamek';
 import { nactiSdilene, prepniHotovo, SDILENE_POZNAMKY_ZMENA, type SdilenaPoznamka } from '../lib/sdilenePoznamky';
 import { getHomeNotes, toggleHomeNote, HOME_NOTES_CHANGED_EVENT, OPEN_HOME_NOTES_EVENT, consumeOpenHomeNotesRequest, type HomeNote, rozvrhniPoznamky, kolikPoznamekZobrazit } from '../lib/homeNotes';
@@ -109,7 +109,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   // žádná obrazovka — proto se přidává až sem a ne do NAV (v menu by byla
   // položka, která nikam nevede). Díky tomu se sama objeví na ploše a dá
   // se přesouvat, přebarvit i schovat jako každá jiná.
-  const visibleIds = useMemo(() => [...visible.map((n) => n.id), CO2_TILE_ID as Page], [visible]);
+  const visibleIds = useMemo(() => [...visible.map((n) => n.id), ...(CO2_ZAPNUTO ? [CO2_TILE_ID as Page] : [])], [visible]);
 
   /** Popis dlaždice CO2 — obrazovka to není, takže si ho plocha nese sama. */
   const CO2_ITEM: NavItem = { id: CO2_TILE_ID as Page, label: 'Foukání CO2', icon: Wind, group: 'Výroba' };
@@ -1621,7 +1621,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
               15 minut"; „tu lupu můžeš vymazat"). Klepnutí spustí, další
               zastaví — stejně jako dlaždice CO2 (lib/rychleOdpocty.ts).
               Hledání zůstává na přetažení plochy dolů. */}
-          {RYCHLE_ODPOCTY.map((r) => {
+          {RYCHLE_ODPOCTY.filter((r) => CO2_ZAPNUTO || r.id !== CO2_ID).map((r) => {
             const bezi = rychlyBezi(countdowns, r.id);
             const zbyva = rychlyZbyva(countdowns, r.id);
             const minut = Math.round(r.delkaMs / 60000);
@@ -2200,7 +2200,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                 />
               );
             }
-            const item = navById.get(id as Page) ?? (id === CO2_TILE_ID ? CO2_ITEM : isCountdownId(id) ? ({ id: id as any, label: countdowns.find((c) => c.id === id.slice(3))?.label ?? 'Odpočet', icon: AlarmClock, group: 'Nástroje' as const } as NavItem) : null);
+            const item = navById.get(id as Page) ?? (id === CO2_TILE_ID ? (CO2_ZAPNUTO ? CO2_ITEM : null) : isCountdownId(id) ? ({ id: id as any, label: countdowns.find((c) => c.id === id.slice(3))?.label ?? 'Odpočet', icon: AlarmClock, group: 'Nástroje' as const } as NavItem) : null);
             if (!item) return null;
 
             // Osobní poznámky i vzkazy celé směně dohromady — viz
