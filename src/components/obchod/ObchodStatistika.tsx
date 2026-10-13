@@ -9,6 +9,7 @@ import { businessDateISO } from '../../lib/businessDate';
 import {
   prodejPoObdobich, prodejPoPivech, prodejPoZbozi, souhrnObdobi, type Rozliseni, type VstupStatistiky,
 } from '../../lib/obchodStatistika';
+import { jePalenka } from '../../lib/obchodSklad';
 import type { DataObchodu } from '../../lib/obchodData';
 
 type Rozsah = 'mesic' | 'minuly' | '30' | 'rok' | 'vse';
@@ -46,9 +47,9 @@ function rozsahDat(r: Rozsah, dnes: string): { od?: string; do?: string } {
 
 function Stitek({ popis, hodnota, podpis }: { popis: string; hodnota: string; podpis?: string }) {
   return (
-    <div className="rounded-xl border-2 border-neutral-200 bg-white p-3">
-      <div className="text-[11px] font-black uppercase text-neutral-500">{popis}</div>
-      <div className="text-xl font-black text-neutral-950 tabular-nums">{hodnota}</div>
+    <div className="p-3 rounded bg-white border border-amber-300/80 shadow-xs text-center">
+      <div className="text-udaj font-black uppercase text-amber-800">{popis}</div>
+      <div className="text-xl font-display font-black text-neutral-900 tabular-nums">{hodnota}</div>
       {podpis && <div className="text-[11px] font-semibold text-neutral-600">{podpis}</div>}
     </div>
   );
@@ -92,6 +93,10 @@ export function ObchodStatistika({ data }: { data: DataObchodu }) {
   const maxTrzba = Math.max(0, ...obdobi.map((o) => o.trzba));
   const maxLitry = Math.max(0, ...piva.map((p) => p.litry));
   const maxKs = Math.max(0, ...zbozi.slice(0, 15).map((z) => z.ks));
+  // Mimo piva a pálenku se sklad nesleduje — jen se sčítá, kolik se prodalo.
+  const ostatni = zbozi.filter((z) => !z.jePivo && !jePalenka(z));
+  const maxOstatni = Math.max(0, ...ostatni.map((z) => z.ks));
+  const ostatniKs = ostatni.reduce((a, z) => a + z.ks, 0);
 
   return (
     <div className="space-y-4">
@@ -140,6 +145,15 @@ export function ObchodStatistika({ data }: { data: DataObchodu }) {
               </ul>
             )}
           </section>
+
+          {ostatni.length > 0 && (
+            <section aria-label="Ostatní zboží" className="space-y-2">
+              <h3 className="text-xs font-black uppercase tracking-wide text-neutral-600">Ostatní zboží (bez piv a pálenky) — {cs(ostatniKs)} ks</h3>
+              <ul className="space-y-2">
+                {ostatni.map((z) => <Pruh key={z.kod} popis={z.nazev} hodnota={z.ks} text={`${cs(z.ks)} ks`} max={maxOstatni} podpis={kc(z.trzba)} />)}
+              </ul>
+            </section>
+          )}
 
           <section aria-label="Nejprodávanější zboží" className="space-y-2">
             <h3 className="text-xs font-black uppercase tracking-wide text-neutral-600">Nejprodávanější zboží</h3>

@@ -23,6 +23,7 @@
 import { fetchAllRows, supabase } from './supabase';
 import { NADRAZENE, verzeTabulky, zneplatniVse } from './zneplatneni';
 import { tydenniJakoInventura } from './tydenniInventura';
+import { businessDateISO } from './businessDate';
 
 // Výčet sloupců je ve vlastním souboru bez vedlejších účinků (skript
 // rozbor-skladu ho potřebuje bez klienta Supabase z VITE_* proměnných).
@@ -103,6 +104,7 @@ export async function nactiSdilenouTabulku<T = any>(tabulka: SdilenaTabulka): Pr
   if (!bezici || bezici.verze !== verze) {
     const slib = Promise.resolve(fetchAllRows<unknown>(tabulka, SLOUPCE[tabulka]))
       .then((r) => (tabulka === 'inventory' && !r.error ? sTydenniInventurou(r) : r))
+      .then((r) => (tabulka === 'zavoz_deductions' && !r.error ? bezBudoucichOdpoctu(r) : r))
       .then((r) => {
       // Mezitím přišel zápis → tahle data už nemusí platit, do paměti ne.
       if (!r.error && verzeTabulky(tabulka) === verze) {
@@ -117,6 +119,21 @@ export async function nactiSdilenouTabulku<T = any>(tabulka: SdilenaTabulka): Pr
 
   const r = await bezici.slib;
   return { data: r.data ? kopie(r.data as T[]) : r.data as null, error: r.error };
+}
+
+/**
+ * Odpočet s datem v budoucnu ještě neproběhl.
+ *
+ * 13. 10. 2026: u objednávky Malešice (závoz 14. 10.) zůstaly odpočty s datem
+ * zítřka (po změně dne závozu je databáze přesunula, ne smazala). Plán „Co
+ * stočit" i Sklad podle nich poznali položku jako „už odečtenou" a 2× 30 l
+ * Jantar nenabídly ke stočení, přestože na skladě byla nula. Skladová kniha
+ * budoucí pohyby přeskakuje už dávno — tady se přeskočí i u příznaku
+ * „odečteno". Z databáze se nic nemaže: v den závozu se odpočet projeví sám.
+ */
+function bezBudoucichOdpoctu(r: Vysledek<unknown>): Vysledek<unknown> {
+  const dnes = businessDateISO();
+  return { ...r, data: (r.data as { deduct_date?: string | null }[] | null)?.filter((x) => !x.deduct_date || String(x.deduct_date).slice(0, 10) <= dnes) ?? r.data };
 }
 
 /**

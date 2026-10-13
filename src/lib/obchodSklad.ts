@@ -106,8 +106,20 @@ export type StavZbozi = {
   prodano: number;
   /** Odepsáno od inventury (rozbité, prošlé, ztráta). */
   odepsano: number;
+  /** Prodáno od začátku měsíce (podle dne konce uzávěrky) — nezávisle na inventuře. */
+  prodanoMesic: number;
   min: number | null;
 };
+
+/** Pálenka — sklad se u ní sleduje stejně jako u piv. */
+export const jePalenka = (z: Pick<Zbozi, 'nazev'>): boolean => /p[aá]lenk/i.test(z.nazev);
+
+/**
+ * Zboží, u kterého se sleduje SKLAD (piva a pálenka). U ostatního zboží se
+ * jen sčítá, kolik se prodalo — 13. 10. 2026: „ostatní položky mimo piva a
+ * pálenku… tam bude prodáno, sklad ukazovat jen prodáno za daný měsíc."
+ */
+export const sledujeSklad = (z: Pick<Zbozi, 'nazev' | 'beer_id'>): boolean => !!z.beer_id || jePalenka(z);
 
 const cislo = (v: unknown): number => {
   const n = Number(v);
@@ -186,6 +198,8 @@ export function stavySkladu(vstup: VstupSkladu, kDatu: string): StavZbozi[] {
       const p = soucet(prijato);
       const s = soucet(prodano);
       const o = soucet(odepsano);
+      const mesic = kDatu.slice(0, 7);
+      const prodanoMesic = zaokr((prodano.get(z.kod) ?? []).filter((x) => x.datum.slice(0, 7) === mesic && x.datum <= kDatu).reduce((a, x) => a + x.ks, 0));
       const min = z.min_ks == null || z.min_ks === '' ? null : cislo(z.min_ks);
       return {
         kod: z.kod,
@@ -197,6 +211,7 @@ export function stavySkladu(vstup: VstupSkladu, kDatu: string): StavZbozi[] {
         prijato: p,
         prodano: s,
         odepsano: o,
+        prodanoMesic,
         min,
       };
     })

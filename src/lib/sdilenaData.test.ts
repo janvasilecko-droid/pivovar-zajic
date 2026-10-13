@@ -129,3 +129,17 @@ describe('vnořené tabulky', () => {
     expect(h.dotazy).toEqual(['akce', 'akce']);
   });
 });
+
+describe('odpočty zavozu s datem v budoucnu', () => {
+  it('se nepočítají za odečtené (13. 10. 2026: 2× 30 l Jantar na zítřek se musí nabídnout ke stočení)', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-13T10:00:00Z'));
+    h.radky = [
+      { deduct_date: '2026-10-12', order_item_id: 'a', quantity: 1 },
+      { deduct_date: '2026-10-13', order_item_id: 'b', quantity: 1 },
+      { deduct_date: '2026-10-14', order_item_id: 'c', quantity: 2 },
+    ];
+    const { data } = await nactiSdilenouTabulku('zavoz_deductions');
+    expect((data as any[]).map((r) => r.order_item_id)).toEqual(['a', 'b']);
+  });
+});
