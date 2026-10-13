@@ -174,6 +174,37 @@ function jeNapocitanyStav(note: string | null | undefined): boolean {
   return inventoryPriority(note) >= 2;
 }
 
+/** Řádek týdenní inventury (viz tydenniJakoInventura) — stav v pondělí ráno. */
+function jeTydenniStav(note: string | null | undefined): boolean {
+  return (note || '').startsWith('Týdenní inventura');
+}
+
+/**
+ * Srovnání, které vzniklo Z inventury („Doplněno/Odečteno z inventury …",
+ * „Dorovnání z inventury týdne …"). Napočítané číslo ho už obsahuje, takže se
+ * po počítání znovu přičítat nesmí.
+ */
+export function jeSrovnaniZInventury(note: string | null | undefined): boolean {
+  return /z inventury|inventury týdne/i.test(note || '');
+}
+
+/**
+ * Pohyb, který se zapsal AŽ PO týdenním počítání, ale patří do dne před ním
+ * (zpětně zadaná objednávka, fasování, stáčení). Počítání ho znát nemohlo,
+ * takže se k napočítanému číslu přičte normálně.
+ *
+ * 13. 10. 2026: „zadal jsem fasování na obchod zpětně na neděli a neodečetlo
+ * se ze skladu… zamknout se má jen začátek měsíce, zbytek ať normálně sčítá
+ * a odčítá." Týdenní počítání (pondělí ráno) je totiž řádek inventury k
+ * pondělí a pohyby z neděle pod něj padaly.
+ */
+export function zapsanoPoPocitani(m: { createdAt?: string | null; note?: string | null }, pocitaniCreatedAt: string | null | undefined): boolean {
+  if (!m.createdAt || !pocitaniCreatedAt) return false;
+  const a = Date.parse(m.createdAt);
+  const b = Date.parse(pocitaniCreatedAt);
+  return Number.isFinite(a) && Number.isFinite(b) && a > b && !jeSrovnaniZInventury(m.note);
+}
+
 // Sud spotřebovaný jako zdroj stáčení lahví. Řádek stáčení nese kegs_used,
 // ale ne vždy i kegs_used_package_id — pak se obal dopočítá z objemu.
 function resolveKegsUsed(
@@ -223,7 +254,7 @@ export function buildMovements(src: StockSources): Movement[] {
   // jednoho, přebil by napočítaný stav ten počáteční a expectedForMonth by
   // neměl od čeho počítat: očekávaný stav by vycházel z právě napočítané
   // skutečnosti a manko by se o celý měsíc pohybů rozjelo.
-  const invByKeyDate = new Map<string, { qty: number; prio: number; note: string | null }>();
+  const invByKeyDate = new Map<string, { qty: number; prio: number; note: string | null; created: string | null }>();
   (src.inventoryRows ?? []).forEach((r) => {
     if (!r.beer_id || !r.package_id || !r.entry_date) return;
     const date = String(r.entry_date).slice(0, 10);
@@ -234,15 +265,15 @@ export function buildMovements(src: StockSources): Movement[] {
     if (prev && prev.prio > prio) return;
     if (prev && prev.prio === prio) {
       // Stejná priorita = víc řádků téže inventury, sečti je.
-      invByKeyDate.set(k, { qty: prev.qty + Number(r.quantity || 0), prio, note: prev.note });
+      invByKeyDate.set(k, { qty: prev.qty + Number(r.quantity || 0), prio, note: prev.note, created: prev.created });
       return;
     }
-    invByKeyDate.set(k, { qty: Number(r.quantity || 0), prio, note: r.note ?? null });
+    invByKeyDate.set(k, { qty: Number(r.quantity || 0), prio, note: r.note ?? null, created: r.created_at ?? null });
   });
   invByKeyDate.forEach((v, k) => {
     const [date, key] = k.split('|');
     const [beer_id, package_id] = key.split('__');
-    out.push({ date, beer_id, package_id, qty: v.qty, kind: 'inventura', note: v.note });
+    out.push({ date, beer_id, package_id, qty: v.qty, kind: 'inventura', note: v.note, ...(v.created ? { createdAt: v.created } : {}) });
   });
 
   // Poznámka se u stáčení nese dál — podle ní se pozná zápis, který vznikl
@@ -365,6 +396,7 @@ export function stockAsOf(movements: Movement[], dateISO: string): Map<string, S
     let baselineQty = 0;
     let baselinePrio = -1;
     let baselineNote: string | null = null;
+    let baselineCreated: string | null = null;
     for (const m of list) {
       if (m.kind !== 'inventura') continue;
       const prio = inventoryPriority(m.note);
@@ -373,6 +405,7 @@ export function stockAsOf(movements: Movement[], dateISO: string): Map<string, S
         baselineQty = m.qty;
         baselinePrio = prio;
         baselineNote = m.note ?? null;
+        baselineCreated = m.createdAt ?? null;
       }
     }
 
@@ -391,7 +424,11 @@ export function stockAsOf(movements: Movement[], dateISO: string): Map<string, S
     const zaverDne = jeNapocitanyStav(baselineNote);
     for (const m of list) {
       if (m.kind === 'inventura') continue;
-      if (baselineDate !== null && (zaverDne ? m.date <= baselineDate : m.date < baselineDate)) continue;
+      if (baselineDate !== null && (zaverDne ? m.date <= baselineDate : m.date < baselineDate)) {
+        // Zamčený je jen začátek měsíce a fyzická/schválená inventura. Týdenní
+        // počítání pozdější zápis ze dne před ním nespolkne.
+        if (!(jeTydenniStav(baselineNote) && zapsanoPoPocitani(m, baselineCreated))) continue;
+      }
       qty += m.qty;
       byKind[m.kind] = (byKind[m.kind] ?? 0) + m.qty;
     }
