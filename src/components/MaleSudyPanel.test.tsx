@@ -18,10 +18,12 @@ vi.mock('../lib/auth', () => ({ useAuth: () => ({ profile: null, user: null }) }
 import { MaleSudyPanel } from './MaleSudyPanel';
 
 describe('Malé sudy: velké číslo = kolik jsem zadal', () => {
-  it('7 prázdných při 5 objednaných ukáže 7 a pod tím „zbývá 2"', () => {
+  it('7 prázdných při 5 objednaných ukáže 7 a pod tím „K dispozici 2"', () => {
     render(<MaleSudyPanel packages={[{ id: 's20', kind: 'keg', volume_l: 20, label: '20l' } as any]} canEdit />);
     expect(screen.getByText('7')).toBeTruthy();
-    expect(screen.getByText(/V otevřených objednávkách 5 — zbývá 2/)).toBeTruthy();
+    expect(screen.getByText(/v otevřených objednávkách 5/)).toBeTruthy();
+    expect(screen.getByText('K dispozici')).toBeTruthy();
+    expect(screen.getByText('2')).toBeTruthy(); // 7 prázdných − 5 v objednávkách
     expect(screen.queryByText(/Prázdných celkem/)).toBeNull();
   });
 });

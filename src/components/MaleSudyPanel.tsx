@@ -47,8 +47,8 @@ export function MaleSudyPanel({ packages, canEdit, kdo }: {
   return (
     <div className="space-y-3">
       <p className="text-sm text-neutral-600">
-        Naklikej, kolik máš prázdných malých sudů — velké číslo je přesně to, co zadáš. Pod ním je vidět, kolik z nich berou otevřené objednávky a kolik zbývá.
-        Objednávky hlídají, aby je dohromady nepřečerpaly — co je navíc, označí červeně.
+        Naklikej, kolik máš prázdných malých sudů — velké číslo je přesně to, co zadáš. Pod ním je „K dispozici": prázdné minus sudy, které berou otevřené
+        objednávky (např. pro Radka), tedy kolik se ještě dá stočit pro dalšího. Co objednávky přečerpají, označí červeně.
       </p>
       {male.length === 0 && <div className="card p-4 text-sm text-neutral-600">V obalech není žádný malý sud (KEG pod 30 l).</div>}
       {male.map((pk) => {
@@ -91,11 +91,32 @@ export function MaleSudyPanel({ packages, canEdit, kdo }: {
               </div>
             </div>
             {hlida && (
-              <div className="flex items-center justify-between gap-2 text-sm">
-                <span className={`font-bold ${s && s.nad > 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
-                  V otevřených objednávkách {objednano}
-                  {(s?.zapocitanoPlnych ?? 0) > 0 ? ` (dalších ${s!.zapocitanoPlnych} pokryjí plné skladem)` : ''}
-                  {s && s.nad > 0 ? ` — o ${s.nad} víc, než máš` : ` — zbývá ${volne}`}
+              <div
+                className={`rounded border px-3 py-2 flex items-center justify-between gap-3 ${
+                  s && s.nad > 0
+                    ? 'border-rose-300 bg-rose-50 text-rose-800'
+                    : volne > 0
+                    ? 'border-emerald-300 bg-emerald-50 text-emerald-800'
+                    : 'border-amber-300 bg-amber-50 text-amber-900'
+                }`}
+              >
+                {/* K DISPOZICI = prázdné − malé sudy v otevřených objednávkách:
+                    kolik se ještě dá stočit pro dalšího odběratele (13. 10. 2026:
+                    „jak to, že mi vše svítí zeleně, když je v objednávce pro
+                    Radka plno malých zabraných… tady se mají ukazovat k dispozici
+                    jen ty, které se dají stočit… to je k dispozici dál pro
+                    Maneo"). Zelená = ještě něco zbývá, žlutá = zbývá nula,
+                    červená = objednávky chtějí víc, než je prázdných. */}
+                <div className="text-sm font-bold">
+                  <div className="text-xs uppercase tracking-wide opacity-80">K dispozici</div>
+                  <div>
+                    v otevřených objednávkách {objednano}
+                    {(s?.zapocitanoPlnych ?? 0) > 0 ? ` (dalších ${s!.zapocitanoPlnych} pokryjí plné skladem)` : ''}
+                    {s && s.nad > 0 ? ` — o ${s.nad} víc, než máš` : ''}
+                  </div>
+                </div>
+                <span className="text-3xl font-black tabular-nums" aria-live="polite">
+                  {s && s.nad > 0 ? `−${s.nad}` : volne}
                 </span>
               </div>
             )}
