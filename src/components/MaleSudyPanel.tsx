@@ -16,6 +16,41 @@ import { jeMalySud, type ObalProSudy } from '../lib/maleSudy';
 import { useHlidaniMalychSudu, useMaleSudy } from '../lib/useMaleSudy';
 import { chyba } from '../lib/toast';
 
+/** Číslo, na které se dá klepnout a přepsat; ukládá se po opuštění pole nebo Enteru. */
+function PocetPrazdnych({ hodnota, zobraz, povoleno, popisek, ulozit }: {
+  hodnota: number | null;
+  zobraz?: string;
+  povoleno: boolean;
+  popisek: string;
+  ulozit: (n: number) => void;
+}) {
+  const [rozepsano, setRozepsano] = useState<string | null>(null);
+  if (hodnota == null) {
+    return <span className="w-14 text-center text-2xl font-black tabular-nums text-neutral-950">{zobraz ?? '–'}</span>;
+  }
+  const potvrd = () => {
+    if (rozepsano == null) return;
+    const n = Math.floor(Number(rozepsano));
+    setRozepsano(null);
+    if (Number.isFinite(n) && n >= 0 && n !== hodnota) ulozit(n);
+  };
+  return (
+    <input
+      type="number"
+      inputMode="numeric"
+      min={0}
+      aria-label={popisek}
+      disabled={!povoleno}
+      value={rozepsano ?? String(hodnota)}
+      onFocus={(e) => e.currentTarget.select()}
+      onChange={(e) => setRozepsano(e.target.value.replace(/[^0-9]/g, ''))}
+      onBlur={potvrd}
+      onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+      className="w-16 h-11 text-center text-2xl font-black tabular-nums text-neutral-950 bg-transparent border border-transparent focus:border-amber-400 focus:bg-white rounded"
+    />
+  );
+}
+
 export function MaleSudyPanel({ packages, canEdit, kdo }: {
   packages: (ObalProSudy & { sort_order?: number | null })[];
   canEdit: boolean;
@@ -76,9 +111,16 @@ export function MaleSudyPanel({ packages, canEdit, kdo }: {
                 >
                   <Minus size={18} />
                 </button>
-                <span className="w-12 text-center text-2xl font-black tabular-nums text-neutral-950" aria-live="polite">
-                  {nacteno ? (hlida ? mame : '–') : '…'}
-                </span>
+                {/* Počet jde i NAPSAT (klepnout na číslo): po změně logiky zůstaly
+                    uložené staré počty a nastavovat je po jednom klikáním bylo
+                    zdlouhavé. Uloží se při opuštění pole / Enter. */}
+                <PocetPrazdnych
+                  hodnota={nacteno && hlida ? (mame as number) : null}
+                  zobraz={nacteno ? (hlida ? undefined : '–') : '…'}
+                  povoleno={canEdit && nacteno}
+                  popisek={`Počet prázdných ${pk.label}`}
+                  ulozit={(n) => nastav(pk.id, n)}
+                />
                 <button
                   type="button"
                   className="btn-ghost !rounded !px-3"
