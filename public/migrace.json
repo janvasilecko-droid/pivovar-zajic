@@ -172,6 +172,7 @@
     "20261231260200_whatsapp_z_aplikace.sql",
     "20261231270000_obchod.sql",
     "20261231280000_obchod_odpis_zavreno.sql",
-    "20261231290000_ocr_pocitadlo.sql"
+    "20261231290000_ocr_pocitadlo.sql",
+    "20261231300000_obchod_nulovy_stav.sql"
   ]
 }
