@@ -108,8 +108,19 @@ export type StavZbozi = {
   odepsano: number;
   /** Prodáno od začátku měsíce (podle dne konce uzávěrky) — nezávisle na inventuře. */
   prodanoMesic: number;
+  /** Sleduje se u zboží sklad? Limonády a ostatní zboží ne — jen prodej. */
+  sklad: boolean;
+  /** Limonáda — bez skladu a bez hlídání zásob. */
+  limonada: boolean;
   min: number | null;
 };
+
+/**
+ * Limonáda (limo, Kiwi, Grep, Višeň, Citron) — do skladu obchodu se NEPOČÍTÁ,
+ * ani když je v katalogu vedená jako pivo. 13. 10. 2026: „limonády nepočítej
+ * do skladu." Jen se sčítá prodej.
+ */
+export const jeLimonada = (z: Pick<Zbozi, 'nazev'>): boolean => /limo|kiwi|\bgrep|vi[sš]e[nň]|citron/i.test(z.nazev);
 
 /** Pálenka — sklad se u ní sleduje stejně jako u piv. */
 export const jePalenka = (z: Pick<Zbozi, 'nazev'>): boolean => /p[aá]lenk/i.test(z.nazev);
@@ -119,7 +130,7 @@ export const jePalenka = (z: Pick<Zbozi, 'nazev'>): boolean => /p[aá]lenk/i.tes
  * jen sčítá, kolik se prodalo — 13. 10. 2026: „ostatní položky mimo piva a
  * pálenku… tam bude prodáno, sklad ukazovat jen prodáno za daný měsíc."
  */
-export const sledujeSklad = (z: Pick<Zbozi, 'nazev' | 'beer_id'>): boolean => !!z.beer_id || jePalenka(z);
+export const sledujeSklad = (z: Pick<Zbozi, 'nazev' | 'beer_id'>): boolean => !jeLimonada(z) && (!!z.beer_id || jePalenka(z));
 
 const cislo = (v: unknown): number => {
   const n = Number(v);
@@ -212,6 +223,8 @@ export function stavySkladu(vstup: VstupSkladu, kDatu: string): StavZbozi[] {
         prodano: s,
         odepsano: o,
         prodanoMesic,
+        sklad: sledujeSklad(z),
+        limonada: jeLimonada(z),
         min,
       };
     })
@@ -299,7 +312,7 @@ export type Varovani = { kod: string; nazev: string; druh: DruhVarovani; stav: n
 export function varovaniZasob(stavy: StavZbozi[]): Varovani[] {
   const out: Varovani[] = [];
   for (const s of stavy) {
-    if (s.stav == null) continue;
+    if (s.stav == null || s.limonada) continue;
     if (s.stav < 0) out.push({ kod: s.kod, nazev: s.nazev, druh: 'zaporny', stav: s.stav, min: s.min });
     else if (s.min != null && s.min > 0 && s.stav === 0) out.push({ kod: s.kod, nazev: s.nazev, druh: 'nula', stav: s.stav, min: s.min });
     else if (s.min != null && s.min > 0 && s.stav < s.min) out.push({ kod: s.kod, nazev: s.nazev, druh: 'pod_minimem', stav: s.stav, min: s.min });
