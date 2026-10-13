@@ -376,7 +376,14 @@ napsané v odpovědi. Postupuj takto:
   • "30 litrů, ne 20??", "místo 12sv chci 11sv" → u TÉ položky uprav obal
     nebo pivo, ostatní zopakuj beze změny.
   • "plus 3x10 11sv", "ještě 5 kryglí" → PŘIDEJ novou položku a všechny
-    dosavadní zopakuj beze změny.
+    dosavadní zopakuj beze změny. Když už v objednávce stejné pivo + obal
+    je, množství se SEČTE: u 2x50l 12° a zprávy „ještě plus 1x50l 12sv"
+    vrať JEDNU položku 3x50l 12° (ne dvě, ne 5).
+  • Číslo BEZ „plus"/„ještě"/„navíc" u položky, která v objednávce už je
+    („1x50" při 2x50), je NOVÉ množství — původní se přepíše: výsledek je
+    1x50, ne 3x50.
+  • „bez 50", „bez padesátek", „50ky nebudou" → VYNECH všechny položky
+    v obalu 50l (u všech piv), ostatní zopakuj beze změny.
   • Když zpráva objednávku vůbec nemění (je to dotaz nebo poznámka — např.
     "Je nějaký Summer navíc nebo nebude?", "To je ten foodtruck?"), vrať
     objednávku PŘESNĚ TAK, JAK JE TEĎ, beze změny.

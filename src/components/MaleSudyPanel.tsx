@@ -47,17 +47,19 @@ export function MaleSudyPanel({ packages, canEdit, kdo }: {
   return (
     <div className="space-y-3">
       <p className="text-sm text-neutral-600">
-        Naklikej, kolik máš prázdných malých sudů. Velké číslo je, kolik jich zbývá po otevřených objednávkách. Objednávky hlídají, aby je otevřené objednávky dohromady
-        nepřečerpaly — co je navíc, označí červeně.
+        Naklikej, kolik máš prázdných malých sudů — velké číslo je přesně to, co zadáš. Pod ním je „K dispozici": prázdné minus sudy, které berou otevřené
+        objednávky (např. pro Radka), tedy kolik se ještě dá stočit pro dalšího. Co objednávky přečerpají, označí červeně.
       </p>
       {male.length === 0 && <div className="card p-4 text-sm text-neutral-600">V obalech není žádný malý sud (KEG pod 30 l).</div>}
       {male.map((pk) => {
         const mame = zasoba[pk.id];
         const hlida = mame != null;
         const s = souhrn.find((x) => x.package_id === pk.id);
-        // Velké číslo = kolik jich ještě zbývá po otevřených objednávkách
-        // (5. 10. 2026: „mám 2× 20 l, v objednávce 2× 20 l 12° Světlá —
-        // v malých se po objednávce ukáže 0 u 20 l").
+        // Velké číslo = PŘESNĚ to, co člověk naklikal (kolik má prázdných).
+        // Dřív ukazovalo zbytek po objednávkách (5. 10. 2026), a tak 7 prázdných
+        // při 5 objednaných ukázalo 2 — a aby se na displeji dostal na 7, musel
+        // člověk naklikat 12 („proč je tam prázdných 12, mají být tolik, kolik
+        // jsem jich zadal", 13. 10. 2026). Zbytek po objednávkách je pod číslem.
         const objednano = s?.objednano ?? 0;
         const volne = hlida ? Math.max(0, mame - objednano) : 0;
         return (
@@ -69,13 +71,13 @@ export function MaleSudyPanel({ packages, canEdit, kdo }: {
                   type="button"
                   className="btn-ghost !rounded !px-3"
                   aria-label={`Ubrat ${pk.label}`}
-                  disabled={!canEdit || !hlida || volne <= 0}
+                  disabled={!canEdit || !hlida || (mame ?? 0) <= 0}
                   onClick={() => nastav(pk.id, (mame ?? 0) - 1)}
                 >
                   <Minus size={18} />
                 </button>
                 <span className="w-12 text-center text-2xl font-black tabular-nums text-neutral-950" aria-live="polite">
-                  {nacteno ? (hlida ? volne : '–') : '…'}
+                  {nacteno ? (hlida ? mame : '–') : '…'}
                 </span>
                 <button
                   type="button"
@@ -89,11 +91,32 @@ export function MaleSudyPanel({ packages, canEdit, kdo }: {
               </div>
             </div>
             {hlida && (
-              <div className="flex items-center justify-between gap-2 text-sm">
-                <span className={`font-bold ${s && s.nad > 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
-                  Prázdných celkem {mame}, v otevřených objednávkách {objednano}
-                  {(s?.zapocitanoPlnych ?? 0) > 0 ? ` (dalších ${s!.zapocitanoPlnych} pokryjí plné skladem)` : ''}
-                  {s && s.nad > 0 ? ` — o ${s.nad} víc, než máš` : ''}
+              <div
+                className={`rounded border px-3 py-2 flex items-center justify-between gap-3 ${
+                  s && s.nad > 0
+                    ? 'border-rose-300 bg-rose-50 text-rose-800'
+                    : volne > 0
+                    ? 'border-emerald-300 bg-emerald-50 text-emerald-800'
+                    : 'border-amber-300 bg-amber-50 text-amber-900'
+                }`}
+              >
+                {/* K DISPOZICI = prázdné − malé sudy v otevřených objednávkách:
+                    kolik se ještě dá stočit pro dalšího odběratele (13. 10. 2026:
+                    „jak to, že mi vše svítí zeleně, když je v objednávce pro
+                    Radka plno malých zabraných… tady se mají ukazovat k dispozici
+                    jen ty, které se dají stočit… to je k dispozici dál pro
+                    Maneo"). Zelená = ještě něco zbývá, žlutá = zbývá nula,
+                    červená = objednávky chtějí víc, než je prázdných. */}
+                <div className="text-sm font-bold">
+                  <div className="text-xs uppercase tracking-wide opacity-80">K dispozici</div>
+                  <div>
+                    v otevřených objednávkách {objednano}
+                    {(s?.zapocitanoPlnych ?? 0) > 0 ? ` (dalších ${s!.zapocitanoPlnych} pokryjí plné skladem)` : ''}
+                    {s && s.nad > 0 ? ` — o ${s.nad} víc, než máš` : ''}
+                  </div>
+                </div>
+                <span className="text-3xl font-black tabular-nums" aria-live="polite">
+                  {s && s.nad > 0 ? `−${s.nad}` : volne}
                 </span>
               </div>
             )}
