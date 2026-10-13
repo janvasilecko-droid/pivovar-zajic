@@ -35,15 +35,17 @@ function Chip({ aktivni, onClick, children, ariaLabel }: {
 }
 
 /** Chipy piv — prázdný `vybrane` znamená „všechna". */
-export function ChipyPiva({ piva, vybrane, onVybrat, popisVsech = 'Všechna piva' }: {
+export function ChipyPiva({ piva, vybrane, onVybrat, popisVsech = 'Všechna piva', jedenRadek = false }: {
   piva: Pick<Beer, 'id' | 'name' | 'beer_color'>[];
   vybrane: string;
   onVybrat: (id: string) => void;
   popisVsech?: string;
+  /** Na telefonu jeden vodorovně posuvný řádek místo několika zalomených (od `sm` se zalamují). */
+  jedenRadek?: boolean;
 }) {
   if (piva.length === 0) return null;
   return (
-    <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filtr podle piva">
+    <div className={`flex items-center gap-1.5 ${jedenRadek ? 'w-full flex-nowrap overflow-x-auto scrollbar-thin pb-1 sm:flex-wrap sm:overflow-visible' : 'flex-wrap'}`} role="group" aria-label="Filtr podle piva">
       <Chip aktivni={vybrane === ''} onClick={() => onVybrat('')}>{popisVsech}</Chip>
       {piva.map((b) => (
         <Chip key={b.id} aktivni={vybrane === b.id} onClick={() => onVybrat(b.id)}>
@@ -60,15 +62,17 @@ export function ChipyPiva({ piva, vybrane, onVybrat, popisVsech = 'Všechna piva
 }
 
 /** Chipy obalů — prázdný `vybrane` znamená „všechny". */
-export function ChipyObalu({ obaly, vybrane, onVybrat, popisVsech = 'Všechny obaly' }: {
+export function ChipyObalu({ obaly, vybrane, onVybrat, popisVsech = 'Všechny obaly', jedenRadek = false }: {
   obaly: Pick<Package, 'id' | 'label'>[];
   vybrane: string;
   onVybrat: (id: string) => void;
   popisVsech?: string;
+  /** Na telefonu jeden vodorovně posuvný řádek místo několika zalomených (od `sm` se zalamují). */
+  jedenRadek?: boolean;
 }) {
   if (obaly.length === 0) return null;
   return (
-    <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filtr podle obalu">
+    <div className={`flex items-center gap-1.5 ${jedenRadek ? 'w-full flex-nowrap overflow-x-auto scrollbar-thin pb-1 sm:flex-wrap sm:overflow-visible' : 'flex-wrap'}`} role="group" aria-label="Filtr podle obalu">
       <Chip aktivni={vybrane === ''} onClick={() => onVybrat('')}>{popisVsech}</Chip>
       {obaly.map((p) => (
         <Chip key={p.id} aktivni={vybrane === p.id} onClick={() => onVybrat(p.id)}>{p.label}</Chip>

@@ -3,7 +3,7 @@
 import { OdberatelTlacitko } from '../components/OdberatelTlacitko';
 import { useEffect, useMemo, useState, useCallback, useRef, lazy, Suspense } from 'react';
 
-import { AlertTriangle, Calendar, CalendarDays, Camera, Check, CheckCircle2, CheckSquare, ChevronLeft, ChevronRight, ClipboardList, Clock, Copy, FilePlus, Mail, MessageCircle, Package as PackageIcon, PackageCheck, Plus, Receipt, ShieldAlert, Trash2, Truck, User, X, Zap } from 'lucide-react';
+import { AlertTriangle, Calendar, CalendarDays, Camera, Check, CheckCircle2, CheckSquare, ChevronLeft, ChevronRight, ClipboardList, Clock, Copy, FilePlus, Mail, MessageCircle, Package as PackageIcon, PackageCheck, Plus, Receipt, ShieldAlert, SlidersHorizontal, Trash2, Truck, User, X, Zap } from 'lucide-react';
 import { Beer, EntryRow, Package, Place, beerName, fetchAllRows, formatPackageLabel, supabase, useRealtime } from '../lib/supabase';
 import { useMaleSudy, useHlidaniMalychSudu } from '../lib/useMaleSudy';
 import { volneProObjednavku, rozdelMaleSudyVObjednavce, silaPiva } from '../lib/maleSudy';
@@ -1490,6 +1490,8 @@ export default function Orders({
      
   }, []);
   const [groupByDay, setGroupByDay] = useState(false);
+  // Na telefonu jsou filtry pod hledáním schované, dokud se na ně neklepne.
+  const [filtryOtevrene, setFiltryOtevrene] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   function norm(s: string): string {
@@ -2425,7 +2427,7 @@ export default function Orders({
           Přilepeno nahoře, ať jde přepínat období i uprostřed scrollování
           dlouhého seznamu objednávek (viz i den/vyhledávání níže). */}
       {mode !== 'entry_only' && (viewMode === 'detail' || viewMode === 'celkem') && (
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-2.5 p-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 mb-2 px-1 py-1 sm:mb-2.5 sm:p-2.5">
           <div className="flex items-center gap-1.5 flex-wrap">
             <button
               type="button"
@@ -2443,7 +2445,7 @@ export default function Orders({
                 timeScope === 'month' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
               }`}
             >
-              <span className="inline-flex items-center gap-1.5"><CalendarDays size={14} /> Celý měsíc</span>
+              <span className="inline-flex items-center gap-1.5"><CalendarDays size={14} /> <span className="sm:hidden">Měsíc</span><span className="hidden sm:inline">Celý měsíc</span></span>
             </button>
             <button
               type="button"
@@ -2578,31 +2580,59 @@ export default function Orders({
           </div>
         )}
 
-        <div className="card p-2.5 flex flex-wrap items-center gap-2.5 shadow-sm">
-          <input
-            type="text" placeholder="Hledat odběratele, pivo nebo poznámku"
-            className="input flex-1 min-w-[200px]" value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-          />
-          <select className="input w-auto font-bold text-xs" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-            <option value="">Všechny statusy</option>
-            {Object.entries(STAVY_OBJEDNAVKY).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-          </select>
-          <select className="input w-auto font-bold text-xs" value={packageKindFilter} onChange={(e) => setPackageKindFilter(e.target.value as DruhObaluFiltr)}>
-            <option value="all">Všechny druhy obalů</option>
-            <option value="keg">Pouze sudy (KEG)</option>
-            <option value="pet">Pouze petky (PET)</option>
-            <option value="lahev">Pouze lahve (sklo)</option>
-          </select>
-          <ChipyPiva piva={beers} vybrane={itemFilterBeerId ?? ''} onVybrat={(id) => setItemFilterBeerId(id || null)} />
-          <ChipyObalu obaly={packages} vybrane={itemFilterPackageId ?? ''} onVybrat={(id) => setItemFilterPackageId(id || null)} popisVsech="Konkrétní obal" />
-          <label className="flex items-center gap-2 text-sm text-primary-700 cursor-pointer px-2.5 py-1 rounded hover:bg-primary-50">
-            <input type="checkbox" checked={groupByDay} onChange={(e) => setGroupByDay(e.target.checked)} className="w-4 h-4 rounded text-primary-600" />
-            <Calendar className="ikona-text" /> Seskupit dle dne
-          </label>
-          {(searchText || statusFilter || deliveryDayFilter !== 'all' || itemFilterBeerId || itemFilterPackageId || packageKindFilter !== 'all' || overdueOnly) && (
-            <button className="btn-ghost !rounded !py-1.5 text-xs font-bold text-amber-900" onClick={() => { setSearchText(''); setStatusFilter(''); setDeliveryDayFilter('all'); setItemFilterBeerId(null); setItemFilterPackageId(null); setPackageKindFilter('all'); setOverdueOnly(false); }}>Zrušit filtr</button>
-          )}
+        {/* 📱 Na telefonu je nahoře jen hledání a tlačítko „Filtry" (s počtem
+            zapnutých); stavy, druhy obalů a chipy piv a obalů se rozbalí až po
+            klepnutí a chipy jsou jeden vodorovně posuvný řádek. Dřív stálo
+            pod hledáním pět zalomených řádků filtrů a seznam objednávek byl
+            až za dvěma obrazovkami („musí to být přehlednější na telefonu",
+            13. 10. 2026). Od šířky `sm` je všechno vidět jako dřív. */}
+        <div className="card p-2.5 space-y-2 shadow-sm">
+          <div className="flex items-center gap-2">
+            <input
+              type="text" placeholder="Hledat odběratele, pivo nebo poznámku"
+              className="input flex-1 min-w-0" value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+            />
+            {(() => {
+              const zapnute = [statusFilter, packageKindFilter !== 'all', itemFilterBeerId, itemFilterPackageId, groupByDay].filter(Boolean).length;
+              return (
+                <button
+                  type="button"
+                  className="sm:hidden btn-ghost !rounded min-h-[44px] shrink-0 relative"
+                  aria-expanded={filtryOtevrene}
+                  onClick={() => setFiltryOtevrene((o) => !o)}
+                >
+                  <SlidersHorizontal size={16} /> Filtry
+                  {zapnute > 0 && (
+                    <span className="ml-1 min-w-[18px] h-[18px] px-1 grid place-items-center rounded-full bg-amber-500 text-neutral-950 text-[11px] font-black">{zapnute}</span>
+                  )}
+                </button>
+              );
+            })()}
+          </div>
+          <div className={`${filtryOtevrene ? 'flex' : 'hidden'} sm:flex flex-wrap items-center gap-2`}>
+            <select className="input w-auto font-bold text-xs" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+              <option value="">Všechny statusy</option>
+              {Object.entries(STAVY_OBJEDNAVKY).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+            </select>
+            <select className="input w-auto font-bold text-xs" value={packageKindFilter} onChange={(e) => setPackageKindFilter(e.target.value as DruhObaluFiltr)}>
+              <option value="all">Všechny druhy obalů</option>
+              <option value="keg">Pouze sudy (KEG)</option>
+              <option value="pet">Pouze petky (PET)</option>
+              <option value="lahev">Pouze lahve (sklo)</option>
+            </select>
+            <label className="flex items-center gap-2 text-sm text-primary-700 cursor-pointer px-2.5 py-1 rounded hover:bg-primary-50">
+              <input type="checkbox" checked={groupByDay} onChange={(e) => setGroupByDay(e.target.checked)} className="w-4 h-4 rounded text-primary-600" />
+              <Calendar className="ikona-text" /> Seskupit dle dne
+            </label>
+            {(searchText || statusFilter || deliveryDayFilter !== 'all' || itemFilterBeerId || itemFilterPackageId || packageKindFilter !== 'all' || overdueOnly) && (
+              <button className="btn-ghost !rounded !py-1.5 text-xs font-bold text-amber-900" onClick={() => { setSearchText(''); setStatusFilter(''); setDeliveryDayFilter('all'); setItemFilterBeerId(null); setItemFilterPackageId(null); setPackageKindFilter('all'); setOverdueOnly(false); }}>Zrušit filtr</button>
+            )}
+          </div>
+          <div className={`${filtryOtevrene ? 'block' : 'hidden'} sm:block space-y-1.5`}>
+            <ChipyPiva jedenRadek piva={beers} vybrane={itemFilterBeerId ?? ''} onVybrat={(id) => setItemFilterBeerId(id || null)} />
+            <ChipyObalu jedenRadek obaly={packages} vybrane={itemFilterPackageId ?? ''} onVybrat={(id) => setItemFilterPackageId(id || null)} popisVsech="Konkrétní obal" />
+          </div>
         </div>
 
       <div className="flex items-center justify-between gap-2 mb-2.5 flex-wrap">
