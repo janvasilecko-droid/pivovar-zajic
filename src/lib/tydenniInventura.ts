@@ -23,7 +23,7 @@
 //     tenhle soubor počítal po svém, vyrobil by třetí verzi pravdy — přesně
 //     to, co má týdenní kontrola odhalovat.
 import type { Movement, StockLine } from './stockLedger';
-import { stockAsOf, stockForObdobi } from './stockLedger';
+import { stockAsOf, stockForObdobi, zapsanoPoPocitani } from './stockLedger';
 import { jeSud } from './inventoryFix';
 
 export type TydenObdobi = {
@@ -366,8 +366,10 @@ export function ocekavanyStavTydne(
       && `${m.beer_id}__${m.package_id}` === k && m.date >= minule.den && m.date <= doPocitani);
     if (minule && !novejsiInventura) {
       const odDne = minule.den >= od ? posunDnu(minule.den, 1) : od;
-      const poPocitaniVTenDen = (m: Movement) => !!minule.cas && minule.den >= od && m.date === minule.den
-        && !!m.createdAt && Date.parse(m.createdAt) > Date.parse(minule.cas);
+      // Cokoli, co se zapsalo až po počítání, ale patří do dne před ním
+      // (i zpětně zadané objednávky a fasování z minulého týdne).
+      const poPocitaniVTenDen = (m: Movement) => !!minule.cas && m.date < odDne
+        && zapsanoPoPocitani(m, minule.cas);
       // Srovnání z minulotýdenní kontroly („Zapsat do stáčení", „Dorovnat")
       // srovnává knihu NA napočítané číslo — základ už ho obsahuje, přičíst
       // ho znovu by ho započítalo dvakrát.
