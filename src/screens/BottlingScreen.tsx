@@ -2012,7 +2012,7 @@ export default function BottlingScreen({
       {tab === 'prehled' && (
         <div className="mt-0 space-y-3">
         {/* Přilepeno pod hlavní listou záložek, ať jde přepínat obdobi/filtry i uprostřed scrollování dlouhé tabulky níže. */}
-        <div className="sticky top-0 z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-neutral-100 py-1.5 -mx-4 px-4 sm:mx-0 sm:px-0">
+        <div className="sticky md:static top-0 z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-neutral-100 py-1.5 -mx-4 px-4 sm:mx-0 sm:px-0">
           <div className="text-xs font-black uppercase tracking-wider text-amber-950/60 flex items-center gap-2">
             <span><ClipboardList className="ikona-text" /></span>
             <span>Všechny záznamy stáčení</span>
@@ -2055,7 +2055,7 @@ export default function BottlingScreen({
             jako po ut st......" — stejný vzor jako dny týdne v
             PrepinacObdobi.tsx výš. */}
         {rows.length > 0 && (
-          <div className="sticky top-[32px] z-10 flex flex-col gap-2 bg-amber-100/60 p-2.5 rounded border border-amber-200/90 shadow-2xs">
+          <div className="sticky md:static top-[32px] z-10 flex flex-col gap-2 bg-amber-100/60 p-2.5 rounded border border-amber-200/90 shadow-2xs">
             <ChipyPiva piva={beers} vybrane={recordsBeerFilter} onVybrat={setRecordsBeerFilter} />
             <ChipyObalu
               obaly={[
@@ -2141,7 +2141,7 @@ export default function BottlingScreen({
                   splývaly v jeden nerozeznatelný seznam řádků. Teď je dlaždice
                   na šarži JEDINÝ pohled, na mobilu i na počítači — jen se na
                   širokém displeji vejde vedle sebe víc najednou (grid níž). */}
-              <div className="grid grid-cols-1 gap-2">
+              <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-2 items-start">
                 {davkyStaceni(sortedRows, (pkgId) => {
                   const pkg = packages.find((p) => p.id === pkgId);
                   return pkg ? Number(pkg.volume_l) : 0;
