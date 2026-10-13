@@ -9,6 +9,7 @@ budeme je později nasazovat." Kód zůstal celý. Skrytí se vypíná na jednom
 | `SANITACE_ZAPNUTA` | dlaždice Sanitace, sanitační deníky (lahve, kegy, výčepy, tanky), HACCP | přepnout na `true` |
 | `CHECKLISTY_ZAPNUTE` | check-listy a úkoly před/po stáčením (KEG, Lahve, plocha); brána „před uložením stáčení vyplň checklist" se nehlídá | přepnout na `true` |
 | `SKLO_PROMO_ZAPNUTO` | Sklo, Etikety, Podtáčky (dlaždice, záložka ve Skladu) | přepnout na `true` |
+| `KALENDAR_ZAPNUT` | Kalendář & Upozornění (dlaždice, stránka) | přepnout na `true` |
 | `CO2_ZAPNUTO` | Foukání CO2 (dlaždice i kulaté tlačítko nahoře) | přepnout na `true` |
 
 Dlaždice „Nová obj." není na ploše ani v nabídce dlaždic (`DLAZDICE_JEN_V_OBJEDNAVKACH`),

@@ -12,6 +12,7 @@
 //                      checklist"
 //   SKLO_PROMO_ZAPNUTO Sklo, Etikety, Podtáčky
 //   CO2_ZAPNUTO        Foukání CO2 (dlaždice i kulaté tlačítko nahoře)
+//   KALENDAR_ZAPNUT    Kalendář & Upozornění
 //
 // Dlaždice „Nová obj." je jen záložka uvnitř Objednávek (+ spodní lišta),
 // ne dlaždice na ploše — viz DLAZDICE_JEN_V_OBJEDNAVKACH.
@@ -20,6 +21,8 @@ export const CHECKLISTY_ZAPNUTE = false;
 export const SKLO_PROMO_ZAPNUTO = false;
 /** Foukání CO2: dlaždice na ploše i kulaté tlačítko nahoře (13. 10. 2026). */
 export const CO2_ZAPNUTO = false;
+/** Kalendář & Upozornění (dlaždice, stránka). */
+export const KALENDAR_ZAPNUT = false;
 
 const SANITACE = ['haccp', 'sanitation_log', 'sanitace_lahve', 'sanitace_kegy', 'sanitace_vycepy'];
 
@@ -29,6 +32,7 @@ export function skryteStranky(): string[] {
     ...(SANITACE_ZAPNUTA ? [] : SANITACE),
     ...(CHECKLISTY_ZAPNUTE ? [] : ['checklists']),
     ...(SKLO_PROMO_ZAPNUTO ? [] : ['sklo_promo']),
+    ...(KALENDAR_ZAPNUT ? [] : ['calendar']),
   ];
 }
 
