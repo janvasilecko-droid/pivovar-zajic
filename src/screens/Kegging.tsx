@@ -1,4 +1,5 @@
 import { synchronizuj } from '../lib/checklistData';
+import { CHECKLISTY_ZAPNUTE } from '../lib/skryteModuly';
 import { jeSud } from '../lib/inventoryFix';
 import { useEffect, useMemo, useState, lazy, Suspense } from 'react';
 import { supabase, Beer, Package, EntryRow, CellarTank, KegPrefuk, useRealtime, beerBg, beerText, beerName, formatPackageLabel, fetchAllRows } from '../lib/supabase';
@@ -1446,6 +1447,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
             >
               <span className="inline-flex items-center gap-1.5"><Scissors size={14} /> Řezání</span>
             </button>
+            {CHECKLISTY_ZAPNUTE && (
             <button
               type="button"
               onClick={() => selectTab('checklist')}
@@ -1456,6 +1458,8 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                 <span className="px-1.5 py-0.5 rounded-full bg-rose-600 text-white text-udaj font-black animate-pulse">1</span>
               )}
             </button>
+            )}
+            {CHECKLISTY_ZAPNUTE && (<>
             <button
               type="button"
               onClick={() => { setChecklistPhase('start'); setChecklistGate(false); setShowChecklistModal(true); }}
@@ -1472,6 +1476,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
               <Sparkles size={14} />
               <span>Konec stáčení</span>
             </button>
+            </>)}
           </div>
         )}
       </div>

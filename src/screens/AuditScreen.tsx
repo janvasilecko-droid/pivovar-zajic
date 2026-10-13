@@ -45,7 +45,7 @@ export default function AuditScreen({ setPage }: { setPage?: (p: any, sec?: stri
     <div className="max-w-4xl mx-auto p-3 sm:p-4 space-y-4">
       <div className="flex items-center gap-2">
         <ShieldCheck className="w-6 h-6 text-emerald-600" aria-hidden />
-        <h1 className="text-xl font-bold text-neutral-900 dark:text-neutral-100">Audit</h1>
+        <h1 className="text-xl font-bold text-neutral-900 dark:text-neutral-100">Systém</h1>
       </div>
       <p className="text-sm text-neutral-600 dark:text-neutral-400">
         Všechny kontroly dat na jednom místě. Začni hloubkovým auditem — ukáže, co nesedí, a odkáže na podrobnou kontrolu.

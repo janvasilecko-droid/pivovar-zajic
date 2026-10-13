@@ -75,12 +75,12 @@ export default function ObchodScreen({ setPage, pageSubTab }: {
         <div role="alert" className="rounded-xl border-2 border-amber-400 bg-amber-50 p-4 space-y-2 text-amber-950">
           <div className="text-sm font-black">Obchod potřebuje nové tabulky v databázi.</div>
           <div className="text-xs font-semibold">
-            Spusť migraci <strong>20261231270000_obchod</strong>: v appce Audit → Databázové migrace (tlačítko níže), pak tu stránku obnov.
+            Spusť migraci <strong>20261231270000_obchod</strong>: v appce Systém → Databázové migrace (tlačítko níže), pak tu stránku obnov.
             Fasování do obchodu funguje i bez ní.
           </div>
           {setPage && (
             <button type="button" className="btn-primary !rounded min-h-[48px]" onClick={() => setPage('audit')}>
-              Otevřít Audit → Databázové migrace
+              Otevřít Systém → Databázové migrace
             </button>
           )}
         </div>
@@ -95,7 +95,7 @@ export default function ObchodScreen({ setPage, pageSubTab }: {
           </div>
           {setPage && (
             <button type="button" className="btn-primary !rounded min-h-[48px]" onClick={() => setPage('audit')}>
-              Otevřít Audit → Databázové migrace
+              Otevřít Systém → Databázové migrace
             </button>
           )}
         </div>

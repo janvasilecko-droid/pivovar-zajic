@@ -1,4 +1,5 @@
 import { BottlingChecklistModal, DEFAULT_ITEMS, isStartChecklistCompleteForDate, isMonthlyChecklistCompleteForDate, MONTHLY_CATEGORY } from '../components/BottlingChecklistModal';
+import { CHECKLISTY_ZAPNUTE } from '../lib/skryteModuly';
 import { puvodZapisu } from '../lib/puvodZapisu';
 import { useEffect, useMemo, useState, useRef, lazy, Suspense } from 'react';
 import { supabase, Beer, Package, EntryRow, useRealtime, beerBg, beerText, beerName, formatPackageLabel, fetchAllRows } from '../lib/supabase';
@@ -1376,6 +1377,7 @@ export default function BottlingScreen({
                 </span>
               )}
             </button>
+            {CHECKLISTY_ZAPNUTE && (<>
             <button
               type="button"
               onClick={() => { setChecklistPhase('start'); setChecklistGate(false); setShowChecklistModal(true); }}
@@ -1392,6 +1394,7 @@ export default function BottlingScreen({
               <Sparkles size={14} />
               <span>Konec stáčení (úklid)</span>
             </button>
+            </>)}
           </div>
         )}
 

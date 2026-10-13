@@ -28,6 +28,7 @@ import { nactiSdilenouTabulku } from '../lib/sdilenaData';
 // stáhne se až při klepnutí na dlaždici.
 const NavodPouziti = lazy(() => import('../components/NavodPouziti').then((m) => ({ default: m.NavodPouziti })));
 import { HomeChecklistModal } from '../components/HomeChecklistModal';
+import { smiBytDlazdici, CHECKLISTY_ZAPNUTE } from '../lib/skryteModuly';
 import { polozkyDlazdice, pocetCekajicich } from '../lib/dlazdicePoznamek';
 import { nactiSdilene, prepniHotovo, SDILENE_POZNAMKY_ZMENA, type SdilenaPoznamka } from '../lib/sdilenePoznamky';
 import { getHomeNotes, toggleHomeNote, HOME_NOTES_CHANGED_EVENT, OPEN_HOME_NOTES_EVENT, consumeOpenHomeNotesRequest, type HomeNote, rozvrhniPoznamky, kolikPoznamekZobrazit } from '../lib/homeNotes';
@@ -102,7 +103,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
     if (!modKey) return true;
     return canUserView(profile?.role, user?.id, modKey, userPerms);
   };
-  const visible = useMemo(() => NAV.filter(smiVidet), [isAdmin, profile?.role, user?.id, userPerms]);
+  const visible = useMemo(() => NAV.filter((n) => smiBytDlazdici(n.id) && smiVidet(n)), [isAdmin, profile?.role, user?.id, userPerms]);
 
   // Dlaždice „Foukání CO2" jede s běžnými dlaždicemi, i když za ní není
   // žádná obrazovka — proto se přidává až sem a ne do NAV (v menu by byla
@@ -118,6 +119,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   // do spodní lišty (viz select ve „Spodní lišta" níž). Na rozdíl od
   // `visible` se nepřidávají do launcheru automaticky.
   const extraVisible = useMemo(() => EXTRA_NAV.filter((n) => {
+    if (!smiBytDlazdici(n.id)) return false;
     const modKey = PAGE_TO_MODULE[n.id];
     if (!modKey) return true;
     return canUserView(profile?.role, user?.id, modKey, userPerms);
@@ -3226,10 +3228,12 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
         </Suspense>
       </Modal>
 
-      <HomeChecklistModal
-        isOpen={showChecklistModal}
-        onClose={() => setShowChecklistModal(false)}
-      />
+      {CHECKLISTY_ZAPNUTE && (
+        <HomeChecklistModal
+          isOpen={showChecklistModal}
+          onClose={() => setShowChecklistModal(false)}
+        />
+      )}
 
       <QuickSearchModal
         isOpen={showSearchModal}

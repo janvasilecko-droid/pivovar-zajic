@@ -75,7 +75,7 @@ export const NAV: NavItem[] = [
   { id: 'export_excel', label: 'Excel (Export, Import)', icon: FileSpreadsheet, group: 'Pivovar' },
   // Všechny audity a kontroly na jednom místě (screens/AuditScreen.tsx) —
   // dřív rozházené po Inventuře, Objednávkách, Nastavení a Uživatelích.
-  { id: 'audit', label: 'Audit', icon: ClipboardCheck, group: 'Nastavení' },
+  { id: 'audit', label: 'Systém', icon: ClipboardCheck, group: 'Nastavení' },
 
   // --- NÁSTROJE ---
   { id: 'concentration', label: 'Kalkulačky', icon: FlaskConical, group: 'Nástroje' },

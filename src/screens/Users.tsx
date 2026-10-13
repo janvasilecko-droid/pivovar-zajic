@@ -21,7 +21,7 @@ type UserRow = {
 /** Záložky obrazovky. Barvy jsou stejný jazyk jako u ostatních „Tabbed" stránek. */
 // „Auditní stopa" tu byla do 22. 9. 2026 jako třetí záložka. Ze zadání
 // („odstraň z nastavení ty audity, dej je jen do dlaždice Audit") se přesunula
-// tam, kde jsou všechny kontroly pohromadě — v dlaždici Audit jako „Historie
+// tam, kde jsou všechny kontroly pohromadě — v dlaždici Systém jako „Historie
 // změn". Odkaz na ni zůstává pod seznamem uživatelů, ať se na ni dá dostat
 // i odsud. Stará adresa (users → podzáložka 'audit') proto přesměrovává.
 const ZALOZKY = [
@@ -210,7 +210,7 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
           <p className="text-xs text-neutral-500 font-medium -mt-2 mb-1 text-right">
             Nový přístup: v záložce „Schválené e-maily" přidejte e-mail a pak ho schvalte. Uživatel se přihlásí odkazem na e-mail.
           </p>
-          {/* Kdo co kdy změnil, je od 22. 9. 2026 jen v dlaždici Audit —
+          {/* Kdo co kdy změnil, je od 22. 9. 2026 jen v dlaždici Systém —
               ať jsou všechny kontroly na jednom místě. Odsud na ni vede odkaz. */}
           <p className="text-xs text-neutral-500 font-medium mb-1 text-right">
             <button

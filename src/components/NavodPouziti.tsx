@@ -339,8 +339,8 @@ const ODDILY: Oddil[] = [
         jak: 'Každý pohyb jednoho piva za libovolné období — odkud se vzalo a kam šlo. Tohle je místo, kde se dohledává, proč nějaké číslo nesedí.',
       },
       {
-        co: 'Audit',
-        jak: 'Dlaždice Audit (odkaz je i v Nastavení) sdružuje všechny kontroly. Hloubkový audit se pouští za týden nebo měsíc a mimo jiné porovná objednávky z WhatsAppu se zprávami (tmavé zapsané jako světlé svítí červeně). Adminovi je úplně nahoře blok Databázové migrace (po nasazení tlačítko „Spustit“). Dál jsou tam audit objednávek, příjem WhatsAppu, Inventura vs. Sklad a pro admina Diagnostika a historie změn.',
+        co: 'Systém',
+        jak: 'Dlaždice Systém (odkaz je i v Nastavení) sdružuje všechny kontroly. Hloubkový audit se pouští za týden nebo měsíc a mimo jiné porovná objednávky z WhatsAppu se zprávami (tmavé zapsané jako světlé svítí červeně). Adminovi je úplně nahoře blok Databázové migrace (po nasazení tlačítko „Spustit“). Dál jsou tam audit objednávek, příjem WhatsAppu, Inventura vs. Sklad a pro admina Diagnostika a historie změn.',
       },
     ],
   },
