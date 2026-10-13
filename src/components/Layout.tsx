@@ -32,7 +32,11 @@ import { zavibruj } from '../lib/haptika';
 import { IkonaSud, IkonaLahev, IkonaVycep } from './ikony';
 import '../screens/HomeScreen.css';
 
-export type NavItem = { id: Page; label: string; icon: LucideIcon; group: string };
+export type NavItem = {
+  id: Page; label: string; icon: LucideIcon; group: string;
+  /** Jiný (kratší/obecnější) popisek ve spodní liště; jinde platí `label`. */
+  dockLabel?: string;
+};
 
 export type Page = 'export_excel' | 'import_excel' | 'home' | 'depozitar' | 'dashboard' | 'concentration' | 'srotovani' | 'checklists' | 'haccp' | 'sanitation_log' | 'sanitace_lahve' | 'sanitace_kegy' | 'sanitace_vycepy' | 'history' | 'orders_entry' | 'orders' | 'orders_detail' | 'orders_celkem' | 'orders_vraceni' | 'orders_zavoz' | 'zavoz' | 'kniha_jizd' | 'historie_tras' | 'stock' | 'stock_pohyby' | 'bottling' | 'kegging' | 'fasovani' | 'prodejna' | 'obchod' | 'akce' | 'sklo_promo' | 'vycepy' | 'exkurze' | 'reminders' | 'notes' | 'writeoffs' | 'inventory' | 'calendar' | 'feedback' | 'places' | 'beers' | 'packages' | 'pricelist' | 'vehicles' | 'cellar' | 'users' | 'app_settings' | 'app_versions' | 'bottling_needs' | 'stopwatch' | 'timer' | 'keg_timer' | 'zaloha' | 'co2' | 'nakladka' | 'male_sudy' | 'rozbor' | 'navod' | 'hlaseni' | 'audit' | 'signout';
 
@@ -120,7 +124,9 @@ export const EXTRA_NAV: NavItem[] = [
   // Zkratky přímo na záložky Objednávek (viz OrdersTabbed.tsx) — hlavně pro
   // spodní lištu: „vidím Objednávky, KEG, Lahve" nestačilo, když se sáhne
   // rovnou po zadání nebo po přehledu (z provozu 15. 9. 2026).
-  { id: 'orders_entry', label: 'Nová obj.', icon: FilePlus, group: 'Výroba' },
+  // Ve spodní liště se jmenuje jen „Objednávky" (majitel 13. 10. 2026: „dole
+  // v té liště Nová objednávka přejmenuj na Objednávky"); jinde zůstává „Nová obj.".
+  { id: 'orders_entry', label: 'Nová obj.', dockLabel: 'Objednávky', icon: FilePlus, group: 'Výroba' },
   { id: 'orders_detail', label: 'Obj. přehled', icon: FileText, group: 'Výroba' },
   // Přehledové dlaždice na ploše (28. 9. 2026: „udělej je jako přehledové
   // dlaždice, ale když se na ně klikne, odkáže mě to na podrobnosti na
@@ -1025,7 +1031,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
                     („Lahve (Stá…" místo „Lahve (Stáčení)"). `w-full`
                     respektuje skutečnou šířku slotu, ať jsou v liště dva
                     zástupci nebo šest. */}
-                <span className="text-udaj mt-0.5 tracking-tight truncate w-full text-center">{info.label}</span>
+                <span className="text-udaj mt-0.5 tracking-tight truncate w-full text-center">{(info as { dockLabel?: string }).dockLabel ?? info.label}</span>
               </button>
             );
           })}
