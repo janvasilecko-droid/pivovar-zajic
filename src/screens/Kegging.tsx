@@ -48,6 +48,7 @@ import { zapamatujPozici } from '../lib/drzPozici';
 import { jeChecklistKonceZUrl } from '../lib/vstupniStranka';
 import { nejcastejsiMnozstvi } from '../lib/quickQty';
 import { nactiSdilenouTabulku } from '../lib/sdilenaData';
+import { UpravyStaceniZInventury } from '../components/UpravyStaceniZInventury';
 
 // Stahuje se až při otevření — viz komentář u lazy() v Orders.tsx.
 const ImportKeggingFromImage = lazy(() => import('../components/ImportKeggingFromImage').then((m) => ({ default: m.ImportKeggingFromImage })));
@@ -2589,6 +2590,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                   </tbody>
                 </table>
               </div>
+              {recordsView === 'month' && <div className="mt-3"><UpravyStaceniZInventury mesic={recordsMonthKey} /></div>}
             </div>
           );
         })()}
