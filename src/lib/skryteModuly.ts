@@ -11,12 +11,15 @@
 //                      plocha) — včetně brány „před uložením stáčení vyplň
 //                      checklist"
 //   SKLO_PROMO_ZAPNUTO Sklo, Etikety, Podtáčky
+//   CO2_ZAPNUTO        Foukání CO2 (dlaždice i kulaté tlačítko nahoře)
 //
 // Dlaždice „Nová obj." je jen záložka uvnitř Objednávek (+ spodní lišta),
 // ne dlaždice na ploše — viz DLAZDICE_JEN_V_OBJEDNAVKACH.
 export const SANITACE_ZAPNUTA = false;
 export const CHECKLISTY_ZAPNUTE = false;
 export const SKLO_PROMO_ZAPNUTO = false;
+/** Foukání CO2: dlaždice na ploše i kulaté tlačítko nahoře (13. 10. 2026). */
+export const CO2_ZAPNUTO = false;
 
 const SANITACE = ['haccp', 'sanitation_log', 'sanitace_lahve', 'sanitace_kegy', 'sanitace_vycepy'];
 
