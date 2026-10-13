@@ -18,6 +18,7 @@ import { businessDateISO } from '../lib/businessDate';
 import { nactiSkladovouKnihu, type SkladovaKniha } from '../lib/skladovaKnihaData';
 import { MOVEMENT_LABELS, movementsFor, stockAsOf, stockKey } from '../lib/stockLedger';
 import { kegovaniZapisy, lahvoveZapisy, odectiZeStoceni } from '../lib/inventoryFix';
+import { planOdecteniZKegovani } from '../lib/odecteniZKegovani';
 import { rozdelSudyDoTanku, type TankProRozdeleni } from '../lib/tankRozdeleni';
 import { odectiZTanku } from '../lib/tankZapis';
 import {
@@ -295,6 +296,30 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
         const { error } = await supabase.from('bottling').insert(rady);
         if (error) throw error;
         uspech(`Zapsáno ${r.rozdil} ks do „Stáčení lahví" (sudy se neodečetly).`);
+      } else if (r.sud) {
+        // Manko ve stáčení KEG bez záporného řádku: odečte se přímo od stočených
+        // sudů téhož piva a obalu v témže měsíci (lib/odecteniZKegovani.ts).
+        const mesic = kdy.slice(0, 7);
+        const { data: stocene, error: chybaCteni } = await fetchAllRows('kegging', 'id,entry_date,quantity')
+          .eq('beer_id', r.beer_id).eq('package_id', r.package_id)
+          .gte('entry_date', `${mesic}-01`).lte('entry_date', `${mesic}-31`);
+        if (chybaCteni) throw chybaCteni;
+        const plan = planOdecteniZKegovani((stocene ?? []) as any[], kdy, Math.abs(r.rozdil));
+        for (const u of plan.upravit) {
+          const { error } = await supabase.from('kegging').update({ quantity: u.quantity }).eq('id', u.id);
+          if (error) throw error;
+        }
+        if (plan.smazat.length) {
+          const { error } = await supabase.from('kegging').delete().in('id', plan.smazat);
+          if (error) throw error;
+        }
+        if (plan.zbytek > 0) {
+          for (const z of odectiZeStoceni({ ...polozka, diffQty: -plan.zbytek }, kdy, stitek)) {
+            const { error } = await supabase.from(z.table).insert([z.row]);
+            if (error) throw error;
+          }
+        }
+        uspech(`Odečteno ${Math.abs(r.rozdil)} ks ze stočených sudů${plan.zbytek > 0 ? ` (${plan.zbytek} ks se nenašlo, zapsáno jako oprava)` : ''}.`);
       } else {
         const zapisy = odectiZeStoceni(polozka, kdy, stitek);
         for (const z of zapisy) {
@@ -707,21 +732,16 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
                     <p className={`text-xs font-bold opacity-90 flex-1 min-w-[180px] ${inkTrida}`}>
                       {r.rozdil > 0
                         ? `Přebytek ${r.rozdil} ks (${formatKc(r.rozdil * cenaRadku(r).cena, true)}) — nejspíš se stočilo a nezapsalo.`
-                        : `Manko ${Math.abs(r.rozdil)} ks (${formatKc(r.rozdil * cenaRadku(r).cena)}) — srovná se tlačítkem Dorovnat (do stáčení se nezapisuje).`}
+                        : `Manko ${Math.abs(r.rozdil)} ks (${formatKc(r.rozdil * cenaRadku(r).cena)}) — nejspíš se zapsalo víc, než se vyrobilo.`}
                     </p>
-                    {/* Manko se do stáčení nezapisuje (13. 10. 2026: „manko z inventury se
-                        neposílá, to se dorovnává"). Do stáčení jde jen chybějící zápis
-                        (přebytek); manko se srovná tlačítkem Dorovnat. */}
-                    {r.rozdil > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => srovnat(r)}
-                        disabled={!!uklada}
-                        className="btn-primary !rounded !text-xs min-h-[44px]"
-                      >
-                        {uklada === r.klic ? '…' : 'Zapsat do stáčení'}
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => srovnat(r)}
+                      disabled={!!uklada}
+                      className="btn-primary !rounded !text-xs min-h-[44px]"
+                    >
+                      {uklada === r.klic ? '…' : r.rozdil > 0 ? 'Zapsat do stáčení' : 'Odečíst ze stáčení'}
+                    </button>
                     <button
                       type="button"
                       onClick={() => dorovnat(r)}
