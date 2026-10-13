@@ -9,6 +9,7 @@ import { autoLogKegSanitationFromChecklist, isLastWeekOfMonth } from '../lib/keg
 import { cleanupMonthKey, writeMonthlyCleanupStage, isMonthlyLineDone, markMonthlyLineDone } from '../lib/monthlyCleanup';
 import { businessDateISO } from '../lib/businessDate';
 import { EmptyState, Spinner, Modal } from '../components/ui';
+import { souhrnStaceni } from '../lib/souhrnStaceni';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
 
 import { VoiceRecorder } from '../components/VoiceRecorder';
@@ -2349,6 +2350,16 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
             const pkg = packages.find((p) => p.id === r.package_id);
             return s + (pkg ? Number(r.quantity) * Number(pkg.volume_l) : 0);
           }, 0);
+          // „Celkem" je po odečtu manka z inventury — vedle něj se ukáže i skutečně stočené.
+          const souhrn = souhrnStaceni(filtrObdobim, packages);
+          const hl = (l: number) => (l / 100).toLocaleString('cs-CZ', { maximumFractionDigits: 2 });
+          const rozpisSouhrnu = souhrn.mankoKs !== 0 ? (
+            <div className="rounded bg-emerald-100 p-3 space-y-1 text-sm font-black text-emerald-950" aria-label="Stočeno celkem a manko">
+              <div className="flex items-center justify-between gap-2"><span>Stočeno celkem</span><span className="tabular-nums">{souhrn.stocenoKs} ks · {hl(souhrn.stocenoL)} hl</span></div>
+              <div className="flex items-center justify-between gap-2 text-rose-800"><span>Manko z inventury</span><span className="tabular-nums">{souhrn.mankoKs} ks · −{hl(Math.abs(souhrn.mankoL))} hl</span></div>
+              <div className="flex items-center justify-between gap-2 text-xs font-bold border-t border-emerald-300 pt-1"><span>Po odečtu manka (Celkem výše)</span><span className="tabular-nums">{souhrn.poOdecteKs} ks · {hl(souhrn.poOdecteL)} hl</span></div>
+            </div>
+          ) : null;
 
           function formatDate(d: string | null | undefined) {
             if (!d) return '—';
@@ -2478,6 +2489,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                     <span>{(totalLiters / 100).toLocaleString('cs-CZ', { maximumFractionDigits: 2 })} hl</span>
                   </div>
                 </div>
+                {rozpisSouhrnu}
               </div>
 
               <div className="hidden md:block rounded border border-amber-300/80 bg-amber-50/90 overflow-x-auto">
@@ -2589,6 +2601,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                   </tbody>
                 </table>
               </div>
+              {rozpisSouhrnu && <div className="hidden md:block mt-2">{rozpisSouhrnu}</div>}
             </div>
           );
         })()}
