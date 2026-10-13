@@ -156,7 +156,7 @@ export function ObchodInventura({ data, zapsal }: { data: DataObchodu; zapsal: s
 
   return (
     <div className="space-y-4">
-      <div className="card p-4 shadow-sm border-neutral-200/80 bg-white space-y-2">
+      <div className="rounded-xl bg-amber-100 p-4 space-y-2">
         <div className="font-display font-black text-neutral-900 text-lg">Inventura obchodu</div>
         <div className="flex flex-wrap items-end gap-2">
           <label className="text-[11px] font-black uppercase text-neutral-500">
@@ -210,7 +210,7 @@ export function ObchodInventura({ data, zapsal }: { data: DataObchodu; zapsal: s
               const rozdily = rozdilyInventury(radkyDne.map((r) => ({ kod: r.kod, nazev: nazvy.get(r.kod) ?? r.kod, ocekavano: r.ocekavano == null ? null : Number(r.ocekavano), napocitano: Number(r.napocitano) })));
               const otevreno = otevrenaHistorie === d;
               return (
-                <li key={d} className="rounded-xl border-2 border-neutral-200 bg-white">
+                <li key={d} className="rounded-xl bg-sky-100">
                   <button type="button" className="w-full flex items-center gap-3 p-3 text-left" onClick={() => setOtevrenaHistorie(otevreno ? null : d)} aria-expanded={otevreno}>
                     <div className="flex-1 text-sm font-black text-neutral-950">{dat(d)}</div>
                     <div className="text-xs font-semibold text-neutral-600">{radkyDne.length} položek · {rozdily.length === 0 ? 'bez rozdílů' : `${rozdily.length} rozdílů`}</div>

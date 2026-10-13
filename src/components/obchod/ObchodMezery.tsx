@@ -109,7 +109,7 @@ export function ZavrenoDny({ data }: { data: DataObchodu }) {
   }
 
   return (
-    <section aria-label="Dny označené jako zavřeno" className="rounded-xl border-2 border-neutral-200 bg-white p-3 space-y-1.5">
+    <section aria-label="Dny označené jako zavřeno" className="rounded-xl bg-sky-100 p-3 space-y-1.5">
       <div className="text-xs font-black uppercase tracking-wide text-neutral-600">Zavřeno (nic se neprodávalo)</div>
       <ul className="flex flex-wrap gap-1.5">
         {dny.map((z) => (

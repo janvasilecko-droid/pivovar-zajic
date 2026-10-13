@@ -38,7 +38,7 @@ export function ObchodUzaverky({ data, zapsal }: { data: DataObchodu; zapsal: st
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border-2 border-neutral-200 bg-white p-3 space-y-2">
+      <div className="rounded-xl bg-amber-100 p-3 space-y-2">
         <div className="text-sm font-black text-neutral-900">Zadat uzávěrku z pokladny</div>
         <div className="flex flex-wrap gap-2">
           {(['denni', 'tydenni', 'mesicni'] as TypUzaverky[]).map((t) => (
@@ -74,7 +74,7 @@ export function ObchodUzaverky({ data, zapsal }: { data: DataObchodu; zapsal: st
             const popis = `${u.cislo ? `č. ${u.cislo}, ` : ''}${obdobi(u.datum_od, u.datum_do)}`;
             const rozbalena = otevreno === u.id;
             return (
-              <li key={u.id} className="rounded-xl border-2 border-neutral-200 bg-white">
+              <li key={u.id} className="rounded-xl bg-sky-100">
                 <button type="button" className="w-full flex items-center gap-3 p-3 text-left" onClick={() => setOtevreno(rozbalena ? null : u.id)} aria-expanded={rozbalena}>
                   <span className="chip bg-primary-100 text-primary-900 font-black shrink-0">{NAZVY_TYPU[u.typ] ?? u.typ}</span>
                   <div className="flex-1 min-w-0">
