@@ -1,14 +1,17 @@
-// Pořadí položek objednávky v přehledu: nejdřív sudy, pak lahve; uvnitř
-// druhu od NEJVĚTŠÍHO obalu po nejmenší (50l, 30l, 20l, 15l, 10l, pak
-// 1,5l, 1l, 0,5l, 0,33l); při stejném obalu podle piva.
+// Pořadí položek objednávky v přehledu: PODLE PIV (pořadí piv v katalogu —
+// 12° Světlá, 11° Světlá, 10° Desítka, 12° Tmavá, Jantar…) a uvnitř piva
+// podle OBALŮ v pořadí katalogu (sudy 50, 30, 20, 15, 10, pak lahve 1,5l, 1l,
+// 0,5l, 0,33l — od největšího po nejmenší).
 //
-// Z provozu 12. 10. 2026: u objednávky Malešic šlo 30l, 30l, 50l, 0,5l,
-// 0,5l, 1,5l — řazení podle TEXTU štítku („30l" před „50l", „0.5l" před
-// „1.5l"). Majitel: „seřaď tady ty položky podle druhu a od největší pod
-// nejmenší velikost obalu."
+// Majitel 12. 10. 2026: u objednávky Malešic šlo 30l, 30l, 50l, 0,5l, 0,5l,
+// 1,5l (řazení podle TEXTU štítku). Pak „seřaď podle druhu a od největšího
+// obalu" — a po spatření výsledku: „seřaď to podle piv a velikosti obalu,
+// jako všude v aplikaci". „Všude v aplikaci" = pořadí piv a obalů z katalogu
+// (sort_order), tak jak jdou dlaždice, plány i sklad.
 
-type Obal = { id: string; kind?: string | null; volume_l?: number | null; label?: string | null };
-type Polozka = { id: string; package_id: string | null; package_label: string | null; beer_name: string | null };
+type Obal = { id: string; kind?: string | null; volume_l?: number | null; label?: string | null; sort_order?: number | null };
+type Pivo = { id: string; name?: string | null; sort_order?: number | null };
+type Polozka = { id: string; beer_id?: string | null; package_id: string | null; package_label: string | null; beer_name: string | null };
 
 /** Objem obalu v litrech: z katalogu, jinak z textu štítku („ 30l", „1,5l"). */
 export function objemObalu(obal: Obal | undefined, labelPolozky: string | null): number {
@@ -17,20 +20,32 @@ export function objemObalu(obal: Obal | undefined, labelPolozky: string | null):
   return m ? Number(m[1]) : 0;
 }
 
-export function poradiPolozekObjednavky<T extends Polozka>(items: T[], packages: Obal[]): T[] {
-  const dle = new Map(packages.map((p) => [p.id, p]));
+const KONEC = 1_000_000;
+
+export function poradiPolozekObjednavky<T extends Polozka>(items: T[], packages: Obal[], beers: Pivo[] = []): T[] {
+  const obaly = new Map(packages.map((p) => [p.id, p]));
+  const piva = new Map(beers.map((b) => [b.id, b]));
+  const poradiPiva = (i: T) => {
+    const b = i.beer_id ? piva.get(i.beer_id) : undefined;
+    return b?.sort_order ?? KONEC;
+  };
+  const poradiObalu = (i: T) => {
+    const o = i.package_id ? obaly.get(i.package_id) : undefined;
+    if (o?.sort_order != null) return o.sort_order;
+    // Bez pořadí v katalogu: sudy před lahvemi, od největšího.
+    const sud = o?.kind === 'keg' ? 0 : KONEC / 2;
+    return sud + (1000 - objemObalu(o, i.package_label));
+  };
   return [...items].sort((a, b) => {
-    const pa = a.package_id ? dle.get(a.package_id) : undefined;
-    const pb = b.package_id ? dle.get(b.package_id) : undefined;
-    const sudA = pa?.kind === 'keg';
-    const sudB = pb?.kind === 'keg';
-    if (sudA !== sudB) return sudA ? -1 : 1;
-    const objemA = objemObalu(pa, a.package_label);
-    const objemB = objemObalu(pb, b.package_label);
-    if (objemA !== objemB) return objemB - objemA;
-    // Při shodném obalu podle piva, nakonec podle id — pořadí z databáze se
-    // po úpravě řádku mění, položky by pak pod prstem poskakovaly.
-    const podlePiva = (a.beer_name ?? '').localeCompare(b.beer_name ?? '', 'cs');
-    return podlePiva !== 0 ? podlePiva : a.id.localeCompare(b.id);
+    const pivo = poradiPiva(a) - poradiPiva(b);
+    if (pivo !== 0) return pivo;
+    // Piva mimo katalog (nebo bez piva) se mezi sebou seskupí podle jména.
+    const jmeno = (a.beer_name ?? '').localeCompare(b.beer_name ?? '', 'cs');
+    if (poradiPiva(a) === KONEC && jmeno !== 0) return jmeno;
+    const obal = poradiObalu(a) - poradiObalu(b);
+    if (obal !== 0) return obal;
+    // Nakonec podle id — pořadí z databáze se po úpravě řádku mění, položky
+    // by pak pod prstem poskakovaly.
+    return a.id.localeCompare(b.id);
   });
 }

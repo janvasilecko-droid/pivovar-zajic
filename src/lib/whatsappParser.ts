@@ -1,5 +1,5 @@
 import { Beer, Package, Place, supabase } from './supabase';
-import { normPlaceName, stripSenderName, resolvePlace, odberatelZHistorie, wantsOwnOrder as textWantsOwnOrder } from '../../supabase/functions/_shared/place-match';
+import { normPlaceName, stripSenderName, resolvePlace, odberatelZHistorie, preferujExaktniOdberatele, wantsOwnOrder as textWantsOwnOrder } from '../../supabase/functions/_shared/place-match';
 import { nactiHistorii } from '../../supabase/functions/_shared/historie-objednavek';
 import { parseGeminiItems, detectOrderNotes, parseOrderText, loadAliasMap, loadPlaceAliasMap, ParserAliasMap, ParsedLine, GeminiItem } from './orderParser';
 import { parseExplicitDate } from './orderDates';
@@ -702,6 +702,15 @@ export async function parseWhatsAppOrderMessageWithAI(
       placeId = zHistorie.id;
       placeName = zHistorie.name;
     }
+  }
+
+  // „Petr moravcik prodejna" není jiný odběratel než „petr" — když odesílatel
+  // má v katalogu odběratele přesně pod svým jménem, platí on (viz
+  // preferujExaktniOdberatele v _shared/place-match.ts). Totéž dělá server.
+  {
+    const upraveny = preferujExaktniOdberatele({ id: placeId, name: placeName }, effectiveSender, places, ukotveniText);
+    placeId = upraveny.id;
+    placeName = upraveny.name;
   }
 
   // 4. Den/datum dodání (zítra, dnes, název dne, ...).

@@ -46,6 +46,8 @@ export interface WhatsAppIncoming {
     beer_name?: string | null;
     package_label?: string | null;
     raw_line?: string | null;
+    /** Položky jsou VÝSLEDNÝ stav celé upravované objednávky (ne jen to, co zpráva říká). */
+    plny_stav?: boolean;
   }>;
   imported_order_id?: string;
   imported_at?: string;

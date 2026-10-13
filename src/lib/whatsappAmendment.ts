@@ -277,6 +277,20 @@ export function rozsahOdpovedi(text: string | null | undefined): RozsahOdpovedi 
   return { nahradit: [...nahradit], potvrzeno: [...potvrzeno] };
 }
 
+/** Stejné pivo + obal na více řádcích („2x50" a „1x50") se sečte na jeden; pořadí podle prvního výskytu. */
+function slucStejne(polozky: ItemRef[]): ItemRef[] {
+  const vysledek: ItemRef[] = [];
+  for (const p of polozky) {
+    const i = vysledek.findIndex((v) => itemKey(v) === itemKey(p));
+    if (i >= 0 && p.beer_id && p.package_id) {
+      vysledek[i] = { ...vysledek[i], quantity: Number(vysledek[i].quantity || 0) + Number(p.quantity || 0) };
+    } else {
+      vysledek.push({ ...p, quantity: Number(p.quantity || 0) });
+    }
+  }
+  return vysledek;
+}
+
 /**
  * Složí navrhovaný obsah objednávky: co odpověď nadiktovala znovu, se
  * nahradí; co nejmenuje, zůstává.
@@ -295,10 +309,18 @@ export function slozNavrh(opts: {
   text: string | null | undefined;
   /** Katalog obalů, aby šlo položky zařadit do skupin. */
   obaly: ObalInfo[];
+  /**
+   * `zOdpovedi` je už VÝSLEDNÝ stav celé objednávky (AI dostala její obsah —
+   * viz `amendOrder` v parse-order-text — a vrátila ho i s novou položkou).
+   * Pak se „plus 1x50" nesmí přičíst k současnému obsahu: z 2x50 + [2x50, 1x50]
+   * by bylo 5x50 (z provozu 12. 10. 2026, Malešice).
+   */
+  zOdpovediJePlnyStav?: boolean;
 }): ItemRef[] {
   const { soucasne, zOdpovedi, text, obaly } = opts;
   const { nahradit } = rozsahOdpovedi(text);
   if (nahradit.length === 0) {
+    if (opts.zOdpovediJePlnyStav) return slucStejne(zOdpovedi);
     // ➕ PŘÍDAVEK: „Pro Radka ještě plus toto", „Plus 3x10 11sv". Tahle zpráva
     //    objednávku NEPOPISUJE ZNOVU — přidává k ní. Bez téhle větve by z ní
     //    vyšel návrh „objednávka = jen tyhle dvě limonády" a schválení by

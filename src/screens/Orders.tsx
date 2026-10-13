@@ -626,6 +626,8 @@ export default function Orders({
           zOdpovedi,
           text: message.message_text,
           obaly: packages.map((p) => ({ id: p.id, label: p.label, kind: (p as any).kind, volume_l: (p as any).volume_l })),
+          // Položky z odpovědi jsou VÝSLEDNÝ stav objednávky (značka z whatsapp-auto-parse).
+          zOdpovediJePlnyStav: (message.parsed_items ?? []).some((i) => i.plny_stav),
         });
 
         const upraveneRadky = navrh.map((it) => {

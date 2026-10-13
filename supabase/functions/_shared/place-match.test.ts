@@ -1,7 +1,7 @@
 // Určení odběratele ze zprávy — viz hlavička place-match.ts, proč je tohle
 // vytažené z whatsapp-auto-parse/index.ts do samostatného souboru.
 import { describe, it, expect } from 'vitest';
-import { normPlaceName, isPlaceGrounded, matchPlaceSafely, matchOwnOrderPlace, matchAgainstCatalog, resolvePlace, odberatelZHistorie, stripSenderName, wantsOwnOrder } from './place-match';
+import { preferujExaktniOdberatele, normPlaceName, isPlaceGrounded, matchPlaceSafely, matchOwnOrderPlace, matchAgainstCatalog, resolvePlace, odberatelZHistorie, stripSenderName, wantsOwnOrder } from './place-match';
 
 const PLACES = [
   { id: 'p-udubu', name: 'U Dubu' },
@@ -285,5 +285,25 @@ describe('„pro mě"/„mi": odběratel pojmenovaný jako odesílatel vyhrává
 
   it('bez „pro mě" se nic nemění', () => {
     expect(resolvePlace(['Radek'], [], 'Radek 2x30', katalog, [], null).name).toBe('Radek');
+  });
+});
+
+
+describe('preferujExaktniOdberatele — „Petr moravcik prodejna" není jiný než „petr" (13. 10. 2026)', () => {
+  const katalog = [
+    { id: 'p1', name: 'petr' },
+    { id: 'p2', name: 'Petr moravcik prodejna' },
+    { id: 'r1', name: 'Radek' },
+  ];
+  it('dlouhá varianta jména odesílatele se vymění za přesného odběratele', () => {
+    expect(preferujExaktniOdberatele({ id: 'p2', name: 'Petr moravcik prodejna' }, 'Petr Bednář', katalog, 'Pro mě na patek 30l').name).toBe('petr');
+  });
+  it('výslovně napsaný celý název zůstane', () => {
+    expect(preferujExaktniOdberatele({ id: 'p2', name: 'Petr moravcik prodejna' }, 'Petr Bednář', katalog, 'pro Petr moravcik prodejna 2x30').name).toBe('Petr moravcik prodejna');
+  });
+  it('jiný odběratel ani odesílatel bez odběratele pod svým jménem se nemění', () => {
+    expect(preferujExaktniOdberatele({ id: 'r1', name: 'Radek' }, 'Petr Bednář', katalog, 'x').name).toBe('Radek');
+    expect(preferujExaktniOdberatele({ id: 'p2', name: 'Petr moravcik prodejna' }, 'Jana Nováková', katalog, 'x').name).toBe('Petr moravcik prodejna');
+    expect(preferujExaktniOdberatele({ id: null, name: null }, 'Petr Bednář', katalog, 'x').name).toBeNull();
   });
 });

@@ -54,6 +54,15 @@ describe('parseWhatsAppOrderMessageWithAI — Petr a Malešice (12. 10. 2026)', 
     expect(r.placeId).toBe('p-petr');
   });
 
+  it('i bez „mi": AI/historie tipne „Petr moravcik prodejna", ale platí „petr" (13. 10. 2026)', async () => {
+    const text = 'Prodejna na patek 2x30l 11sv';
+    mockDb.rows.set('m2', { chat_id: 'c', created_at: '2026-10-13T08:00:00Z', quoted_text: null, sender_name: 'Objednávky pivovar', participant_name: 'Petr Bednář' });
+    vi.stubGlobal('fetch', odpoved({ place_name: 'Petr moravcik prodejna', raw_text: text, items: [{ beer_name: '11° Světlá', package_label: '30l', quantity: 2, place_name: 'Petr moravcik prodejna' }] }));
+    const r = await parseWhatsAppOrderMessageWithAI(text, BEERS, PACKAGES, PLACES, 'Objednávky pivovar', '2026-10-13T08:00:00Z', undefined, undefined, 'm2');
+    expect(r.placeName).toBe('petr');
+    expect(r.placeId).toBe('p-petr');
+  });
+
   it('Malešice: záchranná síť nepřidá fragmenty řádků, které AI už přečetla', async () => {
     const text = 'Malesice\n• SV 12 = 2x50l KEG + 2x30l KEG + 12x1,5l PET (bez etikety) + 20x0,5l lahev (etiketa MM)\n• Jantar 12 = 1x30l KEG + 10x0,5l lahev.  Děkuji moc.';
     const r1 = '• SV 12 = 2x50l KEG + 2x30l KEG + 12x1,5l PET (bez etikety) + 20x0,5l lahev (etiketa MM)';

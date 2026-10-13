@@ -99,9 +99,9 @@ export function OrderCard({ o, items, stockRemainingForOrder, nadPocetMalychSudu
       return { name: `${it.beer_name ?? ''} ${obal ? formatPackageLabel(obal.label) : it.package_label ?? ''}`.trim(), nad: nadPocetMalychSudu!.get(it.id)! };
     });
 
-  // Seřadit položky: nejdřív sudy, pak lahve; uvnitř od největšího obalu po
-  // nejmenší, při stejném obalu podle piva (viz lib/poradiPolozek.ts).
-  const sortedItems = poradiPolozekObjednavky(items, packages);
+  // Seřadit položky podle piv a velikosti obalu, jako všude v aplikaci
+  // (pořadí z katalogu, viz lib/poradiPolozek.ts).
+  const sortedItems = poradiPolozekObjednavky(items, packages, beers);
 
   // Karta se ukazuje celá, jakmile filtru vyhoví JEDEN řádek — řádky, které
   // nevyhovují, se ale v seznamu nezobrazují (viz itemMatchesFilter výše).
