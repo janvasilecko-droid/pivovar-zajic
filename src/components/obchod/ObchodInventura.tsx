@@ -6,10 +6,12 @@
 // stav obchodu. Rozdíl proti očekávanému stavu se ukáže hned a zůstane
 // v historii.
 import { useMemo, useState } from 'react';
-import { Check, ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
+import { beerBg, beerInk } from '../../lib/supabase';
+import { stavPolicka, tridyPolicka } from '../../lib/polickoInventury';
 import { businessDateISO } from '../../lib/businessDate';
 import { chyba as toastChyba, potvrd, uspech } from '../../lib/toast';
-import { stavySkladu } from '../../lib/obchodSklad';
+import { sledujeSklad, stavySkladu } from '../../lib/obchodSklad';
 import { rozdilyInventury } from '../../lib/obchodInventura';
 import { zapisInventuru, type DataObchodu } from '../../lib/obchodData';
 import { uzaverkyPresInventuru } from '../../lib/obchodSklad';
@@ -34,8 +36,20 @@ export function ObchodInventura({ data, zapsal }: { data: DataObchodu; zapsal: s
   const stavy = useMemo(() => stavySkladu(data.vstup, datum), [data.vstup, datum]);
   // Uzávěrky, které by tahle inventura přetnula — jejich prodej před ní by se odečetl podruhé.
   const presDatum = useMemo(() => uzaverkyPresInventuru(data.uzaverky, [{ kod: '*', datum }]), [data.uzaverky, datum]);
-  const piva = stavy.filter((s) => data.zbozi.find((z) => z.kod === s.kod)?.beer_id);
-  const ostatni = stavy.filter((s) => !data.zbozi.find((z) => z.kod === s.kod)?.beer_id);
+  // Inventura je jen u piv a pálenky; u ostatního zboží se sleduje jen prodej (Sklad → Prodáno).
+  const zboziPodleKodu = useMemo(() => new Map(data.zbozi.map((z) => [z.kod, z])), [data.zbozi]);
+  const sledovane = useMemo(() => stavy.filter((s) => { const z = zboziPodleKodu.get(s.kod); return z && sledujeSklad(z); }), [stavy, zboziPodleKodu]);
+  const obalyPodleId = useMemo(() => new Map(data.obaly.map((o) => [o.id, o])), [data.obaly]);
+  const poradiPiva = useMemo(() => new Map(data.piva.map((b) => [b.id, b.sort_order ?? 999])), [data.piva]);
+  // Stejné pořadí jako všude v aplikaci: pivo podle sort_order, uvnitř obaly podle sort_order.
+  const piva = useMemo(() => sledovane
+    .filter((s) => zboziPodleKodu.get(s.kod)?.beer_id)
+    .sort((a, b) => {
+      const za = zboziPodleKodu.get(a.kod)!; const zb = zboziPodleKodu.get(b.kod)!;
+      return (poradiPiva.get(za.beer_id!) ?? 999) - (poradiPiva.get(zb.beer_id!) ?? 999)
+        || (obalyPodleId.get(za.package_id ?? '')?.sort_order ?? 999) - (obalyPodleId.get(zb.package_id ?? '')?.sort_order ?? 999);
+    }), [sledovane, zboziPodleKodu, poradiPiva, obalyPodleId]);
+  const palenka = sledovane.filter((s) => !zboziPodleKodu.get(s.kod)?.beer_id);
 
   const cislo = (kod: string): number | null => {
     const t = (hodnoty[kod] ?? '').trim();
@@ -43,7 +57,7 @@ export function ObchodInventura({ data, zapsal }: { data: DataObchodu; zapsal: s
     const n = Number(t.replace(',', '.'));
     return Number.isFinite(n) && n >= 0 ? n : Number.NaN;
   };
-  const zadane = stavy.filter((s) => cislo(s.kod) != null);
+  const zadane = sledovane.filter((s) => cislo(s.kod) != null);
   const spatne = zadane.filter((s) => Number.isNaN(cislo(s.kod)));
   const radky = zadane
     .filter((s) => !Number.isNaN(cislo(s.kod)))
@@ -52,7 +66,7 @@ export function ObchodInventura({ data, zapsal }: { data: DataObchodu; zapsal: s
   function vseSedi() {
     setHodnoty((h) => {
       const dalsi = { ...h };
-      for (const s of stavy) if (s.stav != null && (dalsi[s.kod] ?? '').trim() === '') dalsi[s.kod] = String(Math.max(0, s.stav));
+      for (const s of sledovane) if (s.stav != null && (dalsi[s.kod] ?? '').trim() === '') dalsi[s.kod] = String(Math.max(0, s.stav));
       return dalsi;
     });
   }
@@ -89,31 +103,52 @@ export function ObchodInventura({ data, zapsal }: { data: DataObchodu; zapsal: s
     return <div className="text-sm font-semibold text-neutral-600">Obchod zatím nemá žádné zboží. Nejdřív zadej uzávěrku (zboží z ní vznikne) nebo přidej zboží ve Skladu.</div>;
   }
 
-  const radek = (s: (typeof stavy)[number]) => {
+  const posun = (s: (typeof stavy)[number], o: number) => setHodnoty((h) => {
     const n = cislo(s.kod);
+    const zaklad = n != null && !Number.isNaN(n) ? n : Math.max(0, s.stav ?? 0);
+    return { ...h, [s.kod]: String(Math.max(0, zaklad + o)) };
+  });
+
+  // Řádek stejně jako v Inventuře pivovaru: barva piva, pruh vlevo zelený/červený podle shody, − / + u políčka.
+  const radek = (s: (typeof stavy)[number]) => {
+    const z = zboziPodleKodu.get(s.kod);
+    const pivo = z?.beer_id ? data.piva.find((b) => b.id === z.beer_id) : undefined;
+    const obal = z?.package_id ? obalyPodleId.get(z.package_id) : undefined;
+    const n = cislo(s.kod);
+    const stavPole = stavPolicka(hodnoty[s.kod], s.stav ?? 0);
     const rozdil = n != null && !Number.isNaN(n) && s.stav != null ? Math.round((n - s.stav) * 100) / 100 : null;
+    const nazev = pivo ? `${pivo.name} · ${obal?.label ?? s.nazev}` : s.nazev;
     return (
-      <li key={s.kod} className={`rounded-xl border-2 p-2.5 ${Number.isNaN(n) ? 'border-rose-400 bg-rose-50' : rozdil != null && rozdil !== 0 ? 'border-amber-400 bg-amber-50' : 'border-neutral-200 bg-white'}`}>
-        <div className="flex items-center gap-2">
-          <div className="flex-1 min-w-0">
-            <div className="text-sm font-black text-neutral-950 truncate">{s.nazev}</div>
-            <div className="text-[11px] font-semibold text-neutral-600">
-              kód {s.kod} · {s.stav == null ? 'bez počátečního stavu' : `očekáváno ${cs(s.stav)}`}
-              {rozdil != null && rozdil !== 0 && <span className="font-black text-amber-900"> · rozdíl {rozdil > 0 ? '+' : ''}{cs(rozdil)}</span>}
-            </div>
+      <li
+        key={s.kod}
+        className={`plocha-z-dat plocha-z-dat-tlumena rounded border overflow-hidden ${stavPole === 'sedi' ? 'border-emerald-600 border-l-8' : stavPole === 'nesedi' ? 'border-rose-600 border-l-8' : 'border-neutral-200'}`}
+        style={pivo ? { backgroundColor: beerBg(pivo), ['--ink-plochy' as any]: beerInk(pivo) } : undefined}
+      >
+        <div className="p-3 space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <div className={`font-black text-sm ${pivo && beerInk(pivo) === '#ffffff' ? 'text-white' : 'text-neutral-950'}`}>{nazev}</div>
+            <span className={`shrink-0 px-2 py-1 rounded text-xs font-black ${s.stav != null && s.stav < 0 ? 'bg-rose-600 text-white' : 'bg-emerald-300/80 text-emerald-950'}`}>
+              {s.stav == null ? 'bez počátečního stavu' : `Sklad ${cs(s.stav)} ks`}
+            </span>
           </div>
-          {s.stav != null && (
-            <button type="button" className="btn-ghost !rounded !py-1.5 !px-2 text-xs font-bold" aria-label={`Sedí — ${s.nazev}`} onClick={() => setHodnoty((h) => ({ ...h, [s.kod]: String(Math.max(0, s.stav as number)) }))}>
-              <Check size={14} className="inline" /> Sedí
-            </button>
+          {rozdil != null && rozdil !== 0 && (
+            <div className="text-xs font-black">Rozdíl proti skladu {rozdil > 0 ? '+' : ''}{cs(rozdil)}</div>
           )}
-          <input
-            aria-label={`Napočítáno — ${s.nazev}`}
-            className="input !w-20 !py-1.5 text-center text-base font-black"
-            inputMode="decimal"
-            value={hodnoty[s.kod] ?? ''}
-            onChange={(e) => setHodnoty((h) => ({ ...h, [s.kod]: e.target.value }))}
-          />
+          <label className="block">
+            <span className="text-udaj font-black uppercase text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded-md inline-block mb-1">Inventura</span>
+            <div className="flex items-stretch gap-1">
+              <button type="button" onClick={() => posun(s, -1)} className="btn-pocet shrink-0 !min-h-[44px]" title="O jeden kus míň" aria-label={`O jeden kus míň — ${s.nazev}`}>−</button>
+              <input
+                aria-label={`Napočítáno — ${s.nazev}`}
+                className={`input !py-2 text-center font-mono font-black text-base w-full min-w-0 rounded shadow-inner focus:ring-2 focus:ring-amber-500 ${tridyPolicka(stavPole)}`}
+                inputMode="decimal"
+                value={hodnoty[s.kod] ?? ''}
+                onFocus={(e) => e.currentTarget.select()}
+                onChange={(e) => setHodnoty((h) => ({ ...h, [s.kod]: e.target.value }))}
+              />
+              <button type="button" onClick={() => posun(s, 1)} className="btn-pocet shrink-0 !min-h-[44px]" title="O jeden kus víc" aria-label={`O jeden kus víc — ${s.nazev}`}>+</button>
+            </div>
+          </label>
         </div>
       </li>
     );
@@ -121,8 +156,8 @@ export function ObchodInventura({ data, zapsal }: { data: DataObchodu; zapsal: s
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border-2 border-neutral-200 bg-white p-3 space-y-2">
-        <div className="text-sm font-black text-neutral-900">Inventura obchodu</div>
+      <div className="card p-4 shadow-sm border-neutral-200/80 bg-white space-y-2">
+        <div className="font-display font-black text-neutral-900 text-lg">Inventura obchodu</div>
         <div className="flex flex-wrap items-end gap-2">
           <label className="text-[11px] font-black uppercase text-neutral-500">
             Stav ke konci dne
@@ -158,12 +193,13 @@ export function ObchodInventura({ data, zapsal }: { data: DataObchodu; zapsal: s
           <ul className="space-y-1.5">{piva.map(radek)}</ul>
         </section>
       )}
-      {ostatni.length > 0 && (
-        <section aria-label="Ostatní zboží" className="space-y-1.5">
-          <h3 className="text-xs font-black uppercase tracking-wide text-neutral-600">Ostatní zboží ({ostatni.length})</h3>
-          <ul className="space-y-1.5">{ostatni.map(radek)}</ul>
+      {palenka.length > 0 && (
+        <section aria-label="Pálenka" className="space-y-1.5">
+          <h3 className="text-xs font-black uppercase tracking-wide text-neutral-600">Pálenka ({palenka.length})</h3>
+          <ul className="space-y-1.5">{palenka.map(radek)}</ul>
         </section>
       )}
+      <div className="text-[11px] font-semibold text-neutral-600">Ostatní zboží se nepočítá — jen se sčítá prodej z uzávěrek (Sklad → Prodáno, Statistika).</div>
 
       {historie.length > 0 && (
         <section aria-label="Historie inventur" className="space-y-1.5">
