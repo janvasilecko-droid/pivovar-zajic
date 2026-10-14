@@ -1,8 +1,8 @@
 // Uzávěrka obchodu (10. 10. 2026): období, přiřazení zboží z pokladny, kontrola před zápisem.
 import { describe, it, expect } from 'vitest';
 import {
-  datumZVytisteno, navrhZbozi, obalZNazvu, objemZCisla, obdobiUzaverky, pivoZNazvu, prekryvajiciUzaverky,
-  pripravZapis, type RadekKZapisu, type VstupZapisu,
+  datumZVytisteno, najdiDuplicity, navrhZbozi, obalZNazvu, objemZCisla, obdobiUzaverky, pivoZNazvu, popisZapsane, prekryvajiciUzaverky,
+  pripravZapis, type RadekKZapisu, type VstupZapisu, type ZapsanaUzaverka, type ZapsanyRadek,
 } from './obchodUzaverka';
 import { UCTENKA_2873 } from '../../supabase/functions/_shared/uzaverka.fixture';
 
@@ -192,3 +192,118 @@ describe('pripravZapis', () => {
     expect(z.chyby.join(' ')).toContain('už má v obchodě zboží s kódem 99999');
   });
 });
+
+// ── Totéž podruhé ─────────────────────────────────────────────────────────
+// 14. 10. 2026, majitel: „kontrola dat, kdyby se vyfotila na víckrát, ať se stejná data
+// nesčítají nebo neodečítají víckrát". Uzávěrka uložená dvakrát odečte kusy ze skladu dvakrát.
+
+const zapsana = (p: Partial<ZapsanaUzaverka> = {}): ZapsanaUzaverka => ({
+  id: 'u1', datum_od: '2026-10-10', datum_do: '2026-10-10', stredisko: '2', cislo: '2/2873', typ: 'denni',
+  vytisteno: '2026-10-10T10:09:00', trzba: 20675, ...p,
+});
+const zapsaneRadkyUctenky = (id = 'u1'): ZapsanyRadek[] =>
+  UCTENKA_2873.radky.map((r) => ({ uzaverka_id: id, kod: r.kod, mnozstvi: r.mnozstvi, cena: r.cena }));
+const nova = (p: Partial<Parameters<typeof najdiDuplicity>[0]> = {}) => ({
+  od: '2026-10-10', do: '2026-10-10', stredisko: '2' as string | null, vytisteno: '2026-10-10T10:09' as string | null,
+  celkem: 20675 as number | null, radky: UCTENKA_2873.radky, ...p,
+});
+
+describe('najdiDuplicity: tatáž účtenka', () => {
+  it('stejný čas tisku a stejné Celkem = tatáž účtenka (i když chybí číslo uzávěrky)', () => {
+    const d = najdiDuplicity(nova(), [zapsana()], zapsaneRadkyUctenky());
+    expect(d.stejna).toHaveLength(1);
+    expect(d.podobne).toEqual([]);   // tu už hlásí `stejna`, ne podruhé jako podobnou
+  });
+
+  it('čas tisku v databázi s vteřinami a Celkem jako text se porovná správně', () => {
+    expect(najdiDuplicity(nova(), [zapsana({ vytisteno: '2026-10-10T10:09:00', trzba: '20675.00' })]).stejna).toHaveLength(1);
+  });
+
+  it('jiné Celkem nebo jiný čas tisku není tatáž účtenka', () => {
+    expect(najdiDuplicity(nova({ celkem: 20000 }), [zapsana()]).stejna).toEqual([]);
+    expect(najdiDuplicity(nova({ vytisteno: '2026-10-10T10:10' }), [zapsana()]).stejna).toEqual([]);
+  });
+
+  it('bez času tisku nebo bez Celkem (fotka jen části účtenky) se tímhle nehlásí nic', () => {
+    expect(najdiDuplicity(nova({ vytisteno: null }), [zapsana()]).stejna).toEqual([]);
+    expect(najdiDuplicity(nova({ celkem: null }), [zapsana()]).stejna).toEqual([]);
+    expect(najdiDuplicity(nova(), [zapsana({ vytisteno: null })]).stejna).toEqual([]);
+  });
+});
+
+describe('najdiDuplicity: řada stejných řádků', () => {
+  // Fotka jen části účtenky: bez čísla, času tisku i Celkem, jiné (neznámé) středisko.
+  const cast = (n: number) => nova({ stredisko: null, vytisteno: null, celkem: null, radky: UCTENKA_2873.radky.slice(4, 4 + n) });
+
+  it('většina řádků úplně stejná jako v zapsané uzávěrce za překrývající se období → podobná', () => {
+    const d = najdiDuplicity(cast(10), [zapsana()], zapsaneRadkyUctenky());
+    expect(d.stejna).toEqual([]);
+    expect(d.podobne).toHaveLength(1);
+    expect(d.podobne[0]).toMatchObject({ shodnych: 10, zNovych: 10 });
+  });
+
+  it('stejné středisko hlídá pripravZapis (překryv období), tady se nehlásí podruhé', () => {
+    expect(najdiDuplicity(cast(10).radky && nova({ ...cast(10), stredisko: '2' }), [zapsana()], zapsaneRadkyUctenky()).podobne).toEqual([]);
+  });
+
+  it('jiné období se nehlásí (denní uzávěrky různých dnů mají zboží podobné běžně)', () => {
+    expect(najdiDuplicity(nova({ ...cast(10), od: '2026-10-11', do: '2026-10-11' }), [zapsana()], zapsaneRadkyUctenky()).podobne).toEqual([]);
+  });
+
+  it('jediný stejný řádek nebo menšina shody není podobnost', () => {
+    const jen1 = najdiDuplicity(cast(1), [zapsana()], zapsaneRadkyUctenky());
+    expect(jen1.podobne).toEqual([]);
+    // 10 řádků nové účtenky, z toho jen 3 stejné s jinými čísly u ostatních
+    const radky = UCTENKA_2873.radky.slice(4, 14).map((r, i) => (i < 3 ? r : { ...r, mnozstvi: r.mnozstvi + 100, celkem: (r.celkem ?? 0) + 100 * (r.cena ?? 0) }));
+    expect(najdiDuplicity(nova({ ...cast(10), radky }), [zapsana()], zapsaneRadkyUctenky()).podobne).toEqual([]);
+  });
+
+  it('řádky se porovnávají přesně: jiné množství nebo jiná cena není shoda', () => {
+    const jina = UCTENKA_2873.radky.slice(4, 14).map((r) => ({ ...r, mnozstvi: r.mnozstvi + 1 }));
+    expect(najdiDuplicity(nova({ ...cast(10), radky: jina }), [zapsana()], zapsaneRadkyUctenky()).podobne).toEqual([]);
+  });
+
+  it('uzávěrka bez id (starý záznam) se přeskočí, nic nespadne', () => {
+    expect(najdiDuplicity(cast(10), [zapsana({ id: undefined })], zapsaneRadkyUctenky()).podobne).toEqual([]);
+  });
+
+  it('popis zapsané uzávěrky do hlášky', () => {
+    expect(popisZapsane(zapsana())).toBe('č. 2/2873, 2026-10-10, středisko 2');
+    expect(popisZapsane(zapsana({ cislo: null, stredisko: null, datum_do: '2026-10-16' }))).toBe('2026-10-10 až 2026-10-16');
+  });
+});
+
+describe('pripravZapis: číslo uzávěrky a zdvojení', () => {
+  it('bez čísla uzávěrky se nezapíše, dokud obsluha nepotvrdí, že ho účtenka nemá', () => {
+    const t = pripravZapis(vstup({ cislo: null })).chyby.join(' ');
+    expect(t).toContain('Doplň číslo uzávěrky');
+    expect(t).toContain('pozná, že už je zapsaná');
+    expect(pripravZapis(vstup({ cislo: null, potvrzenoBezCisla: true })).chyby).toEqual([]);
+    expect(pripravZapis(vstup({ cislo: '  ' })).chyby.join(' ')).toContain('Doplň číslo uzávěrky');
+  });
+
+  it('tatáž účtenka podle času tisku a Celkem (číslo chybí na zapsané): uložit nejde', () => {
+    const z = pripravZapis(vstup({ existujiciUzaverky: [zapsana({ cislo: null, datum_od: '2026-09-01', datum_do: '2026-09-01' })] }));
+    expect(z.chyby.join(' ')).toContain('Tahle účtenka už je zapsaná');
+    expect(z.chyby.join(' ')).toContain('Celkem 20675');
+  });
+
+  it('když už hlásí stejné číslo uzávěrky, stejná účtenka se nehlásí podruhé', () => {
+    const z = pripravZapis(vstup({ existujiciUzaverky: [zapsana({ datum_od: '2026-09-01', datum_do: '2026-09-01' })] }));
+    expect(z.chyby.filter((c) => c.includes('už je zapsaná'))).toHaveLength(1);
+  });
+
+  it('podobná uzávěrka jiného střediska: uložit až po potvrzení, že je to jiná účtenka', () => {
+    const existujici = [zapsana({ stredisko: '1', cislo: '1/500', vytisteno: null, trzba: 999 })];
+    const radky = zapsaneRadkyUctenky();
+    const bez = pripravZapis(vstup({ existujiciUzaverky: existujici, zapsaneRadky: radky }));
+    expect(bez.chyby.join(' ')).toContain('26 z 26 řádků úplně stejných');
+    expect(bez.chyby.join(' ')).toContain('tatáž účtenka vyfocená podruhé');
+    expect(pripravZapis(vstup({ existujiciUzaverky: existujici, zapsaneRadky: radky, souhlasPodobna: true })).chyby).toEqual([]);
+  });
+
+  it('beze zdvojení jde celá účtenka uložit jako dřív', () => {
+    expect(pripravZapis(vstup({ existujiciUzaverky: [zapsana({ datum_od: '2026-10-03', datum_do: '2026-10-03', cislo: '2/2860', vytisteno: '2026-10-03T10:00', trzba: 5000 })], zapsaneRadky: [] })).chyby).toEqual([]);
+  });
+});
+

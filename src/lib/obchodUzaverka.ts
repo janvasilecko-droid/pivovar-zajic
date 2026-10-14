@@ -10,7 +10,7 @@
 //    člověk a zapíše se k KÓDU — příště už se nehádá,
 //  • všechno, co brání zápisu.
 import type { KatalogObal, KatalogPivo } from './fotkaPolozky';
-import { klicPivaObalu, type TypUzaverky, type UzaverkaHlavicka, type Zbozi } from './obchodSklad';
+import { klicPivaObalu, type ProdanyRadek, type TypUzaverky, type UzaverkaHlavicka, type Zbozi } from './obchodSklad';
 import { zkontrolujUzaverku, type PrectenaUzaverka, type RadekUzaverky } from '../../supabase/functions/_shared/uzaverka';
 
 const norm = (s: string | null | undefined) =>
@@ -168,6 +168,14 @@ export type PrirazeniRadku =
 
 export type RadekKZapisu = RadekUzaverky & { prirazeni: PrirazeniRadku };
 
+/** Už zapsaná uzávěrka (hlavička) — to, co se o ní ví při kontrole, že se nezapíše podruhé. */
+export type ZapsanaUzaverka = Pick<UzaverkaHlavicka, 'datum_od' | 'datum_do' | 'stredisko' | 'cislo' | 'typ' | 'trzba'> & {
+  id?: string;
+  vytisteno?: string | null;
+};
+/** Řádek už zapsané uzávěrky. */
+export type ZapsanyRadek = Pick<ProdanyRadek, 'uzaverka_id' | 'kod' | 'mnozstvi' | 'cena'>;
+
 export type VstupZapisu = {
   typ: TypUzaverky | null;
   od: string;
@@ -178,8 +186,95 @@ export type VstupZapisu = {
   celkem: number | null;
   radky: RadekKZapisu[];
   znameZbozi: Zbozi[];
-  existujiciUzaverky: Pick<UzaverkaHlavicka, 'datum_od' | 'datum_do' | 'stredisko' | 'cislo' | 'typ'>[];
+  existujiciUzaverky: ZapsanaUzaverka[];
+  /** Řádky už zapsaných uzávěrek — k poznání, že je tatáž účtenka zapisovaná podruhé (viz najdiDuplicity). */
+  zapsaneRadky?: ZapsanyRadek[];
+  /** Obsluha potvrdila, že účtenka číslo uzávěrky nemá. */
+  potvrzenoBezCisla?: boolean;
+  /** Obsluha potvrdila, že podobná zapsaná uzávěrka je jiná účtenka. */
+  souhlasPodobna?: boolean;
 };
+
+// ── Totéž podruhé ───────────────────────────────────────────────────────
+// 14. 10. 2026, majitel: účtenka se může vyfotit na víckrát (je to dlouhý pásek)
+// a „stejná data se nesmí sčítat nebo odečítat víckrát". Uzávěrka, která se uloží
+// dvakrát, by odečetla prodané kusy ze skladu dvakrát — proto tři pojistky:
+//   1. stejné číslo uzávěrky (a středisko)             — pripravZapis níž,
+//   2. stejný čas tisku a stejné Celkem                  — najdiDuplicity (`stejna`),
+//   3. řada řádků úplně stejných (kód, množství, cena)   — najdiDuplicity (`podobne`).
+// Druhá hlídá, když číslo na fotce nebylo vidět; třetí, když chybí i čas tisku
+// a Celkem (fotka jen části účtenky).
+
+export type PodobnaUzaverka = {
+  uzaverka: ZapsanaUzaverka;
+  /** Kolik řádků nové účtenky je v zapsané se stejným kódem, množstvím i cenou. */
+  shodnych: number;
+  /** Kolik řádků nové účtenky bylo s čím porovnat (má kód a množství). */
+  zNovych: number;
+};
+
+export type Duplicity = {
+  /** Tatáž účtenka už je zapsaná (stejný čas tisku a Celkem) — uložit nejde. */
+  stejna: ZapsanaUzaverka[];
+  /** Zapsané uzávěrky s řadou stejných řádků v překrývajícím se období — uložit až po potvrzení. */
+  podobne: PodobnaUzaverka[];
+};
+
+const naMinuty = (t: string | null | undefined) => (t ?? '').slice(0, 16);
+const naCislo = (v: number | string | null | undefined): number | null => {
+  if (v == null || v === '') return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+};
+
+/**
+ * Zapsané uzávěrky, jejichž data se s novou účtenkou kryjí. `podobne` se hledají
+ * jen v překrývajícím se období a u JINÉHO střediska — u stejného střediska
+ * se překrývající období zakazuje už pripravZapis. Řádky se porovnávají přesně
+ * (kód, množství, cena): dvě různé účtenky v tentýž den sdílejí nanejvýš pár
+ * řádků, kdežto tatáž účtenka podruhé skoro všechny.
+ */
+export function najdiDuplicity(
+  nova: { od: string; do: string; stredisko: string | null; vytisteno: string | null; celkem: number | null; radky: RadekUzaverky[] },
+  existujici: ZapsanaUzaverka[],
+  zapsaneRadky: ZapsanyRadek[] = [],
+): Duplicity {
+  const cas = naMinuty(nova.vytisteno);
+  const stejna = existujici.filter((u) => {
+    const trzba = naCislo(u.trzba);
+    return cas.length === 16 && naMinuty(u.vytisteno) === cas && trzba != null && nova.celkem != null && Math.abs(trzba - nova.celkem) < 0.005;
+  });
+
+  const podleUzaverky = new Map<string, ZapsanyRadek[]>();
+  for (const r of zapsaneRadky) podleUzaverky.set(r.uzaverka_id, [...(podleUzaverky.get(r.uzaverka_id) ?? []), r]);
+  const porovnatelne = nova.radky.filter((r) => r.kod.trim() !== '' && Number.isFinite(r.mnozstvi));
+
+  const podobne: PodobnaUzaverka[] = [];
+  for (const u of existujici) {
+    if (!u.id || stejna.includes(u)) continue;
+    if (!(u.datum_od <= nova.do && u.datum_do >= nova.od)) continue;
+    if ((u.stredisko ?? '') === (nova.stredisko ?? '')) continue; // stejné středisko hlídá pripravZapis
+    const radky = podleUzaverky.get(u.id) ?? [];
+    let shodnych = 0;
+    for (const r of porovnatelne) {
+      const kod = r.kod.trim();
+      const stejnyRadek = radky.some((z) => {
+        if (z.kod !== kod || Number(z.mnozstvi) !== r.mnozstvi) return false;
+        const cenaZapsana = naCislo(z.cena);
+        return cenaZapsana == null || r.cena == null || Math.abs(cenaZapsana - r.cena) < 0.005;
+      });
+      if (stejnyRadek) shodnych++;
+    }
+    if (shodnych >= 2 && shodnych * 2 >= porovnatelne.length) podobne.push({ uzaverka: u, shodnych, zNovych: porovnatelne.length });
+  }
+  return { stejna, podobne };
+}
+
+/** Jak se zapsaná uzávěrka ukáže v hlášce: „č. 2/2873, 10. 10. 2026, středisko 2". */
+export function popisZapsane(u: ZapsanaUzaverka): string {
+  const obdobi = u.datum_od === u.datum_do ? u.datum_od : `${u.datum_od} až ${u.datum_do}`;
+  return [u.cislo ? `č. ${u.cislo}` : null, obdobi, u.stredisko ? `středisko ${u.stredisko}` : null].filter(Boolean).join(', ');
+}
 
 export type NoveZbozi = { kod: string; nazev: string; beer_id: string | null; package_id: string | null; cena: number | null };
 
@@ -215,9 +310,30 @@ export function pripravZapis(v: VstupZapisu): PripravenyZapis {
       chyby.push(`Období se kryje s už zapsanou uzávěrkou (${text}). Tytéž kusy by se odečetly dvakrát — smaž tu starší, nebo uprav období.`);
     }
   }
-  if (v.cislo) {
-    const stejna = v.existujiciUzaverky.find((u) => u.cislo === v.cislo && (u.stredisko ?? '') === (v.stredisko ?? ''));
-    if (stejna) chyby.push(`Uzávěrka č. ${v.cislo} už je zapsaná.`);
+  let uzJeZapsana = false;
+  const cisloUzaverky = v.cislo?.trim() ?? '';
+  if (cisloUzaverky) {
+    const stejna = v.existujiciUzaverky.find((u) => u.cislo === cisloUzaverky && (u.stredisko ?? '') === (v.stredisko ?? ''));
+    if (stejna) { chyby.push(`Uzávěrka č. ${cisloUzaverky} už je zapsaná.`); uzJeZapsana = true; }
+  } else if (!v.potvrzenoBezCisla) {
+    // Číslo uzávěrky je jediné, podle čeho se spolehlivě pozná, že účtenka už je zapsaná
+    // (fotka, na které začátek účtenky nebyl vidět, ho nemá).
+    chyby.push('Doplň číslo uzávěrky z účtenky („Uzaverka: 2/2873“) — podle něj appka pozná, že už je zapsaná. Když účtenka číslo nemá, potvrď to.');
+  }
+  const duplicity = najdiDuplicity(
+    { od: v.od, do: v.do, stredisko: v.stredisko, vytisteno: v.vytisteno, celkem: v.celkem, radky: uctenka.radky },
+    v.existujiciUzaverky,
+    v.zapsaneRadky,
+  );
+  if (!uzJeZapsana) {
+    for (const u of duplicity.stejna) {
+      chyby.push(`Tahle účtenka už je zapsaná (uzávěrka ${popisZapsane(u)}, vytištěno ${naMinuty(u.vytisteno).replace('T', ' ')}, Celkem ${naCislo(u.trzba)}) — znovu se zapsat nedá, prodané kusy by se odečetly ze skladu podruhé.`);
+    }
+  }
+  if (!v.souhlasPodobna) {
+    for (const p of duplicity.podobne) {
+      chyby.push(`Zapsaná uzávěrka ${popisZapsane(p.uzaverka)} má ${p.shodnych} z ${p.zNovych} řádků úplně stejných (kód, množství i cena) — nejspíš tatáž účtenka vyfocená podruhé. Když je to jiná účtenka, potvrď to.`);
+    }
   }
 
   const zname = new Set(v.znameZbozi.map((z) => z.kod));
