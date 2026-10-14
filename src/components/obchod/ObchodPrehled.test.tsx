@@ -1,5 +1,6 @@
-// Obchod → Sklad (13. 10. 2026): piva jako ve Skladu (karta, Sudy/Lahve, Naskladněno + Prodáno),
-// pálenka se skladem, ostatní zboží jen s prodejem za měsíc.
+// Obchod → Sklad (13. a 14. 10. 2026): piva jako ve Skladu (karta, Sudy/Lahve) se sloupci
+// Sklad + Nafasováno + Prodáno (za celý měsíc, přepínač měsíce), pálenka se skladem
+// a příjmem, ostatní zboží jen s prodejem za měsíc.
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { ObchodPrehled } from './ObchodPrehled';
@@ -46,7 +47,7 @@ describe('Obchod → Sklad', () => {
     const svetla = screen.getByRole('heading', { name: /12° Světlá/ }).closest('.plocha-z-dat') as HTMLElement;
     const radek = within(svetla).getByText('PET 1l').closest('tr') as HTMLElement;
     expect(within(radek).getByText('7')).toBeTruthy(); // 10 − 3 prodané po inventuře
-    expect(radek.textContent).toMatch(/7.*3$/); // Naskladněno 7, Prodáno 3
+    expect(radek.textContent).toMatch(/7.*3$/); // Sklad 7, (Nafasováno 0), Prodáno 3
     expect(within(svetla).getByText('PET 1.5l')).toBeTruthy();
     const tmava = screen.getByRole('heading', { name: /12° Tmavá/ }).closest('.plocha-z-dat') as HTMLElement;
     expect(within(tmava).getByText('Sudy')).toBeTruthy();
@@ -56,9 +57,10 @@ describe('Obchod → Sklad', () => {
   it('pálenka má stav i prodej, ostatní zboží jen prodej', () => {
     render(<ObchodPrehled data={data} zapsal="Honza" jdiNa={() => {}} />);
     const palenka = screen.getByRole('region', { name: 'Pálenka' });
-    expect(within(palenka).getByText('Naskladněno')).toBeTruthy();
+    expect(within(palenka).getByText('Sklad')).toBeTruthy();
+    expect(within(palenka).getByText('Příjem')).toBeTruthy();
     const ostatni = screen.getByRole('region', { name: 'Ostatní zboží' });
-    expect(within(ostatni).queryByText('Naskladněno')).toBeNull();
+    expect(within(ostatni).queryByText('Sklad')).toBeNull();
     expect(within(ostatni).getByText('Saponát 1l')).toBeTruthy();
     expect(ostatni.textContent).toContain('7 ks');
   });
@@ -67,7 +69,7 @@ describe('Obchod → Sklad', () => {
     render(<ObchodPrehled data={data} zapsal="Honza" jdiNa={() => {}} />);
     fireEvent.click(within(screen.getByRole('region', { name: 'Ostatní zboží' })).getByText('Saponát 1l'));
     expect(screen.queryByText(/Minimum \(ks\)/)).toBeNull();
-    expect(screen.getByText(/Prodáno tento měsíc/)).toBeTruthy();
+    expect(screen.getByText(/Prodáno za celý měsíc/)).toBeTruthy();
     expect(stavySkladu(vstup as any, '2026-10-13').length).toBe(5);
   });
 });
@@ -91,5 +93,86 @@ describe('Obchod → Sklad: naskladněno po týdnech a fasování bez kódu', ()
     // Minulý týden je sbalený, po klepnutí se ukáže 12° Tmavá 5 ks.
     fireEvent.click(within(sekce).getByText('Týden 41'));
     expect(within(sekce).getByText('12° Tmavá')).toBeTruthy();
+  });
+});
+
+// 14. 10. 2026: „Obchod udělej jako sklad, sloupce budou sklad, nafasováno, prodáno,
+// údaje budou za celý měsíc."
+describe('Obchod → Sklad: sloupce Sklad, Nafasováno, Prodáno za celý měsíc', () => {
+  const fasovani = [
+    { beer_id: 'b12s', package_id: 'p1', quantity: 12, entry_date: '2026-10-13' },
+    { beer_id: 'b12s', package_id: 'p1', quantity: 5, entry_date: '2026-09-20' },
+  ];
+  const dataM = {
+    ...data, fasovani,
+    vstup: { ...(data as any).vstup, fasovani },
+    vstupSklad: { ...(data as any).vstup, fasovani },
+  } as unknown as DataObchodu;
+  const bunky = (radek: HTMLElement) => Array.from(radek.querySelectorAll('td')).map((td) => td.textContent?.trim());
+  const radekPet1 = () => {
+    const svetla = screen.getByRole('heading', { name: /12° Světlá/ }).closest('.plocha-z-dat') as HTMLElement;
+    return within(svetla).getByText('PET 1l').closest('tr') as HTMLElement;
+  };
+
+  it('tabulka na kartě piva má sloupce Obal, Sklad, Nafasováno, Prodáno', () => {
+    render(<ObchodPrehled data={dataM} zapsal="Honza" jdiNa={() => {}} />);
+    const svetla = screen.getByRole('heading', { name: /12° Světlá/ }).closest('.plocha-z-dat') as HTMLElement;
+    const hlavicka = Array.from(svetla.querySelectorAll('th')).map((th) => th.textContent);
+    expect(hlavicka).toEqual(['Obal', 'Sklad', 'Nafasováno', 'Prodáno']);
+    expect(within(svetla).queryByText('Naskladněno')).toBeNull();
+  });
+
+  it('běžící měsíc: sklad = inventura + fasování − prodej, nafasováno a prodáno za říjen', () => {
+    render(<ObchodPrehled data={dataM} zapsal="Honza" jdiNa={() => {}} />);
+    // 10 napočítáno + 12 nafasováno 13. 10. − 3 prodané; do října se zářijových 5 nepočítá.
+    expect(bunky(radekPet1())).toEqual(['PET 1l', '19', '+12', '3']);
+    expect(screen.getByText('říjen 2026')).toBeTruthy();
+  });
+
+  it('šipka zpět ukáže září: jeho nafasováno, prodáno bez říjnových a sklad ke konci září', () => {
+    render(<ObchodPrehled data={dataM} zapsal="Honza" jdiNa={() => {}} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Předchozí měsíc' }));
+    expect(screen.getByText('září 2026')).toBeTruthy();
+    // Inventura je až 1. 10., ke konci září není od čeho počítat → „—“.
+    expect(bunky(radekPet1())).toEqual(['PET 1l', '—bez inventury', '+5', '0']);
+  });
+
+  it('do budoucna se nejde a „zpět na tento měsíc“ vrátí říjen', () => {
+    render(<ObchodPrehled data={dataM} zapsal="Honza" jdiNa={() => {}} />);
+    expect((screen.getByRole('button', { name: 'Další měsíc' }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Předchozí měsíc' }));
+    expect((screen.getByRole('button', { name: 'Další měsíc' }) as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(screen.getByText('zpět na tento měsíc'));
+    expect(screen.getByText('říjen 2026')).toBeTruthy();
+    expect(bunky(radekPet1())).toEqual(['PET 1l', '19', '+12', '3']);
+  });
+
+  it('Další měsíc po šipce zpět se vrátí na říjen', () => {
+    render(<ObchodPrehled data={dataM} zapsal="Honza" jdiNa={() => {}} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Předchozí měsíc' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Další měsíc' }));
+    expect(screen.getByText('říjen 2026')).toBeTruthy();
+  });
+
+  it('pálenka: Sklad, Příjem za měsíc a Prodáno', () => {
+    const prijmy = [{ id: 'p1', kod: '5', datum: '2026-10-08', mnozstvi: 4 }];
+    const d = {
+      ...dataM, prijmy,
+      vstup: { ...(dataM as any).vstup, prijmy },
+      vstupSklad: { ...(dataM as any).vstupSklad, prijmy },
+    } as unknown as DataObchodu;
+    render(<ObchodPrehled data={d} zapsal="Honza" jdiNa={() => {}} />);
+    const palenka = screen.getByRole('region', { name: 'Pálenka' });
+    expect(palenka.textContent).toContain('+4');   // příjem za říjen
+    expect(palenka.textContent).toMatch(/Sklad.*8/); // 6 napočítáno + 4 příjem − 2 prodané
+  });
+
+  it('týdenní tabulka sleduje vybraný měsíc: v září nejsou říjnové týdny', () => {
+    render(<ObchodPrehled data={dataM} zapsal="Honza" jdiNa={() => {}} />);
+    const sekce = () => screen.getByRole('region', { name: 'Naskladněno po týdnech' });
+    expect(within(sekce()).getByText('Týden 42')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Předchozí měsíc' }));
+    expect(within(sekce()).queryByText('Týden 42')).toBeNull();
+    expect(within(sekce()).getByText('Týden 40')).toBeTruthy();   // 28. 9. – 4. 10., do konce září
   });
 });
