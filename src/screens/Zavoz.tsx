@@ -30,6 +30,7 @@ import { nactiSdilenouTabulku } from '../lib/sdilenaData';
 import { ZavozVolba } from '../components/zavoz/ZavozVolba';
 import { datumProDenObjednavky } from '../lib/keggingPlan';
 import { uloz } from '../lib/uloziste';
+import { useOdskrtavani } from '../lib/useOdskrtavani';
 
 // Stahuje se až při otevření — viz komentář u lazy() v Orders.tsx.
 const EditOrderModal = lazy(() => import('../components/EditOrderModal').then((m) => ({ default: m.EditOrderModal })));
@@ -68,6 +69,11 @@ export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
   };
   const [orders, setOrders] = useState<Order[]>([]);
   const [items, setItems] = useState<Record<string, OrderItem[]>>({});
+  // ✅ Odškrtávání nakládky a příprav: nejdřív se překreslí, pak se ukládá
+  // (lib/useOdskrtavani.ts). 14. 10. 2026: „nejde mi označovat, že mám
+  // připravený lahve" — na telefonu se slabým signálem čekalo klepnutí na
+  // server a po přenačtení se vrátilo zpátky.
+  const { nastavPriznak, prekryj } = useOdskrtavani({ items, setItems, orders, setOrders });
   // Odškrtnuté úkoly k závozu (`objednávka:druh`) — viz lib/zavozUkolyDb.ts.
   const [hotoveUkoly, setHotoveUkoly] = useState<Set<string>>(new Set());
   const [packages, setPackages] = useState<Package[]>([]);
@@ -178,7 +184,8 @@ export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
       const ids = new Set(ords.map((x) => x.id));
       const map: Record<string, OrderItem[]> = {};
       ((vsechnyPolozky as OrderItem[]) ?? []).forEach((i) => { if (ids.has(i.order_id)) (map[i.order_id] ??= []).push(i); });
-      setItems(map);
+      // Odškrtnutí, které se ještě nestihlo zapsat, přenačtení nevrátí zpět.
+      setItems(prekryj(map));
       // Odškrtnutá „vyzvednout sudy" a spol. Když se to nepovede, štítky se
       // ukážou jako neodškrtnuté — to je horší než pravda, ale ne nebezpečné.
       try {
@@ -406,73 +413,36 @@ export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
     return dayGroups;
 }, [filteredOrders]);
 
-  async function toggleItemPrepared(o: Order, it: OrderItem) {
+  // Odškrtnutí jedné položky (karta objednávky). Nejdřív se překreslí, pak se
+  // ukládá — včetně příznaku „celá objednávka připravená" (lib/useOdskrtavani.ts).
+  function toggleItemPrepared(o: Order, it: OrderItem) {
     zavibruj('odskrtnuto');
-    const newPrepared = !it.is_prepared;
-    const { error } = await supabase.from('order_items').update({ is_prepared: newPrepared }).eq('id', it.id);
-    if (error) return;
-    const its = items[o.id] ?? [];
-    const updatedItems = its.map((x) => (x.id === it.id ? { ...x, is_prepared: newPrepared } : x));
-    setItems((m) => ({ ...m, [o.id]: updatedItems }));
-    // Auto-update order is_prepared flag if all items are prepared
-    const allPrepared = updatedItems.every((x) => x.is_prepared);
-    if (allPrepared !== o.is_prepared) {
-      await supabase.from('orders').update({ is_prepared: allPrepared }).eq('id', o.id);
-      setOrders((arr) => arr.map((x) => (x.id === o.id ? { ...x, is_prepared: allPrepared } : x)));
-    }
+    void nastavPriznak([{ orderId: o.id, itemId: it.id }], 'is_prepared', !it.is_prepared);
   }
 
-
-  async function toggleItemBottled(o: Order, it: OrderItem) {
+  function toggleItemBottled(o: Order, it: OrderItem) {
     zavibruj('odskrtnuto');
-    const nove = !it.is_bottled;
-    const { error } = await supabase.from('order_items').update({ is_bottled: nove }).eq('id', it.id);
-    if (error) return;
-    const its = items[o.id] ?? [];
-    setItems((m) => ({ ...m, [o.id]: its.map((x) => (x.id === it.id ? { ...x, is_bottled: nove } : x)) }));
+    void nastavPriznak([{ orderId: o.id, itemId: it.id }], 'is_bottled', !it.is_bottled);
 
     // ⛔ „Stočeno" JEN odškrtne položku — do stáčení KEG se nic nezapisuje.
     // Zrušeno 18. 9. 2026, viz stejné místo v Orders.tsx a lib/staceniZPolozky.ts.
   }
 
-  // Toggle all order_items matching a loading-list label (beer_name + package)
-  async function toggleLoadingLabel(klic: string, currentlyAllPrepared: boolean, jenZavoz?: number) {
-    const newPrepared = !currentlyAllPrepared;
-    // Find all order_items across filteredOrders that match this label
-    // (při rozdělené nakládce jen v tom jednom závozu).
-    const toUpdate: { orderId: string; itemId: string }[] = [];
+  // Odškrtnutí celého řádku nakládky (pivo × obal přes všechny objednávky dne).
+  // Jeden zápis pro všechny položky řádku, ne jeden na položku.
+  function toggleLoadingLabel(klic: string, currentlyAllPrepared: boolean, jenZavoz?: number) {
+    // Najdi všechny položky objednávek, které patří k řádku — podle identity
+    // pivo × obal, ne podle napsaného názvu (29. 9. 2026); při rozdělené
+    // nakládce jen v tom jednom závozu.
+    const cile: { orderId: string; itemId: string }[] = [];
     filteredOrders.filter((o) => !jenZavoz || (o.zavoz_cislo ?? 1) === jenZavoz).forEach((o) => {
       (items[o.id] ?? []).forEach((it) => {
-        // Podle identity pivo × obal, ne podle napsaného názvu (29. 9. 2026).
-        if (klicNakladky(it as any, packages as any) === klic) toUpdate.push({ orderId: o.id, itemId: it.id });
+        if (klicNakladky(it as any, packages as any) === klic) cile.push({ orderId: o.id, itemId: it.id });
       });
     });
-    if (!toUpdate.length) return;
-    // Batch update in DB
-    await Promise.all(toUpdate.map(({ itemId }) =>
-      supabase.from('order_items').update({ is_prepared: newPrepared }).eq('id', itemId)
-    ));
-    // Update local state
-    setItems((m) => {
-      const next = { ...m };
-      toUpdate.forEach(({ orderId, itemId }) => {
-        next[orderId] = (next[orderId] ?? []).map((x) => x.id === itemId ? { ...x, is_prepared: newPrepared } : x);
-      });
-      return next;
-    });
-    // Auto-mark orders as prepared if all items done
-    const orderIds = [...new Set(toUpdate.map((x) => x.orderId))];
-    for (const oid of orderIds) {
-      const updatedIts = (items[oid] ?? []).map((x) =>
-        toUpdate.find((u) => u.itemId === x.id) ? { ...x, is_prepared: newPrepared } : x
-      );
-      const allPrepared = updatedIts.every((x) => x.is_prepared);
-      const order = filteredOrders.find((o) => o.id === oid);
-      if (order && allPrepared !== order.is_prepared) {
-        await supabase.from('orders').update({ is_prepared: allPrepared }).eq('id', oid);
-        setOrders((arr) => arr.map((x) => (x.id === oid ? { ...x, is_prepared: allPrepared } : x)));
-      }
-    }
+    if (!cile.length) return;
+    zavibruj('odskrtnuto');
+    void nastavPriznak(cile, 'is_prepared', !currentlyAllPrepared);
   }
 
   async function toggleDelivered(o: Order, afterDeliveredCallback?: () => void) {

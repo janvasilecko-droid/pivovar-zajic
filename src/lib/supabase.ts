@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { useEffect, useRef } from 'react';
 import { cacheGetResponse, getCachedResponse, getTableRows, upsertTableRows } from './offlineCache';
-import { enqueue, getQueue } from './offline';
+import { aplikujOperace, cekajiciUpravy, enqueue, getQueue, nedavneProslyZapisy, zapamatujProsly, type QueuedOp } from './offline';
 import { zneplatniTabulku, zneplatniVse } from './zneplatneni';
 
 const url = import.meta.env.VITE_SUPABASE_URL as string;
@@ -62,7 +62,31 @@ function getHeader(init: RequestInit | undefined, name: string): string | null {
   return (h as Record<string, string>)[name] ?? null;
 }
 
-function parseRest(url: URL): RestInfo | null {
+/**
+ * Hodnoty z filtru `in.(a,b,"c,d")` (bez předpony `in.`) jako pole.
+ *
+ * Dřív se jen rozdělilo podle čárek, takže v první hodnotě zůstala levá
+ * závorka a v poslední pravá („(a", „b)"). Hromadný zápis s `.in()` ve frontě
+ * pak po návratu signálu neodešel s pravými id, ale s „(a" — databáze ho
+ * odmítla jako neplatné uuid a zápis navždy visel mezi „čekajícími". Stejně
+ * tak se `.in()` nikdy nepřimíchalo do staré mezipaměti.
+ */
+export function hodnotyZIn(v: string): string[] {
+  let s = v.trim();
+  if (s.startsWith('(') && s.endsWith(')')) s = s.slice(1, -1);
+  const out: string[] = [];
+  let cur = '';
+  let vUvozovkach = false;
+  for (const ch of s) {
+    if (ch === '"') { vUvozovkach = !vUvozovkach; continue; }
+    if (ch === ',' && !vUvozovkach) { out.push(cur.trim()); cur = ''; continue; }
+    cur += ch;
+  }
+  out.push(cur.trim());
+  return out.filter((x) => x !== '');
+}
+
+export function parseRest(url: URL): RestInfo | null {
   const idx = url.pathname.indexOf(REST_PREFIX);
   if (idx === -1) return null;
   const rest = url.pathname.slice(idx + REST_PREFIX.length);
@@ -74,7 +98,7 @@ function parseRest(url: URL): RestInfo | null {
   for (const [k, v] of url.searchParams) {
     if (k === 'on_conflict') { onConflict = v; continue; }
     if (v.startsWith('eq.')) eq[k] = v.slice(3);
-    else if (v.startsWith('in.')) inMatch[k] = v.slice(3).split(',').map((s) => s.trim());
+    else if (v.startsWith('in.')) inMatch[k] = hodnotyZIn(v.slice(3));
     else if (k === 'or' || k === 'and' || FILTER_RE.test(v)) jineFiltry = true;
   }
   return { table, eq, inMatch, onConflict, jineFiltry };
@@ -90,48 +114,14 @@ function jsonResponse(body: any, status = 200, headers: Record<string, string> =
   return new Response(JSON.stringify(body), { status, headers: h });
 }
 
-function rowMatches(row: any, match?: Record<string, any>): boolean {
-  if (!match) return true;
-  return Object.entries(match).every(([k, v]) => row?.[k] === v || String(row?.[k]) === String(v));
-}
-
-/** Merge pending (queued) ops for a table into cached rows so offline lists reflect local changes. */
+/**
+ * Do řádků ze staré mezipaměti přimíchá, co se od jejího uložení dělalo:
+ * zápisy čekající ve frontě i zápisy, které prošly (offline.ts, nedavneProslyZapisy).
+ * Ty druhé byly dřív cestou ke ztracenému odškrtnutí na slabém signálu.
+ */
 function applyPendingOps(rows: any[], table: string): any[] {
-  const ops = getQueue().filter((o) => o.table === table);
-  if (ops.length === 0) return rows;
-  let result = rows.slice();
-  for (const op of ops) {
-    if (op.op === 'insert') {
-      const r = op.row;
-      if (!r) continue;
-      const idx = result.findIndex((x) => x?.id && r.id && x.id === r.id);
-      if (idx >= 0) result[idx] = { ...result[idx], ...r };
-      else result.push({ ...r });
-    } else if (op.op === 'update' || op.op === 'upsert') {
-      const r = op.row;
-      if (!r) continue;
-      let found = false;
-      result = result.map((x) => {
-        if (r.id && x?.id && x.id === r.id) { found = true; return { ...x, ...r }; }
-        if (!r.id && rowMatches(x, op.match)) { found = true; return { ...x, ...r }; }
-        return x;
-      });
-      if (!found && r.id && !op.match && !op.inMatch) result.push({ ...r });
-    } else if (op.op === 'delete') {
-      const inMatch = op.inMatch;
-      if (inMatch) {
-        result = result.filter((x) => {
-          for (const [k, vals] of Object.entries(inMatch)) {
-            if (x?.[k] !== undefined && (vals as any[]).includes(x[k])) return false;
-          }
-          return true;
-        });
-      } else if (op.match && Object.keys(op.match).length > 0) {
-        result = result.filter((x) => !rowMatches(x, op.match));
-      }
-    }
-  }
-  return result;
+  const ops = [...nedavneProslyZapisy(table), ...getQueue().filter((o) => o.table === table)];
+  return aplikujOperace(rows, ops);
 }
 
 /**
@@ -235,6 +225,30 @@ export function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit): 
   return fetch(input, { ...init, signal: controller.signal }).finally(() => clearTimeout(timer));
 }
 
+/**
+ * Čerstvá odpověď serveru + úpravy, které čekají ve frontě telefonu (server je
+ * zatím nezná). Bez toho by první přenačtení, které projde, odškrtnutí z
+ * obrazovky smazalo, i když v telefonu čeká na odeslání. `null` = není co měnit.
+ */
+async function sCekajicimiUpravami(res: Response, ops: QueuedOp[]): Promise<Response | null> {
+  try {
+    const text = await res.clone().text();
+    if (!text) return null;
+    const telo = JSON.parse(text);
+    const jedenRadek = !Array.isArray(telo);
+    if (jedenRadek && (telo === null || typeof telo !== 'object')) return null;
+    const radky: any[] = jedenRadek ? [telo] : telo;
+    const upravene = aplikujOperace(radky, ops);
+    if (upravene.length !== radky.length || upravene.every((r, i) => r === radky[i])) return null;
+    const hlavicky = new Headers(res.headers);
+    hlavicky.delete('content-length');
+    hlavicky.delete('content-encoding');
+    return new Response(JSON.stringify(jedenRadek ? upravene[0] : upravene), { status: res.status, statusText: res.statusText, headers: hlavicky });
+  } catch {
+    return null;   // pojistka navíc — odpověď serveru se kvůli ní nikdy neztratí
+  }
+}
+
 async function handleGet(input: RequestInfo | URL, init: RequestInit | undefined, url: URL, rest: RestInfo | null): Promise<Response> {
   const prefer = getHeader(init, 'prefer') ?? '';
   const wantCount = prefer.includes('count=exact');
@@ -256,6 +270,10 @@ async function handleGet(input: RequestInfo | URL, init: RequestInit | undefined
           if (arr.length > 0) upsertTableRows(rest.table, arr);
         } catch { /* non-JSON body — nothing to cache */ }
       }).catch(() => { /* offline cache je jen bonus */ });
+      // Mezipaměť dostala čistá data serveru; obrazovka k nim navíc dostane úpravy,
+      // které čekají ve frontě (server je zatím nezná).
+      const cekajici = cekajiciUpravy(rest.table);
+      if (cekajici.length > 0) return (await sCekajicimiUpravami(res, cekajici)) ?? res;
     }
     return res;
   } catch {
@@ -264,7 +282,21 @@ async function handleGet(input: RequestInfo | URL, init: RequestInit | undefined
   }
 }
 
-function synthesizeWrite(init: RequestInit, rest: RestInfo, method: string): Response {
+/** Úprava nebo smazání (PATCH / DELETE) jako zápis pro frontu a pro paměť prošlých zápisů. */
+function operaceZapisu(init: RequestInit, rest: RestInfo, method: string): Omit<QueuedOp, 'id' | 'ts'> | null {
+  if (method !== 'PATCH' && method !== 'DELETE') return null;
+  const match = Object.keys(rest.eq).length ? rest.eq : undefined;
+  const inMatch = Object.keys(rest.inMatch).length ? rest.inMatch : undefined;
+  if (method === 'DELETE') return { table: rest.table, op: 'delete', match, inMatch };
+  let body: any = null;
+  try {
+    body = init.body && typeof init.body === 'string' ? JSON.parse(init.body) : null;
+  } catch { body = null; }
+  const row = (Array.isArray(body) ? body[0] : body) ?? {};
+  return { table: rest.table, op: 'update', match, inMatch, row };
+}
+
+function synthesizeWrite(init: RequestInit, rest: RestInfo, method: string, zahajeno: number = Date.now()): Response {
   const prefer = getHeader(init, 'prefer') ?? '';
   const returnsRepr = prefer.includes('return=representation');
   const isUpsert = !!rest.onConflict && prefer.includes('resolution=merge-duplicates');
@@ -282,7 +314,7 @@ function synthesizeWrite(init: RequestInit, rest: RestInfo, method: string): Res
     for (const raw of rows) {
       const row = { ...(raw ?? {}) };
       if (!row.id) row.id = crypto.randomUUID();
-      if (!skip) enqueue({ table: rest.table, op, row, onConflict: rest.onConflict ?? undefined });
+      if (!skip) enqueue({ table: rest.table, op, row, onConflict: rest.onConflict ?? undefined }, zahajeno);
       out.push(row);
     }
     return jsonResponse(returnsRepr ? out : [], 201);
@@ -290,25 +322,12 @@ function synthesizeWrite(init: RequestInit, rest: RestInfo, method: string): Res
 
   if (method === 'PATCH') {
     const row = rows[0] ?? {};
-    if (!skip) {
-      enqueue({
-        table: rest.table, op: 'update',
-        match: Object.keys(rest.eq).length ? rest.eq : undefined,
-        inMatch: Object.keys(rest.inMatch).length ? rest.inMatch : undefined,
-        row,
-      });
-    }
+    if (!skip) enqueue(operaceZapisu(init, rest, method)!, zahajeno);
     return jsonResponse(returnsRepr ? [row] : [], 200);
   }
 
   if (method === 'DELETE') {
-    if (!skip) {
-      enqueue({
-        table: rest.table, op: 'delete',
-        match: Object.keys(rest.eq).length ? rest.eq : undefined,
-        inMatch: Object.keys(rest.inMatch).length ? rest.inMatch : undefined,
-      });
-    }
+    if (!skip) enqueue(operaceZapisu(init, rest, method)!, zahajeno);
     return jsonResponse([], 200);
   }
 
@@ -339,9 +358,18 @@ async function handleWrite(input: RequestInfo | URL, init: RequestInit, rest: Re
   }
 
   // Nejdřív zkusíme síť (přeskočíme, když víme, že jsme offline).
+  // `zahajeno` = kdy se zápis dělal; podle toho se skládá pořadí ve staré mezipaměti.
+  const zahajeno = Date.now();
   if (navigator.onLine) {
     try {
       const res = await fetchWithTimeout(input, init);
+      // Prošlý zápis se na chvíli pamatuje — kdyby se obrazovka hned potom
+      // přenačítala a síť zrovna neodpovídala, ukáže se ze staré mezipaměti
+      // i s ním (viz nedavneProslyZapisy v offline.ts).
+      if (res.ok && !TELEMETRY_TABLES.has(rest.table)) {
+        const prosly = operaceZapisu(init, rest, method);
+        if (prosly) zapamatujProsly(prosly, zahajeno);
+      }
       if (res.ok && method === 'POST') {
         const prefer = getHeader(init, 'prefer') ?? '';
         if (prefer.includes('return=representation')) {
@@ -359,7 +387,7 @@ async function handleWrite(input: RequestInfo | URL, init: RequestInit, rest: Re
     } catch { /* síťová chyba → zařadit do fronty */ }
   }
 
-  return synthesizeWrite(init, rest, method);
+  return synthesizeWrite(init, rest, method, zahajeno);
 }
 
 /**

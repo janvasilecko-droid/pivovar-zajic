@@ -1,4 +1,4 @@
-import { uloz } from './uloziste';
+import { smaz, uloz } from './uloziste';
 // Offline queue + sync for the PWA.
 // Stores pending mutations in localStorage and replays them when online.
 // Each entry is a Supabase operation: { table, op: 'insert'|'update'|'delete', match?: Record<string,any>, row?: Record<string,any> }.
@@ -39,10 +39,37 @@ function jeNebezpecneOznaceniZavozu(op: QueuedOp): boolean {
   return Object.keys(m).length === 1 && 'is_delivered' in m && !op.inMatch;
 }
 
+/**
+ * Zápisy s `.in()`, které se do fronty dostaly s hodnotami „(a" … „b)".
+ * Do 14. 10. 2026 se filtr `in.(a,b)` z adresy rozdělil jen podle čárek a
+ * závorky zůstaly v první a poslední hodnotě (viz hodnotyZIn v supabase.ts).
+ * Takový zápis po návratu signálu nikdy neodešel s pravými id a visel mezi
+ * čekajícími — tady se z hodnot závorky sundají. Seznam je „obalený závorkami",
+ * jen když první hodnota začíná „(" a poslední končí „)".
+ */
+export function opravInMatch(inMatch: Record<string, any[]> | undefined): Record<string, any[]> | undefined {
+  if (!inMatch) return inMatch;
+  const out: Record<string, any[]> = {};
+  for (const [k, vals] of Object.entries(inMatch)) {
+    const obaleno = vals.length > 0 && String(vals[0]).startsWith('(') && String(vals[vals.length - 1]).endsWith(')');
+    out[k] = obaleno
+      ? vals.map((v, i) => {
+          let t = String(v);
+          if (i === 0) t = t.slice(1);
+          if (i === vals.length - 1) t = t.slice(0, -1);
+          return t;
+        })
+      : vals;
+  }
+  return out;
+}
+
 function read(): QueuedOp[] {
   try {
     const q: QueuedOp[] = JSON.parse(localStorage.getItem(KEY) ?? '[]');
-    return q.filter((op) => !ZAHODIT_Z_FRONTY.has(op.table) && !jeNebezpecneOznaceniZavozu(op));
+    return q
+      .filter((op) => !ZAHODIT_Z_FRONTY.has(op.table) && !jeNebezpecneOznaceniZavozu(op))
+      .map((op) => (op.inMatch ? { ...op, inMatch: opravInMatch(op.inMatch) } : op));
   } catch { return []; }
 }
 function write(q: QueuedOp[]) {
@@ -77,11 +104,125 @@ export function queueLength() { return read().length; }
  */
 let poslednizapisDoFronty = 0;
 
-export function enqueue(op: Omit<QueuedOp, 'id' | 'ts'>) {
+/**
+ * `ts` = kdy člověk zápis dělal (zahájení požadavku), ne kdy po desetivteřinovém
+ * čekání spadl do fronty. Podle toho se ve staré mezipaměti skládá pořadí zápisů
+ * (viz aplikujOperace) a prošlý zápis z doby mezi tím by jinak vyšel dřív.
+ */
+export function enqueue(op: Omit<QueuedOp, 'id' | 'ts'>, ts: number = Date.now()) {
   const q = read();
-  q.push({ ...op, id: crypto.randomUUID(), ts: Date.now() });
+  q.push({ ...op, id: crypto.randomUUID(), ts });
   write(q);
   poslednizapisDoFronty = Date.now();
+}
+
+// ── Nedávné prošlé zápisy ──────────────────────────────────────────────────
+// 14. 10. 2026: „nejde mi označovat, že mám připravený lahve" — telefon na
+// slabém signálu (E, pár KB/s). Odškrtnutí na server DOŠLO, jenže po každé
+// změně se obrazovka přenačítá a přenačtení se na desetivteřinových dotazech
+// odpovědi nedočkalo a spadlo na starou mezipaměť. Ta znala jen zápisy
+// ČEKAJÍCÍ ve frontě; o odškrtnutí, které prošlo rovnou, nevěděla — a to se
+// po chvíli vrátilo zpátky. V databázi přitom bylo odškrtnuto, na telefonu ne.
+//
+// Proto se na chvíli pamatuje i zápis, který prošel, a ve staré mezipaměti se
+// přimíchá stejně jako fronta. Čerstvá data ze serveru se tím nikdy nemění.
+const KEY_NEDAVNE = 'pivovar_nedavne_zapisy_v1';
+/** Jak dlouho se prošlý zápis pamatuje (jedna směna). */
+export const NEDAVNE_MAX_STARI_MS = 12 * 60 * 60 * 1000;
+const NEDAVNE_MAX_POCET = 300;
+
+function readNedavne(): QueuedOp[] {
+  try {
+    const q = JSON.parse(localStorage.getItem(KEY_NEDAVNE) ?? '[]');
+    return Array.isArray(q) ? q : [];
+  } catch { return []; }
+}
+
+/** Zapamatuje prošlý zápis (úprava nebo smazání) pro starou mezipaměť. Nikdy nic neshodí. */
+export function zapamatujProsly(op: Omit<QueuedOp, 'id' | 'ts'>, ts: number = Date.now(), ted: number = Date.now()) {
+  try {
+    const dosud = readNedavne().filter((o) => ted - o.ts < NEDAVNE_MAX_STARI_MS);
+    dosud.push({ ...op, id: crypto.randomUUID(), ts });
+    uloz(KEY_NEDAVNE, JSON.stringify(dosud.slice(-NEDAVNE_MAX_POCET)));
+  } catch { /* pojistka pro starou mezipaměť — zápis kvůli ní nikdy nespadne */ }
+}
+
+/** Prošlé zápisy do tabulky za posledních NEDAVNE_MAX_STARI_MS. */
+export function nedavneProslyZapisy(table: string, ted: number = Date.now()): QueuedOp[] {
+  return readNedavne().filter((o) => o.table === table && ted - o.ts < NEDAVNE_MAX_STARI_MS);
+}
+
+/** Jen pro testy. */
+export function zapomenProslyZapisy() {
+  smaz(KEY_NEDAVNE);
+}
+
+/**
+ * Čekající ÚPRAVY tabulky, které se mají promítnout i do ČERSTVÝCH dat ze serveru.
+ *
+ * Zápis, který na slabém signálu vypršel (10 s) a skončil ve frontě, server ještě
+ * nezná. První přenačtení, které potom projde, by ho z obrazovky smazalo — odškrtnutí
+ * by zmizelo, i když v telefonu čeká na odeslání („Čeká 1 změn"). Do čerstvých dat
+ * se proto přimíchají úpravy (ne vkládání a mazání — to by měnilo počty řádků).
+ *
+ * Nepromítají se úpravy, které při posledním odesílání selhaly (uvízly; v databázi
+ * nikdy nebudou, takže by je obrazovka ukazovala neprávem), a úpravy starší než
+ * NEDAVNE_MAX_STARI_MS.
+ */
+export function cekajiciUpravy(table: string, ted: number = Date.now()): QueuedOp[] {
+  const fronta = read();
+  if (fronta.length === 0) return [];
+  const selhalo = new Set(getLastSyncFailures().map((f) => f.id));
+  return fronta.filter((o) => o.table === table && o.op === 'update' && !selhalo.has(o.id) && ted - o.ts < NEDAVNE_MAX_STARI_MS);
+}
+
+function rowMatches(row: any, match?: Record<string, any>): boolean {
+  if (!match) return true;
+  return Object.entries(match).every(([k, v]) => row?.[k] === v || String(row?.[k]) === String(v));
+}
+
+/** Řádek vyhovuje filtru `.in()` — v každém sloupci je jedna z hodnot. */
+function vInMatch(row: any, inMatch?: Record<string, any[]>): boolean {
+  if (!inMatch) return true;
+  return Object.entries(inMatch).every(([k, vals]) => vals.some((v) => String(row?.[k]) === String(v)));
+}
+
+/**
+ * Přimíchá zápisy (fronta, nedávné prošlé) do řádků ze STARÉ mezipaměti, ať
+ * obrazovka po výpadku nebo pomalé síti ukazuje i to, co člověk právě udělal.
+ * Zápisy se skládají v pořadí, v jakém se dělaly (`ts`).
+ *
+ * Úprava s filtrem zasáhne jen řádky, které filtru vyhovují — i u `.in()`.
+ * Dřív se `.in()` nebralo v úvahu a hromadná úprava ve frontě se ve staré
+ * mezipaměti přimíchala do VŠECH řádků tabulky.
+ */
+export function aplikujOperace(rows: any[], ops: QueuedOp[]): any[] {
+  if (ops.length === 0) return rows;
+  let result = rows.slice();
+  for (const op of [...ops].sort((a, b) => a.ts - b.ts)) {
+    if (op.op === 'insert') {
+      const r = op.row;
+      if (!r) continue;
+      const idx = result.findIndex((x) => x?.id && r.id && x.id === r.id);
+      if (idx >= 0) result[idx] = { ...result[idx], ...r };
+      else result.push({ ...r });
+    } else if (op.op === 'update' || op.op === 'upsert') {
+      const r = op.row;
+      if (!r) continue;
+      const maFiltr = !!op.match || !!op.inMatch;
+      let found = false;
+      result = result.map((x) => {
+        if (r.id && x?.id && x.id === r.id) { found = true; return { ...x, ...r }; }
+        if (!r.id && maFiltr && rowMatches(x, op.match) && vInMatch(x, op.inMatch)) { found = true; return { ...x, ...r }; }
+        return x;
+      });
+      if (!found && r.id && !op.match && !op.inMatch) result.push({ ...r });
+    } else if (op.op === 'delete') {
+      if (!op.match && !op.inMatch) continue;
+      result = result.filter((x) => !(rowMatches(x, op.match) && vInMatch(x, op.inMatch)));
+    }
+  }
+  return result;
 }
 
 /**
