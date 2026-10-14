@@ -179,6 +179,11 @@ function jeTydenniStav(note: string | null | undefined): boolean {
   return (note || '').startsWith('Týdenní inventura');
 }
 
+/** Týdenní počítání z dřívějšího dne (pátek…): je to stav KE KONCI toho dne. */
+function jeZaverDne(note: string | null | undefined): boolean {
+  return jeNapocitanyStav(note) || (jeTydenniStav(note) && (note || '').includes('(konec dne)'));
+}
+
 /**
  * Srovnání, které vzniklo Z inventury („Doplněno/Odečteno z inventury …",
  * „Dorovnání z inventury týdne …"). Napočítané číslo ho už obsahuje, takže se
@@ -419,7 +424,7 @@ export function stockAsOf(movements: Movement[], dateISO: string): Map<string, S
     //
     // „Počáteční stav" popisuje naopak ráno prvního dne měsíce: co se ten den
     // stočí nebo vydá, teprve přijde a přičíst se musí.
-    const zaverDne = jeNapocitanyStav(baselineNote);
+    const zaverDne = jeZaverDne(baselineNote);
     for (const m of list) {
       if (m.kind === 'inventura') continue;
       // Počítání v pondělí ráno je pravda: zápis ze dne před ním (i zpětně zadaný
@@ -453,7 +458,7 @@ export function stockAtStartOfDay(movements: Movement[], dateISO: string): Map<s
   return stockAsOf(
     movements.filter((m) => {
       if (m.kind !== 'inventura') return m.date < dateISO;
-      return m.date < dateISO || (m.date === dateISO && !jeNapocitanyStav(m.note));
+      return m.date < dateISO || (m.date === dateISO && !jeZaverDne(m.note));
     }),
     dateISO
   );

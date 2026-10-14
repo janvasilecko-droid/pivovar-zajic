@@ -164,7 +164,7 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
     // Bez vlastního promítnutí tohohle týdne do Skladu (tydenniJakoInventura) —
     // jinak by po uložení „čeká se" bylo rovno napočítanému a rozdíly zmizely.
     const vlastni = poznamkaTydenniInventury(obdobi.od);
-    const pohyby = kniha.pohyby.filter((m) => !(m.kind === 'inventura' && m.note === vlastni));
+    const pohyby = kniha.pohyby.filter((m) => !(m.kind === 'inventura' && (m.note ?? '').startsWith(vlastni)));
     const sklad = ocekavanyStavTydne(pohyby, obdobi.od, obdobi.doPocitani, minulyTyden);
     return jenAktivni(radkyTydne(sklad, kniha.piva, kniha.obaly, napocitano));
   }, [kniha, obdobi.od, obdobi.doPocitani, napocitano, minulyTyden]);
