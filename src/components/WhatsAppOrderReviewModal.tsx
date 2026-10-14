@@ -1643,120 +1643,59 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
           </div>
         )}
 
-        {/* Informace o zprávě */}
-        <div className="border rounded p-4 bg-sky-50">
-          <div className="flex items-center gap-2 mb-2">
-            {isImage ? (
-              <ImageIcon size={18} className="text-sky-600" />
-            ) : (
-              <MessageSquare size={18} className="text-sky-600" />
-            )}
-            <div className="font-medium text-sky-800">Nová WhatsApp objednávka</div>
-          </div>
+        {/* Stav zpracování — nahoře, ať je na první pohled vidět, že zpráva
+            je rozparsovaná (14. 10. 2026, majitel: „zajímá mě, jestli je to
+            parsovaný, přečtený a ty data“). Pod ním hned následuje kontrola
+            čtení a rozpoznaná data. Odesílatel, čas přijetí a typ zprávy
+            (karta „Nová WhatsApp objednávka“) jsou až úplně dole. */}
+        <div
+          data-stav-zpracovani
+          className={`flex items-center gap-2 flex-wrap rounded border px-3 py-2 text-sm font-semibold ${
+            isParsed || isImported ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+            : isPending ? 'bg-amber-50 border-amber-200 text-amber-800'
+            : isError ? 'bg-rose-50 border-rose-200 text-rose-800'
+            : 'bg-neutral-50 border-neutral-200 text-neutral-700'
+          }`}
+        >
+          {isParsed ? (
+            <span className="flex items-center gap-1.5">
+              <Check size={15} /> Rozparsováno AI
+            </span>
+          ) : isImported ? (
+            <span className="flex items-center gap-1.5">
+              <Check size={15} /> Rozparsováno a importováno do objednávky
+            </span>
+          ) : isPending ? (
+            <span className="flex items-center gap-1.5">
+              <AlertCircle size={15} /> Čeká na parsování
+            </span>
+          ) : isError ? (
+            <span className="flex items-center gap-1.5 min-w-0" title={message.error_message || undefined}>
+              <AlertTriangle size={15} className="shrink-0" /> Čtení AI selhalo{message.error_message ? ` — ${message.error_message}` : ''}
+            </span>
+          ) : (
+            <span>Zpracovává se...</span>
+          )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div>
-              <div className="text-sm text-neutral-600">Odesílatel</div>
-              <div className="font-medium">{message.sender_name}</div>
-            </div>
-
-            <div>
-              <div className="text-sm text-neutral-600">Čas přijetí</div>
-              <div className="font-medium">
-                {new Date(message.message_timestamp || message.created_at).toLocaleString('cs-CZ', {
-                  day: '2-digit',
-                  month: '2-digit',
-                  year: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit'
-                })}
-              </div>
-            </div>
-
-            <div>
-              <div className="text-sm text-neutral-600">Typ zprávy</div>
-              <div className="font-medium flex items-center gap-1">
-                {isImage ? (<><ImageIcon size={14} /> Fotka</>) : (<><MessageSquare size={14} /> Text</>)}
-              </div>
-            </div>
-
-            <div>
-              <div className="text-sm text-neutral-600">Stav zpracování</div>
-              <div className="font-medium">
-                {isParsed ? (
-                  <span className="text-emerald-600 flex items-center gap-1">
-                    <Check size={14} /> Rozparsováno AI
-                  </span>
-                ) : isPending ? (
-                  <span className="text-amber-600 flex items-center gap-1">
-                    <AlertCircle size={14} /> Čeká na parsování
-                  </span>
-                ) : isError ? (
-                  <span className="text-rose-600 flex items-center gap-1" title={message.error_message || undefined}>
-                    <AlertTriangle size={14} /> Čtení AI selhalo{message.error_message ? ` — ${message.error_message}` : ''}
-                  </span>
-                ) : (
-                  <span className="text-neutral-600">Zpracovává se...</span>
-                )}
-
-                {(isPending || isError) && (
-                  <button
-                    onClick={handleReparse}
-                    disabled={reparsing || loading}
-                    className="mt-1.5 flex items-center gap-1.5 px-2.5 py-1 rounded bg-sky-700 text-white text-xs font-semibold hover:bg-sky-800 disabled:opacity-50 disabled:cursor-not-allowed tap"
-                    title="Ručně spustit AI parsování této zprávy"
+          {(isPending || isError) && (
+            <button
+              onClick={handleReparse}
+              disabled={reparsing || loading}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-sky-700 text-white text-xs font-semibold hover:bg-sky-800 disabled:opacity-50 disabled:cursor-not-allowed tap"
+              title="Ručně spustit AI parsování této zprávy"
             >
-                    {reparsing ? <RefreshCw size={13} className="animate-spin" /> : <RefreshCw size={13} />}
-                    {reparsing ? 'Parsuji...' : isError ? 'Zkusit znovu' : 'Parsovat ručně'}
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Fotka/příloha — čtení objednávek z fotky: zoomovatelný/posuvný
-              náhled (stejná komponenta jako ruční „Číst z fotky"). Když je
-              foto k dispozici, zobrazí se v napevno přilepeném panelu nahoře
-              (viz níže), tady jen odkazy pro otevření/stažení — jde tak
-              průběžně porovnávat fotku s tím, co se z ní zapsalo (#22,
-              DeepSeek fotky nečte, takže je kontrola objednávky z fotky
-              vždy na člověku). */}
-          {message.media_url ? (
-            <div className="mt-3">
-              {!useFullscreenPhotoLayout && (
-                <div className="h-[45vh] sm:h-96 rounded overflow-hidden border border-sky-200 shadow-lg">
-                  <PhotoReviewPane
-                    photos={[{ dataUrl: message.media_url, name: 'Fotka objednávky' }]}
-                    activeIndex={0}
-                    onChangeIndex={() => {}}
-                  />
-                </div>
-              )}
-              <div className="mt-2 flex flex-wrap gap-2">
-                <a
-                  href={message.media_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded bg-sky-700 hover:bg-sky-800 text-white text-xs font-semibold"
-                >
-                  <ExternalLink size={14} /> Otevřít fotografii
-                </a>
-                <a
-                  href={message.media_url}
-                  download
-                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded bg-neutral-200 hover:bg-neutral-300 text-neutral-700 text-xs font-semibold"
-                  title="Stáhnout fotografii na počítač"
-                >
-                  <Download size={14} /> Stáhnout fotografii
-                </a>
-              </div>
-            </div>
-          ) : isImage ? (
-            <div className="text-xs text-neutral-500 mt-2 flex items-center gap-1">
-              <ImageIcon size={14} /> Fotka — médium nebylo doručeno (webhook neposlal mediaUrl).
-            </div>
-          ) : null}
+              {reparsing ? <RefreshCw size={13} className="animate-spin" /> : <RefreshCw size={13} />}
+              {reparsing ? 'Parsuji...' : isError ? 'Zkusit znovu' : 'Parsovat ručně'}
+            </button>
+          )}
         </div>
+
+        {/* Fotka, která nedorazila — tohle je potřeba vědět hned, ne až dole. */}
+        {isImage && !message.media_url && (
+          <div className="text-xs text-neutral-500 -mt-3 flex items-center gap-1">
+            <ImageIcon size={14} /> Fotka — médium nebylo doručeno (webhook neposlal mediaUrl).
+          </div>
+        )}
 
         {/* Kontrola čtení: originál vs. přepis AI */}
         <div className="border rounded p-4 bg-neutral-50">
@@ -2253,6 +2192,87 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
             <li>Pokud není objednávka správná, zamítněte ji nebo ignorujte</li>
             <li>Opravené pivo/obal/odběratele si AI pamatuje a příště je pozná sama</li>
           </ol>
+        </div>
+
+        {/* Informace o zprávě — odesílatel, čas přijetí a typ zprávy jsou až
+            úplně dole (14. 10. 2026, majitel: „to nepotřebuju vidět“). Fotka
+            je u fotoobjednávek napevno přilepená nahoře v okně, tady jsou
+            jen odkazy pro otevření/stažení. */}
+        <div data-info-o-zprave className="border rounded p-4 bg-sky-50">
+          <div className="flex items-center gap-2 mb-2">
+            {isImage ? (
+              <ImageIcon size={18} className="text-sky-600" />
+            ) : (
+              <MessageSquare size={18} className="text-sky-600" />
+            )}
+            <div className="font-medium text-sky-800">Nová WhatsApp objednávka</div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div>
+              <div className="text-sm text-neutral-600">Odesílatel</div>
+              <div className="font-medium">{message.sender_name}</div>
+            </div>
+
+            <div>
+              <div className="text-sm text-neutral-600">Čas přijetí</div>
+              <div className="font-medium">
+                {new Date(message.message_timestamp || message.created_at).toLocaleString('cs-CZ', {
+                  day: '2-digit',
+                  month: '2-digit',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}
+              </div>
+            </div>
+
+            <div>
+              <div className="text-sm text-neutral-600">Typ zprávy</div>
+              <div className="font-medium flex items-center gap-1">
+                {isImage ? (<><ImageIcon size={14} /> Fotka</>) : (<><MessageSquare size={14} /> Text</>)}
+              </div>
+            </div>
+          </div>
+
+          {/* Fotka/příloha — čtení objednávek z fotky: zoomovatelný/posuvný
+              náhled (stejná komponenta jako ruční „Číst z fotky"). Když je
+              foto k dispozici, zobrazí se v napevno přilepeném panelu nahoře
+              (viz níže), tady jen odkazy pro otevření/stažení — jde tak
+              průběžně porovnávat fotku s tím, co se z ní zapsalo (#22,
+              DeepSeek fotky nečte, takže je kontrola objednávky z fotky
+              vždy na člověku). */}
+          {message.media_url && (
+            <div className="mt-3">
+              {!useFullscreenPhotoLayout && (
+                <div className="h-[45vh] sm:h-96 rounded overflow-hidden border border-sky-200 shadow-lg">
+                  <PhotoReviewPane
+                    photos={[{ dataUrl: message.media_url, name: 'Fotka objednávky' }]}
+                    activeIndex={0}
+                    onChangeIndex={() => {}}
+                  />
+                </div>
+              )}
+              <div className="mt-2 flex flex-wrap gap-2">
+                <a
+                  href={message.media_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded bg-sky-700 hover:bg-sky-800 text-white text-xs font-semibold"
+                >
+                  <ExternalLink size={14} /> Otevřít fotografii
+                </a>
+                <a
+                  href={message.media_url}
+                  download
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded bg-neutral-200 hover:bg-neutral-300 text-neutral-700 text-xs font-semibold"
+                  title="Stáhnout fotografii na počítač"
+                >
+                  <Download size={14} /> Stáhnout fotografii
+                </a>
+              </div>
+            </div>
+          )}
         </div>
       </div>
   );
