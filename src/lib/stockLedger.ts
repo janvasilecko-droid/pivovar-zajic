@@ -396,7 +396,6 @@ export function stockAsOf(movements: Movement[], dateISO: string): Map<string, S
     let baselineQty = 0;
     let baselinePrio = -1;
     let baselineNote: string | null = null;
-    let baselineCreated: string | null = null;
     for (const m of list) {
       if (m.kind !== 'inventura') continue;
       const prio = inventoryPriority(m.note);
@@ -405,7 +404,6 @@ export function stockAsOf(movements: Movement[], dateISO: string): Map<string, S
         baselineQty = m.qty;
         baselinePrio = prio;
         baselineNote = m.note ?? null;
-        baselineCreated = m.createdAt ?? null;
       }
     }
 
@@ -424,11 +422,11 @@ export function stockAsOf(movements: Movement[], dateISO: string): Map<string, S
     const zaverDne = jeNapocitanyStav(baselineNote);
     for (const m of list) {
       if (m.kind === 'inventura') continue;
-      if (baselineDate !== null && (zaverDne ? m.date <= baselineDate : m.date < baselineDate)) {
-        // Zamčený je jen začátek měsíce a fyzická/schválená inventura. Týdenní
-        // počítání pozdější zápis ze dne před ním nespolkne.
-        if (!(jeTydenniStav(baselineNote) && zapsanoPoPocitani(m, baselineCreated))) continue;
-      }
+      // Počítání v pondělí ráno je pravda: zápis ze dne před ním (i zpětně zadaný
+      // později) už je v napočítaném čísle, takže stav k pondělí se nemění.
+      // Rozdíl se ukáže v týdenní kontrole jako rozdíl k dorovnání
+      // (viz ocekavanyStavTydne).
+      if (baselineDate !== null && (zaverDne ? m.date <= baselineDate : m.date < baselineDate)) continue;
       qty += m.qty;
       byKind[m.kind] = (byKind[m.kind] ?? 0) + m.qty;
     }
