@@ -22,16 +22,16 @@ describe('Zpětné zápisy po týdenním počítání (13. 10. 2026)', () => {
     })).toBe(10);
   });
 
-  it('objednávka zadaná zpětně na neděli PO počítání se odečte', () => {
+  it('objednávka zadaná zpětně na neděli PO počítání pondělní stav nemění (počítání platí)', () => {
     expect(stav({
       zavozDeductionRows: [{ deduct_date: '2026-10-11', beer_id: B, package_id: P, quantity: 2, created_at: '2026-10-13T09:15:22Z' }],
-    })).toBe(8);
+    })).toBe(10);
   });
 
-  it('fasování na obchod zadané zpětně na neděli PO počítání se odečte', () => {
+  it('fasování zadané zpětně na neděli PO počítání pondělní stav nemění', () => {
     expect(stav({
       prodejnaRows: [{ entry_date: '2026-10-11', beer_id: B, package_id: P, quantity: 3, created_at: '2026-10-13T09:54:18Z' }],
-    })).toBe(7);
+    })).toBe(10);
   });
 
   it('srovnání z inventury, uložené současně s počítáním, se nepřičte podruhé', () => {
