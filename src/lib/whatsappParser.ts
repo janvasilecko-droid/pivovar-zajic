@@ -1,6 +1,7 @@
 import { Beer, Package, Place, supabase } from './supabase';
 import { normPlaceName, stripSenderName, resolvePlace, odberatelZHistorie, preferujExaktniOdberatele, wantsOwnOrder as textWantsOwnOrder } from '../../supabase/functions/_shared/place-match';
 import { nactiHistorii } from '../../supabase/functions/_shared/historie-objednavek';
+import { textRikaPristiTyden } from '../../supabase/functions/_shared/den-zavozu';
 import { parseGeminiItems, detectOrderNotes, parseOrderText, loadAliasMap, loadPlaceAliasMap, ParserAliasMap, ParsedLine, GeminiItem } from './orderParser';
 import { parseExplicitDate } from './orderDates';
 import { businessNow } from './businessDate';
@@ -353,12 +354,11 @@ const DAY_MAP: { regex: RegExp; code: string }[] = [
   { regex: dayRegex('(?:v\\s+|na\\s+)?ned[eě]li', 'ned[eě]le', 'ne'), code: 'ne' },
 ];
 
-/**
- * „Na příští týden úterý" — zákazník myslí úterý NÁSLEDUJÍCÍHO týdne, ne
- * nejbližší úterý. Bez tohohle rozlišení se objednávka napsaná v pondělí
- * zavezla hned druhý den, tedy o týden dřív.
- */
-const PRISTI_TYDEN_RE = /\b(p[řr][íi][šs]t[íi]|dal[šs][íi]|nadch[áa]zej[íi]c[íi])\s+t[ýy]den\b|\bza\s+t[ýy]den\b/i;
+// „Na příští týden úterý" / „na příští středu" — zákazník myslí den
+// NÁSLEDUJÍCÍHO týdne, ne nejbližší takový den. Bez tohohle rozlišení se
+// objednávka napsaná v pondělí zavezla hned druhý den, tedy o týden dřív.
+// Pravidlo je společné se serverem a kontrolním oknem: textRikaPristiTyden
+// v supabase/functions/_shared/den-zavozu.ts.
 
 /**
  * ISO datum z LOKÁLNÍCH getterů (getFullYear/getMonth/getDate), ne z
@@ -438,7 +438,7 @@ export function detectDeliveryDay(text: string): { day: string | null; dateStr: 
       // „v pátek na příští týden úterý"), je správně a nepřidává se nic.
       const target0 = new Date(now);
       target0.setDate(now.getDate() + diff);
-      const pristiTyden = PRISTI_TYDEN_RE.test(text);
+      const pristiTyden = textRikaPristiTyden(text);
       const jeVTomtoTydnu = tydenOd(now) === tydenOd(target0);
       target.setDate(now.getDate() + diff + (pristiTyden && jeVTomtoTydnu ? 7 : 0));
       dateStr = isoZMistnihoData(target);

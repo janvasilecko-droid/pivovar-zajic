@@ -6,6 +6,7 @@ import { normPlaceName, stripSenderName, resolvePlace, odberatelZHistorie, prefe
 import { nactiHistorii } from "../_shared/historie-objednavek.ts";
 import { vypadaJakoVraceni } from "../_shared/vraceni-detekce.ts";
 import { jeVlastniHlaseniObjednavky } from "../_shared/vlastni-hlaseni-objednavky.ts";
+import { datumDne, datumPraha, textRikaPristiTyden } from "../_shared/den-zavozu.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -822,6 +823,15 @@ Deno.serve(async (req: Request) => {
                 deliveryDay = pattern.code;
                 break;
               }
+            }
+            // 📅 „Na příští týden na středu" (14. 10. 2026, Hladík Dobřichovice):
+            // středa PŘÍŠTÍHO týdne. Bez dopočtu tady zůstalo datum prázdné
+            // a kontrolní okno vzalo nejbližší středu od dneška — tedy dnešek.
+            // Datum se vyplní jen u „příští…"; u holého „na středu" ho dál
+            // určuje kontrola podle toho, kdy se zpráva schvaluje.
+            // Dnešek se bere z času zprávy, podle Prahy (viz _shared/den-zavozu.ts).
+            if (deliveryDay && textRikaPristiTyden(message.message_text)) {
+              deliveryDate = datumDne(deliveryDay, datumPraha(message.message_timestamp), true);
             }
           }
         }

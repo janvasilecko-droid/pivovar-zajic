@@ -25,7 +25,8 @@ import {
 import { STAVY_OBJEDNAVKY, popisStavu } from '../lib/stavyObjednavek';
 import { uloz } from '../lib/uloziste';
 import { pocetZRadku, pocetZTabulky } from '../lib/pocetZRadku';
-import { nejblizsiDatumDne } from '../lib/keggingPlan';
+import { dayKeyFromISO } from '../lib/keggingPlan';
+import { datumDne, textRikaPristiTyden } from '../../supabase/functions/_shared/den-zavozu';
 import { DenZavozuTlacitka } from './DenZavozuTlacitka';
 import { nactiZvyklosti, neobvykleMnozstvi, type Zvyklosti } from '../lib/zvyklostiOdberatele';
 import { useMaleSudy, useHlidaniMalychSudu } from '../lib/useMaleSudy';
@@ -179,6 +180,8 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   // 🛢️ „Do jejich sudu“: appka to pozná z textu zprávy; člověk to smí přebít
   // zaškrtávátkem (null = platí, co řekl text).
   const [vlastniSudRucne, setVlastniSudRucne] = useState<boolean | null>(null);
+  // 📅 Datum závozu zadané rukou (pole „nebo datum“) — přebíjí den i dopočet.
+  const [datumRucne, setDatumRucne] = useState<string | null>(null);
 
   // Synchronizace s prop (otevření nové zprávy).
   useEffect(() => {
@@ -188,6 +191,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
     setPhotoChecked(false);
     setPrisnyPrekonan(false);
     setVlastniSudRucne(null);
+    setDatumRucne(null);
   }, [props.message?.id]);
 
   // Přísný režim: zakázat schválení, dokud nejsou nesoulady opraveny.
@@ -837,11 +841,20 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
     items.map((it) => ({ klic: it.key, pkgId: vlastniSudyOdberatele(placeName) || vlastniSudZpravy ? null : it.pkgId, qty: Number(it.qty) || 0, sila: silaPodleId.get(it.beerId) ?? 0 })),
   );
 
-  // Datum k vybranému dni: co přečetla AI (když den sedí), jinak nejbližší
-  // takový den od dneška.
-  const datumDneZavozu = !denZavozu ? null
+  // Datum k vybranému dni: co zadal člověk, pak co přečetla AI (když den sedí),
+  // jinak nejbližší takový den od dneška.
+  //
+  // 📅 „Na příští týden na středu" (14. 10. 2026, Hladík Dobřichovice: „bylo to
+  // na příští středu, to znamená příští středa, ne tenhle týden") je středa
+  // PŘÍŠTÍHO týdne. Server datum doplní jen u „příští…"; u zpráv přečtených
+  // před touhle opravou i u dne z historie odběratele ho dopočítá tohle okno
+  // stejným pravidlem (_shared/den-zavozu.ts) — dřív vzalo nejbližší středu
+  // od dneška, a ve středu je to dnešek.
+  const pristiTyden = textRikaPristiTyden([msg?.message_text, msg?.parsed_raw_text].filter(Boolean).join('\n'));
+  const datumDneZavozu = datumRucne ? datumRucne
+    : !denZavozu ? null
     : denZavozu === msg?.parsed_delivery_day && msg?.parsed_delivery_date ? msg.parsed_delivery_date
-    : nejblizsiDatumDne(denZavozu, businessDateISO());
+    : datumDne(denZavozu, businessDateISO(), pristiTyden);
 
   if (!props.isOpen || !msg) return null;
 
@@ -1830,8 +1843,10 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
               <DenZavozuTlacitka
                 den={denZavozu}
                 datum={datumDneZavozu}
-                onDen={(d) => { setDenZavozu(d); setDenZHistorie(false); }}
-                poznamka={denZHistorie ? 'obvyklý den odběratele' : null}
+                onDen={(d) => { setDenZavozu(d); setDenZHistorie(false); setDatumRucne(null); }}
+                onDatum={(d) => { setDatumRucne(d); if (d) { setDenZavozu(dayKeyFromISO(d)); setDenZHistorie(false); } }}
+                dnes={businessDateISO()}
+                poznamka={denZHistorie ? 'obvyklý den odběratele' : pristiTyden && !datumRucne ? 'příští týden podle zprávy' : null}
                 zavoz={zavozCislo}
                 onZavoz={setZavozCislo}
               />
