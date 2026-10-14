@@ -137,17 +137,21 @@ export function textSOcr(rawText: string | undefined, ocr: string): string {
 }
 
 /**
- * Přepíše fotku na text. Vrací "" když to nejde (limit, chyba) — důvod
- * zapíše do `chyby`. `admin` = Supabase klient se service role.
+ * Odpověď Google Vision (DOCUMENT_TEXT_DETECTION) pro fotku — CELÁ, i s polohou
+ * slov (uzávěrka z pokladny skládá řádky podle polohy, viz uzaverka-ocr.ts).
+ * Vrací null, když to nejde (limit, chyba) — důvod zapíše do `chyby`.
+ * `poradi` je text pro hlášku o počtu v měsíci (", 12. v měsíci"). `admin` =
+ * Supabase klient se service role.
  */
-export async function prepisFotkyGoogle(opts: {
+export async function odpovedVisionGoogle(opts: {
   klic: string;
   imageBase64: string;
   // deno-lint-ignore no-explicit-any
   admin: any;
   chyby: string[];
   timeoutMs?: number;
-}): Promise<string> {
+  // deno-lint-ignore no-explicit-any
+}): Promise<{ data: any; poradi: string } | null> {
   // Započítat do měsíčního počtu (varování v aplikaci od 900) — jen když
   // Google požadavek zpracoval (odpověděl, nebo nestihl odpovědět; odmítnutý
   // požadavek se neplatí). Přepis se nezastaví ani bez počítadla (např. než
@@ -180,20 +184,43 @@ export async function prepisFotkyGoogle(opts: {
       const errText = await resp.text();
       console.warn(`Google Vision error (status ${resp.status}): ${errText.slice(0, 300)}`);
       opts.chyby.push(`ocr: HTTP ${resp.status} ${errText.slice(0, 200)}`);
-      return "";
+      return null;
     }
     const poradi = await zapocti();
     const data = await resp.json();
     const chyba = data?.responses?.[0]?.error?.message;
     if (chyba) {
       opts.chyby.push(`ocr: ${String(chyba).slice(0, 200)}${poradi}`);
-      return "";
+      return null;
     }
-    const text = opravOcrObjednavky(textZOdpovediVision(data));
-    opts.chyby.push((text ? `ocr: přepsáno ${text.split("\n").length} řádků` : "ocr: na fotce nenašel text") + poradi);
-    return text;
+    return { data, poradi };
   } catch (err) {
     opts.chyby.push(`ocr: ${err instanceof Error ? err.name : "chyba"}${await zapocti()}`);
+    return null;
+  }
+}
+
+/**
+ * Přepíše fotku na text. Vrací "" když to nejde (limit, chyba) — důvod
+ * zapíše do `chyby`. `admin` = Supabase klient se service role.
+ */
+export async function prepisFotkyGoogle(opts: {
+  klic: string;
+  imageBase64: string;
+  // deno-lint-ignore no-explicit-any
+  admin: any;
+  chyby: string[];
+  timeoutMs?: number;
+}): Promise<string> {
+  const odpoved = await odpovedVisionGoogle(opts);
+  if (!odpoved) return "";
+  try {
+    const text = opravOcrObjednavky(textZOdpovediVision(odpoved.data));
+    opts.chyby.push((text ? `ocr: přepsáno ${text.split("\n").length} řádků` : "ocr: na fotce nenašel text") + odpoved.poradi);
+    return text;
+  } catch (err) {
+    // Přepis nikdy neshodí čtení objednávky — stejně jako dřív, kdy to chytal společný catch.
+    opts.chyby.push(`ocr: ${err instanceof Error ? err.name : "chyba"}${odpoved.poradi}`);
     return "";
   }
 }

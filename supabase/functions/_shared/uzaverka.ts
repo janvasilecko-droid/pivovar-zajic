@@ -44,6 +44,8 @@ export type ProblemUzaverky = {
   text: string;
   /** Počet kusů, který by vyšel z částky a ceny — nápověda, ne oprava. */
   navrzeneMnozstvi?: number;
+  /** „Celkem" na fotce není vidět — řádky jsou v pořádku, jen je není s čím sečíst. */
+  chybiCelkem?: true;
 };
 
 /** Haléře a drobné zaokrouhlení pokladny nejsou chyba čtení. */
@@ -171,7 +173,7 @@ export function zkontrolujUzaverku(u: PrectenaUzaverka): { problemy: ProblemUzav
   if (u.radky.length === 0) problemy.push({ radek: null, text: 'Na účtence nejsou žádné řádky.' });
 
   if (u.celkem == null) {
-    problemy.push({ radek: null, text: 'Chybí „Celkem" z konce účtenky.' });
+    problemy.push({ radek: null, text: 'Chybí „Celkem" z konce účtenky.', chybiCelkem: true });
   } else {
     const soucet = souctRadku(u.radky);
     if (Math.abs(soucet - u.celkem) > TOLERANCE) {
@@ -203,7 +205,7 @@ export const PROMPT_UZAVERKA = `Jsi asistent pro obchod pivovaru. Na fotce je ú
 JAK ÚČTENKA VYPADÁ:
 - Nahoře: „Sumar prodeje", název firmy, „Stredisko: N", „Cisnik: …", „Uzaverka: N/NNNN", „Vytisteno: DD.MM.RRRR HH:MM".
 - Pak seznam zboží. KAŽDÁ POLOŽKA MÁ DVA ŘÁDKY: nahoře KÓD, písmeno „A" (sazba daně — NENÍ součást kódu ani názvu) a NÁZEV; pod tím vpravo „MNOŽSTVÍ x CENA = ČÁSTKA" a částka úplně vpravo.
-  Příklad: „10241 A Pivo sud 30l 10° svetla" a pod tím „8 x 1275,00 = 10200,00" → kod "10241", nazev "Pivo sud 30l 10° světlá", mnozstvi 8, cena 1275, celkem 10200.
+  Ukázka tvaru (čísla jsou VYMYŠLENÁ — z ukázky nikdy nic nepřebírej do odpovědi): „20105 A Pivo sud 50l 12° svetla" a pod tím „2 x 2400,00 = 4800,00" → kod "20105", nazev "Pivo sud 50l 12° světlá", mnozstvi 2, cena 2400, celkem 4800.
 - Dole: „Celkem: …" — součet celé účtenky.
 
 PRAVIDLA PŘESNOSTI (důležitější než cokoli jiného):
@@ -215,7 +217,7 @@ PRAVIDLA PŘESNOSTI (důležitější než cokoli jiného):
 6. Čísla piš jako čísla (bez mezer a bez „Kč"), desetinná tečka: 1275.00.
 7. Datum a čas „Vytisteno" převeď na RRRR-MM-DDTHH:MM.
 8. Pokud je za hlavní účtenkou vidět další, jen částečně zakrytá účtenka, ČTI JEN TU HLAVNÍ, celou viditelnou.
-9. NIKDY nevymýšlej hodnoty. Co nejde přečíst, vrať jako null.
+9. NIKDY nevymýšlej hodnoty. Co nejde přečíst, vrať jako null. Když na fotce není vidět hlavička (číslo uzávěrky, středisko, „Vytisteno") nebo „Celkem" dole, vrať je jako null — nepřebírej je z ukázky.
 
 Vrať ČISTĚ JSON (bez markdownu a bez \`\`\`), přesně v tomto tvaru:
-{"cislo":"2/2873","stredisko":"2","vytisteno":"2026-10-10T10:09","celkem":20675.00,"radky":[{"kod":"10241","nazev":"Pivo sud 30l 10° světlá","mnozstvi":8,"cena":1275.00,"celkem":10200.00}]}`;
+{"cislo":"1/1234","stredisko":"1","vytisteno":"2026-01-02T08:30","celkem":4800.00,"radky":[{"kod":"20105","nazev":"Pivo sud 50l 12° světlá","mnozstvi":2,"cena":2400.00,"celkem":4800.00}]}`;

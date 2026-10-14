@@ -1,6 +1,6 @@
 import { afterEach, describe, it, expect, vi } from 'vitest';
 import { VZORKY_OCR } from './ocr-vzorky';
-import { opravOcrObjednavky, prepisFotkyGoogle, sekceOcr, textSOcr, textZOdpovediVision } from './google-ocr';
+import { odpovedVisionGoogle, opravOcrObjednavky, prepisFotkyGoogle, sekceOcr, textSOcr, textZOdpovediVision } from './google-ocr';
 
 describe('Přepis fotky přes Google Vision', () => {
   afterEach(() => vi.unstubAllGlobals());
@@ -39,6 +39,39 @@ describe('Přepis fotky přes Google Vision', () => {
     expect(await prepisFotkyGoogle({ klic: 'k', imageBase64: 'x', admin: admin(1), chyby })).toBe('');
     expect(chyby[0]).toMatch(/HTTP 403/);
     expect(chyby[0]).not.toMatch(/v měsíci/); // odmítnutý požadavek Google neúčtuje
+  });
+
+  it('celá odpověď i s polohou slov (uzávěrka z pokladny skládá řádky podle polohy) a započtení do měsíce', async () => {
+    const odpoved = { responses: [{ fullTextAnnotation: { text: 'a', pages: [{ blocks: [{ paragraphs: [{ words: [{ boundingBox: { vertices: [{}, { x: 5 }, { x: 5, y: 3 }, { y: 3 }] }, symbols: [{ text: 'a' }] }] }] }] }] } }] };
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify(odpoved)));
+    vi.stubGlobal('fetch', fetchMock);
+    const a = admin(42);
+    const chyby: string[] = [];
+    const vysledek = await odpovedVisionGoogle({ klic: 'k', imageBase64: 'x', admin: a, chyby });
+    expect(vysledek?.data).toEqual(odpoved);
+    expect(vysledek?.poradi).toBe(', 42. v měsíci');
+    expect(a.rpc).toHaveBeenCalledWith('zapocti_ocr_fotky');
+    expect(chyby).toEqual([]);   // úspěch hlásí až ten, kdo odpověď použije
+    const pozadavek = JSON.parse((fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].body as string);
+    expect(pozadavek.requests[0].features).toEqual([{ type: 'DOCUMENT_TEXT_DETECTION' }]);
+    expect(pozadavek.requests[0].imageContext).toEqual({ languageHints: ['cs'] });
+  });
+
+  it('odpověď Vision s chybou, odmítnutý požadavek i výpadek sítě → null a důvod', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('{"error":{"message":"billing"}}', { status: 403 })));
+    const c1: string[] = [];
+    expect(await odpovedVisionGoogle({ klic: 'k', imageBase64: 'x', admin: admin(1), chyby: c1 })).toBeNull();
+    expect(c1[0]).toMatch(/HTTP 403/);
+
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ responses: [{ error: { message: 'Bad image data' } }] }))));
+    const c2: string[] = [];
+    expect(await odpovedVisionGoogle({ klic: 'k', imageBase64: 'x', admin: admin(7), chyby: c2 })).toBeNull();
+    expect(c2).toEqual(['ocr: Bad image data, 7. v měsíci']);
+
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('network'); }));
+    const c3: string[] = [];
+    expect(await odpovedVisionGoogle({ klic: 'k', imageBase64: 'x', admin: admin(8), chyby: c3 })).toBeNull();
+    expect(c3[0]).toMatch(/^ocr: TypeError, 8\. v měsíci/);
   });
 
   it('prompt: s fotkou platí fotka, bez ní se čte z přepisu', () => {
