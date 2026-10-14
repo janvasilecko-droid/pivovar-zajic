@@ -23,6 +23,13 @@ export const SKLO_PROMO_ZAPNUTO = false;
 export const CO2_ZAPNUTO = false;
 /** Kalendář & Upozornění (dlaždice, stránka). */
 export const KALENDAR_ZAPNUT = false;
+/**
+ * Týdenní počítání jako základ skladu. Vypnuto 14. 10. 2026 (pondělní inventury se zrušily):
+ * stav skladu je všude stav na začátku měsíce + stáčení − objednávky − fasování, takže
+ * zpětně zadané zápisy (lahve i sudy) se počítají podle data, na které patří, a Sklad,
+ * Pohyby i ostatní obrazovky ukazují totéž. Panel Týdenní inventura jako takový zůstává.
+ */
+export const TYDENNI_INVENTURA_DO_SKLADU = false;
 
 const SANITACE = ['haccp', 'sanitation_log', 'sanitace_lahve', 'sanitace_kegy', 'sanitace_vycepy'];
 

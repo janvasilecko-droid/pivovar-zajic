@@ -24,6 +24,7 @@ import { fetchAllRows, supabase } from './supabase';
 import { NADRAZENE, verzeTabulky, zneplatniVse } from './zneplatneni';
 import { tydenniJakoInventura } from './tydenniInventura';
 import { businessDateISO } from './businessDate';
+import { TYDENNI_INVENTURA_DO_SKLADU } from './skryteModuly';
 
 // Výčet sloupců je ve vlastním souboru bez vedlejších účinků (skript
 // rozbor-skladu ho potřebuje bez klienta Supabase z VITE_* proměnných).
@@ -103,7 +104,7 @@ export async function nactiSdilenouTabulku<T = any>(tabulka: SdilenaTabulka): Pr
   let bezici = probiha.get(tabulka);
   if (!bezici || bezici.verze !== verze) {
     const slib = Promise.resolve(fetchAllRows<unknown>(tabulka, SLOUPCE[tabulka]))
-      .then((r) => (tabulka === 'inventory' && !r.error ? sTydenniInventurou(r) : r))
+      .then((r) => (tabulka === 'inventory' && !r.error && TYDENNI_INVENTURA_DO_SKLADU ? sTydenniInventurou(r) : r))
       .then((r) => (tabulka === 'zavoz_deductions' && !r.error ? bezBudoucichOdpoctu(r) : r))
       .then((r) => {
       // Mezitím přišel zápis → tahle data už nemusí platit, do paměti ne.
