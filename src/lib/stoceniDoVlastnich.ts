@@ -23,6 +23,8 @@ import { jeVyrizena } from './stavyObjednavek';
 export type ObjednavkaVlastnich = {
   id: string;
   place_name?: string | null;
+  /** Poznámka „do jejich sudu" (lib/vlastniSudy.ts). */
+  note?: string | null;
   status?: string | null;
   is_delivered?: boolean | null;
   delivery_date?: string | null;
@@ -75,7 +77,7 @@ export function otevrenePolozkyVlastnich(p: {
     const kusu = Number(it.quantity ?? 0);
     if (!(kusu > 0)) continue;
     if (propojene.has(it.id)) continue;
-    if (!doSuduOdberatele(o.place_name, obal.get(it.package_id))) continue;
+    if (!doSuduOdberatele(o.place_name, obal.get(it.package_id), o.note)) continue;
     vysledek.push({
       polozkaId: it.id,
       beerId: it.beer_id,

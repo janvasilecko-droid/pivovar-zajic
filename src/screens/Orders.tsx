@@ -262,6 +262,9 @@ export default function Orders({
     }
   }
 
+  // Poznámka k objednávce — nahoře, protože „do jejich sudu" v ní mění hlídání
+  // malých sudů níž (lib/vlastniSudy.ts).
+  const [note, setNote] = useState('');
   const filledBeerRows = beerRows.filter((r) => r.beerId && r.pkgId && Number(r.qty) > 0);
   // 🛢️ Volné malé sudy rozdělené po řádcích zadávané objednávky — od
   // nejsilnějšího piva (lib/maleSudy.ts rozdelMaleSudyVObjednavce).
@@ -271,7 +274,7 @@ export default function Orders({
     || placeNameFree || places.find((p) => p.id === placeId)?.name || '';
   const prideleniSudu = rozdelMaleSudyVObjednavce(
     maleSudy.souhrn,
-    filledBeerRows.map((r, i) => ({ klic: String(i), pkgId: vlastniSudyOdberatele(odberatelRadku(r)) ? null : r.pkgId, qty: Number(r.qty) || 0, sila: silaPodleId.get(r.beerId) ?? 0 })),
+    filledBeerRows.map((r, i) => ({ klic: String(i), pkgId: vlastniSudyOdberatele(odberatelRadku(r), note) ? null : r.pkgId, qty: Number(r.qty) || 0, sila: silaPodleId.get(r.beerId) ?? 0 })),
   );
 
   // Dvakrát totéž pivo ve stejném obalu pro TÉHOŽ odběratele (lib/zdvojenePolozky.ts).
@@ -286,7 +289,6 @@ export default function Orders({
   // Smazat a nic se nestane", u kontroly duplicit naopak tiše proklouzlo bez
   // varování a vytvořilo druhou objednávku. Proto se všude potvrzuje přes
   // potvrd() z lib/toast.ts (vlastní dialog), ne přes prohlížeč.
-  const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [flash, setFlash] = useState(false);

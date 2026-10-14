@@ -32,7 +32,7 @@ import { useMaleSudy, useHlidaniMalychSudu } from '../lib/useMaleSudy';
 import { rozdelMaleSudyVObjednavce, silaPiva } from '../lib/maleSudy';
 import { MaleSudyRadek, tridaRadkuSudu } from './MaleSudyVolne';
 import type { Order, OrderItem } from './objednavky/spolecne';
-import { vlastniSudyOdberatele } from '../lib/vlastniSudy';
+import { vlastniSudyOdberatele, textRikaVlastniSud, poznamkaSVlastnimSudem, POZNAMKA_VLASTNI_SUD } from '../lib/vlastniSudy';
 
 /** Jak se skupiny obalů pojmenují v přehledu úpravy. */
 const NAZVY_SKUPIN: Record<SkupinaObalu, string> = {
@@ -176,6 +176,9 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   const [splitKeys, setSplitKeys] = useState<Set<string>>(new Set());
   const [splitPlaceId, setSplitPlaceId] = useState('');
   const [splitPlaceName, setSplitPlaceName] = useState('');
+  // 🛢️ „Do jejich sudu“: appka to pozná z textu zprávy; člověk to smí přebít
+  // zaškrtávátkem (null = platí, co řekl text).
+  const [vlastniSudRucne, setVlastniSudRucne] = useState<boolean | null>(null);
 
   // Synchronizace s prop (otevření nové zprávy).
   useEffect(() => {
@@ -184,6 +187,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
     setPrevRawText(null);
     setPhotoChecked(false);
     setPrisnyPrekonan(false);
+    setVlastniSudRucne(null);
   }, [props.message?.id]);
 
   // Přísný režim: zakázat schválení, dokud nejsou nesoulady opraveny.
@@ -819,10 +823,18 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   const { zasoba: zasobaMalychSudu, zapocitatPlne } = useMaleSudy();
   const silaPodleId = useMemo(() => new Map(props.beers.map((b) => [b.id, silaPiva(b)])), [props.beers]);
   const { souhrn: souhrnMalychSudu } = useHlidaniMalychSudu(zasobaMalychSudu, silaPodleId, zapocitatPlne);
+  // 🛢️ „Egon od důchodců prosím 20l 12sv do jejich sudu" (14. 10. 2026: „v tom
+  // případě logicky nemusíš psát, že není malý sud"). Když zpráva říká, že se
+  // stáčí do vlastního sudu odběratele, malé sudy pivovaru se nepočítají —
+  // stejně jako u odběratelů se seznamu vlastních sudů (lib/vlastniSudy.ts).
+  // U fotky je text v přepisu od AI, u zprávy v textu.
+  const textObjednavky = [msg?.message_text, msg?.parsed_raw_text, msg?.parsed_note].filter(Boolean).join('\n');
+  const zpravaRikaVlastniSud = textRikaVlastniSud(textObjednavky);
+  const vlastniSudZpravy = vlastniSudRucne ?? zpravaRikaVlastniSud;
   const prideleniSudu = rozdelMaleSudyVObjednavce(
     souhrnMalychSudu,
     // Odběratel s vlastními sudy malé sudy pivovaru nebere (lib/vlastniSudy.ts).
-    items.map((it) => ({ klic: it.key, pkgId: vlastniSudyOdberatele(placeName) ? null : it.pkgId, qty: Number(it.qty) || 0, sila: silaPodleId.get(it.beerId) ?? 0 })),
+    items.map((it) => ({ klic: it.key, pkgId: vlastniSudyOdberatele(placeName) || vlastniSudZpravy ? null : it.pkgId, qty: Number(it.qty) || 0, sila: silaPodleId.get(it.beerId) ?? 0 })),
   );
 
   // Datum k vybranému dni: co přečetla AI (když den sedí), jinak nejbližší
@@ -1027,6 +1039,11 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
         parsed_delivery_day: denZavozu,
         parsed_delivery_date: datumDneZavozu,
         zavoz_cislo: zavozCislo,
+        // „Do jejich sudu" se k objednávce připíše do poznámky — pozná ji
+        // pak plán stáčení, malé sudy i karta objednávky (lib/vlastniSudy.ts).
+        ...(zpravaRikaVlastniSud && vlastniSudZpravy
+          ? { parsed_note: poznamkaSVlastnimSudem(message.parsed_note, textObjednavky) }
+          : {}),
         parsed_items: primaryItems.map((it) => ({
           beer_id: it.beerId || null,
           pkg_id: it.pkgId || null,
@@ -1242,6 +1259,37 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
       setLoading(false);
     }
   };
+
+  // Kontrola čtení v kostce: skóre + „všechny položky sedí“. Ukazuje se jen
+  // nahoře ve stavovém pruhu (14. 10. 2026: „ať je nahoře vidět, že je to
+  // přečtený“) — podrobná kontrola níž ji neopakuje.
+  const souhrnShodyCteni = (
+    <>
+      {readback.score != null && (
+        <span
+          className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+            readback.score >= 90 ? 'bg-emerald-100 text-emerald-800' :
+            readback.score >= 60 ? 'bg-amber-100 text-amber-800' :
+            'bg-rose-100 text-rose-800'
+          }`}
+          title={`Skóre důvěryhodnosti přečtení: ${readback.score} %`}
+        >
+          {readback.score} % {readback.scoreLabel}
+        </span>
+      )}
+      <span className="text-xs">
+        {readback.mismatchCount === 0 ? (
+          <span className="text-emerald-700 font-medium">
+            <Check className="ikona-text" /> Všechny položky sedí ({readback.matchedCount}/{readback.items.length})
+          </span>
+        ) : (
+          <span className="text-amber-700 font-medium">
+            <AlertTriangle className="ikona-text" /> {readback.unmatchedCount} nesouhlasí · ≈ {readback.partialCount} částečně · <Check className="ikona-text" /> {readback.matchedCount}
+          </span>
+        )}
+      </span>
+    </>
+  );
 
   const body = (
       <div className="space-y-6">
@@ -1650,7 +1698,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
             (karta „Nová WhatsApp objednávka“) jsou až úplně dole. */}
         <div
           data-stav-zpracovani
-          className={`flex items-center gap-2 flex-wrap rounded border px-3 py-2 text-sm font-semibold ${
+          className={`flex items-center gap-x-3 gap-y-2 flex-wrap rounded border px-3 py-2 text-sm font-semibold ${
             isParsed || isImported ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
             : isPending ? 'bg-amber-50 border-amber-200 text-amber-800'
             : isError ? 'bg-rose-50 border-rose-200 text-rose-800'
@@ -1677,6 +1725,14 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
             <span>Zpracovává se...</span>
           )}
 
+          {/* Přečteno správně? — skóre a počet souhlasících položek hned nahoře,
+              ať se kvůli tomu nemusí scrollovat k podrobné kontrole. */}
+          {readback.items.length > 0 && (
+            <span data-souhrn-cteni className="flex items-center gap-2 flex-wrap font-normal">
+              {souhrnShodyCteni}
+            </span>
+          )}
+
           {(isPending || isError) && (
             <button
               onClick={handleReparse}
@@ -1688,6 +1744,20 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
               {reparsing ? 'Parsuji...' : isError ? 'Zkusit znovu' : 'Parsovat ručně'}
             </button>
           )}
+
+          {/* Přečíst znovu: nahoře, kdyby bylo potřeba (14. 10. 2026, majitel:
+              „ať tam nahoře je načíst znova, nebo znova parsovat“). */}
+          {!isPending && !isError && (isParsed || hasParsedData) && (
+            <button
+              onClick={handleReparse}
+              disabled={reparsing || loading}
+              className="ml-auto px-2.5 py-1 rounded bg-sky-50 text-sky-700 text-xs font-medium hover:bg-sky-100 disabled:opacity-50 flex items-center gap-1.5 tap"
+              title="Znovu spustit AI čtení zprávy — nový přepis nahradí ten stávající (a porovná se s ním)"
+            >
+              {reparsing ? <RefreshCw size={13} className="animate-spin" /> : <RefreshCw size={13} />}
+              {reparsing ? 'Čtu znovu...' : 'Přečíst znovu (AI)'}
+            </button>
+          )}
         </div>
 
         {/* Fotka, která nedorazila — tohle je potřeba vědět hned, ne až dole. */}
@@ -1697,147 +1767,12 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
           </div>
         )}
 
-        {/* Kontrola čtení: originál vs. přepis AI */}
-        <div className="border rounded p-4 bg-neutral-50">
-          <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
-            <div className="text-sm font-medium flex items-center gap-2">
-              <Eye size={16} className="text-sky-600" />
-              Kontrola čtení — originál vs. přepis AI
-            </div>
-            <div className="flex items-center gap-3 flex-wrap">
-              {readback.score != null && (
-                <span
-                  className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                    readback.score >= 90 ? 'bg-emerald-100 text-emerald-800' :
-                    readback.score >= 60 ? 'bg-amber-100 text-amber-800' :
-                    'bg-rose-100 text-rose-800'
-                  }`}
-                  title={`Skóre důvěryhodnosti přečtení: ${readback.score} %`}
-                >
-                  {readback.score} % {readback.scoreLabel}
-                </span>
-              )}
-              <span className="text-xs">
-                {readback.items.length > 0 ? (
-                  readback.mismatchCount === 0 ? (
-                    <span className="text-emerald-700 font-medium">
-                      <Check className="ikona-text" /> Všechny položky sedí ({readback.matchedCount}/{readback.items.length})
-                    </span>
-                  ) : (
-                    <span className="text-amber-700 font-medium">
-                      <AlertTriangle className="ikona-text" /> {readback.unmatchedCount} nesouhlasí · ≈ {readback.partialCount} částečně · <Check className="ikona-text" /> {readback.matchedCount}
-                    </span>
-                  )
-                ) : (
-                  <span className="text-neutral-500">Položky zatím nejsou rozparsované</span>
-                )}
-              </span>
-            </div>
-          </div>
-
-          {/* Přísný režim — blokace schválení při nesouladu (#4). U fotoobjednávek
-              nemá smysl (originál je jen popisek, ne text k porovnání) — tam
-              kontrolu řeší tlačítko "Zkontrolovat fotku a potvrdit" níže. */}
-          {!isImage && (
-            <label className="flex items-center gap-2 text-xs text-neutral-600 mb-2 cursor-pointer select-none">
-              <input type="checkbox" checked={strictReadback} onChange={toggleStrictReadback} className="accent-amber-600" />
-              {strictReadback ? <ShieldCheck size={14} className="text-emerald-600" /> : <ShieldAlert size={14} className="text-amber-600" />}
-              Vyžadovat opravu nesouladů před schválením
-            </label>
-          )}
-
-          {/* Side-by-side na desktopu, pod sebou na mobilu (#7). U textových
-              objednávek (useFullscreenTextLayout) se originál zobrazuje
-              zvlášť v přilepeném panelu nahoře, tady by byl duplicitně. */}
-          <div className={`grid grid-cols-1 gap-3 ${useFullscreenTextLayout ? '' : 'lg:grid-cols-2'}`}>
-            {!useFullscreenTextLayout && originalMessageBlock}
-
-            <div>
-              {/* ⚠️ Přepis s „Nx 11 <stupeň>" je nejistý: ručně psané 1l a 1,5l
-                  se tak přečte obojí a čtení často vynechá řádky (12. 10. 2026). */}
-              {isImage && /(?:^|\n)\s*\d{1,3}\s*x\s+11\s+\d/i.test(message.parsed_raw_text || '') && (
-                <div data-nejisty-prepis className="mb-2 rounded border border-amber-300 bg-amber-50 p-2 text-sm text-amber-900">
-                  Přepis fotky je nejistý — objem „11" je ručně psaný 1l nebo 1,5l a některé řádky mohou chybět.
-                  <button type="button" onClick={handleReparse} disabled={reparsing} className="btn-primary !rounded mt-2 w-full min-h-[44px]">
-                    {reparsing ? 'Čtu znovu...' : 'Přečíst fotku znovu (AI)'}
-                  </button>
-                </div>
-              )}
-              <div className="text-xs font-medium text-neutral-500 mb-1 flex items-center gap-1">
-                <FileText size={12} /> {isImage ? 'Přepis fotky od AI' : 'Přepis AI (diff proti originálu)'}
-              </div>
-              <div className="border rounded p-3 bg-white font-mono text-sm whitespace-pre-wrap max-h-80 overflow-y-auto">
-                {transcriptSegments.length > 0 ? (
-                  transcriptSegments.map((seg, si) => {
-                    if (seg.op === 'same') return <span key={si}>{seg.text} </span>;
-                    if (seg.op === 'added') return <span key={si} className="bg-rose-100 text-rose-700 rounded px-0.5">{seg.text}</span>;
-                    return <span key={si} className="bg-amber-100 text-amber-700 rounded px-0.5 line-through">{seg.text}</span>;
-                  })
-                ) : message.parsed_raw_text ? (
-                  <span className="whitespace-pre-wrap">{message.parsed_raw_text}</span>
-                ) : message.status === 'pending' ? (
-                  <span className="text-neutral-400">
-                    Přepis od AI zatím není k dispozici — zpráva se teprve zpracovává. Pokud se tak nestane samo, klepněte na „Parsovat ručně“ výše.
-                  </span>
-                ) : isImage ? (
-                  <span className="text-neutral-400">
-                    Tahle zpráva je fotka bez přepisu od AI — byla rozparsovaná v době, kdy se fotky nečetly. Zkontrolujte objednávku podle fotky, případně použijte „Přečíst znovu (AI)".
-                  </span>
-                ) : (
-                  <span className="text-neutral-400">
-                    Přepis od AI není k dispozici (zpráva rozparsovaná před nasazením kontroly čtení). Použijte „Přečíst znovu (AI)".
-                  </span>
-                )}
-              </div>
-              <div className="text-udaj text-neutral-400 mt-1">
-                {isImage
-                  ? 'Co AI přečetla z fotky. Porovnej to s fotkou nahoře — text u fotky („popisek") objednávku neobsahuje, takže se s ním nic neporovnává.'
-                  : 'zeleně = čteno z originálu · červeně = AI přidala (není v originálu) · přeškrtnuto = AI přehlédla'}
-              </div>
-            </div>
-          </div>
-
-          {/* Legenda zvýraznění originálu — u fotky se v originálu nic
-              nezvýrazňuje, protože originál je papír, ne popisek. */}
-          {!isImage && (
-            <div className="text-xs text-neutral-500 mt-2">
-              Zeleně = přesná shoda s originálem, jantarově = částečná shoda (překlepy/pořadí slov). Číslo = položka níže.
-            </div>
-          )}
-
-          {/* Srovnání s předchozím čtením po „přečti znovu" (#15) */}
-          {prevRawText && message.parsed_raw_text && prevRawText !== message.parsed_raw_text && (
-            <details className="mt-2 group">
-              <summary className="text-xs text-neutral-600 cursor-pointer hover:text-neutral-800 select-none flex items-center gap-1">
-                <RefreshCw size={14} /> Srovnání s předchozím čtením AI
-                <ChevronDown size={14} className="transition-transform group-open:rotate-180" />
-              </summary>
-              <div className="mt-2 border rounded p-3 bg-white font-mono text-xs max-h-48 overflow-y-auto">
-                {diffWords(prevRawText, message.parsed_raw_text).map((seg, si) => {
-                  if (seg.op === 'same') return <span key={si}>{seg.text} </span>;
-                  if (seg.op === 'added') return <span key={si} className="bg-rose-100 text-rose-700 rounded px-0.5">{seg.text}</span>;
-                  return <span key={si} className="bg-amber-100 text-amber-700 rounded px-0.5 line-through">{seg.text}</span>;
-                })}
-              </div>
-            </details>
-          )}
-        </div>
-
         {/* Rozparsované informace (pokud jsou) */}
         {hasParsedData && (
           <div>
             <div className="text-sm font-medium mb-2 flex items-center gap-2">
               <Check size={16} className="text-emerald-600" />
               AI rozpoznalo z objednávky
-              <button
-                onClick={handleReparse}
-                disabled={reparsing || loading}
-                className="ml-auto px-2.5 py-1 rounded bg-sky-50 text-sky-700 text-xs font-medium hover:bg-sky-100 disabled:opacity-50 flex items-center gap-1.5 tap"
-                title="Znovu spustit AI čtení zprávy — nový přepis nahradí ten stávající (a porovná se s ním)"
-            >
-                {reparsing ? <RefreshCw size={13} className="animate-spin" /> : <RefreshCw size={13} />}
-                {reparsing ? 'Čtu znovu...' : 'Přečíst znovu (AI)'}
-              </button>
             </div>
 
             <div className="border rounded p-4 bg-emerald-50 space-y-3">
@@ -1900,6 +1835,27 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                 zavoz={zavozCislo}
                 onZavoz={setZavozCislo}
               />
+
+              {/* 🛢️ Zpráva říká „do jejich sudu“ — malé sudy pivovaru se pro
+                  objednávku nepočítají (žádné „Nejsou sudy“) a k objednávce se
+                  připíše poznámka. Zaškrtnutím se to dá vypnout. */}
+              {zpravaRikaVlastniSud && (
+                <label data-vlastni-sud className="flex items-start gap-2 cursor-pointer rounded border border-sky-200 bg-sky-50 px-2.5 py-2">
+                  <input
+                    type="checkbox"
+                    className="w-5 h-5 mt-0.5 shrink-0"
+                    checked={vlastniSudZpravy}
+                    onChange={(e) => setVlastniSudRucne(e.target.checked)}
+                  />
+                  <span className="min-w-0">
+                    <span className="block text-sm font-black text-sky-950">Do vlastního sudu odběratele</span>
+                    <span className="block text-udaj font-bold text-sky-900">
+                      Zpráva to říká („do jejich sudu“). Malé sudy pivovaru se nepočítají
+                      a k objednávce se připíše poznámka „{POZNAMKA_VLASTNI_SUD}“.
+                    </span>
+                  </span>
+                </label>
+              )}
 
               {items.length > 0 && (
                 <div>
@@ -2077,6 +2033,106 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
             </div>
           </div>
         )}
+
+        {/* Kontrola čtení: originál vs. přepis AI */}
+        <div className="border rounded p-4 bg-neutral-50">
+          <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
+            <div className="text-sm font-medium flex items-center gap-2">
+              <Eye size={16} className="text-sky-600" />
+              Kontrola čtení — originál vs. přepis AI
+            </div>
+            {readback.items.length === 0 && (
+              <span className="text-xs text-neutral-500">Položky zatím nejsou rozparsované</span>
+            )}
+          </div>
+
+          {/* Přísný režim — blokace schválení při nesouladu (#4). U fotoobjednávek
+              nemá smysl (originál je jen popisek, ne text k porovnání) — tam
+              kontrolu řeší tlačítko "Zkontrolovat fotku a potvrdit" níže. */}
+          {!isImage && (
+            <label className="flex items-center gap-2 text-xs text-neutral-600 mb-2 cursor-pointer select-none">
+              <input type="checkbox" checked={strictReadback} onChange={toggleStrictReadback} className="accent-amber-600" />
+              {strictReadback ? <ShieldCheck size={14} className="text-emerald-600" /> : <ShieldAlert size={14} className="text-amber-600" />}
+              Vyžadovat opravu nesouladů před schválením
+            </label>
+          )}
+
+          {/* Side-by-side na desktopu, pod sebou na mobilu (#7). U textových
+              objednávek (useFullscreenTextLayout) se originál zobrazuje
+              zvlášť v přilepeném panelu nahoře, tady by byl duplicitně. */}
+          <div className={`grid grid-cols-1 gap-3 ${useFullscreenTextLayout ? '' : 'lg:grid-cols-2'}`}>
+            {!useFullscreenTextLayout && originalMessageBlock}
+
+            <div>
+              {/* ⚠️ Přepis s „Nx 11 <stupeň>" je nejistý: ručně psané 1l a 1,5l
+                  se tak přečte obojí a čtení často vynechá řádky (12. 10. 2026). */}
+              {isImage && /(?:^|\n)\s*\d{1,3}\s*x\s+11\s+\d/i.test(message.parsed_raw_text || '') && (
+                <div data-nejisty-prepis className="mb-2 rounded border border-amber-300 bg-amber-50 p-2 text-sm text-amber-900">
+                  Přepis fotky je nejistý — objem „11" je ručně psaný 1l nebo 1,5l a některé řádky mohou chybět.
+                  <button type="button" onClick={handleReparse} disabled={reparsing} className="btn-primary !rounded mt-2 w-full min-h-[44px]">
+                    {reparsing ? 'Čtu znovu...' : 'Přečíst fotku znovu (AI)'}
+                  </button>
+                </div>
+              )}
+              <div className="text-xs font-medium text-neutral-500 mb-1 flex items-center gap-1">
+                <FileText size={12} /> {isImage ? 'Přepis fotky od AI' : 'Přepis AI (diff proti originálu)'}
+              </div>
+              <div className="border rounded p-3 bg-white font-mono text-sm whitespace-pre-wrap max-h-80 overflow-y-auto">
+                {transcriptSegments.length > 0 ? (
+                  transcriptSegments.map((seg, si) => {
+                    if (seg.op === 'same') return <span key={si}>{seg.text} </span>;
+                    if (seg.op === 'added') return <span key={si} className="bg-rose-100 text-rose-700 rounded px-0.5">{seg.text}</span>;
+                    return <span key={si} className="bg-amber-100 text-amber-700 rounded px-0.5 line-through">{seg.text}</span>;
+                  })
+                ) : message.parsed_raw_text ? (
+                  <span className="whitespace-pre-wrap">{message.parsed_raw_text}</span>
+                ) : message.status === 'pending' ? (
+                  <span className="text-neutral-400">
+                    Přepis od AI zatím není k dispozici — zpráva se teprve zpracovává. Pokud se tak nestane samo, klepněte na „Parsovat ručně“ výše.
+                  </span>
+                ) : isImage ? (
+                  <span className="text-neutral-400">
+                    Tahle zpráva je fotka bez přepisu od AI — byla rozparsovaná v době, kdy se fotky nečetly. Zkontrolujte objednávku podle fotky, případně použijte „Přečíst znovu (AI)".
+                  </span>
+                ) : (
+                  <span className="text-neutral-400">
+                    Přepis od AI není k dispozici (zpráva rozparsovaná před nasazením kontroly čtení). Použijte „Přečíst znovu (AI)".
+                  </span>
+                )}
+              </div>
+              <div className="text-udaj text-neutral-400 mt-1">
+                {isImage
+                  ? 'Co AI přečetla z fotky. Porovnej to s fotkou nahoře — text u fotky („popisek") objednávku neobsahuje, takže se s ním nic neporovnává.'
+                  : 'zeleně = čteno z originálu · červeně = AI přidala (není v originálu) · přeškrtnuto = AI přehlédla'}
+              </div>
+            </div>
+          </div>
+
+          {/* Legenda zvýraznění originálu — u fotky se v originálu nic
+              nezvýrazňuje, protože originál je papír, ne popisek. */}
+          {!isImage && (
+            <div className="text-xs text-neutral-500 mt-2">
+              Zeleně = přesná shoda s originálem, jantarově = částečná shoda (překlepy/pořadí slov). Číslo = položka níže.
+            </div>
+          )}
+
+          {/* Srovnání s předchozím čtením po „přečti znovu" (#15) */}
+          {prevRawText && message.parsed_raw_text && prevRawText !== message.parsed_raw_text && (
+            <details className="mt-2 group">
+              <summary className="text-xs text-neutral-600 cursor-pointer hover:text-neutral-800 select-none flex items-center gap-1">
+                <RefreshCw size={14} /> Srovnání s předchozím čtením AI
+                <ChevronDown size={14} className="transition-transform group-open:rotate-180" />
+              </summary>
+              <div className="mt-2 border rounded p-3 bg-white font-mono text-xs max-h-48 overflow-y-auto">
+                {diffWords(prevRawText, message.parsed_raw_text).map((seg, si) => {
+                  if (seg.op === 'same') return <span key={si}>{seg.text} </span>;
+                  if (seg.op === 'added') return <span key={si} className="bg-rose-100 text-rose-700 rounded px-0.5">{seg.text}</span>;
+                  return <span key={si} className="bg-amber-100 text-amber-700 rounded px-0.5 line-through">{seg.text}</span>;
+                })}
+              </div>
+            </details>
+          )}
+        </div>
 
         {/* Informace o stavu */}
         {statusMessage && (

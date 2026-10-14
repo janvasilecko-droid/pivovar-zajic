@@ -206,16 +206,16 @@ export function chybiSklademTydne(p: {
   zdroje: StockSources;
   konecTydneISO: string;
   /** Nestornované objednávky TOHOTO týdne. */
-  objednavky: { id: string; place_name?: string | null; delivery_date?: string | null; order_date: string }[];
+  objednavky: { id: string; place_name?: string | null; note?: string | null; delivery_date?: string | null; order_date: string }[];
   polozky: (orderId: string) => { id: string; beer_id: string | null; package_id: string | null; beer_name?: string | null; quantity: number | string }[];
   /** Všechny objednávky a položky, které obrazovka zná — kvůli sudům odběratelů z jiných týdnů. */
-  vsechnyObjednavky: { id: string; place_name?: string | null }[];
+  vsechnyObjednavky: { id: string; place_name?: string | null; note?: string | null }[];
   vsechnyPolozky: { id: string; order_id: string; beer_id: string | null; package_id: string | null }[];
   obaly: { id: string; kind?: string | null; volume_l?: number | string | null }[];
 }): Map<string, Map<string, number>> {
   const zbytek = zbytekKeKonciTydne(p.zdroje, p.konecTydneISO);
   const obal = new Map(p.obaly.map((o) => [o.id, o]));
-  const mistoObjednavky = new Map(p.vsechnyObjednavky.map((o) => [o.id, o.place_name ?? null]));
+  const objednavkaPodleId = new Map(p.vsechnyObjednavky.map((o) => [o.id, o]));
   const polozkaPodleId = new Map(p.vsechnyPolozky.map((it) => [it.id, it]));
   const odepsane = new Set((p.zdroje.zavozDeductionRows ?? []).map((r: any) => r.order_item_id).filter(Boolean));
   // Naplněné sudy odběratele, které ještě neodjely: sklad je má (+ ze
@@ -223,14 +223,15 @@ export function chybiSklademTydne(p: {
   for (const r of (p.zdroje.keggingRows ?? []) as any[]) {
     const it = r.order_item_id ? polozkaPodleId.get(r.order_item_id) : undefined;
     if (!it || odepsane.has(it.id) || !it.beer_id || !it.package_id) continue;
-    if (!doSuduOdberatele(mistoObjednavky.get(it.order_id), obal.get(it.package_id))) continue;
+    const objednavka = objednavkaPodleId.get(it.order_id);
+    if (!doSuduOdberatele(objednavka?.place_name, obal.get(it.package_id), objednavka?.note)) continue;
     const k = stockKey(it.beer_id, it.package_id);
     if (zbytek.has(k)) zbytek.set(k, (zbytek.get(k) ?? 0) - Number(r.quantity || 0));
   }
   const objednavky: ObjednavkaKPrioritě[] = p.objednavky.map((o) => ({
     order_id: o.id,
     poradiDatum: o.delivery_date || o.order_date,
-    polozky: bezSuduOdberatele(o.place_name, p.polozky(o.id), p.obaly).map((it) => ({
+    polozky: bezSuduOdberatele(o.place_name, p.polozky(o.id), p.obaly, o.note).map((it) => ({
       order_item_id: it.id,
       beer_id: it.beer_id,
       package_id: it.package_id,

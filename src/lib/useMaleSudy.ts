@@ -15,8 +15,8 @@ async function stocenoDoSuduOdberatelu(polozkyIds: string[]): Promise<Set<string
   const { data: pol } = await fetchAllRows<any>('order_items', 'id, order_id').in('id', polozkyIds);
   const objIds = [...new Set(((pol as any[]) ?? []).map((r) => r.order_id as string))];
   if (objIds.length === 0) return new Set();
-  const { data: obj } = await fetchAllRows<any>('orders', 'id, place_name').in('id', objIds);
-  const vlastni = new Set(((obj as any[]) ?? []).filter((o) => vlastniSudyOdberatele(o.place_name)).map((o) => o.id as string));
+  const { data: obj } = await fetchAllRows<any>('orders', 'id, place_name, note').in('id', objIds);
+  const vlastni = new Set(((obj as any[]) ?? []).filter((o) => vlastniSudyOdberatele(o.place_name, o.note)).map((o) => o.id as string));
   return new Set(((pol as any[]) ?? []).filter((r) => vlastni.has(r.order_id)).map((r) => r.id as string));
 }
 
@@ -130,7 +130,7 @@ export function useHlidaniMalychSudu(
     // Nezavezené a nestornované — to jsou ty, na které se sudy ještě chystají.
     // Staré nezavezené objednávky (závoz před dneškem) odfiltruje výpočet
     // (maleSudy.ts chystaSeOd) — tady jen nezavezené a nestornované.
-    const { data: obj } = await fetchAllRows<any>('orders', 'id,status,is_delivered,delivery_date,order_date,created_at,place_name')
+    const { data: obj } = await fetchAllRows<any>('orders', 'id,status,is_delivered,delivery_date,order_date,created_at,place_name,note')
       .eq('is_delivered', false)
       .neq('status', 'storno');
     const o = ((obj as any[]) ?? []) as ObjednavkaProSudy[];
@@ -152,7 +152,7 @@ export function useHlidaniMalychSudu(
     // položku, lib/stoceniDoVlastnich.ts) leží ve skladu, dokud neodjedou —
     // ostatním objednávkám ale nepatří (7. 10. 2026).
     const odepsaneObj = new Set(((odp as any[]) ?? []).map((r) => r.order_id as string));
-    const vlastniObj = new Set(o.filter((x) => vlastniSudyOdberatele(x.place_name) && !odepsaneObj.has(x.id)).map((x) => x.id));
+    const vlastniObj = new Set(o.filter((x) => vlastniSudyOdberatele(x.place_name, x.note) && !odepsaneObj.has(x.id)).map((x) => x.id));
     const vlastniPolozky = ((pol as any[]) ?? []).filter((x) => vlastniObj.has(x.order_id)).map((x) => x.id as string);
     if (vlastniPolozky.length) {
       const { data: stocene } = await fetchAllRows<any>('kegging', 'order_item_id, beer_id, package_id, quantity').in('order_item_id', vlastniPolozky);

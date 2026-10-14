@@ -32,6 +32,8 @@ export type ObjednavkaProSudy = {
   created_at?: string | null;
   /** Odběratel s vlastními sudy (lib/vlastniSudy.ts) prázdné sudy pivovaru nebere. */
   place_name?: string | null;
+  /** Poznámka „do jejich sudu“ dělá vlastní i objednávku odběratele mimo seznam. */
+  note?: string | null;
 };
 export type PolozkaProSudy = { id: string; order_id: string; package_id: string | null; quantity: number | string; beer_id?: string | null };
 
@@ -112,9 +114,10 @@ export function hlidejMaleSudy(
 ): VysledekMalychSudu {
   // Odběratel s vlastními sudy (Duck and Dog, Michal Fojtovice, Martin —
   // lib/vlastniSudy.ts) se stáčí do svých sudů: z prázdných malých sudů
-  // pivovaru nebere nic (6. 10. 2026: „to samý Martin malý sudy").
+  // pivovaru nebere nic (6. 10. 2026: „to samý Martin malý sudy"). Stejně
+  // tak objednávka, která to říká v poznámce („do jejich sudu", 14. 10. 2026).
   const otevrene = objednavky.filter((o) => jeOtevrena(o) && (!dnes || chystaSeOd(o, dnes)) && !volby.odepsane?.has(o.id)
-    && !vlastniSudyOdberatele(o.place_name));
+    && !vlastniSudyOdberatele(o.place_name, o.note));
   const poradi = new Map(
     [...otevrene]
       .sort((a, b) => {

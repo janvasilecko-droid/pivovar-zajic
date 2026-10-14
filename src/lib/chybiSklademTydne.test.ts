@@ -42,3 +42,41 @@ describe('chybiSklademTydne', () => {
     expect(schodkyObjednavky(polozky.b, z.get('b')!)[0].chybi).toBe(2);
   });
 });
+
+// 14. 10. 2026, Egon: „do jejich sudu“ v poznámce dělá vlastní i odběratele mimo seznam.
+describe('chybiSklademTydne — poznámka „do vlastního sudu“', () => {
+  const objE = [
+    { id: 'e', place_name: 'EGON', note: 'do vlastního sudu', delivery_date: '2026-10-07', order_date: '2026-10-05' },
+    { id: 'a', place_name: 'Hospoda A', delivery_date: '2026-10-08', order_date: '2026-10-05' },
+  ];
+  const polE: Record<string, any[]> = {
+    e: [{ id: 'i-e', order_id: 'e', beer_id: 'sv', package_id: 'k30', quantity: 2 }],
+    a: [{ id: 'i-a', order_id: 'a', beer_id: 'sv', package_id: 'k30', quantity: 2 }],
+  };
+  const vypocetE = (objednavkyE: any[], kegging: any[]) => chybiSklademTydne({
+    zdroje: { keggingRows: kegging, zavozDeductionRows: [], packages: obaly as any },
+    konecTydneISO: '2026-10-11',
+    objednavky: objednavkyE,
+    polozky: (id) => polE[id] ?? [],
+    vsechnyObjednavky: objednavkyE,
+    vsechnyPolozky: Object.values(polE).flat(),
+    obaly,
+  });
+
+  it('naplněné sudy do jejich sudů nekryjí ostatní a jejich objednávka si zásobu nebere', () => {
+    const z = vypocetE(objE, [
+      { entry_date: '2026-10-06', beer_id: 'sv', package_id: 'k30', quantity: 2, order_item_id: 'i-e' },
+      { entry_date: '2026-10-06', beer_id: 'sv', package_id: 'k30', quantity: 2, order_item_id: null },
+    ]);
+    expect(schodkyObjednavky(polE.a, z.get('a')!)).toEqual([]);
+  });
+
+  it('bez poznámky je to obyčejný odběratel — jeho sudy kryjí ostatní', () => {
+    const bezPoznamky = objE.map((o) => (o.id === 'e' ? { ...o, note: null } : o));
+    const z = vypocetE(bezPoznamky, [
+      { entry_date: '2026-10-06', beer_id: 'sv', package_id: 'k30', quantity: 2, order_item_id: 'i-e' },
+    ]);
+    // Egonovy 2 sudy se bez poznámky počítají jako sklad pivovaru: pokryjí Egona (st) a pro A nezbude nic.
+    expect(schodkyObjednavky(polE.a, z.get('a')!)[0]?.chybi).toBe(2);
+  });
+});

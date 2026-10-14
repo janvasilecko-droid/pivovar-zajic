@@ -177,6 +177,7 @@
     "20261231310000_zpetne_objednavky_zavezene.sql",
     "20261231330000_opravit_malesice_zdvojeni.sql",
     "20261231340000_staceni_keg_bez_minusu.sql",
-    "20261231350000_stoceni_upravy.sql"
+    "20261231350000_stoceni_upravy.sql",
+    "20261231360000_poznamka_do_vlastniho_sudu.sql"
   ]
 }

@@ -46,9 +46,15 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
   const [kniha, setKniha] = useState<SkladovaKniha | null>(null);
   // Jména odběratelů k závozům — pro rozpis „odkud je mínus" (9. 10. 2026).
   const [mistoObjednavky, setMistoObjednavky] = useState<Map<string, string | null>>(new Map());
+  // Poznámky objednávek: „do jejich sudu" dělá vlastní i odběratele mimo seznam.
+  const [poznamkyObjednavek, setPoznamkyObjednavek] = useState<Map<string, string | null>>(new Map());
   useEffect(() => {
     nactiSdilenouTabulku('orders')
-      .then(({ data }) => setMistoObjednavky(new Map(((data as any[]) ?? []).map((o) => [o.id as string, (o.place_name ?? null) as string | null]))))
+      .then(({ data }) => {
+        const radky = (data as any[]) ?? [];
+        setMistoObjednavky(new Map(radky.map((o) => [o.id as string, (o.place_name ?? null) as string | null])));
+        setPoznamkyObjednavek(new Map(radky.map((o) => [o.id as string, (o.note ?? null) as string | null])));
+      })
       .catch(() => {});
   }, [kniha]);
   /** Napočítáno minulý týden (beer__package → kusy) — základ očekávaného stavu. */
@@ -722,7 +728,7 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
                       Odkud je mínus {r.ocekavano}? Vydalo se víc, než se zapsalo do stáčení.
                     </summary>
                     <ul className="mt-1 space-y-0.5 text-xs text-neutral-800">
-                      {puvodStavu(kniha.pohyby, r.beer_id, r.package_id, obdobi.doPocitani, mistoObjednavky).map((p, i) => (
+                      {puvodStavu(kniha.pohyby, r.beer_id, r.package_id, obdobi.doPocitani, mistoObjednavky, poznamkyObjednavek).map((p, i) => (
                         <li key={i} className="flex justify-between gap-2 tabular-nums">
                           <span className="min-w-0">
                             {p.datum.slice(8, 10)}. {p.datum.slice(5, 7)}. {p.popis}

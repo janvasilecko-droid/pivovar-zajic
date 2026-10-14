@@ -65,7 +65,7 @@ export function usePlanStaceni(weekKey: string, { sudy = true, lahve = true }: {
         supabase.from('packages').select('id,label,kind,volume_l'),
         // Objednávka patří do týdne podle data dovozu, a když chybí, podle
         // data zadání — obojí musí být od pondělí dál.
-        fetchAllRows('orders', 'id,order_date,delivery_date,delivery_day,place_name,status,is_delivered')
+        fetchAllRows('orders', 'id,order_date,delivery_date,delivery_day,place_name,status,is_delivered,note')
           .or(`delivery_date.gte.${zacatekTydne},order_date.gte.${zacatekTydne}`),
         nactiSdilenouTabulku('kegging'),
         nactiSdilenouTabulku('bottling'),

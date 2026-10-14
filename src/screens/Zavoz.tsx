@@ -1119,7 +1119,7 @@ export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
                                     // kniha), ale dřív to nikde před závozem nesrovnala — jen se
                                     // ručně odškrtávalo "stočeno" bez ověření. Stejný výpočet jako
                                     // odznak "chybí skladem" v Objednávkách.
-                                    const schodky = o.is_delivered ? [] : schodkyObjednavky(bezSuduOdberatele(o.place_name, orderItems, packages), zbytekPodleObjednavky.get(o.id) ?? new Map());
+                                    const schodky = o.is_delivered ? [] : schodkyObjednavky(bezSuduOdberatele(o.place_name, orderItems, packages, o.note), zbytekPodleObjednavky.get(o.id) ?? new Map());
                                     return (
                                       <div key={o.id} className={`p-3 rounded border ${o.is_delivered ? 'bg-emerald-100/50 border-emerald-200' : 'bg-white border-neutral-200'}`}>
                                         {schodky.length > 0 && (
