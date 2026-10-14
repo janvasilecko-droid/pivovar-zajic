@@ -66,8 +66,9 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
   const otevrena = jeOtevrena(order);
   // Odběratel s vlastními sudy malé sudy pivovaru nebere — ani původně
   // (v souhrnu jeho objednávka není), ani teď (lib/vlastniSudy.ts).
-  const puvodneVlastni = !!vlastniSudyOdberatele(order.place_name);
-  const vlastniSudy = !!vlastniSudyOdberatele(placeName);
+  // Vlastní je i objednávka s poznámkou „do jejich sudu" (lib/vlastniSudy.ts).
+  const puvodneVlastni = !!vlastniSudyOdberatele(order.place_name, order.note);
+  const vlastniSudy = !!vlastniSudyOdberatele(placeName, note);
   const puvodneVObalu = (pkgId: string) => (otevrena && !puvodneVlastni ? items.filter((i) => i.package_id === pkgId).reduce((sum, i) => sum + Number(i.quantity || 0), 0) : 0);
   const zadanoVObalu = (pkgId: string) => rows.filter((x) => !x.removed && x.pkgId === pkgId).reduce((sum, x) => sum + (Number(x.qty) || 0), 0);
   // Po řádcích od nejsilnějšího piva: část bez sudu oranžově, celé červeně.

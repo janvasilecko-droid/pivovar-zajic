@@ -24,6 +24,8 @@ export function puvodStavu(
   packageId: string,
   doDne: string,
   mistoObjednavky: Map<string, string | null>,
+  /** Poznámky objednávek — „do jejich sudu" dělá vlastní i odběratele mimo seznam. */
+  poznamkyObjednavek: Map<string, string | null> = new Map(),
 ): RadekPuvodu[] {
   const moje = pohyby
     .filter((m) => m.beer_id === beerId && m.package_id === packageId && m.date <= doDne)
@@ -34,6 +36,7 @@ export function puvodStavu(
   return moje.slice(od).map((m) => {
     stav = m.kind === 'inventura' ? m.qty : stav + m.qty;
     const misto = m.orderId ? mistoObjednavky.get(m.orderId) ?? null : null;
+    const poznamka = m.orderId ? poznamkyObjednavek.get(m.orderId) ?? null : null;
     return {
       datum: m.date,
       kusu: m.qty,
@@ -43,7 +46,7 @@ export function puvodStavu(
         : m.kind === 'zavoz'
           ? `Závoz${misto ? ` ${misto}` : ''}`
           : MOVEMENT_LABELS[m.kind],
-      vlastniSudy: m.kind === 'zavoz' && !!vlastniSudyOdberatele(misto),
+      vlastniSudy: m.kind === 'zavoz' && !!vlastniSudyOdberatele(misto, poznamka),
     };
   });
 }

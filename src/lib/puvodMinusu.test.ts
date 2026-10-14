@@ -21,3 +21,17 @@ describe('puvodStavu', () => {
     ]);
   });
 });
+
+describe('puvodStavu — poznámka objednávky', () => {
+  it('závoz objednávky s poznámkou „do jejich sudu“ se označí jako vlastní sudy', () => {
+    const pohyby: any[] = [
+      { date: '2026-10-06', beer_id: 'sv', package_id: 'k20', qty: 2, kind: 'kegovani' },
+      { date: '2026-10-07', beer_id: 'sv', package_id: 'k20', qty: -1, kind: 'zavoz', orderId: 'e' },
+    ];
+    const misto = new Map([['e', 'EGON']]);
+    const bez = puvodStavu(pohyby, 'sv', 'k20', '2026-10-09', misto);
+    const s = puvodStavu(pohyby, 'sv', 'k20', '2026-10-09', misto, new Map([['e', 'do jejich sudu']]));
+    expect(bez.map((x) => x.vlastniSudy)).toEqual([false, false]);
+    expect(s.map((x) => x.vlastniSudy)).toEqual([false, true]);
+  });
+});

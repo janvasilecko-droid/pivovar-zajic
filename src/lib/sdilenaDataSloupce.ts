@@ -22,7 +22,8 @@ export const SLOUPCE = {
   zavoz_deductions: 'deduct_date,beer_id,package_id,quantity,order_item_id,order_id,created_at',
   akce: 'entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)',
   keg_prefuk: 'entry_date,beer_id,from_package_id,from_count,to_package_id,to_count',
-  orders: 'id,order_date,delivery_date,delivery_day,place_name,status,is_delivered',
+  // note: poznámka „do jejich sudu" dělá objednávku vlastní (lib/vlastniSudy.ts).
+  orders: 'id,order_date,delivery_date,delivery_day,place_name,status,is_delivered,note',
   // `*` místo výčtu: delivery_day (vlastní den položky) přidává migrace
   // 20261231070000, která jde pustit až PO nasazení — viz Kegging.tsx.
   order_items: '*',

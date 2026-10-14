@@ -84,7 +84,7 @@ export function OrderCard({ o, items, stockRemainingForOrder, nadPocetMalychSudu
   const remaining = stockRemainingForOrder(o);
   // Obal patří do popisku: schodek se počítá po pivu A obalu, takže bez něj by
   // dvě velikosti téhož piva vypadaly jako tentýž údaj napsaný dvakrát.
-  const uniqueDeficits = (odbaveno ? [] : schodkyObjednavky(bezSuduOdberatele(o.place_name, items, packages), remaining)).map((s) => {
+  const uniqueDeficits = (odbaveno ? [] : schodkyObjednavky(bezSuduOdberatele(o.place_name, items, packages, o.note), remaining)).map((s) => {
     const obal = packages.find((p) => p.id === s.package_id);
     return {
       name: obal ? `${s.beer_name} ${formatPackageLabel(obal.label)}` : s.beer_name,

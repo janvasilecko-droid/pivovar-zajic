@@ -121,3 +121,14 @@ describe('navrhniPripojeniZapsaneho', () => {
     expect(n).toEqual([]);
   });
 });
+
+// 14. 10. 2026, Egon: „do jejich sudu“ v poznámce objednávky.
+describe('stáčení do vlastních sudů — poznámka objednávky', () => {
+  it('objednávka s poznámkou „do vlastního sudu“ se při zápisu stáčení nabídne, bez ní ne', () => {
+    const pol = [{ id: 'ie', order_id: 'oe', beer_id: 'b12', package_id: 'k30', quantity: 1 }];
+    const bez = [{ id: 'oe', place_name: 'EGON', status: 'nova', is_delivered: false, delivery_date: '2026-10-14' }];
+    const s = [{ ...bez[0], note: 'do vlastního sudu' }];
+    expect(otevrenePolozkyVlastnich({ objednavky: bez, polozky: pol, obaly, stoceni: [] })).toEqual([]);
+    expect(otevrenePolozkyVlastnich({ objednavky: s, polozky: pol, obaly, stoceni: [] }).map((x) => x.polozkaId)).toEqual(['ie']);
+  });
+});

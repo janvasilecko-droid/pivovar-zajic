@@ -833,6 +833,33 @@ describe('odběratelé s vlastními sudy (lib/vlastniSudy.ts)', () => {
     expect(it.missing).toBe(2);          // Hospodě chybí 2
   });
 
+  // 14. 10. 2026, Egon: „Egon od důchodců prosím 20l 12sv do jejich sudu“ — odběratel
+  // není v seznamu, ale objednávka to říká v poznámce.
+  it('poznámka „do vlastního sudu“: sklad objednávku nepokryje, stočit se musí do jejich sudu', () => {
+    const p = plan({
+      packages: PKGS,
+      orders: [obj('e', 'EGON', { note: 'do vlastního sudu' }), obj('h', 'Hospoda')],
+      orderItems: [pol('i-e', 'e', 'p50', 2), pol('i-h', 'h', 'p50', 1)],
+      currentStockMap: new Map([['b-des__p50', 10]]),
+    });
+    const it = day(p, 'st').items[0];
+    expect(it.doVlastnichSudu).toBe(2);
+    expect(it.missing).toBe(2);
+    expect(it.zChladaku).toBe(1);        // sklad pokryl jen Hospodu
+  });
+
+  it('bez té poznámky je Egon obyčejný odběratel a sklad ho pokryje', () => {
+    const p = plan({
+      packages: PKGS,
+      orders: [obj('e', 'EGON', { note: 'vyzvednout prázdné sudy' }), obj('h', 'Hospoda')],
+      orderItems: [pol('i-e', 'e', 'p50', 2), pol('i-h', 'h', 'p50', 1)],
+      currentStockMap: new Map([['b-des__p50', 10]]),
+    });
+    const it = day(p, 'st').items[0];
+    expect(it.doVlastnichSudu ?? 0).toBe(0);
+    expect(it.missing).toBe(0);
+  });
+
   it('Martin: vlastní jen malé sudy — jeho 50 l kryje sklad normálně, 20 l ne', () => {
     const p = plan({
       packages: PKGS,

@@ -324,9 +324,13 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
   //    u jejich položky se z fondu odečte a jejich odvoz (odpočet závozu) se
   //    do fondu vrátí — jejich tok se tak ve fondu vždy vyruší na nulu.
   const objednavkaPodleId = new Map(orders.map((o) => [o.id, o]));
+  // Vlastní je i objednávka, která to říká v poznámce („do jejich sudu").
   const vlastniPolozky = new Set(orderItems
-    .filter((it) => it.package_id && kegPkgs.has(it.package_id)
-      && doSuduOdberatele(objednavkaPodleId.get(it.order_id)?.place_name, kegPkgs.get(it.package_id)))
+    .filter((it) => {
+      if (!it.package_id || !kegPkgs.has(it.package_id)) return false;
+      const o = objednavkaPodleId.get(it.order_id);
+      return doSuduOdberatele(o?.place_name, kegPkgs.get(it.package_id), o?.note);
+    })
     .map((it) => it.id as string));
   const stocenoDoVlastnich = new Map<string, number>();
   keggingRows.forEach((r) => {
