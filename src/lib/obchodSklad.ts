@@ -106,8 +106,16 @@ export type StavZbozi = {
   prodano: number;
   /** Odepsáno od inventury (rozbité, prošlé, ztráta). */
   odepsano: number;
-  /** Prodáno od začátku měsíce (podle dne konce uzávěrky) — nezávisle na inventuře. */
+  /** Prodáno za celý měsíc (podle dne konce uzávěrky) — nezávisle na inventuře. */
   prodanoMesic: number;
+  /**
+   * Nafasováno do obchodu za celý měsíc (fasování z aplikace) — nezávisle na
+   * inventuře. 14. 10. 2026: „sloupce budou sklad, nafasováno, prodáno, údaje
+   * budou za celý měsíc."
+   */
+  fasovanoMesic: number;
+  /** Ruční příjem zboží za celý měsíc (u pálenky a zboží bez fasování). */
+  prijatoMesic: number;
   /** Sleduje se u zboží sklad? Limonády a ostatní zboží ne — jen prodej. */
   sklad: boolean;
   /** Limonáda — bez skladu a bez hlídání zásob. */
@@ -151,6 +159,19 @@ export function zboziPodlePivaObalu(zbozi: Zbozi[]): Map<string, Zbozi> {
     if (k && !m.has(k)) m.set(k, z);
   }
   return m;
+}
+
+/** Poslední den měsíce `YYYY-MM` (YYYY-MM-DD). */
+export function konecMesiceISO(mesic: string): string {
+  const [rok, m] = mesic.split('-').map(Number);
+  return new Date(Date.UTC(rok, m, 0)).toISOString().slice(0, 10);
+}
+
+/** Měsíc `YYYY-MM` o `delta` měsíců dál (záporné = dřív). */
+export function posunMesic(mesic: string, delta: number): string {
+  const [rok, m] = mesic.split('-').map(Number);
+  const d = new Date(Date.UTC(rok, m - 1 + delta, 1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
 }
 
 /** Poslední inventura zboží ke dni `kDatu` včetně. */
@@ -209,8 +230,14 @@ export function stavySkladu(vstup: VstupSkladu, kDatu: string): StavZbozi[] {
       const p = soucet(prijato);
       const s = soucet(prodano);
       const o = soucet(odepsano);
+      // Za celý měsíc, ve kterém je `kDatu` (u běžícího měsíce do `kDatu`) —
+      // na inventuře to nezávisí, počítá se všechno, co se v měsíci stalo.
       const mesic = kDatu.slice(0, 7);
-      const prodanoMesic = zaokr((prodano.get(z.kod) ?? []).filter((x) => x.datum.slice(0, 7) === mesic && x.datum <= kDatu).reduce((a, x) => a + x.ks, 0));
+      const zaMesic = (m: Map<string, { datum: string; ks: number }[]>) =>
+        zaokr((m.get(z.kod) ?? []).filter((x) => x.datum.slice(0, 7) === mesic && x.datum <= kDatu).reduce((a, x) => a + x.ks, 0));
+      const prodanoMesic = zaMesic(prodano);
+      const fasovanoMesic = zaMesic(fasovano);
+      const prijatoMesic = zaMesic(prijato);
       const min = z.min_ks == null || z.min_ks === '' ? null : cislo(z.min_ks);
       return {
         kod: z.kod,
@@ -223,6 +250,8 @@ export function stavySkladu(vstup: VstupSkladu, kDatu: string): StavZbozi[] {
         prodano: s,
         odepsano: o,
         prodanoMesic,
+        fasovanoMesic,
+        prijatoMesic,
         sklad: sledujeSklad(z),
         limonada: jeLimonada(z),
         min,

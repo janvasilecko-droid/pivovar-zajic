@@ -1,6 +1,6 @@
 // Obchod → Sklad (13. 10. 2026): „naskladněno = aktuální stav, prodáno = počet prodaných od začátku měsíce."
 import { describe, it, expect } from 'vitest';
-import { jePalenka, sledujeSklad, stavySkladu, type VstupSkladu } from './obchodSklad';
+import { jePalenka, konecMesiceISO, posunMesic, sledujeSklad, stavySkladu, type VstupSkladu } from './obchodSklad';
 
 const zbozi = [
   { kod: '11141', nazev: 'Pivo PET 1l 12° světlá', beer_id: 'b12s', package_id: 'p1' },
@@ -71,5 +71,62 @@ describe('limonády se do skladu nepočítají (13. 10. 2026)', () => {
     const st = { zbozi: [limoPivo], uzaverky: vstup.uzaverky, radky: vstup.radky, obaly: [{ id: 'p05', volume_l: 0.5 }], piva: [{ id: 'kiwi', name: 'Kiwi' }] } as any;
     expect(prodejPoZbozi(st)[0]).toMatchObject({ jePivo: false, ks: 9, litry: 0 });
     expect(prodejPoPivech(st)).toEqual([]);
+  });
+});
+
+// 14. 10. 2026: „sloupce budou sklad, nafasováno, prodáno, údaje budou za celý měsíc."
+describe('nafasováno a přijato za celý měsíc', () => {
+  const fasovani = [
+    { beer_id: 'b12s', package_id: 'p1', quantity: 12, entry_date: '2026-10-02' },
+    { beer_id: 'b12s', package_id: 'p1', quantity: 6, entry_date: '2026-10-09' },
+    { beer_id: 'b12s', package_id: 'p1', quantity: 5, entry_date: '2026-09-20' },
+    { beer_id: 'b12s', package_id: 'p1', quantity: 40, entry_date: '2026-10-20' },
+  ];
+  const prijmy = [
+    { kod: '777', datum: '2026-10-03', mnozstvi: 4 },
+    { kod: '777', datum: '2026-09-28', mnozstvi: 9 },
+  ];
+  const s = (kod: string, kDatu: string, extra: Partial<VstupSkladu> = {}) =>
+    stavySkladu(v({ fasovani, prijmy, ...extra }), kDatu).find((x) => x.kod === kod)!;
+
+  it('sčítá fasování a příjem od prvního dne měsíce do dneška', () => {
+    expect(s('11141', '2026-10-13')).toMatchObject({ fasovanoMesic: 18, prijatoMesic: 0 });
+    expect(s('777', '2026-10-13')).toMatchObject({ fasovanoMesic: 0, prijatoMesic: 4 });
+  });
+
+  it('běžící měsíc nepočítá fasování z budoucna', () => {
+    expect(s('11141', '2026-10-13').fasovanoMesic).toBe(18);
+    expect(s('11141', '2026-10-31').fasovanoMesic).toBe(58);
+  });
+
+  it('uplynulý měsíc: jeho vlastní čísla, ne říjnová', () => {
+    expect(s('11141', '2026-09-30')).toMatchObject({ fasovanoMesic: 5, prodanoMesic: 0 });
+    expect(s('777', '2026-09-30').prijatoMesic).toBe(9);
+  });
+
+  it('nezávisí na inventuře: fasování před inventurou v měsíci se počítá dál, stav ne', () => {
+    const r = s('11141', '2026-10-13', { inventury: [{ kod: '11141', datum: '2026-10-05', napocitano: 20 }] });
+    expect(r.fasovanoMesic).toBe(18);   // 12 před inventurou + 6 po ní
+    expect(r.stav).toBe(26);            // 20 napočítáno + 6 po inventuře
+  });
+
+  it('zboží bez fasování a příjmu má nuly', () => {
+    expect(s('1106', '2026-10-13')).toMatchObject({ fasovanoMesic: 0, prijatoMesic: 0 });
+  });
+});
+
+describe('měsíc: poslední den a posun', () => {
+  it('konecMesiceISO', () => {
+    expect(konecMesiceISO('2026-10')).toBe('2026-10-31');
+    expect(konecMesiceISO('2026-09')).toBe('2026-09-30');
+    expect(konecMesiceISO('2026-02')).toBe('2026-02-28');
+    expect(konecMesiceISO('2028-02')).toBe('2028-02-29');
+    expect(konecMesiceISO('2026-12')).toBe('2026-12-31');
+  });
+  it('posunMesic přes hranici roku', () => {
+    expect(posunMesic('2026-10', -1)).toBe('2026-09');
+    expect(posunMesic('2026-01', -1)).toBe('2025-12');
+    expect(posunMesic('2026-12', 1)).toBe('2027-01');
+    expect(posunMesic('2026-10', 0)).toBe('2026-10');
   });
 });

@@ -4,7 +4,7 @@
 // a příjmy − prodej z uzávěrek. Tady se ukazuje a hlídá — záporný stav
 // a stav pod nastaveným minimem svítí nahoře.
 import { useMemo, useState } from 'react';
-import { AlertTriangle, ChevronDown, ChevronUp, ClipboardCheck, PackageMinus, PackagePlus, Plus, Receipt } from 'lucide-react';
+import { AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ClipboardCheck, PackageMinus, PackagePlus, Plus, Receipt } from 'lucide-react';
 import { EmptyState } from '../ui';
 import { beerBorder, beerBg, beerInk } from '../../lib/supabase';
 import { jeSud } from '../../lib/inventoryFix';
@@ -12,7 +12,7 @@ import { IkonaLahev, IkonaSud } from '../ikony';
 import { businessDateISO } from '../../lib/businessDate';
 import { chyba as toastChyba, potvrd, uspech } from '../../lib/toast';
 import {
-  dnyZasoby, fasovaniBezZbozi, pohybyZbozi, prumernyDenniProdej, jeBezKodu, sledujeSklad, stavySkladu, varovaniZasob, type StavZbozi,
+  dnyZasoby, fasovaniBezZbozi, konecMesiceISO, pohybyZbozi, posunMesic, prumernyDenniProdej, jeBezKodu, sledujeSklad, stavySkladu, varovaniZasob, type StavZbozi,
 } from '../../lib/obchodSklad';
 import { inventuraObchoduChybi } from '../../lib/obchodInventura';
 import { smazOdpis, smazPrijem, upravZbozi, type DataObchodu } from '../../lib/obchodData';
@@ -33,7 +33,17 @@ export function ObchodPrehled({ data, zapsal, jdiNa }: {
   jdiNa: (tab: ObchodTab) => void;
 }) {
   const dnes = businessDateISO();
+  // Tabulky ukazují vybraný měsíc (14. 10. 2026: „sklad, nafasováno, prodáno,
+  // údaje budou za celý měsíc"); hlídání zásob a upozornění jedou vždy podle dneška.
+  const aktualniMesic = dnes.slice(0, 7);
+  const [mesic, setMesic] = useState(aktualniMesic);
+  const jeAktualni = mesic === aktualniMesic;
+  const kDatuMesice = jeAktualni ? dnes : konecMesiceISO(mesic);
   const stavy = useMemo(() => stavySkladu(data.vstupSklad, dnes), [data.vstupSklad, dnes]);
+  const stavyMesice = useMemo(
+    () => (jeAktualni ? stavy : stavySkladu(data.vstupSklad, kDatuMesice)),
+    [jeAktualni, stavy, data.vstupSklad, kDatuMesice],
+  );
   const varovani = useMemo(() => varovaniZasob(stavy), [stavy]);
   const bezZbozi = useMemo(() => fasovaniBezZbozi(data.vstup), [data.vstup]);
   const upozorneniInventury = inventuraObchoduChybi(data.inventury, dnes);
@@ -48,9 +58,9 @@ export function ObchodPrehled({ data, zapsal, jdiNa }: {
   const [pridat, setPridat] = useState<{ beerId?: string; pkgId?: string } | null>(null);
   const [dlazdice, setDlazdice] = useState(false);
 
-  const piva = stavy.filter((s) => { const z = zboziPodleKodu.get(s.kod); return !!z?.beer_id && sledujeSklad(z); });
-  const palenka = stavy.filter((s) => { const z = zboziPodleKodu.get(s.kod); return z && !z.beer_id && sledujeSklad(z); });
-  const ostatni = stavy.filter((s) => { const z = zboziPodleKodu.get(s.kod); return !z || !sledujeSklad(z); });
+  const piva = stavyMesice.filter((s) => { const z = zboziPodleKodu.get(s.kod); return !!z?.beer_id && sledujeSklad(z); });
+  const palenka = stavyMesice.filter((s) => { const z = zboziPodleKodu.get(s.kod); return z && !z.beer_id && sledujeSklad(z); });
+  const ostatni = stavyMesice.filter((s) => { const z = zboziPodleKodu.get(s.kod); return !z || !sledujeSklad(z); });
 
   if (data.zbozi.length === 0) {
     return (
@@ -154,24 +164,28 @@ export function ObchodPrehled({ data, zapsal, jdiNa }: {
         </button>
       </div>
 
+      <PrepinacMesice mesic={mesic} aktualni={aktualniMesic} setMesic={setMesic} />
+
       <p className="text-[11px] font-semibold text-neutral-600">
-        Naskladněno = aktuální stav: poslední měsíční inventura + fasování a příjmy − uzávěrky z pokladny. Prodáno = od začátku měsíce ({mesicText(dnes.slice(0, 7))}).
+        Sklad = stav obchodu {jeAktualni ? 'teď' : `ke konci měsíce (${datumKratce(kDatuMesice)})`}: poslední inventura + fasování a příjmy − uzávěrky z pokladny.
+        Nafasováno a Prodáno = za celý měsíc ({mesicText(mesic)}{jeAktualni ? ', zatím do dneška' : ''}).
       </p>
 
       <PivaKarty
-        stavy={piva} data={data} dnes={dnes} otevreno={otevreno} setOtevreno={setOtevreno}
+        stavy={piva} data={data} mesic={mesic} otevreno={otevreno} setOtevreno={setOtevreno}
         detail={(s) => <Polozka s={s} data={data} otevreno prepni={() => setOtevreno(null)} zapsal={zapsal} dnes={dnes} otevriPrijem={(kod) => setPrijem({ kod })} otevriOdpis={(kod) => setOdpis({ kod })} jenDetail pridatKod={(beerId, pkgId) => setPridat({ beerId, pkgId })} />}
       />
-      <ObchodNaskladneni data={data} dnes={dnes} />
+      {/* Po týdnech od konce vybraného měsíce (u běžícího od dneška); klíč kvůli tomu, ať se po přepnutí měsíce rozbalí nejnovější týden. */}
+      <ObchodNaskladneni key={kDatuMesice} data={data} dnes={kDatuMesice} />
 
       {palenka.length > 0 && (
         <SeznamProdeje
-          nadpis="Pálenka" stavy={palenka} dnes={dnes} otevreno={otevreno} setOtevreno={setOtevreno} sSkladem
+          nadpis="Pálenka" stavy={palenka} mesic={mesic} otevreno={otevreno} setOtevreno={setOtevreno} sSkladem
           detail={(s) => <Polozka s={s} data={data} otevreno prepni={() => setOtevreno(null)} zapsal={zapsal} dnes={dnes} otevriPrijem={(kod) => setPrijem({ kod })} otevriOdpis={(kod) => setOdpis({ kod })} jenDetail />}
         />
       )}
       <SeznamProdeje
-        nadpis="Ostatní zboží" stavy={ostatni} dnes={dnes} otevreno={otevreno} setOtevreno={setOtevreno}
+        nadpis="Ostatní zboží" stavy={ostatni} mesic={mesic} otevreno={otevreno} setOtevreno={setOtevreno}
         podpis="Sklad se tu nesleduje — jen kolik se prodalo. Prodej se sčítá do Statistiky."
         detail={(s) => <Polozka s={s} data={data} otevreno prepni={() => setOtevreno(null)} zapsal={zapsal} dnes={dnes} otevriPrijem={(kod) => setPrijem({ kod })} otevriOdpis={(kod) => setOdpis({ kod })} jenDetail sklad={false} />}
       />
@@ -186,11 +200,34 @@ export function ObchodPrehled({ data, zapsal, jdiNa }: {
 
 const cisloBarva = (n: number | null) => (n == null ? 'text-neutral-400' : n < 0 ? 'text-rose-700' : 'text-neutral-900');
 
+/** ‹ říjen 2026 › — měsíc, za který se ukazuje nafasováno a prodáno. Do budoucna se nejde. */
+function PrepinacMesice({ mesic, aktualni, setMesic }: { mesic: string; aktualni: string; setMesic: (m: string) => void }) {
+  const jeAktualni = mesic === aktualni;
+  return (
+    <div className="flex items-center justify-between gap-2 rounded-xl bg-amber-100 px-2 py-1.5" role="group" aria-label="Měsíc">
+      <button type="button" className="btn-ghost !rounded !min-h-[44px] !px-3" aria-label="Předchozí měsíc" onClick={() => setMesic(posunMesic(mesic, -1))}>
+        <ChevronLeft size={18} />
+      </button>
+      <div className="text-center">
+        <div className="text-sm font-black text-neutral-950">{mesicText(mesic)}</div>
+        {!jeAktualni && (
+          <button type="button" className="text-[11px] font-black text-primary-800 underline underline-offset-2" onClick={() => setMesic(aktualni)}>
+            zpět na tento měsíc
+          </button>
+        )}
+      </div>
+      <button type="button" className="btn-ghost !rounded !min-h-[44px] !px-3" aria-label="Další měsíc" disabled={jeAktualni} onClick={() => setMesic(posunMesic(mesic, 1))}>
+        <ChevronRight size={18} />
+      </button>
+    </div>
+  );
+}
+
 /** Piva stejně jako ve Skladu pivovaru: karta na pivo, v ní tabulky Sudy a Lahve. */
-function PivaKarty({ stavy, data, dnes, otevreno, setOtevreno, detail }: {
+function PivaKarty({ stavy, data, mesic, otevreno, setOtevreno, detail }: {
   stavy: StavZbozi[];
   data: DataObchodu;
-  dnes: string;
+  mesic: string;
   otevreno: string | null;
   setOtevreno: (k: string | null) => void;
   detail: (s: StavZbozi) => JSX.Element;
@@ -238,8 +275,9 @@ function PivaKarty({ stavy, data, dnes, otevreno, setOtevreno, detail }: {
                       <thead>
                         <tr className="text-udaj font-bold uppercase tracking-wide text-neutral-400">
                           <th scope="col" className="text-left pb-1 pr-1">Obal</th>
-                          <th scope="col" className="text-center pb-1 px-1" title="Aktuální stav skladu obchodu">Naskladněno</th>
-                          <th scope="col" className="text-center pb-1 pl-1" title={`Prodáno od začátku měsíce (${mesicText(dnes.slice(0, 7))})`}>Prodáno</th>
+                          <th scope="col" className="text-center pb-1 px-1" title="Stav skladu obchodu (u uplynulého měsíce ke konci měsíce)">Sklad</th>
+                          <th scope="col" className="text-center pb-1 px-1" title={`Nafasováno do obchodu za celý měsíc (${mesicText(mesic)}) — fasování z aplikace a příjem`}>Nafasováno</th>
+                          <th scope="col" className="text-center pb-1 pl-1" title={`Prodáno za celý měsíc (${mesicText(mesic)}) — z uzávěrek z pokladny`}>Prodáno</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -261,6 +299,7 @@ function PivaKarty({ stavy, data, dnes, otevreno, setOtevreno, detail }: {
                                 {s.stav == null && <span className="block text-udaj font-black text-amber-800">bez inventury</span>}
                               </button>
                             </td>
+                            <td className={`py-1 px-1 text-center font-extrabold rounded-md ${s.fasovanoMesic + s.prijatoMesic > 0 ? 'bg-sky-50 text-sky-800' : 'bg-neutral-50 text-neutral-500'}`}>{s.fasovanoMesic + s.prijatoMesic > 0 ? `+${cs(s.fasovanoMesic + s.prijatoMesic)}` : '0'}</td>
                             <td className={`py-1 pl-1 text-center font-extrabold rounded-md ${s.prodanoMesic > 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-neutral-50 text-neutral-500'}`}>{cs(s.prodanoMesic)}</td>
                           </tr>
                         ))}
@@ -278,10 +317,10 @@ function PivaKarty({ stavy, data, dnes, otevreno, setOtevreno, detail }: {
 }
 
 /** Seznam zboží s prodejem za měsíc; u pálenky navíc se stavem skladu. */
-function SeznamProdeje({ nadpis, stavy, dnes, otevreno, setOtevreno, detail, sSkladem = false, podpis }: {
+function SeznamProdeje({ nadpis, stavy, mesic, otevreno, setOtevreno, detail, sSkladem = false, podpis }: {
   nadpis: string;
   stavy: StavZbozi[];
-  dnes: string;
+  mesic: string;
   otevreno: string | null;
   setOtevreno: (k: string | null) => void;
   detail: (s: StavZbozi) => JSX.Element;
@@ -295,7 +334,7 @@ function SeznamProdeje({ nadpis, stavy, dnes, otevreno, setOtevreno, detail, sSk
     <section className="space-y-1.5" aria-label={nadpis}>
       <div className="flex items-baseline justify-between gap-2">
         <h3 className="text-xs font-black uppercase tracking-wide text-neutral-600">{nadpis} ({stavy.length})</h3>
-        <span className="text-[11px] font-bold text-neutral-600">prodáno {mesicText(dnes.slice(0, 7))}: <span className="font-black text-emerald-800 tabular-nums">{cs(celkem)} ks</span></span>
+        <span className="text-[11px] font-bold text-neutral-600">prodáno {mesicText(mesic)}: <span className="font-black text-emerald-800 tabular-nums">{cs(celkem)} ks</span></span>
       </div>
       {podpis && <div className="text-[11px] font-semibold text-neutral-600">{podpis}</div>}
       <ul className="space-y-1.5">
@@ -308,8 +347,14 @@ function SeznamProdeje({ nadpis, stavy, dnes, otevreno, setOtevreno, detail, sSk
               </div>
               {sSkladem && (
                 <div className="text-center">
-                  <div className="text-[11px] font-black uppercase text-neutral-500">Naskladněno</div>
+                  <div className="text-[11px] font-black uppercase text-neutral-500">Sklad</div>
                   <div className={`text-lg font-black tabular-nums ${cisloBarva(s.stav)}`}>{s.stav == null ? '—' : cs(s.stav)}</div>
+                </div>
+              )}
+              {sSkladem && (
+                <div className="text-center">
+                  <div className="text-[11px] font-black uppercase text-neutral-500" title="Příjem zboží za celý měsíc">Příjem</div>
+                  <div className={`text-lg font-black tabular-nums ${s.fasovanoMesic + s.prijatoMesic > 0 ? 'text-sky-800' : 'text-neutral-500'}`}>{s.fasovanoMesic + s.prijatoMesic > 0 ? `+${cs(s.fasovanoMesic + s.prijatoMesic)}` : '0'}</div>
                 </div>
               )}
               <div className="text-center">
@@ -393,7 +438,7 @@ function Polozka({ s, data, otevreno, prepni, zapsal, dnes, otevriPrijem, otevri
         <div className="border-t border-neutral-200 p-3 space-y-3">
           {!sklad && (
             <div className="text-center text-[11px] font-bold text-neutral-600">
-              Prodáno tento měsíc<div className="text-base font-black text-emerald-800">{cs(s.prodanoMesic)} ks</div>
+              Prodáno za celý měsíc<div className="text-base font-black text-emerald-800">{cs(s.prodanoMesic)} ks</div>
             </div>
           )}
           {sklad && <div className="grid grid-cols-3 gap-2 text-center text-[11px] font-bold text-neutral-600">
