@@ -21,12 +21,13 @@ import { chyba as toastChyba, uspech } from '../../lib/toast';
 import { NAZVY_TYPU, uzaverkyPresInventuru, type TypUzaverky } from '../../lib/obchodSklad';
 import { vysvetleniPresInventuru } from './ObchodMezery';
 import {
-  datumZVytisteno, navrhZbozi, obdobiUzaverky, pripravZapis, type PrirazeniRadku,
+  datumZVytisteno, najdiDuplicity, navrhZbozi, obdobiUzaverky, popisZapsane, pripravZapis, type PrirazeniRadku,
 } from '../../lib/obchodUzaverka';
+import { popisSlouceni, slucUctenky, vlozPodleKodu } from '../../lib/uctenkaSlouceni';
 import { zapisUzaverku, type DataObchodu } from '../../lib/obchodData';
 import {
   cislo as cisloZTextu, normalizujUzaverku, souctRadku, zkontrolujUzaverku,
-  type PrectenaUzaverka, type ProblemUzaverky,
+  type PrectenaUzaverka, type ProblemUzaverky, type RadekUzaverky,
 } from '../../../supabase/functions/_shared/uzaverka';
 
 /**
@@ -58,6 +59,32 @@ const TYPY: TypUzaverky[] = ['denni', 'tydenni', 'mesicni'];
 const text = (n: number | null | undefined) => (n == null || !Number.isFinite(n) ? '' : String(n));
 const kc = (n: number) => `${Math.round(n * 100) / 100} Kč`.replace('.', ',');
 
+/** Řádek okna (texty z políček) jako číselný řádek účtenky. */
+function radekNaUzaverku(r: Radek): RadekUzaverky {
+  return {
+    kod: r.kod.trim(),
+    nazev: r.nazev.trim(),
+    mnozstvi: r.ks.trim() === '' ? Number.NaN : (cisloZTextu(r.ks) ?? Number.NaN),
+    cena: r.cena.trim() === '' ? null : cisloZTextu(r.cena),
+    celkem: r.celkem.trim() === '' ? null : cisloZTextu(r.celkem),
+  };
+}
+
+/** Všechno, co okno o načtené účtence zrovna drží. */
+type ModelOkna = { radky: Radek[] | null; cisloUz: string; stredisko: string; vytisteno: string | null; celkem: string };
+
+function uctenkaZModelu(m: ModelOkna): PrectenaUzaverka {
+  return {
+    cislo: m.cisloUz.trim() || null,
+    stredisko: m.stredisko.trim() || null,
+    vytisteno: m.vytisteno,
+    celkem: cisloZTextu(m.celkem),
+    radky: (m.radky ?? []).filter((r) => !r.smazano).map(radekNaUzaverku),
+  };
+}
+
+type FotkaUctenky = { dataUrl: string; name: string };
+
 function prirazeniZVolby(r: Radek): PrirazeniRadku {
   if (r.zname) return { druh: 'zname' };
   if (r.volba.ostatni) return { druh: 'ostatni' };
@@ -76,7 +103,12 @@ export function UzaverkaImport({ data, zapsal, vychoziTyp, vychoziObdobi, onClos
 }) {
   const dnes = businessDateISO();
   const [typ, setTyp] = useState<TypUzaverky | null>(vychoziTyp);
-  const [fotka, setFotka] = useState<{ dataUrl: string; name: string } | null>(null);
+  // Účtenka je nejlíp na JEDNÉ fotce; když se nevejde, přidávají se další části (viz pridejCast).
+  const [fotky, setFotky] = useState<FotkaUctenky[]>([]);
+  const [aktivniFotka, setAktivniFotka] = useState(0);
+  const fotka = fotky[0] ?? null;
+  /** Co se stalo po přidání další fotky (kolik řádků přibylo, které už byly) — a kódy s rozdílnými čísly. */
+  const [slouceni, setSlouceni] = useState<{ text: string; rozdilne: string[] } | null>(null);
   const [cte, setCte] = useState(false);
   const [chybaCteni, setChybaCteni] = useState<string | null>(null);
   const [radky, setRadky] = useState<Radek[] | null>(null);
@@ -90,11 +122,19 @@ export function UzaverkaImport({ data, zapsal, vychoziTyp, vychoziObdobi, onClos
   const [poznamka, setPoznamka] = useState('');
   const [potvrzeno, setPotvrzeno] = useState(false);
   const [souhlasPresInventuru, setSouhlasPresInventuru] = useState(false);
+  const [souhlasPodobna, setSouhlasPodobna] = useState(false);
+  const [souhlasBezCisla, setSouhlasBezCisla] = useState(false);
   const [uklada, setUklada] = useState(false);
   const [chyby, setChyby] = useState<string[]>([]);
   const dalsiId = useRef(1);
   const souborRef = useRef<HTMLInputElement>(null);
   const kameraRef = useRef<HTMLInputElement>(null);
+  const pridatSouborRef = useRef<HTMLInputElement>(null);
+  const pridatKameraRef = useRef<HTMLInputElement>(null);
+  // Aktuální stav okna pro slučování fotek za sebou: čtení další fotky trvá, a mezi tím se okno
+  // překresluje — fotky se zpracovávají jedna po druhé a každá se skládá na výsledek té předchozí.
+  const modelRef = useRef<ModelOkna>({ radky: null, cisloUz: '', stredisko: '', vytisteno: null, celkem: '' });
+  const fotkyRef = useRef<FotkaUctenky[]>([]);
 
   function nastavObdobi(t: TypUzaverky | null, datum: string) {
     if (!t) return;
@@ -125,50 +165,132 @@ export function UzaverkaImport({ data, zapsal, vychoziTyp, vychoziObdobi, onClos
     });
   }
 
-  async function nactiFotky(soubory: File[]) {
-    if (!soubory.length) return;
-    setChybaCteni(null);
-    let dataUrl: string;
-    try {
-      dataUrl = await zmensenyDataUrl(soubory[0], VOLBY_FOTKY_UCTENKY);
-    } catch (e) {
-      setChybaCteni('Fotku se nepodařilo načíst: ' + (e instanceof Error ? e.message : String(e)));
-      return;
+  /** Přečte fotku přes edge funkci a vrátí účtenku; chyba je výjimka s čitelným textem. */
+  async function cteniZFotky(dataUrl: string): Promise<PrectenaUzaverka> {
+    const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-uzaverka-image`, {
+      method: 'POST',
+      headers: await authenticatedFunctionHeaders(),
+      body: JSON.stringify({ imageBase64: dataUrl.split(',')[1] ?? '', imageMimeType: typObrazku(dataUrl) }),
+    });
+    const odpoved = await resp.text();
+    if (!resp.ok) {
+      let m = `HTTP ${resp.status}`;
+      try { m += ': ' + (JSON.parse(odpoved)?.error ?? odpoved); } catch { m += ': ' + odpoved; }
+      throw new Error(m);
     }
-    setFotka({ dataUrl, name: soubory[0].name });
-    await precti(dataUrl);
+    let json: unknown;
+    try { json = JSON.parse(odpoved); } catch { throw new Error('Neplatná odpověď: ' + odpoved.slice(0, 200)); }
+    if ((json as { error?: string })?.error) throw new Error((json as { error: string }).error);
+    const u = normalizujUzaverku(json);
+    if (u.radky.length === 0) throw new Error('Na fotce se nepodařilo přečíst žádné řádky.');
+    return u;
   }
 
+  function nastavFotky(f: FotkaUctenky[], aktivni: number) {
+    fotkyRef.current = f;
+    setFotky(f);
+    setAktivniFotka(aktivni);
+  }
+
+  /**
+   * Fotky z fotoaparátu nebo z galerie. Bez `pridat` první fotka NAHRADÍ všechno načtené, každá další
+   * (výběr víc souborů najednou) se k načtenému přidává; s `pridat` se přidávají všechny.
+   */
+  async function nactiFotky(soubory: File[], pridat = false) {
+    if (!soubory.length) return;
+    setChybaCteni(null);
+    let nahradit = !pridat || modelRef.current.radky === null;
+    for (const soubor of soubory) {
+      let dataUrl: string;
+      try {
+        dataUrl = await zmensenyDataUrl(soubor, VOLBY_FOTKY_UCTENKY);
+      } catch (e) {
+        setChybaCteni('Fotku se nepodařilo načíst: ' + (e instanceof Error ? e.message : String(e)));
+        return;
+      }
+      if (nahradit) {
+        nastavFotky([{ dataUrl, name: soubor.name }], 0);
+        await precti(dataUrl);
+        if (modelRef.current.radky === null) return;   // první čtení se nepovedlo — další fotky nemají k čemu přidávat
+        nahradit = false;
+      } else if (!(await pridejCast(dataUrl, soubor.name))) {
+        return;
+      }
+    }
+  }
+
+  /** Čtení první (nebo jediné) fotky: nahradí všechny načtené řádky. */
   async function precti(dataUrl: string) {
     setCte(true);
     setChybaCteni(null);
+    setSlouceni(null);
     setRadky(null);
+    modelRef.current = { radky: null, cisloUz: '', stredisko: '', vytisteno: null, celkem: '' };
     try {
-      const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-uzaverka-image`, {
-        method: 'POST',
-        headers: await authenticatedFunctionHeaders(),
-        body: JSON.stringify({ imageBase64: dataUrl.split(',')[1] ?? '', imageMimeType: typObrazku(dataUrl) }),
-      });
-      const odpoved = await resp.text();
-      if (!resp.ok) {
-        let m = `HTTP ${resp.status}`;
-        try { m += ': ' + (JSON.parse(odpoved)?.error ?? odpoved); } catch { m += ': ' + odpoved; }
-        throw new Error(m);
-      }
-      let json: unknown;
-      try { json = JSON.parse(odpoved); } catch { throw new Error('Neplatná odpověď: ' + odpoved.slice(0, 200)); }
-      if ((json as { error?: string })?.error) throw new Error((json as { error: string }).error);
-      const u = normalizujUzaverku(json);
-      if (u.radky.length === 0) throw new Error('Na fotce se nepodařilo přečíst žádné řádky.');
-      setRadky(radkyZUctenky(u));
+      const u = await cteniZFotky(dataUrl);
+      const nove = radkyZUctenky(u);
+      modelRef.current = { radky: nove, cisloUz: u.cislo ?? '', stredisko: u.stredisko ?? '', vytisteno: u.vytisteno, celkem: text(u.celkem) };
+      setRadky(nove);
       setCisloUz(u.cislo ?? '');
       setStredisko(u.stredisko ?? '');
       setVytisteno(u.vytisteno);
       setCelkem(text(u.celkem));
       setPotvrzeno(false);
+      setSouhlasPodobna(false);
+      setSouhlasBezCisla(false);
       if (!obdobiRucne) nastavObdobi(typ, datumZVytisteno(u.vytisteno) ?? dnes);
     } catch (e) {
       setChybaCteni('Čtení z fotky selhalo: ' + (e instanceof Error ? e.message : String(e)));
+    } finally {
+      setCte(false);
+    }
+  }
+
+  /**
+   * Další část téže účtenky (když se nevešla na jednu fotku). Řádky se slučují podle KÓDU zboží:
+   * řádek, který je na obou fotkách se stejnými čísly, se podruhé nepřidá (jinak by se prodané kusy
+   * odečetly dvakrát), utržený řádek se doplní, stejný kód s jinými čísly se ohlásí a jiná účtenka
+   * (jiné číslo uzávěrky, čas tisku nebo Celkem) se nepřidá vůbec. Vrací, jestli se fotka přidala.
+   */
+  async function pridejCast(dataUrl: string, nazev: string): Promise<boolean> {
+    setCte(true);
+    setChybaCteni(null);
+    try {
+      const u = await cteniZFotky(dataUrl);
+      const m = modelRef.current;
+      const v = slucUctenky(uctenkaZModelu(m), u);
+      if (v.jina) {
+        setChybaCteni(`${v.jina} Fotka se nepřidala — jedna uzávěrka je jedna účtenka. Je-li to jiná účtenka, zadej ji zvlášť.`);
+        return false;
+      }
+      // Utržené řádky z předchozí fotky, které tahle fotka má celé.
+      const doplnene = (m.radky ?? []).map((r) => {
+        const d = r.smazano ? undefined : v.doplnit.find((x) => x.kod === r.kod.trim());
+        return d ? { ...r, ks: text(d.radek.mnozstvi), cena: text(d.radek.cena), celkem: text(d.radek.celkem) } : r;
+      });
+      const radkyNove = vlozPodleKodu(doplnene, radkyZUctenky({ ...u, radky: v.pridat }));
+      const novy: ModelOkna = {
+        radky: radkyNove,
+        cisloUz: v.hlavicka.cislo ?? m.cisloUz,
+        stredisko: v.hlavicka.stredisko ?? m.stredisko,
+        vytisteno: v.hlavicka.vytisteno ?? m.vytisteno,
+        celkem: v.hlavicka.celkem != null ? text(v.hlavicka.celkem) : m.celkem,
+      };
+      modelRef.current = novy;
+      setRadky(radkyNove);
+      setCisloUz(novy.cisloUz);
+      setStredisko(novy.stredisko);
+      setVytisteno(novy.vytisteno);
+      setCelkem(novy.celkem);
+      setPotvrzeno(false);
+      setSouhlasPodobna(false);   // souhlas patřil k jiným řádkům
+      setSlouceni({ text: popisSlouceni(v), rozdilne: v.rozdilne });
+      nastavFotky([...fotkyRef.current, { dataUrl, name: nazev }], fotkyRef.current.length);
+      if (v.hlavicka.vytisteno && !obdobiRucne) nastavObdobi(typ, datumZVytisteno(v.hlavicka.vytisteno) ?? dnes);
+      return true;
+    } catch (e) {
+      setChybaCteni('Čtení další fotky selhalo: ' + (e instanceof Error ? e.message : String(e)));
+      return false;
     } finally {
       setCte(false);
     }
@@ -199,19 +321,15 @@ export function UzaverkaImport({ data, zapsal, vychoziTyp, vychoziObdobi, onClos
   }
 
   const platne = (radky ?? []).filter((r) => !r.smazano);
+  // Slučování další fotky vychází z toho, co je v okně právě teď (i s opravami obsluhy).
+  modelRef.current = { radky, cisloUz, stredisko, vytisteno, celkem };
 
   const uctenka: PrectenaUzaverka = useMemo(() => ({
     cislo: cisloUz.trim() || null,
     stredisko: stredisko.trim() || null,
     vytisteno,
     celkem: cisloZTextu(celkem),
-    radky: platne.map((r) => ({
-      kod: r.kod.trim(),
-      nazev: r.nazev.trim(),
-      mnozstvi: r.ks.trim() === '' ? Number.NaN : (cisloZTextu(r.ks) ?? Number.NaN),
-      cena: r.cena.trim() === '' ? null : cisloZTextu(r.cena),
-      celkem: r.celkem.trim() === '' ? null : cisloZTextu(r.celkem),
-    })),
+    radky: platne.map(radekNaUzaverku),
   }), [cisloUz, stredisko, vytisteno, celkem, platne]);
 
   const kontrola = useMemo(() => zkontrolujUzaverku(uctenka), [uctenka]);
@@ -235,6 +353,13 @@ export function UzaverkaImport({ data, zapsal, vychoziTyp, vychoziObdobi, onClos
     [od, doDne, data.inventury],
   );
 
+  // Tatáž účtenka zapsaná podruhé (třeba vyfocená na víckrát) by odečetla kusy ze skladu dvakrát.
+  const duplicity = useMemo(
+    () => najdiDuplicity({ od, do: doDne, stredisko: uctenka.stredisko, vytisteno, celkem: uctenka.celkem, radky: uctenka.radky }, data.uzaverky, data.radky),
+    [od, doDne, uctenka, vytisteno, data.uzaverky, data.radky],
+  );
+  const bezCisla = platne.length > 0 && !cisloUz.trim();
+
   /** Odroluje na řádek (okno je dlouhé a nahoře drží fotka — chyba dole by jinak nebyla vidět). */
   function skocNaRadek(id: number) {
     document.getElementById(`uz-radek-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'end' });
@@ -252,6 +377,9 @@ export function UzaverkaImport({ data, zapsal, vychoziTyp, vychoziObdobi, onClos
       radky: uctenka.radky.map((r, i) => ({ ...r, prirazeni: prirazeniZVolby(platne[i]) })),
       znameZbozi: data.zbozi,
       existujiciUzaverky: data.uzaverky,
+      zapsaneRadky: data.radky,
+      potvrzenoBezCisla: souhlasBezCisla,
+      souhlasPodobna,
     });
     if (zapis.chyby.length > 0) {
       setChyby(zapis.chyby);
@@ -280,7 +408,11 @@ export function UzaverkaImport({ data, zapsal, vychoziTyp, vychoziObdobi, onClos
   }
 
   const soucet = souctRadku(uctenka.radky);
-  const lzeUlozit = !!typ && platne.length > 0 && kontrola.problemy.length === 0 && nevyreseno.length === 0 && nepotvrzeno.length === 0 && (presInventuru.length === 0 || souhlasPresInventuru) && potvrzeno && !uklada;
+  const lzeUlozit = !!typ && platne.length > 0 && kontrola.problemy.length === 0 && nevyreseno.length === 0 && nepotvrzeno.length === 0
+    && (presInventuru.length === 0 || souhlasPresInventuru)
+    && duplicity.stejna.length === 0 && (duplicity.podobne.length === 0 || souhlasPodobna)
+    && (!bezCisla || souhlasBezCisla)
+    && potvrzeno && !uklada;
   const prvniProblemRadek = kontrola.problemy.find((x) => x.radek !== null)?.radek ?? null;
 
   return (
@@ -304,7 +436,7 @@ export function UzaverkaImport({ data, zapsal, vychoziTyp, vychoziObdobi, onClos
         </div>
 
         <div className="flex flex-wrap gap-2 items-center">
-          <input ref={souborRef} type="file" accept="image/*" className="hidden" onChange={(e) => { void nactiFotky(Array.from(e.target.files ?? [])); e.target.value = ''; }} />
+          <input ref={souborRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => { void nactiFotky(Array.from(e.target.files ?? [])); e.target.value = ''; }} />
           <input ref={kameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { void nactiFotky(Array.from(e.target.files ?? [])); e.target.value = ''; }} />
           <button type="button" className="btn-primary !rounded flex items-center gap-2" disabled={cte} onClick={() => kameraRef.current?.click()}>
             <Camera size={16} /> Vyfotit uzávěrku
@@ -331,11 +463,42 @@ export function UzaverkaImport({ data, zapsal, vychoziTyp, vychoziObdobi, onClos
           </div>
         )}
 
-        {fotka && (
+        {fotky.length > 0 && (
           <div className="sticky top-0 z-20 -mx-6 bg-white border-b-2 border-primary-200 shadow-md">
             <div className="h-[38vh] sm:h-[42vh]">
-              <PhotoReviewPane photos={[fotka]} activeIndex={0} onChangeIndex={() => {}} />
+              <PhotoReviewPane photos={fotky} activeIndex={Math.min(aktivniFotka, fotky.length - 1)} onChangeIndex={setAktivniFotka} />
             </div>
+          </div>
+        )}
+        {fotky.length > 0 && radky !== null && (
+          <div className="space-y-1.5">
+            <input ref={pridatSouborRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => { void nactiFotky(Array.from(e.target.files ?? []), true); e.target.value = ''; }} />
+            <input ref={pridatKameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { void nactiFotky(Array.from(e.target.files ?? []), true); e.target.value = ''; }} />
+            <div className="flex flex-wrap items-center gap-2">
+              <button type="button" className="btn-ghost !rounded !py-1.5 text-xs font-bold flex items-center gap-1" disabled={cte} onClick={() => pridatKameraRef.current?.click()}>
+                <Plus size={14} /> Přidat další fotku
+              </button>
+              <button type="button" className="btn-ghost !rounded !py-1.5 text-xs font-bold flex items-center gap-1" disabled={cte} onClick={() => pridatSouborRef.current?.click()}>
+                <Upload size={14} /> z galerie
+              </button>
+              <span className="text-[11px] font-semibold text-neutral-600">
+                Nevešla se účtenka na jednu fotku? Přidej další část — řádky, které jsou na obou fotkách, se nesečtou podruhé.
+              </span>
+            </div>
+            {slouceni && (
+              <div role="status" aria-label="Další fotka přidána" className="rounded-lg border border-emerald-300 bg-emerald-50 p-2 text-xs font-bold text-emerald-900 space-y-1">
+                <div className="flex items-start gap-1.5"><Check size={13} className="shrink-0 mt-0.5" /> <span>{slouceni.text}</span></div>
+                {slouceni.rozdilne.length > 0 && (
+                  <div className="flex items-start gap-1.5 text-amber-900">
+                    <AlertTriangle size={13} className="shrink-0 mt-0.5" />
+                    <span>
+                      {slouceni.rozdilne.length === 1 ? 'Kód' : 'Kódy'} {slouceni.rozdilne.join(', ')} {slouceni.rozdilne.length === 1 ? 'je' : 'jsou'} na fotkách s RŮZNÝMI čísly —
+                      jedno čtení je špatné. Nech jen správný řádek (druhý odstraň), jinak se uzávěrka nezapíše.
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
         {fotka && radky === null && !cte && (
@@ -364,6 +527,15 @@ export function UzaverkaImport({ data, zapsal, vychoziTyp, vychoziObdobi, onClos
                 <input id="uz-do" type="date" className="input font-bold" value={doDne} onChange={(e) => { setDoDne(e.target.value); setObdobiRucne(true); }} />
               </div>
             </div>
+            {bezCisla && (
+              <label className="flex items-start gap-2 text-xs font-bold text-amber-900 cursor-pointer select-none">
+                <input type="checkbox" className="w-5 h-5 shrink-0" checked={souhlasBezCisla} onChange={(e) => setSouhlasBezCisla(e.target.checked)} />
+                <span>
+                  Chybí číslo uzávěrky. Podle něj se pozná, že už je účtenka zapsaná — opiš ho ze začátku účtenky („Uzaverka: 2/2873“),
+                  nebo zaškrtni, že účtenka číslo nemá.
+                </span>
+              </label>
+            )}
             <div className="text-xs font-semibold text-neutral-600">
               Odečet ze skladu platí ke dni <strong>{doDne}</strong> (konec období).
               {vytisteno ? <> Vytištěno {vytisteno.replace('T', ' ')}.</> : null}
@@ -376,11 +548,47 @@ export function UzaverkaImport({ data, zapsal, vychoziTyp, vychoziObdobi, onClos
                   {neuplnaFotka.map((t) => <li key={t}>{t}</li>)}
                 </ul>
                 <div className="text-xs font-semibold">
-                  Vyfoť účtenku <strong>celou najednou</strong> (od „Sumář prodeje“ po „Celkem“) a načti ji znovu, nebo chybějící údaje opiš z papíru.
+                  Vyfoť účtenku <strong>celou najednou</strong> (od „Sumář prodeje“ po „Celkem“) a načti ji znovu, přidej další část účtenky,
+                  nebo chybějící údaje opiš z papíru.
                 </div>
-                <button type="button" className="btn-ghost !rounded !py-1 text-xs font-bold flex items-center gap-1" disabled={cte} onClick={() => kameraRef.current?.click()}>
-                  <Camera size={14} /> Vyfotit znovu
-                </button>
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" className="btn-ghost !rounded !py-1 text-xs font-bold flex items-center gap-1" disabled={cte} onClick={() => kameraRef.current?.click()}>
+                    <Camera size={14} /> Vyfotit znovu
+                  </button>
+                  <button type="button" className="btn-ghost !rounded !py-1 text-xs font-bold flex items-center gap-1" disabled={cte} onClick={() => pridatKameraRef.current?.click()}>
+                    <Plus size={14} /> Přidat další fotku
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {duplicity.stejna.length > 0 && (
+              <div role="alert" aria-label="Účtenka už je zapsaná" className="rounded-xl border-2 border-rose-400 bg-rose-50 p-3 space-y-1.5 text-rose-950">
+                <div className="text-sm font-black flex items-center gap-1.5"><AlertTriangle size={16} /> Tahle účtenka už je zapsaná</div>
+                <ul className="text-xs font-bold space-y-0.5 list-disc pl-5">
+                  {duplicity.stejna.map((u) => (
+                    <li key={u.id ?? popisZapsane(u)}>Uzávěrka {popisZapsane(u)} má stejný čas tisku ({(u.vytisteno ?? '').slice(0, 16).replace('T', ' ')}) i stejné Celkem.</li>
+                  ))}
+                </ul>
+                <div className="text-xs font-semibold">
+                  Znovu se zapsat nedá — prodané kusy by se ze skladu odečetly podruhé. Když jsi účtenku fotil na víckrát,
+                  dej všechny fotky do JEDNOHO okna (Přidat další fotku).
+                </div>
+              </div>
+            )}
+            {duplicity.podobne.length > 0 && (
+              <div role="alert" aria-label="Podobná uzávěrka už je zapsaná" className="rounded-xl border-2 border-rose-400 bg-rose-50 p-3 space-y-2 text-rose-950">
+                <div className="text-sm font-black flex items-center gap-1.5"><AlertTriangle size={16} /> Podobná uzávěrka už je zapsaná</div>
+                <ul className="text-xs font-bold space-y-0.5 list-disc pl-5">
+                  {duplicity.podobne.map((pod) => (
+                    <li key={pod.uzaverka.id ?? popisZapsane(pod.uzaverka)}>Uzávěrka {popisZapsane(pod.uzaverka)}: {pod.shodnych} z {pod.zNovych} řádků úplně stejných (kód, množství i cena).</li>
+                  ))}
+                </ul>
+                <div className="text-xs font-semibold">Nejspíš tatáž účtenka vyfocená podruhé — ze skladu by se odečetla dvakrát.</div>
+                <label className="flex items-start gap-2 text-xs font-bold cursor-pointer select-none">
+                  <input type="checkbox" className="w-5 h-5 shrink-0" checked={souhlasPodobna} onChange={(e) => setSouhlasPodobna(e.target.checked)} />
+                  Je to jiná účtenka — uložit i tak.
+                </label>
               </div>
             )}
 
@@ -575,6 +783,9 @@ export function UzaverkaImport({ data, zapsal, vychoziTyp, vychoziObdobi, onClos
                     </li>
                   )}
                   {presInventuru.length > 0 && !souhlasPresInventuru && <li>• Uzávěrka přetíná inventuru — zaškrtni „Přesto uložit" výše, nebo změň období.</li>}
+                  {duplicity.stejna.length > 0 && <li>• Tahle účtenka už je zapsaná — znovu se zapsat nedá (viz červené okno výše).</li>}
+                  {duplicity.podobne.length > 0 && !souhlasPodobna && <li>• Podobná uzávěrka už je zapsaná — zaškrtni „Je to jiná účtenka“, nebo okno zavři.</li>}
+                  {bezCisla && !souhlasBezCisla && <li>• Doplň číslo uzávěrky z účtenky, nebo zaškrtni, že ho účtenka nemá.</li>}
                   {!potvrzeno && <li>• Zaškrtni „Zkontroloval jsem řádky podle fotky".</li>}
                 </ul>
               </div>
