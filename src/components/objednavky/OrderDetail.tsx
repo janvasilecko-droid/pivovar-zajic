@@ -28,13 +28,14 @@ import { StitekStavu } from '../StitekStavu';
 
 import { type Order, type OrderItem, dayColor } from './spolecne';
 import { WhatsAppOriginalBlock } from './WhatsAppOriginalBlock';
-export function OrderDetail({ order, items, beers, packages, places, priceList, remaining, onClose, onChanged, onSplit, onToggleFlag, onImportImage, setItems, setOrders, allOrders, allItems, setPage, weekKey, setWeekKey }: {
+export function OrderDetail({ order, items, beers, packages, places, priceList, remaining, onClose, onChanged, onSplit, onToggleFlag, onToggleItemFlag, onImportImage, setItems, allOrders, allItems, setPage, weekKey, setWeekKey }: {
   order: Order; items: OrderItem[]; beers: Beer[]; packages: Package[]; places: Place[]; priceList: CenaPolozky[]; remaining: Map<string, number>; onClose: () => void; onChanged: () => void;
   /** Rozdělit na dva odběratele (viz SplitOrderModal) — jen když má 2+ položky. */
   onSplit: (o: Order) => void;
   onToggleFlag: (o: Order, key: 'is_prepared' | 'is_packaged' | 'is_delivered') => void; onImportImage: (o: Order) => void;
+  /** Odškrtnutí položky (připraveno / stočeno) — jedno místo pro seznam i detail, viz lib/useOdskrtavani.ts. */
+  onToggleItemFlag: (o: Order, it: OrderItem, key: 'is_bottled' | 'is_prepared') => void;
   setItems: React.Dispatch<React.SetStateAction<Record<string, OrderItem[]>>>;
-  setOrders: React.Dispatch<React.SetStateAction<Order[]>>;
   setPage?: (p: any, sec?: string) => void;
   allOrders: Order[];
   allItems: Record<string, OrderItem[]>;
@@ -273,24 +274,11 @@ export function OrderDetail({ order, items, beers, packages, places, priceList, 
       setVytvarimUpozorneni(false);
     }
   }
-  async function toggleItemPrepared(it: OrderItem) {
-    const newPrepared = !it.is_prepared;
-    await supabase.from('order_items').update({ is_prepared: newPrepared }).eq('id', it.id);
-    // Optimistic update in place — avoid calling load() which would collapse
-    // the list and scroll back to the top while the user is checking items off.
-    setItems((map) => ({
-      ...map,
-      [order.id]: (map[order.id] ?? []).map((x) => x.id === it.id ? { ...x, is_prepared: newPrepared } : x),
-    }));
-    const updatedItems = items.map((x) => x.id === it.id ? { ...x, is_prepared: newPrepared } : x);
-    const allPrepared = updatedItems.length > 0 && updatedItems.every((x) => x.is_prepared);
-    if (allPrepared && !order.is_prepared) {
-      await supabase.from('orders').update({ is_prepared: true }).eq('id', order.id);
-      setOrders((arr) => arr.map((x) => x.id === order.id ? { ...x, is_prepared: true } as Order : x));
-    } else if (!allPrepared && order.is_prepared) {
-      await supabase.from('orders').update({ is_prepared: false }).eq('id', order.id);
-      setOrders((arr) => arr.map((x) => x.id === order.id ? { ...x, is_prepared: false } as Order : x));
-    }
+  // Odškrtnutí položky jde stejnou cestou jako v seznamu objednávek: nejdřív se
+  // překreslí, pak se ukládá (lib/useOdskrtavani.ts) — včetně příznaku celé
+  // objednávky. Seznam se přitom nenačítá znovu, takže se neposune nahoru.
+  function toggleItemPrepared(it: OrderItem) {
+    onToggleItemFlag(order, it, 'is_prepared');
   }
 
   const dc = dayColor(order.delivery_day);

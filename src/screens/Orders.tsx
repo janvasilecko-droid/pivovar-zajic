@@ -21,7 +21,7 @@ import { jeAutomatickyBezZavozu } from '../lib/bezZavozu';
 
 import { PlaceCombobox } from '../components/PlaceCombobox'; // Assuming this is needed
 import { DAYS } from '../lib/shared';
-import { vseHotovo } from '../lib/polozkyObjednavky';
+import { useOdskrtavani } from '../lib/useOdskrtavani';
 import { orderQuickQtys } from '../components/QuickQtySelect';
 import { BeerTileGrid, BeerTilePanel } from '../components/BeerTileGrid';
 import { nejcastejsiMnozstvi } from '../lib/quickQty';
@@ -115,6 +115,9 @@ export default function Orders({
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [items, setItems] = useState<Record<string, OrderItem[]>>({});
+  // ✅ Odškrtnutí položky: nejdřív se překreslí, pak se ukládá (lib/useOdskrtavani.ts) —
+  // na slabém signálu by klepnutí čekalo na server a po přenačtení se vrátilo.
+  const { nastavPriznak, prekryj } = useOdskrtavani({ items, setItems, orders, setOrders });
   const [places, setPlaces] = useState<Place[]>([]);
   const [beers, setBeers] = useState<Beer[]>([]);
   const [priceList, setPriceList] = useState<CenaPolozky[]>([]);
@@ -980,7 +983,8 @@ export default function Orders({
       ((vsechnyPolozky as OrderItem[]) ?? []).forEach((i) => {
         if (ids.has(i.order_id)) (map[i.order_id] ??= []).push(i);
       });
-      setItems(map);
+      // Odškrtnutí, které se ještě nestihlo zapsat, přenačtení nevrátí zpět.
+      setItems(prekryj(map));
     }
     if (!silent) setLoading(false);
   }
@@ -1412,25 +1416,23 @@ export default function Orders({
   async function toggleFlag(o: Order, key: 'is_prepared' | 'is_packaged' | 'is_delivered') {
     const patch: Record<string, unknown> = { [key]: !o[key] };
     if (key === 'is_delivered') patch.delivered_at = !o[key] ? new Date().toISOString() : null;
-    await supabase.from('orders').update(patch).eq('id', o.id);
+    const puvodni: Record<string, unknown> = { [key]: o[key] };
+    if (key === 'is_delivered') puvodni.delivered_at = o.delivered_at;
+    // Nejdřív se překreslí, pak se ukládá — na slabém signálu by klepnutí čekalo
+    // na server (až 10 s) a vypadalo, že neprošlo. Zpátky se vrací jen když
+    // server zápis odmítne; výpadek signálu řeší fronta v telefonu.
     setOrders((arr) => arr.map((x) => x.id === o.id ? { ...x, ...patch } as Order : x));
+    const { error } = await supabase.from('orders').update(patch).eq('id', o.id);
+    if (error) {
+      setOrders((arr) => arr.map((x) => x.id === o.id ? { ...x, ...puvodni } as Order : x));
+      chyba('Nepovedlo se uložit: ' + error.message);
+    }
   }
 
-  async function toggleItemFlag(o: Order, it: OrderItem, key: 'is_bottled' | 'is_prepared') {
-    const nova = !it[key];
-    const { error } = await supabase.from('order_items').update({ [key]: nova }).eq('id', it.id);
-    if (error) { chyba('Nepovedlo se uložit: ' + error.message); return; }
-
-    const dalsi = (items[o.id] ?? []).map((x) => (x.id === it.id ? { ...x, [key]: nova } : x));
-    setItems((m) => ({ ...m, [o.id]: dalsi }));
-
-    if (key === 'is_prepared') {
-      const hotovo = vseHotovo(dalsi, 'is_prepared');
-      if (hotovo !== o.is_prepared) {
-        await supabase.from('orders').update({ is_prepared: hotovo }).eq('id', o.id);
-        setOrders((arr) => arr.map((x) => (x.id === o.id ? { ...x, is_prepared: hotovo } : x)));
-      }
-    }
+  function toggleItemFlag(o: Order, it: OrderItem, key: 'is_bottled' | 'is_prepared') {
+    // Nejdřív se překreslí, pak se ukládá; u „připraveno" se podle položek
+    // přepíše i příznak celé objednávky (lib/useOdskrtavani.ts).
+    void nastavPriznak([{ orderId: o.id, itemId: it.id }], key, !it[key]);
 
     // ⛔ „Stočeno" JEN odškrtne položku. Do 18. 9. 2026 tím appka rovnou
     // zakládala záznam ve stáčení KEG — a ve stáčení se pak objevila várka,
@@ -2821,10 +2823,10 @@ export default function Orders({
                           onChanged={load}
                           onSplit={setSplitOrder}
                           onToggleFlag={toggleFlag}
+                          onToggleItemFlag={toggleItemFlag}
                           onImportImage={(o) => { setDetail(null); setImportTarget(o); setShowImport(true); }}
                           setItems={setItems}
                     setPage={setPage}
-                          setOrders={setOrders}
                           allOrders={orders}
                           allItems={items}
                           weekKey={weekKey}
@@ -2863,10 +2865,10 @@ export default function Orders({
                     onChanged={load}
                     onSplit={setSplitOrder}
                     onToggleFlag={toggleFlag}
+                    onToggleItemFlag={toggleItemFlag}
                     onImportImage={(o) => { setDetail(null); setImportTarget(o); setShowImport(true); }}
                     setItems={setItems}
                     setPage={setPage}
-                    setOrders={setOrders}
                     allOrders={orders}
                     allItems={items}
                     weekKey={weekKey}
