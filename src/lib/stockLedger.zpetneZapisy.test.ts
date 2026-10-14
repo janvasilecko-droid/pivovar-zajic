@@ -68,3 +68,33 @@ describe('Týdenní inventura: očekávaný stav bere zpětné zápisy po minul�
     expect(ocekavanyStavTydne(pohyby, '2026-10-12', '2026-10-18', minule).get(K)?.qty).toBe(7);
   });
 });
+
+describe('Týdenní počítání z pátku (14. 10. 2026: 10° Desítka 30 l, závoz v neděli)', () => {
+  // Počítání týdne 5.–11. 10. uložené v pátek 9. 10. v 10:28 = 5 ks.
+  const patek = tydenniJakoInventura([
+    { tyden_od: '2026-10-05', tyden_do: '2026-10-11', beer_id: B, package_id: P, napocitano: 5, updated_at: '2026-10-09T08:28:00Z' },
+  ]);
+  const stavP = (src: Parameters<typeof buildMovements>[0], den = '2026-10-13') =>
+    stockAsOf(buildMovements({ packages, inventoryRows: patek as any, ...src }), den).get(K)?.qty;
+
+  it('počítání platí ke dni počítání (ne až k pondělí)', () => {
+    expect(patek[0]).toMatchObject({ entry_date: '2026-10-09' });
+    expect(String(patek[0].note)).toContain('(konec dne)');
+  });
+
+  it('víkendový závoz po pátečním počítání se odečte, zápis z pátku už je v čísle', () => {
+    expect(stavP({
+      zavozDeductionRows: [
+        { deduct_date: '2026-10-09', beer_id: B, package_id: P, quantity: 13, created_at: '2026-10-08T22:05:00Z' }, // před počítáním
+        { deduct_date: '2026-10-11', beer_id: B, package_id: P, quantity: 1, created_at: '2026-10-11T12:11:00Z' },
+        { deduct_date: '2026-10-11', beer_id: B, package_id: P, quantity: 1, created_at: '2026-10-13T09:15:22Z' },
+      ],
+      keggingRows: [{ entry_date: '2026-10-13', beer_id: B, package_id: P, quantity: 6, created_at: '2026-10-13T13:22:00Z' }],
+    })).toBe(9); // 5 − 1 − 1 + 6 − 0
+  });
+
+  it('počítání v pondělí zůstává pondělní', () => {
+    expect(pocitani[0]).toMatchObject({ entry_date: '2026-10-12' });
+    expect(String(pocitani[0].note)).not.toContain('(konec dne)');
+  });
+});

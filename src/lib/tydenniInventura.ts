@@ -22,6 +22,7 @@
 //     knihy, tedy stejná matematika jako Sklad a měsíční inventura. Kdyby si
 //     tenhle soubor počítal po svém, vyrobil by třetí verzi pravdy — přesně
 //     to, co má týdenní kontrola odhalovat.
+import { businessDateISO } from './businessDate';
 import type { Movement, StockLine } from './stockLedger';
 import { stockAsOf, stockForObdobi, zapsanoPoPocitani } from './stockLedger';
 import { jeSud } from './inventoryFix';
@@ -261,6 +262,9 @@ export function poznamkaTydenniInventury(tydenOd: string): string {
   return `Týdenní inventura ${stitekTydne(tydenOd)}`;
 }
 
+/** Značka u počítání, které se dělalo DŘÍV než v pondělí po týdnu (např. v pátek). */
+export const ZNACKA_KONEC_DNE = ' (konec dne)';
+
 /**
  * Uložené počty týdenní inventury jako řádky inventury pro skladovou knihu:
  * stav RÁNO v pondělí po kontrolovaném týdnu = napočítané.
@@ -288,16 +292,26 @@ export function tydenniJakoInventura(radky: {
 }[]): Record<string, unknown>[] {
   return radky
     .filter((r) => r.napocitano !== null && r.napocitano !== '' && Number.isFinite(Number(r.napocitano)))
-    .map((r) => ({
-      entry_date: posunDnu(String(r.tyden_do).slice(0, 10), 1),
+    .map((r) => {
+      // Počítání se promítá k PONDĚLÍ po týdnu, ale když se spočítalo dřív (např. v pátek),
+      // platí ke dni počítání — co odjelo po něm (víkendový závoz), se musí od čísla odečíst.
+      // Z provozu 14. 10. 2026: „10° Desítka 30 l: napočítáno v pátek 5, závoz v neděli
+      // 2× 30 se neodečetl, ukazuje 2 navíc."
+      const pondeli = posunDnu(String(r.tyden_do).slice(0, 10), 1);
+      const tydenOd = String(r.tyden_od).slice(0, 10);
+      const denPocitani = r.updated_at ? businessDateISO(new Date(r.updated_at)) : pondeli;
+      const driv = denPocitani >= tydenOd && denPocitani < pondeli;
+      return {
+      entry_date: driv ? denPocitani : pondeli,
       beer_id: r.beer_id,
       beer_name: r.beer_name ?? null,
       package_id: r.package_id,
       package_label: r.package_label ?? null,
       quantity: Number(r.napocitano),
-      note: poznamkaTydenniInventury(String(r.tyden_od).slice(0, 10)),
+      note: poznamkaTydenniInventury(tydenOd) + (driv ? ZNACKA_KONEC_DNE : ''),
       created_at: r.updated_at ?? null,
-    }));
+    };
+    });
 }
 
 export function zaznamKontroly(
