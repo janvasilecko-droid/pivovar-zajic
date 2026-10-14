@@ -29,6 +29,15 @@ import {
   type PrectenaUzaverka, type ProblemUzaverky,
 } from '../../../supabase/functions/_shared/uzaverka';
 
+/**
+ * Účtenka z pokladny je dlouhý pásek (26 položek = přes 60 řádků textu) a musí se
+ * vejít na JEDNU fotku. Zmenšená na 1600 px by písmo mělo pár pixelů a čísla by
+ * se četla špatně (zkoušeno 14. 10. 2026: při 1300 px na délku čte Google Vision
+ * vše, při 1000 px už ne), proto se fotka zmenšuje jen na 3200 px a ve vyšší
+ * kvalitě; velikost se hlídá, aby šla odeslat.
+ */
+const VOLBY_FOTKY_UCTENKY = { maxStrana: 3200, kvalita: 0.88, maxZnaku: 4_800_000 };
+
 type Volba = { beerId: string; pkgId: string; ostatni: boolean; potvrzeno: boolean };
 
 type Radek = {
@@ -121,7 +130,7 @@ export function UzaverkaImport({ data, zapsal, vychoziTyp, vychoziObdobi, onClos
     setChybaCteni(null);
     let dataUrl: string;
     try {
-      dataUrl = await zmensenyDataUrl(soubory[0]);
+      dataUrl = await zmensenyDataUrl(soubory[0], VOLBY_FOTKY_UCTENKY);
     } catch (e) {
       setChybaCteni('Fotku se nepodařilo načíst: ' + (e instanceof Error ? e.message : String(e)));
       return;
@@ -206,6 +215,14 @@ export function UzaverkaImport({ data, zapsal, vychoziTyp, vychoziObdobi, onClos
   }), [cisloUz, stredisko, vytisteno, celkem, platne]);
 
   const kontrola = useMemo(() => zkontrolujUzaverku(uctenka), [uctenka]);
+  // Co na fotce chybí z celé účtenky: začátek (číslo uzávěrky, čas tisku) a konec (Celkem).
+  // Údaj, který obsluha doplní ručně, z výčtu zmizí.
+  const neuplnaFotka = useMemo(() => {
+    const t: string[] = [];
+    if (!cisloUz.trim() && !vytisteno) t.push('Chybí začátek účtenky (číslo uzávěrky a „Vytištěno“) — bez čísla se nepozná, že už je uzávěrka zapsaná.');
+    if (celkem.trim() === '') t.push('Chybí konec účtenky (řádek „Celkem“) — bez něj nejde ověřit, že žádný řádek nechybí.');
+    return t;
+  }, [cisloUz, vytisteno, celkem]);
   const problemyRadku = (i: number): ProblemUzaverky[] => kontrola.problemy.filter((p) => p.radek === i);
   const problemyCelku = kontrola.problemy.filter((p) => p.radek === null);
   const nepotvrzeno = platne.filter((r) => !r.zname && !r.volba.ostatni && !r.volba.potvrzeno && r.volba.beerId && r.volba.pkgId);
@@ -299,6 +316,12 @@ export function UzaverkaImport({ data, zapsal, vychoziTyp, vychoziObdobi, onClos
             <button type="button" className="btn-ghost !rounded text-xs" disabled={cte} onClick={zacniRucne}>Zadat ručně bez fotky</button>
           )}
         </div>
+        {radky === null && (
+          <p className="text-xs font-semibold text-neutral-700">
+            Účtenka z pokladny je dlouhý pásek — vyfoť ji <strong>celou najednou</strong>, od „Sumář prodeje“ nahoře až po „Celkem“ dole,
+            zpříma a ostře. Na jedné fotce se čísla ověří proti součtu a nic se nezdvojí.
+          </p>
+        )}
 
         {cte && <div className="rounded-lg bg-primary-50 border border-primary-200 p-3 text-sm font-bold text-primary-900">Čtu fotku…</div>}
         {chybaCteni && (
@@ -345,6 +368,21 @@ export function UzaverkaImport({ data, zapsal, vychoziTyp, vychoziObdobi, onClos
               Odečet ze skladu platí ke dni <strong>{doDne}</strong> (konec období).
               {vytisteno ? <> Vytištěno {vytisteno.replace('T', ' ')}.</> : null}
             </div>
+
+            {fotka && neuplnaFotka.length > 0 && (
+              <div role="status" aria-label="Fotka není úplná" className="rounded-xl border-2 border-amber-400 bg-amber-50 p-3 space-y-1.5 text-amber-950">
+                <div className="text-sm font-black flex items-center gap-1.5"><AlertTriangle size={16} /> Na fotce není celá účtenka</div>
+                <ul className="text-xs font-bold space-y-0.5 list-disc pl-5">
+                  {neuplnaFotka.map((t) => <li key={t}>{t}</li>)}
+                </ul>
+                <div className="text-xs font-semibold">
+                  Vyfoť účtenku <strong>celou najednou</strong> (od „Sumář prodeje“ po „Celkem“) a načti ji znovu, nebo chybějící údaje opiš z papíru.
+                </div>
+                <button type="button" className="btn-ghost !rounded !py-1 text-xs font-bold flex items-center gap-1" disabled={cte} onClick={() => kameraRef.current?.click()}>
+                  <Camera size={14} /> Vyfotit znovu
+                </button>
+              </div>
+            )}
 
             {presInventuru.length > 0 && (
               <div role="alert" className="rounded-xl border-2 border-rose-400 bg-rose-50 p-3 space-y-2 text-rose-950">

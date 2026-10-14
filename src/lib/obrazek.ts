@@ -20,6 +20,26 @@ export function typObrazku(dataUrl: string): string {
 const MAX_STRANA_FOTKY = 1600;
 const KVALITA_FOTKY = 0.82;
 
+/** Jak moc se fotka smí zmenšit (výchozí hodnoty viz výše). */
+export type VolbyZmenseni = {
+  /** Nejdelší strana v pixelech. */
+  maxStrana?: number;
+  /** Kvalita JPEG 0–1. */
+  kvalita?: number;
+  /**
+   * Strop na délku výsledného data URL. Když ho fotka přesáhne, zmenšuje se
+   * dál (o pětinu), dokud se nevejde — velký snímek by jinak nešel odeslat
+   * (edge funkce berou tělo do 15 MB, Google Vision do 10 MB, Anthropic obrázek do 5 MB).
+   */
+  maxZnaku?: number;
+};
+
+/** Rozměry po zmenšení tak, aby delší strana nepřekročila `maxStrana`; menší obrázek se nezvětšuje. */
+export function rozmeryPoZmenseni(sirka: number, vyska: number, maxStrana: number): { sirka: number; vyska: number } {
+  const meritko = Math.min(1, maxStrana / Math.max(sirka, vyska));
+  return { sirka: Math.max(1, Math.round(sirka * meritko)), vyska: Math.max(1, Math.round(vyska * meritko)) };
+}
+
 function souborNaDataUrl(soubor: File | Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -48,20 +68,28 @@ function souborNaDataUrl(soubor: File | Blob): Promise<string> {
  * (jsdom) vůbec neexistuje — v obou případech se použije originál
  * nezmenšený, ať se fotka/soubor neztratí.
  */
-export async function zmensenyDataUrl(soubor: File): Promise<string> {
+export async function zmensenyDataUrl(soubor: File, volby: VolbyZmenseni = {}): Promise<string> {
+  const kvalita = volby.kvalita ?? KVALITA_FOTKY;
   try {
     const bitmapa = await createImageBitmap(soubor);
-    const meritko = Math.min(1, MAX_STRANA_FOTKY / Math.max(bitmapa.width, bitmapa.height));
-    const sirka = Math.max(1, Math.round(bitmapa.width * meritko));
-    const vyska = Math.max(1, Math.round(bitmapa.height * meritko));
-    const platno = document.createElement('canvas');
-    platno.width = sirka;
-    platno.height = vyska;
-    const ctx = platno.getContext('2d');
-    if (!ctx) { bitmapa.close?.(); return souborNaDataUrl(soubor); }
-    ctx.drawImage(bitmapa, 0, 0, sirka, vyska);
-    bitmapa.close?.();
-    return platno.toDataURL('image/jpeg', KVALITA_FOTKY);
+    try {
+      let maxStrana = volby.maxStrana ?? MAX_STRANA_FOTKY;
+      for (let pokus = 0; ; pokus++) {
+        const { sirka, vyska } = rozmeryPoZmenseni(bitmapa.width, bitmapa.height, maxStrana);
+        const platno = document.createElement('canvas');
+        platno.width = sirka;
+        platno.height = vyska;
+        const ctx = platno.getContext('2d');
+        if (!ctx) return souborNaDataUrl(soubor);
+        ctx.drawImage(bitmapa, 0, 0, sirka, vyska);
+        const url = platno.toDataURL('image/jpeg', kvalita);
+        // Vešlo se, nebo už není kam zmenšovat (třetí zmenšení) — vrátí se, co je.
+        if (!volby.maxZnaku || url.length <= volby.maxZnaku || pokus >= 3) return url;
+        maxStrana = Math.round(Math.max(sirka, vyska) * 0.8);
+      }
+    } finally {
+      bitmapa.close?.();
+    }
   } catch {
     return souborNaDataUrl(soubor);
   }

@@ -7,6 +7,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, within, waitFor } from '@testing-library/react';
 import { UzaverkaImport } from './UzaverkaImport';
+import { zmensenyDataUrl } from '../../lib/obrazek';
 import type { DataObchodu } from '../../lib/obchodData';
 
 vi.mock('../../lib/functionAuth', () => ({
@@ -44,8 +45,8 @@ const UCTENKA = {
   ],
 };
 
-async function otevriSFotkou(d: DataObchodu) {
-  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ ...UCTENKA, problemy: [], poskytovatel: 'test' }), { status: 200 })));
+async function otevriSFotkou(d: DataObchodu, odpoved: object = UCTENKA) {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ ...odpoved, problemy: [], poskytovatel: 'test' }), { status: 200 })));
   render(<UzaverkaImport data={d} zapsal="Honza" vychoziTyp="tydenni" onClose={vi.fn()} onUlozeno={vi.fn()} />);
   const vstupy = document.querySelectorAll('input[type="file"]');
   fireEvent.change(vstupy[0], { target: { files: [new File(['x'], 'uctenka.png', { type: 'image/png' })] } });
@@ -114,3 +115,56 @@ describe('okno s uzávěrkou z fotky', () => {
     expect(screen.queryByText('Tahle uzávěrka přetíná inventuru')).toBeNull();
   });
 });
+
+// 14. 10. 2026, majitel: účtenka z pokladny se tiskne jako dlouhý pásek a je potřeba ji
+// vyfotit CELOU NAJEDNOU. Okno to říká předem, fotku nezmenšuje na 1600 px (číslice by
+// pak byly nečitelné) a když na fotce začátek nebo konec chybí, hlásí to.
+describe('celá účtenka na jedné fotce', () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  it('před fotkou je napsáno, že se má vyfotit celá najednou', () => {
+    render(<UzaverkaImport data={data()} zapsal="Honza" vychoziTyp="denni" onClose={vi.fn()} onUlozeno={vi.fn()} />);
+    expect(screen.getByText(/celou najednou/)).toBeTruthy();
+    expect(screen.getByText(/Sumář prodeje/)).toBeTruthy();
+  });
+
+  it('fotka účtenky se zmenšuje na 3200 px ve vyšší kvalitě, ne na 1600 px', async () => {
+    await otevriSFotkou(data());
+    expect(zmensenyDataUrl).toHaveBeenCalledWith(expect.any(File), expect.objectContaining({ maxStrana: 3200, kvalita: 0.88 }));
+    // …a hlídá se velikost, aby šla odeslat.
+    const volby = (zmensenyDataUrl as unknown as ReturnType<typeof vi.fn>).mock.calls[0][1];
+    expect(volby.maxZnaku).toBeLessThanOrEqual(5_000_000);
+  });
+
+  it('úplná účtenka (číslo i Celkem) žádné varování nemá', async () => {
+    await otevriSFotkou(data());
+    expect(screen.queryByRole('status', { name: 'Fotka není úplná' })).toBeNull();
+  });
+
+  it('chybí začátek i konec: okno to řekne a nabídne vyfotit znovu', async () => {
+    await otevriSFotkou(data(), { ...UCTENKA, cislo: null, stredisko: null, vytisteno: null, celkem: null });
+    const b = screen.getByRole('status', { name: 'Fotka není úplná' });
+    expect(b.textContent).toContain('Na fotce není celá účtenka');
+    expect(b.textContent).toContain('Chybí začátek účtenky (číslo uzávěrky');
+    expect(b.textContent).toContain('Chybí konec účtenky (řádek „Celkem“)');
+    expect(b.textContent).toContain('celou najednou');
+    expect(within(b).getByRole('button', { name: /Vyfotit znovu/ })).toBeTruthy();
+  });
+
+  it('chybí jen Celkem: hlásí jen konec; po ručním doplnění varování zmizí', async () => {
+    await otevriSFotkou(data(), { ...UCTENKA, celkem: null });
+    const b = screen.getByRole('status', { name: 'Fotka není úplná' });
+    expect(b.textContent).not.toContain('Chybí začátek účtenky');
+    expect(b.textContent).toContain('Chybí konec účtenky');
+    fireEvent.change(screen.getByLabelText('Celkem z účtenky'), { target: { value: '385' } });
+    expect(screen.queryByRole('status', { name: 'Fotka není úplná' })).toBeNull();
+  });
+
+  it('chybí jen začátek: číslo uzávěrky opsané z papíru varování zruší', async () => {
+    await otevriSFotkou(data(), { ...UCTENKA, cislo: null, stredisko: null, vytisteno: null });
+    expect(screen.getByRole('status', { name: 'Fotka není úplná' }).textContent).toContain('Chybí začátek účtenky');
+    fireEvent.change(screen.getByLabelText('Číslo uzávěrky'), { target: { value: '2/2873' } });
+    expect(screen.queryByRole('status', { name: 'Fotka není úplná' })).toBeNull();
+  });
+});
+

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { typObrazku, zmensenyDataUrl } from './obrazek';
+import { rozmeryPoZmenseni, typObrazku, zmensenyDataUrl } from './obrazek';
 
 describe('typObrazku', () => {
   it('přečte typ z hlavičky data URL', () => {
@@ -89,5 +89,83 @@ describe('zmensenyDataUrl', () => {
     const soubor = new File(['%PDF-1.4 obsah'], 'sken.pdf', { type: 'application/pdf' });
     const url = await zmensenyDataUrl(soubor);
     expect(url).toMatch(/^data:application\/pdf;base64,/);
+  });
+});
+
+// Účtenka z pokladny je dlouhý pásek (26 položek = přes 60 řádků textu). Zmenšená
+// na 1600 px by písmo mělo pár pixelů a Google Vision by čísla četl špatně
+// (zkoušeno 14. 10. 2026: při 1300 px na délku čte vše, při 1000 px už ne) —
+// proto se dá strop a kvalita zvýšit a hlídat jen velikost výsledku.
+describe('rozmeryPoZmenseni', () => {
+  it('zmenší podle delší strany a drží poměr', () => {
+    expect(rozmeryPoZmenseni(4000, 3000, 1600)).toEqual({ sirka: 1600, vyska: 1200 });
+    expect(rozmeryPoZmenseni(3000, 4000, 3200)).toEqual({ sirka: 2400, vyska: 3200 });
+  });
+
+  it('menší obrázek nezvětšuje a nikdy nevrátí nulu', () => {
+    expect(rozmeryPoZmenseni(400, 300, 1600)).toEqual({ sirka: 400, vyska: 300 });
+    expect(rozmeryPoZmenseni(10000, 1, 100)).toEqual({ sirka: 100, vyska: 1 });
+  });
+});
+
+describe('zmensenyDataUrl: vyšší rozlišení pro dlouhou účtenku', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  /** Plátno, které si pamatuje rozměry a pro každé volání toDataURL vrátí další výsledek z `vysledky`. */
+  function podstrcPlatno(sirka: number, vyska: number, vysledky: string[]) {
+    const rozmery: { w: number; h: number }[] = [];
+    let aktualni = { w: 0, h: 0 };
+    const naDataUrl = vi.fn(() => {
+      rozmery.push({ ...aktualni });
+      return vysledky[Math.min(rozmery.length - 1, vysledky.length - 1)];
+    });
+    vi.stubGlobal('createImageBitmap', vi.fn().mockResolvedValue({ width: sirka, height: vyska, close: vi.fn() }));
+    const puvodni = document.createElement.bind(document);
+    vi.spyOn(document, 'createElement').mockImplementation((tag: string) => {
+      if (tag !== 'canvas') return puvodni(tag);
+      const platno: any = puvodni('canvas');
+      Object.defineProperty(platno, 'width', { get: () => aktualni.w, set: (v) => { aktualni = { ...aktualni, w: v }; } });
+      Object.defineProperty(platno, 'height', { get: () => aktualni.h, set: (v) => { aktualni = { ...aktualni, h: v }; } });
+      platno.getContext = () => ({ drawImage: vi.fn() });
+      platno.toDataURL = naDataUrl;
+      return platno;
+    });
+    return { rozmery, naDataUrl };
+  }
+
+  it('strop a kvalita se dají zvýšit (účtenka 3200 px, kvalita 0,88)', async () => {
+    const { rozmery, naDataUrl } = podstrcPlatno(3000, 4000, ['data:image/jpeg;base64,MALE']);
+    const url = await zmensenyDataUrl(new File(['x'], 'uctenka.jpg', { type: 'image/jpeg' }), { maxStrana: 3200, kvalita: 0.88 });
+    expect(rozmery).toEqual([{ w: 2400, h: 3200 }]);
+    expect(naDataUrl).toHaveBeenCalledWith('image/jpeg', 0.88);
+    expect(url).toBe('data:image/jpeg;base64,MALE');
+  });
+
+  it('výsledek, který se nevejde do stropu, se zmenšuje dál po pětinách, dokud se nevejde', async () => {
+    const dlouhy = 'data:image/jpeg;base64,' + 'A'.repeat(200);
+    const { rozmery } = podstrcPlatno(3000, 4000, [dlouhy, dlouhy, 'data:image/jpeg;base64,OK']);
+    const url = await zmensenyDataUrl(new File(['x'], 'uctenka.jpg', { type: 'image/jpeg' }), { maxStrana: 3200, maxZnaku: 100 });
+    expect(rozmery.map((r) => r.h)).toEqual([3200, 2560, 2048]);
+    expect(url).toBe('data:image/jpeg;base64,OK');
+  });
+
+  it('když se nevejde ani po třech zmenšeních, vrátí se poslední (fotka se nezahodí)', async () => {
+    const dlouhy = 'data:image/jpeg;base64,' + 'A'.repeat(200);
+    const { rozmery } = podstrcPlatno(3000, 4000, [dlouhy]);
+    const url = await zmensenyDataUrl(new File(['x'], 'uctenka.jpg', { type: 'image/jpeg' }), { maxStrana: 3200, maxZnaku: 100 });
+    expect(rozmery).toHaveLength(4);
+    expect(url).toBe(dlouhy);
+  });
+
+  it('bez voleb zůstává chování stejné: 1600 px, kvalita 0,82, bez hlídání velikosti', async () => {
+    const dlouhy = 'data:image/jpeg;base64,' + 'A'.repeat(5000);
+    const { rozmery, naDataUrl } = podstrcPlatno(4000, 3000, [dlouhy]);
+    const url = await zmensenyDataUrl(new File(['x'], 'foto.jpg', { type: 'image/jpeg' }));
+    expect(rozmery).toEqual([{ w: 1600, h: 1200 }]);
+    expect(naDataUrl).toHaveBeenCalledWith('image/jpeg', 0.82);
+    expect(url).toBe(dlouhy);
   });
 });
