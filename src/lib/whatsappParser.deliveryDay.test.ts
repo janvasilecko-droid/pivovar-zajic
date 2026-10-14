@@ -84,4 +84,25 @@ describe('detectDeliveryDay — „příští týden"', () => {
     const { dateStr } = detectDeliveryDay('příští týden, konkrétně 3.9. 5x30');
     expect(dateStr).toBe('2026-09-03');
   });
+
+  // 14. 10. 2026: „na příští středu, to znamená příští středa, ne tenhle týden."
+  it('„na příští středu" bez slova týden = středa příštího týdne', () => {
+    setToday('2026-10-14'); // středa
+    expect(detectDeliveryDay('Hladík Dobřichovice na příští středu 1x30l 12sv').dateStr).toBe('2026-10-21');
+    setToday('2026-10-12'); // pondělí: i tady „příští středa" není ta zítřejší
+    expect(detectDeliveryDay('na příští středu 1x30l').dateStr).toBe('2026-10-21');
+  });
+
+  it('Hladík z provozu: ve středu 14. 10. „na pristi tyden na stredu" = 21. 10.', () => {
+    setToday('2026-10-14');
+    const { day, dateStr } = detectDeliveryDay('Jakub Hladík z Dobřichovic, Podpultovky na pristi tyden na stredu prosim 1x30l 12sv, vcetne zalohy');
+    expect(day).toBe('st');
+    expect(dateStr).toBe('2026-10-21');
+  });
+
+  it('příští týden zmíněný jinde ve zprávě den neposouvá', () => {
+    setToday('2026-10-14');
+    expect(detectDeliveryDay('3x30l na středu. Fakturu pošlu příští týden.').dateStr).toBe('2026-10-14');
+  });
 });
+
