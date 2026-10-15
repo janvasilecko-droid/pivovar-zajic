@@ -23,6 +23,7 @@ import { BeerTileGrid, BeerTilePanel } from '../components/BeerTileGrid';
 import { nejcastejsiMnozstvi, stackingQuickQtys } from '../lib/quickQty';
 import { jeChecklistKonceZUrl } from '../lib/vstupniStranka';
 import { navrhSudu, skutecnaVytrataProcenta } from '../lib/bottlingYield';
+import { posledniRucniZapis } from '../lib/posledniZapis';
 import { synchronizuj } from '../lib/checklistData';
 import { computePackageNeeds, PackageNeedsRow } from '../lib/packageNeeds';
 import { jeSud } from '../lib/inventoryFix';
@@ -380,6 +381,9 @@ export default function BottlingScreen({
   // Posun měsíce o delta měsíců (vrací YYYY-MM)
   const [recordsBeerFilter, setRecordsBeerFilter] = useState('');
   const [recordsPkgFilter, setRecordsPkgFilter] = useState('');
+
+  // 📊 Čtení tabulky z fotky začíná dnem po posledním ručním zápisu (viz ImportBottlingFromImage).
+  const posledniZapisLahve = useMemo(() => posledniRucniZapis(rows), [rows]);
 
   // Období + pivo + obal (lahev, nebo sud 50 / 30 / ostatní) — beze změny znaménka.
   // Základ jak pro seznam (dál filtrovaný na kladné), tak pro součty (ty
@@ -2636,6 +2640,7 @@ export default function BottlingScreen({
           beers={beers}
           packages={packages}
           onImport={handleApplyPhotoRows}
+          posledniZapis={posledniZapisLahve}
         />
         </Suspense>
       )}

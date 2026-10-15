@@ -38,6 +38,8 @@ function vykresli() {
 describe('Stáčení lahví z fotky — když se čtení nepovede', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    // Tyhle testy hlídají čtení seznamu / zprávy; výchozí režim lahví je tabulka z Excelu.
+    localStorage.setItem('pivovar_cteni_fotky_rezim_lahve', 'seznam');
   });
 
   it('fotka zůstane vidět i když AI nic nerozpozná', async () => {

@@ -2,8 +2,10 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { readJsonWithLimit, requireApprovedUser } from "../_shared/require-user.ts";
 import { vlastniJmenaPiv } from "../_shared/beer-match.ts";
 import { ctiPresGemini, dostupneModelyGemini, planPokusuFoto, planPokusuText } from "../_shared/gemini-cteni.ts";
-import { prepisFotkyGoogle } from "../_shared/google-ocr.ts";
+import { odpovedVisionGoogle, prepisFotkyGoogle } from "../_shared/google-ocr.ts";
 import { PRAVIDLA_CTENI_OBJEDNAVEK, RUKOPIS_LISTKU } from "../_shared/order-rules.ts";
+import { cteniTabulky } from "../_shared/tabulka-cteni.ts";
+import { parsujOdpovedAi } from "../_shared/tabulka-staceni.ts";
 
 
 const corsHeaders = {
@@ -125,6 +127,42 @@ Deno.serve(async (req: Request) => {
         JSON.stringify({ error: "Missing imageBase64 or imageMimeType" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
+    }
+
+    // 📊 Tabulka stáčení (excel) z fotky — čtení podle sloupců a od zvoleného data
+    // (15. 10. 2026), viz _shared/tabulka-staceni.ts. Obecný pokyn pro objednávky
+    // níž tuhle tabulku četl špatně (všechno jako „KEG 30l", lahve vůbec).
+    if (body.rezim === "tabulka-okno" || body.rezim === "tabulka") {
+      const zacatekTabulky = Date.now();
+      const chybyTabulky: string[] = [];
+      const iso = (v: unknown) => (typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null);
+      const odpoved = await cteniTabulky({
+        rezim: body.rezim === "tabulka" ? "tabulka" : "okno",
+        piva: beers,
+        odData: iso(body.odData),
+        vyrez: body.vyrez === true,
+        datumOkna: iso(body.datumOkna),
+        vision: visionKey
+          ? async () => (await odpovedVisionGoogle({ klic: visionKey, imageBase64, admin: supabase, chyby: chybyTabulky, timeoutMs: 20_000 }))?.data ?? null
+          : null,
+        ai: async (pokyn) =>
+          await ctiPresGemini({
+            klic: geminiKey,
+            plan: planPokusuFoto(await dostupneModelyGemini(geminiKey)),
+            parts: [{ text: pokyn }, { inline_data: { mime_type: imageMimeType, data: imageBase64 } }],
+            timeoutMs: AI_TIMEOUT_MS.gemini,
+            zbyvaMs: () => CELKOVY_STROP_MS - (Date.now() - zacatekTabulky),
+            prijmi: (_model, candidate) => (parsujOdpovedAi(candidate) ? candidate : ""),
+            chyby: chybyTabulky,
+            // Čtení buněk nepotřebuje „přemýšlet" — bez toho trvá 3–15 s místo ~50 s.
+            extra: { thinkingConfig: { thinkingBudget: 0 } },
+          }),
+      });
+      const telo = odpoved.status === 200 ? odpoved.telo : { ...odpoved.telo, _chyby: chybyTabulky };
+      return new Response(JSON.stringify(telo), {
+        status: odpoved.status,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Build a catalog hint so the model returns ids we can match directly.

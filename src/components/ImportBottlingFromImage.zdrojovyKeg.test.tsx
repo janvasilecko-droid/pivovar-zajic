@@ -17,6 +17,7 @@ const packages: any[] = [
 ];
 
 async function vykresliSRucnimRadkem() {
+  localStorage.setItem('pivovar_cteni_fotky_rezim_lahve', 'seznam'); // výchozí režim lahví je tabulka z Excelu
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
     new Response(JSON.stringify({ items: [], raw_text: '' }), { status: 200 }),
   ));

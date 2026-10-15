@@ -44,6 +44,7 @@ import { zbytekKeKonciTydne } from '../lib/tydenniZbytek';
 import { soucetUlozenehoDnes } from '../lib/jizUlozeno';
 import { jeMesicUzamcen } from '../lib/mesicUzamcen';
 import { puvodZapisu, vlastniPoznamka } from '../lib/puvodZapisu';
+import { posledniRucniZapis } from '../lib/posledniZapis';
 import { dopsaneZaskrtnutim, smazZaznamyStaceni } from '../lib/staceniZPolozky';
 import { zapamatujPozici } from '../lib/drzPozici';
 import { jeChecklistKonceZUrl } from '../lib/vstupniStranka';
@@ -963,6 +964,9 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     });
     setErr(null);
   }
+
+  // 📊 Čtení tabulky z fotky začíná dnem po posledním ručním zápisu stáčení KEG.
+  const posledniZapisKeg = useMemo(() => posledniRucniZapis(rows), [rows]);
 
   // Zpracování položek načtených z fotky — naplní prvních volných 12 řádků.
   function handleApplyPhotoRows(photoRows: { beerId: string; pkgId: string; qty: string }[], dateVal?: string, photoNote?: string) {
@@ -2960,6 +2964,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
           beers={beers}
           packages={packages}
           onImport={handleApplyPhotoRows}
+          posledniZapis={posledniZapisKeg}
         />
         </Suspense>
       )}
