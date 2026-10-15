@@ -20,7 +20,7 @@
 // Když nesedí žádné čtení, vrátí se to s nejméně problémy a ty se ohlásí —
 // aplikace ho ukáže nad fotkou a obsluha ho opraví. Nic se nezapisuje tady,
 // jen čte.
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2";
 import { odpovedVisionGoogle } from "../_shared/google-ocr.ts";
 import { readJsonWithLimit, requireApprovedUser } from "../_shared/require-user.ts";
 import { PROMPT_UZAVERKA } from "../_shared/uzaverka.ts";

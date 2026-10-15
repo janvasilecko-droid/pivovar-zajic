@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2";
 import { readJsonWithLimit, requireApprovedUser } from "../_shared/require-user.ts";
 import { vlastniJmenaPiv } from "../_shared/beer-match.ts";
 import { ctiPresGemini, dostupneModelyGemini, planPokusuFoto, planPokusuText } from "../_shared/gemini-cteni.ts";
