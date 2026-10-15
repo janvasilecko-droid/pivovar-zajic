@@ -18,6 +18,7 @@ import { computeKeggingPlan, type DayPlan } from './keggingPlan';
 import { buildMovements, MOVEMENT_LABELS } from './stockLedger';
 import { zbytekKeKonciTydne } from './tydenniZbytek';
 import { weekRange } from '../components/WeeklyOrderSummaryCard';
+import { chybejiciZdroje, dataZPametiOd } from './zPameti';
 
 export type DataPlanu = {
   beers: any[]; packages: any[]; orders: any[]; orderItems: any[];
@@ -30,6 +31,11 @@ export type DataPlanu = {
 export type PlanStaceni = {
   data: DataPlanu | null;
   chyba: boolean;
+  /**
+   * Některý dotaz server nestihl a plán je spočítaný z paměti telefonu —
+   * „kolik chybí stočit" pak nemusí být aktuální (components/StaraDataPruh.tsx).
+   */
+  zPameti: boolean;
   /** Plán sudů po dnech (+ přihrádka bez termínu). */
   planySudy: DayPlan[];
   /** Plán lahví po dnech (+ přihrádka bez termínu). */
@@ -52,8 +58,10 @@ export function usePlanStaceni(weekKey: string, { sudy = true, lahve = true }: {
   const zacatekTydne = weekRange(weekKey).start.toISOString().slice(0, 10);
   const [data, setData] = useState<DataPlanu | null>(null);
   const [chyba, setChyba] = useState(false);
+  const [zPameti, setZPameti] = useState(false);
 
   async function nacti() {
+    const zacatek = Date.now();
     try {
       // 📦 Kegging/bottling/fasování/prodejna/odpisy se čtou BEZ omezení na
       // týden — currentStockMap (skutečná zásoba skladem, viz níž) potřebuje
@@ -85,8 +93,18 @@ export function usePlanStaceni(weekKey: string, { sudy = true, lahve = true }: {
       const orders = (o.data as any[]) ?? [];
       const ids = new Set(orders.map((x) => x.id));
       const oi = { data: ((vsechnyPolozky.data as any[]) ?? []).filter((i) => ids.has(i.order_id)), error: vsechnyPolozky.error };
-      if (b.error || p.error || o.error || oi.error) { setChyba(true); return; }
+      // Plán z neúplných dat je horší než žádný: chybějící tabulka se dřív brala
+      // jako prázdná (`?? []`) a „zbývá stočit" se počítalo bez části pohybů —
+      // stáčení, fasování nebo odpočtů. Radši se nechá poslední úplný stav.
+      const chybi = chybejiciZdroje({
+        'piva': b, 'obaly': p, 'objednávky': o, 'položky objednávek': vsechnyPolozky,
+        'stáčení KEG': k, 'stáčení lahví': bt, 'fasování': fa, 'prodejna': fp, 'odpisy': wo,
+        'odškrtnutí plánu': pc, 'inventura': inv, 'opravy skladu': adj, 'akce': ak,
+        'přefuk': pf, 'závozy': zd,
+      });
+      if (chybi.length > 0) { setChyba(true); return; }
       setChyba(false);
+      setZPameti(dataZPametiOd(zacatek) || [k, bt, fa, fp, wo, inv, adj, ak, pf, zd, vsechnyPolozky].some((v) => v.zPameti === true));
       setData({
         beers: b.data ?? [], packages: p.data ?? [], orders, orderItems: oi.data ?? [],
         kegging: k.data ?? [], bottling: bt.data ?? [], fasovani: fa.data ?? [], prodejna: fp.data ?? [],
@@ -178,5 +196,5 @@ export function usePlanStaceni(weekKey: string, { sudy = true, lahve = true }: {
     }));
   };
 
-  return { data, chyba, planySudy, planyLahve, nacti, puvodMinusu, zasoba: currentStockMap };
+  return { data, chyba, zPameti, planySudy, planyLahve, nacti, puvodMinusu, zasoba: currentStockMap };
 }

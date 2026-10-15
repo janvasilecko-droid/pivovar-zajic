@@ -756,7 +756,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
         <div className="fixed top-4 right-4 z-toast max-w-xs sm:max-w-sm flex items-center gap-2 rounded bg-amber-50 border-2 border-amber-300 text-amber-950 shadow-xl px-3.5 py-2.5 animate-fade-in">
           <span className="text-base shrink-0"><AlertTriangle className="ikona-text" /></span>
           <p className="text-udaj font-bold leading-snug flex-1">
-            Jste offline - zobrazená data nemusí být aktuální (z mezipaměti).
+            Server neodpovídá (offline nebo slabý signál) — zobrazená data nemusí být aktuální (z paměti telefonu).
           </p>
           <button
             onClick={() => setShowStaleBanner(false)}

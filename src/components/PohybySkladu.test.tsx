@@ -4,6 +4,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { buildMovements } from '../lib/stockLedger';
 
+const rizeni = vi.hoisted(() => ({ selze: false, zPameti: false }));
+
 vi.mock('../lib/businessDate', () => ({ businessDateISO: () => '2026-09-24' }));
 vi.mock('../lib/chybyHlaseni', () => ({ zalogujANahlas: vi.fn() }));
 // Týdenní inventura v Pohybech (11. 10. 2026): jeden zápis z pátku.
@@ -25,7 +27,8 @@ vi.mock('../lib/supabase', () => ({
   formatPackageLabel: vi.fn((l: string) => l),
 }));
 vi.mock('../lib/skladovaKnihaData', () => ({
-  nactiSkladovouKnihu: () => Promise.resolve({
+  nactiSkladovouKnihu: () => rizeni.selze ? Promise.reject(new Error('Nepodařilo se načíst: fasování.')) : Promise.resolve({
+    ...(rizeni.zPameti ? { zPameti: true } : {}),
     piva: [{ id: 'b12', name: '12° Světlá' }, { id: 'b10', name: '10° Výčepní' }],
     obaly: [{ id: 'k30', label: 'KEG 30l', kind: 'keg', volume_l: 30 }, { id: 'k50', label: 'KEG 50l', kind: 'keg', volume_l: 50 }],
     pohyby: buildMovements({
@@ -43,7 +46,7 @@ vi.mock('../lib/skladovaKnihaData', () => ({
 import PohybySkladu from './PohybySkladu';
 
 describe('PohybySkladu', () => {
-  beforeEach(() => { localStorage.clear(); });
+  beforeEach(() => { localStorage.clear(); rizeni.selze = false; rizeni.zPameti = false; });
 
   it('ukáže týden den po dni s odběratelem u závozu a stavem večer', async () => {
     render(<PohybySkladu />);
@@ -90,5 +93,33 @@ describe('PohybySkladu', () => {
     expect(screen.getByText(/Zavezeno na objednávku/)).toBeTruthy();
     // Jen dny, kdy se něco zaváželo — ostatní se schovají.
     expect(screen.getAllByText('Stav večer:').length).toBeGreaterThan(0);
+  });
+
+  // 15. 10. 2026: „občas se nechce načíst sklad" — neúplná data nebo odpověď
+  // z paměti telefonu se nesmí tvářit jako čerstvé číslo.
+  it('neúplná data: místo čísel chyba a tlačítko „Načíst znovu", které to zkusí znovu', async () => {
+    rizeni.selze = true;
+    render(<PohybySkladu />);
+    await waitFor(() => expect(screen.getByTestId('stara-data-pruh')).toBeTruthy());
+    expect(screen.getByTestId('stara-data-pruh').textContent).toMatch(/Pohyby se nepodařilo načíst: Nepodařilo se načíst: fasování/);
+    expect(screen.queryByText(/U Zajíce/)).toBeNull();
+
+    rizeni.selze = false;
+    fireEvent.click(screen.getByRole('button', { name: /Načíst znovu/ }));
+    await waitFor(() => expect(screen.getByText(/U Zajíce/)).toBeTruthy());
+    expect(screen.queryByTestId('stara-data-pruh')).toBeNull();
+  });
+
+  it('data z paměti telefonu: čísla jsou vidět, ale s upozorněním', async () => {
+    rizeni.zPameti = true;
+    render(<PohybySkladu />);
+    await waitFor(() => expect(screen.getByText(/U Zajíce/)).toBeTruthy());
+    expect(screen.getByTestId('stara-data-pruh').textContent).toMatch(/z paměti telefonu/);
+  });
+
+  it('čerstvá data upozornění nemají', async () => {
+    render(<PohybySkladu />);
+    await waitFor(() => expect(screen.getByText(/U Zajíce/)).toBeTruthy());
+    expect(screen.queryByTestId('stara-data-pruh')).toBeNull();
   });
 });

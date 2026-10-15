@@ -21,8 +21,11 @@ import { nazevMesice } from '../lib/inventoryFix';
 import { isoWeekKey, shiftWeek, weekRange } from './WeeklyOrderSummaryCard';
 import { businessDateISO, posunMesic } from '../lib/businessDate';
 import { zalogujANahlas } from '../lib/chybyHlaseni';
+import { NeuplnaDataError } from '../lib/zPameti';
 import { nactiJson, ulozJson } from '../lib/uloziste';
 import { nactiSdilenouTabulku } from '../lib/sdilenaData';
+import { usePosledniNacteni } from '../lib/nacitani';
+import StaraDataPruh from './StaraDataPruh';
 import { najdiPodezrele, najdiChybejiciZdrojSudu, davkyBezZdrojeSudu, type Nalez, type ObjednavkaProKontrolu, type PolozkaProKontrolu } from '../lib/kontrolaPohybu';
 
 const DNY = ['Ne', 'Po', 'Út', 'St', 'Čt', 'Pá', 'So'];
@@ -59,6 +62,8 @@ export default function PohybySkladu() {
   const [jmena, setJmena] = useState<Map<string, string>>(new Map());
   const [bezi, setBezi] = useState(true);
   const [chybaNacteni, setChybaNacteni] = useState<string | null>(null);
+  /** Čísla jsou z paměti telefonu — server neodpověděl včas. */
+  const [zPameti, setZPameti] = useState(false);
 
   // 🗓️/📅 Týden, nebo celý měsíc — obojí sdílí stejný výpočet (lib/pohybySkladu.ts
   // je jen na 'od'/'doDne', nezáleží mu, jak dlouhé období to je).
@@ -88,24 +93,36 @@ export default function PohybySkladu() {
   // Jiné období nebo pivo = staré nálezy už neplatí.
   useEffect(() => { setNalezy(null); }, [rezim, tyden, mesic, beerId, packageId]);
 
+  // Zámek proti zápisu ze zastaralého načtení — viz lib/nacitani.ts. Tichá
+  // opakování (pruh „čísla nemusí být aktuální") by jinak mohla přepsat novější
+  // data starší odpovědí.
+  const zacniNacteni = usePosledniNacteni();
   const nacti = useCallback(async () => {
+    const smiZapsat = zacniNacteni();
     try {
-      const [k, { data: objednavky }] = await Promise.all([
+      const [k, vObjednavky] = await Promise.all([
         nactiSkladovouKnihu(),
         nactiSdilenouTabulku('orders'),
       ]);
+      if (!smiZapsat()) return;
+      // Bez objednávek by Pohyby nevěděly, komu závoz patřil — a kontrola
+      // „Najít možné chyby" by hledala nad neúplnými daty.
+      if (vObjednavky.error || !vObjednavky.data) throw new NeuplnaDataError(['objednávky']);
+      const objednavky = vObjednavky.data;
       setKniha(k);
       setJmena(new Map(((objednavky as { id: string; place_name: string | null }[]) ?? [])
         .map((o) => [o.id, (o.place_name ?? '').trim()])));
       setObjednavky((objednavky as ObjednavkaProKontrolu[]) ?? []);
       setChybaNacteni(null);
+      setZPameti(k.zPameti === true || vObjednavky.zPameti === true);
     } catch (e: any) {
+      if (!smiZapsat()) return;
       zalogujANahlas('[PohybySkladu] načtení selhalo', e);
       setChybaNacteni(String(e?.message || e));
     } finally {
-      setBezi(false);
+      if (smiZapsat()) setBezi(false);
     }
-  }, []);
+  }, [zacniNacteni]);
 
   // Jen týdny zasahující do zvoleného období — tabulka roste o ~60 řádků
   // týdně, po 24 měsících by „posledních 2000" starší týdny neukázalo.
@@ -529,10 +546,12 @@ export default function PohybySkladu() {
         </div>
       )}
 
-      {!bezi && chybaNacteni && (
-        <p className="rounded border-2 border-rose-300 bg-rose-50 p-3 text-sm font-bold text-rose-800">
-          Pohyby se nepodařilo načíst: {chybaNacteni}
-        </p>
+      {!bezi && (
+        <StaraDataPruh
+          zPameti={zPameti}
+          chyba={chybaNacteni ? `Pohyby se nepodařilo načíst: ${chybaNacteni}` : null}
+          onZnovu={nacti}
+        />
       )}
 
       {!bezi && vysledekCely && (prekrocMesic && rozdelit ? (

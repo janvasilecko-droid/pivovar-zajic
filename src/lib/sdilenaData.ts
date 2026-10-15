@@ -25,6 +25,7 @@ import { NADRAZENE, verzeTabulky, zneplatniVse } from './zneplatneni';
 import { tydenniJakoInventura } from './tydenniInventura';
 import { businessDateISO } from './businessDate';
 import { TYDENNI_INVENTURA_DO_SKLADU } from './skryteModuly';
+import { dataZPametiOd } from './zPameti';
 
 // Výčet sloupců je ve vlastním souboru bez vedlejších účinků (skript
 // rozbor-skladu ho potřebuje bez klienta Supabase z VITE_* proměnných).
@@ -34,7 +35,12 @@ export { SLOUPCE, type SdilenaTabulka };
 /** Jak dlouho smí data ležet v paměti, i když o žádné změně nevíme. */
 export const MAX_STARI_MS = 60_000;
 
-type Vysledek<T> = { data: T[] | null; error: { message: string } | null };
+/**
+ * `zPameti` = dotaz na server selhal nebo vypršel a data jsou z paměti telefonu
+ * (supabase.ts, serveCached) — mohou být zastaralá. Zastaralá data se
+ * NEUKLÁDAJÍ do sdílené paměti, jinak by se minutu tvářila jako čerstvá.
+ */
+type Vysledek<T> = { data: T[] | null; error: { message: string } | null; zPameti?: boolean };
 type Zaznam = { data: unknown[]; kdy: number; verze: string };
 
 const pamet = new Map<SdilenaTabulka, Zaznam>();
@@ -103,23 +109,27 @@ export async function nactiSdilenouTabulku<T = any>(tabulka: SdilenaTabulka): Pr
 
   let bezici = probiha.get(tabulka);
   if (!bezici || bezici.verze !== verze) {
+    const zacatek = Date.now();
     const slib = Promise.resolve(fetchAllRows<unknown>(tabulka, SLOUPCE[tabulka]))
       .then((r) => (tabulka === 'inventory' && !r.error && TYDENNI_INVENTURA_DO_SKLADU ? sTydenniInventurou(r) : r))
       .then((r) => (tabulka === 'zavoz_deductions' && !r.error ? bezBudoucichOdpoctu(r) : r))
       .then((r) => {
+      // Dotaz selhal a odpovědělo se z paměti telefonu → data poznačit a do
+      // sdílené paměti je nedávat (příští čtení zkusí server znovu).
+      const zPameti = dataZPametiOd(zacatek);
       // Mezitím přišel zápis → tahle data už nemusí platit, do paměti ne.
-      if (!r.error && verzeTabulky(tabulka) === verze) {
+      if (!r.error && !zPameti && verzeTabulky(tabulka) === verze) {
         pamet.set(tabulka, { data: r.data ?? [], kdy: Date.now(), verze });
       }
       if (probiha.get(tabulka)?.slib === slib) probiha.delete(tabulka);
-      return r as Vysledek<unknown>;
+      return (zPameti ? { ...r, zPameti: true } : r) as Vysledek<unknown>;
     });
     bezici = { verze, slib };
     probiha.set(tabulka, bezici);
   }
 
   const r = await bezici.slib;
-  return { data: r.data ? kopie(r.data as T[]) : r.data as null, error: r.error };
+  return { data: r.data ? kopie(r.data as T[]) : r.data as null, error: r.error, ...(r.zPameti ? { zPameti: true } : {}) };
 }
 
 /**

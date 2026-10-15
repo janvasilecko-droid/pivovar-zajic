@@ -8,7 +8,10 @@ import { buildMovements, stockAsOf, stockKey } from '../lib/stockLedger';
 import { QuickCountModal } from '../components/QuickCountModal';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
 import { chyba, oznam, potvrd, toastZpet } from '../lib/toast';
-import { usePosledniNacteni } from '../lib/nacitani';
+import { usePosledniNacteni, sNejvyseCasem } from '../lib/nacitani';
+import { chybejiciZdroje, dataZPametiOd, NeuplnaDataError } from '../lib/zPameti';
+import { zalogujANahlas } from '../lib/chybyHlaseni';
+import StaraDataPruh from '../components/StaraDataPruh';
 import { IkonaLahev, IkonaSud } from '../components/ikony';
 import { businessDateISO } from '../lib/businessDate';
 import { nactiSdilenouTabulku } from '../lib/sdilenaData';
@@ -31,6 +34,9 @@ type Row = {
 // půlnoci "Stav k" počítal s jiným dnem, než reálně v Praze je.
 function todayISO(): string { return businessDateISO(); }
 
+/** Jak dlouho se čeká na celé načtení, než se ukáže chyba s „Zkusit znovu". */
+const LIMIT_NACTENI_MS = 45_000;
+
 type RadekSkladu = { package_id: string; label: string; kind: string; volume_l: number; stav: number; odejde: number };
 type PivoSkladu = { beer: Beer; radky: RadekSkladu[] };
 
@@ -45,6 +51,10 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
   const [packages, setPackages] = useState<Package[]>([]);
   const [stats, setStats] = useState<PivoSkladu[]>([]);
   const [loading, setLoading] = useState(true);
+  /** Načtení selhalo (na rozdíl od „sklad je prázdný") — text pro člověka. */
+  const [chybaNacteni, setChybaNacteni] = useState<string | null>(null);
+  /** Čísla jsou z paměti telefonu — server neodpověděl včas. */
+  const [zPameti, setZPameti] = useState(false);
   const [showQuickCount, setShowQuickCount] = useState(false);
   const [showAnnouncementManager, setShowAnnouncementManager] = useState(false);
   const [doKdy, setDoKdy] = useState('');
@@ -108,77 +118,106 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
   async function load(silent = false) {
     const smiZapsat = zacniNacteni();
     if (!silent) setLoading(true);
-    const [{ data: b }, { data: pk }, { data: bt }, { data: kg }, { data: wo }, { data: inv }, { data: oi }, { data: ord }, { data: ak }, { data: fa }, { data: fp }, { data: zd }, { data: adj }, { data: pf }] = await Promise.all([
-      supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
-      supabase.from('packages').select('*').order('sort_order'),
-      nactiSdilenouTabulku('bottling'),
-      nactiSdilenouTabulku('kegging'),
-      nactiSdilenouTabulku('writeoffs'),
-      nactiSdilenouTabulku('inventory'),
-      nactiSdilenouTabulku('order_items'),
-      nactiSdilenouTabulku('orders'),
-      nactiSdilenouTabulku('akce'),
-      nactiSdilenouTabulku('fasovani'),
-      nactiSdilenouTabulku('fasovani_private'),
-      nactiSdilenouTabulku('zavoz_deductions'),
-      nactiSdilenouTabulku('inventory_adjustments'),
-      nactiSdilenouTabulku('keg_prefuk'),
-    ]);
-    // Mezitím mohlo začít novější načtení (realtime po cizím zápisu),
-    // nebo už obrazovka není vidět. Výsledek se pak zahodí.
-    if (!smiZapsat()) return;
-    const beerList = (b as Beer[]) ?? [];
-    const pkgList = (pk as Package[]) ?? [];
-    setBeers(beerList); setPackages(pkgList);
+    const zacatek = Date.now();
+    try {
+      const [vB, vPk, vBt, vKg, vWo, vInv, vOi, vOrd, vAk, vFa, vFp, vZd, vAdj, vPf] = await sNejvyseCasem(Promise.all([
+        supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
+        supabase.from('packages').select('*').order('sort_order'),
+        nactiSdilenouTabulku('bottling'),
+        nactiSdilenouTabulku('kegging'),
+        nactiSdilenouTabulku('writeoffs'),
+        nactiSdilenouTabulku('inventory'),
+        nactiSdilenouTabulku('order_items'),
+        nactiSdilenouTabulku('orders'),
+        nactiSdilenouTabulku('akce'),
+        nactiSdilenouTabulku('fasovani'),
+        nactiSdilenouTabulku('fasovani_private'),
+        nactiSdilenouTabulku('zavoz_deductions'),
+        nactiSdilenouTabulku('inventory_adjustments'),
+        nactiSdilenouTabulku('keg_prefuk'),
+      ]), LIMIT_NACTENI_MS, 'Server neodpovídá — načítání trvalo moc dlouho.');
+      // Mezitím mohlo začít novější načtení (realtime po cizím zápisu),
+      // nebo už obrazovka není vidět. Výsledek se pak zahodí.
+      if (!smiZapsat()) return;
 
-    const dnes = todayISO();
-    const { start, end } = weekRange(isoWeekKey(dnes));
-    const zacatekTydne = start.toISOString().slice(0, 10);
-    const konecTydne = end.toISOString().slice(0, 10);
-    setDoKdy(konecTydne);
+      // Stav z neúplných dat je horší než žádný: chybějící tabulka by se
+      // brala jako prázdná a sklad by ukázal číslo, ze kterého chybí část
+      // pohybů (15. 10. 2026: Jantar 50 l „na začátku 3" místo 2).
+      const chybi = chybejiciZdroje({
+        'piva': vB, 'obaly': vPk, 'stáčení lahví': vBt, 'stáčení KEG': vKg, 'odpisy': vWo,
+        'inventura': vInv, 'položky objednávek': vOi, 'objednávky': vOrd, 'akce': vAk,
+        'fasování': vFa, 'prodejna': vFp, 'závozy': vZd, 'opravy skladu': vAdj, 'přefuk': vPf,
+      });
+      if (chybi.length > 0) throw new NeuplnaDataError(chybi);
 
-    // 📒 Skladová kniha — jediný zdroj pravdy o stavu skladu.
-    const ledger = stockAsOf(buildMovements({
-      inventoryRows: (inv as Row[]) ?? [],
-      bottlingRows: (bt as any[]) ?? [],
-      keggingRows: (kg as Row[]) ?? [],
-      fasovaniRows: (fa as Row[]) ?? [],
-      prodejnaRows: (fp as Row[]) ?? [],
-      writeoffsRows: (wo as Row[]) ?? [],
-      zavozDeductionRows: (zd as any[]) ?? [],
-      akceRows: (ak as any[]) ?? [],
-      prefukRows: (pf as any[]) ?? [],
-      adjustmentRows: (adj as any[]) ?? [],
-      packages: pkgList,
-    }), dnes);
+      const b = vB.data; const pk = vPk.data;
+      const bt = vBt.data; const kg = vKg.data; const wo = vWo.data; const inv = vInv.data;
+      const oi = vOi.data; const ord = vOrd.data; const ak = vAk.data; const fa = vFa.data;
+      const fp = vFp.data; const zd = vZd.data; const adj = vAdj.data; const pf = vPf.data;
+      const beerList = (b as Beer[]) ?? [];
+      const pkgList = (pk as Package[]) ?? [];
+      setBeers(beerList); setPackages(pkgList);
 
-    const odejde = odejdeDoKonceTydne(
-      (ord as ObjednavkaProOdchod[]) ?? [],
-      (oi as PolozkaProOdchod[]) ?? [],
-      (zd as OdpocetProOdchod[]) ?? [],
-      { zacatekTydne, konecTydne, dnes },
-    );
+      const dnes = todayISO();
+      const { start, end } = weekRange(isoWeekKey(dnes));
+      const zacatekTydne = start.toISOString().slice(0, 10);
+      const konecTydne = end.toISOString().slice(0, 10);
+      setDoKdy(konecTydne);
 
-    const result: PivoSkladu[] = beerList.map((beer) => {
-      const radky: RadekSkladu[] = pkgList
-        .map((pkg) => {
-          const k = stockKey(beer.id, pkg.id);
-          return {
-            package_id: pkg.id,
-            label: String(pkg.label ?? '').trim(),
-            kind: pkg.kind,
-            volume_l: Number(pkg.volume_l) || 0,
-            // Bez ořezání na nulu: záporný stav = evidence nesedí, má být vidět.
-            stav: ledger.get(k)?.qty ?? 0,
-            odejde: odejde.get(k) ?? 0,
-          };
-        })
-        .filter((r) => r.stav !== 0 || r.odejde > 0)
-        .sort((a, z) => z.volume_l - a.volume_l);
-      return { beer, radky };
-    });
-    setStats(result);
-    if (!silent) setLoading(false);
+      // 📒 Skladová kniha — jediný zdroj pravdy o stavu skladu.
+      const ledger = stockAsOf(buildMovements({
+        inventoryRows: (inv as Row[]) ?? [],
+        bottlingRows: (bt as any[]) ?? [],
+        keggingRows: (kg as Row[]) ?? [],
+        fasovaniRows: (fa as Row[]) ?? [],
+        prodejnaRows: (fp as Row[]) ?? [],
+        writeoffsRows: (wo as Row[]) ?? [],
+        zavozDeductionRows: (zd as any[]) ?? [],
+        akceRows: (ak as any[]) ?? [],
+        prefukRows: (pf as any[]) ?? [],
+        adjustmentRows: (adj as any[]) ?? [],
+        packages: pkgList,
+      }), dnes);
+
+      const odejde = odejdeDoKonceTydne(
+        (ord as ObjednavkaProOdchod[]) ?? [],
+        (oi as PolozkaProOdchod[]) ?? [],
+        (zd as OdpocetProOdchod[]) ?? [],
+        { zacatekTydne, konecTydne, dnes },
+      );
+
+      const result: PivoSkladu[] = beerList.map((beer) => {
+        const radky: RadekSkladu[] = pkgList
+          .map((pkg) => {
+            const k = stockKey(beer.id, pkg.id);
+            return {
+              package_id: pkg.id,
+              label: String(pkg.label ?? '').trim(),
+              kind: pkg.kind,
+              volume_l: Number(pkg.volume_l) || 0,
+              // Bez ořezání na nulu: záporný stav = evidence nesedí, má být vidět.
+              stav: ledger.get(k)?.qty ?? 0,
+              odejde: odejde.get(k) ?? 0,
+            };
+          })
+          .filter((r) => r.stav !== 0 || r.odejde > 0)
+          .sort((a, z) => z.volume_l - a.volume_l);
+        return { beer, radky };
+      });
+      setStats(result);
+      setChybaNacteni(null);
+      setZPameti(dataZPametiOd(zacatek) || [vBt, vKg, vWo, vInv, vOi, vOrd, vAk, vFa, vFp, vZd, vAdj, vPf].some((v) => v.zPameti === true));
+    } catch (e) {
+      if (!smiZapsat()) return;
+      zalogujANahlas('[Dashboard] načtení skladu selhalo', e);
+      // Poslední úspěšný stav (`stats`) zůstává na obrazovce, jen s varováním.
+      setChybaNacteni(e instanceof Error ? e.message : String(e));
+    } finally {
+      // I u tichého přenačtení: kdyby první (viditelné) načtení přebilo
+      // realtime přenačtení, `loading` by zůstalo true a sklad by se
+      // „nechtěl načíst" — kostra do nekonečna.
+      if (smiZapsat()) setLoading(false);
+    }
   }
 
   useEffect(() => { load(); }, []);
@@ -257,7 +296,24 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
             jmenoObalu={(id) => String(packages.find((p) => p.id === id)?.label ?? '').trim() || '?'}
           />
 
-          {stats.length === 0 ? <EmptyState text="Žádná piva v evidenci." icon={BeerIcon} /> : (
+          {/* Čísla z paměti telefonu / neúspěšné přenačtení: bez varování by
+              vypadala stejně jako čerstvá (15. 10. 2026). */}
+          <StaraDataPruh
+            className="mb-4"
+            zPameti={stats.length > 0 && zPameti}
+            chyba={stats.length > 0 ? chybaNacteni : null}
+            onZnovu={() => load(true)}
+          />
+
+          {stats.length === 0 ? (
+            chybaNacteni ? (
+              <EmptyState
+                varianta="chyba"
+                text={`Sklad se nepodařilo načíst: ${chybaNacteni}`}
+                akce={{ popis: 'Zkusit znovu', onClick: () => { void load(); } }}
+              />
+            ) : <EmptyState text="Žádná piva v evidenci." icon={BeerIcon} />
+          ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-8">
               {stats.filter((s) => s.radky.length > 0).map((s) => {
                 const sudy = s.radky.filter((r) => r.kind === 'keg');

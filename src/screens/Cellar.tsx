@@ -16,6 +16,7 @@ import { businessDateISO, posunDen } from '../lib/businessDate';
 import { uloz } from '../lib/uloziste';
 import { objednavkyZTanku } from '../lib/objednavkyZTanku';
 import { usePlanStaceni } from '../lib/usePlanStaceni';
+import StaraDataPruh from '../components/StaraDataPruh';
 import { mergeWeekPlan } from '../lib/keggingPlan';
 import { vNovemSklepu } from '../lib/sklepOd';
 import { kapacitaTanku } from '../lib/tankPlnost';
@@ -222,7 +223,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
 
   // Plán stáčení vybraného týdne — tentýž jako okno „Co stočit" na ploše
   // a obrazovky KEG a Lahve (lib/usePlanStaceni.ts).
-  const { planySudy, planyLahve } = usePlanStaceni(weekKey);
+  const { planySudy, planyLahve, zPameti: planZPameti, chyba: planChyba, nacti: nactiPlan } = usePlanStaceni(weekKey);
   const orderedHlByBeer = useMemo(() => objednavkyZTanku({
     sudy: mergeWeekPlan(planySudy, ''),
     lahve: mergeWeekPlan(planyLahve, ''),
@@ -621,6 +622,14 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
         />
       ) : (
         <>
+          {/* „Objednáno na týden / chybí stočit" u tanků jde z plánu stáčení —
+              z paměti telefonu nebo po neúspěšném načtení nemusí platit. */}
+          <StaraDataPruh
+            className="mb-4"
+            zPameti={planZPameti}
+            chyba={planChyba ? 'Plán stáčení se nepodařilo načíst, „Objednáno na týden" u tanků nemusí platit.' : null}
+            onZnovu={nactiPlan}
+          />
           {/* Tanky grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             {displayedTanks.map((t) => {

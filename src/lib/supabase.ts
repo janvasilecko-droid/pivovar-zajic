@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react';
 import { cacheGetResponse, getCachedResponse, getTableRows, upsertTableRows } from './offlineCache';
 import { aplikujOperace, cekajiciUpravy, enqueue, getQueue, nedavneProslyZapisy, zapamatujProsly, type QueuedOp } from './offline';
 import { zneplatniTabulku, zneplatniVse } from './zneplatneni';
+import { zapisZPameti } from './zPameti';
 
 const url = import.meta.env.VITE_SUPABASE_URL as string;
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
@@ -181,7 +182,14 @@ async function serveCached(url: URL, rest: RestInfo | null, wantCount: boolean):
   // Tady víme, že odpověď vznikla offline (fetch selhal) a data jsou buď z
   // mezipaměti, nebo prázdná — uživatel by si myslel, že v tabulce nic není.
   // Signalizujeme UI banner (Layout.tsx), aby ukázal, že data nemusí být aktuální.
-  if (typeof window !== 'undefined' && !navigator.onLine) signalOfflineStale();
+  //
+  // Dřív jen při `!navigator.onLine`. Při slabém signálu ale telefon hlásí, že
+  // je online, a dotaz přesto vyprší (viz fetchWithTimeout) — odpověď z paměti
+  // pak šla do Skladu bez jediného varování (15. 10. 2026: „občas se nechce
+  // načíst sklad", Jantar „na začátku 3" místo 2). Obrazovky si navíc podle
+  // `dataZPametiOd` poznají, že jejich čísla nejsou čerstvá (lib/zPameti.ts).
+  zapisZPameti();
+  if (typeof window !== 'undefined') signalOfflineStale();
   return jsonResponse(finalRows, 200, headers);
 }
 
