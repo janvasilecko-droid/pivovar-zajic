@@ -12,19 +12,23 @@ import { authenticatedFunctionHeaders } from '../lib/functionAuth';
 import { typObrazku, zmensenyDataUrl } from '../lib/obrazek';
 import { AlertCircle, Camera, ChevronLeft, ChevronRight, Lightbulb, Plus, RotateCcw, Trash2, Upload } from 'lucide-react';
 import { businessDateISO } from '../lib/businessDate';
+import type { RadekStaceniLahvi } from '../lib/zapisStaceniLahvi';
 
-type RowInput = {
-  beerId: string; pkgId: string; pkg2Id: string; pkg3Id: string; kegPkgId: string; kegQty: string;
-  /** Druhý sud (jen řádky z tabulky, kde je v jednom řádku sud 50 l i 20 l). */
-  keg2PkgId?: string; keg2Qty?: string;
-  qty: string; qty2: string; qty3: string; _removed?: boolean; _manual?: boolean;
-  /** Jen řádky z tabulky z Excelu: den, číslo řádku excelu, text z buňky Pivo a co zkontrolovat. */
-  datum?: string | null; cisloRadku?: number | null; pivoText?: string | null; varovani?: string[];
+/**
+ * Řádek zadávání: stejný tvar jako ve formuláři stáčení (až čtyři druhy lahví a
+ * dva sudy, lib/zapisStaceniLahvi.ts) + údaje, které patří jen k tomuhle oknu.
+ * `datum` mají řádky z tabulky z Excelu (každý svůj den); řádky bez něj se zapíšou
+ * na datum formuláře.
+ */
+type RowInput = RadekStaceniLahvi & {
+  _removed?: boolean; _manual?: boolean;
+  /** Jen řádky z tabulky z Excelu: číslo řádku excelu, text z buňky Pivo a co zkontrolovat. */
+  cisloRadku?: number | null; pivoText?: string | null; varovani?: string[];
 };
 type PhotoEntry = { dataUrl: string; name: string; soubor?: File };
 
-/** Řádek ve tvaru, který čeká formulář stáčení — bez údajů, které patří jen k tomuhle oknu. */
-const naFormular = ({ datum: _d, cisloRadku: _c, pivoText: _p, varovani: _v, ...zbytek }: RowInput): RowInput => zbytek;
+/** Řádek ve tvaru, který čeká formulář stáčení — bez údajů, které patří jen k tomuhle oknu (den řádku zůstává). */
+const naFormular = ({ cisloRadku: _c, pivoText: _p, varovani: _v, _removed: _r, _manual: _m, ...zbytek }: RowInput): RowInput => zbytek;
 
 type Props = {
   isOpen: boolean;
@@ -62,7 +66,9 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
   const [upraveno, setUpraveno] = useState<Record<number, boolean>>({});
   const [editBeforeOcr, setEditBeforeOcr] = useOrezFotky();
   // 📊 Fotka je tabulka z Excelu: čtení od zvoleného data bez ořezávání (15. 10. 2026).
-  const t = useTabulkaZFotky({ klic: 'lahve', vychoziRezim: 'tabulka', posledniZapis });
+  // Víc dnů v tabulce se vloží NAJEDNOU: každý řádek nese svůj den (`datum`) a formulář
+  // stáčení ho zapíše na ten den (15. 10. 2026: „ne po jednom dni“).
+  const t = useTabulkaZFotky({ klic: 'lahve', vychoziRezim: 'tabulka', posledniZapis, vsechnyDny: true });
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [activeIndex, setActiveIndex] = useState(0);
   const [rowsMap, setRowsMap] = useState<Record<number, RowInput[]>>({});
@@ -274,11 +280,13 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
           pkgId: matchedPkg?.id ?? '',
           pkg2Id: '',
           pkg3Id: '',
+          pkg4Id: '',
           kegPkgId: kegPkgId, // Leave empty if not mentioned on photo!
           kegQty: kegQty,     // Leave empty if not mentioned on photo!
           qty: itemQty,
           qty2: '',
           qty3: '',
+          qty4: '',
         });
       }
 
@@ -297,6 +305,9 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
           } else if (!existing.pkg3Id || existing.pkg3Id === r.pkgId) {
             existing.pkg3Id = r.pkgId;
             existing.qty3 = String((Number(existing.qty3) || 0) + (Number(r.qty) || 0));
+          } else if (!existing.pkg4Id || existing.pkg4Id === r.pkgId) {
+            existing.pkg4Id = r.pkgId;
+            existing.qty4 = String((Number(existing.qty4) || 0) + (Number(r.qty) || 0));
           } else {
             consolidatedRows.push(r);
           }
@@ -365,11 +376,13 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
       pkgId: bottlePackages[0]?.id ?? '',
       pkg2Id: '',
       pkg3Id: '',
+      pkg4Id: '',
       kegPkgId: '',
       kegQty: '',
       qty: '',
       qty2: '',
       qty3: '',
+      qty4: '',
       _manual: true,
     };
     setEntryRows([...(entryRows ?? []), newLine]);
@@ -417,6 +430,15 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
     if (!foto) return;
     setRowsMap((prev) => { const { [activeIndex]: _x, ...zbytek } = prev; return zbytek; });
     void precti(activeIndex, foto);
+  };
+
+  /** Text tlačítka „vložit": kolik řádků a dnů se vloží (řádky z tabulky mají každý svůj den). */
+  const textVlozeni = () => {
+    const vse = Object.values({ ...rowsMap, [activeIndex]: entryRows ?? [] }).flat().filter((r) => viditelny(r) && !r._removed);
+    const dny = new Set(vse.map((r) => r.datum || date)).size;
+    const radku = `${vse.length} ${vse.length === 1 ? 'řádek' : vse.length >= 2 && vse.length <= 4 ? 'řádky' : 'řádků'}`;
+    const dnu = dny > 1 ? ` z ${dny} dnů` : '';
+    return `Vložit ${radku}${dnu} do tabulky stočení lahví${photos.length > 1 ? ` (${photos.length} fotek)` : ''}`;
   };
 
   // Potvrzení celého importu. Řádky bez vybraného piva se DŘÍV potichu
@@ -511,6 +533,9 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
               <div>
                 <label className="label" htmlFor="staceni-datum">Datum stočení</label>
                 <input id="staceni-datum" type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} />
+                {t.zapnuto && (
+                  <p className="text-udaj text-neutral-600 mt-1">Řádky z tabulky mají každý svůj den. Tohle datum platí pro ručně přidané řádky a pro řádky bez data.</p>
+                )}
               </div>
               <div className="sm:col-span-2">
                 <label className="label">Poznámka k šarži</label>
@@ -654,7 +679,8 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
                             datum={r.datum}
                             pivoText={r.pivoText}
                             varovani={r.varovani}
-                            bilance={bilanceRadkuLahve({ kegPkgId: r.kegPkgId, kegQty: r.kegQty, keg2PkgId: r.keg2PkgId ?? '', keg2Qty: r.keg2Qty ?? '', pkgId: r.pkgId, qty: r.qty, pkg2Id: r.pkg2Id, qty2: r.qty2, pkg3Id: r.pkg3Id, qty3: r.qty3 }, packages)}
+                            bilance={bilanceRadkuLahve({ kegPkgId: r.kegPkgId, kegQty: r.kegQty, keg2PkgId: r.keg2PkgId ?? '', keg2Qty: r.keg2Qty ?? '', pkgId: r.pkgId, qty: r.qty, pkg2Id: r.pkg2Id, qty2: r.qty2, pkg3Id: r.pkg3Id, qty3: r.qty3, pkg4Id: r.pkg4Id ?? '', qty4: r.qty4 ?? '' }, packages)}
+                            onDatum={(den) => updateLine(i, { datum: den })}
                           />
                         </div>
                       )}
@@ -753,14 +779,14 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
                             </div>
                           )}
 
-                          {/* 3 Bottle Package columns */}
-                          <div className="grid grid-cols-3 gap-1.5 pt-1.5 border-t border-dashed border-neutral-100">
+                          {/* Čtyři druhy lahví jako sloupce tabulky (1,5 / 1 / 0,5 / 0,33 l) */}
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 pt-1.5 border-t border-dashed border-neutral-100">
                             {/* Bottle 1 */}
                             <div className="space-y-1">
                               <label className="text-udaj font-black uppercase text-neutral-500">1. Lahve</label>
                               <select
                                 className="input text-sm sm:text-udaj font-bold w-full p-1.5 bg-neutral-50"
-                                value={r.pkgId}
+                                value={r.pkgId ?? ''}
                                 onChange={(e) => updateLine(i, { pkgId: e.target.value })}
                               >
                                 {bottlePackages.map((p) => (
@@ -771,8 +797,9 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
                                 type="text"
                                 inputMode="numeric"
                                 placeholder="kusů"
+                                aria-label="1. Lahve — kusů"
                                 className="input text-sm sm:text-xs text-right font-black"
-                                value={r.qty}
+                                value={r.qty ?? ''}
                                 onChange={(e) => updateLine(i, { qty: e.target.value.replace(/[^0-9]/g, '') })}
                               />
                             </div>
@@ -781,7 +808,7 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
                               <label className="text-udaj font-black uppercase text-neutral-500">2. Lahve</label>
                               <select
                                 className="input text-sm sm:text-udaj font-bold w-full p-1.5 bg-neutral-50"
-                                value={r.pkg2Id}
+                                value={r.pkg2Id ?? ''}
                                 onChange={(e) => updateLine(i, { pkg2Id: e.target.value })}
                               >
                                 <option value="">— nepoužito —</option>
@@ -793,8 +820,9 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
                                 type="text"
                                 inputMode="numeric"
                                 placeholder="kusů"
+                                aria-label="2. Lahve — kusů"
                                 className="input text-sm sm:text-xs text-right font-black"
-                                value={r.qty2}
+                                value={r.qty2 ?? ''}
                                 onChange={(e) => updateLine(i, { qty2: e.target.value.replace(/[^0-9]/g, '') })}
                               />
                             </div>
@@ -803,7 +831,7 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
                               <label className="text-udaj font-black uppercase text-neutral-500">3. Lahve</label>
                               <select
                                 className="input text-sm sm:text-udaj font-bold w-full p-1.5 bg-neutral-50"
-                                value={r.pkg3Id}
+                                value={r.pkg3Id ?? ''}
                                 onChange={(e) => updateLine(i, { pkg3Id: e.target.value })}
                               >
                                 <option value="">— nepoužito —</option>
@@ -815,9 +843,33 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
                                 type="text"
                                 inputMode="numeric"
                                 placeholder="kusů"
+                                aria-label="3. Lahve — kusů"
                                 className="input text-sm sm:text-xs text-right font-black"
-                                value={r.qty3}
+                                value={r.qty3 ?? ''}
                                 onChange={(e) => updateLine(i, { qty3: e.target.value.replace(/[^0-9]/g, '') })}
+                              />
+                            </div>
+                            {/* Bottle 4 */}
+                            <div className="space-y-1">
+                              <label className="text-udaj font-black uppercase text-neutral-500">4. Lahve</label>
+                              <select
+                                className="input text-sm sm:text-udaj font-bold w-full p-1.5 bg-neutral-50"
+                                value={r.pkg4Id ?? ''}
+                                onChange={(e) => updateLine(i, { pkg4Id: e.target.value })}
+                              >
+                                <option value="">— nepoužito —</option>
+                                {bottlePackages.map((p) => (
+                                  <option key={p.id} value={p.id}>{p.label}</option>
+                                ))}
+                              </select>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                placeholder="kusů"
+                                aria-label="4. Lahve — kusů"
+                                className="input text-sm sm:text-xs text-right font-black"
+                                value={r.qty4 ?? ''}
+                                onChange={(e) => updateLine(i, { qty4: e.target.value.replace(/[^0-9]/g, '') })}
                               />
                             </div>
                           </div>
@@ -839,7 +891,7 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
           >
             {activeIndex < photos.length - 1
               ? `Vložit a další fotka (${activeIndex + 2}/${photos.length})`
-              : `Vložit VŠECHNO do tabulky stočení lahví (${photos.length} fotek)`}
+              : textVlozeni()}
           </button>
                 </div>
               </div>

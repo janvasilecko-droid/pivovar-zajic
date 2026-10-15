@@ -80,7 +80,7 @@ describe('Stáčení lahví z fotky — když se čtení nepovede', () => {
   });
 
   // Řádky bez rozpoznaného piva se při potvrzení POTICHU zahodily a okno se
-  // zavřelo — z pohledu obsluhy tlačítko „Vložit VŠECHNO" nedělalo nic.
+  // zavřelo — z pohledu obsluhy tlačítko „Vložit … do tabulky stočení lahví" nedělalo nic.
   it('řádek bez piva se potichu nezahodí — řekne, co doplnit', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
       new Response(JSON.stringify({
@@ -91,7 +91,7 @@ describe('Stáčení lahví z fotky — když se čtení nepovede', () => {
     vykresli();
     vlozFotku();
 
-    const potvrdit = await screen.findByText(/Vložit VŠECHNO|Vložit a další fotka/i);
+    const potvrdit = await screen.findByText(/Vložit \d+ řád\S* do tabulky stočení lahví|Vložit a další fotka/i);
     fireEvent.click(potvrdit);
 
     expect(await screen.findByText(/není vybrané pivo/i)).toBeTruthy();

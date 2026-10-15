@@ -131,13 +131,29 @@ describe('řádky tabulky → zadávání lahví', () => {
     expect(r).toMatchObject({ kegPkgId: '', kegQty: '', pkgId: 'p15', qty: '7' });
   });
 
-  it('čtyři druhy lahví (řádek 544): čtvrtý jde do dalšího řádku bez sudu, obě místa to řeknou', () => {
+  it('čtyři druhy lahví (řádek 544) jsou jeden řádek se sudem — čtvrtý druh nepřeteče do řádku bez sudu', () => {
+    // 15. 10. 2026: „přiřadíš sud, množství sudů a počet lahví z nich stočený" —
+    // dřív se čtvrtý druh (0,33 l) zapsal jako samostatný řádek BEZ sudu.
     const rr = radkyLahveZTabulky([radek({ cislo: 544, sudy: [{ objemL: 50, ks: 1 }], lahve: [{ objemL: 1.5, ks: 12 }, { objemL: 1, ks: 10 }, { objemL: 0.5, ks: 28 }, { objemL: 0.33, ks: 12 }] })], OBALY);
-    expect(rr).toHaveLength(2);
-    expect(rr[0]).toMatchObject({ kegQty: '1', pkgId: 'p15', pkg2Id: 'p1', pkg3Id: 'p05', qty3: '28' });
-    expect(rr[0].varovani.join(' ')).toContain('Čtvrtý druh lahví (12× 0,33 l)');
-    expect(rr[1]).toMatchObject({ beerId: 's12', kegPkgId: '', kegQty: '', pkgId: 'p033', qty: '12', datum: '2026-10-13' });
-    expect(rr[1].varovani.join(' ')).toContain('Patří k témuž sudu');
+    expect(rr).toHaveLength(1);
+    expect(rr[0]).toMatchObject({
+      beerId: 's12', datum: '2026-10-13', kegPkgId: 'k50', kegQty: '1',
+      pkgId: 'p15', qty: '12', pkg2Id: 'p1', qty2: '10', pkg3Id: 'p05', qty3: '28', pkg4Id: 'p033', qty4: '12',
+    });
+    // Nic se nehlásí: čtyři druhy se do řádku vejdou.
+    expect(rr[0].varovani).toEqual([]);
+  });
+
+  it('řádek bez čtvrtého druhu má čtvrtý slot prázdný (ne undefined)', () => {
+    const [r] = radkyLahveZTabulky([radek({ sudy: [{ objemL: 50, ks: 1 }], lahve: [{ objemL: 1, ks: 45 }] })], OBALY);
+    expect(r.pkg4Id).toBe('');
+    expect(r.qty4).toBe('');
+  });
+
+  it('dva sudy a čtyři druhy lahví: obojí je v jednom řádku', () => {
+    const [r, ...dalsi] = radkyLahveZTabulky([radek({ sudy: [{ objemL: 50, ks: 1 }, { objemL: 20, ks: 1 }], lahve: [{ objemL: 1.5, ks: 12 }, { objemL: 1, ks: 10 }, { objemL: 0.5, ks: 28 }, { objemL: 0.33, ks: 12 }] })], OBALY);
+    expect(dalsi).toEqual([]);
+    expect(r).toMatchObject({ kegPkgId: 'k50', kegQty: '1', keg2PkgId: 'k20', keg2Qty: '1', pkg4Id: 'p033', qty4: '12' });
   });
 
   it('třetí velikost sudu se nepřidá a řekne se to', () => {
@@ -192,6 +208,12 @@ describe('bilanceRadkuLahve — živě podle toho, co je v řádku', () => {
   it('50 l → 1,5 l ×11 + 0,5 l ×20 + 0,33 l ×60 = 46,3 l, výtrata 7,4 %', () => {
     expect(bilanceRadkuLahve({ kegPkgId: 'k50', kegQty: '1', keg2PkgId: '', keg2Qty: '', pkgId: 'p15', qty: '11', pkg2Id: 'p05', qty2: '20', pkg3Id: 'p033', qty3: '60' }, OBALY))
       .toEqual({ zdrojL: 50, stoceneL: 46.3, vytrataProc: 7.4 });
+  });
+  it('čtvrtý druh lahví se do litrů počítá taky', () => {
+    // 1 × 50 l → 12 × 1,5 l + 10 × 1 l + 28 × 0,5 l + 12 × 0,33 l = 18 + 10 + 14 + 3,96 = 45,96 l
+    const b = bilanceRadkuLahve({ kegPkgId: 'k50', kegQty: '1', keg2PkgId: '', keg2Qty: '', pkgId: 'p15', qty: '12', pkg2Id: 'p1', qty2: '10', pkg3Id: 'p05', qty3: '28', pkg4Id: 'p033', qty4: '12' }, OBALY);
+    expect(b.zdrojL).toBe(50);
+    expect(b.stoceneL).toBeCloseTo(45.96, 2);
   });
   it('dva sudy se sečtou', () => {
     expect(bilanceRadkuLahve({ kegPkgId: 'k50', kegQty: '1', keg2PkgId: 'k20', keg2Qty: '1', pkgId: 'p15', qty: '16', pkg2Id: 'p1', qty2: '38', pkg3Id: '', qty3: '' }, OBALY).zdrojL).toBe(70);

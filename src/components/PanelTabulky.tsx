@@ -99,8 +99,22 @@ export default function PanelTabulky({ t, info, jeFotka, bezi, onPrecist, onRezi
 
           {t.dny.length > 1 && (
             <div className="space-y-1.5" data-testid="vyber-dne">
-              <div className="text-sm font-semibold text-amber-900">V tabulce je víc dnů — vkládá se jeden den najednou:</div>
+              <div className="text-sm font-semibold text-amber-900">
+                {t.vsechnyDny
+                  ? 'V tabulce je víc dnů — vloží se všechny najednou, každý řádek na svůj den. Klepnutím na den výběr zúžíš:'
+                  : 'V tabulce je víc dnů — vkládá se jeden den najednou:'}
+              </div>
               <div className="flex flex-wrap gap-2">
+                {t.vsechnyDny && (
+                  <button
+                    type="button"
+                    aria-pressed={t.vybranyDen === undefined}
+                    className={`btn-zalozka ${t.vybranyDen === undefined ? 'btn-zalozka-aktivni' : ''}`}
+                    onClick={() => t.setVybranyDen(undefined)}
+                  >
+                    Všechny dny · {radku(t.dny.reduce((soucet, d) => soucet + d.radku, 0))}
+                  </button>
+                )}
                 {t.dny.map((d) => (
                   <button
                     key={d.datum ?? 'bez-data'}
@@ -113,7 +127,9 @@ export default function PanelTabulky({ t, info, jeFotka, bezi, onPrecist, onRezi
                   </button>
                 ))}
               </div>
-              <div className="text-udaj text-neutral-600">Ostatní dny vlož až po uložení tohoto: otevři okno znovu a čti od dalšího data.</div>
+              {!t.vsechnyDny && (
+                <div className="text-udaj text-neutral-600">Ostatní dny vlož až po uložení tohoto: otevři okno znovu a čti od dalšího data.</div>
+              )}
             </div>
           )}
         </>

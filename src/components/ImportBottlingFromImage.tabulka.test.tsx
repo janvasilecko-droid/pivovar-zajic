@@ -114,7 +114,7 @@ describe('Stáčení lahví z fotky — tabulka z Excelu', () => {
     expect(tela[1]).toMatchObject({ imageBase64: 'VYREZ', vyrez: true, odData: '2026-10-13', datumOkna: '2026-10-13' });
   });
 
-  it('čtyři řádky z 13. 10.: sudy, tři druhy lahví, pivo z katalogu a datum stočení z tabulky', async () => {
+  it('čtyři řádky z 13. 10.: sudy, druhy lahví, pivo z katalogu a den každého řádku z tabulky', async () => {
     vykresli();
     vlozFotku();
     await screen.findByText(/Rozpoznané řádky stočení/);
@@ -122,7 +122,8 @@ describe('Stáčení lahví z fotky — tabulka z Excelu', () => {
     const radky = screen.getAllByTestId('radek-z-tabulky');
     expect(radky).toHaveLength(4);
     expect(within(radky[0]).getByText(/řádek č\. 555/)).toBeTruthy();
-    expect(within(radky[0]).getByText(/13. 10. 2026/)).toBeTruthy();
+    // Každý řádek nese svůj den a jde upravit.
+    expect(within(radky[0]).getByLabelText('Den řádku')).toHaveValue('2026-10-13');
     expect(within(radky[0]).getByText(/„12 Světlá"/)).toBeTruthy();
     // 1 × 50 l → 11 × 1,5 l + 20 × 0,5 l + 60 × 0,33 l = 46,3 l (výtrata 7,4 %)
     expect(within(radky[0]).getByText(/Stočeno 46,3 l z 50 l ze sudů · výtrata 7,4 %/)).toBeTruthy();
@@ -138,12 +139,12 @@ describe('Stáčení lahví z fotky — tabulka z Excelu', () => {
     vlozFotku();
     await screen.findByText(/Rozpoznané řádky stočení/);
     expect(within(screen.getAllByTestId('radek-z-tabulky')[3]).getByText(/pivo v tabulce prázdné/)).toBeTruthy();
-    fireEvent.click(screen.getByText(/Vložit VŠECHNO/));
+    fireEvent.click(screen.getByText(/Vložit 4 řádky do tabulky stočení lahví/));
     expect(await screen.findByText(/není vybrané pivo/)).toBeTruthy();
     expect(onImport).not.toHaveBeenCalled();
   });
 
-  it('vložení: jen údaje formuláře (bez čísla řádku a varování), datum z tabulky', async () => {
+  it('vložení: údaje formuláře a den každého řádku (bez čísla řádku, textu z tabulky a varování)', async () => {
     const onImport = vykresli();
     vlozFotku();
     await screen.findByText(/Rozpoznané řádky stočení/);
@@ -151,18 +152,19 @@ describe('Stáčení lahví z fotky — tabulka z Excelu', () => {
     const selecty = screen.getAllByRole('combobox') as HTMLSelectElement[];
     const bezPiva = selecty.filter((s) => s.value === '' && [...s.options].some((o) => o.value === 'jan'))[0];
     fireEvent.change(bezPiva, { target: { value: 'jan' } });
-    fireEvent.click(screen.getByText(/Vložit VŠECHNO/));
+    fireEvent.click(screen.getByText(/Vložit 4 řádky do tabulky stočení lahví/));
     await waitFor(() => expect(onImport).toHaveBeenCalledTimes(1));
     const [rows, datum] = onImport.mock.calls[0];
     expect(datum).toBe('2026-10-13');
     expect(rows).toHaveLength(4);
-    expect(rows[0]).toMatchObject({ beerId: 's12', kegPkgId: 'k50', kegQty: '1', pkgId: 'p15', qty: '11', pkg2Id: 'p05', qty2: '20', pkg3Id: 'p033', qty3: '60' });
-    expect(rows[3]).toMatchObject({ beerId: 'jan', kegPkgId: 'k50', kegQty: '2', pkgId: 'p1', qty: '72', pkg2Id: 'p05', qty2: '40' });
+    expect(rows[0]).toMatchObject({ beerId: 's12', datum: '2026-10-13', kegPkgId: 'k50', kegQty: '1', pkgId: 'p15', qty: '11', pkg2Id: 'p05', qty2: '20', pkg3Id: 'p033', qty3: '60' });
+    expect(rows[3]).toMatchObject({ beerId: 'jan', datum: '2026-10-13', kegPkgId: 'k50', kegQty: '2', pkgId: 'p1', qty: '72', pkg2Id: 'p05', qty2: '40' });
     for (const rr of rows) {
-      expect(rr).not.toHaveProperty('datum');
       expect(rr).not.toHaveProperty('varovani');
       expect(rr).not.toHaveProperty('cisloRadku');
       expect(rr).not.toHaveProperty('pivoText');
+      expect(rr).not.toHaveProperty('_removed');
+      expect(rr).not.toHaveProperty('_manual');
     }
   });
 
@@ -188,30 +190,130 @@ describe('Stáčení lahví z fotky — tabulka z Excelu', () => {
     expect(await screen.findByText(/Číslo 24 přepis fotky u tohohle řádku nevidí/)).toBeTruthy();
   });
 
-  it('víc dnů v tabulce: nabídne se nejstarší, ostatní jsou schované a vkládá se jen vybraný den', async () => {
+  describe('víc dnů v tabulce se vloží najednou (15. 10. 2026: „ne po jednom dni")', () => {
     const stary = r({ cislo: 552, datum: '2026-10-06', datumVBunce: '2026-10-06', sudy: [{ objemL: 50, ks: 3 }], lahve: [{ objemL: 1, ks: 140 }] });
-    pripravFetch(odpovedTabulky([stary, ...RADKY_13_10], [{ datum: '2026-10-06', radku: 1 }, { datum: '2026-10-13', radku: 4 }]));
-    const onImport = vykresli({ posledniZapis: '2026-10-05' });
+    const dny = [{ datum: '2026-10-06', radku: 1 }, { datum: '2026-10-13', radku: 4 }];
+    const doplnPivo = () => {
+      const selecty = screen.getAllByRole('combobox') as HTMLSelectElement[];
+      fireEvent.change(selecty.filter((s) => s.value === '' && [...s.options].some((o) => o.value === 'jan'))[0], { target: { value: 'jan' } });
+    };
+
+    it('výchozí jsou všechny dny: vidět je všech pět řádků, každý se svým dnem', async () => {
+      pripravFetch(odpovedTabulky([stary, ...RADKY_13_10], dny));
+      vykresli({ posledniZapis: '2026-10-05' });
+      vlozFotku();
+      await screen.findByText(/Rozpoznané řádky stočení/);
+      const radky = screen.getAllByTestId('radek-z-tabulky');
+      expect(radky).toHaveLength(5);
+      expect(radky.map((x) => (within(x).getByLabelText('Den řádku') as HTMLInputElement).value))
+        .toEqual(['2026-10-06', '2026-10-13', '2026-10-13', '2026-10-13', '2026-10-13']);
+      const vyber = screen.getByTestId('vyber-dne');
+      expect(within(vyber).getByRole('button', { name: /Všechny dny · 5 řádků/ })).toHaveAttribute('aria-pressed', 'true');
+      expect(screen.getByText(/vloží se všechny najednou, každý řádek na svůj den/)).toBeTruthy();
+    });
+
+    it('vloží se všechno naráz a každý řádek nese svůj den', async () => {
+      pripravFetch(odpovedTabulky([stary, ...RADKY_13_10], dny));
+      const onImport = vykresli({ posledniZapis: '2026-10-05' });
+      vlozFotku();
+      await screen.findByText(/Rozpoznané řádky stočení/);
+      doplnPivo();
+      expect(screen.getByText(/Vložit 5 řádků z 2 dnů do tabulky stočení lahví/)).toBeTruthy();
+      fireEvent.click(screen.getByText(/Vložit 5 řádků z 2 dnů do tabulky stočení lahví/));
+      await waitFor(() => expect(onImport).toHaveBeenCalledTimes(1));
+      const [rows] = onImport.mock.calls[0];
+      expect(rows).toHaveLength(5);
+      expect(rows.map((x: any) => x.datum)).toEqual(['2026-10-06', '2026-10-13', '2026-10-13', '2026-10-13', '2026-10-13']);
+      // Každý řádek má svůj sud — žádný nezůstane bez.
+      expect(rows.every((x: any) => x.kegPkgId && Number(x.kegQty) > 0)).toBe(true);
+      expect(rows[0]).toMatchObject({ kegPkgId: 'k50', kegQty: '3', pkgId: 'p1', qty: '140' });
+    });
+
+    it('klepnutím na den se výběr zúží — vidět je i vkládá se jen ten den; „Všechny dny“ ho vrátí', async () => {
+      pripravFetch(odpovedTabulky([stary, ...RADKY_13_10], dny));
+      const onImport = vykresli({ posledniZapis: '2026-10-05' });
+      vlozFotku();
+      await screen.findByText(/Rozpoznané řádky stočení/);
+      const vyber = screen.getByTestId('vyber-dne');
+      fireEvent.click(within(vyber).getByRole('button', { name: /6. 10. 2026 · 1 řádek/ }));
+      await waitFor(() => expect(screen.getAllByTestId('radek-z-tabulky')).toHaveLength(1));
+      fireEvent.click(within(vyber).getByRole('button', { name: /Všechny dny/ }));
+      await waitFor(() => expect(screen.getAllByTestId('radek-z-tabulky')).toHaveLength(5));
+      fireEvent.click(within(vyber).getByRole('button', { name: /13. 10. 2026 · 4 řádky/ }));
+      await waitFor(() => expect(screen.getAllByTestId('radek-z-tabulky')).toHaveLength(4));
+      doplnPivo();
+      fireEvent.click(screen.getByText(/Vložit 4 řádky do tabulky stočení lahví/));
+      await waitFor(() => expect(onImport).toHaveBeenCalledTimes(1));
+      const [rows, datum] = onImport.mock.calls[0];
+      expect(rows).toHaveLength(4);
+      expect(rows.every((x: any) => x.datum === '2026-10-13')).toBe(true);
+      expect(datum).toBe('2026-10-13');
+    });
+
+    it('den řádku jde přepsat; řádek bez data je označený a zapíše se na datum nahoře', async () => {
+      const bezData = r({ cislo: 551, datum: null, datumVBunce: null, sudy: [{ objemL: 50, ks: 1 }], lahve: [{ objemL: 1.5, ks: 30 }] });
+      pripravFetch(odpovedTabulky([bezData, stary, ...RADKY_13_10], [{ datum: null, radku: 1 }, ...dny]));
+      const onImport = vykresli({ posledniZapis: null });
+      vlozFotku();
+      await screen.findByText(/Rozpoznané řádky stočení/);
+      const radky = screen.getAllByTestId('radek-z-tabulky');
+      expect(within(radky[0]).getByLabelText('Den řádku')).toHaveValue('');
+      expect(within(radky[0]).getByText(/bez data — zapíše se na datum nahoře/)).toBeTruthy();
+      fireEvent.change(within(radky[1]).getByLabelText('Den řádku'), { target: { value: '2026-10-07' } });
+      doplnPivo();
+      fireEvent.click(screen.getByText(/Vložit 6 řádků z 3 dnů do tabulky stočení lahví/));
+      await waitFor(() => expect(onImport).toHaveBeenCalledTimes(1));
+      const [rows] = onImport.mock.calls[0];
+      expect(rows.map((x: any) => x.datum)).toEqual([null, '2026-10-07', '2026-10-13', '2026-10-13', '2026-10-13', '2026-10-13']);
+    });
+
+    it('odstraněný řádek se nevloží a nepočítá se do tlačítka', async () => {
+      pripravFetch(odpovedTabulky([stary, ...RADKY_13_10], dny));
+      const onImport = vykresli({ posledniZapis: '2026-10-05' });
+      vlozFotku();
+      await screen.findByText(/Rozpoznané řádky stočení/);
+      doplnPivo();
+      fireEvent.click(screen.getAllByRole('button', { name: /Odstranit/ })[0]);
+      expect(screen.getByText(/Vložit 4 řádky do tabulky stočení lahví/)).toBeTruthy();
+      fireEvent.click(screen.getByText(/Vložit 4 řádky do tabulky stočení lahví/));
+      await waitFor(() => expect(onImport).toHaveBeenCalledTimes(1));
+      expect(onImport.mock.calls[0][0].map((x: any) => x.datum)).toEqual(['2026-10-13', '2026-10-13', '2026-10-13', '2026-10-13']);
+    });
+  });
+
+  it('čtyři druhy lahví a sud jsou v jednom řádku: všechny čtyři sloupce vyplněné a litry sedí', async () => {
+    pripravFetch(odpovedTabulky(
+      [r({ cislo: 544, sudy: [{ objemL: 50, ks: 1 }], lahve: [{ objemL: 1.5, ks: 12 }, { objemL: 1, ks: 10 }, { objemL: 0.5, ks: 28 }, { objemL: 0.33, ks: 12 }] })],
+      [{ datum: '2026-10-13', radku: 1 }],
+    ));
+    const onImport = vykresli();
     vlozFotku();
     await screen.findByText(/Rozpoznané řádky stočení/);
-    // vybraný je nejstarší den, vidět je jeden řádek
+    // jeden řádek, žádný druhý „bez sudu“
     expect(screen.getAllByTestId('radek-z-tabulky')).toHaveLength(1);
-    expect(screen.getByLabelText('Datum stočení')).toHaveValue('2026-10-06');
-    const vyber = screen.getByTestId('vyber-dne');
-    expect(within(vyber).getByRole('button', { name: /6. 10. 2026 · 1 řádek/ })).toHaveAttribute('aria-pressed', 'true');
-    // přepnutí na 13. 10. ukáže čtyři řádky a přepíše datum
-    fireEvent.click(within(vyber).getByRole('button', { name: /13. 10. 2026 · 4 řádky/ }));
-    await waitFor(() => expect(screen.getAllByTestId('radek-z-tabulky')).toHaveLength(4));
-    expect(screen.getByLabelText('Datum stočení')).toHaveValue('2026-10-13');
-    // doplnit pivo u čtvrtého řádku a vložit — vloží se JEN 13. 10.
-    const selecty = screen.getAllByRole('combobox') as HTMLSelectElement[];
-    fireEvent.change(selecty.filter((s) => s.value === '' && [...s.options].some((o) => o.value === 'jan'))[0], { target: { value: 'jan' } });
-    fireEvent.click(screen.getByText(/Vložit VŠECHNO/));
+    expect(screen.getByText('4. Lahve')).toBeTruthy();
+    expect(screen.getByLabelText('4. Lahve — kusů')).toHaveValue('12');
+    // 18 + 10 + 14 + 3,96 = 45,96 l z 50 l
+    expect(screen.getByText(/Stočeno 46 l z 50 l ze sudů/)).toBeTruthy();
+    fireEvent.click(screen.getByText(/Vložit 1 řádek do tabulky stočení lahví/));
     await waitFor(() => expect(onImport).toHaveBeenCalledTimes(1));
-    const [rows, datum] = onImport.mock.calls[0];
-    expect(datum).toBe('2026-10-13');
-    expect(rows).toHaveLength(4);
-    expect(rows.every((x: any) => x.kegPkgId)).toBe(true);
+    const [rows] = onImport.mock.calls[0];
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ kegPkgId: 'k50', kegQty: '1', pkgId: 'p15', qty: '12', pkg2Id: 'p1', qty2: '10', pkg3Id: 'p05', qty3: '28', pkg4Id: 'p033', qty4: '12' });
+  });
+
+  it('čtvrtý druh lahví jde v dialogu přepsat a vloží se do téhož řádku', async () => {
+    pripravFetch(odpovedTabulky(
+      [r({ cislo: 544, sudy: [{ objemL: 50, ks: 1 }], lahve: [{ objemL: 1.5, ks: 12 }, { objemL: 1, ks: 10 }, { objemL: 0.5, ks: 28 }, { objemL: 0.33, ks: 12 }] })],
+      [{ datum: '2026-10-13', radku: 1 }],
+    ));
+    const onImport = vykresli();
+    vlozFotku();
+    await screen.findByText(/Rozpoznané řádky stočení/);
+    fireEvent.change(screen.getByLabelText('4. Lahve — kusů'), { target: { value: '15' } });
+    fireEvent.click(screen.getByText(/Vložit 1 řádek do tabulky stočení lahví/));
+    await waitFor(() => expect(onImport).toHaveBeenCalledTimes(1));
+    expect(onImport.mock.calls[0][0][0]).toMatchObject({ pkg4Id: 'p033', qty4: '15', kegPkgId: 'k50', kegQty: '1' });
   });
 
   it('změna data „číst od" nabídne přečtení znovu — přepis fotky se nepodruhé nedělá', async () => {

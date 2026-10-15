@@ -38,7 +38,17 @@ function souhrnDnu(info: Record<number, InfoFotky>): DenTabulky[] {
     .sort((a, b) => (a.datum === null ? -1 : b.datum === null ? 1 : a.datum.localeCompare(b.datum)));
 }
 
-export function useTabulkaZFotky(opts: { klic: string; vychoziRezim: RezimCteni; posledniZapis?: string | null }) {
+export function useTabulkaZFotky(opts: {
+  klic: string;
+  vychoziRezim: RezimCteni;
+  posledniZapis?: string | null;
+  /**
+   * Okno umí vložit víc dnů najednou (každý řádek na svůj den): výchozí výběr
+   * je „Všechny dny“ a den se dá jen zúžit. Bez toho se vkládá jeden den
+   * (formulář má jedno datum).
+   */
+  vsechnyDny?: boolean;
+}) {
   const [rezim, setRezimStav] = useState<RezimCteni>(() => {
     const ulozeny = nacti(KLIC + opts.klic);
     return ulozeny === 'tabulka' || ulozeny === 'seznam' ? ulozeny : opts.vychoziRezim;
@@ -85,7 +95,12 @@ export function useTabulkaZFotky(opts: { klic: string; vychoziRezim: RezimCteni;
         }));
         // Výchozí den z dní VŠECH fotek; už vybraný den zůstane, pokud tam ještě je.
         const dnyVse = souhrnDnu(dalsi);
-        setVybranyDen((aktualni) => (aktualni !== undefined && dnyVse.some((d) => d.datum === aktualni) ? aktualni : vychoziDen(dnyVse, pouzite)));
+        setVybranyDen((aktualni) => {
+          if (aktualni !== undefined && dnyVse.some((d) => d.datum === aktualni)) return aktualni;
+          // Víc dnů a okno umí všechny: nezúžené = všechny dny (undefined).
+          if (opts.vsechnyDny && dnyVse.length > 1) return undefined;
+          return vychoziDen(dnyVse, pouzite);
+        });
       } else if (v.stav === 'nic-od-data') {
         upravInfo((p) => ({ ...p, [idx]: { stav: 'nic-od-data', odData: v.odData, posledniDatum: v.posledniDatum } }));
       } else {
@@ -93,7 +108,7 @@ export function useTabulkaZFotky(opts: { klic: string; vychoziRezim: RezimCteni;
       }
       return v;
     },
-    [odData, upravInfo],
+    [odData, upravInfo, opts.vsechnyDny],
   );
 
   /** Fotka se změnila (ořez v editoru) nebo se čte znovu od začátku: zapomene, co o ní ví. */
@@ -104,7 +119,7 @@ export function useTabulkaZFotky(opts: { klic: string; vychoziRezim: RezimCteni;
   }, [upravInfo]);
 
   return {
-    rezim, setRezim, zapnuto: rezim === 'tabulka',
+    rezim, setRezim, zapnuto: rezim === 'tabulka', vsechnyDny: !!opts.vsechnyDny,
     odData, setOdData, nactenoOdData, posledniZapis: opts.posledniZapis ?? null,
     info, dny, vybranyDen, setVybranyDen,
     cti, zapomen,
