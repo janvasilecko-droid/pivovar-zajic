@@ -63,6 +63,13 @@ describe('seznamy stáčení ukazují původ záznamu', () => {
     });
   }
 
+  it('tabulka lahví ho kreslí pod řádkem a bere ho z poznámek záznamů řádku', () => {
+    // Řádek tabulky nese `puvod` (lib/prehledStaceniTabulka.ts) a tabulka ho píše
+    // pod řádkem; v podrobnostech řádku je zvlášť u každého záznamu.
+    expect(readFileSync('src/components/PrehledStaceniLahvi.tsx', 'utf8')).toMatch(/\{r\.puvod && \(/);
+    expect(readFileSync('src/lib/prehledStaceniTabulka.ts', 'utf8')).toMatch(/puvodZapisu\(z\.note\)/);
+  });
+
   it('KEG obrazovka ho kreslí na víc místech — v kartách i v tabulce', () => {
     const zdroj = readFileSync('src/screens/Kegging.tsx', 'utf8');
     const kolik = [...zdroj.matchAll(/puvodZapisu\(r\.note\) &&/g)].length;

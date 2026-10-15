@@ -129,6 +129,7 @@ describe('přehledy KEG i lahví seskupují stejně', () => {
   const KEG = readFileSync('src/screens/Kegging.tsx', 'utf8');
   const LAHVE = readFileSync('src/screens/BottlingScreen.tsx', 'utf8');
   const LAHVE_DLAZDICE = readFileSync('src/components/PrehledStaceniLahvi.tsx', 'utf8');
+  const LAHVE_TABULKA = readFileSync('src/lib/prehledStaceniTabulka.ts', 'utf8');
 
   it('obě obrazovky volají davkyStaceni', () => {
     expect(KEG).toMatch(/davkyStaceni\(sortedRows/);
@@ -157,24 +158,35 @@ describe('přehledy KEG i lahví seskupují stejně', () => {
     expect(LAHVE, 'lahve: smazání není napojené na databázi').toMatch(/onSmazat=\{del\}/);
     expect(LAHVE, 'lahve: úprava není napojená').toMatch(/onUpravit=\{setEditingRow\}/);
     expect(LAHVE, 'lahve: ±1 kus není napojené').toMatch(/onKus=\{increment\}/);
-    expect(LAHVE, 'lahve: počet sudů není napojený').toMatch(/onSudy=\{incrementKegs\}/);
-    expect(LAHVE, 'lahve: velikost sudu není napojená').toMatch(/onZmenSud=\{updateKegPackage\}/);
     expect(LAHVE, 'lahve: „Další sud" není napojený').toMatch(/onDalsiSud=\{pridejDalsiSud\}/);
+    // Čísla v buňkách tabulky (od 15. 10. 2026) — počet lahví, počet a velikost sudů,
+    // den a pivo, smazání řádku. Zapisují se přes plány z lib/prehledStaceniTabulka.ts.
+    expect(LAHVE, 'lahve: číslo v buňce lahví není napojené').toMatch(/onLahve=\{upravLahve\}/);
+    expect(LAHVE, 'lahve: číslo v buňce sudů není napojené').toMatch(/onSudy=\{upravSudy\}/);
+    expect(LAHVE, 'lahve: smazání řádku není napojené').toMatch(/onSmazRadek=\{smazRadek\}/);
+    expect(LAHVE, 'lahve: den a pivo řádku není napojené').toMatch(/onDatumPivo=\{upravDatumPivo\}/);
   });
 
-  it('u lahví se zdrojový sud ukazuje po ŠARŽÍCH, ne po řádcích', () => {
+  it('u lahví je řádek tabulky ŠARŽE, ne celé pivo', () => {
     // Zdroj nese uvnitř šarže jen jeden řádek; u ostatních se dřív psalo jen
-    // „〃 stejná dávka" a vypadalo to, že se zdroj ztratil.
-    expect(LAHVE_DLAZDICE).toMatch(/sarzeDavky\(davka\.polozky, getBatchId\)/);
-    // Nadpis „Stočeno ze sudu" je pryč — šarži drží pohromadě čára po straně.
-    // Z provozu: „má tam být sud a počet, jen nějak označ třeba čarou."
+    // „〃 stejná dávka" a vypadalo to, že se zdroj ztratil. Řádek = šarže je
+    // zároveň to, co se čte z fotky (řádek papírové tabulky = jedna šarže).
+    expect(LAHVE_TABULKA).toMatch(/sarzeDavky\(davka\.polozky, getBatchId\)/);
+    expect(LAHVE_DLAZDICE).toMatch(/radkyDavky\(d, obaly, getBatchId\)/);
     expect(LAHVE_DLAZDICE, 'nadpis se vrátil místo sudu a počtu').not.toMatch(/Stočeno ze sudu/);
-    expect(LAHVE_DLAZDICE, 'chybí čára, která šarži drží pohromadě').toMatch(/border-l-4 border-l-amber-500/);
-    expect(LAHVE_DLAZDICE, 'v dlaždici zůstalo „stejná dávka" místo sudu').not.toMatch(/stejná dávka/);
+    expect(LAHVE_DLAZDICE, 'v tabulce zůstalo „stejná dávka" místo sudu').not.toMatch(/stejná dávka/);
+    // Řádek drží pohromadě barva piva po straně (dřív oranžová čára šarže).
+    expect(LAHVE_DLAZDICE, 'chybí barevný pruh řádku').toMatch(/border-l-4/);
+    expect(LAHVE_DLAZDICE, 'chybí barva piva u řádku').toMatch(/beerBorder\(beer\)/);
   });
 
-  it('dlaždice jsou v jednom dni rozbalené rovnou, v týdnu a měsíci sbalené', () => {
-    expect(LAHVE).toMatch(/vychoziOtevrene=\{recordsView === 'day'\}/);
+  it('přehled lahví je tabulka po dnech bez rozbalování — všechno je vidět rovnou', () => {
+    // Dlaždice, které se po klepnutí rozbalovaly (a v týdnu a měsíci byly
+    // sbalené), jsou pryč; „kolik z kolika sudů" je v řádku pořád.
+    expect(LAHVE, 'dlaždice se zase rozbalují').not.toMatch(/vychoziOtevrene/);
+    expect(LAHVE_DLAZDICE, 'chybí tabulka').toMatch(/<table/);
+    expect(LAHVE_DLAZDICE, 'chybí skupina sloupců „Z sudů"').toMatch(/Z sudů/);
+    expect(LAHVE_DLAZDICE, 'chybí skupina sloupců „Stočeno lahví"').toMatch(/Stočeno lahví/);
   });
 
   it('dny jsou nadřazená skupina s vlastním pásem — ne popisek v rohu dlaždice', () => {
@@ -193,7 +205,10 @@ describe('přehledy KEG i lahví seskupují stejně', () => {
     );
     expect(prehled.length, 'nenašel se blok přehledu').toBeGreaterThan(500);
     expect(prehled, 'v přehledu zase stojí přilepený panel').not.toMatch(/\bsticky\b/);
-    expect(LAHVE_DLAZDICE, 'v dlaždicích zase stojí přilepený panel').not.toMatch(/\bsticky\b/);
+    // Přilepený je jen název piva vlevo v posouvané tabulce (`sticky left-0`) —
+    // panel přilepený nahoře nebo dole (`sticky top-…`) by zase zakrýval řádky.
+    expect(LAHVE_DLAZDICE, 'v tabulce zase stojí přilepený panel').not.toMatch(/\bsticky (top|bottom)-/);
+    expect(LAHVE_DLAZDICE, 'v tabulce zase stojí přilepený panel (top-0 před sticky)').not.toMatch(/\b(top|bottom)-\S+ sticky\b/);
   });
 
   it('filtry piva a obalu jsou na telefonu za tlačítkem „Filtry" a chipy jsou jeden řádek', () => {

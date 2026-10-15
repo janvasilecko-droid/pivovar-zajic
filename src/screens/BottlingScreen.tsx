@@ -15,6 +15,7 @@ import VyberZdrojovehoSudu from '../components/VyberZdrojovehoSudu';
 import VyberObalu, { objemCesky } from '../components/VyberObalu';
 import { davkyStaceni, denACesky, pocetSuduCesky } from '../lib/prehledStaceni';
 import PrehledStaceniLahvi from '../components/PrehledStaceniLahvi';
+import { upravyStaceni } from '../lib/upravyStaceni';
 import { autoLogBottleSanitationFromChecklist } from '../lib/bottleSanitation';
 import { requestOrdersItemFilter } from '../lib/ordersFilter';
 import { VoiceRecorder } from '../components/VoiceRecorder';
@@ -1200,44 +1201,17 @@ export default function BottlingScreen({
     return `${r.entry_date}_${r.beer_id}_${r.kegs_used}_${r.kegs_used_package_id}`;
   }
 
-  // Zvýší/sníží počet stočených sudů (kegs_used) pro celou šarži (všechny řádky
-  // se stejným zdrojem). Zároveň přepočítá zdrojový objem (source_volume_l).
-  async function incrementKegs(id: string, delta: number) {
-
-    const row = rows.find((r) => r.id === id);
-    if (!row) return;
-    const current = Number(row.kegs_used || 0);
-    const newKegs = current + delta;
-    if (newKegs < 0) return;
-    const kegs = newKegs > 0 ? newKegs : null;
-    let kegPkg = row.kegs_used_package_id ? packages.find((p) => p.id === row.kegs_used_package_id) : null;
-    // 9. 10. 2026: „doplnil jsem ho později, to se musí propsat rovnou". Počet
-    // sudů bez velikosti sklad neodečte (nepozná, který sud ubyl) — proto se
-    // bez vybrané velikosti zeptá, místo aby uložil „bez sudu".
-    if (kegs && !kegPkg) {
-      const vyber = await volba(
-        'Z jakých sudů se stáčelo? Bez velikosti sudu se sudy ze skladu neodečtou.',
-        kegPackages.map((p) => ({ klic: p.id, label: p.label, ton: 'hlavni' as const })),
-        { titulek: 'Velikost sudu' },
-      );
-      if (!vyber) return;
-      kegPkg = packages.find((p) => p.id === vyber) ?? null;
-      if (!kegPkg) return;
-    }
-    const sourceL = kegs && kegPkg ? kegs * Number(kegPkg.volume_l) : null;
-
-    // Najdeme všechny řádky stejné šarže (stejný zdroj ze sudů)
-    const batchId = getBatchId(row);
-    const batchRows = rows.filter((r) => getBatchId(r) === batchId);
-    const batchIds = batchRows.map((r) => r.id);
-
-    const zmena = { kegs_used: kegs, source_volume_l: sourceL, ...(kegPkg ? { kegs_used_package_id: kegPkg.id } : {}) };
-    const { error } = await supabase.from('bottling').update(zmena).in('id', batchIds);
-    if (error) { setErr(error.message); return; }
-    setRows((rs) => rs.map((r) => batchIds.includes(r.id) ? { ...r, ...zmena } : r));
-  }
+  // ✏️ Úpravy čísel přímo v tabulce přehledu (počet lahví, počet a velikost sudů,
+  // den a pivo, smazání řádku) — co se má zapsat, určuje
+  // lib/prehledStaceniTabulka.ts, provedení je v lib/upravyStaceni.ts.
+  // Nahradilo to ±1 u sudů a výběr velikosti sudu v rozbalené dlaždici.
+  const { upravLahve, upravSudy, smazRadek, upravDatumPivo } = upravyStaceni({
+    rows, setRows, packages, beers, getBatchId, nacti: load,
+  });
 
   // Změní velikost (typ) KEG sudu, ze kterého bylo stočeno, pro celou šarži.
+  // Používá ho už jen červený pruh „Sudy bez velikosti" nahoře; v tabulce přehledu
+  // se velikost mění číslem v buňce (planSudy).
   // Přepočítá zdrojový objem (source_volume_l = počet sudů × nový objem sudu).
   async function updateKegPackage(id: string, packageId: string) {
     const row = rows.find((r) => r.id === id);
@@ -2202,13 +2176,13 @@ export default function BottlingScreen({
                 davky={davky}
                 piva={beers}
                 obaly={packages}
-                sudy={kegPackages}
-                vychoziOtevrene={recordsView === 'day'}
                 getBatchId={getBatchId}
-                onKus={increment}
-                onSudy={incrementKegs}
-                onZmenSud={updateKegPackage}
+                onLahve={upravLahve}
+                onSudy={upravSudy}
+                onSmazRadek={smazRadek}
+                onDatumPivo={upravDatumPivo}
                 onDalsiSud={pridejDalsiSud}
+                onKus={increment}
                 onUpravit={setEditingRow}
                 onSmazat={del}
               />
