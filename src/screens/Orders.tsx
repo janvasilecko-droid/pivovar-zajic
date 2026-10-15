@@ -33,12 +33,14 @@ import { shareOrderToWhatsApp } from '../lib/whatsapp';
 import { oznacVlastniObjednavku } from '../lib/mojeObjednavky';
 import { subscribeToWhatsAppMessages, fetchPendingWhatsAppMessages, fetchWhatsAppMessage, ignoreWhatsAppMessage, WhatsAppIncoming, fetchWhatsAppSenders, isSenderAllowed, triggerAutoParse, type WhatsAppSender } from '../lib/whatsappApi';
 import { autoReserveTapIfNeeded, isTapMentioned, detectTapType } from '../lib/tapReservations';
-import { findDuplicateOrders, formatDuplicateMessage } from '../lib/orderDuplicates';
+import { najdiDuplicitniObjednavky } from '../lib/orderDuplicates';
+import { nazvyZKatalogu, zeptejSeNaDuplicitu, zeptejSeNaZdvojeneRadky } from '../lib/duplicityDialog';
+import { najdiZdvojeneRadky } from '../lib/duplicityObjednavek';
 import { datumProDenObjednavky, dayKeyFromISO, jeVMinulemTydnu } from '../lib/keggingPlan';
 import { TapReservationModal } from '../components/TapReservationModal';
 import { createReminder, getLocalReminders } from '../lib/reminders';
 import { type AkceRow } from '../lib/inventoryHelper';
-import { chyba, oznam, potvrd, uspech, volba } from '../lib/toast';
+import { chyba, oznam, potvrd, uspech } from '../lib/toast';
 
 import { IkonaVycep } from '../components/ikony';
 import { kartaOdberatele } from '../lib/kartaOdberatele';
@@ -492,15 +494,16 @@ export default function Orders({
     // ⚠️ Kontrola duplicit PŘED vytvořením jakékoli objednávky — aby dva lidé
     // nezadali ve stejnou chvíli stejnou objednávku.
     for (const data of ordersData) {
-      const dup = await findDuplicateOrders({
+      const jmeno = (data.placeId ? places.find((p) => p.id === data.placeId)?.name : null) || data.placeNameFree || null;
+      const shody = await najdiDuplicitniObjednavky({
         placeId: data.placeId,
-        placeName: data.placeNameFree,
+        placeName: jmeno,
+        orderDate: data.orderDate || today,
         deliveryDate: data.deliveryDate || null,
-        deliveryDay: data.deliveryDay || null,
-        items: (data.items || []).map((i) => ({ beerId: i.beerId, pkgId: i.pkgId, qty: i.qty })),
+        radky: (data.items || []).map((i) => ({ beerId: i.beerId, pkgId: i.pkgId, qty: i.qty })),
       });
-      if (dup && !(await potvrd(formatDuplicateMessage(dup) + '\n\nPokračovat? (Ano = přesto vytvořit objednávku)'))) {
-        throw new Error('Import zrušen — objednávka je duplicitní (' + (dup.placeName ?? 'odběratel') + ').');
+      if (shody?.length && (await zeptejSeNaDuplicitu(shody, nazvyZKatalogu(beers, packages))) !== 'presto') {
+        throw new Error('Import zrušen — objednávka je duplicitní (' + (jmeno ?? 'odběratel') + ').');
       }
     }
 
@@ -705,32 +708,25 @@ export default function Orders({
 
       // ⚠️ Kontrola duplicity — aby dva lidé nezadali ve stejnou chvíli stejnou
       // objednávku (např. oba kliknou na „Schválit“ u téže zprávy).
-      const dup = await findDuplicateOrders({
+      const shody = await najdiDuplicitniObjednavky({
         placeId,
-        placeName: placeNameFree,
+        // Bez jména (náhradní „Neznámý odběratel") se nic neporovnává — dvě
+        // zprávy bez rozpoznaného odběratele nejsou jedna objednávka.
+        placeName: (placeId ? places.find((p) => p.id === placeId)?.name : null) || message.parsed_place_name || null,
+        orderDate: today,
         deliveryDate: message.parsed_delivery_date || null,
-        deliveryDay: denZavozu,
-        items: (message.parsed_items || []).map((it) => ({
+        radky: (message.parsed_items || []).map((it) => ({
           beerId: it.beer_id || null,
           pkgId: it.pkg_id || null,
-          qty: it.qty ?? null,
-          beerName: it.beer_name || null,
-          packageLabel: it.package_label || null,
+          qty: it.qty ?? 0,
         })),
       });
       // Na „tohle už objednané je" byly dosud jen dvě odpovědi: přesto
       // vytvořit, nebo zrušit. Zrušení ale zprávu nechalo viset mezi
       // nevyřízenými a ignorovat se musela zvlášť — takže nejčastější
       // odpověď byla ta nejpracnější. Teď je ignorování rovnou v hlášce.
-      if (dup) {
-        const co = await volba(
-          formatDuplicateMessage(dup),
-          [
-            { klic: 'ignorovat', label: 'Ignorovat zprávu', ton: 'nebezpecne' },
-            { klic: 'presto', label: 'Přesto vytvořit', ton: 'hlavni' },
-          ],
-          { titulek: 'Tahle objednávka už nejspíš existuje', zrusit: 'Zpět' }
-        );
+      if (shody?.length) {
+        const co = await zeptejSeNaDuplicitu(shody, nazvyZKatalogu(beers, packages), { ignorovat: true });
         if (co === 'ignorovat') {
           await ignoreWhatsAppMessage(message.id);
           oznam('Zpráva označená jako vyřízená — duplicitní objednávka se nezaložila.');
@@ -1189,6 +1185,26 @@ export default function Orders({
         groups.set(key, { resolvedPlaceId, resolvedName: resolvedName || null, rows: [] });
       }
       groups.get(key)!.rows.push(r);
+    }
+
+    // 🔁 Zdvojená objednávka (lib/duplicityObjednavek.ts) — PŘED vytvořením
+    // jakékoli objednávky, ať se při víc odběratelích nezaloží jen část. Ruční
+    // zadání se dřív nekontrolovalo vůbec: Restaurace na 11. 10. se zadala
+    // dvakrát (podruhé zpětně 13. 10.) a sklad se odepsal dvakrát. Nic se
+    // nezakazuje — jen se zeptá a výchozí odpověď je „nezakládat".
+    for (const group of groups.values()) {
+      const shody = await najdiDuplicitniObjednavky({
+        placeId: group.resolvedPlaceId,
+        placeName: group.resolvedName,
+        orderDate: date,
+        deliveryDate: deliveryDate || null,
+        radky: group.rows.map((r) => ({ beerId: r.beerId, pkgId: r.pkgId, qty: Number(r.qty) })),
+      });
+      if (shody?.length && (await zeptejSeNaDuplicitu(shody, nazvyZKatalogu(beers, packages))) !== 'presto') {
+        setSaving(false);
+        setErr(`Nic se neuložilo — ${group.resolvedName || 'odběratel'} už má podobnou objednávku. Zkontroluj ji v seznamu, nebo ulož znovu a potvrď „Přesto vytvořit".`);
+        return;
+      }
     }
 
     // Keep track of the first created order ID for tap reservation
@@ -1659,25 +1675,42 @@ export default function Orders({
   }
 
   // ---- Duplikace objednávky ----
+  // Dvojklik na „Zopakovat" by založil dvě kopie a sklad by se odečetl dvakrát.
+  const kopirujeSe = useRef(false);
   async function duplicateOrder(o: Order) {
     const its = items[o.id] ?? [];
-    if (!its.length) return;
-    const today = businessDateISO();
-    const { data: newOrder, error } = await supabase.from('orders').insert({
-      order_date: today, place_id: o.place_id, place_name: o.place_name,
-      source: 'duplikat', status: 'nova', delivery_day: o.delivery_day,
-      delivery_date: null, is_prepared: false, is_packaged: false, note: o.note,
-    }).select().single();
-    if (error || !newOrder) return;
-    oznacVlastniObjednavku(newOrder.id);
-    const rows = its.map((i) => ({
-      order_id: newOrder.id, beer_id: i.beer_id, beer_name: i.beer_name,
-      package_id: i.package_id, package_label: i.package_label, quantity: i.quantity,
-    }));
-    await supabase.from('order_items').insert(rows);
-    setWeekKey(isoWeekKey(today));
-    setFlash(true); setTimeout(() => setFlash(false), 800);
-    load();
+    if (!its.length || kopirujeSe.current) return;
+    kopirujeSe.current = true;
+    try {
+      const today = businessDateISO();
+      // 🔁 Kopie, která už existuje (první klepnutí, druhý telefon) — viz
+      // lib/duplicityObjednavek.ts. Do porovnání patří i předloha: poslední
+      // objednávka odběratele je po prvním klepnutí právě ta čerstvá kopie,
+      // takže druhé klepnutí narazí na ni. Kopie objednávky z tohoto týdne
+      // se zeptá taky — dvě stejné v jednom týdnu jsou podezřelé.
+      const shody = await najdiDuplicitniObjednavky({
+        placeId: o.place_id, placeName: o.place_name, orderDate: today, deliveryDate: null,
+        radky: its.map((i) => ({ beerId: i.beer_id, pkgId: i.package_id, qty: Number(i.quantity) })),
+      });
+      if (shody?.length && (await zeptejSeNaDuplicitu(shody, nazvyZKatalogu(beers, packages))) !== 'presto') return;
+      const { data: newOrder, error } = await supabase.from('orders').insert({
+        order_date: today, place_id: o.place_id, place_name: o.place_name,
+        source: 'duplikat', status: 'nova', delivery_day: o.delivery_day,
+        delivery_date: null, is_prepared: false, is_packaged: false, note: o.note,
+      }).select().single();
+      if (error || !newOrder) return;
+      oznacVlastniObjednavku(newOrder.id);
+      const rows = its.map((i) => ({
+        order_id: newOrder.id, beer_id: i.beer_id, beer_name: i.beer_name,
+        package_id: i.package_id, package_label: i.package_label, quantity: i.quantity,
+      }));
+      await supabase.from('order_items').insert(rows);
+      setWeekKey(isoWeekKey(today));
+      setFlash(true); setTimeout(() => setFlash(false), 800);
+      load();
+    } finally {
+      kopirujeSe.current = false;
+    }
   }
 
   /**
@@ -3017,6 +3050,24 @@ export default function Orders({
                 const key = jmenoSkupiny.get(nk)!;
                 (groups.get(key) ?? groups.set(key, []).get(key)!).push(it);
               }
+              // 🔁 Zdvojená objednávka (lib/duplicityObjednavek.ts) — všechny
+              // skupiny se zkontrolují PŘEDEM, ať se při víc odběratelích na
+              // jedné fotce nezaloží jen část a druhá část se nedoplňovala dvakrát.
+              for (const [recipient, rows] of groups) {
+                const normNazev = (t: string) => t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+                const misto = recipient ? places.find((p) => normNazev(p.name) === normNazev(recipient)) : undefined;
+                const jmeno = misto?.name ?? (recipient || meta.placeName || null);
+                const shody = await najdiDuplicitniObjednavky({
+                  placeId: misto?.id ?? null,
+                  placeName: jmeno,
+                  orderDate: rows.find((i) => i.date)?.date || meta.date,
+                  deliveryDate: (meta.den ? meta.datumZavozu : deliveryDate) || null,
+                  radky: rows.map((i) => ({ beerId: i.beer_id, pkgId: i.package_id, qty: i.quantity })),
+                });
+                if (shody?.length && (await zeptejSeNaDuplicitu(shody, nazvyZKatalogu(beers, packages))) !== 'presto') {
+                  throw new Error(`Import zrušen — ${jmeno ?? 'odběratel'} už má podobnou objednávku. Nic se nezaložilo.`);
+                }
+              }
               const created: string[] = [];
               for (const [recipient, rows] of groups) {
                 const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
@@ -3070,14 +3121,32 @@ export default function Orders({
               if (!created.length) throw new Error('Nepodařilo se vytvořit objednávku.');
 
             } else {
-              if (meta.note) {
-                await supabase.from('orders').update({ note: meta.note }).eq('id', orderId);
-              }
-              const rows = items.map((i) => {
+              let rows = items.map((i) => {
                 const b = beers.find((x) => x.id === i.beer_id);
                 const p = packages.find((x) => x.id === i.package_id);
                 return { order_id: orderId!, beer_id: i.beer_id, beer_name: b?.name ?? null, package_id: i.package_id, package_label: p?.label ?? null, quantity: i.quantity };
               });
+              // 🔁 Řádky, které už v objednávce jsou (lib/duplicityObjednavek.ts):
+              // 15. 10. 2026 se do objednávky Restaurace vložil fotkou Jantar
+              // 1,5 l × 5 podruhé a sklad se odepsal dvakrát. Okno čtení fotky
+              // zdvojené řádky značí samo, ale jen podle dat, která má; tady se
+              // čtou čerstvě z databáze těsně před zápisem.
+              const { data: ulozeneRadky } = await fetchAllRows('order_items', 'beer_id, package_id, quantity').eq('order_id', orderId);
+              const zdvojene = najdiZdvojeneRadky((ulozeneRadky as { beer_id: string | null; package_id: string | null; quantity: number }[] | null) ?? [],
+                rows.map((r) => ({ beerId: r.beer_id, pkgId: r.package_id, qty: Number(r.quantity) })));
+              if (zdvojene.length) {
+                const odpoved = await zeptejSeNaZdvojeneRadky(zdvojene, nazvyZKatalogu(beers, packages), { preskocit: true });
+                if (odpoved === 'zrusit') throw new Error('Import zrušen — některé řádky už v objednávce jsou. Nic se nepřidalo.');
+                if (odpoved === 'preskocit') {
+                  const vynechat = new Set(zdvojene.map((z) => `${z.radek.beerId}|${z.radek.pkgId}`));
+                  rows = rows.filter((r) => !vynechat.has(`${r.beer_id}|${r.package_id}`));
+                  if (rows.length === 0) throw new Error('Všechny řádky už v objednávce jsou — nic se nepřidalo.');
+                }
+              }
+              // Poznámka se zapisuje až po kontrole — zrušený import nesmí nic změnit.
+              if (meta.note) {
+                await supabase.from('orders').update({ note: meta.note }).eq('id', orderId);
+              }
               const { error: itemErr } = await supabase.from('order_items').insert(rows);
               if (itemErr) throw new Error(itemErr.message);
               // 🚰 Rezervace výčepu — spáruj s existující objednávkou (orderId)

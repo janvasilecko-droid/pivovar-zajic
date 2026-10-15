@@ -24,6 +24,8 @@ import { FotkyZaznamu } from '../FotkyZaznamu';
 import { objednavkaJakoText } from '../../lib/objednavkaJakoText';
 import { hodnotaObjednavky, type CenaPolozky } from '../../lib/hodnotaObjednavky';
 import { zapisZmenuPolozky, nactiHistoriiObjednavky, popisZmenyPolozky, type ZmenaPolozky } from '../../lib/objednavkaAudit';
+import { najdiZdvojeneRadky } from '../../lib/duplicityObjednavek';
+import { nazvyZKatalogu, zeptejSeNaZdvojeneRadky } from '../../lib/duplicityDialog';
 import { StitekStavu } from '../StitekStavu';
 
 import { type Order, type OrderItem, dayColor } from './spolecne';
@@ -122,6 +124,14 @@ export function OrderDetail({ order, items, beers, packages, places, priceList, 
   async function addItem() {
 
     if (!beerId || !pkgId || !Number(qty)) return;
+    // 🔁 Řádek, který v objednávce už je — druhý stejný by sklad odečetl
+    // podruhé (lib/duplicityObjednavek.ts, 15. 10. 2026: Jantar 1,5 l × 5
+    // v objednávce Restaurace dvakrát). Nezakazuje se, jen se zeptá.
+    const zdvojene = najdiZdvojeneRadky(
+      items.map((i) => ({ beer_id: i.beer_id, package_id: i.package_id, quantity: i.quantity })),
+      [{ beerId, pkgId, qty: Number(qty) }],
+    );
+    if (zdvojene.length && (await zeptejSeNaZdvojeneRadky(zdvojene, nazvyZKatalogu(beers, packages))) !== 'pridat') return;
     const b = beers.find((x) => x.id === beerId);
     const p = packages.find((x) => x.id === pkgId);
     const novy = {

@@ -197,7 +197,7 @@ const ODDILY: Oddil[] = [
       },
       {
         co: 'Duplicita',
-        jak: 'Když už stejná objednávka existuje, appka se zeptá: Ignorovat zprávu / Přesto vytvořit / Zpět.',
+        jak: 'Před uložením objednávky (ručně, z fotky, z WhatsAppu i „To co posledně“) appka zkontroluje, jestli stejný odběratel nemá stejnou objednávku — ve stejný den, nebo celou stejnou v témže týdnu. Když ano, ukáže ji (kdy a jak byla zadaná) a zeptá se: Nezakládat / Přesto vytvořit; u zprávy z WhatsAppu i Ignorovat zprávu. Zavřít okno = nezaložit nic. Totéž při přidání položky do uložené objednávky (ručně i z fotky): když tam pivo v tom obalu už je, appka se zeptá, než ho přidá podruhé. Druhá objednávka by totiž sklad odečetla podruhé.',
       },
       {
         co: 'Odznak „Ke konci týdne chybí“',

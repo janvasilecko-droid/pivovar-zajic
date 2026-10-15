@@ -7,6 +7,8 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { WhatsAppOrderReviewModal } from './WhatsAppOrderReviewModal';
 
 const { insertCalls } = vi.hoisted(() => ({ insertCalls: [] as { table: string; payload: any }[] }));
+// Kontrola zdvojené objednávky druhého odběratele (lib/orderDuplicates.ts): co vrátí a jak se člověk rozhodne.
+const dup = vi.hoisted(() => ({ shody: [] as any[], najdi: vi.fn(), volba: vi.fn() }));
 
 vi.mock('../lib/useMaleSudy', () => ({
   useMaleSudy: () => ({ zasoba: {}, nacteno: true, chybiMigrace: false, ulozit: async () => null }),
@@ -27,9 +29,14 @@ vi.mock('../lib/supabase', () => {
       }),
     })),
   };
-  return { supabase };
+  return { supabase, formatPackageLabel: (l: string | null | undefined) => l ?? '' };
 });
 
+vi.mock('../lib/orderDuplicates', () => ({ najdiDuplicitniObjednavky: (...a: unknown[]) => dup.najdi(...a) }));
+vi.mock('../lib/toast', async (puvodni) => ({
+  ...(await puvodni<typeof import('../lib/toast')>()),
+  volba: (...a: unknown[]) => dup.volba(...a),
+}));
 vi.mock('../lib/whatsappApi', () => ({
   ignoreWhatsAppMessage: vi.fn().mockResolvedValue(undefined),
   updateWhatsAppParsedData: vi.fn().mockResolvedValue(undefined),
@@ -94,6 +101,11 @@ describe('WhatsAppOrderReviewModal — rozdělit na dva odběratele', () => {
     window.confirm = vi.fn(() => true);
     insertCalls.length = 0;
     vi.clearAllMocks();
+    dup.shody = [];
+    dup.najdi.mockReset();
+    dup.najdi.mockImplementation(async () => dup.shody);
+    dup.volba.mockReset();
+    dup.volba.mockResolvedValue(null);
   });
 
   it('bez zapnutí rozdělení schválí obě položky jako jednu objednávku (beze změny)', async () => {
@@ -160,5 +172,68 @@ describe('WhatsAppOrderReviewModal — rozdělit na dva odběratele', () => {
     fireEvent.click(screen.getByText('Schválit a odeslat do objednávek'));
     await waitFor(() => expect(screen.getByText(/Vyber nebo napiš druhého odběratele/)).toBeTruthy());
     expect(onApprove).not.toHaveBeenCalled();
+  });
+
+  // 🔁 Odštěpená objednávka druhého odběratele (lib/duplicityObjednavek.ts)
+  async function rozdelNaSluhy() {
+    const view = renderModal();
+    await waitFor(() => expect(screen.queryAllByRole('spinbutton')).toHaveLength(2));
+    fireEvent.click(screen.getByText('✂️ Rozdělit na dva odběratele'));
+    const checkboxes = await screen.findAllByRole('checkbox', { name: '2.' });
+    fireEvent.click(checkboxes[1]);
+    const comboboxy = await screen.findAllByPlaceholderText('Napiš nebo vyber odběratele…');
+    fireEvent.change(comboboxy[1], { target: { value: 'Sluhy' } });
+    fireEvent.click(await screen.findByRole('button', { name: /Sluhy/ }));
+    fireEvent.click(screen.getByText('Schválit a odeslat do objednávek'));
+    return view;
+  }
+
+  const shodaSluhy = () => ({
+    objednavka: {
+      id: 'o-sluhy', place_id: 'pl-sluhy', place_name: 'Sluhy', order_date: '2026-09-15', delivery_date: null,
+      source: 'whatsapp', created_at: '2026-09-15T08:00:00Z', polozky: [{ beer_id: 'b-des', package_id: 'p30', quantity: 10 }],
+    },
+    stejne: [{ beerId: 'b-des', pkgId: 'p30', qty: 10 }], jinyPocet: [], stejnyDen: true, uplna: true,
+  });
+
+  it('druhý odběratel už má takovou objednávku: zeptá se PŘED schválením první, výchozí odpověď nezaloží nic', async () => {
+    dup.shody = [shodaSluhy()];
+    const { onApprove } = await rozdelNaSluhy();
+
+    await waitFor(() => expect(dup.volba).toHaveBeenCalledTimes(1));
+    expect(dup.volba.mock.calls[0][0]).toContain('Uložená objednávka: Sluhy');
+    await waitFor(() => expect(screen.getByText(/Schválení zrušeno — Sluhy už má podobnou objednávku\. Nic se nezaložilo\./)).toBeTruthy());
+    expect(onApprove).not.toHaveBeenCalled();
+    expect(insertCalls).toHaveLength(0);
+    // ptal se na druhého odběratele a jen na jeho (odštěpené) položky
+    expect(dup.najdi).toHaveBeenCalledTimes(1);
+    expect(dup.najdi.mock.calls[0][0]).toMatchObject({
+      placeId: 'pl-sluhy', placeName: 'Sluhy', radky: [{ beerId: 'b-des', pkgId: 'p30', qty: 10 }],
+    });
+  });
+
+  it('„Přesto vytvořit" rozdělení dokončí: schválí první a založí druhou objednávku', async () => {
+    dup.shody = [shodaSluhy()];
+    dup.volba.mockResolvedValue('presto');
+    const { onApprove } = await rozdelNaSluhy();
+
+    await waitFor(() => expect(onApprove).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(insertCalls.some((c) => c.table === 'orders')).toBe(true));
+  });
+
+  it('když druhý odběratel nic podobného nemá, neptá se', async () => {
+    dup.shody = [];
+    const { onApprove } = await rozdelNaSluhy();
+    await waitFor(() => expect(onApprove).toHaveBeenCalledTimes(1));
+    expect(dup.volba).not.toHaveBeenCalled();
+    await waitFor(() => expect(insertCalls.some((c) => c.table === 'orders')).toBe(true));
+  });
+
+  it('bez rozdělení se v okně na duplicitu neptá (první objednávku hlídá schválení v Objednávkách)', async () => {
+    const { onApprove } = renderModal();
+    await waitFor(() => expect(screen.queryAllByRole('spinbutton')).toHaveLength(2));
+    fireEvent.click(screen.getByText('Schválit a odeslat do objednávek'));
+    await waitFor(() => expect(onApprove).toHaveBeenCalledTimes(1));
+    expect(dup.najdi).not.toHaveBeenCalled();
   });
 });

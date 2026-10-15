@@ -6,6 +6,8 @@ import { parseDeliveryDayFromText, loadAliasMap, saveAlias, canLearnBeerAlias, m
 import { matchAgainstCatalog } from '../../supabase/functions/_shared/place-match';
 import { poradiPodlePrepisu } from '../../supabase/functions/_shared/prepis-fotky';
 import { oznacVlastniObjednavku } from '../lib/mojeObjednavky';
+import { najdiDuplicitniObjednavky } from '../lib/orderDuplicates';
+import { nazvyZKatalogu, zeptejSeNaDuplicitu } from '../lib/duplicityDialog';
 import { diffOrderItems, rozsahOdpovedi, slozNavrh, potvrzeneBezPolozek, kandidatiNaDoplneni, datumObjednavky, vypadaJakoZmenaObjednavky, type DiffRow, type RozsahOdpovedi, type SkupinaObalu, type ObjednavkaKandidat } from '../lib/whatsappAmendment';
 import { PlaceCombobox } from './PlaceCombobox';
 import { Modal } from './ui';
@@ -1039,6 +1041,24 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
       const splitActive = splitEnabled && splitKeys.size > 0 && splitKeys.size < items.length && !message.amends_order_id;
       const primaryItems = splitActive ? items.filter((it) => !splitKeys.has(it.key)) : items;
       const secondItems = splitActive ? items.filter((it) => splitKeys.has(it.key)) : [];
+
+      // 🔁 Odštěpená objednávka druhého odběratele se kontroluje PŘED schválením
+      // první (lib/duplicityObjednavek.ts) — zamítnutá duplicita nesmí nechat
+      // založenou jen půlku zprávy.
+      if (secondItems.length > 0) {
+        const jmenoDruheho = (splitPlaceId ? props.places.find((p) => p.id === splitPlaceId)?.name : null) || splitPlaceName.trim() || null;
+        const shodyDruhe = await najdiDuplicitniObjednavky({
+          placeId: splitPlaceId || null,
+          placeName: jmenoDruheho,
+          orderDate: businessDateISO(),
+          deliveryDate: datumDneZavozu || null,
+          radky: secondItems.map((it) => ({ beerId: it.beerId || null, pkgId: it.pkgId || null, qty: parseInt(it.qty, 10) || 0 })),
+        });
+        if (shodyDruhe?.length && (await zeptejSeNaDuplicitu(shodyDruhe, nazvyZKatalogu(props.beers, props.packages))) !== 'presto') {
+          setStatusMessage(`Schválení zrušeno — ${jmenoDruheho ?? 'druhý odběratel'} už má podobnou objednávku. Nic se nezaložilo.`);
+          return;
+        }
+      }
 
       // Zkopírujeme zprávu s položkami, jak je uživatel případně opravil
       // (správné pivo/obal z katalogu, upravené množství, opravený odběratel).
