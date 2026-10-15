@@ -480,6 +480,10 @@ const ODDILY: Oddil[] = [
       },
       { co: 'Odeslat teď', jak: 'Dlaždice „Čeká na odeslání“ pošle čekající zápisy hned, jakmile jsi online.' },
       { co: 'Práce ve dvou', jak: 'Když někdo uloží zápis, ostatním se obrazovka sama obnoví. V pozadí se nepřenačítá, ať to nežere data.' },
+      {
+        co: 'Čísla nemusí být aktuální',
+        jak: 'Když server včas neodpoví (slabý signál), Sklad ukáže poslední čísla z telefonu a nahoře žlutý pruh „čísla jsou z paměti telefonu“. Appka to sama zkouší znovu, jde i tlačítkem „Načíst znovu“. Když se nenačte všechno, svítí červený pruh — radši žádné číslo než špatné. Zápis, který z takových čísel vychází (týdenní kontrola), se napřed zeptá.',
+      },
     ],
   },
 ];
