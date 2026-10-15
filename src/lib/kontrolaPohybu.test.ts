@@ -165,6 +165,24 @@ describe('zdvojené závozy (15. 10. 2026: víkendový závoz Restaurace zadaný
     });
     expect(ruzne).toEqual([]);
   });
+
+  it('zrušená objednávka se dvěma stejnými řádky se nehlásí', () => {
+    const n = najdiPodezrele({
+      ...obdobi,
+      objednavky: [obj('o1', { status: 'storno' })],
+      polozky: [pol('o1', 'jan', 'l15', 5), pol('o1', 'jan', 'l15', 5)],
+    });
+    expect(n).toEqual([]);
+  });
+
+  it('dva prázdné řádky (0 ks) nejsou zdvojení — nic by se neodepsalo', () => {
+    const n = najdiPodezrele({
+      ...obdobi,
+      objednavky: [obj('o1')],
+      polozky: [pol('o1', 'jan', 'l15', 0), pol('o1', 'jan', 'l15', 0)],
+    });
+    expect(n).toEqual([]);
+  });
 });
 
 describe('chybějící zdrojový sud u stáčení lahví', () => {
