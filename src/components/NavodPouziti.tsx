@@ -142,6 +142,10 @@ const ODDILY: Oddil[] = [
         jak: 'Tlačítko „Řezání“ ve stáčení: vybereš tank A, tank B, poměr a kolik sudů se stočilo — litry se z tanků odečtou podle poměru. Když část piva do řezu nešla z tanku, ale z hotových sudů na skladě (třeba 1× 30 l, 1× 20 l a 1× 15 l desítky), vyplň „Sudy ze skladu do podílu B“: vyber pivo a počty sudů. Jejich litry se počítají do podílu B (tank B pak může zůstat prázdný, nebo pokryje jen zbytek) a sudy se ze skladu odečtou — ve Skladu i Pohybech je uvidíš jako přefuk „do řezu“. Když sklad na tolik sudů nestačí, appka se zeptá. Smazáním prvního řádku řezu ve stáčení se sudy vrátí na sklad. U řádků, ke kterým jsou sudy navázané, nejde měnit počet ani obal — smaž řádek a zapiš řez znovu.',
       },
       {
+        co: 'Rozepsané se neztratí',
+        jak: 'Co jsi zadal a neuložil, zůstává v telefonu — i když odejdeš z obrazovky, zavřeš dlaždici nebo ti appku něco vypne. Po návratu se řádky vrátí a nahoře svítí modrý pruh „Rozepsaný zápis je zpátky“. Zmizí, až zápis uložíš, nebo ho zahodíš tlačítkem „Zahodit“ či „Vymazat vše“ (appka se napřed zeptá).',
+      },
+      {
         co: 'Odškrtávátko v PLÁNU stáčení nezapisuje',
         jak: 'Fajfky v plánu jsou jen pracovní pomůcka pro stáčeče. Skutečný zápis se dělá v „Začátek stáčení“, jinak by vznikl dvojí záznam.',
       },
@@ -153,7 +157,7 @@ const ODDILY: Oddil[] = [
     ikona: IkonaLahev as unknown as LucideIcon,
     kCemu: 'Totéž co KEG, jen pro lahve a PET — včetně plánu po dnech.',
     body: [
-      { co: 'Zápis stáčení', jak: 'Stejný postup jako u sudů: pivo, obal, počet, uložit.' },
+      { co: 'Zápis stáčení', jak: 'Stejný postup jako u sudů: pivo, obal, počet, uložit. Zavření dlaždice (křížek, „Zavřít a nechat rozepsané“, klepnutí vedle) zadané nezahodí — řádek zůstane v zápisu dole a uloží se až fajfkou nebo tlačítkem „Uložit stáčení lahví“.' },
       {
         co: 'Přehled po dnech',
         jak: 'Každý den má svůj pás („Pondělí 12. 10.“, vpravo kusy a litry za celý den) a pod ním je jeden řádek na pivo: kusy, obaly a sud s litry a výtratou. Klepnutím na řádek se rozbalí záznamy (− / +, tužka, křížek) a výběr sudu; když je zvolený jeden den, jsou rozbalené rovnou. Řádek, kde chybí velikost sudu, se rozbalí sám. Filtry piva a obalu jsou na telefonu pod tlačítkem „Filtry“.',
@@ -243,7 +247,7 @@ const ODDILY: Oddil[] = [
     ikona: Store,
     kCemu: 'Tři podoby výdeje ze skladu — stejný formulář, jiná tabulka.',
     body: [
-      { co: 'Fasování', jak: 'Pivo pro personál. Zapisuje se kdo si bere.' },
+      { co: 'Fasování', jak: 'Pivo pro personál. Zapisuje se kdo si bere. Rozepsaný výdej se pamatuje zvlášť pro Fasování, Prodejnu a Odpis a zůstává, dokud ho neuložíš nebo nezahodíš.' },
       { co: 'Prodejna', jak: 'Prodej na podnikové prodejně. V Přehledu je dnešek, týden i měsíc a co jde nejvíc.' },
       { co: 'Odpis', jak: 'Zkažené, rozbité, prošlé. Dá se připojit fotka jako doklad k reklamaci.' },
       {
