@@ -69,6 +69,104 @@ describe('kontrola pohybů', () => {
   });
 });
 
+describe('zdvojené závozy (15. 10. 2026: víkendový závoz Restaurace zadaný dvakrát)', () => {
+  // Skutečný případ: 11. 10. dvě objednávky Restaurace, v obou 10° Desítka 30 l × 1
+  // a 12° Světlá 50 l × 1; druhá (zadaná zpětně 13. 10.) má navíc 12° Tmavou 50 l.
+  const obj = (id: string, extra: object = {}) => ({ id, place_name: 'Restaurace', status: 'nova', delivery_date: '2026-10-11', order_date: '2026-10-11', ...extra });
+  const pol = (order_id: string, beer_id: string, package_id: string, quantity: number) => ({ order_id, beer_id, package_id, quantity });
+  const obdobi = { od: '2026-10-05', doDne: '2026-10-18', pohyby: [] as Movement[] };
+
+  it('položky, které jsou v obou objednávkách, se hlásí; položka jen v jedné ne', () => {
+    const n = najdiPodezrele({
+      ...obdobi,
+      objednavky: [obj('o1'), obj('o2', { order_date: '2026-10-13' })],
+      polozky: [
+        pol('o1', 'sv12', 'k50', 1), pol('o1', 'des', 'k30', 1),
+        pol('o2', 'sv12', 'k50', 1), pol('o2', 'tm12', 'k50', 1), pol('o2', 'des', 'k30', 1),
+      ],
+    });
+    expect(n.map((x) => `${x.beer_id}/${x.package_id}`).sort()).toEqual(['des/k30', 'sv12/k50']);
+    for (const x of n) {
+      expect(x).toMatchObject({ vaha: 'pozor', dopad: -1, datum: '2026-10-11' });
+      expect(x.text).toContain('Restaurace');
+      expect(x.text).toContain('11. 10.');
+      expect(x.text).toContain('2 objednávkách');
+    }
+  });
+
+  it('dopad je rozdíl proti největšímu počtu (5 + 6 → nejspíš šlo 6, navíc je 5)', () => {
+    const n = najdiPodezrele({
+      ...obdobi,
+      objednavky: [obj('o1'), obj('o2')],
+      polozky: [pol('o1', 'sv11', 'l15', 5), pol('o2', 'sv11', 'l15', 6)],
+    });
+    expect(n).toHaveLength(1);
+    expect(n[0].dopad).toBe(-5);
+    expect(n[0].text).toContain('5 ks + 6 ks');
+  });
+
+  it('úplně shodné objednávky hlásí jen jedna kontrola — ne dvakrát', () => {
+    const n = najdiPodezrele({
+      ...obdobi,
+      objednavky: [obj('o1'), obj('o2')],
+      polozky: [pol('o1', 'des', 'k30', 1), pol('o2', 'des', 'k30', 1)],
+    });
+    expect(n).toHaveLength(1);
+    expect(n[0].text).toContain('2 stejné objednávky');
+  });
+
+  it('jiný odběratel, jiný den nebo zrušená objednávka není zdvojení', () => {
+    const polozky = [pol('o1', 'des', 'k30', 1), pol('o2', 'des', 'k30', 1)];
+    expect(najdiPodezrele({ ...obdobi, objednavky: [obj('o1'), obj('o2', { place_name: 'Nemci' })], polozky })).toEqual([]);
+    expect(najdiPodezrele({ ...obdobi, objednavky: [obj('o1'), obj('o2', { delivery_date: '2026-10-12' })], polozky })).toEqual([]);
+    expect(najdiPodezrele({ ...obdobi, objednavky: [obj('o1'), obj('o2', { status: 'storno' })], polozky })).toEqual([]);
+  });
+
+  it('jméno odběratele se porovnává bez ohledu na velikost písmen a mezery', () => {
+    const n = najdiPodezrele({
+      ...obdobi,
+      objednavky: [obj('o1'), obj('o2', { place_name: '  restaurace ' })],
+      polozky: [pol('o1', 'des', 'k30', 1), pol('o2', 'des', 'k30', 1), pol('o2', 'sv12', 'k50', 1)],
+    });
+    expect(n).toHaveLength(1);
+  });
+
+  it('mimo kontrolované období se nehlásí', () => {
+    const n = najdiPodezrele({
+      ...obdobi, od: '2026-10-12',
+      objednavky: [obj('o1'), obj('o2')],
+      polozky: [pol('o1', 'des', 'k30', 1), pol('o2', 'des', 'k30', 1), pol('o2', 'sv12', 'k50', 1)],
+    });
+    expect(n).toEqual([]);
+  });
+
+  it('filtr piva a obalu platí i tady', () => {
+    const vstup = {
+      ...obdobi,
+      objednavky: [obj('o1'), obj('o2')],
+      polozky: [pol('o1', 'des', 'k30', 1), pol('o2', 'des', 'k30', 1), pol('o2', 'sv12', 'k50', 1), pol('o1', 'sv12', 'k50', 2)],
+    };
+    expect(najdiPodezrele({ ...vstup, beerId: 'des' }).map((x) => x.beer_id)).toEqual(['des']);
+  });
+
+  it('stejný řádek dvakrát v JEDNÉ objednávce (po stejném počtu) se hlásí; jiné počty ne', () => {
+    const dvakrat = najdiPodezrele({
+      ...obdobi,
+      objednavky: [obj('o1')],
+      polozky: [pol('o1', 'jan', 'l15', 5), pol('o1', 'jan', 'l15', 5)],
+    });
+    expect(dvakrat).toHaveLength(1);
+    expect(dvakrat[0]).toMatchObject({ vaha: 'pozor', dopad: -5 });
+    expect(dvakrat[0].text).toContain('2× po 5 ks');
+    const ruzne = najdiPodezrele({
+      ...obdobi,
+      objednavky: [obj('o1')],
+      polozky: [pol('o1', 'des', 'k30', 5), pol('o1', 'des', 'k30', 14)],
+    });
+    expect(ruzne).toEqual([]);
+  });
+});
+
 describe('chybějící zdrojový sud u stáčení lahví', () => {
   const b = (entry_date: string, extra: Partial<Parameters<typeof najdiChybejiciZdrojSudu>[0][number]> = {}) =>
     ({ entry_date, beer_id: 'b12', quantity: 40, kegs_used: null, kegs_used_package_id: null, created_at: null, note: null, ...extra });
