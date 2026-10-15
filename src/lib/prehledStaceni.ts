@@ -12,6 +12,8 @@
 //
 // Tady je jen to počítání. Vykreslení (barva, tlačítka) je v Kegging.tsx.
 
+import { skutecnaVytrataProcenta } from './bottlingYield';
+
 export type ZaznamStaceni = {
   id: string;
   entry_date: string;
@@ -99,8 +101,126 @@ export function souhrnDavek<R>(davky: DavkaStaceni<R>[]): { ks: number; litry: n
   };
 }
 
+/**
+ * Dávky seskupené po DNECH — pro přehled, kde je každý den svůj pás.
+ *
+ * Zadání z 15. 10. 2026 (po 12. 10. už podruhé): „ten přehled udělej
+ * v řádku, takhle je to nepřehledný, odděl vždycky, ať je vidět, jaký den se
+ * co stáčelo." Samotné datum v rohu dlaždice se při rolování ztratilo —
+ * dlaždice různých dnů vypadaly stejně a splývaly. Den je teď nadřazená
+ * skupina, ne popisek každé dlaždice.
+ */
+export type DenStaceni<R> = {
+  datum: string;
+  davky: DavkaStaceni<R>[];
+  celkemKs: number;
+  celkemL: number;
+};
+
+/**
+ * Od nejnovějšího dne. Uvnitř dne zůstává pořadí dávek takové, v jakém
+ * přišly (řadí se už před `davkyStaceni`). Záznam bez data má vlastní den
+ * „Bez data" úplně dole — nesmí se tiše přilepit k jinému dni.
+ */
+export function dnyStaceni<R>(davky: DavkaStaceni<R>[]): DenStaceni<R>[] {
+  const podleData = new Map<string, DenStaceni<R>>();
+  for (const davka of davky) {
+    let den = podleData.get(davka.datum);
+    if (!den) {
+      den = { datum: davka.datum, davky: [], celkemKs: 0, celkemL: 0 };
+      podleData.set(davka.datum, den);
+    }
+    den.davky.push(davka);
+    den.celkemKs += davka.celkemKs;
+    den.celkemL += davka.celkemL;
+  }
+  return [...podleData.values()].sort((a, b) => b.datum.localeCompare(a.datum));
+}
+
+/** Co se ten den stočilo do jednoho obalu — sloučeno přes všechny šarže dávky. */
+export type SouhrnObalu<R> = {
+  klic: string;
+  packageId: string | null;
+  /** První záznam obalu — z něj se bere popisek, když obal není v katalogu. */
+  zaznam: R;
+  objemL: number;
+  ks: number;
+};
+
+/**
+ * „1,5 l × 11 · 0,5 l × 20 · 0,33 l × 60" — obaly dávky na jeden řádek.
+ *
+ * Dvě šarže téhož piva ten den (ráno z padesátky, odpoledne ze třicítky)
+ * mají každá vlastní řádek 0,5 l; ve sbaleném přehledu je z toho jedno číslo,
+ * protože tam nejde o to, ze kterého sudu lahve jsou. Pořadí je od největšího
+ * obalu, tak jak `davkyStaceni` řadí položky.
+ */
+export function obalyDavky<R extends ZaznamStaceni>(davka: DavkaStaceni<R>): SouhrnObalu<R>[] {
+  const podleObalu = new Map<string, SouhrnObalu<R>>();
+  for (const p of davka.polozky) {
+    // Záznam bez obalu se NESLUČUJE s jiným bez obalu — „nevíme jaký" není
+    // totéž (stejné pravidlo jako u piva v `davkyStaceni`).
+    const klic = p.zaznam.package_id ?? `bez-obalu__${p.zaznam.id}`;
+    const ks = Number(p.zaznam.quantity) || 0;
+    const souhrn = podleObalu.get(klic);
+    if (souhrn) souhrn.ks += ks;
+    else podleObalu.set(klic, { klic, packageId: p.zaznam.package_id, zaznam: p.zaznam, objemL: p.objemL, ks });
+  }
+  return [...podleObalu.values()];
+}
+
+/**
+ * Šarže, u které je zapsaný počet sudů, ale NE jejich velikost.
+ *
+ * Bez velikosti se sudy ze skladu neodečtou (appka neví, který ubyl), takže
+ * sklep ukazuje víc piva, než tam je. Tohle je jediná věc v přehledu, kvůli
+ * které se dlaždice nesmí zabalit — nikdo by si jí nevšiml.
+ */
+export function chybiVelikostSudu<R>(sarze: Pick<Sarze<R>, 'sudu' | 'zdrojPackageId'>): boolean {
+  return sarze.sudu > 0 && !sarze.zdrojPackageId;
+}
+
+/**
+ * Čísla šarže pro jeden řádek: kolik litrů se stočilo, kolik se vzalo ze
+ * sudů a jaká z toho vyšla výtrata.
+ *
+ * Zadání z 19. 9. 2026: „u každého sudu bude navíc údaj stočeno litrů
+ * a výtrata v %." Výtrata se počítá ZPĚTNĚ ze zapsaného počtu sudů, ne
+ * z teoretického koeficientu — a bez zdroje (stáčení rovnou z tanku, nebo
+ * chybí velikost sudu) není z čeho, takže je `null` a řádek ji nenapíše.
+ */
+export type SouhrnSarze = {
+  litry: number;
+  zdrojL: number;
+  vytrata: number | null;
+  chybiVelikost: boolean;
+};
+
+export function souhrnSarze<R>(
+  sarze: Sarze<R>,
+  objemSudu: (packageId: string) => number,
+): SouhrnSarze {
+  const litry = sarze.polozky.reduce((soucet, p) => soucet + p.litry, 0);
+  const objem = sarze.zdrojPackageId ? objemSudu(sarze.zdrojPackageId) : 0;
+  const zdrojL = sarze.sudu > 0 && objem > 0 ? sarze.sudu * objem : 0;
+  return {
+    litry,
+    zdrojL,
+    vytrata: skutecnaVytrataProcenta(litry, zdrojL),
+    chybiVelikost: chybiVelikostSudu(sarze),
+  };
+}
+
+/** „1 sud", „2 sudy", „5 sudů" — číslo i s tvarem slova, ať se neříká „2 sudů". */
+export function pocetSuduCesky(n: number): string {
+  const pocet = Math.round(Number(n) || 0);
+  const slovo = pocet === 1 ? 'sud' : pocet >= 2 && pocet <= 4 ? 'sudy' : 'sudů';
+  return `${pocet} ${slovo}`;
+}
+
 /** Zkratky dnů tak, jak se používají na cedulích v pivovaru. */
 const DNY = ['ne', 'po', 'út', 'st', 'čt', 'pá', 'so'];
+const DNY_PLNE = ['neděle', 'pondělí', 'úterý', 'středa', 'čtvrtek', 'pátek', 'sobota'];
 
 /**
  * „út 15.9." — den v týdnu před datem.
@@ -120,6 +240,24 @@ export function denACesky(iso: string | null | undefined): string {
   const d = new Date(`${iso}T00:00:00Z`);
   if (Number.isNaN(d.getTime())) return iso;
   return `${DNY[d.getUTCDay()]} ${Number(casti[2])}.${Number(casti[1])}.`;
+}
+
+/**
+ * „Pondělí 12. 10." — celý název dne pro pás nad dávkami.
+ *
+ * `denACesky` výš („po 12.10.") je zkratka do hustého řádku; nadpis dne
+ * vedle ní má být čitelný na první pohled, i z druhého konce místnosti.
+ * Rok se neuvádí — přehled je vždycky jedno zvolené období.
+ * Čte se přes UTC ze stejného důvodu jako `denACesky`.
+ */
+export function nazevDne(iso: string | null | undefined): string {
+  if (!iso) return 'Bez data';
+  const casti = iso.split('-');
+  if (casti.length < 3) return iso;
+  const d = new Date(`${iso}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return iso;
+  const den = DNY_PLNE[d.getUTCDay()];
+  return `${den.charAt(0).toUpperCase()}${den.slice(1)} ${Number(casti[2])}. ${Number(casti[1])}.`;
 }
 
 /**

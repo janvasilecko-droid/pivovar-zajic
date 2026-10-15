@@ -1,11 +1,10 @@
 import { BottlingChecklistModal, DEFAULT_ITEMS, isStartChecklistCompleteForDate, isMonthlyChecklistCompleteForDate, MONTHLY_CATEGORY } from '../components/BottlingChecklistModal';
 import { CHECKLISTY_ZAPNUTE } from '../lib/skryteModuly';
-import { puvodZapisu } from '../lib/puvodZapisu';
 import { useEffect, useMemo, useState, useRef, lazy, Suspense } from 'react';
-import { supabase, Beer, Package, EntryRow, useRealtime, beerBg, beerText, beerName, formatPackageLabel, fetchAllRows } from '../lib/supabase';
+import { supabase, Beer, Package, EntryRow, useRealtime, beerBg, beerName, formatPackageLabel, fetchAllRows } from '../lib/supabase';
 import { EmptyState, Spinner, Modal } from '../components/ui';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
-import { AlertTriangle, ArrowRight, BarChart3, CalendarDays, Camera, Check, CheckCircle2, ClipboardList, FileSpreadsheet, Lightbulb, ListChecks, Megaphone, Minus, Package as PackageIcon, PenLine, Pencil, Play, Plus, Sparkles, Trash2, X } from 'lucide-react';
+import { AlertTriangle, ArrowRight, BarChart3, CalendarDays, Camera, Check, CheckCircle2, ClipboardList, FileSpreadsheet, Lightbulb, ListChecks, Megaphone, Minus, Package as PackageIcon, PenLine, Play, Plus, SlidersHorizontal, Sparkles, Trash2, X } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { BottlingPlan, getPlanSeenAt, markPlanSeenAt, isPlanUnseen, isBottlingManager, setPlanStatus, saveBottlingPlan, deleteBottlingPlan } from '../lib/bottlingPlans';
 import { BottlingPlanBottler } from '../components/BottlingPlanBottler';
@@ -14,7 +13,8 @@ import { businessDateISO } from '../lib/businessDate';
 import { vychoziZdrojovySud } from '../lib/zdrojovySud';
 import VyberZdrojovehoSudu from '../components/VyberZdrojovehoSudu';
 import VyberObalu, { objemCesky } from '../components/VyberObalu';
-import { davkyStaceni, denACesky, sarzeDavky } from '../lib/prehledStaceni';
+import { davkyStaceni, denACesky, pocetSuduCesky } from '../lib/prehledStaceni';
+import PrehledStaceniLahvi from '../components/PrehledStaceniLahvi';
 import { autoLogBottleSanitationFromChecklist } from '../lib/bottleSanitation';
 import { requestOrdersItemFilter } from '../lib/ordersFilter';
 import { VoiceRecorder } from '../components/VoiceRecorder';
@@ -22,7 +22,7 @@ import { parseFreeTextEntries, loadAliasMap, emptyAliasMap, type ParserAliasMap 
 import { BeerTileGrid, BeerTilePanel } from '../components/BeerTileGrid';
 import { nejcastejsiMnozstvi, stackingQuickQtys } from '../lib/quickQty';
 import { jeChecklistKonceZUrl } from '../lib/vstupniStranka';
-import { navrhSudu, skutecnaVytrataProcenta } from '../lib/bottlingYield';
+import { navrhSudu } from '../lib/bottlingYield';
 import { posledniRucniZapis } from '../lib/posledniZapis';
 import { synchronizuj } from '../lib/checklistData';
 import { computePackageNeeds, PackageNeedsRow } from '../lib/packageNeeds';
@@ -381,6 +381,8 @@ export default function BottlingScreen({
   // Posun měsíce o delta měsíců (vrací YYYY-MM)
   const [recordsBeerFilter, setRecordsBeerFilter] = useState('');
   const [recordsPkgFilter, setRecordsPkgFilter] = useState('');
+  // Na telefonu jsou filtry piva a obalu schované za tlačítkem „Filtry".
+  const [filtryPrehleduOtevrene, setFiltryPrehleduOtevrene] = useState(false);
 
   // 📊 Čtení tabulky z fotky začíná dnem po posledním ručním zápisu (viz ImportBottlingFromImage).
   const posledniZapisLahve = useMemo(() => posledniRucniZapis(rows), [rows]);
@@ -2015,72 +2017,81 @@ export default function BottlingScreen({
       {/* Všechny záznamy stáčení lahví / KEG */}
       {tab === 'prehled' && (
         <div className="mt-0 space-y-3">
-        {/* Přilepeno pod hlavní listou záložek, ať jde přepínat obdobi/filtry i uprostřed scrollování dlouhé tabulky níže. */}
-        <div className="sticky md:static top-0 z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-neutral-100 py-1.5 -mx-4 px-4 sm:mx-0 sm:px-0">
-          <div className="text-xs font-black uppercase tracking-wider text-amber-950/60 flex items-center gap-2">
-            <span><ClipboardList className="ikona-text" /></span>
-            <span>Všechny záznamy stáčení</span>
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            {rows.length > 0 && (
-              <>
-                {/* Přepínač období — společná komponenta (viz KEG, kde
-                    stálo totéž). Tady byly pilulky a šipky promíchané
-                    a v pořadí Den → Měsíc → Týden.
-                    Poznámka, která platí dál: šipky NEJSOU žluté. Leží na
-                    žlutém panelu a žlutá na žluté není poznat jako tlačítko
-                    — na slunci teprve ne. Role btn-secondary je světle šedá,
-                    takže se od panelu odlišuje. */}
-                <PrepinacObdobi
-                  obdobi={recordsView}
-                  onObdobi={setRecordsView}
-                  den={recordsDay}
-                  onDen={setRecordsDay}
-                  tyden={recordsWeekKey}
-                  onTyden={setRecordsWeekKey}
-                  mesic={recordsMonthKey}
-                  onMesic={setRecordsMonthKey}
-                />
-              </>
-            )}
-            {rows.length > 0 && (
-              <span className="chip bg-amber-100/60 text-amber-900/70 text-xs font-bold">
-                {/* Počet záznamů = co je vidět dole (kladné řádky); součet ks
-                    ale počítá z filtrObdobim, ať v sobě má i opravy z inventury. */}
-                {filteredRows.length} záznamů · <span className="text-amber-950 font-black tabular-nums">{filtrObdobim.reduce((s, r) => s + Number(r.quantity || 0), 0)} ks</span>
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Filtr piva a obalu — chipy rovnou klikatelné, vidět hned, žádné
-            rozbalování. Zadání 24. 9. 2026: „misto rollovaciho pole udelej
-            obaly i piva rouzklikavaci ikony ktery budou videt hned, stejne
-            jako po ut st......" — stejný vzor jako dny týdne v
-            PrepinacObdobi.tsx výš. */}
+        {/* 📱 Nic tu není přilepené. Dřív stály pod hlavní lištou záložek (ta je
+            sama přilepená nahoře) ještě dva přilepené panely — období a pod
+            ním poloprůhledný panel s filtry — a na telefonu se přes sebe i přes
+            lištu překrývaly a zalamovaly do několika řádků („ten přehled udělej
+            v řádku, takhle je to nepřehledný", 15. 10. 2026).
+            Období a filtry jsou teď jedna karta. Filtry se na telefonu rozbalí
+            tlačítkem „Filtry" (s počtem zapnutých) a chipy piv a obalů jsou
+            jeden vodorovně posuvný řádek — stejně jako u objednávek. Od šířky
+            `sm` je všechno vidět rovnou. */}
         {rows.length > 0 && (
-          <div className="sticky md:static top-[32px] z-10 flex flex-col gap-2 bg-amber-100/60 p-2.5 rounded border border-amber-200/90 shadow-2xs">
-            <ChipyPiva piva={beers} vybrane={recordsBeerFilter} onVybrat={setRecordsBeerFilter} />
-            <ChipyObalu
-              obaly={[
-                ...bottlePackages.map((p) => ({ id: p.id, label: p.label || `${p.volume_l}L` })),
-                // Sudy jen ve třech skupinách (majitel 12. 10. 2026): 50, 30
-                // a „Ost." = 20/15/10 — stáčí se výjimečně, ať se dá
-                // vyfiltrovat třeba kolik sudů 12° se stočilo.
-                ...FILTR_SUDU.map((f) => ({ id: f.id, label: f.label })),
-              ]}
-              vybrane={recordsPkgFilter}
-              onVybrat={setRecordsPkgFilter}
+          <div className="card p-2.5 space-y-2 shadow-sm">
+            {/* Šipky NEJSOU žluté — na žlutém panelu by nebyly poznat jako
+                tlačítko (viz PrepinacObdobi.tsx). „Filtry" stojí na telefonu
+                vpravo vedle šipek, ne na vlastním řádku. */}
+            <PrepinacObdobi
+              kompaktni
+              obdobi={recordsView}
+              onObdobi={setRecordsView}
+              den={recordsDay}
+              onDen={setRecordsDay}
+              tyden={recordsWeekKey}
+              onTyden={setRecordsWeekKey}
+              mesic={recordsMonthKey}
+              onMesic={setRecordsMonthKey}
+              doprava={(
+                <button
+                  type="button"
+                  className="sm:hidden btn-ghost !rounded !px-2.5 shrink-0 relative"
+                  aria-expanded={filtryPrehleduOtevrene}
+                  onClick={() => setFiltryPrehleduOtevrene((o) => !o)}
+                >
+                  <SlidersHorizontal size={16} /> Filtry
+                  {(recordsBeerFilter || recordsPkgFilter) && (
+                    <span className="ml-1 min-w-[18px] h-[18px] px-1 grid place-items-center rounded-full bg-amber-500 text-neutral-950 text-[11px] font-black">
+                      {[recordsBeerFilter, recordsPkgFilter].filter(Boolean).length}
+                    </span>
+                  )}
+                </button>
+              )}
             />
-            {(recordsBeerFilter || recordsPkgFilter) && (
-              <button
-                type="button"
-                onClick={() => { setRecordsBeerFilter(''); setRecordsPkgFilter(''); }}
-                className="btn-ghost !rounded text-xs font-bold !text-rose-700 !bg-rose-50 !border-rose-200 self-start"
-              >
-                <X className="ikona-text" /> Vymazat filtry
-              </button>
-            )}
+
+            {/* Filtr piva a obalu — chipy rovnou klikatelné, vidět hned, žádné
+                rozbalování. Zadání 24. 9. 2026: „misto rollovaciho pole udelej
+                obaly i piva rouzklikavaci ikony ktery budou videt hned, stejne
+                jako po ut st......" */}
+            <div className={`${filtryPrehleduOtevrene ? 'block' : 'hidden'} sm:block space-y-1.5`}>
+              <ChipyPiva jedenRadek piva={beers} vybrane={recordsBeerFilter} onVybrat={setRecordsBeerFilter} />
+              <ChipyObalu
+                jedenRadek
+                obaly={[
+                  ...bottlePackages.map((p) => ({ id: p.id, label: objemCesky(p.volume_l) || p.label || `${p.volume_l}L` })),
+                  // Sudy jen ve třech skupinách (majitel 12. 10. 2026): 50, 30
+                  // a „Ost." = 20/15/10 — stáčí se výjimečně, ať se dá
+                  // vyfiltrovat třeba kolik sudů 12° se stočilo.
+                  ...FILTR_SUDU.map((f) => ({ id: f.id, label: f.label })),
+                ]}
+                vybrane={recordsPkgFilter}
+                onVybrat={setRecordsPkgFilter}
+              />
+              {(recordsBeerFilter || recordsPkgFilter) && (
+                <button
+                  type="button"
+                  onClick={() => { setRecordsBeerFilter(''); setRecordsPkgFilter(''); }}
+                  className="btn-ghost !rounded text-xs font-bold !text-rose-700 !bg-rose-50 !border-rose-200"
+                >
+                  <X className="ikona-text" /> Vymazat filtry
+                </button>
+              )}
+            </div>
+
+            {/* Počet záznamů = co je vidět dole (kladné řádky); součet ks ale
+                počítá z filtrObdobim, ať v sobě má i opravy z inventury. */}
+            <p className="text-xs font-bold text-amber-900/70">
+              {filteredRows.length} záznamů · <span className="text-amber-950 font-black tabular-nums">{filtrObdobim.reduce((s, r) => s + Number(r.quantity || 0), 0)} ks</span>
+            </p>
           </div>
         )}
 
@@ -2119,164 +2130,46 @@ export default function BottlingScreen({
             return s;
           }, 0);
 
+          const davky = davkyStaceni(sortedRows, (pkgId) => {
+            const pkg = packages.find((p) => p.id === pkgId);
+            return pkg ? Number(pkg.volume_l) : 0;
+          });
+          // Pásy dnů ukazují jen to, co je v seznamu pod nimi (kladné
+          // záznamy). Rozdíl proti „Celkem" jsou opravy z inventury — a ty se
+          // musí říct, ať součty nevypadají, že se rozcházejí.
+          const kusyVDnech = davky.reduce((s, d) => s + d.celkemKs, 0);
+          const opravyKs = totalCount - kusyVDnech;
+
           return (
-
-            <div className="card p-4 border-2 border-amber-300/80 bg-white">
-              <h3 className="font-display font-black text-amber-950 text-sm mb-3">
-                <IkonaLahev className="ikona-text" /> {recordsView === 'month' ? `Měsíc ${recordsMonthKey}` : recordsView === 'day' ? `Den ${denACesky(recordsDay)}` : `Týden ${recordsWeekKey}`}
-              </h3>
-
-              {/* 📋 Dlaždice na DEN a PIVO, uvnitř rozdělená na ŠARŽE: nad každou
-                  stojí SUD a pod ním to, co se z něj stočilo.
-                  Zadání z 19. 9. 2026: „to samý i u lahví, na jeden den jeden druh
-                  piva a v něm jednotlivé druhy stáčení", „u některých lahví zmizelo
-                  nebo není, z jakého sudu byly stočeny" a „ukaž vždy sud a z něho,
-                  co vše bylo stočeno".
-
-                  Zdroj nesl uvnitř šarže jen JEDEN řádek — ten, kterým se zapsal
-                  odečet sudů. U ostatních se psalo jen „〃 stejná dávka" a vypadalo
-                  to, že se zdroj ztratil. Zdroj patří ŠARŽI, ne obalu.
-
-                  Zadání z 24. 9. 2026: „chci aby každý záznam měl svoji dlaždici,
-                  ve který budou všechny obaly, počty, celková výtrata." Dřív měl
-                  tenhle dlaždicový pohled jen mobil (`md:hidden`) — počítač
-                  ukazoval tabulku, kde dávky bez zdrojového sudu (každý řádek
-                  vlastní šarže, viz `getBatchId`) neměly žádné ohraničení a
-                  splývaly v jeden nerozeznatelný seznam řádků. Teď je dlaždice
-                  na šarži JEDINÝ pohled, na mobilu i na počítači — jen se na
-                  širokém displeji vejde vedle sebe víc najednou (grid níž). */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-2 items-start">
-                {davkyStaceni(sortedRows, (pkgId) => {
-                  const pkg = packages.find((p) => p.id === pkgId);
-                  return pkg ? Number(pkg.volume_l) : 0;
-                }).map((davka) => {
-                  const beer = beers.find((b) => b.id === davka.beerId);
-                  const sarze = sarzeDavky(davka.polozky, getBatchId);
-                  return (
-                    <div
-                      key={davka.klic}
-                      className="rounded-xl border border-black/10 p-2.5 space-y-2 shadow-xs"
-                      style={{ backgroundColor: beerBg(beer) }}
-                    >
-                      <div className={`flex items-center gap-2 flex-wrap ${beerText(beer)}`}>
-                        <span className="shrink-0 font-mono font-bold text-xs opacity-80">{denACesky(davka.datum)}</span>
-                        <span className="font-black text-base truncate min-w-0">{davka.beerName}</span>
-                        <span className="ml-auto shrink-0 font-display font-black text-xl tabular-nums">{davka.celkemKs} ks</span>
-                      </div>
-
-                      {/* Šarže vedle sebe na širokém displeji — na mobilu jeden
-                          sloupec, na počítači se jich vejde víc najednou, ať
-                          nevzniká dlouhý svislý seznam nerozeznatelných řádků. */}
-                      <div className={`grid grid-cols-1 gap-2 ${sarze.length > 1 ? '2xl:grid-cols-2' : ''}`}>
-                      {sarze.map((s) => (
-                        <div key={s.klic} className="rounded-lg bg-white/95 border border-black/10 border-l-4 border-l-amber-500 p-2 space-y-2">
-                          {/* 🛢️ Šarži nedrží pohromadě nadpis, ale ČÁRA PO STRANĚ (border-l).
-                              Z provozu 19. 9. 2026: „proč je tam „stočeno ze sudu“, má tam
-                              být sud a počet, jen nějak označ třeba čarou na jedné straně."
-                              Nadpis zabral celý řádek a říkal to, co je z obsahu vidět.
-
-                              Sud a počet jsou vždycky vidět. Když žádný zapsaný není,
-                              svítí mezi velikostmi „bez sudu", takže to není prázdné místo. */}
-                          <div className="flex items-start gap-2 flex-wrap">
-                            <div className="min-w-0">
-                              <VyberZdrojovehoSudu
-                                sudy={kegPackages}
-                                vybrany={s.zdrojPackageId ?? ''}
-                                zmen={(id) => updateKegPackage(s.nositelZdroje!.id, id)}
-                              />
-                            </div>
-                            {s.sudu > 0 && !s.zdrojPackageId && (
-                              <p className="basis-full text-xs font-black text-rose-700">Vyber velikost sudu — bez ní se {s.sudu} sudy ze skladu neodečtou.</p>
-                            )}
-                            <span className="ml-auto flex items-center gap-1 shrink-0">
-                              <button type="button" onClick={() => incrementKegs(s.nositelZdroje!.id, -1)} className="w-9 h-9 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-800 font-black text-base transition tap" aria-label="Ubrat sud">−</button>
-                              <span className="text-base font-black text-amber-900 tabular-nums">{s.sudu} <IkonaSud className="ikona-text" /></span>
-                              <button type="button" onClick={() => incrementKegs(s.nositelZdroje!.id, 1)} className="w-9 h-9 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-900 font-black text-base transition tap" aria-label="Přidat sud">+</button>
-                            </span>
-                            {s.zdrojPackageId && s.sudu > 0 && (
-                              <button
-                                type="button"
-                                className="basis-full btn-ghost min-h-[44px] !text-xs"
-                                onClick={() => { void pridejDalsiSud(s.polozky.map((p) => p.zaznam), s.zdrojPackageId!, s.sudu); }}
-                              >
-                                <Plus size={14} /> Další sud (jiná velikost)
-                              </button>
-                            )}
-                          </div>
-
-                          {/* 📐 Stočeno litrů + výtrata % — zpětný dopočet ze
-                              SKUTEČNĚ zapsaného počtu sudů, ne z teoretického
-                              koeficientu jako `navrhSudu`. Zadání z 19. 9. 2026:
-                              „u každého sudu bude navíc údaj stočeno litrů a
-                              výtrata v %." Schovává se, dokud u šarže není
-                              zapsaný zdrojový sud — bez něj není z čeho
-                              výtratu počítat. */}
-                          {(() => {
-                            const nalahvovanoL = s.polozky.reduce((sum, p) => sum + p.litry, 0);
-                            const zdrojVolL = kegPackages.find((p) => p.id === s.zdrojPackageId)?.volume_l;
-                            const zdrojSkutecneL = s.sudu > 0 && zdrojVolL ? s.sudu * Number(zdrojVolL) : 0;
-                            const vytrata = skutecnaVytrataProcenta(nalahvovanoL, zdrojSkutecneL);
-                            if (vytrata === null) return null;
-                            return (
-                              <div className="text-udaj font-bold text-amber-800 tabular-nums">
-                                Stočeno {nalahvovanoL.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} L · výtrata {vytrata.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} %
-                              </div>
-                            );
-                          })()}
-
-                          {/* … a co se z něj stočilo. Každý záznam na JEDNOM řádku:
-                              obal, kusy, odkud se vzal a tlačítka (−, +, úprava,
-                              smazání). Dřív měl každý záznam vlastní kartu na
-                              tři řádky a přehled byl roztažený (majitel 12. 10.
-                              2026: „stáčení přehled udělej přehlednější, ideálně
-                              do jednoho řádku, ať to není tak roztažený"). */}
-                          <div className="space-y-1 pt-1.5 border-t border-amber-100">
-                            {s.polozky.map(({ zaznam: r }) => {
-                              const pkg = packages.find((p) => p.id === r.package_id);
-                              const puvod = puvodZapisu(r.note);
-                              return (
-                                <div key={r.id} className="flex items-center gap-1.5 rounded bg-amber-50/70 border border-amber-100 pl-2 pr-1 py-0.5">
-                                  <span className="shrink-0 text-sm font-black text-amber-900 whitespace-nowrap">{pkg?.label ?? r.package_label ?? '—'}</span>
-                                  {/* ⚠️ KUSY, ne litry — z provozu 19. 9. 2026: „nejsou to
-                                      litry, ale ks." U obalu se počítají kusy. */}
-                                  <span className="shrink-0 font-display font-black text-base text-amber-950 tabular-nums whitespace-nowrap">{r.quantity} ks</span>
-                                  {/* 🏷️ Odkud se záznam vzal — appka zapisuje do stáčení i
-                                      sama (zaškrtnutá kapka „Stočeno" u objednávky, doplňky
-                                      z inventury) a bez téhle značky vypadá takový řádek jako
-                                      ručně napsaný. Viz lib/puvodZapisu.ts — přesně tahle
-                                      chybějící značka byla za dotazem „co to je, že to
-                                      nezapsal stáčeč?" z 24. 9. 2026. Na jednom řádku se
-                                      zkrátí; celý text je v nápovědě. */}
-                                  {puvod ? (
-                                    <span
-                                      className="min-w-0 flex-1 truncate text-[11px] leading-4 font-bold text-sky-800 bg-sky-50 border border-sky-200 rounded px-1.5 py-0.5 inline-flex items-center gap-1"
-                                      title={puvod.popis}
-                                    >
-                                      <ClipboardList size={11} className="shrink-0" />
-                                      <span className="truncate">{puvod.popis}</span>
-                                    </span>
-                                  ) : <span className="flex-1" />}
-                                  <button type="button" onClick={() => increment(r.id, -1)} className="shrink-0 w-11 min-h-[44px] grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-black text-lg transition" aria-label="Ubrat kus">−</button>
-                                  <button type="button" onClick={() => increment(r.id, 1)} className="shrink-0 w-11 min-h-[44px] grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-lg transition" aria-label="Přidat kus">+</button>
-                                  <button type="button" onClick={() => setEditingRow(r)} className="btn-ghost !flex-none !w-11 !px-0 !min-h-[44px]" title="Upravit záznam" aria-label="Upravit záznam"><Pencil size={16} /></button>
-                                  <button type="button" onClick={() => del(r.id)} className="btn-danger !flex-none !w-11 !px-0 !min-h-[44px]" title="Smazat záznam" aria-label="Smazat záznam"><X size={18} /></button>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      ))}
-                      </div>
-                    </div>
-                  );
-                })}
-                <div className="rounded bg-amber-200/60 p-3 space-y-1 font-black text-amber-950 text-sm">
-                  <div className="flex items-center justify-between"><span><PackageIcon className="ikona-text" /> Celkem</span><span>{totalCount} ks</span></div>
-                  <div className="flex items-center justify-between text-xs font-bold text-amber-800">
-                    <span>{totalLiters.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} L</span>
-                    <span>{totalKegs > 0 ? `${totalKegs} sudů` : '—'}</span>
-                  </div>
-                </div>
+            <div className="space-y-2">
+              {/* 📋 Den je nadřazená skupina s vlastním pásem; pod ním jeden
+                  řádek na pivo (sbalený, v jednom dni rozbalený). Viz
+                  components/PrehledStaceniLahvi.tsx — tam jsou i všechny
+                  zadání (19. 9., 24. 9., 12. 10., 15. 10. 2026). */}
+              <PrehledStaceniLahvi
+                davky={davky}
+                piva={beers}
+                obaly={packages}
+                sudy={kegPackages}
+                vychoziOtevrene={recordsView === 'day'}
+                getBatchId={getBatchId}
+                onKus={increment}
+                onSudy={incrementKegs}
+                onZmenSud={updateKegPackage}
+                onDalsiSud={pridejDalsiSud}
+                onUpravit={setEditingRow}
+                onSmazat={del}
+              />
+              <div className="rounded-lg bg-amber-200/60 px-3 py-2 flex items-center justify-between gap-2 flex-wrap font-black text-amber-950 text-sm">
+                <span><PackageIcon className="ikona-text" /> Celkem</span>
+                <span className="tabular-nums">
+                  {totalCount} ks · {totalLiters.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} L{totalKegs > 0 ? ` · ${pocetSuduCesky(totalKegs)}` : ''}
+                </span>
+                {opravyKs !== 0 && (
+                  <span className="basis-full text-udaj font-bold text-amber-800">
+                    včetně oprav z inventury ({opravyKs > 0 ? '+' : '−'}{Math.abs(opravyKs)} ks) — v pásech dnů nejsou
+                  </span>
+                )}
               </div>
             </div>
           );

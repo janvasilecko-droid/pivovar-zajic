@@ -154,6 +154,10 @@ const ODDILY: Oddil[] = [
     kCemu: 'Totéž co KEG, jen pro lahve a PET — včetně plánu po dnech.',
     body: [
       { co: 'Zápis stáčení', jak: 'Stejný postup jako u sudů: pivo, obal, počet, uložit.' },
+      {
+        co: 'Přehled po dnech',
+        jak: 'Každý den má svůj pás („Pondělí 12. 10.“, vpravo kusy a litry za celý den) a pod ním je jeden řádek na pivo: kusy, obaly a sud s litry a výtratou. Klepnutím na řádek se rozbalí záznamy (− / +, tužka, křížek) a výběr sudu; když je zvolený jeden den, jsou rozbalené rovnou. Řádek, kde chybí velikost sudu, se rozbalí sám. Filtry piva a obalu jsou na telefonu pod tlačítkem „Filtry“.',
+      },
       { co: 'Plán po dnech', jak: 'Tatáž tabule „Co stočit na který den“ včetně rozpadu po obalech.' },
       {
         co: 'Sklo, etikety, podtácky',
