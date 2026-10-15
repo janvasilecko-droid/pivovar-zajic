@@ -165,6 +165,8 @@ describe('přehledy KEG i lahví seskupují stejně', () => {
     expect(LAHVE, 'lahve: číslo v buňce sudů není napojené').toMatch(/onSudy=\{upravSudy\}/);
     expect(LAHVE, 'lahve: smazání řádku není napojené').toMatch(/onSmazRadek=\{smazRadek\}/);
     expect(LAHVE, 'lahve: den a pivo řádku není napojené').toMatch(/onDatumPivo=\{upravDatumPivo\}/);
+    // Zapnutý filtr obalu schová část záznamů šarže — tabulka to musí vědět (výtrata, zamčené buňky).
+    expect(LAHVE, 'lahve: tabulka neví o zapnutém filtru obalu').toMatch(/castecnyVyber=\{!!recordsPkgFilter\}/);
   });
 
   it('u lahví je řádek tabulky ŠARŽE, ne celé pivo', () => {

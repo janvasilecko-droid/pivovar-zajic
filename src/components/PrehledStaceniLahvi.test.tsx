@@ -721,6 +721,77 @@ describe('podrobnosti řádku', () => {
   });
 });
 
+describe('filtr obalu: v řádcích je jen část stáčení', () => {
+  // Zapnutý filtr obalu schová záznamy ostatních obalů téže šarže. Výtrata by
+  // vycházela špatně a prázdná buňka by mohla zdvojit schovaný záznam.
+  const SARZE = [
+    radek({ id: 'a', package_id: 'l05', quantity: 20, kegs_used: 2 }),
+  ];
+  const vykresliCast = () => vykresli(SARZE, { castecnyVyber: true });
+
+  it('výtrata se nepočítá a řádek říká, že je jen z vybraných obalů — i součet dne', () => {
+    vykresliCast();
+    expect(screen.getAllByTestId('souhrn-radku')[0].textContent).toBe('10 L (jen vybrané obaly)');
+    expect(screen.queryByTestId('vytrata-radku')).toBeNull();
+    expect(screen.getByTestId('celkem-litry').textContent).toBe('10 L (jen vybrané obaly)');
+  });
+
+  it('prázdné buňky lahví jsou zamčené (mohly by zdvojit schovaný záznam)', () => {
+    vykresliCast();
+    const prazdna = bunkaLahve(radky()[0], '1 L') as HTMLButtonElement;
+    expect(prazdna.disabled).toBe(true);
+    expect(prazdna.getAttribute('aria-label')).toContain('zamčeno filtrem obalu');
+    expect(prazdna.getAttribute('title')).toMatch(/Filtr obalu je zapnutý/);
+    fireEvent.click(prazdna);
+    expect(screen.queryByLabelText(/lahve — počet/)).toBeNull();
+  });
+
+  it('vyplněná buňka lahví a buňky sudů se dál přepisují', async () => {
+    const { onLahve, onSudy } = vykresliCast();
+    fireEvent.click(bunkaLahve(radky()[0], '0,5 L'));
+    const policko = screen.getByLabelText(/0,5 L lahve — počet/);
+    fireEvent.change(policko, { target: { value: '18' } });
+    await enter(policko);
+    expect(onLahve).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(bunkaSudu(radky()[0], '50 L'));
+    const sudy = screen.getByLabelText(/sud 50 L — počet/);
+    fireEvent.change(sudy, { target: { value: '3' } });
+    await enter(sudy);
+    expect(onSudy).toHaveBeenCalledTimes(1);
+  });
+
+  it('prázdná buňka SUDU zamčená není (sudy patří celé šarži, filtr na ně nemá vliv)', () => {
+    vykresliCast();
+    expect((bunkaSudu(radky()[0], '30 L') as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('nahoře je vidět proč', () => {
+    vykresliCast();
+    expect(screen.getByText(/Filtr obalu je zapnutý: výtrata se nepočítá/)).toBeTruthy();
+  });
+
+  it('podrobnosti: „Další sud" a smazání celého řádku chybí, den a pivo zůstává', () => {
+    vykresliCast();
+    fireEvent.click(screen.getByRole('button', { name: 'Podrobnosti: 12° Světlá' }));
+    expect(screen.queryByRole('button', { name: /Další sud/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Smazat celý řádek/ })).toBeNull();
+    expect(screen.getByTestId('detail-radku').textContent).toContain('jdou až po jeho vypnutí');
+    expect(screen.getByRole('button', { name: 'Uložit den a pivo' })).toBeTruthy();
+    expect(screen.getAllByTestId('zaznam-staceni')).toHaveLength(1); // záznam jde dál upravit i smazat
+  });
+
+  it('bez filtru nic z toho neplatí', () => {
+    vykresli(SARZE);
+    expect(screen.queryByText(/Filtr obalu je zapnutý/)).toBeNull();
+    expect((bunkaLahve(radky()[0], '1 L') as HTMLButtonElement).disabled).toBe(false);
+    expect(within(screen.getAllByTestId('souhrn-radku')[0]).getByTestId('vytrata-radku')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Podrobnosti: 12° Světlá' }));
+    expect(screen.getByRole('button', { name: /Smazat celý řádek/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Další sud/ })).toBeTruthy();
+  });
+});
+
 describe('přepsaná data', () => {
   it('po přenačtení se v buňce ukáže nové číslo', () => {
     const { rerender, props } = vykresli([DEN_PO[0], DEN_PO[1]]);

@@ -103,10 +103,18 @@ export type PrehledStaceniLahviProps = {
   onKus: (id: string, delta: number) => void;
   onUpravit: (r: EntryRow) => void;
   onSmazat: (id: string) => void;
+  /**
+   * Zapnutý filtr obalu: v řádcích je jen část záznamů šarže. Výtrata by pak
+   * vycházela špatně (chybí lahve ostatních obalů), prázdná buňka lahví může
+   * mít schovaný záznam (nový by ho zdvojil) a „Další sud" i smazání celého
+   * řádku pracují s celou šarží — proto se výtrata nepočítá, prázdné buňky
+   * lahví jsou zamčené a ty dvě akce se schovají.
+   */
+  castecnyVyber?: boolean;
 };
 
 export default function PrehledStaceniLahvi({
-  davky, piva, obaly, getBatchId,
+  davky, piva, obaly, getBatchId, castecnyVyber = false,
   onLahve, onSudy, onSmazRadek, onDatumPivo, onDalsiSud, onKus, onUpravit, onSmazat,
 }: PrehledStaceniLahviProps) {
   /** Buňka, ve které se zrovna píše. */
@@ -169,7 +177,9 @@ export default function PrehledStaceniLahvi({
       );
     }
     const uklada = ulozeni.has(klic);
-    const stav = opts.otaznik ? 'velikost sudu chybí' : hodnota > 0 ? (skupina === 'lahve' ? `${hodnota} ks` : `${hodnota}×`) : 'prázdné';
+    // Filtr obalu: prázdná buňka lahví může mít schovaný záznam — nový by ho zdvojil.
+    const zamceno = castecnyVyber && skupina === 'lahve' && hodnota === 0;
+    const stav = opts.otaznik ? 'velikost sudu chybí' : hodnota > 0 ? (skupina === 'lahve' ? `${hodnota} ks` : `${hodnota}×`) : zamceno ? 'prázdné (zamčeno filtrem obalu)' : 'prázdné';
     const barva = opts.otaznik
       ? 'bg-rose-50 text-rose-700 border border-dashed border-rose-300'
       : hodnota > 0
@@ -180,7 +190,8 @@ export default function PrehledStaceniLahvi({
         type="button"
         aria-label={`${popis}: ${stav}${opts.vice ? ' (víc záznamů — otevři podrobnosti)' : ''}`}
         aria-busy={uklada || undefined}
-        disabled={uklada}
+        disabled={uklada || zamceno}
+        title={zamceno ? 'Filtr obalu je zapnutý — vypni ho a zadej počet' : undefined}
         onClick={() => (opts.vice ? setVybranyKlic(r.klic) : setEditace({ klic: r.klic, skupina, objem }))}
         className={`block mx-auto w-full max-w-[4.5rem] min-h-[44px] min-w-[2.5rem] rounded-md px-0.5 text-sm font-extrabold tabular-nums transition ${barva} ${uklada ? 'opacity-50' : ''}`}
       >
@@ -192,6 +203,7 @@ export default function PrehledStaceniLahvi({
 
   /** Litry a výtrata — „89 L z 100 L · výtrata 11 %"; stáčení z tanku je „20 L · bez sudu". */
   function souhrn(litry: number, zdrojL: number, vytrata: number | null, sudu: number | null) {
+    if (castecnyVyber) return <span>{cislo(litry)} L (jen vybrané obaly)</span>;
     const kontrola = vytrataKeKontrole(vytrata);
     return (
       <>
@@ -219,6 +231,11 @@ export default function PrehledStaceniLahvi({
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
         <p className="flex-1 min-w-[14rem] text-udaj text-neutral-600">
           Klepni na číslo a přepiš ho (Enter uloží, nula nebo prázdné smaže). Klepnutí na název piva otevře podrobnosti.
+          {castecnyVyber && (
+            <b className="block text-amber-900" role="status">
+              Filtr obalu je zapnutý: výtrata se nepočítá a prázdné buňky lahví jsou zamčené — řádky ukazují jen část stáčení.
+            </b>
+          )}
         </p>
         {!siroka && (maSchovane || vsechnySloupce) && (
           <button type="button" className="btn-ghost btn-sm" aria-pressed={vsechnySloupce} onClick={() => setVsechnySloupce((v) => !v)}>
@@ -407,6 +424,7 @@ export default function PrehledStaceniLahvi({
           onSmazRadek={onSmazRadek}
           onDalsiSud={onDalsiSud}
           onDatumPivo={onDatumPivo}
+          castecnyVyber={castecnyVyber}
         />
       )}
     </div>
@@ -455,10 +473,11 @@ export function PolicekCisla({ vychozi, popisek, onPotvrdit, onZrusit }: {
  * smazání celého řádku. Je to dialog, ne rozbalený řádek — tabulka se na
  * telefonu posouvá do strany a rozbalená část by odjížděla s ní.
  */
-function DetailRadku({ radek, piva, obalPodleId, onZavrit, onKus, onUpravit, onSmazat, onSmazRadek, onDalsiSud, onDatumPivo }: {
+function DetailRadku({ radek, piva, obalPodleId, castecnyVyber, onZavrit, onKus, onUpravit, onSmazat, onSmazRadek, onDalsiSud, onDatumPivo }: {
   radek: RadekTabulky;
   piva: Beer[];
   obalPodleId: Map<string, Package>;
+  castecnyVyber: boolean;
   onZavrit: () => void;
   onKus: (id: string, delta: number) => void;
   onUpravit: (r: EntryRow) => void;
@@ -493,7 +512,7 @@ function DetailRadku({ radek, piva, obalPodleId, onZavrit, onKus, onUpravit, onS
               : 'bez sudu (stáčeno rovnou z tanku)'}
           </p>
           <p className="text-udaj text-neutral-600">Počet a velikost sudu se mění v tabulce — klepni na číslo ve sloupci s velikostí.</p>
-          {radek.sudPkgId && radek.sudu > 0 && (
+          {radek.sudPkgId && radek.sudu > 0 && !castecnyVyber && (
             <button
               type="button"
               className="btn-ghost !px-2.5 !gap-1.5 text-xs"
@@ -550,13 +569,19 @@ function DetailRadku({ radek, piva, obalPodleId, onZavrit, onKus, onUpravit, onS
           </button>
         </div>
 
-        <button
-          type="button"
-          className="btn-danger w-full"
-          onClick={() => { onZavrit(); onSmazRadek(radek); }}
-        >
-          <Trash2 size={16} /> Smazat celý řádek
-        </button>
+        {castecnyVyber ? (
+          <p className="text-udaj font-bold text-amber-900" role="status">
+            Filtr obalu je zapnutý — „Další sud“ a smazání celého řádku jdou až po jeho vypnutí (pracují s celým stáčením, ne jen s vybranými obaly).
+          </p>
+        ) : (
+          <button
+            type="button"
+            className="btn-danger w-full"
+            onClick={() => { onZavrit(); onSmazRadek(radek); }}
+          >
+            <Trash2 size={16} /> Smazat celý řádek
+          </button>
+        )}
       </div>
     </Modal>
   );

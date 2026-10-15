@@ -2177,6 +2177,7 @@ export default function BottlingScreen({
                 piva={beers}
                 obaly={packages}
                 getBatchId={getBatchId}
+                castecnyVyber={!!recordsPkgFilter}
                 onLahve={upravLahve}
                 onSudy={upravSudy}
                 onSmazRadek={smazRadek}
