@@ -334,7 +334,10 @@ export default function Stock({ setPage, initialTopTab }: { setPage?: (p: Page, 
     });
     nesedi.sort((a, z) => a.qty - z.qty);
     setNesediRows(nesedi);
-    if (!silent) setLoading(false);
+    // I u tichého přenačtení (realtime po cizím zápisu): kdyby přebilo první,
+    // viditelné načtení, kostra „načítám" by tu zůstala navždy — dostane se
+    // sem jen nejnovější načtení, takže vypnout ji smí vždycky.
+    setLoading(false);
   }
 
   async function loadBrewed(silent = false) {

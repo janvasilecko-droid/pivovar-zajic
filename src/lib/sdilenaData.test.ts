@@ -24,8 +24,10 @@ vi.mock('./supabase', () => ({
 
 import { nactiSdilenouTabulku, vycistiSdilenaData, MAX_STARI_MS } from './sdilenaData';
 import { zneplatniTabulku, zneplatniVse } from './zneplatneni';
+import { vycistiZPameti, zapisZPameti } from './zPameti';
 
 beforeEach(() => {
+  vycistiZPameti();
   vycistiSdilenaData();
   h.dotazy.length = 0;
   h.radky = [{ entry_date: '2026-09-01', quantity: 1 }];
@@ -97,6 +99,51 @@ describe('nactiSdilenouTabulku', () => {
     const b = await nactiSdilenouTabulku<any>('inventory');
     expect(b.data).toHaveLength(1);
     expect(b.data![0].quantity).toBe(1);
+  });
+});
+
+// 15. 10. 2026: „občas se nechce načíst sklad" — při slabém signálu dotaz vyprší
+// a appka odpoví z paměti telefonu. Taková data se nesmí tvářit jako čerstvá.
+describe('data z paměti telefonu místo ze serveru', () => {
+  it('výsledek je poznačený a do sdílené paměti se NEULOŽÍ — příští čtení zkusí server znovu', async () => {
+    let pust!: () => void;
+    h.cekat = new Promise((r) => { pust = r; });
+    const prvni = nactiSdilenouTabulku('inventory');
+    await Promise.resolve();
+    zapisZPameti(Date.now() + 5); // dotaz selhal a odpovědělo se z paměti telefonu
+    h.cekat = null;
+    pust();
+    const r = await prvni;
+    expect(r.zPameti).toBe(true);
+    await nactiSdilenouTabulku('inventory');
+    expect(h.dotazy).toEqual(['inventory', 'inventory']);
+  });
+
+  it('bez výpadku výsledek poznačený není a jde z paměti jako dřív', async () => {
+    const r = await nactiSdilenouTabulku('kegging');
+    expect(r.zPameti).toBeUndefined();
+    await nactiSdilenouTabulku('kegging');
+    expect(h.dotazy).toEqual(['kegging']);
+  });
+
+  it('výpadek PŘED začátkem dotazu se nezapočítá', async () => {
+    zapisZPameti(Date.now() - 60_000);
+    const r = await nactiSdilenouTabulku('writeoffs');
+    expect(r.zPameti).toBeUndefined();
+  });
+
+  it('souběžné žádosti sdílejí i poznačení', async () => {
+    let pust!: () => void;
+    h.cekat = new Promise((r) => { pust = r; });
+    const a = nactiSdilenouTabulku('akce');
+    const b = nactiSdilenouTabulku('akce');
+    await Promise.resolve();
+    zapisZPameti(Date.now() + 5);
+    h.cekat = null;
+    pust();
+    const [ra, rb] = await Promise.all([a, b]);
+    expect(ra.zPameti).toBe(true);
+    expect(rb.zPameti).toBe(true);
   });
 });
 

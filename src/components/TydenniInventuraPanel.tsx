@@ -30,12 +30,13 @@ import { popisPolozek, objednavkaShoduje, zapisShoduje, type PrehledObjednavka, 
 import { StitekStavu } from './StitekStavu';
 import { lzeUlozitKoncept, slucInventuru } from '../lib/rozepsanaInventura';
 import { nactiJson, ulozJson } from '../lib/uloziste';
-import { chyba, oznam, uspech } from '../lib/toast';
+import { chyba, oznam, potvrd, uspech } from '../lib/toast';
 import { zapamatujPozici } from '../lib/drzPozici';
 import { normalizujCislo } from '../lib/cisloVstup';
 import { puvodStavu } from '../lib/puvodMinusu';
 import { nactiSdilenouTabulku } from '../lib/sdilenaData';
 import { cenaKusu, formatKc, hodnotaInventury } from '../lib/hodnotaInventury';
+import StaraDataPruh from './StaraDataPruh';
 import type { CenaPolozky } from '../lib/hodnotaObjednavky';
 
 export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, sec?: string, sub?: string) => void } = {}) {
@@ -65,6 +66,10 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
   const [cenik, setCenik] = useState<CenaPolozky[]>([]);
   const [napocitano, setNapocitano] = useState<Record<string, string>>({});
   const [bezi, setBezi] = useState(true);
+  /** Čísla „čekáno" jsou z paměti telefonu — server neodpověděl včas. */
+  const [zPameti, setZPameti] = useState(false);
+  /** Poslední načtení selhalo (kniha pak může být jen poslední úspěšná, nebo žádná). */
+  const [chybaNacteni, setChybaNacteni] = useState<string | null>(null);
   const [uklada, setUklada] = useState<string | null>(null);
   const [hledat, setHledat] = useState('');
   const [jenRozdily, setJenRozdily] = useState(false);
@@ -116,8 +121,10 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
     });
     oznam(`Vyplněno ${polozky.length} položek do „Napočítáno". Zkontroluj čísla a ulož.`);
   }
-  const nacti = useCallback(async () => {
-    setBezi(true);
+  // `tise` = opakování z pruhu „čísla nemusí být aktuální": nesmí schovat
+  // seznam a vyhodit člověka z políčka, do kterého zrovna píše počet.
+  const nacti = useCallback(async (tise: boolean = false) => {
+    if (!tise) setBezi(true);
     try {
       const [k, { data: t }, { data: ulozene }, { data: minule }, { data: ceny }] = await Promise.all([
         nactiSkladovouKnihu(),
@@ -135,6 +142,8 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
       }
       setMinulyTyden(mt);
       setKniha(k);
+      setZPameti(k.zPameti === true);
+      setChybaNacteni(null);
       setTanky((t as TankProRozdeleni[]) ?? []);
       // Co se v tomhle týdnu už napočítalo, se vrátí do políček. Kontrola se
       // dělá po částech (sklep dnes, sklad zítra) a překlikáním týdne sem a
@@ -150,7 +159,9 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
       setNapocitano((prev) => slucInventuru(nactene, prev, zmenaTydne));
       loadedTydenRef.current = obdobi.od;
     } catch (e: any) {
-      chyba('Týdenní inventuru se nepodařilo načíst: ' + (e?.message || e));
+      setChybaNacteni(String(e?.message || e));
+      // Tiché opakování nehlásí toast znovu a znovu — stačí pruh nahoře.
+      if (!tise) chyba('Týdenní inventuru se nepodařilo načíst: ' + (e?.message || e));
     } finally {
       setBezi(false);
     }
@@ -162,6 +173,21 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
     if (!lzeUlozitKoncept(loadedTydenRef.current, obdobi.od)) return;
     ulozJson(`tydenni_napocitano_${obdobi.od}`, napocitano);
   }, [napocitano, obdobi.od]);
+
+  /**
+   * „Čekáno" se počítá ze skladové knihy. Když je z paměti telefonu nebo se
+   * poslední načtení nepovedlo, rozdíl proti napočítanému nemusí být pravdivý
+   * (15. 10. 2026: Jantar 50 l „na začátku 3" místo 2) — a zápis, který z něj
+   * vychází (dopsané stáčení, dorovnání), by tu chybu zapsal do evidence.
+   * Proto se před ním appka zeptá.
+   */
+  async function smiZapsatZeStarychCisel(): Promise<boolean> {
+    if (!zPameti && !chybaNacteni) return true;
+    return potvrd(
+      'Čísla „čekáno" jsou z paměti telefonu a nemusí být aktuální — rozdíl tak může být jiný, než ve skutečnosti je.\n\nDoporučuju nejdřív „Načíst znovu". Zapsat přesto?',
+      { titulek: 'Čísla nemusí být aktuální', potvrdit: 'Zapsat přesto' },
+    );
+  }
 
   const vsechnyRadky = useMemo(() => {
     if (!kniha) return [];
@@ -267,6 +293,7 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
    */
   async function srovnat(r: TydenniRadek) {
     if (uklada || r.rozdil === 0 || r.napocitano === null) return;
+    if (!(await smiZapsatZeStarychCisel())) return;
     setUklada(r.klic);
     try {
       const polozka = {
@@ -370,6 +397,7 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
    */
   async function dorovnat(r: TydenniRadek) {
     if (uklada || r.rozdil === 0 || r.napocitano === null) return;
+    if (!(await smiZapsatZeStarychCisel())) return;
     setUklada(r.klic);
     try {
       const { error } = await supabase.from('inventory_adjustments').insert([zaznamDorovnani(r, obdobi)]);
@@ -423,6 +451,7 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
   async function ulozVse() {
     const spocitane = vsechnyRadky.filter((r) => r.napocitano !== null);
     if (spocitane.length === 0) { oznam('Není co uložit — zatím není nic napočítané.'); return; }
+    if (!(await smiZapsatZeStarychCisel())) return;
     setUklada('vse');
     try {
       const error = await upsertKontrol(spocitane, (r) => (r.rozdil === 0 ? null : 'ponechano'));
@@ -440,6 +469,16 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
 
   return (
     <div className="space-y-4">
+      {/* Čísla z paměti telefonu / neúspěšné načtení: bez varování by
+          „čekáno" vypadalo stejně jako čerstvé (15. 10. 2026). */}
+      {!bezi && (
+        <StaraDataPruh
+          zPameti={zPameti}
+          chyba={chybaNacteni}
+          onZnovu={() => nacti(true)}
+        />
+      )}
+
       {/* Volba týdne */}
       <div className="card p-3.5 space-y-3">
         <div className="flex items-center gap-2">
@@ -571,7 +610,7 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
               <button type="button" onClick={() => setScitadlo(true)} className="btn-secondary !rounded min-h-[44px]">
                 <Calculator size={16} /> Sčítadlo
               </button>
-              <button type="button" onClick={nacti} disabled={bezi} className="btn-secondary !rounded min-h-[44px]">
+              <button type="button" onClick={() => { void nacti(); }} disabled={bezi} className="btn-secondary !rounded min-h-[44px]">
                 <RefreshCw size={16} className={bezi ? 'animate-spin' : ''} /> Načíst znovu
               </button>
               <button type="button" onClick={ulozVse} disabled={!!uklada || bezi} className="btn-primary !rounded min-h-[44px]">
@@ -642,7 +681,7 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
         />
       )}
 
-      {rezim === 'pocitani' && zpusobPocitani === 'seznam' && !bezi && radky.length === 0 && (
+      {rezim === 'pocitani' && zpusobPocitani === 'seznam' && !bezi && radky.length === 0 && !(chybaNacteni && !kniha) && (
         <div className="card p-6 text-center text-sm font-bold text-neutral-500">
           {vsechnyRadky.length === 0
             ? 'Za tenhle týden není co počítat — sklad je prázdný a nic se nehýbalo.'

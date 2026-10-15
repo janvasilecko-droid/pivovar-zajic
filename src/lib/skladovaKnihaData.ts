@@ -13,6 +13,7 @@
 import { supabase } from './supabase';
 import { buildMovements, type Movement } from './stockLedger';
 import { nactiSdilenouTabulku } from './sdilenaData';
+import { chybejiciZdroje, dataZPametiOd, NeuplnaDataError } from './zPameti';
 
 export type PivoZKatalogu = { id: string; name: string; beer_color?: string | null; is_active?: boolean };
 export type ObalZKatalogu = { id: string; label: string; kind: string; volume_l: number };
@@ -29,6 +30,12 @@ export type SkladovaKniha = {
   fasovani: any[];
   odpisy: any[];
   zavozy: any[];
+  /**
+   * Některý dotaz server nestihl a odpovědělo se z paměti telefonu (slabý
+   * signál) — čísla jsou poslední známá, ne nutně aktuální. Obrazovka to má
+   * říct nahlas (components/UpozorneniNaData.tsx).
+   */
+  zPameti?: boolean;
 };
 
 /**
@@ -37,13 +44,16 @@ export type SkladovaKniha = {
  * Vrací i katalogy a syrové řádky stáčení — kdo je potřebuje (audit kontroluje
  * stáčení bez tanku, týdenní inventura popisuje řádky jménem piva), nemusí
  * kvůli nim sahat do databáze podruhé.
+ *
+ * Když se NEKTERÝ zdroj nenačte (chyba serveru, vypadlé spojení uprostřed
+ * stránkování), kniha se NEPOSKLÁDÁ a vyhodí `NeuplnaDataError`. Dřív se chybějící
+ * tabulka tiše brala jako prázdná — a sklad pak ukázal číslo, ze kterého
+ * chyběla třeba půlka odpočtů (15. 10. 2026: Jantar 50 l „na začátku 3"
+ * místo 2). Špatné číslo je horší než žádné.
  */
 export async function nactiSkladovouKnihu(): Promise<SkladovaKniha> {
-  const [
-    { data: beers }, { data: packages },
-    { data: bt }, { data: kg }, { data: fa }, { data: fp }, { data: wo },
-    { data: inv }, { data: adj }, { data: zd }, { data: ak }, { data: pf },
-  ] = await Promise.all([
+  const zacatek = Date.now();
+  const [vBeers, vPackages, vBt, vKg, vFa, vFp, vWo, vInv, vAdj, vZd, vAk, vPf] = await Promise.all([
     supabase.from('beers').select('id,name,beer_color,is_active').order('sort_order'),
     supabase.from('packages').select('id,label,kind,volume_l').order('sort_order'),
 
@@ -59,24 +69,42 @@ export async function nactiSkladovouKnihu(): Promise<SkladovaKniha> {
     nactiSdilenouTabulku('keg_prefuk'),
   ]);
 
+  const chybi = chybejiciZdroje({
+    'piva': vBeers, 'obaly': vPackages,
+    'stáčení lahví': vBt, 'stáčení KEG': vKg,
+    'fasování': vFa, 'prodejna': vFp, 'odpisy': vWo,
+    'inventura': vInv, 'opravy skladu': vAdj, 'závozy': vZd,
+    'akce': vAk, 'přefuk': vPf,
+  });
+  if (chybi.length > 0) throw new NeuplnaDataError(chybi);
+
+  const zPameti = dataZPametiOd(zacatek)
+    || [vBt, vKg, vFa, vFp, vWo, vInv, vAdj, vZd, vAk, vPf].some((v) => v.zPameti === true);
+
   // Z katalogů se tahají jen sloupce, které kniha potřebuje (jméno pro popisek,
   // kind/volume_l pro dohledání sudu spotřebovaného na lahve). Vlastní typ je
   // proto poctivější než přetypování na plný katalogový záznam, který by tu
   // z poloviny chyběl.
-  const piva: PivoZKatalogu[] = (beers as PivoZKatalogu[]) ?? [];
-  const obaly: ObalZKatalogu[] = (packages as ObalZKatalogu[]) ?? [];
+  const piva: PivoZKatalogu[] = (vBeers.data as PivoZKatalogu[]) ?? [];
+  const obaly: ObalZKatalogu[] = (vPackages.data as ObalZKatalogu[]) ?? [];
+  const bt = (vBt.data as any[]) ?? [];
+  const kg = (vKg.data as any[]) ?? [];
+  const fa = (vFa.data as any[]) ?? [];
+  const wo = (vWo.data as any[]) ?? [];
+  const zd = (vZd.data as any[]) ?? [];
+  const inv = (vInv.data as any[]) ?? [];
 
   const pohyby = buildMovements({
-    inventoryRows: (inv as any[]) ?? [],
-    bottlingRows: (bt as any[]) ?? [],
-    keggingRows: (kg as any[]) ?? [],
-    fasovaniRows: (fa as any[]) ?? [],
-    prodejnaRows: (fp as any[]) ?? [],
-    writeoffsRows: (wo as any[]) ?? [],
-    zavozDeductionRows: (zd as any[]) ?? [],
-    akceRows: (ak as any[]) ?? [],
-    prefukRows: (pf as any[]) ?? [],
-    adjustmentRows: (adj as any[]) ?? [],
+    inventoryRows: inv,
+    bottlingRows: bt,
+    keggingRows: kg,
+    fasovaniRows: fa,
+    prodejnaRows: (vFp.data as any[]) ?? [],
+    writeoffsRows: wo,
+    zavozDeductionRows: zd,
+    akceRows: (vAk.data as any[]) ?? [],
+    prefukRows: (vPf.data as any[]) ?? [],
+    adjustmentRows: (vAdj.data as any[]) ?? [],
     packages: obaly as any,
   });
 
@@ -84,11 +112,12 @@ export async function nactiSkladovouKnihu(): Promise<SkladovaKniha> {
     pohyby,
     piva,
     obaly,
-    kegging: ((kg as any[]) ?? []),
-    fasovani: ((fa as any[]) ?? []),
-    odpisy: ((wo as any[]) ?? []),
-    zavozy: ((zd as any[]) ?? []),
-    bottling: ((bt as any[]) ?? []),
-    inventura: ((inv as any[]) ?? []),
+    kegging: kg,
+    fasovani: fa,
+    odpisy: wo,
+    zavozy: zd,
+    bottling: bt,
+    inventura: inv,
+    ...(zPameti ? { zPameti: true } : {}),
   };
 }

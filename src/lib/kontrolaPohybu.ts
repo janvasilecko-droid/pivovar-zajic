@@ -152,15 +152,76 @@ export function najdiPodezrele(vstup: {
     const k = `${(o.place_name ?? '').trim().toLowerCase()}|${den}|${pol.join(',')}`;
     otisk.set(k, [...(otisk.get(k) ?? []), o.id]);
   }
+  // Položky, které už hlásí D) — E) je nehlásí podruhé.
+  const hlasenoVD = new Set<string>();
   otisk.forEach((ids, k) => {
     if (ids.length < 2) return;
     const den = k.split('|')[1];
+    const odberatel = k.split('|')[0];
     for (const it of polozky.filter((x) => x.order_id === ids[0] && x.beer_id && x.package_id && sedi(x.beer_id, x.package_id!))) {
+      hlasenoVD.add(`${odberatel}|${den}|${it.beer_id}__${it.package_id}`);
       out.push({ datum: den, beer_id: it.beer_id!, package_id: it.package_id!, vaha: 'pozor',
         text: `${jmeno(ids[0])} má na ${den.slice(8, 10)}. ${den.slice(5, 7)}. ${ids.length} stejné objednávky (${Number(it.quantity || 0)} ks) — není jedna zadaná dvakrát?`,
         dopad: -(ids.length - 1) * Number(it.quantity || 0) });
     }
   });
+
+  // E) Stejná položka ve dvou objednávkách téhož odběratele na týž den závozu.
+  //    D) výš chytí jen objednávky, které jsou na řádek stejné. Zpětně zadaná
+  //    objednávka k závozu, který už jednou zadaný byl, má ale obvykle jiné
+  //    položky navíc (15. 10. 2026: víkendový závoz „Restaurace" 11. 10. byl
+  //    zadaný dvakrát — 10° Desítka 30 l × 1 i 12° Světlá 50 l × 1 v obou, ve
+  //    druhé k tomu 12° Tmavá). Obě se odepsaly, sklad ukazuje o kus míň, než je.
+  const polozkyPodleObj = new Map<string, PolozkaProKontrolu[]>();
+  for (const it of polozky) polozkyPodleObj.set(it.order_id, [...(polozkyPodleObj.get(it.order_id) ?? []), it]);
+  const stejnaPolozka = new Map<string, { orderId: string; qty: number; b: string; p: string; den: string }[]>();
+  for (const o of objednavky) {
+    if (o.status === 'storno') continue;
+    const den = (o.delivery_date || o.order_date || '').slice(0, 10);
+    const odberatel = (o.place_name ?? '').trim().toLowerCase();
+    if (!den || !odberatel || den < od || den > doDne) continue;
+    for (const it of polozkyPodleObj.get(o.id) ?? []) {
+      if (!it.beer_id || !it.package_id || !sedi(it.beer_id, it.package_id)) continue;
+      const k = `${odberatel}|${den}|${it.beer_id}__${it.package_id}`;
+      stejnaPolozka.set(k, [...(stejnaPolozka.get(k) ?? []), { orderId: o.id, qty: Number(it.quantity || 0), b: it.beer_id, p: it.package_id, den }]);
+    }
+  }
+  stejnaPolozka.forEach((radky, k) => {
+    if (hlasenoVD.has(k)) return;
+    const objednavekCelkem = new Set(radky.map((r) => r.orderId)).size;
+    if (objednavekCelkem < 2) return;
+    const soucet = radky.reduce((a, r) => a + r.qty, 0);
+    const nejvic = Math.max(...radky.map((r) => r.qty));
+    const { den, b, p } = radky[0];
+    out.push({ datum: den, beer_id: b, package_id: p, vaha: 'pozor',
+      text: `${jmeno(radky[0].orderId)} má na ${den.slice(8, 10)}. ${den.slice(5, 7)}. tuhle položku ve ${objednavekCelkem} objednávkách (${radky.map((r) => `${r.qty} ks`).join(' + ')}) — není zadaná dvakrát?`,
+      dopad: -(soucet - nejvic) });
+  });
+
+  // F) Stejná položka víckrát v JEDNÉ objednávce se stejným počtem (dvakrát
+  //    odeslaný řádek). Jiný počet (5 + 14) bývá záměr, ten se nehlásí.
+  for (const o of objednavky) {
+    if (o.status === 'storno') continue;
+    const den = (o.delivery_date || o.order_date || '').slice(0, 10);
+    if (!den || den < od || den > doDne) continue;
+    const podleKlice = new Map<string, number[]>();
+    for (const it of polozkyPodleObj.get(o.id) ?? []) {
+      if (!it.beer_id || !it.package_id || !sedi(it.beer_id, it.package_id)) continue;
+      const k = `${it.beer_id}__${it.package_id}`;
+      podleKlice.set(k, [...(podleKlice.get(k) ?? []), Number(it.quantity || 0)]);
+    }
+    podleKlice.forEach((mnozstvi, k) => {
+      const [b, p] = k.split('__');
+      const poctyStejnych = new Map<number, number>();
+      mnozstvi.forEach((q) => poctyStejnych.set(q, (poctyStejnych.get(q) ?? 0) + 1));
+      poctyStejnych.forEach((kolikrat, q) => {
+        if (kolikrat < 2 || q <= 0) return;
+        out.push({ datum: den, beer_id: b, package_id: p, vaha: 'pozor',
+          text: `${jmeno(o.id)} má na ${den.slice(8, 10)}. ${den.slice(5, 7)}. stejnou položku ${kolikrat}× po ${q} ks — není řádek zadaný dvakrát?`,
+          dopad: -(kolikrat - 1) * q });
+      });
+    });
+  }
 
   return out.sort((a, b) => (a.vaha === b.vaha ? a.datum.localeCompare(b.datum) : a.vaha === 'chyba' ? -1 : 1));
 }

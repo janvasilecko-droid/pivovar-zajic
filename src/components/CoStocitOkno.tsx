@@ -19,6 +19,7 @@ import { businessDateISO } from '../lib/businessDate';
 import { isoWeekKey, weekRange } from './WeeklyOrderSummaryCard';
 import { dayKeyFromISO, BEZ_TERMINU, type DayPlan } from '../lib/keggingPlan';
 import { usePlanStaceni } from '../lib/usePlanStaceni';
+import StaraDataPruh from './StaraDataPruh';
 import { planProVyber, ulozeneObdobi, denDalsihoZavozu, chybiMimoVyber as spoctiChybiMimoVyber } from '../lib/coStocit';
 import { DAYS } from '../lib/shared';
 import { uloz } from '../lib/uloziste';
@@ -97,7 +98,7 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
 
   // Data i plán sudů a lahví — sdílené se Sklepem (lib/usePlanStaceni.ts),
   // ať obě místa počítají „co stočit" jedním výpočtem.
-  const { data, chyba, planySudy, planyLahve } = usePlanStaceni(weekKey, { sudy, lahve });
+  const { data, chyba, zPameti, nacti: nactiPlan, planySudy, planyLahve } = usePlanStaceni(weekKey, { sudy, lahve });
 
   // 🚚 Den dalšího závozu se jen barevně označí, nevybírá se (6. 10. 2026:
   // „den dalšího závozu jen označ barevně, třeba šedě"). Dřív se na nejbližší
@@ -241,6 +242,17 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
               );
             })}
           </div>
+
+          {/* Plán z paměti telefonu nebo po neúspěšném načtení: „kolik chybí
+              stočit" pak nemusí být aktuální. */}
+          {data && (
+            <StaraDataPruh
+              className="mb-2"
+              zPameti={zPameti}
+              chyba={chyba ? 'Plán stáčení se nepodařilo obnovit.' : null}
+              onZnovu={nactiPlan}
+            />
+          )}
 
           {chyba && !data ? (
             <p className="text-udaj font-bold text-rose-700">Plán stáčení se nepodařilo načíst.</p>

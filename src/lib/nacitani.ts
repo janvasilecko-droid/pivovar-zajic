@@ -55,6 +55,26 @@ export function usePosledniNacteni() {
 }
 
 /**
+ * Slib, který nesmí viset donekonečna.
+ *
+ * Obrazovka, která čeká na dotaz bez stropu, se při jediném zaseknutém
+ * požadavku (spadlé spojení uprostřed odpovědi, zablokovaná lokální databáze
+ * po uspání telefonu) nikdy nedoptá — ukazuje „načítám" donekonečna a člověk
+ * nemá jak poznat, jestli má čekat, nebo to zkusit znovu. Po `ms` se slib
+ * odmítne s `zprava` a obrazovka může ukázat chybu s tlačítkem „Zkusit znovu".
+ * Samotný dotaz se tím neruší (ten už letí) — jen se přestane čekat.
+ */
+export function sNejvyseCasem<T>(slib: PromiseLike<T>, ms: number, zprava: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const casovac = setTimeout(() => reject(new Error(zprava)), ms);
+    Promise.resolve(slib).then(
+      (v) => { clearTimeout(casovac); resolve(v); },
+      (e) => { clearTimeout(casovac); reject(e); },
+    );
+  });
+}
+
+/**
  * Vezme výsledky ze Supabase a vrátí text první chyby, nebo null.
  *
  * Proč: načítací funkce v aplikaci braly data zápisem `(kg.data as X[]) ?? []`
