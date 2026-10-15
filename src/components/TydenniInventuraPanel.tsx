@@ -474,7 +474,7 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
       {!bezi && (
         <StaraDataPruh
           zPameti={zPameti}
-          chyba={chybaNacteni ? `Týdenní inventuru se nepodařilo načíst: ${chybaNacteni}` : null}
+          chyba={chybaNacteni}
           onZnovu={() => nacti(true)}
         />
       )}

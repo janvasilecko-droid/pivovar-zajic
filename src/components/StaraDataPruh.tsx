@@ -68,7 +68,8 @@ export default function StaraDataPruh({
       <div className="flex-1 min-w-[12rem] text-sm font-bold">
         {jeChyba ? (
           <>
-            Nepodařilo se načíst všechna data: {chyba}
+            Nepodařilo se načíst všechna data.
+            <div className="text-xs font-semibold mt-0.5">{chyba}</div>
             <div className="text-xs font-semibold mt-0.5">
               Čísla níž (pokud nějaká jsou) jsou z posledního úspěšného načtení. Zkouším to znovu.
             </div>

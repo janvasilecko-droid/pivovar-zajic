@@ -549,7 +549,7 @@ export default function PohybySkladu() {
       {!bezi && (
         <StaraDataPruh
           zPameti={zPameti}
-          chyba={chybaNacteni ? `Pohyby se nepodařilo načíst: ${chybaNacteni}` : null}
+          chyba={chybaNacteni}
           onZnovu={nacti}
         />
       )}

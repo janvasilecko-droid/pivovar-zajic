@@ -40,7 +40,7 @@ vi.mock('../lib/sdilenaData', () => ({
 }));
 vi.mock('../lib/skladovaKnihaData', () => ({
   nactiSkladovouKnihu: () => h.kniha.selze
-    ? Promise.reject(new Error('Nepodařilo se načíst: fasování. Čísla by byla neúplná, proto se nepočítají.'))
+    ? Promise.reject(new Error('Chybí data: fasování — čísla by byla neúplná, proto se nepočítají.'))
     : Promise.resolve({
       ...(h.kniha.zPameti ? { zPameti: true } : {}),
       piva: [{ id: 'b50', name: 'Jantar', is_active: true }],
@@ -131,7 +131,7 @@ describe('Týdenní inventura — načtení selhalo', () => {
     h.kniha.selze = true;
     render(<TydenniInventuraPanel />);
     await waitFor(() => expect(screen.getByTestId('stara-data-pruh')).toBeTruthy());
-    expect(screen.getByTestId('stara-data-pruh').textContent).toMatch(/Nepodařilo se načíst: fasování/);
+    expect(screen.getByTestId('stara-data-pruh').textContent).toMatch(/Chybí data: fasování/);
     expect(screen.queryByText(/sklad je prázdný/)).toBeNull();
 
     h.kniha.selze = false;

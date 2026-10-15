@@ -47,7 +47,7 @@ export function chybejiciZdroje(zdroje: Record<string, ZdrojDat | null | undefin
 export class NeuplnaDataError extends Error {
   readonly zdroje: string[];
   constructor(zdroje: string[]) {
-    super(`Nepodařilo se načíst: ${zdroje.join(', ')}. Čísla by byla neúplná, proto se nepočítají.`);
+    super(`Chybí data: ${zdroje.join(', ')} — čísla by byla neúplná, proto se nepočítají.`);
     this.name = 'NeuplnaDataError';
     this.zdroje = zdroje;
   }

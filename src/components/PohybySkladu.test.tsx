@@ -27,7 +27,7 @@ vi.mock('../lib/supabase', () => ({
   formatPackageLabel: vi.fn((l: string) => l),
 }));
 vi.mock('../lib/skladovaKnihaData', () => ({
-  nactiSkladovouKnihu: () => rizeni.selze ? Promise.reject(new Error('Nepodařilo se načíst: fasování.')) : Promise.resolve({
+  nactiSkladovouKnihu: () => rizeni.selze ? Promise.reject(new Error('Chybí data: fasování — čísla by byla neúplná.')) : Promise.resolve({
     ...(rizeni.zPameti ? { zPameti: true } : {}),
     piva: [{ id: 'b12', name: '12° Světlá' }, { id: 'b10', name: '10° Výčepní' }],
     obaly: [{ id: 'k30', label: 'KEG 30l', kind: 'keg', volume_l: 30 }, { id: 'k50', label: 'KEG 50l', kind: 'keg', volume_l: 50 }],
@@ -101,7 +101,7 @@ describe('PohybySkladu', () => {
     rizeni.selze = true;
     render(<PohybySkladu />);
     await waitFor(() => expect(screen.getByTestId('stara-data-pruh')).toBeTruthy());
-    expect(screen.getByTestId('stara-data-pruh').textContent).toMatch(/Pohyby se nepodařilo načíst: Nepodařilo se načíst: fasování/);
+    expect(screen.getByTestId('stara-data-pruh').textContent).toMatch(/Chybí data: fasování/);
     expect(screen.queryByText(/U Zajíce/)).toBeNull();
 
     rizeni.selze = false;

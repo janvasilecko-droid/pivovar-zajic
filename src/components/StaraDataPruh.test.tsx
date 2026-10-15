@@ -22,10 +22,11 @@ describe('StaraDataPruh', () => {
   });
 
   it('chyba načtení: ukáže text chyby a hlásí se jako alert', () => {
-    render(<StaraDataPruh chyba="Nepodařilo se načíst: fasování" onZnovu={() => {}} />);
+    render(<StaraDataPruh chyba="Chybí data: fasování" onZnovu={() => {}} />);
     const pruh = screen.getByTestId('stara-data-pruh');
     expect(pruh.getAttribute('role')).toBe('alert');
-    expect(pruh.textContent).toMatch(/Nepodařilo se načíst: fasování/);
+    expect(pruh.textContent).toMatch(/Nepodařilo se načíst všechna data/);
+    expect(pruh.textContent).toMatch(/Chybí data: fasování/);
   });
 
   it('když je chyba i paměť zároveň, vyhraje chyba', () => {
