@@ -23,6 +23,8 @@ import { porovnejPolozku, maCoUkazat } from './auditSkladu';
 import { stariInventury, type InventurniRadek } from './inventuraStari';
 import type { StockLine } from './stockLedger';
 import type { RozdilCteni } from './kontrolaCteniWhatsApp';
+import { nejvetsiTank, tankyProPivo } from './tankUZapisu';
+import { PODIL_SVETLE, jeJantar, pivoZdrojovehoTanku } from './jantar';
 
 export type Zavaznost = 'ok' | 'pozor' | 'chyba';
 
@@ -88,6 +90,16 @@ export type VyrobniRadek = {
   cellar_tank_id?: string | null;
 };
 
+/** Tank ve sklepě — jen to, co je potřeba k vysvětlení, proč zápis stáčení tank nemá. */
+export type TankAudit = {
+  id: string;
+  label: string;
+  current_beer_id?: string | null;
+  current_volume_l?: number | string | null;
+  kegging_active?: boolean | null;
+  status?: string | null;
+};
+
 export type VstupAuditu = {
   /** Začátek a konec kontrolovaného období (včetně), YYYY-MM-DD. */
   od: string;
@@ -113,6 +125,10 @@ export type VstupAuditu = {
   bottling?: VyrobniRadek[];
   znamaPiva?: Set<string>;
   znameObaly?: Set<string>;
+  /** Tanky, piva a obaly — pro vysvětlení „stáčení bez tanku" (pivo, obal, litry, důvod). */
+  tanky?: TankAudit[];
+  piva?: { id: string; name: string }[];
+  obaly?: { id: string; label: string; volume_l?: number | string | null }[];
 
   // Sklad — obě strany téže skladové knihy (viz auditSkladu.ts)
   inventuraLedger?: Map<string, StockLine>;
@@ -337,10 +353,68 @@ export function kontrolaTicha(v: VstupAuditu, ted: Date): Nalez {
   };
 }
 
+const vProvozu = (t: TankAudit) => t.status === 'active' || t.status === 'emptying';
+
+/** „2026-10-14" → „14. 10. 2026". */
+function cesky(iso: string): string {
+  const m = (iso || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? `${Number(m[3])}. ${Number(m[2])}. ${m[1]}` : iso;
+}
+
+const litry = (l: number) => `${Math.round(l)} l`;
+
+/**
+ * Proč zápis stáčení nemá tank — podle toho, jak jsou tanky nastavené TEĎ.
+ * Zápis jde do tanku s tím pivem, který je v provozu a má ZAHÁJENÉ STÁČENÍ
+ * (lib/tankUZapisu.ts); tank, který by zápis přečerpal, se odpojí. Jantar se
+ * stáčí z tanku 12° Světlé (lib/jantar.ts). Bez tanků vrací null.
+ */
+export function duvodBezTanku(r: VyrobniRadek, v: Pick<VstupAuditu, 'tanky' | 'piva' | 'obaly'>): string | null {
+  if (!v.tanky) return null;
+  const piva = v.piva ?? [];
+  const pivoTanku = pivoZdrojovehoTanku(r.beer_id, piva);
+  const jantar = jeJantar(r.beer_id, piva);
+  const sPivem = v.tanky.filter((t) => vProvozu(t) && t.current_beer_id === pivoTanku);
+  if (sPivem.length === 0) {
+    return jantar ? 'žádný tank 12° Světlé (z ní se Jantar stáčí) není v provozu' : 'žádný tank toto pivo nemá';
+  }
+  const zahajene = tankyProPivo(sPivem, pivoTanku);
+  const nezahajene = sPivem.filter((t) => !zahajene.includes(t));
+  const objem = Number(v.obaly?.find((o) => o.id === r.package_id)?.volume_l ?? 0);
+  const chceL = Number(r.quantity) * objem * (jantar ? PODIL_SVETLE : 1);
+  const casti: string[] = [];
+  const nej = nejvetsiTank(zahajene);
+  if (nej) {
+    const vTanku = Number(nej.current_volume_l ?? 0);
+    casti.push(chceL > 0 && chceL > vTanku + 1
+      ? `${nej.label} má jen ${litry(vTanku)}, zápis chce ${litry(chceL)}`
+      : `${nej.label} má dost piva (${litry(vTanku)}) — zápis vznikl dřív, než se na něm zahájilo stáčení`);
+  }
+  if (nezahajene.length > 0) {
+    casti.push(`${nezahajene.map((t) => t.label).join(', ')} ${nezahajene.length === 1 ? 'nemá' : 'nemají'} zahájené stáčení`);
+  }
+  return casti.join('; ');
+}
+
+/** Jeden zápis stáčení do nálezu: „14. 10. 2026 — 11° Světlá 15l × 2 ks (30 l) — Tank 8 nemá zahájené stáčení". */
+function popisKeggingBezTanku(r: VyrobniRadek, v: VstupAuditu): string {
+  const pivo = v.piva?.find((b) => b.id === r.beer_id)?.name;
+  const obal = v.obaly?.find((o) => o.id === r.package_id);
+  const objem = Number(obal?.volume_l ?? 0);
+  const co = pivo || obal ? `${pivo ?? 'neznámé pivo'}${obal ? ` ${String(obal.label).trim()}` : ''} × ${r.quantity} ks` : `${r.quantity} ks`;
+  const celkem = objem > 0 ? ` (${litry(Number(r.quantity) * objem)})` : '';
+  const duvod = duvodBezTanku(r, v);
+  return `${cesky((r.entry_date || '').slice(0, 10))} — ${co}${celkem}${duvod ? ` — ${duvod}` : ''}`;
+}
+
 /**
  * Stáčení KEG bez tanku. Takový zápis neodečte objem ze sklepa, takže tank
  * zůstane navždy nafouknutý — přesně tohle způsobilo schodek 2 000 l na
  * Spilce 1 a 5 400 l na Tanku 6.
+ *
+ * Detail říká, o jaké zápisy jde (pivo, obal, litry) a proč tank nemají —
+ * 15. 10. 2026 majitel: „jaký jsou ty stáčení bez tanku?" a v seznamu bylo
+ * jen datum a „2 ks".
  */
 export function kontrolaKeggingBezTanku(v: VstupAuditu): Nalez {
   const bezTanku = (v.kegging ?? []).filter((r) => {
@@ -357,8 +431,8 @@ export function kontrolaKeggingBezTanku(v: VstupAuditu): Nalez {
     zavaznost: 'chyba',
     pocet: bezTanku.length,
     shrnuti: `${bezTanku.length} zápisů stáčení nemá tank — objem se neodečetl ze sklepa`,
-    detaily: orizni(bezTanku.map((r) => `${r.entry_date} — ${r.quantity} ks`)),
-    rada: 'V úpravě zápisu jde tank doplnit i zpětně. Bez toho sklep ukazuje víc piva, než tam je.',
+    detaily: orizni(bezTanku.map((r) => popisKeggingBezTanku(r, v))),
+    rada: 'Ve Sklepě zahaj stáčení u správného tanku („Zahájit stáčení") a zápis pak přiřaď na záložce „Stáčení bez tanku" — tank jde doplnit i v úpravě zápisu. Bez toho sklep ukazuje víc piva, než tam je.',
   };
 }
 
