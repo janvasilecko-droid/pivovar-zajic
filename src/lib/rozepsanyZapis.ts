@@ -56,7 +56,7 @@ export function jakoText(v: unknown): string {
  * novější políčka a do stavu se nesmí dostat `undefined`. Řádků je vždy
  * aspoň `minimum`, ať formulář nemá míň prázdných řádků, než čeká.
  */
-export function radkyZKonceptu<T extends Record<string, string | boolean | undefined>>(
+export function radkyZKonceptu<T extends Record<string, string | boolean | null | undefined>>(
   radky: unknown,
   prazdny: () => T,
   minimum: number,

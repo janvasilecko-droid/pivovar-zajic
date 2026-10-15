@@ -199,12 +199,13 @@ type Puvod = {
   pivoText: string | null;
 };
 
-/** Řádek zadávání stáčení lahví: pivo, až dva sudy a až tři druhy lahví. */
+/** Řádek zadávání stáčení lahví: pivo, až dva sudy a až čtyři druhy lahví (jako sloupce tabulky). */
 export type RadekLahveZTabulky = Puvod & {
   beerId: string;
   pkgId: string;
   pkg2Id: string;
   pkg3Id: string;
+  pkg4Id: string;
   kegPkgId: string;
   kegQty: string;
   keg2PkgId: string;
@@ -212,6 +213,7 @@ export type RadekLahveZTabulky = Puvod & {
   qty: string;
   qty2: string;
   qty3: string;
+  qty4: string;
 };
 
 function puvod(r: RadekTabulky, varovani: string[]): Puvod {
@@ -219,10 +221,13 @@ function puvod(r: RadekTabulky, varovani: string[]): Puvod {
 }
 
 /**
- * Řádky tabulky → řádky zadávání lahví. Formulář unese dva sudy a tři druhy
- * lahví na pivo; čtvrtý druh lahví jde jako samostatný řádek bez sudu (a řekne
- * se to), třetí velikost sudu se nepřidá (a řekne se to). Co v katalogu obal
- * nemá, zůstane prázdné s varováním.
+ * Řádky tabulky → řádky zadávání lahví: jeden řádek tabulky = jedna dávka se
+ * všemi druhy lahví (až čtyři, jako sloupce 1,5 / 1 / 0,5 / 0,33 l) a se
+ * sudem / sudy, ze kterých se stáčelo. Čtvrtý druh lahví se dřív zapisoval
+ * jako samostatný řádek BEZ sudu (15. 10. 2026: „přiřadíš sud, množství sudů
+ * a počet lahví z nich stočený"). Formulář unese dva sudy; třetí velikost sudu
+ * se nepřidá (a řekne se to). Co v katalogu obal nemá, zůstane prázdné
+ * s varováním.
  */
 export function radkyLahveZTabulky(radky: RadekTabulky[], obaly: ObalKatalog[]): RadekLahveZTabulky[] {
   const ven: RadekLahveZTabulky[] = [];
@@ -245,30 +250,17 @@ export function radkyLahveZTabulky(radky: RadekTabulky[], obaly: ObalKatalog[]):
     }
     const k1 = sud(r.sudy[0]);
     const k2 = sud(r.sudy[1]);
-    const l = [lahev(r.lahve[0]), lahev(r.lahve[1]), lahev(r.lahve[2])];
-    const radek: RadekLahveZTabulky = {
+    const l = [lahev(r.lahve[0]), lahev(r.lahve[1]), lahev(r.lahve[2]), lahev(r.lahve[3])];
+    ven.push({
       beerId: r.pivoId ?? '',
       pkgId: l[0].id, qty: l[0].ks,
       pkg2Id: l[1].id, qty2: l[1].ks,
       pkg3Id: l[2].id, qty3: l[2].ks,
+      pkg4Id: l[3].id, qty4: l[3].ks,
       kegPkgId: k1.id, kegQty: k1.ks,
       keg2PkgId: k2.id, keg2Qty: k2.ks,
       ...puvod(r, varovani),
-    };
-    ven.push(radek);
-
-    if (r.lahve.length > 3) {
-      const ctvrta = r.lahve[3];
-      const o = lahev(ctvrta);
-      const text = `${ctvrta.ks}× ${objemText(ctvrta.objemL)}`;
-      radek.varovani.push(`Čtvrtý druh lahví (${text}) se do řádku nevešel — je v dalším řádku bez sudu.`);
-      ven.push({
-        beerId: r.pivoId ?? '',
-        pkgId: o.id, qty: o.ks, pkg2Id: '', qty2: '', pkg3Id: '', qty3: '',
-        kegPkgId: '', kegQty: '', keg2PkgId: '', keg2Qty: '',
-        ...puvod(r, [`Patří k témuž sudu jako řádek nad ním (${text}) — formulář unese jen tři druhy lahví na sud.`]),
-      });
-    }
+    });
   }
   return ven;
 }
@@ -302,13 +294,13 @@ export function radkyObalyZTabulky(
 
 /** Litry ze sudů, litry v lahvích a výtrata u řádku zadávání lahví — živě podle toho, co je v řádku teď. */
 export function bilanceRadkuLahve(
-  r: Pick<RadekLahveZTabulky, 'kegPkgId' | 'kegQty' | 'keg2PkgId' | 'keg2Qty' | 'pkgId' | 'qty' | 'pkg2Id' | 'qty2' | 'pkg3Id' | 'qty3'>,
+  r: Pick<RadekLahveZTabulky, 'kegPkgId' | 'kegQty' | 'keg2PkgId' | 'keg2Qty' | 'pkgId' | 'qty' | 'pkg2Id' | 'qty2' | 'pkg3Id' | 'qty3'> & Partial<Pick<RadekLahveZTabulky, 'pkg4Id' | 'qty4'>>,
   obaly: ObalKatalog[],
 ): { zdrojL: number; stoceneL: number; vytrataProc: number | null } {
   const objem = (id: string) => Number(obaly.find((o) => o.id === id)?.volume_l ?? 0);
   const bunka = (id: string, ks: string): Bunka[] => (id && Number(ks) > 0 && objem(id) > 0 ? [{ objemL: objem(id), ks: Number(ks) }] : []);
   return bilance(
     [...bunka(r.kegPkgId, r.kegQty), ...bunka(r.keg2PkgId, r.keg2Qty)],
-    [...bunka(r.pkgId, r.qty), ...bunka(r.pkg2Id, r.qty2), ...bunka(r.pkg3Id, r.qty3)],
+    [...bunka(r.pkgId, r.qty), ...bunka(r.pkg2Id, r.qty2), ...bunka(r.pkg3Id, r.qty3), ...bunka(r.pkg4Id ?? '', r.qty4 ?? '')],
   );
 }
