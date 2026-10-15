@@ -225,7 +225,7 @@ const ODDILY: Oddil[] = [
       },
       {
         co: 'Rozbor',
-        jak: 'Žlutá dlaždice Rozbor s červeně šrafovaným okrajem — všechny položky objednané tento týden (obj. N · stočit N, případně mínus ve skladu). Klepnutí na položku otevře Sklad → Pohyby toho piva a obalu za týden: co se stočilo, co odjelo v závozech, vrácení a inventury. Období a pivo jdou v Pohybech přepnout.',
+        jak: 'Žlutá dlaždice Rozbor s červeně šrafovaným okrajem — všechny položky objednané tento týden (obj. N · stočit N, případně mínus ve skladu). Nahoře se přepíná Týden / Měsíc (měsíc se listuje šipkami; stoč. a obj. jsou za celý měsíc, sklad je stav teď) a vybírá odběratel: u něj se ukáže jen to, co objednal v daném týdnu nebo měsíci — stočeno a sklad se u odběratele neukazují, protože se stáčí do zásoby, ne pro odběratele. Klepnutí na položku otevře Sklad → Pohyby toho piva a obalu za týden (u měsíce za celý měsíc): co se stočilo, co odjelo v závozech, vrácení a inventury. Období a pivo jdou v Pohybech přepnout.',
       },
       {
         co: 'Dva závozy za den, Sudy / Lahve v nakládce',
