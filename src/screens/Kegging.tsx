@@ -23,6 +23,8 @@ import KeggingDayPlan from '../components/KeggingDayPlan';
 import { AlertTriangle, BarChart3, Beer as BeerIcon, CalendarDays, Camera, Check, ClipboardList, Minus, Package as PackageIcon, PenLine, Pencil, Play, Plus, RefreshCw, Scissors, Scroll, Sparkles, Trash2, X } from 'lucide-react';
 import { BeerTileGrid, BeerTilePanel } from '../components/BeerTileGrid';
 import { chyba, oznam, potvrd, toastZpet, uspech, volba } from '../lib/toast';
+import { platneDatum, radkyZKonceptu, smazKoncept, useRozepsanyZapis } from '../lib/rozepsanyZapis';
+import RozepsanyZapisPruh from '../components/RozepsanyZapisPruh';
 import { navrhniPripojeniZapsaneho, otevrenePolozkyVlastnich, priradDoVlastnich, rozdelRadkyNaVlastni } from '../lib/stoceniDoVlastnich';
 import { nejvetsiTank, odpojPrecerpane, radkyBezTanku, tankRadku, tankyProPivo } from '../lib/tankUZapisu';
 import { jeJantar, pivaJantaru, pivoZdrojovehoTanku, rozdelJantar, PODIL_SVETLE } from '../lib/jantar';
@@ -59,6 +61,19 @@ const ROW_COUNT = 12;
 type RowInput = { beerId: string; pkgId: string; qty: string; tankId: string };
 const emptyItem = (): RowInput => ({ beerId: '', pkgId: '', qty: '', tankId: '' });
 const emptyRows = (): RowInput[] => Array.from({ length: ROW_COUNT }, emptyItem);
+
+// 💾 Rozepsaný zápis (lib/rozepsanyZapis.ts): řádky a datum zůstanou v zařízení,
+// dokud se neuloží do databáze nebo ručně nesmažou. Dlaždice KEG píše rovnou do
+// `entryRows`, takže stačí ukládat je.
+const KLIC_ROZEPSANE = 'rozepsane_staceni_keg';
+type KonceptKeg = { entryRows: RowInput[]; date: string; note: string };
+/** Řádek, o který by člověk přišel: pivo, obal a množství. */
+const radekMaObsah = (r: RowInput) => !!r.beerId && !!r.pkgId && Number(r.qty) > 0;
+const jeCoKeg = (d: KonceptKeg) => d.note.trim() !== '' || d.entryRows.some(radekMaObsah);
+const jePlatnyKonceptKeg = (d: unknown): d is KonceptKeg => {
+  const o = d as Partial<KonceptKeg> | null;
+  return !!o && Array.isArray(o.entryRows) && typeof (o.note ?? '') === 'string';
+};
 
 // Záložní hodnoty počtu sudů — použijí se, jen když se dané pivo v tomhle
 // obalu ještě nestáčelo dost na to, aby se daly spočítat tři nejčastější
@@ -140,6 +155,25 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   const [note, setNote] = useState('');
 
   const [entryRows, setEntryRows] = useState<RowInput[]>(emptyRows());
+  const { obnoveno: obnovenyKoncept } = useRozepsanyZapis<KonceptKeg>({
+    klic: KLIC_ROZEPSANE,
+    data: { entryRows, date, note },
+    jeCo: jeCoKeg,
+    jePlatny: jePlatnyKonceptKeg,
+    naObnovu: (d) => {
+      setEntryRows(radkyZKonceptu(d.entryRows, emptyItem, ROW_COUNT));
+      const den = platneDatum(d.date);
+      if (den) setDate(den);
+      setNote(typeof d.note === 'string' ? d.note : '');
+    },
+  });
+  /** „Vymazat vše" a „Zahodit": rozepsané řádky pryč (uložené zápisy se nemění). */
+  function vymazRozepsane() { setEntryRows(emptyRows()); setNote(''); setErr(null); }
+  async function vymazVse() {
+    if (jeCoKeg({ entryRows, date, note })
+      && !(await potvrd('Smazat všechny rozepsané řádky? Nic uloženého v databázi se nemění.', { titulek: 'Vymazat rozepsané', potvrdit: 'Vymazat' }))) return;
+    vymazRozepsane();
+  }
   // ✅ Brána „bez checklistu nezapíšeš stáčení" čte lokální zrcadlo synchronně.
   // Bez tohohle srovnání by na zařízení, kde dnes checklist nikdo neotevřel,
   // tvrdila, že chybí — i když ho kolega proklikal jinde.
@@ -1180,6 +1214,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     // takže dvojklik stihl uložit zápis dvakrát.
     setSaving(false);
     setEntryRows(emptyRows()); setNote(''); setErr(null);
+    smazKoncept(KLIC_ROZEPSANE);
     // Bez potvrzovacího „Uloženo… Vrátit zpět" — stáčí se průběžně a po
     // každém zápisu (klidně desetkrát za směnu) by to okno jen zdržovalo.
     // Zpětná vazba, že se to uložilo, je tichá: karta se orámuje (`flash`
@@ -1588,6 +1623,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
       {/* Zápis stáčení — multi-row (12 řádků pivo+obal+množství najednou) */}
       {tab === 'zapis' && mode !== 'overviews_only' && isStartChecklistCompleteForKeg(businessDateISO()) && (
         <form onSubmit={add} className={`card px-1 py-3 mb-5 transition-all duration-200 ${flash ? 'ring-4 ring-emerald-500/20' : ''}`}>
+          <RozepsanyZapisPruh obnoveno={obnovenyKoncept} onZahodit={vymazRozepsane} className="mb-3" />
 
           <div className="grid grid-cols-2 gap-3 items-end mb-4">
           <div className="flex items-center gap-2">
@@ -1958,7 +1994,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                   <AlertTriangle className="ikona-text" /> Před uložením musíte splnit checklist přípravy!
                 </span>
               )}
-              <button type="button" className="btn-ghost !rounded text-xs min-h-[44px]" onClick={() => setEntryRows(emptyRows())}><Trash2 className="ikona-text" /> Vymazat vše</button>
+              <button type="button" className="btn-ghost !rounded text-xs min-h-[44px]" onClick={() => void vymazVse()}><Trash2 className="ikona-text" /> Vymazat vše</button>
             </div>
             {err && <span className="text-xs font-bold text-rose-700">{err}</span>}
           </div>

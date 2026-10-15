@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { supabase, Beer, Package, EntryRow, useRealtime, beerBg, beerName, formatPackageLabel } from '../lib/supabase';
 import { EmptyState, Spinner } from '../components/ui';
 import { isoWeekKey } from '../components/WeeklyOrderSummaryCard';
@@ -17,7 +17,9 @@ import { zavibruj } from '../lib/haptika';
 import { klicVyberu, nactiNaposled, zapamatujVyber, serazPodleNaposled } from '../lib/naposledyPouzite';
 import { usePosledniNacteni, prvniChyba } from '../lib/nacitani';
 import { FotkyZaznamu } from '../components/FotkyZaznamu';
-import { uloz, smaz } from '../lib/uloziste';
+import { smaz } from '../lib/uloziste';
+import { platneDatum, radkyZKonceptu, useRozepsanyZapis } from '../lib/rozepsanyZapis';
+import RozepsanyZapisPruh from '../components/RozepsanyZapisPruh';
 import { businessDateISO } from '../lib/businessDate';
 import { ChipyPiva } from '../components/FiltrPivaAObalu';
 import { nactiSdilenouTabulku } from '../lib/sdilenaData';
@@ -58,6 +60,16 @@ type RowInput = { beerId: string; pkgId: string; qty: string; vycep: boolean; wh
 const emptyItem = (): RowInput => ({ beerId: '', pkgId: '', qty: '', vycep: false, who: '' });
 const emptyRows = (count: number): RowInput[] => Array.from({ length: count }, emptyItem);
 
+// 💾 Co se z rozepsaného výdeje ukládá do zařízení (klíč `rozdelany_vydej_<tabulka>`,
+// tvar zůstal stejný jako dřív, ať se koncepty z předchozí verze vrátí).
+type KonceptVydeje = { entryRows: RowInput[]; who: string; note: string; date: string };
+const jeCoVydej = (d: KonceptVydeje) =>
+  d.entryRows.some((r) => r.pkgId && Number(r.qty) > 0) || d.who.trim() !== '' || d.note.trim() !== '';
+const jePlatnyKonceptVydeje = (d: unknown): d is KonceptVydeje => {
+  const o = d as Partial<KonceptVydeje> | null;
+  return !!o && Array.isArray(o.entryRows) && typeof (o.who ?? '') === 'string' && typeof (o.note ?? '') === 'string';
+};
+
 export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovani_private', title = 'Fasování', Ikona = Store, showVycep = false }: { setPage?: (p: any, sec?: string) => void; mode?: 'entry_only' | 'overviews_only' | 'all'; table?: string; title?: string; Ikona?: LucideIcon; showVycep?: boolean } = {}) {
   const [rows, setRows] = useState<EntryRow[]>([]);
   /** Proč se nenačetlo — aby se selhání nepletlo s „nic tu není". */
@@ -86,40 +98,34 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
   const [note, setNote] = useState('');
   const [entryRows, setEntryRows] = useState<RowInput[]>(() => emptyRows(table === 'fasovani' ? FASOVANI_ROW_COUNT : ROW_COUNT));
 
-  // 💾 Rozepsaný zápis přežije zavření aplikace.
+  // 💾 Rozepsaný zápis přežije zavření aplikace i odchod z obrazovky.
   // Na telefonu se z appky vypadne kdykoli — přijde hovor, přepne se okno,
   // systém ji uspí. Dřív se tím rozdělaný výdej ztratil a člověk počítal
   // znovu. Drží se zvlášť pro každý druh výdeje, ať si personál a odpis
-  // nepřepisují rozdělanou práci navzájem.
+  // nepřepisují rozdělanou práci navzájem. Vrací se i s upozorněním a jde ho
+  // zahodit (lib/rozepsanyZapis.ts); mizí po uložení nebo „Vymazat vše".
   const klicRozdelane = `rozdelany_vydej_${table}`;
-  const obnovenoRef = useRef(false);
-
-  useEffect(() => {
-    obnovenoRef.current = false;
-    try {
-      const ulozene = localStorage.getItem(klicRozdelane);
-      if (!ulozene) return;
-      const d = JSON.parse(ulozene);
-      if (Array.isArray(d?.entryRows) && d.entryRows.some((r: RowInput) => r?.pkgId && Number(r?.qty) > 0)) {
-        setEntryRows(d.entryRows);
-        if (typeof d.who === 'string') setWho(d.who);
-        if (typeof d.note === 'string') setNote(d.note);
-        if (typeof d.date === 'string' && d.date) setDate(d.date);
-      }
-    } catch { /* rozbitý záznam radši zahodit než spadnout */ }
-    finally { obnovenoRef.current = true; }
-  }, [table]);
-
-  useEffect(() => {
-    // Ukládat až po pokusu o obnovu, jinak by prázdný výchozí stav přepsal
-    // to, co se právě chystáme načíst.
-    if (!obnovenoRef.current) return;
-    try {
-      const jeCo = entryRows.some((r) => r.pkgId && Number(r.qty) > 0) || who.trim() || note.trim();
-      if (jeCo) uloz(klicRozdelane, JSON.stringify({ entryRows, who, note, date }));
-      else smaz(klicRozdelane);
-    } catch { /* plné úložiště nesmí shodit zápis */ }
-  }, [entryRows, who, note, date, klicRozdelane]);
+  const pocetRadku = table === 'fasovani' ? FASOVANI_ROW_COUNT : ROW_COUNT;
+  const { obnoveno: obnovenyKoncept } = useRozepsanyZapis<KonceptVydeje>({
+    klic: klicRozdelane,
+    data: { entryRows, who, note, date },
+    jeCo: jeCoVydej,
+    jePlatny: jePlatnyKonceptVydeje,
+    naObnovu: (d) => {
+      setEntryRows(radkyZKonceptu(d.entryRows, emptyItem, pocetRadku));
+      setWho(typeof d.who === 'string' ? d.who : '');
+      setNote(typeof d.note === 'string' ? d.note : '');
+      const den = platneDatum(d.date);
+      if (den) setDate(den);
+    },
+  });
+  /** „Vymazat vše" a „Zahodit": rozepsané pryč (uložené zápisy se nemění). */
+  function vymazRozepsane() { setEntryRows(emptyRows(pocetRadku)); setWho(''); setNote(''); setErr(null); }
+  async function vymazVse() {
+    if (jeCoVydej({ entryRows, who, note, date })
+      && !(await potvrd('Smazat všechny rozepsané řádky? Nic uloženého v databázi se nemění.', { titulek: 'Vymazat rozepsané', potvrdit: 'Vymazat' }))) return;
+    vymazRozepsane();
+  }
   // Vrácení na sklad (odfasování) — zapisuje se záporným množstvím.
   const [vraceni, setVraceni] = useState(false);
   const [expandedProdejnaBeerId, setExpandedProdejnaBeerId] = useState<string | null>(null);
@@ -573,6 +579,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
       {/* ===== ZÁPIS ===== */}
       {tab === 'zapis' && mode !== 'overviews_only' && (
         <form onSubmit={add} className={`card px-2 py-3 mb-5 transition-all duration-200 ${flash ? 'ring-4 ring-emerald-500/20' : ''}`}>
+          <RozepsanyZapisPruh obnoveno={obnovenyKoncept} onZahodit={vymazRozepsane} className="mb-3" />
           {/* Kam výdej jde. Je to pořád tentýž formulář — podle volby se mění
               jen tabulka, do které se zapisuje, a jedno pole navíc. Sedí to
               hned nad tím polem, aby bylo vidět, co volba způsobí. */}
@@ -788,7 +795,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
               >
                 {saving ? 'Ukládám…' : vraceni ? '↩ Vrátit na sklad' : 'Uložit fasování'}
               </button>
-              <button type="button" className="btn-ghost !rounded text-xs" onClick={() => setEntryRows(emptyRows(table === 'fasovani' ? FASOVANI_ROW_COUNT : ROW_COUNT))}><Trash2 className="ikona-text" /> Vymazat vše</button>
+              <button type="button" className="btn-ghost !rounded text-xs" onClick={() => void vymazVse()}><Trash2 className="ikona-text" /> Vymazat vše</button>
             </div>
             {err && <span className="text-xs font-bold text-rose-700">{err}</span>}
           </div>

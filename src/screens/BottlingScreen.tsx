@@ -32,7 +32,7 @@ import { computeKeggingPlan, mergeWeekPlan, rozpadPoObalech, BEZ_TERMINU } from 
 import { zbytekKeKonciTydne } from '../lib/tydenniZbytek';
 import { naplanujPresun } from '../lib/presunPolozky';
 import KeggingDayPlan from '../components/KeggingDayPlan';
-import { chyba, potvrd, toastZpet, uspech, volba } from '../lib/toast';
+import { chyba, oznam, potvrd, toastZpet, uspech, volba } from '../lib/toast';
 import { zavibruj } from '../lib/haptika';
 import { podezreleMnozstvi } from '../lib/kontrolaZadani';
 import { IkonaLahev, IkonaSud } from '../components/ikony';
@@ -48,6 +48,8 @@ import { zapamatujPozici } from '../lib/drzPozici';
 import { nactiSdilenouTabulku } from '../lib/sdilenaData';
 import { davkySudyBezVelikosti } from '../lib/kontrolaPohybu';
 import { rozdelLahvePodleSudu } from '../lib/dalsiSud';
+import { platneDatum, radkyZKonceptu, smazKoncept, useRozepsanyZapis } from '../lib/rozepsanyZapis';
+import RozepsanyZapisPruh from '../components/RozepsanyZapisPruh';
 
 // Stahuje se až při otevření — viz komentář u lazy() v Orders.tsx.
 const ImportBottlingFromImage = lazy(() => import('../components/ImportBottlingFromImage').then((m) => ({ default: m.ImportBottlingFromImage })));
@@ -58,6 +60,19 @@ const ROW_COUNT = 12;
 type RowInput = { beerId: string; pkgId: string; pkg2Id: string; pkg3Id: string; kegPkgId: string; kegQty: string; keg2PkgId?: string; keg2Qty?: string; qty: string; qty2: string; qty3: string };
 const emptyItem = (): RowInput => ({ beerId: '', pkgId: '', pkg2Id: '', pkg3Id: '', kegPkgId: '', kegQty: '', keg2PkgId: '', keg2Qty: '', qty: '', qty2: '', qty3: '' });
 const emptyRows = (): RowInput[] => Array.from({ length: ROW_COUNT }, emptyItem);
+
+// 💾 Rozepsaný zápis (lib/rozepsanyZapis.ts): řádky a datum zůstanou v zařízení,
+// dokud se neuloží do databáze nebo ručně nesmažou.
+const KLIC_ROZEPSANE = 'rozepsane_staceni_lahve';
+type KonceptLahve = { entryRows: RowInput[]; date: string; note: string };
+/** Řádek, o který by člověk přišel: je v něm zadané nějaké množství. */
+const radekMaObsah = (r: RowInput) =>
+  [r.qty, r.qty2, r.qty3, r.kegQty, r.keg2Qty ?? ''].some((q) => Number(q) > 0);
+const jeCoLahve = (d: KonceptLahve) => d.note.trim() !== '' || d.entryRows.some(radekMaObsah);
+const jePlatnyKonceptLahve = (d: unknown): d is KonceptLahve => {
+  const o = d as Partial<KonceptLahve> | null;
+  return !!o && Array.isArray(o.entryRows) && typeof (o.note ?? '') === 'string';
+};
 
 // Povolené velikosti lahví v dropdownu
 const ALLOWED_BOTTLE_VOLUMES = [1.5, 1, 0.5, 0.33];
@@ -200,7 +215,21 @@ export default function BottlingScreen({
     setDruhySudOtevren(false);
     setTileBeer(b);
   };
-  const closeTile = () => setTileBeer(null);
+  // Zavření dlaždice (křížek, „Zavřít", klepnutí vedle) NEzahazuje, co je v ní
+  // zadané: rozepsaný řádek přejde do zápisu pod dlaždicemi a zůstane tam —
+  // i v telefonu — dokud se neuloží fajfkou / tlačítkem „Uložit stáčení lahví",
+  // nebo ručně nesmaže. 15. 10. 2026: „když kliknu jinam a nepotvrdím stáčení,
+  // smaže se to… ať to tam je, než se to potvrdí, nebo se to musí ručně smazat."
+  const closeTile = () => {
+    if (tileBeer) {
+      const row = buildRowFromTileDraft();
+      if (row) {
+        setEntryRows((rs) => mergeRowIntoRows(rs, tileBeer.id, row));
+        oznam(`${beerName(tileBeer)}: rozepsáno, ještě neuloženo — zůstává v zápisu dole.`);
+      }
+    }
+    setTileBeer(null);
+  };
   // Sekce „Další sud" v dlaždici je zavřená, dokud ji stáčeč neotevře.
   const [druhySudOtevren, setDruhySudOtevren] = useState(false);
   // 📅 Který den v panelu zápisu prohlížíme (přepínač nahoře) — „tyden" je
@@ -304,6 +333,35 @@ export default function BottlingScreen({
     if (ok) setTileBeer(null);
     // Když se neuložilo (checklist gate, zrušená otázka „opravdu?"…), panel
     // zůstává otevřený — řádek je ale i tak bezpečně staženo v entryRows.
+  }
+
+  // 💾 Co se ukládá do zařízení: řádky i to, co je právě rozepsané v otevřené
+  // dlaždici (jinak by o to člověk přišel, kdyby ho z appky něco vyhodilo
+  // dřív, než dlaždici zavře).
+  const radkyKUlozeni = useMemo(() => {
+    if (!tileBeer) return entryRows;
+    const row = buildRowFromTileDraft();
+    return row ? mergeRowIntoRows(entryRows, tileBeer.id, row) : entryRows;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entryRows, tileBeer, tileDraft]);
+  const { obnoveno: obnovenyKoncept } = useRozepsanyZapis<KonceptLahve>({
+    klic: KLIC_ROZEPSANE,
+    data: { entryRows: radkyKUlozeni, date, note },
+    jeCo: jeCoLahve,
+    jePlatny: jePlatnyKonceptLahve,
+    naObnovu: (d) => {
+      setEntryRows(radkyZKonceptu(d.entryRows, emptyItem, ROW_COUNT));
+      const den = platneDatum(d.date);
+      if (den) setDate(den);
+      setNote(typeof d.note === 'string' ? d.note : '');
+    },
+  });
+  /** „Vymazat vše" a „Zahodit": rozepsané řádky pryč (uložené zápisy se nemění). */
+  function vymazRozepsane() { setEntryRows(emptyRows()); setNote(''); setErr(null); }
+  async function vymazVse() {
+    if (jeCoLahve({ entryRows, date, note })
+      && !(await potvrd('Smazat všechny rozepsané řádky? Nic uloženého v databázi se nemění.', { titulek: 'Vymazat rozepsané', potvrdit: 'Vymazat' }))) return;
+    vymazRozepsane();
   }
 
   const handleVoiceResult = (text: string) => {
@@ -1106,6 +1164,7 @@ export default function BottlingScreen({
     // níž) a řádek přibude v seznamu pod formulářem; omyl se opraví přímo
     // tam (úprava množství nebo smazání řádku).
     setEntryRows(emptyRows()); setNote(''); setErr(null);
+    smazKoncept(KLIC_ROZEPSANE);
     setFlash(true); setTimeout(() => setFlash(false), 800);
     load(true);
 
@@ -1506,6 +1565,7 @@ export default function BottlingScreen({
           </div>
         ) : (
         <form onSubmit={add} className={`card px-2 py-3 mb-5 transition-all duration-200 ${flash ? 'ring-4 ring-emerald-500/20' : ''}`}>
+          <RozepsanyZapisPruh obnoveno={obnovenyKoncept} onZahodit={vymazRozepsane} className="mb-3" />
           <div className="flex items-center gap-2 mb-4">
             <label className="label !mb-0 shrink-0">Datum</label>
             <input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} />
@@ -1608,7 +1668,7 @@ export default function BottlingScreen({
                 // položku přidat do zápisu, chci jen tu fajfku, když se klikne,
                 // tak se zapíše stáčení".
                 <div className="flex items-center justify-end gap-2 pt-1">
-                  <button type="button" onClick={closeTile} className="btn-ghost !rounded text-xs font-bold min-h-[44px] px-3">Zpět</button>
+                  <button type="button" onClick={closeTile} className="btn-ghost !rounded text-xs font-bold min-h-[44px] px-3">Zavřít a nechat rozepsané</button>
                 </div>
               }
             >
@@ -1954,7 +2014,7 @@ export default function BottlingScreen({
               <button type="submit" disabled={saving} className="btn-primary !rounded !from-emerald-600 !to-emerald-700 hover:!from-emerald-500 hover:!to-emerald-600 !shadow-emerald-600/30 text-xs font-black shadow-md min-h-[44px] px-5">
                 {saving ? 'Ukládám…' : 'Uložit stáčení lahví'}
               </button>
-              <button type="button" className="btn-ghost !rounded text-xs font-bold min-h-[44px] px-3.5" onClick={() => setEntryRows(emptyRows())}><Trash2 className="ikona-text" /> Vymazat vše</button>
+              <button type="button" className="btn-ghost !rounded text-xs font-bold min-h-[44px] px-3.5" onClick={() => void vymazVse()}><Trash2 className="ikona-text" /> Vymazat vše</button>
             </div>
             {err && <span className="text-xs font-bold text-rose-700 bg-rose-50 px-3 py-1.5 rounded border border-rose-200">{err}</span>}
           </div>
