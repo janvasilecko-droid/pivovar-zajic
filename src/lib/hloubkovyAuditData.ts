@@ -32,6 +32,7 @@ export async function nactiPodkladyAuditu(rezim: RezimAuditu, dnesISO: string): 
     { data: zpravy }, { data: prijemLog },
     { data: most }, { count: neodeslane }, { data: posledniPrijem },
     { data: zpravySPolozkami }, { data: pivaSeStupnem }, { data: zkratky },
+    { data: tanky },
   ] = await Promise.all([
     nactiSkladovouKnihu(),
 
@@ -56,6 +57,9 @@ export async function nactiPodkladyAuditu(rezim: RezimAuditu, dnesISO: string): 
       .not('imported_order_id', 'is', null).gte('created_at', posunOMesice(od, -1)),
     supabase.from('beers').select('id,name,degree,short_name'),
     fetchAllRows('parser_aliases', 'alias_text,beer_id,package_id'),
+
+    // Tanky — jen pro vysvětlení, proč má stáčení KEG bez tanku „bez tanku".
+    supabase.from('cellar_tanks').select('id,label,current_beer_id,current_volume_l,kegging_active,status'),
   ]);
 
   // Počet položek na objednávku — prázdná objednávka se jinak nepozná.
@@ -104,6 +108,9 @@ export async function nactiPodkladyAuditu(rezim: RezimAuditu, dnesISO: string): 
     bottling: kniha.bottling,
     znamaPiva: new Set(kniha.piva.map((b) => b.id)),
     znameObaly: new Set(kniha.obaly.map((p) => p.id)),
+    tanky: ((tanky as any[]) ?? []),
+    piva: kniha.piva.map((b) => ({ id: b.id, name: b.name })),
+    obaly: kniha.obaly.map((o) => ({ id: o.id, label: o.label, volume_l: o.volume_l })),
 
     // Obě strany porovnání ze stejné knihy — viz auditSkladu.ts.
     inventuraLedger: expectedForMonth(kniha.pohyby, mesic, true),
