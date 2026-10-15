@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Calendar } from 'lucide-react';
 import { posunMesic, businessDateISO } from '../lib/businessDate';
 import { isoWeekKey, weekRange, shiftWeek } from './WeeklyOrderSummaryCard';
@@ -28,7 +29,7 @@ import { dnyProVyber, posunTyden } from '../lib/tydenDnu';
 export type Obdobi = 'day' | 'week' | 'month';
 
 export function PrepinacObdobi({
-  obdobi, onObdobi, den, onDen, tyden, onTyden, mesic, onMesic,
+  obdobi, onObdobi, den, onDen, tyden, onTyden, mesic, onMesic, kompaktni = false, doprava,
 }: {
   obdobi: Obdobi;
   onObdobi: (o: Obdobi) => void;
@@ -41,6 +42,15 @@ export function PrepinacObdobi({
   /** YYYY-MM */
   mesic: string;
   onMesic: (m: string) => void;
+  /**
+   * Na telefonu se dny, „Týden" a „Měsíc" vejdou na jeden řádek: bez ikon
+   * a s užšími tlačítky. Bez toho se zalomí na dva řádky a pod nimi šipky
+   * na třetí (přehled stáčení lahví, 15. 10. 2026: „takhle je to
+   * nepřehledný"). Od šířky `sm` je všechno jako dřív.
+   */
+  kompaktni?: boolean;
+  /** Něco, co má stát vpravo vedle šipek (na telefonu např. tlačítko „Filtry"), ne na vlastním řádku. */
+  doprava?: ReactNode;
 }) {
   // `weekRange` popisek už umí — formátovat ho tu podruhé by znamenalo, že
   // se týden píše na dvou místech dvěma způsoby.
@@ -61,7 +71,11 @@ export function PrepinacObdobi({
           Sobota a neděle v řadě nejsou — v pivovaru se o víkendu nestáčí
           („so, ne nemusíš"). Víkendové záznamy jsou dál vidět v přehledu za
           Týden a za Měsíc. Viz dnyProVyber v lib/tydenDnu.ts. */}
-      <div className="flex items-center gap-1 bg-white border border-neutral-200 rounded p-0.5 flex-wrap" role="group" aria-label="Den v týdnu">
+      <div
+        className={`flex items-center bg-white rounded flex-wrap ${kompaktni ? 'gap-0.5 sm:gap-1 sm:border sm:border-neutral-200 sm:p-0.5' : 'gap-1 border border-neutral-200 p-0.5'}`}
+        role="group"
+        aria-label="Den v týdnu"
+      >
         {dnyProVyber(den).map((d) => {
           const vybrany = obdobi === 'day' && d.iso === den;
           return (
@@ -75,7 +89,7 @@ export function PrepinacObdobi({
               // Víkend se neodlišuje BARVOU: šedá na světlém měla kontrast
               // 2,45 : 1 při mezi 4,5 — našel to scripts/zkontroluj-kontrast.mjs.
               // Mírnější váhu proto nese jen číslo dne.
-              className={`${vybrany ? 'btn-amber' : 'btn-ghost'} !w-10 !px-0 !flex-col !gap-0`}
+              className={`${vybrany ? 'btn-amber' : 'btn-ghost'} ${kompaktni ? '!w-9 sm:!w-10' : '!w-10'} !px-0 !flex-col !gap-0`}
             >
               <span className="text-[11px] uppercase leading-none">{d.zkratka}</span>
               <span className={`text-udaj tabular-nums leading-none ${d.vikend ? 'opacity-60' : 'opacity-80'}`}>{d.cislo}.</span>
@@ -88,9 +102,9 @@ export function PrepinacObdobi({
             type="button"
             onClick={() => onObdobi(k)}
             aria-pressed={obdobi === k}
-            className={`nav-tab !px-2.5 !py-1 ${obdobi === k ? 'nav-tab-active' : ''}`}
+            className={`nav-tab !py-1 ${kompaktni ? '!px-2 sm:!px-2.5 !gap-1' : '!px-2.5'} ${obdobi === k ? 'nav-tab-active' : ''}`}
           >
-            <Calendar size={14} /> {k === 'week' ? 'Týden' : 'Měsíc'}
+            <Calendar size={14} className={kompaktni ? 'hidden sm:block' : undefined} /> {k === 'week' ? 'Týden' : 'Měsíc'}
           </button>
         ))}
       </div>
@@ -131,6 +145,8 @@ export function PrepinacObdobi({
           }}
         >›</button>
       </div>
+
+      {doprava && <div className="ml-auto">{doprava}</div>}
     </div>
   );
 }

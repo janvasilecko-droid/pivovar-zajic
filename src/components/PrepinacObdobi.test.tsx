@@ -96,3 +96,46 @@ describe('ostatní období zůstala', () => {
     expect(container.querySelector('input[type="month"]')).toBeTruthy();
   });
 });
+
+// ── Kompaktní podoba pro telefon ──────────────────────────────────────────
+// Přehled stáčení lahví, 15. 10. 2026: „takhle je to nepřehledný" — přepínač
+// se na telefonu zalomil do čtyř řádků (dny, „Měsíc", šipky, „Filtry").
+describe('kompaktní podoba', () => {
+  it('výchozí podoba se nemění — ikony u Týdne a Měsíce zůstávají vidět všude', () => {
+    const { container } = render(<PrepinacObdobi {...zaklad} obdobi="week" />);
+    const ikony = Array.from(container.querySelectorAll('button.nav-tab svg'));
+    expect(ikony).toHaveLength(2);
+    for (const ikona of ikony) expect(ikona.getAttribute('class') ?? '').not.toContain('hidden');
+  });
+
+  it('kompaktní: na telefonu bez ikon, od šířky sm zase s nimi', () => {
+    const { container } = render(<PrepinacObdobi {...zaklad} obdobi="week" kompaktni />);
+    const ikony = Array.from(container.querySelectorAll('button.nav-tab svg'));
+    expect(ikony).toHaveLength(2);
+    for (const ikona of ikony) expect(ikona.getAttribute('class')).toContain('hidden sm:block');
+  });
+
+  it('kompaktní: dny jsou užší a pořád všechny pět tlačítek existuje', () => {
+    render(<PrepinacObdobi {...zaklad} obdobi="day" kompaktni />);
+    for (const d of ['po', 'út', 'st', 'čt', 'pá']) {
+      expect(screen.getByText(d).closest('button')?.className).toContain('!w-9');
+    }
+  });
+
+  it('doprava: slot vpravo vedle šipek (např. tlačítko Filtry)', () => {
+    render(<PrepinacObdobi {...zaklad} obdobi="week" doprava={<button type="button">Filtry</button>} />);
+    expect(screen.getByRole('button', { name: 'Filtry' })).toBeTruthy();
+  });
+
+  it('bez slotu se nevykreslí žádný prázdný obal', () => {
+    const { container } = render(<PrepinacObdobi {...zaklad} obdobi="week" />);
+    expect(container.querySelector('.ml-auto')).toBeNull();
+  });
+
+  it('funkce se nemění: klik na Měsíc přepne období i v kompaktní podobě', () => {
+    const onObdobi = vi.fn();
+    render(<PrepinacObdobi {...zaklad} obdobi="week" kompaktni onObdobi={onObdobi} />);
+    fireEvent.click(screen.getByRole('button', { name: /Měsíc/ }));
+    expect(onObdobi).toHaveBeenCalledWith('month');
+  });
+});

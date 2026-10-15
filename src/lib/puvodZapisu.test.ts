@@ -56,7 +56,8 @@ describe('seznamy stáčení ukazují původ záznamu', () => {
   // Poprvé se to řešilo 12. 9. a značka se doplnila jen do mobilních karet.
   // 18. 9. přišla ta samá otázka znovu — nad tabulkou na počítači, kde
   // značka nebyla. Tenhle test hlídá obojí najednou.
-  for (const cesta of ['src/screens/Kegging.tsx', 'src/screens/BottlingScreen.tsx']) {
+  // Lahve mají seznam od 15. 10. 2026 ve vlastní komponentě (po dnech).
+  for (const cesta of ['src/screens/Kegging.tsx', 'src/components/PrehledStaceniLahvi.tsx']) {
     it(`${cesta} kreslí původ záznamu`, () => {
       expect(readFileSync(cesta, 'utf8')).toMatch(/puvodZapisu\(r\.note\)/);
     });
