@@ -99,49 +99,61 @@ export async function ctiPresGemini(opts: {
   zbyvaMs: () => number;
   prijmi: (model: string, candidate: string) => string;
   chyby: string[];
+  /** Další nastavení generování (např. vypnuté přemýšlení pro rychlé čtení tabulky); model, který ho odmítne, se zkusí bez něj. */
+  extra?: Record<string, unknown>;
 }): Promise<string> {
   // Model s vyčerpanou kvótou (429) se už v tomhle čtení nezkouší znovu.
   const vycerpane = new Set<string>();
-  for (const pokus of opts.plan) {
+  plan: for (const pokus of opts.plan) {
     if (vycerpane.has(pokus.model)) continue;
     if (pokus.pauzaMs) {
       if (opts.zbyvaMs() < pokus.pauzaMs + 15_000) break;
       await new Promise((r) => setTimeout(r, pokus.pauzaMs));
     }
     if (opts.zbyvaMs() < 15_000) break;
-    try {
-      const resp = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${pokus.model}:generateContent?key=${encodeURIComponent(opts.klic)}`,
-        {
-          signal: AbortSignal.timeout(Math.max(5_000, Math.min(opts.timeoutMs, opts.zbyvaMs()))),
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ role: "user", parts: opts.parts }],
-            generationConfig: pokus.json
-              ? { temperature: 0.1, responseMimeType: "application/json" }
-              : { temperature: 0.1 },
-          }),
-        },
-      );
-      if (resp.ok) {
-        const data = await resp.json();
-        const candidate = data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text || "").join("") ?? "";
-        const text = opts.prijmi(pokus.model, candidate);
-        if (text) return text;
-        continue; // nepoužitelný výstup → další pokus
+    // Další nastavení generování (opts.extra) dostane jen model s JSON režimem.
+    // Když ho model odmítne (HTTP 400 — „lite" verze třeba neumí vypnout
+    // přemýšlení), zkusí se ještě jednou bez něj: kvůli zrychlení, které je
+    // jen bonus, nesmí propadnout celý pokus.
+    for (const sExtra of opts.extra && pokus.json ? [true, false] : [false]) {
+      let odmitnutoExtra = false;
+      try {
+        const resp = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${pokus.model}:generateContent?key=${encodeURIComponent(opts.klic)}`,
+          {
+            signal: AbortSignal.timeout(Math.max(5_000, Math.min(opts.timeoutMs, opts.zbyvaMs()))),
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ role: "user", parts: opts.parts }],
+              generationConfig: pokus.json
+                ? { temperature: 0.1, responseMimeType: "application/json", ...(sExtra ? opts.extra : {}) }
+                : { temperature: 0.1 },
+            }),
+          },
+        );
+        if (resp.ok) {
+          const data = await resp.json();
+          const candidate = data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text || "").join("") ?? "";
+          const text = opts.prijmi(pokus.model, candidate);
+          if (text) return text;
+          continue plan; // nepoužitelný výstup → další pokus
+        }
+        const errText = await resp.text();
+        console.warn(`Gemini ${pokus.model} error (status ${resp.status}): ${errText.slice(0, 300)}`);
+        opts.chyby.push(`gemini ${pokus.model}: HTTP ${resp.status} ${errText.slice(0, 200)}`);
+        if (resp.status === 429) vycerpane.add(pokus.model);
+        if (resp.status === 400 && sExtra) {
+          odmitnutoExtra = true;
+        } else if (resp.status === 400 || resp.status === 401 || resp.status === 403) {
+          // Špatný klíč/požadavek se opakováním nespraví; neznámý model ano (další v plánu).
+          if (pokus.model === HLAVNI) break plan;
+        }
+      } catch (err) {
+        console.warn(`Gemini ${pokus.model} exception: ${err instanceof Error ? err.name + ": " + err.message : err}`);
+        opts.chyby.push(`gemini ${pokus.model}: ${err instanceof Error ? err.name : "chyba"}`);
       }
-      const errText = await resp.text();
-      console.warn(`Gemini ${pokus.model} error (status ${resp.status}): ${errText.slice(0, 300)}`);
-      opts.chyby.push(`gemini ${pokus.model}: HTTP ${resp.status} ${errText.slice(0, 200)}`);
-      if (resp.status === 429) vycerpane.add(pokus.model);
-      // Špatný klíč/požadavek se opakováním nespraví; neznámý model ano (další v plánu).
-      if (resp.status === 400 || resp.status === 401 || resp.status === 403) {
-        if (pokus.model === HLAVNI) break;
-      }
-    } catch (err) {
-      console.warn(`Gemini ${pokus.model} exception: ${err instanceof Error ? err.name + ": " + err.message : err}`);
-      opts.chyby.push(`gemini ${pokus.model}: ${err instanceof Error ? err.name : "chyba"}`);
+      if (!odmitnutoExtra) break;
     }
   }
   return "";

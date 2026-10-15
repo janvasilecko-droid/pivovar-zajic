@@ -4,6 +4,7 @@ import { EmptyState, Spinner } from '../components/ui';
 import { isoWeekKey } from '../components/WeeklyOrderSummaryCard';
 import { VoiceRecorder } from '../components/VoiceRecorder';
 import { ProdejnaFromImage } from '../components/ProdejnaFromImage';
+import { posledniRucniZapis } from '../lib/posledniZapis';
 import { BarChart3, CalendarDays, Camera, Check, ClipboardList, Package as PackageIcon, PenLine, RotateCcw, Store, Trash2, X, type LucideIcon } from 'lucide-react';
 import { parseFreeTextEntries, loadAliasMap, emptyAliasMap, type ParserAliasMap } from '../lib/orderParser';
 import { TapReservationModal } from '../components/TapReservationModal';
@@ -510,8 +511,13 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
    * Plní se do prvních volných řádků; když jich je málo, formulář se
    * prodlouží, ať se nic nezahodí.
    */
-  function handlePhotoRows(rows: { beerId: string; pkgId: string; qty: string }[]) {
+  // 📊 Čtení tabulky z fotky začíná dnem po posledním ručním zápisu tohoto druhu výdeje.
+  const posledniZapisVydeje = useMemo(() => posledniRucniZapis(rows), [rows]);
+
+  function handlePhotoRows(rows: { beerId: string; pkgId: string; qty: string }[], datum?: string) {
     if (!rows.length) return;
+    // Čtení tabulky z Excelu ví, z jakého dne řádky jsou — zápis dostane stejné datum.
+    if (datum) setDate(datum);
     setEntryRows((rs) => {
       const next = [...rs];
       let cursor = 0;
@@ -1085,6 +1091,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
           packages={packages}
           onImport={handlePhotoRows}
           popisVydeje={druh.popis}
+          posledniZapis={posledniZapisVydeje}
         />
       )}
 

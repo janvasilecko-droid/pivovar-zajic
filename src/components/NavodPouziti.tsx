@@ -212,6 +212,10 @@ const ODDILY: Oddil[] = [
         jak: 'Při čtení z fotky (objednávky, stáčení lahví a KEG, prodejna) je na liště nad fotkou tlačítko „✂️ Oříznout" — ořízneš nebo otočíš fotku a appka ji přečte znovu (u objednávky nahradí položky z té fotky, ručně přidané zůstanou). Tlačítko „Oříznout fotku" u fotoaparátu zapne ořez ještě před prvním čtením; volba se pamatuje v telefonu.',
       },
       {
+        co: 'Tabulka z Excelu — číst od data',
+        jak: 'Ve stáčení lahví (a volitelně ve stáčení KEG a ve výdeji) je nad tlačítky fotky přepínač „Seznam / zpráva" ↔ „Tabulka z Excelu". U tabulky (Datum, Pivo, sudy 50–10 l, lahve 1,5–0,33 l) zadáš „Číst od data" — výchozí je den po posledním zápisu v appce — a appka přečte jen řádky od toho dne. Fotku ořezávat nemusíš: ořízne a zvětší se sama. Datum v tabulce platí i pro prázdná políčka pod ním, dokud se neobjeví další. Je-li od zadaného data víc dnů, vkládá se jeden den najednou (tlačítka s dny). U každého řádku je číslo řádku z excelu, litry stočené proti sudu a výtrata — když čísla nesedí, ukáže se varování. Prázdné pivo v tabulce zůstane prázdné, vybereš ho sám.',
+      },
+      {
         co: 'Rozbor',
         jak: 'Žlutá dlaždice Rozbor s červeně šrafovaným okrajem — všechny položky objednané tento týden (obj. N · stočit N, případně mínus ve skladu). Klepnutí na položku otevře Sklad → Pohyby toho piva a obalu za týden: co se stočilo, co odjelo v závozech, vrácení a inventury. Období a pivo jdou v Pohybech přepnout.',
       },

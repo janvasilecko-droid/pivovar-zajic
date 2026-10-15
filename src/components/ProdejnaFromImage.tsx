@@ -19,27 +19,40 @@ import { Modal } from './ui';
 import { PhotoReviewPane } from './PhotoReviewPane';
 import { ImageEditorOverlay } from './ImageEditor';
 import PrepinacOrezu, { useOrezFotky } from './PrepinacOrezu';
+import PanelTabulky from './PanelTabulky';
+import RadekTabulkyInfo from './RadekTabulkyInfo';
 import type { Beer, Package } from '../lib/supabase';
 import { authenticatedFunctionHeaders } from '../lib/functionAuth';
 import { typObrazku, zmensenyDataUrl } from '../lib/obrazek';
 import { radkyZFotky, type RadekZFotky } from '../lib/fotkaPolozky';
+import { useTabulkaZFotky, type RezimCteni } from '../lib/useTabulkaZFotky';
+import { radkyObalyZTabulky } from '../lib/tabulkaStaceni';
 import { AlertCircle, AlertTriangle, Beer as BeerIcon, Camera, Package as PackageIcon, Plus, RotateCcw, Sparkles, Trash2, Upload } from 'lucide-react';
 
-type VydejRadek = RadekZFotky & { _removed?: boolean };
-type PhotoEntry = { dataUrl: string; name: string };
+type VydejRadek = RadekZFotky & {
+  _removed?: boolean;
+  /** Jen řádky z tabulky z Excelu: den, číslo řádku excelu, text z buňky Pivo a co zkontrolovat. */
+  datum?: string | null; cisloRadku?: number | null; pivoText?: string | null; varovani?: string[];
+};
+type PhotoEntry = { dataUrl: string; name: string; soubor?: File };
 
 type Props = {
   isOpen: boolean;
   onClose: () => void;
   beers: Beer[];
   packages: Package[];
-  /** Přečtené a obsluhou zkontrolované řádky — pivo, obal, počet. */
-  onImport: (rows: RadekZFotky[]) => void;
+  /**
+   * Přečtené a obsluhou zkontrolované řádky — pivo, obal, počet. `datum` je den
+   * z tabulky z Excelu (jen při čtení tabulky), formulář si ho nastaví.
+   */
+  onImport: (rows: RadekZFotky[], datum?: string) => void;
   /** Druh výdeje do nadpisu (Prodejna / Personál / Odpis). */
   popisVydeje?: string;
+  /** Datum posledního zápisu tohoto druhu výdeje — čtení tabulky začne dnem po něm. */
+  posledniZapis?: string | null;
 };
 
-export function ProdejnaFromImage({ isOpen, onClose, beers, packages, onImport, popisVydeje }: Props) {
+export function ProdejnaFromImage({ isOpen, onClose, beers, packages, onImport, popisVydeje, posledniZapis }: Props) {
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
   const [err, setErr] = useState<string | null>(null);
@@ -50,6 +63,8 @@ export function ProdejnaFromImage({ isOpen, onClose, beers, packages, onImport, 
   const [editingImage, setEditingImage] = useState<string | null>(null);
   const [upraveno, setUpraveno] = useState<Record<number, boolean>>({});
   const [editBeforeOcr, setEditBeforeOcr] = useOrezFotky();
+  // 📊 Fotka je tabulka z Excelu: čtení od zvoleného data bez ořezávání (15. 10. 2026).
+  const t = useTabulkaZFotky({ klic: 'vydej', vychoziRezim: 'seznam', posledniZapis });
 
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
@@ -92,11 +107,12 @@ export function ProdejnaFromImage({ isOpen, onClose, beers, packages, onImport, 
       if (entryRows === null) setEntryRows(rowsMap[activeIndex]);
       return;
     }
-    if (editBeforeOcr && !upraveno[activeIndex] && !editingImage) {
+    // (U tabulky se neořezává — ořízne se sama podle data.)
+    if (editBeforeOcr && !t.zapnuto && !upraveno[activeIndex] && !editingImage) {
       setEditingImage(currentPhoto.dataUrl);
       return;
     }
-    void runOcrFromBase64(currentPhoto.dataUrl.split(',')[1] ?? '', typObrazku(currentPhoto.dataUrl), activeIndex);
+    void precti(activeIndex, currentPhoto);
   }, [photos, activeIndex]);
 
   // Fotka z mobilu má klidně 4–8 MB. Nezmenšená appku na telefonu sekla
@@ -108,11 +124,47 @@ export function ProdejnaFromImage({ isOpen, onClose, beers, packages, onImport, 
     setErr(null);
     try {
       const loaded: PhotoEntry[] = await Promise.all(
-        files.map(async (f) => ({ dataUrl: await zmensenyDataUrl(f), name: f.name })),
+        files.map(async (f) => ({ dataUrl: await zmensenyDataUrl(f), name: f.name, soubor: f })),
       );
       setPhotos((prev) => [...prev, ...loaded]);
     } catch (e: any) {
       setErr('Fotku se nepodařilo načíst: ' + (e?.message ?? String(e)));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /** Přečte fotku podle zvoleného režimu: tabulka z Excelu, nebo seznam / zpráva (jak to bylo dřív). */
+  const precti = async (idx: number, foto: PhotoEntry, rezim: RezimCteni = t.rezim) => {
+    if (rezim === 'tabulka') return runTabulka(idx, foto);
+    return runOcrFromBase64(foto.dataUrl.split(',')[1] ?? '', typObrazku(foto.dataUrl), idx);
+  };
+
+  /** Tabulka z Excelu: výřez od zvoleného data, každá buňka sudů a lahví = jeden řádek výdeje. */
+  const runTabulka = async (idx: number, foto: PhotoEntry) => {
+    setBusy(true);
+    setProgress(20);
+    setErr(null);
+    setEntryRows(null);
+    try {
+      setProgress(40);
+      const v = await t.cti(idx, foto, beers);
+      if (v.stav === 'chyba') throw new Error(v.zprava);
+      if (v.stav === 'nic-od-data') {
+        setRowsMap((prev) => { const { [idx]: _x, ...zbytek } = prev; return zbytek; });
+        return; // vysvětlení i tlačítko na poslední datum jsou v panelu nad fotkou
+      }
+      const prevod = radkyObalyZTabulky(v.radky, vsechnyObaly, { sudy: true, lahve: true });
+      if (prevod.radky.length === 0) {
+        throw new Error('Z tabulky se od zvoleného data nepodařilo přečíst žádné řádky.');
+      }
+      setProgress(85);
+      const rows: VydejRadek[] = prevod.radky.map((r) => ({ ...r }));
+      setEntryRows(rows);
+      setRowsMap((prev) => ({ ...prev, [idx]: rows }));
+      setProgress(100);
+    } catch (e: any) {
+      setErr('Čtení z fotky selhalo: ' + (e?.message ?? String(e)));
     } finally {
       setBusy(false);
     }
@@ -188,12 +240,34 @@ export function ProdejnaFromImage({ isOpen, onClose, beers, packages, onImport, 
 
   // Řádek bez piva nebo bez obalu se dřív potichu zahodil a okno se zavřelo —
   // vypadalo to, že se nic nestalo (stejná past jako u stáčení).
+  // 📊 Tabulka z Excelu: ve víc dnech se vkládá jeden den najednou (jedna dávka = jedno datum).
+  const viditelny = (r: VydejRadek) => !t.zapnuto || t.vybranyDen === undefined || (r.datum ?? null) === t.vybranyDen;
+
+  /** Přepnutí seznam ↔ tabulka: řádky z druhého režimu neplatí, fotka se přečte znovu. */
+  const zmenRezim = (r: RezimCteni) => {
+    t.setRezim(r);
+    t.zapomen();
+    setRowsMap({});
+    setEntryRows(null);
+    setErr(null);
+    const foto = photos[activeIndex];
+    if (foto) void precti(activeIndex, foto, r);
+  };
+
+  /** Změněné datum „číst od": fotka se přečte znovu (přepis Vision se nedělá podruhé). */
+  const prectiZnovuTabulku = () => {
+    const foto = photos[activeIndex];
+    if (!foto) return;
+    setRowsMap((prev) => { const { [activeIndex]: _x, ...zbytek } = prev; return zbytek; });
+    void precti(activeIndex, foto);
+  };
+
   const applyAll = () => {
     const updatedMap = { ...rowsMap, [activeIndex]: entryRows ?? [] };
     const allRows: RadekZFotky[] = [];
     const nedodelane: number[] = [];
     Object.values(updatedMap).forEach((rList) => {
-      rList.forEach((r, i) => {
+      rList.filter(viditelny).forEach((r, i) => {
         if (r._removed) return;
         if (!r.beerId || !r.pkgId || !r.qty) { nedodelane.push(i + 1); return; }
         allRows.push({ beerId: r.beerId, pkgId: r.pkgId, qty: r.qty });
@@ -210,7 +284,7 @@ export function ProdejnaFromImage({ isOpen, onClose, beers, packages, onImport, 
       setErr('Není co zapsat — všechny řádky jsou odstraněné.');
       return;
     }
-    onImport(allRows);
+    onImport(allRows, t.zapnuto && typeof t.vybranyDen === 'string' ? t.vybranyDen : undefined);
     onClose();
   };
 
@@ -219,14 +293,15 @@ export function ProdejnaFromImage({ isOpen, onClose, beers, packages, onImport, 
     const foto = photos[idx];
     setEditingImage(null);
     setUpraveno((prev) => ({ ...prev, [idx]: true }));
-    if (foto) void runOcrFromBase64(foto.dataUrl.split(',')[1] ?? '', typObrazku(foto.dataUrl), idx);
+    if (foto) void precti(idx, foto);
   };
   const onEditorConfirm = (editedDataUrl: string) => {
     const idx = activeIndex;
     setEditingImage(null);
     setUpraveno((prev) => ({ ...prev, [idx]: true }));
-    setPhotos((prev) => prev.map((f, i) => (i === idx ? { ...f, dataUrl: editedDataUrl } : f)));
-    void runOcrFromBase64(editedDataUrl.split(',')[1] ?? '', typObrazku(editedDataUrl), idx);
+    setPhotos((prev) => prev.map((f, i) => (i === idx ? { ...f, dataUrl: editedDataUrl, soubor: undefined } : f)));
+    t.zapomen(idx); // fotka je jiná — přepis a zmenšení ze starého souboru neplatí
+    void precti(idx, { dataUrl: editedDataUrl, name: photos[idx]?.name ?? '' });
   };
 
   if (!isOpen) return null;
@@ -241,6 +316,17 @@ export function ProdejnaFromImage({ isOpen, onClose, beers, packages, onImport, 
         maxWidth={photos.length > 0 ? 'max-w-5xl' : undefined}
       >
         <div className="space-y-4">
+          {/* 📊 Fotka je tabulka z Excelu? Číst od data, bez ořezávání. */}
+          <PanelTabulky
+            t={t}
+            info={t.info[Math.min(activeIndex, Math.max(0, photos.length - 1))]}
+            jeFotka={photos.length > 0}
+            bezi={busy}
+            onPrecist={prectiZnovuTabulku}
+            onRezim={zmenRezim}
+            nazev="sloupce sudů a lahví"
+          />
+
           <div className="flex flex-col gap-2">
             <div className="flex flex-wrap gap-3 items-center">
               <input
@@ -257,7 +343,7 @@ export function ProdejnaFromImage({ isOpen, onClose, beers, packages, onImport, 
               <button className="btn-secondary flex items-center gap-2 border-neutral-300 text-neutral-800 bg-white hover:bg-neutral-50" onClick={() => fileRef.current?.click()} disabled={busy}>
                 <Upload size={16} /> Vybrat fotku z galerie
               </button>
-              <PrepinacOrezu zapnuto={editBeforeOcr} onZmena={setEditBeforeOcr} />
+              {!t.zapnuto && <PrepinacOrezu zapnuto={editBeforeOcr} onZmena={setEditBeforeOcr} />}
             </div>
             <span className="text-udaj text-neutral-500">
               <Camera className="ikona-text" /> Obrázek můžete také vložit zkopírovaný stisknutím <strong>Ctrl+V</strong>.
@@ -301,7 +387,7 @@ export function ProdejnaFromImage({ isOpen, onClose, beers, packages, onImport, 
                     <>
                       <AlertCircle size={22} className="text-rose-600" />
                       <div className="text-sm font-bold text-neutral-700">
-                        {err ? 'Z fotky se nepodařilo nic přečíst.' : 'Fotka zatím není přečtená.'}
+                        {err ? 'Z fotky se nepodařilo nic přečíst.' : t.zapnuto && t.info[Math.min(activeIndex, Math.max(0, photos.length - 1))]?.stav === 'nic-od-data' ? 'V tabulce od zvoleného data nic není.' : 'Fotka zatím není přečtená.'}
                       </div>
                       <div className="flex flex-wrap items-center justify-center gap-2">
                         <button
@@ -310,7 +396,7 @@ export function ProdejnaFromImage({ isOpen, onClose, beers, packages, onImport, 
                           onClick={() => {
                             const foto = photos[activeIndex];
                             if (!foto) return;
-                            void runOcrFromBase64(foto.dataUrl.split(',')[1] ?? '', typObrazku(foto.dataUrl), activeIndex);
+                            void precti(activeIndex, foto);
                           }}
                         >
                           <RotateCcw className="ikona-text" /> Zkusit přečíst znovu
@@ -331,16 +417,21 @@ export function ProdejnaFromImage({ isOpen, onClose, beers, packages, onImport, 
                     <button type="button" className="btn-ghost !rounded !py-1 text-xs font-bold text-primary-700" onClick={addLine}>+ Přidat řádek</button>
                   </div>
                   <div className="space-y-2">
-                    {entryRows.map((r, i) => (
+                    {entryRows.map((r, i) => (!viditelny(r) ? null : (
                       <div key={i} className={`p-3 rounded border-2 transition-all ${r._removed ? 'bg-neutral-100/70 border-neutral-200 opacity-60' : 'bg-white border-neutral-200 hover:border-neutral-300'}`}>
                         <div className="flex items-center justify-between gap-2 mb-2 pb-1 border-b border-neutral-100">
-                          <span className="text-udaj font-black uppercase text-neutral-500">Řádek #{i + 1}</span>
+                          <span className="text-udaj font-black uppercase text-neutral-500">Řádek #{entryRows.slice(0, i).filter(viditelny).length + 1}</span>
                           {r._removed ? (
                             <button type="button" onClick={() => updateLine(i, { _removed: false })} className="text-xs font-bold text-primary-600 flex items-center gap-1"><RotateCcw size={12} /> Obnovit</button>
                           ) : (
                             <button type="button" onClick={() => updateLine(i, { _removed: true })} className="text-xs font-bold text-rose-600 hover:text-rose-800 flex items-center gap-1"><Trash2 size={12} /> Odstranit</button>
                           )}
                         </div>
+                        {!r._removed && r.cisloRadku !== undefined && (
+                          <div className="mb-2">
+                            <RadekTabulkyInfo cisloRadku={r.cisloRadku} datum={r.datum} pivoText={r.pivoText} varovani={r.varovani} />
+                          </div>
+                        )}
                         {!r._removed && (
                           <div className="space-y-3">
                             <div>
@@ -376,7 +467,7 @@ export function ProdejnaFromImage({ isOpen, onClose, beers, packages, onImport, 
                           </div>
                         )}
                       </div>
-                    ))}
+                    )))}
                   </div>
                   <div className="pt-4 flex items-center justify-end gap-2 border-t border-neutral-100">
                     <button type="button" className="btn-ghost !rounded text-xs" onClick={onClose}>Zrušit</button>

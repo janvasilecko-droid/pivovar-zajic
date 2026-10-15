@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { rozmeryPoZmenseni, typObrazku, zmensenyDataUrl } from './obrazek';
+import { oriznutyDataUrl, rozmeryPoZmenseni, rozmeryVyrezu, typObrazku, zmensenyDataUrl } from './obrazek';
 
 describe('typObrazku', () => {
   it('přečte typ z hlavičky data URL', () => {
@@ -167,5 +167,64 @@ describe('zmensenyDataUrl: vyšší rozlišení pro dlouhou účtenku', () => {
     expect(rozmery).toEqual([{ w: 1600, h: 1200 }]);
     expect(naDataUrl).toHaveBeenCalledWith('image/jpeg', 0.82);
     expect(url).toBe(dlouhy);
+  });
+});
+
+describe('rozmeryVyrezu — výřez řádků tabulky a jeho zvětšení', () => {
+  it('čtyři řádky ze snímku 699 × 859: výřez od 39 % do 48 %, zvětšený na šířku 1800 px', () => {
+    const r = rozmeryVyrezu(699, 859, { x0: 0, y0: 0.39, x1: 1, y1: 0.4812 });
+    expect(r).toMatchObject({ sx: 0, sy: 335, sw: 699 });
+    expect(r.sh).toBe(78);
+    expect(r.dw).toBe(1800);
+    expect(r.dh).toBe(Math.round(78 * (1800 / 699)));
+  });
+
+  it('zvětšuje nejvýš čtyřikrát (úzký výřez z malého snímku)', () => {
+    const r = rozmeryVyrezu(300, 600, { x0: 0, y0: 0, x1: 1, y1: 0.5 });
+    expect(r.dw).toBe(1200);
+    expect(r.dh).toBe(1200); // výška výřezu 300 px × 4
+  });
+
+  it('široký výřez se nezvětšuje (a nezmenšuje)', () => {
+    const r = rozmeryVyrezu(2400, 3000, { x0: 0, y0: 0.2, x1: 1, y1: 0.3 });
+    expect(r).toMatchObject({ sw: 2400, sh: 300, dw: 2400, dh: 300 });
+  });
+
+  it('delší strana výsledku nepřekročí strop', () => {
+    const r = rozmeryVyrezu(800, 10000, { x0: 0, y0: 0, x1: 1, y1: 1 }, 1800, 3200);
+    expect(Math.max(r.dw, r.dh)).toBeLessThanOrEqual(3200);
+    expect(r.dh).toBe(3200);
+  });
+
+  it('okno mimo obrázek se ořízne na jeho okraje, nikdy nevyjde nulová velikost', () => {
+    const r = rozmeryVyrezu(100, 100, { x0: -0.5, y0: 0.9, x1: 2, y1: 1.5 });
+    expect(r.sx).toBe(0);
+    expect(r.sy).toBe(90);
+    expect(r.sw).toBe(100);
+    expect(r.sh).toBe(10);
+    const nula = rozmeryVyrezu(100, 100, { x0: 1, y0: 1, x1: 1, y1: 1 });
+    expect(nula.sw).toBeGreaterThanOrEqual(1);
+    expect(nula.sh).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe('oriznutyDataUrl', () => {
+  afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+
+  it('vykreslí výřez zvětšený na plátno a vrátí JPEG', async () => {
+    vi.stubGlobal('Image', class { src = ''; naturalWidth = 699; naturalHeight = 859; decode = () => Promise.resolve(); });
+    const kresli = vi.fn();
+    const platno: any = { width: 0, height: 0, getContext: () => ({ drawImage: kresli }), toDataURL: vi.fn(() => 'data:image/jpeg;base64,VYREZ') };
+    vi.spyOn(document, 'createElement').mockReturnValue(platno);
+    const url = await oriznutyDataUrl('data:image/png;base64,AAAA', { x0: 0, y0: 0.39, x1: 1, y1: 0.4812 });
+    expect(url).toBe('data:image/jpeg;base64,VYREZ');
+    expect(platno.width).toBe(1800);
+    expect(kresli).toHaveBeenCalledWith(expect.anything(), 0, 335, 699, 78, 0, 0, 1800, Math.round(78 * (1800 / 699)));
+    expect(platno.toDataURL).toHaveBeenCalledWith('image/jpeg', 0.9);
+  });
+
+  it('když se obrázek nenačte (nebo není plátno), vrátí null — volající čte celý obrázek', async () => {
+    vi.stubGlobal('Image', class { src = ''; decode = () => Promise.reject(new Error('x')); });
+    expect(await oriznutyDataUrl('data:image/png;base64,AAAA', { x0: 0, y0: 0, x1: 1, y1: 1 })).toBeNull();
   });
 });
