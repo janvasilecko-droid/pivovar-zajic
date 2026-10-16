@@ -19,7 +19,8 @@
 // odběratel × den závozu — Restaurace na úterý a Restaurace na čtvrtek jsou
 // dvě objednávky, každá s vlastním dnem. Okno čtení z fotky (náhled „Uloží se
 // jako…") i obrazovka Objednávky, která je zakládá, seskupují stejnou funkcí.
-import { dayKeyFromISO } from './keggingPlan';
+import { dayKeyFromISO, nejblizsiDatumDne } from './keggingPlan';
+import { parseDeliveryDayFromText } from './orderParser';
 import { DAYS } from './shared';
 import { platnyDen } from './zapisPoDnech';
 
@@ -120,4 +121,15 @@ export function nabidkaDnuZavozu(dnes: string, zpet = 7, dopredu = 14): DenNabid
     dny.push({ datum, popisek: `${datumKratce(datum)}${poznamka}`, proslo: posun < 0 });
   }
   return dny;
+}
+
+/**
+ * Den závozu napsaný přímo v textu řádku („2x50 12 v úterý", „na čtvrtek"):
+ * nejbližší takový den od dneška, jinak `null`. Čte jen názvy dnů Po–Pá
+ * (parseDeliveryDayFromText); den napsaný zvlášť v záhlaví nad řádky se tu
+ * nepozná — ten se vybere ručně.
+ */
+export function zavozZTextuRadku(text: string | null | undefined, dnes: string): string | null {
+  const den = parseDeliveryDayFromText(text ?? '');
+  return den ? nejblizsiDatumDne(den, dnes) : null;
 }

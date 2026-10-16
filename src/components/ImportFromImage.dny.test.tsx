@@ -131,4 +131,30 @@ describe('ImportFromImage — den závozu u položky', () => {
     expect(dnyZavozu()).toHaveLength(0);
     expect(screen.queryByTestId('spolecny-den-zavozu')).toBeNull();
   });
+
+  it('den napsaný v textu řádku se předvyplní; ostatní řádky zůstanou na společném dni', async () => {
+    const onImport = await otevri([
+      { ...radek('Restaurace'), originalLine: '2x50 12sv v úterý' },
+      { ...radek('Restaurace', 'b10'), originalLine: '1x50 desítka' },
+    ]);
+    const vyber = dnyZavozu();
+    expect(vyber[0].value).toBe('2026-10-20');
+    expect(vyber[1].value).toBe('');
+    expect(screen.getByText(/Uloží se jako 2 objednávky: Restaurace, Út 20. 10. \(1 položka\) · Restaurace, bez dne závozu \(1 položka\)/)).toBeTruthy();
+    const [items] = await importuj(onImport);
+    expect(items.map((i) => i.zavoz)).toEqual(['2026-10-20', null]);
+  });
+
+  it('předvyplněný den jde přepsat zpět na společný', async () => {
+    await otevri([{ ...radek('Restaurace'), originalLine: 'v úterý 2x50' }]);
+    fireEvent.change(dnyZavozu()[0], { target: { value: '' } });
+    expect(dnyZavozu()[0].value).toBe('');
+  });
+
+  it('do existující objednávky se den z textu nepředvyplňuje', async () => {
+    const onImport = await otevri([{ ...radek('Restaurace'), originalLine: '2x50 v úterý' }], { targetLabel: 'Restaurace 12. 10.' });
+    const [items] = await importuj(onImport);
+    expect(items[0].zavoz).toBeNull();
+  });
 });
+
