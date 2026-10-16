@@ -1,7 +1,7 @@
 // Sklad → Pohyby (zadání 24. 9. 2026): vybraný týden, filtr pivo / obal /
 // druh, pod každým dnem stav večer.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { buildMovements } from '../lib/stockLedger';
 
 const rizeni = vi.hoisted(() => ({ selze: false, zPameti: false }));
@@ -156,7 +156,8 @@ describe('PohybySkladu', () => {
     fireEvent.click(screen.getAllByRole('button', { name: /30\s?l/i })[0]);
     const tabulka = await screen.findByTestId('tabulka-po-dnech');
     const radky = Array.from(tabulka.querySelectorAll('tbody tr')).map((r) => Array.from(r.querySelectorAll('td')).map((c) => c.textContent));
-    expect(radky).toEqual([['Po 21. 9.inventura = 15', '·', '−14', '1'], ['Út 22. 9.', '+6', '·', '7 (teď)']]);
+    expect(radky).toEqual([['Po 21. 9.inventura = 15U Zajíce −14', '·', '−14', '1'], ['Út 22. 9.', '+6', '·', '7 (teď)']]);
+    expect(within(tabulka).getAllByTestId('komu').map((k) => k.textContent)).toEqual(['U Zajíce −14']);
     const celkem = Array.from(tabulka.querySelectorAll('tfoot td')).map((c) => c.textContent);
     expect(celkem[0]).toBe('Celkem');
     expect(celkem).toEqual(['Celkem', '+6', '−14', '7']);

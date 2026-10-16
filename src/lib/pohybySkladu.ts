@@ -351,6 +351,11 @@ export type RadekDne = {
   stav: number | null;
   /** Poslední den s pohybem, který platí „teď". */
   ted: boolean;
+  /**
+   * Komu se ten den vydalo (odběratel u závozu, jinak druh pohybu: Fasování,
+   * Odpis…), se součtem za den. Stočené se nevypisuje — nemá komu.
+   */
+  komu: { jmeno: string; mnozstvi: number }[];
 };
 
 /** Den po dni pro jednu položku: jen dny, kdy se s ní něco stalo. */
@@ -361,10 +366,15 @@ export function tabulkaPoDnech(dny: DenPohybu[], beerId: string, packageId: stri
     if (radky.length === 0) continue;
     const bunky = prazdneBunky();
     let inventura: number | null = null;
+    const komu = new Map<string, number>();
     for (const r of radky) {
       const sloupec = sloupecPohybu(r.druh);
       if (sloupec) bunky[sloupec] += r.mnozstvi;
       else inventura = r.mnozstvi;
+      if (sloupec && sloupec !== 'stoceno') {
+        const jmeno = r.kdo || r.popis;
+        komu.set(jmeno, (komu.get(jmeno) ?? 0) + r.mnozstvi);
+      }
     }
     out.push({
       datum: d.datum,
@@ -372,6 +382,7 @@ export function tabulkaPoDnech(dny: DenPohybu[], beerId: string, packageId: stri
       inventura,
       stav: d.vecer.find((v) => v.beer_id === beerId && v.package_id === packageId)?.mnozstvi ?? null,
       ted: d.ted,
+      komu: [...komu].map(([jmeno, mnozstvi]) => ({ jmeno, mnozstvi })),
     });
   }
   return out;

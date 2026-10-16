@@ -318,6 +318,12 @@ export default function PohybySkladu() {
                         <td className="px-2 py-1.5 font-black text-neutral-900 whitespace-nowrap">
                           {denPopis(d.datum)}
                           {d.inventura !== null && <span className="ml-1 text-udaj font-bold text-sky-800">inventura = {d.inventura}</span>}
+                          {/* Komu se vydalo — odběratel u závozu (16. 10. 2026: „přidej, kdo odebíral") */}
+                          {d.komu.length > 0 && (
+                            <div className="text-udaj font-bold text-neutral-700 whitespace-normal" data-testid="komu">
+                              {d.komu.map((k) => `${k.jmeno} ${k.mnozstvi > 0 ? '+' : '−'}${Math.abs(k.mnozstvi)}`).join(' · ')}
+                            </div>
+                          )}
                         </td>
                         {sloupceDne.map((c) => <td key={c.id} className="px-2 py-1.5 text-right tabular-nums font-bold"><Bunka n={d.bunky[c.id]} /></td>)}
                         <td className={`px-2 py-1.5 text-right tabular-nums font-black ${(d.stav ?? 0) < 0 ? 'text-rose-700' : 'text-neutral-950'}`}>{d.stav ?? '—'}{d.ted ? ' (teď)' : ''}</td>
