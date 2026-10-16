@@ -68,6 +68,6 @@ describe('souhrnDne', () => {
 
   it('popis je česky, ne kód druhu', () => {
     const s = souhrnDne([p('sud_na_lahve', -6)], DNES);
-    expect(s.radky[0].popis).toBe('Sud spotřebován na lahve');
+    expect(s.radky[0].popis).toBe('Lahve');
   });
 });

@@ -185,3 +185,78 @@ describe('Řezání se sudy ze skladu', () => {
     expect(zapisy).toHaveLength(0);
   });
 });
+
+// 16. 10. 2026: „ty plus 4 z řezání je špatně, z řezání máš jen odečíst pivo z tanku" —
+// sudy z řezu už byly zapsané zvlášť.
+describe('Řezání — jen odečíst (sudy zapsané jinde)', () => {
+  const obalyO: any[] = [{ id: 'k30', label: 'KEG 30l', kind: 'keg', volume_l: 30 }, { id: 'k20', label: 'KEG 20l', kind: 'keg', volume_l: 20 }, { id: 'k10', label: 'KEG 10l', kind: 'keg', volume_l: 10 }];
+  const pivaO: any[] = [{ id: 'b11', name: '11° Světlá' }, { id: 'b12', name: '12° Světlá' }, { id: 'b10', name: '10° Desítka' }];
+  const tankyO: any[] = [
+    { id: 't7', label: 'Tank 7', status: 'active', current_beer_id: 'b12', current_beer_name: '12° Světlá', current_volume_l: 1000 },
+    { id: 't8', label: 'Tank 8', status: 'active', current_beer_id: 'b10', current_beer_name: '10° Desítka', current_volume_l: 500 },
+  ];
+  beforeEach(() => { zapisy.length = 0; rpc.mockClear(); (chyba as any).mockClear(); (potvrd as any).mockClear(); });
+
+  function vykresli() {
+    const onUlozeno = vi.fn();
+    render(<RezaniPiva beers={pivaO} kegPackages={obalyO} cellarTanks={tankyO} mesicUzamcen={() => false} skladKusu={() => 5} onUlozeno={onUlozeno} />);
+    fireEvent.change(screen.getByLabelText('Tank A'), { target: { value: 't7' } });
+    fireEvent.change(screen.getByLabelText('Pivo (co jde do sudů)'), { target: { value: 'b11' } });
+    // 4× KEG 30 = 120 l, polovina ze sudů ze skladu (30 + 20 + 10 = 60 l)
+    fireEvent.change(screen.getByLabelText('Počet KEG 30l'), { target: { value: '4' } });
+    fireEvent.change(screen.getByLabelText('Pivo ze sudů ze skladu'), { target: { value: 'b10' } });
+    fireEvent.click(screen.getByLabelText('Více KEG 30l ze skladu'));
+    fireEvent.click(screen.getByLabelText('Více KEG 20l ze skladu'));
+    fireEvent.click(screen.getByLabelText('Více KEG 10l ze skladu'));
+    fireEvent.click(screen.getByText('50/50'));
+    return onUlozeno;
+  }
+
+  it('bez zaškrtnutí se sudy do skladu přičtou jako dřív', async () => {
+    const onUlozeno = vykresli();
+    fireEvent.click(screen.getByText('Uložit řez'));
+    await waitFor(() => expect(onUlozeno).toHaveBeenCalled());
+    expect(zapisy.find((z) => z.tabulka === 'kegging')!.data).toEqual([expect.objectContaining({ beer_id: 'b11', package_id: 'k30', quantity: 4 })]);
+  });
+
+  it('zaškrtnuto: žádný řádek stáčení, jen odečet z tanku A a přefuk sudů ze skladu', async () => {
+    const onUlozeno = vykresli();
+    fireEvent.click(screen.getByLabelText(/Sudy z řezu už mám zapsané jinde/));
+    fireEvent.click(screen.getByText('Uložit řez'));
+    await waitFor(() => expect(onUlozeno).toHaveBeenCalled());
+
+    expect(zapisy.some((z) => z.tabulka === 'kegging')).toBe(false);
+    // tank A: 60 l jako přetočení „Do řezu" i snížení objemu
+    const preliti = zapisy.filter((z) => z.tabulka === 'cellar_transfers').map((z) => z.data);
+    expect(preliti).toEqual([expect.objectContaining({ from_tank_id: 't7', to_tank_id: null, volume_l: 60, note: expect.stringContaining('jen odečet') })]);
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(rpc).toHaveBeenCalledWith('adjust_tank_volume', { p_tank_id: 't7', p_delta_l: -60 });
+    // sudy ze skladu: přefuk bez cílového obalu
+    const prefuk = zapisy.find((z) => z.tabulka === 'keg_prefuk')!.data as any[];
+    expect(prefuk.map((r) => [r.from_package_id, r.from_count, r.to_package_id, r.to_count, r.beer_id])).toEqual([
+      ['k30', 1, null, 0, 'b10'], ['k20', 1, null, 0, 'b10'], ['k10', 1, null, 0, 'b10'],
+    ]);
+    // po uložení se volba vrátí a počty vynulují
+    expect((screen.getByLabelText(/Sudy z řezu už mám zapsané jinde/) as HTMLInputElement).checked).toBe(false);
+  });
+
+  it('zaškrtnuto s tankem B: z B se odečte jen to, co nepokryly sudy ze skladu', async () => {
+    const onUlozeno = vi.fn();
+    render(<RezaniPiva beers={pivaO} kegPackages={obalyO} cellarTanks={tankyO} mesicUzamcen={() => false} skladKusu={() => 5} onUlozeno={onUlozeno} />);
+    fireEvent.change(screen.getByLabelText('Tank A'), { target: { value: 't7' } });
+    fireEvent.change(screen.getByLabelText('Tank B'), { target: { value: 't8' } });
+    fireEvent.change(screen.getByLabelText('Pivo (co jde do sudů)'), { target: { value: 'b11' } });
+    fireEvent.change(screen.getByLabelText('Počet KEG 30l'), { target: { value: '4' } });
+    fireEvent.change(screen.getByLabelText('Pivo ze sudů ze skladu'), { target: { value: 'b10' } });
+    fireEvent.click(screen.getByLabelText('Více KEG 30l ze skladu'));
+    fireEvent.click(screen.getByText('50/50'));
+    fireEvent.click(screen.getByLabelText(/Sudy z řezu už mám zapsané jinde/));
+    fireEvent.click(screen.getByText('Uložit řez'));
+    await waitFor(() => expect(onUlozeno).toHaveBeenCalled());
+    expect(zapisy.some((z) => z.tabulka === 'kegging')).toBe(false);
+    expect(rpc).toHaveBeenCalledWith('adjust_tank_volume', { p_tank_id: 't7', p_delta_l: -60 });
+    expect(rpc).toHaveBeenCalledWith('adjust_tank_volume', { p_tank_id: 't8', p_delta_l: -30 });
+    expect(zapisy.filter((z) => z.tabulka === 'cellar_transfers').map((z) => [z.data.from_tank_id, z.data.volume_l])).toEqual([['t7', 60], ['t8', 30]]);
+  });
+});
+

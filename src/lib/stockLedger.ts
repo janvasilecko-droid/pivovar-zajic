@@ -51,7 +51,7 @@ export const MOVEMENT_LABELS: Record<MovementKind, string> = {
   akce: 'Akce a festivaly',
   prefuk_z: 'Přefuk — ze sudu',
   prefuk_do: 'Přefuk — do sudu',
-  sud_na_lahve: 'Sud spotřebován na lahve',
+  sud_na_lahve: 'Lahve',
   dorovnani: 'Dorovnání inventury',
 };
 
