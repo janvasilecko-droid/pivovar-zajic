@@ -26,6 +26,12 @@ export type ParsedLine = {
   bbox?: { x0: number; y0: number; x1: number; y1: number };
   place_name?: string | null;
   date?: string | null;
+  /**
+   * Vlastní den závozu řádku (RRRR-MM-DD), vybraný v kontrole čtení z fotky
+   * (16. 10. 2026: víc dnů závozu na jedné fotce). Bez něj platí společný den
+   * celé fotky.
+   */
+  zavoz?: string | null;
   photo_index?: number;
 };
 
