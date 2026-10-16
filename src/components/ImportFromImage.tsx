@@ -20,7 +20,7 @@ import {
 import { uloz } from '../lib/uloziste';
 import { businessDateISO } from '../lib/businessDate';
 import { dayKeyFromISO, nejblizsiDatumDne } from '../lib/keggingPlan';
-import { datumKratce, nabidkaDnuZavozu, objednavkyZFotky, odberatelRadku } from '../lib/fotkaObjednavky';
+import { datumKratce, nabidkaDnuZavozu, objednavkyZFotky, odberatelRadku, zavozZTextuRadku } from '../lib/fotkaObjednavky';
 import { DenZavozuTlacitka } from './DenZavozuTlacitka';
 import { nactiZvyklosti, neobvykleMnozstvi, type Zvyklosti } from '../lib/zvyklostiOdberatele';
 import { matchAgainstCatalog } from '../../supabase/functions/_shared/place-match';
@@ -514,7 +514,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
         setPlaceName(firstItemPlaceName);
       }
 
-      const newLines = parseGeminiItems(geminiItems, beers, packages, aliasMap, photoIndex, places);
+      const newLines = sDnemZPisma(parseGeminiItems(geminiItems, beers, packages, aliasMap, photoIndex, places));
       setParsed((prev) => {
         const prevLines = prev?.map((p) => p.line) ?? [];
         const combined = append ? [...prevLines, ...newLines] : newLines;
@@ -736,6 +736,16 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
     });
   }
 
+  // 📅 Řádek, který má den závozu napsaný v textu („…v úterý"), dostane ho předvyplněný
+  // (jde změnit stejně jako ručně vybraný). Do existující objednávky se den nevybírá.
+  function sDnemZPisma(radky: ParsedLine[]): ParsedLine[] {
+    if (targetLabel) return radky;
+    return radky.map((r) => {
+      const zavoz = zavozZTextuRadku(r.originalLine || r.raw, today);
+      return zavoz ? { ...r, zavoz } : r;
+    });
+  }
+
   // 📅 Vlastní den závozu řádku (null = společný den celé fotky). Mění jen den —
   // na rozdíl od updateLine se při tom neučí aliasy z textu řádku.
   function nastavZavoz(i: number, zavoz: string | null) {
@@ -777,7 +787,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
     : '';
 
   function doParse(text: string) {
-    const lines = parseOrderText(text, beers, packages, aliasMap);
+    const lines = sDnemZPisma(parseOrderText(text, beers, packages, aliasMap));
     const dedup = dedupeAgainstExisting(lines, existing);
     setParsed(dedup);
   }

@@ -2,7 +2,7 @@
 // „Restaurace" jen u prvního řádku, zbytek bez odběratele.
 // 16. 10. 2026: víc dnů závozu na jedné fotce (odběratel × den = objednávka).
 import { describe, it, expect } from 'vitest';
-import { datumKratce, nabidkaDnuZavozu, objednavkyZFotky, odberatelRadku, seskupDoObjednavek, zavozRadku } from './fotkaObjednavky';
+import { datumKratce, nabidkaDnuZavozu, objednavkyZFotky, odberatelRadku, seskupDoObjednavek, zavozRadku, zavozZTextuRadku } from './fotkaObjednavky';
 
 /** Odběratelé řádků bez vlastního dne závozu. */
 const bezDne = (odberatele: string[]) => odberatele.map((odberatel) => ({ odberatel }));
@@ -213,5 +213,26 @@ describe('nabidkaDnuZavozu', () => {
   it('jiný rozsah a neplatný dnešek', () => {
     expect(nabidkaDnuZavozu('2026-10-16', 0, 2).map((d) => d.datum)).toEqual(['2026-10-16', '2026-10-17', '2026-10-18']);
     expect(nabidkaDnuZavozu('chyba')).toEqual([]);
+  });
+});
+
+describe('zavozZTextuRadku — den napsaný v textu řádku', () => {
+  // 16. 10. 2026 je pátek
+  it('název dne dá nejbližší takový den od dneška', () => {
+    expect(zavozZTextuRadku('2x50 12sv v úterý', '2026-10-16')).toBe('2026-10-20');
+    expect(zavozZTextuRadku('na čtvrtek 1x30', '2026-10-16')).toBe('2026-10-22');
+    expect(zavozZTextuRadku('v pondělí', '2026-10-16')).toBe('2026-10-19');
+  });
+
+  it('dnešní den platí dnes (včetně)', () => {
+    expect(zavozZTextuRadku('v pátek 3x30', '2026-10-16')).toBe('2026-10-16');
+  });
+
+  it('bez názvu dne, víkend nebo prázdný text: žádný den', () => {
+    expect(zavozZTextuRadku('2x50 12sv desitka', '2026-10-16')).toBeNull();
+    expect(zavozZTextuRadku('v sobotu', '2026-10-16')).toBeNull();
+    expect(zavozZTextuRadku('', '2026-10-16')).toBeNull();
+    expect(zavozZTextuRadku(null, '2026-10-16')).toBeNull();
+    expect(zavozZTextuRadku(undefined, '2026-10-16')).toBeNull();
   });
 });

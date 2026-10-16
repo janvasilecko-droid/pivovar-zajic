@@ -229,7 +229,7 @@ const ODDILY: Oddil[] = [
       },
       {
         co: 'Víc dnů závozu z jedné fotky',
-        jak: 'V kontrole čtení objednávky z fotky je nahoře „Den závozu" pro celou fotku (Po–Pá nebo datum) a u každé položky výběr „Den závozu" — ve výchozím stavu „Společný den". Vybereš-li u položky jiný den (i víkend nebo den, který už proběhl), uloží se jako samostatná objednávka na ten den; Restaurace na úterý a na čtvrtek jsou dvě objednávky. Dole appka před uložením napíše, kolik objednávek z fotky vznikne a na které dny. Závoz, který už proběhl, se po uložení hned odečte ze skladu — appka na to upozorní. Do už uložené objednávky se den nevybírá, položky jdou do ní.',
+        jak: 'V kontrole čtení objednávky z fotky je nahoře „Den závozu" pro celou fotku (Po–Pá nebo datum) a u každé položky výběr „Den závozu" — ve výchozím stavu „Společný den". Vybereš-li u položky jiný den (i víkend nebo den, který už proběhl), uloží se jako samostatná objednávka na ten den; Restaurace na úterý a na čtvrtek jsou dvě objednávky. Dole appka před uložením napíše, kolik objednávek z fotky vznikne a na které dny. Závoz, který už proběhl, se po uložení hned odečte ze skladu — appka na to upozorní. Má-li řádek v textu napsaný den („v úterý", „na čtvrtek"), předvyplní se u něj sám (nejbližší takový den); den napsaný zvlášť v záhlaví nad řádky appka nepozná, ten vyber ručně. Do už uložené objednávky se den nevybírá, položky jdou do ní.',
       },
       {
         co: 'Oříznout fotku',
