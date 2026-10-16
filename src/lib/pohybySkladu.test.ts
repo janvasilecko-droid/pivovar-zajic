@@ -203,4 +203,29 @@ describe('tabulka rozboru — sloupce podle druhu pohybu', () => {
   it('jiná položka nebo žádný pohyb: prázdná tabulka', () => {
     expect(tabulkaPoDnech(r.dny, 'b12', 'neexistuje')).toEqual([]);
   });
+
+  it('komu se vydalo: odběratel u závozu se součtem za den, jinak druh pohybu; stočené nemá komu', () => {
+    const dny = tabulkaPoDnech(r.dny, 'b12', 'k30');
+    expect(dny[0].komu).toEqual([{ jmeno: 'U Zajíce', mnozstvi: -14 }]);
+    expect(dny[1].komu).toEqual([]);
+    expect(dny[2].komu).toEqual([{ jmeno: 'Maneo', mnozstvi: -3 }]);
+    const fas = tabulkaPoDnech(r.dny, 'b12', 'k50').find((d) => d.datum === UT)!;
+    expect(fas.komu).toEqual([{ jmeno: 'Fasování personál', mnozstvi: -1 }]);
+  });
+
+  it('stejný odběratel dvakrát ve dni se sečte; jiný zůstane zvlášť', () => {
+    const p = buildMovements({
+      zavozDeductionRows: [
+        { deduct_date: PO, beer_id: 'b12', package_id: 'k30', quantity: 2, order_id: 'o1' },
+        { deduct_date: PO, beer_id: 'b12', package_id: 'k30', quantity: 3, order_id: 'o1' },
+        { deduct_date: PO, beer_id: 'b12', package_id: 'k30', quantity: 1, order_id: 'o2' },
+      ],
+    });
+    const x = sestavPohybyObdobi(p, { od: PO, doDne: PO }, odberatel);
+    expect(tabulkaPoDnech(x.dny, 'b12', 'k30')[0].komu).toEqual([
+      { jmeno: 'U Zajíce', mnozstvi: -5 },
+      { jmeno: 'Maneo', mnozstvi: -1 },
+    ]);
+  });
 });
+
