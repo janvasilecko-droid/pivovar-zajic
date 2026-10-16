@@ -20,7 +20,7 @@ import {
 import { uloz } from '../lib/uloziste';
 import { businessDateISO } from '../lib/businessDate';
 import { dayKeyFromISO, nejblizsiDatumDne } from '../lib/keggingPlan';
-import { objednavkyZFotky, odberatelRadku } from '../lib/fotkaObjednavky';
+import { datumKratce, nabidkaDnuZavozu, objednavkyZFotky, odberatelRadku } from '../lib/fotkaObjednavky';
 import { DenZavozuTlacitka } from './DenZavozuTlacitka';
 import { nactiZvyklosti, neobvykleMnozstvi, type Zvyklosti } from '../lib/zvyklostiOdberatele';
 import { matchAgainstCatalog } from '../../supabase/functions/_shared/place-match';
@@ -31,7 +31,8 @@ type PhotoEntry = { dataUrl: string; name: string; fingerprint: string };
 export function ImportFromImage({ beers, packages, places, existing, targetLabel, initialFiles, onClose, onImport, onPlacesChanged }: {
   beers: Beer[]; packages: Package[]; places: Place[]; existing: ExistingItem[]; targetLabel: string | null;
   initialFiles?: File[];
-  onClose: () => void; onImport: (items: { beer_id: string; package_id: string; quantity: number; place_name: string | null; date?: string | null }[], meta: { placeId: string; placeName: string; date: string; note: string; den?: string | null; datumZavozu?: string | null }) => void;
+  // `zavoz` = vlastní den závozu řádku (RRRR-MM-DD); bez něj platí společný den z `meta`.
+  onClose: () => void; onImport: (items: { beer_id: string; package_id: string; quantity: number; place_name: string | null; date?: string | null; zavoz?: string | null }[], meta: { placeId: string; placeName: string; date: string; note: string; den?: string | null; datumZavozu?: string | null }) => void;
 
   onPlacesChanged?: () => void;
 }) {
@@ -637,7 +638,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
     const vybrane = parsed.filter((p, idx) => (!p.duplicate || userAllowedDups.has(idx)) && !p.line._removed && p.line.beer_id && p.line.package_id && p.line.quantity);
     const odberatele = odberatelRadku(vybrane.map((p) => p.line.place_name), placeName);
     const items = vybrane
-      .map((p, k) => ({ beer_id: p.line.beer_id!, package_id: p.line.package_id!, quantity: p.line.quantity!, place_name: odberatele[k] || null, date: p.line.date ?? null }));
+      .map((p, k) => ({ beer_id: p.line.beer_id!, package_id: p.line.package_id!, quantity: p.line.quantity!, place_name: odberatele[k] || null, date: p.line.date ?? null, zavoz: p.line.zavoz ?? null }));
 
     if (!items.length) {
       // Všechny položky jsou odstraněné/duplicitní → přeskoč na další fotku
@@ -735,6 +736,12 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
     });
   }
 
+  // 📅 Vlastní den závozu řádku (null = společný den celé fotky). Mění jen den —
+  // na rozdíl od updateLine se při tom neučí aliasy z textu řádku.
+  function nastavZavoz(i: number, zavoz: string | null) {
+    setParsed((prev) => (prev ? prev.map((x, idx) => (idx === i ? { ...x, line: { ...x.line, zavoz } } : x)) : prev));
+  }
+
   function removeLine(i: number) {
     if (!parsed) return;
     setParsed(parsed.map((x, idx) => idx === i ? { ...x, line: { ...x.line, _removed: true } } : x));
@@ -750,8 +757,18 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
   const unknownCount = parsed?.filter((p) => p.line.confidence === 'unknown' && !p.duplicate && !p.line._removed).length ?? 0;
   const pripraveneRadky = parsed?.filter((p, idx) => (!p.duplicate || userAllowedDups.has(idx)) && !p.line._removed && p.line.beer_id && p.line.package_id && p.line.quantity) ?? [];
   const readyCount = pripraveneRadky.length;
-  // Kolik objednávek uložení založí — víc než jedna se řekne před uložením.
-  const ulozeniDo = targetLabel ? [] : objednavkyZFotky(odberatelRadku(pripraveneRadky.map((p) => p.line.place_name), placeName));
+  // Kolik objednávek uložení založí (odběratel × den závozu) — víc než jedna se
+  // řekne před uložením. Seskupuje stejná funkce jako obrazovka Objednávky.
+  const odberateleRadku = odberatelRadku(pripraveneRadky.map((p) => p.line.place_name), placeName);
+  const ulozeniDo = targetLabel ? [] : objednavkyZFotky(
+    pripraveneRadky.map((p, k) => ({ odberatel: odberateleRadku[k], zavoz: p.line.zavoz })),
+    datumDneZavozu,
+  );
+  const odlisneDny = new Set(ulozeniDo.map((o) => o.zavoz)).size > 1;
+  const vicOdberatelu = new Set(ulozeniDo.map((o) => o.odberatel)).size > 1;
+  // Závoz, který už proběhl, se po uložení hned odečte ze skladu (viz DenZavozuTlacitka).
+  const zpetneObjednavky = ulozeniDo.filter((o) => o.zavoz && o.zavoz < today);
+  const nabidkaDnu = nabidkaDnuZavozu(today);
   const queueLeft = pendingFiles.length;
   const activeLineIdx = focusedLine ?? 0;
   const activeLineWrapper = parsed ? parsed[activeLineIdx] : null;
@@ -1019,6 +1036,23 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
           <div className="flex-1 overflow-y-auto scrollbar-thin px-4 py-3 space-y-3">
             {err && <div className="text-sm text-rose-700 bg-rose-500/10 rounded px-3 py-2">{err}</div>}
 
+            {/* 📅 Společný den závozu přímo v kontrole (16. 10. 2026) — okno s tlačítky
+                je pod touhle obrazovkou a „Zpět na fotky" řádky zahodí. Položky, u kterých
+                se vybere jiný den, jedou vlastním dnem. */}
+            {!targetLabel && (
+              <div className="card !bg-primary-50/50 p-3 space-y-1.5" data-testid="spolecny-den-zavozu">
+                <DenZavozuTlacitka
+                  den={denZavozu}
+                  datum={datumDneZavozu}
+                  onDen={(d) => { setDenZavozu(d); setDatumZavozuRucne(null); setDenZHistorie(false); }}
+                  onDatum={(d) => { setDatumZavozuRucne(d); setDenZavozu(d ? dayKeyFromISO(d) : null); setDenZHistorie(false); }}
+                  dnes={today}
+                  poznamka={denZHistorie ? 'obvyklý den odběratele' : null}
+                />
+                <p className="text-udaj text-neutral-600">Platí pro všechny položky, u kterých dole nevybereš jiný den závozu.</p>
+              </div>
+            )}
+
             {busy && pendingFiles.length > 0 && (
               <div className="bg-primary-900 text-primary-50 px-4 py-3 rounded flex items-center gap-3 shadow-md animate-pulse">
                 <Spinner className="!text-white shrink-0" />
@@ -1205,24 +1239,50 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
 
                 {!p.duplicate && (
                   <div className="p-3 sm:p-4 space-y-2" onClick={(e) => e.stopPropagation()}>
-                    {/* Odběratel — každá položka si nese vlastního odběratele (kvůli více objednávkám na jedné fotce) */}
-                    <div className="flex flex-col gap-0.5 min-w-0">
-                      <span className="text-udaj uppercase tracking-wider text-primary-400 font-semibold">Odběratel</span>
-                      <input
-                        type="text"
-                        list={`place-list-${i}`}
-                        className="input !py-2.5 sm:!py-1.5 text-sm sm:text-xs w-full"
-                        value={p.line.place_name ?? ''}
-                        placeholder="— (použít globálního odběratele) — nebo napiš nového"
-                        onChange={(e) => updateLine(i, { place_name: e.target.value || null })}
-                        onFocus={() => {
-                          setFocusedLine(i);
-                          if (typeof p.line.photo_index === 'number') setActivePhotoIdx(p.line.photo_index);
-                        }}
-                      />
-                      <datalist id={`place-list-${i}`}>
-                        {places.map((pl) => <option key={pl.id} value={pl.name} />)}
-                      </datalist>
+                    <div className={`grid grid-cols-1 gap-2 ${targetLabel ? '' : 'sm:grid-cols-[1fr_12rem]'}`}>
+                      {/* Odběratel — každá položka si nese vlastního odběratele (kvůli více objednávkám na jedné fotce) */}
+                      <div className="flex flex-col gap-0.5 min-w-0">
+                        <span className="text-udaj uppercase tracking-wider text-primary-400 font-semibold">Odběratel</span>
+                        <input
+                          type="text"
+                          list={`place-list-${i}`}
+                          className="input !py-2.5 sm:!py-1.5 text-sm sm:text-xs w-full"
+                          value={p.line.place_name ?? ''}
+                          placeholder="— (použít globálního odběratele) — nebo napiš nového"
+                          onChange={(e) => updateLine(i, { place_name: e.target.value || null })}
+                          onFocus={() => {
+                            setFocusedLine(i);
+                            if (typeof p.line.photo_index === 'number') setActivePhotoIdx(p.line.photo_index);
+                          }}
+                        />
+                        <datalist id={`place-list-${i}`}>
+                          {places.map((pl) => <option key={pl.id} value={pl.name} />)}
+                        </datalist>
+                      </div>
+                      {/* 📅 Den závozu — vlastní u každé položky (16. 10. 2026: víc dnů na jedné fotce).
+                          Bez výběru platí společný den celé fotky. Do existující objednávky se nevybírá:
+                          položky jdou do ní a den má objednávka sama. */}
+                      {!targetLabel && (
+                        <div className="flex flex-col gap-0.5 min-w-0">
+                          <span className="text-udaj uppercase tracking-wider text-primary-400 font-semibold">Den závozu</span>
+                          <select
+                            className={`input !py-2.5 sm:!py-1.5 text-sm sm:text-xs w-full font-bold ${p.line.zavoz ? 'ring-2 ring-amber-400' : ''}`}
+                            aria-label={`Den závozu — řádek ${i + 1}`}
+                            value={p.line.zavoz ?? ''}
+                            onChange={(e) => nastavZavoz(i, e.target.value || null)}
+                            onFocus={() => {
+                              setFocusedLine(i);
+                              if (typeof p.line.photo_index === 'number') setActivePhotoIdx(p.line.photo_index);
+                            }}
+                          >
+                            <option value="">{`Společný den — ${datumDneZavozu ? datumKratce(datumDneZavozu) : 'nevybráno'}`}</option>
+                            {nabidkaDnu.map((d) => <option key={d.datum} value={d.datum}>{d.popisek}</option>)}
+                            {p.line.zavoz && !nabidkaDnu.some((d) => d.datum === p.line.zavoz) && (
+                              <option value={p.line.zavoz}>{datumKratce(p.line.zavoz)}</option>
+                            )}
+                          </select>
+                        </div>
+                      )}
                     </div>
                     <div className="grid grid-cols-[1fr_auto] sm:grid-cols-[1.5fr_1.2fr_80px_auto] gap-3 items-end">
                       {/* Pivo */}
@@ -1312,8 +1372,15 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
             {ulozeniDo.length > 1 && (
               <div role="alert" className="text-sm text-amber-950 bg-amber-50 border-2 border-amber-400 rounded px-3 py-2 font-semibold">
                 <AlertTriangle className="ikona-text" /> Uloží se jako {ulozeniDo.length} {ulozeniDo.length < 5 ? 'objednávky' : 'objednávek'}:{' '}
-                {ulozeniDo.map((o) => `${o.odberatel || 'bez odběratele'} (${o.polozek} ${o.polozek === 1 ? 'položka' : o.polozek < 5 ? 'položky' : 'položek'})`).join(' · ')}.
-                {' '}Patří všechno jednomu odběrateli? Vyber ho nahoře — propíše se ke všem položkám.
+                {ulozeniDo.map((o) => `${o.odberatel || 'bez odběratele'}${odlisneDny ? `, ${o.zavoz ? datumKratce(o.zavoz) : 'bez dne závozu'}` : ''} (${o.polozek} ${o.polozek === 1 ? 'položka' : o.polozek < 5 ? 'položky' : 'položek'})`).join(' · ')}.
+                {vicOdberatelu && ' Patří všechno jednomu odběrateli? Vyber ho nahoře — propíše se ke všem položkám.'}
+                {odlisneDny && ' Den závozu změníš u každé položky.'}
+              </div>
+            )}
+            {zpetneObjednavky.length > 0 && (
+              <div role="alert" className="text-sm text-amber-950 bg-amber-50 border-2 border-amber-400 rounded px-3 py-2 font-semibold">
+                <AlertTriangle className="ikona-text" /> Závoz už proběhl — po uložení se hned odečte ze skladu:{' '}
+                {zpetneObjednavky.map((o) => `${o.odberatel || 'bez odběratele'}, ${datumKratce(o.zavoz!)}`).join(' · ')}.
               </div>
             )}
             <label className="flex items-center gap-2 text-sm text-primary-700 cursor-pointer select-none">

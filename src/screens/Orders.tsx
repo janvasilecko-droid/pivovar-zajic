@@ -37,6 +37,7 @@ import { najdiDuplicitniObjednavky } from '../lib/orderDuplicates';
 import { nazvyZKatalogu, zeptejSeNaDuplicitu, zeptejSeNaZdvojeneRadky } from '../lib/duplicityDialog';
 import { najdiZdvojeneRadky } from '../lib/duplicityObjednavek';
 import { datumProDenObjednavky, dayKeyFromISO, jeVMinulemTydnu } from '../lib/keggingPlan';
+import { seskupDoObjednavek } from '../lib/fotkaObjednavky';
 import { TapReservationModal } from '../components/TapReservationModal';
 import { createReminder, getLocalReminders } from '../lib/reminders';
 import { type AkceRow } from '../lib/inventoryHelper';
@@ -3037,23 +3038,21 @@ export default function Orders({
             const orderId = importTarget?.id;
             const targetDate = importTarget?.order_date ?? meta.date;
             if (!orderId) {
-              const groups = new Map<string, typeof items>();
-              // Skupiny se dělí podle odběratele BEZ ohledu na velikost písmen,
-              // diakritiku a mezery — „Restaurace" a „restaurace " jsou jedna
-              // objednávka, ne dvě (13. 10. 2026). Jméno bere první výskyt.
-              const normSkupiny = (t: string) => t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
-              const jmenoSkupiny = new Map<string, string>();
-              for (const it of items) {
-                const surove = (it.place_name && it.place_name.trim()) || meta.placeName || '';
-                const nk = normSkupiny(surove);
-                if (!jmenoSkupiny.has(nk)) jmenoSkupiny.set(nk, surove);
-                const key = jmenoSkupiny.get(nk)!;
-                (groups.get(key) ?? groups.set(key, []).get(key)!).push(it);
-              }
+              // Den závozu společný pro celou fotku; řádek z fotky může mít vlastní.
+              const spolecnyZavoz = (meta.den ? meta.datumZavozu : deliveryDate) || null;
+              // Objednávka = odběratel × den závozu (lib/fotkaObjednavky.ts). Odběratel se
+              // dělí BEZ ohledu na velikost písmen, diakritiku a mezery — „Restaurace" a
+              // „restaurace " jsou jedna objednávka, ne dvě (13. 10. 2026); jméno bere
+              // první výskyt. Restaurace na úterý a na čtvrtek jsou dvě objednávky
+              // (16. 10. 2026: víc dnů závozu na jedné fotce).
+              const groups = seskupDoObjednavek(
+                items.map((it) => ({ ...it, odberatel: (it.place_name && it.place_name.trim()) || meta.placeName || '' })),
+                spolecnyZavoz,
+              );
               // 🔁 Zdvojená objednávka (lib/duplicityObjednavek.ts) — všechny
               // skupiny se zkontrolují PŘEDEM, ať se při víc odběratelích na
               // jedné fotce nezaloží jen část a druhá část se nedoplňovala dvakrát.
-              for (const [recipient, rows] of groups) {
+              for (const { odberatel: recipient, zavoz, radky: rows } of groups) {
                 const normNazev = (t: string) => t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
                 const misto = recipient ? places.find((p) => normNazev(p.name) === normNazev(recipient)) : undefined;
                 const jmeno = misto?.name ?? (recipient || meta.placeName || null);
@@ -3061,7 +3060,7 @@ export default function Orders({
                   placeId: misto?.id ?? null,
                   placeName: jmeno,
                   orderDate: rows.find((i) => i.date)?.date || meta.date,
-                  deliveryDate: (meta.den ? meta.datumZavozu : deliveryDate) || null,
+                  deliveryDate: zavoz,
                   radky: rows.map((i) => ({ beerId: i.beer_id, pkgId: i.package_id, qty: i.quantity })),
                 });
                 if (shody?.length && (await zeptejSeNaDuplicitu(shody, nazvyZKatalogu(beers, packages))) !== 'presto') {
@@ -3069,7 +3068,7 @@ export default function Orders({
                 }
               }
               const created: string[] = [];
-              for (const [recipient, rows] of groups) {
+              for (const { odberatel: recipient, zavoz, radky: rows } of groups) {
                 const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
                 const place = recipient ? places.find((p) => norm(p.name) === norm(recipient)) : undefined;
                 let placeId = place?.id ?? null;
@@ -3092,8 +3091,9 @@ export default function Orders({
                   // a v denním plánu stáčení by ji nikdo neviděl.
                   source: 'fotka', status: 'nova',
                   // Den vybraný přímo u fotky má přednost (29. 9. 2026).
-                  delivery_day: meta.den || deliveryDay || parseDeliveryDayFromText(meta.note || '') || null,
-                  delivery_date: (meta.den ? meta.datumZavozu : deliveryDate) || null,
+                  // Řádky s vlastním dnem (jiným než společný): den v týdnu vyjde z jeho data.
+                  delivery_day: (zavoz && zavoz !== spolecnyZavoz ? dayKeyFromISO(zavoz) : null) || meta.den || deliveryDay || parseDeliveryDayFromText(meta.note || '') || null,
+                  delivery_date: zavoz,
                   is_prepared: false, is_packaged: false,
                   note: meta.note || null,
                 }).select().single();

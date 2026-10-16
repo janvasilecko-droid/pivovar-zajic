@@ -417,6 +417,84 @@ describe('čtení objednávky z fotky — nové objednávky', () => {
   });
 });
 
+// 16. 10. 2026: víc dnů závozu na jedné fotce — objednávka je odběratel × den.
+describe('čtení objednávky z fotky — víc dnů závozu', () => {
+  const radek = (place: string, zavoz?: string | null, beer = 'beer-12') => ({ beer_id: beer, package_id: 'keg-50', quantity: 1, place_name: place, date: null, zavoz });
+  const metaDen = { placeId: '', placeName: '', date: '2026-10-13', note: '', den: 'ut', datumZavozu: '2026-10-20' };
+
+  it('stejný odběratel na dva dny = dvě objednávky, každá se svým dnem v týdnu i datem', async () => {
+    h.fotka.items = [radek('Hospoda U Lípy'), radek('Hospoda U Lípy', '2026-10-22', 'beer-10'), radek('Hospoda U Lípy', '2026-10-20', 'beer-jan')];
+    h.fotka.meta = metaDen;
+    render(<Orders />);
+    expect(await importujZFotky()).toBe('hotovo');
+
+    const objednavky = zapsano('orders', 'insert').map((z) => z.data);
+    expect(objednavky).toHaveLength(2);
+    expect(objednavky[0]).toMatchObject({ place_name: 'Hospoda U Lípy', delivery_date: '2026-10-20', delivery_day: 'ut' });
+    expect(objednavky[1]).toMatchObject({ place_name: 'Hospoda U Lípy', delivery_date: '2026-10-22', delivery_day: 'ct' });
+    const polozky = zapsano('order_items', 'insert').map((z) => z.data);
+    expect(polozky[0].map((r: { beer_id: string }) => r.beer_id)).toEqual(['beer-12', 'beer-jan']);
+    expect(polozky[1].map((r: { beer_id: string }) => r.beer_id)).toEqual(['beer-10']);
+    expect(polozky[0][0].order_id).not.toBe(polozky[1][0].order_id);
+  });
+
+  it('vlastní den na víkend: den v týdnu vyjde z data', async () => {
+    h.fotka.items = [radek('Hospoda U Lípy', '2026-10-18')];
+    h.fotka.meta = metaDen;
+    render(<Orders />);
+    expect(await importujZFotky()).toBe('hotovo');
+    expect(zapsano('orders', 'insert')[0].data).toMatchObject({ delivery_date: '2026-10-18', delivery_day: 'ne' });
+  });
+
+  it('bez vlastních dnů zůstává vše jako dřív: jedna objednávka se společným dnem', async () => {
+    h.fotka.items = [radek('Hospoda U Lípy'), radek('Hospoda U Lípy', null, 'beer-10')];
+    h.fotka.meta = metaDen;
+    render(<Orders />);
+    expect(await importujZFotky()).toBe('hotovo');
+    expect(zapsano('orders', 'insert')).toHaveLength(1);
+    expect(zapsano('orders', 'insert')[0].data).toMatchObject({ delivery_date: '2026-10-20', delivery_day: 'ut' });
+  });
+
+  it('vlastní den shodný se společným nezaloží druhou objednávku', async () => {
+    h.fotka.items = [radek('Hospoda U Lípy', '2026-10-20'), radek('Hospoda U Lípy', null, 'beer-10')];
+    h.fotka.meta = metaDen;
+    render(<Orders />);
+    expect(await importujZFotky()).toBe('hotovo');
+    expect(zapsano('orders', 'insert')).toHaveLength(1);
+  });
+
+  it('duplicita se hlídá podle dne řádku: Restaurace na 11. 10. se zeptá, na jiný den ne', async () => {
+    h.fotka.items = [
+      { beer_id: 'beer-12', package_id: 'keg-50', quantity: 1, place_name: 'Restaurace', date: null, zavoz: '2026-10-11' },
+      { beer_id: 'beer-12', package_id: 'keg-50', quantity: 1, place_name: 'Hospoda U Lípy', date: null, zavoz: null },
+    ];
+    h.fotka.meta = { ...metaDen, den: 'ut', datumZavozu: '2026-10-20' };
+    render(<Orders />);
+    expect(await importujZFotky()).toBe('Import zrušen — Restaurace už má podobnou objednávku. Nic se nezaložilo.');
+    expect(zapsano('orders', 'insert')).toHaveLength(0);
+  });
+
+  it('stejná Restaurace na jiný den, než kdy už objednávku má, se neptá', async () => {
+    h.fotka.items = [{ beer_id: 'beer-12', package_id: 'keg-50', quantity: 1, place_name: 'Restaurace', date: null, zavoz: '2026-10-20' }];
+    h.fotka.meta = { ...metaDen, date: '2026-10-13' };
+    render(<Orders />);
+    expect(await importujZFotky()).toBe('hotovo');
+    expect(h.volba).not.toHaveBeenCalled();
+    expect(zapsano('orders', 'insert')).toHaveLength(1);
+  });
+
+  it('bez společného dne a s vlastním u části řádků: druhá objednávka je bez dne', async () => {
+    h.fotka.items = [radek('Hospoda U Lípy', '2026-10-22'), radek('Hospoda U Lípy', null, 'beer-10')];
+    h.fotka.meta = { placeId: '', placeName: '', date: '2026-10-13', note: '', den: null, datumZavozu: null };
+    render(<Orders />);
+    expect(await importujZFotky()).toBe('hotovo');
+    const objednavky = zapsano('orders', 'insert').map((z) => z.data);
+    expect(objednavky).toHaveLength(2);
+    expect(objednavky[0]).toMatchObject({ delivery_date: '2026-10-22', delivery_day: 'ct' });
+    expect(objednavky[1]).toMatchObject({ delivery_date: null, delivery_day: null });
+  });
+});
+
 // ---------------------------------------------------------------------------
 // Fotka do už uložené objednávky
 // ---------------------------------------------------------------------------

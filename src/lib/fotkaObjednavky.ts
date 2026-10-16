@@ -12,9 +12,19 @@
 // řádek Restaurace nebo Obchod, slouč to do jedné objednávky pod jednoho
 // odběratele"). Jméno psané jinak (velká/malá písmena, mezery) je stále tentýž odběratel. Víc různých odběratelů = víc objednávek jako dosud, jen se to
 // před uložením řekne nahlas (objednavkyZFotky).
+//
+// 📅 Víc dnů závozu na jedné fotce (16. 10. 2026: „udělej to pro všechno i
+// objednávky"). Řádek si může nést i vlastní den závozu; bez něj platí den
+// společný pro celou fotku (tlačítka Po–Pá nahoře). Objednávka je tedy dvojice
+// odběratel × den závozu — Restaurace na úterý a Restaurace na čtvrtek jsou
+// dvě objednávky, každá s vlastním dnem. Okno čtení z fotky (náhled „Uloží se
+// jako…") i obrazovka Objednávky, která je zakládá, seskupují stejnou funkcí.
+import { dayKeyFromISO } from './keggingPlan';
+import { DAYS } from './shared';
+import { platnyDen } from './zapisPoDnech';
 
 const norm = (s: string) =>
-  s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+  s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
 
 /**
  * Odběratel každého řádku při uložení ('' = bez odběratele).
@@ -47,9 +57,67 @@ export function odberatelRadku(radky: Array<string | null | undefined>, hlavni: 
   });
 }
 
-/** Objednávky, které uložení založí, v pořadí řádků: odběratel a počet položek. */
-export function objednavkyZFotky(odberatele: string[]): { odberatel: string; polozek: number }[] {
-  const pocty = new Map<string, number>();
-  for (const o of odberatele) pocty.set(o, (pocty.get(o) ?? 0) + 1);
-  return [...pocty].map(([odberatel, polozek]) => ({ odberatel, polozek }));
+/**
+ * Den závozu řádku: jeho vlastní, jinak společný pro celou fotku. Neexistující
+ * den („2026-02-31") se nebere — databáze by zápis odmítla až při ukládání.
+ */
+export function zavozRadku(vlastni: unknown, spolecny: unknown): string | null {
+  return platnyDen(vlastni) ?? platnyDen(spolecny);
+}
+
+/** Řádek z fotky: kdo si objednává a (volitelně) na který den. */
+export type RadekObjednavky = { odberatel: string; zavoz?: string | null };
+
+/** Jedna objednávka, která se založí: odběratel × den závozu a její řádky. */
+export type SkupinaObjednavky<R> = { odberatel: string; zavoz: string | null; radky: R[] };
+
+/**
+ * Řádky rozdělené do objednávek — podle odběratele (bez ohledu na velikost
+ * písmen, diakritiku a mezery; jméno bere první výskyt) a dne závozu. Pořadí
+ * objednávek i řádků v nich je pořadí na fotce.
+ */
+export function seskupDoObjednavek<R extends RadekObjednavky>(radky: R[], spolecnyZavoz?: string | null): SkupinaObjednavky<R>[] {
+  const skupiny = new Map<string, SkupinaObjednavky<R>>();
+  for (const radek of radky) {
+    const zavoz = zavozRadku(radek.zavoz, spolecnyZavoz);
+    const klic = `${norm(radek.odberatel)}\u0000${zavoz ?? ''}`;
+    const skupina = skupiny.get(klic) ?? { odberatel: radek.odberatel, zavoz, radky: [] };
+    skupina.radky.push(radek);
+    skupiny.set(klic, skupina);
+  }
+  return [...skupiny.values()];
+}
+
+/** Objednávky, které uložení založí, v pořadí řádků: odběratel, den závozu a počet položek. */
+export function objednavkyZFotky(radky: RadekObjednavky[], spolecnyZavoz?: string | null): { odberatel: string; zavoz: string | null; polozek: number }[] {
+  return seskupDoObjednavek(radky, spolecnyZavoz).map((s) => ({ odberatel: s.odberatel, zavoz: s.zavoz, polozek: s.radky.length }));
+}
+
+/** „Út 20. 10." — den v týdnu a datum; u neplatného data prázdný text. */
+export function datumKratce(iso: string): string {
+  const den = platnyDen(iso);
+  if (!den) return '';
+  const popisekDne = DAYS.find((d) => d.v === dayKeyFromISO(den))?.label ?? '';
+  return `${popisekDne} ${Number(den.slice(8, 10))}. ${Number(den.slice(5, 7))}.`;
+}
+
+export type DenNabidky = { datum: string; popisek: string; proslo: boolean };
+
+/**
+ * Dny, které nabídne výběr dne závozu u řádku: týden zpátky (víkendová
+ * objednávka zapsaná v pondělí) a dva týdny dopředu, od nejstaršího.
+ * Dnešek a dny, které už proběhly, mají to v popisku — takový závoz se po
+ * uložení hned odečte ze skladu.
+ */
+export function nabidkaDnuZavozu(dnes: string, zpet = 7, dopredu = 14): DenNabidky[] {
+  if (!platnyDen(dnes)) return [];
+  const dny: DenNabidky[] = [];
+  for (let posun = -zpet; posun <= dopredu; posun++) {
+    const d = new Date(`${dnes}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + posun);
+    const datum = d.toISOString().slice(0, 10);
+    const poznamka = posun === 0 ? ' (dnes)' : posun < 0 ? ' (už proběhl)' : '';
+    dny.push({ datum, popisek: `${datumKratce(datum)}${poznamka}`, proslo: posun < 0 });
+  }
+  return dny;
 }
