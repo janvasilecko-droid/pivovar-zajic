@@ -20,6 +20,7 @@ import StaraDataPruh from '../components/StaraDataPruh';
 import { mergeWeekPlan } from '../lib/keggingPlan';
 import { vNovemSklepu } from '../lib/sklepOd';
 import { kapacitaTanku } from '../lib/tankPlnost';
+import { cekaNaTank } from '../lib/tankUZapisu';
 
 const STATUS_LABELS: Record<CellarTank['status'], string> = {
   empty: 'Prázdný', filling: 'Plní se', active: 'Aktivní', emptying: 'Stáčí se',
@@ -522,9 +523,10 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
   // že tam něco čeká na přiřazení (components/StaceniBezTanku.tsx).
   const pocetBezTanku = useMemo(() => {
     const od = posunDen(businessDateISO(), -60);
+    // Stejné pravidlo jako seznam na záložce — limonády (Citron…) se nepočítají.
     return (kegging as unknown as RadekStaceni[])
-      .filter((r) => !r.cellar_tank_id && r.beer_id && Number(r.quantity) > 0 && r.entry_date >= od).length;
-  }, [kegging]);
+      .filter((r) => cekaNaTank(r, od, (id) => beers.find((b) => b.id === id)?.name)).length;
+  }, [kegging, beers]);
 
   const displayedTanks = useMemo(() => {
     if (activeTab === 'spilka') {

@@ -15,6 +15,8 @@
 // Pravidlo zůstává stejné, jen na jednom místě a s testem. Kdo ho chce
 // obejít, musí to teď potvrdit.
 
+import { potrebujeTank } from './limonady';
+
 export type TankKOdectu = {
   id: string;
   current_beer_id?: string | null;
@@ -58,6 +60,32 @@ export function tankRadku<T extends TankKOdectu>(
   const moznosti = tankyProPivo(tanky, beerId);
   const rucni = rucneVybrany ? moznosti.find((t) => t.id === rucneVybrany) : undefined;
   return rucni ?? nejvetsiTank(moznosti);
+}
+
+/** Stáčení tak, jak ho nese záložka „Stáčení bez tanku" (Sklep). */
+export type RadekCekajiciNaTank = {
+  entry_date: string;
+  beer_id?: string | null;
+  beer_name?: string | null;
+  quantity?: number | string | null;
+  cellar_tank_id?: string | null;
+};
+
+/**
+ * Čeká stáčení na přiřazení k tanku? Nemá tank, je u něj pivo a kusy a není
+ * starší než `od` — a není to limonáda: ta tank nemá nikdy (16. 10. 2026
+ * majitel: „limonády celkově nemají tank", lib/limonady.ts). Jedno pravidlo
+ * pro seznam na záložce i pro číslo na ní, ať se nikdy nerozejdou.
+ *
+ * Jméno piva je ze zápisu, a když chybí, z katalogu (`nazevZKatalogu`).
+ */
+export function cekaNaTank(
+  r: RadekCekajiciNaTank,
+  od: string,
+  nazevZKatalogu?: (beerId: string) => string | null | undefined,
+): boolean {
+  return !r.cellar_tank_id && !!r.beer_id && Number(r.quantity) > 0 && r.entry_date >= od
+    && potrebujeTank(r.beer_name ?? nazevZKatalogu?.(r.beer_id));
 }
 
 /** Řádky, které by se uložily bez tanku — tedy i bez odečtu ze sklepa. */

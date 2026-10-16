@@ -64,6 +64,40 @@ describe('StaceniBezTanku', () => {
     expect(screen.getByText(/Žádné stáčení bez tanku/)).toBeTruthy();
   });
 
+  // 16. 10. 2026 majitel: „limonády celkově nemají tank" — Citron tu svítil
+  // a čekal na přiřazení k tanku, který pro něj neexistuje.
+  it('limonáda (Citron) tank nemá, takže na přiřazení nečeká — ani když zápis nenese jméno piva', () => {
+    render(
+      <StaceniBezTanku
+        kegging={[
+          { id: 'l1', entry_date: '2026-10-27', beer_id: 'bcit', beer_name: 'Citron', package_id: 'k50', package_label: 'KEG 50l', quantity: 2, cellar_tank_id: null },
+          { id: 'l2', entry_date: '2026-10-27', beer_id: 'bcit', beer_name: null, package_id: 'k50', package_label: 'KEG 50l', quantity: 3, cellar_tank_id: null },
+          { id: 'k1', entry_date: '2026-10-27', beer_id: 'b12', beer_name: '12° Světlá', package_id: 'k50', package_label: 'KEG 50l', quantity: 20, cellar_tank_id: null },
+        ]}
+        tanks={tanks}
+        beers={[...beers, { id: 'bcit', name: 'Citron' }]}
+        packages={packages}
+        onZmena={() => {}}
+      />,
+    );
+    expect(screen.getByText('12° Světlá · KEG 50l × 20')).toBeTruthy();
+    expect(screen.queryByText(/Citron/)).toBeNull();
+    expect(screen.getAllByLabelText('Tank, ze kterého se stáčelo')).toHaveLength(1);
+  });
+
+  it('jen limonády bez tanku → nic nečeká', () => {
+    render(
+      <StaceniBezTanku
+        kegging={[{ id: 'l1', entry_date: '2026-10-27', beer_id: 'bcit', beer_name: 'Citron', package_id: 'k50', package_label: 'KEG 50l', quantity: 2, cellar_tank_id: null }]}
+        tanks={tanks}
+        beers={beers}
+        packages={packages}
+        onZmena={() => {}}
+      />,
+    );
+    expect(screen.getByText(/Žádné stáčení bez tanku/)).toBeTruthy();
+  });
+
   it('zářijové stáčení se nenabízí — sklep začíná znovu od 1. 10. 2026 (lib/sklepOd.ts)', () => {
     render(
       <StaceniBezTanku

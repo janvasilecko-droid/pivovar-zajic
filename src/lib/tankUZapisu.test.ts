@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { nejvetsiTank, odpojPrecerpane, radkyBezTanku, tankRadku, tankyProPivo } from './tankUZapisu';
+import { cekaNaTank, nejvetsiTank, odpojPrecerpane, radkyBezTanku, tankRadku, tankyProPivo } from './tankUZapisu';
 
 const SVETLA = 'b-svetla';
 const TMAVA = 'b-tmava';
@@ -62,6 +62,53 @@ describe('řádky, které by se uložily bez tanku', () => {
 
   it('když tanky sedí, nevrátí nic', () => {
     expect(radkyBezTanku([{ beerId: SVETLA, qty: '5', tankId: null }], tanky, (r) => r.tankId)).toEqual([]);
+  });
+});
+
+// Seznam na záložce „Stáčení bez tanku" i číslo na ní se řídí jednou funkcí.
+describe('cekaNaTank — co čeká na přiřazení k tanku', () => {
+  const OD = '2026-10-01';
+  const radek = (extra: Record<string, unknown> = {}) =>
+    ({ entry_date: '2026-10-14', beer_id: SVETLA, beer_name: '12° Světlá', quantity: 6, cellar_tank_id: null, ...extra });
+
+  it('pivo bez tanku, s kusy a z nedávné doby čeká', () => {
+    expect(cekaNaTank(radek(), OD)).toBe(true);
+  });
+
+  it('s tankem, bez piva, bez kusů nebo starší než hranice nečeká', () => {
+    expect(cekaNaTank(radek({ cellar_tank_id: 't1' }), OD)).toBe(false);
+    expect(cekaNaTank(radek({ beer_id: null }), OD)).toBe(false);
+    expect(cekaNaTank(radek({ quantity: 0 }), OD)).toBe(false);
+    expect(cekaNaTank(radek({ quantity: null }), OD)).toBe(false);
+    expect(cekaNaTank(radek({ entry_date: '2026-09-30' }), OD)).toBe(false);
+  });
+
+  it('hranice `od` platí včetně (stáčení přesně v ten den ještě čeká)', () => {
+    expect(cekaNaTank(radek({ entry_date: OD }), OD)).toBe(true);
+  });
+
+  it('limonáda (Citron) tank nemá, takže nečeká — podle jména ze zápisu', () => {
+    expect(cekaNaTank(radek({ beer_id: 'cit', beer_name: 'Citron' }), OD)).toBe(false);
+    expect(cekaNaTank(radek({ beer_id: 'grep', beer_name: 'Grep' }), OD)).toBe(false);
+  });
+
+  it('zápis bez jména piva se dohledá v katalogu: limonáda nečeká, pivo ano', () => {
+    const katalog = (id: string) => ({ cit: 'Citron', des: '10° Desítka' } as Record<string, string>)[id];
+    expect(cekaNaTank(radek({ beer_id: 'cit', beer_name: null }), OD, katalog)).toBe(false);
+    expect(cekaNaTank(radek({ beer_id: 'des', beer_name: null }), OD, katalog)).toBe(true);
+  });
+
+  it('jméno ze zápisu má přednost před katalogem', () => {
+    expect(cekaNaTank(radek({ beer_id: 'des', beer_name: 'Citron' }), OD, () => '10° Desítka')).toBe(false);
+  });
+
+  it('pivo, které nikde nenajde, se hlásí (nehádá se, že je to limonáda)', () => {
+    expect(cekaNaTank(radek({ beer_id: 'x', beer_name: null }), OD, () => undefined)).toBe(true);
+    expect(cekaNaTank(radek({ beer_id: 'x', beer_name: null }), OD)).toBe(true);
+  });
+
+  it('množství může být i text z databáze', () => {
+    expect(cekaNaTank(radek({ quantity: '3' }), OD)).toBe(true);
   });
 });
 

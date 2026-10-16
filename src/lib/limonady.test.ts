@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { jeLimonada } from './limonady';
+import { jeLimonada, potrebujeTank } from './limonady';
 
 describe('jeLimonada — rozliší limonádu od piva podle jména', () => {
   it('pozná všechny čtyři žádané příchutě, i s diakritikou', () => {
@@ -24,5 +24,23 @@ describe('jeLimonada — rozliší limonádu od piva podle jména', () => {
     expect(jeLimonada(null)).toBe(false);
     expect(jeLimonada(undefined)).toBe(false);
     expect(jeLimonada('')).toBe(false);
+  });
+});
+
+// 16. 10. 2026 majitel: „limonády celkově nemají tank" — Citron se hlásil jako
+// „Stáčení KEG bez tanku".
+describe('potrebujeTank — limonáda tank nemá, pivo ano', () => {
+  it('limonády (Citron, Grep, Kiwi, Višeň) tank nepotřebují', () => {
+    for (const n of ['Citron', 'Grep', 'Kiwi', 'Višeň', 'limonáda citron']) expect(potrebujeTank(n)).toBe(false);
+  });
+
+  it('pivo tank potřebuje, včetně Jantaru a Osmy', () => {
+    for (const n of ['10° Desítka', '11° Světlá', '12° Tmavá', 'Jantar', 'Osma', 'winter']) expect(potrebujeTank(n)).toBe(true);
+  });
+
+  it('neznámé jméno se bere jako pivo — radši nahlásit než přehlédnout', () => {
+    expect(potrebujeTank(null)).toBe(true);
+    expect(potrebujeTank(undefined)).toBe(true);
+    expect(potrebujeTank('')).toBe(true);
   });
 });

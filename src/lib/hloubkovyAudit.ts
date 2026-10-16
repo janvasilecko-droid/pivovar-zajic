@@ -24,6 +24,7 @@ import { stariInventury, type InventurniRadek } from './inventuraStari';
 import type { StockLine } from './stockLedger';
 import type { RozdilCteni } from './kontrolaCteniWhatsApp';
 import { nejvetsiTank, tankyProPivo } from './tankUZapisu';
+import { potrebujeTank } from './limonady';
 import { PODIL_SVETLE, jeJantar, pivoZdrojovehoTanku } from './jantar';
 
 export type Zavaznost = 'ok' | 'pozor' | 'chyba';
@@ -419,7 +420,9 @@ function popisKeggingBezTanku(r: VyrobniRadek, v: VstupAuditu): string {
 export function kontrolaKeggingBezTanku(v: VstupAuditu): Nalez {
   const bezTanku = (v.kegging ?? []).filter((r) => {
     const den = (r.entry_date || '').slice(0, 10);
-    return den >= v.od && den <= v.do && !r.cellar_tank_id;
+    // Limonády (Citron, Grep…) tank nemají (16. 10. 2026) — nehlásí se.
+    return den >= v.od && den <= v.do && !r.cellar_tank_id
+      && potrebujeTank(v.piva?.find((b) => b.id === r.beer_id)?.name);
   });
   if (bezTanku.length === 0) {
     return vPoradku('keg-bez-tanku', 'Výroba', 'Stáčení KEG bez tanku', 'Každý zápis stáčení má přiřazený tank');
