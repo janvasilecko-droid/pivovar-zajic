@@ -224,6 +224,10 @@ const ODDILY: Oddil[] = [
         jak: 'Dlaždice Malé sudy (a záložka v Objednávkách) — naklikáš, kolik máš KEG 20, 15 a 10 l. Při zadání i úpravě objednávky pak u malého sudu uvidíš „můžeš dát max N“; co je navíc a nemá sud, svítí červeně. Dlaždice na ploše ukazuje, kolik sudů je ještě volných.',
       },
       {
+        co: 'Přefuk „do řezu"',
+        jak: 'Šlo-li pivo do řezu z hotových sudů na skladě místo z tanku a nezapsalo se to při stáčení, doplníš to dodatečně: Stáčení KEG → Přefuk KEG, vyber pivo a sud „ZE", u „DO sudů" zaškrtni „Do řezu (nic se nepřičte)" a ulož. Sudy se jen odečtou ze skladu; každá velikost sudu je samostatný zápis. V historii přefuků je u nich „do řezu" a jdou smazat.',
+      },
+      {
         co: 'Víc dnů závozu z jedné fotky',
         jak: 'V kontrole čtení objednávky z fotky je nahoře „Den závozu" pro celou fotku (Po–Pá nebo datum) a u každé položky výběr „Den závozu" — ve výchozím stavu „Společný den". Vybereš-li u položky jiný den (i víkend nebo den, který už proběhl), uloží se jako samostatná objednávka na ten den; Restaurace na úterý a na čtvrtek jsou dvě objednávky. Dole appka před uložením napíše, kolik objednávek z fotky vznikne a na které dny. Závoz, který už proběhl, se po uložení hned odečte ze skladu — appka na to upozorní. Do už uložené objednávky se den nevybírá, položky jdou do ní.',
       },
