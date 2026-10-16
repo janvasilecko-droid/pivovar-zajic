@@ -320,7 +320,7 @@ export default function PohybySkladu() {
                           {d.inventura !== null && <span className="ml-1 text-udaj font-bold text-sky-800">inventura = {d.inventura}</span>}
                           {/* Komu se vydalo — odběratel u závozu (16. 10. 2026: „přidej, kdo odebíral") */}
                           {d.komu.length > 0 && (
-                            <div className="text-udaj font-bold text-neutral-700 whitespace-normal" data-testid="komu">
+                            <div className="text-udaj font-black text-violet-800 whitespace-normal" data-testid="komu">
                               {d.komu.map((k) => `${k.jmeno} ${k.mnozstvi > 0 ? '+' : '−'}${Math.abs(k.mnozstvi)}`).join(' · ')}
                             </div>
                           )}
