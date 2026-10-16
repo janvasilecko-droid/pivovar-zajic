@@ -7,6 +7,7 @@ import PanelTabulky from './PanelTabulky';
 import RadekTabulkyInfo from './RadekTabulkyInfo';
 import { useTabulkaZFotky, type RezimCteni } from '../lib/useTabulkaZFotky';
 import { radkyObalyZTabulky } from '../lib/tabulkaStaceni';
+import { dnyRadku, souhrnDnu } from '../lib/zapisPoDnech';
 import type { Beer, Package } from '../lib/supabase';
 import { authenticatedFunctionHeaders } from '../lib/functionAuth';
 import { typObrazku, zmensenyDataUrl } from '../lib/obrazek';
@@ -18,11 +19,17 @@ type KegRow = {
   beerId: string; pkgId: string; qty: string; _removed?: boolean; _manual?: boolean;
   /** Jen řádky z tabulky z Excelu: den, číslo řádku excelu, text z buňky Pivo a co zkontrolovat. */
   datum?: string | null; cisloRadku?: number | null; pivoText?: string | null; varovani?: string[];
+  /** Den, jak stál v tabulce — podle něj se řádky filtrují při výběru dne; `datum` se smí přepsat. */
+  denZTabulky?: string | null;
 };
 type PhotoEntry = { dataUrl: string; name: string; soubor?: File };
 
-/** Řádek ve tvaru, který čeká formulář — bez údajů, které patří jen k tomuhle oknu. */
-const naFormular = ({ datum: _d, cisloRadku: _c, pivoText: _p, varovani: _v, ...zbytek }: KegRow): KegRow => zbytek;
+/**
+ * Řádek ve tvaru, který čeká formulář — bez údajů, které patří jen k tomuhle oknu.
+ * Den řádku (`datum`) zůstává: z víc dnů tabulky se řádky zapíšou každý na svůj den
+ * (screens/Kegging.tsx, lib/zapisPoDnech.ts).
+ */
+const naFormular = ({ cisloRadku: _c, pivoText: _p, varovani: _v, denZTabulky: _z, ...zbytek }: KegRow): KegRow => zbytek;
 
 type Props = {
   isOpen: boolean;
@@ -64,7 +71,9 @@ export function ImportKeggingFromImage({ isOpen, onClose, beers, packages, onImp
   const [upraveno, setUpraveno] = useState<Record<number, boolean>>({});
   const [editBeforeOcr, setEditBeforeOcr] = useOrezFotky();
   // 📊 Fotka je tabulka z Excelu: čtení od zvoleného data bez ořezávání (15. 10. 2026).
-  const t = useTabulkaZFotky({ klic: 'keg', vychoziRezim: 'seznam', posledniZapis });
+  // Víc dnů v tabulce se vloží NAJEDNOU: každý řádek nese svůj den (`datum`) a Stáčení KEG
+  // ho zapíše na ten den (16. 10. 2026: „udělej to pro všechno“).
+  const t = useTabulkaZFotky({ klic: 'keg', vychoziRezim: 'seznam', posledniZapis, vsechnyDny: true });
   /** Kolik řádků tabulky se přeskočilo, protože mají jen lahve (tady se čtou sudy). */
   const [preskoceno, setPreskoceno] = useState(0);
 
@@ -156,7 +165,7 @@ export function ImportKeggingFromImage({ isOpen, onClose, beers, packages, onImp
         throw new Error('Z tabulky se od zvoleného data nepodařilo přečíst žádné sudy.');
       }
       setProgress(85);
-      const rows: KegRow[] = prevod.radky.map((r) => ({ ...r }));
+      const rows: KegRow[] = prevod.radky.map((r) => ({ ...r, denZTabulky: r.datum ?? null }));
       setPreskoceno(prevod.preskoceno);
       setEntryRows(rows);
       setRowsMap((prev) => ({ ...prev, [idx]: rows }));
@@ -280,8 +289,14 @@ export function ImportKeggingFromImage({ isOpen, onClose, beers, packages, onImp
 
   // Viz stejné místo v ImportBottlingFromImage: řádky bez piva se dřív
   // potichu zahodily a okno se zavřelo, takže to vypadalo, že se nic nestalo.
-  // 📊 Tabulka z Excelu: ve víc dnech se vkládá jeden den najednou (jedna dávka = jedno datum).
-  const viditelny = (r: KegRow) => !t.zapnuto || t.vybranyDen === undefined || !!r._manual || (r.datum ?? null) === t.vybranyDen;
+  // 📊 Tabulka z Excelu: den se dá zúžit klepnutím na něj; jinak jdou všechny dny najednou.
+  const viditelny = (r: KegRow) => !t.zapnuto || t.vybranyDen === undefined || !!r._manual || (r.denZTabulky ?? r.datum ?? null) === t.vybranyDen;
+
+  /** Kolik řádků z kolika dnů se vloží (řádky z tabulky mají každý svůj den). */
+  const rozsahVlozeni = () => {
+    const vse = Object.values({ ...rowsMap, [activeIndex]: entryRows ?? [] }).flat().filter((r) => viditelny(r) && !r._removed);
+    return { radku: vse.length, dnu: dnyRadku(vse).length };
+  };
 
   // Datum stočení je den z tabulky (obsluha ho může dál přepsat).
   useEffect(() => {
@@ -375,6 +390,9 @@ export function ImportKeggingFromImage({ isOpen, onClose, beers, packages, onImp
               <div>
                 <label className="label" htmlFor="staceni-keg-datum">Datum stočení</label>
                 <input id="staceni-keg-datum" type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} />
+                {t.zapnuto && (
+                  <p className="text-udaj text-neutral-600 mt-1">Řádky z tabulky mají každý svůj den. Tohle datum platí pro ručně přidané řádky a pro řádky bez data.</p>
+                )}
               </div>
               <div className="sm:col-span-2">
                 <label className="label">Poznámka k šarži</label>
@@ -490,7 +508,7 @@ export function ImportKeggingFromImage({ isOpen, onClose, beers, packages, onImp
                       </div>
                       {!r._removed && r.cisloRadku !== undefined && (
                         <div className="mb-2">
-                          <RadekTabulkyInfo cisloRadku={r.cisloRadku} datum={r.datum} pivoText={r.pivoText} varovani={r.varovani} />
+                          <RadekTabulkyInfo cisloRadku={r.cisloRadku} datum={r.datum} pivoText={r.pivoText} varovani={r.varovani} onDatum={(den) => updateLine(i, { datum: den })} />
                         </div>
                       )}
                       {!r._removed && (
@@ -529,7 +547,9 @@ export function ImportKeggingFromImage({ isOpen, onClose, beers, packages, onImp
           >
             {activeIndex < photos.length - 1
               ? `Vložit a další fotka (${activeIndex + 2}/${photos.length})`
-              : `Vložit VŠECHNO do tabulky stočení (${photos.length} fotek)`}
+              : rozsahVlozeni().dnu > 1
+                ? `Vložit ${souhrnDnu(rozsahVlozeni().radku, rozsahVlozeni().dnu)} do stáčení KEG${photos.length > 1 ? ` (${photos.length} fotek)` : ''}`
+                : `Vložit VŠECHNO do tabulky stočení (${photos.length} fotek)`}
           </button>
                 </div>
               </div>

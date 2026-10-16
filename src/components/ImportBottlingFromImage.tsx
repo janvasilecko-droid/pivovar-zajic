@@ -24,11 +24,13 @@ type RowInput = RadekStaceniLahvi & {
   _removed?: boolean; _manual?: boolean;
   /** Jen řádky z tabulky z Excelu: číslo řádku excelu, text z buňky Pivo a co zkontrolovat. */
   cisloRadku?: number | null; pivoText?: string | null; varovani?: string[];
+  /** Den, jak stál v tabulce — podle něj se řádky filtrují při výběru dne; `datum` se smí přepsat. */
+  denZTabulky?: string | null;
 };
 type PhotoEntry = { dataUrl: string; name: string; soubor?: File };
 
 /** Řádek ve tvaru, který čeká formulář stáčení — bez údajů, které patří jen k tomuhle oknu (den řádku zůstává). */
-const naFormular = ({ cisloRadku: _c, pivoText: _p, varovani: _v, _removed: _r, _manual: _m, ...zbytek }: RowInput): RowInput => zbytek;
+const naFormular = ({ cisloRadku: _c, pivoText: _p, varovani: _v, _removed: _r, _manual: _m, denZTabulky: _z, ...zbytek }: RowInput): RowInput => zbytek;
 
 type Props = {
   isOpen: boolean;
@@ -167,7 +169,7 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
         throw new Error('Z tabulky se od zvoleného data nepodařilo přečíst žádné řádky.');
       }
       setProgress(85);
-      const rows: RowInput[] = radkyLahveZTabulky(v.radky, packages).map((r) => ({ ...r }));
+      const rows: RowInput[] = radkyLahveZTabulky(v.radky, packages).map((r) => ({ ...r, denZTabulky: r.datum ?? null }));
       setEntryRows(rows);
       setRowsMap((prev) => ({ ...prev, [idx]: rows }));
       setProgress(100);
@@ -406,7 +408,7 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
   };
 
   // 📊 Tabulka z Excelu: ve víc dnech se vkládá jeden den najednou (jedna dávka = jedno datum).
-  const viditelny = (r: RowInput) => !t.zapnuto || t.vybranyDen === undefined || !!r._manual || (r.datum ?? null) === t.vybranyDen;
+  const viditelny = (r: RowInput) => !t.zapnuto || t.vybranyDen === undefined || !!r._manual || (r.denZTabulky ?? r.datum ?? null) === t.vybranyDen;
 
   // Datum stočení je den z tabulky (obsluha ho může dál přepsat).
   useEffect(() => {

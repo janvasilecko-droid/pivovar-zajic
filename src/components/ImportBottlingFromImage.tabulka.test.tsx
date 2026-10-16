@@ -168,6 +168,22 @@ describe('Stáčení lahví z fotky — tabulka z Excelu', () => {
     }
   });
 
+  it('v tabulce s jedním dnem řádek s přepsaným dnem z okna nezmizí a vloží se s novým dnem', async () => {
+    const onImport = vykresli();
+    vlozFotku();
+    await screen.findByText(/Rozpoznané řádky stočení/);
+    const selecty = screen.getAllByRole('combobox') as HTMLSelectElement[];
+    fireEvent.change(selecty.filter((s) => s.value === '' && [...s.options].some((o) => o.value === 'jan'))[0], { target: { value: 'jan' } });
+    fireEvent.change(screen.getAllByLabelText('Den řádku')[0], { target: { value: '2026-10-15' } });
+    // Přepsaný řádek je pořád vidět (výběr dne se řídí dnem z tabulky) a tlačítko počítá dva dny.
+    expect(screen.getAllByTestId('radek-z-tabulky')).toHaveLength(4);
+    fireEvent.click(screen.getByText(/Vložit 4 řádky z 2 dnů do tabulky stočení lahví/));
+    await waitFor(() => expect(onImport).toHaveBeenCalledTimes(1));
+    const [rows] = onImport.mock.calls[0];
+    expect(rows.map((x: { datum?: string }) => x.datum)).toEqual(['2026-10-15', '2026-10-13', '2026-10-13', '2026-10-13']);
+    for (const rr of rows) expect(rr).not.toHaveProperty('denZTabulky');
+  });
+
   it('řádek se dvěma sudy (50 l + 20 l) ukáže druhý sud', async () => {
     pripravFetch(odpovedTabulky(
       [r({ cislo: 554, datumVBunce: '2026-10-13', pivo: 'Desítka', pivoId: 's11', sudy: [{ objemL: 50, ks: 1 }, { objemL: 20, ks: 1 }], lahve: [{ objemL: 1.5, ks: 16 }, { objemL: 1, ks: 38 }] })],

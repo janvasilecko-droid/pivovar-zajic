@@ -23,6 +23,8 @@ import RozepsanyZapisPruh from '../components/RozepsanyZapisPruh';
 import { businessDateISO } from '../lib/businessDate';
 import { ChipyPiva } from '../components/FiltrPivaAObalu';
 import { nactiSdilenouTabulku } from '../lib/sdilenaData';
+import RadkyZFotkyPoDnech from '../components/RadkyZFotkyPoDnech';
+import { jizZapsane, mesiceDnu, otazkaJizZapsano, otazkaUzamcenychMesicu, platnyDen, rozdelPodleDnu } from '../lib/zapisPoDnech';
 
 // Tři podoby jednoho výdeje ze skladu — formulář je pořád stejný, mění se
 // jen tabulka, do které se zapisuje, a jedno pole navíc. Podle toho se pak
@@ -35,16 +37,16 @@ import { nactiSdilenouTabulku } from '../lib/sdilenaData';
 // fasovani_private je historicky prodejna, ne personál.
 const DRUHY_VYDEJE = [
   {
-    tabulka: 'fasovani_private', stranka: 'prodejna', popis: 'Prodejna',
+    tabulka: 'fasovani_private', stranka: 'prodejna', popis: 'Prodejna', kde: 'v prodejně',
     poleNavic: null, popisek: '', napoveda: '',
   },
   {
-    tabulka: 'fasovani', stranka: 'fasovani', popis: 'Personál',
+    tabulka: 'fasovani', stranka: 'fasovani', popis: 'Personál', kde: 've fasování personálu',
     poleNavic: 'jmeno', popisek: 'Pro koho',
     napoveda: 'Jméno — komu se fasuje',
   },
   {
-    tabulka: 'writeoffs', stranka: 'writeoffs', popis: 'Odpis',
+    tabulka: 'writeoffs', stranka: 'writeoffs', popis: 'Odpis', kde: 'v odpisu',
     poleNavic: 'duvod', popisek: 'Důvod odpisu',
     napoveda: 'Proč se odepisuje (zkažené, rozbitá láhev…)',
   },
@@ -59,12 +61,20 @@ const FASOVANI_ROW_COUNT = 6;
 type RowInput = { beerId: string; pkgId: string; qty: string; vycep: boolean; who?: string };
 const emptyItem = (): RowInput => ({ beerId: '', pkgId: '', qty: '', vycep: false, who: '' });
 const emptyRows = (count: number): RowInput[] => Array.from({ length: count }, emptyItem);
+// Řádek z fotky z víc dnů — vždy s vlastním dnem (lib/zapisPoDnech.ts). Drží se zvlášť
+// od formuláře (ten má jedno datum) a ukládá se společně s ním.
+type RadekFoto = RowInput & { datum: string };
+const emptyFoto = (): RadekFoto => ({ ...emptyItem(), datum: '' });
+/** Řádky z fotky z uloženého konceptu: jen s existujícím dnem. */
+const radkyFotaZKonceptu = (v: unknown): RadekFoto[] =>
+  radkyZKonceptu(v, emptyFoto, 0).filter((r) => platnyDen(r.datum) !== null);
 
 // 💾 Co se z rozepsaného výdeje ukládá do zařízení (klíč `rozdelany_vydej_<tabulka>`,
 // tvar zůstal stejný jako dřív, ať se koncepty z předchozí verze vrátí).
-type KonceptVydeje = { entryRows: RowInput[]; who: string; note: string; date: string };
+type KonceptVydeje = { entryRows: RowInput[]; who: string; note: string; date: string; fotoDny?: RadekFoto[] };
 const jeCoVydej = (d: KonceptVydeje) =>
-  d.entryRows.some((r) => r.pkgId && Number(r.qty) > 0) || d.who.trim() !== '' || d.note.trim() !== '';
+  d.entryRows.some((r) => r.pkgId && Number(r.qty) > 0) || (d.fotoDny ?? []).some((r) => r.pkgId && Number(r.qty) > 0)
+  || d.who.trim() !== '' || d.note.trim() !== '';
 const jePlatnyKonceptVydeje = (d: unknown): d is KonceptVydeje => {
   const o = d as Partial<KonceptVydeje> | null;
   return !!o && Array.isArray(o.entryRows) && typeof (o.who ?? '') === 'string' && typeof (o.note ?? '') === 'string';
@@ -97,6 +107,8 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
   const [who, setWho] = useState('');
   const [note, setNote] = useState('');
   const [entryRows, setEntryRows] = useState<RowInput[]>(() => emptyRows(table === 'fasovani' ? FASOVANI_ROW_COUNT : ROW_COUNT));
+  // Řádky z fotky z víc dnů (každý na svém dni) — viz RadekFoto výše.
+  const [fotoDny, setFotoDny] = useState<RadekFoto[]>([]);
 
   // 💾 Rozepsaný zápis přežije zavření aplikace i odchod z obrazovky.
   // Na telefonu se z appky vypadne kdykoli — přijde hovor, přepne se okno,
@@ -108,11 +120,12 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
   const pocetRadku = table === 'fasovani' ? FASOVANI_ROW_COUNT : ROW_COUNT;
   const { obnoveno: obnovenyKoncept } = useRozepsanyZapis<KonceptVydeje>({
     klic: klicRozdelane,
-    data: { entryRows, who, note, date },
+    data: { entryRows, who, note, date, fotoDny },
     jeCo: jeCoVydej,
     jePlatny: jePlatnyKonceptVydeje,
     naObnovu: (d) => {
       setEntryRows(radkyZKonceptu(d.entryRows, emptyItem, pocetRadku));
+      setFotoDny(radkyFotaZKonceptu(d.fotoDny));
       setWho(typeof d.who === 'string' ? d.who : '');
       setNote(typeof d.note === 'string' ? d.note : '');
       const den = platneDatum(d.date);
@@ -120,9 +133,9 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
     },
   });
   /** „Vymazat vše" a „Zahodit": rozepsané pryč (uložené zápisy se nemění). */
-  function vymazRozepsane() { setEntryRows(emptyRows(pocetRadku)); setWho(''); setNote(''); setErr(null); }
+  function vymazRozepsane() { setEntryRows(emptyRows(pocetRadku)); setFotoDny([]); setWho(''); setNote(''); setErr(null); }
   async function vymazVse() {
-    if (jeCoVydej({ entryRows, who, note, date })
+    if (jeCoVydej({ entryRows, who, note, date, fotoDny })
       && !(await potvrd('Smazat všechny rozepsané řádky? Nic uloženého v databázi se nemění.', { titulek: 'Vymazat rozepsané', potvrdit: 'Vymazat' }))) return;
     vymazRozepsane();
   }
@@ -268,19 +281,33 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
       setErr('U každého vyplněného řádku vyberte pivo — bez něj by se záznam neodečetl ze skladu.');
       return;
     }
-    const filled = entryRows.filter((r) => r.beerId && r.pkgId && Number(r.qty) > 0);
+    // Zapisuje se formulář (na jeho datum) a řádky z fotky po dnech (každý na svůj den).
+    const radekKZapisu = (r: RowInput) => !!r.beerId && !!r.pkgId && Number(r.qty) > 0;
+    const zFotky = fotoDny.filter((r) => radekKZapisu(r) && platnyDen(r.datum) !== null);
+    const filled: RadekFoto[] = [
+      ...entryRows.filter(radekKZapisu).map((r) => ({ ...r, datum: date })),
+      ...zFotky,
+    ];
     if (filled.length === 0) { setErr('Vyplň alespoň jeden řádek (pivo, obal a množství).'); return; }
 
     // 🔒 Zápis do měsíce, který je už napočítaný (fyzická/schválená
     // inventura), nezakazujeme — legitimní dodatečná oprava se stát může —
     // ale nahlas na to upozorníme. Dřív měla tuhle pojistku jen Stáčení KEG
     // a Lahve; výdej a odpis hýbou skladem stejně, takže stejně tiše
-    // rozjížděly už uzavřený měsíc (viz lib/mesicUzamcen.ts).
-    if (jeMesicUzamcen(inventoryRows, date)) {
-      const dotaz =
-        `Měsíc ${date.slice(0, 7)} už má napočítanou inventuru. Zápis do něj teď ` +
-        'změní číslo, které je už uzavřené a dorovnané.\n\nOpravdu zapsat do už napočítaného měsíce?';
-      if (!(await potvrd(dotaz, { titulek: 'Měsíc je už napočítaný', potvrdit: 'Ano, zapsat' }))) return;
+    // rozjížděly už uzavřený měsíc (viz lib/mesicUzamcen.ts). Řádky z fotky
+    // mohou padat do víc měsíců — ptá se jednou, s výčtem všech.
+    const uzamcene = mesiceDnu(filled.map((r) => r.datum)).filter((m) => jeMesicUzamcen(inventoryRows, `${m}-01`));
+    if (uzamcene.length > 0) {
+      if (!(await potvrd(otazkaUzamcenychMesicu(uzamcene), { titulek: 'Měsíc je už napočítaný', potvrdit: 'Ano, zapsat' }))) return;
+    }
+
+    // 🧾 Řádky z fotky: den + pivo + obal, který už v tomhle výdeji je, se po druhém
+    // načtení téže fotky zapíšou podruhé. Neblokuje, jen se na to nahlas upozorní.
+    const dvakrat = jizZapsane(zFotky, rows);
+    if (dvakrat.length > 0) {
+      const popisek = (beerId: string, pkgId: string) =>
+        `${beers.find((b) => b.id === beerId)?.name ?? 'Pivo'} · ${packages.find((p) => p.id === pkgId)?.label?.trim() ?? 'obal'}`;
+      if (!(await potvrd(otazkaJizZapsano(dvakrat, druh.kde, popisek), { titulek: 'Možné zdvojení', potvrdit: 'Ano, zapsat i tak' }))) return;
     }
 
     // Přehmat o řád (12 → 120) — stejná pojistka jako ve Stáčení KEG
@@ -309,7 +336,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
       const n = Number(r.qty);
       const person = r.who?.trim() || who.trim();
       return {
-        entry_date: date,
+        entry_date: r.datum,
         who: person || null,
         beer_id: r.beerId || null, beer_name: beer?.name ?? null,
         // Vrácení na sklad = ZÁPORNÝ řádek do téže tabulky. Původní výdej se
@@ -332,7 +359,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
         const person = r.who?.trim() || who.trim();
         const combinedNote = person ? (note ? `[${person}] ${note}` : `[${person}]`) : note;
         return {
-          entry_date: date,
+          entry_date: r.datum,
           beer_id: r.beerId || null, beer_name: beer?.name ?? null,
           package_id: r.pkgId, package_label: pkg?.label ?? null, quantity: vraceni ? -n : n,
           ...(isWriteoffs ? {} : { note: (vraceni ? (combinedNote ? `Vráceno na sklad — ${combinedNote}` : 'Vráceno na sklad') : combinedNote) || null }),
@@ -346,7 +373,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
     setSaving(false);
     if (error) { setErr(error.message); return; }
 
-    setEntryRows(emptyRows(table === 'fasovani' ? FASOVANI_ROW_COUNT : ROW_COUNT)); setWho(''); setNote(''); setErr(null);
+    setEntryRows(emptyRows(table === 'fasovani' ? FASOVANI_ROW_COUNT : ROW_COUNT)); setFotoDny([]); setWho(''); setNote(''); setErr(null);
     // Po uložení zpátky na výdej — vrácení je výjimka, ne režim, ve kterém
     // se pracuje. Jinak by další zápis nenápadně odečetl místo přičetl.
     setVraceni(false);
@@ -520,10 +547,18 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
   // 📊 Čtení tabulky z fotky začíná dnem po posledním ručním zápisu tohoto druhu výdeje.
   const posledniZapisVydeje = useMemo(() => posledniRucniZapis(rows), [rows]);
 
-  function handlePhotoRows(rows: { beerId: string; pkgId: string; qty: string }[], datum?: string) {
-    if (!rows.length) return;
+  function handlePhotoRows(vsechnyRadky: { beerId: string; pkgId: string; qty: string; datum?: string | null }[], datum?: string) {
+    if (!vsechnyRadky.length) return;
+    // Z víc dnů tabulky (16. 10. 2026) se řádky s dnem odloží do seznamu po dnech —
+    // každý se zapíše na svůj den. Z jednoho dne (nebo ze seznamu / zprávy) jdou
+    // do formuláře jako dosud (lib/zapisPoDnech.ts rozdelPodleDnu).
+    const { formular: rows, poDnech } = rozdelPodleDnu(vsechnyRadky);
+    if (poDnech.length > 0) {
+      setFotoDny((prev) => [...prev, ...poDnech.map((r) => ({ beerId: r.beerId, pkgId: r.pkgId, qty: r.qty, vycep: false, who: '', datum: r.datum as string }))]);
+    }
     // Čtení tabulky z Excelu ví, z jakého dne řádky jsou — zápis dostane stejné datum.
-    if (datum) setDate(datum);
+    // Samé řádky po dnech datum formuláře nemění (každý nese svůj den).
+    if (datum && (rows.length > 0 || poDnech.length === 0)) setDate(datum);
     setEntryRows((rs) => {
       const next = [...rs];
       let cursor = 0;
@@ -743,6 +778,20 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                   </div>
                 );
               })}
+            </div>
+          )}
+
+          {/* 📅 Řádky z fotky z víc dnů — každý se zapíše na svůj den (lib/zapisPoDnech.ts) */}
+          {fotoDny.length > 0 && (
+            <div className="mb-4">
+              <RadkyZFotkyPoDnech
+                radky={fotoDny}
+                popisek={(r) => `${beerName(beers.find((b) => b.id === r.beerId))} · ${formatPackageLabel(packages.find((p) => p.id === r.pkgId)?.label)}`}
+                onKusy={(i, qty) => setFotoDny((rs) => rs.map((r, j) => (j === i ? { ...r, qty } : r)))}
+                onOdeber={(i) => setFotoDny((rs) => rs.filter((_, j) => j !== i))}
+                onZahodit={() => setFotoDny([])}
+                napoveda={`Uloží se spolu se zápisem výše tlačítkem „${vraceni ? 'Vrátit na sklad' : 'Uložit fasování'}“ — každý řádek na svůj den.`}
+              />
             </div>
           )}
 
