@@ -136,4 +136,30 @@ describe('PohybySkladu', () => {
     expect(screen.getByText('týden 39')).toBeTruthy();
     expect(screen.getByText('Po 21. 9.')).toBeTruthy();
   });
+
+  it('souhrn je tabulka se sloupci podle druhu pohybu; prázdné sloupce chybí', async () => {
+    render(<PohybySkladu />);
+    await waitFor(() => expect(screen.getByText(/U Zajíce/)).toBeTruthy());
+    const hlavicky = screen.getAllByRole('columnheader').map((h) => h.textContent);
+    expect(hlavicky.slice(0, 5)).toEqual(['Pivo · obal', 'Na začátku', 'Stočeno', 'Závozy', 'Konec']);
+    expect(hlavicky).not.toContain('Fasování');
+    expect(hlavicky).not.toContain('Odpisy');
+    expect(hlavicky).not.toContain('Akce');
+    expect(hlavicky).not.toContain('Přibylo');
+  });
+
+  it('jedna položka: den po dni v tabulce se součty a stavem na konci', async () => {
+    render(<PohybySkladu />);
+    await waitFor(() => expect(screen.getByText(/U Zajíce/)).toBeTruthy());
+    expect(screen.queryByTestId('tabulka-po-dnech')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: '12° Světlá' }));
+    fireEvent.click(screen.getAllByRole('button', { name: /30\s?l/i })[0]);
+    const tabulka = await screen.findByTestId('tabulka-po-dnech');
+    const radky = Array.from(tabulka.querySelectorAll('tbody tr')).map((r) => Array.from(r.querySelectorAll('td')).map((c) => c.textContent));
+    expect(radky).toEqual([['Po 21. 9.inventura = 15', '·', '−14', '1'], ['Út 22. 9.', '+6', '·', '7 (teď)']]);
+    const celkem = Array.from(tabulka.querySelectorAll('tfoot td')).map((c) => c.textContent);
+    expect(celkem[0]).toBe('Celkem');
+    expect(celkem).toEqual(['Celkem', '+6', '−14', '7']);
+  });
 });
+

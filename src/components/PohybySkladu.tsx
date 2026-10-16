@@ -14,9 +14,9 @@ import { supabase, useRealtime } from '../lib/supabase';
 import { radkyTydenniInventury, type ZaznamTydenniInventury } from '../lib/tydenniVPohybech';
 import { nactiSkladovouKnihu, type SkladovaKniha } from '../lib/skladovaKnihaData';
 import { DoplnitZdrojSudu } from './DoplnitZdrojSudu';
-import { sestavPohybyObdobi, SKUPINY_POHYBU } from '../lib/pohybySkladu';
+import { sestavPohybyObdobi, SKUPINY_POHYBU, rozpadPoPolozkach, SLOUPCE_ROZBORU, sloupceSPohybem, tabulkaPoDnech } from '../lib/pohybySkladu';
 import { ChipyPiva, ChipyObalu } from './FiltrPivaAObalu';
-import { konecMesice } from '../lib/stockLedger';
+import { konecMesice, stockKey } from '../lib/stockLedger';
 import { nazevMesice } from '../lib/inventoryFix';
 import { isoWeekKey, shiftWeek, weekRange } from './WeeklyOrderSummaryCard';
 import { businessDateISO, posunMesic } from '../lib/businessDate';
@@ -55,6 +55,12 @@ function denPopis(iso: string): string {
 function nactiFiltr(): { beerId: string; packageId: string } {
   const s = nactiJson<{ beerId?: string; packageId?: string }>(LS_FILTR, {});
   return { beerId: String(s?.beerId || ''), packageId: String(s?.packageId || '') };
+}
+
+/** Číslo v buňce tabulky rozboru: příjem zeleně, výdej červeně, nula tečkou. */
+function Bunka({ n }: { n: number }) {
+  if (n === 0) return <span className="text-neutral-400">·</span>;
+  return <span className={n > 0 ? 'text-emerald-800' : 'text-rose-800'}>{n > 0 ? `+${n}` : `−${-n}`}</span>;
 }
 
 export default function PohybySkladu() {
@@ -209,6 +215,9 @@ export default function PohybySkladu() {
   // se kreslí dvakrát, zvlášť pro každý měsíc.
   const vykresli = (vysledek: NonNullable<typeof vysledekCely>) => {
     const pocetRadku = vysledek.dny.reduce((a, d) => a + d.radky.length, 0);
+    // 📊 Sloupce podle druhu pohybu (16. 10. 2026: „udělej ten rozbor přehlednější v tabulce").
+    const rozpad = rozpadPoPolozkach(vysledek.dny);
+    const sloupce = SLOUPCE_ROZBORU.filter((c) => sloupceSPohybem([...rozpad.values()]).includes(c.id));
     return (
       <>
           {/* 1. 10. 2026: „udělej ten rozbor přehlednější" — jedno pivo a obal
@@ -259,8 +268,9 @@ export default function PohybySkladu() {
                 <tr className="bg-neutral-100 text-neutral-700">
                   <th scope="col" className="text-left px-2 py-1.5 font-black">{beerId ? 'Obal' : 'Pivo · obal'}</th>
                   <th scope="col" className="text-right px-2 py-1.5 font-black">Na začátku</th>
-                  <th scope="col" className="text-right px-2 py-1.5 font-black">Přibylo</th>
-                  <th scope="col" className="text-right px-2 py-1.5 font-black">Ubylo</th>
+                  {sloupce.map((c) => (
+                    <th key={c.id} scope="col" className="text-right px-2 py-1.5 font-black">{c.label}</th>
+                  ))}
                   <th scope="col" className="text-right px-2 py-1.5 font-black">Konec</th>
                 </tr>
               </thead>
@@ -272,18 +282,59 @@ export default function PohybySkladu() {
                       {s.inventura && <span className="ml-1 text-udaj font-bold text-sky-800">(inventura{s.srovnani ? ` srovnala ${s.srovnani > 0 ? '+' : ''}${s.srovnani}` : ''})</span>}
                     </td>
                     <td className="px-2 py-1.5 text-right tabular-nums">{s.rano}</td>
-                    <td className="px-2 py-1.5 text-right tabular-nums font-bold text-emerald-800">+{s.prijem}</td>
-                    <td className="px-2 py-1.5 text-right tabular-nums font-bold text-rose-800">−{s.vydej}</td>
+                    {sloupce.map((c) => (
+                      <td key={c.id} className="px-2 py-1.5 text-right tabular-nums font-bold"><Bunka n={rozpad.get(stockKey(s.beer_id, s.package_id))?.[c.id] ?? 0} /></td>
+                    ))}
                     <td className={`px-2 py-1.5 text-right tabular-nums font-black ${s.konec < 0 ? 'text-rose-700' : 'text-neutral-950'}`}>{s.konec}</td>
                   </tr>
                 ))}
                 {vysledek.souhrn.length === 0 && (
-                  <tr><td colSpan={5} className="px-2 py-3 text-center font-bold text-neutral-500">V tomhle období se s vybraným pivem nic nehýbalo.</td></tr>
+                  <tr><td colSpan={2 + sloupce.length} className="px-2 py-3 text-center font-bold text-neutral-500">V tomhle období se s vybraným pivem nic nehýbalo.</td></tr>
                 )}
               </tbody>
             </table>
           </div>
           )}
+
+          {/* Jedna položka: den po dni v tabulce — kolik se stočilo, vydalo, odepsalo a jaký byl stav. */}
+          {vysledek.souhrn.length === 1 && (() => {
+            const s1 = vysledek.souhrn[0];
+            const dnyTabulky = tabulkaPoDnech(vysledek.dny, s1.beer_id, s1.package_id);
+            const sloupceDne = SLOUPCE_ROZBORU.filter((c) => sloupceSPohybem(dnyTabulky.map((d) => d.bunky)).includes(c.id));
+            if (dnyTabulky.length === 0) return null;
+            return (
+              <div className="rounded-xl border-2 border-neutral-300 bg-white overflow-x-auto" data-testid="tabulka-po-dnech">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-neutral-100 text-neutral-700">
+                      <th scope="col" className="text-left px-2 py-1.5 font-black">Den</th>
+                      {sloupceDne.map((c) => <th key={c.id} scope="col" className="text-right px-2 py-1.5 font-black">{c.label}</th>)}
+                      <th scope="col" className="text-right px-2 py-1.5 font-black">Stav</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dnyTabulky.map((d, i) => (
+                      <tr key={d.datum} className={`border-t border-neutral-200 ${i % 2 ? 'bg-neutral-50' : ''}`}>
+                        <td className="px-2 py-1.5 font-black text-neutral-900 whitespace-nowrap">
+                          {denPopis(d.datum)}
+                          {d.inventura !== null && <span className="ml-1 text-udaj font-bold text-sky-800">inventura = {d.inventura}</span>}
+                        </td>
+                        {sloupceDne.map((c) => <td key={c.id} className="px-2 py-1.5 text-right tabular-nums font-bold"><Bunka n={d.bunky[c.id]} /></td>)}
+                        <td className={`px-2 py-1.5 text-right tabular-nums font-black ${(d.stav ?? 0) < 0 ? 'text-rose-700' : 'text-neutral-950'}`}>{d.stav ?? '—'}{d.ted ? ' (teď)' : ''}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t-2 border-neutral-400 bg-neutral-100 font-black">
+                      <td className="px-2 py-1.5">Celkem</td>
+                      {sloupceDne.map((c) => <td key={c.id} className="px-2 py-1.5 text-right tabular-nums"><Bunka n={dnyTabulky.reduce((a, d) => a + d.bunky[c.id], 0)} /></td>)}
+                      <td className="px-2 py-1.5 text-right tabular-nums">{s1.konec}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            );
+          })()}
 
           {skupiny.length > 0 && (
             <p className="text-udaj font-bold text-neutral-600">

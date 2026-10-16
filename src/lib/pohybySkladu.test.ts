@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { buildMovements, type Movement } from './stockLedger';
-import { sestavPohybyObdobi } from './pohybySkladu';
+import { rozpadPoPolozkach, sestavPohybyObdobi, sloupceSPohybem, sloupecPohybu, tabulkaPoDnech } from './pohybySkladu';
 
 // Týden 21.–27. 9. 2026, 12° Světlá (b12) v sudech 30 l a 50 l.
 const PO = '2026-09-21';
@@ -158,5 +158,49 @@ describe('stav „teď" místo „večer"', () => {
     // „teď" patří (schované) středě a úterý zůstane „večer".
     const r = sestavPohybyObdobi(pohyby, { od: PO, doDne: NE, beerId: 'b12', skupiny: ['stoceno'], dnes: '2026-09-24' }, odberatel);
     expect(r.dny.find((d) => d.ted)?.datum).toBe(ST);
+  });
+});
+
+describe('tabulka rozboru — sloupce podle druhu pohybu', () => {
+  const r = sestavPohybyObdobi(pohyby, { od: PO, doDne: NE, dnes: NE }, odberatel);
+
+  it('druh pohybu → sloupec; inventura nastavuje stav, takže do žádného', () => {
+    expect(sloupecPohybu('kegovani')).toBe('stoceno');
+    expect(sloupecPohybu('staceni')).toBe('stoceno');
+    expect(sloupecPohybu('zavoz')).toBe('zavoz');
+    expect(sloupecPohybu('prodejna')).toBe('fasovani');
+    expect(sloupecPohybu('fasovani')).toBe('fasovani');
+    expect(sloupecPohybu('odpis')).toBe('odpis');
+    expect(sloupecPohybu('akce')).toBe('akce');
+    expect(sloupecPohybu('prefuk_z')).toBe('ostatni');
+    expect(sloupecPohybu('dorovnani')).toBe('ostatni');
+    expect(sloupecPohybu('inventura')).toBeNull();
+  });
+
+  it('součty po pivu a obalu za celé období', () => {
+    const m = rozpadPoPolozkach(r.dny);
+    expect(m.get('b12__k30')).toEqual({ stoceno: 6, zavoz: -17, fasovani: 0, akce: 0, odpis: 0, ostatni: 0 });
+    expect(m.get('b12__k50')).toEqual({ stoceno: 0, zavoz: -5, fasovani: -1, akce: 0, odpis: 0, ostatni: 0 });
+    expect(m.get('b10__k30')).toEqual({ stoceno: 5, zavoz: 0, fasovani: 0, akce: 0, odpis: 0, ostatni: 0 });
+  });
+
+  it('prázdné sloupce se vynechají', () => {
+    expect(sloupceSPohybem([...rozpadPoPolozkach(r.dny).values()])).toEqual(['stoceno', 'zavoz', 'fasovani']);
+    expect(sloupceSPohybem([])).toEqual([]);
+  });
+
+  it('den po dni pro jednu položku: jen dny s pohybem, stav večer ze skladové knihy', () => {
+    const dny = tabulkaPoDnech(r.dny, 'b12', 'k30');
+    expect(dny.map((d) => d.datum)).toEqual([PO, UT, ST]);
+    expect(dny[0]).toMatchObject({ inventura: 15, stav: 1, ted: false });
+    expect(dny[0].bunky).toEqual({ stoceno: 0, zavoz: -14, fasovani: 0, akce: 0, odpis: 0, ostatni: 0 });
+    expect(dny[1]).toMatchObject({ inventura: null, stav: 7 });
+    expect(dny[1].bunky.stoceno).toBe(6);
+    expect(dny[2]).toMatchObject({ stav: 4 });
+    expect(dny[2].bunky.zavoz).toBe(-3);
+  });
+
+  it('jiná položka nebo žádný pohyb: prázdná tabulka', () => {
+    expect(tabulkaPoDnech(r.dny, 'b12', 'neexistuje')).toEqual([]);
   });
 });
