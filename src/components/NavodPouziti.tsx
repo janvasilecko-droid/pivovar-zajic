@@ -224,6 +224,10 @@ const ODDILY: Oddil[] = [
         jak: 'Dlaždice Malé sudy (a záložka v Objednávkách) — naklikáš, kolik máš KEG 20, 15 a 10 l. Při zadání i úpravě objednávky pak u malého sudu uvidíš „můžeš dát max N“; co je navíc a nemá sud, svítí červeně. Dlaždice na ploše ukazuje, kolik sudů je ještě volných.',
       },
       {
+        co: 'Řezání „jen odečíst"',
+        jak: 'Když sudy z řezu už máš zapsané zvlášť (běžným stáčením), zaškrtni v Řezání „Sudy z řezu už mám zapsané jinde". Řez pak jen odečte pivo z tanků (a sudy ze skladu), do skladu nic nepřičte. Počty sudů slouží jen k výpočtu litrů. Odečet se nevrací sám — smaže se ručně (Sklep → přetočení „Do řezu", Přefuk).',
+      },
+      {
         co: 'Přefuk „do řezu"',
         jak: 'Šlo-li pivo do řezu z hotových sudů na skladě místo z tanku a nezapsalo se to při stáčení, doplníš to dodatečně: Stáčení KEG → Přefuk KEG, vyber pivo a sud „ZE", u „DO sudů" zaškrtni „Do řezu (nic se nepřičte)" a ulož. Sudy se jen odečtou ze skladu; každá velikost sudu je samostatný zápis. V historii přefuků je u nich „do řezu" a jdou smazat.',
       },

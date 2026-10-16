@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { buildMovements, type Movement } from './stockLedger';
-import { rozpadPoPolozkach, sestavPohybyObdobi, sloupceSPohybem, sloupecPohybu, tabulkaPoDnech } from './pohybySkladu';
+import { popisPohybu, SKUPINY_POHYBU, rozpadPoPolozkach, sestavPohybyObdobi, sloupceSPohybem, sloupecPohybu, tabulkaPoDnech } from './pohybySkladu';
 
 // Týden 21.–27. 9. 2026, 12° Světlá (b12) v sudech 30 l a 50 l.
 const PO = '2026-09-21';
@@ -226,6 +226,13 @@ describe('tabulka rozboru — sloupce podle druhu pohybu', () => {
       { jmeno: 'U Zajíce', mnozstvi: -5 },
       { jmeno: 'Maneo', mnozstvi: -1 },
     ]);
+  });
+});
+
+describe('popisky pohybů se sudy na lahve', () => {
+  it('sud spotřebovaný na lahve se píše jen „Lahve" (16. 10. 2026)', () => {
+    expect(popisPohybu({ kind: 'sud_na_lahve', note: null, orderId: undefined, ztrata: false })).toBe('Lahve');
+    expect(SKUPINY_POHYBU.find((s) => s.id === 'prefuk')!.label).toBe('Přefuk a lahve');
   });
 });
 

@@ -39,6 +39,9 @@ export default function RezaniPiva({
   const [sudyPocty, setSudyPocty] = useState<Record<string, number>>({});
   const [poznamka, setPoznamka] = useState('');
   const [uklada, setUklada] = useState(false);
+  // 🧮 Jen odečíst (16. 10. 2026: „z řezání máš jen odečíst pivo z tanku" — sudy z řezu
+  // už byly zapsané zvlášť, takže „+4" ze stočení by je do skladu přičetlo podruhé).
+  const [jenOdecist, setJenOdecist] = useState(false);
 
   const tanky = useMemo(() => tankyKRezu(cellarTanks), [cellarTanks]);
   const tankA = tanky.find((t) => t.id === tankAId);
@@ -105,6 +108,48 @@ export default function RezaniPiva({
     const popis = popisRezu(tankA!.label, tankB?.label ?? null, podilA, sudyL);
     setUklada(true);
     try {
+      if (jenOdecist) {
+        // Žádný řádek stáčení (sudy se do skladu nepřičtou, kegging.quantity musí být > 0):
+        // jen přetočení „Do řezu" z tanků a přefuk „Do řezu" pro sudy ze skladu. Bez vazby
+        // na řádek stáčení, takže se nic samo nevrací — smaže se ručně.
+        const znacka = `bez-stoceni-${Date.now()}`;
+        const popisOdectu = `${popis} (jen odečet, sudy zapsané jinde)`;
+        const upozorneniOdecet: string[] = [];
+        const litryA = Math.round(aL * 10) / 10;
+        const eA = await odectiPodilRezu({ keggingId: znacka, tank: tankA!, litry: litryA, datum, popis: popisOdectu });
+        if (eA) upozorneniOdecet.push(eA);
+        else if (tankA!.status !== 'emptying') {
+          await supabase.from('cellar_tanks').update({ status: 'emptying', updated_at: new Date().toISOString() }).eq('id', tankA!.id);
+        }
+        if (tankB && tankBL > 0) {
+          const eB = await odectiPodilRezu({ keggingId: znacka, tank: tankB, litry: Math.round(tankBL * 10) / 10, datum, popis: popisOdectu });
+          if (eB) upozorneniOdecet.push(eB);
+        }
+        if (sudyL > 0) {
+          const pivoSudu = beers.find((b) => b.id === sudyPivoId);
+          const e = await odectiSudyDoRezu({
+            keggingId: znacka,
+            beer: { id: sudyPivoId, name: pivoSudu?.name ?? '' },
+            sudy: sudyRadky.map((r) => ({ pkgId: r.obal.id, label: r.obal.label, pocet: r.pocet })),
+            datum,
+            popis: popisOdectu,
+          });
+          if (e) upozorneniOdecet.push(e);
+        }
+        if (upozorneniOdecet.length) oznam(`Odečet uložen, ale: ${upozorneniOdecet.join('; ')}`);
+        else {
+          const zdroje = [`z ${tankA!.label} ${litryA} l`];
+          if (tankB && tankBL > 0) zdroje.push(`z ${tankB.label} ${tankBL} l`);
+          if (sudyL > 0) zdroje.push(`ze sudů ze skladu ${sudyL} l`);
+          uspech(`Odečteno ${zdroje.join(', ')}. Sudy z řezu se do skladu nepřičetly.`);
+        }
+        setPocty({});
+        setSudyPocty({});
+        setPoznamka('');
+        setJenOdecist(false);
+        onUlozeno();
+        return;
+      }
       // Každý řádek se dělí zvlášť, ať úprava nebo smazání jednoho řádku
       // vrátí do tanků přesně to, co se za něj odečetlo.
       const payloads = radky.map((r) => {
@@ -257,6 +302,13 @@ export default function RezaniPiva({
 
       <div>
         <div className="label">Stočené sudy</div>
+        <label className="flex items-start gap-2 mb-2 text-sm font-bold text-neutral-800 cursor-pointer select-none">
+          <input type="checkbox" className="w-4 h-4 mt-0.5 accent-primary-600" checked={jenOdecist} onChange={(e) => setJenOdecist(e.target.checked)} />
+          <span>
+            Sudy z řezu už mám zapsané jinde — jen odečíst pivo z tanků (a sudy ze skladu), do skladu nic nepřičítat
+            <span className="block text-xs font-semibold text-neutral-600">Počty sudů níže slouží jen k výpočtu litrů.</span>
+          </span>
+        </label>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {kegPackages.map((p) => (
             <div key={p.id} className="flex items-center justify-between gap-2 rounded border border-neutral-200 bg-white px-3 py-1.5">

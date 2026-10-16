@@ -21,7 +21,7 @@ export const SKUPINY_POHYBU: { id: string; label: string; druhy: MovementKind[] 
   { id: 'akce', label: 'Akce', druhy: ['akce'] },
   { id: 'odpis', label: 'Odpisy', druhy: ['odpis'] },
   { id: 'inventura', label: 'Inventura a dorovnání', druhy: ['inventura', 'dorovnani'] },
-  { id: 'prefuk', label: 'Přefuk a sudy na lahve', druhy: ['prefuk_z', 'prefuk_do', 'sud_na_lahve'] },
+  { id: 'prefuk', label: 'Přefuk a lahve', druhy: ['prefuk_z', 'prefuk_do', 'sud_na_lahve'] },
 ];
 
 export type FiltrPohybu = {
