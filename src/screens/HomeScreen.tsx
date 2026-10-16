@@ -18,6 +18,7 @@ import { isAdminEmail } from '../lib/config';
 import { supabase, Vehicle, fetchAllRows, useRealtime, beerBg, beerText } from '../lib/supabase';
 import { getVehicleExpiryStatus, textUpozorneniAuta } from '../lib/vozidla';
 import { businessDateISO, posunDen } from '../lib/businessDate';
+import { predvyberRozbor } from '../lib/pohybyPredvyber';
 import { IkonaSud, IkonaLahev, IkonaVycep } from '../components/ikony';
 import { HomeNotesModal } from '../components/HomeNotesModal';
 import CoStocitOkno from '../components/CoStocitOkno';
@@ -818,6 +819,12 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
     if (id === 'nakladka') {
       const kodDne = nalozit ? ['ne', 'po', 'ut', 'st', 'ct', 'pa', 'so'][new Date(nalozit.datum + 'T00:00:00').getDay()] : undefined;
       setPage('nakladka', undefined, kodDne);
+      return;
+    }
+    // Rozbor = Sklad → Pohyby na celém aktuálním měsíci od 1. dne; týden se vybere tlačítkem.
+    if (id === 'rozbor') {
+      predvyberRozbor(businessDateISO());
+      setPage('stock_pohyby');
       return;
     }
     if (id === 'signout') {

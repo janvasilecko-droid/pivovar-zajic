@@ -30,7 +30,7 @@ import { najdiPodezrele, najdiChybejiciZdrojSudu, davkyBezZdrojeSudu, type Nalez
 
 const DNY = ['Ne', 'Po', 'Út', 'St', 'Čt', 'Pá', 'So'];
 const LS_ROZDELIT = 'pohyby_skladu_rozdelit_mesice_v2';
-import { LS_POHYBY_FILTR as LS_FILTR, LS_POHYBY_REZIM as LS_REZIM, LS_POHYBY_MESIC as LS_MESIC } from '../lib/pohybyPredvyber';
+import { LS_POHYBY_FILTR as LS_FILTR, LS_POHYBY_REZIM as LS_REZIM, LS_POHYBY_MESIC as LS_MESIC, tydnyMesice } from '../lib/pohybyPredvyber';
 import { smaz } from '../lib/uloziste';
 
 /** Rozepsané počty týdenní inventury ze zařízení pro týdny, které období zasahuje. */
@@ -406,6 +406,23 @@ export default function PohybySkladu() {
             <ChevronRight className="ikona-text" />
           </button>
         </div>
+        {/* Jen jeden týden z měsíce (16. 10. 2026: „od začátku měsíce, s možností filtrovat jen týden") */}
+        {rezim === 'mesic' && (
+          <div className="flex flex-wrap items-center gap-1.5" data-testid="tydny-mesice">
+            <span className="text-udaj font-black text-amber-950">Jen týden:</span>
+            {tydnyMesice(mesic).map((t) => (
+              <button
+                key={t.klic}
+                type="button"
+                title={`Jen týden ${Number(t.cislo)} (${Number(t.od.slice(8))}.–${Number(t.doDne.slice(8))}. ${Number(mesic.slice(5, 7))}.)`}
+                onClick={() => { setTyden(t.klic); setRezim('tyden'); }}
+                className="btn-zalozka px-3"
+              >
+                {Number(t.cislo)} · {Number(t.od.slice(8))}.–{Number(t.doDne.slice(8))}.
+              </button>
+            ))}
+          </div>
+        )}
         {rezim === 'tyden' && prekrocMesic && (
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="text-udaj font-black text-amber-950">Týden přes dva měsíce:</span>

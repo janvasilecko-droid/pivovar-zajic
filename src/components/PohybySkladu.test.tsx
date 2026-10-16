@@ -122,4 +122,18 @@ describe('PohybySkladu', () => {
     await waitFor(() => expect(screen.getByText(/U Zajíce/)).toBeTruthy());
     expect(screen.queryByTestId('stara-data-pruh')).toBeNull();
   });
+
+  it('v měsíci jde vybrat jen jeden týden; v týdnu se tlačítka týdnů neukazují', async () => {
+    render(<PohybySkladu />);
+    await waitFor(() => expect(screen.getByText(/U Zajíce/)).toBeTruthy());
+    expect(screen.queryByTestId('tydny-mesice')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Měsíc' }));
+    const tydny = await screen.findByTestId('tydny-mesice');
+    // Září 2026: týdny 36 (1.–6.), 37, 38, 39 a 40 (28.–30.)
+    expect(Array.from(tydny.querySelectorAll('button')).map((b) => b.textContent)).toEqual(['36 · 1.–6.', '37 · 7.–13.', '38 · 14.–20.', '39 · 21.–27.', '40 · 28.–30.']);
+    fireEvent.click(screen.getByRole('button', { name: '39 · 21.–27.' }));
+    await waitFor(() => expect(screen.queryByTestId('tydny-mesice')).toBeNull());
+    expect(screen.getByText('týden 39')).toBeTruthy();
+    expect(screen.getByText('Po 21. 9.')).toBeTruthy();
+  });
 });
