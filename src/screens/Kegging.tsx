@@ -248,6 +248,8 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   const [pfFromCount, setPfFromCount] = useState('');
   const [pfToPkgId, setPfToPkgId] = useState('');
   const [pfToCount, setPfToCount] = useState('');
+  // 🧪 „Do řezu": sudy ze skladu se odečtou a nic se nepřičte (pivo odešlo do řezu místo tanku).
+  const [pfDoRezu, setPfDoRezu] = useState(false);
   const [pfNote, setPfNote] = useState('');
   const [pfSaving, setPfSaving] = useState(false);
   const [pfErr, setPfErr] = useState<string | null>(null);
@@ -1394,14 +1396,14 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     e.preventDefault();
     if (!pfBeerId) { setPfErr('Vyber druh piva.'); return; }
     if (!pfFromPkgId) { setPfErr('Vyber velikost sudu ZE (odečítá se ze skladu).'); return; }
-    if (!pfToPkgId) { setPfErr('Vyber velikost sudu DO (přičítá se na sklad).'); return; }
+    if (!pfDoRezu && !pfToPkgId) { setPfErr('Vyber velikost sudu DO (přičítá se na sklad).'); return; }
     const fromCount = Number(pfFromCount);
     const toCount = Number(pfToCount);
     if (!Number.isFinite(fromCount) || fromCount <= 0) { setPfErr('Zadej počet sudů ZE (větší než 0).'); return; }
-    if (!Number.isFinite(toCount) || toCount <= 0) { setPfErr('Zadej počet sudů DO (větší než 0).'); return; }
-    if (pfFromPkgId === pfToPkgId) { setPfErr('Velikost sudu ZE a DO nemůže být stejná.'); return; }
+    if (!pfDoRezu && (!Number.isFinite(toCount) || toCount <= 0)) { setPfErr('Zadej počet sudů DO (větší než 0).'); return; }
+    if (!pfDoRezu && pfFromPkgId === pfToPkgId) { setPfErr('Velikost sudu ZE a DO nemůže být stejná.'); return; }
     const fromPkg = packages.find((p) => p.id === pfFromPkgId);
-    const toPkg = packages.find((p) => p.id === pfToPkgId);
+    const toPkg = pfDoRezu ? undefined : packages.find((p) => p.id === pfToPkgId);
     const beer = beers.find((b) => b.id === pfBeerId);
     // Nález z auditu 15. 9. 2026: zadání přefuku nekontrolovalo, že v obalu
     // ZE opravdu tolik sudů je — skladová kniha ho klidně srazila do mínusu
@@ -1426,10 +1428,11 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
       from_package_id: pfFromPkgId,
       from_package_label: fromPkg?.label ?? null,
       from_count: fromCount,
-      to_package_id: pfToPkgId,
-      to_package_label: toPkg?.label ?? null,
-      to_count: toCount,
-      note: pfNote || null,
+      // Do řezu: nic se nepřičítá (stejný tvar řádku jako při řezání, lib/rezaniSudy.ts).
+      to_package_id: pfDoRezu ? null : pfToPkgId,
+      to_package_label: pfDoRezu ? null : toPkg?.label ?? null,
+      to_count: pfDoRezu ? 0 : toCount,
+      note: pfDoRezu ? `Do řezu: ${pfNote || 'dodatečně zapsáno'}` : pfNote || null,
     });
     setPfSaving(false);
     if (error) { setPfErr('Chyba při ukládání: ' + error.message); return; }
@@ -1438,6 +1441,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     setPfFromCount('');
     setPfToPkgId('');
     setPfToCount('');
+    setPfDoRezu(false);
     setPfNote('');
     setPfDate(businessDateISO());
     load(true);
@@ -2743,6 +2747,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
             <div className="text-sm font-display font-black text-amber-950 mb-1"><RefreshCw className="ikona-text" /> Přefuk KEG sudů</div>
             <p className="text-xs text-neutral-500 mb-4">
               Přelití piva ze sudů jedné velikosti do jiných — ze skladu se <b>odečtou</b> sudy „ZE" a <b>přičtou</b> sudy „DO" (např. 3×50 l → 4×30 l).
+              Šlo-li pivo z hotových sudů <b>do řezu</b> místo tanku, zaškrtni „Do řezu" — sudy se jen odečtou.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
               <div>
@@ -2813,35 +2818,41 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                 <div className="text-udaj font-black text-emerald-700 uppercase tracking-wider mb-2">
                   <Plus className="ikona-text" /> DO sudů <span className="normal-case font-bold">(přičte se na sklad)</span>
                 </div>
-                <div className="grid grid-cols-2 gap-3 items-end">
-                  <div>
-                    <label className="label">Velikost sudu</label>
-                    <select className="input" value={pfToPkgId} onChange={(e) => setPfToPkgId(e.target.value)} required>
-                      <option value="">— vyber —</option>
-                      {kegPackages.map((p) => (
-                        <option key={p.id} value={p.id}>{p.label}</option>
-                      ))}
-                    </select>
+                <label className="flex items-center gap-2 text-sm font-bold text-neutral-800 mb-2 cursor-pointer select-none">
+                  <input type="checkbox" className="w-4 h-4 accent-emerald-600" checked={pfDoRezu} onChange={(e) => setPfDoRezu(e.target.checked)} />
+                  Do řezu (nic se nepřičte)
+                </label>
+                {!pfDoRezu && (
+                  <div className="grid grid-cols-2 gap-3 items-end">
+                    <div>
+                      <label className="label">Velikost sudu</label>
+                      <select className="input" value={pfToPkgId} onChange={(e) => setPfToPkgId(e.target.value)} required>
+                        <option value="">— vyber —</option>
+                        {kegPackages.map((p) => (
+                          <option key={p.id} value={p.id}>{p.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="label">Počet sudů</label>
+                      <input
+                        type="number" onWheel={(e) => e.currentTarget.blur()}
+                        min={1}
+                        step={1}
+                        inputMode="numeric"
+                        className="input"
+                        placeholder="ks"
+                        value={pfToCount}
+                        onChange={(e) => setPfToCount(e.target.value)}
+                        required
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className="label">Počet sudů</label>
-                    <input
-                      type="number" onWheel={(e) => e.currentTarget.blur()}
-                      min={1}
-                      step={1}
-                      inputMode="numeric"
-                      className="input"
-                      placeholder="ks"
-                      value={pfToCount}
-                      onChange={(e) => setPfToCount(e.target.value)}
-                      required
-                    />
-                  </div>
-                </div>
+                )}
               </div>
             </div>
             {/* Náhled pohybu */}
-            {pfFromPkgId && pfToPkgId && Number(pfFromCount) > 0 && Number(pfToCount) > 0 && (
+            {pfFromPkgId && !pfDoRezu && pfToPkgId && Number(pfFromCount) > 0 && Number(pfToCount) > 0 && (
               <div className="mt-4 rounded bg-white border border-neutral-200 p-3 text-sm">
                 <div className="text-xs font-bold text-neutral-500 mb-1.5"><ClipboardList className="ikona-text" /> Přehled pohybu na skladě:</div>
                 <div className="flex flex-wrap items-center gap-2 font-black">
