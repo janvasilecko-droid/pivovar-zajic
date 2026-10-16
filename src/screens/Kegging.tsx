@@ -27,6 +27,7 @@ import { platneDatum, radkyZKonceptu, smazKoncept, useRozepsanyZapis } from '../
 import RozepsanyZapisPruh from '../components/RozepsanyZapisPruh';
 import { navrhniPripojeniZapsaneho, otevrenePolozkyVlastnich, priradDoVlastnich, rozdelRadkyNaVlastni } from '../lib/stoceniDoVlastnich';
 import { nejvetsiTank, odpojPrecerpane, radkyBezTanku, tankRadku, tankyProPivo } from '../lib/tankUZapisu';
+import { potrebujeTank } from '../lib/limonady';
 import { jeJantar, pivaJantaru, pivoZdrojovehoTanku, rozdelJantar, PODIL_SVETLE } from '../lib/jantar';
 import { obnovPreliti, odectiPodilRezu, odectiTmavouJantaru, prelitiKRadku, upravTmavouJantaru, vratPrelitiRadku, vratTmavouJantaru } from '../lib/jantarZapis';
 import { jeZnackaRezu, prepocetRezu } from '../lib/rezani';
@@ -1116,8 +1117,12 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     // Od 28. 9. 2026 se na to už neptá (míň oken při stáčení) — uloží se a
     // krátce se upozorní. Takové stáčení čeká ve Sklepě na záložce „Stáčení
     // bez tanku", kde se přiřadí k tanku jedním klepnutím.
+    // Limonády (Citron, Grep…) tank nemají (16. 10. 2026: „limonády celkově
+    // nemají tank") — jejich řádky se bez tanku ukládají normálně, bez upozornění.
     const bezTanku = radkyBezTanku(
-      radkyKUlozeni.map((r) => ({ ...r, beerId: pivoZdrojovehoTanku(r.beerId, beers) })),
+      radkyKUlozeni
+        .filter((r) => potrebujeTank(beers.find((b) => b.id === r.beerId)?.name))
+        .map((r) => ({ ...r, beerId: pivoZdrojovehoTanku(r.beerId, beers) })),
       cellarTanks,
       (r) => r.tankId,
     );

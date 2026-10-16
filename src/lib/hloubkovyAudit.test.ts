@@ -74,7 +74,7 @@ describe('stáčení KEG bez tanku', () => {
     ];
     const obaly = [{ id: 'o30', label: '30l', volume_l: 30 }, { id: 'o15', label: ' 15l', volume_l: 15 }, { id: 'o10', label: ' 10l', volume_l: 10 }];
     // Sklep 15. 10. 2026: Desítka má Tank 4 (zbývá 125 l, stáčí se z něj) a nový Tank 6 (nezahájený),
-    // 11° Světlá nový Tank 8 (nezahájený), Citron žádný tank.
+    // 11° Světlá nový Tank 8 (nezahájený). Citron je limonáda — tank nemá nikdy.
     const tanky = [
       tank('Tank 1', 'tm', 6500, false), tank('Tank 4', 'des', 125, true, 'emptying'), tank('Tank 6', 'des', 6100, false),
       tank('Tank 7', 's12', 6523, true, 'emptying'), tank('Tank 8', 's11', 7500, false),
@@ -84,18 +84,40 @@ describe('stáčení KEG bez tanku', () => {
     const vstup = (kegging: any[], extra: object = {}) => ({ ...prazdny, od: '2026-10-12', do: '2026-10-18', kegging, tanky, piva, obaly, ...extra });
 
     it('skutečné zápisy 13.–14. 10.: pivo, obal, litry a důvod (nový tank nemá zahájené stáčení)', () => {
+      // Citron (limonáda, 2 × 30 l) je mezi zápisy taky — v nálezu ale není:
+      // limonády tank nemají (16. 10. 2026).
       const n = kontrolaKeggingBezTanku(vstup([
         zapis('2026-10-14', 's11', 'o10', 3), zapis('2026-10-14', 's11', 'o15', 2), zapis('2026-10-14', 'des', 'o30', 6),
         zapis('2026-10-14', 'cit', 'o30', 2), zapis('2026-10-13', 'des', 'o30', 6),
       ]));
-      expect(n.pocet).toBe(5);
+      expect(n.pocet).toBe(4);
       expect(n.detaily).toEqual([
         '14. 10. 2026 — 11° Světlá 10l × 3 ks (30 l) — Tank 8 nemá zahájené stáčení',
         '14. 10. 2026 — 11° Světlá 15l × 2 ks (30 l) — Tank 8 nemá zahájené stáčení',
         '14. 10. 2026 — 10° Desítka 30l × 6 ks (180 l) — Tank 4 má jen 125 l, zápis chce 180 l; Tank 6 nemá zahájené stáčení',
-        '14. 10. 2026 — Citron 30l × 2 ks (60 l) — žádný tank toto pivo nemá',
         '13. 10. 2026 — 10° Desítka 30l × 6 ks (180 l) — Tank 4 má jen 125 l, zápis chce 180 l; Tank 6 nemá zahájené stáčení',
       ]);
+    });
+
+    // 16. 10. 2026 majitel: „limonády celkově nemají tank".
+    it('limonáda bez tanku (Citron, Grep…) není nález — kontrola je v pořádku', () => {
+      const n = kontrolaKeggingBezTanku(vstup([
+        zapis('2026-10-14', 'cit', 'o30', 2), zapis('2026-10-15', 'cit', 'o30', 3), zapis('2026-10-15', 'grep', 'o30', 1),
+      ], { piva: [...piva, { id: 'grep', name: 'Grep' }] }));
+      expect(n.zavaznost).toBe('ok');
+      expect(n.pocet).toBe(0);
+    });
+
+    it('pivo bez tanku vedle limonády se hlásí dál, počet jen o pivo', () => {
+      const n = kontrolaKeggingBezTanku(vstup([zapis('2026-10-15', 'cit', 'o30', 3), zapis('2026-10-14', 's11', 'o15', 2)]));
+      expect(n.zavaznost).toBe('chyba');
+      expect(n.pocet).toBe(1);
+      expect(n.detaily).toEqual(['14. 10. 2026 — 11° Světlá 15l × 2 ks (30 l) — Tank 8 nemá zahájené stáčení']);
+    });
+
+    it('bez katalogu piv se jméno nezná, takže se zápis hlásí (nehádá se, že je to limonáda)', () => {
+      const n = kontrolaKeggingBezTanku({ ...prazdny, od: '2026-10-12', do: '2026-10-18', kegging: [zapis('2026-10-14', 'cit', 'o30', 2)] });
+      expect(n.pocet).toBe(1);
     });
 
     it('rada říká, kam jít: Zahájit stáčení u tanku a záložka Stáčení bez tanku', () => {

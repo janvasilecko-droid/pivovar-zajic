@@ -16,7 +16,7 @@ import { businessDateISO, posunDen } from '../lib/businessDate';
 import { EmptyState } from './ui';
 import { jeJantar, pivaJantaru, pivoZdrojovehoTanku, rozdelJantar } from '../lib/jantar';
 import { odectiTmavouJantaru } from '../lib/jantarZapis';
-import { tankRadku } from '../lib/tankUZapisu';
+import { cekaNaTank, tankRadku } from '../lib/tankUZapisu';
 import { SKLEP_OD } from '../lib/sklepOd';
 
 export type RadekStaceni = {
@@ -47,11 +47,12 @@ export function StaceniBezTanku({ kegging, tanks, beers, packages, onZmena }: {
   // k vyprázdněným tankům přiřazovat nejde.
   const odPred = posunDen(businessDateISO(), -DNU_ZPET);
   const od = odPred > SKLEP_OD ? odPred : SKLEP_OD;
+  // Limonády (Citron, Grep…) tank nemají (16. 10. 2026) — na přiřazení nečekají.
   const radky = useMemo(
     () => kegging
-      .filter((r) => !r.cellar_tank_id && r.beer_id && Number(r.quantity) > 0 && r.entry_date >= od)
+      .filter((r) => cekaNaTank(r, od, (id) => beers.find((b) => b.id === id)?.name))
       .sort((a, b) => b.entry_date.localeCompare(a.entry_date)),
-    [kegging, od],
+    [kegging, od, beers],
   );
 
   const litry = (r: RadekStaceni) =>

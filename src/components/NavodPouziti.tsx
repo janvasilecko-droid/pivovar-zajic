@@ -110,6 +110,10 @@ const ODDILY: Oddil[] = [
         jak: 'Vyber pivo dlaždicí, obal a počet kusů. Uložit. Před prvním stáčením dne se prokliká Příprava (Checklist) — zapíše se do sanitačního deníku.',
       },
       {
+        co: 'Limonády (Citron, Grep…)',
+        jak: 'Limonáda nemá tank. Stáčí se bez něj, do skladu se zapíše normálně a appka ji nikde nehlásí jako „Stáčení bez tanku“ (ani v Auditu, ani ve Sklepě).',
+      },
+      {
         co: 'Konec stáčení (Checklist)',
         jak: 'Po stáčení se prokliká úklid — i ten jde do sanitačního deníku. Musí být vyplněný každý den, kdy se stáčelo. Když v 16:00 chybí, přijde upozornění na telefon; když v 18:00 pořád chybí, přijde znovu a klepnutím se rovnou otevře tabulka k vyplnění.',
       },
