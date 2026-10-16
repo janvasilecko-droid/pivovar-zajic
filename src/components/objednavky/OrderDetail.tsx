@@ -1,7 +1,7 @@
 // 🔎 Detail objednávky — část obrazovky Objednávky.
 import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, ChevronLeft, ChevronRight, Bell, Building2, Camera, Check, ClipboardList, Copy, Package as PackageIcon, Pencil, Phone, RotateCcw, Scroll, Split, X } from 'lucide-react';
-import { Beer, Package, Place, beerBg, beerInk, supabase } from '../../lib/supabase';
+import { Beer, Package, Place, beerBg, beerInk, formatPackageLabel, supabase } from '../../lib/supabase';
 import { Field } from '../ui';
 import { weekRange, shiftWeek } from '../WeeklyOrderSummaryCard';
 
@@ -11,7 +11,7 @@ import { DAYS } from '../../lib/shared';
 
 import type {  } from '../../lib/tankUZapisu';
 
-import { chyba, oznam, uspech } from '../../lib/toast';
+import { chyba, oznam, potvrd, uspech } from '../../lib/toast';
 import { srovnaniPoUprave, type UpravaPolozky } from '../../lib/zavozSync';
 import { parseDeliveryTimeHint } from '../../lib/orderParser';
 import { createReminder, getLocalReminders } from '../../lib/reminders';
@@ -24,7 +24,8 @@ import { FotkyZaznamu } from '../FotkyZaznamu';
 import { objednavkaJakoText } from '../../lib/objednavkaJakoText';
 import { hodnotaObjednavky, type CenaPolozky } from '../../lib/hodnotaObjednavky';
 import { zapisZmenuPolozky, nactiHistoriiObjednavky, popisZmenyPolozky, type ZmenaPolozky } from '../../lib/objednavkaAudit';
-import { najdiZdvojeneRadky } from '../../lib/duplicityObjednavek';
+import { datumKratce, najdiZdvojeneRadky } from '../../lib/duplicityObjednavek';
+import { jeChybaOdpoctu, nactiOdpoctyRadku, planSmazaniOdepsaneho, smazRadekSOdpoctem } from '../../lib/smazaniRadku';
 import { nazvyZKatalogu, zeptejSeNaZdvojeneRadky } from '../../lib/duplicityDialog';
 import { StitekStavu } from '../StitekStavu';
 
@@ -144,15 +145,47 @@ export function OrderDetail({ order, items, beers, packages, places, priceList, 
   }
   async function rmItem(id: string) {
     // Už zavezenou položku databáze smazat nedá (cizí klíč na zavoz_deductions
-    // je RESTRICT) — bez téhle hlášky chyba propadla, seznam se přenačetl a
-    // řádek se beze slova vrátil.
+    // je RESTRICT) — bez hlášky chyba propadla, seznam se přenačetl a řádek
+    // se beze slova vrátil. Odpočet z tohoto týdne se smí smazat spolu s řádkem
+    // (lib/smazaniRadku.ts, 16. 10. 2026: zdvojený Jantar v objednávce
+    // Restaurace), starší odpočet zůstává.
     const mazany = items.find((x) => x.id === id);
     const { error } = await supabase.from('order_items').delete().eq('id', id);
     if (error) {
-      chyba('Položku nejde smazat — je už zavezená a odepsaná ze skladu. Oprav množství, nebo zruš celou objednávku.');
+      if (jeChybaOdpoctu(error)) await smazOdepsanyRadek(id, mazany ?? null, error.message);
+      else chyba(`Položku se nepodařilo smazat: ${error.message}`);
       return;
     }
     void zapisZmenuPolozky(order.id, 'delete', mazany ?? null, null);
+    onChanged();
+  }
+
+  /** Řádek drží odpočet ze skladu: smazat ho jde jen s odpočtem, a jen když je z tohoto týdne. */
+  async function smazOdepsanyRadek(id: string, mazany: OrderItem | null, puvodniChyba: string) {
+    const { data: odpocty, chyba: chybaNacteni } = await nactiOdpoctyRadku(id);
+    if (chybaNacteni) { chyba(`Řádek je odepsaný ze skladu a odpočty se nepodařilo načíst: ${chybaNacteni}`); return; }
+    const plan = planSmazaniOdepsaneho(odpocty, businessDateISO());
+    if (plan.druh === 'bez-odpoctu') {
+      chyba(`Položku nejde smazat — drží ji jiný záznam v databázi (${puvodniChyba}). Napiš správci.`);
+      return;
+    }
+    if (plan.druh === 'uzavreny') {
+      chyba(`Řádek je odepsaný ze skladu už ${plan.nejstarsi ? datumKratce(plan.nejstarsi) : 'dávno'} — odpočet z uplynulého týdne zůstává, aby se nerozházela uzavřená inventura. Zruš celou objednávku (kusy se vrátí dnešním dnem), nebo je vrať přes „Vrácení piva".`);
+      return;
+    }
+    const popis = `${mazany?.quantity ?? ''}× ${mazany?.beer_name ?? 'pivo'} ${formatPackageLabel(mazany?.package_label ?? '')}`.replace(/\s+/g, ' ').trim();
+    const souhlas = await potvrd(
+      `Řádek „${popis}" je už zavezený a odepsaný ze skladu (${plan.kusu} ks).\n\n`
+      + `Smazat ho i s odpočtem? Sklad se vrátí o ${plan.kusu} ks, jako by řádek v objednávce nikdy nebyl. `
+      + 'Odpočet je z tohoto týdne, takže uzavřenou inventuru to nerozhází.\n\n'
+      + 'Použij to u řádku, který je v objednávce omylem (třeba dvakrát).',
+      { titulek: 'Smazat odepsaný řádek', potvrdit: 'Smazat i s odpočtem', nebezpecne: true },
+    );
+    if (!souhlas) return;
+    const selhani = await smazRadekSOdpoctem(id);
+    if (selhani) { chyba(selhani); onChanged(); return; }
+    void zapisZmenuPolozky(order.id, 'delete', mazany, null);
+    uspech(`Řádek smazán, sklad se vrátil o ${plan.kusu} ks.`);
     onChanged();
   }
 

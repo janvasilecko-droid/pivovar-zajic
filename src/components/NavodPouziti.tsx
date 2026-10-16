@@ -200,6 +200,10 @@ const ODDILY: Oddil[] = [
         jak: 'Před uložením objednávky (ručně, z fotky, z WhatsAppu i „To co posledně“) appka zkontroluje, jestli stejný odběratel nemá stejnou objednávku — ve stejný den, nebo celou stejnou v témže týdnu. Když ano, ukáže ji (kdy a jak byla zadaná) a zeptá se: Nezakládat / Přesto vytvořit; u zprávy z WhatsAppu i Ignorovat zprávu. Zavřít okno = nezaložit nic. Totéž při přidání položky do uložené objednávky (ručně i z fotky): když tam pivo v tom obalu už je, appka se zeptá, než ho přidá podruhé. Druhá objednávka by totiž sklad odečetla podruhé.',
       },
       {
+        co: 'Smazání řádku, který už odjel',
+        jak: 'Křížek u položky, která je už zavezená a odepsaná ze skladu, se zeptá „Smazat i s odpočtem“ — sklad se vrátí o ty kusy, jako by řádek v objednávce nikdy nebyl (hodí se na řádek, který tam je omylem dvakrát). Jde to jen u odpočtu z tohoto týdne; starší odpočet zůstává, aby se nerozházela uzavřená inventura — tam zruš celou objednávku (kusy se vrátí dnešním dnem) nebo použij Vrácení piva.',
+      },
+      {
         co: 'Odznak „Ke konci týdne chybí“',
         jak: 'Neříká „na tuhle objednávku nemám pivo“, ale že ta kombinace piva a obalu je ke konci týdne závozu v mínusu — přes všechny pohyby toho týdne. U zavezených objednávek se neukazuje.',
       },
