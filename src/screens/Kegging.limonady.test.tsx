@@ -130,6 +130,44 @@ describe('Stáčení KEG — limonády nemají tank', () => {
     expect(h.oznameni).toEqual(['Uloženo. 1 řádek je bez tanku. Přiřadíš ve Sklepě → Stáčení bez tanku.']);
   });
 
+  describe('upozornění před uložením (bez ukládání)', () => {
+    const koncept = (beerId: string) => JSON.stringify({
+      entryRows: [{ beerId, pkgId: 'pkg-30', qty: '2', tankId: '' }], date: '2026-01-05', note: '', ulozeno: '2026-01-06T10:05:00.000Z',
+    });
+    const otevri = () => render(<KeggingScreen mode="all" setPage={vi.fn()} initialSubTab="zapis" />);
+
+    it('pivo bez aktivního tanku: pod výběrem tanku je poznámka, že se objem neodečte', async () => {
+      localStorage.setItem(KLIC, koncept('beer-12'));
+      otevri();
+      expect(await screen.findByText(/1× řádek bez aktivního tanku s daným pivem — objem se neodečte/)).toBeTruthy();
+    });
+
+    it('limonáda (Citron) bez tanku: žádná poznámka o neodečteném objemu', async () => {
+      localStorage.setItem(KLIC, koncept('beer-cit'));
+      otevri();
+      await screen.findByTestId('rozepsany-zapis-pruh');
+      expect(screen.queryByText(/řádek bez aktivního tanku/)).toBeNull();
+    });
+
+    it('dlaždice piva bez tanku řekne „žádný aktivní tank“, dlaždice limonády ne', async () => {
+      otevri();
+      for (const [jmeno, maHlasku] of [['Světlý ležák 12°', true], ['Citron', false]] as const) {
+        fireEvent.click(await screen.findByRole('button', { name: new RegExp(jmeno) }));
+        const pole = await waitFor(() => {
+          const p = document.querySelector('.fixed.inset-0 input[type="number"]') as HTMLInputElement | null;
+          expect(p).toBeTruthy();
+          return p as HTMLInputElement;
+        });
+        fireEvent.change(pole, { target: { value: '3' } });
+        if (maHlasku) expect(await screen.findByText(/žádný aktivní tank — objem se neodečte/)).toBeTruthy();
+        else expect(screen.queryByText(/žádný aktivní tank — objem se neodečte/)).toBeNull();
+        fireEvent.click(document.querySelector('.fixed.inset-0') as HTMLElement);
+        await waitFor(() => expect(document.querySelector('.fixed.inset-0')).toBeNull());
+        localStorage.clear();
+      }
+    });
+  });
+
   it('pivo a limonáda v jednom uložení: upozornění počítá jen pivo', async () => {
     await ulozStaceni([{ beerId: 'beer-12', qty: '4' }, { beerId: 'beer-cit', qty: '3' }]);
     expect(h.vlozeno).toHaveLength(2);

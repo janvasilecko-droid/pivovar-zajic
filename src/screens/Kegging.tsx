@@ -28,6 +28,8 @@ import RozepsanyZapisPruh from '../components/RozepsanyZapisPruh';
 import { navrhniPripojeniZapsaneho, otevrenePolozkyVlastnich, priradDoVlastnich, rozdelRadkyNaVlastni } from '../lib/stoceniDoVlastnich';
 import { nejvetsiTank, odpojPrecerpane, radkyBezTanku, tankRadku, tankyProPivo } from '../lib/tankUZapisu';
 import { potrebujeTank } from '../lib/limonady';
+import RadkyZFotkyPoDnech from '../components/RadkyZFotkyPoDnech';
+import { jizZapsane, mesiceDnu, otazkaJizZapsano, otazkaUzamcenychMesicu, platnyDen, rozdelPodleDnu } from '../lib/zapisPoDnech';
 import { jeJantar, pivaJantaru, pivoZdrojovehoTanku, rozdelJantar, PODIL_SVETLE } from '../lib/jantar';
 import { obnovPreliti, odectiPodilRezu, odectiTmavouJantaru, prelitiKRadku, upravTmavouJantaru, vratPrelitiRadku, vratTmavouJantaru } from '../lib/jantarZapis';
 import { jeZnackaRezu, prepocetRezu } from '../lib/rezani';
@@ -62,15 +64,22 @@ const ROW_COUNT = 12;
 type RowInput = { beerId: string; pkgId: string; qty: string; tankId: string };
 const emptyItem = (): RowInput => ({ beerId: '', pkgId: '', qty: '', tankId: '' });
 const emptyRows = (): RowInput[] => Array.from({ length: ROW_COUNT }, emptyItem);
+// Řádek z fotky s víc dny (lib/zapisPoDnech.ts): vždy s vlastním dnem, drží se zvlášť
+// od formuláře (ten má jedno datum) a ukládá se společně s ním.
+type RadekFoto = RowInput & { datum: string };
+const emptyFoto = (): RadekFoto => ({ ...emptyItem(), datum: '' });
+/** Řádky z fotky z uloženého konceptu: jen s existujícím dnem. */
+const radkyFotaZKonceptu = (v: unknown): RadekFoto[] =>
+  radkyZKonceptu(v, emptyFoto, 0).filter((r) => platnyDen(r.datum) !== null);
 
 // 💾 Rozepsaný zápis (lib/rozepsanyZapis.ts): řádky a datum zůstanou v zařízení,
 // dokud se neuloží do databáze nebo ručně nesmažou. Dlaždice KEG píše rovnou do
 // `entryRows`, takže stačí ukládat je.
 const KLIC_ROZEPSANE = 'rozepsane_staceni_keg';
-type KonceptKeg = { entryRows: RowInput[]; date: string; note: string };
+type KonceptKeg = { entryRows: RowInput[]; date: string; note: string; fotoDny?: RadekFoto[] };
 /** Řádek, o který by člověk přišel: pivo, obal a množství. */
 const radekMaObsah = (r: RowInput) => !!r.beerId && !!r.pkgId && Number(r.qty) > 0;
-const jeCoKeg = (d: KonceptKeg) => d.note.trim() !== '' || d.entryRows.some(radekMaObsah);
+const jeCoKeg = (d: KonceptKeg) => d.note.trim() !== '' || d.entryRows.some(radekMaObsah) || (d.fotoDny ?? []).some(radekMaObsah);
 const jePlatnyKonceptKeg = (d: unknown): d is KonceptKeg => {
   const o = d as Partial<KonceptKeg> | null;
   return !!o && Array.isArray(o.entryRows) && typeof (o.note ?? '') === 'string';
@@ -156,22 +165,25 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   const [note, setNote] = useState('');
 
   const [entryRows, setEntryRows] = useState<RowInput[]>(emptyRows());
+  // Řádky z fotky z víc dnů (každý na svém dni) — viz RadekFoto výše.
+  const [fotoDny, setFotoDny] = useState<RadekFoto[]>([]);
   const { obnoveno: obnovenyKoncept } = useRozepsanyZapis<KonceptKeg>({
     klic: KLIC_ROZEPSANE,
-    data: { entryRows, date, note },
+    data: { entryRows, date, note, fotoDny },
     jeCo: jeCoKeg,
     jePlatny: jePlatnyKonceptKeg,
     naObnovu: (d) => {
       setEntryRows(radkyZKonceptu(d.entryRows, emptyItem, ROW_COUNT));
+      setFotoDny(radkyFotaZKonceptu(d.fotoDny));
       const den = platneDatum(d.date);
       if (den) setDate(den);
       setNote(typeof d.note === 'string' ? d.note : '');
     },
   });
   /** „Vymazat vše" a „Zahodit": rozepsané řádky pryč (uložené zápisy se nemění). */
-  function vymazRozepsane() { setEntryRows(emptyRows()); setNote(''); setErr(null); }
+  function vymazRozepsane() { setEntryRows(emptyRows()); setFotoDny([]); setNote(''); setErr(null); }
   async function vymazVse() {
-    if (jeCoKeg({ entryRows, date, note })
+    if (jeCoKeg({ entryRows, date, note, fotoDny })
       && !(await potvrd('Smazat všechny rozepsané řádky? Nic uloženého v databázi se nemění.', { titulek: 'Vymazat rozepsané', potvrdit: 'Vymazat' }))) return;
     vymazRozepsane();
   }
@@ -445,10 +457,12 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     const perTank = new Map<string, number>();
     let missingCount = 0;
     let ambiguousCount = 0;
-    entryRows.forEach((r) => {
+    [...entryRows, ...fotoDny].forEach((r) => {
       const pkg = packages.find((p) => p.id === r.pkgId);
       const n = Number(r.qty);
       if (!pkg || !(n > 0) || !r.beerId) return;
+      // Limonáda tank nemá (16. 10. 2026) — není co hlásit ani odečítat.
+      if (!potrebujeTank(beers.find((b) => b.id === r.beerId)?.name)) return;
       const rowTanks = activeTanksForBeer(r.beerId);
       if (rowTanks.length === 0) { missingCount++; return; }
       if (rowTanks.length > 1) ambiguousCount++;
@@ -458,7 +472,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
       perTank.set(tank.id, (perTank.get(tank.id) ?? 0) + l);
     });
     return { perTank, missingCount, ambiguousCount };
-  }, [entryRows, packages, activeCellarTanks]);
+  }, [entryRows, fotoDny, packages, activeCellarTanks]);
 
   async function saveEditedRow(e: React.FormEvent) {
     e.preventDefault();
@@ -1004,7 +1018,14 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   const posledniZapisKeg = useMemo(() => posledniRucniZapis(rows), [rows]);
 
   // Zpracování položek načtených z fotky — naplní prvních volných 12 řádků.
-  function handleApplyPhotoRows(photoRows: { beerId: string; pkgId: string; qty: string }[], dateVal?: string, photoNote?: string) {
+  function handleApplyPhotoRows(vsechnyRadky: { beerId: string; pkgId: string; qty: string; datum?: string | null }[], dateVal?: string, photoNote?: string) {
+    // Z víc dnů tabulky (16. 10. 2026) se řádky s dnem odloží do seznamu po dnech —
+    // každý se zapíše na svůj den. Z jednoho dne (nebo ze seznamu / zprávy) jdou
+    // do formuláře jako dosud (lib/zapisPoDnech.ts rozdelPodleDnu).
+    const { formular: photoRows, poDnech } = rozdelPodleDnu(vsechnyRadky);
+    if (poDnech.length > 0) {
+      setFotoDny((prev) => [...prev, ...poDnech.map((r) => ({ beerId: r.beerId, pkgId: r.pkgId, qty: r.qty, tankId: '', datum: r.datum as string }))]);
+    }
     setEntryRows((prev) => {
       const next = [...prev];
       photoRows.forEach((pRow, idx) => {
@@ -1016,7 +1037,9 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
       });
       return next;
     });
-    if (dateVal) setDate(dateVal);
+    // Datum formuláře se z okna bere, jen když do formuláře něco přišlo — samé řádky
+    // po dnech ho nemění (každý nese svůj den).
+    if (dateVal && (photoRows.length > 0 || poDnech.length === 0)) setDate(dateVal);
     if (photoNote) setNote((prev) => (prev ? prev + ' | ' + photoNote : photoNote));
   }
   // Vrací true jen po SKUTEČNÉM uložení — díky tomu si volající (fajfka
@@ -1038,19 +1061,6 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
       return false;
     }
 
-    // 🔒 Zápis do měsíce, který je už napočítaný (fyzická/schválená
-    // inventura), nezakazujeme — legitimní dodatečná oprava se stát může —
-    // ale nahlas na to upozorníme. Přesně tohle byl případ Manea (6. 9.):
-    // do spočítaného srpna přibyly dva sudy o týden později a schodek se
-    // pak hledal jako záhada (viz lib/mesicUzamcen.ts).
-    if (jeMesicUzamcen(inventoryRows, date)) {
-      const dotaz =
-        `Měsíc ${date.slice(0, 7)} už má napočítanou inventuru. Zápis do něj teď ` +
-        'změní číslo, které je už uzavřené a dorovnané — přesně tak vznikl ' +
-        'záhadný schodek u Manea 6. 9. 2026.\n\nOpravdu zapsat do už napočítaného měsíce?';
-      if (!(await potvrd(dotaz, { titulek: 'Měsíc je už napočítaný', potvrdit: 'Ano, zapsat' }))) return false;
-    }
-
     // Kontroluje se i PIVO — bez něj se stočení sice uloží a je vidět
     // v seznamu, ale všechny skladové výpočty ho přeskočí (filtrují
     // `if (!beer_id || !package_id) return`), takže stočená šarže nikde
@@ -1060,8 +1070,35 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
       setErr('U každého vyplněného řádku vyberte pivo — bez něj by se stočení nepromítlo do skladu.');
       return false;
     }
-    const filled = entryRows.filter((r) => r.beerId && r.pkgId && Number(r.qty) > 0);
+    // Zapisuje se formulář (na jeho datum) a řádky z fotky po dnech (každý na svůj den).
+    const radekKZapisu = (r: RowInput) => !!r.beerId && !!r.pkgId && Number(r.qty) > 0;
+    const zFotky = fotoDny.filter((r) => radekKZapisu(r) && platnyDen(r.datum) !== null);
+    const filled: RadekFoto[] = [
+      ...entryRows.filter(radekKZapisu).map((r) => ({ ...r, datum: date })),
+      ...zFotky,
+    ];
     if (filled.length === 0) { setErr('Vyplň alespoň jeden řádek (pivo, obal a množství).'); return false; }
+
+    // 🔒 Zápis do měsíce, který je už napočítaný (fyzická/schválená
+    // inventura), nezakazujeme — legitimní dodatečná oprava se stát může —
+    // ale nahlas na to upozorníme. Přesně tohle byl případ Manea (6. 9.):
+    // do spočítaného srpna přibyly dva sudy o týden později a schodek se
+    // pak hledal jako záhada (viz lib/mesicUzamcen.ts). Řádky z fotky mohou
+    // padat do víc měsíců — ptá se jednou, s výčtem všech.
+    const uzamcene = mesiceDnu(filled.map((r) => r.datum)).filter((m) => jeMesicUzamcen(inventoryRows, `${m}-01`));
+    if (uzamcene.length > 0) {
+      if (!(await potvrd(otazkaUzamcenychMesicu(uzamcene), { titulek: 'Měsíc je už napočítaný', potvrdit: 'Ano, zapsat' }))) return false;
+    }
+
+    // 🧾 Řádky z fotky: den + pivo + obal, který už ve stáčení KEG je, se po druhém
+    // načtení téže fotky zapíšou podruhé. Neblokuje (dvě várky téhož piva v jeden den
+    // jsou běžné), jen se na to nahlas upozorní.
+    const dvakrat = jizZapsane(zFotky, rows);
+    if (dvakrat.length > 0) {
+      const popisek = (beerId: string, pkgId: string) =>
+        `${beers.find((b) => b.id === beerId)?.name ?? 'Pivo'} · ${packages.find((p) => p.id === pkgId)?.label?.trim() ?? 'obal'}`;
+      if (!(await potvrd(otazkaJizZapsano(dvakrat, 've stáčení KEG', popisek), { titulek: 'Možné zdvojení', potvrdit: 'Ano, zapsat i tak' }))) return false;
+    }
 
     // Přehmat o řád (12 → 120) se jinak najde až u inventury, kdy se těžko
     // dohledává, kde vznikl. Neblokuje se — velká várka je legitimní.
@@ -1147,7 +1184,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
       const tank = tankRadku(cellarTanks, pivoZdrojovehoTanku(r.beerId, beers), r.tankId);
       const sourceL = pkg && tank ? n * Number(pkg.volume_l) * (jeJantar(r.beerId, beers) ? PODIL_SVETLE : 1) : 0;
       return {
-        entry_date: date, beer_id: r.beerId || null, beer_name: beer?.name ?? null,
+        entry_date: r.datum, beer_id: r.beerId || null, beer_name: beer?.name ?? null,
         package_id: r.pkgId, package_label: pkg?.label ?? null, quantity: n,
         note: note || null,
         cellar_tank_id: tank?.id ?? null,
@@ -1173,7 +1210,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
       }
     });
 
-    const { data: vlozene, error } = await supabase.from('kegging').insert(payloads).select('id, beer_id, quantity, package_id, cellar_tank_id');
+    const { data: vlozene, error } = await supabase.from('kegging').insert(payloads).select('id, beer_id, quantity, package_id, cellar_tank_id, entry_date');
     if (error) { setSaving(false); setErr(error.message); return false; }
 
     // 🍺 Jantar: tmavá složka (20 %) z tanku tmavého — jen u řádků, které se
@@ -1187,7 +1224,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
         keggingId: v.id,
         tank: tmava ? tankRadku(cellarTanks, tmava.id) : undefined,
         tmavaL: rozdelJantar(Number(v.quantity) * Number(pkg.volume_l)).tmavaL,
-        datum: date,
+        datum: String(v.entry_date ?? date).slice(0, 10),
         tmavaPivo: tmava,
         popis: `${v.quantity}× ${pkg.label}`,
       });
@@ -1218,7 +1255,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     // Odemknout tlačítko až TEĎ — dřív se odemklo hned po vložení stáčení,
     // takže dvojklik stihl uložit zápis dvakrát.
     setSaving(false);
-    setEntryRows(emptyRows()); setNote(''); setErr(null);
+    setEntryRows(emptyRows()); setFotoDny([]); setNote(''); setErr(null);
     smazKoncept(KLIC_ROZEPSANE);
     // Bez potvrzovacího „Uloženo… Vrátit zpět" — stáčí se průběžně a po
     // každém zápisu (klidně desetkrát za směnu) by to okno jen zdržovalo.
@@ -1929,7 +1966,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                     {qty > 0 && rowTanks.length === 1 && (
                       <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-900 text-udaj font-black whitespace-nowrap"><IkonaSud className="ikona-text" /> {rowTanks[0].label}</span>
                     )}
-                    {qty > 0 && rowTanks.length === 0 && (
+                    {qty > 0 && rowTanks.length === 0 && potrebujeTank(expandedKegBeer.name) && (
                       <span className="text-udaj text-neutral-400 font-semibold">žádný aktivní tank — objem se neodečte</span>
                     )}
                   </div>
@@ -1984,6 +2021,20 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
               </div>
             );
           })()}
+
+          {/* 📅 Řádky z fotky z víc dnů — každý se zapíše na svůj den (lib/zapisPoDnech.ts) */}
+          {fotoDny.length > 0 && (
+            <div className="mt-4">
+              <RadkyZFotkyPoDnech
+                radky={fotoDny}
+                popisek={(r) => `${formatPackageLabel(packages.find((p) => p.id === r.pkgId)?.label)} · ${beerName(beers.find((b) => b.id === r.beerId))}`}
+                onKusy={(i, qty) => setFotoDny((rs) => rs.map((r, j) => (j === i ? { ...r, qty } : r)))}
+                onOdeber={(i) => setFotoDny((rs) => rs.filter((_, j) => j !== i))}
+                onZahodit={() => setFotoDny([])}
+                napoveda="Uloží se spolu se zápisem výše tlačítkem „Uložit stáčení“ — každý řádek na svůj den."
+              />
+            </div>
+          )}
 
           <div className="flex items-center justify-between mt-2">
             <div className="flex flex-wrap items-center gap-3">
