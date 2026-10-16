@@ -158,6 +158,10 @@ describe('PohybySkladu', () => {
     const radky = Array.from(tabulka.querySelectorAll('tbody tr')).map((r) => Array.from(r.querySelectorAll('td')).map((c) => c.textContent));
     expect(radky).toEqual([['Po 21. 9.inventura = 15U Zajíce −14', '·', '−14', '1'], ['Út 22. 9.', '+6', '·', '7 (teď)']]);
     expect(within(tabulka).getAllByTestId('komu').map((k) => k.textContent)).toEqual(['U Zajíce −14']);
+    // Odběratel má jinou barvu než datum nad ním (16. 10. 2026: „ať se nesplývají").
+    const komu = within(tabulka).getByTestId('komu');
+    expect(komu.className).toContain('text-violet-800');
+    expect(komu.previousSibling && (komu.parentElement as HTMLElement).className).not.toContain('text-violet-800');
     const celkem = Array.from(tabulka.querySelectorAll('tfoot td')).map((c) => c.textContent);
     expect(celkem[0]).toBe('Celkem');
     expect(celkem).toEqual(['Celkem', '+6', '−14', '7']);
