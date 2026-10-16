@@ -287,3 +287,92 @@ export function sestavPohybyObdobi(
 
   return { rano: stavy(ranoMapa), dny, souhrn };
 }
+
+// 📊 Tabulka rozboru — sloupce podle druhu pohybu (16. 10. 2026: „udělej ten
+// rozbor přehlednější v tabulce"). Řádek = pivo a obal nebo den, sloupce =
+// stočeno, závozy, fasování, akce, odpisy, ostatní. Čísla se berou z řádků
+// dnů, takže filtr druhu pohybu schová i sloupce; stav (začátek, konec, večer)
+// se pořád bere ze skladové knihy.
+export type SloupecRozboru = 'stoceno' | 'zavoz' | 'fasovani' | 'akce' | 'odpis' | 'ostatni';
+
+export const SLOUPCE_ROZBORU: { id: SloupecRozboru; label: string }[] = [
+  { id: 'stoceno', label: 'Stočeno' },
+  { id: 'zavoz', label: 'Závozy' },
+  { id: 'fasovani', label: 'Fasování' },
+  { id: 'akce', label: 'Akce' },
+  { id: 'odpis', label: 'Odpisy' },
+  { id: 'ostatni', label: 'Ostatní' },
+];
+
+export type BunkyRozboru = Record<SloupecRozboru, number>;
+
+/** Do kterého sloupce druh pohybu patří; inventura nastavuje stav, takže do žádného. */
+export function sloupecPohybu(druh: MovementKind): SloupecRozboru | null {
+  switch (druh) {
+    case 'kegovani': case 'staceni': return 'stoceno';
+    case 'zavoz': return 'zavoz';
+    case 'fasovani': case 'prodejna': return 'fasovani';
+    case 'akce': return 'akce';
+    case 'odpis': return 'odpis';
+    case 'inventura': return null;
+    default: return 'ostatni'; // dorovnání, přefuk, sud na lahve
+  }
+}
+
+const prazdneBunky = (): BunkyRozboru => ({ stoceno: 0, zavoz: 0, fasovani: 0, akce: 0, odpis: 0, ostatni: 0 });
+
+/** Součty po druzích za celé období, po pivu a obalu (klíč `pivo__obal`). */
+export function rozpadPoPolozkach(dny: DenPohybu[]): Map<string, BunkyRozboru> {
+  const out = new Map<string, BunkyRozboru>();
+  for (const d of dny) {
+    for (const r of d.radky) {
+      const sloupec = sloupecPohybu(r.druh);
+      if (!sloupec) continue;
+      const klic = stockKey(r.beer_id, r.package_id);
+      const b = out.get(klic) ?? prazdneBunky();
+      b[sloupec] += r.mnozstvi;
+      out.set(klic, b);
+    }
+  }
+  return out;
+}
+
+/** Sloupce, ve kterých je v daných buňkách aspoň jeden pohyb — prázdné se v tabulce nekreslí. */
+export function sloupceSPohybem(bunky: BunkyRozboru[]): SloupecRozboru[] {
+  return SLOUPCE_ROZBORU.filter((s) => bunky.some((b) => b[s.id] !== 0)).map((s) => s.id);
+}
+
+export type RadekDne = {
+  datum: string;
+  bunky: BunkyRozboru;
+  /** Napočítaný stav, když ten den byla inventura té položky. */
+  inventura: number | null;
+  /** Stav na konci dne ze skladové knihy. */
+  stav: number | null;
+  /** Poslední den s pohybem, který platí „teď". */
+  ted: boolean;
+};
+
+/** Den po dni pro jednu položku: jen dny, kdy se s ní něco stalo. */
+export function tabulkaPoDnech(dny: DenPohybu[], beerId: string, packageId: string): RadekDne[] {
+  const out: RadekDne[] = [];
+  for (const d of dny) {
+    const radky = d.radky.filter((r) => r.beer_id === beerId && r.package_id === packageId);
+    if (radky.length === 0) continue;
+    const bunky = prazdneBunky();
+    let inventura: number | null = null;
+    for (const r of radky) {
+      const sloupec = sloupecPohybu(r.druh);
+      if (sloupec) bunky[sloupec] += r.mnozstvi;
+      else inventura = r.mnozstvi;
+    }
+    out.push({
+      datum: d.datum,
+      bunky,
+      inventura,
+      stav: d.vecer.find((v) => v.beer_id === beerId && v.package_id === packageId)?.mnozstvi ?? null,
+      ted: d.ted,
+    });
+  }
+  return out;
+}
