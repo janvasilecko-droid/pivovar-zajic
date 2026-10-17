@@ -78,3 +78,30 @@ export function objednavkyZTanku(
   }
   return vysledek;
 }
+
+/**
+ * Co přesně chybí stočit u piva — věta pod číslem „stočit X hl" na kartě tanku.
+ *
+ * 17. 10. 2026: u 12° Tmavé stálo „na skladě chybí — stočit 0,5 hl" a majitel
+ * řekl, že je všechno stočené. Celých 0,5 hl byla rezerva 50 l na lince, kterou
+ * spustila JEDNA chybějící lahev 1,5 l (sklad −1). Bez rozpisu to vypadalo jako
+ * vymyšlené číslo; teď je napsáno, která položka chybí, kolik je ve skladu a že
+ * 50 l je rezerva. Prázdný text, když u piva nic přímo nechybí.
+ */
+export function popisChybi(
+  plany: { sudy?: DayPlan | null; lahve?: DayPlan | null },
+  pivoId: string,
+): string {
+  const casti: string[] = [];
+  let lahveChybi = false;
+  for (const [druh, plan] of [['sudy', plany.sudy], ['lahve', plany.lahve]] as const) {
+    for (const it of plan?.items ?? []) {
+      if (it.beer_id !== pivoId || it.missing <= 0) continue;
+      const sklad = (it.dluh ?? 0) > 0 ? ` (ve skladu −${it.dluh})` : '';
+      casti.push(`${it.missing}× ${String(it.package_label).trim()}${sklad}`);
+      if (druh === 'lahve') lahveChybi = true;
+    }
+  }
+  if (casti.length === 0) return '';
+  return `chybí ${casti.join(', ')}${lahveChybi ? ` + ${REZERVA_LAHVE_L} l rezerva na lince při stáčení lahví` : ''}`;
+}
