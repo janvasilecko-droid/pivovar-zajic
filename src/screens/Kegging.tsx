@@ -1489,7 +1489,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
 
         {/* Záložky: Zápis / Přehled / Potřeba stočit KEGy */}
         {mode === 'all' && (
-          <div className="flex items-center gap-1.5 p-1 rounded w-full sm:w-auto sm:flex-1 min-w-0 overflow-x-auto scrollbar-thin flex-nowrap">
+          <div className="flex items-center gap-1.5 p-1 rounded w-full sm:w-auto sm:flex-1 min-w-0 flex-wrap">
             <button
               type="button"
               onClick={() => selectTab('zapis')}
