@@ -495,6 +495,58 @@ describe('čtení objednávky z fotky — víc dnů závozu', () => {
   });
 });
 
+// 17. 10. 2026: přehled objednávek jako tabulka — karty zůstávají, tabulka je druhé zobrazení.
+describe('přehled objednávek — Karty / Tabulka', () => {
+  const otevri = () => render(<Orders initialViewMode="detail" />);
+
+  it('výchozí jsou karty; přepínač přepne na tabulku a volba se zapamatuje', async () => {
+    otevri();
+    await screen.findByLabelText('Smazat objednávku');
+    expect(screen.queryByTestId('objednavky-tabulka')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Tabulka' }));
+    expect(await screen.findByTestId('objednavky-tabulka')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Tabulka' }).getAttribute('aria-pressed')).toBe('true');
+    expect(JSON.parse(localStorage.getItem('objednavky_zobrazeni_v1')!)).toBe('tabulka');
+  });
+
+  it('uložená volba „tabulka" se otevře rovnou jako tabulka', async () => {
+    localStorage.setItem('objednavky_zobrazeni_v1', JSON.stringify('tabulka'));
+    otevri();
+    const tabulka = await screen.findByTestId('objednavky-tabulka');
+    expect(within(tabulka).getAllByTestId('radek-objednavky').length).toBeGreaterThan(0);
+    expect(within(tabulka).getAllByTestId('radek-objednavky')[0].textContent).toContain('Restaurace');
+  });
+
+  it('rozbalený řádek má původní kartu se všemi funkcemi (smazat, upravit, vrátit, storno, závoz)', async () => {
+    localStorage.setItem('objednavky_zobrazeni_v1', JSON.stringify('tabulka'));
+    otevri();
+    const tabulka = await screen.findByTestId('objednavky-tabulka');
+    expect(within(tabulka).queryByLabelText('Smazat objednávku')).toBeNull();
+    fireEvent.click(within(tabulka).getAllByTestId('radek-objednavky')[0]);
+    const karta = await within(tabulka).findByTestId('rozbalena-objednavka');
+    for (const jmeno of ['Smazat objednávku', 'Upravit objednávku', 'Vrátit položky na sklad', 'Zrušit objednávku', 'Sdílet objednávku na WhatsApp']) {
+      expect(within(karta).getByLabelText(jmeno), jmeno).toBeTruthy();
+    }
+    expect(within(karta).getByTitle('Nastavit den závozu: Út')).toBeTruthy();
+    // zpět na karty: tabulka zmizí a karta je v seznamu jako dřív
+    fireEvent.click(screen.getByRole('button', { name: 'Karty' }));
+    expect(screen.queryByTestId('objednavky-tabulka')).toBeNull();
+    expect((await screen.findAllByLabelText('Smazat objednávku')).length).toBeGreaterThan(0);
+  });
+
+  it('i s „Seskupit dle dne" je v každé skupině tabulka (a v kartách karty jako dřív)', async () => {
+    localStorage.setItem('objednavky_zobrazeni_v1', JSON.stringify('tabulka'));
+    otevri();
+    await screen.findByTestId('objednavky-tabulka');
+    fireEvent.click(screen.getByLabelText(/Seskupit dle dne/));
+    const tabulky = await screen.findAllByTestId('objednavky-tabulka');
+    expect(tabulky.length).toBeGreaterThan(0);
+    expect(screen.queryByLabelText('Smazat objednávku')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Karty' }));
+    expect((await screen.findAllByLabelText('Smazat objednávku')).length).toBeGreaterThan(0);
+  });
+});
+
 // ---------------------------------------------------------------------------
 // Fotka do už uložené objednávky
 // ---------------------------------------------------------------------------

@@ -47,7 +47,7 @@ import { IkonaVycep } from '../components/ikony';
 import { kartaOdberatele } from '../lib/kartaOdberatele';
 import { kusy } from '../lib/cisla';
 
-import { uloz } from '../lib/uloziste';
+import { nactiJson, uloz, ulozJson } from '../lib/uloziste';
 import { smazObjednavky } from '../lib/smazaniObjednavek';
 import { navrhSlouceni } from '../lib/slucObjednavky';
 import { nactiOdpocty, zrusOdepsaneSVracenim } from '../lib/zruseniObjednavky';
@@ -84,6 +84,7 @@ const SplitOrderModal = lazy(() => import('../components/SplitOrderModal').then(
 import { type Order, type OrderItem, dayColor } from '../components/objednavky/spolecne';
 import { VariantTotalsPanel } from '../components/objednavky/VariantTotalsPanel';
 import { OrderCard } from '../components/objednavky/OrderCard';
+import { OrderTabulka } from '../components/objednavky/OrderTabulka';
 import { VraceniPiva } from '../components/objednavky/VraceniPiva';
 import { VratitPivoModal } from '../components/objednavky/VratitPivoModal';
 import { OrderDetail } from '../components/objednavky/OrderDetail';
@@ -1512,6 +1513,9 @@ export default function Orders({
      
   }, []);
   const [groupByDay, setGroupByDay] = useState(false);
+  // 📋 Karty, nebo tabulka (17. 10. 2026: „vyzkoušej přehled objednávek jako tabulku“); pamatuje se v telefonu.
+  const [zobrazeni, setZobrazeni] = useState<'karty' | 'tabulka'>(() => (nactiJson<string>('objednavky_zobrazeni_v1', 'karty') === 'tabulka' ? 'tabulka' : 'karty'));
+  useEffect(() => { ulozJson('objednavky_zobrazeni_v1', zobrazeni); }, [zobrazeni]);
   // Na telefonu jsou filtry pod hledáním schované, dokud se na ně neklepne.
   const [filtryOtevrene, setFiltryOtevrene] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -1588,6 +1592,47 @@ export default function Orders({
     const order = ['po', 'ut', 'st', 'ct', 'pa', 'so', 'ne', '_none'];
     return order.filter((k) => map.has(k)).map((k) => ({ key: k, orders: map.get(k)! }));
   }, [groupByDay, searchedFiltered]);
+
+  // 📋 Karta objednávky + její otevřený detail — jedna věc pro seznam karet i pro tabulku
+  // (components/objednavky/OrderTabulka.tsx rozbaluje pod řádkem právě tohle, ať se žádná funkce neztratí).
+  function kartaObjednavky(o: Order) {
+    return (
+      <div key={o.id} className="space-y-3">
+        <OrderCard o={o} items={items[o.id] ?? []} stockRemainingForOrder={stockRemainingForOrder} nadPocetMalychSudu={maleSudy.nadPoPolozce} sudyPoPolozce={maleSudy.poPolozce}
+          selected={selectedIds.has(o.id)} onToggleSelect={() => toggleSelect(o.id)}
+          onClick={() => openDetail(o)} onToggleFlag={toggleFlag} onToggleItemFlag={toggleItemFlag} onUpdateDeliveryDay={updateDeliveryDay} onUpdateZavoz={updateZavoz}
+          onSetStatus={setStatus} onDelete={del} onEdit={setEditOrder} onSplit={setSplitOrder} onOpenWhatsApp={handleOpenWhatsAppMessage} beers={beers} packages={packages} places={places}
+          activeBeerId={itemFilterBeerId} activePackageId={itemFilterPackageId}
+          onVratitPivo={setVratitObjednavka} vracenoZaznamy={vraceniPodleObjednavky[o.id]}
+          itemMatchesFilter={polozkovyFiltrAktivni ? matchesItemFilters : undefined} />
+        {detail?.id === o.id && (
+          <div id="order-detail-card" className="scroll-mt-6 animate-scale-in pl-2 sm:pl-4 border-l-4 border-amber-500">
+            <OrderDetail
+              order={detail}
+              items={items[detail.id] ?? []}
+              beers={beers}
+              packages={packages}
+              places={places}
+              priceList={priceList}
+              remaining={stockRemainingForOrder(detail)}
+              onClose={() => setDetail(null)}
+              onChanged={load}
+              onSplit={setSplitOrder}
+              onToggleFlag={toggleFlag}
+              onToggleItemFlag={toggleItemFlag}
+              onImportImage={(o) => { setDetail(null); setImportTarget(o); setShowImport(true); }}
+              setItems={setItems}
+              setPage={setPage}
+              allOrders={orders}
+              allItems={items}
+              weekKey={weekKey}
+              setWeekKey={setWeekKey}
+            />
+          </div>
+        )}
+      </div>
+    );
+  }
 
   // ---- Hromadné akce ----
   function toggleSelect(id: string) {
@@ -2677,6 +2722,23 @@ export default function Orders({
               );
             })()}
           </div>
+          {/* Zobrazení: karty (jako dřív), nebo tabulka s řádkem na objednávku — rozbalením se otevře celá karta */}
+          {(
+            <div className="flex items-center gap-1.5" role="group" aria-label="Zobrazení objednávek">
+              <span className="text-udaj font-black text-neutral-600">Zobrazení:</span>
+              {([['karty', 'Karty'], ['tabulka', 'Tabulka']] as const).map(([v, popisek]) => (
+                <button
+                  key={v}
+                  type="button"
+                  aria-pressed={zobrazeni === v}
+                  onClick={() => setZobrazeni(v)}
+                  className={`btn-zalozka px-3 ${zobrazeni === v ? 'btn-zalozka-aktivni' : ''}`}
+                >
+                  {popisek}
+                </button>
+              ))}
+            </div>
+          )}
           <div className={`${filtryOtevrene ? 'flex' : 'hidden'} sm:flex flex-wrap items-center gap-2`}>
             <select className="input w-auto font-bold text-xs" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
               <option value="">Všechny statusy</option>
@@ -2834,84 +2896,20 @@ export default function Orders({
                 <span className="text-xs text-primary-400">{grp.orders.length} objednávek</span>
               </div>
               <div className="space-y-3">
-                {grp.orders.map((o) => (
-                  <div key={o.id} className="space-y-3">
-                    <OrderCard o={o} items={items[o.id] ?? []} stockRemainingForOrder={stockRemainingForOrder} nadPocetMalychSudu={maleSudy.nadPoPolozce} sudyPoPolozce={maleSudy.poPolozce}
-                      selected={selectedIds.has(o.id)} onToggleSelect={() => toggleSelect(o.id)}
-                      onClick={() => openDetail(o)} onToggleFlag={toggleFlag} onToggleItemFlag={toggleItemFlag} onUpdateDeliveryDay={updateDeliveryDay} onUpdateZavoz={updateZavoz}
-                      onSetStatus={setStatus} onDelete={del} onEdit={setEditOrder} onSplit={setSplitOrder} onOpenWhatsApp={handleOpenWhatsAppMessage} beers={beers} packages={packages} places={places}
-                      activeBeerId={itemFilterBeerId} activePackageId={itemFilterPackageId}
-                      onVratitPivo={setVratitObjednavka} vracenoZaznamy={vraceniPodleObjednavky[o.id]}
-                itemMatchesFilter={polozkovyFiltrAktivni ? matchesItemFilters : undefined} />
-                    {detail?.id === o.id && (
-                      <div id="order-detail-card" className="scroll-mt-6 animate-scale-in pl-2 sm:pl-4 border-l-4 border-amber-500">
-                        <OrderDetail
-                  order={detail}
-                          items={items[detail.id] ?? []}
-                          beers={beers}
-                          packages={packages}
-                          places={places}
-                          priceList={priceList}
-                          remaining={stockRemainingForOrder(detail)}
-                          onClose={() => setDetail(null)}
-                          onChanged={load}
-                          onSplit={setSplitOrder}
-                          onToggleFlag={toggleFlag}
-                          onToggleItemFlag={toggleItemFlag}
-                          onImportImage={(o) => { setDetail(null); setImportTarget(o); setShowImport(true); }}
-                          setItems={setItems}
-                    setPage={setPage}
-                          allOrders={orders}
-                          allItems={items}
-                          weekKey={weekKey}
-                          setWeekKey={setWeekKey}
-                        />
-                      </div>
-                    )}
-                  </div>
-                ))}
+                {zobrazeni === 'tabulka'
+                  ? <OrderTabulka objednavky={grp.orders} items={items} beers={beers} packages={packages} places={places} selectedIds={selectedIds} onToggleSelect={toggleSelect}
+                      stockRemainingForOrder={stockRemainingForOrder} otevrenaId={detail?.id ?? null} renderKarta={kartaObjednavky} itemMatchesFilter={polozkovyFiltrAktivni ? matchesItemFilters : undefined} />
+                  : grp.orders.map((o) => kartaObjednavky(o))}
               </div>
             </div>
           ))}
         </div>
       ) : (viewMode === 'detail' && !groupedByDay) && (
         <div className="space-y-3">
-          {searchedFiltered.map((o) => (
-            <div key={o.id} className="space-y-3">
-              <OrderCard o={o} items={items[o.id] ?? []} stockRemainingForOrder={stockRemainingForOrder} nadPocetMalychSudu={maleSudy.nadPoPolozce} sudyPoPolozce={maleSudy.poPolozce}
-                selected={selectedIds.has(o.id)} onToggleSelect={() => toggleSelect(o.id)}
-                onClick={() => openDetail(o)} onToggleFlag={toggleFlag} onToggleItemFlag={toggleItemFlag} onUpdateDeliveryDay={updateDeliveryDay} onUpdateZavoz={updateZavoz}
-                onSetStatus={setStatus} onDelete={del} onEdit={setEditOrder} onSplit={setSplitOrder} onOpenWhatsApp={handleOpenWhatsAppMessage} beers={beers} packages={packages} places={places}
-                activeBeerId={itemFilterBeerId} activePackageId={itemFilterPackageId}
-                onVratitPivo={setVratitObjednavka} vracenoZaznamy={vraceniPodleObjednavky[o.id]}
-                itemMatchesFilter={polozkovyFiltrAktivni ? matchesItemFilters : undefined} />
-              {detail?.id === o.id && (
-                <div id="order-detail-card" className="scroll-mt-6 animate-scale-in pl-2 sm:pl-4 border-l-4 border-amber-500">
-                  <OrderDetail
-                    order={detail}
-                    items={items[detail.id] ?? []}
-                    beers={beers}
-                    packages={packages}
-                    places={places}
-                    priceList={priceList}
-                    remaining={stockRemainingForOrder(detail)}
-                    onClose={() => setDetail(null)}
-                    onChanged={load}
-                    onSplit={setSplitOrder}
-                    onToggleFlag={toggleFlag}
-                    onToggleItemFlag={toggleItemFlag}
-                    onImportImage={(o) => { setDetail(null); setImportTarget(o); setShowImport(true); }}
-                    setItems={setItems}
-                    setPage={setPage}
-                    allOrders={orders}
-                    allItems={items}
-                    weekKey={weekKey}
-                    setWeekKey={setWeekKey}
-                  />
-                </div>
-              )}
-            </div>
-          ))}
+          {zobrazeni === 'tabulka'
+            ? <OrderTabulka objednavky={searchedFiltered} items={items} beers={beers} packages={packages} places={places} selectedIds={selectedIds} onToggleSelect={toggleSelect}
+                stockRemainingForOrder={stockRemainingForOrder} otevrenaId={detail?.id ?? null} renderKarta={kartaObjednavky} itemMatchesFilter={polozkovyFiltrAktivni ? matchesItemFilters : undefined} />
+            : searchedFiltered.map((o) => kartaObjednavky(o))}
         </div>
       ))}
 
