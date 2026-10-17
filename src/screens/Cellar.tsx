@@ -14,7 +14,7 @@ import { usePosledniNacteni, prvniChyba } from '../lib/nacitani';
 import { IkonaSud } from '../components/ikony';
 import { businessDateISO, posunDen } from '../lib/businessDate';
 import { uloz } from '../lib/uloziste';
-import { objednavkyZTanku } from '../lib/objednavkyZTanku';
+import { objednavkyZTanku, popisChybi } from '../lib/objednavkyZTanku';
 import { usePlanStaceni } from '../lib/usePlanStaceni';
 import StaraDataPruh from '../components/StaraDataPruh';
 import { mergeWeekPlan } from '../lib/keggingPlan';
@@ -225,10 +225,8 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
   // Plán stáčení vybraného týdne — tentýž jako okno „Co stočit" na ploše
   // a obrazovky KEG a Lahve (lib/usePlanStaceni.ts).
   const { planySudy, planyLahve, zPameti: planZPameti, chyba: planChyba, nacti: nactiPlan } = usePlanStaceni(weekKey);
-  const orderedHlByBeer = useMemo(() => objednavkyZTanku({
-    sudy: mergeWeekPlan(planySudy, ''),
-    lahve: mergeWeekPlan(planyLahve, ''),
-  }, beers), [planySudy, planyLahve, beers]);
+  const planyTydne = useMemo(() => ({ sudy: mergeWeekPlan(planySudy, ''), lahve: mergeWeekPlan(planyLahve, '') }), [planySudy, planyLahve]);
+  const orderedHlByBeer = useMemo(() => objednavkyZTanku(planyTydne, beers), [planyTydne, beers]);
 
   // U kterého tanku se řádek „Objednáno na týden" ukáže. Číslo je za PIVO, ne
   // za tank — když bylo stejné pivo ve dvou tancích, stálo u obou a vypadalo
@@ -781,10 +779,12 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                     const remainingHl = remaining / 100;
                     const chybiHl = o.zbyvaHl - remainingHl;
                     const souhrn = `Objednáno na týden ${tyden}: ${o.objednanoHl.toFixed(1)} hl`;
+                    // Co přesně chybí (a odkud je 0,5 hl rezervy) — ať číslo není hádanka.
+                    const cojeChybi = o.zbyvaHl > 0 ? popisChybi(planyTydne, pivoId) : '';
                     if (o.zbyvaHl > 0 && chybiHl > 0) {
                       return (
                         <div className="mt-2 text-xs text-rose-700 bg-rose-50 rounded px-2.5 py-1.5 font-bold border border-rose-200">
-                          <AlertTriangle className="ikona-text" /> {souhrn} · na skladě chybí {o.zbyvaHl.toFixed(1)} hl — v tanku je o {chybiHl.toFixed(1)} hl méně, nutno stočit i z jiného tanku
+                          <AlertTriangle className="ikona-text" /> {souhrn} · na skladě chybí {o.zbyvaHl.toFixed(1)} hl — v tanku je o {chybiHl.toFixed(1)} hl méně, nutno stočit i z jiného tanku{cojeChybi && ` (${cojeChybi})`}
                         </div>
                       );
                     }
@@ -792,7 +792,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                       <div className={`mt-2 text-xs rounded px-2.5 py-1.5 font-bold ${o.zbyvaHl > 0 ? 'text-amber-800 bg-amber-50' : 'text-primary-700 bg-primary-50'}`}>
                         <ClipboardList className="ikona-text" /> {souhrn}
                         {o.zbyvaHl > 0
-                          ? ` · na skladě chybí — stočit ${o.zbyvaHl.toFixed(1)} hl`
+                          ? ` · na skladě chybí — stočit ${o.zbyvaHl.toFixed(1)} hl${cojeChybi ? ` (${cojeChybi})` : ''}`
                           : o.objednanoHl > 0 ? ' · vše stočeno' : ''}
                       </div>
                     );
