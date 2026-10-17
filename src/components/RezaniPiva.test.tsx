@@ -122,7 +122,7 @@ describe('Řezání se sudy ze skladu', () => {
     // stočená 11° do sudů, 12° z tanku A (polovina litrů)
     const kegging = zapisy.find((z) => z.tabulka === 'kegging')!.data;
     expect(kegging).toEqual([
-      expect.objectContaining({ beer_id: 'b11', package_id: 'k50', quantity: 2, cellar_tank_id: 't1', source_volume_l: 50, note: 'Řez: Tank 12° 50 % + sudy ze skladu 50 % (65 l)' }),
+      expect.objectContaining({ beer_id: 'b11', package_id: 'k50', quantity: 2, cellar_tank_id: 't1', source_volume_l: 50, note: 'Řez: Tank 12° 50 % + sudy ze skladu 50 % (65 l) · pivo řezu: 11° Světlá, sudy: 10° Desítka' }),
       expect.objectContaining({ package_id: 'k30', quantity: 1, cellar_tank_id: 't1', source_volume_l: 15 }),
     ]);
     // z tanku B se nic nebere

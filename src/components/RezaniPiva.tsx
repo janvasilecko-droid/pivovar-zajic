@@ -105,7 +105,7 @@ export default function RezaniPiva({
       if (!ok) return;
     }
     const pivo = beers.find((b) => b.id === pivoId);
-    const popis = popisRezu(tankA!.label, tankB?.label ?? null, podilA, sudyL);
+    const popis = popisRezu(tankA!.label, tankB?.label ?? null, podilA, sudyL, { rez: pivo?.name, sudy: beers.find((b) => b.id === sudyPivoId)?.name });
     setUklada(true);
     try {
       if (jenOdecist) {

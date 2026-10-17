@@ -113,5 +113,8 @@ describe('řezání se sudy ze skladu jako částí podílu B', () => {
     expect(popisRezu('Tank 1', 'Tank 2', 60)).toBe('Řez: Tank 1 60 % + Tank 2 40 %');
     expect(popisRezu('Tank 1', null, 50, 65)).toBe('Řez: Tank 1 50 % + sudy ze skladu 50 % (65 l)');
     expect(popisRezu('Tank 1', 'Tank 2', 40, 65)).toBe('Řez: Tank 1 40 % + Tank 2 60 % (z toho sudy ze skladu 65 l)');
+    expect(popisRezu('Tank 1', null, 50, 60, { rez: '12° Světlá', sudy: '10° Desítka' })).toBe('Řez: Tank 1 50 % + sudy ze skladu 50 % (60 l) · pivo řezu: 12° Světlá, sudy: 10° Desítka');
+    // bez sudů ze skladu se nic nepřidává
+    expect(popisRezu('Tank 1', 'Tank 2', 60, 0, { rez: '12° Světlá', sudy: '10° Desítka' })).toBe('Řez: Tank 1 60 % + Tank 2 40 %');
   });
 });
