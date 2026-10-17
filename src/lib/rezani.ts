@@ -127,13 +127,18 @@ export function problemyRezu(p: {
 }
 
 /** Popis do poznámky řádku stáčení — je pak vidět i v přehledu. */
-export function popisRezu(tankA: string, tankB: string | null, podilA: number, sudyL = 0): string {
+export function popisRezu(tankA: string, tankB: string | null, podilA: number, sudyL = 0, piva?: { rez?: string | null; sudy?: string | null }): string {
   const podilB = 100 - podilA;
   if (!(sudyL > 0)) return `Řez: ${tankA} ${podilA} % + ${tankB} ${podilB} %`;
   const sudy = naDesetiny(sudyL);
-  return tankB
+  const zakladni = tankB
     ? `Řez: ${tankA} ${podilA} % + ${tankB} ${podilB} % (z toho sudy ze skladu ${sudy} l)`
     : `Řez: ${tankA} ${podilA} % + sudy ze skladu ${podilB} % (${sudy} l)`;
+  // Sudy ze skladu bývají jiné pivo než řez (17. 10. 2026: řez 12° Světlá, sudy Desítka) —
+  // poznámka to říká, ať je vidět, odkud se co odečetlo.
+  const rez = piva?.rez?.trim();
+  const sud = piva?.sudy?.trim();
+  return rez && sud ? `${zakladni} · pivo řezu: ${rez}, sudy: ${sud}` : zakladni;
 }
 
 /**
