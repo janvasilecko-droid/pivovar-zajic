@@ -122,18 +122,20 @@ describe('souhrnDavek', () => {
 });
 
 // Obě obrazovky berou totéž seskupení — dvě kopie by se rozešly.
-// Lahve mají dlaždici ve vlastní komponentě (PrehledStaceniLahvi.tsx, od
-// 15. 10. 2026 po dnech), KEG ji má pořád přímo v Kegging.tsx.
+// Lahve mají tabulku ve vlastní komponentě (PrehledStaceniLahvi.tsx, od
+// 15. 10. 2026 po dnech), KEG od 17. 10. 2026 taky (PrehledStaceniKeg.tsx).
 describe('přehledy KEG i lahví seskupují stejně', () => {
   const { readFileSync } = require('node:fs');
-  const KEG = readFileSync('src/screens/Kegging.tsx', 'utf8');
+  const KEG_OBRAZOVKA = readFileSync('src/screens/Kegging.tsx', 'utf8');
+  const KEG = readFileSync('src/components/PrehledStaceniKeg.tsx', 'utf8');
   const LAHVE = readFileSync('src/screens/BottlingScreen.tsx', 'utf8');
   const LAHVE_DLAZDICE = readFileSync('src/components/PrehledStaceniLahvi.tsx', 'utf8');
   const LAHVE_TABULKA = readFileSync('src/lib/prehledStaceniTabulka.ts', 'utf8');
 
-  it('obě obrazovky volají davkyStaceni', () => {
-    expect(KEG).toMatch(/davkyStaceni\(sortedRows/);
+  it('obě tabulky berou totéž seskupení (davkyStaceni, dnyStaceni)', () => {
+    expect(KEG).toMatch(/dnyStaceni\(davkyStaceni\(zaznamy/);
     expect(LAHVE).toMatch(/davkyStaceni\(sortedRows/);
+    expect(KEG_OBRAZOVKA, 'KEG: tabulka není napojená na obrazovku').toMatch(/<PrehledStaceniKeg[\s\S]*zaznamy=\{sortedRows\}/);
   });
 
   it('lahve předávají dávky komponentě s dlaždicemi, ne si je kreslí samy', () => {
@@ -150,8 +152,10 @@ describe('přehledy KEG i lahví seskupují stejně', () => {
 
   it('upravovat jde dál po jednotlivých záznamech', () => {
     // KEG: tlačítka jsou přímo v obrazovce.
-    expect(KEG, 'KEG: zmizelo mazání záznamu').toMatch(/onClick=\{\(\) => del\(r\.id\)\}/);
-    expect(KEG, 'KEG: zmizela úprava záznamu').toMatch(/setEditingRow\(r\)/);
+    expect(KEG, 'KEG: zmizelo mazání záznamu').toMatch(/onSmazat\(r\.id\)/);
+    expect(KEG, 'KEG: zmizela úprava záznamu').toMatch(/onUpravit\(r\)/);
+    expect(KEG_OBRAZOVKA, 'KEG: smazání není napojené na databázi').toMatch(/onSmazat=\{\(id\) => \{ void del\(id\); \}\}/);
+    expect(KEG_OBRAZOVKA, 'KEG: úprava není napojená').toMatch(/onUpravit=\{\(r\) => setEditingRow\(r\)\}/);
     // Lahve: tlačítka jsou v komponentě a obrazovka jim dává skutečné zápisy.
     expect(LAHVE_DLAZDICE, 'lahve: zmizelo mazání záznamu').toMatch(/onClick=\{\(\) => onSmazat\(r\.id\)\}/);
     expect(LAHVE_DLAZDICE, 'lahve: zmizela úprava záznamu').toMatch(/onUpravit\(r\)/);
@@ -225,8 +229,8 @@ describe('přehledy KEG i lahví seskupují stejně', () => {
     expect(prehled).toMatch(/<PrepinacObdobi\s+kompaktni/);
   });
 
-  it('KEG má den v týdnu u data', () => {
-    expect(KEG, 'KEG: chybí den v týdnu').toMatch(/denACesky\(davka\.datum\)/);
+  it('KEG má den v týdnu u data (pás dne s celým názvem, jako lahve)', () => {
+    expect(KEG, 'KEG: chybí den v týdnu').toMatch(/nazevDne\(den\.datum\)/);
   });
 });
 

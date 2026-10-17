@@ -70,9 +70,10 @@ describe('seznamy stáčení ukazují původ záznamu', () => {
     expect(readFileSync('src/lib/prehledStaceniTabulka.ts', 'utf8')).toMatch(/puvodZapisu\(z\.note\)/);
   });
 
-  it('KEG obrazovka ho kreslí na víc místech — v kartách i v tabulce', () => {
-    const zdroj = readFileSync('src/screens/Kegging.tsx', 'utf8');
-    const kolik = [...zdroj.matchAll(/puvodZapisu\(r\.note\) &&/g)].length;
-    expect(kolik, 'karty na telefonu i tabulka na počítači').toBeGreaterThanOrEqual(3);
+  it('KEG přehled ho kreslí pod řádkem tabulky i v podrobnostech záznamu', () => {
+    // Od 17. 10. 2026 je přehled KEG tabulka po dnech v components/PrehledStaceniKeg.tsx.
+    const zdroj = readFileSync('src/components/PrehledStaceniKeg.tsx', 'utf8');
+    expect(zdroj, 'pod řádkem tabulky').toMatch(/puvodZapisu\(p\.zaznam\.note\)/);
+    expect(zdroj, 'v podrobnostech záznamu').toMatch(/puvodZapisu\(r\.note\) &&/);
   });
 });

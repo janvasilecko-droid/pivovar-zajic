@@ -77,6 +77,7 @@ vi.mock('../lib/supabase', () => {
     fetchAllRows: vi.fn((t: string) => makeQuery(t)),
     useRealtime: vi.fn(),
     beerBg: vi.fn(() => '#f59e0b'),
+    beerBorder: vi.fn(() => '#d97706'),
     beerText: vi.fn(() => '#000'),
     beerName: vi.fn((b: { name?: string } | null) => b?.name ?? ''),
     pkgBg: vi.fn(() => '#ef4444'),
