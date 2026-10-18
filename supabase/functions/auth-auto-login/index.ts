@@ -30,7 +30,11 @@ Deno.serve(async (req: Request) => {
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return json({ error: "Neplatný e-mail." }, 400);
     }
-    if (!password) return json({ error: "Heslo je povinné." }, 400);
+    // „Zapomenuté heslo / první přihlášení“: obrazovka se předem zeptá, jestli je
+    // e-mail schválený, ať uživatel hned ví, zda mu odkaz přijde (majitel 18. 10.
+    // 2026). Neprozrazuje nic dalšího než ano/ne a stejný rate limit platí níž.
+    const jenOverit = body?.overit === true;
+    if (!jenOverit && !password) return json({ error: "Heslo je povinné." }, 400);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -62,6 +66,11 @@ Deno.serve(async (req: Request) => {
       }
     } catch {
       // Rate limiting je best-effort — pokračujeme bez něj.
+    }
+
+    if (jenOverit) {
+      const { data: radek } = await admin.from("allowed_emails").select("status").eq("email", email).maybeSingle();
+      return json({ ok: true, schvaleny: radek?.status === "approved" });
     }
 
     // Existuje účet pro tento e-mail? Pak se nic nezakládá — původní chyba

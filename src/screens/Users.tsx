@@ -108,8 +108,9 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
 
   async function znovuPoslatPozvanku(u: { email: string }) {
     const r = await poslatOdkazProHeslo(u.email);
-    if (r.error) chyba(r.error);
-    else uspech(`Pozvánka s odkazem pro nastavení hesla odešla na ${u.email}.`);
+    if (r.stav === 'odeslano') uspech(`Pozvánka s odkazem pro nastavení hesla odešla na ${u.email}.`);
+    else if (r.stav === 'neschvaleny') chyba(`E-mail ${u.email} není schválený — nejdřív ho schval v záložce Schválené e-maily.`);
+    else chyba(r.zprava);
   }
 
   async function novyDocasnyHeslo(u: { id: string; email: string }) {

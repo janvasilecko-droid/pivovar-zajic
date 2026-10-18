@@ -58,3 +58,13 @@ describe('pozvánka a zapomenuté heslo odkazem z e-mailu', () => {
     expect(readFileSync('src/screens/Users.tsx', 'utf8')).toContain('Znovu poslat pozvánku');
   });
 });
+
+describe('ověření e-mailu před odesláním odkazu', () => {
+  it('funkce auth-auto-login umí „overit“ a vrací jen ano/ne ze seznamu schválených', () => {
+    const f = readFileSync('supabase/functions/auth-auto-login/index.ts', 'utf8');
+    expect(f).toContain('body?.overit === true');
+    expect(f).toMatch(/radek\?\.status === "approved"/);
+    // ověření je až za omezením počtu dotazů
+    expect(f.indexOf('consume_edge_rate_limit')).toBeLessThan(f.indexOf('if (jenOverit)'));
+  });
+});
