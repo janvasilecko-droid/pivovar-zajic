@@ -30,6 +30,7 @@ import { DEFAULT_DOCK, COLOR_HEX, defaultTileColor, type TileColor } from '../li
 import { citelnaNaPodkladu, pismoNaBarve, PODKLAD_SVETLY, PODKLAD_TMAVY } from '../lib/barvaDoku';
 import { zavibruj } from '../lib/haptika';
 import { IkonaSud, IkonaLahev, IkonaVycep } from './ikony';
+import { InstalaceKroky } from './InstalaceKroky';
 import '../screens/HomeScreen.css';
 
 export type NavItem = {
@@ -1194,17 +1195,7 @@ function InstallModal({ installPrompt, setInstallPrompt, setInstalled, setShowIn
           </div>
         )}
 
-        <div className="bg-neutral-50 p-4 rounded border border-neutral-200 space-y-2">
-          <div className="font-bold text-neutral-900">Postup pro Android (Chrome / Edge):</div>
-          <p>1. Klepněte na <strong>tři tečky</strong> vpravo nahoře v prohlížeči.</p>
-          <p>2. Zvolte <strong>Nainstalovat aplikaci</strong> nebo <strong>Přidat na plochu</strong>.</p>
-        </div>
-
-        <div className="bg-neutral-50 p-4 rounded border border-neutral-200 space-y-2">
-          <div className="font-bold text-neutral-900">Postup pro iOS (Safari na iPhone):</div>
-          <p>1. Klepněte na tlačítko <strong>Sdílet</strong> (čtvereček s šipkou dole na liště).</p>
-          <p>2. Zvolte <strong>Přidat na plochu</strong>.</p>
-        </div>
+        <InstalaceKroky pripravenaInstalace={false} naInstalaci={() => {}} />
 
         <div className="flex justify-end pt-2">
           <button onClick={() => setShowInstallModal(false)} className="btn-ghost !rounded text-xs font-bold">
