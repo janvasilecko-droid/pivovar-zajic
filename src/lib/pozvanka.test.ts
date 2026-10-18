@@ -10,7 +10,13 @@ describe('pozvánka do aplikace', () => {
     expect(t).toContain('Info');
   });
 
-  it('heslo v e-mailu není — posílá se zvlášť', () => {
+  it('s přístupem nese e-mail a dočasné heslo, bez něj ne', () => {
+    expect(textPozvanky('https://x.cz/', { email: 'a@b.cz', heslo: 'Abc123xyz9' })).toContain('Dočasné heslo: Abc123xyz9');
+    expect(mailtoPozvanky('a@b.cz', 'https://x.cz/', 'Abc123xyz9')).toContain(encodeURIComponent('Dočasné heslo: Abc123xyz9').replace(/%20/g, '%20'));
+    expect(mailtoPozvanky('a@b.cz', 'https://x.cz/')).not.toContain('Abc123xyz9');
+  });
+
+  it('bez přístupu heslo v e-mailu není — posílá se zvlášť', () => {
     const t = textPozvanky();
     expect(t).toContain('zvlášť');
     expect(t).not.toMatch(/heslo:\s*\S+/i);

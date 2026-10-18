@@ -3,8 +3,9 @@
 // Aplikace sama žádné e-maily neposílá (přihlašuje se e-mailem a heslem, účet
 // zakládá admin schválením e-mailu). Admin proto po schválení otevře pozvánku
 // ve své poště (mailto:) — text je předvyplněný: odkaz, instalace na plochu
-// bez obchodu Google Play a první přihlášení. Dočasné heslo do e-mailu NEpatří,
-// posílá se zvlášť (osobně / WhatsApp), jak to dělá schválení.
+// bez obchodu Google Play a první přihlášení. Dočasné heslo je v e-mailu jen
+// tehdy, když ho správce výslovně pošle z okna s heslem (platí do prvního
+// přihlášení, pak si uživatel založí vlastní).
 
 /** Adresa ostrého provozu — když se pozvánka skládá mimo prohlížeč. */
 export const ODKAZ_APLIKACE = 'https://zajic-pivovar.pages.dev/';
@@ -19,7 +20,9 @@ export function odkazAplikace(): string {
 export const PREDMET_POZVANKY = 'Pozvánka do aplikace Pivovar Zajíc';
 
 /** Tělo e-mailu (prostý text). */
-export function textPozvanky(odkaz: string = odkazAplikace()): string {
+export type Pristup = { email: string; heslo: string };
+
+export function textPozvanky(odkaz: string = odkazAplikace(), pristup?: Pristup): string {
   return [
     'Ahoj,',
     '',
@@ -36,7 +39,9 @@ export function textPozvanky(odkaz: string = odkazAplikace()): string {
     'Na ploše se objeví ikona se zajícem; otevírá se jako běžná aplikace na celou obrazovku.',
     '',
     '3) PŘIHLÁŠENÍ:',
-    '• Přihlásíš se tímto e-mailem a dočasným heslem, které ti pošlu zvlášť (osobně nebo přes WhatsApp).',
+    ...(pristup
+      ? [`• E-mail: ${pristup.email}`, `• Dočasné heslo: ${pristup.heslo}`]
+      : ['• Přihlásíš se tímto e-mailem a dočasným heslem, které ti pošlu zvlášť (osobně nebo přes WhatsApp).']),
     '• Hned po přihlášení si aplikace řekne o tvoje vlastní heslo (aspoň 6 znaků) — to dočasné pak už nepotřebuješ.',
     '',
     '4) JAK NA TO:',
@@ -47,22 +52,13 @@ export function textPozvanky(odkaz: string = odkazAplikace()): string {
 }
 
 /** Odkaz `mailto:` s předvyplněným předmětem a textem. */
-export function mailtoPozvanky(email: string, odkaz?: string): string {
-  const p = new URLSearchParams({ subject: PREDMET_POZVANKY, body: textPozvanky(odkaz) });
+export function mailtoPozvanky(email: string, odkaz?: string, heslo?: string): string {
+  const p = new URLSearchParams({ subject: PREDMET_POZVANKY, body: textPozvanky(odkaz, heslo ? { email, heslo } : undefined) });
   // URLSearchParams píše mezeru jako „+“, což pošta v mailto: nečte.
   return `mailto:${encodeURIComponent(email)}?${p.toString().replace(/\+/g, '%20')}`;
 }
 
-/** Zpráva s dočasným heslem (WhatsApp / SMS) — odkaz, přihlašovací údaje a co dál. */
+/** Celá pozvánka včetně přihlašovacích údajů (WhatsApp / SMS / e-mail). */
 export function textSHeslem(email: string, heslo: string, odkaz: string = odkazAplikace()): string {
-  return [
-    'Ahoj, přístup do aplikace Pivovar Zajíc máš připravený.',
-    '',
-    `Odkaz: ${odkaz}`,
-    `E-mail: ${email}`,
-    `Dočasné heslo: ${heslo}`,
-    '',
-    'Po přihlášení si aplikace řekne o tvoje vlastní heslo (aspoň 6 znaků) — to dočasné pak už nepotřebuješ.',
-    'Na plochu telefonu si ji dáš v Nastavení → Instalace aplikace (návod je v Info → Začínáme).',
-  ].join('\n');
+  return textPozvanky(odkaz, { email, heslo });
 }
