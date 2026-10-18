@@ -9,7 +9,7 @@ import { TabBar } from '../components/TabBar';
 import { isAdminEmail } from '../lib/config';
 import { chyba, potvrd, uspech } from '../lib/toast';
 import { usePosledniNacteni } from '../lib/nacitani';
-import { mailtoPozvanky, textPozvanky } from '../lib/pozvanka';
+import { mailtoPozvanky, PREDMET_SABLONY, sablonaEmailuSupabase, textPozvanky, type DruhSablony } from '../lib/pozvanka';
 import { DocasneHesloOkno } from '../components/DocasneHesloOkno';
 import { poslatOdkazProHeslo } from '../lib/odkazEmailem';
 
@@ -105,6 +105,13 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
   const [emailMsg, setEmailMsg] = useState<string | null>(null);
   // Dočasné heslo k zobrazení (po schválení nebo „Nové dočasné heslo“).
   const [docasne, setDocasne] = useState<{ email: string; heslo: string } | null>(null);
+
+  async function kopirujSablonu(druh: DruhSablony) {
+    try {
+      await navigator.clipboard.writeText(sablonaEmailuSupabase(druh));
+      setEmailMsg(`Šablona zkopírovaná. V Supabase ji vlož do „${druh === 'pozvanka' ? 'Invite user' : 'Reset password'}“ a jako předmět dej: ${PREDMET_SABLONY[druh]}`);
+    } catch { setEmailErr('Šablonu se nepodařilo zkopírovat.'); }
+  }
 
   async function znovuPoslatPozvanku(u: { email: string }) {
     const r = await poslatOdkazProHeslo(u.email);
@@ -310,6 +317,19 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
 
       {activeTab === 'emails' && (
         <div className="space-y-6">
+          {/* E-mail, který uživateli pošle Supabase (pozvánka a zapomenuté heslo) s návodem k aplikaci */}
+          <div className="card p-5 border border-amber-200/90 rounded bg-white shadow-xs space-y-2">
+            <h3 className="font-display font-black text-base text-neutral-900"><Mail className="ikona-text" /> E-mail s pozvánkou a návodem</h3>
+            <p className="text-xs text-neutral-500 font-medium">
+              Pozvánku po schválení i odkaz „zapomenuté heslo“ rozesílá Supabase ze šablony. Zkopíruj hotovou šablonu (odkaz pro heslo, instalace na plochu a přehled, co v aplikaci je) a vlož ji v Supabase do nastavení e-mailů — stačí jednou.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" className="btn-ghost !rounded text-xs font-black" onClick={() => kopirujSablonu('pozvanka')}>Kopírovat šablonu pozvánky</button>
+              <button type="button" className="btn-ghost !rounded text-xs font-black" onClick={() => kopirujSablonu('obnova')}>Kopírovat šablonu „zapomenuté heslo“</button>
+              <a className="btn-ghost !rounded text-xs font-black" href="https://supabase.com/dashboard/project/sasqexjadvlqyticxwja/auth/templates" target="_blank" rel="noreferrer">Otevřít nastavení e-mailů v Supabase</a>
+            </div>
+          </div>
+
           {/* Add allowed email card */}
           <div className="card p-6 border border-amber-200/90 rounded bg-white shadow-xs">
             <h3 className="font-display font-black text-base text-neutral-900 mb-2">

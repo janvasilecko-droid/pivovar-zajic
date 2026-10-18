@@ -19,18 +19,32 @@ const C: Page = 'dashboard';
 describe('getHomeLayout', () => {
   it('vrátí výchozí layout pro prázdný/null vstup', () => {
     const layout = getHomeLayout(null, [A, B, C]);
-    // Nová plocha se zakládá rozdělená do stránek podle STRANKY_PLOCHY, takže
-    // rozmístění i pořadí určuje TA TABULKA, ne pořadí ve visibleIds:
-    // objednávky, stáčení i sklad patří na „Denní práce". Poslední prázdná
-    // stránka je místo na přidávání (ensureTrailingEmptyPage).
-    expect(layout.pages).toEqual([[B, A, C], []]);
-    expect(layout.tileOpacity).toBeCloseTo(0.62);
-    // 'bottling' ani 'notes' nejsou v visibleIds, takže i výchozí slot
-    // spodní lišty se ověří a spadne na 'home' — viz "spodní lišta: home je
-    // vždy platné" níže. Výchozí lišta má PĚT slotů (dřív čtyři): palec na
-    // ni dosáhne bez přehmátnutí, takže se do ní vešly i Poznámky.
-    expect(layout.dock).toEqual(['orders', 'kegging', 'home', 'home', 'home']);
+    // Nová plocha je výchozí plocha správce (lib/vychoziPlocha.ts): pořadí dlaždic
+    // určuje ona, filtrují se podle práv (visibleIds). Poslední prázdná stránka je
+    // místo na přidávání (ensureTrailingEmptyPage).
+    // Správce nesmí vidět všechno → dlaždice se srovnají podle jeho rozmístění (shora dolů, zleva doprava).
+    expect(layout.pages).toEqual([[A, C, B], []]);
+    expect(layout.tileOpacity).toBeCloseTo(0.9);
+    // Spodní lišta správce: Lahve · Sklad · Domů · Fasování · KEG · Domů. Co uživatel
+    // nesmí vidět (v testu 'bottling' a 'prodejna'), spadne na 'home'.
+    expect(layout.dock).toEqual(['home', 'dashboard', 'home', 'home', 'kegging', 'home']);
     [A, B, C].forEach((id) => expect(layout.overrides[id]?.color).toBeTruthy());
+  });
+
+  it('prázdná nebo poškozená plocha (jen „home“ v liště, žádné dlaždice) dostane výchozí plochu správce', () => {
+    const rozbita = { pages: [['cd_t_1'], [], []], dock: ['home', 'home', 'home', 'home'], tileOpacity: 0.9 };
+    const layout = getHomeLayout(rozbita, [A, B, C]);
+    expect(layout.pages[0].filter((id) => id !== 'cd_t_1')).toEqual([A, C, B]);
+    expect(layout.pages[0]).toContain('cd_t_1');
+    expect(layout.dock).toEqual(['home', 'dashboard', 'home', 'home', 'kegging', 'home']);
+  });
+
+  it('uživatel s vlastní plochou ji zachová a výchozí na ni nesáhne', () => {
+    const vlastni = { rozlozeniVerze: ROZLOZENI_VERZE, pages: [[C]], dock: ['kegging', 'home'], tileGap: 9 };
+    const layout = getHomeLayout(vlastni, [A, B, C]);
+    expect(layout.pages[0][0]).toBe(C);
+    expect(layout.dock).toEqual(['kegging', 'home']);
+    expect(layout.tileGap).toBe(9);
   });
 
   it('připojí nově viditelný modul na konec poslední stránky', () => {
@@ -111,8 +125,12 @@ describe('getHomeLayout', () => {
   });
 
   it('extraIds se ověří/zachovají, ale nepřidají se automaticky jako nové', () => {
+    // Výchozí plocha správce obsahuje i některé rozšiřující dlaždice (např. Nakládku),
+    // které se ukážou tomu, kdo na ně má právo; jinak se nikdy samy nepřidávají.
     const layout = getHomeLayout(null, [A], [B]);
-    expect(layout.pages).toEqual([[A], []]);
+    expect(layout.pages).toEqual([[A, B], []]);
+    const vlastni = getHomeLayout({ rozlozeniVerze: ROZLOZENI_VERZE, pages: [[A]] }, [A], [B]);
+    expect(vlastni.pages).toEqual([[A], []]);
     const withExtra = getHomeLayout({ rozlozeniVerze: ROZLOZENI_VERZE, pages: [[A, B]] }, [A], [B]);
     expect(withExtra.pages).toEqual([[A, B], []]);
   });
@@ -374,9 +392,11 @@ describe('addDockSlot / removeDockSlot', () => {
   // Všechny DEFAULT_DOCK stránky musí být viditelné, jinak by je dock-validace
   // v getHomeLayout samo nahradila 'home' a testy by mísily dvě různé věci.
   const allDockPages: Page[] = DEFAULT_DOCK;
+  // Vlastní plocha s výchozí lištou (bez dlaždic by se použila výchozí plocha správce).
+  const vlastni = (visible: Page[]) => getHomeLayout({ rozlozeniVerze: ROZLOZENI_VERZE, pages: [visible], dock: DEFAULT_DOCK }, visible);
 
   it('addDockSlot přidá další slot ("home"), respektuje MAX_DOCK', () => {
-    const layout = getHomeLayout(null, allDockPages);
+    const layout = vlastni(allDockPages);
     const next = addDockSlot(layout);
     expect(next.dock).toEqual([...DEFAULT_DOCK, 'home']);
     let maxed = layout;
@@ -385,7 +405,7 @@ describe('addDockSlot / removeDockSlot', () => {
   });
 
   it('removeDockSlot odebere slot na indexu, respektuje MIN_DOCK', () => {
-    const layout = getHomeLayout(null, allDockPages);
+    const layout = vlastni(allDockPages);
     const next = removeDockSlot(layout, 1);
     expect(next.dock).toEqual(DEFAULT_DOCK.filter((_, i) => i !== 1));
     let minned = layout;
@@ -394,7 +414,7 @@ describe('addDockSlot / removeDockSlot', () => {
   });
 
   it('moveDockSlot prohodí slot se sousedem doleva/doprava', () => {
-    const layout = getHomeLayout(null, allDockPages);
+    const layout = vlastni(allDockPages);
     const doprava = moveDockSlot(layout, 0, 'doprava');
     expect(doprava.dock[0]).toBe(DEFAULT_DOCK[1]);
     expect(doprava.dock[1]).toBe(DEFAULT_DOCK[0]);
@@ -404,7 +424,7 @@ describe('addDockSlot / removeDockSlot', () => {
   });
 
   it('moveDockSlot na kraji nic nezmění', () => {
-    const layout = getHomeLayout(null, allDockPages);
+    const layout = vlastni(allDockPages);
     expect(moveDockSlot(layout, 0, 'doleva').dock).toEqual(layout.dock);
     expect(moveDockSlot(layout, layout.dock.length - 1, 'doprava').dock).toEqual(layout.dock);
   });

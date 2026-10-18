@@ -1,4 +1,4 @@
-import { BarChart3, Bell, BookOpen, Car, ClipboardList, Landmark, Package as PackageIcon, PartyPopper, PenLine, Settings, ShieldCheck, ShoppingCart, Tag, Truck, Warehouse, Wheat, Wine, type LucideIcon } from 'lucide-react';
+import { BarChart3, Bell, BookOpen, Car, ClipboardList, Landmark, Package as PackageIcon, PartyPopper, PenLine, Settings, ShieldCheck, ShoppingCart, Tag, Truck, Warehouse, Wine, type LucideIcon } from 'lucide-react';
 import { IkonaSud, IkonaVycep } from '../components/ikony';
 import { uloz } from './uloziste';
 
@@ -12,7 +12,6 @@ export type ModuleKey =
   | 'cellar'
   | 'kegging'
   | 'inventory'
-  | 'srotovani'
   | 'haccp'
   | 'catalogs'
   | 'sklo_promo'
@@ -57,7 +56,6 @@ export const MODULE_DEFINITIONS: { id: ModuleKey; label: string; icon: LucideIco
   { id: 'cellar', label: 'Sklep', icon: Warehouse, desc: 'Kvasné tanky CCT, ležácké tanky 1-8, sanitace a plánovač zrání.' },
   { id: 'kegging', label: 'Stáčení piva & Historie', icon: IkonaSud, desc: 'Evidence stočeného piva z tanků do KEG sudů a lahví.' },
   { id: 'inventory', label: 'Měsíční inventura skladu', icon: ClipboardList, desc: 'Fyzické počítání zásob na začátku a konci měsíce, manka a přebytky.' },
-  { id: 'srotovani', label: 'Šrotování sladu', icon: Wheat, desc: 'Zápis šrotování sladu pro vaření piva.' },
   { id: 'haccp', label: 'Sanitační řád', icon: ShieldCheck, desc: 'Sanitační příručka pivovaru, normy SVHP, zásady BOZP a první pomoci.' },
   { id: 'catalogs', label: 'Číselníky (Piva, Obaly, Odběratelé)', icon: BookOpen, desc: 'Katalog piv, cen obalů, seznam odběratelů a evidence vozidel.' },
   { id: 'sklo_promo', label: 'Sklad lahve, sklo, etikety...', icon: Wine, desc: 'Evidence pivního skla, podtácků, etiket a prázdných lahví s varováním.' },
@@ -83,7 +81,6 @@ export const DEFAULT_FULL_PERMISSIONS: UserPermissions = {
   cellar: { view: true, edit: true },
   kegging: { view: true, edit: true },
   inventory: { view: true, edit: true },
-  srotovani: { view: true, edit: true },
   haccp: { view: true, edit: true },
   catalogs: { view: true, edit: true },
   sklo_promo: { view: true, edit: true },
@@ -121,7 +118,6 @@ export const PRESET_ROLES: { name: string; permissions: UserPermissions }[] = [
       cellar: { view: true, edit: true },
       kegging: { view: true, edit: true },
       inventory: { view: true, edit: true },
-      srotovani: { view: true, edit: true },
       haccp: { view: true, edit: true },
       catalogs: { view: true, edit: false },
       sklo_promo: { view: true, edit: true }, // Renamed
@@ -145,7 +141,6 @@ export const PRESET_ROLES: { name: string; permissions: UserPermissions }[] = [
       cellar: { view: false, edit: false },
       kegging: { view: false, edit: false },
       inventory: { view: false, edit: false },
-      srotovani: { view: false, edit: false },
       haccp: { view: true, edit: false },
       catalogs: { view: true, edit: true },
       sklo_promo: { view: true, edit: false },
@@ -173,7 +168,6 @@ export const PRESET_ROLES: { name: string; permissions: UserPermissions }[] = [
       cellar: { view: false, edit: false },
       kegging: { view: false, edit: false },
       inventory: { view: false, edit: false },
-      srotovani: { view: false, edit: false },
       haccp: { view: false, edit: false },
       // Odběratelé a kontakty — musí vědět, kam veze a komu zavolat.
       catalogs: { view: true, edit: false },
@@ -199,7 +193,6 @@ export const PRESET_ROLES: { name: string; permissions: UserPermissions }[] = [
       cellar: { view: false, edit: false },
       kegging: { view: false, edit: false },
       inventory: { view: false, edit: false },
-      srotovani: { view: false, edit: false },
       haccp: { view: false, edit: false },
       catalogs: { view: false, edit: false },
       sklo_promo: { view: false, edit: false },
@@ -218,7 +211,6 @@ export const PRESET_ROLES: { name: string; permissions: UserPermissions }[] = [
  *
  * JEDINÝ zdroj pravdy. Dřív existovala tahle mapa TŘIKRÁT (Layout.tsx,
  * AppSettingsScreen.tsx, HomeScreen.tsx) a kopie se rozešly:
- *   • „srotovani" bylo jednou pod vlastním modulem, jinde pod „entry"
  *   • „concentration" jednou pod „cellar", jinde pod „entry"
  *   • „depozitar" v jedné kopii CHYBĚL úplně — a protože se chybějící klíč
  *     vyhodnocuje jako „povoleno všem", zobrazoval se i lidem bez práv
@@ -263,7 +255,6 @@ export const PAGE_TO_MODULE: Record<string, ModuleKey> = {
   // Audity kontrolují hlavně sklad a inventuru — kdo nevidí Inventuru,
   // neuvidí ani Audit. Diagnostika a historie změn uvnitř jsou jen pro admina.
   audit: 'inventory',
-  srotovani: 'srotovani',
   checklists: 'haccp',
   concentration: 'cellar',
   cellar: 'cellar',

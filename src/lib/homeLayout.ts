@@ -5,6 +5,7 @@ import type { Page } from '../components/Layout';
 import { getCountdowns, saveCountdowns, type CountdownTimer } from './stopwatchTimers';
 import { getHomeNotes, saveHomeNotes, type HomeNote } from './homeNotes';
 import { queueHomeLayoutPatch } from './profileSync';
+import { maVlastniPlochu, VYCHOZI_PLOCHA, zakladniRozlozeni } from './vychoziPlocha';
 
 // Víc odstínů na barvu (modré/zelené/červené/oranžové/fialové po 6-8), ať jde
 // tematicky odlišit skupiny dlaždic barvou (např. "vše z pivovaru" modře,
@@ -474,7 +475,7 @@ export const PAGE_CATEGORY: Partial<Record<Page, Category>> = {
   concentration: 'Nástroje', calendar: 'Nástroje', haccp: 'Nástroje', vehicles: 'Nástroje', kniha_jizd: 'Nástroje',
   sanitace_lahve: 'Nástroje', sanitace_kegy: 'Nástroje', sanitace_vycepy: 'Nástroje',
   checklists: 'Nástroje', sanitation_log: 'Nástroje', notes: 'Nástroje', feedback: 'Nástroje',
-  stopwatch: 'Nástroje', timer: 'Nástroje', keg_timer: 'Nástroje', srotovani: 'Nástroje',
+  stopwatch: 'Nástroje', timer: 'Nástroje', keg_timer: 'Nástroje',
   // Číselníky
   depozitar: 'Číselníky', places: 'Číselníky', beers: 'Číselníky', packages: 'Číselníky', pricelist: 'Číselníky',
   // Nastavení
@@ -828,7 +829,11 @@ export function stepTileCell(layout: HomeLayout, id: TileId, direction: 'left' |
  * layoutem.
  */
 export function getHomeLayout(raw: unknown, visibleIds: Page[], extraIds: Page[] = [], cols: number = GRID_COLS_DESKTOP): HomeLayout {
-  const saved = (raw && typeof raw === 'object' ? raw : {}) as Partial<HomeLayout> & { order?: Page[] };
+  // Kdo si plochu nepřizpůsobil (nový uživatel, prázdná plocha), dostane výchozí
+  // plochu správce (lib/vychoziPlocha.ts) — dlaždice se dál filtrují podle práv.
+  const zVychozi = !maVlastniPlochu(raw);
+  const zakladni = zakladniRozlozeni(raw);
+  const saved = (zakladni && typeof zakladni === 'object' ? zakladni : {}) as Partial<HomeLayout> & { order?: Page[] };
   const fullVisibleSet = new Set<Page>([...visibleIds, ...extraIds]);
   const rawGroups = (saved.groups && typeof saved.groups === 'object' ? saved.groups : {}) as Record<string, { memberIds?: unknown }>;
   const resolvedGroups: Record<GroupId, TileGroup> = {};
@@ -1025,7 +1030,15 @@ export function getHomeLayout(raw: unknown, visibleIds: Page[], extraIds: Page[]
     kRozdeleni = { ...kRozdeleni, overrides };
   }
 
-  return ensureTrailingEmptyPage(ensurePositions(kRozdeleni, cols));
+  let vysledek = ensureTrailingEmptyPage(ensurePositions(kRozdeleni, cols));
+  // Výchozí plocha má dlaždice rozmístěné podle správce; když uživatel na některé
+  // nemá právo, zůstaly by po nich díry — zbytek se proto srovná do řádků.
+  // Správce, který vidí všechno, zůstává přesně tak, jak to má.
+  if (zVychozi) {
+    const videt = new Set(vysledek.pages[0] ?? []);
+    if (VYCHOZI_PLOCHA.pages[0].some((id) => !videt.has(id as TileId))) vysledek = vyrovnejStranku(vysledek, 0, cols);
+  }
+  return vysledek;
 }
 
 // ── Přehled nakládky na ploše z Rozvozu ─────────────────────────────────────

@@ -32,7 +32,6 @@ const ObchodScreen = lazyStranka(() => import('./screens/ObchodScreen'));
 const Statistika = lazyStranka(() => import('./screens/Statistika'));
 const ExcelTabbed = lazyStranka(() => import('./screens/ExcelTabbed'));
 const CellarScreen = lazyStranka(() => import('./screens/Cellar'));
-const SrotovaniScreen = lazyStranka(() => import('./screens/BreweryScreens').then((m) => ({ default: m.SrotovaniScreen })));
 const ConcentrationScreen = lazyStranka(() => import('./screens/BreweryScreens').then((m) => ({ default: m.ConcentrationScreen })));
 const InventoryScreen = lazyStranka(() => import('./screens/InventoryScreen'));
 const VycepyScreen = lazyStranka(() => import('./screens/VycepyScreen'));
@@ -302,7 +301,6 @@ export default function App() {
         </div>
       )}
       {page === 'bottling' && <BottlingScreen setPage={setPage} initialSubTab={pageSubTab} />}
-      {page === 'srotovani' && <SrotovaniScreen setPage={setPage} />}
 
       {page === 'kegging' && <KeggingScreen mode="all" setPage={setPage} initialSubTab={pageSubTab} />}
       {/* Fasování, Odpis a Prodejna jsou tentýž formulář, liší se jen tabulkou,

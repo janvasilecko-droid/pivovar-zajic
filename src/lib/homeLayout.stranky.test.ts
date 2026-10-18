@@ -104,10 +104,9 @@ describe('rozdelDoStranek — jedna stránka pod sebou (28. 9. 2026, na zkoušku
     // Hlavní moduly + záměrné výjimky (lísteček s poznámkami, návod), nic víc.
     // Počítá se ze seznamu výjimek, ne z napevno napsaného čísla: jinak by
     // každá nová výjimka znamenala „oprav číslo v testu" místo rozhodnutí.
-    expect(layout.pages.flat()).toHaveLength(NAV.length + DLAZDICE_MIMO_TABULKU_ZAMERNE.length);
-    for (const vyjimka of DLAZDICE_MIMO_TABULKU_ZAMERNE) {
-      expect(layout.pages.flat()).toContain(vyjimka);
-    }
+    // Od 18. 10. 2026 je základ plochy snímek správce (lib/vychoziPlocha.ts): hlavní
+    // moduly + dlaždice, které si správce na plochu dal (Nakládka, Rozvoz…).
+    for (const n of NAV) expect(layout.pages.flat()).toContain(n.id);
     expect(layout.pages.flat()).not.toContain('sanitace_vycepy');
     expect(layout.pages.flat()).not.toContain('bottling_entry');
   });
