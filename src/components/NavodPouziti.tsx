@@ -113,6 +113,10 @@ const ODDILY: Oddil[] = [
         jak: 'Objednávky a stáčení se každý den samy zálohují. Admin si navíc může stáhnout kopii k sobě (dlaždice „Stáhnout zálohu") — to je jediná kopie, která je mimo, takže ji stojí za to občas stáhnout.',
       },
       {
+        co: 'Zajíc 2 — druhá aplikace s jiným účtem',
+        jak: 'Nastavení → „Zajíc 2“ → „Otevřít Zajíc 2“, přihlas se jiným účtem a dej si ji na plochu (ikona je zajíc s červenou 2). Hlavní aplikace zůstane přihlášená jako správce, Zajíc 2 má přihlášení zvlášť — hodí se na kontrolu, co a jak vidí běžný uživatel. Nahoře svítí červený štítek, pod kterým účtem jsi.',
+      },
+      {
         co: 'Funguje i bez signálu',
         jak: 'Ve sklepě a na cestě se zápis uloží do telefonu a odešle se, jakmile je signál. Appka to u takového zápisu napíše, takže se nestane, že si myslíš, že je uložený, a přitom čeká.',
       },

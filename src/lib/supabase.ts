@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { klicUlozistePrihlaseni } from './profilAplikace';
 import { useEffect, useRef } from 'react';
 import { cacheGetResponse, getCachedResponse, getTableRows, upsertTableRows } from './offlineCache';
 import { aplikujOperace, cekajiciUpravy, enqueue, getQueue, nedavneProslyZapisy, zapamatujProsly, type QueuedOp } from './offline';
@@ -429,7 +430,8 @@ async function offlineFetch(input: RequestInfo | URL, init?: RequestInit, opts?:
 }
 
 export const supabase = createClient(url, anonKey, {
-  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+  // Zajíc 2 (druhá instalace) má přihlášení pod vlastním klíčem — viz lib/profilAplikace.ts.
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storageKey: klicUlozistePrihlaseni() },
   realtime: { params: { eventsPerSecond: 5 } },
   global: { fetch: (input, init) => offlineFetch(input, init, { admin: false }) },
 });

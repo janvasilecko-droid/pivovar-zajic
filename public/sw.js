@@ -328,7 +328,7 @@ self.addEventListener('fetch', (e) => {
   // version.json MUST always come fresh from the server, jinak by SW vracel
   // starou verzi a aplikace by nikdy nezjistila, že je dostupná nová verze.
   if (
-    url.pathname === '/manifest.webmanifest' ||
+    url.pathname.startsWith('/manifest') ||
     url.pathname === '/sw.js' ||
     url.pathname === '/version.json' ||
     url.pathname.includes('/node_modules/') ||
