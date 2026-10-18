@@ -3,7 +3,7 @@ import { useAuth } from '../lib/auth';
 import { AlertTriangle, ArrowRight, Beer as BeerIcon, Eye, EyeOff, Lock, Mail, ShieldCheck } from 'lucide-react';
 import { getAdminEmail } from '../lib/config';
 import { chybaZNavratu, GOOGLE_PRIHLASENI_ZAPNUTO, prihlasitPresGoogle } from '../lib/googlePrihlaseni';
-import { ODKAZ_ODESLAN, poslatOdkazProHeslo } from '../lib/odkazEmailem';
+import { NENI_OVERENY, odkazOdeslanNa, poslatOdkazProHeslo } from '../lib/odkazEmailem';
 
 export default function AuthScreen() {
   const { signIn } = useAuth();
@@ -14,7 +14,7 @@ export default function AuthScreen() {
   const [busy, setBusy] = useState(false);
   // „Zapomněl(a) jsem heslo / první přihlášení“: místo hesla pošleme odkaz do e-mailu.
   const [zapomenute, setZapomenute] = useState(false);
-  const [odeslano, setOdeslano] = useState(false);
+  const [odeslano, setOdeslano] = useState<string | null>(null);
 
   // Návrat z Google s chybou (třeba neschválený e-mail) — řekneme proč.
   useEffect(() => {
@@ -34,10 +34,12 @@ export default function AuthScreen() {
     e.preventDefault();
     setErr(null);
     setBusy(true);
+    setOdeslano(null);
     const res = await poslatOdkazProHeslo(email);
     setBusy(false);
-    if (res.error) setErr(res.error);
-    else setOdeslano(true);
+    if (res.stav === 'odeslano') setOdeslano(res.email);
+    else if (res.stav === 'neschvaleny') setErr(NENI_OVERENY);
+    else setErr(res.zprava);
   };
 
   const submit = async (e: React.FormEvent) => {
@@ -102,7 +104,7 @@ export default function AuthScreen() {
             {zapomenute ? (
               <form onSubmit={poslatOdkaz} className="space-y-5">
                 <p className="text-sm font-bold text-neutral-700 leading-relaxed">
-                  Napiš svůj schválený e-mail. Pošleme na něj odkaz — po klepnutí se ti rovnou otevře aplikace a nastavíš si nové heslo.
+                  Napiš svůj e-mail. Ověříme, že je schválený, a pošleme na něj odkaz — po klepnutí se ti rovnou otevře aplikace a nastavíš si heslo.
                 </p>
                 <div>
                   <label className="block text-xs font-black text-amber-900 uppercase tracking-wider mb-2">Přihlašovací e-mail</label>
@@ -111,7 +113,7 @@ export default function AuthScreen() {
                     type="email"
                     required
                     value={email}
-                    onChange={(e) => { setEmail(e.target.value); setOdeslano(false); }}
+                    onChange={(e) => { setEmail(e.target.value); setOdeslano(null); setErr(null); }}
                     placeholder={getAdminEmail()}
                     autoComplete="username"
                   />
@@ -123,12 +125,12 @@ export default function AuthScreen() {
                   </div>
                 )}
                 {odeslano && (
-                  <div className="text-xs font-bold text-emerald-950 bg-emerald-50 border border-emerald-300 rounded-2xl px-4 py-3" role="status">{ODKAZ_ODESLAN}</div>
+                  <div className="text-xs font-bold text-emerald-950 bg-emerald-50 border border-emerald-300 rounded-2xl px-4 py-3" role="status">{odkazOdeslanNa(odeslano)}</div>
                 )}
                 <button type="submit" className="btn-primary !rounded-2xl w-full !py-3.5 text-sm font-black" disabled={busy}>
                   {busy ? 'Posílám…' : odeslano ? 'Poslat znovu' : 'Poslat odkaz do e-mailu'}
                 </button>
-                <button type="button" className="btn-ghost !rounded-2xl w-full !py-3 text-sm font-black" onClick={() => { setZapomenute(false); setErr(null); setOdeslano(false); }}>
+                <button type="button" className="btn-ghost !rounded-2xl w-full !py-3 text-sm font-black" onClick={() => { setZapomenute(false); setErr(null); setOdeslano(null); }}>
                   Zpět na přihlášení
                 </button>
               </form>

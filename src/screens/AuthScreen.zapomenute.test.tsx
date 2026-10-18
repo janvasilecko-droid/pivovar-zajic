@@ -11,17 +11,17 @@ beforeEach(() => poslat.mockReset());
 
 describe('přihlašovací obrazovka: zapomenuté heslo / první přihlášení', () => {
   it('odkaz do e-mailu se pošle na zadaný e-mail a ukáže se neutrální potvrzení', async () => {
-    poslat.mockResolvedValue({ error: null });
+    poslat.mockResolvedValue({ stav: 'odeslano', email: 'novy@pivovar.cz' });
     render(<AuthScreen />);
     fireEvent.click(screen.getByText(/Zapomněl\(a\) jsem heslo/));
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'novy@pivovar.cz' } });
     fireEvent.click(screen.getByText('Poslat odkaz do e-mailu'));
     await waitFor(() => expect(poslat).toHaveBeenCalledWith('novy@pivovar.cz'));
-    expect((await screen.findByRole('status')).textContent).toMatch(/Pokud je tenhle e-mail schválený/);
+    expect((await screen.findByRole('status')).textContent).toContain('Odkaz byl odeslán na novy@pivovar.cz');
   });
 
   it('chyba odeslání se ukáže a jde se vrátit na přihlášení', async () => {
-    poslat.mockResolvedValue({ error: 'E-mail se už nedávno odesílal.' });
+    poslat.mockResolvedValue({ stav: 'chyba', zprava: 'E-mail se už nedávno odesílal.' });
     render(<AuthScreen />);
     fireEvent.click(screen.getByText(/Zapomněl\(a\) jsem heslo/));
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'a@b.cz' } });
@@ -29,6 +29,16 @@ describe('přihlašovací obrazovka: zapomenuté heslo / první přihlášení',
     expect(await screen.findByText('E-mail se už nedávno odesílal.')).toBeTruthy();
     fireEvent.click(screen.getByText('Zpět na přihlášení'));
     expect(screen.getByText('Vstoupit do pivovaru')).toBeTruthy();
+  });
+
+  it('neschválený e-mail: napíše, že není ověřený, a nic neodešle', async () => {
+    poslat.mockResolvedValue({ stav: 'neschvaleny' });
+    render(<AuthScreen />);
+    fireEvent.click(screen.getByText(/Zapomněl\(a\) jsem heslo/));
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'janvasilecko@gmail.cz' } });
+    fireEvent.click(screen.getByText('Poslat odkaz do e-mailu'));
+    expect(await screen.findByText(/Tento e-mail není ověřený\. Kontaktujte administrátora/)).toBeTruthy();
+    expect(screen.queryByRole('status')).toBeNull();
   });
 
   it('Google tlačítko není vidět, dokud ho majitel nezapne', () => {
