@@ -13,7 +13,7 @@ describe('přihlašovací obrazovka: zapomenuté heslo / první přihlášení',
   it('odkaz do e-mailu se pošle na zadaný e-mail a ukáže se neutrální potvrzení', async () => {
     poslat.mockResolvedValue({ stav: 'odeslano', email: 'novy@pivovar.cz' });
     render(<AuthScreen />);
-    fireEvent.click(screen.getByText(/Zapomněl\(a\) jsem heslo/));
+    fireEvent.click(screen.getByText('Zapomněl(a) jsem heslo'));
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'novy@pivovar.cz' } });
     fireEvent.click(screen.getByText('Poslat odkaz do e-mailu'));
     await waitFor(() => expect(poslat).toHaveBeenCalledWith('novy@pivovar.cz'));
@@ -23,7 +23,7 @@ describe('přihlašovací obrazovka: zapomenuté heslo / první přihlášení',
   it('chyba odeslání se ukáže a jde se vrátit na přihlášení', async () => {
     poslat.mockResolvedValue({ stav: 'chyba', zprava: 'E-mail se už nedávno odesílal.' });
     render(<AuthScreen />);
-    fireEvent.click(screen.getByText(/Zapomněl\(a\) jsem heslo/));
+    fireEvent.click(screen.getByText('Zapomněl(a) jsem heslo'));
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'a@b.cz' } });
     fireEvent.click(screen.getByText('Poslat odkaz do e-mailu'));
     expect(await screen.findByText('E-mail se už nedávno odesílal.')).toBeTruthy();
@@ -34,11 +34,26 @@ describe('přihlašovací obrazovka: zapomenuté heslo / první přihlášení',
   it('neschválený e-mail: napíše, že není ověřený, a nic neodešle', async () => {
     poslat.mockResolvedValue({ stav: 'neschvaleny' });
     render(<AuthScreen />);
-    fireEvent.click(screen.getByText(/Zapomněl\(a\) jsem heslo/));
+    fireEvent.click(screen.getByText('Zapomněl(a) jsem heslo'));
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'janvasilecko@gmail.cz' } });
     fireEvent.click(screen.getByText('Poslat odkaz do e-mailu'));
     expect(await screen.findByText(/Tento e-mail není ověřený\. Kontaktujte administrátora/)).toBeTruthy();
     expect(screen.queryByRole('status')).toBeNull();
+  });
+
+  it('„Nový uživatel“ je samostatné tlačítko se svým textem a pošle odkaz stejně', async () => {
+    poslat.mockResolvedValue({ stav: 'odeslano', email: 'novy@pivovar.cz' });
+    render(<AuthScreen />);
+    fireEvent.click(screen.getByText('Nový uživatel'));
+    expect(screen.getByText(/e-mail, který ti správce schválil/)).toBeTruthy();
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'novy@pivovar.cz' } });
+    fireEvent.click(screen.getByText('Poslat odkaz do e-mailu'));
+    await waitFor(() => expect(poslat).toHaveBeenCalledWith('novy@pivovar.cz'));
+  });
+
+  it('zastaralý text o dočasném heslu od administrátora tam není', () => {
+    render(<AuthScreen />);
+    expect(document.body.textContent).not.toMatch(/dočasné heslo/i);
   });
 
   it('Google tlačítko není vidět, dokud ho majitel nezapne', () => {
