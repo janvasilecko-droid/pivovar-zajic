@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 import { Lock, CheckCircle2, AlertCircle } from 'lucide-react';
 
 export function SetPasswordModal() {
-  const { user, profile, reloadProfile } = useAuth();
+  const { user, profile, reloadProfile, musiNastavitHeslo, hesloNastaveno } = useAuth();
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [err, setErr] = useState<string | null>(null);
@@ -12,7 +12,8 @@ export function SetPasswordModal() {
   const [success, setSuccess] = useState(false);
 
   // Zobrazit modal pouze pokud je uživatel přihlášený, ale nemá nastavené heslo
-  if (!user || !profile || profile.password_set !== false) {
+  // …nebo přišel odkaz z e-mailu (zapomenuté heslo) — pak profil klidně heslo má.
+  if (!user || (!musiNastavitHeslo && (!profile || profile.password_set !== false))) {
     return null;
   }
 
@@ -58,6 +59,7 @@ export function SetPasswordModal() {
       // Krátká prodleva pro zobrazení úspěchu a obnovení profilu
       setTimeout(async () => {
         await reloadProfile();
+        hesloNastaveno();
         setBusy(false);
       }, 1500);
 
@@ -86,7 +88,7 @@ export function SetPasswordModal() {
               Založte si své heslo
             </h2>
             <p className="text-xs font-bold text-neutral-500 mt-1">
-              Přihlásil(a) jste se výchozím heslem vytvořeným správcem. Pro příští přihlášení si prosím vytvořte své heslo.
+              Odkaz z e-mailu ti otevřel aplikaci. Vymysli si heslo, kterým se budeš příště přihlašovat (aspoň 6 znaků).
             </p>
           </div>
         </div>

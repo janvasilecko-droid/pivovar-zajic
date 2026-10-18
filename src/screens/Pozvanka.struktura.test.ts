@@ -37,3 +37,24 @@ describe('dočasné heslo', () => {
     expect(blok).toContain('generateTempPassword()');
   });
 });
+
+describe('pozvánka a zapomenuté heslo odkazem z e-mailu', () => {
+  it('schválení nejdřív zkusí pozvánku e-mailem a teprve při selhání založí účet s dočasným heslem', () => {
+    const f = readFileSync('supabase/functions/manage-users/index.ts', 'utf8');
+    const blok = f.slice(f.indexOf('path === "approve"'), f.indexOf('path === "reset-temp"'));
+    expect(blok.indexOf('inviteUserByEmail')).toBeGreaterThan(-1);
+    expect(blok.indexOf('inviteUserByEmail')).toBeLessThan(blok.indexOf('generateTempPassword()'));
+    expect(blok).toContain('invited');
+    expect(blok).toContain('emailError');
+    expect(blok).toMatch(/password_set: false/);
+  });
+
+  it('aplikace reaguje na odkaz z e-mailu (PASSWORD_RECOVERY) a ukáže okno s heslem', () => {
+    expect(readFileSync('src/lib/auth.tsx', 'utf8')).toContain("e === 'PASSWORD_RECOVERY'");
+    expect(readFileSync('src/App.tsx', 'utf8')).toContain('<SetPasswordModal />');
+  });
+
+  it('Uživatelé mají „Znovu poslat pozvánku“', () => {
+    expect(readFileSync('src/screens/Users.tsx', 'utf8')).toContain('Znovu poslat pozvánku');
+  });
+});

@@ -44,8 +44,8 @@ const ODDILY: Oddil[] = [
         jak: 'Android (Chrome): tři tečky vpravo nahoře → „Nainstalovat aplikaci“ nebo „Přidat na plochu“. iPhone (Safari): tlačítko Sdílet (čtvereček se šipkou) → „Přidat na plochu“. Počítač: ikonka instalace v adresním řádku. Jde to i později v Nastavení → „Instalace aplikace“ (tlačítko „Nainstalovat aplikaci na plochu“). Na ploše se objeví ikona Zajíc a otevírá se na celou obrazovku jako běžná aplikace.',
       },
       {
-        co: '3. Přihlášení',
-        jak: 'Zadej e-mail, na který ti přišla pozvánka, a dočasné heslo, které ti správce poslal zvlášť (osobně nebo přes WhatsApp). Hned po přihlášení si appka řekne o tvoje vlastní heslo (aspoň 6 znaků) — vymysli si ho a pamatuj si ho, dočasné už nebude platit. Místo hesla jde i „Přihlásit přes Google“ — použij Google účet se stejným e-mailem (propojit ho jde i v Nastavení → „Přihlášení přes Google“). Na svém telefonu zůstaneš přihlášený, neodhlašuj se, když nemusíš.',
+        co: '3. První přihlášení',
+        jak: 'Správce ti schválí e-mail a na něj přijde pozvánka s odkazem. Otevři ji v telefonu a klepni na odkaz — aplikace se ti rovnou otevře a nabídne „Založte si své heslo“. Vymysli si heslo (aspoň 6 znaků), ulož a jsi uvnitř. Příště se přihlásíš e-mailem a svým heslem. Pozvánka nedorazila? Podívej se do spamu, nebo na přihlašovací obrazovce klepni na „Zapomněl(a) jsem heslo / první přihlášení“ — pošle se ti nový odkaz. Odkaz platí krátce a jen jednou. Na svém telefonu zůstaneš přihlášený, neodhlašuj se, když nemusíš.',
       },
       {
         co: '4. Kde to jsem: plocha',
@@ -66,6 +66,10 @@ const ODDILY: Oddil[] = [
       {
         co: 'Odpočty: odečítání ze skladu',
         jak: 'Sklad se mění sám, když něco zapíšeš: stáčení kusy PŘIČTE, objednávka po dni závozu je ODEČTE, Fasování, Prodejna a Odpis odečtou hned. Ve Skladu vidíš tři čísla: „Stav“ (je teď), „Odejde“ (objednávky, které ještě neodjely) a „Zbude“ (stav minus odejde). Žlutá karta s přesýpacími hodinami „Čeká na odpočet ze skladu“ znamená, že zavezená objednávka se ještě neodečetla — klepni na „Odečíst teď“. Normálně se odečte sama hned.',
+      },
+      {
+        co: 'Zapomenuté heslo',
+        jak: 'Na přihlašovací obrazovce klepni na „Zapomněl(a) jsem heslo / první přihlášení“, napiš svůj schválený e-mail a klepni na „Poslat odkaz do e-mailu“. V poště klepni na odkaz — aplikace se ti otevře a nastavíš si nové heslo. Nedorazilo to? Zkus spam, nebo požádej správce o „Znovu poslat pozvánku“ (případně o dočasné heslo).',
       },
       {
         co: 'Co když se spletu',

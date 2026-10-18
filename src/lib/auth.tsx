@@ -14,6 +14,9 @@ type AuthCtx = {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
+  /** Přišel odkaz z e-mailu pro nastavení hesla — nabídnout okno „Založ si heslo“. */
+  musiNastavitHeslo: boolean;
+  hesloNastaveno: () => void;
   reloadProfile: () => Promise<void>;
   /** Okamžitá lokální (optimistická) úprava profilu bez čekání na round-trip
    * na server — např. launcher po uložení home_layout, ať se hned promítne
@@ -56,6 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = React.useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [musiNastavitHeslo, setMusiNastavitHeslo] = useState(false);
 
   async function loadProfile(user: User) {
     const isSpecialAdmin = isAdminEmail(user.email);
@@ -95,7 +99,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (data.session?.user) loadProfile(data.session.user).finally(() => { if (!zruseno) setLoading(false); });
       else setLoading(false);
     });
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((e, s) => {
+      // Odkaz „zapomenuté heslo“ z e-mailu: uživatel je přihlášený, ale musí si nastavit nové heslo.
+      if (e === 'PASSWORD_RECOVERY') setMusiNastavitHeslo(true);
       setSession(s);
       if (s?.user) {
         loadProfile(s.user);
@@ -179,7 +185,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <Ctx.Provider value={{ session, user: session?.user ?? null, profile, loading, signIn, signOut, reloadProfile, patchProfile }}>
+    <Ctx.Provider value={{ session, user: session?.user ?? null, profile, loading, signIn, signOut, reloadProfile, patchProfile, musiNastavitHeslo, hesloNastaveno: () => setMusiNastavitHeslo(false) }}>
       {children}
     </Ctx.Provider>
   );

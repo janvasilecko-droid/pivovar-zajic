@@ -2,7 +2,7 @@ import { useState, useEffect, type FormEvent } from 'react';
 import { AlertCircle, AlertTriangle, Bell, BellOff, BookOpen, Brush, CloudDownload, Download, Eraser, Eye, CheckCircle2, Lock, Megaphone, MessageSquare, Monitor, Moon, Palette, Plus, RefreshCw, Settings, Smartphone, Stethoscope, Sun, Timer, Trash2, Users, Vibrate, Volume2, VolumeX, Zap } from 'lucide-react';
 import { NavodPouziti } from '../components/NavodPouziti';
 import { InstalaceKroky } from '../components/InstalaceKroky';
-import { maGoogle, propojitSGoogle } from '../lib/googlePrihlaseni';
+import { GOOGLE_PRIHLASENI_ZAPNUTO, maGoogle, propojitSGoogle } from '../lib/googlePrihlaseni';
 
 import { DENSITY_OPTIONS, DensityMode, getDensity, setDensity } from '../lib/density';
 import { mensiEfekty, nastavEfekty } from '../lib/efekty';
@@ -276,7 +276,7 @@ export default function AppSettingsScreen({ setPage }: { setPage?: (p: any, sec?
       </div>
 
       {/* Přihlášení přes Google */}
-      <div className="card p-6">
+      {GOOGLE_PRIHLASENI_ZAPNUTO && (<div className="card p-6">
         <h2 className="font-display font-bold text-lg flex items-center gap-2"><Lock size={18} /> Přihlášení přes Google</h2>
         {maGoogle(user) ? (
           <p className="text-sm text-emerald-700 font-bold mt-2">Tvůj účet je propojený s Google — můžeš se přihlásit i jedním klepnutím na „Přihlásit přes Google“.</p>
@@ -295,7 +295,7 @@ export default function AppSettingsScreen({ setPage }: { setPage?: (p: any, sec?
             </button>
           </>
         )}
-      </div>
+      </div>)}
 
       {/* Návod k použití */}
       <div className="card p-6 border-2 border-amber-400/60 bg-gradient-to-br from-amber-50/50 to-white rounded shadow-sm">

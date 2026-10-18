@@ -41,8 +41,8 @@ export function textPozvanky(odkaz: string = odkazAplikace(), pristup?: Pristup)
     '3) PŘIHLÁŠENÍ:',
     ...(pristup
       ? [`• E-mail: ${pristup.email}`, `• Dočasné heslo: ${pristup.heslo}`]
-      : ['• Přihlásíš se tímto e-mailem a dočasným heslem, které ti pošlu zvlášť (osobně nebo přes WhatsApp).']),
-    '• Hned po přihlášení si aplikace řekne o tvoje vlastní heslo (aspoň 6 znaků) — to dočasné pak už nepotřebuješ.',
+      : ['• Přijde ti e-mail s odkazem (podívej se i do spamu). Klepni na něj — aplikace se ti rovnou otevře a nastavíš si své heslo.', '• Příště se přihlásíš e-mailem a svým heslem. Zapomeneš-li ho, na přihlašovací obrazovce klepni na „Zapomněl(a) jsem heslo“ a pošle se ti odkaz.']),
+    '• Vlastní heslo má aspoň 6 znaků. Dočasné heslo (pokud ho dostaneš) platí jen do prvního přihlášení.',
     '',
     '4) JAK NA TO:',
     'V aplikaci klepni na dlaždici „Info“ (nebo na „?“ vedle lupy nahoře). Oddíl „Začínáme“ je napsaný od nuly: co která ikona znamená, kde se co zapisuje a jak fungují odpočty a odečty ze skladu.',
