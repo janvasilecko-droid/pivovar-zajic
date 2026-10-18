@@ -2,6 +2,7 @@ import { useState, useEffect, type FormEvent } from 'react';
 import { AlertCircle, AlertTriangle, Bell, BellOff, BookOpen, Brush, CloudDownload, Download, Eraser, Eye, CheckCircle2, Lock, Megaphone, MessageSquare, Monitor, Moon, Palette, Plus, RefreshCw, Settings, Smartphone, Stethoscope, Sun, Timer, Trash2, Users, Vibrate, Volume2, VolumeX, Zap } from 'lucide-react';
 import { NavodPouziti } from '../components/NavodPouziti';
 import { InstalaceKroky } from '../components/InstalaceKroky';
+import { adresaDruheAplikace, JE_DRUHA_APLIKACE } from '../lib/profilAplikace';
 import { GOOGLE_PRIHLASENI_ZAPNUTO, maGoogle, propojitSGoogle } from '../lib/googlePrihlaseni';
 
 import { DENSITY_OPTIONS, DensityMode, getDensity, setDensity } from '../lib/density';
@@ -272,6 +273,38 @@ export default function AppSettingsScreen({ setPage }: { setPage?: (p: any, sec?
             <p className="text-sm text-neutral-600 mb-3">Dej si aplikaci na plochu — ikona se přidá rovnou z prohlížeče, bez obchodu Google Play.</p>
             <InstalaceKroky pripravenaInstalace={!!installPrompt} naInstalaci={handleInstall} />
           </div>
+        )}
+      </div>
+
+      {/* Druhá aplikace „Zajíc 2“ — jiný účet než správce, na kontrolu pohledu běžného uživatele */}
+      <div className="card p-6">
+        <h2 className="font-display font-bold text-lg flex items-center gap-2"><Smartphone size={18} /> Zajíc 2 — druhá aplikace s jiným účtem</h2>
+        {JE_DRUHA_APLIKACE ? (
+          <p className="text-sm text-emerald-700 font-bold mt-2">Právě jsi v aplikaci Zajíc 2. Přihlášení je oddělené od hlavní aplikace.</p>
+        ) : (
+          <>
+            <p className="text-sm text-neutral-600 mt-2">
+              Na plochu si můžeš dát druhou ikonu „Zajíc 2“ s vlastním přihlášením — třeba pod účtem běžného uživatele — a kontrolovat, co a jak vidí. Hlavní aplikace zůstává přihlášená jako správce.
+            </p>
+            <ol className="text-sm text-neutral-700 mt-2 space-y-1 list-decimal pl-5">
+              <li>Klepni na „Otevřít Zajíc 2“ (otevře se v prohlížeči).</li>
+              <li>Přihlas se jiným účtem (Uživatelé → „Nové dočasné heslo“ ti ho nastaví).</li>
+              <li>V prohlížeči zvol „Přidat na plochu“ / „Nainstalovat aplikaci“. Ikona je zajíc s červenou 2.</li>
+            </ol>
+            <div className="flex flex-wrap gap-2 mt-3">
+              <a className="btn-primary !rounded text-sm font-black" href={adresaDruheAplikace()} target="_blank" rel="noreferrer">Otevřít Zajíc 2</a>
+              <button
+                type="button"
+                className="btn-ghost !rounded text-sm font-black"
+                onClick={async () => {
+                  try { await navigator.clipboard.writeText(adresaDruheAplikace()); uspech('Odkaz na Zajíc 2 je zkopírovaný.'); }
+                  catch { toastChyba(`Odkaz se nepodařilo zkopírovat — je to ${adresaDruheAplikace()}`); }
+                }}
+              >
+                Zkopírovat odkaz
+              </button>
+            </div>
+          </>
         )}
       </div>
 

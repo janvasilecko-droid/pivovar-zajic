@@ -50,6 +50,8 @@ import { MandatoryAnnouncementModal } from './components/MandatoryAnnouncementMo
 import { CriticalMaterialAlertModal } from './components/CriticalMaterialAlertModal';
 import { MonthlyCleanupWarning } from './components/MonthlyCleanupWarning';
 import { SetPasswordModal } from './components/SetPasswordModal';
+import { JE_DRUHA_APLIKACE } from './lib/profilAplikace';
+import { ZnackaDruheAplikace } from './components/ZnackaDruheAplikace';
 const BottlingTasksSettings = lazyStranka(() => import('./components/BottlingTasksSettings').then((m) => ({ default: m.BottlingTasksSettings })));
 import { Spinner, Kostra } from './components/ui';
 import { scheduleNightlyCheck } from './lib/zavozDeduction';
@@ -231,6 +233,7 @@ export default function App() {
   return (
     <Layout page={page} setPage={setPage}>
       <SetPasswordModal />
+      {JE_DRUHA_APLIKACE && <ZnackaDruheAplikace />}
       <ReminderNotificationManager />
       <KegTimerNotificationManager />
       <TimerDoneAlertModal />
