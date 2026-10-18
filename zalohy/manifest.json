@@ -1,7 +1,7 @@
 {
  "format": "pivovar-zaloha-manifest",
  "v": 1,
- "datum": "2026-10-17T07:03:43.050Z",
+ "datum": "2026-10-18T07:18:24.400Z",
  "tabulky": {
   "beers": {
    "radku": 13,
@@ -125,7 +125,7 @@
   },
   "cellar_tanks": {
    "radku": 11,
-   "sha256": "997e03af62113ef1639aee3650a0a5c17e0b3fd24bd18dc63511af6c1d27c1f1"
+   "sha256": "ae1686016c435cd30e3a8252933f1eb0836e53fedfb9b1908c056ae13e608810"
   },
   "price_list": {
    "radku": 0,
@@ -161,7 +161,7 @@
   },
   "keg_prefuk": {
    "radku": 4,
-   "sha256": "444200ae9c6643acdf3d58acf300910f71b0ed1c7d4d26ae6913b17d829112d1"
+   "sha256": "059b03b9b1336a35b9d15727b8ff6d1715fb3741b49a2f92b93822b116c219c9"
   },
   "kegging_plan_checks": {
    "radku": 33,
@@ -216,8 +216,8 @@
    "sha256": "dcb88a74c1ba8bd7d8a77bf9f03374d5fe63cb5e24e46357845cded3e94567ee"
   },
   "cellar_transfers": {
-   "radku": 20,
-   "sha256": "e83f1f4bc3c2d9e4295459e679a80dd530582e7f2dba5ede5a1a9eb181e577d4"
+   "radku": 21,
+   "sha256": "d2b26903f87fb820167be3d813d4894211b14eec6c786adcaddc70383ed2bcc2"
   },
   "kegging_tanks": {
    "radku": 0,
@@ -256,8 +256,8 @@
    "sha256": "fcfeb95c66e9c2c5ca121f762a5cf7e98310f389a790977e468c8d0845de4f20"
   },
   "kegging": {
-   "radku": 366,
-   "sha256": "40832ff4faaf72f1345d9c7d3df1d44570d7de1bffdc698ba628b69e6440ba24"
+   "radku": 365,
+   "sha256": "fc34d9b858fee2ebed48fd918b84b931afd7f6bd5054e64170f6dcdbeb9634bc"
   },
   "zavoz_deductions": {
    "radku": 838,
