@@ -1,7 +1,7 @@
 {
   "_poznamka": "Otisk obsahu (SHA-256 z index.ts + sdilenych souboru, ktere funkce importuje) toho, co bezi na Supabase. Pise to nasazeni z CI (scripts/zapis-nasazeni.mjs) i rucni nasazeni (scripts/deploy-function.mjs); cte to scripts/zkontroluj-nasazeni.mjs. Drive se pamatoval COMMIT, ale ten zavisi na tvaru checkoutu - CI zapsalo hashe, ktere na jinem stroji neexistovaly. Prepsano 18. 9. 2026 po behu #728.",
   "analyze-reviews": "54f5af6e57fbaee8",
-  "auth-auto-login": "37c53111a42f45e0",
+  "auth-auto-login": "4624637bfa13f711",
   "count-bottles": "77b97203aa14c9fb",
   "fix-order-dates": "77618eba98620162",
   "manage-users": "cd7cb6214c705d81",
