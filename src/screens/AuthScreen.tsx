@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../lib/auth';
-import { AlertTriangle, ArrowRight, Beer as BeerIcon, Eye, EyeOff, Lock, Mail, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Eye, EyeOff, Lock, Mail, ShieldCheck } from 'lucide-react';
 import { getAdminEmail } from '../lib/config';
 import { chybaZNavratu, GOOGLE_PRIHLASENI_ZAPNUTO, prihlasitPresGoogle } from '../lib/googlePrihlaseni';
 import { NENI_OVERENY, odkazOdeslanNa, poslatOdkazProHeslo } from '../lib/odkazEmailem';
@@ -13,7 +13,7 @@ export default function AuthScreen() {
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   // „Zapomněl(a) jsem heslo / první přihlášení“: místo hesla pošleme odkaz do e-mailu.
-  const [zapomenute, setZapomenute] = useState(false);
+  const [zapomenute, setZapomenute] = useState<null | 'zapomenute' | 'novy'>(null);
   const [odeslano, setOdeslano] = useState<string | null>(null);
 
   // Návrat z Google s chybou (třeba neschválený e-mail) — řekneme proč.
@@ -103,8 +103,13 @@ export default function AuthScreen() {
 
             {zapomenute ? (
               <form onSubmit={poslatOdkaz} className="space-y-5">
+                <h2 className="text-lg font-display font-black text-amber-950">
+                  {zapomenute === 'novy' ? 'Nový uživatel' : 'Zapomněl(a) jsem heslo'}
+                </h2>
                 <p className="text-sm font-bold text-neutral-700 leading-relaxed">
-                  Napiš svůj e-mail. Ověříme, že je schválený, a pošleme na něj odkaz — po klepnutí se ti rovnou otevře aplikace a nastavíš si heslo.
+                  {zapomenute === 'novy'
+                    ? 'Napiš e-mail, který ti správce schválil. Pošleme na něj odkaz — po klepnutí se ti rovnou otevře aplikace a nastavíš si své heslo.'
+                    : 'Napiš svůj e-mail. Ověříme, že je schválený, a pošleme na něj odkaz — po klepnutí se ti otevře aplikace a nastavíš si nové heslo.'}
                 </p>
                 <div>
                   <label className="block text-xs font-black text-amber-900 uppercase tracking-wider mb-2">Přihlašovací e-mail</label>
@@ -130,7 +135,7 @@ export default function AuthScreen() {
                 <button type="submit" className="btn-primary !rounded-2xl w-full !py-3.5 text-sm font-black" disabled={busy}>
                   {busy ? 'Posílám…' : odeslano ? 'Poslat znovu' : 'Poslat odkaz do e-mailu'}
                 </button>
-                <button type="button" className="btn-ghost !rounded-2xl w-full !py-3 text-sm font-black" onClick={() => { setZapomenute(false); setErr(null); setOdeslano(null); }}>
+                <button type="button" className="btn-ghost !rounded-2xl w-full !py-3 text-sm font-black" onClick={() => { setZapomenute(null); setErr(null); setOdeslano(null); }}>
                   Zpět na přihlášení
                 </button>
               </form>
@@ -207,9 +212,14 @@ export default function AuthScreen() {
                 )}
               </button>
             </form>
-                <button type="button" className="btn-ghost !rounded-2xl w-full !py-3 mt-3 text-sm font-black" onClick={() => { setZapomenute(true); setErr(null); }}>
-                  Zapomněl(a) jsem heslo / první přihlášení
-                </button>
+                <div className="grid grid-cols-2 gap-2 mt-3">
+                  <button type="button" className="btn-ghost !rounded-2xl !py-3 text-sm font-black" onClick={() => { setZapomenute('zapomenute'); setErr(null); }}>
+                    Zapomněl(a) jsem heslo
+                  </button>
+                  <button type="button" className="btn-ghost !rounded-2xl !py-3 text-sm font-black" onClick={() => { setZapomenute('novy'); setErr(null); }}>
+                    Nový uživatel
+                  </button>
+                </div>
 
             {GOOGLE_PRIHLASENI_ZAPNUTO && (
               <>
@@ -236,11 +246,6 @@ export default function AuthScreen() {
               </>
             )}
 
-            <div className="mt-4 rounded-2xl bg-amber-50/80 border border-amber-200 px-4 py-3 text-center">
-              <p className="text-udaj font-bold text-amber-800 leading-relaxed">
-                <BeerIcon className="ikona-text" /> Nový uživatel? Účet a dočasné heslo vám založí administrátor — zeptejte se ho.
-              </p>
-            </div>
 
             <div className="mt-6 pt-5 border-t border-amber-100 text-center">
               <p className="text-udaj text-neutral-500 font-bold">
