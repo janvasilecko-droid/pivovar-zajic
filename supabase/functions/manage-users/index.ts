@@ -143,6 +143,31 @@ Deno.serve(async (req: Request) => {
       return json({ ok: true, approved: true, email, id: userId, tempPassword });
     }
 
+    // NOVÉ DOČASNÉ HESLO — když si uživatel heslo nepamatuje nebo mu ho admin
+    // nestihl předat. Heslo je zase náhodné a zobrazí se jen adminovi v odpovědi;
+    // uživatel si při přihlášení hned založí vlastní (password_set = false).
+    // Jen pro účty, jejichž e-mail je na seznamu schválených.
+    if (req.method === "POST" && path === "reset-temp") {
+      const body = await req.json();
+      const id = (body?.id ?? "").toString();
+      if (!id) return json({ error: "Chybí id." }, 400);
+
+      const { data: target, error: getErr } = await adminClient.auth.admin.getUserById(id);
+      const email = target?.user?.email?.toLowerCase();
+      if (getErr || !email) return json({ error: "Uživatel nenalezen." }, 404);
+
+      const { data: allowRow } = await adminClient.from("allowed_emails").select("status").eq("email", email).maybeSingle();
+      if (allowRow?.status !== "approved") return json({ error: `E-mail ${email} není schválený.` }, 400);
+
+      const tempPassword = generateTempPassword();
+      const { error: updErr } = await adminClient.auth.admin.updateUserById(id, { password: tempPassword });
+      if (updErr) return json({ error: updErr.message }, 400);
+      const { error: profErr } = await adminClient.from("profiles").update({ password_set: false }).eq("id", id);
+      if (profErr) return json({ error: profErr.message }, 400);
+
+      return json({ ok: true, email, id, tempPassword });
+    }
+
     // Úprava uživatele (heslo, role, jméno)
     if (req.method === "PUT" && path === "") {
       const body = await req.json();

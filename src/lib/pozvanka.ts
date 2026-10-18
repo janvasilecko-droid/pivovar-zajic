@@ -52,3 +52,17 @@ export function mailtoPozvanky(email: string, odkaz?: string): string {
   // URLSearchParams píše mezeru jako „+“, což pošta v mailto: nečte.
   return `mailto:${encodeURIComponent(email)}?${p.toString().replace(/\+/g, '%20')}`;
 }
+
+/** Zpráva s dočasným heslem (WhatsApp / SMS) — odkaz, přihlašovací údaje a co dál. */
+export function textSHeslem(email: string, heslo: string, odkaz: string = odkazAplikace()): string {
+  return [
+    'Ahoj, přístup do aplikace Pivovar Zajíc máš připravený.',
+    '',
+    `Odkaz: ${odkaz}`,
+    `E-mail: ${email}`,
+    `Dočasné heslo: ${heslo}`,
+    '',
+    'Po přihlášení si aplikace řekne o tvoje vlastní heslo (aspoň 6 znaků) — to dočasné pak už nepotřebuješ.',
+    'Na plochu telefonu si ji dáš v Nastavení → Instalace aplikace (návod je v Info → Začínáme).',
+  ].join('\n');
+}
