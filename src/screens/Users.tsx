@@ -7,10 +7,11 @@ import { UserPermissionsModal } from '../components/UserPermissionsModal';
 
 import { TabBar } from '../components/TabBar';
 import { isAdminEmail } from '../lib/config';
-import { chyba, potvrd } from '../lib/toast';
+import { chyba, potvrd, uspech } from '../lib/toast';
 import { usePosledniNacteni } from '../lib/nacitani';
 import { mailtoPozvanky, textPozvanky } from '../lib/pozvanka';
 import { DocasneHesloOkno } from '../components/DocasneHesloOkno';
+import { poslatOdkazProHeslo } from '../lib/odkazEmailem';
 
 type UserRow = {
   id: string; email: string; display_name: string | null;
@@ -105,6 +106,12 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
   // Dočasné heslo k zobrazení (po schválení nebo „Nové dočasné heslo“).
   const [docasne, setDocasne] = useState<{ email: string; heslo: string } | null>(null);
 
+  async function znovuPoslatPozvanku(u: { email: string }) {
+    const r = await poslatOdkazProHeslo(u.email);
+    if (r.error) chyba(r.error);
+    else uspech(`Pozvánka s odkazem pro nastavení hesla odešla na ${u.email}.`);
+  }
+
   async function novyDocasnyHeslo(u: { id: string; email: string }) {
     if (!(await potvrd(`Nastavit ${u.email} nové dočasné heslo? Staré heslo přestane platit a uživatel si při přihlášení založí vlastní.`, { titulek: 'Nové dočasné heslo', potvrdit: 'Ano, nastavit' }))) return;
     const { data: session } = await supabase.auth.getSession();
@@ -184,11 +191,13 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
       setEmailErr(j.error ?? 'Chyba při schvalování e-mailu.');
       return;
     }
-    if (j.tempPassword) {
-      setEmailMsg(`E-mail ${email} byl schválen.`);
+    if (j.invited) {
+      setEmailMsg(`E-mail ${email} byl schválen. Poslali jsme mu pozvánku — po klepnutí na odkaz se mu rovnou otevře aplikace a nastaví si své heslo. Kdyby e-mail nedorazil (spam?), u něj v Uživatelích klepni na „Znovu poslat pozvánku“.`);
+    } else if (j.tempPassword) {
+      setEmailMsg(`E-mail ${email} byl schválen, ale pozvánka e-mailem se neodeslala (${j.emailError ?? 'neznámá chyba'}). Dej mu dočasné heslo z okna — a pošli e-mail do Supabase nastavit (Authentication → SMTP).`);
       setDocasne({ email, heslo: j.tempPassword });
     } else {
-      setEmailMsg(`E-mail ${email} byl schválen. Účet už existoval, heslo se nemění — kdyby se uživatel nemohl přihlásit, u něj v Uživatelích klepni na „Nové dočasné heslo“.`);
+      setEmailMsg(`E-mail ${email} byl schválen. Účet už existoval, heslo se nemění — kdyby se uživatel nemohl přihlásit, u něj v Uživatelích klepni na „Znovu poslat pozvánku“.`);
     }
     loadAllowedEmails();
     load();
@@ -283,8 +292,9 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
                   <span>Nastavit práva (Vidět / Upravit)</span>
                 </button>
 
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <button className="btn-ghost !rounded text-xs flex-1 !py-1.5 font-bold" onClick={() => { setEditing(u); setShowForm(true); }}>Upravit</button>
+                  <button className="btn-ghost !rounded text-xs !py-1.5 font-bold" onClick={() => znovuPoslatPozvanku({ email: u.email })}>Znovu poslat pozvánku</button>
                   <button className="btn-ghost !rounded text-xs !py-1.5 font-bold" onClick={() => novyDocasnyHeslo({ id: u.id, email: u.email })}>Nové dočasné heslo</button>
                   <button className="btn-danger !rounded text-xs !py-1.5 font-bold" onClick={() => del(u.id, u.email)}>Smazat</button>
                 </div>

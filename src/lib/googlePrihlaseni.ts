@@ -11,6 +11,12 @@
 import type { User } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 
+/**
+ * Tlačítka Google se ukazují, až je poskytovatel zapnutý v Supabase (majitel
+ * 18. 10. 2026: „zatím kašli na Google“). Po zapnutí stačí přepnout na `true`.
+ */
+export const GOOGLE_PRIHLASENI_ZAPNUTO = false;
+
 const ZAKAZANO = 'Přihlášení přes Google zatím není zapnuté. Zapni ho v Supabase (Authentication → Providers → Google).';
 
 function navratovaAdresa(): string {
@@ -57,7 +63,10 @@ export function chybaZNavratu(adresa: { search: string; hash: string }): string 
   const p = new URLSearchParams(`${adresa.search.replace(/^\?/, '')}&${adresa.hash.replace(/^#/, '')}`);
   const popis = p.get('error_description') ?? p.get('error');
   if (!popis) return null;
-  const m = `${popis} ${p.get('error') ?? ''}`.toLowerCase();
+  const m = `${popis} ${p.get('error') ?? ''} ${p.get('error_code') ?? ''}`.toLowerCase();
+  if (m.includes('otp_expired') || m.includes('expired') || m.includes('invalid')) {
+    return 'Odkaz z e-mailu už neplatí (platí krátce a jen jednou). Klepni na „Zapomněl(a) jsem heslo“ a pošli si nový.';
+  }
   if (m.includes('database error') || m.includes('not allowed') || m.includes('access_denied') || m.includes('not approved')) {
     return 'Tenhle Google účet není schválený. Požádej správce, ať schválí tvůj e-mail (Uživatelé → Schválené e-maily).';
   }

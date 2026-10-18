@@ -147,7 +147,7 @@ describe('návod k použití', () => {
 
     it('vede člověka od odkazu přes instalaci a přihlášení k odpočtům', () => {
       const text = bezDiakritiky(zaciname!.body.map((b) => `${b.co} ${b.jak}`).join(' '));
-      for (const slovo of ['odkaz', 'google play', 'pridat na plochu', 'docasne heslo', 'vlastni heslo', 'casovac', 'odecist ted', 'zelena tecka']) {
+      for (const slovo of ['odkaz', 'google play', 'pridat na plochu', 'zalozte si sve heslo', 'zapomnel', 'casovac', 'odecist ted', 'zelena tecka']) {
         expect(text, slovo).toContain(slovo);
       }
     });

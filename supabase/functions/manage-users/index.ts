@@ -16,6 +16,12 @@ function generateTempPassword(): string {
   return Array.from(bytes, (b) => chars[b % chars.length]).join("");
 }
 
+// Adresa aplikace, na kterou vede odkaz z pozvánky (musí být v Supabase →
+// Authentication → URL Configuration → Redirect URLs).
+function siteUrl(): string {
+  return Deno.env.get("SITE_URL") ?? "https://zajic-pivovar.pages.dev/";
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 200, headers: corsHeaders });
@@ -118,16 +124,43 @@ Deno.serve(async (req: Request) => {
       let userId = found?.id ?? null;
       let tempPassword: string | null = null;
 
+      let invited = false;
+      let emailError: string | null = null;
+
       if (!found) {
-        tempPassword = generateTempPassword();
-        const { data: created, error: createErr } = await adminClient.auth.admin.createUser({
-          email,
-          password: tempPassword,
-          email_confirm: true,
-          user_metadata: { display_name: email.split("@")[0] },
+        // Primárně pozvánka e-mailem: uživatel klepne na odkaz, aplikace se mu
+        // rovnou otevře a nabídne založení vlastního hesla. Klepnutí na odkaz
+        // zároveň dokazuje, že mu schránka patří. Žádné heslo se nepředává.
+        const { data: inv, error: invErr } = await adminClient.auth.admin.inviteUserByEmail(email, {
+          redirectTo: siteUrl(),
+          data: { display_name: email.split("@")[0] },
         });
-        if (createErr) return json({ error: createErr.message }, 400);
-        userId = created?.user?.id ?? null;
+        if (!invErr && inv?.user) {
+          userId = inv.user.id;
+          invited = true;
+        } else {
+          // E-mail se neodeslal (třeba není nastavené SMTP). Účet se přesto založí
+          // s náhodným dočasným heslem, které admin uvidí v okně — ať to nezůstane viset.
+          emailError = invErr?.message ?? "E-mail s pozvánkou se nepodařilo odeslat.";
+          tempPassword = generateTempPassword();
+          // Neúspěšná pozvánka mohla účet už založit (bez potvrzení) — pak mu jen nastavíme heslo.
+          const { data: znovu } = await adminClient.auth.admin.listUsers({ page: 1, perPage: 1000 });
+          const vznikl = znovu?.users?.find((u: any) => u.email?.toLowerCase() === email);
+          if (vznikl) {
+            const { error: updPwErr } = await adminClient.auth.admin.updateUserById(vznikl.id, { password: tempPassword, email_confirm: true });
+            if (updPwErr) return json({ error: updPwErr.message }, 400);
+            userId = vznikl.id;
+          } else {
+            const { data: created, error: createErr } = await adminClient.auth.admin.createUser({
+              email,
+              password: tempPassword,
+              email_confirm: true,
+              user_metadata: { display_name: email.split("@")[0] },
+            });
+            if (createErr) return json({ error: createErr.message }, 400);
+            userId = created?.user?.id ?? null;
+          }
+        }
       }
 
       // 3) Profil s právy — uživatel má dočasné heslo, ale při prvním přihlášení si založí vlastní
@@ -140,7 +173,7 @@ Deno.serve(async (req: Request) => {
         });
       }
 
-      return json({ ok: true, approved: true, email, id: userId, tempPassword });
+      return json({ ok: true, approved: true, email, id: userId, tempPassword, invited, emailError });
     }
 
     // NOVÉ DOČASNÉ HESLO — když si uživatel heslo nepamatuje nebo mu ho admin

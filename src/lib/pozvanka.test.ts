@@ -18,7 +18,8 @@ describe('pozvánka do aplikace', () => {
 
   it('bez přístupu heslo v e-mailu není — posílá se zvlášť', () => {
     const t = textPozvanky();
-    expect(t).toContain('zvlášť');
+    expect(t).toContain('Přijde ti e-mail s odkazem');
+    expect(t).toContain('Zapomněl(a) jsem heslo');
     expect(t).not.toMatch(/heslo:\s*\S+/i);
   });
 
