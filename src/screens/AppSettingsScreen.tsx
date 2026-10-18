@@ -1,6 +1,7 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { AlertCircle, AlertTriangle, Bell, BellOff, BookOpen, Brush, CloudDownload, Download, Eraser, Eye, CheckCircle2, Lock, Megaphone, MessageSquare, Monitor, Moon, Palette, Plus, RefreshCw, Settings, Smartphone, Stethoscope, Sun, Timer, Trash2, Users, Vibrate, Volume2, VolumeX, Zap } from 'lucide-react';
 import { NavodPouziti } from '../components/NavodPouziti';
+import { InstalaceKroky } from '../components/InstalaceKroky';
 
 import { DENSITY_OPTIONS, DensityMode, getDensity, setDensity } from '../lib/density';
 import { mensiEfekty, nastavEfekty } from '../lib/efekty';
@@ -260,6 +261,19 @@ export default function AppSettingsScreen({ setPage }: { setPage?: (p: any, sec?
         <p className="text-xs text-neutral-400 font-medium mt-1">Přizpůsobte si vzhled, chování a upozornění aplikace.</p>
       </div>
 
+      {/* Instalace */}
+      <div className="card p-6">
+        <h2 className="font-display font-bold text-lg flex items-center gap-2"><Smartphone size={18} /> Instalace aplikace</h2>
+        {isStandalone ? (
+          <p className="text-sm text-emerald-700 font-bold mt-2">Aplikace je již nainstalována na vašem zařízení.</p>
+        ) : (
+          <div className="mt-3">
+            <p className="text-sm text-neutral-600 mb-3">Dej si aplikaci na plochu — ikona se přidá rovnou z prohlížeče, bez obchodu Google Play.</p>
+            <InstalaceKroky pripravenaInstalace={!!installPrompt} naInstalaci={handleInstall} />
+          </div>
+        )}
+      </div>
+
       {/* Návod k použití */}
       <div className="card p-6 border-2 border-amber-400/60 bg-gradient-to-br from-amber-50/50 to-white rounded shadow-sm">
         {/* Celý pruh je jedno tlačítko. Dřív visel `onClick` na `div`u a uvnitř
@@ -283,21 +297,6 @@ export default function AppSettingsScreen({ setPage }: { setPage?: (p: any, sec?
           <div className="mt-5 border-t border-amber-200 pt-5">
             <NavodPouziti />
           </div>
-        )}
-      </div>
-
-      {/* Instalace */}
-      <div className="card p-6">
-        <h2 className="font-display font-bold text-lg flex items-center gap-2"><Smartphone size={18} /> Instalace aplikace</h2>
-        {isStandalone ? (
-          <p className="text-sm text-emerald-700 font-bold mt-2">Aplikace je již nainstalována na vašem zařízení.</p>
-        ) : installPrompt ? (
-          <>
-            <p className="text-sm text-neutral-600 mt-2">Nainstalujte si aplikaci na plochu pro rychlejší přístup a offline funkčnost.</p>
-            <button onClick={handleInstall} className="btn-primary !rounded mt-3 text-sm font-black flex items-center gap-2"><Download size={16} /> Nainstalovat aplikaci</button>
-          </>
-        ) : (
-          <p className="text-sm text-neutral-600 mt-2">Váš prohlížeč nepodporuje přímou instalaci, nebo již byla nabídnuta. Můžete ji přidat na plochu ručně přes menu prohlížeče.</p>
         )}
       </div>
 

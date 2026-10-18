@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AlarmClock, BarChart3, Car, ChevronDown, ClipboardList, FileSpreadsheet, FlaskConical, LayoutGrid, Info, type LucideIcon, Settings, Shield, ShoppingBag, Sparkles, Store, Tag, Users } from 'lucide-react';
+import { AlarmClock, BarChart3, Car, ChevronDown, ClipboardList, FileSpreadsheet, FlaskConical, Home, Hourglass, LayoutGrid, Info, type LucideIcon, Rocket, Search, Settings, Shield, ShoppingBag, Sparkles, Store, Tag, Users } from 'lucide-react';
 import { IkonaSud, IkonaLahev } from './ikony';
 import { APP_VERSION, APP_VERSION_DATE } from '../lib/version';
 
@@ -24,9 +24,68 @@ type Oddil = {
   kCemu: string;
   /** Konkrétní funkce a postupy. */
   body: { co: string; jak: string }[];
+  /** Obrázkový slovník: ikona a její význam (pro toho, kdo appku vidí poprvé). */
+  ikony?: { ikona: LucideIcon; nazev: string; vyznam: string }[];
 };
 
 const ODDILY: Oddil[] = [
+  {
+    klic: 'zaciname',
+    nazev: 'Začínáme — první spuštění',
+    ikona: Rocket,
+    kCemu: 'Návod od nuly: jak appku dostat do telefonu, přihlásit se a co která ikona znamená.',
+    body: [
+      {
+        co: '1. Otevři odkaz z e-mailu',
+        jak: 'V e-mailu od správce je odkaz na aplikaci — otevři ho v telefonu (Android: Chrome, iPhone: Safari). Nic se nestahuje z obchodu Google Play ani z App Store, aplikace běží v prohlížeči.',
+      },
+      {
+        co: '2. Dej si ikonu na plochu',
+        jak: 'Android (Chrome): tři tečky vpravo nahoře → „Nainstalovat aplikaci“ nebo „Přidat na plochu“. iPhone (Safari): tlačítko Sdílet (čtvereček se šipkou) → „Přidat na plochu“. Počítač: ikonka instalace v adresním řádku. Jde to i později v Nastavení → „Instalace aplikace“ (tlačítko „Nainstalovat aplikaci na plochu“). Na ploše se objeví ikona Zajíc a otevírá se na celou obrazovku jako běžná aplikace.',
+      },
+      {
+        co: '3. Přihlášení',
+        jak: 'Zadej e-mail, na který ti přišla pozvánka, a dočasné heslo, které ti správce poslal zvlášť (osobně nebo přes WhatsApp). Hned po přihlášení si appka řekne o tvoje vlastní heslo (aspoň 6 znaků) — vymysli si ho a pamatuj si ho, dočasné už nebude platit. Na svém telefonu zůstaneš přihlášený, neodhlašuj se, když nemusíš.',
+      },
+      {
+        co: '4. Kde to jsem: plocha',
+        jak: 'Po přihlášení vidíš plochu s dlaždicemi (velká barevná tlačítka). Klepnutím se dlaždice otevře, tlačítko Zpět nebo klepnutí na Domů dole tě vrátí. Přejetím prstem do stran se listuje mezi třemi stránkami dlaždic. Nic se nerozbije — nejhorší, co se může stát, je, že omylem otevřeš jinou obrazovku.',
+      },
+      {
+        co: '5. Jak se zapisuje (stejně všude)',
+        jak: 'Vybereš pivo, obal (sud, lahev), napíšeš počet a klepneš na Uložit. Hotovo — zápis vidí hned všichni kolegové. Co jsi nestihl dopsat, zůstane rozepsané a neztratí se. Omylem uložený řádek jde v přehledu smazat nebo opravit; sklad se přepočítá sám.',
+      },
+      {
+        co: '6. Co když nejde signál',
+        jak: 'Ve sklepě je to normální. Zápis se uloží do telefonu a odešle se sám, až se signál vrátí. Zelená tečka vpravo nahoře = jsi online, červená = offline, modré „Čeká N změn“ = zápisy čekají na odeslání (klepnutím je pošleš hned).',
+      },
+      {
+        co: 'Odpočty: časovač',
+        jak: 'Dlaždice Časovač (ikona budíku): hotová tlačítka (kotel, chmelení…) i vlastní čas. Klepnutím se odpočet spustí a objeví se na ploše; když doběhne, zazvoní i při zamčeném telefonu. Stopky měří čas nahoru. U stáčení je ještě odpočet jednoho sudu.',
+      },
+      {
+        co: 'Odpočty: odečítání ze skladu',
+        jak: 'Sklad se mění sám, když něco zapíšeš: stáčení kusy PŘIČTE, objednávka po dni závozu je ODEČTE, Fasování, Prodejna a Odpis odečtou hned. Ve Skladu vidíš tři čísla: „Stav“ (je teď), „Odejde“ (objednávky, které ještě neodjely) a „Zbude“ (stav minus odejde). Žlutá karta s přesýpacími hodinami „Čeká na odpočet ze skladu“ znamená, že zavezená objednávka se ještě neodečetla — klepni na „Odečíst teď“. Normálně se odečte sama hned.',
+      },
+      {
+        co: 'Co když se spletu',
+        jak: 'Nic nemaž naslepo. Špatný zápis oprav nebo smaž v přehledu (u řádku je tužka a koš) a zapiš správný. Když číslo ve Skladu nesedí, otevři Sklad → Pohyby: je tam každý pohyb po dnech a vidíš, kde se to rozešlo. Nevíš si rady? Napiš do „Zpětné vazby“ — vidí to správce.',
+      },
+    ],
+    ikony: [
+      { ikona: Home, nazev: 'Domů', vyznam: 'Spodní lišta, vpravo. Vrátí tě na plochu s dlaždicemi.' },
+      { ikona: IkonaLahev, nazev: 'Lahve', vyznam: 'Stáčení piva do lahví a jeho přehled.' },
+      { ikona: BarChart3, nazev: 'Sklad', vyznam: 'Kolik čeho je: sudy, lahve, pohyby po dnech.' },
+      { ikona: ClipboardList, nazev: 'Objednávky', vyznam: 'Co si kdo objednal. Červené číslo = WhatsApp zprávy, které čekají na kontrolu.' },
+      { ikona: Store, nazev: 'Fasování', vyznam: 'Pivo pro personál a do prodejny; zapisuje se, kdo si co vzal.' },
+      { ikona: IkonaSud, nazev: 'KEG', vyznam: 'Stáčení do sudů, plán „co stočit na který den“, přefuk a řezání.' },
+      { ikona: Search, nazev: 'Lupa', vyznam: 'Hledání odběratele, piva nebo obrazovky. Nahoře na telefonu.' },
+      { ikona: Info, nazev: 'Info', vyznam: 'Tenhle návod. Dlaždice na ploše.' },
+      { ikona: AlarmClock, nazev: 'Časovač', vyznam: 'Odpočty s alarmem a stopky.' },
+      { ikona: Hourglass, nazev: 'Přesýpací hodiny', vyznam: 'Něco čeká na odečtení ze skladu — klepni na „Odečíst teď“.' },
+      { ikona: Settings, nazev: 'Nastavení', vyznam: 'Velikost písma, upozornění, instalace na plochu, menu.' },
+    ],
+  },
   {
     klic: 'oaplikaci',
     nazev: 'O aplikaci',
@@ -55,7 +114,7 @@ const ODDILY: Oddil[] = [
       },
       {
         co: 'Na telefon jde přidat na plochu',
-        jak: 'V prohlížeči přes nabídku „Přidat na plochu" — pak se otevírá jako běžná aplikace, na celou obrazovku a bez adresního řádku.',
+        jak: 'V Nastavení → „Instalace aplikace“ (nebo přes nabídku prohlížeče „Přidat na plochu“) — ikona se přidá rovnou z prohlížeče, ne z obchodu Google Play. Pak se otevírá jako běžná aplikace, na celou obrazovku a bez adresního řádku. Postup krok za krokem je v oddílu „Začínáme“.',
       },
       {
         co: 'Když něco nesedí',
@@ -549,6 +608,21 @@ function OddilBlok({ oddil, otevreny, prepni }: { oddil: Oddil; otevreny: boolea
               <div className="text-sm text-neutral-700 leading-relaxed mt-0.5">{b.jak}</div>
             </li>
           ))}
+          {oddil.ikony && (
+            <li className="px-3.5 py-2.5 bg-neutral-50">
+              <div className="font-black text-neutral-900 text-sm mb-1.5">Co která ikona znamená</div>
+              <ul className="space-y-1.5">
+                {oddil.ikony.map((i) => (
+                  <li key={i.nazev} className="flex items-start gap-2.5 text-sm text-neutral-700">
+                    <span className="shrink-0 w-8 h-8 grid place-items-center rounded bg-white border border-neutral-200 text-amber-800">
+                      <i.ikona className="ikona-text" />
+                    </span>
+                    <span className="min-w-0 pt-1"><strong className="text-neutral-900">{i.nazev}</strong> — {i.vyznam}</span>
+                  </li>
+                ))}
+              </ul>
+            </li>
+          )}
         </ul>
       )}
     </div>
@@ -556,9 +630,9 @@ function OddilBlok({ oddil, otevreny, prepni }: { oddil: Oddil; otevreny: boolea
 }
 
 export function NavodPouziti() {
-  // Nic otevřené: rozcestník se vejde na obrazovku celý a je z něj vidět,
-  // co všechno appka umí. Otevře se to, co je zrovna potřeba.
-  const [otevreny, setOtevreny] = useState<string | null>(null);
+  // Otevřené je jen „Začínáme“ — nový člověk začne tam. Zbytek je rozcestník,
+  // který se vejde na obrazovku celý; otevře se to, co je zrovna potřeba.
+  const [otevreny, setOtevreny] = useState<string | null>('zaciname');
 
   return (
     <div className="space-y-2">

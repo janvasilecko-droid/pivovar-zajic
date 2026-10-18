@@ -9,6 +9,7 @@ import { TabBar } from '../components/TabBar';
 import { isAdminEmail } from '../lib/config';
 import { chyba, potvrd } from '../lib/toast';
 import { usePosledniNacteni } from '../lib/nacitani';
+import { mailtoPozvanky, textPozvanky } from '../lib/pozvanka';
 
 type UserRow = {
   id: string; email: string; display_name: string | null;
@@ -169,7 +170,7 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
     }
     setEmailMsg(
       j.tempPassword
-        ? `E-mail ${email} byl schválen. Dočasné heslo pro první přihlášení: „${j.tempPassword}“ — sděl ho uživateli osobně nebo přes WhatsApp (v aplikaci se znovu nezobrazí).`
+        ? `E-mail ${email} byl schválen. Dočasné heslo pro první přihlášení: „${j.tempPassword}“ — sděl ho uživateli osobně nebo přes WhatsApp (v aplikaci se znovu nezobrazí). Pozvánku s odkazem a návodem pošleš u e-mailu v seznamu „Schválené e-maily“.`
         : `E-mail ${email} byl schválen. Účet už existoval, heslo se nemění.`
     );
     loadAllowedEmails();
@@ -208,7 +209,7 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
             <button className="btn-primary !rounded text-xs font-black shadow-md" onClick={() => selectTab('emails')}><Plus className="ikona-text" /> Přidat e-mail ke schválení</button>
           </div>
           <p className="text-xs text-neutral-500 font-medium -mt-2 mb-1 text-right">
-            Nový přístup: v záložce „Schválené e-maily" přidejte e-mail a pak ho schvalte. Uživatel se přihlásí odkazem na e-mail.
+            Nový přístup: v záložce „Schválené e-maily" přidejte e-mail a pak ho schvalte. Po schválení klepni u e-mailu na „Pozvánka e-mailem“ (odkaz, instalace na plochu, první přihlášení); dočasné heslo pošli zvlášť.
           </p>
           {/* Kdo co kdy změnil, je od 22. 9. 2026 jen v dlaždici Systém —
               ať jsou všechny kontroly na jednom místě. Odsud na ni vede odkaz. */}
@@ -401,14 +402,37 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
                           {new Date(e.created_at).toLocaleString('cs-CZ')}
                         </td>
                         <td className="p-4 text-right">
+                          <div className="flex items-center justify-end gap-2 flex-wrap">
+                          {/* Pozvánka: e-mail s odkazem, instalací na plochu a prvním přihlášením.
+                              Heslo v ní není — to se posílá zvlášť. */}
+                          <a
+                            href={mailtoPozvanky(e.email)}
+                            className="btn-ghost !rounded !py-1 !px-2.5 text-udaj font-black flex items-center gap-1 cursor-pointer"
+                            title="Otevře e-mail s pozvánkou (odkaz, instalace, přihlášení)"
+                          >
+                            <Mail size={12} />
+                            <span>Pozvánka e-mailem</span>
+                          </a>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              try { await navigator.clipboard.writeText(textPozvanky()); setEmailMsg('Text pozvánky je zkopírovaný — vlož ho do e-mailu nebo WhatsAppu.'); }
+                              catch { setEmailErr('Text se nepodařilo zkopírovat.'); }
+                            }}
+                            className="btn-ghost !rounded !py-1 !px-2.5 text-udaj font-black flex items-center gap-1 cursor-pointer"
+                            title="Zkopíruje text pozvánky (třeba pro WhatsApp)"
+                          >
+                            <span>Kopírovat text</span>
+                          </button>
                           <button
                             onClick={() => handleDeleteAllowedEmail(e.email)}
-                            className="btn-danger !rounded !py-1 !px-2.5 text-udaj font-black flex items-center gap-1 ml-auto cursor-pointer"
+                            className="btn-danger !rounded !py-1 !px-2.5 text-udaj font-black flex items-center gap-1 cursor-pointer"
                             title="Odebrat schválení"
                           >
                             <Trash2 size={12} />
                             <span>Odebrat</span>
                           </button>
+                          </div>
                         </td>
                       </tr>
                     ))}

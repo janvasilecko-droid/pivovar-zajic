@@ -102,6 +102,9 @@ describe('návod k použití', () => {
 
   it('otevřený oddíl se dá zase zavřít', () => {
     render(<NavodPouziti />);
+    // „Začínáme“ je otevřené od začátku a ve slovníku ikon má taky „Objednávky“ —
+    // nejdřív ho zavřeme, ať je nadpis oddílu jediný.
+    fireEvent.click(screen.getByText('Začínáme — první spuštění'));
     const nadpis = screen.getByText('Objednávky');
     fireEvent.click(nadpis);
     expect(screen.getByText('Duplicita')).toBeTruthy();
@@ -129,6 +132,31 @@ describe('návod k použití', () => {
       expect(text).toContain('Zpětné vazby');
       expect(text.toLowerCase()).toContain('databáz');
       expect(text.toLowerCase()).toContain('zálo');
+    });
+  });
+
+  describe('oddíl „Začínáme"', () => {
+    const zaciname = NAVOD_ODDILY.find((o) => o.klic === 'zaciname');
+
+    it('je první a otevřený hned po otevření návodu', () => {
+      expect(NAVOD_ODDILY[0].klic).toBe('zaciname');
+      render(<NavodPouziti />);
+      expect(screen.getByText('1. Otevři odkaz z e-mailu')).toBeTruthy();
+      expect(screen.getByText('Co která ikona znamená')).toBeTruthy();
+    });
+
+    it('vede člověka od odkazu přes instalaci a přihlášení k odpočtům', () => {
+      const text = bezDiakritiky(zaciname!.body.map((b) => `${b.co} ${b.jak}`).join(' '));
+      for (const slovo of ['odkaz', 'google play', 'pridat na plochu', 'docasne heslo', 'vlastni heslo', 'casovac', 'odecist ted', 'zelena tecka']) {
+        expect(text, slovo).toContain(slovo);
+      }
+    });
+
+    it('slovník ikon pokrývá spodní lištu, lupu a Info', () => {
+      const nazvy = zaciname!.ikony!.map((i) => i.nazev);
+      for (const n of ['Domů', 'Lahve', 'Sklad', 'Objednávky', 'Fasování', 'KEG', 'Lupa', 'Info']) expect(nazvy).toContain(n);
+      // Každá ikona má vysvětlení, ne jen jméno.
+      expect(zaciname!.ikony!.filter((i) => i.vyznam.trim().length < 15)).toEqual([]);
     });
   });
 });
