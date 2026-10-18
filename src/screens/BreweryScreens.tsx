@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react';
-import { supabase, Beer, useRealtime } from '../lib/supabase';
-import { usePosledniNacteni } from '../lib/nacitani';
-import { Spinner, EmptyState, Field } from '../components/ui';
-import { Calculator, FileText, FlaskConical, Check, CheckSquare, Flame, NotebookPen, Plus, RotateCcw, Scale, Sliders, SprayCan, Truck, User, Wheat } from 'lucide-react';
+import { Field } from '../components/ui';
+import { Calculator, FileText, FlaskConical, Check, CheckSquare, Flame, RotateCcw, Scale, Sliders, SprayCan, Truck, User } from 'lucide-react';
 import { IkonaSud } from '../components/ikony';
 import { businessDateISO } from '../lib/businessDate';
 import { nactiJson, ulozJson } from '../lib/uloziste';
@@ -54,15 +52,6 @@ function NumberStepper({
     </div>
   );
 }
-
-type SrotovaniRow = {
-  id?: string;
-  entry_date: string;
-  beer_id: string | null;
-  beer_name: string | null;
-  weight_kg: number;
-  note: string | null;
-};
 
 type ChecklistItem = {
   id: string;
@@ -164,120 +153,6 @@ const VARNA_CHECKLIST: VarnaChecklistItem[] = [
   { id: 'v70', fase: '4. Krok 3 — LEDovka a konec', text: 'Pustit naplno „na kuláče" (kulové ventily).' },
   { id: 'v71', fase: '4. Krok 3 — LEDovka a konec', text: 'BOJLER je ledový.' },
 ];
-
-// ==========================================
-// 1. ŠROTOVÁNÍ SLADU
-// ==========================================
-export function SrotovaniScreen({ setPage }: { setPage?: (p: any, sec?: string) => void } = {}) {
-  const [beers, setBeers] = useState<Beer[]>([]);
-  const [rows, setRows] = useState<SrotovaniRow[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  // Formular
-  const [entryDate, setEntryDate] = useState(businessDateISO());
-  const [beerId, setBeerId] = useState('');
-  const [weightKg, setWeightKg] = useState('');
-  const [note, setNote] = useState('');
-  const [busy, setBusy] = useState(false);
-
-  // Zámek proti zápisu ze zastaralého načtení — viz lib/nacitani.ts.
-  const zacniNacteni = usePosledniNacteni();
-  async function load() {
-    const smiZapsat = zacniNacteni();
-    setLoading(true);
-    const [{ data: b }, { data: s }] = await Promise.all([
-      supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
-      supabase.from('srotovani').select('*').order('entry_date', { ascending: false }),
-    ]);
-    if (!smiZapsat()) return;
-    setBeers((b as Beer[]) ?? []);
-    setRows((s as SrotovaniRow[]) ?? []);
-    setLoading(false);
-  }
-
-  useEffect(() => { load(); }, []);
-  useRealtime(['srotovani', 'beers'], load);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!beerId || !weightKg) return;
-    setBusy(true);
-    const beer = beers.find((b) => b.id === beerId);
-    await supabase.from('srotovani').insert({
-      entry_date: entryDate,
-      beer_id: beerId,
-      beer_name: beer?.name ?? null,
-      weight_kg: Number(weightKg),
-      note: note.trim() || null,
-    });
-    setWeightKg(''); setNote(''); setBusy(false);
-    load();
-  }
-
-  return (
-    <div className="space-y-6 pb-12">
-
-      <form onSubmit={handleSubmit} className="card p-5 shadow-sm border border-neutral-200/90 bg-white rounded space-y-4">
-        <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
-          <Plus size={18} className="text-amber-600" />
-          <span>Záznam o šrotování</span>
-        </h3>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <Field label="Datum">
-            <input type="date" required className="input font-bold" value={entryDate} onChange={(e) => setEntryDate(e.target.value)} />
-          </Field>
-          <Field label="Druh piva">
-            <select required className="input font-bold" value={beerId} onChange={(e) => setBeerId(e.target.value)}>
-              <option value="">— Vyber pivo —</option>
-              {beers.map((b) => (
-                <option key={b.id} value={b.id}>{b.name}</option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Našrotováno sladu (kg)">
-            <input type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} step="0.1" min="0" required className="input font-mono font-black text-base" value={weightKg} onChange={(e) => setWeightKg(e.target.value)} placeholder="0.0 kg" />
-          </Field>
-        </div>
-
-        <Field label="Poznámka / Šarže">
-          <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="např. Šarže #2026-04, Plzeňský slad 120 kg + Karamel 15 kg" />
-        </Field>
-
-        <div className="flex justify-end pt-2">
-          <button type="submit" disabled={busy || !beerId || !weightKg} className="btn-primary !rounded !py-2.5 font-black text-sm shadow-md">
-            {busy ? 'Ukládám…' : '+ Uložit šrotování'}
-          </button>
-        </div>
-      </form>
-
-      {/* List */}
-      {loading ? <Spinner /> : rows.length === 0 ? <EmptyState text="Zatím žádné záznamy o šrotování." icon={Wheat} /> : (
-        <div className="card p-5 bg-white border border-neutral-200 shadow-sm rounded space-y-3">
-          <h3 className="font-display font-black text-lg text-neutral-900">Historie šrotování</h3>
-          <div className="space-y-2">
-            {rows.map((r, i) => (
-              <div key={r.id || i} className="p-3.5 rounded bg-neutral-50 border border-neutral-200/90 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-display font-black text-base text-neutral-950">{r.beer_name ?? '—'}</span>
-                    <span className="text-xs font-mono font-bold text-neutral-500 bg-white border border-neutral-300 px-2 py-0.5 rounded">{new Date(r.entry_date).toLocaleDateString('cs-CZ')}</span>
-                  </div>
-                  {r.note && <p className="text-xs text-neutral-600 font-medium mt-1"><NotebookPen className="ikona-text" /> {r.note}</p>}
-                </div>
-                <div className="shrink-0">
-                  <span className="px-3.5 py-1.5 rounded bg-amber-500 text-neutral-950 font-mono font-black text-sm shadow-2xs">
-                    {r.weight_kg} kg sladu
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
 
 // ==========================================
 // 3. CHECKLISTY & NÁVODY

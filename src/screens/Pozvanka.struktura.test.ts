@@ -68,3 +68,20 @@ describe('ověření e-mailu před odesláním odkazu', () => {
     expect(f.indexOf('consume_edge_rate_limit')).toBeLessThan(f.indexOf('if (jenOverit)'));
   });
 });
+
+describe('šablony e-mailů pro Supabase', () => {
+  it('Uživatelé → Schválené e-maily nabízí zkopírování šablony pozvánky i „zapomenuté heslo“', () => {
+    const z = readFileSync('src/screens/Users.tsx', 'utf8');
+    expect(z).toContain("kopirujSablonu('pozvanka')");
+    expect(z).toContain("kopirujSablonu('obnova')");
+    expect(z).toContain('auth/templates');
+  });
+});
+
+describe('Šrotování sladu je pryč', () => {
+  it('v aplikaci po něm nezbyla obrazovka, dlaždice ani právo (data v databázi zůstávají)', () => {
+    for (const cesta of ['src/App.tsx', 'src/screens/HomeScreen.tsx', 'src/components/Layout.tsx', 'src/lib/permissions.ts', 'src/lib/homeLayout.ts', 'src/screens/BreweryScreens.tsx']) {
+      expect(readFileSync(cesta, 'utf8'), cesta).not.toMatch(/srotovani|SrotovaniScreen/);
+    }
+  });
+});

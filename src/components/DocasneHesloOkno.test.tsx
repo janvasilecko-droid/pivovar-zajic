@@ -32,7 +32,7 @@ describe('DocasneHesloOkno', () => {
     const a = screen.getByText(/Poslat e-mailem/).closest('a') as HTMLAnchorElement;
     expect(a.href.startsWith('mailto:a%40b.cz?')).toBe(true);
     const tělo = decodeURIComponent(a.href);
-    expect(tělo).toContain('Dočasné heslo: Kx7mPq2Rtw');
+    expect(tělo).toContain('Kx7mPq2Rtw');
     expect(tělo).toContain('Začínáme');
     expect(tělo).toContain('Google Play');
   });

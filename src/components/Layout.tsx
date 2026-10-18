@@ -31,6 +31,7 @@ import { citelnaNaPodkladu, pismoNaBarve, PODKLAD_SVETLY, PODKLAD_TMAVY } from '
 import { zavibruj } from '../lib/haptika';
 import { IkonaSud, IkonaLahev, IkonaVycep } from './ikony';
 import { InstalaceKroky } from './InstalaceKroky';
+import { zakladniRozlozeni } from '../lib/vychoziPlocha';
 import '../screens/HomeScreen.css';
 
 export type NavItem = {
@@ -39,7 +40,7 @@ export type NavItem = {
   dockLabel?: string;
 };
 
-export type Page = 'export_excel' | 'import_excel' | 'home' | 'depozitar' | 'dashboard' | 'concentration' | 'srotovani' | 'checklists' | 'haccp' | 'sanitation_log' | 'sanitace_lahve' | 'sanitace_kegy' | 'sanitace_vycepy' | 'history' | 'orders_entry' | 'orders' | 'orders_detail' | 'orders_celkem' | 'orders_vraceni' | 'orders_zavoz' | 'zavoz' | 'kniha_jizd' | 'historie_tras' | 'stock' | 'stock_pohyby' | 'bottling' | 'kegging' | 'fasovani' | 'prodejna' | 'obchod' | 'akce' | 'sklo_promo' | 'vycepy' | 'exkurze' | 'reminders' | 'notes' | 'writeoffs' | 'inventory' | 'calendar' | 'feedback' | 'places' | 'beers' | 'packages' | 'pricelist' | 'vehicles' | 'cellar' | 'users' | 'app_settings' | 'app_versions' | 'bottling_needs' | 'stopwatch' | 'timer' | 'keg_timer' | 'zaloha' | 'co2' | 'nakladka' | 'male_sudy' | 'rozbor' | 'navod' | 'hlaseni' | 'audit' | 'signout';
+export type Page = 'export_excel' | 'import_excel' | 'home' | 'depozitar' | 'dashboard' | 'concentration' | 'checklists' | 'haccp' | 'sanitation_log' | 'sanitace_lahve' | 'sanitace_kegy' | 'sanitace_vycepy' | 'history' | 'orders_entry' | 'orders' | 'orders_detail' | 'orders_celkem' | 'orders_vraceni' | 'orders_zavoz' | 'zavoz' | 'kniha_jizd' | 'historie_tras' | 'stock' | 'stock_pohyby' | 'bottling' | 'kegging' | 'fasovani' | 'prodejna' | 'obchod' | 'akce' | 'sklo_promo' | 'vycepy' | 'exkurze' | 'reminders' | 'notes' | 'writeoffs' | 'inventory' | 'calendar' | 'feedback' | 'places' | 'beers' | 'packages' | 'pricelist' | 'vehicles' | 'cellar' | 'users' | 'app_settings' | 'app_versions' | 'bottling_needs' | 'stopwatch' | 'timer' | 'keg_timer' | 'zaloha' | 'co2' | 'nakladka' | 'male_sudy' | 'rozbor' | 'navod' | 'hlaseni' | 'audit' | 'signout';
 
 export const NAV: NavItem[] = [
   // --- VÝROBA ---
@@ -213,13 +214,13 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
   // žádnou lištu — záložka má být úplně nahoře, stejně jako dlaždice na Domů.
   const isTabbed = TABBED_PAGES.has(navPageFor(page));
   const hideHeader = isHome || isTabbed;
-  const savedDock = (profile as any)?.home_layout?.dock;
+  const savedDock = (zakladniRozlozeni((profile as any)?.home_layout) as { dock?: unknown } | null)?.dock;
   const dockPages: Page[] = Array.isArray(savedDock) && savedDock.length > 0 ? savedDock : DEFAULT_DOCK;
   // Barva ikony+popisku spodní lišty na Domů = stejná barva, jakou má
   // zástupcova dlaždice v launcheru (ne libovolný cyklus 4 barev nesouvisející
   // s dlaždicemi) — override.color je buď jméno přednastaveného odstínu
   // (TileColor), nebo vlastní hex, stejně jako u dlaždic (viz homeLayout.ts).
-  const homeOverrides = ((profile as any)?.home_layout?.overrides ?? {}) as Record<string, { color?: string }>;
+  const homeOverrides = ((zakladniRozlozeni((profile as any)?.home_layout) as { overrides?: unknown } | null)?.overrides ?? {}) as Record<string, { color?: string }>;
   function dockAccentColor(dockId: Page): string {
     if (dockId === 'home') return COLOR_HEX.indigo;
     // Bez vlastní barvy má dlaždice výchozí odstín (defaultTileColor) —

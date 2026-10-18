@@ -6,7 +6,7 @@
 // zobrazuje se jen komu je nastaveno (Uživatelé → "Dostává upozornění na
 // vozidla") a musí ho jednou potvrdit, pak zmizí (dokud se stav nezmění).
 import { lazy, Suspense, useEffect, useMemo, useState, useRef } from 'react';
-import { CalendarX2, CloudUpload, Download, Check, ChevronLeft, ChevronRight, Lightbulb, LogOut, Palette, Plus, SlidersHorizontal, Trash2, TriangleAlert, X, Truck, ClipboardList, MessageCircle, PlusCircle, Snowflake, FlaskConical, CalendarDays, BarChart3, TrendingDown, GlassWater, BookOpen, Droplet, Car, FileText, ClipboardCheck, Shield, Store, Receipt, MapPin, Beer as BeerIcon, Tag, Sparkles, Compass, Wheat, ArrowLeftRight, StickyNote, AlarmClock, Play, Pause, RotateCcw, Pin, Flame, Settings, LayoutGrid, ArrowUpDown, Scissors, Wind } from 'lucide-react';
+import { CalendarX2, CloudUpload, Download, Check, ChevronLeft, ChevronRight, Lightbulb, LogOut, Palette, Plus, SlidersHorizontal, Trash2, TriangleAlert, X, Truck, ClipboardList, MessageCircle, PlusCircle, Snowflake, FlaskConical, CalendarDays, BarChart3, TrendingDown, GlassWater, BookOpen, Droplet, Car, FileText, ClipboardCheck, Shield, Store, Receipt, MapPin, Beer as BeerIcon, Tag, Sparkles, Compass, ArrowLeftRight, StickyNote, AlarmClock, Play, Pause, RotateCcw, Pin, Flame, Settings, LayoutGrid, ArrowUpDown, Scissors, Wind } from 'lucide-react';
 import { NAV, EXTRA_NAV, type Page, type NavItem } from '../components/Layout';
 import LauncherTile, { tileGridStyle } from '../components/LauncherTile';
 import { QuickSearchModal } from '../components/QuickSearchModal';
@@ -1307,9 +1307,6 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
     cellar: [
       { id: 'lezacke', label: 'Ležácké tanky', sublabel: 'Stav tanků, stupňovitost, objemy a ležení', icon: Snowflake, onClick: () => setPage('cellar', undefined, 'lezacke') },
       { id: 'spilka', label: 'Spilka (hlavní kvašení)', sublabel: 'Kvasné tanky, mladina a kvašení', icon: FlaskConical, onClick: () => setPage('cellar', undefined, 'spilka') },
-      // Šrotování sladu — deník, ne kalkulačka; po zrušení Kalkulaček
-      // (28. 9. 2026) visí tady u výroby piva.
-      { id: 'srotovani', label: 'Šrotování sladu', sublabel: 'Zápis šrotování sladu', icon: Wheat, onClick: () => setPage('srotovani') },
       { id: 'bez_tanku', label: 'Stáčení bez tanku', sublabel: 'Přiřadit stáčení k tanku, ze kterého se stáčelo', icon: ArrowLeftRight, onClick: () => setPage('cellar', undefined, 'bez_tanku') },
     ],
     // Kalkulačky vrácené 5. 10. 2026 („kalkulačky tam vrať, jak byly").

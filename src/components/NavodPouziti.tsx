@@ -141,6 +141,10 @@ const ODDILY: Oddil[] = [
         jak: 'Přejeď prstem do stran. Prostřední je „Stáčení a objednávky“ (to, na co se sahá denně), vlevo „Výpočty a přehledy“, vpravo „Ostatní“.',
       },
       {
+        co: 'Výchozí plocha',
+        jak: 'Kdo si plochu ještě nepřizpůsobil, má ji stejnou, jako ji má správce — stejné barvy, velikosti a rozložení. Ukážou se jen dlaždice, na které máš právo; zbytek se srovná, aby nezůstaly díry. Jakmile s plochou pohneš, je tvoje a už se nemění. „Obnovit výchozí rozložení“ ji vrátí.',
+      },
+      {
         co: 'Přerovnat si plochu',
         jak: 'PODRŽ prst na dlaždici (zavibruje, jakmile ji máš „v ruce") a teprve pak táhni — i na jinou stránku. Samotné přejetí dlaždicí nehne, tím se listuje. Přes ozubené kolečko se mění barva a velikost. Rozložení je uložené jen v tomhle telefonu.',
       },
@@ -466,7 +470,7 @@ const ODDILY: Oddil[] = [
   },
   {
     klic: 'nastroje',
-    nazev: 'Kalkulačky, časovače a šrotování',
+    nazev: 'Kalkulačky a časovače',
     ikona: FlaskConical,
     kCemu: 'Pomůcky při vaření a stáčení.',
     body: [
@@ -476,7 +480,6 @@ const ODDILY: Oddil[] = [
         co: 'Kalkulačky',
         jak: 'Dlaždice Kalkulačky (Nástroje): kolik sudů vyjde z množství v tanku, ředění sanitační chemie a převod jednotek.',
       },
-      { co: 'Šrotování sladu', jak: 'Deník šrotování — najdeš ho ve Sklepu (dlaždice Sklep → Šrotování sladu).' },
     ],
   },
   {
