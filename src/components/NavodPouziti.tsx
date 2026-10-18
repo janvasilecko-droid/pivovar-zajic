@@ -45,7 +45,7 @@ const ODDILY: Oddil[] = [
       },
       {
         co: '3. Přihlášení',
-        jak: 'Zadej e-mail, na který ti přišla pozvánka, a dočasné heslo, které ti správce poslal zvlášť (osobně nebo přes WhatsApp). Hned po přihlášení si appka řekne o tvoje vlastní heslo (aspoň 6 znaků) — vymysli si ho a pamatuj si ho, dočasné už nebude platit. Na svém telefonu zůstaneš přihlášený, neodhlašuj se, když nemusíš.',
+        jak: 'Zadej e-mail, na který ti přišla pozvánka, a dočasné heslo, které ti správce poslal zvlášť (osobně nebo přes WhatsApp). Hned po přihlášení si appka řekne o tvoje vlastní heslo (aspoň 6 znaků) — vymysli si ho a pamatuj si ho, dočasné už nebude platit. Místo hesla jde i „Přihlásit přes Google“ — použij Google účet se stejným e-mailem (propojit ho jde i v Nastavení → „Přihlášení přes Google“). Na svém telefonu zůstaneš přihlášený, neodhlašuj se, když nemusíš.',
       },
       {
         co: '4. Kde to jsem: plocha',

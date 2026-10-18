@@ -2,6 +2,7 @@ import { useState, useEffect, type FormEvent } from 'react';
 import { AlertCircle, AlertTriangle, Bell, BellOff, BookOpen, Brush, CloudDownload, Download, Eraser, Eye, CheckCircle2, Lock, Megaphone, MessageSquare, Monitor, Moon, Palette, Plus, RefreshCw, Settings, Smartphone, Stethoscope, Sun, Timer, Trash2, Users, Vibrate, Volume2, VolumeX, Zap } from 'lucide-react';
 import { NavodPouziti } from '../components/NavodPouziti';
 import { InstalaceKroky } from '../components/InstalaceKroky';
+import { maGoogle, propojitSGoogle } from '../lib/googlePrihlaseni';
 
 import { DENSITY_OPTIONS, DensityMode, getDensity, setDensity } from '../lib/density';
 import { mensiEfekty, nastavEfekty } from '../lib/efekty';
@@ -271,6 +272,28 @@ export default function AppSettingsScreen({ setPage }: { setPage?: (p: any, sec?
             <p className="text-sm text-neutral-600 mb-3">Dej si aplikaci na plochu — ikona se přidá rovnou z prohlížeče, bez obchodu Google Play.</p>
             <InstalaceKroky pripravenaInstalace={!!installPrompt} naInstalaci={handleInstall} />
           </div>
+        )}
+      </div>
+
+      {/* Přihlášení přes Google */}
+      <div className="card p-6">
+        <h2 className="font-display font-bold text-lg flex items-center gap-2"><Lock size={18} /> Přihlášení přes Google</h2>
+        {maGoogle(user) ? (
+          <p className="text-sm text-emerald-700 font-bold mt-2">Tvůj účet je propojený s Google — můžeš se přihlásit i jedním klepnutím na „Přihlásit přes Google“.</p>
+        ) : (
+          <>
+            <p className="text-sm text-neutral-600 mt-2">Propoj účet s Google a nemusíš si pamatovat heslo. Použij Google účet se stejným e-mailem, jakým se sem přihlašuješ.</p>
+            <button
+              type="button"
+              className="btn-ghost !rounded mt-3 text-sm font-black"
+              onClick={async () => {
+                const r = await propojitSGoogle();
+                if (r.error) toastChyba(r.error);
+              }}
+            >
+              Propojit s Google
+            </button>
+          </>
         )}
       </div>
 
