@@ -43,6 +43,15 @@ function prevezmiZCloudu(home_layout: unknown): void {
   }
 }
 
+/** Hláška k přihlášení, ze které je jasné, co dál (Supabase píše anglicky a neradí). */
+export function srozumitelnaChybaPrihlaseni(zprava: string): string {
+  if (/invalid login credentials/i.test(zprava)) {
+    return 'Špatný e-mail nebo heslo. Přihlašuješ se e-mailem, který správce schválil, a heslem, které ti poslal. Heslo ti správce může nastavit znovu (Uživatelé → Nové dočasné heslo).';
+  }
+  if (/email not confirmed/i.test(zprava)) return 'E-mail není potvrzený — požádej správce, ať ti přístup schválí znovu.';
+  return zprava;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = React.useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -160,7 +169,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    return { error: res.error?.message ?? null };
+    return { error: res.error ? srozumitelnaChybaPrihlaseni(res.error.message) : null };
   };
 
   const signOut = () => supabase.auth.signOut().then(() => { setProfile(null); });
