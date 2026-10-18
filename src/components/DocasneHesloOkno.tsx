@@ -27,15 +27,15 @@ export function DocasneHesloOkno({ email, heslo, onClose }: { email: string; hes
         </div>
         <p className="text-xs text-neutral-500">Heslo se v aplikaci znovu nezobrazí. Kdyby se ztratilo, v Uživatelích u něj klepni na „Nové dočasné heslo“.</p>
         <div className="flex flex-col gap-2">
-          <button type="button" className="btn-primary !rounded w-full text-sm font-black flex items-center justify-center gap-2" onClick={() => kopiruj(textSHeslem(email, heslo), 'Zpráva s heslem je zkopírovaná — vlož ji do WhatsAppu.')}>
-            <Copy size={16} /> Kopírovat zprávu s heslem (WhatsApp)
+          <button type="button" className="btn-primary !rounded w-full text-sm font-black flex items-center justify-center gap-2" onClick={() => kopiruj(heslo, 'Heslo je zkopírované.')}>
+            <Copy size={16} /> Kopírovat heslo
           </button>
-          <button type="button" className="btn-ghost !rounded w-full text-sm font-black flex items-center justify-center gap-2" onClick={() => kopiruj(heslo, 'Heslo je zkopírované.')}>
-            <Copy size={16} /> Kopírovat jen heslo
-          </button>
-          <a href={mailtoPozvanky(email)} className="btn-ghost !rounded w-full text-sm font-black flex items-center justify-center gap-2">
-            <Mail size={16} /> Pozvánka e-mailem (bez hesla)
+          <a href={mailtoPozvanky(email, undefined, heslo)} className="btn-ghost !rounded w-full text-sm font-black flex items-center justify-center gap-2">
+            <Mail size={16} /> Poslat e-mailem: pozvánka + návod + heslo
           </a>
+          <button type="button" className="btn-ghost !rounded w-full text-sm font-black flex items-center justify-center gap-2" onClick={() => kopiruj(textSHeslem(email, heslo), 'Celá pozvánka s heslem je zkopírovaná — vlož ji do WhatsAppu.')}>
+            <Copy size={16} /> Kopírovat celou pozvánku (WhatsApp)
+          </button>
         </div>
         <div className="flex justify-end">
           <button type="button" className="btn-ghost !rounded text-xs font-bold" onClick={onClose}>Zavřít</button>
