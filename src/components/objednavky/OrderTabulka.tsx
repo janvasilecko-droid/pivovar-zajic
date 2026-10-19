@@ -4,7 +4,7 @@
 // přehled objednávek nějakým způsobem, abys zanechal všechny funkce."
 //
 // Karta objednávky (OrderCard.tsx) umí hodně: odškrtnout položky (stočeno,
-// připraveno), den a číslo závozu, úprava, WhatsApp, vrátit pivo, rozdělit,
+// připraveno), den a číslo závozu, úprava, vrátit pivo, rozdělit,
 // storno, smazání, varování ze skladu, malé sudy… Nic z toho se tu
 // neduplikuje a nic neztrácí. Tabulka je jen PŘEHLED k rychlému přejetí očima:
 // jeden řádek na objednávku (odběratel, termín, položky, kusy, stav) — a klepnutím
