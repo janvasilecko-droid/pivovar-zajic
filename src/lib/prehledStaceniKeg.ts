@@ -53,6 +53,9 @@ export function zaznamyBezSloupce<R extends ZaznamStaceni>(davka: DavkaStaceni<R
  */
 export function zdrojAVytrata<R extends ZaznamKeg>(davka: DavkaStaceni<R>): { zdrojL: number; vytrata: number | null } {
   const stocene = davka.polozky.filter((p) => (Number(p.zaznam.quantity) || 0) > 0);
+  // Řez ze dvou tanků: řádek nese jen podíl tanku A, druhý podíl odešel jinudy —
+  // výtrata by vyšla −100 %. U řezu se výtrata neukazuje (19. 10. 2026).
+  if (stocene.some((p) => /^\s*Řez:/.test(p.zaznam.note ?? ''))) return { zdrojL: 0, vytrata: null };
   const zdroje = stocene.map((p) => Number(p.zaznam.source_volume_l) || 0);
   if (stocene.length === 0 || zdroje.some((z) => !(z > 0))) return { zdrojL: 0, vytrata: null };
   const zdrojL = zdroje.reduce((a, b) => a + b, 0);

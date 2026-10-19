@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { Minus, Plus, Scissors } from 'lucide-react';
 import { supabase, type Beer, type CellarTank, type Package } from '../lib/supabase';
 import { businessDateISO } from '../lib/businessDate';
-import { litryRezu, popisRezu, problemyRezu, rozdelPodilB, rozdelRez, tankyKRezu } from '../lib/rezani';
+import { ZNACKA_MIMO_SKLAD, litryRezu, popisRezu, vyslednePivoRezu, problemyRezu, rozdelPodilB, rozdelRez, tankyKRezu } from '../lib/rezani';
 import { odectiSudyDoRezu } from '../lib/rezaniSudy';
 import { odectiPodilRezu } from '../lib/jantarZapis';
 import { chyba, oznam, potvrd, uspech } from '../lib/toast';
@@ -42,6 +42,8 @@ export default function RezaniPiva({
   // 🧮 Jen odečíst (16. 10. 2026: „z řezání máš jen odečíst pivo z tanku" — sudy z řezu
   // už byly zapsané zvlášť, takže „+4" ze stočení by je do skladu přičetlo podruhé).
   const [jenOdecist, setJenOdecist] = useState(false);
+  // Sudy odběratele (Duck and Dog): zapíšou se do přehledu stáčení, ale do skladu ne.
+  const [mimoSklad, setMimoSklad] = useState(false);
 
   const tanky = useMemo(() => tankyKRezu(cellarTanks), [cellarTanks]);
   const tankA = tanky.find((t) => t.id === tankAId);
@@ -58,11 +60,21 @@ export default function RezaniPiva({
   const tankBL = rozdelPodilB(bL, sudyL).tankBL;
   const sudyPrebyva = sudyL > bL + 1;
 
+  // Dva tanky s různým pivem dají smíchané pivo (12° + 10° = 11°) — předvyplní se, jde přepsat.
+  function predvyplnPivo(aId: string, bId: string) {
+    const a = tanky.find((x) => x.id === aId);
+    const b = tanky.find((x) => x.id === bId);
+    const mix = vyslednePivoRezu(a?.current_beer_id, b?.current_beer_id, beers);
+    if (mix) setPivoId(mix);
+    else if (!pivoId && a?.current_beer_id) setPivoId(a.current_beer_id);
+  }
   function vyberTankA(id: string) {
     setTankAId(id);
-    // Pivo se předvyplní podle tanku A — jde přepsat.
-    const t = tanky.find((x) => x.id === id);
-    if (!pivoId && t?.current_beer_id) setPivoId(t.current_beer_id);
+    predvyplnPivo(id, tankBId);
+  }
+  function vyberTankB(id: string) {
+    setTankBId(id);
+    predvyplnPivo(tankAId, id);
   }
 
   function zmenPocet(pkgId: string, delta: number) {
@@ -147,6 +159,7 @@ export default function RezaniPiva({
         setSudyPocty({});
         setPoznamka('');
         setJenOdecist(false);
+        setMimoSklad(false);
         onUlozeno();
         return;
       }
@@ -161,7 +174,7 @@ export default function RezaniPiva({
           package_id: r.obal.id,
           package_label: r.obal.label,
           quantity: r.pocet,
-          note: poznamka.trim() ? `${popis} · ${poznamka.trim()}` : popis,
+          note: [popis, poznamka.trim(), mimoSklad ? ZNACKA_MIMO_SKLAD : ''].filter(Boolean).join(' · '),
           cellar_tank_id: tankA!.id,
           source_volume_l: radekA || null,
         };
@@ -221,6 +234,7 @@ export default function RezaniPiva({
       setPocty({});
       setSudyPocty({});
       setPoznamka('');
+      setMimoSklad(false);
       onUlozeno();
     } finally {
       setUklada(false);
@@ -260,7 +274,7 @@ export default function RezaniPiva({
         </div>
         <div>
           <label className="label" htmlFor="rez-tank-b">Tank B</label>
-          <select id="rez-tank-b" className="input" value={tankBId} onChange={(e) => setTankBId(e.target.value)}>
+          <select id="rez-tank-b" className="input" value={tankBId} onChange={(e) => vyberTankB(e.target.value)}>
             <option value="">{sudyL > 0 ? '— bez tanku B (podíl B pokryjí sudy) —' : '— vyber tank —'}</option>
             {tanky.map((t) => <option key={t.id} value={t.id} disabled={t.id === tankAId}>{popisTanku(t)}</option>)}
           </select>
@@ -307,6 +321,12 @@ export default function RezaniPiva({
           <span>
             Sudy z řezu už mám zapsané jinde — jen odečíst pivo z tanků (a sudy ze skladu), do skladu nic nepřičítat
             <span className="block text-xs font-semibold text-neutral-600">Počty sudů níže slouží jen k výpočtu litrů.</span>
+          </span>
+        </label>
+        <label className="flex items-start gap-2 mb-2 text-sm font-bold text-neutral-800 cursor-pointer select-none">
+          <input type="checkbox" className="w-4 h-4 mt-0.5 accent-primary-600" checked={mimoSklad} disabled={jenOdecist} onChange={(e) => setMimoSklad(e.target.checked)} />
+          <span>
+            Sudy jsou odběratele (např. Duck and Dog) — zapsat do přehledu stáčení, ale do skladu nepočítat
           </span>
         </label>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
