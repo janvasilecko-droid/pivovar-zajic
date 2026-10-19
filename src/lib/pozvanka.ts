@@ -8,16 +8,9 @@
 // přihlášení, pak si uživatel založí vlastní).
 
 import { NAVOD_ODDILY } from '../components/NavodPouziti';
+import { ODKAZ_APLIKACE, odkazAplikace } from './odkazAplikace';
 
-/** Adresa ostrého provozu — když se pozvánka skládá mimo prohlížeč. */
-export const ODKAZ_APLIKACE = 'https://zajic-pivovar.pages.dev/';
-
-export function odkazAplikace(): string {
-  if (typeof window !== 'undefined' && window.location?.origin && /^https?:/.test(window.location.origin)) {
-    return `${window.location.origin}/`;
-  }
-  return ODKAZ_APLIKACE;
-}
+export { ODKAZ_APLIKACE, odkazAplikace };
 
 export const PREDMET_POZVANKY = 'Pozvánka do aplikace Pivovar Zajíc';
 
