@@ -59,3 +59,10 @@ describe('zdrojAVytrata', () => {
     expect(zdrojAVytrata(dny([text])[0].davky[0]).zdrojL).toBe(104.5);
   });
 });
+
+describe('řez ve výtratě', () => {
+  it('řádek řezu nemá výtratu (nese jen podíl jednoho tanku)', () => {
+    const r = { ...z('1', '2026-10-19', 'sv', 'k30', 7, 30), source_volume_l: 105, note: 'Řez: Tank 6 50 % + Tank 7 50 %' };
+    expect(zdrojAVytrata(dny([r])[0].davky[0])).toEqual({ zdrojL: 0, vytrata: null });
+  });
+});

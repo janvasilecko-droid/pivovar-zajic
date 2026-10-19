@@ -284,7 +284,8 @@ export function buildMovements(src: StockSources): Movement[] {
   // Poznámka se u stáčení nese dál — podle ní se pozná zápis, který vznikl
   // srovnáním inventury (viz lib/vyrovnani.ts). Bez ní by se srovnaný kus
   // nedal odlišit od běžné výroby.
-  (src.keggingRows ?? []).forEach((r) => push(r.entry_date, r.beer_id, r.package_id, Number(r.quantity || 0), 'kegovani', r.note, null, r.created_at));
+  // Sudy v poznámce označené [mimo-sklad] patří odběrateli (vlastní sudy) — do skladu se nepočítají.
+  (src.keggingRows ?? []).filter((r) => !String(r.note ?? '').includes('[mimo-sklad]')).forEach((r) => push(r.entry_date, r.beer_id, r.package_id, Number(r.quantity || 0), 'kegovani', r.note, null, r.created_at));
   (src.bottlingRows ?? []).forEach((r) => push(r.entry_date, r.beer_id, r.package_id, Number(r.quantity || 0), 'staceni', r.note, null, r.created_at));
   (src.fasovaniRows ?? []).forEach((r) => push(r.entry_date, r.beer_id, r.package_id, -Number(r.quantity || 0), 'fasovani', null, null, r.created_at));
   (src.prodejnaRows ?? []).forEach((r) => push(r.entry_date, r.beer_id, r.package_id, -Number(r.quantity || 0), 'prodejna', null, null, r.created_at));

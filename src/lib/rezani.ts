@@ -126,6 +126,22 @@ export function problemyRezu(p: {
   return chyby;
 }
 
+/** Značka v poznámce sudů, které patří odběrateli (Duck and Dog) — do skladu se nepočítají. */
+export const ZNACKA_MIMO_SKLAD = '[mimo-sklad]';
+
+export function jeMimoSklad(note: string | null | undefined): boolean {
+  return (note ?? '').includes(ZNACKA_MIMO_SKLAD);
+}
+
+/**
+ * Pivo, které vznikne smícháním dvou tanků s RŮZNÝM pivem: zadání 19. 10. 2026
+ * „řezání 50/50 je pivo 11sv". Vrací id piva začínajícího „11", jinak null.
+ */
+export function vyslednePivoRezu(a: string | null | undefined, b: string | null | undefined, piva: { id: string; name: string }[]): string | null {
+  if (!a || !b || a === b) return null;
+  return piva.find((x) => /^\s*11\s*°?/.test(x.name))?.id ?? null;
+}
+
 /** Popis do poznámky řádku stáčení — je pak vidět i v přehledu. */
 export function popisRezu(tankA: string, tankB: string | null, podilA: number, sudyL = 0, piva?: { rez?: string | null; sudy?: string | null }): string {
   const podilB = 100 - podilA;
