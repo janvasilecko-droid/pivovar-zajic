@@ -22,7 +22,7 @@ describe('výchozí plocha správce', () => {
     expect(layout.overrides.cellar?.color).toBe('navy');
     expect(layout.overrides.kegging?.color).toBe('sky');
     expect(layout.tileGap).toBe(4);
-    expect(layout.dock).toEqual(['bottling', 'dashboard', 'home', 'prodejna', 'kegging', 'home']);
+    expect(layout.dock).toEqual(['bottling', 'dashboard', 'home', 'prodejna', 'kegging', 'orders']);
     // Dlaždice ve výchozí ploše sedí na skutečné obrazovky (kromě vlastních odpočtů).
     const znama = new Set<string>(vsechno);
     expect(VYCHOZI_PLOCHA.pages[0].filter((id) => !znama.has(id))).toEqual([]);
