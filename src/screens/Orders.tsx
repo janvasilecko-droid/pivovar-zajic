@@ -31,7 +31,7 @@ import { slozNavrh } from '../lib/whatsappAmendment';
 
 import { shareOrderToWhatsApp } from '../lib/whatsapp';
 import { oznacVlastniObjednavku } from '../lib/mojeObjednavky';
-import { subscribeToWhatsAppMessages, fetchPendingWhatsAppMessages, fetchWhatsAppMessage, ignoreWhatsAppMessage, WhatsAppIncoming, fetchWhatsAppSenders, isSenderAllowed, triggerAutoParse, type WhatsAppSender } from '../lib/whatsappApi';
+import { subscribeToWhatsAppMessages, fetchPendingWhatsAppMessages, ignoreWhatsAppMessage, WhatsAppIncoming, fetchWhatsAppSenders, isSenderAllowed, triggerAutoParse, type WhatsAppSender } from '../lib/whatsappApi';
 import { autoReserveTapIfNeeded, isTapMentioned, detectTapType } from '../lib/tapReservations';
 import { najdiDuplicitniObjednavky } from '../lib/orderDuplicates';
 import { nazvyZKatalogu, zeptejSeNaDuplicitu, zeptejSeNaZdvojeneRadky } from '../lib/duplicityDialog';
@@ -855,22 +855,6 @@ export default function Orders({
     }
   }, []);
 
-  // Otevře originální WhatsApp zprávu k objednávce (kontrola čtení, #18).
-  const handleOpenWhatsAppMessage = useCallback(async (messageId: string) => {
-    try {
-      const msg = await fetchWhatsAppMessage(messageId);
-      if (msg) {
-        setAutoWhatsAppMessage(msg);
-        setAutoWhatsAppModal(true);
-      } else {
-        oznam('WhatsApp zpráva k této objednávce nebyla nalezena (byla smazána?).');
-      }
-    } catch (error) {
-      zalogujANahlas('Chyba při otevírání WhatsApp zprávy', error);
-      chyba('Nepodařilo se načíst WhatsApp zprávu: ' + (error as Error).message);
-    }
-  }, []);
-
   // Po potvrzení/zamítnutí/ignorování objednávky přeskočíme na další čekající
   // zprávu — aby šlo kontrolovat zprávy jednu po druhé, bez ručního otvírání.
   const advanceWhatsAppReview = useCallback(async () => {
@@ -1601,7 +1585,7 @@ export default function Orders({
         <OrderCard o={o} items={items[o.id] ?? []} stockRemainingForOrder={stockRemainingForOrder} nadPocetMalychSudu={maleSudy.nadPoPolozce} sudyPoPolozce={maleSudy.poPolozce}
           selected={selectedIds.has(o.id)} onToggleSelect={() => toggleSelect(o.id)}
           onClick={() => openDetail(o)} onToggleFlag={toggleFlag} onToggleItemFlag={toggleItemFlag} onUpdateDeliveryDay={updateDeliveryDay} onUpdateZavoz={updateZavoz}
-          onSetStatus={setStatus} onDelete={del} onEdit={setEditOrder} onSplit={setSplitOrder} onOpenWhatsApp={handleOpenWhatsAppMessage} beers={beers} packages={packages} places={places}
+          onSetStatus={setStatus} onDelete={del} onEdit={setEditOrder} onSplit={setSplitOrder} beers={beers} packages={packages} places={places}
           activeBeerId={itemFilterBeerId} activePackageId={itemFilterPackageId}
           onVratitPivo={setVratitObjednavka} vracenoZaznamy={vraceniPodleObjednavky[o.id]}
           itemMatchesFilter={polozkovyFiltrAktivni ? matchesItemFilters : undefined} />

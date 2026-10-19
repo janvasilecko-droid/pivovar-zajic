@@ -121,3 +121,18 @@ export function bezSuduOdberatele<T extends { package_id: string | null }>(
 ): T[] {
   return polozky.filter((p) => !doSuduOdberatele(placeName, obaly.find((o) => o.id === p.package_id), poznamka));
 }
+
+/**
+ * Položky objednávky, které se stáčí do sudů odběratele (Duck and Dog…). Pivo se
+ * do nich musí stočit a zapsat ve Stáčení — sklad pivovaru je neobsahuje, takže
+ * „Vše skladem“ u nich neplatí (majitel 19. 10. 2026: „vše není skladem, jen je
+ * to z jeho sudů, musím stejně zadat stáčení“).
+ */
+export function doSuduOdberatelePolozky<T extends { package_id: string | null }>(
+  placeName: string | null | undefined,
+  polozky: T[],
+  obaly: { id: string; kind?: string | null; volume_l?: number | string | null }[],
+  poznamka?: string | null,
+): T[] {
+  return polozky.filter((p) => doSuduOdberatele(placeName, obaly.find((o) => o.id === p.package_id), poznamka));
+}

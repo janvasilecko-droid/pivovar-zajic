@@ -54,13 +54,13 @@ describe('OrderTabulka', () => {
     expect(radky[1].textContent).toContain('×4');
   });
 
-  it('řádek ukazuje termín, den závozu, stav, připraveno, WhatsApp a poznámku', () => {
+  it('řádek ukazuje termín, den závozu, stav, připraveno a poznámku (WhatsApp ne)', () => {
     vykresli();
     const druhy = screen.getAllByTestId('radek-objednavky')[1];
     expect(druhy.textContent).toContain('Čt');
     expect(druhy.textContent).toContain('22. 10. 2026');
     expect(druhy.textContent).toContain('Připr.');
-    expect(within(druhy).getByLabelText('WhatsApp')).toBeTruthy();
+    expect(within(druhy).queryByLabelText('WhatsApp')).toBeNull();
     expect(within(druhy).getByLabelText('Poznámka')).toBeTruthy();
     expect(within(screen.getAllByTestId('radek-objednavky')[0]).queryByLabelText('WhatsApp')).toBeNull();
   });
@@ -124,5 +124,13 @@ describe('OrderTabulka', () => {
   it('prázdný seznam i objednávka bez položek', () => {
     vykresli({ objednavky: [objednavka('o9')], items: {} });
     expect(screen.getByText('bez položek')).toBeTruthy();
+  });
+
+  it('odběratel s vlastními sudy (Duck and Dog): „jeho sudy“ místo „skladem“', () => {
+    const dad = objednavka('o3', { place_name: 'Duck and Dog' });
+    vykresli({ objednavky: [dad], items: { o3: [polozka('i9', 'o3', 'sv', 'k50', 5)] } });
+    const radek = screen.getAllByTestId('radek-objednavky')[0];
+    expect(within(radek).getByTestId('jeho-sudy').textContent).toContain('jeho sudy');
+    expect(radek.textContent).not.toContain('skladem');
   });
 });
