@@ -5,7 +5,7 @@ import type { Page } from '../components/Layout';
 import { getCountdowns, saveCountdowns, type CountdownTimer } from './stopwatchTimers';
 import { getHomeNotes, saveHomeNotes, type HomeNote } from './homeNotes';
 import { queueHomeLayoutPatch } from './profileSync';
-import { maVlastniPlochu, VYCHOZI_PLOCHA, zakladniRozlozeni } from './vychoziPlocha';
+import { zakladniRozlozeni } from './vychoziPlocha';
 
 // Víc odstínů na barvu (modré/zelené/červené/oranžové/fialové po 6-8), ať jde
 // tematicky odlišit skupiny dlaždic barvou (např. "vše z pivovaru" modře,
@@ -831,7 +831,6 @@ export function stepTileCell(layout: HomeLayout, id: TileId, direction: 'left' |
 export function getHomeLayout(raw: unknown, visibleIds: Page[], extraIds: Page[] = [], cols: number = GRID_COLS_DESKTOP): HomeLayout {
   // Kdo si plochu nepřizpůsobil (nový uživatel, prázdná plocha), dostane výchozí
   // plochu správce (lib/vychoziPlocha.ts) — dlaždice se dál filtrují podle práv.
-  const zVychozi = !maVlastniPlochu(raw);
   const zakladni = zakladniRozlozeni(raw);
   const saved = (zakladni && typeof zakladni === 'object' ? zakladni : {}) as Partial<HomeLayout> & { order?: Page[] };
   const fullVisibleSet = new Set<Page>([...visibleIds, ...extraIds]);
@@ -1030,15 +1029,10 @@ export function getHomeLayout(raw: unknown, visibleIds: Page[], extraIds: Page[]
     kRozdeleni = { ...kRozdeleni, overrides };
   }
 
-  let vysledek = ensureTrailingEmptyPage(ensurePositions(kRozdeleni, cols));
-  // Výchozí plocha má dlaždice rozmístěné podle správce; když uživatel na některé
-  // nemá právo, zůstaly by po nich díry — zbytek se proto srovná do řádků.
-  // Správce, který vidí všechno, zůstává přesně tak, jak to má.
-  if (zVychozi) {
-    const videt = new Set(vysledek.pages[0] ?? []);
-    if (VYCHOZI_PLOCHA.pages[0].some((id) => !videt.has(id as TileId))) vysledek = vyrovnejStranku(vysledek, 0, cols);
-  }
-  return vysledek;
+  // Výchozí plocha správce se NEsrovnává: dlaždice zůstávají přesně na svých místech
+  // (majitel 19. 10. 2026: „musí to být úplně stejný“). Na co uživatel nemá právo, tam
+  // zůstane prázdné místo.
+  return ensureTrailingEmptyPage(ensurePositions(kRozdeleni, cols));
 }
 
 // ── Přehled nakládky na ploše z Rozvozu ─────────────────────────────────────
