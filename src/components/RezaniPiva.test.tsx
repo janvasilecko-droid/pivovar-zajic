@@ -1,7 +1,7 @@
 // Zadání 7. 10. 2026: „Přidej do stáčení záložku řezání, kde můžu vybrat
 // tanky a pivo, poměr, když řežu pivo ze 2 tanků."
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 
 const zapisy: { tabulka: string; akce: string; data: any }[] = [];
 const rpc = vi.fn(async () => ({ error: null }));
@@ -36,17 +36,18 @@ const tanky: any[] = [
 const obaly: any[] = [{ id: 'k50', label: 'KEG 50l', kind: 'keg', volume_l: 50 }, { id: 'k30', label: 'KEG 30l', kind: 'keg', volume_l: 30 }];
 const piva: any[] = [{ id: 'b12', name: '12° Světlá' }];
 
-const vyberTank = (strana: 'A' | 'B', id: string) => {
-  const tlacitko = screen.getByRole('group', { name: `Tank ${strana}` }).querySelector(`[data-tank-id="${id}"]`);
-  fireEvent.click(tlacitko as Element);
-};
+const otevri = (klic: string) => fireEvent.click(document.querySelector(`[data-spoustec="${klic}"]`) as Element);
+const vyberDlazdici = (id: string) => fireEvent.click(document.querySelector(`[data-vyber-id="${id}"]`) as Element);
+const vyberTank = (strana: 'A' | 'B', id: string) => { otevri(strana); vyberDlazdici(id); };
+const vyberPivo = (klic: 'pivo' | 'sudy', id: string) => { otevri(klic); vyberDlazdici(id); };
 
 describe('Řezání ze dvou tanků', () => {
   it('tanky mají barvu piva, které je v nich', () => {
     const barevne = tanky.map((t: any) => (t.current_beer_id ? { ...t } : t));
     const pivaBarva: any[] = [{ id: 'b12', name: '12° Světlá', beer_color: 'rgb(250, 200, 50)' }];
     render(<RezaniPiva beers={pivaBarva} kegPackages={[]} cellarTanks={barevne} mesicUzamcen={() => false} onUlozeno={() => {}} />);
-    const t1 = screen.getByRole('group', { name: 'Tank A' }).querySelector('[data-tank-id="t1"]') as HTMLElement;
+    otevri('A');
+    const t1 = document.querySelector('[data-vyber-id="t1"]') as HTMLElement;
     expect(t1.style.backgroundColor).toBe('rgb(250, 200, 50)');
   });
   beforeEach(() => { zapisy.length = 0; rpc.mockClear(); (chyba as any).mockClear(); });
@@ -55,10 +56,11 @@ describe('Řezání ze dvou tanků', () => {
     const onUlozeno = vi.fn();
     render(<RezaniPiva beers={piva} kegPackages={obaly} cellarTanks={tanky} mesicUzamcen={() => false} onUlozeno={onUlozeno} />);
     // Prázdný tank se nenabízí.
-    expect(within(screen.getByRole('group', { name: 'Tank A' })).getAllByRole('button')).toHaveLength(2);
-    vyberTank('A', 't1');
+    otevri('A');
+    expect(document.querySelectorAll('[data-vyber-id]')).toHaveLength(2);
+    vyberDlazdici('t1');
     vyberTank('B', 't2');
-    expect((screen.getByLabelText('Pivo (co jde do sudů)') as HTMLSelectElement).value).toBe('b12');
+    expect(document.querySelector('[data-spoustec="pivo"]')?.textContent).toContain('12° Světlá');
     fireEvent.click(screen.getByText('60/40'));
     fireEvent.change(screen.getByLabelText('Počet KEG 50l'), { target: { value: '2' } });
     fireEvent.click(screen.getByLabelText('Více KEG 30l'));
@@ -114,12 +116,12 @@ describe('Řezání se sudy ze skladu', () => {
     const onUlozeno = vi.fn();
     render(<RezaniPiva beers={pivaSudy} kegPackages={obalySudy} cellarTanks={tankySudy} mesicUzamcen={() => false} skladKusu={skladKusu} onUlozeno={onUlozeno} />);
     vyberTank('A', 't1');
-    fireEvent.change(screen.getByLabelText('Pivo (co jde do sudů)'), { target: { value: 'b11' } });
+    vyberPivo('pivo', 'b11');
     // stočeno 2× KEG 50 + 1× KEG 30 = 130 l
     fireEvent.change(screen.getByLabelText('Počet KEG 50l'), { target: { value: '2' } });
     fireEvent.click(screen.getByLabelText('Více KEG 30l'));
     // sudy ze skladu: desítka 1× 30 + 1× 20 + 1× 15 = 65 l
-    fireEvent.change(screen.getByLabelText('Pivo ze sudů ze skladu'), { target: { value: 'b10' } });
+    vyberPivo('sudy', 'b10');
     fireEvent.click(screen.getByLabelText('Více KEG 30l ze skladu'));
     fireEvent.click(screen.getByLabelText('Více KEG 20l ze skladu'));
     fireEvent.click(screen.getByLabelText('Více KEG 15l ze skladu'));
@@ -216,10 +218,10 @@ describe('Řezání — jen odečíst (sudy zapsané jinde)', () => {
     const onUlozeno = vi.fn();
     render(<RezaniPiva beers={pivaO} kegPackages={obalyO} cellarTanks={tankyO} mesicUzamcen={() => false} skladKusu={() => 5} onUlozeno={onUlozeno} />);
     vyberTank('A', 't7');
-    fireEvent.change(screen.getByLabelText('Pivo (co jde do sudů)'), { target: { value: 'b11' } });
+    vyberPivo('pivo', 'b11');
     // 4× KEG 30 = 120 l, polovina ze sudů ze skladu (30 + 20 + 10 = 60 l)
     fireEvent.change(screen.getByLabelText('Počet KEG 30l'), { target: { value: '4' } });
-    fireEvent.change(screen.getByLabelText('Pivo ze sudů ze skladu'), { target: { value: 'b10' } });
+    vyberPivo('sudy', 'b10');
     fireEvent.click(screen.getByLabelText('Více KEG 30l ze skladu'));
     fireEvent.click(screen.getByLabelText('Více KEG 20l ze skladu'));
     fireEvent.click(screen.getByLabelText('Více KEG 10l ze skladu'));
@@ -260,9 +262,9 @@ describe('Řezání — jen odečíst (sudy zapsané jinde)', () => {
     render(<RezaniPiva beers={pivaO} kegPackages={obalyO} cellarTanks={tankyO} mesicUzamcen={() => false} skladKusu={() => 5} onUlozeno={onUlozeno} />);
     vyberTank('A', 't7');
     vyberTank('B', 't8');
-    fireEvent.change(screen.getByLabelText('Pivo (co jde do sudů)'), { target: { value: 'b11' } });
+    vyberPivo('pivo', 'b11');
     fireEvent.change(screen.getByLabelText('Počet KEG 30l'), { target: { value: '4' } });
-    fireEvent.change(screen.getByLabelText('Pivo ze sudů ze skladu'), { target: { value: 'b10' } });
+    vyberPivo('sudy', 'b10');
     fireEvent.click(screen.getByLabelText('Více KEG 30l ze skladu'));
     fireEvent.click(screen.getByText('50/50'));
     fireEvent.click(screen.getByLabelText(/Sudy z řezu už mám zapsané jinde/));
