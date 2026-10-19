@@ -9,7 +9,7 @@ import { TabBar } from '../components/TabBar';
 import { isAdminEmail } from '../lib/config';
 import { chyba, potvrd, uspech } from '../lib/toast';
 import { usePosledniNacteni } from '../lib/nacitani';
-import { mailtoPozvanky, PREDMET_SABLONY, sablonaEmailuSupabase, textPozvanky, type DruhSablony } from '../lib/pozvanka';
+import { mailtoPozvanky, sdilejPozvanku, PREDMET_SABLONY, sablonaEmailuSupabase, textPozvanky, type DruhSablony } from '../lib/pozvanka';
 import { DocasneHesloOkno } from '../components/DocasneHesloOkno';
 import { poslatOdkazProHeslo } from '../lib/odkazEmailem';
 
@@ -464,6 +464,18 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
                             <Mail size={12} />
                             <span>Pozvánka e-mailem</span>
                           </a>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              const r = await sdilejPozvanku(e.email);
+                              if (r === 'zkopirovano') setEmailMsg('Celá pozvánka je zkopírovaná — vlož ji do e-mailu nebo WhatsAppu.');
+                              else if (r === 'selhalo') setEmailErr('Pozvánku se nepodařilo sdílet ani zkopírovat.');
+                            }}
+                            className="btn-ghost !rounded !py-1 !px-2.5 text-udaj font-black flex items-center gap-1 cursor-pointer"
+                            title="Pošle celou pozvánku přes sdílení telefonu (e-mail, WhatsApp…) bez zkrácení"
+                          >
+                            <span>Sdílet celou pozvánku</span>
+                          </button>
                           <button
                             type="button"
                             onClick={async () => {
