@@ -1,6 +1,6 @@
 import { SkladZalozky } from './components/SkladZalozky';
 import { jeStrankaSkryta } from './lib/skryteModuly';
-import { useEffect, useState, Suspense } from 'react';
+import { lazy, useEffect, useState, Suspense } from 'react';
 import { Package as PackageIcon, TrendingDown } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { App as CapacitorApp } from '@capacitor/app';
@@ -25,6 +25,7 @@ const PohybySkladu = lazyStranka(() => import('./components/PohybySkladu'));
 const Stock = lazyStranka(() => import('./screens/Stock'));
 const Users = lazyStranka(() => import('./screens/Users'));
 const ZalohaScreen = lazyStranka(() => import('./screens/ZalohaScreen'));
+const ZpetNaSpravce = lazy(() => import('./components/ZpetNaSpravce').then((m) => ({ default: m.ZpetNaSpravce })));
 const KeggingScreen = lazyStranka(() => import('./screens/Kegging'));
 const BottlingScreen = lazyStranka(() => import('./screens/BottlingScreen'));
 const ProdejnaScreen = lazyStranka(() => import('./screens/ProdejnaScreen'));
@@ -53,6 +54,7 @@ import { SetPasswordModal } from './components/SetPasswordModal';
 import { JE_DRUHA_APLIKACE } from './lib/profilAplikace';
 import { ZnackaDruheAplikace } from './components/ZnackaDruheAplikace';
 import { NahledBanner } from './components/NahledBanner';
+import { jePrepnutyUcet } from './lib/uctyUlozene';
 import { jeNahled } from './lib/nahledUzivatele';
 const BottlingTasksSettings = lazyStranka(() => import('./components/BottlingTasksSettings').then((m) => ({ default: m.BottlingTasksSettings })));
 import { Spinner, Kostra } from './components/ui';
@@ -237,6 +239,7 @@ export default function App() {
       <SetPasswordModal />
       {JE_DRUHA_APLIKACE && <ZnackaDruheAplikace />}
       {jeNahled() && <NahledBanner />}
+      {jePrepnutyUcet(session?.user?.id) && <Suspense fallback={null}><ZpetNaSpravce /></Suspense>}
       <ReminderNotificationManager />
       <KegTimerNotificationManager />
       <TimerDoneAlertModal />

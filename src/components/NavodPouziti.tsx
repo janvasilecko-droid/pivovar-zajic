@@ -146,6 +146,10 @@ const ODDILY: Oddil[] = [
         jak: 'Objednávky a stáčení se každý den samy zálohují. Admin si navíc může stáhnout kopii k sobě (dlaždice „Stáhnout zálohu") — to je jediná kopie, která je mimo, takže ji stojí za to občas stáhnout.',
       },
       {
+        co: 'Přepínání účtů (jen správce)',
+        jak: 'Nastavení → „Přepínání účtů“ → „Přidat účet do přepínače“: napiš e-mail a heslo druhého účtu (třeba běžného uživatele). Heslo se neukládá, aplikace si jen pamatuje přihlášení v tomhle zařízení. Pak u účtu klepni na „Přepnout“ — aplikace se načte jako ten účet. Nahoře svítí červený pruh a „Zpět na správce“ tě vrátí. Hodí se na kontrolu, co a jak vidí běžný uživatel.',
+      },
+      {
         co: 'Zajíc 2 — druhá aplikace s jiným účtem',
         jak: 'Nastavení → „Zajíc 2“ → „Otevřít Zajíc 2“, přihlas se jiným účtem a dej si ji na plochu (ikona je zajíc s červenou 2). Hlavní aplikace zůstane přihlášená jako správce, Zajíc 2 má přihlášení zvlášť — hodí se na kontrolu, co a jak vidí běžný uživatel. Nahoře svítí červený štítek, pod kterým účtem jsi.',
       },

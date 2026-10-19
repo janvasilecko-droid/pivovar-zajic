@@ -4,6 +4,7 @@ import { NavodPouziti } from '../components/NavodPouziti';
 import { InstalaceKroky } from '../components/InstalaceKroky';
 import { adresaDruheAplikace, JE_DRUHA_APLIKACE } from '../lib/profilAplikace';
 import { jeNahled, nastavNahled } from '../lib/nahledUzivatele';
+import { PrepinacUctu } from '../components/PrepinacUctu';
 import { GOOGLE_PRIHLASENI_ZAPNUTO, maGoogle, propojitSGoogle } from '../lib/googlePrihlaseni';
 
 import { DENSITY_OPTIONS, DensityMode, getDensity, setDensity } from '../lib/density';
@@ -276,6 +277,9 @@ export default function AppSettingsScreen({ setPage }: { setPage?: (p: any, sec?
           </div>
         )}
       </div>
+
+      {/* Přepínání účtů — jen pro správce */}
+      {isAdmin && <PrepinacUctu />}
 
       {/* Náhled „nový běžný uživatel“ — jen pro správce */}
       {isAdmin && (
