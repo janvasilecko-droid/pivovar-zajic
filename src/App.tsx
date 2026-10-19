@@ -52,6 +52,8 @@ import { MonthlyCleanupWarning } from './components/MonthlyCleanupWarning';
 import { SetPasswordModal } from './components/SetPasswordModal';
 import { JE_DRUHA_APLIKACE } from './lib/profilAplikace';
 import { ZnackaDruheAplikace } from './components/ZnackaDruheAplikace';
+import { NahledBanner } from './components/NahledBanner';
+import { jeNahled } from './lib/nahledUzivatele';
 const BottlingTasksSettings = lazyStranka(() => import('./components/BottlingTasksSettings').then((m) => ({ default: m.BottlingTasksSettings })));
 import { Spinner, Kostra } from './components/ui';
 import { scheduleNightlyCheck } from './lib/zavozDeduction';
@@ -234,6 +236,7 @@ export default function App() {
     <Layout page={page} setPage={setPage}>
       <SetPasswordModal />
       {JE_DRUHA_APLIKACE && <ZnackaDruheAplikace />}
+      {jeNahled() && <NahledBanner />}
       <ReminderNotificationManager />
       <KegTimerNotificationManager />
       <TimerDoneAlertModal />

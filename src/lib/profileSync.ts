@@ -16,6 +16,7 @@
 // DO PAMĚTI (ne do dvou souběžných zápisů) a do cloudu jde jen JEDEN sériový
 // zápis, který navíc čte cloud těsně před zápisem — ne minuty/sekundy
 // předem. Další zápis čeká, až ten předchozí doopravdy doběhne.
+import { jeNahled } from './nahledUzivatele';
 import { supabase } from './supabase';
 
 let pendingPatch: Record<string, unknown> = {};
@@ -64,6 +65,8 @@ function flush() {
   const patch = pendingPatch;
   pendingPatch = {};
   if (Object.keys(patch).length === 0) return;
+  // Náhled „nový běžný uživatel“: nic se nesmí zapsat do správcova profilu.
+  if (jeNahled()) return;
 
   // Sériově za předchozím zápisem — ne souběžně s ním.
   const pole = Object.keys(patch);
