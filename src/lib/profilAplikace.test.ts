@@ -57,3 +57,17 @@ describe('Zajíc 2: druhá aplikace s vlastním přihlášením', () => {
     expect(z).toContain('adresaDruheAplikace()');
   });
 });
+
+describe('profil se pozná jen z adresy', () => {
+  it('hlavní aplikace v téže kartě po návštěvě Zajíc 2 nepřevezme jeho profil', async () => {
+    const { vi } = await import('vitest');
+    for (const [cesta, hledani, ocekavano] of [['/zajic2/', '', '2'], ['/', '', ''], ['/', '?profil=2', '2'], ['/zajic2', '', '2']] as const) {
+      vi.resetModules();
+      window.history.replaceState({}, '', `${cesta}${hledani}`);
+      window.sessionStorage.setItem('zajic_profil', '2'); // dřívější verze si to pamatovala — nesmí to nic ovlivnit
+      const m = await import('./profilAplikace');
+      expect(m.PROFIL_APLIKACE, `${cesta}${hledani}`).toBe(ocekavano);
+    }
+    window.history.replaceState({}, '', '/');
+  });
+});
