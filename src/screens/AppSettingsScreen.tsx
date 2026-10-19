@@ -3,6 +3,7 @@ import { AlertCircle, AlertTriangle, Bell, BellOff, BookOpen, Brush, CloudDownlo
 import { NavodPouziti } from '../components/NavodPouziti';
 import { InstalaceKroky } from '../components/InstalaceKroky';
 import { adresaDruheAplikace, JE_DRUHA_APLIKACE } from '../lib/profilAplikace';
+import { jeNahled, nastavNahled } from '../lib/nahledUzivatele';
 import { GOOGLE_PRIHLASENI_ZAPNUTO, maGoogle, propojitSGoogle } from '../lib/googlePrihlaseni';
 
 import { DENSITY_OPTIONS, DensityMode, getDensity, setDensity } from '../lib/density';
@@ -275,6 +276,19 @@ export default function AppSettingsScreen({ setPage }: { setPage?: (p: any, sec?
           </div>
         )}
       </div>
+
+      {/* Náhled „nový běžný uživatel“ — jen pro správce */}
+      {isAdmin && (
+        <div className="card p-6">
+          <h2 className="font-display font-bold text-lg flex items-center gap-2"><Eye size={18} /> Jak to vidí nový uživatel</h2>
+          <p className="text-sm text-neutral-600 mt-2">
+            Aplikace se ti hned zobrazí tak, jak ji dostane čerstvě založený běžný uživatel: výchozí plocha, jeho dlaždice a spodní lišta, bez správcovských dlaždic. Zůstáváš přihlášený jako správce, nic se nepřepíná a změny plochy se v náhledu neukládají.
+          </p>
+          <button type="button" className="btn-primary !rounded mt-3 text-sm font-black" onClick={() => nastavNahled(!jeNahled())}>
+            {jeNahled() ? 'Ukončit náhled' : 'Zobrazit jako nový běžný uživatel'}
+          </button>
+        </div>
+      )}
 
       {/* Druhá aplikace „Zajíc 2“ — jiný účet než správce, na kontrolu pohledu běžného uživatele */}
       <div className="card p-6">

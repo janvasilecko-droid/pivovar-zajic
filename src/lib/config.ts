@@ -1,3 +1,4 @@
+import { jeNahled } from './nahledUzivatele';
 /**
  * Centrální konfigurace aplikace.
  *
@@ -27,6 +28,8 @@ export const DEFAULT_ROLE: 'admin' | 'user' = 'user';
  */
 export function isAdminEmail(email: string | null | undefined): boolean {
   if (!email) return false;
+  // V náhledu „nový běžný uživatel“ se správce tváří jako obyčejný účet (lib/nahledUzivatele.ts).
+  if (jeNahled()) return false;
   const normalized = email.toLowerCase().trim();
   return ADMIN_EMAILS.some((a) => a.toLowerCase().trim() === normalized);
 }

@@ -6,6 +6,7 @@ import { isAdminEmail, getAdminName } from './config';
 import { saveCountdowns } from './stopwatchTimers';
 import { saveHomeNotes } from './homeNotes';
 import { cloudSmiPrepsat } from './profileSync';
+import { jeNahled, profilNovehoUzivatele } from './nahledUzivatele';
 
 type AuthCtx = {
   session: Session | null;
@@ -185,7 +186,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <Ctx.Provider value={{ session, user: session?.user ?? null, profile, loading, signIn, signOut, reloadProfile, patchProfile, musiNastavitHeslo, hesloNastaveno: () => setMusiNastavitHeslo(false) }}>
+    <Ctx.Provider value={{ session, user: session?.user ?? null, profile: profile && jeNahled() ? profilNovehoUzivatele(profile) : profile, loading, signIn, signOut, reloadProfile, patchProfile, musiNastavitHeslo, hesloNastaveno: () => setMusiNastavitHeslo(false) }}>
       {children}
     </Ctx.Provider>
   );
