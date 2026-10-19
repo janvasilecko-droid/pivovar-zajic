@@ -4,6 +4,7 @@ import { AlertTriangle, ArrowRight, Eye, EyeOff, Lock, Mail, ShieldCheck } from 
 import { getAdminEmail } from '../lib/config';
 import { chybaZNavratu, GOOGLE_PRIHLASENI_ZAPNUTO, prihlasitPresGoogle } from '../lib/googlePrihlaseni';
 import { NENI_OVERENY, odkazOdeslanNa, poslatOdkazProHeslo } from '../lib/odkazEmailem';
+import { JE_DRUHA_APLIKACE } from '../lib/profilAplikace';
 
 export default function AuthScreen() {
   const { signIn } = useAuth();
@@ -92,6 +93,11 @@ export default function AuthScreen() {
                 className="mb-4 h-24 sm:h-28 w-auto object-contain"
               />
 
+              {JE_DRUHA_APLIKACE && (
+                <div role="note" className="mb-2 px-3 py-1 rounded-full bg-rose-700 text-white text-udaj font-black">
+                  Zajíc 2 — druhá aplikace, přihlášení zvlášť
+                </div>
+              )}
               <h1 className="text-2xl sm:text-3xl font-display font-black tracking-tight text-amber-950 flex items-center gap-2">
                 Pivovar Zajíc
               </h1>

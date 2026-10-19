@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Copy, Download } from 'lucide-react';
-import { odkazAplikace } from '../lib/pozvanka';
+import { odkazAplikace } from '../lib/odkazAplikace';
 import { chyba, uspech } from '../lib/toast';
 
 // 📲 Instalace na plochu — postup pro každý telefon/počítač.

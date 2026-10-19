@@ -61,3 +61,14 @@ describe('přihlašovací obrazovka: zapomenuté heslo / první přihlášení',
     expect(screen.queryByText('Přihlásit přes Google')).toBeNull();
   });
 });
+
+describe('přihlašovací obrazovka v Zajíc 2', () => {
+  it('ukáže červený štítek, ať je vidět, že běží druhá aplikace', async () => {
+    vi.resetModules();
+    vi.doMock('../lib/profilAplikace', async (orig) => ({ ...(await orig<typeof import('../lib/profilAplikace')>()), JE_DRUHA_APLIKACE: true }));
+    const { default: Obrazovka } = await import('./AuthScreen');
+    render(<Obrazovka />);
+    expect(screen.getByRole('note').textContent).toContain('Zajíc 2');
+    vi.doUnmock('../lib/profilAplikace');
+  });
+});
