@@ -85,3 +85,19 @@ describe('Šrotování sladu je pryč', () => {
     }
   });
 });
+
+describe('šablony e-mailů se do Supabase posílají z nasazení', () => {
+  it('skript nese předmět i tělo pozvánky a zapomenutého hesla a workflow ho spouští bez rizika pro nasazení', () => {
+    const skript = readFileSync('scripts/nastav-emailove-sablony.mts', 'utf8');
+    for (const klic of ['mailer_subjects_invite', 'mailer_templates_invite_content', 'mailer_subjects_recovery', 'mailer_templates_recovery_content']) {
+      expect(skript, klic).toContain(klic);
+    }
+    expect(skript).toContain('SUPABASE_ACCESS_TOKEN');
+    const wf = readFileSync('.github/workflows/deploy.yml', 'utf8');
+    const blok = wf.slice(wf.indexOf('Šablony e-mailů Supabase'));
+    expect(blok).toContain('continue-on-error: true');
+    expect(blok).toContain('scripts/nastav-emailove-sablony.mts');
+    // běží až po nasazení webu
+    expect(wf.indexOf('wrangler pages deploy')).toBeLessThan(wf.indexOf('Šablony e-mailů Supabase'));
+  });
+});
