@@ -26,7 +26,7 @@ function Dlazdice({ polozky, vybrany, zakazany, onVyber }: {
             key={t.id}
             type="button"
             data-vyber-id={t.id}
-            disabled={t.id === zakazany}
+            disabled={!!zakazany && t.id === zakazany}
             aria-pressed={vybran}
             onClick={() => onVyber(t.id)}
             className={`rounded border-2 px-3 py-2 text-left min-h-[44px] disabled:opacity-40 ${beerText(t.pivo)} ${vybran ? 'ring-2 ring-offset-1 ring-neutral-900' : ''}`}
@@ -122,20 +122,26 @@ export default function RezaniPiva({
   const dlazdicePiv: Barevna[] = beers.map((b) => ({ id: b.id, nadpis: b.name, pivo: b }));
 
   // Dva tanky s různým pivem dají smíchané pivo (12° + 10° = 11°) — předvyplní se, jde přepsat.
-  function predvyplnPivo(aId: string, bId: string) {
+  // Pivo B je z tanku B, a když tank B není, tak ze sudů ze skladu (z nich se pak počítá).
+  function predvyplnPivo(aId: string, bId: string, sudyPivo: string) {
     const a = tanky.find((x) => x.id === aId);
     const b = tanky.find((x) => x.id === bId);
-    const mix = vyslednePivoRezu(a?.current_beer_id, b?.current_beer_id, beers);
+    const beerB = b?.current_beer_id ?? (sudyPivo || null);
+    const mix = vyslednePivoRezu(a?.current_beer_id, beerB, beers);
     if (mix) setPivoId(mix);
     else if (!pivoId && a?.current_beer_id) setPivoId(a.current_beer_id);
   }
   function vyberTankA(id: string) {
     setTankAId(id);
-    predvyplnPivo(id, tankBId);
+    predvyplnPivo(id, tankBId, sudyPivoId);
   }
   function vyberTankB(id: string) {
     setTankBId(id);
-    predvyplnPivo(tankAId, id);
+    predvyplnPivo(tankAId, id, sudyPivoId);
+  }
+  function vyberSudyPivo(id: string) {
+    setSudyPivoId(id);
+    predvyplnPivo(tankAId, tankBId, id);
   }
 
   function zmenPocet(pkgId: string, delta: number) {
@@ -317,14 +323,19 @@ export default function RezaniPiva({
       </div>
       <div className="grid grid-cols-3 gap-2">
         <Spoustec klic="A" popisek="Tank A" hodnota={tankA ? `${tankA.label} · ${tankA.current_beer_name ?? ''}` : ''} pivo={pivoPodleId(tankA?.current_beer_id)} otevreno={otevreno === 'A'} onKlik={() => prepni('A')} />
-        <Spoustec klic="B" popisek={sudyL > 0 ? 'Tank B (nepovinný)' : 'Tank B'} hodnota={tankB ? `${tankB.label} · ${tankB.current_beer_name ?? ''}` : ''} pivo={pivoPodleId(tankB?.current_beer_id)} otevreno={otevreno === 'B'} onKlik={() => prepni('B')} />
+        <Spoustec klic="B" popisek={sudyL > 0 ? 'Tank B (nepovinný)' : 'Tank B'} hodnota={tankB ? `${tankB.label} · ${tankB.current_beer_name ?? ''}` : sudyL > 0 ? 'bez tanku (jen sudy)' : ''} pivo={pivoPodleId(tankB?.current_beer_id)} otevreno={otevreno === 'B'} onKlik={() => prepni('B')} />
         <Spoustec klic="pivo" popisek="Pivo do sudů" hodnota={beers.find((b) => b.id === pivoId)?.name ?? ''} pivo={pivoPodleId(pivoId)} otevreno={otevreno === 'pivo'} onKlik={() => prepni('pivo')} />
       </div>
       {otevreno === 'A' && (
         <Dlazdice polozky={dlazdiceTanku} vybrany={tankAId} zakazany={tankBId} onVyber={(id) => { vyberTankA(id); setOtevreno(null); }} />
       )}
       {otevreno === 'B' && (
-        <Dlazdice polozky={dlazdiceTanku} vybrany={tankBId} zakazany={tankAId} onVyber={(id) => { vyberTankB(id); setOtevreno(null); }} />
+        <Dlazdice
+          polozky={[{ id: '', nadpis: 'Sud ze skladu (bez tanku)', podnadpis: 'podíl B jen z hotových sudů' }, ...dlazdiceTanku]}
+          vybrany={tankBId}
+          zakazany={tankAId}
+          onVyber={(id) => { vyberTankB(id); setOtevreno(id === '' ? 'sudy' : null); }}
+        />
       )}
       {otevreno === 'pivo' && (
         <Dlazdice polozky={dlazdicePiv} vybrany={pivoId} onVyber={(id) => { setPivoId(id); setOtevreno(null); }} />
@@ -411,7 +422,7 @@ export default function RezaniPiva({
           <Spoustec klic="sudy" popisek="Pivo ze sudů ze skladu" hodnota={beers.find((b) => b.id === sudyPivoId)?.name ?? ''} pivo={pivoPodleId(sudyPivoId)} otevreno={otevreno === 'sudy'} onKlik={() => prepni('sudy')} />
         </div>
         {otevreno === 'sudy' && (
-          <Dlazdice polozky={dlazdicePiv} vybrany={sudyPivoId} onVyber={(id) => { setSudyPivoId(id); setOtevreno(null); }} />
+          <Dlazdice polozky={dlazdicePiv} vybrany={sudyPivoId} onVyber={(id) => { vyberSudyPivo(id); setOtevreno(null); }} />
         )}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {kegPackages.map((p) => {

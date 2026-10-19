@@ -42,6 +42,17 @@ const vyberTank = (strana: 'A' | 'B', id: string) => { otevri(strana); vyberDlaz
 const vyberPivo = (klic: 'pivo' | 'sudy', id: string) => { otevri(klic); vyberDlazdici(id); };
 
 describe('Řezání ze dvou tanků', () => {
+  it('Tank B jde zvolit „Bez tanku" a vrátit se k němu', () => {
+    render(<RezaniPiva beers={piva} kegPackages={obaly} cellarTanks={tanky} mesicUzamcen={() => false} onUlozeno={() => {}} />);
+    vyberTank('A', 't1');
+    vyberTank('B', 't2');
+    expect(document.querySelector('[data-spoustec="B"]')?.textContent).toContain('Tank 2');
+    otevri('B');
+    vyberDlazdici('');
+    expect(document.querySelector('[data-spoustec="B"]')?.textContent).not.toContain('Tank 2');
+    // Po „Sud ze skladu" se rovnou nabídne výběr piva sudů.
+    expect(document.querySelector('[data-spoustec="sudy"]')?.getAttribute('aria-expanded')).toBe('true');
+  });
   it('tanky mají barvu piva, které je v nich', () => {
     const barevne = tanky.map((t: any) => (t.current_beer_id ? { ...t } : t));
     const pivaBarva: any[] = [{ id: 'b12', name: '12° Světlá', beer_color: 'rgb(250, 200, 50)' }];
@@ -127,6 +138,14 @@ describe('Řezání se sudy ze skladu', () => {
     fireEvent.click(screen.getByLabelText('Více KEG 15l ze skladu'));
     return onUlozeno;
   }
+
+  it('pivo se po výběru sudů ze skladu samo přepne z 12° na 11°', () => {
+    render(<RezaniPiva beers={pivaSudy} kegPackages={obalySudy} cellarTanks={tankySudy} mesicUzamcen={() => false} onUlozeno={() => {}} />);
+    vyberTank('A', 't1');
+    expect(document.querySelector('[data-spoustec="pivo"]')?.textContent).toContain('12° Světlá');
+    vyberPivo('sudy', 'b10');
+    expect(document.querySelector('[data-spoustec="pivo"]')?.textContent).toContain('11° Světlá');
+  });
 
   it('12° z tanku + 10° jen ze sudů ze skladu: tank B netřeba, sudy se odečtou ze skladu přefukem do řezu', async () => {
     const onUlozeno = vykresliSudy();
