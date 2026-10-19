@@ -36,19 +36,21 @@ describe('výchozí plocha správce', () => {
     }
   });
 
-  it('podle práv: dlaždice, na které uživatel právo nemá, se nekreslí a plocha se srovná bez děr', () => {
+  it('podle práv: dlaždice bez práva se nekreslí, ostatní zůstanou přesně na místech správce', () => {
     const smi: Page[] = ['orders', 'kegging', 'bottling', 'dashboard'];
     const layout = getHomeLayout(null, smi, [], GRID_COLS_DESKTOP);
     expect(layout.pages[0]).toHaveLength(4);
     expect(layout.pages.flat()).not.toContain('users');
-    const radky = layout.pages[0].map((id) => layout.overrides[id]?.y ?? 0);
-    expect(Math.max(...radky)).toBeLessThanOrEqual(1); // čtyři dlaždice nezůstanou rozházené po 15 řádcích
+    for (const id of smi) {
+      const o = (VYCHOZI_PLOCHA.overrides as Record<string, { x: number; y: number; color: string }>)[id];
+      expect(layout.overrides[id], id).toMatchObject({ x: o.x, y: o.y, color: o.color });
+    }
   });
 
-  it('vlastní odpočty uživatele zůstanou', () => {
+  it('vlastní dlaždice odpočtů se na výchozí plochu nepřidávají (u všech stejná), poznámky zůstávají uložené', () => {
     const raw = zakladniRozlozeni({ pages: [['cd_t_moje']], notes: [{ id: 'n1' }] }) as { pages: string[][]; notes: unknown[] };
-    expect(raw.pages[0].at(-1)).toBe('cd_t_moje');
-    expect(raw.pages[0]).toHaveLength(POCET_VYCHOZICH_DLAZDIC + 1);
+    expect(raw.pages[0].some((id) => id.startsWith('cd_'))).toBe(false);
+    expect(raw.pages[0]).toHaveLength(POCET_VYCHOZICH_DLAZDIC);
     expect(raw.notes).toEqual([{ id: 'n1' }]);
   });
 });

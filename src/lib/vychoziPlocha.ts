@@ -293,18 +293,18 @@ function jePouzitelnaLista(dock: unknown): boolean {
 /**
  * Uložená plocha, nebo — když žádnou vlastní nemá — výchozí plocha správce.
  * Doplňuje jen to, co uživatel nemá: stránky s dlaždicemi, jejich barvy a
- * velikosti, spodní lištu, průhlednost a mezery. Jeho odpočty a poznámky mu
- * zůstávají.
+ * velikosti, spodní lištu, průhlednost a mezery. Aby byla plocha u všech
+ * STEJNÁ, nepřidávají se jeho dlaždice odpočtů (data odpočtů zůstávají).
  */
 export function zakladniRozlozeni(raw: unknown): unknown {
   if (maVlastniPlochu(raw)) return raw;
   const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
-  const rawPages = Array.isArray(r.pages) ? (r.pages as unknown[]).flatMap((p) => (Array.isArray(p) ? p : [])) : [];
-  const odpocty = rawPages.filter(jeOdpocet);
   const vlastniPrepisy = (r.overrides && typeof r.overrides === 'object' ? r.overrides : {}) as Record<string, unknown>;
   return {
     ...r,
-    pages: [[...VYCHOZI_PLOCHA.pages[0], ...odpocty], []],
+    // Vlastní dlaždice odpočtů uživatele se nepřidávají — výchozí plocha je u všech stejná
+    // (odpočty samy zůstávají uložené a jdou přidat zpět).
+    pages: [[...VYCHOZI_PLOCHA.pages[0]], []],
     overrides: { ...VYCHOZI_PLOCHA.overrides, ...vlastniPrepisy },
     groups: r.groups && typeof r.groups === 'object' ? r.groups : {},
     hidden: Array.isArray(r.hidden) ? r.hidden : [],
