@@ -24,9 +24,9 @@ describe('getHomeLayout', () => {
     // místo na přidávání (ensureTrailingEmptyPage).
     expect(layout.pages).toEqual([[B, A, C], []]);
     expect(layout.tileOpacity).toBeCloseTo(0.9);
-    // Spodní lišta správce: Lahve · Sklad · Domů · Fasování · KEG · Domů. Co uživatel
+    // Spodní lišta správce: Lahve · Sklad · Domů · Fasování · KEG · Objednávky. Co uživatel
     // nesmí vidět (v testu 'bottling' a 'prodejna'), spadne na 'home'.
-    expect(layout.dock).toEqual(['home', 'dashboard', 'home', 'home', 'kegging', 'home']);
+    expect(layout.dock).toEqual(['home', 'dashboard', 'home', 'home', 'kegging', 'orders']);
     [A, B, C].forEach((id) => expect(layout.overrides[id]?.color).toBeTruthy());
   });
 
@@ -35,7 +35,7 @@ describe('getHomeLayout', () => {
     const layout = getHomeLayout(rozbita, [A, B, C]);
     expect(layout.pages[0]).toEqual([B, A, C]);
     expect(layout.pages[0]).not.toContain('cd_t_1');
-    expect(layout.dock).toEqual(['home', 'dashboard', 'home', 'home', 'kegging', 'home']);
+    expect(layout.dock).toEqual(['home', 'dashboard', 'home', 'home', 'kegging', 'orders']);
   });
 
   it('uživatel s vlastní plochou ji zachová a výchozí na ni nesáhne', () => {

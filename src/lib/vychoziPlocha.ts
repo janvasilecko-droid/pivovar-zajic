@@ -10,6 +10,9 @@
 // má vlastní rozložení s dlaždicemi, nechává se mu. Které dlaždice se ukážou,
 // určují práva uživatele (getHomeLayout je filtruje jako vždy).
 //
+// Spodní lišta: poslední slot je „Objednávky“ — u správce tam byl omylem druhý „Domů“
+// (majitel 19. 10. 2026: „ať tam jsou objednávky a ne 2× menu“).
+//
 // Dlaždice „Foukání CO2“ ve snímku chybí schválně — je vypnutá (CO2_ZAPNUTO).
 //
 // Chcete-li výchozí plochu změnit, přepište tenhle snímek (obnovení „Výchozí
@@ -260,7 +263,7 @@ export const VYCHOZI_PLOCHA = {
     "home",
     "prodejna",
     "kegging",
-    "home"
+    "orders"
   ],
   "tileGap": 4,
   "tileOpacity": 0.9,
