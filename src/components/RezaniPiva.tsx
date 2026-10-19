@@ -11,32 +11,52 @@ import { chyba, oznam, potvrd, uspech } from '../lib/toast';
 
 const PRESETY = [50, 60, 70, 80];
 
-/** Tanky jako barevná tlačítka — barva je barva piva, které v nich je (stejně jako jinde v appce). */
-function TankyBarevne({ tanky, piva, vybrany, zakazany, onVyber }: {
-  tanky: CellarTank[]; piva: Beer[]; vybrany: string; zakazany: string; onVyber: (id: string) => void;
+type Barevna = { id: string; nadpis: string; podnadpis?: string; pivo?: Beer };
+
+/** Barevné dlaždice na výběr (tank nebo pivo) — barva je barva piva, stejně jako jinde v appce. */
+function Dlazdice({ polozky, vybrany, zakazany, onVyber }: {
+  polozky: Barevna[]; vybrany: string; zakazany?: string; onVyber: (id: string) => void;
 }) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-      {tanky.map((t) => {
-        const pivo = piva.find((b) => b.id === t.current_beer_id);
+    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+      {polozky.map((t) => {
         const vybran = t.id === vybrany;
         return (
           <button
             key={t.id}
             type="button"
-            data-tank-id={t.id}
+            data-vyber-id={t.id}
             disabled={t.id === zakazany}
             aria-pressed={vybran}
-            onClick={() => onVyber(vybran ? '' : t.id)}
-            className={`rounded border-2 px-3 py-2 text-left min-h-[44px] disabled:opacity-40 ${beerText(pivo)} ${vybran ? 'ring-2 ring-offset-1 ring-neutral-900' : ''}`}
-            style={{ backgroundColor: beerBg(pivo), borderColor: vybran ? undefined : beerBorder(pivo) }}
+            onClick={() => onVyber(t.id)}
+            className={`rounded border-2 px-3 py-2 text-left min-h-[44px] disabled:opacity-40 ${beerText(t.pivo)} ${vybran ? 'ring-2 ring-offset-1 ring-neutral-900' : ''}`}
+            style={{ backgroundColor: beerBg(t.pivo), borderColor: vybran ? undefined : beerBorder(t.pivo) }}
           >
-            <span className="block text-sm font-black">{t.label}{vybran ? ' ✓' : ''}</span>
-            <span className="block text-xs font-bold">{t.current_beer_name ?? 'bez piva'} · {Math.round(Number(t.current_volume_l ?? 0))} l</span>
+            <span className="block text-sm font-black">{t.nadpis}{vybran ? ' ✓' : ''}</span>
+            {t.podnadpis && <span className="block text-xs font-bold">{t.podnadpis}</span>}
           </button>
         );
       })}
     </div>
+  );
+}
+
+/** Tlačítko, které ukazuje výběr; po klepnutí se rozbalí dlaždice. */
+function Spoustec({ popisek, hodnota, pivo, otevreno, onKlik, klic }: {
+  popisek: string; hodnota: string; pivo?: Beer; otevreno: boolean; onKlik: () => void; klic: string;
+}) {
+  return (
+    <button
+      type="button"
+      data-spoustec={klic}
+      aria-expanded={otevreno}
+      onClick={onKlik}
+      className={`rounded border-2 px-3 py-2 text-left min-h-[56px] w-full ${pivo ? beerText(pivo) : 'text-neutral-900'} ${otevreno ? 'ring-2 ring-offset-1 ring-neutral-900' : ''}`}
+      style={{ backgroundColor: pivo ? beerBg(pivo) : undefined, borderColor: pivo ? beerBorder(pivo) : 'rgb(var(--bd-neutral-200))' }}
+    >
+      <span className="block text-[11px] font-black uppercase tracking-wide opacity-80">{popisek}</span>
+      <span className="block text-sm font-black truncate">{hodnota || 'vyber…'}</span>
+    </button>
   );
 }
 
@@ -73,6 +93,9 @@ export default function RezaniPiva({
   const [jenOdecist, setJenOdecist] = useState(false);
   // Sudy odběratele (Duck and Dog): zapíšou se do přehledu stáčení, ale do skladu ne.
   const [mimoSklad, setMimoSklad] = useState(false);
+  // Který výběr je zrovna rozbalený (jen jeden naráz).
+  const [otevreno, setOtevreno] = useState<'A' | 'B' | 'pivo' | 'sudy' | null>(null);
+  const prepni = (k: 'A' | 'B' | 'pivo' | 'sudy') => setOtevreno((o) => (o === k ? null : k));
 
   const tanky = useMemo(() => tankyKRezu(cellarTanks), [cellarTanks]);
   const tankA = tanky.find((t) => t.id === tankAId);
@@ -88,6 +111,15 @@ export default function RezaniPiva({
   const sudyL = litryRezu(sudyRadky.map((r) => ({ pocet: r.pocet, objemL: Number(r.obal.volume_l) })));
   const tankBL = rozdelPodilB(bL, sudyL).tankBL;
   const sudyPrebyva = sudyL > bL + 1;
+
+  const pivoPodleId = (id: string | null | undefined) => beers.find((b) => b.id === id);
+  const dlazdiceTanku: Barevna[] = tanky.map((t) => ({
+    id: t.id,
+    nadpis: t.label,
+    podnadpis: `${t.current_beer_name ?? 'bez piva'} · ${Math.round(Number(t.current_volume_l ?? 0))} l`,
+    pivo: pivoPodleId(t.current_beer_id),
+  }));
+  const dlazdicePiv: Barevna[] = beers.map((b) => ({ id: b.id, nadpis: b.name, pivo: b }));
 
   // Dva tanky s různým pivem dají smíchané pivo (12° + 10° = 11°) — předvyplní se, jde přepsat.
   function predvyplnPivo(aId: string, bId: string) {
@@ -279,27 +311,24 @@ export default function RezaniPiva({
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div>
-          <label className="label" htmlFor="rez-datum">Datum</label>
-          <input id="rez-datum" type="date" className="input" value={datum} onChange={(e) => setDatum(e.target.value)} />
-        </div>
-        <div>
-          <label className="label" htmlFor="rez-pivo">Pivo (co jde do sudů)</label>
-          <select id="rez-pivo" className="input" value={pivoId} onChange={(e) => setPivoId(e.target.value)}>
-            <option value="">— vyber pivo —</option>
-            {beers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-          </select>
-        </div>
-        <div role="group" aria-label="Tank A">
-          <div className="label">Tank A</div>
-          <TankyBarevne tanky={tanky} piva={beers} vybrany={tankAId} zakazany={tankBId} onVyber={vyberTankA} />
-        </div>
-        <div role="group" aria-label="Tank B">
-          <div className="label">{sudyL > 0 ? 'Tank B (nepovinný — podíl B pokryjí sudy)' : 'Tank B'}</div>
-          <TankyBarevne tanky={tanky} piva={beers} vybrany={tankBId} zakazany={tankAId} onVyber={vyberTankB} />
-        </div>
+      <div className="max-w-xs">
+        <label className="label" htmlFor="rez-datum">Datum</label>
+        <input id="rez-datum" type="date" className="input" value={datum} onChange={(e) => setDatum(e.target.value)} />
       </div>
+      <div className="grid grid-cols-3 gap-2">
+        <Spoustec klic="A" popisek="Tank A" hodnota={tankA ? `${tankA.label} · ${tankA.current_beer_name ?? ''}` : ''} pivo={pivoPodleId(tankA?.current_beer_id)} otevreno={otevreno === 'A'} onKlik={() => prepni('A')} />
+        <Spoustec klic="B" popisek={sudyL > 0 ? 'Tank B (nepovinný)' : 'Tank B'} hodnota={tankB ? `${tankB.label} · ${tankB.current_beer_name ?? ''}` : ''} pivo={pivoPodleId(tankB?.current_beer_id)} otevreno={otevreno === 'B'} onKlik={() => prepni('B')} />
+        <Spoustec klic="pivo" popisek="Pivo do sudů" hodnota={beers.find((b) => b.id === pivoId)?.name ?? ''} pivo={pivoPodleId(pivoId)} otevreno={otevreno === 'pivo'} onKlik={() => prepni('pivo')} />
+      </div>
+      {otevreno === 'A' && (
+        <Dlazdice polozky={dlazdiceTanku} vybrany={tankAId} zakazany={tankBId} onVyber={(id) => { vyberTankA(id); setOtevreno(null); }} />
+      )}
+      {otevreno === 'B' && (
+        <Dlazdice polozky={dlazdiceTanku} vybrany={tankBId} zakazany={tankAId} onVyber={(id) => { vyberTankB(id); setOtevreno(null); }} />
+      )}
+      {otevreno === 'pivo' && (
+        <Dlazdice polozky={dlazdicePiv} vybrany={pivoId} onVyber={(id) => { setPivoId(id); setOtevreno(null); }} />
+      )}
       {tanky.length < 2 && (
         <p className="text-xs font-bold text-rose-700">Řezat jde jen ze dvou tanků v provozu, ve kterých je pivo. Teď jich tolik ve Sklepě není.</p>
       )}
@@ -378,13 +407,12 @@ export default function RezaniPiva({
         <p className="text-xs text-neutral-500">
           Když část piva do řezu nešla z tanku, ale z hotových sudů na skladě (třeba 1× 30 l, 1× 20 l a 1× 15 l desítky). Odečtou se ze skladu a jejich litry se počítají do podílu B.
         </p>
-        <div>
-          <label className="label" htmlFor="rez-sudy-pivo">Pivo ze sudů ze skladu</label>
-          <select id="rez-sudy-pivo" className="input" value={sudyPivoId} onChange={(e) => setSudyPivoId(e.target.value)}>
-            <option value="">— vyber pivo —</option>
-            {beers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-          </select>
+        <div className="max-w-xs">
+          <Spoustec klic="sudy" popisek="Pivo ze sudů ze skladu" hodnota={beers.find((b) => b.id === sudyPivoId)?.name ?? ''} pivo={pivoPodleId(sudyPivoId)} otevreno={otevreno === 'sudy'} onKlik={() => prepni('sudy')} />
         </div>
+        {otevreno === 'sudy' && (
+          <Dlazdice polozky={dlazdicePiv} vybrany={sudyPivoId} onVyber={(id) => { setSudyPivoId(id); setOtevreno(null); }} />
+        )}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {kegPackages.map((p) => {
             const naSklade = skladKusu && sudyPivoId ? skladKusu(sudyPivoId, p.id) : null;
