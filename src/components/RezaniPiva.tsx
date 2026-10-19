@@ -2,7 +2,7 @@
 // Pravidla jsou v lib/rezani.ts, zápis přetočení v lib/jantarZapis.ts.
 import { useMemo, useState } from 'react';
 import { Minus, Plus, Scissors } from 'lucide-react';
-import { supabase, type Beer, type CellarTank, type Package } from '../lib/supabase';
+import { supabase, beerBg, beerBorder, beerText, type Beer, type CellarTank, type Package } from '../lib/supabase';
 import { businessDateISO } from '../lib/businessDate';
 import { ZNACKA_MIMO_SKLAD, litryRezu, popisRezu, vyslednePivoRezu, problemyRezu, rozdelPodilB, rozdelRez, tankyKRezu } from '../lib/rezani';
 import { odectiSudyDoRezu } from '../lib/rezaniSudy';
@@ -10,6 +10,35 @@ import { odectiPodilRezu } from '../lib/jantarZapis';
 import { chyba, oznam, potvrd, uspech } from '../lib/toast';
 
 const PRESETY = [50, 60, 70, 80];
+
+/** Tanky jako barevná tlačítka — barva je barva piva, které v nich je (stejně jako jinde v appce). */
+function TankyBarevne({ tanky, piva, vybrany, zakazany, onVyber }: {
+  tanky: CellarTank[]; piva: Beer[]; vybrany: string; zakazany: string; onVyber: (id: string) => void;
+}) {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+      {tanky.map((t) => {
+        const pivo = piva.find((b) => b.id === t.current_beer_id);
+        const vybran = t.id === vybrany;
+        return (
+          <button
+            key={t.id}
+            type="button"
+            data-tank-id={t.id}
+            disabled={t.id === zakazany}
+            aria-pressed={vybran}
+            onClick={() => onVyber(vybran ? '' : t.id)}
+            className={`rounded border-2 px-3 py-2 text-left min-h-[44px] disabled:opacity-40 ${beerText(pivo)} ${vybran ? 'ring-2 ring-offset-1 ring-neutral-900' : ''}`}
+            style={{ backgroundColor: beerBg(pivo), borderColor: vybran ? undefined : beerBorder(pivo) }}
+          >
+            <span className="block text-sm font-black">{t.label}{vybran ? ' ✓' : ''}</span>
+            <span className="block text-xs font-bold">{t.current_beer_name ?? 'bez piva'} · {Math.round(Number(t.current_volume_l ?? 0))} l</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 export default function RezaniPiva({
   beers,
@@ -241,9 +270,6 @@ export default function RezaniPiva({
     }
   }
 
-  const popisTanku = (t: CellarTank) =>
-    `${t.label} · ${t.current_beer_name ?? 'bez piva'} · ${Math.round(Number(t.current_volume_l ?? 0))} l`;
-
   return (
     <div className="card p-4 sm:p-5 space-y-4">
       <div>
@@ -265,19 +291,13 @@ export default function RezaniPiva({
             {beers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
           </select>
         </div>
-        <div>
-          <label className="label" htmlFor="rez-tank-a">Tank A</label>
-          <select id="rez-tank-a" className="input" value={tankAId} onChange={(e) => vyberTankA(e.target.value)}>
-            <option value="">— vyber tank —</option>
-            {tanky.map((t) => <option key={t.id} value={t.id} disabled={t.id === tankBId}>{popisTanku(t)}</option>)}
-          </select>
+        <div role="group" aria-label="Tank A">
+          <div className="label">Tank A</div>
+          <TankyBarevne tanky={tanky} piva={beers} vybrany={tankAId} zakazany={tankBId} onVyber={vyberTankA} />
         </div>
-        <div>
-          <label className="label" htmlFor="rez-tank-b">Tank B</label>
-          <select id="rez-tank-b" className="input" value={tankBId} onChange={(e) => vyberTankB(e.target.value)}>
-            <option value="">{sudyL > 0 ? '— bez tanku B (podíl B pokryjí sudy) —' : '— vyber tank —'}</option>
-            {tanky.map((t) => <option key={t.id} value={t.id} disabled={t.id === tankAId}>{popisTanku(t)}</option>)}
-          </select>
+        <div role="group" aria-label="Tank B">
+          <div className="label">{sudyL > 0 ? 'Tank B (nepovinný — podíl B pokryjí sudy)' : 'Tank B'}</div>
+          <TankyBarevne tanky={tanky} piva={beers} vybrany={tankBId} zakazany={tankAId} onVyber={vyberTankB} />
         </div>
       </div>
       {tanky.length < 2 && (
