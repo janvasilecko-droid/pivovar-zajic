@@ -166,7 +166,15 @@ export default function PrehledStaceniKeg<R extends ZaznamKeg & { package_label?
                                     výtrata {cislo(vytrata)} %
                                   </span>
                                 )}
-                                {zdrojL === 0 && <span className="text-neutral-600">bez tanku</span>}
+                                {zdrojL === 0 && !davka.polozky.some((p) => /^\s*Řez:/.test(p.zaznam.note ?? '')) && <span className="text-neutral-600">bez tanku</span>}
+                                <button
+                                  type="button"
+                                  onClick={() => setVybranyKlic(davka.klic)}
+                                  className="btn-ghost !flex-none !min-h-[44px] !px-3 ml-auto inline-flex items-center gap-1 text-xs font-black"
+                                  title="Upravit nebo smazat záznamy tohoto stočení"
+                                >
+                                  <Pencil size={13} aria-hidden /> Upravit / smazat
+                                </button>
                               </div>
                               {mimo.length > 0 && (
                                 <p className="font-bold text-neutral-800">
@@ -214,6 +222,9 @@ export default function PrehledStaceniKeg<R extends ZaznamKeg & { package_label?
                   </span>
                   <span className="ml-auto font-display font-black text-lg tabular-nums text-amber-950">{r.quantity} ks</span>
                 </div>
+                {(r.note ?? '').trim() && !puvodZapisu(r.note) && (
+                  <p className="text-xs font-semibold text-neutral-700 break-words">{r.note}</p>
+                )}
                 {puvodZapisu(r.note) && (
                   <div className="text-udaj font-bold text-sky-800 bg-sky-50 border border-sky-200 rounded px-1.5 py-0.5 inline-flex items-center gap-1">
                     <ClipboardList size={11} className="shrink-0" />{puvodZapisu(r.note)?.popis}
