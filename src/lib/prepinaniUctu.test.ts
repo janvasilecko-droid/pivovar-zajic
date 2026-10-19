@@ -4,6 +4,8 @@ const getSession = vi.fn();
 const setSession = vi.fn();
 const signInWithPassword = vi.fn();
 vi.mock('./supabase', () => ({ supabase: { auth: { getSession: (...a: unknown[]) => getSession(...a), setSession: (...a: unknown[]) => setSession(...a) } } }));
+const delkaFronty = vi.fn(() => 0);
+vi.mock('./offline', () => ({ queueLength: () => delkaFronty() }));
 vi.mock('@supabase/supabase-js', () => ({ createClient: () => ({ auth: { signInWithPassword: (...a: unknown[]) => signInWithPassword(...a) } }) }));
 
 import { jePrepnutyUcet, nactiUcty, odeberUcet, pridejUcet, prepniNaUcet } from './prepinaniUctu';
@@ -12,7 +14,7 @@ const SPRAVCE = { user: { id: 'a', email: 'admin@pivovar.cz' }, access_token: 'a
 
 beforeEach(() => {
   window.localStorage.clear();
-  getSession.mockReset(); setSession.mockReset(); signInWithPassword.mockReset();
+  getSession.mockReset(); setSession.mockReset(); signInWithPassword.mockReset(); delkaFronty.mockReturnValue(0);
   getSession.mockResolvedValue({ data: { session: SPRAVCE } });
 });
 
@@ -52,6 +54,14 @@ describe('přepínání účtů (správce)', () => {
     const r = await prepniNaUcet('b');
     expect(r.error).toContain('vypršelo');
     expect(nactiUcty().ucty.b).toBeUndefined();
+  });
+
+  it('čekající zápisy (offline fronta) přepnutí zablokují — patří původnímu účtu', async () => {
+    window.localStorage.setItem('zajic_ucty_v1', JSON.stringify({ domaci: 'a', ucty: { b: { email: 'user@pivovar.cz', access_token: 'b1', refresh_token: 'r2' } } }));
+    delkaFronty.mockReturnValue(2);
+    const r = await prepniNaUcet('b');
+    expect(r.error).toContain('čekající zápisy (2)');
+    expect(setSession).not.toHaveBeenCalled();
   });
 
   it('neznámý účet se nepřepne', async () => {

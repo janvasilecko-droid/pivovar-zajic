@@ -12,6 +12,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import { ulozJson } from './uloziste';
+import { queueLength } from './offline';
 
 import { KLIC_UCTU, nactiUcty, type StavUctu, type UlozenyUcet } from './uctyUlozene';
 export { jePrepnutyUcet, nactiUcty } from './uctyUlozene';
@@ -56,6 +57,10 @@ export async function pridejUcet(email: string, heslo: string): Promise<{ error:
 
 /** Přepne aplikaci na uložený účet. Stav současného účtu si předtím zapamatuje. */
 export async function prepniNaUcet(id: string): Promise<{ error: string | null }> {
+  // Zápisy čekající na odeslání patří účtu, pod kterým vznikly — po přepnutí by se
+  // odeslaly pod jiným účtem (a s jinými právy). Napřed se musí odeslat.
+  const ceka = queueLength();
+  if (ceka > 0) return { error: `Nejdřív se musí odeslat čekající zápisy (${ceka}). Počkej na signál a zkus to znovu.` };
   await zapamatujAktualni();
   const stav = nactiUcty();
   const cil = stav.ucty[id];
