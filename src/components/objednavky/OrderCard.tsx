@@ -6,7 +6,7 @@ import { AlertTriangle, Ban, Beer as BeerIcon, Calendar, Check, CheckCircle2, Ho
 import { Beer, Package, Place, beerBg, formatPackageLabel } from '../../lib/supabase';
 
 import { schodkyObjednavky } from '../../lib/tydenniZbytek';
-import { bezSuduOdberatele } from '../../lib/vlastniSudy';
+import { bezSuduOdberatele, doSuduOdberatelePolozky } from '../../lib/vlastniSudy';
 import type {  } from '../../lib/stockLedger';
 
 import { DAYS } from '../../lib/shared';
@@ -84,6 +84,7 @@ export function OrderCard({ o, items, stockRemainingForOrder, nadPocetMalychSudu
   const remaining = stockRemainingForOrder(o);
   // Obal patří do popisku: schodek se počítá po pivu A obalu, takže bez něj by
   // dvě velikosti téhož piva vypadaly jako tentýž údaj napsaný dvakrát.
+  const jehoSudy = doSuduOdberatelePolozky(o.place_name, items, packages, o.note);
   const uniqueDeficits = (odbaveno ? [] : schodkyObjednavky(bezSuduOdberatele(o.place_name, items, packages, o.note), remaining)).map((s) => {
     const obal = packages.find((p) => p.id === s.package_id);
     return {
@@ -282,16 +283,8 @@ export function OrderCard({ o, items, stockRemainingForOrder, nadPocetMalychSudu
           <span className="text-[11px] font-black text-neutral-700 shrink-0">
             {items.length} položek · {total} ks
           </span>
-          {o.note && <span className="text-udaj font-extrabold shrink-0 text-neutral-900 bg-amber-100 border border-amber-300 rounded-md px-1.5 py-0.5"><NotebookPen className="ikona-text" /> {o.note}</span>}
-          {o.whatsapp_message_id && (
-            <button
-              onClick={(e) => { e.stopPropagation(); onOpenWhatsApp && onOpenWhatsApp(o.whatsapp_message_id!); }}
-              className="text-udaj font-extrabold shrink-0 text-emerald-900 bg-emerald-100 border border-emerald-300 rounded-md px-1.5 py-0.5 hover:bg-emerald-200 flex items-center gap-1 tap"
-              title="Otevřít originální WhatsApp zprávu a kontrolu čtení (#18)"
-            >
-              <MessageCircle size={12} /> WhatsApp
-            </button>
-          )}
+          {/* Poznámka se zalamuje a ukáže CELÁ (dřív byla na jednom řádku a useklá). */}
+          {o.note && <span className="text-udaj font-extrabold min-w-0 max-w-full whitespace-normal break-words text-neutral-900 bg-amber-100 border border-amber-300 rounded-md px-1.5 py-0.5"><NotebookPen className="ikona-text" /> {o.note}</span>}
           {(() => { const _ph = places.find(p => p.id === o.place_id)?.phone; return _ph ? (
             <a href={`tel:${_ph}`} className="text-udaj text-sky-700 font-bold flex items-center gap-0.5 hover:underline shrink-0">
               <Phone size={12} /> <span>{_ph}</span>
@@ -326,10 +319,23 @@ export function OrderCard({ o, items, stockRemainingForOrder, nadPocetMalychSudu
               <span>Ke konci týdne chybí: {uniqueDeficits.map((d) => `${d.name} ${d.missing} ks`).join(', ')}</span>
             </span>
           ) : odbaveno ? null : items.length > 0 ? (
-            <span className="flex items-center gap-1 text-udaj font-black text-emerald-950 bg-emerald-100 border border-emerald-300 rounded-lg px-2 py-0.5 shadow-2xs">
-              <CheckCircle2 size={12} />
-              <span>Vše skladem</span>
-            </span>
+            <>
+              {jehoSudy.length < items.length && (
+                <span className="flex items-center gap-1 text-udaj font-black text-emerald-950 bg-emerald-100 border border-emerald-300 rounded-lg px-2 py-0.5 shadow-2xs">
+                  <CheckCircle2 size={12} />
+                  <span>Vše skladem</span>
+                </span>
+              )}
+              {jehoSudy.length > 0 && (
+                <span
+                  className="flex items-center gap-1 text-udaj font-black text-amber-950 bg-amber-100 border border-amber-300 rounded-lg px-2 py-0.5 shadow-2xs"
+                  title="Tyhle sudy jsou odběratele — sklad pivovaru je neobsahuje. Pivo se do nich musí stočit a zapsat ve Stáčení KEG."
+                >
+                  <AlertTriangle size={12} />
+                  <span>Do jeho sudů — zadej stáčení</span>
+                </span>
+              )}
+            </>
           ) : null}
           {o.is_prepared && <span className="chip bg-emerald-700 text-white font-black shadow-2xs flex items-center gap-1"><Check size={12} /> Připr.</span>}
 

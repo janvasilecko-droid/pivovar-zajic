@@ -12,10 +12,10 @@
 // Rozbalení si hostitel nese sám: `renderKarta` vrací přesně to, co se jinak
 // kreslí v seznamu karet.
 import { Fragment, useState, type ReactNode } from 'react';
-import { AlertTriangle, Check, CheckCircle2, ChevronDown, ChevronUp, MessageCircle, NotebookPen } from 'lucide-react';
+import { AlertTriangle, Check, CheckCircle2, ChevronDown, ChevronUp, NotebookPen } from 'lucide-react';
 import { poradiPolozekObjednavky } from '../../lib/poradiPolozek';
 import { schodkyObjednavky } from '../../lib/tydenniZbytek';
-import { bezSuduOdberatele } from '../../lib/vlastniSudy';
+import { bezSuduOdberatele, doSuduOdberatelePolozky } from '../../lib/vlastniSudy';
 import { jeVyrizena } from '../../lib/stavyObjednavek';
 import { Beer, Package, Place, beerBg, formatPackageLabel } from '../../lib/supabase';
 import { StitekStavu } from '../StitekStavu';
@@ -77,6 +77,7 @@ export function OrderTabulka({
             const skryto = seradene.length - viditelne.length;
             const celkem = polozky.reduce((s, i) => s + Number(i.quantity), 0);
             const odbaveno = o.is_delivered || jeVyrizena(o.status) || o.status === 'storno';
+            const jehoSudy = doSuduOdberatelePolozky(o.place_name, polozky, packages, o.note);
             const schodky = odbaveno ? [] : schodkyObjednavky(bezSuduOdberatele(o.place_name, polozky, packages, o.note), stockRemainingForOrder(o));
             const schodekText = schodky.map((s) => {
               const obal = packages.find((p) => p.id === s.package_id);
@@ -137,13 +138,21 @@ export function OrderTabulka({
                           <AlertTriangle size={12} /> chybí
                         </span>
                       ) : !odbaveno && polozky.length > 0 ? (
-                        <span title="Vše skladem" className="flex items-center gap-1 text-udaj font-black text-emerald-950 bg-emerald-100 border border-emerald-300 rounded px-1.5 py-0.5">
-                          <CheckCircle2 size={12} /> skladem
-                        </span>
+                        <>
+                          {jehoSudy.length < polozky.length && (
+                            <span title="Vše skladem" className="flex items-center gap-1 text-udaj font-black text-emerald-950 bg-emerald-100 border border-emerald-300 rounded px-1.5 py-0.5">
+                              <CheckCircle2 size={12} /> skladem
+                            </span>
+                          )}
+                          {jehoSudy.length > 0 && (
+                            <span data-testid="jeho-sudy" title="Sudy odběratele — sklad pivovaru je neobsahuje. Pivo se do nich musí stočit a zapsat ve Stáčení KEG." className="flex items-center gap-1 text-udaj font-black text-amber-950 bg-amber-100 border border-amber-300 rounded px-1.5 py-0.5">
+                              <AlertTriangle size={12} /> jeho sudy
+                            </span>
+                          )}
+                        </>
                       ) : null}
                       {o.is_prepared && <span className="chip bg-emerald-700 text-white font-black flex items-center gap-1"><Check size={12} /> Připr.</span>}
                       {o.is_delivered && <span className="chip bg-emerald-700 text-white font-black flex items-center gap-1"><Check size={12} /> Zavez.</span>}
-                      {o.whatsapp_message_id && <span title="Vznikla ze zprávy z WhatsAppu"><MessageCircle size={14} className="text-emerald-800" aria-label="WhatsApp" /></span>}
                       {o.note && <span title={o.note}><NotebookPen size={14} className="text-amber-800" aria-label="Poznámka" /></span>}
                     </div>
                   </td>
