@@ -208,6 +208,16 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
 
+      # ✉️ Šablony e-mailů Supabase (pozvánka, zapomenuté heslo) — předmět i tělo
+      # s návodem drží repozitář (src/lib/pozvanka.ts) a po nasazení se pošlou
+      # do Supabase. Bez SUPABASE_ACCESS_TOKEN se krok jen ohlásí. Nikdy
+      # neshodí nasazení: e-maily jsou vedlejší věc, web už běží.
+      - name: Šablony e-mailů Supabase
+        continue-on-error: true
+        run: npx vite-node scripts/nastav-emailove-sablony.mts
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
   # 🗄️ Databáze a edge funkce — dřív se musely nasazovat ručně a zapomínalo
   # se na to: aplikace byla na produkci, tabulka nebo funkce, kterou
   # potřebuje, ne. Běží AŽ po nasazení webu.
