@@ -21,7 +21,7 @@ import { vracenoPodleObjednavky } from '../../lib/vraceniZObjednavky';
 
 import { type Order, type OrderItem, dayColor, getTapNameForOrder } from './spolecne';
 
-export function OrderCard({ o, items, stockRemainingForOrder, nadPocetMalychSudu, sudyPoPolozce, selected, onToggleSelect, onClick, onToggleFlag, onToggleItemFlag, onUpdateDeliveryDay, onUpdateZavoz, onSetStatus, onDelete, onEdit, onSplit, onOpenWhatsApp, onVratitPivo, vracenoZaznamy, beers, packages, places, activeBeerId, activePackageId, itemMatchesFilter }: {
+export function OrderCard({ o, items, stockRemainingForOrder, nadPocetMalychSudu, sudyPoPolozce, selected, onToggleSelect, onClick, onToggleFlag, onToggleItemFlag, onUpdateDeliveryDay, onUpdateZavoz, onSetStatus, onDelete, onEdit, onSplit, onVratitPivo, vracenoZaznamy, beers, packages, places, activeBeerId, activePackageId, itemMatchesFilter }: {
   o: Order; items: OrderItem[];
   /**
    * Zbytek skladu ke konci týdne PRO TUHLE KONKRÉTNÍ objednávku — objednávky
@@ -45,7 +45,6 @@ export function OrderCard({ o, items, stockRemainingForOrder, nadPocetMalychSudu
   onEdit: (o: Order) => void;
   /** Rozdělit na dva odběratele (viz SplitOrderModal) — jen když má aspoň 2 položky. */
   onSplit: (o: Order) => void;
-  onOpenWhatsApp?: (messageId: string) => void;
   /** „Vrátit pivo" — otevře VratitPivoModal pro tuhle objednávku (viz Orders.tsx). */
   onVratitPivo?: (o: Order) => void;
   /** Řádky inventory_adjustments s order_id téhle objednávky — pro dopočet efektivního množství. */

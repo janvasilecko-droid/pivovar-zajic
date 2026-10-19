@@ -3,6 +3,7 @@
 // WhatsApp; a nejde přečíst poznámka, neukáže se celá."
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import type { Beer, Package } from '../../lib/supabase';
 import { OrderCard } from './OrderCard';
 import type { Order, OrderItem } from './spolecne';
 
@@ -21,7 +22,7 @@ const noop = () => {};
 const OBALY = [
   { id: 'k30', label: 'KEG 30l', kind: 'keg', volume_l: 30, sort_order: 1 },
   { id: 'k50', label: 'KEG 50l', kind: 'keg', volume_l: 50, sort_order: 2 },
-] as any[];
+] as unknown as Package[];
 
 function karta(extra: Partial<React.ComponentProps<typeof OrderCard>> = {}) {
   render(
@@ -29,8 +30,7 @@ function karta(extra: Partial<React.ComponentProps<typeof OrderCard>> = {}) {
       o={order} items={[polozka('i1', 'k30', 21), polozka('i2', 'k50', 5)]} stockRemainingForOrder={() => new Map()}
       selected={false} onToggleSelect={noop} onClick={noop} onToggleFlag={noop} onToggleItemFlag={noop}
       onUpdateDeliveryDay={noop} onSetStatus={noop} onDelete={noop} onDuplicate={noop} onEdit={noop} onSplit={noop}
-      onOpenWhatsApp={noop}
-      beers={[{ id: 'b1', name: '11° Světlá' } as any]} packages={OBALY} places={[]}
+      beers={[{ id: 'b1', name: '11° Světlá' }] as unknown as Beer[]} packages={OBALY} places={[]}
       {...extra}
     />,
   );
