@@ -10,10 +10,9 @@
 // a jde nainstalovat samostatně) a přihlášení ukládá pod JINÝ klíč — dá se být
 // v jedné jako správce a ve druhé jako běžný uživatel zároveň.
 //
-// Profil se pozná jednou při startu a pamatuje si ho karta (sessionStorage),
-// kdyby se při procházení z adresy `?profil=` ztratilo.
-const KLIC = 'zajic_profil';
-
+// Profil se pozná jednou při startu z adresy: cesta /zajic2/ (nebo starší ?profil=2).
+// Nic se nepamatuje v úložišti karty — jinak by hlavní aplikace v téže kartě po
+// návštěvě Zajíc 2 omylem převzala jeho profil.
 /** Povolené jméno profilu: pár písmen/číslic, ať se nedá podstrčit cokoli do klíče úložiště. */
 export function platnyProfil(v: unknown): string {
   return typeof v === 'string' && /^[a-z0-9]{1,8}$/i.test(v) ? v.toLowerCase() : '';
@@ -24,16 +23,8 @@ export const CESTA_DRUHE_APLIKACE = '/zajic2/';
 
 function zjistiProfil(): string {
   try {
-    if (/^\/zajic2(\/|$)/.test(window.location.pathname)) {
-      window.sessionStorage.setItem(KLIC, '2');
-      return '2';
-    }
-    const z = platnyProfil(new URLSearchParams(window.location.search).get('profil'));
-    if (z) {
-      window.sessionStorage.setItem(KLIC, z);
-      return z;
-    }
-    return platnyProfil(window.sessionStorage.getItem(KLIC));
+    if (/^\/zajic2(\/|$)/.test(window.location.pathname)) return '2';
+    return platnyProfil(new URLSearchParams(window.location.search).get('profil'));
   } catch {
     return '';
   }

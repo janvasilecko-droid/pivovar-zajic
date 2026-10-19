@@ -36,14 +36,18 @@ describe('výchozí plocha správce', () => {
     }
   });
 
-  it('podle práv: dlaždice bez práva se nekreslí, ostatní zůstanou přesně na místech správce', () => {
+  it('podle práv: dlaždice bez práva se nekreslí a ostatní se posunou zespodu na uvolněná místa', () => {
     const smi: Page[] = ['orders', 'kegging', 'bottling', 'dashboard'];
     const layout = getHomeLayout(null, smi, [], GRID_COLS_DESKTOP);
     expect(layout.pages[0]).toHaveLength(4);
     expect(layout.pages.flat()).not.toContain('users');
+    // Čtyři dlaždice nezůstanou rozházené po řádcích správce (y až 12) — jsou u sebe nahoře.
+    const radky = layout.pages[0].map((id) => layout.overrides[id]?.y ?? 0);
+    expect(Math.max(...radky)).toBeLessThanOrEqual(1);
+    // Barvy a velikosti zůstávají jeho.
     for (const id of smi) {
-      const o = (VYCHOZI_PLOCHA.overrides as Record<string, { x: number; y: number; color: string }>)[id];
-      expect(layout.overrides[id], id).toMatchObject({ x: o.x, y: o.y, color: o.color });
+      const o = (VYCHOZI_PLOCHA.overrides as Record<string, { color: string }>)[id];
+      expect(layout.overrides[id]?.color, id).toBe(o.color);
     }
   });
 

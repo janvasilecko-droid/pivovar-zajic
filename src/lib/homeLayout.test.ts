@@ -22,7 +22,8 @@ describe('getHomeLayout', () => {
     // Nová plocha je výchozí plocha správce (lib/vychoziPlocha.ts): pořadí dlaždic
     // určuje ona, filtrují se podle práv (visibleIds). Poslední prázdná stránka je
     // místo na přidávání (ensureTrailingEmptyPage).
-    expect(layout.pages).toEqual([[B, A, C], []]);
+    // Správce nesmí vidět všechno → dlaždice se srovnají do řádků (shora dolů, zleva doprava).
+    expect(layout.pages).toEqual([[A, C, B], []]);
     expect(layout.tileOpacity).toBeCloseTo(0.9);
     // Spodní lišta správce: Lahve · Sklad · Domů · Fasování · KEG · Objednávky. Co uživatel
     // nesmí vidět (v testu 'bottling' a 'prodejna'), spadne na 'home'.
@@ -33,7 +34,7 @@ describe('getHomeLayout', () => {
   it('prázdná nebo poškozená plocha (jen „home“ v liště, žádné dlaždice) dostane výchozí plochu správce', () => {
     const rozbita = { pages: [['cd_t_1'], [], []], dock: ['home', 'home', 'home', 'home'], tileOpacity: 0.9 };
     const layout = getHomeLayout(rozbita, [A, B, C]);
-    expect(layout.pages[0]).toEqual([B, A, C]);
+    expect(layout.pages[0]).toEqual([A, C, B]);
     expect(layout.pages[0]).not.toContain('cd_t_1');
     expect(layout.dock).toEqual(['home', 'dashboard', 'home', 'home', 'kegging', 'orders']);
   });
@@ -127,7 +128,7 @@ describe('getHomeLayout', () => {
     // Výchozí plocha správce obsahuje i některé rozšiřující dlaždice (např. Nakládku),
     // které se ukážou tomu, kdo na ně má právo; jinak se nikdy samy nepřidávají.
     const layout = getHomeLayout(null, [A], [B]);
-    expect(layout.pages).toEqual([[B, A], []]);
+    expect(layout.pages).toEqual([[A, B], []]);
     const vlastni = getHomeLayout({ rozlozeniVerze: ROZLOZENI_VERZE, pages: [[A]] }, [A], [B]);
     expect(vlastni.pages).toEqual([[A], []]);
     const withExtra = getHomeLayout({ rozlozeniVerze: ROZLOZENI_VERZE, pages: [[A, B]] }, [A], [B]);
