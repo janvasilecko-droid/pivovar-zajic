@@ -19,7 +19,7 @@ describe('pozvánka do aplikace', () => {
 
   it('bez přístupu heslo v e-mailu není — posílá se zvlášť', () => {
     const t = textPozvanky();
-    expect(t).toContain('Přijde ti e-mail s odkazem');
+    expect(t).toContain('Správce ti poslal druhý e-mail');
     expect(t).toContain('Zapomněl(a) jsem heslo');
     expect(t).not.toMatch(/heslo:\s*\S+/i);
   });
@@ -32,7 +32,7 @@ describe('pozvánka do aplikace', () => {
     expect(q.get('body')).toContain('Ahoj');
     expect(q.get('body')).toContain('https://priklad.cz/');
     expect(m).not.toContain('+');
-    expect(m.length).toBeLessThanOrEqual(1900);
+    expect(m.length).toBeLessThanOrEqual(16000);
   });
 
   it('odkaz mimo prohlížeč je adresa ostrého provozu', () => {
@@ -50,14 +50,15 @@ describe('pozvánka: co v aplikaci všechno je', () => {
   });
 
   it('plný text pozvánky nese přehled; krátký ho vynechá', () => {
-    expect(textPozvanky('https://x.cz/')).toContain('5) CO V APLIKACI VŠECHNO JE');
-    expect(textPozvanky('https://x.cz/', undefined, 'zadny')).not.toContain('5) CO V APLIKACI');
+    expect(textPozvanky('https://x.cz/')).toContain('KROK 5 — CO V APLIKACI VŠECHNO JE');
+    expect(textPozvanky('https://x.cz/', undefined, 'zadny')).not.toContain('KROK 5');
   });
 
   it('mailto se vejde do limitu adresy a vždy nese odkaz na Info; plný text jde zkopírovat', () => {
     const m = mailtoPozvanky('a@b.cz', 'https://x.cz/', 'Abc123xyz9');
-    expect(m.length).toBeLessThanOrEqual(1900);
+    expect(m.length).toBeLessThanOrEqual(16000);
     expect(decodeURIComponent(m)).toContain('Info');
+    expect(decodeURIComponent(m)).toContain('Založte si své heslo');
     expect(decodeURIComponent(m)).toContain('Abc123xyz9');
   });
 
@@ -71,5 +72,16 @@ describe('pozvánka: co v aplikaci všechno je', () => {
     }
     expect(sablonaEmailuSupabase('pozvanka')).toContain('Správce ti schválil přístup');
     expect(sablonaEmailuSupabase('obnova')).toContain('Nastavit nové heslo');
+  });
+
+  it('e-mail s pozvánkou nese postup hesla, instalace (s ikonami), použití i přehled aplikace', () => {
+    const t = textPozvanky('https://x.cz/');
+    for (const kus of ['KROK 1', 'KROK 2', 'KROK 3', 'KROK 4', 'KROK 5', 'Založte si své heslo', '⋮', '⬆', 'Přidat na plochu', 'Nový uživatel', 'Zelená tečka', 'Uložit']) {
+      expect(t, kus).toContain(kus);
+    }
+    const m = decodeURIComponent(mailtoPozvanky('a@b.cz', 'https://x.cz/'));
+    // Celý text se do telefonního mailto: vejde — žádné zkrácení na pár řádků.
+    expect(m).toContain('KROK 5');
+    expect(m).toContain('Umí:');
   });
 });

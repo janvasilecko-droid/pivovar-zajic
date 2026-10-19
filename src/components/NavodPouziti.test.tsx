@@ -17,7 +17,7 @@ const bezDiakritiky = (s: string) =>
   s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 
 const CELY_TEXT = bezDiakritiky(
-  NAVOD_ODDILY.flatMap((o) => [o.nazev, o.kCemu, ...o.body.flatMap((b) => [b.co, b.jak])]).join(' · ')
+  NAVOD_ODDILY.flatMap((o) => [o.nazev, o.kCemu, ...o.body.flatMap((b) => [b.co, b.jak, ...(b.klepni ?? []).flatMap((k) => [k.co, k.kde])])]).join(' · ')
 );
 
 describe('návod k použití', () => {
@@ -146,10 +146,30 @@ describe('návod k použití', () => {
     });
 
     it('vede člověka od odkazu přes instalaci a přihlášení k odpočtům', () => {
-      const text = bezDiakritiky(zaciname!.body.map((b) => `${b.co} ${b.jak}`).join(' '));
+      const text = bezDiakritiky(zaciname!.body.map((b) => `${b.co} ${b.jak} ${(b.klepni ?? []).map((k) => `${k.co} ${k.kde}`).join(' ')}`).join(' '));
       for (const slovo of ['odkaz', 'google play', 'pridat na plochu', 'zalozte si sve heslo', 'zapomnel', 'casovac', 'odecist ted', 'zelena tecka']) {
         expect(text, slovo).toContain(slovo);
       }
+    });
+
+    it('instalace a první přihlášení jsou po krocích s ikonou: co přesně klepnout a kde to najdu', () => {
+      const kroky = zaciname!.body.filter((b) => b.klepni);
+      expect(kroky.length).toBeGreaterThanOrEqual(4); // Android, iPhone, první přihlášení, plocha
+      for (const b of kroky) {
+        for (const k of b.klepni!) {
+          expect(k.co.length, `${b.co} → ${k.co}`).toBeGreaterThan(5);
+          expect(k.kde.length, `${b.co} → ${k.co}`).toBeGreaterThan(10);
+        }
+      }
+      const android = zaciname!.body.find((b) => b.co.includes('Android'))!;
+      expect(android.klepni!.map((k) => k.co).join(' ')).toMatch(/tři svislé tečky.*Nainstalovat aplikaci.*Nainstalovat/);
+      const iphone = zaciname!.body.find((b) => b.co.includes('iPhone'))!;
+      expect(iphone.klepni!.map((k) => k.co).join(' ')).toMatch(/Sdílet.*Přidat na plochu.*Přidat/);
+    });
+
+    it('v otevřeném oddílu se kroky kreslí jako číslovaný seznam s ikonami', () => {
+      render(<NavodPouziti />);
+      expect(screen.getAllByLabelText('Kam klepnout').length).toBeGreaterThanOrEqual(4);
     });
 
     it('slovník ikon pokrývá spodní lištu, lupu a Info', () => {

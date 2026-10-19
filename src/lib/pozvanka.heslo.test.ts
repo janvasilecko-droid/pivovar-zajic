@@ -8,7 +8,7 @@ describe('zpráva s dočasným heslem', () => {
     expect(t).toContain('https://priklad.cz/');
     expect(t).toContain('E-mail: a@b.cz');
     expect(t).toContain('Dočasné heslo: Abc123xyz9');
-    expect(t).toContain('Vlastní heslo');
+    expect(t).toContain('Založte si své heslo');
   });
 });
 

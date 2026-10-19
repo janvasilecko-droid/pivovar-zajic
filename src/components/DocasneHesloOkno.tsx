@@ -1,6 +1,6 @@
 import { Copy, KeyRound, Mail } from 'lucide-react';
 import { Modal } from './ui';
-import { mailtoPozvanky, textSHeslem } from '../lib/pozvanka';
+import { mailtoPozvanky, sdilejPozvanku, textSHeslem } from '../lib/pozvanka';
 import { chyba, uspech } from '../lib/toast';
 
 // 🔑 Dočasné heslo nově schváleného (nebo znovu nastaveného) uživatele.
@@ -33,6 +33,17 @@ export function DocasneHesloOkno({ email, heslo, onClose }: { email: string; hes
           <a href={mailtoPozvanky(email, undefined, heslo)} className="btn-ghost !rounded w-full text-sm font-black flex items-center justify-center gap-2">
             <Mail size={16} /> Poslat e-mailem: pozvánka + návod + heslo
           </a>
+          <button
+            type="button"
+            className="btn-ghost !rounded w-full text-sm font-black flex items-center justify-center gap-2"
+            onClick={async () => {
+              const r = await sdilejPozvanku(email, heslo);
+              if (r === 'zkopirovano') uspech('Celá pozvánka je zkopírovaná — vlož ji do e-mailu nebo WhatsAppu.');
+              else if (r === 'selhalo') chyba('Pozvánku se nepodařilo sdílet ani zkopírovat.');
+            }}
+          >
+            <Mail size={16} /> Sdílet celou pozvánku (Seznam, WhatsApp…)
+          </button>
           <button type="button" className="btn-ghost !rounded w-full text-sm font-black flex items-center justify-center gap-2" onClick={() => kopiruj(textSHeslem(email, heslo), 'Celá pozvánka s heslem je zkopírovaná — vlož ji do WhatsAppu.')}>
             <Copy size={16} /> Kopírovat celou pozvánku (WhatsApp)
           </button>

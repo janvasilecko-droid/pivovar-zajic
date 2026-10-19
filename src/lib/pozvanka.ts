@@ -32,39 +32,66 @@ export function prehledAplikace(podrobne = true): string[] {
 export type PrehledAplikace = 'podrobny' | 'strucny' | 'zadny';
 
 export function textPozvanky(odkaz: string = odkazAplikace(), pristup?: Pristup, prehled: PrehledAplikace = 'podrobny'): string {
+  const heslo = pristup
+    ? [
+      'Přihlásíš se tímto:',
+      `   E-mail: ${pristup.email}`,
+      `   Dočasné heslo: ${pristup.heslo}`,
+      '1. Otevři aplikaci (krok 1) a do prvního pole napiš e-mail, do druhého dočasné heslo.',
+      '2. Klepni na tlačítko „Vstoupit do pivovaru“.',
+      '3. Hned se ukáže okno „Založte si své heslo“. Napiš si NOVÉ vlastní heslo (aspoň 6 znaků) do obou polí a klepni na „Uložit heslo a pokračovat“.',
+      '4. Hotovo, jsi uvnitř. Dočasné heslo už nepotřebuješ — příště se přihlásíš e-mailem a svým heslem.',
+    ]
+    : [
+      '1. Správce ti poslal druhý e-mail s velkým žlutým tlačítkem „Otevřít aplikaci a nastavit heslo“ (podívej se i do spamu). Klepni na něj.',
+      '2. Aplikace se ti sama otevře a ukáže okno „Založte si své heslo“. Napiš si heslo (aspoň 6 znaků) do obou polí a klepni na „Uložit heslo a pokračovat“.',
+      '3. Hotovo, jsi uvnitř. Příště se přihlásíš e-mailem a svým heslem.',
+      'E-mail s tlačítkem nedorazil nebo odkaz vypršel (platí krátce a jen jednou)? Otevři aplikaci, klepni na „Nový uživatel“, napiš svůj e-mail a klepni na „Poslat odkaz do e-mailu“.',
+    ];
+  const zapomenute = 'Zapomeneš-li heslo — na přihlašovací obrazovce klepni na „Zapomněl(a) jsem heslo“ — pošle se ti odkaz, kterým si nastavíš nové.';
   return [
     'Ahoj,',
     '',
-    'dostal(a) jsi přístup do aplikace Pivovar Zajíc — objednávky, sklad a stáčení na jednom místě.',
+    'dostal(a) jsi přístup do aplikace Pivovar Zajíc — objednávky, sklad a stáčení piva na jednom místě. Tady je celý postup krok za krokem.',
     '',
-    '1) OTEVŘI ODKAZ (v telefonu):',
+    '━━ KROK 1 — OTEVŘI APLIKACI ━━',
+    'Klepni na odkaz (nebo ho zkopíruj do prohlížeče v telefonu):',
     odkaz,
     '',
-    '2) DEJ SI APLIKACI NA PLOCHU — není to z obchodu Google Play ani App Store, stačí prohlížeč:',
-    '• Android (Chrome): klepni na tři tečky vpravo nahoře → „Nainstalovat aplikaci“ (nebo „Přidat na plochu“).',
-    '• iPhone (Safari): klepni na Sdílet (čtvereček se šipkou dole) → „Přidat na plochu“.',
-    '• Počítač (Chrome / Edge): ikonka instalace v adresním řádku vpravo.',
-    '• Nebo v aplikaci: Aplikace & Nastavení → Instalace aplikace.',
-    'Na ploše se objeví ikona se zajícem; otevírá se jako běžná aplikace na celou obrazovku.',
+    '━━ KROK 2 — NASTAV SI SVOJE HESLO ━━',
+    ...heslo,
+    zapomenute,
     '',
-    '3) PŘIHLÁŠENÍ:',
-    ...(pristup
-      ? [`• E-mail: ${pristup.email}`, `• Dočasné heslo: ${pristup.heslo}`]
-      : ['• Přijde ti e-mail s odkazem (podívej se i do spamu). Klepni na něj — aplikace se ti rovnou otevře a nastavíš si své heslo.', '• Příště se přihlásíš e-mailem a svým heslem. Zapomeneš-li ho, na přihlašovací obrazovce klepni na „Zapomněl(a) jsem heslo“ a pošle se ti odkaz.']),
-    '• Vlastní heslo má aspoň 6 znaků. Dočasné heslo (pokud ho dostaneš) platí jen do prvního přihlášení.',
+    '━━ KROK 3 — DEJ SI IKONU NA PLOCHU ━━',
+    'Nestahuje se z Google Play ani z App Store, stačí prohlížeč.',
+    'ANDROID (Chrome):',
+    '   1. Vpravo nahoře klepni na ikonu ⋮ (tři svislé tečky).',
+    '   2. Klepni na „Nainstalovat aplikaci“ (nebo „Přidat na plochu“) a potvrď „Nainstalovat“.',
+    'IPHONE (Safari):',
+    '   1. Dole klepni na ikonu ⬆ Sdílet (čtvereček se šipkou nahoru).',
+    '   2. Sjeď níž a klepni na ➕ „Přidat na plochu“, vpravo nahoře potvrď „Přidat“.',
+    'POČÍTAČ (Chrome / Edge): vpravo v adresním řádku klepni na ikonku „Nainstalovat“ (monitor se šipkou).',
+    'Na ploše se objeví ikona se zajícem — od teď aplikaci otevíráš z ní, na celou obrazovku.',
     '',
-    '4) JAK NA TO:',
-    'V aplikaci klepni na dlaždici „Info“ (nebo na „?“ vedle lupy nahoře). Oddíl „Začínáme“ je napsaný od nuly: co která ikona znamená, kde se co zapisuje a jak fungují odpočty a odečty ze skladu.',
+    '━━ KROK 4 — JAK SE APLIKACE POUŽÍVÁ ━━',
+    '• Po přihlášení vidíš PLOCHU s barevnými dlaždicemi. Klepnutím na dlaždici ji otevřeš.',
+    '• DOLE je lišta: Lahve, Sklad, Domů, Fasování, KEG, Objednávky. Tlačítko „Domů“ tě vždycky vrátí na plochu.',
+    '• NAHOŘE je 🔍 lupa — hledá odběratele, piva i obrazovky. Dlaždice „Info“ (písmeno i v kolečku) otevře návod.',
+    '• Zapisuje se všude stejně: vyber pivo, vyber obal (sud nebo lahev), napiš počet a klepni na „Uložit“.',
+    '• Zelená tečka vpravo nahoře = jsi online. Červená = nemáš signál; zápis se uloží a odešle sám, až signál bude.',
+    '• Co jsi nedopsal, zůstane rozepsané a neztratí se. Špatný zápis jde v přehledu opravit nebo smazat (tužka a koš u řádku).',
+    '• Sklad se přepočítá sám: stáčení kusy přičte, závoz objednávky, fasování, prodejna a odpis je odečtou.',
+    '• V Info → „Začínáme“ je návod od nuly s obrázky ikon: kam přesně klepnout, jak fungují odpočty a odečty ze skladu.',
     '',
     ...(prehled === 'zadny'
       ? []
-      : ['5) CO V APLIKACI VŠECHNO JE (každý oddíl se v Info rozbalí a má postupy):', ...prehledAplikace(prehled === 'podrobny'), '']),
-    'Když se něco nedaří, napiš do „Zpětné vazby“ v aplikaci, nebo mi zavolej.',
+      : ['━━ KROK 5 — CO V APLIKACI VŠECHNO JE ━━', '(každý oddíl se v Info rozbalí a má postupy)', ...prehledAplikace(prehled === 'podrobny'), '']),
+    'Když se něco nedaří, napiš do „Zpětné vazby“ v aplikaci, nebo se ozvi správci.',
   ].join('\n');
 }
 
-/** Nejvíc znaků, které mailto: bezpečně unese (Outlook a část prohlížečů ořezávají kolem 2 000). */
-const MAX_MAILTO = 1900;
+/** Nejvíc znaků v odkazu mailto: — telefon a Chrome unesou desítky tisíc, starý Outlook na počítači kolem 2 000 (tam jde celý text zkopírovat / sdílet). */
+const MAX_MAILTO = 16000;
 
 /**
  * Odkaz `mailto:` s předvyplněným předmětem a textem. Dlouhý text (celý přehled
@@ -148,4 +175,28 @@ ${prehled}
 </ul>
 <p style="color:#777;font-size:13px">Když se něco nedaří, napiš do „Zpětné vazby“ v aplikaci, nebo se ozvi správci.</p>
 </div>`;
+}
+
+/**
+ * Pošle celou pozvánku přes sdílení telefonu (Seznam, Gmail, WhatsApp, SMS…) —
+ * bez omezení délky, jaké má odkaz mailto:. Kde sdílení není (počítač), text se
+ * zkopíruje. Vrací, co se stalo.
+ */
+export async function sdilejPozvanku(email: string, heslo?: string): Promise<'sdileno' | 'zkopirovano' | 'selhalo'> {
+  const text = textPozvanky(odkazAplikace(), heslo ? { email, heslo } : undefined);
+  try {
+    if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+      await navigator.share({ title: PREDMET_POZVANKY, text });
+      return 'sdileno';
+    }
+  } catch (e) {
+    // Zavřené sdílecí okno není chyba.
+    if ((e as { name?: string })?.name === 'AbortError') return 'sdileno';
+  }
+  try {
+    await navigator.clipboard.writeText(text);
+    return 'zkopirovano';
+  } catch {
+    return 'selhalo';
+  }
 }

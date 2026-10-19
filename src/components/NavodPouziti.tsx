@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AlarmClock, BarChart3, Car, ChevronDown, ClipboardList, FileSpreadsheet, FlaskConical, Home, Hourglass, LayoutGrid, Info, type LucideIcon, Rocket, Search, Settings, Shield, ShoppingBag, Sparkles, Store, Tag, Users } from 'lucide-react';
+import { AlarmClock, BarChart3, Car, ChevronDown, ClipboardList, FileSpreadsheet, FlaskConical, CircleCheck, Download as DownloadIkona, EllipsisVertical, Hand, Home, Hourglass, KeyRound, LayoutGrid, Info, Mail, type LucideIcon, Rocket, Search, Settings, Share, SquarePlus, Shield, ShoppingBag, Sparkles, Store, Tag, Users } from 'lucide-react';
 import { IkonaSud, IkonaLahev } from './ikony';
 import { APP_VERSION, APP_VERSION_DATE } from '../lib/version';
 
@@ -16,6 +16,9 @@ import { APP_VERSION, APP_VERSION_DATE } from '../lib/version';
 // u linky. Souvislý text přes patnáct obrazovek se neroluje, ten se vzdá —
 // takhle je vidět rozcestník a otevře se jen to, co je zrovna potřeba.
 
+/** Jeden krok „klepni sem“: ikona přesně tak, jak ji uživatel uvidí, a kde ji najde. */
+type Krok = { ikona: LucideIcon; co: string; kde: string };
+
 type Oddil = {
   klic: string;
   nazev: string;
@@ -23,7 +26,7 @@ type Oddil = {
   /** Jedna věta: k čemu ta část aplikace je. */
   kCemu: string;
   /** Konkrétní funkce a postupy. */
-  body: { co: string; jak: string }[];
+  body: { co: string; jak: string; klepni?: Krok[] }[];
   /** Obrázkový slovník: ikona a její význam (pro toho, kdo appku vidí poprvé). */
   ikony?: { ikona: LucideIcon; nazev: string; vyznam: string }[];
 };
@@ -40,16 +43,46 @@ const ODDILY: Oddil[] = [
         jak: 'V e-mailu od správce je odkaz na aplikaci — otevři ho v telefonu (Android: Chrome, iPhone: Safari). Nic se nestahuje z obchodu Google Play ani z App Store, aplikace běží v prohlížeči.',
       },
       {
-        co: '2. Dej si ikonu na plochu',
-        jak: 'Android (Chrome): tři tečky vpravo nahoře → „Nainstalovat aplikaci“ nebo „Přidat na plochu“. iPhone (Safari): tlačítko Sdílet (čtvereček se šipkou) → „Přidat na plochu“. Počítač: ikonka instalace v adresním řádku. Jde to i později v Nastavení → „Instalace aplikace“ (tlačítko „Nainstalovat aplikaci na plochu“). Na ploše se objeví ikona Zajíc a otevírá se na celou obrazovku jako běžná aplikace.',
+        co: '2. Dej si ikonu na plochu — Android (Chrome)',
+        jak: 'Otevři odkaz v Chromu a udělej tohle (nic se nestahuje z Google Play ani z App Store). Na ploše se objeví ikona se zajícem a aplikace se z ní otevírá na celou obrazovku.',
+        klepni: [
+          { ikona: EllipsisVertical, co: 'Klepni na tři svislé tečky', kde: 'Vpravo nahoře v Chromu (ikona ⋮).' },
+          { ikona: DownloadIkona, co: 'Klepni na „Nainstalovat aplikaci“', kde: 'V rozbaleném menu; někdy se jmenuje „Přidat na plochu“.' },
+          { ikona: CircleCheck, co: 'Potvrď „Nainstalovat“', kde: 'V okénku, které vyskočí. Ikona je pak na ploše telefonu.' },
+        ],
       },
       {
-        co: '3. První přihlášení',
+        co: '2. Dej si ikonu na plochu — iPhone (Safari)',
+        jak: 'Na iPhonu to jde jen v Safari (ne v Chromu). Otevři odkaz v Safari a udělej tohle.',
+        klepni: [
+          { ikona: Share, co: 'Klepni na Sdílet', kde: 'Dole uprostřed v Safari — čtvereček se šipkou nahoru.' },
+          { ikona: SquarePlus, co: 'Klepni na „Přidat na plochu“', kde: 'Sjeď v nabídce trochu níž; ikona je čtvereček s plusem.' },
+          { ikona: CircleCheck, co: 'Vpravo nahoře klepni na „Přidat“', kde: 'Ikona se zajícem je pak na ploše.' },
+        ],
+      },
+      {
+        co: '2. Dej si ikonu na plochu — počítač a později',
+        jak: 'Na počítači (Chrome nebo Edge) klepni vpravo v adresním řádku na ikonku instalace (monitor se šipkou) → „Nainstalovat“. Kdykoli později to jde v aplikaci: Nastavení → „Instalace aplikace“ → tlačítko „Nainstalovat aplikaci na plochu“.',
+      },
+      {
+        co: '3. První přihlášení — nastav si heslo',
         jak: 'Správce ti schválí e-mail a na něj přijde pozvánka s odkazem. Otevři ji v telefonu a klepni na odkaz — aplikace se ti rovnou otevře a nabídne „Založte si své heslo“. Vymysli si heslo (aspoň 6 znaků), ulož a jsi uvnitř. Příště se přihlásíš e-mailem a svým heslem. Pozvánka nedorazila? Podívej se do spamu, nebo na přihlašovací obrazovce klepni na „Zapomněl(a) jsem heslo / první přihlášení“ — pošle se ti nový odkaz. Odkaz platí krátce a jen jednou. Na svém telefonu zůstaneš přihlášený, neodhlašuj se, když nemusíš.',
+        klepni: [
+          { ikona: Mail, co: 'Otevři e-mail od správce', kde: 'Pozvánka do aplikace Pivovar Zajíc. Nedorazila? Podívej se do spamu.' },
+          { ikona: Hand, co: 'Klepni na žluté tlačítko „Otevřít aplikaci a nastavit heslo“', kde: 'Aplikace se ti sama otevře.' },
+          { ikona: KeyRound, co: 'Napiš si své heslo do obou polí', kde: 'Okno „Založte si své heslo“. Aspoň 6 znaků.' },
+          { ikona: CircleCheck, co: 'Klepni na „Uložit heslo a pokračovat“', kde: 'Jsi uvnitř. Příště e-mail a tvoje heslo.' },
+        ],
       },
       {
         co: '4. Kde to jsem: plocha',
         jak: 'Po přihlášení vidíš plochu s dlaždicemi (velká barevná tlačítka). Klepnutím se dlaždice otevře, tlačítko Zpět nebo klepnutí na Domů dole tě vrátí. Přejetím prstem do stran se listuje mezi třemi stránkami dlaždic. Nic se nerozbije — nejhorší, co se může stát, je, že omylem otevřeš jinou obrazovku.',
+        klepni: [
+          { ikona: LayoutGrid, co: 'Dlaždice = velká barevná tlačítka', kde: 'Klepnutím na dlaždici otevřeš obrazovku (Objednávky, Sklep, Fasování…).' },
+          { ikona: Home, co: 'Domů — dole na liště', kde: 'Vždy tě vrátí na plochu s dlaždicemi.' },
+          { ikona: Search, co: 'Lupa — hledání', kde: 'Najde odběratele, pivo i obrazovku.' },
+          { ikona: Info, co: 'Info — tenhle návod', kde: 'Dlaždice na ploše; otevře návody ke všemu.' },
+        ],
       },
       {
         co: '5. Jak se zapisuje (stejně všude)',
@@ -617,6 +650,22 @@ function OddilBlok({ oddil, otevreny, prepni }: { oddil: Oddil; otevreny: boolea
             <li key={b.co} className="px-3.5 py-2.5">
               <div className="font-black text-neutral-900 text-sm">{b.co}</div>
               <div className="text-sm text-neutral-700 leading-relaxed mt-0.5">{b.jak}</div>
+              {b.klepni && (
+                <ol className="mt-2 space-y-2" aria-label="Kam klepnout">
+                  {b.klepni.map((k, i) => (
+                    <li key={k.co} className="flex items-center gap-3 rounded border border-amber-200 bg-amber-50/60 p-2">
+                      <span className="shrink-0 w-6 h-6 rounded-full bg-amber-500 text-neutral-950 text-xs font-black grid place-items-center">{i + 1}</span>
+                      <span className="shrink-0 w-12 h-12 grid place-items-center rounded-lg bg-white border-2 border-amber-400 text-neutral-900">
+                        <k.ikona size={26} aria-hidden="true" />
+                      </span>
+                      <span className="min-w-0 text-sm leading-snug">
+                        <strong className="text-neutral-900">{k.co}</strong>
+                        <span className="block text-neutral-600">{k.kde}</span>
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              )}
             </li>
           ))}
           {oddil.ikony && (
