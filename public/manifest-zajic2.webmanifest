@@ -4,8 +4,8 @@
   "description": "Druhá instalace aplikace Pivovar Zajíc s vlastním přihlášením — na kontrolu, jak aplikaci vidí běžný uživatel.",
   "lang": "cs",
   "dir": "ltr",
-  "start_url": "./?profil=2",
-  "scope": "./",
+  "start_url": "/zajic2/",
+  "scope": "/zajic2/",
   "display": "standalone",
   "orientation": "portrait-primary",
   "background_color": "#ffffff",
@@ -17,19 +17,19 @@
   ],
   "icons": [
     {
-      "src": "./icon-2-192.png",
+      "src": "/icon-2-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "./icon-2-512.png",
+      "src": "/icon-2-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "./icon-2-maskable-512.png",
+      "src": "/icon-2-maskable-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
@@ -39,10 +39,10 @@
     {
       "name": "Stáčení KEG",
       "short_name": "KEG",
-      "url": "./?page=kegging&profil=2",
+      "url": "/zajic2/?page=kegging",
       "icons": [
         {
-          "src": "./icon-2-192.png",
+          "src": "/icon-2-192.png",
           "sizes": "192x192"
         }
       ]
@@ -50,10 +50,10 @@
     {
       "name": "Stáčení lahví",
       "short_name": "Lahve",
-      "url": "./?page=bottling&profil=2",
+      "url": "/zajic2/?page=bottling",
       "icons": [
         {
-          "src": "./icon-2-192.png",
+          "src": "/icon-2-192.png",
           "sizes": "192x192"
         }
       ]
@@ -61,10 +61,10 @@
     {
       "name": "Objednávky",
       "short_name": "Objednávky",
-      "url": "./?page=orders&profil=2",
+      "url": "/zajic2/?page=orders",
       "icons": [
         {
-          "src": "./icon-2-192.png",
+          "src": "/icon-2-192.png",
           "sizes": "192x192"
         }
       ]
@@ -72,14 +72,14 @@
     {
       "name": "Rozvoz objednávek",
       "short_name": "Rozvoz",
-      "url": "./?page=orders_zavoz&profil=2",
+      "url": "/zajic2/?page=orders_zavoz",
       "icons": [
         {
-          "src": "./icon-2-192.png",
+          "src": "/icon-2-192.png",
           "sizes": "192x192"
         }
       ]
     }
   ],
-  "id": "./?profil=2"
+  "id": "/zajic2/"
 }

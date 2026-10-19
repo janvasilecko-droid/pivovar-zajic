@@ -280,7 +280,11 @@ export default function AppSettingsScreen({ setPage }: { setPage?: (p: any, sec?
       <div className="card p-6">
         <h2 className="font-display font-bold text-lg flex items-center gap-2"><Smartphone size={18} /> Zajíc 2 — druhá aplikace s jiným účtem</h2>
         {JE_DRUHA_APLIKACE ? (
-          <p className="text-sm text-emerald-700 font-bold mt-2">Právě jsi v aplikaci Zajíc 2. Přihlášení je oddělené od hlavní aplikace.</p>
+          <>
+            <p className="text-sm text-emerald-700 font-bold mt-2">Právě jsi v aplikaci Zajíc 2. Přihlášení je oddělené od hlavní aplikace.</p>
+            <p className="text-sm text-neutral-600 mt-2">Chceš ji mít jako samostatnou ikonu? Nainstaluj ji přímo odsud:</p>
+            <div className="mt-3"><InstalaceKroky pripravenaInstalace={!!installPrompt} naInstalaci={handleInstall} /></div>
+          </>
         ) : (
           <>
             <p className="text-sm text-neutral-600 mt-2">

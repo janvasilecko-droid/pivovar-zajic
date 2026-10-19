@@ -186,6 +186,6 @@ try {
 // Service worker (offline/PWA) funguje jen na http(s), ne přes file://
 if ('serviceWorker' in navigator && location.protocol !== 'file:' && import.meta.env.PROD) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch(() => {});
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
   });
 }
