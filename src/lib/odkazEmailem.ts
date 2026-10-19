@@ -9,9 +9,11 @@
 // E-maily rozesílá Supabase. Aby chodily na adresy mimo tým a víc než pár za
 // hodinu, musí majitel v Supabase nastavit vlastní SMTP (Authentication → SMTP).
 import { supabase } from './supabase';
+import { CESTA_DRUHE_APLIKACE, JE_DRUHA_APLIKACE } from './profilAplikace';
 
 function navratovaAdresa(): string {
-  return typeof window !== 'undefined' ? `${window.location.origin}/` : '/';
+  // Zajíc 2 se vrací do sebe (/zajic2/), ne do hlavní aplikace.
+  return typeof window !== 'undefined' ? `${window.location.origin}${JE_DRUHA_APLIKACE ? CESTA_DRUHE_APLIKACE : '/'}` : '/';
 }
 
 export const NENI_OVERENY = 'Tento e-mail není ověřený. Kontaktujte administrátora, ať ho schválí.';

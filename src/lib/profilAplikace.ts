@@ -5,8 +5,9 @@
 // popisují ženy / běžní uživatelé“.
 //
 // Obě aplikace jsou na téže adrese, a tak by sdílely přihlášení (token leží
-// v úložišti prohlížeče pod jedním klíčem). Druhá se proto spouští s `?profil=2`
-// (start_url jejího manifestu) a přihlášení ukládá pod JINÝ klíč — dá se být
+// v úložišti prohlížeče pod jedním klíčem). Druhá proto běží na vlastní cestě
+// `/zajic2/` (vlastní manifest s vlastním rozsahem, takže se s hlavní nepřekrývá
+// a jde nainstalovat samostatně) a přihlášení ukládá pod JINÝ klíč — dá se být
 // v jedné jako správce a ve druhé jako běžný uživatel zároveň.
 //
 // Profil se pozná jednou při startu a pamatuje si ho karta (sessionStorage),
@@ -18,8 +19,15 @@ export function platnyProfil(v: unknown): string {
   return typeof v === 'string' && /^[a-z0-9]{1,8}$/i.test(v) ? v.toLowerCase() : '';
 }
 
+/** Druhá aplikace žije na vlastní cestě /zajic2/ (vlastní rozsah = vlastní instalace, žádné překrývání s hlavní). */
+export const CESTA_DRUHE_APLIKACE = '/zajic2/';
+
 function zjistiProfil(): string {
   try {
+    if (/^\/zajic2(\/|$)/.test(window.location.pathname)) {
+      window.sessionStorage.setItem(KLIC, '2');
+      return '2';
+    }
     const z = platnyProfil(new URLSearchParams(window.location.search).get('profil'));
     if (z) {
       window.sessionStorage.setItem(KLIC, z);
@@ -43,5 +51,5 @@ export function klicUlozistePrihlaseni(profil: string = PROFIL_APLIKACE): string
 
 /** Adresa, na které se druhá aplikace instaluje z prohlížeče. */
 export function adresaDruheAplikace(origin: string = typeof window === 'undefined' ? '' : window.location.origin): string {
-  return `${origin}/?profil=2`;
+  return `${origin}${CESTA_DRUHE_APLIKACE}`;
 }

@@ -8,24 +8,24 @@
          chvíle, než se rozběhne JS; pak ji podle zvoleného režimu přepíše
          applyTheme() v src/lib/theme.ts. -->
     <meta name="theme-color" content="#fef9ec" />
-    <link rel="manifest" id="manifest-link" href="./manifest.webmanifest" />
-    <!-- „Zajíc 2“ (adresa s ?profil=2): druhá instalace s vlastním manifestem, názvem
+    <link rel="manifest" id="manifest-link" href="/manifest.webmanifest" />
+    <!-- „Zajíc 2“ (adresa /zajic2/): druhá instalace s vlastním manifestem, názvem
          a přihlášením — viz src/lib/profilAplikace.ts. Musí běžet dřív, než si
          prohlížeč manifest stáhne, proto je to tady a ne v aplikaci. -->
     <script>
       (function () {
         try {
-          var p = new URLSearchParams(location.search).get('profil') || sessionStorage.getItem('zajic_profil');
-          if (p === '2') {
-            document.getElementById('manifest-link').setAttribute('href', './manifest-zajic2.webmanifest');
+          var druha = /^\/zajic2(\/|$)/.test(location.pathname);
+          if (druha) {
+            document.getElementById('manifest-link').setAttribute('href', '/manifest-zajic2.webmanifest');
             document.title = 'Zajíc 2';
           }
         } catch (e) {}
       })();
     </script>
-    <link rel="icon" type="image/png" sizes="192x192" href="./icon-192-v2.png" />
-    <link rel="icon" type="image/png" sizes="512x512" href="./icon-512-v2.png" />
-    <link rel="apple-touch-icon" href="./icon-192-v2.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192-v2.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/icon-512-v2.png" />
+    <link rel="apple-touch-icon" href="/icon-192-v2.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Zajíc" />

@@ -10,6 +10,7 @@
 // Providers → Google) — bez toho se tlačítko ohlásí srozumitelnou chybou.
 import type { User } from '@supabase/supabase-js';
 import { supabase } from './supabase';
+import { CESTA_DRUHE_APLIKACE, JE_DRUHA_APLIKACE } from './profilAplikace';
 
 /**
  * Tlačítka Google se ukazují, až je poskytovatel zapnutý v Supabase (majitel
@@ -20,7 +21,8 @@ export const GOOGLE_PRIHLASENI_ZAPNUTO = false;
 const ZAKAZANO = 'Přihlášení přes Google zatím není zapnuté. Zapni ho v Supabase (Authentication → Providers → Google).';
 
 function navratovaAdresa(): string {
-  return typeof window !== 'undefined' ? `${window.location.origin}/` : '/';
+  // Zajíc 2 se vrací do sebe (/zajic2/), ne do hlavní aplikace.
+  return typeof window !== 'undefined' ? `${window.location.origin}${JE_DRUHA_APLIKACE ? CESTA_DRUHE_APLIKACE : '/'}` : '/';
 }
 
 function srozumitelne(zprava: string): string {
