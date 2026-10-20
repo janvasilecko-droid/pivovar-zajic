@@ -1005,7 +1005,7 @@ describe('odběratelé s vlastními sudy (lib/vlastniSudy.ts)', () => {
 // vazby na položku (Řezání), 4 ze skladu. Fond měl o vrácená 4 víc než sklad a plán tvrdil,
 // že 5× 30 l 11° pro Radka je kryto, i když skladem byly jen 4.
 describe('zavezený odběratel s vlastními sudy: stočení bez vazby na položku', () => {
-  const stav = (dadStatus: string) => computeKeggingPlan({
+  const stav = (dadStatus: string, dnes?: string) => computeKeggingPlan({
     beers, packages,
     orders: [
       { id: 'dad', delivery_date: '2026-08-25', order_date: '2026-08-24', status: dadStatus, place_name: 'Duck and Dog' },
@@ -1019,6 +1019,7 @@ describe('zavezený odběratel s vlastními sudy: stočení bez vazby na položk
     zavozDeductionRows: [{ order_id: 'dad', order_item_id: 'i-dad', beer_id: 'b-11', package_id: 'p30', quantity: 21, deduct_date: '2026-08-25' }],
     weekKey: WEEK,
     currentStockMap: new Map([['b-11__p30', 4]]),
+    dnes,
   } as any).find((d) => d.day === 'ct')!.items.find((i) => i.beer_id === 'b-11')!;
 
   it('zavezená DaD: Radkových 5 se kryje jen 4 sudy ze skladu, chybí 1', () => {
@@ -1028,5 +1029,13 @@ describe('zavezený odběratel s vlastními sudy: stočení bez vazby na položk
   });
   it('dokud DaD zavezená není, platí stará úvaha (zbytek se ještě stočí)', () => {
     expect(stav('nova').zChladaku).toBe(5);
+  });
+  it('v den dovozu DaD (i neoznačená) a se stočením bez vazby se bere jako odvezená: chybí 1', () => {
+    const r = stav('nova', '2026-08-25');
+    expect(r.zChladaku).toBe(4);
+    expect(r.missing).toBe(1);
+  });
+  it('před dnem dovozu DaD se nic nemění', () => {
+    expect(stav('nova', '2026-08-24').zChladaku).toBe(5);
   });
 });

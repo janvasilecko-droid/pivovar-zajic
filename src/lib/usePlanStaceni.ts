@@ -159,6 +159,7 @@ export function usePlanStaceni(weekKey: string, { sudy = true, lahve = true }: {
         ? (kind, label) => jeSud(kind, label)
         : (kind, label) => !jeSud(kind, label),
       currentStockMap,
+      dnes: businessDateISO(),
     });
   };
   // eslint-disable-next-line react-hooks/exhaustive-deps

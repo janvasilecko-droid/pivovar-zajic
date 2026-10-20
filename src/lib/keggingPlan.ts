@@ -173,6 +173,12 @@ export type KeggingPlanInput = {
    * počítalo dvakrát. Bez zadání se plán chová jako dřív (jen tento týden).
    */
   currentStockMap?: Map<string, number>;
+  /**
+   * Dnešní den (RRRR-MM-DD). Odběratel s vlastními sudy, jemuž se dnes (nebo dřív) vezlo
+   * a stočení pro něj je zapsané bez vazby na položku, se bere jako odvezený i bez ručního
+   * označení „zavezeno" (viz odečet vráceného odpočtu níž). Bez něj se nic takového neděje.
+   */
+  dnes?: string;
 };
 
 /** Je to platná zkratka dne ('po'…'ne')? */
@@ -403,7 +409,13 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
     // Naplněné sudy odběratele sklad počítá (stáčení je v knize +) — pro
     // ostatní objednávky ale nejsou. Jejich odvoz se výš vrátil, takže tady
     // se odečtou vždy, ne jen dokud neodjedou.
+    // Klíče pivo+obal, které mají tenhle týden stočení bez vazby na položku (jednou, ne pro každou položku).
+    const bezVazby = new Set<string>();
+    keggingRows.forEach((r) => {
+      if (!r.order_item_id && inWeek(r.entry_date)) bezVazby.add(`${r.beer_id}__${r.package_id}`);
+    });
     orderItems.forEach((it) => {
+      if (!vlastniPolozky.has(it.id)) return;
       // Objednávka odběratele ZNAČENÁ jako zavezená: sudy odjely (naplněné, nebo
       // vzaté ze skladu), takže se vrácený odpočet odečte celý, i když stočení
       // nemá vazbu na položku. Z provozu 20. 10. 2026: Duck and Dog 21× 30 l 11°
@@ -412,7 +424,13 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
       // byly jen 4. Dokud objednávka zavezená není, platí stará úvaha (zbytek se
       // ještě stočí).
       const objednavka = objednavkaPodleId.get(it.order_id);
-      const odjelo = !!objednavka?.is_delivered || jeVyrizena(objednavka?.status);
+      const klic = `${it.beer_id}__${it.package_id}`;
+      const dodani = (objednavka?.delivery_date || objednavka?.order_date || '').slice(0, 10);
+      // Dnes nebo dřív se vezlo a sudy se tenhle týden stáčely i bez vazby na položku
+      // (Řezání): sudy jsou venku, zbytek šel ze skladu — nečeká se na jejich stočení.
+      const stocenoBezVazby = bezVazby.has(klic);
+      const odjelo = !!objednavka?.is_delivered || jeVyrizena(objednavka?.status)
+        || (!!input.dnes && !!dodani && dodani <= input.dnes && stocenoBezVazby);
       const stoceno = Math.max(stocenoDoVlastnich.get(it.id) ?? 0, odjelo ? (vracenoVlastni.get(it.id) ?? 0) : 0);
       if (!stoceno) return;
       const k = `${it.beer_id}__${it.package_id}`;

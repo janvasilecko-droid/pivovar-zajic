@@ -698,6 +698,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     checkRows: planCheckRows,
     weekKey,
     currentStockMap,
+    dnes: businessDateISO(),
   }), [vsechnaPivaJmena, packages, orders, orderItems, rows, zavozDeductionRows, fasovaniRows, prodejnaRows, writeoffsRows, planCheckRows, weekKey, currentStockMap]);
 
   // ✍️ TENTÝŽ plán, ale BEZ ručního odškrtnutí — „kolik je doopravdy stočeno".
@@ -726,6 +727,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     checkRows: [],
     weekKey,
     currentStockMap,
+    dnes: businessDateISO(),
   }), [vsechnaPivaJmena, packages, orders, orderItems, rows, zavozDeductionRows, fasovaniRows, prodejnaRows, writeoffsRows, weekKey, currentStockMap]);
 
   const planMissingTotal = useMemo(() => keggingPlanSkutecny.reduce((s, p) => s + p.totalMissing, 0), [keggingPlanSkutecny]);
