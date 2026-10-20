@@ -86,7 +86,9 @@ export function poznamkaSVlastnimSudem(poznamka: string | null | undefined, zpra
  */
 export function vlastniSudyOdberatele(placeName: string | null | undefined, poznamka?: string | null): VlastniSudy | null {
   const n = norm(placeName);
-  if (n.includes('duck') && n.includes('dog')) return 'vse';
+  // Duck and Dog už NENÍ v seznamu (20. 10. 2026: „DaD neřeš, udělej z něj normálního zákazníka
+  // s našimi sudy, když to dělá takový bordel"). Jejich objednávka se plánuje a odečítá jako
+  // každá jiná; do jejich sudů se pozná jen podle poznámky „do jejich sudu".
   // „Michal fojtovice" (tak je v objednávkách) i „vojtovice" (tak se to vyslovuje).
   if (n.includes('fojtovic') || n.includes('vojtovic')) return 'vse';
   // Přesně „Martin" — ne „Martinice" ani jiný odběratel, co Martina má v názvu.

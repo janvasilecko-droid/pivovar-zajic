@@ -5,7 +5,7 @@ import { chybiSklademTydne, schodkyObjednavky } from './tydenniZbytek';
 
 const obaly = [{ id: 'k30', kind: 'keg', volume_l: 30 }];
 const objednavky = [
-  { id: 'dd', place_name: 'Duck and Dog', delivery_date: '2026-10-07', order_date: '2026-10-05' },
+  { id: 'dd', place_name: 'Michal Fojtovice', delivery_date: '2026-10-07', order_date: '2026-10-05' },
   { id: 'a', place_name: 'Hospoda A', delivery_date: '2026-10-08', order_date: '2026-10-05' },
   { id: 'b', place_name: 'Hospoda B', delivery_date: '2026-10-09', order_date: '2026-10-05' },
 ];
@@ -25,8 +25,8 @@ const vypocet = (kegging: any[]) => chybiSklademTydne({
 });
 
 describe('chybiSklademTydne', () => {
-  it('sudy Duck and Dog nekryjí ostatní a jejich objednávka si zásobu nebere', () => {
-    // Stočeno 2 do sudů Duck and Dog (vazba na jejich položku) + 3 naše.
+  it('sudy Michal Fojtovice nekryjí ostatní a jejich objednávka si zásobu nebere', () => {
+    // Stočeno 2 do sudů Michal Fojtovice (vazba na jejich položku) + 3 naše.
     const z = vypocet([
       { entry_date: '2026-10-06', beer_id: 'sv', package_id: 'k30', quantity: 2, order_item_id: 'i-dd' },
       { entry_date: '2026-10-06', beer_id: 'sv', package_id: 'k30', quantity: 3, order_item_id: null },

@@ -7,12 +7,12 @@ const obaly = [
   { id: 'k50', kind: 'keg', volume_l: 50 },
 ];
 const objednavky = [
-  { id: 'o1', place_name: 'Duck and Dog', status: 'nova', is_delivered: false, delivery_date: '2026-10-09' },
+  { id: 'o1', place_name: 'Michal Fojtovice', status: 'nova', is_delivered: false, delivery_date: '2026-10-09' },
   { id: 'o2', place_name: 'Michal fojtovice', status: 'nova', is_delivered: false, delivery_date: '2026-10-08' },
   { id: 'o3', place_name: 'Martin', status: 'nova', is_delivered: false, delivery_date: '2026-10-08' },
   { id: 'o4', place_name: 'Restaurace U Zajíce', status: 'nova', is_delivered: false, delivery_date: '2026-10-08' },
-  { id: 'o5', place_name: 'Duck and Dog', status: 'storno', is_delivered: false, delivery_date: '2026-10-08' },
-  { id: 'o6', place_name: 'Duck and Dog', status: 'nova', is_delivered: true, delivery_date: '2026-10-01' },
+  { id: 'o5', place_name: 'Michal Fojtovice', status: 'storno', is_delivered: false, delivery_date: '2026-10-08' },
+  { id: 'o6', place_name: 'Michal Fojtovice', status: 'nova', is_delivered: true, delivery_date: '2026-10-01' },
 ];
 const polozky = [
   { id: 'i1', order_id: 'o1', beer_id: 'b12', package_id: 'k30', quantity: 2 },
@@ -43,7 +43,7 @@ describe('stáčení do vlastních sudů odběratele', () => {
 
   it('objednávka ve stavu Zavezeno se nenabízí', () => {
     const o = otevrenePolozkyVlastnich({
-      objednavky: [{ id: 'oz', place_name: 'Duck and Dog', status: 'vyrizeno_zavoz', is_delivered: false, delivery_date: '2026-10-08' }],
+      objednavky: [{ id: 'oz', place_name: 'Michal Fojtovice', status: 'vyrizeno_zavoz', is_delivered: false, delivery_date: '2026-10-08' }],
       polozky: [{ id: 'iz', order_id: 'oz', beer_id: 'b12', package_id: 'k30', quantity: 2 }],
       obaly, stoceni: [],
     });
@@ -56,7 +56,7 @@ describe('stáčení do vlastních sudů odběratele', () => {
     const prirazeni = priradDoVlastnich(radky.map((r) => ({ beerId: r.beerId, pkgId: r.pkgId, pocet: Number(r.qty) })), otevrene);
     expect(prirazeni).toEqual([
       { radek: 0, polozkaId: 'i2', odberatel: 'Michal fojtovice', kusu: 3 },
-      { radek: 0, polozkaId: 'i1', odberatel: 'Duck and Dog', kusu: 2 },
+      { radek: 0, polozkaId: 'i1', odberatel: 'Michal Fojtovice', kusu: 2 },
     ]);
     const rozdelene = rozdelRadkyNaVlastni(radky, prirazeni);
     expect(rozdelene).toEqual([
@@ -80,7 +80,7 @@ describe('stáčení do vlastních sudů odběratele', () => {
 // 8. 10. 2026: stáčení zapsané bez dotazu „Do jejich sudů?" zůstalo sudem
 // pivovaru a „Zbývá stočit" u DaD se nehnulo.
 describe('navrhniPripojeniZapsaneho', () => {
-  const dd = [{ id: 'od', place_name: 'Duck and Dog', status: 'nova', is_delivered: false, delivery_date: '2026-10-08' }];
+  const dd = [{ id: 'od', place_name: 'Michal Fojtovice', status: 'nova', is_delivered: false, delivery_date: '2026-10-08' }];
   const polDD = [
     { id: 'p50', order_id: 'od', beer_id: 'b11', package_id: 'k50', quantity: 10 },
     { id: 'p30', order_id: 'od', beer_id: 'b11', package_id: 'k30', quantity: 17 },
