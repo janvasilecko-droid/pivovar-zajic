@@ -538,6 +538,11 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
 
         {rezim === 'pocitani' && (
           <>
+            <p className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-950" data-testid="napoveda-upravy-skladu">
+              Napiš, kolik kusů je opravdu na skladě, a ulož. Sklad se hned nastaví na tohle číslo
+              (ukazoval 70, napočítáš 55 → ukáže 55) a od té chvíle se k němu počítá stáčení a výdeje.
+              Rozdíl se uloží k dohledání, nic se nemaže.
+            </p>
             {/* 🍾/🛢️ Nahoře, jako první — na telefonu se přepíná hned po
                 otevření, ještě než se vůbec začne počítat. */}
             <div className="flex items-stretch gap-1 rounded bg-neutral-100 border border-neutral-200 p-1">
