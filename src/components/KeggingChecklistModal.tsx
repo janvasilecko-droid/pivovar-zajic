@@ -7,42 +7,16 @@ import { synchronizuj, ulozStav } from '../lib/checklistData';
 import { sZnackouKonce } from '../lib/konecStaceni';
 import { zavibruj } from '../lib/haptika';
 import { businessDateISO } from '../lib/businessDate';
+import { KEG_DEFAULT_ITEMS, KEG_MONTHLY_CATEGORY_PREFIX, type KegChecklistItem } from '../lib/checklistyPolozky';
+
+export { KEG_DEFAULT_ITEMS, KEG_MONTHLY_CATEGORY_PREFIX };
+export type { KegChecklistItem };
 
 export type ChecklistPhase = 'start' | 'end' | 'monthly' | 'all';
 
-export type KegChecklistItem = {
-  id: string;
-  category: string;
-  text: string;
-  required?: boolean;
-  weekly?: boolean; // Splněno jednou týdně
-  choice?: boolean; // Krok s volbou mezi NaOH a Persterilem (vybere se JEDEN)
-};
 
-export const KEG_DEFAULT_ITEMS: KegChecklistItem[] = [
-  // 1. Začátek stáčení
-  { id: 'keg_start_1', category: '1. Začátek stáčení', text: 'Proplach pivních cest: NaOH 2% (20 minut) NEBO Persteril 0.2% (10 minut) — vyberte jeden postup', required: true, choice: true },
-  { id: 'keg_start_valves_spray', category: '1. Začátek stáčení', text: 'Vystříkat klapky Persterilem 0.2%', required: true },
-  { id: 'keg_start_valves_rinse', category: '1. Začátek stáčení', text: 'Oplach klapek vodou', required: true },
-  { id: 'keg_start_bottler_rinse', category: '1. Začátek stáčení', text: 'Oplach vodou stáčečku (2 minuty)', required: true },
-
-  // 2. Konec stáčení
-  { id: 'keg_end_1', category: '2. Konec stáčení', text: 'Po konci stáčení: důkladný proplach pivních cest vodou', required: true },
-  { id: 'keg_end_2', category: '2. Konec stáčení', text: 'Opláchnutí stáčecích klapek vodou', required: true },
-  { id: 'keg_end_3', category: '2. Konec stáčení', text: 'Oplach narážečů vodou a jejich vizuální kontrola', required: true },
-  { id: 'keg_end_4', category: '2. Konec stáčení', text: 'Spláchnutí podlah ve sklepě vodou', required: true },
-  { id: 'keg_end_5', category: '2. Konec stáčení', text: 'Spláchnutí podlahy a stěn u stáčeček', required: true },
-  { id: 'keg_end_6', category: '2. Konec stáčení', text: 'Ponořit hlavy narážečů do kýble s roztokem Persterilu', required: true },
-
-  // 4. Měsíční údržba
-  { id: 'keg_month_1', category: '4. Měsíční údržba (1x měsíčně)', text: 'Kompletně rozebrat VŠECHNY narážeče a rychlospojky a naložit je do louhu NaOH', required: true },
-  { id: 'keg_month_2', category: '4. Měsíční údržba (1x měsíčně)', text: 'Vyčistit rozebrané díly narážečů a rychlospojek kartáčem a nechat v louhu 24 hodin', required: true },
-  { id: 'keg_month_3', category: '4. Měsíční údržba (1x měsíčně)', text: 'Poté důkladný oplach všech částí čistou vodou', required: true },
-  { id: 'keg_month_4', category: '4. Měsíční údržba (1x měsíčně)', text: 'Vizuální kontrola čistoty a stavu těsnění', required: true },
-];
 
 const START_CATEGORY_PREFIX = '1. Začátek';
-export const KEG_MONTHLY_CATEGORY_PREFIX = '4. Měsíční';
 const MONTHLY_CATEGORY_PREFIX = KEG_MONTHLY_CATEGORY_PREFIX;
 
 // ISO týden pro porovnávání týdenních úkonů

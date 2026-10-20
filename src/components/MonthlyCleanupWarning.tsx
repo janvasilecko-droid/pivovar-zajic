@@ -6,8 +6,8 @@ import {
 } from '../lib/monthlyCleanup';
 import { businessDateISO } from '../lib/businessDate';
 import { useAuth } from '../lib/auth';
-import { DEFAULT_ITEMS, MONTHLY_CATEGORY_PREFIX } from './BottlingChecklistModal';
-import { KEG_DEFAULT_ITEMS, KEG_MONTHLY_CATEGORY_PREFIX } from './KeggingChecklistModal';
+import { DEFAULT_ITEMS, MONTHLY_CATEGORY_PREFIX } from '../lib/checklistyPolozky';
+import { KEG_DEFAULT_ITEMS, KEG_MONTHLY_CATEGORY_PREFIX } from '../lib/checklistyPolozky';
 import { autoLogBottleSanitationFromChecklist } from '../lib/bottleSanitation';
 import { autoLogKegSanitationFromChecklist } from '../lib/kegSanitation';
 import { uloz } from '../lib/uloziste';
