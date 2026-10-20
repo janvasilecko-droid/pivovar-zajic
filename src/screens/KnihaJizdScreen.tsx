@@ -81,7 +81,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
   const [autoStartKm, setAutoStartKm] = useState<string>('120000');
   const [autoStartKmKachna, setAutoStartKmKachna] = useState<string>('0');
   const [autoGenerating, setAutoGenerating] = useState(false);
-  const [previewDays, setPreviewDays] = useState<{ date: string; routeTo: string; stopsCount: number; isKachna: boolean; km: string; missingCoords: string[]; priplatekKm?: number; mesta?: string[] }[]>([]);
+  const [previewDays, setPreviewDays] = useState<{ date: string; routeTo: string; stopsCount: number; isKachna: boolean; zavozCislo: number; km: string; missingCoords: string[]; priplatekKm?: number; mesta?: string[] }[]>([]);
 
   function openAutoModal() {
     setAutoStep('form');
@@ -361,7 +361,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
       };
 
       // Zastávky dne v pořadí prvního výskytu — pro OSRM výpočet reálné jízdní
-      // vzdálenosti pivovar → zastávky → pivovar. Zastávky bez uložených
+      // vzdálenosti pivovar → zastávky → pivovar (jedna okružní jízda). Zastávky bez uložených
       // souřadnic (u odběratele) se do výpočtu nezapočítají.
       const buildStops = (dayOrders: any[]) => {
         const seen = new Set<string>();
@@ -377,30 +377,31 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
         return stops;
       };
 
-      const groups: { date: string; routeTo: string; stopsCount: number; isKachna: boolean; stops: { name: string; lat: number | null; lng: number | null; address?: string | null }[] }[] = [];
+      const groups: { date: string; routeTo: string; stopsCount: number; isKachna: boolean; zavozCislo: number; stops: { name: string; lat: number | null; lng: number | null; address?: string | null }[] }[] = [];
       [...dateGroups.entries()]
         .sort((a, b) => a[0].localeCompare(b[0]))
         .forEach(([dDate, dayOrders]) => {
           const kachnaOrders = dayOrders.filter((o) => isOrderKachna(o.id));
           const bigOrders = dayOrders.filter((o) => !isOrderKachna(o.id));
-          if (bigOrders.length > 0) {
-            groups.push({
-              date: dDate,
-              routeTo: buildRoute(bigOrders),
-              stopsCount: new Set(bigOrders.map((o) => o.place_name)).size,
-              isKachna: false,
-              stops: buildStops(bigOrders),
+          // Jedno auto = jedna okružní jízda NA KAŽDÝ ZÁVOZ (zadání 20. 10. 2026:
+          // „pokud jsou 2 závozy, tak to bude 2×, Kačena se počítá zvlášť").
+          // Závoz číslo 2 se pozná podle `zavoz_cislo` objednávky, výchozí je 1.
+          const pridejJizdy = (carOrders: any[], isKachna: boolean) => {
+            [1, 2].forEach((cislo) => {
+              const zavozOrders = carOrders.filter((o) => ((o.zavoz_cislo ?? 1) === 2 ? 2 : 1) === cislo);
+              if (zavozOrders.length === 0) return;
+              groups.push({
+                date: dDate,
+                routeTo: buildRoute(zavozOrders),
+                stopsCount: new Set(zavozOrders.map((o) => o.place_name)).size,
+                isKachna,
+                zavozCislo: cislo,
+                stops: buildStops(zavozOrders),
+              });
             });
-          }
-          if (kachnaOrders.length > 0) {
-            groups.push({
-              date: dDate,
-              routeTo: buildRoute(kachnaOrders),
-              stopsCount: new Set(kachnaOrders.map((o) => o.place_name)).size,
-              isKachna: true,
-              stops: buildStops(kachnaOrders),
-            });
-          }
+          };
+          pridejJizdy(bigOrders, false);
+          pridejJizdy(kachnaOrders, true);
         });
 
       // Reálná jízdní vzdálenost přes OSRM — pro každý den/auto zvlášť, ať se
@@ -417,6 +418,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
             routeTo: g.routeTo,
             stopsCount: g.stopsCount,
             isKachna: g.isKachna,
+            zavozCislo: g.zavozCislo,
             km: celkem > 0 ? String(celkem) : '',
             missingCoords,
             priplatekKm: priplatek.km,
@@ -444,6 +446,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
       { velke: Number(autoStartKm) || 0, kachna: Number(autoStartKmKachna) || 0 },
     );
     const generatedEntries: LogbookEntry[] = previewDays.map((d, i) => {
+      const maVicZavozu = previewDays.filter((x) => x.date === d.date && x.isKachna === d.isKachna).length > 1;
       const missingNote = d.missingCoords.length > 0
         ? ` — km odhad neúplný, chybí souřadnice u: ${d.missingCoords.join(', ')} (doplň v Odběratelích)`
         : '';
@@ -458,7 +461,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
         km_start: tachometr[i].km_start,
         km_end: tachometr[i].km_end,
         km_driven: tachometr[i].km_driven,
-        note: `${POZNAMKA_VYGENEROVANO} (${d.stopsCount} zastávek v daný den, každá zastávka cesta tam a zpět)${d.isKachna ? ' — auto Kachna' : ' — Velké auto'}${d.priplatekKm ? ` — v km je příplatek +${PRIPLATEK_MESTO_KM} km za každou jízdu do města (${(d.mesta ?? []).join(', ')})` : ''}${missingNote}`,
+        note: `${POZNAMKA_VYGENEROVANO} (${d.stopsCount} zastávek v daný den, jedna okružní jízda z Kynšperka a zpět${maVicZavozu ? `, ${d.zavozCislo}. závoz` : ''})${d.isKachna ? ' — auto Kachna' : ' — Velké auto'}${d.priplatekKm ? ` — v km je příplatek +${PRIPLATEK_MESTO_KM} km za každou jízdu do města (${(d.mesta ?? []).join(', ')})` : ''}${missingNote}`,
       };
     });
 
@@ -830,7 +833,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
             ) : (
               <div className="space-y-3">
                 <p className="text-udaj text-neutral-500 font-bold leading-snug">
-                  Nalezeno <strong>{previewDays.length}</strong> {previewDays.length === 1 ? 'jízda' : 'jízd'} se závozem v {autoMonth} — vozidlo je předvyplněné podle značení <strong><Bird className="ikona-text" /> Kačena</strong> u jednotlivých objednávek v Závozu (smíšený den = dvě jízdy). Klidně přeškrtni, jinak se použije <strong>{bigVehicleLabel}</strong>. Km jsou předvyplněná podle mapy jako součet cest pivovar → zastávka → pivovar pro každou zastávku — klidně uprav podle tachometru, pokud se liší.
+                  Nalezeno <strong>{previewDays.length}</strong> {previewDays.length === 1 ? 'jízda' : 'jízd'} se závozem v {autoMonth} — vozidlo je předvyplněné podle značení <strong><Bird className="ikona-text" /> Kačena</strong> u jednotlivých objednávek v Závozu (smíšený den = dvě jízdy, 2. závoz = další jízda). Klidně přeškrtni, jinak se použije <strong>{bigVehicleLabel}</strong>. Km jsou předvyplněná podle mapy jako jedna okružní jízda pivovar → všechny zastávky → pivovar (každý závoz zvlášť) — klidně uprav podle tachometru, pokud se liší.
                 </p>
 
                 {rucneZapsaneVeDnech.length > 0 && (
@@ -848,6 +851,9 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
                           <span className={`px-1.5 py-0.5 rounded-full text-udaj font-black uppercase ${d.isKachna ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
                             {d.isKachna ? 'Kačena' : 'Velké auto'}
                           </span>
+                          {previewDays.filter((x) => x.date === d.date && x.isKachna === d.isKachna).length > 1 && (
+                            <span className="px-1.5 py-0.5 rounded-full text-udaj font-black bg-neutral-100 text-neutral-800">{d.zavozCislo}. závoz</span>
+                          )}
                         </span>
                         <span className="text-udaj font-bold text-neutral-500">{d.stopsCount} zastávek</span>
                       </div>
@@ -859,7 +865,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
                       )}
                       {d.missingCoords.length > 0 && (
                         <div className="text-udaj text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 font-semibold leading-snug">
-                          <AlertTriangle className="ikona-text" /> Chybí souřadnice u: {d.missingCoords.join(', ')} — cesta tam a zpět k téhle zastávce se do km nezapočítala, doplň souřadnice v Odběratelích nebo km uprav ručně.
+                          <AlertTriangle className="ikona-text" /> Chybí souřadnice u: {d.missingCoords.join(', ')} — tahle zastávka se do km nezapočítala, doplň souřadnice v Odběratelích nebo km uprav ručně.
                         </div>
                       )}
                       <div className="flex items-center gap-2">

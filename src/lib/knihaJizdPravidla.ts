@@ -53,8 +53,8 @@ export function velkeMestoZastavky(nazev: string | null | undefined, adresa: str
 export type ZastavkaDne = { name: string; address?: string | null };
 
 /**
- * Příplatek dne: +30 km za KAŽDOU zastávku ve velkém městě (každá zastávka je
- * samostatná jízda tam a zpět z Kynšperka). Vrací km a názvy měst.
+ * Příplatek dne: +30 km za KAŽDOU zastávku ve velkém městě (zadání 11. 10. 2026:
+ * „ke každé jízdě do Prahy, Hradce… +30 km“). Vrací km a názvy měst.
  */
 export function priplatekDne(zastavky: ZastavkaDne[]): { km: number; mesta: string[] } {
   const mesta: string[] = [];
