@@ -5,6 +5,7 @@ import { Kostra } from '../components/ui';
 import { Banknote, Beer as BeerIcon, Printer, Store, TrendingUp, Trophy, X } from 'lucide-react';
 import StatistikaTrzby from '../components/StatistikaTrzby';
 import StatistikaPoPivech from '../components/StatistikaPoPivech';
+import StatistikaTanku from '../components/StatistikaTanku';
 import StatistikaTrendy from '../components/StatistikaTrendy';
 import type { CenaPolozky } from '../lib/hodnotaObjednavky';
 import { TabBar, type TabBarItem } from '../components/TabBar';
@@ -68,12 +69,13 @@ const POPIS_OBDOBI_ZEBRICEK: Record<Obdobi, string> = {
 // „Trasy" (historie a přehled tras, ZavozHistory) — přesunuto 27. 9. 2026
 // do Auto → Historie tras (screens/VehiclesTabbed.tsx): trasovky patří
 // k vozovému parku, ne k výrobním číslům.
-type Zalozka = 'vystav' | 'piva' | 'trzby' | 'stats';
-const ZALOZKY: Zalozka[] = ['vystav', 'piva', 'trzby', 'stats'];
+type Zalozka = 'vystav' | 'piva' | 'tanky' | 'trzby' | 'stats';
+const ZALOZKY: Zalozka[] = ['vystav', 'piva', 'tanky', 'trzby', 'stats'];
 
 const LISTA_ZALOZEK: (TabBarItem & { id: Zalozka })[] = [
   { id: 'vystav', label: 'Výstav', icon: TrendingUp, color: '#f59f00' },
   { id: 'piva', label: 'Po pivech', icon: BeerIcon, color: '#fab005' },
+  { id: 'tanky', label: 'Tanky', icon: IkonaSud, color: '#4dabf7' },
   { id: 'trzby', label: 'Tržby', icon: Banknote, color: '#40c057' },
   { id: 'stats', label: 'Žebříčky', icon: Trophy, color: '#38d9a9' },
 ];
@@ -467,6 +469,9 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
       {activeTab === 'piva' && (
         <StatistikaPoPivech sudy={vyrobaSudy} lahve={vyrobaLahve} obaly={packages as any} piva={beers as any} dnes={todayISO()} />
       )}
+
+      {/* 🛢️ Statistika tanků (components/StatistikaTanku.tsx). */}
+      {activeTab === 'tanky' && <StatistikaTanku dnes={todayISO()} />}
 
       {/* 💰 Tržby podle ceníku (components/StatistikaTrzby.tsx). */}
       {activeTab === 'trzby' && (
