@@ -328,6 +328,29 @@ export function matchDistinctiveName(
   return null;
 }
 
+/**
+ * Naučená zkratka nesmí přebít to, co řádek říká VÝSLOVNĚ. Z provozu 20. 10. 2026:
+ * zapamatovaná zkratka „5x 30l 11° sv" → Citron (omylem uložená při opravě
+ * posunutého řádku) udělala z „5x 30l 11° Sv" na fotce limonádu. Proto se
+ * zkratka zahodí, když
+ *   • řádek říká stupeň + sv/tm (11° sv, 12sv, 10 tm) a pivo ze zkratky je limonáda
+ *     bez stupně, nebo má jiný stupeň;
+ *   • řádek říká „limo" a pivo ze zkratky má stupeň (11° Světlá z „limo citr").
+ */
+export function aliasOdporujeTextu(
+  text: string,
+  beerId: string,
+  beers: { id: string; name: string; degree?: string | null }[],
+): boolean {
+  const b = beers.find((x) => x.id === beerId);
+  if (!b) return false;
+  const stupenPiva = (b.degree || "").replace("°", "").trim();
+  const vyslovny = text.match(/(?:^|[^0-9])(8|10|11|12)\s*°?\s*(?:sv|sl|svet\w*|tm|tmav\w*)\b/);
+  if (vyslovny && (!stupenPiva || stupenPiva !== vyslovny[1])) return true;
+  if (/\blimo\w*\b/.test(text) && stupenPiva) return true;
+  return false;
+}
+
 export function matchBeerInText(
   text: string,
   beers: { id: string; name: string; degree?: string | null; short_name?: string | null }[],
@@ -368,7 +391,7 @@ export function matchBeerInText(
     .filter(([na]) => na.length >= 2 && isUsefulBeerAlias(na))
     .sort((a, z) => z[0].length - a[0].length);
   for (const [na, beerId] of sortedAliases) {
-    if (text === na || text.includes(na)) return beerId;
+    if ((text === na || text.includes(na)) && !aliasOdporujeTextu(text, beerId, beers)) return beerId;
   }
 
   // 2b) OCR opravy názvů piv (seeger/zeeburg → seeberg)

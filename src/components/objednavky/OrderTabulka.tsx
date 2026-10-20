@@ -87,6 +87,9 @@ export function OrderTabulka({
             const barva = dayColor(o.delivery_day);
             return (
               <Fragment key={o.id}>
+                {/* Rozbalená objednávka se ukazuje JEN jako karta (bez řádku nad ní) — jinak se
+                    obsah objednávky zobrazil dvakrát a stránka byla zbytečně dlouhá. */}
+                {!rozbalena && (
                 <tr
                   data-testid="radek-objednavky"
                   className={`cursor-pointer align-top hover:bg-amber-50/60 ${selectedIds.has(o.id) ? 'bg-primary-50' : ''}`}
@@ -168,9 +171,26 @@ export function OrderTabulka({
                     </button>
                   </td>
                 </tr>
+                )}
                 {rozbalena && (
                   <tr data-testid="rozbalena-objednavka">
-                    <td colSpan={5} className="p-2 bg-neutral-50 border-t border-neutral-200">{renderKarta(o)}</td>
+                    <td colSpan={5} className="p-2 bg-neutral-50 border-t border-neutral-200">
+                      {/* Tabulka bývá širší než displej a posouvá se do strany. Karta by se roztáhla
+                          na šířku tabulky a ikony (úprava, WhatsApp, rozdělit, smazat) by zůstaly
+                          za pravým okrajem — proto se drží na místě a má nejvýš šířku displeje. */}
+                      <div className="sticky left-0 w-[min(calc(100vw-3rem),72rem)] max-w-full" data-testid="rozbalena-karta-obal">
+                        <button
+                          type="button"
+                          onClick={() => prepni(o.id)}
+                          aria-expanded={true}
+                          aria-label={`Sbalit objednávku: ${jmeno}`}
+                          className="btn-ikona bg-white text-neutral-800 border border-neutral-300 mb-1.5 ml-auto"
+                        >
+                          <ChevronUp size={14} />
+                        </button>
+                        {renderKarta(o)}
+                      </div>
+                    </td>
                   </tr>
                 )}
               </Fragment>

@@ -74,8 +74,14 @@ describe('OrderTabulka', () => {
   it('klepnutí na řádek rozbalí původní kartu, další klepnutí ji sbalí', () => {
     const p = vykresli();
     expect(screen.queryByTestId('karta')).toBeNull();
+    const radku = screen.getAllByTestId('radek-objednavky').length;
     fireEvent.click(screen.getAllByTestId('radek-objednavky')[0]);
+    // Rozbalená objednávka je jen karta — řádek se souhrnem nad ní zmizí (obsah by byl dvakrát).
+    expect(screen.getAllByTestId('radek-objednavky')).toHaveLength(radku - 1);
     expect(screen.getByTestId('rozbalena-objednavka').textContent).toContain('KARTA o1');
+    // Karta se drží na místě a nepřeteče šířku displeje (ikony úpravy, WhatsApp… by byly za okrajem).
+    expect(screen.getByTestId('rozbalena-karta-obal').className).toMatch(/sticky/);
+    expect(screen.getByTestId('rozbalena-karta-obal').className).toContain('100vw');
     expect(within(screen.getByTestId('rozbalena-objednavka')).getByRole('button', { name: 'Smazat objednávku' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Sbalit objednávku: Restaurace' }));
     expect(screen.queryByTestId('karta')).toBeNull();

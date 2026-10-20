@@ -151,6 +151,31 @@ describe('Naučené zkratky nesmí přebít pivo napsané jménem', () => {
   });
 });
 
+describe('Špatně naučené zkratky z fotky (20. 10. 2026)', () => {
+  it('„5x 30l 11° sv" → Citron (omylem uložená zkratka) neplatí, je to 11° Světlá', () => {
+    const aliasy = prazdneAliasy();
+    aliasy.beer.set('5x 30l 11° sv', 'b-citron');
+    expect(pivo({ degree: '11°', raw_line: '5x 30l 11° sv' }, aliasy)).toBe('11° Světlá');
+  });
+  it('„4 x 20l 11° sv" → Summer Ale a „2x 10l 12°sv." → Summer Ale se zahodí', () => {
+    const aliasy = prazdneAliasy();
+    aliasy.beer.set('4 x 20l 11° sv', 'b-summer');
+    aliasy.beer.set('2x 10l 12°sv', 'b-summer');
+    expect(pivo({ degree: '11°', raw_line: '4 x 20l 11° sv' }, aliasy)).toBe('11° Světlá');
+    expect(pivo({ degree: '12°', raw_line: '2x 10l 12°sv.' }, aliasy)).toBe('12° Světlá');
+  });
+  it('„3 x 30l limo citr" → 11° Světlá se zahodí (limo není pivo se stupněm)', () => {
+    const aliasy = prazdneAliasy();
+    aliasy.beer.set('3 x 30l limo citr', 'b-11');
+    expect(pivo({ raw_line: '3 x 30l limo citron' }, aliasy)).toBe('Citron');
+  });
+  it('správná zkratka (stejný stupeň) dál platí', () => {
+    const aliasy = prazdneAliasy();
+    aliasy.beer.set('5x 12° sv', 'b-12');
+    expect(pivo({ degree: '12°', raw_line: '5x 12° sv' }, aliasy)).toBe('12° Světlá');
+  });
+});
+
 describe('Holý stupeň se nelosuje', () => {
   // „12" sedí na 12° Světlou i 12° Tmavou. Dřív rozhodovalo pořadí piv
   // z databáze, takže se výsledek měnil zprávu od zprávy.

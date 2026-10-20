@@ -136,6 +136,19 @@ const BEER_ALIASES: { pattern: RegExp; degree?: string; color?: string; namePart
   { pattern: /\bsv\b/, color: 'světlé' },
 ];
 
+/**
+ * Naučená zkratka nesmí přebít to, co řádek říká VÝSLOVNĚ (zrcadlí
+ * aliasOdporujeTextu v supabase/functions/_shared/beer-match.ts). Z provozu
+ * 20. 10. 2026: zkratka „5x 30l 11° sv" → Citron udělala z 11° Světlé limonádu.
+ */
+export function aliasOdporujeTextu(norm: string, beer: { degree?: string | null }): boolean {
+  const stupenPiva = (beer.degree || '').replace('°', '').trim();
+  const vyslovny = norm.match(/(?:^|[^0-9])(8|10|11|12)\s*°?\s*(?:sv|sl|svet\w*|tm|tmav\w*)\b/);
+  if (vyslovny && (!stupenPiva || stupenPiva !== vyslovny[1])) return true;
+  if (/\blimo\w*\b/.test(norm) && stupenPiva) return true;
+  return false;
+}
+
 export function matchBeerFromHints(norm: string, beers: Beer[], aliasMap: ParserAliasMap): { beer: Beer | null; score: number; alias: string | null } {
   // 1. Exact name / short_name match FIRST so "jantar" is never intercepted by generic aliases
   let directMatch: Beer | null = null;
@@ -166,7 +179,7 @@ export function matchBeerFromHints(norm: string, beers: Beer[], aliasMap: Parser
   const beerId = aliasMap.beer.get(norm);
   if (beerId) {
     const beer = beers.find((b) => b.id === beerId);
-    if (beer) return { beer, score: 0.95, alias: norm };
+    if (beer && !aliasOdporujeTextu(norm, beer)) return { beer, score: 0.95, alias: norm };
   }
 
   // 3. Long alias substring match in aliasMap
@@ -179,7 +192,7 @@ export function matchBeerFromHints(norm: string, beers: Beer[], aliasMap: Parser
   for (const [alias, bid] of sortedAliases) {
     if (alias.length >= 3 && norm.includes(alias) && isUsefulBeerAlias(alias)) {
       const beer = beers.find((b) => b.id === bid);
-      if (beer) return { beer, score: 0.90, alias };
+      if (beer && !aliasOdporujeTextu(norm, beer)) return { beer, score: 0.90, alias };
     }
   }
 
