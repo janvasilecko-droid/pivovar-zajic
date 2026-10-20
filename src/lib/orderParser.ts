@@ -1299,6 +1299,14 @@ export function canLearnBeerAlias(
   const textDegree = extractDegreeFromRaw(norm);
   if (targetDegree && textDegree && textDegree !== targetDegree) return false;
 
+  // 3) Pivo bez stupně (limonáda, Jantar, Summer…) a text se stupněm: ukládá se jen
+  //    když text jmenuje i samotné pivo. Z provozu 20. 10. 2026: „5x 30l 11° sv" →
+  //    Citron se uložilo jako trvalé pravidlo a z 11° Světlé na fotce udělalo limonádu.
+  if (!targetDegree && textDegree) {
+    const slova = normalize(target.name).split(' ').filter((w) => w.length >= 3);
+    if (!slova.some((w) => norm.includes(w))) return false;
+  }
+
   return true;
 }
 

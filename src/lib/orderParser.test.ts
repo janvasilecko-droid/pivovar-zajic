@@ -778,3 +778,16 @@ describe('aliasOdporujeTextu — špatně naučená zkratka (20. 10. 2026)', () 
     expect(aliasOdporujeTextu('3 x 30l limo citr', { degree: null })).toBe(false);
   });
 });
+
+describe('canLearnBeerAlias — pivo bez stupně a text se stupněm (20. 10. 2026)', () => {
+  const beers = [
+    { id: 'b-11', name: '11° Světlá', degree: '11°' },
+    { id: 'b-citron', name: 'Citron', degree: null },
+    { id: 'b-jantar', name: 'Jantar', degree: null },
+  ];
+  it('„5x 30l 11° sv" → Citron se nenaučí, „10x 1l 12° jantar" → Jantar ano', async () => {
+    const { canLearnBeerAlias } = await import('./orderParser');
+    expect(canLearnBeerAlias('5x 30l 11° sv', 'b-citron', beers)).toBe(false);
+    expect(canLearnBeerAlias('10x 1l 12° jantar', 'b-jantar', beers)).toBe(true);
+  });
+});
