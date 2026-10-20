@@ -1035,6 +1035,27 @@ describe('zavezený odběratel s vlastními sudy: stočení bez vazby na položk
     expect(r.zChladaku).toBe(4);
     expect(r.missing).toBe(1);
   });
+  it('DaD v den dovozu se stočením bez vazby: jeho položky nejsou „chybí stočit"', () => {
+    const dad = computeKeggingPlan({
+      beers, packages,
+      orders: [{ id: 'dad', delivery_date: '2026-08-25', order_date: '2026-08-24', status: 'nova', place_name: 'Duck and Dog' }],
+      orderItems: [{ id: 'i-dad', order_id: 'dad', beer_id: 'b-11', package_id: 'p30', quantity: 21 }],
+      keggingRows: [{ entry_date: '2026-08-24', beer_id: 'b-11', package_id: 'p30', quantity: 17, order_item_id: null }],
+      weekKey: WEEK,
+      dnes: '2026-08-25',
+    } as any).find((d) => d.day === 'ut')!.items[0];
+    expect(dad.missing).toBe(0);
+    // Před dnem dovozu zůstává „chybí" jako dřív.
+    const pred = computeKeggingPlan({
+      beers, packages,
+      orders: [{ id: 'dad', delivery_date: '2026-08-25', order_date: '2026-08-24', status: 'nova', place_name: 'Duck and Dog' }],
+      orderItems: [{ id: 'i-dad', order_id: 'dad', beer_id: 'b-11', package_id: 'p30', quantity: 21 }],
+      keggingRows: [{ entry_date: '2026-08-24', beer_id: 'b-11', package_id: 'p30', quantity: 17, order_item_id: null }],
+      weekKey: WEEK,
+      dnes: '2026-08-24',
+    } as any).find((d) => d.day === 'ut')!.items[0];
+    expect(pred.missing).toBeGreaterThan(0);
+  });
   it('před dnem dovozu DaD se nic nemění', () => {
     expect(stav('nova', '2026-08-24').zChladaku).toBe(5);
   });
