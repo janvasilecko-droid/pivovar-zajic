@@ -378,6 +378,8 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
       .filter((o) => o.status !== 'storno' && inWeek(o.delivery_date || o.order_date))
       .map((o) => o.id));
     const vracenoZaZavozy: Record<string, number> = {};
+    // Odpočty za položky odběratelů s vlastními sudy — viz odečet níž.
+    const vracenoVlastni = new Map<string, number>();
     zavozDeductionRows.forEach((r: any) => {
       if (!r.beer_id || !r.package_id || !kegPkgs.has(r.package_id)) return;
       if (r.order_id ? !objednavkyTydne.has(r.order_id) : !inWeek(r.deduct_date)) return;
@@ -393,13 +395,25 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
       const k = `${r.beer_id}__${r.package_id}`;
       if (!input.currentStockMap!.has(k)) return;
       vracenoZaZavozy[k] = (vracenoZaZavozy[k] || 0) + Number(r.quantity || 0);
+      if (r.order_item_id && vlastniPolozky.has(r.order_item_id)) {
+        vracenoVlastni.set(r.order_item_id, (vracenoVlastni.get(r.order_item_id) ?? 0) + Number(r.quantity || 0));
+      }
     });
     input.currentStockMap.forEach((qty, k) => { pool[k] = qty + (vracenoZaZavozy[k] || 0); });
     // Naplněné sudy odběratele sklad počítá (stáčení je v knize +) — pro
     // ostatní objednávky ale nejsou. Jejich odvoz se výš vrátil, takže tady
     // se odečtou vždy, ne jen dokud neodjedou.
     orderItems.forEach((it) => {
-      const stoceno = stocenoDoVlastnich.get(it.id) ?? 0;
+      // Objednávka odběratele ZNAČENÁ jako zavezená: sudy odjely (naplněné, nebo
+      // vzaté ze skladu), takže se vrácený odpočet odečte celý, i když stočení
+      // nemá vazbu na položku. Z provozu 20. 10. 2026: Duck and Dog 21× 30 l 11°
+      // (17 stočeno bez vazby přes Řezání, 4 ze skladu) — fond vyšel o 4 větší
+      // než sklad a plán napsal, že Radkových 5× 30 l je kryto, i když ve skladu
+      // byly jen 4. Dokud objednávka zavezená není, platí stará úvaha (zbytek se
+      // ještě stočí).
+      const objednavka = objednavkaPodleId.get(it.order_id);
+      const odjelo = !!objednavka?.is_delivered || jeVyrizena(objednavka?.status);
+      const stoceno = Math.max(stocenoDoVlastnich.get(it.id) ?? 0, odjelo ? (vracenoVlastni.get(it.id) ?? 0) : 0);
       if (!stoceno) return;
       const k = `${it.beer_id}__${it.package_id}`;
       if (k in pool) pool[k] -= stoceno;
