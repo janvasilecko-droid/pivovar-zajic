@@ -524,12 +524,10 @@ describe('přehled objednávek — Karty / Tabulka', () => {
     expect(within(tabulka).queryByLabelText('Smazat objednávku')).toBeNull();
     fireEvent.click(within(tabulka).getAllByTestId('radek-objednavky')[0]);
     const karta = await within(tabulka).findByTestId('rozbalena-objednavka');
-    for (const jmeno of ['Smazat objednávku', 'Upravit objednávku', 'Vrátit položky na sklad', 'Zrušit objednávku']) {
+    for (const jmeno of ['Smazat objednávku', 'Upravit objednávku', 'Vrátit položky na sklad', 'Zrušit objednávku', 'Sdílet objednávku na WhatsApp']) {
       expect(within(karta).getByLabelText(jmeno), jmeno).toBeTruthy();
     }
     expect(within(karta).getByTitle('Nastavit den závozu: Út')).toBeTruthy();
-    // Odpovídání zákazníkovi přes WhatsApp na kartě není (19. 10. 2026: „nepotřebuju, aby se odpovídalo zákazníkovi“).
-    expect(within(karta).queryByLabelText('Sdílet objednávku na WhatsApp')).toBeNull();
     // zpět na karty: tabulka zmizí a karta je v seznamu jako dřív
     fireEvent.click(screen.getByRole('button', { name: 'Karty' }));
     expect(screen.queryByTestId('objednavky-tabulka')).toBeNull();
