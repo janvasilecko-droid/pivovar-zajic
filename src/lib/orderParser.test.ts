@@ -767,3 +767,14 @@ describe('matchPackage: „10x 11 12° winter" je obal 1 l', () => {
     expect(matchPackage(normalize('2x30 11sv'), pk, emptyAliasMap())?.id).toBe('k30');
   });
 });
+
+describe('aliasOdporujeTextu — špatně naučená zkratka (20. 10. 2026)', () => {
+  it('„5x 30l 11° sv" → Citron (bez stupně) se odmítne, zkratka se stejným stupněm projde', async () => {
+    const { aliasOdporujeTextu } = await import('./orderParser');
+    expect(aliasOdporujeTextu('5x 30l 11° sv', { degree: null })).toBe(true);
+    expect(aliasOdporujeTextu('4 x 20l 11° sv', { degree: '12°' })).toBe(true);
+    expect(aliasOdporujeTextu('5x 12° sv', { degree: '12°' })).toBe(false);
+    expect(aliasOdporujeTextu('3 x 30l limo citr', { degree: '11°' })).toBe(true);
+    expect(aliasOdporujeTextu('3 x 30l limo citr', { degree: null })).toBe(false);
+  });
+});
