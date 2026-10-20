@@ -1,9 +1,8 @@
-// 🔴 Zadání 27. 9. 2026: „vylepši knihu jízd, jede to z kynšperka po
-// závoz do kynšperka znova." Auto se mezi jednotlivými dodávkami vrací do
-// pivovaru doložit zboží — den se dvěma a víc zastávkami tak není jedna
-// okružní trasa, ale tolik cest tam a zpět, kolik je zastávek. Dřív appka
-// počítala jednu okružní trasu přes všechny zastávky, což km systematicky
-// podhodnocovalo.
+// 🔴 Zadání 20. 10. 2026: „jízda vždy začíná Kynšperk, poté všechna místa
+// objednávky a končí zase Kynšperk." Den je JEDNA okružní jízda — km jsou
+// délka té jedné trasy a text trasy v knize jede stejnou cestou. (Tím se
+// zrušilo pravidlo z 27. 9. 2026, kde se každá zastávka počítala zvlášť
+// tam a zpět do pivovaru.)
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { computeRouteDistanceKm, popisTrasyDne, HOME_BASE_COORDS } from './routeDistance';
 
@@ -23,26 +22,23 @@ describe('computeRouteDistanceKm', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it('u dvou zastávek se km SČÍTAJÍ (dvě cesty tam a zpět), ne jedna okružní trasa', async () => {
-    // Dřív by tohle byla JEDNA trasa pivovar→A→B→pivovar s jedním OSRM
-    // dotazem. Teď je to dvakrát „pivovar→zastávka→pivovar" — jeden dotaz
-    // na zastávku, výsledky se sečtou.
-    const fetchMock = vi.fn()
-      .mockResolvedValueOnce(osrmOdpoved(8_000))  // pivovar → A → pivovar
-      .mockResolvedValueOnce(osrmOdpoved(14_000)); // pivovar → B → pivovar
+  it('u víc zastávek je to JEDEN dotaz na okružní trasu pivovar → zastávky → pivovar', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(osrmOdpoved(30_000)); // celá okružní trasa
     vi.stubGlobal('fetch', fetchMock);
 
     const r = await computeRouteDistanceKm([
       { name: 'A', lat: 50.1, lng: 12.5 },
       { name: 'B', lat: 50.2, lng: 12.6 },
+      { name: 'C', lat: 50.3, lng: 12.7 },
     ]);
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(r.km).toBe(22); // 8 + 14, NE nějaké menší číslo jedné okružní trasy
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(r.km).toBe(30); // délka jedné trasy, ne součet cest tam a zpět
 
-    // Každý dotaz je skutečně tvaru pivovar→bod→pivovar (tři souřadnice).
-    const prvniUrl = String(fetchMock.mock.calls[0][0]);
-    expect(prvniUrl).toContain(`${HOME_BASE_COORDS.lng},${HOME_BASE_COORDS.lat}`);
-    expect((prvniUrl.match(/;/g) ?? []).length).toBe(2); // 3 body = 2 středníky
+    // Dotaz: pivovar, A, B, C, pivovar — v tomhle pořadí (5 bodů = 4 středníky).
+    const url = String(fetchMock.mock.calls[0][0]);
+    const home = `${HOME_BASE_COORDS.lng},${HOME_BASE_COORDS.lat}`;
+    const body = url.split('/driving/')[1].split('?')[0].split(';');
+    expect(body).toEqual([home, '12.5,50.1', '12.6,50.2', '12.7,50.3', home]);
   });
 
   it('zastávka bez souřadnic se vynechá a nahlásí v missingCoords', async () => {
@@ -58,17 +54,15 @@ describe('computeRouteDistanceKm', () => {
     expect(r.missingCoords).toEqual(['Bez souřadnic']);
   });
 
-  it('selhání OSRM u jedné zastávky nezahodí výsledek ostatních', async () => {
-    const fetchMock = vi.fn()
-      .mockResolvedValueOnce({ ok: false })
-      .mockResolvedValueOnce(osrmOdpoved(6_000));
+  it('selhání OSRM vrátí 0 km (v náhledu knihy jízd jde km doplnit ručně)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: false });
     vi.stubGlobal('fetch', fetchMock);
 
     const r = await computeRouteDistanceKm([
-      { name: 'Selže', lat: 50.1, lng: 12.5 },
-      { name: 'Vyjde', lat: 50.2, lng: 12.6 },
+      { name: 'A', lat: 50.1, lng: 12.5 },
+      { name: 'B', lat: 50.2, lng: 12.6 },
     ]);
-    expect(r.km).toBe(6);
+    expect(r.km).toBe(0);
   });
 
   it('žádná zastávka se souřadnicemi → 0 km, OSRM se nevolá', async () => {
@@ -82,10 +76,8 @@ describe('computeRouteDistanceKm', () => {
 });
 
 describe('popisTrasyDne', () => {
-  it('každá zastávka má vlastní návrat do Kynšperku, ne jen ta poslední', () => {
-    expect(popisTrasyDne(['A', 'B', 'C'])).toBe(
-      'A → Kynšperk nad Ohří → B → Kynšperk nad Ohří → C → Kynšperk nad Ohří'
-    );
+  it('jedna jízda: všechna místa v řadě a na konci Kynšperk', () => {
+    expect(popisTrasyDne(['A', 'B', 'C'])).toBe('A → B → C → Kynšperk nad Ohří');
   });
 
   it('jedna zastávka', () => {

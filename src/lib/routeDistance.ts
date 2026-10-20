@@ -1,4 +1,4 @@
-// Výpočet skutečné jízdní vzdálenosti trasy (pivovar → zastávka → pivovar)
+// Výpočet skutečné jízdní vzdálenosti trasy (pivovar → zastávky → pivovar)
 // pomocí veřejného OSRM routovacího API (Open Source Routing Machine,
 // router.project-osrm.org) — zdarma, bez API klíče, stejný duch jako
 // Nominatim/OSM geokódování v placeLookup.ts.
@@ -14,9 +14,9 @@ export type RouteDistanceResult = {
 
 type Stop = { name: string; lat: number | null | undefined; lng: number | null | undefined };
 
-/** Jedna cesta pivovar → bod → pivovar (v metrech), nebo 0 při chybě OSRM. */
-async function computeOneWayAndBackMeters(point: { lat: number; lng: number }): Promise<number> {
-  const coords = [HOME_BASE_COORDS, point, HOME_BASE_COORDS].map((p) => `${p.lng},${p.lat}`).join(';');
+/** Jedna okružní trasa pivovar → zastávky (v daném pořadí) → pivovar (v metrech), nebo 0 při chybě OSRM. */
+async function computeLoopMeters(points: { lat: number; lng: number }[]): Promise<number> {
+  const coords = [HOME_BASE_COORDS, ...points, HOME_BASE_COORDS].map((p) => `${p.lng},${p.lat}`).join(';');
   const url = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=false`;
   try {
     const res = await fetch(url);
@@ -30,22 +30,16 @@ async function computeOneWayAndBackMeters(point: { lat: number; lng: number }): 
 }
 
 /**
- * Spočítá jízdní vzdálenost dne pomocí OSRM — SOUČET jednotlivých cest
- * pivovar → zastávka → pivovar, jedné pro každou zastávku.
+ * Spočítá jízdní vzdálenost dne pomocí OSRM — JEDNA okružní jízda
+ * pivovar → všechny zastávky (v pořadí, v jakém přišly) → pivovar.
  *
- * NENÍ to jedna okružní trasa pivovar → zastávky → pivovar. Zadání
- * 27. 9. 2026: „vylepši knihu jízd, jede to z kynšperka po závoz do
- * kynšperka znova" — auto se mezi jednotlivými dodávkami vrací do
- * pivovaru doložit zboží, takže den se sudou zastávkou nemá jednu delší
- * cestu, ale tolik kratších cest tam a zpět, kolik je zastávek. Dřív se tu
- * počítala jedna trasa přes všechny zastávky v pořadí, v jakém dorazily
- * z databáze (viz git historie) — u dvou a víc zastávek to km systematicky
- * podhodnocovalo, protože reálně se každá zastávka násobí vlastní cestou
- * tam a zpět, ne sdílí trasu se sousední zastávkou.
+ * Zadání 20. 10. 2026: „jízda vždy začíná Kynšperk, poté všechna místa
+ * objednávky a končí zase Kynšperk." Tím se ruší pravidlo z 27. 9. 2026
+ * (každá zastávka zvlášť tam a zpět do pivovaru): den má jednu jízdu a km
+ * jsou délka téhle jedné trasy, aby text trasy v knize a km seděly.
  *
  * Zastávky bez souřadnic (`lat`/`lng` null) se vynechají a vrátí se
  * v `missingCoords`, ať uživatel ví, proč je odhad nižší, než by měl být.
- * OSRM se volá postupně (ne najednou), ať se nezahltí veřejný server.
  */
 export async function computeRouteDistanceKm(stops: Stop[]): Promise<RouteDistanceResult> {
   const missingCoords = stops.filter((s) => s.lat == null || s.lng == null).map((s) => s.name);
@@ -55,23 +49,19 @@ export async function computeRouteDistanceKm(stops: Stop[]): Promise<RouteDistan
     return { km: 0, missingCoords };
   }
 
-  let totalMeters = 0;
-  for (const stop of validStops) {
-    totalMeters += await computeOneWayAndBackMeters(stop);
-  }
+  const totalMeters = await computeLoopMeters(validStops);
 
   return { km: Math.round((totalMeters / 1000) * 10) / 10, missingCoords };
 }
 
 /**
- * Text trasy dne pro Knihu jízd — stejná realita jako `computeRouteDistanceKm`
- * výš: auto se mezi zastávkami vrací do pivovaru, takže se KAŽDÁ zastávka
- * píše se svým vlastním návratem „→ Kynšperk nad Ohří", ne jen ta poslední.
- * `route_from` (odkud jízda vyjíždí) je vždycky Kynšperk — ten se sem
- * nepíše, doplňuje ho volající (viz KnihaJizdScreen.tsx `HOME_BASE`).
+ * Text trasy dne pro Knihu jízd — jedna jízda: zastávky v pořadí a nakonec
+ * zase „Kynšperk nad Ohří" (viz `computeRouteDistanceKm`). `route_from`
+ * (odkud jízda vyjíždí) je vždycky Kynšperk — ten se sem nepíše, doplňuje
+ * ho volající (viz KnihaJizdScreen.tsx `HOME_BASE`).
  */
 export function popisTrasyDne(placeNames: string[]): string {
   return placeNames.length > 0
-    ? placeNames.map((n) => `${n} → Kynšperk nad Ohří`).join(' → ')
+    ? [...placeNames, 'Kynšperk nad Ohří'].join(' → ')
     : 'Kynšperk nad Ohří (Okruh)';
 }
