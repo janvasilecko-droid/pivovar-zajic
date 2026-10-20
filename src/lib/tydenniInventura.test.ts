@@ -82,11 +82,10 @@ describe('období týdne', () => {
     expect(posunDnu('2026-12-28', 7)).toBe('2027-01-04');
   });
 
-  it('v pondělí a v úterý se nabízí minulý týden, jinak běžící', () => {
-    expect(vychoziTyden('2026-08-31')).toBe(-1); // pondělí
-    expect(vychoziTyden('2026-09-01')).toBe(-1); // úterý
-    expect(vychoziTyden('2026-09-02')).toBe(0);  // středa
-    expect(vychoziTyden('2026-09-06')).toBe(0);  // neděle
+  it('vždy běžící týden — počítání je úprava skladu k dnešku (20. 10. 2026)', () => {
+    expect(vychoziTyden('2026-08-31')).toBe(0); // pondělí
+    expect(vychoziTyden('2026-09-01')).toBe(0); // úterý
+    expect(vychoziTyden('2026-09-06')).toBe(0); // neděle
   });
 
   it('popis týdne píše rok jen jednou a zvládne přelom měsíce', () => {
@@ -330,5 +329,25 @@ describe('tydenniJakoInventura — Sklad v pondělí = týdenní inventura (12. 
     const inv = tydenniJakoInventura([ulozeny, { ...ulozeny, package_id: 'p2', napocitano: null }]);
     expect(inv).toHaveLength(1);
     expect(jeMesicUzamcen(inv as any, '2026-10-12')).toBe(false);
+  });
+});
+
+
+describe('tydenniJakoInventura — úprava skladu hned (20. 10. 2026)', () => {
+  const radek = (updated_at: string) => ({
+    tyden_od: '2026-10-12', tyden_do: '2026-10-18', beer_id: 'b', package_id: 'p', napocitano: 55, updated_at,
+  });
+  it('nové počítání (po zavedení) platí ke dni počítání, ne k pondělí', async () => {
+    const { tydenniJakoInventura } = await import('./tydenniInventura');
+    const [r] = tydenniJakoInventura([radek('2026-10-21T08:00:00Z')]);
+    expect(r.entry_date).toBe('2026-10-21');
+    expect(String(r.note)).toContain('(konec dne)');
+    expect(r.quantity).toBe(55);
+  });
+  it('dřívější počítání zůstává jako bylo: pondělí po týdnu', async () => {
+    const { tydenniJakoInventura } = await import('./tydenniInventura');
+    const [r] = tydenniJakoInventura([radek('2026-10-19T08:00:00Z')]);
+    expect(r.entry_date).toBe('2026-10-19');
+    expect(String(r.note)).not.toContain('(konec dne)');
   });
 });

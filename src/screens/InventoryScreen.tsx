@@ -2022,7 +2022,7 @@ function exportInventoryExcel() {
           }`}
         >
           <CalendarRange size={16} />
-          <span>Týdenní inventura</span>
+          <span>Úprava skladu</span>
         </button>
 
         <button

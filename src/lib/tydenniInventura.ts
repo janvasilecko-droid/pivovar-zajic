@@ -94,8 +94,10 @@ export function tydenObdobi(dnesISO: string, posun = 0): TydenObdobi {
  * `vychoziMesicInventury` v inventoryFix.ts, jen o řád kratší.
  */
 export function vychoziTyden(dnesISO: string): number {
-  const den = new Date(dnesISO + 'T00:00:00Z').getUTCDay(); // 1 = pondělí
-  return den === 1 || den === 2 ? -1 : 0;
+  // Od 20. 10. 2026 vždy běžící týden: počítání je úprava skladu k dnešku (viz UPRAVA_SKLADU_OD),
+  // ne uzavírání minulého týdne.
+  void dnesISO;
+  return 0;
 }
 
 const MESICE_ZKRATKA = ['1.', '2.', '3.', '4.', '5.', '6.', '7.', '8.', '9.', '10.', '11.', '12.'];
@@ -280,6 +282,13 @@ export const ZNACKA_KONEC_DNE = ' (konec dne)';
  * Poznámka nesmí obsahovat „fyzická/schválená/počáteční" — jinak by řádek
  * zamkl měsíc (mesicUzamcen) nebo se bral jako závěr dne (stockLedger).
  */
+/**
+ * Od kdy se napočítané číslo bere jako stav SKLADU HNED (k dni počítání), ne až k pondělí po týdnu.
+ * Zadání 20. 10. 2026: „na skladě se ukazuje 70, reálně je jich 54, dám 55 → nastaví se 55 na skladě
+ * a sklad bude ukazovat 55." Dřívější uložená počítání (do tohoto okamžiku) zůstávají, jak byla.
+ */
+export const UPRAVA_SKLADU_OD = '2026-10-20T13:00:00Z';
+
 export function tydenniJakoInventura(radky: {
   tyden_od: string;
   tyden_do: string;
@@ -300,7 +309,8 @@ export function tydenniJakoInventura(radky: {
       const pondeli = posunDnu(String(r.tyden_do).slice(0, 10), 1);
       const tydenOd = String(r.tyden_od).slice(0, 10);
       const denPocitani = r.updated_at ? businessDateISO(new Date(r.updated_at)) : pondeli;
-      const driv = denPocitani >= tydenOd && denPocitani < pondeli;
+      const novy = !!r.updated_at && r.updated_at >= UPRAVA_SKLADU_OD;
+      const driv = novy ? denPocitani >= tydenOd : denPocitani >= tydenOd && denPocitani < pondeli;
       return {
       entry_date: driv ? denPocitani : pondeli,
       beer_id: r.beer_id,
