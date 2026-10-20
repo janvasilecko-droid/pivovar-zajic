@@ -374,7 +374,14 @@ export function notifyTimerDone(title: string, body: string) {
 
   // 3. Systémová push notifikace na displej
   if (settings.screenNotif) {
-    void ukazUpozorneni(`⏰ ${title}`, { body, tag: 'timer-done', requireInteraction: true, stranka: 'timer' });
+    void ukazUpozorneni(`⏰ ${title}`, {
+      body,
+      tag: 'timer-done',
+      requireInteraction: true,
+      renotify: true,
+      vibrate: [500, 200, 500, 200, 800],
+      stranka: 'timer',
+    } as NotificationOptions & { stranka?: string });
   }
 
   // 4. In-app vizuální okno přes celou obrazovku

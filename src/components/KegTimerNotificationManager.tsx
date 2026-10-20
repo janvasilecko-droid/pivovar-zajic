@@ -33,7 +33,7 @@ export function KegTimerNotificationManager() {
         const next = countdowns.map((t) => {
           if (t.targetAt === null || t.notifiedAt) return t;
           if (countdownRemainingMs(t) > 0) return t;
-          notifyTimerDone('Časovač vypršel', t.label || 'Odpočet doběhl.');
+          notifyTimerDone(t.label ? `${t.label}: čas vypršel` : 'Časovač vypršel', 'Odpočet doběhl — klepni a otevři appku.');
           changed = true;
           return { ...t, notifiedAt: Date.now() };
         });
