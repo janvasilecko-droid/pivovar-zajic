@@ -329,6 +329,8 @@ export function slozNavrh(opts: {
     //    Množství se SČÍTÁ: „plus 1x30 višeň" u objednávky, kde už dvě jsou,
     //    znamená tři.
     if (vypadaJakoPridavek(text)) return prictiPolozky(soucasne, zOdpovedi);
+    // ➖ ODEBRÁNÍ: „Minus 2x30 winter", „Odeber 1x50" — odečte se od současného obsahu.
+    if (vypadaJakoOdebrani(text)) return odectiPolozky(soucasne, zOdpovedi);
     return zOdpovedi;
   }
 
@@ -426,6 +428,38 @@ export function vypadaJakoPridavek(text: string | null | undefined): boolean {
   return /\b(jeste\s+plus|plus\s+jeste|jeste\s+k\s+tomu|k\s+tomu\s+jeste|navic|pridej|pridat)\b/.test(uvod)
     || /^\s*(a\s+)?plus\b/.test(uvod)
     || /\bplus\s+(toto|tohle|tohleto)\b/.test(uvod);
+}
+
+/**
+ * Říká odpověď, že se z objednávky něco ODEBÍRÁ? „Minus 2x30 winter",
+ * „odeber 1x50", „ubrat 3x20". Jen úvod zprávy, stejně jako u přídavku.
+ * Zadání 20. 10. 2026: odpověď na zprávu má jen přičíst, nebo odečíst.
+ */
+export function vypadaJakoOdebrani(text: string | null | undefined): boolean {
+  const uvod = (text ?? '')
+    .split('\n').slice(0, 2).join(' ')
+    .slice(0, 60)
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+  if (!uvod.trim()) return false;
+  return /^\s*(a\s+)?(jeste\s+)?(minus|odeber\w*|odecti\w*|ubrat|uber\w*|odeb\w*)\b/.test(uvod);
+}
+
+/**
+ * Odečte položky ze zprávy od toho, co v objednávce je. Stejná položka (pivo +
+ * obal) se zmenší, při nule nebo méně zmizí; co v objednávce není, se
+ * přeskočí (odečítat z ničeho nejde). Pořadí ostatních se nemění.
+ */
+export function odectiPolozky(soucasne: ItemRef[], odebirane: ItemRef[]): ItemRef[] {
+  const vysledek: ItemRef[] = soucasne.map((i) => ({ ...i, quantity: Number(i.quantity || 0) }));
+  for (const o of odebirane) {
+    const mnozstvi = Math.abs(Number(o.quantity || 0));
+    if (mnozstvi === 0) continue;
+    const i = vysledek.findIndex((v) => itemKey(v) === itemKey(o));
+    if (i >= 0) vysledek[i] = { ...vysledek[i], quantity: vysledek[i].quantity - mnozstvi };
+  }
+  return vysledek.filter((v) => v.quantity > 0);
 }
 
 /**
