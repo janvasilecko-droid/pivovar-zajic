@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { findQuotedMessage, findAmendedOrderId, diffOrderItems, maZmeny, rozsahOdpovedi, skupinaObalu, slozNavrh, potvrzeneBezPolozek, type WhatsAppMsgRef, vypadaJakoPridavek, prictiPolozky, kandidatiNaDoplneni, vypadaJakoZmenaObjednavky, type ObjednavkaKandidat } from './whatsappAmendment';
+import { findQuotedMessage, findAmendedOrderId, diffOrderItems, maZmeny, rozsahOdpovedi, skupinaObalu, slozNavrh, potvrzeneBezPolozek, type WhatsAppMsgRef, vypadaJakoPridavek, prictiPolozky, vypadaJakoOdebrani, odectiPolozky, kandidatiNaDoplneni, vypadaJakoZmenaObjednavky, type ObjednavkaKandidat } from './whatsappAmendment';
 
 const m = (id: string, created_at: string, message_text: string, extra: Partial<WhatsAppMsgRef> = {}): WhatsAppMsgRef =>
   ({ id, created_at, message_text, ...extra });
@@ -517,5 +517,40 @@ describe('slozNavrh — přídavek, když odpověď obsahuje celou objednávku',
     expect(spatne.find((i) => i.beer_id === 'sv12' && i.package_id === 'keg50')?.quantity).toBe(5);
     const dobre = slozNavrh({ soucasne: MALESICE, zOdpovedi: VYSLEDNY_STAV_OD_AI, text, obaly: OBALY, zOdpovediJePlnyStav: true });
     expect(dobre.reduce((s, i) => s + i.quantity, 0)).toBe(2 + 2 + 12 + 20 + 1 + 10 + 1);
+  });
+});
+
+
+describe('odpověď jen přičte nebo odečte (20. 10. 2026)', () => {
+  const objednavka = [
+    { beer_id: 'b12', package_id: 'k50', quantity: 10 },
+    { beer_id: 'win', package_id: 'k30', quantity: 2 },
+  ];
+  const obaly = [{ id: 'k50', label: 'KEG 50l', volume_l: 50, kind: 'keg' }, { id: 'k30', label: 'KEG 30l', volume_l: 30, kind: 'keg' }, { id: 'l05', label: '0.5l', volume_l: 0.5, kind: 'bottle' }] as any;
+
+  it('„A ještě plus 100x 0,5l 12sv" přičte jen novou položku, původní nechá', () => {
+    const navrh = slozNavrh({
+      soucasne: objednavka,
+      zOdpovedi: [{ beer_id: 'b12', package_id: 'l05', quantity: 100 }],
+      text: 'A jeste plus 100x 0,5l 12sv',
+      obaly,
+    });
+    expect(navrh).toEqual([...objednavka, { beer_id: 'b12', package_id: 'l05', quantity: 100 }]);
+  });
+  it('rozpozná odebrání na začátku zprávy', () => {
+    expect(vypadaJakoOdebrani('Minus 2x30 winter')).toBe(true);
+    expect(vypadaJakoOdebrani('a odeber 1x50')).toBe(true);
+    expect(vypadaJakoOdebrani('2x30 winter, minus nic')).toBe(false);
+    expect(vypadaJakoOdebrani('Plus 2x30')).toBe(false);
+  });
+  it('odectiPolozky: zmenší, při nule smaže, co tam není, přeskočí', () => {
+    expect(odectiPolozky(objednavka, [{ beer_id: 'win', package_id: 'k30', quantity: 1 }])[1].quantity).toBe(1);
+    expect(odectiPolozky(objednavka, [{ beer_id: 'win', package_id: 'k30', quantity: 2 }])).toEqual([objednavka[0]]);
+    expect(odectiPolozky(objednavka, [{ beer_id: 'x', package_id: 'k30', quantity: 5 }])).toEqual(objednavka);
+  });
+  it('slozNavrh: „Minus 1x30 winter" odečte od současného obsahu', () => {
+    const navrh = slozNavrh({ soucasne: objednavka, zOdpovedi: [{ beer_id: 'win', package_id: 'k30', quantity: 1 }], text: 'Minus 1x30 winter', obaly });
+    expect(navrh.find((i) => i.beer_id === 'win')?.quantity).toBe(1);
+    expect(navrh.find((i) => i.beer_id === 'b12')?.quantity).toBe(10);
   });
 });
