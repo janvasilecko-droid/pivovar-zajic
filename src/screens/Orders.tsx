@@ -1562,6 +1562,28 @@ export default function Orders({
     });
   }, [filtered, orders, zavozOnly, overdueOnly, statusFilter, deliveryDayFilter, searchText, items, itemFilterBeerId, itemFilterPackageId, packageKindFilter, packages]);
 
+  // 🔢 Souhrn nahoře: kolik kusů je v tom, co je právě vidět — s filtrem piva/obalu jen
+  // vyhovující položky. Zadání 20. 10. 2026: „ať je líp vidět počet i nahoře celkový,
+  // když filtruji konkrétní obal nebo den."
+  const souhrnZobrazenych = useMemo(() => {
+    let kusu = 0;
+    const poObalech = new Map<string, { label: string; kusu: number }>();
+    searchedFiltered.forEach((o) => {
+      (items[o.id] ?? []).forEach((i) => {
+        if (polozkovyFiltrAktivni && !matchesItemFilters(i)) return;
+        const q = Number(i.quantity) || 0;
+        kusu += q;
+        const pkg = packages.find((p) => p.id === i.package_id);
+        const key = i.package_id ?? '?';
+        const prev = poObalech.get(key) ?? { label: pkg ? formatPackageLabel(pkg.label) : (i.package_label ?? '?'), kusu: 0 };
+        prev.kusu += q;
+        poObalech.set(key, prev);
+      });
+    });
+    return { kusu, objednavek: searchedFiltered.length, poObalech: [...poObalech.values()].sort((a, b) => b.kusu - a.kusu) };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchedFiltered, items, packages, polozkovyFiltrAktivni, itemFilterBeerId, itemFilterPackageId, packageKindFilter]);
+
   // 🧮 Záložka „Celkem“ — souhrn objednaného množství podle varianty (pivo + obal)
   // v aktuálně zvoleném rozsahu (týden / měsíc / vše). Storno se nepočítá.
   const variantTotals = useMemo(() => computeVariantTotals(filtered, items), [filtered, items]);
@@ -2863,6 +2885,20 @@ export default function Orders({
             );
           })}
           <div className="text-xs">Položky nad počet jsou u objednávek označené červeně (nejdřív se sudy přidělí nejbližším dovozům).</div>
+        </div>
+      )}
+
+      {viewMode === 'detail' && !loading && searchedFiltered.length > 0 && (polozkovyFiltrAktivni || deliveryDayFilter !== 'all') && (
+        <div data-testid="souhrn-zobrazenych" className="rounded-xl border-2 border-amber-300 bg-amber-50 px-3 py-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <span className="font-display font-black text-lg text-amber-950 tabular-nums">{souhrnZobrazenych.kusu} ks</span>
+          <span className="text-xs font-bold text-amber-900">
+            {polozkovyFiltrAktivni ? 'podle filtru' : 'v tomto dni'} · {souhrnZobrazenych.objednavek} {souhrnZobrazenych.objednavek === 1 ? 'objednávka' : souhrnZobrazenych.objednavek < 5 ? 'objednávky' : 'objednávek'}
+          </span>
+          {souhrnZobrazenych.poObalech.length > 1 && (
+            <span className="text-xs font-semibold text-amber-900 tabular-nums">
+              {souhrnZobrazenych.poObalech.map((o) => `${o.label}: ${o.kusu}`).join(' · ')}
+            </span>
+          )}
         </div>
       )}
 

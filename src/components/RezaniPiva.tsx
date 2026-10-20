@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { Minus, Plus, Scissors } from 'lucide-react';
 import { supabase, beerBg, beerBorder, beerText, type Beer, type CellarTank, type Package } from '../lib/supabase';
 import { businessDateISO } from '../lib/businessDate';
-import { ZNACKA_MIMO_SKLAD, litryRezu, popisRezu, vyslednePivoRezu, problemyRezu, rozdelPodilB, rozdelRez, tankyKRezu } from '../lib/rezani';
+import { litryRezu, popisRezu, vyslednePivoRezu, problemyRezu, rozdelPodilB, rozdelRez, tankyKRezu } from '../lib/rezani';
 import { odectiSudyDoRezu } from '../lib/rezaniSudy';
 import { odectiPodilRezu } from '../lib/jantarZapis';
 import { chyba, oznam, potvrd, uspech } from '../lib/toast';
@@ -91,8 +91,6 @@ export default function RezaniPiva({
   // 🧮 Jen odečíst (16. 10. 2026: „z řezání máš jen odečíst pivo z tanku" — sudy z řezu
   // už byly zapsané zvlášť, takže „+4" ze stočení by je do skladu přičetlo podruhé).
   const [jenOdecist, setJenOdecist] = useState(false);
-  // Sudy odběratele (Duck and Dog): zapíšou se do přehledu stáčení, ale do skladu ne.
-  const [mimoSklad, setMimoSklad] = useState(false);
   // Který výběr je zrovna rozbalený (jen jeden naráz).
   const [otevreno, setOtevreno] = useState<'A' | 'B' | 'pivo' | 'sudy' | null>(null);
   const prepni = (k: 'A' | 'B' | 'pivo' | 'sudy') => setOtevreno((o) => (o === k ? null : k));
@@ -226,7 +224,6 @@ export default function RezaniPiva({
         setSudyPocty({});
         setPoznamka('');
         setJenOdecist(false);
-        setMimoSklad(false);
         onUlozeno();
         return;
       }
@@ -241,7 +238,7 @@ export default function RezaniPiva({
           package_id: r.obal.id,
           package_label: r.obal.label,
           quantity: r.pocet,
-          note: [popis, poznamka.trim(), mimoSklad ? ZNACKA_MIMO_SKLAD : ''].filter(Boolean).join(' · '),
+          note: poznamka.trim() ? `${popis} · ${poznamka.trim()}` : popis,
           cellar_tank_id: tankA!.id,
           source_volume_l: radekA || null,
         };
@@ -301,7 +298,6 @@ export default function RezaniPiva({
       setPocty({});
       setSudyPocty({});
       setPoznamka('');
-      setMimoSklad(false);
       onUlozeno();
     } finally {
       setUklada(false);
@@ -381,12 +377,6 @@ export default function RezaniPiva({
           <span>
             Sudy z řezu už mám zapsané jinde — jen odečíst pivo z tanků (a sudy ze skladu), do skladu nic nepřičítat
             <span className="block text-xs font-semibold text-neutral-600">Počty sudů níže slouží jen k výpočtu litrů.</span>
-          </span>
-        </label>
-        <label className="flex items-start gap-2 mb-2 text-sm font-bold text-neutral-800 cursor-pointer select-none">
-          <input type="checkbox" className="w-4 h-4 mt-0.5 accent-primary-600" checked={mimoSklad} disabled={jenOdecist} onChange={(e) => setMimoSklad(e.target.checked)} />
-          <span>
-            Sudy jsou odběratele (např. Duck and Dog) — zapsat do přehledu stáčení, ale do skladu nepočítat
           </span>
         </label>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">

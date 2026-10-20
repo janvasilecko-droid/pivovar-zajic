@@ -124,7 +124,8 @@ describe('OrderTabulka', () => {
     const prvni = screen.getAllByTestId('radek-objednavky')[0];
     expect(prvni.textContent).not.toContain('12° Tmavá');
     expect(prvni.textContent).toContain('Filtr schoval 1 položku');
-    expect(within(prvni).getByText('3')).toBeTruthy(); // celkem je pořád za celou objednávku
+    // Sloupec Ks ukazuje kusy podle filtru a pod nimi, kolik je v celé objednávce (20. 10. 2026).
+    expect(prvni.textContent).toContain('z 3');
   });
 
   it('prázdný seznam i objednávka bez položek', () => {

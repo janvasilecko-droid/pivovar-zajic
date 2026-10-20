@@ -121,10 +121,10 @@ export function OrderTabulka({
                       {viditelne.map((i) => {
                         const beer = i.beer_id ? beers.find((b) => b.id === i.beer_id) : null;
                         return (
-                          <li key={i.id} className={`flex items-center gap-1.5 text-xs ${i.is_prepared ? 'text-neutral-500 line-through' : 'text-neutral-900'}`}>
+                          <li key={i.id} className={`flex flex-wrap items-center gap-x-1.5 text-xs ${i.is_prepared ? 'text-neutral-500 line-through' : 'text-neutral-900'}`}>
                             {beer && <span className="w-2.5 h-2.5 rounded-full shrink-0 border border-black/20 vlastni-vyska" style={{ backgroundColor: beerBg(beer) }} />}
-                            <span className="font-black min-w-0 break-words">{i.beer_name ?? '?'}</span>
-                            <span className="font-bold text-neutral-700 shrink-0">{formatPackageLabel(i.package_label)}</span>
+                            <span className="font-black whitespace-nowrap">{i.beer_name ?? '?'}</span>
+                            <span className="font-bold text-neutral-700 shrink-0 whitespace-nowrap">{formatPackageLabel(i.package_label)}</span>
                             <span className="ml-auto shrink-0 font-black tabular-nums text-amber-900">×{i.quantity}</span>
                           </li>
                         );
@@ -133,7 +133,10 @@ export function OrderTabulka({
                       {polozky.length === 0 && <li className="text-xs text-neutral-500">bez položek</li>}
                     </ul>
                   </td>
-                  <td className="px-2 py-1.5 border-t-2 border-neutral-200 text-right font-black tabular-nums text-neutral-900">{celkem}</td>
+                  <td className="px-2 py-1.5 border-t-2 border-neutral-200 text-right font-black tabular-nums text-neutral-900">
+                    {itemMatchesFilter ? viditelne.reduce((s, i) => s + Number(i.quantity), 0) : celkem}
+                    {itemMatchesFilter && skryto > 0 && <span className="block text-udaj font-semibold text-neutral-500" title="Celkem v objednávce">z {celkem}</span>}
+                  </td>
                   <td className="px-2 py-1.5 border-t-2 border-neutral-200">
                     <div className="flex flex-wrap items-center gap-1">
                       {schodky.length > 0 ? (

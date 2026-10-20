@@ -1000,3 +1000,33 @@ describe('odběratelé s vlastními sudy (lib/vlastniSudy.ts)', () => {
     });
   });
 });
+
+// 20. 10. 2026: Duck and Dog 21× 30 l 11° odvezeno (odpočet ze skladu), 17 stočeno bez
+// vazby na položku (Řezání), 4 ze skladu. Fond měl o vrácená 4 víc než sklad a plán tvrdil,
+// že 5× 30 l 11° pro Radka je kryto, i když skladem byly jen 4.
+describe('zavezený odběratel s vlastními sudy: stočení bez vazby na položku', () => {
+  const stav = (dadStatus: string) => computeKeggingPlan({
+    beers, packages,
+    orders: [
+      { id: 'dad', delivery_date: '2026-08-25', order_date: '2026-08-24', status: dadStatus, place_name: 'Duck and Dog' },
+      { id: 'radek', delivery_date: '2026-08-27', order_date: '2026-08-26', status: 'nova', place_name: 'Radek' },
+    ],
+    orderItems: [
+      { id: 'i-dad', order_id: 'dad', beer_id: 'b-11', package_id: 'p30', quantity: 21 },
+      { id: 'i-radek', order_id: 'radek', beer_id: 'b-11', package_id: 'p30', quantity: 5 },
+    ],
+    keggingRows: [{ entry_date: '2026-08-24', beer_id: 'b-11', package_id: 'p30', quantity: 17, order_item_id: null }],
+    zavozDeductionRows: [{ order_id: 'dad', order_item_id: 'i-dad', beer_id: 'b-11', package_id: 'p30', quantity: 21, deduct_date: '2026-08-25' }],
+    weekKey: WEEK,
+    currentStockMap: new Map([['b-11__p30', 4]]),
+  } as any).find((d) => d.day === 'ct')!.items.find((i) => i.beer_id === 'b-11')!;
+
+  it('zavezená DaD: Radkových 5 se kryje jen 4 sudy ze skladu, chybí 1', () => {
+    const r = stav('vyrizeno_zavoz');
+    expect(r.zChladaku).toBe(4);
+    expect(r.missing).toBe(1);
+  });
+  it('dokud DaD zavezená není, platí stará úvaha (zbytek se ještě stočí)', () => {
+    expect(stav('nova').zChladaku).toBe(5);
+  });
+});
