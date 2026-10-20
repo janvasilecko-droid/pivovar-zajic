@@ -2,7 +2,7 @@
 
 import { poradiPolozekObjednavky } from '../../lib/poradiPolozek';
 import { MaleSudyRadek, tridaRadkuSudu } from '../MaleSudyVolne';
-import { AlertTriangle, Ban, Beer as BeerIcon, Calendar, Check, CheckCircle2, Hourglass, NotebookPen, Pencil, Phone, RotateCcw, Split, Trash2, Truck, Undo2, Droplet } from 'lucide-react';
+import { AlertTriangle, Ban, Beer as BeerIcon, Calendar, Check, CheckCircle2, Hourglass, MessageCircle, NotebookPen, Pencil, Phone, RotateCcw, Split, Trash2, Truck, Undo2, Droplet } from 'lucide-react';
 import { Beer, Package, Place, beerBg, formatPackageLabel } from '../../lib/supabase';
 
 import { schodkyObjednavky } from '../../lib/tydenniZbytek';
@@ -13,6 +13,7 @@ import { DAYS } from '../../lib/shared';
 
 import type {  } from '../../lib/tankUZapisu';
 
+import { shareOrderToWhatsApp } from '../../lib/whatsapp';
 
 import { StitekStavu } from '../StitekStavu';
 import { jeVyrizena } from '../../lib/stavyObjednavek';
@@ -373,6 +374,9 @@ export function OrderCard({ o, items, stockRemainingForOrder, nadPocetMalychSudu
                 nese barva a `title`/`aria-label`; ikona je 14 px, cíl 32. */}
             <button className="btn-ikona bg-amber-500 hover:bg-amber-400 text-neutral-950" onClick={() => onEdit(o)} title="Upravit objednávku" aria-label="Upravit objednávku">
               <Pencil size={14} />
+            </button>
+            <button className="btn-ikona bg-emerald-100 hover:bg-emerald-200 text-emerald-900 border border-emerald-300" onClick={() => shareOrderToWhatsApp(o, items)} title="Sdílet objednávku na WhatsApp" aria-label="Sdílet objednávku na WhatsApp">
+              <MessageCircle size={14} />
             </button>
             {/* ↩️ Vrátit na sklad. Zadání 22. 9. 2026: „u objednávky přehled
                 odstraň kopírovat objednávku, ale místo toho dej ikonu vrátit,
