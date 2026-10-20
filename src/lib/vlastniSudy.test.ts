@@ -7,8 +7,10 @@ import {
 // skladu, stáčí se do jejich sudů, to samý Martin malý sudy."
 describe('vlastniSudyOdberatele', () => {
   it('Duck and Dog a Michal Fojtovice — všechny sudy jejich', () => {
-    expect(vlastniSudyOdberatele('Duck and Dog')).toBe('vse');
-    expect(vlastniSudyOdberatele('duck  and dog')).toBe('vse');
+    expect(vlastniSudyOdberatele('Michal Fojtovice')).toBe('vse');
+    // Duck and Dog je od 20. 10. 2026 normální zákazník s našimi sudy.
+    expect(vlastniSudyOdberatele('Duck and Dog')).toBeNull();
+    expect(vlastniSudyOdberatele('duck  and dog')).toBeNull();
     expect(vlastniSudyOdberatele('Michal fojtovice')).toBe('vse');
     expect(vlastniSudyOdberatele('Michal Vojtovice')).toBe('vse');
   });
@@ -34,10 +36,10 @@ describe('doSuduOdberatele', () => {
     expect(doSuduOdberatele('Martin', s50)).toBe(false);
     expect(doSuduOdberatele('Martin', lahev)).toBe(false);
   });
-  it('Duck and Dog: všechny sudy, lahve ne', () => {
-    expect(doSuduOdberatele('Duck and Dog', s50)).toBe(true);
-    expect(doSuduOdberatele('Duck and Dog', s20)).toBe(true);
-    expect(doSuduOdberatele('Duck and Dog', lahev)).toBe(false);
+  it('Michal Fojtovice: všechny sudy, lahve ne', () => {
+    expect(doSuduOdberatele('Michal Fojtovice', s50)).toBe(true);
+    expect(doSuduOdberatele('Michal Fojtovice', s20)).toBe(true);
+    expect(doSuduOdberatele('Michal Fojtovice', lahev)).toBe(false);
   });
 });
 
@@ -49,8 +51,8 @@ describe('bezSuduOdberatele', () => {
   ];
   const polozky = [{ package_id: 'k50' }, { package_id: 'k20' }, { package_id: 'pet' }];
 
-  it('Duck and Dog: sudy vypadnou z kontroly skladu, lahve zůstanou', () => {
-    expect(bezSuduOdberatele('Duck and Dog', polozky, obaly)).toEqual([{ package_id: 'pet' }]);
+  it('Michal Fojtovice: sudy vypadnou z kontroly skladu, lahve zůstanou', () => {
+    expect(bezSuduOdberatele('Michal Fojtovice', polozky, obaly)).toEqual([{ package_id: 'pet' }]);
   });
   it('běžný odběratel: nic se nevyřazuje', () => {
     expect(bezSuduOdberatele('Hospoda U Lva', polozky, obaly)).toEqual(polozky);
@@ -110,7 +112,7 @@ describe('vlastní sud podle poznámky objednávky', () => {
 
   it('seznam má přednost: Martin zůstává jen u malých sudů', () => {
     expect(vlastniSudyOdberatele('Martin', 'do jejich sudu')).toBe('male');
-    expect(vlastniSudyOdberatele('Duck and Dog', 'něco jiného')).toBe('vse');
+    expect(vlastniSudyOdberatele('Michal Fojtovice', 'něco jiného')).toBe('vse');
   });
 
   it('doSuduOdberatele: s poznámkou všechny sudy, lahve nikdy', () => {

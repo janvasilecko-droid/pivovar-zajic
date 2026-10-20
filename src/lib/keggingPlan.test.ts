@@ -796,7 +796,7 @@ describe('den závozu u nové objednávky ze zprávy / fotky (29. 9. 2026)', () 
   });
 });
 
-// 6. 10. 2026: „Duck and Dog a Michal Fojtovice počítej zvlášť, mimo zásoby
+// 6. 10. 2026: „Michal Fojtovice a Michal Fojtovice počítej zvlášť, mimo zásoby
 // skladu, stáčí se do jejich sudů, to samý Martin malý sudy."
 describe('odběratelé s vlastními sudy (lib/vlastniSudy.ts)', () => {
   const PKGS = [...packages, { id: 'p20', label: '20l', kind: 'keg', volume_l: 20 }];
@@ -808,12 +808,12 @@ describe('odběratelé s vlastními sudy (lib/vlastniSudy.ts)', () => {
   it('zásoba skladem jejich objednávku nepokryje — sudy pivovaru jdou jen ostatním', () => {
     const p = plan({
       packages: PKGS,
-      orders: [obj('dd', 'Duck and Dog'), obj('h', 'Hospoda')],
+      orders: [obj('dd', 'Michal Fojtovice'), obj('h', 'Hospoda')],
       orderItems: [pol('i-dd', 'dd', 'p50', 4), pol('i-h', 'h', 'p50', 2)],
       currentStockMap: new Map([['b-des__p50', 10]]),
     });
     const it = day(p, 'st').items[0];
-    expect(it.missing).toBe(4);          // do sudů Duck and Dog se musí stočit všechny 4
+    expect(it.missing).toBe(4);          // do sudů Michal Fojtovice se musí stočit všechny 4
     expect(it.doVlastnichSudu).toBe(4);
     expect(it.zChladaku).toBe(2);        // sklad pokryl jen Hospodu
   });
@@ -875,7 +875,7 @@ describe('odběratelé s vlastními sudy (lib/vlastniSudy.ts)', () => {
   it('zavezená objednávka odběratele je hotová a její odvoz se do fondu nevrací', () => {
     const p = plan({
       packages: PKGS,
-      orders: [obj('dd', 'Duck and Dog', { is_delivered: true }), obj('h', 'Hospoda')],
+      orders: [obj('dd', 'Michal Fojtovice', { is_delivered: true }), obj('h', 'Hospoda')],
       orderItems: [pol('i-dd', 'dd', 'p50', 4), pol('i-h', 'h', 'p50', 3)],
       zavozDeductionRows: [{ deduct_date: '2026-08-26', order_id: 'dd', order_item_id: 'i-dd', beer_id: 'b-des', package_id: 'p50', quantity: 4 }],
       // Stočeno 4 do jejich sudů a odvezeno 4 → sklad pivovaru 2.
@@ -889,13 +889,13 @@ describe('odběratelé s vlastními sudy (lib/vlastniSudy.ts)', () => {
   });
 
   // 8. 10. 2026: „Co stočit dnes" ukazovalo 14× 50 l a 16× 20 l, přitom v
-  // objednávkách (Nakládka dnes) bylo jen Duck and Dog 10× 50 l a 8× 20 l —
+  // objednávkách (Nakládka dnes) bylo jen Michal Fojtovice 10× 50 l a 8× 20 l —
   // zbytek bylo mínus ve skladu (−4 a −8), které se přilepilo na den, kde se
   // stáčí jen do jejich vlastních sudů. Takový dluh nejde stočením do jejich
   // sudů nikdy smazat (sklad je nepočítá do fondu), takže „chybí" zůstalo.
   describe('mínus ve skladu u dne, kde je pivo jen do vlastních sudů', () => {
     const PKGS2 = [...packages, { id: 'p20', label: '20l', kind: 'keg', volume_l: 20 }];
-    const objDD = (id: string, date: string, place = 'Duck and Dog') => ({
+    const objDD = (id: string, date: string, place = 'Michal Fojtovice') => ({
       id, delivery_date: date, order_date: '2026-08-24', status: 'nova', place_name: place,
     });
     const polDD = (id: string, order_id: string, package_id: string, quantity: number) => ({ id, order_id, beer_id: 'b-11', package_id, quantity });
@@ -915,7 +915,7 @@ describe('odběratelé s vlastními sudy (lib/vlastniSudy.ts)', () => {
     });
 
     it('po stočení všeho do jejich sudů je hotovo, mínus ve skladu to nevrátí zpátky', () => {
-      // Stočeno 10 do sudů Duck and Dog: sklad −4 + 10 = 6, z toho 10 jsou jejich sudy.
+      // Stočeno 10 do sudů Michal Fojtovice: sklad −4 + 10 = 6, z toho 10 jsou jejich sudy.
       const p = plan({
         packages: PKGS2,
         orders: [objDD('dd', '2026-08-27')],
@@ -940,7 +940,7 @@ describe('odběratelé s vlastními sudy (lib/vlastniSudy.ts)', () => {
     });
 
     // Skutečný stav z 8. 10. 2026: sklad 11° 50 l = 2 na začátku týdne + 5 stočeno
-    // − 1 na lahve = 6, k tomu dnešní AUTOMATICKÝ odpočet závozu Duck and Dog −10
+    // − 1 na lahve = 6, k tomu dnešní AUTOMATICKÝ odpočet závozu Michal Fojtovice −10
     // (odepisuje se podle dne závozu, ne podle stočení) → kniha ukazuje −4.
     const odpocet = (order_id: string, order_item_id: string, package_id: string, quantity: number) => ({
       deduct_date: '2026-08-27', order_id, order_item_id, beer_id: 'b-11', package_id, quantity,
@@ -1001,14 +1001,14 @@ describe('odběratelé s vlastními sudy (lib/vlastniSudy.ts)', () => {
   });
 });
 
-// 20. 10. 2026: Duck and Dog 21× 30 l 11° odvezeno (odpočet ze skladu), 17 stočeno bez
+// 20. 10. 2026: Michal Fojtovice 21× 30 l 11° odvezeno (odpočet ze skladu), 17 stočeno bez
 // vazby na položku (Řezání), 4 ze skladu. Fond měl o vrácená 4 víc než sklad a plán tvrdil,
 // že 5× 30 l 11° pro Radka je kryto, i když skladem byly jen 4.
 describe('zavezený odběratel s vlastními sudy: stočení bez vazby na položku', () => {
   const stav = (dadStatus: string, dnes?: string) => computeKeggingPlan({
     beers, packages,
     orders: [
-      { id: 'dad', delivery_date: '2026-08-25', order_date: '2026-08-24', status: dadStatus, place_name: 'Duck and Dog' },
+      { id: 'dad', delivery_date: '2026-08-25', order_date: '2026-08-24', status: dadStatus, place_name: 'Michal Fojtovice' },
       { id: 'radek', delivery_date: '2026-08-27', order_date: '2026-08-26', status: 'nova', place_name: 'Radek' },
     ],
     orderItems: [
@@ -1038,7 +1038,7 @@ describe('zavezený odběratel s vlastními sudy: stočení bez vazby na položk
   it('DaD v den dovozu se stočením bez vazby: jeho položky nejsou „chybí stočit"', () => {
     const dad = computeKeggingPlan({
       beers, packages,
-      orders: [{ id: 'dad', delivery_date: '2026-08-25', order_date: '2026-08-24', status: 'nova', place_name: 'Duck and Dog' }],
+      orders: [{ id: 'dad', delivery_date: '2026-08-25', order_date: '2026-08-24', status: 'nova', place_name: 'Michal Fojtovice' }],
       orderItems: [{ id: 'i-dad', order_id: 'dad', beer_id: 'b-11', package_id: 'p30', quantity: 21 }],
       keggingRows: [{ entry_date: '2026-08-24', beer_id: 'b-11', package_id: 'p30', quantity: 17, order_item_id: null }],
       weekKey: WEEK,
@@ -1048,7 +1048,7 @@ describe('zavezený odběratel s vlastními sudy: stočení bez vazby na položk
     // Před dnem dovozu zůstává „chybí" jako dřív.
     const pred = computeKeggingPlan({
       beers, packages,
-      orders: [{ id: 'dad', delivery_date: '2026-08-25', order_date: '2026-08-24', status: 'nova', place_name: 'Duck and Dog' }],
+      orders: [{ id: 'dad', delivery_date: '2026-08-25', order_date: '2026-08-24', status: 'nova', place_name: 'Michal Fojtovice' }],
       orderItems: [{ id: 'i-dad', order_id: 'dad', beer_id: 'b-11', package_id: 'p30', quantity: 21 }],
       keggingRows: [{ entry_date: '2026-08-24', beer_id: 'b-11', package_id: 'p30', quantity: 17, order_item_id: null }],
       weekKey: WEEK,

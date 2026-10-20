@@ -1,4 +1,4 @@
-// Karta objednávky odběratele, který si vozí vlastní sudy (Duck and Dog) — 19. 10. 2026:
+// Karta objednávky odběratele, který si vozí vlastní sudy (Michal Fojtovice) — 19. 10. 2026:
 // „vše není skladem, jen je to z jeho sudů, musím stejně zadat stáčení; nedávej tam to
 // WhatsApp; a nejde přečíst poznámka, neukáže se celá."
 import { describe, it, expect } from 'vitest';
@@ -7,9 +7,9 @@ import type { Beer, Package } from '../../lib/supabase';
 import { OrderCard } from './OrderCard';
 import type { Order, OrderItem } from './spolecne';
 
-const DLOUHA = 'Duck and Dog úterý; Zbytek prosím 11 % – hotové; mělo by být ještě 5 kusů 50 l, které zbyly z minulého týdne a nejsou ve skladu';
+const DLOUHA = 'Michal Fojtovice úterý; Zbytek prosím 11 % – hotové; mělo by být ještě 5 kusů 50 l, které zbyly z minulého týdne a nejsou ve skladu';
 const order: Order = {
-  id: 'o1', order_date: '2026-10-16', place_id: null, place_name: 'Duck and Dog',
+  id: 'o1', order_date: '2026-10-16', place_id: null, place_name: 'Michal Fojtovice',
   source: 'whatsapp', status: 'nova', note: DLOUHA, created_at: '2026-10-16T10:00:00+00:00',
   delivery_day: 'ut', delivery_date: '2026-10-20', is_prepared: false, is_packaged: false,
   is_delivered: false, delivered_at: null, whatsapp_message_id: 'w1',
