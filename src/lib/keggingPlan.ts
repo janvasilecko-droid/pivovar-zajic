@@ -344,6 +344,25 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
     stocenoDoVlastnich.set(r.order_item_id, (stocenoDoVlastnich.get(r.order_item_id) ?? 0) + Number(r.quantity || 0));
   });
 
+  // Klíče pivo+obal, které mají tenhle týden stočení bez vazby na položku (např. přes Řezání).
+  const bezVazby = new Set<string>();
+  keggingRows.forEach((r) => {
+    if (!r.order_item_id && inWeek(r.entry_date)) bezVazby.add(`${r.beer_id}__${r.package_id}`);
+  });
+  /**
+   * Položka odběratele s vlastními sudy je „odvezená": objednávka je značená jako zavezená, NEBO se
+   * vezlo dnes či dřív a sudy se tenhle týden stáčely i bez vazby na položku (Řezání) — sudy jsou
+   * venku, zbytek šel ze skladu. Z provozu 20. 10. 2026: Duck and Dog 5× 50 / 21× 30 / 8× 20 l 11°
+   * udělané předchozí den řezáním; plán je dál vedl jako „chybí stočit". Bez `input.dnes` platí jen
+   * ruční označení „zavezeno".
+   */
+  const vlastniOdjelo = (it: any): boolean => {
+    const o = objednavkaPodleId.get(it.order_id);
+    if (!!o?.is_delivered || jeVyrizena(o?.status)) return true;
+    const dodani = (o?.delivery_date || o?.order_date || '').slice(0, 10);
+    return !!input.dnes && !!dodani && dodani <= input.dnes && bezVazby.has(`${it.beer_id}__${it.package_id}`);
+  };
+
   // ── Zásoba k rozdělení. Se skutečnou zásobou (currentStockMap, viz
   // komentář u typu výš) se bere PŘÍMO ta — skladová kniha už stočení
   // tohoto týdne i výdeje (fasování/prodejna/odpisy) sama zahrnuje. Bez ní
@@ -409,11 +428,6 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
     // Naplněné sudy odběratele sklad počítá (stáčení je v knize +) — pro
     // ostatní objednávky ale nejsou. Jejich odvoz se výš vrátil, takže tady
     // se odečtou vždy, ne jen dokud neodjedou.
-    // Klíče pivo+obal, které mají tenhle týden stočení bez vazby na položku (jednou, ne pro každou položku).
-    const bezVazby = new Set<string>();
-    keggingRows.forEach((r) => {
-      if (!r.order_item_id && inWeek(r.entry_date)) bezVazby.add(`${r.beer_id}__${r.package_id}`);
-    });
     orderItems.forEach((it) => {
       if (!vlastniPolozky.has(it.id)) return;
       // Objednávka odběratele ZNAČENÁ jako zavezená: sudy odjely (naplněné, nebo
@@ -423,14 +437,7 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
       // než sklad a plán napsal, že Radkových 5× 30 l je kryto, i když ve skladu
       // byly jen 4. Dokud objednávka zavezená není, platí stará úvaha (zbytek se
       // ještě stočí).
-      const objednavka = objednavkaPodleId.get(it.order_id);
-      const klic = `${it.beer_id}__${it.package_id}`;
-      const dodani = (objednavka?.delivery_date || objednavka?.order_date || '').slice(0, 10);
-      // Dnes nebo dřív se vezlo a sudy se tenhle týden stáčely i bez vazby na položku
-      // (Řezání): sudy jsou venku, zbytek šel ze skladu — nečeká se na jejich stočení.
-      const stocenoBezVazby = bezVazby.has(klic);
-      const odjelo = !!objednavka?.is_delivered || jeVyrizena(objednavka?.status)
-        || (!!input.dnes && !!dodani && dodani <= input.dnes && stocenoBezVazby);
+      const odjelo = vlastniOdjelo(it);
       const stoceno = Math.max(stocenoDoVlastnich.get(it.id) ?? 0, odjelo ? (vracenoVlastni.get(it.id) ?? 0) : 0);
       if (!stoceno) return;
       const k = `${it.beer_id}__${it.package_id}`;
@@ -533,7 +540,7 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
     const wholeOrderDone = !!ord?.is_delivered || jeVyrizena(ord?.status);
     if (vlastniPolozky.has(it.id)) {
       // Do sudů odběratele: hotovo, když odjelo, jinak kolik se jim stočilo.
-      const hotovo = wholeOrderDone ? qty : Math.min(qty, stocenoDoVlastnich.get(it.id) ?? 0);
+      const hotovo = wholeOrderDone || vlastniOdjelo(it) ? qty : Math.min(qty, stocenoDoVlastnich.get(it.id) ?? 0);
       bucket.ordered += qty;
       bucket.vlastniOrdered += qty;
       bucket.vlastniCovered += hotovo;
