@@ -1,5 +1,5 @@
 // Rychlé odpočty v liště na ploše (28. 9. 2026): CO2 2 min, kotel 2 min,
-// malý sud 8 min, velký sud 15 min.
+// malý sud 8 min, velký sud 10 min (původně 15).
 import { describe, it, expect } from 'vitest';
 import { RYCHLE_ODPOCTY, prepniRychlyOdpocet, rychlyBezi, rychlyZbyva } from './rychleOdpocty';
 import { zastavOdpocetVSeznamu, CO2_ID } from './co2Foukani';
@@ -9,7 +9,7 @@ const MIN = 60_000;
 describe('rychlé odpočty', () => {
   it('mají délky podle zadání', () => {
     expect(RYCHLE_ODPOCTY.map((r) => [r.kratce, r.delkaMs / MIN])).toEqual([
-      ['CO2', 2], ['Kotel', 2], ['Malý sud', 8], ['Velký sud', 15],
+      ['CO2', 2], ['Kotel', 2], ['Malý sud', 8], ['Velký sud', 10],
     ]);
   });
 
@@ -17,7 +17,7 @@ describe('rychlé odpočty', () => {
     const ted = 1_000_000;
     const bezi = prepniRychlyOdpocet([], 'rychly-sud-velky', ted);
     expect(rychlyBezi(bezi, 'rychly-sud-velky')).toBe(true);
-    expect(bezi[0].targetAt).toBe(ted + 15 * MIN);
+    expect(bezi[0].targetAt).toBe(ted + 10 * MIN);
     expect(prepniRychlyOdpocet(bezi, 'rychly-sud-velky', ted)).toEqual([]);
   });
 

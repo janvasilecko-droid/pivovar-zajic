@@ -37,6 +37,7 @@ import { getDailyTasks, DAILY_CHECKLIST_CHANGED_EVENT, type DailyTask } from '..
 import { getHomeLayout, saveHomeLayout, pouzijPozadavekNakladky, type PozadavekNakladky, addPage, removePage, moveTileToPage, hideTile, addTile, mergeTiles, addToGroup, removeFromGroup, deleteGroup, isGroupId, isCountdownId, ensurePositions, ensureTrailingEmptyPage, unifyColorsByCategory, stepTileCell, addDockSlot, removeDockSlot, moveDockSlot, PAGE_CATEGORY, CATEGORY_ORDER, CATEGORY_SHADES, type Category, moveTileToPageCell, okrajProPrepnuti, dalsiStranka, rozdelVseDoStranek, idsKRozmisteni, vyrovnejStranku, VYCHOZI_STRANKA, type OkrajTazeni, MIN_OPACITY, MAX_OPACITY, MIN_TILE_GAP, MAX_TILE_GAP, MIN_W, MAX_W, MIN_H, MAX_H, TILE_COLORS, COLOR_HEX, defaultTileColor, GRID_COLS_DESKTOP, GRID_COLS_MOBILE, MOBILE_BREAKPOINT_PX, ROW_HEIGHT_DESKTOP, ROW_HEIGHT_MOBILE, MIN_DOCK, MAX_DOCK, UNIT_COLS, CO2_TILE_ID, type HomeLayout, type TileColor, type TileId, type GroupId, type CountdownTileId } from '../lib/homeLayout';
 import { co2Bezi, co2Zbyva, prepniCo2, zastavOdpocetVSeznamu, CO2_ID } from '../lib/co2Foukani';
 import { RYCHLE_ODPOCTY, prepniRychlyOdpocet, rychlyBezi, rychlyZbyva, rychlyOdpocet } from '../lib/rychleOdpocty';
+import { zajistiUpozorneniOdpoctu } from '../lib/odpoctyPush';
 import { zavibruj } from '../lib/haptika';
 import { getKegTimerState, formatDurationMs, getCountdowns, saveCountdowns, countdownRemainingMs, toggleCountdown, resetCountdown, startAllCountdowns, pauseAllCountdowns, COUNTDOWN_CHANGED_EVENT, type CountdownTimer, getStopwatchState, saveStopwatchState, stopwatchElapsedMs, STOPWATCH_CHANGED_EVENT, type StopwatchState } from '../lib/stopwatchTimers';
 import { onNewVersion, forceRefresh, type VersionInfo } from '../lib/versionCheck';
@@ -1638,6 +1639,8 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                 aria-label={bezi ? `${r.popis}: zbývá ${formatDurationMs(zbyva)}, zastavit` : `${r.popis}: spustit ${minut} minut`}
                 onClick={() => {
                   zavibruj('odskrtnuto');
+                  // Při spuštění (ne zastavení) se zajistí upozornění na displej — lib/odpoctyPush.ts.
+                  if (!bezi) void zajistiUpozorneniOdpoctu();
                   saveCountdowns(prepniRychlyOdpocet(getCountdowns(), r.id));
                   setCountdowns(getCountdowns());
                 }}

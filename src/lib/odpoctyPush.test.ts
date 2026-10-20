@@ -30,3 +30,10 @@ describe('odpočty na server (push se zhasnutým displejem)', () => {
     expect(z.zapsat[0].konec).toBe(9000);
   });
 });
+
+describe('zajistiUpozorneniOdpoctu', () => {
+  it('bez podpory upozornění nic nedělá a nespadne', async () => {
+    const { zajistiUpozorneniOdpoctu } = await import('./odpoctyPush');
+    await expect(zajistiUpozorneniOdpoctu()).resolves.toBeUndefined();
+  });
+});

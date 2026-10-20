@@ -4,6 +4,7 @@ import { normText, matchBeerId, matchPackageId, jeLitrPsanyJakoJedenact } from "
 import { poradiPodlePrepisu } from "../_shared/prepis-fotky.ts";
 import { normPlaceName, stripSenderName, resolvePlace, odberatelZHistorie, preferujExaktniOdberatele, wantsOwnOrder as textWantsOwnOrder } from "../_shared/place-match.ts";
 import { nactiHistorii } from "../_shared/historie-objednavek.ts";
+import { bezPolozekZCitace } from "../_shared/citace-polozky.ts";
 import { vypadaJakoVraceni } from "../_shared/vraceni-detekce.ts";
 import { jeVlastniHlaseniObjednavky } from "../_shared/vlastni-hlaseni-objednavky.ts";
 import { datumDne, datumPraha, textRikaPristiTyden } from "../_shared/den-zavozu.ts";
@@ -658,7 +659,12 @@ Deno.serve(async (req: Request) => {
         }
 
         // Extract parsed items and find place matches
-        const parsedItems = parseResult.items || [];
+        // Odpověď (citace) bez úpravy objednávky: položky přečtené z textu citace se zahodí
+        // (_shared/citace-polozky.ts). U úpravy (amendsOrderId) AI vrací celý výsledný
+        // stav, tam raw_line z původní zprávy patří k věci.
+        const parsedItems = amendsOrderId
+          ? (parseResult.items || [])
+          : bezPolozekZCitace(parseResult.items || [], message.message_text, message.quoted_text);
         let parsedPlaceId: string | null = null;
         let parsedPlaceName: string | null = null;
 

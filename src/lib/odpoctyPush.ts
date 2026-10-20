@@ -12,6 +12,7 @@
 // Bez migrace (tabulka ještě není) se tiše nic neděje — alarm v otevřené
 // appce funguje dál jako dřív.
 import { supabase } from './supabase';
+import { isNotificationSupported } from './notifications';
 import type { CountdownTimer } from './stopwatchTimers';
 
 /** Co je na serveru: id řádku → konec (ms). */
@@ -86,5 +87,28 @@ async function proved(odpocty: CountdownTimer[]) {
   if (smazat.length > 0) {
     const { error } = await supabase.from('odpocty_push').delete().in('id', smazat);
     if (!error) smazat.forEach((id) => naServeru.delete(id));
+  }
+}
+
+/**
+ * Při spuštění odpočtu (klepnutí = povolená chvíle pro dotaz): zařídí, aby
+ * konec odpočtu vyskočil jako upozornění na displeji telefonu i notebooku.
+ * Z provozu 20. 10. 2026: „upozornění na odpočet udělej tak, aby vyskočilo na
+ * úvodní obrazovku telefonu nebo notebooku." Bez povolení upozornění a bez
+ * odběru pushe by se konec ozval jen uvnitř otevřené appky.
+ *
+ * Nikdy nevyhodí výjimku a nic neříká — když člověk povolení odmítne, odpočet
+ * dál funguje (zvuk, vibrace, okno v appce).
+ */
+export async function zajistiUpozorneniOdpoctu(): Promise<void> {
+  try {
+    if (!isNotificationSupported()) return;
+    if (Notification.permission === 'default') await Notification.requestPermission();
+    if (Notification.permission !== 'granted') return;
+    // Načítá se až teď — do startu appky to nepatří (limit velikosti, scripts/zkontroluj-velikost.mjs).
+    const { jePrihlasen, jePushPodporovan, prihlasPush } = await import('./pushOdber');
+    if (jePushPodporovan() && !(await jePrihlasen())) await prihlasPush();
+  } catch {
+    // tiše — viz výše
   }
 }

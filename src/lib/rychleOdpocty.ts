@@ -4,7 +4,7 @@
 // na ni kliknu, spustí se časovač 2 minuty, stejně jako u dlaždice CO2; ať
 // je ikona barevná; přidej ikonu stejné barvy s ikonou kotel, odpočet
 // 2 minuty; dej tam sud malý a sud velký — sud malý odpočet 8 minut,
-// velký 15 minut."
+// velký 15 minut." Od 20. 10. 2026 velký sud 10 minut.
 //
 // Chovají se jako dlaždice CO2 (lib/co2Foukani.ts): klepnutí spustí, další
 // klepnutí zastaví a odpočet zmizí. Ukládají se mezi běžné odpočty
@@ -21,7 +21,7 @@ export const RYCHLE_ODPOCTY: RychlyOdpocet[] = [
   { id: CO2_ID, popis: CO2_POPIS, kratce: 'CO2', delkaMs: CO2_DELKA_MS },
   { id: 'rychly-kotel', popis: 'Kotel', kratce: 'Kotel', delkaMs: 2 * MIN },
   { id: 'rychly-sud-maly', popis: 'Sud malý', kratce: 'Malý sud', delkaMs: 8 * MIN },
-  { id: 'rychly-sud-velky', popis: 'Sud velký', kratce: 'Velký sud', delkaMs: 15 * MIN },
+  { id: 'rychly-sud-velky', popis: 'Sud velký', kratce: 'Velký sud', delkaMs: 10 * MIN },
 ];
 
 export function rychlyOdpocet(id: string): RychlyOdpocet | undefined {
