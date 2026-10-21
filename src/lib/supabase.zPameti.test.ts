@@ -36,11 +36,33 @@ describe('odpověď z paměti telefonu', () => {
       const { data } = await supabase.from('order_items').select('*');
       expect(data).toHaveLength(2);
       expect(dataZPametiOd(zacatek)).toBe(true);
+      // Jedna odpověď z paměti banner nespouští (21. 10. 2026: „píše offline, a není") —
+      // až několik za sebou, jak to dělá opravdu slabý signál.
+      expect(udalost).not.toHaveBeenCalled();
+      await supabase.from('order_items').select('*');
+      await supabase.from('order_items').select('*');
       expect(udalost).toHaveBeenCalled();
     } finally {
       window.removeEventListener('pivovar:offline-stale', udalost);
     }
   });
+
+  it('při navigator.onLine === false banner naskočí hned', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('Failed to fetch'); }));
+    const puvodni = Object.getOwnPropertyDescriptor(Navigator.prototype, 'onLine');
+    Object.defineProperty(navigator, 'onLine', { value: false, configurable: true });
+    await new Promise((r) => setTimeout(r, 3100)); // pojistka proti spamu z předchozího testu
+    const udalost = vi.fn();
+    window.addEventListener('pivovar:offline-stale', udalost);
+    try {
+      await supabase.from('order_items').select('*');
+      expect(udalost).toHaveBeenCalled();
+    } finally {
+      window.removeEventListener('pivovar:offline-stale', udalost);
+      delete (navigator as any).onLine;
+      if (puvodni) Object.defineProperty(Navigator.prototype, 'onLine', puvodni);
+    }
+  }, 10000);
 
   it('čerstvá odpověď serveru nic nepoznačí', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify([{ id: 'x' }]), {
