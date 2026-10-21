@@ -200,7 +200,20 @@ async function serveCached(url: URL, rest: RestInfo | null, wantCount: boolean):
 // retry) nespamovaly Layout banner. Viz Layout.tsx → 'pivovar:offline-stale'.
 // ---------------------------------------------------------------------------
 let staleSignalCooldown = false;
+const casyZPameti: number[] = [];
+/** Kolik odpovědí z paměti během okna spustí banner, když telefon sám hlásí, že je online. */
+export const STALE_BANNER_PRAH = 3;
+export const STALE_BANNER_OKNO_MS = 15_000;
 function signalOfflineStale(): void {
+  // Jedna pomalá odpověď (těžká tabulka na LTE) ještě neznamená, že server neodpovídá — dřív
+  // z toho naskočil banner „Server neodpovídá", i když byl server v pořádku (21. 10. 2026).
+  // Banner se ukáže, když je telefon opravdu offline, nebo když se z paměti odpovědělo víckrát
+  // za sebou (slabý signál zasáhne naráz všechny dotazy obrazovky).
+  const ted = Date.now();
+  casyZPameti.push(ted);
+  while (casyZPameti.length && ted - casyZPameti[0] > STALE_BANNER_OKNO_MS) casyZPameti.shift();
+  const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+  if (!offline && casyZPameti.length < STALE_BANNER_PRAH) return;
   if (staleSignalCooldown) return;
   staleSignalCooldown = true;
   window.dispatchEvent(new CustomEvent('pivovar:offline-stale'));
@@ -223,9 +236,11 @@ function signalOfflineStale(): void {
  * zjevném offline stavu.
  */
 export const OFFLINE_FETCH_TIMEOUT_MS = 10_000;
-export function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+/** Velké stránky (celé tabulky, tisíc řádků) na LTE trvají déle — dostanou víc času. */
+export const VELKY_DOTAZ_TIMEOUT_MS = 25_000;
+export function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit, limitMs: number = OFFLINE_FETCH_TIMEOUT_MS): Promise<Response> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), OFFLINE_FETCH_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), limitMs);
   const outerSignal = init?.signal;
   if (outerSignal) {
     if (outerSignal.aborted) controller.abort();
@@ -262,7 +277,10 @@ async function handleGet(input: RequestInfo | URL, init: RequestInit | undefined
   const prefer = getHeader(init, 'prefer') ?? '';
   const wantCount = prefer.includes('count=exact');
   try {
-    const res = await fetchWithTimeout(input, init);
+    // Velký dotaz (bez limitu nebo limit ≥ 500) smí trvat déle než malý — viz VELKY_DOTAZ_TIMEOUT_MS.
+    const limit = url.searchParams.get('limit');
+    const velky = limit === null || Number(limit) >= 500;
+    const res = await fetchWithTimeout(input, init, velky ? VELKY_DOTAZ_TIMEOUT_MS : OFFLINE_FETCH_TIMEOUT_MS);
     if (res && res.ok && rest) {
       // Uložení pro offline až POTOM, ne před vrácením odpovědi. Dřív se
       // každá odpověď (i každá tisícová stránka historie) nejdřív celá
