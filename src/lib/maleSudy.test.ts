@@ -187,30 +187,18 @@ describe('malé sudy — odjeté a stočené skladem', () => {
   });
 });
 
-describe('prazdneMaleSudy — počet platí týden a stočené se odečte (5. 10. 2026)', () => {
+describe('prazdneMaleSudy — počet platí týden, stočení ho neubírá (21. 10. 2026)', () => {
   const den = (iso: string) => iso.slice(0, 10);
   const r = (pocet: number, updated_at: string) => ({ package_id: 'p15', pocet, updated_at });
 
-  it('stočené od zadání už nejsou prázdné', () => {
-    const z = prazdneMaleSudy([r(3, '2026-10-05T06:00:00Z')], [
-      { package_id: 'p15', quantity: 2, created_at: '2026-10-05T08:00:00Z' },
-      { package_id: 'p15', quantity: 5, created_at: '2026-10-04T08:00:00Z' }, // před zadáním
-      { package_id: 'p20', quantity: 1, created_at: '2026-10-05T08:00:00Z' }, // jiný obal
-    ], '2026-10-05', den);
-    expect(z).toEqual({ p15: 1 });
-  });
-
-  it('nikdy pod nulu', () => {
-    const z = prazdneMaleSudy([r(3, '2026-10-05T06:00:00Z')], [
-      { package_id: 'p15', quantity: 5, created_at: '2026-10-05T08:00:00Z' },
-    ], '2026-10-05', den);
-    expect(z).toEqual({ p15: 0 });
+  it('ukáže přesně naklikané číslo', () => {
+    expect(prazdneMaleSudy([r(3, '2026-10-05T06:00:00Z')], '2026-10-07', den)).toEqual({ p15: 3 });
   });
 
   it('počet z minulého týdne se nehlídá', () => {
-    expect(prazdneMaleSudy([r(3, '2026-10-01T06:00:00Z')], [], '2026-10-05', den)).toEqual({});
+    expect(prazdneMaleSudy([r(3, '2026-10-01T06:00:00Z')], '2026-10-05', den)).toEqual({});
     // Neděle téhož týdne ještě platí.
-    expect(prazdneMaleSudy([r(3, '2026-10-05T06:00:00Z')], [], '2026-10-11', den)).toEqual({ p15: 3 });
+    expect(prazdneMaleSudy([r(3, '2026-10-05T06:00:00Z')], '2026-10-11', den)).toEqual({ p15: 3 });
   });
 });
 
