@@ -258,21 +258,20 @@ export type RadekMalychSudu = { package_id: string; pocet: number | string; upda
 export type StoceniMalehoSudu = { package_id: string | null; quantity: number | string; created_at?: string | null };
 
 /**
- * Kolik PRÁZDNÝCH malých sudů je teď k dispozici.
+ * Kolik PRÁZDNÝCH malých sudů je teď k dispozici = přesně to, co stáčeč naklikal, do konce týdne.
  *
- * 5. 10. 2026: „pořád to ukazuje 3 malé sudy — sudy se ukazují vždy jen na
- * týden, navíc tyto byly stočeny, to znamená, že se nemají ukazovat jako
- * prázdné."
- *  • Naklikaný počet platí jen v TÝDNU, kdy byl zadaný (po–ne, podle Prahy).
- *    Z minulého týdne se nehlídá nic — stáčeč počet zadá znovu.
- *  • Co se od zadání stočilo do daného obalu (Stáčení KEG), už prázdné není
- *    a od počtu se odečte.
+ * 5. 10. 2026: „sudy se ukazují vždy jen na týden" — naklikaný počet platí jen v TÝDNU, kdy byl
+ * zadaný (po–ne, podle Prahy); z minulého týdne se nehlídá nic, stáčeč počet zadá znovu.
+ *
+ * 21. 10. 2026: počet se po stočení NEODEČÍTÁ („to nejsou data, co jsem zadával v pondělí").
+ * Dřív se od zadaného počtu odečítalo, co se od zadání stočilo do daného obalu, takže číslo
+ * v záložce Malé sudy samo klesalo (10 l: zadáno 2 → ukazovalo 0). Teď platí napsané číslo,
+ * dokud ho stáčeč nepřepíše, nebo nezačne nový týden.
  *
  * `denZadani` převádí updated_at na pražský den (businessDateISO).
  */
 export function prazdneMaleSudy(
   radky: RadekMalychSudu[],
-  stoceni: StoceniMalehoSudu[],
   dnes: string,
   denZadani: (iso: string) => string,
 ): Record<string, number> {
@@ -280,11 +279,7 @@ export function prazdneMaleSudy(
   const z: Record<string, number> = {};
   for (const r of radky) {
     if (r.updated_at && pondeliTydne(denZadani(r.updated_at)) < tyden) continue;
-    const od = r.updated_at ? Date.parse(r.updated_at) : Number.NEGATIVE_INFINITY;
-    const stoceno = stoceni
-      .filter((s) => s.package_id === r.package_id && (!s.created_at || Date.parse(s.created_at) > od))
-      .reduce((a, s) => a + (Number(s.quantity) || 0), 0);
-    z[r.package_id] = Math.max(0, (Number(r.pocet) || 0) - stoceno);
+    z[r.package_id] = Math.max(0, Number(r.pocet) || 0);
   }
   return z;
 }

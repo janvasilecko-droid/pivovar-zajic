@@ -2,23 +2,12 @@
 // Sdílí obrazovka KEG (zadávání) a Objednávky (hlídání).
 import { useEffect, useRef, useState } from 'react';
 import { supabase, useRealtime, fetchAllRows } from './supabase';
-import { hlidejMaleSudy, jeMalySud, pondeliTydne, prazdneMaleSudy, type RadekMalychSudu, type StoceniMalehoSudu, type VysledekMalychSudu, type ObjednavkaProSudy, type PolozkaProSudy, type ObalProSudy } from './maleSudy';
+import { hlidejMaleSudy, jeMalySud, pondeliTydne, prazdneMaleSudy, type RadekMalychSudu, type VysledekMalychSudu, type ObjednavkaProSudy, type PolozkaProSudy, type ObalProSudy } from './maleSudy';
 import { chybiTabulka } from './chybyHlaseni';
 import { businessDateISO } from './businessDate';
 import { nactiSkladovouKnihu } from './skladovaKnihaData';
 import { stockAsOf } from './stockLedger';
 import { vlastniSudyOdberatele } from './vlastniSudy';
-
-/** Které z položek objednávek patří odběratelům s vlastními sudy (lib/vlastniSudy.ts). */
-async function stocenoDoSuduOdberatelu(polozkyIds: string[]): Promise<Set<string>> {
-  if (polozkyIds.length === 0) return new Set();
-  const { data: pol } = await fetchAllRows<any>('order_items', 'id, order_id').in('id', polozkyIds);
-  const objIds = [...new Set(((pol as any[]) ?? []).map((r) => r.order_id as string))];
-  if (objIds.length === 0) return new Set();
-  const { data: obj } = await fetchAllRows<any>('orders', 'id, place_name, note').in('id', objIds);
-  const vlastni = new Set(((obj as any[]) ?? []).filter((o) => vlastniSudyOdberatele(o.place_name, o.note)).map((o) => o.id as string));
-  return new Set(((pol as any[]) ?? []).filter((r) => vlastni.has(r.order_id)).map((r) => r.id as string));
-}
 
 export function useMaleSudy(): {
   zasoba: Record<string, number>;
@@ -53,18 +42,8 @@ export function useMaleSudy(): {
     const radky = ((data as any[]) ?? []) as (RadekMalychSudu & { zapocitat_plne?: boolean })[];
     radkyRef.current = radky;
     setZapocitatPlne(new Set(radky.filter((r) => r.zapocitat_plne).map((r) => r.package_id)));
-    // Stočené do malých sudů od nejstaršího zadání — ty už prázdné nejsou
-    // (5. 10. 2026). Počet platí jen v týdnu zadání (prazdneMaleSudy).
-    const nejstarsi = radky.map((r) => r.updated_at).filter(Boolean).sort()[0];
-    const { data: stoc } = radky.length && nejstarsi
-      ? await fetchAllRows<any>('kegging', 'package_id, quantity, created_at, order_item_id')
-        .in('package_id', radky.map((r) => r.package_id)).gt('created_at', nejstarsi)
-      : { data: [] as any[] };
-    // Stočené do sudů odběratele (Martin — lib/stoceniDoVlastnich.ts) jsou
-    // jeho sudy, prázdné sudy pivovaru nebraly (7. 10. 2026).
-    const doCizich = await stocenoDoSuduOdberatelu(((stoc as any[]) ?? []).map((r) => r.order_item_id).filter(Boolean));
-    const nasStoc = ((stoc as any[]) ?? []).filter((r) => !r.order_item_id || !doCizich.has(r.order_item_id));
-    const z = prazdneMaleSudy(radky, nasStoc as StoceniMalehoSudu[], businessDateISO(), (iso) => businessDateISO(new Date(iso)));
+    // Počet platí tak, jak byl zadaný, jen v týdnu zadání (prazdneMaleSudy) — stočení ho neubírá.
+    const z = prazdneMaleSudy(radky, businessDateISO(), (iso) => businessDateISO(new Date(iso)));
     // Jakmile je zadaný aspoň jeden malý sud, ostatní malé bez čísla = 0 —
     // „ručně zadané 1× 20 a 2× 15" znamená, že 10 l není žádný
     // (29. 9. 2026). Bez jediného zadaného počtu se nehlídá nic.
