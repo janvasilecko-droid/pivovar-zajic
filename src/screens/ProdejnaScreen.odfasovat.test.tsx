@@ -161,4 +161,14 @@ describe('Fasování → Odfasovat u uloženého zápisu', () => {
     await waitFor(() => expect(h.upravene.length).toBeGreaterThan(0));
     expect(h.upravene[0]).toEqual({ tabulka: 'fasovani_private', patch: { entry_date: '2026-10-20', quantity: 20 } });
   });
+
+  it('značka „už je v napočítaném stavu" se uloží do poznámky záznamu', async () => {
+    render(<ProdejnaScreen table="fasovani_private" title="Fasování" />);
+    fireEvent.click(await screen.findByRole('button', { name: /Přehled/i }));
+    fireEvent.click((await screen.findAllByRole('button', { name: /Upravit datum a počet/i }))[0]);
+    fireEvent.click(await screen.findByLabelText(/Už je v napočítaném stavu skladu/));
+    fireEvent.click(screen.getByRole('button', { name: 'Uložit' }));
+    await waitFor(() => expect(h.upravene.length).toBeGreaterThan(0));
+    expect(h.upravene[0].patch.note).toBe('[v-pocitani]');
+  });
 });

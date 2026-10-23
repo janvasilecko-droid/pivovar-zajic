@@ -12,6 +12,7 @@ import { detectTapType } from '../lib/tapReservations';
 import { BeerTileGrid, BeerTilePanel, TileTotalBar } from '../components/BeerTileGrid';
 import { chyba, potvrd, toastZpet } from '../lib/toast';
 import { jeMesicUzamcen } from '../lib/mesicUzamcen';
+import { ZNACKA_V_POCITANI, jeVPocitani } from '../lib/stockLedger';
 import { podezreleMnozstvi } from '../lib/kontrolaZadani';
 import { zavibruj } from '../lib/haptika';
 import { klicVyberu, nactiNaposled, zapamatujVyber, serazPodleNaposled } from '../lib/naposledyPouzite';
@@ -508,11 +509,13 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
   const [upravovany, setUpravovany] = useState<EntryRow | null>(null);
   const [upravDatum, setUpravDatum] = useState('');
   const [upravKs, setUpravKs] = useState('');
+  const [upravVPocitani, setUpravVPocitani] = useState(false);
 
   function otevriUpravu(r: EntryRow) {
     setUpravovany(r);
     setUpravDatum((r.entry_date ?? '').slice(0, 10));
     setUpravKs(String(r.quantity));
+    setUpravVPocitani(jeVPocitani(r.note));
   }
 
   async function ulozUpravu() {
@@ -521,7 +524,10 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
     if (!platnyDen(upravDatum)) { chyba('Zadej platné datum.'); return; }
     if (!Number.isFinite(ks) || ks < 0) { chyba('Zadej počet kusů (0 nebo víc).'); return; }
     const puvodniDatum = (upravovany.entry_date ?? '').slice(0, 10);
-    if (upravDatum === puvodniDatum && ks === Number(upravovany.quantity)) { setUpravovany(null); return; }
+    const bezZnacky = (upravovany.note ?? '').split(ZNACKA_V_POCITANI).join('').replace(/\s*·\s*$/, '').trim();
+    const novaPoznamka = upravVPocitani ? [bezZnacky, ZNACKA_V_POCITANI].filter(Boolean).join(' · ') : bezZnacky;
+    const poznamkaSeMeni = table !== 'writeoffs' && jeVPocitani(upravovany.note) !== upravVPocitani;
+    if (upravDatum === puvodniDatum && ks === Number(upravovany.quantity) && !poznamkaSeMeni) { setUpravovany(null); return; }
     // Úprava do (nebo z) už napočítaného měsíce mění uzavřené číslo — nejdřív se zeptá.
     const uzamcene = [...new Set([puvodniDatum, upravDatum])].filter((d) => jeMesicUzamcen(inventoryRows, d));
     if (uzamcene.length > 0) {
@@ -531,9 +537,11 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
       );
       if (!ok) return;
     }
-    const { error } = await supabase.from(table).update({ entry_date: upravDatum, quantity: ks }).eq('id', upravovany.id);
+    const zmena: Record<string, unknown> = { entry_date: upravDatum, quantity: ks };
+    if (poznamkaSeMeni) zmena.note = novaPoznamka || null;
+    const { error } = await supabase.from(table).update(zmena).eq('id', upravovany.id);
     if (error) { chyba(error); return; }
-    setRows((rs) => rs.map((r) => (r.id === upravovany.id ? { ...r, entry_date: upravDatum, quantity: ks } : r)));
+    setRows((rs) => rs.map((r) => (r.id === upravovany.id ? { ...r, entry_date: upravDatum, quantity: ks, ...(poznamkaSeMeni ? { note: novaPoznamka || null } : {}) } : r)));
     setUpravovany(null);
     load(true);
   }
@@ -1212,6 +1220,15 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
               <label className="label" htmlFor="uprav-ks">Počet kusů</label>
               <input id="uprav-ks" type="number" inputMode="numeric" min={0} step={1} className="input" value={upravKs} onChange={(e) => setUpravKs(e.target.value)} onWheel={(e) => e.currentTarget.blur()} />
             </div>
+            {table !== 'writeoffs' && (
+              <label className="flex items-start gap-2 text-sm font-bold text-neutral-800 cursor-pointer select-none">
+                <input type="checkbox" className="w-4 h-4 mt-0.5 accent-primary-600" checked={upravVPocitani} onChange={(e) => setUpravVPocitani(e.target.checked)} />
+                <span>
+                  Už je v napočítaném stavu skladu (Úprava skladu) — sklad znovu neodečítat
+                  <span className="block text-xs font-semibold text-neutral-600">Záznam zůstane ve výdeji a statistice, jen nesníží sklad podruhé.</span>
+                </span>
+              </label>
+            )}
             <div className="flex justify-end gap-2">
               <button type="button" className="btn-secondary" onClick={() => setUpravovany(null)}>Zrušit</button>
               <button type="submit" className="btn-primary">Uložit</button>
