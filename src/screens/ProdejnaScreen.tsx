@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { supabase, Beer, Package, EntryRow, useRealtime, beerBg, beerName, formatPackageLabel } from '../lib/supabase';
-import { EmptyState, Spinner } from '../components/ui';
+import { EmptyState, Modal, Spinner } from '../components/ui';
 import { isoWeekKey } from '../components/WeeklyOrderSummaryCard';
 import { VoiceRecorder } from '../components/VoiceRecorder';
 import { ProdejnaFromImage } from '../components/ProdejnaFromImage';
 import { posledniRucniZapis } from '../lib/posledniZapis';
-import { BarChart3, CalendarDays, Camera, Check, ClipboardList, Package as PackageIcon, PenLine, RotateCcw, Store, Trash2, X, type LucideIcon } from 'lucide-react';
+import { BarChart3, CalendarDays, Camera, Check, ClipboardList, Package as PackageIcon, Pencil, PenLine, RotateCcw, Store, Trash2, X, type LucideIcon } from 'lucide-react';
 import { parseFreeTextEntries, loadAliasMap, emptyAliasMap, type ParserAliasMap } from '../lib/orderParser';
 import { TapReservationModal } from '../components/TapReservationModal';
 import { detectTapType } from '../lib/tapReservations';
@@ -504,6 +504,40 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
     }
   }
 
+  // ✏️ Úprava data a počtu uloženého záznamu (21. 10. 2026: „stočení z 23. dej na 20. 10.").
+  const [upravovany, setUpravovany] = useState<EntryRow | null>(null);
+  const [upravDatum, setUpravDatum] = useState('');
+  const [upravKs, setUpravKs] = useState('');
+
+  function otevriUpravu(r: EntryRow) {
+    setUpravovany(r);
+    setUpravDatum((r.entry_date ?? '').slice(0, 10));
+    setUpravKs(String(r.quantity));
+  }
+
+  async function ulozUpravu() {
+    if (!upravovany) return;
+    const ks = Math.round(Number(String(upravKs).replace(',', '.')));
+    if (!platnyDen(upravDatum)) { chyba('Zadej platné datum.'); return; }
+    if (!Number.isFinite(ks) || ks < 0) { chyba('Zadej počet kusů (0 nebo víc).'); return; }
+    const puvodniDatum = (upravovany.entry_date ?? '').slice(0, 10);
+    if (upravDatum === puvodniDatum && ks === Number(upravovany.quantity)) { setUpravovany(null); return; }
+    // Úprava do (nebo z) už napočítaného měsíce mění uzavřené číslo — nejdřív se zeptá.
+    const uzamcene = [...new Set([puvodniDatum, upravDatum])].filter((d) => jeMesicUzamcen(inventoryRows, d));
+    if (uzamcene.length > 0) {
+      const ok = await potvrd(
+        `Měsíc ${[...new Set(uzamcene.map((d) => d.slice(0, 7)))].join(', ')} už má napočítanou inventuru. Úprava změní číslo, které je už uzavřené.\n\nOpravdu upravit?`,
+        { titulek: 'Měsíc je už napočítaný', potvrdit: 'Ano, upravit' },
+      );
+      if (!ok) return;
+    }
+    const { error } = await supabase.from(table).update({ entry_date: upravDatum, quantity: ks }).eq('id', upravovany.id);
+    if (error) { chyba(error); return; }
+    setRows((rs) => rs.map((r) => (r.id === upravovany.id ? { ...r, entry_date: upravDatum, quantity: ks } : r)));
+    setUpravovany(null);
+    load(true);
+  }
+
   async function increment(id: string, delta: number) {
     const row = rows.find((r) => r.id === id);
     if (!row) return;
@@ -929,6 +963,12 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                 return (b.created_at ?? '').localeCompare(a.created_at ?? '');
               });
               const totalCount = sortedRows.reduce((s, r) => s + Number(r.quantity), 0);
+              const soucetDne = (d: string | null | undefined) => sortedRows.filter((r) => r.entry_date === d).reduce((a, r) => a + Number(r.quantity || 0), 0);
+              const nazevDne = (d: string | null | undefined) => {
+                if (!d) return '—';
+                const den = new Date(`${d.slice(0, 10)}T00:00:00Z`).getUTCDay();
+                return `${['Ne', 'Po', 'Út', 'St', 'Čt', 'Pá', 'So'][den]} ${formatDate(d)}`;
+              };
 
               // 📊 Rychlý souhrn: kolik kusů dnes / tento týden (z VŠECH záznamů,
               // ne jen z filtru měsíce) a co se ve zvoleném období prodalo nejvíc.
@@ -971,12 +1011,20 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                     </div>
                   )}
                   <ul className="md:hidden space-y-2">
-                    {sortedRows.map((r) => {
+                    {sortedRows.map((r, i) => {
                       const beer = beers.find((b) => b.id === r.beer_id);
                       const pkg = packages.find((p) => p.id === r.package_id);
                       const vol = pkg ? Number(pkg.volume_l) : 0;
+                      const novyDen = i === 0 || sortedRows[i - 1].entry_date !== r.entry_date;
                       return (
-                        <li key={`m-${r.id}`} className="rounded border border-amber-300/80 bg-amber-50/90 p-3">
+                        <Fragment key={`m-${r.id}`}>
+                        {novyDen && (
+                          <li data-testid="den-nadpis" className="flex items-baseline justify-between px-1 pt-2 font-black text-amber-950">
+                            <span className="text-sm">{nazevDne(r.entry_date)}</span>
+                            <span className="font-mono text-sm">{soucetDne(r.entry_date)} ks</span>
+                          </li>
+                        )}
+                        <li className="rounded border border-amber-300/80 bg-amber-50/90 p-3">
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
                               <div className="font-black text-sm text-amber-950 flex items-center gap-1.5">
@@ -1026,12 +1074,20 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                             )}
                             <button
                               type="button"
+                              className="btn-ghost !flex-none !w-12 !px-0 !min-h-[44px]"
+                              onClick={() => otevriUpravu(r)}
+                              aria-label="Upravit datum a počet"
+                              title="Upravit datum a počet"
+                            ><Pencil size={18} /></button>
+                            <button
+                              type="button"
                               className="w-12 min-h-[44px] ml-2 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-black transition"
                               onClick={() => del(r.id)}
                               title="Smazat záznam"
 ><X size={18} /></button>
                           </div>
                         </li>
+                        </Fragment>
                       );
                     })}
                     <li className="rounded border-2 border-amber-400 bg-amber-200/70 px-3 py-2.5 flex items-center justify-between font-black text-amber-950">
@@ -1057,12 +1113,21 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                         </tr>
                       </thead>
                       <tbody>
-                        {sortedRows.map((r) => {
+                        {sortedRows.map((r, i) => {
                           const beer = beers.find((b) => b.id === r.beer_id);
                           const pkg = packages.find((p) => p.id === r.package_id);
                           const vol = pkg ? Number(pkg.volume_l) : 0;
+                          const novyDen = i === 0 || sortedRows[i - 1].entry_date !== r.entry_date;
                           return (
-                            <tr key={r.id} className="border-b border-amber-200/60 hover:bg-amber-100/70 transition-colors">
+                            <Fragment key={r.id}>
+                            {novyDen && (
+                              <tr data-testid="den-nadpis" className="bg-amber-100">
+                                <td colSpan={showWhoColumn ? 6 : 5} className="py-1.5 px-2 font-black text-amber-950">
+                                  {nazevDne(r.entry_date)} <span className="font-mono ml-2">{soucetDne(r.entry_date)} ks</span>
+                                </td>
+                              </tr>
+                            )}
+                            <tr className="border-b border-amber-200/60 hover:bg-amber-100/70 transition-colors">
                               <td className="py-1.5 px-2 font-mono font-bold text-amber-950 whitespace-nowrap">{formatDate(r.entry_date)}</td>
                               {showWhoColumn && (
                                 <td className="py-1.5 px-2 font-semibold text-amber-950 whitespace-nowrap">{getRowWho(r)}</td>
@@ -1100,6 +1165,13 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                                   )}
                                   <button
                                     type="button"
+                                    className="btn-ghost tap !flex-none !w-6 !h-6 !min-h-0 !p-0"
+                                    onClick={() => otevriUpravu(r)}
+                                    aria-label="Upravit datum a počet"
+                                    title="Upravit datum a počet"
+                                  ><Pencil size={12} /></button>
+                                  <button
+                                    type="button"
                                     className="w-6 h-6 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-xs transition"
                                     onClick={() => del(r.id)}
                                     title="Smazat záznam"
@@ -1107,6 +1179,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                                 </div>
                               </td>
                             </tr>
+                            </Fragment>
                           );
                         })}
                         {/* Souhrnný řádek */}
@@ -1126,6 +1199,25 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
             })()}
           </div>
         </>
+      )}
+
+      {upravovany && (
+        <Modal open onClose={() => setUpravovany(null)} title={`Upravit záznam: ${upravovany.beer_name ?? 'pivo'} ${upravovany.package_label ?? ''}`.trim()}>
+          <form onSubmit={(e) => { e.preventDefault(); void ulozUpravu(); }} className="space-y-4">
+            <div>
+              <label className="label" htmlFor="uprav-datum">Datum</label>
+              <input id="uprav-datum" type="date" className="input" value={upravDatum} onChange={(e) => setUpravDatum(e.target.value)} />
+            </div>
+            <div>
+              <label className="label" htmlFor="uprav-ks">Počet kusů</label>
+              <input id="uprav-ks" type="number" inputMode="numeric" min={0} step={1} className="input" value={upravKs} onChange={(e) => setUpravKs(e.target.value)} onWheel={(e) => e.currentTarget.blur()} />
+            </div>
+            <div className="flex justify-end gap-2">
+              <button type="button" className="btn-secondary" onClick={() => setUpravovany(null)}>Zrušit</button>
+              <button type="submit" className="btn-primary">Uložit</button>
+            </div>
+          </form>
+        </Modal>
       )}
 
       {/* 🚰 Modální okno pro rezervaci výčepu */}
