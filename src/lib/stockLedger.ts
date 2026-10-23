@@ -179,6 +179,17 @@ function jeTydenniStav(note: string | null | undefined): boolean {
   return (note || '').startsWith('Týdenní inventura');
 }
 
+/**
+ * Značka v poznámce výdeje (fasování, prodejna): „kusy už jsou v napočítaném stavu skladu".
+ * Z provozu 23. 10. 2026: lahve byly napočítané jako 0 (už odešly) a fasování se zapsalo
+ * minutu po uložení počítání — sklad by je odečetl podruhé (−20, −20, −10). Takový zápis
+ * zůstává ve výdeji (statistika, přehled), ale skladovou knihu nemění.
+ */
+export const ZNACKA_V_POCITANI = '[v-pocitani]';
+export function jeVPocitani(note: string | null | undefined): boolean {
+  return (note ?? '').includes(ZNACKA_V_POCITANI);
+}
+
 /** Týdenní počítání z dřívějšího dne (pátek…): je to stav KE KONCI toho dne. */
 function jeZaverDne(note: string | null | undefined): boolean {
   return jeNapocitanyStav(note) || (jeTydenniStav(note) && (note || '').includes('(konec dne)'));
@@ -287,8 +298,9 @@ export function buildMovements(src: StockSources): Movement[] {
   // Sudy v poznámce označené [mimo-sklad] patří odběrateli (vlastní sudy) — do skladu se nepočítají.
   (src.keggingRows ?? []).filter((r) => !String(r.note ?? '').includes('[mimo-sklad]')).forEach((r) => push(r.entry_date, r.beer_id, r.package_id, Number(r.quantity || 0), 'kegovani', r.note, null, r.created_at));
   (src.bottlingRows ?? []).forEach((r) => push(r.entry_date, r.beer_id, r.package_id, Number(r.quantity || 0), 'staceni', r.note, null, r.created_at));
-  (src.fasovaniRows ?? []).forEach((r) => push(r.entry_date, r.beer_id, r.package_id, -Number(r.quantity || 0), 'fasovani', null, null, r.created_at));
-  (src.prodejnaRows ?? []).forEach((r) => push(r.entry_date, r.beer_id, r.package_id, -Number(r.quantity || 0), 'prodejna', null, null, r.created_at));
+  // Výdej označený [v-pocitani] už je v napočítaném stavu (Úprava skladu) — sklad se podruhé nesnižuje.
+  (src.fasovaniRows ?? []).filter((r) => !jeVPocitani((r as { note?: string | null }).note)).forEach((r) => push(r.entry_date, r.beer_id, r.package_id, -Number(r.quantity || 0), 'fasovani', null, null, r.created_at));
+  (src.prodejnaRows ?? []).filter((r) => !jeVPocitani((r as { note?: string | null }).note)).forEach((r) => push(r.entry_date, r.beer_id, r.package_id, -Number(r.quantity || 0), 'prodejna', null, null, r.created_at));
   (src.writeoffsRows ?? []).forEach((r) => push(r.entry_date, r.beer_id, r.package_id, -Number(r.quantity || 0), 'odpis', null, null, r.created_at));
   (src.zavozDeductionRows ?? []).forEach((r) => push(r.deduct_date, r.beer_id, r.package_id, -Number(r.quantity || 0), 'zavoz', null, r.order_id, r.created_at));
   (src.adjustmentRows ?? []).forEach((r) => {
