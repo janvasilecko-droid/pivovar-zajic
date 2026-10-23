@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { ZavozDeductionRow } from '../lib/zavozDeduction';
 
 import { supabase, Beer, Package, KegPrefuk, useRealtime, beerBorder, beerBg, fetchAllRows } from '../lib/supabase';
-import { buildMovements, stockForMonth, stockKey, type Movement } from '../lib/stockLedger';
+import { buildMovements, stockAsOf, stockForMonth, stockKey, type Movement } from '../lib/stockLedger';
 import { predpovedDojiti, type Predpoved } from '../lib/predpovedDojiti';
 import { trvanlivostSkladu, type TrvanlivostSkladu } from '../lib/trvanlivostSarzi';
 import PohybyModal from '../components/PohybyModal';
@@ -235,6 +235,10 @@ export default function Stock({ setPage, initialTopTab }: { setPage?: (p: Page, 
     // Ořez na dnešek zůstává — v běžícím měsíci se nemá ukazovat závoz, který
     // se teprve stane.
     const ledger = stockForMonth(movements.filter((m) => m.date <= monthEnd), curMonth);
+    // Stav na skladě = napočítané číslo z Úpravy skladu, když se počítalo uprostřed měsíce
+    // (23. 10. 2026: napočítáno 3, Sklad ukazoval 17 — měsíční rozpad týdenní počítání
+    // nezná). Rozpad do sloupců zůstává z měsíce, ŠTÍTEK stavu bere poslední počítání.
+    const stavKDni = stockAsOf(movements.filter((m) => m.date <= monthEnd), monthEnd);
     setPohyby(movements);
     setPohybyKDatu(monthEnd);
 
@@ -259,7 +263,7 @@ export default function Stock({ setPage, initialTopTab }: { setPage?: (p: Page, 
         // jednotlivém pohybu, takže schodek nebyl vidět nikde (v srpnu 2026 byl
         // u 34 z 56 položek) a čerstvé stáčení nejdřív umazávalo neexistující
         // dluh, místo aby zvedlo stav.
-        const rawStock = line?.qty ?? 0;
+        const rawStock = stavKDni.get(stockKey(beer.id, pkg.id))?.qty ?? line?.qty ?? 0;
         // Bez ořezání na nulu (audit 9. 10. 2026): Dashboard i Pohyby ukazují
         // mínus — Sklad ho dřív schoval jako 0 a „Zbývá" pak vycházelo vyšší.
         const currentStock = rawStock;

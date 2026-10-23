@@ -21,3 +21,25 @@ describe('výdej označený jako „už v napočítaném stavu"', () => {
     expect(m).toHaveLength(1);
   });
 });
+
+// 23. 10. 2026: napočítáno 3 (Úprava skladu uprostřed měsíce), Sklad ukazoval 17. Měsíční rozpad
+// (stockForMonth) týdenní počítání nezná — stav na skladě proto bere stockAsOf (Stock.tsx).
+import { stockAsOf, stockForMonth, stockKey } from './stockLedger';
+import { tydenniJakoInventura } from './tydenniInventura';
+
+describe('stav na skladě po počítání uprostřed měsíce', () => {
+  const B = 'b'; const P = 'p';
+  const pocitani = tydenniJakoInventura([
+    { tyden_od: '2026-10-19', tyden_do: '2026-10-25', beer_id: B, package_id: P, napocitano: 3, updated_at: '2026-10-23T07:19:00Z' },
+  ]);
+  const pohyby = buildMovements({
+    packages: [{ id: P, label: '1l', kind: 'bottle', volume_l: 1 }],
+    inventoryRows: [{ entry_date: '2026-10-01', beer_id: B, package_id: P, quantity: 17, note: 'Počáteční stav' }, ...(pocitani as any)],
+  } as any);
+  it('stockAsOf ukáže napočítané číslo', () => {
+    expect(stockAsOf(pohyby, '2026-10-23').get(stockKey(B, P))?.qty).toBe(3);
+  });
+  it('měsíční rozpad počítání uprostřed měsíce nebere — proto Sklad bere stockAsOf', () => {
+    expect(stockForMonth(pohyby, '2026-10').get(stockKey(B, P))?.qty).not.toBe(3);
+  });
+});
