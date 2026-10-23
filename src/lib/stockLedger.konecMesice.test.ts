@@ -119,6 +119,10 @@ describe('Sklad a Inventura ukazují tentýž měsíc stejně', () => {
     // Sklad ukáže jiná čísla než Inventura, což z testů knihovny vidět není.
     const zdroj = readFileSync('src/screens/Stock.tsx', 'utf8');
     expect(zdroj).toContain('stockForMonth(');
-    expect(zdroj).not.toContain('stockAsOf(');
+    // Od 23. 10. 2026 smí stockAsOf jen na ŠTÍTEK „stav na skladě" (napočítané číslo z Úpravy
+    // skladu uprostřed měsíce); sloupce rozpadu zůstávají z měsíčního okna.
+    expect(zdroj.split('stockAsOf(').length - 1).toBe(1);
+    expect(zdroj).toContain('const stavKDni = stockAsOf(');
+    expect(zdroj).toContain('const k = line?.byKind');
   });
 });
