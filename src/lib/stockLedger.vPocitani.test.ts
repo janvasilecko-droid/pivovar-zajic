@@ -43,3 +43,33 @@ describe('stav na skladě po počítání uprostřed měsíce', () => {
     expect(stockForMonth(pohyby, '2026-10').get(stockKey(B, P))?.qty).not.toBe(3);
   });
 });
+
+// 23. 10. 2026: stáčení / fasování / objednávky zapsané PO uložení počítání, ale na den počítání
+// nebo dřív, mění jen rozdíl „čeká se" ↔ „napočítáno"; skutečný stav skladu zůstává napočítaný.
+// Pohyby na pozdější datum se k napočítanému počítají normálně.
+describe('pohyby zapsané po počítání (Úprava skladu)', () => {
+  const B = 'b'; const P = 'p';
+  const pocitani = tydenniJakoInventura([
+    { tyden_od: '2026-10-19', tyden_do: '2026-10-25', beer_id: B, package_id: P, napocitano: 0, updated_at: '2026-10-23T07:19:00Z' },
+  ]);
+  const pohyby = buildMovements({
+    packages: [{ id: P, label: '0.5l', kind: 'bottle', volume_l: 0.5 }],
+    inventoryRows: [{ entry_date: '2026-10-12', beer_id: B, package_id: P, quantity: 20, note: 'Týdenní inventura 2026-10-12' }, ...(pocitani as any)],
+    fasovaniRows: [
+      { entry_date: '2026-10-20', beer_id: B, package_id: P, quantity: 20, created_at: '2026-10-23T07:20:37Z' }, // zpětně, po počítání
+      { entry_date: '2026-10-24', beer_id: B, package_id: P, quantity: 5, created_at: '2026-10-24T08:00:00Z' },  // pozdější den
+    ],
+  } as any);
+
+  it('skutečný stav: zpětný zápis se nepropíše, pozdější den se odečte', () => {
+    expect(stockAsOf(pohyby, '2026-10-23').get(stockKey(B, P))?.qty).toBe(0);
+    expect(stockAsOf(pohyby, '2026-10-24').get(stockKey(B, P))?.qty).toBe(-5);
+  });
+
+  it('očekávaný stav v Úpravě skladu zpětný zápis zahrne — rozdíl se zmenší', async () => {
+    const { ocekavanyStavTydne } = await import('./tydenniInventura');
+    const minule = { [stockKey(B, P)]: { kusu: 20, den: '2026-10-12', cas: '2026-10-12T06:56:00Z' } };
+    // 20 napočítáno minule − 20 fasováno zpětně = 0 čekáme; napočítáno 0 → rozdíl 0
+    expect(ocekavanyStavTydne(pohyby, '2026-10-19', '2026-10-23', minule).get(stockKey(B, P))?.qty).toBe(0);
+  });
+});
