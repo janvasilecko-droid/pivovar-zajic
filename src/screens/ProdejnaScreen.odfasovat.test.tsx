@@ -139,4 +139,26 @@ describe('Fasování → Odfasovat u uloženého zápisu', () => {
 
     expect(screen.queryAllByRole('button', { name: /Odfasovat — vrátit na sklad/i })).toEqual([]);
   });
+
+  // 23. 10. 2026: „stočení z 23. dej na 20. 10." — záznam jde přesunout na jiný den.
+  it('úprava změní datum a počet záznamu a řádky mají nadpisy dnů', async () => {
+    h.DB.fasovani_private = [
+      { id: 'zapis-a', entry_date: '2026-10-23', beer_id: 'beer-12', beer_name: '12° Světlá', package_id: 'pkg-05', package_label: '0,5 l', quantity: 20, who: null, note: null },
+      { id: 'zapis-b', entry_date: '2026-10-20', beer_id: 'beer-12', beer_name: '12° Světlá', package_id: 'pkg-05', package_label: '0,5 l', quantity: 7, who: null, note: null },
+    ];
+    render(<ProdejnaScreen table="fasovani_private" title="Fasování" />);
+    fireEvent.click(await screen.findByRole('button', { name: /Přehled/i }));
+
+    // Nadpisy dnů se součtem (seznam na telefon + tabulka na počítač = dvakrát).
+    const nadpisy = await screen.findAllByTestId('den-nadpis');
+    expect(nadpisy.some((n) => /23\.10\./.test(n.textContent ?? '') && /20 ks/.test(n.textContent ?? ''))).toBe(true);
+    expect(nadpisy.some((n) => /20\.10\./.test(n.textContent ?? '') && /7 ks/.test(n.textContent ?? ''))).toBe(true);
+
+    fireEvent.click((await screen.findAllByRole('button', { name: /Upravit datum a počet/i }))[0]);
+    fireEvent.change(await screen.findByLabelText('Datum'), { target: { value: '2026-10-20' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Uložit' }));
+
+    await waitFor(() => expect(h.upravene.length).toBeGreaterThan(0));
+    expect(h.upravene[0]).toEqual({ tabulka: 'fasovani_private', patch: { entry_date: '2026-10-20', quantity: 20 } });
+  });
 });
