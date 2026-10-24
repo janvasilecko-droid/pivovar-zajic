@@ -1,7 +1,7 @@
 {
  "format": "pivovar-zaloha-manifest",
  "v": 1,
- "datum": "2026-10-23T07:43:41.884Z",
+ "datum": "2026-10-24T07:25:56.220Z",
  "tabulky": {
   "beers": {
    "radku": 13,
@@ -241,27 +241,27 @@
   },
   "orders": {
    "radku": 310,
-   "sha256": "66e2f8db8d44af55504882097828099c9bf6f12ad56f3b66680c368c272db07e"
+   "sha256": "f0d0519aa8a605793d11ffed84237b4632a7a1633e3f98700427c24ab35e33e9"
   },
   "whatsapp_incoming": {
-   "radku": 396,
-   "sha256": "8e8e14cd55697fe4efe9a82985f9f7d1478f75ad1f6ae37498c69f076f699dda"
+   "radku": 400,
+   "sha256": "61bd96e8a4112575791f9e827c6cd95dc0b2f94025b3e28ec9ce0a9442668da8"
   },
   "whatsapp_prijem_log": {
-   "radku": 300,
-   "sha256": "fa2e5d76b62d4f3cd127e0cc89a91d4187fb13f09efa456a7c62530012662cc3"
+   "radku": 304,
+   "sha256": "b3ee34db5642c44bb5f8dd4b7ca105d595393a3b119a1d89459949bce5bba836"
   },
   "order_items": {
-   "radku": 889,
-   "sha256": "5ebc346332e189eafda14f17497b99cc2cc257002ca0d96f8def9c62a11672e7"
+   "radku": 891,
+   "sha256": "e3f154e43ed7fbd32a10fb92301586d4e1b0e12846a8a77f9695e68a63449741"
   },
   "kegging": {
    "radku": 391,
    "sha256": "c2c9c9053df0b02157219af0760759ff23e0e73715d871f914f456b25e57aa8e"
   },
   "zavoz_deductions": {
-   "radku": 886,
-   "sha256": "41d811ff23e122aeabe994989ab09cf167686c9f63dfb84bd9764b98a69b9171"
+   "radku": 888,
+   "sha256": "fad92aaac27b6b625f3366048736147a0f11e6231e280b334f6d608d8a133534"
   },
   "keg_returns": {
    "radku": 0,
