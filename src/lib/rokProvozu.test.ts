@@ -435,7 +435,7 @@ describe('rok provozu — týdenní „co je potřeba stočit"', () => {
     expect(potreba.length).toBeGreaterThan(0);
     for (const radek of potreba) {
       const klic = stockKey(radek.beer_id, radek.package_id);
-      expect(`${klic}=${radek.stockQty}`).toBe(`${klic}=${Math.max(0, kniha.get(klic)?.qty ?? 0)}`);
+      expect(`${klic}=${radek.stockQty}`).toBe(`${klic}=${kniha.get(klic)?.qty ?? 0}`);
     }
   });
 
@@ -501,19 +501,16 @@ describe('rok provozu — inventura uprostřed týdne', () => {
     const kniha = stockAsOf(POHYBY, tydenNedele);
     for (const radek of potreba) {
       const klic = stockKey(radek.beer_id, radek.package_id);
-      expect(`${klic}=${radek.stockQty}`).toBe(`${klic}=${Math.max(0, kniha.get(klic)?.qty ?? 0)}`);
+      expect(`${klic}=${radek.stockQty}`).toBe(`${klic}=${kniha.get(klic)?.qty ?? 0}`);
     }
   });
 
-  it('„chybí stočit" se počítá proti skladu bez závozů tohoto týdne', () => {
-    const bezZavozu = stockAsOf(
-      POHYBY.filter((m) => !(m.kind === 'zavoz' && isoWeekKey(m.date) === isoWeekKey(tydenPondeli))),
-      tydenNedele,
-    );
+  it('„chybí stočit" je objednáno minus sklad ze knihy', () => {
+    const kniha = stockAsOf(POHYBY, tydenNedele);
     for (const radek of potreba) {
       const klic = stockKey(radek.beer_id, radek.package_id);
-      const dostupne = Math.max(0, bezZavozu.get(klic)?.qty ?? 0);
-      expect(`${klic}=${radek.neededQty}`).toBe(`${klic}=${Math.max(0, radek.orderedQty - dostupne)}`);
+      const sklad = kniha.get(klic)?.qty ?? 0;
+      expect(`${klic}=${radek.neededQty}`).toBe(`${klic}=${Math.max(0, radek.orderedQty - sklad)}`);
     }
   });
 });

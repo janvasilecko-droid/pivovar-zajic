@@ -126,12 +126,8 @@ export function computePackageNeeds(input: PackageNeedsInput, isTargetPkg: (kind
   // Objednávky v AKTUÁLNÍM TÝDNU — VŠECHNY (i už zavezené), ať je vidět
   // celková týdenní potřeba na středu/čtvrtek/pátek zavoz, ne jen zbytek.
   //
-  // ⚠️ Vyřízené (`jeVyrizena()`) se dřív vynechávaly — jenže jejich odpočet
-  // závozu se níž (`weekEndBezZavozuMap`) vrací do skladu, takže vyřízená
-  // objednávka z poptávky zmizela a její kusy se ve skladu objevily znovu:
-  // sklad, který neexistuje. Poptávka i vrácení odpočtů se teď týkají
-  // stejných objednávek (všech kromě storna) — stejně jako v keggingPlan.ts
-  // a bottlingNeeds.ts (oprava z 24. 9. 2026).
+  // Vyřízené se počítají taky (kromě storna). Chybí je objednáno minus
+  // sklad ze knihy, ne sklad s vrácenými závozy.
   const activeOrderIds = new Set(
     orders
       .filter((o) => {
@@ -180,14 +176,6 @@ export function computePackageNeeds(input: PackageNeedsInput, isTargetPkg: (kind
   // s ní počítaly hned — dvě různá čísla pro tentýž sklad.
   const weekEndStockMap: Record<string, number> = {};
   stockAsOf(pohyby, weekEndStr).forEach((line, k) => { weekEndStockMap[k] = line.qty; });
-
-  // Totéž, ale BEZ závozů tohoto týdne — kolik by bylo k dispozici, kdyby
-  // objednávky ještě nevyjely. Proti tomuhle se počítá "chybí stočit",
-  // protože orderedQty níž zahrnuje i zavezené objednávky (jinak by se
-  // tytéž kusy odečetly dvakrát).
-  const weekEndBezZavozuMap: Record<string, number> = {};
-  stockAsOf(pohyby.filter((m) => !(m.kind === 'zavoz' && isThisWeek(m.date))), weekEndStr)
-    .forEach((line, k) => { weekEndBezZavozuMap[k] = line.qty; });
 
   const producedRows = [...bottlingRows, ...keggingRows];
 
@@ -238,11 +226,8 @@ export function computePackageNeeds(input: PackageNeedsInput, isTargetPkg: (kind
       // jako dluh počítá už od 15. 9.; lahve teď taky.
       const stockQty = Number(weekEndStockMap[k] || 0);
       const orderedQty = Number(orderedMap[k] || 0);
-      // Kolik ještě chybí dotočit do konce týdne — porovnává CELKOVOU
-      // týdenní poptávku (orderedQty, viz výše) s tím, co bylo k dispozici
-      // BEZ odečtení zavezených (ty už jsou v orderedQty zahrnuté jako
-      // součást poptávky, viz komentář u weekEndBezZavozuMap).
-      const neededQty = Math.max(0, orderedQty - Number(weekEndBezZavozuMap[k] || 0));
+      // Objednáno minus sklad ze knihy. Ne druhý sklad „bez závozů".
+      const neededQty = Math.max(0, orderedQty - stockQty);
 
       // `stockQty !== 0`, ne `> 0`: položka v mínusu je zrovna ta, kterou je
       // potřeba vidět. S ořezáváním na nulu se z výpisu tiše vypadla.

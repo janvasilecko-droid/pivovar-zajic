@@ -161,25 +161,13 @@ export type KeggingPlanInput = {
    * Skutečná zásoba skladem PRÁVĚ TEĎ (klíč `beer_id__package_id`, ze
    * skladové knihy — viz lib/tydenniZbytek.ts, zbytekKeKonciTydne).
    *
-   * ⚠️ SMLOUVA: staví se BEZ `zavozDeductionRows`, tedy „počáteční stav
-   * + stočené − výdeje (fasování/prodejna/odpisy/akce)", ale odvezené
-   * objednávky se z ní NEODEČÍTAJÍ. Poptávka níž totiž počítá VŠECHNY
-   * objednávky týdne včetně už zavezených, takže si zavezená objednávka
-   * svůj díl z fondu vezme sama.
+   * ⚠️ SMLOUVA: stejné číslo jako Sklad. Včetně odpočtů závozu. Nic se
+   * k ní nepřičítá zpátky. „Chybí stočit" = objednáno minus tahle zásoba
+   * (26. 10. 2026: uloženo 80, objednáno 100, odvoz 14 ve stejný den jako
+   * inventura v knize není — chybí 20, ne 6). Záporný stav zůstává.
    *
-   * Tohle se jednou rozešlo: testy posílaly zásobu s odpočtem závozu,
-   * provoz bez něj, a výpočet si odpočet navíc přičítal zpátky — fond byl
-   * o zavezené množství dvakrát bohatší a plán hlásil „vše stočeno“, i
-   * když Sklad ukazoval mínus (22. 9. 2026). Kdo tenhle vstup mění, ať
-   * drží tuhle jedinou smlouvu.
-   *
-   * Bez ní
-   * plán vidí jako zásobu jen to, co bylo stočeno TENTO týden — z provozu
-   * 15. 9. 2026: „mám na skladě 9× 30l, a appka mi stejně píše, že musím
-   * stočit další" (a předtím totéž u Němců). Když je zadaná, NAHRAZUJE
-   * (nesčítá se s) výpočet zásoby z `keggingRows`/drain níž — skladová
-   * kniha už stočení tohoto týdne i výdeje sama zahrnuje, sčítání by je
-   * počítalo dvakrát. Bez zadání se plán chová jako dřív (jen tento týden).
+   * Když je zadaná, NAHRAZUJE výpočet zásoby z `keggingRows` níž. Bez
+   * zadání plán vidí jen to, co se stočilo a vydalo tento týden.
    */
   currentStockMap?: Map<string, number>;
   /**
@@ -380,79 +368,22 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
   // pokrýt některý z dalších dnů.
   const pool: Record<string, number> = {};
   if (input.currentStockMap) {
-    // Fond = skutečná zásoba (stejné číslo jako Sklad) + odpočty závozu
-    // TOHOTO týdne zpátky.
-    //
-    // Proč zpátky: poptávka níž počítá VŠECHNY objednávky týdne, i ty, co
-    // už odjely. Kdyby se jejich odpočet nevrátil, odečetl by se dvakrát —
-    // jednou ve skladu, podruhé v poptávce (z provozu 16. 9. 2026:
-    // „16 objednaných, 12 už zavezených, 11 skladem, a appka mi napsala,
-    // že chybí stočit 5").
-    //
-    // Proč jen TENHLE týden: odpočty ze starších týdnů se vracet nesmí —
-    // jejich objednávky v poptávce nejsou. Právě tím vznikla chyba z
-    // 22. 9. 2026: volající zásobu stavěli bez odpočtů za CELOU historii,
-    // takže fond obsahoval každý sud, který kdy odjel (100 stočených a
-    // 100 rozvezených → Sklad 0, fond 100) a plán svítil „pokryto" i u
-    // piva, které nikdo nestočil. Volající teď posílají skutečný sklad a
-    // vrací se jen tenhle týden.
-    //
-    // ⚠️ Vrací se JEN pro klíč, který v currentStockMap SKUTEČNĚ existuje —
-    // to je jediný důkaz, že se to pivo+obal opravdu stáčelo. Bez toho by
-    // appka věřila kalendáři místo stočení (migrace 20261231010000).
-    //
-    // 🔗 Odpočet s vazbou na objednávku se vrací podle OBJEDNÁVKY, ne podle
-    // data odpočtu: vrací se přesně ty, které poptávka tohoto týdne počítá.
-    // Z provozu 30. 9. 2026: „v objednávce 1× 30 l Osma, píše mi stočit 2 —
-    // na skladě −1, v pondělí byl 0". Objednávka odepsaná s datem minulého
-    // týdne a pak přesunutá do tohoto se počítala dvakrát: jako objednávka
-    // a znovu jako mínus ve skladu. Starý odpočet bez order_id jde dál
-    // podle data.
-    const objednavkyTydne = new Set(orders
-      .filter((o) => o.status !== 'storno' && inWeek(o.delivery_date || o.order_date))
-      .map((o) => o.id));
-    const vracenoZaZavozy: Record<string, number> = {};
-    // Odpočty za položky odběratelů s vlastními sudy — viz odečet níž.
-    const vracenoVlastni = new Map<string, number>();
-    zavozDeductionRows.forEach((r: any) => {
-      if (!r.beer_id || !r.package_id || !kegPkgs.has(r.package_id)) return;
-      if (r.order_id ? !objednavkyTydne.has(r.order_id) : !inWeek(r.deduct_date)) return;
-      // Vrací se I odpočet sudů odběratele (Duck and Dog…). Sklad ho odepsal
-      // jako každý jiný (automatický odpočet podle dne závozu), jenže jejich
-      // sudy nikdy nebyly zásobou pivovaru a jejich stočení se řeší zvlášť.
-      // Bez vrácení se tentýž odvoz počítal dvakrát: jednou jako objednávka,
-      // která se musí stočit, a podruhé jako „dluh" ve skladu (z provozu
-      // 8. 10. 2026: DaD 10× 50 l a 8× 20 l, sklad −4 a −8, „Co stočit dnes"
-      // 14 a 16). Naplněné sudy odběratele se naopak odečítají níž, takže
-      // jeho tok se ve fondu vždy vyruší na nulu — ať už je stočený,
-      // odvezený, nebo obojí.
-      const k = `${r.beer_id}__${r.package_id}`;
-      if (!input.currentStockMap!.has(k)) return;
-      vracenoZaZavozy[k] = (vracenoZaZavozy[k] || 0) + Number(r.quantity || 0);
-      if (r.order_item_id && vlastniPolozky.has(r.order_item_id)) {
-        vracenoVlastni.set(r.order_item_id, (vracenoVlastni.get(r.order_item_id) ?? 0) + Number(r.quantity || 0));
-      }
-    });
-    input.currentStockMap.forEach((qty, k) => { pool[k] = qty + (vracenoZaZavozy[k] || 0); });
-    // Naplněné sudy odběratele sklad počítá (stáčení je v knize +) — pro
-    // ostatní objednávky ale nejsou. Jejich odvoz se výš vrátil, takže tady
-    // se odečtou vždy, ne jen dokud neodjedou.
+    // Fond = skladová kniha, nic se k ní nepřičítá. Uložená inventura je
+    // reset (26. 10. 2026: 80 ve skladu, 100 objednáno, odvoz 14 — návrat
+    // odvozu nafoukl fond na 94 a „chybí" vyšlo 6 místo 20). Záporný stav
+    // zůstává záporný.
+    input.currentStockMap.forEach((qty, k) => { pool[k] = qty; });
+    // Naplněné sudy odběratele, které ještě neodjely, sklad počítá (stáčení
+    // je v knize +) — pro ostatní objednávky nejsou. Odjelo-li to, kniha
+    // odvoz už odečetla a do fondu se nevrací.
     orderItems.forEach((it) => {
-      if (!vlastniPolozky.has(it.id)) return;
-      // Objednávka odběratele ZNAČENÁ jako zavezená: sudy odjely (naplněné, nebo
-      // vzaté ze skladu), takže se vrácený odpočet odečte celý, i když stočení
-      // nemá vazbu na položku. Z provozu 20. 10. 2026: Duck and Dog 21× 30 l 11°
-      // (17 stočeno bez vazby přes Řezání, 4 ze skladu) — fond vyšel o 4 větší
-      // než sklad a plán napsal, že Radkových 5× 30 l je kryto, i když ve skladu
-      // byly jen 4. Dokud objednávka zavezená není, platí stará úvaha (zbytek se
-      // ještě stočí).
-      const odjelo = vlastniOdjelo(it);
-      const stoceno = Math.max(stocenoDoVlastnich.get(it.id) ?? 0, odjelo ? (vracenoVlastni.get(it.id) ?? 0) : 0);
+      if (!vlastniPolozky.has(it.id) || vlastniOdjelo(it)) return;
+      const stoceno = stocenoDoVlastnich.get(it.id) ?? 0;
       if (!stoceno) return;
       const k = `${it.beer_id}__${it.package_id}`;
       if (k in pool) pool[k] -= stoceno;
     });
-    // NEořezávat na nulu tady: záporná hodnota (i po vrácení závozů) je
+    // NEořezávat na nulu tady: záporná hodnota je
     // skutečný dluh (vydalo se víc, než kdy bylo stočeno) a `sestavDen` níž
     // ho musí umět připočítat k tomu, co ještě chybí stočit — jinak by appka
     // takový dluh navždy tiše ignorovala, i když ho Sklad ukazuje poctivě
@@ -476,21 +407,10 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
     drain(prodejnaRows, 'entry_date');
     drain(writeoffsRows, 'entry_date');
   }
-  // Odpočty závozu (zavozDeductionRows) zásobu NEubírají SAMY (mimo
-  // currentStockMap, kde je skladová kniha zahrnuje): odpočet se zapisuje
-  // podle kalendáře, když den závozu projde, a nic neříká o tom, jestli se
-  // pivo stočilo. Zásobu ubírají jen objednávky, které člověk označil jako
-  // zavezené — viz níž u poptávky (migrace 20261231080000, 13. 9. 2026).
-  //
-  // Volající pro tenhle výpočet postaví zásobu BEZ zavozDeductionRows (viz
-  // `currentStockMap` v Kegging.tsx/BottlingScreen.tsx/CoStocitOkno.tsx) —
-  // co si tenhle týden odpočet zavozu vzal, se proto výš (`vracenoZaZavozy`)
-  // vrací zpátky do fondu, ať se to nepočítá jako chybějící ještě jednou
-  // (z provozu 16. 9. 2026: „16 objednaných, 12 už zavezených, 11 skladem,
-  // a appka mi napsala, že chybí stočit 5"). Bez ručního „Zavezeno" u
-  // manuálně odbavené objednávky (mimo zavoz_deductions) fond dál ubírá
-  // přímo v poptávce níž (z provozu 15. 9. 2026: „stočil jsem 21×30, appka
-  // mi přesto píše, že 4 chybí").
+  // Odpočty závozu fond samy nemění, když je zadaná currentStockMap:
+  // skladová kniha je už obsahuje a zpátky se nepřičítají. Bez mapy
+  // (starší volání) odpočet o stočení nic neříká — zapisuje se podle
+  // kalendáře — a zásobu tedy taky neubírá.
 
   // ── Poptávka po dnech.
   const ordersById = new Map(orders.map((o) => [o.id, o]));
@@ -564,16 +484,12 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
       });
       return;
     }
-    // Se skutečnou zásobou skladem (currentStockMap) se zavezená objednávka
-    // NEBERE jako vykrytá tady — kryje ji fond výš (`vracenoZaZavozy`), který
-    // ji do fondu vrátil. Dvojí odečet (jednou tady, podruhé z fondu) by
-    // zásobu vynuloval — z provozu 16. 9. 2026: „pokud mám na skladě 11×30,
-    // tak mi přece nemůže chybět 5×30“.
+    // Se skladovou knihou (currentStockMap) se zavezená objednávka tady
+    // neoznačí jako vykrytá: poptávka je celé objednané množství a kryje
+    // ji fond, který už je stav po odvozu. Odvoz se do fondu nevrací.
     const covered = wholeOrderDone && !input.currentStockMap ? qty : 0;
-    // Zavezené sudy fyzicky odjely — nesmí pokrýt další den ze zásoby.
-    // JEN bez `currentStockMap` — s ním už je odvoz odečtený ve skladové
-    // knize a fond výš ho zase vrátil, takže odečítat ho tu podruhé by
-    // zásobu ochudilo o kusy, které nikdy neopustily chladák.
+    // Bez knihy zavezené sudy z týdenní zásoby uberou, ať jimi další den
+    // nekryje. S knihou je odvoz v čísle skladu a podruhé se neodečítá.
     if (!input.currentStockMap && wholeOrderDone && inWeek(ord?.delivery_date || ord?.order_date)) {
       pool[k] = Math.max(0, (pool[k] || 0) - qty);
     }

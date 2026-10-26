@@ -21,6 +21,7 @@ import { mergeWeekPlan } from '../lib/keggingPlan';
 import { vNovemSklepu } from '../lib/sklepOd';
 import { kapacitaTanku } from '../lib/tankPlnost';
 import { cekaNaTank } from '../lib/tankUZapisu';
+import { cilSklepa, type ZalozkaSklepaId } from '../lib/cilTanku';
 
 const STATUS_LABELS: Record<CellarTank['status'], string> = {
   empty: 'Prázdný', filling: 'Plní se', active: 'Aktivní', emptying: 'Stáčí se',
@@ -37,7 +38,7 @@ const STATUS_COLORS: Record<CellarTank['status'], string> = {
 };
 
 
-type ZalozkaSklepa = 'lezacke' | 'spilka' | 'varky' | 'ztraty' | 'bez_tanku';
+type ZalozkaSklepa = ZalozkaSklepaId;
 
 const ZALOZKY_SKLEPA: { id: ZalozkaSklepa; popis: string; Ikona: LucideIcon | typeof BeerIcon }[] = [
   { id: 'lezacke', popis: 'Ležácké tanky (1–8)', Ikona: BeerIcon },
@@ -59,15 +60,17 @@ function fmtHours(h: number | null | undefined): string {
 }
 
 export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p: any, sec?: string, sub?: string) => void; initialSubTab?: string } = {}) {
-  const [activeTab, setActiveTab] = useState<ZalozkaSklepa>((initialSubTab as any) || 'lezacke');
-
-  useEffect(() => {
-    setActiveTab((initialSubTab as any) || 'lezacke');
-  }, [initialSubTab]);
+  const vychozi = cilSklepa(initialSubTab);
+  const [activeTab, setActiveTab] = useState<ZalozkaSklepa>(vychozi.zalozka);
+  /** Id tanku z plochy (subTab `tank:<id>`) — mřížka ukáže jen jeho kartu s rozbaleným detailem. */
+  const [otevrenyTankId, setOtevrenyTankId] = useState<string | null>(vychozi.tankId);
 
   function selectTab(t: ZalozkaSklepa) {
     if (setPage) setPage('cellar', undefined, t);
-    else setActiveTab(t);
+    else {
+      setActiveTab(t);
+      setOtevrenyTankId(null);
+    }
   }
   const [tanks, setTanks] = useState<CellarTank[]>([]);
   const [transfers, setTransfers] = useState<CellarTransfer[]>([]);
@@ -83,7 +86,14 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
   const [showStart, setShowStart] = useState<CellarTank | null>(null);
   const [editTank, setEditTank] = useState<CellarTank | null>(null);
   /** Tanky s rozbaleným detailem (stočené sudy, poslední cykly). */
-  const [detailTanky, setDetailTanky] = useState<Set<string>>(() => new Set());
+  const [detailTanky, setDetailTanky] = useState<Set<string>>(() => new Set(vychozi.tankId ? [vychozi.tankId] : []));
+
+  useEffect(() => {
+    const cil = cilSklepa(initialSubTab);
+    setActiveTab(cil.zalozka);
+    setOtevrenyTankId(cil.tankId);
+    if (cil.tankId) setDetailTanky(new Set([cil.tankId]));
+  }, [initialSubTab]);
 
   // Inline úprava piva a objemu přímo na kartě tanku (bez otevírání modalu)
   const [inlineEditId, setInlineEditId] = useState<string | null>(null);
@@ -527,11 +537,15 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
   }, [kegging, beers]);
 
   const displayedTanks = useMemo(() => {
+    if (otevrenyTankId) {
+      const jeden = tanks.filter((t) => t.id === otevrenyTankId);
+      if (jeden.length > 0) return jeden;
+    }
     if (activeTab === 'spilka') {
       return tanks.filter((t) => t.label.toLowerCase().includes('spilka'));
     }
     return tanks.filter((t) => !t.label.toLowerCase().includes('spilka'));
-  }, [tanks, activeTab]);
+  }, [tanks, activeTab, otevrenyTankId]);
 
   return (
     <div>
@@ -630,6 +644,15 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
             chyba={planChyba ? 'Plán stáčení se nepodařilo načíst, „Objednáno na týden" u tanků nemusí platit.' : null}
             onZnovu={nactiPlan}
           />
+          {otevrenyTankId && displayedTanks.length === 1 && displayedTanks[0].id === otevrenyTankId && (
+            <button
+              type="button"
+              className="mb-3 text-sm font-bold text-amber-900 underline"
+              onClick={() => selectTab(displayedTanks[0].label.toLowerCase().includes('spilka') ? 'spilka' : 'lezacke')}
+            >
+              Všechny tanky
+            </button>
+          )}
           {/* Tanky grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             {displayedTanks.map((t) => {

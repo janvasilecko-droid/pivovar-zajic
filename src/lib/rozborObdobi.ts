@@ -16,6 +16,7 @@
 import { jeSud } from './inventoryFix';
 import { denObjednavky, normJmeno } from './duplicityObjednavek';
 import { radkyRozboru, type PolozkaPlanuRozboru, type RadekRozboru, type StoceniRozboru } from './rozbor';
+import type { Movement } from './stockLedger';
 
 export type ObjednavkaRozboru = {
   id: string;
@@ -98,12 +99,15 @@ export function radkyRozboruObdobi(p: {
   polozky: PolozkaObjednavkyRozboru[];
   kegging: StoceniRozboru[];
   bottling: StoceniRozboru[];
+  fasovani?: StoceniRozboru[];
+  prodejna?: StoceniRozboru[];
   od: string;
   doDne: string;
   odberatel: string | null;
   piva: { id: string; name: string }[];
   obaly: { id: string; label: string; kind?: string | null }[];
   zasoba?: Map<string, number>;
+  pohyby?: Movement[];
 }): { radky: RadekRozboru[]; objednavek: number } {
   const platne = objednavkyObdobi(p.objednavky, p.od, p.doDne)
     .filter((o) => p.odberatel === null || klicOdberatele(o.place_name) === p.odberatel);
@@ -137,9 +141,12 @@ export function radkyRozboruObdobi(p: {
       planLahve: plan(false),
       kegging: vsichni ? p.kegging : [],
       bottling: vsichni ? p.bottling : [],
+      fasovani: vsichni ? p.fasovani : [],
+      prodejna: vsichni ? p.prodejna : [],
       od: p.od,
       doDne: p.doDne,
       zasoba: vsichni ? p.zasoba : undefined,
+      pohyby: vsichni ? p.pohyby : undefined,
       piva: p.piva,
       obaly: p.obaly,
     }),

@@ -129,6 +129,10 @@ export async function nactiSdilenouTabulku<T = any>(tabulka: SdilenaTabulka): Pr
   }
 
   const r = await bezici.slib;
+  // Zápis přišel, než stahování doběhlo: tahle odpověď je ještě starý stav.
+  // Rozbor by ho jinak chvíli ukazoval (26. 10. 2026: fasování „tu nebylo
+  // a za chvíli ano"). Čteme znovu, už s novou verzí.
+  if (verzeTabulky(tabulka) !== verze) return nactiSdilenouTabulku<T>(tabulka);
   return { data: r.data ? kopie(r.data as T[]) : r.data as null, error: r.error, ...(r.zPameti ? { zPameti: true } : {}) };
 }
 

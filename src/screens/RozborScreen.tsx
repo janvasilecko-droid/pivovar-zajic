@@ -40,7 +40,7 @@ function kratkyObal(label: string): string {
 export default function RozborScreen({ setPage }: { setPage: (p: Page) => void }) {
   const dnes = businessDateISO();
   const weekKey = isoWeekKey(dnes);
-  const { data, chyba, planySudy, planyLahve, zasoba } = usePlanStaceni(weekKey);
+  const { data, chyba, planySudy, planyLahve, zasoba, pohyby } = usePlanStaceni(weekKey);
   const objednavky = useObjednavkyRozboru();
   // Týden (jako dřív), nebo celý měsíc; navíc volitelně jediný odběratel.
   const [rezim, setRezim] = useState<'tyden' | 'mesic'>('tyden');
@@ -102,9 +102,12 @@ export default function RozborScreen({ setPage }: { setPage: (p: Page) => void }
       planLahve: mergeWeekPlan(planyLahve, 'týden').items,
       kegging: data.kegging,
       bottling: data.bottling,
+      fasovani: data.fasovani,
+      prodejna: data.prodejna,
       od: obdobi.od,
       doDne: obdobi.doDne,
       zasoba,
+      pohyby,
       piva: data.beers,
       obaly: data.packages,
       inventura: slucInventuruSKonceptem(inventura, koncept, dnes),
@@ -115,6 +118,9 @@ export default function RozborScreen({ setPage }: { setPage: (p: Page) => void }
       polozky: objednavky.data.polozky,
       kegging: data.kegging,
       bottling: data.bottling,
+      fasovani: data.fasovani,
+      prodejna: data.prodejna,
+      pohyby,
       od: obdobi.od,
       doDne: obdobi.doDne,
       odberatel: odberatel ? odberatel.klic : null,
@@ -171,7 +177,13 @@ export default function RozborScreen({ setPage }: { setPage: (p: Page) => void }
                   ? <span className="font-black text-amber-800"> · stočit {it.stocit}</span>
                   : <span className="text-emerald-700"> · <Check size={12} className="inline" /></span>)}
                 {it.dluh > 0 && <span className="font-black text-rose-700"> (−{it.dluh} sklad)</span>}
-                {it.skladem !== null && <span className={it.skladem < 0 ? 'font-black text-rose-700' : 'text-neutral-600'}> · sklad {it.skladem}</span>}
+                {it.fasovani > 0 && <span className="text-neutral-700"> · fas. {it.fasovani}</span>}
+                {it.skladem !== null && <span className={it.skladem < 0 ? 'font-black text-rose-700' : 'text-neutral-800'}> · sklad {it.skladem}</span>}
+                {it.rozdil !== null && (
+                  <span className={it.rozdil < 0 ? 'font-black text-rose-700' : 'text-neutral-700'}>
+                    {' '}· rozdíl {it.rozdil > 0 ? '+' : ''}{it.rozdil}
+                  </span>
+                )}
                 {it.inventura && (
                   <span className="font-black text-sky-800" title={it.inventura.minulyTyden ? 'Napočítáno v týdenní inventuře minulého týdne' : 'Napočítáno v týdenní inventuře'}>
                     {' '}· inv. {it.inventura.kusu} {it.inventura.rozepsano ? '(rozepsáno)' : `(${Number(it.inventura.den.slice(8, 10))}. ${Number(it.inventura.den.slice(5, 7))}.)`}

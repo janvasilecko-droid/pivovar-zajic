@@ -92,7 +92,7 @@ describe('computePackageNeeds — lahve (kind !== "keg")', () => {
     );
     const row = rows.find((r) => r.package_id === 'p-keg');
     expect(row!.stockQty).toBe(15); // fyzicky teď: 2 + 19 − 6 (zavezeno)
-    expect(row!.neededQty).toBe(0); // 2 + 19 − 20 (objednáno, zavezené v tom už je) = 1 zbyde, ne chybí
+    expect(row!.neededQty).toBe(5); // 20 objednáno − 15 skladem
   });
 
   it('orderedQty počítá VŠECHNY objednávky týdne (i už zavezené is_delivered)', () => {
@@ -137,7 +137,7 @@ describe('computePackageNeeds — lahve (kind !== "keg")', () => {
     const row = rows.find((r) => r.package_id === 'p-bottle')!;
     expect(row.stockQty).toBe(4);
     expect(row.orderedQty).toBe(13); // storno ne
-    expect(row.neededQty).toBe(3);
+    expect(row.neededQty).toBe(9); // 13 objednáno − 4 skladem
   });
 
   it('stočení v mínusu ubere z „chybí" hned — sklad se neořezává na nulu', () => {
@@ -174,5 +174,22 @@ describe('computePackageNeeds — lahve (kind !== "keg")', () => {
     // 100 stočeno − 20 čistá spotřeba na akci (30 odvezeno − 10 vráceno) = 80 skladem.
     expect(row!.stockQty).toBe(80);
     expect(row!.neededQty).toBe(0); // 80 objednáno − 80 k dispozici = 0 chybí
+  });
+
+  it('fyzická inventura 80 a objednávka 100× 0,33 l → sklad 80, chybí 20', () => {
+    const pkg = { id: 'p33', label: 'Lahve 0,33 l', kind: 'bottle', volume_l: 0.33 };
+    const rows = computePackageNeeds(
+      makeInput({
+        packages: [pkg],
+        inventoryRows: [{ entry_date: todayStr, beer_id: 'b1', package_id: 'p33', quantity: 80, note: 'Fyzická inventura' }],
+        orders: [{ id: 'o1', order_date: todayStr, delivery_date: todayStr, status: 'nova' }],
+        orderItems: [{ id: 'i1', order_id: 'o1', beer_id: 'b1', package_id: 'p33', quantity: 100 }],
+        zavozDeductionRows: [{ deduct_date: todayStr, beer_id: 'b1', package_id: 'p33', quantity: 14, order_item_id: 'i1' }],
+      }),
+      bottleFilter
+    );
+    const row = rows.find((r) => r.package_id === 'p33')!;
+    expect(row.stockQty).toBe(80);
+    expect(row.neededQty).toBe(20);
   });
 });

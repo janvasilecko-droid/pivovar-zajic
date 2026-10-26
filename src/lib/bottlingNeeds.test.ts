@@ -29,6 +29,25 @@ function makeInput(patch: Partial<BottlingNeedsInput> = {}): BottlingNeedsInput 
 }
 
 describe('computeBottlingNeeds', () => {
+  it('uložených 80 a objednávka 100 stejného 0,33 l → sklad 80, chybí 20, ne 6', () => {
+    // 26. 10. 2026: inventura je reset. Odvoz 14 ks ze stejného dne v napočítaných
+    // 80 už je, ale starý vzorec ho z objednávky odečetl znovu: (100 − 14) − 80 = 6.
+    const pkg = { id: 'p33', label: 'Lahve 0,33 l', kind: 'bottle', volume_l: 0.33 };
+    const rows = computeBottlingNeeds(
+      makeInput({
+        packages: [pkg],
+        inventoryRows: [{ entry_date: todayStr, beer_id: 'b1', package_id: 'p33', quantity: 80, note: 'Fyzická inventura' }],
+        orders: [{ id: 'o1', order_date: todayStr, delivery_date: todayStr, status: 'nova' }],
+        orderItems: [{ id: 'i1', order_id: 'o1', beer_id: 'b1', package_id: 'p33', quantity: 100 }],
+        zavozDeductionRows: [{ deduct_date: todayStr, beer_id: 'b1', package_id: 'p33', quantity: 14, order_item_id: 'i1' }],
+      })
+    );
+    const row = rows.find((r) => r.package_id === 'p33')!;
+    expect(row.stock).toBe(80);
+    expect(row.ordered).toBe(100);
+    expect(row.missing).toBe(20);
+  });
+
   it('prázdná data → žádné řádky potřeby', () => {
     expect(computeBottlingNeeds(makeInput())).toEqual([]);
   });
@@ -134,7 +153,7 @@ describe('computeBottlingNeeds', () => {
     const row = rows.find((r) => r.package_id === 'p-bottle')!;
     expect(row.stock).toBe(4);
     expect(row.zbyvaZavezt).toBe(0);
-    expect(row.missing).toBe(0);
+    expect(row.missing).toBe(2); // 6 objednáno − 4 skladem
   });
 
   it('vyřízená objednávka BEZ odpočtu se počítá — pivo odjelo, sklad o tom ještě neví', () => {
@@ -176,7 +195,8 @@ describe('computeBottlingNeeds', () => {
     // Sklad bez inventury a bez stočení: 60 odjelo „na dluh" → −60, stejně
     // jako ve Skladu. Chybí 40 na zbytek + 60 dluhu (dřív se dluh ořízl na 0).
     expect(row!.stock).toBe(-60);
-    expect(row!.missing).toBe(100);
+    // Objednáno minus sklad: 100 − (−60). Záporný sklad se neschovává.
+    expect(row!.missing).toBe(160);
   });
 
   // 🐛 Regrese k hlášení z 22. 9. 2026: „potreby staceni: neodecitaji se
@@ -207,10 +227,10 @@ describe('computeBottlingNeeds', () => {
     // Tohle číslo se ukazuje v přehledu jako „zbývá zavézt" — podle něj se
     // rozhoduje, kolik stočit (zadání 23. 9. 2026).
     expect(row.zbyvaZavezt).toBe(40); // 100 − 60 zavezených
-    // Zbývá zavézt 40 a na skladě je právě 40 → stočit není potřeba nic.
-    // Dřív tu vyšlo 60 (100 − 40), tedy přesně ta zavezená část navíc.
-    expect(row.missing).toBe(0);
-    expect(row.afterOutgoing).toBe(0);
+    // Chybí = objednáno minus sklad ze knihy (100 − 40). Odvezené se
+    // z objednávky podruhé neodečítají — sklad už je má pryč.
+    expect(row.missing).toBe(60);
+    expect(row.afterOutgoing).toBe(-60);
   });
 
   it('nezavezená objednávka se počítá celá (nic se neodpouští)', () => {
@@ -277,19 +297,20 @@ describe('computeBottlingNeeds', () => {
     const radek = (stoceno: number, pocatek: number, naStredu: number) =>
       computeBottlingNeeds(vstup(stoceno, pocatek, naStredu)).find((r) => r.package_id === 'p-keg')!;
 
-    it('pondělí 15, odjelo 14, na středu 3 → skladem 1, chybí 2; po 2 stočených nic', () => {
+    it('pondělí 15, odjelo 14, na středu 3 → skladem 1, chybí objednáno minus sklad', () => {
       expect(radek(0, 15, 3).stock).toBe(1);
       expect(radek(0, 15, 3).zbyvaZavezt).toBe(3);
-      expect(radek(0, 15, 3).missing).toBe(2);
-      expect(radek(2, 15, 3).missing).toBe(0);
+      expect(radek(0, 15, 3).ordered).toBe(17);
+      expect(radek(0, 15, 3).missing).toBe(16); // 17 − 1
+      expect(radek(2, 15, 3).missing).toBe(14); // sklad 3, pořád 17 − 3
     });
 
     it('sklad v mínusu: stočení se projeví celé, ne až po vynulování dluhu', () => {
-      // 6 v pondělí, 14 odjelo → Sklad −8; na středu 10 → chybí 18.
+      // 6 v pondělí, 14 odjelo → Sklad −8; objednáno 24 → chybí 32.
       expect(radek(0, 6, 10).stock).toBe(-8);
-      expect(radek(0, 6, 10).missing).toBe(18);
-      expect(radek(5, 6, 10).missing).toBe(13); // dřív pořád 10 (−3 → 0)
-      expect(radek(18, 6, 10).missing).toBe(0);
+      expect(radek(0, 6, 10).missing).toBe(32);
+      expect(radek(5, 6, 10).missing).toBe(27); // sklad −3, každý sud ubere jeden
+      expect(radek(18, 6, 10).missing).toBe(14); // sklad 10, 24 − 10
     });
 
     it('sklad −1 a nic dalšího k zavezení → chybí 1, ne „vše stočeno"', () => {
@@ -302,7 +323,8 @@ describe('computeBottlingNeeds', () => {
       const r = computeBottlingNeeds(v).find((x) => x.package_id === 'p-keg')!;
       expect(r.stock).toBe(-1);
       expect(r.zbyvaZavezt).toBe(0);
-      expect(r.missing).toBe(1);
+      expect(r.ordered).toBe(16);
+      expect(r.missing).toBe(17); // 16 − (−1), mínus se neschovává
     });
   });
 

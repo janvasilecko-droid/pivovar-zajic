@@ -16,11 +16,13 @@
 //                     skutečný výdej, tady jen odhad pro dny, co teprve přijdou
 //   • planned       – naplánované stáčení v týdnu (jen 1. stáčení piva)
 //   • afterBottling – sklad + naplánováno
-//   • missing       – chybí stočit do konce týdne = max(0, JEŠTĚ NEZAVEZENÁ
-//                     část objednávek + fasování − po stočení). Pozor: ne
-//                     celé `ordered` — kusy, které už odjely, má `stock`
-//                     odečtené sám a odečíst je podruhé nafukuje potřebu.
-//   • afterOutgoing – konec týdne = po stočení − nezavezené objednávky − fasování
+//   • missing       – chybí stočit = objednáno + odhad fasování − sklad po
+//                     naplánovaném stočení. Sklad je číslo ze skladové knihy
+//                     (i záporné). Už odvezené se z objednávky neodečítají:
+//                     uložená inventura je reset a odvoz v ní už je, druhý
+//                     odečet by potřebu zmenšil (26. 10. 2026: sklad 80,
+//                     objednáno 100, odvoz 14 → vycházelo 6 místo 20).
+//   • afterOutgoing – konec týdne = po stočení − objednáno − fasování
 //
 // Čerstvé stočení se tak projeví v „chybí stočit" OKAMŽITĚ (počítá se do
 // „stock" hned po uložení), bez čekání na to, až se nějaká JINÁ objednávka
@@ -246,8 +248,10 @@ export function computeBottlingNeeds(input: BottlingNeedsInput): NeedsRow[] {
         planned,
         fasovani,
         afterBottling,
-        missing: Math.max(0, zbyvaZavezt + fasovani - afterBottling),
-        afterOutgoing: afterBottling - zbyvaZavezt - fasovani,
+        // Objednáno minus sklad ze knihy. Záporný sklad potřebu zvětší;
+        // přebytek (sklad větší než objednávka) není „chybí".
+        missing: Math.max(0, ordered + fasovani - afterBottling),
+        afterOutgoing: afterBottling - ordered - fasovani,
       });
     });
   });

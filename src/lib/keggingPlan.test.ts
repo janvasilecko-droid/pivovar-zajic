@@ -37,6 +37,22 @@ describe('dayKeyFromISO', () => {
 });
 
 describe('computeKeggingPlan', () => {
+  it('lahve: sklad 80 a objednávka 100 → chybí 20, závoz se do fondu nevrací', () => {
+    // 26. 10. 2026. Kniha říká 80 (inventura). Odvoz 14 by se dřív přičetl
+    // zpátky: fond 94, chybí 6. Správně je 100 − 80.
+    const p = plan({
+      jeCilovyObal: (kind) => kind !== 'keg',
+      currentStockMap: new Map([['b-11__pet', 80]]),
+      orders: [{ id: 'o1', delivery_date: '2026-08-27', order_date: '2026-08-27', status: 'nova', place_name: 'Hospoda' }],
+      orderItems: [{ id: 'lah-1', order_id: 'o1', beer_id: 'b-11', package_id: 'pet', quantity: 100 }],
+      zavozDeductionRows: [{ deduct_date: '2026-08-27', beer_id: 'b-11', package_id: 'pet', quantity: 14, order_id: 'o1', order_item_id: 'lah-1' }],
+    });
+    const tyden = mergeWeekPlan(p, 'týden');
+    const it = tyden.items.find((x) => x.package_id === 'pet')!;
+    expect(it.ordered).toBe(100);
+    expect(it.missing).toBe(20);
+  });
+
   const objednavka = (id: string, date: string, extra: any = {}) => ({
     id, delivery_date: date, order_date: date, status: 'nova', place_name: `Hospoda ${id}`, ...extra,
   });
@@ -589,7 +605,7 @@ describe('z čeho je „hotovo" — rozpad, který si vyžádal provoz', () => {
 
     // Z provozu 30. 9. 2026: „1× 30 l Osma, píše mi stočit 2 — na skladě −1,
     // v pondělí byl 0". Odpočet s datem minulého týdne, objednávka tento.
-    it('odpočet objednávky tohoto týdne se vrátí, i když je datovaný minulým týdnem', () => {
+    it('odpočet se do skladu nevrací — mínus zůstane a přičte se k tomu, co chybí', () => {
       const p = plan({
         orders: [objednavka('o1', '2026-08-26')],
         orderItems: [polozka('o1', 'b-des', 'p30', 1)],
@@ -597,8 +613,8 @@ describe('z čeho je „hotovo" — rozpad, který si vyžádal provoz', () => {
         currentStockMap: new Map([['b-des__p30', -1]]),
       });
       const it0 = day(p, 'st').items[0];
-      expect(it0.missing).toBe(1);
-      expect(it0.dluh ?? 0).toBe(0);
+      expect(it0.missing).toBe(2); // 1 objednáno − (−1) skladem
+      expect(it0.dluh ?? 0).toBe(1);
     });
 
     it('odpočet objednávky z jiného týdne se nevrací — skutečný mínus zůstane', () => {
@@ -622,21 +638,9 @@ describe('z čeho je „hotovo" — rozpad, který si vyžádal provoz', () => {
       expect(day(p, 'st').items[0].missing).toBe(1);
     });
 
-    // Z provozu 16. 9. 2026: „pokud mám na skladě 11×30, tak mi přece nemůže
-    // chybět 5×30“. Už zavezená objednávka nesmí vyrobit fiktivní schodek.
-    //
-    // ⚠️ POZOR NA SMLOUVU: `currentStockMap` se staví BEZ `zavozDeductionRows`
-    // (tak ji posílá Kegging.tsx, BottlingScreen.tsx i CoStocitOkno.tsx —
-    // viz doc u KeggingPlanInput). Tenhle test dřív posílal zásobu S už
-    // odečteným závozem (11) a výpočet si odpočet přičítal zpátky, aby to
-    // vyšlo. Jenže provoz posílá opak, takže se odpočet započítal DVAKRÁT:
-    // fond narostl o dvojnásobek zavezeného a plán hlásil „vše stočeno“,
-    // i když Sklad ukazoval mínus (nahlášeno 22. 9. 2026 — „ve skladu
-    // sudy správně, ve stáčení to, co chybí, ne“).
-    //
-    // Fyzicky: 11 na skladě + 12 už zavezených = 23 stočených kusů, které
-    // fond tou dobou obsahoval. Poptávka 12 + 4 = 16 → nic nechybí.
-    it('už zavezená objednávka nevyrobí schodek (zásoba BEZ odpočtu závozu)', () => {
+    // Mapa je skladová kniha tak, jak ji volající pošle. Odpočet v
+    // zavozDeductionRows fond nenafoukne: 23 ve knize pokryje 12 + 4.
+    it('odpočet závozu fond nenafukuje — kniha 23 pokryje objednaných 16', () => {
       const p = plan({
         orders: [objednavka('o1', '2026-08-26'), objednavka('o2', '2026-08-27')],
         orderItems: [polozka('o1', 'b-des', 'p30', 12, 'i-st'), polozka('o2', 'b-des', 'p30', 4, 'i-ct')],
@@ -648,10 +652,9 @@ describe('z čeho je „hotovo" — rozpad, který si vyžádal provoz', () => {
       expect(day(p, 'ct').items[0].missing).toBe(0);
     });
 
-    // Zásoba je SKUTEČNÝ sklad (stav po odvozu) — viz smlouva u
-    // currentStockMap. Sklad 10 (po odvozu 5 v úterý), odpočet tohoto týdne
-    // se vrátí → fond 15. Poptávka 5 (úterý) + 13 (středa) = 18 → chybí 3.
-    it('skutečná zásoba + vrácený odpočet tohoto týdne dá správný zbytek', () => {
+    // Zásoba je skladová kniha po odvozu. Sklad 10, objednáno 5 + 13.
+    // Odpočet se nevrací: úterý vezme 5, ve středu chybí 8.
+    it('skutečný sklad se o odpočet tohoto týdne nenafukuje', () => {
       const p = plan({
         orders: [objednavka('o1', '2026-08-25'), objednavka('o2', '2026-08-26')],
         orderItems: [polozka('o1', 'b-des', 'p30', 5, 'i-ut'), polozka('o2', 'b-des', 'p30', 13, 'i-st')],
@@ -659,7 +662,7 @@ describe('z čeho je „hotovo" — rozpad, který si vyžádal provoz', () => {
         currentStockMap: new Map([['b-des__p30', 10]]),
       });
       expect(day(p, 'ut').items[0].missing).toBe(0);
-      expect(day(p, 'st').items[0].missing).toBe(3);
+      expect(day(p, 'st').items[0].missing).toBe(8);
     });
 
     it('bez currentStockMap odečtený závoz dál nic nevykrývá', () => {
@@ -682,24 +685,16 @@ describe('z čeho je „hotovo" — rozpad, který si vyžádal provoz', () => {
       expect(day(p, 'st').items[0].missing).toBe(4);
     });
 
-    // Z provozu 15. 9. 2026: „stočil jsem 21×30, appka mi přesto píše, že
-    // 4 chybí." Příčina NENÍ v tomhle výpočtu — je v tom, jaký `currentStockMap`
-    // mu volající pošle (viz `currentStockMap` v Kegging.tsx/BottlingScreen.tsx/
-    // CoStocitOkno.tsx). Pošle-li volající zásobu, ze které je pondělní
-    // objednávka (odpočet ze skladu už kalendářně prošel, ale nikdo ji
-    // v Závozu neoznačil) odečtená JEDNOU (=21, fyzicky stočeno, bez
-    // odpočtu), spočítá tenhle výpočet obě objednávky správně z jednoho
-    // fondu — nic nezdvojuje.
-    it('jeden fond bez odpočtu pokryje pondělní i čtvrteční objednávku ze stejné zásoby', () => {
+    // Kniha 21, objednáno 10 + 4. Odpočet v datech fond nenafukuje ani
+    // nezdvojuje: oba dny jsou kryté z jedné zásoby.
+    it('jedna kniha pokryje pondělní i čtvrteční objednávku', () => {
       const p = plan({
         orders: [objednavka('o1', '2026-08-24'), objednavka('o2', '2026-08-27')], // po, čt
         orderItems: [
           polozka('o1', 'b-des', 'p30', 10, 'polozka-po'),
           polozka('o2', 'b-des', 'p30', 4, 'polozka-ct'),
         ],
-        // 21 stočeno včera — currentStockMap volajícího BEZ odpočtu závozu
-        // (viz `currentStockMap` v Kegging.tsx), ne skladová kniha ochuzená
-        // o pondělní odpočet.
+        // 21 ve skladové knize. Odpočet se k tomu nepřičítá.
         currentStockMap: new Map([['b-des__p30', 21]]),
       });
       expect(day(p, 'po').totalMissing).toBe(0);
@@ -969,8 +964,9 @@ describe('odběratelé s vlastními sudy (lib/vlastniSudy.ts)', () => {
         currentStockMap: new Map([['b-11__p50', -4]]),
       });
       expect(nalezt(p, 'ct', 'p50').missing).toBe(10);   // DaD: celé do jejich sudů
-      expect(nalezt(p, 'pa', 'p50').missing).toBe(0);    // Hospoda: 3 z 6 skladem
-      expect(nalezt(p, 'pa', 'p50').zChladaku).toBe(3);
+      // Kniha je −4. Odvoz se nevrací, Hospoda z ní nic nevezme: 3 + dluh 4.
+      expect(nalezt(p, 'pa', 'p50').missing).toBe(7);
+      expect(nalezt(p, 'pa', 'p50').zChladaku).toBe(0);
     });
 
     it('část už stočená do jejich sudů: doplní se jen zbytek, sklad pivovaru zůstane 6', () => {
@@ -985,8 +981,9 @@ describe('odběratelé s vlastními sudy (lib/vlastniSudy.ts)', () => {
       });
       expect(nalezt(p, 'ct', 'p50').doVlastnichSudu).toBe(6);
       expect(nalezt(p, 'ct', 'p50').missing).toBe(6);
-      expect(nalezt(p, 'pa', 'p50').zChladaku).toBe(6);
-      expect(nalezt(p, 'pa', 'p50').missing).toBe(0);
+      // Kniha 0, stočené 4 do jejich sudů z ní uberou. Hospoda z toho nic nemá.
+      expect(nalezt(p, 'pa', 'p50').zChladaku).toBe(0);
+      expect(nalezt(p, 'pa', 'p50').missing).toBe(10);
     });
 
     it('když se na tom dni stáčí i do sudů pivovaru, dluh se připočítá jako dřív', () => {
@@ -1028,7 +1025,7 @@ describe('zavezený odběratel s vlastními sudy: stočení bez vazby na položk
     expect(r.missing).toBe(1);
   });
   it('dokud DaD zavezená není, platí stará úvaha (zbytek se ještě stočí)', () => {
-    expect(stav('nova').zChladaku).toBe(5);
+    expect(stav('nova').zChladaku).toBe(4);
   });
   it('v den dovozu DaD (i neoznačená) a se stočením bez vazby se bere jako odvezená: chybí 1', () => {
     const r = stav('nova', '2026-08-25');
@@ -1063,6 +1060,6 @@ describe('zavezený odběratel s vlastními sudy: stočení bez vazby na položk
   });
 
   it('před dnem dovozu DaD se nic nemění', () => {
-    expect(stav('nova', '2026-08-24').zChladaku).toBe(5);
+    expect(stav('nova', '2026-08-24').zChladaku).toBe(4);
   });
 });

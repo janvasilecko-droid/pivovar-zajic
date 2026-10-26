@@ -70,6 +70,19 @@ describe('nactiSdilenouTabulku', () => {
     expect(h.dotazy).toEqual(['orders']);
   });
 
+  it('čtení rozjeté před zápisem vrátí až data po zápisu, ne starý snímek', async () => {
+    let pust!: () => void;
+    h.cekat = new Promise((r) => { pust = r; });
+    const prvni = nactiSdilenouTabulku<any>('writeoffs');
+    await Promise.resolve();
+    h.radky = [{ entry_date: '2026-10-23', quantity: 5 }];
+    zneplatniTabulku('writeoffs');
+    h.cekat = null;
+    pust();
+    const data = await prvni;
+    expect(data.data![0].entry_date).toBe('2026-10-23');
+  });
+
   it('data načtená PŘED zápisem, který přišel během stahování, se do paměti neuloží', async () => {
     let pust!: () => void;
     h.cekat = new Promise((r) => { pust = r; });

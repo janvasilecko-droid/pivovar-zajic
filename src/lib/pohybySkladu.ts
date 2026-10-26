@@ -142,6 +142,26 @@ export function popisPohybu(m: Pick<Movement, 'kind' | 'note' | 'orderId' | 'ztr
  * stockAsOf (starší než základ se přeskakuje). Tady se to starší zahodí.
  * Položky bez inventury před obdobím se nechávají celé.
  */
+/**
+ * O kolik se konec období liší od součtu pohybů (ráno + příjem − výdej).
+ * Stejné číslo jako „srovnala" u inventury v pohybech. Výdej před inventurou
+ * sem patří a přebytek snižuje; aktuální stav (konec) bere skladová kniha,
+ * takže uložená inventura zůstane.
+ */
+export function rozdilSkladu(pohyby: Movement[], od: string, doDne: string, klic: string): number {
+  const [beer_id, package_id] = klic.split('__');
+  const rano = stockAtStartOfDay(pohyby, od).get(klic)?.qty ?? 0;
+  const konec = stockAsOf(pohyby, doDne).get(klic)?.qty ?? 0;
+  let prijem = 0;
+  let vydej = 0;
+  for (const m of pohyby) {
+    if (m.beer_id !== beer_id || m.package_id !== package_id || m.date < od || m.date > doDne || m.kind === 'inventura') continue;
+    if (m.qty > 0) prijem += m.qty;
+    else vydej -= m.qty;
+  }
+  return konec - (rano + prijem - vydej);
+}
+
 export function pohybyBezStareHistorie(pohyby: Movement[], od: string): Movement[] {
   const hranice = new Map<string, string>(); // klíč → datum nejpozdější inventury ≤ od − 1
   const predOd = (() => { const d = new Date(od + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - 1); return d.toISOString().slice(0, 10); })();
@@ -282,7 +302,7 @@ export function sestavPohybyObdobi(
     });
     const rano = ranoMapa.get(k)?.qty ?? 0;
     const konec = konecMapa.get(k)?.qty ?? 0;
-    return { beer_id, package_id, rano, prijem, vydej, inventura, konec, srovnani: konec - (rano + prijem - vydej), inventuraDatum, inventuraStav };
+    return { beer_id, package_id, rano, prijem, vydej, inventura, konec, srovnani: rozdilSkladu(pohyby, od, doDne, k), inventuraDatum, inventuraStav };
   });
 
   return { rano: stavy(ranoMapa), dny, souhrn };

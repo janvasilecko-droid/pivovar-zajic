@@ -120,8 +120,8 @@ export function usePlanStaceni(weekKey: string, { sudy = true, lahve = true }: {
   useRealtime(['orders', 'order_items', 'kegging', 'bottling', 'fasovani', 'fasovani_private', 'writeoffs', 'kegging_plan_checks', 'inventory', 'inventory_adjustments', 'akce', 'akce_items', 'keg_prefuk', 'zavoz_deductions'], () => { void nacti(); });
 
   // Nezávisí na druhu (sudy/lahve) — zásoba pro VŠECHNA pivo×obal, spočítá
-  // se jednou pro oba plány. Včetně odpočtů závozu, stejně jako v Kegging.tsx
-  // a BottlingScreen.tsx (viz smlouva `currentStockMap` v keggingPlan.ts).
+  // se jednou pro oba plány. Stejná skladová kniha jako Sklad, včetně
+  // odpočtů závozu (Kegging.tsx, BottlingScreen.tsx).
   const currentStockMap = useMemo(() => {
     if (!data) return undefined;
     return zbytekKeKonciTydne({
@@ -147,8 +147,7 @@ export function usePlanStaceni(weekKey: string, { sudy = true, lahve = true }: {
       orders: data.orders,
       orderItems: data.orderItems,
       keggingRows: druh === 'sudy' ? data.kegging : data.bottling,
-      // Bez nich by se už zavezené objednávky odečetly dvakrát — viz
-      // keggingPlan.ts (vrácení závozů do zásoby u currentStockMap).
+      // Kniha je už má v currentStockMap; plán je do fondu nevrací.
       zavozDeductionRows: data.zavozDeductions,
       fasovaniRows: data.fasovani,
       prodejnaRows: data.prodejna,
@@ -197,5 +196,5 @@ export function usePlanStaceni(weekKey: string, { sudy = true, lahve = true }: {
     }));
   };
 
-  return { data, chyba, zPameti, planySudy, planyLahve, nacti, puvodMinusu, zasoba: currentStockMap };
+  return { data, chyba, zPameti, planySudy, planyLahve, nacti, puvodMinusu, zasoba: currentStockMap, pohyby };
 }

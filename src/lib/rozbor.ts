@@ -1,3 +1,6 @@
+import { rozdilSkladu } from './pohybySkladu';
+import type { Movement } from './stockLedger';
+
 // 🔎 Řádky obrazovky Rozbor — objednané I stočené položky týdne.
 // ---------------------------------------------------------------------------
 // Do 9. 10. 2026 Rozbor bral jen položky s objednávkou. Lahve se ale stáčí
@@ -32,6 +35,17 @@ export type RadekRozboru = {
   dluh: number;
   /** Stav skladem teď (skladová kniha); null = neznámý. */
   skladem: number | null;
+  /**
+   * Fasování a prodejna v období. Výdej před poslední inventurou aktuální
+   * stav nemění, v rozboru období, které ten den zahrnuje, vidět je
+   * (26. 10. 2026: fasování prodejny přepsané na 23. 10.).
+   */
+  fasovani: number;
+  /**
+   * Odchylka konce období od součtu pohybů (přebytek / zbytek). Stejný
+   * vzorec jako souhrn v Pohybech. null = pohyby se nepředaly.
+   */
+  rozdil: number | null;
   lahve: boolean;
   /**
    * Napočítáno v týdenní inventuře (11. 10. 2026: „v rozboru chci vidět
@@ -74,9 +88,14 @@ export function radkyRozboru(p: {
   planLahve: PolozkaPlanuRozboru[];
   kegging: StoceniRozboru[];
   bottling: StoceniRozboru[];
+  /** Fasování personálu a fasování prodejny (fasovani_private). */
+  fasovani?: StoceniRozboru[];
+  prodejna?: StoceniRozboru[];
   od: string;
   doDne: string;
   zasoba?: Map<string, number>;
+  /** Pohyby skladové knihy — z nich je rozdíl (přebytek) za období. */
+  pohyby?: Movement[];
   piva: { id: string; name: string }[];
   obaly: { id: string; label: string; kind?: string | null }[];
   /** Napočítané v týdenní inventuře, klíč `beer_id__package_id`. */
@@ -93,7 +112,7 @@ export function radkyRozboru(p: {
         key, beer_id: beerId, package_id: pkgId,
         beer_name: jmenoPiva.get(beerId) ?? 'Neznámé pivo',
         package_label: jmenoObalu.get(pkgId) ?? '',
-        stoceno: 0, objednano: 0, stocit: 0, dluh: 0,
+        stoceno: 0, objednano: 0, stocit: 0, dluh: 0, fasovani: 0, rozdil: null,
         skladem: p.zasoba ? (p.zasoba.get(key) ?? 0) : null,
         lahve,
         inventura: p.inventura?.get(key) ?? null,
@@ -122,6 +141,16 @@ export function radkyRozboru(p: {
       radek(z.beer_id, z.package_id, lahve).stoceno += n;
     }
   }
+  const obalPodleIdPred = new Map(p.obaly.map((o) => [o.id, o]));
+  for (const z of [...(p.fasovani ?? []), ...(p.prodejna ?? [])]) {
+    const d = String(z.entry_date ?? '').slice(0, 10);
+    if (!z.beer_id || !z.package_id || d < p.od || d > p.doDne) continue;
+    const n = Number(z.quantity || 0);
+    if (!n) continue;
+    const o = obalPodleIdPred.get(z.package_id);
+    const sud = o?.kind === 'keg' || /keg|sud/i.test(o?.label ?? '');
+    radek(z.beer_id, z.package_id, !sud).fasovani += n;
+  }
   // Napočítané v týdenní inventuře se ukážou, i když se s nimi tento týden
   // nic nedělo — číslo je zadané, má být vidět.
   const obalPodleId = new Map(p.obaly.map((o) => [o.id, o]));
@@ -133,6 +162,9 @@ export function radkyRozboru(p: {
     const sud = o.kind === 'keg' || /keg|sud/i.test(o.label ?? '');
     radek(beerId, pkgId, !sud);
   });
+  if (p.pohyby) {
+    for (const r of radky.values()) r.rozdil = rozdilSkladu(p.pohyby, p.od, p.doDne, r.key);
+  }
 
   // Sudy napřed, pak lahve; uvnitř podle piva a obalu.
   return [...radky.values()].sort((a, b) =>

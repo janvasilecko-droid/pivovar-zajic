@@ -1096,7 +1096,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   // Sklepa a hned zpátky.
   // Od 28. 9. 2026 VŠECHNY tanky, i prázdné („dlaždici sklep udělej tak, aby
   // šly vidět všechny tanky") — Spilka nejdřív, pak Tanky podle čísla.
-  const [tankyNaPlochu, setTankyNaPlochu] = useState<{ label: string; pivo: string; barva: string | null; litry: number; kapacita: number; staci: boolean; prazdny: boolean }[]>([]);
+  const [tankyNaPlochu, setTankyNaPlochu] = useState<{ id: string; label: string; pivo: string; barva: string | null; litry: number; kapacita: number; staci: boolean; prazdny: boolean }[]>([]);
   // Barvy piv z nastavení piv — přehledové dlaždice podle nich barví jednotlivá
   // piva, ať je na první pohled vidět rozdíl (28. 9. 2026). Klíč je id i jméno
   // (malými písmeny), protože řádky objednávek nesou jméno piva.
@@ -1105,7 +1105,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
     if (!visibleIds.includes('cellar')) return;
     void (async () => {
       const [{ data: tanky }, { data: piva }] = await Promise.all([
-        supabase.from('cellar_tanks').select('label,current_beer_id,current_volume_l,capacity_l,status,kegging_active'),
+        supabase.from('cellar_tanks').select('id,label,current_beer_id,current_volume_l,capacity_l,status,kegging_active'),
         supabase.from('beers').select('id,name,beer_color'),
       ]);
       const jmenoPiva = new Map(((piva as any[]) ?? []).map((b) => [b.id, b.name as string]));
@@ -1124,6 +1124,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
         .map((t) => {
           const litry = Math.round(Number(t.current_volume_l || 0));
           return {
+            id: String(t.id ?? ''),
             label: String(t.label ?? '?'),
             pivo: jmenoPiva.get(t.current_beer_id) ?? '',
             barva: barvy.get(t.current_beer_id) ?? null,
@@ -1719,7 +1720,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
       {/* 🛢️ Ležácké tanky 1–8 úplně nahoře, mimo dlaždice, bílé pozadí
           (28. 9. 2026). Klepnutí otevře Sklep. */}
       {!editMode && visibleIds.includes('cellar') && (
-        <PrehledTankuPlocha tanky={tankyNaPlochu} onOtevrit={() => setPage('cellar')} />
+        <PrehledTankuPlocha tanky={tankyNaPlochu} onOtevrit={(id) => setPage('cellar', undefined, `tank:${id}`)} />
       )}
 
       {/* 🍺 Co je potřeba stočit dnes / na den / za týden, sudy nebo lahve.

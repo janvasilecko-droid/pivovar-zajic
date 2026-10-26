@@ -661,8 +661,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   // vynechávaly, jenže ne jen za tento týden, ale za CELOU historii: fond
   // pak obsahoval každý sud, který kdy odjel (změřeno: 100 stočených a
   // 100 rozvezených → Sklad 0, fond 100) a plán svítil „pokryto" i u piva,
-  // které nikdo nestočil. Co už odjelo, se z poptávky vyřadí v
-  // keggingPlan.ts (`odectenoPolozky`), ne tím, že se to nechá v zásobě.
+  // které nikdo nestočil. Fond je tahle kniha; odvoz se do něj nevrací.
   const currentStockMap = useMemo(() => zbytekKeKonciTydne({
     inventoryRows,
     bottlingRows,
@@ -674,9 +673,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     prefukRows,
     adjustmentRows,
     packages,
-    // Skutečná zásoba = stav PO odvozu, stejné číslo jako ukazuje Sklad.
-    // Bez odpočtů závozu tu fond obsahoval každý sud, který kdy odjel
-    // (viz smlouva u currentStockMap v lib/keggingPlan.ts).
+    // Skutečná zásoba = stav po odvozu, stejné číslo jako ukazuje Sklad.
     zavozDeductionRows,
   }, businessDateISO()), [inventoryRows, bottlingRows, rows, fasovaniRows, prodejnaRows, writeoffsRows, akceRows, prefukRows, adjustmentRows, packages, zavozDeductionRows]);
 

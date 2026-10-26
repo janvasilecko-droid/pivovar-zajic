@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { radkyRozboru } from './rozbor';
+import { buildMovements, stockAsOf } from './stockLedger';
+import { rozdilSkladu, sestavPohybyObdobi } from './pohybySkladu';
+import { computeKeggingPlan, mergeWeekPlan } from './keggingPlan';
+import { isoWeekKey } from '../components/WeeklyOrderSummaryCard';
 
 const piva = [{ id: 'tm', name: 'Tmavé' }, { id: 'sv', name: '12° Světlá' }];
 const obaly = [{ id: 'l033', label: 'Lahev 0,33 l' }, { id: 'k50', label: 'KEG 50l' }];
@@ -39,6 +43,59 @@ describe('Rozbor — týdenní inventura (11. 10. 2026)', () => {
     });
     expect(r.find((x) => x.key === 'sv__k50')!.inventura).toEqual({ kusu: 7, den: '2026-10-06', minulyTyden: false });
     expect(r.find((x) => x.key === 'tm__l033')).toEqual(expect.objectContaining({ stoceno: 0, objednano: 0, lahve: true, inventura: expect.objectContaining({ kusu: 40 }) }));
+  });
+});
+
+describe('fasování prodejny před inventurou (26. 10. 2026)', () => {
+  const OD = '2026-10-19';
+  const PATEK = '2026-10-23';
+  const INVENTURA = '2026-10-25';
+  const DEN = '2026-10-26';
+  const piva = [{ id: 'sv', name: '12° Světlá' }];
+  const obaly = [{ id: 'l033', label: '0,33 l', kind: 'bottle', volume_l: 0.33 }];
+  const zdroje = {
+    inventoryRows: [{ entry_date: INVENTURA, beer_id: 'sv', package_id: 'l033', quantity: 80, note: 'Týdenní inventura 19. 10. (konec dne)' }],
+    bottlingRows: [{ entry_date: '2026-10-20', beer_id: 'sv', package_id: 'l033', quantity: 90 }],
+    prodejnaRows: [{ entry_date: PATEK, beer_id: 'sv', package_id: 'l033', quantity: 10 }],
+    packages: obaly,
+  };
+  const pohyby = buildMovements(zdroje);
+
+  it('sklad zůstane 80, v týdnu s pátkem je fasování a přebytek o něj klesne, chybí 20', () => {
+    expect(stockAsOf(pohyby, DEN).get('sv__l033')!.qty).toBe(80);
+
+    const bezProdejny = buildMovements({ ...zdroje, prodejnaRows: [] });
+    const sProdejnou = rozdilSkladu(pohyby, OD, INVENTURA, 'sv__l033');
+    const bez = rozdilSkladu(bezProdejny, OD, INVENTURA, 'sv__l033');
+    expect(sProdejnou).toBe(bez + 10);
+
+    const souhrn = sestavPohybyObdobi(pohyby, { od: OD, doDne: INVENTURA, beerId: 'sv', packageId: 'l033' }).souhrn[0];
+    expect(souhrn.konec).toBe(80);
+    expect(souhrn.srovnani).toBe(sProdejnou);
+    expect(souhrn.vydej).toBe(10);
+
+    const zasoba = new Map([['sv__l033', stockAsOf(pohyby, DEN).get('sv__l033')!.qty]]);
+    const tyden = mergeWeekPlan(computeKeggingPlan({
+      beers: piva, packages: obaly,
+      orders: [{ id: 'o1', delivery_date: DEN, order_date: DEN, status: 'nova', place_name: 'Hospoda' }],
+      orderItems: [{ id: 'i1', order_id: 'o1', beer_id: 'sv', package_id: 'l033', quantity: 100 }],
+      keggingRows: [], weekKey: isoWeekKey(DEN),
+      jeCilovyObal: (kind) => kind !== 'keg',
+      currentStockMap: zasoba,
+    }), 'týden');
+    expect(tyden.items[0].missing).toBe(20);
+
+    const radky = radkyRozboru({
+      planSudy: [], planLahve: tyden.items,
+      kegging: [], bottling: zdroje.bottlingRows, prodejna: zdroje.prodejnaRows,
+      od: OD, doDne: INVENTURA, zasoba, pohyby, piva, obaly,
+    });
+    const r = radky.find((x) => x.key === 'sv__l033')!;
+    expect(r.skladem).toBe(80);
+    expect(r.fasovani).toBe(10);
+    expect(r.objednano).toBe(100);
+    expect(r.stocit).toBe(20);
+    expect(r.rozdil).toBe(sProdejnou);
   });
 });
 
