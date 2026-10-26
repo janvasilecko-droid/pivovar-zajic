@@ -499,10 +499,13 @@ describe('čtení objednávky z fotky — víc dnů závozu', () => {
 describe('přehled objednávek — Karty / Tabulka', () => {
   const otevri = () => render(<Orders initialViewMode="detail" />);
 
+  const ukazZobrazeni = () => fireEvent.click(screen.getByRole('button', { name: /Filtry/ }));
+
   it('výchozí jsou karty; přepínač přepne na tabulku a volba se zapamatuje', async () => {
     otevri();
     await screen.findByLabelText('Smazat objednávku');
     expect(screen.queryByTestId('objednavky-tabulka')).toBeNull();
+    ukazZobrazeni();
     fireEvent.click(screen.getByRole('button', { name: 'Tabulka' }));
     expect(await screen.findByTestId('objednavky-tabulka')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Tabulka' }).getAttribute('aria-pressed')).toBe('true');
@@ -529,6 +532,7 @@ describe('přehled objednávek — Karty / Tabulka', () => {
     }
     expect(within(karta).getByTitle('Nastavit den závozu: Út')).toBeTruthy();
     // zpět na karty: tabulka zmizí a karta je v seznamu jako dřív
+    ukazZobrazeni();
     fireEvent.click(screen.getByRole('button', { name: 'Karty' }));
     expect(screen.queryByTestId('objednavky-tabulka')).toBeNull();
     expect((await screen.findAllByLabelText('Smazat objednávku')).length).toBeGreaterThan(0);
@@ -542,6 +546,7 @@ describe('přehled objednávek — Karty / Tabulka', () => {
     const tabulky = await screen.findAllByTestId('objednavky-tabulka');
     expect(tabulky.length).toBeGreaterThan(0);
     expect(screen.queryByLabelText('Smazat objednávku')).toBeNull();
+    ukazZobrazeni();
     fireEvent.click(screen.getByRole('button', { name: 'Karty' }));
     expect((await screen.findAllByLabelText('Smazat objednávku')).length).toBeGreaterThan(0);
   });

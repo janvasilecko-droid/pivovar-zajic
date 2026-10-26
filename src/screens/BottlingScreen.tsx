@@ -1941,15 +1941,22 @@ export default function BottlingScreen({
                 <ul className="space-y-1.5">
                   {lines.map((l, idx) => (
                     <li key={idx} className="flex items-center justify-between gap-2 bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200/70 dark:border-neutral-700 px-2.5 py-1.5">
-                      <button
-                        type="button"
-                        onClick={() => { const b = beers.find((bb) => bb.id === l.beerId); if (b) openTile(b, l.rowIndex); }}
-                        className="flex items-center gap-1.5 text-xs font-bold text-neutral-800 dark:text-neutral-100 text-left truncate"
-                        title="Klikni pro úpravu v dlaždici"
-                      >
-                        <span className="shrink-0">{l.qty}×</span>
-                        <span className="truncate">{l.label}</span>
-                      </button>
+                      {l.zFotky ? (
+                        <span className="flex items-center gap-1.5 text-xs font-bold text-neutral-800 dark:text-neutral-100 text-left truncate">
+                          <span className="shrink-0">{l.qty}×</span>
+                          <span className="truncate">{l.label}</span>
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => { const b = beers.find((bb) => bb.id === l.beerId); if (b) openTile(b, l.rowIndex); }}
+                          className="flex items-center gap-1.5 text-xs font-bold text-neutral-800 dark:text-neutral-100 text-left truncate"
+                          title="Klikni pro úpravu v dlaždici"
+                        >
+                          <span className="shrink-0">{l.qty}×</span>
+                          <span className="truncate">{l.label}</span>
+                        </button>
+                      )}
                       <div className="flex items-center gap-1 shrink-0">
                         <button type="button" onClick={() => updateQty(l.rowIndex, l.field, String(Math.max(0, l.qty - 1)))} className="btn-pocet disabled:opacity-30" disabled={l.qty <= 1}>−</button>
                         <input

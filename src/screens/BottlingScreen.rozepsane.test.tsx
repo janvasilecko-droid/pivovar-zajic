@@ -106,7 +106,7 @@ describe('Stáčení lahví — rozepsaný zápis', () => {
     await zadejVDlazdici('30');
     fireEvent.click(screen.getByRole('button', { name: /Zavřít a nechat rozepsané/ }));
     // Řádek je v zápisu pod dlaždicemi…
-    expect(await screen.findByText(/Zápis stáčení \(30 ks\)/)).toBeTruthy();
+    expect(await screen.findByText(/Zápis stáčení \(1,5 l: 30\)/)).toBeTruthy();
     // …a v zařízení.
     expect(ulozeny().entryRows.find((r: any) => r.beerId === 'beer-12')).toMatchObject({ pkgId: 'pkg-15', qty: '30' });
   });
@@ -115,14 +115,14 @@ describe('Stáčení lahví — rozepsaný zápis', () => {
     otevri();
     await zadejVDlazdici('12');
     fireEvent.click(screen.getByRole('button', { name: /Zavřít a vrátit se k dlaždicím/ }));
-    expect(await screen.findByText(/Zápis stáčení \(12 ks\)/)).toBeTruthy();
+    expect(await screen.findByText(/Zápis stáčení \(1,5 l: 12\)/)).toBeTruthy();
   });
 
   it('klepnutí vedle dlaždice (na ztmavené pozadí) taky nechá, co je zadané', async () => {
     otevri();
     await zadejVDlazdici('18');
     fireEvent.click(document.querySelector('.fixed.inset-0') as HTMLElement);
-    expect(await screen.findByText(/Zápis stáčení \(18 ks\)/)).toBeTruthy();
+    expect(await screen.findByText(/Zápis stáčení \(1,5 l: 18\)/)).toBeTruthy();
   });
 
   it('prázdná dlaždice (jen se podíval) nic nezapíše', async () => {
@@ -145,12 +145,12 @@ describe('Stáčení lahví — rozepsaný zápis', () => {
     const prvni = otevri();
     await zadejVDlazdici('30');
     fireEvent.click(screen.getByRole('button', { name: /Zavřít a nechat rozepsané/ }));
-    await screen.findByText(/Zápis stáčení \(30 ks\)/);
+    await screen.findByText(/Zápis stáčení \(1,5 l: 30\)/);
     prvni.unmount();
 
     otevri();
     expect(await screen.findByTestId('rozepsany-zapis-pruh')).toBeTruthy();
-    expect(await screen.findByText(/Zápis stáčení \(30 ks\)/)).toBeTruthy();
+    expect(await screen.findByText(/Zápis stáčení \(1,5 l: 30\)/)).toBeTruthy();
   });
 
   it('„Zahodit" ve pruhu smaže rozepsané řádky i uložený koncept', async () => {
@@ -159,7 +159,7 @@ describe('Stáčení lahví — rozepsaný zápis', () => {
       date: '2026-01-05', note: '', ulozeno: '2026-01-06T10:05:00.000Z',
     }));
     otevri();
-    expect(await screen.findByText(/Zápis stáčení \(31 ks\)/)).toBeTruthy();
+    expect(await screen.findByText(/Zápis stáčení \(1,5 l: 30\)/)).toBeTruthy();
     fireEvent.click(await screen.findByRole('button', { name: /Zahodit/ }));
     await waitFor(() => expect(screen.queryByText(/Zápis stáčení/)).toBeNull());
     expect(localStorage.getItem(KLIC)).toBeNull();
@@ -169,7 +169,7 @@ describe('Stáčení lahví — rozepsaný zápis', () => {
   it('koncept ze staré verze bez novějších polí se vrátí bez pádu', async () => {
     localStorage.setItem(KLIC, JSON.stringify({ entryRows: [{ beerId: 'beer-12', pkgId: 'pkg-05', qty: '40' }], date: '2026-01-05', note: '' }));
     otevri();
-    expect(await screen.findByText(/Zápis stáčení \(40 ks\)/)).toBeTruthy();
+    expect(await screen.findByText(/Zápis stáčení \(0,5 l: 40\)/)).toBeTruthy();
     expect(screen.getByTestId('rozepsany-zapis-pruh').textContent).not.toMatch(/ z /);
   });
 
@@ -177,17 +177,17 @@ describe('Stáčení lahví — rozepsaný zápis', () => {
     vi.spyOn(window, 'confirm').mockReturnValue(false);
     localStorage.setItem(KLIC, JSON.stringify({ entryRows: [{ beerId: 'beer-12', pkgId: 'pkg-15', qty: '30' }], date: '2026-01-05', note: '' }));
     otevri();
-    await screen.findByText(/Zápis stáčení \(30 ks\)/);
+    await screen.findByText(/Zápis stáčení \(1,5 l: 30\)/);
     fireEvent.click(screen.getByRole('button', { name: /Vymazat vše/ }));
     await waitFor(() => expect(window.confirm).toHaveBeenCalled());
-    expect(screen.getByText(/Zápis stáčení \(30 ks\)/)).toBeTruthy();
+    expect(screen.getByText(/Zápis stáčení \(1,5 l: 30\)/)).toBeTruthy();
     expect(ulozeny()).not.toBeNull();
   });
 
   it('„Vymazat vše" po souhlasu smaže řádky i koncept', async () => {
     localStorage.setItem(KLIC, JSON.stringify({ entryRows: [{ beerId: 'beer-12', pkgId: 'pkg-15', qty: '30' }], date: '2026-01-05', note: '' }));
     otevri();
-    await screen.findByText(/Zápis stáčení \(30 ks\)/);
+    await screen.findByText(/Zápis stáčení \(1,5 l: 30\)/);
     fireEvent.click(screen.getByRole('button', { name: /Vymazat vše/ }));
     await waitFor(() => expect(screen.queryByText(/Zápis stáčení/)).toBeNull());
     expect(localStorage.getItem(KLIC)).toBeNull();

@@ -302,7 +302,9 @@ export function sestavPohybyObdobi(
     });
     const rano = ranoMapa.get(k)?.qty ?? 0;
     const konec = konecMapa.get(k)?.qty ?? 0;
-    return { beer_id, package_id, rano, prijem, vydej, inventura, konec, srovnani: rozdilSkladu(pohyby, od, doDne, k), inventuraDatum, inventuraStav };
+    // Stejný rozdíl jako rozdilSkladu, z čísel spočítaných výš jedním průchodem.
+    // Znovu volat knihu na každý klíč by u 24 měsíců přepočet nestihl.
+    return { beer_id, package_id, rano, prijem, vydej, inventura, konec, srovnani: konec - (rano + prijem - vydej), inventuraDatum, inventuraStav };
   });
 
   return { rano: stavy(ranoMapa), dny, souhrn };
