@@ -17,11 +17,9 @@ describe('náhled „nový běžný uživatel“', () => {
     expect(p).toMatchObject({ id: 'u1', display_name: 'Jan', role: 'user', permissions: null, home_layout: {} });
   });
 
-  it('správcovský e-mail se v náhledu tváří jako obyčejný (jinak by zůstaly admin dlaždice)', () => {
-    const mail = getAdminEmail();
-    expect(isAdminEmail(mail)).toBe(true);
-    window.sessionStorage.setItem('zajic_nahled', '1');
-    expect(isAdminEmail(mail)).toBe(false);
+  it('v kódu není e-mail správce — roli bere aplikace z databáze', () => {
+    expect(getAdminEmail()).toBe('');
+    expect(isAdminEmail('nekdo@example.com')).toBe(false);
   });
 
   it('zápisy rozložení do profilu se v náhledu přeskočí a obrazovka a Nastavení jsou zapojené', () => {

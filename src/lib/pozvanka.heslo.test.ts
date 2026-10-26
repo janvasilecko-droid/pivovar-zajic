@@ -4,10 +4,10 @@ import { srozumitelnaChybaPrihlaseni } from './auth';
 
 describe('zpráva s dočasným heslem', () => {
   it('nese odkaz, e-mail, heslo a co dál', () => {
-    const t = textSHeslem('a@b.cz', 'Abc123xyz9', 'https://priklad.cz/');
+    const t = textSHeslem('a@b.cz', 'docasne-test', 'https://priklad.cz/');
     expect(t).toContain('https://priklad.cz/');
     expect(t).toContain('E-mail: a@b.cz');
-    expect(t).toContain('Dočasné heslo: Abc123xyz9');
+    expect(t).toContain('Dočasné heslo: docasne-test');
     expect(t).toContain('Založte si své heslo');
   });
 });

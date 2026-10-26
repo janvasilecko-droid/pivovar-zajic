@@ -2106,11 +2106,12 @@ export default function Orders({
               ))}
             </div>
 
-            {/* Upřesnění data dodání (volitelné) */}
-            <div className="mt-2 flex items-center gap-2">
+            <div className="mt-3">
+              <label className="label" htmlFor="konkretni-datum-zavozu">Konkrétní datum závozu</label>
               <input
+                id="konkretni-datum-zavozu"
                 type="date"
-                className="input w-auto !py-1.5 !px-2 !min-h-0 text-sm"
+                className="input"
                 value={deliveryDate}
                 onChange={(e) => {
                   setDeliveryDate(e.target.value);
@@ -2121,10 +2122,7 @@ export default function Orders({
                   }
                 }}
               />
-              {/* Bylo `text-black dark:text-black` — černá vynucená i v tmavém
-                  režimu, z doby, kdy pozadí karet zůstávalo světlé. Teď je
-                  karta tmavá a popisek na ní byl černý na černém. */}
-              <span className="text-udaj text-neutral-600 font-bold">upřesnění data dodání</span>
+              <p className="text-[11px] font-bold text-neutral-500 mt-1">Podle tohohle dne se objednávka účtuje. Když ho vyplníš, den v týdnu výš se srovná sám.</p>
             </div>
 
             {/* Výchozí den závozu je st/čt/pá, ale ke konci měsíce (např.

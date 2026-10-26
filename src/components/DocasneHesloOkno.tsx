@@ -5,7 +5,7 @@ import { chyba, uspech } from '../lib/toast';
 
 // 🔑 Dočasné heslo nově schváleného (nebo znovu nastaveného) uživatele.
 // Dřív se heslo ukázalo jen v hlášce, která zmizela — kdo si ho nestihl opsat,
-// nemohl se přihlásit (pojmmy86@gmail.com, 18. 10. 2026). Okno zůstane, dokud
+// nemohl se přihlásit (18. 10. 2026). Okno zůstane, dokud
 // ho admin nezavře, a heslo jde zkopírovat i s odkazem a návodem.
 export function DocasneHesloOkno({ email, heslo, onClose }: { email: string; heslo: string; onClose: () => void }) {
   async function kopiruj(text: string, hotovo: string) {

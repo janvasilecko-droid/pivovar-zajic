@@ -506,10 +506,39 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
   }
 
   // ✏️ Úprava data a počtu uloženého záznamu (21. 10. 2026: „stočení z 23. dej na 20. 10.").
+  const [presunZ, setPresunZ] = useState<string | null>(null);
+  const [presunNa, setPresunNa] = useState('');
   const [upravovany, setUpravovany] = useState<EntryRow | null>(null);
   const [upravDatum, setUpravDatum] = useState('');
   const [upravKs, setUpravKs] = useState('');
   const [upravVPocitani, setUpravVPocitani] = useState(false);
+
+  async function presunCelyDen() {
+    const stary = (presunZ ?? '').slice(0, 10);
+    const novy = presunNa.slice(0, 10);
+    if (!platnyDen(stary) || !platnyDen(novy)) { chyba('Zadej platné datum.'); return; }
+    if (stary === novy) { setPresunZ(null); return; }
+    const ids = rows.filter((r) => (r.entry_date ?? '').slice(0, 10) === stary).map((r) => r.id);
+    if (ids.length === 0) { chyba('V tom dni nic není.'); return; }
+    const uzamcene = [stary, novy].filter((d) => jeMesicUzamcen(inventoryRows, d));
+    if (uzamcene.length > 0) {
+      const ok = await potvrd(
+        `Měsíc ${[...new Set(uzamcene.map((d) => d.slice(0, 7)))].join(', ')} už má napočítanou inventuru. Přesun změní číslo, které je už uzavřené.\n\nOpravdu přesunout?`,
+        { titulek: 'Měsíc je už napočítaný', potvrdit: 'Ano, přesunout' },
+      );
+      if (!ok) return;
+    }
+    const ok = await potvrd(
+      `Přesunout všech ${ids.length} položek z ${formatDate(stary)} na ${formatDate(novy)}? Množství se nemění, mění se jen datum.`,
+      { titulek: 'Změnit datum celého dne', potvrdit: 'Ano, změnit datum' },
+    );
+    if (!ok) return;
+    const { error } = await supabase.from(table).update({ entry_date: novy }).in('id', ids);
+    if (error) { chyba(error.message); return; }
+    setRows((rs) => rs.map((r) => (ids.includes(r.id) ? { ...r, entry_date: novy } : r)));
+    setOverviewMonth(novy.slice(0, 7));
+    setPresunZ(null);
+  }
 
   function otevriUpravu(r: EntryRow) {
     setUpravovany(r);
@@ -695,8 +724,9 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
 
           <div className="grid grid-cols-2 gap-2 items-end mb-2">
             <div>
-              <label className="label">Datum</label>
+              <label className="label">Datum všech řádků</label>
               <input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} />
+              <p className="text-[11px] font-bold text-neutral-500 mt-1">Tímhle dnem se zapíšou všechny řádky formuláře. Už uložený den se mění v Přehledu.</p>
             </div>
             {showWhoColumn && (
               <div>
@@ -1027,9 +1057,12 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                       return (
                         <Fragment key={`m-${r.id}`}>
                         {novyDen && (
-                          <li data-testid="den-nadpis" className="flex items-baseline justify-between px-1 pt-2 font-black text-amber-950">
-                            <span className="text-sm">{nazevDne(r.entry_date)}</span>
-                            <span className="font-mono text-sm">{soucetDne(r.entry_date)} ks</span>
+                          <li data-testid="den-nadpis" className="px-1 pt-2 space-y-1">
+                            <div className="flex items-baseline justify-between font-black text-amber-950">
+                              <span className="text-sm">{nazevDne(r.entry_date)}</span>
+                              <span className="font-mono text-sm">{soucetDne(r.entry_date)} ks</span>
+                            </div>
+                            <button type="button" className="text-xs font-black text-amber-800 underline" onClick={() => { setPresunZ((r.entry_date ?? '').slice(0, 10)); setPresunNa((r.entry_date ?? '').slice(0, 10)); }}>Změnit datum všech položek toho dne</button>
                           </li>
                         )}
                         <li className="rounded border border-amber-300/80 bg-amber-50/90 p-3">
@@ -1132,6 +1165,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                               <tr data-testid="den-nadpis" className="bg-amber-100">
                                 <td colSpan={showWhoColumn ? 6 : 5} className="py-1.5 px-2 font-black text-amber-950">
                                   {nazevDne(r.entry_date)} <span className="font-mono ml-2">{soucetDne(r.entry_date)} ks</span>
+                                  <button type="button" className="ml-3 text-xs font-black text-amber-800 underline" onClick={() => { setPresunZ((r.entry_date ?? '').slice(0, 10)); setPresunNa((r.entry_date ?? '').slice(0, 10)); }}>Změnit datum všech</button>
                                 </td>
                               </tr>
                             )}
@@ -1207,6 +1241,19 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
             })()}
           </div>
         </>
+      )}
+
+      {presunZ && (
+        <Modal open onClose={() => setPresunZ(null)} title={`Změnit datum všech položek z ${formatDate(presunZ)}`}>
+          <form onSubmit={(e) => { e.preventDefault(); void presunCelyDen(); }} className="space-y-4">
+            <p className="text-sm font-bold text-neutral-700">Počet kusů zůstane. Přesune se jen datum, u všech položek toho dne najednou.</p>
+            <div>
+              <label className="label" htmlFor="presun-datum">Nové datum</label>
+              <input id="presun-datum" type="date" className="input" value={presunNa} onChange={(e) => setPresunNa(e.target.value)} />
+            </div>
+            <button type="submit" className="btn-primary !rounded w-full font-black">Uložit nové datum</button>
+          </form>
+        </Modal>
       )}
 
       {upravovany && (

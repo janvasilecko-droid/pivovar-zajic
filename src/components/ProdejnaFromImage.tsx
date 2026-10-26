@@ -59,6 +59,7 @@ export function ProdejnaFromImage({ isOpen, onClose, beers, packages, onImport, 
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
   const [err, setErr] = useState<string | null>(null);
+  const [datumVsem, setDatumVsem] = useState('');
   const [photos, setPhotos] = useState<PhotoEntry[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [entryRows, setEntryRows] = useState<VydejRadek[] | null>(null);
@@ -282,7 +283,8 @@ export function ProdejnaFromImage({ isOpen, onClose, beers, packages, onImport, 
         if (r._removed) return;
         if (!r.beerId || !r.pkgId || !r.qty) { nedodelane.push(i + 1); return; }
         // Den řádku jen z tabulky; u seznamu / zprávy žádný není a řádek jde na datum formuláře.
-        allRows.push({ beerId: r.beerId, pkgId: r.pkgId, qty: r.qty, ...(r.datum ? { datum: r.datum } : {}) });
+        const den = /^\d{4}-\d{2}-\d{2}$/.test(datumVsem) ? datumVsem : (r.datum || undefined);
+        allRows.push({ beerId: r.beerId, pkgId: r.pkgId, qty: r.qty, ...(den ? { datum: den } : {}) });
       });
     });
     if (nedodelane.length > 0) {
@@ -296,7 +298,8 @@ export function ProdejnaFromImage({ isOpen, onClose, beers, packages, onImport, 
       setErr('Není co zapsat — všechny řádky jsou odstraněné.');
       return;
     }
-    onImport(allRows, t.zapnuto && typeof t.vybranyDen === 'string' ? t.vybranyDen : undefined);
+    const spolecnyDen = /^\d{4}-\d{2}-\d{2}$/.test(datumVsem) ? datumVsem : undefined;
+    onImport(allRows, spolecnyDen ?? (t.zapnuto && typeof t.vybranyDen === 'string' ? t.vybranyDen : undefined));
     onClose();
   };
 
@@ -481,7 +484,13 @@ export function ProdejnaFromImage({ isOpen, onClose, beers, packages, onImport, 
                       </div>
                     )))}
                   </div>
-                  <div className="pt-4 flex items-center justify-end gap-2 border-t border-neutral-100">
+                  <div className="pt-4 border-t border-neutral-100 space-y-3">
+                    <div>
+                      <label className="label" htmlFor="datum-fotky">Datum všech položek z fotky</label>
+                      <input id="datum-fotky" type="date" className="input" value={datumVsem} onChange={(e) => setDatumVsem(e.target.value)} />
+                      <p className="text-[11px] font-bold text-neutral-500 mt-1">Když den vyplníš, zapíšou se na něj všechny přečtené položky. Necháš-li ho prázdný, zůstane den z tabulky na fotce.</p>
+                    </div>
+                    <div className="flex items-center justify-end gap-2">
                     <button type="button" className="btn-ghost !rounded text-xs" onClick={onClose}>Zrušit</button>
                     <button
                       className="btn-primary !rounded flex-1 !py-3 text-sm font-bold"
@@ -494,6 +503,7 @@ export function ProdejnaFromImage({ isOpen, onClose, beers, packages, onImport, 
                           ? `Vložit ${souhrnDnu(rozsahVlozeni().radku, rozsahVlozeni().dnu)} do zápisu${photos.length > 1 ? ` (${photos.length} fotek)` : ''}`
                           : `Vložit do zápisu${photos.length > 1 ? ` (${photos.length} fotek)` : ''}`}
                     </button>
+                    </div>
                   </div>
                 </div>
               )}

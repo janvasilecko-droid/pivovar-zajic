@@ -22,8 +22,7 @@ export function CriticalMaterialAlertModal() {
   useEffect(() => {
     const role = (profile?.role || '').toLowerCase().trim();
     const name = (profile?.display_name || '').toLowerCase().trim();
-    const email = (profile?.id || '').toLowerCase();
-    const isEligible = !profile || role === 'admin' || role === 'sef' || role === 'sladek' || role === 'boss' || role === 'manager' || name.includes('sladek') || name.includes('sef') || name.includes('admin') || email.includes('vasilecko');
+    const isEligible = !profile || role === 'admin' || role === 'sef' || role === 'sladek' || role === 'boss' || role === 'manager' || name.includes('sladek') || name.includes('sef') || name.includes('admin');
 
     if (!isEligible) {
       setAcknowledged(true);

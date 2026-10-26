@@ -9,7 +9,9 @@ import { jeNahled } from './nahledUzivatele';
  * do business logiky.
  */
 
-export const ADMIN_EMAILS: readonly string[] = ['vasilecko@seznam.cz'];
+// Seznam je prázdný schválně: e-mail správce nepatří do kódu ani do
+// veřejného balíčku aplikace. Správce se pozná podle role v databázi.
+export const ADMIN_EMAILS: readonly string[] = [];
 
 /** Hlavní (systémový) admin e-mail — používán jako výchozí hodnota. */
 export const PRIMARY_ADMIN_EMAIL: string = ADMIN_EMAILS[0] ?? '';

@@ -22,7 +22,7 @@ describe('odkaz e-mailem', () => {
 
   it('neschválený e-mail: nic se neposílá a řekne se to', async () => {
     overeni(false);
-    expect(await poslatOdkazProHeslo('janvasilecko@gmail.cz')).toEqual({ stav: 'neschvaleny' });
+    expect(await poslatOdkazProHeslo('uzivatel@example.com')).toEqual({ stav: 'neschvaleny' });
     expect(resetPasswordForEmail).not.toHaveBeenCalled();
     expect(NENI_OVERENY).toContain('Kontaktujte administrátora');
   });

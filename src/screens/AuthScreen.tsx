@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../lib/auth';
 import { AlertTriangle, ArrowRight, Eye, EyeOff, Lock, Mail, ShieldCheck } from 'lucide-react';
-import { getAdminEmail } from '../lib/config';
 import { chybaZNavratu, GOOGLE_PRIHLASENI_ZAPNUTO, prihlasitPresGoogle } from '../lib/googlePrihlaseni';
 import { NENI_OVERENY, odkazOdeslanNa, poslatOdkazProHeslo } from '../lib/odkazEmailem';
 import { JE_DRUHA_APLIKACE } from '../lib/profilAplikace';
@@ -125,7 +124,7 @@ export default function AuthScreen() {
                     required
                     value={email}
                     onChange={(e) => { setEmail(e.target.value); setOdeslano(null); setErr(null); }}
-                    placeholder={getAdminEmail()}
+                    placeholder="jmeno@example.com"
                     autoComplete="username"
                   />
                 </div>
@@ -161,7 +160,7 @@ export default function AuthScreen() {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder={getAdminEmail()}
+                    placeholder="jmeno@example.com"
                     autoComplete="username"
                   />
                 </div>

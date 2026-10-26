@@ -512,6 +512,55 @@ describe('slozNavrh — přídavek, když odpověď obsahuje celou objednávku',
     expect(navrh).toHaveLength(6);
   });
 
+  // Lužec, 26. 10. 2026: v objednávce už je 5×50 a 5×30, doobjednávka
+  // přidá 100×0,33. Původní řádky se z citace/fotky přečetly znovu, takže
+  // „výsledný stav" obsahoval 5+5 a 5+5. Má zůstat 5, 5 a 100 — ne 10, 10 a 100.
+  it('Lužec: původní 5×50 a 5×30 se z odpovědi nenačtou podruhé, přibude jen 100×0,33', () => {
+    const soucasne = [
+      { beer_id: 'sv', package_id: 'keg50', quantity: 5 },
+      { beer_id: 'sv', package_id: 'keg30', quantity: 5 },
+    ];
+    const zOdpovedi = [
+      ...soucasne,
+      ...soucasne,
+      { beer_id: 'sv', package_id: 'lah033', quantity: 100 },
+    ];
+    const navrh = slozNavrh({
+      soucasne,
+      zOdpovedi,
+      text: 'Doobjednavka 100x 0,33',
+      obaly: OBALY,
+      zOdpovediJePlnyStav: true,
+    });
+    expect(navrh).toEqual([
+      { beer_id: 'sv', package_id: 'keg50', quantity: 5 },
+      { beer_id: 'sv', package_id: 'keg30', quantity: 5 },
+      { beer_id: 'sv', package_id: 'lah033', quantity: 100 },
+    ]);
+  });
+
+  it('Lužec, odebrání: zdvojená padesátka zůstane 5×, třicítka se zmenší na 3×', () => {
+    const soucasne = [
+      { beer_id: 'sv', package_id: 'keg50', quantity: 5 },
+      { beer_id: 'sv', package_id: 'keg30', quantity: 5 },
+    ];
+    const navrh = slozNavrh({
+      soucasne,
+      zOdpovedi: [
+        { beer_id: 'sv', package_id: 'keg50', quantity: 5 },
+        { beer_id: 'sv', package_id: 'keg50', quantity: 5 },
+        { beer_id: 'sv', package_id: 'keg30', quantity: 3 },
+      ],
+      text: 'Minus 2x30',
+      obaly: OBALY,
+      zOdpovediJePlnyStav: true,
+    });
+    expect(navrh).toEqual([
+      { beer_id: 'sv', package_id: 'keg50', quantity: 5 },
+      { beer_id: 'sv', package_id: 'keg30', quantity: 3 },
+    ]);
+  });
+
   it('chyba z provozu: s výsledným stavem se NEsmí přičítat k objednávce (dřív 5x50)', () => {
     const spatne = slozNavrh({ soucasne: MALESICE, zOdpovedi: VYSLEDNY_STAV_OD_AI, text, obaly: OBALY });
     expect(spatne.find((i) => i.beer_id === 'sv12' && i.package_id === 'keg50')?.quantity).toBe(5);

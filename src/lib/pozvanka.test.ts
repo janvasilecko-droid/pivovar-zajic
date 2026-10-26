@@ -12,9 +12,9 @@ describe('pozvánka do aplikace', () => {
   });
 
   it('s přístupem nese e-mail a dočasné heslo, bez něj ne', () => {
-    expect(textPozvanky('https://x.cz/', { email: 'a@b.cz', heslo: 'Abc123xyz9' })).toContain('Dočasné heslo: Abc123xyz9');
-    expect(decodeURIComponent(mailtoPozvanky('a@b.cz', 'https://x.cz/', 'Abc123xyz9'))).toContain('Abc123xyz9');
-    expect(mailtoPozvanky('a@b.cz', 'https://x.cz/')).not.toContain('Abc123xyz9');
+    expect(textPozvanky('https://x.cz/', { email: 'a@b.cz', heslo: 'docasne-test' })).toContain('Dočasné heslo: docasne-test');
+    expect(decodeURIComponent(mailtoPozvanky('a@b.cz', 'https://x.cz/', 'docasne-test'))).toContain('docasne-test');
+    expect(mailtoPozvanky('a@b.cz', 'https://x.cz/')).not.toContain('docasne-test');
   });
 
   it('bez přístupu heslo v e-mailu není — posílá se zvlášť', () => {
@@ -55,11 +55,11 @@ describe('pozvánka: co v aplikaci všechno je', () => {
   });
 
   it('mailto se vejde do limitu adresy a vždy nese odkaz na Info; plný text jde zkopírovat', () => {
-    const m = mailtoPozvanky('a@b.cz', 'https://x.cz/', 'Abc123xyz9');
+    const m = mailtoPozvanky('a@b.cz', 'https://x.cz/', 'docasne-test');
     expect(m.length).toBeLessThanOrEqual(16000);
     expect(decodeURIComponent(m)).toContain('Info');
     expect(decodeURIComponent(m)).toContain('Založte si své heslo');
-    expect(decodeURIComponent(m)).toContain('Abc123xyz9');
+    expect(decodeURIComponent(m)).toContain('docasne-test');
   });
 
   it('šablona e-mailu pro Supabase má odkaz pro heslo, instalaci a přehled aplikace', () => {

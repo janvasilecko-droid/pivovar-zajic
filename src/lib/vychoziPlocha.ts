@@ -1,10 +1,10 @@
 // 🏠 Výchozí plocha pro všechny — vzhled a rozložení hlavní plochy správce.
 // ---------------------------------------------------------------------------
-// Majitel 18. 10. 2026: „ten vzhled pro všechny bude jako je teď na
-// vasilecko@seznam.cz jako primární … úvodní přihlášení tak, jak je momentálně,
-// přesně tak, všechno, barvy, rozložení … dlaždice podle toho, kdo má jaká práva.“
+// Majitel 18. 10. 2026: vzhled pro všechny má být jako tehdejší primární
+// plocha správce — úvodní přihlášení tak, jak je momentálně, barvy,
+// rozložení, dlaždice podle toho, kdo má jaká práva.
 //
-// Tohle je snímek `home_layout` účtu vasilecko@seznam.cz z toho dne (bez jeho
+// Tohle je snímek `home_layout` správce z toho dne (bez jeho
 // osobních odpočtů a poznámek). Dostane ho každý, kdo si plochu ještě
 // nepřizpůsobil — nový uživatel i ten, komu se uložila prázdná plocha. Kdo už
 // má vlastní rozložení s dlaždicemi, nechává se mu. Které dlaždice se ukážou,

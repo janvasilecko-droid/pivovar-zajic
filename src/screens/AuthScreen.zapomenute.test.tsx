@@ -35,7 +35,7 @@ describe('přihlašovací obrazovka: zapomenuté heslo / první přihlášení',
     poslat.mockResolvedValue({ stav: 'neschvaleny' });
     render(<AuthScreen />);
     fireEvent.click(screen.getByText('Zapomněl(a) jsem heslo'));
-    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'janvasilecko@gmail.cz' } });
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'uzivatel@example.com' } });
     fireEvent.click(screen.getByText('Poslat odkaz do e-mailu'));
     expect(await screen.findByText(/Tento e-mail není ověřený\. Kontaktujte administrátora/)).toBeTruthy();
     expect(screen.queryByRole('status')).toBeNull();

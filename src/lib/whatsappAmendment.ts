@@ -292,6 +292,39 @@ function slucStejne(polozky: ItemRef[]): ItemRef[] {
 }
 
 /**
+ * Výsledný stav od AI, ale původní řádky se nesmí přečíst podruhé.
+ *
+ * AI má vrátit celou objednávku. Když ale odpověď cituje původní zprávu
+ * (nebo je u ní fotka té objednávky), stejný řádek v položkách přistane
+ * dvakrát — jednou jako „co už v objednávce je" a jednou z citace/fotky.
+ * Slepé sečtení z 5×50 a 5×30 udělá 10 a 10 (Lužec, 26. 10. 2026).
+ *
+ * Množství, které už v objednávce je, se proto počítá jen jednou. Jiné
+ * množství u stejného piva a obalu je opravdová změna (přidání „+1×50"
+ * k 2×50 → 3, nebo „minus" přepsané na nové číslo) a přičte se.
+ */
+function slucPlnyStav(soucasne: ItemRef[], zOdpovedi: ItemRef[]): ItemRef[] {
+  const kolikJe = new Map<string, number>();
+  for (const i of soucasne) {
+    const k = itemKey(i);
+    kolikJe.set(k, (kolikJe.get(k) ?? 0) + Number(i.quantity || 0));
+  }
+  const uzJednou = new Set<string>();
+  const bezDvojitehoCteni: ItemRef[] = [];
+  for (const p of zOdpovedi) {
+    const q = Number(p.quantity || 0);
+    const k = itemKey(p);
+    const vObjednavce = kolikJe.get(k) ?? 0;
+    if (p.beer_id && p.package_id && vObjednavce > 0 && q === vObjednavce) {
+      if (uzJednou.has(k)) continue;
+      uzJednou.add(k);
+    }
+    bezDvojitehoCteni.push(p);
+  }
+  return slucStejne(bezDvojitehoCteni);
+}
+
+/**
  * Složí navrhovaný obsah objednávky: co odpověď nadiktovala znovu, se
  * nahradí; co nejmenuje, zůstává.
  *
@@ -320,7 +353,7 @@ export function slozNavrh(opts: {
   const { soucasne, zOdpovedi, text, obaly } = opts;
   const { nahradit } = rozsahOdpovedi(text);
   if (nahradit.length === 0) {
-    if (opts.zOdpovediJePlnyStav) return slucStejne(zOdpovedi);
+    if (opts.zOdpovediJePlnyStav) return slucPlnyStav(soucasne, zOdpovedi);
     // ➕ PŘÍDAVEK: „Pro Radka ještě plus toto", „Plus 3x10 11sv". Tahle zpráva
     //    objednávku NEPOPISUJE ZNOVU — přidává k ní. Bez téhle větve by z ní
     //    vyšel návrh „objednávka = jen tyhle dvě limonády" a schválení by
