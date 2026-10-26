@@ -597,6 +597,17 @@ describe('odpověď jen přičte nebo odečte (20. 10. 2026)', () => {
     expect(odectiPolozky(objednavka, [{ beer_id: 'win', package_id: 'k30', quantity: 2 }])).toEqual([objednavka[0]]);
     expect(odectiPolozky(objednavka, [{ beer_id: 'x', package_id: 'k30', quantity: 5 }])).toEqual(objednavka);
   });
+  it('tlačítko Přepsat nechá jen položky ze zprávy, Přidat je přičte', () => {
+    const soucasne = [{ beer_id: 'b12', package_id: 'k50', quantity: 2 }];
+    const zOdpovedi = [{ beer_id: 'b11', package_id: 'k30', quantity: 1 }];
+    const obaly: never[] = [];
+    expect(slozNavrh({ soucasne, zOdpovedi, text: 'cokoliv', obaly, zpusob: 'prepsat' })).toEqual(zOdpovedi);
+    expect(slozNavrh({ soucasne, zOdpovedi, text: 'cokoliv', obaly, zpusob: 'pridat' })).toEqual([
+      { beer_id: 'b12', package_id: 'k50', quantity: 2 },
+      { beer_id: 'b11', package_id: 'k30', quantity: 1 },
+    ]);
+  });
+
   it('slozNavrh: „Minus 1x30 winter" odečte od současného obsahu', () => {
     const navrh = slozNavrh({ soucasne: objednavka, zOdpovedi: [{ beer_id: 'win', package_id: 'k30', quantity: 1 }], text: 'Minus 1x30 winter', obaly });
     expect(navrh.find((i) => i.beer_id === 'win')?.quantity).toBe(1);

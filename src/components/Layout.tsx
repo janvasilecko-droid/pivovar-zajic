@@ -18,7 +18,6 @@ import { BugReportModal } from './BugReportModal';
 import { onNewVersion, forceRefresh, type VersionInfo } from '../lib/versionCheck';
 import { businessDateISO } from '../lib/businessDate';
 import { jeVlastniObjednavka } from '../lib/mojeObjednavky';
-import { zavrenaVerzeListy, zavriVerziListy } from '../lib/verzeLista';
 import { nastavObrazovkuProChyby, zalogujANahlas } from '../lib/chybyHlaseni';
 // Staticky, ne přes `await import(…)`. Fronta offline zápisů sedí v hlavním
 // kusu tak jako tak — `lib/supabase.ts` si ji importuje staticky a ten
@@ -245,13 +244,9 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
   // Banner "offline → zobrazená data nemusí být aktuální" (událost z supabase.ts serveCached).
   const [showStaleBanner, setShowStaleBanner] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
-  // Nová verze appky — lišta nad obsahem na každé obrazovce (viz níže).
-  // `zavrenaVerze` si pamatuje, kterou verzi uživatel odklepl: až přijde
-  // další, lišta se ozve znovu.
+  // Nová verze appky — lišta nad obsahem na každé obrazovce, dokud se
+  // neklepne na Aktualizovat (viz níže).
   const [novaVerze, setNovaVerze] = useState<VersionInfo | null>(null);
-  // Zavření si drží lib/verzeLista.ts — čte ho i dlaždice upozornění na
-  // Domů, aby lišta a dlaždice nesvítily obě naráz.
-  const [zavrenaVerze, setZavrenaVerze] = useState<string | null>(() => zavrenaVerzeListy());
   useEffect(() => onNewVersion((info) => setNovaVerze(info)), []);
   // Předchozí navštívená obrazovka — dlouhý stisk na spodní liště se na ni
   // vrátí. Přeskakování mezi dvěma místy (třeba Závoz ↔ Objednávky) je
@@ -777,29 +772,23 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
             nedozví — projevilo se to tím, že „appka nechce aktualizovat",
             přitom nová verze čekala. Lišta je záměrně MIMO hlavičku
             (hlavička se na Domů a na záložkových stránkách vůbec nekreslí)
-            a nechá se zavřít; do příštího spuštění nebo příští verze pak
-            mlčí. Aktualizace je vždy klik uživatele — nikdy se sama
+            Zavřít ji nejde — drží se, dokud se neklepne na Aktualizovat.
+            Aktualizace je vždy klik uživatele — nikdy se sama
             nereloaduje rozdělaná obrazovka (viz versionCheck.ts). */}
-        {novaVerze && novaVerze.version !== zavrenaVerze && (
-          <div className="shrink-0 flex items-center gap-2 px-3 sm:px-8 py-1.5 bg-amber-100 border-b border-amber-300 text-amber-950">
-            <Download size={16} className="shrink-0" />
-            <p className="text-[12px] font-bold leading-snug flex-1 min-w-0 truncate">
-              Nová verze v{novaVerze.version} je k dispozici
+        {novaVerze && (
+          <div
+            role="status"
+            className="shrink-0 z-30 flex flex-col gap-2 px-3 sm:px-8 py-3 bg-amber-400 border-b-4 border-amber-800 text-neutral-950 shadow-lg"
+          >
+            <p className="text-base sm:text-lg font-black leading-snug text-center">
+              Je tu nová verze v{novaVerze.version}. Klepni na Aktualizovat, rozepsaná práce zůstane na svém místě.
             </p>
             <button
               type="button"
               onClick={() => { void forceRefresh(); }}
-              className="shrink-0 px-3 py-1 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-[12px] transition tap"
+              className="w-full min-h-14 rounded-xl bg-neutral-950 hover:bg-neutral-800 text-amber-200 font-black text-xl tracking-wide transition tap"
             >
               Aktualizovat
-            </button>
-            <button
-              type="button"
-              onClick={() => { setZavrenaVerze(novaVerze.version); zavriVerziListy(novaVerze.version); }}
-              aria-label="Zavřít upozornění na novou verzi"
-              className="shrink-0 p-1 rounded hover:bg-amber-200/70 text-amber-900/80 hover:text-amber-950 transition tap"
-            >
-              <X size={16} />
             </button>
           </div>
         )}
@@ -1015,12 +1004,12 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
                   ? { background: accent, color: pismoNaBarve(accent) }
                   : { '--dok-barva': citelnaNaPodkladu(accent, PODKLAD_SVETLY), '--dok-barva-tmave': citelnaNaPodkladu(accent, PODKLAD_TMAVY) } as CSSProperties}
                 aria-current={isActive ? 'page' : undefined}
-                className={`tap flex flex-col items-center justify-center py-1 px-1 sm:px-2.5 rounded transition-all relative flex-1 font-bold ${
+                className={`tap flex flex-col items-center justify-center min-h-[52px] py-1.5 px-1 sm:px-2.5 rounded transition-all relative flex-1 font-bold ${
                   isActive ? 'shadow-md scale-105' : 'hs-dok-polozka'
                 }`}
               >
                 <div className="relative">
-                  <DockIcon size={18} strokeWidth={isActive ? 2.5 : 2} />
+                  <DockIcon size={22} strokeWidth={isActive ? 2.5 : 2} />
                   {dockId === 'orders' && pendingWhatsAppCount > 0 && (
                     <span className="absolute -top-1 -right-2 bg-rose-600 text-white text-udaj font-black rounded-full min-w-[14px] h-3.5 px-0.5 flex items-center justify-center shadow">
                       {pendingWhatsAppCount > 9 ? '9+' : pendingWhatsAppCount}
@@ -1033,7 +1022,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
                     („Lahve (Stá…" místo „Lahve (Stáčení)"). `w-full`
                     respektuje skutečnou šířku slotu, ať jsou v liště dva
                     zástupci nebo šest. */}
-                <span className="text-udaj mt-0.5 tracking-tight truncate w-full text-center">{(info as { dockLabel?: string }).dockLabel ?? info.label}</span>
+                <span className="text-[13px] leading-tight mt-0.5 tracking-tight truncate w-full text-center">{(info as { dockLabel?: string }).dockLabel ?? info.label}</span>
               </button>
             );
           })}

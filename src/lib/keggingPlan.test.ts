@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeKeggingPlan, dayKeyFromISO, mergeWeekPlan, datumProDenVTydnu, rozpadPoObalech, objednavkyVTydnu } from './keggingPlan';
+import { computeKeggingPlan, dayKeyFromISO, mergeWeekPlan, datumProDenVTydnu, rozpadPoObalech, objednavkyVTydnu, textJenOdskrtnuto } from './keggingPlan';
 
 // Týden 2026-35 = pondělí 24. 8. – neděle 30. 8. 2026 (stejný týden, na kterém
 // se chyba reálně projevila v produkci).
@@ -1056,6 +1056,12 @@ describe('zavezený odběratel s vlastními sudy: stočení bez vazby na položk
     } as any).find((d) => d.day === 'ut')!.items[0];
     expect(pred.missing).toBeGreaterThan(0);
   });
+  it('odškrtnutí bez řádku ve stáčení není stočení', () => {
+    expect(textJenOdskrtnuto(4, 0)).toBe('jen odškrtnuto v plánu');
+    expect(textJenOdskrtnuto(4, 2)).toBeNull();
+    expect(textJenOdskrtnuto(0, 0)).toBeNull();
+  });
+
   it('před dnem dovozu DaD se nic nemění', () => {
     expect(stav('nova', '2026-08-24').zChladaku).toBe(5);
   });

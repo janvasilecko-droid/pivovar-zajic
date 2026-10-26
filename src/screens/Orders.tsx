@@ -638,6 +638,7 @@ export default function Orders({
           obaly: packages.map((p) => ({ id: p.id, label: p.label, kind: (p as any).kind, volume_l: (p as any).volume_l })),
           // Položky z odpovědi jsou VÝSLEDNÝ stav objednávky (značka z whatsapp-auto-parse).
           zOdpovediJePlnyStav: (message.parsed_items ?? []).some((i) => i.plny_stav),
+          zpusob: message.zpusob_napojeni,
         });
 
         const upraveneRadky = navrh.map((it) => {
@@ -1603,7 +1604,7 @@ export default function Orders({
   // (components/objednavky/OrderTabulka.tsx rozbaluje pod řádkem právě tohle, ať se žádná funkce neztratí).
   function kartaObjednavky(o: Order) {
     return (
-      <div key={o.id} className="space-y-3">
+      <div key={o.id} id={`objednavka-${o.id}`} className="space-y-3">
         <OrderCard o={o} items={items[o.id] ?? []} stockRemainingForOrder={stockRemainingForOrder} nadPocetMalychSudu={maleSudy.nadPoPolozce} sudyPoPolozce={maleSudy.poPolozce}
           selected={selectedIds.has(o.id)} onToggleSelect={() => toggleSelect(o.id)}
           onClick={() => openDetail(o)} onToggleFlag={toggleFlag} onToggleItemFlag={toggleItemFlag} onUpdateDeliveryDay={updateDeliveryDay} onUpdateZavoz={updateZavoz}
@@ -2696,12 +2697,8 @@ export default function Orders({
           </div>
         )}
 
-        {/* 📱 Na telefonu je nahoře jen hledání a tlačítko „Filtry" (s počtem
-            zapnutých); stavy, druhy obalů a chipy piv a obalů se rozbalí až po
-            klepnutí a chipy jsou jeden vodorovně posuvný řádek. Dřív stálo
-            pod hledáním pět zalomených řádků filtrů a seznam objednávek byl
-            až za dvěma obrazovkami („musí to být přehlednější na telefonu",
-            13. 10. 2026). Od šířky `sm` je všechno vidět jako dřív. */}
+        {/* Hledání a hned pod ním seznam. Filtry (i přepínač karet/tabulky)
+            jsou schované, dokud se neotevřou — na telefonu i na počítači. */}
         <div className="card p-2.5 space-y-2 shadow-sm">
           <div className="flex items-center gap-2">
             <input
@@ -2714,7 +2711,7 @@ export default function Orders({
               return (
                 <button
                   type="button"
-                  className="sm:hidden btn-ghost !rounded min-h-[44px] shrink-0 relative"
+                  className="btn-ghost !rounded min-h-[44px] shrink-0 relative"
                   aria-expanded={filtryOtevrene}
                   onClick={() => setFiltryOtevrene((o) => !o)}
                 >
@@ -2726,8 +2723,7 @@ export default function Orders({
               );
             })()}
           </div>
-          {/* Zobrazení: karty (jako dřív), nebo tabulka s řádkem na objednávku — rozbalením se otevře celá karta */}
-          {(
+          {filtryOtevrene && (
             <div className="flex items-center gap-1.5" role="group" aria-label="Zobrazení objednávek">
               <span className="text-udaj font-black text-neutral-600">Zobrazení:</span>
               {([['karty', 'Karty'], ['tabulka', 'Tabulka']] as const).map(([v, popisek]) => (
@@ -2743,7 +2739,7 @@ export default function Orders({
               ))}
             </div>
           )}
-          <div className={`${filtryOtevrene ? 'flex' : 'hidden'} sm:flex flex-wrap items-center gap-2`}>
+          <div className={`${filtryOtevrene ? 'flex' : 'hidden'} flex-wrap items-center gap-2`}>
             <select className="input w-auto font-bold text-xs" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
               <option value="">Všechny statusy</option>
               {Object.entries(STAVY_OBJEDNAVKY).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
@@ -2762,7 +2758,7 @@ export default function Orders({
               <button className="btn-ghost !rounded !py-1.5 text-xs font-bold text-amber-900" onClick={() => { setSearchText(''); setStatusFilter(''); setDeliveryDayFilter('all'); setItemFilterBeerId(null); setItemFilterPackageId(null); setPackageKindFilter('all'); setOverdueOnly(false); }}>Zrušit filtr</button>
             )}
           </div>
-          <div className={`${filtryOtevrene ? 'block' : 'hidden'} sm:block space-y-1.5`}>
+          <div className={`${filtryOtevrene ? 'block' : 'hidden'} space-y-1.5`}>
             <ChipyPiva jedenRadek piva={beers} vybrane={itemFilterBeerId ?? ''} onVybrat={(id) => setItemFilterBeerId(id || null)} />
             <ChipyObalu jedenRadek obaly={packages} vybrane={itemFilterPackageId ?? ''} onVybrat={(id) => setItemFilterPackageId(id || null)} popisVsech="Konkrétní obal" />
           </div>

@@ -5,7 +5,8 @@
 // druh zapsal bez sudu.
 import { describe, it, expect } from 'vitest';
 import {
-  casyRadku, chybiPivo, datumRadku, jeVyplneny, lahveRadku, maLahve, zaznamyZRadku,
+  casyRadku, chybiPivo, datumRadku, indexRadkuProDlazdici, jeVyplneny, lahveRadku, maLahve,
+  popisekLahviPoObjemu, souctyLahviPoObjemu, zaznamyZRadku,
   type KontextZapisu, type RadekStaceniLahvi,
 } from './zapisStaceniLahvi';
 
@@ -249,6 +250,23 @@ describe('zápis řádků z fotky ve skladové knize', () => {
       pkgId: 'l15', qty: '12', pkg2Id: 'l1', qty2: '10', pkg3Id: 'l05', qty3: '28', pkg4Id: 'l033', qty4: '12',
     });
     expect(sudy(zapis([r], null))).toEqual({ '2026-10-13|k50': -1, '2026-10-13|k20': -1 });
+  });
+
+  it('dlaždice otevře řádek z fotky, když ruční řádek množství nemá', () => {
+    const radky = [
+      radek({ beerId: 'p12' }),
+      radek({ beerId: 'p12', datum: '2026-10-13', pkgId: 'l05', qty: '20', pkg2Id: 'l1', qty2: '10' }),
+    ];
+    expect(indexRadkuProDlazdici(radky, 'p12', null)).toBe(1);
+    expect(indexRadkuProDlazdici(radky, 'p12', 1)).toBe(1);
+  });
+
+  it('0,5 l a 1 l se v přehledu nesčítají do jednoho součtu', () => {
+    expect(popisekLahviPoObjemu(souctyLahviPoObjemu([
+      { objemL: 1, ks: 40 },
+      { objemL: 0.5, ks: 12 },
+      { objemL: 1, ks: 4 },
+    ]))).toBe('1 l: 44 · 0,5 l: 12');
   });
 
   it('každý řádek se odečte ke svému dni', () => {

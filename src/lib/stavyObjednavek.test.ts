@@ -7,7 +7,7 @@
  * třemi různými způsoby.
  */
 import { describe, it, expect } from 'vitest';
-import { STAVY_OBJEDNAVKY, popisStavu, jeVyrizena } from './stavyObjednavek';
+import { STAVY_OBJEDNAVKY, popisStavu, jeVyrizena, jePoTerminu, popisekVyjezdu } from './stavyObjednavek';
 
 describe('stavy objednávky', () => {
   it('každý stav má popisek, barvu i tvar', () => {
@@ -42,6 +42,18 @@ describe('stavy objednávky', () => {
     // Neznámý stav se vrátí syrový — podle něj se dá dohledat, co se
     // v databázi objevilo. „—" by problém jen schovalo.
     expect(popisStavu('neco_noveho')).toBe('neco_noveho');
+  });
+
+  it('po termínu je nová objednávka se závozem dnes nebo dřív, která ještě nevyjela', () => {
+    expect(jePoTerminu({ status: 'nova', delivery_date: '2026-10-25', is_delivered: false }, '2026-10-26')).toBe(true);
+    expect(jePoTerminu({ status: 'nova', delivery_date: '2026-10-27', is_delivered: false }, '2026-10-26')).toBe(false);
+    expect(jePoTerminu({ status: 'nova', delivery_date: '2026-10-25', is_delivered: true }, '2026-10-26')).toBe(false);
+  });
+
+  it('závoz a pouhé vyřízení jsou dvě různé věty', () => {
+    expect(popisekVyjezdu({ is_delivered: true, status: 'vyrizeno' })).toBe('Pivo už vyjelo (závoz)');
+    expect(popisekVyjezdu({ is_delivered: false, status: 'vyrizena' })).toBe('Jen označené jako vyřízené — závoz ještě ne');
+    expect(popisekVyjezdu({ is_delivered: false, status: 'nova' })).toBeNull();
   });
 
   it('jeVyrizena bere všechny čtyři podoby vyřízení', () => {

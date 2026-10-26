@@ -50,7 +50,8 @@ import { nactiSdilenouTabulku } from '../lib/sdilenaData';
 import { davkySudyBezVelikosti } from '../lib/kontrolaPohybu';
 import { rozdelLahvePodleSudu } from '../lib/dalsiSud';
 import {
-  casyRadku, chybiPivo, datumRadku, jeVyplneny, lahveRadku, maLahve, pridejRadky, zaznamyZRadku,
+  casyRadku, chybiPivo, datumRadku, indexRadkuProDlazdici, jeVyplneny, lahveRadku, maLahve,
+  popisekLahviPoObjemu, pridejRadky, souctyLahviPoObjemu, zaznamyZRadku,
   type RadekStaceniLahvi,
 } from '../lib/zapisStaceniLahvi';
 import { platneDatum, radkyZKonceptu, smazKoncept, useRozepsanyZapis } from '../lib/rozepsanyZapis';
@@ -193,6 +194,8 @@ export default function BottlingScreen({
   // výběr obalů a množství; výsledek se zapíše do stávajících entryRows a uloží
   // se běžným tlačítkem "Uložit stáčení lahví" (stejná add() logika).
   const [tileBeer, setTileBeer] = useState<Beer | null>(null);
+  /** Který řádek dlaždice upravuje — i řádek z fotky (má vlastní den). */
+  const [tileRowIndex, setTileRowIndex] = useState<number | null>(null);
   // Sloty pro zadání až 4 druhů lahví v dlaždicovém panelu (stejně jako sloupce excelu).
   const tileSlots = [
     { pkg: 'pkgId', qty: 'qty', key: 1 },
@@ -203,10 +206,13 @@ export default function BottlingScreen({
   const [tileDraft, setTileDraft] = useState<{ pkgId: string; qty: string; pkg2Id: string; qty2: string; pkg3Id: string; qty3: string; pkg4Id: string; qty4: string; kegPkgId: string; kegQty: string; keg2PkgId: string; keg2Qty: string }>({
     pkgId: '', qty: '', pkg2Id: '', qty2: '', pkg3Id: '', qty3: '', pkg4Id: '', qty4: '', kegPkgId: '', kegQty: '', keg2PkgId: '', keg2Qty: '',
   });
-  const openTile = (b: Beer) => {
+  const openTile = (b: Beer, vynucenyIndex: number | null = null) => {
     // Předvyplnění z řádku, který už tohle pivo má (snadné doladění počtu).
-    // Řádky načtené z fotky mají vlastní den (`datum`) — dlaždice je nepřepisuje.
-    const existing = entryRows.find((r) => r.beerId === b.id && !r.datum && (r.qty || r.qty2 || r.qty3 || r.qty4 || r.kegQty));
+    // Řádek z fotky se otevírá stejně jako ruční — klepnutí na něj, nebo
+    // dlaždice piva, když ruční řádek ještě množství nemá.
+    const idx = indexRadkuProDlazdici(entryRows, b.id, vynucenyIndex);
+    setTileRowIndex(idx >= 0 ? idx : null);
+    const existing = idx >= 0 ? entryRows[idx] : undefined;
     // Zdrojový sud se předvolí na padesátku (viz lib/zdrojovySud.ts) —
     // stáčí se z ní skoro vždycky a políčko dřív začínalo na „— žádný —",
     // takže se dalo zapsat stáčení bez odečtu sudů. Rozepsaný řádek si
@@ -239,6 +245,7 @@ export default function BottlingScreen({
       }
     }
     setTileBeer(null);
+    setTileRowIndex(null);
   };
   // Sekce „Další sud" v dlaždici je zavřená, dokud ji stáčeč neotevře.
   const [druhySudOtevren, setDruhySudOtevren] = useState(false);
@@ -306,6 +313,7 @@ export default function BottlingScreen({
     if (!tileBeer) return null;
     const hasAny = tileDraft.qty || tileDraft.qty2 || tileDraft.qty3 || tileDraft.qty4 || tileDraft.kegQty;
     if (!hasAny) return null;
+    const zdroj = tileRowIndex != null ? entryRows[tileRowIndex] : undefined;
     return {
       beerId: tileBeer.id,
       pkgId: tileDraft.pkgId, qty: tileDraft.qty,
@@ -314,13 +322,15 @@ export default function BottlingScreen({
       pkg4Id: tileDraft.pkg4Id, qty4: tileDraft.qty4,
       kegPkgId: tileDraft.kegPkgId, kegQty: tileDraft.kegQty,
       keg2PkgId: tileDraft.keg2PkgId, keg2Qty: tileDraft.keg2Qty,
+      datum: zdroj?.datum ?? null,
     };
   }
-  // Zapíše řádek do prvního řádku s tímto pivem; jinak do příštího prázdného.
+  // Zapíše řádek do toho, který dlaždice otevřela (i z fotky); jinak do ručního, jinak do prázdného.
   function mergeRowIntoRows(rows: RowInput[], beerId: string, row: RowInput): RowInput[] {
     const next = [...rows];
-    // Řádky z fotky (mají vlastní den) se nepřepisují — dlaždice upravuje jen ruční řádek.
-    const idx = next.findIndex((r) => r.beerId === beerId && !r.datum);
+    const idx = tileRowIndex != null && next[tileRowIndex]
+      ? tileRowIndex
+      : next.findIndex((r) => r.beerId === beerId && !r.datum);
     if (idx >= 0) { next[idx] = row; return next; }
     const emptyIdx = next.findIndex((r) => !r.beerId && !r.qty && !r.qty2 && !r.qty3 && !r.qty4 && !r.kegQty);
     if (emptyIdx >= 0) { next[emptyIdx] = row; return next; }
@@ -336,13 +346,13 @@ export default function BottlingScreen({
   async function confirmTileAndMaybeSave() {
     if (!tileBeer) return;
     const row = buildRowFromTileDraft();
-    if (!row) { setTileBeer(null); return; }
+    if (!row) { setTileBeer(null); setTileRowIndex(null); return; }
     const mergedRows = mergeRowIntoRows(entryRows, tileBeer.id, row);
     setEntryRows(mergedRows);
     setTileConfirming(true);
     const ok = await add(undefined, mergedRows);
     setTileConfirming(false);
-    if (ok) setTileBeer(null);
+    if (ok) { setTileBeer(null); setTileRowIndex(null); }
     // Když se neuložilo (checklist gate, zrušená otázka „opravdu?"…), panel
     // zůstává otevřený — řádek je ale i tak bezpečně staženo v entryRows.
   }
@@ -1573,23 +1583,22 @@ export default function BottlingScreen({
               onSelect={(b) => { setNaposledPiva(zapamatujVyber(klicPiv, b.id)); openTile(b); }}
               missingBadgeFor={(b) => missingBreakdownByBeer[b.id] || []}
               summaryFor={(b) => {
-                const row = entryRows.find((r) => r.beerId === b.id && !r.datum);
-                if (row) {
-                  const parts: string[] = [];
-                  const addPart = (pkgId: string, qtyStr: string) => {
-                    const n = Number(qtyStr);
-                    if (!pkgId || !(n > 0)) return;
-                    const pkg = packages.find((p) => p.id === pkgId);
-                    if (pkg) parts.push(`${n}×${Math.round(Number(pkg.volume_l) * 100) / 100}`);
-                  };
+                const parts: string[] = [];
+                const addPart = (pkgId: string, qtyStr: string) => {
+                  const n = Number(qtyStr);
+                  if (!pkgId || !(n > 0)) return;
+                  const pkg = packages.find((p) => p.id === pkgId);
+                  if (pkg) parts.push(`${n}×${Math.round(Number(pkg.volume_l) * 100) / 100}`);
+                };
+                entryRows.filter((r) => r.beerId === b.id).forEach((row) => {
                   addPart(row.pkgId, row.qty);
                   addPart(row.pkg2Id, row.qty2);
                   addPart(row.pkg3Id, row.qty3);
                   addPart(row.pkg4Id ?? '', row.qty4 ?? '');
                   addPart(row.kegPkgId, row.kegQty);
                   addPart(row.keg2PkgId ?? '', row.keg2Qty ?? '');
-                  if (parts.length > 0) return { filled: true, label: parts.join(', ') };
-                }
+                });
+                if (parts.length > 0) return { filled: true, label: parts.join(', ') };
                 // Nic se zrovna nezadává — ukázat, co už je za tenhle den u
                 // piva uložené (lahve se plní na víc dávek, viz jizUlozeno.ts).
                 const jizPacky = bottlePackages
@@ -1901,7 +1910,7 @@ export default function BottlingScreen({
 
           {/* 📋 Souhrn zápisu — pod dlaždicemi, editovatelný jako dlaždice */}
           {(() => {
-            type SummaryLine = { rowIndex: number; field: 'qty' | 'qty2' | 'qty3' | 'qty4' | 'kegQty' | 'keg2Qty'; beerId: string; label: string; qty: number; zFotky: boolean };
+            type SummaryLine = { rowIndex: number; field: 'qty' | 'qty2' | 'qty3' | 'qty4' | 'kegQty' | 'keg2Qty'; beerId: string; label: string; qty: number; zFotky: boolean; objemL: number; jeLahev: boolean };
             const lines: SummaryLine[] = [];
             entryRows.forEach((r, i) => {
               if (!r.beerId) return;
@@ -1912,7 +1921,7 @@ export default function BottlingScreen({
                 const pkg = (isKeg ? kegPackages : bottlePackages).find((p) => p.id === pkgId);
                 // Řádek z fotky nese svůj den — je vidět, na který se zapíše.
                 const den = r.datum ? `${Number(r.datum.slice(8, 10))}. ${Number(r.datum.slice(5, 7))}. · ` : '';
-                lines.push({ rowIndex: i, field, beerId: r.beerId, label: `${den}${formatPackageLabel(pkg?.label)} · ${beerName(beer)}`, qty, zFotky: !!r.datum });
+                lines.push({ rowIndex: i, field, beerId: r.beerId, label: `${den}${formatPackageLabel(pkg?.label)} · ${beerName(beer)}`, qty, zFotky: !!r.datum, objemL: Number(pkg?.volume_l) || 0, jeLahev: !isKeg });
               };
               pushLine('qty', r.pkgId, r.qty, false);
               pushLine('qty2', r.pkg2Id, r.qty2, false);
@@ -1927,29 +1936,20 @@ export default function BottlingScreen({
             return (
               <div className="mt-4 border border-amber-200 dark:border-amber-800/60 bg-white dark:bg-neutral-800 p-3">
                 <div className="text-xs font-extrabold uppercase tracking-wider text-amber-900 dark:text-amber-300 mb-2">
-                  <ClipboardList className="ikona-text" /> Zápis stáčení ({lines.reduce((s, l) => s + l.qty, 0)} ks)
+                  <ClipboardList className="ikona-text" /> Zápis stáčení ({popisekLahviPoObjemu(souctyLahviPoObjemu(lines.filter((l) => l.jeLahev).map((l) => ({ objemL: l.objemL, ks: l.qty })))) || '0'})
                 </div>
                 <ul className="space-y-1.5">
                   {lines.map((l, idx) => (
                     <li key={idx} className="flex items-center justify-between gap-2 bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200/70 dark:border-neutral-700 px-2.5 py-1.5">
-                      {l.zFotky ? (
-                        // Řádek z fotky nese svůj den; dlaždice upravuje jen ruční řádek,
-                        // takže tady se počet mění tlačítky vpravo.
-                        <span className="flex items-center gap-1.5 text-xs font-bold text-neutral-800 dark:text-neutral-100 text-left truncate" title="Řádek z fotky — počet uprav tlačítky vpravo">
-                          <span className="shrink-0">{l.qty}×</span>
-                          <span className="truncate">{l.label}</span>
-                        </span>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => { const b = beers.find((bb) => bb.id === l.beerId); if (b) openTile(b); }}
-                          className="flex items-center gap-1.5 text-xs font-bold text-neutral-800 dark:text-neutral-100 text-left truncate"
-                          title="Klikni pro úpravu v dlaždici"
-                        >
-                          <span className="shrink-0">{l.qty}×</span>
-                          <span className="truncate">{l.label}</span>
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => { const b = beers.find((bb) => bb.id === l.beerId); if (b) openTile(b, l.rowIndex); }}
+                        className="flex items-center gap-1.5 text-xs font-bold text-neutral-800 dark:text-neutral-100 text-left truncate"
+                        title="Klikni pro úpravu v dlaždici"
+                      >
+                        <span className="shrink-0">{l.qty}×</span>
+                        <span className="truncate">{l.label}</span>
+                      </button>
                       <div className="flex items-center gap-1 shrink-0">
                         <button type="button" onClick={() => updateQty(l.rowIndex, l.field, String(Math.max(0, l.qty - 1)))} className="btn-pocet disabled:opacity-30" disabled={l.qty <= 1}>−</button>
                         <input

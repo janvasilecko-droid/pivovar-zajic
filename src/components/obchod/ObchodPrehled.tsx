@@ -172,7 +172,7 @@ export function ObchodPrehled({ data, zapsal, jdiNa }: {
       </p>
 
       <PivaKarty
-        stavy={piva} data={data} mesic={mesic} otevreno={otevreno} setOtevreno={setOtevreno}
+        stavy={piva} data={data} mesic={mesic} jeAktualni={jeAktualni} otevreno={otevreno} setOtevreno={setOtevreno}
         detail={(s) => <Polozka s={s} data={data} otevreno prepni={() => setOtevreno(null)} zapsal={zapsal} dnes={dnes} otevriPrijem={(kod) => setPrijem({ kod })} otevriOdpis={(kod) => setOdpis({ kod })} jenDetail pridatKod={(beerId, pkgId) => setPridat({ beerId, pkgId })} />}
       />
       {/* Po týdnech od konce vybraného měsíce (u běžícího od dneška); klíč kvůli tomu, ať se po přepnutí měsíce rozbalí nejnovější týden. */}
@@ -224,10 +224,11 @@ function PrepinacMesice({ mesic, aktualni, setMesic }: { mesic: string; aktualni
 }
 
 /** Piva stejně jako ve Skladu pivovaru: karta na pivo, v ní tabulky Sudy a Lahve. */
-function PivaKarty({ stavy, data, mesic, otevreno, setOtevreno, detail }: {
+function PivaKarty({ stavy, data, mesic, jeAktualni, otevreno, setOtevreno, detail }: {
   stavy: StavZbozi[];
   data: DataObchodu;
   mesic: string;
+  jeAktualni: boolean;
   otevreno: string | null;
   setOtevreno: (k: string | null) => void;
   detail: (s: StavZbozi) => JSX.Element;
@@ -276,8 +277,8 @@ function PivaKarty({ stavy, data, mesic, otevreno, setOtevreno, detail }: {
                         <tr className="text-udaj font-bold uppercase tracking-wide text-neutral-400">
                           <th scope="col" className="text-left pb-1 pr-1">Obal</th>
                           <th scope="col" className="text-center pb-1 px-1" title="Stav skladu obchodu (u uplynulého měsíce ke konci měsíce)">Sklad</th>
-                          <th scope="col" className="text-center pb-1 px-1" title={`Nafasováno do obchodu za celý měsíc (${mesicText(mesic)}) — fasování z aplikace a příjem`}>Nafasováno</th>
-                          <th scope="col" className="text-center pb-1 pl-1" title={`Prodáno za celý měsíc (${mesicText(mesic)}) — z uzávěrek z pokladny`}>Prodáno</th>
+                          <th scope="col" className="text-center pb-1 px-1" title={`Nafasováno do obchodu za ${mesicText(mesic)}${jeAktualni ? ', do dneška' : ''}`}>Nafasováno{jeAktualni ? ' do dneška' : ''}</th>
+                          <th scope="col" className="text-center pb-1 pl-1" title={`Prodáno za ${mesicText(mesic)}${jeAktualni ? ', do dneška' : ''}`}>Prodáno{jeAktualni ? ' do dneška' : ''}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -334,7 +335,7 @@ function SeznamProdeje({ nadpis, stavy, mesic, otevreno, setOtevreno, detail, sS
     <section className="space-y-1.5" aria-label={nadpis}>
       <div className="flex items-baseline justify-between gap-2">
         <h3 className="text-xs font-black uppercase tracking-wide text-neutral-600">{nadpis} ({stavy.length})</h3>
-        <span className="text-[11px] font-bold text-neutral-600">prodáno {mesicText(mesic)}: <span className="font-black text-emerald-800 tabular-nums">{cs(celkem)} ks</span></span>
+        <span className="text-[11px] font-bold text-neutral-600">prodáno {mesicText(mesic)}{mesic === businessDateISO().slice(0, 7) ? ' do dneška' : ''}: <span className="font-black text-emerald-800 tabular-nums">{cs(celkem)} ks</span></span>
       </div>
       {podpis && <div className="text-[11px] font-semibold text-neutral-600">{podpis}</div>}
       <ul className="space-y-1.5">

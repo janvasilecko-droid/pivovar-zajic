@@ -118,7 +118,7 @@ describe('Obchod → Sklad: sloupce Sklad, Nafasováno, Prodáno za celý měsí
     render(<ObchodPrehled data={dataM} zapsal="Honza" jdiNa={() => {}} />);
     const svetla = screen.getByRole('heading', { name: /12° Světlá/ }).closest('.plocha-z-dat') as HTMLElement;
     const hlavicka = Array.from(svetla.querySelectorAll('th')).map((th) => th.textContent);
-    expect(hlavicka).toEqual(['Obal', 'Sklad', 'Nafasováno', 'Prodáno']);
+    expect(hlavicka).toEqual(['Obal', 'Sklad', 'Nafasováno do dneška', 'Prodáno do dneška']);
     expect(within(svetla).queryByText('Naskladněno')).toBeNull();
   });
 

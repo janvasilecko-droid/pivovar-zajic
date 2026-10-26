@@ -170,6 +170,10 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   const [kandidatiChyba, setKandidatiChyba] = useState<string | null>(null);
   /** Id objednávky, na kterou se právě napojuje (zamyká tlačítko). */
   const [napojuji, setNapojuji] = useState<string | null>(null);
+  /** Přepsat = objednávka bude jen to ze zprávy. Přidat = položky se přičtou. */
+  const [zpusobNapojeni, setZpusobNapojeni] = useState<'prepsat' | 'pridat' | null>(null);
+  /** Položky nesedí s originálem — Zapsat/Schválit drží, dokud to člověk nevezme na vědomí. */
+  const [rozdilPrijat, setRozdilPrijat] = useState(false);
   // ✂️ Rozdělení na dva odběratele — z provozu 15. 9. 2026: WhatsApp zpráva
   // se dvěma odběrateli (Chmeloun a Sluhy) dorazila jako jedna objednávka.
   // Zaškrtnuté položky odejdou po schválení do NOVÉ, druhé objednávky —
@@ -192,6 +196,8 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
     setPrevRawText(null);
     setPhotoChecked(false);
     setPrisnyPrekonan(false);
+    setRozdilPrijat(false);
+    setZpusobNapojeni(null);
     setVlastniSudRucne(null);
     setDatumRucne(null);
   }, [props.message?.id]);
@@ -1067,6 +1073,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
         // Když se schvaluje jako nová, zahodíme vazbu na upravovanou objednávku
         // → import založí normální novou objednávku z přečtených položek.
         amends_order_id: asNew ? null : message.amends_order_id,
+        zpusob_napojeni: zpusobNapojeni ?? undefined,
         parsed_place_id: placeId || message.parsed_place_id,
         parsed_place_name: placeName || message.parsed_place_name,
         parsed_delivery_day: denZavozu,
@@ -1528,15 +1535,24 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                           </span>
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        className="btn-primary shrink-0"
-                        disabled={napojuji !== null}
-                        onClick={() => napojitNaObjednavku(o.id)}
-                      >
-                        {napojuji === o.id ? <ButtonSpinner /> : <Check size={16} />}
-                        {druhZmeny === 'uprava' ? 'Upravit tuhle' : 'Přidat k téhle'}
-                      </button>
+                      <div className="flex flex-col gap-2 w-full sm:w-44 shrink-0">
+                        <button
+                          type="button"
+                          className="min-h-[48px] rounded bg-violet-800 text-white font-black text-base disabled:opacity-50"
+                          disabled={napojuji !== null}
+                          onClick={() => { setZpusobNapojeni('prepsat'); void napojitNaObjednavku(o.id); }}
+                        >
+                          {napojuji === o.id && zpusobNapojeni === 'prepsat' ? <ButtonSpinner /> : 'Přepsat'}
+                        </button>
+                        <button
+                          type="button"
+                          className="min-h-[48px] rounded bg-emerald-700 text-white font-black text-base disabled:opacity-50"
+                          disabled={napojuji !== null}
+                          onClick={() => { setZpusobNapojeni('pridat'); void napojitNaObjednavku(o.id); }}
+                        >
+                          {napojuji === o.id && zpusobNapojeni === 'pridat' ? <ButtonSpinner /> : 'Přidat'}
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1567,9 +1583,23 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
               </div>
               <div className="text-xs font-bold text-violet-700 mt-1">
                 {amendPlace ? `Odběratel: ${amendPlace}. ` : ''}
-                {napojenoRucne && druhNapojeni === 'pridavek'
-                  ? 'Schválením se položky přičtou k téhle objednávce podle níže uvedeného stavu. Nová objednávka se nezaloží.'
-                  : 'Schválením se objednávka přepíše podle níže uvedeného stavu. Nová objednávka se nezaloží.'}
+                Nová objednávka se nezaloží. Vyber, co se má stát:
+              </div>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  className={`min-h-[52px] rounded font-black text-base ${zpusobNapojeni === 'prepsat' ? 'bg-violet-800 text-white' : 'bg-white text-violet-900 border-2 border-violet-400'}`}
+                  onClick={() => setZpusobNapojeni('prepsat')}
+                >
+                  Přepsat
+                </button>
+                <button
+                  type="button"
+                  className={`min-h-[52px] rounded font-black text-base ${zpusobNapojeni === 'pridat' ? 'bg-emerald-700 text-white' : 'bg-white text-emerald-900 border-2 border-emerald-400'}`}
+                  onClick={() => setZpusobNapojeni('pridat')}
+                >
+                  Přidat
+                </button>
               </div>
 
               {/* Cesta zpátky. Napojení zapisuje do databáze hned při kliknutí
@@ -2224,6 +2254,15 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                 </button>
               </div>
             )}
+            {!isImage && readback.mismatchCount > 0 && !rozdilPrijat && (
+              <button
+                type="button"
+                onClick={() => setRozdilPrijat(true)}
+                className="mb-3 w-full min-h-[48px] rounded bg-amber-500 text-neutral-950 font-black"
+              >
+                Beru na vědomí, že položky nesedí s originálem
+              </button>
+            )}
             <div className="flex flex-col sm:flex-row gap-3 justify-between">
             <div className="flex flex-wrap gap-2">
               <button
@@ -2261,7 +2300,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
 
             <button
               onClick={() => { void schvalitVzdy(); }}
-              disabled={approving}
+              disabled={approving || (!isImage && readback.mismatchCount > 0 && !rozdilPrijat)}
               className="px-6 py-2.5 bg-emerald-700 text-white rounded hover:bg-emerald-800 disabled:opacity-50 flex items-center gap-2 font-medium"
             >
               {approving ? <ButtonSpinner /> : <UserCheck size={16} />}

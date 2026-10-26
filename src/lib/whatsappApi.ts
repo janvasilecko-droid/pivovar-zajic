@@ -71,6 +71,8 @@ export interface WhatsAppIncoming {
    * Schválení pak objednávku upraví místo aby zakládalo novou.
    */
   amends_order_id?: string | null;
+  /** Volba tlačítek Přepsat / Přidat v kontrole zprávy. Do databáze se nezapisuje. */
+  zpusob_napojeni?: 'prepsat' | 'pridat';
   /** Původní zpráva, na kterou odpověď reaguje (pro zobrazení kontextu). */
   amends_message_id?: string | null;
 }

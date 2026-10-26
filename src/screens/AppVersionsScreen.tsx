@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getAllUserVersions } from '../lib/appVersionTracker';
+import { APP_VERSION } from '../lib/version';
+import { jeStarsiVerze } from '../lib/porovnaniVerzi';
 import { useAuth } from '../lib/auth';
 import { Smartphone, RefreshCw, Clock, User } from 'lucide-react';
 
@@ -147,6 +149,9 @@ export default function AppVersionsScreen() {
                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-100 text-primary-800">
                   v{v.version}
                 </span>
+                {jeStarsiVerze(v.version, APP_VERSION) && (
+                  <span className="text-xs font-black text-amber-900">pošli ho aktualizovat</span>
+                )}
                 <span className="flex items-center gap-1 text-xs text-neutral-400">
                   <Clock className="w-3 h-3" />
                   {formatDate(v.last_seen_at)}

@@ -636,6 +636,7 @@ export function OrderDetail({ order, items, beers, packages, places, priceList, 
                             const qtyNum = Number(editQty);
                             if (qtyNum && qtyNum !== i.quantity) await updateItemQty(i, qtyNum);
                             setEditingItemId(null);
+                            document.getElementById(`objednavka-${order.id}`)?.scrollIntoView({ block: 'nearest' });
                           }}
                         ><Check size={14} /> Uložit</button>
                         <button className="btn-ghost !rounded !py-2 !px-3" onClick={() => setEditingItemId(null)} title="Zrušit" aria-label="Zrušit"><X size={14} /></button>
@@ -724,6 +725,7 @@ export function OrderDetail({ order, items, beers, packages, places, priceList, 
                                   const qtyNum = Number(editQty);
                                   if (qtyNum && qtyNum !== i.quantity) await updateItemQty(i, qtyNum);
                                   setEditingItemId(null);
+                                  document.getElementById(`objednavka-${order.id}`)?.scrollIntoView({ block: 'nearest' });
                                 }}
                               ><Check size={14} /> Uložit</button>
                               <button className="btn-ghost !rounded !py-2 !px-3" onClick={() => setEditingItemId(null)} title="Zrušit" aria-label="Zrušit"><X size={14} /></button>

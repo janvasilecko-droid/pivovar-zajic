@@ -53,3 +53,18 @@ export function jeVyrizena(status: string | null | undefined): boolean {
   return status === 'vyrizeno_zavoz' || status === 'vyrizeno'
     || status === 'vyrizena' || status === 'hotova';
 }
+
+/** Závoz dnes nebo dřív, pořád Nová a ještě nevyjela — stejná podmínka jako filtr „po termínu“. */
+export function jePoTerminu(o: { is_delivered?: boolean; status?: string | null; delivery_date?: string | null }, dnes: string): boolean {
+  return !o.is_delivered && (o.status ?? 'nova') === 'nova' && !!o.delivery_date && o.delivery_date <= dnes;
+}
+
+/**
+ * Jestli pivo fyzicky vyjelo, nebo je objednávka jen označená jako hotová.
+ * `is_delivered` je závoz. Stav „vyřízeno“ bez něj ze skladu nic neodvezl.
+ */
+export function popisekVyjezdu(o: { is_delivered?: boolean; status?: string | null }): string | null {
+  if (o.is_delivered) return 'Pivo už vyjelo (závoz)';
+  if (jeVyrizena(o.status)) return 'Jen označené jako vyřízené — závoz ještě ne';
+  return null;
+}

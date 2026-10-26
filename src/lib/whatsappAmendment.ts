@@ -349,8 +349,15 @@ export function slozNavrh(opts: {
    * by bylo 5x50 (z provozu 12. 10. 2026, Malešice).
    */
   zOdpovediJePlnyStav?: boolean;
+  /**
+   * Člověk zvolil tlačítkem. `prepsat` = objednávka bude jen to, co je ve zprávě.
+   * `pridat` = položky se přičtou, zbytek objednávky zůstane.
+   */
+  zpusob?: 'prepsat' | 'pridat';
 }): ItemRef[] {
   const { soucasne, zOdpovedi, text, obaly } = opts;
+  if (opts.zpusob === 'pridat') return prictiPolozky(soucasne, zOdpovedi);
+  if (opts.zpusob === 'prepsat') return zOdpovedi.filter((i) => Number(i.quantity) > 0);
   const { nahradit } = rozsahOdpovedi(text);
   if (nahradit.length === 0) {
     if (opts.zOdpovediJePlnyStav) return slucPlnyStav(soucasne, zOdpovedi);

@@ -100,6 +100,15 @@ export type PlanItem = {
  */
 export const BEZ_TERMINU = 'bez';
 
+/**
+ * Odškrtnutí v plánu není zápis stáčení. Dokud v `kegging` není řádek,
+ * dlaždice to musí říct — jinak zelená fajfka vypadá jako stočený sud.
+ */
+export function textJenOdskrtnuto(odskrtnuto: number, stocenoKs: number): string | null {
+  if (odskrtnuto > 0 && stocenoKs <= 0) return 'jen odškrtnuto v plánu';
+  return null;
+}
+
 export type DayPlan = {
   /** 'po' … 'ne', `BEZ_TERMINU`, nebo 'tyden' u souhrnu. */
   day: string;

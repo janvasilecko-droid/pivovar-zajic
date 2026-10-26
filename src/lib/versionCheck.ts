@@ -6,6 +6,7 @@
  * a zobrazí uživateli tlačítko pro aktualizaci.
  */
 
+import { ulozMistoPredObnovou } from './mistoPoAktualizaci';
 import { APP_VERSION } from './version';
 
 const CHECK_INTERVAL_MS = 60 * 1000; // 1 minuta — rychlejší detekce nové verze
@@ -64,7 +65,10 @@ export async function checkVersion(silent = false): Promise<VersionInfo | null> 
 
     if (info.version !== APP_VERSION) {
       latestAvailableVersion = info;
-    } else {
+    } else if (!latestAvailableVersion) {
+      // Už ohlášená nová verze se tu nemaže. Další kontrola občas vrátí
+      // pořád tu starou (cache) a lišta by zmizela, aniž by se kleplo
+      // na Aktualizovat.
       latestAvailableVersion = null;
     }
 
@@ -126,6 +130,9 @@ export function getCurrentVersion(): string | null {
 export async function forceRefresh() {
   // Aktualizace je vždy explicitní akce uživatele. Automatická kontrola pouze
   // zobrazí upozornění a nikdy sama nereloaduje rozpracovanou obrazovku.
+  // Místo (obrazovka + záložka) se schová do sessionStorage. localStorage
+  // s rozepsanými zápisy se nemaže — po návratu je formulář znovu vyplněný.
+  ulozMistoPredObnovou();
   if ('serviceWorker' in navigator) {
     const registration = await navigator.serviceWorker.getRegistration();
     await registration?.unregister();

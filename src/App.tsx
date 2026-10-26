@@ -17,6 +17,7 @@ const AppVersionsScreen = lazyStranka(() => import('./screens/AppVersionsScreen'
 
 import Layout, { Page, NAV, EXTRA_NAV } from './components/Layout';
 import { zjistiStrankuZUrl } from './lib/vstupniStranka';
+import { nactiMistoPoAktualizaci, zapamatujMisto } from './lib/mistoPoAktualizaci';
 import AuthScreen from './screens/AuthScreen';
 const Dashboard = lazyStranka(() => import('./screens/Dashboard'));
 import HomeScreen from './screens/HomeScreen';
@@ -89,17 +90,33 @@ const VSECHNY_STRANKY = new Set<string>([...NAV, ...EXTRA_NAV].map((n) => n.id))
 
 export default function App() {
   const { session, loading } = useAuth();
+  // Po Aktualizovat se stránka obnoví. Místo z té chvíle má přednost před
+  // historií prohlížeče; odkaz z notifikace (?page=) a sdílení pořád vyhrají.
+  const mistoPoAktualizaci = nactiMistoPoAktualizaci();
   const [page, setPageState] = useState<Page>(() => {
     if (wasOpenedViaShare()) return 'orders';
     const zUrl = zjistiStrankuZUrl(window.location.search, VSECHNY_STRANKY);
-    return (zUrl as Page | null) ?? readPageFromHistory();
+    if (zUrl) return zUrl as Page;
+    if (mistoPoAktualizaci && VSECHNY_STRANKY.has(mistoPoAktualizaci.page)) {
+      return mistoPoAktualizaci.page as Page;
+    }
+    return readPageFromHistory();
   });
   const [autoOpenShareImport, setAutoOpenShareImport] = useState(() => wasOpenedViaShare());
-  const [pageSubTab, setPageSubTabState] = useState<string>(() => (wasOpenedViaShare() ? '' : readSubTabFromHistory()));
+  const [pageSubTab, setPageSubTabState] = useState<string>(() => {
+    if (wasOpenedViaShare()) return '';
+    if (zjistiStrankuZUrl(window.location.search, VSECHNY_STRANKY)) return readSubTabFromHistory();
+    if (mistoPoAktualizaci && VSECHNY_STRANKY.has(mistoPoAktualizaci.page)) {
+      return mistoPoAktualizaci.subTab;
+    }
+    return readSubTabFromHistory();
+  });
 
   // Appka se rozběhla — pojistka proti smyčce obnovování může jít pryč,
   // ať platí zase pro příští nasazení (viz lib/lazyStranka.ts).
   useEffect(() => { uklidPojistkuReloadu(); }, []);
+
+  useEffect(() => { zapamatujMisto(page, pageSubTab); }, [page, pageSubTab]);
 
   useEffect(() => {
     if (wasOpenedViaShare()) {
@@ -113,6 +130,8 @@ export default function App() {
     // obnovení stránky skončily zpátky na tom `?page=` místo na Domů.
     if (zjistiStrankuZUrl(window.location.search, VSECHNY_STRANKY)) {
       window.history.replaceState({ page }, '', window.location.pathname);
+    } else if (mistoPoAktualizaci && VSECHNY_STRANKY.has(mistoPoAktualizaci.page)) {
+      window.history.replaceState({ page, subTab: pageSubTab }, '', window.location.pathname);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

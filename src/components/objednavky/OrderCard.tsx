@@ -16,7 +16,8 @@ import type {  } from '../../lib/tankUZapisu';
 import { shareOrderToWhatsApp } from '../../lib/whatsapp';
 
 import { StitekStavu } from '../StitekStavu';
-import { jeVyrizena } from '../../lib/stavyObjednavek';
+import { jeVyrizena, jePoTerminu, popisekVyjezdu } from '../../lib/stavyObjednavek';
+import { businessDateISO } from '../../lib/businessDate';
 import { vracenoPodleObjednavky } from '../../lib/vraceniZObjednavky';
 
 import { type Order, type OrderItem, dayColor, getTapNameForOrder } from './spolecne';
@@ -160,8 +161,13 @@ export function OrderCard({ o, items, stockRemainingForOrder, nadPocetMalychSudu
             </span>
           )}
           {o.delivery_day && (
-            <span className={`chip ${dayColor(o.delivery_day)!.chip} shrink-0 flex items-center gap-1`}>
-              <Truck size={12} /> {DAYS.find((d) => d.v === o.delivery_day)?.label ?? o.delivery_day}
+            <span className={`text-lg font-black leading-none px-2 py-1 rounded shrink-0 flex items-center gap-1 ${dayColor(o.delivery_day)!.chip}`}>
+              <Truck size={18} /> {DAYS.find((d) => d.v === o.delivery_day)?.label ?? o.delivery_day}
+            </span>
+          )}
+          {jePoTerminu(o, businessDateISO()) && (
+            <span className="text-lg font-black leading-none text-rose-800 bg-rose-100 border border-rose-300 rounded px-2 py-1 shrink-0">
+              po termínu
             </span>
           )}
           <span className="text-udaj font-bold text-neutral-500 bg-white/80 border border-neutral-200 rounded-md px-1.5 py-0.5 shadow-2xs shrink-0 flex items-center gap-1" title="Datum zadání">
@@ -293,7 +299,11 @@ export function OrderCard({ o, items, stockRemainingForOrder, nadPocetMalychSudu
               o pár řádků níž a jinde v souboru (2504, 3487), jen tady byl
               omylem jinou barvou. Podle docs/jednotny-styl.md emerald =
               potvrzení hotového (Hotovo, Zavezeno, Schválit). */}
-          {o.is_delivered && <span className="chip bg-emerald-700 text-white font-black shadow-2xs flex items-center gap-1"><Check size={12} /> Zavez.</span>}
+          {popisekVyjezdu(o) && (
+            <span className={`text-sm font-black shrink-0 ${o.is_delivered ? 'text-emerald-800' : 'text-amber-900'}`}>
+              {popisekVyjezdu(o)}
+            </span>
+          )}
         </div>
 
         {/* Řádek 3: sklad + připraveno + den + akce */}

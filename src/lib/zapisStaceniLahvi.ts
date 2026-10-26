@@ -165,6 +165,43 @@ export function casyRadku(pocet: number, ted: number = Date.now()): string[] {
   return Array.from({ length: pocet }, (_, i) => new Date(ted - (pocet - 1 - i) * 1000).toISOString());
 }
 
+/** Řádek má nějaké množství (lahve nebo sudy) — prázdný slot dlaždice neotvírá. */
+export function radekMaMnozstvi(r: RadekStaceniLahvi): boolean {
+  return [r.qty, r.qty2, r.qty3, r.qty4 ?? '', r.kegQty, r.keg2Qty ?? ''].some((q) => Number(q) > 0);
+}
+
+/**
+ * Který řádek dlaždice otevře.
+ *
+ * Klepnutí na řádek ze souhrnu (`vynuceny`) otevře právě ten, i když je z fotky.
+ * Jinak ruční řádek s množstvím, a když žádný není, řádek z fotky — dlaždice
+ * ho dřív přeskakovala (`datum`) a pivo z fotky nešlo opravit stejně jako ruční.
+ * `-1` = nic k otevření, dlaždice začne prázdná.
+ */
+export function indexRadkuProDlazdici(radky: RadekStaceniLahvi[], beerId: string, vynuceny: number | null): number {
+  if (vynuceny != null && radky[vynuceny]?.beerId === beerId) return vynuceny;
+  const rucni = radky.findIndex((r) => r.beerId === beerId && !r.datum && radekMaMnozstvi(r));
+  if (rucni >= 0) return rucni;
+  const zFotky = radky.findIndex((r) => r.beerId === beerId && !!r.datum && radekMaMnozstvi(r));
+  return zFotky;
+}
+
+/** 0,5 l a 1 l zůstanou dva součty. Jedno číslo „lahve“ by je slilo dohromady. */
+export function souctyLahviPoObjemu(polozky: { objemL: number; ks: number }[]): { objemL: number; ks: number }[] {
+  const m = new Map<number, number>();
+  for (const p of polozky) {
+    if (!(p.ks > 0)) continue;
+    const k = Math.round(Number(p.objemL) * 100) / 100;
+    m.set(k, (m.get(k) ?? 0) + p.ks);
+  }
+  return [...m.entries()].sort((a, b) => b[0] - a[0]).map(([objemL, ks]) => ({ objemL, ks }));
+}
+
+/** „1 l: 40 · 0,5 l: 12“ — prázdný seznam je prázdný text. */
+export function popisekLahviPoObjemu(soucty: { objemL: number; ks: number }[]): string {
+  return soucty.map((s) => `${String(s.objemL).replace('.', ',')} l: ${s.ks}`).join(' · ');
+}
+
 /** Prázdný řádek formuláře: bez piva a bez jakéhokoli množství. */
 export function jePrazdnyRadek(r: RadekStaceniLahvi): boolean {
   return !r.beerId && ![r.qty, r.qty2, r.qty3, r.qty4 ?? '', r.kegQty, r.keg2Qty ?? ''].some((q) => !!q);

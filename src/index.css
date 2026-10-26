@@ -603,7 +603,7 @@ input[type='radio'] {
    pruh „čekající zápisy" a přehrávač rádia — se pak s ní překrývalo.
    Tahle třída počítá s toutéž bezpečnou zónou, takže odsazení sedí na
    telefonu i na počítači. */
-.nad-dokem { bottom: calc(64px + env(safe-area-inset-bottom, 0px)); }
+.nad-dokem { bottom: calc(var(--vyska-doku, 72px) + env(safe-area-inset-bottom, 0px)); }
 
 /* Vodorovné rolování tabulek — okraj musí říct, že vpravo něco je.
    Tabulka širší než displej vypadá na telefonu jen useknutá a lidi pak

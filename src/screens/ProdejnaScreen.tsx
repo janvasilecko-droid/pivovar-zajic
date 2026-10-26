@@ -765,6 +765,15 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
             <span className="text-[11px] text-neutral-400 font-medium">klepni na dlaždici a zadej obaly a množství</span>
           </div>
           <div className="mb-4">
+            {loading ? (
+              <div className="grid grid-cols-3 gap-2" aria-busy="true">
+                {Array.from({ length: 6 }, (_, i) => (
+                  <button key={i} type="button" disabled className="min-h-[52px] rounded bg-neutral-200 text-neutral-600 text-sm font-black">
+                    načítám
+                  </button>
+                ))}
+              </div>
+            ) : (
             <BeerTileGrid
               beers={serazPodleNaposled(beers.filter((b) => b.is_active), (b) => b.id, naposledPiva)}
               onSelect={(b) => { setNaposledPiva(zapamatujVyber(klicPiv, b.id)); setExpandedProdejnaBeerId(b.id); }}
@@ -780,6 +789,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                 return { filled: beerRows.length > 0, label };
               }}
             />
+            )}
           </div>
 
           {expandedProdejnaBeer && (

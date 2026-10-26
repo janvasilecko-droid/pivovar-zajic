@@ -15,7 +15,7 @@ import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
 import { VoiceRecorder } from '../components/VoiceRecorder';
 import { parseFreeTextEntries, loadAliasMap, emptyAliasMap, type ParserAliasMap } from '../lib/orderParser';
 import { requestOrdersItemFilter } from '../lib/ordersFilter';
-import { computeKeggingPlan, mergeWeekPlan, rozpadPoObalech, BEZ_TERMINU } from '../lib/keggingPlan';
+import { computeKeggingPlan, mergeWeekPlan, rozpadPoObalech, BEZ_TERMINU, textJenOdskrtnuto } from '../lib/keggingPlan';
 import { naplanujPresun } from '../lib/presunPolozky';
 import { BottlingPlanBottler } from '../components/BottlingPlanBottler';
 import { markPlanSeenAt, type BottlingPlan } from '../lib/bottlingPlans';
@@ -1774,6 +1774,12 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
               onSelect={(b) => { setNaposledPiva(zapamatujVyber(klicPiv, b.id)); setExpandedKegBeerId(b.id); }}
               missingBadgeFor={(b) => missingBreakdownByBeer[b.id] || []}
               summaryFor={(b) => {
+                const odskrtnuto = kegPackages.reduce((s, p) => s + (planByKey[`${b.id}__${p.id}`]?.checked ?? 0), 0);
+                const stoceno = rows
+                  .filter((r) => r.beer_id === b.id && r.entry_date && isoWeekKey(r.entry_date) === weekKey)
+                  .reduce((s, r) => s + Number(r.quantity || 0), 0);
+                const jenPlan = textJenOdskrtnuto(odskrtnuto, stoceno);
+                const sPoznamkou = (label: string) => (jenPlan ? `${label} · ${jenPlan}` : label);
                 const beerRows = entryRows.filter((r) => r.beerId === b.id && Number(r.qty) > 0);
                 if (beerRows.length > 0) {
                   const label = beerRows
@@ -1783,7 +1789,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                     })
                     .filter(Boolean)
                     .join(', ');
-                  return { filled: true, label };
+                  return { filled: true, label: sPoznamkou(label) };
                 }
                 // Nic se zrovna nezadává — ukázat, co už je pro tohle pivo za
                 // vybraný den uložené. Stáčí se průběžně (pár sudů teď, další
@@ -1792,8 +1798,9 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                 const jizPacky = kegPackages
                   .map((p) => ({ p, qty: jizUlozenoDnes(b.id, p.id) }))
                   .filter((x) => x.qty > 0);
-                if (jizPacky.length === 0) return { filled: false, label: '' };
-                return { filled: true, label: `dnes ${jizPacky.map((x) => `${x.qty}×${Math.round(Number(x.p.volume_l))}`).join(', ')}` };
+                if (jizPacky.length === 0) return jenPlan ? { filled: true, label: jenPlan } : { filled: false, label: '' };
+                const dnes = `dnes ${jizPacky.map((x) => `${x.qty}×${Math.round(Number(x.p.volume_l))}`).join(', ')}`;
+                return { filled: true, label: sPoznamkou(dnes) };
               }}
             />
           </div>
