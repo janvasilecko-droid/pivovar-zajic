@@ -152,7 +152,7 @@
   to { opacity: 1; transform: translateX(0); }
 }
 @media (max-width: 640px) {
-  /* 9 sloupců = tři dlaždice na řádek (viz GRID_COLS_MOBILE v homeLayout.ts —
+  /* 9 sloupců = tři dlaždice na řádek (viz GRID_COLS_MOBILE v homeLayout.ts ��
      tahle dvě čísla si MUSÍ odpovídat, jinak přepočet prstu na buňku při
      tažení míří jinam, než co je vidět). Bylo 12, tedy čtyři na řádek, a
      popisky se do ~90 px nevešly. */
@@ -1079,3 +1079,30 @@
 @media (max-width: 400px) {
   .hs-pager-znak { height: 22px; }
 }
+
+/* Moderní mobilní varianta: klidnější plocha, větší dotykové cíle a výraznější
+   hierarchie. Funkce launcheru zůstávají stejné, mění se pouze vizuální rytmus. */
+@media (max-width: 640px) {
+  .hs-launcher { min-height: calc(100dvh - 150px); }
+  .hs-toolbar { margin: 2px 2px 12px; }
+  .hs-edit-btn { min-height: 40px; padding: 9px 14px; border-radius: 14px; background: rgba(255,255,255,.78); box-shadow: 0 4px 14px rgba(43,36,56,.08); }
+  .hs-reset-btn { min-height: 40px; padding: 8px 6px; }
+  .hs-controls { gap: 10px; margin: 0 2px 12px; padding: 10px 12px; border-radius: 16px; background: rgba(255,255,255,.62); box-shadow: 0 4px 16px rgba(43,36,56,.06); }
+  .hs-grid { gap: 7px; grid-auto-rows: 78px; padding: 0 2px 10px; }
+  .hs-tile { border-radius: 16px; border-color: rgba(255,255,255,.62); box-shadow: 0 4px 12px rgba(43,36,56,.14), inset 0 1px 0 rgba(255,255,255,.35); }
+  .hs-tile:not(.hs-editing):active { transform: scale(.95); filter: brightness(1.06); }
+  .hs-tile svg { width: 23px; height: 23px; stroke-width: 2; }
+  .hs-tile .hs-lbl { font-size: 11px; letter-spacing: 0; }
+  .hs-tile.hs-tile-wide { border-radius: 16px; padding-inline: 12px; }
+  .hs-fixed-row { margin-inline: 2px; height: 42px; gap: 6px; }
+  .hs-fixed-row > .hs-tile { border-radius: 13px; box-shadow: 0 3px 10px rgba(43,36,56,.12); }
+  .hs-pager { margin: 2px 2px 14px; gap: 9px; }
+  .hs-pager-arrow, .hs-pager-manage { width: 40px; height: 40px; border-radius: 13px; background: rgba(255,255,255,.8); box-shadow: 0 3px 10px rgba(43,36,56,.08); }
+  .hs-pager-dot { width: 7px; height: 7px; }
+  .hs-pager-dot.active { width: 24px; }
+}
+
+:root.dark .hs-controls,
+:root.dark .hs-edit-btn,
+:root.dark .hs-pager-arrow,
+:root.dark .hs-pager-manage { background: rgba(15,23,42,.72); color: #f8fafc; border-color: rgba(255,255,255,.14); }
