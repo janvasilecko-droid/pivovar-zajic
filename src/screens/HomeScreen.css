@@ -528,6 +528,107 @@
   }
 }
 
+/* Moderní seznam místo barevné mřížky: domovská obrazovka funguje jako
+   rychlý operační panel. Každá funkce je řádek s jasnou ikonou, popisem a
+   případným stavem, takže se na telefonu čte rychleji než sada dlaždic. */
+.hs-grid {
+  grid-template-columns: 1fr;
+  grid-auto-rows: 58px;
+  gap: 8px;
+  padding: 2px 0 18px;
+}
+.hs-grid > .hs-tile {
+  grid-column: 1 / -1 !important;
+  grid-row: auto !important;
+  min-height: 58px;
+  flex-direction: row !important;
+  justify-content: flex-start !important;
+  align-items: center !important;
+  gap: 13px !important;
+  padding: 9px 14px !important;
+  color: #172033;
+  text-align: left !important;
+  background: rgba(255,255,255,.94) !important;
+  border: 1px solid #e4e8ef !important;
+  border-radius: 15px !important;
+  box-shadow: 0 2px 7px rgba(27, 42, 66, .06) !important;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.hs-grid > .hs-tile::before {
+  content: '';
+  width: 4px;
+  height: 28px;
+  flex: 0 0 4px;
+  border-radius: 99px;
+  background: var(--tile-color, #2aa9b5);
+  order: -1;
+}
+.hs-grid > .hs-tile:hover {
+  filter: none;
+  border-color: #b7c4d5 !important;
+  box-shadow: 0 5px 14px rgba(27, 42, 66, .1) !important;
+  transform: translateY(-1px);
+}
+.hs-grid > .hs-tile:active { transform: scale(.985); }
+.hs-grid > .hs-tile .hs-tile-icon-box {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  color: var(--tile-color, #238d99);
+  background: color-mix(in srgb, var(--tile-color, #2aa9b5) 13%, white);
+}
+.hs-grid > .hs-tile svg,
+.hs-grid > .hs-tile.hs-tile-wide svg,
+.hs-grid > .hs-tile.hs-tile-tall svg,
+.hs-grid > .hs-tile.hs-tile-large svg {
+  width: 19px;
+  height: 19px;
+  stroke-width: 2;
+}
+.hs-grid > .hs-tile .hs-lbl,
+.hs-grid > .hs-tile.hs-tile-wide .hs-lbl,
+.hs-grid > .hs-tile.hs-tile-tall .hs-lbl,
+.hs-grid > .hs-tile.hs-tile-large .hs-lbl {
+  flex: 1;
+  max-width: none;
+  color: #172033;
+  font-size: 13px;
+  font-weight: 750;
+  line-height: 1.2;
+  text-align: left;
+  -webkit-line-clamp: 1;
+}
+.hs-grid > .hs-tile .hs-badge {
+  position: static;
+  margin-left: auto;
+  background: #eef2f7;
+  color: #506078;
+  border: 0;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.hs-grid > .hs-tile-alert,
+.hs-grid > .hs-tile-warn { border-left: 3px solid #e3a008 !important; }
+.hs-grid > .hs-tile-sticky { transform: none; border-radius: 15px !important; }
+.hs-grid > .hs-tile-sticky::after { display: none; }
+@media (max-width: 640px) {
+  .hs-grid { grid-template-columns: 1fr; grid-auto-rows: 56px; gap: 7px; }
+  .hs-grid > .hs-tile { min-height: 56px; padding: 8px 12px !important; }
+  .hs-grid > .hs-tile .hs-lbl { font-size: 12.5px; }
+}
+:root.dark .hs-grid > .hs-tile {
+  color: #eef3fb;
+  background: rgba(24, 32, 46, .96) !important;
+  border-color: #344154 !important;
+}
+:root.dark .hs-grid > .hs-tile .hs-lbl { color: #eef3fb; }
+:root.dark .hs-grid > .hs-tile .hs-badge { color: #c7d2e2; background: #2f3a4c; }
+
 /* Přepínání stránek launcheru */
 .hs-pager {
   position: relative;
@@ -839,7 +940,7 @@
 .hs-tile.hs-selected { overflow: visible; z-index: 15; box-shadow: 0 0 0 3px rgba(43,36,56,0.4), 0 10px 24px rgba(43,36,56,0.3); }
 
 /* Ovládání OZNAČENÉ dlaždice v edit módu — plovoucí panel VYCENTROVANÝ nad
-   dlaždicí (ne přišpendlený do jejích rohů), stejný pro všechny velikosti
+   dlaždicí (ne přišpendlený do jejích roh��), stejný pro všechny velikosti
    dlaždic včetně "mini". Tmavé pozadí panelu čitelné nad libovolnou barvou
    podkladu. Dřív se ovládání zobrazovalo na KAŽDÉ dlaždici v edit módu
    zároveň (přeplácané, na mini dlaždicích navíc ořezané pryč) — teď se
