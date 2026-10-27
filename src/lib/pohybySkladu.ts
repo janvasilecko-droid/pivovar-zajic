@@ -226,7 +226,11 @@ export function sestavPohybyObdobi(
     const out = new Map<Movement, number>();
     const pred = new Map<Movement, number>();
     const poKlici = new Map<string, Movement[]>();
-    vsechny.forEach((m) => { const k = stockKey(m.beer_id, m.package_id); poKlici.set(k, [...(poKlici.get(k) ?? []), m]); });
+    vsechny.forEach((m) => {
+      const k = stockKey(m.beer_id, m.package_id);
+      const list = poKlici.get(k);
+      if (list) list.push(m); else poKlici.set(k, [m]);
+    });
     poKlici.forEach((list, k) => {
       const projdi = (poradi: Movement[]) => {
         let stav = rano.get(k)?.qty ?? 0;
@@ -250,10 +254,22 @@ export function sestavPohybyObdobi(
     return { po: out, pred };
   };
 
+  const poDnech = new Map<string, Movement[]>();
+  vObdobi.forEach((m) => {
+    const list = poDnech.get(m.date);
+    if (list) list.push(m); else poDnech.set(m.date, [m]);
+  });
+
+  // Prázdný den = stejný večer jako den před ním (ráno prvního dne).
+  // Jinak by se kniha přepočítávala i za dny, kdy se nic nehnulo.
+  let predchoziVecer: Map<string, { qty: number }> = ranoMapa as unknown as Map<string, { qty: number }>;
   const dny: DenPohybu[] = dnyObdobi(od, doDne).map((datum) => {
-    const vsechnyDne = vObdobi
-      .filter((m) => m.date === datum)
+    const vsechnyDne = (poDnech.get(datum) ?? [])
+      .slice()
       .sort((a, b) => PORADI[a.kind] - PORADI[b.kind] || a.beer_id.localeCompare(b.beer_id) || a.package_id.localeCompare(b.package_id));
+    if (vsechnyDne.length === 0) {
+      return { datum, radky: [], vecer: stavy(predchoziVecer), ted: false };
+    }
     const stavPo = stavyPoPohybu(datum, vsechnyDne);
     const radky = vsechnyDne
       .filter((m) => !povoleneDruhy || povoleneDruhy.has(m.kind))
@@ -270,7 +286,8 @@ export function sestavPohybyObdobi(
         stavPo: stavPo.po.get(m) ?? 0,
         ...(m.kind === 'inventura' ? { podleEvidence: stavPo.pred.get(m) ?? 0 } : {}),
       }));
-    return { datum, radky, vecer: stavy(stockAsOfDne(datum)), ted: false };
+    predchoziVecer = stockAsOfDne(datum);
+    return { datum, radky, vecer: stavy(predchoziVecer), ted: false };
   });
 
   // „Teď" = poslední den do dneška, kdy se v období cokoli hnulo (i pohyb
@@ -284,27 +301,29 @@ export function sestavPohybyObdobi(
   }
 
   const konecMapa = stockAsOfDne(doDne);
+  const agreg = new Map<string, { prijem: number; vydej: number; inventura: boolean; inventuraDatum: string | null; inventuraStav: number | null }>();
+  vObdobi.forEach((m) => {
+    const k = stockKey(m.beer_id, m.package_id);
+    let a = agreg.get(k);
+    if (!a) {
+      a = { prijem: 0, vydej: 0, inventura: false, inventuraDatum: null, inventuraStav: null };
+      agreg.set(k, a);
+    }
+    if (m.kind === 'inventura') {
+      a.inventura = true;
+      if (!a.inventuraDatum || m.date >= a.inventuraDatum) { a.inventuraDatum = m.date; a.inventuraStav = m.qty; }
+      return;
+    }
+    if (m.qty > 0) a.prijem += m.qty; else a.vydej -= m.qty;
+  });
   const souhrn = serazeneKlice.map((k) => {
     const { beer_id, package_id } = rozloz(k);
-    let prijem = 0;
-    let vydej = 0;
-    let inventura = false;
-    let inventuraDatum: string | null = null;
-    let inventuraStav: number | null = null;
-    vObdobi.forEach((m) => {
-      if (m.beer_id !== beer_id || m.package_id !== package_id) return;
-      if (m.kind === 'inventura') {
-        inventura = true;
-        if (!inventuraDatum || m.date >= inventuraDatum) { inventuraDatum = m.date; inventuraStav = m.qty; }
-        return;
-      }
-      if (m.qty > 0) prijem += m.qty; else vydej -= m.qty;
-    });
+    const a = agreg.get(k) ?? { prijem: 0, vydej: 0, inventura: false, inventuraDatum: null, inventuraStav: null };
     const rano = ranoMapa.get(k)?.qty ?? 0;
     const konec = konecMapa.get(k)?.qty ?? 0;
     // Stejný rozdíl jako rozdilSkladu, z čísel spočítaných výš jedním průchodem.
     // Znovu volat knihu na každý klíč by u 24 měsíců přepočet nestihl.
-    return { beer_id, package_id, rano, prijem, vydej, inventura, konec, srovnani: konec - (rano + prijem - vydej), inventuraDatum, inventuraStav };
+    return { beer_id, package_id, rano, prijem: a.prijem, vydej: a.vydej, inventura: a.inventura, konec, srovnani: konec - (rano + a.prijem - a.vydej), inventuraDatum: a.inventuraDatum, inventuraStav: a.inventuraStav };
   });
 
   return { rano: stavy(ranoMapa), dny, souhrn };

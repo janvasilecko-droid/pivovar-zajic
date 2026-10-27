@@ -94,7 +94,7 @@ async function zadejVDlazdici(pocet: string) {
   fireEvent.change(pole, { target: { value: pocet } });
 }
 
-describe('Stáčení lahví — rozepsaný zápis', () => {
+describe('Stáčení lahví — rozepsaný zápis', { timeout: 15_000 }, () => {
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();

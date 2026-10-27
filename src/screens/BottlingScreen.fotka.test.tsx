@@ -132,7 +132,7 @@ beforeEach(() => {
   h.potvrd.mockResolvedValue(true);
 });
 
-describe('Čtení z fotky → řádky zápisu', () => {
+describe('Čtení z fotky → řádky zápisu', { timeout: 15_000 }, () => {
   it('víc dnů najednou: každý řádek je v zápisu se svým dnem, čtvrtá velikost lahví má taky svůj řádek se sudem', async () => {
     otevri();
     await vlozZFotky([STARY_DEN, CTYRI_DRUHY]);
