@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { poradiPolozekObjednavky } from './poradiPolozek';
+import { poradiPolozekObjednavky, poradiRadkuZadavani, seradVkladanePolozky, indexRadkuZadani, upravMnozstviRadku } from './poradiPolozek';
 
 const obaly = [
   { id: 'k50', kind: 'keg', volume_l: 50, label: ' 50l', sort_order: 1 },
@@ -47,6 +47,35 @@ describe('Pořadí položek objednávky: podle piv a velikosti obalu, jako v kat
     const bez = [{ id: 'k20', kind: 'keg', volume_l: 20, label: '20l' }, { id: 'l1', kind: 'bottle', volume_l: 1, label: '1l' }, { id: 'k5', kind: 'keg', volume_l: 5, label: '5l' }];
     const it2 = [pol('1', 's12', 'l1'), pol('2', 's12', 'k5'), pol('3', 's12', 'k20')];
     expect(poradiPolozekObjednavky(it2, bez, piva).map((i) => i.id)).toEqual(['3', '2', '1']);
+  });
+
+  it('nová objednávka: nejdřív 12° Světlá, v ní 30 l, pak 1,5 l, pak 1 l', () => {
+    const radky = [
+      { beerId: 's11', pkgId: 'k30', qty: '2' },
+      { beerId: 's12', pkgId: 'p1', qty: '5' },
+      { beerId: 's12', pkgId: 'k30', qty: '1' },
+      { beerId: 's12', pkgId: 'p15', qty: '5' },
+    ];
+    expect(poradiRadkuZadavani(radky, obaly, piva).map((r) => `${r.beerId}:${r.pkgId}`))
+      .toEqual(['s12:k30', 's12:p15', 's12:p1', 's11:k30']);
+    const vlozene = seradVkladanePolozky(
+      radky.map((r) => ({ beer_id: r.beerId, package_id: r.pkgId, beer_name: null, package_label: null, quantity: Number(r.qty) })),
+      obaly,
+      piva,
+    );
+    expect(vlozene.map((r) => `${r.beer_id}:${r.package_id}`)).toEqual(['s12:k30', 's12:p15', 's12:p1', 's11:k30']);
+  });
+
+  it('dva stejné pivo+obal zůstanou dva řádky a úprava množství míří na id, ne na první shodu', () => {
+    const radky = [
+      { id: 'a', beerId: 's12', pkgId: 'k30', qty: '2' },
+      { id: 'b', beerId: 's12', pkgId: 'k30', qty: '5' },
+    ];
+    expect(poradiRadkuZadavani(radky, obaly, piva).map((r) => `${r.id}:${r.qty}`)).toEqual(['a:2', 'b:5']);
+    expect(indexRadkuZadani(radky, 's12', 'k30')).toBe(0);
+    expect(indexRadkuZadani(radky, 's12', 'k30', 'b')).toBe(1);
+    expect(upravMnozstviRadku(radky, 's12', 'k30', 6, 'b').map((r) => `${r.id}:${r.qty}`)).toEqual(['a:2', 'b:6']);
+    expect(upravMnozstviRadku(radky, 's12', 'k30', 3).map((r) => `${r.id}:${r.qty}`)).toEqual(['a:3', 'b:5']);
   });
 
   it('pořadí nezávisí na pořadí z databáze', () => {

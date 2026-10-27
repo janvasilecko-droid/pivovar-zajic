@@ -49,3 +49,74 @@ export function poradiPolozekObjednavky<T extends Polozka>(items: T[], packages:
     return a.id.localeCompare(b.id);
   });
 }
+
+/**
+ * Řádky formuláře nové objednávky. Naklikají se v libovolném pořadí,
+ * do souhrnu i do uložení jdou jako v katalogu: nejdřív druh piva,
+ * v něm obal od největšího (30 l, pak 1,5 l, pak 1 l).
+ */
+export function poradiRadkuZadavani<T extends { beerId: string; pkgId: string }>(
+  rows: T[],
+  packages: Obal[],
+  beers: Pivo[] = [],
+): T[] {
+  const sId = rows.map((r, i) => ({
+    row: r,
+    id: String(i).padStart(6, '0'),
+    beer_id: r.beerId,
+    package_id: r.pkgId,
+    package_label: null as string | null,
+    beer_name: null as string | null,
+  }));
+  return poradiPolozekObjednavky(sId, packages, beers).map((x) => x.row);
+}
+
+/** Řádky těsně před zápisem do order_items — stejné pořadí jako souhrn. */
+export function seradVkladanePolozky<T extends {
+  beer_id?: string | null;
+  package_id?: string | null;
+  beer_name?: string | null;
+  package_label?: string | null;
+}>(rows: T[], packages: Obal[], beers: Pivo[] = []): T[] {
+  const sId = rows.map((r, i) => ({
+    ...r,
+    id: String(i).padStart(6, '0'),
+    beer_id: r.beer_id ?? null,
+    package_id: r.package_id ?? null,
+    package_label: r.package_label ?? null,
+    beer_name: r.beer_name ?? null,
+  }));
+  return poradiPolozekObjednavky(sId, packages, beers).map(({ id: _id, ...rest }) => rest as T);
+}
+
+/**
+ * Najde řádek zadávané objednávky. Když je `radekId`, míří na tenhle řádek
+ * i při duplicitním pivo+obal (text, hlas, zopakovat položky) — ne na první
+ * `findIndex` se stejným beerId a pkgId.
+ */
+export function indexRadkuZadani<T extends { beerId: string; pkgId: string; id?: string }>(
+  rows: T[],
+  beerId: string,
+  pkgId: string,
+  radekId?: string,
+): number {
+  if (radekId) {
+    const i = rows.findIndex((r) => r.id === radekId);
+    if (i >= 0) return i;
+  }
+  return rows.findIndex((r) => r.beerId === beerId && r.pkgId === pkgId);
+}
+
+/** Nastaví počet na konkrétním řádku. Nula a méně řádek smaže. */
+export function upravMnozstviRadku<T extends { beerId: string; pkgId: string; qty: string; id?: string }>(
+  prev: T[],
+  beerId: string,
+  pkgId: string,
+  qty: number,
+  radekId?: string,
+): T[] {
+  const i = indexRadkuZadani(prev, beerId, pkgId, radekId);
+  if (i < 0) return prev;
+  if (qty <= 0) return prev.filter((_, idx) => idx !== i);
+  return prev.map((r, idx) => (idx === i ? { ...r, qty: String(qty) } : r));
+}

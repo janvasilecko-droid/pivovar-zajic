@@ -341,6 +341,26 @@ describe('ruční zadání objednávky', () => {
     expect(h.volba).not.toHaveBeenCalled();
   });
 
+  it('dva stejné řádky z textu: plus v souhrnu mění ten druhý, ne první se stejným pivem', async () => {
+    render(<Orders />);
+    await screen.findByRole('button', { name: /Světlá/ });
+    fireEvent.click(screen.getByRole('button', { name: /^Text$/ }));
+    fireEvent.change(screen.getByPlaceholderText(/Např\./), {
+      target: { value: '2x KEG30 12svetly, 3x KEG30 12svetly' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Rozparsovat a přidat do formuláře/ }));
+
+    const nadpis = await screen.findByText(/Objednávka \(5 ks\)/);
+    const karta = nadpis.closest('.rounded-2xl') as HTMLElement;
+    const pole = () => within(karta).getAllByTitle('Napiš počet ručně') as HTMLInputElement[];
+    expect(pole().map((el) => el.value)).toEqual(['2', '3']);
+
+    const plusy = within(karta).getAllByRole('button', { name: '+' });
+    fireEvent.click(plusy[1]);
+    expect(pole().map((el) => el.value)).toEqual(['2', '4']);
+    expect(screen.getByText(/Objednávka \(6 ks\)/)).toBeTruthy();
+  });
+
   it('stornovaná objednávka se za duplicitu nepočítá', async () => {
     h.DB.orders = [{ ...RESTAURACE_11_10, status: 'storno' }];
     render(<Orders mode="entry_only" />);

@@ -26,6 +26,7 @@ import { orderQuickQtys } from '../components/QuickQtySelect';
 import { BeerTileGrid, BeerTilePanel } from '../components/BeerTileGrid';
 import { nejcastejsiMnozstvi } from '../lib/quickQty';
 import { parseVoiceOrder, parseOrderText, detectOrderNotes, parseDeliveryDayFromText, loadAliasMap, loadPlaceAliasMap, emptyAliasMap, getOrCreatePlace, matchBeerFromHints, matchPackage, normalize, type ParserAliasMap } from '../lib/orderParser';
+import { poradiRadkuZadavani, seradVkladanePolozky, indexRadkuZadani, upravMnozstviRadku } from '../lib/poradiPolozek';
 
 import { slozNavrh } from '../lib/whatsappAmendment';
 
@@ -98,6 +99,19 @@ const PKG_PANEL_ORDER = [0.33, 0.5, 10, 15, 20, 1, 1.5, 30, 50];
 function pkgPanelIndex(p: Package): number {
   const i = PKG_PANEL_ORDER.indexOf(p.volume_l);
   return i === -1 ? 999 : i;
+}
+
+type BeerRowItem = { id: string; beerId: string; pkgId: string; qty: string; placeId?: string; placeNameFree?: string };
+let dalsiRadekId = 1;
+function novyRadek(patch: Partial<Omit<BeerRowItem, 'id'>> = {}): BeerRowItem {
+  return {
+    id: `r${dalsiRadekId++}`,
+    beerId: patch.beerId ?? '',
+    pkgId: patch.pkgId ?? '',
+    qty: patch.qty ?? '',
+    placeId: patch.placeId ?? '',
+    placeNameFree: patch.placeNameFree ?? '',
+  };
 }
 
 export default function Orders({
@@ -195,36 +209,27 @@ export default function Orders({
   const [confirmNextMonth, setConfirmNextMonth] = useState(false);
   const deliveryInFutureMonth = !!deliveryDate && deliveryDate.slice(0, 7) > businessDateISO().slice(0, 7);
   useEffect(() => { setConfirmNextMonth(false); }, [deliveryDate]);
-  type BeerRowItem = { beerId: string; pkgId: string; qty: string; placeId?: string; placeNameFree?: string };
-  const [beerRows, setBeerRows] = useState<BeerRowItem[]>([
-    { beerId: '', pkgId: '', qty: '', placeId: '', placeNameFree: '' },
-    { beerId: '', pkgId: '', qty: '', placeId: '', placeNameFree: '' },
-    { beerId: '', pkgId: '', qty: '', placeId: '', placeNameFree: '' },
-    { beerId: '', pkgId: '', qty: '', placeId: '', placeNameFree: '' },
-  ]);
-  // 🍺 Změna množství u dlaždice piva (obal + počet ks) — jeden řádek na (pivo, obal)
-  function setPkgQty(beerId: string, pkgId: string, delta: number) {
+  const [beerRows, setBeerRows] = useState<BeerRowItem[]>(() => Array.from({ length: 4 }, () => novyRadek()));
+  // 🍺 Změna množství u dlaždice piva (obal + počet ks). `radekId` z souhrnu
+  // míří na konkrétní řádek — po textu/hlasu můžou být duplicity beer+pkg.
+  function setPkgQty(beerId: string, pkgId: string, delta: number, radekId?: string) {
     setBeerRows((prev) => {
-      const i = prev.findIndex((r) => r.beerId === beerId && r.pkgId === pkgId);
+      const i = indexRadkuZadani(prev, beerId, pkgId, radekId);
       if (i >= 0) {
         const next = Math.max(0, Number(prev[i].qty || 0) + delta);
-        if (next <= 0) return prev.filter((_, idx) => idx !== i);
-        return prev.map((r, idx) => (idx === i ? { ...r, qty: String(next) } : r));
+        return upravMnozstviRadku(prev, beerId, pkgId, next, prev[i].id);
       }
       if (delta <= 0) return prev;
-      return [...prev, { beerId, pkgId, qty: String(delta), placeId, placeNameFree }];
+      return [...prev, novyRadek({ beerId, pkgId, qty: String(delta), placeId, placeNameFree })];
     });
   }
-  // 🍺 Nastavení přesného počtu (z předdefinovaných rychlých voleb) — jednoznačný počet ks
-  function setPkgAbsolute(beerId: string, pkgId: string, qty: number) {
+  // 🍺 Nastavení přesného počtu (z předdefinovaných rychlých voleb)
+  function setPkgAbsolute(beerId: string, pkgId: string, qty: number, radekId?: string) {
     setBeerRows((prev) => {
-      const i = prev.findIndex((r) => r.beerId === beerId && r.pkgId === pkgId);
-      if (i >= 0) {
-        if (qty <= 0) return prev.filter((_, idx) => idx !== i);
-        return prev.map((r, idx) => (idx === i ? { ...r, qty: String(qty) } : r));
-      }
+      const i = indexRadkuZadani(prev, beerId, pkgId, radekId);
+      if (i >= 0) return upravMnozstviRadku(prev, beerId, pkgId, qty, prev[i].id);
       if (qty <= 0) return prev;
-      return [...prev, { beerId, pkgId, qty: String(qty), placeId, placeNameFree }];
+      return [...prev, novyRadek({ beerId, pkgId, qty: String(qty), placeId, placeNameFree })];
     });
   }
 
@@ -273,6 +278,13 @@ export default function Orders({
   // malých sudů níž (lib/vlastniSudy.ts).
   const [note, setNote] = useState('');
   const filledBeerRows = beerRows.filter((r) => r.beerId && r.pkgId && Number(r.qty) > 0);
+  // Souhrn i uložení: nejdřív druh piva, v něm obal od největšího.
+  // klicSudu = id řádku — duplicitní pivo+obal se v souhrnu neslepí.
+  const radkyObjednavky = poradiRadkuZadavani(
+    filledBeerRows.map((r) => ({ ...r, klicSudu: r.id })),
+    packages,
+    beers,
+  );
   // 🛢️ Volné malé sudy rozdělené po řádcích zadávané objednávky — od
   // nejsilnějšího piva (lib/maleSudy.ts rozdelMaleSudyVObjednavce).
   // Odběratel řádku (do mřížky se píše i pro víc hospod naráz) — kdo má
@@ -281,7 +293,7 @@ export default function Orders({
     || placeNameFree || places.find((p) => p.id === placeId)?.name || '';
   const prideleniSudu = rozdelMaleSudyVObjednavce(
     maleSudy.souhrn,
-    filledBeerRows.map((r, i) => ({ klic: String(i), pkgId: vlastniSudyOdberatele(odberatelRadku(r), note) ? null : r.pkgId, qty: Number(r.qty) || 0, sila: silaPodleId.get(r.beerId) ?? 0 })),
+    filledBeerRows.map((r) => ({ klic: r.id, pkgId: vlastniSudyOdberatele(odberatelRadku(r), note) ? null : r.pkgId, qty: Number(r.qty) || 0, sila: silaPodleId.get(r.beerId) ?? 0 })),
   );
 
   // Dvakrát totéž pivo ve stejném obalu pro TÉHOŽ odběratele (lib/zdvojenePolozky.ts).
@@ -536,7 +548,7 @@ export default function Orders({
       createdIds.push(newOrder.id);
       oznacVlastniObjednavku(newOrder.id);
 
-      const rows = data.items.map((i) => {
+      const rows = seradVkladanePolozky(data.items.map((i) => {
         const beer = beers.find((b) => b.id === i.beerId);
         const pkg = packages.find((p) => p.id === i.pkgId);
         return {
@@ -547,7 +559,7 @@ export default function Orders({
           package_label: pkg?.label || null,
           quantity: i.qty,
         };
-      });
+      }), packages, beers);
 
       const { error: itemsErr } = await supabase.from('order_items').insert(rows);
       if (itemsErr) throw new Error(itemsErr.message);
@@ -804,8 +816,9 @@ export default function Orders({
         };
       });
 
-      if (rows.length > 0) {
-        const { error: itemsErr } = await supabase.from('order_items').insert(rows);
+      const serazeneRadky = seradVkladanePolozky(rows, packages, beers);
+      if (serazeneRadky.length > 0) {
+        const { error: itemsErr } = await supabase.from('order_items').insert(serazeneRadky);
         if (itemsErr) throw new Error(itemsErr.message);
       }
 
@@ -1127,8 +1140,9 @@ export default function Orders({
         let cursor = 0;
         for (const p of parsed) {
           while (cursor < rows.length && (rows[cursor].beerId || rows[cursor].pkgId || rows[cursor].qty)) cursor++;
-          if (cursor >= rows.length) rows.push({ beerId: '', pkgId: '', qty: '', placeId: '', placeNameFree: '' });
+          if (cursor >= rows.length) rows.push(novyRadek());
           rows[cursor] = {
+            ...rows[cursor],
             beerId: p.beer_id ?? '',
             pkgId: p.package_id ?? '',
             qty: p.quantity != null ? String(p.quantity) : '',
@@ -1222,11 +1236,11 @@ export default function Orders({
           firstPlaceName = group.resolvedName || undefined;
         }
 
-        const itemRows = group.rows.map((r) => {
+        const itemRows = seradVkladanePolozky(group.rows.map((r) => {
           const beer = beers.find((b) => b.id === r.beerId);
           const pkg = packages.find((p) => p.id === r.pkgId);
           return { order_id: order.id, beer_id: r.beerId, beer_name: beer?.name ?? null, package_id: r.pkgId, package_label: pkg?.label ?? null, quantity: Number(r.qty) };
-        });
+        }), packages, beers);
 
         const { error: itemErr } = await supabase.from('order_items').insert(itemRows);
         if (itemErr) throw new Error(itemErr.message);
@@ -1255,7 +1269,7 @@ export default function Orders({
           reminderDate.setDate(reminderDate.getDate() - 2); // 48 hodin předem
           const reminderDateTime = reminderDate.toISOString().slice(0, 16);
           const placeName = placeNameFree || places.find(p => p.id === placeId)?.name || 'Neznámý odběratel';
-          const itemsSummary = filledBeerRows.map(r => {
+          const itemsSummary = poradiRadkuZadavani(filledBeerRows, packages, beers).map(r => {
             const beer = beers.find(b => b.id === r.beerId);
             const pkg = packages.find(p => p.id === r.pkgId);
             return `${beer?.name ?? '?'} ${pkg?.volume_l ?? '?'}L × ${r.qty}ks`;
@@ -1297,7 +1311,7 @@ export default function Orders({
               );
               if (!already) {
                 const placeNameWk = placeNameFree || places.find((p) => p.id === placeId)?.name || 'Neznámý odběratel';
-                const itemsSummaryWk = filledBeerRows.map((r) => {
+                const itemsSummaryWk = poradiRadkuZadavani(filledBeerRows, packages, beers).map((r) => {
                   const beer = beers.find((b) => b.id === r.beerId);
                   const pkg = packages.find((p) => p.id === r.pkgId);
                   return `${beer?.name ?? '?'} ${pkg?.volume_l ?? '?'}L × ${r.qty}ks`;
@@ -1348,7 +1362,7 @@ export default function Orders({
 
   /** Dokončí formulář po vytvoření objednávky (vyčistí položky a znovu načte data) */
   function finishOrderForm() {
-    setBeerRows(Array.from({ length: 4 }, () => ({ beerId: '', pkgId: '', qty: '', placeId: '', placeNameFree: '' })));
+    setBeerRows(Array.from({ length: 4 }, () => novyRadek()));
     setNote(''); setDeliveryDate(''); setDeliveryDay(''); setErr(null);
     setFlash(true); setTimeout(() => setFlash(false), 800);
     setWeekKey(isoWeekKey(deliveryDate || date));
@@ -1753,10 +1767,10 @@ export default function Orders({
       }).select().single();
       if (error || !newOrder) return;
       oznacVlastniObjednavku(newOrder.id);
-      const rows = its.map((i) => ({
+      const rows = seradVkladanePolozky(its.map((i) => ({
         order_id: newOrder.id, beer_id: i.beer_id, beer_name: i.beer_name,
         package_id: i.package_id, package_label: i.package_label, quantity: i.quantity,
-      }));
+      })), packages, beers);
       await supabase.from('order_items').insert(rows);
       setWeekKey(isoWeekKey(today));
       setFlash(true); setTimeout(() => setFlash(false), 800);
@@ -1862,8 +1876,9 @@ export default function Orders({
         let cursor = 0;
         for (const p of parsed) {
           while (cursor < next.length && (next[cursor].beerId || next[cursor].pkgId || next[cursor].qty)) cursor++;
-          if (cursor >= next.length) { next.push({ beerId: '', pkgId: '', qty: '' }); }
+          if (cursor >= next.length) { next.push(novyRadek()); }
           next[cursor] = {
+            ...next[cursor],
             beerId: p.beer_id ?? '',
             pkgId: p.package_id ?? '',
             qty: p.quantity != null ? String(p.quantity) : '',
@@ -1897,8 +1912,9 @@ export default function Orders({
       let cursor = 0;
       for (const p of parsed) {
         while (cursor < next.length && (next[cursor].beerId || next[cursor].pkgId || next[cursor].qty)) cursor++;
-        if (cursor >= next.length) next.push({ beerId: '', pkgId: '', qty: '', placeId: '', placeNameFree: '' });
+        if (cursor >= next.length) next.push(novyRadek());
         next[cursor] = {
+          ...next[cursor],
           beerId: p.beer_id ?? '',
           pkgId: p.package_id ?? '',
           qty: p.quantity != null ? String(p.quantity) : '',
@@ -2045,7 +2061,7 @@ export default function Orders({
                       <button
                         type="button"
                         onClick={() => {
-                          const newRows: BeerRowItem[] = lastItems.map((it) => ({
+                          const newRows: BeerRowItem[] = lastItems.map((it) => novyRadek({
                             beerId: it.beer_id || '',
                             pkgId: it.package_id || '',
                             qty: String(it.quantity || ''),
@@ -2053,7 +2069,7 @@ export default function Orders({
                             placeNameFree: placeNameFree,
                           }));
                           while (newRows.length < 5) {
-                            newRows.push({ beerId: '', pkgId: '', qty: '', placeId: '', placeNameFree: '' });
+                            newRows.push(novyRadek({ placeId, placeNameFree }));
                           }
                           setBeerRows(newRows);
                         }}
@@ -2156,11 +2172,10 @@ export default function Orders({
             onSelect={(b) => setExpandedBeerId(b.id)}
             summaryFor={(b) => {
               const rows = beerRows.filter((r) => r.beerId === b.id && Number(r.qty) > 0);
-              // Detailní rozpis podle obalů (např. "6×1,5 3×30 1×50"), ne jen
+              // Rozpis podle obalů od největšího (např. "1×50 3×30 6×1,5"), ne jen
               // celkový počet — ať je na dlaždici hned vidět, co přesně je v
               // objednávce, bez nutnosti klikat dovnitř.
-              const detail = [...rows]
-                .sort((a, c) => (packages.find((p) => p.id === a.pkgId)?.volume_l ?? 0) - (packages.find((p) => p.id === c.pkgId)?.volume_l ?? 0))
+              const detail = poradiRadkuZadavani(rows, packages, beers)
                 .map((r) => {
                   const vol = packages.find((p) => p.id === r.pkgId)?.volume_l;
                   return `${r.qty}×${vol != null ? vol.toLocaleString('cs-CZ') : '?'}`;
@@ -2186,9 +2201,9 @@ export default function Orders({
                 const volneSudy = volneProObjednavku(maleSudy.souhrn, p.id);
                 const zadanoVObalu = beerRows.filter((r) => r.pkgId === p.id).reduce((sum, r) => sum + (Number(r.qty) || 0), 0);
                 let kryto = 0; let chybi = 0;
-                filledBeerRows.forEach((r, i) => {
+                filledBeerRows.forEach((r) => {
                   if (r.beerId !== expandedBeer.id || r.pkgId !== p.id) return;
-                  const x = prideleniSudu.get(String(i));
+                  const x = prideleniSudu.get(r.id);
                   if (x) { kryto += x.kryto; chybi += x.chybi; }
                 });
                 const sudyRadku = chybi > 0 ? { kryto, chybi } : undefined;
@@ -2320,24 +2335,24 @@ export default function Orders({
                 <ClipboardList className="ikona-text" /> Objednávka ({filledBeerRows.reduce((s, r) => s + Number(r.qty || 0), 0)} ks)
               </div>
               <ul className="space-y-1.5">
-                {filledBeerRows.map((r, i) => {
+                {radkyObjednavky.map((r) => {
                   const beer = beers.find((b) => b.id === r.beerId);
                   const pkg = packages.find((p) => p.id === r.pkgId);
                   // Malé sudy: část bez sudu oranžově, celé bez sudu červeně.
-                  const sudy = prideleniSudu.get(String(i));
+                  const sudy = prideleniSudu.get(r.klicSudu);
                   return (
-                    <li key={`${r.beerId}-${r.pkgId}-${i}`} className={`flex items-center justify-between gap-2 ${sudy && sudy.chybi > 0 ? 'flex-wrap' : ''} rounded px-2.5 py-1.5 border ${tridaRadkuSudu(sudy, 'bg-neutral-50 dark:bg-neutral-900/60 border-neutral-200/70 dark:border-neutral-700')}`}>
+                    <li key={r.id} className={`flex items-center justify-between gap-2 ${sudy && sudy.chybi > 0 ? 'flex-wrap' : ''} rounded px-2.5 py-1.5 border ${tridaRadkuSudu(sudy, 'bg-neutral-50 dark:bg-neutral-900/60 border-neutral-200/70 dark:border-neutral-700')}`}>
                       <button
                         type="button"
                         onClick={() => setExpandedBeerId(expandedBeerId === r.beerId ? null : r.beerId)}
                         className="flex items-center gap-1.5 text-xs font-bold text-neutral-800 dark:text-neutral-100 text-left truncate"
                         title="Klikni pro úpravu v dlaždici"
                       >
+                        <span className="truncate">{beerName(beer)} · {formatPackageLabel(pkg?.label)}</span>
                         <span className="shrink-0">{r.qty}×</span>
-                        <span className="truncate">{formatPackageLabel(pkg?.label)} · {beerName(beer)}</span>
                       </button>
                       <div className="flex items-center gap-1 shrink-0">
-                        <button type="button" onClick={() => setPkgQty(r.beerId, r.pkgId, -1)} className="btn-pocet disabled:opacity-30" disabled={Number(r.qty) <= 1}>−</button>
+                        <button type="button" onClick={() => setPkgQty(r.beerId, r.pkgId, -1, r.id)} className="btn-pocet disabled:opacity-30" disabled={Number(r.qty) <= 1}>−</button>
                         <input
                           type="number" onWheel={(e) => e.currentTarget.blur()}
                           min={0}
@@ -2346,14 +2361,14 @@ export default function Orders({
                           placeholder="0"
                           onChange={(e) => {
                             const v = e.target.value.replace(/[^0-9]/g, '');
-                            if (v === '') { setPkgAbsolute(r.beerId, r.pkgId, 0); return; }
-                            setPkgAbsolute(r.beerId, r.pkgId, Number(v));
+                            if (v === '') { setPkgAbsolute(r.beerId, r.pkgId, 0, r.id); return; }
+                            setPkgAbsolute(r.beerId, r.pkgId, Number(v), r.id);
                           }}
                           className="w-14 h-10 text-center text-base font-black text-neutral-800 dark:text-neutral-100 bg-white dark:bg-neutral-900/60 border-2 border-amber-200 dark:border-neutral-700 rounded-xl"
                           title="Napiš počet ručně"
                         />
-                        <button type="button" onClick={() => setPkgQty(r.beerId, r.pkgId, 1)} className="btn-pocet">+</button>
-                        <button type="button" onClick={() => setPkgQty(r.beerId, r.pkgId, -Number(r.qty))} className="w-10 h-10 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-black text-xl transition select-none tap" title="Odebrat položku" aria-label="Odebrat položku"><X size={18} /></button>
+                        <button type="button" onClick={() => setPkgQty(r.beerId, r.pkgId, 1, r.id)} className="btn-pocet">+</button>
+                        <button type="button" onClick={() => setPkgQty(r.beerId, r.pkgId, -Number(r.qty), r.id)} className="w-10 h-10 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-black text-xl transition select-none tap" title="Odebrat položku" aria-label="Odebrat položku"><X size={18} /></button>
                       </div>
                       <MaleSudyRadek prideleni={sudy} obal={formatPackageLabel(pkg?.label)} />
                     </li>
@@ -2428,7 +2443,7 @@ export default function Orders({
                 <MessageCircle size={14} /> {saving ? 'Ukládám…' : 'Vytvořit a odeslat na WhatsApp'}
               </button>
 
-              <button type="button" className="btn-ghost !rounded text-xs" onClick={() => { setBeerRows(Array.from({ length: 4 }, () => ({ beerId: '', pkgId: '', qty: '', placeId: '', placeNameFree: '' }))); setExpandedBeerId(null); }}>
+              <button type="button" className="btn-ghost !rounded text-xs" onClick={() => { setBeerRows(Array.from({ length: 4 }, () => novyRadek())); setExpandedBeerId(null); }}>
                 <Trash2 className="ikona-text" /> Vymazat vše
               </button>
             </div>
@@ -3111,11 +3126,11 @@ export default function Orders({
                 }).select().single();
                 if (error) throw new Error(error.message);
                 oznacVlastniObjednavku(order.id);
-                const itemRows = rows.map((i) => {
+                const itemRows = seradVkladanePolozky(rows.map((i) => {
                   const b = beers.find((x) => x.id === i.beer_id);
                   const p = packages.find((x) => x.id === i.package_id);
                   return { order_id: order.id, beer_id: i.beer_id, beer_name: b?.name ?? null, package_id: i.package_id, package_label: p?.label ?? null, quantity: i.quantity };
-                });
+                }), packages, beers);
                 const { error: itemErr } = await supabase.from('order_items').insert(itemRows);
                 if (itemErr) throw new Error(itemErr.message);
                 created.push(order.id);
@@ -3159,7 +3174,7 @@ export default function Orders({
               if (meta.note) {
                 await supabase.from('orders').update({ note: meta.note }).eq('id', orderId);
               }
-              const { error: itemErr } = await supabase.from('order_items').insert(rows);
+              const { error: itemErr } = await supabase.from('order_items').insert(seradVkladanePolozky(rows, packages, beers));
               if (itemErr) throw new Error(itemErr.message);
               // 🚰 Rezervace výčepu — spáruj s existující objednávkou (orderId)
               void autoReserveTapIfNeeded(meta.placeName, targetDate, meta.note, orderId);
