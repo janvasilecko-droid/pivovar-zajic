@@ -91,8 +91,8 @@ describe('WhatsAppOrderReviewModal — fotka (reprodukce pádu)', () => {
       media_url: 'https://xyz.supabase.co/storage/v1/object/public/whatsapp-media/incoming/wa-1.jpg',
     });
 
-    await waitFor(() => expect(screen.getByText('Parsovat ručně')).toBeTruthy());
-    fireEvent.click(screen.getByText('Parsovat ručně'));
+    await waitFor(() => expect(screen.getByText('Znovu parsovat')).toBeTruthy());
+    fireEvent.click(screen.getByText('Znovu parsovat'));
     // Po parsování se objeví rozparsované informace — nesmí to spadnout.
     await waitFor(() => expect(screen.getByText('AI rozpoznalo z objednávky')).toBeTruthy());
     // PlaceCombobox zobrazí odběratele v inputu (hodnota, ne prostý text).
@@ -115,8 +115,8 @@ describe('WhatsAppOrderReviewModal — fotka (reprodukce pádu)', () => {
       media_url: 'https://xyz.supabase.co/storage/v1/object/public/whatsapp-media/incoming/wa-2.jpg',
     });
 
-    await waitFor(() => expect(screen.getByText('Parsovat ručně')).toBeTruthy());
-    fireEvent.click(screen.getByText('Parsovat ručně'));
+    await waitFor(() => expect(screen.getByText('Znovu parsovat')).toBeTruthy());
+    fireEvent.click(screen.getByText('Znovu parsovat'));
     await waitFor(() =>
       expect(screen.getByText(/AI čtení selhalo/)).toBeTruthy()
     );

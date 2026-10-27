@@ -71,7 +71,7 @@ describe('WhatsAppOrderReviewModal — stav "error" po neúspěšném AI čtení
     expect(screen.getByText(/Čtení trvalo moc dlouho/)).toBeTruthy();
     expect(screen.queryByText(/AI request timed out/)).toBeNull();
     expect(screen.queryByText('Zpracovává se...')).toBeNull();
-    expect(screen.getByText('Zkusit znovu')).toBeTruthy();
+    expect(screen.getByText('Znovu parsovat')).toBeTruthy();
   });
 
   it('kliknutí na "Zkusit znovu" spustí AI čtení znovu', async () => {
@@ -86,10 +86,10 @@ describe('WhatsAppOrderReviewModal — stav "error" po neúspěšném AI čtení
       parsed_items: [],
       parsed_raw_text: null,
     });
-    await waitFor(() => expect(screen.getByText('Zkusit znovu')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('Znovu parsovat')).toBeTruthy());
     const parseMock = parseWhatsAppOrderMessageWithAI as unknown as ReturnType<typeof vi.fn>;
     parseMock.mockClear();
-    fireEvent.click(screen.getByText('Zkusit znovu'));
+    fireEvent.click(screen.getByText('Znovu parsovat'));
     await waitFor(() => expect(parseMock).toHaveBeenCalled());
   });
 
@@ -126,7 +126,6 @@ describe('WhatsAppOrderReviewModal — stav "error" po neúspěšném AI čtení
       parsed_raw_text: null,
     });
     await waitFor(() => expect(screen.getByText('Zpracovává se...')).toBeTruthy());
-    expect(screen.queryByText('Parsovat ručně')).toBeNull();
-    expect(screen.queryByText('Zkusit znovu')).toBeNull();
+    expect((screen.getByText('Znovu parsovat').closest('button') as HTMLButtonElement).disabled).toBe(true);
   });
 });

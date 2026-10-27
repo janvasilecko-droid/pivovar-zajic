@@ -1,15 +1,11 @@
-// Pořadí oken v kontrole WhatsApp objednávky (14. 10. 2026, majitel:
-// „Nová objednávka WhatsApp, čas — dej úplně dolů, to nepotřebuju vidět,
-// zajímá mě, jestli je to parsovaný, přečtený a ty data“ a „ať je nahoře
-// vidět ty data přečtený, nahoře načíst znova / znova parsovat“).
-//
-// Nahoře: stavový pruh (rozparsováno + kontrola čtení v kostce + Přečíst
-// znovu) → rozpoznaná data → podrobná kontrola čtení. Úplně dole (pod „Jak to
-// funguje?“): karta s odesílatelem, časem přijetí a typem zprávy.
+// Pořadí oken v kontrole WhatsApp objednávky.
+// První obrazovka: objednatel, položky, den závozu, originál, Schválit,
+// Znovu parsovat, Znovu načíst. V Další: skóre, návod, UUID, ignorovat.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, within, fireEvent } from '@testing-library/react';
 import { WhatsAppOrderReviewModal } from './WhatsAppOrderReviewModal';
 import { parseWhatsAppOrderMessageWithAI } from '../lib/whatsappParser';
+import { fetchWhatsAppMessage } from '../lib/whatsappApi';
 
 vi.mock('../lib/useMaleSudy', () => ({
   useMaleSudy: () => ({ zasoba: {}, nacteno: true, chybiMigrace: false, ulozit: async () => null }),
@@ -26,6 +22,7 @@ vi.mock('../lib/supabase', () => {
 vi.mock('../lib/whatsappApi', () => ({
   ignoreWhatsAppMessage: vi.fn().mockResolvedValue(undefined),
   updateWhatsAppParsedData: vi.fn().mockResolvedValue(undefined),
+  fetchWhatsAppMessage: vi.fn().mockResolvedValue(null),
 }));
 vi.mock('../lib/whatsappParser', () => ({
   parseWhatsAppOrderMessageWithAI: vi.fn().mockResolvedValue({
@@ -62,10 +59,11 @@ function jeZa(a: Element, b: Element): boolean {
 const PARSOVANA = {
   id: 'poradi-1',
   sender_name: 'Objednávky pivovar',
-  message_text: '2x 12° 30l',
+  message_text: 'Seeberg čtvrtek\n2x 12° 30l',
   message_type: 'text',
   status: 'parsed',
   created_at: '2026-10-14T07:50:00+00:00',
+  parsed_place_name: 'Seeberg',
   parsed_items: [
     { qty: 2, degree: '12°', beer_name: 'Světlý ležák 12°', package_label: 'KEG 30l', raw_line: '2x 12° 30l' },
   ],
@@ -78,59 +76,58 @@ describe('WhatsAppOrderReviewModal — pořadí oken', () => {
     window.confirm = vi.fn(() => true);
   });
 
-  it('nahoře stav → rozpoznaná data → podrobná kontrola čtení, karta zprávy až úplně dole', async () => {
+  it('na první obrazovce je lístek, originál, schválit, znovu parsovat a znovu načíst', async () => {
     const { container } = renderModal(PARSOVANA);
 
     await waitFor(() => expect(screen.getByText(/AI rozpoznalo z objednávky/)).toBeTruthy());
 
+    expect(screen.getByText('Odběratel')).toBeTruthy();
+    expect(screen.getByText('Den závozu')).toBeTruthy();
+    expect(screen.getByText('Položky objednávky')).toBeTruthy();
+    expect(screen.getByText('Originál zprávy')).toBeTruthy();
+    expect(screen.getAllByText(/Seeberg čtvrtek/).length).toBeGreaterThan(0);
+    expect(screen.getByText('Schválit a odeslat do objednávek')).toBeTruthy();
+    expect(screen.getByText('Znovu parsovat')).toBeTruthy();
+    expect(screen.getByText('Znovu načíst')).toBeTruthy();
+
+    const dalsi = container.querySelector('[data-dalsi]') as HTMLElement;
     const stav = container.querySelector('[data-stav-zpracovani]') as HTMLElement;
     const karta = container.querySelector('[data-info-o-zprave]') as HTMLElement;
-    expect(stav).toBeTruthy();
-    expect(karta).toBeTruthy();
+    expect(dalsi).toBeTruthy();
+    expect(dalsi.contains(stav)).toBe(true);
+    expect(dalsi.contains(karta)).toBe(true);
+    expect(within(dalsi).getByText('Jak to funguje?')).toBeTruthy();
+    expect(within(karta).getByText('UUID zprávy')).toBeTruthy();
+    expect(within(karta).getByText('poradi-1')).toBeTruthy();
 
-    // „Rozparsováno AI“ je v pruhu nahoře, ne v kartě dole.
-    expect(within(stav).getByText(/Rozparsováno AI/)).toBeTruthy();
-    expect(within(karta).queryByText(/Rozparsováno AI/)).toBeNull();
-    expect(within(karta).queryByText('Stav zpracování')).toBeNull();
-
-    const kontrola = screen.getByText(/Podrobné srovnání přepisu|Kontrola čtení — originál vs\. přepis AI/);
     const data = screen.getByText(/AI rozpoznalo z objednávky/);
-    const jakTo = screen.getByText('Jak to funguje?');
-
-    // Data hned pod pruhem, detail kontroly čtení až pod nimi.
-    expect(jeZa(stav, data)).toBe(true);
-    expect(jeZa(data, kontrola)).toBe(true);
-    expect(jeZa(kontrola, jakTo)).toBe(true);
-    // Karta s odesílatelem a časem je až za „Jak to funguje?“ …
-    expect(jeZa(jakTo, karta)).toBe(true);
-    // … a je úplně poslední v těle okna.
-    expect(karta.nextElementSibling).toBeNull();
+    const original = screen.getByText('Originál zprávy');
+    const schvalit = screen.getByText('Schválit a odeslat do objednávek');
+    expect(jeZa(data, schvalit)).toBe(true);
+    expect(jeZa(original, schvalit)).toBe(true);
+    expect(jeZa(schvalit, dalsi)).toBe(true);
   });
 
-  it('ve stavovém pruhu je kontrola čtení v kostce a tlačítko Přečíst znovu (AI)', async () => {
-    const { container } = renderModal(PARSOVANA);
-    await waitFor(() => expect(container.querySelector('[data-stav-zpracovani]')).toBeTruthy());
-
-    const stav = container.querySelector('[data-stav-zpracovani]') as HTMLElement;
-    const souhrn = within(stav).getByText(/Všechny položky sedí/);
-    expect(souhrn).toBeTruthy();
-    // Jediné tlačítko „Přečíst znovu (AI)“ je nahoře, nad daty.
-    const tlacitka = screen.getAllByText('Přečíst znovu (AI)');
-    expect(tlacitka).toHaveLength(1);
-    expect(stav.contains(tlacitka[0])).toBe(true);
-    expect(jeZa(tlacitka[0], screen.getByText(/AI rozpoznalo z objednávky/))).toBe(true);
-  });
-
-  it('Přečíst znovu (AI) nahoře spustí nové čtení', async () => {
-    const { container } = renderModal(PARSOVANA);
-    await waitFor(() => expect(container.querySelector('[data-stav-zpracovani]')).toBeTruthy());
+  it('Znovu parsovat spustí nové čtení', async () => {
+    renderModal(PARSOVANA);
+    await waitFor(() => expect(screen.getByText('Znovu parsovat')).toBeTruthy());
     const cteni = parseWhatsAppOrderMessageWithAI as unknown as ReturnType<typeof vi.fn>;
     cteni.mockClear();
-    fireEvent.click(screen.getByText('Přečíst znovu (AI)'));
+    fireEvent.click(screen.getByText('Znovu parsovat'));
     await waitFor(() => expect(cteni).toHaveBeenCalled());
   });
 
-  it('odesílatel, čas přijetí a typ zprávy zůstávají v kartě dole', async () => {
+  it('Znovu načíst vytáhne zprávu ze serveru', async () => {
+    renderModal(PARSOVANA);
+    await waitFor(() => expect(screen.getByText('Znovu načíst')).toBeTruthy());
+    const nacti = fetchWhatsAppMessage as unknown as ReturnType<typeof vi.fn>;
+    nacti.mockClear();
+    nacti.mockResolvedValue({ ...PARSOVANA });
+    fireEvent.click(screen.getByText('Znovu načíst'));
+    await waitFor(() => expect(nacti).toHaveBeenCalledWith('poradi-1'));
+  });
+
+  it('odesílatel, čas přijetí a typ zprávy zůstávají v kartě v Další', async () => {
     const { container } = renderModal(PARSOVANA);
     await waitFor(() => expect(container.querySelector('[data-info-o-zprave]')).toBeTruthy());
 
@@ -143,13 +140,14 @@ describe('WhatsAppOrderReviewModal — pořadí oken', () => {
     expect(within(karta).getByText(/Text/)).toBeTruthy();
   });
 
-  it('čekající zpráva: nahoře „Čeká na parsování“ + tlačítko Parsovat ručně', async () => {
+  it('čekající zpráva: Znovu parsovat je na první obrazovce, stav v Další', async () => {
     const { container } = renderModal({ ...PARSOVANA, id: 'poradi-2', status: 'pending', parsed_items: [], parsed_raw_text: null });
     await waitFor(() => expect(container.querySelector('[data-stav-zpracovani]')).toBeTruthy());
 
     const stav = container.querySelector('[data-stav-zpracovani]') as HTMLElement;
     expect(within(stav).getByText(/Čeká na parsování/)).toBeTruthy();
-    expect(within(stav).getByText('Parsovat ručně')).toBeTruthy();
+    expect(screen.getByText('Znovu parsovat')).toBeTruthy();
+    expect(screen.queryByText('Parsovat ručně')).toBeNull();
     expect(screen.queryByText('Přečíst znovu (AI)')).toBeNull();
   });
 

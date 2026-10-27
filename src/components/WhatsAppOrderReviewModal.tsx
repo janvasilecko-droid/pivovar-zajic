@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { Beer, Package, Place, supabase } from '../lib/supabase';
-import { WhatsAppIncoming, ignoreWhatsAppMessage, updateWhatsAppParsedData, napojNaObjednavku } from '../lib/whatsappApi';
+import { WhatsAppIncoming, ignoreWhatsAppMessage, updateWhatsAppParsedData, napojNaObjednavku, fetchWhatsAppMessage } from '../lib/whatsappApi';
 import { parseWhatsAppOrderMessageWithAI } from '../lib/whatsappParser';
 import { parseDeliveryDayFromText, loadAliasMap, saveAlias, canLearnBeerAlias, matchBeerFromHints, matchPackage, jeLitrPsanyJakoJedenact, pivoNapsanePodleJmena, savePlaceAlias, normalize, getOrCreatePlace, type ParserAliasMap } from '../lib/orderParser';
 import { matchAgainstCatalog } from '../../supabase/functions/_shared/place-match';
@@ -99,6 +99,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   const [approving, setApproving] = useState(false);
   const [rejecting, setRejecting] = useState(false);
   const [reparsing, setReparsing] = useState(false);
+  const [reloading, setReloading] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [items, setItems] = useState<ReviewItem[]>([]);
   // 📅 Den závozu hned při čtení zprávy (29. 9. 2026) — předvyplní se tím,
@@ -887,8 +888,6 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   // že se pořád čte, ačkoli už dávno spadla a nikdy sama nedoběhne.
   const isError = message.status === 'error';
   const chybaCteniText = srozumitelnaChybaCteni(message.error_message);
-  const parsedItems = message.parsed_items || [];
-  const hasParsedData = parsedItems.length > 0 || message.parsed_place_name || message.parsed_delivery_date;
 
   // Položka bez přiřazeného piva/obalu by se v order_items zapsala s
   // beer_id/package_id = null a mlčky by zmizela ze všech skladových výpočtů
@@ -1258,6 +1257,32 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
       setStatusMessage(srozumitelnaChybaCteni((error as Error).message) || 'Čtení se nepovedlo. Zkuste znovu.');
     } finally {
       setReparsing(false);
+    }
+  };
+
+  /** Znovu načíst uloženou zprávu ze serveru — bez nového AI čtení. Ruční opravy v okně se přepíší tím, co je v databázi. */
+  const handleReload = async () => {
+    if (!message || reloading) return;
+    setReloading(true);
+    setStatusMessage('Načítám zprávu znovu…');
+    try {
+      const fresh = await fetchWhatsAppMessage(message.id);
+      if (!fresh) {
+        setStatusMessage('Zprávu se nepodařilo načíst.');
+        return;
+      }
+      placeTouchedRef.current = false;
+      setPhotoChecked(false);
+      setPrisnyPrekonan(false);
+      setPrevRawText(null);
+      setMsg(fresh);
+      setRebuildKey((k) => k + 1);
+      setStatusMessage('Zpráva načtena znovu ze serveru.');
+    } catch (error) {
+      zalogujANahlas('Chyba při znovunačtení zprávy', error);
+      setStatusMessage('Zprávu se nepodařilo načíst. Zkuste znovu.');
+    } finally {
+      setReloading(false);
     }
   };
 
@@ -1753,85 +1778,16 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
           </div>
         )}
 
-        {/* Stav zpracování — nahoře, ať je na první pohled vidět, že zpráva
-            je rozparsovaná (14. 10. 2026, majitel: „zajímá mě, jestli je to
-            parsovaný, přečtený a ty data“). Pod ním hned následuje kontrola
-            čtení a rozpoznaná data. Odesílatel, čas přijetí a typ zprávy
-            (karta „Nová WhatsApp objednávka“) jsou až úplně dole. */}
-        <div
-          data-stav-zpracovani
-          className={`flex items-center gap-x-3 gap-y-2 flex-wrap rounded border px-3 py-2 text-sm font-semibold ${
-            isParsed || isImported ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-            : isPending ? 'bg-amber-50 border-amber-200 text-amber-800'
-            : isError ? 'bg-rose-50 border-rose-200 text-rose-800'
-            : 'bg-neutral-50 border-neutral-200 text-neutral-700'
-          }`}
-        >
-          {isParsed ? (
-            <span className="flex items-center gap-1.5">
-              <Check size={15} /> Rozparsováno AI
-            </span>
-          ) : isImported ? (
-            <span className="flex items-center gap-1.5">
-              <Check size={15} /> Rozparsováno a importováno do objednávky
-            </span>
-          ) : isPending ? (
-            <span className="flex items-center gap-1.5">
-              <AlertCircle size={15} /> Čeká na parsování
-            </span>
-          ) : isError ? (
-            <span className="flex items-center gap-1.5 min-w-0">
-              <AlertTriangle size={15} className="shrink-0" /> Čtení se nepovedlo{chybaCteniText ? ` — ${chybaCteniText}` : ''}
-            </span>
-          ) : (
-            <span>Zpracovává se...</span>
-          )}
-
-          {/* Přečteno správně? — skóre a počet souhlasících položek hned nahoře,
-              ať se kvůli tomu nemusí scrollovat k podrobné kontrole. */}
-          {readback.items.length > 0 && (
-            <span data-souhrn-cteni className="flex items-center gap-2 flex-wrap font-normal">
-              {souhrnShodyCteni}
-            </span>
-          )}
-
-          {(isPending || isError) && (
-            <button
-              onClick={handleReparse}
-              disabled={reparsing || loading}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-sky-700 text-white text-xs font-semibold hover:bg-sky-800 disabled:opacity-50 disabled:cursor-not-allowed tap"
-              title="Ručně spustit AI parsování této zprávy"
-            >
-              {reparsing ? <RefreshCw size={13} className="animate-spin" /> : <RefreshCw size={13} />}
-              {reparsing ? 'Parsuji...' : isError ? 'Zkusit znovu' : 'Parsovat ručně'}
-            </button>
-          )}
-
-          {/* Přečíst znovu: nahoře, kdyby bylo potřeba (14. 10. 2026, majitel:
-              „ať tam nahoře je načíst znova, nebo znova parsovat“). */}
-          {!isPending && !isError && (isParsed || hasParsedData) && (
-            <button
-              onClick={handleReparse}
-              disabled={reparsing || loading}
-              className="ml-auto px-2.5 py-1 rounded bg-sky-50 text-sky-700 text-xs font-medium hover:bg-sky-100 disabled:opacity-50 flex items-center gap-1.5 tap"
-              title="Znovu spustit AI čtení zprávy — nový přepis nahradí ten stávající (a porovná se s ním)"
-            >
-              {reparsing ? <RefreshCw size={13} className="animate-spin" /> : <RefreshCw size={13} />}
-              {reparsing ? 'Čtu znovu...' : 'Přečíst znovu (AI)'}
-            </button>
-          )}
-        </div>
-
         {/* Fotka, která nedorazila — tohle je potřeba vědět hned, ne až dole. */}
         {isImage && !message.media_url && (
-          <div className="text-xs text-neutral-500 -mt-3 flex items-center gap-1">
+          <div className="text-xs text-neutral-500 flex items-center gap-1">
             <ImageIcon size={14} /> Fotka — médium nebylo doručeno (webhook neposlal mediaUrl).
           </div>
         )}
 
-        {/* Rozparsované informace (pokud jsou) */}
-        {hasParsedData && (
-          <div>
+        {/* Lístek vedle originálu — originál musí zůstat vidět, ne v Další. */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+          <div className="order-2 lg:order-1 min-w-0">
             <div className="text-sm font-medium mb-2 flex items-center gap-2">
               <Check size={16} className="text-emerald-600" />
               AI rozpoznalo z objednávky
@@ -1921,8 +1877,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                 </label>
               )}
 
-              {items.length > 0 && (
-                <div>
+              <div>
                   <div className="flex items-center gap-1 text-sm text-neutral-600 mb-1">
                     Položky objednávky
                     <span className="text-xs text-amber-700">(zkontrolujte a opravte přiřazení piva/obalu)</span>
@@ -2092,27 +2047,153 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                       <Plus size={14} /> Přidat řádek
                     </button>
                   </div>
-                </div>
-              )}
+              </div>
+            </div>
+          </div>
+          <div className="order-1 lg:order-2 min-w-0 border rounded p-3 bg-sky-50/50 space-y-3">
+            {isImage && message.media_url && (
+              <div className="h-[36vh] sm:h-72 rounded overflow-hidden border border-sky-200">
+                <PhotoReviewPane
+                  photos={[{ dataUrl: message.media_url, name: 'Fotka objednávky' }]}
+                  activeIndex={0}
+                  onChangeIndex={() => {}}
+                />
+              </div>
+            )}
+            {originalMessageBlock}
+          </div>
+        </div>
+
+        {statusMessage && (
+          <div className={`p-3 rounded ${/chyba|nepovedlo|selhalo/i.test(statusMessage) ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700'}`}>
+            {statusMessage}
+          </div>
+        )}
+
+        {isImported ? (
+          <div className="p-3 rounded bg-emerald-50 border border-emerald-200 text-sm text-emerald-800">
+            <CheckCircle2 className="ikona-text" /> Zpráva už byla importována do objednávky — prohlížíte archiv originálu a kontrolu čtení.
+            {message.readback_checked_at && (
+              <span className="block text-xs text-emerald-700 mt-1">
+                Zkontrolováno {new Date(message.readback_checked_at).toLocaleString('cs-CZ')}
+                {message.readback_checked_by ? ` · ${message.readback_checked_by.slice(0, 8)}` : ''}
+              </span>
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3 pt-2">
+            {isImage && message.media_url && (
+              <button
+                type="button"
+                onClick={() => setPhotoChecked((v) => !v)}
+                className={`self-start flex items-center gap-2 px-3.5 py-2 rounded text-sm font-semibold border transition ${
+                  photoChecked
+                    ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                    : 'bg-amber-50 border-amber-300 text-amber-800 animate-pulse'
+                }`}
+              >
+                {photoChecked ? <Check size={16} /> : <Eye size={16} />}
+                {photoChecked ? 'Zkontrolováno — fotka odpovídá přepisu' : 'Zkontrolovat fotku a potvrdit'}
+              </button>
+            )}
+            {prisnyBlokuje && (
+              <div className="p-3 rounded border-2 border-amber-400 bg-amber-50">
+                <p className="text-xs font-black text-amber-950">
+                  <AlertTriangle className="ikona-text" /> Přísný režim: {readback.mismatchCount} z {readback.items.length} položek
+                  {' '}nesouhlasí s originálem, proto je schválení zamčené.
+                </p>
+                <p className="text-[11px] font-bold text-amber-900 mt-1">
+                  Oprav položky, nebo — když jsi objednávku porovnal a je správně — schválení odemkni.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setPrisnyPrekonan(true)}
+                  className="mt-2 px-3 py-2 rounded bg-amber-700 hover:bg-amber-600 text-white font-black text-xs transition min-h-[44px]"
+                >
+                  Zkontroloval jsem to — odemknout schválení
+                </button>
+              </div>
+            )}
+            <div className="flex flex-col sm:flex-row flex-wrap gap-2">
+              <button
+                onClick={() => { void schvalitVzdy(); }}
+                disabled={approving}
+                className="px-6 py-2.5 bg-emerald-700 text-white rounded hover:bg-emerald-800 disabled:opacity-50 flex items-center justify-center gap-2 font-medium min-h-[44px]"
+              >
+                {approving ? <ButtonSpinner /> : <UserCheck size={16} />}
+                {approving ? 'Schvaluji…' : 'Schválit a odeslat do objednávek'}
+              </button>
+              <button
+                type="button"
+                onClick={handleReparse}
+                disabled={reparsing || loading || message.status === 'processing'}
+                className="px-4 py-2.5 rounded bg-sky-700 text-white hover:bg-sky-800 disabled:opacity-50 flex items-center justify-center gap-2 font-medium min-h-[44px]"
+                title="Znovu spustit AI čtení zprávy"
+              >
+                {reparsing ? <RefreshCw size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+                {reparsing ? 'Čtu znovu…' : 'Znovu parsovat'}
+              </button>
+              <button
+                type="button"
+                onClick={() => { void handleReload(); }}
+                disabled={reloading || loading}
+                className="px-4 py-2.5 rounded border border-neutral-300 text-neutral-800 hover:bg-neutral-50 disabled:opacity-50 flex items-center justify-center gap-2 font-medium min-h-[44px]"
+                title="Načíst zprávu znovu ze serveru, bez nového čtení AI"
+              >
+                {reloading ? <RotateCcw size={16} className="animate-spin" /> : <RotateCcw size={16} />}
+                {reloading ? 'Načítám…' : 'Znovu načíst'}
+              </button>
             </div>
           </div>
         )}
 
-        {/* Kontrola čtení: originál vs. přepis AI.
-            Když je originál už nahoře přilepený, detaily jsou schované —
-            jinak se totéž (a stará historie nesouladů) sype dvakrát. */}
-        <details className="border rounded p-4 bg-neutral-50" open={!useFullscreenTextLayout && !useFullscreenPhotoLayout}>
-          <summary className="flex items-center justify-between flex-wrap gap-2 mb-2 cursor-pointer list-none">
-            <div className="text-sm font-medium flex items-center gap-2">
+        <details data-dalsi className="border rounded p-4 bg-neutral-50">
+          <summary className="font-medium text-neutral-800 cursor-pointer">Další</summary>
+          <div className="mt-3 space-y-4">
+        <div
+          data-stav-zpracovani
+          className={`flex items-center gap-x-3 gap-y-2 flex-wrap rounded border px-3 py-2 text-sm font-semibold ${
+            isParsed || isImported ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+            : isPending ? 'bg-amber-50 border-amber-200 text-amber-800'
+            : isError ? 'bg-rose-50 border-rose-200 text-rose-800'
+            : 'bg-neutral-50 border-neutral-200 text-neutral-700'
+          }`}
+        >
+          {isParsed ? (
+            <span className="flex items-center gap-1.5">
+              <Check size={15} /> Rozparsováno AI
+            </span>
+          ) : isImported ? (
+            <span className="flex items-center gap-1.5">
+              <Check size={15} /> Rozparsováno a importováno do objednávky
+            </span>
+          ) : isPending ? (
+            <span className="flex items-center gap-1.5">
+              <AlertCircle size={15} /> Čeká na parsování
+            </span>
+          ) : isError ? (
+            <span className="flex items-center gap-1.5 min-w-0">
+              <AlertTriangle size={15} className="shrink-0" /> Čtení se nepovedlo{chybaCteniText ? ` — ${chybaCteniText}` : ''}
+            </span>
+          ) : (
+            <span>Zpracovává se...</span>
+          )}
+          {readback.items.length > 0 && (
+            <span data-souhrn-cteni className="flex items-center gap-2 flex-wrap font-normal">
+              {souhrnShodyCteni}
+            </span>
+          )}
+        </div>
+
+        <div>
+            <div className="text-sm font-medium flex items-center gap-2 mb-2">
               <Eye size={16} className="text-sky-600" />
-              {useFullscreenTextLayout || useFullscreenPhotoLayout
-                ? 'Podrobné srovnání přepisu'
-                : 'Kontrola čtení — originál vs. přepis AI'}
+              Kontrola čtení — originál vs. přepis AI
             </div>
             {readback.items.length === 0 && (
               <span className="text-xs text-neutral-500">Položky zatím nejsou rozparsované</span>
             )}
-          </summary>
+        </div>
 
           {/* Přísný režim — blokace schválení při nesouladu (#4). U fotoobjednávek
               nemá smysl (originál je jen popisek, ne text k porovnání) — tam
@@ -2125,20 +2206,14 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
             </label>
           )}
 
-          {/* Side-by-side na desktopu, pod sebou na mobilu (#7). U textových
-              objednávek (useFullscreenTextLayout) se originál zobrazuje
-              zvlášť v přilepeném panelu nahoře, tady by byl duplicitně. */}
-          <div className={`grid grid-cols-1 gap-3 ${useFullscreenTextLayout ? '' : 'lg:grid-cols-2'}`}>
-            {!useFullscreenTextLayout && originalMessageBlock}
-
-            <div>
+          <div>
               {/* ⚠️ Přepis s „Nx 11 <stupeň>" je nejistý: ručně psané 1l a 1,5l
                   se tak přečte obojí a čtení často vynechá řádky (12. 10. 2026). */}
               {isImage && /(?:^|\n)\s*\d{1,3}\s*x\s+11\s+\d/i.test(message.parsed_raw_text || '') && (
                 <div data-nejisty-prepis className="mb-2 rounded border border-amber-300 bg-amber-50 p-2 text-sm text-amber-900">
                   Přepis fotky je nejistý — objem „11" je ručně psaný 1l nebo 1,5l a některé řádky mohou chybět.
                   <button type="button" onClick={handleReparse} disabled={reparsing} className="btn-primary !rounded mt-2 w-full min-h-[44px]">
-                    {reparsing ? 'Čtu znovu...' : 'Přečíst fotku znovu (AI)'}
+                    {reparsing ? 'Čtu znovu...' : 'Znovu parsovat'}
                   </button>
                 </div>
               )}
@@ -2156,15 +2231,15 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                   <span className="whitespace-pre-wrap">{message.parsed_raw_text}</span>
                 ) : message.status === 'pending' ? (
                   <span className="text-neutral-400">
-                    Přepis od AI zatím není k dispozici — zpráva se teprve zpracovává. Pokud se tak nestane samo, klepněte na „Parsovat ručně“ výše.
+                    Přepis od AI zatím není k dispozici — zpráva se teprve zpracovává. Pokud se tak nestane samo, klepněte na „Znovu parsovat“.
                   </span>
                 ) : isImage ? (
                   <span className="text-neutral-400">
-                    Tahle zpráva je fotka bez přepisu od AI — byla rozparsovaná v době, kdy se fotky nečetly. Zkontrolujte objednávku podle fotky, případně použijte „Přečíst znovu (AI)".
+                    Tahle zpráva je fotka bez přepisu od AI — byla rozparsovaná v době, kdy se fotky nečetly. Zkontrolujte objednávku podle fotky, případně použijte „Znovu parsovat“.
                   </span>
                 ) : (
                   <span className="text-neutral-400">
-                    Přepis od AI není k dispozici (zpráva rozparsovaná před nasazením kontroly čtení). Použijte „Přečíst znovu (AI)".
+                    Přepis od AI není k dispozici (zpráva rozparsovaná před nasazením kontroly čtení). Použijte „Znovu parsovat“.
                   </span>
                 )}
               </div>
@@ -2174,17 +2249,13 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                   : 'zeleně = čteno z originálu · červeně = AI přidala (není v originálu) · přeškrtnuto = AI přehlédla'}
               </div>
             </div>
-          </div>
 
-          {/* Legenda zvýraznění originálu — u fotky se v originálu nic
-              nezvýrazňuje, protože originál je papír, ne popisek. */}
           {!isImage && (
             <div className="text-xs text-neutral-500 mt-2">
               Zeleně = přesná shoda s originálem, jantarově = částečná shoda (překlepy/pořadí slov). Číslo = položka níže.
             </div>
           )}
 
-          {/* Srovnání s předchozím čtením po „přečti znovu" (#15) */}
           {prevRawText && message.parsed_raw_text && prevRawText !== message.parsed_raw_text && (
             <details className="mt-2 group">
               <summary className="text-xs text-neutral-600 cursor-pointer hover:text-neutral-800 select-none flex items-center gap-1">
@@ -2200,65 +2271,8 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
               </div>
             </details>
           )}
-        </details>
 
-        {/* Informace o stavu */}
-        {statusMessage && (
-          <div className={`p-3 rounded ${/chyba|nepovedlo|selhalo/i.test(statusMessage) ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700'}`}>
-            {statusMessage}
-          </div>
-        )}
-
-        {/* Akce */}
-        {isImported ? (
-          <div className="p-3 rounded bg-emerald-50 border border-emerald-200 text-sm text-emerald-800">
-            <CheckCircle2 className="ikona-text" /> Zpráva už byla importována do objednávky — prohlížíte archiv originálu a kontrolu čtení.
-            {message.readback_checked_at && (
-              <span className="block text-xs text-emerald-700 mt-1">
-                Zkontrolováno {new Date(message.readback_checked_at).toLocaleString('cs-CZ')}
-                {message.readback_checked_by ? ` · ${message.readback_checked_by.slice(0, 8)}` : ''}
-              </span>
-            )}
-          </div>
-        ) : (
-          <div className="flex flex-col gap-3 pt-4 border-t">
-            {isImage && message.media_url && (
-              <button
-                type="button"
-                onClick={() => setPhotoChecked((v) => !v)}
-                className={`self-start flex items-center gap-2 px-3.5 py-2 rounded text-sm font-semibold border transition ${
-                  photoChecked
-                    ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
-                    : 'bg-amber-50 border-amber-300 text-amber-800 animate-pulse'
-                }`}
-              >
-                {photoChecked ? <Check size={16} /> : <Eye size={16} />}
-                {photoChecked ? 'Zkontrolováno — fotka odpovídá přepisu' : 'Zkontrolovat fotku a potvrdit'}
-              </button>
-            )}
-            {/* Přísný režim zamkl schválení. Důvod visel jen v `title`, což
-                na telefonu není nic — obsluha viděla šedé tlačítko a neměla
-                kam klepnout. Teď je důvod vidět a vede z něj cesta ven. */}
-            {prisnyBlokuje && (
-              <div className="mb-3 p-3 rounded border-2 border-amber-400 bg-amber-50">
-                <p className="text-xs font-black text-amber-950">
-                  <AlertTriangle className="ikona-text" /> Přísný režim: {readback.mismatchCount} z {readback.items.length} položek
-                  {' '}nesouhlasí s originálem, proto je schválení zamčené.
-                </p>
-                <p className="text-[11px] font-bold text-amber-900 mt-1">
-                  Oprav položky, nebo — když jsi objednávku porovnal a je správně — schválení odemkni.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setPrisnyPrekonan(true)}
-                  className="mt-2 px-3 py-2 rounded bg-amber-700 hover:bg-amber-600 text-white font-black text-xs transition min-h-[44px]"
-                >
-                  Zkontroloval jsem to — odemknout schválení
-                </button>
-              </div>
-            )}
-            <div className="flex flex-col sm:flex-row gap-3 justify-between">
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 pt-2">
               <button
                 onClick={handleIgnore}
                 disabled={loading}
@@ -2266,7 +2280,6 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
               >
                 Ignorovat zprávu
               </button>
-
               <button
                 onClick={handleReject}
                 disabled={rejecting || loading}
@@ -2275,11 +2288,6 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                 {rejecting ? <ButtonSpinner /> : <X size={16} />}
                 Zamítnout objednávku
               </button>
-
-              {/* ✂️ Rozdělit na dva odběratele — vedle Ignorovat/Zamítnout,
-                  ať je vidět (z provozu 15. 9. 2026: „nevidím to tlačítko,
-                  dej to k tomu ignorovat, zamítnout"). Panel s výběrem
-                  položek a druhého odběratele se rozbalí nahoře u položek. */}
               {!message.amends_order_id && items.length > 1 && !splitEnabled && (
                 <button
                   type="button"
@@ -2292,18 +2300,6 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
               )}
             </div>
 
-            <button
-              onClick={() => { void schvalitVzdy(); }}
-              disabled={approving}
-              className="px-6 py-2.5 bg-emerald-700 text-white rounded hover:bg-emerald-800 disabled:opacity-50 flex items-center gap-2 font-medium"
-            >
-              {approving ? <ButtonSpinner /> : <UserCheck size={16} />}
-              {approving ? 'Schvaluji…' : 'Schválit a odeslat do objednávek'}
-            </button>
-            </div>
-          </div>
-        )}
-
         {/* Informace pro uživatele */}
         <details className="text-sm text-neutral-500 bg-amber-50 p-3 rounded border border-amber-200">
           <summary className="font-medium text-amber-800 cursor-pointer">Jak to funguje?</summary>
@@ -2311,7 +2307,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
             <li>Zkontrolujte originální zprávu/fotku (vlevo) a porovnejte s přepisem AI (vpravo)</li>
             <li><AlertTriangle className="ikona-text" /> = položka se v originálu nenašla, ≈ = částečná shoda, <Check className="ikona-text" /> = přečteno správně</li>
             <li>Čipy u položky ukazují kontrolu množství / objemu / stupně zvlášť</li>
-            <li>Při nesouladu použijte „Přečíst znovu (AI)" nebo opravte položku ručně</li>
+            <li>Při nesouladu použijte „Znovu parsovat“ nebo opravte položku ručně</li>
             <li>Schválte import - objednávka se automaticky vytvoří v systému</li>
             <li>Pokud není objednávka správná, zamítněte ji nebo ignorujte</li>
             <li>Opravené pivo/obal/odběratele si AI pamatuje a příště je pozná sama</li>
@@ -2359,25 +2355,13 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
             </div>
           </div>
 
-          {/* Fotka/příloha — čtení objednávek z fotky: zoomovatelný/posuvný
-              náhled (stejná komponenta jako ruční „Číst z fotky"). Když je
-              foto k dispozici, zobrazí se v napevno přilepeném panelu nahoře
-              (viz níže), tady jen odkazy pro otevření/stažení — jde tak
-              průběžně porovnávat fotku s tím, co se z ní zapsalo (#22,
-              DeepSeek fotky nečte, takže je kontrola objednávky z fotky
-              vždy na člověku). */}
+          <div className="mt-3">
+            <div className="text-sm text-neutral-600">UUID zprávy</div>
+            <div className="font-mono text-xs break-all">{message.id}</div>
+          </div>
+
           {message.media_url && (
-            <div className="mt-3">
-              {!useFullscreenPhotoLayout && (
-                <div className="h-[45vh] sm:h-96 rounded overflow-hidden border border-sky-200 shadow-lg">
-                  <PhotoReviewPane
-                    photos={[{ dataUrl: message.media_url, name: 'Fotka objednávky' }]}
-                    activeIndex={0}
-                    onChangeIndex={() => {}}
-                  />
-                </div>
-              )}
-              <div className="mt-2 flex flex-wrap gap-2">
+            <div className="mt-3 flex flex-wrap gap-2">
                 <a
                   href={message.media_url}
                   target="_blank"
@@ -2394,17 +2378,15 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                 >
                   <Download size={14} /> Stáhnout fotografii
                 </a>
-              </div>
             </div>
           )}
         </div>
+          </div>
+        </details>
       </div>
   );
 
-  // Fotoobjednávka: vlastní fullscreen layout s napevno přilepenou fotkou
-  // nahoře (ne Modal — jeho tělo scrolluje jako celek, což by fotku odneslo
-  // pryč se zbytkem obsahu).
-  if (useFullscreenPhotoLayout && message.media_url) {
+  if (useFullscreenPhotoLayout || useFullscreenTextLayout) {
     return (
       <div className="fixed inset-0 z-50 bg-white flex flex-col animate-fade-in">
         <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200 shrink-0 bg-white">
@@ -2417,40 +2399,6 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
           >
             <X size={18} />
           </button>
-        </div>
-        <div className="h-[42vh] sm:h-[45vh] shrink-0 border-b border-sky-200">
-          <PhotoReviewPane
-            photos={[{ dataUrl: message.media_url, name: 'Fotka objednávky' }]}
-            activeIndex={0}
-            onChangeIndex={() => {}}
-          />
-        </div>
-        <div className="flex-1 min-h-0 overflow-y-auto scrollbar-thin p-4 sm:p-6">
-          {body}
-        </div>
-      </div>
-    );
-  }
-
-  // Textová objednávka: stejný princip jako u fotky — originál zprávy
-  // napevno přilepený nahoře (vlastní scroll uvnitř, když je text dlouhý),
-  // položky a zbytek kontroly se scrollují pod ním.
-  if (useFullscreenTextLayout) {
-    return (
-      <div className="fixed inset-0 z-50 bg-white flex flex-col animate-fade-in">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200 shrink-0 bg-white">
-          <h3 className="font-display font-bold text-base text-neutral-900 tracking-tight"><ShoppingCart className="ikona-text" /> Čtení objednávky</h3>
-          <button
-            onClick={props.onClose}
-            className="w-8 h-8 grid place-items-center rounded text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 transition"
-            title="Zavřít"
-            aria-label="Zavřít"
-          >
-            <X size={18} />
-          </button>
-        </div>
-        <div className="max-h-[38vh] sm:max-h-[42vh] shrink-0 border-b border-sky-200 bg-sky-50/40 p-3 overflow-y-auto scrollbar-thin">
-          {originalMessageBlock}
         </div>
         <div className="flex-1 min-h-0 overflow-y-auto scrollbar-thin p-4 sm:p-6">
           {body}
