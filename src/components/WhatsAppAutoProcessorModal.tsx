@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Beer, Package, Place } from '../lib/supabase';
-import { WhatsAppIncoming, fetchPendingWhatsAppMessages, updateWhatsAppMessageStatus, fetchWhatsAppSenders, isSenderAllowed, fetchRecentWhatsAppMessages, type WhatsAppSender } from '../lib/whatsappApi';
+import { WhatsAppIncoming, fetchPendingWhatsAppMessages, updateWhatsAppMessageStatus, fetchWhatsAppSenders, isSenderAllowed, type WhatsAppSender } from '../lib/whatsappApi';
 import { parseWhatsAppOrderMessageWithAI } from '../lib/whatsappParser';
-import { analyzeReadback, findRepeatedReadbackErrors, findSimilarMessages, type RepeatedReadbackError } from '../lib/whatsappReadback';
+import { analyzeReadback, findSimilarMessages } from '../lib/whatsappReadback';
+import { popisMistaADne, popisPrectenychPolozek, srozumitelnaChybaCteni } from '../lib/cteniObjednavkyZobrazeni';
 import { Modal, Spinner } from './ui';
 import { AlertCircle, AlertTriangle, ArrowDownUp, Check, CheckSquare, Clock, Copy, Download, Filter, MessageSquare, RefreshCw, Square, Trash2, X, XCircle } from 'lucide-react';
 import { zalogujANahlas } from '../lib/chybyHlaseni';
@@ -43,7 +44,6 @@ function formatWaitTime(createdAt: string): string {
 
 export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProps) {
   const [messages, setMessages] = useState<WhatsAppIncoming[]>([]);
-  const [recentMessages, setRecentMessages] = useState<WhatsAppIncoming[]>([]);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [parsedResults, setParsedResults] = useState<Map<string, any>>(new Map());
@@ -88,9 +88,6 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
       const data = await fetchPendingWhatsAppMessages();
       setMessages(data);
       setParsedResults(new Map());
-      // Statistika kontroly čtení z posledních 100 zpráv (#13) + opakované
-      // chyby (#14) + duplicity (#25).
-      fetchRecentWhatsAppMessages(100).then(setRecentMessages).catch(() => {});
     } catch (error) {
       zalogujANahlas('Error loading WhatsApp messages', error);
     } finally {
@@ -105,26 +102,7 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
     return { total: messages.length, parsed: parsed.length, mismatched: mismatched.length };
   }, [messages, parsedResults]);
 
-  // Statistika z posledních 100 zpráv (bez čekajících) — přesnost čtení.
-  const recentStats = useMemo(() => {
-    const done = recentMessages.filter((m) => m.status !== 'pending');
-    let ok = 0;
-    let mismatch = 0;
-    let noItems = 0;
-    for (const m of done) {
-      const rb = analyzeReadback(m);
-      if (rb.items.length === 0) { noItems++; continue; }
-      if (mismatchCountFor(m) === 0) ok++;
-      else mismatch++;
-    }
-    return { total: done.length, ok, mismatch, noItems };
-  }, [recentMessages]);
-
-  // Opakované chyby čtení (#14) a podobné/duplicitní zprávy (#25).
-  const repeatedErrors: RepeatedReadbackError[] = useMemo(
-    () => findRepeatedReadbackErrors(recentMessages.length > 0 ? recentMessages : messages),
-    [recentMessages, messages]
-  );
+  // Podobné/duplicitní zprávy v aktuální frontě — ne historie starých chyb čtení.
   // Zprávy, u kterých AI parsování dřív selhalo — "error" je záměrně bez
   // automatického retry (viz whatsapp-auto-parse), ale ruční hromadné
   // zopakování je pořád rychlejší než proklikávat je jednu po druhé.
@@ -315,12 +293,12 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
   if (!props.isOpen) return null;
 
   return (
-    <Modal open={props.isOpen} onClose={props.onClose} title="Automatické zpracování WhatsApp" wide>
+    <Modal open={props.isOpen} onClose={props.onClose} title="Čtení objednávek z WhatsAppu" wide>
       <div className="space-y-4">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="text-sm text-neutral-600">
             {messages.length > 0
-              ? `${messages.length} zpráv čeká na zpracování`
+              ? `${messages.length} ${messages.length === 1 ? 'zpráva čeká' : 'zpráv čeká'} — klepněte a zkontrolujte místo, den a položky`
               : 'Žádné nové zprávy'}
           </div>
           <div className="flex items-center gap-2">
@@ -337,7 +315,7 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
               disabled={processing || messages.length === 0}
               className="px-3 py-1.5 rounded bg-sky-700 text-white text-sm font-medium hover:bg-sky-800 disabled:opacity-50 disabled:cursor-not-allowed tap"
             >
-              {processing ? 'Zpracovává se...' : 'Zpracovat automaticky'}
+              {processing ? 'Čte se…' : 'Přečíst čekající'}
             </button>
             <button
               onClick={() => processMessages(messages.filter((m) => selectedIds.has(m.id)))}
@@ -388,46 +366,19 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
           </label>
         </div>
 
-        {/* Statistika kontroly čtení (#13) */}
-        {(messages.length > 0 || recentStats.total > 0) && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
-            <div className="rounded bg-neutral-50 border border-neutral-200 p-2 text-center">
-              <div className="text-neutral-500">Čeká na schválení</div>
-              <div className="text-lg font-bold text-neutral-800">{listStats.total}</div>
-            </div>
-            <div className="rounded bg-emerald-50 border border-emerald-200 p-2 text-center">
-              <div className="text-emerald-700">Rozparsováno</div>
-              <div className="text-lg font-bold text-emerald-800">{listStats.parsed}</div>
-            </div>
-            <div className="rounded bg-amber-50 border border-amber-200 p-2 text-center">
-              <div className="text-amber-700"><AlertTriangle className="ikona-text" /> v čekajících</div>
-              <div className="text-lg font-bold text-amber-800">{listStats.mismatched}</div>
-            </div>
-            <div className="rounded bg-sky-50 border border-sky-200 p-2 text-center" title="Z posledních 100 zpracovaných zpráv">
-              <div className="text-sky-700">Přesnost čtení (100)</div>
-              <div className="text-lg font-bold text-sky-800">
-                {recentStats.total > recentStats.noItems
-                  ? `${Math.round((recentStats.ok / (recentStats.total - recentStats.noItems)) * 100)} %`
-                  : '—'}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Opakované chyby čtení (#14) — návrh na naučení aliasu */}
-        {repeatedErrors.length > 0 && (
-          <div className="rounded border border-amber-200 bg-amber-50 p-3">
-            <div className="text-xs font-medium text-amber-800 mb-1.5 flex items-center gap-1.5">
-              <AlertCircle size={14} />
-              Opakované chyby čtení — opravte položku v detailu a AI si to zapamatuje:
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {repeatedErrors.slice(0, 5).map((err, i) => (
-                <span key={i} className="px-2 py-0.5 rounded-full bg-white border border-amber-300 text-udaj text-amber-800">
-                  „{err.rawLine}" · {err.sender} ({err.count}×)
-                </span>
-              ))}
-            </div>
+        {(messages.length > 0) && (
+          <div className="flex flex-wrap gap-2 text-xs">
+            <span className="rounded bg-neutral-50 border border-neutral-200 px-2.5 py-1.5">
+              Čeká <strong>{listStats.total}</strong>
+            </span>
+            <span className="rounded bg-emerald-50 border border-emerald-200 px-2.5 py-1.5 text-emerald-800">
+              Přečteno <strong>{listStats.parsed}</strong>
+            </span>
+            {listStats.mismatched > 0 && (
+              <span className="rounded bg-amber-50 border border-amber-200 px-2.5 py-1.5 text-amber-800">
+                Ke kontrole <strong>{listStats.mismatched}</strong>
+              </span>
+            )}
           </div>
         )}
 
@@ -487,8 +438,10 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
               const rb = analyzeReadback(message);
               // U fotoobjednávek nemá textový diff smysl (viz mismatchCountFor výše).
               const isMismatch = !message.media_url && rb.mismatchCount > 0;
-              const isRepeated = repeatedErrors.some((err) => err.messageIds.includes(message.id));
               const isDup = similarIds.has(message.id);
+              const { misto, den } = popisMistaADne(message);
+              const polozky = popisPrectenychPolozek(message.parsed_items);
+              const chybaCteni = srozumitelnaChybaCteni(message.error_message);
 
               return (
                 <div
@@ -511,7 +464,10 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
                     </button>
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2 flex-wrap">
-                        <div className="text-sm font-medium">{message.sender_name}</div>
+                        <div className="text-sm font-medium">{misto}</div>
+                        {message.sender_name && message.sender_name.trim() !== misto && (
+                          <span className="text-xs text-neutral-500">{message.sender_name}</span>
+                        )}
                         {!isSenderAllowed(allowedSenders, message.sender_name) && (
                           <span
                             className="px-2 py-0.5 rounded-full text-xs bg-primary-100 text-primary-800"
@@ -525,22 +481,8 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
                           {getStatusText(status)}
                         </div>
                         {isMismatch && (
-                          <span
-                            className={`px-2 py-0.5 rounded-full text-xs flex items-center gap-1 ${
-                              rb.unmatchedCount > 0 ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800'
-                            }`}
-                            title={
-                              rb.unmatchedCount > 0
-                                ? `${rb.unmatchedCount} položek se v originálu nenašlo`
-                                : `${rb.partialCount} položek částečně souhlasí`
-                            }
-                          >
-                            <AlertTriangle className="ikona-text" /> {rb.unmatchedCount > 0 ? rb.unmatchedCount : rb.partialCount} × nesouhlasí
-                          </span>
-                        )}
-                        {isRepeated && (
-                          <span className="px-2 py-0.5 rounded-full text-xs bg-violet-100 text-violet-800 flex items-center gap-1" title="Opakovaná chyba čtení — oprava se naučí jako alias">
-                            <AlertCircle size={12} /> opakovaná chyba
+                          <span className="px-2 py-0.5 rounded-full text-xs flex items-center gap-1 bg-amber-100 text-amber-800">
+                            <AlertTriangle className="ikona-text" /> ke kontrole
                           </span>
                         )}
                         {isDup && (
@@ -583,16 +525,27 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
                         </div>
                       )}
 
-                      <div className="text-xs text-neutral-500">
-                        {new Date(message.message_timestamp || message.created_at).toLocaleDateString('cs-CZ')}
-                        {message.parsed_delivery_date ? ` · dodání ${message.parsed_delivery_date}` : ''}
+                      <div className="text-sm font-black text-neutral-900 mt-1">
+                        {misto}{den ? ` · ${den}` : ''}
                       </div>
-                      <div className="text-sm bg-neutral-50 p-3 rounded mt-2">
-                        {message.message_text.substring(0, 104).trim()}
-                        {message.message_text.length > 104 && '...'}
-                      </div>
-                      <div className="text-xs text-sky-600 mt-1 font-medium">
-                        Klepnutím zobrazit celou zprávu →
+                      {polozky ? (
+                        <div className="text-sm text-neutral-800 mt-1">{polozky}</div>
+                      ) : (
+                        <div className="text-sm bg-neutral-50 p-3 rounded mt-2">
+                          {message.message_text.substring(0, 104).trim()}
+                          {message.message_text.length > 104 && '...'}
+                        </div>
+                      )}
+                      {chybaCteni && (
+                        <div className="text-xs font-bold text-rose-800 mt-1.5">{chybaCteni}</div>
+                      )}
+                      {isMismatch && !chybaCteni && (
+                        <div className="text-xs font-bold text-amber-900 mt-1.5">
+                          Některé položky nesedí s originálem — otevřete a zkontrolujte.
+                        </div>
+                      )}
+                      <div className="text-xs text-sky-700 mt-2 font-black">
+                        Otevřít →
                       </div>
                     </div>
 

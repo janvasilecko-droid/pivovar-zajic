@@ -55,7 +55,7 @@ function renderModal(message: any) {
 }
 
 describe('WhatsAppOrderReviewModal — stav "error" po neúspěšném AI čtení', () => {
-  it('ukáže "Čtení AI selhalo", ne "Zpracovává se...", a nabídne tlačítko na nový pokus', async () => {
+  it('ukáže "Čtení se nepovedlo", ne "Zpracovává se...", a nabídne tlačítko na nový pokus', async () => {
     renderModal({
       id: 'error-1',
       sender_name: 'Odběratel',
@@ -67,8 +67,9 @@ describe('WhatsAppOrderReviewModal — stav "error" po neúspěšném AI čtení
       parsed_items: [],
       parsed_raw_text: null,
     });
-    await waitFor(() => expect(screen.getByText(/Čtení AI selhalo/)).toBeTruthy());
-    expect(screen.getByText(/AI request timed out/)).toBeTruthy();
+    await waitFor(() => expect(screen.getByText(/Čtení se nepovedlo/)).toBeTruthy());
+    expect(screen.getByText(/Čtení trvalo moc dlouho/)).toBeTruthy();
+    expect(screen.queryByText(/AI request timed out/)).toBeNull();
     expect(screen.queryByText('Zpracovává se...')).toBeNull();
     expect(screen.getByText('Zkusit znovu')).toBeTruthy();
   });
@@ -90,6 +91,27 @@ describe('WhatsAppOrderReviewModal — stav "error" po neúspěšném AI čtení
     parseMock.mockClear();
     fireEvent.click(screen.getByText('Zkusit znovu'));
     await waitFor(() => expect(parseMock).toHaveBeenCalled());
+  });
+
+  it('stejnou otázku AI v okně čtení ukáže jen jednou', async () => {
+    renderModal({
+      id: 'otazky-1',
+      sender_name: 'Odběratel',
+      message_text: '2x10',
+      message_type: 'text',
+      status: 'parsed',
+      created_at: '2026-10-27T08:00:00+00:00',
+      parsed_place_name: 'Seeberg',
+      parsed_items: [{ qty: 2, raw_line: '2x10' }],
+      parsed_raw_text: '2x10',
+      parsed_otazky: [
+        'Je to 2 sudy 10 l, nebo 10 piv?',
+        '  je to 2 sudy 10 l, nebo 10 piv? ',
+        'Kdo je odběratel?',
+      ],
+    });
+    await waitFor(() => expect(screen.getByText(/Kdo je odběratel/)).toBeTruthy());
+    expect(screen.getAllByText(/Je to 2 sudy 10 l, nebo 10 piv\?/i)).toHaveLength(1);
   });
 
   it('skutečně běžící zpracování ("processing") dál ukazuje "Zpracovává se..." bez tlačítka', async () => {

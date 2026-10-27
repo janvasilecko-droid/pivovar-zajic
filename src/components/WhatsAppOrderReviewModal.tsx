@@ -13,6 +13,7 @@ import { PlaceCombobox } from './PlaceCombobox';
 import { Modal } from './ui';
 import { PhotoReviewPane } from './PhotoReviewPane';
 import { analyzeReadback, buildHighlightedSegments, diffWords, computeReadbackUnmatchedCount, partKindLabel, type ReadbackItem, type ReadbackMatch } from '../lib/whatsappReadback';
+import { srozumitelnaChybaCteni, unikatniHlaseni } from '../lib/cteniObjednavkyZobrazeni';
 import { AlertCircle, AlertTriangle, Check, CheckCircle2, ChevronDown, Download, ExternalLink, Eye, FileText, Image as ImageIcon, MessageSquare, CornerDownRight, HelpCircle, RefreshCw, RotateCcw, ShieldAlert, ShieldCheck, ShoppingCart, UserCheck, X, FilePlus, Plus } from 'lucide-react';
 import { chyba, potvrd, uspech } from '../lib/toast';
 import { zalogujANahlas } from '../lib/chybyHlaseni';
@@ -260,7 +261,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
    */
   const [otazkyAi, setOtazkyAi] = useState<string[]>([]);
   useEffect(() => {
-    setOtazkyAi(Array.isArray(msg?.parsed_otazky) ? msg.parsed_otazky : []);
+    setOtazkyAi(unikatniHlaseni(Array.isArray(msg?.parsed_otazky) ? msg.parsed_otazky : []));
   }, [msg?.id, msg?.parsed_otazky]);
 
   const [odberatelZOdpovedi, setOdberatelZOdpovedi] = useState<string | null>(null);
@@ -888,6 +889,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   // ("Zpracovává se...") a bez tlačítka na nový pokus — zpráva tak vypadala,
   // že se pořád čte, ačkoli už dávno spadla a nikdy sama nedoběhne.
   const isError = message.status === 'error';
+  const chybaCteniText = srozumitelnaChybaCteni(message.error_message);
   const parsedItems = message.parsed_items || [];
   const hasParsedData = parsedItems.length > 0 || message.parsed_place_name || message.parsed_delivery_date;
 
@@ -1243,7 +1245,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
         }
       }
       // Otázky z čerstvého čtení mají přednost před těmi uloženými u zprávy.
-      setOtazkyAi(parsed.otazky ?? []);
+      setOtazkyAi(unikatniHlaseni(parsed.otazky ?? []));
 
       setStatusMessage(
         unmatched > 0
@@ -1256,7 +1258,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
       );
     } catch (error) {
       zalogujANahlas('Chyba při opakovaném čtení', error);
-      setStatusMessage((isFirstParse ? 'Chyba při parsování: ' : 'Chyba při opakovaném čtení: ') + (error as Error).message);
+      setStatusMessage(srozumitelnaChybaCteni((error as Error).message) || 'Čtení se nepovedlo. Zkuste znovu.');
     } finally {
       setReparsing(false);
     }
@@ -1781,8 +1783,8 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
               <AlertCircle size={15} /> Čeká na parsování
             </span>
           ) : isError ? (
-            <span className="flex items-center gap-1.5 min-w-0" title={message.error_message || undefined}>
-              <AlertTriangle size={15} className="shrink-0" /> Čtení AI selhalo{message.error_message ? ` — ${message.error_message}` : ''}
+            <span className="flex items-center gap-1.5 min-w-0">
+              <AlertTriangle size={15} className="shrink-0" /> Čtení se nepovedlo{chybaCteniText ? ` — ${chybaCteniText}` : ''}
             </span>
           ) : (
             <span>Zpracovává se...</span>
@@ -2099,17 +2101,21 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
           </div>
         )}
 
-        {/* Kontrola čtení: originál vs. přepis AI */}
-        <div className="border rounded p-4 bg-neutral-50">
-          <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
+        {/* Kontrola čtení: originál vs. přepis AI.
+            Když je originál už nahoře přilepený, detaily jsou schované —
+            jinak se totéž (a stará historie nesouladů) sype dvakrát. */}
+        <details className="border rounded p-4 bg-neutral-50" open={!useFullscreenTextLayout && !useFullscreenPhotoLayout}>
+          <summary className="flex items-center justify-between flex-wrap gap-2 mb-2 cursor-pointer list-none">
             <div className="text-sm font-medium flex items-center gap-2">
               <Eye size={16} className="text-sky-600" />
-              Kontrola čtení — originál vs. přepis AI
+              {useFullscreenTextLayout || useFullscreenPhotoLayout
+                ? 'Podrobné srovnání přepisu'
+                : 'Kontrola čtení — originál vs. přepis AI'}
             </div>
             {readback.items.length === 0 && (
               <span className="text-xs text-neutral-500">Položky zatím nejsou rozparsované</span>
             )}
-          </div>
+          </summary>
 
           {/* Přísný režim — blokace schválení při nesouladu (#4). U fotoobjednávek
               nemá smysl (originál je jen popisek, ne text k porovnání) — tam
@@ -2197,11 +2203,11 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
               </div>
             </details>
           )}
-        </div>
+        </details>
 
         {/* Informace o stavu */}
         {statusMessage && (
-          <div className={`p-3 rounded ${statusMessage.includes('Chyba') ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700'}`}>
+          <div className={`p-3 rounded ${/chyba|nepovedlo|selhalo/i.test(statusMessage) ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700'}`}>
             {statusMessage}
           </div>
         )}
@@ -2311,9 +2317,9 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
         )}
 
         {/* Informace pro uživatele */}
-        <div className="text-sm text-neutral-500 bg-amber-50 p-3 rounded border border-amber-200">
-          <div className="font-medium text-amber-800 mb-1">Jak to funguje?</div>
-          <ol className="list-decimal pl-5 space-y-1">
+        <details className="text-sm text-neutral-500 bg-amber-50 p-3 rounded border border-amber-200">
+          <summary className="font-medium text-amber-800 cursor-pointer">Jak to funguje?</summary>
+          <ol className="list-decimal pl-5 space-y-1 mt-2">
             <li>Zkontrolujte originální zprávu/fotku (vlevo) a porovnejte s přepisem AI (vpravo)</li>
             <li><AlertTriangle className="ikona-text" /> = položka se v originálu nenašla, ≈ = částečná shoda, <Check className="ikona-text" /> = přečteno správně</li>
             <li>Čipy u položky ukazují kontrolu množství / objemu / stupně zvlášť</li>
@@ -2322,7 +2328,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
             <li>Pokud není objednávka správná, zamítněte ji nebo ignorujte</li>
             <li>Opravené pivo/obal/odběratele si AI pamatuje a příště je pozná sama</li>
           </ol>
-        </div>
+        </details>
 
         {/* Informace o zprávě — odesílatel, čas přijetí a typ zprávy jsou až
             úplně dole (14. 10. 2026, majitel: „to nepotřebuju vidět“). Fotka
@@ -2414,7 +2420,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
     return (
       <div className="fixed inset-0 z-50 bg-white flex flex-col animate-fade-in">
         <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200 shrink-0 bg-white">
-          <h3 className="font-display font-bold text-base text-neutral-900 tracking-tight"><ShoppingCart className="ikona-text" /> Kontrola WhatsApp objednávky</h3>
+          <h3 className="font-display font-bold text-base text-neutral-900 tracking-tight"><ShoppingCart className="ikona-text" /> Čtení objednávky</h3>
           <button
             onClick={props.onClose}
             className="w-8 h-8 grid place-items-center rounded text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 transition"
@@ -2445,7 +2451,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
     return (
       <div className="fixed inset-0 z-50 bg-white flex flex-col animate-fade-in">
         <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200 shrink-0 bg-white">
-          <h3 className="font-display font-bold text-base text-neutral-900 tracking-tight"><ShoppingCart className="ikona-text" /> Kontrola WhatsApp objednávky</h3>
+          <h3 className="font-display font-bold text-base text-neutral-900 tracking-tight"><ShoppingCart className="ikona-text" /> Čtení objednávky</h3>
           <button
             onClick={props.onClose}
             className="w-8 h-8 grid place-items-center rounded text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 transition"
@@ -2466,7 +2472,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   }
 
   return (
-    <Modal open={props.isOpen} onClose={props.onClose} title="Kontrola WhatsApp objednávky" wide>
+    <Modal open={props.isOpen} onClose={props.onClose} title="Čtení objednávky" wide>
       {body}
     </Modal>
   );

@@ -93,7 +93,7 @@ describe('WhatsAppOrderReviewModal — pořadí oken', () => {
     expect(within(karta).queryByText(/Rozparsováno AI/)).toBeNull();
     expect(within(karta).queryByText('Stav zpracování')).toBeNull();
 
-    const kontrola = screen.getByText(/Kontrola čtení — originál vs\. přepis AI/);
+    const kontrola = screen.getByText(/Podrobné srovnání přepisu|Kontrola čtení — originál vs\. přepis AI/);
     const data = screen.getByText(/AI rozpoznalo z objednávky/);
     const jakTo = screen.getByText('Jak to funguje?');
 
