@@ -67,7 +67,7 @@ describe('když si AI není jistá, zeptá se', () => {
     const modal = readFileSync('src/components/WhatsAppOrderReviewModal.tsx', 'utf8');
     expect(modal).toMatch(/otazkyAi\.length > 0/);
     // Musí se brát i z čerstvého přečtení, nejen z uložené zprávy.
-    expect(modal).toMatch(/setOtazkyAi\(parsed\.otazky/);
+    expect(modal).toMatch(/setOtazkyAi\(unikatniHlaseni\(parsed\.otazky/);
   });
 });
 

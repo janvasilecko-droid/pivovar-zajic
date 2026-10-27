@@ -173,8 +173,6 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   const [napojuji, setNapojuji] = useState<string | null>(null);
   /** Přepsat = objednávka bude jen to ze zprávy. Přidat = položky se přičtou. */
   const [zpusobNapojeni, setZpusobNapojeni] = useState<'prepsat' | 'pridat' | null>(null);
-  /** Položky nesedí s originálem — Zapsat/Schválit drží, dokud to člověk nevezme na vědomí. */
-  const [rozdilPrijat, setRozdilPrijat] = useState(false);
   // ✂️ Rozdělení na dva odběratele — z provozu 15. 9. 2026: WhatsApp zpráva
   // se dvěma odběrateli (Chmeloun a Sluhy) dorazila jako jedna objednávka.
   // Zaškrtnuté položky odejdou po schválení do NOVÉ, druhé objednávky —
@@ -197,7 +195,6 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
     setPrevRawText(null);
     setPhotoChecked(false);
     setPrisnyPrekonan(false);
-    setRozdilPrijat(false);
     setZpusobNapojeni(null);
     setVlastniSudRucne(null);
     setDatumRucne(null);
@@ -2260,15 +2257,6 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                 </button>
               </div>
             )}
-            {!isImage && readback.mismatchCount > 0 && !rozdilPrijat && (
-              <button
-                type="button"
-                onClick={() => setRozdilPrijat(true)}
-                className="mb-3 w-full min-h-[48px] rounded bg-amber-500 text-neutral-950 font-black"
-              >
-                Beru na vědomí, že položky nesedí s originálem
-              </button>
-            )}
             <div className="flex flex-col sm:flex-row gap-3 justify-between">
             <div className="flex flex-wrap gap-2">
               <button
@@ -2306,7 +2294,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
 
             <button
               onClick={() => { void schvalitVzdy(); }}
-              disabled={approving || (!isImage && readback.mismatchCount > 0 && !rozdilPrijat)}
+              disabled={approving}
               className="px-6 py-2.5 bg-emerald-700 text-white rounded hover:bg-emerald-800 disabled:opacity-50 flex items-center gap-2 font-medium"
             >
               {approving ? <ButtonSpinner /> : <UserCheck size={16} />}

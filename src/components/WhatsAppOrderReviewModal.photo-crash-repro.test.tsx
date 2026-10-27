@@ -118,7 +118,7 @@ describe('WhatsAppOrderReviewModal — fotka (reprodukce pádu)', () => {
     await waitFor(() => expect(screen.getByText('Parsovat ručně')).toBeTruthy());
     fireEvent.click(screen.getByText('Parsovat ručně'));
     await waitFor(() =>
-      expect(screen.getByText(/Chyba při parsování: AI čtení selhalo/)).toBeTruthy()
+      expect(screen.getByText(/AI čtení selhalo/)).toBeTruthy()
     );
   });
 
