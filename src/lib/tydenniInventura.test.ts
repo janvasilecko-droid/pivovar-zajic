@@ -350,4 +350,33 @@ describe('tydenniJakoInventura — úprava skladu hned (20. 10. 2026)', () => {
     expect(r.entry_date).toBe('2026-10-19');
     expect(String(r.note)).not.toContain('(konec dne)');
   });
+  it('nula je platný stav skladu', async () => {
+    const { tydenniJakoInventura } = await import('./tydenniInventura');
+    const [r] = tydenniJakoInventura([{ ...radek('2026-10-26T16:00:00Z'), napocitano: 0 }]);
+    expect(r.quantity).toBe(0);
+  });
+});
+
+describe('tydenniDoSkladu — jen Úprava skladu (27. 10. 2026)', () => {
+  it('do knihy jde nula z 26. 10., ne 27 z pondělní inventury před 20. 10.', async () => {
+    const { tydenniDoSkladu } = await import('./tydenniInventura');
+    const { buildMovements, stockAsOf } = await import('./stockLedger');
+    const radky = tydenniDoSkladu([
+      { tyden_od: '2026-10-05', tyden_do: '2026-10-11', beer_id: 'wi', package_id: 'p1', napocitano: 27, updated_at: '2026-10-12T06:00:00Z' },
+      { tyden_od: '2026-10-26', tyden_do: '2026-11-01', beer_id: 'wi', package_id: 'p1', napocitano: 0, updated_at: '2026-10-26T16:00:00Z' },
+    ]);
+    expect(radky).toHaveLength(1);
+    expect(radky[0]).toMatchObject({ quantity: 0, entry_date: '2026-10-26' });
+    const kniha = buildMovements({
+      inventoryRows: [
+        { entry_date: '2026-10-01', beer_id: 'wi', package_id: 'p1', quantity: 0, note: 'Počáteční stav' },
+        ...radky,
+      ],
+      bottlingRows: [{ entry_date: '2026-10-20', beer_id: 'wi', package_id: 'p1', quantity: 27 }],
+      packages: [{ id: 'p1', kind: 'bottle', volume_l: 1 }],
+    } as any);
+    expect(stockAsOf(kniha, '2026-10-25').get('wi__p1')?.qty).toBe(27);
+    expect(stockAsOf(kniha, '2026-10-26').get('wi__p1')?.qty).toBe(0);
+    expect(stockAsOf(kniha, '2026-10-27').get('wi__p1')?.qty).toBe(0);
+  });
 });

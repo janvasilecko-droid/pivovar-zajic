@@ -24,12 +24,13 @@ export const CO2_ZAPNUTO = false;
 /** Kalendář & Upozornění (dlaždice, stránka). */
 export const KALENDAR_ZAPNUT = false;
 /**
- * Týdenní počítání jako základ skladu. Vypnuto 14. 10. 2026 (pondělní inventury se zrušily):
- * stav skladu je všude stav na začátku měsíce + stáčení − objednávky − fasování, takže
- * zpětně zadané zápisy (lahve i sudy) se počítají podle data, na které patří, a Sklad,
- * Pohyby i ostatní obrazovky ukazují totéž. Panel Týdenní inventura jako takový zůstává.
+ * Úprava skladu (týdenní počítání od 20. 10. 2026) jako reset skladu.
+ * 14. 10. se vypnulo kvůli zrušeným pondělním inventurám; 20. 10. se počítání
+ * znovu stalo základem skladu k dni uložení. Bez tohohle příznaku zůstane
+ * starý stav (27. 10. 2026: Winter 1 l napočítáno 0, skladem pořád 27).
+ * Do knihy jdou jen počítání od UPRAVA_SKLADU_OD (lib/tydenniInventura.ts).
  */
-export const TYDENNI_INVENTURA_DO_SKLADU = false;
+export const TYDENNI_INVENTURA_DO_SKLADU = true;
 
 const SANITACE = ['haccp', 'sanitation_log', 'sanitace_lahve', 'sanitace_kegy', 'sanitace_vycepy'];
 

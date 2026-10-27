@@ -300,6 +300,8 @@ export function tydenniJakoInventura(radky: {
   updated_at?: string | null;
 }[]): Record<string, unknown>[] {
   return radky
+    // Nula je platný stav („nic tu není") — bez ní by sklad sáhl po starším
+    // čísle (27. 10. 2026: Winter 1 l, napočítáno 0, pořád 27× 1 l).
     .filter((r) => r.napocitano !== null && r.napocitano !== '' && Number.isFinite(Number(r.napocitano)))
     .map((r) => {
       // Počítání se promítá k PONDĚLÍ po týdnu, ale když se spočítalo dřív (např. v pátek),
@@ -322,6 +324,18 @@ export function tydenniJakoInventura(radky: {
       created_at: r.updated_at ?? null,
     };
     });
+}
+
+export type TydenniZapisSkladu = Parameters<typeof tydenniJakoInventura>[0][number];
+
+/**
+ * Řádky, které se přimíchají do skladové knihy.
+ *
+ * Pondělní inventury před 20. 10. 2026 se zrušily — do skladu nesmějí.
+ * Úprava skladu od toho data ano, včetně nuly.
+ */
+export function tydenniDoSkladu(radky: TydenniZapisSkladu[]): Record<string, unknown>[] {
+  return tydenniJakoInventura(radky.filter((r) => !!r.updated_at && r.updated_at >= UPRAVA_SKLADU_OD));
 }
 
 export function zaznamKontroly(

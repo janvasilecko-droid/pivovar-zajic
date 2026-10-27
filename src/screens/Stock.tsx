@@ -263,7 +263,8 @@ export default function Stock({ setPage, initialTopTab }: { setPage?: (p: Page, 
         // jednotlivém pohybu, takže schodek nebyl vidět nikde (v srpnu 2026 byl
         // u 34 z 56 položek) a čerstvé stáčení nejdřív umazávalo neexistující
         // dluh, místo aby zvedlo stav.
-        const rawStock = stavKDni.get(stockKey(beer.id, pkg.id))?.qty ?? line?.qty ?? 0;
+        const ted = stavKDni.get(stockKey(beer.id, pkg.id));
+        const rawStock = ted?.qty ?? line?.qty ?? 0;
         // Bez ořezání na nulu (audit 9. 10. 2026): Dashboard i Pohyby ukazují
         // mínus — Sklad ho dřív schoval jako 0 a „Zbývá" pak vycházelo vyšší.
         const currentStock = rawStock;
@@ -291,7 +292,8 @@ export default function Stock({ setPage, initialTopTab }: { setPage?: (p: Page, 
         return {
           package_id: pkg.id, label: pkg.label, volume_l: Number(pkg.volume_l), kind: pkg.kind,
           currentStock, rawStock, outgoing, difference,
-          baselineDate: line?.baselineDate ?? null, baselineQty: line?.baselineQty ?? 0,
+          baselineDate: ted?.baselineDate ?? line?.baselineDate ?? null,
+          baselineQty: ted?.baselineQty ?? line?.baselineQty ?? 0,
           fromInv, brewedW, woW, fasovaniW, prodejnaW, akceWeek, kegsUsedW, zdW, prefukFrom, prefukTo, adjW, orderedW,
           predpoved,
           trvanlivost: pkg.kind === 'bottle'

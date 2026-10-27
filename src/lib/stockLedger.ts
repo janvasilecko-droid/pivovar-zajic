@@ -279,12 +279,22 @@ export function buildMovements(src: StockSources): Movement[] {
     const prio = inventoryPriority(r.note);
     const prev = invByKeyDate.get(k);
     if (prev && prev.prio > prio) return;
+    const qty = Number(r.quantity ?? 0);
+    const created = r.created_at ?? null;
+    const note = r.note ?? null;
     if (prev && prev.prio === prio) {
-      // Stejná priorita = víc řádků téže inventury, sečti je.
-      invByKeyDate.set(k, { qty: prev.qty + Number(r.quantity || 0), prio, note: prev.note, created: prev.created });
-      return;
+      // Stejný popisek = rozsekaná jedna inventura (dva zápisy téhož počítání) → sečti.
+      // Jiný popisek = dvě různá počítání na stejný den (týdenní minulý týden
+      // na pondělí + dnešní nula). Sečtení 27+0 by nechalo 27 ve skladu
+      // (27. 10. 2026: Winter PET 1 l). Platí novější zápis, nula je stav.
+      if ((prev.note || '') === (note || '')) {
+        invByKeyDate.set(k, { qty: prev.qty + qty, prio, note: prev.note, created: prev.created });
+        return;
+      }
+      if (prev.created && created && created < prev.created) return;
+      if (prev.created && !created) return;
     }
-    invByKeyDate.set(k, { qty: Number(r.quantity || 0), prio, note: r.note ?? null, created: r.created_at ?? null });
+    invByKeyDate.set(k, { qty, prio, note, created });
   });
   invByKeyDate.forEach((v, k) => {
     const [date, key] = k.split('|');
@@ -414,14 +424,20 @@ export function stockAsOf(movements: Movement[], dateISO: string): Map<string, S
     let baselineQty = 0;
     let baselinePrio = -1;
     let baselineNote: string | null = null;
+    let baselineCreated = '';
     for (const m of list) {
       if (m.kind !== 'inventura') continue;
       const prio = inventoryPriority(m.note);
-      if (baselineDate === null || m.date > baselineDate || (m.date === baselineDate && prio > baselinePrio)) {
+      const created = m.createdAt ?? '';
+      const novejsiDen = baselineDate === null || m.date > baselineDate;
+      const vyssiPrio = m.date === baselineDate && prio > baselinePrio;
+      const novejsiZapis = m.date === baselineDate && prio === baselinePrio && created > baselineCreated;
+      if (novejsiDen || vyssiPrio || novejsiZapis) {
         baselineDate = m.date;
         baselineQty = m.qty;
         baselinePrio = prio;
         baselineNote = m.note ?? null;
+        baselineCreated = created;
       }
     }
 

@@ -22,7 +22,7 @@
  */
 import { fetchAllRows, supabase } from './supabase';
 import { NADRAZENE, verzeTabulky, zneplatniVse } from './zneplatneni';
-import { tydenniJakoInventura } from './tydenniInventura';
+import { tydenniDoSkladu } from './tydenniInventura';
 import { businessDateISO } from './businessDate';
 import { TYDENNI_INVENTURA_DO_SKLADU } from './skryteModuly';
 import { dataZPametiOd } from './zPameti';
@@ -152,9 +152,8 @@ function bezBudoucichOdpoctu(r: Vysledek<unknown>): Vysledek<unknown> {
 }
 
 /**
- * K inventuře se přidají uložené týdenní inventury jako stav v pondělí ráno
- * (tydenniJakoInventura) — Sklad pak v pondělí ukazuje napočítané a všechny
- * obrazovky počítají ze stejného. Když se týdenní inventura nenačte, zůstane
+ * K inventuře se přidá Úprava skladu (tydenniDoSkladu) — napočítané číslo
+ * je reset skladu k dni počítání. Když se týdenní inventura nenačte, zůstane
  * jen měsíční (a zapíše se varování) — Sklad se kvůli tomu nesmí rozbít.
  */
 async function sTydenniInventurou(r: Vysledek<unknown>): Promise<Vysledek<unknown>> {
@@ -164,7 +163,7 @@ async function sTydenniInventurou(r: Vysledek<unknown>): Promise<Vysledek<unknow
       if (t?.error) console.warn('[sdilenaData] týdenní inventura se nenačetla:', t.error.message);
       return r;
     }
-    return { data: [...(r.data ?? []), ...tydenniJakoInventura(t.data)], error: null };
+    return { data: [...(r.data ?? []), ...tydenniDoSkladu(t.data)], error: null };
   } catch (e) {
     console.warn('[sdilenaData] týdenní inventura se nenačetla:', e);
     return r;

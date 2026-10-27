@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const h = vi.hoisted(() => ({
   dotazy: [] as string[],
   radky: [{ entry_date: '2026-09-01', quantity: 1 }] as any[],
+  tydenni: [] as any[],
   cekat: null as null | Promise<void>,
 }));
 
@@ -12,7 +13,8 @@ vi.mock('./supabase', () => ({
   fetchAllRows: (tabulka: string) => ({
     then: async (ok: (r: any) => any) => {
       h.dotazy.push(tabulka);
-      const snimek = h.radky.map((r) => ({ ...r }));
+      const zdroj = tabulka === 'tydenni_inventura' ? h.tydenni : h.radky;
+      const snimek = zdroj.map((r) => ({ ...r }));
       if (h.cekat) await h.cekat;
       return ok({ data: snimek, error: null });
     },
@@ -31,6 +33,7 @@ beforeEach(() => {
   vycistiSdilenaData();
   h.dotazy.length = 0;
   h.radky = [{ entry_date: '2026-09-01', quantity: 1 }];
+  h.tydenni = [];
   h.cekat = null;
   vi.useRealTimers();
 });
@@ -129,7 +132,7 @@ describe('data z paměti telefonu místo ze serveru', () => {
     const r = await prvni;
     expect(r.zPameti).toBe(true);
     await nactiSdilenouTabulku('inventory');
-    expect(h.dotazy).toEqual(['inventory', 'inventory']);
+    expect(h.dotazy.filter((t) => t === 'inventory')).toEqual(['inventory', 'inventory']);
   });
 
   it('bez výpadku výsledek poznačený není a jde z paměti jako dřív', async () => {
@@ -201,5 +204,20 @@ describe('odpočty zavozu s datem v budoucnu', () => {
     ];
     const { data } = await nactiSdilenouTabulku('zavoz_deductions');
     expect((data as any[]).map((r) => r.order_item_id)).toEqual(['a', 'b']);
+  });
+});
+
+describe('Úprava skladu do skladové knihy (27. 10. 2026)', () => {
+  it('nula z počítání se přimíchá; zrušené pondělní inventury ne', async () => {
+    h.radky = [{ entry_date: '2026-10-01', beer_id: 'wi', package_id: 'p1', quantity: 27, note: 'Počáteční stav' }];
+    h.tydenni = [
+      { tyden_od: '2026-10-05', tyden_do: '2026-10-11', beer_id: 'wi', package_id: 'p1', napocitano: 27, updated_at: '2026-10-12T06:00:00Z' },
+      { tyden_od: '2026-10-26', tyden_do: '2026-11-01', beer_id: 'wi', package_id: 'p1', napocitano: 0, updated_at: '2026-10-26T16:00:00Z' },
+    ];
+    const { data } = await nactiSdilenouTabulku<any>('inventory');
+    const tydenni = (data ?? []).filter((r) => String(r.note ?? '').startsWith('Týdenní inventura'));
+    expect(tydenni).toHaveLength(1);
+    expect(tydenni[0].quantity).toBe(0);
+    expect(tydenni[0].entry_date).toBe('2026-10-26');
   });
 });

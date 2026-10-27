@@ -129,6 +129,29 @@ describe('stockAsOf — inventura jako reset', () => {
     expect(qty(src, '2026-08-31')).toBe(26);
   });
 
+  it('nula z novějšího počítání na stejný den nesečte starších 27 (Winter 1 l, 27. 10. 2026)', () => {
+    const src = {
+      inventoryRows: [
+        { entry_date: '2026-10-26', beer_id: B, package_id: P30, quantity: 27, note: 'Týdenní inventura týdne 2026-10-19 (konec dne)', created_at: '2026-10-26T08:00:00Z' },
+        { entry_date: '2026-10-26', beer_id: B, package_id: P30, quantity: 0, note: 'Týdenní inventura týdne 2026-10-26 (konec dne)', created_at: '2026-10-26T16:00:00Z' },
+      ],
+      keggingRows: [{ entry_date: '2026-10-20', beer_id: B, package_id: P30, quantity: 27 }],
+    };
+    expect(qty(src, '2026-10-25')).toBe(27);
+    expect(qty(src, '2026-10-26')).toBe(0);
+    expect(qty(src, '2026-10-27')).toBe(0);
+  });
+
+  it('dva zápisy téže fyzické inventury se pořád sečtou', () => {
+    const src = {
+      inventoryRows: [
+        { entry_date: '2026-08-31', beer_id: B, package_id: P30, quantity: 10, note: 'Fyzická inventura' },
+        { entry_date: '2026-08-31', beer_id: B, package_id: P30, quantity: 7, note: 'Fyzická inventura' },
+      ],
+    };
+    expect(qty(src, '2026-08-31')).toBe(17);
+  });
+
   it('novější inventura přebije starší', () => {
     const src = {
       inventoryRows: [
