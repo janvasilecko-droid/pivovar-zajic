@@ -29,8 +29,7 @@ import { synchronizuj } from '../lib/checklistData';
 import { computePackageNeeds, PackageNeedsRow } from '../lib/packageNeeds';
 import { jeSud } from '../lib/inventoryFix';
 import { FILTR_SUDU, odpovidaFiltruObalu } from '../lib/filtrSudu';
-import { computeKeggingPlan, mergeWeekPlan, rozpadPoObalech, BEZ_TERMINU } from '../lib/keggingPlan';
-import { zbytekKeKonciTydne } from '../lib/tydenniZbytek';
+import { computeKeggingPlan, mergeWeekPlan, rozpadPoObalech, BEZ_TERMINU, zasobaProPlan } from '../lib/keggingPlan';
 import { naplanujPresun } from '../lib/presunPolozky';
 import KeggingDayPlan from '../components/KeggingDayPlan';
 import { chyba, oznam, potvrd, toastZpet, uspech, volba } from '../lib/toast';
@@ -542,9 +541,10 @@ export default function BottlingScreen({
   // appka mi stejně píše, že musím stočit další" (u sudů, stejný nápad platí
   // pro lahve — viz keggingPlan.ts, currentStockMap).
   //
-  // ⚠️ VČETNĚ zavozDeductionRows — skutečná zásoba, stejné číslo jako Sklad.
-  // Viz stejný komentář v Kegging.tsx (oprava z 22. 9. 2026).
-  const currentStockMap = useMemo(() => zbytekKeKonciTydne({
+  // ⚠️ VČETNĚ zavozDeductionRows (oprava z 22. 9. 2026), jen bez odvozu
+  // objednávek TOHOTO týdne — poptávka je počítá celé (27. 10. 2026, viz
+  // zasobaProPlan v lib/keggingPlan.ts).
+  const currentStockMap = useMemo(() => zasobaProPlan({
     inventoryRows,
     bottlingRows: rows,
     keggingRows,
@@ -557,7 +557,7 @@ export default function BottlingScreen({
     packages,
     // Viz Kegging.tsx — skutečná zásoba včetně odpočtů závozu.
     zavozDeductionRows,
-  }, businessDateISO()), [inventoryRows, rows, keggingRows, fasovaniRows, prodejnaRows, writeoffsRows, akceRows, prefukRows, adjustmentRows, packages, zavozDeductionRows]);
+  }, businessDateISO(), orders, orderItems, weekKey), [inventoryRows, rows, keggingRows, fasovaniRows, prodejnaRows, writeoffsRows, akceRows, prefukRows, adjustmentRows, packages, zavozDeductionRows, orders, orderItems, weekKey]);
 
   // Výpočet potřeby stočení lahví — objednávky AKTUÁLNÍHO TÝDNE vs. sklad
   // (stav v pondělí ráno + stočeno tento týden − výdej tento týden). Sdílená

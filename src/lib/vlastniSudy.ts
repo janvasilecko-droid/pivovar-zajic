@@ -1,99 +1,27 @@
-// 🛢️ Odběratelé s VLASTNÍMI sudy — stáčí se jim do jejich sudů.
+// 🛢️ Odběratelé s VLASTNÍMI sudy — ZRUŠENO 27. 10. 2026.
 // ---------------------------------------------------------------------------
-// Z provozu 6. 10. 2026: „Duck and Dog a Michal Fojtovice počítej zvlášť,
-// mimo zásoby skladu, stáčí se do jejich sudů, to samý Martin malý sudy."
+// Od 6. 10. 2026 se některým odběratelům (Duck and Dog, Michal Fojtovice, Martin
+// u malých sudů, a podle poznámky „do jejich sudu" kdokoli) stáčelo do jejich
+// sudů: sklad pivovaru je nekryl a plán stáčení je vedl zvlášť. Majitel
+// 27. 10. 2026: „ať se vymaže do vlastních sudů, prostě vše do sudů stejných."
 //
-// Plné sudy pivovaru skladem jejich objednávku nepokryjí (do jejich sudů se
-// musí stočit zvlášť) a jejich naplněné sudy zase nepokryjí objednávky
-// ostatních (lib/keggingPlan.ts). Martinovy malé sudy navíc neberou
-// z naklikaných prázdných malých sudů pivovaru (lib/maleSudy.ts).
-//
-// Seznam je v kódu schválně: jsou to tři odběratelé a pravidlo platí hned
-// po nasazení, bez úpravy databáze.
-//
-// Druhé pravidlo — podle TEXTU objednávky (14. 10. 2026, Egon: „v objednávce
-// je napsáno do jejich sudu, v tom případě logicky nemusíš psát, že není
-// malý sud — to se děje u některých zákazníků, že si donesou vlastní sud,
-// je to v objednávce napsané“). Když zpráva nebo poznámka objednávky říká
-// „do jejich / vlastního / svého sudu“, je objednávka stejně vlastní jako
-// u odběratelů ze seznamu: nehlídají se pro ni malé sudy pivovaru, sklad ji
-// nepokryje a plán stáčení ji vede zvlášť. Poznámka se při schválení zprávy
-// k objednávce připíše (POZNAMKA_VLASTNI_SUD), takže ji pozná každá obrazovka.
+// Funkce tu zůstávají, ať se nemusí přepisovat každé místo, které se ptá
+// (plán stáčení, malé sudy, chybí skladem, karty objednávek) — odpověď je ale
+// vždy „sudy pivovaru", takže se všude chovají jako u každého jiného odběratele.
 
 export type VlastniSudy = 'vse' | 'male';
 /** Obal tak, jak ho mají plán stáčení i malé sudy. */
 export type ObalSudu = { kind?: string | null; volume_l?: number | string | null };
 
-const norm = (s: string | null | undefined) =>
-  (s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
-
-/** Co se k objednávce připíše do poznámky, když zpráva říká „do jejich sudu“. */
-export const POZNAMKA_VLASTNI_SUD = 'do vlastního sudu';
-
-const SUD = '(?:sud\\w*|keg\\w*)';
-const SVUJ = '(?:jejich|jeho|jeji|sveho|svuj|svou|svoje|svoji|svych|vlastn\\w*)';
-/** Obraty, kterými se říká, že se stáčí do sudu odběratele (text je bez diakritiky, malými). */
-const OBRATY_VLASTNIHO_SUDU = [
-  // „do jejich sudu", „do jejich vlastního sudu", „do vlastních sudů", „do svého 20l sudu"
-  new RegExp(`\\bdo\\s+${SVUJ}\\s+(?:\\w+\\s+)?${SUD}`, 'g'),
-  // „vlastní sud", „vlastního 20l sudu"
-  new RegExp(`\\bvlastn\\w*\\s+(?:\\w+\\s+)?${SUD}`, 'g'),
-  // „svůj sud", „svého sudu"
-  new RegExp(`\\b(?:sveho|svuj|svou|svoje|svoji|svych)\\s+(?:\\w+\\s+)?${SUD}`, 'g'),
-  // „sud zákazníka", „do sudu odběratele"
-  new RegExp(`\\b${SUD}\\s+(?:zakaznik|odberatel)\\w*`, 'g'),
-];
-/** Slova, po kterých obrat neplatí: „nemají vlastní sud", „bez vlastního sudu". */
-const ZAPOR = new Set(['ne', 'nema', 'nemaji', 'nemame', 'nebude', 'nebudou', 'bez', 'nikoli', 'nikoliv', 'nelze']);
-
-/**
- * Říká text (zpráva od odběratele, poznámka objednávky), že se stáčí do
- * VLASTNÍHO sudu odběratele? „Egon od důchodců prosím 20l 12sv do jejich sudu."
- *
- * Záměrně úzké: obyčejné „do sudu“ nebo „sud 20l“ nestačí, musí tam být čí
- * sud to je („jejich“, „vlastní“, „svého“). Když si text protiřečí
- * („nemají vlastní sud“), neplatí. Lepší jedno zbytečné varování navíc než
- * objednávka, která tiše vypadne z hlídání sudů.
- */
-export function textRikaVlastniSud(text: string | null | undefined): boolean {
-  // Nové řádky a tečky oddělují věty — „nemají sudy.\nDo jejich sudu" záporka nezasáhne.
-  const n = norm((text ?? '').replace(/\n+/g, ' . '));
-  if (!n) return false;
-  return OBRATY_VLASTNIHO_SUDU.some((re) => {
-    for (const m of n.matchAll(re)) {
-      const veta = n.slice(0, m.index ?? 0).split(/[.!?;,]/).pop() ?? '';
-      const predchozi = veta.split(' ').filter(Boolean).slice(-3);
-      if (!predchozi.some((w) => ZAPOR.has(w))) return true;
-    }
-    return false;
-  });
-}
-
-/**
- * Poznámka objednávky doplněná o „do vlastního sudu“, když to zpráva říká
- * a poznámka to ještě neříká. Nic jiného z poznámky nemění.
- */
-export function poznamkaSVlastnimSudem(poznamka: string | null | undefined, zprava: string | null | undefined): string | null {
-  const stara = (poznamka ?? '').trim();
-  if (!textRikaVlastniSud(zprava) || textRikaVlastniSud(stara)) return stara || null;
-  return stara ? `${stara}; ${POZNAMKA_VLASTNI_SUD}` : POZNAMKA_VLASTNI_SUD;
-}
-
-/**
- * Jaké sudy si odběratel vozí sám: všechny ('vse'), jen malé ('male'), nebo žádné (null).
- * `poznamka` = poznámka objednávky: když říká „do jejich sudu“, jsou všechny sudy
- * té objednávky odběratelovy, i když ho seznam nezná.
- */
-export function vlastniSudyOdberatele(placeName: string | null | undefined, poznamka?: string | null): VlastniSudy | null {
-  const n = norm(placeName);
-  // Duck and Dog už NENÍ v seznamu (20. 10. 2026: „DaD neřeš, udělej z něj normálního zákazníka
-  // s našimi sudy, když to dělá takový bordel"). Jejich objednávka se plánuje a odečítá jako
-  // každá jiná; do jejich sudů se pozná jen podle poznámky „do jejich sudu".
-  // „Michal fojtovice" (tak je v objednávkách) i „vojtovice" (tak se to vyslovuje).
-  if (n.includes('fojtovic') || n.includes('vojtovic')) return 'vse';
-  // Přesně „Martin" — ne „Martinice" ani jiný odběratel, co Martina má v názvu.
-  if (n === 'martin') return 'male';
-  return textRikaVlastniSud(poznamka) ? 'vse' : null;
+/** Jaké sudy si odběratel vozí sám — od 27. 10. 2026 vždy žádné (null). */
+export function vlastniSudyOdberatele(_placeName: string | null | undefined, _poznamka?: string | null): VlastniSudy | null {
+  // ❌ Vlastní sudy odběratelů jsou ZRUŠENÉ. Majitel 27. 10. 2026: „ať se vymaže do vlastních
+  // sudů, prostě vše do sudů stejných." Žádný odběratel ani poznámka „do jejich sudu" už
+  // objednávku nedělá zvláštní — plán stáčení, sklad, malé sudy i „chybí skladem" ji berou
+  // jako každou jinou (EGON „do jejich sudu" pak „Co stočit" vedlo jako nestočený, i když
+  // byl stočený ve Stáčení KEG). Dřív tu byl seznam (Michal Fojtovice, Martin u malých,
+  // do 20. 10. i Duck and Dog) a poznámka objednávky.
+  return null;
 }
 
 /** Stáčí se tahle položka do sudu odběratele (ne do sudu pivovaru)? */

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeKeggingPlan, dayKeyFromISO, mergeWeekPlan, datumProDenVTydnu, rozpadPoObalech, objednavkyVTydnu, textJenOdskrtnuto } from './keggingPlan';
+import { computeKeggingPlan, dayKeyFromISO, mergeWeekPlan, datumProDenVTydnu, rozpadPoObalech, objednavkyVTydnu, textJenOdskrtnuto, zasobaProPlan } from './keggingPlan';
 
 // Týden 2026-35 = pondělí 24. 8. – neděle 30. 8. 2026 (stejný týden, na kterém
 // se chyba reálně projevila v produkci).
@@ -37,7 +37,7 @@ describe('dayKeyFromISO', () => {
 });
 
 describe('computeKeggingPlan', () => {
-  it('lahve: sklad 80 a objednávka 100 → chybí 20, závoz se do fondu nevrací', () => {
+  it('lahve: zásoba 80 a objednávka 100 → chybí 20 (inventura týž den přebila odvoz)', () => {
     // 26. 10. 2026. Kniha říká 80 (inventura). Odvoz 14 by se dřív přičetl
     // zpátky: fond 94, chybí 6. Správně je 100 − 80.
     const p = plan({
@@ -605,16 +605,19 @@ describe('z čeho je „hotovo" — rozpad, který si vyžádal provoz', () => {
 
     // Z provozu 30. 9. 2026: „1× 30 l Osma, píše mi stočit 2 — na skladě −1,
     // v pondělí byl 0". Odpočet s datem minulého týdne, objednávka tento.
-    it('odpočet se do skladu nevrací — mínus zůstane a přičte se k tomu, co chybí', () => {
+    it('odpočet objednávky tohoto týdne se vrátí, i když je datovaný minulým týdnem', () => {
+      // Sklad −1 (odpočet z minulého týdne). Zásobu staví zasobaProPlan jako
+      // obrazovky — odpočet objednávky z poptávky do ní nepatří.
+      const orders = [objednavka('o1', '2026-08-26')];
+      const orderItems = [polozka('o1', 'b-des', 'p30', 1)];
+      const zavozDeductionRows = [{ deduct_date: '2026-08-20', beer_id: 'b-des', package_id: 'p30', quantity: 1, order_id: 'o1' }];
       const p = plan({
-        orders: [objednavka('o1', '2026-08-26')],
-        orderItems: [polozka('o1', 'b-des', 'p30', 1)],
-        zavozDeductionRows: [{ deduct_date: '2026-08-20', beer_id: 'b-des', package_id: 'p30', quantity: 1, order_id: 'o1' }],
-        currentStockMap: new Map([['b-des__p30', -1]]),
+        orders, orderItems, zavozDeductionRows,
+        currentStockMap: zasobaProPlan({ zavozDeductionRows }, '2026-08-26', orders, orderItems, WEEK),
       });
       const it0 = day(p, 'st').items[0];
-      expect(it0.missing).toBe(2); // 1 objednáno − (−1) skladem
-      expect(it0.dluh ?? 0).toBe(1);
+      expect(it0.missing).toBe(1);
+      expect(it0.dluh ?? 0).toBe(0);
     });
 
     it('odpočet objednávky z jiného týdne se nevrací — skutečný mínus zůstane', () => {
@@ -638,9 +641,21 @@ describe('z čeho je „hotovo" — rozpad, který si vyžádal provoz', () => {
       expect(day(p, 'st').items[0].missing).toBe(1);
     });
 
-    // Mapa je skladová kniha tak, jak ji volající pošle. Odpočet v
-    // zavozDeductionRows fond nenafoukne: 23 ve knize pokryje 12 + 4.
-    it('odpočet závozu fond nenafukuje — kniha 23 pokryje objednaných 16', () => {
+    // Z provozu 16. 9. 2026: „pokud mám na skladě 11×30, tak mi přece nemůže
+    // chybět 5×30“. Už zavezená objednávka nesmí vyrobit fiktivní schodek.
+    //
+    // ⚠️ POZOR NA SMLOUVU: `currentStockMap` se staví BEZ `zavozDeductionRows`
+    // (tak ji posílá Kegging.tsx, BottlingScreen.tsx i CoStocitOkno.tsx —
+    // viz doc u KeggingPlanInput). Tenhle test dřív posílal zásobu S už
+    // odečteným závozem (11) a výpočet si odpočet přičítal zpátky, aby to
+    // vyšlo. Jenže provoz posílá opak, takže se odpočet započítal DVAKRÁT:
+    // fond narostl o dvojnásobek zavezeného a plán hlásil „vše stočeno“,
+    // i když Sklad ukazoval mínus (nahlášeno 22. 9. 2026 — „ve skladu
+    // sudy správně, ve stáčení to, co chybí, ne“).
+    //
+    // Fyzicky: 11 na skladě + 12 už zavezených = 23 stočených kusů, které
+    // fond tou dobou obsahoval. Poptávka 12 + 4 = 16 → nic nechybí.
+    it('už zavezená objednávka nevyrobí schodek (zásoba BEZ odpočtu závozu)', () => {
       const p = plan({
         orders: [objednavka('o1', '2026-08-26'), objednavka('o2', '2026-08-27')],
         orderItems: [polozka('o1', 'b-des', 'p30', 12, 'i-st'), polozka('o2', 'b-des', 'p30', 4, 'i-ct')],
@@ -652,17 +667,21 @@ describe('z čeho je „hotovo" — rozpad, který si vyžádal provoz', () => {
       expect(day(p, 'ct').items[0].missing).toBe(0);
     });
 
-    // Zásoba je skladová kniha po odvozu. Sklad 10, objednáno 5 + 13.
-    // Odpočet se nevrací: úterý vezme 5, ve středu chybí 8.
-    it('skutečný sklad se o odpočet tohoto týdne nenafukuje', () => {
+    // Zásoba je SKUTEČNÝ sklad (stav po odvozu) — viz smlouva u
+    // currentStockMap. Sklad 10 (po odvozu 5 v úterý), odpočet tohoto týdne
+    // se vrátí → fond 15. Poptávka 5 (úterý) + 13 (středa) = 18 → chybí 3.
+    it('skutečná zásoba + vrácený odpočet tohoto týdne dá správný zbytek', () => {
+      // Stočeno 15, v úterý odvezeno 5 → Sklad 10. Zásoba pro plán 15.
+      const orders = [objednavka('o1', '2026-08-25'), objednavka('o2', '2026-08-26')];
+      const orderItems = [polozka('o1', 'b-des', 'p30', 5, 'i-ut'), polozka('o2', 'b-des', 'p30', 13, 'i-st')];
+      const keggingRows = [{ entry_date: '2026-08-24', beer_id: 'b-des', package_id: 'p30', quantity: 15 }];
+      const zavozDeductionRows = [{ deduct_date: '2026-08-25', beer_id: 'b-des', package_id: 'p30', quantity: 5, order_item_id: 'i-ut' }];
       const p = plan({
-        orders: [objednavka('o1', '2026-08-25'), objednavka('o2', '2026-08-26')],
-        orderItems: [polozka('o1', 'b-des', 'p30', 5, 'i-ut'), polozka('o2', 'b-des', 'p30', 13, 'i-st')],
-        zavozDeductionRows: [{ deduct_date: '2026-08-25', beer_id: 'b-des', package_id: 'p30', quantity: 5, order_item_id: 'i-ut' }],
-        currentStockMap: new Map([['b-des__p30', 10]]),
+        orders, orderItems, zavozDeductionRows,
+        currentStockMap: zasobaProPlan({ keggingRows, zavozDeductionRows }, '2026-08-26', orders, orderItems, WEEK),
       });
       expect(day(p, 'ut').items[0].missing).toBe(0);
-      expect(day(p, 'st').items[0].missing).toBe(8);
+      expect(day(p, 'st').items[0].missing).toBe(3);
     });
 
     it('bez currentStockMap odečtený závoz dál nic nevykrývá', () => {
@@ -685,16 +704,24 @@ describe('z čeho je „hotovo" — rozpad, který si vyžádal provoz', () => {
       expect(day(p, 'st').items[0].missing).toBe(4);
     });
 
-    // Kniha 21, objednáno 10 + 4. Odpočet v datech fond nenafukuje ani
-    // nezdvojuje: oba dny jsou kryté z jedné zásoby.
-    it('jedna kniha pokryje pondělní i čtvrteční objednávku', () => {
+    // Z provozu 15. 9. 2026: „stočil jsem 21×30, appka mi přesto píše, že
+    // 4 chybí." Příčina NENÍ v tomhle výpočtu — je v tom, jaký `currentStockMap`
+    // mu volající pošle (viz `currentStockMap` v Kegging.tsx/BottlingScreen.tsx/
+    // CoStocitOkno.tsx). Pošle-li volající zásobu, ze které je pondělní
+    // objednávka (odpočet ze skladu už kalendářně prošel, ale nikdo ji
+    // v Závozu neoznačil) odečtená JEDNOU (=21, fyzicky stočeno, bez
+    // odpočtu), spočítá tenhle výpočet obě objednávky správně z jednoho
+    // fondu — nic nezdvojuje.
+    it('jeden fond bez odpočtu pokryje pondělní i čtvrteční objednávku ze stejné zásoby', () => {
       const p = plan({
         orders: [objednavka('o1', '2026-08-24'), objednavka('o2', '2026-08-27')], // po, čt
         orderItems: [
           polozka('o1', 'b-des', 'p30', 10, 'polozka-po'),
           polozka('o2', 'b-des', 'p30', 4, 'polozka-ct'),
         ],
-        // 21 ve skladové knize. Odpočet se k tomu nepřičítá.
+        // 21 stočeno včera — currentStockMap volajícího BEZ odpočtu závozu
+        // (viz `currentStockMap` v Kegging.tsx), ne skladová kniha ochuzená
+        // o pondělní odpočet.
         currentStockMap: new Map([['b-des__p30', 21]]),
       });
       expect(day(p, 'po').totalMissing).toBe(0);
@@ -791,275 +818,41 @@ describe('den závozu u nové objednávky ze zprávy / fotky (29. 9. 2026)', () 
   });
 });
 
-// 6. 10. 2026: „Michal Fojtovice a Michal Fojtovice počítej zvlášť, mimo zásoby
-// skladu, stáčí se do jejich sudů, to samý Martin malý sudy."
-describe('odběratelé s vlastními sudy (lib/vlastniSudy.ts)', () => {
+// 27. 10. 2026, majitel: „ať se vymaže do vlastních sudů, prostě vše do sudů stejných."
+// Odběratelé s vlastními sudy (Michal Fojtovice, Martin u malých, poznámka „do jejich
+// sudu") jsou zrušení — jejich objednávky kryje sklad jako každé jiné.
+describe('vlastní sudy odběratelů jsou zrušené (27. 10. 2026)', () => {
   const PKGS = [...packages, { id: 'p20', label: '20l', kind: 'keg', volume_l: 20 }];
-  const obj = (id: string, place_name: string, extra: any = {}) => ({
-    id, delivery_date: '2026-08-26', order_date: '2026-08-24', status: 'nova', place_name, ...extra,
+  it('EGON „do jejich sudu" a Maneo: 2 stočené 20 l pokryjí obě objednávky', () => {
+    const orders = [
+      { id: 'maneo', delivery_date: '2026-08-27', order_date: '2026-08-24', status: 'nova', place_name: 'Maneo' },
+      { id: 'egon', delivery_date: '2026-08-26', order_date: '2026-08-24', status: 'nova', place_name: 'EGON', note: 'do vlastního sudu' },
+    ];
+    const orderItems = [
+      { id: 'i-m', order_id: 'maneo', beer_id: 'b-des', package_id: 'p20', quantity: 1 },
+      { id: 'i-e', order_id: 'egon', beer_id: 'b-des', package_id: 'p20', quantity: 1 },
+    ];
+    const keggingRows = [{ entry_date: '2026-08-25', beer_id: 'b-des', package_id: 'p20', quantity: 2 }];
+    const p = computeKeggingPlan({
+      beers, packages: PKGS, orders, orderItems, keggingRows, weekKey: WEEK,
+      currentStockMap: zasobaProPlan({ keggingRows }, '2026-08-25', orders, orderItems, WEEK),
+    });
+    expect(mergeWeekPlan(p, 'týden').totalMissing).toBe(0);
   });
-  const pol = (id: string, order_id: string, package_id: string, quantity: number) => ({ id, order_id, beer_id: 'b-des', package_id, quantity });
-
-  it('zásoba skladem jejich objednávku nepokryje — sudy pivovaru jdou jen ostatním', () => {
-    const p = plan({
-      packages: PKGS,
-      orders: [obj('dd', 'Michal Fojtovice'), obj('h', 'Hospoda')],
-      orderItems: [pol('i-dd', 'dd', 'p50', 4), pol('i-h', 'h', 'p50', 2)],
-      currentStockMap: new Map([['b-des__p50', 10]]),
+  it('Michal Fojtovice a Martin: sklad je kryje jako ostatní', () => {
+    const orders = [
+      { id: 'mf', delivery_date: '2026-08-26', order_date: '2026-08-24', status: 'nova', place_name: 'Michal fojtovice' },
+      { id: 'mt', delivery_date: '2026-08-26', order_date: '2026-08-24', status: 'nova', place_name: 'Martin' },
+    ];
+    const orderItems = [
+      { id: 'i1', order_id: 'mf', beer_id: 'b-des', package_id: 'p30', quantity: 3 },
+      { id: 'i2', order_id: 'mt', beer_id: 'b-des', package_id: 'p20', quantity: 2 },
+    ];
+    const p = computeKeggingPlan({
+      beers, packages: PKGS, orders, orderItems, keggingRows: [], weekKey: WEEK,
+      currentStockMap: new Map([['b-des__p30', 3], ['b-des__p20', 2]]),
     });
-    const it = day(p, 'st').items[0];
-    expect(it.missing).toBe(4);          // do sudů Michal Fojtovice se musí stočit všechny 4
-    expect(it.doVlastnichSudu).toBe(4);
-    expect(it.zChladaku).toBe(2);        // sklad pokryl jen Hospodu
-  });
-
-  it('„Stočeno" u jejich položky je pokryje a jejich naplněné sudy nepokryjí ostatní', () => {
-    // Sklad 10 = 6 sudů pivovaru + 4 naplněné sudy Michala Fojtovice (Stočeno).
-    const p = plan({
-      packages: PKGS,
-      orders: [obj('mf', 'Michal fojtovice'), obj('h', 'Hospoda')],
-      orderItems: [pol('i-mf', 'mf', 'p50', 4), pol('i-h', 'h', 'p50', 8)],
-      keggingRows: [{ entry_date: '2026-08-25', beer_id: 'b-des', package_id: 'p50', quantity: 4, order_item_id: 'i-mf' }],
-      currentStockMap: new Map([['b-des__p50', 10]]),
-    });
-    const it = day(p, 'st').items[0];
-    expect(it.doVlastnichSudu).toBe(0);
-    expect(it.zChladaku).toBe(6);        // ne 8 — 4 sudy patří Fojtovicím
-    expect(it.missing).toBe(2);          // Hospodě chybí 2
-  });
-
-  // 14. 10. 2026, Egon: „Egon od důchodců prosím 20l 12sv do jejich sudu“ — odběratel
-  // není v seznamu, ale objednávka to říká v poznámce.
-  it('poznámka „do vlastního sudu“: sklad objednávku nepokryje, stočit se musí do jejich sudu', () => {
-    const p = plan({
-      packages: PKGS,
-      orders: [obj('e', 'EGON', { note: 'do vlastního sudu' }), obj('h', 'Hospoda')],
-      orderItems: [pol('i-e', 'e', 'p50', 2), pol('i-h', 'h', 'p50', 1)],
-      currentStockMap: new Map([['b-des__p50', 10]]),
-    });
-    const it = day(p, 'st').items[0];
-    expect(it.doVlastnichSudu).toBe(2);
-    expect(it.missing).toBe(2);
-    expect(it.zChladaku).toBe(1);        // sklad pokryl jen Hospodu
-  });
-
-  it('bez té poznámky je Egon obyčejný odběratel a sklad ho pokryje', () => {
-    const p = plan({
-      packages: PKGS,
-      orders: [obj('e', 'EGON', { note: 'vyzvednout prázdné sudy' }), obj('h', 'Hospoda')],
-      orderItems: [pol('i-e', 'e', 'p50', 2), pol('i-h', 'h', 'p50', 1)],
-      currentStockMap: new Map([['b-des__p50', 10]]),
-    });
-    const it = day(p, 'st').items[0];
-    expect(it.doVlastnichSudu ?? 0).toBe(0);
-    expect(it.missing).toBe(0);
-  });
-
-  it('Martin: vlastní jen malé sudy — jeho 50 l kryje sklad normálně, 20 l ne', () => {
-    const p = plan({
-      packages: PKGS,
-      orders: [obj('m', 'MARTIN')],
-      orderItems: [pol('i-m50', 'm', 'p50', 1), pol('i-m20', 'm', 'p20', 2)],
-      currentStockMap: new Map([['b-des__p50', 5], ['b-des__p20', 5]]),
-    });
-    const st = day(p, 'st');
-    expect(st.items.find((x) => x.package_id === 'p50')?.missing).toBe(0);
-    expect(st.items.find((x) => x.package_id === 'p20')?.missing).toBe(2);
-  });
-
-  it('zavezená objednávka odběratele je hotová a její odvoz se do fondu nevrací', () => {
-    const p = plan({
-      packages: PKGS,
-      orders: [obj('dd', 'Michal Fojtovice', { is_delivered: true }), obj('h', 'Hospoda')],
-      orderItems: [pol('i-dd', 'dd', 'p50', 4), pol('i-h', 'h', 'p50', 3)],
-      zavozDeductionRows: [{ deduct_date: '2026-08-26', order_id: 'dd', order_item_id: 'i-dd', beer_id: 'b-des', package_id: 'p50', quantity: 4 }],
-      // Stočeno 4 do jejich sudů a odvezeno 4 → sklad pivovaru 2.
-      keggingRows: [{ entry_date: '2026-08-25', beer_id: 'b-des', package_id: 'p50', quantity: 4, order_item_id: 'i-dd' }],
-      currentStockMap: new Map([['b-des__p50', 2]]),
-    });
-    const it = day(p, 'st').items[0];
-    expect(it.doVlastnichSudu).toBe(0);
-    expect(it.zChladaku).toBe(2);
-    expect(it.missing).toBe(1);          // Hospoda 3, sklad pivovaru 2
-  });
-
-  // 8. 10. 2026: „Co stočit dnes" ukazovalo 14× 50 l a 16× 20 l, přitom v
-  // objednávkách (Nakládka dnes) bylo jen Michal Fojtovice 10× 50 l a 8× 20 l —
-  // zbytek bylo mínus ve skladu (−4 a −8), které se přilepilo na den, kde se
-  // stáčí jen do jejich vlastních sudů. Takový dluh nejde stočením do jejich
-  // sudů nikdy smazat (sklad je nepočítá do fondu), takže „chybí" zůstalo.
-  describe('mínus ve skladu u dne, kde je pivo jen do vlastních sudů', () => {
-    const PKGS2 = [...packages, { id: 'p20', label: '20l', kind: 'keg', volume_l: 20 }];
-    const objDD = (id: string, date: string, place = 'Michal Fojtovice') => ({
-      id, delivery_date: date, order_date: '2026-08-24', status: 'nova', place_name: place,
-    });
-    const polDD = (id: string, order_id: string, package_id: string, quantity: number) => ({ id, order_id, beer_id: 'b-11', package_id, quantity });
-    const nalezt = (p: ReturnType<typeof plan>, d: string, pkg: string) => day(p, d).items.find((x) => x.package_id === pkg)!;
-
-    it('chybí jen to, co je v objednávce — ne 14 a 16, ale 10 a 8', () => {
-      const p = plan({
-        packages: PKGS2,
-        orders: [objDD('dd', '2026-08-27')],
-        orderItems: [polDD('i50', 'dd', 'p50', 10), polDD('i20', 'dd', 'p20', 8)],
-        currentStockMap: new Map([['b-11__p50', -4], ['b-11__p20', -8]]),
-      });
-      expect(nalezt(p, 'ct', 'p50').missing).toBe(10);
-      expect(nalezt(p, 'ct', 'p20').missing).toBe(8);
-      expect(nalezt(p, 'ct', 'p50').dluh ?? 0).toBe(0);
-      expect(day(p, 'ct').totalMissing).toBe(18);
-    });
-
-    it('po stočení všeho do jejich sudů je hotovo, mínus ve skladu to nevrátí zpátky', () => {
-      // Stočeno 10 do sudů Michal Fojtovice: sklad −4 + 10 = 6, z toho 10 jsou jejich sudy.
-      const p = plan({
-        packages: PKGS2,
-        orders: [objDD('dd', '2026-08-27')],
-        orderItems: [polDD('i50', 'dd', 'p50', 10)],
-        keggingRows: [{ entry_date: '2026-08-26', beer_id: 'b-11', package_id: 'p50', quantity: 10, order_item_id: 'i50' }],
-        currentStockMap: new Map([['b-11__p50', 6]]),
-      });
-      expect(nalezt(p, 'ct', 'p50').doVlastnichSudu).toBe(0);
-      expect(nalezt(p, 'ct', 'p50').missing).toBe(0);
-    });
-
-    it('dluh se nepropadne: převezme ho první den, kde se stáčí i do sudů pivovaru', () => {
-      const p = plan({
-        packages: PKGS2,
-        orders: [objDD('dd', '2026-08-26'), objDD('h', '2026-08-27', 'Hospoda')], // st = jen DaD, čt = Hospoda
-        orderItems: [polDD('i-dd', 'dd', 'p50', 4), polDD('i-h', 'h', 'p50', 3)],
-        currentStockMap: new Map([['b-11__p50', -2]]),
-      });
-      expect(nalezt(p, 'st', 'p50').missing).toBe(4);   // jen jejich objednávka
-      expect(nalezt(p, 'ct', 'p50').missing).toBe(5);   // Hospoda 3 + dluh 2
-      expect(nalezt(p, 'ct', 'p50').dluh).toBe(2);
-    });
-
-    // Skutečný stav z 8. 10. 2026: sklad 11° 50 l = 2 na začátku týdne + 5 stočeno
-    // − 1 na lahve = 6, k tomu dnešní AUTOMATICKÝ odpočet závozu Michal Fojtovice −10
-    // (odepisuje se podle dne závozu, ne podle stočení) → kniha ukazuje −4.
-    const odpocet = (order_id: string, order_item_id: string, package_id: string, quantity: number) => ({
-      deduct_date: '2026-08-27', order_id, order_item_id, beer_id: 'b-11', package_id, quantity,
-    });
-
-    it('odpočet závozu DaD se nepočítá jako dluh: chybí jen jejich objednávka', () => {
-      const p = plan({
-        packages: PKGS2,
-        orders: [objDD('dd', '2026-08-27')],
-        orderItems: [polDD('i50', 'dd', 'p50', 10), polDD('i20', 'dd', 'p20', 8)],
-        zavozDeductionRows: [odpocet('dd', 'i50', 'p50', 10), odpocet('dd', 'i20', 'p20', 8)],
-        currentStockMap: new Map([['b-11__p50', -4], ['b-11__p20', -8]]),
-      });
-      expect(nalezt(p, 'ct', 'p50').missing).toBe(10);
-      expect(nalezt(p, 'ct', 'p50').dluh ?? 0).toBe(0);
-      expect(nalezt(p, 'ct', 'p20').missing).toBe(8);
-      expect(day(p, 'ct').totalMissing).toBe(18);
-    });
-
-    it('6 sudů, co opravdu leží ve skladu, pokryje jiného odběratele, i když odvoz DaD sklad už odepsal', () => {
-      const p = plan({
-        packages: PKGS2,
-        orders: [objDD('dd', '2026-08-27'), objDD('h', '2026-08-28', 'Hospoda')],
-        orderItems: [polDD('i50', 'dd', 'p50', 10), polDD('i-h', 'h', 'p50', 3)],
-        zavozDeductionRows: [odpocet('dd', 'i50', 'p50', 10)],
-        currentStockMap: new Map([['b-11__p50', -4]]),
-      });
-      expect(nalezt(p, 'ct', 'p50').missing).toBe(10);   // DaD: celé do jejich sudů
-      // Kniha je −4. Odvoz se nevrací, Hospoda z ní nic nevezme: 3 + dluh 4.
-      expect(nalezt(p, 'pa', 'p50').missing).toBe(7);
-      expect(nalezt(p, 'pa', 'p50').zChladaku).toBe(0);
-    });
-
-    it('část už stočená do jejich sudů: doplní se jen zbytek, sklad pivovaru zůstane 6', () => {
-      // Kniha: 6 + 4 (stočeno do sudů DaD) − 10 (odpočet) = 0.
-      const p = plan({
-        packages: PKGS2,
-        orders: [objDD('dd', '2026-08-27'), objDD('h', '2026-08-28', 'Hospoda')],
-        orderItems: [polDD('i50', 'dd', 'p50', 10), polDD('i-h', 'h', 'p50', 6)],
-        zavozDeductionRows: [odpocet('dd', 'i50', 'p50', 10)],
-        keggingRows: [{ entry_date: '2026-08-26', beer_id: 'b-11', package_id: 'p50', quantity: 4, order_item_id: 'i50' }],
-        currentStockMap: new Map([['b-11__p50', 0]]),
-      });
-      expect(nalezt(p, 'ct', 'p50').doVlastnichSudu).toBe(6);
-      expect(nalezt(p, 'ct', 'p50').missing).toBe(6);
-      // Kniha 0, stočené 4 do jejich sudů z ní uberou. Hospoda z toho nic nemá.
-      expect(nalezt(p, 'pa', 'p50').zChladaku).toBe(0);
-      expect(nalezt(p, 'pa', 'p50').missing).toBe(10);
-    });
-
-    it('když se na tom dni stáčí i do sudů pivovaru, dluh se připočítá jako dřív', () => {
-      const p = plan({
-        packages: PKGS2,
-        orders: [objDD('dd', '2026-08-26'), objDD('h', '2026-08-26', 'Hospoda')],
-        orderItems: [polDD('i-dd', 'dd', 'p50', 4), polDD('i-h', 'h', 'p50', 2)],
-        currentStockMap: new Map([['b-11__p50', -3]]),
-      });
-      expect(nalezt(p, 'st', 'p50').missing).toBe(9);   // 4 + 2 + dluh 3
-    });
-  });
-});
-
-// 20. 10. 2026: Michal Fojtovice 21× 30 l 11° odvezeno (odpočet ze skladu), 17 stočeno bez
-// vazby na položku (Řezání), 4 ze skladu. Fond měl o vrácená 4 víc než sklad a plán tvrdil,
-// že 5× 30 l 11° pro Radka je kryto, i když skladem byly jen 4.
-describe('zavezený odběratel s vlastními sudy: stočení bez vazby na položku', () => {
-  const stav = (dadStatus: string, dnes?: string) => computeKeggingPlan({
-    beers, packages,
-    orders: [
-      { id: 'dad', delivery_date: '2026-08-25', order_date: '2026-08-24', status: dadStatus, place_name: 'Michal Fojtovice' },
-      { id: 'radek', delivery_date: '2026-08-27', order_date: '2026-08-26', status: 'nova', place_name: 'Radek' },
-    ],
-    orderItems: [
-      { id: 'i-dad', order_id: 'dad', beer_id: 'b-11', package_id: 'p30', quantity: 21 },
-      { id: 'i-radek', order_id: 'radek', beer_id: 'b-11', package_id: 'p30', quantity: 5 },
-    ],
-    keggingRows: [{ entry_date: '2026-08-24', beer_id: 'b-11', package_id: 'p30', quantity: 17, order_item_id: null }],
-    zavozDeductionRows: [{ order_id: 'dad', order_item_id: 'i-dad', beer_id: 'b-11', package_id: 'p30', quantity: 21, deduct_date: '2026-08-25' }],
-    weekKey: WEEK,
-    currentStockMap: new Map([['b-11__p30', 4]]),
-    dnes,
-  } as any).find((d) => d.day === 'ct')!.items.find((i) => i.beer_id === 'b-11')!;
-
-  it('zavezená DaD: Radkových 5 se kryje jen 4 sudy ze skladu, chybí 1', () => {
-    const r = stav('vyrizeno_zavoz');
-    expect(r.zChladaku).toBe(4);
-    expect(r.missing).toBe(1);
-  });
-  it('dokud DaD zavezená není, platí stará úvaha (zbytek se ještě stočí)', () => {
-    expect(stav('nova').zChladaku).toBe(4);
-  });
-  it('v den dovozu DaD (i neoznačená) a se stočením bez vazby se bere jako odvezená: chybí 1', () => {
-    const r = stav('nova', '2026-08-25');
-    expect(r.zChladaku).toBe(4);
-    expect(r.missing).toBe(1);
-  });
-  it('DaD v den dovozu se stočením bez vazby: jeho položky nejsou „chybí stočit"', () => {
-    const dad = computeKeggingPlan({
-      beers, packages,
-      orders: [{ id: 'dad', delivery_date: '2026-08-25', order_date: '2026-08-24', status: 'nova', place_name: 'Michal Fojtovice' }],
-      orderItems: [{ id: 'i-dad', order_id: 'dad', beer_id: 'b-11', package_id: 'p30', quantity: 21 }],
-      keggingRows: [{ entry_date: '2026-08-24', beer_id: 'b-11', package_id: 'p30', quantity: 17, order_item_id: null }],
-      weekKey: WEEK,
-      dnes: '2026-08-25',
-    } as any).find((d) => d.day === 'ut')!.items[0];
-    expect(dad.missing).toBe(0);
-    // Před dnem dovozu zůstává „chybí" jako dřív.
-    const pred = computeKeggingPlan({
-      beers, packages,
-      orders: [{ id: 'dad', delivery_date: '2026-08-25', order_date: '2026-08-24', status: 'nova', place_name: 'Michal Fojtovice' }],
-      orderItems: [{ id: 'i-dad', order_id: 'dad', beer_id: 'b-11', package_id: 'p30', quantity: 21 }],
-      keggingRows: [{ entry_date: '2026-08-24', beer_id: 'b-11', package_id: 'p30', quantity: 17, order_item_id: null }],
-      weekKey: WEEK,
-      dnes: '2026-08-24',
-    } as any).find((d) => d.day === 'ut')!.items[0];
-    expect(pred.missing).toBeGreaterThan(0);
-  });
-  it('odškrtnutí bez řádku ve stáčení není stočení', () => {
-    expect(textJenOdskrtnuto(4, 0)).toBe('jen odškrtnuto v plánu');
-    expect(textJenOdskrtnuto(4, 2)).toBeNull();
-    expect(textJenOdskrtnuto(0, 0)).toBeNull();
-  });
-
-  it('před dnem dovozu DaD se nic nemění', () => {
-    expect(stav('nova', '2026-08-24').zChladaku).toBe(4);
+    expect(day(p, 'st').totalMissing).toBe(0);
+    expect(day(p, 'st').items.every((it) => !it.doVlastnichSudu)).toBe(true);
   });
 });

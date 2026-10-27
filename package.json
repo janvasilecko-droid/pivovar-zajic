@@ -28,7 +28,7 @@
     "test:coverage": "vitest --coverage",
     "test:watch": "vitest --watch",
     "zkontroluj-nasazeni": "node scripts/zkontroluj-nasazeni.mjs",
-    "rozbor-skladu": "NODE_USE_ENV_PROXY=1 vite-node scripts/rozbor-skladu.ts --",
+    "rozbor-skladu": "NODE_USE_ENV_PROXY=1 VITE_SUPABASE_URL=${VITE_SUPABASE_URL:-https://sasqexjadvlqyticxwja.supabase.co} VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY:-jen-pro-skript} vite-node scripts/rozbor-skladu.ts --",
     "porovnej-export": "NODE_USE_ENV_PROXY=1 vite-node scripts/porovnej-export.ts --"
   },
   "dependencies": {

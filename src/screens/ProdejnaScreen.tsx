@@ -768,7 +768,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
             {loading ? (
               <div className="grid grid-cols-3 gap-2" aria-busy="true">
                 {Array.from({ length: 6 }, (_, i) => (
-                  <button key={i} type="button" disabled className="min-h-[52px] rounded bg-neutral-200 text-neutral-600 text-sm font-black">
+                  <button key={i} type="button" disabled className="btn-secondary min-h-[52px] text-sm font-black">
                     načítám
                   </button>
                 ))}

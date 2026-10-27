@@ -235,55 +235,27 @@ describe('malé sudy — každý objednaný sud bere prázdný (6. 10. 2026)', (
   });
 });
 
-// 6. 10. 2026: „…to samý Martin malý sudy" — vozí si svoje.
-describe('malé sudy — odběratel s vlastními sudy nebere prázdné pivovaru', () => {
-  it('Martinova objednávka 2× 20 l z naklikaných prázdných nic nebere', () => {
+// 27. 10. 2026: vlastní sudy odběratelů jsou zrušené („prostě vše do sudů stejných").
+// Martin i objednávka „do jejich sudu" berou prázdné malé sudy pivovaru jako ostatní.
+describe('malé sudy — vlastní sudy odběratelů už nejsou', () => {
+  it('Martinova objednávka 2× 20 l bere z naklikaných prázdných jako ostatní', () => {
     const r = hlidejMaleSudy(
       { k20: 3 },
       [{ ...o('M', '2026-10-07'), place_name: 'MARTIN' }, { ...o('H', '2026-10-07'), place_name: 'Hospoda' }],
       [p('m', 'M', 'k20', 2), p('h', 'H', 'k20', 1)],
       undefined, '2026-10-06',
     );
-    expect(r.souhrn[0]).toMatchObject({ mame: 3, objednano: 1, nad: 0 });
-    expect(r.poPolozce.has('m')).toBe(false);
+    expect(r.souhrn[0]).toMatchObject({ mame: 3, objednano: 3, nad: 0 });
+    expect(r.poPolozce.get('m')).toMatchObject({ kryto: 2, chybi: 0 });
   });
-});
 
-// 14. 10. 2026, Egon: „do jejich sudu“ v objednávce — nemá se psát „nejsou sudy“.
-describe('malé sudy — objednávka s poznámkou „do vlastního sudu“', () => {
-  it('nebere prázdný sud pivovaru a neukáže „nejsou sudy“, ani když žádné nejsou', () => {
+  it('poznámka „do vlastního sudu“ nic nemění — bez prázdných sudů chybí', () => {
     const r = hlidejMaleSudy(
       { k20: 0 },
       [{ ...o('E', '2026-10-14'), place_name: 'EGON', note: 'do vlastního sudu' }],
       [p('e', 'E', 'k20', 1)],
       undefined, '2026-10-14',
     );
-    expect(r.poPolozce.has('e')).toBe(false);
-    expect(r.nadPoPolozce.has('e')).toBe(false);
-    expect(r.souhrn[0]).toMatchObject({ mame: 0, objednano: 0, nad: 0 });
-  });
-
-  it('stejný odběratel bez poznámky o vlastním sudu sud pivovaru potřebuje', () => {
-    const r = hlidejMaleSudy(
-      { k20: 0 },
-      [{ ...o('E', '2026-10-14'), place_name: 'EGON', note: 'vyzvednout prázdné sudy' }],
-      [p('e', 'E', 'k20', 1)],
-      undefined, '2026-10-14',
-    );
     expect(r.poPolozce.get('e')).toMatchObject({ kryto: 0, chybi: 1 });
-  });
-
-  it('ostatním objednávkám zbudou sudy, které by si vzala', () => {
-    const r = hlidejMaleSudy(
-      { k20: 1 },
-      [
-        { ...o('E', '2026-10-14'), place_name: 'EGON', note: 'do jejich sudu' },
-        { ...o('H', '2026-10-14'), place_name: 'Hospoda' },
-      ],
-      [p('e', 'E', 'k20', 1), p('h', 'H', 'k20', 1)],
-      undefined, '2026-10-14',
-    );
-    expect(r.souhrn[0]).toMatchObject({ mame: 1, objednano: 1, nad: 0 });
-    expect(r.poPolozce.get('h')).toMatchObject({ kryto: 1, chybi: 0 });
   });
 });

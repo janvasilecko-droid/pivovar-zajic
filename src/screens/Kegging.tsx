@@ -15,7 +15,7 @@ import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
 import { VoiceRecorder } from '../components/VoiceRecorder';
 import { parseFreeTextEntries, loadAliasMap, emptyAliasMap, type ParserAliasMap } from '../lib/orderParser';
 import { requestOrdersItemFilter } from '../lib/ordersFilter';
-import { computeKeggingPlan, mergeWeekPlan, rozpadPoObalech, BEZ_TERMINU, textJenOdskrtnuto } from '../lib/keggingPlan';
+import { computeKeggingPlan, mergeWeekPlan, rozpadPoObalech, BEZ_TERMINU, textJenOdskrtnuto, zasobaProPlan } from '../lib/keggingPlan';
 import { naplanujPresun } from '../lib/presunPolozky';
 import { BottlingPlanBottler } from '../components/BottlingPlanBottler';
 import { markPlanSeenAt, type BottlingPlan } from '../lib/bottlingPlans';
@@ -677,6 +677,14 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     zavozDeductionRows,
   }, businessDateISO()), [inventoryRows, bottlingRows, rows, fasovaniRows, prodejnaRows, writeoffsRows, akceRows, prefukRows, adjustmentRows, packages, zavozDeductionRows]);
 
+  // Zásoba pro plán „Co stočit": Sklad, jako by objednávky tohoto týdne ještě
+  // neodjely — poptávka je počítá celé (lib/keggingPlan.ts, zasobaProPlan).
+  // „Skladem" na obrazovce dál ukazuje currentStockMap.
+  const zasobaPlanu = useMemo(() => zasobaProPlan({
+    inventoryRows, bottlingRows, keggingRows: rows, fasovaniRows, prodejnaRows, writeoffsRows,
+    akceRows, prefukRows, adjustmentRows, packages, zavozDeductionRows,
+  }, businessDateISO(), orders, orderItems, weekKey), [inventoryRows, bottlingRows, rows, fasovaniRows, prodejnaRows, writeoffsRows, akceRows, prefukRows, adjustmentRows, packages, zavozDeductionRows, orders, orderItems, weekKey]);
+
   // 🗓️ Plán stáčení po dnech — „co stočit na středu". Poptávka (objednávky)
   // se dál řídí jen tímhle týdnem — schodek z minulých měsíců se do ní
   // nepromítne. Nabídka (currentStockMap výš) ale JE skutečná zásoba
@@ -694,9 +702,9 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     writeoffsRows,
     checkRows: planCheckRows,
     weekKey,
-    currentStockMap,
+    currentStockMap: zasobaPlanu,
     dnes: businessDateISO(),
-  }), [vsechnaPivaJmena, packages, orders, orderItems, rows, zavozDeductionRows, fasovaniRows, prodejnaRows, writeoffsRows, planCheckRows, weekKey, currentStockMap]);
+  }), [vsechnaPivaJmena, packages, orders, orderItems, rows, zavozDeductionRows, fasovaniRows, prodejnaRows, writeoffsRows, planCheckRows, weekKey, zasobaPlanu]);
 
   // ✍️ TENTÝŽ plán, ale BEZ ručního odškrtnutí — „kolik je doopravdy stočeno".
   //
@@ -723,9 +731,9 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     writeoffsRows,
     checkRows: [],
     weekKey,
-    currentStockMap,
+    currentStockMap: zasobaPlanu,
     dnes: businessDateISO(),
-  }), [vsechnaPivaJmena, packages, orders, orderItems, rows, zavozDeductionRows, fasovaniRows, prodejnaRows, writeoffsRows, weekKey, currentStockMap]);
+  }), [vsechnaPivaJmena, packages, orders, orderItems, rows, zavozDeductionRows, fasovaniRows, prodejnaRows, writeoffsRows, weekKey, zasobaPlanu]);
 
   const planMissingTotal = useMemo(() => keggingPlanSkutecny.reduce((s, p) => s + p.totalMissing, 0), [keggingPlanSkutecny]);
 

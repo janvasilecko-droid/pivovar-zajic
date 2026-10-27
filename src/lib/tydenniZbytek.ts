@@ -30,6 +30,44 @@ export function zbytekKeKonciTydne(
 }
 
 /**
+ * 🧮 Zásoba pro „co stočit": stav skladu ke dni, jako by objednávky, které
+ * výpočet bere jako poptávku, ještě neodjely.
+ *
+ * Z provozu 27. 10. 2026: „na skladě byla 0, dnes objednávka na 8, 8× 30
+ * jsem stočil" — Co stočit přesto chtělo stočit víc. Poptávka jsou CELÉ
+ * objednávky týdne, i ty, co už odjely, kdežto Sklad je má odečtené. Kdo
+ * porovná jedno s druhým přímo, odečte odjeté kusy dvakrát (tak to dělala
+ * úprava z 26. 10. 2026 — v plánu sudů, lahví i v potřebách stáčení).
+ * Odpočty závozu objednávek z poptávky se proto vynechají a stav se spočítá
+ * znovu skladovou knihou.
+ *
+ * Proč přes knihu a ne „Sklad + odvezené": uložená inventura je reset.
+ * Odvoz z doby před ní (nebo týž den — napočítaný stav je konec dne) v jejím
+ * čísle už je a kniha ho za ní nepočítá, takže vynechat ho nic nezmění.
+ * 26. 10. 2026: inventura 80, odvoz 14 týž den, objednáno 100 → chybí 20.
+ * Prosté přičtení odvozu by zásobu nafouklo na 94 a „chybí" vyšlo 6.
+ *
+ * `objednavky` = id objednávek v poptávce; `polozky` = jejich položky (odpočet
+ * bez `order_id` se k objednávce dohledá přes `order_item_id`).
+ */
+export function zasobaPredOdvozem(
+  zdroje: StockSources,
+  kDatu: string,
+  objednavky: Set<string>,
+  polozky: { id: string; order_id: string }[] = [],
+): Map<string, number> {
+  const objednavkaPolozky = new Map(polozky.map((it) => [it.id, it.order_id]));
+  const jePoptavka = (r: { order_id?: string | null; order_item_id?: string | null }) => {
+    const id = r.order_id ?? (r.order_item_id ? objednavkaPolozky.get(r.order_item_id) : undefined);
+    return !!id && objednavky.has(id);
+  };
+  return zbytekKeKonciTydne({
+    ...zdroje,
+    zavozDeductionRows: (zdroje.zavozDeductionRows ?? []).filter((r) => !jePoptavka(r)),
+  }, kDatu);
+}
+
+/**
  * Kolik kusů z každé POLOŽKY objednávky už fyzicky odjelo (zavoz_deductions).
  *
  * Klíč je `order_items.id`. Slouží k jedinému účelu, ale zásadnímu: skladová

@@ -84,7 +84,9 @@ describe('computePackageNeeds — lahve (kind !== "keg")', () => {
       makeInput({
         keggingRows: [{ entry_date: todayStr, beer_id: 'b1', package_id: 'p-keg', quantity: 19 }],
         inventoryRows: [{ entry_date: weekMonday, beer_id: 'b1', package_id: 'p-keg', quantity: 2, note: 'Počáteční stav' }],
-        zavozDeductionRows: [{ deduct_date: todayStr, beer_id: 'b1', package_id: 'p-keg', quantity: 6 }],
+        // Odpočet nese objednávku jako každý odpočet od 16. 8. 2026 — podle ní
+        // se pozná, že patří do poptávky týdne (lib/tydenniZbytek.ts).
+        zavozDeductionRows: [{ deduct_date: todayStr, beer_id: 'b1', package_id: 'p-keg', quantity: 6, order_id: 'o1' }],
         orders: [{ id: 'o1', order_date: todayStr, delivery_date: todayStr, status: 'nova', is_delivered: false }],
         orderItems: [{ order_id: 'o1', beer_id: 'b1', package_id: 'p-keg', quantity: 20 }],
       }),
@@ -92,7 +94,7 @@ describe('computePackageNeeds — lahve (kind !== "keg")', () => {
     );
     const row = rows.find((r) => r.package_id === 'p-keg');
     expect(row!.stockQty).toBe(15); // fyzicky teď: 2 + 19 − 6 (zavezeno)
-    expect(row!.neededQty).toBe(5); // 20 objednáno − 15 skladem
+    expect(row!.neededQty).toBe(0); // 2 + 19 − 20 (objednáno, zavezené v tom už je) = 1 zbyde, ne chybí
   });
 
   it('orderedQty počítá VŠECHNY objednávky týdne (i už zavezené is_delivered)', () => {
@@ -137,7 +139,7 @@ describe('computePackageNeeds — lahve (kind !== "keg")', () => {
     const row = rows.find((r) => r.package_id === 'p-bottle')!;
     expect(row.stockQty).toBe(4);
     expect(row.orderedQty).toBe(13); // storno ne
-    expect(row.neededQty).toBe(9); // 13 objednáno − 4 skladem
+    expect(row.neededQty).toBe(3);
   });
 
   it('stočení v mínusu ubere z „chybí" hned — sklad se neořezává na nulu', () => {

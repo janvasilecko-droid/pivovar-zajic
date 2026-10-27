@@ -24,6 +24,8 @@ import { jeSud } from './inventoryFix';
 import { jeVyrizena } from './stavyObjednavek';
 import { weekRange } from '../components/WeeklyOrderSummaryCard';
 import { doSuduOdberatele } from './vlastniSudy';
+import { zasobaPredOdvozem } from './tydenniZbytek';
+import type { StockSources } from './stockLedger';
 
 export type PlanOrderRef = {
   order_id: string;
@@ -161,10 +163,13 @@ export type KeggingPlanInput = {
    * Skutečná zásoba skladem PRÁVĚ TEĎ (klíč `beer_id__package_id`, ze
    * skladové knihy — viz lib/tydenniZbytek.ts, zbytekKeKonciTydne).
    *
-   * ⚠️ SMLOUVA: stejné číslo jako Sklad. Včetně odpočtů závozu. Nic se
-   * k ní nepřičítá zpátky. „Chybí stočit" = objednáno minus tahle zásoba
-   * (26. 10. 2026: uloženo 80, objednáno 100, odvoz 14 ve stejný den jako
-   * inventura v knize není — chybí 20, ne 6). Záporný stav zůstává.
+   * ⚠️ SMLOUVA: Sklad, jako by objednávky TOHOTO týdne ještě neodjely —
+   * staví ji `zasobaProPlan` níž. Poptávka jsou celé objednávky týdne, i ty
+   * zavezené; kdyby zásoba měla jejich odvoz odečtený, odečetl by se dvakrát
+   * (27. 10. 2026: 8× 30 l stočeno na objednávku 8, plán chtěl stočit víc).
+   * Odvoz, který přebila pozdější inventura, kniha nepočítá, takže se ani
+   * nevrací (26. 10. 2026: uloženo 80, objednáno 100, odvoz 14 týž den —
+   * chybí 20, ne 6). Záporný stav zůstává.
    *
    * Když je zadaná, NAHRAZUJE výpočet zásoby z `keggingRows` níž. Bez
    * zadání plán vidí jen to, co se stočilo a vydalo tento týden.
@@ -254,6 +259,43 @@ export function datumProDenObjednavky(den: string, datumObjednavky: string | nul
   const tydenObjednavky = datumObjednavky ? datumProDenVTydnu('po', datumObjednavky.slice(0, 10)) : null;
   const kotva = tydenObjednavky && tydenDnes && tydenObjednavky > tydenDnes ? datumObjednavky!.slice(0, 10) : dnes;
   return datumProDenVTydnu(den, kotva);
+}
+
+/**
+ * Objednávky, které plán týdne bere jako poptávku: nestornované s dovozem
+ * (a bez něj se zadáním) v tomto týdnu — i ty, co už odjely.
+ */
+export function objednavkyPoptavky(
+  orders: { id: string; status?: string | null; delivery_date?: string | null; order_date?: string | null }[],
+  weekKey: string,
+): Set<string> {
+  const { start } = weekRange(weekKey);
+  const od = start.toISOString().slice(0, 10);
+  const konec = new Date(start);
+  konec.setUTCDate(konec.getUTCDate() + 6);
+  const doDne = konec.toISOString().slice(0, 10);
+  return new Set(orders
+    .filter((o) => {
+      if (o.status === 'storno') return false;
+      const den = o.delivery_date || o.order_date;
+      return !!den && den >= od && den <= doDne;
+    })
+    .map((o) => o.id));
+}
+
+/**
+ * Zásoba pro plán stáčení (`currentStockMap`): Sklad ke dni `dnes`, jako by
+ * objednávky tohoto týdne ještě neodjely — viz smlouvu u `currentStockMap`
+ * a lib/tydenniZbytek.ts (zasobaPredOdvozem).
+ */
+export function zasobaProPlan(
+  zdroje: StockSources,
+  dnes: string,
+  orders: { id: string; status?: string | null; delivery_date?: string | null; order_date?: string | null }[],
+  orderItems: { id: string; order_id: string }[],
+  weekKey: string,
+): Map<string, number> {
+  return zasobaPredOdvozem(zdroje, dnes, objednavkyPoptavky(orders, weekKey), orderItems);
 }
 
 /**
@@ -368,10 +410,10 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
   // pokrýt některý z dalších dnů.
   const pool: Record<string, number> = {};
   if (input.currentStockMap) {
-    // Fond = skladová kniha, nic se k ní nepřičítá. Uložená inventura je
-    // reset (26. 10. 2026: 80 ve skladu, 100 objednáno, odvoz 14 — návrat
-    // odvozu nafoukl fond na 94 a „chybí" vyšlo 6 místo 20). Záporný stav
-    // zůstává záporný.
+    // Fond = zásoba ze `zasobaProPlan` (Sklad před odvozem objednávek
+    // tohoto týdne), nic dalšího se k ní nepřičítá. Odvoz z doby před
+    // uloženou inventurou v ní není (26. 10. 2026: 80 ve skladu, 100
+    // objednáno, odvoz 14 týž den → chybí 20). Záporný stav zůstává záporný.
     input.currentStockMap.forEach((qty, k) => { pool[k] = qty; });
     // Naplněné sudy odběratele, které ještě neodjely, sklad počítá (stáčení
     // je v knize +) — pro ostatní objednávky nejsou. Odjelo-li to, kniha
@@ -414,11 +456,8 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
 
   // ── Poptávka po dnech.
   const ordersById = new Map(orders.map((o) => [o.id, o]));
-  const activeOrders = orders.filter((o) => {
-    if (o.status === 'storno') return false;
-    const target = o.delivery_date || o.order_date;
-    return inWeek(target);
-  });
+  const poptavka = objednavkyPoptavky(orders, weekKey);
+  const activeOrders = orders.filter((o) => poptavka.has(o.id));
   const orderDay = new Map<string, string>();
   activeOrders.forEach((o) => {
     // Přednost má explicitní den závozu (uživatel ho v Závozu ručně přehazuje),

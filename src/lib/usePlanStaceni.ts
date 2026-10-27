@@ -14,8 +14,8 @@ import { supabase, fetchAllRows, useRealtime } from './supabase';
 import { nactiSdilenouTabulku } from './sdilenaData';
 import { businessDateISO } from './businessDate';
 import { jeSud } from './inventoryFix';
-import { computeKeggingPlan, type DayPlan } from './keggingPlan';
-import { buildMovements, MOVEMENT_LABELS } from './stockLedger';
+import { computeKeggingPlan, zasobaProPlan, type DayPlan } from './keggingPlan';
+import { buildMovements, MOVEMENT_LABELS, type Movement } from './stockLedger';
 import { zbytekKeKonciTydne } from './tydenniZbytek';
 import { weekRange } from '../components/WeeklyOrderSummaryCard';
 import { chybejiciZdroje, dataZPametiOd } from './zPameti';
@@ -48,6 +48,8 @@ export type PlanStaceni = {
   puvodMinusu: (beerId: string, packageId: string) => { datum: string; popis: string; kusu: number }[];
   /** Stav skladem teď (skladová kniha), klíč `beer_id__package_id`. */
   zasoba?: Map<string, number>;
+  /** Pohyby skladu ze stejných zdrojů jako `zasoba` (Rozbor). */
+  pohyby: Movement[];
 };
 
 /**
@@ -139,6 +141,19 @@ export function usePlanStaceni(weekKey: string, { sudy = true, lahve = true }: {
     }, businessDateISO());
   }, [data]);
 
+  // Zásoba pro plán: Sklad, jako by objednávky tohoto týdne ještě neodjely
+  // (poptávka je počítá celé — 27. 10. 2026, viz zasobaProPlan). `zasoba`
+  // pro zobrazení zůstává skutečný Sklad.
+  const zasobaPlanu = useMemo(() => {
+    if (!data) return undefined;
+    return zasobaProPlan({
+      inventoryRows: data.inventory, bottlingRows: data.bottling, keggingRows: data.kegging,
+      fasovaniRows: data.fasovani, prodejnaRows: data.prodejna, writeoffsRows: data.writeoffs,
+      akceRows: data.akce, prefukRows: data.prefuk, adjustmentRows: data.adjustments,
+      packages: data.packages, zavozDeductionRows: data.zavozDeductions,
+    }, businessDateISO(), data.orders, data.orderItems, weekKey);
+  }, [data, weekKey]);
+
   const planyDruhu = (druh: 'sudy' | 'lahve'): DayPlan[] => {
     if (!data) return [];
     return computeKeggingPlan({
@@ -147,7 +162,7 @@ export function usePlanStaceni(weekKey: string, { sudy = true, lahve = true }: {
       orders: data.orders,
       orderItems: data.orderItems,
       keggingRows: druh === 'sudy' ? data.kegging : data.bottling,
-      // Kniha je už má v currentStockMap; plán je do fondu nevrací.
+      // Odvoz objednávek tohoto týdne zásoba plánu nemá (zasobaProPlan).
       zavozDeductionRows: data.zavozDeductions,
       fasovaniRows: data.fasovani,
       prodejnaRows: data.prodejna,
@@ -157,14 +172,14 @@ export function usePlanStaceni(weekKey: string, { sudy = true, lahve = true }: {
       jeCilovyObal: druh === 'sudy'
         ? (kind, label) => jeSud(kind, label)
         : (kind, label) => !jeSud(kind, label),
-      currentStockMap,
+      currentStockMap: zasobaPlanu,
       dnes: businessDateISO(),
     });
   };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const planySudy = useMemo(() => (sudy ? planyDruhu('sudy') : []), [data, sudy, weekKey, currentStockMap]);
+  const planySudy = useMemo(() => (sudy ? planyDruhu('sudy') : []), [data, sudy, weekKey, zasobaPlanu]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const planyLahve = useMemo(() => (lahve ? planyDruhu('lahve') : []), [data, lahve, weekKey, currentStockMap]);
+  const planyLahve = useMemo(() => (lahve ? planyDruhu('lahve') : []), [data, lahve, weekKey, zasobaPlanu]);
 
   // Pohyby skladu ze stejných zdrojů jako currentStockMap.
   const pohyby = useMemo(() => {

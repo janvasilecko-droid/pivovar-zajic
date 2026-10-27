@@ -27,6 +27,7 @@
 // nějaká JINÁ objednávka označí jako zavezená.
 import { flattenAkceNet, AkceRow } from './inventoryHelper';
 import { buildMovements, stockAsOf, stockAtStartOfDay } from './stockLedger';
+import { zasobaPredOdvozem } from './tydenniZbytek';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
 
 export type PackageNeedsRow = {
@@ -126,8 +127,8 @@ export function computePackageNeeds(input: PackageNeedsInput, isTargetPkg: (kind
   // Objednávky v AKTUÁLNÍM TÝDNU — VŠECHNY (i už zavezené), ať je vidět
   // celková týdenní potřeba na středu/čtvrtek/pátek zavoz, ne jen zbytek.
   //
-  // Vyřízené se počítají taky (kromě storna). Chybí je objednáno minus
-  // sklad ze knihy, ne sklad s vrácenými závozy.
+  // Vyřízené se počítají taky (kromě storna) — jejich odvoz se proto níž
+  // ze skladu pro výpočet „chybí" vynechá (weekEndPredOdvozem).
   const activeOrderIds = new Set(
     orders
       .filter((o) => {
@@ -176,6 +177,16 @@ export function computePackageNeeds(input: PackageNeedsInput, isTargetPkg: (kind
   // s ní počítaly hned — dvě různá čísla pro tentýž sklad.
   const weekEndStockMap: Record<string, number> = {};
   stockAsOf(pohyby, weekEndStr).forEach((line, k) => { weekEndStockMap[k] = line.qty; });
+
+  // Totéž, ale bez odvozu objednávek TOHOTO týdne — proti tomu se počítá
+  // „chybí stočit", protože orderedQty je zahrnuje i zavezené. Jinak by se
+  // odjeté kusy odečetly dvakrát (27. 10. 2026). Přes knihu: odvoz, který
+  // přebila uložená inventura, v ní není a nic se nevrací (26. 10. 2026:
+  // inventura 80, odvoz 14 týž den, objednáno 100 → chybí 20).
+  const weekEndPredOdvozem = zasobaPredOdvozem({
+    inventoryRows, bottlingRows, keggingRows, fasovaniRows, prodejnaRows,
+    writeoffsRows, zavozDeductionRows, akceRows, prefukRows, adjustmentRows, packages,
+  }, weekEndStr, activeOrderIds, orderItems);
 
   const producedRows = [...bottlingRows, ...keggingRows];
 
@@ -226,8 +237,8 @@ export function computePackageNeeds(input: PackageNeedsInput, isTargetPkg: (kind
       // jako dluh počítá už od 15. 9.; lahve teď taky.
       const stockQty = Number(weekEndStockMap[k] || 0);
       const orderedQty = Number(orderedMap[k] || 0);
-      // Objednáno minus sklad ze knihy. Ne druhý sklad „bez závozů".
-      const neededQty = Math.max(0, orderedQty - stockQty);
+      // Objednáno minus sklad bez odvozu objednávek týdne (viz výš).
+      const neededQty = Math.max(0, orderedQty - Number(weekEndPredOdvozem.get(k) ?? 0));
 
       // `stockQty !== 0`, ne `> 0`: položka v mínusu je zrovna ta, kterou je
       // potřeba vidět. S ořezáváním na nulu se z výpisu tiše vypadla.

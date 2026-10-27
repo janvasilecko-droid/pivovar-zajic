@@ -133,11 +133,10 @@ describe('OrderTabulka', () => {
     expect(screen.getByText('bez položek')).toBeTruthy();
   });
 
-  it('odběratel s vlastními sudy (Michal Fojtovice): „jeho sudy“ místo „skladem“', () => {
-    const dad = objednavka('o3', { place_name: 'Michal Fojtovice' });
-    vykresli({ objednavky: [dad], items: { o3: [polozka('i9', 'o3', 'sv', 'k50', 5)] } });
+  it('Michal Fojtovice je od 27. 10. 2026 obyčejný odběratel — žádné „jeho sudy“', () => {
+    const mf = objednavka('o3', { place_name: 'Michal Fojtovice' });
+    vykresli({ objednavky: [mf], items: { o3: [polozka('i9', 'o3', 'sv', 'k50', 5)] } });
     const radek = screen.getAllByTestId('radek-objednavky')[0];
-    expect(within(radek).getByTestId('jeho-sudy').textContent).toContain('jeho sudy');
-    expect(radek.textContent).not.toContain('skladem');
+    expect(within(radek).queryByTestId('jeho-sudy')).toBeNull();
   });
 });

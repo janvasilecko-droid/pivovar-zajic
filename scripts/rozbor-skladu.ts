@@ -75,7 +75,7 @@ async function main() {
     }
   }
 
-  const [piva, obaly, bottling, kegging, fasovani, prodejna, odpisy, inventura, dorovnani, odpocty, akce, prefuk, objednavky, polozky] = await Promise.all([
+  const [piva, obaly, bottling, kegging, fasovani, prodejna, odpisy, inventura, dorovnani, odpocty, akce, prefuk, objednavky, polozky, odskrtnuti] = await Promise.all([
     vse('beers', 'id,name'),
     vse('packages', 'id,label,kind,volume_l'),
     vse('bottling', SLOUPCE.bottling),
@@ -90,7 +90,9 @@ async function main() {
     vse('akce', SLOUPCE.akce),
     vse('keg_prefuk', SLOUPCE.keg_prefuk),
     vse('orders', 'id,order_date,delivery_date,delivery_day,place_name,status,is_delivered,note,created_at'),
-    vse('order_items', 'id,order_id,beer_id,package_id,quantity'),
+    // Celé řádky — plán stáčení (--plan) potřebuje i vlastní den položky.
+    vse('order_items', SLOUPCE.order_items),
+    vse('kegging_plan_checks', SLOUPCE.kegging_plan_checks),
   ]);
   const pohyby = buildMovements({
     inventoryRows: inventura, bottlingRows: bottling, keggingRows: kegging, fasovaniRows: fasovani,
@@ -283,6 +285,57 @@ async function main() {
       const o = objPodleId.get(p.order_id);
       console.log(`  závoz ${ucinnyDen(o)} · ${o.place_name} · ${p.quantity}× ${jmenoObalu.get(p.package_id)} ${jmenoPiva.get(p.beer_id)} · objednávka zapsána ${String(o.created_at ?? '?').slice(0, 16)}`);
     });
+  }
+
+  // ── Plán stáčení sudů za týden — totéž, co „Co stočit" (lib/usePlanStaceni.ts) ──
+  // npm run -s rozbor-skladu -- --plan 2026-44 --pivo "12° Světlá"   (--plan ted = tento týden)
+  // Vedle každé položky stav ve Skladu, ať je vidět, odkud se „chybí" bere.
+  const planArg = arg('plan');
+  if (planArg) {
+    // lib/keggingPlan.ts sahá přes WeeklyOrderSummaryCard na klienta appky,
+    // který se zakládá z VITE_* proměnných. Vite je dosazuje už při startu,
+    // proto je nastavuje npm skript (package.json), ne tenhle kód.
+    const { computeKeggingPlan, zasobaProPlan } = await import('../src/lib/keggingPlan');
+    const { isoWeekKey, weekRange } = await import('../src/components/WeeklyOrderSummaryCard');
+    const { jeSud } = await import('../src/lib/inventoryFix');
+    const { zbytekKeKonciTydne } = await import('../src/lib/tydenniZbytek');
+    const { businessDateISO } = await import('../src/lib/businessDate');
+    const dnes = businessDateISO();
+    const tyden = planArg === 'ted' ? isoWeekKey(dnes) : planArg;
+    const zacatek = weekRange(tyden).start.toISOString().slice(0, 10);
+    // Stejný výběr objednávek jako usePlanStaceni: dovoz NEBO zadání od pondělí.
+    const objTydne = objednavky.filter((o: any) => (o.delivery_date ?? '') >= zacatek || (o.order_date ?? '') >= zacatek);
+    const idTydne = new Set(objTydne.map((o: any) => o.id));
+    const zdrojePlanu = {
+      inventoryRows: inventura, bottlingRows: bottling, keggingRows: kegging, fasovaniRows: fasovani,
+      prodejnaRows: prodejna, writeoffsRows: odpisy, akceRows: akce, prefukRows: prefuk,
+      adjustmentRows: dorovnani, packages: obaly, zavozDeductionRows: odpocty,
+    };
+    // Sklad (jak ho ukazuje appka) a zásoba pro plán (bez odvozu objednávek týdne).
+    const zasoba = zbytekKeKonciTydne(zdrojePlanu, dnes);
+    const polozkyTydne = polozky.filter((i: any) => idTydne.has(i.order_id));
+    const plan = computeKeggingPlan({
+      beers: piva, packages: obaly, orders: objTydne, orderItems: polozkyTydne,
+      keggingRows: kegging, zavozDeductionRows: odpocty, fasovaniRows: fasovani, prodejnaRows: prodejna,
+      writeoffsRows: odpisy, checkRows: odskrtnuti.filter((c: any) => c.week_key === tyden), weekKey: tyden,
+      jeCilovyObal: (kind: string, label?: string | null) => jeSud(kind, label),
+      currentStockMap: zasobaProPlan(zdrojePlanu, dnes, objTydne, polozkyTydne, tyden), dnes,
+    });
+    const pivoPlan = pivoArg ? piva.find((b: any) => b.name.toLowerCase().includes(pivoArg.toLowerCase())) : null;
+    console.log(`\n══ Plán stáčení sudů, týden ${tyden} (od ${zacatek}), dnes ${dnes}${pivoPlan ? ` — ${pivoPlan.name}` : ''} ══`);
+    const odjeloTydne = (k: string) => odpocty
+      .filter((d: any) => idTydne.has(d.order_id) && stockKey(d.beer_id, d.package_id) === k)
+      .reduce((n: number, d: any) => n + Number(d.quantity || 0), 0);
+    for (const den of plan) {
+      const polozkyDne = den.items.filter((it) => !pivoPlan || it.beer_id === pivoPlan.id);
+      if (polozkyDne.length === 0) continue;
+      console.log(`\n${den.label}${den.date ? ` ${den.date}` : ''}`);
+      for (const it of polozkyDne) {
+        console.log(`  ${it.package_label} ${it.beer_name}: objednáno ${it.ordered}, z chlaďáku ${it.zChladaku}, chybí stočit ${it.missing}${it.dluh ? ` (z toho dluh ${it.dluh})` : ''}`
+          + ` | Sklad teď ${zasoba.get(it.key) ?? 0}, z objednávek týdne už odjelo ${odjeloTydne(it.key)}`);
+        it.orders.forEach((o) => console.log(`      ${o.place_name}: ${o.quantity}${o.delivered ? ' (zavezeno)' : ''}${o.doVlastnichSudu ? ' — do VLASTNÍHO sudu odběratele, sklad ji nekryje' : ''}`));
+      }
+    }
   }
 
   // ── Ztráty / dorovnání bez objednávky v měsíci (co inventura bere jako ztráty) ──

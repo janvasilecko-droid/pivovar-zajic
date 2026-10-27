@@ -16,13 +16,16 @@
 //                     skutečný výdej, tady jen odhad pro dny, co teprve přijdou
 //   • planned       – naplánované stáčení v týdnu (jen 1. stáčení piva)
 //   • afterBottling – sklad + naplánováno
-//   • missing       – chybí stočit = objednáno + odhad fasování − sklad po
-//                     naplánovaném stočení. Sklad je číslo ze skladové knihy
-//                     (i záporné). Už odvezené se z objednávky neodečítají:
-//                     uložená inventura je reset a odvoz v ní už je, druhý
-//                     odečet by potřebu zmenšil (26. 10. 2026: sklad 80,
-//                     objednáno 100, odvoz 14 → vycházelo 6 místo 20).
-//   • afterOutgoing – konec týdne = po stočení − objednáno − fasování
+//   • zbyvaZavezt   – část objednávek týdne, kterou sklad ještě NEMÁ
+//                     odečtenou (objednáno − odvoz, který kniha ve skladu
+//                     počítá; viz lib/tydenniZbytek.ts, zasobaPredOdvozem)
+//   • missing       – chybí stočit = max(0, zbývá zavézt + fasování − po
+//                     stočení). Sklad je číslo ze skladové knihy (i záporné).
+//                     Odvezené se neodečítají dvakrát (27. 10. 2026), a odvoz,
+//                     který přebila uložená inventura, se ze zbývajícího
+//                     neubírá (26. 10. 2026: sklad 80, objednáno 100, odvoz 14
+//                     týž den → chybí 20, ne 6).
+//   • afterOutgoing – konec týdne = po stočení − zbývá zavézt − fasování
 //
 // Čerstvé stočení se tak projeví v „chybí stočit" OKAMŽITĚ (počítá se do
 // „stock" hned po uložení), bez čekání na to, až se nějaká JINÁ objednávka
@@ -30,7 +33,7 @@
 import { AkceRow } from './inventoryHelper';
 import { buildMovements, stockAsOf } from './stockLedger';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
-import { odecteneKusyPolozek } from './tydenniZbytek';
+import { zasobaPredOdvozem } from './tydenniZbytek';
 import type { BottlingPlan } from './bottlingPlans';
 
 export type NeedsRow = {
@@ -157,17 +160,28 @@ export function computeBottlingNeeds(input: BottlingNeedsInput): NeedsRow[] {
   // čím víc rozvezených objednávek v týdnu bylo.
   //
   // `ordered` (sloupec „objednáno") zůstává CELÁ týdenní potřeba — tak se to
-  // čte a tak to má být. Dopočet níž ale musí jít proti tomu, co ještě
-  // NEODJELO, jinak se zavezené kusy odečtou podruhé.
-  const odecteno = odecteneKusyPolozek(zavozDeductionRows);
+  // čte a tak to má být. Dopočet níž ale musí jít proti tomu, co sklad ještě
+  // NEMÁ odečtené, jinak se zavezené kusy odečtou podruhé.
+  //
+  // Kolik toho sklad odečtené má, řekne skladová kniha: stav BEZ odvozu
+  // objednávek týdne minus skutečný stav. Ne prostý součet odpočtů — odvoz,
+  // který přebila pozdější uložená inventura, ve skladu není a „zbývá
+  // zavézt" nesmí zmenšit (26. 10. 2026: inventura 80, odvoz 14 týž den,
+  // objednáno 100 → chybí 20, ne 6).
   const weekOrdered: Record<string, number> = {};
-  const weekZbyvaZavezt: Record<string, number> = {};
   orderItems.filter((item) => item.package_id && activeIds.has(item.order_id)).forEach((item) => {
     if (!item.beer_id || !item.package_id) return;
     const k = `${item.beer_id}__${item.package_id}`;
-    const qty = Number(item.quantity || 0);
-    weekOrdered[k] = (weekOrdered[k] || 0) + qty;
-    weekZbyvaZavezt[k] = (weekZbyvaZavezt[k] || 0) + Math.max(0, qty - (odecteno.get(item.id) ?? 0));
+    weekOrdered[k] = (weekOrdered[k] || 0) + Number(item.quantity || 0);
+  });
+  const stockPredOdvozem = zasobaPredOdvozem({
+    inventoryRows, bottlingRows, keggingRows, fasovaniRows, prodejnaRows,
+    writeoffsRows, zavozDeductionRows, akceRows, prefukRows, adjustmentRows, packages,
+  }, weekEndStr, activeIds, orderItems);
+  const weekZbyvaZavezt: Record<string, number> = {};
+  Object.entries(weekOrdered).forEach(([k, qty]) => {
+    const odvezenoVeSkladu = (stockPredOdvozem.get(k) ?? 0) - (stockMap[k] ?? 0);
+    weekZbyvaZavezt[k] = Math.max(0, qty - odvezenoVeSkladu);
   });
 
   // Odhad fasování pro ZBÝVAJÍCÍ dny týdne (průměr za posledních 30 dní ×
@@ -248,10 +262,10 @@ export function computeBottlingNeeds(input: BottlingNeedsInput): NeedsRow[] {
         planned,
         fasovani,
         afterBottling,
-        // Objednáno minus sklad ze knihy. Záporný sklad potřebu zvětší;
-        // přebytek (sklad větší než objednávka) není „chybí".
-        missing: Math.max(0, ordered + fasovani - afterBottling),
-        afterOutgoing: afterBottling - ordered - fasovani,
+        // Co ještě neodjelo minus sklad ze knihy. Záporný sklad potřebu
+        // zvětší; přebytek (sklad větší než objednávka) není „chybí".
+        missing: Math.max(0, zbyvaZavezt + fasovani - afterBottling),
+        afterOutgoing: afterBottling - zbyvaZavezt - fasovani,
       });
     });
   });

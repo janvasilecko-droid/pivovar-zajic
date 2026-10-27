@@ -36,7 +36,6 @@ import { useMaleSudy, useHlidaniMalychSudu } from '../lib/useMaleSudy';
 import { rozdelMaleSudyVObjednavce, silaPiva } from '../lib/maleSudy';
 import { MaleSudyRadek, tridaRadkuSudu } from './MaleSudyVolne';
 import type { Order, OrderItem } from './objednavky/spolecne';
-import { vlastniSudyOdberatele, textRikaVlastniSud, poznamkaSVlastnimSudem, POZNAMKA_VLASTNI_SUD } from '../lib/vlastniSudy';
 
 /** Jak se skupiny obalů pojmenují v přehledu úpravy. */
 const NAZVY_SKUPIN: Record<SkupinaObalu, string> = {
@@ -185,7 +184,6 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   const [splitPlaceName, setSplitPlaceName] = useState('');
   // 🛢️ „Do jejich sudu“: appka to pozná z textu zprávy; člověk to smí přebít
   // zaškrtávátkem (null = platí, co řekl text).
-  const [vlastniSudRucne, setVlastniSudRucne] = useState<boolean | null>(null);
   // 📅 Datum závozu zadané rukou (pole „nebo datum“) — přebíjí den i dopočet.
   const [datumRucne, setDatumRucne] = useState<string | null>(null);
 
@@ -197,7 +195,6 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
     setPhotoChecked(false);
     setPrisnyPrekonan(false);
     setZpusobNapojeni(null);
-    setVlastniSudRucne(null);
     setDatumRucne(null);
   }, [props.message?.id]);
 
@@ -834,18 +831,11 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   const { zasoba: zasobaMalychSudu, zapocitatPlne } = useMaleSudy();
   const silaPodleId = useMemo(() => new Map(props.beers.map((b) => [b.id, silaPiva(b)])), [props.beers]);
   const { souhrn: souhrnMalychSudu } = useHlidaniMalychSudu(zasobaMalychSudu, silaPodleId, zapocitatPlne);
-  // 🛢️ „Egon od důchodců prosím 20l 12sv do jejich sudu" (14. 10. 2026: „v tom
-  // případě logicky nemusíš psát, že není malý sud"). Když zpráva říká, že se
-  // stáčí do vlastního sudu odběratele, malé sudy pivovaru se nepočítají —
-  // stejně jako u odběratelů se seznamu vlastních sudů (lib/vlastniSudy.ts).
-  // U fotky je text v přepisu od AI, u zprávy v textu.
-  const textObjednavky = [msg?.message_text, msg?.parsed_raw_text, msg?.parsed_note].filter(Boolean).join('\n');
-  const zpravaRikaVlastniSud = textRikaVlastniSud(textObjednavky);
-  const vlastniSudZpravy = vlastniSudRucne ?? zpravaRikaVlastniSud;
+  // Vlastní sudy odběratelů jsou od 27. 10. 2026 zrušené (lib/vlastniSudy.ts) —
+  // malé sudy pivovaru se počítají pro každou objednávku.
   const prideleniSudu = rozdelMaleSudyVObjednavce(
     souhrnMalychSudu,
-    // Odběratel s vlastními sudy malé sudy pivovaru nebere (lib/vlastniSudy.ts).
-    items.map((it) => ({ klic: it.key, pkgId: vlastniSudyOdberatele(placeName) || vlastniSudZpravy ? null : it.pkgId, qty: Number(it.qty) || 0, sila: silaPodleId.get(it.beerId) ?? 0 })),
+    items.map((it) => ({ klic: it.key, pkgId: it.pkgId, qty: Number(it.qty) || 0, sila: silaPodleId.get(it.beerId) ?? 0 })),
   );
 
   // Datum k vybranému dni: co zadal člověk, pak co přečetla AI (když den sedí),
@@ -1077,11 +1067,6 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
         parsed_delivery_day: denZavozu,
         parsed_delivery_date: datumDneZavozu,
         zavoz_cislo: zavozCislo,
-        // „Do jejich sudu" se k objednávce připíše do poznámky — pozná ji
-        // pak plán stáčení, malé sudy i karta objednávky (lib/vlastniSudy.ts).
-        ...(zpravaRikaVlastniSud && vlastniSudZpravy
-          ? { parsed_note: poznamkaSVlastnimSudem(message.parsed_note, textObjednavky) }
-          : {}),
         parsed_items: primaryItems.map((it) => ({
           beer_id: it.beerId || null,
           pkg_id: it.pkgId || null,
@@ -1570,7 +1555,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                         </button>
                         <button
                           type="button"
-                          className="min-h-[48px] rounded bg-emerald-700 text-white font-black text-base disabled:opacity-50"
+                          className="btn-emerald min-h-[48px] font-black text-base"
                           disabled={napojuji !== null}
                           onClick={() => { setZpusobNapojeni('pridat'); void napojitNaObjednavku(o.id); }}
                         >
@@ -1856,27 +1841,6 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                 onZavoz={setZavozCislo}
               />
 
-              {/* 🛢️ Zpráva říká „do jejich sudu“ — malé sudy pivovaru se pro
-                  objednávku nepočítají (žádné „Nejsou sudy“) a k objednávce se
-                  připíše poznámka. Zaškrtnutím se to dá vypnout. */}
-              {zpravaRikaVlastniSud && (
-                <label data-vlastni-sud className="flex items-start gap-2 cursor-pointer rounded border border-sky-200 bg-sky-50 px-2.5 py-2">
-                  <input
-                    type="checkbox"
-                    className="w-5 h-5 mt-0.5 shrink-0"
-                    checked={vlastniSudZpravy}
-                    onChange={(e) => setVlastniSudRucne(e.target.checked)}
-                  />
-                  <span className="min-w-0">
-                    <span className="block text-sm font-black text-sky-950">Do vlastního sudu odběratele</span>
-                    <span className="block text-udaj font-bold text-sky-900">
-                      Zpráva to říká („do jejich sudu“). Malé sudy pivovaru se nepočítají
-                      a k objednávce se připíše poznámka „{POZNAMKA_VLASTNI_SUD}“.
-                    </span>
-                  </span>
-                </label>
-              )}
-
               <div>
                   <div className="flex items-center gap-1 text-sm text-neutral-600 mb-1">
                     Položky objednávky
@@ -2118,7 +2082,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
               <button
                 onClick={() => { void schvalitVzdy(); }}
                 disabled={approving}
-                className="px-6 py-2.5 bg-emerald-700 text-white rounded hover:bg-emerald-800 disabled:opacity-50 flex items-center justify-center gap-2 font-medium min-h-[44px]"
+                className="btn-emerald px-6"
               >
                 {approving ? <ButtonSpinner /> : <UserCheck size={16} />}
                 {approving ? 'Schvaluji…' : 'Schválit a odeslat do objednávek'}
