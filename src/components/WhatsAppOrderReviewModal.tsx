@@ -2118,7 +2118,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
               <button
                 onClick={() => { void schvalitVzdy(); }}
                 disabled={approving}
-                className="px-6 py-2.5 bg-emerald-700 text-white rounded hover:bg-emerald-800 disabled:opacity-50 flex items-center justify-center gap-2 font-medium min-h-[44px]"
+                className="btn-emerald !px-6 min-h-[44px]"
               >
                 {approving ? <ButtonSpinner /> : <UserCheck size={16} />}
                 {approving ? 'Schvaluji…' : 'Schválit a odeslat do objednávek'}
@@ -2127,7 +2127,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                 type="button"
                 onClick={handleReparse}
                 disabled={reparsing || loading || message.status === 'processing'}
-                className="px-4 py-2.5 rounded bg-sky-700 text-white hover:bg-sky-800 disabled:opacity-50 flex items-center justify-center gap-2 font-medium min-h-[44px]"
+                className="btn-ghost min-h-[44px]"
                 title="Znovu spustit AI čtení zprávy"
               >
                 {reparsing ? <RefreshCw size={16} className="animate-spin" /> : <RefreshCw size={16} />}
