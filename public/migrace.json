@@ -179,6 +179,7 @@
     "20261231340000_staceni_keg_bez_minusu.sql",
     "20261231350000_stoceni_upravy.sql",
     "20261231360000_poznamka_do_vlastniho_sudu.sql",
-    "20261231370000_spatne_naucene_zkratky_piv.sql"
+    "20261231370000_spatne_naucene_zkratky_piv.sql",
+    "20261231380000_uzavreny_mesic_inventura_nejde_prepsat.sql"
   ]
 }
