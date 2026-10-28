@@ -15,7 +15,7 @@ import { nactiSdilenouTabulku } from './sdilenaData';
 import { businessDateISO } from './businessDate';
 import { jeSud } from './inventoryFix';
 import { computeKeggingPlan, type DayPlan } from './keggingPlan';
-import { buildMovements, MOVEMENT_LABELS } from './stockLedger';
+import { buildMovements, MOVEMENT_LABELS, type Movement } from './stockLedger';
 import { zbytekKeKonciTydne } from './tydenniZbytek';
 import { weekRange } from '../components/WeeklyOrderSummaryCard';
 import { chybejiciZdroje, dataZPametiOd } from './zPameti';
@@ -48,6 +48,8 @@ export type PlanStaceni = {
   puvodMinusu: (beerId: string, packageId: string) => { datum: string; popis: string; kusu: number }[];
   /** Stav skladem teď (skladová kniha), klíč `beer_id__package_id`. */
   zasoba?: Map<string, number>;
+  /** Pohyby skladové knihy, ze kterých je plán spočítaný (Rozbor je čte taky). */
+  pohyby?: Movement[];
 };
 
 /**
