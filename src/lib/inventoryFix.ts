@@ -87,14 +87,16 @@ export function nazevMesice(monthKey: string): string {
  * měsíci se skoro vždycky dopočítává ten předchozí — a kdyby si toho nikdo
  * nevšiml, doplněné stáčení by spadlo do špatného měsíce.
  */
-export function nabidnoutMinulyMesic(vybranyMesic: string, dnesISO: string): string | null {
+export function nabidnoutMinulyMesic(vybranyMesic: string, dnesISO: string, uzavrene: readonly string[] = []): string | null {
   const dnesMesic = dnesISO.slice(0, 7);
   if (vybranyMesic !== dnesMesic) return null;
   const den = Number(dnesISO.slice(8, 10));
   if (den > 10) return null;
   const [y, m] = dnesMesic.split('-').map(Number);
   const predchozi = new Date(Date.UTC(y, m - 2, 1));
-  return `${predchozi.getUTCFullYear()}-${String(predchozi.getUTCMonth() + 1).padStart(2, '0')}`;
+  const minuly = `${predchozi.getUTCFullYear()}-${String(predchozi.getUTCMonth() + 1).padStart(2, '0')}`;
+  // Uzavřený měsíc se nenabízí — viz vychoziMesicInventury.
+  return uzavrene.includes(minuly) ? null : minuly;
 }
 
 /**
@@ -105,14 +107,18 @@ export function nabidnoutMinulyMesic(vybranyMesic: string, dnesISO: string): str
  * Obrazovka se dřív otevírala na dnešním měsíci a doplněné stáčení pak
  * spadlo do budoucnosti — takhle zmizelo 17 sudů Summer Ale na 30. 9. 2026.
  */
-export function vychoziMesicInventury(dnesISO: string, doDne = 10): string {
+export function vychoziMesicInventury(dnesISO: string, doDne = 10, uzavrene: readonly string[] = []): string {
   const mesic = dnesISO.slice(0, 7);
   if (!/^\d{4}-\d{2}$/.test(mesic)) return mesic;
   const den = Number(dnesISO.slice(8, 10));
   if (!(den >= 1 && den <= doDne)) return mesic;
   const [y, m] = mesic.split('-').map(Number);
   const predchozi = new Date(Date.UTC(y, m - 2, 1));
-  return `${predchozi.getUTCFullYear()}-${String(predchozi.getUTCMonth() + 1).padStart(2, '0')}`;
+  const minuly = `${predchozi.getUTCFullYear()}-${String(predchozi.getUTCMonth() + 1).padStart(2, '0')}`;
+  // UZAVŘENÝ minulý měsíc se už neotevírá sám. 9. 10. 2026 se takhle do
+  // uzavřeného září uložila čísla napočítaná 9. 10. — smazala schválenou
+  // inventuru k 30. 9. a vracela se ze zálohy.
+  return uzavrene.includes(minuly) ? mesic : minuly;
 }
 
 export type StoceniZapis = {

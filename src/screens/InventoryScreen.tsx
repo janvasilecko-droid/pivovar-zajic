@@ -295,6 +295,10 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
   // předchozím (viz vychoziMesicInventury). Dřív to byl vždycky dnešní měsíc
   // a doplněné stáčení padalo do budoucnosti.
   const [currentMonth, setCurrentMonth] = useState<string>(() => vychoziMesicInventury(businessDateISO()));
+  // Vybral měsíc člověk (šipky, kalendář, tlačítko)? Pak už ho výchozí volba
+  // po načtení uzavřených měsíců nepřepne.
+  const mesicVybranRucne = useRef(false);
+  const zvolMesic = (m: string) => { mesicVybranRucne.current = true; setCurrentMonth(m); };
 
   // Počáteční stavy zadané ručně sládkem na začátku měsíce (načítané z inventory tabulky)
   const [initialStock, setInitialStock] = useState<InitialStockMap>({});
@@ -760,10 +764,24 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
   useRealtime(['beers', 'packages', 'bottling', 'kegging', 'fasovani', 'fasovani_private', 'writeoffs', 'inventory', 'inventory_adjustments', 'zavoz_deductions', 'akce', 'akce_items', 'keg_prefuk'], () => loadData(true));
 
   useEffect(() => { nactiZavreneMesice().then(setZavreneMesice); }, []);
+  // Uzavřený minulý měsíc se sám neotevírá (vychoziMesicInventury) — výchozí
+  // volba se srovná, jakmile se uzavřené měsíce načtou, pokud člověk ještě
+  // nic nevybral.
+  useEffect(() => {
+    if (mesicVybranRucne.current) return;
+    const vychozi = vychoziMesicInventury(businessDateISO(), 10, zavreneMesice.map((z) => z.month));
+    setCurrentMonth((m) => (m === vychozi ? m : vychozi));
+  }, [zavreneMesice]);
   useRealtime(['closed_months'], () => { nactiZavreneMesice().then(setZavreneMesice); });
 
   // Uložení počátečního stavu z rozjetého měsíce do databáze (inventory tabulka)
   async function handleSaveInitialStock() {
+    // Do uzavřeného měsíce se nic neukládá — 9. 10. 2026 takhle uložení
+    // dnešních čísel do uzavřeného září smazalo schválenou inventuru.
+    if (mesicUzavren) {
+      chyba(`${nazevMesice(currentMonth)} je uzavřený — uložením by se přepsala schválená inventura. Když opravdu potřebuješ něco změnit, nejdřív měsíc otevři (tlačítko „Otevřít měsíc“).`);
+      return;
+    }
     const vratPozici = zapamatujPozici('[data-inv-kotva="pocatecni"]');
     setBusy(true);
     try {
@@ -856,6 +874,12 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
   }
 
   async function handleSaveActualStock() {
+    // Do uzavřeného měsíce se nic neukládá — 9. 10. 2026 takhle uložení
+    // dnešních čísel do uzavřeného září smazalo schválenou inventuru.
+    if (mesicUzavren) {
+      chyba(`${nazevMesice(currentMonth)} je uzavřený — uložením by se přepsala schválená inventura. Když opravdu potřebuješ něco změnit, nejdřív měsíc otevři (tlačítko „Otevřít měsíc“).`);
+      return;
+    }
     // Ať po uložení zůstane tabulka přesně tam, kde je — jde se rovnou
     // zkontrolovat, jestli se dorovnání propsalo (viz lib/drzPozici.ts).
     const vratPozici = zapamatujPozici('[data-inv-kotva="bilance"]');
@@ -929,6 +953,10 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
   // ostatním se převod dat i tak povede, jen se měsíc nezamkne a appka na
   // to nahlas upozorní, ať to neprojde tiše.
   async function handleLockAndTransferNextMonth() {
+    if (jeMesicVSeznamuUzavren(zavreneMesice, currentMonth)) {
+      chyba(`${nazevMesice(currentMonth)} už je uzavřený — znovu schválit ho jde až po otevření (tlačítko „Otevřít měsíc“).`);
+      return;
+    }
     if (!(await potvrd(`Chceš schválit inventuru za ${currentMonth}, ZAVŘÍT ho (objednávky a zápisy výroby půjdou od teď jen číst) a převést fyzické stavy jako počáteční stav do nového měsíce?`))) return;
 
     const [y, m] = currentMonth.split('-').map(Number);
@@ -979,7 +1007,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
 
       // Nastavíme příznaky pro vynucené načtení nových stavů z DB
       forceReloadRef.current = true;
-      setCurrentMonth(nextMonthKey);
+      zvolMesic(nextMonthKey);
     } catch (e) {
       console.error(e);
       chyba('Chyba při převodu inventury do nového měsíce!');
@@ -1891,7 +1919,7 @@ function exportInventoryExcel() {
               21 px šířky — na svislou pilulku vysokou 44 px se prstem
               mířilo jako na nit. */}
           <button
-            onClick={() => setCurrentMonth(posunMesic(currentMonth, -1))}
+            onClick={() => zvolMesic(posunMesic(currentMonth, -1))}
             className="btn-ghost jen-ikona !flex-none"
             title="Předchozí měsíc" aria-label="Předchozí měsíc"
           >
@@ -1902,13 +1930,13 @@ function exportInventoryExcel() {
             <input
               type="month"
               value={currentMonth}
-              onChange={(e) => setCurrentMonth(e.target.value)}
+              onChange={(e) => zvolMesic(e.target.value)}
               className="bg-transparent font-mono font-black text-xs border-none focus:outline-none min-w-0 flex-1"
               aria-label="Měsíc inventury"
             />
           </label>
           <button
-            onClick={() => setCurrentMonth(posunMesic(currentMonth, 1))}
+            onClick={() => zvolMesic(posunMesic(currentMonth, 1))}
             className="btn-ghost jen-ikona !flex-none"
             title="Následující měsíc" aria-label="Následující měsíc"
           >
@@ -2092,7 +2120,7 @@ function exportInventoryExcel() {
           skoro vždycky dopočítává ten předchozí. Bez upozornění by srpnová
           inventura zadaná 3. 9. spadla do září — a doplněné stáčení s ní. */}
       {(() => {
-        const minuly = nabidnoutMinulyMesic(currentMonth, businessDateISO());
+        const minuly = nabidnoutMinulyMesic(currentMonth, businessDateISO(), zavreneMesice.map((z) => z.month));
         if (!minuly) return null;
         return (
           <div className="rounded border-2 border-sky-400 bg-sky-50 p-4 flex items-start gap-3">
@@ -2107,7 +2135,7 @@ function exportInventoryExcel() {
               </p>
               <button
                 type="button"
-                onClick={() => setCurrentMonth(minuly)}
+                onClick={() => zvolMesic(minuly)}
                 className="mt-2.5 px-3 py-2 rounded bg-sky-700 hover:bg-sky-700 text-white font-black text-xs transition"
               >
                 Přepnout na {nazevMesice(minuly)}
@@ -2185,7 +2213,7 @@ function exportInventoryExcel() {
                 <button
                   type="button"
                   onClick={handleSaveActualStock}
-                  disabled={busy}
+                  disabled={busy || mesicUzavren}
                   className="px-3 py-2 rounded bg-rose-600 hover:bg-rose-700 text-white font-black text-xs transition disabled:opacity-50 flex items-center gap-1.5"
                 >
                   <Save size={16} /> Uložit fyzické stavy
@@ -2219,7 +2247,7 @@ function exportInventoryExcel() {
                 </button>
                 <button
                   onClick={handleSaveActualStock}
-                  disabled={busy}
+                  disabled={busy || mesicUzavren}
                   className="px-4 py-2.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-md transition flex items-center gap-1.5"
                 >
                   <Save size={16} /> Uložit fyzické stavy
@@ -2326,7 +2354,9 @@ function exportInventoryExcel() {
                 ))}
               </div>
 
-              {zpusobPocitani === 'poporade' && (
+              {/* Uzavřený měsíc jen ke čtení — Popořadě leželo mimo zamčený
+                  fieldset a šlo jím psát i do uzavřeného září (9. 10. 2026). */}
+              {zpusobPocitani === 'poporade' && !mesicUzavren && (
                 <div className="md:hidden">
                   <PoporadeVstupMesic
                     radky={zobrazeneRadky}

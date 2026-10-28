@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { doplnekVBudoucnu, vychoziMesicInventury, kegovaniZapisy, lahvoveZapisy, akceProRozdil, datumDoplnku, jeSud, nabidnoutMinulyMesic, nazevMesice, odectiZeStoceni, stoceniZapis, type InventuraPolozka } from './inventoryFix';
 
@@ -278,6 +280,40 @@ describe('vychoziMesicInventury — inventura se řídí kalendářem', () => {
 
   it('poškozené datum nespadne', () => {
     expect(vychoziMesicInventury('nesmysl')).toBe('nesmysl');
+  });
+
+  it('UZAVŘENÝ minulý měsíc se sám neotevře — 9. 10. 2026 se tak přepsalo září', () => {
+    expect(vychoziMesicInventury('2026-10-09', 10, ['2026-09'])).toBe('2026-10');
+    expect(vychoziMesicInventury('2026-11-01', 10, ['2026-09'])).toBe('2026-10');
+    expect(nabidnoutMinulyMesic('2026-10', '2026-10-09', ['2026-09'])).toBeNull();
+    expect(nabidnoutMinulyMesic('2026-10', '2026-10-09', ['2026-08'])).toBe('2026-09');
+  });
+});
+
+describe('Inventura: do uzavřeného měsíce nejde uložit (9. 10. 2026)', () => {
+  // Zdroj obrazovky — tlačítka a handlery musí znát uzavřený měsíc.
+  const zdroj = readFileSync(resolve(__dirname, '../screens/InventoryScreen.tsx'), 'utf8');
+
+  it('obě tlačítka „Uložit fyzické stavy" jsou v uzavřeném měsíci vypnutá', () => {
+    expect(zdroj.match(/onClick=\{handleSaveActualStock\}\s*disabled=\{busy \|\| mesicUzavren\}/g)?.length).toBe(2);
+    expect(zdroj).not.toMatch(/onClick=\{handleSaveActualStock\}\s*disabled=\{busy\}/);
+  });
+
+  it('uložení inventury i počátečního stavu má tvrdou kontrolu', () => {
+    for (const fn of ['handleSaveActualStock', 'handleSaveInitialStock']) {
+      const telo = zdroj.slice(zdroj.indexOf(`async function ${fn}()`), zdroj.indexOf(`async function ${fn}()`) + 600);
+      expect(telo).toMatch(/if \(mesicUzavren\)/);
+    }
+  });
+
+  it('Popořadě se v uzavřeném měsíci neukáže', () => {
+    expect(zdroj).toMatch(/zpusobPocitani === 'poporade' && !mesicUzavren/);
+  });
+
+  it('databáze odmítne uložit inventuru do uzavřeného měsíce (migrace)', () => {
+    const sql = readFileSync(resolve(__dirname, '../../supabase/migrations/20261231380000_uzavreny_mesic_inventura_nejde_prepsat.sql'), 'utf8');
+    expect(sql).toMatch(/CREATE OR REPLACE FUNCTION public\.save_inventory_snapshot/);
+    expect(sql).toMatch(/IF public\.mesic_je_uzavren\(p_entry_date\) THEN\s*RAISE EXCEPTION/);
   });
 });
 
