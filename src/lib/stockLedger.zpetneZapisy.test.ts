@@ -98,3 +98,60 @@ describe('Týdenní počítání z pátku (14. 10. 2026: 10° Desítka 30 l, zá
     expect(String(pocitani[0].note)).not.toContain('(konec dne)');
   });
 });
+
+describe('Úprava skladu platí od okamžiku počítání (28. 10. 2026)', () => {
+  // Úprava skladu 26. 10. v 8:58 (07:58 UTC): napočítáno 0. Stáčení lahví
+  // z téhož dne se zapsalo až v 16:16 — Sklad ho „spolkl" a po závozech
+  // ukazoval mínus (12° Světlá 1 l: 0 − 5 = −5 místo 79 − 5 = 74).
+  const uprava = tydenniJakoInventura([
+    { tyden_od: '2026-10-26', tyden_do: '2026-11-01', beer_id: B, package_id: P, napocitano: 0, updated_at: '2026-10-26T07:58:00Z' },
+  ]);
+  const stavU = (src: Parameters<typeof buildMovements>[0], den = '2026-10-27') =>
+    stockAsOf(buildMovements({ packages, inventoryRows: uprava as any, ...src }), den).get(K)?.qty;
+
+  it('stáčení zapsané ten den PO počítání se přičte', () => {
+    expect(stavU({
+      bottlingRows: [{ entry_date: '2026-10-26', beer_id: B, package_id: P, quantity: 79, created_at: '2026-10-26T14:16:00Z' }],
+      zavozDeductionRows: [{ deduct_date: '2026-10-27', beer_id: B, package_id: P, quantity: 5, created_at: '2026-10-27T13:53:00Z' }],
+    })).toBe(74);
+    expect(stavU({
+      bottlingRows: [{ entry_date: '2026-10-26', beer_id: B, package_id: P, quantity: 79, created_at: '2026-10-26T14:16:00Z' }],
+    }, '2026-10-26')).toBe(79);
+  });
+
+  it('zápis z téhož dne uložený PŘED počítáním je v napočítaném čísle', () => {
+    expect(stavU({
+      bottlingRows: [{ entry_date: '2026-10-26', beer_id: B, package_id: P, quantity: 20, created_at: '2026-10-26T06:30:00Z' }],
+    })).toBe(0);
+  });
+
+  it('zápis bez času uložení se k napočítanému nepřičte (nevíme, kdy vznikl)', () => {
+    expect(stavU({ bottlingRows: [{ entry_date: '2026-10-26', beer_id: B, package_id: P, quantity: 20 }] })).toBe(0);
+  });
+
+  it('srovnání z Úpravy skladu uložené po počítání se nepřičte podruhé', () => {
+    expect(stavU({
+      adjustmentRows: [{ entry_date: '2026-10-26', beer_id: B, package_id: P, quantity: 3, reason: 'Dorovnání z inventury týdne 2026-10-26 — 50l', created_at: '2026-10-26T08:00:00Z' }],
+    })).toBe(0);
+  });
+
+  it('zápis k dni počítání dopsaný až POZDĚJI zůstává v napočítaném čísle (Winter 1 l)', () => {
+    expect(stavU({
+      prodejnaRows: [{ entry_date: '2026-10-26', beer_id: B, package_id: P, quantity: 1, created_at: '2026-10-27T11:15:59Z' }],
+    })).toBe(0);
+  });
+
+  it('zpětný zápis na den PŘED počítáním zůstává v napočítaném čísle', () => {
+    expect(stavU({
+      zavozDeductionRows: [{ deduct_date: '2026-10-25', beer_id: B, package_id: P, quantity: 2, created_at: '2026-10-26T15:00:00Z' }],
+    })).toBe(0);
+  });
+
+  it('měsíční napočítaná inventura se nemění — pohyby jejího dne do ní patří', () => {
+    const mesicni = [{ entry_date: '2026-10-31', beer_id: B, package_id: P, quantity: 4, note: 'Fyzická inventura', created_at: '2026-11-01T08:00:00Z' }];
+    expect(stockAsOf(buildMovements({
+      packages, inventoryRows: mesicni,
+      bottlingRows: [{ entry_date: '2026-10-31', beer_id: B, package_id: P, quantity: 6, created_at: '2026-11-01T09:00:00Z' }],
+    }), '2026-10-31').get(K)?.qty).toBe(4);
+  });
+});

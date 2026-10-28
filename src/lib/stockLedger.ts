@@ -24,6 +24,7 @@
 // Nikde se nic neořezává. Když vyjde záporný stav, je to skutečná nesrovnalost
 // v evidenci a aplikace ji MÁ ukázat, ne schovat.
 import type { AkceRow } from './inventoryHelper';
+import { businessDateISO } from './businessDate';
 
 /** Druh pohybu — určuje popisek v rozpadu a znaménko. */
 export type MovementKind =
@@ -454,13 +455,24 @@ export function stockAsOf(movements: Movement[], dateISO: string): Map<string, S
     // „Počáteční stav" popisuje naopak ráno prvního dne měsíce: co se ten den
     // stočí nebo vydá, teprve přijde a přičíst se musí.
     const zaverDne = jeZaverDne(baselineNote);
+    // Úprava skladu (týdenní počítání „konec dne") platí OD OKAMŽIKU počítání:
+    // co se TEN DEN zapsalo až po něm (odpolední stáčení, závoz), se přičte.
+    // 28. 10. 2026: Úprava skladu 26. 10. v 8:58, stáčení lahví z téhož dne
+    // zapsané v 16:16 (220 lahví 12° a 11° Světlé) Sklad „spolkl" a po
+    // závozech ukazoval mínus. Zápis k tomu dni dopsaný až POZDĚJI (Winter
+    // 1 l: prodejna k 23. 10. zapsaná 26. 10., kdy se 23. 10. napočítala
+    // nula) je dohánění papírů — ten v napočítaném čísle zůstává. Srovnání
+    // z inventury se nepřičítá nikdy.
+    const pocitaniCas = zaverDne && jeTydenniStav(baselineNote) ? baselineCreated : '';
     for (const m of list) {
       if (m.kind === 'inventura') continue;
       // Počítání v pondělí ráno je pravda: zápis ze dne před ním (i zpětně zadaný
       // později) už je v napočítaném čísle, takže stav k pondělí se nemění.
       // Rozdíl se ukáže v týdenní kontrole jako rozdíl k dorovnání
       // (viz ocekavanyStavTydne).
-      if (baselineDate !== null && (zaverDne ? m.date <= baselineDate : m.date < baselineDate)) continue;
+      const poPocitaniTenDen = !!pocitaniCas && m.date === baselineDate && zapsanoPoPocitani(m, pocitaniCas)
+        && businessDateISO(new Date(m.createdAt!)) === m.date;
+      if (baselineDate !== null && !poPocitaniTenDen && (zaverDne ? m.date <= baselineDate : m.date < baselineDate)) continue;
       qty += m.qty;
       byKind[m.kind] = (byKind[m.kind] ?? 0) + m.qty;
     }
