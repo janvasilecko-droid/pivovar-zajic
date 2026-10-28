@@ -1,7 +1,7 @@
 import { synchronizuj } from '../lib/checklistData';
 import { CHECKLISTY_ZAPNUTE } from '../lib/skryteModuly';
 import { jeSud } from '../lib/inventoryFix';
-import { useEffect, useMemo, useState, lazy, Suspense } from 'react';
+import { useEffect, useMemo, useRef, useState, lazy, Suspense } from 'react';
 import { supabase, Beer, Package, EntryRow, CellarTank, KegPrefuk, useRealtime, beerBg, beerText, beerName, formatPackageLabel, fetchAllRows } from '../lib/supabase';
 import { davkyStaceni, denACesky } from '../lib/prehledStaceni';
 import { useAuth } from '../lib/auth';
@@ -220,6 +220,11 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   /** Nepodařilo se načíst data (na rozdíl od „data jsou, ale žádná"). */
   const [chybaNacteni, setChybaNacteni] = useState<string | null>(null);
   const [flash, setFlash] = useState(false);
+  // Orámování po zápisu zhasne za 800 ms — při odchodu z obrazovky se časovač
+  // zruší, jinak sahá na odpojenou komponentu (28. 10. 2026 tím padalo
+  // nasazení: chyba až po konci testu Kegging.fotoDny).
+  const flashCasovac = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (flashCasovac.current) clearTimeout(flashCasovac.current); }, []);
   const [showImageImport, setShowImageImport] = useState(false);
   const [aliasMap, setAliasMap] = useState<ParserAliasMap>(emptyAliasMap());
   useEffect(() => { loadAliasMap().then(setAliasMap).catch(() => {}); }, []);
@@ -1264,7 +1269,9 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     // Zpětná vazba, že se to uložilo, je tichá: karta se orámuje (`flash`
     // níž) a řádek přibude v seznamu pod formulářem. Omyl se dá opravit
     // přímo tam (úprava množství nebo smazání řádku), ne přes toast.
-    setFlash(true); setTimeout(() => setFlash(false), 800);
+    setFlash(true);
+    if (flashCasovac.current) clearTimeout(flashCasovac.current);
+    flashCasovac.current = setTimeout(() => setFlash(false), 800);
     load(true);
 
     // Dřív tu po KAŽDÉM uložení vyskočilo okno „Budete pokračovat, nebo
