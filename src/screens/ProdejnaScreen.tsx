@@ -753,7 +753,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
               <button
                 type="button"
                 onClick={() => { setTapModalRowIndex(undefined); setShowTapModal(true); }}
-                className="px-3 py-2 rounded bg-amber-100 hover:bg-amber-200 text-amber-900 font-black text-xs transition"
+                className="btn-ghost !text-xs"
               >
                 Rezervovat výčep
               </button>
