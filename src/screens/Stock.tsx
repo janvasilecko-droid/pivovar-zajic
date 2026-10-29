@@ -28,6 +28,8 @@ type StockByPkg = {
   // ze kterých se currentStock/rawStock počítá výš.
   fromInv: number; brewedW: number; woW: number; fasovaniW: number; prodejnaW: number;
   akceWeek: number; kegsUsedW: number; zdW: number; prefukFrom: number; prefukTo: number; adjW: number;
+  /** Úprava skladu (napočítané číslo uprostřed měsíce) — rozdíl stavu proti rozpadu měsíce. */
+  upravaW: number;
   orderedW: number;
   /** 📉 Za kolik dní dojde při obvyklé spotřebě (viz lib/predpovedDojiti.ts). */
   predpoved: Predpoved;
@@ -268,6 +270,11 @@ export default function Stock({ setPage, initialTopTab }: { setPage?: (p: Page, 
         // Bez ořezání na nulu (audit 9. 10. 2026): Dashboard i Pohyby ukazují
         // mínus — Sklad ho dřív schoval jako 0 a „Zbývá" pak vycházelo vyšší.
         const currentStock = rawStock;
+        // Úprava skladu uprostřed měsíce srovná stav na napočítané číslo;
+        // měsíční rozpad (sloupce výš) ji nezná. Rozdíl se ukáže zvlášť, ať
+        // Počáteční + pohyby + úprava = stav na kus (28. 10. 2026: 11° Světlá
+        // 1 l — stav −5, ze sloupců vycházelo 50).
+        const upravaW = rawStock - (line?.qty ?? 0);
 
         // 📉 Za kolik dní dojde. Bere se RAW stav (i záporný — to je platná
         // odpověď skladové knihy) a pohyby TÉHOŽ piva a obalu za poslední
@@ -294,7 +301,7 @@ export default function Stock({ setPage, initialTopTab }: { setPage?: (p: Page, 
           currentStock, rawStock, outgoing, difference,
           baselineDate: ted?.baselineDate ?? line?.baselineDate ?? null,
           baselineQty: ted?.baselineQty ?? line?.baselineQty ?? 0,
-          fromInv, brewedW, woW, fasovaniW, prodejnaW, akceWeek, kegsUsedW, zdW, prefukFrom, prefukTo, adjW, orderedW,
+          fromInv, brewedW, woW, fasovaniW, prodejnaW, akceWeek, kegsUsedW, zdW, prefukFrom, prefukTo, adjW, upravaW, orderedW,
           predpoved,
           trvanlivost: pkg.kind === 'bottle'
             ? trvanlivostSkladu(
@@ -322,7 +329,9 @@ export default function Stock({ setPage, initialTopTab }: { setPage?: (p: Page, 
 
     // Položky, u kterých kniha vychází do mínusu — evidence u nich nesedí.
     const nesedi: NesediRow[] = [];
-    ledger.forEach((line) => {
+    // Ze STAVU (stockAsOf), ne z měsíčního rozpadu — mínus má sedět s číslem,
+    // které je u piva vidět (po Úpravě skladu se ty dva liší).
+    stavKDni.forEach((line) => {
       if (line.qty >= 0) return;
       const beer = beerList.find((x) => x.id === line.beer_id);
       const pkg = pkgList.find((x) => x.id === line.package_id);
@@ -889,6 +898,12 @@ export default function Stock({ setPage, initialTopTab }: { setPage?: (p: Page, 
                               <div className="text-sm font-black text-amber-800">{p.adjW > 0 ? '+' : ''}{p.adjW}</div>
                             </div>
                           )}
+                          {p.upravaW !== 0 && (
+                            <div className="rounded bg-amber-50 py-1.5">
+                              <div className="text-udaj font-black uppercase text-amber-700">Úprava skladu</div>
+                              <div className="text-sm font-black text-amber-800">{p.upravaW > 0 ? '+' : ''}{p.upravaW}</div>
+                            </div>
+                          )}
                         </div>
 
                         {/* Kontrolní vzorec se skutečnými čísly — aby šlo ověřit,
@@ -897,7 +912,7 @@ export default function Stock({ setPage, initialTopTab }: { setPage?: (p: Page, 
                         <div className="px-3 pb-3 pt-1 border-t border-neutral-100 bg-neutral-50/60">
                           <div className="text-udaj font-black uppercase text-neutral-400 mb-1">Kontrolní výpočet</div>
                           <div className="font-mono text-udaj text-neutral-700 leading-relaxed break-words">
-                            {p.fromInv} (počáteční) + {p.brewedW} (stočeno) − {p.kegsUsedW} (sudy na lahve) − {p.fasovaniW} (fasování) − {p.prodejnaW} (prodejna) − {p.akceWeek} (akce) − {p.woW} (odpisy) − {p.zdW} (závoz) − {p.prefukFrom} (přefuk ze) + {p.prefukTo} (přefuk do) + {p.adjW} (dorovnání) = {' '}
+                            {p.fromInv} (počáteční) + {p.brewedW} (stočeno) − {p.kegsUsedW} (sudy na lahve) − {p.fasovaniW} (fasování) − {p.prodejnaW} (prodejna) − {p.akceWeek} (akce) − {p.woW} (odpisy) − {p.zdW} (závoz) − {p.prefukFrom} (přefuk ze) + {p.prefukTo} (přefuk do) + {p.adjW} (dorovnání){p.upravaW !== 0 ? <> {p.upravaW > 0 ? '+' : '−'} {Math.abs(p.upravaW)} (úprava skladu)</> : null} = {' '}
                             <strong className={p.rawStock < 0 ? 'text-rose-700' : 'text-emerald-700'}>{p.rawStock}</strong>
                           </div>
                           {p.rawStock < 0 && (
@@ -912,7 +927,7 @@ export default function Stock({ setPage, initialTopTab }: { setPage?: (p: Page, 
                 </div>
 
                 <p className="text-xs text-neutral-400">
-                  Aktuální stav = počáteční + stočeno − fasování (personál) − prodejna − akce − odpisy − sudy na lahve − odečteno závozem − přefuk ZE + přefuk DO + dorovnání inventury. Objednáno (týden) je celý týden včetně už zavezeného. Zbývá = aktuální stav − jen ještě nezavezené objednávky tohoto týdne — kolik po vyřízení zbytku týdne reálně zbyde na skladě.
+                  Aktuální stav = počáteční + stočeno − fasování (personál) − prodejna − akce − odpisy − sudy na lahve − odečteno závozem − přefuk ZE + přefuk DO + dorovnání inventury ± úprava skladu (napočítané číslo z Úpravy skladu). Objednáno (týden) je celý týden včetně už zavezeného. Zbývá = aktuální stav − jen ještě nezavezené objednávky tohoto týdne — kolik po vyřízení zbytku týdne reálně zbyde na skladě.
                 </p>
               </div>
             )}
