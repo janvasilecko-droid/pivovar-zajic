@@ -155,7 +155,7 @@ describe('Stáčení KEG — limonády nemají tank', () => {
       for (const [jmeno, maHlasku] of [['Světlý ležák 12°', true], ['Citron', false]] as const) {
         fireEvent.click(await screen.findByRole('button', { name: new RegExp(jmeno) }));
         const pole = await waitFor(() => {
-          const p = document.querySelector('.fixed.inset-0 input[type="number"]') as HTMLInputElement | null;
+          const p = document.querySelector('.fixed.inset-0 input[inputmode="numeric"]') as HTMLInputElement | null;
           expect(p).toBeTruthy();
           return p as HTMLInputElement;
         });

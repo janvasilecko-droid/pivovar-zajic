@@ -9,7 +9,10 @@ import { BarChart3, CalendarDays, Camera, Check, ClipboardList, Package as Packa
 import { parseFreeTextEntries, loadAliasMap, emptyAliasMap, type ParserAliasMap } from '../lib/orderParser';
 import { TapReservationModal } from '../components/TapReservationModal';
 import { detectTapType } from '../lib/tapReservations';
-import { BeerTileGrid, BeerTilePanel, TileTotalBar } from '../components/BeerTileGrid';
+import { BeerTileGrid, TileTotalBar } from '../components/BeerTileGrid';
+import { DnesUlozeno, KrokoveZadavani, type KrokDef } from '../components/KrokoveZadavani';
+import { rychleHodnoty } from '../lib/krokoveZadavani';
+import { dnesPodleObalu, objemObalu } from '../lib/dnesUlozeno';
 import { chyba, potvrd, toastZpet } from '../lib/toast';
 import { jeMesicUzamcen } from '../lib/mesicUzamcen';
 import { ZNACKA_V_POCITANI, jeVPocitani } from '../lib/stockLedger';
@@ -203,6 +206,34 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
     const kegs = packages.filter((p) => p.kind === 'keg' && allowed(p)).sort((a, b) => b.volume_l - a.volume_l);
     return [...bottles, ...kegs];
   }, [packages]);
+
+  // 🔢 Pět nejčastějších počtů pro pivo v panelu — pro každý obal zvlášť, z
+  // historie téhle tabulky (fasování, prodejna a odpis mají každé svou).
+  // Bez historie se nabídne 5 a 12 (přepravka po dvanácti, 12. 10. 2026);
+  // u odpisu jen 5, dvanáctka by tam nedávala smysl.
+  const rychleMapa = useMemo(() => {
+    const out = new Map<string, number[]>();
+    if (!expandedProdejnaBeerId) return out;
+    for (const p of shopPackages) out.set(p.id, rychleHodnoty(rows, expandedProdejnaBeerId, p.id, table === 'writeoffs' ? [5] : [5, 12]));
+    return out;
+  }, [expandedProdejnaBeerId, shopPackages, rows, table]);
+
+  // 🚶 Krokové zadávání (29. 10. 2026): nahoře obal (lahve, pod nimi sudy),
+  // pak počet a pět nejčastějších čísel. Píše stejné řádky entryRows jako dřív.
+  function krokVydej(beer: Beer): KrokDef {
+    const zadano = (id: string) => tileQtyFor(beer.id, id);
+    return {
+      stitek: 'Kolik kusů',
+      otazka: 'Kolik kusů?',
+      obaly: shopPackages.map((p) => ({ id: p.id, label: objemObalu(p), skupina: p.kind === 'keg' ? 'Sudy' : 'Lahve' })),
+      jednotka: (o) => `ks ${o.label}`,
+      mnozstvi: zadano,
+      nastav: (id, n) => setTileRow(beer.id, id, { qty: n > 0 ? String(n) : '' }),
+      rychle: (id) => rychleMapa.get(id) ?? [],
+      vychozi: shopPackages.find((p) => zadano(p.id) > 0)?.id ?? shopPackages[0]?.id,
+      dalsiText: '+ další obal',
+    };
+  }
 
   /**
    * Poslední načtení vyhrává a selhání se pozná od prázdna.
@@ -793,13 +824,17 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
           </div>
 
           {expandedProdejnaBeer && (
-            <BeerTilePanel
+            <KrokoveZadavani
+              key={expandedProdejnaBeer.id}
               beer={expandedProdejnaBeer}
-              onClose={() => setExpandedProdejnaBeerId(null)}
-              headerRight={showWhoColumn ? (
+              podtitul={`${title}${vraceni ? ' · vrácení na sklad' : ''}`}
+              onZavrit={() => setExpandedProdejnaBeerId(null)}
+              den={date === businessDateISO() ? 'dnes' : date}
+              dnes={dnesPodleObalu(rows, date, packages).filter((p) => p.beerId === expandedProdejnaBeer.id)}
+              kroky={[krokVydej(expandedProdejnaBeer)]}
+              hlavickaVpravo={showWhoColumn ? (
                 /* „Pro koho" patří do lišty, ne k jednotlivým obalům: fasuje se
-                   jednomu člověku najednou a pole u každé velikosti dělalo z
-                   panelu na telefonu nekonečný sloupec. */
+                   jednomu člověku najednou. */
                 <input
                   type="text"
                   className="min-w-0 flex-1 px-2 py-1.5 rounded bg-white/90 border border-black/10 text-sm font-bold text-neutral-900 placeholder:font-medium placeholder:text-neutral-500"
@@ -809,37 +844,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                   aria-label={druh.popisek}
                 />
               ) : undefined}
-            >
-              {shopPackages.map((p) => {
-                const qty = tileQtyFor(expandedProdejnaBeer.id, p.id);
-                return (
-                  <div key={p.id} className="rounded border border-neutral-200 dark:border-neutral-700 py-1 px-2 flex items-center justify-between gap-2">
-                      <span className="text-sm font-bold text-neutral-700 dark:text-neutral-200 truncate">{formatPackageLabel(p.label)}</span>
-                      <div className="flex items-center gap-1">
-                        <button type="button" onClick={() => setTileRow(expandedProdejnaBeer.id, p.id, { qty: String(Math.max(0, qty - 1)) })} className="w-11 h-11 grid place-items-center rounded bg-amber-100 hover:bg-amber-200 text-amber-800 font-black text-xl transition disabled:opacity-30 select-none" disabled={qty <= 0}>−</button>
-                        <input
-                          type="number" onWheel={(e) => e.currentTarget.blur()}
-                          min={0}
-                          inputMode="numeric"
-                          value={qty || ''}
-                          placeholder="0"
-                          onChange={(e) => setTileRow(expandedProdejnaBeer.id, p.id, { qty: e.target.value.replace(/[^0-9]/g, '') })}
-                          className="w-14 h-10 text-center text-lg font-black text-neutral-800 dark:text-neutral-100 bg-white dark:bg-neutral-900/60 border-2 border-amber-200 dark:border-neutral-700 rounded"
-                        />
-                        <button type="button" onClick={() => setTileRow(expandedProdejnaBeer.id, p.id, { qty: String(qty + 1) })} className="w-11 h-11 grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xl transition select-none">+</button>
-                        {/* +5: po jednom se přidává jen zbytek, celé pády sudů
-                            a přepravek jdou po pěti. Dvě klepnutí místo deseti.
-                            +12: karton / přepravka po dvanácti — jen u fasování
-                            (majitel 12. 10. 2026: „do fasování přidej tak jak je
-                            +5, přidej +12"), v odpisu by to nedávalo smysl. */}
-                        {(table === 'writeoffs' ? [5] : [5, 12]).map((krok) => (
-                          <button key={krok} type="button" onClick={() => setTileRow(expandedProdejnaBeer.id, p.id, { qty: String(qty + krok) })} className="w-11 h-11 grid place-items-center rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-950 font-black text-sm transition select-none">+{krok}</button>
-                        ))}
-                      </div>
-                  </div>
-                );
-              })}
-            </BeerTilePanel>
+            />
           )}
 
           {/* Souhrn zapsaných položek — jen ke čtení, úprava se dělá kliknutím na dlaždici výše. */}
@@ -931,6 +936,11 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
             {err && <span className="text-xs font-bold text-rose-700">{err}</span>}
           </div>
 
+          <DnesUlozeno
+            nadpis={`${date === businessDateISO() ? 'Dnes' : date} uloženo — ${title}`}
+            polozky={dnesPodleObalu(rows, date, packages)}
+            beers={beers}
+          />
         </form>
       )}
 
