@@ -63,17 +63,17 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
   // objednávka zapsaná v pondělí nemusí čekat na úpravu po uložení.
   const [datumZavozuRucne, setDatumZavozuRucne] = useState<string | null>(null);
   const datumDneZavozu = datumZavozuRucne ?? (denZavozu ? nejblizsiDatumDne(denZavozu, businessDateISO()) : null);
-  // 🧭 Zvyklosti odběratele: obvyklý den se předvyplní, neobvyklé množství
-  // se u řádku označí (29. 9. 2026, lib/zvyklostiOdberatele.ts).
+  // 🧭 Zvyklosti odběratele: neobvyklé množství se u řádku označí
+  // (29. 9. 2026, lib/zvyklostiOdberatele.ts). Den ani datum závozu se z nich
+  // NEDOPLŇUJE (29. 10. 2026: objednávka bez dne skončila o týden dál, na
+  // nejbližším „obvyklém" dni) — platí jen to, co člověk vybere rukou.
   const [zvyklosti, setZvyklosti] = useState<Zvyklosti | null>(null);
-  const [denZHistorie, setDenZHistorie] = useState(false);
   useEffect(() => {
     let zruseno = false;
     nactiZvyklosti(placeId || null, placeName || null)
       .then((z) => {
         if (zruseno) return;
         setZvyklosti(z);
-        if (z?.obvyklyDen) setDenZavozu((d) => { if (d) return d; setDenZHistorie(true); return z.obvyklyDen; });
       })
       .catch(() => {});
     return () => { zruseno = true; };
@@ -845,10 +845,9 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
               <DenZavozuTlacitka
                 den={denZavozu}
                 datum={datumDneZavozu}
-                onDen={(d) => { setDenZavozu(d); setDatumZavozuRucne(null); setDenZHistorie(false); }}
-                onDatum={(d) => { setDatumZavozuRucne(d); setDenZavozu(d ? dayKeyFromISO(d) : null); setDenZHistorie(false); }}
+                onDen={(d) => { setDenZavozu(d); setDatumZavozuRucne(null); }}
+                onDatum={(d) => { setDatumZavozuRucne(d); setDenZavozu(d ? dayKeyFromISO(d) : null); }}
                 dnes={today}
-                poznamka={denZHistorie ? 'obvyklý den odběratele' : null}
               />
             </div>
           </div>
@@ -1054,10 +1053,9 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                 <DenZavozuTlacitka
                   den={denZavozu}
                   datum={datumDneZavozu}
-                  onDen={(d) => { setDenZavozu(d); setDatumZavozuRucne(null); setDenZHistorie(false); }}
-                  onDatum={(d) => { setDatumZavozuRucne(d); setDenZavozu(d ? dayKeyFromISO(d) : null); setDenZHistorie(false); }}
+                  onDen={(d) => { setDenZavozu(d); setDatumZavozuRucne(null); }}
+                  onDatum={(d) => { setDatumZavozuRucne(d); setDenZavozu(d ? dayKeyFromISO(d) : null); }}
                   dnes={today}
-                  poznamka={denZHistorie ? 'obvyklý den odběratele' : null}
                 />
                 <p className="text-udaj text-neutral-600">Platí pro všechny položky, u kterých dole nevybereš jiný den závozu.</p>
               </div>

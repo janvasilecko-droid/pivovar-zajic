@@ -14,7 +14,7 @@ export function DenZavozuTlacitka({ den, datum, onDen, poznamka, zavoz, onZavoz,
   /** Datum, které z volby vyjde (YYYY-MM-DD). */
   datum: string | null;
   onDen: (den: string | null) => void;
-  /** Např. „obvykle Út" — den předvyplněný podle zvyklostí odběratele. */
+  /** Krátká poznámka u dne, např. „příští týden podle zprávy". */
   poznamka?: string | null;
   /** 1. / 2. závoz — když je předaný, ukážou se i tlačítka závozu. */
   zavoz?: number;

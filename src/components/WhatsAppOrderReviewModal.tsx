@@ -104,11 +104,11 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   const [items, setItems] = useState<ReviewItem[]>([]);
   // 📅 Den závozu hned při čtení zprávy (29. 9. 2026) — předvyplní se tím,
   // co přečetla AI nebo co je v textu („závoz v úterý"), a jde změnit.
+  // Z historie odběratele se NEdoplňuje (29. 10. 2026) — viz efekt níž.
   const [denZavozu, setDenZavozu] = useState<string | null>(null);
-  // 🧭 Zvyklosti odběratele (lib/zvyklostiOdberatele.ts): obvyklý den
-  // a závoz se předvyplní, neobvyklé množství se u položky označí.
+  // 🧭 Zvyklosti odběratele (lib/zvyklostiOdberatele.ts): 2. závoz se
+  // předvyplní, neobvyklé množství se u položky označí.
   const [zvyklosti, setZvyklosti] = useState<Zvyklosti | null>(null);
-  const [denZHistorie, setDenZHistorie] = useState(false);
   const [zavozCislo, setZavozCislo] = useState(1);
   const [placeId, setPlaceId] = useState('');
   const [placeName, setPlaceName] = useState('');
@@ -299,7 +299,6 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
       if (cancelled) return;
 
       setDenZavozu(msg!.parsed_delivery_day || parseDeliveryDayFromText(msg!.message_text || '') || null);
-      setDenZHistorie(false);
       setZavozCislo(1);
       const parsedItems = msg!.parsed_items || [];
       const initItems: ReviewItem[] = parsedItems.map((item, i) => {
@@ -405,14 +404,13 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
     return () => { zruseno = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.isOpen, msg?.id, placeId, placeName]);
-  // Den ze zprávy chybí → obvyklý den; závoz podle zvyklostí.
+  // Zvyklosti určují jen 2. závoz. Den ani datum závozu se z nich NEDOPLŇUJE:
+  // 29. 10. 2026 zpráva „martin 1x10l 11sv" (bez dne) skončila na středě
+  // 4. 11., protože se doplnil obvyklý den odběratele a ten se přepočetl na
+  // nejbližší takovou středu od dneška. Den a datum platí jen to, co napsal
+  // odběratel ve zprávě, co přečetla AI, nebo co zadá člověk rukou.
   useEffect(() => {
     if (!zvyklosti) return;
-    setDenZavozu((d) => {
-      if (d || !zvyklosti.obvyklyDen) return d;
-      setDenZHistorie(true);
-      return zvyklosti.obvyklyDen;
-    });
     if (zvyklosti.obvyklyZavoz === 2) setZavozCislo(2);
   }, [zvyklosti]);
 
@@ -1848,10 +1846,10 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
               <DenZavozuTlacitka
                 den={denZavozu}
                 datum={datumDneZavozu}
-                onDen={(d) => { setDenZavozu(d); setDenZHistorie(false); setDatumRucne(null); }}
-                onDatum={(d) => { setDatumRucne(d); if (d) { setDenZavozu(dayKeyFromISO(d)); setDenZHistorie(false); } }}
+                onDen={(d) => { setDenZavozu(d); setDatumRucne(null); }}
+                onDatum={(d) => { setDatumRucne(d); if (d) setDenZavozu(dayKeyFromISO(d)); }}
                 dnes={businessDateISO()}
-                poznamka={denZHistorie ? 'obvyklý den odběratele' : pristiTyden && !datumRucne ? 'příští týden podle zprávy' : null}
+                poznamka={pristiTyden && !datumRucne ? 'příští týden podle zprávy' : null}
                 zavoz={zavozCislo}
                 onZavoz={setZavozCislo}
               />

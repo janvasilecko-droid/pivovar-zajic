@@ -2,7 +2,10 @@
 // ---------------------------------------------------------------------------
 // Z provozu 29. 9. 2026 (návrhy po dni zadávání, „jinak udělej vše"):
 //  1) upozornit na neobvyklé množství (Maneo přečten 10× místo obvyklých 2×),
-//  3) když zpráva den neuvede, předvyplnit obvyklý den (a 1. / 2. závoz).
+//  3) když zpráva den neuvede, předvyplnit 2. závoz. Obvyklý den (`obvyklyDen`)
+//     se do dne ani data závozu NEDOPLŇUJE — 29. 10. 2026 tím objednávka bez
+//     dne skončila o týden dál (majitel: „musím výslovně napsat datum, nebo
+//     musí být ve čtené objednávce datum").
 //
 // Čistý výpočet nad posledními objednávkami + tenké načtení z databáze.
 import { fetchAllRows } from './supabase';
