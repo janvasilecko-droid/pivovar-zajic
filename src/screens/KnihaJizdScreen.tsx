@@ -923,7 +923,7 @@ export default function KnihaJizdScreen({ setPage, uvodniAkce }: {
                       <td className="text-xs text-neutral-600 font-medium">{tankovani ? '—' : e.purpose}</td>
                       <td className="text-right font-mono text-xs text-neutral-700">{e.km_start.toLocaleString('cs-CZ')} km</td>
                       <td className="text-right font-mono text-xs text-neutral-700">{tankovani ? '—' : `${e.km_end.toLocaleString('cs-CZ')} km`}</td>
-                      <td className="text-right font-mono font-black text-sm text-amber-600">
+                      <td className="text-right font-mono font-black text-sm text-amber-600 whitespace-nowrap">
                         {tankovani ? `${km(e.fuel_liters ?? 0)} l` : `${e.km_driven.toLocaleString('cs-CZ')} km`}
                         {!tankovani && !!e.km_dorovnani && e.km_trasa != null && (
                           <span className="block text-udaj font-semibold text-neutral-500">trasa {km(e.km_trasa)} {znamenko(e.km_dorovnani)}{km(Math.abs(e.km_dorovnani))}</span>

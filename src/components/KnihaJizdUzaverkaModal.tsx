@@ -192,14 +192,16 @@ export default function KnihaJizdUzaverkaModal({ vozidlo, mesic, jizdy, uzavrene
               </div>
             ))}
 
+            {/* Úzké buňky a datum bez roku (měsíc je v nadpisu): na telefonu se musí vejít i poslední
+                sloupec „Ujeto“ — právě ten je výsledek, a vodorovné posouvání uvnitř okna je nenápadné. */}
             <div className="max-h-56 overflow-y-auto scrollbar-thin border border-neutral-200 rounded">
               <table className="table">
                 <thead>
                   <tr>
-                    <th scope="col">Datum</th>
-                    <th scope="col" className="text-right">Trasa</th>
-                    <th scope="col" className="text-right">Dorovnání</th>
-                    <th scope="col" className="text-right">Ujeto</th>
+                    <th scope="col" className="!px-2">Datum</th>
+                    <th scope="col" className="!px-2 text-right">Trasa</th>
+                    <th scope="col" className="!px-2 text-right">Dorovnání</th>
+                    <th scope="col" className="!px-2 text-right">Ujeto</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -208,10 +210,10 @@ export default function KnihaJizdUzaverkaModal({ vozidlo, mesic, jizdy, uzavrene
                     if (!j || jeTankovani(j)) return null;
                     return (
                       <tr key={r.id}>
-                        <td className="text-xs font-bold whitespace-nowrap">{new Date(j.date).toLocaleDateString('cs-CZ')}</td>
-                        <td className="text-right font-mono text-xs">{km(r.km_trasa)}</td>
-                        <td className="text-right font-mono text-xs">{r.km_dorovnani === 0 ? '—' : rozdilKm(r.km_dorovnani)}</td>
-                        <td className="text-right font-mono text-xs font-black">{km(r.km_driven)}</td>
+                        <td className="!px-2 text-xs font-bold whitespace-nowrap">{new Date(j.date).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric' })}</td>
+                        <td className="!px-2 text-right font-mono text-xs">{km(r.km_trasa)}</td>
+                        <td className="!px-2 text-right font-mono text-xs">{r.km_dorovnani === 0 ? '—' : rozdilKm(r.km_dorovnani)}</td>
+                        <td className="!px-2 text-right font-mono text-xs font-black">{km(r.km_driven)}</td>
                       </tr>
                     );
                   })}
