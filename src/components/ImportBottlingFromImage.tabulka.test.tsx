@@ -118,7 +118,8 @@ describe('Stáčení lahví z fotky — tabulka z Excelu', () => {
     vykresli();
     vlozFotku();
     await screen.findByText(/Rozpoznané řádky stočení/);
-    expect(screen.getByLabelText('Datum stočení')).toHaveValue('2026-10-13');
+    // Datum se přepíše na den z tabulky až v efektu po vykreslení řádků (viz CteniTabulkyOkna.test).
+    await waitFor(() => expect(screen.getByLabelText('Datum stočení')).toHaveValue('2026-10-13'));
     const radky = screen.getAllByTestId('radek-z-tabulky');
     expect(radky).toHaveLength(4);
     expect(within(radky[0]).getByText(/řádek č\. 555/)).toBeTruthy();

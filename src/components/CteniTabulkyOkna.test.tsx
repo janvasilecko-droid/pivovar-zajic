@@ -89,7 +89,9 @@ describe('Stáčení KEG z fotky — tabulka z Excelu', () => {
     expect(telaVolani()[1]).toMatchObject({ imageBase64: 'VYREZ', vyrez: true, odData: '2026-10-13' });
     expect(screen.getAllByTestId('radek-z-tabulky')).toHaveLength(2);
     expect(screen.getByText(/1 řádek jen s lahvemi se přeskočil/)).toBeTruthy();
-    expect(screen.getByLabelText('Datum stočení')).toHaveValue('2026-10-13');
+    // Datum stočení se přepíše na den z tabulky až v efektu po vykreslení řádků — na pomalém
+    // stroji (CI) ho „hned po řádcích“ ještě nemusí mít, proto se na něj čeká.
+    await waitFor(() => expect(screen.getByLabelText('Datum stočení')).toHaveValue('2026-10-13'));
 
     fireEvent.click(screen.getByText(/Vložit VŠECHNO/));
     await waitFor(() => expect(onImport).toHaveBeenCalledTimes(1));
@@ -146,7 +148,7 @@ describe('Stáčení KEG z fotky — tabulka z Excelu', () => {
       const onImport = await precti();
       fireEvent.click(within(screen.getByTestId('vyber-dne')).getByRole('button', { name: /13. 10. 2026 · 3 řádky/ }));
       await waitFor(() => expect(screen.getAllByTestId('radek-z-tabulky')).toHaveLength(2));
-      expect(screen.getByLabelText('Datum stočení')).toHaveValue('2026-10-13');
+      await waitFor(() => expect(screen.getByLabelText('Datum stočení')).toHaveValue('2026-10-13'));
       fireEvent.click(screen.getByText(/Vložit VŠECHNO/));
       await waitFor(() => expect(onImport).toHaveBeenCalledTimes(1));
       expect(onImport.mock.calls[0][1]).toBe('2026-10-13');
