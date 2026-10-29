@@ -20,4 +20,11 @@ describe('poloha lišty', () => {
     expect(result.current).toBe('vlevo');
     expect(nactiPolohuDoku()).toBe('vlevo');
   });
+
+  it('oblouk se jednou vrátí na lištu dole, další volba oblouku už zůstane', () => {
+    localStorage.setItem(KLIC_POLOHY_DOKU, 'oblouk');
+    expect(nactiPolohuDoku()).toBe('dole');
+    ulozPolohuDoku('oblouk');
+    expect(nactiPolohuDoku()).toBe('oblouk');
+  });
 });
