@@ -43,14 +43,64 @@ describe('computeKeggingPlan', () => {
     const p = plan({
       jeCilovyObal: (kind) => kind !== 'keg',
       currentStockMap: new Map([['b-11__pet', 80]]),
-      orders: [{ id: 'o1', delivery_date: '2026-08-27', order_date: '2026-08-27', status: 'nova', place_name: 'Hospoda' }],
-      orderItems: [{ id: 'lah-1', order_id: 'o1', beer_id: 'b-11', package_id: 'pet', quantity: 100 }],
-      zavozDeductionRows: [{ deduct_date: '2026-08-27', beer_id: 'b-11', package_id: 'pet', quantity: 14, order_id: 'o1', order_item_id: 'lah-1' }],
+      dnes: '2026-08-27',
+      orders: [
+        { id: 'o1', delivery_date: '2026-08-27', order_date: '2026-08-27', status: 'nova', place_name: 'Hospoda' },
+        { id: 'o0', delivery_date: '2026-08-24', order_date: '2026-08-24', status: 'nova', is_delivered: true, place_name: 'Odvezeno' },
+      ],
+      orderItems: [
+        { id: 'lah-1', order_id: 'o1', beer_id: 'b-11', package_id: 'pet', quantity: 100 },
+        { id: 'lah-0', order_id: 'o0', beer_id: 'b-11', package_id: 'pet', quantity: 14 },
+      ],
+      zavozDeductionRows: [{ deduct_date: '2026-08-24', beer_id: 'b-11', package_id: 'pet', quantity: 14, order_id: 'o0', order_item_id: 'lah-0' }],
     });
     const tyden = mergeWeekPlan(p, 'týden');
     const it = tyden.items.find((x) => x.package_id === 'pet')!;
-    expect(it.ordered).toBe(100);
+    expect(it.ordered).toBe(114);
     expect(it.missing).toBe(20);
+  });
+
+  describe('zavezené a předem odečtené objednávky (29. 10. 2026: „vše je stočený")', () => {
+    const DNES = '2026-08-27';
+    const obj = (id: string, extra: any = {}) => ({ id, delivery_date: DNES, order_date: DNES, status: 'nova', place_name: id, ...extra });
+    const radek = (id: string, order_id: string, q: number) => ({ id, order_id, beer_id: 'b-des', package_id: 'p30', quantity: q });
+    const baleni = [{ id: 'p30', label: '30l', kind: 'keg', volume_l: 30 }];
+    const pl = (over: any) => computeKeggingPlan({ beers, packages: baleni, keggingRows: [], weekKey: WEEK, dnes: DNES, ...over });
+    const odpocet = (q: number, den = DNES) => [{ deduct_date: den, order_id: 'o1', order_item_id: 'i1', beer_id: 'b-des', package_id: 'p30', quantity: q }];
+
+    it('zavezená objednávka není „chybí stočit", ani když je sklad po odvozu nulový', () => {
+      const p = pl({ currentStockMap: new Map([['b-des__p30', 0]]), orders: [obj('o1', { is_delivered: true })], orderItems: [radek('i1', 'o1', 8)], zavozDeductionRows: odpocet(8) });
+      expect(mergeWeekPlan(p, 'týden').totalMissing).toBe(0);
+    });
+
+    it('zavezená objednávka neubírá zásobu dalším dnům', () => {
+      const p = pl({
+        currentStockMap: new Map([['b-des__p30', 5]]),
+        orders: [obj('o1', { is_delivered: true, delivery_date: '2026-08-25', order_date: '2026-08-25' }), obj('o2')],
+        orderItems: [radek('i1', 'o1', 5), radek('i2', 'o2', 5)],
+      });
+      expect(mergeWeekPlan(p, 'týden').totalMissing).toBe(0);
+    });
+
+    it('odpočet zapsaný o půlnoci předem se vrátí: 8 stočeno, 8 objednáno → nic nechybí', () => {
+      const p = pl({ currentStockMap: new Map([['b-des__p30', 0]]), orders: [obj('o1')], orderItems: [radek('i1', 'o1', 8)], zavozDeductionRows: odpocet(8) });
+      expect(mergeWeekPlan(p, 'týden').totalMissing).toBe(0);
+    });
+
+    it('chybějící sud zůstane vidět: sklad −1 po odpočtu 8 znamená chybí 1, ne 9', () => {
+      const p = pl({ currentStockMap: new Map([['b-des__p30', -1]]), orders: [obj('o1')], orderItems: [radek('i1', 'o1', 8)], zavozDeductionRows: odpocet(8) });
+      expect(mergeWeekPlan(p, 'týden').totalMissing).toBe(1);
+    });
+
+    it('odpočet s budoucím datem se nevrací (sklad ho ještě nemá odečtený)', () => {
+      const p = pl({ currentStockMap: new Map([['b-des__p30', 0]]), orders: [obj('o1')], orderItems: [radek('i1', 'o1', 8)], zavozDeductionRows: odpocet(8, '2026-08-28') });
+      expect(mergeWeekPlan(p, 'týden').totalMissing).toBe(8);
+    });
+
+    it('vrací se nejvýš objednané množství', () => {
+      const p = pl({ currentStockMap: new Map([['b-des__p30', 0]]), orders: [obj('o1')], orderItems: [radek('i1', 'o1', 4)], zavozDeductionRows: odpocet(9) });
+      expect(mergeWeekPlan(p, 'týden').totalMissing).toBe(0);
+    });
   });
 
   const objednavka = (id: string, date: string, extra: any = {}) => ({
