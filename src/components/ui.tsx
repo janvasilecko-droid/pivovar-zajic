@@ -117,8 +117,12 @@ export function Field({ label, children, hint }: { label: string; children: Reac
   );
 }
 
-export function Modal({ open, onClose, title, children, wide, maxWidth }: {
+export function Modal({ open, onClose, title, children, wide, maxWidth, bezOdsazeni }: {
   open: boolean; onClose: () => void; title: string; children: ReactNode; wide?: boolean; maxWidth?: string;
+  /** Tělo okna bez vlastního odsazení — obsah si ho řeší sám. Potřebné, když se uvnitř má něco přilepit
+   *  k hornímu okraji rolování (`sticky top-0`): prohlížeč ho jinak přilepí až pod odsazení, takže
+   *  nad ním zůstane vidět kus rolujícího obsahu. */
+  bezOdsazeni?: boolean;
 }) {
   // Zavírání na Escape, zamčené rolování pod dialogem a zavření tlačítkem
   // Zpět. Vytaženo do lib/zavriNaZpet.ts, aby to samé měly i dialogy, které
@@ -141,7 +145,7 @@ export function Modal({ open, onClose, title, children, wide, maxWidth }: {
             <X size={18} />
           </button>
         </div>
-        <div className="p-6 overflow-y-auto scrollbar-thin">{children}</div>
+        <div className={`${bezOdsazeni ? '' : 'p-6'} overflow-y-auto scrollbar-thin`}>{children}</div>
       </div>
     </div>
   );

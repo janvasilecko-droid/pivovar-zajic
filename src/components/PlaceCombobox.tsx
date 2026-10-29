@@ -10,12 +10,15 @@ import { getOrCreatePlace } from '../lib/orderParser';
  * - Hlídá duplicity (case-insensitive, bez diakritiky)
  * - Rozbalovací menu zůstává otevřené, dokud uživatel nevybere nebo neuloží
  */
-export function PlaceCombobox({ value, onChange, places, onPlacesChanged, placeholder = 'Napiš nebo vyber odběratele…' }: {
+export function PlaceCombobox({ value, onChange, places, onPlacesChanged, placeholder = 'Napiš nebo vyber odběratele…', bezNapovedy = false }: {
   value: string;
   onChange: (placeId: string, placeName: string) => void;
   places: Place[];
   onPlacesChanged?: () => void;
   placeholder?: string;
+  /** Rozbalovací nabídku s napovídanými odběrateli nekreslit — okno kolem si je ukazuje samo (viz
+   *  OdberatelTlacitko) a nabídka by je přikryla. Zůstává tlačítko „Uložit nového odběratele“. */
+  bezNapovedy?: boolean;
 }) {
   const [text, setText] = useState('');
   const [open, setOpen] = useState(false);
@@ -90,7 +93,13 @@ export function PlaceCombobox({ value, onChange, places, onPlacesChanged, placeh
     else if (e.key === 'ArrowUp') { e.preventDefault(); setActive((a) => Math.max(a - 1, 0)); }
     else if (e.key === 'Enter') {
       e.preventDefault();
-      if (isNew && active === matches.length) {
+      if (bezNapovedy) {
+        // Nabídka není vidět, takže Enter nevybírá „naslepo“ první z mnoha: vybere jen jedinou
+        // shodu (nebo přesně napsaného odběratele), a když nikdo neodpovídá, založí nového.
+        if (exactDup) pick(exactDup);
+        else if (matches.length === 1) pick(matches[0]);
+        else if (matches.length === 0 && isNew) ensurePlace();
+      } else if (isNew && active === matches.length) {
         ensurePlace();
       } else if (matches[active] && norm(text) !== norm(matches[active].name)) {
         pick(matches[active]);
@@ -114,7 +123,7 @@ export function PlaceCombobox({ value, onChange, places, onPlacesChanged, placeh
       />
       {creating && <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-primary-400">vytváření…</div>}
 
-      {open && (matches.length > 0 || isNew) && (
+      {open && !bezNapovedy && (matches.length > 0 || isNew) && (
         <div className="absolute z-20 left-0 right-0 mt-1 card !p-0 max-h-64 overflow-auto scrollbar-thin animate-fade-in">
           {matches.map((p, i) => (
             <button
