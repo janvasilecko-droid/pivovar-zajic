@@ -55,7 +55,7 @@ describe('zásoba pro plán stáčení — staré odvozy nesmí dělat fantomovo
     expect(plans.find((p) => p.day === 'st')!.totalMissing).toBe(6);
   });
 
-  it('odvoz z tohoto týdne je ve skladu a do fondu se nevrací', () => {
+  it('odvoz zapsaný předem u nezavezené objednávky se vrátí, ať se stočené nechce podruhé', () => {
     // Stočeno 16, ve středu odvezeno 12 → Sklad ukazuje 4.
     const stock = zasobaProPlan({
       keggingRows: [{ entry_date: '2026-08-24', beer_id: 'b-des', package_id: 'p30', quantity: 16 }],
@@ -74,12 +74,15 @@ describe('zásoba pro plán stáčení — staré odvozy nesmí dělat fantomovo
         { id: 'i2', order_id: 'o2', beer_id: 'b-des', package_id: 'p30', quantity: 4 },
       ],
       keggingRows: [{ entry_date: '2026-08-24', beer_id: 'b-des', package_id: 'p30', quantity: 16 }],
-      zavozDeductionRows: [{ deduct_date: STREDA, beer_id: 'b-des', package_id: 'p30', quantity: 12 }],
+      zavozDeductionRows: [{ deduct_date: STREDA, order_id: 'o1', order_item_id: 'i1', beer_id: 'b-des', package_id: 'p30', quantity: 12 }],
       weekKey: WEEK,
       currentStockMap: stock,
+      dnes: STREDA,
     });
-    // Sklad 4, objednáno 16. Odvoz se do zásoby nevrací: chybí 12.
-    expect(plans.find((p) => p.day === 'st')!.totalMissing).toBe(8);
-    expect(plans.find((p) => p.day === 'ct')!.totalMissing).toBe(4);
+    // Stočeno 16, objednáno 16: středeční odpočet 12 je zapsaný předem
+    // (objednávka ještě není zavezená), kusy leží ve chlaďáku → nic nechybí
+    // (16. 9. 2026: „mám 11×30, tak mi přece nemůže chybět 5×30").
+    expect(plans.find((p) => p.day === 'st')!.totalMissing).toBe(0);
+    expect(plans.find((p) => p.day === 'ct')!.totalMissing).toBe(0);
   });
 });
