@@ -29,7 +29,8 @@ describe('navigace obloukem', () => {
     render(<ObloukNavigace polozky={sest} domuAktivni={false} barvaDomu="#6d4fd8" onVyber={vyber} onDomu={() => {}} />);
     fireEvent.click(screen.getByRole('button', { name: /Menu/ }));
     expect(screen.queryByRole('button', { name: 'Pol e' })).toBeNull();
-    const kruh = document.querySelector('.touch-none.rounded-full') as HTMLElement;
+    // táhne se za položky (pruh pod nimi klepnutí propouští)
+    const kruh = screen.getByRole('button', { name: 'Pol a' });
     const W = window.innerWidth, H = window.innerHeight, S = 46;
     // prst vlevo od Domů (180°) → nad Domů (90°): otočení o 90°, strop je 60°
     fireEvent.pointerDown(kruh, { clientX: W - S - 150, clientY: H - S });
@@ -61,5 +62,12 @@ describe('navigace obloukem', () => {
     const prehled = screen.getByRole('button', { name: /Přehled obj\./ });
     expect(prehled.getAttribute('aria-current')).toBe('page');
     expect(prehled.textContent).toContain('3');
+  });
+
+  it('trvalý pruh: položky jsou vidět hned, bez tlačítka Menu', () => {
+    render(<ObloukNavigace polozky={polozky} domuAktivni={false} barvaDomu="#6d4fd8" onVyber={() => {}} onDomu={() => {}} trvaly />);
+    expect(screen.queryByRole('button', { name: /Menu/ })).toBeNull();
+    expect(screen.getByRole('button', { name: /Fasování/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Domů/ })).toBeTruthy();
   });
 });

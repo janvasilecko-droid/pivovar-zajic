@@ -264,12 +264,12 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
   const bocni = poloha !== 'dole';
   const [dokOtevren, setDokOtevren] = useState(false);
   useEffect(() => {
-    if (poloha === 'oblouk') document.documentElement.style.setProperty('--vyska-doku', '80px');
+    if (poloha.startsWith('oblouk')) document.documentElement.style.setProperty('--vyska-doku', poloha === 'oblouk' ? '150px' : '80px');
     const el = dokRef.current;
     if (!el) return;
     const zmer = () => {
       // Boční lišta nezabírá výšku obrazovky — odsazení dole je pak nulové.
-      if (poloha === 'oblouk') { document.documentElement.style.setProperty('--vyska-doku', '80px'); return; }
+      if (poloha.startsWith('oblouk')) { document.documentElement.style.setProperty('--vyska-doku', poloha === 'oblouk' ? '150px' : '80px'); return; }
       if (poloha !== 'dole') { document.documentElement.style.setProperty('--vyska-doku', '0px'); return; }
       const v = Math.round(el.getBoundingClientRect().height);
       if (v > 0) document.documentElement.style.setProperty('--vyska-doku', `${v}px`);
@@ -981,7 +981,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
             </button>
           </div>
         )}
-        {poloha === 'oblouk' ? (
+        {poloha.startsWith('oblouk') ? (
           // 🌙 Oblouk pod palcem: položky lišty + Nová objednávka a Přehled
           // objednávek (29. 10. 2026: „přidej tam objednávky přehled,
           // objednávky nová, ať je jasné, co je co").
@@ -1008,6 +1008,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
             barvaDomu={dockAccentColor('home')}
             onVyber={(id) => setPage(id as Page)}
             onDomu={() => setPage('home')}
+            trvaly={poloha === 'oblouk'}
           />
         ) : (
         <>

@@ -6,25 +6,27 @@
 //   vpravo     — trvale svisle u pravého okraje
 //   vlevo      — trvale svisle u levého okraje
 //   vysouvaci  — schovaná, úchyt u pravého okraje ji vysune
-//   oblouk     — Domů v rohu pořád, ostatní na oblouku pod palcem (Menu)
+//   oblouk     — úzký pruh obloukem v rohu, pořád vidět, točí se prstem
+//   oblouk-menu — totéž, ale schované za tlačítkem Menu (Domů pořád)
 import { useEffect, useState } from 'react';
 import { nacti, uloz } from './uloziste';
 
-export type PolohaDoku = 'dole' | 'vpravo' | 'vlevo' | 'vysouvaci' | 'oblouk';
+export type PolohaDoku = 'dole' | 'vpravo' | 'vlevo' | 'vysouvaci' | 'oblouk' | 'oblouk-menu';
 
 export const POLOHY_DOKU: { id: PolohaDoku; nazev: string; popis: string }[] = [
   { id: 'dole', nazev: 'Dole', popis: 'trvale přes celou šířku' },
   { id: 'vpravo', nazev: 'Vpravo', popis: 'trvale u pravého okraje' },
   { id: 'vlevo', nazev: 'Vlevo', popis: 'trvale u levého okraje' },
   { id: 'vysouvaci', nazev: 'Vysouvací', popis: 'schovaná, úchyt vpravo' },
-  { id: 'oblouk', nazev: 'Oblouk', popis: 'Domů v rohu, menu pod palcem' },
+  { id: 'oblouk', nazev: 'Oblouk', popis: 'pořád vidět, točí se prstem' },
+  { id: 'oblouk-menu', nazev: 'Oblouk za Menu', popis: 'schovaný, Domů pořád' },
 ];
 
 export const KLIC_POLOHY_DOKU = 'pivovar_poloha_doku';
 const UDALOST = 'pivovar-poloha-doku';
 
 export function jePolohaDoku(v: unknown): v is PolohaDoku {
-  return v === 'dole' || v === 'vpravo' || v === 'vlevo' || v === 'vysouvaci' || v === 'oblouk';
+  return v === 'dole' || v === 'vpravo' || v === 'vlevo' || v === 'vysouvaci' || v === 'oblouk' || v === 'oblouk-menu';
 }
 
 export function nactiPolohuDoku(): PolohaDoku {
