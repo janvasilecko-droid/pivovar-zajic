@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useRef, lazy, Suspense } from 'react';
 import { supabase, Beer, Package, EntryRow, useRealtime, beerBg, beerName, formatPackageLabel, fetchAllRows } from '../lib/supabase';
 import { EmptyState, Spinner, Modal } from '../components/ui';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
-import { AlertTriangle, ArrowRight, BarChart3, CalendarDays, Camera, Check, CheckCircle2, ClipboardList, FileSpreadsheet, Lightbulb, ListChecks, Megaphone, Minus, Package as PackageIcon, PenLine, Play, Plus, SlidersHorizontal, Sparkles, Trash2, X } from 'lucide-react';
+import { AlertTriangle, ArrowRight, BarChart3, CalendarDays, Camera, Check, CheckCircle2, ClipboardList, FileSpreadsheet, Lightbulb, ListChecks, Megaphone, Package as PackageIcon, PenLine, Play, SlidersHorizontal, Sparkles, Trash2, X } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { BottlingPlan, getPlanSeenAt, markPlanSeenAt, isPlanUnseen, isBottlingManager, setPlanStatus, saveBottlingPlan, deleteBottlingPlan } from '../lib/bottlingPlans';
 import { BottlingPlanBottler } from '../components/BottlingPlanBottler';
@@ -12,7 +12,7 @@ import { isLastWeekOfMonth, cleanupMonthKey, writeMonthlyCleanupStage, isMonthly
 import { businessDateISO } from '../lib/businessDate';
 import { vychoziZdrojovySud } from '../lib/zdrojovySud';
 import VyberZdrojovehoSudu from '../components/VyberZdrojovehoSudu';
-import VyberObalu, { objemCesky } from '../components/VyberObalu';
+import { objemCesky } from '../components/VyberObalu';
 import { davkyStaceni, denACesky, pocetSuduCesky } from '../lib/prehledStaceni';
 import PrehledStaceniLahvi from '../components/PrehledStaceniLahvi';
 import { upravyStaceni } from '../lib/upravyStaceni';
@@ -21,7 +21,13 @@ import { requestOrdersItemFilter } from '../lib/ordersFilter';
 import { VoiceRecorder } from '../components/VoiceRecorder';
 import { parseFreeTextEntries, loadAliasMap, emptyAliasMap, type ParserAliasMap } from '../lib/orderParser';
 import { BeerTileGrid, BeerTilePanel } from '../components/BeerTileGrid';
-import { nejcastejsiMnozstvi, stackingQuickQtys } from '../lib/quickQty';
+import { stackingQuickQtys } from '../lib/quickQty';
+import { DnesUlozeno, KrokoveZadavani, PlanObjednavky, PrepinacDne, type KrokDef } from '../components/KrokoveZadavani';
+import {
+  mnozstviLahve, mnozstviSudu, nastavLahve, nastavSud, odhadLahviZeSudu, poradiLahvi,
+  rychleHodnoty, sudyDavky, sudyNaDavku, type KonceptLahve as RozepsanaDlazdice,
+} from '../lib/krokoveZadavani';
+import { dnesLahve, objemObalu } from '../lib/dnesUlozeno';
 import { jeChecklistKonceZUrl } from '../lib/vstupniStranka';
 import { navrhSudu } from '../lib/bottlingYield';
 import { posledniRucniZapis } from '../lib/posledniZapis';
@@ -203,7 +209,7 @@ export default function BottlingScreen({
     { pkg: 'pkg3Id', qty: 'qty3', key: 3 },
     { pkg: 'pkg4Id', qty: 'qty4', key: 4 },
   ] as const;
-  const [tileDraft, setTileDraft] = useState<{ pkgId: string; qty: string; pkg2Id: string; qty2: string; pkg3Id: string; qty3: string; pkg4Id: string; qty4: string; kegPkgId: string; kegQty: string; keg2PkgId: string; keg2Qty: string }>({
+  const [tileDraft, setTileDraft] = useState<RozepsanaDlazdice>({
     pkgId: '', qty: '', pkg2Id: '', qty2: '', pkg3Id: '', qty3: '', pkg4Id: '', qty4: '', kegPkgId: '', kegQty: '', keg2PkgId: '', keg2Qty: '',
   });
   const openTile = (b: Beer, vynucenyIndex: number | null = null) => {
@@ -228,7 +234,6 @@ export default function BottlingScreen({
       pkgId: '', qty: '', pkg2Id: '', qty2: '', pkg3Id: '', qty3: '', pkg4Id: '', qty4: '',
       kegPkgId: vychoziZdrojovySud(kegPackages), kegQty: '', keg2PkgId: '', keg2Qty: '',
     });
-    setDruhySudOtevren(false);
     setTileBeer(b);
   };
   // Zavření dlaždice (křížek, „Zavřít", klepnutí vedle) NEzahazuje, co je v ní
@@ -247,14 +252,9 @@ export default function BottlingScreen({
     setTileBeer(null);
     setTileRowIndex(null);
   };
-  // Sekce „Další sud" v dlaždici je zavřená, dokud ji stáčeč neotevře.
-  const [druhySudOtevren, setDruhySudOtevren] = useState(false);
   // 📅 Který den v panelu zápisu prohlížíme (přepínač nahoře) — „tyden" je
   // souhrn přes celý týden (výchozí). Stejný nápad jako u KEGů (Kegging.tsx).
   const [tileDay, setTileDay] = useState<string>('tyden');
-  // Fajfka „Hotovo" v dlaždici rovnou uloží stáčení (viz confirmTileAndMaybeSave) —
-  // dokud se ukládá, je vidět "Ukládám…" a druhé klepnutí se ignoruje.
-  const [tileConfirming, setTileConfirming] = useState(false);
 
   // ✅ Brána „bez checklistu nezapíšeš stáčení" se vyhodnocuje SYNCHRONNĚ z
   // lokálního zrcadla. Na zařízení, kde dnes ještě nikdo checklist neotevřel,
@@ -282,14 +282,6 @@ export default function BottlingScreen({
     openTile(beer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [beers.length]);
-  const setTile = (field: keyof typeof tileDraft, value: string) =>
-    setTileDraft((d) => ({ ...d, [field]: value }));
-  const bumpTile = (field: 'qty' | 'qty2' | 'qty3' | 'qty4' | 'kegQty' | 'keg2Qty', delta: number) =>
-    setTileDraft((d) => {
-      const cur = Number(d[field] || 0);
-      const next = Math.max(0, cur + delta);
-      return { ...d, [field]: next === 0 ? '' : String(next) };
-    });
 
   // 🍾 Dopočet zdrojových sudů z nastáčených lahví (10% ztráta — viz
   // bottlingYield.ts). Jen NÁVRH: kolik sudů se opravdu načalo ví stáčeč,
@@ -306,9 +298,9 @@ export default function BottlingScreen({
     return navrhSudu(polozky, Number(kegPkg.volume_l ?? 0));
   }, [tileDraft, packages]);
   // Rozepsaná dlaždice → řádek zápisu, nebo null když nic nevyplnil.
-  // Čistá funkce (bez setState), aby ji šlo použít v confirmTileAndMaybeSave —
-  // ta potřebuje výsledný řádek HNED,
-  // ne až po překreslení, které by setEntryRows jinak vyžadovalo.
+  // Čistá funkce (bez setState), aby ji šlo použít i při zavření dlaždice a
+  // v ukládání rozepsaného zápisu do zařízení — výsledný řádek je potřeba
+  // HNED, ne až po překreslení, které by setEntryRows jinak vyžadovalo.
   function buildRowFromTileDraft(): RowInput | null {
     if (!tileBeer) return null;
     const hasAny = tileDraft.qty || tileDraft.qty2 || tileDraft.qty3 || tileDraft.qty4 || tileDraft.kegQty;
@@ -335,26 +327,6 @@ export default function BottlingScreen({
     const emptyIdx = next.findIndex((r) => !r.beerId && !r.qty && !r.qty2 && !r.qty3 && !r.qty4 && !r.kegQty);
     if (emptyIdx >= 0) { next[emptyIdx] = row; return next; }
     return [...next, row];
-  }
-
-  // Fajfka „Hotovo": pokud je v dlaždici něco vyplněné, rovnou to uloží
-  // (add() — stejná funkce jako tlačítko „Uložit stáčení lahví" dole).
-  // `overrideRows` u add() řeší to, že setEntryRows se do stavu `entryRows`
-  // promítne až po překreslení — bez něj by se ukládalo podle STARÉHO
-  // seznamu, tedy bez právě rozepsané dlaždice. Prázdná dlaždice (jen se
-  // podíval) se jen zavře, beze zápisu a bez hlášky.
-  async function confirmTileAndMaybeSave() {
-    if (!tileBeer) return;
-    const row = buildRowFromTileDraft();
-    if (!row) { setTileBeer(null); setTileRowIndex(null); return; }
-    const mergedRows = mergeRowIntoRows(entryRows, tileBeer.id, row);
-    setEntryRows(mergedRows);
-    setTileConfirming(true);
-    const ok = await add(undefined, mergedRows);
-    setTileConfirming(false);
-    if (ok) { setTileBeer(null); setTileRowIndex(null); }
-    // Když se neuložilo (checklist gate, zrušená otázka „opravdu?"…), panel
-    // zůstává otevřený — řádek je ale i tak bezpečně staženo v entryRows.
   }
 
   // 💾 Co se ukládá do zařízení: řádky i to, co je právě rozepsané v otevřené
@@ -513,7 +485,7 @@ export default function BottlingScreen({
       .sort((a, b) => b.volume_l - a.volume_l),
   [packages]);
 
-  // 🔢 Tři nejčastěji stáčené počty pro pivo v dlaždici — pro každý obal
+  // 🔢 Pět nejčastěji stáčených počtů pro pivo v dlaždici — pro každý obal
   // zvlášť, z historie stáčení lahví. Pevná řada podle velikosti lahve
   // (stackingQuickQtys) je jen výplň, když historie nestačí; do 22. 9. 2026
   // platila pro všechna piva stejně. Počítá se jednou za změnu historie, ne
@@ -522,7 +494,7 @@ export default function BottlingScreen({
     const out = new Map<string, number[]>();
     if (!tileBeer) return out;
     for (const p of bottlePackages) {
-      out.set(p.id, nejcastejsiMnozstvi(rows, tileBeer.id, p.id, stackingQuickQtys(p)));
+      out.set(p.id, rychleHodnoty(rows, tileBeer.id, p.id, stackingQuickQtys(p)));
     }
     return out;
   }, [tileBeer, bottlePackages, rows]);
@@ -751,6 +723,99 @@ export default function BottlingScreen({
     await load(true);
     vratPozici();
   }
+
+  // 🔢 Pět nejčastějších počtů SUDŮ na jedno stáčení lahví (krok „Z kolika sudů"):
+  // z dávek, ne z řádků — dávka s víc druhy lahví by se jinak počítala vícekrát.
+  const rychleSudyMapa = useMemo(() => {
+    const out = new Map<string, number[]>();
+    if (!tileBeer) return out;
+    const davky = sudyNaDavku(rows);
+    for (const p of kegPackages) out.set(p.id, rychleHodnoty(davky, tileBeer.id, p.id, [1, 2, 3, 4, 5]));
+    return out;
+  }, [tileBeer, kegPackages, rows]);
+
+  // 🚶 Kroky panelu (components/KrokoveZadavani.tsx). Čtou a zapisují stejné
+  // sloty jako dřív (4× lahev, 2× sud), jen se obal vybírá klikem a číslo se
+  // píše do jednoho velkého pole.
+  const krokSudy: KrokDef = {
+    stitek: '1 · Z kolika sudů',
+    otazka: 'Z kolika sudů?',
+    obaly: kegPackages.map((p) => ({ id: p.id, label: objemObalu(p) })),
+    jednotka: (o) => `sudů ${o.label}`,
+    mnozstvi: (id) => mnozstviSudu(tileDraft, id),
+    nastav: (id, n) => setTileDraft((d) => nastavSud(d, id, n)),
+    rychle: (id) => rychleSudyMapa.get(id) ?? [],
+    vychozi: tileDraft.kegPkgId || vychoziZdrojovySud(kegPackages),
+    maxObalu: 2,
+    dalsiText: '+ další sud',
+    bezMnozstvi: { zprava: 'Sudy nejsou zadané — ze skladu se žádný sud neodečte.', pokracovat: 'Pokračovat bez sudů' },
+    // 🍾 Dopočet z nastáčených lahví (10% ztráta). Nikdy se nevyplní samo —
+    // kolik sudů se opravdu načalo ví jen stáčeč, tohle je návrh na klepnutí.
+    pod: (id, rozepsano, nastavCislo) => navrhZdrojovychSudu && id === tileDraft.kegPkgId ? (
+      <div className="rounded bg-sky-50 dark:bg-sky-950/30 border border-sky-200 p-2 space-y-1.5">
+        <div className="text-udaj font-bold text-sky-900 dark:text-sky-200 leading-snug">
+          {navrhZdrojovychSudu.nalahvovanoL} l v lahvích + 10 % ztráta = <strong>{navrhZdrojovychSudu.zdrojL} l</strong> ze sudů
+          <span> · {navrhZdrojovychSudu.sudyPresne} sudu</span>
+        </div>
+        <button type="button" onClick={() => nastavCislo(navrhZdrojovychSudu.sudy)} disabled={rozepsano === navrhZdrojovychSudu.sudy} className="btn-secondary !text-xs disabled:opacity-40" title="Dopočítat počet sudů z nastáčených lahví (s 10% ztrátou) — načatý sud se počítá celý">
+          {rozepsano === navrhZdrojovychSudu.sudy ? `✓ Sedí s dopočtem (${navrhZdrojovychSudu.sudy} ks)` : `Dopočítat sudy → ${navrhZdrojovychSudu.sudy} ks`}
+        </button>
+      </div>
+    ) : null,
+  };
+
+  const objemSudu = (id: string) => Number(kegPackages.find((p) => p.id === id)?.volume_l) || 0;
+  const krokLahve: KrokDef = {
+    stitek: '2 · Kolik lahví',
+    otazka: 'Kolik lahví?',
+    obaly: poradiLahvi(bottlePackages).map((p) => ({ id: p.id, label: objemObalu(p) })),
+    jednotka: (o) => `lahví ${o.label}`,
+    mnozstvi: (id) => mnozstviLahve(tileDraft, id),
+    nastav: (id, n) => setTileDraft((d) => nastavLahve(d, id, n)),
+    rychle: (id) => rychlePoctyMapa.get(id) ?? [],
+    dalsiText: '+ další obal',
+    povinny: 'Zadej počet lahví.',
+    nahore: tileBeer && (
+      <PrepinacDne
+        dny={dennniPlanLahvi.filter((p) => p.day !== BEZ_TERMINU || (missingByBeerDay[tileBeer.id]?.[BEZ_TERMINU] ?? 0) > 0)}
+        vybrany={tileDay}
+        zmen={setTileDay}
+        chybi={missingByBeerDay[tileBeer.id] ?? {}}
+        bezTerminu={BEZ_TERMINU}
+      />
+    ),
+    pod: (id, rozepsano, nastavCislo) => {
+      if (!tileBeer) return null;
+      // 🏭 Odhad lahví ze zadaných sudů (−10 % ztráta, bez toho, co už je v jiných lahvích).
+      const zdrojL = sudyDavky(tileDraft).reduce((s, k) => s + k.qty * objemSudu(k.pkgId), 0);
+      const volumeL = Number(bottlePackages.find((p) => p.id === id)?.volume_l) || 0;
+      const jinychL = bottlePackages.reduce((s, p) => (p.id === id ? s : s + mnozstviLahve(tileDraft, p.id) * Number(p.volume_l)), 0);
+      const odhad = odhadLahviZeSudu(zdrojL, jinychL, volumeL);
+      const fullPlan = planByKey[`${tileBeer.id}__${id}`];
+      const dayEntry = tileDay !== 'tyden' ? fullPlan?.days.find((d) => d.day === tileDay) : undefined;
+      const plan = tileDay === 'tyden' ? fullPlan : (dayEntry && { ordered: dayEntry.ordered, missing: dayEntry.missing, checked: dayEntry.checked, days: [dayEntry] });
+      const cilovyDen = plan?.days.find((d) => d.missing > 0);
+      return (
+        <div className="space-y-2">
+          {odhad > 0 && (
+            <div className="flex items-center justify-between gap-2 rounded border border-dashed border-neutral-300 dark:border-neutral-600 bg-neutral-50 dark:bg-neutral-900/40 p-2">
+              <span className="text-udaj font-bold text-neutral-600 dark:text-neutral-300">
+                Odhad ze sudů ({zdrojL} l − 10 % ztráta): <span className="font-black text-neutral-900 dark:text-neutral-50">≈ {odhad}×</span>
+              </span>
+              <button type="button" onClick={() => nastavCislo(odhad)} disabled={rozepsano === odhad} className="btn-secondary !text-xs disabled:opacity-40">Zadat {odhad}</button>
+            </div>
+          )}
+          <PlanObjednavky
+            plan={plan}
+            rozepsano={rozepsano}
+            onObjednavky={() => { requestOrdersItemFilter({ beerId: tileBeer.id, packageId: id }); setPage?.('orders'); }}
+            onZadat={nastavCislo}
+            onNachystano={cilovyDen ? () => togglePlanCheck(cilovyDen.day, tileBeer.id, id, cilovyDen.ordered) : undefined}
+          />
+        </div>
+      );
+    },
+  };
 
   const bottleRequirements = useMemo(() => {
     const todayStr = businessDateISO();
@@ -985,14 +1050,11 @@ export default function BottlingScreen({
   useEffect(() => { load(); }, []);
   useRealtime(['bottling', 'beers', 'packages', 'orders', 'order_items', 'inventory', 'fasovani', 'fasovani_private', 'writeoffs', 'kegging', 'bottling_plans', 'zavoz_deductions', 'inventory_adjustments', 'akce', 'akce_items', 'kegging_plan_checks', 'keg_prefuk'], () => load(true));
 
-  // Vrací true jen po SKUTEČNÉM uložení — díky tomu si volající (fajfka
-  // „Hotovo" v dlaždici, viz confirmTileAndMaybeSave) může ověřit, jestli se
+  // Vrací true jen po SKUTEČNÉM uložení — volající si tak může ověřit, jestli se
   // zápis opravdu zapsal, nebo ho něco zablokovalo (checklist, zrušená
-  // otázka „opravdu?"), a podle toho dlaždici zavřít, nebo ji necháte
-  // otevřenou. `overrideRows` umožní zavolat add() se sadou řádků, která
-  // ještě NENÍ v `entryRows` state (setState se promítne do state až po
-  // překreslení) — bez toho by „Hotovo" hned po vyplnění dlaždice ukládalo
-  // podle STARÉHO entryRows, tedy bez právě rozepsané dlaždice.
+  // otázka „opravdu?"). `overrideRows` umožní zavolat add() se sadou řádků,
+  // která ještě NENÍ v `entryRows` state (setState se promítne do state až
+  // po překreslení).
   async function add(e?: React.FormEvent, overrideRows?: RowInput[]): Promise<boolean> {
     e?.preventDefault();
     setErr(null);
@@ -1610,302 +1672,19 @@ export default function BottlingScreen({
             />
           </div>
 
-          {/* 🔲 Plnoobrazovkový panel — výběr obalů a množství pro zvolené pivo */}
+          {/* 🚶 Krokové zadávání (29. 10. 2026): z kolika sudů → kolik lahví.
+              Nahoře velikost obalu, pod polem pět nejčastějších čísel; co se
+              zadá, padne do zápisu pod dlaždicemi (viz closeTile). */}
           {tileBeer && (
-            <BeerTilePanel
+            <KrokoveZadavani
+              key={tileBeer.id}
               beer={tileBeer}
-              onClose={closeTile}
-              onConfirm={() => confirmTileAndMaybeSave()}
-              confirming={tileConfirming}
-              headerRight={tileDraft.kegPkgId ? (
-                // Plná barva: lišta panelu má barvu piva, na světlém pivu
-                // bylo 20% černé pod bílým textem nečitelné.
-                <span className="text-xs font-bold text-white bg-neutral-800 rounded-full px-2 py-0.5 shrink-0">
-                  <IkonaSud className="ikona-text" /> zdroj: {kegPackages.find((p) => p.id === tileDraft.kegPkgId)?.label || 'KEG'}
-                </span>
-              ) : undefined}
-              footer={
-                // Jediné potvrzení je fajfka v liště nahoře: rovnou zapíše stáčení
-                // (confirmTileAndMaybeSave). Tlačítko „Přidat do zápisu" jen
-                // vkládalo řádek do seznamu dole — majitel 12. 10. 2026: „odeber
-                // položku přidat do zápisu, chci jen tu fajfku, když se klikne,
-                // tak se zapíše stáčení".
-                <div className="flex items-center justify-end gap-2 pt-1">
-                  <button type="button" onClick={closeTile} className="btn-ghost !rounded text-xs font-bold min-h-[44px] px-3">Zavřít a nechat rozepsané</button>
-                </div>
-              }
-            >
-              {/* 📅 Na který den je objednáno — přepínač jako v „Co stočit na
-                  který den", jen zmenšený a přímo u zadávání. Přepočítá
-                  Objednáno/Chybí pod ním na vybraný den místo celého týdne. */}
-              <div className="flex items-center gap-1 overflow-x-auto scrollbar-none -mx-1 px-1 pb-1.5 mb-0.5 border-b border-neutral-200 dark:border-neutral-700">
-                <button
-                  type="button"
-                  onClick={() => setTileDay('tyden')}
-                  className={`px-2.5 h-8 rounded text-udaj font-black shrink-0 transition ${tileDay === 'tyden' ? 'bg-amber-500 text-neutral-950' : 'bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-200 hover:bg-amber-100'}`}
-                >
-                  Týden
-                </button>
-                {tileBeer && dennniPlanLahvi
-                  .filter((p) => p.day !== BEZ_TERMINU || (missingByBeerDay[tileBeer.id]?.[BEZ_TERMINU] ?? 0) > 0)
-                  .map((p) => {
-                    const m = missingByBeerDay[tileBeer.id]?.[p.day] ?? 0;
-                    const isSel = tileDay === p.day;
-                    return (
-                      <button
-                        key={p.day}
-                        type="button"
-                        onClick={() => setTileDay(p.day)}
-                        className={`px-2.5 h-8 rounded text-udaj font-black shrink-0 transition flex items-center gap-1 ${isSel ? 'bg-amber-500 text-neutral-950' : 'bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-200 hover:bg-amber-100'}`}
-                        title={p.day === BEZ_TERMINU ? 'Bez uvedeného dne dovozu' : `${p.label} ${p.date ? new Date(p.date + 'T00:00:00Z').toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric', timeZone: 'UTC' }) : ''}`}
-                      >
-                        {p.day === BEZ_TERMINU ? 'Bez dne' : p.label}
-                        {m > 0 && (
-                          <span className={`px-1 min-w-[16px] rounded-full text-[11px] leading-4 ${isSel ? 'bg-neutral-950 text-amber-300' : 'bg-amber-300 text-amber-950'}`}>
-                            {m}
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-              </div>
-              <div>
-                <div className="text-udaj font-black uppercase tracking-wider text-neutral-500 mb-1.5"><IkonaLahev className="ikona-text" /> Lahve (až 4 druhy)</div>
-                <div className="space-y-2">
-                  {tileSlots.map((slot) => {
-                    const pkgId = tileDraft[slot.pkg];
-                    const qtyStr = tileDraft[slot.qty];
-                    const quickQtys = (pkgId ? rychlePoctyMapa.get(pkgId) : undefined)
-                      ?? stackingQuickQtys(bottlePackages.find((p) => p.id === pkgId));
-                    const fullPlan = pkgId && tileBeer ? planByKey[`${tileBeer.id}__${pkgId}`] : undefined;
-                    const dayEntry = tileDay !== 'tyden' ? fullPlan?.days.find((d) => d.day === tileDay) : undefined;
-                    const plan = tileDay === 'tyden' ? fullPlan : (dayEntry && { ordered: dayEntry.ordered, missing: dayEntry.missing, checked: dayEntry.checked, days: [dayEntry] });
-                    const cilovyDen = plan?.days.find((d) => d.missing > 0);
-                    // 🔴 Chybí „naživo" — dřív se řádek zbarvil a psal „chybí"
-                    // pořád stejné číslo, i když bylo množství už rozepsané v
-                    // řádku (ale ještě neuložené). Z provozu 15. 9. 2026: „ve
-                    // chvíli kdy zadám stočení, ještě ho neuložím, tak už
-                    // odečítej, co zbývá" — stejný nápad jako u KEG
-                    // (Kegging.tsx). Odečte se rozepsané `qtyStr`, dokud se
-                    // fyzicky neuloží (add()), plan.missing samo zůstává beze
-                    // změny (je to DB pravda).
-                    const liveMissing = plan ? Math.max(0, plan.missing - Number(qtyStr || 0)) : 0;
-                    // 🏷️ Barva celého řádku podle stavu — světle červená, když
-                    // ještě něco chybí, světle zelená, když je objednávka
-                    // pokrytá (i rozepsaným, ještě neuloženým množstvím).
-                    // Z provozu 9. 9. 2026: „ať to jde líp vidět".
-                    const radekBarva = !plan || plan.ordered === 0
-                      ? 'border-neutral-200 dark:border-neutral-700'
-                      : liveMissing > 0
-                      ? 'border-rose-200 bg-rose-50 dark:border-rose-800/60 dark:bg-rose-950/20'
-                      : 'border-emerald-200 bg-emerald-50 dark:border-emerald-800/60 dark:bg-emerald-950/20';
-                    // 🏭 Kolik z toho, co se právě zadává, jde NAD rámec
-                    // objednávky — na sklad. Z provozu: „sklad bude to, co je
-                    // navíc na objednávku a bude na sklad".
-                    const naSklad = plan ? Math.max(0, Number(qtyStr || 0) - plan.missing) : 0;
-                    return (
-                      <div key={slot.key} className={`flex items-center justify-between gap-2 rounded border py-1.5 px-2 flex-wrap transition-colors ${radekBarva}`}>
-                        {/* Obal se vyklikává, ne rozklikává — stejně jako zdrojový
-                            sud níž (viz components/VyberObalu.tsx). Velikosti jsou
-                            čtyři, vejdou se vedle sebe a platná svítí. Rozbalovátko
-                            bylo široké 28 jednotek a neukázalo vybraný obal, dokud se
-                            neotevřelo. */}
-                        <div className="w-full">
-                          <VyberObalu
-                            obaly={bottlePackages}
-                            vybrany={pkgId}
-                            zmen={(id) => setTile(slot.pkg, id)}
-                            popis={(o) => o.label || objemCesky(o.volume_l) || 'obal'}
-                            prazdnyPopis={`prázdný ${slot.key}`}
-                            ariaLabel={`Obal ${slot.key}`}
-                            doprava
-                          />
-                        </div>
-                        {/* Všechno ovládací zarovnané doprava — ať se to líp ovládá
-                            pravou rukou (majitel 12. 10. 2026). */}
-                        <div className="w-full flex items-center justify-end gap-1">
-                          {quickQtys.map((q) => (
-                            <button
-                              key={q}
-                              type="button"
-                              onClick={() => setTile(slot.qty, String(q))}
-                              title="Rychlá volba množství"
-                              className={`tap h-7 min-w-[1.75rem] px-1.5 rounded text-udaj font-black transition ${Number(qtyStr) === q ? 'bg-emerald-700 text-white' : 'bg-neutral-100 dark:bg-neutral-700 hover:bg-emerald-200 text-neutral-600 dark:text-neutral-200 hover:text-emerald-950'}`}
-                            >
-                              {q}
-                            </button>
-                          ))}
-                          {/* − jako pouhý textový znak vždycky vypadal slabší
-                              než + (jeden tenký tah proti dvěma) i se stejným
-                              font-weight — ikona s rovnoměrným tahem to řeší. */}
-                          <button type="button" onClick={() => bumpTile(slot.qty, -1)} className="btn-pocet !w-11"><Minus size={18} strokeWidth={3} /></button>
-                          <input
-                            type="number" onWheel={(e) => e.currentTarget.blur()}
-                            min={0}
-                            inputMode="numeric"
-                            className="w-16 h-11 text-center bg-white dark:bg-neutral-900/60 border border-amber-300 dark:border-neutral-700 text-neutral-950 dark:text-neutral-100 font-black text-sm rounded"
-                            value={qtyStr}
-                            onChange={(e) => setTile(slot.qty, e.target.value.replace(/[^0-9]/g, ''))}
-                            placeholder="0"
-                          />
-                          <button type="button" onClick={() => bumpTile(slot.qty, 1)} className="btn-pocet !w-11"><Plus size={18} strokeWidth={3} /></button>
-                        </div>
-
-                        {/* 🧾 Objednáno / chybí stočit — stejné číslo jako v
-                            „Co stočit na který den", jen přímo u zadávání.
-                            Ať se dá vidět a hned zapsat (nebo odškrtnout jako
-                            nachystané) bez přeskakování na jinou záložku. */}
-                        {plan && plan.ordered > 0 && (
-                          <div className="w-full flex items-center justify-end gap-2 flex-wrap">
-                            {/* Text zůstává neutrální, barvu nese jen ČÍSLO —
-                                snáz se čte, které z obou je „chybí" (červené)
-                                a které je jen souhrn objednávky. „Objednáno"
-                                je klikací — otevře Objednávky vyfiltrované na
-                                tohle pivo a obal. */}
-                            <button
-                              type="button"
-                              onClick={() => { requestOrdersItemFilter({ beerId: tileBeer!.id, packageId: pkgId }); setPage?.('orders'); }}
-                              className="text-udaj font-bold text-neutral-500 hover:text-neutral-700 underline decoration-dotted underline-offset-2 text-left"
-                              title="Zobrazit objednávky s touhle položkou"
-                            >
-                              Objednáno: <span className="font-black text-neutral-800">{plan.ordered}</span>
-                              {' '}· Chybí: <span className={`font-black ${liveMissing > 0 ? 'text-rose-600' : 'text-emerald-700'}`}>{liveMissing}</span>
-                              {naSklad > 0 && (
-                                <> · Sklad: <span className="font-black text-sky-700">{naSklad}</span></>
-                              )}
-                            </button>
-                            {liveMissing > 0 && (
-                              <div className="flex items-center gap-1.5">
-                                <button
-                                  type="button"
-                                  onClick={() => setTile(slot.qty, String(plan.missing))}
-                                  className="btn-amber tap h-7 !px-2 !rounded !font-black text-udaj whitespace-nowrap"
-                                  title="Vyplní pole množství přesně chybějícím počtem"
-                                >
-                                  Zadat chybějících {plan.missing}
-                                </button>
-                                {cilovyDen && (
-                                  <button
-                                    type="button"
-                                    onClick={() => togglePlanCheck(cilovyDen.day, tileBeer!.id, pkgId, cilovyDen.ordered)}
-                                    className="tap h-7 px-2 rounded border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-black text-udaj whitespace-nowrap"
-                                    title="Nezapisuje stáčení — jen pracovní odškrtnutí, že je to nachystané"
-                                  >
-                                    Mám nachystáno
-                                  </button>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* KEG zdroj — odečet sudů */}
-              <div className="rounded border border-sky-200 bg-sky-50/70 p-2.5 space-y-1.5">
-                <div className="text-udaj font-black uppercase tracking-wider text-sky-900"><IkonaSud className="ikona-text" /> Zdrojový KEG (odečet sudů)</div>
-                {/* Vyklikat, ne rozklikávat — viz components/VyberZdrojovehoSudu.tsx.
-                    Rozbalovátko neukázalo, co je vybrané, dokud se neotevřelo. */}
-                <VyberZdrojovehoSudu
-                  sudy={kegPackages}
-                  vybrany={tileDraft.kegPkgId}
-                  zmen={(id) => setTile('kegPkgId', id)}
-                />
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-udaj font-extrabold uppercase text-neutral-500">Počet sudů</span>
-                  <div className="flex items-center gap-1">
-                    <button type="button" onClick={() => bumpTile('kegQty', -1)} className="btn-pocet !w-11">−</button>
-                    <input
-                      type="number" onWheel={(e) => e.currentTarget.blur()}
-                      min={0}
-                      inputMode="numeric"
-                      className="w-16 h-9 text-center bg-white border border-sky-300 text-neutral-950 font-black text-sm rounded"
-                      value={tileDraft.kegQty}
-                      onChange={(e) => setTile('kegQty', e.target.value.replace(/[^0-9]/g, ''))}
-                      placeholder="0"
-                    />
-                    <button type="button" onClick={() => bumpTile('kegQty', 1)} className="btn-pocet !w-11">+</button>
-                  </div>
-                </div>
-
-                {/* 🛢️🛢️ Druhá velikost sudu (lib/dalsiSud.ts) — 9. 10. 2026:
-                    „přidej možnost do stáčení přidat další volbu sudu".
-                    Lahve se mezi sudy rozpočítají podle litrů. */}
-                {druhySudOtevren || tileDraft.keg2PkgId || tileDraft.keg2Qty ? (
-                  <div className="rounded border border-sky-300 bg-white/80 p-2 space-y-1.5">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-udaj font-black uppercase tracking-wider text-sky-900"><IkonaSud className="ikona-text" /> Další sud</span>
-                      <button
-                        type="button"
-                        className="btn-ghost min-h-[44px] !text-xs"
-                        onClick={() => { setTileDraft((d) => ({ ...d, keg2PkgId: '', keg2Qty: '' })); setDruhySudOtevren(false); }}
-                      >
-                        <X size={14} /> Zrušit
-                      </button>
-                    </div>
-                    <VyberZdrojovehoSudu
-                      sudy={kegPackages.filter((p) => p.id !== tileDraft.kegPkgId)}
-                      vybrany={tileDraft.keg2PkgId}
-                      sBezSudu={false}
-                      zmen={(id) => setTile('keg2PkgId', id)}
-                    />
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-udaj font-extrabold uppercase text-neutral-500">Počet sudů</span>
-                      <div className="flex items-center gap-1">
-                        <button type="button" onClick={() => bumpTile('keg2Qty', -1)} className="btn-pocet !w-11">−</button>
-                        <input
-                          type="number" onWheel={(e) => e.currentTarget.blur()}
-                          min={0}
-                          inputMode="numeric"
-                          aria-label="Počet sudů druhé velikosti"
-                          className="w-16 h-9 text-center bg-white border border-sky-300 text-neutral-950 font-black text-sm rounded"
-                          value={tileDraft.keg2Qty}
-                          onChange={(e) => setTile('keg2Qty', e.target.value.replace(/[^0-9]/g, ''))}
-                          placeholder="0"
-                        />
-                        <button type="button" onClick={() => bumpTile('keg2Qty', 1)} className="btn-pocet !w-11">+</button>
-                      </div>
-                    </div>
-                    <p className="text-udaj text-sky-900">Lahve se mezi sudy rozpočítají podle litrů.</p>
-                  </div>
-                ) : (
-                  <button type="button" className="btn-ghost min-h-[44px] !text-xs" onClick={() => setDruhySudOtevren(true)}>
-                    <Plus size={14} /> Další sud (jiná velikost)
-                  </button>
-                )}
-
-                {/* 🍾 Dopočet z nastáčených lahví (10% ztráta). Nikdy se
-                    nevyplní samo — kolik sudů se opravdu načalo ví jen
-                    stáčeč, tohle je návrh na jedno kliknutí. */}
-                {navrhZdrojovychSudu && (
-                  <div className="rounded bg-white/80 border border-sky-200 p-2 space-y-1.5">
-                    <div className="text-udaj font-bold text-sky-900 leading-snug">
-                      {navrhZdrojovychSudu.nalahvovanoL} l v lahvích + 10 % ztráta ={' '}
-                      <strong>{navrhZdrojovychSudu.zdrojL} l</strong> ze sudů
-                      <span className="text-sky-700"> · {navrhZdrojovychSudu.sudyPresne} sudu</span>
-                    </div>
-                    {/* Jen NÁVRH, ne uložení — dřív na celou šířku vypadal
-                        vizuálně důležitěji než „Uložit stáčení lahví" dole
-                        (z provozu 15. 9. 2026: „uložit at je větší, dopočítat
-                        ztráty menší"). Teď je menší a auto-šířky. */}
-                    <button
-                      type="button"
-                      onClick={() => setTile('kegQty', String(navrhZdrojovychSudu.sudy))}
-                      disabled={String(navrhZdrojovychSudu.sudy) === tileDraft.kegQty}
-                      className="min-h-[44px] px-3 rounded bg-sky-700 hover:bg-sky-700 disabled:opacity-40 disabled:hover:bg-sky-600 text-white font-bold text-[11px] transition"
-                      title="Dopočítat počet sudů z nastáčených lahví (s 10% ztrátou) — načatý sud se počítá celý"
-                    >
-                      {String(navrhZdrojovychSudu.sudy) === tileDraft.kegQty
-                        ? `✓ Sedí s dopočtem (${navrhZdrojovychSudu.sudy} ks)`
-                        : `Dopočítat sudy → ${navrhZdrojovychSudu.sudy} ks`}
-                    </button>
-                  </div>
-                )}
-              </div>
-            </BeerTilePanel>
+              podtitul="Stáčení lahví"
+              onZavrit={closeTile}
+              den={date === businessDateISO() ? 'dnes' : date}
+              dnes={dnesLahve(rows, date, packages).filter((p) => p.beerId === tileBeer.id)}
+              kroky={[krokSudy, krokLahve]}
+            />
           )}
 
           {/* 📋 Souhrn zápisu — pod dlaždicemi, editovatelný jako dlaždice */}
@@ -1991,6 +1770,11 @@ export default function BottlingScreen({
             </div>
             {err && <span className="text-xs font-bold text-rose-700 bg-rose-50 px-3 py-1.5 rounded border border-rose-200">{err}</span>}
           </div>
+          <DnesUlozeno
+            nadpis={`${date === businessDateISO() ? 'Dnes' : date} stočeno do lahví`}
+            polozky={dnesLahve(rows, date, packages)}
+            beers={beers}
+          />
         </form>
         )}
         </>

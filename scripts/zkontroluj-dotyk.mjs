@@ -47,7 +47,7 @@ const KOREN = join(dirname(fileURLToPath(import.meta.url)), '..');
  * Číslo se smí jen SNIŽOVAT — `node scripts/zkontroluj-dotyk.mjs --vypis`
  * vypíše, které to jsou.
  */
-const ZAKLAD = 27;
+const ZAKLAD = 18;
 
 /** Co dává jistotu ≥44 px, nebo je to záměrně malý cíl se zvětšenou plochou. */
 const BEZPECNE = [
