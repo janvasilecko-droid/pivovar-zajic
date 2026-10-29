@@ -1,4 +1,4 @@
-import { uloz } from './uloziste';
+import { nacti, uloz } from './uloziste';
 /**
  * Zaškrtávací políčko „Druhé auto (Kačena)“ v Závozu.
  *
@@ -181,4 +181,82 @@ export function migrateSecondCarDatesToOrders(
   } catch {
     // ignorujeme — appka funguje i bez migrace, jen se ztratí staré označení
   }
+}
+
+// ---------------------------------------------------------------------------
+// Kačena v DATABÁZI (orders.second_car, migrace 20261231390000)
+// ---------------------------------------------------------------------------
+// Dřív se označení držela jen v localStorage jednoho prohlížeče: jiný telefon
+// ani Kniha jízd na druhém zařízení o něm nevěděly a generátor zapsal jízdu na
+// špatné auto. Teď je zdrojem pravdy sloupec orders.second_car. Dokud se
+// migrace nepustí, sloupec v načtených objednávkách chybí (undefined) a všechno
+// se chová jako dřív — podle prohlížeče.
+
+export type ObjednavkaKachna = {
+  id: string;
+  second_car?: boolean | null;
+  delivery_date?: string | null;
+  order_date?: string | null;
+};
+
+/** Sloupec orders.second_car v databázi už je (bez migrace v načtených řádcích chybí). */
+export function kachnaVDatabazi(objednavky: Pick<ObjednavkaKachna, 'second_car'>[]): boolean {
+  return objednavky.some((o) => o.second_car !== undefined);
+}
+
+/** Jede objednávka druhým autem? Podle databáze; bez sloupce podle označení v prohlížeči. */
+export function jeKachna(o: Pick<ObjednavkaKachna, 'id' | 'second_car'>): boolean {
+  return typeof o.second_car === 'boolean' ? o.second_car : isOrderKachna(o.id);
+}
+
+const PRENESENO_KLIC = 'zavoz_second_car_preneseno_ids';
+/** Kolik dní zpět se označení z prohlížeče přenáší — starší se nepřenáší, ať nevstane z mrtvých to, co už někdo jinde odškrtl. */
+export const PRENOS_DNI = 60;
+
+function odectiDny(iso: string, dny: number): string {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - dny);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Id objednávek, jejichž označení z tohoto prohlížeče už se do databáze přenášelo. */
+export function getPrenesenoKachny(): string[] {
+  try {
+    const parsed = JSON.parse(nacti(PRENESENO_KLIC) ?? '[]');
+    return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+export function pridejPrenesenoKachny(ids: string[]): void {
+  if (ids.length === 0) return;
+  uloz(PRENESENO_KLIC, JSON.stringify([...new Set([...getPrenesenoKachny(), ...ids])]));
+}
+
+/**
+ * Která označení z tohoto prohlížeče se mají jednorázově přenést do databáze:
+ * objednávky z posledních PRENOS_DNI dní, které databáze zatím nemá označené
+ * (second_car = false), prohlížeč ano a ještě se nepřenášely. Přenáší se každá
+ * objednávka nejvýš jednou — kdo ji pak v databázi odškrtne, ten ji tím
+ * odškrtnul, ať je v prohlížeči zbytek starého označení jakýkoli. Objednávka
+ * bez data se nepřenáší (nehádá se, jak je stará).
+ */
+export function kachnyKPrenosu(
+  objednavky: ObjednavkaKachna[],
+  mistni: string[],
+  uzPreneseno: string[],
+  dnes: string,
+): string[] {
+  if (mistni.length === 0) return [];
+  const mistniSada = new Set(mistni);
+  const hotove = new Set(uzPreneseno);
+  const hranice = odectiDny(dnes, PRENOS_DNI);
+  return objednavky
+    .filter((o) =>
+      o.second_car === false
+      && mistniSada.has(o.id)
+      && !hotove.has(o.id)
+      && (o.delivery_date || o.order_date || '') >= hranice)
+    .map((o) => o.id);
 }

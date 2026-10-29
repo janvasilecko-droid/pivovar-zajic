@@ -7,6 +7,7 @@
  * nějaká přibude, test spadne a připomene, že se má popsat.
  */
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { NavodPouziti, NAVOD_ODDILY } from './NavodPouziti';
 import { NAV, EXTRA_NAV } from './Layout';
@@ -177,6 +178,34 @@ describe('návod k použití', () => {
       for (const n of ['Domů', 'Lahve', 'Sklad', 'Objednávky', 'Fasování', 'KEG', 'Lupa', 'Info']) expect(nazvy).toContain(n);
       // Každá ikona má vysvětlení, ne jen jméno.
       expect(zaciname!.ikony!.filter((i) => i.vyznam.trim().length < 15)).toEqual([]);
+    });
+  });
+
+  describe('oddíl „Auta a kniha jízd"', () => {
+    const auta = NAVOD_ODDILY.find((o) => o.klic === 'auta')!;
+    const text = bezDiakritiky(auta.body.map((b) => `${b.co} ${b.jak} ${(b.klepni ?? []).map((k) => `${k.co} ${k.kde}`).join(' ')}`).join(' '));
+
+    it('popisuje jízdu mimo objednávky, tankování, opravu jízdy a uzávěrku měsíce (29. 10. 2026)', () => {
+      for (const slovo of ['mimo objednavky', 'tankovani', 'tuzku', 'posune tachometr', 'uzavrit mesic', 'otevrit mesic', 'spravce', 'kacen', 'zamek']) {
+        expect(text, slovo).toContain(slovo);
+      }
+    });
+
+    it('tlačítka, která návod jmenuje, na obrazovce Knihy jízd opravdu jsou', () => {
+      // Návod, který posílá hledat „Uzavřít měsíc" tam, kde je „Zavřít", je horší než žádný.
+      const zdroj = readFileSync('src/screens/KnihaJizdScreen.tsx', 'utf8').replace(/\r\n/g, '\n');
+      for (const napis of ['Generovat z objednávek', 'Uzavřít měsíc', 'Otevřít měsíc', 'Zapsat tankování', 'Uzávěrka měsíce', 'Upravit', 'Smazat']) {
+        expect(zdroj, napis).toContain(napis);
+      }
+    });
+
+    it('nové funkce jsou po krocích s ikonou', () => {
+      const kroky = auta.body.flatMap((b) => b.klepni ?? []);
+      expect(kroky.length).toBeGreaterThanOrEqual(5);
+      for (const k of kroky) {
+        expect(k.co.length, k.co).toBeGreaterThan(5);
+        expect(k.kde.length, k.co).toBeGreaterThan(10);
+      }
     });
   });
 });

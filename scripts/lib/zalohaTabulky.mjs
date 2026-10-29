@@ -41,7 +41,7 @@ export const TABULKY = [
   ['inventory_adjustments', 'id'], ['keg_prefuk', 'id'], ['kegging_plan_checks', 'id'],
   ['parser_aliases', 'id'], ['place_aliases', 'id'], ['writeoffs', 'id'], ['tydenni_inventura', 'id'],
   ['label_purchases', 'id'], ['srotovani', 'id'], ['zadavani', 'id'], ['bottling_plans', 'id'],
-  ['logbook_entries', 'id'], ['festival_equipment_loans', 'id'],
+  ['logbook_entries', 'id'], ['logbook_closures', 'id'], ['festival_equipment_loans', 'id'],
   // Sklep
   ['akce_items', 'id'], ['cellar_tank_cycles', 'id'], ['cellar_transfers', 'id'], ['kegging_tanks', 'id'],
   ['planovane_varky', 'id'], ['sanitation_logs', 'id'], ['cellar_batches', 'id'], ['cellar_batch_mereni', 'id'],

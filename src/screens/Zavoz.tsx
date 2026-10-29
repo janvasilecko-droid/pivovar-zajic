@@ -9,7 +9,8 @@ import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSumma
 import type { StockSources } from '../lib/stockLedger';
 import { chybiSklademTydne, schodkyObjednavky } from '../lib/tydenniZbytek';
 import { bezSuduOdberatele } from '../lib/vlastniSudy';
-import { getSecondCarOrderIds, toggleOrderKachna, toggleOrdersKachna, migrateSecondCarDatesToOrders } from '../lib/zavozSecondCar';
+import { toggleOrdersKachna, migrateSecondCarDatesToOrders, jeKachna, kachnaVDatabazi } from '../lib/zavozSecondCar';
+import { zapisKachnu, preneseMistniKachnu } from '../lib/zavozKachnaDb';
 import { PodpisModal } from '../components/PodpisModal';
 import { KegReturnModal } from '../components/KegReturnModal';
 import { saveKegReturns, fetchKegMovements, computeKegBalances, type KegBalance } from '../lib/kegAccount';
@@ -45,6 +46,8 @@ type Order = {
   signature_name?: string | null;
   /** 1. / 2. závoz toho dne (migrace 20261231180000). */
   zavoz_cislo?: number | null;
+  /** Jede druhým autem (Kačena) — migrace 20261231390000; bez ní v řádcích chybí. */
+  second_car?: boolean | null;
 };
 type OrderItem = { id: string; order_id: string; beer_id: string | null; beer_name: string | null; package_id: string | null; package_label: string | null; quantity: number; is_prepared: boolean; is_bottled: boolean };
 
@@ -115,7 +118,10 @@ export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
   // objednáno a kolik doopravdy stočeno, ale nikde to před závozem nesrovnala.
   const [stockRows, setStockRows] = useState<StockSources>({});
   const [moveBusy, setMoveBusy] = useState(false);
-  const [secondCarOrderIds, setSecondCarOrderIds] = useState<string[]>(() => getSecondCarOrderIds());
+  // 🦆 Kačena: podle databáze (orders.second_car — vidí ji všechna zařízení i Kniha jízd);
+  // dokud se migrace nepustí, podle prohlížeče jako dřív. Verze přepočítá seznam, když
+  // se označení v prohlížeči změní.
+  const [kachnaMistniVerze, setKachnaMistniVerze] = useState(0);
 
   // Driver Tool Modals
   const [navTarget, setNavTarget] = useState<{ name: string; destination: string } | null>(null);
@@ -176,7 +182,11 @@ export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
     // Jednorázová migrace ze starého (datumového) na nové (po objednávkách) označení
     // druhého auta — bez efektu, pokud už migrace proběhla nebo staré označení chybí.
     migrateSecondCarDatesToOrders(ords);
-    setSecondCarOrderIds(getSecondCarOrderIds());
+    setKachnaMistniVerze((v) => v + 1);
+    // Označení Kačeny, která jsou jen v tomhle prohlížeči, se jednou přenesou do databáze.
+    void preneseMistniKachnu(ords, dnes).then((preneseno) => {
+      if (preneseno.length) setOrders((arr) => arr.map((o) => (preneseno.includes(o.id) ? { ...o, second_car: true } : o)));
+    });
     setPackages((p as Package[]) ?? []);
     setBeers((b as Beer[]) ?? []);
     setPlaces((pl as Place[]) ?? []);
@@ -319,6 +329,12 @@ export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
 
   // Sloupec zavoz_cislo v databázi už je (bez migrace se 1./2. závoz neukáže).
   const zavozyDostupne = orders.some((o) => o.zavoz_cislo !== undefined);
+  const kachnaDb = kachnaVDatabazi(orders);
+  const secondCarOrderIds = useMemo(
+    () => orders.filter((o) => jeKachna(o)).map((o) => o.id),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [orders, kachnaMistniVerze],
+  );
   // Kolik objednávek vybraného dne jede kterým závozem — pro přepínač nahoře.
   const zavozyDne = useMemo(() => {
     const vDni = activeOrders.filter((o) => selectedDayFilter === 'all' || (selectedDayFilter === '_none' ? !o.delivery_day : o.delivery_day === selectedDayFilter));
@@ -475,15 +491,34 @@ export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
   // označí VŠECHNY objednávky toho dne. Jednotlivé objednávky lze pak dál doladit
   // zvlášť (viz toggleOrderKachnaFor) — např. jen 2 ze 3 skutečně jely Kačenou.
   function toggleSecondCarForDay(orderIds: string[]) {
-    if (!orderIds.length) return;
-    setSecondCarOrderIds(toggleOrdersKachna(orderIds));
+    void prepniKachnu(orderIds);
   }
 
   // Zaškrtnutí „Druhé auto (Kačena)“ pro JEDNU konkrétní objednávku — umožní smíšený
   // den (část objednávek Kačenou, část velkým autem). Kniha jízd pak takový den
   // rozdělí na dvě jízdy.
   function toggleOrderKachnaFor(orderId: string) {
-    setSecondCarOrderIds(toggleOrderKachna(orderId));
+    void prepniKachnu([orderId]);
+  }
+
+  // Je-li aspoň jedna z objednávek označená, odznačí se všechny; jinak se označí všechny.
+  async function prepniKachnu(orderIds: string[]) {
+    const ids = orderIds.filter(Boolean);
+    if (!ids.length) return;
+    if (!kachnaDb) {
+      // Bez migrace: označení drží jen prohlížeč (jako dřív).
+      toggleOrdersKachna(ids);
+      setKachnaMistniVerze((v) => v + 1);
+      return;
+    }
+    const jede = !ids.some((id) => secondCarOrderIds.includes(id));
+    // Nejdřív se překreslí, pak se ukládá (na datech v autě by to jinak vázlo).
+    setOrders((arr) => arr.map((o) => (ids.includes(o.id) ? { ...o, second_car: jede } : o)));
+    const v = await zapisKachnu(ids, jede);
+    if (!v.ok) {
+      chyba(`Kačenu se nepodařilo ${jede ? 'označit' : 'odznačit'}: ${v.chyba}`);
+      void load(true); // vrátit skutečný stav z databáze
+    }
   }
 
   // Otevře dialog pro přesun celého dne závozu na jiný den (pouze objednávky aktuálního týdne)

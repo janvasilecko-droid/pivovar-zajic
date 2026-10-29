@@ -10,6 +10,8 @@ type VehiclesTab = 'vehicles' | 'kniha_jizd' | 'historie_tras';
 interface VehiclesTabbedProps {
   initialTab?: VehiclesTab;
   setPage?: (p: any, sec?: string) => void;
+  /** Dlaždice na ploše: „jizdy“ / „tankovani“ rovnou otevřou zápis v Knize jízd. */
+  uvodniAkce?: string;
 }
 
 const TABS: (TabBarItem & { id: VehiclesTab })[] = [
@@ -20,7 +22,7 @@ const TABS: (TabBarItem & { id: VehiclesTab })[] = [
   { id: 'historie_tras', label: 'Historie tras', icon: History, color: '#f59e0b' },
 ];
 
-export default function VehiclesTabbed({ initialTab = 'vehicles', setPage }: VehiclesTabbedProps) {
+export default function VehiclesTabbed({ initialTab = 'vehicles', setPage, uvodniAkce }: VehiclesTabbedProps) {
   const [activeTab, setActiveTab] = useState<VehiclesTab>(initialTab);
 
   // Sync state if initialTab changes from parent
@@ -43,7 +45,7 @@ export default function VehiclesTabbed({ initialTab = 'vehicles', setPage }: Veh
       {/* Screen Render */}
       <div className="transition-all duration-200">
         {activeTab === 'vehicles' && <VehiclesScreen />}
-        {activeTab === 'kniha_jizd' && <KnihaJizdScreen setPage={setPage} />}
+        {activeTab === 'kniha_jizd' && <KnihaJizdScreen setPage={setPage} uvodniAkce={uvodniAkce} />}
         {activeTab === 'historie_tras' && <ZavozHistory />}
       </div>
     </div>

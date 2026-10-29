@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AlarmClock, BarChart3, Car, ChevronDown, ClipboardList, FileSpreadsheet, FlaskConical, CircleCheck, Download as DownloadIkona, EllipsisVertical, Hand, Home, Hourglass, KeyRound, LayoutGrid, Info, Mail, type LucideIcon, Rocket, Search, Settings, Share, SquarePlus, Shield, ShoppingBag, Sparkles, Store, Tag, Users } from 'lucide-react';
+import { AlarmClock, BarChart3, Car, ChevronDown, ClipboardList, FileSpreadsheet, FlaskConical, Fuel, CircleCheck, Download as DownloadIkona, EllipsisVertical, Hand, Home, Hourglass, KeyRound, LayoutGrid, Info, Lock, Mail, type LucideIcon, Pencil, Plus, Rocket, Search, Settings, Share, SquarePlus, Shield, ShoppingBag, Sparkles, Store, Tag, Users, Zap } from 'lucide-react';
 import { IkonaSud, IkonaLahev } from './ikony';
 import { APP_VERSION, APP_VERSION_DATE } from '../lib/version';
 
@@ -544,7 +544,29 @@ const ODDILY: Oddil[] = [
     kCemu: 'Vozový park, jízdy a hlídání termínů.',
     body: [
       { co: 'Vozový park', jak: 'Auta, STK a známky. Po termínu se to ozve na ploše.' },
-      { co: 'Kniha jízd', jak: 'Jízdy, tankování a evidenční list za měsíc. Počítá se i průměrná spotřeba l/100 km.' },
+      {
+        co: 'Kniha jízd',
+        jak: 'Evidenční list jízd a tankování za měsíc, po autech. Jízdy z objednávek se zapíšou jedním klepnutím (objednávky, které jedou druhým autem — Kačenou — k druhému autu), jízdy mimo objednávky a tankování přidáš ručně. Každá jízda navazuje tachometrem na předchozí jízdu téhož auta. Průměrná spotřeba l/100 km se počítá z tankování. Excel a tisk jsou pod tlačítkem ⋯.',
+        klepni: [
+          { ikona: Zap, co: 'Klepni na „Generovat z objednávek“', kde: 'Kniha jízd, nahoře. Z dnů závozu ve vybraném měsíci sestaví jízdy; před uložením je uvidíš a zkontroluješ.' },
+          { ikona: Plus, co: 'Jízda mimo objednávky: klepni na „Jízda“ s plusem', kde: 'Vedle výběru měsíce. Napiš kam jedeš, účel a ujeté km — odhad stačí, rozdíl se doladí při uzavření měsíce. Návrat do Kynšperku se doplní sám.' },
+          { ikona: Fuel, co: 'Tankování: klepni na ikonu čerpací stanice', kde: 'Vedle tlačítka „Jízda“. Zapíše natankované litry; podle nich se počítá spotřeba.' },
+        ],
+      },
+      {
+        co: 'Oprava a smazání jízdy',
+        jak: 'U každé jízdy je tužka (upravit) a koš (smazat). Změna nebo smazání posune tachometr jen pozdějších jízd téhož auta ve stejném měsíci, aby na sebe pořád navazovaly — appka před uložením napíše, kolika jízd se to týká. Jízdy v uzavřeném měsíci jsou zamčené (zámek) a nejdou měnit.',
+        klepni: [
+          { ikona: Pencil, co: 'Klepni na tužku u jízdy', kde: 'V seznamu jízd. Jde změnit datum, auto, řidiče, trasu, účel i ujeté km — i u jízdy, která vznikla z objednávek.' },
+        ],
+      },
+      {
+        co: 'Uzávěrka měsíce',
+        jak: 'Jednou měsíčně srovnej knihu s tachometrem na palubní desce: zadáš stav na konci měsíce a rozdíl proti trasám se rozpočítá mezi jízdy — rovnoměrně, nebo úměrně délce jízdy. Tankování se nemění. Před uzavřením je v náhledu vidět, kolik kterou jízdu přibude (nebo ubude). Uzavřený měsíc se zamkne. Znovu otevřít ho může jen správce, tlačítkem „Otevřít měsíc“ na stejné kartě.',
+        klepni: [
+          { ikona: Lock, co: 'Klepni na „Uzavřít měsíc“', kde: 'Kniha jízd → karta „Uzávěrka měsíce“, u auta. Zadej tachometr na konci měsíce, zkontroluj náhled a potvrď.' },
+        ],
+      },
     ],
   },
   {

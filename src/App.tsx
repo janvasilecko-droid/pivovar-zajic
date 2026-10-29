@@ -387,6 +387,7 @@ export default function App() {
         <VehiclesTabbed
           initialTab={page === 'kniha_jizd' ? 'kniha_jizd' : page === 'historie_tras' ? 'historie_tras' : 'vehicles'}
           setPage={setPage}
+          uvodniAkce={pageSubTab}
         />
       )}
       {page === 'users' && <Users setPage={setPage} initialSubTab={pageSubTab} />}

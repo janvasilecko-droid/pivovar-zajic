@@ -180,6 +180,7 @@
     "20261231350000_stoceni_upravy.sql",
     "20261231360000_poznamka_do_vlastniho_sudu.sql",
     "20261231370000_spatne_naucene_zkratky_piv.sql",
-    "20261231380000_uzavreny_mesic_inventura_nejde_prepsat.sql"
+    "20261231380000_uzavreny_mesic_inventura_nejde_prepsat.sql",
+    "20261231390000_kniha_jizd_uzaverka_a_druhe_auto.sql"
   ]
 }
