@@ -822,6 +822,10 @@ html.density-compact .table thead th {
 }
 html.density-large .card { padding: 1.15rem !important; }
 html.density-xl .card { padding: 1.4rem !important; }
+/* Úsporné okno (Modal kompaktni, např. výběr odběratele) je bez rámečku kolem hlavičky a těla
+   v KAŽDÉ hustotě. `.card` mu na telefonu dává p-3.5 a pravidla výš ho přebíjejí přes !important
+   — proto tohle stojí až za nimi (stejná specificita, rozhoduje pořadí) a mimo @layer. */
+html .card.modal-kompaktni { padding: 0 !important; }
 html.density-large .table tbody td,
 html.density-large .table thead th {
   padding-top: 0.7rem !important;

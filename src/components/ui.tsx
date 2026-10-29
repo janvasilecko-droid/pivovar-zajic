@@ -117,12 +117,13 @@ export function Field({ label, children, hint }: { label: string; children: Reac
   );
 }
 
-export function Modal({ open, onClose, title, children, wide, maxWidth, bezOdsazeni }: {
+export function Modal({ open, onClose, title, children, wide, maxWidth, kompaktni }: {
   open: boolean; onClose: () => void; title: string; children: ReactNode; wide?: boolean; maxWidth?: string;
-  /** Tělo okna bez vlastního odsazení — obsah si ho řeší sám. Potřebné, když se uvnitř má něco přilepit
-   *  k hornímu okraji rolování (`sticky top-0`): prohlížeč ho jinak přilepí až pod odsazení, takže
-   *  nad ním zůstane vidět kus rolujícího obsahu. */
-  bezOdsazeni?: boolean;
+  /** Úsporné okno pro seznamy, kde je každý pixel potřeba na obsah (výběr odběratele): hlavička nižší,
+   *  bez rámečku, který `.card` na telefonu přidává kolem celého okna, a tělo BEZ vlastního odsazení —
+   *  obsah si ho řeší sám. To je nutné i pro `sticky top-0` uvnitř okna: prohlížeč ho jinak přilepí až
+   *  pod odsazení, takže nad ním zůstane vidět kus rolujícího obsahu. */
+  kompaktni?: boolean;
 }) {
   // Zavírání na Escape, zamčené rolování pod dialogem a zavření tlačítkem
   // Zpět. Vytaženo do lib/zavriNaZpet.ts, aby to samé měly i dialogy, které
@@ -134,9 +135,9 @@ export function Modal({ open, onClose, title, children, wide, maxWidth, bezOdsaz
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
       <div className="absolute inset-0 bg-neutral-950/60 backdrop-blur-md transition-opacity" onClick={onClose} />
-      <div className={`relative card shadow-2xl w-full ${maxWidth ?? (wide ? 'max-w-3xl' : 'max-w-md')} max-h-[92vh] flex flex-col animate-slide-up rounded-b-none sm:rounded border-neutral-200`}>
-        <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-100 sticky top-0 bg-white/95 backdrop-blur-md rounded-t-2xl z-10">
-          <h3 className="font-display font-bold text-lg text-neutral-900 tracking-tight">{title}</h3>
+      <div className={`relative card ${kompaktni ? 'modal-kompaktni' : ''} shadow-2xl w-full ${maxWidth ?? (wide ? 'max-w-3xl' : 'max-w-md')} max-h-[92vh] flex flex-col animate-slide-up rounded-b-none sm:rounded border-neutral-200`}>
+        <div className={`flex items-center justify-between ${kompaktni ? 'px-4 py-2' : 'px-6 py-4'} border-b border-neutral-100 sticky top-0 bg-white/95 backdrop-blur-md rounded-t-2xl z-10`}>
+          <h3 className={`font-display font-bold ${kompaktni ? 'text-base' : 'text-lg'} text-neutral-900 tracking-tight`}>{title}</h3>
           <button
             onClick={onClose}
             className="tap w-8 h-8 grid place-items-center rounded text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 transition"
@@ -145,7 +146,7 @@ export function Modal({ open, onClose, title, children, wide, maxWidth, bezOdsaz
             <X size={18} />
           </button>
         </div>
-        <div className={`${bezOdsazeni ? '' : 'p-6'} overflow-y-auto scrollbar-thin`}>{children}</div>
+        <div className={`${kompaktni ? '' : 'p-6'} overflow-y-auto scrollbar-thin`}>{children}</div>
       </div>
     </div>
   );

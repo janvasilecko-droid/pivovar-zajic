@@ -22,7 +22,7 @@ import { fileURLToPath } from 'url';
 const KOREN = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 /** Třídy, které nedefinuje Tailwind — vlastní CSS, cizí knihovny, tisk. */
-const VLASTNI = /^(hs-|c-|density-|print-|dark$|ikona-text$|tap$|outline-hidden$|animate-in$|fade-in$|zoom-in$|pb-safe$)/;
+const VLASTNI = /^(hs-|c-|density-|print-|dark$|ikona-text$|tap$|modal-kompaktni$|outline-hidden$|animate-in$|fade-in$|zoom-in$|pb-safe$)/;
 
 function vygenerujCss() {
   const ven = path.join(os.tmpdir(), `tw-kontrola-${process.pid}.css`);

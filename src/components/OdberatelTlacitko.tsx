@@ -87,10 +87,10 @@ export function OdberatelTlacitko({ placeId, placeName, places, objednavky, onCh
         <span className="truncate">{vybrany || 'Vybrat odběratele'}</span>
       </button>
 
-      {/* Odsazení si řeší seznam sám (p-6, stejné jako jinde) — lišta písmen se musí přilepit
-          k úplnému hornímu okraji rolování, ne pod odsazení okna. */}
-      <Modal open={otevreno} onClose={() => setOtevreno(false)} title="Odběratel" wide bezOdsazeni>
-        <div className="p-6 space-y-5">
+      {/* Úsporné okno: seznam potřebuje každý pixel. Odsazení si řeší sám (px-4), takže se lišta
+          písmen přilepí k úplnému hornímu okraji rolování, ne pod odsazení okna. */}
+      <Modal open={otevreno} onClose={() => setOtevreno(false)} title="Odběratel" wide kompaktni>
+        <div className="px-4 pt-3 pb-4 space-y-4">
           <PlaceCombobox
             value={placeId || placeName}
             onChange={vyber}
@@ -133,7 +133,7 @@ export function OdberatelTlacitko({ placeId, placeName, places, objednavky, onCh
                     // Lišta zůstává nahoře okna, když se pod ní roluje — z ní se dá skočit na jiné písmeno.
                     <nav
                       aria-label="Přeskočit na písmeno"
-                      className="sticky top-0 z-10 -mx-6 px-6 py-1.5 mb-3 flex gap-1 overflow-x-auto scrollbar-thin bg-white/95 backdrop-blur-md border-b border-neutral-100"
+                      className="sticky top-0 z-10 -mx-4 px-4 py-1.5 mb-2 flex gap-1 overflow-x-auto scrollbar-thin bg-white/95 backdrop-blur-md border-b border-neutral-100"
                     >
                       {skupiny.map((s) => (
                         <button
@@ -148,14 +148,14 @@ export function OdberatelTlacitko({ placeId, placeName, places, objednavky, onCh
                     </nav>
                   )}
 
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     {skupiny.map((s) => (
                       <div key={s.pismeno}>
                         <h4
                           ref={(el) => { nadpisy.current[s.pismeno] = el; }}
-                          className="scroll-mt-16 mb-2 flex items-center gap-2 font-display font-black text-podtitul text-neutral-900"
+                          className="scroll-mt-16 mb-1.5 flex items-center gap-2 font-display font-black text-neutral-900"
                         >
-                          <span className="grid place-items-center min-w-8 h-8 px-1.5 rounded bg-amber-100 text-amber-900">{s.pismeno}</span>
+                          <span className="grid place-items-center min-w-7 h-7 px-1.5 rounded bg-amber-100 text-amber-900 text-sm">{s.pismeno}</span>
                           <span className="flex-1 h-px bg-neutral-200" aria-hidden="true" />
                         </h4>
                         <div className={mrizka}>{s.odberatele.map(tlacitko)}</div>
