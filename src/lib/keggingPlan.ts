@@ -449,6 +449,8 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
   DAYS.forEach((d) => { byDay[d.v] = {}; });
   byDay[BEZ_TERMINU] = {};
 
+  // Objednané množství NEzavezených položek (bez vlastních sudů) podle objednávky a klíče.
+  const nezavezeno = new Map<string, number>();
   orderItems.forEach((it) => {
     if (!it.beer_id || !it.package_id || !kegPkgs.has(it.package_id)) return;
     // Den objednávky rozhoduje o tom, jestli je řádek v tomhle týdnu vůbec
@@ -484,10 +486,12 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
       });
       return;
     }
-    // Se skladovou knihou (currentStockMap) se zavezená objednávka tady
-    // neoznačí jako vykrytá: poptávka je celé objednané množství a kryje
-    // ji fond, který už je stav po odvozu. Odvoz se do fondu nevrací.
-    const covered = wholeOrderDone && !input.currentStockMap ? qty : 0;
+    // Zavezená objednávka je vyřízená: sklad ji už má odečtenou (odpočet
+    // závozu), takže to, co odjelo, se nesmí znovu chtít po fondu. Dřív se
+    // se skladovou knihou zavezené množství počítalo jako poptávka a plán
+    // ho chtěl „stočit" podruhé (29. 10. 2026: „vše je stočený" a Co stočit
+    // ukazovalo celý týden včetně zavezených objednávek).
+    const covered = wholeOrderDone ? qty : 0;
     // Bez knihy zavezené sudy z týdenní zásoby uberou, ať jimi další den
     // nekryje. S knihou je odvoz v čísle skladu a podruhé se neodečítá.
     if (!input.currentStockMap && wholeOrderDone && inWeek(ord?.delivery_date || ord?.order_date)) {
@@ -495,6 +499,7 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
     }
     bucket.ordered += qty;
     bucket.covered += covered;
+    if (!wholeOrderDone) nezavezeno.set(`${it.order_id}|${k}`, (nezavezeno.get(`${it.order_id}|${k}`) ?? 0) + qty);
     bucket.orders.push({
       order_id: it.order_id,
       order_item_id: it.id,
@@ -504,6 +509,32 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
       vlastniDen,
     });
   });
+
+  // ── Odpočty závozu zapsané PŘEDEM. Odpočet se zapisuje o půlnoci v den
+  // závozu (cron), ne ve chvíli, kdy sudy a lahve opravdu odjedou. Objednávka
+  // na dnes proto ještě není „zavezená", ale sklad už je bez ní — a plán by
+  // ji chtěl stočit podruhé: po stočení 8× 30 l na zítřejší objednávku ve
+  // 23:05 odpočet srazil sklad na −1 a Co stočit hlásilo 8 chybějících.
+  // Fyzicky ty kusy ještě leží ve chlaďáku, takže se do fondu vrátí — ale
+  // JEN za položky, které jsou pořád v poptávce (nezavezené) a jen do výše
+  // objednaného množství. Odpočet jiné, už odvezené objednávky se nevrací
+  // (26. 10. 2026: 80 ve skladu, objednávka 100 → chybí 20, ne 6).
+  if (input.currentStockMap && input.dnes) {
+    const zapsano = new Map<string, number>();
+    for (const r of zavozDeductionRows) {
+      if (!r?.order_id || !r.beer_id || !r.package_id) continue;
+      const den = String(r.deduct_date ?? '').slice(0, 10);
+      if (!den || den > input.dnes) continue;
+      const klic = `${r.order_id}|${r.beer_id}__${r.package_id}`;
+      zapsano.set(klic, (zapsano.get(klic) ?? 0) + Number(r.quantity || 0));
+    }
+    zapsano.forEach((q, klic) => {
+      const vratit = Math.min(q, nezavezeno.get(klic) ?? 0);
+      if (vratit <= 0) return;
+      const k = klic.slice(klic.indexOf('|') + 1);
+      pool[k] = (pool[k] ?? 0) + vratit;
+    });
+  }
 
   // ── Rozdělení zásoby mezi dny — od nejbližšího dne, protože ten se veze
   // dřív. Zavezené kusy stáčet netřeba, ty se odečtou rovnou.
