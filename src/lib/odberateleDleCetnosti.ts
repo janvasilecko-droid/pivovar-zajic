@@ -28,3 +28,13 @@ export function odberateleDleCetnosti<T extends OdberatelProRazeni>(
   return [...odberatele].sort((a, b) =>
     (pocet.get(b.id) ?? 0) - (pocet.get(a.id) ?? 0) || a.name.localeCompare(b.name, 'cs'));
 }
+
+/**
+ * Odběratelé abecedně podle ČESKÉ abecedy (29. 10. 2026: „přidej tam možnost
+ * seřadit podle abecedy, docela dlouho jsem hledal Martina"). Velikost písmen
+ * nehraje roli („MARTIN" je mezi „Maneo" a „Mates"), „CH" je samostatné
+ * písmeno za H a mezera na začátku jména neodsune odběratele na začátek.
+ */
+export function odberateleAbecedne<T extends OdberatelProRazeni>(odberatele: T[]): T[] {
+  return [...odberatele].sort((a, b) => a.name.trim().localeCompare(b.name.trim(), 'cs'));
+}

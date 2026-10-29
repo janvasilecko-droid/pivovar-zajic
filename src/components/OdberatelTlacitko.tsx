@@ -3,14 +3,23 @@ import { Store } from 'lucide-react';
 import { Modal } from './ui';
 import { PlaceCombobox } from './PlaceCombobox';
 import type { Place } from '../lib/supabase';
-import { odberateleDleCetnosti, type ObjednavkaProRazeni } from '../lib/odberateleDleCetnosti';
+import { odberateleAbecedne, odberateleDleCetnosti, type ObjednavkaProRazeni } from '../lib/odberateleDleCetnosti';
+import { nacti, uloz } from '../lib/uloziste';
+
+type Razeni = 'cetnost' | 'abeceda';
+const KLIC_RAZENI = 'pivovar_odberatel_razeni';
+const VOLBY_RAZENI: { id: Razeni; popisek: string }[] = [
+  { id: 'cetnost', popisek: 'Nejčastější' },
+  { id: 'abeceda', popisek: 'A–Z' },
+];
 
 /**
  * Výběr odběratele u nové objednávky jako TLAČÍTKO (5. 10. 2026).
  *
  * Klepnutí otevře okno: nahoře pole, kam jde odběratele napsat (napovídá
- * a umí založit nového), pod ním tlačítka všech odběratelů seřazená od
- * nejčastěji používaných. Výběr okno zavře.
+ * a umí založit nového), pod ním tlačítka všech odběratelů — buď od nejčastěji
+ * používaných (výchozí), nebo podle abecedy (29. 10. 2026). Zvolené řazení si
+ * telefon pamatuje. Výběr okno zavře.
  */
 export function OdberatelTlacitko({ placeId, placeName, places, objednavky, onChange, onPlacesChanged }: {
   placeId: string;
@@ -21,7 +30,12 @@ export function OdberatelTlacitko({ placeId, placeName, places, objednavky, onCh
   onPlacesChanged?: () => void;
 }) {
   const [otevreno, setOtevreno] = useState(false);
-  const serazene = useMemo(() => odberateleDleCetnosti(places, objednavky), [places, objednavky]);
+  const [razeni, setRazeni] = useState<Razeni>(() => (nacti(KLIC_RAZENI) === 'abeceda' ? 'abeceda' : 'cetnost'));
+  const serazene = useMemo(
+    () => (razeni === 'abeceda' ? odberateleAbecedne(places) : odberateleDleCetnosti(places, objednavky)),
+    [razeni, places, objednavky],
+  );
+  const zvolRazeni = (r: Razeni) => { setRazeni(r); uloz(KLIC_RAZENI, r); };
   const vybrany = places.find((p) => p.id === placeId)?.name ?? placeName.trim();
 
   function vyber(id: string, nazev: string) {
@@ -50,6 +64,20 @@ export function OdberatelTlacitko({ placeId, placeName, places, objednavky, onCh
             places={places}
             onPlacesChanged={onPlacesChanged}
           />
+          <div className="flex items-center gap-2 flex-wrap" role="group" aria-label="Řazení odběratelů">
+            <span className="text-udaj font-extrabold text-neutral-700 shrink-0">Řadit:</span>
+            {VOLBY_RAZENI.map((v) => (
+              <button
+                key={v.id}
+                type="button"
+                onClick={() => zvolRazeni(v.id)}
+                aria-pressed={razeni === v.id}
+                className={`btn-zalozka ${razeni === v.id ? 'btn-zalozka-aktivni' : ''}`}
+              >
+                {v.popisek}
+              </button>
+            ))}
+          </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {serazene.map((p) => (
               <button
