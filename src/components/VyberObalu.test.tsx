@@ -90,15 +90,19 @@ describe('výběr obalu', () => {
 
 describe('stáčení lahví vyklikává obojí', () => {
   const ZDROJ = readFileSync('src/screens/BottlingScreen.tsx', 'utf8');
+  const PANEL = readFileSync('src/components/KrokoveZadavani.tsx', 'utf8');
 
-  it('obaly lahví i zdrojový sud jsou vyklikávací', () => {
-    expect(ZDROJ).toMatch(/<VyberObalu/);
-    expect(ZDROJ).toMatch(/<VyberZdrojovehoSudu/);
+  it('obaly lahví i zdrojový sud se vybírají klikem v krokovém panelu', () => {
+    // Od 29. 10. 2026 stejné tlačítkové volby pro sudy i lahve dělá krokový panel.
+    expect(ZDROJ).toMatch(/<KrokoveZadavani/);
+    expect(ZDROJ).toMatch(/kroky=\{\[krokSudy, krokLahve\]\}/);
+    expect(PANEL).toMatch(/role="radiogroup"/);
   });
 
-  it('v zadávání stáčení už nezůstalo rozbalovátko na obal ani na sud', () => {
-    const panel = ZDROJ.slice(ZDROJ.indexOf('Lahve (až 3 druhy)'), ZDROJ.indexOf('Zdrojový KEG (odečet sudů)') + 2000);
-    expect(panel).not.toMatch(/<option value="">— obal/);
-    expect(panel).not.toMatch(/<option value="">— žádný —/);
+  it('v zadávání stáčení není rozbalovátko na obal ani na sud', () => {
+    expect(PANEL).not.toMatch(/<select/);
+    expect(PANEL).not.toMatch(/<option/);
+    expect(ZDROJ).not.toMatch(/<option value="">— obal/);
+    expect(ZDROJ).not.toMatch(/<option value="">— žádný —/);
   });
 });

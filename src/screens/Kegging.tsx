@@ -21,7 +21,7 @@ import { BottlingPlanBottler } from '../components/BottlingPlanBottler';
 import { markPlanSeenAt, type BottlingPlan } from '../lib/bottlingPlans';
 import KeggingDayPlan from '../components/KeggingDayPlan';
 import { AlertTriangle, BarChart3, Beer as BeerIcon, CalendarDays, Camera, Check, ClipboardList, Minus, Package as PackageIcon, PenLine, Pencil, Play, Plus, RefreshCw, Scissors, Scroll, Sparkles, Trash2, X } from 'lucide-react';
-import { BeerTileGrid, BeerTilePanel } from '../components/BeerTileGrid';
+import { BeerTileGrid } from '../components/BeerTileGrid';
 import { chyba, oznam, potvrd, toastZpet, uspech, volba } from '../lib/toast';
 import { platneDatum, radkyZKonceptu, smazKoncept, useRozepsanyZapis } from '../lib/rozepsanyZapis';
 import RozepsanyZapisPruh from '../components/RozepsanyZapisPruh';
@@ -54,7 +54,11 @@ import { posledniRucniZapis } from '../lib/posledniZapis';
 import { dopsaneZaskrtnutim, smazZaznamyStaceni } from '../lib/staceniZPolozky';
 import { zapamatujPozici } from '../lib/drzPozici';
 import { jeChecklistKonceZUrl } from '../lib/vstupniStranka';
-import { nejcastejsiMnozstvi } from '../lib/quickQty';
+import { DnesUlozeno, KrokoveZadavani, PlanObjednavky, PrepinacDne, type KrokDef } from '../components/KrokoveZadavani';
+import { rychleHodnoty } from '../lib/krokoveZadavani';
+import { dnesPodleObalu, objemObalu } from '../lib/dnesUlozeno';
+import { vychoziZdrojovySud } from '../lib/zdrojovySud';
+import VyberObalu from '../components/VyberObalu';
 import { nactiSdilenouTabulku } from '../lib/sdilenaData';
 import { UpravyStaceniZInventury } from '../components/UpravyStaceniZInventury';
 
@@ -205,9 +209,6 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   // v „Co stočit na který den", jen zmenšený a přímo u zadávání — z provozu
   // 9. 9. 2026: „nahoře u piva ať se dá zakliknout, na který den je objednáno".
   const [tileDay, setTileDay] = useState<string>('tyden');
-  // Fajfka „Hotovo" v dlaždici KEG rovnou uloží stáčení (viz add() výš) —
-  // dokud se ukládá, je vidět "Ukládám…" a druhé klepnutí se ignoruje.
-  const [tileConfirming, setTileConfirming] = useState(false);
 
   // 🔀 „Sklad" → „Nesedí evidence" → „Doplnit stočení" (Stock.tsx). Rovnou
   // rozbalí to pivo v dlaždicové mřížce, ať ho člověk nemusí sám hledat.
@@ -400,14 +401,14 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   // vůbec nenabídl (a ve stáčení lahví by naopak přebýval) — viz jeSud.
   const kegPackages = useMemo(() => packages.filter((p) => jeSud(p.kind, p.label)).sort((a, b) => b.volume_l - a.volume_l), [packages]);
 
-  // 🔢 Tři nejčastěji stáčené počty pro rozbalené pivo — pro každý obal
+  // 🔢 Pět nejčastěji stáčených počtů pro rozbalené pivo — pro každý obal
   // zvlášť, z historie stáčení. Počítá se jednou za změnu historie, ne při
   // každém překreslení panelu (ten se překresluje při každé změně počtu).
   const rychlePoctyMapa = useMemo(() => {
     const out = new Map<string, number[]>();
     if (!expandedKegBeerId) return out;
     for (const p of kegPackages) {
-      out.set(p.id, nejcastejsiMnozstvi(rows, expandedKegBeerId, p.id, QUICK_KEG_QTY));
+      out.set(p.id, rychleHodnoty(rows, expandedKegBeerId, p.id, QUICK_KEG_QTY));
     }
     return out;
   }, [expandedKegBeerId, kegPackages, rows]);
@@ -830,20 +831,71 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [expandedKegBeerId]);
 
-  // Fajfka „Hotovo" v dlaždici KEG: pokud je pro tohle pivo něco vyplněné,
-  // rovnou to uloží (add() — stejná funkce jako tlačítko „Uložit stáčení"
-  // dole), ať uživatel po „Zadat chybějících N" nemusí ještě hledat
-  // samostatné tlačítko. Prázdné pivo (jen se podíval) se jen zavře, ať
-  // nevybalí hlášku „vyplň alespoň jeden řádek" na neviný klik.
-  async function confirmTileAndMaybeSave() {
-    const maSCoUlozit = entryRows.some((r) => r.beerId === expandedKegBeerId && r.pkgId && Number(r.qty) > 0);
-    if (!maSCoUlozit) { setExpandedKegBeerId(null); return; }
-    setTileConfirming(true);
-    const ok = await add();
-    setTileConfirming(false);
-    if (ok) setExpandedKegBeerId(null);
-    // Když se neuložilo (checklist gate, zrušená otázka „opravdu?"…), panel
-    // zůstává otevřený — uživatel vidí chybovou hlášku nebo checklist modal.
+  // 🚶 Krokové zadávání (29. 10. 2026): nahoře velikost sudu (předvolená
+  // padesátka), pod ní pole na počet a pět nejčastějších čísel. Čte a píše
+  // stejné řádky entryRows jako dřív (pivo + obal + počet + tank).
+  function krokKeg(beer: Beer): KrokDef {
+    const zadano = (id: string) => tileQtyFor(beer.id, id);
+    return {
+      stitek: 'Kolik sudů',
+      otazka: 'Kolik sudů?',
+      obaly: kegPackages.map((p) => ({ id: p.id, label: objemObalu(p) })),
+      jednotka: (o) => `sudů ${o.label}`,
+      mnozstvi: zadano,
+      nastav: (id, n) => setTileRow(beer.id, id, { qty: n > 0 ? String(n) : '' }),
+      rychle: (id) => rychlePoctyMapa.get(id) ?? QUICK_KEG_QTY,
+      vychozi: kegPackages.find((p) => zadano(p.id) > 0)?.id ?? vychoziZdrojovySud(kegPackages),
+      dalsiText: '+ další velikost',
+      nahore: (
+        <PrepinacDne
+          dny={keggingPlan.filter((p) => p.day !== BEZ_TERMINU || (missingByBeerDay[beer.id]?.[BEZ_TERMINU] ?? 0) > 0)}
+          vybrany={tileDay}
+          zmen={setTileDay}
+          chybi={missingByBeerDay[beer.id] ?? {}}
+          bezTerminu={BEZ_TERMINU}
+        />
+      ),
+      pod: (id, rozepsano, nastavCislo) => {
+        const fullPlan = planByKey[`${beer.id}__${id}`];
+        const dayEntry = tileDay !== 'tyden' ? fullPlan?.days.find((d) => d.day === tileDay) : undefined;
+        const plan = tileDay === 'tyden' ? fullPlan : (dayEntry && { ordered: dayEntry.ordered, missing: dayEntry.missing, checked: dayEntry.checked, days: [dayEntry] });
+        const cilovyDen = plan?.days.find((d) => d.missing > 0);
+        const rowTanks = activeTanksForBeer(beer.id);
+        const currentTankId = entryRows.find((r) => r.beerId === beer.id && r.pkgId === id)?.tankId || '';
+        return (
+          <div className="space-y-2">
+            <PlanObjednavky
+              plan={plan}
+              rozepsano={rozepsano}
+              onObjednavky={() => { requestOrdersItemFilter({ beerId: beer.id, packageId: id }); setPage?.('orders'); }}
+              onZadat={nastavCislo}
+              onNachystano={cilovyDen ? () => togglePlanCheck(cilovyDen.day, beer.id, id, cilovyDen.ordered) : undefined}
+            />
+            {/* Tank: jediný aktivní se vybere sám, víc jich se vyklikává
+                (bez výběru se bere největší), žádný = objem se neodečte. */}
+            {rozepsano > 0 && rowTanks.length > 1 && (
+              <div className="space-y-1">
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-100 border border-amber-300 text-amber-900 text-udaj font-black whitespace-nowrap"><AlertTriangle className="ikona-text" /> {rowTanks.length} aktivní tanky — vyber</span>
+                <VyberObalu
+                  obaly={rowTanks.map((t) => ({ id: t.id, volume_l: null, label: `${t.label} (${Number(t.current_volume_l).toLocaleString('cs-CZ', { maximumFractionDigits: 0 })} L)` }))}
+                  vybrany={currentTankId}
+                  zmen={(tankId) => setTileRow(beer.id, id, { tankId })}
+                  popis={(o) => o.label ?? 'tank'}
+                  prazdnyPopis={`největší (${largestTank(rowTanks)?.label ?? 'tank'})`}
+                  ariaLabel="Tank"
+                />
+              </div>
+            )}
+            {rozepsano > 0 && rowTanks.length === 1 && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-900 text-udaj font-black whitespace-nowrap"><IkonaSud className="ikona-text" /> {rowTanks[0].label}</span>
+            )}
+            {rozepsano > 0 && rowTanks.length === 0 && potrebujeTank(beer.name) && (
+              <span className="text-udaj text-neutral-500 font-semibold">žádný aktivní tank — objem se neodečte</span>
+            )}
+          </div>
+        );
+      },
+    };
   }
 
   // „Naplnit do zápisu" — sudová část úkolu se předepíše do prvního řádku
@@ -1810,187 +1862,15 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
           </div>
 
           {expandedKegBeer && (
-            <BeerTilePanel
+            <KrokoveZadavani
+              key={expandedKegBeer.id}
               beer={expandedKegBeer}
-              onClose={() => setExpandedKegBeerId(null)}
-              onConfirm={() => confirmTileAndMaybeSave()}
-              confirming={tileConfirming}
-            >
-              {/* 📅 Na který den je objednáno — přepínač jako v „Co stočit na
-                  který den", jen zmenšený a přímo u zadávání. Přepočítá
-                  Objednáno/Chybí pod ním na vybraný den místo celého týdne. */}
-              <div className="flex items-center gap-1 overflow-x-auto scrollbar-none -mx-1 px-1 pb-1.5 mb-0.5 border-b border-neutral-200 dark:border-neutral-700">
-                <button
-                  type="button"
-                  onClick={() => setTileDay('tyden')}
-                  className={`px-2.5 h-8 rounded text-udaj font-black shrink-0 transition ${tileDay === 'tyden' ? 'bg-amber-500 text-neutral-950' : 'bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-200 hover:bg-amber-100'}`}
-                >
-                  Týden
-                </button>
-                {keggingPlan
-                  .filter((p) => p.day !== BEZ_TERMINU || (missingByBeerDay[expandedKegBeer.id]?.[BEZ_TERMINU] ?? 0) > 0)
-                  .map((p) => {
-                    const m = missingByBeerDay[expandedKegBeer.id]?.[p.day] ?? 0;
-                    const isSel = tileDay === p.day;
-                    return (
-                      <button
-                        key={p.day}
-                        type="button"
-                        onClick={() => setTileDay(p.day)}
-                        className={`px-2.5 h-8 rounded text-udaj font-black shrink-0 transition flex items-center gap-1 ${isSel ? 'bg-amber-500 text-neutral-950' : 'bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-200 hover:bg-amber-100'}`}
-                        title={p.day === BEZ_TERMINU ? 'Bez uvedeného dne dovozu' : `${p.label} ${p.date ? new Date(p.date + 'T00:00:00Z').toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric', timeZone: 'UTC' }) : ''}`}
-                      >
-                        {p.day === BEZ_TERMINU ? 'Bez dne' : p.label}
-                        {m > 0 && (
-                          <span className={`px-1 min-w-[16px] rounded-full text-[11px] leading-4 ${isSel ? 'bg-neutral-950 text-amber-300' : 'bg-amber-300 text-amber-950'}`}>
-                            {m}
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-              </div>
-              {kegPackages.map((p) => {
-                const qty = tileQtyFor(expandedKegBeer.id, p.id);
-                const rowTanks = activeTanksForBeer(expandedKegBeer.id);
-                const currentTankId = entryRows.find((r) => r.beerId === expandedKegBeer.id && r.pkgId === p.id)?.tankId || '';
-                const quickQtys = rychlePoctyMapa.get(p.id) ?? QUICK_KEG_QTY;
-                const fullPlan = planByKey[`${expandedKegBeer.id}__${p.id}`];
-                const dayEntry = tileDay !== 'tyden' ? fullPlan?.days.find((d) => d.day === tileDay) : undefined;
-                const plan = tileDay === 'tyden' ? fullPlan : (dayEntry && { ordered: dayEntry.ordered, missing: dayEntry.missing, checked: dayEntry.checked, days: [dayEntry] });
-                const cilovyDen = plan?.days.find((d) => d.missing > 0);
-                // 🔴 Chybí „naživo" — dřív se řádek zbarvil a psal „chybí"
-                // pořád stejné číslo, i když bylo množství už rozepsané v
-                // řádku (ale ještě neuložené). Z provozu 15. 9. 2026: „ve
-                // chvíli kdy zadám stočení, ještě ho neuložím, tak už
-                // odečítej, co zbývá" — odečte se rozepsané `qty`, dokud se
-                // fyzicky neuloží (add()), plan.missing samo zůstává beze
-                // změny (je to DB pravda).
-                const liveMissing = plan ? Math.max(0, plan.missing - qty) : 0;
-                // 🏷️ Barva celého řádku podle stavu — světle červená, když
-                // ještě něco chybí, světle zelená, když je objednávka
-                // pokrytá (i rozepsaným, ještě neuloženým množstvím).
-                // Z provozu 9. 9. 2026: „ať to jde líp vidět".
-                const radekBarva = !plan || plan.ordered === 0
-                  ? 'border-neutral-200 dark:border-neutral-700'
-                  : liveMissing > 0
-                  ? 'border-rose-200 bg-rose-50 dark:border-rose-800/60 dark:bg-rose-950/20'
-                  : 'border-emerald-200 bg-emerald-50 dark:border-emerald-800/60 dark:bg-emerald-950/20';
-                // 🏭 Kolik z toho, co se právě zadává, jde NAD rámec objednávky
-                // — na sklad. Z provozu: „sklad bude to, co je navíc na
-                // objednávku a bude na sklad".
-                const naSklad = plan ? Math.max(0, qty - plan.missing) : 0;
-                return (
-                  <div key={p.id} className={`rounded border py-1.5 px-2 space-y-1.5 transition-colors ${radekBarva}`}>
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <span className="text-sm font-bold text-neutral-700 dark:text-neutral-200 truncate">
-                        {formatPackageLabel(p.label)}
-                      </span>
-                      <div className="flex items-center gap-1">
-                        {quickQtys.map((q) => (
-                          <button
-                            key={q}
-                            type="button"
-                            onClick={() => setTileRow(expandedKegBeer.id, p.id, { qty: String(q) })}
-                            title="Rychlá volba množství"
-                            className={`tap h-7 min-w-[1.75rem] px-1.5 rounded text-udaj font-black transition ${qty === q ? 'bg-emerald-700 text-white' : 'bg-neutral-100 dark:bg-neutral-700 hover:bg-emerald-200 text-neutral-600 dark:text-neutral-200 hover:text-emerald-950'}`}
-                          >
-                            {q}
-                          </button>
-                        ))}
-                        {/* − jako pouhý textový znak vždycky vypadal slabší
-                            než + (jeden tenký tah proti dvěma) i se stejným
-                            font-weight — ikona s rovnoměrným tahem to řeší. */}
-                        <button type="button" onClick={() => setTileRow(expandedKegBeer.id, p.id, { qty: String(Math.max(0, qty - 1)) })} className="btn-pocet disabled:opacity-30" disabled={qty <= 0}><Minus size={18} strokeWidth={3} /></button>
-                        <input
-                          type="number" onWheel={(e) => e.currentTarget.blur()}
-                          min={0}
-                          inputMode="numeric"
-                          value={qty || ''}
-                          placeholder="0"
-                          onChange={(e) => setTileRow(expandedKegBeer.id, p.id, { qty: e.target.value.replace(/[^0-9]/g, '') })}
-                          className="w-14 h-10 text-center text-lg font-black text-neutral-800 dark:text-neutral-100 bg-white dark:bg-neutral-900/60 border-2 border-amber-200 dark:border-neutral-700 rounded"
-                        />
-                        <button type="button" onClick={() => setTileRow(expandedKegBeer.id, p.id, { qty: String(qty + 1) })} className="btn-pocet"><Plus size={18} strokeWidth={3} /></button>
-                        {/* +5: po jednom se přidává jen zbytek, celé pády sudů
-                            jdou po pěti. Dvě klepnutí místo deseti. */}
-                        <button type="button" onClick={() => setTileRow(expandedKegBeer.id, p.id, { qty: String(qty + 5) })} className="w-11 h-11 grid place-items-center rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-950 font-black text-sm transition select-none">+5</button>
-                      </div>
-                    </div>
-
-                    {/* 🧾 Objednáno / chybí stočit — stejné číslo jako v „Co
-                        stočit na který den", jen přímo u zadávání. Ať se dá
-                        vidět a hned zapsat (nebo odškrtnout jako nachystané)
-                        bez přeskakování na jinou záložku. */}
-                    {plan && plan.ordered > 0 && (
-                      <div className="flex items-center justify-between gap-2 flex-wrap">
-                        {/* Text zůstává neutrální, barvu nese jen ČÍSLO — snáz
-                            se čte, které z obou je „chybí" (červené) a které
-                            je jen souhrn objednávky. „Objednáno" je klikací —
-                            otevře Objednávky vyfiltrované na tohle pivo a
-                            obal, stejně jako tlačítko „Objednávky" v „Co
-                            stočit na který den". */}
-                        <button
-                          type="button"
-                          onClick={() => { requestOrdersItemFilter({ beerId: expandedKegBeer.id, packageId: p.id }); setPage?.('orders'); }}
-                          className="text-udaj font-bold text-neutral-500 hover:text-neutral-700 underline decoration-dotted underline-offset-2 text-left"
-                          title="Zobrazit objednávky s touhle položkou"
-                        >
-                          Objednáno: <span className="font-black text-neutral-800">{plan.ordered}</span>
-                          {' '}· Chybí: <span className={`font-black ${liveMissing > 0 ? 'text-rose-600' : 'text-emerald-700'}`}>{liveMissing}</span>
-                          {naSklad > 0 && (
-                            <> · Sklad: <span className="font-black text-sky-700">{naSklad}</span></>
-                          )}
-                        </button>
-                        {liveMissing > 0 && (
-                          <div className="flex items-center gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => setTileRow(expandedKegBeer.id, p.id, { qty: String(plan.missing) })}
-                              className="btn-amber tap h-7 !px-2 !rounded !font-black text-udaj whitespace-nowrap"
-                              title="Vyplní pole množství přesně chybějícím počtem"
-                            >
-                              Zadat chybějících {plan.missing}
-                            </button>
-                            {cilovyDen && (
-                              <button
-                                type="button"
-                                onClick={() => togglePlanCheck(cilovyDen.day, expandedKegBeer.id, p.id, cilovyDen.ordered)}
-                                className="tap h-7 px-2 rounded border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-black text-udaj whitespace-nowrap"
-                                title="Nezapisuje stáčení — jen pracovní odškrtnutí, že je to nachystané"
-                              >
-                                Mám nachystáno
-                              </button>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    {qty > 0 && rowTanks.length > 1 && (
-                      <div>
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-100 border border-amber-300 text-amber-900 text-udaj font-black whitespace-nowrap"><AlertTriangle className="ikona-text" /> {rowTanks.length} aktivní tanky — vyber</span>
-                        <select
-                          className="input !py-1 !px-1.5 text-xs font-bold w-full mt-1"
-                          value={currentTankId}
-                          onChange={(e) => setTileRow(expandedKegBeer.id, p.id, { tankId: e.target.value })}
-                        >
-                          <option value="">{largestTank(rowTanks)?.label}</option>
-                          {rowTanks.map((t) => (
-                            <option key={t.id} value={t.id}>{t.label} ({Number(t.current_volume_l).toLocaleString('cs-CZ', { maximumFractionDigits: 0 })} L)</option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
-                    {qty > 0 && rowTanks.length === 1 && (
-                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-900 text-udaj font-black whitespace-nowrap"><IkonaSud className="ikona-text" /> {rowTanks[0].label}</span>
-                    )}
-                    {qty > 0 && rowTanks.length === 0 && potrebujeTank(expandedKegBeer.name) && (
-                      <span className="text-udaj text-neutral-400 font-semibold">žádný aktivní tank — objem se neodečte</span>
-                    )}
-                  </div>
-                );
-              })}
-            </BeerTilePanel>
+              podtitul="Stáčení KEG"
+              onZavrit={() => setExpandedKegBeerId(null)}
+              den={date === businessDateISO() ? 'dnes' : date}
+              dnes={dnesPodleObalu(rows, date, packages).filter((p) => p.beerId === expandedKegBeer.id)}
+              kroky={[krokKeg(expandedKegBeer)]}
+            />
           )}
 
           {/* 📋 Souhrn zápisu — pod dlaždicemi, editovatelný jako dlaždice */}
@@ -2073,6 +1953,11 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
             {err && <span className="text-xs font-bold text-rose-700">{err}</span>}
           </div>
 
+          <DnesUlozeno
+            nadpis={`${date === businessDateISO() ? 'Dnes' : date} stočeno KEG`}
+            polozky={dnesPodleObalu(rows, date, packages)}
+            beers={beers}
+          />
         </form>
       )}
 

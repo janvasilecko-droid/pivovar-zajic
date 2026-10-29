@@ -85,13 +85,13 @@ const ulozeny = () => {
 };
 const otevri = () => render(<BottlingScreen setPage={vi.fn()} initialSubTab="zapis" />);
 
-/** Otevře dlaždici piva, vybere 1,5 l a zadá počet. */
+/** Otevře panel piva, přejde na krok „Kolik lahví", vybere 1,5 l a napíše počet. */
 async function zadejVDlazdici(pocet: string) {
   fireEvent.click(await screen.findByRole('button', { name: /12° Světlá/ }));
-  const skupina = await screen.findByRole('radiogroup', { name: 'Obal 1' });
-  fireEvent.click(within(skupina).getByRole('radio', { name: 'PET 1,5 l' }));
-  const pole = document.querySelector('input[type="number"][placeholder="0"]') as HTMLInputElement;
-  fireEvent.change(pole, { target: { value: pocet } });
+  const panel = await screen.findByRole('dialog');
+  fireEvent.click(within(panel).getByRole('button', { name: /Kolik lahví/ }));
+  fireEvent.click(within(panel).getByRole('radio', { name: '1,5 l' }));
+  fireEvent.change(within(panel).getByRole('textbox'), { target: { value: pocet } });
 }
 
 describe('Stáčení lahví — rozepsaný zápis', { timeout: 15_000 }, () => {
@@ -111,11 +111,12 @@ describe('Stáčení lahví — rozepsaný zápis', { timeout: 15_000 }, () => {
     expect(ulozeny().entryRows.find((r: any) => r.beerId === 'beer-12')).toMatchObject({ pkgId: 'pkg-15', qty: '30' });
   });
 
-  it('křížek v liště dlaždice taky nechá, co je zadané', async () => {
+  it('„Hotovo" v posledním kroku přidá zadané do zápisu (a neuloží ho do databáze)', async () => {
     otevri();
     await zadejVDlazdici('12');
-    fireEvent.click(screen.getByRole('button', { name: /Zavřít a vrátit se k dlaždicím/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Hotovo' }));
     expect(await screen.findByText(/Zápis stáčení \(1,5 l: 12\)/)).toBeTruthy();
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 
   it('klepnutí vedle dlaždice (na ztmavené pozadí) taky nechá, co je zadané', async () => {
@@ -129,7 +130,7 @@ describe('Stáčení lahví — rozepsaný zápis', { timeout: 15_000 }, () => {
     otevri();
     fireEvent.click(await screen.findByRole('button', { name: /12° Světlá/ }));
     fireEvent.click(await screen.findByRole('button', { name: /Zavřít a nechat rozepsané/ }));
-    await waitFor(() => expect(screen.queryByRole('radiogroup', { name: 'Obal 1' })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(screen.queryByText(/Zápis stáčení/)).toBeNull();
     expect(ulozeny()).toBeNull();
   });

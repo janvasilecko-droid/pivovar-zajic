@@ -140,7 +140,7 @@ describe('Stáčení KEG — rozepsaný zápis', () => {
   it('počty zadané v dlaždici jsou po zavření i po odchodu z obrazovky pořád rozepsané', async () => {
     const prvni = otevri();
     fireEvent.click(await screen.findByRole('button', { name: /Světlý ležák 12°/ }));
-    const pole = document.querySelector('.fixed.inset-0 input[type="number"]') as HTMLInputElement;
+    const pole = document.querySelector('.fixed.inset-0 input[inputmode="numeric"]') as HTMLInputElement;
     fireEvent.change(pole, { target: { value: '9' } });
     // Zavřít klepnutím vedle — nic se neuložilo do databáze.
     fireEvent.click(document.querySelector('.fixed.inset-0') as HTMLElement);
