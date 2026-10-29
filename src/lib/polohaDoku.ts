@@ -6,23 +6,25 @@
 //   vpravo     — trvale svisle u pravého okraje
 //   vlevo      — trvale svisle u levého okraje
 //   vysouvaci  — schovaná, úchyt u pravého okraje ji vysune
+//   oblouk     — Domů v rohu pořád, ostatní na oblouku pod palcem (Menu)
 import { useEffect, useState } from 'react';
 import { nacti, uloz } from './uloziste';
 
-export type PolohaDoku = 'dole' | 'vpravo' | 'vlevo' | 'vysouvaci';
+export type PolohaDoku = 'dole' | 'vpravo' | 'vlevo' | 'vysouvaci' | 'oblouk';
 
 export const POLOHY_DOKU: { id: PolohaDoku; nazev: string; popis: string }[] = [
   { id: 'dole', nazev: 'Dole', popis: 'trvale přes celou šířku' },
   { id: 'vpravo', nazev: 'Vpravo', popis: 'trvale u pravého okraje' },
   { id: 'vlevo', nazev: 'Vlevo', popis: 'trvale u levého okraje' },
   { id: 'vysouvaci', nazev: 'Vysouvací', popis: 'schovaná, úchyt vpravo' },
+  { id: 'oblouk', nazev: 'Oblouk', popis: 'Domů v rohu, menu pod palcem' },
 ];
 
 export const KLIC_POLOHY_DOKU = 'pivovar_poloha_doku';
 const UDALOST = 'pivovar-poloha-doku';
 
 export function jePolohaDoku(v: unknown): v is PolohaDoku {
-  return v === 'dole' || v === 'vpravo' || v === 'vlevo' || v === 'vysouvaci';
+  return v === 'dole' || v === 'vpravo' || v === 'vlevo' || v === 'vysouvaci' || v === 'oblouk';
 }
 
 export function nactiPolohuDoku(): PolohaDoku {
