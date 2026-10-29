@@ -2,8 +2,8 @@ import { synchronizuj } from '../lib/checklistData';
 import { CHECKLISTY_ZAPNUTE } from '../lib/skryteModuly';
 import { jeSud } from '../lib/inventoryFix';
 import { useEffect, useMemo, useRef, useState, lazy, Suspense } from 'react';
-import { supabase, Beer, Package, EntryRow, CellarTank, KegPrefuk, useRealtime, beerBg, beerText, beerName, formatPackageLabel, fetchAllRows } from '../lib/supabase';
-import { davkyStaceni, denACesky } from '../lib/prehledStaceni';
+import { supabase, Beer, Package, EntryRow, CellarTank, KegPrefuk, useRealtime, beerBg, beerName, formatPackageLabel, fetchAllRows } from '../lib/supabase';
+import { denACesky } from '../lib/prehledStaceni';
 import { useAuth } from '../lib/auth';
 import { KeggingChecklistModal, KeggingChecklistBody, isStartChecklistCompleteForKeg, isMonthlyChecklistCompleteForKeg } from '../components/KeggingChecklistModal';
 import { autoLogKegSanitationFromChecklist, isLastWeekOfMonth } from '../lib/kegSanitation';
@@ -2034,109 +2034,44 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                   </div>
                 </div>
 
-                {/* 📋 Jedna dlaždice na DEN a PIVO, barevná podle piva — stejný
-                    princip jako v „Všechny záznamy" níž (davkyStaceni).
-                    Zadání z 19. 9. 2026: „i v keg stáčení ať jsou dlaždice
-                    barevný podle piva, a pokud bude jeden den stočeno od
-                    jednoho druhu piva víc druhů velikostí, tak ať je to v
-                    jedný dlaždici." Dřív tu byl řádek na každý zápis zvlášť,
-                    i když šlo o stejné pivo stočené ten den do víc velikostí
-                    sudů. Upravovat se dál musí po jednotlivých obalech —
-                    každý je v databázi vlastní řádek. */}
-                <div className="grid grid-cols-1 gap-2.5 md:hidden">
-                  {davkyStaceni(sorted, (pkgId) => {
-                    const pkg = packages.find((p) => p.id === pkgId);
-                    return pkg ? Number(pkg.volume_l) : 0;
-                  }).map((davka, iDavky, vsechnyDavky) => {
-                    const beer = beers.find((b) => b.id === davka.beerId);
-                    // 📆 Záhlaví dne u PRVNÍ dávky daného dne. Den byl dosud jen drobným
-                    // písmem v rohu a pozadí karty nese BARVU PIVA, takže dny od sebe
-                    // nešlo rozeznat (z provozu 22. 9. 2026: „to PO ÚT je hrozně malý").
-                    // Barvu piva měnit nejde — je to informace sama o sobě — proto se
-                    // den odděluje vlastním pruhem přes celou šířku karty a sousední
-                    // dny se střídají v odstínu.
-                    const novyDen = iDavky === 0 || vsechnyDavky[iDavky - 1].datum !== davka.datum;
-                    const tmavsiDen = novyDen
-                      && new Set(vsechnyDavky.slice(0, iDavky + 1).map((d) => d.datum)).size % 2 === 1;
-                    return (
-                      <div
-                        key={davka.klic}
-                        className="rounded-xl border border-black/10 p-2.5 space-y-2 shadow-xs"
-                        style={{ backgroundColor: beerBg(beer) }}
-                      >
-                        {novyDen && (
-                          <div
-                            className={`-mx-2.5 -mt-2.5 mb-2 px-3 py-2 rounded-t-xl border-b-2 font-display font-black text-base tracking-wide ${
-                              tmavsiDen
-                                ? 'bg-neutral-800 border-neutral-900 text-white'
-                                : 'bg-white border-neutral-300 text-neutral-900'
-                            }`}
-                          >
-                            {denACesky(davka.datum)}
-                          </div>
-                        )}
-                        <div className={`flex items-center gap-2 flex-wrap ${beerText(beer)}`}>
-                          <span className="shrink-0 font-mono font-bold text-xs opacity-80">{denACesky(davka.datum)}</span>
-                          <span className="font-black text-sm truncate min-w-0">{davka.beerName}</span>
-                          <span className="ml-auto shrink-0 font-display font-black text-xl tabular-nums">{davka.celkemKs} ks</span>
+                {/* 📋 Jeden řádek na zápis, den jednou v hlavičce (29. 10. 2026:
+                    „je tam 2× datum, velikost sudu zbytečně na zvláštním řádku,
+                    dej to vše na jeden řádek"). Barevný pruh = pivo, štítek =
+                    velikost sudu, − počet +, ✕. Klepnutí na název otevře
+                    úpravu záznamu (pivo, obal, den, tank). */}
+                <div className="space-y-3 md:hidden">
+                  {(() => {
+                    const dny = new Map<string, typeof sorted>();
+                    sorted.forEach((r) => { const d = r.entry_date ?? ''; dny.set(d, [...(dny.get(d) ?? []), r]); });
+                    return [...dny.entries()].map(([datum, zaznamy]) => (
+                      <div key={datum} className="rounded-xl border border-neutral-200 dark:border-neutral-700 overflow-hidden bg-white dark:bg-neutral-900">
+                        <div className="flex items-center justify-between px-3 py-2 bg-neutral-100 dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-700">
+                          <span className="font-display font-black text-sm text-neutral-900 dark:text-neutral-100">{denACesky(datum)}</span>
+                          <span className="text-xs font-black text-neutral-600 dark:text-neutral-300 tabular-nums">{zaznamy.reduce((n, r) => n + Number(r.quantity || 0), 0)} ks</span>
                         </div>
-                        <div className="space-y-1.5">
-                          {davka.polozky.map(({ zaznam: r, objemL: vol }) => {
-                            const isEditing = editingId === r.id;
-                            return (
-                              <div key={r.id} className="rounded-lg bg-white/95 border border-black/10 p-3 space-y-2.5">
-                                <div className="flex items-center gap-2">
-                                  <span className="shrink-0 text-xs font-bold text-emerald-700">{vol > 0 ? `KEG ${vol}L` : '—'}</span>
-                                  <span className="ml-auto shrink-0">
-                                    {isEditing ? (
-                                      <div className="flex items-center gap-1.5">
-                                        <input
-                                          type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} min="0" step="1" autoFocus
-                                          className="input text-base font-black w-16 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                          value={editQty}
-                                          onChange={(e) => setEditQty(e.target.value)}
-                                          onKeyDown={(e) => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') { setEditingId(null); setEditQty(''); } }}
-                                        />
-                                        <button type="button" onClick={saveEdit} aria-label="Uložit množství" title="Uložit množství" className="px-3 h-10 rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xs transition"><Check size={14} /></button>
-                                        <button type="button" onClick={() => { setEditingId(null); setEditQty(''); }} aria-label="Zrušit úpravu" title="Zrušit úpravu" className="px-3 h-10 rounded bg-neutral-200 hover:bg-neutral-300 text-neutral-700 font-black text-xs transition"><X size={14} /></button>
-                                      </div>
-                                    ) : (
-                                      <span className="font-display font-black text-xl text-emerald-950">{r.quantity} ks</span>
-                                    )}
-                                  </span>
-                                </div>
-                                {/* Odkud se záznam vzal — viz stejná značka v „Všechny
-                                    záznamy" níž a `jeZeZaskrtnuti` v lib. */}
-                                {puvodZapisu(r.note) && (
-                                  <div className="text-udaj font-bold text-sky-800 bg-sky-50 border border-sky-200 rounded px-1.5 py-0.5 inline-flex items-center gap-1">
-                                    <ClipboardList size={11} className="shrink-0" />
-                                    {puvodZapisu(r.note)?.popis}
-                                  </div>
-                                )}
-                                {!isEditing && (
-                                  <div className="flex items-center gap-1.5 pt-2 border-t border-emerald-100">
-                                    <button type="button" onClick={() => setEditingRow(r)} className="btn-ghost !flex-none !w-11 !px-0 !min-h-[44px]" title="Upravit záznam" aria-label="Upravit záznam"><Pencil size={16} /></button>
-                                    <button type="button" onClick={() => increment(r.id, -1)} disabled={Number(r.quantity) <= 0} className="btn-pocet !min-h-[44px]" aria-label="Ubrat sud">−</button>
-                                    <button type="button" onClick={() => increment(r.id, 1)} className="btn-pocet !min-h-[44px]" aria-label="Přidat sud">+</button>
-                                    <input type="number" inputMode="numeric" min="0" onWheel={(e) => e.currentTarget.blur()} key={r.quantity} defaultValue={r.quantity} onBlur={(e) => { const v = Math.max(0, Math.round(Number(e.target.value) || 0)); if (v !== Number(r.quantity)) setQty(r.id, v); }} onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }} className="min-h-[44px] rounded bg-white border border-neutral-200 text-neutral-800 font-bold text-xs px-1.5 cursor-pointer transition !w-14 text-center tabular-nums" title="Napiš počet ks (libovolné číslo)" />
-                                    {/* Mazání je jediná barva v řádku a stojí za
-                                        mezerou od plusu — na dotyk jsou to sousedi
-                                        a záměna maže zápis. */}
-                                    <button
-                                      type="button"
-                                      onClick={() => del(r.id)}
-                                      className="btn-danger !flex-none !w-11 !px-0 !min-h-[44px] ml-2"
-                                      aria-label="Smazat záznam"
-                                    ><X size={18} /></button>
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
+                        {zaznamy.map((r) => {
+                          const beer = beers.find((b) => b.id === r.beer_id);
+                          const vol = Number(packages.find((p) => p.id === r.package_id)?.volume_l) || 0;
+                          const puvod = puvodZapisu(r.note)?.popis;
+                          const cas = r.created_at ? new Date(r.created_at).toLocaleTimeString('cs-CZ', { hour: 'numeric', minute: '2-digit', timeZone: 'Europe/Prague' }) : '';
+                          return (
+                            <div key={r.id} className="flex items-center gap-1 pr-1.5 min-h-[56px] border-b last:border-b-0 border-neutral-100 dark:border-neutral-800">
+                              <span className="w-1.5 self-stretch shrink-0" style={{ backgroundColor: beerBg(beer) }} aria-hidden="true" />
+                              <button type="button" onClick={() => setEditingRow(r)} className="tap flex-1 min-w-0 text-left pl-1.5 py-1" title="Upravit záznam">
+                                <span className="block font-black text-sm truncate text-neutral-900 dark:text-neutral-100">{beerName(beer)}</span>
+                                <span className="block text-udaj font-bold text-neutral-500 dark:text-neutral-400 truncate">{[cas, puvod].filter(Boolean).join(' · ')}</span>
+                              </button>
+                              <span className="shrink-0 text-xs font-black px-1.5 py-0.5 rounded border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-100">{vol > 0 ? `${vol} l` : '—'}</span>
+                              <button type="button" onClick={() => increment(r.id, -1)} disabled={Number(r.quantity) <= 0} className="btn-pocet !w-10 !min-h-[44px] disabled:opacity-30" aria-label="Ubrat sud">−</button>
+                              <span className="min-w-[1.75rem] text-center font-display font-black text-lg tabular-nums text-neutral-900 dark:text-neutral-100">{r.quantity}</span>
+                              <button type="button" onClick={() => increment(r.id, 1)} className="btn-pocet !w-10 !min-h-[44px]" aria-label="Přidat sud">+</button>
+                              <button type="button" onClick={() => del(r.id)} className="btn-danger !flex-none !w-10 !px-0 !min-h-[44px] ml-1" aria-label="Smazat záznam"><X size={16} /></button>
+                            </div>
+                          );
+                        })}
                       </div>
-                    );
-                  })}
+                    ));
+                  })()}
                   <div className="rounded bg-emerald-200/60 p-3 flex items-center justify-between font-black text-emerald-950 text-sm">
                     <span><PackageIcon className="ikona-text" /> Celkem</span>
                     <span>{totalCount} ks</span>

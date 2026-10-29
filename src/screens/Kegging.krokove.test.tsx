@@ -97,7 +97,7 @@ describe('Stáčení KEG — krokové zadávání', () => {
 
   it('klepnutí na pivo otevře otázku s polem a vybranou padesátkou, pět čísel je z historie', async () => {
     otevri();
-    fireEvent.click(await screen.findByRole('button', { name: /Světlý ležák 12°/ }));
+    fireEvent.click((await screen.findAllByRole('button', { name: /Světlý ležák 12°/ }))[0]);
     const panel = await screen.findByRole('dialog');
     expect(within(panel).getByText('Kolik sudů?')).toBeTruthy();
     expect(within(panel).getByRole('radio', { name: /50 l/ }).getAttribute('aria-checked')).toBe('true');
@@ -110,7 +110,7 @@ describe('Stáčení KEG — krokové zadávání', () => {
   it('velikost a počet: 6× 50 l, + další velikost, 3× 30 l → „Hotovo — uložit" zapíše obě stáčení', async () => {
     h.vlozeno.length = 0;
     otevri();
-    fireEvent.click(await screen.findByRole('button', { name: /Světlý ležák 12°/ }));
+    fireEvent.click((await screen.findAllByRole('button', { name: /Světlý ležák 12°/ }))[0]);
     const panel = await screen.findByRole('dialog');
     fireEvent.change(pole(panel), { target: { value: '6' } });
     fireEvent.click(within(panel).getByRole('button', { name: /\+ další velikost/ }));
@@ -128,7 +128,7 @@ describe('Stáčení KEG — krokové zadávání', () => {
   it('klepnutí na rychlé číslo zadá počet a rovnou uloží', async () => {
     h.vlozeno.length = 0;
     otevri();
-    fireEvent.click(await screen.findByRole('button', { name: /Světlý ležák 12°/ }));
+    fireEvent.click((await screen.findAllByRole('button', { name: /Světlý ležák 12°/ }))[0]);
     const panel = await screen.findByRole('dialog');
     fireEvent.click(within(panel).getByRole('button', { name: '12' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
@@ -139,7 +139,7 @@ describe('Stáčení KEG — krokové zadávání', () => {
 
   it('pod polem je vidět, co se ten den už uložilo u tohohle piva', async () => {
     otevri();
-    fireEvent.click(await screen.findByRole('button', { name: /Světlý ležák 12°/ }));
+    fireEvent.click((await screen.findAllByRole('button', { name: /Světlý ležák 12°/ }))[0]);
     const panel = await screen.findByRole('dialog');
     expect(within(panel).getByText(/Už uloženo dnes u Světlý ležák 12°/)).toBeTruthy();
     expect(within(panel).getByText('2× 30 l')).toBeTruthy();
