@@ -844,8 +844,6 @@ html.density-xl .table thead th {
    zůstává tmavé písmo -> tmavé na tmavém, nečitelné. */
 :root { color-scheme: light; }
 :root.dark { color-scheme: dark; }
-/* Pruh navigace obloukem (components/ObloukNavigace.tsx) v tmavém režimu. */
-:root.dark { --pruh-oblouku: rgba(28, 25, 23, 0.94); }
 
 /* Zaškrtávátka, kolečka, posuvníky a výběr barvy jsou z tohohle pravidla
    vyňaté: `background-color: #ffffff !important` jim přebíjelo VÝPLŇ, takže
