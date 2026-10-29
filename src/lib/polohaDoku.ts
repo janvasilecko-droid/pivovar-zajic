@@ -29,8 +29,18 @@ export function jePolohaDoku(v: unknown): v is PolohaDoku {
   return v === 'dole' || v === 'vpravo' || v === 'vlevo' || v === 'vysouvaci' || v === 'oblouk' || v === 'oblouk-menu';
 }
 
+/** Jednorázový návrat na spodní lištu (29. 10. 2026: „vrať tam tu lištu, jak byla ráno"). */
+const KLIC_NAVRATU = 'pivovar_poloha_doku_navrat_2026_10_29';
+
 export function nactiPolohuDoku(): PolohaDoku {
   const v = nacti(KLIC_POLOHY_DOKU);
+  // Kdo si zkusil oblouk, dostane jednou zpátky lištu dole. Volba v
+  // Nastavení zůstává — kdo si oblouk zapne znovu, tomu už zůstane.
+  if ((v === 'oblouk' || v === 'oblouk-menu') && nacti(KLIC_NAVRATU) !== '1') {
+    uloz(KLIC_NAVRATU, '1');
+    uloz(KLIC_POLOHY_DOKU, 'dole');
+    return 'dole';
+  }
   return jePolohaDoku(v) ? v : 'dole';
 }
 
