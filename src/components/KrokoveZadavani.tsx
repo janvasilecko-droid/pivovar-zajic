@@ -191,6 +191,16 @@ export function KrokoveZadavani({ beer, podtitul, kroky, onZavrit, dnes, den = '
     setKoncim(true);
   }
 
+  function zmenPocet(delta: number) {
+    const n = Math.max(0, Math.min(9999, rozepsano + delta));
+    const text = n > 0 ? String(n) : '';
+    setHodnota(text);
+    preneste(kr, vybrany, text);
+    setVarovani(false);
+    setZprava('');
+    inputRef.current?.focus();
+  }
+
   function zavrit() {
     preneste(kr, vybrany, hodnota);
     setKoncim(true);
@@ -214,6 +224,9 @@ export function KrokoveZadavani({ beer, podtitul, kroky, onZavrit, dnes, den = '
   const rychle = obal ? kr.rychle(obal.id) : [];
   const textTrida = beerText(beer);
   const dnesPolozky = dnes ?? [];
+  // Den, na který se zapisuje: dnešek (středa 29. 10.), nebo zpětně zvolené datum.
+  const denText = new Date(den === 'dnes' ? Date.now() : `${den}T12:00:00`)
+    .toLocaleDateString('cs-CZ', { weekday: 'long', day: 'numeric', month: 'numeric', timeZone: 'Europe/Prague' });
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 flex items-stretch sm:items-center justify-center sm:p-4" onClick={zavrit}>
@@ -228,7 +241,7 @@ export function KrokoveZadavani({ beer, podtitul, kroky, onZavrit, dnes, den = '
           <div className={`min-w-0 ${hlavickaVpravo ? 'max-w-[45%]' : 'flex-1'} ${textTrida}`}>
             <div className="font-black text-lg leading-tight truncate">{beerName(beer)}</div>
             <div className="text-xs font-bold opacity-80 truncate">
-              {podtitul}{kroky.length > 1 ? ` · krok ${krok + 1} ze ${kroky.length}` : ''}
+              {podtitul}{kroky.length > 1 ? ` · krok ${krok + 1} ze ${kroky.length}` : ''} · {denText}
             </div>
           </div>
           {hlavickaVpravo && <div className="min-w-0 flex-1 flex">{hlavickaVpravo}</div>}
@@ -285,34 +298,38 @@ export function KrokoveZadavani({ beer, podtitul, kroky, onZavrit, dnes, den = '
             })}
           </div>
 
-          <div className="relative">
-            <input
-              ref={inputRef}
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              autoComplete="off"
-              autoFocus
-              maxLength={4}
-              enterKeyHint={posledni ? 'done' : 'next'}
-              aria-labelledby="krok-otazka"
-              value={hodnota}
-              placeholder="0"
-              onChange={(e) => {
-                const text = e.target.value.replace(/[^0-9]/g, '');
-                setHodnota(text);
-                preneste(kr, vybrany, text);
-                setVarovani(false);
-                setZprava('');
-              }}
-              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); potvrdit(hodnota); } }}
-              className="w-full h-20 rounded border-[3px] border-amber-500 bg-white dark:bg-neutral-900 text-neutral-950 dark:text-neutral-50 text-5xl font-black text-center tabular-nums px-24 focus:outline-none focus:ring-4 focus:ring-amber-300/60"
-            />
-            {obal && (
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 max-w-[5.5rem] text-right text-sm font-black leading-tight text-neutral-500 pointer-events-none">
-                {kr.jednotka(obal)}
-              </span>
-            )}
+          <div className="flex items-stretch gap-2">
+            <button type="button" onClick={() => zmenPocet(-1)} disabled={rozepsano <= 0} className="btn-pocet !w-14 !text-3xl min-h-[80px] disabled:opacity-30" aria-label="Ubrat jeden kus">−</button>
+            <div className="relative flex-1 min-w-0">
+              <input
+                ref={inputRef}
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                autoComplete="off"
+                autoFocus
+                maxLength={4}
+                enterKeyHint={posledni ? 'done' : 'next'}
+                aria-labelledby="krok-otazka"
+                value={hodnota}
+                placeholder="0"
+                onChange={(e) => {
+                  const text = e.target.value.replace(/[^0-9]/g, '');
+                  setHodnota(text);
+                  preneste(kr, vybrany, text);
+                  setVarovani(false);
+                  setZprava('');
+                }}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); potvrdit(hodnota); } }}
+                className="w-full h-20 pb-4 rounded border-[3px] border-amber-500 bg-white dark:bg-neutral-900 text-neutral-950 dark:text-neutral-50 text-5xl font-black text-center tabular-nums px-3 focus:outline-none focus:ring-4 focus:ring-amber-300/60"
+              />
+              {obal && (
+                <span className="absolute inset-x-0 bottom-1 text-center text-xs font-black leading-tight text-neutral-500 pointer-events-none">
+                  {kr.jednotka(obal)}
+                </span>
+              )}
+            </div>
+            <button type="button" onClick={() => zmenPocet(1)} className="btn-pocet !w-14 !text-3xl min-h-[80px]" aria-label="Přidat jeden kus">+</button>
           </div>
 
           {varovani && kr.bezMnozstvi && (
@@ -342,14 +359,6 @@ export function KrokoveZadavani({ beer, podtitul, kroky, onZavrit, dnes, den = '
             )}
           </div>
 
-          <div className="grid grid-cols-[1fr_1.4fr] gap-2">
-            <button type="button" onClick={dalsi} className="btn-secondary min-h-[52px]">
-              <Plus size={16} /> {kr.dalsiText}
-            </button>
-            <button type="button" onClick={() => potvrdit(hodnota)} className="btn-emerald min-h-[52px]">
-              {posledni ? 'Hotovo' : `Dál → ${kratky(kroky[krok + 1].stitek).toLowerCase()}`}
-            </button>
-          </div>
 
           <div className="border-t border-neutral-200 dark:border-neutral-700 pt-2.5">
             <div className="text-udaj font-black uppercase tracking-wider text-neutral-500 mb-1">Už uloženo {den} u {beerName(beer)}</div>
@@ -365,6 +374,16 @@ export function KrokoveZadavani({ beer, podtitul, kroky, onZavrit, dnes, den = '
             ) : (
               <p className="text-sm text-neutral-500">Zatím nic.</p>
             )}
+          </div>
+        </div>
+        <div className="shrink-0 border-t border-neutral-200 dark:border-neutral-700 p-3 bg-white dark:bg-neutral-800" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 0px))' }}>
+          <div className="grid grid-cols-[1fr_1.4fr] gap-2">
+            <button type="button" onClick={dalsi} className="btn-secondary min-h-[52px]">
+              <Plus size={16} /> {kr.dalsiText}
+            </button>
+            <button type="button" onClick={() => potvrdit(hodnota)} className="btn-emerald min-h-[52px]">
+              {posledni ? 'Hotovo' : `Dál → ${kratky(kroky[krok + 1].stitek).toLowerCase()}`}
+            </button>
           </div>
         </div>
       </div>
