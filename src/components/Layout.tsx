@@ -1,5 +1,6 @@
 import { ReactNode, type CSSProperties, useState, useEffect, useRef, lazy, Suspense } from 'react';
-import { AlarmClock, AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, BookOpen, CalendarDays, Car, ClipboardCheck, ClipboardList, Compass, Download, FilePlus, FileSpreadsheet, FileText, FlaskConical, GlassWater, History as HistoryIcon, Home, Info, ArrowUpDown, LogOut, MapPin, Megaphone, MessageCircle, Package as PackageIcon, Receipt, Search, Settings, Shield, ShieldCheck, ShoppingBag, Smartphone, Snowflake, Sparkles, StickyNote, Store, Tag, Truck, type LucideIcon, Wifi, WifiOff, X, XCircle } from 'lucide-react';
+import { usePolohuDoku } from '../lib/polohaDoku';
+import { AlarmClock, AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, BookOpen, CalendarDays, Car, ClipboardCheck, ClipboardList, Compass, Download, FilePlus, FileSpreadsheet, FileText, FlaskConical, GlassWater, History as HistoryIcon, Home, Info, ArrowUpDown, LogOut, MapPin, Megaphone, MessageCircle, Package as PackageIcon, Receipt, Search, Settings, Shield, ShieldCheck, ShoppingBag, Smartphone, Snowflake, Sparkles, StickyNote, Store, Tag, Truck, type LucideIcon, Wifi, WifiOff, X, XCircle, ChevronLeft } from 'lucide-react';
 
 import { useAuth } from '../lib/auth';
 import { potvrd } from '../lib/toast';
@@ -258,10 +259,15 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
   // Naměřená výška jde do CSS proměnné, takže odsazení sedí na každém
   // telefonu i po otočení displeje.
   const dokRef = useRef<HTMLElement | null>(null);
+  const poloha = usePolohuDoku();
+  const bocni = poloha !== 'dole';
+  const [dokOtevren, setDokOtevren] = useState(false);
   useEffect(() => {
     const el = dokRef.current;
     if (!el) return;
     const zmer = () => {
+      // Boční lišta nezabírá výšku obrazovky — odsazení dole je pak nulové.
+      if (poloha !== 'dole') { document.documentElement.style.setProperty('--vyska-doku', '0px'); return; }
       const v = Math.round(el.getBoundingClientRect().height);
       if (v > 0) document.documentElement.style.setProperty('--vyska-doku', `${v}px`);
     };
@@ -277,7 +283,8 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
       window.removeEventListener('orientationchange', zmer);
       window.removeEventListener('resize', zmer);
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [poloha]);
 
   const predchoziStranka = useRef<Page | null>(null);
   const aktualniStranka = useRef<Page>(page);
@@ -904,7 +911,12 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
             vůbec vykreslená). */}
         <div
           className={`flex-1 overflow-y-auto px-3.5 sm:px-8 ${hideHeader ? 'pt-2' : 'pt-3.5 sm:pt-8'}`}
-          style={{ paddingBottom: 'calc(var(--vyska-doku, 4rem) + 1.5rem)' }}
+          style={{
+            paddingBottom: 'calc(var(--vyska-doku, 4rem) + 1.5rem)',
+            // Trvalá boční lišta bere šířku; vysouvací ne (je přes obsah).
+            ...(poloha === 'vpravo' ? { paddingRight: 'calc(4.75rem + env(safe-area-inset-right, 0px))' } : {}),
+            ...(poloha === 'vlevo' ? { paddingLeft: 'calc(4.75rem + env(safe-area-inset-left, 0px))' } : {}),
+          }}
         >
           {children}
         </div>
@@ -966,9 +978,35 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
             </button>
           </div>
         )}
+        {poloha === 'vysouvaci' && !dokOtevren && (
+          <button
+            type="button"
+            onClick={() => setDokOtevren(true)}
+            aria-label="Otevřít navigaci"
+            className="fixed right-0 z-30 w-7 h-20 rounded-l-2xl border border-r-0 hs-glass-chrome shadow-lg flex items-center justify-center"
+            style={{ bottom: 'calc(9rem + env(safe-area-inset-bottom, 0px))' }}
+          >
+            <ChevronLeft size={18} />
+          </button>
+        )}
+        {poloha === 'vysouvaci' && dokOtevren && (
+          <div className="fixed inset-0 z-20" onClick={() => setDokOtevren(false)} aria-hidden="true" />
+        )}
         <nav
           ref={dokRef}
-          className="hs-glass-chrome fixed bottom-0 left-0 right-0 z-30 border-t shadow-[0_-4px_24px_rgba(0,0,0,0.08)] px-1 py-1.5 pb-safe flex items-center justify-around gap-1 sm:max-w-lg sm:mx-auto sm:rounded-t-2xl sm:border-x"
+          aria-label="Hlavní navigace"
+          className={
+            poloha === 'dole'
+              ? 'hs-glass-chrome fixed bottom-0 left-0 right-0 z-30 border-t shadow-[0_-4px_24px_rgba(0,0,0,0.08)] px-1 py-1.5 pb-safe flex items-center justify-around gap-1 sm:max-w-lg sm:mx-auto sm:rounded-t-2xl sm:border-x'
+              : poloha === 'vysouvaci'
+              ? `hs-glass-chrome fixed right-0 z-30 w-44 border border-r-0 rounded-l-2xl shadow-2xl p-2 flex flex-col gap-1 transition-transform duration-200 ${dokOtevren ? 'translate-x-0' : 'translate-x-full'}`
+              : `hs-glass-chrome fixed top-0 bottom-0 z-30 w-[4.5rem] shadow-2xl p-1 flex flex-col justify-end gap-1 overflow-y-auto ${poloha === 'vpravo' ? 'right-0 border-l' : 'left-0 border-r'}`
+          }
+          style={poloha === 'vysouvaci'
+            ? { bottom: 'calc(0.5rem + env(safe-area-inset-bottom, 0px))' }
+            : poloha === 'vpravo' ? { paddingRight: 'env(safe-area-inset-right, 0px)', paddingBottom: 'calc(0.25rem + env(safe-area-inset-bottom, 0px))' }
+            : poloha === 'vlevo' ? { paddingLeft: 'env(safe-area-inset-left, 0px)', paddingBottom: 'calc(0.25rem + env(safe-area-inset-bottom, 0px))' }
+            : undefined}
         >
           {dockPages.map((dockId, i) => {
             // Přesná shoda vyhraje vždy — jinak by se „Nová obj." a „Obj.
@@ -991,7 +1029,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
             return (
               <button
                 key={`${dockId}-${i}`}
-                onClick={() => { if (dlouhyStiskRef.current) { dlouhyStiskRef.current = false; return; } setPage(dockId); }}
+                onClick={() => { if (dlouhyStiskRef.current) { dlouhyStiskRef.current = false; return; } setDokOtevren(false); setPage(dockId); }}
                 onPointerDown={zacniStisk}
                 onPointerUp={ukonciStisk}
                 onPointerLeave={ukonciStisk}
@@ -1004,9 +1042,11 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
                   ? { background: accent, color: pismoNaBarve(accent) }
                   : { '--dok-barva': citelnaNaPodkladu(accent, PODKLAD_SVETLY), '--dok-barva-tmave': citelnaNaPodkladu(accent, PODKLAD_TMAVY) } as CSSProperties}
                 aria-current={isActive ? 'page' : undefined}
-                className={`tap flex flex-col items-center justify-center min-h-[52px] py-1.5 px-1 sm:px-2.5 rounded transition-all relative flex-1 font-bold ${
-                  isActive ? 'shadow-md scale-105' : 'hs-dok-polozka'
-                }`}
+                className={`tap flex items-center justify-center min-h-[52px] py-1.5 px-1 sm:px-2.5 rounded transition-all relative font-bold ${
+                  poloha === 'vysouvaci' ? 'flex-row gap-3 justify-start px-3' : 'flex-col'
+                } ${bocni ? 'flex-none w-full min-h-[60px]' : 'flex-1'} ${
+                  isActive ? 'shadow-md' : 'hs-dok-polozka'
+                } ${isActive && !bocni ? 'scale-105' : ''}`}
               >
                 <div className="relative">
                   <DockIcon size={22} strokeWidth={isActive ? 2.5 : 2} />
@@ -1022,7 +1062,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
                     („Lahve (Stá…" místo „Lahve (Stáčení)"). `w-full`
                     respektuje skutečnou šířku slotu, ať jsou v liště dva
                     zástupci nebo šest. */}
-                <span className="text-[13px] leading-tight mt-0.5 tracking-tight truncate w-full text-center">{(info as { dockLabel?: string }).dockLabel ?? info.label}</span>
+                <span className={`leading-tight tracking-tight truncate ${poloha === 'vysouvaci' ? 'text-[15px] text-left' : `${bocni ? 'text-[11px]' : 'text-[13px]'} mt-0.5 w-full text-center`}`}>{(info as { dockLabel?: string }).dockLabel ?? info.label}</span>
               </button>
             );
           })}

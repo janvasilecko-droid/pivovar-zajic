@@ -26,6 +26,7 @@ import { isAdminEmail } from '../lib/config';
 import { fetchWhatsAppSenders, addWhatsAppSender, removeWhatsAppSender, type WhatsAppSender } from '../lib/whatsappApi';
 import { oznam, uspech, chyba as toastChyba } from '../lib/toast';
 import { uloz, smaz } from '../lib/uloziste';
+import { POLOHY_DOKU, ulozPolohuDoku, usePolohuDoku } from '../lib/polohaDoku';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
@@ -33,6 +34,7 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 export default function AppSettingsScreen({ setPage }: { setPage?: (p: any, sec?: string, sub?: string) => void } = {}) {
+  const polohaDoku = usePolohuDoku();
   const { profile, user, reloadProfile } = useAuth();
   const [density, setDensityState] = useState<DensityMode>(getDensity());
   const [meneEfektu, setMeneEfektu] = useState<boolean>(mensiEfekty());
@@ -383,6 +385,27 @@ export default function AppSettingsScreen({ setPage }: { setPage?: (p: any, sec?
         <h2 className="font-display font-bold text-lg flex items-center gap-2"><Eye size={18} /> Přizpůsobení menu</h2>
         <p className="text-sm text-neutral-600 mt-2">Vyberte si, které položky chcete vidět v hlavním menu pro rychlejší navigaci.</p>
         <button onClick={() => setShowMenuCustomize(true)} className="btn-ghost !rounded mt-3 text-sm font-black">Upravit viditelnost menu</button>
+      </div>
+
+      {/* 📍 Poloha spodní lišty — na pravák/levák zvlášť (29. 10. 2026) */}
+      <div className="card p-6">
+        <h2 className="font-display font-bold text-lg flex items-center gap-2"><Smartphone size={18} /> Poloha navigační lišty</h2>
+        <p className="text-sm text-neutral-600 mt-2">Kde je lišta Lahve · Sklad · Objednávky · …. Platí jen na tomhle zařízení.</p>
+        <div className="grid grid-cols-2 gap-2 mt-4" role="radiogroup" aria-label="Poloha navigační lišty">
+          {POLOHY_DOKU.map((o) => (
+            <button
+              key={o.id}
+              type="button"
+              role="radio"
+              aria-checked={polohaDoku === o.id}
+              onClick={() => ulozPolohuDoku(o.id)}
+              className={`${polohaDoku === o.id ? 'btn-amber' : 'btn-ghost'} !flex-col !gap-0 !py-2`}
+            >
+              <span className="font-black">{o.nazev}</span>
+              <span className="text-udaj font-medium opacity-80">{o.popis}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Hustota / Velikost */}
