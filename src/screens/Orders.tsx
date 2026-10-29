@@ -311,6 +311,15 @@ export default function Orders({
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [flash, setFlash] = useState(false);
+  // Orámování po zápisu zhasne za chvíli — při odchodu z obrazovky se časovač
+  // zruší, jinak sahá na odpojenou komponentu (29. 10. 2026 tím padalo
+  // nasazení: chyba až po konci testu Orders.zdvojeni, stejně jako u KEG).
+  const flashCasovac = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (flashCasovac.current) clearTimeout(flashCasovac.current); }, []);
+  const zhasniFlash = (ms: number) => {
+    if (flashCasovac.current) clearTimeout(flashCasovac.current);
+    flashCasovac.current = setTimeout(() => setFlash(false), ms);
+  };
   // 📝 Ruční zadání objednávky textem — uživatel napíše objednávku a ta se
   // automaticky rozparsuje do tabulky položek (pivo, obal, množství).
   const [manualText, setManualText] = useState('');
@@ -580,7 +589,7 @@ export default function Orders({
 
     setWeekKey(isoWeekKey(today));
     setFlash(true);
-    setTimeout(() => setFlash(false), 2000);
+    zhasniFlash(2000);
     load();
   }
 
@@ -705,7 +714,7 @@ export default function Orders({
           .eq('id', message.id);
 
         setFlash(true);
-        setTimeout(() => setFlash(false), 2000);
+        zhasniFlash(2000);
         load();
         return;
       }
@@ -844,7 +853,7 @@ export default function Orders({
       }
 
       setFlash(true);
-      setTimeout(() => setFlash(false), 2000);
+      zhasniFlash(2000);
       load();
 
     } catch (error) {
@@ -1364,7 +1373,7 @@ export default function Orders({
   function finishOrderForm() {
     setBeerRows(Array.from({ length: 4 }, () => novyRadek()));
     setNote(''); setDeliveryDate(''); setDeliveryDay(''); setErr(null);
-    setFlash(true); setTimeout(() => setFlash(false), 800);
+    setFlash(true); zhasniFlash(800);
     setWeekKey(isoWeekKey(deliveryDate || date));
     setWantTap(false); setTapReservedEarly(false);
     setSaving(false);
@@ -1773,7 +1782,7 @@ export default function Orders({
       })), packages, beers);
       await supabase.from('order_items').insert(rows);
       setWeekKey(isoWeekKey(today));
-      setFlash(true); setTimeout(() => setFlash(false), 800);
+      setFlash(true); zhasniFlash(800);
       load();
     } finally {
       kopirujeSe.current = false;
@@ -3187,7 +3196,7 @@ export default function Orders({
               }
             }
             setImportTarget(null);
-            setFlash(true); setTimeout(() => setFlash(false), 800);
+            setFlash(true); zhasniFlash(800);
             setWeekKey(isoWeekKey(targetDate));
             load();
           }}
