@@ -62,6 +62,13 @@ type Props = {
   kroky: KrokDef[];
   /** Zavření (křížek, Hotovo, klepnutí vedle). Volá se až po přenesení čísla do zápisu. */
   onZavrit: () => void;
+  /**
+   * „Hotovo" v posledním kroku (i klepnutí na rychlé číslo). Bez zadání se
+   * chová jako zavření. Stáčení KEG a lahví tím rovnou ukládá — majitel
+   * 9. 9. a 12. 10. 2026: „když dám hotovo, ať se rovnou stáčení zapíše",
+   * a 29. 10. 2026 sud, který „Hotovo" jen přidalo do zápisu, chyběl ve skladu.
+   */
+  onHotovo?: () => void;
   /** Co už se ten den uložilo u tohohle piva — pod polem. */
   dnes?: DnesPolozka[];
   /** Který den to je: „dnes", nebo datum, když se zapisuje zpětně. */
@@ -72,7 +79,7 @@ type Props = {
 
 const kratky = (stitek: string) => stitek.replace(/^\d+\s*·\s*/, '');
 
-export function KrokoveZadavani({ beer, podtitul, kroky, onZavrit, dnes, den = 'dnes', hlavickaVpravo }: Props) {
+export function KrokoveZadavani({ beer, podtitul, kroky, onZavrit, onHotovo, dnes, den = 'dnes', hlavickaVpravo }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const vychozi = (i: number) => {
     const k = kroky[i];
@@ -86,7 +93,7 @@ export function KrokoveZadavani({ beer, podtitul, kroky, onZavrit, dnes, den = '
   });
   const [varovani, setVarovani] = useState(false);
   const [zprava, setZprava] = useState('');
-  const [koncim, setKoncim] = useState(false);
+  const [koncim, setKoncim] = useState<false | 'hotovo' | 'zavrit'>(false);
   // Kolik mělo vybrané políčko v okamžiku výběru: číslo napsané PŘED volbou
   // velikosti patří té nově vybrané, ale jen když políčko předtím prázdné bylo.
   const puvodniRef = useRef(kroky[0].mnozstvi(vychozi(0)));
@@ -101,7 +108,8 @@ export function KrokoveZadavani({ beer, podtitul, kroky, onZavrit, dnes, den = '
   // Zavírá se až v dalším vykreslení: do té doby obrazovka dostane přenesená
   // čísla a `onZavrit` vidí už aktuální stav (rozepsaný řádek se z něj skládá).
   useEffect(() => {
-    if (koncim) onZavrit();
+    if (koncim === 'hotovo' && onHotovo) onHotovo();
+    else if (koncim) onZavrit();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [koncim]);
 
@@ -188,7 +196,7 @@ export function KrokoveZadavani({ beer, podtitul, kroky, onZavrit, dnes, den = '
       return;
     }
     preneste(kr, vybrany, text);
-    setKoncim(true);
+    setKoncim('hotovo');
   }
 
   function zmenPocet(delta: number) {
@@ -203,7 +211,7 @@ export function KrokoveZadavani({ beer, podtitul, kroky, onZavrit, dnes, den = '
 
   function zavrit() {
     preneste(kr, vybrany, hodnota);
-    setKoncim(true);
+    setKoncim('zavrit');
   }
 
   function naKrok(i: number) {
@@ -382,7 +390,7 @@ export function KrokoveZadavani({ beer, podtitul, kroky, onZavrit, dnes, den = '
               <Plus size={16} /> {kr.dalsiText}
             </button>
             <button type="button" onClick={() => potvrdit(hodnota)} className="btn-emerald min-h-[52px]">
-              {posledni ? 'Hotovo' : `Dál → ${kratky(kroky[krok + 1].stitek).toLowerCase()}`}
+              {posledni ? (onHotovo ? 'Hotovo — uložit' : 'Hotovo') : `Dál → ${kratky(kroky[krok + 1].stitek).toLowerCase()}`}
             </button>
           </div>
         </div>

@@ -252,6 +252,19 @@ export default function BottlingScreen({
     setTileBeer(null);
     setTileRowIndex(null);
   };
+  // ✅ „Hotovo" v panelu rovnou uloží stáčení (add — stejné jako „Uložit
+  // stáčení lahví" dole). Majitel 12. 10. 2026: „chci jen tu fajfku, když se
+  // klikne, tak se zapíše stáčení"; 29. 10. 2026 chyběl ve skladu sud, který
+  // „Hotovo" jen přidalo do zápisu. Neuloží-li se, řádek zůstává v zápisu.
+  async function ulozZDlazdice() {
+    if (!tileBeer) return;
+    const row = buildRowFromTileDraft();
+    const radky = row ? mergeRowIntoRows(entryRows, tileBeer.id, row) : entryRows;
+    setEntryRows(radky);
+    setTileBeer(null);
+    setTileRowIndex(null);
+    if (row) await add(undefined, radky);
+  }
   // 📅 Který den v panelu zápisu prohlížíme (přepínač nahoře) — „tyden" je
   // souhrn přes celý týden (výchozí). Stejný nápad jako u KEGů (Kegging.tsx).
   const [tileDay, setTileDay] = useState<string>('tyden');
@@ -1681,6 +1694,7 @@ export default function BottlingScreen({
               beer={tileBeer}
               podtitul="Stáčení lahví"
               onZavrit={closeTile}
+              onHotovo={() => void ulozZDlazdice()}
               den={date === businessDateISO() ? 'dnes' : date}
               dnes={dnesLahve(rows, date, packages).filter((p) => p.beerId === tileBeer.id)}
               kroky={[krokSudy, krokLahve]}

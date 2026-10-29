@@ -1101,8 +1101,8 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     if (dateVal && (photoRows.length > 0 || poDnech.length === 0)) setDate(dateVal);
     if (photoNote) setNote((prev) => (prev ? prev + ' | ' + photoNote : photoNote));
   }
-  // Vrací true jen po SKUTEČNÉM uložení — díky tomu si volající (fajfka
-  // „Hotovo" v dlaždici, viz confirmTileAndMaybeSave) může ověřit, jestli se
+  // Vrací true jen po SKUTEČNÉM uložení — díky tomu si volající (Hotovo
+  // v krokovém panelu) může ověřit, jestli se
   // zápis opravdu zapsal, nebo ho něco zablokovalo (checklist, zrušená
   // otázka „opravdu?"), a podle toho dlaždici zavřít, nebo ji necháte otevřenou.
   async function add(e?: React.FormEvent): Promise<boolean> {
@@ -1867,6 +1867,13 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
               beer={expandedKegBeer}
               podtitul="Stáčení KEG"
               onZavrit={() => setExpandedKegBeerId(null)}
+              // „Hotovo" rovnou uloží stáčení (add — stejné jako „Uložit stáčení"
+              // dole). Neuloží-li se (checklist, otázka), zápis zůstává dole.
+              onHotovo={() => {
+                const maCo = entryRows.some((r) => r.beerId === expandedKegBeerId && r.pkgId && Number(r.qty) > 0);
+                setExpandedKegBeerId(null);
+                if (maCo) void add();
+              }}
               den={date === businessDateISO() ? 'dnes' : date}
               dnes={dnesPodleObalu(rows, date, packages).filter((p) => p.beerId === expandedKegBeer.id)}
               kroky={[krokKeg(expandedKegBeer)]}

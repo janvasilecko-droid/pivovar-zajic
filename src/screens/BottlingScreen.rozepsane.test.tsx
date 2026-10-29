@@ -21,6 +21,7 @@ const h = vi.hoisted(() => ({
     orders: [], order_items: [], inventory: [], fasovani: [], fasovani_private: [],
     writeoffs: [], kegging: [], keg_prefuk: [], zavoz_deductions: [], bottling_plans: [],
   } as Record<string, any[]>,
+  vlozeno: [] as any[],
 }));
 
 vi.mock('../lib/supabase', () => {
@@ -33,6 +34,13 @@ vi.mock('../lib/supabase', () => {
     q.in = vi.fn(() => q);
     q.limit = vi.fn(() => q);
     q.maybeSingle = vi.fn().mockResolvedValue({ data: data[0] ?? null, error: null });
+    q.insert = vi.fn((payload: any) => {
+      h.vlozeno.push(...(Array.isArray(payload) ? payload : [payload]).map((r: any) => ({ ...r, __tabulka: table })));
+      const v: any = Promise.resolve({ data: [], error: null });
+      v.select = vi.fn(() => v);
+      return v;
+    });
+    q.update = vi.fn(() => q);
     return q;
   }
   return {
@@ -111,12 +119,15 @@ describe('Stáčení lahví — rozepsaný zápis', { timeout: 15_000 }, () => {
     expect(ulozeny().entryRows.find((r: any) => r.beerId === 'beer-12')).toMatchObject({ pkgId: 'pkg-15', qty: '30' });
   });
 
-  it('„Hotovo" v posledním kroku přidá zadané do zápisu (a neuloží ho do databáze)', async () => {
+  it('„Hotovo — uložit" v posledním kroku rovnou zapíše stáčení do databáze', async () => {
+    h.vlozeno.length = 0;
     otevri();
     await zadejVDlazdici('12');
-    fireEvent.click(screen.getByRole('button', { name: 'Hotovo' }));
-    expect(await screen.findByText(/Zápis stáčení \(1,5 l: 12\)/)).toBeTruthy();
-    expect(screen.queryByRole('dialog')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Hotovo — uložit' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await waitFor(() => expect(h.vlozeno.some((r) => r.__tabulka === 'bottling' && r.package_id === 'pkg-15' && Number(r.quantity) === 12)).toBe(true));
+    // Doběhnout celé uložení (přenačtení, vyprázdnění zápisu), ať nic nezůstane běžet po testu.
+    await waitFor(() => expect(screen.queryByText(/Zápis stáčení/)).toBeNull());
   });
 
   it('klepnutí vedle dlaždice (na ztmavené pozadí) taky nechá, co je zadané', async () => {
