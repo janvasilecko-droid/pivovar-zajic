@@ -5,7 +5,11 @@
 // tam POŘÁD („domů tam bude furt"); ostatní položky se rozvinou po oblouku
 // tlačítkem Menu a po výběru se samy sbalí. Pro leváka zrcadlově v levém
 // rohu. Jedna z voleb v Nastavení → Poloha navigační lišty (lib/polohaDoku.ts).
-import { useState, type CSSProperties } from 'react';
+//
+// Položky jsou v JEDNÉ řadě a oblouk se dá prstem točit jako kolečko
+// (29. 10. 2026: „udělej to na jeden řádek a bude se moct točit") — co se
+// do čtvrtkruhu nevejde, se dotočí tahem.
+import { useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
 import { Home, Menu, type LucideIcon } from 'lucide-react';
 
 export type PolozkaOblouku = {
@@ -19,15 +23,23 @@ export type PolozkaOblouku = {
   odznak?: number;
 };
 
-/** Rozmístění na čtvrtkruh kolem rohu: první čtyři blíž, zbytek ve vnějším oblouku. */
-export function poziceNaOblouku(pocet: number): { r: number; uhel: number }[] {
-  const vnitrni = Math.min(pocet, 4);
-  const vnejsi = pocet - vnitrni;
-  const rozloz = (n: number, r: number) => Array.from({ length: n }, (_, i) => ({
-    r,
-    uhel: n === 1 ? 135 : 180 - (i * 90) / (n - 1),
-  }));
-  return [...rozloz(vnitrni, 112), ...rozloz(vnejsi, 196)];
+/** Poloměr oblouku a rozestup položek ve stupních. */
+export const POLOMER = 150;
+export const KROK = 30;
+
+/** Úhel položky (180° = vlevo od Domů, 90° = nad ním) při natočení `otoceni`. */
+export function uhelPolozky(i: number, otoceni: number): number {
+  return 180 - i * KROK + otoceni;
+}
+
+/** O kolik stupňů se dá oblouk nejvýš otočit, aby se dalo dojet na poslední položku. */
+export function maxOtoceni(pocet: number): number {
+  return Math.max(0, (pocet - 1) * KROK - 90);
+}
+
+/** Je položka v viditelném čtvrtkruhu (s malou rezervou na krajích)? */
+export function jeVidet(uhel: number): boolean {
+  return uhel >= 84 && uhel <= 186;
 }
 
 const STRED = 46; // střed Domů od rohu (px)
@@ -49,38 +61,67 @@ export function ObloukNavigace({
   levak?: boolean;
 }) {
   const [otevreno, setOtevreno] = useState(false);
+  const [otoceni, setOtoceni] = useState(0);
+  const tah = useRef<{ uhel: number; otoceni: number; posun: number } | null>(null);
   const strana = levak ? 'left' : 'right';
+  const max = maxOtoceni(polozky.length);
+
+  // Úhel prstu kolem středu Domů (180° = vlevo, 90° = nahoru).
+  const uhelPrstu = (e: ReactPointerEvent) => {
+    const dx = levak ? e.clientX - STRED : window.innerWidth - e.clientX - STRED;
+    const dy = window.innerHeight - e.clientY - STRED;
+    return (Math.atan2(dy, -dx) * 180) / Math.PI;
+  };
+  const zacniTah = (e: ReactPointerEvent) => {
+    tah.current = { uhel: uhelPrstu(e), otoceni, posun: 0 };
+  };
+  const tahni = (e: ReactPointerEvent) => {
+    if (!tah.current) return;
+    const d = tah.current.uhel - uhelPrstu(e);
+    tah.current.posun = Math.max(tah.current.posun, Math.abs(d));
+    setOtoceni(Math.min(max, Math.max(0, tah.current.otoceni + d)));
+  };
+  const ukonciTah = () => { setTimeout(() => { tah.current = null; }, 0); };
+  /** Klepnutí po tahu se nepočítá jako výběr položky. */
+  const bylTah = () => (tah.current?.posun ?? 0) > 4;
   const odRohu = (px: number, osa: 'x' | 'y') =>
     `calc(${px}px + env(safe-area-inset-${osa === 'x' ? strana : 'bottom'}, 0px))`;
-  const pozice = poziceNaOblouku(polozky.length);
 
   return (
     <>
       {otevreno && <div className="fixed inset-0 z-30 bg-black/20" onClick={() => setOtevreno(false)} aria-hidden="true" />}
       <div
-        className={`hs-glass-chrome fixed z-30 rounded-full shadow-2xl border transition-all duration-200 pointer-events-none ${otevreno ? 'opacity-100 scale-100' : 'opacity-0 scale-50'}`}
-        style={{ width: 520, height: 520, bottom: -260 + 46, [strana]: -260 + 46, transformOrigin: 'center' } as CSSProperties}
+        className={`hs-glass-chrome fixed z-30 rounded-full shadow-2xl border transition-[opacity,transform] duration-200 touch-none ${otevreno ? 'opacity-100 scale-100' : 'opacity-0 scale-50 pointer-events-none'}`}
+        style={{ width: 2 * (POLOMER + 50), height: 2 * (POLOMER + 50), bottom: STRED - POLOMER - 50, [strana]: STRED - POLOMER - 50, transformOrigin: 'center' } as CSSProperties}
+        onPointerDown={zacniTah}
+        onPointerMove={tahni}
+        onPointerUp={ukonciTah}
+        onPointerCancel={ukonciTah}
         aria-hidden="true"
       />
       <nav aria-label="Hlavní navigace" className="contents">
         {polozky.map((p, i) => {
-          const { r, uhel } = pozice[i];
+          const uhel = uhelPolozky(i, otoceni);
+          const vidno = otevreno && jeVidet(uhel);
           const rad = (uhel * Math.PI) / 180;
-          const x = STRED - r * Math.cos(rad) - POLOVINA; // od kraje (cos je záporný → dál od kraje)
-          const y = STRED + r * Math.sin(rad) - POLOVINA;
+          const x = STRED - POLOMER * Math.cos(rad) - POLOVINA; // od kraje (cos je záporný → dál od kraje)
+          const y = STRED + POLOMER * Math.sin(rad) - POLOVINA;
           return (
             <button
               key={p.id}
               type="button"
-              onClick={() => { setOtevreno(false); onVyber(p.id); }}
+              onClick={() => { if (bylTah()) return; setOtevreno(false); onVyber(p.id); }}
+              onPointerDown={zacniTah}
+              onPointerMove={tahni}
+              onPointerUp={ukonciTah}
               aria-current={p.aktivni ? 'page' : undefined}
-              tabIndex={otevreno ? 0 : -1}
-              aria-hidden={!otevreno}
-              className={`fixed z-40 w-[60px] h-[60px] rounded-2xl flex flex-col items-center justify-center gap-0.5 font-bold transition-all duration-200 ${otevreno ? 'opacity-100 scale-100' : 'opacity-0 scale-50 pointer-events-none'} ${p.aktivni ? 'shadow-md' : ''}`}
+              tabIndex={vidno ? 0 : -1}
+              aria-hidden={!vidno}
+              className={`fixed z-40 w-[60px] h-[60px] rounded-2xl flex flex-col items-center justify-center gap-0.5 font-bold transition-all duration-200 touch-none ${vidno ? 'opacity-100 scale-100' : 'opacity-0 scale-50 pointer-events-none'} ${p.aktivni ? 'shadow-md' : ''}`}
               style={{
                 [strana]: odRohu(otevreno ? x : STRED - POLOVINA, 'x'),
                 bottom: odRohu(otevreno ? y : STRED - POLOVINA, 'y'),
-                transitionDelay: otevreno ? `${i * 20}ms` : '0ms',
+
                 ...(p.aktivni ? { background: p.barva, color: '#fff' } : { color: p.barva }),
               } as CSSProperties}
             >
