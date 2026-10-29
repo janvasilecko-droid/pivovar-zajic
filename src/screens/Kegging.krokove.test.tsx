@@ -22,6 +22,7 @@ const h = vi.hoisted(() => ({
     orders: [], order_items: [], inventory: [], fasovani: [], fasovani_private: [],
     writeoffs: [], keg_prefuk: [], zavoz_deductions: [],
   } as Record<string, any[]>,
+  vlozeno: [] as any[],
 }));
 
 vi.mock('../lib/supabase', () => {
@@ -34,6 +35,13 @@ vi.mock('../lib/supabase', () => {
     q.in = vi.fn(() => q);
     q.limit = vi.fn(() => q);
     q.maybeSingle = vi.fn().mockResolvedValue({ data: data[0] ?? null, error: null });
+    q.insert = vi.fn((payload: any) => {
+      h.vlozeno.push(...(Array.isArray(payload) ? payload : [payload]).map((r: any) => ({ ...r, __tabulka: table })));
+      const v: any = Promise.resolve({ data: [], error: null });
+      v.select = vi.fn(() => v);
+      return v;
+    });
+    q.update = vi.fn(() => q);
     return q;
   }
   return {
@@ -99,7 +107,8 @@ describe('Stáčení KEG — krokové zadávání', () => {
     expect(within(panel).getByRole('button', { name: '6' })).toBeTruthy();
   });
 
-  it('velikost a počet: 6× 50 l, + další velikost, 3× 30 l → oba řádky v zápisu, nic se neuložilo', async () => {
+  it('velikost a počet: 6× 50 l, + další velikost, 3× 30 l → „Hotovo — uložit" zapíše obě stáčení', async () => {
+    h.vlozeno.length = 0;
     otevri();
     fireEvent.click(await screen.findByRole('button', { name: /Světlý ležák 12°/ }));
     const panel = await screen.findByRole('dialog');
@@ -107,21 +116,25 @@ describe('Stáčení KEG — krokové zadávání', () => {
     fireEvent.click(within(panel).getByRole('button', { name: /\+ další velikost/ }));
     expect(within(panel).getByRole('radio', { name: /30 l/ }).getAttribute('aria-checked')).toBe('true');
     fireEvent.change(pole(panel), { target: { value: '3' } });
-    fireEvent.click(within(panel).getByRole('button', { name: 'Hotovo' }));
+    fireEvent.click(within(panel).getByRole('button', { name: 'Hotovo — uložit' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    expect(await screen.findByText(/Zápis stáčení \(9 ks\)/)).toBeTruthy();
-    const ulozeny = JSON.parse(localStorage.getItem('rozepsane_staceni_keg') as string);
-    expect(ulozeny.entryRows.filter((r: any) => r.beerId === 'beer-12' && Number(r.qty) > 0))
-      .toMatchObject([{ pkgId: 'pkg-50', qty: '6' }, { pkgId: 'pkg-30', qty: '3' }]);
+    await waitFor(() => expect(h.vlozeno.filter((r) => r.__tabulka === 'kegging')).toHaveLength(2));
+    expect(h.vlozeno.filter((r) => r.__tabulka === 'kegging').map((r) => [r.package_id, r.quantity]))
+      .toEqual([['pkg-50', 6], ['pkg-30', 3]]);
+    // Doběhnout celé uložení (přenačtení, vyprázdnění zápisu), ať nic nezůstane běžet po testu.
+    await waitFor(() => expect(screen.queryByText(/Zápis stáčení/)).toBeNull());
   });
 
-  it('klepnutí na rychlé číslo zadá počet a zavře panel', async () => {
+  it('klepnutí na rychlé číslo zadá počet a rovnou uloží', async () => {
+    h.vlozeno.length = 0;
     otevri();
     fireEvent.click(await screen.findByRole('button', { name: /Světlý ležák 12°/ }));
     const panel = await screen.findByRole('dialog');
     fireEvent.click(within(panel).getByRole('button', { name: '12' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    expect(await screen.findByText(/Zápis stáčení \(12 ks\)/)).toBeTruthy();
+    await waitFor(() => expect(h.vlozeno.filter((r) => r.__tabulka === 'kegging').map((r) => [r.package_id, r.quantity])).toEqual([['pkg-50', 12]]));
+    // Doběhnout celé uložení (přenačtení, vyprázdnění zápisu), ať nic nezůstane běžet po testu.
+    await waitFor(() => expect(screen.queryByText(/Zápis stáčení/)).toBeNull());
   });
 
   it('pod polem je vidět, co se ten den už uložilo u tohohle piva', async () => {
