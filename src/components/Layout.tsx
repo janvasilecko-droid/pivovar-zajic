@@ -1,6 +1,7 @@
 import { ReactNode, type CSSProperties, useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { usePolohuDoku } from '../lib/polohaDoku';
-import { AlarmClock, AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, BookOpen, CalendarDays, Car, ClipboardCheck, ClipboardList, Compass, Download, FilePlus, FileSpreadsheet, FileText, FlaskConical, GlassWater, History as HistoryIcon, Home, Info, ArrowUpDown, LogOut, MapPin, Megaphone, MessageCircle, Package as PackageIcon, Receipt, Search, Settings, Shield, ShieldCheck, ShoppingBag, Smartphone, Snowflake, Sparkles, StickyNote, Store, Tag, Truck, type LucideIcon, Wifi, WifiOff, X, XCircle, ChevronLeft } from 'lucide-react';
+import { ObloukNavigace } from './ObloukNavigace';
+import { AlarmClock, AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, BookOpen, CalendarDays, Car, ClipboardCheck, ClipboardList, Compass, Download, FilePlus, FileSpreadsheet, FileText, FlaskConical, GlassWater, History as HistoryIcon, Home, Info, ArrowUpDown, LogOut, MapPin, Megaphone, MessageCircle, Package as PackageIcon, Receipt, Search, Settings, Shield, ShieldCheck, ShoppingBag, Smartphone, Snowflake, Sparkles, StickyNote, Store, Tag, Truck, type LucideIcon, Wifi, WifiOff, X, XCircle, ChevronLeft, ClipboardPlus } from 'lucide-react';
 
 import { useAuth } from '../lib/auth';
 import { potvrd } from '../lib/toast';
@@ -263,10 +264,12 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
   const bocni = poloha !== 'dole';
   const [dokOtevren, setDokOtevren] = useState(false);
   useEffect(() => {
+    if (poloha === 'oblouk') document.documentElement.style.setProperty('--vyska-doku', '80px');
     const el = dokRef.current;
     if (!el) return;
     const zmer = () => {
       // Boční lišta nezabírá výšku obrazovky — odsazení dole je pak nulové.
+      if (poloha === 'oblouk') { document.documentElement.style.setProperty('--vyska-doku', '80px'); return; }
       if (poloha !== 'dole') { document.documentElement.style.setProperty('--vyska-doku', '0px'); return; }
       const v = Math.round(el.getBoundingClientRect().height);
       if (v > 0) document.documentElement.style.setProperty('--vyska-doku', `${v}px`);
@@ -978,6 +981,36 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
             </button>
           </div>
         )}
+        {poloha === 'oblouk' ? (
+          // 🌙 Oblouk pod palcem: položky lišty + Nová objednávka a Přehled
+          // objednávek (29. 10. 2026: „přidej tam objednávky přehled,
+          // objednávky nová, ať je jasné, co je co").
+          <ObloukNavigace
+            polozky={[...dockPages.filter((d) => d !== 'home'), ...(['orders_entry', 'orders_detail'] as Page[]).filter((d) => !dockPages.includes(d))]
+              .map((id) => {
+                const info = NAV.find((n) => n.id === id) ?? EXTRA_NAV.find((n) => n.id === id);
+                if (!info) return null;
+                const vlastni = id === 'orders_entry'
+                  ? { label: 'Nová obj.', Icon: ClipboardPlus }
+                  : id === 'orders_detail'
+                  ? { label: 'Přehled obj.', Icon: ClipboardList }
+                  : { label: (info as { dockLabel?: string }).dockLabel ?? info.label, Icon: info.icon };
+                return {
+                  id,
+                  ...vlastni,
+                  barva: citelnaNaPodkladu(dockAccentColor(id), PODKLAD_SVETLY),
+                  aktivni: page === id || (!dockPages.includes(page) && !PAGE_GROUP_PARENT[id] && navPageFor(page) === id),
+                  odznak: id === 'orders' || id === 'orders_entry' ? pendingWhatsAppCount : 0,
+                };
+              })
+              .filter((x): x is NonNullable<typeof x> => x !== null)}
+            domuAktivni={navPageFor(page) === 'home'}
+            barvaDomu={dockAccentColor('home')}
+            onVyber={(id) => setPage(id as Page)}
+            onDomu={() => setPage('home')}
+          />
+        ) : (
+        <>
         {poloha === 'vysouvaci' && !dokOtevren && (
           <button
             type="button"
@@ -1067,6 +1100,8 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
             );
           })}
         </nav>
+        </>
+        )}
       </main>
 
     </div>
