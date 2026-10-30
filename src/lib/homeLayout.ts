@@ -277,7 +277,7 @@ export const STRANKY_PLOCHY: Array<{ nazev: string; ids: Page[] }> = [
     ids: [
       ...DLAZDICE_DENNI_PRACE, 'orders_zavoz', 'cellar', 'notes', 'prodejna', 'bottling_needs', 'timer', 'history', 'obchod',
       'orders', 'male_sudy', 'rozbor', 'kegging', 'bottling', 'dashboard', 'orders_entry', 'akce',
-      'sklo_promo', 'vehicles', 'haccp', 'calendar', 'concentration', 'export_excel', 'depozitar',
+      'sklo_promo', 'vehicles', 'haccp', 'calendar', 'concentration', 'bible', 'export_excel', 'depozitar',
       'navod', 'audit', 'users', 'app_settings', 'zaloha', 'signout',
     ],
   },
@@ -475,7 +475,7 @@ export const PAGE_CATEGORY: Partial<Record<Page, Category>> = {
   concentration: 'Nástroje', calendar: 'Nástroje', haccp: 'Nástroje', vehicles: 'Nástroje', kniha_jizd: 'Nástroje',
   sanitace_lahve: 'Nástroje', sanitace_kegy: 'Nástroje', sanitace_vycepy: 'Nástroje',
   checklists: 'Nástroje', sanitation_log: 'Nástroje', notes: 'Nástroje', feedback: 'Nástroje',
-  stopwatch: 'Nástroje', timer: 'Nástroje', keg_timer: 'Nástroje',
+  stopwatch: 'Nástroje', timer: 'Nástroje', keg_timer: 'Nástroje', bible: 'Nástroje',
   // Číselníky
   depozitar: 'Číselníky', places: 'Číselníky', beers: 'Číselníky', packages: 'Číselníky', pricelist: 'Číselníky',
   // Nastavení
