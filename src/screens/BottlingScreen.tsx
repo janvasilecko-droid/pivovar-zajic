@@ -17,6 +17,7 @@ import { davkyStaceni, denACesky, pocetSuduCesky } from '../lib/prehledStaceni';
 import PrehledStaceniLahvi from '../components/PrehledStaceniLahvi';
 import { upravyStaceni } from '../lib/upravyStaceni';
 import { UpravyStaceniZInventury } from '../components/UpravyStaceniZInventury';
+import { PruhUlozeni } from '../components/PruhUlozeni';
 import { autoLogBottleSanitationFromChecklist } from '../lib/bottleSanitation';
 import { requestOrdersItemFilter } from '../lib/ordersFilter';
 import { VoiceRecorder } from '../components/VoiceRecorder';
@@ -1604,6 +1605,13 @@ export default function BottlingScreen({
           </div>
         ) : (
         <form onSubmit={add} className={`card px-2 py-3 mb-5 transition-all duration-200 ${flash ? 'ring-4 ring-emerald-500/20' : ''}`}>
+          {/* 💾 Uložit nahoře (30. 10. 2026: „musí být všude nahoře") — pruh se
+              při rolování přilepí pod hlavičku, viz components/PruhUlozeni.tsx. */}
+          <PruhUlozeni chyba={err}>
+            <button type="submit" disabled={saving} className="btn-primary !rounded !from-emerald-600 !to-emerald-700 hover:!from-emerald-500 hover:!to-emerald-600 !shadow-emerald-600/30 text-xs font-black shadow-md min-h-[44px] px-5">
+              {saving ? 'Ukládám…' : 'Uložit stáčení lahví'}
+            </button>
+          </PruhUlozeni>
           <RozepsanyZapisPruh obnoveno={obnovenyKoncept} onZahodit={vymazRozepsane} className="mb-3" />
           <div className="flex items-center gap-2 mb-4">
             <label className="label !mb-0 shrink-0">Datum</label>
@@ -1776,14 +1784,9 @@ export default function BottlingScreen({
             );
           })()}
 
-          <div className="flex flex-wrap items-center justify-between gap-3 mt-4 pt-2 border-t border-neutral-100">
-            <div className="flex items-center gap-2 flex-wrap">
-              <button type="submit" disabled={saving} className="btn-primary !rounded !from-emerald-600 !to-emerald-700 hover:!from-emerald-500 hover:!to-emerald-600 !shadow-emerald-600/30 text-xs font-black shadow-md min-h-[44px] px-5">
-                {saving ? 'Ukládám…' : 'Uložit stáčení lahví'}
-              </button>
-              <button type="button" className="btn-ghost !rounded text-xs font-bold min-h-[44px] px-3.5" onClick={() => void vymazVse()}><Trash2 className="ikona-text" /> Vymazat vše</button>
-            </div>
-            {err && <span className="text-xs font-bold text-rose-700 bg-rose-50 px-3 py-1.5 rounded border border-rose-200">{err}</span>}
+          {/* Uložit je nahoře v pruhu (PruhUlozeni); dole zůstává jen mazání. */}
+          <div className="flex items-center mt-4 pt-2 border-t border-neutral-100">
+            <button type="button" className="btn-ghost !rounded text-xs font-bold min-h-[44px] px-3.5" onClick={() => void vymazVse()}><Trash2 className="ikona-text" /> Vymazat vše</button>
           </div>
           <DnesUlozeno
             nadpis={`${date === businessDateISO() ? 'Dnes' : date} stočeno do lahví`}

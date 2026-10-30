@@ -11,7 +11,8 @@ import { BarChart3, CalendarDays, Camera, Check, ClipboardList, Package as Packa
 import { parseFreeTextEntries, loadAliasMap, emptyAliasMap, type ParserAliasMap } from '../lib/orderParser';
 import { TapReservationModal } from '../components/TapReservationModal';
 import { detectTapType } from '../lib/tapReservations';
-import { BeerTileGrid, TileTotalBar } from '../components/BeerTileGrid';
+import { BeerTileGrid } from '../components/BeerTileGrid';
+import { PruhUlozeni } from '../components/PruhUlozeni';
 import { DnesUlozeno, KrokoveZadavani, type KrokDef } from '../components/KrokoveZadavani';
 import { rychleHodnoty } from '../lib/krokoveZadavani';
 import { dnesPodleObalu, objemObalu } from '../lib/dnesUlozeno';
@@ -720,6 +721,25 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
       {/* ===== ZÁPIS ===== */}
       {tab === 'zapis' && mode !== 'overviews_only' && (
         <form onSubmit={add} className={`card px-2 py-3 mb-5 transition-all duration-200 ${flash ? 'ring-4 ring-emerald-500/20' : ''}`}>
+          {/* 💾 Uložit nahoře (30. 10. 2026: „musí být všude nahoře") — pruh se
+              při rolování přilepí pod hlavičku, viz components/PruhUlozeni.tsx.
+              Tlačítko samo mění text i barvu podle „Odfasovat" dole. */}
+          <PruhUlozeni
+            souhrn={rowsSummary.totalQty > 0 ? `Zatím zapsáno ${rowsSummary.totalQty} ks · ${rowsSummary.totalL.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} L` : null}
+            chyba={err}
+          >
+            <button
+              type="submit"
+              disabled={saving}
+              className={`!rounded text-xs font-black shadow-md ${
+                vraceni
+                  ? 'px-4 py-2.5 min-h-[44px] rounded bg-sky-700 hover:bg-sky-600 text-white'
+                  : 'btn-primary !from-emerald-600 !to-emerald-700 hover:!from-emerald-500 hover:!to-emerald-600 !shadow-emerald-600/30'
+              }`}
+            >
+              {saving ? 'Ukládám…' : vraceni ? '↩ Vrátit na sklad' : 'Uložit fasování'}
+            </button>
+          </PruhUlozeni>
           <RozepsanyZapisPruh obnoveno={obnovenyKoncept} onZahodit={vymazRozepsane} className="mb-3" />
           {/* Kam výdej jde. Je to pořád tentýž formulář — podle volby se mění
               jen tabulka, do které se zapisuje, a jedno pole navíc. Sedí to
@@ -777,14 +797,12 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
             )}
           </div>
 
-          <div className="flex items-center justify-between gap-2 flex-wrap mb-3">
-            <span className="text-xs font-bold text-neutral-600 bg-neutral-100 rounded px-3 py-2">
-              <PackageIcon className="ikona-text" /> {rowsSummary.totalQty} ks · {rowsSummary.totalL.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} L
-            </span>
-            {/* Rezervace výčepu patří sem, ne k jednotlivým obalům: rezervuje
-                se výčep, ne konkrétní velikost sudu, a u každého obalu to jen
-                zabíralo místo a otevíralo dialog omylem. */}
-            {showVycep && (
+          {/* Rezervace výčepu patří sem, ne k jednotlivým obalům: rezervuje
+              se výčep, ne konkrétní velikost sudu, a u každého obalu to jen
+              zabíralo místo a otevíralo dialog omylem. Kolik je zapsáno,
+              ukazuje pruh s uložením nahoře. */}
+          {showVycep && (
+            <div className="flex items-center justify-end gap-2 flex-wrap mb-3">
               <button
                 type="button"
                 onClick={() => { setTapModalRowIndex(undefined); setShowTapModal(true); }}
@@ -792,10 +810,9 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
               >
                 Rezervovat výčep
               </button>
-            )}
-          </div>
+            </div>
+          )}
 
-          <TileTotalBar label="Zatím zapsáno" value={`${rowsSummary.totalQty} ks · ${rowsSummary.totalL.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} L`} />
           <div className="mb-2">
             <span className="text-[11px] text-neutral-400 font-medium">klepni na dlaždici a zadej obaly a množství</span>
           </div>
@@ -881,7 +898,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                 onKusy={(i, qty) => setFotoDny((rs) => rs.map((r, j) => (j === i ? { ...r, qty } : r)))}
                 onOdeber={(i) => setFotoDny((rs) => rs.filter((_, j) => j !== i))}
                 onZahodit={() => setFotoDny([])}
-                napoveda={`Uloží se spolu se zápisem výše tlačítkem „${vraceni ? 'Vrátit na sklad' : 'Uložit fasování'}“ — každý řádek na svůj den.`}
+                napoveda={`Uloží se spolu se zápisem tlačítkem „${vraceni ? 'Vrátit na sklad' : 'Uložit fasování'}“ nahoře — každý řádek na svůj den.`}
               />
             </div>
           )}
@@ -901,8 +918,8 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
               vedle nich ještě samostatné "Uložit fasování" — vypadalo to
               jako dvě různá tlačítka pro totéž. Výdej je výchozí stav, na
               nic se tedy nekliká; jediný přepínač je tenhle checkbox a
-              hlavní tlačítko dole samo změní text i barvu, ať se vrácení
-              neuloží omylem místo výdeje. */}
+              hlavní tlačítko (v pruhu nahoře) samo změní text i barvu, ať se
+              vrácení neuloží omylem místo výdeje. */}
           <label className={`mt-3 inline-flex items-center gap-2 px-3 py-2 rounded border-2 min-h-[44px] cursor-pointer transition select-none w-fit ${vraceni ? 'bg-sky-50 border-sky-300' : 'bg-white border-neutral-300'}`}>
             <input
               type="checkbox"
@@ -922,22 +939,9 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
             </div>
           )}
 
-          <div className="flex items-center justify-between mt-4">
-            <div className="flex items-center gap-2">
-              <button
-                type="submit"
-                disabled={saving}
-                className={`!rounded text-xs font-black shadow-md ${
-                  vraceni
-                    ? 'px-4 py-2.5 min-h-[44px] rounded bg-sky-700 hover:bg-sky-600 text-white'
-                    : 'btn-primary !from-emerald-600 !to-emerald-700 hover:!from-emerald-500 hover:!to-emerald-600 !shadow-emerald-600/30'
-                }`}
-              >
-                {saving ? 'Ukládám…' : vraceni ? '↩ Vrátit na sklad' : 'Uložit fasování'}
-              </button>
-              <button type="button" className="btn-ghost !rounded text-xs" onClick={() => void vymazVse()}><Trash2 className="ikona-text" /> Vymazat vše</button>
-            </div>
-            {err && <span className="text-xs font-bold text-rose-700">{err}</span>}
+          {/* Uložit je nahoře v pruhu (PruhUlozeni); dole zůstává jen mazání. */}
+          <div className="flex items-center mt-4">
+            <button type="button" className="btn-ghost !rounded text-xs" onClick={() => void vymazVse()}><Trash2 className="ikona-text" /> Vymazat vše</button>
           </div>
 
           <DnesUlozeno
