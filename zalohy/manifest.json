@@ -1,7 +1,7 @@
 {
  "format": "pivovar-zaloha-manifest",
  "v": 1,
- "datum": "2026-10-29T08:40:55.517Z",
+ "datum": "2026-10-30T08:46:54.751Z",
  "tabulky": {
   "beers": {
    "radku": 13,
@@ -21,7 +21,7 @@
   },
   "profiles": {
    "radku": 4,
-   "sha256": "df745511f4aa4295023d069b1891133b9ef4371a7725f66d8d455fe61b2c7efc"
+   "sha256": "0e3b616b1e140eb53e14838b4b56a26778f98140c0a8ec05a671d5b878bea25e"
   },
   "allowed_emails": {
    "radku": 4,
@@ -57,11 +57,11 @@
   },
   "calendar_events": {
    "radku": 316,
-   "sha256": "3eaf570c709e32c8bd717092499488be2fc47eeb876be8725bc5d209631fc2bf"
+   "sha256": "de5400f0b94519144654e299f327352f8028d6c2f7a1945a0ef238f4f88778f7"
   },
   "checklisty_hotovo": {
-   "radku": 298,
-   "sha256": "c3173fe927c9bb911464c80d619e318735e0de6e86f81b24324469456c80df64"
+   "radku": 313,
+   "sha256": "5f6033f35ad1ec75582507e9f06bae7c7d2fe479cd7c58b97044c0447bf876db"
   },
   "feedback_notes": {
    "radku": 1,
@@ -96,12 +96,12 @@
    "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
   },
   "keg_sanitation_logs": {
-   "radku": 40,
-   "sha256": "a71a48bdaf92c7057bbe48fc412c7cfb31199346af608d58379e76e0629d867e"
+   "radku": 41,
+   "sha256": "1c9a7e574a8c30afde119744625517677e879fc3acb1ecdb4616c29539f17f86"
   },
   "bottle_sanitation_logs": {
-   "radku": 19,
-   "sha256": "8e2252ce41682b1fc6f2ca28f3813a20c81fa80a7373ddff0b693df78714791b"
+   "radku": 20,
+   "sha256": "fc71f57369c33b4591a156fdb98ea32b6153668367975d0403b5a62775b89ab9"
   },
   "tap_sanitation_logs": {
    "radku": 0,
@@ -116,8 +116,8 @@
    "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
   },
   "migrace_aplikovane": {
-   "radku": 61,
-   "sha256": "9d2a0e1bc612152fc5a1417c7475faf2c77eadca2cbb9b9756015eb415ed0781"
+   "radku": 62,
+   "sha256": "c53499a734e8b85370d5b6dc7a96361b36566c35857fd294a507e8534f0321c7"
   },
   "tank_uprava_log": {
    "radku": 0,
@@ -125,7 +125,7 @@
   },
   "cellar_tanks": {
    "radku": 11,
-   "sha256": "951f0e5073645b389e8f7b4149aae354764a2cc4e0301664b5e9bb911726782f"
+   "sha256": "4defa587d5af5a78eebdd54f994bfc1d249b1ca76eea19d750e165ce83b41113"
   },
   "price_list": {
    "radku": 0,
@@ -140,8 +140,8 @@
    "sha256": "23641c707177763f4fb23bd60febd8cfa0ed4e315564fdf765bf777bd22f687d"
   },
   "bottling": {
-   "radku": 246,
-   "sha256": "ee2a677b38c7ed6c3d319079200165e2227417bc4d1895fae508fa0fc7fe0499"
+   "radku": 248,
+   "sha256": "7e12398090c857311641c64c363a13e938377bf435041a6f80cdf48e214ba5a4"
   },
   "fasovani": {
    "radku": 32,
@@ -149,11 +149,11 @@
   },
   "fasovani_private": {
    "radku": 178,
-   "sha256": "26e2764cdc25f9a0345b27c1fa2f7a66db3bc0a9d2f2fa1fb356a20429bcf869"
+   "sha256": "62078f8472e4dd19ec4bc652c73f903b79dddbd57da7c595f2483ee5ee3f07b0"
   },
   "inventory": {
-   "radku": 259,
-   "sha256": "6e43f9d4d1fbffbb88e7f89e82e4137e03b7ba36c9d25818458801136df0795b"
+   "radku": 306,
+   "sha256": "60c831dbc644ca8ba95ffd49c03eda203e64746868df557328d10a80d1e74028"
   },
   "inventory_adjustments": {
    "radku": 15,
@@ -241,7 +241,7 @@
   },
   "orders": {
    "radku": 324,
-   "sha256": "1e7a5f6913bff2d95d089dd693eda85977b65f3d82e7711048c5315a35e8a210"
+   "sha256": "0c90274cf209e848238359794045550342fbbada8ce59be28a148e8d1f46fe17"
   },
   "whatsapp_incoming": {
    "radku": 416,
@@ -253,15 +253,15 @@
   },
   "order_items": {
    "radku": 931,
-   "sha256": "26367634ee19b792e5a2eb32450d04273b9534ea9fcd9923080a3c8b7351e209"
+   "sha256": "bd278223ac8eec1847651db1b1496cb3dafb4b7499e1361ed6a8b0624526d587"
   },
   "kegging": {
-   "radku": 412,
-   "sha256": "d95dd15f01f9a02970dde3a34ed2b856494b53d69d230ba2c74ebdc63fc9608c"
+   "radku": 413,
+   "sha256": "67d4070eb72585e8c1e417c7398fb84e37b14b2fb348f92d3f0263817192cd97"
   },
   "zavoz_deductions": {
-   "radku": 928,
-   "sha256": "481e5ba2aca9fa689328d6f8a8eb3ae30a8f072bd23622214afb4b1cddc89ab7"
+   "radku": 930,
+   "sha256": "53cc27b59e887536ad3f087b196404fca413765b2e1c9e0babe66e1e6a7655b7"
   },
   "keg_returns": {
    "radku": 0,
@@ -304,5 +304,7 @@
    "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
   }
  },
- "nejsouVDatabazi": []
+ "nejsouVDatabazi": [
+  "logbook_closures"
+ ]
 }
