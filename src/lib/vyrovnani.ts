@@ -50,3 +50,38 @@ export function vyrovnaniZaMesic(movements: Movement[], monthKey: string): Map<s
   }
   return out;
 }
+
+/** Záznam deníku úprav stáčení (tabulka stoceni_upravy), jak ho potřebuje „Vyrovnáno". */
+export type ZaznamDeniku = {
+  beer_id: string | null;
+  package_id: string | null;
+  druh: string;
+  kusu: number | string;
+  tyden_od: string | null;
+  zdroje?: { pred: number; po: number; oprava?: boolean; vyrovnani?: boolean }[] | null;
+};
+
+/**
+ * Přičte k „Vyrovnáno" odečty manka, které nemají záporný řádek.
+ *
+ * Od 30. 10. 2026 se manko odečítá přímo ze stočených řádků (lib/odecetStaceni.ts)
+ * a v knize po něm nezůstane pohyb se značkou „Odečteno z inventury …" — stopa
+ * je jen v deníku. Počítají se odečty MĚSÍČNÍ inventury (bez týdne), stejně
+ * jako dřív záporný řádek s měsícem v poznámce. Část, která se odečetla
+ * z řádku „Doplněno z inventury" téhož měsíce (`vyrovnani`), už je vidět přes
+ * jeho poznámku; převedený starý záporný řádek (`oprava`) není zdroj.
+ */
+export function sOdectyZDeniku(mapa: Map<string, number>, denik: ZaznamDeniku[]): Map<string, number> {
+  const out = new Map(mapa);
+  for (const u of denik) {
+    if (u.druh !== 'odecteno' || u.tyden_od || !u.beer_id || !u.package_id) continue;
+    const zdroje = u.zdroje ?? [];
+    const kusu = zdroje.length
+      ? zdroje.filter((z) => !z.oprava && !z.vyrovnani).reduce((s, z) => s + (Number(z.pred) - Number(z.po)), 0)
+      : Number(u.kusu || 0);
+    if (!kusu) continue;
+    const k = stockKey(u.beer_id, u.package_id);
+    out.set(k, (out.get(k) ?? 0) - kusu);
+  }
+  return out;
+}

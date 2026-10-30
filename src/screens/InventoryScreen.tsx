@@ -8,10 +8,11 @@ import HloubkovyAuditPanel from '../components/HloubkovyAuditPanel';
 import TydenniInventuraPanel from '../components/TydenniInventuraPanel';
 import { computeInventoryReconciliation } from '../lib/inventoryHelper';
 import { radekBilanceSudu } from '../lib/bilanceSudu';
-import { akceProRozdil, datumDoplnku, doplnekVBudoucnu, jeSud, kegovaniZapisy, lahvoveZapisy, nabidnoutMinulyMesic, nazevMesice, odectiZeStoceni, vychoziMesicInventury } from '../lib/inventoryFix';
+import { akceProRozdil, datumDoplnku, doplnekVBudoucnu, jeSud, kegovaniZapisy, lahvoveZapisy, nabidnoutMinulyMesic, nazevMesice, vychoziMesicInventury } from '../lib/inventoryFix';
+import { hlaskaOdectu, odectiZeStocenych, vratOdecet, type OdecetVysledek } from '../lib/odecetStaceni';
 import { davkySrovnani, zapisyDavky, type DavkaPiva, type SmerSudu, type ZdrojovaSkupina } from '../lib/srovnaniDavka';
 import { zapamatujPozici } from '../lib/drzPozici';
-import { vyrovnaniZaMesic } from '../lib/vyrovnani';
+import { sOdectyZDeniku, vyrovnaniZaMesic, type ZaznamDeniku } from '../lib/vyrovnani';
 import { lzeUlozitKoncept, slucInventuru } from '../lib/rozepsanaInventura';
 import { normalizujCislo } from '../lib/cisloVstup';
 import { rozdelSudyDoTanku, zmenaOtevreni, type RozdeleniSudu, type TankProRozdeleni } from '../lib/tankRozdeleni';
@@ -19,7 +20,7 @@ import { stavPolicka, tridyPolicka } from '../lib/polickoInventury';
 import { odectiZTanku as odectiZTankuDB, vratDoTanku } from '../lib/tankZapis';
 
 import { businessDateISO, posunMesic } from '../lib/businessDate';
-import { buildMovements, expectedForMonth, konecMesice, stockAsOf, stockAtStartOfDay, stockForMonth, type StockLine } from '../lib/stockLedger';
+import { buildMovements, expectedForMonth, konecMesice, stockAsOf, stockAtStartOfDay, stockForMonth, type Movement, type StockLine } from '../lib/stockLedger';
 import { AUDIT_NADPISY, AUDIT_SLOUPCE, bunkaAuditu, maCoUkazat, porovnejPolozku, type AuditSloupec } from '../lib/auditSkladu';
 import { chyba, oznam, potvrd, toastZpet, uspech } from '../lib/toast';
 import { chybiFunkce } from '../lib/zruseniObjednavky';
@@ -295,6 +296,12 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
   }
   const loadedMonthRef = useRef<string | null>(null);
   const forceReloadRef = useRef(false);
+  /**
+   * Kniha, ze které je sloupec „Očekáváno" (Sklad ke konci měsíce bez vlastní
+   * inventury). Odečet manka ze stáčení podle ní pozná, které stočené řádky
+   * se do očekávaného stavu promítají (lib/odecteniZKegovani.ts, zapocitaneRadky).
+   */
+  const knihaKonceRef = useRef<{ pohyby: Movement[]; doDne: string } | null>(null);
   const excelFileRef = useRef<HTMLInputElement>(null);
 
   // Otevírá se na měsíci, který se uzavírá — prvních deset dní tedy na tom
@@ -401,7 +408,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     const smiZapsat = zacniNacteni();
     if (!tiche) setLoading(true);
 
-    const [{ data: b }, { data: pk }, { data: bt }, { data: kg }, { data: fa }, { data: fp }, { data: wo }, { data: inv }, { data: adj }, { data: zd }, { data: ak }, { data: pf }, { data: tk }] = await Promise.all([
+    const [{ data: b }, { data: pk }, { data: bt }, { data: kg }, { data: fa }, { data: fp }, { data: wo }, { data: inv }, { data: adj }, { data: zd }, { data: ak }, { data: pf }, { data: tk }, { data: denik }] = await Promise.all([
       // 🍺 VŠECHNA piva, i skrytá — inventura se dívá zpátky do měsíců, kdy
       // ještě sezónní pivo (např. Summer Ale) bylo aktivní. Filtr na aktivní
       // ho ze srpnové inventury smazal, i když v srpnu ještě teklo: viz
@@ -423,6 +430,9 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
       // 🛢️ Tanky — doplněné kegování z inventury z nich odečítá objem, aby
       // sklep nezůstal nafouklý (viz tankRozdeleni.ts).
       supabase.from('cellar_tanks').select('id,label,current_beer_id,current_volume_l,status,started_at,kegging_active'),
+      // 🧾 Deník úprav stáčení — odečet manka bez záporného řádku nechává
+      // stopu jen tady; sloupec „Vyrovnáno" ji potřebuje (sOdectyZDeniku).
+      supabase.from('stoceni_upravy').select('beer_id,package_id,druh,kusu,tyden_od,zdroje').eq('mesic', currentMonth),
     ]);
     // Mezitím mohlo začít novější načtení (realtime po cizím zápisu),
     // nebo už obrazovka není vidět. Výsledek se pak zahodí.
@@ -458,7 +468,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     setExpectedLedger(expectedForMonth(pohyby, currentMonth));
     setPosunMap(posunPoKonciMesice(pohyby, currentMonth, businessDateISO()));
     setAuditInventura(expectedForMonth(pohyby, currentMonth, true));
-    setVyrovnaniMap(vyrovnaniZaMesic(pohyby, currentMonth));
+    setVyrovnaniMap(sOdectyZDeniku(vyrovnaniZaMesic(pohyby, currentMonth), (denik as ZaznamDeniku[] | null) ?? []));
     // 🔍 Tatáž kniha očima Skladu — měsíční rozpad, ne od začátku evidence.
     setSkladLedger(stockForMonth(pohyby, currentMonth));
     // Stav skladu k večeru posledního dne měsíce (v běžícím měsíci k dnešku)
@@ -478,6 +488,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
       const bezVlastniInventury = pohyby.filter((m) => !(m.kind === 'inventura'
         && m.date === konec && /fyzick|schválen|schvalen/i.test(m.note ?? '')));
       setSkladKonec(stockAsOf(bezVlastniInventury, konec > dnes ? dnes : konec));
+      knihaKonceRef.current = { pohyby: bezVlastniInventury, doDne: konec > dnes ? dnes : konec };
     }
 
     // Přepnutí měsíce a přenačtení po zápisu se chovají JINAK: při přepnutí
@@ -1087,7 +1098,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     const klic = `${d.beer_id}__${d.smer}`;
     // Výchozí volba: u přebytku lahví se sudy nejčastěji teprve nastáčely
     // (proto ta lahvová výroba v knize chybí), u manka se naopak nenačaly.
-    const smerSudu: SmerSudu = davkaSmerSudu[klic] ?? (manko ? 'vratit' : 'nastocit');
+    const smerSudu: SmerSudu = manko ? 'vratit' : (davkaSmerSudu[klic] ?? 'nastocit');
     const zadano = sudoveObaly
       .map((p) => ({
         kegPkgId: p.id,
@@ -1135,11 +1146,15 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
         <div className="rounded bg-white/70 border border-neutral-300 p-2">
           <div className="text-udaj font-black uppercase text-neutral-600 mb-1">Co se sudy</div>
           <div className="flex flex-wrap gap-x-4 gap-y-1">
-            {([
-              ['nastocit', 'Nastáčely se kvůli těmhle lahvím — zapiš je do Stáčení KEG a hned spotřebuj'],
-              ['odecist', 'Byly nastáčené už dřív — jen je odečti ze skladu'],
-              ['vratit', 'Nenačaly se — vrať je do skladu'],
-            ] as [SmerSudu, string][]).map(([hodnota, popis]) => (
+            {((manko
+              // U manka se lahve nestočily — sudy se jen nenačaly (vrátí se
+              // do skladu), nebo se nehnou (prázdná pole).
+              ? [['vratit', 'Nenačaly se — vrať je do skladu']]
+              : [
+                ['nastocit', 'Nastáčely se kvůli těmhle lahvím — zapiš je do Stáčení KEG a hned spotřebuj'],
+                ['odecist', 'Byly nastáčené už dřív — jen je odečti ze skladu'],
+                ['vratit', 'Nenačaly se — vrať je do skladu'],
+              ]) as [SmerSudu, string][]).map(([hodnota, popis]) => (
               <label key={hodnota} className="flex items-start gap-1.5 text-udaj font-bold text-neutral-800 cursor-pointer w-full">
                 <input
                   type="radio"
@@ -1224,12 +1239,69 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     const suduCelkem = zadano.reduce((s, z) => s + z.kegQty, 0);
     const kusuCelkem = d.lahve.reduce((s, l) => s + l.kusy, 0);
 
-    const rady = zapisyDavky(d, datumDoplnku(currentMonth), currentMonth, zadano, smerSudu);
-    if (rady.length === 0) return;
-
     // Panel pod pivem po zápisu zmizí (už není co vyrovnávat) a všechno pod
     // ním vyskočí nahoru. Kotvou je první řádek toho piva — ten zůstává.
     const vratPozici = zapamatujPozici(`[data-inv-radek^="${d.beer_id}__"]`);
+
+    if (manko) {
+      // MANKO lahví: odečte se přímo ze stočených lahví téhož piva a obalu —
+      // žádný záporný řádek (30. 10. 2026, viz lib/odecetStaceni.ts). Sudy,
+      // které se nenačaly, se vrátí do skladu dorovnáním — ve stáčení by to
+      // byl zase minus (záporné „Z sudů").
+      const odecty: OdecetVysledek[] = [];
+      const vracene: { v: { id: string }[] } = { v: [] };
+      await sZamkem(`davka__${klic}`, async () => {
+        for (const l of d.lahve) {
+          odecty.push(await odectiMankoZeStaceni('bottling', {
+            beer_id: d.beer_id, beer_name: d.beer_name, package_id: l.package_id, package_label: l.package_label,
+          }, l.kusy));
+        }
+        if (smerSudu !== 'vratit' || zadano.length === 0) return;
+        const { data, error } = await supabase.from('inventory_adjustments').insert(zadano.map((z) => ({
+          entry_date: datumDoplnku(currentMonth),
+          beer_id: d.beer_id,
+          beer_name: d.beer_name,
+          package_id: z.kegPkgId,
+          package_label: packages.find((x) => x.id === z.kegPkgId)?.label ?? null,
+          quantity: z.kegQty,
+          // „z inventury" v důvodu: skladová kniha ho pak bere jako srovnání
+          // (jako dřív záporné kegs_used), ne jako ztrátu.
+          reason: `Dorovnání z inventury ${currentMonth} — nenačaté sudy vrácené do skladu (manko lahví)`,
+        }))).select('id');
+        if (error) throw new Error('Lahve se odečetly, ale sudy se nevrátily: ' + error.message);
+        vracene.v = (data as { id: string }[] | null) ?? [];
+      });
+      if (odecty.length === 0) return;
+      setDavkaSudy((v) => {
+        const dal = { ...v };
+        for (const kk of Object.keys(dal)) if (kk.startsWith(`${klic}__`)) delete dal[kk];
+        return dal;
+      });
+      const souhrn = {
+        odecteno: odecty.reduce((a, o) => a + o.odecteno, 0),
+        zbytek: odecty.reduce((a, o) => a + o.zbytek, 0),
+      };
+      const text = `${d.beer_name}: ${hlaskaOdectu(souhrn, 'Stáčení lahví')}`
+        + (vracene.v.length > 0 ? ` Vráceno do skladu ${suduCelkem} sudů.` : '');
+      if (souhrn.odecteno > 0 || vracene.v.length > 0) {
+        toastZpet(text, async () => {
+          if (vracene.v.length > 0) {
+            const { error } = await supabase.from('inventory_adjustments').delete().in('id', vracene.v.map((x) => x.id));
+            if (error) chyba('Vrácené sudy se nepodařilo vzít zpět: ' + error.message);
+          }
+          await vratZpetOdectu(...odecty);
+        });
+      } else {
+        oznam(text);
+      }
+      forceReloadRef.current = true;
+      await loadData(true);
+      vratPozici();
+      return;
+    }
+
+    const rady = zapisyDavky(d, datumDoplnku(currentMonth), currentMonth, zadano, smerSudu);
+    if (rady.length === 0) return;
 
     let vlozene: { id: string }[] | null = null;
     let vlozeneKegy: { id: string }[] | null = null;
@@ -1363,8 +1435,9 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
    * Srovná rozdíl tam, kam patří — místo dorovnání, které ho jen schová:
    *  • PŘEBYTEK → doplní chybějící zápis stočení (`bottling`/`kegging`).
    *    Rozdíl se pak srovná sám, protože očekávaný stav ho začne počítat.
-   *  • MANKO → odečte rozdíl ze zápisu výroby (záporný řádek). Vyrobilo se
-   *    míň, než se zapsalo, takže do evidence výroby nesmí přibýt ani kus.
+   *  • MANKO → sníží zápis výroby: odečte rozdíl přímo ze stočených řádků
+   *    (bez záporného řádku, viz lib/odecetStaceni.ts). Vyrobilo se míň,
+   *    než se zapsalo, takže do evidence výroby nesmí přibýt ani kus.
    */
   async function srovnatRozdil(r: InventoryRow) {
     const k = `${r.beer_id}__${r.package_id}`;
@@ -1444,49 +1517,64 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     }
 
     // MANKO — vyrobilo se o tolik MÍŇ, než se zapsalo. Oprava jde do zápisu
-    // výroby (záporný řádek), ne do plánu na příště: plán by nechal sklad
-    // nafouklý a rozdíl by se táhl do dalšího měsíce. Datum je datum
+    // výroby (sníží stočené řádky), ne do plánu na příště: plán by nechal
+    // sklad nafouklý a rozdíl by se táhl do dalšího měsíce. Datum je datum
     // INVENTURY, ne dnešek — po opravě má sedět stav ke dni inventury a ten
     // se přenáší jako počáteční stav do dalšího měsíce.
     if (odmitniBudoucnost()) return;
 
-    // LAHVE: odečtou se rovnou, bez ptaní a BEZ vracení sudů. Kolik sudů se
-    // nenačalo, se zadává v panelu pod pivem.
-    if (!jeSud(r.package_kind, r.package_label)) {
-      const radyLahvi = odectiZeStoceni(polozka, datumDoplnku(currentMonth), currentMonth).map((x) => x.row);
-      if (radyLahvi.length === 0) return;
-      const vratPoziciL = zapamatujPozici(`[data-inv-radek="${k}"]`);
-      setDoplnujeSe(k);
-      const { data: vlozeneL, error: chybaL } = await supabase.from('bottling').insert(radyLahvi).select('id');
-      setDoplnujeSe(null);
-      if (chybaL) { chyba('Nepodařilo se odečíst ze stáčení: ' + chybaL.message); return; }
-      toastZpet(
-        `Odečteno ${Math.abs(r.diffQty)} ks ze „Stáčení lahví" (sudy se nevrátily — zadej je v panelu pod pivem).`,
-        () => vratZpetStaceni(vlozeneL),
-      );
-      forceReloadRef.current = true;
-      await loadData(true);
-      vratPoziciL();
-      return;
-    }
-
-    const rady = odectiZeStoceni(polozka, datumDoplnku(currentMonth), currentMonth);
-    if (rady.length === 0) return;
-    const chybi = Math.abs(r.diffQty);
-    const vratPozici = zapamatujPozici(`[data-inv-radek="${k}"]`);
-    let vlozene: { id: string }[] | null = null;
-    let selhalo = false;
-    await sZamkem(k, async () => {
-      const { data, error } = await supabase.from('kegging').insert(rady.map((x) => x.row)).select('id');
-      if (error) { selhalo = true; chyba('Nepodařilo se odečíst ze stáčení: ' + error.message); return; }
-      vlozene = data;
-    });
-    if (selhalo) return;
+    // Odečte se PŘÍMO ze stočených řádků téhož piva a obalu (nejdřív ke dni
+    // inventury, pak dřívější) — žádný záporný řádek. 30. 10. 2026: „to co
+    // mam stoceno musi byt shodne i s excelem… zadne minusove polozky";
+    // záporný řádek seznam i Excel schovaly a odečetly jen v „Celkem".
     // Tank se nedotkne — u dodatečné opravy se neví, ze kterého se stáčelo.
-    toastZpet(`Odečteno ${chybi} ks ze „Stáčení KEG".`, () => vratZpetKegovani(vlozene, null));
+    // Lahve tudy běžně nejdou (mají panel pod pivem), ale kdyby ano, platí totéž.
+    const sud = jeSud(r.package_kind, r.package_label);
+    const kde = sud ? 'Stáčení KEG' : 'Stáčení lahví';
+    const vratPozici = zapamatujPozici(`[data-inv-radek="${k}"]`);
+    const odecet: { v: OdecetVysledek | null } = { v: null };
+    await sZamkem(k, async () => {
+      odecet.v = await odectiMankoZeStaceni(sud ? 'kegging' : 'bottling', polozka, Math.abs(r.diffQty));
+    });
+    const hotovo = odecet.v;
+    if (!hotovo) return;
+    if (hotovo.odecteno > 0) toastZpet(hlaskaOdectu(hotovo, kde), () => vratZpetOdectu(hotovo));
+    else oznam(hlaskaOdectu(hotovo, kde));
     forceReloadRef.current = true;
     await loadData(true);
     vratPozici();
+  }
+
+  /**
+   * Manko → odečet ze stočených řádků, které se do „Očekáváno" (Sklad ke konci
+   * měsíce) opravdu promítají. Řádek zapsaný před týdenním počítáním už
+   * v napočítaném čísle je — odečet z něj by rozdíl nesrovnal.
+   */
+  async function odectiMankoZeStaceni(
+    tabulka: 'kegging' | 'bottling',
+    p: { beer_id: string; beer_name: string; package_id: string; package_label: string },
+    kusy: number,
+  ): Promise<OdecetVysledek> {
+    const kniha = knihaKonceRef.current;
+    if (!kniha) throw new Error('Inventura se ještě načítá — zkus to za chvíli.');
+    const klic = `${p.beer_id}__${p.package_id}`;
+    return odectiZeStocenych({
+      tabulka,
+      beer_id: p.beer_id, beer_name: p.beer_name, package_id: p.package_id, package_label: p.package_label,
+      datum: datumDoplnku(currentMonth), kusy,
+      pohyby: kniha.pohyby,
+      ocekavano: (pp) => stockAsOf(pp, kniha.doDne).get(klic)?.qty ?? 0,
+    });
+  }
+
+  async function vratZpetOdectu(...odecty: OdecetVysledek[]) {
+    try {
+      for (const o of odecty) await vratOdecet(o);
+    } catch (e) {
+      chyba('Nepodařilo se vzít zpět: ' + (e instanceof Error ? e.message : String(e)));
+    }
+    forceReloadRef.current = true;
+    await loadData(true);
   }
 
   /**

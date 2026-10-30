@@ -2324,7 +2324,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                   <span>{(totalLiters / 100).toLocaleString('cs-CZ', { maximumFractionDigits: 2 })} hl</span>
                 </div>
               </div>
-              {recordsView === 'month' && <div className="mt-3"><UpravyStaceniZInventury mesic={recordsMonthKey} /></div>}
+              {recordsView === 'month' && <div className="mt-3"><UpravyStaceniZInventury mesic={recordsMonthKey} obaly={kegPackages.map((p) => p.id)} /></div>}
             </div>
           );
         })()}

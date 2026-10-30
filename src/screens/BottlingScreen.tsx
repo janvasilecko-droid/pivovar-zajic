@@ -16,6 +16,7 @@ import { objemCesky } from '../components/VyberObalu';
 import { davkyStaceni, denACesky, pocetSuduCesky } from '../lib/prehledStaceni';
 import PrehledStaceniLahvi from '../components/PrehledStaceniLahvi';
 import { upravyStaceni } from '../lib/upravyStaceni';
+import { UpravyStaceniZInventury } from '../components/UpravyStaceniZInventury';
 import { autoLogBottleSanitationFromChecklist } from '../lib/bottleSanitation';
 import { requestOrdersItemFilter } from '../lib/ordersFilter';
 import { VoiceRecorder } from '../components/VoiceRecorder';
@@ -2003,6 +2004,7 @@ export default function BottlingScreen({
                   </span>
                 )}
               </div>
+              {recordsView === 'month' && <UpravyStaceniZInventury mesic={recordsMonthKey} obaly={packages.filter((p) => !jeSud(p.kind, p.label)).map((p) => p.id)} />}
             </div>
           );
         })()}

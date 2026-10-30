@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import XLSX from 'xlsx-js-style';
-import { nazevSouboru, poctyRadku, postavSesit, type ListExportu } from './mesicniExport';
+import { jenStoceno, minusyVeStaceni, nazevSouboru, poctyRadku, postavSesit, type ListExportu } from './mesicniExport';
 import { nactiXlsx } from './xlsxLazy';
 import type { ObalPrehled, VydejRadek } from './prehledVydeje';
 import type { InventuraExportRadek } from './inventuraExport';
@@ -144,54 +144,53 @@ describe('list Inventura v sešitu (jiný tvar než ostatní, viz lib/inventuraE
   });
 });
 
-describe('„Celkem" zahrne manko z inventury, i když jako řádek nesvítí (provoz 21. 9. 2026)', () => {
+describe('stáčení v Excelu = stáčení v appce, bez minusových položek (provoz 30. 10. 2026)', () => {
   beforeAll(async () => { await nactiXlsx(); });
 
-  // Kladný zápis (12 ks) + záporná oprava z inventury (−2 ks) na stejné pivo/obal.
-  // `radky` nese jen kladné (jako v ExportExcelScreen.tsx po zaškrtnutí
-  // „Schovat záporné řádky"), `radkyVcetneOprav` obojí — přesně ten pár,
-  // který si mezi sebou postavSesit odečítá přes rozdilSoucet.
-  const kegPozitivni: VydejRadek[] = [
+  // Stočeno 12 ks + stará minusová oprava z inventury −2 ks na stejné pivo/obal.
+  // Dřív se oprava v listu schovala a odečetla jen v „Celkem" (SUM(C3:C3)+(-2))
+  // — řádky nedávaly dohromady součet a Excel se s appkou rozcházel
+  // („sečetlo všechno a upravované položky to odečetlo v excelu").
+  const keg: VydejRadek[] = [
     { entry_date: '2026-08-04', beer_name: '12° Světlá', package_id: 'k50', quantity: 12, tank: '6' },
-  ];
-  const kegVcetneOpravy: VydejRadek[] = [
-    ...kegPozitivni,
     { entry_date: '2026-08-05', beer_name: '12° Světlá', package_id: 'k50', quantity: -2, note: 'Odečteno z inventury 2026-08 — KEG 50L (manko -2 ks)' },
   ];
 
-  it('Celkem v ks i v hl je natvrdo připočtené k SUM() přes viditelné řádky', () => {
+  it('do listu stáčení jdou jen stočené (kladné) řádky', () => {
+    expect(jenStoceno(keg).map((r) => r.quantity)).toEqual([12]);
+  });
+
+  it('„Celkem" je obyčejný SUM řádků listu — nic se k němu nepřičítá ani neodečítá', () => {
     const wb = postavSesit({
-      listy: [{ nazev: 'Stáčení KEG', varianta: 'staceni_keg', radky: kegPozitivni, radkyVcetneOprav: kegVcetneOpravy }],
+      listy: [{ nazev: 'Stáčení KEG', varianta: 'staceni_keg', radky: jenStoceno(keg) }],
       obaly: OBALY, od: '2026-08-01', do: '2026-08-31',
     })!;
     const ws = wb.Sheets['Stáčení KEG'];
-    // C = sloupec 50l, jediný dotčený objem.
-    expect(bunka(ws, 'C4').f).toBe('SUM(C3:C3)+(-2)');
-    // I = sudy hl, K = celkem hl — obojí o 1 hl míň (2 ks × 50 l = 100 l).
-    expect(bunka(ws, 'I4').f).toBe('SUM(I3:I3)+(-1)');
-    expect(bunka(ws, 'K4').f).toBe('SUM(K3:K3)+(-1)');
-    // J = lahve hl — KEG list lahve nemá, oprava tam je 0, formule beze změny.
-    expect(bunka(ws, 'J4').f).toBe('SUM(J3:J3)');
+    expect(bunka(ws, 'C3').v).toBe(12);
+    expect(bunka(ws, 'C4').f).toBe('SUM(C3:C3)');
+    expect(bunka(ws, 'I4').f).toBe('SUM(I3:I3)');
+    expect(bunka(ws, 'K4').f).toBe('SUM(K3:K3)');
   });
 
-  it('funguje stejně na týdenní období, ne jen na celý měsíc', () => {
-    // Stejná dvojice zápisů, ale export omezený na jediný týden — přesně to,
-    // co dá „vlastní období" v ExportExcelScreen.tsx místo výchozího měsíce.
-    const wb = postavSesit({
-      listy: [{ nazev: 'Stáčení KEG', varianta: 'staceni_keg', radky: kegPozitivni, radkyVcetneOprav: kegVcetneOpravy }],
-      obaly: OBALY, od: '2026-08-03', do: '2026-08-09',
-    })!;
-    const ws = wb.Sheets['Stáčení KEG'];
-    expect(bunka(ws, 'C4').f).toBe('SUM(C3:C3)+(-2)');
-    expect(bunka(ws, 'K4').f).toBe('SUM(K3:K3)+(-1)');
+  it('obrazovka exportu se dozví o starých minusech v období (ať Excel nepošle se špatným Celkem)', () => {
+    expect(minusyVeStaceni(keg, '2026-08-01', '2026-08-31')).toEqual({ radku: 1, kusu: -2 });
+    expect(minusyVeStaceni(keg, '2026-08-01', '2026-08-04')).toEqual({ radku: 0, kusu: 0 });
   });
 
-  it('bez radkyVcetneOprav zůstává Celkem čistý SUM(), jak testuje sekce výš', () => {
+  it('výdejové listy berou i záporný řádek (vrácení na sklad) a „Celkem" ho odečte', () => {
+    const prodejna: VydejRadek[] = [
+      { entry_date: '2026-10-27', beer_name: '12° Světlá', package_id: 'l05', quantity: 20, who: 'Prodejna' },
+      { entry_date: '2026-10-28', beer_name: '12° Světlá', package_id: 'l05', quantity: -6, who: 'Prodejna', note: 'Vráceno na sklad' },
+    ];
     const wb = postavSesit({
-      listy: [{ nazev: 'Stáčení KEG', varianta: 'staceni_keg', radky: kegPozitivni }],
-      obaly: OBALY, od: '2026-08-01', do: '2026-08-31',
+      listy: [{ nazev: 'Fasování prodejna', varianta: 'odberatel', radky: prodejna }],
+      obaly: OBALY, od: '2026-10-01', do: '2026-10-31',
     })!;
-    expect(bunka(wb.Sheets['Stáčení KEG'], 'C4').f).toBe('SUM(C3:C3)');
+    const ws = wb.Sheets['Fasování prodejna'];
+    // K = lahve 0,5 l (Datum, Odběratel, Druh piva, 5× sudy, 1,5 l, 1 l, 0,5 l).
+    expect(bunka(ws, 'K4').v).toBe(-6);
+    expect(bunka(ws, 'A5').v).toBe('Celkem');
+    expect(bunka(ws, 'K5').f).toBe('SUM(K3:K4)');
   });
 });
 

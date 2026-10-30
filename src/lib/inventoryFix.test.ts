@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { doplnekVBudoucnu, vychoziMesicInventury, kegovaniZapisy, lahvoveZapisy, akceProRozdil, datumDoplnku, jeSud, nabidnoutMinulyMesic, nazevMesice, odectiZeStoceni, stoceniZapis, type InventuraPolozka } from './inventoryFix';
+import { doplnekVBudoucnu, vychoziMesicInventury, kegovaniZapisy, lahvoveZapisy, akceProRozdil, datumDoplnku, jeSud, nabidnoutMinulyMesic, nazevMesice, stoceniZapis, type InventuraPolozka } from './inventoryFix';
 
 const lahev: InventuraPolozka = {
   beer_id: 'b1', beer_name: 'Ležák 12°',
@@ -349,65 +349,3 @@ describe('akceProRozdil — manko opravuje výrobu, ne plán', () => {
   });
 });
 
-describe('odectiZeStoceni — manko opraví zápis výroby', () => {
-  const D = '2026-08-31';
-
-  it('sklad čeká 2, fyzicky je 1 → jeden sud dolů ze stáčení KEG', () => {
-    // Z provozu: „pokud je na skladě 2 a reálně má být 1, tak to ze stáčení
-    // musí jeden sud odečíst."
-    const z = odectiZeStoceni({ ...sud, diffQty: -1 }, D, '2026-08');
-    expect(z).toHaveLength(1);
-    expect(z[0].table).toBe('kegging');
-    expect(z[0].row.quantity).toBe(-1);
-  });
-
-  it('datum je datum INVENTURY — stav k tomu dni se přenáší dál', () => {
-    const z = odectiZeStoceni({ ...sud, diffQty: -3 }, D, '2026-08');
-    expect(z[0].row.entry_date).toBe(D);
-  });
-
-  it('u sudů se tank nedotýká', () => {
-    const z = odectiZeStoceni({ ...sud, diffQty: -2 }, D, '2026-08');
-    expect(z[0].row.cellar_tank_id).toBeNull();
-  });
-
-  it('lahve bez zadaných sudů: jen lahve dolů, sklad sudů se nehne', () => {
-    const z = odectiZeStoceni({ ...lahev, diffQty: -48 }, D, '2026-08');
-    expect(z[0].table).toBe('bottling');
-    expect(z[0].row.quantity).toBe(-48);
-    expect(z[0].row.kegs_used).toBeNull();
-  });
-
-  it('lahve se zadanými sudy: sudy se VRACEJÍ (záporné kegs_used)', () => {
-    // Lahve se nenastáčely, takže se sudy nenačaly a pořád leží ve skladu.
-    const z = odectiZeStoceni({ ...lahev, diffQty: -48 }, D, '2026-08',
-      [{ kegPkgId: 'k50', kegQty: 1, kegVolumeL: 50 }]);
-    expect(z[0].row.quantity).toBe(-48);
-    expect(z[0].row.kegs_used).toBe(-1);
-    expect(z[0].row.kegs_used_package_id).toBe('k50');
-    expect(z[0].row.source_volume_l).toBe(-50);
-  });
-
-  it('víc velikostí sudů → víc řádků a součet lahví sedí přesně', () => {
-    const z = odectiZeStoceni({ ...lahev, diffQty: -100 }, D, '2026-08', [
-      { kegPkgId: 'k50', kegQty: 1, kegVolumeL: 50 },
-      { kegPkgId: 'k30', kegQty: 1, kegVolumeL: 30 },
-    ]);
-    expect(z).toHaveLength(2);
-    expect(z.reduce((s, x) => s + Number(x.row.quantity), 0)).toBe(-100);
-    expect(z.reduce((s, x) => s + Number(x.row.kegs_used), 0)).toBe(-2);
-  });
-
-  it('poznámky se mezi řádky liší — jinak by je skladová kniha slila', () => {
-    const z = odectiZeStoceni({ ...lahev, diffQty: -100 }, D, '2026-08', [
-      { kegPkgId: 'k50', kegQty: 1, kegVolumeL: 50 },
-      { kegPkgId: 'k30', kegQty: 1, kegVolumeL: 30 },
-    ]);
-    expect(z[0].row.note).not.toBe(z[1].row.note);
-  });
-
-  it('přebytek ani nula se neodečítá', () => {
-    expect(odectiZeStoceni({ ...sud, diffQty: 3 }, D, '2026-08')).toEqual([]);
-    expect(odectiZeStoceni({ ...sud, diffQty: 0 }, D, '2026-08')).toEqual([]);
-  });
-});

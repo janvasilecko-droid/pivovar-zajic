@@ -82,3 +82,31 @@ describe('vyrovnaniZaMesic', () => {
     expect(vyrovnaniZaMesic(mv, '2026-07').get(stockKey(B, KEG50))).toBe(6);
   });
 });
+
+import { sOdectyZDeniku } from './vyrovnani';
+
+describe('„Vyrovnáno" vidí i odečet bez záporného řádku (deník, 30. 10. 2026)', () => {
+  const k = 'pivo__sud50';
+  it('odečet měsíční inventury ze stočených řádků se odečte od Vyrovnáno', () => {
+    const m = sOdectyZDeniku(new Map(), [
+      { beer_id: 'pivo', package_id: 'sud50', druh: 'odecteno', kusu: 3, tyden_od: null, zdroje: [{ pred: 5, po: 2 }] },
+    ]);
+    expect(m.get(k)).toBe(-3);
+  });
+  it('část z řádku „Doplněno z inventury" už je vidět přes poznámku — nepočítá se podruhé; převedená oprava není zdroj', () => {
+    const m = sOdectyZDeniku(new Map([[k, 4]]), [
+      { beer_id: 'pivo', package_id: 'sud50', druh: 'odecteno', kusu: 13, tyden_od: null, zdroje: [
+        { pred: 17, po: 4, vyrovnani: true },
+        { pred: -13, po: 0, oprava: true },
+      ] },
+    ]);
+    expect(m.get(k)).toBe(4);
+  });
+  it('týdenní odečty a doplnění se do měsíčního Vyrovnáno nepočítají (jako dřív)', () => {
+    const m = sOdectyZDeniku(new Map(), [
+      { beer_id: 'pivo', package_id: 'sud50', druh: 'odecteno', kusu: 2, tyden_od: '2026-10-19', zdroje: [{ pred: 2, po: 0 }] },
+      { beer_id: 'pivo', package_id: 'sud50', druh: 'doplneno', kusu: 5, tyden_od: null, zdroje: [] },
+    ]);
+    expect(m.get(k)).toBeUndefined();
+  });
+});
