@@ -17,8 +17,9 @@ import { QuickCountModal } from './QuickCountModal';
 import { businessDateISO } from '../lib/businessDate';
 import { nactiSkladovouKnihu, type SkladovaKniha } from '../lib/skladovaKnihaData';
 import { MOVEMENT_LABELS, movementsFor, stockAsOf, stockKey } from '../lib/stockLedger';
-import { kegovaniZapisy, lahvoveZapisy, odectiZeStoceni } from '../lib/inventoryFix';
-import { datumDoplnkuStaceni, planOdecteniZKegovani, zdrojeOdecteni } from '../lib/odecteniZKegovani';
+import { kegovaniZapisy, lahvoveZapisy } from '../lib/inventoryFix';
+import { datumDoplnkuStaceni } from '../lib/odecteniZKegovani';
+import { hlaskaOdectu, odectiZeStocenych } from '../lib/odecetStaceni';
 import { rozdelSudyDoTanku, type TankProRozdeleni } from '../lib/tankRozdeleni';
 import { odectiZTanku } from '../lib/tankZapis';
 import {
@@ -30,7 +31,7 @@ import { popisPolozek, objednavkaShoduje, zapisShoduje, type PrehledObjednavka, 
 import { StitekStavu } from './StitekStavu';
 import { lzeUlozitKoncept, slucInventuru } from '../lib/rozepsanaInventura';
 import { nactiJson, ulozJson } from '../lib/uloziste';
-import { chyba, oznam, potvrd, uspech } from '../lib/toast';
+import { chyba, oznam, potvrd, uspech, varovani } from '../lib/toast';
 import { zapamatujPozici } from '../lib/drzPozici';
 import { normalizujCislo } from '../lib/cisloVstup';
 import { puvodStavu } from '../lib/puvodMinusu';
@@ -189,15 +190,19 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
     );
   }
 
+  /** Pohyby bez vlastního promítnutí tohohle týdne do Skladu (viz vsechnyRadky). */
+  function pohybyBezTohotoTydne(k: SkladovaKniha) {
+    const vlastni = poznamkaTydenniInventury(obdobi.od);
+    return k.pohyby.filter((m) => !(m.kind === 'inventura' && (m.note ?? '').startsWith(vlastni)));
+  }
+
   const vsechnyRadky = useMemo(() => {
     if (!kniha) return [];
     // Základ = napočítáno minulý týden + pohyby tohoto týdne; kde se minulý
     // týden nepočítalo, stav skladu (jako Sklad). Viz ocekavanyStavTydne.
     // Bez vlastního promítnutí tohohle týdne do Skladu (tydenniJakoInventura) —
     // jinak by po uložení „čeká se" bylo rovno napočítanému a rozdíly zmizely.
-    const vlastni = poznamkaTydenniInventury(obdobi.od);
-    const pohyby = kniha.pohyby.filter((m) => !(m.kind === 'inventura' && (m.note ?? '').startsWith(vlastni)));
-    const sklad = ocekavanyStavTydne(pohyby, obdobi.od, obdobi.doPocitani, minulyTyden);
+    const sklad = ocekavanyStavTydne(pohybyBezTohotoTydne(kniha), obdobi.od, obdobi.doPocitani, minulyTyden);
     return jenAktivni(radkyTydne(sklad, kniha.piva, kniha.obaly, napocitano));
   }, [kniha, obdobi.od, obdobi.doPocitani, napocitano, minulyTyden]);
 
@@ -286,7 +291,8 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
    * Propíše rozdíl do stáčení — tam, kde vznikl.
    *
    * PŘEBYTEK = stočilo se a nezapsalo → chybějící zápis se doplní.
-   * MANKO = zapsalo se víc, než se vyrobilo → záporný řádek to přizná.
+   * MANKO = zapsalo se víc, než se vyrobilo → sníží se stočené řádky
+   *   (bez záporného řádku, viz lib/odecetStaceni.ts).
    *
    * Datum je konec kontrolovaného období, u běžícího týdne dnešek — zápis
    * výroby nikdy nesmí spadnout do budoucnosti (viz tydenObdobi.doPocitani).
@@ -296,6 +302,9 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
     if (!(await smiZapsatZeStarychCisel())) return;
     setUklada(r.klic);
     try {
+      // Vyřešeno stáčením — kromě manka, ze kterého se část nedala odečíst
+      // (zbytek zůstává k dorovnání, viz níž).
+      let vyreseno: 'staceni' | null = 'staceni';
       const polozka = {
         beer_id: r.beer_id,
         beer_name: r.beer_name,
@@ -341,41 +350,26 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
         const { error } = await supabase.from('bottling').insert(rady);
         if (error) throw error;
         uspech(`Zapsáno ${r.rozdil} ks do „Stáčení lahví" (sudy se neodečetly).`);
-      } else if (r.sud) {
-        // Manko ve stáčení KEG bez záporného řádku: odečte se přímo od stočených
-        // sudů téhož piva a obalu v témže měsíci (lib/odecteniZKegovani.ts).
-        const mesic = kdy.slice(0, 7);
-        const { data: stocene, error: chybaCteni } = await fetchAllRows('kegging', 'id,entry_date,quantity')
-          .eq('beer_id', r.beer_id).eq('package_id', r.package_id)
-          .gte('entry_date', `${mesic}-01`).lte('entry_date', `${mesic}-31`);
-        if (chybaCteni) throw chybaCteni;
-        const plan = planOdecteniZKegovani((stocene ?? []) as any[], kdy, Math.abs(r.rozdil));
-        for (const u of plan.upravit) {
-          const { error } = await supabase.from('kegging').update({ quantity: u.quantity }).eq('id', u.id);
-          if (error) throw error;
-        }
-        if (plan.smazat.length) {
-          const { error } = await supabase.from('kegging').delete().in('id', plan.smazat);
-          if (error) throw error;
-        }
-        if (plan.zbytek > 0) {
-          for (const z of odectiZeStoceni({ ...polozka, diffQty: -plan.zbytek }, kdy, stitek)) {
-            const { error } = await supabase.from(z.table).insert([z.row]);
-            if (error) throw error;
-          }
-        }
-        await zalogujUpravu('odecteno', Math.abs(r.rozdil), zdrojeOdecteni(plan, (stocene ?? []) as any[]));
-        uspech(`Odečteno ${Math.abs(r.rozdil)} ks ze stočených sudů${plan.zbytek > 0 ? ` (${plan.zbytek} ks se nenašlo, zapsáno jako oprava)` : ''}.`);
       } else {
-        const zapisy = odectiZeStoceni(polozka, kdy, stitek);
-        for (const z of zapisy) {
-          const { error } = await supabase.from(z.table).insert([z.row]);
-          if (error) throw error;
-        }
-        uspech(`Odečteno ${Math.abs(r.rozdil)} ks ze stáčení — vyrobilo se míň, než bylo zapsané.`);
+        // MANKO bez záporného řádku: odečte se přímo od stočených řádků téhož
+        // piva a obalu (sudy i lahve) — jen od těch, které se do „čeká se"
+        // promítají (lib/odecetStaceni.ts). Co odečíst nejde, se nezapíše:
+        // není to chyba stáčení, ale ztráta, a patří do „Dorovnat".
+        if (!kniha) throw new Error('Kniha skladu se ještě načítá.');
+        const pohyby = pohybyBezTohotoTydne(kniha);
+        const odecet = await odectiZeStocenych({
+          tabulka: r.sud ? 'kegging' : 'bottling',
+          beer_id: r.beer_id, beer_name: r.beer_name, package_id: r.package_id, package_label: r.package_label,
+          datum: kdy, kusy: Math.abs(r.rozdil), tydenOd: obdobi.od,
+          pohyby,
+          ocekavano: (pp) => ocekavanyStavTydne(pp, obdobi.od, obdobi.doPocitani, minulyTyden).get(r.klic)?.qty ?? 0,
+        });
+        const text = hlaskaOdectu(odecet, r.sud ? 'Stáčení KEG' : 'Stáčení lahví');
+        if (odecet.zbytek > 0) varovani(text); else uspech(text);
+        if (odecet.zbytek > 0) vyreseno = null;
       }
 
-      await ulozZaznam(r, 'staceni');
+      await ulozZaznam(r, vyreseno);
       // Ať obrazovka po zápisu zůstane u řádku, u kterého se klikalo — viz
       // lib/drzPozici.ts. Bez tohohle zmizí tlačítka u srovnaného řádku
       // a všechno pod ním vyskočí nahoru.

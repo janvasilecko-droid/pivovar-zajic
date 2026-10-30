@@ -12,7 +12,7 @@ import { Kostra } from '../components/ui';
 import { chyba, uspech, varovani } from '../lib/toast';
 import { posunMesic } from '../lib/businessDate';
 import { zavibruj } from '../lib/haptika';
-import { nazevSouboru, poctyRadku, stahniSesit, type ListExportu } from '../lib/mesicniExport';
+import { jenStoceno, minusyVeStaceni, nazevSouboru, poctyRadku, stahniSesit, type ListExportu } from '../lib/mesicniExport';
 import { prehledDoTsv, sestavPrehled, type VydejRadek } from '../lib/prehledVydeje';
 import { buildMovements, expectedForMonth } from '../lib/stockLedger';
 import { inventuraDoTsv, sestavInventuruExportu, type BeerProInventuru, type InventuraExportRadek } from '../lib/inventuraExport';
@@ -48,7 +48,7 @@ function rozsahMesice(mesic: string): { od: string; do: string } {
   return { od: `${mesic}-01`, do: `${mesic}-${String(posledni).padStart(2, '0')}` };
 }
 
-export default function ExportExcelScreen() {
+export default function ExportExcelScreen({ setPage }: { setPage?: (p: any, sec?: string) => void } = {}) {
   const [mesic, setMesic] = useState(minulyMesic);
   const [vlastniObdobi, setVlastniObdobi] = useState(false);
   const [od, setOd] = useState(() => rozsahMesice(minulyMesic()).od);
@@ -56,10 +56,6 @@ export default function ExportExcelScreen() {
   const [data, setData] = useState<Nactene | null>(null);
   const [nacitam, setNacitam] = useState(true);
   const [stahuji, setStahuji] = useState(false);
-  // 🚫 Záporné řádky jsou ruční opravy přepočtu (viz Stáčení KEG) a do listů,
-  // které mají ukazovat, co se doopravdy vydalo/stočilo, nepatří. Výchozí
-  // stav je vynechat je; kdo je chce vidět (na dohledání opravy), odškrtne.
-  const [bezMinusu, setBezMinusu] = useState(true);
   // Které listy se do sešitu NEDÁVAJÍ (prázdná množina = všechny). Ať jde
   // stáhnout jen KEG nebo jen Lahve, ne pokaždé celý sešit.
   const [vynechane, setVynechane] = useState<Set<string>>(new Set());
@@ -156,35 +152,34 @@ export default function ExportExcelScreen() {
       return out;
     });
 
-    // Záporné řádky jsou ruční opravy přepočtu (někdo omylem zapsal moc a
-    // "vrátil" to novým záznamem se záporným počtem, místo aby opravil ten
-    // původní přes „Upravit"). Do listu, který má ukazovat, co se doopravdy
-    // vydalo/stočilo, nepatří — je to list výdejů, ne účetní deník oprav.
-    // Databázi se to nedotýká, mění se jen export; přepínač „bez minusů" to
-    // umí vypnout. Platí pro VŠECHNY listy, ne jen pro KEG.
-    const bezZapornych = (r: VydejRadek[]) =>
-      bezMinusu ? r.filter((x) => Number(x.quantity ?? 0) > 0) : r;
-
     const kegRadky: VydejRadek[] = data.kegging.map((r: any) => ({
       entry_date: r.entry_date, beer_name: r.beer_name,
       package_id: r.package_id, quantity: r.quantity, note: r.note,
       tank: r.cellar_tank_id ? (mapaTanku.get(r.cellar_tank_id) ?? '') : '',
     }));
 
-    // 🧮 „Celkem" na konci listu musí manko vidět, i když se jako řádek
-    // schovává — jinak sešit ukazuje, že se vyrobilo víc, než doopravdy bylo
-    // (radkyVcetneOprav níž nese stejná data BEZ ohledu na znaménko, jen pro
-    // dopočet součtu — viz lib/mesicniExport.ts). Z provozu 21. 9. 2026:
-    // „minulej mesic sem ucetni poslal spatny data... ty minusovy polozky...
-    // nejsou realne odecteny ze stacecich dat."
+    // 🧮 Listy stáčení = přesně to, co ukazuje Stáčení v appce: jen stočené
+    // (kladné) řádky a „Celkem" jako obyčejný součet řádků — nic schovaného
+    // a odečteného navíc (30. 10. 2026, viz jenStoceno v lib/mesicniExport.ts).
+    // Výdejové listy berou řádky, jak jsou: záporný řádek je tam vrácení na
+    // sklad („Vráceno na sklad" u prodejny) a „Celkem" ho musí odečíst.
     return [
-      { nazev: 'Odběr personál', varianta: 'odberatel', radky: bezZapornych(data.fasovani), radkyVcetneOprav: data.fasovani },
-      { nazev: 'Fasování prodejna', varianta: 'odberatel', radky: bezZapornych(data.prodejna), radkyVcetneOprav: data.prodejna },
-      { nazev: 'Vzorky promo a PR', varianta: 'odberatel', radky: bezZapornych(data.odpis), radkyVcetneOprav: data.odpis, popisOdberatele: 'Komu proč a zač' },
-      { nazev: 'Stáčení lahve', varianta: 'staceni_lahve', radky: bezZapornych(lahveRadky), radkyVcetneOprav: lahveRadky },
-      { nazev: 'Stáčení KEG', varianta: 'staceni_keg', radky: bezZapornych(kegRadky), radkyVcetneOprav: kegRadky },
+      { nazev: 'Odběr personál', varianta: 'odberatel', radky: data.fasovani },
+      { nazev: 'Fasování prodejna', varianta: 'odberatel', radky: data.prodejna },
+      { nazev: 'Vzorky promo a PR', varianta: 'odberatel', radky: data.odpis, popisOdberatele: 'Komu proč a zač' },
+      { nazev: 'Stáčení lahve', varianta: 'staceni_lahve', radky: jenStoceno(lahveRadky) },
+      { nazev: 'Stáčení KEG', varianta: 'staceni_keg', radky: jenStoceno(kegRadky) },
     ];
-  }, [data, bezMinusu]);
+  }, [data]);
+
+  // Staré záporné řádky (manko z inventury) ve stáčení za vybrané období —
+  // v sešitu nejsou, takže by se „Celkem" se Stáčením v appce rozcházelo.
+  const minusy = useMemo(() => {
+    if (!data) return null;
+    const keg = minusyVeStaceni(data.kegging, od, doKdy);
+    const lahve = minusyVeStaceni(data.bottling, od, doKdy);
+    return keg.radku + lahve.radku > 0 ? { keg, lahve } : null;
+  }, [data, od, doKdy]);
 
   // Jen zaškrtnuté listy — ať jde stáhnout třeba jen KEG.
   const vybraneListy = useMemo(() => listy.filter((l) => !vynechane.has(l.nazev)), [listy, vynechane]);
@@ -364,27 +359,25 @@ export default function ExportExcelScreen() {
           </label>
         </div>
 
-        {/* Přepínač záporných řádků — ruční opravy přepočtu se do exportu
-            ve výchozím stavu nevypisují jako VLASTNÍ řádek (viz komentář
-            u bezZapornych), ale do „Celkem" se počítají VŽDYCKY — i při
-            zaškrtnutém přepínači (viz radkyVcetneOprav v lib/mesicniExport.ts). */}
-        <label className="flex items-start gap-2 text-xs font-bold text-neutral-700 cursor-pointer rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2.5">
-          <input
-            type="checkbox"
-            checked={bezMinusu}
-            onChange={(e) => setBezMinusu(e.target.checked)}
-            className="w-5 h-5 accent-amber-500 mt-0.5 shrink-0"
-          />
-          <span>
-            Schovat záporné řádky (ruční opravy)
-            <span className="block font-medium text-neutral-500 mt-0.5">
-              Minusové položky vznikají opravou přepočtu z inventury. Zaškrtnuté
-              nejsou v sešitu vidět jako vlastní řádek, ale do „Celkem" se
-              vždycky počítají — ten proto sedí se skladem, i schované.
-              Odškrtni, když je chceš vidět i jako řádek (kvůli dohledání).
-            </span>
-          </span>
-        </label>
+        {minusy && (
+          <div role="alert" className="rounded-xl border-2 border-rose-300 bg-rose-50 px-3 py-2.5 text-xs font-bold text-rose-900 space-y-1">
+            <p>
+              Ve stáčení za tohle období leží staré minusové opravy z inventury
+              {minusy.keg.radku > 0 && ` — KEG: ${minusy.keg.radku}× (${minusy.keg.kusu} ks)`}
+              {minusy.lahve.radku > 0 && ` — lahve: ${minusy.lahve.radku}× (${minusy.lahve.kusu} ks)`}.
+            </p>
+            <p className="font-semibold">
+              Do sešitu se nedávají, takže „Celkem" v Excelu je o ně vyšší než „Celkem" ve Stáčení v appce.
+              Než sešit pošleš dál, spusť v Systému → Databázové migrace převod
+              „20261231400000_staceni_bez_minusovych_oprav" — odečte je přímo ze stočených řádků.
+            </p>
+            {setPage && (
+              <button type="button" onClick={() => setPage('audit')} className="btn-ghost !min-h-[44px] !text-rose-900">
+                Otevřít Systém
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Náhled a výběr listů — zaškrtni, co má být v sešitu (třeba jen
             KEG). Prázdný list se stáhnout nedá. */}

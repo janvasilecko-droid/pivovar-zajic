@@ -34,7 +34,7 @@ export default function ExcelTabbed({ initialTab = 'export_excel', setPage }: Ex
       <TabBar items={TABS} activeId={activeTab} onSelect={(id) => selectTab(id as 'export_excel' | 'import_excel')} />
 
       <div className="transition-all duration-200">
-        {activeTab === 'export_excel' && <ExportExcelScreen />}
+        {activeTab === 'export_excel' && <ExportExcelScreen setPage={setPage} />}
         {activeTab === 'import_excel' && <ImportExcelScreen />}
       </div>
     </div>
