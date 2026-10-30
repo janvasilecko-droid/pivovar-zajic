@@ -1,5 +1,7 @@
 // 📦 Karta jedné objednávky v přehledu — část obrazovky Objednávky.
 
+import { rozdelSudyLahve } from '../../lib/sudyLahve';
+import { DvaSloupcePolozek } from '../DvaSloupcePolozek';
 import { poradiPolozekObjednavky } from '../../lib/poradiPolozek';
 import { MaleSudyRadek, tridaRadkuSudu } from '../MaleSudyVolne';
 import { AlertTriangle, Ban, Beer as BeerIcon, Calendar, Check, CheckCircle2, Hourglass, MessageCircle, NotebookPen, Pencil, Phone, RotateCcw, Split, Trash2, Truck, Undo2, Droplet } from 'lucide-react';
@@ -207,7 +209,11 @@ export function OrderCard({ o, items, stockRemainingForOrder, nadPocetMalychSudu
                 Filtr schoval {skrytoFiltrem} {skrytoFiltrem === 1 ? 'položku' : skrytoFiltrem < 5 ? 'položky' : 'položek'}.
               </div>
             )}
-            {viditelnePolozky.map((i) => {
+            {/* Sudy vlevo, lahve vpravo (30. 10. 2026) — na telefonu je hned vidět, co jde do sudů a co do lahví. */}
+            <DvaSloupcePolozek
+              rozdeleni={rozdelSudyLahve(viditelnePolozky, packages)}
+              klic={(i) => i.id}
+              radek={(i) => {
               const beer = i.beer_id ? beers.find((b) => b.id === i.beer_id) : null;
               const isBeerMatch = !!(activeBeerId && i.beer_id === activeBeerId);
               const isPkgMatch = !!(activePackageId && i.package_id === activePackageId);
@@ -221,65 +227,71 @@ export function OrderCard({ o, items, stockRemainingForOrder, nadPocetMalychSudu
               return (
                 <div
                   key={i.id}
-                  className={`flex items-center gap-2 ${sudyPolozky && sudyPolozky.chybi > 0 ? 'flex-wrap' : ''} rounded px-1.5 py-1 min-w-0 ${
+                  className={`rounded px-1 py-1 min-w-0 space-y-1 ${
                     zvyrazneno ? 'bg-violet-100 ring-1 ring-violet-400' : sudyPolozky ? `border ${tridaRadkuSudu(sudyPolozky, '')}` : ''
                   }`}
                 >
-                  <button
-                    type="button"
-                    onClick={() => onToggleItemFlag(o, i, 'is_bottled')}
-                    title={i.is_bottled ? 'Stočeno — klepnutím zrušit' : 'Označit jako stočené'}
-                    aria-label={i.is_bottled ? 'Stočeno' : 'Označit jako stočené'}
-                    aria-pressed={!!i.is_bottled}
-                    className={`w-6 h-6 shrink-0 grid place-items-center rounded border-2 transition ${
-                      i.is_bottled
-                        ? 'bg-amber-500 border-amber-600 text-neutral-950'
-                        : 'bg-white border-neutral-400 text-neutral-600'
-                    }`}
-                  >
-                    <Droplet size={13} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onToggleItemFlag(o, i, 'is_prepared')}
-                    title={i.is_prepared ? 'Připraveno — klepnutím zrušit' : 'Označit jako připravené'}
-                    aria-label={i.is_prepared ? 'Připraveno' : 'Označit jako připravené'}
-                    aria-pressed={!!i.is_prepared}
-                    className={`w-6 h-6 shrink-0 grid place-items-center rounded border-2 transition ${
-                      i.is_prepared
-                        ? 'bg-emerald-700 border-emerald-800 text-white'
-                        : 'bg-white border-neutral-400 text-neutral-600'
-                    }`}
-                  >
-                    <Check size={13} />
-                  </button>
-                  {beer && (
-                    <span
-                      className="w-2.5 h-2.5 rounded-full shrink-0 shadow-2xs border border-black/20 vlastni-vyska"
-                      style={{ backgroundColor: beerBg(beer) }}
-                    />
-                  )}
-                  <span className={`font-black text-xs min-w-0 flex-1 break-words ${i.is_prepared ? 'text-neutral-500 line-through' : 'text-neutral-900'}`}>
-                    {i.beer_name ?? '?'}
-                  </span>
-                  <span className="text-xs font-bold text-neutral-700 shrink-0">
-                    {formatPackageLabel(i.package_label)}
-                  </span>
-                  <span className="text-xs font-black text-amber-900 bg-amber-100 rounded px-1.5 py-0.5 shrink-0 tabular-nums">
-                    {i.quantity} ks
-                  </span>
-                  {vraceno > 0 && (
-                    <span
-                      className="text-udaj font-black text-sky-900 bg-sky-100 border border-sky-300 rounded px-1.5 py-0.5 shrink-0 tabular-nums"
-                      title={`Vráceno ${vraceno} ks zpátky na sklad — u objednávky se teď počítá ${Math.max(0, i.quantity - vraceno)} ks.`}
-                    >
-                      ↩ počítá se {Math.max(0, i.quantity - vraceno)}, {vraceno} vráceno
+                  {/* Úzký sloupec: nahoře pivo a obal, pod tím odškrtávátka a kusy (30. 10. 2026). */}
+                  <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 min-w-0">
+                    {beer && (
+                      <span
+                        className="w-2.5 h-2.5 rounded-full shrink-0 shadow-2xs border border-black/20 vlastni-vyska"
+                        style={{ backgroundColor: beerBg(beer) }}
+                      />
+                    )}
+                    <span className={`font-black text-xs min-w-0 ${i.is_prepared ? 'text-neutral-500 line-through' : 'text-neutral-900'}`}>
+                      {i.beer_name ?? '?'}
                     </span>
-                  )}
-                  <MaleSudyRadek prideleni={sudyPolozky} obal={formatPackageLabel(i.package_label)} />
+                    <span className="text-xs font-bold text-neutral-700 shrink-0">
+                      {formatPackageLabel(i.package_label)}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => onToggleItemFlag(o, i, 'is_bottled')}
+                      title={i.is_bottled ? 'Stočeno — klepnutím zrušit' : 'Označit jako stočené'}
+                      aria-label={i.is_bottled ? 'Stočeno' : 'Označit jako stočené'}
+                      aria-pressed={!!i.is_bottled}
+                      className={`w-6 h-6 shrink-0 grid place-items-center rounded border-2 transition ${
+                        i.is_bottled
+                          ? 'bg-amber-500 border-amber-600 text-neutral-950'
+                          : 'bg-white border-neutral-400 text-neutral-600'
+                      }`}
+                    >
+                      <Droplet size={13} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onToggleItemFlag(o, i, 'is_prepared')}
+                      title={i.is_prepared ? 'Připraveno — klepnutím zrušit' : 'Označit jako připravené'}
+                      aria-label={i.is_prepared ? 'Připraveno' : 'Označit jako připravené'}
+                      aria-pressed={!!i.is_prepared}
+                      className={`w-6 h-6 shrink-0 grid place-items-center rounded border-2 transition ${
+                        i.is_prepared
+                          ? 'bg-emerald-700 border-emerald-800 text-white'
+                          : 'bg-white border-neutral-400 text-neutral-600'
+                      }`}
+                    >
+                      <Check size={13} />
+                    </button>
+                    <span className="ml-auto text-xs font-black text-amber-900 bg-amber-100 rounded px-1.5 py-0.5 shrink-0 tabular-nums">
+                      {i.quantity} ks
+                    </span>
+                    {vraceno > 0 && (
+                      <span
+                        className="text-udaj font-black text-sky-900 bg-sky-100 border border-sky-300 rounded px-1.5 py-0.5 shrink-0 tabular-nums"
+                        title={`Vráceno ${vraceno} ks zpátky na sklad — u objednávky se teď počítá ${Math.max(0, i.quantity - vraceno)} ks.`}
+                      >
+                        ↩ počítá se {Math.max(0, i.quantity - vraceno)}, {vraceno} vráceno
+                      </span>
+                    )}
+                    <MaleSudyRadek prideleni={sudyPolozky} obal={formatPackageLabel(i.package_label)} />
+                  </div>
                 </div>
               );
-            })}
+              }}
+            />
           </div>
         )}
 

@@ -8,7 +8,7 @@ import { OrderTabulka } from './OrderTabulka';
 import type { Order, OrderItem } from './spolecne';
 
 const PIVA = [{ id: 'sv', name: '12° Světlá', sort_order: 1 }, { id: 'tm', name: '12° Tmavá', sort_order: 2 }] as unknown as Beer[];
-const OBALY = [{ id: 'k50', label: 'KEG 50l', kind: 'keg', volume_l: 50 }, { id: 'k30', label: 'KEG 30l', kind: 'keg', volume_l: 30 }] as unknown as Package[];
+const OBALY = [{ id: 'k50', label: 'KEG 50l', kind: 'keg', volume_l: 50 }, { id: 'k30', label: 'KEG 30l', kind: 'keg', volume_l: 30 }, { id: 'l1', label: 'PET 1l', kind: 'bottle', volume_l: 1 }] as unknown as Package[];
 const MISTA = [{ id: 'p1', name: 'Hospoda U Lípy' }] as unknown as Place[];
 
 const objednavka = (id: string, extra: Partial<Order> = {}): Order => ({
@@ -42,16 +42,36 @@ function vykresli(extra: Partial<React.ComponentProps<typeof OrderTabulka>> = {}
 beforeEach(() => { vi.clearAllMocks(); });
 
 describe('OrderTabulka', () => {
-  it('řádek na objednávku: odběratel, položky, kusy; jméno z katalogu, když na objednávce chybí', () => {
+  it('řádek na objednávku: odběratel, pod ním položky; jméno z katalogu, když na objednávce chybí', () => {
     vykresli();
     const radky = screen.getAllByTestId('radek-objednavky');
+    const polozky = screen.getAllByTestId('polozky-objednavky');
     expect(radky).toHaveLength(2);
     expect(radky[0].textContent).toContain('Restaurace');
-    expect(radky[0].textContent).toContain('12° Světlá');
-    expect(radky[0].textContent).toContain('×2');
-    expect(within(radky[0]).getByText('3')).toBeTruthy();
+    expect(polozky[0].textContent).toContain('12° Světlá');
+    expect(polozky[0].textContent).toContain('×2');
     expect(radky[1].textContent).toContain('Hospoda U Lípy');
-    expect(radky[1].textContent).toContain('×4');
+    expect(polozky[1].textContent).toContain('×4');
+  });
+
+  it('položky jsou ve dvou sloupcích: Sudy a Lahve, každý se součtem kusů (30. 10. 2026)', () => {
+    vykresli({
+      objednavky: [O1],
+      items: { o1: [polozka('i1', 'o1', 'sv', 'k50', 2), polozka('i5', 'o1', 'sv', 'l1', 5, { package_label: 'PET 1l' }), polozka('i2', 'o1', 'tm', 'k30', 1)] },
+    });
+    const sudy = screen.getByTestId('sloupec-sudy');
+    const lahve = screen.getByTestId('sloupec-lahve');
+    expect(sudy.textContent).toMatch(/^Sudy3/);
+    expect(sudy.textContent).toContain('×2');
+    expect(sudy.textContent).toContain('12° Tmavá');
+    expect(sudy.textContent).not.toContain('×5');
+    expect(lahve.textContent).toMatch(/^Lahve5/);
+    expect(lahve.textContent).toContain('×5');
+  });
+
+  it('objednávka jen se sudy má ve sloupci Lahve pomlčku', () => {
+    vykresli({ objednavky: [O1] });
+    expect(screen.getByTestId('sloupec-lahve').textContent).toBe('Lahve0—');
   });
 
   it('řádek ukazuje termín, den závozu, stav, připraveno a poznámku (WhatsApp ne)', () => {
@@ -67,8 +87,8 @@ describe('OrderTabulka', () => {
 
   it('připravená položka je přeškrtnutá', () => {
     vykresli();
-    expect(screen.getByText('12° Tmavá').closest('li')!.className).toContain('line-through');
-    expect(screen.getAllByText('12° Světlá')[0].closest('li')!.className).not.toContain('line-through');
+    expect(screen.getByText('12° Tmavá').parentElement!.className).toContain('line-through');
+    expect(screen.getAllByText('12° Světlá')[0].parentElement!.className).not.toContain('line-through');
   });
 
   it('klepnutí na řádek rozbalí původní kartu, další klepnutí ji sbalí', () => {
@@ -121,11 +141,11 @@ describe('OrderTabulka', () => {
 
   it('filtr piva schová ostatní položky a řekne to', () => {
     vykresli({ itemMatchesFilter: (i) => i.beer_id === 'sv' });
-    const prvni = screen.getAllByTestId('radek-objednavky')[0];
+    const prvni = screen.getAllByTestId('polozky-objednavky')[0];
     expect(prvni.textContent).not.toContain('12° Tmavá');
     expect(prvni.textContent).toContain('Filtr schoval 1 položku');
-    // Sloupec Ks ukazuje kusy podle filtru a pod nimi, kolik je v celé objednávce (20. 10. 2026).
-    expect(prvni.textContent).toContain('z 3');
+    // Kolik je v celé objednávce, je vidět i při filtru (20. 10. 2026).
+    expect(prvni.textContent).toContain('celkem v objednávce 3 ks');
   });
 
   it('prázdný seznam i objednávka bez položek', () => {

@@ -20,6 +20,8 @@ import { jeVyrizena } from '../../lib/stavyObjednavek';
 import { Beer, Package, Place, beerBg, formatPackageLabel } from '../../lib/supabase';
 import { StitekStavu } from '../StitekStavu';
 import { DAYS } from '../../lib/shared';
+import { rozdelSudyLahve } from '../../lib/sudyLahve';
+import { DvaSloupcePolozek } from '../DvaSloupcePolozek';
 import { type Order, type OrderItem, dayColor } from './spolecne';
 
 type Props = {
@@ -61,8 +63,6 @@ export function OrderTabulka({
         <thead>
           <tr className="text-udaj font-bold uppercase tracking-wide text-neutral-600 bg-neutral-50">
             <th scope="col" className="text-left px-2 py-1.5 min-w-[9rem]">Odběratel</th>
-            <th scope="col" className="text-left px-2 py-1.5">Položky</th>
-            <th scope="col" className="text-right px-2 py-1.5">Ks</th>
             <th scope="col" className="text-left px-2 py-1.5">Stav</th>
             <th scope="col" className="px-1 py-1.5 w-10"><span className="sr-only">Rozbalit</span></th>
           </tr>
@@ -117,27 +117,6 @@ export function OrderTabulka({
                     </div>
                   </td>
                   <td className="px-2 py-1.5 border-t-2 border-neutral-200">
-                    <ul className="space-y-0.5">
-                      {viditelne.map((i) => {
-                        const beer = i.beer_id ? beers.find((b) => b.id === i.beer_id) : null;
-                        return (
-                          <li key={i.id} className={`flex flex-wrap items-center gap-x-1.5 text-xs ${i.is_prepared ? 'text-neutral-500 line-through' : 'text-neutral-900'}`}>
-                            {beer && <span className="w-2.5 h-2.5 rounded-full shrink-0 border border-black/20 vlastni-vyska" style={{ backgroundColor: beerBg(beer) }} />}
-                            <span className="font-black whitespace-nowrap">{i.beer_name ?? '?'}</span>
-                            <span className="font-bold text-neutral-700 shrink-0 whitespace-nowrap">{formatPackageLabel(i.package_label)}</span>
-                            <span className="ml-auto shrink-0 font-black tabular-nums text-amber-900">×{i.quantity}</span>
-                          </li>
-                        );
-                      })}
-                      {skryto > 0 && <li className="text-udaj font-bold text-neutral-600">Filtr schoval {skryto} {skryto === 1 ? 'položku' : skryto < 5 ? 'položky' : 'položek'}.</li>}
-                      {polozky.length === 0 && <li className="text-xs text-neutral-500">bez položek</li>}
-                    </ul>
-                  </td>
-                  <td className="px-2 py-1.5 border-t-2 border-neutral-200 text-right font-black tabular-nums text-neutral-900">
-                    {itemMatchesFilter ? viditelne.reduce((s, i) => s + Number(i.quantity), 0) : celkem}
-                    {itemMatchesFilter && skryto > 0 && <span className="block text-udaj font-semibold text-neutral-500" title="Celkem v objednávce">z {celkem}</span>}
-                  </td>
-                  <td className="px-2 py-1.5 border-t-2 border-neutral-200">
                     <div className="flex flex-wrap items-center gap-1">
                       {schodky.length > 0 ? (
                         <span data-testid="schodek-objednavky" title={`Ke konci týdne chybí: ${schodekText}`} className="flex items-center gap-1 text-udaj font-black text-rose-950 bg-rose-100 border border-rose-300 rounded px-1.5 py-0.5">
@@ -175,9 +154,45 @@ export function OrderTabulka({
                   </td>
                 </tr>
                 )}
+                {/* Položky pod hlavičkou objednávky ve dvou sloupcích — Sudy | Lahve, nahoře
+                    součet kusů (30. 10. 2026). Na telefonu se tak nic nemačká vedle odběratele. */}
+                {!rozbalena && (
+                <tr
+                  data-testid="polozky-objednavky"
+                  className={`cursor-pointer align-top hover:bg-amber-50/60 ${selectedIds.has(o.id) ? 'bg-primary-50' : ''}`}
+                  onClick={() => prepni(o.id)}
+                >
+                  <td colSpan={3} className="px-2 pb-2 pt-1 border-t border-neutral-100">
+                    {polozky.length === 0 ? (
+                      <div className="text-xs text-neutral-500">bez položek</div>
+                    ) : (
+                      <DvaSloupcePolozek
+                        rozdeleni={rozdelSudyLahve(viditelne, packages)}
+                        klic={(i) => i.id}
+                        radek={(i) => {
+                          const beer = i.beer_id ? beers.find((b) => b.id === i.beer_id) : null;
+                          return (
+                            <div className={`flex flex-wrap items-center gap-x-1.5 text-xs ${i.is_prepared ? 'text-neutral-500 line-through' : 'text-neutral-900'}`}>
+                              {beer && <span className="w-2.5 h-2.5 rounded-full shrink-0 border border-black/20 vlastni-vyska" style={{ backgroundColor: beerBg(beer) }} />}
+                              <span className="font-black min-w-0 break-words">{i.beer_name ?? '?'}</span>
+                              <span className="font-bold text-neutral-600 shrink-0 whitespace-nowrap">{formatPackageLabel(i.package_label)}</span>
+                              <span className="ml-auto shrink-0 font-black tabular-nums text-amber-900">×{i.quantity}</span>
+                            </div>
+                          );
+                        }}
+                      />
+                    )}
+                    {skryto > 0 && (
+                      <div className="mt-1 text-udaj font-bold text-neutral-600">
+                        Filtr schoval {skryto} {skryto === 1 ? 'položku' : skryto < 5 ? 'položky' : 'položek'} · celkem v objednávce {celkem} ks.
+                      </div>
+                    )}
+                  </td>
+                </tr>
+                )}
                 {rozbalena && (
                   <tr data-testid="rozbalena-objednavka">
-                    <td colSpan={5} className="p-2 bg-neutral-50 border-t border-neutral-200">
+                    <td colSpan={3} className="p-2 bg-neutral-50 border-t border-neutral-200">
                       {/* Tabulka bývá širší než displej a posouvá se do strany. Karta by se roztáhla
                           na šířku tabulky a ikony (úprava, WhatsApp, rozdělit, smazat) by zůstaly
                           za pravým okrajem — proto se drží na místě a má nejvýš šířku displeje. */}
