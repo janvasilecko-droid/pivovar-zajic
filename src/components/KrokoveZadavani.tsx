@@ -19,6 +19,7 @@ import { Check, Plus, X } from 'lucide-react';
 import { Beer, beerBg, beerName, beerText } from '../lib/supabase';
 import { kusy } from '../lib/krokoveZadavani';
 import type { DnesPolozka } from '../lib/dnesUlozeno';
+import { useViditelnaOblast } from '../lib/useViditelnaOblast';
 
 export type KrokVolba = {
   id: string;
@@ -233,11 +234,18 @@ export function KrokoveZadavani({ beer, podtitul, kroky, onZavrit, onHotovo, dne
   const textTrida = beerText(beer);
   const dnesPolozky = dnes ?? [];
   // Den, na který se zapisuje: dnešek (středa 29. 10.), nebo zpětně zvolené datum.
+  const nadKlavesnici = useViditelnaOblast();
   const denText = new Date(den === 'dnes' ? Date.now() : `${den}T12:00:00`)
     .toLocaleDateString('cs-CZ', { weekday: 'long', day: 'numeric', month: 'numeric', timeZone: 'Europe/Prague' });
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 flex items-stretch sm:items-center justify-center sm:p-4" onClick={zavrit}>
+    <div
+      className="fixed inset-0 z-50 bg-black/60 flex items-stretch sm:items-center justify-center sm:p-4"
+      // S klávesnicí je okno jen tak vysoké jako viditelná část obrazovky — lišta
+      // s „Další“ a „Hotovo“ pak sedí hned nad klávesnicí (30. 10. 2026).
+      style={nadKlavesnici ? { top: nadKlavesnici.odshora, height: nadKlavesnici.vyska, bottom: 'auto' } : undefined}
+      onClick={zavrit}
+    >
       <div
         role="dialog"
         aria-modal="true"

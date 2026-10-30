@@ -182,4 +182,19 @@ describe('KrokoveZadavani', () => {
     napis('1a2-');
     expect(pole().value).toBe('12');
   });
+
+  it('s vysunutou klávesnicí je okno vysoké jen jako viditelná část a „Dál“ sedí nad klávesnicí (30. 10. 2026)', () => {
+    const vv = Object.assign(new EventTarget(), { height: 400, offsetTop: 0 });
+    const puvodni = window.visualViewport;
+    Object.defineProperty(window, 'visualViewport', { configurable: true, value: vv });
+    try {
+      render(<Lahve onZavrit={() => {}} />);
+      const prekryv = screen.getByRole('dialog').parentElement as HTMLElement;
+      expect(prekryv.style.height).toBe('400px');
+      expect(prekryv.style.bottom).toBe('auto');
+      expect(prekryv.contains(screen.getByRole('button', { name: /Dál/ }))).toBe(true);
+    } finally {
+      Object.defineProperty(window, 'visualViewport', { configurable: true, value: puvodni });
+    }
+  });
 });
