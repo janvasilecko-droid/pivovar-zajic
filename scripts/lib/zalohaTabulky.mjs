@@ -53,6 +53,9 @@ export const TABULKY = [
   ['obchod_zbozi', 'kod'], ['obchod_prijem', 'id'], ['obchod_uzaverky', 'id'],
   ['obchod_uzaverky_radky', 'id'], ['obchod_inventura', 'id'],
   ['obchod_odpis', 'id'], ['obchod_zavreno', 'datum'],
+  // Pivovarská bible: jen katalog knihovny (názvy, soubory, stav zpracování).
+  // Obsah knih (strany, pasáže) se nezálohuje — vznikne znovu z originálů.
+  ['bible_dokumenty', 'id'],
 ];
 
 export const NEZALOHOVAT = [
@@ -67,6 +70,7 @@ export const ODLOZENE_SLOUPCE = {
   orders: ['whatsapp_message_id'],
   whatsapp_incoming: ['imported_order_id', 'amends_order_id', 'amends_message_id'],
   cellar_batches: ['kvasnice_z_varky'],
+  bible_dokumenty: ['duplikat_z'],
 };
 
 /** Kontroly návaznosti pro zkoušku obnovy: [tabulka, sloupec, cílová tabulka]. */

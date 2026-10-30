@@ -20,7 +20,8 @@ export type ModuleKey =
   | 'reminders'
   | 'akce'
   | 'pricelist'
-  | 'app_settings';
+  | 'app_settings'
+  | 'bible';
 
 export type ModuleAccess = {
   view: boolean;
@@ -69,6 +70,10 @@ export const MODULE_DEFINITIONS: { id: ModuleKey; label: string; icon: LucideIco
   { id: 'akce', label: 'Akce & Výjezdní prodej', icon: PartyPopper, desc: 'Plánování výjezdních akcí, rozvoz piva a naskladnění neprodaných kusů.' },
   { id: 'pricelist', label: 'Ceník pivovaru', icon: Tag, desc: 'Ceník piva pro odběratele, velkoobchodní i maloobchodní ceny.' },
   { id: 'app_settings', label: 'Aplikace & Nastavení', icon: Settings, desc: 'Instalace aplikace, přizpůsobení menu a nastavení vzhledu.' },
+  // Pivovarská bible (30. 10. 2026) — odborná knihovna a AI sládek. Soukromé
+  // knihy: bez výslovného povolení ji uživatel nevidí (viz VYCHOZI_ULOZENA níž
+  // a lib/bibleOpravneni.ts). Vidět = číst knihovnu, upravovat = nahrávat.
+  { id: 'bible', label: 'Pivovarská bible (odborná knihovna)', icon: BookOpen, desc: 'Odborná knihovna pivovarské literatury a AI sládek s citacemi. Upravovat = nahrávat knihy.' },
 ];
 
 export const DEFAULT_FULL_PERMISSIONS: UserPermissions = {
@@ -90,7 +95,17 @@ export const DEFAULT_FULL_PERMISSIONS: UserPermissions = {
   akce: { view: true, edit: true },
   pricelist: { view: true, edit: true },
   app_settings: { view: true, edit: true },
+  bible: { view: true, edit: true },
 };
+
+/**
+ * Výchozí práva pro uživatele, u kterého modul v uložených právech CHYBÍ.
+ * Ostatní moduly se berou jako povolené (zpětná kompatibilita), Pivovarská
+ * bible ne — jsou v ní soukromé knihy chráněné autorským právem (zadání
+ * 30. 10. 2026). Stejně to vyhodnocuje databáze (bible_pristup()), takže
+ * dlaždici neuvidí nikdo, komu by data stejně nepřišla.
+ */
+const VYCHOZI_ULOZENA: UserPermissions = { ...DEFAULT_FULL_PERMISSIONS, bible: { view: false, edit: false } };
 
 // Rychlé předvolby rolí
 export const PRESET_ROLES: { name: string; permissions: UserPermissions }[] = [
@@ -127,6 +142,7 @@ export const PRESET_ROLES: { name: string; permissions: UserPermissions }[] = [
       akce: { view: false, edit: false },
       pricelist: { view: true, edit: false },
       app_settings: { view: false, edit: false },
+      bible: { view: false, edit: false },
     },
   },
   {
@@ -150,6 +166,7 @@ export const PRESET_ROLES: { name: string; permissions: UserPermissions }[] = [
       akce: { view: true, edit: true },
       pricelist: { view: true, edit: true },
       app_settings: { view: false, edit: false },
+      bible: { view: false, edit: false },
     },
   },
   {
@@ -179,6 +196,7 @@ export const PRESET_ROLES: { name: string; permissions: UserPermissions }[] = [
       akce: { view: true, edit: false },
       pricelist: { view: false, edit: false },
       app_settings: { view: false, edit: false },
+      bible: { view: false, edit: false },
     },
   },
   {
@@ -202,6 +220,7 @@ export const PRESET_ROLES: { name: string; permissions: UserPermissions }[] = [
       akce: { view: false, edit: false },
       pricelist: { view: false, edit: false },
       app_settings: { view: false, edit: false },
+      bible: { view: false, edit: false },
     },
   },
 ];
@@ -275,6 +294,7 @@ export const PAGE_TO_MODULE: Record<string, ModuleKey> = {
   sklo_promo: 'sklo_promo',
   vycepy: 'vycepy',
   app_settings: 'app_settings',
+  bible: 'bible',
   exkurze: 'exkurze',
   akce: 'akce',
   calendar: 'reminders',
@@ -287,14 +307,14 @@ export function getUserPermissions(userId: string, rawPermissionsJson?: any): Us
   const localKey = `user_permissions_${userId}`;
   try {
     if (rawPermissionsJson && typeof rawPermissionsJson === 'object') {
-      return { ...DEFAULT_FULL_PERMISSIONS, ...rawPermissionsJson };
+      return { ...VYCHOZI_ULOZENA, ...rawPermissionsJson };
     }
     const saved = localStorage.getItem(localKey);
-    if (saved) return { ...DEFAULT_FULL_PERMISSIONS, ...JSON.parse(saved) };
+    if (saved) return { ...VYCHOZI_ULOZENA, ...JSON.parse(saved) };
   } catch {
     // fallback to full permissions
   }
-  return DEFAULT_FULL_PERMISSIONS;
+  return VYCHOZI_ULOZENA;
 }
 
 export function saveUserPermissions(userId: string, permissions: UserPermissions) {

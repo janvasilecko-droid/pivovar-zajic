@@ -45,6 +45,7 @@ const MarketingTabbed = lazyStranka(() => import('./screens/MarketingTabbed'));
 const OrdersTabbed = lazyStranka(() => import('./screens/OrdersTabbed'));
 const TimersScreen = lazyStranka(() => import('./screens/TimersScreen'));
 const AuditScreen = lazyStranka(() => import('./screens/AuditScreen'));
+const BibleScreen = lazyStranka(() => import('./screens/BibleScreen'));
 import { KegTimerNotificationManager } from './components/KegTimerNotificationManager';
 import { TimerDoneAlertModal } from './components/TimerDoneAlertModal';
 import { ReminderNotificationManager } from './components/ReminderNotificationManager';
@@ -392,6 +393,7 @@ export default function App() {
       )}
       {page === 'users' && <Users setPage={setPage} initialSubTab={pageSubTab} />}
       {page === 'zaloha' && <ZalohaScreen />}
+      {page === 'bible' && <BibleScreen setPage={setPage} pageSubTab={pageSubTab} />}
       {(page === 'stopwatch' || page === 'timer' || page === 'keg_timer') && (
         <TimersScreen
           initialTab={page === 'timer' ? 'timer' : page === 'keg_timer' ? 'keg' : 'stopwatch'}

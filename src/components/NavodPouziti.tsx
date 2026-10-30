@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AlarmClock, BarChart3, Car, ChevronDown, ClipboardList, FileSpreadsheet, FlaskConical, Fuel, CircleCheck, Download as DownloadIkona, EllipsisVertical, Hand, Home, Hourglass, KeyRound, LayoutGrid, Info, Lock, Mail, type LucideIcon, Pencil, Plus, Rocket, Search, Settings, Share, SquarePlus, Shield, ShoppingBag, Sparkles, Store, Tag, Users, Zap } from 'lucide-react';
+import { AlarmClock, BarChart3, BookOpen, Car, ChevronDown, ClipboardList, FileSpreadsheet, FlaskConical, Fuel, CircleCheck, Download as DownloadIkona, EllipsisVertical, Hand, Home, Hourglass, KeyRound, LayoutGrid, Info, Lock, Mail, type LucideIcon, Pencil, Plus, Rocket, Search, Settings, Share, SquarePlus, Shield, ShoppingBag, Sparkles, Store, Tag, Users, Zap } from 'lucide-react';
 import { IkonaSud, IkonaLahev } from './ikony';
 import { APP_VERSION, APP_VERSION_DATE } from '../lib/version';
 
@@ -520,6 +520,30 @@ const ODDILY: Oddil[] = [
       {
         co: 'Kalkulačky',
         jak: 'Dlaždice Kalkulačky (Nástroje): kolik sudů vyjde z množství v tanku, ředění sanitační chemie a převod jednotek.',
+      },
+    ],
+  },
+  {
+    klic: 'bible',
+    nazev: 'Pivovarská bible',
+    ikona: BookOpen,
+    kCemu: 'Odborná knihovna pivovarské literatury a AI sládek, který odpovídá jen z nahraných a zpracovaných knih — s citací knihy, kapitoly a strany.',
+    body: [
+      {
+        co: 'Kdo ji vidí',
+        jak: 'Knihy jsou soukromé, proto je dlaždice jen pro admina, šéfa, sládka a manažera. Ostatním ji admin povolí v Uživatelé → Práva → „Pivovarská bible“: vidět = číst, upravovat = i nahrávat knihy.',
+      },
+      {
+        co: 'Nahrát knihy',
+        jak: 'Pivovarská bible → Knihovna dokumentů → „Nahrát knihy“. Vyber jeden nebo víc souborů (klidně celou složku) — PDF, EPUB, DjVu, DOCX, XLSX, CSV, TXT, MD nebo fotky stran. U každého zkontroluj navržený název, potvrď, že dokumenty smíte interně používat, a klepni na „Nahrát“ nahoře. Stejný soubor se podruhé nenahraje.',
+      },
+      {
+        co: 'Stav zpracování',
+        jak: 'U každé knihy je vidět, jestli čeká, zpracovává se, je hotová, nebo má chybu, a kolik má stran, kapitol a pasáží. Dokud kniha není zpracovaná, AI z ní neodpovídá. Popis (autor, rok, vydání, oblasti A–T) jde doplnit tlačítkem „Upravit popis“.',
+      },
+      {
+        co: 'Správa znalostí',
+        jak: 'Dlaždice Správa znalostí ukazuje tematické oblasti A–T s počtem dokumentů, kdo má přístup a kolik místa zabírá databáze a úložiště. Ostatní dlaždice (chatbot, výpočty, technologie, várky) řeknou, ve které etapě přijdou.',
       },
     ],
   },

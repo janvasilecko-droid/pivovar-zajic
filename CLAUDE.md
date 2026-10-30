@@ -27,3 +27,10 @@
 - Supabase má pg_safeupdate: každý UPDATE/DELETE v migraci musí mít WHERE.
 - Přístup Claude do databáze: proměnné prostředí `VITE_SUPABASE_URL`
   a `SUPABASE_SERVICE_ROLE_KEY` v nastavení prostředí (projeví se v nové relaci).
+
+## Pivovarská bible (odborná knihovna + AI sládek)
+- AI je **Claude (Anthropic API), ne Gemini** — rozhodnutí majitele 30. 10. 2026
+  („chci aby to bylo napojené na Claude", „ne gemini"). Klíč ANTHROPIC_API_KEY
+  je v app_secrets. Návrh, etapy a rozhodnutí: docs/pivovarska-bible/.
+- Přístup je fail-closed (`bible_pristup()` v DB, `lib/bibleOpravneni.ts`).
+- Repo je veřejné: obsah knih nesmí do gitu, migrací, logů ani artefaktů Actions.
