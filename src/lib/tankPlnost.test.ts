@@ -53,3 +53,10 @@ describe('kapacitaTanku — procenta vždy z nominálu nádoby (6. 10. 2026)', (
     expect(plnostTanku(3000, kapacitaTanku('Tank 1')).procent).toBe(40);
   });
 });
+
+describe('procenta z výstavu (30. 10. 2026: „100 % je 3 700")', () => {
+  it('tank 2: 2 855 l z výstavu 3 700 l je 77 %, ne 38 % z 7 500 l', () => {
+    expect(plnostTanku(2855, 3700).procent).toBe(77);
+    expect(plnostTanku(2855, kapacitaTanku('Tank 2')).procent).toBe(38);
+  });
+});
