@@ -46,7 +46,7 @@ import { vyhodnotGesto, rychlostPosunu, jeVeVodorovnemPasku, stavPodrzeni } from
 import { maSeZobrazit, oznacZobrazenou } from '../lib/napovedy';
 import { queueLength, onQueueChange, syncQueue, isOnline } from '../lib/offline';
 import { kusy } from '../lib/cisla';
-import { nakladkyPoDnech, vychoziNakladka, BEZ_DATA, type NalozitNaZavoz } from '../lib/nalozitNaZavoz';
+import { nakladkyPoDnech, vychoziNakladka, zacatekTydneBezData, BEZ_DATA, type NalozitNaZavoz } from '../lib/nalozitNaZavoz';
 import { dnuOdZalohy, isWeeklyBackupDue } from '../lib/backup';
 import { souhrnDne, type SouhrnDne } from '../lib/souhrnDne';
 import { buildMovements } from '../lib/stockLedger';
@@ -1205,11 +1205,11 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
     void (async () => {
       const dnes = businessDateISO();
       const sloupce = 'delivery_date, status, place_name, is_delivered, order_items(beer_name, package_label, quantity)';
-      // Dnes až týden dopředu + nezavezené bez data závozu z posledního
-      // týdne („Neuvedeno", 6. 10. 2026).
+      // Dnes až týden dopředu + nezavezené bez data závozu z TOHOTO týdne
+      // („Neuvedeno", 6. 10. 2026; od pondělí, ne 7 dní zpět — 30. 10. 2026).
       const [{ data: sDatem }, { data: bezData }] = await Promise.all([
         fetchAllRows<any>('orders', sloupce).gte('delivery_date', dnes).lte('delivery_date', posunDen(dnes, 7)).neq('status', 'storno'),
-        fetchAllRows<any>('orders', sloupce).is('delivery_date', null).gte('order_date', posunDen(dnes, -7)).eq('is_delivered', false).neq('status', 'storno'),
+        fetchAllRows<any>('orders', sloupce).is('delivery_date', null).gte('order_date', zacatekTydneBezData(dnes)).eq('is_delivered', false).neq('status', 'storno'),
       ]);
       setNakladky(nakladkyPoDnech([...((sDatem as any[]) ?? []), ...((bezData as any[]) ?? [])], dnes));
     })();

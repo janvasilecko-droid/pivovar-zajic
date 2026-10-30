@@ -122,3 +122,16 @@ export function tabulkaNakladky(polozky: NalozitNaZavoz['polozky']) {
   const soucty = new Map(serazeneSloupce.map((s) => [s.obal, serazeneRadky.reduce((n, r) => n + (r.kusy.get(s.obal) ?? 0), 0)]));
   return { sloupce: serazeneSloupce, radky: serazeneRadky, soucty };
 }
+
+/**
+ * Od kterého dne se do nakládky berou objednávky BEZ data závozu: pondělí
+ * tohoto týdne. Z provozu 30. 10. 2026: „minulý týden se v nakládce nezobrazoval,
+ * systém to nemusí potvrzovat ručně, prostě další týden nová data." Dřív to bylo
+ * posledních 7 dní, takže v pátek vylezla nezaškrtnutá objednávka z minulého pátku.
+ */
+export function zacatekTydneBezData(dnesISO: string): string {
+  const d = new Date(`${dnesISO}T12:00:00Z`);
+  const posun = (d.getUTCDay() + 6) % 7; // po = 0 … ne = 6
+  d.setUTCDate(d.getUTCDate() - posun);
+  return d.toISOString().slice(0, 10);
+}

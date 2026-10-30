@@ -85,3 +85,12 @@ describe('nakladkyPoDnech', () => {
     expect(vychoziNakladka([], '2026-10-06')).toBeNull();
   });
 });
+
+describe('zacatekTydneBezData (30. 10. 2026: minulý týden do nakládky nepatří)', () => {
+  it('vrátí pondělí tohoto týdne', async () => {
+    const { zacatekTydneBezData } = await import('./nalozitNaZavoz');
+    expect(zacatekTydneBezData('2026-10-30')).toBe('2026-10-26'); // pátek → pondělí
+    expect(zacatekTydneBezData('2026-10-26')).toBe('2026-10-26'); // pondělí
+    expect(zacatekTydneBezData('2026-11-01')).toBe('2026-10-26'); // neděle
+  });
+});
