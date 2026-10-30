@@ -5,8 +5,8 @@ import { PrehledTankuPlocha } from './PrehledTankuPlocha';
 
 describe('PrehledTankuPlocha', () => {
   const tanky = [
-    { id: 't1', label: 'Tank 1', pivo: '12° Světlá', barva: '#f4c430', litry: 3750, kapacita: 7500, prazdny: false },
-    { id: 't2', label: 'C7', pivo: '', barva: null, litry: 0, kapacita: 7500, prazdny: true },
+    { id: 't1', label: 'Tank 1', pivo: '12° Světlá', barva: '#f4c430', litry: 3750, vystav: 7500, prazdny: false },
+    { id: 't2', label: 'C7', pivo: '', barva: null, litry: 0, vystav: 7500, prazdny: true },
   ];
 
   it('ukáže číslo tanku, hl a pivo; klepnutí na C7 předá jeho id', () => {
@@ -18,6 +18,15 @@ describe('PrehledTankuPlocha', () => {
     expect(screen.getByText('prázdný')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Otevřít detail tanku C7' }));
     expect(onOtevrit).toHaveBeenCalledWith('t2');
+  });
+
+  it('pruh ukazuje, kolik zbývá z výstavu (100 % = počáteční objem), ne z celého tanku', () => {
+    const { container } = render(<PrehledTankuPlocha
+      tanky={[{ id: 't2', label: 'Tank 2', pivo: '12 Hazy Bunny', barva: null, litry: 2855, vystav: 3700, prazdny: false }]}
+      onOtevrit={() => {}}
+    />);
+    const pruh = container.querySelector('.h-2 > div') as HTMLElement;
+    expect(pruh.style.width).toBe('77%');
   });
 
   it('bez tanků nic nevykreslí', () => {

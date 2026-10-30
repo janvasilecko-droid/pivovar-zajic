@@ -53,10 +53,14 @@ export function popisPlnosti(p: Plnost): string {
 }
 
 /**
- * Z kolika litrů se počítají PROCENTA náplně tanku — vždy z nominálu nádoby:
- * ležácký tank 7 500 l, spilka 8 000 l. Ne z výstavu ani z kapacity zapsané
- * u tanku (6. 10. 2026: „u tanků jsem to zadal, počítej vždy procenta
- * v tanku z 7500 l"). Tank s 3 000 l je tak 40 %, ne „plný".
+ * Nominál nádoby: ležácký tank 7 500 l, spilka 8 000 l — bez ohledu na
+ * kapacitu zapsanou u tanku (6. 10. 2026: „u tanků jsem to zadal…").
+ *
+ * PROCENTA náplně se od 30. 10. 2026 počítají z VÝSTAVU (počáteční objem
+ * várky = 100 %): „nepočítej procenta z celýho tanku, ale 100 % je 3 700,
+ * jen zobraz, kolik objemu na obrázku je 3 700 z plného tanku." Nominál
+ * zůstává pro obrázek tanku (skutečná výška hladiny) a jako náhrada, když
+ * výstav zapsaný není.
  */
 export const KAPACITA_LEZACKY_L = 7500;
 export const KAPACITA_SPILKA_L = 8000;

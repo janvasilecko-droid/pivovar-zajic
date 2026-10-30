@@ -4,7 +4,8 @@
 // normálně bílé pozadí, ten ukazatel naplněnosti udělej horizontálně."
 //
 // U každého tanku: číslo, hl, pivo (v barvě z nastavení piv, ať je rozdíl
-// mezi pivy vidět na první pohled) a vodorovný pruh plnosti v barvě piva.
+// mezi pivy vidět na první pohled) a vodorovný pruh plnosti v barvě piva —
+// kolik zbývá z výstavu várky (výstav = 100 %).
 // Klepnutí na jeden tank otevře Sklep rovnou na detailu toho tanku.
 import { beerBg, beerText } from '../lib/supabase';
 
@@ -14,7 +15,8 @@ export type TankNaPlose = {
   pivo: string;
   barva: string | null;
   litry: number;
-  kapacita: number;
+  /** Výstav várky v litrech = 100 % pruhu (30. 10. 2026: procenta z výstavu, ne z celého tanku). */
+  vystav: number;
   prazdny: boolean;
 };
 
@@ -26,7 +28,7 @@ export function PrehledTankuPlocha({ tanky, onOtevrit }: { tanky: TankNaPlose[];
     <section className="bg-white rounded border border-neutral-200/90 shadow-xs overflow-hidden">
       <div className="grid grid-cols-4 gap-x-2 gap-y-2 p-2.5 select-none">
         {tanky.map((t) => {
-          const pct = t.prazdny ? 0 : Math.min(100, Math.max(2, Math.round((t.litry / t.kapacita) * 100)));
+          const pct = t.prazdny || !(t.vystav > 0) ? 0 : Math.min(100, Math.max(2, Math.round((t.litry / t.vystav) * 100)));
           const pivo = { beer_color: t.barva };
           const pismoPiva = beerText(pivo);
           // Pivo bez nastavené barvy by mělo pruh šedý na šedém — dostane jantarovou.

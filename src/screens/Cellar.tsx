@@ -19,7 +19,7 @@ import { usePlanStaceni } from '../lib/usePlanStaceni';
 import StaraDataPruh from '../components/StaraDataPruh';
 import { mergeWeekPlan } from '../lib/keggingPlan';
 import { vNovemSklepu } from '../lib/sklepOd';
-import { kapacitaTanku } from '../lib/tankPlnost';
+import { kapacitaTanku, plnostTanku } from '../lib/tankPlnost';
 import { cekaNaTank } from '../lib/tankUZapisu';
 import { cilSklepa, type ZalozkaSklepaId } from '../lib/cilTanku';
 
@@ -667,12 +667,16 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                 : Math.max(initialVol, 0);
               // Tank bez piva (prázdný nebo ve fázi sanitace) — pruh plnosti se nekreslí
               const isEmpty = t.status === 'empty' || t.status === 'sanitizing' || t.status === 'rinsing' || t.status === 'cleaning';
-              // Náplň v % vždy z nominálu tanku (7 500 l, spilka 8 000 l) — ne
-              // z výstavu: tank s 3 000 l se tvářil jako 100 % (6. 10. 2026:
-              // „počítej vždy procenta v tanku z 7500 l"). „% vystočeno" níž
-              // se dál počítá z výstavu — to je podíl várky, ne náplň tanku.
-              const kapacitaPct = kapacitaTanku(t.label);
-              const naplnPct = isEmpty ? 0 : Math.round(Math.min(1, Math.max(0, remaining / kapacitaPct)) * 100);
+              // Procenta náplně z VÝSTAVU (počáteční objem várky = 100 %), ne
+              // z celého tanku. 30. 10. 2026: „když tam bude mít jen 3 700 l…
+              // nepočítej procenta z celýho tanku, ale 100 % je 3 700, jen
+              // zobraz, kolik objemu na obrázku je 3 700 z plného tanku."
+              // (Mění zadání z 6. 10. „počítej vždy procenta z 7 500 l".)
+              // Obrázek tanku dál kreslí skutečnou výšku hladiny v nádobě
+              // (7 500 l, spilka 8 000 l) a čárou ukáže, kde je výstav.
+              const kapacitaNadoby = kapacitaTanku(t.label);
+              const naplnPct = isEmpty ? 0 : plnostTanku(remaining, initialVol).procent;
+              const vystavPctNadoby = Math.round(Math.min(1, Math.max(0, initialVol / kapacitaNadoby)) * 100);
               const sizeKeys = Object.keys(s.bySize).map(Number).sort((a, b) => b - a);
               const isLow = t.status === 'active' && remaining > 0 && remaining < LOW_VOLUME_THRESHOLD;
               // Starší tanky mají u piva jen jméno bez ID — dohledá se podle jména.
@@ -778,7 +782,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                       v hlavě. Kreslí se jen u tanku, ve kterém něco je: u
                       prázdného nebo sanitovaného by prázdný pruh nic neřekl. */}
                   {!isEmpty && t.capacity_l > 0 && (
-                    <UkazatelPlnosti zbyvaLitru={remaining} kapacitaLitru={Number(t.capacity_l)} />
+                    <UkazatelPlnosti zbyvaLitru={remaining} kapacitaLitru={initialVol > 0 ? initialVol : Number(t.capacity_l)} />
                   )}
 
                   {t.started_at && (
@@ -833,7 +837,8 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                         
                         {/* Beer Liquid Level Clip Area (Pokud zbývá 0 l nebo je tank prázdný, zůstane vnitřek průhledný / bílo-šedý) */}
                         {remaining > 0 && !isEmpty && (() => {
-                          const liquidPct = Math.min(1, Math.max(0, remaining / kapacitaPct));
+                          // Výška hladiny = skutečný objem v nádobě, ne procenta z výstavu.
+                          const liquidPct = Math.min(1, Math.max(0, remaining / kapacitaNadoby));
                           const fillH = liquidPct * 65;
                           const fillY = 80 - fillH;
                           // Barva piva podle typu — tmavé = hnědá, světlé = jantarová
@@ -863,6 +868,20 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                             </g>
                           );
                         })()}
+
+                        {/* Čára výstavu — kam sahala várka na začátku (= 100 %). */}
+                        {!isEmpty && initialVol > 0 && (
+                          <line
+                            data-testid="cara-vystavu"
+                            x1="10"
+                            y1={80 - Math.min(1, initialVol / kapacitaNadoby) * 65}
+                            x2="50"
+                            y2={80 - Math.min(1, initialVol / kapacitaNadoby) * 65}
+                            stroke="#e2e8f0"
+                            strokeWidth="1.5"
+                            strokeDasharray="3 2"
+                          />
+                        )}
 
                         <clipPath id={`tank-clip-${t.id}`}>
                           <path d="M 12 20 C 12 8, 48 8, 48 20 L 48 78 L 30 92 L 12 78 Z" />
@@ -895,7 +914,10 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                         />
                       </div>
                       <div className="flex items-center justify-between text-udaj text-neutral-300 font-medium pt-0.5">
-                        <span>Výstav {t.current_beer_name ? `${(initialVol / 100).toFixed(1)} hl` : `z ${t.capacity_l.toLocaleString('cs-CZ')} l`}</span>
+                        <span>Výstav {t.current_beer_name ? `${(initialVol / 100).toFixed(1)} hl = 100 %` : `z ${t.capacity_l.toLocaleString('cs-CZ')} l`}</span>
+                        {t.current_beer_name && initialVol > 0 && (
+                          <span className="text-neutral-400">{`${vystavPctNadoby} % tanku (${(kapacitaNadoby / 100).toFixed(0)} hl)`}</span>
+                        )}
                       </div>
                     </div>
                   </div>

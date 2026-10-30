@@ -1096,7 +1096,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   // Sklepa a hned zpátky.
   // Od 28. 9. 2026 VŠECHNY tanky, i prázdné („dlaždici sklep udělej tak, aby
   // šly vidět všechny tanky") — Spilka nejdřív, pak Tanky podle čísla.
-  const [tankyNaPlochu, setTankyNaPlochu] = useState<{ id: string; label: string; pivo: string; barva: string | null; litry: number; kapacita: number; staci: boolean; prazdny: boolean }[]>([]);
+  const [tankyNaPlochu, setTankyNaPlochu] = useState<{ id: string; label: string; pivo: string; barva: string | null; litry: number; vystav: number; staci: boolean; prazdny: boolean }[]>([]);
   // Barvy piv z nastavení piv — přehledové dlaždice podle nich barví jednotlivá
   // piva, ať je na první pohled vidět rozdíl (28. 9. 2026). Klíč je id i jméno
   // (malými písmeny), protože řádky objednávek nesou jméno piva.
@@ -1105,7 +1105,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
     if (!visibleIds.includes('cellar')) return;
     void (async () => {
       const [{ data: tanky }, { data: piva }] = await Promise.all([
-        supabase.from('cellar_tanks').select('id,label,current_beer_id,current_volume_l,capacity_l,status,kegging_active'),
+        supabase.from('cellar_tanks').select('id,label,current_beer_id,current_volume_l,initial_volume_l,capacity_l,status,kegging_active'),
         supabase.from('beers').select('id,name,beer_color'),
       ]);
       const jmenoPiva = new Map(((piva as any[]) ?? []).map((b) => [b.id, b.name as string]));
@@ -1129,8 +1129,10 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
             pivo: jmenoPiva.get(t.current_beer_id) ?? '',
             barva: barvy.get(t.current_beer_id) ?? null,
             litry,
-            // Procenta vždy z 7 500 l (spilka 8 000), ne ze zapsané kapacity (6. 10. 2026).
-            kapacita: kapacitaTanku(String(t.label ?? '')),
+            // Pruh = kolik zbývá z VÝSTAVU (počáteční objem = 100 %), ne
+            // z celého tanku (30. 10. 2026, viz Cellar.tsx). Bez zapsaného
+            // výstavu z nominálu nádoby (7 500 l, spilka 8 000 l).
+            vystav: Number(t.initial_volume_l) > 0 ? Number(t.initial_volume_l) : kapacitaTanku(String(t.label ?? '')),
             // Tank, ze kterého se právě stáčí — označí se.
             staci: !!t.kegging_active,
             prazdny: t.status === 'empty' || litry <= 0,
