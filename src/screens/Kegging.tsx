@@ -61,6 +61,7 @@ import { vychoziZdrojovySud } from '../lib/zdrojovySud';
 import VyberObalu from '../components/VyberObalu';
 import { nactiSdilenouTabulku } from '../lib/sdilenaData';
 import { UpravyStaceniZInventury } from '../components/UpravyStaceniZInventury';
+import { PruhUlozeni } from '../components/PruhUlozeni';
 
 // Stahuje se až při otevření — viz komentář u lazy() v Orders.tsx.
 const ImportKeggingFromImage = lazy(() => import('../components/ImportKeggingFromImage').then((m) => ({ default: m.ImportKeggingFromImage })));
@@ -1728,6 +1729,27 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
       {/* Zápis stáčení — multi-row (12 řádků pivo+obal+množství najednou) */}
       {tab === 'zapis' && mode !== 'overviews_only' && isStartChecklistCompleteForKeg(businessDateISO()) && (
         <form onSubmit={add} className={`card px-1 py-3 mb-5 transition-all duration-200 ${flash ? 'ring-4 ring-emerald-500/20' : ''}`}>
+          {/* 💾 Uložit nahoře (30. 10. 2026: „musí být všude nahoře") — pruh se
+              při rolování přilepí pod hlavičku, viz components/PruhUlozeni.tsx. */}
+          {(() => {
+            const zapsano = entryRows.filter((r) => r.beerId && r.pkgId && Number(r.qty) > 0).reduce((s, r) => s + Number(r.qty), 0);
+            return (
+              <PruhUlozeni souhrn={zapsano > 0 ? `Zatím zapsáno ${zapsano} ks` : null} chyba={err}>
+                <button
+                  type="submit"
+                  disabled={saving || !isStartChecklistCompleteForKeg(businessDateISO())}
+                  className="btn-primary !rounded !from-emerald-600 !to-emerald-700 hover:!from-emerald-500 hover:!to-emerald-600 !shadow-emerald-600/30 text-xs font-black shadow-md disabled:opacity-40 min-h-[44px]"
+                >
+                  {saving ? 'Ukládám…' : 'Uložit stáčení'}
+                </button>
+                {!isStartChecklistCompleteForKeg(businessDateISO()) && (
+                  <span className="text-udaj font-bold text-amber-700 animate-pulse bg-amber-50 border border-amber-200 rounded px-2.5 py-1">
+                    <AlertTriangle className="ikona-text" /> Před uložením musíte splnit checklist přípravy!
+                  </span>
+                )}
+              </PruhUlozeni>
+            );
+          })()}
           <RozepsanyZapisPruh obnoveno={obnovenyKoncept} onZahodit={vymazRozepsane} className="mb-3" />
 
           <div className="grid grid-cols-2 gap-3 items-end mb-4">
@@ -1936,28 +1958,14 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                 onKusy={(i, qty) => setFotoDny((rs) => rs.map((r, j) => (j === i ? { ...r, qty } : r)))}
                 onOdeber={(i) => setFotoDny((rs) => rs.filter((_, j) => j !== i))}
                 onZahodit={() => setFotoDny([])}
-                napoveda="Uloží se spolu se zápisem výše tlačítkem „Uložit stáčení“ — každý řádek na svůj den."
+                napoveda="Uloží se spolu se zápisem tlačítkem „Uložit stáčení“ nahoře — každý řádek na svůj den."
               />
             </div>
           )}
 
-          <div className="flex items-center justify-between mt-2">
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="submit"
-                disabled={saving || !isStartChecklistCompleteForKeg(businessDateISO())}
-                className="btn-primary !rounded !from-emerald-600 !to-emerald-700 hover:!from-emerald-500 hover:!to-emerald-600 !shadow-emerald-600/30 text-xs font-black shadow-md disabled:opacity-40 min-h-[44px]"
-              >
-                {saving ? 'Ukládám…' : 'Uložit stáčení'}
-              </button>
-              {!isStartChecklistCompleteForKeg(businessDateISO()) && (
-                <span className="text-udaj font-bold text-amber-700 animate-pulse bg-amber-50 border border-amber-200 rounded px-2.5 py-1">
-                  <AlertTriangle className="ikona-text" /> Před uložením musíte splnit checklist přípravy!
-                </span>
-              )}
-              <button type="button" className="btn-ghost !rounded text-xs min-h-[44px]" onClick={() => void vymazVse()}><Trash2 className="ikona-text" /> Vymazat vše</button>
-            </div>
-            {err && <span className="text-xs font-bold text-rose-700">{err}</span>}
+          {/* Uložit je nahoře v pruhu (PruhUlozeni); dole zůstává jen mazání. */}
+          <div className="flex items-center mt-2">
+            <button type="button" className="btn-ghost !rounded text-xs min-h-[44px]" onClick={() => void vymazVse()}><Trash2 className="ikona-text" /> Vymazat vše</button>
           </div>
 
           <DnesUlozeno

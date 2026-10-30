@@ -297,8 +297,9 @@ describe('ruční zadání objednávky', () => {
     await waitFor(() => expect(screen.getAllByText(/Nic se neuložilo — Restaurace už má podobnou objednávku/).length).toBeGreaterThan(0));
     expect(zapsano('orders', 'insert')).toHaveLength(0);
     expect(zapsano('order_items', 'insert')).toHaveLength(0);
-    // formulář zůstal vyplněný — nic se neztratilo
-    expect(vytvorit().textContent).toContain('1 pol.');
+    // formulář zůstal vyplněný — nic se neztratilo (počet položek je v pruhu
+    // s uložením nahoře, vedle tlačítka „Vytvořit objednávku")
+    expect(screen.getByTestId('pruh-ulozeni').textContent).toContain('1 pol.');
   });
 
   it('„Přesto vytvořit" objednávku založí, jako dřív', async () => {

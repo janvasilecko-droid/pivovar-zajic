@@ -90,6 +90,7 @@ import { VraceniPiva } from '../components/objednavky/VraceniPiva';
 import { VratitPivoModal } from '../components/objednavky/VratitPivoModal';
 import { OrderDetail } from '../components/objednavky/OrderDetail';
 import { ChipyPiva, ChipyObalu } from '../components/FiltrPivaAObalu';
+import { PruhUlozeni } from '../components/PruhUlozeni';
 
 // Pořadí obalů v plnoobrazovkovém panelu zadávání. Od 11. 10. 2026 OBRÁCENĚ:
 // nejčastější 50 l a 30 l jsou dole u palce, ať jde panel ovládat jednou rukou
@@ -2031,6 +2032,30 @@ export default function Orders({
           pozadí stránky, ne uvnitř dalšího ohraničeného panelu navíc. */}
       {mode !== 'overviews_only' && viewMode === 'summary' && (
         <form onSubmit={addOrder} className={`mb-5 transition-all duration-200 ${flash ? 'ring-4 ring-emerald-500/20 rounded' : ''}`}>
+          {/* 💾 Uložit nahoře (30. 10. 2026: „to uložit… musí být všude nahoře,
+              to samý u objednávek") — pruh se při rolování přilepí pod
+              hlavičku, viz components/PruhUlozeni.tsx. Počet položek je vedle
+              tlačítek, ať se obě vejdou na telefonu do jednoho řádku. */}
+          <PruhUlozeni
+            souhrn={filledBeerRows.length
+              ? `${filledBeerRows.length} pol. · ${filledBeerRows.reduce((s, r) => s + Number(r.qty || 0), 0)} ks`
+              : manualText.trim() ? 'z textu' : null}
+            chyba={err}
+          >
+            <button type="submit" className="btn-primary !rounded text-xs font-black shadow-md" disabled={saving || (!filledBeerRows.length && !manualText.trim())}>
+              {saving ? 'Ukládám…' : 'Vytvořit objednávku'}
+            </button>
+            <button
+              type="button"
+              className="!bg-[#25D366] hover:!bg-[#1da851] !border-[#25D366] !text-[#0f172a] text-xs font-black shadow-md flex items-center gap-1.5 px-3.5 py-2 rounded transition disabled:opacity-40"
+              disabled={saving || (!filledBeerRows.length && !manualText.trim())}
+              onClick={() => addOrder(undefined, true)}
+              title="Vytvoří objednávku a otevře WhatsApp s předvyplněnou zprávou"
+            >
+              <MessageCircle size={14} /> {saving ? 'Ukládám…' : 'Vytvořit + WhatsApp'}
+            </button>
+          </PruhUlozeni>
+
           {/* Odběratel */}
           <div className="mb-4">
             <label className="label dark:text-white">Odběratel</label>
@@ -2435,28 +2460,11 @@ export default function Orders({
             <span className="text-udaj text-neutral-400 font-medium">(otevře rezervační systém výčepu)</span>
           </label>
 
-          {/* Akční tlačítka */}
-          <div className="flex items-center justify-between mt-4 gap-2 flex-wrap">
-            <div className="flex items-center gap-2">
-              <button type="submit" className="btn-primary !rounded text-xs font-black shadow-md" disabled={saving || (!filledBeerRows.length && !manualText.trim())}>
-                {saving ? 'Ukládám…' : `Vytvořit objednávku${filledBeerRows.length ? ` (${filledBeerRows.length} pol. / ${filledBeerRows.reduce((s, r) => s + Number(r.qty || 0), 0)} ks)` : manualText.trim() ? ' (z textu)' : ''}`}
-              </button>
-
-              <button
-                type="button"
-                className="!bg-[#25D366] hover:!bg-[#1da851] !border-[#25D366] !text-[#0f172a] text-xs font-black shadow-md flex items-center gap-1.5 px-3.5 py-2 rounded transition disabled:opacity-40"
-                disabled={saving || (!filledBeerRows.length && !manualText.trim())}
-                onClick={() => addOrder(undefined, true)}
-                title="Vytvoří objednávku a otevře WhatsApp s předvyplněnou zprávou"
-              >
-                <MessageCircle size={14} /> {saving ? 'Ukládám…' : 'Vytvořit a odeslat na WhatsApp'}
-              </button>
-
-              <button type="button" className="btn-ghost !rounded text-xs" onClick={() => { setBeerRows(Array.from({ length: 4 }, () => novyRadek())); setExpandedBeerId(null); }}>
-                <Trash2 className="ikona-text" /> Vymazat vše
-              </button>
-            </div>
-            {err && <span className="text-xs font-bold text-rose-700">{err}</span>}
+          {/* Vytvořit je nahoře v pruhu (PruhUlozeni); dole zůstává jen mazání. */}
+          <div className="flex items-center mt-4">
+            <button type="button" className="btn-ghost !rounded text-xs" onClick={() => { setBeerRows(Array.from({ length: 4 }, () => novyRadek())); setExpandedBeerId(null); }}>
+              <Trash2 className="ikona-text" /> Vymazat vše
+            </button>
           </div>
 
           {zdvojeneRadky.length > 0 && (

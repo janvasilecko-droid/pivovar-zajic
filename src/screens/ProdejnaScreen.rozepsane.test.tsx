@@ -2,7 +2,7 @@
 // 15. 10. 2026: „když zadávám fasování… ať se ta data, pokud je nepotvrdím,
 // nevymažou… ať to tam je, než se to potvrdí, nebo se to musí ručně smazat."
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import ProdejnaScreen from './ProdejnaScreen';
 
 const h = vi.hoisted(() => {
@@ -82,6 +82,19 @@ describe('Fasování — rozepsaný zápis', () => {
     expect(screen.getAllByText(/6 ks · 3 L/).length).toBeGreaterThan(0);
     expect(screen.getByDisplayValue('pro obchod')).toBeTruthy();
     expect((document.querySelector('input[type="date"]') as HTMLInputElement).value).toBe('2026-01-05');
+  });
+
+  it('„Uložit fasování" je nahoře v pruhu, který se při rolování přilepí (30. 10. 2026)', async () => {
+    otevri();
+    const pruh = await screen.findByTestId('pruh-ulozeni');
+    expect(within(pruh).getByRole('button', { name: /Uložit fasování/ })).toBeTruthy();
+    expect(pruh.className).toContain('sticky');
+    // Pruh je první věc formuláře — nad dlaždicemi i poznámkou.
+    const form = pruh.closest('form')!;
+    expect(form.querySelector('[data-testid="pruh-ulozeni"]')).toBe(pruh);
+    expect(pruh.compareDocumentPosition(screen.getByPlaceholderText('nepovinná poznámka')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // „Vymazat vše" zůstává dole, mimo pruh.
+    expect(within(pruh).queryByRole('button', { name: /Vymazat vše/ })).toBeNull();
   });
 
   it('bez konceptu žádné upozornění není a nic se neukládá', async () => {
