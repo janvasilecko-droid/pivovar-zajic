@@ -1,6 +1,8 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { supabase, Beer, Package, EntryRow, useRealtime, beerBg, beerName, formatPackageLabel } from '../lib/supabase';
 import { EmptyState, Modal, Spinner } from '../components/ui';
+import { DvaSloupcePolozek } from '../components/DvaSloupcePolozek';
+import { rozdelSudyLahve } from '../lib/sudyLahve';
 import { isoWeekKey } from '../components/WeeklyOrderSummaryCard';
 import { VoiceRecorder } from '../components/VoiceRecorder';
 import { ProdejnaFromImage } from '../components/ProdejnaFromImage';
@@ -102,6 +104,8 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
 
   const [beers, setBeers] = useState<Beer[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
+  /** Záznam, u kterého jsou v mobilním přehledu rozbalená tlačítka (−, +1, vrátit, upravit, smazat). */
+  const [rozbalenyZaznam, setRozbalenyZaznam] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   // Jen pro varování „tenhle měsíc je už napočítaný" (lib/mesicUzamcen.ts) —
   // stejná pojistka jako ve Stáčení KEG a Lahvích, viz add() níž.
@@ -1068,42 +1072,57 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                       Nejvíc ve zvoleném období: <span className="font-black text-amber-950">{nejvic[0]} — {nejvic[1]} ks</span>
                     </div>
                   )}
-                  <ul className="md:hidden space-y-2">
-                    {sortedRows.map((r, i) => {
-                      const beer = beers.find((b) => b.id === r.beer_id);
-                      const pkg = packages.find((p) => p.id === r.package_id);
-                      const vol = pkg ? Number(pkg.volume_l) : 0;
-                      const novyDen = i === 0 || sortedRows[i - 1].entry_date !== r.entry_date;
+                  {/* 🛢️🍾 Po dnech ve dvou sloupcích — Sudy | Lahve (30. 10. 2026). Na telefonu se
+                      pět tlačítek k záznamu do úzkého sloupce nevejde, proto řádek ukazuje jen
+                      pivo, obal a kusy a tlačítka se rozbalí pod sloupci klepnutím na řádek. */}
+                  <div className="md:hidden space-y-3" data-testid="fasovani-po-dnech">
+                    {[...new Set(sortedRows.map((r) => r.entry_date ?? ''))].map((den) => {
+                      const radkyDne = sortedRows.filter((r) => (r.entry_date ?? '') === den);
+                      const r = radkyDne.find((x) => x.id === rozbalenyZaznam);
+                      const beerOtevreny = r ? beers.find((b) => b.id === r.beer_id) : undefined;
+                      const pkgOtevreny = r ? packages.find((p) => p.id === r.package_id) : undefined;
                       return (
-                        <Fragment key={`m-${r.id}`}>
-                        {novyDen && (
-                          <li data-testid="den-nadpis" className="px-1 pt-2 space-y-1">
+                        <div key={den || '—'} data-testid="den-blok" className="rounded border border-amber-300/80 bg-amber-50/90 p-2.5 space-y-2">
+                          <div data-testid="den-nadpis" className="space-y-1">
                             <div className="flex items-baseline justify-between font-black text-amber-950">
-                              <span className="text-sm">{nazevDne(r.entry_date)}</span>
-                              <span className="font-mono text-sm">{soucetDne(r.entry_date)} ks</span>
+                              <span className="text-sm">{nazevDne(den || null)}</span>
+                              <span className="font-mono text-sm">{soucetDne(den || null)} ks</span>
                             </div>
-                            <button type="button" className="text-xs font-black text-amber-800 underline" onClick={() => { setPresunZ((r.entry_date ?? '').slice(0, 10)); setPresunNa((r.entry_date ?? '').slice(0, 10)); }}>Změnit datum všech položek toho dne</button>
-                          </li>
-                        )}
-                        <li className="rounded border border-amber-300/80 bg-amber-50/90 p-3">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <div className="font-black text-sm text-amber-950 flex items-center gap-1.5">
-                                <span className="w-2.5 h-2.5 rounded-full shrink-0 border border-black/20" style={{ backgroundColor: beerBg(beer) }} />
-                                <span className="truncate">{r.beer_name ?? beer?.name ?? '—'}</span>
-                                <span className="px-1.5 py-0.5 rounded-md bg-amber-200/80 text-amber-950 font-black text-xs shrink-0">{pkg ? `${vol} l` : '—'}</span>
-                              </div>
-                              <div className="text-[11px] font-bold text-amber-800 mt-0.5">
-                                {formatDate(r.entry_date)}
-                                {showWhoColumn && getRowWho(r) ? ` · ${getRowWho(r)}` : ''}
-                              </div>
-                            </div>
-                            <div className="font-mono font-black text-2xl text-amber-950 leading-none shrink-0">{r.quantity}</div>
+                            <button type="button" className="text-xs font-black text-amber-800 underline" onClick={() => { setPresunZ(den.slice(0, 10)); setPresunNa(den.slice(0, 10)); }}>Změnit datum všech položek toho dne</button>
                           </div>
-
-                          {/* Křížek je schválně až za mezerou od plusu — na dotyk
-                              jsou to sousedi a záměna maže zápis. */}
-                          <div className="flex items-stretch gap-1.5 mt-2.5">
+                          <DvaSloupcePolozek
+                            rozdeleni={rozdelSudyLahve(radkyDne, packages)}
+                            klic={(x) => x.id}
+                            radek={(x) => {
+                              const beer = beers.find((b) => b.id === x.beer_id);
+                              const pkg = packages.find((p) => p.id === x.package_id);
+                              const otevreny = rozbalenyZaznam === x.id;
+                              return (
+                                <div className={`rounded ${otevreny ? 'bg-amber-200/80' : ''}`}>
+                                  <button
+                                    type="button"
+                                    aria-expanded={otevreny}
+                                    onClick={() => setRozbalenyZaznam((id) => (id === x.id ? null : x.id))}
+                                    className="tap w-full min-h-[44px] flex items-center gap-1.5 text-left px-1 text-xs text-amber-950"
+                                  >
+                                    <span className="w-2.5 h-2.5 rounded-full shrink-0 border border-black/20 vlastni-vyska" style={{ backgroundColor: beerBg(beer) }} />
+                                    <span className="font-black min-w-0">{x.beer_name ?? beer?.name ?? '—'}</span>
+                                    <span className="font-bold text-amber-800 shrink-0 whitespace-nowrap">{pkg ? `${Number(pkg.volume_l)} l` : '—'}</span>
+                                    <span className="ml-auto font-mono font-black text-sm shrink-0 tabular-nums">{x.quantity}</span>
+                                  </button>
+                                </div>
+                              );
+                            }}
+                          />
+                          {r && (
+                            <div data-testid="akce-zaznamu" className="rounded border border-amber-400 bg-white p-2 space-y-2">
+                              <div className="text-xs font-black text-amber-950">
+                                {r.beer_name ?? beerOtevreny?.name ?? '—'} {pkgOtevreny ? `${Number(pkgOtevreny.volume_l)} l` : ''} · {r.quantity} ks
+                                <span className="font-bold text-amber-800">
+                                  {' '}· {formatDate(r.entry_date)}{showWhoColumn && getRowWho(r) ? ` · ${getRowWho(r)}` : ''}
+                                </span>
+                              </div>
+                          <div className="flex items-stretch gap-1.5">
                             <button
                               type="button"
                               className="w-12 min-h-[44px] grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-black transition disabled:opacity-40"
@@ -1145,17 +1164,18 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                               className="w-12 min-h-[44px] ml-2 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-black transition"
                               onClick={() => del(r.id)}
                               title="Smazat záznam"
-><X size={18} /></button>
+      ><X size={18} /></button>
                           </div>
-                        </li>
-                        </Fragment>
+                            </div>
+                          )}
+                        </div>
                       );
                     })}
-                    <li className="rounded border-2 border-amber-400 bg-amber-200/70 px-3 py-2.5 flex items-center justify-between font-black text-amber-950">
+                    <div className="rounded border-2 border-amber-400 bg-amber-200/70 px-3 py-2.5 flex items-center justify-between font-black text-amber-950">
                       <span className="text-sm"><PackageIcon className="ikona-text" /> Celkem</span>
                       <span className="font-mono text-xl">{totalCount}</span>
-                    </li>
-                  </ul>
+                    </div>
+                  </div>
 
                   <div className="hidden md:block rounded border border-amber-300/80 bg-amber-50/90 overflow-x-auto">
                     <table className="w-full text-xs">
