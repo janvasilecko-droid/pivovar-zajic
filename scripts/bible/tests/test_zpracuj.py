@@ -330,6 +330,7 @@ def test_pozastaveny_dokument_zustane_pozastaveny():
     (400, 'invalid_request_error', 'You have reached your specified API usage limits'),
     (404, 'not_found_error', 'model: claude-x'),
     (429, 'rate_limit_error', 'Number of request tokens has exceeded your limit'),
+    (402, '', 'Payment required'),
 ])
 def test_chyby_uctu_zastavi_beh_a_dokument_pocka(status, druh, zprava):
     data = _sken()
@@ -511,3 +512,22 @@ def test_zive_zahlavi_neprotahne_pasaz_predchozi_kapitoly():
     rozsahy = [(kapitoly[p['kapitola_id']], p['strana_od'], p['strana_do']) for p in supa.tabulky['bible_pasaze']]
     assert rozsahy == [('Slad', 1, 1), ('Rmutovani', 2, 2)]
     assert all('Rmutovani 8' not in p['text'] and p['text'].strip() != '7' for p in supa.tabulky['bible_pasaze'])
+
+
+def test_prepisy_se_ukladaji_po_davkach_uz_behem_ocr():
+    # Kdyby proces spadl (OOM, zrušený job), uložené dávky zůstanou — neplatí se znovu.
+    data = _skenovane_pdf(25)
+    supa = FalesnaSupa({CESTA: data})
+    davky = []
+    puvodni = supa.vloz_nebo_prepis
+
+    def zaznamenej(tabulka, radky, klic, davka=100):
+        davky.append(len(radky))
+        return puvodni(tabulka, radky, klic, davka)
+
+    supa.vloz_nebo_prepis = zaznamenej
+    ucet = _ucet()
+    klient, _ = _klient()
+    zpracuj.zpracuj_dokument(supa, _dokument(data, 'application/pdf'), zpracuj.Prepisovac(klient, 'claude-haiku-5-5', ucet), ucet)
+    assert davky[0] == zpracuj.DAVKA_PREPISU and davky[1] == zpracuj.DAVKA_PREPISU
+    assert davky[-1] == 25   # závěrečný zápis všech stran

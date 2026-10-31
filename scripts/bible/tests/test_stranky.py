@@ -141,3 +141,8 @@ def test_stitky_ve_shode_s_tiskem_doplni_rimske_strany():
     kandidati = [[], [], [], []] + [[i] for i in range(1, 11)]
     vysledek = tistena_cisla(kandidati, stitky)
     assert vysledek[0] == ('i', 'stitek_pdf') and vysledek[4] == ('1', 'stitek_pdf')
+
+
+def test_neciselny_stitek_sam_o_sobe_stitky_neudela_uzitecnymi():
+    # Bez čísel v záhlaví (nic, s čím porovnat): „Obálka, 2, 3…" je pořád jen pořadí listů.
+    assert tistena_cisla([[] for _ in range(5)], ['Obálka', '2', '3', '4', '5']) == [(None, None)] * 5
