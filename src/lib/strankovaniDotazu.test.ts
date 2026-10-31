@@ -28,6 +28,9 @@ const ROSTOUCI = [
   // s každým provozním dnem, parser_aliases/place_aliases s každou naučenou
   // opravou, a nikdy se nemažou.
   'whatsapp_incoming', 'calendar_events', 'parser_aliases', 'place_aliases',
+  // Pivovarská bible (klient bibleDb): evidence útraty za AI roste s každým
+  // voláním — součty se počítají v databázi (bible_naklady_od).
+  'ai_naklady',
 ];
 
 /**
@@ -68,7 +71,7 @@ function souboryVeZdroji(dir: string): string[] {
  */
 function dotazyNaTabulky(zdroj: string): { tabulka: string; retez: string }[] {
   const out: { tabulka: string; retez: string }[] = [];
-  const re = /supabase\s*\.\s*from\(\s*'([a-z_]+)'\s*\)/g;
+  const re = /(?:supabase|bibleDb)\s*\.\s*from\(\s*'([a-z_]+)'\s*\)/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(zdroj)) !== null) {
     const zbytek = zdroj.slice(m.index, m.index + 600);

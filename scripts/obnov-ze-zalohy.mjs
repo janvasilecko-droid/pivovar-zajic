@@ -24,7 +24,7 @@ import { execFileSync } from 'node:child_process';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { desifruj } from './lib/sifraZalohy.mjs';
-import { TABULKY, ODLOZENE_SLOUPCE, pk } from './lib/zalohaTabulky.mjs';
+import { TABULKY, ODLOZENE_SLOUPCE, UNIKATNI_SLOUPCE, pk } from './lib/zalohaTabulky.mjs';
 
 const KOREN = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const SLOZKA = resolve(KOREN, 'zalohy');
@@ -173,9 +173,24 @@ try {
     const dbPodle = new Map(dbRadky.map((r) => [r[klic], r]));
     const zalohaPodle = new Map(zalohaRadky.map((r) => [r[klic], r]));
 
-    const chybi = zalohaRadky.filter((r) => !dbPodle.has(r[klic]));
-    const zmenene = zalohaRadky.filter((r) => dbPodle.has(r[klic]) && !stejne(r, dbPodle.get(r[klic])));
+    let chybi = zalohaRadky.filter((r) => !dbPodle.has(r[klic]));
+    let zmenene = zalohaRadky.filter((r) => dbPodle.has(r[klic]) && !stejne(r, dbPodle.get(r[klic])));
     const navic = dbRadky.filter((r) => !zalohaPodle.has(r[klic]));
+    // Hodnota unikátního sloupce už patří jinému řádku → přeskočit (jinak 409 a konec obnovy).
+    const unikatni = UNIKATNI_SLOUPCE[tabulka] ?? [];
+    if (unikatni.length) {
+      const vlastnici = new Map(unikatni.map((s) => [s, new Map(dbRadky.map((r) => [r[s], r[klic]]))]));
+      const volne = (r) => unikatni.every((s) => {
+        const vlastnik = vlastnici.get(s).get(r[s]);
+        return r[s] == null || vlastnik === undefined || vlastnik === r[klic];
+      });
+      const preskocene = [...chybi, ...zmenene].filter((r) => !volne(r));
+      if (preskocene.length) {
+        console.log(`${tabulka}: ${preskocene.length} řádků ze zálohy se přeskočí (${unikatni.join('/')} už v databázi patří jinému záznamu)`);
+      }
+      chybi = chybi.filter(volne);
+      zmenene = zmenene.filter(volne);
+    }
     plan.push({ tabulka, chybi, zmenene, navic });
 
     const popisNavic = navic.length === 0 ? ''

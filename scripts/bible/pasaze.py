@@ -77,23 +77,56 @@ def bloky(text: str) -> list[tuple[str, str]]:
 
 
 def _rozdel_dlouhy(text: str) -> list[str]:
-    """Odstavec delší než MAX_ZNAKU rozdělí po větách (nouzově natvrdo)."""
+    """Odstavec delší než MAX_ZNAKU rozdělí po řádcích, pak po větách (nouzově natvrdo)."""
     if len(text) <= MAX_ZNAKU:
         return [text]
+    kusy: list[tuple[str, str]] = []  # (oddělovač před kusem, kus)
+    for radek in text.split('\n'):
+        for j, veta in enumerate(_VETA.split(radek) if len(radek) > MAX_ZNAKU else [radek]):
+            while len(veta) > MAX_ZNAKU:
+                kusy.append((' ' if j else '\n', veta[:MAX_ZNAKU]))
+                veta = veta[MAX_ZNAKU:]
+                j = 1
+            kusy.append((' ' if j else '\n', veta))
     casti: list[str] = []
     aktualni = ''
-    for veta in _VETA.split(text):
-        while len(veta) > MAX_ZNAKU:
-            casti.append(veta[:MAX_ZNAKU])
-            veta = veta[MAX_ZNAKU:]
-        if len(aktualni) + len(veta) + 1 > CIL_ZNAKU and aktualni:
+    for oddelovac, kus in kusy:
+        if aktualni and len(aktualni) + len(kus) + 1 > CIL_ZNAKU:
             casti.append(aktualni)
-            aktualni = veta
+            aktualni = kus
         else:
-            aktualni = f'{aktualni} {veta}'.strip()
-    if aktualni:
+            aktualni = f'{aktualni}{oddelovac}{kus}' if aktualni else kus
+    if aktualni.strip():
         casti.append(aktualni)
-    return casti
+    return [c for c in casti if c.strip()]
+
+
+_ODDELOVAC_TABULKY = re.compile(r'^\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?$')
+
+
+def _rozdel_tabulku(tabulka: str) -> list[str]:
+    """Velkou tabulku rozdělí po řádcích na kusy do MAX_ZNAKU; každý kus
+    zopakuje hlavičku (tabulka o tisících řádků z přílohy DOCX nebo XLSX)."""
+    if len(tabulka) <= MAX_ZNAKU:
+        return [tabulka]
+    radky = tabulka.split('\n')
+    hlavicka = radky[:2] if len(radky) > 1 and _ODDELOVAC_TABULKY.match(radky[1].strip()) else radky[:1]
+    zahlavi = '\n'.join(hlavicka)
+    if len(zahlavi) > MAX_ZNAKU // 2:
+        zahlavi = ''  # obří hlavička by kusy jen nafoukla
+    casti: list[str] = []
+    aktualni: list[str] = []
+    delka = len(zahlavi)
+    for radek in radky[len(hlavicka):]:
+        for kus in ([radek] if len(radek) <= MAX_ZNAKU - len(zahlavi) - 1 else _rozdel_dlouhy(radek)):
+            if aktualni and delka + len(kus) + 1 > MAX_ZNAKU:
+                casti.append('\n'.join(([zahlavi] if zahlavi else []) + aktualni))
+                aktualni, delka = [], len(zahlavi)
+            aktualni.append(kus)
+            delka += len(kus) + 1
+    if aktualni:
+        casti.append('\n'.join(([zahlavi] if zahlavi else []) + aktualni))
+    return casti or [tabulka[:MAX_ZNAKU]]
 
 
 def rozdel_na_pasaze(strany: list[tuple[int, str, int | None]]) -> list[Pasaz]:
@@ -116,12 +149,12 @@ def rozdel_na_pasaze(strany: list[tuple[int, str, int | None]]) -> list[Pasaz]:
     for pdf_index, text_strany, kap in strany:
         for druh, obsah in bloky(text_strany):
             if druh == 'tabulka':
-                pridej_samostatnou('tabulka', obsah, pdf_index, kap)
+                for kus in _rozdel_tabulku(obsah):
+                    pridej_samostatnou('tabulka', kus, pdf_index, kap)
                 continue
-            if druh == 'popisek':
-                pridej_samostatnou('popisek', obsah, pdf_index, kap)
-            elif druh == 'vzorec':
-                pridej_samostatnou('vzorec', obsah, pdf_index, kap)
+            if druh in ('popisek', 'vzorec'):
+                for kus in _rozdel_dlouhy(obsah):
+                    pridej_samostatnou(druh, kus, pdf_index, kap)
             for kus in _rozdel_dlouhy(obsah):
                 delka = sum(len(t) for t in text)
                 if text and (

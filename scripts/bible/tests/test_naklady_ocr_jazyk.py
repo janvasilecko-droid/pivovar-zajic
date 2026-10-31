@@ -75,10 +75,56 @@ def test_prepis_stranky_posle_obrazek_a_schema_a_precte_vysledek():
     assert 'temperature' not in volani   # Haiku 5.5 vzorkovací parametry odmítá
 
 
+def test_useknuty_prepis_se_zkusi_s_vetsim_limitem_a_pak_jde_ke_kontrole():
+    data = {'zahlavi': '', 'zapati': '', 'tistena_strana': '', 'text': 'část', 'necitelne': False}
+    useknuty = json.dumps(data)[:25]   # takhle vypadá JSON useknutý na max_tokens
+    klient, _ = _klient(useknuty, stop='max_tokens')
+    volani = []
+    puvodni = klient.messages.create
+    klient.messages.create = lambda **kw: (volani.append(kw['max_tokens']), puvodni(**kw))[1]
+    p = ocr.prepis_stranky(klient, b'x', 'claude-haiku-5-5')
+    assert volani == [8000, 16000]
+    assert p.ke_kontrole and 'limitu' in p.duvod and p.text == '' and p.tistena_strana is None
+    assert p.usage['input_tokens'] == 5000   # zaplacená jsou obě volání
+
+
+def test_useknuty_napoprve_a_cely_napodruhe():
+    data = {'zahlavi': '', 'zapati': '', 'tistena_strana': '9', 'text': 'Hustá tabulka.', 'necitelne': False}
+    odpovedi = iter([('{"text": "Hust', 'max_tokens'), (json.dumps(data), 'end_turn')])
+
+    def create(**kw):
+        text, stop = next(odpovedi)
+        return SimpleNamespace(stop_reason=stop, content=[SimpleNamespace(type='text', text=text)],
+                               usage=SimpleNamespace(input_tokens=10, output_tokens=5, cache_read_input_tokens=0,
+                                                     cache_creation_input_tokens=0))
+    p = ocr.prepis_stranky(SimpleNamespace(messages=SimpleNamespace(create=create)), b'x', 'claude-haiku-5-5')
+    assert p.text == 'Hustá tabulka.' and not p.ke_kontrole and p.usage['output_tokens'] == 10
+
+
+def test_opus_bez_parametru_mysleni_a_sonnet_between_tools():
+    data = {'zahlavi': '', 'zapati': '', 'tistena_strana': '', 'text': 'x', 'necitelne': False}
+    klient, volani = _klient(json.dumps(data))
+    ocr.prepis_stranky(klient, b'x', 'claude-opus-5-5')
+    assert 'thinking' not in volani
+    klient, volani = _klient(json.dumps(data))
+    ocr.prepis_stranky(klient, b'x', 'claude-sonnet-5-5')
+    assert volani['thinking'] == {'type': 'between_tools'}
+
+
+def test_cislo_potvrdi_kterekoli_nezavisle_cteni():
+    prepis = 'Rmutuje se při 52, 63, 72 a 78 °C, výtěžnost 81,5 %.'
+    tesseract = 'Rmutuje se pri 52, 63 a 78 C, vytéznost 81.5 % ' * 2   # 72 zkomolil
+    vrstva = 'Rmutuje se při 52, 63, 72 a 78 °C, výtěžnost 81,5 % — cizí OCR vrstva. ' * 2
+    assert ocr.kontrola_cisel(prepis, tesseract, vrstva) == (True, None)
+    # Číslo, které nepotvrdí ani jedno čtení (Claude si ho vymyslel), se počítá.
+    vymyslene = 'Rmutuje se při 55, 66, 77 a 88 °C, výtěžnost 99,5 %.'
+    sedi, duvod = ocr.kontrola_cisel(vymyslene, tesseract, vrstva)
+    assert not sedi and '5 z 5' in duvod
+    assert ocr.kontrola_cisel(prepis, '', 'krátké') == (True, None)
+
+
 def test_nedokonceny_odmitnuty_nebo_rozbity_prepis_jde_ke_kontrole():
     data = {'zahlavi': '', 'zapati': '', 'tistena_strana': '', 'text': 'část', 'necitelne': False}
-    p = ocr.prepis_stranky(_klient(json.dumps(data), stop='max_tokens')[0], b'x', 'm')
-    assert p.ke_kontrole and 'limitu' in p.duvod and p.tistena_strana is None
     assert ocr.prepis_stranky(_klient('', stop='refusal')[0], b'x', 'm').ke_kontrole
     assert ocr.prepis_stranky(_klient('to není JSON')[0], b'x', 'm').ke_kontrole
     necitelne = dict(data, necitelne=True)

@@ -47,3 +47,24 @@ def test_dlouhy_odstavec_se_rozdeli_po_vetach():
 
 def test_prazdne_strany_nic():
     assert rozdel_na_pasaze([(1, '', None), (2, '   \n ', None)]) == []
+
+
+def test_velka_tabulka_se_rozdeli_a_kazdy_kus_ma_hlavicku():
+    # Příloha s tabulkou o tisících řádků: jedna pasáž by přerostla limit tsvectoru.
+    radky = [f'| Slad {i} | {80 + i % 5},{i % 10} | {3 + i % 7} |' for i in range(3000)]
+    tabulka = '| Slad | Extrakt % | Barva EBC |\n|---|---|---|\n' + '\n'.join(radky)
+    p = rozdel_na_pasaze([(1, tabulka, 0)])
+    assert len(p) > 20 and all(x.druh == 'tabulka' for x in p)
+    assert all(len(x.text) <= MAX_ZNAKU for x in p)
+    assert all(x.text.startswith('| Slad | Extrakt % | Barva EBC |\n|---|---|---|\n') for x in p)
+    # Žádný řádek se neztratil ani nezdvojil.
+    obsah = [r for x in p for r in x.text.split('\n')[2:]]
+    assert obsah == radky
+
+
+def test_dlouhy_seznam_bez_vet_se_deli_po_radcich():
+    seznam = '\n'.join(f'- surovina číslo {i} bez tečky na konci' for i in range(400))
+    p = rozdel_na_pasaze([(1, seznam, None)])
+    assert all(len(x.text) <= MAX_ZNAKU for x in p)
+    # Řádky zůstanou celé (žádné dělení uprostřed slova).
+    assert all(r.startswith('- surovina') for x in p for r in x.text.split('\n'))

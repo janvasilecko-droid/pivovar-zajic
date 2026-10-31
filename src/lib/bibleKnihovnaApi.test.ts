@@ -32,9 +32,15 @@ function dotaz(tabulka: string) {
   return b;
 }
 
+const rpcVolani: [string, unknown][] = [];
+
 vi.mock('./bibleKlient', () => ({
   bibleDb: {
     from: (t: string) => dotaz(t),
+    rpc: async (funkce: string, argumenty: unknown) => {
+      rpcVolani.push([funkce, argumenty]);
+      return { data: [{ ucel: 'ocr', cena_usd: '1.250000', volani: 1200 }, { ucel: 'chat', cena_usd: 0.5, volani: 3 }], error: null };
+    },
     storage: {
       from: (bucket: string) => ({
         upload: async (cesta: string, _soubor: File, opts: { contentType: string; upsert: boolean }) => {
@@ -47,7 +53,7 @@ vi.mock('./bibleKlient', () => ({
   },
 }));
 
-import { nahrajDokument, smazDokument } from './bibleKnihovnaApi';
+import { nactiNakladyMesice, nahrajDokument, smazDokument } from './bibleKnihovnaApi';
 
 const pdf = (jmeno = 'Kunze Technology Brewing.pdf') => new File(['%PDF-1.7 obsah'], jmeno, { type: 'application/pdf' });
 
@@ -131,5 +137,14 @@ describe('smazání dokumentu', () => {
     smazaneRadky = [];
     expect(await smazDokument('abc')).toMatch(/nemáš na to právo/);
     expect(volani.some((x) => x.startsWith('remove'))).toBe(false);
+  });
+});
+
+describe('útrata za AI', () => {
+  it('sečte databáze (žádný limit 1000 řádků) od začátku měsíce UTC', async () => {
+    rpcVolani.length = 0;
+    const v = await nactiNakladyMesice(new Date('2026-10-31T23:30:00Z'));
+    expect(rpcVolani).toEqual([['bible_naklady_od', { p_od: '2026-10-01T00:00:00.000Z' }]]);
+    expect(v).toEqual({ naklady: { usd: 1.75, volani: 1203, podleUcelu: { ocr: 1.25, chat: 0.5 } } });
   });
 });

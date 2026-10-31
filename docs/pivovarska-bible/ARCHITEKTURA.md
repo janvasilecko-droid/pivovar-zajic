@@ -161,7 +161,8 @@ maskovaný.
 
 ## 5. Vyhledávání (hybridní RAG)
 
-RPC `bible_hledej(...)` v Postgresu běží s RLS volajícího:
+RPC `bible_hledej(...)` v Postgresu běží jako SECURITY DEFINER s vlastní kontrolou
+`bible_smi_cist()` na začátku (pod RLS by se index hledání nepoužil, viz R10):
 
 - **Fulltext:** `websearch_to_tsquery('simple', …)` nad textem a kontextem
   pasáže, bez diakritiky.

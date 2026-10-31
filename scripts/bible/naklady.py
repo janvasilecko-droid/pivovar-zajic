@@ -38,13 +38,19 @@ class Polozka:
 
 @dataclass
 class Ucet:
-    """Souhrn nákladů jednoho běhu po modelech a strop útraty."""
+    """Náklady jednoho běhu: dosud nezapsané položky po modelech a strop útraty.
+
+    `utraceno` je celá útrata běhu (i to, co už se zapsalo do ai_naklady);
+    strop se hlídá proti ní, takže průběžný zápis nákladů strop neobejde.
+    """
     cenik: dict
     strop_usd: float
     polozky: dict[str, Polozka] = field(default_factory=dict)
+    utraceno: float = 0.0
 
     def pridej(self, model: str, usage: dict) -> float:
         cena = cena_usd(model, usage, self.cenik)
+        self.utraceno += cena
         p = self.polozky.setdefault(model, Polozka())
         p.volani += 1
         p.vstup += int(usage.get('input_tokens') or 0)
@@ -56,10 +62,11 @@ class Ucet:
 
     @property
     def celkem(self) -> float:
+        """Dosud nezapsaná útrata."""
         return sum(p.cena for p in self.polozky.values())
 
     def prekroceno(self) -> bool:
-        return self.celkem >= self.strop_usd
+        return self.utraceno >= self.strop_usd
 
     def vynuluj(self) -> dict[str, Polozka]:
         """Vrátí dosavadní položky (k zápisu do ai_naklady) a začne znovu."""

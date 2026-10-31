@@ -37,10 +37,6 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: bible-zpracovani
-  cancel-in-progress: false
-
 jobs:
   # Migrace bible na čistém PostgreSQL s napodobeným Supabase: dvakrát za sebou
   # (musí jít pustit znovu) a pak kontroly přístupu, pojistek a hledání
@@ -86,13 +82,15 @@ jobs:
         with:
           python-version: '3.12'
           cache: 'pip'
-          cache-dependency-path: scripts/bible/requirements.txt
+          cache-dependency-path: scripts/bible/requirements-testy.txt
 
       - name: Tesseract (kontrolní čtení skenů)
         run: sudo apt-get update -qq && sudo apt-get install -y -qq tesseract-ocr tesseract-ocr-ces tesseract-ocr-deu > /dev/null
 
-      - name: Závislosti
-        run: pip install -q -r scripts/bible/requirements.txt
+      # Celý strom závislostí je zamčený i s hashi (scripts/bible/requirements*.txt):
+      # nová verze kteréhokoli balíčku se dostane dovnitř jen přes PR s testy.
+      - name: Závislosti (zamčené)
+        run: pip install -q --require-hashes --no-deps -r scripts/bible/requirements-testy.txt
 
       - name: Testy workeru
         working-directory: scripts/bible
@@ -103,6 +101,11 @@ jobs:
     if: github.event_name != 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 330
+    # Zpracování jen jedno naráz (ruční běh a plánovaný sdílí frontu — vezme
+    # i dokument zadaný ručně). Testy a migrace po pushi se tím nezdržují ani neruší.
+    concurrency:
+      group: bible-zpracovani
+      cancel-in-progress: false
     steps:
       # Bez práce se nic neinstaluje: dotaz na čekající dokumenty (jen počet,
       # žádný obsah). Chybějící tabulka = migrace ještě neběžela → nic.
@@ -137,9 +140,10 @@ jobs:
         if: steps.fronta.outputs.prace == 'ano'
         run: sudo apt-get update -qq && sudo apt-get install -y -qq tesseract-ocr tesseract-ocr-ces tesseract-ocr-deu djvulibre-bin > /dev/null
 
-      - name: Závislosti
+      # Jen zamčené závislosti workeru s hashi, bez pytestu (v tomhle jobu je service-role klíč).
+      - name: Závislosti (zamčené)
         if: steps.fronta.outputs.prace == 'ano'
-        run: pip install -q -r scripts/bible/requirements.txt
+        run: pip install -q --require-hashes --no-deps -r scripts/bible/requirements.txt
 
       - name: Zpracovat knihy
         if: steps.fronta.outputs.prace == 'ano'

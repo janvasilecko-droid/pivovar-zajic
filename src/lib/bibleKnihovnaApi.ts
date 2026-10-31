@@ -204,7 +204,8 @@ export async function nactiKapacitu(): Promise<{ kapacita: Kapacita } | { chyba:
 /** Útrata za AI od začátku měsíce (UTC) — jen pro správce (RLS). */
 export async function nactiNakladyMesice(ted = new Date()): Promise<{ naklady: NakladyMesice } | { chyba: string; bezMigrace: boolean }> {
   const zacatek = new Date(Date.UTC(ted.getUTCFullYear(), ted.getUTCMonth(), 1)).toISOString();
-  const { data, error } = await bibleDb.from('ai_naklady').select('ucel,cena_usd,volani').gte('cas', zacatek);
+  // Součet po účelech počítá databáze — výběr řádků by REST uřízl na 1000 a útrata by vyšla menší.
+  const { data, error } = await bibleDb.rpc('bible_naklady_od', { p_od: zacatek });
   if (error) return { chyba: hlaskaChyby(error), bezMigrace: chybiMigrace(error) };
   return { naklady: souhrnNakladu((data ?? []) as { ucel: string; cena_usd: number; volani: number }[]) };
 }

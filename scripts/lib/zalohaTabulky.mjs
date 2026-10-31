@@ -78,6 +78,16 @@ export const ODLOZENE_SLOUPCE = {
   bible_dokumenty: ['duplikat_z'],
 };
 
+/**
+ * Unikátní sloupce kromě klíče. Řádek ze zálohy, jehož hodnota už v databázi
+ * patří jinému řádku (dokument smazán a tentýž soubor nahrán znovu), se při
+ * obnově přeskočí — konflikt (HTTP 409) by jinak zastavil obnovu i všech
+ * dalších tabulek.
+ */
+export const UNIKATNI_SLOUPCE = {
+  bible_dokumenty: ['soubor_sha256', 'soubor_cesta'],
+};
+
 /** Kontroly návaznosti pro zkoušku obnovy: [tabulka, sloupec, cílová tabulka]. */
 export const VAZBY = [
   ['order_items', 'order_id', 'orders'],

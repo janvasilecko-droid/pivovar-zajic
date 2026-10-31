@@ -66,8 +66,27 @@ Každé rozhodnutí má datum, důvod a co by ho změnilo.
   Zkouška s úmyslně otevřenou politikou čtení kontrolou neprošla.
 
 ## R9 — Zápis zpracování nahrazuje odvozená data (31. 10. 2026)
-- **Jak:** strany, kapitoly a pasáže dokumentu se při novém zpracování
-  smažou a zapíšou znovu. Vždy jen s filtrem dokumentu.
+- **Jak:** kapitoly a pasáže dokumentu se při novém zpracování smažou
+  a zapíšou znovu, strany se přepíšou. Vždy jen s filtrem dokumentu.
+- **Přepisy skenů se neplatí dvakrát:** strana přepsaná přes Claude zůstává
+  v `bible_strany` s modelem a verzí promptu (`ocr_verze`); nové zpracování
+  se stejným modelem a verzí ji použije znovu. Nová verze promptu = nový přepis.
 - **Proč to neporušuje „data nemazat":** jsou to odvozená data, která
   vzniknou znovu z originálu v bucketu. Data pivovaru, katalog knih
   a náklady se nemažou.
+
+## R10 — Hledání poběží přes SECURITY DEFINER RPC, ne s RLS volajícího (31. 10. 2026)
+- **Důvod:** pod RLS PostgreSQL nepoužije index hledání (operátor `@@` ani
+  pg_trgm nejsou LEAKPROOF) — hledání by procházelo celou tabulku pasáží.
+  Ověřeno plánem dotazu v `supabase/testy/bible/10_kontroly.sql`.
+- **Jak (Etapa 4):** `bible_hledej` jako SECURITY DEFINER se `SET search_path = ''`
+  a na začátku `IF NOT public.bible_smi_cist() THEN RETURN`. Politiky RLS
+  volají kontrolu přístupu jako `(SELECT …)`, takže se vyhodnotí jednou na dotaz.
+
+## R11 — Závislosti workeru zamčené i s hashi (31. 10. 2026)
+- **Důvod:** job zpracování drží service-role klíč a klíč Claude. Nezamčená
+  tranzitivní závislost by se při každém plánovaném běhu stáhla v nejnovější
+  verzi bez testu (riziko podvržené verze na PyPI).
+- **Jak:** `requirements.txt` je zámek celého stromu s hashi (generuje `uv pip
+  compile`, verze aspoň 2 týdny staré), instalace `--require-hashes --no-deps`.
+  pytest je jen v `requirements-testy.txt` pro job testy.
