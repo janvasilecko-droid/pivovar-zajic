@@ -53,9 +53,10 @@ export const TABULKY = [
   ['obchod_zbozi', 'kod'], ['obchod_prijem', 'id'], ['obchod_uzaverky', 'id'],
   ['obchod_uzaverky_radky', 'id'], ['obchod_inventura', 'id'],
   ['obchod_odpis', 'id'], ['obchod_zavreno', 'datum'],
-  // Pivovarská bible: jen katalog knihovny (názvy, soubory, stav zpracování).
-  // Obsah knih (strany, pasáže) se nezálohuje — vznikne znovu z originálů.
-  ['bible_dokumenty', 'id'],
+  // Pivovarská bible: jen katalog knihovny (názvy, soubory, stav zpracování),
+  // nastavení modelů a evidence nákladů na AI. Obsah knih (strany, kapitoly,
+  // pasáže) se nezálohuje — viz NEZALOHOVAT.
+  ['bible_dokumenty', 'id'], ['bible_nastaveni', 'klic'], ['ai_naklady', 'id'],
 ];
 
 export const NEZALOHOVAT = [
@@ -63,6 +64,10 @@ export const NEZALOHOVAT = [
   'whatsapp_most_stav', 'app_errors', 'user_app_versions',
   // Jen počítadlo přepisů fotek (Google Vision) za měsíc — žádná data pivovaru.
   'ocr_pouziti',
+  // Pivovarská bible: strany, kapitoly a pasáže knih jsou odvozené z originálů
+  // v bucketu „knihovna" (zpracování je kdykoli vytvoří znovu). Obsah knih
+  // chráněný autorským právem do zálohy ve veřejném repu nepatří.
+  'bible_kapitoly', 'bible_strany', 'bible_pasaze',
 ];
 
 /** Sloupce, které se při obnově zapíšou až ve druhém kole (kruhové a vlastní odkazy). */

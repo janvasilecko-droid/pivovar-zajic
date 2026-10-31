@@ -56,3 +56,18 @@ Každé rozhodnutí má datum, důvod a co by ho změnilo.
   Druhá kopie zůstává ve složce majitele.
 - **Změnilo by to:** soubory nad 50 MB (rozdělení v prohlížeči, Etapa 1b)
   nebo růst knihovny (Supabase Pro nebo Cloudflare R2).
+
+## R8 — Migrace bible se testují na čistém PostgreSQL (31. 10. 2026)
+- **Důvod:** přístup ke knihám je fail-closed a chyba v politice RLS by se
+  v appce neprojevila. Uživatel by jen viděl, co nemá.
+- **Jak:** `supabase/testy/bible/` obsahuje napodobený Supabase (role, auth,
+  storage) a kontroly. Job `migrace` v `bible-zpracovani.yml` pustí migrace
+  bible dvakrát za sebou a pak kontroly přístupu, pojistek, fronty a hledání.
+  Zkouška s úmyslně otevřenou politikou čtení kontrolou neprošla.
+
+## R9 — Zápis zpracování nahrazuje odvozená data (31. 10. 2026)
+- **Jak:** strany, kapitoly a pasáže dokumentu se při novém zpracování
+  smažou a zapíšou znovu. Vždy jen s filtrem dokumentu.
+- **Proč to neporušuje „data nemazat":** jsou to odvozená data, která
+  vzniknou znovu z originálu v bucketu. Data pivovaru, katalog knih
+  a náklady se nemažou.

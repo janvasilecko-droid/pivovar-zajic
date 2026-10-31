@@ -183,3 +183,19 @@ export function hlaskaChyby(chyba: unknown): string {
   if (/Failed to fetch|NetworkError|aborted|network/i.test(zprava)) return 'Spojení se přerušilo. Zkus to znovu, až bude signál.';
   return zprava || 'Neznámá chyba.';
 }
+
+export type NakladyMesice = { usd: number; volani: number; podleUcelu: Record<string, number> };
+
+/** Součet řádků ai_naklady (útrata za AI) — celkem a po účelech (ocr, chat…). */
+export function souhrnNakladu(radky: { ucel: string; cena_usd: number | string; volani: number | null }[]): NakladyMesice {
+  const podleUcelu: Record<string, number> = {};
+  let usd = 0;
+  let volani = 0;
+  for (const r of radky) {
+    const cena = Number(r.cena_usd) || 0;
+    usd += cena;
+    volani += Number(r.volani) || 0;
+    podleUcelu[r.ucel] = (podleUcelu[r.ucel] ?? 0) + cena;
+  }
+  return { usd, volani, podleUcelu };
+}

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import {
   PRIJIMANE_PRIPONY, TYPY_SOUBORU, bezpecneJmeno, chybiMigrace, hlaskaChyby, jeZpracovany,
-  nazevZeSouboru, postupText, pripona, sha256Hex, typSouboru, velikostText,
+  nazevZeSouboru, postupText, pripona, sha256Hex, souhrnNakladu, typSouboru, velikostText,
 } from './bibleKnihovna';
 import { BIBLE_OBLASTI, nazevOblasti, platneOblasti } from './bibleOblasti';
 
@@ -111,5 +111,20 @@ describe('tematické oblasti A–T', () => {
     const m = MIGRACE.match(/oblasti <@ ARRAY\[([^\]]*)\]/);
     expect(m).toBeTruthy();
     expect([...m![1].matchAll(/'([A-Z])'/g)].map((x) => x[1]).join('')).toBe('ABCDEFGHIJKLMNOPQRST');
+  });
+});
+
+describe('útrata za AI', () => {
+  it('sečte řádky ai_naklady celkem a po účelech', () => {
+    expect(souhrnNakladu([])).toEqual({ usd: 0, volani: 0, podleUcelu: {} });
+    const s = souhrnNakladu([
+      { ucel: 'ocr', cena_usd: '0.250000', volani: 300 },
+      { ucel: 'ocr', cena_usd: 0.05, volani: 40 },
+      { ucel: 'chat', cena_usd: 0.12, volani: 1 },
+    ]);
+    expect(s.usd).toBeCloseTo(0.42, 6);
+    expect(s.volani).toBe(341);
+    expect(s.podleUcelu.ocr).toBeCloseTo(0.3, 6);
+    expect(s.podleUcelu.chat).toBeCloseTo(0.12, 6);
   });
 });
