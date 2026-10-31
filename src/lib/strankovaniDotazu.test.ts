@@ -28,8 +28,10 @@ const ROSTOUCI = [
   // s každým provozním dnem, parser_aliases/place_aliases s každou naučenou
   // opravou, a nikdy se nemažou.
   'whatsapp_incoming', 'calendar_events', 'parser_aliases', 'place_aliases',
-  // Pivovarská bible (klient bibleDb): evidence útraty za AI roste s každým
-  // voláním — součty se počítají v databázi (bible_naklady_od).
+  // Pivovarská bible: evidence útraty za AI roste s každým voláním — součty
+  // se počítají v databázi (bible_naklady_od). Od 31. 10. 2026 je v projektu
+  // bible a appka ji čte jen přes bible-api; položka hlídá, ať se sem nikdy
+  // nevrátí holé čtení řádků.
   'ai_naklady',
 ];
 

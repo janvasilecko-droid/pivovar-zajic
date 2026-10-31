@@ -14,21 +14,28 @@
 // o celou zálohu každý den.
 //
 // Spouští .github/workflows/zaloha.yml; ručně „Run workflow" na kartě Actions.
+//
+// `--sada bible`: projekt bible (samostatný Supabase, R12) do zalohy/bible/ —
+// BIBLE_SUPABASE_SERVICE_ROLE_KEY (adresa je pevná, jde přebít BIBLE_SUPABASE_URL).
 import { mkdirSync, writeFileSync, readFileSync, existsSync, unlinkSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { zasifruj, otisk } from './lib/sifraZalohy.mjs';
-import { TABULKY } from './lib/zalohaTabulky.mjs';
+import { BIBLE_URL, sadaZalohy } from './lib/zalohaTabulky.mjs';
 
 const KOREN = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const SLOZKA = resolve(KOREN, 'zalohy');
-const URL_DB = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-const KLIC = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const iSada = process.argv.indexOf('--sada');
+const SADA = sadaZalohy(iSada >= 0 ? process.argv[iSada + 1] : 'hlavni');
+const BIBLE = SADA.jmeno === 'bible';
+const SLOZKA = resolve(KOREN, SADA.slozka);
+const TABULKY = SADA.tabulky;
+const URL_DB = BIBLE ? (process.env.BIBLE_SUPABASE_URL || BIBLE_URL) : (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL);
+const KLIC = BIBLE ? process.env.BIBLE_SUPABASE_SERVICE_ROLE_KEY : process.env.SUPABASE_SERVICE_ROLE_KEY;
 const HESLO = process.env.ZALOHA_HESLO;
 
 const chybi = [
   !URL_DB && '  • SUPABASE_URL není nastavené',
-  !KLIC && '  • SUPABASE_SERVICE_ROLE_KEY není nastavený',
+  !KLIC && `  • ${BIBLE ? 'BIBLE_SUPABASE_SERVICE_ROLE_KEY' : 'SUPABASE_SERVICE_ROLE_KEY'} není nastavený`,
   (!HESLO || HESLO.length < 12) && '  • ZALOHA_HESLO chybí nebo je kratší než 12 znaků',
 ].filter(Boolean);
 
@@ -70,6 +77,7 @@ const minule = existsSync(cestaManifestu) ? JSON.parse(readFileSync(cestaManifes
 const manifest = {
   format: 'pivovar-zaloha-manifest',
   v: 1,
+  sada: SADA.jmeno,
   // Mění se při každém běhu → každý den commit → hlídač v appce pozná,
   // že záloha doběhla, i když se data nezměnila.
   datum: new Date().toISOString(),
@@ -101,14 +109,17 @@ const dnes = manifest.datum.slice(0, 10);
 writeFileSync(
   resolve(SLOZKA, 'README.md'),
   [
-    '# Zálohy',
+    BIBLE ? '# Zálohy projektu bible' : '# Zálohy',
     '',
+    ...(BIBLE ? ['Katalog knihovny, nastavení a náklady na AI ze samostatného projektu Supabase (rozhodnutí R12). Obsah knih se nezálohuje.', ''] : []),
     `Poslední záloha: **${dnes}** · tabulek ${Object.keys(manifest.tabulky).length} · přepsáno ${prepsano}`,
     '',
     '🔐 **Soubory jsou zašifrované** (AES-256-GCM). Bez hesla `ZALOHA_HESLO` je',
     'nikdo nepřečte — a bez něj je nejde ani obnovit. Heslo musí být uložené i mimo GitHub.',
     '',
-    '**Obnova: [OBNOVA.md](OBNOVA.md)** — `node scripts/obnov-ze-zalohy.mjs`',
+    BIBLE
+      ? '**Obnova: [../OBNOVA.md](../OBNOVA.md)** — `node scripts/obnov-ze-zalohy.mjs --sada bible`'
+      : '**Obnova: [OBNOVA.md](OBNOVA.md)** — `node scripts/obnov-ze-zalohy.mjs`',
     'nejdřív jen ukáže, co by se změnilo; zapisuje se až s `--opravdu`.',
     '',
     ...(manifest.nejsouVDatabazi.length
@@ -120,5 +131,5 @@ writeFileSync(
   'utf8',
 );
 
-console.log(`Záloha ${dnes}: ${Object.keys(manifest.tabulky).length} tabulek, přepsáno ${prepsano}` +
+console.log(`Záloha${BIBLE ? ' projektu bible' : ''} ${dnes}: ${Object.keys(manifest.tabulky).length} tabulek, přepsáno ${prepsano}` +
   (manifest.nejsouVDatabazi.length ? `, chybí v databázi: ${manifest.nejsouVDatabazi.join(', ')}` : ''));

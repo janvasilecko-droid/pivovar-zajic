@@ -23,16 +23,16 @@ import { readdirSync, existsSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 
-const DIR = 'supabase/functions';
+// Funkce appky (hlavní projekt) i projektu bible (samostatný Supabase, R12).
+const SLOZKY = ['supabase/functions', 'bible/supabase/functions'];
 // Verze se drží napevno, ať se kontrola nerozbije samovolně novým Denem.
 const DENO = 'deno@2.1.4';
 
 function vstupniSoubory() {
-  if (!existsSync(DIR)) return [];
-  return readdirSync(DIR, { withFileTypes: true })
+  return SLOZKY.filter((dir) => existsSync(dir)).flatMap((dir) => readdirSync(dir, { withFileTypes: true })
     .filter((p) => p.isDirectory())
-    .map((p) => join(DIR, p.name, 'index.ts'))
-    .filter((cesta) => existsSync(cesta));
+    .map((p) => join(dir, p.name, 'index.ts'))
+    .filter((cesta) => existsSync(cesta)));
 }
 
 const soubory = vstupniSoubory();
@@ -93,7 +93,8 @@ if (nalezy.length > 0) {
     'se objednávky musí číst ručně). Oprav jméno proměnné; změněné funkce pak\n' +
     'nasadí CI samo (job „nasad-databazi-a-funkce"). Ručně jen když je potřeba\n' +
     'hned:\n' +
-    '   npx supabase functions deploy <nazev> --project-ref sasqexjadvlqyticxwja\n',
+    '   npx supabase functions deploy <nazev> --project-ref sasqexjadvlqyticxwja\n' +
+    '   (funkce bible: npx supabase --workdir bible functions deploy <nazev> --project-ref cegrelgvkygcatupqwrx --no-verify-jwt)\n',
   );
   process.exit(1);
 }

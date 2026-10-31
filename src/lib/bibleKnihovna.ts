@@ -3,7 +3,8 @@
 // Typy souborů, bezpečná jména v úložišti, odhad názvu ze jména souboru,
 // SHA-256, popisy stavů zpracování a srozumitelné hlášky chyb nahrávání.
 
-export type StavDokumentu = 'ceka' | 'zpracovava' | 'hotovo' | 'ke_kontrole' | 'chyba' | 'pozastaveno';
+/** nahrava = záznam je založený, soubor ještě nedorazil celý (projekt bible, R12). */
+export type StavDokumentu = 'nahrava' | 'ceka' | 'zpracovava' | 'hotovo' | 'ke_kontrole' | 'chyba' | 'pozastaveno';
 
 export type DruhDokumentu = 'kniha' | 'skripta' | 'clanek' | 'norma' | 'prirucka' | 'poznamky' | 'tabulky' | 'jiny';
 
@@ -22,9 +23,10 @@ export type PostupZpracovani = {
 };
 
 /**
- * Přípona → MIME typ. Bucket „knihovna" přijme jen tyhle typy (seznam
- * v migraci 20261231410000 se musí shodovat — hlídá test). Typ se posílá
- * vždy podle přípony: prohlížeč u .md nebo .djvu často žádný nezná.
+ * Přípona → MIME typ. Bucket „knihovna" projektu bible přijme jen tyhle typy
+ * (seznam v bible/supabase/migrations/20261101000000_bible_zaklad.sql se musí
+ * shodovat — hlídá test). Typ se posílá vždy podle přípony: prohlížeč u .md
+ * nebo .djvu často žádný nezná.
  */
 export const TYPY_SOUBORU: Readonly<Record<string, string>> = {
   pdf: 'application/pdf',
@@ -48,7 +50,7 @@ export const TYPY_SOUBORU: Readonly<Record<string, string>> = {
 /** Pro `<input accept>`. */
 export const PRIJIMANE_PRIPONY = Object.keys(TYPY_SOUBORU).map((p) => `.${p}`).join(',');
 
-/** Limit souboru na tarifu Supabase Free. Na Pro jde zvýšit v nastavení úložiště. */
+/** Limit souboru na tarifu Supabase Free (bucket knihovna projektu bible ho má nastavený). */
 export const LIMIT_SOUBORU_FREE = 50 * 1024 * 1024;
 
 export function pripona(nazevSouboru: string): string {
@@ -109,6 +111,7 @@ export async function sha256Hex(data: Blob): Promise<string> {
 }
 
 export const STAV_POPIS: Readonly<Record<StavDokumentu, string>> = {
+  nahrava: 'Nahrávání nedokončeno',
   ceka: 'Čeká na zpracování',
   zpracovava: 'Zpracovává se',
   hotovo: 'Zpracováno',
@@ -179,7 +182,7 @@ export function hlaskaChyby(chyba: unknown): string {
   if (c.code === '42501' || status === '403' || /row-level security|permission denied|Unauthorized/i.test(zprava)) {
     return 'Nemáš právo nahrávat do knihovny. Povolí ho admin v Uživatelé → Práva → Pivovarská bible.';
   }
-  if (chybiMigrace(c)) return 'Knihovna ještě nemá tabulky v databázi — spusť migraci v Systém → Databázové migrace.';
+  if (chybiMigrace(c)) return 'Databáze bible ještě nemá tabulky — spusť migraci v Systém → Databázové migrace → Databáze bible.';
   if (/Failed to fetch|NetworkError|aborted|network/i.test(zprava)) return 'Spojení se přerušilo. Zkus to znovu, až bude signál.';
   return zprava || 'Neznámá chyba.';
 }

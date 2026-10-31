@@ -73,3 +73,21 @@ nový repozitář.
 
 `VITE_SUPABASE_URL` a `VITE_SUPABASE_SERVICE_ROLE_KEY` z `.env`, nebo
 `SUPABASE_URL` a `SUPABASE_SERVICE_ROLE_KEY` z prostředí.
+
+## Projekt bible (zalohy/bible/)
+
+Pivovarská bible má od 31. 10. 2026 vlastní projekt Supabase (rozhodnutí R12
+v `docs/pivovarska-bible/ROZHODNUTI.md`). Jeho katalog knihovny, nastavení,
+náklady na AI a evidence migrací se zálohují zvlášť do `zalohy/bible/`
+(stejné heslo). Obsah knih (strany, kapitoly, pasáže) se nezálohuje —
+zpracování ho vytvoří znovu z originálů; originály mají druhou kopii u majitele.
+
+Obnova potřebuje v `.env` klíč projektu bible
+`BIBLE_SUPABASE_SERVICE_ROLE_KEY=…` (Secret key z
+https://supabase.com/dashboard/project/cegrelgvkygcatupqwrx/settings/api-keys):
+
+```bash
+node scripts/obnov-ze-zalohy.mjs --sada bible
+node scripts/obnov-ze-zalohy.mjs --sada bible --opravdu
+```
+

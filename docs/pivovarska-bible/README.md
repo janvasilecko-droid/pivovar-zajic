@@ -11,7 +11,7 @@ s citací kniha–kapitola–strana a počítá deterministickým výpočetním 
 
 - **Bible v appce:** https://zajic-pivovar.pages.dev/?page=bible
 - **Migrace databáze** (pouští majitel): https://zajic-pivovar.pages.dev/?page=audit
-  → Databázové migrace
+  → Databázové migrace (hlavní databáze) a pod ní „Databáze bible"
 - **Kdo smí do bible:** Uživatelé → u člověka Práva → „Pivovarská bible"
   (https://zajic-pivovar.pages.dev/?page=users)
 - **Spustit zpracování knih hned** (jinak běží samo zhruba každé 3 hodiny):
@@ -19,15 +19,21 @@ s citací kniha–kapitola–strana a počítá deterministickým výpočetním 
   → „Run workflow"
 - **Kredit Anthropic API** (platí odpovědi a OCR):
   https://platform.claude.com/settings/billing
-- **Supabase projekt:** https://supabase.com/dashboard/project/sasqexjadvlqyticxwja
+- **Supabase projekt bible** (knihy, zpracování, náklady na AI; rozhodnutí R12):
+  https://supabase.com/dashboard/project/cegrelgvkygcatupqwrx
+- **Klíče projektu bible** (Secret key pro GitHub secret
+  `BIBLE_SUPABASE_SERVICE_ROLE_KEY`):
+  https://supabase.com/dashboard/project/cegrelgvkygcatupqwrx/settings/api-keys
+- **Hlavní Supabase projekt appky:** https://supabase.com/dashboard/project/sasqexjadvlqyticxwja
 
 ## Stav
 
 | Etapa | Stav |
 |---|---|
 | 0: audit a architektura | hotovo (30. 10. 2026) |
-| 1: knihovna, nahrávání, stav | hotovo — migrace `20261231410000_pivovarska_bible_knihovna` čeká na spuštění |
-| 2: zpracování knih (worker) | hotovo — migrace `20261231420000_pivovarska_bible_zpracovani` čeká na spuštění |
+| 1: knihovna, nahrávání, stav | hotovo (31. 10. 2026) |
+| 2: zpracování knih (worker) | hotovo (31. 10. 2026) |
+| přesun do samostatného projektu (R12) | hotovo — migrace `20261101000000_bible_zaklad` (Databáze bible) a `20261231430000_pivovarska_bible_samostatny_projekt` (hlavní databáze) pouští majitel |
 | 3–10 | čeká |
 
 ## Zpracování knih (etapa 2)
@@ -35,7 +41,11 @@ s citací kniha–kapitola–strana a počítá deterministickým výpočetním 
 - **Kód:** `scripts/bible/` (Python) a workflow
   `.github/workflows/bible-zpracovani.yml`.
 - **Testy workeru:** `scripts/bible/tests/` (pytest).
-- **Kontroly migrací** na čistém PostgreSQL: `supabase/testy/bible/`.
+- **Kontroly migrací** na čistém PostgreSQL: projekt bible
+  `bible/supabase/testy/`, hlavní projekt `supabase/testy/bible/`.
+- **Projekt bible:** schéma `bible/supabase/migrations/`, edge funkce
+  `bible/supabase/functions/` (bible-api, bible-migrace; testy vitest
+  v `_shared/`), nasazení `scripts/bible-nasazeni.mjs` + deploy.yml.
 - **Postup u jednoho dokumentu:**
   1. Stažení originálu (jen cesta „<id dokumentu>/<jméno>") a ověření SHA-256.
   2. U PDF textová vrstva po stranách. Sken — i sken s cizí OCR vrstvou
@@ -56,9 +66,9 @@ s citací kniha–kapitola–strana a počítá deterministickým výpočetním 
 - **Strop útraty:** na běh 5 USD a na měsíc 20 USD (`bible_nastaveni`,
   0 = AI nepoužívat). Když dojde, dokument se skeny počká na další běh;
   dokumenty bez AI se zpracují dál.
-- **Pojistka velikosti databáze:** `limit_db_mb` (výchozí 450 MB; Supabase
-  Free přepne nad 500 MB celou appku jen pro čtení). Nad limitem další
-  knihy počkají se zprávou u dokumentu.
+- **Pojistka velikosti databáze bible:** `limit_db_mb` (výchozí 450 MB;
+  Supabase Free přepne nad 500 MB databázi bible jen pro čtení). Nad limitem
+  další knihy počkají se zprávou u dokumentu.
 - **Fronta:** dokument zkoušený v běhu se ve stejném běhu znovu nebere,
   po třech nepovedených pokusech je „chyba"; „Zpracovat znovu" vynuluje
   pokusy. Pozastavit jde i rozpracovaný dokument (worker přestane).

@@ -3,15 +3,14 @@ import { fireEvent, render, screen } from '@testing-library/react';
 
 let profil: { role: string; permissions?: unknown } | null = null;
 vi.mock('../lib/auth', () => ({ useAuth: () => ({ user: { id: 'u1', email: 'u@pivovar.cz' }, profile: profil }) }));
-// Klient by se v testu bez adresy Supabase nevytvořil — prázdná knihovna.
-vi.mock('../lib/bibleKlient', () => {
-  const dotaz: Record<string, unknown> = {
-    select: () => dotaz,
-    order: () => dotaz,
-    then: (ok: (v: unknown) => unknown) => Promise.resolve({ data: [], error: null }).then(ok),
-  };
-  return { bibleDb: { from: () => dotaz, rpc: async () => ({ data: null, error: { message: 'jen pro správce' } }) } };
-});
+// Brána projektu bible: prázdná knihovna, kapacita a útrata jen pro správce.
+vi.mock('../lib/bibleKlient', () => ({
+  BIBLE_URL: 'https://cegrelgvkygcatupqwrx.supabase.co',
+  odkazDoUloziste: () => null,
+  volejBibli: async (_funkce: string, telo: { akce?: string }) => (telo.akce === 'dokumenty' || telo.akce === 'nastaveni'
+    ? { ok: true, data: telo.akce === 'dokumenty' ? [] : {} }
+    : { ok: false, chyba: { kod: 'zakazano', zprava: 'jen pro správce', status: 403 } }),
+}));
 
 import BibleScreen, { BIBLE_DLAZDICE } from './BibleScreen';
 

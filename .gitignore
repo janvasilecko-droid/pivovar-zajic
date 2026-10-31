@@ -43,6 +43,8 @@ data_dump.txt
 
 # Supabase temp
 supabase/.temp/
+bible/supabase/.temp/
+bible/supabase/.branches/
 
 # Capacitor
 android/.gradle/

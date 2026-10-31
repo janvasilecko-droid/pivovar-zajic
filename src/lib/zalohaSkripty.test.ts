@@ -50,9 +50,11 @@ describe('seznam zálohovaných tabulek', () => {
   const typy = readFileSync('src/lib/database.types.ts', 'utf8').replace(/\r\n/g, '\n');
   const blok = typy.slice(typy.indexOf('    Tables: {'), typy.indexOf('    Views: {'));
   const vDatabazi = [...blok.matchAll(/^ {6}(\w+): \{$/gm)].map((m) => m[1]);
-  const { zalohovane, nezalohovat, odlozene, vazby } = node(
-    `({ zalohovane: t.TABULKY.map(([n]) => n), nezalohovat: t.NEZALOHOVAT, odlozene: Object.keys(t.ODLOZENE_SLOUPCE), vazby: t.VAZBY.flatMap(([a,,c]) => [a, c]) })`,
-  ) as { zalohovane: string[]; nezalohovat: string[]; odlozene: string[]; vazby: string[] };
+  const { zalohovane, nezalohovat, odlozene, vazby, bible, nezalohovatBible, unikatni, pkBible } = node(
+    `({ zalohovane: t.TABULKY.map(([n]) => n), nezalohovat: t.NEZALOHOVAT, odlozene: Object.keys(t.ODLOZENE_SLOUPCE), vazby: t.VAZBY.flatMap(([a,,c]) => [a, c]),
+        bible: t.TABULKY_BIBLE.map(([n]) => n), nezalohovatBible: t.NEZALOHOVAT_BIBLE, unikatni: Object.keys(t.UNIKATNI_SLOUPCE),
+        pkBible: Object.fromEntries(t.TABULKY_BIBLE.map(([n]) => [n, t.pk(n)])) })`,
+  ) as { zalohovane: string[]; nezalohovat: string[]; odlozene: string[]; vazby: string[]; bible: string[]; nezalohovatBible: string[]; unikatni: string[]; pkBible: Record<string, string> };
 
   it('každá tabulka v databázi je buď zálohovaná, nebo vědomě vynechaná', () => {
     const zapomenute = vDatabazi.filter((t) => !zalohovane.includes(t) && !nezalohovat.includes(t));
@@ -67,7 +69,19 @@ describe('seznam zálohovaných tabulek', () => {
 
   it('žádná tabulka není v seznamu dvakrát a odkazované tabulky existují', () => {
     expect(new Set(zalohovane).size).toBe(zalohovane.length);
-    for (const t of [...odlozene, ...vazby]) expect(zalohovane).toContain(t);
+    expect(new Set(bible).size).toBe(bible.length);
+    for (const t of [...odlozene, ...vazby, ...unikatni]) expect([...zalohovane, ...bible]).toContain(t);
+  });
+
+  it('projekt bible má vlastní sadu: katalog, nastavení, náklady a evidence migrací — obsah knih ne', () => {
+    expect(bible.sort()).toEqual(['ai_naklady', 'bible_dokumenty', 'bible_nastaveni', 'migrace_aplikovane']);
+    expect(pkBible).toEqual({ migrace_aplikovane: 'nazev', bible_nastaveni: 'klic', bible_dokumenty: 'id', ai_naklady: 'id' });
+    for (const t of ['bible_strany', 'bible_pasaze', 'bible_kapitoly']) {
+      expect(bible).not.toContain(t);
+      expect(nezalohovatBible).toContain(t);
+    }
+    // Prázdné tabulky bible v hlavním projektu se do hlavní zálohy nepletou.
+    for (const t of zalohovane) expect(t).not.toMatch(/^bible_|^ai_naklady$/);
   });
 
   it('rodiče jdou v pořadí obnovy před dětmi', () => {

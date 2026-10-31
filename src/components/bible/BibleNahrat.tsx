@@ -43,12 +43,11 @@ const popisStavu = (p: Polozka): string => {
     case 'nahrano': return 'Nahráno — čeká na zpracování.';
     case 'duplicita': return p.zprava ?? 'Už v knihovně je.';
     case 'chyba': return p.zprava ?? 'Nepovedlo se.';
-    default: return p.soubor.size > LIMIT_SOUBORU_FREE ? 'Větší než 50 MB — na tarifu Supabase Free se nemusí vejít.' : '';
+    default: return p.soubor.size > LIMIT_SOUBORU_FREE ? 'Větší než 50 MB — tarif Supabase Free ho nevezme (rozděl ho, nebo zmenši).' : '';
   }
 };
 
-export function BibleNahrat({ nahralJmeno, onNahrano, onZavrit }: {
-  nahralJmeno: string | null;
+export function BibleNahrat({ onNahrano, onZavrit }: {
   onNahrano: (d: BibleDokument) => void;
   onZavrit: () => void;
 }) {
@@ -92,7 +91,7 @@ export function BibleNahrat({ nahralJmeno, onNahrano, onZavrit }: {
         oblasti: platneOblasti(oblasti),
         zdroj,
         licence,
-      }, nahralJmeno);
+      });
       if (v.stav === 'nahrano') {
         zmen(p.klic, { stav: 'nahrano' });
         onNahrano(v.dokument);

@@ -1,7 +1,7 @@
 // 📚 Tematické oblasti Pivovarské bible (A–T) — přesně podle zadání majitele
 // z 30. 10. 2026, bod 3 „Odborné tematické knihovny". Písmeno se ukládá
 // u dokumentu (bible_dokumenty.oblasti) a později u pasáží; databáze přijme
-// jen tahle písmena (CHECK v migraci 20261231410000).
+// jen tahle písmena (CHECK v bible/supabase/migrations/20261101000000_bible_zaklad.sql).
 
 export type BibleOblast = { kod: string; nazev: string };
 

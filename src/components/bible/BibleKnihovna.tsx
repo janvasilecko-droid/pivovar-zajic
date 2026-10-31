@@ -22,6 +22,7 @@ import { BibleNahrat } from './BibleNahrat';
 import { POPISEK, PolePopisu } from './BiblePopisPole';
 
 const BARVA_STAVU: Record<StavDokumentu, string> = {
+  nahrava: 'border-amber-400 text-amber-200',
   ceka: 'border-amber-600 text-amber-300',
   zpracovava: 'border-sky-600 text-sky-300',
   hotovo: 'border-emerald-600 text-emerald-300',
@@ -56,7 +57,12 @@ function KartaDokumentu({ d, role, mujId, onZmena, onSmazano }: {
   const [chyba, setChyba] = useState<string | null>(null);
 
   const spravce = smiSpravovat(role);
-  const smiUpravit = spravce || (smiPrispivat(role) && d.nahral === mujId);
+  const vlastni = smiPrispivat(role) && d.nahral === mujId;
+  const smiUpravit = spravce || vlastni;
+  // Nedokončené nahrání: soubor nedorazil celý — dokončí ho nové nahrání
+  // téhož souboru, nebo se zruší (smí i ten, kdo ho začal).
+  const nahrava = d.stav === 'nahrava';
+  const smiSmazat = spravce || (nahrava && vlastni);
   const podrobnosti = [d.autor, d.rok, d.vydani].filter(Boolean).join(' · ');
   const postup = postupText(d.postup, d.stran_celkem);
 
@@ -93,6 +99,11 @@ function KartaDokumentu({ d, role, mujId, onZmena, onSmazano }: {
         <div className="break-all">{d.soubor_nazev} · {velikostText(d.soubor_velikost)}</div>
         {postup && <div className="font-bold text-neutral-100">{postup}</div>}
         {d.stav_zprava && <div className={`font-bold ${d.stav === 'chyba' ? 'text-rose-300' : 'text-amber-200'}`}>{d.stav_zprava}</div>}
+        {nahrava && (
+          <div className="font-bold text-amber-200">
+            Soubor do úložiště nedorazil celý. V „Nahrát knihy" vyber stejný soubor znovu — nahrání se dokončí. Nebo ho zruš.
+          </div>
+        )}
         <div>Nahrál {d.nahral_jmeno ?? '—'}, {new Date(d.created_at).toLocaleDateString('cs-CZ')}</div>
       </div>
 
@@ -113,19 +124,23 @@ function KartaDokumentu({ d, role, mujId, onZmena, onSmazano }: {
         </div>
       ) : mazani ? (
         <div className="rounded-xl border border-rose-600 bg-neutral-950 text-neutral-100 p-3 space-y-2">
-          <div className="text-sm font-bold">Opravdu smazat „{d.nazev}"? Zmizí záznam i soubor v úložišti. Originál ve složce u tebe zůstane.</div>
+          <div className="text-sm font-bold">
+            {nahrava
+              ? `Zrušit nedokončené nahrání „${d.nazev}"? Originál ve složce u tebe zůstane.`
+              : `Opravdu smazat „${d.nazev}"? Zmizí záznam i soubor v úložišti. Originál ve složce u tebe zůstane.`}
+          </div>
           <div className="flex flex-wrap gap-2">
-            <button type="button" className="btn-danger" disabled={bezi} onClick={() => akce(() => smazDokument(d.id), () => onSmazano(d.id))}>Ano, smazat</button>
+            <button type="button" className="btn-danger" disabled={bezi} onClick={() => akce(() => smazDokument(d.id), () => onSmazano(d.id))}>{nahrava ? 'Ano, zrušit' : 'Ano, smazat'}</button>
             <button type="button" className="btn-tmave" disabled={bezi} onClick={() => setMazani(false)}>Ne</button>
           </div>
         </div>
       ) : (
         <div className="flex flex-wrap gap-2 pt-1">
-          <button type="button" className="btn-tmave btn-sm" onClick={otevriOriginal}><Download size={16} /> Originál</button>
+          {!nahrava && <button type="button" className="btn-tmave btn-sm" onClick={otevriOriginal}><Download size={16} /> Originál</button>}
           {smiUpravit && (
             <button type="button" className="btn-tmave btn-sm" onClick={() => setUprava(popisZDokumentu(d))}><Pencil size={16} /> Upravit popis</button>
           )}
-          {spravce && d.stav !== 'ceka' && d.stav !== 'zpracovava' && (
+          {spravce && !nahrava && d.stav !== 'ceka' && d.stav !== 'zpracovava' && (
             <button type="button" className="btn-tmave btn-sm" disabled={bezi} onClick={() => akce(() => nastavStav(d.id, 'ceka'), () => onZmena({ ...d, stav: 'ceka', stav_zprava: null }))}>
               <RotateCcw size={16} /> Zpracovat znovu
             </button>
@@ -136,8 +151,8 @@ function KartaDokumentu({ d, role, mujId, onZmena, onSmazano }: {
               <Pause size={16} /> Pozastavit
             </button>
           )}
-          {spravce && (
-            <button type="button" className="btn-tmave btn-sm" onClick={() => setMazani(true)}><Trash2 size={16} /> Smazat</button>
+          {smiSmazat && (
+            <button type="button" className="btn-tmave btn-sm" onClick={() => setMazani(true)}><Trash2 size={16} /> {nahrava ? 'Zrušit nahrání' : 'Smazat'}</button>
           )}
         </div>
       )}
@@ -150,7 +165,7 @@ export function BibleKnihovna({ role, setPage }: {
   role: BibleRole;
   setPage?: (p: any, sec?: string, sub?: string) => void;
 }) {
-  const { profile, user } = useAuth();
+  const { user } = useAuth();
   const [nacteno, setNacteno] = useState<Nacteno | null>(null);
   const [nahravani, setNahravani] = useState(false);
   const [hledat, setHledat] = useState('');
@@ -165,7 +180,8 @@ export function BibleKnihovna({ role, setPage }: {
 
   const dokumenty = useMemo(() => (nacteno?.stav === 'ok' ? nacteno.dokumenty : []), [nacteno]);
   const zmenDokument = (d: BibleDokument) => setNacteno((n) => (n?.stav === 'ok' ? { ...n, dokumenty: n.dokumenty.map((x) => (x.id === d.id ? d : x)) } : n));
-  const pridejDokument = (d: BibleDokument) => setNacteno((n) => (n?.stav === 'ok' ? { ...n, dokumenty: [d, ...n.dokumenty] } : n));
+  // Dokončené dřívější nahrání má stejné id — nahradí se, nepřidá podruhé.
+  const pridejDokument = (d: BibleDokument) => setNacteno((n) => (n?.stav === 'ok' ? { ...n, dokumenty: [d, ...n.dokumenty.filter((x) => x.id !== d.id)] } : n));
   const odeberDokument = (id: string) => setNacteno((n) => (n?.stav === 'ok' ? { ...n, dokumenty: n.dokumenty.filter((x) => x.id !== id) } : n));
 
   const filtrovane = useMemo(() => {
@@ -186,9 +202,9 @@ export function BibleKnihovna({ role, setPage }: {
   if (nacteno.stav === 'bez_migrace') {
     return (
       <div role="alert" className="rounded-xl border-2 border-amber-500 bg-neutral-900 text-neutral-100 p-4 space-y-2">
-        <div className="text-sm font-black">Knihovna potřebuje nové tabulky v databázi.</div>
+        <div className="text-sm font-black">Databáze bible ještě nemá tabulky.</div>
         <div className="text-sm text-neutral-200">
-          Spusť migraci <strong>20261231410000_pivovarska_bible_knihovna</strong> v Systém → Databázové migrace a pak se sem vrať.
+          Bible má vlastní databázi (samostatný projekt Supabase). Spusť migraci <strong>20261101000000_bible_zaklad</strong> v Systém → Databázové migrace → Databáze bible a pak se sem vrať.
         </div>
         {setPage && <button type="button" className="btn-amber" onClick={() => setPage('audit')}>Otevřít Systém → Databázové migrace</button>}
       </div>
@@ -224,16 +240,12 @@ export function BibleKnihovna({ role, setPage }: {
 
       {cekajicich > 0 && zpracovanych === 0 && (
         <div role="note" className="rounded-xl border border-amber-700 bg-neutral-900 text-neutral-100 p-3 text-sm">
-          Nahrané knihy čekají na zpracování (strany, kapitoly, OCR skenů, tabulky a vzorce). Zpracování přichází v další etapě — do té doby z nich AI neodpovídá.
+          Nahrané knihy čekají na zpracování (strany, kapitoly, OCR skenů, tabulky a vzorce). Zpracování běží samo zhruba každé tři hodiny — dokud kniha není zpracovaná, AI z ní neodpovídá.
         </div>
       )}
 
       {smiPrispivat(role) && (nahravani ? (
-        <BibleNahrat
-          nahralJmeno={(profile as { display_name?: string | null } | null)?.display_name ?? user?.email ?? null}
-          onNahrano={pridejDokument}
-          onZavrit={() => setNahravani(false)}
-        />
+        <BibleNahrat onNahrano={pridejDokument} onZavrit={() => setNahravani(false)} />
       ) : (
         <button type="button" className="btn-amber" onClick={() => setNahravani(true)}><Upload size={18} /> Nahrát knihy</button>
       ))}

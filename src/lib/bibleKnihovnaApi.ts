@@ -1,17 +1,21 @@
-// 📚 Odborná knihovna — čtení a zápis (soukromý bucket „knihovna" + tabulka
-// bible_dokumenty, migrace 20261231410000).
+// 📚 Odborná knihovna — čtení a zápis v projektu bible (samostatný Supabase,
+// rozhodnutí R12) přes edge funkci bible-api (lib/bibleKlient.ts).
 // ---------------------------------------------------------------------------
-// Jde přes bibleDb (lib/bibleKlient.ts): nic z knihovny nesmí do offline
-// mezipaměti telefonu. Přístup hlídá databáze (RLS, fail-closed).
+// Databáze bible je pro prohlížeč zavřená; práva hlídá bible-api (ověří
+// přihlášení a práva v hlavní appce, fail-closed) a znovu SQL funkce v bibli.
+// Nic z knihovny nejde do offline mezipaměti telefonu.
 //
 // Nahrání jednoho souboru:
-//   1. SHA-256 v prohlížeči; stejný soubor už v knihovně → nenahrává se znovu
-//   2. soubor do bucketu (cesta <nové id>/<bezpečné jméno>)
-//   3. řádek dokumentu ve stavu „čeká na zpracování"
-//   Když 3. selže, soubor z bucketu hned zmizí — nezůstane soubor bez záznamu.
-import { bibleDb } from './bibleKlient';
+//   1. SHA-256 v prohlížeči; zalozit_nahrani → stejný soubor už v knihovně
+//      = duplicita; jinak řádek „nahrava" a podepsaný odkaz jen pro tuhle cestu
+//   2. soubor rovnou do úložiště bible (cesta <id>/<bezpečné jméno>)
+//   3. potvrdit_nahrani → soubor tam je a má ohlášenou velikost → „čeká"
+//   Když 2. nebo 3. selže, řádek zůstane „nahrava": nahrát stejný soubor
+//   znovu naváže (bez nového řádku), nebo jde nahrání zrušit. Nikdy soubor
+//   bez záznamu ani záznam ve frontě bez souboru.
+import { BIBLE_URL, odkazDoUloziste, volejBibli } from './bibleKlient';
 import {
-  bezpecneJmeno, chybiMigrace, hlaskaChyby, sha256Hex, souhrnNakladu, typSouboru,
+  bezpecneJmeno, hlaskaChyby, LIMIT_SOUBORU_FREE, sha256Hex, souhrnNakladu, typSouboru,
   type DruhDokumentu, type JazykDokumentu, type NakladyMesice, type PostupZpracovani, type StavDokumentu,
 } from './bibleKnihovna';
 
@@ -45,8 +49,6 @@ export type BibleDokument = {
   zpracovano_at: string | null;
 };
 
-const SLOUPCE = 'id,nazev,autor,vydani,rok,isbn,jazyk,druh,oblasti,zdroj,soubor_nazev,soubor_velikost,soubor_mime,stav,stav_zprava,postup,stran_celkem,kvalita_ocr,licence,nahral,nahral_jmeno,created_at,zpracovano_at';
-
 export type Popis = {
   nazev: string;
   autor?: string | null;
@@ -66,9 +68,9 @@ export type Nacteno =
   | { stav: 'chyba'; zprava: string };
 
 export async function nactiDokumenty(): Promise<Nacteno> {
-  const { data, error } = await bibleDb.from('bible_dokumenty').select(SLOUPCE).order('created_at', { ascending: false });
-  if (error) return chybiMigrace(error) ? { stav: 'bez_migrace' } : { stav: 'chyba', zprava: hlaskaChyby(error) };
-  return { stav: 'ok', dokumenty: (data ?? []) as BibleDokument[] };
+  const r = await volejBibli<BibleDokument[]>('bible-api', { akce: 'dokumenty' });
+  if (!r.ok) return r.chyba.kod === 'bez_migrace' ? { stav: 'bez_migrace' } : { stav: 'chyba', zprava: r.chyba.zprava };
+  return { stav: 'ok', dokumenty: Array.isArray(r.data) ? r.data : [] };
 }
 
 export type VysledekNahrani =
@@ -79,20 +81,50 @@ export type VysledekNahrani =
 /** Prázdné texty → null, ať se v databázi neusadí „" místo „nevyplněno". */
 const neboNull = (s: string | null | undefined) => (s && s.trim() ? s.trim() : null);
 
-function noveId(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
-  // Starší WebView bez randomUUID — UUID v4 z getRandomValues.
-  const b = crypto.getRandomValues(new Uint8Array(16));
-  b[6] = (b[6] & 0x0f) | 0x40;
-  b[8] = (b[8] & 0x3f) | 0x80;
-  const h = [...b].map((x) => x.toString(16).padStart(2, '0')).join('');
-  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+type Zalozeni =
+  | { duplicita: true; nazev: string }
+  | { duplicita?: false; id: string; cesta: string; obnoveno: boolean; soubor_nahran: boolean; token?: string; apikey?: string };
+
+/**
+ * Soubor rovnou do úložiště bible podepsaným odkazem (platí jen pro tuhle
+ * cestu a nepřepíše existující soubor). null = nahráno.
+ */
+export async function nahrajDoUloziste(cesta: string, token: string, soubor: Blob, typ: string, apikey?: string): Promise<string | null> {
+  const adresa = `${BIBLE_URL}/storage/v1/object/upload/sign/${BUCKET_KNIHOVNA}/${cesta.split('/').map(encodeURIComponent).join('/')}`
+    + `?token=${encodeURIComponent(token)}`;
+  // Stejně jako supabase-js: formulář s typem souboru podle přípony (prohlížeč
+  // u .md nebo .djvu žádný nezná) — bucket bere jen povolené typy.
+  const formular = new FormData();
+  formular.append('cacheControl', '3600');
+  formular.append('', soubor.slice(0, soubor.size, typ));
+  let odpoved: Response;
+  try {
+    odpoved = await fetch(adresa, { method: 'PUT', headers: { 'x-upsert': 'false', ...(apikey ? { apikey } : {}) }, body: formular });
+  } catch (e) {
+    return hlaskaChyby(e);
+  }
+  if (odpoved.ok) return null;
+  let j: { statusCode?: string | number; error?: string; message?: string } = {};
+  try {
+    j = await odpoved.json();
+  } catch {
+    j = {};
+  }
+  const text = `${j.error ?? ''} ${j.message ?? ''}`;
+  // Soubor tam už je z dřívějšího pokusu — velikost ověří potvrzení.
+  if (odpoved.status === 409 || /already exists|Duplicate/i.test(text)) return null;
+  if (/jwt|signature|expired/i.test(text)) return 'Odkaz pro nahrání vypršel.';
+  return hlaskaChyby({ statusCode: j.statusCode ?? odpoved.status, message: j.message ?? j.error ?? `HTTP ${odpoved.status}` });
 }
 
-export async function nahrajDokument(soubor: File, popis: Popis, nahralJmeno: string | null): Promise<VysledekNahrani> {
+export async function nahrajDokument(soubor: File, popis: Popis): Promise<VysledekNahrani> {
   const typ = typSouboru(soubor.name);
   if (!typ) return { stav: 'chyba', zprava: 'Tenhle typ souboru knihovna nebere.' };
   if (!popis.nazev.trim()) return { stav: 'chyba', zprava: 'Chybí název dokumentu.' };
+  if (soubor.size === 0) return { stav: 'chyba', zprava: 'Soubor je prázdný.' };
+  if (soubor.size > LIMIT_SOUBORU_FREE) {
+    return { stav: 'chyba', zprava: 'Soubor je větší, než úložiště dovolí (tarif Supabase Free bere nejvýš 50 MB na soubor).' };
+  }
 
   let sha: string;
   try {
@@ -101,39 +133,24 @@ export async function nahrajDokument(soubor: File, popis: Popis, nahralJmeno: st
     return { stav: 'chyba', zprava: `Soubor nejde přečíst (${hlaskaChyby(e)}).` };
   }
 
-  const { data: stejne, error: chybaHledani } = await bibleDb.from('bible_dokumenty').select('id,nazev').eq('soubor_sha256', sha).limit(1);
-  if (chybaHledani) return { stav: 'chyba', zprava: hlaskaChyby(chybaHledani) };
-  if (stejne && stejne.length > 0) return { stav: 'duplicita', nazev: (stejne[0] as { nazev: string }).nazev };
-
-  const id = noveId();
-  const cesta = `${id}/${bezpecneJmeno(soubor.name)}`;
-  const { error: chybaNahrani } = await bibleDb.storage.from(BUCKET_KNIHOVNA).upload(cesta, soubor, {
-    contentType: typ,
-    upsert: false,
+  const z = await volejBibli<Zalozeni>('bible-api', {
+    akce: 'zalozit_nahrani',
+    popis: ulozenyPopis(popis),
+    soubor: { nazev: soubor.name, jmeno: bezpecneJmeno(soubor.name), velikost: soubor.size, mime: typ, sha256: sha },
   });
-  if (chybaNahrani) return { stav: 'chyba', zprava: hlaskaChyby(chybaNahrani) };
+  if (!z.ok) return { stav: 'chyba', zprava: z.chyba.zprava };
+  if (z.data.duplicita) return { stav: 'duplicita', nazev: z.data.nazev };
+  const zalozeno = z.data;
 
-  const radek = {
-    id,
-    ...ulozenyPopis(popis),
-    soubor_cesta: cesta,
-    soubor_nazev: soubor.name,
-    soubor_velikost: soubor.size,
-    soubor_mime: typ,
-    soubor_sha256: sha,
-    // Potvrzení práv je podmínka nahrání (zadání, bod 6) — formulář bez
-    // zaškrtnutí sem vůbec nedojde.
-    prava_potvrzena_at: new Date().toISOString(),
-    nahral_jmeno: neboNull(nahralJmeno),
-  };
-  const { data, error } = await bibleDb.from('bible_dokumenty').insert(radek).select(SLOUPCE).single();
-  if (error) {
-    // Bez záznamu by soubor v bucketu jen zabíral místo — pryč s ním.
-    await bibleDb.storage.from(BUCKET_KNIHOVNA).remove([cesta]).catch(() => undefined);
-    if (error.code === '23505') return { stav: 'duplicita', nazev: popis.nazev.trim() };
-    return { stav: 'chyba', zprava: hlaskaChyby(error) };
+  if (!zalozeno.soubor_nahran) {
+    if (!zalozeno.token) return { stav: 'chyba', zprava: 'Bot nevydal odkaz pro nahrání. Zkus to znovu.' };
+    const chyba = await nahrajDoUloziste(zalozeno.cesta, zalozeno.token, soubor, typ, zalozeno.apikey);
+    if (chyba) return { stav: 'chyba', zprava: `${chyba} Nahrání jde dokončit: vyber stejný soubor a nahraj ho znovu.` };
   }
-  return { stav: 'nahrano', dokument: data as BibleDokument };
+
+  const p = await volejBibli<BibleDokument>('bible-api', { akce: 'potvrdit_nahrani', id: zalozeno.id });
+  if (!p.ok) return { stav: 'chyba', zprava: p.chyba.zprava };
+  return { stav: 'nahrano', dokument: p.data };
 }
 
 /** Popis tak, jak ho uloží databáze (prázdné texty → null). */
@@ -154,36 +171,33 @@ export function ulozenyPopis(popis: Popis): Required<Popis> {
 
 /** Úprava popisu (název, autor…). Stav a údaje zpracování databáze uživateli nedovolí měnit. */
 export async function upravPopis(id: string, popis: Popis): Promise<string | null> {
-  const { error } = await bibleDb.from('bible_dokumenty').update(ulozenyPopis(popis)).eq('id', id);
-  return error ? hlaskaChyby(error) : null;
+  const r = await volejBibli('bible-api', { akce: 'upravit_popis', id, popis: ulozenyPopis(popis) });
+  return r.ok ? null : r.chyba.zprava;
 }
 
 /** „Zpracovat znovu" (po chybě nebo nové verzi zpracování) a „Pozastavit". */
 export async function nastavStav(id: string, stav: 'ceka' | 'pozastaveno'): Promise<string | null> {
-  const { error } = await bibleDb.from('bible_dokumenty').update({ stav, stav_zprava: null }).eq('id', id);
-  return error ? hlaskaChyby(error) : null;
+  const r = await volejBibli('bible-api', { akce: 'nastavit_stav', id, stav });
+  return r.ok ? null : r.chyba.zprava;
 }
 
 /**
- * Smazání dokumentu (jen správce). Nejdřív záznam, pak soubor: kdyby soubor
- * smazat nešlo, zbude jen nepoužitý soubor — nikdy záznam bez souboru.
+ * Smazání dokumentu (správce), nebo zrušení vlastního nedokončeného nahrání.
+ * Nejdřív záznam, pak soubor: kdyby soubor smazat nešlo, zbude jen nepoužitý
+ * soubor — nikdy záznam bez souboru.
  */
 export async function smazDokument(id: string): Promise<string | null> {
-  const { data, error } = await bibleDb.from('bible_dokumenty').delete().eq('id', id).select('soubor_cesta');
-  if (error) return hlaskaChyby(error);
-  const cesty = ((data ?? []) as { soubor_cesta: string }[]).map((r) => r.soubor_cesta);
-  if (cesty.length === 0) return 'Dokument se nesmazal — nemáš na to právo, nebo už neexistuje.';
-  const { error: chybaSouboru } = await bibleDb.storage.from(BUCKET_KNIHOVNA).remove(cesty);
-  return chybaSouboru ? `Záznam je pryč, ale soubor zůstal v úložišti (${hlaskaChyby(chybaSouboru)}).` : null;
+  const r = await volejBibli<{ smazano: boolean; soubor_zustal?: boolean }>('bible-api', { akce: 'smazat', id });
+  if (!r.ok) return r.chyba.zprava;
+  return r.data.soubor_zustal ? 'Záznam je pryč, ale soubor zůstal v úložišti bible.' : null;
 }
 
-/** Odkaz ke stažení originálu na hodinu (soukromý bucket). */
+/** Odkaz ke stažení originálu na pár minut (soukromý bucket projektu bible). */
 export async function odkazNaSoubor(id: string): Promise<{ url: string } | { chyba: string }> {
-  const { data, error } = await bibleDb.from('bible_dokumenty').select('soubor_cesta').eq('id', id).single();
-  if (error || !data) return { chyba: hlaskaChyby(error) };
-  const { data: podepsany, error: e2 } = await bibleDb.storage.from(BUCKET_KNIHOVNA).createSignedUrl((data as { soubor_cesta: string }).soubor_cesta, 3600);
-  if (e2 || !podepsany) return { chyba: hlaskaChyby(e2) };
-  return { url: podepsany.signedUrl };
+  const r = await volejBibli<{ url: string }>('bible-api', { akce: 'odkaz', id });
+  if (!r.ok) return { chyba: r.chyba.zprava };
+  const url = odkazDoUloziste(r.data.url);
+  return url ? { url } : { chyba: 'Bot vrátil neplatný odkaz ke stažení.' };
 }
 
 export type Kapacita = {
@@ -196,23 +210,22 @@ export type Kapacita = {
 };
 
 export async function nactiKapacitu(): Promise<{ kapacita: Kapacita } | { chyba: string; bezMigrace: boolean }> {
-  const { data, error } = await bibleDb.rpc('bible_kapacita');
-  if (error) return { chyba: hlaskaChyby(error), bezMigrace: chybiMigrace(error) };
-  return { kapacita: data as Kapacita };
+  const r = await volejBibli<Kapacita>('bible-api', { akce: 'kapacita' });
+  if (!r.ok) return { chyba: r.chyba.zprava, bezMigrace: r.chyba.kod === 'bez_migrace' };
+  return { kapacita: r.data };
 }
 
-/** Útrata za AI od začátku měsíce (UTC) — jen pro správce (RLS). */
+/** Útrata za AI od začátku měsíce (UTC) — jen pro správce. */
 export async function nactiNakladyMesice(ted = new Date()): Promise<{ naklady: NakladyMesice } | { chyba: string; bezMigrace: boolean }> {
   const zacatek = new Date(Date.UTC(ted.getUTCFullYear(), ted.getUTCMonth(), 1)).toISOString();
   // Součet po účelech počítá databáze — výběr řádků by REST uřízl na 1000 a útrata by vyšla menší.
-  const { data, error } = await bibleDb.rpc('bible_naklady_od', { p_od: zacatek });
-  if (error) return { chyba: hlaskaChyby(error), bezMigrace: chybiMigrace(error) };
-  return { naklady: souhrnNakladu((data ?? []) as { ucel: string; cena_usd: number; volani: number }[]) };
+  const r = await volejBibli<{ ucel: string; cena_usd: number; volani: number }[]>('bible-api', { akce: 'naklady', od: zacatek });
+  if (!r.ok) return { chyba: r.chyba.zprava, bezMigrace: r.chyba.kod === 'bez_migrace' };
+  return { naklady: souhrnNakladu(Array.isArray(r.data) ? r.data : []) };
 }
 
 /** Nastavení bible (modely, stropy) jako klíč → hodnota. */
 export async function nactiNastaveni(): Promise<Record<string, unknown> | null> {
-  const { data, error } = await bibleDb.from('bible_nastaveni').select('klic,hodnota');
-  if (error || !data) return null;
-  return Object.fromEntries((data as { klic: string; hodnota: unknown }[]).map((r) => [r.klic, r.hodnota]));
+  const r = await volejBibli<Record<string, unknown>>('bible-api', { akce: 'nastaveni' });
+  return r.ok && r.data && typeof r.data === 'object' ? r.data : null;
 }

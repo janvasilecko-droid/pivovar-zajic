@@ -41,6 +41,20 @@ jobs:
           ZALOHA_HESLO: ${{ secrets.ZALOHA_HESLO }}
         run: node scripts/zaloha-objednavek.mjs
 
+      # 📚 Projekt bible (samostatný Supabase, R12): katalog knih, nastavení
+      # a náklady na AI do zalohy/bible/. Bez klíče se jen ohlásí — hlavní
+      # zálohu to nikdy nezastaví.
+      - name: Záloha projektu bible
+        env:
+          BIBLE_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.BIBLE_SUPABASE_SERVICE_ROLE_KEY }}
+          ZALOHA_HESLO: ${{ secrets.ZALOHA_HESLO }}
+        run: |
+          if [ -z "$BIBLE_SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "Chybí secret BIBLE_SUPABASE_SERVICE_ROLE_KEY — projekt bible se nezálohuje." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          node scripts/zaloha-objednavek.mjs --sada bible
+
       - name: Uložit do repozitáře
         run: |
           git config user.name "github-actions[bot]"

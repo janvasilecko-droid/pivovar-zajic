@@ -90,3 +90,34 @@ Každé rozhodnutí má datum, důvod a co by ho změnilo.
 - **Jak:** `requirements.txt` je zámek celého stromu s hashi (generuje `uv pip
   compile`, verze aspoň 2 týdny staré), instalace `--require-hashes --no-deps`.
   pytest je jen v `requirements-testy.txt` pro job testy.
+
+## R12 — Bible v samostatném projektu Supabase (31. 10. 2026)
+- **Rozhodnutí majitele:** „free, ať je supabase pro aplikaci samostatně
+  a samostatná supabase pro toho boota". Projekt bible:
+  https://supabase.com/dashboard/project/cegrelgvkygcatupqwrx (vlastní Free
+  organizace — kvóty úložiště a přenosů platí pro celou organizaci).
+- **Důvod:** knihy (≈ 412 MB) by na tarifu Free ujídaly 1 GB úložiště
+  a 500 MB databáze appky pivovaru.
+- **Přihlášení zůstává v hlavní appce.** Že Supabase přijme token jiného
+  Supabase projektu (third-party auth), potvrzené není — proto brána:
+  edge funkce bible-api (verify_jwt = false) ověří token v hlavním projektu
+  (`/auth/v1/user` a `bible_overeni()`: schválený e-mail, heslo, limit,
+  `bible_pristup()`) a pak pracuje service rolí. Databáze bible je pro
+  prohlížeč zavřená, zápis jen přes SQL funkce, které práva hlídají znovu.
+  Fail-closed: výpadek hlavního projektu = odmítnuto.
+- **Migrace bible** (`bible/supabase/migrations`) spouští majitel v appce:
+  Systém → Databázové migrace → Databáze bible. Edge funkce bible-migrace
+  vezme SQL z nasazeného buildu (`migrace-bible-sql.json`) a pustí ho
+  v jedné transakci přes `SUPABASE_DB_URL`, včetně zápisu do evidence.
+- **Nasazení funkcí:** deploy.yml, krok „Edge funkce projektu bible", token
+  `SUPABASE_BIBLE_ACCESS_TOKEN`, secret funkce `HLAVNI_ANON_KEY` (veřejný
+  klíč hlavní appky) nastaví CI.
+- **Worker:** data v projektu bible (`BIBLE_SUPABASE_SERVICE_ROLE_KEY`),
+  klíč Claude z `app_secrets` hlavní appky.
+- **Zálohy:** `zalohy/bible/` (katalog, nastavení, náklady, evidence migrací).
+- **Hlavní projekt:** migrace `20261231410000` a `20261231420000` zůstávají
+  (běžely, přesun by v Auditu vyrobil „osiřelé" migrace). Tabulky bible tam
+  zůstávají prázdné; zápis do nich zavřela `20261231430000`. Smazat je jde
+  jen se souhlasem majitele (CLAUDE.md: data nemazat).
+- **R10 platí dál ve smyslu:** hledání poběží v edge funkci projektu bible
+  service rolí (bez RLS, takže s indexem); práva hlídá brána.

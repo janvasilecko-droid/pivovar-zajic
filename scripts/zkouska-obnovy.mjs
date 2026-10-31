@@ -12,6 +12,7 @@
 //      (jen když je nastavené DATABASE_URL — v CI služba postgres).
 //
 // Lokálně: ZALOHA_HESLO=… node scripts/zkouska-obnovy.mjs  (bez databáze jen body 1–3)
+// Projekt bible (zalohy/bible/): … node scripts/zkouska-obnovy.mjs --sada bible
 import { readFileSync, existsSync, writeFileSync, appendFileSync, mkdtempSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { resolve, dirname, join } from 'node:path';
@@ -19,10 +20,13 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { randomBytes } from 'node:crypto';
 import { desifruj, otisk } from './lib/sifraZalohy.mjs';
-import { VAZBY } from './lib/zalohaTabulky.mjs';
+import { VAZBY, sadaZalohy } from './lib/zalohaTabulky.mjs';
 
 const KOREN = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const SLOZKA = resolve(KOREN, 'zalohy');
+const iSada = process.argv.indexOf('--sada');
+const SADA = sadaZalohy(iSada >= 0 ? process.argv[iSada + 1] : 'hlavni');
+const SLOZKA = resolve(KOREN, SADA.slozka);
+const SCHEMA = SADA.jmeno === 'bible' ? 'obnova_bible' : 'obnova';
 const HESLO = process.env.ZALOHA_HESLO;
 const DATABASE_URL = process.env.DATABASE_URL;
 
@@ -33,7 +37,7 @@ const radek = (t) => { vypis.push(t); console.log(t); };
 
 function konec() {
   const souhrn = [
-    '### Zkouška obnovy zálohy',
+    SADA.jmeno === 'bible' ? '### Zkouška obnovy zálohy projektu bible' : '### Zkouška obnovy zálohy',
     ...vypis,
     '',
     ...(pozor.length ? ['**Upozornění:**', ...pozor.map((p) => `- ${p}`), ''] : []),
@@ -47,7 +51,7 @@ function konec() {
 try {
   if (!HESLO) throw new Error('Chybí ZALOHA_HESLO.');
   const cestaManifestu = resolve(SLOZKA, 'manifest.json');
-  if (!existsSync(cestaManifestu)) throw new Error('Chybí zalohy/manifest.json — šifrovaná záloha ještě neproběhla.');
+  if (!existsSync(cestaManifestu)) throw new Error(`Chybí ${SADA.slozka}/manifest.json — šifrovaná záloha ještě neproběhla.`);
   const manifest = JSON.parse(readFileSync(cestaManifestu, 'utf8'));
   const stariDnu = (Date.now() - Date.parse(manifest.datum)) / 86_400_000;
   radek(`Záloha z ${manifest.datum} (${stariDnu.toFixed(1)} dne stará), tabulek ${Object.keys(manifest.tabulky).length}.`);
@@ -84,16 +88,16 @@ try {
     // Každá tabulka jako jeden sloupec jsonb: ověřuje se, že data jdou do
     // PostgreSQL nahrát a nic se cestou neztratí — ne schéma (to drží migrace).
     const tag = `$z${randomBytes(6).toString('hex')}$`;
-    const sql = ['DROP SCHEMA IF EXISTS obnova CASCADE;', 'CREATE SCHEMA obnova;'];
+    const sql = [`DROP SCHEMA IF EXISTS ${SCHEMA} CASCADE;`, `CREATE SCHEMA ${SCHEMA};`];
     for (const [tabulka, radky] of Object.entries(data)) {
-      sql.push(`CREATE TABLE obnova."${tabulka}" (radek jsonb NOT NULL);`);
+      sql.push(`CREATE TABLE ${SCHEMA}."${tabulka}" (radek jsonb NOT NULL);`);
       for (let i = 0; i < radky.length; i += 200) {
         const hodnoty = radky.slice(i, i + 200).map((r) => {
           const json = JSON.stringify(r);
           if (json.includes(tag)) throw new Error('Kolize značky v datech — spusť znovu.');
           return `(${tag}${json}${tag}::jsonb)`;
         });
-        sql.push(`INSERT INTO obnova."${tabulka}" (radek) VALUES ${hodnoty.join(',')};`);
+        sql.push(`INSERT INTO ${SCHEMA}."${tabulka}" (radek) VALUES ${hodnoty.join(',')};`);
       }
     }
     const dir = mkdtempSync(join(tmpdir(), 'obnova-'));
@@ -101,7 +105,7 @@ try {
     writeFileSync(soubor, sql.join('\n'), 'utf8');
     execFileSync('psql', [DATABASE_URL, '-v', 'ON_ERROR_STOP=1', '-q', '-f', soubor], { stdio: 'inherit' });
 
-    const dotaz = Object.keys(data).map((t) => `SELECT '${t}', count(*) FROM obnova."${t}"`).join(' UNION ALL ');
+    const dotaz = Object.keys(data).map((t) => `SELECT '${t}', count(*) FROM ${SCHEMA}."${t}"`).join(' UNION ALL ');
     const vysledek = execFileSync('psql', [DATABASE_URL, '-At', '-F', '\t', '-c', dotaz], { encoding: 'utf8' });
     let sedi = 0;
     for (const r of vysledek.trim().split('\n')) {
