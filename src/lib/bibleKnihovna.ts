@@ -10,6 +10,19 @@ export type DruhDokumentu = 'kniha' | 'skripta' | 'clanek' | 'norma' | 'prirucka
 
 export type JazykDokumentu = 'cs' | 'de' | 'en' | 'sk' | 'jiny';
 
+/**
+ * Průběh zpracování, který worker zapisuje během práce do postup.prubeh
+ * (scripts/bible/zpracuj.py, hlasit_prubeh) — z něj jsou procenta v knihovně.
+ */
+export type PrubehZpracovani = {
+  faze?: string;
+  hotovo?: number;
+  celkem?: number;
+  ocr_hotovo?: number;
+  ocr_celkem?: number;
+  cas?: string;
+};
+
 /** Počty po zpracování (Etapa 2 — worker je zapisuje do bible_dokumenty.postup). */
 export type PostupZpracovani = {
   stran?: number;
@@ -20,6 +33,7 @@ export type PostupZpracovani = {
   tabulek?: number;
   vzorcu?: number;
   pasazi?: number;
+  prubeh?: PrubehZpracovani;
 };
 
 /**
@@ -160,6 +174,71 @@ export function postupText(postup: PostupZpracovani | null | undefined, stranCel
   if (p.pasazi != null) casti.push(`${p.pasazi} pasáží`);
   if (p.ke_kontrole) casti.push(`${p.ke_kontrole} ke kontrole`);
   return casti.join(' · ');
+}
+
+const FAZE_POPIS: Readonly<Record<string, string>> = {
+  stahovani: 'stahuje soubor',
+  cteni: 'čte text',
+  prepis: 'přepisuje skeny',
+  ukladani: 'ukládá kapitoly a pasáže',
+};
+
+const cislo = (x: unknown): number | null => (typeof x === 'number' && Number.isFinite(x) ? x : null);
+
+/**
+ * Procenta zpracování z průběhu (0–99; 100 % znamená až stav „Zpracováno").
+ * null = počet stran ještě není známý.
+ */
+export function procentZpracovani(postup: PostupZpracovani | null | undefined): number | null {
+  const p = postup?.prubeh;
+  const hotovo = cislo(p?.hotovo);
+  const celkem = cislo(p?.celkem);
+  if (hotovo === null || celkem === null || celkem <= 0) return null;
+  return Math.max(0, Math.min(99, Math.floor((100 * hotovo) / celkem)));
+}
+
+/**
+ * Text průběhu u dokumentu, např. „46 % · přepisuje skeny (80 z 250 stran)".
+ * U dokumentu, který čeká a už byl rozpracovaný (běh skončil na čase nebo
+ * stropu útraty), řekne, kolik je hotovo. Jinak null.
+ */
+export function prubehText(stav: StavDokumentu, postup: PostupZpracovani | null | undefined): string | null {
+  const p = postup?.prubeh;
+  const procent = procentZpracovani(postup);
+  if (stav === 'zpracovava') {
+    if (!p) return 'začíná — procenta se ukážou za chvíli';
+    const faze = FAZE_POPIS[p.faze ?? ''] ?? 'zpracovává';
+    const ocrCelkem = cislo(p.ocr_celkem);
+    const ocr = p.faze === 'prepis' && ocrCelkem ? ` (${cislo(p.ocr_hotovo) ?? 0} z ${ocrCelkem} stran)` : '';
+    return procent === null ? `${faze}${ocr}` : `${procent} % · ${faze}${ocr}`;
+  }
+  if (stav === 'ceka' && procent !== null && procent > 0) {
+    return `rozpracováno na ${procent} % — pokračuje v dalším běhu, přepsané strany se znovu neplatí`;
+  }
+  return null;
+}
+
+/**
+ * Kdy se zpracování pustí samo: GitHub Actions, cron `17 *\/3 * * *` (UTC)
+ * v .github/workflows/bible-zpracovani.yml (test hlídá, že se neliší).
+ */
+export const PLAN_ZPRACOVANI_CRON = '17 */3 * * *';
+
+/** Nejbližší plánovaný běh zpracování po okamžiku `ted` (GitHub ho občas o pár minut zdrží). */
+export function dalsiBehZpracovani(ted: Date = new Date()): Date {
+  const hodina = ted.getUTCHours() - (ted.getUTCHours() % 3);
+  let beh = Date.UTC(ted.getUTCFullYear(), ted.getUTCMonth(), ted.getUTCDate(), hodina, 17);
+  while (beh <= ted.getTime()) beh += 3 * 3600_000;
+  return new Date(beh);
+}
+
+/** Jak často se knihovna sama obnoví: když se něco zpracovává (procenta) a když jen čeká na běh. */
+export const OBNOVA_PRI_ZPRACOVANI_MS = 20_000;
+export const OBNOVA_PRI_CEKANI_MS = 60_000;
+
+/** Čas běhu po pivovarsku (Europe/Prague), např. „21:17". */
+export function casBehuText(d: Date): string {
+  return d.toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Prague' });
 }
 
 /** Chyba „tabulka ještě neexistuje" — migrace knihovny ještě neběžela. */

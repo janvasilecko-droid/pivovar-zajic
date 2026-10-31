@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import {
-  PRIJIMANE_PRIPONY, TYPY_SOUBORU, bezpecneJmeno, chybiMigrace, hlaskaChyby, jeZpracovany,
-  nazevZeSouboru, postupText, pripona, sha256Hex, souhrnNakladu, typSouboru, velikostText,
+  PLAN_ZPRACOVANI_CRON, PRIJIMANE_PRIPONY, TYPY_SOUBORU, bezpecneJmeno, casBehuText, chybiMigrace, dalsiBehZpracovani,
+  hlaskaChyby, jeZpracovany, nazevZeSouboru, postupText, pripona, procentZpracovani, prubehText, sha256Hex, souhrnNakladu,
+  typSouboru, velikostText,
 } from './bibleKnihovna';
 import { BIBLE_OBLASTI, nazevOblasti, platneOblasti } from './bibleOblasti';
 
@@ -127,5 +128,63 @@ describe('útrata za AI', () => {
     expect(s.volani).toBe(341);
     expect(s.podleUcelu.ocr).toBeCloseTo(0.3, 6);
     expect(s.podleUcelu.chat).toBeCloseTo(0.12, 6);
+  });
+});
+
+describe('průběh zpracování (procenta v knihovně)', () => {
+  const prubeh = (p: Record<string, unknown>) => ({ prubeh: p });
+
+  it('procenta z hotových a všech stran, nejvýš 99 (100 % je až „Zpracováno")', () => {
+    expect(procentZpracovani(prubeh({ hotovo: 46, celkem: 100 }))).toBe(46);
+    expect(procentZpracovani(prubeh({ hotovo: 1, celkem: 3 }))).toBe(33);
+    expect(procentZpracovani(prubeh({ hotovo: 412, celkem: 412 }))).toBe(99);
+    expect(procentZpracovani(prubeh({ hotovo: 500, celkem: 412 }))).toBe(99);
+    expect(procentZpracovani(prubeh({ hotovo: -3, celkem: 10 }))).toBe(0);
+  });
+
+  it('bez počtu stran žádná procenta (nevymýšlí se)', () => {
+    expect(procentZpracovani(null)).toBeNull();
+    expect(procentZpracovani({ stran: 400 })).toBeNull();
+    expect(procentZpracovani(prubeh({ faze: 'stahovani', hotovo: 0, celkem: 0 }))).toBeNull();
+    expect(procentZpracovani(prubeh({ hotovo: '5', celkem: 10 }))).toBeNull();
+    expect(procentZpracovani(prubeh({ hotovo: Number.NaN, celkem: 10 }))).toBeNull();
+  });
+
+  it('text u zpracovávaného dokumentu: procenta, fáze a u přepisu skenů kolik stran', () => {
+    expect(prubehText('zpracovava', prubeh({ faze: 'prepis', hotovo: 46, celkem: 100, ocr_hotovo: 20, ocr_celkem: 74 })))
+      .toBe('46 % · přepisuje skeny (20 z 74 stran)');
+    expect(prubehText('zpracovava', prubeh({ faze: 'cteni', hotovo: 200, celkem: 800 }))).toBe('25 % · čte text');
+    expect(prubehText('zpracovava', prubeh({ faze: 'ukladani', hotovo: 412, celkem: 412 }))).toBe('99 % · ukládá kapitoly a pasáže');
+    expect(prubehText('zpracovava', prubeh({ faze: 'stahovani', hotovo: 0, celkem: 0 }))).toBe('stahuje soubor');
+    expect(prubehText('zpracovava', {})).toBe('začíná — procenta se ukážou za chvíli');
+    expect(prubehText('zpracovava', prubeh({ faze: 'neco_noveho', hotovo: 1, celkem: 2 }))).toBe('50 % · zpracovává');
+  });
+
+  it('u čekajícího rozpracovaného dokumentu řekne, kolik je hotovo; jinak nic', () => {
+    expect(prubehText('ceka', prubeh({ faze: 'prepis', hotovo: 30, celkem: 100 })))
+      .toBe('rozpracováno na 30 % — pokračuje v dalším běhu, přepsané strany se znovu neplatí');
+    expect(prubehText('ceka', prubeh({ faze: 'cteni', hotovo: 0, celkem: 100 }))).toBeNull();
+    expect(prubehText('ceka', { stran: 10 })).toBeNull();
+    expect(prubehText('hotovo', prubeh({ hotovo: 10, celkem: 10 }))).toBeNull();
+    expect(prubehText('chyba', prubeh({ hotovo: 5, celkem: 10 }))).toBeNull();
+  });
+
+  it('další plánovaný běh: každé 3 hodiny v :17 UTC, vždy až po teď', () => {
+    expect(dalsiBehZpracovani(new Date('2026-10-31T17:44:00Z')).toISOString()).toBe('2026-10-31T18:17:00.000Z');
+    expect(dalsiBehZpracovani(new Date('2026-10-31T18:17:00Z')).toISOString()).toBe('2026-10-31T21:17:00.000Z');
+    expect(dalsiBehZpracovani(new Date('2026-10-31T18:16:59Z')).toISOString()).toBe('2026-10-31T18:17:00.000Z');
+    expect(dalsiBehZpracovani(new Date('2026-10-31T23:30:00Z')).toISOString()).toBe('2026-11-01T00:17:00.000Z');
+    expect(dalsiBehZpracovani(new Date('2026-12-31T22:00:00Z')).toISOString()).toBe('2027-01-01T00:17:00.000Z');
+  });
+
+  it('čas běhu po pražsku (zima +1 h, léto +2 h)', () => {
+    expect(casBehuText(new Date('2026-10-31T18:17:00Z'))).toBe('19:17');
+    expect(casBehuText(new Date('2026-07-01T09:17:00Z'))).toBe('11:17');
+  });
+
+  it('plán v knihovně odpovídá cronu workflow zpracování', () => {
+    const workflow = readFileSync('.github/workflows/bible-zpracovani.yml', 'utf8');
+    expect(workflow).toContain(`- cron: '${PLAN_ZPRACOVANI_CRON}'`);
+    expect(PLAN_ZPRACOVANI_CRON).toBe('17 */3 * * *');
   });
 });

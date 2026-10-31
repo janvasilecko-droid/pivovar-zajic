@@ -212,6 +212,21 @@ describe('nová dlaždice u uložené plochy', () => {
     const layout = getHomeLayout({ rozlozeniVerze: ROZLOZENI_VERZE, pages: [[A], [B]] }, [A, B, C]);
     expect(layout.pages).toEqual([[A], [B, C], []]);
   });
+  it('Pivovarská bible jde rovnou na úvodní stránku (majitel ji na „Další" nenašel); ostatní nové dál na „Další"', () => {
+    const layout = getHomeLayout({ rozlozeniVerze: ROZLOZENI_VERZE, pages: [[A], [B], []] }, [A, B, 'bible', C]);
+    expect(layout.pages).toEqual([[A, 'bible'], [B, C], []]);
+    expect(layout.overrides.bible).toMatchObject({ w: expect.any(Number), h: expect.any(Number) });
+  });
+  it('bibli, kterou si někdo schoval nebo přesunul, plocha nechá, kde je', () => {
+    const schovana = getHomeLayout({ rozlozeniVerze: ROZLOZENI_VERZE, pages: [[A], [B]], hidden: ['bible'] }, [A, B, 'bible']);
+    expect(schovana.pages.flat()).not.toContain('bible');
+    const presunuta = getHomeLayout({ rozlozeniVerze: ROZLOZENI_VERZE, pages: [[A], [B, 'bible']] }, [A, B, 'bible']);
+    expect(presunuta.pages).toEqual([[A], [B, 'bible'], []]);
+  });
+  it('bez práva na bibli se nepřidá vůbec', () => {
+    const layout = getHomeLayout({ rozlozeniVerze: ROZLOZENI_VERZE, pages: [[A], [B]] }, [A, B]);
+    expect(layout.pages.flat()).not.toContain('bible');
+  });
 });
 
 describe('addTile', () => {

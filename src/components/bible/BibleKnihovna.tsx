@@ -6,13 +6,14 @@
 //
 // Hledání v obsahu (vzorce, tabulky, pojmy) a otevření pasáže na stránce
 // přijdou se zpracováním a vyhledáváním (etapy 2 a 4).
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Download, Pause, Pencil, RotateCcw, Trash2, Upload } from 'lucide-react';
 import { useAuth } from '../../lib/auth';
 import { smiPrispivat, smiSpravovat, type BibleRole } from '../../lib/bibleOpravneni';
 import { BIBLE_OBLASTI } from '../../lib/bibleOblasti';
 import {
-  DRUH_POPIS, JAZYK_POPIS, STAV_POPIS, jeZpracovany, postupText, velikostText, type StavDokumentu,
+  DRUH_POPIS, JAZYK_POPIS, OBNOVA_PRI_CEKANI_MS, OBNOVA_PRI_ZPRACOVANI_MS, STAV_POPIS, casBehuText, dalsiBehZpracovani,
+  jeZpracovany, postupText, procentZpracovani, prubehText, velikostText, type StavDokumentu,
 } from '../../lib/bibleKnihovna';
 import {
   nactiDokumenty, nastavStav, odkazNaSoubor, smazDokument, ulozenyPopis, upravPopis,
@@ -31,11 +32,32 @@ const BARVA_STAVU: Record<StavDokumentu, string> = {
   pozastaveno: 'border-neutral-500 text-neutral-200',
 };
 
-function StavStitek({ stav }: { stav: StavDokumentu }) {
+function StavStitek({ stav, procent }: { stav: StavDokumentu; procent?: number | null }) {
   return (
     <span className={`inline-block rounded-full border bg-neutral-950 px-2.5 py-1 text-[11px] font-black uppercase tracking-wide ${BARVA_STAVU[stav]}`}>
-      {STAV_POPIS[stav]}
+      {STAV_POPIS[stav]}{stav === 'zpracovava' && procent != null ? ` · ${procent} %` : ''}
     </span>
+  );
+}
+
+/** Pruh průběhu zpracování (worker hlásí stav do postup.prubeh, seznam se sám obnovuje). */
+function PrubehZpracovani({ d }: { d: BibleDokument }) {
+  const procent = procentZpracovani(d.postup);
+  const text = prubehText(d.stav, d.postup);
+  return (
+    <div className="space-y-1 pt-1">
+      <div
+        className="h-2.5 w-full rounded-full bg-neutral-700 overflow-hidden"
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={procent ?? 0}
+        aria-label={`Zpracování: ${text ?? 'začíná'}`}
+      >
+        <div className="h-full bg-sky-500 transition-all duration-500" style={{ width: `${procent ?? 0}%` }} />
+      </div>
+      {text && <div className="font-bold text-sky-300">{text}</div>}
+    </div>
   );
 }
 
@@ -89,7 +111,7 @@ function KartaDokumentu({ d, role, mujId, onZmena, onSmazano }: {
           <div className="font-black leading-snug lze-vybrat">{d.nazev}</div>
           {podrobnosti && <div className="text-sm text-neutral-200 lze-vybrat">{podrobnosti}</div>}
         </div>
-        <StavStitek stav={d.stav} />
+        <StavStitek stav={d.stav} procent={procentZpracovani(d.postup)} />
       </div>
       <div className="text-xs text-neutral-300 space-y-0.5">
         <div>
@@ -97,7 +119,14 @@ function KartaDokumentu({ d, role, mujId, onZmena, onSmazano }: {
           {d.oblasti.length > 0 && ` · oblasti ${d.oblasti.join(', ')}`}
         </div>
         <div className="break-all">{d.soubor_nazev} · {velikostText(d.soubor_velikost)}</div>
-        {postup && <div className="font-bold text-neutral-100">{postup}</div>}
+        {d.stav === 'zpracovava' && <PrubehZpracovani d={d} />}
+        {d.stav === 'ceka' && (
+          <div className="font-bold text-amber-200">
+            Čeká na další běh zpracování — asi v {casBehuText(dalsiBehZpracovani())}.
+            {prubehText(d.stav, d.postup) ? ` ${prubehText(d.stav, d.postup)}.` : ''}
+          </div>
+        )}
+        {postup && d.stav !== 'zpracovava' && <div className="font-bold text-neutral-100">{postup}</div>}
         {d.stav_zprava && <div className={`font-bold ${d.stav === 'chyba' ? 'text-rose-300' : 'text-amber-200'}`}>{d.stav_zprava}</div>}
         {nahrava && (smiSmazat ? (
           <div className="font-bold text-amber-200">
@@ -182,6 +211,22 @@ export function BibleKnihovna({ role, setPage }: {
   }
   useEffect(() => { void nacti(); }, []);
 
+  // Dokud se něco zpracovává (nebo čeká), seznam se sám po chvíli obnoví —
+  // procenta a stav se mění bez ručního obnovení stránky. Potichu: při chybě
+  // sítě zůstane poslední načtený stav, na skryté záložce se nic nenačítá.
+  const zpracovavaSe = (nacteno?.stav === 'ok' ? nacteno.dokumenty : []).some((d) => d.stav === 'zpracovava');
+  const nekdoCeka = (nacteno?.stav === 'ok' ? nacteno.dokumenty : []).some((d) => d.stav === 'ceka');
+  const aktivni = useRef(true);
+  useEffect(() => () => { aktivni.current = false; }, []);
+  useEffect(() => {
+    if (!zpracovavaSe && !nekdoCeka) return;
+    const casovac = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      void nactiDokumenty().then((n) => { if (aktivni.current && n.stav === 'ok') setNacteno(n); });
+    }, zpracovavaSe ? OBNOVA_PRI_ZPRACOVANI_MS : OBNOVA_PRI_CEKANI_MS);
+    return () => clearInterval(casovac);
+  }, [zpracovavaSe, nekdoCeka]);
+
   const dokumenty = useMemo(() => (nacteno?.stav === 'ok' ? nacteno.dokumenty : []), [nacteno]);
   const zmenDokument = (d: BibleDokument) => setNacteno((n) => (n?.stav === 'ok' ? { ...n, dokumenty: n.dokumenty.map((x) => (x.id === d.id ? d : x)) } : n));
   // Dokončené dřívější nahrání má stejné id — nahradí se, nepřidá podruhé.
@@ -244,7 +289,7 @@ export function BibleKnihovna({ role, setPage }: {
 
       {cekajicich > 0 && zpracovanych === 0 && (
         <div role="note" className="rounded-xl border border-amber-700 bg-neutral-900 text-neutral-100 p-3 text-sm">
-          Nahrané knihy čekají na zpracování (strany, kapitoly, OCR skenů, tabulky a vzorce). Zpracování běží samo zhruba každé tři hodiny — dokud kniha není zpracovaná, AI z ní neodpovídá.
+          Nahrané knihy čekají na zpracování (strany, kapitoly, OCR skenů, tabulky a vzorce). Zpracování běží samo každé tři hodiny, další běh asi v {casBehuText(dalsiBehZpracovani())}. Dokud kniha není zpracovaná, AI z ní neodpovídá.
         </div>
       )}
 

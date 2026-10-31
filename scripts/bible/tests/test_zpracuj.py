@@ -646,3 +646,162 @@ def test_nativni_nastroje_nedostanou_klice(monkeypatch):
     monkeypatch.setattr(ocr, 'tesseract_k_dispozici', lambda: True)
     ocr.precti_tesseractem(b'jpeg', 'ces')
     assert 'env' in zachycene and 'ANTHROPIC_API_KEY' not in zachycene['env']
+
+
+# --- průběh zpracování (procenta v knihovně) ---------------------------------
+
+def _prubehy(supa):
+    return [z['postup']['prubeh'] for t, _, z in supa.upravy
+            if t == 'bible_dokumenty' and 'postup' in z and 'prubeh' in z['postup']]
+
+
+def test_prubeh_skenu_jde_po_fazich_a_pribyva(monkeypatch):
+    monkeypatch.setattr(zpracuj, 'PRUBEH_KAZDYCH_S', 0)
+    monkeypatch.setattr(zpracuj, 'DAVKA_PREPISU', 2)
+    data = _skenovane_pdf(6)
+    supa = FalesnaSupa({CESTA: data})
+    ucet = _ucet()
+    klient, _ = _klient()
+    zpracuj.zpracuj_dokument(supa, _dokument(data, 'application/pdf'), zpracuj.Prepisovac(klient, 'claude-haiku-5-5', ucet), ucet)
+    prubehy = _prubehy(supa)
+    faze = [p['faze'] for p in prubehy]
+    assert faze[0] == 'stahovani' and faze[-1] == 'ukladani' and 'prepis' in faze
+    assert faze.index('cteni') < faze.index('prepis') < faze.index('ukladani')
+    prepis = [p for p in prubehy if p['faze'] == 'prepis']
+    assert all(p['celkem'] == 6 and p['ocr_celkem'] == 6 for p in prepis)
+    hotovo = [p['hotovo'] for p in prepis]
+    assert hotovo == sorted(hotovo) and hotovo[0] == 0 and hotovo[-1] == 6 and len(set(hotovo)) >= 3
+    assert all(p['hotovo'] == p['ocr_hotovo'] for p in prepis)   # celé PDF je sken
+    assert all(isinstance(p['cas'], str) for p in prubehy)
+    # Průběh se píše jen dokumentu, který zpracovává tenhle běh.
+    assert all(f == {'id': f'eq.{ID}', 'stav': 'eq.zpracovava'} for t, f, z in supa.upravy if 'postup' in z and 'stav' not in z)
+    # Konečný zápis má počty, ne průběh.
+    konec = supa.posledni_stav()
+    assert konec['stav'] in ('hotovo', 'ke_kontrole') and 'prubeh' not in konec['postup'] and konec['postup']['stran'] == 6
+
+
+def test_digitalni_pdf_hlasi_cteni_a_ukladani_bez_prepisu():
+    data = _kniha_pdf()
+    supa = FalesnaSupa({CESTA: data})
+    zpracuj.zpracuj_dokument(supa, _dokument(data, 'application/pdf'), None, _ucet())
+    faze = [p['faze'] for p in _prubehy(supa)]
+    assert faze[:2] == ['stahovani', 'cteni'] and faze[-1] == 'ukladani' and 'prepis' not in faze
+    ukladani = _prubehy(supa)[-1]
+    assert ukladani['hotovo'] == ukladani['celkem'] > 0 and ukladani['ocr_celkem'] == 0
+
+
+def test_prubeh_necha_pocty_z_driveho_zpracovani_a_stary_prubeh_nahradi():
+    data = _kniha_pdf()
+    supa = FalesnaSupa({CESTA: data})
+    stary = {'stran': 99, 'kapitol': 7, 'prubeh': {'faze': 'prepis', 'hotovo': 50, 'celkem': 99}}
+    zpracuj.zpracuj_dokument(supa, _dokument(data, 'application/pdf', postup=stary), None, _ucet())
+    zapisy = [z['postup'] for t, _, z in supa.upravy if 'postup' in z and 'stav' not in z]
+    assert zapisy and all(z['stran'] == 99 and z['kapitol'] == 7 for z in zapisy)
+    assert all(z['prubeh']['faze'] != 'prepis' or z['prubeh']['celkem'] != 99 for z in zapisy)
+
+
+def test_nezapsany_prubeh_zpracovani_nezastavi(capsys):
+    data = _kniha_pdf()
+    supa = FalesnaSupa({CESTA: data})
+    puvodni = supa.uprav
+
+    def uprav(tabulka, filtry, zmena, vratit=False):
+        if 'postup' in zmena and 'stav' not in zmena:
+            raise RuntimeError('výpadek')
+        return puvodni(tabulka, filtry, zmena, vratit)
+
+    supa.uprav = uprav
+    zpracuj.zpracuj_dokument(supa, _dokument(data, 'application/pdf'), None, _ucet())
+    assert supa.posledni_stav()['stav'] in ('hotovo', 'ke_kontrole')
+    vystup = capsys.readouterr().out
+    assert 'průběh se nepodařilo zapsat (RuntimeError)' in vystup and 'výpadek' not in vystup
+
+
+def test_prubeh_se_nepise_pri_kazde_davce(monkeypatch):
+    # Bez zrychlení: během krátkého přepisu se každá fáze zapíše jednou (omezení četnosti zápisů).
+    monkeypatch.setattr(zpracuj, 'DAVKA_PREPISU', 1)
+    data = _skenovane_pdf(5)
+    supa = FalesnaSupa({CESTA: data})
+    ucet = _ucet()
+    klient, _ = _klient()
+    zpracuj.zpracuj_dokument(supa, _dokument(data, 'application/pdf'), zpracuj.Prepisovac(klient, 'claude-haiku-5-5', ucet), ucet)
+    faze = [p['faze'] for p in _prubehy(supa)]
+    assert faze == ['stahovani', 'cteni', 'prepis', 'ukladani']
+
+
+# --- chyba účtu Claude: AI se vypne, fronta pokračuje --------------------------
+
+class FrontaSupa:
+    """Falešný projekt bible s frontou víc dokumentů (bible_vezmi_dokument)."""
+
+    def __init__(self, dokumenty: list[dict], soubory: dict[str, bytes]):
+        self.fronta = list(dokumenty)
+        self.soubory = soubory
+        self.stavy: dict[str, list[dict]] = {}
+
+    def __call__(self, url, klic, timeout=60):   # zpracuj.Supa(url, klic)
+        return self
+
+    def rpc(self, funkce, argumenty):
+        if funkce == 'bible_kapacita':
+            return {'db_bajtu': 1000}
+        assert funkce == 'bible_vezmi_dokument'
+        for d in self.fronta:
+            if str(d['id']) not in argumenty['p_vynechat']:
+                self.fronta.remove(d)
+                return [d]
+        return []
+
+    def stahni(self, bucket, cesta):
+        return self.soubory[cesta]
+
+    def uprav(self, tabulka, filtry, zmena, vratit=False):
+        if tabulka == 'bible_dokumenty' and 'stav' in zmena:
+            self.stavy.setdefault(filtry['id'].removeprefix('eq.'), []).append(zmena)
+        return [{'id': filtry['id']}] if vratit else None
+
+    def vyber_vse(self, tabulka, parametry, razeni):
+        return []
+
+    def vloz(self, tabulka, radky, davka=200):
+        pass
+
+    def vloz_nebo_prepis(self, tabulka, radky, klic, davka=100):
+        pass
+
+    def smaz(self, tabulka, filtry):
+        pass
+
+
+def test_dosly_kredit_vypne_ai_a_digitalni_knihy_se_zpracuji_dal(monkeypatch, capsys):
+    import anthropic
+
+    sken, kniha, sken2 = _skenovane_pdf(2), _kniha_pdf(), _skenovane_pdf(1)
+    ids = ['22222222-2222-2222-2222-222222222222', '33333333-3333-3333-3333-333333333333', '44444444-4444-4444-4444-444444444444']
+    dokumenty, soubory = [], {}
+    for id_, data in zip(ids, (sken, kniha, sken2)):
+        cesta = f'{id_}/kniha.pdf'
+        soubory[cesta] = data
+        dokumenty.append({**_dokument(data, 'application/pdf'), 'id': id_, 'soubor_cesta': cesta})
+    supa = FrontaSupa(dokumenty, soubory)
+    klient, volani = _klient_s_chybou(_chyba_api(400, 'invalid_request_error', 'Your credit balance is too low to access the Anthropic API.'))
+    monkeypatch.setattr(anthropic, 'Anthropic', lambda **kw: klient)
+    monkeypatch.setattr(zpracuj, 'Supa', supa)
+    monkeypatch.setattr(zpracuj, 'nacti_nastaveni', lambda s: {'limit_db_mb': 0, 'cenik_usd_za_mtok': CENIK, 'model_ocr': 'claude-haiku-5-5'})
+    monkeypatch.setattr(zpracuj, 'utraceno_tento_mesic', lambda s: 0.0)
+    monkeypatch.setenv('BIBLE_KLIC', 'x')
+    monkeypatch.setenv('ANTHROPIC_API_KEY', 'sk-test')
+    monkeypatch.delenv('GITHUB_ACTIONS', raising=False)
+    monkeypatch.delenv('DOKUMENT', raising=False)
+
+    assert zpracuj._beh() == 1   # problém s účtem je vidět (červený běh)
+    kredit = 'Čeká: na účtu Anthropic došel kredit nebo limit útraty — dobij kredit a zpracování poběží dál.'
+    assert supa.stavy[ids[0]][-1]['stav'] == 'ceka' and supa.stavy[ids[0]][-1]['stav_zprava'] == kredit
+    assert supa.stavy[ids[1]][-1]['stav'] in ('hotovo', 'ke_kontrole')   # digitální kniha se zpracovala
+    assert supa.stavy[ids[2]][-1]['stav'] == 'ceka' and supa.stavy[ids[2]][-1]['stav_zprava'] == kredit
+    assert all(z['pokusy'] == 0 for i in (ids[0], ids[2]) for z in supa.stavy[i] if z['stav'] == 'ceka')
+    assert len(volani) == 1   # po chybě účtu už se Claude nevolal
+    vystup = capsys.readouterr().out
+    assert 'AI vypnutá pro zbytek běhu' in vystup, vystup
+    assert 'hotovo: 6 stran' in vystup and 'odloženo (ChybiKlic)' in vystup, vystup
+    assert 'credit balance' not in vystup, vystup
