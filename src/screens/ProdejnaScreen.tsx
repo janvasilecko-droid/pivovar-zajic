@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase, Beer, Package, EntryRow, useRealtime, beerBg, beerName, formatPackageLabel } from '../lib/supabase';
 import { EmptyState, Modal, Spinner } from '../components/ui';
 import { DvaSloupcePolozek } from '../components/DvaSloupcePolozek';
@@ -155,6 +155,12 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [flash, setFlash] = useState(false);
+  // Orámování po zápisu zhasne za 800 ms — při odchodu z obrazovky se časovač
+  // zruší, jinak sahá na odpojenou komponentu (31. 10. 2026 tím padalo
+  // nasazení #1181: chyba až po konci testu ProdejnaScreen.fotoDny; stejně
+  // jako KEG 28. 10. v #446).
+  const flashCasovac = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (flashCasovac.current) clearTimeout(flashCasovac.current); }, []);
   const [aliasMap, setAliasMap] = useState<ParserAliasMap>(emptyAliasMap());
   useEffect(() => { loadAliasMap().then(setAliasMap).catch(() => {}); }, []);
 
@@ -415,7 +421,9 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
     // se pracuje. Jinak by další zápis nenápadně odečetl místo přičetl.
     setVraceni(false);
     try { smaz(klicRozdelane); } catch { /* uklizeno i tak */ }
-    setFlash(true); setTimeout(() => setFlash(false), 800);
+    setFlash(true);
+    if (flashCasovac.current) clearTimeout(flashCasovac.current);
+    flashCasovac.current = setTimeout(() => setFlash(false), 800);
     load(true);
 
     // ↩️ Vrátit zpět i po ULOŽENÍ, ne jen po smazání. Nebezpečný překlep je
