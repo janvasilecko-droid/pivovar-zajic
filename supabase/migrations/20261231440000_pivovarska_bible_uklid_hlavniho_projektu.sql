@@ -9,8 +9,10 @@
 -- POJISTKA: maže se jen to, co je opravdu prázdné. Má-li kterákoli tabulka
 -- jediný řádek, nebo má-li nastavení bible jinou než výchozí hodnotu z migrace
 -- 20261231420000, skončí migrace chybou a NESMAŽE NIC (běží jako celek
--- v jedné transakci — spust_migraci, CI `psql -1`). Smazání je bez CASCADE:
--- kdyby na tabulce viselo něco nečekaného, migrace taky jen skončí chybou.
+-- v jedné transakci — spust_migraci, CI `psql -1`). Tabulky se před kontrolou
+-- zamknou, takže nic nového nepřibude. Smazání je bez CASCADE: kdyby na tabulce
+-- viselo něco nečekaného, migrace taky jen skončí chybou. Čekání na zámek je
+-- omezené na 5 s (přihlašování appky nestojí).
 --
 -- Zůstává:
 --   bible_pristup()          — volá ji bible_overeni(), vstupní kontrola projektu bible;
@@ -20,6 +22,13 @@
 --                              smazat jde jen přes Storage, SQL to Supabase nedovolí;
 --   rozšíření unaccent, pg_trgm.
 
+-- 0) Zámky ---------------------------------------------------------------------
+-- Smazání bible_dokumenty (cizí klíče na auth.users) vezme na chvíli výlučný
+-- zámek i na auth.users. Kdyby na něj migrace musela čekat za jinou transakcí,
+-- stálo by mezitím přihlašování celé appky — radši tedy po 5 s skončí chybou
+-- a nic nesmaže; majitel ji pak pustí znovu.
+SET LOCAL lock_timeout = '5s';
+
 -- 1) Pojistka -----------------------------------------------------------------
 DO $$
 DECLARE
@@ -27,6 +36,19 @@ DECLARE
   v_pocet bigint;
   v_jine text;
 BEGIN
+  -- Kdyby na tabulky dopadala RLS, počítání skončí chybou, místo aby potichu
+  -- vidělo míň. Jen pro tuhle kontrolu — na konci bloku se vrací (zápis do
+  -- evidence migrací po migraci běží s výchozím nastavením).
+  PERFORM set_config('row_security', 'off', true);
+
+  -- Nejdřív zamknout (počká na rozběhnuté zápisy a nové nepustí až do konce
+  -- migrace), teprve pak počítat — jinak by zápis mezi kontrolou a smazáním zmizel.
+  FOREACH v_tabulka IN ARRAY ARRAY['bible_pasaze', 'bible_strany', 'bible_kapitoly', 'ai_naklady', 'bible_nastaveni', 'bible_dokumenty'] LOOP
+    IF to_regclass('public.' || v_tabulka) IS NOT NULL THEN
+      EXECUTE format('LOCK TABLE public.%I IN ACCESS EXCLUSIVE MODE', v_tabulka);
+    END IF;
+  END LOOP;
+
   FOREACH v_tabulka IN ARRAY ARRAY['bible_dokumenty', 'bible_kapitoly', 'bible_strany', 'bible_pasaze', 'ai_naklady'] LOOP
     IF to_regclass('public.' || v_tabulka) IS NOT NULL THEN
       EXECUTE format('SELECT count(*) FROM public.%I', v_tabulka) INTO v_pocet;
@@ -58,6 +80,8 @@ BEGIN
       RAISE EXCEPTION 'Nastavení bible v hlavní databázi se liší od výchozího (%) — nic se nesmazalo. Změněné hodnoty nejdřív přenést do projektu bible.', v_jine;
     END IF;
   END IF;
+
+  PERFORM set_config('row_security', 'on', true);
 END $$;
 
 -- 2) Funkce nad tabulkami (bible_vezmi_dokument vrací jejich řádky, takže by
