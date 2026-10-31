@@ -333,16 +333,13 @@ jobs:
             echo "SUPABASE_BIBLE_ACCESS_TOKEN není nastaven — funkce bible (bible-api, bible-migrace) se nenasadí." | tee -a "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
-          FUNKCE=$(node scripts/bible-nasazeni.mjs --jen-jmena)
-          if [ -z "$FUNKCE" ]; then
-            echo "Funkce bible: všechno už běží v poslední verzi." | tee -a "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
           echo "### Edge funkce projektu bible" >> "$GITHUB_STEP_SUMMARY"
           if [ -z "$HLAVNI_ANON_KEY" ]; then
             echo "- ❌ chybí secret VITE_SUPABASE_ANON_KEY (veřejný klíč hlavní appky pro bránu bible)" >> "$GITHUB_STEP_SUMMARY"
             exit 1
           fi
+          # Při KAŽDÉM běhu (i bez změny funkcí): po výměně klíče hlavní appky
+          # by brána jinak dál posílala starý a bible by byla všem zavřená.
           # Klíč přes soubor, ne v příkazové řádce.
           ( umask 077; printf 'HLAVNI_ANON_KEY=%s\n' "$HLAVNI_ANON_KEY" > "$RUNNER_TEMP/bible.env" )
           if ! npx --yes supabase@2.121.0 secrets set --project-ref "$BIBLE_REF" --env-file "$RUNNER_TEMP/bible.env"; then
@@ -351,6 +348,11 @@ jobs:
             exit 1
           fi
           rm -f "$RUNNER_TEMP/bible.env"
+          FUNKCE=$(node scripts/bible-nasazeni.mjs --jen-jmena)
+          if [ -z "$FUNKCE" ]; then
+            echo "- funkce už běží v poslední verzi (klíč hlavní appky obnoven)" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           SELHALO=0
           NASAZENE=""
           for f in $FUNKCE; do

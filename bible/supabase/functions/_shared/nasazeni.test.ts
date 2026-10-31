@@ -39,6 +39,16 @@ describe('funkce projektu bible', () => {
     expect(kod).toMatch(/rpc\('bible_zaloz_nahrani'/);
   });
 
+  it('soubory smazaných dokumentů se uklízejí (rozběhnuté nahrání s platným odkazem)', () => {
+    const kod = zdroj('bible-api');
+    expect(kod).toMatch(/rpc\('bible_smazane_k_uklidu'/);
+    expect(kod).toMatch(/rpc\('bible_smazane_uklizeno'/);
+    for (const akce of ['zalozit_nahrani', 'smazat', 'kapacita']) {
+      const telo = kod.slice(kod.indexOf(`async ${akce}(`), kod.indexOf('\n  },', kod.indexOf(`async ${akce}(`)));
+      expect(telo, akce).toMatch(/await uklidSmazanych\(db\)/);
+    }
+  });
+
   it('do logu nejde token, odkaz ani text chyby z databáze', () => {
     for (const s of slozkyFunkci) {
       for (const radek of zdroj(s).split('\n').filter((r) => /console\.(log|error|warn|info)/.test(r))) {

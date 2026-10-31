@@ -27,17 +27,22 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { desifruj } from './lib/sifraZalohy.mjs';
 import { BIBLE_URL, ODLOZENE_SLOUPCE, UNIKATNI_SLOUPCE, pk, sadaZalohy } from './lib/zalohaTabulky.mjs';
+import { prectiArgumenty } from './lib/argumenty.mjs';
 
 const KOREN = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
-const args = process.argv.slice(2);
-const prepinac = (jmeno) => args.includes(`--${jmeno}`);
-const hodnota = (jmeno) => {
-  const i = args.indexOf(`--${jmeno}`);
-  return i >= 0 ? args[i + 1] : null;
-};
+let ARGUMENTY;
+let SADA;
+try {
+  ARGUMENTY = prectiArgumenty(process.argv.slice(2), { hodnoty: ['datum', 'tabulka', 'sada'], prepinace: ['opravdu', 'smazat-navic'] });
+  SADA = sadaZalohy(ARGUMENTY.sada ?? 'hlavni');
+} catch (e) {
+  console.error(`Obnova se nespustila: ${e instanceof Error ? e.message : e}`);
+  process.exit(1);
+}
+const prepinac = (jmeno) => ARGUMENTY[jmeno] === true;
+const hodnota = (jmeno) => (typeof ARGUMENTY[jmeno] === 'string' ? ARGUMENTY[jmeno] : null);
 
-const SADA = sadaZalohy(hodnota('sada') ?? 'hlavni');
 const BIBLE = SADA.jmeno === 'bible';
 const PREDPONA = SADA.slozka; // 'zalohy' nebo 'zalohy/bible'
 const NAZVY = SADA.tabulky.map(([t]) => t);

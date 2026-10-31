@@ -15,9 +15,10 @@ v docs/pivovarska-bible/ROZHODNUTI.md). Hlavní projekt appky worker potřebuje
 jen kvůli klíči Anthropic (app_secrets) — nic jiného v něm nečte ani nepíše.
 
 PROMĚNNÉ: BIBLE_KLIC (service role projektu bible), volitelně BIBLE_URL
-(výchozí adresa projektu bible); HLAVNI_URL a HLAVNI_KLIC (hlavní projekt,
-jen čtení klíče Anthropic); volitelně DOKUMENT (id), LIMIT_USD (strop běhu),
-LIMIT_MINUT, MAX_DOKUMENTU.
+(výchozí adresa projektu bible); ANTHROPIC_API_KEY (v Actions ho připraví
+zvláštní krok), jinak HLAVNI_URL a HLAVNI_KLIC (hlavní projekt, jen čtení
+klíče); volitelně DOKUMENT (id), LIMIT_USD (strop běhu), LIMIT_MINUT,
+MAX_DOKUMENTU.
 
 BEZPEČNOST: repo i logy Actions jsou veřejné. Do logu jde jen ID dokumentu,
 počty a stavy — nikdy text, název ani jiný obsah knihy, ani traceback (nesl
@@ -453,14 +454,14 @@ def rozloz_djvu(data: bytes, prace: Prace) -> Vysledek:
             f.write(data)
         try:
             n = int(subprocess.run(['djvused', '-e', 'n', cesta], capture_output=True, check=True,
-                                   timeout=120).stdout.strip() or 0)
+                                   timeout=120, env=ocr.prostredi_nastroju()).stdout.strip() or 0)
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired, ValueError):
             raise ChybaZpracovani('DjVu nejde otevřít (je poškozené).') from None
 
         def obrazek(cislo: int) -> bytes:
             tif = os.path.join(slozka, f's{cislo}.tif')
             subprocess.run(['ddjvu', '-format=tiff', f'-page={cislo}', '-size=1568x1568', cesta, tif],
-                           capture_output=True, check=True, timeout=300)
+                           capture_output=True, check=True, timeout=300, env=ocr.prostredi_nastroju())
             with open(tif, 'rb') as f:
                 obsah = f.read()
             os.remove(tif)
@@ -471,7 +472,7 @@ def rozloz_djvu(data: bytes, prace: Prace) -> Vysledek:
         vrstvy: dict[int, str] = {}
         for i in range(n):
             vrstva = subprocess.run(['djvutxt', f'--page={i + 1}', cesta], capture_output=True,
-                                    timeout=120).stdout.decode('utf-8', 'replace')
+                                    timeout=120, env=ocr.prostredi_nastroju()).stdout.decode('utf-8', 'replace')
             strany.append(Strana(i + 1, '', 'ocr'))
             ke_skenu[i] = (lambda c=i + 1: obrazek(c))
             if vrstva.strip():
@@ -782,9 +783,14 @@ def _beh() -> int:
         # Holé 404 bez kódu PostgRESTu = špatná adresa projektu, ne chybějící migrace.
         log(f'Databáze bible neodpovídá ({e}) — zkontroluj BIBLE_URL a BIBLE_KLIC.')
         return 1
+    # Klíč Claude: v Actions ho přečte zvláštní krok z app_secrets hlavní appky
+    # a předá jako ANTHROPIC_API_KEY (klíč service role hlavní appky se sem tak
+    # vůbec nedostane). Jinak (ruční běh) z hlavní appky přes HLAVNI_URL/KLIC.
+    klic = os.environ.get('ANTHROPIC_API_KEY') or None
+    if klic and os.environ.get('GITHUB_ACTIONS') == 'true':
+        print(f'::add-mask::{klic}', flush=True)
     hlavni_url, hlavni_klic = os.environ.get('HLAVNI_URL', ''), os.environ.get('HLAVNI_KLIC', '')
-    klic = None
-    if hlavni_url and hlavni_klic:
+    if not klic and hlavni_url and hlavni_klic:
         try:
             klic = nacti_klic_anthropic(Supa(hlavni_url, hlavni_klic))
         except ChybaSupabase as e:

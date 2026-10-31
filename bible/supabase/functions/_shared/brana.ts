@@ -158,6 +158,12 @@ async function sCasovymLimitem(f: Fetch, url: string, init: RequestInit, limitMs
   }
 }
 
+/** Odpověď brány Supabase na neplatný apikey (ne odmítnutý token uživatele). */
+async function neplatnyKlic(r: Response): Promise<boolean> {
+  const j = (await jsonNeboNull(r)) as { message?: unknown; msg?: unknown } | null;
+  return Boolean(j) && /invalid api key|no api key/i.test(String(j?.message ?? j?.msg ?? ''));
+}
+
 async function jsonNeboNull(r: Response): Promise<unknown> {
   try {
     return await r.json();
@@ -169,7 +175,10 @@ async function jsonNeboNull(r: Response): Promise<unknown> {
 export async function overUzivatele(token: string, nastaveni: NastaveniOvereni): Promise<Overeni> {
   const anonKlic = (nastaveni.anonKlic ?? '').trim();
   if (!anonKlic) {
-    return { ok: false, status: 503, kod: 'nenastaveno', zprava: 'Bot nemá nastavený klíč hlavní appky (HLAVNI_ANON_KEY). Nasazení ho doplní samo.' };
+    return {
+      ok: false, status: 503, kod: 'nenastaveno',
+      zprava: 'Bot nemá nastavený klíč hlavní appky (HLAVNI_ANON_KEY) — doplní ho nasazení appky (GitHub Actions → Build & Deploy).',
+    };
   }
   const predem = predbeznaKontrola(token);
   if (predem) return { ok: false, status: 401, kod: 'neprihlasen', zprava: predem };
@@ -194,6 +203,14 @@ export async function overUzivatele(token: string, nastaveni: NastaveniOvereni):
   }
   const [auth, rpc] = odpovedi;
 
+  // Neplatný klíč hlavní appky (vyměněný bez nového nasazení): brána Supabase
+  // vrátí 401 „Invalid API key" na oba dotazy. Nové přihlášení by nepomohlo.
+  if (auth.status === 401 && rpc.status === 401 && await neplatnyKlic(auth.clone()) && await neplatnyKlic(rpc.clone())) {
+    return {
+      ok: false, status: 503, kod: 'klic_hlavni',
+      zprava: 'Klíč hlavní appky v projektu bible neplatí — spusť znovu nasazení appky (GitHub Actions → Build & Deploy → Run workflow).',
+    };
+  }
   if (auth.status === 401 || auth.status === 403) {
     return { ok: false, status: 401, kod: 'neprihlasen', zprava: 'Přihlášení neplatí (vypršelo nebo ses odhlásil). Obnov stránku a přihlas se znovu.' };
   }

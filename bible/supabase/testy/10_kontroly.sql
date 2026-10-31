@@ -148,12 +148,18 @@ SELECT pg_temp.ocekavam((SELECT stav = 'nahrava' AND nahral = :C AND prava_potvr
                                 AND soubor_velikost = 1234 AND soubor_mime = 'application/pdf' AND oblasti = '{A,D}'
                            FROM public.bible_dokumenty WHERE id = pg_temp.dok('a')),
   'řádek „nahrava": autora a potvrzení práv dá funkce, podvržené údaje zpracování se nevezmou');
+SELECT pg_temp.ocekavam((SELECT nahrani_do > now() + interval '2 hours' FROM public.bible_dokumenty WHERE id = pg_temp.dok('a')),
+  'řádek ví, do kdy může platit odkaz pro nahrání (2 h)');
 SELECT pg_temp.ocekavam((SELECT count(*) FROM public.bible_vezmi_dokument(60, NULL)) = 0, 'worker nedokončené nahrání nevezme');
-SELECT pg_temp.ocekavam((public.bible_zaloz_nahrani(:F, 'prispiva', 'Franta', pg_temp.soubor('a')) ->> 'duplicita') = 'true',
-  'stejný soubor od jiného přispěvatele = duplicita');
+SELECT pg_temp.ocekavam((SELECT r ->> 'rozpracovano' = 'true' AND r ->> 'nahral_jmeno' = 'Cyril' AND NOT (r ? 'id')
+                           FROM (SELECT public.bible_zaloz_nahrani(:F, 'prispiva', 'Franta', pg_temp.soubor('a')) r) x),
+  'cizí rozpracované nahrání téhož souboru: jiný přispěvatel se dozví, kdo ho rozpracoval (bez odkazu pro nahrání)');
+UPDATE public.bible_dokumenty SET nahrani_do = now() - interval '1 hour' WHERE id = pg_temp.dok('a');
 SELECT pg_temp.ocekavam((SELECT r ->> 'obnoveno' = 'true' AND (r ->> 'id')::uuid = pg_temp.dok('a') AND r ->> 'soubor_nahran' = 'false'
                            FROM (SELECT public.bible_zaloz_nahrani(:C, 'prispiva', 'Cyril', pg_temp.soubor('a')) r) x),
   'vlastní nedokončené nahrání téhož souboru se vrátí (bez nového řádku)');
+SELECT pg_temp.ocekavam((SELECT nahrani_do > now() + interval '2 hours' FROM public.bible_dokumenty WHERE id = pg_temp.dok('a')),
+  'nový odkaz pro nahrání prodlouží, do kdy může platit');
 SELECT pg_temp.ocekavam((public.bible_zaloz_nahrani(:A, 'spravuje', 'Admin', pg_temp.soubor('a')) ->> 'obnoveno') = 'true',
   'správce nahrání dokončí i za jiného');
 SELECT pg_temp.ocekavam((SELECT count(*) FROM public.bible_dokumenty) = 1, 'pořád jen jeden řádek');
@@ -210,6 +216,8 @@ SELECT pg_temp.selze(format('UPDATE public.bible_dokumenty SET postup = %L WHERE
   'za uživatele se počty nezapíšou', '42501');
 SELECT pg_temp.selze(format('UPDATE public.bible_dokumenty SET nahral = %L WHERE id = %L', :F, pg_temp.dok('a')),
   'za uživatele se autor nepřepíše', '42501');
+SELECT pg_temp.selze(format('UPDATE public.bible_dokumenty SET nahrani_do = NULL WHERE id = %L', pg_temp.dok('a')),
+  'za uživatele se platnost odkazu pro nahrání nezmění (úklid by pak nevěděl o rozběhnutém nahrání)', '42501');
 SELECT pg_temp.selze(format('UPDATE public.bible_dokumenty SET stav = %L WHERE id = %L', 'hotovo', pg_temp.dok('a')),
   'za uživatele jen „čeká" nebo „pozastaveno"', '42501');
 SELECT pg_temp.ocekavam(set_config('bible.uzivatel', '', false) = '', 'konec zápisu za uživatele');
@@ -294,8 +302,31 @@ SELECT pg_temp.selze(format('SELECT public.bible_smaz_dokument(%L, %L, %L)', :F,
 SELECT pg_temp.selze(format('SELECT public.bible_smaz_dokument(%L, %L, %L)', :B, 'cte', pg_temp.dok('b')), 'čtenář nesmaže nic', '42501');
 SELECT pg_temp.ocekavam(public.bible_smaz_dokument(:C, 'prispiva', pg_temp.dok('b')) LIKE '%/druhy.pdf', 'přispěvatel zruší své nedokončené nahrání');
 SELECT pg_temp.ocekavam(pg_temp.dok('b') IS NULL, 'zrušené nahrání je pryč');
+-- Odkaz pro nahrání pořád platí → cesta se zapamatuje; soubor, který k ní dorazí, se uklidí až po vypršení odkazu.
+SELECT pg_temp.ocekavam((SELECT count(*) = 1 AND bool_and(cesta LIKE '%/druhy.pdf' AND odkaz_plati_do > now()) FROM public.bible_smazane_soubory),
+  'zrušené rozběhnuté nahrání: cesta zapamatovaná, dokud může platit odkaz');
+SELECT pg_temp.ocekavam((SELECT count(*) FROM public.bible_smazane_k_uklidu()) = 0, 'dokud odkaz platí, nic se neuklízí');
+INSERT INTO storage.objects (bucket_id, name, metadata)
+  SELECT 'knihovna', cesta, '{"size": 7}' FROM public.bible_smazane_soubory;
+SELECT pg_temp.ocekavam((public.bible_kapacita() -> 'bez_zaznamu' ->> 'souboru')::int = 1, 'kapacita ukáže soubor bez záznamu (dorazil po zrušení)');
+UPDATE public.bible_smazane_soubory SET odkaz_plati_do = now() - interval '1 minute' WHERE cesta LIKE '%/druhy.pdf';
+SELECT pg_temp.ocekavam((SELECT array_agg(cesta) FROM public.bible_smazane_k_uklidu()) = (SELECT array_agg(cesta) FROM public.bible_smazane_soubory),
+  'po vypršení odkazu je cesta k úklidu');
+SELECT pg_temp.ocekavam(public.bible_smazane_uklizeno((SELECT array_agg(cesta) FROM public.bible_smazane_soubory)) = 1, 'po smazání souboru se cesta zapomene');
+DELETE FROM storage.objects WHERE name LIKE '%/druhy.pdf';
+SELECT pg_temp.ocekavam(NOT EXISTS (SELECT 1 FROM public.bible_smazane_soubory), 'žádná zapamatovaná cesta nezůstala');
+-- Cesta, ke které zase existuje dokument (obnova ze zálohy), se jen zapomene — soubor se nemaže.
+INSERT INTO public.bible_smazane_soubory (cesta, odkaz_plati_do)
+  SELECT soubor_cesta, now() - interval '1 minute' FROM public.bible_dokumenty WHERE id = pg_temp.dok('a');
+SELECT pg_temp.ocekavam((SELECT count(*) FROM public.bible_smazane_k_uklidu()) = 0, 'cesta existujícího dokumentu se neuklízí…');
+SELECT pg_temp.ocekavam(NOT EXISTS (SELECT 1 FROM public.bible_smazane_soubory), '…jen se zapomene');
+SELECT pg_temp.selze(format('SELECT public.bible_smazane_uklizeno(%L)', '{x}'), 'úklid smí jen service role', '42501')
+  FROM (SELECT pg_temp.jako('authenticated')) j;
+SELECT pg_temp.jako('service_role');
 SELECT pg_temp.ocekavam(public.bible_smaz_dokument(:A, 'spravuje', gen_random_uuid()) IS NULL, 'neexistující dokument = NULL');
+UPDATE public.bible_dokumenty SET nahrani_do = now() - interval '1 minute' WHERE id = pg_temp.dok('a');
 SELECT pg_temp.ocekavam(public.bible_smaz_dokument(:A, 'spravuje', pg_temp.dok('a')) LIKE '%/kunze.pdf', 'správce smaže dokument (vrátí cestu souboru)');
+SELECT pg_temp.ocekavam(NOT EXISTS (SELECT 1 FROM public.bible_smazane_soubory), 'po vypršení odkazu se cesta smazaného dokumentu nepamatuje');
 SELECT pg_temp.ocekavam((SELECT count(*) FROM public.bible_strany) = 0 AND (SELECT count(*) FROM public.bible_pasaze) = 0
   AND (SELECT count(*) FROM public.bible_kapitoly) = 0, 'se smazaným dokumentem zmizí i strany, pasáže a kapitoly');
 SELECT pg_temp.ocekavam((SELECT count(*) FROM public.ai_naklady) = 1, 'evidence nákladů zůstává i po smazání dokumentu');

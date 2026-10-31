@@ -110,7 +110,10 @@ Majitel 30. 10. 2026: „chci aby to bylo napojené na Claude", „ne Gemini".
   existující soubor nepřepíše). Prohlížeč soubor nahraje rovnou do úložiště
   projektu bible a bible-api ověří, že tam je a má ohlášenou velikost —
   teprve pak jde dokument do fronty (`ceka`). Nedokončené nahrání dokončí
-  nové nahrání téhož souboru, nebo se zruší; nikdy soubor bez záznamu.
+  nové nahrání téhož souboru, nebo se zruší. Nahrávání ukazuje průběh, jde
+  zastavit a zaseknuté spojení (90 s bez pohybu) se samo přeruší. Soubor,
+  který dorazí až po zrušení (odkaz platí 2 h), bible-api po vypršení odkazu
+  smaže (`bible_smazane_soubory`, rozhodnutí R12).
 - **Povinné je potvrzení práv:** „Dokument smíme v pivovaru interně používat."
   K němu jde napsat poznámku k licenci. Autor, vydání, rok, ISBN, jazyk
   a oblasti A–T jsou volitelné a dají se doplnit později.

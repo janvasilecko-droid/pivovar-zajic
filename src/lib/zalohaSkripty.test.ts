@@ -95,3 +95,39 @@ describe('seznam zálohovaných tabulek', () => {
     expect(i('places')).toBeLessThan(i('orders'));
   });
 });
+
+describe('přepínače skriptů záloh', () => {
+  const zkus = (argv: string[]) => {
+    const vystup = execFileSync(process.execPath, ['--input-type=module', '-e', `
+      import { prectiArgumenty } from './scripts/lib/argumenty.mjs';
+      try { console.log(JSON.stringify({ ok: prectiArgumenty(${JSON.stringify(argv)}, { hodnoty: ['sada', 'tabulka', 'datum'], prepinace: ['opravdu'] }) })); }
+      catch (e) { console.log(JSON.stringify({ chyba: e.message })); }
+    `], { encoding: 'utf8' });
+    return JSON.parse(vystup.trim().split('\n').pop()!);
+  };
+
+  it('obě podoby hodnoty fungují', () => {
+    expect(zkus(['--sada', 'bible', '--opravdu'])).toEqual({ ok: { sada: 'bible', opravdu: true } });
+    expect(zkus(['--sada=bible', '--tabulka=orders'])).toEqual({ ok: { sada: 'bible', tabulka: 'orders' } });
+  });
+
+  it('chybějící hodnota ani neznámý přepínač nepropadnou tiše na výchozí sadu', () => {
+    expect(zkus(['--opravdu', '--sada']).chyba).toMatch(/chybí hodnota/);
+    expect(zkus(['--sada', '--opravdu']).chyba).toMatch(/chybí hodnota/);
+    expect(zkus(['--sada=', '--opravdu']).chyba).toMatch(/chybí hodnota/);
+    expect(zkus(['--Sada=bible']).chyba).toMatch(/Neznámý/);
+    expect(zkus(['--saada', 'bible']).chyba).toMatch(/Neznámý přepínač/);
+    expect(zkus(['bible']).chyba).toMatch(/Neznámý argument/);
+    expect(zkus(['--opravdu=ano']).chyba).toMatch(/nebere hodnotu/);
+  });
+
+  it('obnova s nejasnými přepínači skončí chybou a nic nezapíše', () => {
+    let vystup = '';
+    try {
+      execFileSync(process.execPath, ['scripts/obnov-ze-zalohy.mjs', '--sada', '--opravdu'], { encoding: 'utf8', stdio: 'pipe' });
+    } catch (e) {
+      vystup = String((e as { stderr?: string }).stderr ?? '');
+    }
+    expect(vystup).toMatch(/Obnova se nespustila: Za --sada chybí hodnota/);
+  });
+});

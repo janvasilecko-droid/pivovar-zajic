@@ -602,3 +602,47 @@ def test_beh_bez_tabulek_konci_bez_chyby_spatna_adresa_s_chybou(monkeypatch, cap
     monkeypatch.setenv('BIBLE_KLIC', 'x')
     assert zpracuj._beh() == kod
     assert hlaska in capsys.readouterr().out
+
+
+def test_klic_claude_z_prostredi_hlavni_appku_vubec_nevola(monkeypatch, capsys):
+    vytvorene = []
+
+    class Falesna:
+        def __init__(self, url, klic, timeout=60):
+            vytvorene.append(url)
+            self.url = url
+
+        def rpc(self, funkce, argumenty):
+            return []
+
+    monkeypatch.setattr(zpracuj, 'Supa', Falesna)
+    monkeypatch.setattr(zpracuj, 'nacti_nastaveni', lambda s: {'limit_db_mb': 0, 'cenik_usd_za_mtok': CENIK})
+    monkeypatch.setattr(zpracuj, 'utraceno_tento_mesic', lambda s: 0.0)
+    monkeypatch.setattr(zpracuj, 'nacti_klic_anthropic', lambda s: pytest.fail('klíč se nemá číst z hlavní appky'))
+    monkeypatch.setenv('BIBLE_KLIC', 'x')
+    monkeypatch.setenv('ANTHROPIC_API_KEY', 'sk-ant-z-prostredi')
+    monkeypatch.setenv('HLAVNI_URL', 'https://hlavni.example')
+    monkeypatch.setenv('HLAVNI_KLIC', 'sb_secret_hlavni')
+    monkeypatch.delenv('GITHUB_ACTIONS', raising=False)
+    assert zpracuj._beh() == 0
+    assert vytvorene == [zpracuj.BIBLE_URL]
+    assert 'sk-ant' not in capsys.readouterr().out
+
+
+def test_nativni_nastroje_nedostanou_klice(monkeypatch):
+    for k, v in {'BIBLE_KLIC': 'sb_secret_bible', 'ANTHROPIC_API_KEY': 'sk-ant-x', 'HLAVNI_KLIC': 'sb_secret_h',
+                 'PATH': '/usr/bin', 'HOME': '/home/runner', 'TESSDATA_PREFIX': '/usr/share/tessdata'}.items():
+        monkeypatch.setenv(k, v)
+    prostredi = ocr.prostredi_nastroju()
+    assert prostredi['PATH'] == '/usr/bin' and prostredi['TESSDATA_PREFIX'] == '/usr/share/tessdata'
+    assert not any(k in prostredi for k in ('BIBLE_KLIC', 'ANTHROPIC_API_KEY', 'HLAVNI_KLIC'))
+    zachycene = {}
+
+    def falesny_run(prikaz, **kw):
+        zachycene.update(kw)
+        return SimpleNamespace(returncode=0, stdout=b'')
+
+    monkeypatch.setattr(ocr.subprocess, 'run', falesny_run)
+    monkeypatch.setattr(ocr, 'tesseract_k_dispozici', lambda: True)
+    ocr.precti_tesseractem(b'jpeg', 'ces')
+    assert 'env' in zachycene and 'ANTHROPIC_API_KEY' not in zachycene['env']

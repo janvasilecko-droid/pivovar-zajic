@@ -111,7 +111,7 @@ export async function sha256Hex(data: Blob): Promise<string> {
 }
 
 export const STAV_POPIS: Readonly<Record<StavDokumentu, string>> = {
-  nahrava: 'Nahrávání nedokončeno',
+  nahrava: 'Nahrává se',
   ceka: 'Čeká na zpracování',
   zpracovava: 'Zpracovává se',
   hotovo: 'Zpracováno',

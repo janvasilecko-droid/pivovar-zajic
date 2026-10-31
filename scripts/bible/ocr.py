@@ -13,6 +13,7 @@ import base64
 import json
 import re
 import shutil
+import os
 import subprocess
 import tempfile
 from collections import Counter
@@ -57,6 +58,16 @@ class Prepis:
     duvod: str | None
     usage: dict
 
+
+
+# Nativní nástroje (Tesseract, djvulibre) čtou nahrané soubory, kterým nejde
+# věřit — dostanou jen tohle prostředí, žádné klíče workeru (BIBLE_KLIC,
+# ANTHROPIC_API_KEY…). Chyba v nástroji je tak nevynese.
+_PROMENNE_NASTROJU = ('PATH', 'HOME', 'LANG', 'LC_ALL', 'LC_CTYPE', 'TMPDIR', 'TESSDATA_PREFIX', 'OMP_THREAD_LIMIT')
+
+
+def prostredi_nastroju() -> dict[str, str]:
+    return {k: v for k in _PROMENNE_NASTROJU if (v := os.environ.get(k)) is not None}
 
 def usage_jako_dict(usage) -> dict:
     return {
@@ -185,7 +196,7 @@ def precti_tesseractem(obrazek: bytes, jazyky: str = 'ces+deu+eng') -> str:
         try:
             vystup = subprocess.run(
                 ['tesseract', soubor.name, 'stdout', '-l', jazyky, '--psm', '3'],
-                capture_output=True, timeout=180, check=False,
+                capture_output=True, timeout=180, check=False, env=prostredi_nastroju(),
             )
         except subprocess.TimeoutExpired:
             return ''

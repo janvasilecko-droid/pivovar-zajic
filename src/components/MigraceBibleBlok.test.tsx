@@ -37,10 +37,22 @@ describe('Migrace databáze bible v Systému', () => {
     expect(await screen.findByText('nic nečeká')).toBeTruthy();
   });
 
-  it('bot ještě není nasazený: řekne, co chybí', async () => {
-    seznam = { ok: false, chyba: { kod: 'nenasazeno', zprava: 'Bot (funkce bible-migrace) ještě není v projektu bible nasazený.', status: 404 } };
+  it.each(['nenasazeno', 'nedostupna'])('bot neodpovídá (%s): návod s přesnými odkazy', async (kod) => {
+    seznam = { ok: false, chyba: { kod, zprava: 'Databáze bible neodpovídá.', status: 0 } };
     render(<MigraceBibleBlok />);
-    expect(await screen.findByText(/Bot ještě není v projektu bible nasazený/)).toBeTruthy();
-    expect(screen.getByText(/SUPABASE_BIBLE_ACCESS_TOKEN/)).toBeTruthy();
+    expect(await screen.findByText(/Bot \(funkce projektu bible\) neodpovídá/)).toBeTruthy();
+    expect(screen.getByText('SUPABASE_BIBLE_ACCESS_TOKEN')).toBeTruthy();
+    const odkazy = screen.getAllByRole('link').map((a) => a.getAttribute('href'));
+    expect(odkazy).toEqual(expect.arrayContaining([
+      'https://supabase.com/dashboard/account/tokens',
+      'https://github.com/janvasilecko-droid/pivovar-zajic/settings/secrets/actions/new',
+      'https://github.com/janvasilecko-droid/pivovar-zajic/actions/workflows/deploy.yml',
+    ]));
+  });
+
+  it('jiná chyba (třeba chybí migrace v hlavní databázi) se ukáže doslova', async () => {
+    seznam = { ok: false, chyba: { kod: 'chybi_overeni', zprava: 'V hlavní databázi chybí migrace 20261231430000.', status: 503 } };
+    render(<MigraceBibleBlok />);
+    expect(await screen.findByText(/chybí migrace 20261231430000/)).toBeTruthy();
   });
 });

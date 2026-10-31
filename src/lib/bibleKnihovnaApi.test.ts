@@ -16,15 +16,48 @@ vi.mock('./bibleKlient', async (puvodni) => ({
 }));
 
 import { BIBLE_URL } from './bibleKlient';
-import { nactiDokumenty, nactiNakladyMesice, nahrajDokument, odkazNaSoubor, smazDokument } from './bibleKnihovnaApi';
+import {
+  NAHRAVANI_ZASEKNUTO, NAHRAVANI_ZASTAVENO, nactiDokumenty, nactiNakladyMesice, nahrajDokument, nahrajDoUloziste,
+  odkazNaSoubor, smazDokument,
+} from './bibleKnihovnaApi';
 
 const ID = '11111111-2222-3333-4444-555555555555';
 const pdf = (jmeno = 'Kunze Technology Brewing.pdf', obsah = '%PDF-1.7 obsah') => new File([obsah], jmeno, { type: '' });
 const dokument = { id: ID, nazev: 'Kunze', stav: 'ceka' };
 const akce = () => volani.map((v) => v.telo.akce);
 
-let fetchMock: ReturnType<typeof vi.fn>;
-let nahraniOdpoved: () => Response;
+// Falešný XMLHttpRequest: nahrání do úložiště bible.
+class FalesnyXhr {
+  static vsechny: FalesnyXhr[] = [];
+  static chovani: (x: FalesnyXhr) => void = (x) => x.odpovez(200, '{"Key":"knihovna/x"}');
+  metoda = '';
+  adresa = '';
+  hlavicky: Record<string, string> = {};
+  telo: unknown = null;
+  status = 0;
+  responseText = '';
+  upload: { onprogress: ((e: ProgressEvent) => void) | null; onload: (() => void) | null } = { onprogress: null, onload: null };
+  onload: (() => void) | null = null;
+  onerror: (() => void) | null = null;
+  onabort: (() => void) | null = null;
+  open(metoda: string, adresa: string) { this.metoda = metoda; this.adresa = adresa; }
+  setRequestHeader(k: string, v: string) { this.hlavicky[k] = v; }
+  send(telo: unknown) {
+    this.telo = telo;
+    FalesnyXhr.vsechny.push(this);
+    queueMicrotask(() => FalesnyXhr.chovani(this));
+  }
+  abort() { this.onabort?.(); }
+  prubeh(loaded: number, total: number) { this.upload.onprogress?.({ lengthComputable: true, loaded, total } as ProgressEvent); }
+  odpovez(status: number, text: string) {
+    this.prubeh(7, 14);
+    this.prubeh(14, 14);
+    this.upload.onload?.();
+    this.status = status;
+    this.responseText = text;
+    this.onload?.();
+  }
+}
 
 beforeEach(() => {
   volani.length = 0;
@@ -32,15 +65,17 @@ beforeEach(() => {
     zalozit_nahrani: { id: ID, cesta: `${ID}/Kunze-Technology-Brewing.pdf`, obnoveno: false, soubor_nahran: false, token: 'tok+en/1', apikey: 'sb_publishable_bible' },
     potvrdit_nahrani: dokument,
   };
-  nahraniOdpoved = () => new Response(JSON.stringify({ Key: 'knihovna/x' }), { status: 200 });
-  fetchMock = vi.fn(async () => nahraniOdpoved());
-  vi.stubGlobal('fetch', fetchMock);
+  FalesnyXhr.vsechny = [];
+  FalesnyXhr.chovani = (x) => x.odpovez(200, '{"Key":"knihovna/x"}');
+  vi.stubGlobal('XMLHttpRequest', FalesnyXhr);
 });
 afterEach(() => vi.unstubAllGlobals());
 
 describe('nahrání dokumentu do knihovny (projekt bible)', () => {
-  it('založí nahrání, pošle soubor rovnou do úložiště bible a potvrdí ho', async () => {
-    const v = await nahrajDokument(pdf(), { nazev: '  Technology Brewing and Malting ', autor: '', jazyk: 'en', oblasti: ['A', 'D'] });
+  it('založí nahrání, pošle soubor rovnou do úložiště bible (s průběhem) a potvrdí ho', async () => {
+    const prubeh: number[] = [];
+    const v = await nahrajDokument(pdf(), { nazev: '  Technology Brewing and Malting ', autor: '', jazyk: 'en', oblasti: ['A', 'D'] },
+      { onPrubeh: (podil) => prubeh.push(podil) });
     expect(v).toEqual({ stav: 'nahrano', dokument });
     expect(akce()).toEqual(['zalozit_nahrani', 'potvrdit_nahrani']);
     const zalozeni = volani[0].telo;
@@ -56,22 +91,30 @@ describe('nahrání dokumentu do knihovny (projekt bible)', () => {
     expect(zalozeni).not.toHaveProperty('nahral_jmeno');
     expect(volani[1].telo).toEqual({ akce: 'potvrdit_nahrani', id: ID });
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    const [adresa, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(adresa).toBe(`${BIBLE_URL}/storage/v1/object/upload/sign/knihovna/${ID}/Kunze-Technology-Brewing.pdf?token=tok%2Ben%2F1`);
-    expect(init.method).toBe('PUT');
-    expect(init.headers).toEqual({ 'x-upsert': 'false', apikey: 'sb_publishable_bible' });
-    const telo = init.body as FormData;
-    const castSouboru = telo.get('') as Blob;
+    expect(FalesnyXhr.vsechny).toHaveLength(1);
+    const x = FalesnyXhr.vsechny[0];
+    expect(x.metoda).toBe('PUT');
+    expect(x.adresa).toBe(`${BIBLE_URL}/storage/v1/object/upload/sign/knihovna/${ID}/Kunze-Technology-Brewing.pdf?token=tok%2Ben%2F1`);
+    expect(x.hlavicky).toEqual({ 'x-upsert': 'false', apikey: 'sb_publishable_bible' });
+    const castSouboru = (x.telo as FormData).get('') as Blob;
     expect(castSouboru.type).toBe('application/pdf'); // typ podle přípony, i když ho prohlížeč nezná
     expect(castSouboru.size).toBe(14);
+    expect((x.telo as FormData).get('cacheControl')).toBe('3600');
+    expect(prubeh).toEqual([0.5, 1, 1]);
   });
 
   it('stejný soubor (SHA-256) podruhé nenahraje', async () => {
     odpovedi.zalozit_nahrani = { duplicita: true, nazev: 'Kunze (už nahraný)' };
     expect(await nahrajDokument(pdf(), { nazev: 'Kunze' })).toEqual({ stav: 'duplicita', nazev: 'Kunze (už nahraný)' });
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(FalesnyXhr.vsechny).toHaveLength(0);
     expect(akce()).toEqual(['zalozit_nahrani']);
+  });
+
+  it('cizí rozpracované nahrání téhož souboru: řekne čí, nic nenahrává', async () => {
+    odpovedi.zalozit_nahrani = { rozpracovano: true, nazev: 'Kunze', nahral_jmeno: 'Cyril' };
+    const v = await nahrajDokument(pdf(), { nazev: 'Kunze' });
+    expect(v.stav === 'chyba' && v.zprava).toMatch(/rozpracované nahrání \(Cyril\).*správce knihovny/);
+    expect(FalesnyXhr.vsechny).toHaveLength(0);
   });
 
   it('nepodporovaný typ, prázdný název, prázdný nebo příliš velký soubor odmítne bez volání serveru', async () => {
@@ -83,24 +126,24 @@ describe('nahrání dokumentu do knihovny (projekt bible)', () => {
     const v = await nahrajDokument(velky, { nazev: 'Velký sken' });
     expect(v.stav === 'chyba' && v.zprava).toMatch(/50 MB/);
     expect(volani).toEqual([]);
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(FalesnyXhr.vsechny).toHaveLength(0);
   });
 
   it('dokončí dřívější nahrání, které soubor už doneslo (bez nového nahrávání)', async () => {
     odpovedi.zalozit_nahrani = { id: ID, cesta: `${ID}/Kunze.pdf`, obnoveno: true, soubor_nahran: true };
     expect((await nahrajDokument(pdf(), { nazev: 'Kunze' })).stav).toBe('nahrano');
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(FalesnyXhr.vsechny).toHaveLength(0);
     expect(akce()).toEqual(['zalozit_nahrani', 'potvrdit_nahrani']);
   });
 
   it('soubor už v úložišti je (dřívější pokus) → jen potvrdí', async () => {
-    nahraniOdpoved = () => new Response(JSON.stringify({ statusCode: '409', error: 'Duplicate', message: 'The resource already exists' }), { status: 400 });
+    FalesnyXhr.chovani = (x) => x.odpovez(400, JSON.stringify({ statusCode: '409', error: 'Duplicate', message: 'The resource already exists' }));
     expect((await nahrajDokument(pdf(), { nazev: 'Kunze' })).stav).toBe('nahrano');
     expect(akce()).toEqual(['zalozit_nahrani', 'potvrdit_nahrani']);
   });
 
   it('nad limit úložiště: srozumitelná hláška, nepotvrdí, poradí jak dokončit', async () => {
-    nahraniOdpoved = () => new Response(JSON.stringify({ statusCode: '413', error: 'Payload too large', message: 'The object exceeded the maximum allowed size' }), { status: 413 });
+    FalesnyXhr.chovani = (x) => x.odpovez(413, JSON.stringify({ statusCode: '413', error: 'Payload too large', message: 'The object exceeded the maximum allowed size' }));
     const v = await nahrajDokument(pdf(), { nazev: 'Velký sken' });
     expect(v.stav === 'chyba' && v.zprava).toMatch(/50 MB/);
     expect(v.stav === 'chyba' && v.zprava).toMatch(/nahraj ho znovu/);
@@ -108,10 +151,10 @@ describe('nahrání dokumentu do knihovny (projekt bible)', () => {
   });
 
   it('vypršelý odkaz pro nahrání i přerušená síť: chyba, nic se nepotvrdí', async () => {
-    nahraniOdpoved = () => new Response(JSON.stringify({ statusCode: '400', error: 'InvalidJWT', message: 'jwt expired' }), { status: 400 });
+    FalesnyXhr.chovani = (x) => x.odpovez(400, JSON.stringify({ statusCode: '400', error: 'InvalidJWT', message: 'jwt expired' }));
     const v = await nahrajDokument(pdf(), { nazev: 'Kunze' });
     expect(v.stav === 'chyba' && v.zprava).toMatch(/vypršel/);
-    fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    FalesnyXhr.chovani = (x) => x.onerror?.();
     const v2 = await nahrajDokument(pdf(), { nazev: 'Kunze' });
     expect(v2.stav === 'chyba' && v2.zprava).toMatch(/Spojení se přerušilo/);
     expect(akce().filter((a) => a === 'potvrdit_nahrani')).toHaveLength(0);
@@ -127,7 +170,45 @@ describe('nahrání dokumentu do knihovny (projekt bible)', () => {
     odpovedi.zalozit_nahrani = { chyba: { kod: 'zakazano', zprava: 'Nemáš právo nahrávat ani upravovat knihovnu.', status: 403 } };
     const v = await nahrajDokument(pdf(), { nazev: 'Kunze' });
     expect(v.stav === 'chyba' && v.zprava).toMatch(/Nemáš právo/);
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(FalesnyXhr.vsechny).toHaveLength(0);
+  });
+});
+
+describe('nahrávání jde zastavit a zaseknuté se přeruší', () => {
+  it('Zastavit: rozběhnuté nahrání se přeruší, nic se nepotvrdí', async () => {
+    FalesnyXhr.chovani = (x) => x.prubeh(3, 14); // jen začne, nedokončí
+    const ctrl = new AbortController();
+    const slib = nahrajDokument(pdf(), { nazev: 'Kunze' }, { signal: ctrl.signal });
+    await vi.waitFor(() => expect(FalesnyXhr.vsechny).toHaveLength(1));
+    ctrl.abort();
+    const v = await slib;
+    expect(v.stav === 'chyba' && v.zprava).toMatch(new RegExp(`^${NAHRAVANI_ZASTAVENO}`));
+    expect(akce()).toEqual(['zalozit_nahrani']);
+  });
+
+  it('už zastavené nahrání se vůbec nespustí', async () => {
+    const ctrl = new AbortController();
+    ctrl.abort();
+    expect(await nahrajDoUloziste('a/b.pdf', 't', new Blob(['x']), 'application/pdf', undefined, { signal: ctrl.signal })).toBe(NAHRAVANI_ZASTAVENO);
+    expect(FalesnyXhr.vsechny).toHaveLength(0);
+  });
+
+  it('bez pohybu déle než limit = zaseknuté spojení → přerušit', async () => {
+    FalesnyXhr.chovani = () => undefined; // nikdy nic
+    const v = await nahrajDoUloziste('a/b.pdf', 't', new Blob(['x']), 'application/pdf', undefined, { zaseknutiMs: 60 });
+    expect(v).toBe(NAHRAVANI_ZASEKNUTO);
+  });
+
+  it('pomalé, ale živé nahrání se nepřeruší', async () => {
+    FalesnyXhr.chovani = (x) => {
+      let krok = 0;
+      const t = setInterval(() => {
+        krok += 1;
+        x.prubeh(krok, 6);
+        if (krok === 6) { clearInterval(t); x.odpovez(200, '{}'); }
+      }, 25);
+    };
+    expect(await nahrajDoUloziste('a/b.pdf', 't', new Blob(['x']), 'application/pdf', undefined, { zaseknutiMs: 80 })).toBeNull();
   });
 });
 

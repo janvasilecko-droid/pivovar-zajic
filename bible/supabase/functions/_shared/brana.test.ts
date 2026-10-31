@@ -108,6 +108,15 @@ describe('overUzivatele', () => {
     expect(await overUzivatele(token(), { anonKlic: 'k', fetch: f })).toMatchObject({ ok: false, status, kod });
   });
 
+  it('neplatný klíč hlavní appky (vyměněný bez nasazení): 503 s radou, ne „přihlas se znovu"', async () => {
+    const klic = () => json(401, { message: 'Invalid API key', hint: 'Double check your Supabase `anon` or `service_role` API key.' });
+    const f = falesnyFetch({ auth: klic(), rpc: klic() });
+    expect(await overUzivatele(token(), { anonKlic: 'stary', fetch: f })).toMatchObject({ ok: false, status: 503, kod: 'klic_hlavni' });
+    // Odmítnutý token uživatele (GoTrue s error_code) zůstává „přihlas se znovu".
+    const f2 = falesnyFetch({ auth: json(401, { code: 401, error_code: 'bad_jwt', msg: 'invalid JWT' }), rpc: json(401, { code: 'PGRST301', message: 'JWT expired' }) });
+    expect(await overUzivatele(token(), { anonKlic: 'k', fetch: f2 })).toMatchObject({ ok: false, status: 401, kod: 'neprihlasen' });
+  });
+
   it('pomalý hlavní projekt = odmítnuto (časový limit)', async () => {
     const f = vi.fn((_url: string, init?: RequestInit) => new Promise<Response>((_ok, ko) => {
       init?.signal?.addEventListener('abort', () => ko(new DOMException('aborted', 'AbortError')));

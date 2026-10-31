@@ -42,9 +42,14 @@ jobs:
         run: node scripts/zaloha-objednavek.mjs
 
       # 📚 Projekt bible (samostatný Supabase, R12): katalog knih, nastavení
-      # a náklady na AI do zalohy/bible/. Bez klíče se jen ohlásí — hlavní
-      # zálohu to nikdy nezastaví.
+      # a náklady na AI do zalohy/bible/. Hlavní zálohu to nikdy nezastaví:
+      # bez klíče se jen ohlásí, při chybě (špatný klíč, výpadek projektu bible)
+      # vrátí rozpracovanou sadu do stavu z gitu (napůl přepsané soubory by
+      # neseděly s manifestem), hlavní záloha se uloží a job pak skončí
+      # chybou až v posledním kroku — vznikne issue.
       - name: Záloha projektu bible
+        id: bible
+        continue-on-error: true
         env:
           BIBLE_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.BIBLE_SUPABASE_SERVICE_ROLE_KEY }}
           ZALOHA_HESLO: ${{ secrets.ZALOHA_HESLO }}
@@ -53,7 +58,12 @@ jobs:
             echo "Chybí secret BIBLE_SUPABASE_SERVICE_ROLE_KEY — projekt bible se nezálohuje." | tee -a "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
-          node scripts/zaloha-objednavek.mjs --sada bible
+          if ! node scripts/zaloha-objednavek.mjs --sada bible; then
+            git checkout -- zalohy/bible 2>/dev/null || true
+            git clean -fdq zalohy/bible 2>/dev/null || true
+            echo "Záloha projektu bible selhala — její soubory zůstaly v posledním dobrém stavu." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
 
       - name: Uložit do repozitáře
         run: |
@@ -69,6 +79,13 @@ jobs:
           # Mezitím mohl přijít jiný commit (třeba bump verze z deploye).
           git pull --rebase origin main
           git push
+
+      # Hlavní záloha je uložená; selhání zálohy bible ať se i tak ohlásí (issue).
+      - name: Selhání zálohy projektu bible
+        if: steps.bible.outcome == 'failure'
+        run: |
+          echo "Záloha projektu bible selhala (hlavní záloha je uložená) — zkontroluj secret BIBLE_SUPABASE_SERVICE_ROLE_KEY." | tee -a "$GITHUB_STEP_SUMMARY"
+          exit 1
 
   # Selhání zálohy nesmí být tiché — stejný vzor jako u nasazení.
   oznam-selhani:
@@ -91,6 +108,7 @@ jobs:
                 `Běh: ${beh}`,
                 '',
                 'Nejčastější příčiny: chybí secret `ZALOHA_HESLO` nebo `SUPABASE_SERVICE_ROLE_KEY`,',
-                'nebo je Supabase nedostupný.',
+                'nebo je Supabase nedostupný. U zálohy projektu bible (zalohy/bible/) secret',
+                '`BIBLE_SUPABASE_SERVICE_ROLE_KEY` — hlavní záloha se v tom případě uložila.',
               ].join('\n'),
             });

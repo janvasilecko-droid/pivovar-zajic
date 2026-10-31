@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 let session: { access_token: string } | null = { access_token: 'token-uzivatele' };
+let chybaSession: { name: string; message: string } | null = null;
 vi.mock('./supabase', () => ({
-  supabase: { auth: { getSession: async () => ({ data: { session }, error: null }) } },
+  supabase: { auth: { getSession: async () => ({ data: { session }, error: chybaSession }) } },
   VELKY_DOTAZ_TIMEOUT_MS: 25_000,
   fetchWithTimeout: (vstup: RequestInfo | URL, init?: RequestInit) => fetch(vstup, init),
 }));
@@ -14,6 +15,7 @@ const odpoved = (status: number, telo: unknown) => new Response(telo === undefin
 
 beforeEach(() => {
   session = { access_token: 'token-uzivatele' };
+  chybaSession = null;
   fetchMock = vi.fn(async () => odpoved(200, { ok: true, data: [1, 2] }));
   vi.stubGlobal('fetch', fetchMock);
 });
@@ -33,6 +35,16 @@ describe('volejBibli', () => {
   it('bez přihlášení nic neposílá', async () => {
     session = null;
     expect(await volejBibli('bible-api', { akce: 'dokumenty' })).toMatchObject({ ok: false, chyba: { kod: 'neprihlasen', status: 401 } });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('prošlý token bez signálu: „spojení se přerušilo", ne „přihlas se znovu"', async () => {
+    session = null;
+    chybaSession = { name: 'AuthRetryableFetchError', message: 'Failed to fetch' };
+    expect(await volejBibli('bible-api', { akce: 'dokumenty' })).toMatchObject({ ok: false, chyba: { kod: 'sit' } });
+    chybaSession = null;
+    vi.spyOn(navigator, 'onLine', 'get').mockReturnValueOnce(false);
+    expect(await volejBibli('bible-api', { akce: 'dokumenty' })).toMatchObject({ ok: false, chyba: { kod: 'sit' } });
     expect(fetchMock).not.toHaveBeenCalled();
   });
 

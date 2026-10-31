@@ -30,12 +30,19 @@ function jeOffline(): boolean {
   return typeof navigator !== 'undefined' && navigator.onLine === false;
 }
 
-/** Token přihlášení z hlavní appky (supabase-js ho při vypršení sám obnoví). */
-export async function tokenPrihlaseni(): Promise<string | null> {
+/**
+ * Token přihlášení z hlavní appky (supabase-js ho při vypršení sám obnoví).
+ * 'sit' = obnova tokenu spadla na síti — přihlášení přitom dál platí.
+ */
+export async function tokenPrihlaseni(): Promise<{ token: string } | { chyba: 'neprihlasen' | 'sit' }> {
   try {
-    return (await supabase.auth.getSession()).data.session?.access_token ?? null;
+    const { data, error } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    if (token) return { token };
+    const sitova = Boolean(error) && /retryable|fetch|network/i.test(`${error?.name ?? ''} ${error?.message ?? ''}`);
+    return { chyba: sitova || jeOffline() ? 'sit' : 'neprihlasen' };
   } catch {
-    return null;
+    return { chyba: jeOffline() ? 'sit' : 'neprihlasen' };
   }
 }
 
@@ -48,8 +55,13 @@ export async function volejBibli<T>(
   telo: Record<string, unknown>,
   limitMs: number = VELKY_DOTAZ_TIMEOUT_MS,
 ): Promise<VysledekBible<T>> {
-  const token = await tokenPrihlaseni();
-  if (!token) return chybaBible('neprihlasen', 'Přihlášení vypršelo. Obnov stránku a přihlas se znovu.', 401);
+  const prihlaseni = await tokenPrihlaseni();
+  if ('chyba' in prihlaseni) {
+    return prihlaseni.chyba === 'sit'
+      ? chybaBible('sit', 'Spojení se přerušilo. Zkus to znovu, až bude signál.')
+      : chybaBible('neprihlasen', 'Přihlášení vypršelo. Obnov stránku a přihlas se znovu.', 401);
+  }
+  const token = prihlaseni.token;
 
   let odpoved: Response;
   try {
@@ -61,7 +73,7 @@ export async function volejBibli<T>(
   } catch {
     return jeOffline()
       ? chybaBible('sit', 'Spojení se přerušilo. Zkus to znovu, až bude signál.')
-      : chybaBible('nedostupna', 'Databáze bible neodpovídá — bot ještě nemusí být nasazený, nebo má Supabase výpadek. Zkus to za chvíli.');
+      : chybaBible('nedostupna', 'Databáze bible neodpovídá — bot ještě není nasazený, nebo má Supabase výpadek.');
   }
 
   let json: unknown = null;

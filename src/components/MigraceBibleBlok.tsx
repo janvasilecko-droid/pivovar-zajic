@@ -13,6 +13,12 @@ import { oznam, potvrd } from '../lib/toast';
 
 type Stav = 'nacitam' | 'ok' | 'bez-seznamu' | 'nenasazeno' | 'chyba';
 
+/** Odkazy pro majitele (CLAUDE.md: vždy přesné odkazy). */
+const ODKAZ_SECRET = 'https://github.com/janvasilecko-droid/pivovar-zajic/settings/secrets/actions/new';
+const ODKAZ_TOKENY = 'https://supabase.com/dashboard/account/tokens';
+const ODKAZ_NASAZENI = 'https://github.com/janvasilecko-droid/pivovar-zajic/actions/workflows/deploy.yml';
+const ODKAZ_PROJEKT = 'https://supabase.com/dashboard/project/cegrelgvkygcatupqwrx';
+
 /** Spuštění jedné migrace může trvat (funkce má limit 150 s). */
 const LIMIT_SPUSTENI_MS = 140_000;
 
@@ -38,7 +44,9 @@ export function MigraceBibleBlok() {
     const r = await volejBibli<{ evidence: boolean; aplikovane: AplikovanaMigrace[] }>('bible-migrace', { akce: 'seznam' });
     if (!r.ok) {
       setChybaText(r.chyba.zprava);
-      setStav(r.chyba.kod === 'nenasazeno' || r.chyba.kod === 'nenastaveno' ? 'nenasazeno' : 'chyba');
+      // Nenasazená funkce v prohlížeči většinou vypadá jako „neodpovídá" (preflight
+      // na 404 bez CORS) — proto stejný návod i pro nedostupnost.
+      setStav(['nenasazeno', 'nenastaveno', 'nedostupna', 'klic_hlavni'].includes(r.chyba.kod) ? 'nenasazeno' : 'chyba');
       return;
     }
     const aplikovane = Array.isArray(r.data.aplikovane) ? r.data.aplikovane : [];
@@ -110,10 +118,26 @@ export function MigraceBibleBlok() {
       )}
       {stav === 'nenasazeno' && (
         <div className="mt-2 p-3 rounded bg-amber-100 text-amber-950 border border-amber-300 space-y-1">
-          <p className="text-xs font-black">Bot ještě není v projektu bible nasazený.</p>
+          <p className="text-xs font-black">Bot (funkce projektu bible) neodpovídá.</p>
           <p className="text-xs lze-vybrat">{chybaText}</p>
+          <p className="text-xs">Nejčastěji ještě není nasazený. Postup:</p>
+          <ol className="text-xs list-decimal pl-5 space-y-0.5">
+            <li>
+              Osobní token Supabase s přístupem k projektu bible:{' '}
+              <a className="underline font-bold break-all" href={ODKAZ_TOKENY} target="_blank" rel="noopener noreferrer">{ODKAZ_TOKENY}</a>
+            </li>
+            <li>
+              Uložit ho na GitHubu jako secret <code>SUPABASE_BIBLE_ACCESS_TOKEN</code>:{' '}
+              <a className="underline font-bold break-all" href={ODKAZ_SECRET} target="_blank" rel="noopener noreferrer">{ODKAZ_SECRET}</a>
+            </li>
+            <li>
+              Spustit nasazení (Run workflow):{' '}
+              <a className="underline font-bold break-all" href={ODKAZ_NASAZENI} target="_blank" rel="noopener noreferrer">{ODKAZ_NASAZENI}</a>
+            </li>
+          </ol>
           <p className="text-xs">
-            Nasadí se sám po uložení GitHub secretu <code>SUPABASE_BIBLE_ACCESS_TOKEN</code> a dalším nasazení appky.
+            Jinak může mít výpadek Supabase, nebo je projekt bible uspaný:{' '}
+            <a className="underline font-bold break-all" href={ODKAZ_PROJEKT} target="_blank" rel="noopener noreferrer">{ODKAZ_PROJEKT}</a>
           </p>
         </div>
       )}

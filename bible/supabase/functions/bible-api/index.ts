@@ -50,6 +50,29 @@ function chybaUloziste(cors: Record<string, string>, akce: string, co: string): 
   return chyba(cors, 502, 'uloziste', `Úložiště bible teď nevydalo ${co}. Zkus to znovu.`);
 }
 
+/**
+ * Soubory, které dorazily ke smazanému dokumentu až po smazání (rozběhnuté
+ * nahrání s platným odkazem): po vypršení odkazu je smaže přes Storage API.
+ * Jen cesty, které si databáze zapamatovala při smazání (bible_smazane_soubory)
+ * — nic hádaného. Chyba úklidu akci nezastaví; zkusí se při další.
+ */
+async function uklidSmazanych(db: SupabaseClient): Promise<void> {
+  try {
+    const { data, error } = await db.rpc('bible_smazane_k_uklidu', { p_limit: 100 });
+    if (error) return;
+    const cesty = ((data ?? []) as { cesta?: unknown }[]).map((r) => r.cesta).filter((c): c is string => typeof c === 'string' && c.length > 0);
+    if (cesty.length === 0) return;
+    const { error: e2 } = await db.storage.from(BUCKET).remove(cesty);
+    if (e2) {
+      console.error('bible-api úklid: soubory smazaných dokumentů se nepodařilo smazat');
+      return;
+    }
+    await db.rpc('bible_smazane_uklizeno', { p_cesty: cesty });
+  } catch {
+    console.error('bible-api úklid: neočekávaná chyba');
+  }
+}
+
 const PROVEDENI: Record<Akce, (k: Kontext) => Promise<Response>> = {
   async dokumenty({ db, cors }) {
     const { data, error } = await db.from('bible_dokumenty').select(SLOUPCE_DOKUMENTU).order('created_at', { ascending: false });
@@ -78,6 +101,7 @@ const PROVEDENI: Record<Akce, (k: Kontext) => Promise<Response>> = {
 
   async zalozit_nahrani({ db, u, telo, cors }) {
     const dokument = { ...popisDokumentu(telo.popis), ...souborKNahrani(telo.soubor) };
+    await uklidSmazanych(db);
     const { data, error } = await db.rpc('bible_zaloz_nahrani', {
       p_uzivatel: u.uid,
       p_pristup: u.pristup,
@@ -85,8 +109,12 @@ const PROVEDENI: Record<Akce, (k: Kontext) => Promise<Response>> = {
       p_dokument: dokument,
     });
     if (error) return chybaDb(cors, error, 'zalozit_nahrani');
-    const r = (data ?? {}) as { duplicita?: boolean; nazev?: string; id?: string; cesta?: string; obnoveno?: boolean; soubor_nahran?: boolean };
+    const r = (data ?? {}) as {
+      duplicita?: boolean; rozpracovano?: boolean; nazev?: string; nahral_jmeno?: string | null;
+      id?: string; cesta?: string; obnoveno?: boolean; soubor_nahran?: boolean;
+    };
     if (r.duplicita) return hotovo(cors, { duplicita: true, nazev: r.nazev ?? '' });
+    if (r.rozpracovano) return hotovo(cors, { rozpracovano: true, nazev: r.nazev ?? '', nahral_jmeno: r.nahral_jmeno ?? null });
     if (!r.id || !r.cesta) return chyba(cors, 500, 'chyba', 'Databáze bible nevrátila nový dokument.');
     const zaklad = { id: r.id, cesta: r.cesta, obnoveno: r.obnoveno === true };
     if (r.soubor_nahran) return hotovo(cors, { ...zaklad, soubor_nahran: true });
@@ -138,10 +166,12 @@ const PROVEDENI: Record<Akce, (k: Kontext) => Promise<Response>> = {
     // Soubor přes Storage API (SQL dotazem by v úložišti zůstal osiřelý soubor).
     const { error: e2 } = await db.storage.from(BUCKET).remove([data]);
     if (e2) console.error('bible-api smazat: soubor zůstal v úložišti');
+    await uklidSmazanych(db);
     return hotovo(cors, { smazano: true, soubor_zustal: Boolean(e2) });
   },
 
   async kapacita({ db, cors }) {
+    await uklidSmazanych(db);
     const { data, error } = await db.rpc('bible_kapacita');
     if (error) return chybaDb(cors, error, 'kapacita');
     return hotovo(cors, data);

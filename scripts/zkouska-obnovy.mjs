@@ -21,10 +21,16 @@ import { fileURLToPath } from 'node:url';
 import { randomBytes } from 'node:crypto';
 import { desifruj, otisk } from './lib/sifraZalohy.mjs';
 import { VAZBY, sadaZalohy } from './lib/zalohaTabulky.mjs';
+import { prectiArgumenty } from './lib/argumenty.mjs';
 
 const KOREN = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const iSada = process.argv.indexOf('--sada');
-const SADA = sadaZalohy(iSada >= 0 ? process.argv[iSada + 1] : 'hlavni');
+let SADA;
+try {
+  SADA = sadaZalohy(prectiArgumenty(process.argv.slice(2), { hodnoty: ['sada'] }).sada ?? 'hlavni');
+} catch (e) {
+  console.error(`Zkouška obnovy se nespustila: ${e instanceof Error ? e.message : e}`);
+  process.exit(1);
+}
 const SLOZKA = resolve(KOREN, SADA.slozka);
 const SCHEMA = SADA.jmeno === 'bible' ? 'obnova_bible' : 'obnova';
 const HESLO = process.env.ZALOHA_HESLO;

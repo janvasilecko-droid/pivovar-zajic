@@ -8,9 +8,10 @@
 // Nahrání je možné jen s potvrzením práv (zadání, bod 6 knihovny). Tlačítko
 // je nahoře v přilepeném pruhu (majitel 30. 10.: „uložit musí být všude
 // nahoře"). Soubory jdou jeden po druhém — na pomalé síti se tak neztratí
-// víc než jeden a u každého je vidět, jak dopadl.
-import { useState } from 'react';
-import { CheckCircle2, FileWarning, Upload, X } from 'lucide-react';
+// víc než jeden a u každého je vidět, jak dopadl (i průběh v procentech).
+// Nahrávání jde zastavit; odchod z obrazovky ho zastaví taky.
+import { useEffect, useRef, useState } from 'react';
+import { CheckCircle2, FileWarning, Square, Upload, X } from 'lucide-react';
 import {
   LIMIT_SOUBORU_FREE, PRIJIMANE_PRIPONY, nazevZeSouboru, typSouboru, velikostText,
   type DruhDokumentu, type JazykDokumentu,
@@ -27,6 +28,8 @@ type Polozka = {
   nazev: string;
   stav: StavSouboru;
   zprava?: string;
+  /** Průběh nahrávání 0–1. */
+  prubeh?: number;
 };
 
 /** „1 soubor", „3 soubory", „12 souborů". */
@@ -39,7 +42,7 @@ export function pocetSouboru(n: number): string {
 const popisStavu = (p: Polozka): string => {
   switch (p.stav) {
     case 'nepodporovany': return 'Tento typ souboru knihovna nebere (PDF, EPUB, DjVu, DOCX, XLSX, CSV, TXT, MD, obrázky).';
-    case 'nahravam': return 'Nahrávám…';
+    case 'nahravam': return p.prubeh ? `Nahrávám… ${Math.round(p.prubeh * 100)} %` : 'Nahrávám…';
     case 'nahrano': return 'Nahráno — čeká na zpracování.';
     case 'duplicita': return p.zprava ?? 'Už v knihovně je.';
     case 'chyba': return p.zprava ?? 'Nepovedlo se.';
@@ -59,6 +62,13 @@ export function BibleNahrat({ onNahrano, onZavrit }: {
   const [licence, setLicence] = useState('');
   const [pravaPotvrzena, setPravaPotvrzena] = useState(false);
   const [bezi, setBezi] = useState(false);
+  // Zastavení: aktuální nahrávání (AbortController) a zbytek fronty.
+  const ovladac = useRef<AbortController | null>(null);
+  const zastavit = useRef(false);
+  useEffect(() => () => {
+    zastavit.current = true;
+    ovladac.current?.abort();
+  }, []);
 
   function pridej(seznam: FileList | null) {
     if (!seznam) return;
@@ -82,8 +92,13 @@ export function BibleNahrat({ onNahrano, onZavrit }: {
   async function nahrajVse() {
     if (!lzeNahrat) return;
     setBezi(true);
+    zastavit.current = false;
     for (const p of kNahrani) {
-      zmen(p.klic, { stav: 'nahravam', zprava: undefined });
+      if (zastavit.current) break;
+      const ctrl = new AbortController();
+      ovladac.current = ctrl;
+      zmen(p.klic, { stav: 'nahravam', zprava: undefined, prubeh: 0 });
+      let procent = -1;
       const v = await nahrajDokument(p.soubor, {
         nazev: p.nazev,
         druh,
@@ -91,7 +106,18 @@ export function BibleNahrat({ onNahrano, onZavrit }: {
         oblasti: platneOblasti(oblasti),
         zdroj,
         licence,
+      }, {
+        signal: ctrl.signal,
+        onPrubeh: (podil) => {
+          // Překreslit jen při změně o celé procento (událostí je hodně).
+          const nove = Math.floor(podil * 100);
+          if (nove !== procent) {
+            procent = nove;
+            zmen(p.klic, { prubeh: podil });
+          }
+        },
       });
+      ovladac.current = null;
       if (v.stav === 'nahrano') {
         zmen(p.klic, { stav: 'nahrano' });
         onNahrano(v.dokument);
@@ -114,7 +140,13 @@ export function BibleNahrat({ onNahrano, onZavrit }: {
         <button type="button" className="btn-amber" disabled={!lzeNahrat} onClick={nahrajVse}>
           <Upload size={18} /> {bezi ? 'Nahrávám…' : kNahrani.length > 0 ? `Nahrát ${pocetSouboru(kNahrani.length)}` : 'Nahrát'}
         </button>
-        <button type="button" className="btn-tmave" disabled={bezi} onClick={onZavrit}>Zavřít</button>
+        {bezi ? (
+          <button type="button" className="btn-tmave" onClick={() => { zastavit.current = true; ovladac.current?.abort(); }}>
+            <Square size={16} /> Zastavit
+          </button>
+        ) : (
+          <button type="button" className="btn-tmave" onClick={onZavrit}>Zavřít</button>
+        )}
         <div className="ml-auto text-sm font-black tabular-nums text-neutral-100">
           {kNahrani.length > 0 && velikostText(celkem)}{nahranych > 0 && ` · nahráno ${nahranych}`}
         </div>

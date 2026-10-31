@@ -12,7 +12,9 @@ name: Pivovarská bible — zpracování knih
 #  • ručně: Actions → „Pivovarská bible — zpracování knih" → Run workflow
 #    (volitelně ID jednoho dokumentu),
 #  • záložně podle plánu (GitHub plánované běhy zpožďuje i o hodiny),
-#  • testy workeru a migrací bible i při jejich změně v main (bez zpracování).
+#  • testy workeru a migrací bible při jejich změně v main i na pull requestu
+#    (bez zpracování) — migraci databáze bible jde pustit z appky hned po
+#    nasazení, proto se kontroly musí projít ještě před sloučením.
 #
 # Knihy jsou v SAMOSTATNÉM projektu Supabase (projekt bible, rozhodnutí R12):
 #  • BIBLE_SUPABASE_SERVICE_ROLE_KEY — klíč service role projektu bible
@@ -31,6 +33,14 @@ on:
     - cron: '17 */3 * * *'
   push:
     branches: [main]
+    paths:
+      - 'scripts/bible/**'
+      - 'supabase/migrations/*pivovarska_bible*'
+      - 'supabase/testy/bible/**'
+      - 'bible/supabase/migrations/**'
+      - 'bible/supabase/testy/**'
+      - '.github/workflows/bible-zpracovani.yml'
+  pull_request:
     paths:
       - 'scripts/bible/**'
       - 'supabase/migrations/*pivovarska_bible*'
@@ -115,7 +125,8 @@ jobs:
 
   zpracovani:
     needs: [testy, migrace]
-    if: github.event_name != 'push'
+    # Jen plán a ruční spuštění — nikdy push ani pull request.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 330
     # Zpracování jen jedno naráz (ruční běh a plánovaný sdílí frontu — vezme
@@ -175,13 +186,34 @@ jobs:
         if: steps.fronta.outputs.prace == 'ano'
         run: pip install -q --require-hashes --no-deps -r scripts/bible/requirements.txt
 
+      # Klíč Claude z app_secrets hlavní appky ve zvláštním kroku: klíč service
+      # role HLAVNÍHO projektu tak nikdy nevidí krok, který zpracovává nahrané
+      # soubory (PDF, DjVu, Tesseract). Klíč se hned zamaskuje.
+      - name: Klíč Claude
+        if: steps.fronta.outputs.prace == 'ano'
+        env:
+          HLAVNI_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          HLAVNI_KLIC: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          set -uo pipefail
+          klic=""
+          if [ -n "$HLAVNI_URL" ] && [ -n "$HLAVNI_KLIC" ]; then
+            klic=$(curl -sS --max-time 30 "$HLAVNI_URL/rest/v1/app_secrets?select=value&key=eq.ANTHROPIC_API_KEY" \
+              -H "apikey: $HLAVNI_KLIC" -H "Authorization: Bearer $HLAVNI_KLIC" 2>/dev/null | jq -r '.[0].value // empty' 2>/dev/null) || klic=""
+          fi
+          if [ -n "$klic" ]; then
+            echo "::add-mask::$klic"
+            echo "ANTHROPIC_API_KEY=$klic" >> "$GITHUB_ENV"
+            echo "Klíč Claude připraven."
+          else
+            echo "Klíč Claude v app_secrets hlavní appky není (nebo nejde přečíst) — skeny počkají, ostatní se zpracuje."
+          fi
+
       - name: Zpracovat knihy
         if: steps.fronta.outputs.prace == 'ano'
         working-directory: scripts/bible
         env:
           BIBLE_KLIC: ${{ secrets.BIBLE_SUPABASE_SERVICE_ROLE_KEY }}
-          HLAVNI_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          HLAVNI_KLIC: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           DOKUMENT: ${{ github.event.inputs.dokument }}
           LIMIT_MINUT: '300'
         run: python zpracuj.py

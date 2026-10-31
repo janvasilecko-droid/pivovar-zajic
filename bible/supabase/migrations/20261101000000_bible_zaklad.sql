@@ -44,8 +44,12 @@ CREATE TABLE IF NOT EXISTS public.migrace_aplikovane (
 CREATE INDEX IF NOT EXISTS migrace_aplikovane_cas_idx ON public.migrace_aplikovane (aplikovano_at DESC);
 ALTER TABLE public.migrace_aplikovane ENABLE ROW LEVEL SECURITY;
 
--- Nové tabulky a funkce už nedostanou práva pro anon a authenticated ani
--- v dalších migracích (Supabase je jinak rozdává automaticky).
+-- Nové tabulky už nedostanou práva pro anon a authenticated ani v dalších
+-- migracích (Supabase je jinak rozdává automaticky). U FUNKCÍ to nestačí:
+-- EXECUTE pro PUBLIC je výchozí globálně a po schématech odebrat nejde
+-- (globální změna by zasáhla i funkce rozšíření mimo bibli). Každá nová funkce
+-- proto MUSÍ mít vlastní REVOKE … FROM PUBLIC, anon, authenticated — hlídá to
+-- bible/supabase/testy/10_kontroly.sql, které CI pouští už na pull requestu.
 ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON TABLES FROM anon, authenticated;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON SEQUENCES FROM anon, authenticated;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON FUNCTIONS FROM anon, authenticated;
@@ -123,6 +127,10 @@ CREATE TABLE IF NOT EXISTS public.bible_dokumenty (
   poznamka text,
   nahral uuid,
   nahral_jmeno text,
+  -- Do kdy může platit podepsaný odkaz pro nahrání (Supabase: 2 h, odvolat
+  -- nejde). Smazání dokumentu do té doby si cestu zapamatuje
+  -- (bible_smazane_soubory), ať soubor, který k ní ještě dorazí, jde uklidit.
+  nahrani_do timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT bible_dokumenty_cesta_check
@@ -176,6 +184,7 @@ BEGIN
      OR NEW.pokusy IS DISTINCT FROM OLD.pokusy
      OR NEW.nahral IS DISTINCT FROM OLD.nahral
      OR NEW.nahral_jmeno IS DISTINCT FROM OLD.nahral_jmeno
+     OR NEW.nahrani_do IS DISTINCT FROM OLD.nahrani_do
      OR NEW.prava_potvrdil IS DISTINCT FROM OLD.prava_potvrdil
      OR NEW.prava_potvrzena_at IS DISTINCT FROM OLD.prava_potvrzena_at
      OR NEW.duplikat_z IS DISTINCT FROM OLD.duplikat_z
@@ -424,6 +433,54 @@ SELECT 'knihovna', 'knihovna', false, 52428800, ARRAY[
 WHERE NOT EXISTS (SELECT 1 FROM storage.buckets WHERE id = 'knihovna');
 
 -- ---------------------------------------------------------------------------
+-- 7b) Cesty smazaných dokumentů, kam ještě může dorazit soubor
+-- ---------------------------------------------------------------------------
+-- Podepsaný odkaz pro nahrání platí 2 h a odvolat nejde. Smaže-li se dokument
+-- (nebo zruší nahrání), zatímco nahrávání ještě běží, soubor dorazí až po
+-- smazání řádku. Úklid maže JEN soubory na těchto zapamatovaných cestách
+-- (každá patří smazanému dokumentu, id se neopakuje) a jen po vypršení
+-- odkazu — nikdy nic hádaného podle toho, že k souboru chybí řádek.
+CREATE TABLE IF NOT EXISTS public.bible_smazane_soubory (
+  cesta text PRIMARY KEY,
+  odkaz_plati_do timestamptz NOT NULL,
+  smazano_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE public.bible_smazane_soubory ENABLE ROW LEVEL SECURITY;
+
+-- Cesty k úklidu: odkaz vypršel. Cesta, ke které mezitím zase existuje
+-- dokument (třeba obnova ze zálohy), se jen zapomene — její soubor se nemaže.
+CREATE OR REPLACE FUNCTION public.bible_smazane_k_uklidu(p_limit integer DEFAULT 100)
+RETURNS TABLE (cesta text)
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+BEGIN
+  DELETE FROM public.bible_smazane_soubory s
+   WHERE EXISTS (SELECT 1 FROM public.bible_dokumenty d WHERE d.soubor_cesta = s.cesta);
+  RETURN QUERY
+    SELECT s.cesta FROM public.bible_smazane_soubory s
+     WHERE s.odkaz_plati_do < now()
+     ORDER BY s.odkaz_plati_do
+     LIMIT greatest(1, least(coalesce(p_limit, 100), 1000));
+END;
+$$;
+
+-- Soubory na těch cestách jsou smazané přes Storage API → cesty zapomenout.
+CREATE OR REPLACE FUNCTION public.bible_smazane_uklizeno(p_cesty text[])
+RETURNS integer
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+DECLARE
+  n integer;
+BEGIN
+  DELETE FROM public.bible_smazane_soubory WHERE cesta = ANY (coalesce(p_cesty, '{}'::text[])) AND odkaz_plati_do < now();
+  GET DIAGNOSTICS n = ROW_COUNT;
+  RETURN n;
+END;
+$$;
+
+-- ---------------------------------------------------------------------------
 -- 8) Zápis za uživatele (volá jen bible-api přes service roli)
 -- ---------------------------------------------------------------------------
 -- p_uzivatel a p_pristup zjistila bible-api v hlavním projektu
@@ -457,6 +514,7 @@ DECLARE
   v_limit bigint;
   v_stary public.bible_dokumenty%ROWTYPE;
   v_nazev_stary text;
+  v_nahrano boolean;
   v_id uuid := gen_random_uuid();
 BEGIN
   IF p_uzivatel IS NULL OR public.bible_uroven(p_pristup) < 2 THEN
@@ -489,15 +547,19 @@ BEGIN
     RAISE EXCEPTION 'Tenhle typ souboru knihovna nebere.' USING ERRCODE = '22023';
   END IF;
 
-  SELECT * INTO v_stary FROM public.bible_dokumenty WHERE soubor_sha256 = v_sha;
+  SELECT * INTO v_stary FROM public.bible_dokumenty WHERE soubor_sha256 = v_sha FOR UPDATE;
   IF FOUND THEN
     IF v_stary.stav = 'nahrava' AND (v_stary.nahral = p_uzivatel OR p_pristup = 'spravuje') THEN
-      RETURN jsonb_build_object(
-        'id', v_stary.id,
-        'cesta', v_stary.soubor_cesta,
-        'obnoveno', true,
-        'soubor_nahran', EXISTS (SELECT 1 FROM storage.objects o WHERE o.bucket_id = 'knihovna' AND o.name = v_stary.soubor_cesta)
-      );
+      v_nahrano := EXISTS (SELECT 1 FROM storage.objects o WHERE o.bucket_id = 'knihovna' AND o.name = v_stary.soubor_cesta);
+      IF NOT v_nahrano THEN
+        -- bible-api vydá nový odkaz pro nahrání → prodloužit, do kdy může platit.
+        UPDATE public.bible_dokumenty SET nahrani_do = now() + interval '2 hours 15 minutes' WHERE id = v_stary.id;
+      END IF;
+      RETURN jsonb_build_object('id', v_stary.id, 'cesta', v_stary.soubor_cesta, 'obnoveno', true, 'soubor_nahran', v_nahrano);
+    END IF;
+    IF v_stary.stav = 'nahrava' THEN
+      -- Cizí rozpracované nahrání: dokončit nebo zrušit ho smí jen ten, kdo ho začal, nebo správce.
+      RETURN jsonb_build_object('rozpracovano', true, 'nazev', v_stary.nazev, 'nahral_jmeno', v_stary.nahral_jmeno);
     END IF;
     RETURN jsonb_build_object('duplicita', true, 'nazev', v_stary.nazev);
   END IF;
@@ -507,7 +569,7 @@ BEGIN
     INSERT INTO public.bible_dokumenty (
       id, nazev, autor, vydani, rok, isbn, jazyk, druh, oblasti, zdroj, licence,
       soubor_cesta, soubor_nazev, soubor_velikost, soubor_mime, soubor_sha256,
-      prava_potvrdil, prava_potvrzena_at, nahral, nahral_jmeno
+      prava_potvrdil, prava_potvrzena_at, nahral, nahral_jmeno, nahrani_do
     ) VALUES (
       v_id,
       trim(coalesce(p_dokument ->> 'nazev', '')),
@@ -529,7 +591,8 @@ BEGIN
       p_uzivatel,
       now(),
       p_uzivatel,
-      nullif(trim(p_jmeno), '')
+      nullif(trim(p_jmeno), ''),
+      now() + interval '2 hours 15 minutes'
     );
   EXCEPTION WHEN unique_violation THEN
     -- Někdo stejný soubor právě založil (souběh) — duplicita, ne chyba.
@@ -671,6 +734,12 @@ BEGIN
   IF p_pristup <> 'spravuje' AND NOT (v.stav = 'nahrava' AND v.nahral = p_uzivatel) THEN
     RAISE EXCEPTION 'Mazat smí jen správce knihovny.' USING ERRCODE = '42501';
   END IF;
+  -- Rozběhnuté nahrání může soubor dopsat i po smazání řádku (odkaz platí
+  -- dál) — cesta se zapamatuje a bible-api soubor po vypršení odkazu smaže.
+  IF v.nahrani_do IS NOT NULL AND v.nahrani_do > now() THEN
+    INSERT INTO public.bible_smazane_soubory (cesta, odkaz_plati_do) VALUES (v.soubor_cesta, v.nahrani_do)
+    ON CONFLICT (cesta) DO UPDATE SET odkaz_plati_do = greatest(public.bible_smazane_soubory.odkaz_plati_do, EXCLUDED.odkaz_plati_do);
+  END IF;
   DELETE FROM public.bible_dokumenty WHERE id = p_id;
   RETURN v.soubor_cesta;
 END;
@@ -708,6 +777,13 @@ AS $$
         'podle_stavu', coalesce((SELECT jsonb_object_agg(stav, n) FROM (SELECT stav, count(*) AS n FROM public.bible_dokumenty GROUP BY stav) x), '{}'::jsonb)
       )
       FROM public.bible_dokumenty
+    ),
+    -- Soubory v bucketu knihovna bez dokumentu (jen přehled — nic se nemaže).
+    'bez_zaznamu', (
+      SELECT jsonb_build_object('souboru', count(*), 'bajtu', coalesce(sum((o.metadata ->> 'size')::bigint), 0))
+      FROM storage.objects o
+      WHERE o.bucket_id = 'knihovna'
+        AND NOT EXISTS (SELECT 1 FROM public.bible_dokumenty d WHERE d.soubor_cesta = o.name)
     )
   )
 $$;
@@ -717,11 +793,11 @@ $$;
 -- ---------------------------------------------------------------------------
 REVOKE ALL ON TABLE
   public.migrace_aplikovane, public.bible_dokumenty, public.bible_kapitoly, public.bible_strany,
-  public.bible_pasaze, public.ai_naklady, public.bible_nastaveni
+  public.bible_pasaze, public.ai_naklady, public.bible_nastaveni, public.bible_smazane_soubory
   FROM PUBLIC, anon, authenticated;
 GRANT ALL ON TABLE
   public.migrace_aplikovane, public.bible_dokumenty, public.bible_kapitoly, public.bible_strany,
-  public.bible_pasaze, public.ai_naklady, public.bible_nastaveni
+  public.bible_pasaze, public.ai_naklady, public.bible_nastaveni, public.bible_smazane_soubory
   TO service_role;
 
 REVOKE ALL ON FUNCTION
@@ -736,6 +812,8 @@ REVOKE ALL ON FUNCTION
   public.bible_uprav_popis(uuid, text, uuid, jsonb),
   public.bible_nastav_stav(uuid, text, uuid, text),
   public.bible_smaz_dokument(uuid, text, uuid),
+  public.bible_smazane_k_uklidu(integer),
+  public.bible_smazane_uklizeno(text[]),
   public.bible_kapacita()
   FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION
@@ -749,5 +827,7 @@ GRANT EXECUTE ON FUNCTION
   public.bible_uprav_popis(uuid, text, uuid, jsonb),
   public.bible_nastav_stav(uuid, text, uuid, text),
   public.bible_smaz_dokument(uuid, text, uuid),
+  public.bible_smazane_k_uklidu(integer),
+  public.bible_smazane_uklizeno(text[]),
   public.bible_kapacita()
   TO service_role;

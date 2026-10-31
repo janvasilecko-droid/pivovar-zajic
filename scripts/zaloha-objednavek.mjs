@@ -22,10 +22,16 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { zasifruj, otisk } from './lib/sifraZalohy.mjs';
 import { BIBLE_URL, sadaZalohy } from './lib/zalohaTabulky.mjs';
+import { prectiArgumenty } from './lib/argumenty.mjs';
 
 const KOREN = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const iSada = process.argv.indexOf('--sada');
-const SADA = sadaZalohy(iSada >= 0 ? process.argv[iSada + 1] : 'hlavni');
+let SADA;
+try {
+  SADA = sadaZalohy(prectiArgumenty(process.argv.slice(2), { hodnoty: ['sada'] }).sada ?? 'hlavni');
+} catch (e) {
+  console.error(`Záloha se nespustila: ${e instanceof Error ? e.message : e}`);
+  process.exit(1);
+}
 const BIBLE = SADA.jmeno === 'bible';
 const SLOZKA = resolve(KOREN, SADA.slozka);
 const TABULKY = SADA.tabulky;

@@ -121,3 +121,18 @@ Každé rozhodnutí má datum, důvod a co by ho změnilo.
   jen se souhlasem majitele (CLAUDE.md: data nemazat).
 - **R10 platí dál ve smyslu:** hledání poběží v edge funkci projektu bible
   service rolí (bez RLS, takže s indexem); práva hlídá brána.
+- **Rozběhnuté nahrání po smazání:** podepsaný odkaz platí 2 h a odvolat nejde.
+  Smazání nebo zrušení nahrání v té době si cestu zapamatuje
+  (`bible_smazane_soubory`) a bible-api soubor, který tam ještě dorazí, po
+  vypršení odkazu smaže. Maže se jen na zapamatovaných cestách (nikdy nic
+  hádaného podle chybějícího řádku — po obnově ze zálohy by to smazalo knihy).
+  Kapacita ve Správě ukazuje soubory bez záznamu.
+- **Vědomé riziko:** projekt bible dostává token přihlášení hlavní appky
+  (platí asi hodinu). Kdo by mohl nasadit kód do projektu bible, mohl by ho
+  zneužít. Proto: v organizaci bible jen majitel (se 2FA) a token
+  `SUPABASE_BIBLE_ACCESS_TOKEN` jen na projekt bible. Lepší by byl krátký lístek
+  jen pro bibli vydaný hlavním projektem (sdílený podpis) — až bude potřeba.
+- **Funkce v migracích bible** musí mít vlastní `REVOKE … FROM PUBLIC, anon,
+  authenticated` (výchozí EXECUTE pro PUBLIC jde vypnout jen globálně, což by
+  zasáhlo i rozšíření). Hlídá to `bible/supabase/testy/10_kontroly.sql`, které
+  CI pouští už na pull requestu — migraci jde z appky pustit hned po nasazení.

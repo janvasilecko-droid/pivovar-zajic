@@ -99,11 +99,15 @@ function KartaDokumentu({ d, role, mujId, onZmena, onSmazano }: {
         <div className="break-all">{d.soubor_nazev} · {velikostText(d.soubor_velikost)}</div>
         {postup && <div className="font-bold text-neutral-100">{postup}</div>}
         {d.stav_zprava && <div className={`font-bold ${d.stav === 'chyba' ? 'text-rose-300' : 'text-amber-200'}`}>{d.stav_zprava}</div>}
-        {nahrava && (
+        {nahrava && (smiSmazat ? (
           <div className="font-bold text-amber-200">
-            Soubor do úložiště nedorazil celý. V „Nahrát knihy" vyber stejný soubor znovu — nahrání se dokončí. Nebo ho zruš.
+            Soubor ještě nedorazil celý. Když se nahrávání přerušilo, vyber v „Nahrát knihy" stejný soubor znovu — nahrání se dokončí. Nebo ho zruš.
           </div>
-        )}
+        ) : (
+          <div className="font-bold text-amber-200">
+            Rozpracované nahrání{d.nahral_jmeno ? ` (${d.nahral_jmeno})` : ''} — dokončit nebo zrušit ho může jen ten, kdo ho začal, nebo správce knihovny.
+          </div>
+        ))}
         <div>Nahrál {d.nahral_jmeno ?? '—'}, {new Date(d.created_at).toLocaleDateString('cs-CZ')}</div>
       </div>
 

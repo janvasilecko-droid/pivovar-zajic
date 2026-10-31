@@ -83,13 +83,48 @@ const neboNull = (s: string | null | undefined) => (s && s.trim() ? s.trim() : n
 
 type Zalozeni =
   | { duplicita: true; nazev: string }
-  | { duplicita?: false; id: string; cesta: string; obnoveno: boolean; soubor_nahran: boolean; token?: string; apikey?: string };
+  | { rozpracovano: true; nazev: string; nahral_jmeno: string | null }
+  | { duplicita?: false; rozpracovano?: false; id: string; cesta: string; obnoveno: boolean; soubor_nahran: boolean; token?: string; apikey?: string };
+
+export type MoznostiNahrani = {
+  /** Zastavení nahrávání (tlačítko „Zastavit", odchod z obrazovky). */
+  signal?: AbortSignal;
+  /** Průběh nahrávání souboru, podíl 0–1. */
+  onPrubeh?: (podil: number) => void;
+  /** Tak dlouho bez pohybu = zaseknuté spojení → přerušit (výchozí 90 s). */
+  zaseknutiMs?: number;
+};
+
+export const NAHRAVANI_ZASTAVENO = 'Nahrávání zastaveno.';
+export const NAHRAVANI_ZASEKNUTO = 'Nahrávání se zaseklo (přes minutu bez pohybu) — zkontroluj signál.';
+
+/** Odpověď úložiště na nahrání → null = v pořádku (i „už tam je" z dřívějšího pokusu), jinak hláška. */
+function vysledekNahrani(status: number, text: string): string | null {
+  if (status >= 200 && status < 300) return null;
+  let j: { statusCode?: string | number; error?: string; message?: string } = {};
+  try {
+    j = JSON.parse(text || '{}');
+  } catch {
+    j = {};
+  }
+  const zprava = `${j.error ?? ''} ${j.message ?? ''}`;
+  // Soubor tam už je z dřívějšího pokusu — velikost ověří potvrzení.
+  if (status === 409 || /already exists|Duplicate/i.test(zprava)) return null;
+  if (/jwt|signature|expired/i.test(zprava)) return 'Odkaz pro nahrání vypršel.';
+  return hlaskaChyby({ statusCode: j.statusCode ?? status, message: j.message ?? j.error ?? `HTTP ${status}` });
+}
 
 /**
  * Soubor rovnou do úložiště bible podepsaným odkazem (platí jen pro tuhle
  * cestu a nepřepíše existující soubor). null = nahráno.
+ *
+ * Přes XMLHttpRequest, ne fetch: jen tak je vidět průběh (knihy mají desítky
+ * MB) a pozná se zaseknuté spojení (signál ve sklepě) — fetch by visel
+ * minuty a zamkl celý panel nahrávání.
  */
-export async function nahrajDoUloziste(cesta: string, token: string, soubor: Blob, typ: string, apikey?: string): Promise<string | null> {
+export function nahrajDoUloziste(
+  cesta: string, token: string, soubor: Blob, typ: string, apikey?: string, moznosti: MoznostiNahrani = {},
+): Promise<string | null> {
   const adresa = `${BIBLE_URL}/storage/v1/object/upload/sign/${BUCKET_KNIHOVNA}/${cesta.split('/').map(encodeURIComponent).join('/')}`
     + `?token=${encodeURIComponent(token)}`;
   // Stejně jako supabase-js: formulář s typem souboru podle přípony (prohlížeč
@@ -97,27 +132,57 @@ export async function nahrajDoUloziste(cesta: string, token: string, soubor: Blo
   const formular = new FormData();
   formular.append('cacheControl', '3600');
   formular.append('', soubor.slice(0, soubor.size, typ));
-  let odpoved: Response;
-  try {
-    odpoved = await fetch(adresa, { method: 'PUT', headers: { 'x-upsert': 'false', ...(apikey ? { apikey } : {}) }, body: formular });
-  } catch (e) {
-    return hlaskaChyby(e);
-  }
-  if (odpoved.ok) return null;
-  let j: { statusCode?: string | number; error?: string; message?: string } = {};
-  try {
-    j = await odpoved.json();
-  } catch {
-    j = {};
-  }
-  const text = `${j.error ?? ''} ${j.message ?? ''}`;
-  // Soubor tam už je z dřívějšího pokusu — velikost ověří potvrzení.
-  if (odpoved.status === 409 || /already exists|Duplicate/i.test(text)) return null;
-  if (/jwt|signature|expired/i.test(text)) return 'Odkaz pro nahrání vypršel.';
-  return hlaskaChyby({ statusCode: j.statusCode ?? odpoved.status, message: j.message ?? j.error ?? `HTTP ${odpoved.status}` });
+  const limit = moznosti.zaseknutiMs ?? 90_000;
+  const { signal, onPrubeh } = moznosti;
+
+  return new Promise((hotovo) => {
+    if (signal?.aborted) {
+      hotovo(NAHRAVANI_ZASTAVENO);
+      return;
+    }
+    const xhr = new XMLHttpRequest();
+    let posledniPohyb = Date.now();
+    let duvodPreruseni: 'zastaveno' | 'zaseknuto' | null = null;
+    let skonceno = false;
+    const zastav = () => {
+      duvodPreruseni = 'zastaveno';
+      xhr.abort();
+    };
+    const hlidac = setInterval(() => {
+      if (Date.now() - posledniPohyb > limit) {
+        duvodPreruseni = 'zaseknuto';
+        xhr.abort();
+      }
+    }, Math.max(50, Math.min(5000, Math.floor(limit / 3))));
+    const konec = (vysledek: string | null) => {
+      if (skonceno) return;
+      skonceno = true;
+      clearInterval(hlidac);
+      signal?.removeEventListener('abort', zastav);
+      hotovo(vysledek);
+    };
+    signal?.addEventListener('abort', zastav);
+    xhr.upload.onprogress = (e: ProgressEvent) => {
+      posledniPohyb = Date.now();
+      if (e.lengthComputable && e.total > 0) onPrubeh?.(Math.min(1, e.loaded / e.total));
+    };
+    // Celý soubor odešel — od teď se čeká na odpověď serveru, ne na další bajty.
+    xhr.upload.onload = () => { posledniPohyb = Date.now(); };
+    xhr.onload = () => konec(vysledekNahrani(xhr.status, xhr.responseText));
+    xhr.onerror = () => konec(hlaskaChyby(new TypeError('Failed to fetch')));
+    xhr.onabort = () => konec(duvodPreruseni === 'zaseknuto' ? NAHRAVANI_ZASEKNUTO : NAHRAVANI_ZASTAVENO);
+    try {
+      xhr.open('PUT', adresa);
+      xhr.setRequestHeader('x-upsert', 'false');
+      if (apikey) xhr.setRequestHeader('apikey', apikey);
+      xhr.send(formular);
+    } catch (e) {
+      konec(hlaskaChyby(e));
+    }
+  });
 }
 
-export async function nahrajDokument(soubor: File, popis: Popis): Promise<VysledekNahrani> {
+export async function nahrajDokument(soubor: File, popis: Popis, moznosti: MoznostiNahrani = {}): Promise<VysledekNahrani> {
   const typ = typSouboru(soubor.name);
   if (!typ) return { stav: 'chyba', zprava: 'Tenhle typ souboru knihovna nebere.' };
   if (!popis.nazev.trim()) return { stav: 'chyba', zprava: 'Chybí název dokumentu.' };
@@ -139,14 +204,21 @@ export async function nahrajDokument(soubor: File, popis: Popis): Promise<Vysled
     soubor: { nazev: soubor.name, jmeno: bezpecneJmeno(soubor.name), velikost: soubor.size, mime: typ, sha256: sha },
   });
   if (!z.ok) return { stav: 'chyba', zprava: z.chyba.zprava };
-  if (z.data.duplicita) return { stav: 'duplicita', nazev: z.data.nazev };
+  if ('duplicita' in z.data && z.data.duplicita) return { stav: 'duplicita', nazev: z.data.nazev };
+  if ('rozpracovano' in z.data && z.data.rozpracovano) {
+    return {
+      stav: 'chyba',
+      zprava: `Tenhle soubor už má v knihovně rozpracované nahrání${z.data.nahral_jmeno ? ` (${z.data.nahral_jmeno})` : ''}. Dokončit nebo zrušit ho může jen ten, kdo ho začal, nebo správce knihovny.`,
+    };
+  }
   const zalozeno = z.data;
 
   if (!zalozeno.soubor_nahran) {
     if (!zalozeno.token) return { stav: 'chyba', zprava: 'Bot nevydal odkaz pro nahrání. Zkus to znovu.' };
-    const chyba = await nahrajDoUloziste(zalozeno.cesta, zalozeno.token, soubor, typ, zalozeno.apikey);
+    const chyba = await nahrajDoUloziste(zalozeno.cesta, zalozeno.token, soubor, typ, zalozeno.apikey, moznosti);
     if (chyba) return { stav: 'chyba', zprava: `${chyba} Nahrání jde dokončit: vyber stejný soubor a nahraj ho znovu.` };
   }
+  moznosti.onPrubeh?.(1);
 
   const p = await volejBibli<BibleDokument>('bible-api', { akce: 'potvrdit_nahrani', id: zalozeno.id });
   if (!p.ok) return { stav: 'chyba', zprava: p.chyba.zprava };
