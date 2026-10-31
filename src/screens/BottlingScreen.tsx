@@ -126,6 +126,11 @@ export default function BottlingScreen({
   /** Nepodařilo se načíst data (na rozdíl od „data jsou, ale žádná"). */
   const [chybaNacteni, setChybaNacteni] = useState<string | null>(null);
   const [flash, setFlash] = useState(false);
+  // Orámování po zápisu zhasne za 800 ms; při odchodu z obrazovky se časovač
+  // zruší (stejný důvod jako v KEG #446 a Prodejně — po konci testu by sáhl
+  // na odpojenou komponentu a shodil nasazení).
+  const flashCasovac = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (flashCasovac.current) clearTimeout(flashCasovac.current); }, []);
 
   const [showImageImport, setShowImageImport] = useState(false);
   const [showExcelImport, setShowExcelImport] = useState(false);
@@ -1232,7 +1237,9 @@ export default function BottlingScreen({
     // tam (úprava množství nebo smazání řádku).
     setEntryRows(emptyRows()); setNote(''); setErr(null);
     smazKoncept(KLIC_ROZEPSANE);
-    setFlash(true); setTimeout(() => setFlash(false), 800);
+    setFlash(true);
+    if (flashCasovac.current) clearTimeout(flashCasovac.current);
+    flashCasovac.current = setTimeout(() => setFlash(false), 800);
     load(true);
 
     // Okno „Budete pokračovat, nebo končíte?" po každém uložení je pryč —

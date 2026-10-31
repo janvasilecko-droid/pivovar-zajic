@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom'
-import { expect, afterEach } from 'vitest'
+import { expect, afterAll, afterEach } from 'vitest'
 import { cleanup } from '@testing-library/react'
+import { hlidejCasovace } from './casovace'
 // Jen verze tabulek, bez závislostí — import lib/sdilenaData by tu natáhl
 // skutečné supabase dřív, než si ho test stihne nahradit atrapou.
 import { zneplatniVse } from '../lib/zneplatneni'
@@ -22,6 +23,11 @@ if (typeof globalThis.ResizeObserver === 'undefined') {
 if (typeof Element !== 'undefined' && !Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = () => {}
 }
+
+// Časovač, který komponenta nechala běžet, nesmí doběhnout až po zrušení
+// jsdom — shodil by celý běh, i když všechny testy prošly (viz casovace.ts).
+const casovace = hlidejCasovace()
+afterAll(() => { casovace.zrusBezici() })
 
 // Automatically cleanup after each test
 afterEach(() => {
