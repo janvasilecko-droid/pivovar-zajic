@@ -64,6 +64,7 @@ BIBLE_URL = 'https://cegrelgvkygcatupqwrx.supabase.co'   # projekt bible (veřej
 ZAMEK_MINUT = 120
 VLAKEN_OCR = 4
 DAVKA_PREPISU = 10          # přepsané strany se ukládají po tolika (navázání po přerušení)
+PRUBEH_KAZDYCH_S = 15       # průběh zpracování (procenta v knihovně) se zapisuje nejvýš takhle často
 NAKLADY_KAZDYCH_S = 300     # útrata dlouhého OCR se zapisuje průběžně
 LIMIT_DB_MB = 450           # výchozí pojistka velikosti databáze (Supabase Free = 500 MB)
 BAJTU_NA_ZNAK = 8           # odhad místa v DB na znak textu (strana + pasáž + tsvector + index)
@@ -248,6 +249,31 @@ class Prepisovac:
         self.zamek = threading.Lock()
         self.tesseract = ocr.tesseract_k_dispozici()
         self.uspesnych = 0
+        self.ucet_overen = False
+
+    def over_ucet(self) -> None:
+        """Ověří, že přepis teď půjde, dřív než se kvůli skenům stáhne celá kniha.
+
+        Strop útraty z počítadla; klíč, kredit a model jedním levným požadavkem
+        za běh (po úspěšném přepisu už ne). Zastaví jen jasná chyba účtu
+        (ZastavitBeh) — jiná chyba o účtu nic neříká a kniha se zpracuje jako dřív.
+        """
+        with self.zamek:
+            if self.ucet.prekroceno():
+                raise PrerusenoStropem('Čeká: došel strop útraty za AI — pokračuje se dalším během.')
+        if self.ucet_overen or self.uspesnych:
+            return
+        self.ucet_overen = True
+        try:
+            odpoved = ocr.over_ucet(self.klient, self.model)
+        except Exception as e:  # noqa: BLE001 — chyba API → výjimka workeru
+            prevedena = chyba_api(e)
+            if isinstance(prevedena, ZastavitBeh):
+                raise prevedena from None
+            log(f'  ověření účtu Claude se nepovedlo ({type(e).__name__}) — pokračuje se')
+            return
+        with self.zamek:
+            self.ucet.pridej(self.model, ocr.usage_jako_dict(getattr(odpoved, 'usage', None)))
 
     def prepis(self, obrazek: bytes, dalsi_cteni: str = '') -> ocr.Prepis:
         with self.zamek:
@@ -278,18 +304,22 @@ class Prepisovac:
 
 def prepis_strany(prepisovac: Prepisovac | None, strany: list[Strana], obrazky_stran: dict[int, Callable[[], bytes]],
                   ulozit: Callable[[list[Strana]], None], kontrola: Callable[[], None],
-                  dalsi_cteni: dict[int, str] | None = None) -> None:
+                  dalsi_cteni: dict[int, str] | None = None,
+                  postup: Callable[[int], None] | None = None,
+                  bez_ai: str | None = None) -> None:
     """Přepíše strany z `obrazky_stran` (index v `strany` → funkce vracející JPEG).
 
     Obrázky se vykreslují v hlavním vlákně (PDFium není vláknově bezpečné),
     souběžně běží jen volání API a Tesseract — nejvýš 2× tolik, kolik je vláken.
     Hotové přepisy se průběžně ukládají (`ulozit`) a `kontrola` prodlouží zámek
-    a ověří, že dokument nikdo nesmazal ani nepozastavil.
+    a ověří, že dokument nikdo nesmazal ani nepozastavil. `postup` dostane po
+    každé uložené dávce počet přepsaných stran (procenta v knihovně).
     """
     if not obrazky_stran:
         return
     if prepisovac is None:
-        raise ChybiKlic('Čeká: dokument má naskenované strany a v app_secrets hlavní appky chybí ANTHROPIC_API_KEY.')
+        # bez_ai: AI vypnutá kvůli účtu Claude (kredit, klíč…) — dokument počká s tímhle důvodem.
+        raise ChybiKlic(bez_ai or 'Čeká: dokument má naskenované strany a v app_secrets hlavní appky chybí ANTHROPIC_API_KEY.')
     dalsi_cteni = dalsi_cteni or {}
     k_ulozeni: list[Strana] = []
     hotovo = 0
@@ -314,6 +344,8 @@ def prepis_strany(prepisovac: Prepisovac | None, strany: list[Strana], obrazky_s
             k_ulozeni.clear()
             posledni_ulozeni = time.time()
             kontrola()
+            if postup is not None:
+                postup(hotovo)
         if hotovo - nahlaseno >= 50:
             nahlaseno = hotovo
             log(f'  OCR {hotovo}/{len(obrazky_stran)} stran')
@@ -360,6 +392,14 @@ class Prace:
     hotove: dict[int, dict] = field(default_factory=dict)  # pdf_index → přepis z dřívějšího pokusu
     ulozit: Callable[[list[Strana]], None] = lambda strany: None
     kontrola: Callable[[], None] = lambda: None
+    # Průběh pro knihovnu: (fáze, stran hotovo, stran celkem, OCR hotovo, OCR celkem).
+    hlasit: Callable[[str, int, int, int, int], None] = lambda faze, hotovo, celkem, ocr_hotovo, ocr_celkem: None
+    bez_ai: str | None = None   # proč AI neběží (účet Claude) — zpráva u dokumentu se skeny
+
+
+def _pouzitelny_prepis(hotovy: dict | None) -> bool:
+    """Přepis z dřívějška, který se použije znovu — nepovedený (prázdný a ke kontrole) se zkusí znovu."""
+    return hotovy is not None and bool((hotovy.get('text') or '').strip() or not hotovy.get('ke_kontrole'))
 
 
 def _prepis_skeny(prace: Prace, strany: list[Strana], ke_skenu: dict[int, Callable[[], bytes]],
@@ -369,8 +409,7 @@ def _prepis_skeny(prace: Prace, strany: list[Strana], ke_skenu: dict[int, Callab
     pouzito = 0
     for i, vyrob in ke_skenu.items():
         hotovy = prace.hotove.get(strany[i].pdf_index)
-        # Nepovedený přepis (prázdný a ke kontrole) se zkusí znovu.
-        if hotovy is not None and ((hotovy.get('text') or '').strip() or not hotovy.get('ke_kontrole')):
+        if _pouzitelny_prepis(hotovy):
             s = strany[i]
             s.text, s.okraje = hotovy.get('text') or '', hotovy.get('okraje') or ''
             s.ke_kontrole, s.duvod = bool(hotovy.get('ke_kontrole')), hotovy.get('kontrola_duvod')
@@ -380,8 +419,15 @@ def _prepis_skeny(prace: Prace, strany: list[Strana], ke_skenu: dict[int, Callab
             zbyva[i] = vyrob
     if pouzito:
         log(f'  {pouzito} stran přepsaných v dřívějším pokusu se použije znovu (bez placení)')
+    if ke_skenu:
+        # Hotové jsou strany s textovou vrstvou, přepisy z dřívějška a nově přepsané.
+        celkem, zaklad, ke_prepisu = len(strany), len(strany) - len(ke_skenu) + pouzito, len(ke_skenu)
+        prace.hlasit('prepis', zaklad, celkem, pouzito, ke_prepisu)
+        postup = lambda hotovo: prace.hlasit('prepis', zaklad + hotovo, celkem, pouzito + hotovo, ke_prepisu)  # noqa: E731
+    else:
+        postup = None
     prepis_strany(prace.prepisovac, strany, zbyva, prace.ulozit, prace.kontrola,
-                  {i: vrstvy[i] for i in zbyva if i in vrstvy})
+                  {i: vrstvy[i] for i in zbyva if i in vrstvy}, postup, prace.bez_ai)
     return pouzito
 
 
@@ -427,6 +473,7 @@ def rozloz_pdf(data: bytes, prace: Prace) -> Vysledek:
                     vrstvy[i] = s.text  # cizí OCR vrstva = další nezávislé čtení čísel
             if (i + 1) % 200 == 0:
                 prace.kontrola()
+                prace.hlasit('cteni', len(strany) - len(ke_skenu), n, 0, len(ke_skenu))
         log(f'  {n} stran: {n - len(ke_skenu)} s textovou vrstvou, {len(ke_skenu)} k přepisu')
         pouzito = _prepis_skeny(prace, strany, ke_skenu, vrstvy)
         _tistena(strany, pdf_mod.stitky(dokument))
@@ -659,7 +706,7 @@ def _hlidej_kapacitu(supa: Supa, v: Vysledek, limit_bajtu: int) -> None:
 
 
 def zpracuj_dokument(supa: Supa, dok: dict, prepisovac: Prepisovac | None, ucet: naklady.Ucet,
-                     limit_db_bajtu: int | None = None) -> float:
+                     limit_db_bajtu: int | None = None, bez_ai: str | None = None) -> float:
     """Zpracuje jeden dokument a zapíše jeho stav. Vrátí útratu za AI.
 
     Když se má celý běh zastavit (klíč, kredit, čas, plná DB, výpadek API),
@@ -700,21 +747,66 @@ def zpracuj_dokument(supa: Supa, dok: dict, prepisovac: Prepisovac | None, ucet:
     def ulozit_prepisy(strany: list[Strana]) -> None:
         supa.vloz_nebo_prepis('bible_strany', [_radek_strany(id_, s, None) for s in strany], klic='dokument_id,pdf_index')
 
+    # Průběh pro knihovnu (procenta): do bible_dokumenty.postup.prubeh, vedle
+    # počtů z dřívějšího zpracování. Konečný zápis níž prubeh nahradí počty.
+    puvodni = dok.get('postup') if isinstance(dok.get('postup'), dict) else {}
+    zaklad_postupu = {k: v for k, v in puvodni.items() if k != 'prubeh'}
+    prubeh_stav = {'faze': None, 'cas': 0.0}
+
+    def hlasit_prubeh(faze: str, hotovo: int, celkem: int, ocr_hotovo: int = 0, ocr_celkem: int = 0) -> None:
+        """Zapíše průběh — nejvýš jednou za PRUBEH_KAZDYCH_S, při změně fáze hned. Chyba zápisu zpracování nezastaví."""
+        ted = time.time()
+        if faze == prubeh_stav['faze'] and ted - prubeh_stav['cas'] < PRUBEH_KAZDYCH_S:
+            return
+        prubeh_stav['faze'], prubeh_stav['cas'] = faze, ted
+        prubeh = {'faze': faze, 'hotovo': max(0, int(hotovo)), 'celkem': max(0, int(celkem)),
+                  'ocr_hotovo': max(0, int(ocr_hotovo)), 'ocr_celkem': max(0, int(ocr_celkem)),
+                  'cas': datetime.now(timezone.utc).isoformat(timespec='seconds')}
+        try:
+            supa.uprav('bible_dokumenty', filtr, {'postup': {**zaklad_postupu, 'prubeh': prubeh}})
+        except Exception as e:  # noqa: BLE001 — procenta jsou jen informace, zpracování běží dál
+            log(f'  průběh se nepodařilo zapsat ({type(e).__name__})')
+
     try:
         m = _CESTA.match(dok.get('soubor_cesta') or '')
         if not m or m.group(1) != id_ or m.group(2) in ('.', '..'):
             raise ChybaZpracovani('Cesta k souboru v úložišti má nečekaný tvar — nahraj dokument znovu přes appku.')
+        # Přepisy skenů z dřívějška (stejný model a verze) se znovu neplatí; bez AI
+        # se nenačítají — kniha se skeny pak počká vždycky.
+        hotove = nacti_prepisy(supa, id_, prepisovac.model) if prepisovac is not None else {}
+        # Kniha, o které už víme, že má skeny (průběh dřívějšího pokusu nebo počty
+        # dřívějšího zpracování) a nemá je všechny přepsané, potřebuje AI. Když
+        # teď nejde (klíč, kredit, strop útraty), počká BEZ stažení — celá kniha
+        # by se jinak každé 3 hodiny stahovala zbytečně (přenosy tarifu Free).
+        # Účet se ověří jedním levným požadavkem za běh, dřív než se stahuje.
+        drive = puvodni.get('prubeh') if isinstance(puvodni.get('prubeh'), dict) else {}
+        skenu = int(max(_cislo(drive.get('ocr_celkem'), 0), _cislo(puvodni.get('ocr'), 0)))
+        if skenu > sum(1 for h in hotove.values() if _pouzitelny_prepis(h)):
+            try:
+                if prepisovac is None:
+                    raise ChybiKlic(bez_ai or 'Čeká: dokument má naskenované strany a v app_secrets hlavní appky chybí ANTHROPIC_API_KEY.')
+                prepisovac.over_ucet()
+            except Odlozit:
+                # Stejné počty, nový čas: knihovna pozná, že ji tenhle běh viděl
+                # (jinak by psala, že na běh teprve čeká).
+                hlasit_prubeh(str(drive.get('faze') or 'prepis'), int(_cislo(drive.get('hotovo'), 0)),
+                              int(_cislo(drive.get('celkem'), 0)), int(_cislo(drive.get('ocr_hotovo'), 0)), skenu)
+                raise
+        hlasit_prubeh('stahovani', 0, 0)
         data = supa.stahni(BUCKET, dok['soubor_cesta'])
         if hashlib.sha256(data).hexdigest() != dok.get('soubor_sha256'):
             raise ChybaZpracovani('Soubor v úložišti se liší od nahraného (otisk SHA-256 nesedí).')
-        hotove = nacti_prepisy(supa, id_, prepisovac.model) if prepisovac is not None else {}
-        vysledek = rozloz(data, mime, Prace(prepisovac, hotove, ulozit_prepisy, kontrola))
+        hlasit_prubeh('cteni', 0, 0)
+        vysledek = rozloz(data, mime, Prace(prepisovac, hotove, ulozit_prepisy, kontrola, hlasit_prubeh, bez_ai))
         if not any(s.text.strip() for s in vysledek.strany):
             raise ChybaZpracovani('Dokument neobsahuje žádný text' + (
                 ' — jen obrázky; převeď ho do PDF a nahraj znovu.' if vysledek.obrazku else '.'))
         if limit_db_bajtu:
             _hlidej_kapacitu(supa, vysledek, limit_db_bajtu)
         kontrola()
+        n_stran = len(vysledek.strany)
+        hlasit_prubeh('ukladani', n_stran, n_stran, sum(1 for s in vysledek.strany if s.zdroj == 'ocr'),
+                      sum(1 for s in vysledek.strany if s.zdroj == 'ocr'))
         postup = uloz(supa, dok, vysledek)
         ke_kontrole = postup['ke_kontrole']
         kvalita = None if not postup['ocr'] else round(1 - ke_kontrole / postup['ocr'], 3)
@@ -824,6 +916,8 @@ def _beh() -> int:
     max_dokumentu = int(_cislo(os.environ.get('MAX_DOKUMENTU'), 50))
     vynechat: list[str] = []
     zpracovano = 0
+    bez_ai: str | None = None
+    chyba_uctu: ZastavitBeh | None = None
     while time.time() < konec and zpracovano < max_dokumentu:
         if limit_db_bajtu:
             db = kapacita_db(supa)
@@ -838,10 +932,23 @@ def _beh() -> int:
         dok = vzate[0]
         vynechat.append(str(dok['id']))
         try:
-            zpracuj_dokument(supa, dok, prepisovac, ucet, limit_db_bajtu)
+            zpracuj_dokument(supa, dok, prepisovac, ucet, limit_db_bajtu, bez_ai)
+        except ZastavitBeh as e:
+            # Účet Claude (klíč, kredit, limit útraty, model, počet požadavků):
+            # knihy se skeny počkají, zbytek fronty se zpracuje bez AI — digitální
+            # knihy Claude nepotřebují (31. 10. 2026: 2 skenované strany z 327
+            # zastavily celý běh i druhou knihu). Běh pak skončí chybou, ať je
+            # problém s účtem vidět.
+            chyba_uctu = e
+            if prepisovac is None:
+                log(f'Běh ukončen: {e.do_logu}')
+                return 1
+            prepisovac, bez_ai = None, str(e)
+            log(f'AI vypnutá pro zbytek běhu ({e.do_logu}) — dokumenty bez skenů se zpracují dál.')
+            continue
         except Odlozit as e:
             log(f'Běh ukončen: {e.do_logu}')
-            return 1 if isinstance(e, (ZastavitBeh, PlnaDatabaze)) else 0
+            return 1 if isinstance(e, PlnaDatabaze) else 0
         except PrechodnaChyba as e:
             log(f'Běh ukončen: {e}')
             return 0
@@ -849,6 +956,9 @@ def _beh() -> int:
         if jen:
             break
     log(f'Konec: zpracováno {zpracovano} dokumentů, utraceno {ucet.utraceno:.4f} USD.')
+    if chyba_uctu is not None:
+        log(f'Pozor: {chyba_uctu.do_logu}')
+        return 1
     return 0
 
 

@@ -113,6 +113,24 @@ def _zavolej(klient, obrazek_jpeg: bytes, model: str, max_tokens: int):
     return klient.messages.create(**parametry)
 
 
+def over_ucet(klient, model: str):
+    """Nejlevnější požadavek se stejným modelem a nastavením jako přepis, jen text.
+
+    Projde, když klíč, kredit a model fungují — worker tak pozná problém s účtem
+    dřív, než kvůli skenům stáhne celou knihu. Stojí desítky tokenů.
+    """
+    parametry = {
+        'model': model,
+        'max_tokens': 16,
+        'output_config': {'effort': 'low'},
+        'messages': [{'role': 'user', 'content': 'Odpověz jedním slovem: OK'}],
+    }
+    mysleni = mysleni_pro_model(model)
+    if mysleni is not None:
+        parametry['thinking'] = mysleni
+    return klient.messages.create(**parametry)
+
+
 def _secti(a: dict, b: dict) -> dict:
     return {k: int(a.get(k) or 0) + int(b.get(k) or 0) for k in set(a) | set(b)}
 

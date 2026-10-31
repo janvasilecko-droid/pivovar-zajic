@@ -66,6 +66,31 @@ s citací kniha–kapitola–strana a počítá deterministickým výpočetním 
 - **Strop útraty:** na běh 5 USD a na měsíc 20 USD (`bible_nastaveni`,
   0 = AI nepoužívat). Když dojde, dokument se skeny počká na další běh;
   dokumenty bez AI se zpracují dál.
+- **Problém s účtem Claude** (došel kredit, limit útraty, odmítnutý klíč,
+  neznámý model, příliš mnoho požadavků): AI se pro zbytek běhu vypne,
+  dokumenty se skeny počkají se zprávou, co s účtem udělat, a ostatní se
+  zpracují dál; běh pak skončí chybou, ať je problém vidět (dřív zastavil
+  celý běh — 31. 10. 2026 tak 2 skenované strany z 327 zdržely i jinou knihu).
+  Knihu, o které už je známo, že má skeny (průběh nebo počty z dřívějška)
+  a nemá je všechny přepsané, worker stáhne, jen když AI teď půjde: klíč je,
+  strop útraty nedošel a účet projde jedním levným požadavkem za běh (jen
+  text, desítky tokenů; po úspěšném přepisu už se neověřuje). Jinak počká bez
+  stažení a jen se jí obnoví čas průběhu — přenosy tarifu Free by jinak každé
+  3 hodiny stahovaly celé knihy zbytečně. Kniha s přepsanými všemi skeny AI
+  nepotřebuje a dokončí se i při vyčerpaném stropu.
+- **Procenta v knihovně:** worker během práce zapisuje průběh do
+  `postup.prubeh` (fáze, stran hotovo/celkem, přepis skenů, čas) nejvýš
+  jednou za 15 s; knihovna ho ukazuje v procentech a sama se obnovuje (při
+  zpracování po 20 s; u čekajících knih po minutě jen 90 min po plánovaném
+  běhu, jinak po 10 min; ne na skryté záložce, při nahrávání ani při
+  rozepsaném popisu). Když se worker 20 min neozve, připíše „bez zprávy".
+  U čekající knihy slibuje konkrétní běh, jen když je jistý — GitHub plánované
+  běhy zdržuje často o hodiny (31. 10. 2026 začal běh pro 15:17 UTC v 17:15):
+  „ve frontě" (jiná kniha se právě zpracovává a tuhle běh ještě neprošel),
+  „další běh podle plánu v HH:MM" (tenhle běh ji už prošel — odložil ji, nebo
+  ji dokončil a správce ji vrátil), jinak jen plán (cron `17 */3 * * *` UTC)
+  s upozorněním na zdržení. „Už přepsáno X z Y skenů" píše jen u skutečně
+  přepsaných stran (ty se znovu neplatí).
 - **Pojistka velikosti databáze bible:** `limit_db_mb` (výchozí 450 MB;
   Supabase Free přepne nad 500 MB databázi bible jen pro čtení). Nad limitem
   další knihy počkají se zprávou u dokumentu.

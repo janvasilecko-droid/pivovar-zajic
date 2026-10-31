@@ -87,6 +87,11 @@ export type HomeLayout = {
    * nezná a při načtení se jednou přeskládá.
    */
   rozlozeniVerze?: number;
+  /**
+   * Dlaždice z NOVE_NA_UVODNI, které už na úvodní stránku jednou přišly —
+   * potom zůstanou, kam je kdo dá (viz getHomeLayout).
+   */
+  naUvodni?: Page[];
 };
 
 /** Převede "#rrggbb" (nebo "#rgb") na "rgba(r, g, b, alpha)". Neplatný vstup spadne na šedou. */
@@ -308,6 +313,14 @@ export const STRANKY_PLOCHY: Array<{ nazev: string; ids: Page[] }> = [
 // Přehledové dlaždice Sklep a Rozvoz nejsou obrazovky, ale patří na úvodní
 // stránku (28. 9. 2026).
 export const DLAZDICE_MIMO_TABULKU_ZAMERNE: Page[] = ['notes', 'navod', 'orders_entry', 'orders_zavoz'];
+
+/**
+ * Nové dlaždice, které se uložené ploše přidají rovnou na ÚVODNÍ stránku,
+ * ne na „Další". Pivovarská bible: majitel ji na „Další" nenašel a chtěl ji
+ * mezi aplikacemi (31. 10. 2026: „přidej dlaždici do aplikací"). Kdo ji pak
+ * přesune nebo schová, tomu zůstane, kde ji nechal (plocha se uloží).
+ */
+export const NOVE_NA_UVODNI: readonly Page[] = ['bible'];
 
 /**
  * Které dlaždice smí rozdělení rozmístit: hlavní moduly, na které má
@@ -876,9 +889,30 @@ export function getHomeLayout(raw: unknown, visibleIds: Page[], extraIds: Page[]
     // denní práci a nesmí se sama rozrůstat (28. 9. 2026).
     // Na jediné stránce (od verze 18) jde nová dlaždice na ni — ne na
     // prázdnou poslední stránku, kterou by nikdo nenašel.
+    // Výjimka NOVE_NA_UVODNI: ty jdou rovnou na úvodní stránku (majitel).
     const jedina = pages.slice(1).every((p) => p.length === 0);
     const kam = jedina ? 0 : Math.min(1, pages.length - 1);
-    pages[kam] = [...pages[kam], ...newIds];
+    const naUvodni = newIds.filter((id) => NOVE_NA_UVODNI.includes(id));
+    const ostatni = newIds.filter((id) => !NOVE_NA_UVODNI.includes(id));
+    if (naUvodni.length) pages[0] = [...pages[0], ...naUvodni];
+    if (ostatni.length) pages[kam] = [...pages[kam], ...ostatni];
+  }
+
+  // Jednorázově na úvodní stránku i dlaždice z NOVE_NA_UVODNI, kterou starší
+  // verze appky stihla uložit na „Další" (třeba při přesunu jiné dlaždice,
+  // než si majitel appku aktualizoval). Značka `naUvodni` se uloží s první
+  // změnou plochy — potom už dlaždice zůstane, kam ji kdo dá. Ze skupiny se
+  // nebere (tu si někdo udělal sám); pozice se zahodí, ať na úvodní stránce
+  // nic nepřekryje (místo jí najde ensurePositions).
+  const uzNaUvodni: unknown[] = Array.isArray(saved.naUvodni) ? saved.naUvodni : [];
+  const presunuteNaUvodni = new Set<TileId>();
+  for (const id of NOVE_NA_UVODNI) {
+    if (uzNaUvodni.includes(id)) continue;
+    const k = pages.findIndex((p, i) => i > 0 && p.includes(id));
+    if (k < 1) continue;
+    pages[k] = pages[k].filter((x) => x !== id);
+    pages[0] = [...pages[0], id];
+    presunuteNaUvodni.add(id);
   }
 
   const overrides = (saved.overrides && typeof saved.overrides === 'object' ? saved.overrides : {}) as Partial<Record<TileId, TileOverride>>;
@@ -894,7 +928,7 @@ export function getHomeLayout(raw: unknown, visibleIds: Page[], extraIds: Page[]
     const hRaw = existing?.h ?? legacy?.h ?? DEFAULT_SIZE[id as Page]?.h ?? DEFAULT_H;
     const w = Math.min(MAX_W, Math.max(MIN_W, Math.round(wRaw)));
     const h = Math.min(MAX_H, Math.max(MIN_H, Math.round(hRaw)));
-    const hasPos = typeof existing?.x === 'number' && typeof existing?.y === 'number';
+    const hasPos = !presunuteNaUvodni.has(id) && typeof existing?.x === 'number' && typeof existing?.y === 'number';
     filledOverrides[id] = {
       w, h, color,
       ...(existing?.label ? { label: existing.label } : {}),
@@ -952,6 +986,13 @@ export function getHomeLayout(raw: unknown, visibleIds: Page[], extraIds: Page[]
     countdowns: saved.countdowns || getCountdowns(),
     notes: saved.notes || getHomeNotes(),
     rozlozeniVerze: ROZLOZENI_VERZE,
+    // Jen dlaždice, které plocha opravdu má (kdo bibli nevidí, tomu se značka
+    // neuloží — jinak by ji po povolení nechala tam, kam ji dala stará verze).
+    // Uložená id zůstávají, i neznámá (z novější verze appky).
+    naUvodni: [...new Set<string>([
+      ...uzNaUvodni.filter((x): x is string => typeof x === 'string'),
+      ...NOVE_NA_UVODNI.filter((id) => seen.has(id) || pages.some((p) => p.includes(id))),
+    ])] as Page[],
   };
 
   // 🗂️ Jednorázové přeskládání do stránek. Kdo má plochu uloženou z doby před

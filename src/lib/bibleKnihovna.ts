@@ -10,6 +10,19 @@ export type DruhDokumentu = 'kniha' | 'skripta' | 'clanek' | 'norma' | 'prirucka
 
 export type JazykDokumentu = 'cs' | 'de' | 'en' | 'sk' | 'jiny';
 
+/**
+ * Průběh zpracování, který worker zapisuje během práce do postup.prubeh
+ * (scripts/bible/zpracuj.py, hlasit_prubeh) — z něj jsou procenta v knihovně.
+ */
+export type PrubehZpracovani = {
+  faze?: string;
+  hotovo?: number;
+  celkem?: number;
+  ocr_hotovo?: number;
+  ocr_celkem?: number;
+  cas?: string;
+};
+
 /** Počty po zpracování (Etapa 2 — worker je zapisuje do bible_dokumenty.postup). */
 export type PostupZpracovani = {
   stran?: number;
@@ -20,6 +33,7 @@ export type PostupZpracovani = {
   tabulek?: number;
   vzorcu?: number;
   pasazi?: number;
+  prubeh?: PrubehZpracovani;
 };
 
 /**
@@ -160,6 +174,128 @@ export function postupText(postup: PostupZpracovani | null | undefined, stranCel
   if (p.pasazi != null) casti.push(`${p.pasazi} pasáží`);
   if (p.ke_kontrole) casti.push(`${p.ke_kontrole} ke kontrole`);
   return casti.join(' · ');
+}
+
+const FAZE_POPIS: Readonly<Record<string, string>> = {
+  stahovani: 'stahuje soubor',
+  cteni: 'čte text',
+  prepis: 'přepisuje skeny',
+  ukladani: 'ukládá kapitoly a pasáže',
+};
+
+const cislo = (x: unknown): number | null => (typeof x === 'number' && Number.isFinite(x) ? x : null);
+
+/**
+ * Procenta zpracování z průběhu (0–99; 100 % znamená až stav „Zpracováno").
+ * null = počet stran ještě není známý.
+ */
+export function procentZpracovani(postup: PostupZpracovani | null | undefined): number | null {
+  const p = postup?.prubeh;
+  const hotovo = cislo(p?.hotovo);
+  const celkem = cislo(p?.celkem);
+  if (hotovo === null || celkem === null || celkem <= 0) return null;
+  return Math.max(0, Math.min(99, Math.floor((100 * hotovo) / celkem)));
+}
+
+/**
+ * Po kolika minutách bez zprávy od workeru se u zpracovávané knihy připíše
+ * „bez zprávy" — víc než nejdelší mezera mezi zápisy průběhu (stažení velké
+ * knihy, čtení DjVu, ukládání pasáží), ať to nestraší u běžící práce.
+ */
+export const PRUBEH_BEZ_ZPRAVY_MIN = 20;
+
+/**
+ * Text průběhu u dokumentu, např. „46 % · přepisuje skeny (80 z 250 stran)".
+ * Když se worker dlouho neozval (spadlý běh drží zámek až 2 h), připíše
+ * „bez zprávy N min". U čekajícího dokumentu řekne jen to, co se doopravdy
+ * neztratí: kolik naskenovaných stran je už přepsaných. Jinak null.
+ */
+export function prubehText(stav: StavDokumentu, postup: PostupZpracovani | null | undefined, ted: Date = new Date()): string | null {
+  const p = postup?.prubeh;
+  const procent = procentZpracovani(postup);
+  const ocrCelkem = cislo(p?.ocr_celkem);
+  const ocrHotovo = cislo(p?.ocr_hotovo) ?? 0;
+  if (stav === 'zpracovava') {
+    if (!p) return 'začíná — procenta se ukážou za chvíli';
+    const faze = FAZE_POPIS[p.faze ?? ''] ?? 'zpracovává';
+    const ocr = p.faze === 'prepis' && ocrCelkem ? ` (${ocrHotovo} z ${ocrCelkem} stran)` : '';
+    const cas = p.cas ? Date.parse(p.cas) : Number.NaN;
+    const minut = Number.isFinite(cas) ? Math.floor((ted.getTime() - cas) / 60_000) : 0;
+    const ticho = minut >= PRUBEH_BEZ_ZPRAVY_MIN ? ` · bez zprávy ${minut} min` : '';
+    return `${procent === null ? '' : `${procent} % · `}${faze}${ocr}${ticho}`;
+  }
+  if (stav === 'ceka' && ocrCelkem && ocrHotovo > 0) {
+    // Kdy kniha přijde na řadu, říká textCekani — tady jen to, co se neztratí.
+    return `Už přepsáno ${Math.min(ocrHotovo, ocrCelkem)} z ${ocrCelkem} naskenovaných stran — znovu se neplatí`;
+  }
+  return null;
+}
+
+/**
+ * Kdy se zpracování pustí samo: GitHub Actions, cron `17 *\/3 * * *` (UTC)
+ * v .github/workflows/bible-zpracovani.yml (test hlídá, že se neliší).
+ */
+export const PLAN_ZPRACOVANI_CRON = '17 */3 * * *';
+
+/** Nejbližší plánovaný běh zpracování po okamžiku `ted` (GitHub ho občas o pár minut zdrží). */
+export function dalsiBehZpracovani(ted: Date = new Date()): Date {
+  const hodina = ted.getUTCHours() - (ted.getUTCHours() % 3);
+  let beh = Date.UTC(ted.getUTCFullYear(), ted.getUTCMonth(), ted.getUTCDate(), hodina, 17);
+  while (beh <= ted.getTime()) beh += 3 * 3600_000;
+  return new Date(beh);
+}
+
+/** Poslední plánovaný běh zpracování, který už měl začít (nejpozději `ted`). */
+export function posledniBehZpracovani(ted: Date = new Date()): Date {
+  return new Date(dalsiBehZpracovani(ted).getTime() - 3 * 3600_000);
+}
+
+/**
+ * Text u čekající knihy. GitHub plánované běhy zdržuje často o hodiny (31. 10.
+ * 2026: běh pro 15:17 UTC začal v 17:15, pro 18:17 ani ve 21:03) — konkrétní
+ * běh se proto slibuje, jen když je jistý:
+ * - jiná kniha se právě zpracovává a tuhle běh ještě neprošel → přijde na řadu
+ *   v tomhle běhu (worker bere frontu dokola);
+ * - tenhle běh ji už prošel (průběh zapsaný po plánovaném čase, nebo ji
+ *   dokončil a správce ji vrátil přes „Zpracovat znovu") → ve stejném běhu ji
+ *   znovu nevezme, čeká na další;
+ * - jinak se neví, jestli běh z posledního plánovaného času už proběhl — řekne
+ *   se jen plán a že ho GitHub zdržuje.
+ */
+export function textCekani(
+  zpracovavaSeJina: boolean,
+  postup: PostupZpracovani | null | undefined,
+  zpracovanoAt: string | null | undefined,
+  ted: Date = new Date(),
+): string {
+  const posledni = posledniBehZpracovani(ted).getTime();
+  const poBehu = (cas: string | null | undefined) => (cas ? Date.parse(cas) >= posledni : false);
+  const uzProsla = poBehu(postup?.prubeh?.cas) || poBehu(zpracovanoAt);
+  if (zpracovavaSeJina && !uzProsla) return 'Čeká ve frontě — přijde na řadu v tomhle běhu, až doběhne rozpracovaná kniha.';
+  const dalsi = casBehuText(dalsiBehZpracovani(ted));
+  if (uzProsla) return `Čeká na další běh zpracování — podle plánu v ${dalsi}, GitHub ho ale často o hodinu i víc zdrží.`;
+  return `Čeká na běh zpracování — spouští se samo každé 3 hodiny (plán ${casBehuText(new Date(posledni))}, ${dalsi}, …), GitHub ho ale často o hodinu i víc zdrží.`;
+}
+
+/** Jak často se knihovna sama obnoví: když se něco zpracovává (procenta) a když jen čeká na běh. */
+export const OBNOVA_PRI_ZPRACOVANI_MS = 20_000;
+export const OBNOVA_PRI_CEKANI_MS = 60_000;
+export const OBNOVA_MIMO_BEH_MS = 600_000;
+
+/**
+ * Interval obnovy knihovny: při zpracování často (procenta), u čekajících knih
+ * po minutě jen v okně po plánovaném běhu (jinak se stav nemění), jinak vůbec.
+ */
+export function intervalObnovy(zpracovavaSe: boolean, nekdoCeka: boolean, ted: Date = new Date()): number | null {
+  if (zpracovavaSe) return OBNOVA_PRI_ZPRACOVANI_MS;
+  if (!nekdoCeka) return null;
+  const odBehu = ted.getTime() - posledniBehZpracovani(ted).getTime();
+  return odBehu < 90 * 60_000 ? OBNOVA_PRI_CEKANI_MS : OBNOVA_MIMO_BEH_MS;
+}
+
+/** Čas běhu po pivovarsku (Europe/Prague), např. „21:17". */
+export function casBehuText(d: Date): string {
+  return d.toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Prague' });
 }
 
 /** Chyba „tabulka ještě neexistuje" — migrace knihovny ještě neběžela. */
