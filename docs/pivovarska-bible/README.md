@@ -84,11 +84,13 @@ s citací kniha–kapitola–strana a počítá deterministickým výpočetním 
   zpracování po 20 s; u čekajících knih po minutě jen 90 min po plánovaném
   běhu, jinak po 10 min; ne na skryté záložce, při nahrávání ani při
   rozepsaném popisu). Když se worker 20 min neozve, připíše „bez zprávy".
-  U čekající knihy: „ve frontě" (jiná kniha se právě zpracovává a tuhle běh
-  ještě neodložil), „na běh z HH:MM" (75 min po plánovaném čase, GitHub běhy
-  zdržuje — jen u knihy, která ve frontě byla už před tím časem), jinak čas
-  dalšího běhu (cron `17 */3 * * *` UTC). „Už přepsáno X z Y skenů" píše jen
-  u skutečně přepsaných stran (ty se znovu neplatí).
+  U čekající knihy slibuje konkrétní běh, jen když je jistý — GitHub plánované
+  běhy zdržuje často o hodiny (31. 10. 2026 začal běh pro 15:17 UTC v 17:15):
+  „ve frontě" (jiná kniha se právě zpracovává a tuhle běh ještě neprošel),
+  „další běh podle plánu v HH:MM" (tenhle běh ji už prošel — odložil ji, nebo
+  ji dokončil a správce ji vrátil), jinak jen plán (cron `17 */3 * * *` UTC)
+  s upozorněním na zdržení. „Už přepsáno X z Y skenů" píše jen u skutečně
+  přepsaných stran (ty se znovu neplatí).
 - **Pojistka velikosti databáze bible:** `limit_db_mb` (výchozí 450 MB;
   Supabase Free přepne nad 500 MB databázi bible jen pro čtení). Nad limitem
   další knihy počkají se zprávou u dokumentu.

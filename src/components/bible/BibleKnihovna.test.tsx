@@ -209,25 +209,27 @@ describe('Knihovna — procenta zpracování', () => {
     }
   });
 
-  it('čekající kniha těsně po plánovaném běhu čeká na něj (GitHub ho zdrží) a seznam se obnovuje po minutě', async () => {
+  it('čekající kniha: plán běhu bez slibu (GitHub běhy zdržuje) a seznam se po plánovaném čase obnovuje po minutě', async () => {
     nactiDokumenty.mockResolvedValueOnce(ok(dok('ceka')));
     await vykresli('spravuje');
-    expect(screen.getByText('Čeká na běh zpracování z 19:17 — GitHub ho občas o pár desítek minut zdrží.')).toBeTruthy();
+    expect(screen.getByText('Čeká na běh zpracování — spouští se samo každé 3 hodiny (plán 19:17, 22:17, …), GitHub ho ale často o hodinu i víc zdrží.')).toBeTruthy();
     expect(obnova().ms).toBe(OBNOVA_PRI_CEKANI_MS);
     expect(screen.queryByRole('progressbar')).toBeNull();
   });
 
-  it('kniha nahraná až po plánovaném čase čeká na další běh (ten z 19:17 už nejspíš proběhl)', async () => {
-    nactiDokumenty.mockResolvedValueOnce(ok({ ...dok('ceka'), created_at: '2026-10-31T18:25:00Z' }));
+  it('kniha, kterou tenhle běh dokončil a správce ji vrátil, čeká na další běh — i když se jiná zpracovává', async () => {
+    const jina = { ...dok('zpracovava', prepis(46)), id: 'd2', nazev: 'Sladovnictví' };
+    nactiDokumenty.mockResolvedValueOnce(ok(jina, { ...dok('ceka', { stran: 10 }), zpracovano_at: '2026-10-31T18:25:00Z' }));
     await vykresli('spravuje');
-    expect(screen.getByText('Čeká na další běh zpracování — asi v 22:17.')).toBeTruthy();
+    expect(screen.getByText('Čeká na další běh zpracování — podle plánu v 22:17, GitHub ho ale často o hodinu i víc zdrží.')).toBeTruthy();
+    expect(screen.queryByText(/přijde na řadu v tomhle běhu/)).toBeNull();
   });
 
-  it('mimo okno běhu ukáže čas dalšího běhu a seznam se obnovuje jen po 10 minutách', async () => {
+  it('mimo okno po plánovaném čase se seznam obnovuje jen po 10 minutách', async () => {
     vi.setSystemTime(new Date('2026-10-31T20:30:00Z'));
     nactiDokumenty.mockResolvedValueOnce(ok(dok('ceka')));
     await vykresli('spravuje');
-    expect(screen.getByText('Čeká na další běh zpracování — asi v 22:17.')).toBeTruthy();
+    expect(screen.getByText('Čeká na běh zpracování — spouští se samo každé 3 hodiny (plán 19:17, 22:17, …), GitHub ho ale často o hodinu i víc zdrží.')).toBeTruthy();
     expect(obnova().ms).toBe(OBNOVA_MIMO_BEH_MS);
   });
 
@@ -249,7 +251,7 @@ describe('Knihovna — procenta zpracování', () => {
   it('odložená kniha bez jediného přepsaného skenu nestraší procenty z minulého běhu', async () => {
     nactiDokumenty.mockResolvedValueOnce(ok(dok('ceka', { prubeh: { faze: 'prepis', hotovo: 325, celkem: 327, ocr_hotovo: 0, ocr_celkem: 2 } })));
     await vykresli('spravuje');
-    expect(screen.getByText(/^Čeká na běh zpracování z 19:17/)).toBeTruthy();
+    expect(screen.getByText(/^Čeká na běh zpracování — spouští se samo/)).toBeTruthy();
     expect(screen.queryByText(/přepsáno|rozpracováno|\d+ %/)).toBeNull();
     expect(within(screen.getByRole('listitem')).getByText('Čeká na zpracování')).toBeTruthy();
   });

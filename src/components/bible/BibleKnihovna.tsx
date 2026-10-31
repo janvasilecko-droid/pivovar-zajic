@@ -133,7 +133,7 @@ function KartaDokumentu({ d, role, mujId, onZmena, onSmazano, onRozpracovani, zp
         {d.stav === 'zpracovava' && <PrubehZpracovani d={d} />}
         {d.stav === 'ceka' && (
           <div className="font-bold text-amber-200">
-            {textCekani(zpracovavaSeJina, d.postup, d.zpracovano_at ?? d.created_at)}
+            {textCekani(zpracovavaSeJina, d.postup, d.zpracovano_at)}
             {prubehText(d.stav, d.postup) ? ` ${prubehText(d.stav, d.postup)}.` : ''}
           </div>
         )}

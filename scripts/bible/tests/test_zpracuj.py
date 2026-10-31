@@ -951,3 +951,47 @@ def test_overeni_uctu_jina_chyba_nezastavi(monkeypatch, capsys):
     assert zpracuj._beh() == 0
     assert supa.stazeno == [cesta] and supa.stavy[dok['id']][-1]['stav'] in ('hotovo', 'ke_kontrole')
     assert 'ověření účtu Claude se nepovedlo' in capsys.readouterr().out
+
+
+def test_vycerpany_strop_nepovedeny_prepis_z_drivejska_se_nepocita(monkeypatch):
+    # Prázdný přepis ke kontrole (třeba odmítnutý modelem) se zkusí znovu — AI je potřeba,
+    # takže při vyčerpaném stropu kniha počká bez stažení.
+    data = _skenovane_pdf(2)
+    dok, cesta = _kniha_ve_fronte('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', data, ZNAME_SKENY)
+    prepisy = {dok['id']: [
+        {'pdf_index': 1, 'text': '# Rmutování\n\nPřepsaná strana.', 'okraje': '', 'ke_kontrole': False, 'kontrola_duvod': None, 'ocr_model': 'claude-haiku-5-5'},
+        {'pdf_index': 2, 'text': '', 'okraje': '', 'ke_kontrole': True, 'kontrola_duvod': 'model přepis odmítl', 'ocr_model': 'claude-haiku-5-5'},
+    ]}
+    klient, volani = _klient()
+    supa = _priprav_beh(monkeypatch, [(dok, cesta, data)], klient, utraceno=20.0, prepisy=prepisy)
+    assert zpracuj._beh() == 0
+    assert supa.stazeno == [] and volani == []
+    posledni = supa.stavy[dok['id']][-1]
+    assert posledni['stav'] == 'ceka' and posledni['pokusy'] == 0
+    assert posledni['stav_zprava'] == 'Čeká: došel strop útraty za AI — pokračuje se dalším během.'
+
+
+def test_overeni_uctu_se_pocita_do_nakladu():
+    data = _skenovane_pdf(2)
+    supa = FalesnaSupa({CESTA: data})
+    ucet = _ucet()
+    klient, volani = _klient()
+    zpracuj.zpracuj_dokument(supa, _dokument(data, 'application/pdf', postup=ZNAME_SKENY),
+                             zpracuj.Prepisovac(klient, 'claude-haiku-5-5', ucet), ucet)
+    assert _jen_text(volani[0]) and len(volani) == 3   # ověření + 2 strany
+    assert sum(r['volani'] for r in supa.tabulky['ai_naklady']) == 3   # i ověření je v útratě
+    assert supa.posledni_stav()['stav'] in ('hotovo', 'ke_kontrole')
+
+
+def test_overeni_uctu_po_jine_chybe_se_v_behu_neopakuje(capsys):
+    volani = []
+
+    def create(**kw):
+        volani.append(kw)
+        raise _chyba_api(529, 'overloaded_error', 'Overloaded')
+
+    prepisovac = zpracuj.Prepisovac(SimpleNamespace(messages=SimpleNamespace(create=create)), 'claude-haiku-5-5', _ucet())
+    prepisovac.over_ucet()
+    prepisovac.over_ucet()
+    assert len(volani) == 1
+    assert capsys.readouterr().out.count('ověření účtu Claude se nepovedlo') == 1

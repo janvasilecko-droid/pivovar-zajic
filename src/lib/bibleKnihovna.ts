@@ -250,33 +250,31 @@ export function posledniBehZpracovani(ted: Date = new Date()): Date {
   return new Date(dalsiBehZpracovani(ted).getTime() - 3 * 3600_000);
 }
 
-/** Jak dlouho po plánovaném čase se ještě čeká, že běh teprve začne (GitHub ho zdrží). */
-export const ZDRZENI_BEHU_MIN = 75;
-
 /**
- * Text u čekající knihy. Když se jiná kniha právě zpracovává, přijde tahle na
- * řadu ve stejném běhu (worker bere frontu dokola) — pokud ji tenhle běh už
- * neviděl (průběh zapsaný po plánovaném čase): odloženou knihu (třeba skeny
- * bez kreditu) worker ve stejném běhu znovu nebere. Těsně po plánovaném čase
- * běh často ještě nezačal (GitHub ho zdrží) — dokud ho kniha neviděla, čeká
- * na něj, ne na ten o 3 hodiny později. To ale neplatí pro knihu, která do
- * fronty přišla (nahráním nebo dokončením) až po plánovaném čase: ten běh už
- * nejspíš proběhl, slibuje se další (`zarazeno` = zpracováno_at ?? created_at).
+ * Text u čekající knihy. GitHub plánované běhy zdržuje často o hodiny (31. 10.
+ * 2026: běh pro 15:17 UTC začal v 17:15, pro 18:17 ani ve 21:03) — konkrétní
+ * běh se proto slibuje, jen když je jistý:
+ * - jiná kniha se právě zpracovává a tuhle běh ještě neprošel → přijde na řadu
+ *   v tomhle běhu (worker bere frontu dokola);
+ * - tenhle běh ji už prošel (průběh zapsaný po plánovaném čase, nebo ji
+ *   dokončil a správce ji vrátil přes „Zpracovat znovu") → ve stejném běhu ji
+ *   znovu nevezme, čeká na další;
+ * - jinak se neví, jestli běh z posledního plánovaného času už proběhl — řekne
+ *   se jen plán a že ho GitHub zdržuje.
  */
 export function textCekani(
   zpracovavaSeJina: boolean,
   postup: PostupZpracovani | null | undefined,
-  zarazeno: string | null | undefined,
+  zpracovanoAt: string | null | undefined,
   ted: Date = new Date(),
 ): string {
-  const posledni = posledniBehZpracovani(ted);
-  const videla = postup?.prubeh?.cas ? Date.parse(postup.prubeh.cas) >= posledni.getTime() : false;
-  const poBehu = zarazeno ? Date.parse(zarazeno) > posledni.getTime() : false;
-  if (zpracovavaSeJina && !videla) return 'Čeká ve frontě — přijde na řadu v tomhle běhu, až doběhne rozpracovaná kniha.';
-  if (ted.getTime() - posledni.getTime() < ZDRZENI_BEHU_MIN * 60_000 && !videla && !poBehu) {
-    return `Čeká na běh zpracování z ${casBehuText(posledni)} — GitHub ho občas o pár desítek minut zdrží.`;
-  }
-  return `Čeká na další běh zpracování — asi v ${casBehuText(dalsiBehZpracovani(ted))}.`;
+  const posledni = posledniBehZpracovani(ted).getTime();
+  const poBehu = (cas: string | null | undefined) => (cas ? Date.parse(cas) >= posledni : false);
+  const uzProsla = poBehu(postup?.prubeh?.cas) || poBehu(zpracovanoAt);
+  if (zpracovavaSeJina && !uzProsla) return 'Čeká ve frontě — přijde na řadu v tomhle běhu, až doběhne rozpracovaná kniha.';
+  const dalsi = casBehuText(dalsiBehZpracovani(ted));
+  if (uzProsla) return `Čeká na další běh zpracování — podle plánu v ${dalsi}, GitHub ho ale často o hodinu i víc zdrží.`;
+  return `Čeká na běh zpracování — spouští se samo každé 3 hodiny (plán ${casBehuText(new Date(posledni))}, ${dalsi}, …), GitHub ho ale často o hodinu i víc zdrží.`;
 }
 
 /** Jak často se knihovna sama obnoví: když se něco zpracovává (procenta) a když jen čeká na běh. */
