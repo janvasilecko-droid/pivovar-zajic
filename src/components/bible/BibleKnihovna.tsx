@@ -133,7 +133,7 @@ function KartaDokumentu({ d, role, mujId, onZmena, onSmazano, onRozpracovani, zp
         {d.stav === 'zpracovava' && <PrubehZpracovani d={d} />}
         {d.stav === 'ceka' && (
           <div className="font-bold text-amber-200">
-            {textCekani(zpracovavaSeJina, d.postup)}
+            {textCekani(zpracovavaSeJina, d.postup, d.zpracovano_at ?? d.created_at)}
             {prubehText(d.stav, d.postup) ? ` ${prubehText(d.stav, d.postup)}.` : ''}
           </div>
         )}
@@ -235,10 +235,14 @@ export function BibleKnihovna({ role, setPage }: {
   const zpracovavaSe = (nacteno?.stav === 'ok' ? nacteno.dokumenty : []).some((d) => d.stav === 'zpracovava');
   const nekdoCeka = (nacteno?.stav === 'ok' ? nacteno.dokumenty : []).some((d) => d.stav === 'ceka');
   const rozpracovane = useRef(new Set<string>());
+  // Otevřená úprava (nebo nahrávání) zahodí i obnovu, která už letí — jinak
+  // by její odpověď kartu s rozepsaným textem s filtrem stejně schovala.
   const hlasRozpracovani = useCallback((id: string, ano: boolean) => {
-    if (ano) rozpracovane.current.add(id);
-    else rozpracovane.current.delete(id);
-  }, []);
+    if (ano) {
+      rozpracovane.current.add(id);
+      zacniNacteni();
+    } else rozpracovane.current.delete(id);
+  }, [zacniNacteni]);
   const obnovPotichu = useCallback(() => {
     if (nahravani || rozpracovane.current.size > 0) return;
     if (typeof document !== 'undefined' && document.hidden) return;
@@ -324,7 +328,7 @@ export function BibleKnihovna({ role, setPage }: {
       {smiPrispivat(role) && (nahravani ? (
         <BibleNahrat onNahrano={pridejDokument} onZavrit={() => setNahravani(false)} />
       ) : (
-        <button type="button" className="btn-amber" onClick={() => setNahravani(true)}><Upload size={18} /> Nahrát knihy</button>
+        <button type="button" className="btn-amber" onClick={() => { zacniNacteni(); setNahravani(true); }}><Upload size={18} /> Nahrát knihy</button>
       ))}
 
       {dokumenty.length > 0 && (

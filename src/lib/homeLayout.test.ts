@@ -250,9 +250,18 @@ describe('nová dlaždice u uložené plochy', () => {
     expect(layout.pages).toEqual([[A], ['grp_knihy'], []]);
     expect(layout.groups.grp_knihy.memberIds).toEqual(['bible', B]);
   });
-  it('bez práva na bibli se nepřidá vůbec', () => {
+  it('bez práva na bibli se nepřidá vůbec — a neuloží se ani značka, ať ji po povolení přesune', () => {
     const layout = getHomeLayout({ rozlozeniVerze: ROZLOZENI_VERZE, pages: [[A], [B]] }, [A, B]);
     expect(layout.pages.flat()).not.toContain('bible');
+    expect(layout.naUvodni).toEqual([]);
+    // Stará verze mezitím bibli uložila na „Další" a správce ji pak povolil: přesune se jednou na úvodní stránku.
+    const povolena = getHomeLayout({ ...layout, pages: [[A], [B, 'bible']] }, [A, B, 'bible']);
+    expect(povolena.pages).toEqual([[A, 'bible'], [B], []]);
+    expect(povolena.naUvodni).toEqual(['bible']);
+  });
+  it('uložená značka zůstane i s id, které tahle verze nezná (z novější appky)', () => {
+    const layout = getHomeLayout({ rozlozeniVerze: ROZLOZENI_VERZE, pages: [[A, 'bible'], [B]], naUvodni: ['bible', 'budouci'] }, [A, B, 'bible']);
+    expect(layout.naUvodni).toEqual(['bible', 'budouci']);
   });
 });
 

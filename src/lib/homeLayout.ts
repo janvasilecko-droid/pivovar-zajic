@@ -986,7 +986,13 @@ export function getHomeLayout(raw: unknown, visibleIds: Page[], extraIds: Page[]
     countdowns: saved.countdowns || getCountdowns(),
     notes: saved.notes || getHomeNotes(),
     rozlozeniVerze: ROZLOZENI_VERZE,
-    naUvodni: [...NOVE_NA_UVODNI],
+    // Jen dlaždice, které plocha opravdu má (kdo bibli nevidí, tomu se značka
+    // neuloží — jinak by ji po povolení nechala tam, kam ji dala stará verze).
+    // Uložená id zůstávají, i neznámá (z novější verze appky).
+    naUvodni: [...new Set<string>([
+      ...uzNaUvodni.filter((x): x is string => typeof x === 'string'),
+      ...NOVE_NA_UVODNI.filter((id) => seen.has(id) || pages.some((p) => p.includes(id))),
+    ])] as Page[],
   };
 
   // 🗂️ Jednorázové přeskládání do stránek. Kdo má plochu uloženou z doby před

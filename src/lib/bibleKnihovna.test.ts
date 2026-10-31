@@ -163,7 +163,7 @@ describe('průběh zpracování (procenta v knihovně)', () => {
 
   it('u čekajícího dokumentu řekne jen přepsané skenované strany (ty se znovu neplatí); jinak nic', () => {
     expect(prubehText('ceka', prubeh({ faze: 'prepis', hotovo: 30, celkem: 100, ocr_hotovo: 4, ocr_celkem: 74 })))
-      .toBe('přepsáno 4 z 74 naskenovaných stran — pokračuje v dalším běhu, přepsané strany se znovu neplatí');
+      .toBe('Už přepsáno 4 z 74 naskenovaných stran — znovu se neplatí');
     // Kniha s 325 stranami textu a 2 skeny, odložená kvůli kreditu: žádné klamavé „99 %".
     expect(prubehText('ceka', prubeh({ faze: 'prepis', hotovo: 325, celkem: 327, ocr_hotovo: 0, ocr_celkem: 2 }))).toBeNull();
     expect(prubehText('ceka', prubeh({ faze: 'cteni', hotovo: 0, celkem: 100 }))).toBeNull();
@@ -182,22 +182,30 @@ describe('průběh zpracování (procenta v knihovně)', () => {
   });
 
   it('text čekání: jiná kniha se zpracovává → stejný běh; těsně po plánovaném čase → ten běh; jinak další', () => {
-    expect(textCekani(true, {}, new Date('2026-10-31T19:00:00Z'))).toBe('Čeká ve frontě — přijde na řadu v tomhle běhu, až doběhne rozpracovaná kniha.');
+    expect(textCekani(true, {}, null, new Date('2026-10-31T19:00:00Z'))).toBe('Čeká ve frontě — přijde na řadu v tomhle běhu, až doběhne rozpracovaná kniha.');
     // Knihu, kterou tenhle běh už odložil (skeny bez kreditu), ve stejném běhu znovu nevezme.
-    expect(textCekani(true, { prubeh: { faze: 'prepis', cas: '2026-10-31T18:40:00+00:00' } }, new Date('2026-10-31T19:00:00Z')))
+    expect(textCekani(true, { prubeh: { faze: 'prepis', cas: '2026-10-31T18:40:00+00:00' } }, null, new Date('2026-10-31T19:00:00Z')))
       .toBe('Čeká na další běh zpracování — asi v 22:17.');
     // Průběh z minulého běhu (před 18:17) frontu nemění.
-    expect(textCekani(true, { prubeh: { faze: 'prepis', cas: '2026-10-31T16:00:00+00:00' } }, new Date('2026-10-31T19:00:00Z')))
+    expect(textCekani(true, { prubeh: { faze: 'prepis', cas: '2026-10-31T16:00:00+00:00' } }, null, new Date('2026-10-31T19:00:00Z')))
       .toBe('Čeká ve frontě — přijde na řadu v tomhle běhu, až doběhne rozpracovaná kniha.');
     // 18:30 UTC: běh z 18:17 (19:17 Praha) možná ještě nezačal.
-    expect(textCekani(false, {}, new Date('2026-10-31T18:30:00Z'))).toBe('Čeká na běh zpracování z 19:17 — GitHub ho občas o pár desítek minut zdrží.');
+    expect(textCekani(false, {}, null, new Date('2026-10-31T18:30:00Z'))).toBe('Čeká na běh zpracování z 19:17 — GitHub ho občas o pár desítek minut zdrží.');
     // …ale když ho kniha už viděla (průběh po 18:17), čeká na další.
-    expect(textCekani(false, { prubeh: { faze: 'prepis', cas: '2026-10-31T18:25:00+00:00' } }, new Date('2026-10-31T18:30:00Z')))
+    expect(textCekani(false, { prubeh: { faze: 'prepis', cas: '2026-10-31T18:25:00+00:00' } }, null, new Date('2026-10-31T18:30:00Z')))
       .toBe('Čeká na další běh zpracování — asi v 22:17.');
     // Průběh z dřívějška běh nevyřadí.
-    expect(textCekani(false, { prubeh: { faze: 'prepis', cas: '2026-10-31T17:45:00+00:00' } }, new Date('2026-10-31T18:30:00Z')))
+    expect(textCekani(false, { prubeh: { faze: 'prepis', cas: '2026-10-31T17:45:00+00:00' } }, null, new Date('2026-10-31T18:30:00Z')))
       .toBe('Čeká na běh zpracování z 19:17 — GitHub ho občas o pár desítek minut zdrží.');
-    expect(textCekani(false, {}, new Date('2026-10-31T19:40:00Z'))).toBe('Čeká na další běh zpracování — asi v 22:17.');
+    expect(textCekani(false, {}, null, new Date('2026-10-31T19:40:00Z'))).toBe('Čeká na další běh zpracování — asi v 22:17.');
+    // Kniha nahraná (nebo dokončená a vrácená do fronty) až po plánovaném čase: ten běh už nejspíš proběhl.
+    expect(textCekani(false, {}, '2026-10-31T18:25:00.000Z', new Date('2026-10-31T18:30:00Z'))).toBe('Čeká na další běh zpracování — asi v 22:17.');
+    // Nahraná před ním: běh z 18:17 (19:17 Praha) ji ještě vezme.
+    expect(textCekani(false, {}, '2026-10-31T18:10:00.000Z', new Date('2026-10-31T18:30:00Z')))
+      .toBe('Čeká na běh zpracování z 19:17 — GitHub ho občas o pár desítek minut zdrží.');
+    // Ve frontě běžícího běhu je i kniha nahraná až během něj (worker bere frontu dokola).
+    expect(textCekani(true, {}, '2026-10-31T18:50:00.000Z', new Date('2026-10-31T19:00:00Z')))
+      .toBe('Čeká ve frontě — přijde na řadu v tomhle běhu, až doběhne rozpracovaná kniha.');
     expect(posledniBehZpracovani(new Date('2026-10-31T18:16:00Z')).toISOString()).toBe('2026-10-31T15:17:00.000Z');
   });
 

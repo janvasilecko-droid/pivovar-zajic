@@ -154,6 +154,30 @@ describe('Knihovna — procenta zpracování', () => {
     expect(nactiDokumenty).toHaveBeenCalledTimes(2);
   });
 
+  it('obnova, která už letí, se po otevření úpravy popisu nezapíše (rozepsaný text zůstane)', async () => {
+    nactiDokumenty.mockResolvedValueOnce(ok(dok('zpracovava', prepis(46))));
+    await vykresli('spravuje');
+    let dorucit!: (n: Nacteno) => void;
+    nactiDokumenty.mockReturnValueOnce(new Promise<Nacteno>((r) => { dorucit = r; }));
+    await tikni();
+    fireEvent.click(screen.getByRole('button', { name: 'Upravit popis' }));
+    await act(async () => { dorucit(ok(dok('hotovo', { stran: 100 }))); });
+    expect(screen.getByRole('button', { name: 'Uložit popis' })).toBeTruthy();
+    expect(screen.getByText('Zpracovává se · 46 %')).toBeTruthy();
+  });
+
+  it('obnova, která už letí, se po otevření nahrávání nezapíše (nahrávaný soubor nevypadá jako přerušený)', async () => {
+    nactiDokumenty.mockResolvedValueOnce(ok(dok('zpracovava', prepis(46))));
+    await vykresli('spravuje');
+    let dorucit!: (n: Nacteno) => void;
+    nactiDokumenty.mockReturnValueOnce(new Promise<Nacteno>((r) => { dorucit = r; }));
+    await tikni();
+    fireEvent.click(screen.getByRole('button', { name: 'Nahrát knihy' }));
+    await act(async () => { dorucit(ok(dok('zpracovava', prepis(46)), { ...dok('nahrava'), id: 'd9', nazev: 'Nová kniha' })); });
+    expect(screen.queryByText('Nová kniha')).toBeNull();
+    expect(screen.queryByText(/Soubor ještě nedorazil celý/)).toBeNull();
+  });
+
   it('při rozepsaném popisu se seznam neobnovuje (s filtrem by se karta i s textem ztratila)', async () => {
     nactiDokumenty.mockResolvedValue(ok(dok('zpracovava', prepis(46))));
     await vykresli('spravuje');
@@ -193,6 +217,12 @@ describe('Knihovna — procenta zpracování', () => {
     expect(screen.queryByRole('progressbar')).toBeNull();
   });
 
+  it('kniha nahraná až po plánovaném čase čeká na další běh (ten z 19:17 už nejspíš proběhl)', async () => {
+    nactiDokumenty.mockResolvedValueOnce(ok({ ...dok('ceka'), created_at: '2026-10-31T18:25:00Z' }));
+    await vykresli('spravuje');
+    expect(screen.getByText('Čeká na další běh zpracování — asi v 22:17.')).toBeTruthy();
+  });
+
   it('mimo okno běhu ukáže čas dalšího běhu a seznam se obnovuje jen po 10 minutách', async () => {
     vi.setSystemTime(new Date('2026-10-31T20:30:00Z'));
     nactiDokumenty.mockResolvedValueOnce(ok(dok('ceka')));
@@ -212,7 +242,8 @@ describe('Knihovna — procenta zpracování', () => {
   it('rozpracovaná čekající kniha (běh skončil dřív) řekne, kolik skenů je přepsaných', async () => {
     nactiDokumenty.mockResolvedValueOnce(ok(dok('ceka', prepis(30))));
     await vykresli('spravuje');
-    expect(screen.getByText(/přepsáno 4 z 74 naskenovaných stran — pokračuje v dalším běhu/)).toBeTruthy();
+    expect(screen.getByText(/Už přepsáno 4 z 74 naskenovaných stran — znovu se neplatí\./)).toBeTruthy();
+    expect(screen.queryByText(/v dalším běhu/)).toBeNull();   // kdy přijde na řadu, říká jen první věta
   });
 
   it('odložená kniha bez jediného přepsaného skenu nestraší procenty z minulého běhu', async () => {

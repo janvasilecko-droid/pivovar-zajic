@@ -225,7 +225,8 @@ export function prubehText(stav: StavDokumentu, postup: PostupZpracovani | null 
     return `${procent === null ? '' : `${procent} % · `}${faze}${ocr}${ticho}`;
   }
   if (stav === 'ceka' && ocrCelkem && ocrHotovo > 0) {
-    return `přepsáno ${Math.min(ocrHotovo, ocrCelkem)} z ${ocrCelkem} naskenovaných stran — pokračuje v dalším běhu, přepsané strany se znovu neplatí`;
+    // Kdy kniha přijde na řadu, říká textCekani — tady jen to, co se neztratí.
+    return `Už přepsáno ${Math.min(ocrHotovo, ocrCelkem)} z ${ocrCelkem} naskenovaných stran — znovu se neplatí`;
   }
   return null;
 }
@@ -258,13 +259,21 @@ export const ZDRZENI_BEHU_MIN = 75;
  * neviděl (průběh zapsaný po plánovaném čase): odloženou knihu (třeba skeny
  * bez kreditu) worker ve stejném běhu znovu nebere. Těsně po plánovaném čase
  * běh často ještě nezačal (GitHub ho zdrží) — dokud ho kniha neviděla, čeká
- * na něj, ne na ten o 3 hodiny později.
+ * na něj, ne na ten o 3 hodiny později. To ale neplatí pro knihu, která do
+ * fronty přišla (nahráním nebo dokončením) až po plánovaném čase: ten běh už
+ * nejspíš proběhl, slibuje se další (`zarazeno` = zpracováno_at ?? created_at).
  */
-export function textCekani(zpracovavaSeJina: boolean, postup: PostupZpracovani | null | undefined, ted: Date = new Date()): string {
+export function textCekani(
+  zpracovavaSeJina: boolean,
+  postup: PostupZpracovani | null | undefined,
+  zarazeno: string | null | undefined,
+  ted: Date = new Date(),
+): string {
   const posledni = posledniBehZpracovani(ted);
   const videla = postup?.prubeh?.cas ? Date.parse(postup.prubeh.cas) >= posledni.getTime() : false;
+  const poBehu = zarazeno ? Date.parse(zarazeno) > posledni.getTime() : false;
   if (zpracovavaSeJina && !videla) return 'Čeká ve frontě — přijde na řadu v tomhle běhu, až doběhne rozpracovaná kniha.';
-  if (ted.getTime() - posledni.getTime() < ZDRZENI_BEHU_MIN * 60_000 && !videla) {
+  if (ted.getTime() - posledni.getTime() < ZDRZENI_BEHU_MIN * 60_000 && !videla && !poBehu) {
     return `Čeká na běh zpracování z ${casBehuText(posledni)} — GitHub ho občas o pár desítek minut zdrží.`;
   }
   return `Čeká na další běh zpracování — asi v ${casBehuText(dalsiBehZpracovani(ted))}.`;

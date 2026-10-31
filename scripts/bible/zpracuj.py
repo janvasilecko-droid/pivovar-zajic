@@ -249,6 +249,31 @@ class Prepisovac:
         self.zamek = threading.Lock()
         self.tesseract = ocr.tesseract_k_dispozici()
         self.uspesnych = 0
+        self.ucet_overen = False
+
+    def over_ucet(self) -> None:
+        """Ověří, že přepis teď půjde, dřív než se kvůli skenům stáhne celá kniha.
+
+        Strop útraty z počítadla; klíč, kredit a model jedním levným požadavkem
+        za běh (po úspěšném přepisu už ne). Zastaví jen jasná chyba účtu
+        (ZastavitBeh) — jiná chyba o účtu nic neříká a kniha se zpracuje jako dřív.
+        """
+        with self.zamek:
+            if self.ucet.prekroceno():
+                raise PrerusenoStropem('Čeká: došel strop útraty za AI — pokračuje se dalším během.')
+        if self.ucet_overen or self.uspesnych:
+            return
+        self.ucet_overen = True
+        try:
+            odpoved = ocr.over_ucet(self.klient, self.model)
+        except Exception as e:  # noqa: BLE001 — chyba API → výjimka workeru
+            prevedena = chyba_api(e)
+            if isinstance(prevedena, ZastavitBeh):
+                raise prevedena from None
+            log(f'  ověření účtu Claude se nepovedlo ({type(e).__name__}) — pokračuje se')
+            return
+        with self.zamek:
+            self.ucet.pridej(self.model, ocr.usage_jako_dict(getattr(odpoved, 'usage', None)))
 
     def prepis(self, obrazek: bytes, dalsi_cteni: str = '') -> ocr.Prepis:
         with self.zamek:
@@ -372,6 +397,11 @@ class Prace:
     bez_ai: str | None = None   # proč AI neběží (účet Claude) — zpráva u dokumentu se skeny
 
 
+def _pouzitelny_prepis(hotovy: dict | None) -> bool:
+    """Přepis z dřívějška, který se použije znovu — nepovedený (prázdný a ke kontrole) se zkusí znovu."""
+    return hotovy is not None and bool((hotovy.get('text') or '').strip() or not hotovy.get('ke_kontrole'))
+
+
 def _prepis_skeny(prace: Prace, strany: list[Strana], ke_skenu: dict[int, Callable[[], bytes]],
                   vrstvy: dict[int, str]) -> int:
     """Strany ke skenu: hotové přepisy z dřívějšího pokusu použije, zbytek přepíše. Vrátí počet použitých."""
@@ -379,8 +409,7 @@ def _prepis_skeny(prace: Prace, strany: list[Strana], ke_skenu: dict[int, Callab
     pouzito = 0
     for i, vyrob in ke_skenu.items():
         hotovy = prace.hotove.get(strany[i].pdf_index)
-        # Nepovedený přepis (prázdný a ke kontrole) se zkusí znovu.
-        if hotovy is not None and ((hotovy.get('text') or '').strip() or not hotovy.get('ke_kontrole')):
+        if _pouzitelny_prepis(hotovy):
             s = strany[i]
             s.text, s.okraje = hotovy.get('text') or '', hotovy.get('okraje') or ''
             s.ke_kontrole, s.duvod = bool(hotovy.get('ke_kontrole')), hotovy.get('kontrola_duvod')
@@ -742,23 +771,31 @@ def zpracuj_dokument(supa: Supa, dok: dict, prepisovac: Prepisovac | None, ucet:
         m = _CESTA.match(dok.get('soubor_cesta') or '')
         if not m or m.group(1) != id_ or m.group(2) in ('.', '..'):
             raise ChybaZpracovani('Cesta k souboru v úložišti má nečekaný tvar — nahraj dokument znovu přes appku.')
-        # Bez AI nemá smysl znovu stahovat knihu, o které už víme, že má skeny
-        # (průběh dřívějšího pokusu nebo počty dřívějšího zpracování): bez AI
-        # počká vždycky (přepisy z dřívějška se bez AI nenačítají) a stahování
-        # celé knihy každé 3 hodiny by vyčerpalo přenosy tarifu Free.
+        # Přepisy skenů z dřívějška (stejný model a verze) se znovu neplatí; bez AI
+        # se nenačítají — kniha se skeny pak počká vždycky.
+        hotove = nacti_prepisy(supa, id_, prepisovac.model) if prepisovac is not None else {}
+        # Kniha, o které už víme, že má skeny (průběh dřívějšího pokusu nebo počty
+        # dřívějšího zpracování) a nemá je všechny přepsané, potřebuje AI. Když
+        # teď nejde (klíč, kredit, strop útraty), počká BEZ stažení — celá kniha
+        # by se jinak každé 3 hodiny stahovala zbytečně (přenosy tarifu Free).
+        # Účet se ověří jedním levným požadavkem za běh, dřív než se stahuje.
         drive = puvodni.get('prubeh') if isinstance(puvodni.get('prubeh'), dict) else {}
-        skenu = max(_cislo(drive.get('ocr_celkem'), 0), _cislo(puvodni.get('ocr'), 0))
-        if prepisovac is None and skenu > 0:
-            # Stejné počty, nový čas: knihovna pozná, že ji tenhle běh viděl
-            # (jinak by psala, že na běh teprve čeká).
-            hlasit_prubeh(str(drive.get('faze') or 'prepis'), int(_cislo(drive.get('hotovo'), 0)),
-                          int(_cislo(drive.get('celkem'), 0)), int(_cislo(drive.get('ocr_hotovo'), 0)), int(skenu))
-            raise ChybiKlic(bez_ai or 'Čeká: dokument má naskenované strany a v app_secrets hlavní appky chybí ANTHROPIC_API_KEY.')
+        skenu = int(max(_cislo(drive.get('ocr_celkem'), 0), _cislo(puvodni.get('ocr'), 0)))
+        if skenu > sum(1 for h in hotove.values() if _pouzitelny_prepis(h)):
+            try:
+                if prepisovac is None:
+                    raise ChybiKlic(bez_ai or 'Čeká: dokument má naskenované strany a v app_secrets hlavní appky chybí ANTHROPIC_API_KEY.')
+                prepisovac.over_ucet()
+            except Odlozit:
+                # Stejné počty, nový čas: knihovna pozná, že ji tenhle běh viděl
+                # (jinak by psala, že na běh teprve čeká).
+                hlasit_prubeh(str(drive.get('faze') or 'prepis'), int(_cislo(drive.get('hotovo'), 0)),
+                              int(_cislo(drive.get('celkem'), 0)), int(_cislo(drive.get('ocr_hotovo'), 0)), skenu)
+                raise
         hlasit_prubeh('stahovani', 0, 0)
         data = supa.stahni(BUCKET, dok['soubor_cesta'])
         if hashlib.sha256(data).hexdigest() != dok.get('soubor_sha256'):
             raise ChybaZpracovani('Soubor v úložišti se liší od nahraného (otisk SHA-256 nesedí).')
-        hotove = nacti_prepisy(supa, id_, prepisovac.model) if prepisovac is not None else {}
         hlasit_prubeh('cteni', 0, 0)
         vysledek = rozloz(data, mime, Prace(prepisovac, hotove, ulozit_prepisy, kontrola, hlasit_prubeh, bez_ai))
         if not any(s.text.strip() for s in vysledek.strany):
