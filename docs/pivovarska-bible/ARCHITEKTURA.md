@@ -368,8 +368,10 @@ plochu s 8 dlaždicemi podle zadání (bod 10):
 Schéma projektu bible: `bible/supabase/migrations/` (základ
 `20261101000000_bible_zaklad.sql` = etapy 1 a 2 přenesené z hlavního
 projektu, bez `profiles` a bez cizích klíčů na `auth.users`). V hlavním
-projektu zůstávají migrace `20261231410000` a `20261231420000` (běžely) a
-prázdné tabulky; zápis do nich zavřela `20261231430000`.
+projektu zůstávají migrace `20261231410000` a `20261231420000` (běžely).
+Jejich prázdné tabulky smaže `20261231440000` (majitel souhlasil 31. 10. 2026);
+když by v nich byl jediný řádek, migrace nesmaže nic. `bible_pristup()`,
+`bible_overeni()` a prázdný zavřený bucket `knihovna` zůstávají.
 
 Etapa 1:
 - `bible_dokumenty`: metadata, soubor (cesta, SHA-256, velikost, MIME),

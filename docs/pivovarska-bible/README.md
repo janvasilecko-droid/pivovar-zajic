@@ -33,7 +33,7 @@ s citací kniha–kapitola–strana a počítá deterministickým výpočetním 
 | 0: audit a architektura | hotovo (30. 10. 2026) |
 | 1: knihovna, nahrávání, stav | hotovo (31. 10. 2026) |
 | 2: zpracování knih (worker) | hotovo (31. 10. 2026) |
-| přesun do samostatného projektu (R12) | hotovo — migrace `20261101000000_bible_zaklad` (Databáze bible) a `20261231430000_pivovarska_bible_samostatny_projekt` (hlavní databáze) pouští majitel |
+| přesun do samostatného projektu (R12) | hotovo — migrace `20261101000000_bible_zaklad` (Databáze bible) a `20261231430000_pivovarska_bible_samostatny_projekt` (hlavní databáze) pouští majitel; úklid prázdných tabulek v hlavní databázi `20261231440000_pivovarska_bible_uklid_hlavniho_projektu` |
 | 3–10 | čeká |
 
 ## Zpracování knih (etapa 2)

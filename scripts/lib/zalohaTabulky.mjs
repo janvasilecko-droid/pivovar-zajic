@@ -61,7 +61,7 @@ export const TABULKY = [
  * soubory, stav zpracování), nastavení modelů, evidence nákladů na AI
  * a evidence migrací. Obsah knih se nezálohuje — viz NEZALOHOVAT_BIBLE.
  * Prázdné tabulky bible, které v hlavním projektu zůstaly po přestěhování,
- * se nezálohují (nic v nich není a appka do nich už nezapisuje).
+ * se nezálohují (nic v nich není a migrace 20261231440000 je smaže).
  */
 export const TABULKY_BIBLE = [
   ['migrace_aplikovane', 'nazev'], ['bible_nastaveni', 'klic'], ['bible_dokumenty', 'id'], ['ai_naklady', 'id'],
@@ -76,7 +76,9 @@ export const NEZALOHOVAT = [
   // Jen počítadlo přepisů fotek (Google Vision) za měsíc — žádná data pivovaru.
   'ocr_pouziti',
   // Pivovarská bible: od 31. 10. 2026 v samostatném projektu (TABULKY_BIBLE);
-  // v hlavním projektu zůstaly jen prázdné tabulky.
+  // v hlavním projektu zůstaly jen prázdné tabulky — smaže je 20261231440000.
+  // Tady zůstávají, dokud je zná src/lib/database.types.ts (a pro databáze,
+  // kde úklid ještě neběžel).
   'bible_dokumenty', 'bible_nastaveni', 'ai_naklady',
   'bible_kapitoly', 'bible_strany', 'bible_pasaze',
 ];

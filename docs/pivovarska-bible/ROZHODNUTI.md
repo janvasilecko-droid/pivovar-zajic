@@ -117,8 +117,11 @@ Každé rozhodnutí má datum, důvod a co by ho změnilo.
 - **Zálohy:** `zalohy/bible/` (katalog, nastavení, náklady, evidence migrací).
 - **Hlavní projekt:** migrace `20261231410000` a `20261231420000` zůstávají
   (běžely, přesun by v Auditu vyrobil „osiřelé" migrace). Tabulky bible tam
-  zůstávají prázdné; zápis do nich zavřela `20261231430000`. Smazat je jde
-  jen se souhlasem majitele (CLAUDE.md: data nemazat).
+  zůstaly prázdné; zápis do nich zavřela `20261231430000`. Majitel smazání
+  odsouhlasil 31. 10. 2026 („ano") → `20261231440000` je smaže i s funkcemi
+  nad nimi, jen když jsou prázdné a nastavení má výchozí hodnoty (jinak
+  nesmaže nic). Zůstává `bible_pristup()` (volá ji `bible_overeni()`),
+  `bible_smi_*` a prázdný bucket `knihovna` (SQL ho smazat nedovolí).
 - **R10 platí dál ve smyslu:** hledání poběží v edge funkci projektu bible
   service rolí (bez RLS, takže s indexem); práva hlídá brána.
 - **Rozběhnuté nahrání po smazání:** podepsaný odkaz platí 2 h a odvolat nejde.
