@@ -132,6 +132,16 @@ Každé rozhodnutí má datum, důvod a co by ho změnilo.
   zneužít. Proto: v organizaci bible jen majitel (se 2FA) a token
   `SUPABASE_BIBLE_ACCESS_TOKEN` jen na projekt bible. Lepší by byl krátký lístek
   jen pro bibli vydaný hlavním projektem (sdílený podpis) — až bude potřeba.
+  Stav 31. 10. 2026: uložený token je bez vypršení („never"), tedy nejspíš
+  starší typ s přístupem k celému účtu (omezené tokeny vyprší nejpozději za
+  rok). Omezení na projekt bible tak zatím neplatí; riziko navíc je malé,
+  protože ve stejných GitHub secrets už je `SUPABASE_ACCESS_TOKEN` hlavního
+  projektu. Nahradit omezeným tokenem jde kdykoli (CLAUDE.md).
+- **Uspání projektu na Free:** Supabase uspí Free projekt po týdnu bez provozu.
+  Worker se každé 3 hodiny ptá na frontu (`bible_dokumenty`, s klíčem
+  `BIBLE_SUPABASE_SERVICE_ROLE_KEY`), což je provoz databáze, takže by se
+  projekt uspat neměl. Když se přesto uspí, přijde e-mail a appka hlásí
+  „Databáze bible neodpovídá"; obnoví se na stránce projektu.
 - **Funkce v migracích bible** musí mít vlastní `REVOKE … FROM PUBLIC, anon,
   authenticated` (výchozí EXECUTE pro PUBLIC jde vypnout jen globálně, což by
   zasáhlo i rozšíření). Hlídá to `bible/supabase/testy/10_kontroly.sql`, které
