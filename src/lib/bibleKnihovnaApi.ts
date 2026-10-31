@@ -11,9 +11,11 @@
 //   Když 3. selže, soubor z bucketu hned zmizí — nezůstane soubor bez záznamu.
 import { bibleDb } from './bibleKlient';
 import {
-  bezpecneJmeno, chybiMigrace, hlaskaChyby, sha256Hex, typSouboru,
-  type DruhDokumentu, type JazykDokumentu, type PostupZpracovani, type StavDokumentu,
+  bezpecneJmeno, chybiMigrace, hlaskaChyby, sha256Hex, souhrnNakladu, typSouboru,
+  type DruhDokumentu, type JazykDokumentu, type NakladyMesice, type PostupZpracovani, type StavDokumentu,
 } from './bibleKnihovna';
+
+export type { NakladyMesice } from './bibleKnihovna';
 
 export const BUCKET_KNIHOVNA = 'knihovna';
 
@@ -197,4 +199,20 @@ export async function nactiKapacitu(): Promise<{ kapacita: Kapacita } | { chyba:
   const { data, error } = await bibleDb.rpc('bible_kapacita');
   if (error) return { chyba: hlaskaChyby(error), bezMigrace: chybiMigrace(error) };
   return { kapacita: data as Kapacita };
+}
+
+/** Útrata za AI od začátku měsíce (UTC) — jen pro správce (RLS). */
+export async function nactiNakladyMesice(ted = new Date()): Promise<{ naklady: NakladyMesice } | { chyba: string; bezMigrace: boolean }> {
+  const zacatek = new Date(Date.UTC(ted.getUTCFullYear(), ted.getUTCMonth(), 1)).toISOString();
+  // Součet po účelech počítá databáze — výběr řádků by REST uřízl na 1000 a útrata by vyšla menší.
+  const { data, error } = await bibleDb.rpc('bible_naklady_od', { p_od: zacatek });
+  if (error) return { chyba: hlaskaChyby(error), bezMigrace: chybiMigrace(error) };
+  return { naklady: souhrnNakladu((data ?? []) as { ucel: string; cena_usd: number; volani: number }[]) };
+}
+
+/** Nastavení bible (modely, stropy) jako klíč → hodnota. */
+export async function nactiNastaveni(): Promise<Record<string, unknown> | null> {
+  const { data, error } = await bibleDb.from('bible_nastaveni').select('klic,hodnota');
+  if (error || !data) return null;
+  return Object.fromEntries((data as { klic: string; hodnota: unknown }[]).map((r) => [r.klic, r.hodnota]));
 }

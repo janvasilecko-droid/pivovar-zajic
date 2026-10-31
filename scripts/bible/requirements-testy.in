@@ -1,0 +1,4 @@
+# Navíc jen pro job „testy" (ne do jobu se service-role klíčem).
+-c requirements.txt
+-r requirements.in
+pytest>=8

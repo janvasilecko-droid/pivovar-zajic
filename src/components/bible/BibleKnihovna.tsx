@@ -92,7 +92,7 @@ function KartaDokumentu({ d, role, mujId, onZmena, onSmazano }: {
         </div>
         <div className="break-all">{d.soubor_nazev} · {velikostText(d.soubor_velikost)}</div>
         {postup && <div className="font-bold text-neutral-100">{postup}</div>}
-        {d.stav_zprava && <div className="font-bold text-rose-300">{d.stav_zprava}</div>}
+        {d.stav_zprava && <div className={`font-bold ${d.stav === 'chyba' ? 'text-rose-300' : 'text-amber-200'}`}>{d.stav_zprava}</div>}
         <div>Nahrál {d.nahral_jmeno ?? '—'}, {new Date(d.created_at).toLocaleDateString('cs-CZ')}</div>
       </div>
 
@@ -130,7 +130,8 @@ function KartaDokumentu({ d, role, mujId, onZmena, onSmazano }: {
               <RotateCcw size={16} /> Zpracovat znovu
             </button>
           )}
-          {spravce && d.stav === 'ceka' && (
+          {/* Pozastavit jde i rozpracovaný dokument: worker to pozná a přestane (přepsané strany zůstanou). */}
+          {spravce && (d.stav === 'ceka' || d.stav === 'zpracovava') && (
             <button type="button" className="btn-tmave btn-sm" disabled={bezi} onClick={() => akce(() => nastavStav(d.id, 'pozastaveno'), () => onZmena({ ...d, stav: 'pozastaveno', stav_zprava: null }))}>
               <Pause size={16} /> Pozastavit
             </button>

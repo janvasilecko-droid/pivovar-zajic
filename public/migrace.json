@@ -183,6 +183,7 @@
     "20261231380000_uzavreny_mesic_inventura_nejde_prepsat.sql",
     "20261231390000_kniha_jizd_uzaverka_a_druhe_auto.sql",
     "20261231400000_staceni_bez_minusovych_oprav.sql",
-    "20261231410000_pivovarska_bible_knihovna.sql"
+    "20261231410000_pivovarska_bible_knihovna.sql",
+    "20261231420000_pivovarska_bible_zpracovani.sql"
   ]
 }

@@ -96,3 +96,8 @@ nahled/snimky/
 
 # Vzniká při `npm run zkontroluj-edge-funkce` (deno check) — není potřeba verzovat.
 deno.lock
+
+# Python (worker Pivovarské bible, scripts/bible)
+__pycache__/
+*.pyc
+.pytest_cache/

@@ -917,6 +917,74 @@
   "nahral",
   "nahral_jmeno",
   "created_at",
-  "updated_at"
+  "updated_at",
+  "zamek_do",
+  "pokusy"
+ ],
+ "bible_kapitoly": [
+  "id",
+  "dokument_id",
+  "rodic_id",
+  "poradi",
+  "uroven",
+  "cislo",
+  "nazev",
+  "strana_od",
+  "strana_do",
+  "zdroj"
+ ],
+ "bible_strany": [
+  "dokument_id",
+  "pdf_index",
+  "tistena_strana",
+  "tistena_zdroj",
+  "zdroj_textu",
+  "ocr_model",
+  "ocr_verze",
+  "text",
+  "okraje",
+  "znaku",
+  "ke_kontrole",
+  "kontrola_duvod",
+  "kapitola_id",
+  "verze_zpracovani",
+  "created_at"
+ ],
+ "bible_pasaze": [
+  "id",
+  "dokument_id",
+  "kapitola_id",
+  "poradi",
+  "strana_od",
+  "strana_do",
+  "druh",
+  "text",
+  "kontext",
+  "jazyk",
+  "hledani",
+  "verze_zpracovani",
+  "created_at"
+ ],
+ "ai_naklady": [
+  "id",
+  "cas",
+  "ucel",
+  "poskytovatel",
+  "model",
+  "volani",
+  "vstup_tokenu",
+  "vystup_tokenu",
+  "cache_cteni_tokenu",
+  "cache_zapis_tokenu",
+  "cena_usd",
+  "dokument_id",
+  "uzivatel",
+  "poznamka"
+ ],
+ "bible_nastaveni": [
+  "klic",
+  "hodnota",
+  "popis",
+  "upraveno"
  ]
 }

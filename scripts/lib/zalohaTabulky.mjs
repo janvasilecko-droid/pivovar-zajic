@@ -53,9 +53,10 @@ export const TABULKY = [
   ['obchod_zbozi', 'kod'], ['obchod_prijem', 'id'], ['obchod_uzaverky', 'id'],
   ['obchod_uzaverky_radky', 'id'], ['obchod_inventura', 'id'],
   ['obchod_odpis', 'id'], ['obchod_zavreno', 'datum'],
-  // Pivovarská bible: jen katalog knihovny (názvy, soubory, stav zpracování).
-  // Obsah knih (strany, pasáže) se nezálohuje — vznikne znovu z originálů.
-  ['bible_dokumenty', 'id'],
+  // Pivovarská bible: jen katalog knihovny (názvy, soubory, stav zpracování),
+  // nastavení modelů a evidence nákladů na AI. Obsah knih (strany, kapitoly,
+  // pasáže) se nezálohuje — viz NEZALOHOVAT.
+  ['bible_dokumenty', 'id'], ['bible_nastaveni', 'klic'], ['ai_naklady', 'id'],
 ];
 
 export const NEZALOHOVAT = [
@@ -63,6 +64,10 @@ export const NEZALOHOVAT = [
   'whatsapp_most_stav', 'app_errors', 'user_app_versions',
   // Jen počítadlo přepisů fotek (Google Vision) za měsíc — žádná data pivovaru.
   'ocr_pouziti',
+  // Pivovarská bible: strany, kapitoly a pasáže knih jsou odvozené z originálů
+  // v bucketu „knihovna" (zpracování je kdykoli vytvoří znovu). Obsah knih
+  // chráněný autorským právem do zálohy ve veřejném repu nepatří.
+  'bible_kapitoly', 'bible_strany', 'bible_pasaze',
 ];
 
 /** Sloupce, které se při obnově zapíšou až ve druhém kole (kruhové a vlastní odkazy). */
@@ -71,6 +76,16 @@ export const ODLOZENE_SLOUPCE = {
   whatsapp_incoming: ['imported_order_id', 'amends_order_id', 'amends_message_id'],
   cellar_batches: ['kvasnice_z_varky'],
   bible_dokumenty: ['duplikat_z'],
+};
+
+/**
+ * Unikátní sloupce kromě klíče. Řádek ze zálohy, jehož hodnota už v databázi
+ * patří jinému řádku (dokument smazán a tentýž soubor nahrán znovu), se při
+ * obnově přeskočí — konflikt (HTTP 409) by jinak zastavil obnovu i všech
+ * dalších tabulek.
+ */
+export const UNIKATNI_SLOUPCE = {
+  bible_dokumenty: ['soubor_sha256', 'soubor_cesta'],
 };
 
 /** Kontroly návaznosti pro zkoušku obnovy: [tabulka, sloupec, cílová tabulka]. */

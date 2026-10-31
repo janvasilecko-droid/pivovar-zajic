@@ -9,9 +9,14 @@ import { ExternalLink, ShieldCheck } from 'lucide-react';
 import { smiSpravovat, type BibleRole } from '../../lib/bibleOpravneni';
 import { BIBLE_OBLASTI } from '../../lib/bibleOblasti';
 import { velikostText } from '../../lib/bibleKnihovna';
-import { nactiDokumenty, nactiKapacitu, type BibleDokument, type Kapacita } from '../../lib/bibleKnihovnaApi';
+import {
+  nactiDokumenty, nactiKapacitu, nactiNakladyMesice, nactiNastaveni,
+  type BibleDokument, type Kapacita, type NakladyMesice,
+} from '../../lib/bibleKnihovnaApi';
 
 const FREE_DB = 500 * 1024 * 1024;
+/** Ruční spuštění zpracování knih (GitHub Actions → Run workflow). */
+export const ODKAZ_ZPRACOVANI = 'https://github.com/janvasilecko-droid/pivovar-zajic/actions/workflows/bible-zpracovani.yml';
 const FREE_ULOZISTE = 1024 * 1024 * 1024;
 
 function Pruh({ nazev, bajtu, limit }: { nazev: string; bajtu: number; limit: number }) {
@@ -52,6 +57,37 @@ function KapacitaPanel() {
         </li>
         <li>Fulltext: {k.fulltext.join(', ') || '—'}</li>
       </ul>
+    </div>
+  );
+}
+
+const usd = (n: number) => `${n.toFixed(n < 1 ? 3 : 2).replace('.', ',')} USD`;
+
+function NakladyPanel() {
+  const [naklady, setNaklady] = useState<{ naklady: NakladyMesice } | { chyba: string; bezMigrace: boolean } | null>(null);
+  const [nastaveni, setNastaveni] = useState<Record<string, unknown> | null>(null);
+  useEffect(() => {
+    void nactiNakladyMesice().then(setNaklady);
+    void nactiNastaveni().then(setNastaveni);
+  }, []);
+  const strop = Number(nastaveni?.strop_mesic_usd ?? NaN);
+  return (
+    <div className="space-y-1 text-sm">
+      {naklady === null ? (
+        <div className="text-neutral-300">Načítám útratu…</div>
+      ) : 'chyba' in naklady ? (
+        <div className="text-neutral-200">{naklady.bezMigrace ? 'Evidence nákladů začne po migraci zpracování knih (Systém → Databázové migrace).' : naklady.chyba}</div>
+      ) : (
+        <div className="font-bold text-neutral-100">
+          Tento měsíc: {usd(naklady.naklady.usd)} za {naklady.naklady.volani} volání{Number.isFinite(strop) ? ` (strop ${usd(strop)})` : ''}
+        </div>
+      )}
+      {nastaveni && (
+        <ul className="text-xs text-neutral-300 space-y-0.5">
+          <li>Odpovědi: {String(nastaveni.model_odpovedi ?? '—')}</li>
+          <li>Přepis skenů: {String(nastaveni.model_ocr ?? '—')}</li>
+        </ul>
+      )}
     </div>
   );
 }
@@ -98,11 +134,24 @@ export function BibleSprava({ role, setPage }: {
         </ul>
       </section>
 
+      {smiSpravovat(role) && (
+        <section className="rounded-xl border border-neutral-700 bg-neutral-900 text-neutral-100 p-4 space-y-2">
+          <h2 className="font-black">Zpracování knih</h2>
+          <p className="text-sm text-neutral-200">
+            Nahrané knihy zpracuje server sám (zhruba každé tři hodiny, GitHub ho občas zdrží). Hned se dá spustit na GitHubu: otevři odkaz a klepni „Run workflow".
+          </p>
+          <a className="btn-tmave" href={ODKAZ_ZPRACOVANI} target="_blank" rel="noopener noreferrer">
+            <ExternalLink size={16} /> Spustit zpracování
+          </a>
+        </section>
+      )}
+
       <section className="rounded-xl border border-neutral-700 bg-neutral-900 text-neutral-100 p-4 space-y-2">
         <h2 className="font-black">AI a náklady</h2>
         <p className="text-sm text-neutral-200">
-          Odpovídat bude Claude (Anthropic) — Opus 5.5, levnější Sonnet 5.5 jde přepnout. Skeny knih přepíše Claude Haiku 5.5. Každé volání se zapíše s počtem tokenů a cenou a bude mít měsíční strop.
+          Odpovídat bude Claude (Anthropic) — Opus 5.5, levnější Sonnet 5.5 jde přepnout. Skeny knih přepíše Claude Haiku 5.5. Každé volání se zapíše s počtem tokenů a cenou a hlídá ho měsíční strop.
         </p>
+        {smiSpravovat(role) && <NakladyPanel />}
         <a className="btn-tmave" href="https://platform.claude.com/settings/billing" target="_blank" rel="noopener noreferrer">
           <ExternalLink size={16} /> Kredit Anthropic API
         </a>

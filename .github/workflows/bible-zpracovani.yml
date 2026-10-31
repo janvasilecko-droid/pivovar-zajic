@@ -1,0 +1,156 @@
+name: Pivovarská bible — zpracování knih
+
+# Zpracuje knihy nahrané v appce (Pivovarská bible → Knihovna dokumentů):
+# textová vrstva PDF, tištěná čísla stran, kapitoly, přepis skenů přes Claude
+# Haiku s kontrolou Tesseractem, pasáže pro hledání. Kód: scripts/bible/.
+# Návrh: docs/pivovarska-bible/ (rozhodnutí R2 — proč GitHub Actions).
+#
+# ⚠️ REPOZITÁŘ JE VEŘEJNÝ, LOGY TAKY. Worker do logu píše jen ID dokumentů,
+#    počty a stavy — nikdy text ani název knihy. Žádné artefakty.
+#
+# Spouští se:
+#  • ručně: Actions → „Pivovarská bible — zpracování knih" → Run workflow
+#    (volitelně ID jednoho dokumentu),
+#  • záložně podle plánu (GitHub plánované běhy zpožďuje i o hodiny),
+#  • testy workeru a migrací bible i při jejich změně v main (bez zpracování).
+#
+# Secrets: VITE_SUPABASE_URL a SUPABASE_SERVICE_ROLE_KEY (stejné jako záloha).
+# Klíč Claude (ANTHROPIC_API_KEY) si worker přečte z app_secrets a zamaskuje.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dokument:
+        description: 'ID jednoho dokumentu (prázdné = všechny čekající)'
+        required: false
+        default: ''
+  schedule:
+    - cron: '17 */3 * * *'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/bible/**'
+      - 'supabase/migrations/*pivovarska_bible*'
+      - 'supabase/testy/bible/**'
+      - '.github/workflows/bible-zpracovani.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  # Migrace bible na čistém PostgreSQL s napodobeným Supabase: dvakrát za sebou
+  # (musí jít pustit znovu) a pak kontroly přístupu, pojistek a hledání
+  # (supabase/testy/bible/). Rozbitá oprávnění tak neprojdou potichu.
+  migrace:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: zkouska
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Migrace a kontroly
+        env:
+          PGHOST: localhost
+          PGUSER: postgres
+          PGPASSWORD: zkouska
+        run: |
+          set -euo pipefail
+          psql -q -v ON_ERROR_STOP=1 -f supabase/testy/bible/00_stuby.sql
+          for kolo in 1 2; do
+            for m in $(ls supabase/migrations/*_pivovarska_bible_*.sql | sort); do
+              psql -q -v ON_ERROR_STOP=1 -1 -f "$m"
+            done
+          done
+          psql -q -t -A -v ON_ERROR_STOP=1 -f supabase/testy/bible/10_kontroly.sql
+
+  testy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: scripts/bible/requirements-testy.txt
+
+      - name: Tesseract (kontrolní čtení skenů)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq tesseract-ocr tesseract-ocr-ces tesseract-ocr-deu > /dev/null
+
+      # Celý strom závislostí je zamčený i s hashi (scripts/bible/requirements*.txt):
+      # nová verze kteréhokoli balíčku se dostane dovnitř jen přes PR s testy.
+      - name: Závislosti (zamčené)
+        run: pip install -q --require-hashes --no-deps -r scripts/bible/requirements-testy.txt
+
+      - name: Testy workeru
+        working-directory: scripts/bible
+        run: python -m pytest -q tests
+
+  zpracovani:
+    needs: [testy, migrace]
+    if: github.event_name != 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    # Zpracování jen jedno naráz (ruční běh a plánovaný sdílí frontu — vezme
+    # i dokument zadaný ručně). Testy a migrace po pushi se tím nezdržují ani neruší.
+    concurrency:
+      group: bible-zpracovani
+      cancel-in-progress: false
+    steps:
+      # Bez práce se nic neinstaluje: dotaz na čekající dokumenty (jen počet,
+      # žádný obsah). Chybějící tabulka = migrace ještě neběžela → nic.
+      - name: Čeká něco?
+        id: fronta
+        env:
+          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          set -euo pipefail
+          odpoved=$(curl -sS --max-time 30 \
+            "$SUPABASE_URL/rest/v1/bible_dokumenty?select=id&stav=in.(ceka,zpracovava)&limit=1" \
+            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" || echo 'chyba')
+          if echo "$odpoved" | jq -e 'type == "array" and length > 0' > /dev/null 2>&1; then
+            echo "prace=ano" >> "$GITHUB_OUTPUT"
+          else
+            echo "prace=ne" >> "$GITHUB_OUTPUT"
+            echo "Nic nečeká na zpracování (nebo ještě neběžela migrace knihovny)."
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.fronta.outputs.prace == 'ano'
+
+      - uses: actions/setup-python@v5
+        if: steps.fronta.outputs.prace == 'ano'
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: scripts/bible/requirements.txt
+
+      - name: Nástroje (Tesseract, djvulibre)
+        if: steps.fronta.outputs.prace == 'ano'
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq tesseract-ocr tesseract-ocr-ces tesseract-ocr-deu djvulibre-bin > /dev/null
+
+      # Jen zamčené závislosti workeru s hashi, bez pytestu (v tomhle jobu je service-role klíč).
+      - name: Závislosti (zamčené)
+        if: steps.fronta.outputs.prace == 'ano'
+        run: pip install -q --require-hashes --no-deps -r scripts/bible/requirements.txt
+
+      - name: Zpracovat knihy
+        if: steps.fronta.outputs.prace == 'ano'
+        working-directory: scripts/bible
+        env:
+          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          DOKUMENT: ${{ github.event.inputs.dokument }}
+          LIMIT_MINUT: '300'
+        run: python zpracuj.py
