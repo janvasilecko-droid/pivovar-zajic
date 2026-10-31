@@ -27,6 +27,12 @@
 - GitHub secrets pro bibli: `SUPABASE_BIBLE_ACCESS_TOKEN` (nasazení funkcí bible)
   a `BIBLE_SUPABASE_SERVICE_ROLE_KEY` (worker a záloha):
   https://github.com/janvasilecko-droid/pivovar-zajic/settings/secrets/actions
+- `SUPABASE_BIBLE_ACCESS_TOKEN` je omezený token (https://supabase.com/dashboard/account/tokens):
+  preset No access, jen projekt `cegrelgvkygcatupqwrx`, práva Edge Functions
+  + Edge Function Secrets (obě Read-write). **Vyprší nejpozději za rok** a práva
+  nejdou měnit — pak krok „Edge funkce projektu bible" v Build & Deploy zčervená
+  (web se nasadí dál) a v souhrnu běhu jsou odkazy na výměnu. Datum vypršení
+  si poznamenej sem, až token vznikne.
 
 ## Databáze
 - Migrace se NEspouští samy (`AUTO_MIGRACE` není „ano"). Majitel je pouští

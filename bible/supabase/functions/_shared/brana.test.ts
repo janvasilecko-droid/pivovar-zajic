@@ -117,6 +117,26 @@ describe('overUzivatele', () => {
     expect(await overUzivatele(token(), { anonKlic: 'k', fetch: f2 })).toMatchObject({ ok: false, status: 401, kod: 'neprihlasen' });
   });
 
+  it.each([
+    ['vypnuté staré klíče (legacy) v hlavním projektu', { message: 'Legacy API keys are disabled', hint: 'Re-enable them in the Supabase dashboard, or use the new publishable and secret API keys.' }],
+    ['chybějící klíč', { message: 'No API key found in request', hint: 'No `apikey` request header or url param was found.' }],
+    ['brána s novým, neznámým textem (bez kódu Auth/PostgREST)', { message: 'Unregistered API key' }],
+    ['brána s úplně jiným textem (bez kódu Auth/PostgREST)', { message: 'API key revoked' }],
+  ])('klíč hlavní appky neplatí — %s: 503 klic_hlavni', async (_popis, telo) => {
+    const f = falesnyFetch({ auth: json(401, telo), rpc: json(401, telo) });
+    expect(await overUzivatele(token(), { anonKlic: 'k', fetch: f })).toMatchObject({ ok: false, status: 503, kod: 'klic_hlavni' });
+  });
+
+  it.each([
+    ['jen jedna odpověď vypadá jako brána', json(401, { message: 'Invalid JWT' }), json(401, { code: 'PGRST301', message: 'JWT invalid' })],
+    ['prázdné tělo', json(401, {}), json(401, { message: '' })],
+    ['tělo není JSON', new Response('nic', { status: 401 }), new Response('nic', { status: 401 })],
+    ['pole místo objektu', json(401, ['Invalid API key']), json(401, ['Invalid API key'])],
+  ])('odmítnutý token, ne klíč — %s: 401 neprihlasen', async (_popis, auth, rpc) => {
+    const f = falesnyFetch({ auth, rpc });
+    expect(await overUzivatele(token(), { anonKlic: 'k', fetch: f })).toMatchObject({ ok: false, status: 401, kod: 'neprihlasen' });
+  });
+
   it('pomalý hlavní projekt = odmítnuto (časový limit)', async () => {
     const f = vi.fn((_url: string, init?: RequestInit) => new Promise<Response>((_ok, ko) => {
       init?.signal?.addEventListener('abort', () => ko(new DOMException('aborted', 'AbortError')));

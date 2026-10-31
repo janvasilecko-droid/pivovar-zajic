@@ -158,10 +158,19 @@ async function sCasovymLimitem(f: Fetch, url: string, init: RequestInit, limitMs
   }
 }
 
-/** Odpověď brány Supabase na neplatný apikey (ne odmítnutý token uživatele). */
+/**
+ * Odpověď brány Supabase na neplatný apikey (ne odmítnutý token uživatele).
+ * Auth i PostgREST ke každé své chybě přidávají kód (error_code / code); brána
+ * před nimi vrací jen message (+ hint) a její text se mění („Invalid API key",
+ * „Legacy API keys are disabled", …). Rozhoduje proto tvar, známé texty jsou
+ * jen pojistka. Volá se, jen když oba dotazy skončily 401.
+ */
 async function neplatnyKlic(r: Response): Promise<boolean> {
-  const j = (await jsonNeboNull(r)) as { message?: unknown; msg?: unknown } | null;
-  return Boolean(j) && /invalid api key|no api key/i.test(String(j?.message ?? j?.msg ?? ''));
+  const j = await jsonNeboNull(r);
+  if (!j || typeof j !== 'object' || Array.isArray(j)) return false;
+  const o = j as Record<string, unknown>;
+  if (/invalid api key|no api key|api keys? (are |is )?disabled|unregistered api key/i.test(String(o.message ?? o.msg ?? ''))) return true;
+  return typeof o.message === 'string' && o.message.trim() !== '' && !('code' in o) && !('error_code' in o);
 }
 
 async function jsonNeboNull(r: Response): Promise<unknown> {
