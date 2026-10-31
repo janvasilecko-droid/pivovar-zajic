@@ -1,9 +1,9 @@
 // ⚙️ Správa znalostí Pivovarské bible — tematické oblasti A–T, kdo má
 // přístup, kapacita databáze a úložiště, AI (Claude) a náklady.
 // ---------------------------------------------------------------------------
-// Kapacitu (velikost DB a úložiště, co projekt umí pro hledání) vrací
-// databázová funkce bible_kapacita() jen správcům knihovny. Tarif Supabase
-// z ní poznat nejde — limity Free jsou tu pro srovnání.
+// Kapacitu PROJEKTU BIBLE (samostatný Supabase Free, R12: vlastní 500 MB
+// databáze a 1 GB úložiště) vrací bible_kapacita() přes bible-api jen
+// správcům knihovny. Tarif z ní poznat nejde — limity Free jsou pro srovnání.
 import { useEffect, useState } from 'react';
 import { ExternalLink, ShieldCheck } from 'lucide-react';
 import { smiSpravovat, type BibleRole } from '../../lib/bibleOpravneni';
@@ -40,7 +40,7 @@ function KapacitaPanel() {
 
   if (stav === null) return <div className="text-sm text-neutral-300">Zjišťuji kapacitu…</div>;
   if ('chyba' in stav) {
-    return <div className="text-sm font-bold text-rose-300">{stav.bezMigrace ? 'Kapacitu ukáže až migrace knihovny (Systém → Databázové migrace).' : stav.chyba}</div>;
+    return <div className="text-sm font-bold text-rose-300">{stav.bezMigrace ? 'Kapacitu ukáže až migrace databáze bible (Systém → Databázové migrace → Databáze bible).' : stav.chyba}</div>;
   }
   const k = stav.kapacita;
   const ulozisteCelkem = Object.values(k.uloziste).reduce((s, b) => s + b.bajtu, 0);
@@ -76,7 +76,7 @@ function NakladyPanel() {
       {naklady === null ? (
         <div className="text-neutral-300">Načítám útratu…</div>
       ) : 'chyba' in naklady ? (
-        <div className="text-neutral-200">{naklady.bezMigrace ? 'Evidence nákladů začne po migraci zpracování knih (Systém → Databázové migrace).' : naklady.chyba}</div>
+        <div className="text-neutral-200">{naklady.bezMigrace ? 'Evidence nákladů začne po migraci databáze bible (Systém → Databázové migrace → Databáze bible).' : naklady.chyba}</div>
       ) : (
         <div className="font-bold text-neutral-100">
           Tento měsíc: {usd(naklady.naklady.usd)} za {naklady.naklady.volani} volání{Number.isFinite(strop) ? ` (strop ${usd(strop)})` : ''}
@@ -117,7 +117,8 @@ export function BibleSprava({ role, setPage }: {
 
       {smiSpravovat(role) && (
         <section className="rounded-xl border border-neutral-700 bg-neutral-900 text-neutral-100 p-4 space-y-3">
-          <h2 className="font-black">Kapacita</h2>
+          <h2 className="font-black">Kapacita projektu bible</h2>
+          <p className="text-xs text-neutral-300">Bible má vlastní projekt Supabase — knihy neubírají místo appce pivovaru.</p>
           <KapacitaPanel />
         </section>
       )}

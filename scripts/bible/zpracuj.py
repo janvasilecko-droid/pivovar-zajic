@@ -10,13 +10,20 @@ Pro každý čekající dokument (fronta bible_vezmi_dokument):
   3. určí tištěná čísla stran (jen s jistotou), kapitoly a pasáže,
   4. zapíše strany, kapitoly a pasáže, stav a počty, náklady na AI.
 
-PROMĚNNÉ: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY; volitelně DOKUMENT (id),
-LIMIT_USD (strop běhu), LIMIT_MINUT, MAX_DOKUMENTU.
+Knihy žijí v SAMOSTATNÉM projektu Supabase (projekt bible, rozhodnutí R12
+v docs/pivovarska-bible/ROZHODNUTI.md). Hlavní projekt appky worker potřebuje
+jen kvůli klíči Anthropic (app_secrets) — nic jiného v něm nečte ani nepíše.
+
+PROMĚNNÉ: BIBLE_KLIC (service role projektu bible), volitelně BIBLE_URL
+(výchozí adresa projektu bible); ANTHROPIC_API_KEY (v Actions ho připraví
+zvláštní krok), jinak HLAVNI_URL a HLAVNI_KLIC (hlavní projekt, jen čtení
+klíče); volitelně DOKUMENT (id), LIMIT_USD (strop běhu), LIMIT_MINUT,
+MAX_DOKUMENTU.
 
 BEZPEČNOST: repo i logy Actions jsou veřejné. Do logu jde jen ID dokumentu,
 počty a stavy — nikdy text, název ani jiný obsah knihy, ani traceback (nesl
-by zprávy výjimek). Klíč Anthropic se čte z app_secrets a v Actions se hned
-maskuje.
+by zprávy výjimek). Klíč Anthropic se čte z app_secrets hlavní appky a
+v Actions se hned maskuje.
 """
 from __future__ import annotations
 
@@ -53,6 +60,7 @@ from supa import ChybaSupabase, Supa
 
 VERZE = 'zpracovani-2'
 BUCKET = 'knihovna'
+BIBLE_URL = 'https://cegrelgvkygcatupqwrx.supabase.co'   # projekt bible (veřejná adresa)
 ZAMEK_MINUT = 120
 VLAKEN_OCR = 4
 DAVKA_PREPISU = 10          # přepsané strany se ukládají po tolika (navázání po přerušení)
@@ -101,7 +109,7 @@ class PrerusenoCasem(Odlozit):
 
 
 class PlnaDatabaze(Odlozit):
-    """Kniha by přeplnila databázi (Supabase Free přepne při 500 MB na jen pro čtení)."""
+    """Kniha by přeplnila databázi bible (Supabase Free ji při 500 MB přepne jen pro čtení)."""
     zastavit_beh = True
 
 
@@ -131,7 +139,7 @@ def chyba_api(e: BaseException, prvni: bool = False) -> BaseException | None:
     zprava = ' '.join(str(getattr(e, 'message', '') or e).split())[:200]
     mala = zprava.lower()
     if status in (401, 403) or druh in ('authentication_error', 'permission_error'):
-        return ZastavitBeh(f'Čeká: Anthropic odmítl klíč (HTTP {status}) — zkontroluj ANTHROPIC_API_KEY v app_secrets.')
+        return ZastavitBeh(f'Čeká: Anthropic odmítl klíč (HTTP {status}) — zkontroluj ANTHROPIC_API_KEY v app_secrets hlavní appky.')
     if status == 402 or druh == 'billing_error' or any(
             s in mala for s in ('credit balance', 'usage limit', 'spend limit', 'you have reached your specified')):
         return ZastavitBeh('Čeká: na účtu Anthropic došel kredit nebo limit útraty — dobij kredit a zpracování poběží dál.')
@@ -201,6 +209,7 @@ def nacti_nastaveni(supa: Supa) -> dict:
 
 
 def nacti_klic_anthropic(supa: Supa) -> str | None:
+    """Klíč Anthropic z app_secrets HLAVNÍHO projektu (používají ho i edge funkce appky)."""
     radky = supa.vyber('app_secrets', {'select': 'value', 'key': 'eq.ANTHROPIC_API_KEY'})
     klic = (radky[0].get('value') if radky else None) or None
     if klic and os.environ.get('GITHUB_ACTIONS') == 'true':
@@ -280,7 +289,7 @@ def prepis_strany(prepisovac: Prepisovac | None, strany: list[Strana], obrazky_s
     if not obrazky_stran:
         return
     if prepisovac is None:
-        raise ChybiKlic('Čeká: dokument má naskenované strany a v app_secrets chybí ANTHROPIC_API_KEY.')
+        raise ChybiKlic('Čeká: dokument má naskenované strany a v app_secrets hlavní appky chybí ANTHROPIC_API_KEY.')
     dalsi_cteni = dalsi_cteni or {}
     k_ulozeni: list[Strana] = []
     hotovo = 0
@@ -445,14 +454,14 @@ def rozloz_djvu(data: bytes, prace: Prace) -> Vysledek:
             f.write(data)
         try:
             n = int(subprocess.run(['djvused', '-e', 'n', cesta], capture_output=True, check=True,
-                                   timeout=120).stdout.strip() or 0)
+                                   timeout=120, env=ocr.prostredi_nastroju()).stdout.strip() or 0)
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired, ValueError):
             raise ChybaZpracovani('DjVu nejde otevřít (je poškozené).') from None
 
         def obrazek(cislo: int) -> bytes:
             tif = os.path.join(slozka, f's{cislo}.tif')
             subprocess.run(['ddjvu', '-format=tiff', f'-page={cislo}', '-size=1568x1568', cesta, tif],
-                           capture_output=True, check=True, timeout=300)
+                           capture_output=True, check=True, timeout=300, env=ocr.prostredi_nastroju())
             with open(tif, 'rb') as f:
                 obsah = f.read()
             os.remove(tif)
@@ -463,7 +472,7 @@ def rozloz_djvu(data: bytes, prace: Prace) -> Vysledek:
         vrstvy: dict[int, str] = {}
         for i in range(n):
             vrstva = subprocess.run(['djvutxt', f'--page={i + 1}', cesta], capture_output=True,
-                                    timeout=120).stdout.decode('utf-8', 'replace')
+                                    timeout=120, env=ocr.prostredi_nastroju()).stdout.decode('utf-8', 'replace')
             strany.append(Strana(i + 1, '', 'ocr'))
             ke_skenu[i] = (lambda c=i + 1: obrazek(c))
             if vrstva.strip():
@@ -645,7 +654,7 @@ def _hlidej_kapacitu(supa: Supa, v: Vysledek, limit_bajtu: int) -> None:
     if db + odhad > limit_bajtu:
         raise PlnaDatabaze(
             f'Čeká: databáze má {db / 1e6:.0f} MB a dokument by přidal asi {odhad / 1e6:.0f} MB — limit je '
-            f'{limit_bajtu / 1e6:.0f} MB (Supabase Free přepne při 500 MB celou appku jen pro čtení). '
+            f'{limit_bajtu / 1e6:.0f} MB (Supabase Free přepne při 500 MB databázi bible jen pro čtení). '
             'Uvolni místo nebo zvyš limit_db_mb v nastavení bible.')
 
 
@@ -759,20 +768,33 @@ def zpracuj_dokument(supa: Supa, dok: dict, prepisovac: Prepisovac | None, ucet:
     return utraceno
 
 
-MIGRACE = '20261231420000_pivovarska_bible_zpracovani'
+MIGRACE = '20261101000000_bible_zaklad'
 
 
 def _beh() -> int:
-    supa = Supa(os.environ.get('SUPABASE_URL', ''), os.environ.get('SUPABASE_SERVICE_ROLE_KEY', ''))
+    supa = Supa(os.environ.get('BIBLE_URL') or BIBLE_URL, os.environ.get('BIBLE_KLIC', ''))
     try:
         nastaveni = nacti_nastaveni(supa)
     except ChybaSupabase as e:
-        if any(k in str(e) for k in ('PGRST205', '42P01', 'HTTP 404')):
-            log(f'Tabulky zpracování v databázi ještě nejsou: spusť migraci {MIGRACE} '
-                '(appka → Systém → Databázové migrace). Konec bez chyby.')
+        if any(k in str(e) for k in ('PGRST205', '42P01')):
+            log(f'Databáze bible ještě nemá tabulky: spusť migraci {MIGRACE} '
+                '(appka → Systém → Databázové migrace → Databáze bible). Konec bez chyby.')
             return 0
-        raise
-    klic = nacti_klic_anthropic(supa)
+        # Holé 404 bez kódu PostgRESTu = špatná adresa projektu, ne chybějící migrace.
+        log(f'Databáze bible neodpovídá ({e}) — zkontroluj BIBLE_URL a BIBLE_KLIC.')
+        return 1
+    # Klíč Claude: v Actions ho přečte zvláštní krok z app_secrets hlavní appky
+    # a předá jako ANTHROPIC_API_KEY (klíč service role hlavní appky se sem tak
+    # vůbec nedostane). Jinak (ruční běh) z hlavní appky přes HLAVNI_URL/KLIC.
+    klic = os.environ.get('ANTHROPIC_API_KEY') or None
+    if klic and os.environ.get('GITHUB_ACTIONS') == 'true':
+        print(f'::add-mask::{klic}', flush=True)
+    hlavni_url, hlavni_klic = os.environ.get('HLAVNI_URL', ''), os.environ.get('HLAVNI_KLIC', '')
+    if not klic and hlavni_url and hlavni_klic:
+        try:
+            klic = nacti_klic_anthropic(Supa(hlavni_url, hlavni_klic))
+        except ChybaSupabase as e:
+            log(f'Klíč Anthropic z hlavní appky se nepodařilo přečíst ({e}).')
     cenik = nastaveni.get('cenik_usd_za_mtok') or {}
     strop_behu = _cislo(os.environ.get('LIMIT_USD'), _cislo(nastaveni.get('strop_zpracovani_usd'), 5.0))
     zbyva_mesic = _cislo(nastaveni.get('strop_mesic_usd'), 20.0) - utraceno_tento_mesic(supa)
@@ -796,7 +818,7 @@ def _beh() -> int:
         if not prepisovac.tesseract:
             log('Pozor: Tesseract chybí — přepisy skenů se nebudou křížově kontrolovat.')
     else:
-        log('Pozor: chybí ANTHROPIC_API_KEY — dokumenty se skeny počkají, ostatní se zpracují.')
+        log('Pozor: chybí ANTHROPIC_API_KEY (app_secrets hlavní appky) — dokumenty se skeny počkají, ostatní se zpracují.')
 
     jen = os.environ.get('DOKUMENT') or None
     max_dokumentu = int(_cislo(os.environ.get('MAX_DOKUMENTU'), 50))

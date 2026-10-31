@@ -53,22 +53,40 @@ export const TABULKY = [
   ['obchod_zbozi', 'kod'], ['obchod_prijem', 'id'], ['obchod_uzaverky', 'id'],
   ['obchod_uzaverky_radky', 'id'], ['obchod_inventura', 'id'],
   ['obchod_odpis', 'id'], ['obchod_zavreno', 'datum'],
-  // Pivovarská bible: jen katalog knihovny (názvy, soubory, stav zpracování),
-  // nastavení modelů a evidence nákladů na AI. Obsah knih (strany, kapitoly,
-  // pasáže) se nezálohuje — viz NEZALOHOVAT.
-  ['bible_dokumenty', 'id'], ['bible_nastaveni', 'klic'], ['ai_naklady', 'id'],
 ];
+
+/**
+ * 📚 PROJEKT BIBLE (samostatný Supabase projekt, rozhodnutí R12) — vlastní
+ * sada zálohy (zalohy/bible/, `--sada bible`): jen katalog knihovny (názvy,
+ * soubory, stav zpracování), nastavení modelů, evidence nákladů na AI
+ * a evidence migrací. Obsah knih se nezálohuje — viz NEZALOHOVAT_BIBLE.
+ * Prázdné tabulky bible, které v hlavním projektu zůstaly po přestěhování,
+ * se nezálohují (nic v nich není a appka do nich už nezapisuje).
+ */
+export const TABULKY_BIBLE = [
+  ['migrace_aplikovane', 'nazev'], ['bible_nastaveni', 'klic'], ['bible_dokumenty', 'id'], ['ai_naklady', 'id'],
+];
+
+/** Adresa projektu bible (veřejná); klíč je v secretu BIBLE_SUPABASE_SERVICE_ROLE_KEY. */
+export const BIBLE_URL = 'https://cegrelgvkygcatupqwrx.supabase.co';
 
 export const NEZALOHOVAT = [
   'app_secrets', 'whatsapp_session', 'push_odbery', 'edge_rate_limits',
   'whatsapp_most_stav', 'app_errors', 'user_app_versions',
   // Jen počítadlo přepisů fotek (Google Vision) za měsíc — žádná data pivovaru.
   'ocr_pouziti',
-  // Pivovarská bible: strany, kapitoly a pasáže knih jsou odvozené z originálů
-  // v bucketu „knihovna" (zpracování je kdykoli vytvoří znovu). Obsah knih
-  // chráněný autorským právem do zálohy ve veřejném repu nepatří.
+  // Pivovarská bible: od 31. 10. 2026 v samostatném projektu (TABULKY_BIBLE);
+  // v hlavním projektu zůstaly jen prázdné tabulky.
+  'bible_dokumenty', 'bible_nastaveni', 'ai_naklady',
   'bible_kapitoly', 'bible_strany', 'bible_pasaze',
 ];
+
+/**
+ * Projekt bible: strany, kapitoly a pasáže knih jsou odvozené z originálů
+ * v bucketu „knihovna" (zpracování je kdykoli vytvoří znovu). Obsah knih
+ * chráněný autorským právem do zálohy ve veřejném repu nepatří.
+ */
+export const NEZALOHOVAT_BIBLE = ['bible_kapitoly', 'bible_strany', 'bible_pasaze'];
 
 /** Sloupce, které se při obnově zapíšou až ve druhém kole (kruhové a vlastní odkazy). */
 export const ODLOZENE_SLOUPCE = {
@@ -97,4 +115,11 @@ export const VAZBY = [
   ['place_aliases', 'place_id', 'places'],
 ];
 
-export const pk = (tabulka) => TABULKY.find(([t]) => t === tabulka)?.[1] ?? 'id';
+export const pk = (tabulka) => [...TABULKY, ...TABULKY_BIBLE].find(([t]) => t === tabulka)?.[1] ?? 'id';
+
+/** Sada zálohy: hlavní projekt (zalohy/) nebo projekt bible (zalohy/bible/). */
+export function sadaZalohy(jmeno) {
+  if (jmeno === 'bible') return { jmeno: 'bible', slozka: 'zalohy/bible', tabulky: TABULKY_BIBLE };
+  if (!jmeno || jmeno === 'hlavni') return { jmeno: 'hlavni', slozka: 'zalohy', tabulky: TABULKY };
+  throw new Error(`Neznámá sada zálohy „${jmeno}" (hlavni, bible).`);
+}

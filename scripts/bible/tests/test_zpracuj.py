@@ -531,3 +531,118 @@ def test_prepisy_se_ukladaji_po_davkach_uz_behem_ocr():
     zpracuj.zpracuj_dokument(supa, _dokument(data, 'application/pdf'), zpracuj.Prepisovac(klient, 'claude-haiku-5-5', ucet), ucet)
     assert davky[0] == zpracuj.DAVKA_PREPISU and davky[1] == zpracuj.DAVKA_PREPISU
     assert davky[-1] == 25   # závěrečný zápis všech stran
+
+
+# --- samostatný projekt bible (R12) -------------------------------------------
+
+def test_beh_bere_knihy_z_projektu_bible_a_klic_z_hlavni_appky(monkeypatch):
+    vytvorene = []
+    cteni = []
+
+    class Falesna:
+        def __init__(self, url, klic, timeout=60):
+            self.url, self.klic = url, klic
+            vytvorene.append(self)
+
+        def rpc(self, funkce, argumenty):
+            cteni.append((funkce, self.url))
+            return []
+
+    monkeypatch.setattr(zpracuj, 'Supa', Falesna)
+    monkeypatch.setattr(zpracuj, 'nacti_nastaveni', lambda s: cteni.append(('nastaveni', s.url)) or {'limit_db_mb': 0})
+    monkeypatch.setattr(zpracuj, 'nacti_klic_anthropic', lambda s: cteni.append(('klic', s.url)) or None)
+    monkeypatch.setattr(zpracuj, 'utraceno_tento_mesic', lambda s: cteni.append(('utrata', s.url)) or 0.0)
+    monkeypatch.delenv('BIBLE_URL', raising=False)
+    monkeypatch.setenv('BIBLE_KLIC', 'sb_secret_bible')
+    monkeypatch.setenv('HLAVNI_URL', 'https://hlavni.example')
+    monkeypatch.setenv('HLAVNI_KLIC', 'sb_secret_hlavni')
+    assert zpracuj._beh() == 0
+    assert zpracuj.BIBLE_URL == 'https://cegrelgvkygcatupqwrx.supabase.co'
+    assert [(v.url, v.klic) for v in vytvorene] == [
+        (zpracuj.BIBLE_URL, 'sb_secret_bible'), ('https://hlavni.example', 'sb_secret_hlavni')]
+    # Nastavení, útrata i fronta z projektu bible; z hlavní appky jen klíč.
+    assert ('nastaveni', zpracuj.BIBLE_URL) in cteni and ('utrata', zpracuj.BIBLE_URL) in cteni
+    assert ('bible_vezmi_dokument', zpracuj.BIBLE_URL) in cteni
+    assert [c for c in cteni if c[1] == 'https://hlavni.example'] == [('klic', 'https://hlavni.example')]
+
+
+def test_beh_bez_hlavni_appky_zpracuje_knihy_bez_ai(monkeypatch, capsys):
+    class Falesna:
+        def __init__(self, url, klic, timeout=60):
+            self.url = url
+
+        def rpc(self, funkce, argumenty):
+            return []
+
+    monkeypatch.setattr(zpracuj, 'Supa', Falesna)
+    monkeypatch.setattr(zpracuj, 'nacti_nastaveni', lambda s: {'limit_db_mb': 0})
+    monkeypatch.setattr(zpracuj, 'utraceno_tento_mesic', lambda s: 0.0)
+    monkeypatch.setenv('BIBLE_KLIC', 'x')
+    monkeypatch.delenv('HLAVNI_URL', raising=False)
+    monkeypatch.delenv('HLAVNI_KLIC', raising=False)
+    assert zpracuj._beh() == 0
+    assert 'chybí ANTHROPIC_API_KEY' in capsys.readouterr().out
+
+
+@pytest.mark.parametrize('chyba, kod, hlaska', [
+    ('rest bible_nastaveni: HTTP 404 PGRST205', 0, 'spusť migraci 20261101000000_bible_zaklad'),
+    ('rest bible_nastaveni: HTTP 404', 1, 'zkontroluj BIBLE_URL'),
+    ('rest bible_nastaveni: HTTP 401', 1, 'zkontroluj BIBLE_URL'),
+])
+def test_beh_bez_tabulek_konci_bez_chyby_spatna_adresa_s_chybou(monkeypatch, capsys, chyba, kod, hlaska):
+    class Falesna:
+        def __init__(self, url, klic, timeout=60):
+            pass
+
+    def nastaveni(_s):
+        raise zpracuj.ChybaSupabase(chyba)
+
+    monkeypatch.setattr(zpracuj, 'Supa', Falesna)
+    monkeypatch.setattr(zpracuj, 'nacti_nastaveni', nastaveni)
+    monkeypatch.setenv('BIBLE_KLIC', 'x')
+    assert zpracuj._beh() == kod
+    assert hlaska in capsys.readouterr().out
+
+
+def test_klic_claude_z_prostredi_hlavni_appku_vubec_nevola(monkeypatch, capsys):
+    vytvorene = []
+
+    class Falesna:
+        def __init__(self, url, klic, timeout=60):
+            vytvorene.append(url)
+            self.url = url
+
+        def rpc(self, funkce, argumenty):
+            return []
+
+    monkeypatch.setattr(zpracuj, 'Supa', Falesna)
+    monkeypatch.setattr(zpracuj, 'nacti_nastaveni', lambda s: {'limit_db_mb': 0, 'cenik_usd_za_mtok': CENIK})
+    monkeypatch.setattr(zpracuj, 'utraceno_tento_mesic', lambda s: 0.0)
+    monkeypatch.setattr(zpracuj, 'nacti_klic_anthropic', lambda s: pytest.fail('klíč se nemá číst z hlavní appky'))
+    monkeypatch.setenv('BIBLE_KLIC', 'x')
+    monkeypatch.setenv('ANTHROPIC_API_KEY', 'sk-ant-z-prostredi')
+    monkeypatch.setenv('HLAVNI_URL', 'https://hlavni.example')
+    monkeypatch.setenv('HLAVNI_KLIC', 'sb_secret_hlavni')
+    monkeypatch.delenv('GITHUB_ACTIONS', raising=False)
+    assert zpracuj._beh() == 0
+    assert vytvorene == [zpracuj.BIBLE_URL]
+    assert 'sk-ant' not in capsys.readouterr().out
+
+
+def test_nativni_nastroje_nedostanou_klice(monkeypatch):
+    for k, v in {'BIBLE_KLIC': 'sb_secret_bible', 'ANTHROPIC_API_KEY': 'sk-ant-x', 'HLAVNI_KLIC': 'sb_secret_h',
+                 'PATH': '/usr/bin', 'HOME': '/home/runner', 'TESSDATA_PREFIX': '/usr/share/tessdata'}.items():
+        monkeypatch.setenv(k, v)
+    prostredi = ocr.prostredi_nastroju()
+    assert prostredi['PATH'] == '/usr/bin' and prostredi['TESSDATA_PREFIX'] == '/usr/share/tessdata'
+    assert not any(k in prostredi for k in ('BIBLE_KLIC', 'ANTHROPIC_API_KEY', 'HLAVNI_KLIC'))
+    zachycene = {}
+
+    def falesny_run(prikaz, **kw):
+        zachycene.update(kw)
+        return SimpleNamespace(returncode=0, stdout=b'')
+
+    monkeypatch.setattr(ocr.subprocess, 'run', falesny_run)
+    monkeypatch.setattr(ocr, 'tesseract_k_dispozici', lambda: True)
+    ocr.precti_tesseractem(b'jpeg', 'ces')
+    assert 'env' in zachycene and 'ANTHROPIC_API_KEY' not in zachycene['env']

@@ -12,10 +12,15 @@ name: Pivovarská bible — zpracování knih
 #  • ručně: Actions → „Pivovarská bible — zpracování knih" → Run workflow
 #    (volitelně ID jednoho dokumentu),
 #  • záložně podle plánu (GitHub plánované běhy zpožďuje i o hodiny),
-#  • testy workeru a migrací bible i při jejich změně v main (bez zpracování).
+#  • testy workeru a migrací bible při jejich změně v main i na pull requestu
+#    (bez zpracování) — migraci databáze bible jde pustit z appky hned po
+#    nasazení, proto se kontroly musí projít ještě před sloučením.
 #
-# Secrets: VITE_SUPABASE_URL a SUPABASE_SERVICE_ROLE_KEY (stejné jako záloha).
-# Klíč Claude (ANTHROPIC_API_KEY) si worker přečte z app_secrets a zamaskuje.
+# Knihy jsou v SAMOSTATNÉM projektu Supabase (projekt bible, rozhodnutí R12):
+#  • BIBLE_SUPABASE_SERVICE_ROLE_KEY — klíč service role projektu bible
+#    (bez něj se zpracování jen ohlásí a skončí zeleně);
+#  • VITE_SUPABASE_URL a SUPABASE_SERVICE_ROLE_KEY — hlavní projekt, jen kvůli
+#    klíči Claude (ANTHROPIC_API_KEY z app_secrets; worker ho zamaskuje).
 
 on:
   workflow_dispatch:
@@ -32,15 +37,27 @@ on:
       - 'scripts/bible/**'
       - 'supabase/migrations/*pivovarska_bible*'
       - 'supabase/testy/bible/**'
+      - 'bible/supabase/migrations/**'
+      - 'bible/supabase/testy/**'
+      - '.github/workflows/bible-zpracovani.yml'
+  pull_request:
+    paths:
+      - 'scripts/bible/**'
+      - 'supabase/migrations/*pivovarska_bible*'
+      - 'supabase/testy/bible/**'
+      - 'bible/supabase/migrations/**'
+      - 'bible/supabase/testy/**'
       - '.github/workflows/bible-zpracovani.yml'
 
 permissions:
   contents: read
 
 jobs:
-  # Migrace bible na čistém PostgreSQL s napodobeným Supabase: dvakrát za sebou
-  # (musí jít pustit znovu) a pak kontroly přístupu, pojistek a hledání
-  # (supabase/testy/bible/). Rozbitá oprávnění tak neprojdou potichu.
+  # Migrace na čistém PostgreSQL s napodobeným Supabase: dvakrát za sebou
+  # (musí jít pustit znovu) a pak kontroly — zvlášť projekt bible (zavřená
+  # databáze, nahrávání, fronta, hledání: bible/supabase/testy/) a hlavní
+  # projekt (bible_pristup, bible_overeni, zavřená stará cesta:
+  # supabase/testy/bible/). Rozbitá oprávnění tak neprojdou potichu.
   migrace:
     runs-on: ubuntu-latest
     services:
@@ -65,13 +82,23 @@ jobs:
           PGPASSWORD: zkouska
         run: |
           set -euo pipefail
-          psql -q -v ON_ERROR_STOP=1 -f supabase/testy/bible/00_stuby.sql
+          psql -q -v ON_ERROR_STOP=1 -d postgres -c "CREATE DATABASE bible" -c "CREATE DATABASE hlavni"
+          # Projekt bible
+          psql -q -v ON_ERROR_STOP=1 -d bible -f bible/supabase/testy/00_stuby.sql
           for kolo in 1 2; do
-            for m in $(ls supabase/migrations/*_pivovarska_bible_*.sql | sort); do
-              psql -q -v ON_ERROR_STOP=1 -1 -f "$m"
+            for m in $(ls bible/supabase/migrations/*.sql | sort); do
+              psql -q -v ON_ERROR_STOP=1 -d bible -1 -f "$m"
             done
           done
-          psql -q -t -A -v ON_ERROR_STOP=1 -f supabase/testy/bible/10_kontroly.sql
+          psql -q -t -A -v ON_ERROR_STOP=1 -d bible -f bible/supabase/testy/10_kontroly.sql
+          # Hlavní projekt (migrace bible, které v něm zůstaly)
+          psql -q -v ON_ERROR_STOP=1 -d hlavni -f supabase/testy/bible/00_stuby.sql
+          for kolo in 1 2; do
+            for m in $(ls supabase/migrations/*_pivovarska_bible_*.sql | sort); do
+              psql -q -v ON_ERROR_STOP=1 -d hlavni -1 -f "$m"
+            done
+          done
+          psql -q -t -A -v ON_ERROR_STOP=1 -d hlavni -f supabase/testy/bible/10_kontroly.sql
 
   testy:
     runs-on: ubuntu-latest
@@ -98,7 +125,8 @@ jobs:
 
   zpracovani:
     needs: [testy, migrace]
-    if: github.event_name != 'push'
+    # Jen plán a ruční spuštění — nikdy push ani pull request.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 330
     # Zpracování jen jedno naráz (ruční běh a plánovaný sdílí frontu — vezme
@@ -107,24 +135,37 @@ jobs:
       group: bible-zpracovani
       cancel-in-progress: false
     steps:
-      # Bez práce se nic neinstaluje: dotaz na čekající dokumenty (jen počet,
-      # žádný obsah). Chybějící tabulka = migrace ještě neběžela → nic.
+      # Bez práce se nic neinstaluje: dotaz na čekající dokumenty v projektu
+      # bible (jen id, žádný obsah). Bez klíče nebo bez tabulek (migrace bible
+      # ještě neběžela) → nic, zeleně. Odmítnutý klíč nebo špatná adresa → červeně.
       - name: Čeká něco?
         id: fronta
         env:
-          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          BIBLE_URL: https://cegrelgvkygcatupqwrx.supabase.co
+          BIBLE_KLIC: ${{ secrets.BIBLE_SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           set -euo pipefail
-          odpoved=$(curl -sS --max-time 30 \
-            "$SUPABASE_URL/rest/v1/bible_dokumenty?select=id&stav=in.(ceka,zpracovava)&limit=1" \
-            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" || echo 'chyba')
-          if echo "$odpoved" | jq -e 'type == "array" and length > 0' > /dev/null 2>&1; then
-            echo "prace=ano" >> "$GITHUB_OUTPUT"
-          else
+          if [ -z "$BIBLE_KLIC" ]; then
             echo "prace=ne" >> "$GITHUB_OUTPUT"
-            echo "Nic nečeká na zpracování (nebo ještě neběžela migrace knihovny)."
+            echo "Chybí secret BIBLE_SUPABASE_SERVICE_ROLE_KEY (klíč projektu bible) — zpracování se nespustí." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
           fi
+          kod=$(curl -sS --max-time 30 -o odpoved.json -w '%{http_code}' \
+            "$BIBLE_URL/rest/v1/bible_dokumenty?select=id&stav=in.(ceka,zpracovava)&limit=1" \
+            -H "apikey: $BIBLE_KLIC" -H "Authorization: Bearer $BIBLE_KLIC" || echo 000)
+          if [ "$kod" = "200" ] && jq -e 'type == "array" and length > 0' odpoved.json > /dev/null 2>&1; then
+            echo "prace=ano" >> "$GITHUB_OUTPUT"
+          elif [ "$kod" = "200" ]; then
+            echo "prace=ne" >> "$GITHUB_OUTPUT"
+            echo "Nic nečeká na zpracování."
+          elif jq -e '.code == "PGRST205" or .code == "42P01"' odpoved.json > /dev/null 2>&1; then
+            echo "prace=ne" >> "$GITHUB_OUTPUT"
+            echo "Databáze bible ještě nemá tabulky — spusť migraci v appce: Systém → Databázové migrace → Databáze bible." | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Projekt bible odpověděl HTTP $kod — zkontroluj secret BIBLE_SUPABASE_SERVICE_ROLE_KEY." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          rm -f odpoved.json
 
       - uses: actions/checkout@v4
         if: steps.fronta.outputs.prace == 'ano'
@@ -145,12 +186,34 @@ jobs:
         if: steps.fronta.outputs.prace == 'ano'
         run: pip install -q --require-hashes --no-deps -r scripts/bible/requirements.txt
 
+      # Klíč Claude z app_secrets hlavní appky ve zvláštním kroku: klíč service
+      # role HLAVNÍHO projektu tak nikdy nevidí krok, který zpracovává nahrané
+      # soubory (PDF, DjVu, Tesseract). Klíč se hned zamaskuje.
+      - name: Klíč Claude
+        if: steps.fronta.outputs.prace == 'ano'
+        env:
+          HLAVNI_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          HLAVNI_KLIC: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          set -uo pipefail
+          klic=""
+          if [ -n "$HLAVNI_URL" ] && [ -n "$HLAVNI_KLIC" ]; then
+            klic=$(curl -sS --max-time 30 "$HLAVNI_URL/rest/v1/app_secrets?select=value&key=eq.ANTHROPIC_API_KEY" \
+              -H "apikey: $HLAVNI_KLIC" -H "Authorization: Bearer $HLAVNI_KLIC" 2>/dev/null | jq -r '.[0].value // empty' 2>/dev/null) || klic=""
+          fi
+          if [ -n "$klic" ]; then
+            echo "::add-mask::$klic"
+            echo "ANTHROPIC_API_KEY=$klic" >> "$GITHUB_ENV"
+            echo "Klíč Claude připraven."
+          else
+            echo "Klíč Claude v app_secrets hlavní appky není (nebo nejde přečíst) — skeny počkají, ostatní se zpracuje."
+          fi
+
       - name: Zpracovat knihy
         if: steps.fronta.outputs.prace == 'ano'
         working-directory: scripts/bible
         env:
-          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          BIBLE_KLIC: ${{ secrets.BIBLE_SUPABASE_SERVICE_ROLE_KEY }}
           DOKUMENT: ${{ github.event.inputs.dokument }}
           LIMIT_MINUT: '300'
         run: python zpracuj.py

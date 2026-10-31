@@ -9,7 +9,8 @@ Pořadí drží zadání (bod 13 Realizace). Každá etapa končí stejně:
 - PR, merge (= git checkpoint) a ověření nasazení.
 
 Migrace pouští majitel v appce: **Systém → Databázové migrace**
-(https://zajic-pivovar.pages.dev/?page=audit).
+(https://zajic-pivovar.pages.dev/?page=audit) — migrace projektu bible
+(rozhodnutí R12) v bloku „Databáze bible" pod hlavními.
 
 | Etapa | Ze zadání | Obsah | Hotovo, když |
 |---|---|---|---|

@@ -12,6 +12,8 @@
 //   node scripts/obnov-ze-zalohy.mjs --opravdu          … a teď to fakt zapiš
 //   node scripts/obnov-ze-zalohy.mjs --smazat-navic --opravdu
 //                                    … + smaže řádky, které v záloze nejsou
+//   node scripts/obnov-ze-zalohy.mjs --sada bible … projekt bible (zalohy/bible/,
+//                                    klíč BIBLE_SUPABASE_SERVICE_ROLE_KEY)
 //
 // Heslo: ZALOHA_HESLO v prostředí nebo v .env. Zálohy před 13. 9. 2026 jsou
 // nešifrované (jen 4 tabulky) a čtou se bez hesla.
@@ -24,18 +26,26 @@ import { execFileSync } from 'node:child_process';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { desifruj } from './lib/sifraZalohy.mjs';
-import { TABULKY, ODLOZENE_SLOUPCE, UNIKATNI_SLOUPCE, pk } from './lib/zalohaTabulky.mjs';
+import { BIBLE_URL, ODLOZENE_SLOUPCE, UNIKATNI_SLOUPCE, pk, sadaZalohy } from './lib/zalohaTabulky.mjs';
+import { prectiArgumenty } from './lib/argumenty.mjs';
 
 const KOREN = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const SLOZKA = resolve(KOREN, 'zalohy');
-const NAZVY = TABULKY.map(([t]) => t);
 
-const args = process.argv.slice(2);
-const prepinac = (jmeno) => args.includes(`--${jmeno}`);
-const hodnota = (jmeno) => {
-  const i = args.indexOf(`--${jmeno}`);
-  return i >= 0 ? args[i + 1] : null;
-};
+let ARGUMENTY;
+let SADA;
+try {
+  ARGUMENTY = prectiArgumenty(process.argv.slice(2), { hodnoty: ['datum', 'tabulka', 'sada'], prepinace: ['opravdu', 'smazat-navic'] });
+  SADA = sadaZalohy(ARGUMENTY.sada ?? 'hlavni');
+} catch (e) {
+  console.error(`Obnova se nespustila: ${e instanceof Error ? e.message : e}`);
+  process.exit(1);
+}
+const prepinac = (jmeno) => ARGUMENTY[jmeno] === true;
+const hodnota = (jmeno) => (typeof ARGUMENTY[jmeno] === 'string' ? ARGUMENTY[jmeno] : null);
+
+const BIBLE = SADA.jmeno === 'bible';
+const PREDPONA = SADA.slozka; // 'zalohy' nebo 'zalohy/bible'
+const NAZVY = SADA.tabulky.map(([t]) => t);
 
 const opravdu = prepinac('opravdu');
 const smazatNavic = prepinac('smazat-navic');
@@ -50,8 +60,12 @@ function zEnvSouboru(jmeno) {
   return m ? m[1].trim() : null;
 }
 
-const URL_DB = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || zEnvSouboru('VITE_SUPABASE_URL');
-const KLIC = process.env.SUPABASE_SERVICE_ROLE_KEY || zEnvSouboru('VITE_SUPABASE_SERVICE_ROLE_KEY');
+const URL_DB = BIBLE
+  ? (process.env.BIBLE_SUPABASE_URL || BIBLE_URL)
+  : (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || zEnvSouboru('VITE_SUPABASE_URL'));
+const KLIC = BIBLE
+  ? (process.env.BIBLE_SUPABASE_SERVICE_ROLE_KEY || zEnvSouboru('BIBLE_SUPABASE_SERVICE_ROLE_KEY'))
+  : (process.env.SUPABASE_SERVICE_ROLE_KEY || zEnvSouboru('VITE_SUPABASE_SERVICE_ROLE_KEY'));
 const HESLO = process.env.ZALOHA_HESLO || zEnvSouboru('ZALOHA_HESLO');
 
 const hlavicky = { apikey: KLIC, Authorization: `Bearer ${KLIC}`, 'Content-Type': 'application/json' };
@@ -63,7 +77,7 @@ function git(argumenty) {
 /** Commit, ze kterého se obnovuje (poslední k --datum), nebo null = aktuální soubory. */
 function commitKDatu() {
   if (!datum) return null;
-  const commit = git(['log', '-1', '--format=%H', `--before=${datum} 23:59:59`, '--', 'zalohy/']).trim();
+  const commit = git(['log', '-1', '--format=%H', `--before=${datum} 23:59:59`, '--', `${PREDPONA}/`]).trim();
   if (!commit) {
     throw new Error(`K datu ${datum} není v historii žádná záloha.\nZálohy existují k těmto dnům:\n  ${dostupneDny().join('\n  ') || '(žádné)'}`);
   }
@@ -81,18 +95,18 @@ function soubor(cesta, commit) {
 
 /** Řádky tabulky ze zálohy; null = tabulka v téhle záloze není. */
 function nactiZalohu(tabulka, commit) {
-  const sifrovana = soubor(`zalohy/${tabulka}.json.enc`, commit);
+  const sifrovana = soubor(`${PREDPONA}/${tabulka}.json.enc`, commit);
   if (sifrovana !== null) {
     if (!HESLO) throw new Error('Záloha je zašifrovaná — chybí ZALOHA_HESLO (v .env nebo v prostředí).');
     return JSON.parse(desifruj(sifrovana, HESLO));
   }
-  const stara = soubor(`zalohy/${tabulka}.json`, commit);
+  const stara = BIBLE ? null : soubor(`${PREDPONA}/${tabulka}.json`, commit);
   return stara === null ? null : JSON.parse(stara);
 }
 
 function dostupneDny() {
   try {
-    return git(['log', '--format=%ad', '--date=short', '--', 'zalohy/manifest.json', 'zalohy/orders.json'])
+    return git(['log', '--format=%ad', '--date=short', '--', `${PREDPONA}/manifest.json`, ...(BIBLE ? [] : ['zalohy/orders.json'])])
       .trim().split('\n').filter(Boolean).filter((d, i, a) => a.indexOf(d) === i).slice(0, 14);
   } catch {
     return [];
@@ -155,14 +169,18 @@ function bezOdlozenych(tabulka, radek) {
 }
 
 try {
-  if (!URL_DB || !KLIC) throw new Error('Chybí přístup k databázi — v .env musí být VITE_SUPABASE_URL a VITE_SUPABASE_SERVICE_ROLE_KEY.');
+  if (!URL_DB || !KLIC) {
+    throw new Error(BIBLE
+      ? 'Chybí přístup k projektu bible — v .env musí být BIBLE_SUPABASE_SERVICE_ROLE_KEY.'
+      : 'Chybí přístup k databázi — v .env musí být VITE_SUPABASE_URL a VITE_SUPABASE_SERVICE_ROLE_KEY.');
+  }
   if (jenTabulka && !NAZVY.includes(jenTabulka)) throw new Error(`Neznámá tabulka „${jenTabulka}". Zálohují se: ${NAZVY.join(', ')}`);
 
   const commit = commitKDatu();
   const tabulky = jenTabulka ? [jenTabulka] : NAZVY;
   const plan = [];
 
-  console.log(datum ? `Záloha ke dni ${datum}` : 'Záloha z aktuálních souborů v zalohy/');
+  console.log(datum ? `Záloha${BIBLE ? ' projektu bible' : ''} ke dni ${datum}` : `Záloha z aktuálních souborů v ${PREDPONA}/`);
   console.log('─'.repeat(72));
 
   for (const tabulka of tabulky) {

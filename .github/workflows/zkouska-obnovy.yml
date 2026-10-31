@@ -46,6 +46,19 @@ jobs:
           DATABASE_URL: postgres://postgres:zkouska@localhost:5432/postgres
         run: node scripts/zkouska-obnovy.mjs
 
+      # 📚 Záloha projektu bible (zalohy/bible/) — jen když už nějaká vznikla.
+      - name: Obnovit nanečisto zálohu projektu bible
+        if: always()
+        env:
+          ZALOHA_HESLO: ${{ secrets.ZALOHA_HESLO }}
+          DATABASE_URL: postgres://postgres:zkouska@localhost:5432/postgres
+        run: |
+          if [ ! -f zalohy/bible/manifest.json ]; then
+            echo "Záloha projektu bible zatím neexistuje — přeskočeno." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          node scripts/zkouska-obnovy.mjs --sada bible
+
   oznam-selhani:
     runs-on: ubuntu-latest
     needs: [zkouska]

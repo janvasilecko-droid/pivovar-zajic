@@ -1,0 +1,15 @@
+# Projekt bible — samostatný Supabase projekt „pivovar-bible" (R12,
+# docs/pivovarska-bible/ROZHODNUTI.md). Jen pro Supabase CLI při nasazení
+# edge funkcí z CI (`supabase --workdir bible functions deploy …`).
+# Hlavní projekt appky config.toml v repu nemá.
+project_id = "cegrelgvkygcatupqwrx"
+
+# Token hlavního projektu by platforma tady odmítla (je podepsaný jiným
+# klíčem) — přihlášení ověřuje brána ve funkci (_shared/brana.ts) dotazem
+# do hlavního projektu. Každá funkce tu MUSÍ být s verify_jwt = false
+# (hlídá test bible/supabase/functions/_shared/nasazeni.test.ts).
+[functions.bible-api]
+verify_jwt = false
+
+[functions.bible-migrace]
+verify_jwt = false

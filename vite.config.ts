@@ -79,6 +79,22 @@ try {
   // nemá.
 }
 
+// 📚 Totéž pro DATABÁZI BIBLE (samostatný projekt Supabase, R12):
+// public/migrace-bible.json (jména) a public/migrace-bible-sql.json (SQL pro
+// edge funkci bible-migrace v projektu bible). Leží v bible/supabase/migrations,
+// ať je appka nikdy nenabídne ke spuštění v hlavní databázi. Evidence bible
+// začíná první migrací, takže se přibalují všechny.
+try {
+  const migraceBibleDir = resolve(__dirname, 'bible/supabase/migrations');
+  const soubory = readdirSync(migraceBibleDir).filter((j) => j.endsWith('.sql')).sort();
+  writeFileSync(resolve(__dirname, 'public/migrace-bible.json'), JSON.stringify({ soubory }, null, 2));
+  const sql: Record<string, string> = {};
+  for (const jmeno of soubory) sql[jmeno] = readFileSync(resolve(migraceBibleDir, jmeno), 'utf-8');
+  writeFileSync(resolve(__dirname, 'public/migrace-bible-sql.json'), JSON.stringify({ sql }, null, 2));
+} catch {
+  // Stejně jako u hlavní databáze: bez seznamu build nepadá.
+}
+
 export default defineConfig({
   plugins: [react()],
   define: {

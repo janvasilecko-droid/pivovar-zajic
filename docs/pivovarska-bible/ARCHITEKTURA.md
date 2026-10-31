@@ -31,8 +31,12 @@ Zásady platí pro kód, prompty i UI:
 
 **Infrastruktura (zadání bod 1):**
 - Využívá se to, co už je: Supabase (Postgres, Storage, edge funkce), GitHub
-  (kód, Actions) a Cloudflare Pages (hosting appky). Druhá databáze se
-  nezakládá.
+  (kód, Actions) a Cloudflare Pages (hosting appky).
+- **Bible má vlastní projekt Supabase** (rozhodnutí R12, 31. 10. 2026:
+  „ať je supabase pro aplikaci samostatně a samostatná supabase pro toho
+  boota"): projekt `cegrelgvkygcatupqwrx` ve vlastní Free organizaci, takže
+  knihy neubírají appce pivovaru 500 MB databáze ani 1 GB úložiště.
+  Přihlášení a práva zůstávají v hlavní appce.
 - **Vercel** se nepoužívá. Aktuální appku nenasazuje, jen u každého commitu
   hlásí neúspěšné nasazení. Na pivovar-zajic.vercel.app navíc veřejně visí
   stará verze 2.934 (zjištění auditu, doporučení je integraci odpojit).
@@ -42,19 +46,26 @@ Zásady platí pro kód, prompty i UI:
 ```
 Telefon / PC (web, Android WebView)
  └─ sekce „Pivovarská bible" (líně načítaná, ?page=bible)
-     ├─ data čte vlastním klientem BEZ offline mezipaměti (RLS uživatele)
-     ├─ soubory nahrává do soukromého bucketu „knihovna"
-     └─ chat a hledání → edge funkce (JWT uživatele)
+     ├─ všechno přes edge funkci bible-api s tokenem z hlavní appky
+     │  (lib/bibleKlient.ts, BEZ offline mezipaměti)
+     └─ soubor nahrává podepsaným odkazem rovnou do úložiště projektu bible
 
-Supabase (stávající projekt)
- ├─ Postgres: tabulky bible_* (RLS fail-closed), fulltext, pg_trgm, později pgvector
- ├─ Storage: bucket „knihovna" (soukromý)
- └─ Edge funkce (Deno): bible-chat, bible-hledat
+Supabase — hlavní projekt appky (sasqexjadvlqyticxwja)
+ ├─ přihlášení, profily, práva (bible_pristup — jediný zdroj pravdy)
+ ├─ bible_overeni(): schválený e-mail, heslo, limit, přístup do bible
+ └─ app_secrets: ANTHROPIC_API_KEY (už existuje)
+
+Supabase — projekt bible (cegrelgvkygcatupqwrx, vlastní Free organizace)
+ ├─ Postgres: tabulky bible_* — pro prohlížeč ZAVŘENÉ (žádná práva ani politiky
+ │  pro anon/authenticated), fulltext, pg_trgm, později pgvector
+ ├─ Storage: bucket „knihovna" (soukromý, 50 MB na soubor, bez politik)
+ └─ Edge funkce (Deno, bible/supabase/functions, verify_jwt = false):
+     bible-api (knihovna), bible-migrace (migrace z appky); později chat a hledání.
+     Token ověří dotazem do hlavního projektu (/auth/v1/user + bible_overeni),
+     pak pracují service rolí; zápis jen přes SQL funkce, které práva hlídají znovu.
 
 GitHub Actions (veřejné repo → zdarma, ALE veřejné logy)
- └─ bible-zpracovani.yml: Python worker → Claude Haiku (OCR skenů) → databáze
-
-Anthropic API (Claude): klíč ANTHROPIC_API_KEY v app_secrets (už existuje)
+ └─ bible-zpracovani.yml: Python worker → Claude Haiku (OCR skenů) → databáze bible
 ```
 
 ## 3. AI vrstva: Claude
@@ -69,7 +80,7 @@ Majitel 30. 10. 2026: „chci aby to bylo napojené na Claude", „ne Gemini".
 
 - **Modely a ceník se nastavují v databázi** (`bible_nastaveni`), ne natvrdo
   v kódu. Výměna modelu nebo poskytovatele proto nevyžaduje přestavbu. Volání
-  jdou přes rozhraní `LlmPoskytovatel` (`supabase/functions/_shared/bible/`).
+  jdou přes rozhraní `LlmPoskytovatel` (`bible/supabase/functions/_shared/`).
   Dnes je jediný adaptér Anthropic.
 - **Citace:** nalezené pasáže dostane model jako bloky `search_result` (zdroj
   `bible://pasaz/<id>`, titulek „Kniha, kap., s.") s `citations.enabled`.
@@ -93,14 +104,21 @@ Majitel 30. 10. 2026: „chci aby to bylo napojené na Claude", „ne Gemini".
 
 - Odborná knihovna → Nahrát. Jde vybrat víc souborů naráz: PDF, DOCX, TXT, MD,
   XLSX, CSV a obrázky stran (JPG, PNG, WEBP, TIFF).
-- Prohlížeč spočítá SHA-256 a už nahraný soubor odmítne. Pak soubor nahraje do
-  soukromého bucketu (`knihovna/<id dokumentu>/<bezpečné jméno>`) a založí
-  řádek `bible_dokumenty` ve stavu `ceka`.
+- Prohlížeč spočítá SHA-256. bible-api už nahraný soubor odmítne, jinak
+  založí řádek `bible_dokumenty` ve stavu `nahrava` a vydá podepsaný odkaz
+  jen pro cestu `knihovna/<id dokumentu>/<bezpečné jméno>` (platí 2 hodiny,
+  existující soubor nepřepíše). Prohlížeč soubor nahraje rovnou do úložiště
+  projektu bible a bible-api ověří, že tam je a má ohlášenou velikost —
+  teprve pak jde dokument do fronty (`ceka`). Nedokončené nahrání dokončí
+  nové nahrání téhož souboru, nebo se zruší. Nahrávání ukazuje průběh, jde
+  zastavit a zaseknuté spojení (90 s bez pohybu) se samo přeruší. Soubor,
+  který dorazí až po zrušení (odkaz platí 2 h), bible-api po vypršení odkazu
+  smaže (`bible_smazane_soubory`, rozhodnutí R12).
 - **Povinné je potvrzení práv:** „Dokument smíme v pivovaru interně používat."
   K němu jde napsat poznámku k licenci. Autor, vydání, rok, ISBN, jazyk
   a oblasti A–T jsou volitelné a dají se doplnit později.
-- Limit velikosti souboru určuje tarif Supabase (Free: 50 MB na soubor, 1 GB
-  celkem). Větší soubor appka nenahraje a řekne proč. Kdyby se to týkalo
+- Limit velikosti souboru určuje tarif projektu bible (Free: 50 MB na soubor,
+  1 GB celkem; bucket má limit 50 MB nastavený). Větší soubor appka nenahraje a řekne proč. Kdyby se to týkalo
   skutečných knih, přibude rozdělení PDF v prohlížeči (Etapa 1b).
 - **Storage se nezálohuje.** Druhá kopie originálů je složka majitele
   `D:\stazene\knihy pivo`.
@@ -219,7 +237,7 @@ Každé tvrzení nese jeden typ ze zadání (bod 11):
 
 ## 7. Výpočtový engine (Etapa 6)
 
-- Čisté TS moduly bez závislostí v `supabase/functions/_shared/bible/vypocty/`.
+- Čisté TS moduly bez závislostí v `bible/supabase/functions/_shared/vypocty/`.
   Sdílí je frontend i edge funkce a testuje je vitest v CI.
 - **Každý výpočet vrací:** vstupy s jednotkami, vzorec, mezikroky, výsledek
   s jednotkou, předpoklady, rozsah platnosti, nejistotu a zdroj. Vstup mimo
@@ -298,16 +316,22 @@ plochu s 8 dlaždicemi podle zadání (bod 10):
 
 ## 12. Bezpečnost, soukromí, autorská práva
 
-- **Přístup je fail-closed.** Rozhoduje databázová funkce `bible_pristup()`:
+- **Přístup je fail-closed.** Rozhoduje databázová funkce `bible_pristup()`
+  v hlavním projektu:
   - admin, šéf, sládek, boss a manažer mají správu;
   - ostatní mají přístup, jen když jim admin povolí modul „Pivovarská bible"
     v Uživatelé → Práva (`profiles.permissions.bible`; vlastní práva si
     uživatel změnit nemůže, hlídá to trigger);
   - bez povolení = žádný přístup, i při chybě.
-  RLS je na všech tabulkách `bible_*` i na bucketu. Smazat dokument smí jen
-  správce.
+  Projekt bible je pro prohlížeč zavřený (RLS bez politik, žádná práva pro
+  anon/authenticated, bucket bez politik). bible-api každý požadavek ověří
+  v hlavním projektu (`/auth/v1/user` — odhlášení i zablokování platí hned —
+  a `bible_overeni()`: schválený e-mail, heslo, limit 300 požadavků za
+  minutu, přístup). Výpadek hlavního projektu = odmítnuto. Zapisuje se jen
+  přes SQL funkce projektu bible, které práva hlídají znovu. Smazat dokument
+  smí jen správce (přispěvatel jen svoje nedokončené nahrání).
 - **Offline mezipaměť:** texty knih se do mezipaměti telefonu (IndexedDB)
-  neukládají. Bible má vlastního klienta bez offline mezipaměti.
+  neukládají. Bible má vlastního klienta bez offline mezipaměti (`lib/bibleKlient.ts`).
 - **Klíče** jsou jen v app_secrets a GitHub secrets. Frontend žádný klíč nemá.
 - **Veřejné repo:** knihy, texty, pasáže ani embeddingy nesmí do gitu, migrací
   (jejich SQL je veřejné), logů ani artefaktů.
@@ -333,19 +357,28 @@ plochu s 8 dlaždicemi podle zadání (bod 10):
   Jednorázově jde o jednotky až nízké desítky USD. Ověří pilot na první knize.
 - **Dotaz (Opus 5.5):** 15–30 tisíc vstupních a 1–3 tisíce výstupních tokenů
   ≈ 0,08–0,20 USD (≈ 2–5 Kč). Sonnet stojí polovinu.
-- **Supabase:** na dnešní knihovnu stačí Free (DB 500 MB, Storage 1 GB, soubor
-  ≤ 50 MB). Při růstu Pro za 25 USD měsíčně.
+- **Supabase:** bible má vlastní Free projekt ve vlastní organizaci (DB 500 MB,
+  Storage 1 GB, soubor ≤ 50 MB) — appka pivovaru o nic nepřijde. Free projekt
+  se po týdnu bez aktivity uspí; plánované zpracování (každé 3 hodiny)
+  a denní záloha do něj ale sahají. Při růstu Pro za 25 USD měsíčně.
 - **GitHub Actions:** 0 Kč (veřejné repo).
 
 ## 14. Datový model
+
+Schéma projektu bible: `bible/supabase/migrations/` (základ
+`20261101000000_bible_zaklad.sql` = etapy 1 a 2 přenesené z hlavního
+projektu, bez `profiles` a bez cizích klíčů na `auth.users`). V hlavním
+projektu zůstávají migrace `20261231410000` a `20261231420000` (běžely) a
+prázdné tabulky; zápis do nich zavřela `20261231430000`.
 
 Etapa 1:
 - `bible_dokumenty`: metadata, soubor (cesta, SHA-256, velikost, MIME),
   stav a postup zpracování, licence a potvrzení práv, duplicita a verze
   zpracování.
-- Funkce `bible_pristup()`, `bible_smi_cist()`, `bible_smi_prispivat()`,
-  `bible_smi_spravovat()` a `bible_kapacita()`.
-- Bucket `knihovna` s politikami.
+- Hlavní projekt: `bible_pristup()` a `bible_overeni()`.
+- Projekt bible: `bible_kapacita()`, zápis za uživatele `bible_zaloz_nahrani`,
+  `bible_potvrd_nahrani`, `bible_uprav_popis`, `bible_nastav_stav`,
+  `bible_smaz_dokument` (jen service role) a bucket `knihovna` bez politik.
 
 Etapa 2:
 - `bible_strany`: pdf_index, tištěná strana, jistota, zdroj textu, text,

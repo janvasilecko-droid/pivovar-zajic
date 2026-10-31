@@ -11,6 +11,7 @@ const OrderAuditModal = lazy(() => import('../components/OrderAuditModal').then(
 const WhatsAppAuditModal = lazy(() => import('../components/WhatsAppAuditModal').then((m) => ({ default: m.WhatsAppAuditModal })));
 const AdminDiagnostika = lazy(() => import('../components/AdminDiagnostika'));
 const MigraceBlok = lazy(() => import('../components/AdminDiagnostika').then((m) => ({ default: m.MigraceBlok })));
+const MigraceBibleBlok = lazy(() => import('../components/MigraceBibleBlok').then((m) => ({ default: m.MigraceBibleBlok })));
 const AuditLogViewer = lazy(() => import('../components/AuditLogViewer').then((m) => ({ default: m.AuditLogViewer })));
 
 /**
@@ -56,6 +57,8 @@ export default function AuditScreen({ setPage }: { setPage?: (p: any, sec?: stri
         <Suspense fallback={null}>
           <div className="card p-4 border-2 border-amber-300 bg-white rounded shadow-xs">
             <MigraceBlok nahore />
+            {/* 📚 Pivovarská bible má vlastní projekt Supabase (R12) — vlastní migrace. */}
+            <MigraceBibleBlok />
           </div>
         </Suspense>
       )}

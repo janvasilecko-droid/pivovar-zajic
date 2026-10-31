@@ -6,7 +6,8 @@ import {
 } from './bibleKnihovna';
 import { BIBLE_OBLASTI, nazevOblasti, platneOblasti } from './bibleOblasti';
 
-const MIGRACE = readFileSync('supabase/migrations/20261231410000_pivovarska_bible_knihovna.sql', 'utf8');
+// Knihovna žije v samostatném projektu bible (R12) — bucket a oblasti hlídá jeho migrace.
+const MIGRACE = readFileSync('bible/supabase/migrations/20261101000000_bible_zaklad.sql', 'utf8');
 
 describe('typy souborů knihovny', () => {
   it('pozná typ podle přípony bez ohledu na velikost písmen', () => {

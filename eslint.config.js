@@ -27,7 +27,7 @@ export default tseslint.config(
     ignores: [
       'dist/**', 'node_modules/**', 'android/**', 'coverage/**',
       'public/sw.js', 'scripts/**', 'nahled/**', 'whatsapp-bridge/**',
-      'supabase/functions/**', '*.mjs', '*.cjs', '*.config.js',
+      'supabase/functions/**', 'bible/supabase/functions/**', '*.mjs', '*.cjs', '*.config.js',
     ],
   },
   js.configs.recommended,

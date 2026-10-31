@@ -38,10 +38,13 @@ export const ZACATEK_EVIDENCE = '20261227010000_evidence_migraci.sql';
 /**
  * Spojí seznam souborů v repozitáři s evidencí aplikovaných migrací.
  * Vrací je v pořadí, v jakém se pouštějí (podle jména, tedy podle času).
+ * `zacatekEvidence`: projekt bible má evidenci od první migrace ('' = vše
+ * neaplikované čeká).
  */
 export function porovnejMigrace(
   souboryVRepo: string[],
   aplikovane: AplikovanaMigrace[],
+  zacatekEvidence: string = ZACATEK_EVIDENCE,
 ): MigraceRadek[] {
   const podleNazvu = new Map(aplikovane.map((a) => [a.nazev, a]));
   return [...souboryVRepo]
@@ -57,7 +60,7 @@ export function porovnejMigrace(
         };
       }
       // Starší než evidence = nevíme, a tvrdit „chybí" by bylo lhaní.
-      const stav: StavMigrace = nazev < ZACATEK_EVIDENCE ? 'starsi-nez-evidence' : 'ceka';
+      const stav: StavMigrace = nazev < zacatekEvidence ? 'starsi-nez-evidence' : 'ceka';
       return { nazev, stav, aplikovanoAt: null, zdroj: null };
     });
 }
