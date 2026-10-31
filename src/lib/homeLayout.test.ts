@@ -220,8 +220,35 @@ describe('nová dlaždice u uložené plochy', () => {
   it('bibli, kterou si někdo schoval nebo přesunul, plocha nechá, kde je', () => {
     const schovana = getHomeLayout({ rozlozeniVerze: ROZLOZENI_VERZE, pages: [[A], [B]], hidden: ['bible'] }, [A, B, 'bible']);
     expect(schovana.pages.flat()).not.toContain('bible');
-    const presunuta = getHomeLayout({ rozlozeniVerze: ROZLOZENI_VERZE, pages: [[A], [B, 'bible']] }, [A, B, 'bible']);
+    expect(schovana.naUvodni).toEqual(['bible']);
+    const presunuta = getHomeLayout({ rozlozeniVerze: ROZLOZENI_VERZE, pages: [[A], [B, 'bible']], naUvodni: ['bible'] }, [A, B, 'bible']);
     expect(presunuta.pages).toEqual([[A], [B, 'bible'], []]);
+  });
+  it('bibli, kterou starší verze appky stihla uložit na „Další", přesune jednou na úvodní stránku (bez staré pozice)', () => {
+    const ulozena = {
+      rozlozeniVerze: ROZLOZENI_VERZE, pages: [[A], [B, 'bible']],
+      // Na „Další" stála dole uprostřed — na úvodní stránce by visela pod prázdnými řádky.
+      overrides: { bible: { color: 'plum', w: 2, h: 1, x: 9, y: 5 }, [A]: { w: 1, h: 1, x: 0, y: 0 } },
+    };
+    const layout = getHomeLayout(ulozena, [A, B, 'bible']);
+    expect(layout.pages).toEqual([[A, 'bible'], [B], []]);
+    // Stará pozice se zahodí — volné místo vedle A (A má šířku 1 = 3 sloupce), žádný překryv.
+    expect(layout.overrides.bible).toEqual({ color: 'plum', w: 2, h: 1, x: 3, y: 0 });
+    expect(layout.overrides[A]).toMatchObject({ x: 0, y: 0 });
+    expect(layout.naUvodni).toEqual(['bible']);   // uloží se s plochou → příště zůstane, kam ji kdo dá
+    // Po uložení (značka v ploše) už se nic nepřesouvá.
+    const poUlozeni = getHomeLayout({ ...ulozena, pages: [[A], [B, 'bible']], naUvodni: layout.naUvodni }, [A, B, 'bible']);
+    expect(poUlozeni.pages).toEqual([[A], [B, 'bible'], []]);
+    expect(poUlozeni.overrides.bible).toMatchObject({ x: 9, y: 5 });
+  });
+  it('bibli ve skupině, kterou si někdo udělal na „Další", nechá ve skupině', () => {
+    const ulozena = {
+      rozlozeniVerze: ROZLOZENI_VERZE, pages: [[A], ['grp_knihy']],
+      groups: { grp_knihy: { memberIds: ['bible', B] } },
+    };
+    const layout = getHomeLayout(ulozena, [A, B, 'bible']);
+    expect(layout.pages).toEqual([[A], ['grp_knihy'], []]);
+    expect(layout.groups.grp_knihy.memberIds).toEqual(['bible', B]);
   });
   it('bez práva na bibli se nepřidá vůbec', () => {
     const layout = getHomeLayout({ rozlozeniVerze: ROZLOZENI_VERZE, pages: [[A], [B]] }, [A, B]);

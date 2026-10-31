@@ -87,6 +87,11 @@ export type HomeLayout = {
    * nezná a při načtení se jednou přeskládá.
    */
   rozlozeniVerze?: number;
+  /**
+   * Dlaždice z NOVE_NA_UVODNI, které už na úvodní stránku jednou přišly —
+   * potom zůstanou, kam je kdo dá (viz getHomeLayout).
+   */
+  naUvodni?: Page[];
 };
 
 /** Převede "#rrggbb" (nebo "#rgb") na "rgba(r, g, b, alpha)". Neplatný vstup spadne na šedou. */
@@ -893,6 +898,23 @@ export function getHomeLayout(raw: unknown, visibleIds: Page[], extraIds: Page[]
     if (ostatni.length) pages[kam] = [...pages[kam], ...ostatni];
   }
 
+  // Jednorázově na úvodní stránku i dlaždice z NOVE_NA_UVODNI, kterou starší
+  // verze appky stihla uložit na „Další" (třeba při přesunu jiné dlaždice,
+  // než si majitel appku aktualizoval). Značka `naUvodni` se uloží s první
+  // změnou plochy — potom už dlaždice zůstane, kam ji kdo dá. Ze skupiny se
+  // nebere (tu si někdo udělal sám); pozice se zahodí, ať na úvodní stránce
+  // nic nepřekryje (místo jí najde ensurePositions).
+  const uzNaUvodni: unknown[] = Array.isArray(saved.naUvodni) ? saved.naUvodni : [];
+  const presunuteNaUvodni = new Set<TileId>();
+  for (const id of NOVE_NA_UVODNI) {
+    if (uzNaUvodni.includes(id)) continue;
+    const k = pages.findIndex((p, i) => i > 0 && p.includes(id));
+    if (k < 1) continue;
+    pages[k] = pages[k].filter((x) => x !== id);
+    pages[0] = [...pages[0], id];
+    presunuteNaUvodni.add(id);
+  }
+
   const overrides = (saved.overrides && typeof saved.overrides === 'object' ? saved.overrides : {}) as Partial<Record<TileId, TileOverride>>;
 
   let fallbackIdx = 0;
@@ -906,7 +928,7 @@ export function getHomeLayout(raw: unknown, visibleIds: Page[], extraIds: Page[]
     const hRaw = existing?.h ?? legacy?.h ?? DEFAULT_SIZE[id as Page]?.h ?? DEFAULT_H;
     const w = Math.min(MAX_W, Math.max(MIN_W, Math.round(wRaw)));
     const h = Math.min(MAX_H, Math.max(MIN_H, Math.round(hRaw)));
-    const hasPos = typeof existing?.x === 'number' && typeof existing?.y === 'number';
+    const hasPos = !presunuteNaUvodni.has(id) && typeof existing?.x === 'number' && typeof existing?.y === 'number';
     filledOverrides[id] = {
       w, h, color,
       ...(existing?.label ? { label: existing.label } : {}),
@@ -964,6 +986,7 @@ export function getHomeLayout(raw: unknown, visibleIds: Page[], extraIds: Page[]
     countdowns: saved.countdowns || getCountdowns(),
     notes: saved.notes || getHomeNotes(),
     rozlozeniVerze: ROZLOZENI_VERZE,
+    naUvodni: [...NOVE_NA_UVODNI],
   };
 
   // 🗂️ Jednorázové přeskládání do stránek. Kdo má plochu uloženou z doby před

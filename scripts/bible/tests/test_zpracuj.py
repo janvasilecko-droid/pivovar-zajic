@@ -529,7 +529,10 @@ def test_prepisy_se_ukladaji_po_davkach_uz_behem_ocr():
     ucet = _ucet()
     klient, _ = _klient()
     zpracuj.zpracuj_dokument(supa, _dokument(data, 'application/pdf'), zpracuj.Prepisovac(klient, 'claude-haiku-5-5', ucet), ucet)
-    assert davky[0] == zpracuj.DAVKA_PREPISU and davky[1] == zpracuj.DAVKA_PREPISU
+    # Vlákna OCR můžou doběhnout naráz, takže dávka bývá o pár stran větší
+    # (podle vytížení stroje) — podstatné je, že se ukládá průběžně.
+    assert zpracuj.DAVKA_PREPISU <= davky[0] < zpracuj.DAVKA_PREPISU + 2 * zpracuj.VLAKEN_OCR, davky
+    assert len(davky) >= 3 and sum(davky[:-1]) == 25, davky   # každý přepis uložený v některé dávce
     assert davky[-1] == 25   # závěrečný zápis všech stran
 
 
@@ -805,3 +808,31 @@ def test_dosly_kredit_vypne_ai_a_digitalni_knihy_se_zpracuji_dal(monkeypatch, ca
     assert 'AI vypnutá pro zbytek běhu' in vystup, vystup
     assert 'hotovo: 6 stran' in vystup and 'odloženo (ChybiKlic)' in vystup, vystup
     assert 'credit balance' not in vystup, vystup
+
+
+@pytest.mark.parametrize('postup', [
+    {'prubeh': {'faze': 'prepis', 'hotovo': 325, 'celkem': 327, 'ocr_hotovo': 0, 'ocr_celkem': 2}},
+    {'stran': 40, 'ocr': 3},   # dřívější úplné zpracování se skeny („Zpracovat znovu")
+])
+def test_bez_ai_se_kniha_se_skeny_znovu_nestahuje(postup):
+    data = _skenovane_pdf(2)
+    supa = FalesnaSupa({CESTA: data})
+    duvod = 'Čeká: na účtu Anthropic došel kredit nebo limit útraty — dobij kredit a zpracování poběží dál.'
+    zpracuj.zpracuj_dokument(supa, _dokument(data, 'application/pdf', postup=postup), None, _ucet(), bez_ai=duvod)
+    assert supa.stazeno == []   # žádné stahování (přenosy tarifu Free)
+    stav = supa.posledni_stav()
+    assert stav['stav'] == 'ceka' and stav['stav_zprava'] == duvod and stav['pokusy'] == 0
+    # Běh knihu viděl: průběh má nový čas, počty zůstaly (knihovna nepíše, že na běh teprve čeká).
+    prubehy = [z['postup']['prubeh'] for t, _f, z in supa.upravy if t == 'bible_dokumenty' and 'postup' in z]
+    assert len(prubehy) == 1 and prubehy[0]['cas']
+    drive = postup.get('prubeh') or {'faze': 'prepis', 'hotovo': 0, 'celkem': 0, 'ocr_hotovo': 0, 'ocr_celkem': postup['ocr']}
+    assert {k: v for k, v in prubehy[0].items() if k != 'cas'} == drive
+    assert supa.upravy[-1][2]['stav'] == 'ceka' and 'postup' not in supa.upravy[-1][2]   # stav bez přepsání postupu
+
+
+def test_bez_ai_se_kniha_bez_skenu_stahuje_dal():
+    data = _kniha_pdf()
+    supa = FalesnaSupa({CESTA: data})
+    postup = {'stran': 6, 'ocr': 0, 'prubeh': {'faze': 'ukladani', 'hotovo': 6, 'celkem': 6, 'ocr_hotovo': 0, 'ocr_celkem': 0}}
+    zpracuj.zpracuj_dokument(supa, _dokument(data, 'application/pdf', postup=postup), None, _ucet())
+    assert supa.stazeno == [CESTA] and supa.posledni_stav()['stav'] in ('hotovo', 'ke_kontrole')

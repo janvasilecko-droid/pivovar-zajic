@@ -6,14 +6,15 @@
 //
 // Hledání v obsahu (vzorce, tabulky, pojmy) a otevření pasáže na stránce
 // přijdou se zpracováním a vyhledáváním (etapy 2 a 4).
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Download, Pause, Pencil, RotateCcw, Trash2, Upload } from 'lucide-react';
 import { useAuth } from '../../lib/auth';
+import { usePosledniNacteni } from '../../lib/nacitani';
 import { smiPrispivat, smiSpravovat, type BibleRole } from '../../lib/bibleOpravneni';
 import { BIBLE_OBLASTI } from '../../lib/bibleOblasti';
 import {
-  DRUH_POPIS, JAZYK_POPIS, OBNOVA_PRI_CEKANI_MS, OBNOVA_PRI_ZPRACOVANI_MS, STAV_POPIS, casBehuText, dalsiBehZpracovani,
-  jeZpracovany, postupText, procentZpracovani, prubehText, velikostText, type StavDokumentu,
+  DRUH_POPIS, JAZYK_POPIS, STAV_POPIS, intervalObnovy, jeZpracovany, postupText, procentZpracovani, prubehText,
+  textCekani, velikostText, type StavDokumentu,
 } from '../../lib/bibleKnihovna';
 import {
   nactiDokumenty, nastavStav, odkazNaSoubor, smazDokument, ulozenyPopis, upravPopis,
@@ -51,8 +52,9 @@ function PrubehZpracovani({ d }: { d: BibleDokument }) {
         role="progressbar"
         aria-valuemin={0}
         aria-valuemax={100}
-        aria-valuenow={procent ?? 0}
-        aria-label={`Zpracování: ${text ?? 'začíná'}`}
+        aria-valuenow={procent ?? undefined}
+        aria-valuetext={text ?? 'začíná'}
+        aria-label="Zpracování knihy"
       >
         <div className="h-full bg-sky-500 transition-all duration-500" style={{ width: `${procent ?? 0}%` }} />
       </div>
@@ -66,15 +68,24 @@ const popisZDokumentu = (d: BibleDokument): Popis => ({
   druh: d.druh, oblasti: d.oblasti, zdroj: d.zdroj, licence: d.licence,
 });
 
-function KartaDokumentu({ d, role, mujId, onZmena, onSmazano }: {
+function KartaDokumentu({ d, role, mujId, onZmena, onSmazano, onRozpracovani, zpracovavaSeJina }: {
   d: BibleDokument;
   role: BibleRole;
   mujId: string | null;
   onZmena: (d: BibleDokument) => void;
   onSmazano: (id: string) => void;
+  /** Rozepsaný popis nebo potvrzení mazání: obnova seznamu počká (karta se nesmí ztratit). */
+  onRozpracovani: (id: string, ano: boolean) => void;
+  /** Právě se zpracovává jiná kniha (čekající přijde na řadu ve stejném běhu). */
+  zpracovavaSeJina: boolean;
 }) {
   const [uprava, setUprava] = useState<Popis | null>(null);
   const [mazani, setMazani] = useState(false);
+  const rozpracovana = uprava !== null || mazani;
+  useEffect(() => {
+    onRozpracovani(d.id, rozpracovana);
+    return () => onRozpracovani(d.id, false);
+  }, [d.id, rozpracovana, onRozpracovani]);
   const [bezi, setBezi] = useState(false);
   const [chyba, setChyba] = useState<string | null>(null);
 
@@ -122,7 +133,7 @@ function KartaDokumentu({ d, role, mujId, onZmena, onSmazano }: {
         {d.stav === 'zpracovava' && <PrubehZpracovani d={d} />}
         {d.stav === 'ceka' && (
           <div className="font-bold text-amber-200">
-            Čeká na další běh zpracování — asi v {casBehuText(dalsiBehZpracovani())}.
+            {textCekani(zpracovavaSeJina, d.postup)}
             {prubehText(d.stav, d.postup) ? ` ${prubehText(d.stav, d.postup)}.` : ''}
           </div>
         )}
@@ -205,33 +216,50 @@ export function BibleKnihovna({ role, setPage }: {
   const [stav, setStav] = useState<StavDokumentu | ''>('');
   const [oblast, setOblast] = useState('');
 
-  async function nacti() {
+  // Platí jen poslední načtení: starší odpověď (pomalá síť, studený start
+  // bible-api) nesmí přepsat novější stav ani vlastní změnu v appce.
+  const zacniNacteni = usePosledniNacteni();
+  const nacti = useCallback(async () => {
+    const smiZapsat = zacniNacteni();
     setNacteno(null);
-    setNacteno(await nactiDokumenty());
-  }
-  useEffect(() => { void nacti(); }, []);
+    const n = await nactiDokumenty();
+    if (smiZapsat()) setNacteno(n);
+  }, [zacniNacteni]);
+  useEffect(() => { void nacti(); }, [nacti]);
 
-  // Dokud se něco zpracovává (nebo čeká), seznam se sám po chvíli obnoví —
-  // procenta a stav se mění bez ručního obnovení stránky. Potichu: při chybě
-  // sítě zůstane poslední načtený stav, na skryté záložce se nic nenačítá.
+  // Dokud se něco zpracovává (nebo čeká), seznam se sám obnoví — procenta
+  // a stav se mění bez ručního obnovení stránky. Potichu: při chybě sítě
+  // zůstane poslední načtený stav. Nenačítá se na skryté záložce, při
+  // otevřeném nahrávání (právě nahrávaný soubor by vypadal jako přerušený)
+  // ani při rozepsaném popisu nebo potvrzení mazání (karta by se ztratila).
   const zpracovavaSe = (nacteno?.stav === 'ok' ? nacteno.dokumenty : []).some((d) => d.stav === 'zpracovava');
   const nekdoCeka = (nacteno?.stav === 'ok' ? nacteno.dokumenty : []).some((d) => d.stav === 'ceka');
-  const aktivni = useRef(true);
-  useEffect(() => () => { aktivni.current = false; }, []);
+  const rozpracovane = useRef(new Set<string>());
+  const hlasRozpracovani = useCallback((id: string, ano: boolean) => {
+    if (ano) rozpracovane.current.add(id);
+    else rozpracovane.current.delete(id);
+  }, []);
+  const obnovPotichu = useCallback(() => {
+    if (nahravani || rozpracovane.current.size > 0) return;
+    if (typeof document !== 'undefined' && document.hidden) return;
+    const smiZapsat = zacniNacteni();
+    void nactiDokumenty().then((n) => { if (smiZapsat() && n.stav === 'ok') setNacteno(n); });
+  }, [nahravani, zacniNacteni]);
+  const interval = intervalObnovy(zpracovavaSe, nekdoCeka);
   useEffect(() => {
-    if (!zpracovavaSe && !nekdoCeka) return;
-    const casovac = setInterval(() => {
-      if (typeof document !== 'undefined' && document.hidden) return;
-      void nactiDokumenty().then((n) => { if (aktivni.current && n.stav === 'ok') setNacteno(n); });
-    }, zpracovavaSe ? OBNOVA_PRI_ZPRACOVANI_MS : OBNOVA_PRI_CEKANI_MS);
-    return () => clearInterval(casovac);
-  }, [zpracovavaSe, nekdoCeka]);
+    if (interval === null) return;
+    const casovac = setInterval(obnovPotichu, interval);
+    const priNavratu = () => { if (!document.hidden) obnovPotichu(); };
+    document.addEventListener('visibilitychange', priNavratu);
+    return () => { clearInterval(casovac); document.removeEventListener('visibilitychange', priNavratu); };
+  }, [interval, obnovPotichu]);
 
   const dokumenty = useMemo(() => (nacteno?.stav === 'ok' ? nacteno.dokumenty : []), [nacteno]);
-  const zmenDokument = (d: BibleDokument) => setNacteno((n) => (n?.stav === 'ok' ? { ...n, dokumenty: n.dokumenty.map((x) => (x.id === d.id ? d : x)) } : n));
+  // Vlastní změna je novější než obnova, která už letí — ta se zahodí.
+  const zmenDokument = (d: BibleDokument) => { zacniNacteni(); setNacteno((n) => (n?.stav === 'ok' ? { ...n, dokumenty: n.dokumenty.map((x) => (x.id === d.id ? d : x)) } : n)); };
   // Dokončené dřívější nahrání má stejné id — nahradí se, nepřidá podruhé.
-  const pridejDokument = (d: BibleDokument) => setNacteno((n) => (n?.stav === 'ok' ? { ...n, dokumenty: [d, ...n.dokumenty.filter((x) => x.id !== d.id)] } : n));
-  const odeberDokument = (id: string) => setNacteno((n) => (n?.stav === 'ok' ? { ...n, dokumenty: n.dokumenty.filter((x) => x.id !== id) } : n));
+  const pridejDokument = (d: BibleDokument) => { zacniNacteni(); setNacteno((n) => (n?.stav === 'ok' ? { ...n, dokumenty: [d, ...n.dokumenty.filter((x) => x.id !== d.id)] } : n)); };
+  const odeberDokument = (id: string) => { zacniNacteni(); setNacteno((n) => (n?.stav === 'ok' ? { ...n, dokumenty: n.dokumenty.filter((x) => x.id !== id) } : n)); };
 
   const filtrovane = useMemo(() => {
     const q = hledat.trim().toLocaleLowerCase('cs');
@@ -289,7 +317,7 @@ export function BibleKnihovna({ role, setPage }: {
 
       {cekajicich > 0 && zpracovanych === 0 && (
         <div role="note" className="rounded-xl border border-amber-700 bg-neutral-900 text-neutral-100 p-3 text-sm">
-          Nahrané knihy čekají na zpracování (strany, kapitoly, OCR skenů, tabulky a vzorce). Zpracování běží samo každé tři hodiny, další běh asi v {casBehuText(dalsiBehZpracovani())}. Dokud kniha není zpracovaná, AI z ní neodpovídá.
+          Nahrané knihy čekají na zpracování (strany, kapitoly, OCR skenů, tabulky a vzorce). Zpracování běží samo každé tři hodiny — u každé knihy je napsáno, kdy přijde na řadu. Dokud kniha není zpracovaná, AI z ní neodpovídá.
         </div>
       )}
 
@@ -331,7 +359,8 @@ export function BibleKnihovna({ role, setPage }: {
       ) : (
         <ul className="space-y-3">
           {filtrovane.map((d) => (
-            <KartaDokumentu key={d.id} d={d} role={role} mujId={user?.id ?? null} onZmena={zmenDokument} onSmazano={odeberDokument} />
+            <KartaDokumentu key={d.id} d={d} role={role} mujId={user?.id ?? null} onZmena={zmenDokument} onSmazano={odeberDokument}
+              onRozpracovani={hlasRozpracovani} zpracovavaSeJina={zpracovavaSe} />
           ))}
         </ul>
       )}

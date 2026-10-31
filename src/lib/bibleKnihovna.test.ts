@@ -1,9 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import {
-  PLAN_ZPRACOVANI_CRON, PRIJIMANE_PRIPONY, TYPY_SOUBORU, bezpecneJmeno, casBehuText, chybiMigrace, dalsiBehZpracovani,
-  hlaskaChyby, jeZpracovany, nazevZeSouboru, postupText, pripona, procentZpracovani, prubehText, sha256Hex, souhrnNakladu,
-  typSouboru, velikostText,
+  OBNOVA_MIMO_BEH_MS, OBNOVA_PRI_CEKANI_MS, OBNOVA_PRI_ZPRACOVANI_MS, PLAN_ZPRACOVANI_CRON, PRIJIMANE_PRIPONY,
+  TYPY_SOUBORU, bezpecneJmeno, casBehuText, chybiMigrace, dalsiBehZpracovani, hlaskaChyby, intervalObnovy, jeZpracovany,
+  nazevZeSouboru, posledniBehZpracovani, postupText, pripona, procentZpracovani, prubehText, sha256Hex, souhrnNakladu,
+  textCekani, typSouboru, velikostText,
 } from './bibleKnihovna';
 import { BIBLE_OBLASTI, nazevOblasti, platneOblasti } from './bibleOblasti';
 
@@ -160,13 +161,53 @@ describe('průběh zpracování (procenta v knihovně)', () => {
     expect(prubehText('zpracovava', prubeh({ faze: 'neco_noveho', hotovo: 1, celkem: 2 }))).toBe('50 % · zpracovává');
   });
 
-  it('u čekajícího rozpracovaného dokumentu řekne, kolik je hotovo; jinak nic', () => {
-    expect(prubehText('ceka', prubeh({ faze: 'prepis', hotovo: 30, celkem: 100 })))
-      .toBe('rozpracováno na 30 % — pokračuje v dalším běhu, přepsané strany se znovu neplatí');
+  it('u čekajícího dokumentu řekne jen přepsané skenované strany (ty se znovu neplatí); jinak nic', () => {
+    expect(prubehText('ceka', prubeh({ faze: 'prepis', hotovo: 30, celkem: 100, ocr_hotovo: 4, ocr_celkem: 74 })))
+      .toBe('přepsáno 4 z 74 naskenovaných stran — pokračuje v dalším běhu, přepsané strany se znovu neplatí');
+    // Kniha s 325 stranami textu a 2 skeny, odložená kvůli kreditu: žádné klamavé „99 %".
+    expect(prubehText('ceka', prubeh({ faze: 'prepis', hotovo: 325, celkem: 327, ocr_hotovo: 0, ocr_celkem: 2 }))).toBeNull();
     expect(prubehText('ceka', prubeh({ faze: 'cteni', hotovo: 0, celkem: 100 }))).toBeNull();
     expect(prubehText('ceka', { stran: 10 })).toBeNull();
     expect(prubehText('hotovo', prubeh({ hotovo: 10, celkem: 10 }))).toBeNull();
-    expect(prubehText('chyba', prubeh({ hotovo: 5, celkem: 10 }))).toBeNull();
+    expect(prubehText('chyba', prubeh({ hotovo: 5, celkem: 10, ocr_hotovo: 5, ocr_celkem: 10 }))).toBeNull();
+  });
+
+  it('když se worker dlouho neozval, připíše „bez zprávy" (spadlý běh drží zámek až 2 h)', () => {
+    const ted = new Date('2026-10-31T19:30:00Z');
+    const p = (cas: string) => prubeh({ faze: 'prepis', hotovo: 46, celkem: 100, ocr_hotovo: 20, ocr_celkem: 74, cas });
+    expect(prubehText('zpracovava', p('2026-10-31T19:20:00+00:00'), ted)).toBe('46 % · přepisuje skeny (20 z 74 stran)');
+    expect(prubehText('zpracovava', p('2026-10-31T19:10:00+00:00'), ted)).toBe('46 % · přepisuje skeny (20 z 74 stran) · bez zprávy 20 min');
+    expect(prubehText('zpracovava', p('2026-10-31T18:05:00+00:00'), ted)).toBe('46 % · přepisuje skeny (20 z 74 stran) · bez zprávy 85 min');
+    expect(prubehText('zpracovava', p('nesmysl'), ted)).toBe('46 % · přepisuje skeny (20 z 74 stran)');
+  });
+
+  it('text čekání: jiná kniha se zpracovává → stejný běh; těsně po plánovaném čase → ten běh; jinak další', () => {
+    expect(textCekani(true, {}, new Date('2026-10-31T19:00:00Z'))).toBe('Čeká ve frontě — přijde na řadu v tomhle běhu, až doběhne rozpracovaná kniha.');
+    // Knihu, kterou tenhle běh už odložil (skeny bez kreditu), ve stejném běhu znovu nevezme.
+    expect(textCekani(true, { prubeh: { faze: 'prepis', cas: '2026-10-31T18:40:00+00:00' } }, new Date('2026-10-31T19:00:00Z')))
+      .toBe('Čeká na další běh zpracování — asi v 22:17.');
+    // Průběh z minulého běhu (před 18:17) frontu nemění.
+    expect(textCekani(true, { prubeh: { faze: 'prepis', cas: '2026-10-31T16:00:00+00:00' } }, new Date('2026-10-31T19:00:00Z')))
+      .toBe('Čeká ve frontě — přijde na řadu v tomhle běhu, až doběhne rozpracovaná kniha.');
+    // 18:30 UTC: běh z 18:17 (19:17 Praha) možná ještě nezačal.
+    expect(textCekani(false, {}, new Date('2026-10-31T18:30:00Z'))).toBe('Čeká na běh zpracování z 19:17 — GitHub ho občas o pár desítek minut zdrží.');
+    // …ale když ho kniha už viděla (průběh po 18:17), čeká na další.
+    expect(textCekani(false, { prubeh: { faze: 'prepis', cas: '2026-10-31T18:25:00+00:00' } }, new Date('2026-10-31T18:30:00Z')))
+      .toBe('Čeká na další běh zpracování — asi v 22:17.');
+    // Průběh z dřívějška běh nevyřadí.
+    expect(textCekani(false, { prubeh: { faze: 'prepis', cas: '2026-10-31T17:45:00+00:00' } }, new Date('2026-10-31T18:30:00Z')))
+      .toBe('Čeká na běh zpracování z 19:17 — GitHub ho občas o pár desítek minut zdrží.');
+    expect(textCekani(false, {}, new Date('2026-10-31T19:40:00Z'))).toBe('Čeká na další běh zpracování — asi v 22:17.');
+    expect(posledniBehZpracovani(new Date('2026-10-31T18:16:00Z')).toISOString()).toBe('2026-10-31T15:17:00.000Z');
+  });
+
+  it('interval obnovy: zpracování 20 s; čekání 60 s jen do 90 min po plánovaném běhu, jinak 10 min; jinak nic', () => {
+    expect(intervalObnovy(true, true, new Date('2026-10-31T20:00:00Z'))).toBe(OBNOVA_PRI_ZPRACOVANI_MS);
+    expect(intervalObnovy(false, true, new Date('2026-10-31T18:30:00Z'))).toBe(OBNOVA_PRI_CEKANI_MS);
+    expect(intervalObnovy(false, true, new Date('2026-10-31T19:46:00Z'))).toBe(OBNOVA_PRI_CEKANI_MS);
+    expect(intervalObnovy(false, true, new Date('2026-10-31T19:48:00Z'))).toBe(OBNOVA_MIMO_BEH_MS);
+    expect(intervalObnovy(false, false, new Date('2026-10-31T18:30:00Z'))).toBeNull();
+    expect([OBNOVA_PRI_ZPRACOVANI_MS, OBNOVA_PRI_CEKANI_MS, OBNOVA_MIMO_BEH_MS]).toEqual([20_000, 60_000, 600_000]);
   });
 
   it('další plánovaný běh: každé 3 hodiny v :17 UTC, vždy až po teď', () => {

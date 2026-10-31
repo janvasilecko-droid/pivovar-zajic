@@ -742,6 +742,18 @@ def zpracuj_dokument(supa: Supa, dok: dict, prepisovac: Prepisovac | None, ucet:
         m = _CESTA.match(dok.get('soubor_cesta') or '')
         if not m or m.group(1) != id_ or m.group(2) in ('.', '..'):
             raise ChybaZpracovani('Cesta k souboru v úložišti má nečekaný tvar — nahraj dokument znovu přes appku.')
+        # Bez AI nemá smysl znovu stahovat knihu, o které už víme, že má skeny
+        # (průběh dřívějšího pokusu nebo počty dřívějšího zpracování): bez AI
+        # počká vždycky (přepisy z dřívějška se bez AI nenačítají) a stahování
+        # celé knihy každé 3 hodiny by vyčerpalo přenosy tarifu Free.
+        drive = puvodni.get('prubeh') if isinstance(puvodni.get('prubeh'), dict) else {}
+        skenu = max(_cislo(drive.get('ocr_celkem'), 0), _cislo(puvodni.get('ocr'), 0))
+        if prepisovac is None and skenu > 0:
+            # Stejné počty, nový čas: knihovna pozná, že ji tenhle běh viděl
+            # (jinak by psala, že na běh teprve čeká).
+            hlasit_prubeh(str(drive.get('faze') or 'prepis'), int(_cislo(drive.get('hotovo'), 0)),
+                          int(_cislo(drive.get('celkem'), 0)), int(_cislo(drive.get('ocr_hotovo'), 0)), int(skenu))
+            raise ChybiKlic(bez_ai or 'Čeká: dokument má naskenované strany a v app_secrets hlavní appky chybí ANTHROPIC_API_KEY.')
         hlasit_prubeh('stahovani', 0, 0)
         data = supa.stahni(BUCKET, dok['soubor_cesta'])
         if hashlib.sha256(data).hexdigest() != dok.get('soubor_sha256'):
