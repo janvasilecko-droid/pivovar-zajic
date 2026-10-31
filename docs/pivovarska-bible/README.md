@@ -66,6 +66,15 @@ s citací kniha–kapitola–strana a počítá deterministickým výpočetním 
 - **Strop útraty:** na běh 5 USD a na měsíc 20 USD (`bible_nastaveni`,
   0 = AI nepoužívat). Když dojde, dokument se skeny počká na další běh;
   dokumenty bez AI se zpracují dál.
+- **Problém s účtem Claude** (došel kredit, limit útraty, odmítnutý klíč,
+  neznámý model, příliš mnoho požadavků): AI se pro zbytek běhu vypne,
+  dokumenty se skeny počkají se zprávou, co s účtem udělat, a ostatní se
+  zpracují dál; běh pak skončí chybou, ať je problém vidět (dřív zastavil
+  celý běh — 31. 10. 2026 tak 2 skenované strany z 327 zdržely i jinou knihu).
+- **Procenta v knihovně:** worker během práce zapisuje průběh do
+  `postup.prubeh` (fáze, stran hotovo/celkem, přepis skenů) nejvýš jednou
+  za 15 s; knihovna ho ukazuje v procentech a sama se obnovuje. U čekající
+  knihy ukáže čas dalšího plánovaného běhu (cron `17 */3 * * *` UTC).
 - **Pojistka velikosti databáze bible:** `limit_db_mb` (výchozí 450 MB;
   Supabase Free přepne nad 500 MB databázi bible jen pro čtení). Nad limitem
   další knihy počkají se zprávou u dokumentu.

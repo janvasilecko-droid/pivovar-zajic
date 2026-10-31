@@ -310,6 +310,14 @@ export const STRANKY_PLOCHY: Array<{ nazev: string; ids: Page[] }> = [
 export const DLAZDICE_MIMO_TABULKU_ZAMERNE: Page[] = ['notes', 'navod', 'orders_entry', 'orders_zavoz'];
 
 /**
+ * Nové dlaždice, které se uložené ploše přidají rovnou na ÚVODNÍ stránku,
+ * ne na „Další". Pivovarská bible: majitel ji na „Další" nenašel a chtěl ji
+ * mezi aplikacemi (31. 10. 2026: „přidej dlaždici do aplikací"). Kdo ji pak
+ * přesune nebo schová, tomu zůstane, kde ji nechal (plocha se uloží).
+ */
+export const NOVE_NA_UVODNI: readonly Page[] = ['bible'];
+
+/**
  * Které dlaždice smí rozdělení rozmístit: hlavní moduly, na které má
  * uživatel právo, plus záměrné výjimky (lísteček s poznámkami).
  *
@@ -876,9 +884,13 @@ export function getHomeLayout(raw: unknown, visibleIds: Page[], extraIds: Page[]
     // denní práci a nesmí se sama rozrůstat (28. 9. 2026).
     // Na jediné stránce (od verze 18) jde nová dlaždice na ni — ne na
     // prázdnou poslední stránku, kterou by nikdo nenašel.
+    // Výjimka NOVE_NA_UVODNI: ty jdou rovnou na úvodní stránku (majitel).
     const jedina = pages.slice(1).every((p) => p.length === 0);
     const kam = jedina ? 0 : Math.min(1, pages.length - 1);
-    pages[kam] = [...pages[kam], ...newIds];
+    const naUvodni = newIds.filter((id) => NOVE_NA_UVODNI.includes(id));
+    const ostatni = newIds.filter((id) => !NOVE_NA_UVODNI.includes(id));
+    if (naUvodni.length) pages[0] = [...pages[0], ...naUvodni];
+    if (ostatni.length) pages[kam] = [...pages[kam], ...ostatni];
   }
 
   const overrides = (saved.overrides && typeof saved.overrides === 'object' ? saved.overrides : {}) as Partial<Record<TileId, TileOverride>>;
