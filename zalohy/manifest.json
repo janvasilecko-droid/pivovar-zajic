@@ -1,7 +1,8 @@
 {
  "format": "pivovar-zaloha-manifest",
  "v": 1,
- "datum": "2026-10-31T08:34:13.094Z",
+ "sada": "hlavni",
+ "datum": "2026-11-01T09:25:18.738Z",
  "tabulky": {
   "beers": {
    "radku": 13,
@@ -96,12 +97,12 @@
    "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
   },
   "keg_sanitation_logs": {
-   "radku": 41,
-   "sha256": "1c9a7e574a8c30afde119744625517677e879fc3acb1ecdb4616c29539f17f86"
+   "radku": 42,
+   "sha256": "683d6580bc0696ae688283161d9eaab52da6cac4b83bb2101c81d40dbf4119e6"
   },
   "bottle_sanitation_logs": {
-   "radku": 20,
-   "sha256": "fc71f57369c33b4591a156fdb98ea32b6153668367975d0403b5a62775b89ab9"
+   "radku": 21,
+   "sha256": "d45da3a0813768c608a51d0b91ee62972695d69a55d8d1b1d75a95019bd1c32f"
   },
   "tap_sanitation_logs": {
    "radku": 0,
@@ -116,8 +117,8 @@
    "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
   },
   "migrace_aplikovane": {
-   "radku": 64,
-   "sha256": "e36316d3b820baa700f00f49cf39f4d9fc1099fb9d01444d5d7e79af0e0c1446"
+   "radku": 67,
+   "sha256": "84bf4cea53530d734dcc0bf71c8ec5a198ef224fb132a1c6ca88c89e279985e8"
   },
   "tank_uprava_log": {
    "radku": 0,
@@ -308,7 +309,5 @@
    "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
   }
  },
- "nejsouVDatabazi": [
-  "bible_dokumenty"
- ]
+ "nejsouVDatabazi": []
 }
