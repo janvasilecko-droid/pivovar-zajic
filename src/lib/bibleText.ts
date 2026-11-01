@@ -26,21 +26,37 @@ export type BlokTextu =
 
 /** Oddělovací řádek tabulky — stejný vzor jako _ODDELOVAC_TABULKY ve workeru. */
 const ODDELOVAC_TABULKY = /^\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?$/;
-const NADPIS = /^(#{1,6})\s+(.+?)\s*#*\s*$/;
+// #{1,9}: worker píše u DOCX až 9 úrovní (formaty.py _uroven_nadpisu); čtečka je ořízne na 3.
+const NADPIS = /^(#{1,9})\s+(.+?)\s*#*\s*$/;
 const NECITELNE = '[nečitelné]';
 /**
  * Vzorec ve větě: $…$ bez mezery hned za a před dolarem (jinak „stojí $5 a $10"
- * není vzorec) a bez $$ kolem. Bez lookbehindu — starší Safari by kus appky
- * vůbec nenačetl; dolar těsně před se kontroluje v cyklu.
+ * není vzorec) a bez $$ kolem — pravidla Pandocu (tex_math_dollars): za
+ * uzavíracím dolarem nesmí být číslice („$5-$10" je cena) a „\$" oddělovač
+ * není (zobrazí se jako „$"). Bez lookbehindu — starší Safari by kus appky
+ * vůbec nenačetl; znak těsně před dolarem se kontroluje v cyklu.
  */
-const VZOREC_VE_VETE = /\$(?!\$)([^\s$](?:[^$\n]*?[^\s$])?)\$(?!\$)/g;
+const VZOREC_VE_VETE = /\$(?!\$)([^\s$](?:[^$\n]*?[^\s$\\])?)\$(?![$\d])/g;
 
-/** Buňky řádku tabulky bez krajních svislých čar. */
+/**
+ * Buňky řádku tabulky bez krajních svislých čar. „\|" je doslovná čára uvnitř
+ * buňky (GFM), ne hranice — dělí se znak po znaku, bez lookbehindu.
+ */
 export function bunkyRadku(radek: string): string[] {
-  let r = radek.trim();
-  if (r.startsWith('|')) r = r.slice(1);
-  if (r.endsWith('|') && !r.endsWith('\\|')) r = r.slice(0, -1);
-  return r.split('|').map((b) => b.trim());
+  const r = radek.trim();
+  const bunky: string[] = [];
+  let bunka = '';
+  for (let i = 0; i < r.length; i += 1) {
+    const z = r[i];
+    if (z === '\\' && r[i + 1] === '|') { bunka += '|'; i += 1; continue; }
+    if (z === '|') { bunky.push(bunka); bunka = ''; continue; }
+    bunka += z;
+  }
+  bunky.push(bunka);
+  // Krajní čáry: prázdná první/poslední „buňka" před první a za poslední čarou.
+  if (r.startsWith('|')) bunky.shift();
+  if (bunky.length > 1 && r.endsWith('|') && !r.endsWith('\\|')) bunky.pop();
+  return bunky.map((b) => b.trim());
 }
 
 /** Text řádku → části: obyčejný text, vzorce ve větě a [nečitelné]. */
@@ -48,7 +64,7 @@ export function castiRadku(text: string): CastTextu[] {
   const casti: CastTextu[] = [];
   const pridejText = (t: string) => {
     if (!t) return;
-    const kusy = t.split(NECITELNE);
+    const kusy = t.replace(/\\\$/g, '$').split(NECITELNE);
     kusy.forEach((kus, i) => {
       if (i > 0) casti.push({ typ: 'necitelne' });
       if (!kus) return;
@@ -60,7 +76,7 @@ export function castiRadku(text: string): CastTextu[] {
   let od = 0;
   for (const m of text.matchAll(VZOREC_VE_VETE)) {
     const i = m.index ?? 0;
-    if (i > 0 && text[i - 1] === '$') continue;
+    if (i > 0 && (text[i - 1] === '$' || text[i - 1] === '\\')) continue;
     pridejText(text.slice(od, i));
     casti.push({ typ: 'vzorec', tex: m[1] });
     od = i + m[0].length;
@@ -108,8 +124,12 @@ export function rozlozText(text: string, zdroj: ZdrojTextu): BlokTextu[] {
           continue;
         }
       } else {
+        // Uzavření se hledá jen do prázdného řádku — vzorec ho obsahovat
+        // nesmí, a jinak by neuzavřený $$ spolkl nadpisy i tabulky až k
+        // dalšímu vzorci.
         let konec = -1;
         for (let j = i + 1; j < radky.length; j += 1) {
+          if (!radky[j].trim()) break;
           if (radky[j].includes('$$')) { konec = j; break; }
         }
         if (konec >= 0) {

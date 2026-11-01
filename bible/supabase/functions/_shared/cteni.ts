@@ -24,6 +24,13 @@ export function zpravaNezpracovano(stav: unknown): string {
   }
 }
 
+/**
+ * Dokument je hotový, ale text v databázi bible chybí — obnova ze zálohy vrací
+ * jen řádky dokumentů (kapitoly, listy a pasáže se nezálohují, vzniknou znovu
+ * zpracováním). Bez téhle hlášky by čtečka ukázala prázdnou knihu „0 listů".
+ */
+export const ZPRAVA_BEZ_TEXTU = 'Text knihy v databázi bible chybí (třeba po obnově ze zálohy) — správce ji v knihovně pustí „Zpracovat znovu".';
+
 /** Nejvýš tolik listů vydá jeden požadavek na čtení (a míň, když jsou husté). */
 export const MAX_LISTU_NA_DOTAZ = 3;
 /** Strop znaků textu v jedné odpovědi — vždy ale aspoň jeden celý list. */

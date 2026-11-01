@@ -182,10 +182,86 @@ describe('Čtečka knihy', () => {
     expect(screen.getByRole('heading', { name: '1.1 Klíčení' })).toBeTruthy();
   });
 
-  it('list, který z knihy zmizel, nečeká donekonečna', async () => {
+  it('list, který z knihy zmizel, nečeká donekonečna — a „Zkusit znovu" se opravdu zeptá znovu', async () => {
     nactiKnihu.mockResolvedValueOnce({ stav: 'ok', data: kniha() });
     nactiListy.mockResolvedValueOnce({ stav: 'ok', data: [TEXTY[3]] });
     await vykresli({ pocatecniList: 2 });
     expect(screen.getByRole('alert').textContent).toMatch(/nepodařilo načíst/);
+    const dotazu = nactiListy.mock.calls.length;
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Zkusit znovu' })); });
+    expect(nactiListy.mock.calls.length).toBe(dotazu + 1);
+    expect(nactiListy.mock.calls[dotazu]).toEqual([ID, 2, 2]);
+    expect(screen.getByRole('heading', { name: '1.1 Klíčení' })).toBeTruthy();
+  });
+
+  // Revize 1. 11. 2026: přednačtení listu 3 selže, až když na něm čtenář už je
+  // (slabý signál) — dřív viselo „Načítám stranu…" bez hlášky a bez tlačítka.
+  it('přednačtení selže, když už je čtenář na tom listu: hláška a „Zkusit znovu"', async () => {
+    nactiKnihu.mockResolvedValueOnce({ stav: 'ok', data: kniha() });
+    let pustPrednacteni: (v: Cteni<TextListu[]>) => void = () => {};
+    nactiListy.mockImplementation(async (_id, od, pocet = 2) => {
+      if (od === 3) return new Promise<Cteni<TextListu[]>>((res) => { pustPrednacteni = res; });
+      return { stav: 'ok', data: [od, od + 1].slice(0, pocet).map((n) => TEXTY[n]).filter(Boolean) };
+    });
+    await vykresli({ pocatecniList: 1 });
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Další strana' })); });   // list 2 (přišel s 1), přednačítá se 3
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Další strana' })); });   // list 3, přednačtení ještě běží
+    expect(screen.getByText('Načítám stranu…')).toBeTruthy();
+    await act(async () => { pustPrednacteni({ stav: 'chyba', zprava: 'Spojení se přerušilo.' }); });
+    expect(screen.getByRole('alert').textContent).toMatch(/Spojení se přerušilo/);
+    nactiListy.mockImplementation(async (_id, od) => ({ stav: 'ok', data: [TEXTY[od], TEXTY[od + 1]].filter(Boolean) }));
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Zkusit znovu' })); });
+    expect(screen.getByRole('table')).toBeTruthy();
+  });
+
+  it('starý neúspěch se při novém příchodu na list zkusí znovu bez klepání', async () => {
+    nactiKnihu.mockResolvedValueOnce({ stav: 'ok', data: kniha() });
+    nactiListy.mockImplementation(async (_id, od, pocet = 2) => (od === 3
+      ? { stav: 'chyba', zprava: 'Spojení se přerušilo.' }
+      : { stav: 'ok', data: [od, od + 1].slice(0, pocet).map((n) => TEXTY[n]).filter(Boolean) }));
+    await vykresli({ pocatecniList: 1 });   // listy 1 a 2 přijdou spolu
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Další strana' })); });   // list 2 — přednačtení 3 selže potichu
+    expect(nactiListy.mock.calls.filter((c) => c[1] === 3)).toHaveLength(1);
+    expect(screen.queryByRole('alert')).toBeNull();
+    nactiListy.mockImplementation(async (_id, od) => ({ stav: 'ok', data: [TEXTY[od], TEXTY[od + 1]].filter(Boolean) }));
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Další strana' })); });
+    expect(nactiListy.mock.calls.filter((c) => c[1] === 3)).toHaveLength(2);
+    expect(screen.getByRole('table')).toBeTruthy();
+  });
+
+  it('tabulky a vzorce: po chybě první dávky jde „Zkusit znovu"', async () => {
+    nactiKnihu.mockResolvedValueOnce({ stav: 'ok', data: kniha() });
+    nactiObjekty.mockResolvedValueOnce({ stav: 'chyba', zprava: 'Spojení se přerušilo.' });
+    nactiObjekty.mockResolvedValueOnce({ stav: 'ok', data: { objekty: [{ poradi: 3, druh: 'tabulka', strana_od: 3, strana_do: 3, kapitola_id: null, nahled: '| a | b |' }], dalsi: null } });
+    await vykresli();
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Tabulky a vzorce/ })); });
+    expect(screen.getByRole('alert').textContent).toMatch(/Spojení se přerušilo/);
+    expect(screen.queryByRole('button', { name: 'Načíst další' })).toBeNull();
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Zkusit znovu' })); });
+    expect(nactiObjekty).toHaveBeenLastCalledWith(ID, 0);
+    expect(screen.getByText('| a | b |')).toBeTruthy();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  // Appka neroluje oknem, ale obalem obsahu (Layout: div.overflow-y-auto).
+  it('další strana vrátí čtení na začátek, když je odrolované dolů', async () => {
+    nactiKnihu.mockResolvedValueOnce({ stav: 'ok', data: kniha() });
+    const posun = vi.fn();
+    const puvodni = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = posun;
+    try {
+      await vykresli({ pocatecniList: 2 });
+      const lista = screen.getByRole('button', { name: 'Další strana' }).closest('div.sticky')!;
+      const obal = lista.parentElement as HTMLElement;
+      obal.getBoundingClientRect = () => ({ top: -900 } as DOMRect);   // začátek čtení je nad horní hranou
+      await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Další strana' })); });
+      expect(posun).toHaveBeenCalledWith({ block: 'start' });
+      posun.mockClear();
+      obal.getBoundingClientRect = () => ({ top: 120 } as DOMRect);    // čtení je vidět celé — nic neposouvat
+      await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Předchozí strana' })); });
+      expect(posun).not.toHaveBeenCalled();
+    } finally {
+      Element.prototype.scrollIntoView = puvodni;
+    }
   });
 });

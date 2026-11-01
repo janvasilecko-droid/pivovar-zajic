@@ -57,6 +57,21 @@ describe('text listu → bloky', () => {
     ]);
     expect(rozlozText('$$$$', 'ocr')).toEqual([{ typ: 'odstavec', casti: [{ typ: 'text', text: '$$$$' }] }]);
   });
+
+  it('neuzavřený $$ nespolkne nadpis ani tabulku až k dalšímu vzorci (uzavření jen do prázdného řádku)', () => {
+    const bloky = rozlozText('$$ E = a\n\n## 3.2 Teploty\nText.\n\n$$ F = m a $$', 'ocr');
+    expect(bloky).toEqual([
+      { typ: 'odstavec', casti: [{ typ: 'text', text: '$$ E = a' }] },
+      { typ: 'nadpis', uroven: 2, casti: [{ typ: 'text', text: '3.2 Teploty' }] },
+      { typ: 'odstavec', casti: [{ typ: 'text', text: 'Text.' }] },
+      { typ: 'vzorec', tex: 'F = m a' },
+    ]);
+  });
+
+  it('hluboké nadpisy z DOCX (7–9 „#") jsou nadpis 3. úrovně, ne odstavec se značkami', () => {
+    expect(rozlozText('####### Sedmá úroveň', 'soubor')).toEqual([{ typ: 'nadpis', uroven: 3, casti: [{ typ: 'text', text: 'Sedmá úroveň' }] }]);
+    expect(rozlozText('######### Devátá', 'soubor')).toEqual([{ typ: 'nadpis', uroven: 3, casti: [{ typ: 'text', text: 'Devátá' }] }]);
+  });
 });
 
 describe('části řádku', () => {
@@ -80,9 +95,28 @@ describe('části řádku', () => {
     expect(castiRadku('$x$ a $y$')).toEqual([{ typ: 'vzorec', tex: 'x' }, { typ: 'text', text: ' a ' }, { typ: 'vzorec', tex: 'y' }]);
   });
 
+  // Revize 1. 11. 2026 — pravidla Pandocu: za uzavíracím dolarem nesmí být
+  // číslice a „\$" oddělovač není (v textu se ukáže jako „$").
+  it('ceny v dolarech a escapovaný dolar vzorec nejsou, znak „$" nezmizí', () => {
+    expect(castiRadku('stojí $5-$10 za kus')).toEqual([{ typ: 'text', text: 'stojí $5-$10 za kus' }]);
+    expect(castiRadku('cena $3,$4 nebo $20')).toEqual([{ typ: 'text', text: 'cena $3,$4 nebo $20' }]);
+    expect(castiRadku('\\$5 a \\$10')).toEqual([{ typ: 'text', text: '$5 a $10' }]);
+    expect(castiRadku('\\$x$ zůstane textem')).toEqual([{ typ: 'text', text: '$x$ zůstane textem' }]);
+    // Vzorec hned za cenou se pořád pozná; za vzorcem může být interpunkce.
+    expect(castiRadku('za \\$5: $E_p$.')).toEqual([{ typ: 'text', text: 'za $5: ' }, { typ: 'vzorec', tex: 'E_p' }, { typ: 'text', text: '.' }]);
+  });
+
   it('buňky bez krajních čar', () => {
     expect(bunkyRadku('| a | b |')).toEqual(['a', 'b']);
     expect(bunkyRadku('a | b')).toEqual(['a', 'b']);
     expect(bunkyRadku('|  |x|')).toEqual(['', 'x']);
+  });
+
+  it('„\\|" je doslovná čára v buňce (GFM), ne hranice — sloupce se neposunou', () => {
+    expect(bunkyRadku('| \\|x\\| | 5 |')).toEqual(['|x|', '5']);
+    expect(bunkyRadku('| a \\|')).toEqual(['a |']);
+    expect(rozlozText('| Veličina | Hodnota |\n|---|---|\n| \\|x\\| | 5 |', 'ocr')).toEqual([
+      { typ: 'tabulka', hlavicka: ['Veličina', 'Hodnota'], radky: [['|x|', '5']] },
+    ]);
   });
 });

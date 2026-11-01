@@ -9,7 +9,7 @@ import {
 } from '../_shared/vstupy.ts';
 import {
   celeCislo, druhObjektu, DRUHY_OBJEKTU, jeCitelny, listyPodStropem, MAX_LISTU_NA_DOTAZ, nahled, OBJEKTU_NA_DOTAZ,
-  rejstrikListu, vsechnyRadky, zpravaNezpracovano,
+  rejstrikListu, vsechnyRadky, ZPRAVA_BEZ_TEXTU, zpravaNezpracovano,
 } from '../_shared/cteni.ts';
 
 /**
@@ -219,6 +219,8 @@ const PROVEDENI: Record<Akce, (k: Kontext) => Promise<Response>> = {
         .select('pdf_index,tistena_strana,zdroj_textu,ke_kontrole')
         .eq('dokument_id', id).order('pdf_index').range(od, do_));
     if (listy.error) return chybaDb(cors, listy.error as ChybaDb, 'kniha');
+    // Hotová kniha bez jediného listu (po obnově ze zálohy): říct, co s tím, ne ukázat prázdnou knihu.
+    if (listy.data.length === 0) return chyba(cors, 409, 'nezpracovano', ZPRAVA_BEZ_TEXTU);
     return hotovo(cors, { dokument: c.dokument, kapitoly: kapitoly.data, listy: rejstrikListu(listy.data) });
   },
 

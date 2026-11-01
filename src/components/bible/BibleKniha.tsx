@@ -44,10 +44,11 @@ export function TextListuKnihy({ bloky }: { bloky: BlokTextu[] }) {
       {bloky.map((b, i) => {
         if (b.typ === 'nadpis') {
           const Znacka = b.uroven === 1 ? 'h3' : b.uroven === 2 ? 'h4' : 'h5';
-          return <Znacka key={i} className={`font-black text-neutral-50 ${b.uroven === 1 ? 'text-base' : 'text-sm'}`}><Casti casti={b.casti} /></Znacka>;
+          return <Znacka key={i} className={`break-words font-black text-neutral-50 ${b.uroven === 1 ? 'text-base' : 'text-sm'}`}><Casti casti={b.casti} /></Znacka>;
         }
-        if (b.typ === 'odstavec') return <p key={i} className="whitespace-pre-line leading-relaxed text-neutral-100"><Casti casti={b.casti} /></p>;
-        if (b.typ === 'prosty') return <div key={i} className="whitespace-pre-line leading-relaxed text-neutral-100">{b.text}</div>;
+        // break-words: dlouhý odkaz nebo DOI bez mezer by roztáhl celou obrazovku do šířky.
+        if (b.typ === 'odstavec') return <p key={i} className="whitespace-pre-line break-words leading-relaxed text-neutral-100"><Casti casti={b.casti} /></p>;
+        if (b.typ === 'prosty') return <div key={i} className="whitespace-pre-line break-words leading-relaxed text-neutral-100">{b.text}</div>;
         if (b.typ === 'vzorec') {
           return (
             <div key={i} className="rounded-xl border border-neutral-700 bg-neutral-950 p-3 space-y-1">
@@ -94,7 +95,9 @@ export function BibleKniha({ id, pocatecniList, doKnihovny }: {
   const [pohled, setPohled] = useState<Pohled>(pocatecniList ? 'cteni' : 'obsah');
   const [list, setList] = useState<number | null>(pocatecniList ?? null);
   const [texty, setTexty] = useState<Record<number, TextListu>>({});
-  const [chybaListu, setChybaListu] = useState<string | null>(null);
+  // Listy, jejichž načtení selhalo (list → hláška). Po listech, ne jedna hláška:
+  // přednačtení dalšího listu může selhat, až když na něm čtenář už je.
+  const [selhane, setSelhane] = useState<Record<number, string>>({});
   const [skok, setSkok] = useState('');
   const [chybaSkoku, setChybaSkoku] = useState<string | null>(null);
   const [objekty, setObjekty] = useState<{ polozky: ObjektKnihy[]; dalsi: number | null; nacita: boolean; chyba: string | null } | null>(null);
@@ -119,15 +122,18 @@ export function BibleKniha({ id, pocatecniList, doKnihovny }: {
     if (pohled === 'cteni' && list === null && listy.length > 0) setList(listy[0].pdfIndex);
   }, [pohled, list, listy]);
 
-  // Načtení listu (a jednoho dopředu). Požadavky se nesčítají — každý začátek jen jednou.
+  // Načtení listu (a jednoho dopředu). Požadavky se nesčítají — každý začátek
+  // jen jednou. Neúspěch se zapíše k listu (selhane), ať ho čtečka ukáže, i když
+  // šlo o přednačtení a čtenář na ten list přešel, než doběhlo (jinak by
+  // „Načítám stranu…" viselo navždy).
   const vyzadano = useRef(new Set<number>());
-  const nactiOd = useCallback(async (od: number, ukazatChybu: boolean) => {
+  const nactiOd = useCallback(async (od: number) => {
     if (vyzadano.current.has(od)) return;
     vyzadano.current.add(od);
     const r = await nactiListy(id, od, LISTU_NARAZ);
+    vyzadano.current.delete(od);
     if (r.stav !== 'ok') {
-      vyzadano.current.delete(od);
-      if (ukazatChybu) setChybaListu(r.zprava);
+      setSelhane((s) => ({ ...s, [od]: r.zprava }));
       return;
     }
     setTexty((t) => {
@@ -136,26 +142,53 @@ export function BibleKniha({ id, pocatecniList, doKnihovny }: {
       return dalsi;
     });
     // List mezitím z knihy zmizel (nové zpracování): nečekat donekonečna.
-    if (ukazatChybu && !r.data.some((l) => l.pdf_index === od)) setChybaListu('Tenhle list se nepodařilo načíst — kniha se mezitím možná zpracovala znovu.');
+    if (!r.data.some((l) => l.pdf_index === od)) {
+      setSelhane((s) => ({ ...s, [od]: 'Tenhle list se nepodařilo načíst — kniha se mezitím možná zpracovala znovu.' }));
+    }
   }, [id]);
 
   useEffect(() => {
     if (pohled !== 'cteni' || list === null || !data) return;
     if (!texty[list]) {
-      // Hlášku o chybě nuluje jen přechod na jinou stranu nebo „Zkusit znovu".
-      void nactiOd(list, true);
+      // Po neúspěchu čeká na „Zkusit znovu" nebo na nový příchod na list.
+      if (selhane[list] === undefined) void nactiOd(list);
       return;
     }
     const dalsi = sousedniList(listy, list, 1);
-    if (dalsi !== null && !texty[dalsi]) void nactiOd(dalsi, false);
-  }, [pohled, list, data, texty, listy, nactiOd]);
+    if (dalsi !== null && !texty[dalsi] && selhane[dalsi] === undefined) void nactiOd(dalsi);
+  }, [pohled, list, data, texty, listy, selhane, nactiOd]);
+
+  function zapomenSelhani(pdfIndex: number) {
+    setSelhane((s) => {
+      if (s[pdfIndex] === undefined) return s;
+      const dalsi = { ...s };
+      delete dalsi[pdfIndex];
+      return dalsi;
+    });
+  }
+
+  // Po přechodu na jiný list zpátky na začátek strany. Appka neroluje oknem,
+  // ale obalem obsahu v Layoutu (div.overflow-y-auto) — window.scrollTo by nic
+  // neposunul. Roluje se jen, když je začátek čtení nad horní hranou.
+  const ctecka = useRef<HTMLDivElement>(null);
+  const nahoru = useRef(false);
+  useEffect(() => {
+    if (!nahoru.current) return;
+    nahoru.current = false;
+    const el = ctecka.current;
+    if (!el) return;
+    const rolovac = rolujiciPredek(el);
+    const horniHrana = rolovac ? rolovac.getBoundingClientRect().top : 0;
+    if (el.getBoundingClientRect().top < horniHrana) el.scrollIntoView?.({ block: 'start' });
+  }, [list, pohled]);
 
   function otevriList(pdfIndex: number) {
+    // Starý neúspěch se zkusí znovu (síť se mohla vrátit).
+    zapomenSelhani(pdfIndex);
     setList(pdfIndex);
     setChybaSkoku(null);
-    setChybaListu(null);
     setPohled('cteni');
-    if (typeof window !== 'undefined') window.scrollTo?.({ top: 0 });
+    nahoru.current = true;
   }
 
   function skocNaStranu(e: React.FormEvent) {
@@ -217,6 +250,7 @@ export function BibleKniha({ id, pocatecniList, doKnihovny }: {
   const podrobnosti = [d.autor, d.rok, d.vydani].filter(Boolean).join(' · ');
   const aktualni = list !== null ? listPodleCisla.get(list) : undefined;
   const text = list !== null ? texty[list] : undefined;
+  const chybaListu = list !== null ? selhane[list] ?? null : null;
   const predchozi = list !== null ? sousedniList(listy, list, -1) : null;
   const dalsi = list !== null ? sousedniList(listy, list, 1) : null;
   const kapitola = list !== null ? kapitolaListu(kniha.data.kapitoly, list) : null;
@@ -278,7 +312,7 @@ export function BibleKniha({ id, pocatecniList, doKnihovny }: {
       )}
 
       {pohled === 'cteni' && list !== null && (
-        <div className="space-y-3">
+        <div ref={ctecka} className="space-y-3">
           <div className="sticky top-0 z-20 rounded-xl border border-neutral-700 bg-neutral-900 px-2 py-2 flex flex-wrap items-center gap-2">
             <button type="button" className="btn-tmave w-11 px-0" aria-label="Předchozí strana" disabled={predchozi === null} onClick={() => predchozi !== null && otevriList(predchozi)}>
               <ChevronLeft size={20} />
@@ -313,7 +347,7 @@ export function BibleKniha({ id, pocatecniList, doKnihovny }: {
             ) : chybaListu ? (
               <div role="alert" className="space-y-2">
                 <div className="text-sm font-bold text-rose-300">{chybaListu}</div>
-                <button type="button" className="btn-tmave" onClick={() => { setChybaListu(null); void nactiOd(list, true); }}>Zkusit znovu</button>
+                <button type="button" className="btn-tmave" onClick={() => { zapomenSelhani(list); void nactiOd(list); }}>Zkusit znovu</button>
               </div>
             ) : (
               <div className="text-sm text-neutral-300">Načítám stranu…</div>
@@ -327,7 +361,13 @@ export function BibleKniha({ id, pocatecniList, doKnihovny }: {
           <p className="text-xs text-neutral-300">
             Tabulky a vzorce rozpoznané v přepisu skenů a v převedených souborech. U digitálních PDF je najdeš v textu strany nebo v originále.
           </p>
-          {objekty?.chyba && <div role="alert" className="text-sm font-bold text-rose-300">{objekty.chyba}</div>}
+          {objekty?.chyba && (
+            <div role="alert" className="space-y-2">
+              <div className="text-sm font-bold text-rose-300">{objekty.chyba}</div>
+              {/* Bez tlačítka by po chybě první dávky nešlo načíst nic, dokud se kniha neotevře znovu. */}
+              <button type="button" className="btn-tmave" onClick={() => void nactiDalsiObjekty(objekty.dalsi ?? 0)}>Zkusit znovu</button>
+            </div>
+          )}
           {objekty && !objekty.nacita && !objekty.chyba && objekty.polozky.length === 0 && (
             <div className="rounded-xl border border-dashed border-neutral-600 bg-neutral-900 text-neutral-200 p-4 text-sm">V knize nejsou rozpoznané tabulky ani vzorce.</div>
           )}
@@ -350,13 +390,24 @@ export function BibleKniha({ id, pocatecniList, doKnihovny }: {
             </ul>
           )}
           {objekty?.nacita && <div className="text-sm text-neutral-300">Načítám tabulky a vzorce…</div>}
-          {objekty && !objekty.nacita && objekty.dalsi !== null && (
+          {objekty && !objekty.nacita && !objekty.chyba && objekty.dalsi !== null && (
             <button type="button" className="btn-tmave" onClick={() => objekty.dalsi !== null && void nactiDalsiObjekty(objekty.dalsi)}>Načíst další</button>
           )}
         </div>
       )}
     </div>
   );
+}
+
+/** Nejbližší předek, který opravdu roluje (v appce obal obsahu v Layoutu). */
+function rolujiciPredek(el: HTMLElement): HTMLElement | null {
+  let p = el.parentElement;
+  while (p) {
+    const styl = getComputedStyle(p);
+    if (/(auto|scroll|overlay)/.test(styl.overflowY) && p.scrollHeight > p.clientHeight + 1) return p;
+    p = p.parentElement;
+  }
+  return null;
 }
 
 export default BibleKniha;

@@ -61,6 +61,14 @@ describe('funkce projektu bible', () => {
     }
   });
 
+  it('hotová kniha bez listů (po obnově ze zálohy) je 409 nezpracovano, ne prázdná kniha', () => {
+    const kod = zdroj('bible-api');
+    const zacatek = kod.indexOf('  async kniha(');
+    const telo = kod.slice(zacatek, kod.indexOf('\n  },', zacatek));
+    expect(telo).toMatch(/if \(listy\.data\.length === 0\) return chyba\(cors, 409, 'nezpracovano', ZPRAVA_BEZ_TEXTU\)/);
+    expect(telo.indexOf('listy.data.length === 0')).toBeLessThan(telo.indexOf('return hotovo('));
+  });
+
   it('soubory smazaných dokumentů se uklízejí (rozběhnuté nahrání s platným odkazem)', () => {
     const kod = zdroj('bible-api');
     expect(kod).toMatch(/rpc\('bible_smazane_k_uklidu'/);
