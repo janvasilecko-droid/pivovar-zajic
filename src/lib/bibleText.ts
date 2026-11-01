@@ -31,12 +31,14 @@ const NADPIS = /^(#{1,9})\s+(.+?)\s*#*\s*$/;
 const NECITELNE = '[nečitelné]';
 /**
  * Vzorec ve větě: $…$ bez mezery hned za a před dolarem (jinak „stojí $5 a $10"
- * není vzorec) a bez $$ kolem — pravidla Pandocu (tex_math_dollars): za
- * uzavíracím dolarem nesmí být číslice („$5-$10" je cena) a „\$" oddělovač
- * není (zobrazí se jako „$"). Bez lookbehindu — starší Safari by kus appky
- * vůbec nenačetl; znak těsně před dolarem se kontroluje v cyklu.
+ * není vzorec) a bez $$ kolem. „\$" oddělovač není (zobrazí se jako „$").
+ * Obsah, který začíná číslicí, navíc nesmí mít za uzavíracím dolarem číslici
+ * („$5-$10", „$3,$4" jsou ceny — pravidlo Pandocu); u ostatních číslice za
+ * vzorcem nevadí, přepis píše hodnoty bez mezer („1$\times$10$^6$",
+ * „12,0$\pm$0,2"). Bez lookbehindu — starší Safari by kus appky vůbec
+ * nenačetl; znak těsně před dolarem se kontroluje v cyklu.
  */
-const VZOREC_VE_VETE = /\$(?!\$)([^\s$](?:[^$\n]*?[^\s$\\])?)\$(?![$\d])/g;
+const VZOREC_VE_VETE = /\$(?!\$)(?:(\d(?:[^$\n]*?[^\s$\\])?)\$(?![$\d])|([^\s$\d](?:[^$\n]*?[^\s$\\])?)\$(?!\$))/g;
 
 /**
  * Buňky řádku tabulky bez krajních svislých čar. „\|" je doslovná čára uvnitř
@@ -78,7 +80,7 @@ export function castiRadku(text: string): CastTextu[] {
     const i = m.index ?? 0;
     if (i > 0 && (text[i - 1] === '$' || text[i - 1] === '\\')) continue;
     pridejText(text.slice(od, i));
-    casti.push({ typ: 'vzorec', tex: m[1] });
+    casti.push({ typ: 'vzorec', tex: m[1] ?? m[2] });
     od = i + m[0].length;
   }
   pridejText(text.slice(od));

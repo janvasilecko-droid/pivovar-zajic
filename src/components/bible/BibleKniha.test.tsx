@@ -243,6 +243,23 @@ describe('Čtečka knihy', () => {
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
+  it('tabulky a vzorce: chyba další dávky je pod seznamem a „Zkusit znovu" pokračuje od kurzoru', async () => {
+    nactiKnihu.mockResolvedValueOnce({ stav: 'ok', data: kniha() });
+    const objekt = (poradi: number) => ({ poradi, druh: 'tabulka' as const, strana_od: 3, strana_do: 3, kapitola_id: null, nahled: `tabulka ${poradi}` });
+    nactiObjekty.mockResolvedValueOnce({ stav: 'ok', data: { objekty: [objekt(1), objekt(2)], dalsi: 2 } });
+    nactiObjekty.mockResolvedValueOnce({ stav: 'chyba', zprava: 'Spojení se přerušilo.' });
+    nactiObjekty.mockResolvedValueOnce({ stav: 'ok', data: { objekty: [objekt(3)], dalsi: null } });
+    await vykresli();
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Tabulky a vzorce/ })); });
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Načíst další' })); });
+    const seznam = screen.getByRole('list');
+    const hlaska = screen.getByRole('alert');
+    expect(seznam.compareDocumentPosition(hlaska) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Zkusit znovu' })); });
+    expect(nactiObjekty).toHaveBeenLastCalledWith(ID, 2);
+    expect(screen.getAllByText(/^tabulka \d$/).map((e) => e.textContent)).toEqual(['tabulka 1', 'tabulka 2', 'tabulka 3']);
+  });
+
   // Appka neroluje oknem, ale obalem obsahu (Layout: div.overflow-y-auto).
   it('další strana vrátí čtení na začátek, když je odrolované dolů', async () => {
     nactiKnihu.mockResolvedValueOnce({ stav: 'ok', data: kniha() });

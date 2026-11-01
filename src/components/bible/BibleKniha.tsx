@@ -361,13 +361,6 @@ export function BibleKniha({ id, pocatecniList, doKnihovny }: {
           <p className="text-xs text-neutral-300">
             Tabulky a vzorce rozpoznané v přepisu skenů a v převedených souborech. U digitálních PDF je najdeš v textu strany nebo v originále.
           </p>
-          {objekty?.chyba && (
-            <div role="alert" className="space-y-2">
-              <div className="text-sm font-bold text-rose-300">{objekty.chyba}</div>
-              {/* Bez tlačítka by po chybě první dávky nešlo načíst nic, dokud se kniha neotevře znovu. */}
-              <button type="button" className="btn-tmave" onClick={() => void nactiDalsiObjekty(objekty.dalsi ?? 0)}>Zkusit znovu</button>
-            </div>
-          )}
           {objekty && !objekty.nacita && !objekty.chyba && objekty.polozky.length === 0 && (
             <div className="rounded-xl border border-dashed border-neutral-600 bg-neutral-900 text-neutral-200 p-4 text-sm">V knize nejsou rozpoznané tabulky ani vzorce.</div>
           )}
@@ -388,6 +381,15 @@ export function BibleKniha({ id, pocatecniList, doKnihovny }: {
                 );
               })}
             </ul>
+          )}
+          {/* Hláška pod seznamem (tam, kde bylo „Načíst další"): po chybě další dávky by nad
+              dlouhým seznamem byla mimo obrazovku a přehled by vypadal jako úplný. Bez tlačítka
+              by po chybě první dávky nešlo načíst nic, dokud se kniha neotevře znovu. */}
+          {objekty?.chyba && (
+            <div role="alert" className="space-y-2">
+              <div className="text-sm font-bold text-rose-300">{objekty.chyba}</div>
+              <button type="button" className="btn-tmave" onClick={() => void nactiDalsiObjekty(objekty.dalsi ?? 0)}>Zkusit znovu</button>
+            </div>
           )}
           {objekty?.nacita && <div className="text-sm text-neutral-300">Načítám tabulky a vzorce…</div>}
           {objekty && !objekty.nacita && !objekty.chyba && objekty.dalsi !== null && (

@@ -106,6 +106,19 @@ describe('části řádku', () => {
     expect(castiRadku('za \\$5: $E_p$.')).toEqual([{ typ: 'text', text: 'za $5: ' }, { typ: 'vzorec', tex: 'E_p' }, { typ: 'text', text: '.' }]);
   });
 
+  it('operátor přilepený k číslům zůstane vzorcem („1$\\times$10$^6$", „12,0$\\pm$0,2")', () => {
+    expect(castiRadku('Zákvas 1$\\times$10$^6$ buněk/ml.')).toEqual([
+      { typ: 'text', text: 'Zákvas 1' }, { typ: 'vzorec', tex: '\\times' }, { typ: 'text', text: '10' },
+      { typ: 'vzorec', tex: '^6' }, { typ: 'text', text: ' buněk/ml.' },
+    ]);
+    expect(castiRadku('Extrakt 12,0$\\pm$0,2 °P a pH 5,2$\\pm$0,1.')).toEqual([
+      { typ: 'text', text: 'Extrakt 12,0' }, { typ: 'vzorec', tex: '\\pm' }, { typ: 'text', text: '0,2 °P a pH 5,2' },
+      { typ: 'vzorec', tex: '\\pm' }, { typ: 'text', text: '0,1.' },
+    ]);
+    // Vzorec začínající číslicí funguje, když za ním číslice není.
+    expect(castiRadku('obvod $2\\pi r$ kruhu')).toEqual([{ typ: 'text', text: 'obvod ' }, { typ: 'vzorec', tex: '2\\pi r' }, { typ: 'text', text: ' kruhu' }]);
+  });
+
   it('buňky bez krajních čar', () => {
     expect(bunkyRadku('| a | b |')).toEqual(['a', 'b']);
     expect(bunkyRadku('a | b')).toEqual(['a', 'b']);
