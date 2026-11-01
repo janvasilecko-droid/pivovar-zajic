@@ -57,8 +57,8 @@ export function MaleSudyPanel({ packages, canEdit, kdo }: {
   canEdit: boolean;
   kdo?: string | null;
 }) {
-  const { zasoba, zadanoKdy, zapocitatPlne, umiZapocitatPlne, nacteno, chybiMigrace, ulozit, nastavZapocitatPlne } = useMaleSudy();
-  const { souhrn, jmenaPiv, nacteno: hlidaniNacteno } = useHlidaniMalychSudu(zasoba, undefined, zapocitatPlne, zadanoKdy);
+  const { zasoba, zadanoKdy, zapocitatPlne, umiZapocitatPlne, nacteno, chybiMigrace, chybaNacteni, ulozit, nastavZapocitatPlne } = useMaleSudy();
+  const { souhrn, jmenaPiv, nacteno: hlidaniNacteno, chybaNacteni: bezObjednavek } = useHlidaniMalychSudu(zasoba, undefined, zapocitatPlne, zadanoKdy);
   const male = packages
     .filter(jeMalySud)
     .sort((a, b) => Number(b.volume_l) - Number(a.volume_l));
@@ -76,6 +76,14 @@ export function MaleSudyPanel({ packages, canEdit, kdo }: {
     return (
       <div className="card p-4 text-sm text-neutral-700">
         Evidence malých sudů ještě není v databázi (čeká úprava databáze). Zkuste to prosím za pár minut znovu.
+      </div>
+    );
+  }
+  // Uložené počty se nenačetly (síť): „+" by tu začalo od nuly a přepsalo je.
+  if (chybaNacteni) {
+    return (
+      <div role="alert" className="card p-4 text-sm font-bold text-rose-800">
+        Počty malých sudů se nepodařilo načíst — zkus to prosím za chvíli znovu (nic se nezměnilo).
       </div>
     );
   }
@@ -101,6 +109,9 @@ export function MaleSudyPanel({ packages, canEdit, kdo }: {
         const mame = hlida ? (s?.mame ?? naklikano) : undefined;
         // Dokud se nenačtou objednávky, číslo by poskočilo — radši „…".
         const ceka = hlida && !hlidaniNacteno;
+        // Objednávky se nenačetly vůbec: číslo je jen naklikané (bez odjetých) —
+        // +/− by ho uložilo jako nový stav, proto jen přepsat číslem.
+        const jenNaklikane = hlida && !ceka && bezObjednavek;
         const objednano = s?.objednano ?? 0;
         const volne = mame != null ? Math.max(0, mame - objednano) : 0;
         const odkud = s ? popisOdvezenych(s, zadanoKdy?.[pk.id]?.den) : null;
@@ -113,7 +124,7 @@ export function MaleSudyPanel({ packages, canEdit, kdo }: {
                   type="button"
                   className="btn-ghost !rounded !px-3"
                   aria-label={`Ubrat ${pk.label}`}
-                  disabled={!canEdit || !hlida || ceka || (mame ?? 0) <= 0}
+                  disabled={!canEdit || !nacteno || !hlida || ceka || jenNaklikane || (mame ?? 0) <= 0}
                   onClick={() => nastav(pk.id, (mame ?? 0) - 1)}
                 >
                   <Minus size={18} />
@@ -132,7 +143,7 @@ export function MaleSudyPanel({ packages, canEdit, kdo }: {
                   type="button"
                   className="btn-ghost !rounded !px-3"
                   aria-label={`Přidat ${pk.label}`}
-                  disabled={!canEdit || ceka}
+                  disabled={!canEdit || !nacteno || ceka || jenNaklikane}
                   onClick={() => nastav(pk.id, (mame ?? 0) + 1)}
                 >
                   <Plus size={18} />
@@ -142,7 +153,12 @@ export function MaleSudyPanel({ packages, canEdit, kdo }: {
             {hlida && !ceka && odkud && (
               <div className="text-xs font-semibold text-neutral-600">{odkud}</div>
             )}
-            {hlida && !ceka && (
+            {jenNaklikane && (
+              <div role="note" className="text-xs font-bold text-amber-800">
+                Objednávky se nenačetly — číslo je naklikané a nejsou v něm odjeté ani otevřené objednávky. Zkus to za chvíli znovu.
+              </div>
+            )}
+            {hlida && !ceka && !jenNaklikane && (
               <div
                 className={`rounded border px-3 py-2 flex items-center justify-between gap-3 ${
                   s && s.nad > 0

@@ -1,5 +1,5 @@
 import { useMaleSudy, useHlidaniMalychSudu } from '../lib/useMaleSudy';
-import { jeOtevrena, volneProObjednavku, rozdelMaleSudyVObjednavce, silaPiva } from '../lib/maleSudy';
+import { sudyObjednavky, volneProObjednavku, rozdelMaleSudyVObjednavce, silaPiva } from '../lib/maleSudy';
 import { MaleSudyVolne, MaleSudyRadek, tridaRadkuSudu } from './MaleSudyVolne';
 import { useState } from 'react';
 import { potvrd } from '../lib/toast';
@@ -62,14 +62,16 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
   // mě to pustí, na co není sud, udělej červeně"). Původní kusy téhle
   // objednávky se při úpravě uvolní — započítá se až to, co je zadáno teď.
   const { zasoba: zasobaMalychSudu, zapocitatPlne, zadanoKdy: zadanoMalychSudu } = useMaleSudy();
-  const { souhrn: souhrnMalychSudu } = useHlidaniMalychSudu(zasobaMalychSudu, undefined, zapocitatPlne, zadanoMalychSudu);
-  const otevrena = jeOtevrena(order);
+  const { souhrn: souhrnMalychSudu, poPolozce: sudyPoPolozce } = useHlidaniMalychSudu(zasobaMalychSudu, undefined, zapocitatPlne, zadanoMalychSudu);
   // Odběratel s vlastními sudy malé sudy pivovaru nebere — ani původně
   // (v souhrnu jeho objednávka není), ani teď (lib/vlastniSudy.ts).
   // Vlastní je i objednávka s poznámkou „do jejich sudu" (lib/vlastniSudy.ts).
   const puvodneVlastni = !!vlastniSudyOdberatele(order.place_name, order.note);
   const vlastniSudy = !!vlastniSudyOdberatele(placeName, note);
-  const puvodneVObalu = (pkgId: string) => (otevrena && !puvodneVlastni ? items.filter((i) => i.package_id === pkgId).reduce((sum, i) => sum + Number(i.quantity || 0), 0) : 0);
+  // Uvolní se přesně to, co hlídání téhle objednávce připsalo — otevřené její
+  // kusy v objednávkách, odjeté od zadání její podíl v odvezených (bez toho by
+  // úprava zavezené objednávky svítila u jejích vlastních sudů „Nejsou sudy").
+  const puvodneVObalu = (pkgId: string) => (puvodneVlastni ? 0 : sudyObjednavky(souhrnMalychSudu, sudyPoPolozce, order.id, items, pkgId));
   const zadanoVObalu = (pkgId: string) => rows.filter((x) => !x.removed && x.pkgId === pkgId).reduce((sum, x) => sum + (Number(x.qty) || 0), 0);
   // Po řádcích od nejsilnějšího piva: část bez sudu oranžově, celé červeně.
   const prideleniSudu = rozdelMaleSudyVObjednavce(

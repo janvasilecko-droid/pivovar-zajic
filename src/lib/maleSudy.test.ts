@@ -1,7 +1,9 @@
 // Z provozu 29. 9. 2026: „když mám 3× 15, hlídej, že můžu celkem použít
 // jen 3× 15, ne třeba 6× 15."
 import { describe, it, expect } from 'vitest';
-import { hlidejMaleSudy, jeMalySud, odjelaPoZadani, prazdneMaleSudy, zadaniMalychSudu } from './maleSudy';
+import {
+  hlidejMaleSudy, jeMalySud, odjelaPoZadani, plneKZadani, prazdneMaleSudy, sudyObjednavky, volneProObjednavku, zadaniMalychSudu,
+} from './maleSudy';
 import { kratkyDen, popisOdvezenych } from './maleSudyPopis';
 
 const o = (id: string, delivery_date: string | null, extra: Record<string, unknown> = {}) => ({ id, delivery_date, status: 'nova', is_delivered: false, ...extra });
@@ -359,40 +361,163 @@ describe('malé sudy — objednávky odjeté od zadání počet zmenší (1. 11.
     expect(r.nadPoPolozce.get('ot')).toBe(1);
   });
 
-  it('„započítat plné": co plné skladem pokryly před odvozem, pokryjí i po něm (odpočet se vrátí)', () => {
+  // Revize 1. 11. 2026: krýt smějí jen plné sudy, které ležely ve skladu už při
+  // zadání počtu. Stočené po zadání jsou z naklikaných prázdných.
+  it('„započítat plné": plné z doby zadání kryjí před odvozem i po něm, K dispozici neposkočí', () => {
     const polozka = { ...p('a', 'FOOD', 'k20', 3), beer_id: 'b10' };
     const food = (odjela: boolean) => o('FOOD', '2026-10-29', { created_at: '2026-10-27T12:00:00Z', is_delivered: odjela });
-    const volby = { zadano, zapocitatPlne: new Set(['k20']) };
-    // Před odvozem: 2 plné Desítky skladem pokryjí 2 sudy, prázdný se bere na 1.
+    const volby = { zadano, zapocitatPlne: new Set(['k20']), plnePriZadani: new Map([['b10__k20', 2]]) };
+    // Před odvozem: 2 plné Desítky z doby zadání pokryjí 2 sudy, prázdný se bere na 1.
     const pred = hlidejMaleSudy({ k20: 4 }, [food(false)], [polozka], undefined, '2026-10-28', { ...volby, skladem: new Map([['b10__k20', 2]]) });
-    expect(pred.souhrn[0]).toMatchObject({ mame: 4, objednano: 1, zapocitanoPlnych: 2 });
-    // Po odvozu odpočet vzal ze skladu 3 sudy (sklad −1); vrátí se a pokryjí totéž.
+    expect(pred.souhrn[0]).toMatchObject({ mame: 4, objednano: 1, zapocitanoPlnych: 2, plneSkladem: { b10: 2 } });
+    // Dostočený třetí sud (sklad 3) krytí nezvětší — je z naklikaných prázdných.
+    const stoceno = hlidejMaleSudy({ k20: 4 }, [food(false)], [polozka], undefined, '2026-10-28', { ...volby, skladem: new Map([['b10__k20', 3]]) });
+    expect(stoceno.souhrn[0]).toMatchObject({ mame: 4, objednano: 1, zapocitanoPlnych: 2, plneSkladem: { b10: 2 } });
+    // Po odvozu (sklad 0): plné z doby zadání pokryjí totéž, z prázdných odjel 1.
     const po = hlidejMaleSudy({ k20: 4 }, [food(true)], [polozka], undefined, '2026-10-29', {
-      ...volby, skladem: new Map([['b10__k20', -1]]), odepsane: new Set(['FOOD']),
-      odpocty: [{ order_id: 'FOOD', beer_id: 'b10', package_id: 'k20', quantity: 3 }],
+      ...volby, skladem: new Map([['b10__k20', 0]]), odepsane: new Set(['FOOD']),
+      odpocty: [{ order_id: 'FOOD', order_item_id: 'a', deduct_date: '2026-10-29', created_at: '2026-10-28T23:05:00Z' }],
     });
-    expect(po.souhrn[0]).toMatchObject({ mame: 3, objednano: 0, odvezeno: 1 });
+    expect(po.souhrn[0]).toMatchObject({ mame: 3, objednano: 0, odvezeno: 1, plneSkladem: {} });
     expect(pred.souhrn[0].mame - pred.souhrn[0].objednano).toBe(po.souhrn[0].mame - po.souhrn[0].objednano);
-    // Upozornění „skladem jsou plné" ukazuje skutečný sklad, ne vrácený.
-    expect(po.souhrn[0].plneSkladem).toEqual({});
+  });
+
+  it('„započítat plné": sudy stočené až po zadání nekryjí — odvoz počet zmenší celý', () => {
+    const polozka = { ...p('a', 'MANEO', 'k20', 3), beer_id: 'b10' };
+    const volby = { zadano, zapocitatPlne: new Set(['k20']), plnePriZadani: new Map<string, number>() };
+    // Ve středu stočené 3 sudy (sklad 3) — „plné skladem" se neukážou ani nepokryjí.
+    const st = hlidejMaleSudy({ k20: 4 }, [o('MANEO', '2026-10-29', { created_at: '2026-10-27T12:00:00Z' })], [polozka], undefined, '2026-10-28', {
+      ...volby, skladem: new Map([['b10__k20', 3]]),
+    });
+    expect(st.souhrn[0]).toMatchObject({ mame: 4, objednano: 3, zapocitanoPlnych: 0, plneSkladem: {} });
+    // Čtvrtek po odvozu: z naklikaných 4 zbude 1.
+    const ct = hlidejMaleSudy({ k20: 4 }, [o('MANEO', '2026-10-29', { created_at: '2026-10-27T12:00:00Z', is_delivered: true })], [polozka], undefined, '2026-10-29', {
+      ...volby, skladem: new Map([['b10__k20', 0]]), odepsane: new Set(['MANEO']),
+      odpocty: [{ order_id: 'MANEO', order_item_id: 'a', deduct_date: '2026-10-29', created_at: '2026-10-28T23:05:00Z' }],
+    });
+    expect(ct.souhrn[0]).toMatchObject({ mame: 1, objednano: 0, odvezeno: 3 });
+  });
+
+  it('objednávka bez data závozu: databáze ji odepíše v pátek — K dispozici neposkočí', () => {
+    // Zapsaná v pondělí bez dne i data (WhatsApp bez dne) — ve čtvrtek ještě otevřená.
+    const bezData = o('B', null, { order_date: '2026-10-26', created_at: '2026-10-26T09:00:00Z' });
+    const polozky = [p('b1', 'B', 'k10', 2)];
+    const ct = hlidejMaleSudy({ k10: 8 }, [bezData], polozky, undefined, '2026-10-29', { zadano });
+    expect(ct.souhrn[0]).toMatchObject({ mame: 8, objednano: 2 });
+    const pa = hlidejMaleSudy({ k10: 8 }, [bezData], polozky, undefined, '2026-10-30', {
+      zadano, odepsane: new Set(['B']), odpocty: [{ order_id: 'B', order_item_id: 'b1', deduct_date: '2026-10-30', created_at: '2026-10-29T23:05:00Z' }],
+    });
+    expect(pa.souhrn[0]).toMatchObject({ mame: 6, objednano: 0, odvezeno: 2 });
+    expect(pa.souhrn[0].odvezenoZ).toEqual([{ order_id: 'B', nazev: null, den: '2026-10-30', kusu: 2 }]);
+  });
+
+  it('přesun závozu na den zadání (odepsáno hned po zadání) se odečte; odepsané ráno před zadáním ne', () => {
+    const radek = o('R', '2026-10-27', { created_at: '2026-10-26T10:00:00Z' });
+    const presun = hlidejMaleSudy({ k10: 8 }, [radek], [p('r1', 'R', 'k10', 3)], undefined, '2026-10-27', {
+      zadano, odepsane: new Set(['R']), odpocty: [{ order_id: 'R', order_item_id: 'r1', deduct_date: '2026-10-27', created_at: '2026-10-27T12:00:00Z' }],
+    });
+    expect(presun.souhrn[0]).toMatchObject({ mame: 5, odvezeno: 3 });
+    const rano = hlidejMaleSudy({ k10: 8 }, [radek], [p('r1', 'R', 'k10', 3)], undefined, '2026-10-27', {
+      zadano, odepsane: new Set(['R']), odpocty: [{ order_id: 'R', order_item_id: 'r1', deduct_date: '2026-10-27', created_at: '2026-10-26T23:05:00Z' }],
+    });
+    expect(rano.souhrn[0]).toMatchObject({ mame: 8, odvezeno: 0 });
   });
 });
 
 describe('odjela objednávka po zadání počtu?', () => {
   const z = { cas: '2026-10-27T08:43:05Z', den: '2026-10-27' };
-  it('pozdější den závozu ano, dřívější ne', () => {
+  const odpocet = (deduct_date: string, created_at: string) => ({ order_id: 'A', order_item_id: 'a1', deduct_date, created_at });
+
+  it('pozdější den odjezdu ano, dřívější ne (i objednávka zapsaná zpětně)', () => {
     expect(odjelaPoZadani(o('A', '2026-10-28'), z)).toBe(true);
     expect(odjelaPoZadani(o('A', '2026-10-26', { created_at: '2026-10-27T10:00:00Z' }), z)).toBe(false);
+    expect(odjelaPoZadani(o('A', '2026-10-26', { created_at: '2026-10-27T10:00:00Z' }), z, [odpocet('2026-10-25', '2026-10-27T10:00:00Z')])).toBe(false);
   });
-  it('týž den jen objednávka zapsaná až po zadání (dnešní se odepíše hned)', () => {
-    expect(odjelaPoZadani(o('A', '2026-10-27', { created_at: '2026-10-27T09:00:00+00:00' }), z)).toBe(true);
-    expect(odjelaPoZadani(o('A', '2026-10-27', { created_at: '2026-10-26T15:00:00+00:00' }), z)).toBe(false);
-    expect(odjelaPoZadani(o('A', '2026-10-27'), z)).toBe(false);
+
+  it('den odjezdu je den odpočtu ze skladu, ne datum v objednávce', () => {
+    expect(odjelaPoZadani(o('A', null, { order_date: '2026-10-26' }), z, [odpocet('2026-10-30', '2026-10-29T23:05:00Z')])).toBe(true);
+    expect(odjelaPoZadani(o('A', '2026-10-30'), z, [odpocet('2026-10-26', '2026-10-25T23:05:00Z')])).toBe(false);
+    // Rozjeté datum (1. 9. 2026: odpočty o týden vedle data doručení): rozhoduje sklad.
+    expect(odjelaPoZadani(o('A', '2026-10-26'), z, [odpocet('2026-10-28', '2026-10-27T23:05:00Z')])).toBe(true);
   });
-  it('bez data závozu rozhoduje den objednání', () => {
-    expect(odjelaPoZadani(o('A', null, { order_date: '2026-10-29' }), z)).toBe(true);
-    expect(odjelaPoZadani(o('A', null, { order_date: '2026-10-20' }), z)).toBe(false);
+
+  it('odepsaná nebo zavezená už před zadáním ne — v hlídání tehdy nebyla', () => {
+    expect(odjelaPoZadani(o('A', '2026-10-27'), z, [odpocet('2026-10-27', '2026-10-26T23:05:00Z')])).toBe(false);
+    expect(odjelaPoZadani(o('A', '2026-10-28', { delivered_at: '2026-10-27T08:00:00Z' }), z)).toBe(false);
+    expect(odjelaPoZadani(o('A', '2026-10-27', { delivered_at: '2026-10-27T10:00:00Z' }), z, [odpocet('2026-10-27', '2026-10-27T09:00:00Z')])).toBe(true);
+  });
+
+  it('v den zadání: odepsaná až po zadání nebo bez odpočtu (položka bez piva) ano', () => {
+    expect(odjelaPoZadani(o('A', '2026-10-27', { created_at: '2026-10-26T15:00:00Z' }), z, [odpocet('2026-10-27', '2026-10-27T12:00:00Z')])).toBe(true);
+    expect(odjelaPoZadani(o('A', '2026-10-27', { created_at: '2026-10-26T15:00:00Z' }), z)).toBe(true);
+  });
+
+  it('bez data závozu den jako databáze: den v týdnu objednání (výchozí pátek), už prošlý o týden dál', () => {
+    expect(odjelaPoZadani(o('A', null, { order_date: '2026-10-26' }), z)).toBe(true);          // pátek 30. 10.
+    expect(odjelaPoZadani(o('A', null, { order_date: '2026-10-20' }), z)).toBe(false);         // pátek 23. 10.
+    expect(odjelaPoZadani(o('A', null, { order_date: '2026-10-20', delivery_day: 'po' }), z)).toBe(false);  // po 19. 10. → 26. 10.
+    expect(odjelaPoZadani(o('A', null, { order_date: '2026-10-21', delivery_day: 'ut' }), z)).toBe(true);   // út 20. 10. → 27. 10.
     expect(odjelaPoZadani(o('A', null), z)).toBe(false);
+    expect(odjelaPoZadani(o('A', '2026-10-28'), { cas: 'neplatné', den: '2026-10-27' })).toBe(false);
+  });
+});
+
+describe('úprava objednávky uvolní přesně to, co jí hlídání připsalo', () => {
+  const z = { k20: { cas: '2026-10-27T08:43:05Z', den: '2026-10-27' }, k10: { cas: '2026-10-27T08:43:05Z', den: '2026-10-27' } };
+
+  it('zavezené Maneo: jeho sudy se uvolní, řádky nesvítí „Nejsou sudy"', () => {
+    const maneo = o('MANEO', '2026-10-29', { is_delivered: true, created_at: '2026-10-27T12:16:00Z', place_name: 'Maneo' });
+    const polozky = [p('m1', 'MANEO', 'k10', 3), p('m2', 'MANEO', 'k10', 3), p('m3', 'MANEO', 'k20', 4)];
+    const r = hlidejMaleSudy({ k20: 4, k10: 8 }, [maneo], polozky, undefined, '2026-11-01', { zadano: z, odepsane: new Set(['MANEO']) });
+    const uz = (pkg: string) => sudyObjednavky(r.souhrn, r.poPolozce, 'MANEO', polozky, pkg);
+    expect([uz('k20'), uz('k10')]).toEqual([4, 6]);
+    expect(volneProObjednavku(r.souhrn, 'k20', uz('k20'))).toBe(4);
+    expect(volneProObjednavku(r.souhrn, 'k10', uz('k10'))).toBe(8);
+  });
+
+  it('odjelo víc, než se naklikalo: uvolní se jen to, co by bez téhle objednávky zbylo', () => {
+    const a = o('A', '2026-10-28', { is_delivered: true });
+    const b = o('B', '2026-10-29', { is_delivered: true });
+    const polozky = [p('a1', 'A', 'k20', 3), p('b1', 'B', 'k20', 3)];
+    const r = hlidejMaleSudy({ k20: 4 }, [a, b], polozky, undefined, '2026-11-01', { zadano: z });
+    expect(r.souhrn[0]).toMatchObject({ mame: 0, odvezeno: 6 });
+    expect(volneProObjednavku(r.souhrn, 'k20', sudyObjednavky(r.souhrn, r.poPolozce, 'B', polozky, 'k20'))).toBe(1);
+  });
+
+  it('otevřená objednávka: její kusy v objednávkách; jiný obal nebo nehlídaný 0', () => {
+    const x = o('X', '2026-10-30', { created_at: '2026-10-28T10:00:00Z' });
+    const polozky = [p('x1', 'X', 'k10', 3), p('x2', 'X', 'k10', 2)];
+    const r = hlidejMaleSudy({ k10: 8 }, [x], polozky, undefined, '2026-10-29', { zadano: z });
+    expect(sudyObjednavky(r.souhrn, r.poPolozce, 'X', polozky, 'k10')).toBe(5);
+    expect(volneProObjednavku(r.souhrn, 'k10', 5)).toBe(8);
+    expect(sudyObjednavky(r.souhrn, r.poPolozce, 'X', polozky, 'k20')).toBe(0);
+    expect(sudyObjednavky(r.souhrn, r.poPolozce, 'X', polozky, null)).toBe(0);
+  });
+});
+
+describe('plné sudy v okamžiku zadání', () => {
+  const pohyb = (date: string, qty: number, kind: 'kegovani' | 'zavoz', createdAt: string, package_id = 'k20') =>
+    ({ date, beer_id: 'b10', package_id, qty, kind, createdAt });
+  it('bez stáčení a odpočtů zapsaných v den zadání až po něm; jen hlídané obaly; vlastní sudy pryč', () => {
+    const plne = plneKZadani(
+      [
+        pohyb('2026-10-26', 2, 'kegovani', '2026-10-26T10:00:00Z'),
+        pohyb('2026-10-27', 1, 'kegovani', '2026-10-27T07:00:00Z'),
+        pohyb('2026-10-27', 3, 'kegovani', '2026-10-27T12:00:00Z'),
+        pohyb('2026-10-27', -1, 'zavoz', '2026-10-26T22:05:00Z'),
+        pohyb('2026-10-28', 5, 'kegovani', '2026-10-28T08:00:00Z'),
+        pohyb('2026-10-26', 9, 'kegovani', '2026-10-26T10:00:00Z', 'k50'),
+      ],
+      { k20: { cas: '2026-10-27T08:43:05Z', den: '2026-10-27' } },
+    );
+    expect(plne.get('b10__k20')).toBe(2);
+    expect(plne.has('b10__k50')).toBe(false);
+    const bezVlastnich = plneKZadani(
+      [pohyb('2026-10-26', 2, 'kegovani', '2026-10-26T10:00:00Z')],
+      { k20: { cas: '2026-10-27T08:43:05Z', den: '2026-10-27' } },
+      [{ beer_id: 'b10', package_id: 'k20', quantity: 1, created_at: '2026-10-26T11:00:00Z' }, { beer_id: 'b10', package_id: 'k20', quantity: 1, created_at: '2026-10-27T12:00:00Z' }],
+    );
+    expect(bezVlastnich.get('b10__k20')).toBe(1);
   });
 });
 

@@ -1,16 +1,16 @@
 // 🛢️ Počty malých sudů z tabulky male_sudy (viz lib/maleSudy.ts).
 // Sdílí obrazovka KEG (zadávání) a Objednávky (hlídání).
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase, useRealtime, fetchAllRows } from './supabase';
 import {
-  hlidejMaleSudy, jeMalySud, pondeliTydne, prazdneMaleSudy, zadaniMalychSudu,
+  hlidejMaleSudy, jeMalySud, plneKZadani, pondeliTydne, prazdneMaleSudy, zadaniMalychSudu,
   type RadekMalychSudu, type VysledekMalychSudu, type ObjednavkaProSudy, type PolozkaProSudy, type ObalProSudy,
   type OdpocetProSudy, type ZadaniMalehoSudu,
 } from './maleSudy';
 import { chybiTabulka } from './chybyHlaseni';
 import { businessDateISO } from './businessDate';
 import { nactiSkladovouKnihu } from './skladovaKnihaData';
-import { stockAsOf } from './stockLedger';
+import { stockAsOf, type Movement } from './stockLedger';
 import { vlastniSudyOdberatele } from './vlastniSudy';
 
 export function useMaleSudy(): {
@@ -25,6 +25,8 @@ export function useMaleSudy(): {
   nacteno: boolean;
   /** Tabulka ještě není v databázi (čeká migrace) — záložka to řekne. */
   chybiMigrace: boolean;
+  /** Počty se nepodařilo načíst (síť) — záložka nesmí nabídnout „+" jako první zadání, přepsalo by uložené. */
+  chybaNacteni: boolean;
   ulozit: (packageId: string, pocet: number | null, kdo?: string | null) => Promise<string | null>;
   nastavZapocitatPlne: (packageId: string, ano: boolean) => Promise<string | null>;
 } {
@@ -34,6 +36,7 @@ export function useMaleSudy(): {
   const [umiZapocitatPlne, setUmiZapocitatPlne] = useState(false);
   const [nacteno, setNacteno] = useState(false);
   const [chybiMigrace, setChybiMigrace] = useState(false);
+  const [chybaNacteni, setChybaNacteni] = useState(false);
   const radkyRef = useRef<RadekMalychSudu[]>([]);
 
   async function nacti() {
@@ -43,9 +46,11 @@ export function useMaleSudy(): {
     if (bezSloupce) ({ data, error } = await supabase.from('male_sudy').select('package_id, pocet, updated_at') as any);
     if (error) {
       if (chybiTabulka(error)) setChybiMigrace(true);
+      else setChybaNacteni(true);
       setNacteno(true);
       return;
     }
+    setChybaNacteni(false);
     setUmiZapocitatPlne(!bezSloupce);
     const radky = ((data as any[]) ?? []) as (RadekMalychSudu & { zapocitat_plne?: boolean })[];
     radkyRef.current = radky;
@@ -112,7 +117,7 @@ export function useMaleSudy(): {
     return null;
   }
 
-  return { zasoba, zadanoKdy, zapocitatPlne, umiZapocitatPlne, nacteno, chybiMigrace, ulozit, nastavZapocitatPlne };
+  return { zasoba, zadanoKdy, zapocitatPlne, umiZapocitatPlne, nacteno, chybiMigrace, chybaNacteni, ulozit, nastavZapocitatPlne };
 }
 
 
@@ -128,9 +133,14 @@ export function useHlidaniMalychSudu(
   zapocitatPlne: Set<string> | undefined,
   /** Kdy byl který počet naklikaný (useMaleSudy) — bez něj se odjeté neodečtou. */
   zadanoKdy: Record<string, ZadaniMalehoSudu> | undefined,
-): VysledekMalychSudu & { nacteno: boolean; jmenaPiv: Map<string, string> } {
-  const [data, setData] = useState<{ o: ObjednavkaProSudy[]; p: PolozkaProSudy[]; odepsane: Set<string>; odpocty: OdpocetProSudy[]; skladem: Map<string, number>; jmenaPiv: Map<string, string> } | null>(null);
-  // Načtení selhalo (síť) — záložka pak ukáže aspoň naklikané číslo, ne věčné „…".
+): VysledekMalychSudu & { nacteno: boolean; chybaNacteni: boolean; jmenaPiv: Map<string, string> } {
+  const [data, setData] = useState<{
+    o: ObjednavkaProSudy[]; p: PolozkaProSudy[]; odepsane: Set<string>; odpocty: OdpocetProSudy[]; skladem: Map<string, number>;
+    pohyby: Movement[] | null; vlastniStocene: { beer_id: string | null; package_id: string | null; quantity: number; created_at: string | null }[];
+    jmenaPiv: Map<string, string>;
+  } | null>(null);
+  // Načtení selhalo. Dobrá data z minula zůstávají (chyba je nepřepíše prázdnými —
+  // číslo by skočilo zpět na naklikané a +/− by ho uložilo s novým časem).
   const [selhalo, setSelhalo] = useState(false);
   async function nacti() {
     // Nezavezené a nestornované — to jsou ty, na které se sudy ještě chystají.
@@ -141,22 +151,25 @@ export function useHlidaniMalychSudu(
     const pondeli = pondeliTydne(businessDateISO());
     const denPred = new Date(pondeli + 'T00:00:00Z');
     denPred.setUTCDate(denPred.getUTCDate() - 1);
-    const { data: obj } = await fetchAllRows<any>('orders', 'id,status,is_delivered,delivery_date,order_date,created_at,place_name,note')
+    const { data: obj, error: chybaObj } = await fetchAllRows<any>('orders', 'id,status,is_delivered,delivered_at,delivery_date,delivery_day,order_date,created_at,place_name,note')
       .neq('status', 'storno')
       .or(`is_delivered.eq.false,delivery_date.gte.${pondeli},created_at.gte.${denPred.toISOString().slice(0, 10)}`);
+    if (chybaObj) throw new Error('Objednávky se nenačetly.');
     const o = ((obj as any[]) ?? []) as ObjednavkaProSudy[];
     const ids = o.map((x) => x.id);
-    const [{ data: pol }, { data: odp }, kniha] = await Promise.all([
+    const [{ data: pol, error: chybaPol }, { data: odp, error: chybaOdp }, kniha] = await Promise.all([
       ids.length
         ? fetchAllRows<any>('order_items', 'id,order_id,package_id,quantity,beer_id').in('order_id', ids)
-        : Promise.resolve({ data: [] as any[] }),
+        : Promise.resolve({ data: [] as any[], error: null }),
       // Už odepsané ze skladu = sudy odjely (30. 9. 2026) — viz maleSudy.ts.
+      // Den a čas odpočtu po položkách rozhodnou, jestli odjela až po zadání.
       ids.length
-        ? fetchAllRows<any>('zavoz_deductions', 'order_id,beer_id,package_id,quantity').in('order_id', ids)
-        : Promise.resolve({ data: [] as any[] }),
+        ? fetchAllRows<any>('zavoz_deductions', 'order_id,order_item_id,beer_id,package_id,quantity,deduct_date,created_at').in('order_id', ids)
+        : Promise.resolve({ data: [] as any[], error: null }),
       // Stočené pivo skladem pokryje objednávku bez prázdného sudu.
       nactiSkladovouKnihu().catch(() => null),
     ]);
+    if (chybaPol || chybaOdp) throw new Error('Položky nebo odpočty se nenačetly.');
     const skladem = new Map<string, number>();
     if (kniha) stockAsOf(kniha.pohyby, businessDateISO()).forEach((r, k) => skladem.set(k, r.qty));
     // 🛢️ Naplněné sudy odběratelů s vlastními sudy (stočené s vazbou na jejich
@@ -165,11 +178,14 @@ export function useHlidaniMalychSudu(
     const odepsaneObj = new Set(((odp as any[]) ?? []).map((r) => r.order_id as string));
     const vlastniObj = new Set(o.filter((x) => vlastniSudyOdberatele(x.place_name, x.note) && !odepsaneObj.has(x.id)).map((x) => x.id));
     const vlastniPolozky = ((pol as any[]) ?? []).filter((x) => vlastniObj.has(x.order_id)).map((x) => x.id as string);
+    const vlastniStocene: { beer_id: string | null; package_id: string | null; quantity: number; created_at: string | null }[] = [];
     if (vlastniPolozky.length) {
-      const { data: stocene } = await fetchAllRows<any>('kegging', 'order_item_id, beer_id, package_id, quantity').in('order_item_id', vlastniPolozky);
+      const { data: stocene, error: chybaStoc } = await fetchAllRows<any>('kegging', 'order_item_id, beer_id, package_id, quantity, created_at').in('order_item_id', vlastniPolozky);
+      if (chybaStoc) throw new Error('Stočené sudy se nenačetly.');
       for (const r of ((stocene as any[]) ?? [])) {
         const k = `${r.beer_id}__${r.package_id}`;
         if (skladem.has(k)) skladem.set(k, (skladem.get(k) ?? 0) - Number(r.quantity || 0));
+        vlastniStocene.push({ beer_id: r.beer_id ?? null, package_id: r.package_id ?? null, quantity: Number(r.quantity || 0), created_at: r.created_at ?? null });
       }
     }
     setSelhalo(false);
@@ -179,6 +195,8 @@ export function useHlidaniMalychSudu(
       odepsane: odepsaneObj,
       odpocty: ((odp as any[]) ?? []) as OdpocetProSudy[],
       skladem,
+      pohyby: kniha?.pohyby ?? null,
+      vlastniStocene,
       // Jména piv pro rozpad „plné skladem" v panelu Malé sudy.
       jmenaPiv: new Map((kniha?.piva ?? []).map((b) => [b.id, b.name])),
     });
@@ -190,10 +208,15 @@ export function useHlidaniMalychSudu(
   const nactiBezpecne = () => { nacti().catch(() => setSelhalo(true)); };
   useEffect(() => { if (hlida) nactiBezpecne(); }, [hlida]);
   useRealtime(['orders', 'order_items', 'zavoz_deductions', 'kegging', 'inventory', 'inventory_adjustments'], () => { if (hlida) nactiBezpecne(); });
+  // Plné sudy z doby zadání (jen ty kryjí u „započítat plné") — bez skladové knihy dnešní sklad.
+  const plnePriZadani = useMemo(
+    () => (data?.pohyby && zadanoKdy ? plneKZadani(data.pohyby, zadanoKdy, data.vlastniStocene) : undefined),
+    [data, zadanoKdy],
+  );
   const vysledek = data
     ? hlidejMaleSudy(zasoba, data.o, data.p, silaPodleId, businessDateISO(), {
-      odepsane: data.odepsane, skladem: data.skladem, zapocitatPlne, zadano: zadanoKdy, odpocty: data.odpocty,
+      odepsane: data.odepsane, skladem: data.skladem, zapocitatPlne, zadano: zadanoKdy, odpocty: data.odpocty, plnePriZadani,
     })
     : { souhrn: [], nadPoPolozce: new Map<string, number>(), poPolozce: new Map<string, { kryto: number; chybi: number }>() };
-  return { ...vysledek, nacteno: !!data || selhalo, jmenaPiv: data?.jmenaPiv ?? new Map() };
+  return { ...vysledek, nacteno: !!data || selhalo, chybaNacteni: selhalo && !data, jmenaPiv: data?.jmenaPiv ?? new Map() };
 }

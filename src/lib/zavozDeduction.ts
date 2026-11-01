@@ -11,40 +11,8 @@ import { supabase } from './supabase';
 import { zalogujANahlas } from './chybyHlaseni';
 import { uloz } from './uloziste';
 
-const DAY_OFFSET: Record<string, number> = {
-  po: 0,
-  ut: 1,
-  st: 2,
-  ct: 3,
-  pa: 4,
-  so: 5,
-  ne: 6,
-};
-
-function getMondayOfWeekISO(dateStr: string): string {
-  const d = new Date(dateStr + 'T00:00:00Z');
-  const dow = (d.getUTCDay() + 6) % 7;
-  d.setUTCDate(d.getUTCDate() - dow);
-  return d.toISOString().slice(0, 10);
-}
-
-export function deliveryDayToISO(orderDate: string, deliveryDay: string | null): string {
-  const firstDay = (deliveryDay ?? 'pa').split('/')[0].trim();
-  const offset = DAY_OFFSET[firstDay] ?? DAY_OFFSET.pa;
-  const monday = getMondayOfWeekISO(orderDate);
-  const d = new Date(monday + 'T00:00:00Z');
-  d.setUTCDate(d.getUTCDate() + offset);
-  return d.toISOString().slice(0, 10);
-}
-
-export function computeDeliveryDateISO(
-  orderDate: string,
-  deliveryDay: string | null,
-  deliveryDate: string | null,
-): string {
-  if (deliveryDate) return deliveryDate.slice(0, 10);
-  return deliveryDayToISO(orderDate, deliveryDay);
-}
+// Den závozu z objednávky žije v lib/denZavozu.ts (čisté funkce bez databáze).
+export { computeDeliveryDateISO, deliveryDayToISO } from './denZavozu';
 
 export type ZavozDeductionRow = {
   id: string;

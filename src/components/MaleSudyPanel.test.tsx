@@ -7,11 +7,12 @@ import { render, screen, fireEvent } from '@testing-library/react';
 
 const ulozit = vi.fn(async (..._a: unknown[]) => null);
 let zasoba: Record<string, number> = {};
-let hlidani: { souhrn: unknown[]; nacteno: boolean } = { souhrn: [], nacteno: true };
+let stavPoctu = { nacteno: true, chybaNacteni: false };
+let hlidani: { souhrn: unknown[]; nacteno: boolean; chybaNacteni?: boolean } = { souhrn: [], nacteno: true };
 vi.mock('../lib/useMaleSudy', () => ({
   useMaleSudy: () => ({
     zasoba, zadanoKdy: { s10: { cas: '2026-10-27T08:43:11Z', den: '2026-10-27' } },
-    zapocitatPlne: new Set(), umiZapocitatPlne: true, nacteno: true, chybiMigrace: false,
+    zapocitatPlne: new Set(), umiZapocitatPlne: true, ...stavPoctu, chybiMigrace: false,
     ulozit, nastavZapocitatPlne: vi.fn(async () => null),
   }),
   useHlidaniMalychSudu: () => ({ ...hlidani, jmenaPiv: new Map() }),
@@ -25,6 +26,7 @@ const S10 = { id: 's10', kind: 'keg', volume_l: 10, label: '10l' } as any;
 
 beforeEach(() => {
   ulozit.mockClear();
+  stavPoctu = { nacteno: true, chybaNacteni: false };
   zasoba = { s20: 7 };
   hlidani = {
     souhrn: [{ package_id: 's20', mame: 7, objednano: 5, nad: 0, zapocitanoPlnych: 0, plneSkladem: {}, zadano: 7, odvezeno: 0, odvezenoZ: [] }],
@@ -58,6 +60,36 @@ describe('Malé sudy: velké číslo = kolik jsem zadal', () => {
     expect(screen.getByText('…')).toBeTruthy();
     expect((screen.getByLabelText('Přidat 20l') as HTMLButtonElement).disabled).toBe(true);
     expect(screen.queryByText('K dispozici')).toBeNull();
+  });
+
+  // Revize 1. 11. 2026: „+" při nenačtených počtech by uložilo 1 a přepsalo uložené.
+  it('dokud se nenačtou uložené počty, „+" nejde', () => {
+    stavPoctu = { nacteno: false, chybaNacteni: false };
+    zasoba = {};
+    render(<MaleSudyPanel packages={[S20]} canEdit />);
+    expect((screen.getByLabelText('Přidat 20l') as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('počty se nenačetly (síť): hláška místo „klepni na +"', () => {
+    stavPoctu = { nacteno: true, chybaNacteni: true };
+    zasoba = {};
+    render(<MaleSudyPanel packages={[S20]} canEdit />);
+    expect(screen.getByRole('alert').textContent).toMatch(/nepodařilo načíst/);
+    expect(screen.queryByLabelText('Přidat 20l')).toBeNull();
+  });
+
+  it('objednávky se nenačetly: naklikané číslo s upozorněním, +/− nejdou, přepsat číslem jde', () => {
+    hlidani = { souhrn: [], nacteno: true, chybaNacteni: true };
+    render(<MaleSudyPanel packages={[S20]} canEdit />);
+    expect((screen.getByLabelText('Počet prázdných 20l') as HTMLInputElement).value).toBe('7');
+    expect(screen.getByRole('note').textContent).toMatch(/Objednávky se nenačetly/);
+    expect((screen.getByLabelText('Přidat 20l') as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByLabelText('Ubrat 20l') as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.queryByText('K dispozici')).toBeNull();
+    const pole = screen.getByLabelText('Počet prázdných 20l');
+    fireEvent.change(pole, { target: { value: '3' } });
+    fireEvent.blur(pole);
+    expect(ulozit).toHaveBeenCalledWith('s20', 3, undefined);
   });
 });
 
