@@ -940,7 +940,8 @@ def vyber_prepisovac(klic: str | None, token: str | None, model: str, nastaveni:
             klient_cc = klient_predplatne(token)
             ucet.zdroj = 'predplatne'
             prepisovac = Prepisovac(klient_cc, model, ucet, konec, zdroj='predplatne', limit_stran=limit_stran)
-            log(f'Přepis skenů přes předplatné Claude (Claude Code, model {model}), nejvýš {limit_stran} stran za běh.')
+            log(f'Přepis skenů přes předplatné Claude (Claude Code, model {model}), nejvýš {limit_stran} stran za běh; '
+                f'{klient_cc.popis_tokenu() if hasattr(klient_cc, "popis_tokenu") else "token"}.')
         else:
             log('Přepis přes předplatné je vypnutý (max_stran_predplatne = 0).')
     if prepisovac is not None and not prepisovac.tesseract:
