@@ -13,6 +13,7 @@ import { useAuth } from '../lib/auth';
 import { canUserEdit, getUserPermissions } from '../lib/permissions';
 import { Spinner } from './ui';
 import { jeMalySud, type ObalProSudy } from '../lib/maleSudy';
+import { popisOdvezenych } from '../lib/maleSudyPopis';
 import { useHlidaniMalychSudu, useMaleSudy } from '../lib/useMaleSudy';
 import { chyba } from '../lib/toast';
 
@@ -56,8 +57,8 @@ export function MaleSudyPanel({ packages, canEdit, kdo }: {
   canEdit: boolean;
   kdo?: string | null;
 }) {
-  const { zasoba, zapocitatPlne, umiZapocitatPlne, nacteno, chybiMigrace, ulozit, nastavZapocitatPlne } = useMaleSudy();
-  const { souhrn, jmenaPiv } = useHlidaniMalychSudu(zasoba, undefined, zapocitatPlne);
+  const { zasoba, zadanoKdy, zapocitatPlne, umiZapocitatPlne, nacteno, chybiMigrace, ulozit, nastavZapocitatPlne } = useMaleSudy();
+  const { souhrn, jmenaPiv, nacteno: hlidaniNacteno } = useHlidaniMalychSudu(zasoba, undefined, zapocitatPlne, zadanoKdy);
   const male = packages
     .filter(jeMalySud)
     .sort((a, b) => Number(b.volume_l) - Number(a.volume_l));
@@ -82,21 +83,27 @@ export function MaleSudyPanel({ packages, canEdit, kdo }: {
   return (
     <div className="space-y-3">
       <p className="text-sm text-neutral-600">
-        Naklikej, kolik máš prázdných malých sudů — velké číslo je přesně to, co zadáš. Pod ním je „K dispozici": prázdné minus sudy, které berou otevřené
-        objednávky (např. pro Radka), tedy kolik se ještě dá stočit pro dalšího. Co objednávky přečerpají, označí červeně.
+        Naklikej, kolik máš prázdných malých sudů — velké číslo je to, co zadáš, a ubývá o sudy objednávek, které od té doby odjely. Pod ním je
+        „K dispozici": prázdné minus sudy, které berou otevřené objednávky (např. pro Radka), tedy kolik se ještě dá stočit pro dalšího. Co
+        objednávky přečerpají, označí červeně.
       </p>
       {male.length === 0 && <div className="card p-4 text-sm text-neutral-600">V obalech není žádný malý sud (KEG pod 30 l).</div>}
       {male.map((pk) => {
-        const mame = zasoba[pk.id];
-        const hlida = mame != null;
+        const naklikano = zasoba[pk.id];
+        const hlida = naklikano != null;
         const s = souhrn.find((x) => x.package_id === pk.id);
-        // Velké číslo = PŘESNĚ to, co člověk naklikal (kolik má prázdných).
-        // Dřív ukazovalo zbytek po objednávkách (5. 10. 2026), a tak 7 prázdných
-        // při 5 objednaných ukázalo 2 — a aby se na displeji dostal na 7, musel
-        // člověk naklikat 12 („proč je tam prázdných 12, mají být tolik, kolik
-        // jsem jich zadal", 13. 10. 2026). Zbytek po objednávkách je pod číslem.
+        // Velké číslo = prázdné TEĎ: naklikané číslo minus sudy objednávek, které
+        // od zadání odjely (1. 11. 2026: „ty se měly odečíst podle objednávek,
+        // měly by tam být jen 2× 10 prázdné"). Hned po zadání je to přesně
+        // naklikané číslo (13. 10. 2026: „proč je tam prázdných 12, mají být
+        // tolik, kolik jsem jich zadal" — dřív ukazovalo zbytek po OTEVŘENÝCH
+        // objednávkách). Otevřené objednávky ubírají až z „K dispozici" pod ním.
+        const mame = hlida ? (s?.mame ?? naklikano) : undefined;
+        // Dokud se nenačtou objednávky, číslo by poskočilo — radši „…".
+        const ceka = hlida && !hlidaniNacteno;
         const objednano = s?.objednano ?? 0;
-        const volne = hlida ? Math.max(0, mame - objednano) : 0;
+        const volne = mame != null ? Math.max(0, mame - objednano) : 0;
+        const odkud = s ? popisOdvezenych(s, zadanoKdy?.[pk.id]?.den) : null;
         return (
           <div key={pk.id} className="card p-4 space-y-2">
             <div className="flex items-center justify-between gap-3">
@@ -106,7 +113,7 @@ export function MaleSudyPanel({ packages, canEdit, kdo }: {
                   type="button"
                   className="btn-ghost !rounded !px-3"
                   aria-label={`Ubrat ${pk.label}`}
-                  disabled={!canEdit || !hlida || (mame ?? 0) <= 0}
+                  disabled={!canEdit || !hlida || ceka || (mame ?? 0) <= 0}
                   onClick={() => nastav(pk.id, (mame ?? 0) - 1)}
                 >
                   <Minus size={18} />
@@ -115,8 +122,8 @@ export function MaleSudyPanel({ packages, canEdit, kdo }: {
                     uložené staré počty a nastavovat je po jednom klikáním bylo
                     zdlouhavé. Uloží se při opuštění pole / Enter. */}
                 <PocetPrazdnych
-                  hodnota={nacteno && hlida ? (mame as number) : null}
-                  zobraz={nacteno ? (hlida ? undefined : '–') : '…'}
+                  hodnota={nacteno && !ceka && mame != null ? mame : null}
+                  zobraz={!nacteno || ceka ? '…' : hlida ? undefined : '–'}
                   povoleno={canEdit && nacteno}
                   popisek={`Počet prázdných ${pk.label}`}
                   ulozit={(n) => nastav(pk.id, n)}
@@ -125,14 +132,17 @@ export function MaleSudyPanel({ packages, canEdit, kdo }: {
                   type="button"
                   className="btn-ghost !rounded !px-3"
                   aria-label={`Přidat ${pk.label}`}
-                  disabled={!canEdit}
+                  disabled={!canEdit || ceka}
                   onClick={() => nastav(pk.id, (mame ?? 0) + 1)}
                 >
                   <Plus size={18} />
                 </button>
               </div>
             </div>
-            {hlida && (
+            {hlida && !ceka && odkud && (
+              <div className="text-xs font-semibold text-neutral-600">{odkud}</div>
+            )}
+            {hlida && !ceka && (
               <div
                 className={`rounded border px-3 py-2 flex items-center justify-between gap-3 ${
                   s && s.nad > 0

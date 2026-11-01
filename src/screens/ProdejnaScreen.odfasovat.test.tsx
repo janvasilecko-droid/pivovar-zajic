@@ -8,7 +8,7 @@
 // ZÁPORNÝ protizápis dneškem a původní zápis zůstane nedotčený. Kdyby se
 // místo toho upravoval nebo mazal původní řádek, ztratila by se stopa po
 // výdeji a rozhýbal by se měsíc, který už může být napočítaný.
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import ProdejnaScreen from './ProdejnaScreen';
 import { businessDateISO } from '../lib/businessDate';
@@ -142,6 +142,12 @@ describe('Fasování → Odfasovat u uloženého zápisu', () => {
 
   // 23. 10. 2026: „stočení z 23. dej na 20. 10." — záznam jde přesunout na jiný den.
   it('úprava změní datum a počet záznamu a řádky mají nadpisy dnů', async () => {
+    // Přehled ukazuje aktuální měsíc (businessDateISO) a zápisy jsou z října —
+    // bez pevného „dneška" test od 1. 11. 2026 nic nenašel. Jen Date, časovače
+    // knihovny testů běží dál.
+    vi.useFakeTimers({ toFake: ['Date'], shouldAdvanceTime: true });
+    vi.setSystemTime(new Date('2026-10-25T10:00:00+02:00'));
+    onTestFinished(() => { vi.useRealTimers(); });
     h.DB.fasovani_private = [
       { id: 'zapis-a', entry_date: '2026-10-23', beer_id: 'beer-12', beer_name: '12° Světlá', package_id: 'pkg-05', package_label: '0,5 l', quantity: 20, who: null, note: null },
       { id: 'zapis-b', entry_date: '2026-10-20', beer_id: 'beer-12', beer_name: '12° Světlá', package_id: 'pkg-05', package_label: '0,5 l', quantity: 7, who: null, note: null },

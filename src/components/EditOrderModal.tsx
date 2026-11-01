@@ -61,8 +61,8 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
   // 🛢️ Malé sudy (29. 9. 2026: „v objednávce Maneo chci vidět, na kolik sudů
   // mě to pustí, na co není sud, udělej červeně"). Původní kusy téhle
   // objednávky se při úpravě uvolní — započítá se až to, co je zadáno teď.
-  const { zasoba: zasobaMalychSudu, zapocitatPlne } = useMaleSudy();
-  const { souhrn: souhrnMalychSudu } = useHlidaniMalychSudu(zasobaMalychSudu, undefined, zapocitatPlne);
+  const { zasoba: zasobaMalychSudu, zapocitatPlne, zadanoKdy: zadanoMalychSudu } = useMaleSudy();
+  const { souhrn: souhrnMalychSudu } = useHlidaniMalychSudu(zasobaMalychSudu, undefined, zapocitatPlne, zadanoMalychSudu);
   const otevrena = jeOtevrena(order);
   // Odběratel s vlastními sudy malé sudy pivovaru nebere — ani původně
   // (v souhrnu jeho objednávka není), ani teď (lib/vlastniSudy.ts).
