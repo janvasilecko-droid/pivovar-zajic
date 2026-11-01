@@ -179,3 +179,15 @@ def test_vyber_zdroje_prepisu(monkeypatch):
     assert pr2.zdroj == 'predplatne' and ucet2.zdroj == 'predplatne'
     # Bez tokenu kredit nechá běh čekat jako dřív (výjimka až při over_ucet dokumentu).
     assert _volby(klic='k', api=api_bez_kreditu)[0].zdroj == 'api'
+
+
+def test_token_se_zbavi_bilych_znaku_a_popis_neprozradi_cely(tmp_path):
+    klient = claude_cli.KlientClaudeCode('sk-ant-oat01-abc\n def\r\n', prikaz=_falesny_claude(tmp_path, _vysledek()))
+    try:
+        ocr.prepis_stranky(klient, b'x', 'm')
+        popis = klient.popis_tokenu()
+    finally:
+        klient.zavri()
+    z = json.loads((tmp_path / 'zaznam.json').read_text())
+    assert z['env']['CLAUDE_CODE_OAUTH_TOKEN'] == 'sk-ant-oat01-abcdef'
+    assert popis == 'token 19 znaků, začíná „sk-ant-oat01-“' and 'abcdef' not in popis

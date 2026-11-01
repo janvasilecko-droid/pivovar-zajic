@@ -135,6 +135,8 @@ class KlientClaudeCode:
     """Stejné rozhraní jako anthropic.Anthropic pro ocr.py — přes `claude -p` s předplatným."""
 
     def __init__(self, token: str, prikaz: str | None = None, timeout: float = 300.0, soubezne: int = 2):
+        # Token z terminálu se rád zkopíruje s zalomením řádku nebo mezerou — ty do něj nepatří.
+        token = re.sub(r'\s+', '', token or '')
         if not token:
             raise ValueError('chybí CLAUDE_CODE_OAUTH_TOKEN')
         self._token = token
@@ -145,6 +147,10 @@ class KlientClaudeCode:
         self._domov = tempfile.mkdtemp(prefix='bible-claude-')
         os.chmod(self._domov, 0o700)
         self.messages = _Zpravy(self)
+
+    def popis_tokenu(self) -> str:
+        """Délka a tvar začátku tokenu pro log (celý token nikdy; začátek `sk-ant-oat01-` tajný není)."""
+        return f'token {len(self._token)} znaků, začíná „{self._token[:13]}“'
 
     def zavri(self) -> None:
         shutil.rmtree(self._domov, ignore_errors=True)
