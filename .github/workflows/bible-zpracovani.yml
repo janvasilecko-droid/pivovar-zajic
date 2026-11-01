@@ -186,6 +186,23 @@ jobs:
         if: steps.fronta.outputs.prace == 'ano'
         run: pip install -q --require-hashes --no-deps -r scripts/bible/requirements.txt
 
+      # Claude Code pro přepis skenů z předplatného Claude (secret CLAUDE_CODE_OAUTH_TOKEN,
+      # vzniká příkazem „claude setup-token"; 1. 11. 2026: „nechci to dělat přes kredit,
+      # mám Claude předplacený"). Verze pevná; bez tokenu se neinstaluje. Krok nevidí
+      # žádný klíč — token ani klíče Supabase tu nejsou.
+      - name: Claude Code (předplatné)
+        if: steps.fronta.outputs.prace == 'ano'
+        env:
+          MA_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' && 'ano' || 'ne' }}
+        run: |
+          set -euo pipefail
+          if [ "$MA_TOKEN" = "ano" ]; then
+            npm install -g @anthropic-ai/claude-code@2.1.316 > /dev/null
+            claude --version
+          else
+            echo "Secret CLAUDE_CODE_OAUTH_TOKEN není — přepis skenů půjde jen přes API klíč (kredit)."
+          fi
+
       # Klíč Claude z app_secrets hlavní appky ve zvláštním kroku: klíč service
       # role HLAVNÍHO projektu tak nikdy nevidí krok, který zpracovává nahrané
       # soubory (PDF, DjVu, Tesseract). Klíč se hned zamaskuje.
@@ -214,6 +231,7 @@ jobs:
         working-directory: scripts/bible
         env:
           BIBLE_KLIC: ${{ secrets.BIBLE_SUPABASE_SERVICE_ROLE_KEY }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           DOKUMENT: ${{ github.event.inputs.dokument }}
           LIMIT_MINUT: '300'
         run: python zpracuj.py
