@@ -62,12 +62,14 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
   // mě to pustí, na co není sud, udělej červeně"). Původní kusy téhle
   // objednávky se při úpravě uvolní — započítá se až to, co je zadáno teď.
   const { zasoba: zasobaMalychSudu, zapocitatPlne, zadanoKdy: zadanoMalychSudu } = useMaleSudy();
-  const { souhrn: souhrnMalychSudu, poPolozce: sudyPoPolozce } = useHlidaniMalychSudu(zasobaMalychSudu, undefined, zapocitatPlne, zadanoMalychSudu);
+  const { souhrn: souhrnMalychSudu, poPolozce: sudyPoPolozce, odjeteMimoPocet } = useHlidaniMalychSudu(zasobaMalychSudu, undefined, zapocitatPlne, zadanoMalychSudu);
   // Odběratel s vlastními sudy malé sudy pivovaru nebere — ani původně
   // (v souhrnu jeho objednávka není), ani teď (lib/vlastniSudy.ts).
   // Vlastní je i objednávka s poznámkou „do jejich sudu" (lib/vlastniSudy.ts).
   const puvodneVlastni = !!vlastniSudyOdberatele(order.place_name, order.note);
   const vlastniSudy = !!vlastniSudyOdberatele(placeName, note);
+  // Odjela ještě před zadáním počtu: její sudy stáčeč nepočítal — úprava je nehlídá.
+  const neHlidat = vlastniSudy || !!odjeteMimoPocet?.has(order.id);
   // Uvolní se přesně to, co hlídání téhle objednávce připsalo — otevřené její
   // kusy v objednávkách, odjeté od zadání její podíl v odvezených (bez toho by
   // úprava zavezené objednávky svítila u jejích vlastních sudů „Nejsou sudy").
@@ -76,7 +78,7 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
   // Po řádcích od nejsilnějšího piva: část bez sudu oranžově, celé červeně.
   const prideleniSudu = rozdelMaleSudyVObjednavce(
     souhrnMalychSudu,
-    rows.map((r, i) => ({ klic: String(i), pkgId: r.removed || vlastniSudy ? null : r.pkgId, qty: Number(r.qty) || 0, sila: silaPiva(beers.find((b) => b.id === r.beerId)) })),
+    rows.map((r, i) => ({ klic: String(i), pkgId: r.removed || neHlidat ? null : r.pkgId, qty: Number(r.qty) || 0, sila: silaPiva(beers.find((b) => b.id === r.beerId)) })),
     puvodneVObalu,
   );
 
@@ -311,7 +313,7 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
                     <MaleSudyRadek prideleni={prideleniSudu.get(String(i))} obal={packages.find((p) => p.id === r.pkgId)?.label ?? ''} />
                   ) : (
                     <MaleSudyVolne
-                      volne={volneProObjednavku(souhrnMalychSudu, r.pkgId, puvodneVObalu(r.pkgId))}
+                      volne={neHlidat ? null : volneProObjednavku(souhrnMalychSudu, r.pkgId, puvodneVObalu(r.pkgId))}
                       zadano={zadanoVObalu(r.pkgId)}
                     />
                   )}

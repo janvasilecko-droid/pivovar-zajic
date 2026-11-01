@@ -81,8 +81,12 @@ export type OdpocetProSudy = {
   created_at?: string | null;
 };
 
-/** Kolik prázdných sudů jednoho obalu vzala objednávka, která už odjela. */
-export type OdvezenoZObjednavky = { order_id: string; nazev: string | null; den: string | null; kusu: number };
+/**
+ * Kolik prázdných sudů jednoho obalu vzala objednávka, která už odjela
+ * (`kusu`), a kolik jí pokryly plné sudy z doby zadání (`plnych`, jen u
+ * „započítat plné").
+ */
+export type OdvezenoZObjednavky = { order_id: string; nazev: string | null; den: string | null; kusu: number; plnych?: number };
 
 /**
  * Den závozu jako databáze (ucinny_den_zavozu): datum závozu, bez něj den
@@ -169,6 +173,11 @@ export type VysledekMalychSudu = {
   nadPoPolozce: Map<string, number>;
   /** Každá hlídaná položka: kolik kusů má sud a kolik ne (zelená/oranžová/červená); `zeSkladu` = kolik pokryly započítané plné sudy skladem. */
   poPolozce: Map<string, { kryto: number; chybi: number; zeSkladu?: number }>;
+  /**
+   * Odjeté objednávky s malými sudy, které v počtu nejsou — odjely ještě
+   * před zadáním. Jejich sudy stáčeč nepočítal, úprava je nemá hlídat.
+   */
+  odjeteMimoPocet?: Set<string>;
 };
 
 /**
@@ -286,17 +295,21 @@ export function hlidejMaleSudy(
     const zeSkladu = volby.zapocitatPlne?.has(obal) ? Math.min(kusu, zbyvaPriZadani(klicSkladu, obal)) : 0;
     if (zeSkladu > 0) plneZadani.set(klicSkladu, zbyvaPriZadani(klicSkladu, obal) - zeSkladu);
     const prazdnych = kusu - zeSkladu;
-    if (prazdnych <= 0) continue;
     odvezeno[obal] = (odvezeno[obal] ?? 0) + prazdnych;
     zbyva[obal] = Math.max(0, zbyva[obal] - prazdnych);
     const o = odjetaPodleId.get(p.order_id)!;
     const dnyOdpoctu = (odpoctyPolozek.get(p.id) ?? []).map((d) => (d.deduct_date ?? '').slice(0, 10)).filter(Boolean).sort();
     const poObjednavkach = (odvezenoZ[obal] ??= new Map());
-    const radek = poObjednavkach.get(o.id) ?? { order_id: o.id, nazev: o.place_name ?? null, den: dnyOdpoctu[0] ?? denOdjezdu(o), kusu: 0 };
+    const radek = poObjednavkach.get(o.id) ?? { order_id: o.id, nazev: o.place_name ?? null, den: dnyOdpoctu[0] ?? denOdjezdu(o), kusu: 0, plnych: 0 };
     radek.kusu += prazdnych;
+    radek.plnych = (radek.plnych ?? 0) + zeSkladu;
     poObjednavkach.set(o.id, radek);
   }
   const mameTed: Record<string, number> = { ...zbyva };
+  const vPoctu = new Set(odjetePolozky.map((p) => p.order_id));
+  const odjeteMimoPocet = new Set(polozky
+    .filter((p) => odjetaPodleId.has(p.order_id) && !vPoctu.has(p.order_id) && p.package_id && zasoba[p.package_id] != null && Number(p.quantity) > 0)
+    .map((p) => p.order_id));
 
   // 2) Otevřené objednávky si rozeberou, co zbylo.
   const objednano: Record<string, number> = {};
@@ -336,7 +349,7 @@ export function hlidejMaleSudy(
       odvezenoZ: [...(odvezenoZ[package_id]?.values() ?? [])],
     };
   });
-  return { souhrn, nadPoPolozce, poPolozce };
+  return { souhrn, nadPoPolozce, poPolozce, odjeteMimoPocet };
 }
 
 /** Pořadí objednávek od nejbližšího dovozu (bez data na konec), pak podle vzniku. */
@@ -431,15 +444,18 @@ export function sudyObjednavky(
   if (!packageId) return 0;
   const s = souhrn.find((x) => x.package_id === packageId);
   if (!s) return 0;
+  // Řádky se porovnávají celým množstvím, proto i krytí plnými sudy (u otevřené
+  // kryto + chybí = celé množství, u odjeté prázdné + plné).
   let otevreny = 0;
   for (const p of polozkyObjednavky) {
     if (p.package_id !== packageId) continue;
     const r = poPolozce.get(p.id);
-    if (r) otevreny += r.kryto + r.chybi - (r.zeSkladu ?? 0);
+    if (r) otevreny += r.kryto + r.chybi;
   }
-  const podil = s.odvezenoZ?.find((r) => r.order_id === orderId)?.kusu ?? 0;
+  const odjela = s.odvezenoZ?.find((r) => r.order_id === orderId);
+  const podil = odjela?.kusu ?? 0;
   const mameBez = podil > 0 ? Math.max(0, (s.zadano ?? s.mame) - ((s.odvezeno ?? 0) - podil)) : s.mame;
-  return otevreny + (mameBez - s.mame);
+  return otevreny + (mameBez - s.mame) + (odjela?.plnych ?? 0);
 }
 
 function silaZ(mapa: Map<string, number> | undefined, beerId: string | null | undefined): number {

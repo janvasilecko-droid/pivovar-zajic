@@ -18,7 +18,7 @@ export function kratkyDen(iso: string | null | undefined): string {
 export function popisOdvezenych(s: SouhrnMalychSudu, denZadani?: string | null): string | null {
   if (!s.odvezeno || s.odvezeno <= 0) return null;
   const MAX = 4;
-  const objednavky = (s.odvezenoZ ?? []).map((r) => {
+  const objednavky = (s.odvezenoZ ?? []).filter((r) => r.kusu > 0).map((r) => {
     const den = kratkyDen(r.den);
     return `${r.nazev?.trim() || 'objednávka'} ${r.kusu}×${den ? ` (${den})` : ''}`;
   });
