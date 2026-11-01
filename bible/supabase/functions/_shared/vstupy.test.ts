@@ -15,6 +15,10 @@ describe('akce a práva', () => {
     expect(AKCE.upravit_popis).toBe('prispiva');
     expect(AKCE.kapacita).toBe('spravuje');
     expect(AKCE.naklady).toBe('spravuje');
+    // Čtení zpracované knihy smí každý, kdo má přístup (stejně jako stažení originálu).
+    expect(AKCE.kniha).toBe('cte');
+    expect(AKCE.listy).toBe('cte');
+    expect(AKCE.objekty).toBe('cte');
     expect(jeAkce('dokumenty')).toBe(true);
     expect(jeAkce('toString')).toBe(false);
     expect(jeAkce('__proto__')).toBe(false);

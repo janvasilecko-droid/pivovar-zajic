@@ -11,10 +11,12 @@
 // se netváří, že funguje, dokud nefunguje (zadání, bod 6 knihovny).
 //
 // Přístup je fail-closed (lib/bibleOpravneni.ts, databáze to vynucuje sama).
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { ArrowLeft, BookOpen, Bot, Calculator, Factory, FlaskConical, Lock, Settings, Stethoscope, Users, type LucideIcon } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { bibleRole } from '../lib/bibleOpravneni';
+import { cestaKnihy, rozeberCestuKnihy } from '../lib/bibleCteni';
+import { lazyStranka } from '../lib/lazyStranka';
 import { BibleKnihovna } from '../components/bible/BibleKnihovna';
 import { BibleSprava } from '../components/bible/BibleSprava';
 import { BiblePripravujeme } from '../components/bible/BiblePripravujeme';
@@ -37,7 +39,7 @@ export const BIBLE_DLAZDICE: readonly BibleDlazdice[] = [
     id: 'chat', nazev: 'Odborný chatbot', popis: 'Otázky s citací knihy, kapitoly a strany', ikona: Bot, etapa: 5,
     bude: 'Claude odpoví jen z nalezených pasáží knihovny a u každého tvrzení řekne, odkud je (kniha, kapitola, strana). Rozliší literaturu, výpočet, praxi a vlastní doporučení. Navazující otázky a historie konverzací.',
   },
-  { id: 'knihovna', nazev: 'Knihovna dokumentů', popis: 'Odborná knihovna: knihy, nahrávání, stav zpracování', ikona: BookOpen },
+  { id: 'knihovna', nazev: 'Knihovna dokumentů', popis: 'Odborná knihovna: knihy, nahrávání, zpracování a čtení', ikona: BookOpen },
   {
     id: 'vypocty', nazev: 'Výpočtová laboratoř', popis: 'Plato, výtěžnost, rmutování, IBU, voda, hydraulika', ikona: Calculator, etapa: 6,
     bude: 'Samostatné výpočetní moduly s testy z ručně ověřených příkladů. Každý výsledek ukáže vstupy, jednotky, vzorec, předpoklady, rozsah platnosti a nejistotu.',
@@ -64,6 +66,9 @@ export const BIBLE_DLAZDICE: readonly BibleDlazdice[] = [
 const SEKCE = new Set<string>(['plocha', ...BIBLE_DLAZDICE.map((d) => d.id)]);
 export const jeBibleSekce = (s: string | undefined): s is BibleSekce => !!s && SEKCE.has(s);
 
+// Čtečka knihy má vlastní líný kus — plochu bible ani start appky nezvětší.
+const BibleKniha = lazyStranka(() => import('../components/bible/BibleKniha'));
+
 export default function BibleScreen({ setPage, pageSubTab }: {
   setPage?: (p: any, sec?: string, sub?: string) => void;
   pageSubTab?: string;
@@ -71,30 +76,43 @@ export default function BibleScreen({ setPage, pageSubTab }: {
   const { profile } = useAuth();
   const role = bibleRole(profile?.role, (profile as { permissions?: unknown } | null)?.permissions);
   const [sekce, setSekce] = useState<BibleSekce>(jeBibleSekce(pageSubTab) ? pageSubTab : 'plocha');
+  // Otevřená kniha (trasa 'kniha:<id>[:<list>]') má přednost před sekcí.
+  const [kniha, setKniha] = useState(() => rozeberCestuKnihy(pageSubTab));
 
   useEffect(() => {
     setSekce(jeBibleSekce(pageSubTab) ? pageSubTab : 'plocha');
+    setKniha(rozeberCestuKnihy(pageSubTab));
   }, [pageSubTab]);
 
   function jdi(s: BibleSekce) {
+    setKniha(null);
     setSekce(s);
     // Do historie stránek, ať tlačítko Zpět vrátí na plochu bible.
     setPage?.('bible', undefined, s === 'plocha' ? '' : s);
   }
 
-  const dlazdice = BIBLE_DLAZDICE.find((d) => d.id === sekce);
+  function otevriKnihu(id: string) {
+    setKniha({ id, list: null });
+    setPage?.('bible', undefined, cestaKnihy(id));
+  }
+
+  const dlazdice = kniha ? undefined : BIBLE_DLAZDICE.find((d) => d.id === sekce);
 
   return (
     <div className="rounded-2xl bg-neutral-950 text-neutral-100 border border-neutral-800 p-3 sm:p-5 space-y-4 min-h-[70vh]">
       <header className="flex items-center gap-3">
-        {sekce !== 'plocha' && (
+        {kniha ? (
+          <button type="button" className="btn-tmave w-11 px-0" aria-label="Zpět do knihovny" onClick={() => jdi('knihovna')}>
+            <ArrowLeft size={20} />
+          </button>
+        ) : sekce !== 'plocha' && (
           <button type="button" className="btn-tmave w-11 px-0" aria-label="Zpět na plochu bible" onClick={() => jdi('plocha')}>
             <ArrowLeft size={20} />
           </button>
         )}
         <div className="min-w-0">
           <div className="text-[11px] font-black uppercase tracking-[0.2em] text-amber-400">Pivovarská bible</div>
-          <h1 className="text-lg sm:text-xl font-black text-neutral-50 truncate">{dlazdice ? dlazdice.nazev : 'Digitální hlavní sládek'}</h1>
+          <h1 className="text-lg sm:text-xl font-black text-neutral-50 truncate">{kniha ? 'Čtení knihy' : dlazdice ? dlazdice.nazev : 'Digitální hlavní sládek'}</h1>
         </div>
       </header>
 
@@ -105,10 +123,14 @@ export default function BibleScreen({ setPage, pageSubTab }: {
             Knihy v knihovně jsou soukromé a chráněné autorským právem. Přístup povoluje admin v Uživatelé → Práva → „Pivovarská bible".
           </p>
         </div>
+      ) : kniha ? (
+        <Suspense fallback={<div className="text-sm text-neutral-300">Načítám čtečku…</div>}>
+          <BibleKniha key={kniha.id} id={kniha.id} pocatecniList={kniha.list} doKnihovny={() => jdi('knihovna')} />
+        </Suspense>
       ) : sekce === 'plocha' ? (
         <BiblePlocha jdi={jdi} />
       ) : sekce === 'knihovna' ? (
-        <BibleKnihovna role={role} setPage={setPage} />
+        <BibleKnihovna role={role} setPage={setPage} onCist={otevriKnihu} />
       ) : sekce === 'sprava' ? (
         <BibleSprava role={role} setPage={setPage} />
       ) : dlazdice ? (

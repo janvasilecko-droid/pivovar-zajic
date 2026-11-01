@@ -7,7 +7,7 @@
 // Hledání v obsahu (vzorce, tabulky, pojmy) a otevření pasáže na stránce
 // přijdou se zpracováním a vyhledáváním (etapy 2 a 4).
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Download, Pause, Pencil, RotateCcw, Trash2, Upload } from 'lucide-react';
+import { BookOpen, Download, Pause, Pencil, RotateCcw, Trash2, Upload } from 'lucide-react';
 import { useAuth } from '../../lib/auth';
 import { usePosledniNacteni } from '../../lib/nacitani';
 import { smiPrispivat, smiSpravovat, type BibleRole } from '../../lib/bibleOpravneni';
@@ -68,12 +68,14 @@ const popisZDokumentu = (d: BibleDokument): Popis => ({
   druh: d.druh, oblasti: d.oblasti, zdroj: d.zdroj, licence: d.licence,
 });
 
-function KartaDokumentu({ d, role, mujId, onZmena, onSmazano, onRozpracovani, zpracovavaSeJina }: {
+function KartaDokumentu({ d, role, mujId, onZmena, onSmazano, onRozpracovani, zpracovavaSeJina, onCist }: {
   d: BibleDokument;
   role: BibleRole;
   mujId: string | null;
   onZmena: (d: BibleDokument) => void;
   onSmazano: (id: string) => void;
+  /** Otevře zpracovanou knihu ve čtečce (kapitoly, strany, tabulky, vzorce). */
+  onCist?: (id: string) => void;
   /** Rozepsaný popis nebo potvrzení mazání: obnova seznamu počká (karta se nesmí ztratit). */
   onRozpracovani: (id: string, ano: boolean) => void;
   /** Právě se zpracovává jiná kniha (čekající přijde na řadu ve stejném běhu). */
@@ -180,6 +182,9 @@ function KartaDokumentu({ d, role, mujId, onZmena, onSmazano, onRozpracovani, zp
         </div>
       ) : (
         <div className="flex flex-wrap gap-2 pt-1">
+          {onCist && jeZpracovany(d.stav) && (
+            <button type="button" className="btn-amber btn-sm" onClick={() => onCist(d.id)}><BookOpen size={16} /> Číst</button>
+          )}
           {!nahrava && <button type="button" className="btn-tmave btn-sm" onClick={otevriOriginal}><Download size={16} /> Originál</button>}
           {smiUpravit && (
             <button type="button" className="btn-tmave btn-sm" onClick={() => setUprava(popisZDokumentu(d))}><Pencil size={16} /> Upravit popis</button>
@@ -205,9 +210,11 @@ function KartaDokumentu({ d, role, mujId, onZmena, onSmazano, onRozpracovani, zp
   );
 }
 
-export function BibleKnihovna({ role, setPage }: {
+export function BibleKnihovna({ role, setPage, onCist }: {
   role: BibleRole;
   setPage?: (p: any, sec?: string, sub?: string) => void;
+  /** Otevře zpracovanou knihu ve čtečce. */
+  onCist?: (id: string) => void;
 }) {
   const { user } = useAuth();
   const [nacteno, setNacteno] = useState<Nacteno | null>(null);
@@ -364,7 +371,7 @@ export function BibleKnihovna({ role, setPage }: {
         <ul className="space-y-3">
           {filtrovane.map((d) => (
             <KartaDokumentu key={d.id} d={d} role={role} mujId={user?.id ?? null} onZmena={zmenDokument} onSmazano={odeberDokument}
-              onRozpracovani={hlasRozpracovani} zpracovavaSeJina={zpracovavaSe} />
+              onRozpracovani={hlasRozpracovani} zpracovavaSeJina={zpracovavaSe} onCist={onCist} />
           ))}
         </ul>
       )}

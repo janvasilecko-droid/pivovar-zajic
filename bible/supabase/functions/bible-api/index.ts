@@ -7,6 +7,10 @@ import {
   AKCE, ChybaVstupu, idDokumentu, jeAkce, PLATNOST_ODKAZU_S, popisDokumentu, prekladChybyDb, SLOUPCE_DOKUMENTU,
   souborKNahrani, stavDokumentu, zacatekObdobi, type Akce, type ChybaDb,
 } from '../_shared/vstupy.ts';
+import {
+  celeCislo, druhObjektu, DRUHY_OBJEKTU, jeCitelny, listyPodStropem, MAX_LISTU_NA_DOTAZ, nahled, OBJEKTU_NA_DOTAZ,
+  rejstrikListu, vsechnyRadky, ZPRAVA_BEZ_TEXTU, zpravaNezpracovano,
+} from '../_shared/cteni.ts';
 
 /**
  * 📚 bible-api — jediný vstup appky do projektu bible (cegrelgvkygcatupqwrx).
@@ -71,6 +75,22 @@ async function uklidSmazanych(db: SupabaseClient): Promise<void> {
   } catch {
     console.error('bible-api úklid: neočekávaná chyba');
   }
+}
+
+/**
+ * Dokument ke čtení: existuje a je zpracovaný (hotovo / ke_kontrole). Worker
+ * zapisuje kapitoly a pasáže po částech, takže rozpracovaný dokument se číst
+ * nesmí — appka dostane 409 'nezpracovano' se stavem.
+ */
+async function citelnyDokument(
+  db: SupabaseClient, id: string, cors: Record<string, string>, akce: string,
+): Promise<{ dokument: Record<string, unknown> } | { odpoved: Response }> {
+  const { data, error } = await db.from('bible_dokumenty').select(SLOUPCE_DOKUMENTU).eq('id', id).maybeSingle();
+  if (error) return { odpoved: chybaDb(cors, error, akce) };
+  const dokument = data as Record<string, unknown> | null;
+  if (!dokument) return { odpoved: chyba(cors, 404, 'nenalezeno', 'Dokument už v knihovně není.') };
+  if (!jeCitelny(dokument.stav)) return { odpoved: chyba(cors, 409, 'nezpracovano', zpravaNezpracovano(dokument.stav)) };
+  return { dokument };
 }
 
 const PROVEDENI: Record<Akce, (k: Kontext) => Promise<Response>> = {
@@ -182,6 +202,62 @@ const PROVEDENI: Record<Akce, (k: Kontext) => Promise<Response>> = {
     const { data, error } = await db.rpc('bible_naklady_od', { p_od: od });
     if (error) return chybaDb(cors, error, 'naklady');
     return hotovo(cors, data ?? []);
+  },
+
+  // Obsah knihy: dokument, strom kapitol (rozsah v listech souboru) a rejstřík
+  // listů s tištěnými čísly stran — bez textu.
+  async kniha({ db, telo, cors }) {
+    const id = idDokumentu(telo);
+    const c = await citelnyDokument(db, id, cors, 'kniha');
+    if ('odpoved' in c) return c.odpoved;
+    const kapitoly = await vsechnyRadky((od, do_) => db.from('bible_kapitoly')
+      .select('id,rodic_id,poradi,uroven,cislo,nazev,strana_od,strana_do')
+      .eq('dokument_id', id).order('poradi').range(od, do_));
+    if (kapitoly.error) return chybaDb(cors, kapitoly.error as ChybaDb, 'kniha');
+    const listy = await vsechnyRadky<{ pdf_index: number; tistena_strana: string | null; zdroj_textu: string; ke_kontrole: boolean }>(
+      (od, do_) => db.from('bible_strany')
+        .select('pdf_index,tistena_strana,zdroj_textu,ke_kontrole')
+        .eq('dokument_id', id).order('pdf_index').range(od, do_));
+    if (listy.error) return chybaDb(cors, listy.error as ChybaDb, 'kniha');
+    // Hotová kniha bez jediného listu (po obnově ze zálohy): říct, co s tím, ne ukázat prázdnou knihu.
+    if (listy.data.length === 0) return chyba(cors, 409, 'nezpracovano', ZPRAVA_BEZ_TEXTU);
+    return hotovo(cors, { dokument: c.dokument, kapitoly: kapitoly.data, listy: rejstrikListu(listy.data) });
+  },
+
+  // Text listů od zadaného (nejvýš MAX_LISTU_NA_DOTAZ a strop znaků) — žádný export celé knihy.
+  async listy({ db, telo, cors }) {
+    const id = idDokumentu(telo);
+    const od = celeCislo(telo.od, 'Číslo listu', 1, 1_000_000);
+    const pocet = celeCislo(telo.pocet, 'Počet listů', 1, MAX_LISTU_NA_DOTAZ, 1);
+    const c = await citelnyDokument(db, id, cors, 'listy');
+    if ('odpoved' in c) return c.odpoved;
+    const { data, error } = await db.from('bible_strany')
+      .select('pdf_index,tistena_strana,tistena_zdroj,zdroj_textu,text,ke_kontrole,kontrola_duvod,kapitola_id')
+      .eq('dokument_id', id).gte('pdf_index', od).order('pdf_index').limit(pocet);
+    if (error) return chybaDb(cors, error, 'listy');
+    return hotovo(cors, { listy: listyPodStropem((data ?? []) as { text?: string | null }[]) });
+  },
+
+  // Přehled tabulek, vzorců a popisků (pasáže s druhem) s náhledem a listem.
+  async objekty({ db, telo, cors }) {
+    const id = idDokumentu(telo);
+    const druh = druhObjektu(telo.druh);
+    const po = celeCislo(telo.po, 'Pořadí', 0, 100_000_000, 0);
+    const c = await citelnyDokument(db, id, cors, 'objekty');
+    if ('odpoved' in c) return c.odpoved;
+    const zaklad = db.from('bible_pasaze')
+      .select('poradi,druh,strana_od,strana_do,kapitola_id,text')
+      .eq('dokument_id', id).gt('poradi', po);
+    const { data, error } = await (druh ? zaklad.eq('druh', druh) : zaklad.in('druh', [...DRUHY_OBJEKTU]))
+      .order('poradi').limit(OBJEKTU_NA_DOTAZ);
+    if (error) return chybaDb(cors, error, 'objekty');
+    const radky = (data ?? []) as { poradi: number; druh: string; strana_od: number; strana_do: number; kapitola_id: string | null; text: string }[];
+    return hotovo(cors, {
+      objekty: radky.map((r) => ({
+        poradi: r.poradi, druh: r.druh, strana_od: r.strana_od, strana_do: r.strana_do, kapitola_id: r.kapitola_id, nahled: nahled(r.text),
+      })),
+      dalsi: radky.length === OBJEKTU_NA_DOTAZ ? radky[radky.length - 1].poradi : null,
+    });
   },
 };
 

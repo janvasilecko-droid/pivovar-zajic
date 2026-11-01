@@ -3,6 +3,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { AKCE } from './vstupy';
 
 const FUNKCE = join(__dirname, '..');
 const CONFIG = readFileSync(join(__dirname, '..', '..', 'config.toml'), 'utf8');
@@ -37,6 +38,35 @@ describe('funkce projektu bible', () => {
     const kod = zdroj('bible-api');
     expect(kod).not.toMatch(/\.(insert|update|upsert|delete)\(/);
     expect(kod).toMatch(/rpc\('bible_zaloz_nahrani'/);
+  });
+
+  it('každá akce z AKCE má v bible-api obsluhu (chybějící by se ukázala až jako 500 za běhu)', () => {
+    const kod = zdroj('bible-api');
+    const akce = Object.keys(AKCE);
+    expect(akce.length).toBeGreaterThan(0);
+    for (const a of akce) expect(kod, a).toMatch(new RegExp(`\\n  async ${a}\\(`));
+  });
+
+  it('čtení knihy nejdřív ověří, že je zpracovaná (worker zapisuje kapitoly a pasáže po částech)', () => {
+    const kod = zdroj('bible-api');
+    for (const akce of ['kniha', 'listy', 'objekty']) {
+      const zacatek = kod.indexOf(`  async ${akce}(`);
+      const telo = kod.slice(zacatek, kod.indexOf('\n  },', zacatek));
+      expect(telo, akce).toMatch(/await citelnyDokument\(db, id, cors, /);
+      const overeni = telo.indexOf('citelnyDokument(');
+      for (const tabulka of ['bible_strany', 'bible_kapitoly', 'bible_pasaze']) {
+        const cteni = telo.indexOf(`from('${tabulka}')`);
+        if (cteni >= 0) expect(overeni, `${akce}: ${tabulka}`).toBeLessThan(cteni);
+      }
+    }
+  });
+
+  it('hotová kniha bez listů (po obnově ze zálohy) je 409 nezpracovano, ne prázdná kniha', () => {
+    const kod = zdroj('bible-api');
+    const zacatek = kod.indexOf('  async kniha(');
+    const telo = kod.slice(zacatek, kod.indexOf('\n  },', zacatek));
+    expect(telo).toMatch(/if \(listy\.data\.length === 0\) return chyba\(cors, 409, 'nezpracovano', ZPRAVA_BEZ_TEXTU\)/);
+    expect(telo.indexOf('listy.data.length === 0')).toBeLessThan(telo.indexOf('return hotovo('));
   });
 
   it('soubory smazaných dokumentů se uklízejí (rozběhnuté nahrání s platným odkazem)', () => {
