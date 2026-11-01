@@ -329,7 +329,7 @@ const ODDILY: Oddil[] = [
       },
       {
         co: 'Malé sudy',
-        jak: 'Dlaždice Malé sudy (a záložka v Objednávkách) — naklikáš, kolik máš KEG 20, 15 a 10 l. Při zadání i úpravě objednávky pak u malého sudu uvidíš „můžeš dát max N“; co je navíc a nemá sud, svítí červeně. Dlaždice na ploše ukazuje, kolik sudů je ještě volných.',
+        jak: 'Dlaždice Malé sudy (a záložka v Objednávkách) — naklikáš, kolik máš prázdných KEG 20, 15 a 10 l. Počet platí do neděle a ubývá o sudy objednávek, které od zadání odjely (pod číslem je napsané odkud). Tlačítky +/− číslo opravíš o kus, napsané číslo je nový stav. Při zadání i úpravě objednávky pak u malého sudu uvidíš „můžeš dát max N“; co je navíc a nemá sud, svítí červeně. Dlaždice na ploše ukazuje, kolik sudů je ještě volných.',
       },
       {
         co: 'Přehled stáčení KEG jako tabulka',

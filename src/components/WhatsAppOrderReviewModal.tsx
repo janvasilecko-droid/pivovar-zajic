@@ -829,9 +829,9 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   // 🛢️ Malé sudy i u objednávky z WhatsAppu (29. 9. 2026: „furt nevidím
   // v objednávce Maneo upozornění a červené objednávky malých sudů, na které
   // nejsou sudy"). Stejné rozdělení jako ruční zadání — od nejsilnějšího piva.
-  const { zasoba: zasobaMalychSudu, zapocitatPlne } = useMaleSudy();
+  const { zasoba: zasobaMalychSudu, zapocitatPlne, zadanoKdy: zadanoMalychSudu } = useMaleSudy();
   const silaPodleId = useMemo(() => new Map(props.beers.map((b) => [b.id, silaPiva(b)])), [props.beers]);
-  const { souhrn: souhrnMalychSudu } = useHlidaniMalychSudu(zasobaMalychSudu, silaPodleId, zapocitatPlne);
+  const { souhrn: souhrnMalychSudu } = useHlidaniMalychSudu(zasobaMalychSudu, silaPodleId, zapocitatPlne, zadanoMalychSudu);
   // 🛢️ „Egon od důchodců prosím 20l 12sv do jejich sudu" (14. 10. 2026: „v tom
   // případě logicky nemusíš psát, že není malý sud"). Když zpráva říká, že se
   // stáčí do vlastního sudu odběratele, malé sudy pivovaru se nepočítají —

@@ -5,7 +5,7 @@
 // Výjimka nad dlaždicemi: upozornění na STK/dálniční známku vozidel —
 // zobrazuje se jen komu je nastaveno (Uživatelé → "Dostává upozornění na
 // vozidla") a musí ho jednou potvrdit, pak zmizí (dokud se stav nezmění).
-import { lazy, Suspense, useEffect, useMemo, useState, useRef } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState, useRef, type ComponentType } from 'react';
 import { CalendarX2, CloudUpload, Download, Check, ChevronLeft, ChevronRight, Lightbulb, LogOut, Palette, Plus, SlidersHorizontal, Trash2, TriangleAlert, X, Truck, ClipboardList, MessageCircle, PlusCircle, Snowflake, FlaskConical, CalendarDays, BarChart3, TrendingDown, GlassWater, BookOpen, Droplet, Car, FileText, ClipboardCheck, Shield, Store, Receipt, MapPin, Beer as BeerIcon, Tag, Sparkles, Compass, ArrowLeftRight, StickyNote, AlarmClock, Play, Pause, RotateCcw, Pin, Flame, Settings, LayoutGrid, ArrowUpDown, Scissors, Wind } from 'lucide-react';
 import { NAV, EXTRA_NAV, type Page, type NavItem } from '../components/Layout';
 import LauncherTile, { tileGridStyle } from '../components/LauncherTile';
@@ -67,7 +67,6 @@ import { nazevMesice } from '../lib/inventoryFix';
 const MESICE_KRATCE = ['leden', 'únor', 'březen', 'duben', 'květen', 'červen',
   'červenec', 'srpen', 'září', 'říjen', 'listopad', 'prosinec'];
 import { kauceVenku, vycepyVenku, type VycepVenku } from '../lib/vycepyVenku';
-import { useMaleSudy, useHlidaniMalychSudu } from '../lib/useMaleSudy';
 import './HomeScreen.css';
 import { uloz } from '../lib/uloziste';
 import { kapacitaTanku } from '../lib/tankPlnost';
@@ -129,15 +128,20 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   const extraVisibleIds = useMemo(() => extraVisible.map((n) => n.id), [extraVisible]);
 
   // 🛢️ Dlaždice Malé sudy: kolik jich je ještě volných, nebo kolik chybí
-  // (29. 9. 2026: „ty malé sudy udělej jako samostatnou dlaždici").
-  const maleSudyZasoba = useMaleSudy();
-  const { souhrn: souhrnMalychSudu } = useHlidaniMalychSudu(maleSudyZasoba.zasoba, undefined, maleSudyZasoba.zapocitatPlne);
-  const maleSudyStitek = useMemo(() => {
-    if (souhrnMalychSudu.length === 0) return undefined;
-    const nad = souhrnMalychSudu.reduce((a, s) => a + s.nad, 0);
-    if (nad > 0) return `⚠ ${nad} ks nemá sud`;
-    return `volné ${souhrnMalychSudu.reduce((a, s) => a + Math.max(0, s.mame - s.objednano), 0)} ks`;
-  }, [souhrnMalychSudu]);
+  // (29. 9. 2026: „ty malé sudy udělej jako samostatnou dlaždici"). Štítek
+  // počítá components/MaleSudyStitek.tsx, načtený až po startu — výpočet
+  // malých sudů start appky nezvětšuje. Když se nenačte, dlaždice je bez štítku.
+  const [maleSudyStitek, setMaleSudyStitek] = useState<string | undefined>(undefined);
+  const [StitekMalychSudu, setStitekMalychSudu] = useState<ComponentType<{ onStitek: (stitek: string | undefined) => void }> | null>(null);
+  const maDlazdiciMalychSudu = visibleIds.includes('male_sudy');
+  useEffect(() => {
+    if (!maDlazdiciMalychSudu) return;
+    let zivy = true;
+    import('../components/MaleSudyStitek')
+      .then((m) => { if (zivy) setStitekMalychSudu(() => m.default); })
+      .catch(() => { /* starý kousek po nasazení — štítek přijde po obnovení */ });
+    return () => { zivy = false; };
+  }, [maDlazdiciMalychSudu]);
 
   const navById = useMemo(() => new Map<Page, NavItem>([...visible, ...extraVisible].map((n) => [n.id, n])), [visible, extraVisible]);
 
@@ -3230,6 +3234,9 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
         isOpen={showNotesModal}
         onClose={() => setShowNotesModal(false)}
       />
+
+      {/* 🛢️ Štítek dlaždice Malé sudy — nic nekreslí, jen pošle text (viz výš). */}
+      {StitekMalychSudu && <StitekMalychSudu onStitek={setMaleSudyStitek} />}
 
       {/* Info a návod — stahuje se až při otevření (viz lazy výš). */}
       <Modal open={showNavodModal} onClose={() => setShowNavodModal(false)} title="Info a návod k použití" wide>

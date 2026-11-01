@@ -1,5 +1,5 @@
 import { useMaleSudy, useHlidaniMalychSudu } from '../lib/useMaleSudy';
-import { jeOtevrena, volneProObjednavku, rozdelMaleSudyVObjednavce, silaPiva } from '../lib/maleSudy';
+import { sudyObjednavky, volneProObjednavku, rozdelMaleSudyVObjednavce, silaPiva, denOdjezdu, pondeliTydne } from '../lib/maleSudy';
 import { MaleSudyVolne, MaleSudyRadek, tridaRadkuSudu } from './MaleSudyVolne';
 import { useState } from 'react';
 import { potvrd } from '../lib/toast';
@@ -61,20 +61,32 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
   // 🛢️ Malé sudy (29. 9. 2026: „v objednávce Maneo chci vidět, na kolik sudů
   // mě to pustí, na co není sud, udělej červeně"). Původní kusy téhle
   // objednávky se při úpravě uvolní — započítá se až to, co je zadáno teď.
-  const { zasoba: zasobaMalychSudu, zapocitatPlne } = useMaleSudy();
-  const { souhrn: souhrnMalychSudu } = useHlidaniMalychSudu(zasobaMalychSudu, undefined, zapocitatPlne);
-  const otevrena = jeOtevrena(order);
+  const { zasoba: zasobaMalychSudu, zapocitatPlne, zadanoKdy: zadanoMalychSudu } = useMaleSudy();
+  const { souhrn: souhrnMalychSudu, poPolozce: sudyPoPolozce } = useHlidaniMalychSudu(zasobaMalychSudu, undefined, zapocitatPlne, zadanoMalychSudu);
   // Odběratel s vlastními sudy malé sudy pivovaru nebere — ani původně
   // (v souhrnu jeho objednávka není), ani teď (lib/vlastniSudy.ts).
   // Vlastní je i objednávka s poznámkou „do jejich sudu" (lib/vlastniSudy.ts).
   const puvodneVlastni = !!vlastniSudyOdberatele(order.place_name, order.note);
   const vlastniSudy = !!vlastniSudyOdberatele(placeName, note);
-  const puvodneVObalu = (pkgId: string) => (otevrena && !puvodneVlastni ? items.filter((i) => i.package_id === pkgId).reduce((sum, i) => sum + Number(i.quantity || 0), 0) : 0);
+  const neHlidat = vlastniSudy;
+  // Objednávka, která odjela dřív, než se počet obalu zadal (i v minulých
+  // týdnech, kdy se počet nezadal vůbec — pak od pondělí tohoto týdne), v počtu
+  // nikdy nebyla a z prázdných nic nebere: její úprava je oprava toho, co
+  // odvezla, a přidaný sud planě hlásil „nemá sud" (revize 1. 11. 2026). Den
+  // odjezdu jako databáze (denOdjezdu). Dnešní objednávka odepsaná v noci před
+  // ranním zadáním (den odjezdu = den zadání) se hlídá dál.
+  const odjezdObjednavky = denOdjezdu(order);
+  const neHlidatObal = (pkgId: string) => neHlidat
+    || (!!odjezdObjednavky && odjezdObjednavky < (zadanoMalychSudu?.[pkgId]?.den ?? pondeliTydne(businessDateISO())));
+  // Uvolní se to, co hlídání téhle objednávce připsalo (lib/maleSudy.ts
+  // sudyObjednavky): otevřené její kusy v objednávkách, odjeté od zadání její
+  // podíl v odvezených, objednávce mimo počet její původní kusy.
+  const puvodneVObalu = (pkgId: string) => (puvodneVlastni ? 0 : sudyObjednavky(souhrnMalychSudu, sudyPoPolozce, order.id, items, pkgId));
   const zadanoVObalu = (pkgId: string) => rows.filter((x) => !x.removed && x.pkgId === pkgId).reduce((sum, x) => sum + (Number(x.qty) || 0), 0);
   // Po řádcích od nejsilnějšího piva: část bez sudu oranžově, celé červeně.
   const prideleniSudu = rozdelMaleSudyVObjednavce(
     souhrnMalychSudu,
-    rows.map((r, i) => ({ klic: String(i), pkgId: r.removed || vlastniSudy ? null : r.pkgId, qty: Number(r.qty) || 0, sila: silaPiva(beers.find((b) => b.id === r.beerId)) })),
+    rows.map((r, i) => ({ klic: String(i), pkgId: r.removed || neHlidatObal(r.pkgId) ? null : r.pkgId, qty: Number(r.qty) || 0, sila: silaPiva(beers.find((b) => b.id === r.beerId)) })),
     puvodneVObalu,
   );
 
@@ -309,7 +321,7 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
                     <MaleSudyRadek prideleni={prideleniSudu.get(String(i))} obal={packages.find((p) => p.id === r.pkgId)?.label ?? ''} />
                   ) : (
                     <MaleSudyVolne
-                      volne={volneProObjednavku(souhrnMalychSudu, r.pkgId, puvodneVObalu(r.pkgId))}
+                      volne={neHlidatObal(r.pkgId) ? null : volneProObjednavku(souhrnMalychSudu, r.pkgId, puvodneVObalu(r.pkgId))}
                       zadano={zadanoVObalu(r.pkgId)}
                     />
                   )}

@@ -142,10 +142,10 @@ export default function Orders({
   const [priceList, setPriceList] = useState<CenaPolozky[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
   // Malé sudy (KEG 20/15/10 l) nad naklikaný počet — lib/maleSudy.ts.
-  const { zasoba: zasobaMalychSudu, zapocitatPlne } = useMaleSudy();
+  const { zasoba: zasobaMalychSudu, zapocitatPlne, zadanoKdy: zadanoMalychSudu } = useMaleSudy();
   // Uvnitř objednávky dostane sud nejdřív nejsilnější pivo (29. 9. 2026).
   const silaPodleId = useMemo(() => new Map(beers.map((b) => [b.id, silaPiva(b)])), [beers]);
-  const maleSudy = useHlidaniMalychSudu(zasobaMalychSudu, silaPodleId, zapocitatPlne);
+  const maleSudy = useHlidaniMalychSudu(zasobaMalychSudu, silaPodleId, zapocitatPlne, zadanoMalychSudu);
   const [bottling, setBottling] = useState<EntryRow[]>([]);
   const [kegging, setKegging] = useState<EntryRow[]>([]);
   const [inventory, setInventory] = useState<EntryRow[]>([]);

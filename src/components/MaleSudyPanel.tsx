@@ -13,7 +13,8 @@ import { useAuth } from '../lib/auth';
 import { canUserEdit, getUserPermissions } from '../lib/permissions';
 import { Spinner } from './ui';
 import { jeMalySud, type ObalProSudy } from '../lib/maleSudy';
-import { useHlidaniMalychSudu, useMaleSudy } from '../lib/useMaleSudy';
+import { popisOdvezenych } from '../lib/maleSudyPopis';
+import { useHlidaniMalychSudu, useMaleSudy, type VolbyUlozeni } from '../lib/useMaleSudy';
 import { chyba } from '../lib/toast';
 
 /** Číslo, na které se dá klepnout a přepsat; ukládá se po opuštění pole nebo Enteru. */
@@ -56,19 +57,20 @@ export function MaleSudyPanel({ packages, canEdit, kdo }: {
   canEdit: boolean;
   kdo?: string | null;
 }) {
-  const { zasoba, zapocitatPlne, umiZapocitatPlne, nacteno, chybiMigrace, ulozit, nastavZapocitatPlne } = useMaleSudy();
-  const { souhrn, jmenaPiv } = useHlidaniMalychSudu(zasoba, undefined, zapocitatPlne);
+  const { zasoba, zadanoKdy, zapocitatPlne, umiZapocitatPlne, nacteno, chybiMigrace, chybaNacteni, ulozit, nastavZapocitatPlne } = useMaleSudy();
+  const { souhrn, jmenaPiv, nacteno: hlidaniNacteno, chybaNacteni: bezObjednavek } = useHlidaniMalychSudu(zasoba, undefined, zapocitatPlne, zadanoKdy);
   const male = packages
     .filter(jeMalySud)
     .sort((a, b) => Number(b.volume_l) - Number(a.volume_l));
 
-  async function nastav(id: string, pocet: number | null) {
-    const e = await ulozit(id, pocet == null ? null : Math.max(0, pocet), kdo);
-    if (e) chyba(`Počet se neuložil: ${e}`);
+  // Hlášku pro člověka skládá useMaleSudy (chyba, bez signálu, obal bez počtu).
+  async function nastav(id: string, pocet: number | null, volby?: VolbyUlozeni) {
+    const e = await ulozit(id, pocet == null ? null : Math.max(0, pocet), kdo, volby);
+    if (e) chyba(e);
   }
   async function odpovez(id: string, ano: boolean) {
     const e = await nastavZapocitatPlne(id, ano);
-    if (e) chyba(`Volba se neuložila: ${e}`);
+    if (e) chyba(e);
   }
 
   if (chybiMigrace) {
@@ -78,25 +80,58 @@ export function MaleSudyPanel({ packages, canEdit, kdo }: {
       </div>
     );
   }
+  // Uložené počty se nenačetly (síť): „+" by tu začalo od nuly a přepsalo je.
+  if (chybaNacteni) {
+    return (
+      <div role="alert" className="card p-4 text-sm font-bold text-rose-800">
+        Počty malých sudů se nepodařilo načíst — zkus to prosím za chvíli znovu (nic se nezměnilo).
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">
       <p className="text-sm text-neutral-600">
-        Naklikej, kolik máš prázdných malých sudů — velké číslo je přesně to, co zadáš. Pod ním je „K dispozici": prázdné minus sudy, které berou otevřené
-        objednávky (např. pro Radka), tedy kolik se ještě dá stočit pro dalšího. Co objednávky přečerpají, označí červeně.
+        Naklikej, kolik máš prázdných malých sudů — velké číslo je to, co zadáš, a ubývá o sudy objednávek, které od té doby odjely. Pod ním je
+        „K dispozici": prázdné minus sudy, které berou otevřené objednávky (např. pro Radka), tedy kolik se ještě dá stočit pro dalšího. Co
+        objednávky přečerpají, označí červeně.
       </p>
       {male.length === 0 && <div className="card p-4 text-sm text-neutral-600">V obalech není žádný malý sud (KEG pod 30 l).</div>}
       {male.map((pk) => {
-        const mame = zasoba[pk.id];
-        const hlida = mame != null;
+        const naklikano = zasoba[pk.id];
+        const hlida = naklikano != null;
         const s = souhrn.find((x) => x.package_id === pk.id);
-        // Velké číslo = PŘESNĚ to, co člověk naklikal (kolik má prázdných).
-        // Dřív ukazovalo zbytek po objednávkách (5. 10. 2026), a tak 7 prázdných
-        // při 5 objednaných ukázalo 2 — a aby se na displeji dostal na 7, musel
-        // člověk naklikat 12 („proč je tam prázdných 12, mají být tolik, kolik
-        // jsem jich zadal", 13. 10. 2026). Zbytek po objednávkách je pod číslem.
+        // Velké číslo = prázdné TEĎ: naklikané číslo minus sudy objednávek, které
+        // od zadání odjely (1. 11. 2026: „ty se měly odečíst podle objednávek,
+        // měly by tam být jen 2× 10 prázdné"). Hned po zadání je to přesně
+        // naklikané číslo (13. 10. 2026: „proč je tam prázdných 12, mají být
+        // tolik, kolik jsem jich zadal" — dřív ukazovalo zbytek po OTEVŘENÝCH
+        // objednávkách). Otevřené objednávky ubírají až z „K dispozici" pod ním.
+        const mame = hlida ? (s?.mame ?? naklikano) : undefined;
+        // Dokud se nenačtou objednávky, číslo by poskočilo — radši „…".
+        const ceka = hlida && !hlidaniNacteno;
+        // Objednávky se nenačetly vůbec: číslo je jen naklikané (bez odjetých) —
+        // +/− by ho uložilo jako nový stav, proto jen přepsat číslem.
+        const jenNaklikane = hlida && !ceka && bezObjednavek;
         const objednano = s?.objednano ?? 0;
-        const volne = hlida ? Math.max(0, mame - objednano) : 0;
+        const volne = mame != null ? Math.max(0, mame - objednano) : 0;
+        const odkud = s ? popisOdvezenych(s, zadanoKdy?.[pk.id]?.den) : null;
+        // +/− opraví naklikané číslo o kus a čas zadání nechá: odjeté objednávky
+        // i plné sudy k zadání se dál počítají od původního zadání (jinak by
+        // sudy stočené od zadání u „započítat plné" nafoukly K dispozici —
+        // revize 1. 11. 2026). Velké číslo se tak změní přesně o 1. Napsané
+        // číslo je nový stav TEĎ (nové zadání).
+        // Čas zadání i čísla jsou z TOHOTO vykreslení — kdyby čas přišel
+        // odjinud (novější načtení), uložilo by se číslo k cizímu zadání. Když
+        // čas už neplatí (minulý týden), uloží se jako nové zadání zobrazené
+        // číslo ± 1 (pocetNoveZadani), ne naklikané s odjetými starého zadání.
+        const posun = (o: 1 | -1) => {
+          const noveVelke = Math.max(0, (mame ?? 0) + o);
+          return nastav(pk.id, (s?.odvezeno ?? 0) + noveVelke, { zachovatCas: zadanoKdy?.[pk.id]?.cas ?? null, pocetNoveZadani: noveVelke });
+        };
+        // „Započítat plné" se ukládá k řádku obalu — obal doplněný nulou (bez
+        // zadaného počtu) řádek nemá, volba by se neuložila (revize 1. 11. 2026).
+        const maZadani = !!zadanoKdy?.[pk.id];
         return (
           <div key={pk.id} className="card p-4 space-y-2">
             <div className="flex items-center justify-between gap-3">
@@ -106,8 +141,8 @@ export function MaleSudyPanel({ packages, canEdit, kdo }: {
                   type="button"
                   className="btn-ghost !rounded !px-3"
                   aria-label={`Ubrat ${pk.label}`}
-                  disabled={!canEdit || !hlida || (mame ?? 0) <= 0}
-                  onClick={() => nastav(pk.id, (mame ?? 0) - 1)}
+                  disabled={!canEdit || !nacteno || !hlida || ceka || jenNaklikane || (mame ?? 0) <= 0}
+                  onClick={() => posun(-1)}
                 >
                   <Minus size={18} />
                 </button>
@@ -115,8 +150,8 @@ export function MaleSudyPanel({ packages, canEdit, kdo }: {
                     uložené staré počty a nastavovat je po jednom klikáním bylo
                     zdlouhavé. Uloží se při opuštění pole / Enter. */}
                 <PocetPrazdnych
-                  hodnota={nacteno && hlida ? (mame as number) : null}
-                  zobraz={nacteno ? (hlida ? undefined : '–') : '…'}
+                  hodnota={nacteno && !ceka && mame != null ? mame : null}
+                  zobraz={!nacteno || ceka ? '…' : hlida ? undefined : '–'}
                   povoleno={canEdit && nacteno}
                   popisek={`Počet prázdných ${pk.label}`}
                   ulozit={(n) => nastav(pk.id, n)}
@@ -125,14 +160,22 @@ export function MaleSudyPanel({ packages, canEdit, kdo }: {
                   type="button"
                   className="btn-ghost !rounded !px-3"
                   aria-label={`Přidat ${pk.label}`}
-                  disabled={!canEdit}
-                  onClick={() => nastav(pk.id, (mame ?? 0) + 1)}
+                  disabled={!canEdit || !nacteno || ceka || jenNaklikane}
+                  onClick={() => posun(1)}
                 >
                   <Plus size={18} />
                 </button>
               </div>
             </div>
-            {hlida && (
+            {hlida && !ceka && odkud && (
+              <div className="text-xs font-semibold text-neutral-600">{odkud}</div>
+            )}
+            {jenNaklikane && (
+              <div role="note" className="text-xs font-bold text-amber-800">
+                Objednávky se nenačetly — číslo je naklikané a nejsou v něm odjeté ani otevřené objednávky. Zkus to za chvíli znovu.
+              </div>
+            )}
+            {hlida && !ceka && !jenNaklikane && (
               <div
                 className={`rounded border px-3 py-2 flex items-center justify-between gap-3 ${
                   s && s.nad > 0
@@ -171,9 +214,11 @@ export function MaleSudyPanel({ packages, canEdit, kdo }: {
                 <div className="rounded border border-amber-300 bg-amber-50 p-2 space-y-2 text-sm font-bold text-amber-950">
                   <div>
                     Skladem jsou plné: {Object.entries(s.plneSkladem ?? {}).map(([b, n]) => `${n}× ${jmenaPiv.get(b) ?? '?'}`).join(', ')}.
-                    {umiZapocitatPlne ? ' Započítat je do objednávek?' : ''}
+                    {umiZapocitatPlne && maZadani ? ' Započítat je do objednávek?' : ''}
                   </div>
-                  {umiZapocitatPlne ? (
+                  {umiZapocitatPlne && !maZadani ? (
+                    <div className="text-xs font-semibold">Plné se dají započítat, až zadáš počet tohoto obalu.</div>
+                  ) : umiZapocitatPlne ? (
                     <div className="flex gap-2">
                       <button type="button" className={`${zapocitat ? 'btn-primary' : 'btn-ghost'} flex-1 min-h-[48px]`} disabled={!canEdit} aria-pressed={zapocitat} onClick={() => odpovez(pk.id, true)}>
                         Ano, započítat
