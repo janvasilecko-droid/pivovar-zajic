@@ -190,4 +190,13 @@ def test_token_se_zbavi_bilych_znaku_a_popis_neprozradi_cely(tmp_path):
         klient.zavri()
     z = json.loads((tmp_path / 'zaznam.json').read_text())
     assert z['env']['CLAUDE_CODE_OAUTH_TOKEN'] == 'sk-ant-oat01-abcdef'
-    assert popis == 'token 19 znaků, začíná „sk-ant-oat01-“' and 'abcdef' not in popis
+    assert popis.startswith('token 19 znaků, má předponu') and 'abcdef' not in popis and 'sk-ant-oat01' not in popis
+
+
+def test_popis_tokenu_upozorni_na_cizi_hodnotu_bez_vypsani_znaku():
+    klient = claude_cli.KlientClaudeCode('OfqO1uOPJQSjlTajneZnaky')
+    try:
+        popis = klient.popis_tokenu()
+    finally:
+        klient.zavri()
+    assert 'NEMÁ předponu' in popis and 'OfqO' not in popis
