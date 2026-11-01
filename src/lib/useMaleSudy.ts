@@ -5,7 +5,7 @@ import { supabase, useRealtime, fetchAllRows } from './supabase';
 import {
   hlidejMaleSudy, jeMalySud, plneKZadani, pondeliTydne, prazdneMaleSudy, zadaniMalychSudu,
   type RadekMalychSudu, type VysledekMalychSudu, type ObjednavkaProSudy, type PolozkaProSudy, type ObalProSudy,
-  type OdpocetProSudy, type ZadaniMalehoSudu,
+  type OdpocetProSudy, type ZadaniMalehoSudu, type VlastniStoceni,
 } from './maleSudy';
 import { chybiTabulka } from './chybyHlaseni';
 import { businessDateISO } from './businessDate';
@@ -38,6 +38,8 @@ export function useMaleSudy(): {
   const [chybiMigrace, setChybiMigrace] = useState(false);
   const [chybaNacteni, setChybaNacteni] = useState(false);
   const radkyRef = useRef<RadekMalychSudu[]>([]);
+  /** Počty se už aspoň jednou načetly. */
+  const nactenoRef = useRef(false);
 
   async function nacti() {
     // Se sloupcem zapocitat_plne; dokud migrace neběží, bez něj (6. 10. 2026).
@@ -46,10 +48,13 @@ export function useMaleSudy(): {
     if (bezSloupce) ({ data, error } = await supabase.from('male_sudy').select('package_id, pocet, updated_at') as any);
     if (error) {
       if (chybiTabulka(error)) setChybiMigrace(true);
-      else setChybaNacteni(true);
+      // Nepovedená obnova (slabý signál) nechá poslední načtené počty — chyba
+      // se ukáže jen dokud se ještě nic nenačetlo (revize 1. 11. 2026).
+      else if (!nactenoRef.current) setChybaNacteni(true);
       setNacteno(true);
       return;
     }
+    nactenoRef.current = true;
     setChybaNacteni(false);
     setUmiZapocitatPlne(!bezSloupce);
     const radky = ((data as any[]) ?? []) as (RadekMalychSudu & { zapocitat_plne?: boolean })[];
@@ -162,7 +167,8 @@ export function useHlidaniMalychSudu(
     /** Dnešní sklad bez naplněných sudů odběratelů s vlastními sudy. */
     skladem: Map<string, number>;
     pohyby: Movement[] | null;
-    vlastniStocene: { beer_id: string | null; package_id: string | null; quantity: number; created_at: string | null; odjeloAt: string | null }[];
+    /** Stočení do vlastních sudů odběratelů (i odepsaných) — pro plné k zadání. */
+    vlastniStocene: VlastniStoceni[];
     jmenaPiv: Map<string, string>;
   } | null>(null);
   const dataRef = useRef(data);
@@ -209,25 +215,29 @@ export function useHlidaniMalychSudu(
     const jmenaPiv = kniha ? new Map(kniha.piva.map((b) => [b.id, b.name])) : predtim?.jmenaPiv ?? new Map<string, string>();
     // 🛢️ Naplněné sudy odběratelů s vlastními sudy (stočené s vazbou na jejich
     // položku, lib/stoceniDoVlastnich.ts) leží ve skladu, dokud neodjedou —
-    // ostatním objednávkám ale nepatří (7. 10. 2026). Pro stav k zadání počtu
-    // (plneKZadani) i ty, které od zadání odjely — s časem odpočtu.
+    // ostatním objednávkám ale nepatří (7. 10. 2026). Z dnešního skladu se
+    // ubírají jen neodepsané (odepsané už vzal odpočet); pro stav k zadání
+    // (plneKZadani) všechny, i když od zadání odjely — s odpočty položky.
     const odpocty = ((odp as any[]) ?? []) as OdpocetProSudy[];
     const odepsaneObj = new Set(odpocty.map((r) => r.order_id));
-    const odjeloObj = new Map<string, string>();
+    const odpoctyPolozek = new Map<string, OdpocetProSudy[]>();
     for (const d of odpocty) {
-      if (!d.created_at) continue;
-      const dosud = odjeloObj.get(d.order_id);
-      if (!dosud || Date.parse(d.created_at) < Date.parse(dosud)) odjeloObj.set(d.order_id, d.created_at);
+      if (!d.order_item_id) continue;
+      const seznam = odpoctyPolozek.get(d.order_item_id);
+      if (seznam) seznam.push(d); else odpoctyPolozek.set(d.order_item_id, [d]);
     }
     const vlastniObj = new Set(o.filter((x) => vlastniSudyOdberatele(x.place_name, x.note)).map((x) => x.id));
     const vlastniPolozky = ((pol as any[]) ?? []).filter((x) => vlastniObj.has(x.order_id));
     const objednavkaPolozky = new Map(vlastniPolozky.map((x) => [x.id as string, x.order_id as string]));
     const skladem = new Map(surovy);
-    const vlastniStocene: { beer_id: string | null; package_id: string | null; quantity: number; created_at: string | null; odjeloAt: string | null }[] = [];
+    const vlastniStocene: VlastniStoceni[] = [];
     if (vlastniPolozky.length) {
-      const { data: stocene, error: chybaStoc } = await fetchAllRows<any>('kegging', 'order_item_id, beer_id, package_id, quantity, created_at').in('order_item_id', [...objednavkaPolozky.keys()]);
+      const { data: stocene, error: chybaStoc } = await fetchAllRows<any>('kegging', 'order_item_id, beer_id, package_id, quantity, entry_date, created_at, note')
+        .in('order_item_id', [...objednavkaPolozky.keys()]);
       if (chybaStoc) throw new Error('Stočené sudy se nenačetly.');
       for (const r of ((stocene as any[]) ?? [])) {
+        // [mimo-sklad] se do skladu nepočítá vůbec (lib/stockLedger.ts) — není co ubírat.
+        if (String(r.note ?? '').includes('[mimo-sklad]')) continue;
         const objednavka = objednavkaPolozky.get(r.order_item_id) ?? '';
         if (!odepsaneObj.has(objednavka)) {
           const k = `${r.beer_id}__${r.package_id}`;
@@ -235,7 +245,7 @@ export function useHlidaniMalychSudu(
         }
         vlastniStocene.push({
           beer_id: r.beer_id ?? null, package_id: r.package_id ?? null, quantity: Number(r.quantity || 0),
-          created_at: r.created_at ?? null, odjeloAt: odjeloObj.get(objednavka) ?? null,
+          entry_date: r.entry_date ?? null, created_at: r.created_at ?? null, odpocty: odpoctyPolozek.get(r.order_item_id) ?? [],
         });
       }
     }
