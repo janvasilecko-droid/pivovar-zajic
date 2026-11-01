@@ -542,6 +542,10 @@ const ODDILY: Oddil[] = [
         jak: 'U každé knihy je vidět, jestli čeká, zpracovává se, je hotová, nebo má chybu, a kolik má stran, kapitol a pasáží. Dokud kniha není zpracovaná, AI z ní neodpovídá. Popis (autor, rok, vydání, oblasti A–T) jde doplnit tlačítkem „Upravit popis“.',
       },
       {
+        co: 'Číst knihu',
+        jak: 'U zpracované knihy klepni na „Číst“. Obsah ukáže kapitoly (klepnutím otevřeš jejich stranu), Čtení listuje stranu po straně šipkami nebo skokem na číslo strany a Tabulky a vzorce ukáže tabulky a vzorce rozpoznané v přepisu skenů. Strana „s. 158“ je vytištěné číslo, „list 170“ pořadí v souboru. U strany ke kontrole ověř čísla v originále.',
+      },
+      {
         co: 'Správa znalostí',
         jak: 'Dlaždice Správa znalostí ukazuje tematické oblasti A–T s počtem dokumentů, kdo má přístup a kolik místa zabírá databáze a úložiště. Ostatní dlaždice (chatbot, výpočty, technologie, várky) řeknou, ve které etapě přijdou.',
       },
