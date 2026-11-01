@@ -149,8 +149,9 @@ class KlientClaudeCode:
         self.messages = _Zpravy(self)
 
     def popis_tokenu(self) -> str:
-        """Délka a tvar začátku tokenu pro log (celý token nikdy; začátek `sk-ant-oat01-` tajný není)."""
-        return f'token {len(self._token)} znaků, začíná „{self._token[:13]}“'
+        """Tvar tokenu pro log: délka a jestli má předponu tokenu. Žádný jeho znak se nevypisuje (log je veřejný)."""
+        ma = self._token.startswith('sk-ant-oat')
+        return f'token {len(self._token)} znaků, {"má" if ma else "NEMÁ"} předponu sk-ant-oat (token ze „claude setup-token")'
 
     def zavri(self) -> None:
         shutil.rmtree(self._domov, ignore_errors=True)
