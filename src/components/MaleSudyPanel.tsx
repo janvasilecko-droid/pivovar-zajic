@@ -63,8 +63,8 @@ export function MaleSudyPanel({ packages, canEdit, kdo }: {
     .filter(jeMalySud)
     .sort((a, b) => Number(b.volume_l) - Number(a.volume_l));
 
-  async function nastav(id: string, pocet: number | null) {
-    const e = await ulozit(id, pocet == null ? null : Math.max(0, pocet), kdo);
+  async function nastav(id: string, pocet: number | null, volby?: { zachovatCas: boolean }) {
+    const e = await ulozit(id, pocet == null ? null : Math.max(0, pocet), kdo, volby);
     if (e) chyba(`Počet se neuložil: ${e}`);
   }
   async function odpovez(id: string, ano: boolean) {
@@ -115,6 +115,12 @@ export function MaleSudyPanel({ packages, canEdit, kdo }: {
         const objednano = s?.objednano ?? 0;
         const volne = mame != null ? Math.max(0, mame - objednano) : 0;
         const odkud = s ? popisOdvezenych(s, zadanoKdy?.[pk.id]?.den) : null;
+        // +/− opraví naklikané číslo o kus a čas zadání nechá: odjeté objednávky
+        // i plné sudy k zadání se dál počítají od původního zadání (jinak by
+        // sudy stočené od zadání u „započítat plné" nafoukly K dispozici —
+        // revize 1. 11. 2026). Velké číslo se tak změní přesně o 1. Napsané
+        // číslo je nový stav TEĎ (nové zadání).
+        const posun = (o: 1 | -1) => nastav(pk.id, (s?.odvezeno ?? 0) + Math.max(0, (mame ?? 0) + o), { zachovatCas: true });
         return (
           <div key={pk.id} className="card p-4 space-y-2">
             <div className="flex items-center justify-between gap-3">
@@ -125,7 +131,7 @@ export function MaleSudyPanel({ packages, canEdit, kdo }: {
                   className="btn-ghost !rounded !px-3"
                   aria-label={`Ubrat ${pk.label}`}
                   disabled={!canEdit || !nacteno || !hlida || ceka || jenNaklikane || (mame ?? 0) <= 0}
-                  onClick={() => nastav(pk.id, (mame ?? 0) - 1)}
+                  onClick={() => posun(-1)}
                 >
                   <Minus size={18} />
                 </button>
@@ -144,7 +150,7 @@ export function MaleSudyPanel({ packages, canEdit, kdo }: {
                   className="btn-ghost !rounded !px-3"
                   aria-label={`Přidat ${pk.label}`}
                   disabled={!canEdit || !nacteno || ceka || jenNaklikane}
-                  onClick={() => nastav(pk.id, (mame ?? 0) + 1)}
+                  onClick={() => posun(1)}
                 >
                   <Plus size={18} />
                 </button>

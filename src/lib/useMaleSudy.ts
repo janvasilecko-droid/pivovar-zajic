@@ -27,7 +27,7 @@ export function useMaleSudy(): {
   chybiMigrace: boolean;
   /** Počty se nepodařilo načíst (síť) — záložka nesmí nabídnout „+" jako první zadání, přepsalo by uložené. */
   chybaNacteni: boolean;
-  ulozit: (packageId: string, pocet: number | null, kdo?: string | null) => Promise<string | null>;
+  ulozit: (packageId: string, pocet: number | null, kdo?: string | null, volby?: { zachovatCas?: boolean }) => Promise<string | null>;
   nastavZapocitatPlne: (packageId: string, ano: boolean) => Promise<string | null>;
 } {
   const [zasoba, setZasoba] = useState<Record<string, number>>({});
@@ -76,29 +76,50 @@ export function useMaleSudy(): {
   useEffect(() => { nacti().catch(() => setNacteno(true)); }, []);
   useRealtime(['male_sudy', 'kegging'], () => { nacti().catch(() => {}); });
 
-  /** `pocet = null` → obal přestane hlídat (řádek se smaže). */
-  async function ulozit(packageId: string, pocet: number | null, kdo?: string | null): Promise<string | null> {
-    // Nový počet = stav TEĎ: odjeté objednávky se počítají až od téhle chvíle
-    // (čas se uloží stejný, ať se číslo po načtení z databáze nezmění).
+  /**
+   * `pocet = null` → obal přestane hlídat (řádek se smaže).
+   *
+   * Nový počet = stav TEĎ: odjeté objednávky a plné sudy k zadání se počítají
+   * od téhle chvíle (čas se uloží stejný, ať se číslo po načtení z databáze
+   * nezmění). `zachovatCas` (+/− v záložce) je oprava naklikaného čísla o kus:
+   * čas zadání zůstane, jinak by sudy stočené od zadání byly „plné k zadání"
+   * a u „započítat plné" by K dispozici nafoukly (revize 1. 11. 2026). Bez
+   * platného zadání z tohoto týdne je to i tak nové zadání.
+   */
+  async function ulozit(
+    packageId: string,
+    pocet: number | null,
+    kdo?: string | null,
+    volby: { zachovatCas?: boolean } = {},
+  ): Promise<string | null> {
     const ted = new Date();
-    const cas = ted.toISOString();
+    const dnes = businessDateISO(ted);
+    const stary = radkyRef.current.find((r) => r.package_id === packageId);
+    const tydenStareho = stary?.updated_at && Number.isFinite(Date.parse(stary.updated_at))
+      ? pondeliTydne(businessDateISO(new Date(stary.updated_at)))
+      : null;
+    const zachovat = pocet != null && !!volby.zachovatCas && tydenStareho != null && tydenStareho >= pondeliTydne(dnes);
+    const cas = zachovat ? stary!.updated_at! : ted.toISOString();
     setZasoba((z) => {
       const dalsi = { ...z };
       if (pocet == null) delete dalsi[packageId]; else dalsi[packageId] = pocet;
       return dalsi;
     });
-    setZadanoKdy((z) => {
-      const dalsi = { ...z };
-      if (pocet == null) delete dalsi[packageId]; else dalsi[packageId] = { cas, den: businessDateISO(ted) };
-      return dalsi;
-    });
+    if (!zachovat) {
+      setZadanoKdy((z) => {
+        const dalsi = { ...z };
+        if (pocet == null) delete dalsi[packageId]; else dalsi[packageId] = { cas, den: dnes };
+        return dalsi;
+      });
+    }
     // Počet z minulého týdne už neplatí (prazdneMaleSudy) — s novým počtem
     // se i „započítat plné" ptá znovu, ať se plné sudy nezapočtou potichu.
-    const dnes = businessDateISO();
-    const stary = radkyRef.current.find((r) => r.package_id === packageId);
-    const novyTyden = umiZapocitatPlne && !!stary?.updated_at
-      && pondeliTydne(businessDateISO(new Date(stary.updated_at))) < pondeliTydne(dnes);
+    const novyTyden = umiZapocitatPlne && tydenStareho != null && tydenStareho < pondeliTydne(dnes);
     if (novyTyden) setZapocitatPlne((z) => { const d = new Set(z); d.delete(packageId); return d; });
+    // Další +/− hned po uložení (dřív, než dorazí obnova z databáze) musí
+    // navázat na právě uložený čas, ne na ten z posledního načtení.
+    const ostatni = radkyRef.current.filter((r) => r.package_id !== packageId);
+    radkyRef.current = pocet == null ? ostatni : [...ostatni, { ...stary, package_id: packageId, pocet, updated_at: cas }];
     const { error } = pocet == null
       ? await supabase.from('male_sudy').delete().eq('package_id', packageId)
       : await supabase.from('male_sudy').upsert(
@@ -135,10 +156,17 @@ export function useHlidaniMalychSudu(
   zadanoKdy: Record<string, ZadaniMalehoSudu> | undefined,
 ): VysledekMalychSudu & { nacteno: boolean; chybaNacteni: boolean; jmenaPiv: Map<string, string> } {
   const [data, setData] = useState<{
-    o: ObjednavkaProSudy[]; p: PolozkaProSudy[]; odepsane: Set<string>; odpocty: OdpocetProSudy[]; skladem: Map<string, number>;
-    pohyby: Movement[] | null; vlastniStocene: { beer_id: string | null; package_id: string | null; quantity: number; created_at: string | null }[];
+    o: ObjednavkaProSudy[]; p: PolozkaProSudy[]; odepsane: Set<string>; odpocty: OdpocetProSudy[];
+    /** Dnešní sklad ze skladové knihy (bez úprav). */
+    surovy: Map<string, number>;
+    /** Dnešní sklad bez naplněných sudů odběratelů s vlastními sudy. */
+    skladem: Map<string, number>;
+    pohyby: Movement[] | null;
+    vlastniStocene: { beer_id: string | null; package_id: string | null; quantity: number; created_at: string | null; odjeloAt: string | null }[];
     jmenaPiv: Map<string, string>;
   } | null>(null);
+  const dataRef = useRef(data);
+  dataRef.current = data;
   // Načtení selhalo. Dobrá data z minula zůstávají (chyba je nepřepíše prázdnými —
   // číslo by skočilo zpět na naklikané a +/− by ho uložilo s novým časem).
   const [selhalo, setSelhalo] = useState(false);
@@ -170,22 +198,45 @@ export function useHlidaniMalychSudu(
       nactiSkladovouKnihu().catch(() => null),
     ]);
     if (chybaPol || chybaOdp) throw new Error('Položky nebo odpočty se nenačetly.');
-    const skladem = new Map<string, number>();
-    if (kniha) stockAsOf(kniha.pohyby, businessDateISO()).forEach((r, k) => skladem.set(k, r.qty));
+    // Skladová kniha se nenačetla (slabý signál): zůstane poslední dobrá, ať se
+    // krytí plnými a jejich upozornění potichu nezmění. Bez ní vůbec dnešní
+    // sklad prázdný (plné nekryjí nic).
+    const predtim = dataRef.current;
+    const surovy = new Map<string, number>();
+    if (kniha) stockAsOf(kniha.pohyby, businessDateISO()).forEach((r, k) => surovy.set(k, r.qty));
+    else predtim?.surovy.forEach((n, k) => surovy.set(k, n));
+    const pohyby = kniha ? kniha.pohyby : predtim?.pohyby ?? null;
+    const jmenaPiv = kniha ? new Map(kniha.piva.map((b) => [b.id, b.name])) : predtim?.jmenaPiv ?? new Map<string, string>();
     // 🛢️ Naplněné sudy odběratelů s vlastními sudy (stočené s vazbou na jejich
     // položku, lib/stoceniDoVlastnich.ts) leží ve skladu, dokud neodjedou —
-    // ostatním objednávkám ale nepatří (7. 10. 2026).
-    const odepsaneObj = new Set(((odp as any[]) ?? []).map((r) => r.order_id as string));
-    const vlastniObj = new Set(o.filter((x) => vlastniSudyOdberatele(x.place_name, x.note) && !odepsaneObj.has(x.id)).map((x) => x.id));
-    const vlastniPolozky = ((pol as any[]) ?? []).filter((x) => vlastniObj.has(x.order_id)).map((x) => x.id as string);
-    const vlastniStocene: { beer_id: string | null; package_id: string | null; quantity: number; created_at: string | null }[] = [];
+    // ostatním objednávkám ale nepatří (7. 10. 2026). Pro stav k zadání počtu
+    // (plneKZadani) i ty, které od zadání odjely — s časem odpočtu.
+    const odpocty = ((odp as any[]) ?? []) as OdpocetProSudy[];
+    const odepsaneObj = new Set(odpocty.map((r) => r.order_id));
+    const odjeloObj = new Map<string, string>();
+    for (const d of odpocty) {
+      if (!d.created_at) continue;
+      const dosud = odjeloObj.get(d.order_id);
+      if (!dosud || Date.parse(d.created_at) < Date.parse(dosud)) odjeloObj.set(d.order_id, d.created_at);
+    }
+    const vlastniObj = new Set(o.filter((x) => vlastniSudyOdberatele(x.place_name, x.note)).map((x) => x.id));
+    const vlastniPolozky = ((pol as any[]) ?? []).filter((x) => vlastniObj.has(x.order_id));
+    const objednavkaPolozky = new Map(vlastniPolozky.map((x) => [x.id as string, x.order_id as string]));
+    const skladem = new Map(surovy);
+    const vlastniStocene: { beer_id: string | null; package_id: string | null; quantity: number; created_at: string | null; odjeloAt: string | null }[] = [];
     if (vlastniPolozky.length) {
-      const { data: stocene, error: chybaStoc } = await fetchAllRows<any>('kegging', 'order_item_id, beer_id, package_id, quantity, created_at').in('order_item_id', vlastniPolozky);
+      const { data: stocene, error: chybaStoc } = await fetchAllRows<any>('kegging', 'order_item_id, beer_id, package_id, quantity, created_at').in('order_item_id', [...objednavkaPolozky.keys()]);
       if (chybaStoc) throw new Error('Stočené sudy se nenačetly.');
       for (const r of ((stocene as any[]) ?? [])) {
-        const k = `${r.beer_id}__${r.package_id}`;
-        if (skladem.has(k)) skladem.set(k, (skladem.get(k) ?? 0) - Number(r.quantity || 0));
-        vlastniStocene.push({ beer_id: r.beer_id ?? null, package_id: r.package_id ?? null, quantity: Number(r.quantity || 0), created_at: r.created_at ?? null });
+        const objednavka = objednavkaPolozky.get(r.order_item_id) ?? '';
+        if (!odepsaneObj.has(objednavka)) {
+          const k = `${r.beer_id}__${r.package_id}`;
+          if (skladem.has(k)) skladem.set(k, (skladem.get(k) ?? 0) - Number(r.quantity || 0));
+        }
+        vlastniStocene.push({
+          beer_id: r.beer_id ?? null, package_id: r.package_id ?? null, quantity: Number(r.quantity || 0),
+          created_at: r.created_at ?? null, odjeloAt: odjeloObj.get(objednavka) ?? null,
+        });
       }
     }
     setSelhalo(false);
@@ -193,12 +244,13 @@ export function useHlidaniMalychSudu(
       o,
       p: ((pol as any[]) ?? []) as PolozkaProSudy[],
       odepsane: odepsaneObj,
-      odpocty: ((odp as any[]) ?? []) as OdpocetProSudy[],
+      odpocty,
+      surovy,
       skladem,
-      pohyby: kniha?.pohyby ?? null,
+      pohyby,
       vlastniStocene,
       // Jména piv pro rozpad „plné skladem" v panelu Malé sudy.
-      jmenaPiv: new Map((kniha?.piva ?? []).map((b) => [b.id, b.name])),
+      jmenaPiv,
     });
   }
   // Dokud nikdo nenaklikal žádný počet, není co hlídat — objednávky se

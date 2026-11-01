@@ -62,17 +62,16 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
   // mě to pustí, na co není sud, udělej červeně"). Původní kusy téhle
   // objednávky se při úpravě uvolní — započítá se až to, co je zadáno teď.
   const { zasoba: zasobaMalychSudu, zapocitatPlne, zadanoKdy: zadanoMalychSudu } = useMaleSudy();
-  const { souhrn: souhrnMalychSudu, poPolozce: sudyPoPolozce, odjeteMimoPocet } = useHlidaniMalychSudu(zasobaMalychSudu, undefined, zapocitatPlne, zadanoMalychSudu);
+  const { souhrn: souhrnMalychSudu, poPolozce: sudyPoPolozce } = useHlidaniMalychSudu(zasobaMalychSudu, undefined, zapocitatPlne, zadanoMalychSudu);
   // Odběratel s vlastními sudy malé sudy pivovaru nebere — ani původně
   // (v souhrnu jeho objednávka není), ani teď (lib/vlastniSudy.ts).
   // Vlastní je i objednávka s poznámkou „do jejich sudu" (lib/vlastniSudy.ts).
   const puvodneVlastni = !!vlastniSudyOdberatele(order.place_name, order.note);
   const vlastniSudy = !!vlastniSudyOdberatele(placeName, note);
-  // Odjela ještě před zadáním počtu: její sudy stáčeč nepočítal — úprava je nehlídá.
-  const neHlidat = vlastniSudy || !!odjeteMimoPocet?.has(order.id);
-  // Uvolní se přesně to, co hlídání téhle objednávce připsalo — otevřené její
-  // kusy v objednávkách, odjeté od zadání její podíl v odvezených (bez toho by
-  // úprava zavezené objednávky svítila u jejích vlastních sudů „Nejsou sudy").
+  const neHlidat = vlastniSudy;
+  // Uvolní se to, co hlídání téhle objednávce připsalo (lib/maleSudy.ts
+  // sudyObjednavky): otevřené její kusy v objednávkách, odjeté od zadání její
+  // podíl v odvezených, objednávce mimo počet její původní kusy.
   const puvodneVObalu = (pkgId: string) => (puvodneVlastni ? 0 : sudyObjednavky(souhrnMalychSudu, sudyPoPolozce, order.id, items, pkgId));
   const zadanoVObalu = (pkgId: string) => rows.filter((x) => !x.removed && x.pkgId === pkgId).reduce((sum, x) => sum + (Number(x.qty) || 0), 0);
   // Po řádcích od nejsilnějšího piva: část bez sudu oranžově, celé červeně.

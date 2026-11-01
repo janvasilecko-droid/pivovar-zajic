@@ -50,7 +50,7 @@ describe('Malé sudy: velké číslo = kolik jsem zadal', () => {
     const pole = screen.getByLabelText('Počet prázdných 20l');
     fireEvent.change(pole, { target: { value: '9' } });
     fireEvent.blur(pole);
-    expect(ulozit).toHaveBeenCalledWith('s20', 9, undefined);
+    expect(ulozit).toHaveBeenCalledWith('s20', 9, undefined, undefined);
   });
 
   it('dokud se nenačtou objednávky, číslo neposkočí — „…" a tlačítka čekají', () => {
@@ -89,7 +89,7 @@ describe('Malé sudy: velké číslo = kolik jsem zadal', () => {
     const pole = screen.getByLabelText('Počet prázdných 20l');
     fireEvent.change(pole, { target: { value: '3' } });
     fireEvent.blur(pole);
-    expect(ulozit).toHaveBeenCalledWith('s20', 3, undefined);
+    expect(ulozit).toHaveBeenCalledWith('s20', 3, undefined, undefined);
   });
 });
 
@@ -111,11 +111,36 @@ describe('Malé sudy: odjeté objednávky počet zmenší (1. 11. 2026)', () => 
     expect(screen.getByText('Naklikáno 8 (út 27. 10.), od té doby odjelo 6: Maneo 6× (čt 29. 10.).')).toBeTruthy();
   });
 
-  it('+ a − počítají od zobrazeného čísla (uloží se jako nový stav)', () => {
+  // Revize 1. 11. 2026: +/− s novým časem zadání by sudy stočené od zadání
+  // vzalo jako „plné k zadání" a u „započítat plné" nafouklo K dispozici.
+  it('+ a − opraví naklikané číslo o kus a čas zadání nechají (velké číslo 2 → 3 / 1)', () => {
     render(<MaleSudyPanel packages={[S10]} canEdit />);
     fireEvent.click(screen.getByLabelText('Přidat 10l'));
-    expect(ulozit).toHaveBeenLastCalledWith('s10', 3, undefined);
+    expect(ulozit).toHaveBeenLastCalledWith('s10', 9, undefined, { zachovatCas: true });
     fireEvent.click(screen.getByLabelText('Ubrat 10l'));
-    expect(ulozit).toHaveBeenLastCalledWith('s10', 1, undefined);
+    expect(ulozit).toHaveBeenLastCalledWith('s10', 7, undefined, { zachovatCas: true });
+  });
+
+  it('napsané číslo je nový stav TEĎ (nové zadání)', () => {
+    render(<MaleSudyPanel packages={[S10]} canEdit />);
+    const pole = screen.getByLabelText('Počet prázdných 10l');
+    fireEvent.change(pole, { target: { value: '5' } });
+    fireEvent.blur(pole);
+    expect(ulozit).toHaveBeenLastCalledWith('s10', 5, undefined, undefined);
+  });
+
+  it('odjelo víc, než se naklikalo (ukazuje 0): + přidá tak, aby bylo 1; − nejde', () => {
+    zasoba = { s10: 3 };
+    hlidani = {
+      souhrn: [{
+        package_id: 's10', mame: 0, objednano: 0, nad: 0, zapocitanoPlnych: 0, plneSkladem: {}, zadano: 3, odvezeno: 5,
+        odvezenoZ: [{ order_id: 'm', nazev: 'Maneo', den: '2026-10-29', kusu: 5 }],
+      }],
+      nacteno: true,
+    };
+    render(<MaleSudyPanel packages={[S10]} canEdit />);
+    expect((screen.getByLabelText('Ubrat 10l') as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByLabelText('Přidat 10l'));
+    expect(ulozit).toHaveBeenLastCalledWith('s10', 6, undefined, { zachovatCas: true });
   });
 });

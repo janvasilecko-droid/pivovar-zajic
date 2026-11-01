@@ -15,6 +15,7 @@ import { jeVyrizena } from './stavyObjednavek';
 import { vlastniSudyOdberatele } from './vlastniSudy';
 import { computeDeliveryDateISO } from './denZavozu';
 import { stockAsOf, type Movement } from './stockLedger';
+import { businessHour } from './businessDate';
 
 export type ObalProSudy = { id: string; kind?: string | null; volume_l?: number | string | null; label?: string | null };
 
@@ -116,6 +117,11 @@ export function denOdjezdu(o: ObjednavkaProSudy): string | null {
  *   počítání už neměl (i objednávka zapsaná zpětně).
  * - Zavezená (delivered_at) nebo odepsaná ze skladu (created_at odpočtu) už
  *   před zadáním → ne: v hlídání tehdy nebyla, K dispozici ji neodečítalo.
+ *   delivered_at přesně v pražskou půlnoc je zástupná hodnota (noční
+ *   oznac_minule_zavozy a odecist_objednavku_hned píšou den závozu 00:00 —
+ *   v říjnu 2026 70 ze 72 objednávek): čas odvozu neříká, rozhoduje den
+ *   a odpočet. Jinak by se objednávka zapsaná a odvezená v den zadání druhý
+ *   den ráno k počtu „vrátila" (revize 1. 11. 2026).
  * - Jinak ano — i v den zadání (přesun závozu na dnešek, položka přidaná po
  *   zadání, položka bez piva, kterou databáze neodepisuje). Tak se každý sud
  *   počítá jednou a K dispozici v okamžiku odvozu neposkočí.
@@ -128,7 +134,8 @@ export function odjelaPoZadani(
   const zadanoMs = Date.parse(zadani.cas);
   if (!Number.isFinite(zadanoMs)) return false;
   const zavezeno = Date.parse(o.delivered_at ?? '');
-  if (Number.isFinite(zavezeno) && zavezeno <= zadanoMs) return false;
+  const zastupnaPulnoc = Number.isFinite(zavezeno) && zavezeno % 3_600_000 === 0 && businessHour(new Date(zavezeno)) === 0;
+  if (Number.isFinite(zavezeno) && !zastupnaPulnoc && zavezeno <= zadanoMs) return false;
   const dnyOdpoctu = odpoctyPolozky.map((d) => (d.deduct_date ?? '').slice(0, 10)).filter(Boolean).sort();
   const den = dnyOdpoctu[0] ?? denOdjezdu(o);
   if (!den || den < zadani.den) return false;
@@ -173,11 +180,6 @@ export type VysledekMalychSudu = {
   nadPoPolozce: Map<string, number>;
   /** Každá hlídaná položka: kolik kusů má sud a kolik ne (zelená/oranžová/červená); `zeSkladu` = kolik pokryly započítané plné sudy skladem. */
   poPolozce: Map<string, { kryto: number; chybi: number; zeSkladu?: number }>;
-  /**
-   * Odjeté objednávky s malými sudy, které v počtu nejsou — odjely ještě
-   * před zadáním. Jejich sudy stáčeč nepočítal, úprava je nemá hlídat.
-   */
-  odjeteMimoPocet?: Set<string>;
 };
 
 /**
@@ -306,10 +308,6 @@ export function hlidejMaleSudy(
     poObjednavkach.set(o.id, radek);
   }
   const mameTed: Record<string, number> = { ...zbyva };
-  const vPoctu = new Set(odjetePolozky.map((p) => p.order_id));
-  const odjeteMimoPocet = new Set(polozky
-    .filter((p) => odjetaPodleId.has(p.order_id) && !vPoctu.has(p.order_id) && p.package_id && zasoba[p.package_id] != null && Number(p.quantity) > 0)
-    .map((p) => p.order_id));
 
   // 2) Otevřené objednávky si rozeberou, co zbylo.
   const objednano: Record<string, number> = {};
@@ -349,7 +347,7 @@ export function hlidejMaleSudy(
       odvezenoZ: [...(odvezenoZ[package_id]?.values() ?? [])],
     };
   });
-  return { souhrn, nadPoPolozce, poPolozce, odjeteMimoPocet };
+  return { souhrn, nadPoPolozce, poPolozce };
 }
 
 /** Pořadí objednávek od nejbližšího dovozu (bez data na konec), pak podle vzniku. */
@@ -390,16 +388,21 @@ export function volneProObjednavku(
 }
 
 /**
- * Plné sudy skladem v okamžiku zadání počtu (beer__obal → kusy) — jen ty smějí
- * u „započítat plné" krýt objednávky (hlidejMaleSudy, revize 1. 11. 2026).
- * Ze dne zadání se nepočítají pohyby zapsané až po zadání: stáčení po zadání
- * je z naklikaných prázdných. Naplněné sudy odběratelů s vlastními sudy,
- * stočené k jejich položce do zadání, ostatním objednávkám nepatří.
+ * Plné sudy, které smějí u „započítat plné" krýt objednávky (beer__obal →
+ * kusy; hlidejMaleSudy, revize 1. 11. 2026): stav skladu v okamžiku zadání
+ * počtu — ze dne zadání bez pohybů zapsaných až po zadání (stáčení po zadání
+ * je z naklikaných prázdných) — minus plné, které po zadání odešly jinudy než
+ * objednávkou (prodejna, fasování, odpis, akce, přefuk, sud na lahve, záporné
+ * dorovnání). Naplněné sudy odběratelů s vlastními sudy, stočené do zadání,
+ * ostatním objednávkám nepatří (dokud jejich objednávka při zadání neodjela).
  */
 export function plneKZadani(
   pohyby: readonly Movement[],
   zadanoKdy: Record<string, ZadaniMalehoSudu>,
-  vlastniStocene: readonly { beer_id?: string | null; package_id?: string | null; quantity?: number | string | null; created_at?: string | null }[] = [],
+  vlastniStocene: readonly {
+    beer_id?: string | null; package_id?: string | null; quantity?: number | string | null;
+    created_at?: string | null; odjeloAt?: string | null;
+  }[] = [],
 ): Map<string, number> {
   const out = new Map<string, number>();
   const skupiny = new Map<string, { z: ZadaniMalehoSudu; obaly: Set<string> }>();
@@ -416,8 +419,15 @@ export function plneKZadani(
     };
     const doZadani = pohyby.filter((m) => obaly.has(m.package_id) && (m.date < z.den || (m.date === z.den && !poZadani(m.createdAt))));
     stockAsOf(doZadani, z.den).forEach((r, k) => out.set(k, r.qty));
+    for (const m of pohyby) {
+      if (!obaly.has(m.package_id) || !(m.qty < 0) || m.kind === 'zavoz' || m.kind === 'inventura') continue;
+      if (m.date < z.den || (m.date === z.den && !poZadani(m.createdAt))) continue;
+      const k = `${m.beer_id}__${m.package_id}`;
+      out.set(k, (out.get(k) ?? 0) + m.qty);
+    }
     for (const r of vlastniStocene) {
       if (!r.beer_id || !r.package_id || !obaly.has(r.package_id) || poZadani(r.created_at)) continue;
+      if (r.odjeloAt && !poZadani(r.odjeloAt)) continue;   // odjela už před zadáním — ve skladu k zadání nebyla
       const k = `${r.beer_id}__${r.package_id}`;
       if (out.has(k)) out.set(k, (out.get(k) ?? 0) - Number(r.quantity || 0));
     }
@@ -426,36 +436,49 @@ export function plneKZadani(
 }
 
 /**
- * Kolik sudů obalu hlídání připsalo TÉHLE objednávce — při její úpravě se
- * uvolní (volneProObjednavku, rozdelMaleSudyVObjednavce). Otevřená má podíl
- * v `objednano` (po položkách, bez krytí plnými), odjetá od zadání v
- * `odvezeno` — bez toho by úprava zavezeného Manea svítila u jeho vlastních
- * sudů „Nejsou sudy" (revize 1. 11. 2026). Vrácené odvezené se počítají proti
- * nezaokrouhlenému zbytku: když od zadání odjelo víc, než se naklikalo, uvolní
- * se jen to, co by bez téhle objednávky zbylo.
+ * Kolik sudů obalu se při úpravě objednávky uvolní (`uzVTetoObjednavce` pro
+ * volneProObjednavku a rozdelMaleSudyVObjednavce, kde volné = mame −
+ * objednano + uvolněno). Řádky se porovnávají celým množstvím (revize
+ * 1. 11. 2026 — úprava zavezeného Manea svítila u jeho sudů „Nejsou sudy"):
+ * - odjetá od zadání (je v odvezenoZ): smí to, co by bez ní zbylo z počtu, plus
+ *   své plné krytí — otevřené objednávky berou až po ní, proto se neodečítají —
+ *   a k tomu své položky, které v počtu nejsou (odepsané už před zadáním);
+ * - otevřená hlídaná (má položky v poPolozce): její celé množství (dřívější
+ *   pravidlo — ostatní otevřené se odečtou);
+ * - v počtu není (odjela před zadáním, objednávka z minulého týdne, obal bez
+ *   času zadání): její původní kusy v počtu nikdy nebyly — smí je mít dál a
+ *   k tomu, co je volné; přidané kusy se tak porovnají s K dispozici.
  */
 export function sudyObjednavky(
   souhrn: SouhrnMalychSudu[],
   poPolozce: ReadonlyMap<string, { kryto: number; chybi: number; zeSkladu?: number }>,
   orderId: string,
-  polozkyObjednavky: readonly { id: string; package_id?: string | null }[],
+  /** Položky téhle objednávky (s order_id se položky jiných objednávek přeskočí). */
+  polozkyObjednavky: readonly { id: string; order_id?: string | null; package_id?: string | null; quantity?: number | string | null }[],
   packageId: string | null | undefined,
 ): number {
   if (!packageId) return 0;
   const s = souhrn.find((x) => x.package_id === packageId);
   if (!s) return 0;
-  // Řádky se porovnávají celým množstvím, proto i krytí plnými sudy (u otevřené
-  // kryto + chybí = celé množství, u odjeté prázdné + plné).
-  let otevreny = 0;
+  let hlidane = 0;
+  let puvodne = 0;
+  let vHlidani = false;
   for (const p of polozkyObjednavky) {
-    if (p.package_id !== packageId) continue;
+    if (p.package_id !== packageId || (p.order_id != null && p.order_id !== orderId)) continue;
+    puvodne += Number(p.quantity) || 0;
     const r = poPolozce.get(p.id);
-    if (r) otevreny += r.kryto + r.chybi;
+    if (r) { vHlidani = true; hlidane += r.kryto + r.chybi; }
   }
   const odjela = s.odvezenoZ?.find((r) => r.order_id === orderId);
-  const podil = odjela?.kusu ?? 0;
-  const mameBez = podil > 0 ? Math.max(0, (s.zadano ?? s.mame) - ((s.odvezeno ?? 0) - podil)) : s.mame;
-  return otevreny + (mameBez - s.mame) + (odjela?.plnych ?? 0);
+  if (odjela) {
+    const mameBez = Math.max(0, (s.zadano ?? s.mame) - ((s.odvezeno ?? 0) - odjela.kusu));
+    // Položky téže objednávky, které v počtu nejsou (odepsané už před zadáním,
+    // další přidaná až po něm), smí mít dál jako objednávka mimo počet.
+    const mimoPocet = Math.max(0, puvodne - odjela.kusu - (odjela.plnych ?? 0));
+    return mameBez + (odjela.plnych ?? 0) + mimoPocet - s.mame + s.objednano;
+  }
+  if (vHlidani) return hlidane;
+  return puvodne + Math.max(0, s.objednano - s.mame);
 }
 
 function silaZ(mapa: Map<string, number> | undefined, beerId: string | null | undefined): number {
