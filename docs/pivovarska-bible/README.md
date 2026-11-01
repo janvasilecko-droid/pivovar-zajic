@@ -34,7 +34,9 @@ s citací kniha–kapitola–strana a počítá deterministickým výpočetním 
 | 1: knihovna, nahrávání, stav | hotovo (31. 10. 2026) |
 | 2: zpracování knih (worker) | hotovo (31. 10. 2026) |
 | přesun do samostatného projektu (R12) | hotovo — migrace `20261101000000_bible_zaklad` (Databáze bible) a `20261231430000_pivovarska_bible_samostatny_projekt` (hlavní databáze) pouští majitel; úklid prázdných tabulek v hlavní databázi `20261231440000_pivovarska_bible_uklid_hlavniho_projektu` |
-| 3–10 | čeká |
+| 3a: čtení zpracované knihy | hotovo (1. 11. 2026) — bez migrace |
+| 3b–3c: zkušenosti sládků, nová vydání | čeká |
+| 4–10 | čeká |
 
 ## Zpracování knih (etapa 2)
 
@@ -102,3 +104,31 @@ s citací kniha–kapitola–strana a počítá deterministickým výpočetním 
   `uv pip compile requirements.in --python-version 3.12 --python-platform x86_64-manylinux_2_28 --generate-hashes --no-header --exclude-newer <datum před 2 týdny> -o requirements.txt`
   (a totéž pro `requirements-testy.in`; starý výstup předem smazat).
 - **Do veřejného logu** jdou jen ID dokumentů, počty a stavy.
+
+## Čtení knihy (etapa 3a)
+
+- **Kde:** Knihovna dokumentů → u zpracované knihy (hotovo / ke kontrole)
+  tlačítko „Číst". Čtečka má tři pohledy: Obsah (kapitoly), Čtení (strana
+  po straně, skok na stranu) a Tabulky a vzorce.
+- **Brána:** akce `kniha` (dokument, strom kapitol, rejstřík listů bez
+  textu), `listy` (text nejvýš 3 listů, strop 150 000 znaků — vždy aspoň
+  jeden celý list) a `objekty` (tabulky, vzorce a popisky = pasáže s
+  druhem, po stovkách s náhledem). Všechny pro roli „čte" a jen u knihy ve
+  stavu hotovo / ke_kontrole — jinak 409 `nezpracovano` se stavem (worker
+  zapisuje kapitoly a pasáže po částech). Čte se službou brány bez nové
+  migrace; rejstříky po stránkách (strop PostgRESTu 1000 řádků).
+- **Místo v knize:** „s. 158" jen s tištěným číslem (může být i římské
+  a v knize se opakovat — skok bere první výskyt), jinak „list 170",
+  u DOCX, EPUB, TXT a tabulek „část 3". Kapitoly mají rozsah v listech
+  souboru.
+- **Text:** přepis skenu a převedené soubory se skládají z jednoduchého
+  markdownu (nadpisy, tabulky ze svislých čar, vzorce `$$…$$` a `$…$`,
+  `[nečitelné]`) do React elementů, nikdy přes innerHTML. Textová vrstva
+  PDF zůstává syrový text (znaky „|", „#", „$" v ní platí doslova).
+  Vzorce se zatím ukazují jako LaTeX v neproporcionálním písmu.
+- **Soukromí a autorská práva:** text zůstává jen v paměti čtečky (nic do
+  localStorage, IndexedDB ani logů), jeden požadavek vydá jen pár listů,
+  export celé knihy appka nenabízí. Originál jde otevřít tlačítkem
+  „Originál".
+- **Digitální PDF** nemají tabulky ani vzorce rozpoznané zvlášť (jen přepis
+  skenů a převedené soubory) — jsou v textu strany nebo v originále.

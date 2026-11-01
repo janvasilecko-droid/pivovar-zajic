@@ -154,8 +154,12 @@ vytažení textu z 300stránkového PDF v testu rešerše stálo 2,0 s CPU a 231
    `null`.
 7. **Kapitoly:** osnova PDF, jinak číslované nadpisy (3.4.2, Kapitel, Kapitola).
    Výsledek je strom s rozsahem stran.
-8. **Tabulky a vzorce** se ukládají jako samostatné objekty s vazbou na
-   stranu: HTML nebo markdown, LaTeX a čitelný text pro hledání.
+8. **Tabulky a vzorce** se ukládají jako pasáže s druhem `tabulka`,
+   `vzorec` a `popisek` (`bible_pasaze.druh`) s rozsahem listů: markdown
+   tabulka (velká po kusech s hlavičkou) a LaTeX. Rozpoznají se jen
+   v přepisu skenu a v převedených souborech (DOCX, EPUB, XLSX, CSV), ne
+   v textové vrstvě digitálního PDF. Samostatná tabulka `bible_objekty`
+   zatím není.
 9. **Pasáže** mají ≈ 400–700 tokenů, drží se uvnitř kapitoly a nesou rozsah
    stran. Haiku k nim dopíše 1–2 věty kontextu (označené „AI, není text
    knihy"). Kontext zlepšuje hledání (contextual retrieval).
@@ -307,7 +311,7 @@ plochu s 8 dlaždicemi podle zadání (bod 10):
    - rešerše z internetu (zdroj, datum, důvěryhodnost),
    - přístup, náklady na AI, kapacita a modely.
 
-- **Sekce se načítá líně.** Start appky má rezervu jen ~1,6 kB, proto používá
+- **Sekce se načítá líně** (čtečka knihy má vlastní kus). Start appky má rezervu jen ~1,8 kB, proto používá
   jen ikony, které appka už má. Těžké knihovny (pdf.js, KaTeX) se načtou až
   v prohlížeči stránky.
 - **Mobil:** dotykové cíle ≥ 44 px a písmo ≥ 11 px. Barvy jen z povolených
@@ -385,11 +389,18 @@ Etapa 1:
 Etapa 2:
 - `bible_strany`: pdf_index, tištěná strana, jistota, zdroj textu, text,
   kvalita, ke_kontrole.
-- `bible_kapitoly` (strom), `bible_objekty` (tabulky, vzorce, obrázky)
-  a `bible_pasaze` (text, kontext, rozsah stran, fulltext).
+- `bible_kapitoly` (strom, rozsah v listech souboru) a `bible_pasaze`
+  (text, druh text/tabulka/vzorec/popisek, rozsah listů, fulltext; sloupec
+  kontext zatím worker neplní). Kapitoly a pasáže dostanou při každém
+  zpracování nová id — trvalý odkaz na místo v knize je (dokument_id,
+  pdf_index), u souborů bez stran navíc verze zpracování.
 - `ai_naklady`, `bible_nastaveni` a RPC fronty.
 
-Etapa 3: `bible_zkusenosti` (důvěryhodnost 1–5).
+Etapa 3a (čtení): bez nové tabulky — akce `kniha`, `listy` a `objekty`
+v bible-api čtou kapitoly, strany a pasáže zpracované knihy (hotovo /
+ke_kontrole) službou brány.
+
+Etapa 3b–3c: `bible_zkusenosti` (důvěryhodnost 1–5), vazba na jiné vydání.
 
 Etapa 4: RPC `bible_hledej`; po měření `bible_vektory (pasaz_id, model_key,
 embedding halfvec)`.

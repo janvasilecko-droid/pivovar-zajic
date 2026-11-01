@@ -18,6 +18,10 @@ export const AKCE = {
   smazat: 'prispiva',
   kapacita: 'spravuje',
   naklady: 'spravuje',
+  // Čtení zpracované knihy (etapa 3a): obsah, listy textu, tabulky a vzorce.
+  kniha: 'cte',
+  listy: 'cte',
+  objekty: 'cte',
 } as const satisfies Record<string, Pristup>;
 
 export type Akce = keyof typeof AKCE;
