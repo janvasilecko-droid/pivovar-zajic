@@ -115,8 +115,13 @@ export function denOdjezdu(o: ObjednavkaProSudy): string | null {
  * - Den odjezdu = den odpočtu ze skladu (deduct_date), bez odpočtu den závozu
  *   jako databáze (denOdjezdu). Dřív než den zadání → ne: ty sudy stáčeč při
  *   počítání už neměl (i objednávka zapsaná zpětně).
- * - Zavezená (delivered_at) nebo odepsaná ze skladu (created_at odpočtu) už
- *   před zadáním → ne: v hlídání tehdy nebyla, K dispozici ji neodečítalo.
+ * - Zavezená (delivered_at) už před zadáním → ne. Odepsaná ze skladu už před
+ *   zadáním → ne, ale jen odpočtem zapsaným nejpozději v okamžiku zadání
+ *   (created_at) A ZÁROVEŇ ke dni nejpozději dne zadání (deduct_date): v
+ *   hlídání tehdy nebyla, K dispozici ji neodečítalo. Odpočet s pozdějším
+ *   dnem je objednávka přesunutá po nočním odpočtu na pozdější den (srovnání
+ *   přepíše deduct_date, created_at zůstává) — při zadání byla ještě
+ *   v pivovaru a ve svůj nový den odjede jako každá jiná (revize 1. 11. 2026).
  *   delivered_at přesně v pražskou půlnoc je zástupná hodnota (noční
  *   oznac_minule_zavozy a odecist_objednavku_hned píšou den závozu 00:00 —
  *   v říjnu 2026 70 ze 72 objednávek): čas odvozu neříká, rozhoduje den
@@ -147,7 +152,8 @@ export function odjelaPoZadani(
   if (!den || den < zadani.den) return false;
   return !odpocty.some((d) => {
     const odepsano = Date.parse(d.created_at ?? '');
-    return Number.isFinite(odepsano) && odepsano <= zadanoMs;
+    const denOdpoctu = (d.deduct_date ?? '').slice(0, 10);
+    return Number.isFinite(odepsano) && odepsano <= zadanoMs && !!denOdpoctu && denOdpoctu <= zadani.den;
   });
 }
 

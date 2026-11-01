@@ -113,12 +113,15 @@ describe('Malé sudy: odjeté objednávky počet zmenší (1. 11. 2026)', () => 
 
   // Revize 1. 11. 2026: +/− s novým časem zadání by sudy stočené od zadání
   // vzalo jako „plné k zadání" a u „započítat plné" nafouklo K dispozici.
+  // Čas zadání i čísla z TOHOTO vykreslení: kdyby čas přišel z novějšího
+  // načtení, uložilo by se číslo k cizímu zadání (revize 1. 11. 2026). Když už
+  // čas neplatí (přelom týdne), uloží hook zobrazené číslo ± 1 (pocetNoveZadani).
   it('+ a − opraví naklikané číslo o kus a čas zadání nechají (velké číslo 2 → 3 / 1)', () => {
     render(<MaleSudyPanel packages={[S10]} canEdit />);
     fireEvent.click(screen.getByLabelText('Přidat 10l'));
-    expect(ulozit).toHaveBeenLastCalledWith('s10', 9, undefined, { zachovatCas: true });
+    expect(ulozit).toHaveBeenLastCalledWith('s10', 9, undefined, { zachovatCas: '2026-10-27T08:43:11Z', pocetNoveZadani: 3 });
     fireEvent.click(screen.getByLabelText('Ubrat 10l'));
-    expect(ulozit).toHaveBeenLastCalledWith('s10', 7, undefined, { zachovatCas: true });
+    expect(ulozit).toHaveBeenLastCalledWith('s10', 7, undefined, { zachovatCas: '2026-10-27T08:43:11Z', pocetNoveZadani: 1 });
   });
 
   it('napsané číslo je nový stav TEĎ (nové zadání)', () => {
@@ -141,6 +144,40 @@ describe('Malé sudy: odjeté objednávky počet zmenší (1. 11. 2026)', () => 
     render(<MaleSudyPanel packages={[S10]} canEdit />);
     expect((screen.getByLabelText('Ubrat 10l') as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(screen.getByLabelText('Přidat 10l'));
-    expect(ulozit).toHaveBeenLastCalledWith('s10', 6, undefined, { zachovatCas: true });
+    expect(ulozit).toHaveBeenLastCalledWith('s10', 6, undefined, { zachovatCas: '2026-10-27T08:43:11Z', pocetNoveZadani: 1 });
+  });
+
+  it('obal bez času zadání (doplněný nulou): „+" je nové zadání — bez času, uloží se 1', () => {
+    zasoba = { s10: 8, s20: 0 };
+    hlidani = { ...hlidani, souhrn: [...hlidani.souhrn, { package_id: 's20', mame: 0, objednano: 0, nad: 0, zapocitanoPlnych: 0, plneSkladem: {}, zadano: 0, odvezeno: 0, odvezenoZ: [] }] };
+    render(<MaleSudyPanel packages={[S20, S10]} canEdit />);
+    fireEvent.click(screen.getByLabelText('Přidat 20l'));
+    expect(ulozit).toHaveBeenLastCalledWith('s20', 1, undefined, { zachovatCas: null, pocetNoveZadani: 1 });
+  });
+});
+
+// Revize 1. 11. 2026: obal doplněný nulou nemá v databázi řádek — „započítat
+// plné" by se neuložilo a do minuty se vrátilo.
+describe('Malé sudy: „započítat plné" jen u obalu se zadaným počtem', () => {
+  it('Ano/Ne u obalu s časem zadání, u obalu bez něj věta, že nejdřív počet', () => {
+    zasoba = { s10: 8, s20: 0 };
+    hlidani = {
+      souhrn: [
+        { package_id: 's20', mame: 0, objednano: 2, nad: 2, zapocitanoPlnych: 0, plneSkladem: { b12: 2 }, zadano: 0, odvezeno: 0, odvezenoZ: [] },
+        { package_id: 's10', mame: 8, objednano: 3, nad: 0, zapocitanoPlnych: 0, plneSkladem: { b10: 1 }, zadano: 8, odvezeno: 0, odvezenoZ: [] },
+      ],
+      nacteno: true,
+    };
+    render(<MaleSudyPanel packages={[S20, S10]} canEdit />);
+    expect(screen.getAllByRole('button', { name: 'Ano, započítat' })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: 'Ne' })).toHaveLength(1);
+    expect(screen.getAllByText('Plné se dají započítat, až zadáš počet tohoto obalu.')).toHaveLength(1);
+    expect(screen.getAllByText(/Započítat je do objednávek\?/)).toHaveLength(1);
+    // Tlačítka patří obalu 10 l (má čas zadání), věta obalu 20 l.
+    const karta10 = screen.getByLabelText('Přidat 10l').closest('.card') as HTMLElement;
+    const karta20 = screen.getByLabelText('Přidat 20l').closest('.card') as HTMLElement;
+    expect(karta10.textContent).toMatch(/Ano, započítat/);
+    expect(karta20.textContent).toMatch(/až zadáš počet tohoto obalu/);
+    expect(karta20.textContent).not.toMatch(/Ano, započítat/);
   });
 });

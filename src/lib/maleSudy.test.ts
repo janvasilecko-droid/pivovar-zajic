@@ -412,6 +412,25 @@ describe('malé sudy — objednávky odjeté od zadání počet zmenší (1. 11.
     expect(pa.souhrn[0].odvezenoZ).toEqual([{ order_id: 'B', nazev: null, den: '2026-10-30', kusu: 2, plnych: 0 }]);
   });
 
+  // Revize 1. 11. 2026: X na úterý odepsala noční úloha (po 23:05), ráno se
+  // naklikaly 4× 10 l a X se pak přesunula na středu (deduct_date → středa,
+  // created_at zůstal). V úterý čeká (hlídání ji podle dne odpočtu bere jako
+  // otevřenou), ve středu odjede — K dispozici se odvozem nezmění.
+  it('přesun o den po nočním odpočtu: út K dispozici 2, st po odvozu mame 2, odvezeno 2, K dispozici 2', () => {
+    const x = (odjela: boolean) => o('X', '2026-10-28', { created_at: '2026-10-26T09:00:00Z', place_name: 'Hospoda', is_delivered: odjela });
+    const polozky = [p('x1', 'X', 'k10', 2)];
+    const odpocty = [{ order_id: 'X', order_item_id: 'x1', deduct_date: '2026-10-28', created_at: '2026-10-26T23:05:00Z' }];
+    // Úterý: odpočet má den v budoucnu — objednávka není odepsaná, je v objednávkách.
+    const ut = hlidejMaleSudy({ k10: 4 }, [x(false)], polozky, undefined, '2026-10-27', { zadano, odpocty });
+    expect(ut.souhrn[0]).toMatchObject({ zadano: 4, mame: 4, objednano: 2, odvezeno: 0 });
+    expect(ut.souhrn[0].mame - ut.souhrn[0].objednano).toBe(2);
+    // Středa po odvozu: odepsaná, odjela po zadání (odpočet zapsaný před zadáním, ale ke středě).
+    const st = hlidejMaleSudy({ k10: 4 }, [x(true)], polozky, undefined, '2026-10-28', { zadano, odepsane: new Set(['X']), odpocty });
+    expect(st.souhrn[0]).toMatchObject({ zadano: 4, mame: 2, objednano: 0, odvezeno: 2 });
+    expect(st.souhrn[0].mame - st.souhrn[0].objednano).toBe(2);
+    expect(st.souhrn[0].odvezenoZ).toEqual([{ order_id: 'X', nazev: 'Hospoda', den: '2026-10-28', kusu: 2, plnych: 0 }]);
+  });
+
   it('přesun závozu na den zadání (odepsáno hned po zadání) se odečte; odepsané ráno před zadáním ne', () => {
     const radek = o('R', '2026-10-27', { created_at: '2026-10-26T10:00:00Z' });
     const presun = hlidejMaleSudy({ k10: 8 }, [radek], [p('r1', 'R', 'k10', 3)], undefined, '2026-10-27', {
@@ -496,6 +515,16 @@ describe('odjela objednávka po zadání počtu?', () => {
     expect(odjelaPoZadani(o('A', '2026-10-27'), z, [odpocet('2026-10-27', '2026-10-26T23:05:00Z')])).toBe(false);
     expect(odjelaPoZadani(o('A', '2026-10-28', { delivered_at: '2026-10-27T08:00:00Z' }), z)).toBe(false);
     expect(odjelaPoZadani(o('A', '2026-10-27', { delivered_at: '2026-10-27T10:00:00Z' }), z, [odpocet('2026-10-27', '2026-10-27T09:00:00Z')])).toBe(true);
+  });
+
+  // Revize 1. 11. 2026: v noci odepsaná na úterý, pak přesunutá na středu —
+  // srovnání přepíše deduct_date, created_at (před zadáním) zůstane.
+  it('odpočet zapsaný před zadáním, ale ke dni po dni zadání (přesun po nočním odpočtu) ano — při zadání byla v pivovaru', () => {
+    expect(odjelaPoZadani(o('A', '2026-10-28', { created_at: '2026-10-26T09:00:00Z' }), z, [odpocet('2026-10-28', '2026-10-26T23:05:00Z')])).toBe(true);
+    // Položka bez vlastního odpočtu jde s objednávkou — totéž.
+    expect(odjelaPoZadani(o('A', '2026-10-28'), z, [], [odpocet('2026-10-28', '2026-10-26T23:05:00Z')])).toBe(true);
+    // Ke dni zadání a zapsaný před zadáním (noční odpočet dnešní objednávky) pořád ne.
+    expect(odjelaPoZadani(o('A', '2026-10-27'), z, [], [odpocet('2026-10-27', '2026-10-26T23:05:00Z')])).toBe(false);
   });
 
   it('delivered_at v pražskou půlnoc je zástupná hodnota (noční úloha) — rozhoduje den a odpočet', () => {

@@ -14,7 +14,7 @@ import { canUserEdit, getUserPermissions } from '../lib/permissions';
 import { Spinner } from './ui';
 import { jeMalySud, type ObalProSudy } from '../lib/maleSudy';
 import { popisOdvezenych } from '../lib/maleSudyPopis';
-import { useHlidaniMalychSudu, useMaleSudy } from '../lib/useMaleSudy';
+import { useHlidaniMalychSudu, useMaleSudy, type VolbyUlozeni } from '../lib/useMaleSudy';
 import { chyba } from '../lib/toast';
 
 /** Číslo, na které se dá klepnout a přepsat; ukládá se po opuštění pole nebo Enteru. */
@@ -63,13 +63,14 @@ export function MaleSudyPanel({ packages, canEdit, kdo }: {
     .filter(jeMalySud)
     .sort((a, b) => Number(b.volume_l) - Number(a.volume_l));
 
-  async function nastav(id: string, pocet: number | null, volby?: { zachovatCas: boolean }) {
+  // Hlášku pro člověka skládá useMaleSudy (chyba, bez signálu, obal bez počtu).
+  async function nastav(id: string, pocet: number | null, volby?: VolbyUlozeni) {
     const e = await ulozit(id, pocet == null ? null : Math.max(0, pocet), kdo, volby);
-    if (e) chyba(`Počet se neuložil: ${e}`);
+    if (e) chyba(e);
   }
   async function odpovez(id: string, ano: boolean) {
     const e = await nastavZapocitatPlne(id, ano);
-    if (e) chyba(`Volba se neuložila: ${e}`);
+    if (e) chyba(e);
   }
 
   if (chybiMigrace) {
@@ -120,7 +121,17 @@ export function MaleSudyPanel({ packages, canEdit, kdo }: {
         // sudy stočené od zadání u „započítat plné" nafoukly K dispozici —
         // revize 1. 11. 2026). Velké číslo se tak změní přesně o 1. Napsané
         // číslo je nový stav TEĎ (nové zadání).
-        const posun = (o: 1 | -1) => nastav(pk.id, (s?.odvezeno ?? 0) + Math.max(0, (mame ?? 0) + o), { zachovatCas: true });
+        // Čas zadání i čísla jsou z TOHOTO vykreslení — kdyby čas přišel
+        // odjinud (novější načtení), uložilo by se číslo k cizímu zadání. Když
+        // čas už neplatí (minulý týden), uloží se jako nové zadání zobrazené
+        // číslo ± 1 (pocetNoveZadani), ne naklikané s odjetými starého zadání.
+        const posun = (o: 1 | -1) => {
+          const noveVelke = Math.max(0, (mame ?? 0) + o);
+          return nastav(pk.id, (s?.odvezeno ?? 0) + noveVelke, { zachovatCas: zadanoKdy?.[pk.id]?.cas ?? null, pocetNoveZadani: noveVelke });
+        };
+        // „Započítat plné" se ukládá k řádku obalu — obal doplněný nulou (bez
+        // zadaného počtu) řádek nemá, volba by se neuložila (revize 1. 11. 2026).
+        const maZadani = !!zadanoKdy?.[pk.id];
         return (
           <div key={pk.id} className="card p-4 space-y-2">
             <div className="flex items-center justify-between gap-3">
@@ -203,9 +214,11 @@ export function MaleSudyPanel({ packages, canEdit, kdo }: {
                 <div className="rounded border border-amber-300 bg-amber-50 p-2 space-y-2 text-sm font-bold text-amber-950">
                   <div>
                     Skladem jsou plné: {Object.entries(s.plneSkladem ?? {}).map(([b, n]) => `${n}× ${jmenaPiv.get(b) ?? '?'}`).join(', ')}.
-                    {umiZapocitatPlne ? ' Započítat je do objednávek?' : ''}
+                    {umiZapocitatPlne && maZadani ? ' Započítat je do objednávek?' : ''}
                   </div>
-                  {umiZapocitatPlne ? (
+                  {umiZapocitatPlne && !maZadani ? (
+                    <div className="text-xs font-semibold">Plné se dají započítat, až zadáš počet tohoto obalu.</div>
+                  ) : umiZapocitatPlne ? (
                     <div className="flex gap-2">
                       <button type="button" className={`${zapocitat ? 'btn-primary' : 'btn-ghost'} flex-1 min-h-[48px]`} disabled={!canEdit} aria-pressed={zapocitat} onClick={() => odpovez(pk.id, true)}>
                         Ano, započítat
