@@ -17,8 +17,9 @@ jen kvůli klíči Anthropic (app_secrets) — nic jiného v něm nečte ani nep
 PROMĚNNÉ: BIBLE_KLIC (service role projektu bible), volitelně BIBLE_URL
 (výchozí adresa projektu bible); ANTHROPIC_API_KEY (v Actions ho připraví
 zvláštní krok), jinak HLAVNI_URL a HLAVNI_KLIC (hlavní projekt, jen čtení
-klíče); volitelně DOKUMENT (id), LIMIT_USD (strop běhu), LIMIT_MINUT,
-MAX_DOKUMENTU.
+klíče); volitelně CLAUDE_CODE_OAUTH_TOKEN (přepis přes Claude Code
+s předplatným Claude, když API kredit nejde — claude_cli.py), DOKUMENT (id),
+LIMIT_USD (strop běhu), LIMIT_MINUT, MAX_DOKUMENTU.
 
 BEZPEČNOST: repo i logy Actions jsou veřejné. Do logu jde jen ID dokumentu,
 počty a stavy — nikdy text, název ani jiný obsah knihy, ani traceback (nesl
@@ -47,6 +48,7 @@ from datetime import datetime, timezone
 from typing import Callable
 from xml.etree import ElementTree
 
+import claude_cli
 import formaty
 import naklady
 import obrazky
@@ -67,6 +69,9 @@ DAVKA_PREPISU = 10          # přepsané strany se ukládají po tolika (naváz�
 PRUBEH_KAZDYCH_S = 15       # průběh zpracování (procenta v knihovně) se zapisuje nejvýš takhle často
 NAKLADY_KAZDYCH_S = 300     # útrata dlouhého OCR se zapisuje průběžně
 LIMIT_DB_MB = 450           # výchozí pojistka velikosti databáze (Supabase Free = 500 MB)
+# Přes předplatné se za běh přepíše nejvýš tolik stran (bible_nastaveni.max_stran_predplatne):
+# limity Maxu sdílí i majitelova vlastní práce s Claude, ať je přepis knih nevyčerpá naráz.
+MAX_STRAN_PREDPLATNE = 150
 BAJTU_NA_ZNAK = 8           # odhad místa v DB na znak textu (strana + pasáž + tsvector + index)
 DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -109,6 +114,11 @@ class PrerusenoCasem(Odlozit):
     zastavit_beh = True
 
 
+class PrerusenoDavkou(Odlozit):
+    """Přes předplatné je dávka stran pro tento běh hotová; přepsané strany jsou uložené, další běh naváže."""
+    zastavit_beh = True
+
+
 class PlnaDatabaze(Odlozit):
     """Kniha by přeplnila databázi bible (Supabase Free ji při 500 MB přepne jen pro čtení)."""
     zastavit_beh = True
@@ -139,6 +149,8 @@ def chyba_api(e: BaseException, prvni: bool = False) -> BaseException | None:
     druh = str(getattr(e, 'type', '') or '')
     zprava = ' '.join(str(getattr(e, 'message', '') or e).split())[:200]
     mala = zprava.lower()
+    if getattr(e, 'zdroj', None) == 'predplatne':
+        return _chyba_predplatneho(druh, status)
     if status in (401, 403) or druh in ('authentication_error', 'permission_error'):
         return ZastavitBeh(f'Čeká: Anthropic odmítl klíč (HTTP {status}) — zkontroluj ANTHROPIC_API_KEY v app_secrets hlavní appky.')
     if status == 402 or druh == 'billing_error' or any(
@@ -158,6 +170,27 @@ def chyba_api(e: BaseException, prvni: bool = False) -> BaseException | None:
             or type(e).__name__ in ('APIConnectionError', 'APITimeoutError'):
         return PrechodnaChyba(f'Čeká: Anthropic je dočasně nedostupný ({f"HTTP {status}" if status else type(e).__name__}) — zkusí se příštím během.')
     return None
+
+
+def _chyba_predplatneho(druh: str, status: int | None) -> BaseException:
+    """Chyba Claude Code s předplatným (claude_cli.ChybaClaudeCode) → výjimka workeru.
+
+    Limit předplatného a token zastaví běh (knihy se skeny počkají, ostatní
+    se zpracují); přetížení a výpadek jako u API. Zpráva je pevná věta —
+    z výsledku Claude Code se nebere žádný text (mohl by nést obsah stránky).
+    """
+    if druh == 'subscription_limit':
+        return ZastavitBeh('Čeká: došel limit předplatného Claude (5hodinový nebo týdenní) — přepis pokračuje dalším během.')
+    if druh == 'authentication_error':
+        return ZastavitBeh('Čeká: Claude Code odmítl token předplatného — vytvoř nový příkazem „claude setup-token" '
+                           'a ulož ho v GitHubu jako secret CLAUDE_CODE_OAUTH_TOKEN.')
+    if druh == 'not_installed':
+        return ZastavitBeh('Čeká: v běhu chybí Claude Code (instalace selhala) — zkusí se příštím během.')
+    if druh == 'not_found_error':
+        return ZastavitBeh('Čeká: Claude Code model nezná nebo ho předplatné nemá — zkontroluj model_ocr v nastavení bible.')
+    if druh == 'rate_limit_error':
+        return ZastavitBeh('Čeká: Claude omezil počet požadavků (HTTP 429) — pokračuje se příštím během.')
+    return PrechodnaChyba(f'Čeká: Claude Code je dočasně nedostupný ({druh}{f", HTTP {status}" if status else ""}) — zkusí se příštím během.')
 
 
 def log(zprava: str) -> None:
@@ -241,14 +274,20 @@ def kapacita_db(supa: Supa) -> int | None:
 class Prepisovac:
     """Přepis skenů přes Claude s kontrolou čísel; hlídá strop útraty a čas běhu."""
 
-    def __init__(self, klient, model: str, ucet: naklady.Ucet, konec: float | None = None):
+    def __init__(self, klient, model: str, ucet: naklady.Ucet, konec: float | None = None,
+                 zdroj: str = 'api', limit_stran: int | None = None):
         self.klient = klient
         self.model = model
         self.ucet = ucet
         self.konec = konec
+        # 'api' = API klíč (platí se kredit), 'predplatne' = Claude Code s předplatným (bez útraty,
+        # jen limity předplatného — proto dávka stran za běh).
+        self.zdroj = zdroj
+        self.limit_stran = limit_stran
         self.zamek = threading.Lock()
         self.tesseract = ocr.tesseract_k_dispozici()
         self.uspesnych = 0
+        self.zahajenych = 0
         self.ucet_overen = False
 
     def over_ucet(self) -> None:
@@ -273,12 +312,16 @@ class Prepisovac:
             log(f'  ověření účtu Claude se nepovedlo ({type(e).__name__}) — pokračuje se')
             return
         with self.zamek:
-            self.ucet.pridej(self.model, ocr.usage_jako_dict(getattr(odpoved, 'usage', None)))
+            self.ucet.pridej(self.model, ocr.usage_jako_dict(getattr(odpoved, 'usage', None)), zdarma=self.zdroj == 'predplatne')
 
     def prepis(self, obrazek: bytes, dalsi_cteni: str = '') -> ocr.Prepis:
         with self.zamek:
             if self.ucet.prekroceno():
                 raise PrerusenoStropem('Čeká: došel strop útraty za AI — pokračuje se dalším během.')
+            if self.limit_stran is not None and self.zahajenych >= self.limit_stran:
+                raise PrerusenoDavkou(f'Čeká: přes předplatné Claude se za jeden běh přepíše {self.limit_stran} stran '
+                                      '— další dávka příštím během (každé 3 hodiny).')
+            self.zahajenych += 1
         if self.konec is not None and time.time() >= self.konec:
             raise PrerusenoCasem('Čeká: běh došel na časový limit — přepis pokračuje dalším během.')
         try:
@@ -289,7 +332,7 @@ class Prepisovac:
                 raise prevedena from None
             raise
         with self.zamek:
-            self.ucet.pridej(self.model, vysledek.usage)
+            self.ucet.pridej(self.model, vysledek.usage, zdarma=self.zdroj == 'predplatne')
             self.uspesnych += 1
         if not vysledek.ke_kontrole:
             cteni = ([ocr.precti_tesseractem(obrazek)] if self.tesseract else []) + ([dalsi_cteni] if dalsi_cteni else [])
@@ -319,7 +362,8 @@ def prepis_strany(prepisovac: Prepisovac | None, strany: list[Strana], obrazky_s
         return
     if prepisovac is None:
         # bez_ai: AI vypnutá kvůli účtu Claude (kredit, klíč…) — dokument počká s tímhle důvodem.
-        raise ChybiKlic(bez_ai or 'Čeká: dokument má naskenované strany a v app_secrets hlavní appky chybí ANTHROPIC_API_KEY.')
+        raise ChybiKlic(bez_ai or ('Čeká: dokument má naskenované strany a chybí klíč Claude (ANTHROPIC_API_KEY v app_secrets hlavní appky) '
+                    'i token předplatného (secret CLAUDE_CODE_OAUTH_TOKEN v GitHubu).'))
     dalsi_cteni = dalsi_cteni or {}
     k_ulozeni: list[Strana] = []
     hotovo = 0
@@ -685,7 +729,7 @@ def zapis_naklady(supa: Supa, ucet: naklady.Ucet, dokument_id: str | None) -> fl
         supa.vloz('ai_naklady', [{
             'ucel': 'ocr', 'model': model, 'volani': p.volani, 'vstup_tokenu': p.vstup, 'vystup_tokenu': p.vystup,
             'cache_cteni_tokenu': p.cache_cteni, 'cache_zapis_tokenu': p.cache_zapis, 'cena_usd': round(p.cena, 6),
-            'dokument_id': dokument_id, 'poznamka': VERZE,
+            'dokument_id': dokument_id, 'poznamka': VERZE if ucet.zdroj == 'api' else f'{VERZE} · předplatné Claude (bez útraty)',
         } for model, p in polozky.items()])
     except Exception as e:  # noqa: BLE001 — útrata se aspoň vypíše do logu
         log(f'  POZOR: náklady {celkem:.4f} USD se nepodařilo zapsat ({type(e).__name__})')
@@ -784,7 +828,8 @@ def zpracuj_dokument(supa: Supa, dok: dict, prepisovac: Prepisovac | None, ucet:
         if skenu > sum(1 for h in hotove.values() if _pouzitelny_prepis(h)):
             try:
                 if prepisovac is None:
-                    raise ChybiKlic(bez_ai or 'Čeká: dokument má naskenované strany a v app_secrets hlavní appky chybí ANTHROPIC_API_KEY.')
+                    raise ChybiKlic(bez_ai or ('Čeká: dokument má naskenované strany a chybí klíč Claude (ANTHROPIC_API_KEY v app_secrets hlavní appky) '
+                    'i token předplatného (secret CLAUDE_CODE_OAUTH_TOKEN v GitHubu).'))
                 prepisovac.over_ucet()
             except Odlozit:
                 # Stejné počty, nový čas: knihovna pozná, že ji tenhle běh viděl
@@ -863,6 +908,49 @@ def zpracuj_dokument(supa: Supa, dok: dict, prepisovac: Prepisovac | None, ucet:
 MIGRACE = '20261101000000_bible_zaklad'
 
 
+def _klient_api(klic: str):
+    import anthropic
+
+    return anthropic.Anthropic(api_key=klic, max_retries=5, timeout=180)
+
+
+def vyber_prepisovac(klic: str | None, token: str | None, model: str, nastaveni: dict, ucet: naklady.Ucet,
+                     konec: float | None, klient_api: Callable = _klient_api,
+                     klient_predplatne: Callable = claude_cli.KlientClaudeCode):
+    """Čím se budou přepisovat skeny: (Prepisovac nebo None, klient Claude Code k uklizení nebo None).
+
+    API klíč (placený kredit) má přednost, protože neubírá z limitů předplatného.
+    S tokenem předplatného se ale API bere, jen když teď opravdu jde (levné
+    ověření účtu) — jinak, a bez klíče vůbec, přepis jede přes Claude Code
+    s předplatným Claude (1. 11. 2026: „nechci to dělat přes kredit").
+    """
+    prepisovac = None
+    if klic:
+        prepisovac = Prepisovac(klient_api(klic), model, ucet, konec)
+        if token:
+            try:
+                prepisovac.over_ucet()
+            except (ZastavitBeh, PrerusenoStropem) as e:
+                log(f'Přepis přes API teď nejde ({e.do_logu}) — pojede přes předplatné Claude.')
+                prepisovac = None
+    klient_cc = None
+    if prepisovac is None and token:
+        limit_stran = int(_cislo(nastaveni.get('max_stran_predplatne'), MAX_STRAN_PREDPLATNE))
+        if limit_stran > 0:
+            klient_cc = klient_predplatne(token)
+            ucet.zdroj = 'predplatne'
+            prepisovac = Prepisovac(klient_cc, model, ucet, konec, zdroj='predplatne', limit_stran=limit_stran)
+            log(f'Přepis skenů přes předplatné Claude (Claude Code, model {model}), nejvýš {limit_stran} stran za běh; '
+                f'{klient_cc.popis_tokenu() if hasattr(klient_cc, "popis_tokenu") else "token"}.')
+        else:
+            log('Přepis přes předplatné je vypnutý (max_stran_predplatne = 0).')
+    if prepisovac is not None and not prepisovac.tesseract:
+        log('Pozor: Tesseract chybí — přepisy skenů se nebudou křížově kontrolovat.')
+    if prepisovac is None and not klic:
+        log('Pozor: chybí ANTHROPIC_API_KEY (app_secrets hlavní appky) i CLAUDE_CODE_OAUTH_TOKEN — dokumenty se skeny počkají, ostatní se zpracují.')
+    return prepisovac, klient_cc
+
+
 def _beh() -> int:
     supa = Supa(os.environ.get('BIBLE_URL') or BIBLE_URL, os.environ.get('BIBLE_KLIC', ''))
     try:
@@ -896,22 +984,29 @@ def _beh() -> int:
     konec = time.time() + _cislo(os.environ.get('LIMIT_MINUT'), 300.0) * 60
     log(f'Zpracování knih {VERZE}: strop běhu {ucet.strop_usd:.2f} USD (měsíc zbývá {max(0.0, zbyva_mesic):.2f} USD)')
 
-    prepisovac = None
+    # Token předplatného Claude (secret CLAUDE_CODE_OAUTH_TOKEN, z „claude setup-token"):
+    # přepis přes Claude Code bez API kreditu (claude_cli.py, 1. 11. 2026).
+    token = os.environ.get('CLAUDE_CODE_OAUTH_TOKEN') or None
+    if token and os.environ.get('GITHUB_ACTIONS') == 'true':
+        print(f'::add-mask::{token}', flush=True)
+    model = str(nastaveni.get('model_ocr') or 'claude-haiku-5-5')
     if klic:
-        import anthropic
-
-        model = str(nastaveni.get('model_ocr') or 'claude-haiku-5-5')
         try:
             naklady.cena_usd(model, {}, cenik)
         except naklady.ChybiCenik:
             log('Model z model_ocr nemá v bible_nastaveni ceník (cenik_usd_za_mtok) — náklady by nešly evidovat. Konec.')
             return 1
-        prepisovac = Prepisovac(anthropic.Anthropic(api_key=klic, max_retries=5, timeout=180), model, ucet, konec)
-        if not prepisovac.tesseract:
-            log('Pozor: Tesseract chybí — přepisy skenů se nebudou křížově kontrolovat.')
-    else:
-        log('Pozor: chybí ANTHROPIC_API_KEY (app_secrets hlavní appky) — dokumenty se skeny počkají, ostatní se zpracují.')
+    prepisovac, klient_cc = vyber_prepisovac(klic, token, model, nastaveni, ucet, konec)
+    try:
+        return _fronta(supa, prepisovac, ucet, konec, limit_db_bajtu)
+    finally:
+        if klient_cc is not None:
+            klient_cc.zavri()
 
+
+def _fronta(supa: Supa, prepisovac: Prepisovac | None, ucet: naklady.Ucet, konec: float,
+            limit_db_bajtu: int | None) -> int:
+    """Projde frontu dokumentů (bible_vezmi_dokument) do časového limitu běhu."""
     jen = os.environ.get('DOKUMENT') or None
     max_dokumentu = int(_cislo(os.environ.get('MAX_DOKUMENTU'), 50))
     vynechat: list[str] = []

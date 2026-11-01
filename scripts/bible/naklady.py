@@ -47,9 +47,12 @@ class Ucet:
     strop_usd: float
     polozky: dict[str, Polozka] = field(default_factory=dict)
     utraceno: float = 0.0
+    # 'api' = placený kredit; 'predplatne' = Claude Code s předplatným (tokeny se evidují, útrata 0).
+    zdroj: str = 'api'
 
-    def pridej(self, model: str, usage: dict) -> float:
-        cena = cena_usd(model, usage, self.cenik)
+    def pridej(self, model: str, usage: dict, zdarma: bool = False) -> float:
+        """Zaeviduje volání. `zdarma` (předplatné Claude): tokeny ano, cena 0 a bez ceníku."""
+        cena = 0.0 if zdarma else cena_usd(model, usage, self.cenik)
         self.utraceno += cena
         p = self.polozky.setdefault(model, Polozka())
         p.volani += 1
