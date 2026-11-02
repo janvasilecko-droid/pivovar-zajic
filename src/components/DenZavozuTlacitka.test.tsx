@@ -28,3 +28,14 @@ describe('DenZavozuTlacitka', () => {
     expect(screen.queryByText(/Závoz už proběhl/)).toBeNull();
   });
 });
+
+describe('posun o týden', () => {
+  it('tlačítka týden ‹ › posunou datum o 7 dní', () => {
+    const onDatum = vi.fn();
+    render(<DenZavozuTlacitka den="po" datum="2026-11-02" onDen={() => {}} onDatum={onDatum} />);
+    fireEvent.click(screen.getByText('‹ týden'));
+    expect(onDatum).toHaveBeenLastCalledWith('2026-10-26');
+    fireEvent.click(screen.getByText('týden ›'));
+    expect(onDatum).toHaveBeenLastCalledWith('2026-11-09');
+  });
+});
