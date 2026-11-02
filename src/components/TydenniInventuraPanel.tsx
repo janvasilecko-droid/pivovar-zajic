@@ -39,6 +39,7 @@ import { nactiSdilenouTabulku } from '../lib/sdilenaData';
 import { cenaKusu, formatKc, hodnotaInventury } from '../lib/hodnotaInventury';
 import StaraDataPruh from './StaraDataPruh';
 import type { CenaPolozky } from '../lib/hodnotaObjednavky';
+import { jeLimonada } from '../lib/limonady';
 
 export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, sec?: string, sub?: string) => void } = {}) {
   const dnes = businessDateISO();
@@ -830,7 +831,7 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
       <QuickCountModal
         isOpen={scitadlo}
         onClose={() => setScitadlo(false)}
-        beers={(kniha?.piva ?? []) as any}
+        beers={((kniha?.piva ?? []) as any[]).filter((b) => !jeLimonada(b.name)) as any}
         packages={(kniha?.obaly ?? []) as any}
         onConfirmCount={vyplnZeScitadla}
         titulek="Sčítadlo — týdenní kontrola"

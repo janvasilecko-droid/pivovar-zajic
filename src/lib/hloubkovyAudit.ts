@@ -24,7 +24,7 @@ import { stariInventury, type InventurniRadek } from './inventuraStari';
 import type { StockLine } from './stockLedger';
 import type { RozdilCteni } from './kontrolaCteniWhatsApp';
 import { nejvetsiTank, tankyProPivo } from './tankUZapisu';
-import { potrebujeTank } from './limonady';
+import { potrebujeTank, jeLimonada } from './limonady';
 import { PODIL_SVETLE, jeJantar, pivoZdrojovehoTanku } from './jantar';
 
 export type Zavaznost = 'ok' | 'pozor' | 'chyba';
@@ -471,6 +471,16 @@ export function kontrolaNeznamychPolozek(v: VstupAuditu): Nalez {
 }
 
 /**
+ * 🥤 Patří klíč skladové knihy („pivo__obal") limonádě? Ta se neinventuruje
+ * (2. 11. 2026), takže nemá co porovnávat ani hlásit jako minus. Bez katalogu
+ * piv se nefiltruje nic — radši nahlásit víc než přehlédnout.
+ */
+function jeKlicLimonady(k: string, v: Pick<VstupAuditu, 'piva'>): boolean {
+  const id = k.split('__')[0];
+  return jeLimonada(v.piva?.find((b) => b.id === id)?.name);
+}
+
+/**
  * Jádro kontroly: Sklad a Inventura počítají ze STEJNÉ knihy, ale každý jinou
  * funkcí. Dokud za měsíc není uložená fyzická inventura, musí vyjít na kus
  * stejně — jakýkoli rozdíl ve sloupcích pohybů je skutečná chyba (viz
@@ -485,6 +495,7 @@ export function kontrolaSkladVsInventura(v: VstupAuditu): Nalez {
   const klice = new Set([...inv.keys(), ...skl.keys()]);
   const rozdily: string[] = [];
   for (const k of klice) {
+    if (jeKlicLimonady(k, v)) continue;
     const p = porovnejPolozku(inv.get(k), skl.get(k));
     if (!maCoUkazat(p)) continue;
     // Rozdíl JEN v konečném stavu vysvětluje uložená fyzická inventura.
@@ -518,6 +529,7 @@ export function kontrolaZapornehoSkladu(v: VstupAuditu): Nalez {
   }
   const zaporne: string[] = [];
   for (const [k, line] of skl) {
+    if (jeKlicLimonady(k, v)) continue;
     if (line.qty < 0) zaporne.push(`${v.popisPolozky?.(k) ?? k}: ${line.qty} ks`);
   }
   if (zaporne.length === 0) {

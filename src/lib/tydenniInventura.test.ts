@@ -109,6 +109,12 @@ describe('řádky týdenní inventury', () => {
     expect(r.beer_color).toBeNull();
   });
 
+  it('limonády se v týdenní inventuře nepočítají (2. 11. 2026)', () => {
+    const piva = [{ id: 'b1', name: '12° Světlá' }, { id: 'c', name: 'Citron' }, { id: 'g', name: 'Grep ' }];
+    const radky = radkyTydne(sklad(line('b1', 'p1', 10), line('c', 'p2', -20), line('g', 'p2', 5)), piva, OBALY, {});
+    expect(radky.map((r) => r.beer_name)).toEqual(['12° Světlá']);
+  });
+
   it('nevyplněné pole NENÍ nula — nezadané se nepočítá jako manko', () => {
     const [r] = radkyTydne(sklad(line('b1', 'p1', 10)), PIVA, OBALY, {});
     expect(r.napocitano).toBeNull();

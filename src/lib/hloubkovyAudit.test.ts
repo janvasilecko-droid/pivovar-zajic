@@ -238,6 +238,12 @@ describe('sklad', () => {
     expect(n.detaily[0]).toContain('12° Světlá 50l');
   });
 
+  it('limonáda v mínusu se nehlásí (neinventuruje se)', () => {
+    const skl = new Map([['c__o1', { key: 'c__o1', beer_id: 'c', package_id: 'o1', qty: -20, baselineDate: null, baselineQty: 0, byKind: {} }]]);
+    const n = kontrolaZapornehoSkladu({ ...prazdny, skladLedger: skl as any, piva: [{ id: 'c', name: 'Citron' }], popisPolozky: () => 'Citron' });
+    expect(n.zavaznost).not.toBe('chyba');
+  });
+
   it('Sklad a Inventura ze stejné knihy musí vyjít stejně', () => {
     // Tohle je smysl celé kontroly: obě strany počítají z jedněch dat, jen
     // jinou funkcí. Bez uložené fyzické inventury se nesmí lišit.
