@@ -17,6 +17,7 @@ import { businessDateISO } from '../lib/businessDate';
 import { nactiSdilenouTabulku } from '../lib/sdilenaData';
 import { SkladZalozky } from '../components/SkladZalozky';
 import CekaNaOdpocet from '../components/CekaNaOdpocet';
+import { jeLimonada } from '../lib/limonady';
 import { odejdeDoKonceTydne, type ObjednavkaProOdchod, type OdpocetProOdchod, type PolozkaProOdchod } from '../lib/odejdeDoKonceTydne';
 
 // 📦 Sklad — zadání 2. 10. 2026: „přepracuj sklad, ať je tam jen stav a
@@ -264,7 +265,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
             <QuickCountModal
               isOpen={showQuickCount}
               onClose={() => setShowQuickCount(false)}
-              beers={beers}
+              beers={beers.filter((b) => !jeLimonada(b.name))}
               packages={packages}
               onConfirmCount={handleConfirmQuickCount}
               popisUlozeni="Uloží se jako inventura k dnešnímu dni — od něj se skladový stav počítá od těchto čísel."

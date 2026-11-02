@@ -13,6 +13,7 @@ import { chyba, uspech, varovani } from '../lib/toast';
 import { posunMesic } from '../lib/businessDate';
 import { zavibruj } from '../lib/haptika';
 import { jenStoceno, minusyVeStaceni, nazevSouboru, poctyRadku, stahniSesit, type ListExportu } from '../lib/mesicniExport';
+import { jeLimonada } from '../lib/limonady';
 import { prehledDoTsv, sestavPrehled, type VydejRadek } from '../lib/prehledVydeje';
 import { buildMovements, expectedForMonth } from '../lib/stockLedger';
 import { inventuraDoTsv, sestavInventuruExportu, type BeerProInventuru, type InventuraExportRadek } from '../lib/inventuraExport';
@@ -167,8 +168,12 @@ export default function ExportExcelScreen({ setPage }: { setPage?: (p: any, sec?
       { nazev: 'Odběr personál', varianta: 'odberatel', radky: data.fasovani },
       { nazev: 'Fasování prodejna', varianta: 'odberatel', radky: data.prodejna },
       { nazev: 'Vzorky promo a PR', varianta: 'odberatel', radky: data.odpis, popisOdberatele: 'Komu proč a zač' },
-      { nazev: 'Stáčení lahve', varianta: 'staceni_lahve', radky: jenStoceno(lahveRadky) },
-      { nazev: 'Stáčení KEG', varianta: 'staceni_keg', radky: jenStoceno(kegRadky) },
+      { nazev: 'Stáčení lahve', varianta: 'staceni_lahve', radky: jenStoceno(lahveRadky.filter((r) => !jeLimonada(r.beer_name))) },
+      { nazev: 'Stáčení KEG', varianta: 'staceni_keg', radky: jenStoceno(kegRadky.filter((r) => !jeLimonada(r.beer_name))) },
+      // 🥤 Limonády se do výstavu nepočítají (2. 11. 2026) — vlastní listy
+      // s vlastním „Celkem". Prázdný list se do sešitu nedává.
+      { nazev: 'Limonády lahve', varianta: 'staceni_lahve', radky: jenStoceno(lahveRadky.filter((r) => jeLimonada(r.beer_name))) },
+      { nazev: 'Limonády KEG', varianta: 'staceni_keg', radky: jenStoceno(kegRadky.filter((r) => jeLimonada(r.beer_name))) },
     ];
   }, [data]);
 

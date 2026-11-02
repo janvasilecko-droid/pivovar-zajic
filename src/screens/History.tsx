@@ -13,6 +13,7 @@ import { TabBar, type TabBarItem } from '../components/TabBar';
 import { IkonaSud } from '../components/ikony';
 import StatistikaVystav from '../components/StatistikaVystav';
 import type { Obdobi, VyrobniRadek } from '../lib/statistika';
+import { idLimonad, bezLimonad, jenLimonady, jeLimonadaRadek, souctyLimonad } from '../lib/limonady';
 import { kdoPrestalObjednavat, podilPodleObalu, rozsahObdobi, denObdobi, objednanoPoMesicich } from '../lib/statistika';
 import { usePosledniNacteni } from '../lib/nacitani';
 import { useChovaniDialogu } from '../lib/zavriNaZpet';
@@ -122,6 +123,10 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
   const [cenik, setCenik] = useState<CenaPolozky[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMonths, setSelectedMonths] = useState<string[]>([]);
+  // 🥤 Limonády se do výstavu nepočítají; drží se stranou pro vlastní součet.
+  const [limonadyId, setLimonadyId] = useState<Set<string>>(new Set());
+  const [limonadySudy, setLimonadySudy] = useState<VyrobniRadek[]>([]);
+  const [limonadyLahve, setLimonadyLahve] = useState<VyrobniRadek[]>([]);
 
   // Modal pro tisk uzávěrky
   const [showPrintModal, setShowPrintModal] = useState(false);
@@ -133,7 +138,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
   async function load(tiche = false) {
     const smiZapsat = zacniNacteni();
     if (!tiche) setLoading(true);
-    const [{ data: bt }, { data: kg }, { data: fa }, { data: wo }, { data: ak }, { data: oi }, { data: ord }, { data: b }, { data: pk }, { data: cen }] = await Promise.all([
+    const [{ data: bt }, { data: kg }, { data: fa }, { data: wo }, { data: ak }, { data: oi }, { data: ord }, { data: b }, { data: vsechnaPiva }, { data: pk }, { data: cen }] = await Promise.all([
       nactiSdilenouTabulku('bottling'),
       nactiSdilenouTabulku('kegging'),
       nactiSdilenouTabulku('fasovani'),
@@ -142,6 +147,8 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
       nactiSdilenouTabulku('order_items'),
       nactiSdilenouTabulku('orders'),
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
+      // Rozpoznání limonád jde přes VŠECHNA piva i neaktivní.
+      supabase.from('beers').select('id,name'),
       supabase.from('packages').select('*').order('sort_order'),
       // Ceník pro záložku Tržby — stejný výběr jako v Objednávkách.
       fetchAllRows('price_list', 'beer_id,package_id,price_per_unit,currency,valid_from,valid_to'),
@@ -150,10 +157,16 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
     if (!smiZapsat()) return;
     const beerList = (b as Beer[]) ?? [];
     setBeers(beerList);
-    setVyrobaLahve((bt as VyrobniRadek[]) ?? []);
-    setVyrobaSudy((kg as VyrobniRadek[]) ?? []);
-    setFasovaniStat((fa as VyrobniRadek[]) ?? []);
-    setOdpisyStat((wo as VyrobniRadek[]) ?? []);
+    // 🥤 Limonády ven z výstavu — na jednom místě, všechny čtyři zdroje stejně
+    // (jinak by rozpočet sudů „stočeno − fasováno − odpisy" přestal sedět).
+    const idL = idLimonad([...((vsechnaPiva as { id: string; name: string }[]) ?? []), ...beerList]);
+    setLimonadyId(idL);
+    setVyrobaLahve(bezLimonad((bt as VyrobniRadek[]) ?? [], idL));
+    setVyrobaSudy(bezLimonad((kg as VyrobniRadek[]) ?? [], idL));
+    setFasovaniStat(bezLimonad((fa as VyrobniRadek[]) ?? [], idL));
+    setOdpisyStat(bezLimonad((wo as VyrobniRadek[]) ?? [], idL));
+    setLimonadyLahve(jenLimonady((bt as VyrobniRadek[]) ?? [], idL));
+    setLimonadySudy(jenLimonady((kg as VyrobniRadek[]) ?? [], idL));
     setObjednavkyStat((ord as any[]) ?? []);
     setPolozkyStat((oi as any[]) ?? []);
     setPackages((pk as Package[]) ?? []);
@@ -187,10 +200,10 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
       });
       return m;
     };
-    const btRows = (bt as FilterableEntry[]) ?? [];
-    const kgRows = (kg as FilterableEntry[]) ?? [];
-    const faRows = (fa as FilterableEntry[]) ?? [];
-    const woRows = (wo as FilterableEntry[]) ?? [];
+    const btRows = bezLimonad((bt as (FilterableEntry & { beer_name?: string | null })[]) ?? [], idL);
+    const kgRows = bezLimonad((kg as (FilterableEntry & { beer_name?: string | null })[]) ?? [], idL);
+    const faRows = bezLimonad((fa as (FilterableEntry & { beer_name?: string | null })[]) ?? [], idL);
+    const woRows = bezLimonad((wo as (FilterableEntry & { beer_name?: string | null })[]) ?? [], idL);
     const btM = agg(btRows);
     const kgM = agg(kgRows);
     const faM = agg(faRows);
@@ -233,7 +246,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
     });
 
     const ordRows = (ord as { id: string; order_date: string; delivery_date: string | null; status: string }[]) ?? [];
-    const oiRows = (oi as { beer_id: string | null; package_id: string | null; quantity: number; order_id: string }[]) ?? [];
+    const oiRows = bezLimonad((oi as { beer_id: string | null; package_id: string | null; quantity: number; order_id: string }[]) ?? [], idL);
     // Dřív pro každou objednávku průchod VŠEMI položkami (viz lib/statistika).
     const ordM = objednanoPoMesicich(ordRows, oiRows);
 
@@ -371,6 +384,20 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
 
   // ---- Celkové KPI za aktuální rok ----
   const currentYear = new Date().getFullYear().toString();
+  // Výstav počítá jen pivo: objednané limonády by se jinak porovnávaly s očištěným stočeným
+  // (rozpočet sudů, objednáno × stočeno). Tržby a malé sudy dostávají všechny položky.
+  const polozkyVystav = useMemo(() => bezLimonad(polozkyStat, limonadyId), [polozkyStat, limonadyId]);
+  // Limonády zvlášť (2. 11. 2026: „do inventury a výstavu nikdy nepočítej limonády, počítej je zvlášť").
+  const obalPodleId = useMemo(() => new Map(packages.map((p) => [p.id, p as { kind?: string | null; volume_l?: number | string | null }])), [packages]);
+  const radkyLimonad = useMemo(() => [...limonadySudy, ...limonadyLahve], [limonadySudy, limonadyLahve]);
+  const limonadyLetos = useMemo(
+    () => souctyLimonad(radkyLimonad.filter((r) => (r.entry_date ?? '').startsWith(currentYear)), obalPodleId),
+    [radkyLimonad, obalPodleId, currentYear],
+  );
+  const limonadyVybrane = useMemo(
+    () => souctyLimonad(radkyLimonad.filter((r) => selectedMonths.includes((r.entry_date ?? '').slice(0, 7))), obalPodleId),
+    [radkyLimonad, obalPodleId, selectedMonths],
+  );
   const yearData = useMemo(() => {
     const yearMonths = data.filter(d => d.month.startsWith(currentYear));
     return {
@@ -427,7 +454,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
           obaly={packages as any}
           piva={beers as any}
           orders={objednavkyStat}
-          orderItems={polozkyStat}
+          orderItems={polozkyVystav}
           dnes={todayISO()}
           obdobi={obdobiStat}
           onObdobi={setObdobiStat}
@@ -460,6 +487,11 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
               </div>
             ))}
           </div>
+          {limonadyLetos.ks > 0 && (
+            <p className="mt-3 text-udaj font-bold text-neutral-600" data-testid="limonady-letos">
+              Limonády zvlášť (v číslech výš nejsou): {limonadyLetos.ks} ks (sudy {limonadyLetos.sudyKs}, lahve {limonadyLetos.lahveKs}) · {Math.round(limonadyLetos.litry).toLocaleString('cs-CZ')} l
+            </p>
+          )}
         </section>
         </div>
       )}
@@ -623,6 +655,11 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                   <strong className="text-sm font-black text-neutral-900">{new Date().toLocaleDateString('cs-CZ')}</strong>
                 </div>
               </div>
+              {limonadyVybrane.ks > 0 && (
+                <p className="font-bold text-neutral-700" data-testid="limonady-uzaverka">
+                  Limonády (mimo součty): {limonadyVybrane.ks} ks (sudy {limonadyVybrane.sudyKs}, lahve {limonadyVybrane.lahveKs})
+                </p>
+              )}
 
               <div className="space-y-2">
                 <h4 className="font-black text-sm text-neutral-900">Souhrn výroby a stáčení za měsíce:</h4>

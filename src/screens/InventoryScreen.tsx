@@ -1591,6 +1591,8 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     // pivo s pohybem zrovna v tomhle měsíci nesmí z auditu zmizet. Piva bez
     // jakékoliv stopy v měsíci stejně vyhodí maCoUkazat().
     allBeers.forEach((b) => {
+      // 🥤 Limonády se neinventurují — do auditu inventury nepatří.
+      if (jeLimonada(b.name)) return;
       packages.forEach((pkg) => {
         const k = `${b.id}__${pkg.id}`;
         const porovnani = porovnejPolozku(auditInventura.get(k), skladLedger.get(k));

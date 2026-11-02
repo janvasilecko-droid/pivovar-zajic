@@ -26,6 +26,7 @@ import { businessDateISO } from './businessDate';
 import type { Movement, StockLine } from './stockLedger';
 import { stockAsOf, stockForObdobi, zapsanoPoPocitani } from './stockLedger';
 import { jeSud } from './inventoryFix';
+import { jeLimonada } from './limonady';
 
 export type TydenObdobi = {
   /** Pondělí kontrolovaného týdne, YYYY-MM-DD. */
@@ -172,6 +173,8 @@ export function radkyTydne(
     // hloubkový audit (kontrolaNeznamychPolozek), sem nepatří.
     const obal = obalPodleId.get(line.package_id);
     if (!jmenoPiva.has(line.beer_id) || !obal) return;
+    // 🥤 Limonády se neinventurují (2. 11. 2026) — počítají se zvlášť.
+    if (jeLimonada(jmenoPiva.get(line.beer_id))) return;
 
     const zadano = (napocitano[klic] ?? '').trim();
     const cislo = zadano === '' ? null : Number(zadano.replace(',', '.'));
