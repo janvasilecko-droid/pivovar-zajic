@@ -28,7 +28,8 @@ export function srozumitelnaChybaOdeslani(zprava: string): string | null {
   if (m.includes('rate limit') || m.includes('too many') || m.includes('seconds')) {
     return 'E-mail se už nedávno odesílal. Počkej chvíli (až hodinu) a zkus to znovu — nebo požádej správce o dočasné heslo.';
   }
-  if (m.includes('error sending') || m.includes('smtp')) {
+  // Supabase při nefunkční poště vrací 500 „Error sending recovery email“ (code unexpected_failure).
+  if (m.includes('error sending') || m.includes('sending recovery') || m.includes('sending invite') || m.includes('unexpected_failure') || m.includes('smtp')) {
     return 'E-mail se nepodařilo odeslat (server pošty není nastavený). Požádej správce, ať ti nastaví dočasné heslo.';
   }
   return null;

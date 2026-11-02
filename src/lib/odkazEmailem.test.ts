@@ -46,5 +46,8 @@ describe('odkaz e-mailem', () => {
   it('texty', () => {
     expect(odkazOdeslanNa('a@b.cz')).toContain('Odkaz byl odeslán na a@b.cz');
     expect(srozumitelnaChybaOdeslani('Error sending recovery email')).toContain('dočasné heslo');
+    // Supabase s nefunkční poštou vrací 500 unexpected_failure; text bývá jen kód nebo „sending recovery email".
+    expect(srozumitelnaChybaOdeslani('unexpected_failure')).toContain('dočasné heslo');
+    expect(srozumitelnaChybaOdeslani('Failed: sending recovery email')).toContain('dočasné heslo');
   });
 });
