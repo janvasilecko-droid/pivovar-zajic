@@ -384,6 +384,20 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
 
   // ---- Celkové KPI za aktuální rok ----
   const currentYear = new Date().getFullYear().toString();
+  // Výstav počítá jen pivo: objednané limonády by se jinak porovnávaly s očištěným stočeným
+  // (rozpočet sudů, objednáno × stočeno). Tržby a malé sudy dostávají všechny položky.
+  const polozkyVystav = useMemo(() => bezLimonad(polozkyStat, limonadyId), [polozkyStat, limonadyId]);
+  // Limonády zvlášť (2. 11. 2026: „do inventury a výstavu nikdy nepočítej limonády, počítej je zvlášť").
+  const obalPodleId = useMemo(() => new Map(packages.map((p) => [p.id, p as { kind?: string | null; volume_l?: number | string | null }])), [packages]);
+  const radkyLimonad = useMemo(() => [...limonadySudy, ...limonadyLahve], [limonadySudy, limonadyLahve]);
+  const limonadyLetos = useMemo(
+    () => souctyLimonad(radkyLimonad.filter((r) => (r.entry_date ?? '').startsWith(currentYear)), obalPodleId),
+    [radkyLimonad, obalPodleId, currentYear],
+  );
+  const limonadyVybrane = useMemo(
+    () => souctyLimonad(radkyLimonad.filter((r) => selectedMonths.includes((r.entry_date ?? '').slice(0, 7))), obalPodleId),
+    [radkyLimonad, obalPodleId, selectedMonths],
+  );
   const yearData = useMemo(() => {
     const yearMonths = data.filter(d => d.month.startsWith(currentYear));
     return {
@@ -440,7 +454,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
           obaly={packages as any}
           piva={beers as any}
           orders={objednavkyStat}
-          orderItems={polozkyStat}
+          orderItems={polozkyVystav}
           dnes={todayISO()}
           obdobi={obdobiStat}
           onObdobi={setObdobiStat}
@@ -473,6 +487,11 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
               </div>
             ))}
           </div>
+          {limonadyLetos.ks > 0 && (
+            <p className="mt-3 text-udaj font-bold text-neutral-600" data-testid="limonady-letos">
+              Limonády zvlášť (v číslech výš nejsou): {limonadyLetos.ks} ks (sudy {limonadyLetos.sudyKs}, lahve {limonadyLetos.lahveKs}) · {Math.round(limonadyLetos.litry).toLocaleString('cs-CZ')} l
+            </p>
+          )}
         </section>
         </div>
       )}
@@ -636,6 +655,11 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                   <strong className="text-sm font-black text-neutral-900">{new Date().toLocaleDateString('cs-CZ')}</strong>
                 </div>
               </div>
+              {limonadyVybrane.ks > 0 && (
+                <p className="font-bold text-neutral-700" data-testid="limonady-uzaverka">
+                  Limonády (mimo součty): {limonadyVybrane.ks} ks (sudy {limonadyVybrane.sudyKs}, lahve {limonadyVybrane.lahveKs})
+                </p>
+              )}
 
               <div className="space-y-2">
                 <h4 className="font-black text-sm text-neutral-900">Souhrn výroby a stáčení za měsíce:</h4>

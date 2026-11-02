@@ -60,7 +60,7 @@ export type SouctyLimonad = { sudyKs: number; lahveKs: number; ks: number; litry
 
 /** Samostatný součet limonád: sudy a lahve v kusech a celkem litry. */
 export function souctyLimonad(
-  radky: { package_id: string | null; quantity: number | string }[],
+  radky: { package_id: string | null; quantity: number | string | null }[],
   obalPodleId: Map<string, { kind?: string | null; volume_l?: number | string | null }>,
 ): SouctyLimonad {
   const s: SouctyLimonad = { sudyKs: 0, lahveKs: 0, ks: 0, litry: 0 };
