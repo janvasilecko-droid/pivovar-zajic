@@ -9,6 +9,13 @@
 // změnit datum závozu a datum objednávky, když se načtou fotky, ne zpětně."
 import { DAYS } from '../lib/shared';
 
+/** Datum (YYYY-MM-DD) posunuté o počet dnů — počítá v poledne, ať změna času den neposune. */
+function posunoutDatum(datum: string, dny: number): string {
+  const d = new Date(datum + 'T12:00:00');
+  d.setDate(d.getDate() + dny);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 export function DenZavozuTlacitka({ den, datum, onDen, poznamka, zavoz, onZavoz, onDatum, dnes }: {
   den: string | null;
   /** Datum, které z volby vyjde (YYYY-MM-DD). */
@@ -61,6 +68,28 @@ export function DenZavozuTlacitka({ den, datum, onDen, poznamka, zavoz, onZavoz,
             {c}.z
           </button>
         ))}
+        {onDatum && (
+          <>
+            <button
+              type="button"
+              className="btn-den"
+              disabled={!datum}
+              onClick={() => datum && onDatum(posunoutDatum(datum, -7))}
+              title="Stejný den o týden dřív"
+            >
+              ‹ týden
+            </button>
+            <button
+              type="button"
+              className="btn-den"
+              disabled={!datum}
+              onClick={() => datum && onDatum(posunoutDatum(datum, 7))}
+              title="Stejný den o týden později"
+            >
+              týden ›
+            </button>
+          </>
+        )}
         {onDatum && (
           <label className="flex items-center gap-1.5 text-xs font-bold text-neutral-700">
             nebo datum
