@@ -271,3 +271,18 @@ describe('Nově přidané pivo se čte bez úprav kódu', () => {
     expect(matchBeerId({ raw_line: '2x30 12sv', degree: '12°' }, beers, am)).toBe('b12');
   });
 });
+
+describe('„sklo" bez objemu je lahev 0,5 l, třetinka jen když je napsaná', () => {
+  const RAW = 'A jeste prosim dve basy sklo 12sv';
+  it('AI vrátí 0.33, ale v textu žádná třetinka není → 0,5 l', () => {
+    expect(balení({ package_label: 'Lahve 0.33l', raw_line: RAW })).toBe('Lahve 0.5l');
+  });
+  it('0,33 / třetinka / bedna v textu zůstane třetinka', () => {
+    expect(balení({ package_label: 'Lahve 0.33l', raw_line: '2 basy sklo 0,33 12sv' })).toBe('Lahve 0.33l');
+    expect(balení({ package_label: 'Lahve 0.33l', raw_line: '2 basy sklo tretinky 12sv' })).toBe('Lahve 0.33l');
+    expect(balení({ package_label: 'Lahve 0.33l', raw_line: '1 bedna tmaveho' })).toBe('Lahve 0.33l');
+  });
+  it('bez raw_line se label AI nemění', () => {
+    expect(balení({ package_label: 'Lahve 0.33l' })).toBe('Lahve 0.33l');
+  });
+});
