@@ -25,7 +25,7 @@ import BibleScreen, { BIBLE_DLAZDICE } from './BibleScreen';
 describe('Pivovarská bible — plocha', () => {
   it('má 8 dlaždic přesně podle zadání (bod 10)', () => {
     expect(BIBLE_DLAZDICE.map((d) => d.nazev)).toEqual([
-      'Odborný chatbot', 'Knihovna dokumentů', 'Výpočtová laboratoř', 'Technologie pivovaru',
+      'Hledání v knihách', 'Knihovna dokumentů', 'Výpočtová laboratoř', 'Technologie pivovaru',
       'Receptury a várky', 'Analýza problémů', 'Zkušenosti sládků', 'Správa znalostí',
     ]);
   });
@@ -42,10 +42,10 @@ describe('Pivovarská bible — plocha', () => {
     const setPage = vi.fn();
     render(<BibleScreen setPage={setPage} />);
     expect(screen.getByText('Knihovna dokumentů')).toBeTruthy();
-    fireEvent.click(screen.getByText('Odborný chatbot'));
-    expect(screen.getByText(/Připravujeme · etapa 5/)).toBeTruthy();
+    fireEvent.click(screen.getByText('Výpočtová laboratoř'));
+    expect(screen.getByText(/Připravujeme · etapa 6/)).toBeTruthy();
     expect(screen.getByText(/AI zatím z knih neodpovídá/)).toBeTruthy();
-    expect(setPage).toHaveBeenCalledWith('bible', undefined, 'chat');
+    expect(setPage).toHaveBeenCalledWith('bible', undefined, 'vypocty');
   });
 
   it('uživatel s povoleným modulem bible plochu vidí', () => {

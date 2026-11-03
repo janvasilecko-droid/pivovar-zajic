@@ -299,6 +299,30 @@ SELECT pg_temp.ocekavam((SELECT count(*) FROM public.bible_pasaze WHERE hledani 
 SELECT pg_temp.ocekavam((SELECT count(*) FROM public.bible_pasaze WHERE hledani @@ to_tsquery('simple', 'wurze')) = 1, '„wurze" najde „Würze"');
 SELECT pg_temp.ocekavam((SELECT count(*) FROM public.bible_pasaze WHERE hledani @@ to_tsquery('simple', 'amyl:*')) = 2,
   'předpona „amyl" najde β-amylázu i β-Amylase');
+-- Hledání (20261103010000_bible_hledani): originál i český překlad, jen zpracované knihy.
+SELECT pg_temp.ocekavam(public.bible_dotaz('Rmutování & β-Amyláza!') = 'rmutovani:* & amylaza:*'::tsquery, 'dotaz: bez diakritiky, předpony, bez syntaxe od uživatele');
+SELECT pg_temp.ocekavam(public.bible_dotaz('  & | ! ') IS NULL AND public.bible_dotaz(NULL) IS NULL, 'prázdný dotaz = nic');
+SELECT pg_temp.ocekavam((SELECT count(*) FROM public.bible_hledej('rmutovani')) = 1
+                        AND (SELECT zdroj FROM public.bible_hledej('rmutovani')) = 'original', 'česká pasáž se najde bez diakritiky');
+SELECT pg_temp.ocekavam((SELECT count(*) FROM public.bible_hledej('Würze')) = 1, 'německá pasáž se najde');
+SELECT pg_temp.ocekavam((SELECT string_agg(zdroj || ':' || pdf_index || ':' || coalesce(tistena_strana, '-') || ':' || coalesce(kapitola, '-'), ',' ORDER BY zdroj)
+                           FROM public.bible_hledej('pracuje 62')) = 'original:2:159:Maischen,preklad:1:158:Maischen',
+  'česká otázka najde i překlad německé strany (s tištěnou stranou a kapitolou)');
+UPDATE public.bible_strany SET text = text || ' Neu.' WHERE dokument_id = pg_temp.dok('a') AND pdf_index = 1;
+SELECT pg_temp.ocekavam(NOT EXISTS (SELECT 1 FROM public.bible_hledej('pracuje') WHERE zdroj = 'preklad'), 'neplatný překlad se nehledá');
+UPDATE public.bible_strany SET text = 'Die β-Amylase arbeitet bei 62–65 °C.' WHERE dokument_id = pg_temp.dok('a') AND pdf_index = 1;
+SELECT pg_temp.ocekavam((SELECT count(*) FROM public.bible_hledej('amyl', NULL, 1)) = 1, 'limit výsledků');
+SELECT pg_temp.ocekavam((SELECT count(*) FROM public.bible_hledej('amyl', gen_random_uuid())) = 0, 'filtr dokumentu');
+UPDATE public.bible_dokumenty SET stav = 'zpracovava' WHERE id = pg_temp.dok('a');
+SELECT pg_temp.ocekavam((SELECT count(*) FROM public.bible_hledej('amyl')) = 0, 'rozpracovaná kniha se nehledá');
+UPDATE public.bible_dokumenty SET stav = 'hotovo' WHERE id = pg_temp.dok('a');
+SET enable_seqscan = off;
+SELECT pg_temp.ocekavam(pg_temp.plan($q$SELECT pdf_index FROM public.bible_strany WHERE preklad_hledani @@ 'amyl:*'::tsquery$q$)
+                        LIKE '%bible_strany_preklad_hledani_idx%', 'hledání v překladu použije index');
+RESET enable_seqscan;
+SELECT pg_temp.selze('SELECT * FROM public.bible_hledej(''amyl'')', 'hledání smí jen service role', '42501')
+  FROM (SELECT pg_temp.jako('authenticated')) j;
+SELECT pg_temp.jako('service_role');
 SET enable_seqscan = off;
 SELECT pg_temp.ocekavam(pg_temp.plan($q$SELECT id FROM public.bible_pasaze WHERE hledani @@ to_tsquery('simple', 'wurze')$q$)
                         LIKE '%bible_pasaze_hledani_idx%', 'hledání použije index');

@@ -10,6 +10,7 @@ import {
 import {
   celeCislo, druhObjektu, DRUHY_OBJEKTU, jeCitelny, listyPodStropem, MAX_LISTU_NA_DOTAZ, nahled, OBJEKTU_NA_DOTAZ,
   rejstrikListu, sPrekladem, SLOUPCE_LISTU, SLOUPCE_PREKLADU, vsechnyRadky, ZPRAVA_BEZ_TEXTU, zpravaNezpracovano,
+  dotazHledani, slovaDotazu, uryvek, VYSLEDKU_HLEDANI,
 } from '../_shared/cteni.ts';
 
 /**
@@ -240,6 +241,30 @@ const PROVEDENI: Record<Akce, (k: Kontext) => Promise<Response>> = {
     const listy = ((data ?? []) as { text?: string | null; preklad?: string | null; preklad_kontrola?: string | null; preklad_platny?: boolean | null }[])
       .map(sPrekladem);
     return hotovo(cors, { listy: listyPodStropem(listy) });
+  },
+
+  // Hledání v knihách: pasáže originálu i český překlad stran, jen zpracované knihy.
+  // Vrací úryvek kolem nálezu a místo (kniha, kapitola, strana) — celý text si appka otevře ve čtečce.
+  async hledej({ db, telo, cors }) {
+    const dotaz = dotazHledani(telo.dotaz);
+    const dokument = telo.id === undefined || telo.id === null ? null : idDokumentu(telo);
+    const { data, error } = await db.rpc('bible_hledej', { p_dotaz: dotaz, p_dokument: dokument, p_limit: VYSLEDKU_HLEDANI });
+    if (error?.code === 'PGRST202') {
+      return chyba(cors, 409, 'nezpracovano', 'Hledání čeká na migraci databáze bible 20261103010000_bible_hledani (Systém → Databázové migrace → Databáze bible).');
+    }
+    if (error) return chybaDb(cors, error, 'hledej');
+    const slova = slovaDotazu(dotaz);
+    const radky = (data ?? []) as {
+      dokument_id: string; nazev: string; autor: string | null; rok: number | null; jazyk: string | null;
+      zdroj: string; pdf_index: number; tistena_strana: string | null; kapitola: string | null; druh: string; text: string;
+    }[];
+    return hotovo(cors, {
+      vysledky: radky.map((r) => ({
+        dokument_id: r.dokument_id, nazev: r.nazev, autor: r.autor, rok: r.rok, jazyk: r.jazyk,
+        zdroj: r.zdroj, pdf_index: r.pdf_index, tistena_strana: r.tistena_strana, kapitola: r.kapitola, druh: r.druh,
+        uryvek: uryvek(r.text, slova),
+      })),
+    });
   },
 
   // Přehled tabulek, vzorců a popisků (pasáže s druhem) s náhledem a listem.

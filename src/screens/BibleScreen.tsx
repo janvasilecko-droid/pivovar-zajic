@@ -12,7 +12,7 @@
 //
 // Přístup je fail-closed (lib/bibleOpravneni.ts, databáze to vynucuje sama).
 import { Suspense, useEffect, useState } from 'react';
-import { ArrowLeft, BookOpen, Bot, Calculator, Factory, FlaskConical, Lock, Settings, Stethoscope, Users, type LucideIcon } from 'lucide-react';
+import { ArrowLeft, BookOpen, Calculator, Factory, FlaskConical, Lock, Search, Settings, Stethoscope, Users, type LucideIcon } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { bibleRole } from '../lib/bibleOpravneni';
 import { cestaKnihy, rozeberCestuKnihy } from '../lib/bibleCteni';
@@ -20,6 +20,7 @@ import { lazyStranka } from '../lib/lazyStranka';
 import { BibleKnihovna } from '../components/bible/BibleKnihovna';
 import { BibleSprava } from '../components/bible/BibleSprava';
 import { BiblePripravujeme } from '../components/bible/BiblePripravujeme';
+import { BibleHledani } from '../components/bible/BibleHledani';
 
 export type BibleSekce = 'plocha' | 'chat' | 'knihovna' | 'vypocty' | 'technologie' | 'varky' | 'problemy' | 'zkusenosti' | 'sprava';
 
@@ -35,10 +36,8 @@ export type BibleDlazdice = {
 };
 
 export const BIBLE_DLAZDICE: readonly BibleDlazdice[] = [
-  {
-    id: 'chat', nazev: 'Odborný chatbot', popis: 'Otázky s citací knihy, kapitoly a strany', ikona: Bot, etapa: 5,
-    bude: 'Claude odpoví jen z nalezených pasáží knihovny a u každého tvrzení řekne, odkud je (kniha, kapitola, strana). Rozliší literaturu, výpočet, praxi a vlastní doporučení. Navazující otázky a historie konverzací.',
-  },
+  // Zatím hledání v knihách (3. 11. 2026, majitel k chatbotu: „zatím jen hledání").
+  { id: 'chat', nazev: 'Hledání v knihách', popis: 'Česky i v anglických knihách, s otevřením stránky', ikona: Search },
   { id: 'knihovna', nazev: 'Knihovna dokumentů', popis: 'Odborná knihovna: knihy, nahrávání, zpracování a čtení', ikona: BookOpen },
   {
     id: 'vypocty', nazev: 'Výpočtová laboratoř', popis: 'Plato, výtěžnost, rmutování, IBU, voda, hydraulika', ikona: Calculator, etapa: 6,
@@ -91,9 +90,9 @@ export default function BibleScreen({ setPage, pageSubTab }: {
     setPage?.('bible', undefined, s === 'plocha' ? '' : s);
   }
 
-  function otevriKnihu(id: string) {
-    setKniha({ id, list: null });
-    setPage?.('bible', undefined, cestaKnihy(id));
+  function otevriKnihu(id: string, list: number | null = null) {
+    setKniha({ id, list });
+    setPage?.('bible', undefined, cestaKnihy(id, list));
   }
 
   const dlazdice = kniha ? undefined : BIBLE_DLAZDICE.find((d) => d.id === sekce);
@@ -130,7 +129,9 @@ export default function BibleScreen({ setPage, pageSubTab }: {
       ) : sekce === 'plocha' ? (
         <BiblePlocha jdi={jdi} />
       ) : sekce === 'knihovna' ? (
-        <BibleKnihovna role={role} setPage={setPage} onCist={otevriKnihu} />
+        <BibleKnihovna role={role} setPage={setPage} onCist={(id) => otevriKnihu(id)} />
+      ) : sekce === 'chat' ? (
+        <BibleHledani otevri={(id, list) => otevriKnihu(id, list)} />
       ) : sekce === 'sprava' ? (
         <BibleSprava role={role} setPage={setPage} />
       ) : dlazdice ? (

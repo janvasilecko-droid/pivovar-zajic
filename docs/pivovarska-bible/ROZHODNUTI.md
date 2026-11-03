@@ -165,3 +165,19 @@ Každé rozhodnutí má datum, důvod a co by ho změnilo.
   češtinu, originál jedním klepnutím.
 - Migrace `20261103000000_bible_preklad` (spouští majitel). Bez ní worker
   překlad přeskočí a bible-api vrací originál jako dřív.
+
+## R14 — Hledání bez AI, chatbot zatím ne (3. 11. 2026)
+
+- Majitel: „po překladu pokračuj automaticky v bibli a chatbotovi", k chatbotu
+  ale „Zatím jen hledání" a u bezplatného chatbota nebo konektoru do aplikace
+  Claude „zatím nic".
+- Chatbot v appce by musel volat Claude přes API: token předplatného podle
+  pravidel Anthropicu nesmí obsluhovat dotazy uživatelů aplikace
+  (https://code.claude.com/docs/en/legal-and-compliance — „route requests
+  through … Max … plan credentials on behalf of their users" není povoleno).
+- Hledání (etapa 4, první část): `bible_hledej` (migrace
+  `20261103010000_bible_hledani`) — fulltext bez diakritiky s předponami
+  v pasážích originálu i v platném českém překladu stran, jen zpracované knihy.
+  bible-api `hledej` vrací úryvek a místo (kniha, kapitola, strana), čtečka se
+  otevře na stránce. Vektory a vícejazyčné varianty dotazu až s AI.
+- Dlaždice „Odborný chatbot" je zatím „Hledání v knihách".

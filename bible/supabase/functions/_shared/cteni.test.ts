@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import {
-  celeCislo, druhObjektu, jeCitelny, listyPodStropem, MAX_ZNAKU_ODPOVEDI, nahled, rejstrikListu, sPrekladem, STRANKA_DB, vsechnyRadky,
+  celeCislo, druhObjektu, jeCitelny, listyPodStropem, MAX_ZNAKU_ODPOVEDI, nahled, rejstrikListu, sPrekladem, dotazHledani, slovaDotazu, uryvek, STRANKA_DB, vsechnyRadky,
   zpravaNezpracovano,
 } from './cteni';
 import { ChybaVstupu } from './vstupy';
@@ -115,5 +115,31 @@ describe('odpověď čtení', () => {
     // Pojistka: nikdy víc než max řádků.
     const mnoho = await vsechnyRadky<number>(async (od, do_) => ({ data: Array.from({ length: do_ - od + 1 }, (_, i) => od + i), error: null }), 2500);
     expect(mnoho.data).toHaveLength(2500);
+  });
+});
+
+describe('hledání: dotaz a úryvek', () => {
+  it('dotaz 2–200 znaků s písmenem nebo číslicí', () => {
+    expect(dotazHledani('  chmelovar odpar ')).toBe('chmelovar odpar');
+    expect(() => dotazHledani('a')).toThrow(ChybaVstupu);
+    expect(() => dotazHledani('&&&')).toThrow(ChybaVstupu);
+    expect(() => dotazHledani('x'.repeat(201))).toThrow(ChybaVstupu);
+    expect(() => dotazHledani(5)).toThrow(ChybaVstupu);
+  });
+
+  it('slova dotazu jako v SQL (bez diakritiky, malá, nejvýš 8)', () => {
+    expect(slovaDotazu('Rmutování & β-Amyláza 7')).toEqual(['rmutovani', 'amylaza', '7']);
+    expect(slovaDotazu('a b c d e f g h i j k l m n'.replace(/ /g, 'x '))).toHaveLength(8);
+  });
+
+  it('úryvek kolem nálezu bez ohledu na diakritiku, celá slova a „…"', () => {
+    const text = `${'úvodní slovo '.repeat(60)}Rmutování probíhá při 62 °C. ${'konec věty '.repeat(60)}`;
+    const u = uryvek(text, ['rmutovani'], 120);
+    expect(u).toContain('Rmutování probíhá při 62 °C.');
+    expect(u.startsWith('…') && u.endsWith('…')).toBe(true);
+    expect(u.length).toBeLessThanOrEqual(122);
+    expect(uryvek('krátký text', ['nic'])).toBe('krátký text');
+    expect(uryvek(`${'a '.repeat(300)}`, ['zzz'], 50).startsWith('a')).toBe(true);
+    expect(uryvek(null, ['x'])).toBe('');
   });
 });
