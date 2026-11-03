@@ -25,16 +25,20 @@ export function ZavozVolba({ cislo, den, onCislo, onDen, dostupne }: {
           {c}. závoz
         </button>
       ))}
-      <select
-        value={den ?? ''}
-        onChange={(e) => { if (e.target.value) onDen(e.target.value); }}
-        className="h-11 rounded border border-neutral-300 bg-white text-xs font-black px-1.5"
-        title="Přesunout objednávku na jiný den tohoto týdne"
-        aria-label="Přesunout na den"
-      >
-        <option value="" disabled>Přesunout na…</option>
-        {DAYS.map((d) => <option key={d.v} value={d.v}>{d.v === den ? `${d.label} (teď)` : d.label}</option>)}
-      </select>
+      <span className="flex items-center gap-1 flex-wrap" role="group" aria-label="Přesunout na den">
+        {DAYS.slice(0, 5).map((d) => (
+          <button
+            key={d.v}
+            type="button"
+            onClick={() => { if (d.v !== den) onDen(d.v); }}
+            aria-pressed={d.v === den}
+            title={d.v === den ? `Jede ${d.label}` : `Přesunout na ${d.label}`}
+            className={`btn-den ${d.v === den ? 'btn-den-aktivni' : ''}`}
+          >
+            {d.label}
+          </button>
+        ))}
+      </span>
     </div>
   );
 }
