@@ -246,39 +246,47 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
   }
 
   return (
-    <Modal open onClose={onClose} title="Upravit objednávku" wide>
-      <div className="space-y-4">
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 items-end">
-          <div className="col-span-2 sm:col-span-1">
-            <label className="label">Datum</label>
-            <input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} />
-          </div>
-          <div className="col-span-2 sm:col-span-2 lg:col-span-2">
-            <label className="label">Odběratel</label>
+    <Modal open onClose={onClose} title="Upravit objednávku" wide kompaktni>
+      <div className="space-y-2.5 px-3 pt-2.5">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 items-end">
+          <div className="col-span-2 sm:col-span-2 lg:col-span-2 sm:order-2">
+            <label className="label !mb-0.5">Odběratel</label>
             <PlaceCombobox value={placeId} onChange={(id, name) => { setPlaceId(id); setPlaceName(name); }} places={places} onPlacesChanged={onPlacesChanged} />
           </div>
-          <div className="col-span-1 sm:col-span-1">
-            <label className="label">Den dodání</label>
-            <select className="input" value={deliveryDay} onChange={(e) => {
-              // S dnem se posune i DATUM — jinak zůstalo původní (třeba z
-              // minulého týdne) a objednávka se ukazovala tam (29. 9. 2026).
-              const den = e.target.value;
-              setDeliveryDay(den);
-              const datum = den ? datumProDenObjednavky(den, deliveryDate || order.order_date, businessDateISO()) : null;
-              if (datum) setDeliveryDate(datum);
-            }}>
-              <option value="">—</option>
-              {DAYS.map((d) => <option key={d.v} value={d.v}>{d.label}</option>)}
-            </select>
+          <div className="sm:order-1">
+            <label className="label !mb-0.5">Datum</label>
+            <input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} />
           </div>
-          <div className="col-span-1 sm:col-span-1">
-            <label className="label">Datum dodání</label>
+          <div className="sm:order-4">
+            <label className="label !mb-0.5">Datum dodání</label>
             <input type="date" className="input" value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} />
+          </div>
+          <div className="col-span-2 sm:col-span-1 sm:order-3">
+            <label className="label !mb-0.5">Den dodání</label>
+            {/* Dny jako tlačítka (jako v Rozvozu) — jeden dotyk místo rozbalovacího seznamu. */}
+            <div className="grid grid-cols-5 gap-1.5" role="group" aria-label="Den dodání">
+              {DAYS.slice(0, 5).map((d) => (
+                <button
+                  key={d.v}
+                  type="button"
+                  aria-pressed={deliveryDay === d.v}
+                  className={`btn-den ${deliveryDay === d.v ? 'btn-den-aktivni' : ''}`}
+                  onClick={() => {
+                    // S dnem se posune i DATUM — jinak zůstalo původní (třeba z
+                    // minulého týdne) a objednávka se ukazovala tam (29. 9. 2026).
+                    const den = deliveryDay === d.v ? '' : d.v;
+                    setDeliveryDay(den);
+                    const datum = den ? datumProDenObjednavky(den, deliveryDate || order.order_date, businessDateISO()) : null;
+                    if (datum) setDeliveryDate(datum);
+                  }}
+                >{d.label}</button>
+              ))}
+            </div>
           </div>
         </div>
 
-        <div className="border-t border-primary-100 pt-3">
-          <div className="text-xs font-semibold uppercase tracking-wider text-primary-400 mb-2">Položky piva ({filledCount} vyplněno)</div>
+        <div className="border-t border-primary-100 pt-2">
+          <div className="text-xs font-semibold uppercase tracking-wider text-primary-400 mb-1.5">Položky piva ({filledCount} vyplněno)</div>
           <div className="space-y-2">
             {rows.map((r, i) => r.removed ? (
               <div key={r.id ?? `new-${i}`} className="flex items-center justify-between rounded border-2 border-dashed border-primary-200 bg-primary-50/40 px-3 py-2 text-xs text-primary-600">
@@ -286,34 +294,37 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
                 <button type="button" className="btn-ghost !rounded text-xs !py-1 !px-2" onClick={() => restoreRow(i)}>Vrátit</button>
               </div>
             ) : (
-              <div key={r.id ?? `new-${i}`} className={`grid grid-cols-1 sm:grid-cols-12 gap-2 sm:items-center p-2.5 rounded-none border ${tridaRadkuSudu(prideleniSudu.get(String(i)), 'border-neutral-200 sm:border-none bg-neutral-50/60 sm:bg-transparent sm:p-0')}`}>
+              <div key={r.id ?? `new-${i}`} className={`grid grid-cols-1 sm:grid-cols-12 gap-1.5 sm:gap-2 sm:items-center p-2 rounded-none border ${tridaRadkuSudu(prideleniSudu.get(String(i)), 'border-neutral-200 sm:border-none bg-neutral-50/60 sm:bg-transparent sm:p-0')}`}>
                 <div className="sm:col-span-5">
-                  <label className="sm:hidden text-udaj font-black uppercase text-neutral-500 mb-1 block">Pivo</label>
-                  <select className="input !py-2 text-sm" value={r.beerId} onChange={(e) => setRow(i, 'beerId', e.target.value)}>
+                  <select aria-label="Pivo" className="input !py-2 text-sm" value={r.beerId} onChange={(e) => setRow(i, 'beerId', e.target.value)}>
                     <option value="">— pivo —</option>
                     {beers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
                   </select>
                 </div>
-                <div className="sm:col-span-3">
-                  <label className="sm:hidden text-udaj font-black uppercase text-neutral-500 mb-1 block">Obal</label>
-                  <select className="input !py-2 text-sm" value={r.pkgId} onChange={(e) => setRow(i, 'pkgId', e.target.value)}>
-                    <option value="">— obal —</option>
-                    {packages.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
-                  </select>
-                </div>
-                <div className="sm:col-span-3">
-                  <label className="sm:hidden text-udaj font-black uppercase text-neutral-500 mb-1 block">Množství</label>
-                  <div className="flex items-center gap-1.5">
-                    <button type="button" onClick={() => setRow(i, 'qty', String(Math.max(0, (Number(r.qty) || 0) - 1)))} className="w-10 h-10 sm:w-7 sm:h-7 shrink-0 grid place-items-center rounded bg-neutral-100 hover:bg-amber-200 text-neutral-800 font-bold text-sm select-none active:scale-95 transition tap" title="Odečíst 1" aria-label="Odečíst 1">−</button>
-                    <span className="flex-1 min-w-[2.5rem] text-center text-base sm:text-sm font-black bg-white border border-neutral-200 rounded py-2 px-1">
-                      {r.qty || '0'}
-                    </span>
-                    <button type="button" onClick={() => setRow(i, 'qty', String((Number(r.qty) || 0) + 1))} className="w-10 h-10 sm:w-7 sm:h-7 shrink-0 grid place-items-center rounded bg-amber-950 hover:bg-amber-900 text-white font-bold text-sm select-none active:scale-95 transition tap" title="Přidat 1" aria-label="Přidat 1">+</button>
-                    <QuickQtySelect
-                      pkg={packages.find((p) => p.id === r.pkgId)}
-                      qty={r.qty}
-                      onSelect={(q) => setRow(i, 'qty', String(q))}
-                    />
+                {/* Na telefonu: obal, počet a odstranění v jednom řádku pod pivem. */}
+                <div className="flex items-center gap-1.5 sm:contents">
+                  <div className="flex-1 min-w-0 sm:col-span-3">
+                    <select aria-label="Obal" className="input !py-2 text-sm" value={r.pkgId} onChange={(e) => setRow(i, 'pkgId', e.target.value)}>
+                      <option value="">— obal —</option>
+                      {packages.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+                    </select>
+                  </div>
+                  <div className="sm:col-span-3">
+                    <div className="flex items-center gap-1">
+                      <button type="button" onClick={() => setRow(i, 'qty', String(Math.max(0, (Number(r.qty) || 0) - 1)))} className="w-10 h-10 sm:w-7 sm:h-7 shrink-0 grid place-items-center rounded bg-neutral-100 hover:bg-amber-200 text-neutral-800 font-bold text-sm select-none active:scale-95 transition tap" title="Odečíst 1" aria-label="Odečíst 1">−</button>
+                      <span className="min-w-[2rem] text-center text-base sm:text-sm font-black bg-white border border-neutral-200 rounded py-2 px-1">
+                        {r.qty || '0'}
+                      </span>
+                      <button type="button" onClick={() => setRow(i, 'qty', String((Number(r.qty) || 0) + 1))} className="w-10 h-10 sm:w-7 sm:h-7 shrink-0 grid place-items-center rounded bg-amber-950 hover:bg-amber-900 text-white font-bold text-sm select-none active:scale-95 transition tap" title="Přidat 1" aria-label="Přidat 1">+</button>
+                      <QuickQtySelect
+                        pkg={packages.find((p) => p.id === r.pkgId)}
+                        qty={r.qty}
+                        onSelect={(q) => setRow(i, 'qty', String(q))}
+                      />
+                    </div>
+                  </div>
+                  <div className="shrink-0 sm:col-span-1 sm:flex sm:justify-end">
+                    <button type="button" className="text-rose-400 hover:text-rose-600 w-10 h-10 sm:w-auto sm:h-auto grid place-items-center tap" onClick={() => removeRow(i)} title="Odstranit položku"><X className="ikona-text" /><span className="sr-only sm:not-sr-only">&nbsp;Odstranit</span></button>
                   </div>
                 </div>
                 <div className="sm:col-span-12">
@@ -325,9 +336,6 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
                       zadano={zadanoVObalu(r.pkgId)}
                     />
                   )}
-                </div>
-                <div className="flex justify-end sm:col-span-1">
-                  <button type="button" className="text-rose-400 hover:text-rose-600 px-2 py-1.5 sm:py-0 tap" onClick={() => removeRow(i)} title="Odstranit položku"><X className="ikona-text" /> Odstranit</button>
                 </div>
               </div>
             ))}
@@ -361,8 +369,9 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
             + Přidat další řádek
           </button>
 
-          <div className="mt-3 space-y-1.5">
-            <label className="label">Poznámka k objednávce & Rezervace výčepu</label>
+          <details className="mt-2 rounded border border-neutral-200" open={note.trim().length > 0}>
+            <summary className="min-h-[44px] flex items-center px-3 text-sm font-bold text-neutral-600 cursor-pointer">Poznámka a rezervace výčepu</summary>
+            <div className="space-y-1.5 px-3 pb-3">
             <input type="text" className="input font-medium" placeholder="např. vratný sud, + výčep jednokohout, podtacky" value={note} onChange={(e) => setNote(e.target.value)} />
             <div className="flex flex-wrap items-center gap-1.5 pt-1">
               <span className="text-udaj font-bold text-neutral-500">Rychlé přidání výčepu do poznámky:</span>
@@ -395,14 +404,15 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
                 <IkonaVycep className="ikona-text" /><IkonaVycep className="ikona-text" /><IkonaVycep className="ikona-text" /><IkonaVycep className="ikona-text" /><IkonaVycep className="ikona-text" /><IkonaVycep className="ikona-text" /> + Výčep šestikohout (akce)
               </button>
             </div>
-          </div>
+            </div>
+          </details>
         </div>
 
         {err && <div className="text-sm text-rose-700 bg-rose-500/10 rounded px-3 py-2">{err}</div>}
 
-        <div className="flex justify-end gap-2">
-          <button className="btn-ghost !rounded" onClick={onClose} disabled={saving}>Zrušit</button>
-          <button className="btn-primary !rounded" onClick={save} disabled={saving || filledCount === 0}>
+        <div className="sticky bottom-0 -mx-3 px-3 py-2 flex justify-end gap-2 bg-white border-t border-neutral-200">
+          <button className="btn-ghost !rounded flex-1 sm:flex-none min-h-[48px]" onClick={onClose} disabled={saving}>Zrušit</button>
+          <button className="btn-primary !rounded flex-[2] sm:flex-none min-h-[48px]" onClick={save} disabled={saving || filledCount === 0}>
             {saving ? 'Ukládám…' : 'Uložit změny'}
           </button>
         </div>
