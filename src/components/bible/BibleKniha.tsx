@@ -86,6 +86,48 @@ export function TextListuKnihy({ bloky }: { bloky: BlokTextu[] }) {
   );
 }
 
+/**
+ * Text listu česky nebo v originále. Překlad: null = ještě se připravuje (ukáže
+ * se originál), '' = strana překlad nepotřebuje (česká, prázdná) — bez přepínače.
+ */
+export function PrekladListu({ text, jazyk, setJazyk }: {
+  text: TextListu;
+  jazyk: 'cs' | 'original';
+  setJazyk: (j: 'cs' | 'original') => void;
+}) {
+  const bezPrekladu = text.preklad === '';
+  const cesky = jazyk === 'cs' && !!text.preklad;
+  return (
+    <>
+      {!bezPrekladu && (
+        <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Jazyk textu">
+          <button type="button" aria-pressed={jazyk === 'cs'} className={jazyk === 'cs' ? 'btn-amber' : 'btn-tmave'} onClick={() => setJazyk('cs')}>
+            Česky
+          </button>
+          <button type="button" aria-pressed={jazyk === 'original'} className={jazyk === 'original' ? 'btn-amber' : 'btn-tmave'} onClick={() => setJazyk('original')}>
+            Originál
+          </button>
+        </div>
+      )}
+      {jazyk === 'cs' && text.preklad === null && (
+        <div role="note" className="rounded-lg border border-neutral-600 bg-neutral-950 p-2 text-sm font-bold text-neutral-200">
+          Český překlad této strany se připravuje — zatím je tu originál.
+        </div>
+      )}
+      {cesky && (
+        text.preklad_kontrola ? (
+          <div role="note" className="rounded-lg border border-amber-600 bg-neutral-950 p-2 text-sm font-bold text-amber-200">
+            Překlad: {text.preklad_kontrola}.
+          </div>
+        ) : (
+          <div className="text-xs font-bold text-neutral-300">Překlad Claude — čísla a tabulky jsou opsané z originálu; v případě pochyb přepni na Originál.</div>
+        )
+      )}
+      <TextListuKnihy bloky={rozlozText(cesky ? (text.preklad ?? '') : text.text, text.zdroj_textu)} />
+    </>
+  );
+}
+
 export function BibleKniha({ id, pocatecniList, doKnihovny }: {
   id: string;
   pocatecniList?: number | null;
@@ -95,6 +137,8 @@ export function BibleKniha({ id, pocatecniList, doKnihovny }: {
   const [pohled, setPohled] = useState<Pohled>(pocatecniList ? 'cteni' : 'obsah');
   const [list, setList] = useState<number | null>(pocatecniList ?? null);
   const [texty, setTexty] = useState<Record<number, TextListu>>({});
+  // Česky = překlad strany (je-li hotový), Originál = text knihy (3. 11. 2026: „musí tam být i překlad do češtiny").
+  const [jazykCteni, setJazykCteni] = useState<'cs' | 'original'>('cs');
   // Listy, jejichž načtení selhalo (list → hláška). Po listech, ne jedna hláška:
   // přednačtení dalšího listu může selhat, až když na něm čtenář už je.
   const [selhane, setSelhane] = useState<Record<number, string>>({});
@@ -342,7 +386,7 @@ export function BibleKniha({ id, pocatecniList, doKnihovny }: {
                     Ke kontrole{text.kontrola_duvod ? `: ${text.kontrola_duvod}` : ''} — čísla ověř v originále.
                   </div>
                 )}
-                <TextListuKnihy bloky={rozlozText(text.text, text.zdroj_textu)} />
+                <PrekladListu text={text} jazyk={jazykCteni} setJazyk={setJazykCteni} />
               </>
             ) : chybaListu ? (
               <div role="alert" className="space-y-2">

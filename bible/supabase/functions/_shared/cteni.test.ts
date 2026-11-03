@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import {
-  celeCislo, druhObjektu, jeCitelny, listyPodStropem, MAX_ZNAKU_ODPOVEDI, nahled, rejstrikListu, STRANKA_DB, vsechnyRadky,
+  celeCislo, druhObjektu, jeCitelny, listyPodStropem, MAX_ZNAKU_ODPOVEDI, nahled, rejstrikListu, sPrekladem, STRANKA_DB, vsechnyRadky,
   zpravaNezpracovano,
 } from './cteni';
 import { ChybaVstupu } from './vstupy';
@@ -54,6 +54,23 @@ describe('odpověď čtení', () => {
     expect(obri[0].text).toHaveLength(MAX_ZNAKU_ODPOVEDI + 5);
     expect(listyPodStropem([])).toEqual([]);
     expect(listyPodStropem([{ pdf_index: 1, text: null }])).toHaveLength(1);
+  });
+
+  it('strop znaků počítá i překlad (odpověď nese originál i češtinu)', () => {
+    const l = (i: number) => ({ pdf_index: i, text: 'x'.repeat(10), preklad: 'y'.repeat(10) });
+    expect(listyPodStropem([l(1), l(2), l(3)], 45).map((x) => x.pdf_index)).toEqual([1, 2]);
+  });
+
+  it('překlad jen platný: neplatný (text strany se změnil) nebo chybějící → null', () => {
+    const z = { pdf_index: 1, text: 'Mash at 62 °C' };
+    expect(sPrekladem({ ...z, preklad: 'Rmut při 62 °C', preklad_kontrola: null, preklad_platny: true }))
+      .toEqual({ ...z, preklad: 'Rmut při 62 °C', preklad_kontrola: null });
+    expect(sPrekladem({ ...z, preklad: 'starý', preklad_kontrola: 'čísla nesedí', preklad_platny: false }))
+      .toEqual({ ...z, preklad: null, preklad_kontrola: null });
+    expect(sPrekladem({ ...z, preklad: '', preklad_kontrola: null, preklad_platny: true }).preklad).toBe('');
+    // bez migrace překladu (sloupce nejsou)
+    expect(sPrekladem(z)).toEqual({ ...z, preklad: null, preklad_kontrola: null });
+    expect('preklad_platny' in sPrekladem({ ...z, preklad_platny: true })).toBe(false);
   });
 
   it('náhled: krátký text celý, dlouhý zkrácený na celé znaky s …', () => {

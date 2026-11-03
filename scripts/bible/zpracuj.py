@@ -54,6 +54,7 @@ import naklady
 import obrazky
 import ocr
 import pdf as pdf_mod
+import preklad as preklad_mod
 from jazyk import odhad_jazyka
 from kapitoly import Kapitola, kapitola_listu, okrajove_radky, osnova_pouzitelna, useky, z_nadpisu, z_osnovy
 from pasaze import rozdel_na_pasaze
@@ -723,7 +724,7 @@ def uloz(supa: Supa, dok: dict, v: Vysledek) -> dict:
     return postup
 
 
-def zapis_naklady(supa: Supa, ucet: naklady.Ucet, dokument_id: str | None) -> float:
+def zapis_naklady(supa: Supa, ucet: naklady.Ucet, dokument_id: str | None, ucel: str = 'ocr') -> float:
     """Zapíše dosud nezapsanou útratu do ai_naklady; vrátí ji i tehdy, když zápis selže."""
     polozky = ucet.vynuluj()
     celkem = sum(p.cena for p in polozky.values())
@@ -731,7 +732,7 @@ def zapis_naklady(supa: Supa, ucet: naklady.Ucet, dokument_id: str | None) -> fl
         return 0.0
     try:
         supa.vloz('ai_naklady', [{
-            'ucel': 'ocr', 'model': model, 'volani': p.volani, 'vstup_tokenu': p.vstup, 'vystup_tokenu': p.vystup,
+            'ucel': ucel, 'model': model, 'volani': p.volani, 'vstup_tokenu': p.vstup, 'vystup_tokenu': p.vystup,
             'cache_cteni_tokenu': p.cache_cteni, 'cache_zapis_tokenu': p.cache_zapis, 'cena_usd': round(p.cena, 6),
             'dokument_id': dokument_id, 'poznamka': VERZE if ucet.zdroj == 'api' else f'{VERZE} · předplatné Claude (bez útraty)',
         } for model, p in polozky.items()])
@@ -1002,7 +1003,12 @@ def _beh() -> int:
             return 1
     prepisovac, klient_cc = vyber_prepisovac(klic, token, model, nastaveni, ucet, konec)
     try:
-        return _fronta(supa, prepisovac, ucet, konec, limit_db_bajtu)
+        vysledek = _fronta(supa, prepisovac, ucet, konec, limit_db_bajtu)
+        # Překlad až po zpracování fronty, jen když běh skončil bez chyby účtu
+        # (s chybou účtu, limitem předplatného nebo plnou DB by se nepovedl ani překlad).
+        if vysledek == 0 and prepisovac is not None and time.time() < konec:
+            prekladej(supa, prepisovac, nastaveni, konec)
+        return vysledek
     finally:
         if klient_cc is not None:
             klient_cc.zavri()
@@ -1059,6 +1065,130 @@ def _fronta(supa: Supa, prepisovac: Prepisovac | None, ucet: naklady.Ucet, konec
         log(f'Pozor: {chyba_uctu.do_logu}')
         return 1
     return 0
+
+
+# --- český překlad stran (preklad.py) ------------------------------------------
+
+PREKLAD_MIGRACE = '20261103000000_bible_preklad'
+PREKLAD_SOUBEZNE = 2
+
+
+def _zapnuto(hodnota, vychozi: bool = True) -> bool:
+    if hodnota is None:
+        return vychozi
+    if isinstance(hodnota, bool):
+        return hodnota
+    return str(hodnota).strip().lower() not in ('false', '0', 'ne', 'off', '')
+
+
+def prekladej(supa: Supa, prepisovac: Prepisovac, nastaveni: dict, konec: float) -> dict:
+    """Přeloží do češtiny strany hotových cizojazyčných knih, které ještě nemají platný překlad.
+
+    Stejný klient Claude jako přepis skenů (předplatné nebo API), stejné hlídání
+    času, stropu útraty a chyb účtu. Strana bez potřeby překladu (prázdná,
+    česká) dostane prázdný překlad, ať se na ni příště nečeká. Nepovedený
+    překlad se neuloží (strana počká na další běh). Vrátí počty pro log a testy.
+    """
+    souhrn = {'prelozeno': 0, 'ke_kontrole': 0, 'bez_prekladu': 0, 'nepovedlo': 0}
+    if not _zapnuto(nastaveni.get('preklad_zapnuty')):
+        log('Překlad do češtiny je vypnutý (preklad_zapnuty = false).')
+        return souhrn
+    model = str(nastaveni.get('model_prekladu') or 'claude-sonnet-5-5')
+    ucet = prepisovac.ucet
+    if prepisovac.zdroj == 'api':
+        try:
+            naklady.cena_usd(model, {}, ucet.cenik)
+        except naklady.ChybiCenik:
+            log('Model z model_prekladu nemá v bible_nastaveni ceník — překlad se přeskočí.')
+            return souhrn
+    try:
+        dokumenty = supa.vyber_vse('bible_dokumenty', {'select': 'id,jazyk', 'stav': 'in.(hotovo,ke_kontrole)'},
+                                   razeni='created_at')
+    except ChybaSupabase as e:
+        log(f'Překlad: seznam dokumentů nejde načíst ({e}).')
+        return souhrn
+    uspesnych = 0
+    for dok in dokumenty:
+        # I česká kniha se projde: její strany dostanou prázdný překlad („nepotřebuje"),
+        # jinak by na ně čekal plánovaný běh (krok „Čeká něco?") každé 3 hodiny.
+        id_, jazyk = str(dok['id']), dok.get('jazyk')
+        try:
+            strany = supa.vyber_vse('bible_strany', {
+                'select': 'pdf_index,text', 'dokument_id': f'eq.{id_}', 'preklad_platny': 'is.false'}, razeni='pdf_index')
+        except ChybaSupabase as e:
+            if '42703' in str(e):
+                log(f'Překlad čeká na migraci {PREKLAD_MIGRACE}: appka → Systém → Databázové migrace → Databáze bible.')
+                return souhrn
+            log(f'Překlad dokumentu {id_}: strany nejde načíst ({e}).')
+            continue
+        if not strany:
+            continue
+        log(f'Překlad dokumentu {id_}: {len(strany)} stran bez platného překladu (model {model})')
+
+        def uloz(pdf_index: int, text: str, preklad: str, kontrola: str | None, s_modelem: bool) -> None:
+            supa.uprav('bible_strany', {'dokument_id': f'eq.{id_}', 'pdf_index': f'eq.{pdf_index}'}, {
+                'preklad': preklad, 'preklad_zdroj': preklad_mod.otisk(text),
+                'preklad_model': model if s_modelem else None, 'preklad_verze': preklad_mod.PREKLAD_VERZE,
+                'preklad_kontrola': kontrola, 'prelozeno': datetime.now(timezone.utc).isoformat(),
+            })
+
+        k_prekladu = []
+        for s in strany:
+            text = str(s.get('text') or '')
+            if preklad_mod.potreba_prekladu(text, jazyk, odhad_jazyka):
+                k_prekladu.append((int(s['pdf_index']), text))
+            else:
+                uloz(int(s['pdf_index']), text, '', None, False)
+                souhrn['bez_prekladu'] += 1
+
+        def preloz(polozka: tuple[int, str]) -> tuple[int, str, preklad_mod.Preklad]:
+            pdf_index, text = polozka
+            return pdf_index, text, preklad_mod.preloz_stranu(prepisovac.klient, text, model, jazyk)
+
+        zastavit: BaseException | None = None
+        try:
+            with ThreadPoolExecutor(max_workers=PREKLAD_SOUBEZNE) as pool:
+                for i in range(0, len(k_prekladu), PREKLAD_SOUBEZNE):
+                    if time.time() >= konec:
+                        zastavit = PrerusenoCasem('Čeká: běh došel na časový limit — překlad pokračuje dalším během.')
+                        break
+                    if ucet.prekroceno():
+                        zastavit = PrerusenoStropem('Čeká: došel strop útraty za AI — překlad pokračuje dalším během.')
+                        break
+                    budouci = [pool.submit(preloz, p) for p in k_prekladu[i:i + PREKLAD_SOUBEZNE]]
+                    for f in budouci:
+                        try:
+                            pdf_index, text, p = f.result()
+                        except Exception as e:  # noqa: BLE001 — chyba API → výjimka workeru
+                            prevedena = chyba_api(e, prvni=uspesnych == 0)
+                            if isinstance(prevedena, (Odlozit, PrechodnaChyba)):
+                                zastavit = prevedena
+                            else:
+                                souhrn['nepovedlo'] += 1
+                                log(f'  překlad strany se nepovedl ({type(e).__name__})')
+                            continue
+                        ucet.pridej(model, p.usage, zdarma=prepisovac.zdroj == 'predplatne')
+                        if p.text is None:
+                            souhrn['nepovedlo'] += 1
+                            continue
+                        uspesnych += 1
+                        uloz(pdf_index, text, p.text, p.kontrola, True)
+                        souhrn['prelozeno'] += 1
+                        souhrn['ke_kontrole'] += 1 if p.kontrola else 0
+                    if zastavit is not None:
+                        break
+                    hotovo = min(i + PREKLAD_SOUBEZNE, len(k_prekladu))
+                    if hotovo % 50 < PREKLAD_SOUBEZNE and hotovo < len(k_prekladu):
+                        log(f'  přeloženo {hotovo}/{len(k_prekladu)} stran')
+        finally:
+            zapis_naklady(supa, ucet, id_, ucel='preklad')
+        log(f'  překlad: {souhrn["prelozeno"]} přeloženo ({souhrn["ke_kontrole"]} ověřit v originále), '
+            f'{souhrn["bez_prekladu"]} bez potřeby překladu, {souhrn["nepovedlo"]} nepovedlo')
+        if zastavit is not None:
+            zprava = getattr(zastavit, 'do_logu', None) or str(zastavit)
+            log(f'Překlad ukončen: {zprava}')
+            return souhrn
+    return souhrn
 
 
 def _preruseni(_cislo_signalu, _ramec) -> None:

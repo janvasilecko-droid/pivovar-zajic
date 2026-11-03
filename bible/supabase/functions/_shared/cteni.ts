@@ -61,17 +61,34 @@ export function druhObjektu(v: unknown): DruhObjektu | null {
   throw new ChybaVstupu('Druh musí být tabulka, vzorec nebo popisek.');
 }
 
-/** Listy pod strop znaků — vždy aspoň jeden celý, žádný se nezkracuje (zbytek si appka vyžádá). */
-export function listyPodStropem<T extends { text?: string | null }>(listy: T[], maxZnaku = MAX_ZNAKU_ODPOVEDI): T[] {
+/** Listy pod strop znaků (text i překlad) — vždy aspoň jeden celý, žádný se nezkracuje (zbytek si appka vyžádá). */
+export function listyPodStropem<T extends { text?: string | null; preklad?: string | null }>(listy: T[], maxZnaku = MAX_ZNAKU_ODPOVEDI): T[] {
   const vysledek: T[] = [];
   let znaku = 0;
   for (const l of listy) {
-    const delka = (l.text ?? '').length;
+    const delka = (l.text ?? '').length + (l.preklad ?? '').length;
     if (vysledek.length > 0 && znaku + delka > maxZnaku) break;
     vysledek.push(l);
     znaku += delka;
   }
   return vysledek;
+}
+
+/** Sloupce listu ke čtení; překlad zvlášť — bez migrace 20261103000000_bible_preklad sloupce chybí (42703). */
+export const SLOUPCE_LISTU = 'pdf_index,tistena_strana,tistena_zdroj,zdroj_textu,text,ke_kontrole,kontrola_duvod,kapitola_id';
+export const SLOUPCE_PREKLADU = 'preklad,preklad_kontrola,preklad_platny';
+
+/**
+ * Český překlad listu pro appku: jen platný (vznikl z dnešního textu strany,
+ * DB to hlídá přes md5). Neplatný nebo chybějící → null (appka ukáže originál
+ * a „překlad se připravuje"); prázdný řetězec = strana překlad nepotřebuje.
+ */
+export function sPrekladem<T extends { preklad?: string | null; preklad_kontrola?: string | null; preklad_platny?: boolean | null }>(
+  list: T,
+): Omit<T, 'preklad' | 'preklad_kontrola' | 'preklad_platny'> & { preklad: string | null; preklad_kontrola: string | null } {
+  const { preklad, preklad_kontrola, preklad_platny, ...zbytek } = list;
+  const platny = preklad_platny === true && typeof preklad === 'string';
+  return { ...zbytek, preklad: platny ? preklad : null, preklad_kontrola: platny ? (preklad_kontrola ?? null) : null };
 }
 
 /** Začátek textu pro přehled tabulek a vzorců (bez rozpůleného znaku na konci). */
