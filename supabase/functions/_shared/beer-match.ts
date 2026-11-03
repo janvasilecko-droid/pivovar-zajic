@@ -495,8 +495,14 @@ export function matchPackageId(
   // Desetinná čárka jako tečka („0,5l" = obal „0.5l"), jinak by přesná shoda
   // s názvem obalu níž „0,5l" nepoznala (12. 10. 2026: „20x 0,5l 10°" → 10l).
   const tecka = (t: string) => t.replace(/(\d),(\d)/g, "$1.$2");
-  const labelText = tecka(normText(item.package_label || ""));
   const rawText = tecka(normText(item.raw_line || ""));
+  // „2 basy sklo" bez udaného objemu = lahev 0,5 l. Třetinku (0,33 l) smí AI vrátit
+  // jen když to v zápisu opravdu stojí (0,33 / třetinka / bedna) — z provozu
+  // 2. 11. 2026 jí „A ještě prosím dvě basy sklo 12sv" vyšlo jako 0,33 l.
+  const rawJeSklo = /\b(sklo|lahve?|lahev|basy?|basa|flas\w*)\b/.test(rawText);
+  const rawMaTretinku = /0\.33|\b330\b|\btretink|\bbedn|\bprepravk/.test(rawText);
+  let labelText = tecka(normText(item.package_label || ""));
+  if (rawJeSklo && !rawMaTretinku && /0\.33/.test(labelText)) labelText = "0.5l";
   const text = labelText || rawText;
   if (!text) return null;
 
