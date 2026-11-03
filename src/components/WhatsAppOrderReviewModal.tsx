@@ -8,7 +8,7 @@ import { poradiPodlePrepisu } from '../../supabase/functions/_shared/prepis-fotk
 import { oznacVlastniObjednavku } from '../lib/mojeObjednavky';
 import { najdiDuplicitniObjednavky } from '../lib/orderDuplicates';
 import { nazvyZKatalogu, zeptejSeNaDuplicitu } from '../lib/duplicityDialog';
-import { diffOrderItems, rozsahOdpovedi, slozNavrh, potvrzeneBezPolozek, kandidatiNaDoplneni, datumObjednavky, vypadaJakoZmenaObjednavky, type DiffRow, type RozsahOdpovedi, type SkupinaObalu, type ObjednavkaKandidat } from '../lib/whatsappAmendment';
+import { diffOrderItems, rozsahOdpovedi, slozNavrh, potvrzeneBezPolozek, kandidatiNaDoplneni, opravenyCilUpravy, datumObjednavky, vypadaJakoZmenaObjednavky, type DiffRow, type RozsahOdpovedi, type SkupinaObalu, type ObjednavkaKandidat } from '../lib/whatsappAmendment';
 import { PlaceCombobox } from './PlaceCombobox';
 import { Modal } from './ui';
 import { PhotoReviewPane } from './PhotoReviewPane';
@@ -413,6 +413,34 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
     if (!zvyklosti) return;
     if (zvyklosti.obvyklyZavoz === 2) setZavozCislo(2);
   }, [zvyklosti]);
+
+  // 🔗 Odpověď může být napojená na jinou objednávku, než ze které vznikla
+  // citovaná zpráva (ta se schválila až po odpovědi). Při otevření se cíl ověří
+  // a případně přepojí, ať se přídavek nepřičte ke staré objednávce.
+  useEffect(() => {
+    if (!props.isOpen || !msg?.quoted_text || jeVraceni) return;
+    let zruseno = false;
+    (async () => {
+      const { data } = await supabase
+        .from('whatsapp_incoming')
+        .select('id, created_at, message_text, quoted_text, imported_order_id')
+        .lt('created_at', msg.created_at)
+        .order('created_at', { ascending: false })
+        .limit(200);
+      if (zruseno || !data) return;
+      const spravna = opravenyCilUpravy(msg as any, data as any);
+      if (!spravna) return;
+      try {
+        await napojNaObjednavku(msg.id, spravna);
+        if (!zruseno) {
+          setMsg((m) => (m ? { ...m, amends_order_id: spravna } : m));
+          setStatusMessage('Odpověď byla napojená na jinou objednávku, než ze které vznikla citovaná zpráva — přepojeno na tu správnou.');
+        }
+      } catch { /* zůstane původní napojení, obsluha ho vidí a může změnit */ }
+    })();
+    return () => { zruseno = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.isOpen, msg?.id, msg?.quoted_text, msg?.amends_order_id, jeVraceni]);
 
   // ↩️ Když zpráva upravuje existující objednávku, načti její SOUČASNÝ obsah
   // a porovnej s tím, co z odpovědi vyšlo — obsluha pak vidí celou objednávku

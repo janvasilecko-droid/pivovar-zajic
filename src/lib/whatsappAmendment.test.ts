@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { findQuotedMessage, findAmendedOrderId, diffOrderItems, maZmeny, rozsahOdpovedi, skupinaObalu, slozNavrh, potvrzeneBezPolozek, type WhatsAppMsgRef, vypadaJakoPridavek, prictiPolozky, vypadaJakoOdebrani, odectiPolozky, kandidatiNaDoplneni, vypadaJakoZmenaObjednavky, type ObjednavkaKandidat } from './whatsappAmendment';
+import { findQuotedMessage, findAmendedOrderId, opravenyCilUpravy, diffOrderItems, maZmeny, rozsahOdpovedi, skupinaObalu, slozNavrh, potvrzeneBezPolozek, type WhatsAppMsgRef, vypadaJakoPridavek, prictiPolozky, vypadaJakoOdebrani, odectiPolozky, kandidatiNaDoplneni, vypadaJakoZmenaObjednavky, type ObjednavkaKandidat } from './whatsappAmendment';
 
 const m = (id: string, created_at: string, message_text: string, extra: Partial<WhatsAppMsgRef> = {}): WhatsAppMsgRef =>
   ({ id, created_at, message_text, ...extra });
@@ -612,5 +612,17 @@ describe('odpověď jen přičte nebo odečte (20. 10. 2026)', () => {
     const navrh = slozNavrh({ soucasne: objednavka, zOdpovedi: [{ beer_id: 'win', package_id: 'k30', quantity: 1 }], text: 'Minus 1x30 winter', obaly });
     expect(navrh.find((i) => i.beer_id === 'win')?.quantity).toBe(1);
     expect(navrh.find((i) => i.beer_id === 'b12')?.quantity).toBe(10);
+  });
+});
+
+describe('opravenyCilUpravy — odpověď napojená na starou objednávku', () => {
+  const puvodni = { id: 'm1', created_at: '2026-11-03T13:45:00Z', message_text: 'Luzec 2x50', imported_order_id: 'nova' };
+  const odpoved = { id: 'm2', created_at: '2026-11-03T13:47:00Z', message_text: 'Plus 2 basy', quoted_text: 'Luzec 2x50', amends_order_id: 'stara' };
+  it('citovaná zpráva vznikla z jiné objednávky → vrátí správnou', () => {
+    expect(opravenyCilUpravy(odpoved, [puvodni])).toBe('nova');
+  });
+  it('už napojeno správně nebo není z čeho určit → null', () => {
+    expect(opravenyCilUpravy({ ...odpoved, amends_order_id: 'nova' }, [puvodni])).toBeNull();
+    expect(opravenyCilUpravy(odpoved, [{ ...puvodni, imported_order_id: null }])).toBeNull();
   });
 });

@@ -73,6 +73,24 @@ export function findQuotedMessage(
   return kandidati[0];
 }
 
+/**
+ * Správná objednávka pro odpověď, která je teď napojená JINAM.
+ *
+ * Odpověď se napojí v okamžiku, kdy přijde. Když se citovaná zpráva schválí až
+ * po ní (Lužec 3. 11. 2026: objednávka z 13:45 se schválila ve 13:59, odpověď
+ * „Plus na další fakturu…" z 13:47 mezitím skončila u Lužce z 26. 10.), ukazuje
+ * úprava na cizí objednávku a přidala by lahve k té staré. Vrací id objednávky,
+ * ze které citovaná zpráva opravdu vznikla, jen když se liší od současné.
+ */
+export function opravenyCilUpravy(
+  reply: WhatsAppMsgRef & { amends_order_id?: string | null },
+  vsechny: WhatsAppMsgRef[]
+): string | null {
+  const spravna = findAmendedOrderId(reply, vsechny);
+  if (!spravna || spravna === (reply.amends_order_id ?? null)) return null;
+  return spravna;
+}
+
 /** Objednávku, kterou odpověď upravuje (pokud z citované zprávy nějaká vznikla). */
 export function findAmendedOrderId(
   reply: WhatsAppMsgRef,
