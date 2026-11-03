@@ -4,11 +4,15 @@ import { Package } from './supabase';
 // 1 l piva = 1 kg. K tomu hmotnost obalu:
 //   KEG 50l + 12 kg, KEG 30l + 10 kg, KEG 20/15/10 l + 7,5 kg.
 //   PET 1,5l = 1,5 kg (celkem obal + pivo za 1,5 l),
-//   ostatní lahve = objem v litrech (1 l = 1 kg), obal zanedbáme.
+//   skleněné lahve 0,5 l i 0,33 l = 0,55 kg za kus (majitel, 3. 11. 2026),
+//   lahev 1 l = 1 kg.
 //
 // Pro KEG je "váha obalu" táry + pivo uvnitř: volume_l * 1 + tara_kg.
 // Pro PET 1,5l dáváme celkovou váhu 1,5 kg (pivo + obal dohromady).
-// Pro ostatní lahve platí 1 l = 1 kg, tj. volume_l kg.
+// Pro lahve do 0,5 l platí pevně 0,55 kg za kus, pro ostatní 1 l = 1 kg.
+/** Skleněná lahev 0,5 l i 0,33 l — stejná váha za kus. */
+export const SKLENENA_LAHEV_KG = 0.55;
+
 export function packageWeightKg(pkg: Package): number {
   if (pkg.kind === 'keg') {
     const vol = Number(pkg.volume_l);
@@ -18,7 +22,8 @@ export function packageWeightKg(pkg: Package): number {
   // bottle
   const vol = Number(pkg.volume_l);
   if (vol >= 1.5) return 1.5; // PET 1,5l = 1,5 kg celkem
-  return vol; // 1l = 1kg, 0,5l = 0,5 kg, 0,33l = 0,33 kg
+  if (vol < 1) return SKLENENA_LAHEV_KG; // 0,5 l i 0,33 l
+  return vol; // 1l = 1kg
 }
 
 export function itemWeightKg(pkg: Package | undefined, quantity: number): number {
