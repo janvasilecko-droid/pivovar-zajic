@@ -69,9 +69,11 @@ DAVKA_PREPISU = 10          # přepsané strany se ukládají po tolika (naváz�
 PRUBEH_KAZDYCH_S = 15       # průběh zpracování (procenta v knihovně) se zapisuje nejvýš takhle často
 NAKLADY_KAZDYCH_S = 300     # útrata dlouhého OCR se zapisuje průběžně
 LIMIT_DB_MB = 450           # výchozí pojistka velikosti databáze (Supabase Free = 500 MB)
-# Přes předplatné se za běh přepíše nejvýš tolik stran (bible_nastaveni.max_stran_predplatne):
-# limity Maxu sdílí i majitelova vlastní práce s Claude, ať je přepis knih nevyčerpá naráz.
-MAX_STRAN_PREDPLATNE = 150
+# Přes předplatné se za běh přepíše nejvýš tolik stran (bible_nastaveni.max_stran_predplatne).
+# 3. 11. 2026 majitel: „mám dostatečný limit, ať se přepíše všechno" — dávka už běh
+# neomezuje (dřív 150); zastaví ho až časový limit běhu nebo limit předplatného
+# (subscription_limit → knihy počkají na další běh). Menší dávka jde nastavit v DB.
+MAX_STRAN_PREDPLATNE = 5000
 BAJTU_NA_ZNAK = 8           # odhad místa v DB na znak textu (strana + pasáž + tsvector + index)
 DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
