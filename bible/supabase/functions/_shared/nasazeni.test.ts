@@ -12,8 +12,8 @@ const slozkyFunkci = readdirSync(FUNKCE).filter((s) => !s.startsWith('_') && sta
 const zdroj = (slug: string) => readFileSync(join(FUNKCE, slug, 'index.ts'), 'utf8');
 
 describe('funkce projektu bible', () => {
-  it('jsou bible-api a bible-migrace', () => {
-    expect(slozkyFunkci.sort()).toEqual(['bible-api', 'bible-migrace']);
+  it('jsou bible-api, bible-mcp (konektor do aplikace Claude) a bible-migrace', () => {
+    expect(slozkyFunkci.sort()).toEqual(['bible-api', 'bible-mcp', 'bible-migrace']);
     for (const s of slozkyFunkci) expect(existsSync(join(FUNKCE, s, 'index.ts')), s).toBe(true);
   });
 
@@ -26,8 +26,17 @@ describe('funkce projektu bible', () => {
     expect(CONFIG).toMatch(/^project_id\s*=\s*"cegrelgvkygcatupqwrx"$/m);
   });
 
+  it('bible-mcp pustí k nástrojům jen s platným vlastním tokenem (fail-closed)', () => {
+    const kod = zdroj('bible-mcp');
+    const overeni = kod.indexOf("db.rpc('bible_mcp_over'");
+    expect(overeni).toBeGreaterThan(0);
+    expect(overeni).toBeLessThan(kod.indexOf('zpracujZpravu(z as'));
+    expect(kod).toMatch(/if \(!Array\.isArray\(overeni\) \|\| overeni\.length === 0\) return neprihlasen\(\);/);
+    expect(kod).not.toMatch(/\.(insert|update|upsert|delete)\(/);
+  });
+
   it('každá ověřuje přihlášení bránou před prací s databází', () => {
-    for (const s of slozkyFunkci) {
+    for (const s of slozkyFunkci.filter((f) => f !== 'bible-mcp')) {
       const kod = zdroj(s);
       expect(kod, s).toMatch(/overUzivatele\(/);
       expect(kod.indexOf('overUzivatele('), s).toBeLessThan(kod.indexOf('createClient(url'));

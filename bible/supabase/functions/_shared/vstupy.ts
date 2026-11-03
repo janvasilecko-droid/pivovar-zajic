@@ -27,6 +27,10 @@ export const AKCE = {
   // Přehledy témat (Claude porovná knihy, s odkazy na stránky).
   prehledy: 'cte',
   prehled: 'cte',
+  // Konektor do aplikace Claude (bible-mcp): schválení a správa připojení.
+  mcp_povolit: 'cte',
+  mcp_pripojeni: 'cte',
+  mcp_odpojit: 'cte',
 } as const satisfies Record<string, Pristup>;
 
 export type Akce = keyof typeof AKCE;

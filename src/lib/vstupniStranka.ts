@@ -12,6 +12,19 @@ export function zjistiStrankuZUrl(search: string, platneStranky: ReadonlySet<str
 }
 
 /**
+ * Podstránka z adresy (`?page=bible&sub=kniha:<id>:<list>`) — odkazy na stránku
+ * knihy z odpovědí Clauda (konektor bible-mcp, 3. 11. 2026). Jen bezpečné znaky.
+ */
+export function zjistiPodstrankuZUrl(search: string): string | null {
+  const s = new URLSearchParams(search).get('sub');
+  return s && /^[A-Za-z0-9:_-]{1,80}$/.test(s) ? s : null;
+}
+
+/** Obrazovka schválení připojení aplikace Claude (OAuth, konektor bible-mcp). */
+export const CESTA_CLAUDE_PRIPOJENI = '/claude-pripojeni';
+export const jeClaudePripojeni = (pathname: string): boolean => pathname.replace(/\/+$/, '') === CESTA_CLAUDE_PRIPOJENI;
+
+/**
  * Má se po otevření rovnou ukázat checklist konce stáčení?
  *
  * Připomínka v 16:00 a 18:00 (migrace 20261231140000) posílá

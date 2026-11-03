@@ -15,7 +15,7 @@ const krok = (nazev: string) => {
 
 describe('funkce projektu bible', () => {
   it('otisk: bible-api a bible-migrace, stabilní a různý pro každou funkci', () => {
-    expect(funkceBible()).toEqual(['bible-api', 'bible-migrace']);
+    expect(funkceBible()).toEqual(['bible-api', 'bible-mcp', 'bible-migrace']);
     const a = otiskFunkce('bible-api');
     expect(a).toMatch(/^[0-9a-f]{16}$/);
     expect(otiskFunkce('bible-api')).toBe(a);

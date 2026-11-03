@@ -13,3 +13,6 @@ verify_jwt = false
 
 [functions.bible-migrace]
 verify_jwt = false
+
+[functions.bible-mcp]
+verify_jwt = false

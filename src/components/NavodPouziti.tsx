@@ -550,6 +550,10 @@ const ODDILY: Oddil[] = [
         jak: 'Pivovarská bible → Hledání v knihách. Napiš slova (např. „chmelovar odpar“) a klepni Hledat. Hledá se v textu zpracovaných knih i v jejich českém překladu, takže česky najdeš i to, co je v anglické knize. Stačí začátek slova („amyl“ najde amylázu), všechna slova musí být na jedné stránce. Výsledek ukáže knihu, kapitolu a stranu; klepnutím se kniha otevře přesně na té stránce. Pod hledáním jsou Přehledy témat: Claude porovná, co o tématu (chmelovar, rmutování…) píšou všechny knihy, a napíše to nejlepší; čísla v závorkách otevřou knihu na té stránce. Přehledy vzniknou, až jsou všechny knihy zpracované a přeložené, a po přidání nové knihy se doplní o nová fakta.',
       },
       {
+        co: 'Ptát se Clauda na knihy',
+        jak: 'Pivovarská bible → Správa znalostí → Aplikace Claude: zkopíruj adresu konektoru, v aplikaci Claude (claude.ai → Nastavení → Konektory) přidej vlastní konektor „Pivovarská bible" a v appce pivovaru potvrď „Povolit". Pak se v Claude (i v mobilu) zeptáš třeba „napiš to nejlepší o chmelovaru z mých knih" a Claude prohledá knihy, přečte stránky a odpoví s odkazy na knihu a stranu. Odpojit jde tamtéž tlačítkem Odpojit.',
+      },
+      {
         co: 'Správa znalostí',
         jak: 'Dlaždice Správa znalostí ukazuje tematické oblasti A–T s počtem dokumentů, kdo má přístup a kolik místa zabírá databáze a úložiště. Ostatní dlaždice (chatbot, výpočty, technologie, várky) řeknou, ve které etapě přijdou.',
       },

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { zjistiStrankuZUrl, jeChecklistKonceZUrl } from './vstupniStranka';
+import { zjistiStrankuZUrl, jeChecklistKonceZUrl, jeClaudePripojeni, zjistiPodstrankuZUrl } from './vstupniStranka';
 
 const PLATNE = new Set(['orders', 'kegging', 'bottling', 'home']);
 
@@ -34,5 +34,19 @@ describe('jeChecklistKonceZUrl', () => {
 
   it('jinou hodnotu ignoruje', () => {
     expect(jeChecklistKonceZUrl('?checklist=zacatek')).toBe(false);
+  });
+});
+
+describe('odkaz na stránku knihy a schválení Claude', () => {
+  it('podstránka z adresy jen z bezpečných znaků', () => {
+    expect(zjistiPodstrankuZUrl('?page=bible&sub=kniha:11111111-2222-3333-4444-555555555555:170')).toBe('kniha:11111111-2222-3333-4444-555555555555:170');
+    expect(zjistiPodstrankuZUrl('?page=bible&sub=<script>')).toBeNull();
+    expect(zjistiPodstrankuZUrl('?page=bible')).toBeNull();
+  });
+
+  it('cesta schválení připojení Claude', () => {
+    expect(jeClaudePripojeni('/claude-pripojeni')).toBe(true);
+    expect(jeClaudePripojeni('/claude-pripojeni/')).toBe(true);
+    expect(jeClaudePripojeni('/')).toBe(false);
   });
 });

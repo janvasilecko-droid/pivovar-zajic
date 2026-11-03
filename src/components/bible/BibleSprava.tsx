@@ -4,6 +4,7 @@
 // Kapacitu PROJEKTU BIBLE (samostatný Supabase Free, R12: vlastní 500 MB
 // databáze a 1 GB úložiště) vrací bible_kapacita() přes bible-api jen
 // správcům knihovny. Tarif z ní poznat nejde — limity Free jsou pro srovnání.
+import { ClaudeKonektorPanel } from './ClaudeKonektorPanel';
 import { useEffect, useState } from 'react';
 import { ExternalLink, ShieldCheck } from 'lucide-react';
 import { smiSpravovat, type BibleRole } from '../../lib/bibleOpravneni';
@@ -146,6 +147,8 @@ export function BibleSprava({ role, setPage }: {
           </a>
         </section>
       )}
+
+      <ClaudeKonektorPanel />
 
       <section className="rounded-xl border border-neutral-700 bg-neutral-900 text-neutral-100 p-4 space-y-2">
         <h2 className="font-black">AI a náklady</h2>
