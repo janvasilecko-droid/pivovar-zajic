@@ -843,17 +843,17 @@ export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
                 />
               </div>
             </div>
+          </div>
 
-            <div className="flex items-center gap-2 text-udaj font-black text-neutral-700">
-              <div className="flex items-center gap-1 px-2.5 py-1 rounded bg-amber-50 border border-amber-200/80 text-amber-900">
-                <Scale size={14} className="text-amber-600" />
-                <span>Váha: <strong className="font-mono">{fmtKg(totalWeight)} kg</strong></span>
-              </div>
-
-              <div className="flex items-center gap-1 px-2.5 py-1 rounded bg-emerald-50 border border-emerald-200/80 text-emerald-900">
-                <CheckCircle2 size={14} className="text-emerald-600" />
-                <span>Zavezeno: <strong className="font-mono">{deliveredCount}/{activeOrders.length}</strong></span>
-              </div>
+          {/* Váha a počet zavezených — přilepené nahoře, ať jsou vidět při rolování seznamem. */}
+          <div className="sticky top-[48px] z-30 flex items-center gap-2 text-udaj font-black text-neutral-700 bg-white/95 backdrop-blur px-3 py-1.5 rounded border border-neutral-200/90 shadow-sm">
+            <div className="flex items-center gap-1 px-2.5 py-1 rounded bg-amber-50 border border-amber-200/80 text-amber-900">
+              <Scale size={14} className="text-amber-600" />
+              <span>Váha: <strong className="font-mono">{fmtKg(totalWeight)} kg</strong></span>
+            </div>
+            <div className="flex items-center gap-1 px-2.5 py-1 rounded bg-emerald-50 border border-emerald-200/80 text-emerald-900">
+              <CheckCircle2 size={14} className="text-emerald-600" />
+              <span>Zavezeno: <strong className="font-mono">{deliveredCount}/{activeOrders.length}</strong></span>
             </div>
           </div>
 
@@ -864,7 +864,7 @@ export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
           ) : (
             <>
               {/* Mobile Tab Switcher — ukotvený hned pod dnovým filtrem výše. */}
-              <div className="lg:hidden sticky top-[48px] z-20 flex items-center p-1.5 rounded bg-white border border-neutral-200 shadow-md">
+              <div className="lg:hidden sticky top-[96px] z-20 flex items-center p-1.5 rounded bg-white border border-neutral-200 shadow-md">
                 <button
                   onClick={() => setMobileTab('routes')}
                   className={`flex-1 py-3 px-3 rounded font-black text-xs transition-all flex items-center justify-center gap-2 ${

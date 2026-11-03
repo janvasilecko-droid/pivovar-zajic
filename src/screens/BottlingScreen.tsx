@@ -37,7 +37,7 @@ import { synchronizuj } from '../lib/checklistData';
 import { computePackageNeeds, PackageNeedsRow } from '../lib/packageNeeds';
 import { jeSud } from '../lib/inventoryFix';
 import { FILTR_SUDU, odpovidaFiltruObalu } from '../lib/filtrSudu';
-import { computeKeggingPlan, mergeWeekPlan, rozpadPoObalech, BEZ_TERMINU } from '../lib/keggingPlan';
+import { computeKeggingPlan, mergeWeekPlan, rozpadPoObalech, BEZ_TERMINU, dayKeyFromISO } from '../lib/keggingPlan';
 import { zbytekKeKonciTydne } from '../lib/tydenniZbytek';
 import { naplanujPresun } from '../lib/presunPolozky';
 import KeggingDayPlan from '../components/KeggingDayPlan';
@@ -663,7 +663,10 @@ export default function BottlingScreen({
     if (!tileBeer) return;
     const byDay = missingByBeerDay[tileBeer.id] || {};
     const nearest = dennniPlanLahvi.find((p) => p.day !== BEZ_TERMINU && (byDay[p.day] || 0) > 0)?.day;
-    setTileDay(nearest ?? 'tyden');
+    // Předvolený je den, pro který se právě zapisuje (datum zápisu), ne nejbližší
+    // den s nedostatkem — „když zadám stáčení, má se ukázat den, který zrovna je“.
+    const denZapisu = dayKeyFromISO(date);
+    setTileDay(dennniPlanLahvi.some((p) => p.day === denZapisu) ? denZapisu : (nearest ?? 'tyden'));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tileBeer]);
 

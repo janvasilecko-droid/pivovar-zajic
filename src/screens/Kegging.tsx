@@ -15,7 +15,7 @@ import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
 import { VoiceRecorder } from '../components/VoiceRecorder';
 import { parseFreeTextEntries, loadAliasMap, emptyAliasMap, type ParserAliasMap } from '../lib/orderParser';
 import { requestOrdersItemFilter } from '../lib/ordersFilter';
-import { computeKeggingPlan, mergeWeekPlan, rozpadPoObalech, BEZ_TERMINU, textJenOdskrtnuto } from '../lib/keggingPlan';
+import { computeKeggingPlan, mergeWeekPlan, rozpadPoObalech, BEZ_TERMINU, dayKeyFromISO, textJenOdskrtnuto } from '../lib/keggingPlan';
 import { naplanujPresun } from '../lib/presunPolozky';
 import { BottlingPlanBottler } from '../components/BottlingPlanBottler';
 import { markPlanSeenAt, type BottlingPlan } from '../lib/bottlingPlans';
@@ -828,7 +828,10 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     if (!expandedKegBeerId) return;
     const byDay = missingByBeerDay[expandedKegBeerId] || {};
     const nearest = keggingPlan.find((p) => p.day !== BEZ_TERMINU && (byDay[p.day] || 0) > 0)?.day;
-    setTileDay(nearest ?? 'tyden');
+    // Předvolený je den, pro který se právě zapisuje (datum zápisu), ne nejbližší
+    // den s nedostatkem — „když zadám stáčení, má se ukázat den, který zrovna je“.
+    const denZapisu = dayKeyFromISO(date);
+    setTileDay(keggingPlan.some((p) => p.day === denZapisu) ? denZapisu : (nearest ?? 'tyden'));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [expandedKegBeerId]);
 
