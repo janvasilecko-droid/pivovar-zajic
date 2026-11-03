@@ -65,20 +65,17 @@ class ChybaClaudeCode(RuntimeError):
         self.detail = detail
 
 
-_HLASKA_API = re.compile(r'API Error: \d{3}[^\n]{0,160}')
 _TOKEN = re.compile(r'sk-ant-[A-Za-z0-9_\-]*')
 
 
 def hlaska_api(text: str) -> str:
-    """Hláška API z chybového výsledku Claude Code („API Error: 401 OAuth access token is invalid.“).
+    """Hláška chyby API, kterou Claude Code sám napsal do výsledku (api_error_status).
 
-    Bere se jen text za „API Error: NNN“ (ten píše Claude Code podle odpovědi
-    API, ne podle stránky), případný token je zamaskovaný, nejvýš 160 znaků.
+    Takový výsledek je syntetický (model „<synthetic>“), ne odpověď modelu —
+    např. „Failed to authenticate. API Error: 401 OAuth access token is invalid.“
+    Token se zamaskuje, bílé znaky sloučí, nejvýš 160 znaků.
     """
-    m = _HLASKA_API.search(text or '')
-    if not m:
-        return ''
-    return _TOKEN.sub('sk-ant-…', ' '.join(m.group(0).split()))
+    return _TOKEN.sub('sk-ant-…', ' '.join((text or '').split()))[:160]
 
 
 # Druh chyby podle hlášky Claude Code. Do výjimky jde jen druh a pevná věta,
