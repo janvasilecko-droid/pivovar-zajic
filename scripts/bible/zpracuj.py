@@ -150,7 +150,7 @@ def chyba_api(e: BaseException, prvni: bool = False) -> BaseException | None:
     zprava = ' '.join(str(getattr(e, 'message', '') or e).split())[:200]
     mala = zprava.lower()
     if getattr(e, 'zdroj', None) == 'predplatne':
-        return _chyba_predplatneho(druh, status)
+        return _chyba_predplatneho(druh, status, str(getattr(e, 'detail', '') or ''))
     if status in (401, 403) or druh in ('authentication_error', 'permission_error'):
         return ZastavitBeh(f'Čeká: Anthropic odmítl klíč (HTTP {status}) — zkontroluj ANTHROPIC_API_KEY v app_secrets hlavní appky.')
     if status == 402 or druh == 'billing_error' or any(
@@ -172,22 +172,24 @@ def chyba_api(e: BaseException, prvni: bool = False) -> BaseException | None:
     return None
 
 
-def _chyba_predplatneho(druh: str, status: int | None) -> BaseException:
+def _chyba_predplatneho(druh: str, status: int | None, detail: str = '') -> BaseException:
     """Chyba Claude Code s předplatným (claude_cli.ChybaClaudeCode) → výjimka workeru.
 
     Limit předplatného a token zastaví běh (knihy se skeny počkají, ostatní
-    se zpracují); přetížení a výpadek jako u API. Zpráva je pevná věta —
-    z výsledku Claude Code se nebere žádný text (mohl by nést obsah stránky).
+    se zpracují); přetížení a výpadek jako u API. Zpráva je pevná věta;
+    z výsledku Claude Code se přidá jen hláška API (claude_cli.hlaska_api,
+    „API Error: 401 …“ bez tokenu), nikdy jiný text (mohl by nést obsah stránky).
     """
+    pricina = f' Odpověď Claude: {detail}' if detail else (f' (HTTP {status})' if status else '')
     if druh == 'subscription_limit':
         return ZastavitBeh('Čeká: došel limit předplatného Claude (5hodinový nebo týdenní) — přepis pokračuje dalším během.')
     if druh == 'authentication_error':
         return ZastavitBeh('Čeká: Claude Code odmítl token předplatného — vytvoř nový příkazem „claude setup-token" '
-                           'a ulož ho v GitHubu jako secret CLAUDE_CODE_OAUTH_TOKEN.')
+                           f'a ulož ho v GitHubu jako secret CLAUDE_CODE_OAUTH_TOKEN.{pricina}')
     if druh == 'not_installed':
         return ZastavitBeh('Čeká: v běhu chybí Claude Code (instalace selhala) — zkusí se příštím během.')
     if druh == 'not_found_error':
-        return ZastavitBeh('Čeká: Claude Code model nezná nebo ho předplatné nemá — zkontroluj model_ocr v nastavení bible.')
+        return ZastavitBeh(f'Čeká: Claude Code model nezná nebo ho předplatné nemá — zkontroluj model_ocr v nastavení bible.{pricina}')
     if druh == 'rate_limit_error':
         return ZastavitBeh('Čeká: Claude omezil počet požadavků (HTTP 429) — pokračuje se příštím během.')
     return PrechodnaChyba(f'Čeká: Claude Code je dočasně nedostupný ({druh}{f", HTTP {status}" if status else ""}) — zkusí se příštím během.')

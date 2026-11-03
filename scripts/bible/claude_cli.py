@@ -56,11 +56,29 @@ class ChybaClaudeCode(RuntimeError):
     """
     zdroj = 'predplatne'
 
-    def __init__(self, druh: str, zprava: str, status: int | None = None):
+    def __init__(self, druh: str, zprava: str, status: int | None = None, detail: str = ''):
         super().__init__(zprava)
         self.type = druh
         self.message = zprava
         self.status_code = status
+        # Jen hláška API („API Error: 401 …“) bez tokenu — obsah stránky v ní nebývá.
+        self.detail = detail
+
+
+_HLASKA_API = re.compile(r'API Error: \d{3}[^\n]{0,160}')
+_TOKEN = re.compile(r'sk-ant-[A-Za-z0-9_\-]*')
+
+
+def hlaska_api(text: str) -> str:
+    """Hláška API z chybového výsledku Claude Code („API Error: 401 OAuth access token is invalid.“).
+
+    Bere se jen text za „API Error: NNN“ (ten píše Claude Code podle odpovědi
+    API, ne podle stránky), případný token je zamaskovaný, nejvýš 160 znaků.
+    """
+    m = _HLASKA_API.search(text or '')
+    if not m:
+        return ''
+    return _TOKEN.sub('sk-ant-…', ' '.join(m.group(0).split()))
 
 
 # Druh chyby podle hlášky Claude Code. Do výjimky jde jen druh a pevná věta,
@@ -215,7 +233,15 @@ class KlientClaudeCode:
                                        usage=_usage(vysledek.get('usage')))
             text = ' '.join(str(x) for x in (vysledek.get('result'), vysledek.get('error'), stderr) if x)
             druh, status = druh_chyby(text)
-            raise ChybaClaudeCode(druh, f'{_VETY.get(druh, "Claude Code selhal")} ({podtyp or "chyba"})', status)
+            # Hláška jen u chyby, kterou Claude Code hlásí jako odpověď API (api_error_status) —
+            # ne z textu, který by mohl napsat model podle stránky.
+            api_status = vysledek.get('api_error_status')
+            detail = ''
+            if isinstance(api_status, int) and not isinstance(api_status, bool):
+                status = api_status
+                detail = hlaska_api(str(vysledek.get('result') or ''))
+            raise ChybaClaudeCode(druh, f'{_VETY.get(druh, "Claude Code selhal")} ({podtyp or "chyba"})', status,
+                                  detail=detail)
         if se_schematem:
             data = vysledek.get('structured_output')
             text = json.dumps(data, ensure_ascii=False) if isinstance(data, dict) else str(vysledek.get('result') or '')

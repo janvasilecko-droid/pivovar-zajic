@@ -200,3 +200,33 @@ def test_popis_tokenu_upozorni_na_cizi_hodnotu_bez_vypsani_znaku():
     finally:
         klient.zavri()
     assert 'NEMÁ předponu' in popis and 'OfqO' not in popis
+
+
+def test_odmitnuty_token_ukaze_hlasku_api_bez_tokenu_a_bez_textu_stranky(tmp_path):
+    # Tak vypadá skutečný výsledek Claude Code 2.1.316 s neplatným tokenem (ověřeno 3. 11. 2026).
+    vystup = _vysledek(is_error=True, subtype='success', api_error_status=401, structured_output=None,
+                       result='Failed to authenticate. API Error: 401 OAuth access token is invalid. sk-ant-oat01-TAJNE')
+    klient = claude_cli.KlientClaudeCode('t', prikaz=_falesny_claude(tmp_path, vystup, kod=1))
+    try:
+        with pytest.raises(claude_cli.ChybaClaudeCode) as e:
+            ocr.prepis_stranky(klient, b'x', 'claude-haiku-5-5')
+    finally:
+        klient.zavri()
+    assert e.value.type == 'authentication_error' and e.value.status_code == 401
+    assert e.value.detail.startswith('API Error: 401 OAuth access token is invalid.') and 'TAJNE' not in e.value.detail
+    v = zpracuj.chyba_api(e.value)
+    assert isinstance(v, zpracuj.ZastavitBeh)
+    assert 'Odpověď Claude: API Error: 401 OAuth access token is invalid.' in str(v) and 'TAJNE' not in str(v)
+
+
+def test_hlaska_se_nebere_z_textu_bez_chyby_api(tmp_path):
+    # Bez api_error_status (chyba běhu, kde by mohl být text modelu) se žádná hláška nepřebírá.
+    vystup = _vysledek(is_error=True, subtype='error_during_execution', structured_output=None,
+                       result='Please run /login API Error: 401 TAJNY-OBSAH-KNIHY')
+    klient = claude_cli.KlientClaudeCode('t', prikaz=_falesny_claude(tmp_path, vystup, kod=1))
+    try:
+        with pytest.raises(claude_cli.ChybaClaudeCode) as e:
+            ocr.prepis_stranky(klient, b'x', 'm')
+    finally:
+        klient.zavri()
+    assert e.value.detail == '' and 'TAJNY' not in str(zpracuj.chyba_api(e.value))
