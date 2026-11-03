@@ -44,7 +44,7 @@ const kniha = (navic: Partial<Kniha> = {}): Kniha => ({
 });
 const list = (pdf_index: number, text: string, navic: Partial<TextListu> = {}): TextListu => ({
   pdf_index, tistena_strana: pdf_index > 1 ? String(pdf_index - 1) : null, tistena_zdroj: null, zdroj_textu: pdf_index > 1 ? 'ocr' : 'vrstva',
-  text, ke_kontrole: false, kontrola_duvod: null, kapitola_id: null, ...navic,
+  text, ke_kontrole: false, kontrola_duvod: null, kapitola_id: null, preklad: '', preklad_kontrola: null, ...navic,
 });
 const TEXTY: Record<number, TextListu> = {
   1: list(1, 'Úvodní list | s doslovnou čarou'),

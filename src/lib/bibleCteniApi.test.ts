@@ -64,7 +64,8 @@ describe('čtení knihy přes bible-api', () => {
 
   it('listy: od a počet do bible-api, neznámý zdroj textu = textová vrstva (nerozebírá se)', async () => {
     odpovedi.listy = { listy: [
-      { pdf_index: 3, tistena_strana: '5', tistena_zdroj: 'ocr', zdroj_textu: 'ocr', text: '# Nadpis', ke_kontrole: true, kontrola_duvod: '2 z 9 čísel', kapitola_id: 'k1' },
+      { pdf_index: 3, tistena_strana: '5', tistena_zdroj: 'ocr', zdroj_textu: 'ocr', text: '# Nadpis', ke_kontrole: true, kontrola_duvod: '2 z 9 čísel', kapitola_id: 'k1',
+        preklad: '# Nadpis česky', preklad_kontrola: 'čísla nesedí' },
       { pdf_index: 4, zdroj_textu: 'divny', text: 5 },
       { text: 'bez čísla listu' },
     ] };
@@ -75,6 +76,9 @@ describe('čtení knihy přes bible-api', () => {
     expect(r.data).toHaveLength(2);
     expect(r.data[0]).toMatchObject({ pdf_index: 3, zdroj_textu: 'ocr', ke_kontrole: true, kontrola_duvod: '2 z 9 čísel' });
     expect(r.data[1]).toMatchObject({ pdf_index: 4, zdroj_textu: 'vrstva', text: '', ke_kontrole: false });
+    // Český překlad (stará bible-api ho neposílá → null = „připravuje se")
+    expect(r.data[0]).toMatchObject({ preklad: '# Nadpis česky', preklad_kontrola: 'čísla nesedí' });
+    expect(r.data[1]).toMatchObject({ preklad: null, preklad_kontrola: null });
   });
 
   it('objekty: jen známé druhy, pokračování podle pořadí', async () => {

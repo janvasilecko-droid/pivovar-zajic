@@ -1,5 +1,6 @@
 {
   "soubory": [
-    "20261101000000_bible_zaklad.sql"
+    "20261101000000_bible_zaklad.sql",
+    "20261103000000_bible_preklad.sql"
   ]
 }

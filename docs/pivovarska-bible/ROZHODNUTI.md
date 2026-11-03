@@ -149,3 +149,19 @@ Každé rozhodnutí má datum, důvod a co by ho změnilo.
   authenticated` (výchozí EXECUTE pro PUBLIC jde vypnout jen globálně, což by
   zasáhlo i rozšíření). Hlídá to `bible/supabase/testy/10_kontroly.sql`, které
   CI pouští už na pull requestu — migraci jde z appky pustit hned po nasazení.
+
+## R13 — Český překlad stran (3. 11. 2026)
+
+- Majitel: „je to anglicky, musí tam být i překlad do češtiny".
+- Worker po zpracování fronty přeloží strany hotových cizojazyčných knih do
+  češtiny (`scripts/bible/preklad.py`, model `model_prekladu`, výchozí
+  `claude-sonnet-5-5`) stejným klientem jako přepis skenů — přes předplatné
+  Claude, kredit majitel platit nechce („žádný kredit… nebudu platit kredity").
+- Originál zůstává; překlad je ve sloupci `bible_strany.preklad`. Platí jen
+  k textu, ze kterého vznikl (`preklad_zdroj` = md5 textu, DB počítá
+  `preklad_platny`): po novém zpracování se strana přeloží znovu.
+- Čísla v překladu se porovnají s originálem; nesedí-li, překlad dostane
+  upozornění „ověř v originále" (`preklad_kontrola`). Čtení v appce ukáže
+  češtinu, originál jedním klepnutím.
+- Migrace `20261103000000_bible_preklad` (spouští majitel). Bez ní worker
+  překlad přeskočí a bible-api vrací originál jako dřív.

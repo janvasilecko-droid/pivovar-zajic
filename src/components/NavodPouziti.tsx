@@ -543,7 +543,7 @@ const ODDILY: Oddil[] = [
       },
       {
         co: 'Číst knihu',
-        jak: 'U zpracované knihy klepni na „Číst“. Obsah ukáže kapitoly (klepnutím otevřeš jejich stranu), Čtení listuje stranu po straně šipkami nebo skokem na číslo strany a Tabulky a vzorce ukáže tabulky a vzorce rozpoznané v přepisu skenů. Strana „s. 158“ je vytištěné číslo, „list 170“ pořadí v souboru. U strany ke kontrole ověř čísla v originále.',
+        jak: 'U zpracované knihy klepni na „Číst“. Obsah ukáže kapitoly (klepnutím otevřeš jejich stranu), Čtení listuje stranu po straně šipkami nebo skokem na číslo strany a Tabulky a vzorce ukáže tabulky a vzorce rozpoznané v přepisu skenů. Strana „s. 158“ je vytištěné číslo, „list 170“ pořadí v souboru. U strany ke kontrole ověř čísla v originále. Cizojazyčná kniha se po zpracování sama přeloží do češtiny: čtení ukáže češtinu, tlačítkem „Originál“ přepneš na text knihy. Překlad, kde čísla nesedí s originálem, má upozornění.',
       },
       {
         co: 'Správa znalostí',

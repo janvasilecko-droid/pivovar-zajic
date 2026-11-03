@@ -9,7 +9,7 @@ import {
 } from '../_shared/vstupy.ts';
 import {
   celeCislo, druhObjektu, DRUHY_OBJEKTU, jeCitelny, listyPodStropem, MAX_LISTU_NA_DOTAZ, nahled, OBJEKTU_NA_DOTAZ,
-  rejstrikListu, vsechnyRadky, ZPRAVA_BEZ_TEXTU, zpravaNezpracovano,
+  rejstrikListu, sPrekladem, SLOUPCE_LISTU, SLOUPCE_PREKLADU, vsechnyRadky, ZPRAVA_BEZ_TEXTU, zpravaNezpracovano,
 } from '../_shared/cteni.ts';
 
 /**
@@ -231,11 +231,15 @@ const PROVEDENI: Record<Akce, (k: Kontext) => Promise<Response>> = {
     const pocet = celeCislo(telo.pocet, 'Počet listů', 1, MAX_LISTU_NA_DOTAZ, 1);
     const c = await citelnyDokument(db, id, cors, 'listy');
     if ('odpoved' in c) return c.odpoved;
-    const { data, error } = await db.from('bible_strany')
-      .select('pdf_index,tistena_strana,tistena_zdroj,zdroj_textu,text,ke_kontrole,kontrola_duvod,kapitola_id')
-      .eq('dokument_id', id).gte('pdf_index', od).order('pdf_index').limit(pocet);
+    const dotaz = (sloupce: string) => db.from('bible_strany')
+      .select(sloupce).eq('dokument_id', id).gte('pdf_index', od).order('pdf_index').limit(pocet);
+    // S českým překladem; databáze bez migrace překladu (sloupec chybí, 42703) → originál jako dřív.
+    let { data, error } = await dotaz(`${SLOUPCE_LISTU},${SLOUPCE_PREKLADU}`);
+    if (error?.code === '42703') ({ data, error } = await dotaz(SLOUPCE_LISTU));
     if (error) return chybaDb(cors, error, 'listy');
-    return hotovo(cors, { listy: listyPodStropem((data ?? []) as { text?: string | null }[]) });
+    const listy = ((data ?? []) as { text?: string | null; preklad?: string | null; preklad_kontrola?: string | null; preklad_platny?: boolean | null }[])
+      .map(sPrekladem);
+    return hotovo(cors, { listy: listyPodStropem(listy) });
   },
 
   // Přehled tabulek, vzorců a popisků (pasáže s druhem) s náhledem a listem.

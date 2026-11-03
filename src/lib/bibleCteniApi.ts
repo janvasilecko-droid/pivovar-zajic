@@ -19,6 +19,10 @@ export type TextListu = {
   ke_kontrole: boolean;
   kontrola_duvod: string | null;
   kapitola_id: string | null;
+  /** Český překlad strany (3. 11. 2026); null = zatím není, '' = strana překlad nepotřebuje (česká, prázdná). */
+  preklad: string | null;
+  /** Proč překlad ověřit v originále (čísla nesedí…); null = v pořádku. */
+  preklad_kontrola: string | null;
 };
 
 export type DruhObjektu = 'tabulka' | 'vzorec' | 'popisek';
@@ -87,6 +91,8 @@ function listZOdpovedi(v: unknown): TextListu | null {
     ke_kontrole: l.ke_kontrole === true,
     kontrola_duvod: textNeboNull(l.kontrola_duvod),
     kapitola_id: textNeboNull(l.kapitola_id),
+    preklad: textNeboNull(l.preklad),
+    preklad_kontrola: textNeboNull(l.preklad_kontrola),
   };
 }
 

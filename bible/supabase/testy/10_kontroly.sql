@@ -269,6 +269,22 @@ INSERT INTO public.bible_strany (dokument_id, pdf_index, tistena_strana, tistena
 INSERT INTO public.bible_pasaze (dokument_id, kapitola_id, poradi, strana_od, strana_do, text, jazyk) VALUES
   (pg_temp.dok('a'), '33333333-3333-3333-3333-333333333333', 1, 1, 1, 'Die β-Amylase arbeitet bei 62–65 °C am besten. Würze entsteht beim Maischen.', 'de'),
   (pg_temp.dok('a'), '33333333-3333-3333-3333-333333333333', 2, 2, 2, 'Rmutování: β-amyláza pracuje nejlépe při 62–65 °C.', 'cs');
+-- Překlad (20261103000000_bible_preklad): platí jen k textu, ze kterého vznikl.
+-- md5 počítá worker v Pythonu (hashlib.md5 UTF-8) — tady pevná hodnota, ať sedí obě strany.
+UPDATE public.bible_strany SET preklad = 'β-amyláza pracuje při 62–65 °C.', preklad_zdroj = 'ded436ab21220e6c7346efb489ec1ac0'
+ WHERE dokument_id = pg_temp.dok('a') AND pdf_index = 1;
+SELECT pg_temp.ocekavam((SELECT preklad_platny FROM public.bible_strany WHERE dokument_id = pg_temp.dok('a') AND pdf_index = 1),
+  'překlad s md5 textu z Pythonu platí');
+SELECT pg_temp.ocekavam(NOT (SELECT preklad_platny FROM public.bible_strany WHERE dokument_id = pg_temp.dok('a') AND pdf_index = 2),
+  'strana bez překladu nemá platný překlad');
+UPDATE public.bible_strany SET text = text || ' Neu.' WHERE dokument_id = pg_temp.dok('a') AND pdf_index = 1;
+SELECT pg_temp.ocekavam(NOT (SELECT preklad_platny FROM public.bible_strany WHERE dokument_id = pg_temp.dok('a') AND pdf_index = 1),
+  'po změně textu strany překlad přestane platit');
+UPDATE public.bible_strany SET text = 'Die β-Amylase arbeitet bei 62–65 °C.' WHERE dokument_id = pg_temp.dok('a') AND pdf_index = 1;
+SET enable_seqscan = off;
+SELECT pg_temp.ocekavam(pg_temp.plan($q$SELECT pdf_index FROM public.bible_strany WHERE dokument_id = '00000000-0000-0000-0000-000000000000' AND NOT preklad_platny$q$)
+                        LIKE '%bible_strany_bez_prekladu_idx%', 'hledání stran bez překladu použije index');
+RESET enable_seqscan;
 SELECT pg_temp.selze(format('INSERT INTO public.bible_pasaze (dokument_id, poradi, strana_od, strana_do, text) VALUES (%L, 3, 3, 2, %L)',
   pg_temp.dok('a'), 'obrácený rozsah'), 'pasáž nesmí mít konec před začátkem', '23514');
 INSERT INTO public.ai_naklady (ucel, model, vstup_tokenu, vystup_tokenu, cena_usd, dokument_id)
@@ -287,7 +303,7 @@ SET enable_seqscan = off;
 SELECT pg_temp.ocekavam(pg_temp.plan($q$SELECT id FROM public.bible_pasaze WHERE hledani @@ to_tsquery('simple', 'wurze')$q$)
                         LIKE '%bible_pasaze_hledani_idx%', 'hledání použije index');
 RESET enable_seqscan;
-SELECT pg_temp.ocekavam((SELECT count(*) FROM public.bible_nastaveni) = 7, 'sedm výchozích nastavení');
+SELECT pg_temp.ocekavam((SELECT count(*) FROM public.bible_nastaveni) = 9, 'devět výchozích nastavení (7 základ + 2 překlad)');
 SELECT pg_temp.ocekavam((public.bible_kapacita() -> 'knihovna' ->> 'dokumentu')::int = 1
                         AND (public.bible_kapacita() -> 'uloziste' -> 'knihovna' ->> 'bajtu')::bigint = 1234, 'kapacita: dokumenty i úložiště');
 
