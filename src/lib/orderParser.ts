@@ -2025,13 +2025,13 @@ function parseSegments(
       pkg = volToPackage('0.5', packages, norm);
     }
 
-    // 🧠 BEDNY (PŘEPRAVKY) S LAHVEMI: "2 bedny tmavého" = 2 × 20 = 40 ks lahví 0.33l.
-    // JEDNA bedna = 20 ks lahví 0.33l. Stupeň/barva piva se určí z textu.
-    const crateMatch = cleaned.match(/(\d{1,4})\s*(?:x|ks|×)?\s*(bedn|prepravk|přepravk)/i);
+    // 🧠 BEDNY (PŘEPRAVKY) S LAHVEMI: "2 bedny 12sv" = 2 × 20 = 40 ks lahví 0.5l.
+    // JEDNA bedna (basa) = 20 ks lahví; obal 0.5l, třetinka jen když je napsaná. Stupeň/barva piva se určí z textu.
+    const crateMatch = cleaned.match(/(\d{1,4})\s*(?:x|ks|×)?\s*(bedn|bas[ayu]\b|prepravk|přepravk)/i);
     if (crateMatch) {
       const crates = parseInt(crateMatch[1], 10);
       qty = crates * 20;
-      const cratePkg = volToPackage('0.33', packages, norm);
+      const cratePkg = volToPackage(/0\s*[.,]?\s*33|t[rř]etink/i.test(cleaned) ? '0.33' : '0.5', packages, norm);
       if (cratePkg) pkg = cratePkg;
     }
 

@@ -296,7 +296,8 @@ RUKOPIS NAŠICH LÍSTKŮ (ověřeno na skutečných fotkách objednávek)
 • Řádek bez obalu u zastávky, která bere lahve (např. JONA: „20x 11° SV",
   „10x 12°"), má stejný obal jako ostatní řádky té zastávky (1l).
 • „2 basy sklo 12sv" = lahev 0,5 l (package_label "Lahve 0.5l"). „sklo" ani „basa"
-  bez udaného objemu NENÍ třetinka: 0,33 l napiš jen když je v textu 0,33 / třetinka / bedna.
+  bez udaného objemu NENÍ třetinka: 0,33 l napiš jen když je v textu 0,33 / třetinka.
+  „bedna"/„basa" = 20 ks lahví 0,5 l: „2 bedny 12sv" = quantity 40, "Lahve 0.5l".
 • „1x 10l NEBO 15l 12°" → vezmi první možnost a zeptej se v "otazky".
 • Přeškrtnutý nebo začmáraný řádek vynech. Poznámky „PETASNER!",
   „(2x VÝMĚNA)", „+ TÁCKY", „+ LIMO REKLAMACE", „2x KRABICE SKLO" nejsou

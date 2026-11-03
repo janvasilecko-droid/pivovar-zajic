@@ -440,10 +440,18 @@ describe('parseFreeTextEntries', () => {
     expect(line.beer_id).toBe('b-desitka');
   });
 
-  it('bedny lahví přepočítá na kusy (1 bedna = 20 ks 0.33l)', () => {
+  it('bedny lahví přepočítá na kusy (1 bedna = 20 ks 0.5l)', () => {
     const [line] = parseFreeTextEntries('2 bedny lahvi', beers, packages);
     expect(line.quantity).toBe(40);
-    expect(line.package_id).toBe('lahve033');
+    expect(line.package_id).toBe('lahve05');
+  });
+
+  it('basy 12sv = 40 ks 0.5l; třetinka jen když je napsaná', () => {
+    const [a] = parseFreeTextEntries('2 basy sklo 12sv', beers, packages);
+    expect(a.quantity).toBe(40);
+    expect(a.package_id).toBe('lahve05');
+    const [b] = parseFreeTextEntries('2 bedny 0.33 12sv', beers, packages);
+    expect(b.package_id).toBe('lahve033');
   });
 
   it('PET bez objemu výchozí na 1 l', () => {

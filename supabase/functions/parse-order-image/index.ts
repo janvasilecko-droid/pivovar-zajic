@@ -210,11 +210,11 @@ KRITICKÉ POKYNY PRO ČTENÍ TEXTU Z OBRÁZKU:
 16. Pokud řádek začíná stupněm (např. "12sv 2x50 1x30"), aplikuj tento stupeň na VŠECHNY položky na tom řádku. NIKDY nenechávej položky bez stupně, pokud řádek začíná stupněm.
 17. KRITICKÉ — ROZLIŠUJ "1l" OD "1,5l": "1l" (1 litr) a "1,5l" (1,5 litru) jsou RŮZNÉ objemy. "1l" = PET 1l, "1,5l" = PET 1.5l. NIKDY nezaměňuj "1l" za "1,5l" a naopak. Pokud je na obrázku napsáno "1l" (bez čárky/tečky), je to PET 1l. Pokud je napsáno "1,5l" nebo "1.5l", je to PET 1.5l.
 18. POZNÁMKY K OBJEDNÁVCE: Pokud je v objednávce napsáno "(bez etiket)", "bez etiket", "bez etikety" apod., zahrň tento text do raw_line příslušné položky, aby aplikace mohla poznámku automaticky přidat k objednávce. Stejně tak pro "sklo", "výčep", "podtácky", "vrácení lahví" a další poznámky.
-19. KRITICKÉ — BEDNY (PŘEPRAVKY) S LAHVEMI: Pokud je v objednávce napsáno "bedna", "bedny", "beden", "přepravka", "přepravky" apod., znamená to přepravku s lahvemi. JEDNA bedna = 20 ks lahví 0.33l. Postup:
-   - "1 bedna tmavého" = 20 ks lahví 0.33l tmavého piva (quantity=20, package_label="Lahve 0.33l")
-   - "2 bedny tmavého" = 2 × 20 = 40 ks lahví 0.33l tmavého piva (quantity=40, package_label="Lahve 0.33l")
-   - "3 bedny 12sv" = 3 × 20 = 60 ks lahví 0.33l piva 12° světlého (quantity=60, package_label="Lahve 0.33l")
-   VŽDY vynásob počet beden číslem 20 a výsledek zapiš jako quantity. Obal je VŽDY "Lahve 0.33l". Stupeň/barva piva se určí podle textu (např. "tmavého" = tmavé, "12sv" = 12° světlé).
+19. KRITICKÉ — BEDNY (PŘEPRAVKY) S LAHVEMI: Pokud je v objednávce napsáno "bedna", "bedny", "beden", "basa", "basy", "přepravka", "přepravky" apod., znamená to přepravku s lahvemi. JEDNA bedna = 20 ks lahví 0.33l. Postup:
+   - "1 bedna tmavého" = 20 ks lahví 0.5l tmavého piva (quantity=20, package_label="Lahve 0.5l")
+   - "2 bedny tmavého" = 2 × 20 = 40 ks lahví 0.5l tmavého piva (quantity=40, package_label="Lahve 0.5l")
+   - "3 bedny 12sv" = 3 × 20 = 60 ks lahví 0.5l piva 12° světlého (quantity=60, package_label="Lahve 0.5l")
+   VŽDY vynásob počet beden číslem 20 a výsledek zapiš jako quantity. Obal je "Lahve 0.5l" (0,33 l jen když je v textu výslovně 0,33 / třetinka). "Basa/basy" = totéž co bedna. Stupeň/barva piva se určí podle textu (např. "tmavého" = tmavé, "12sv" = 12° světlé).
 21. KRITICKÉ — IGNORUJ CITOVANÉ ZPRÁVY A REAKCE VE WHATSAPPU:
    - Ve WhatsApp chatu se při odpovědi zobrazuje CITOVANÁ ZPRÁVA (v přišedlém/odlišeném rámečku nahoře v bublině zprávy, kde je zopakované jméno odesílatele a text původní zprávy).
    - NIKDY neextrahuj položky z CITOVANÉ ZPRÁVY jako novou samostatnou objednávku! Je to jen zopakovaný text původní zprávy.

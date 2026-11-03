@@ -460,11 +460,12 @@ KRITICKÉ POKYNY PRO ČTENÍ TEXTU:
     - "1l" nebo "1 l" → quantity=1, package="PET 1l" (1 je objem)
     - "PET 1" → quantity=1, package="PET 1l"
     - Pokud je "1" u objemu kegu (30/50/20/15/10), je to MNOŽSTVÍ. Pokud je "1" samostatně u piva bez jiného objemu, je to MNOŽSTVÍ 1 kus s výchozím obalem KEG 30l.
-18. KRITICKÉ — BEDNY (PŘEPRAVKY) S LAHVEMI: Pokud je v objednávce napsáno "bedna", "bedny", "beden", "přepravka", "přepravky" apod., znamená to přepravku s lahvemi. JEDNA bedna = 20 ks lahví 0.33l. Postup:
-    - "1 bedna tmavého" = 20 ks lahví 0.33l tmavého piva (quantity=20, package_label="Lahve 0.33l")
-    - "2 bedny tmavého" = 2 × 20 = 40 ks lahví 0.33l tmavého piva (quantity=40, package_label="Lahve 0.33l")
-    - "3 bedny 12sv" = 3 × 20 = 60 ks lahví 0.33l piva 12° světlého (quantity=60, package_label="Lahve 0.33l")
-    VŽDY vynásob počet beden číslem 20 a výsledek zapiš jako quantity. Obal je VŽDY "Lahve 0.33l" (pokud je v textu výslovně napsáno 0,5l nebo "lahve 0,5", pak "Lahve 0.5l"). Stupeň/barva piva se určí podle textu (např. "tmavého" = tmavé, "12sv" = 12° světlé).
+18. KRITICKÉ — BEDNY / BASY (PŘEPRAVKY) S LAHVEMI: Pokud je v objednávce napsáno "bedna", "bedny", "beden", "basa", "basy", "přepravka", "přepravky" apod., znamená to přepravku s lahvemi. JEDNA bedna (basa) = 20 ks lahví. Obal je VŽDY "Lahve 0.5l" — lahev 0,33 l (package_label="Lahve 0.33l") jen když je v textu výslovně 0,33 / třetinka. Postup:
+    - "1 bedna tmavého" = 20 ks lahví 0.5l tmavého piva (quantity=20, package_label="Lahve 0.5l")
+    - "2 bedny 12sv" = 2 × 20 = 40 ks lahví 0.5l piva 12° světlého (quantity=40, package_label="Lahve 0.5l")
+    - "2 basy sklo 12sv" = 40 ks lahví 0.5l 12° (quantity=40, package_label="Lahve 0.5l")
+    - "3 bedny 0,33 12sv" = 60 ks lahví 0.33l (quantity=60, package_label="Lahve 0.33l")
+    VŽDY vynásob počet beden (bas) číslem 20 a výsledek zapiš jako quantity. Stupeň/barva piva se určí podle textu (např. "tmavého" = tmavé, "12sv" = 12° světlé).
 19. KRITICKÉ — 50L SUDY: POKUD JE V OBJEDNÁVCE 50L, 50 L, 50, "VELKÝ SUD", "SUD 50" NEBO "KEG 50", PAK JE OBAL VŽDY "KEG 50l"! NIKDY NEPIŠ "KEG 30l" ANI "30l"! Pokud je u položky uvedeno "50l", "50 l", "50", "velký sud", "sud 50", "keg 50", Obal/package_label MUSÍ BÝT "KEG 50l"! NIKDY to nepiš jako "KEG 30l" ani nenechávej obal prázdný!
 20. KRITICKÉ — VYHODNOCENÍ LAHVÍ 20x0,5 A 20x0,33: Pokud je v textu "20x0,5" nebo "20x0.5" nebo "20 ks 0,5l", jde o 20 ks lahví 0,5l (package_label: "Lahve 0.5l")! NIKDY to nepiš jako 0.33l! Pouze pokud je výslovně napsáno "0,33" nebo "0.33" (např. "20x0,33"), použij "Lahve 0.33l".
 21. KRITICKÉ — STUPEŇ PATŘÍ K TÉ OBJEDNÁVCE, U KTERÉ JE NAPSANÝ: Stupeň/barva piva napsaná v konkrétní zprávě patří TÉ objednávce (položkám té zprávy), u které je napsaná. Pokud je u jiné objednávky (jiné zprávy/dne/odběratele) napsaný jiný stupeň, NEPŘENÁŠEJ ho mezi objednávkami. Pokud u objednávky stupeň napsaný není a nejde ho jednoznačně dovodit z kontextu odpovědi (viz pravidla u ODPOVĚDÍ), ponech degree=null a NEDOSAZUJ ho z jiné objednávky.
