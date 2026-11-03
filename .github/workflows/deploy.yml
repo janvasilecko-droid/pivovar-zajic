@@ -282,7 +282,7 @@ jobs:
           NASAZENE=""
           for f in $FUNKCE; do
             [ -f "supabase/functions/$f/index.ts" ] || continue
-            if npx --yes supabase functions deploy "$f" --project-ref sasqexjadvlqyticxwja; then
+            if npx --yes supabase@2.121.0 functions deploy "$f" --project-ref sasqexjadvlqyticxwja; then
               echo "- ✅ $f" >> "$GITHUB_STEP_SUMMARY"
               NASAZENE="$NASAZENE $f"
             else
