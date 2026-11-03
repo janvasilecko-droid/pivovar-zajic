@@ -55,6 +55,7 @@ import obrazky
 import ocr
 import pdf as pdf_mod
 import preklad as preklad_mod
+import prehledy as prehledy_mod
 from jazyk import odhad_jazyka
 from kapitoly import Kapitola, kapitola_listu, okrajove_radky, osnova_pouzitelna, useky, z_nadpisu, z_osnovy
 from pasaze import rozdel_na_pasaze
@@ -1007,7 +1008,14 @@ def _beh() -> int:
         # Překlad až po zpracování fronty, jen když běh skončil bez chyby účtu
         # (s chybou účtu, limitem předplatného nebo plnou DB by se nepovedl ani překlad).
         if vysledek == 0 and prepisovac is not None and time.time() < konec:
-            prekladej(supa, prepisovac, nastaveni, konec)
+            # Překlad a přehledy jsou nadstavba: jejich chyba nesmí shodit zpracování knih
+            # (stav prehledy_aktualni zůstane false a další běh to zkusí znovu).
+            try:
+                prekladej(supa, prepisovac, nastaveni, konec)
+                if time.time() < konec:
+                    pis_prehledy(supa, prepisovac, nastaveni, konec)
+            except Exception as e:  # noqa: BLE001 — jen typ, žádný text knihy
+                log(f'Překlad nebo přehledy spadly ({type(e).__name__}) — zkusí se dalším během.')
         return vysledek
     finally:
         if klient_cc is not None:
@@ -1189,6 +1197,118 @@ def prekladej(supa: Supa, prepisovac: Prepisovac, nastaveni: dict, konec: float)
             log(f'Překlad ukončen: {zprava}')
             return souhrn
     return souhrn
+
+
+# --- přehledy témat (prehledy.py) ----------------------------------------------
+
+PREHLEDY_MIGRACE = '20261103020000_bible_prehledy'
+
+
+def _nastav_aktualni(supa: Supa, hodnota: bool) -> None:
+    try:
+        supa.uprav('bible_nastaveni', {'klic': 'eq.prehledy_aktualni'}, {'hodnota': hodnota})
+    except ChybaSupabase as e:
+        log(f'Přehledy: stav nejde zapsat ({e}).')
+
+
+def pis_prehledy(supa: Supa, prepisovac: Prepisovac, nastaveni: dict, konec: float) -> dict:
+    """Napíše nebo obnoví přehledy témat — až když nic nečeká na zpracování ani překlad.
+
+    Majitel 3. 11. 2026: „až budou načteny všechny knihy a přeloženy, případně
+    pokud se načte nová kniha, tak to doplnit o nová fakta". Přehled se přepíše
+    jen při změně zdrojů (otisk). Stav prehledy_aktualni = false, dokud se
+    nedoběhne všechno (plánovaný běh se pak spustí znovu), po dokončení true.
+    """
+    souhrn = {'napsano': 0, 'beze_zmeny': 0, 'bez_zdroju': 0, 'ke_kontrole': 0, 'nepovedlo': 0}
+    if not _zapnuto(nastaveni.get('prehledy_zapnute')):
+        return souhrn
+    try:
+        existujici = {str(r['klic']): str(r.get('otisk') or '')
+                      for r in supa.vyber_vse('bible_prehledy', {'select': 'klic,otisk'}, razeni='klic')}
+    except ChybaSupabase as e:
+        if any(k in str(e) for k in ('PGRST205', '42P01')):
+            log(f'Přehledy čekají na migraci {PREHLEDY_MIGRACE}: appka → Systém → Databázové migrace → Databáze bible.')
+        else:
+            log(f'Přehledy: nejde načíst ({e}).')
+        return souhrn
+    _nastav_aktualni(supa, False)
+    try:
+        if supa.vyber('bible_dokumenty', {'select': 'id', 'stav': 'in.(ceka,zpracovava)', 'limit': '1'}):
+            log('Přehledy počkají, až budou zpracované všechny knihy.')
+            return souhrn
+        if supa.vyber('bible_strany', {'select': 'pdf_index', 'preklad_platny': 'is.false', 'limit': '1'}):
+            log('Přehledy počkají, až bude všechno přeložené.')
+            return souhrn
+    except ChybaSupabase as e:
+        log(f'Přehledy: stav knih nejde zjistit ({e}).')
+        return souhrn
+    model = str(nastaveni.get('model_prehledu') or 'claude-opus-5-5')
+    ucet = prepisovac.ucet
+    if prepisovac.zdroj == 'api':
+        try:
+            naklady.cena_usd(model, {}, ucet.cenik)
+        except naklady.ChybiCenik:
+            log('Model z model_prehledu nemá v bible_nastaveni ceník — přehledy se přeskočí.')
+            return souhrn
+    log(f'Přehledy témat: {len(prehledy_mod.TEMATA)} témat (model {model})')
+    try:
+        for poradi, tema in enumerate(prehledy_mod.TEMATA):
+            if time.time() >= konec:
+                log('Přehledy: běh došel na časový limit — pokračuje se dalším během.')
+                return souhrn
+            if ucet.prekroceno():
+                log('Přehledy: došel strop útraty za AI — pokračuje se dalším během.')
+                return souhrn
+            try:
+                radky = [supa.rpc('bible_hledej', {'p_dotaz': q, 'p_dokument': None, 'p_limit': prehledy_mod.NA_DOTAZ}) or []
+                         for q in tema['dotazy']]
+            except ChybaSupabase as e:
+                if 'PGRST202' in str(e):
+                    log('Přehledy čekají na migraci 20261103010000_bible_hledani (hledání).')
+                    return souhrn
+                log(f'  přehled {tema["klic"]}: hledání selhalo ({e})')
+                souhrn['nepovedlo'] += 1
+                continue
+            zdroje = prehledy_mod.vyber_zdroje(radky)
+            if not zdroje:
+                souhrn['bez_zdroju'] += 1
+                continue
+            otisk = prehledy_mod.otisk_zdroju(zdroje)
+            if existujici.get(tema['klic']) == otisk:
+                souhrn['beze_zmeny'] += 1
+                continue
+            try:
+                p = prehledy_mod.napis_prehled(prepisovac.klient, tema, zdroje, model)
+            except Exception as e:  # noqa: BLE001 — chyba API → výjimka workeru
+                prevedena = chyba_api(e, prvni=souhrn['napsano'] == 0)
+                if isinstance(prevedena, (Odlozit, PrechodnaChyba)):
+                    log(f'Přehledy ukončeny: {getattr(prevedena, "do_logu", None) or prevedena}')
+                    return souhrn
+                log(f'  přehled {tema["klic"]} se nepovedl ({type(e).__name__})')
+                souhrn['nepovedlo'] += 1
+                continue
+            ucet.pridej(model, p.usage, zdarma=prepisovac.zdroj == 'predplatne')
+            if p.text is None:
+                log(f'  přehled {tema["klic"]} se nepovedl (odpověď bez textu)')
+                souhrn['nepovedlo'] += 1
+                continue
+            pouzite = set(p.pouzite)
+            supa.vloz_nebo_prepis('bible_prehledy', [{
+                'klic': tema['klic'], 'nazev': tema['nazev'], 'oblast': tema.get('oblast'), 'poradi': poradi,
+                'text': p.text, 'zdroje': [prehledy_mod.radek_zdroje(i, z) for i, z in enumerate(zdroje, 1) if i in pouzite],
+                'kontrola': p.kontrola, 'model': model, 'verze': prehledy_mod.PREHLED_VERZE, 'otisk': otisk,
+                'vytvoreno': datetime.now(timezone.utc).isoformat(),
+            }], klic='klic')
+            souhrn['napsano'] += 1
+            souhrn['ke_kontrole'] += 1 if p.kontrola else 0
+            log(f'  přehled {tema["klic"]}: {len(zdroje)} zdrojů, citováno {len(pouzite)}{" — ověřit" if p.kontrola else ""}')
+        if souhrn['nepovedlo'] == 0:
+            _nastav_aktualni(supa, True)
+        return souhrn
+    finally:
+        zapis_naklady(supa, ucet, None, ucel='prehled')
+        log(f'Přehledy: {souhrn["napsano"]} napsáno ({souhrn["ke_kontrole"]} ověřit), {souhrn["beze_zmeny"]} beze změny, '
+            f'{souhrn["bez_zdroju"]} bez zdrojů, {souhrn["nepovedlo"]} nepovedlo')
 
 
 def _preruseni(_cislo_signalu, _ramec) -> None:

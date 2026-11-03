@@ -165,8 +165,19 @@ jobs:
               echo "prace=ano" >> "$GITHUB_OUTPUT"
               echo "Knihy jsou zpracované, čeká český překlad."
             else
-              echo "prace=ne" >> "$GITHUB_OUTPUT"
-              echo "Nic nečeká na zpracování ani na překlad."
+              # Přehledy témat: worker drží prehledy_aktualni = false, dokud je neprojde po nové
+              # knize nebo překladu. Bez migrace přehledů klíč není → nic.
+              kod3=$(curl -sS --max-time 30 -o prehledy.json -w '%{http_code}' \
+                "$BIBLE_URL/rest/v1/bible_nastaveni?select=hodnota&klic=eq.prehledy_aktualni" \
+                -H "apikey: $BIBLE_KLIC" -H "Authorization: Bearer $BIBLE_KLIC" || echo 000)
+              if [ "$kod3" = "200" ] && jq -e 'type == "array" and length > 0 and .[0].hodnota == false' prehledy.json > /dev/null 2>&1; then
+                echo "prace=ano" >> "$GITHUB_OUTPUT"
+                echo "Knihy jsou zpracované a přeložené, čekají přehledy témat."
+              else
+                echo "prace=ne" >> "$GITHUB_OUTPUT"
+                echo "Nic nečeká na zpracování, překlad ani přehledy."
+              fi
+              rm -f prehledy.json
             fi
             rm -f preklad.json
           elif jq -e '.code == "PGRST205" or .code == "42P01"' odpoved.json > /dev/null 2>&1; then

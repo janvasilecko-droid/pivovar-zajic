@@ -149,7 +149,7 @@ class _Zpravy:
 class KlientClaudeCode:
     """Stejné rozhraní jako anthropic.Anthropic pro ocr.py — přes `claude -p` s předplatným."""
 
-    def __init__(self, token: str, prikaz: str | None = None, timeout: float = 300.0, soubezne: int = 2):
+    def __init__(self, token: str, prikaz: str | None = None, timeout: float = 600.0, soubezne: int = 2):
         # Token z terminálu se rád zkopíruje s zalomením řádku nebo mezerou — ty do něj nepatří.
         token = re.sub(r'\s+', '', token or '')
         if not token:

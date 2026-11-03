@@ -547,7 +547,7 @@ const ODDILY: Oddil[] = [
       },
       {
         co: 'Hledat v knihách',
-        jak: 'Pivovarská bible → Hledání v knihách. Napiš slova (např. „chmelovar odpar“) a klepni Hledat. Hledá se v textu zpracovaných knih i v jejich českém překladu, takže česky najdeš i to, co je v anglické knize. Stačí začátek slova („amyl“ najde amylázu), všechna slova musí být na jedné stránce. Výsledek ukáže knihu, kapitolu a stranu; klepnutím se kniha otevře přesně na té stránce.',
+        jak: 'Pivovarská bible → Hledání v knihách. Napiš slova (např. „chmelovar odpar“) a klepni Hledat. Hledá se v textu zpracovaných knih i v jejich českém překladu, takže česky najdeš i to, co je v anglické knize. Stačí začátek slova („amyl“ najde amylázu), všechna slova musí být na jedné stránce. Výsledek ukáže knihu, kapitolu a stranu; klepnutím se kniha otevře přesně na té stránce. Pod hledáním jsou Přehledy témat: Claude porovná, co o tématu (chmelovar, rmutování…) píšou všechny knihy, a napíše to nejlepší; čísla v závorkách otevřou knihu na té stránce. Přehledy vzniknou, až jsou všechny knihy zpracované a přeložené, a po přidání nové knihy se doplní o nová fakta.',
       },
       {
         co: 'Správa znalostí',

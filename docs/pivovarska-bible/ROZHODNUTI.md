@@ -181,3 +181,21 @@ Každé rozhodnutí má datum, důvod a co by ho změnilo.
   bible-api `hledej` vrací úryvek a místo (kniha, kapitola, strana), čtečka se
   otevře na stránce. Vektory a vícejazyčné varianty dotazu až s AI.
 - Dlaždice „Odborný chatbot" je zatím „Hledání v knihách".
+
+## R15 — Přehledy témat z porovnání knih (3. 11. 2026)
+
+- Majitel: „když zadám chmelovar, vyhledáš data z těch knih, porovnáš je a
+  napíšeš to nejlepší o chmelovaru", „s tím, že tam budou odkazy na knihy",
+  „až budou načteny všechny knihy a přeloženy, případně pokud se načte nová
+  kniha, tak to doplnit o nová fakta". Zvolil „obě" (přehledy v appce +
+  konektor do aplikace Claude, R16).
+- Worker (`scripts/bible/prehledy.py`) po zpracování a překladu — jen když nic
+  nečeká — pro ~36 témat (oblasti A–T) najde pasáže (`bible_hledej`, dotazy
+  česky/anglicky/německy), Claude (`model_prehledu`, Opus, předplatné) z nich
+  napíše přehled s citacemi [n]. Z vlastních znalostí nic nepřidává.
+- Kontrola: citace mimo zdroje se odstraní, čísla mimo zdroje → „ověř".
+  Přehled se přepíše jen při změně zdrojů (otisk); `prehledy_aktualni` řídí
+  plánovaný běh.
+- Tabulka `bible_prehledy` (migrace `20261103020000_bible_prehledy`): text
+  s citacemi + zdroje (kniha, list) bez textu knih. Appka: Hledání v knihách →
+  Přehledy témat, citace otevřou čtečku na stránce.

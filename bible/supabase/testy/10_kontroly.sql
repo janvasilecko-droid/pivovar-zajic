@@ -320,6 +320,13 @@ SET enable_seqscan = off;
 SELECT pg_temp.ocekavam(pg_temp.plan($q$SELECT pdf_index FROM public.bible_strany WHERE preklad_hledani @@ 'amyl:*'::tsquery$q$)
                         LIKE '%bible_strany_preklad_hledani_idx%', 'hledání v překladu použije index');
 RESET enable_seqscan;
+SELECT pg_temp.selze('INSERT INTO public.bible_prehledy (klic, nazev, text, otisk) VALUES (''Špatně!'', ''x'', ''x'', ''x'')',
+  'klíč přehledu jen malá písmena a číslice', '23514');
+INSERT INTO public.bible_prehledy (klic, nazev, oblast, text, zdroje, otisk)
+  VALUES ('chmelovar', 'Chmelovar', 'F', 'Shrnutí [1].', '[{"n": 1, "pdf_index": 1}]', 'abc');
+SELECT pg_temp.selze('SELECT * FROM public.bible_prehledy', 'přehledy čte jen service role', '42501')
+  FROM (SELECT pg_temp.jako('authenticated')) j;
+SELECT pg_temp.jako('service_role');
 SELECT pg_temp.selze('SELECT * FROM public.bible_hledej(''amyl'')', 'hledání smí jen service role', '42501')
   FROM (SELECT pg_temp.jako('authenticated')) j;
 SELECT pg_temp.jako('service_role');
@@ -327,7 +334,7 @@ SET enable_seqscan = off;
 SELECT pg_temp.ocekavam(pg_temp.plan($q$SELECT id FROM public.bible_pasaze WHERE hledani @@ to_tsquery('simple', 'wurze')$q$)
                         LIKE '%bible_pasaze_hledani_idx%', 'hledání použije index');
 RESET enable_seqscan;
-SELECT pg_temp.ocekavam((SELECT count(*) FROM public.bible_nastaveni) = 9, 'devět výchozích nastavení (7 základ + 2 překlad)');
+SELECT pg_temp.ocekavam((SELECT count(*) FROM public.bible_nastaveni) = 12, 'dvanáct výchozích nastavení (7 základ + 2 překlad + 3 přehledy)');
 SELECT pg_temp.ocekavam((public.bible_kapacita() -> 'knihovna' ->> 'dokumentu')::int = 1
                         AND (public.bible_kapacita() -> 'uloziste' -> 'knihovna' ->> 'bajtu')::bigint = 1234, 'kapacita: dokumenty i úložiště');
 

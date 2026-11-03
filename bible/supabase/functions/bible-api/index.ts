@@ -5,7 +5,7 @@ import {
 } from '../_shared/brana.ts';
 import {
   AKCE, ChybaVstupu, idDokumentu, jeAkce, PLATNOST_ODKAZU_S, popisDokumentu, prekladChybyDb, SLOUPCE_DOKUMENTU,
-  souborKNahrani, stavDokumentu, zacatekObdobi, type Akce, type ChybaDb,
+  souborKNahrani, stavDokumentu, zacatekObdobi, type Akce, type ChybaDb, klicPrehledu,
 } from '../_shared/vstupy.ts';
 import {
   celeCislo, druhObjektu, DRUHY_OBJEKTU, jeCitelny, listyPodStropem, MAX_LISTU_NA_DOTAZ, nahled, OBJEKTU_NA_DOTAZ,
@@ -265,6 +265,25 @@ const PROVEDENI: Record<Akce, (k: Kontext) => Promise<Response>> = {
         uryvek: uryvek(r.text, slova),
       })),
     });
+  },
+
+  // Přehledy témat: seznam (bez textu). Bez migrace přehledů prázdný seznam s příznakem.
+  async prehledy({ db, cors }) {
+    const { data, error } = await db.from('bible_prehledy')
+      .select('klic,nazev,oblast,poradi,kontrola,vytvoreno').order('poradi');
+    if (error?.code === 'PGRST205' || error?.code === '42P01') return hotovo(cors, { prehledy: [], migrace: false });
+    if (error) return chybaDb(cors, error, 'prehledy');
+    return hotovo(cors, { prehledy: data ?? [], migrace: true });
+  },
+
+  // Jeden přehled: text s citacemi [n] a zdroje (kniha, list) — odkazy otevřou čtečku.
+  async prehled({ db, telo, cors }) {
+    const klic = klicPrehledu(telo.klic);
+    const { data, error } = await db.from('bible_prehledy')
+      .select('klic,nazev,oblast,text,zdroje,kontrola,vytvoreno').eq('klic', klic).maybeSingle();
+    if (error) return chybaDb(cors, error, 'prehled');
+    if (!data) return chyba(cors, 404, 'nenalezeno', 'Přehled tohoto tématu zatím není.');
+    return hotovo(cors, data);
   },
 
   // Přehled tabulek, vzorců a popisků (pasáže s druhem) s náhledem a listem.

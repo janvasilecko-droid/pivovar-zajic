@@ -24,6 +24,9 @@ export const AKCE = {
   objekty: 'cte',
   // Hledání v knihách (etapa 4): originál i český překlad.
   hledej: 'cte',
+  // Přehledy témat (Claude porovná knihy, s odkazy na stránky).
+  prehledy: 'cte',
+  prehled: 'cte',
 } as const satisfies Record<string, Pristup>;
 
 export type Akce = keyof typeof AKCE;
@@ -138,4 +141,10 @@ export function prekladChybyDb(e: ChybaDb): { status: number; kod: string; zprav
     return { status: 400, kod: 'neplatny_vstup', zprava: zprava || 'Neplatné údaje.' };
   }
   return { status: 500, kod: 'chyba', zprava: `Databáze bible vrátila chybu${code ? ` (${code})` : ''}.` };
+}
+
+/** Klíč přehledu tématu (jako CHECK v bible_prehledy). */
+export function klicPrehledu(v: unknown): string {
+  if (typeof v !== 'string' || !/^[a-z0-9_]{1,40}$/.test(v)) throw new ChybaVstupu('Neznámé téma.');
+  return v;
 }
