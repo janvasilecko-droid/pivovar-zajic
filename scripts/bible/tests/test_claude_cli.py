@@ -213,10 +213,10 @@ def test_odmitnuty_token_ukaze_hlasku_api_bez_tokenu_a_bez_textu_stranky(tmp_pat
     finally:
         klient.zavri()
     assert e.value.type == 'authentication_error' and e.value.status_code == 401
-    assert e.value.detail.startswith('API Error: 401 OAuth access token is invalid.') and 'TAJNE' not in e.value.detail
+    assert e.value.detail.startswith('Failed to authenticate. API Error: 401 OAuth access token is invalid.') and 'TAJNE' not in e.value.detail
     v = zpracuj.chyba_api(e.value)
     assert isinstance(v, zpracuj.ZastavitBeh)
-    assert 'Odpověď Claude: API Error: 401 OAuth access token is invalid.' in str(v) and 'TAJNE' not in str(v)
+    assert 'Odpověď Claude: Failed to authenticate. API Error: 401 OAuth access token is invalid.' in str(v) and 'TAJNE' not in str(v)
 
 
 def test_hlaska_se_nebere_z_textu_bez_chyby_api(tmp_path):
@@ -230,3 +230,8 @@ def test_hlaska_se_nebere_z_textu_bez_chyby_api(tmp_path):
     finally:
         klient.zavri()
     assert e.value.detail == '' and 'TAJNY' not in str(zpracuj.chyba_api(e.value))
+
+
+def test_hlaska_api_i_bez_slov_api_error():
+    assert claude_cli.hlaska_api('Invalid bearer token\n sk-ant-oat01-xyz') == 'Invalid bearer token sk-ant-…'
+    assert len(claude_cli.hlaska_api('x' * 500)) == 160
