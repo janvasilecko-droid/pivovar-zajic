@@ -383,5 +383,40 @@ SELECT pg_temp.ocekavam(NOT EXISTS (
      AND NOT EXISTS (SELECT 1 FROM pg_index i WHERE i.indrelid = c.conrelid AND i.indkey[0] = c.conkey[1])
 ), 'každý cizí klíč na tabulky bible má index (smazání dokumentu neprochází celé tabulky)');
 
+-- 8) Konektor do aplikace Claude (20261103030000_bible_mcp) ----------------------------
+SELECT pg_temp.jako('service_role');
+SELECT public.bible_mcp_registruj('klient_claude_0000001', 'Claude', ARRAY['https://claude.ai/api/mcp/auth_callback']);
+SELECT pg_temp.selze($q$SELECT public.bible_mcp_vydej_kod(gen_random_uuid(), 'X', 'nic', 'klient_claude_0000001',
+  'https://claude.ai/api/mcp/auth_callback', repeat('a', 43), repeat('0', 64))$q$, 'kód jen s přístupem do bible', '42501');
+SELECT pg_temp.ocekavam(NOT public.bible_mcp_vydej_kod('00000000-0000-0000-0000-0000000000aa', 'Honza', 'cte', 'klient_claude_0000001',
+  'https://zly.example/cb', repeat('a', 43), repeat('1', 64)), 'cizí adresa návratu = žádný kód');
+SELECT pg_temp.ocekavam(public.bible_mcp_vydej_kod('00000000-0000-0000-0000-0000000000aa', 'Honza', 'cte', 'klient_claude_0000001',
+  'https://claude.ai/api/mcp/auth_callback', repeat('a', 43), repeat('1', 64)), 'kód po Povolit');
+SELECT pg_temp.ocekavam(NOT public.bible_mcp_vymen_kod(repeat('1', 64), 'klient_claude_0000001', 'https://claude.ai/api/mcp/auth_callback',
+  repeat('b', 43), repeat('2', 64), repeat('3', 64)), 'špatný PKCE ověřovač = žádné tokeny');
+SELECT pg_temp.ocekavam(public.bible_mcp_vymen_kod(repeat('1', 64), 'klient_claude_0000001', 'https://claude.ai/api/mcp/auth_callback',
+  repeat('a', 43), repeat('2', 64), repeat('3', 64)), 'správný kód → tokeny');
+SELECT pg_temp.ocekavam(NOT public.bible_mcp_vymen_kod(repeat('1', 64), 'klient_claude_0000001', 'https://claude.ai/api/mcp/auth_callback',
+  repeat('a', 43), repeat('4', 64), repeat('5', 64)), 'kód jde použít jen jednou');
+SELECT pg_temp.ocekavam((SELECT pristup FROM public.bible_mcp_over(repeat('2', 64))) = 'cte', 'přístupový token platí');
+SELECT pg_temp.ocekavam(NOT EXISTS (SELECT 1 FROM public.bible_mcp_over(repeat('3', 64))), 'obnovovací token nejde použít jako přístupový');
+SELECT pg_temp.ocekavam(public.bible_mcp_obnov(repeat('3', 64), 'klient_claude_0000001', repeat('6', 64), repeat('7', 64)), 'obnovení vydá nové tokeny');
+SELECT pg_temp.ocekavam(NOT public.bible_mcp_obnov(repeat('3', 64), 'klient_claude_0000001', repeat('8', 64), repeat('9', 64)),
+  'starý obnovovací token znovu nejde…');
+SELECT pg_temp.ocekavam(NOT EXISTS (SELECT 1 FROM public.bible_mcp_over(repeat('6', 64))), '…a jeho zneužití zruší celé připojení');
+SELECT public.bible_mcp_vydej_kod('00000000-0000-0000-0000-0000000000aa', 'Honza', 'cte', 'klient_claude_0000001',
+  'https://claude.ai/api/mcp/auth_callback', repeat('a', 43), repeat('c', 64));
+SELECT public.bible_mcp_vymen_kod(repeat('c', 64), 'klient_claude_0000001', 'https://claude.ai/api/mcp/auth_callback',
+  repeat('a', 43), repeat('d', 64), repeat('e', 64));
+SELECT pg_temp.ocekavam((SELECT count(*) FROM public.bible_mcp_pripojeni('00000000-0000-0000-0000-0000000000aa')) = 1,
+  'appka vidí jedno živé připojení');
+SELECT pg_temp.ocekavam(public.bible_mcp_odpoj('00000000-0000-0000-0000-0000000000aa', NULL) = 1, 'odpojení');
+SELECT pg_temp.ocekavam(NOT EXISTS (SELECT 1 FROM public.bible_mcp_over(repeat('d', 64)))
+                        AND NOT public.bible_mcp_obnov(repeat('e', 64), 'klient_claude_0000001', repeat('f', 64), repeat('0', 64)),
+  'po odpojení nefunguje přístupový ani obnovovací token');
+SELECT pg_temp.selze('SELECT * FROM public.bible_mcp_over(repeat(''d'', 64))', 'tokeny ověřuje jen service role', '42501')
+  FROM (SELECT pg_temp.jako('authenticated')) j;
+SELECT pg_temp.jako('service_role');
+
 SELECT pg_temp.jako(NULL);
 SELECT 'VŠECHNY KONTROLY PROJEKTU BIBLE PROŠLY' AS vysledek;

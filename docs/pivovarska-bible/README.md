@@ -38,6 +38,7 @@ s citací kniha–kapitola–strana a počítá deterministickým výpočetním 
 | český překlad stran (R13) | hotovo (3. 11. 2026) — migrace `20261103000000_bible_preklad` |
 | 4: hledání v knihách (bez AI, R14) | hotovo (3. 11. 2026) — migrace `20261103010000_bible_hledani` |
 | přehledy témat z porovnání knih (R15) | hotovo (3. 11. 2026) — migrace `20261103020000_bible_prehledy` |
+| konektor do aplikace Claude (R16) | hotovo (3. 11. 2026) — migrace `20261103030000_bible_mcp`, funkce `bible-mcp` |
 | 3b–3c: zkušenosti sládků, nová vydání | čeká |
 | 5: chatbot | odloženo (R14) |
 | 6–10 | čeká |

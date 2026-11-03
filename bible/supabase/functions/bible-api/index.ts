@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2.110.7';
 import {
-  chyba, corsHlavicky, hotovo, nactiJson, overUzivatele, sluzebniKlic, tokenZHlavicky, uroven, verejnyKlic,
+  chyba, corsHlavicky, hotovo, jeUuid, nactiJson, overUzivatele, sluzebniKlic, tokenZHlavicky, uroven, verejnyKlic,
   type Pristup, type Uzivatel,
 } from '../_shared/brana.ts';
 import {
@@ -12,6 +12,7 @@ import {
   rejstrikListu, sPrekladem, SLOUPCE_LISTU, SLOUPCE_PREKLADU, vsechnyRadky, ZPRAVA_BEZ_TEXTU, zpravaNezpracovano,
   dotazHledani, slovaDotazu, uryvek, VYSLEDKU_HLEDANI,
 } from '../_shared/cteni.ts';
+import { nahodnyToken, platnaChallenge, platnyClient, POVOLENE_NAVRATY, sha256hex } from '../_shared/mcp.ts';
 
 /**
  * 📚 bible-api — jediný vstup appky do projektu bible (cegrelgvkygcatupqwrx).
@@ -284,6 +285,45 @@ const PROVEDENI: Record<Akce, (k: Kontext) => Promise<Response>> = {
     if (error) return chybaDb(cors, error, 'prehled');
     if (!data) return chyba(cors, 404, 'nenalezeno', 'Přehled tohoto tématu zatím není.');
     return hotovo(cors, data);
+  },
+
+  // „Povolit" na obrazovce /claude-pripojeni: kód pro Claude (OAuth, PKCE S256).
+  // Přístup do bible ověřila brána (fail-closed); kód platí 5 minut a jednou.
+  async mcp_povolit({ db, u, telo, cors }) {
+    const navrat = typeof telo.redirect_uri === 'string' ? telo.redirect_uri : '';
+    if (!POVOLENE_NAVRATY.includes(navrat)) throw new ChybaVstupu('Žádost nepřišla z aplikace Claude.');
+    if (!platnyClient(telo.client_id)) throw new ChybaVstupu('Žádost nemá platného klienta.');
+    if (telo.code_challenge_method !== 'S256' || !platnaChallenge(telo.code_challenge)) throw new ChybaVstupu('Žádost nemá zabezpečení PKCE (S256).');
+    const stav = typeof telo.state === 'string' ? telo.state.slice(0, 500) : '';
+    const kod = nahodnyToken();
+    const { data, error } = await db.rpc('bible_mcp_vydej_kod', {
+      p_uzivatel: u.uid, p_jmeno: u.jmeno ?? null, p_pristup: u.pristup, p_client_id: telo.client_id,
+      p_redirect_uri: navrat, p_challenge: telo.code_challenge, p_kod_hash: await sha256hex(kod),
+    });
+    if (error?.code === 'PGRST202') return chyba(cors, 409, 'nezpracovano', 'Konektor čeká na migraci databáze bible 20261103030000_bible_mcp.');
+    if (error) return chybaDb(cors, error, 'mcp_povolit');
+    if (data !== true) throw new ChybaVstupu('Aplikace Claude se u knihovny nezaregistrovala — přidej konektor znovu.');
+    const cil = new URL(navrat);
+    cil.searchParams.set('code', kod);
+    if (stav) cil.searchParams.set('state', stav);
+    return hotovo(cors, { presmerovat: cil.toString() });
+  },
+
+  // Připojení aplikace Claude přihlášeného uživatele (bez tokenů).
+  async mcp_pripojeni({ db, u, cors }) {
+    const { data, error } = await db.rpc('bible_mcp_pripojeni', { p_uzivatel: u.uid });
+    if (error?.code === 'PGRST202') return hotovo(cors, { pripojeni: [], migrace: false });
+    if (error) return chybaDb(cors, error, 'mcp_pripojeni');
+    return hotovo(cors, { pripojeni: data ?? [], migrace: true });
+  },
+
+  // Odpojení (jedno připojení nebo všechna) — tokeny přestanou platit hned.
+  async mcp_odpojit({ db, u, telo, cors }) {
+    const pripojeni = telo.pripojeni === undefined || telo.pripojeni === null ? null : telo.pripojeni;
+    if (pripojeni !== null && !jeUuid(pripojeni)) throw new ChybaVstupu('Neplatné připojení.');
+    const { data, error } = await db.rpc('bible_mcp_odpoj', { p_uzivatel: u.uid, p_pripojeni: pripojeni });
+    if (error) return chybaDb(cors, error, 'mcp_odpojit');
+    return hotovo(cors, { odpojeno: data ?? 0 });
   },
 
   // Přehled tabulek, vzorců a popisků (pasáže s druhem) s náhledem a listem.

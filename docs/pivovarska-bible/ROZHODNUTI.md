@@ -199,3 +199,22 @@ Každé rozhodnutí má datum, důvod a co by ho změnilo.
 - Tabulka `bible_prehledy` (migrace `20261103020000_bible_prehledy`): text
   s citacemi + zdroje (kniha, list) bez textu knih. Appka: Hledání v knihách →
   Přehledy témat, citace otevřou čtečku na stránce.
+
+## R16 — Konektor do aplikace Claude (3. 11. 2026)
+
+- Majitel zvolil „obě" (přehledy v appce + konektor). Claude v aplikaci majitele
+  (jeho předplatné, mobil i počítač) si přes konektor hledá v knihách, čte
+  stránky a přehledy a odpovídá s odkazy na knihu a stránku v appce.
+- Pravidla Anthropicu to dovolují: uživatel se svým účtem v nativní aplikaci
+  Claude; náš server jen poskytuje nástroje (nic nesměruje přes cizí předplatné).
+- Vzdálený MCP server = edge funkce `bible-mcp` v projektu bible (Streamable
+  HTTP, JSON odpovědi). Nástroje: `hledej_v_knihach`, `precti_stranu`,
+  `prehled_tematu`, `seznam_knih` — jen čtení, jen zpracované knihy.
+- Přihlášení OAuth 2.1 s PKCE S256: vydavatel = appka (metadata
+  `public/.well-known/oauth-authorization-server`), registrace (DCR) jen pro
+  adresy návratu Claude, „Povolit" na `/claude-pripojeni` v appce → bible-api
+  `mcp_povolit` (přihlášení a přístup ověří brána, fail-closed). Přístupový
+  token 1 h, obnovovací 30 dní s rotací (zneužití starého zruší připojení),
+  v DB jen sha256. Odpojení: Správa znalostí → Aplikace Claude.
+- Migrace `20261103030000_bible_mcp` (spouští majitel). Odkazy z odpovědí:
+  `?page=bible&sub=kniha:<id>:<list>`.

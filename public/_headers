@@ -29,3 +29,7 @@
   # POZOR: mikrofon se NEZAKAZUJE — používá ho hlasové zadání objednávek
   # (VoiceRecorder → getUserMedia). Zakázáno je jen to, co appka nepoužívá:
   Permissions-Policy: geolocation=(), payment=(), usb=()
+
+/.well-known/oauth-authorization-server
+  Content-Type: application/json
+  Access-Control-Allow-Origin: *

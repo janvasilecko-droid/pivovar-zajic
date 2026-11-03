@@ -11,12 +11,13 @@ import { requestOpenHomeNotes } from './lib/homeNotes';
 // znovu a v krajním případě stránku jednou obnoví (viz lib/lazyStranka.ts).
 import { lazyStranka, uklidPojistkuReloadu } from './lib/lazyStranka';
 const AppSettingsScreen = lazyStranka(() => import('./screens/AppSettingsScreen'));
+const ClaudePripojeni = lazyStranka(() => import('./components/bible/ClaudePripojeni'));
 const RozborScreen = lazyStranka(() => import('./screens/RozborScreen'));
 const HlaseniScreen = lazyStranka(() => import('./screens/HlaseniScreen'));
 const AppVersionsScreen = lazyStranka(() => import('./screens/AppVersionsScreen'));
 
 import Layout, { Page, NAV, EXTRA_NAV } from './components/Layout';
-import { zjistiStrankuZUrl } from './lib/vstupniStranka';
+import { jeClaudePripojeni, zjistiPodstrankuZUrl, zjistiStrankuZUrl } from './lib/vstupniStranka';
 import { nactiMistoPoAktualizaci, zapamatujMisto } from './lib/mistoPoAktualizaci';
 import AuthScreen from './screens/AuthScreen';
 const Dashboard = lazyStranka(() => import('./screens/Dashboard'));
@@ -106,7 +107,9 @@ export default function App() {
   const [autoOpenShareImport, setAutoOpenShareImport] = useState(() => wasOpenedViaShare());
   const [pageSubTab, setPageSubTabState] = useState<string>(() => {
     if (wasOpenedViaShare()) return '';
-    if (zjistiStrankuZUrl(window.location.search, VSECHNY_STRANKY)) return readSubTabFromHistory();
+    if (zjistiStrankuZUrl(window.location.search, VSECHNY_STRANKY)) {
+      return zjistiPodstrankuZUrl(window.location.search) ?? readSubTabFromHistory();
+    }
     if (mistoPoAktualizaci && VSECHNY_STRANKY.has(mistoPoAktualizaci.page)) {
       return mistoPoAktualizaci.subTab;
     }
@@ -124,13 +127,15 @@ export default function App() {
       window.history.replaceState({ page: 'orders' }, '', '/');
       return;
     }
+    // Schválení připojení Claude potřebuje adresu i s parametry OAuth beze změny.
+    if (jeClaudePripojeni(window.location.pathname)) return;
     // Zkratka na ploše / klik na push upozornění otevřou nové okno s
     // `?page=…` v adrese. Jakmile se podle toho appka rozjela (viz
     // `useState` výš), adresu i history.state se srovná na stejný tvar,
     // jaký appka běžně používá (setPage) — jinak by tlačítko Zpět a
     // obnovení stránky skončily zpátky na tom `?page=` místo na Domů.
     if (zjistiStrankuZUrl(window.location.search, VSECHNY_STRANKY)) {
-      window.history.replaceState({ page }, '', window.location.pathname);
+      window.history.replaceState({ page, subTab: pageSubTab }, '', window.location.pathname);
     } else if (mistoPoAktualizaci && VSECHNY_STRANKY.has(mistoPoAktualizaci.page)) {
       window.history.replaceState({ page, subTab: pageSubTab }, '', window.location.pathname);
     }
@@ -253,6 +258,13 @@ export default function App() {
     );
   }
   if (!session) return <AuthScreen />;
+  if (jeClaudePripojeni(window.location.pathname)) {
+    return (
+      <Suspense fallback={<div className="p-6 text-sm">Načítám…</div>}>
+        <ClaudePripojeni />
+      </Suspense>
+    );
+  }
 
   return (
     <Layout page={page} setPage={setPage}>
