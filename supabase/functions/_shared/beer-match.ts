@@ -497,10 +497,10 @@ export function matchPackageId(
   const tecka = (t: string) => t.replace(/(\d),(\d)/g, "$1.$2");
   const rawText = tecka(normText(item.raw_line || ""));
   // „2 basy sklo" bez udaného objemu = lahev 0,5 l. Třetinku (0,33 l) smí AI vrátit
-  // jen když to v zápisu opravdu stojí (0,33 / třetinka / bedna) — z provozu
+  // jen když to v zápisu opravdu stojí (0,33 / třetinka) — z provozu
   // 2. 11. 2026 jí „A ještě prosím dvě basy sklo 12sv" vyšlo jako 0,33 l.
   const rawJeSklo = /\b(sklo|lahve?|lahev|basy?|basa|flas\w*)\b/.test(rawText);
-  const rawMaTretinku = /0\.33|\b330\b|\btretink|\bbedn|\bprepravk/.test(rawText);
+  const rawMaTretinku = /0\.33|\b330\b|\btretink/.test(rawText);
   let labelText = tecka(normText(item.package_label || ""));
   if (rawJeSklo && !rawMaTretinku && /0\.33/.test(labelText)) labelText = "0.5l";
   const text = labelText || rawText;
