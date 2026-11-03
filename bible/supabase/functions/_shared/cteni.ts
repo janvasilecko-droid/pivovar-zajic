@@ -128,3 +128,52 @@ export async function vsechnyRadky<T>(
   }
   return { data, error: null };
 }
+
+// --- Hledání (etapa 4, migrace 20261103010000_bible_hledani) --------------------
+
+/** Nejvýš tolik výsledků hledání na dotaz. */
+export const VYSLEDKU_HLEDANI = 40;
+/** Délka úryvku kolem nálezu (znaků). */
+export const URYVEK_ZNAKU = 320;
+
+/** Dotaz hledání: text 2–200 znaků s aspoň jedním písmenem nebo číslicí. */
+export function dotazHledani(v: unknown): string {
+  const t = typeof v === 'string' ? v.trim() : '';
+  if (t.length < 2 || t.length > 200 || !/[\p{L}\p{N}]/u.test(t)) throw new ChybaVstupu('Napiš, co hledáš (2–200 znaků).');
+  return t;
+}
+
+const bezDiakritiky = (z: string): string => z.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+
+/** Slova dotazu bez diakritiky malými písmeny (jako bible_dotaz v SQL). */
+export function slovaDotazu(dotaz: string): string[] {
+  return bezDiakritiky(dotaz).split(/[^a-z0-9]+/).filter((w) => w.length >= 2 || /^[0-9]$/.test(w)).slice(0, 8);
+}
+
+/**
+ * Úryvek textu kolem prvního nalezeného slova dotazu (bez ohledu na diakritiku
+ * a velikost písmen). Nenajde-li se nic, začátek textu. Celá slova, s „…".
+ */
+export function uryvek(text: string | null | undefined, slova: readonly string[], max = URYVEK_ZNAKU): string {
+  const t = (text ?? '').replace(/\s+/g, ' ').trim();
+  if (t.length <= max) return t;
+  // Mapa znaků bez diakritiky → pozice v originále (NFD může znak rozložit).
+  let plochy = '';
+  const pozice: number[] = [];
+  for (let i = 0; i < t.length; i++) {
+    const z = bezDiakritiky(t[i]);
+    for (let j = 0; j < z.length; j++) { plochy += z[j]; pozice.push(i); }
+  }
+  let nalez = -1;
+  for (const w of slova) {
+    const k = plochy.indexOf(w);
+    if (k >= 0 && (nalez < 0 || k < nalez)) nalez = k;
+  }
+  const stred = nalez >= 0 ? pozice[nalez] : 0;
+  let od = Math.max(0, stred - Math.floor(max * 0.35));
+  let do_ = Math.min(t.length, od + max);
+  od = Math.max(0, do_ - max);
+  if (od > 0) { const m = t.indexOf(' ', od); if (m >= 0 && m < stred) od = m + 1; }
+  if (do_ < t.length) { const m = t.lastIndexOf(' ', do_); if (m > stred) do_ = m; }
+  return `${od > 0 ? '…' : ''}${t.slice(od, do_)}${do_ < t.length ? '…' : ''}`;
+}

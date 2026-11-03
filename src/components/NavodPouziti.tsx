@@ -546,6 +546,10 @@ const ODDILY: Oddil[] = [
         jak: 'U zpracované knihy klepni na „Číst“. Obsah ukáže kapitoly (klepnutím otevřeš jejich stranu), Čtení listuje stranu po straně šipkami nebo skokem na číslo strany a Tabulky a vzorce ukáže tabulky a vzorce rozpoznané v přepisu skenů. Strana „s. 158“ je vytištěné číslo, „list 170“ pořadí v souboru. U strany ke kontrole ověř čísla v originále. Cizojazyčná kniha se po zpracování sama přeloží do češtiny: čtení ukáže češtinu, tlačítkem „Originál“ přepneš na text knihy. Překlad, kde čísla nesedí s originálem, má upozornění.',
       },
       {
+        co: 'Hledat v knihách',
+        jak: 'Pivovarská bible → Hledání v knihách. Napiš slova (např. „chmelovar odpar“) a klepni Hledat. Hledá se v textu zpracovaných knih i v jejich českém překladu, takže česky najdeš i to, co je v anglické knize. Stačí začátek slova („amyl“ najde amylázu), všechna slova musí být na jedné stránce. Výsledek ukáže knihu, kapitolu a stranu; klepnutím se kniha otevře přesně na té stránce.',
+      },
+      {
         co: 'Správa znalostí',
         jak: 'Dlaždice Správa znalostí ukazuje tematické oblasti A–T s počtem dokumentů, kdo má přístup a kolik místa zabírá databáze a úložiště. Ostatní dlaždice (chatbot, výpočty, technologie, várky) řeknou, ve které etapě přijdou.',
       },

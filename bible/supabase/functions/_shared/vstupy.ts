@@ -22,6 +22,8 @@ export const AKCE = {
   kniha: 'cte',
   listy: 'cte',
   objekty: 'cte',
+  // Hledání v knihách (etapa 4): originál i český překlad.
+  hledej: 'cte',
 } as const satisfies Record<string, Pristup>;
 
 export type Akce = keyof typeof AKCE;
