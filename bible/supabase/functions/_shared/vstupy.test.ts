@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import {
-  AKCE, ChybaVstupu, idDokumentu, jeAkce, popisDokumentu, prekladChybyDb, souborKNahrani, stavDokumentu, zacatekObdobi,
+  AKCE, ChybaVstupu, idDokumentu, klicPrehledu, jeAkce, popisDokumentu, prekladChybyDb, souborKNahrani, stavDokumentu, zacatekObdobi,
 } from './vstupy';
 
 const SHA = 'a'.repeat(64);
@@ -19,6 +19,8 @@ describe('akce a práva', () => {
     expect(AKCE.kniha).toBe('cte');
     expect(AKCE.listy).toBe('cte');
     expect(AKCE.hledej).toBe('cte');
+    expect(AKCE.prehledy).toBe('cte');
+    expect(AKCE.prehled).toBe('cte');
     expect(AKCE.objekty).toBe('cte');
     expect(jeAkce('dokumenty')).toBe(true);
     expect(jeAkce('toString')).toBe(false);
@@ -101,5 +103,14 @@ describe('překlad chyb databáze', () => {
   it('neznámá chyba neprozradí text z databáze', () => {
     expect(prekladChybyDb({ code: 'XX000', message: 'tajný řádek' }).zprava).not.toMatch(/tajný/);
     expect(prekladChybyDb(null)).toMatchObject({ status: 500 });
+  });
+});
+
+describe('klíč přehledu', () => {
+  it('jen malá písmena, číslice a podtržítko', () => {
+    expect(klicPrehledu('chmelovar')).toBe('chmelovar');
+    expect(() => klicPrehledu('Chmelovar')).toThrow(ChybaVstupu);
+    expect(() => klicPrehledu("x'; drop")).toThrow(ChybaVstupu);
+    expect(() => klicPrehledu(undefined)).toThrow(ChybaVstupu);
   });
 });

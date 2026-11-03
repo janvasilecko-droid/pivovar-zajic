@@ -54,3 +54,62 @@ export async function hledejVKnihach(dotaz: string, dokumentId?: string): Promis
   }
   return { stav: 'ok', vysledky };
 }
+
+// --- Přehledy témat (Claude porovná knihy a napíše to nejlepší s odkazy) -------
+
+export type PolozkaPrehledu = { klic: string; nazev: string; oblast: string | null; kontrola: string | null; vytvoreno: string | null };
+
+export type ZdrojPrehledu = {
+  n: number;
+  dokumentId: string;
+  nazev: string;
+  pdfIndex: number;
+  tistena: string | null;
+  kapitola: string | null;
+  zdroj: 'original' | 'preklad';
+};
+
+export type PrehledTematu = {
+  klic: string;
+  nazev: string;
+  text: string;
+  zdroje: ZdrojPrehledu[];
+  kontrola: string | null;
+  vytvoreno: string | null;
+};
+
+export async function nactiPrehledy(): Promise<{ stav: 'ok'; prehledy: PolozkaPrehledu[]; migrace: boolean } | { stav: 'chyba'; zprava: string }> {
+  const r = await volejBibli<{ prehledy?: unknown; migrace?: unknown }>('bible-api', { akce: 'prehledy' });
+  if (!r.ok) return { stav: 'chyba', zprava: r.chyba.zprava };
+  const prehledy: PolozkaPrehledu[] = [];
+  for (const v of Array.isArray(r.data?.prehledy) ? r.data.prehledy : []) {
+    const o = (v ?? {}) as Record<string, unknown>;
+    const klic = text(o.klic);
+    if (!klic) continue;
+    prehledy.push({ klic, nazev: text(o.nazev) ?? klic, oblast: text(o.oblast), kontrola: text(o.kontrola), vytvoreno: text(o.vytvoreno) });
+  }
+  return { stav: 'ok', prehledy, migrace: r.data?.migrace !== false };
+}
+
+export async function nactiPrehled(klic: string): Promise<{ stav: 'ok'; prehled: PrehledTematu } | { stav: 'chyba'; zprava: string }> {
+  const r = await volejBibli<Record<string, unknown>>('bible-api', { akce: 'prehled', klic });
+  if (!r.ok) return { stav: 'chyba', zprava: r.chyba.zprava };
+  const o = r.data ?? {};
+  const zdroje: ZdrojPrehledu[] = [];
+  for (const v of Array.isArray(o.zdroje) ? o.zdroje : []) {
+    const z = (v ?? {}) as Record<string, unknown>;
+    const id = text(z.dokument_id);
+    if (!id || typeof z.n !== 'number' || typeof z.pdf_index !== 'number') continue;
+    zdroje.push({
+      n: z.n, dokumentId: id, nazev: text(z.nazev) ?? 'Kniha', pdfIndex: z.pdf_index,
+      tistena: text(z.tistena_strana), kapitola: text(z.kapitola), zdroj: z.zdroj === 'preklad' ? 'preklad' : 'original',
+    });
+  }
+  return {
+    stav: 'ok',
+    prehled: {
+      klic: text(o.klic) ?? klic, nazev: text(o.nazev) ?? klic, text: text(o.text) ?? '', zdroje,
+      kontrola: text(o.kontrola), vytvoreno: text(o.vytvoreno),
+    },
+  };
+}

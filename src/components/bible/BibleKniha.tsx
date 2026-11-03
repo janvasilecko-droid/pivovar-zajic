@@ -8,7 +8,7 @@
 //
 // Listování nezapisuje každou stranu do historie stránek — tlačítko Zpět
 // prohlížeče vede z knihy rovnou zpátky do knihovny.
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { BookOpen, ChevronLeft, ChevronRight, Download, ListOrdered, Table } from 'lucide-react';
 import { usePosledniNacteni } from '../../lib/nacitani';
 import { kapitolaListu, kapitolyProObsah, najdiList, oznaceniListu, sousedniList, ZDROJ_POPIS, type ListKnihy } from '../../lib/bibleCteni';
@@ -22,11 +22,15 @@ type Pohled = 'obsah' | 'cteni' | 'objekty';
 
 const DRUH_OBJEKTU: Record<ObjektKnihy['druh'], string> = { tabulka: 'Tabulka', vzorec: 'Vzorec', popisek: 'Popisek' };
 
+/** Jak vykreslit obyčejný text (přehledy témat z něj dělají odkazy na citace [n]). */
+export const VykresleniTextu = createContext<((text: string) => ReactNode) | null>(null);
+
 function Casti({ casti }: { casti: CastTextu[] }) {
+  const vykresli = useContext(VykresleniTextu);
   return (
     <>
       {casti.map((c, i) => (c.typ === 'text' ? (
-        <span key={i}>{c.text}</span>
+        <span key={i}>{vykresli ? vykresli(c.text) : c.text}</span>
       ) : c.typ === 'vzorec' ? (
         <code key={i} className="rounded bg-neutral-800 px-1 font-mono text-amber-100" title="vzorec (LaTeX)">{c.tex}</code>
       ) : (

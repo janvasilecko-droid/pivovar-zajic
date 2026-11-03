@@ -2,6 +2,7 @@
   "soubory": [
     "20261101000000_bible_zaklad.sql",
     "20261103000000_bible_preklad.sql",
-    "20261103010000_bible_hledani.sql"
+    "20261103010000_bible_hledani.sql",
+    "20261103020000_bible_prehledy.sql"
   ]
 }
