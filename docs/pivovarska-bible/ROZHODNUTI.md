@@ -264,3 +264,12 @@ Každé rozhodnutí má datum, důvod a co by ho změnilo.
   jde do bible tak, že majitel uloží přepis (YouTube → … → Zobrazit přepis) jako
   TXT s odkazem na video a nahraje ho do knihovny — jen pro vlastní potřebu.
 
+## R21 — Citace přehledů a postupů ve všech tvarech (4. 11. 2026)
+
+- První běh přehledů: 19 z 36 bez odkazů — model psal citace jako [2, 5] /
+  [2–5] a kontrola znala jen [2]. Oprava: worker skupiny a rozsahy rozbalí na
+  [2][5] (appka a konektor i u starších textů), ukládá všechny zdroje (jen
+  kniha a místo), číslování kroků a nadpisů se nebere jako údaj z knihy (číslo
+  na začátku obyčejného řádku se kontroluje dál), prompt chce každé číslo ve
+  vlastních závorkách. Verze `prehled-2` a `postup-2` vynutí nové napsání.
+  Ruční spuštění workflow projde vždy.

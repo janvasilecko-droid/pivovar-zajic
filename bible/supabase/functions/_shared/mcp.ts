@@ -202,13 +202,40 @@ export function najdiTema<T extends { klic: string; nazev: string }>(prehledy: r
     ?? null;
 }
 
-/** Citace [n] přehledu → odkazy Markdown na stránku knihy. */
+const SKUPINA_CITACI = /\[((?:\s*(?:zdroje?|zdrojích|viz|č\.)\s*)?\d{1,3}(?:\s*(?:,|;|–|-|\ba\b|\band\b)\s*\d{1,3})+\s*|\s*(?:zdroje?|zdrojích|viz|č\.)\s*\d{1,3}\s*)\]/gi;
+
+/** [2, 5] / [2–4] / [zdroj 2] → [2][5] / [2][3][4] / [2] (stejně jako worker, prehledy.normalizuj_citace). */
+export function normalizujCitace(text: string): string {
+  return text.replace(SKUPINA_CITACI, (celek: string, obsah: string) => {
+    const cisla: number[] = [];
+    for (const cast of obsah.replace(/zdrojích|zdroje?|viz|č\./gi, '').trim().split(/\s*(?:,|;|\ba\b|\band\b)\s*/)) {
+      const rozsah = /^(\d{1,3})\s*[–-]\s*(\d{1,3})$/.exec(cast);
+      if (rozsah) {
+        const a = Number(rozsah[1]);
+        const b = Number(rozsah[2]);
+        if (b - a > 0 && b - a <= 30) for (let i = a; i <= b; i++) cisla.push(i);
+        else cisla.push(a, b);
+      } else if (/^\d+$/.test(cast)) cisla.push(Number(cast));
+    }
+    const jedinecna = [...new Set(cisla)];
+    return jedinecna.length ? jedinecna.map((c) => `[${c}]`).join('') : celek;
+  });
+}
+
+/** Čísla citací [n] v textu (po normalizaci). */
+export function citovaneZdroje(text: string): Set<number> {
+  return new Set([...normalizujCitace(text).matchAll(/\[(\d{1,3})\]/g)].map((m) => Number(m[1])));
+}
+
+/** Citace [n] přehledu → odkazy Markdown na stránku knihy; ve zdrojích jen citované (jinak všechny). */
 export function prehledSOdkazy(text: string, zdroje: readonly { n: number; dokument_id: string; pdf_index: number; nazev: string; tistena_strana: string | null }[]): string {
   const mapa = new Map(zdroje.map((z) => [z.n, z]));
-  const telo = text.replace(/\[(\d{1,3})\]/g, (m, n) => {
+  const citovane = citovaneZdroje(text);
+  const telo = normalizujCitace(text).replace(/\[(\d{1,3})\]/g, (m, n) => {
     const z = mapa.get(Number(n));
     return z ? `[[${n}]](${odkazNaList(z.dokument_id, z.pdf_index)})` : m;
   });
-  const seznam = zdroje.map((z) => `[${z.n}] ${z.nazev}, ${z.tistena_strana ? `s. ${z.tistena_strana}` : `list ${z.pdf_index}`} — ${odkazNaList(z.dokument_id, z.pdf_index)}`);
+  const vypsat = zdroje.some((z) => citovane.has(z.n)) ? zdroje.filter((z) => citovane.has(z.n)) : zdroje;
+  const seznam = vypsat.map((z) => `[${z.n}] ${z.nazev}, ${z.tistena_strana ? `s. ${z.tistena_strana}` : `list ${z.pdf_index}`} — ${odkazNaList(z.dokument_id, z.pdf_index)}`);
   return `${telo}\n\nZdroje:\n${seznam.join('\n')}`;
 }
