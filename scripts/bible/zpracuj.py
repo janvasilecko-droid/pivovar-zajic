@@ -1135,6 +1135,7 @@ def prekladej(supa: Supa, prepisovac: Prepisovac, nastaveni: dict, konec: float)
         if not strany:
             continue
         log(f'Překlad dokumentu {id_}: {len(strany)} stran bez platného překladu (model {model})')
+        pred = dict(souhrn)
 
         def uloz(pdf_index: int, text: str, preklad: str, kontrola: str | None, s_modelem: bool) -> None:
             supa.uprav('bible_strany', {'dokument_id': f'eq.{id_}', 'pdf_index': f'eq.{pdf_index}'}, {
@@ -1193,8 +1194,9 @@ def prekladej(supa: Supa, prepisovac: Prepisovac, nastaveni: dict, konec: float)
                         log(f'  přeloženo {hotovo}/{len(k_prekladu)} stran')
         finally:
             zapis_naklady(supa, ucet, id_, ucel='preklad')
-        log(f'  překlad: {souhrn["prelozeno"]} přeloženo ({souhrn["ke_kontrole"]} ověřit v originále), '
-            f'{souhrn["bez_prekladu"]} bez potřeby překladu, {souhrn["nepovedlo"]} nepovedlo')
+        d = {k: souhrn[k] - pred[k] for k in souhrn}
+        log(f'  překlad: {d["prelozeno"]} přeloženo ({d["ke_kontrole"]} ověřit v originále), '
+            f'{d["bez_prekladu"]} bez potřeby překladu, {d["nepovedlo"]} nepovedlo')
         if zastavit is not None:
             zprava = getattr(zastavit, 'do_logu', None) or str(zastavit)
             log(f'Překlad ukončen: {zprava}')
