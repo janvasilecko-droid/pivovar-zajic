@@ -6,7 +6,8 @@ import type { Hledani, PolozkaPrehledu, PrehledTematu } from '../../lib/bibleHle
 const hledejVKnihach = vi.fn<(dotaz: string, id?: string) => Promise<Hledani>>();
 let seznamPrehledu: { stav: 'ok'; prehledy: PolozkaPrehledu[]; migrace: boolean } = { stav: 'ok', prehledy: [], migrace: true };
 const nactiPrehled = vi.fn<(klic: string) => Promise<{ stav: 'ok'; prehled: PrehledTematu } | { stav: 'chyba'; zprava: string }>>();
-vi.mock('../../lib/bibleHledaniApi', () => ({
+vi.mock('../../lib/bibleHledaniApi', async (puvodni) => ({
+  ...(await puvodni<typeof import('../../lib/bibleHledaniApi')>()),
   hledejVKnihach: (d: string, id?: string) => hledejVKnihach(d, id),
   nactiPrehledy: async () => seznamPrehledu,
   nactiPrehled: (k: string) => nactiPrehled(k),
@@ -69,7 +70,8 @@ const P = (klic: string, nazev: string): PolozkaPrehledu => ({ klic, nazev, obla
 describe('přehledy témat s odkazy na knihy', () => {
   it('dokud nejsou, vysvětlí kdy vzniknou; pak je nabídne', async () => {
     const { unmount } = render(<BibleHledani otevri={() => {}} />);
-    await waitFor(() => expect(screen.getByText(/až budou všechny knihy zpracované a přeložené/)).toBeTruthy());
+    await waitFor(() => expect(screen.getAllByText(/až budou všechny knihy zpracované a přeložené/)).toHaveLength(2));
+    expect(screen.getByRole('region', { name: 'Pracovní postupy' }).textContent).toContain('šrotování, rmutování');
     unmount();
     seznamPrehledu = { stav: 'ok', prehledy: [P('chmelovar', 'Chmelovar'), P('rmutovani', 'Rmutování')], migrace: true };
     render(<BibleHledani otevri={() => {}} />);
@@ -110,5 +112,24 @@ describe('přehledy témat s odkazy na knihy', () => {
     const seznam = [P('chmelovar', 'Chmelovar'), P('rmutovani', 'Rmutování'), P('dekokce', 'Dekokční a infuzní rmutování')];
     expect(prehledyKDotazu(seznam, 'rmutovani teplota').map((p) => p.klic)).toEqual(['rmutovani', 'dekokce']);
     expect(prehledyKDotazu(seznam, 'xy')).toEqual([]);
+  });
+  it('pracovní postupy: zvlášť pod přehledy, bez předpony „Postup:"; otevřený postup má upozornění', async () => {
+    seznamPrehledu = { stav: 'ok', prehledy: [P('chmelovar', 'Chmelovar'), P('postup_chmelovar', 'Postup: chmelovar a dávkování chmele')], migrace: true };
+    nactiPrehled.mockResolvedValue({ stav: 'ok', prehled: {
+      klic: 'postup_chmelovar', nazev: 'Postup: chmelovar a dávkování chmele', kontrola: null, vytvoreno: null,
+      text: '## Postup\n1. Mladinu přiveď k varu [1].',
+      zdroje: [{ n: 1, dokumentId: ID, nazev: 'Kniha A', pdfIndex: 40, tistena: '38', kapitola: null, zdroj: 'preklad' }],
+    } });
+    render(<BibleHledani otevri={() => {}} />);
+    const postupy = await screen.findByRole('region', { name: 'Pracovní postupy' });
+    const prehledy = screen.getByRole('region', { name: 'Přehledy témat' });
+    expect(prehledy.textContent).toContain('Chmelovar');
+    expect(prehledy.textContent).not.toContain('dávkování');
+    fireEvent.click(screen.getByRole('button', { name: 'Chmelovar a dávkování chmele' }));
+    expect(postupy).toBeTruthy();
+    await waitFor(() => expect(screen.getByText('Pracovní postup')).toBeTruthy());
+    expect(nactiPrehled).toHaveBeenCalledWith('postup_chmelovar');
+    expect(screen.getByRole('note').textContent).toContain('porovnej ho s návodem k vašemu zařízení');
+    expect(screen.getByText(/Mladinu přiveď k varu/)).toBeTruthy();
   });
 });

@@ -59,6 +59,18 @@ export async function hledejVKnihach(dotaz: string, dokumentId?: string): Promis
 
 export type PolozkaPrehledu = { klic: string; nazev: string; oblast: string | null; kontrola: string | null; vytvoreno: string | null };
 
+/**
+ * Pracovní postup krok za krokem (4. 11. 2026) — worker ho píše do stejné
+ * tabulky jako přehledy, s klíčem „postup_…" (scripts/bible/prehledy.py).
+ */
+export const jePostup = (klic: string) => klic.startsWith('postup_');
+
+/** Název postupu bez předpony „Postup:" — v seznamu postupů je navíc. */
+export function nazevPostupu(nazev: string): string {
+  const bez = nazev.replace(/^Postup:\s*/i, '');
+  return bez ? bez.charAt(0).toLocaleUpperCase('cs') + bez.slice(1) : nazev;
+}
+
 export type ZdrojPrehledu = {
   n: number;
   dokumentId: string;
