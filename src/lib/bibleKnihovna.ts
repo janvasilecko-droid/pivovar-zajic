@@ -137,7 +137,8 @@ export const STAV_POPIS: Readonly<Record<StavDokumentu, string>> = {
   ceka: 'Čeká na zpracování',
   zpracovava: 'Zpracovává se',
   hotovo: 'Zpracováno',
-  ke_kontrole: 'Zpracováno, část ke kontrole',
+  // 3. 11. 2026 majitel: „je tam zpracováno ke kontrole… co to je?“ — kniha je hotová, jen u pár stran ověřit čísla.
+  ke_kontrole: 'Zpracováno · u pár stran ověř čísla',
   chyba: 'Chyba zpracování',
   pozastaveno: 'Pozastaveno',
 };
@@ -180,7 +181,7 @@ export function postupText(postup: PostupZpracovani | null | undefined, stranCel
   if (p.tabulek) casti.push(`${p.tabulek} tabulek`);
   if (p.vzorcu) casti.push(`${p.vzorcu} vzorců`);
   if (p.pasazi != null) casti.push(`${p.pasazi} pasáží`);
-  if (p.ke_kontrole) casti.push(`${p.ke_kontrole} ke kontrole`);
+  if (p.ke_kontrole) casti.push(`${p.ke_kontrole} stran ověřit v originále`);
   return casti.join(' · ');
 }
 

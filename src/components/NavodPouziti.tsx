@@ -555,7 +555,7 @@ const ODDILY: Oddil[] = [
       },
       {
         co: 'Správa znalostí',
-        jak: 'Dlaždice Správa znalostí ukazuje tematické oblasti A–T s počtem dokumentů, kdo má přístup a kolik místa zabírá databáze a úložiště. Ostatní dlaždice (chatbot, výpočty, technologie, várky) řeknou, ve které etapě přijdou.',
+        jak: 'Dlaždice Správa znalostí ukazuje tematické oblasti A–T s počtem dokumentů, kdo má přístup a kolik místa zabírá databáze a úložiště. Je tu i připojení knihovny k aplikaci Claude. Ostatní dlaždice (výpočty, technologie, várky, analýza problémů) řeknou, ve které etapě přijdou.',
       },
     ],
   },

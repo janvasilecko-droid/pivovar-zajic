@@ -152,13 +152,13 @@ export function BibleSprava({ role, setPage }: {
 
       <section className="rounded-xl border border-neutral-700 bg-neutral-900 text-neutral-100 p-4 space-y-2">
         <h2 className="font-black">AI a náklady</h2>
+        {/* 3. 11. 2026 majitel: „žádný kredit… nebudu platit kredity" — všechno jede přes předplatné. */}
         <p className="text-sm text-neutral-200">
-          Odpovídat bude Claude (Anthropic) — Opus 5.5, levnější Sonnet 5.5 jde přepnout. Skeny knih přepíše Claude Haiku 5.5. Každé volání se zapíše s počtem tokenů a cenou a hlídá ho měsíční strop.
+          Knihy zpracovává Claude přes tvoje předplatné Claude (Max): přepis skenů (Haiku 5.5), překlad do češtiny (Sonnet 5.5),
+          zařazení do oblastí a přehledy témat (Opus 5.5). Nic se nedoplácí — přes předplatné je cena 0, zapisují se jen počty tokenů.
+          Otázky na knihy pokládáš v aplikaci Claude přes konektor výš.
         </p>
         {smiSpravovat(role) && <NakladyPanel />}
-        <a className="btn-tmave" href="https://platform.claude.com/settings/billing" target="_blank" rel="noopener noreferrer">
-          <ExternalLink size={16} /> Kredit Anthropic API
-        </a>
       </section>
     </div>
   );

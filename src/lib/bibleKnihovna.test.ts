@@ -63,7 +63,7 @@ describe('popisy', () => {
 
   it('postup zpracování ukazuje jen to, co je známé', () => {
     expect(postupText({}, null)).toBe('');
-    expect(postupText({ stran: 412, ocr: 30, kapitol: 18, pasazi: 950, ke_kontrole: 3 })).toBe('412 stran · 30 přes OCR · 18 kapitol · 950 pasáží · 3 ke kontrole');
+    expect(postupText({ stran: 412, ocr: 30, kapitol: 18, pasazi: 950, ke_kontrole: 3 })).toBe('412 stran · 30 přes OCR · 18 kapitol · 950 pasáží · 3 stran ověřit v originále');
     expect(postupText(null, 120)).toBe('120 stran');
   });
 
