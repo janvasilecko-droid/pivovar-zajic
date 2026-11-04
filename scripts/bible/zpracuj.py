@@ -57,6 +57,7 @@ import pdf as pdf_mod
 import preklad as preklad_mod
 import prehledy as prehledy_mod
 import oblasti as oblasti_mod
+import kapitoly_preklad as kapitoly_mod
 from jazyk import odhad_jazyka
 from kapitoly import Kapitola, kapitola_listu, okrajove_radky, osnova_pouzitelna, useky, z_nadpisu, z_osnovy
 from pasaze import rozdel_na_pasaze
@@ -1014,6 +1015,8 @@ def _beh() -> int:
             try:
                 prekladej(supa, prepisovac, nastaveni, konec)
                 if time.time() < konec:
+                    prekladej_kapitoly(supa, prepisovac, nastaveni, konec)
+                if time.time() < konec:
                     urci_oblasti(supa, prepisovac, nastaveni, konec)
                 if time.time() < konec:
                     pis_prehledy(supa, prepisovac, nastaveni, konec)
@@ -1202,6 +1205,93 @@ def prekladej(supa: Supa, prepisovac: Prepisovac, nastaveni: dict, konec: float)
             log(f'Překlad ukončen: {zprava}')
             return souhrn
     return souhrn
+
+
+# --- český překlad názvů kapitol (kapitoly_preklad.py) ----------------------------
+
+KAPITOLY_MIGRACE = '20261104020000_bible_kapitoly_preklad'
+
+
+def prekladej_kapitoly(supa: Supa, prepisovac: Prepisovac, nastaveni: dict, konec: float) -> dict:
+    """Přeloží názvy kapitol hotových cizojazyčných knih (po stranách, ať je jasný jazyk knihy).
+
+    Kniha bez přeložených stran (česká) dostane prázdné názvy („nepotřebuje");
+    kniha, jejíž strany se ještě překládají, počká. Dávky po 120 názvech.
+    """
+    souhrn = {'prelozeno': 0, 'bez_prekladu': 0, 'nepovedlo': 0}
+    if not _zapnuto(nastaveni.get('preklad_zapnuty')):
+        return souhrn
+    try:
+        dokumenty = supa.vyber_vse('bible_dokumenty', {'select': 'id,jazyk', 'stav': 'in.(hotovo,ke_kontrole)'}, razeni='created_at')
+    except ChybaSupabase as e:
+        log(f'Kapitoly: seznam knih nejde načíst ({e}).')
+        return souhrn
+    model = str(nastaveni.get('model_prekladu') or 'claude-sonnet-5-5')
+    ucet = prepisovac.ucet
+    try:
+        for dok in dokumenty:
+            id_, jazyk = str(dok['id']), dok.get('jazyk')
+            try:
+                kapitoly = supa.vyber_vse('bible_kapitoly', {
+                    'select': 'id,nazev', 'dokument_id': f'eq.{id_}', 'nazev_cs': 'is.null'}, razeni='poradi')
+            except ChybaSupabase as e:
+                if '42703' in str(e):
+                    log(f'Překlad kapitol čeká na migraci {KAPITOLY_MIGRACE}: appka → Systém → Databázové migrace → Databáze bible.')
+                    return souhrn
+                log(f'Kapitoly knihy {id_}: nejde načíst ({e}).')
+                continue
+            if not kapitoly:
+                continue
+            try:
+                ceka_preklad = supa.vyber('bible_strany', {'select': 'pdf_index', 'dokument_id': f'eq.{id_}',
+                                                            'preklad_platny': 'is.false', 'limit': '1'})
+                prelozene = supa.vyber('bible_strany', {'select': 'pdf_index', 'dokument_id': f'eq.{id_}',
+                                                         'preklad': 'neq.', 'limit': '1'})
+            except ChybaSupabase as e:
+                log(f'Kapitoly knihy {id_}: stav překladu nejde zjistit ({e}).')
+                continue
+            if ceka_preklad:
+                continue  # strany se ještě překládají — názvy kapitol počkají
+            if jazyk == 'cs' or not prelozene:
+                try:
+                    n = supa.rpc('bible_kapitoly_bez_prekladu', {'p_dokument': id_})
+                except ChybaSupabase as e:
+                    log(f'Kapitoly knihy {id_}: zápis nejde ({e}).')
+                    continue
+                souhrn['bez_prekladu'] += int(n or 0)
+                continue
+            log(f'Kapitoly knihy {id_}: {len(kapitoly)} názvů k překladu')
+            for i in range(0, len(kapitoly), kapitoly_mod.DAVKA):
+                if time.time() >= konec or ucet.prekroceno():
+                    log('Kapitoly: došel čas nebo strop — pokračuje se dalším během.')
+                    return souhrn
+                davka = kapitoly[i:i + kapitoly_mod.DAVKA]
+                try:
+                    nazvy, usage = kapitoly_mod.preloz_nazvy(prepisovac.klient, [str(k['nazev']) for k in davka], model, jazyk)
+                except Exception as e:  # noqa: BLE001 — chyba API → výjimka workeru
+                    prevedena = chyba_api(e, prvni=souhrn['prelozeno'] == 0)
+                    if isinstance(prevedena, (Odlozit, PrechodnaChyba)):
+                        log(f'Překlad kapitol ukončen: {getattr(prevedena, "do_logu", None) or prevedena}')
+                        return souhrn
+                    log(f'  dávka kapitol se nepovedla ({type(e).__name__})')
+                    souhrn['nepovedlo'] += len(davka)
+                    continue
+                ucet.pridej(model, usage, zdarma=prepisovac.zdroj == 'predplatne')
+                if nazvy is None:
+                    souhrn['nepovedlo'] += len(davka)
+                    continue
+                try:
+                    n = supa.rpc('bible_kapitoly_nazvy', {'p_id': [str(k['id']) for k in davka], 'p_nazvy': nazvy})
+                except ChybaSupabase as e:
+                    log(f'  zápis názvů kapitol nejde ({e})')
+                    souhrn['nepovedlo'] += len(davka)
+                    continue
+                souhrn['prelozeno'] += int(n or 0)
+        return souhrn
+    finally:
+        zapis_naklady(supa, ucet, None, ucel='preklad')
+        if any(souhrn.values()):
+            log(f'Kapitoly: {souhrn["prelozeno"]} názvů přeloženo, {souhrn["bez_prekladu"]} bez potřeby překladu, {souhrn["nepovedlo"]} nepovedlo')
 
 
 # --- tematické oblasti knih (oblasti.py) -----------------------------------------

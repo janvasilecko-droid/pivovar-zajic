@@ -61,9 +61,12 @@ function kapitolaZOdpovedi(v: unknown): KapitolaKnihy | null {
   if (!v || typeof v !== 'object') return null;
   const k = v as Record<string, unknown>;
   if (!jeText(k.id) || !jeText(k.nazev) || typeof k.poradi !== 'number') return null;
+  // Český název (worker kapitoly_preklad.py); prázdný = kniha překlad nepotřebuje.
+  const cesky = jeText(k.nazev_cs) && k.nazev_cs.trim() ? k.nazev_cs : null;
   return {
     id: k.id, rodic_id: textNeboNull(k.rodic_id), poradi: k.poradi, uroven: typeof k.uroven === 'number' ? k.uroven : 1,
-    cislo: textNeboNull(k.cislo), nazev: k.nazev, strana_od: cisloNeboNull(k.strana_od), strana_do: cisloNeboNull(k.strana_do),
+    cislo: textNeboNull(k.cislo), nazev: cesky ?? k.nazev, nazev_puvodni: cesky && cesky !== k.nazev ? k.nazev : null,
+    strana_od: cisloNeboNull(k.strana_od), strana_do: cisloNeboNull(k.strana_do),
   };
 }
 

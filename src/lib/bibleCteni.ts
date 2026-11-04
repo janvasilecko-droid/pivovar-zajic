@@ -13,7 +13,10 @@ export type KapitolaKnihy = {
   poradi: number;
   uroven: number;
   cislo: string | null;
+  /** Název k zobrazení — český překlad, je-li (4. 11. 2026), jinak původní. */
   nazev: string;
+  /** Původní název, když je `nazev` překlad; jinak null. */
+  nazev_puvodni?: string | null;
   /** Rozsah v listech souboru (pdf_index), ne v tištěných stranách. */
   strana_od: number | null;
   strana_do: number | null;

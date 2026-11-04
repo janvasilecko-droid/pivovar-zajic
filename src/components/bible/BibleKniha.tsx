@@ -349,7 +349,10 @@ export function BibleKniha({ id, pocatecniList, doKnihovny }: {
                     disabled={k.strana_od === null}
                     onClick={() => k.strana_od !== null && otevriList(k.strana_od)}
                   >
-                    <span className="min-w-0 break-words">{k.cislo ? `${k.cislo} ` : ''}{k.nazev}</span>
+                    <span className="min-w-0 break-words" title={k.nazev_puvodni ?? undefined}>
+                      {k.cislo ? `${k.cislo} ` : ''}{k.nazev}
+                      {k.nazev_puvodni && <span className="block text-[11px] font-normal text-neutral-400">{k.nazev_puvodni}</span>}
+                    </span>
                     {misto && <span className="shrink-0 text-xs font-bold text-neutral-300">{misto}</span>}
                   </button>
                 </li>

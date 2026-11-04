@@ -313,6 +313,19 @@ SELECT pg_temp.ocekavam(NOT EXISTS (SELECT 1 FROM public.bible_hledej('pracuje')
 UPDATE public.bible_strany SET text = 'Die β-Amylase arbeitet bei 62–65 °C.' WHERE dokument_id = pg_temp.dok('a') AND pdf_index = 1;
 SELECT pg_temp.ocekavam((SELECT count(*) FROM public.bible_hledej('amyl', NULL, 1)) = 1, 'limit výsledků');
 SELECT pg_temp.ocekavam((SELECT count(*) FROM public.bible_hledej('amyl', gen_random_uuid())) = 0, 'filtr dokumentu');
+-- Český název kapitoly (20261104020000_bible_kapitoly_preklad)
+SELECT pg_temp.ocekavam(public.bible_kapitoly_nazvy(ARRAY['33333333-3333-3333-3333-333333333333']::uuid[], ARRAY['3.2 Rmutování']) = 1,
+  'přeložený název kapitoly se zapíše');
+SELECT pg_temp.ocekavam(public.bible_kapitoly_nazvy(ARRAY['33333333-3333-3333-3333-333333333333']::uuid[], ARRAY['jiný']) = 0,
+  'už přeložený název se nepřepíše');
+SELECT pg_temp.ocekavam(public.bible_kapitoly_nazvy(ARRAY[gen_random_uuid()], ARRAY['nic']) = 0, 'neexistující kapitolu nevytvoří');
+SELECT pg_temp.ocekavam((SELECT bool_and(kapitola = '3.2 Rmutování') FROM public.bible_hledej('pracuje 62')), 'hledání ukáže český název kapitoly');
+UPDATE public.bible_kapitoly SET nazev_cs = NULL WHERE id = '33333333-3333-3333-3333-333333333333';
+SELECT pg_temp.ocekavam(public.bible_kapitoly_bez_prekladu(pg_temp.dok('a')) = 1, 'česká kniha: názvy kapitol „nepotřebují" překlad…');
+SELECT pg_temp.ocekavam((SELECT nazev_cs FROM public.bible_kapitoly WHERE id = '33333333-3333-3333-3333-333333333333') = '',
+  '…zapíše se prázdný název');
+SELECT pg_temp.ocekavam((SELECT bool_and(kapitola = 'Maischen') FROM public.bible_hledej('pracuje 62')), 'prázdný překlad = původní název');
+UPDATE public.bible_kapitoly SET nazev_cs = NULL WHERE id = '33333333-3333-3333-3333-333333333333';
 UPDATE public.bible_dokumenty SET stav = 'zpracovava' WHERE id = pg_temp.dok('a');
 SELECT pg_temp.ocekavam((SELECT count(*) FROM public.bible_hledej('amyl')) = 0, 'rozpracovaná kniha se nehledá');
 UPDATE public.bible_dokumenty SET stav = 'hotovo' WHERE id = pg_temp.dok('a');

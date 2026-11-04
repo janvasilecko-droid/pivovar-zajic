@@ -98,3 +98,21 @@ describe('čtení knihy přes bible-api', () => {
     expect(r.data.dalsi).toBe(9);
   });
 });
+
+describe('český název kapitoly', () => {
+  it('nazev = překlad, původní zvlášť; prázdný překlad = původní název', async () => {
+    odpovedi.kniha = {
+      dokument: { id: ID, nazev: 'Brewing', stav: 'hotovo' },
+      kapitoly: [
+        { id: 'k1', rodic_id: null, poradi: 1, uroven: 1, cislo: '1', nazev: 'Malting', nazev_cs: 'Sladování', strana_od: 1, strana_do: 9 },
+        { id: 'k2', rodic_id: null, poradi: 2, uroven: 1, cislo: '2', nazev: 'Slad', nazev_cs: '', strana_od: 10, strana_do: 12 },
+        { id: 'k3', rodic_id: null, poradi: 3, uroven: 1, cislo: '3', nazev: 'Hops', strana_od: 13, strana_do: 20 },
+      ],
+      listy: [[1, null, 'v', 0]],
+    };
+    const r = await nactiKnihu(ID);
+    expect(r.stav).toBe('ok');
+    if (r.stav !== 'ok') return;
+    expect(r.data.kapitoly.map((k) => [k.nazev, k.nazev_puvodni])).toEqual([['Sladování', 'Malting'], ['Slad', null], ['Hops', null]]);
+  });
+});
