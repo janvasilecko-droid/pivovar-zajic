@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { readFileSync, writeFileSync, readdirSync } from 'fs';
 import { resolve, dirname } from 'path';
@@ -95,8 +95,28 @@ try {
   // Stejně jako u hlavní databáze: bez seznamu build nepadá.
 }
 
+/**
+ * Dekodéry obrázků pro stranu z knihy v bibli (pdf.js: JPEG 2000 a JBIG2
+ * ve skenech, barevné profily, bezpečné vyhodnocení funkcí PDF) jsou ve
+ * WebAssembly a pdf.js si je bere podle pevných jmen z jedné složky
+ * (`wasmUrl` v src/lib/biblePdf.ts). Do `dist/pdfjs/wasm/` se proto kopírují
+ * beze změny jména. Stahují se, až když někdo stranu z knihy otevře.
+ */
+function pdfjsWasm(): Plugin {
+  return {
+    name: 'pdfjs-wasm',
+    apply: 'build',
+    generateBundle() {
+      const slozka = resolve(__dirname, 'node_modules/pdfjs-dist/wasm');
+      for (const jmeno of readdirSync(slozka)) {
+        this.emitFile({ type: 'asset', fileName: `pdfjs/wasm/${jmeno}`, source: readFileSync(resolve(slozka, jmeno)) });
+      }
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), pdfjsWasm()],
   define: {
     __APP_VERSION__: JSON.stringify(appVersion),
   },
