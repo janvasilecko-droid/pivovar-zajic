@@ -572,6 +572,12 @@ export default function BottlingScreen({
     // Lahve = co NENÍ sud. Podle kindu i popisku — viz jeSud.
     jeCilovyObal: (kind, label) => !jeSud(kind, label),
     currentStockMap,
+    // Bez dnešního data plán nevrátí do zásoby odpočet závozu zapsaný předem
+    // (cron ve 23:05 den před dovozem) a nezavezenou objednávku na dnešek by
+    // chtěl stočit podruhé. 4. 11. 2026: „ukazuje, že se musí stočit, ale je
+    // to stočený" — 12° Světlá 0,5 l 45, 11° 1 l 8, winter… (KEG a „Co stočit"
+    // datum předávaly, Lahve ne).
+    dnes: businessDateISO(),
   }), [vsechnaPivaJmena, packages, orders, orderItems, rows, zavozDeductionRows, fasovaniRows, prodejnaRows, writeoffsRows, planCheckRows, weekKey, currentStockMap]);
 
   // ⚖️ JEDEN výpočet pro všechno — z provozu 16. 9. 2026: „udělej to tak, ať
