@@ -228,3 +228,14 @@ Každé rozhodnutí má datum, důvod a co by ho změnilo.
   a vybere oblasti, kterými se kniha podstatně zabývá. Ruční zařazení má
   přednost (zapisuje se jen ke knize s prázdnými oblastmi), v `postup`
   zůstane `oblasti_auto`; appka u knihy ukáže „určil Claude".
+
+## R18 — Český překlad názvů kapitol (4. 11. 2026)
+
+- Doplněk R13: obsah knihy (názvy kapitol) byl i po překladu stran anglicky.
+- Worker (`scripts/bible/kapitoly_preklad.py`) po překladu stran přeloží názvy
+  kapitol po dávkách (120); Claude vrací seznam stejné délky — jinak se dávka
+  neuloží. Česká kniha dostane prázdný název („nepotřebuje"). Zápis jen
+  UPDATE (`bible_kapitoly_nazvy`), kapitolu smazanou novým zpracováním
+  nevzkřísí. Hledání ukazuje český název kapitoly.
+- Migrace `20261104020000_bible_kapitoly_preklad` (spouští majitel); bez ní
+  bible-api vrací obsah jako dřív.

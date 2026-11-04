@@ -213,9 +213,11 @@ const PROVEDENI: Record<Akce, (k: Kontext) => Promise<Response>> = {
     const id = idDokumentu(telo);
     const c = await citelnyDokument(db, id, cors, 'kniha');
     if ('odpoved' in c) return c.odpoved;
-    const kapitoly = await vsechnyRadky((od, do_) => db.from('bible_kapitoly')
-      .select('id,rodic_id,poradi,uroven,cislo,nazev,strana_od,strana_do')
-      .eq('dokument_id', id).order('poradi').range(od, do_));
+    // S českým názvem kapitoly; bez migrace 20261104020000_bible_kapitoly_preklad (42703) bez něj.
+    const nactiKapitoly = (sloupce: string) => vsechnyRadky((od, do_) => db.from('bible_kapitoly')
+      .select(sloupce).eq('dokument_id', id).order('poradi').range(od, do_));
+    let kapitoly = await nactiKapitoly('id,rodic_id,poradi,uroven,cislo,nazev,nazev_cs,strana_od,strana_do');
+    if ((kapitoly.error as ChybaDb | null)?.code === '42703') kapitoly = await nactiKapitoly('id,rodic_id,poradi,uroven,cislo,nazev,strana_od,strana_do');
     if (kapitoly.error) return chybaDb(cors, kapitoly.error as ChybaDb, 'kniha');
     const listy = await vsechnyRadky<{ pdf_index: number; tistena_strana: string | null; zdroj_textu: string; ke_kontrole: boolean }>(
       (od, do_) => db.from('bible_strany')
