@@ -13,7 +13,7 @@ import { usePosledniNacteni } from '../../lib/nacitani';
 import { smiPrispivat, smiSpravovat, type BibleRole } from '../../lib/bibleOpravneni';
 import { BIBLE_OBLASTI } from '../../lib/bibleOblasti';
 import {
-  DRUH_POPIS, JAZYK_POPIS, STAV_POPIS, intervalObnovy, jeZpracovany, postupText, procentZpracovani, prubehText,
+  DRUH_POPIS, JAZYK_POPIS, STAV_POPIS, intervalObnovy, jeZpracovany, oblastiAutomaticky, postupText, procentZpracovani, prubehText,
   textCekani, velikostText, type StavDokumentu,
 } from '../../lib/bibleKnihovna';
 import {
@@ -129,7 +129,7 @@ function KartaDokumentu({ d, role, mujId, onZmena, onSmazano, onRozpracovani, zp
       <div className="text-xs text-neutral-300 space-y-0.5">
         <div>
           {DRUH_POPIS[d.druh]}{d.jazyk ? ` · ${JAZYK_POPIS[d.jazyk]}` : ''}
-          {d.oblasti.length > 0 && ` · oblasti ${d.oblasti.join(', ')}`}
+          {d.oblasti.length > 0 && ` · oblasti ${d.oblasti.join(', ')}${oblastiAutomaticky(d) ? ' (určil Claude podle kapitol — v Popisu jde změnit)' : ''}`}
         </div>
         <div className="break-all">{d.soubor_nazev} · {velikostText(d.soubor_velikost)}</div>
         {d.stav === 'zpracovava' && <PrubehZpracovani d={d} />}

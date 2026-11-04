@@ -56,6 +56,7 @@ import ocr
 import pdf as pdf_mod
 import preklad as preklad_mod
 import prehledy as prehledy_mod
+import oblasti as oblasti_mod
 from jazyk import odhad_jazyka
 from kapitoly import Kapitola, kapitola_listu, okrajove_radky, osnova_pouzitelna, useky, z_nadpisu, z_osnovy
 from pasaze import rozdel_na_pasaze
@@ -1013,6 +1014,8 @@ def _beh() -> int:
             try:
                 prekladej(supa, prepisovac, nastaveni, konec)
                 if time.time() < konec:
+                    urci_oblasti(supa, prepisovac, nastaveni, konec)
+                if time.time() < konec:
                     pis_prehledy(supa, prepisovac, nastaveni, konec)
             except Exception as e:  # noqa: BLE001 — jen typ, žádný text knihy
                 log(f'Překlad nebo přehledy spadly ({type(e).__name__}) — zkusí se dalším během.')
@@ -1132,6 +1135,7 @@ def prekladej(supa: Supa, prepisovac: Prepisovac, nastaveni: dict, konec: float)
         if not strany:
             continue
         log(f'Překlad dokumentu {id_}: {len(strany)} stran bez platného překladu (model {model})')
+        pred = dict(souhrn)
 
         def uloz(pdf_index: int, text: str, preklad: str, kontrola: str | None, s_modelem: bool) -> None:
             supa.uprav('bible_strany', {'dokument_id': f'eq.{id_}', 'pdf_index': f'eq.{pdf_index}'}, {
@@ -1190,13 +1194,68 @@ def prekladej(supa: Supa, prepisovac: Prepisovac, nastaveni: dict, konec: float)
                         log(f'  přeloženo {hotovo}/{len(k_prekladu)} stran')
         finally:
             zapis_naklady(supa, ucet, id_, ucel='preklad')
-        log(f'  překlad: {souhrn["prelozeno"]} přeloženo ({souhrn["ke_kontrole"]} ověřit v originále), '
-            f'{souhrn["bez_prekladu"]} bez potřeby překladu, {souhrn["nepovedlo"]} nepovedlo')
+        d = {k: souhrn[k] - pred[k] for k in souhrn}
+        log(f'  překlad: {d["prelozeno"]} přeloženo ({d["ke_kontrole"]} ověřit v originále), '
+            f'{d["bez_prekladu"]} bez potřeby překladu, {d["nepovedlo"]} nepovedlo')
         if zastavit is not None:
             zprava = getattr(zastavit, 'do_logu', None) or str(zastavit)
             log(f'Překlad ukončen: {zprava}')
             return souhrn
     return souhrn
+
+
+# --- tematické oblasti knih (oblasti.py) -----------------------------------------
+
+def urci_oblasti(supa: Supa, prepisovac: Prepisovac, nastaveni: dict, konec: float) -> dict:
+    """Doplní oblasti A–T zpracovaným knihám, které je nemají (ruční zařazení má přednost)."""
+    souhrn = {'zarazeno': 0, 'nepovedlo': 0}
+    try:
+        dokumenty = supa.vyber_vse('bible_dokumenty', {
+            'select': 'id,nazev,autor,oblasti,postup', 'stav': 'in.(hotovo,ke_kontrole)', 'oblasti': 'eq.{}'}, razeni='created_at')
+    except ChybaSupabase as e:
+        log(f'Oblasti: seznam knih nejde načíst ({e}).')
+        return souhrn
+    cekaji = [d for d in dokumenty if not d.get('oblasti') and not (d.get('postup') or {}).get('oblasti_zkouseno')]
+    if not cekaji:
+        return souhrn
+    model = str(nastaveni.get('model_prekladu') or 'claude-sonnet-5-5')
+    ucet = prepisovac.ucet
+    log(f'Oblasti: {len(cekaji)} knih bez tematických oblastí (model {model})')
+    try:
+        for d in cekaji:
+            if time.time() >= konec or ucet.prekroceno():
+                return souhrn
+            id_ = str(d['id'])
+            try:
+                kapitoly = [str(k['nazev']) for k in supa.vyber_vse('bible_kapitoly', {
+                    'select': 'nazev', 'dokument_id': f'eq.{id_}'}, razeni='poradi')][:400]
+                kody, usage = oblasti_mod.urci(prepisovac.klient, str(d.get('nazev') or ''), d.get('autor'), kapitoly, model)
+            except ChybaSupabase as e:
+                log(f'  oblasti knihy {id_}: kapitoly nejde načíst ({e})')
+                souhrn['nepovedlo'] += 1
+                continue
+            except Exception as e:  # noqa: BLE001 — chyba API → výjimka workeru
+                prevedena = chyba_api(e, prvni=souhrn['zarazeno'] == 0)
+                if isinstance(prevedena, (Odlozit, PrechodnaChyba)):
+                    log(f'Oblasti ukončeny: {getattr(prevedena, "do_logu", None) or prevedena}')
+                    return souhrn
+                log(f'  oblasti knihy {id_} se nepovedly ({type(e).__name__})')
+                souhrn['nepovedlo'] += 1
+                continue
+            ucet.pridej(model, usage, zdarma=prepisovac.zdroj == 'predplatne')
+            postup = dict(d.get('postup') or {})
+            postup['oblasti_zkouseno'] = True
+            zmena: dict = {'postup': postup}
+            if kody:
+                postup['oblasti_auto'] = kody
+                zmena['oblasti'] = kody
+            # Jen kniha stále bez oblastí (mezitím je mohl někdo vyplnit ručně).
+            supa.uprav('bible_dokumenty', {'id': f'eq.{id_}', 'oblasti': 'eq.{}'}, zmena)
+            souhrn['zarazeno' if kody else 'nepovedlo'] += 1
+            log(f'  kniha {id_}: oblasti {", ".join(kody) if kody else "neurčeny"}')
+        return souhrn
+    finally:
+        zapis_naklady(supa, ucet, None, ucel='oblasti')
 
 
 # --- přehledy témat (prehledy.py) ----------------------------------------------

@@ -218,3 +218,13 @@ Každé rozhodnutí má datum, důvod a co by ho změnilo.
   v DB jen sha256. Odpojení: Správa znalostí → Aplikace Claude.
 - Migrace `20261103030000_bible_mcp` (spouští majitel). Odkazy z odpovědí:
   `?page=bible&sub=kniha:<id>:<list>`.
+
+## R17 — Oblasti A–T doplní Claude podle kapitol (4. 11. 2026)
+
+- Majitel poslal Správu znalostí s nulami u všech oblastí a „zatím nehledej
+  další zdroje, ale pracuj na současné bibli podle původního promptu".
+- Worker (`scripts/bible/oblasti.py`) po překladu zařadí knihy BEZ oblastí:
+  Claude (předplatné) dostane název, autora a seznam kapitol (žádný text knihy)
+  a vybere oblasti, kterými se kniha podstatně zabývá. Ruční zařazení má
+  přednost (zapisuje se jen ke knize s prázdnými oblastmi), v `postup`
+  zůstane `oblasti_auto`; appka u knihy ukáže „určil Claude".

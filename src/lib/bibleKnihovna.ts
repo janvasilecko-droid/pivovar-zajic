@@ -34,7 +34,15 @@ export type PostupZpracovani = {
   vzorcu?: number;
   pasazi?: number;
   prubeh?: PrubehZpracovani;
+  /** Oblasti A–T, které ke knize bez ručního zařazení určil Claude (4. 11. 2026). */
+  oblasti_auto?: string[];
 };
+
+/** Jsou oblasti knihy ty, které určil Claude (ne ručně zadané)? */
+export function oblastiAutomaticky(d: { oblasti: readonly string[]; postup: PostupZpracovani | null | undefined }): boolean {
+  const auto = d.postup?.oblasti_auto;
+  return Array.isArray(auto) && auto.length > 0 && auto.length === d.oblasti.length && auto.every((k, i) => d.oblasti[i] === k);
+}
 
 /**
  * Přípona → MIME typ. Bucket „knihovna" projektu bible přijme jen tyhle typy

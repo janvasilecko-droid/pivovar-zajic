@@ -236,3 +236,13 @@ describe('průběh zpracování (procenta v knihovně)', () => {
     expect(PLAN_ZPRACOVANI_CRON).toBe('17 */3 * * *');
   });
 });
+
+describe('oblasti určené Claudem', () => {
+  it('automatické jen když se shodují s postup.oblasti_auto (ruční zařazení má přednost)', async () => {
+    const { oblastiAutomaticky } = await import('./bibleKnihovna');
+    expect(oblastiAutomaticky({ oblasti: ['F', 'H'], postup: { oblasti_auto: ['F', 'H'] } })).toBe(true);
+    expect(oblastiAutomaticky({ oblasti: ['F'], postup: { oblasti_auto: ['F', 'H'] } })).toBe(false);
+    expect(oblastiAutomaticky({ oblasti: ['A'], postup: {} })).toBe(false);
+    expect(oblastiAutomaticky({ oblasti: [], postup: null })).toBe(false);
+  });
+});
