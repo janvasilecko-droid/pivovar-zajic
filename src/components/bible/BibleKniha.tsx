@@ -9,7 +9,7 @@
 // Listování nezapisuje každou stranu do historie stránek — tlačítko Zpět
 // prohlížeče vede z knihy rovnou zpátky do knihovny.
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { BookOpen, ChevronLeft, ChevronRight, Download, ListOrdered, Table } from 'lucide-react';
+import { BookOpen, ChevronLeft, ChevronRight, Download, ImageIcon, ListOrdered, Table } from 'lucide-react';
 import { usePosledniNacteni } from '../../lib/nacitani';
 import { kapitolaListu, kapitolyProObsah, najdiList, oznaceniListu, sousedniList, ZDROJ_POPIS, type ListKnihy } from '../../lib/bibleCteni';
 import {
@@ -17,8 +17,16 @@ import {
 } from '../../lib/bibleCteniApi';
 import { odkazNaSoubor } from '../../lib/bibleKnihovnaApi';
 import { castiRadku, rozlozText, type BlokTextu, type CastTextu } from '../../lib/bibleText';
+import { umiObrazekStrany } from '../../lib/biblePdf';
+import { nacti, uloz } from '../../lib/uloziste';
+import { BibleStranaKnihy } from './BibleStranaKnihy';
 
 type Pohled = 'obsah' | 'cteni' | 'objekty';
+
+// Obrázek strany se ukazuje, dokud ho čtenář nevypne; volba platí jen pro tenhle
+// prohlížeč (pohodlí, ne data) — v soukromém okně se prostě začne zapnutým.
+const KLIC_OBRAZKU = 'bible-obrazek-strany';
+const nactiVolbuObrazku = () => nacti(KLIC_OBRAZKU) !== 'ne';
 
 const DRUH_OBJEKTU: Record<ObjektKnihy['druh'], string> = { tabulka: 'Tabulka', vzorec: 'Vzorec', popisek: 'Popisek' };
 
@@ -150,6 +158,8 @@ export function BibleKniha({ id, pocatecniList, doKnihovny }: {
   const [chybaSkoku, setChybaSkoku] = useState<string | null>(null);
   const [objekty, setObjekty] = useState<{ polozky: ObjektKnihy[]; dalsi: number | null; nacita: boolean; chyba: string | null } | null>(null);
   const [chybaOriginalu, setChybaOriginalu] = useState<string | null>(null);
+  // 4. 11. 2026: „Můžeš z těch knih dát k tomu i obrázky? Přece jen text je takovej ne vše říkající."
+  const [obrazek, setObrazek] = useState(nactiVolbuObrazku);
 
   const zacniNacteni = usePosledniNacteni();
   const nacti = useCallback(async () => {
@@ -265,8 +275,18 @@ export function BibleKniha({ id, pocatecniList, doKnihovny }: {
   async function otevriOriginal() {
     setChybaOriginalu(null);
     const v = await odkazNaSoubor(id);
-    if ('url' in v) window.open(v.url, '_blank', 'noopener');
+    // Při čtení otevře prohlížeč PDF rovnou na téhle straně (#page — kotva se na server neposílá).
+    const strana = pohled === 'cteni' && list !== null && kniha?.stav === 'ok' && umiObrazekStrany(kniha.data.dokument.soubor_mime, kniha.data.dokument.soubor_nazev)
+      ? `#page=${list}` : '';
+    if ('url' in v) window.open(v.url + strana, '_blank', 'noopener');
     else setChybaOriginalu(v.chyba);
+  }
+
+  function prepniObrazek() {
+    setObrazek((o) => {
+      uloz(KLIC_OBRAZKU, o ? 'ne' : 'ano');
+      return !o;
+    });
   }
 
   if (kniha === null) return <div className="text-sm text-neutral-300">Načítám knihu…</div>;
@@ -303,6 +323,8 @@ export function BibleKniha({ id, pocatecniList, doKnihovny }: {
   const dalsi = list !== null ? sousedniList(listy, list, 1) : null;
   const kapitola = list !== null ? kapitolaListu(kniha.data.kapitoly, list) : null;
   const poradiListu = list !== null ? listy.findIndex((l) => l.pdfIndex === list) + 1 : 0;
+  // Jen u PDF a jen u stran knihy (ne u „částí" převedených souborů bez stran).
+  const umiObrazek = umiObrazekStrany(d.soubor_mime, d.soubor_nazev) && aktualni?.zdroj !== 'soubor';
 
   return (
     <div className="space-y-4">
@@ -383,6 +405,14 @@ export function BibleKniha({ id, pocatecniList, doKnihovny }: {
           </div>
           {chybaSkoku && <div role="alert" className="text-sm font-bold text-amber-200">{chybaSkoku}</div>}
           {kapitola && <div className="text-xs font-bold text-neutral-300">Kapitola: {kapitola.cislo ? `${kapitola.cislo} ` : ''}{kapitola.nazev}</div>}
+          {umiObrazek && (
+            <button type="button" aria-pressed={obrazek} className={obrazek ? 'btn-amber' : 'btn-tmave'} onClick={prepniObrazek}>
+              <ImageIcon size={16} /> Strana z knihy (obrázky, nákresy)
+            </button>
+          )}
+          {umiObrazek && obrazek && (
+            <BibleStranaKnihy id={id} pdfIndex={list} velikost={d.soubor_velikost || null} oznaceni={oznaceniListu(aktualni, list)} />
+          )}
 
           <article className="rounded-xl border border-neutral-700 bg-neutral-900 text-neutral-100 p-3 sm:p-4 space-y-3" aria-label={`Text: ${oznaceniListu(aktualni, list)}`}>
             {text ? (
@@ -410,7 +440,7 @@ export function BibleKniha({ id, pocatecniList, doKnihovny }: {
       {pohled === 'objekty' && (
         <div className="space-y-3">
           <p className="text-xs text-neutral-300">
-            Tabulky a vzorce rozpoznané v přepisu skenů a v převedených souborech. U digitálních PDF je najdeš v textu strany nebo v originále.
+            Tabulky a vzorce rozpoznané v přepisu skenů a v převedených souborech. U digitálních PDF je najdeš v textu strany, na obrázku strany (Čtení → Strana z knihy) nebo v originále.
           </p>
           {objekty && !objekty.nacita && !objekty.chyba && objekty.polozky.length === 0 && (
             <div className="rounded-xl border border-dashed border-neutral-600 bg-neutral-900 text-neutral-200 p-4 text-sm">V knize nejsou rozpoznané tabulky ani vzorce.</div>

@@ -150,4 +150,18 @@ s citací kniha–kapitola–strana a počítá deterministickým výpočetním 
   export celé knihy appka nenabízí. Originál jde otevřít tlačítkem
   „Originál".
 - **Digitální PDF** nemají tabulky ani vzorce rozpoznané zvlášť (jen přepis
-  skenů a převedené soubory) — jsou v textu strany nebo v originále.
+  skenů a převedené soubory) — jsou v textu strany, na obrázku strany nebo
+  v originále.
+- **Strana z knihy (4. 11. 2026):** u PDF ukáže čtečka nad textem stranu
+  tak, jak vypadá v originále (nákresy, tabulky, fotky) — přepínač „Strana
+  z knihy", volba se pamatuje v prohlížeči. Vykresluje pdf.js (líně načtený
+  kus, start appky nezvětšuje; verze „legacy" kvůli starším iPhonům) přímo
+  z originálu v úložišti: stahují se jen kousky souboru (HEAD na velikost,
+  pak hlavička Range), protože úložiště neukazuje prohlížeči hlavičky
+  rozsahů a vestavěné načítání pdf.js by stáhlo celou knihu. Podepsaný
+  odkaz (600 s) se obnovuje sám. Dekodéry skenů (JPEG 2000, JBIG2) kopíruje
+  build do `/pdfjs/wasm/`. Známá slabina: pdf.js si při prvním otevření
+  knihy načte slovníky všech stran — jsou-li rozházené po souboru (knihy
+  slepené z více PDF), stojí první strana jednotky až desítky MB, další už
+  jen svůj obsah. Tlačítko „Originál" při čtení otevře PDF rovnou na čtené
+  straně (`#page=`).

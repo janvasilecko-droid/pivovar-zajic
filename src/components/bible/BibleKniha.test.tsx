@@ -18,7 +18,13 @@ vi.mock('../../lib/bibleKnihovnaApi', async (puvodni) => ({
   odkazNaSoubor: vi.fn(async () => ({ chyba: 'Odkaz teď nejde vydat.' })),
 }));
 
+// Strana z knihy (pdf.js) má vlastní testy; tady jen jestli a kde se ukáže.
+vi.mock('./BibleStranaKnihy', () => ({
+  BibleStranaKnihy: ({ pdfIndex, oznaceni }: { pdfIndex: number; oznaceni: string }) => <div data-testid="strana-z-knihy">obrázek listu {pdfIndex} ({oznaceni})</div>,
+}));
+
 import { BibleKniha } from './BibleKniha';
+import { odkazNaSoubor } from '../../lib/bibleKnihovnaApi';
 
 const ID = '11111111-2222-3333-4444-555555555555';
 const dokument = (stav: BibleDokument['stav'] = 'hotovo'): BibleDokument => ({
@@ -54,6 +60,7 @@ const TEXTY: Record<number, TextListu> = {
 };
 
 beforeEach(() => {
+  window.localStorage.clear();
   nactiKnihu.mockReset();
   nactiListy.mockReset();
   nactiObjekty.mockReset();
@@ -280,5 +287,46 @@ describe('Čtečka knihy', () => {
     } finally {
       Element.prototype.scrollIntoView = puvodni;
     }
+  });
+  it('strana z knihy: u PDF se ukáže u čteného listu a jde vypnout (volba se pamatuje)', async () => {
+    nactiKnihu.mockResolvedValue({ stav: 'ok', data: kniha() });
+    await vykresli({ pocatecniList: 2 });
+    const prepinac = screen.getByRole('button', { name: /Strana z knihy/ });
+    expect(prepinac.getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByTestId('strana-z-knihy').textContent).toBe('obrázek listu 2 (s. 1)');
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Další strana' })); });
+    expect(screen.getByTestId('strana-z-knihy').textContent).toBe('obrázek listu 3 (s. 2)');
+
+    await act(async () => { fireEvent.click(prepinac); });
+    expect(prepinac.getAttribute('aria-pressed')).toBe('false');
+    expect(screen.queryByTestId('strana-z-knihy')).toBeNull();
+    expect(window.localStorage.getItem('bible-obrazek-strany')).toBe('ne');
+  });
+
+  it('strana z knihy: vypnutá volba platí i po novém otevření knihy', async () => {
+    window.localStorage.setItem('bible-obrazek-strany', 'ne');
+    nactiKnihu.mockResolvedValueOnce({ stav: 'ok', data: kniha() });
+    await vykresli({ pocatecniList: 1 });
+    expect(screen.getByRole('button', { name: /Strana z knihy/ }).getAttribute('aria-pressed')).toBe('false');
+    expect(screen.queryByTestId('strana-z-knihy')).toBeNull();
+  });
+
+  it('strana z knihy: u DjVu ani u částí souboru bez stran není', async () => {
+    const djvu = kniha();
+    djvu.dokument = { ...djvu.dokument, soubor_mime: 'image/vnd.djvu', soubor_nazev: 'kniha.djvu' };
+    nactiKnihu.mockResolvedValueOnce({ stav: 'ok', data: djvu });
+    await vykresli({ pocatecniList: 1 });
+    expect(screen.queryByRole('button', { name: /Strana z knihy/ })).toBeNull();
+    expect(screen.queryByTestId('strana-z-knihy')).toBeNull();
+  });
+
+  it('originál při čtení otevře prohlížeč PDF rovnou na čtené straně', async () => {
+    const otevri = vi.spyOn(window, 'open').mockReturnValue(null);
+    vi.mocked(odkazNaSoubor).mockResolvedValueOnce({ url: 'https://bible.test/storage/v1/object/sign/knihovna/k.pdf?token=t' });
+    nactiKnihu.mockResolvedValueOnce({ stav: 'ok', data: kniha() });
+    await vykresli({ pocatecniList: 3 });
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Originál/ })); });
+    expect(otevri).toHaveBeenCalledWith('https://bible.test/storage/v1/object/sign/knihovna/k.pdf?token=t#page=3', '_blank', 'noopener');
+    otevri.mockRestore();
   });
 });
