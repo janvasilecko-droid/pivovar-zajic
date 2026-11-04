@@ -18,7 +18,7 @@ vi.mock('./bibleKlient', async (puvodni) => ({
 import { BIBLE_URL } from './bibleKlient';
 import {
   NAHRAVANI_ZASEKNUTO, NAHRAVANI_ZASTAVENO, nactiDokumenty, nactiNakladyMesice, nahrajDokument, nahrajDoUloziste,
-  odkazNaSoubor, smazDokument,
+  nactiVydani, nastavVydani, odkazNaSoubor, smazDokument,
 } from './bibleKnihovnaApi';
 
 const ID = '11111111-2222-3333-4444-555555555555';
@@ -246,5 +246,29 @@ describe('knihovna — ostatní akce', () => {
     const v = await nactiNakladyMesice(new Date('2026-10-31T23:30:00Z'));
     expect(volani.at(-1)?.telo).toEqual({ akce: 'naklady', od: '2026-10-01T00:00:00.000Z' });
     expect(v).toEqual({ naklady: { usd: 1.75, volani: 1203, podleUcelu: { ocr: 1.25, chat: 0.5 } } });
+  });
+});
+
+describe('nová vydání (etapa 3c)', () => {
+  beforeEach(() => { volani.length = 0; odpovedi = {}; });
+
+  it('načte vazby; nesmysly zahodí; bez migrace to řekne', async () => {
+    odpovedi = { vydani: { vydani: [{ id: 'b', predchozi_vydani: 'a' }, { id: 'x' }, null], migrace: true } };
+    expect(await nactiVydani()).toEqual({ stav: 'ok', vazby: [{ id: 'b', predchozi: 'a' }], migrace: true });
+    odpovedi = { vydani: { vydani: [], migrace: false } };
+    expect(await nactiVydani()).toEqual({ stav: 'ok', vazby: [], migrace: false });
+    odpovedi = { vydani: { chyba: { zprava: 'Bible nejde načíst.' } } };
+    expect(await nactiVydani()).toEqual({ stav: 'chyba', zprava: 'Bible nejde načíst.' });
+  });
+
+  it('nastavení i zrušení vazby pošle id a předchozí vydání (null = zrušit)', async () => {
+    expect(await nastavVydani(ID, 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee')).toBeNull();
+    expect(await nastavVydani(ID, null)).toBeNull();
+    expect(volani.map((v) => v.telo)).toEqual([
+      { akce: 'vydani_nastavit', id: ID, predchozi: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee' },
+      { akce: 'vydani_nastavit', id: ID, predchozi: null },
+    ]);
+    odpovedi = { vydani_nastavit: { chyba: { zprava: 'Upravit smíš jen svoje dokumenty.' } } };
+    expect(await nastavVydani(ID, null)).toBe('Upravit smíš jen svoje dokumenty.');
   });
 });

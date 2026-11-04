@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import {
-  AKCE, ChybaVstupu, dotazZkusenosti, idDokumentu, idZkusenosti, klicPrehledu, jeAkce, popisDokumentu, prekladChybyDb, souborKNahrani, stavDokumentu, zacatekObdobi, zkusenostVstup,
+  AKCE, ChybaVstupu, dotazZkusenosti, idDokumentu, idZkusenosti, klicPrehledu, jeAkce, popisDokumentu, predchoziVydani, prekladChybyDb, souborKNahrani, stavDokumentu, zacatekObdobi, zkusenostVstup,
 } from './vstupy';
 
 const SHA = 'a'.repeat(64);
@@ -146,5 +146,20 @@ describe('zkušenosti sládků', () => {
     expect(() => dotazZkusenosti({ oblast: 'Z' })).toThrow(ChybaVstupu);
     expect(() => dotazZkusenosti({ nejhorsi: 0 })).toThrow(ChybaVstupu);
     expect(() => dotazZkusenosti({ dotaz: 'x'.repeat(201) })).toThrow(ChybaVstupu);
+  });
+});
+
+describe('nová vydání (etapa 3c)', () => {
+  it('čtení vazeb všem, nastavení přispěvateli (komu dokument patří, hlídá SQL)', () => {
+    expect(AKCE.vydani).toBe('cte');
+    expect(AKCE.vydani_nastavit).toBe('prispiva');
+  });
+  it('předchozí vydání: id dokumentu (malými písmeny), null = zrušit, jinak chyba', () => {
+    expect(predchoziVydani({ predchozi: '3F2504E0-4F89-41D3-9A0C-0305E82C3301' })).toBe('3f2504e0-4f89-41d3-9a0c-0305e82c3301');
+    expect(predchoziVydani({ predchozi: null })).toBeNull();
+    // Chybějící pole nesmí vazbu potichu zrušit.
+    expect(() => predchoziVydani({})).toThrow('Chybí předchozí vydání.');
+    expect(() => predchoziVydani({ predchozi: 'x' })).toThrow(ChybaVstupu);
+    expect(() => predchoziVydani({ predchozi: 7 })).toThrow(ChybaVstupu);
   });
 });

@@ -5,8 +5,8 @@ import {
   dotazHledani, jeCitelny, sPrekladem, SLOUPCE_LISTU, SLOUPCE_PREKLADU, slovaDotazu, uryvek,
 } from '../_shared/cteni.ts';
 import {
-  ChybaNastroje, metadataZdroje, najdiTema, nahodnyToken, odkazNaList, platnyClient, platnyVerifier,
-  prehledSOdkazy, registrace, s256, sha256hex, wwwAuthenticate, zpracujZpravu,
+  ChybaNastroje, metadataZdroje, najdiTema, nahodnyToken, novejsiVydani, odkazNaList, platnyClient, platnyVerifier,
+  poznamkaVydani, prehledSOdkazy, registrace, s256, sha256hex, wwwAuthenticate, zpracujZpravu,
 } from '../_shared/mcp.ts';
 
 /**
@@ -107,6 +107,13 @@ async function citelny(db: SupabaseClient, id: string): Promise<{ nazev: string 
   return { nazev: String((data as { nazev: string }).nazev) };
 }
 
+/** Novější vydání podle staršího (etapa 3c); bez migrace (sloupec chybí) prázdné. */
+async function vydaniKnih(db: SupabaseClient): Promise<Map<string, { nazev: string; rok: number | null }[]>> {
+  const { data, error } = await db.from('bible_dokumenty').select('id,nazev,rok,predchozi_vydani').not('predchozi_vydani', 'is', null);
+  if (error) return new Map();
+  return novejsiVydani((data ?? []) as { id: string; nazev: string; rok: number | null; predchozi_vydani: string | null }[]);
+}
+
 async function hledej(db: SupabaseClient, args: Record<string, unknown>): Promise<string> {
   let dotaz: string;
   try { dotaz = dotazHledani(args.dotaz); } catch (e) { textVstupu(e); }
@@ -121,9 +128,10 @@ async function hledej(db: SupabaseClient, args: Record<string, unknown>): Promis
   }[];
   if (radky.length === 0) return `Pro „${dotaz}" jsem v knihách nic nenašel. Zkus jiné nebo kratší slovo, případně anglicky či německy.`;
   const slova = slovaDotazu(dotaz);
+  const novejsi = await vydaniKnih(db);
   const casti = radky.map((r, i) => [
     `${i + 1}. ${r.nazev}${r.autor ? ` (${r.autor}${r.rok ? `, ${r.rok}` : ''})` : ''} — ${misto(r.tistena_strana, r.pdf_index)}`
-      + `${r.kapitola ? `, kapitola „${r.kapitola}"` : ''} — ${r.zdroj === 'preklad' ? 'český překlad' : 'originál'}`,
+      + `${r.kapitola ? `, kapitola „${r.kapitola}"` : ''} — ${r.zdroj === 'preklad' ? 'český překlad' : 'originál'}${poznamkaVydani(r.dokument_id, novejsi)}`,
     `   kniha_id=${r.dokument_id} list=${r.pdf_index} odkaz: ${odkazNaList(r.dokument_id, r.pdf_index)}`,
     `   ${uryvek(r.text, slova)}`,
   ].join('\n'));
@@ -181,8 +189,9 @@ async function seznamKnih(db: SupabaseClient): Promise<string> {
   if (error) throw new Error(`db ${error.code ?? '?'}`);
   const knihy = (data ?? []) as { id: string; nazev: string; autor: string | null; rok: number | null; jazyk: string | null; stav: string; stran_celkem: number | null }[];
   if (knihy.length === 0) return 'Knihovna je zatím prázdná.';
+  const novejsi = await vydaniKnih(db);
   return knihy.map((k) => `- ${k.nazev}${k.autor ? ` — ${k.autor}` : ''}${k.rok ? `, ${k.rok}` : ''}${k.jazyk ? ` [${k.jazyk}]` : ''}`
-    + ` — ${jeCitelny(k.stav) ? 'zpracovaná' : `stav: ${k.stav}`}${k.stran_celkem ? `, ${k.stran_celkem} stran` : ''} — kniha_id=${k.id}`).join('\n');
+    + ` — ${jeCitelny(k.stav) ? 'zpracovaná' : `stav: ${k.stav}`}${k.stran_celkem ? `, ${k.stran_celkem} stran` : ''}${poznamkaVydani(k.id, novejsi)} — kniha_id=${k.id}`).join('\n');
 }
 
 function zavolejNastroj(db: SupabaseClient) {

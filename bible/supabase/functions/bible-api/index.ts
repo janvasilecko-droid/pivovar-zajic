@@ -4,7 +4,7 @@ import {
   type Pristup, type Uzivatel,
 } from '../_shared/brana.ts';
 import {
-  AKCE, ChybaVstupu, idDokumentu, jeAkce, PLATNOST_ODKAZU_S, popisDokumentu, prekladChybyDb, SLOUPCE_DOKUMENTU,
+  AKCE, ChybaVstupu, idDokumentu, jeAkce, PLATNOST_ODKAZU_S, popisDokumentu, predchoziVydani, prekladChybyDb, SLOUPCE_DOKUMENTU,
   souborKNahrani, stavDokumentu, zacatekObdobi, type Akce, type ChybaDb, klicPrehledu,
   dotazZkusenosti, idZkusenosti, zkusenostVstup,
 } from '../_shared/vstupy.ts';
@@ -168,6 +168,25 @@ const PROVEDENI: Record<Akce, (k: Kontext) => Promise<Response>> = {
     const popis = popisDokumentu(telo.popis);
     const { data, error } = await db.rpc('bible_uprav_popis', { p_uzivatel: u.uid, p_pristup: u.pristup, p_id: id, p_popis: popis });
     if (error) return chybaDb(cors, error, 'upravit_popis');
+    if (data !== true) return chyba(cors, 404, 'nenalezeno', 'Dokument už v knihovně není.');
+    return hotovo(cors, { upraveno: true });
+  },
+
+  // Vazby vydání (etapa 3c): jen dvojice id → předchozí vydání. Bez migrace
+  // (sloupec chybí, 42703) appka vydání neukazuje, knihovna funguje dál.
+  async vydani({ db, cors }) {
+    const { data, error } = await db.from('bible_dokumenty')
+      .select('id,predchozi_vydani').not('predchozi_vydani', 'is', null);
+    if (error?.code === '42703') return hotovo(cors, { vydani: [], migrace: false });
+    if (error) return chybaDb(cors, error, 'vydani');
+    return hotovo(cors, { vydani: data ?? [], migrace: true });
+  },
+
+  async vydani_nastavit({ db, u, telo, cors }) {
+    const id = idDokumentu(telo);
+    const predchozi = predchoziVydani(telo);
+    const { data, error } = await db.rpc('bible_nastav_vydani', { p_uzivatel: u.uid, p_pristup: u.pristup, p_id: id, p_predchozi: predchozi });
+    if (error) return chybaDb(cors, error, 'vydani_nastavit');
     if (data !== true) return chyba(cors, 404, 'nenalezeno', 'Dokument už v knihovně není.');
     return hotovo(cors, { upraveno: true });
   },

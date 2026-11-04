@@ -6,6 +6,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { FileText, ListOrdered, Search } from 'lucide-react';
 import { hledejVKnihach, jePostup, nactiPrehledy, nazevPostupu, type PolozkaPrehledu, type VysledekHledani } from '../../lib/bibleHledaniApi';
+import { nactiVydani } from '../../lib/bibleKnihovnaApi';
+import { jeStarsiVydani, rodokmenVydani, type RodokmenVydani } from '../../lib/bibleKnihovna';
 import { BiblePrehled } from './BiblePrehled';
 
 const bezDiakritiky = (z: string) => z.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
@@ -49,11 +51,16 @@ export function BibleHledani({ otevri }: { otevri: (dokumentId: string, list: nu
   const poradi = useRef(0);
   const [prehledy, setPrehledy] = useState<{ seznam: PolozkaPrehledu[]; migrace: boolean } | null>(null);
   const [otevrenyPrehled, setOtevrenyPrehled] = useState<string | null>(null);
+  // Vazby vydání (etapa 3c): výsledek ze staršího vydání dostane označení.
+  const [vydani, setVydani] = useState<RodokmenVydani | null>(null);
 
   useEffect(() => {
     let platne = true;
     void nactiPrehledy().then((r) => {
       if (platne && r.stav === 'ok') setPrehledy({ seznam: r.prehledy, migrace: r.migrace });
+    });
+    void nactiVydani().then((r) => {
+      if (platne && r.stav === 'ok' && r.migrace) setVydani(rodokmenVydani(r.vazby));
     });
     return () => { platne = false; };
   }, []);
@@ -141,6 +148,9 @@ export function BibleHledani({ otevri }: { otevri: (dokumentId: string, list: nu
                       <span>· {misto(v)}</span>
                       {v.kapitola && <span>· {v.kapitola}</span>}
                       <span className="rounded border border-neutral-600 px-1">{v.zdroj === 'preklad' ? 'český překlad' : 'originál'}</span>
+                      {vydani && jeStarsiVydani(vydani, v.dokumentId) && (
+                        <span className="rounded border border-amber-600 px-1 text-amber-200">starší vydání — v knihovně je novější</span>
+                      )}
                     </span>
                     <span className="block text-sm font-normal leading-relaxed text-neutral-100 break-words">
                       <ZvyraznenyUryvek text={v.uryvek} dotaz={stav.dotaz} />

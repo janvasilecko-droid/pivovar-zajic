@@ -179,7 +179,9 @@ maskovaný.
 **Duplicity:**
 - Shodné SHA-256 znamená stejný soubor a appka ho odmítne už při nahrání.
 - Shodné ISBN nebo podobný název dají jen „možná duplicita" k potvrzení.
-- Různá vydání se seskupují. Nic se nemaže.
+- Různá vydání se seskupují. Nic se nemaže. Vazbu nové vydání → předchozí
+  (`predchozi_vydani`) potvrzuje člověk; přehledy berou nejnovější zpracované
+  vydání (etapa 3c, R22).
 
 ## 5. Vyhledávání (hybridní RAG)
 
