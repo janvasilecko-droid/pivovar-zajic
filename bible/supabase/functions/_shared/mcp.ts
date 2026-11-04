@@ -123,6 +123,22 @@ export const NASTROJE: readonly Nastroj[] = [
     },
   },
   {
+    name: 'vypocet',
+    title: 'Výpočet (ověřené vzorce)',
+    description: 'Pivovarské výpočty výpočetním modulem bible: stupňovitost ↔ hustota, alkohol a prokvašení (Balling), ředění, '
+      + 'varní výtěžek, teplota vody pro vystírku, hořkost IBU (Tinseth), barva (Morey), obsah CO₂ a přetlak pro sycení. '
+      + 'Bez id vrátí seznam výpočtů a jejich vstupy. Čísla ber z výsledku, nepočítej je sám.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'Id výpočtu ze seznamu (např. „alkohol")' },
+        vstupy: { type: 'object', description: 'Vstupy {id_vstupu: číslo} podle seznamu', additionalProperties: { type: 'number' } },
+        radky: { type: 'array', description: 'Řádky u výpočtů se seznamem (chmelové dávky, slady)', items: { type: 'object', additionalProperties: { type: 'number' } } },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
     name: 'seznam_knih',
     title: 'Seznam knih',
     description: 'Knihy v knihovně: název, autor, rok, jazyk, stav zpracování a id pro další nástroje.',
@@ -133,7 +149,8 @@ export const NASTROJE: readonly Nastroj[] = [
 export const INSTRUKCE = 'Knihovna odborné pivovarské literatury Pivovaru Zajíc. Odpovídej česky. Fakta ber z nástrojů '
   + '(hledej_v_knihach, precti_stranu, prehled_tematu) a u každého tvrzení uveď odkaz na knihu a stránku přesně tak, jak je ve výsledku. '
   + 'Čísla a jednotky opisuj přesně. Když knihy něco neříkají, řekni to; vlastní obecnou znalost jasně odliš od toho, co je v knihách. '
-  + 'Výsledek označený „starší vydání" má v knihovně novější vydání: přednost má novější (hodnoty se mohly změnit), rozdíl řekni.';
+  + 'Výsledek označený „starší vydání" má v knihovně novější vydání: přednost má novější (hodnoty se mohly změnit), rozdíl řekni. '
+  + 'Čísla z výpočtů (stupňovitost, alkohol, ředění, výtěžek, IBU, barva, CO₂…) počítej nástrojem vypocet, ne zpaměti.';
 
 /** Novější vydání podle id staršího (etapa 3c): z dvojic dokument → předchozí vydání. */
 export function novejsiVydani(radky: readonly { id: string; nazev: string; rok: number | null; predchozi_vydani: string | null }[]): Map<string, { nazev: string; rok: number | null }[]> {

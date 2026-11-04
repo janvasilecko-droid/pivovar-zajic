@@ -43,8 +43,12 @@ export function prehledyKDotazu(prehledy: readonly PolozkaPrehledu[], dotaz: str
   });
 }
 
-export function BibleHledani({ otevri }: { otevri: (dokumentId: string, list: number) => void }) {
-  const [dotaz, setDotaz] = useState('');
+export function BibleHledani({ otevri, pocatecniDotaz }: {
+  otevri: (dokumentId: string, list: number) => void;
+  /** Hledání spuštěné odjinud (Výpočtová laboratoř → „Najít v knihách“). */
+  pocatecniDotaz?: string;
+}) {
+  const [dotaz, setDotaz] = useState(pocatecniDotaz ?? '');
   const [stav, setStav] = useState<{ dotaz: string; vysledky: VysledekHledani[] } | null>(null);
   const [chyba, setChyba] = useState<string | null>(null);
   const [hleda, setHleda] = useState(false);
@@ -65,9 +69,19 @@ export function BibleHledani({ otevri }: { otevri: (dokumentId: string, list: nu
     return () => { platne = false; };
   }, []);
 
-  async function hledej(e: React.FormEvent) {
+  // Dotaz předaný odjinud se hledá hned (jen jednou, při otevření).
+  useEffect(() => {
+    if (pocatecniDotaz?.trim()) void spustHledani(pocatecniDotaz);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function hledej(e: React.FormEvent) {
     e.preventDefault();
-    const q = dotaz.trim();
+    void spustHledani(dotaz);
+  }
+
+  async function spustHledani(text: string) {
+    const q = text.trim();
     if (q.length < 2) { setChyba('Napiš aspoň dva znaky.'); return; }
     const moje = ++poradi.current;
     setHleda(true);

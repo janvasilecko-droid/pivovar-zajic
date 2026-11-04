@@ -8,6 +8,7 @@ import {
   ChybaNastroje, metadataZdroje, najdiTema, nahodnyToken, novejsiVydani, odkazNaList, platnyClient, platnyVerifier,
   poznamkaVydani, prehledSOdkazy, registrace, s256, sha256hex, wwwAuthenticate, zpracujZpravu,
 } from '../_shared/mcp.ts';
+import { ChybaVypoctu, vypocetText } from '../_shared/vypocty/nastroj.ts';
 
 /**
  * 🔌 bible-mcp — konektor Pivovarské bible do aplikace Claude (R16).
@@ -199,6 +200,14 @@ function zavolejNastroj(db: SupabaseClient) {
     if (jmeno === 'hledej_v_knihach') return hledej(db, args);
     if (jmeno === 'precti_stranu') return prectiStranu(db, args);
     if (jmeno === 'prehled_tematu') return prehledTematu(db, args);
+    if (jmeno === 'vypocet') {
+      try {
+        return Promise.resolve(vypocetText(args));
+      } catch (e) {
+        if (e instanceof ChybaVypoctu) return Promise.reject(new ChybaNastroje(e.message));
+        return Promise.reject(e);
+      }
+    }
     return seznamKnih(db);
   };
 }
