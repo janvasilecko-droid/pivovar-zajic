@@ -286,3 +286,20 @@ Každé rozhodnutí má datum, důvod a co by ho změnilo.
   a postupy berou nejnovější zpracované vydání; konektor Claude dostane obojí
   s poznámkou, které je novější.
 
+## R23 — Výpočetní modul, první část (etapa 6a, 4. 11. 2026)
+
+- Majitel: „Pokračuj v té aplikaci podle původního promptu" → etapa 6 zadání:
+  výpočetní moduly s testy z ručně ověřených příkladů, které odmítnou vstup
+  mimo rozsah.
+- Nejdřív výpočty, které pivovar potřebuje denně a mají ustálené vzorce se
+  známým původem: tabulky extraktu (Plato), Balling, hmotnostní bilance ředění,
+  varní výtěžek s korekcí 0,96, Palmerova rovnice vystírky, Tinseth, Morey,
+  regrese rozpustnosti CO₂ (Zahm & Nagel). Ostatní oblasti (chlazení
+  a výměníky, voda a pH, hydraulika, CIP, energie, ekonomika) přijdou v 6b —
+  potřebují tabulky vlastností (měrná tepla, hustoty roztoků) s ověřeným
+  zdrojem.
+- Stejný kód v appce i v konektoru (nástroj `vypocet`), aby Claude čísla
+  nepočítal sám.
+- Vazba na knihovnu přes hledání („Najít v knihách"), ne přes pevná čísla
+  stran — strana se nesmí vymyslet (zásada 1).
+

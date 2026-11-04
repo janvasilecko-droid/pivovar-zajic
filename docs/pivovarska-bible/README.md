@@ -44,7 +44,29 @@ s citací kniha–kapitola–strana a počítá deterministickým výpočetním 
 | 3b: zkušenosti sládků | hotovo (4. 11. 2026) — migrace `20261104000000_bible_zkusenosti` |
 | 3c: nová vydání dokumentů (R22) | hotovo (4. 11. 2026) — migrace `20261104050000_bible_vydani` |
 | 5: chatbot | odloženo (R14) |
-| 6–10 | čeká |
+| 6a: výpočetní modul, Výpočtová laboratoř, nástroj `vypocet` pro Claude (R23) | hotovo (4. 11. 2026) — bez migrace |
+| 6b: další výpočty (chlazení a výměníky, voda a pH, hydraulika, CIP, energie, ekonomika) | čeká |
+| 7–10 | čeká |
+
+## Výpočtová laboratoř (etapa 6a)
+
+- **Kde:** plocha bible → „Výpočtová laboratoř". Výpočty: stupňovitost ↔
+  relativní hustota, alkohol a prokvašení (Balling), ředění na cílovou
+  stupňovitost (hmotnostní bilance), varní výtěžek, teplota vody pro vystírku,
+  hořkost IBU (Tinseth, víc dávek), barva (Morey, víc sladů), obsah CO₂ při
+  tlaku a teplotě a přetlak pro cílový obsah CO₂.
+- **Každý výsledek** ukáže vstupy s jednotkami, vzorec, mezikroky,
+  předpoklady, rozsah platnosti, nejistotu a zdroj vzorce. Vstup mimo rozsah
+  (nebo nesmysl, třeba zdánlivý extrakt nad původním) se odmítne s hláškou —
+  nic se neodhaduje. „Najít v knihách" otevře hledání s dotazem výpočtu, ať je
+  vidět, kde je vzorec v nahraných knihách (stránky se nevymýšlejí).
+- **Kód:** čisté TS moduly bez závislostí v
+  `bible/supabase/functions/_shared/vypocty/` (`zaklad.ts`, `katalog.ts`,
+  `nastroj.ts`) — stejný kód počítá v appce i v konektoru. Testy
+  (`vypocty.test.ts`) stojí na příkladech přepočtených nezávisle (samostatný
+  skript) a u hustoty na bodech tabulek extraktu.
+- **Konektor Claude:** nástroj `vypocet` (bez id vrátí seznam výpočtů a vstupů);
+  instrukce říká počítat čísla tímhle nástrojem, ne zpaměti (zásada 2).
 
 ## Nová vydání dokumentů (etapa 3c)
 

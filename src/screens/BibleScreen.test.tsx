@@ -7,11 +7,13 @@ vi.mock('../lib/auth', () => ({ useAuth: () => ({ user: { id: 'u1', email: 'u@pi
 // čtení knihy; kapacita a útrata jen pro správce.
 const ID = '11111111-2222-3333-4444-555555555555';
 let dokumenty: unknown[] = [];
+const hledano: string[] = [];
 vi.mock('../lib/bibleKlient', () => ({
   BIBLE_URL: 'https://cegrelgvkygcatupqwrx.supabase.co',
   odkazDoUloziste: () => null,
-  volejBibli: async (_funkce: string, telo: { akce?: string }) => {
+  volejBibli: async (_funkce: string, telo: { akce?: string; dotaz?: string }) => {
     if (telo.akce === 'dokumenty') return { ok: true, data: dokumenty };
+    if (telo.akce === 'hledej') { hledano.push(String(telo.dotaz)); return { ok: true, data: { vysledky: [] } }; }
     if (telo.akce === 'nastaveni') return { ok: true, data: {} };
     if (telo.akce === 'kniha') {
       return { ok: true, data: { dokument: { ...(dokumenty[0] as object), postup: {} }, kapitoly: [], listy: [[1, null, 'v', 0]] } };
@@ -42,10 +44,24 @@ describe('Pivovarská bible — plocha', () => {
     const setPage = vi.fn();
     render(<BibleScreen setPage={setPage} />);
     expect(screen.getByText('Knihovna dokumentů')).toBeTruthy();
-    fireEvent.click(screen.getByText('Výpočtová laboratoř'));
-    expect(screen.getByText(/Připravujeme · etapa 6/)).toBeTruthy();
+    fireEvent.click(screen.getByText('Technologie pivovaru'));
+    expect(screen.getByText(/Připravujeme · etapa 7/)).toBeTruthy();
     expect(screen.getByText(/AI zatím z knih neodpovídá/)).toBeTruthy();
+    expect(setPage).toHaveBeenCalledWith('bible', undefined, 'technologie');
+  });
+
+  it('Výpočtová laboratoř počítá a „Najít v knihách“ otevře hledání s dotazem výpočtu', async () => {
+    profil = { role: 'admin' };
+    const setPage = vi.fn();
+    render(<BibleScreen setPage={setPage} />);
+    fireEvent.click(screen.getByText('Výpočtová laboratoř'));
     expect(setPage).toHaveBeenCalledWith('bible', undefined, 'vypocty');
+    fireEvent.click(screen.getByRole('button', { name: /Alkohol a prokvašení \(Balling\)/ }));
+    expect(screen.getByText('4,87 % obj.')).toBeTruthy();
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Najít v knihách/ })); });
+    expect(setPage).toHaveBeenLastCalledWith('bible', undefined, 'chat');
+    expect((screen.getByLabelText('Hledat v knihách') as HTMLInputElement).value).toBe('Balling skutečný extrakt alkohol');
+    expect(hledano).toEqual(['Balling skutečný extrakt alkohol']);
   });
 
   it('uživatel s povoleným modulem bible plochu vidí', () => {

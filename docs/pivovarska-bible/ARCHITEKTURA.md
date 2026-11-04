@@ -251,6 +251,8 @@ Každé tvrzení nese jeden typ ze zadání (bod 11):
 - **Testy** stojí na ručně ověřených příkladech: katalog z rešerše
   s nezávislým přepočtem.
 - **Vazba na knihovnu:** u vzorce je odkaz na pasáž v knize, kde je uvedený.
+  Hotovo v 6a jako „Najít v knihách" (hledání s dotazem výpočtu) — konkrétní
+  stránka se nevymýšlí; výpočty 6a jsou v README (R23).
 
 ## 8. Technologie pivovaru, receptury a várky (Etapy 7 a 8)
 

@@ -22,6 +22,7 @@ import { BibleSprava } from '../components/bible/BibleSprava';
 import { BibleZkusenosti } from '../components/bible/BibleZkusenosti';
 import { BiblePripravujeme } from '../components/bible/BiblePripravujeme';
 import { BibleHledani } from '../components/bible/BibleHledani';
+import { BibleVypocty } from '../components/bible/BibleVypocty';
 
 export type BibleSekce = 'plocha' | 'chat' | 'knihovna' | 'vypocty' | 'technologie' | 'varky' | 'problemy' | 'zkusenosti' | 'sprava';
 
@@ -40,10 +41,8 @@ export const BIBLE_DLAZDICE: readonly BibleDlazdice[] = [
   // Zatím hledání v knihách (3. 11. 2026, majitel k chatbotu: „zatím jen hledání").
   { id: 'chat', nazev: 'Hledání v knihách', popis: 'Česky i v anglických knihách, s otevřením stránky', ikona: Search },
   { id: 'knihovna', nazev: 'Knihovna dokumentů', popis: 'Odborná knihovna: knihy, nahrávání, zpracování a čtení', ikona: BookOpen },
-  {
-    id: 'vypocty', nazev: 'Výpočtová laboratoř', popis: 'Plato, výtěžnost, rmutování, IBU, voda, hydraulika', ikona: Calculator, etapa: 6,
-    bude: 'Samostatné výpočetní moduly s testy z ručně ověřených příkladů. Každý výsledek ukáže vstupy, jednotky, vzorec, předpoklady, rozsah platnosti a nejistotu.',
-  },
+  // Etapa 6a (4. 11. 2026): výpočty s ověřenými vzorci; stejný kód počítá i Claude přes konektor.
+  { id: 'vypocty', nazev: 'Výpočtová laboratoř', popis: 'Plato, alkohol, ředění, výtěžek, vystírka, IBU, barva, CO₂', ikona: Calculator },
   {
     id: 'technologie', nazev: 'Technologie pivovaru', popis: 'Profil pivovaru: varna, nádoby, čerpadla, chlazení', ikona: Factory, etapa: 7,
     bude: 'Typ varny, objemy nádob, technologické schéma, čerpadla, potrubí, výměníky, chlazení, kvasné a ležácké tanky a provozní postupy. Jde založit i další pivovary.',
@@ -75,6 +74,8 @@ export default function BibleScreen({ setPage, pageSubTab }: {
   const [sekce, setSekce] = useState<BibleSekce>(jeBibleSekce(pageSubTab) ? pageSubTab : 'plocha');
   // Otevřená kniha (trasa 'kniha:<id>[:<list>]') má přednost před sekcí.
   const [kniha, setKniha] = useState(() => rozeberCestuKnihy(pageSubTab));
+  // „Najít v knihách“ z Výpočtové laboratoře: hledání se otevře s tímto dotazem.
+  const [dotazHledani, setDotazHledani] = useState<string | null>(null);
 
   useEffect(() => {
     setSekce(jeBibleSekce(pageSubTab) ? pageSubTab : 'plocha');
@@ -83,6 +84,7 @@ export default function BibleScreen({ setPage, pageSubTab }: {
 
   function jdi(s: BibleSekce) {
     setKniha(null);
+    setDotazHledani(null);
     setSekce(s);
     // Do historie stránek, ať tlačítko Zpět vrátí na plochu bible.
     setPage?.('bible', undefined, s === 'plocha' ? '' : s);
@@ -129,7 +131,9 @@ export default function BibleScreen({ setPage, pageSubTab }: {
       ) : sekce === 'knihovna' ? (
         <BibleKnihovna role={role} setPage={setPage} onCist={(id) => otevriKnihu(id)} />
       ) : sekce === 'chat' ? (
-        <BibleHledani otevri={(id, list) => otevriKnihu(id, list)} />
+        <BibleHledani key={dotazHledani ?? ''} otevri={(id, list) => otevriKnihu(id, list)} pocatecniDotaz={dotazHledani ?? undefined} />
+      ) : sekce === 'vypocty' ? (
+        <BibleVypocty hledej={(dotaz) => { jdi('chat'); setDotazHledani(dotaz); }} />
       ) : sekce === 'zkusenosti' ? (
         <BibleZkusenosti role={role} />
       ) : sekce === 'sprava' ? (
