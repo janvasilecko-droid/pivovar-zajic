@@ -1399,7 +1399,7 @@ def pis_prehledy(supa: Supa, prepisovac: Prepisovac, nastaveni: dict, konec: flo
         except naklady.ChybiCenik:
             log('Model z model_prehledu nemá v bible_nastaveni ceník — přehledy se přeskočí.')
             return souhrn
-    log(f'Přehledy témat: {len(prehledy_mod.TEMATA)} témat (model {model})')
+    log(f'Přehledy témat a pracovní postupy: {len(prehledy_mod.PREHLEDY)} + {len(prehledy_mod.POSTUPY)} (model {model})')
     try:
         for poradi, tema in enumerate(prehledy_mod.TEMATA):
             if time.time() >= konec:
@@ -1422,7 +1422,7 @@ def pis_prehledy(supa: Supa, prepisovac: Prepisovac, nastaveni: dict, konec: flo
             if not zdroje:
                 souhrn['bez_zdroju'] += 1
                 continue
-            otisk = prehledy_mod.otisk_zdroju(zdroje)
+            otisk = prehledy_mod.otisk_zdroju(zdroje, prehledy_mod.verze_tematu(tema))
             if existujici.get(tema['klic']) == otisk:
                 souhrn['beze_zmeny'] += 1
                 continue
@@ -1446,7 +1446,7 @@ def pis_prehledy(supa: Supa, prepisovac: Prepisovac, nastaveni: dict, konec: flo
             supa.vloz_nebo_prepis('bible_prehledy', [{
                 'klic': tema['klic'], 'nazev': tema['nazev'], 'oblast': tema.get('oblast'), 'poradi': poradi,
                 'text': p.text, 'zdroje': [prehledy_mod.radek_zdroje(i, z) for i, z in enumerate(zdroje, 1)],
-                'kontrola': p.kontrola, 'model': model, 'verze': prehledy_mod.PREHLED_VERZE, 'otisk': otisk,
+                'kontrola': p.kontrola, 'model': model, 'verze': prehledy_mod.verze_tematu(tema), 'otisk': otisk,
                 'vytvoreno': datetime.now(timezone.utc).isoformat(),
             }], klic='klic')
             souhrn['napsano'] += 1

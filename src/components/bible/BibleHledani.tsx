@@ -4,8 +4,8 @@
 // hledání". Výsledek ukáže knihu, kapitolu a stranu („s. 158", jinak „list 170")
 // a úryvek se zvýrazněnými slovy; klepnutím se otevře čtečka na té stránce.
 import { useEffect, useRef, useState } from 'react';
-import { FileText, Search } from 'lucide-react';
-import { hledejVKnihach, nactiPrehledy, type PolozkaPrehledu, type VysledekHledani } from '../../lib/bibleHledaniApi';
+import { FileText, ListOrdered, Search } from 'lucide-react';
+import { hledejVKnihach, jePostup, nactiPrehledy, nazevPostupu, type PolozkaPrehledu, type VysledekHledani } from '../../lib/bibleHledaniApi';
 import { BiblePrehled } from './BiblePrehled';
 
 const bezDiakritiky = (z: string) => z.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
@@ -77,17 +77,21 @@ export function BibleHledani({ otevri }: { otevri: (dokumentId: string, list: nu
   }
   const kDotazu = stav && prehledy ? prehledyKDotazu(prehledy.seznam, stav.dotaz) : [];
 
-  const tlacitkoPrehledu = (p: PolozkaPrehledu) => (
+  const tlacitkoPrehledu = (p: PolozkaPrehledu, kratce = false) => (
     <button
       key={p.klic}
       type="button"
       onClick={() => setOtevrenyPrehled(p.klic)}
       className="btn justify-start gap-2 p-3 text-left bg-neutral-900 text-neutral-100 border border-neutral-700 hover:border-amber-500 hover:bg-neutral-800"
     >
-      <FileText size={18} className="shrink-0 text-amber-400" />
-      <span className="text-sm font-bold">{p.nazev}</span>
+      {jePostup(p.klic)
+        ? <ListOrdered size={18} className="shrink-0 text-amber-400" />
+        : <FileText size={18} className="shrink-0 text-amber-400" />}
+      <span className="text-sm font-bold">{kratce && jePostup(p.klic) ? nazevPostupu(p.nazev) : p.nazev}</span>
     </button>
   );
+  const temata = prehledy?.seznam.filter((p) => !jePostup(p.klic)) ?? [];
+  const postupy = prehledy?.seznam.filter((p) => jePostup(p.klic)) ?? [];
 
   return (
     <div className="space-y-4">
@@ -110,7 +114,7 @@ export function BibleHledani({ otevri }: { otevri: (dokumentId: string, list: nu
       {kDotazu.length > 0 && !hleda && (
         <section className="space-y-2" aria-label="Přehledy k dotazu">
           <div className="text-xs font-black uppercase tracking-wide text-amber-400">Přehled z knih</div>
-          <div className="grid gap-2 sm:grid-cols-2">{kDotazu.map(tlacitkoPrehledu)}</div>
+          <div className="grid gap-2 sm:grid-cols-2">{kDotazu.map((p) => tlacitkoPrehledu(p))}</div>
         </section>
       )}
       {hleda && <div className="text-sm text-neutral-300">Hledám…</div>}
@@ -151,7 +155,7 @@ export function BibleHledani({ otevri }: { otevri: (dokumentId: string, list: nu
       {!stav && prehledy && prehledy.migrace && (
         <section className="space-y-2 border-t border-neutral-800 pt-4" aria-label="Přehledy témat">
           <h2 className="text-sm font-black text-neutral-50">Přehledy témat</h2>
-          {prehledy.seznam.length === 0 ? (
+          {temata.length === 0 ? (
             <p className="text-sm text-neutral-300">
               Claude napíše přehledy hlavních témat (chmelovar, rmutování, kvašení…) z porovnání všech knih, až budou všechny knihy zpracované a přeložené.
               Každé tvrzení bude mít odkaz na knihu a stránku.
@@ -159,7 +163,26 @@ export function BibleHledani({ otevri }: { otevri: (dokumentId: string, list: nu
           ) : (
             <>
               <p className="text-sm text-neutral-300">To nejlepší z knih k hlavním tématům; čísla v závorkách otevřou knihu na té stránce.</p>
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{prehledy.seznam.map(tlacitkoPrehledu)}</div>
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{temata.map((p) => tlacitkoPrehledu(p))}</div>
+            </>
+          )}
+        </section>
+      )}
+      {!stav && prehledy && prehledy.migrace && (
+        <section className="space-y-2 border-t border-neutral-800 pt-4" aria-label="Pracovní postupy">
+          <h2 className="text-sm font-black text-neutral-50">Pracovní postupy krok za krokem</h2>
+          {postupy.length === 0 ? (
+            <p className="text-sm text-neutral-300">
+              Claude sepíše z knih postupy práce v pivovaru — šrotování, rmutování, scezování, chmelovar, zakvašení, kvašení, sudování,
+              filtrace, mytí a plnění sudů, stáčení, sanitace (CIP, varna, výčep), kontrola kvality — až budou všechny knihy zpracované a přeložené.
+              Každý krok bude mít odkaz na knihu a stránku.
+            </p>
+          ) : (
+            <>
+              <p className="text-sm text-neutral-300">
+                Kroky s hodnotami z knih; čísla v závorkách otevřou knihu na té stránce. Postup je obecný — porovnej ho s návodem k vašemu zařízení.
+              </p>
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{postupy.map((p) => tlacitkoPrehledu(p, true))}</div>
             </>
           )}
         </section>

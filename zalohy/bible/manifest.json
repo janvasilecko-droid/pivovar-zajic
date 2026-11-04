@@ -2,23 +2,23 @@
  "format": "pivovar-zaloha-manifest",
  "v": 1,
  "sada": "bible",
- "datum": "2026-11-03T09:44:49.065Z",
+ "datum": "2026-11-04T09:31:09.493Z",
  "tabulky": {
   "migrace_aplikovane": {
-   "radku": 1,
-   "sha256": "f27b4ff6e45d4eb930048fc862f20a67ab5e1d49dcaffa9b03c3ce7926575489"
+   "radku": 6,
+   "sha256": "3cb837efc3dc95071e4b361d8ed735455af5941e27ef79f72100de2fa118dc53"
   },
   "bible_nastaveni": {
-   "radku": 7,
-   "sha256": "d11d22b774987e63f86a6c9e20b5e22907c58810c7aedc97bca021688cde5851"
+   "radku": 12,
+   "sha256": "496da7de68e99e2b49c4816fcdf25f5dfada7a6c3fb7167f49ba9f0b0d5fe612"
   },
   "bible_dokumenty": {
    "radku": 6,
-   "sha256": "e890c798800e71f6bca394f1fdec1cf36e5faf2b0c3051c98fe876270fcee2cd"
+   "sha256": "0131e4e60e5d80f9479d04f649e3fca4a40ab2ca6041d8798c6af8d0a422f61e"
   },
   "ai_naklady": {
-   "radku": 32,
-   "sha256": "b3f4ec814e4cddd6df80c434b3569a9393d73dd95e8506b8621adbf5023b574b"
+   "radku": 78,
+   "sha256": "67313a0f6338a96cbbbc5367f25bdb3b65de42b14169d408ed5d228a1b57a269"
   }
  },
  "nejsouVDatabazi": []
