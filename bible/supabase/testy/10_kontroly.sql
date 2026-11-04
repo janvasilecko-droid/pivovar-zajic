@@ -418,5 +418,44 @@ SELECT pg_temp.selze('SELECT * FROM public.bible_mcp_over(repeat(''d'', 64))', '
   FROM (SELECT pg_temp.jako('authenticated')) j;
 SELECT pg_temp.jako('service_role');
 
+-- Zkušenosti sládků (20261104000000_bible_zkusenosti).
+SELECT pg_temp.jako('service_role');
+SELECT pg_temp.selze('SELECT * FROM public.bible_zkusenosti', 'zkušenosti čte jen service role', '42501')
+  FROM (SELECT pg_temp.jako('authenticated')) j;
+SELECT pg_temp.jako('service_role');
+SELECT pg_temp.selze($q$SELECT public.bible_zapis_zkusenost('00000000-0000-0000-0000-0000000000b1', 'cte', 'Čtenář',
+  '{"nazev": "x", "text": "y"}'::jsonb)$q$, 'čtenář zkušenost nezapíše', '42501');
+SELECT pg_temp.selze($q$SELECT public.bible_zapis_zkusenost('00000000-0000-0000-0000-0000000000b2', 'prispiva', 'Přispěvatel',
+  '{"nazev": "Ověřeno", "text": "y", "uroven": 2}'::jsonb)$q$, 'přispěvatel nesmí vydávat zkušenost za ověřenou (úroveň 1–3)', '42501');
+SELECT pg_temp.selze($q$SELECT public.bible_zapis_zkusenost('00000000-0000-0000-0000-0000000000b2', 'prispiva', 'Přispěvatel',
+  '{"nazev": " ", "text": "y"}'::jsonb)$q$, 'prázdný název se odmítne', '23514');
+SELECT pg_temp.selze($q$SELECT public.bible_zapis_zkusenost('00000000-0000-0000-0000-0000000000b2', 'prispiva', 'Přispěvatel',
+  '{"nazev": "x", "text": "y", "oblasti": ["Z"]}'::jsonb)$q$, 'neznámá oblast se odmítne', '23514');
+CREATE TEMP TABLE zk_id AS
+  SELECT public.bible_zapis_zkusenost('00000000-0000-0000-0000-0000000000b2', 'prispiva', 'Přispěvatel',
+    '{"typ": "reseni_problemu", "nazev": "Chmelovar: pěnění", "text": "Při přepěnění pomohlo snížit výkon varu o třetinu.", "oblasti": ["F", "F", "D"], "zdroj": "vlastní provoz"}'::jsonb) AS id;
+SELECT pg_temp.ocekavam((SELECT uroven FROM public.bible_zkusenosti WHERE id = (SELECT id FROM zk_id)) = 4
+                        AND (SELECT oblasti FROM public.bible_zkusenosti WHERE id = (SELECT id FROM zk_id)) = ARRAY['D', 'F']::text[],
+  'zkušenost jednoho sládka = úroveň 4, oblasti bez opakování a seřazené');
+SELECT pg_temp.ocekavam((SELECT count(*) FROM public.bible_hledej_zkusenosti('pěnění chmelovar')) = 1, 'hledání bez diakritiky najde zkušenost');
+SELECT pg_temp.ocekavam((SELECT count(*) FROM public.bible_hledej_zkusenosti('penění')) = 1, 'předpona a diakritika v dotazu');
+SELECT pg_temp.ocekavam((SELECT count(*) FROM public.bible_hledej_zkusenosti(NULL, 'F')) = 1
+                        AND (SELECT count(*) FROM public.bible_hledej_zkusenosti(NULL, 'H')) = 0, 'filtr oblasti');
+SELECT pg_temp.ocekavam((SELECT count(*) FROM public.bible_hledej_zkusenosti(NULL, NULL, 3::smallint)) = 0, 'filtr důvěryhodnosti (jen úroveň 1–3 nic nevrátí)');
+SELECT pg_temp.selze($q$SELECT public.bible_uprav_zkusenost('00000000-0000-0000-0000-0000000000b3', 'prispiva', (SELECT id FROM zk_id),
+  '{"nazev": "Cizí", "text": "y"}'::jsonb)$q$, 'přispěvatel neupraví cizí zkušenost', '42501');
+SELECT pg_temp.ocekavam(public.bible_uprav_zkusenost('00000000-0000-0000-0000-0000000000b2', 'prispiva', (SELECT id FROM zk_id),
+  '{"nazev": "Chmelovar: pěnění varu", "text": "Upraveno.", "oblasti": ["F"]}'::jsonb), 'autor upraví svoji zkušenost');
+SELECT pg_temp.ocekavam(public.bible_uprav_zkusenost('00000000-0000-0000-0000-0000000000a1', 'spravuje', (SELECT id FROM zk_id),
+  '{"nazev": "Chmelovar: pěnění varu", "text": "Ověřeno třikrát.", "uroven": 3}'::jsonb), 'správce nastaví ověřenou úroveň');
+SELECT pg_temp.selze($q$SELECT public.bible_uprav_zkusenost('00000000-0000-0000-0000-0000000000b2', 'prispiva', (SELECT id FROM zk_id),
+  '{"nazev": "x", "text": "y"}'::jsonb)$q$, 'autor nesmí přepsat zkušenost, kterou správce ověřil', '42501');
+SELECT pg_temp.selze($q$SELECT public.bible_smaz_zkusenost('00000000-0000-0000-0000-0000000000b3', 'prispiva', (SELECT id FROM zk_id))$q$,
+  'přispěvatel nesmaže cizí zkušenost', '42501');
+SELECT pg_temp.ocekavam(NOT public.bible_smaz_zkusenost('00000000-0000-0000-0000-0000000000a1', 'spravuje', gen_random_uuid()), 'smazání neexistující = false');
+SELECT pg_temp.ocekavam(public.bible_smaz_zkusenost('00000000-0000-0000-0000-0000000000a1', 'spravuje', (SELECT id FROM zk_id)), 'správce smaže jakoukoli zkušenost');
+SELECT pg_temp.ocekavam((SELECT count(*) FROM public.bible_hledej_zkusenosti()) = 0, 'po smazání nic není');
+DROP TABLE zk_id;
+
 SELECT pg_temp.jako(NULL);
 SELECT 'VŠECHNY KONTROLY PROJEKTU BIBLE PROŠLY' AS vysledek;
