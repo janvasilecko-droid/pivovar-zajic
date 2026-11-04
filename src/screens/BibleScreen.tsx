@@ -19,6 +19,7 @@ import { cestaKnihy, rozeberCestuKnihy } from '../lib/bibleCteni';
 import { lazyStranka } from '../lib/lazyStranka';
 import { BibleKnihovna } from '../components/bible/BibleKnihovna';
 import { BibleSprava } from '../components/bible/BibleSprava';
+import { BibleZkusenosti } from '../components/bible/BibleZkusenosti';
 import { BiblePripravujeme } from '../components/bible/BiblePripravujeme';
 import { BibleHledani } from '../components/bible/BibleHledani';
 
@@ -55,10 +56,7 @@ export const BIBLE_DLAZDICE: readonly BibleDlazdice[] = [
     id: 'problemy', nazev: 'Analýza problémů', popis: 'Příčiny vad a odchylek z literatury a dat', ikona: Stethoscope, etapa: 10,
     bude: 'Řešení technologických problémů (oblast T): chatbot nad várkami, výpočty a literaturou, s jasným označením, co je fakt, co hypotéza a co chybí.',
   },
-  {
-    id: 'zkusenosti', nazev: 'Zkušenosti sládků', popis: 'Praxe s úrovní důvěryhodnosti', ikona: Users, etapa: 3,
-    bude: 'Případové studie, postupy a řešení problémů s důvěryhodností 1–5 (ověřená publikace → neověřená informace). Ruční zápis z vlastního provozu. Jednotlivá zkušenost se nikdy nevydává za pravidlo.',
-  },
+  { id: 'zkusenosti', nazev: 'Zkušenosti sládků', popis: 'Praxe s úrovní důvěryhodnosti 1–5, ruční zápis', ikona: Users },
   { id: 'sprava', nazev: 'Správa znalostí', popis: 'Oblasti A–T, přístup, kapacita, AI', ikona: Settings },
 ];
 
@@ -132,6 +130,8 @@ export default function BibleScreen({ setPage, pageSubTab }: {
         <BibleKnihovna role={role} setPage={setPage} onCist={(id) => otevriKnihu(id)} />
       ) : sekce === 'chat' ? (
         <BibleHledani otevri={(id, list) => otevriKnihu(id, list)} />
+      ) : sekce === 'zkusenosti' ? (
+        <BibleZkusenosti role={role} />
       ) : sekce === 'sprava' ? (
         <BibleSprava role={role} setPage={setPage} />
       ) : dlazdice ? (

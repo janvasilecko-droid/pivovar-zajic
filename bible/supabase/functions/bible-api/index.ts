@@ -6,6 +6,7 @@ import {
 import {
   AKCE, ChybaVstupu, idDokumentu, jeAkce, PLATNOST_ODKAZU_S, popisDokumentu, prekladChybyDb, SLOUPCE_DOKUMENTU,
   souborKNahrani, stavDokumentu, zacatekObdobi, type Akce, type ChybaDb, klicPrehledu,
+  dotazZkusenosti, idZkusenosti, zkusenostVstup,
 } from '../_shared/vstupy.ts';
 import {
   celeCislo, druhObjektu, DRUHY_OBJEKTU, jeCitelny, listyPodStropem, MAX_LISTU_NA_DOTAZ, nahled, OBJEKTU_NA_DOTAZ,
@@ -285,6 +286,43 @@ const PROVEDENI: Record<Akce, (k: Kontext) => Promise<Response>> = {
     if (error) return chybaDb(cors, error, 'prehled');
     if (!data) return chyba(cors, 404, 'nenalezeno', 'Přehled tohoto tématu zatím není.');
     return hotovo(cors, data);
+  },
+
+  // Zkušenosti sládků: seznam / hledání (bez diakritiky), vždy s úrovní důvěryhodnosti.
+  async zkusenosti({ db, telo, cors }) {
+    const f = dotazZkusenosti(telo);
+    const { data, error } = await db.rpc('bible_hledej_zkusenosti', {
+      p_dotaz: f.dotaz, p_oblast: f.oblast, p_nejhorsi: f.nejhorsi, p_limit: 100,
+    });
+    if (error?.code === 'PGRST202') return hotovo(cors, { zkusenosti: [], migrace: false });
+    if (error) return chybaDb(cors, error, 'zkusenosti');
+    return hotovo(cors, { zkusenosti: data ?? [], migrace: true });
+  },
+
+  async zkusenost_zapsat({ db, u, telo, cors }) {
+    const { data, error } = await db.rpc('bible_zapis_zkusenost', {
+      p_uzivatel: u.uid, p_pristup: u.pristup, p_jmeno: u.jmeno ?? '', p_zkusenost: zkusenostVstup(telo.zkusenost),
+    });
+    if (error) return chybaDb(cors, error, 'zkusenost_zapsat');
+    return hotovo(cors, { id: data });
+  },
+
+  async zkusenost_upravit({ db, u, telo, cors }) {
+    const id = idZkusenosti(telo);
+    const { data, error } = await db.rpc('bible_uprav_zkusenost', {
+      p_uzivatel: u.uid, p_pristup: u.pristup, p_id: id, p_zkusenost: zkusenostVstup(telo.zkusenost),
+    });
+    if (error) return chybaDb(cors, error, 'zkusenost_upravit');
+    if (!data) return chyba(cors, 404, 'nenalezeno', 'Zkušenost už v bibli není.');
+    return hotovo(cors, { ok: true });
+  },
+
+  async zkusenost_smazat({ db, u, telo, cors }) {
+    const id = idZkusenosti(telo);
+    const { data, error } = await db.rpc('bible_smaz_zkusenost', { p_uzivatel: u.uid, p_pristup: u.pristup, p_id: id });
+    if (error) return chybaDb(cors, error, 'zkusenost_smazat');
+    if (!data) return chyba(cors, 404, 'nenalezeno', 'Zkušenost už v bibli není.');
+    return hotovo(cors, { ok: true });
   },
 
   // „Povolit" na obrazovce /claude-pripojeni: kód pro Claude (OAuth, PKCE S256).

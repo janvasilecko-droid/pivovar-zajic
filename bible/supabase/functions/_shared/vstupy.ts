@@ -31,6 +31,12 @@ export const AKCE = {
   mcp_povolit: 'cte',
   mcp_pripojeni: 'cte',
   mcp_odpojit: 'cte',
+  // Zkušenosti sládků (etapa 3b): čtení všem, zápis přispěvateli; ověřenou
+  // úroveň 1–3 a cizí záznamy hlídá SQL (správce).
+  zkusenosti: 'cte',
+  zkusenost_zapsat: 'prispiva',
+  zkusenost_upravit: 'prispiva',
+  zkusenost_smazat: 'prispiva',
 } as const satisfies Record<string, Pristup>;
 
 export type Akce = keyof typeof AKCE;
@@ -151,4 +157,66 @@ export function prekladChybyDb(e: ChybaDb): { status: number; kod: string; zprav
 export function klicPrehledu(v: unknown): string {
   if (typeof v !== 'string' || !/^[a-z0-9_]{1,40}$/.test(v)) throw new ChybaVstupu('Neznámé téma.');
   return v;
+}
+
+// --- Zkušenosti sládků (etapa 3b) -------------------------------------------
+
+export const TYPY_ZKUSENOSTI = [
+  'pripadova_studie', 'diskuse', 'rozhovor', 'postup', 'reseni_problemu', 'doporuceni_vyrobce', 'provozni_zkusenost',
+] as const;
+
+const OBLASTI = 'ABCDEFGHIJKLMNOPQRST';
+
+function oblasti(v: unknown): string[] {
+  if (v === undefined || v === null) return [];
+  if (!Array.isArray(v) || v.length > 20 || v.some((o) => typeof o !== 'string' || o.length !== 1 || !OBLASTI.includes(o))) {
+    throw new ChybaVstupu('Oblasti musí být seznam písmen A–T.');
+  }
+  return [...new Set(v as string[])].sort();
+}
+
+function uroven(v: unknown): number {
+  if (v === undefined || v === null) return 4;
+  if (typeof v !== 'number' || !Number.isInteger(v) || v < 1 || v > 5) throw new ChybaVstupu('Úroveň důvěryhodnosti je číslo 1 až 5.');
+  return v;
+}
+
+export function idZkusenosti(telo: Record<string, unknown>): string {
+  if (!jeUuid(telo.id)) throw new ChybaVstupu('Chybí id zkušenosti.');
+  return telo.id.toLowerCase();
+}
+
+/** Zkušenost sládka — jen známá pole; práva k úrovni a vlastnictví hlídá SQL. */
+export function zkusenostVstup(v: unknown): Record<string, unknown> {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) throw new ChybaVstupu('Chybí zkušenost.');
+  const p = v as Record<string, unknown>;
+  const typ = p.typ === undefined || p.typ === null ? 'provozni_zkusenost' : p.typ;
+  if (typeof typ !== 'string' || !(TYPY_ZKUSENOSTI as readonly string[]).includes(typ)) throw new ChybaVstupu('Neznámý druh zkušenosti.');
+  return {
+    typ,
+    nazev: text(p.nazev, 'Název', 200, true),
+    text: text(p.text, 'Text', 8000, true),
+    oblasti: oblasti(p.oblasti),
+    uroven: uroven(p.uroven),
+    zdroj: text(p.zdroj, 'Zdroj', 500),
+  };
+}
+
+/** Hledání ve zkušenostech: dotaz je volitelný (bez něj nejnovější), filtry oblast a nejnižší důvěryhodnost. */
+export function dotazZkusenosti(telo: Record<string, unknown>): { dotaz: string | null; oblast: string | null; nejhorsi: number } {
+  const d = telo.dotaz;
+  let dotaz: string | null = null;
+  if (d !== undefined && d !== null && d !== '') {
+    if (typeof d !== 'string' || d.length > 200) throw new ChybaVstupu('Dotaz je moc dlouhý (nejvýš 200 znaků).');
+    dotaz = d.trim() || null;
+  }
+  const o = telo.oblast;
+  if (o !== undefined && o !== null && o !== '' && (typeof o !== 'string' || o.length !== 1 || !OBLASTI.includes(o))) {
+    throw new ChybaVstupu('Oblast je písmeno A–T.');
+  }
+  const n = telo.nejhorsi;
+  if (n !== undefined && n !== null && (typeof n !== 'number' || !Number.isInteger(n) || n < 1 || n > 5)) {
+    throw new ChybaVstupu('Důvěryhodnost je číslo 1 až 5.');
+  }
+  return { dotaz, oblast: typeof o === 'string' && o ? o : null, nejhorsi: typeof n === 'number' ? n : 5 };
 }

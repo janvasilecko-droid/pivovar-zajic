@@ -39,9 +39,23 @@ s citací kniha–kapitola–strana a počítá deterministickým výpočetním 
 | 4: hledání v knihách (bez AI, R14) | hotovo (3. 11. 2026) — migrace `20261103010000_bible_hledani` |
 | přehledy témat z porovnání knih (R15) | hotovo (3. 11. 2026) — migrace `20261103020000_bible_prehledy` |
 | konektor do aplikace Claude (R16) | hotovo (3. 11. 2026) — migrace `20261103030000_bible_mcp`, funkce `bible-mcp` |
-| 3b–3c: zkušenosti sládků, nová vydání | čeká |
+| 3b: zkušenosti sládků | hotovo (4. 11. 2026) — migrace `20261104000000_bible_zkusenosti` |
+| 3c: nová vydání dokumentů | čeká |
 | 5: chatbot | odloženo (R14) |
 | 6–10 | čeká |
+
+## Zkušenosti sládků (etapa 3b)
+
+- **Tabulka** `bible_zkusenosti` (jen service role) a SQL funkce `bible_zapis_zkusenost`,
+  `bible_uprav_zkusenost`, `bible_smaz_zkusenost`, `bible_hledej_zkusenosti`; práva
+  hlídají znovu v SQL, edge funkce bible-api jen posílá ověřené vstupy.
+- **Důvěryhodnost 1–5** (architektura § 9): úroveň 1–3 (ověřené zdroje) nastavuje a
+  mění jen správce, přispěvatel zapisuje 4 nebo 5 a upravuje/maže svoje záznamy,
+  správce všechny. Čtenář jen čte.
+- **Hledání** bez diakritiky a po začátcích slov, filtr oblasti A–T a nejnižší
+  důvěryhodnosti. V knihách (Hledání) se zkušenosti zatím nehledají — čeká na etapu chatbota.
+- **UI:** dlaždice Zkušenosti sládků (`src/components/bible/BibleZkusenosti.tsx`),
+  API klient `src/lib/bibleZkusenostiApi.ts`.
 
 ## Zpracování knih (etapa 2)
 

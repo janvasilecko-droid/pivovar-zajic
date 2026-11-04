@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import {
-  AKCE, ChybaVstupu, idDokumentu, klicPrehledu, jeAkce, popisDokumentu, prekladChybyDb, souborKNahrani, stavDokumentu, zacatekObdobi,
+  AKCE, ChybaVstupu, dotazZkusenosti, idDokumentu, idZkusenosti, klicPrehledu, jeAkce, popisDokumentu, prekladChybyDb, souborKNahrani, stavDokumentu, zacatekObdobi, zkusenostVstup,
 } from './vstupy';
 
 const SHA = 'a'.repeat(64);
@@ -112,5 +112,39 @@ describe('klíč přehledu', () => {
     expect(() => klicPrehledu('Chmelovar')).toThrow(ChybaVstupu);
     expect(() => klicPrehledu("x'; drop")).toThrow(ChybaVstupu);
     expect(() => klicPrehledu(undefined)).toThrow(ChybaVstupu);
+  });
+});
+
+describe('zkušenosti sládků', () => {
+  it('čtení pro čtenáře, zápis, úprava a smazání pro přispěvatele', () => {
+    expect(AKCE.zkusenosti).toBe('cte');
+    expect(AKCE.zkusenost_zapsat).toBe('prispiva');
+    expect(AKCE.zkusenost_upravit).toBe('prispiva');
+    expect(AKCE.zkusenost_smazat).toBe('prispiva');
+  });
+  it('zkušenost: výchozí druh a úroveň 4, oblasti bez opakování a seřazené', () => {
+    expect(zkusenostVstup({ nazev: 'Pěnění', text: 'Pomohlo snížit výkon.', oblasti: ['F', 'D', 'F'] })).toEqual({
+      typ: 'provozni_zkusenost', nazev: 'Pěnění', text: 'Pomohlo snížit výkon.', oblasti: ['D', 'F'], uroven: 4, zdroj: null,
+    });
+  });
+  it('zkušenost: neznámé druhy, oblasti i úrovně se odmítnou, prázdný název taky', () => {
+    expect(() => zkusenostVstup({ nazev: 'x', text: 'y', typ: 'tajne' })).toThrow(ChybaVstupu);
+    expect(() => zkusenostVstup({ nazev: 'x', text: 'y', oblasti: ['Z'] })).toThrow(ChybaVstupu);
+    expect(() => zkusenostVstup({ nazev: 'x', text: 'y', uroven: 6 })).toThrow(ChybaVstupu);
+    expect(() => zkusenostVstup({ nazev: 'x', text: 'y', uroven: '4' })).toThrow(ChybaVstupu);
+    expect(() => zkusenostVstup({ nazev: '  ', text: 'y' })).toThrow(ChybaVstupu);
+    expect(() => zkusenostVstup({ nazev: 'x', text: 'y'.repeat(8001) })).toThrow(ChybaVstupu);
+    expect(() => zkusenostVstup(null)).toThrow(ChybaVstupu);
+  });
+  it('id zkušenosti je uuid', () => {
+    expect(idZkusenosti({ id: '3F2504E0-4F89-41D3-9A0C-0305E82C3301' })).toBe('3f2504e0-4f89-41d3-9a0c-0305e82c3301');
+    expect(() => idZkusenosti({ id: 'x' })).toThrow(ChybaVstupu);
+  });
+  it('dotaz: bez dotazu nejnovější, filtr oblasti a důvěryhodnosti', () => {
+    expect(dotazZkusenosti({})).toEqual({ dotaz: null, oblast: null, nejhorsi: 5 });
+    expect(dotazZkusenosti({ dotaz: ' pěnění ', oblast: 'F', nejhorsi: 4 })).toEqual({ dotaz: 'pěnění', oblast: 'F', nejhorsi: 4 });
+    expect(() => dotazZkusenosti({ oblast: 'Z' })).toThrow(ChybaVstupu);
+    expect(() => dotazZkusenosti({ nejhorsi: 0 })).toThrow(ChybaVstupu);
+    expect(() => dotazZkusenosti({ dotaz: 'x'.repeat(201) })).toThrow(ChybaVstupu);
   });
 });
