@@ -130,7 +130,7 @@ def test_pis_prehledy_napise_jen_temata_se_zdroji_a_zmenou(monkeypatch):
     assert souhrn['napsano'] == 1 and souhrn['bez_zdroju'] == 1 and souhrn['nepovedlo'] == 0
     r = supa.zapsane[0]
     assert r['klic'] == 'chmelovar' and r['oblast'] == 'F' and r['kontrola'] is None
-    assert [(z['n'], z['dokument_id'], z['pdf_index'], z['tistena_strana']) for z in r['zdroje']] == [(1, 'A', 1, '12'), (2, 'B', 3, None)]
+    assert [(z['n'], z['dokument_id'], z['pdf_index'], z['tistena_strana']) for z in r['zdroje']] == [(1, 'A', 1, '12'), (2, 'B', 3, None)]  # všechny zdroje
     assert 'text' not in r['zdroje'][0]  # v citacích není text knihy
     assert supa.stav == [False, True]
     assert supa.naklady and supa.naklady[0]['ucel'] == 'prehled'
@@ -167,3 +167,23 @@ def test_temata_maji_platne_klice_a_oblasti():
     assert len(klice) == len(set(klice))
     assert all(__import__('re').fullmatch(r'[a-z0-9_]{1,40}', k) for k in klice)
     assert all(t['oblast'] in 'ABCDEFGHIJKLMNOPQRST' and t['dotazy'] for t in prehledy.TEMATA)
+
+
+def test_normalizace_citaci_v_ruznych_tvarech():
+    n = prehledy.normalizuj_citace
+    assert n('Var 90 min [2, 5].') == 'Var 90 min [2][5].'
+    assert n('a [2,5] b [3; 4] c [1–3] d [7-8] e [2 a 6] f [zdroj 4] g [zdroje 1, 2]') == \
+        'a [2][5] b [3][4] c [1][2][3] d [7][8] e [2][6] f [4] g [1][2]'
+    assert n('[1][2] zůstane, [1–3 dny] a [text](odkaz) taky') == '[1][2] zůstane, [1–3 dny] a [text](odkaz) taky'
+    assert n('[5–200]') == '[5][200]'  # nesmyslný rozsah se nerozbalí do stovek čísel
+
+
+def test_kontrola_s_tvarem_skupiny_a_cislovanim_odrazek():
+    zdroje = prehledy.vyber_zdroje([[_r('A', 1, 'Chmelovar 60–90 min.'), _r('B', 2, 'Odpar 8 %.', 0.5)]])
+    text, kontrola, pouzite = prehledy.zkontroluj('## 1. Doba varu\n\n1. Var 60–90 min [1, 2].\n2. Odpar 8 % [2].', zdroje)
+    assert pouzite == [1, 2] and kontrola is None and '[1][2]' in text  # číslování odrážek není údaj z knihy
+
+
+def test_tvary_citaci_jen_pocty():
+    t = prehledy.tvary_citaci('a [1] b [2, 3] c (4) d ¹²')
+    assert t == {'jednotlive': 1, 'skupiny': 1, 'zavorky': 1, 'horni_index': 1}

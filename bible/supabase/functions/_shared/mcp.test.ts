@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest';
 import {
-  ChybaNastroje, INSTRUKCE, metadataZdroje, najdiTema, nahodnyToken, NASTROJE, odkazNaList, orizni, platnaChallenge,
+  ChybaNastroje, citovaneZdroje, INSTRUKCE, metadataZdroje, najdiTema, normalizujCitace, nahodnyToken, NASTROJE, odkazNaList, orizni, platnaChallenge,
   platnyVerifier, prehledSOdkazy, registrace, s256, sha256hex, wwwAuthenticate, zpracujZpravu,
 } from './mcp';
 
@@ -92,5 +92,21 @@ describe('odkazy a přehledy', () => {
     expect(t).toContain(`Var 90 min [[1]](https://zajic-pivovar.pages.dev/?page=bible&sub=kniha:${ID}:40)`);
     expect(t).toContain('neznámá [9].');
     expect(t).toContain(`[1] Kniha A, s. 38 — https://zajic-pivovar.pages.dev/?page=bible&sub=kniha:${ID}:40`);
+  });
+});
+
+describe('citace přehledů v různých tvarech', () => {
+  const ID = '11111111-2222-3333-4444-555555555555';
+  it('skupiny a rozsahy se rozbalí, jiné hranaté závorky zůstanou', () => {
+    expect(normalizujCitace('a [2, 5] b [1–3] c [zdroj 4] d [1–3 dny] e [text](x)')).toBe('a [2][5] b [1][2][3] c [4] d [1–3 dny] e [text](x)');
+    expect([...citovaneZdroje('x [2, 5] y [1]')].sort()).toEqual([1, 2, 5]);
+  });
+
+  it('přehled ve tvaru [1, 2] má odkazy a ve zdrojích jen citované', () => {
+    const zdroje = [1, 2, 3].map((n) => ({ n, dokument_id: ID, pdf_index: n * 10, nazev: `Kniha ${n}`, tistena_strana: null }));
+    const t = prehledSOdkazy('Var [1, 2].', zdroje);
+    expect(t).toContain('[[1]](https://zajic-pivovar.pages.dev/?page=bible&sub=kniha:11111111-2222-3333-4444-555555555555:10)');
+    expect(t).toContain('[[2]](');
+    expect(t).not.toContain('[3] Kniha 3');
   });
 });

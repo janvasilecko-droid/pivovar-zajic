@@ -1442,15 +1442,19 @@ def pis_prehledy(supa: Supa, prepisovac: Prepisovac, nastaveni: dict, konec: flo
                 souhrn['nepovedlo'] += 1
                 continue
             pouzite = set(p.pouzite)
+            # Všechny zdroje (jen kniha a místo, bez textu): odkaz funguje u každé citace v textu.
             supa.vloz_nebo_prepis('bible_prehledy', [{
                 'klic': tema['klic'], 'nazev': tema['nazev'], 'oblast': tema.get('oblast'), 'poradi': poradi,
-                'text': p.text, 'zdroje': [prehledy_mod.radek_zdroje(i, z) for i, z in enumerate(zdroje, 1) if i in pouzite],
+                'text': p.text, 'zdroje': [prehledy_mod.radek_zdroje(i, z) for i, z in enumerate(zdroje, 1)],
                 'kontrola': p.kontrola, 'model': model, 'verze': prehledy_mod.PREHLED_VERZE, 'otisk': otisk,
                 'vytvoreno': datetime.now(timezone.utc).isoformat(),
             }], klic='klic')
             souhrn['napsano'] += 1
             souhrn['ke_kontrole'] += 1 if p.kontrola else 0
-            log(f'  přehled {tema["klic"]}: {len(zdroje)} zdrojů, citováno {len(pouzite)}{" — ověřit" if p.kontrola else ""}')
+            t = prehledy_mod.tvary_citaci(p.surovy or '')
+            log(f'  přehled {tema["klic"]}: {len(zdroje)} zdrojů, citováno {len(pouzite)}'
+                f' (citace: {t["jednotlive"]} [n], {t["skupiny"]} skupin, {t["zavorky"]} v kulatých, {t["horni_index"]} horní index)'
+                f'{" — ověřit: " + p.kontrola if p.kontrola else ""}')
         if souhrn['nepovedlo'] == 0:
             _nastav_aktualni(supa, True)
         return souhrn

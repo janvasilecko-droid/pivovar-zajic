@@ -239,3 +239,9 @@ Každé rozhodnutí má datum, důvod a co by ho změnilo.
   nevzkřísí. Hledání ukazuje český název kapitoly.
 - Migrace `20261104020000_bible_kapitoly_preklad` (spouští majitel); bez ní
   bible-api vrací obsah jako dřív.
+- 4. 11. 2026, první běh: 19 z 36 přehledů bez odkazů — model psal citace jako
+  [2, 5] / [2–5] a kontrola znala jen [2]. Oprava: worker skupiny a rozsahy
+  rozbalí na [2][5] (i appka a konektor u starších textů), ukládá všechny
+  zdroje (bez textu), číslování odrážek a nadpisů se nebere jako údaj z knihy,
+  prompt chce každé číslo ve vlastních závorkách; verze `prehled-2` vynutí
+  nové napsání všech přehledů. Ruční spuštění workflow projde vždy.

@@ -28,7 +28,9 @@ from dataclasses import dataclass, field
 
 import ocr
 
-PREHLED_VERZE = 'prehled-1'
+# prehled-2 (4. 11. 2026): citace ve tvaru [2, 5] / [2–5] se dřív nepoznaly (19 z 36 přehledů bez odkazů) —
+# nová verze změní otisk, takže se všechny přehledy napíšou znovu.
+PREHLED_VERZE = 'prehled-2'
 MAX_ZDROJU = 24
 ZNAKU_ZDROJE = 2500
 NA_DOTAZ = 12
@@ -78,7 +80,8 @@ TEMATA: list[dict] = [
 PROMPT = """Jsi zkušený hlavní sládek a odborný autor. Dostaneš očíslované úryvky z odborných pivovarských knih
 a napíšeš česky přehled jednoho tématu: to nejlepší a nejdůležitější pro praxi pivovaru.
 - Piš JEN z přiložených úryvků. Nic nepřidávej z vlastních znalostí; co úryvky neříkají, nepiš.
-- Každé tvrzení, hodnotu a doporučení označ citací zdroje v hranatých závorkách, např. [3] nebo [2][5].
+- Každé tvrzení, hodnotu a doporučení označ citací zdroje: číslo úryvku v hranatých závorkách, každé číslo
+  ve vlastních závorkách — [3], více zdrojů [2][5]. Nikdy nepiš [2, 5], [2–5], (2) ani „zdroj 2".
   Používej jen čísla přiložených úryvků.
 - Porovnej zdroje: kde se shodují, napiš to jednou s více citacemi; kde se liší, uveď hodnoty z jednotlivých
   knih vedle sebe (např. „62–65 °C [1], 63 °C [4]").
@@ -112,6 +115,7 @@ class Prehled:
     kontrola: str | None
     usage: dict
     pouzite: list[int] = field(default_factory=list)
+    surovy: str | None = None   # text, jak ho napsal model (jen pro počty tvarů citací v logu)
 
 
 def vyber_zdroje(radky_po_dotazech: list[list[dict]], max_zdroju: int = MAX_ZDROJU) -> list[Zdroj]:
@@ -167,6 +171,41 @@ def zadani(tema: dict, zdroje: list[Zdroj]) -> str:
 
 
 _CITACE = re.compile(r'\[(\d{1,3})\]')
+# Skupina citací, jak ji model občas napíše: [2, 5], [2,5], [2; 5], [2–5], [2-5], [2 a 5], [zdroj 2].
+_SKUPINA = re.compile(
+    r'\[((?:\s*(?:zdroje?|zdrojích|viz|č\.)\s*)?\d{1,3}(?:\s*(?:,|;|–|-|\ba\b|\band\b)\s*\d{1,3})+\s*'
+    r'|\s*(?:zdroje?|zdrojích|viz|č\.)\s*\d{1,3}\s*)\]', re.I)
+_SLOVA_CITACE = re.compile(r'(?i)zdrojích|zdroje?|viz|č\.')
+
+
+def normalizuj_citace(text: str) -> str:
+    """[2, 5] / [2–4] / [zdroj 2] → [2][5] / [2][3][4] / [2], ať citace pozná appka i kontrola."""
+    def nahrad(m: re.Match) -> str:
+        obsah = _SLOVA_CITACE.sub('', m.group(1)).strip()
+        cisla: list[int] = []
+        for cast in re.split(r'\s*(?:,|;|\ba\b|\band\b)\s*', obsah):
+            rozsah = re.fullmatch(r'(\d{1,3})\s*[–-]\s*(\d{1,3})', cast)
+            if rozsah:
+                a, b = int(rozsah.group(1)), int(rozsah.group(2))
+                cisla += list(range(a, b + 1)) if 0 < b - a <= 30 else [a, b]
+            elif cast.isdigit():
+                cisla.append(int(cast))
+        return ''.join(f'[{c}]' for c in dict.fromkeys(cisla)) or m.group(0)
+    return _SKUPINA.sub(nahrad, text)
+
+
+def tvary_citaci(text: str) -> dict:
+    """Počty tvarů citací v textu (jen čísla do logu — žádný text knihy)."""
+    return {
+        'jednotlive': len(_CITACE.findall(text or '')),
+        'skupiny': len(_SKUPINA.findall(text or '')),
+        'zavorky': len(re.findall(r'\(\s*\d{1,3}(?:\s*[,;–-]\s*\d{1,3})*\s*\)', text or '')),
+        'horni_index': len(re.findall(r'[¹²³⁴⁵⁶⁷⁸⁹⁰]+', text or '')),
+    }
+
+
+# Číslování odrážek a nadpisů („1. Rmut…", „## 3.2 Rmutování") není údaj z knihy.
+_CISLOVANI = re.compile(r'^(\s*(?:#{1,6}\s*|[-*+]\s+)?)\d{1,3}(?:\.\d{1,3})*[.)]?(?=\s)', re.M)
 
 
 def zkontroluj(text: str, zdroje: list[Zdroj]) -> tuple[str, str | None, list[int]]:
@@ -177,6 +216,7 @@ def zkontroluj(text: str, zdroje: list[Zdroj]) -> tuple[str, str | None, list[in
     """
     n = len(zdroje)
     spatne = 0
+    text = normalizuj_citace(text)
 
     def oprav(m: re.Match) -> str:
         nonlocal spatne
@@ -189,7 +229,7 @@ def zkontroluj(text: str, zdroje: list[Zdroj]) -> tuple[str, str | None, list[in
     cisty = _CITACE.sub(oprav, text)
     pouzite = sorted({int(k) for k in _CITACE.findall(cisty)})
     ve_zdrojich = ocr.cisla('\n'.join(z.text for z in zdroje))
-    bez_citaci = _CITACE.sub('', cisty)
+    bez_citaci = _CISLOVANI.sub(r'\1', _CITACE.sub('', cisty))
     cizi = [c for c in ocr.cisla(bez_citaci) if c not in ve_zdrojich]
     duvody = []
     if spatne:
@@ -226,7 +266,7 @@ def napis_prehled(klient, tema: dict, zdroje: list[Zdroj], model: str, max_token
     if not text:
         return Prehled(None, None, usage)
     cisty, kontrola, pouzite = zkontroluj(text, zdroje)
-    return Prehled(cisty, kontrola, usage, pouzite)
+    return Prehled(cisty, kontrola, usage, pouzite, surovy=text)
 
 
 def radek_zdroje(i: int, z: Zdroj) -> dict:

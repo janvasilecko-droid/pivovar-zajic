@@ -112,3 +112,24 @@ describe('přehledy témat s odkazy na knihy', () => {
     expect(prehledyKDotazu(seznam, 'xy')).toEqual([]);
   });
 });
+
+describe('přehled s citacemi ve tvaru [1, 2]', () => {
+  it('i skupinová citace je odkaz; zdroje dole jen citované', async () => {
+    seznamPrehledu = { stav: 'ok', prehledy: [P('chmelovar', 'Chmelovar')], migrace: true };
+    nactiPrehled.mockResolvedValue({ stav: 'ok', prehled: {
+      klic: 'chmelovar', nazev: 'Chmelovar', kontrola: null, vytvoreno: null,
+      text: 'Var trvá 60–90 min [1, 2].',
+      zdroje: [
+        { n: 1, dokumentId: ID, nazev: 'Kniha A', pdfIndex: 40, tistena: '38', kapitola: null, zdroj: 'preklad' },
+        { n: 2, dokumentId: ID, nazev: 'Kniha B', pdfIndex: 7, tistena: null, kapitola: null, zdroj: 'original' },
+        { n: 3, dokumentId: ID, nazev: 'Kniha C', pdfIndex: 9, tistena: null, kapitola: null, zdroj: 'original' },
+      ],
+    } });
+    const otevri = vi.fn();
+    render(<BibleHledani otevri={otevri} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Chmelovar' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Zdroj 2: Kniha B, list 7' }));
+    expect(otevri).toHaveBeenLastCalledWith(ID, 7);
+    expect(screen.queryByText('Kniha C')).toBeNull();
+  });
+});

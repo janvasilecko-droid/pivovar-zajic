@@ -143,11 +143,18 @@ jobs:
         env:
           BIBLE_URL: https://cegrelgvkygcatupqwrx.supabase.co
           BIBLE_KLIC: ${{ secrets.BIBLE_SUPABASE_SERVICE_ROLE_KEY }}
+          UDALOST: ${{ github.event_name }}
         run: |
           set -euo pipefail
           if [ -z "$BIBLE_KLIC" ]; then
             echo "prace=ne" >> "$GITHUB_OUTPUT"
             echo "Chybí secret BIBLE_SUPABASE_SERVICE_ROLE_KEY (klíč projektu bible) — zpracování se nespustí." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          # Ruční spuštění = projít vždy (např. po změně verze přehledů, kterou plán nepozná).
+          if [ "$UDALOST" = "workflow_dispatch" ]; then
+            echo "prace=ano" >> "$GITHUB_OUTPUT"
+            echo "Ruční spuštění — worker projde frontu, překlad, oblasti i přehledy."
             exit 0
           fi
           kod=$(curl -sS --max-time 30 -o odpoved.json -w '%{http_code}' \
