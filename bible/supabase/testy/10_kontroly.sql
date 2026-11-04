@@ -470,5 +470,44 @@ SELECT pg_temp.ocekavam(public.bible_smaz_zkusenost('00000000-0000-0000-0000-000
 SELECT pg_temp.ocekavam((SELECT count(*) FROM public.bible_hledej_zkusenosti()) = 0, 'po smazání nic není');
 DROP TABLE zk_id;
 
+-- Nová vydání dokumentů (20261104050000_bible_vydani).
+SELECT pg_temp.jako('service_role');
+INSERT INTO public.bible_dokumenty (id, nazev, soubor_cesta, soubor_nazev, soubor_velikost, soubor_sha256, prava_potvrzena_at, nahral, stav) VALUES
+  ('77777777-0000-0000-0000-000000000001', 'Technologie piva, 1. vyd.', '77777777-0000-0000-0000-000000000001/a.pdf', 'a.pdf', 1, repeat('a1', 32), now(), '00000000-0000-0000-0000-0000000000b2', 'hotovo'),
+  ('77777777-0000-0000-0000-000000000002', 'Technologie piva, 2. vyd.', '77777777-0000-0000-0000-000000000002/b.pdf', 'b.pdf', 1, repeat('b2', 32), now(), '00000000-0000-0000-0000-0000000000b2', 'hotovo'),
+  ('77777777-0000-0000-0000-000000000003', 'Technologie piva, 3. vyd.', '77777777-0000-0000-0000-000000000003/c.pdf', 'c.pdf', 1, repeat('c3', 32), now(), '00000000-0000-0000-0000-0000000000b3', 'hotovo');
+SELECT pg_temp.selze($q$SELECT public.bible_nastav_vydani('00000000-0000-0000-0000-0000000000b1', 'cte',
+  '77777777-0000-0000-0000-000000000002', '77777777-0000-0000-0000-000000000001')$q$, 'čtenář vydání nepropojí', '42501');
+SELECT pg_temp.selze($q$SELECT public.bible_nastav_vydani('00000000-0000-0000-0000-0000000000b2', 'prispiva',
+  '77777777-0000-0000-0000-000000000003', '77777777-0000-0000-0000-000000000002')$q$, 'přispěvatel nepropojí cizí dokument', '42501');
+SELECT pg_temp.ocekavam(public.bible_nastav_vydani('00000000-0000-0000-0000-0000000000b2', 'prispiva',
+  '77777777-0000-0000-0000-000000000002', '77777777-0000-0000-0000-000000000001'), 'autor označí svůj dokument jako nové vydání');
+SELECT pg_temp.ocekavam((SELECT predchozi_vydani FROM public.bible_dokumenty WHERE id = '77777777-0000-0000-0000-000000000002')
+                        = '77777777-0000-0000-0000-000000000001', 'vazba je uložená');
+SELECT pg_temp.ocekavam(public.bible_nastav_vydani('00000000-0000-0000-0000-0000000000a1', 'spravuje',
+  '77777777-0000-0000-0000-000000000003', '77777777-0000-0000-0000-000000000002'), 'správce propojí jakýkoli dokument (řada 1 ← 2 ← 3)');
+SELECT pg_temp.selze($q$SELECT public.bible_nastav_vydani('00000000-0000-0000-0000-0000000000a1', 'spravuje',
+  '77777777-0000-0000-0000-000000000001', '77777777-0000-0000-0000-000000000003')$q$, 'kruh vydání (1 ← 3, když 3 je novější než 1) se odmítne', '22023');
+SELECT pg_temp.selze($q$SELECT public.bible_nastav_vydani('00000000-0000-0000-0000-0000000000a1', 'spravuje',
+  '77777777-0000-0000-0000-000000000001', '77777777-0000-0000-0000-000000000001')$q$, 'kniha není novým vydáním sama sebe', '22023');
+SELECT pg_temp.selze($q$SELECT public.bible_nastav_vydani('00000000-0000-0000-0000-0000000000a1', 'spravuje',
+  '77777777-0000-0000-0000-000000000001', gen_random_uuid())$q$, 'neexistující předchozí vydání se odmítne', '22023');
+SELECT pg_temp.ocekavam(NOT public.bible_nastav_vydani('00000000-0000-0000-0000-0000000000a1', 'spravuje',
+  gen_random_uuid(), '77777777-0000-0000-0000-000000000001'), 'neexistující dokument = false');
+SELECT pg_temp.selze($q$UPDATE public.bible_dokumenty SET predchozi_vydani = id WHERE id = '77777777-0000-0000-0000-000000000001'$q$,
+  'ani přímý zápis neudělá z knihy vydání sebe sama', '23514');
+SELECT pg_temp.ocekavam(public.bible_nastav_vydani('00000000-0000-0000-0000-0000000000b3', 'prispiva',
+  '77777777-0000-0000-0000-000000000003', NULL), 'autor vazbu zruší');
+SELECT pg_temp.ocekavam((SELECT predchozi_vydani IS NULL FROM public.bible_dokumenty WHERE id = '77777777-0000-0000-0000-000000000003'),
+  'zrušená vazba je pryč, dokument zůstal');
+DELETE FROM public.bible_dokumenty WHERE id = '77777777-0000-0000-0000-000000000001';
+SELECT pg_temp.ocekavam((SELECT predchozi_vydani IS NULL FROM public.bible_dokumenty WHERE id = '77777777-0000-0000-0000-000000000002'),
+  'smazání staršího vydání novější nesmaže, jen zruší vazbu');
+SELECT pg_temp.selze($q$SELECT public.bible_nastav_vydani('00000000-0000-0000-0000-0000000000a1', 'spravuje',
+  '77777777-0000-0000-0000-000000000002', '77777777-0000-0000-0000-000000000003')$q$, 'vazbu nastavuje jen service role', '42501')
+  FROM (SELECT pg_temp.jako('authenticated')) j;
+SELECT pg_temp.jako('service_role');
+DELETE FROM public.bible_dokumenty WHERE id IN ('77777777-0000-0000-0000-000000000002', '77777777-0000-0000-0000-000000000003');
+
 SELECT pg_temp.jako(NULL);
 SELECT 'VŠECHNY KONTROLY PROJEKTU BIBLE PROŠLY' AS vysledek;

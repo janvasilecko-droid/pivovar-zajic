@@ -7,17 +7,17 @@
 // Hledání v obsahu (vzorce, tabulky, pojmy) a otevření pasáže na stránce
 // přijdou se zpracováním a vyhledáváním (etapy 2 a 4).
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BookOpen, Download, Pause, Pencil, RotateCcw, Trash2, Upload } from 'lucide-react';
+import { BookOpen, Download, Layers, Pause, Pencil, RotateCcw, Trash2, Upload } from 'lucide-react';
 import { useAuth } from '../../lib/auth';
 import { usePosledniNacteni } from '../../lib/nacitani';
 import { smiPrispivat, smiSpravovat, type BibleRole } from '../../lib/bibleOpravneni';
 import { BIBLE_OBLASTI } from '../../lib/bibleOblasti';
 import {
-  DRUH_POPIS, JAZYK_POPIS, STAV_POPIS, intervalObnovy, jeZpracovany, oblastiAutomaticky, postupText, procentZpracovani, prubehText,
-  textCekani, velikostText, type StavDokumentu,
+  DRUH_POPIS, JAZYK_POPIS, STAV_POPIS, intervalObnovy, jeZpracovany, kandidatiPredchozihoVydani, moznaJinaVydani, oblastiAutomaticky,
+  postupText, procentZpracovani, prubehText, rodokmenVydani, textCekani, velikostText, type StavDokumentu, type VazbaVydani,
 } from '../../lib/bibleKnihovna';
 import {
-  nactiDokumenty, nastavStav, odkazNaSoubor, smazDokument, ulozenyPopis, upravPopis,
+  nactiDokumenty, nactiVydani, nastavStav, nastavVydani, odkazNaSoubor, smazDokument, ulozenyPopis, upravPopis,
   type BibleDokument, type Nacteno, type Popis,
 } from '../../lib/bibleKnihovnaApi';
 import { BibleNahrat } from './BibleNahrat';
@@ -63,13 +63,29 @@ function PrubehZpracovani({ d }: { d: BibleDokument }) {
   );
 }
 
+/** Vydání u karty knihy (etapa 3c); null = bez migrace, vydání se neukazují. */
+type VydaniKarty = {
+  predchozi: BibleDokument | null;
+  novejsi: BibleDokument[];
+  /** Možná jiné vydání téže knihy (stejné ISBN nebo název), zatím nepropojené. */
+  mozna: BibleDokument | null;
+  kandidati: () => BibleDokument[];
+};
+
+const nazevSRokem = (d: BibleDokument) => `${d.nazev}${d.rok ? ` (${d.rok})` : ''}`;
+
 const popisZDokumentu = (d: BibleDokument): Popis => ({
   nazev: d.nazev, autor: d.autor, vydani: d.vydani, rok: d.rok, isbn: d.isbn, jazyk: d.jazyk,
   druh: d.druh, oblasti: d.oblasti, zdroj: d.zdroj, licence: d.licence,
 });
 
-function KartaDokumentu({ d, role, mujId, onZmena, onSmazano, onRozpracovani, zpracovavaSeJina, onCist }: {
+function KartaDokumentu({ d, role, mujId, onZmena, onSmazano, onRozpracovani, zpracovavaSeJina, onCist, vydani, onVydani, onUkaz }: {
   d: BibleDokument;
+  vydani: VydaniKarty | null;
+  /** Uložená vazba vydání (null = zrušená) — seznam se překreslí bez nového načtení. */
+  onVydani: (id: string, predchozi: string | null) => void;
+  /** Posune seznam na jinou kartu (odkaz na jiné vydání). */
+  onUkaz: (id: string) => void;
   role: BibleRole;
   mujId: string | null;
   onZmena: (d: BibleDokument) => void;
@@ -83,7 +99,9 @@ function KartaDokumentu({ d, role, mujId, onZmena, onSmazano, onRozpracovani, zp
 }) {
   const [uprava, setUprava] = useState<Popis | null>(null);
   const [mazani, setMazani] = useState(false);
-  const rozpracovana = uprava !== null || mazani;
+  // Výběr předchozího vydání: null = zavřeno, '' = „není novým vydáním".
+  const [vydaniVyber, setVydaniVyber] = useState<string | null>(null);
+  const rozpracovana = uprava !== null || mazani || vydaniVyber !== null;
   useEffect(() => {
     onRozpracovani(d.id, rozpracovana);
     return () => onRozpracovani(d.id, false);
@@ -118,7 +136,7 @@ function KartaDokumentu({ d, role, mujId, onZmena, onSmazano, onRozpracovani, zp
   }
 
   return (
-    <li className="rounded-xl border border-neutral-700 bg-neutral-900 text-neutral-100 p-3 sm:p-4 space-y-2">
+    <li id={`bible-dok-${d.id}`} className="rounded-xl border border-neutral-700 bg-neutral-900 text-neutral-100 p-3 sm:p-4 space-y-2">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0 space-y-0.5">
           <div className="font-black leading-snug lze-vybrat">{d.nazev}</div>
@@ -151,9 +169,56 @@ function KartaDokumentu({ d, role, mujId, onZmena, onSmazano, onRozpracovani, zp
           </div>
         ))}
         <div>Nahrál {d.nahral_jmeno ?? '—'}, {new Date(d.created_at).toLocaleDateString('cs-CZ')}</div>
+        {vydani && vydani.novejsi.length > 0 && (
+          <div className="font-bold text-amber-200">
+            Starší vydání — novější:{' '}
+            {vydani.novejsi.map((n, i) => (
+              <span key={n.id}>
+                {i > 0 && ', '}
+                <button type="button" className="tap underline decoration-2 underline-offset-2 hover:text-amber-100" onClick={() => onUkaz(n.id)}>{nazevSRokem(n)}</button>
+              </span>
+            ))}
+          </div>
+        )}
+        {vydani?.predchozi && (
+          <div className="font-bold text-neutral-100">
+            Nové vydání knihy{' '}
+            <button type="button" className="tap underline decoration-2 underline-offset-2 hover:text-amber-200" onClick={() => onUkaz(vydani.predchozi!.id)}>{nazevSRokem(vydani.predchozi)}</button>
+          </div>
+        )}
+        {vydani?.mozna && smiUpravit && vydaniVyber === null && (
+          <div className="font-bold text-sky-300">
+            Možná jiné vydání téže knihy: {nazevSRokem(vydani.mozna)}.{' '}
+            <button type="button" className="tap underline decoration-2 underline-offset-2 hover:text-sky-200" onClick={() => setVydaniVyber(vydani.mozna!.id)}>Propojit vydání</button>
+          </div>
+        )}
       </div>
 
-      {uprava ? (
+      {vydani && vydaniVyber !== null ? (
+        <div className="space-y-2 pt-2">
+          <label className="block">
+            <span className={POPISEK}>Tahle kniha je novým vydáním knihy</span>
+            <select className="input" value={vydaniVyber} onChange={(e) => setVydaniVyber(e.target.value)}>
+              <option value="">— není novým vydáním jiné knihy —</option>
+              {vydani.kandidati().map((k) => <option key={k.id} value={k.id}>{nazevSRokem(k)}</option>)}
+            </select>
+          </label>
+          <p className="text-xs text-neutral-300">
+            Starší vydání v knihovně zůstane celé (čtení, hledání, odkazy). Appka ho označí jako starší a přehledy témat budou brát z nového vydání, jakmile bude zpracované.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              className="btn-amber"
+              disabled={bezi}
+              onClick={() => akce(() => nastavVydani(d.id, vydaniVyber || null), () => { onVydani(d.id, vydaniVyber || null); setVydaniVyber(null); })}
+            >
+              Uložit vydání
+            </button>
+            <button type="button" className="btn-tmave" disabled={bezi} onClick={() => setVydaniVyber(null)}>Zrušit</button>
+          </div>
+        </div>
+      ) : uprava ? (
         <div className="space-y-3 pt-2">
           <PolePopisu popis={uprava} zmen={setUprava} />
           <div className="flex flex-wrap gap-2">
@@ -188,6 +253,9 @@ function KartaDokumentu({ d, role, mujId, onZmena, onSmazano, onRozpracovani, zp
           {!nahrava && <button type="button" className="btn-tmave btn-sm" onClick={otevriOriginal}><Download size={16} /> Originál</button>}
           {smiUpravit && (
             <button type="button" className="btn-tmave btn-sm" onClick={() => setUprava(popisZDokumentu(d))}><Pencil size={16} /> Upravit popis</button>
+          )}
+          {smiUpravit && vydani && !nahrava && (
+            <button type="button" className="btn-tmave btn-sm" onClick={() => setVydaniVyber(vydani.predchozi?.id ?? '')}><Layers size={16} /> Vydání</button>
           )}
           {spravce && !nahrava && d.stav !== 'ceka' && d.stav !== 'zpracovava' && (
             <button type="button" className="btn-tmave btn-sm" disabled={bezi} onClick={() => akce(() => nastavStav(d.id, 'ceka'), () => onZmena({ ...d, stav: 'ceka', stav_zprava: null }))}>
@@ -234,6 +302,20 @@ export function BibleKnihovna({ role, setPage, onCist }: {
   }, [zacniNacteni]);
   useEffect(() => { void nacti(); }, [nacti]);
 
+  // Vazby vydání (etapa 3c) — zvlášť, ať knihovna funguje i bez migrace.
+  const [vydani, setVydani] = useState<{ vazby: VazbaVydani[]; migrace: boolean } | null>(null);
+  useEffect(() => {
+    let platne = true;
+    void nactiVydani().then((r) => { if (platne && r.stav === 'ok') setVydani({ vazby: r.vazby, migrace: r.migrace }); });
+    return () => { platne = false; };
+  }, []);
+  const zmenVydani = useCallback((id: string, predchozi: string | null) => {
+    setVydani((v) => (v ? { ...v, vazby: [...v.vazby.filter((x) => x.id !== id), ...(predchozi ? [{ id, predchozi }] : [])] } : v));
+  }, []);
+  const ukazKartu = useCallback((id: string) => {
+    document.getElementById(`bible-dok-${id}`)?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+  }, []);
+
   // Dokud se něco zpracovává (nebo čeká), seznam se sám obnoví — procenta
   // a stav se mění bez ručního obnovení stránky. Potichu: při chybě sítě
   // zůstane poslední načtený stav. Nenačítá se na skryté záložce, při
@@ -279,6 +361,30 @@ export function BibleKnihovna({ role, setPage, onCist }: {
       && (!oblast || d.oblasti.includes(oblast))
       && (!q || [d.nazev, d.autor, d.soubor_nazev, d.isbn].some((t) => (t ?? '').toLocaleLowerCase('cs').includes(q))));
   }, [dokumenty, hledat, stav, oblast]);
+
+  const rodokmen = useMemo(() => rodokmenVydani(vydani?.vazby ?? []), [vydani]);
+  const vydaniKaret = useMemo(() => {
+    const mapa = new Map<string, VydaniKarty>();
+    if (!vydani?.migrace) return mapa;
+    const podleId = new Map(dokumenty.map((d) => [d.id, d]));
+    // Nápověda „možná jiné vydání" jen u jedné karty z dvojice: u novější, a bez roku u druhé v seznamu.
+    const mozna = new Map<string, string>();
+    for (const m of moznaJinaVydani(dokumenty, rodokmen)) {
+      const u = m.novejsi ?? m.b;
+      if (!mozna.has(u)) mozna.set(u, u === m.a ? m.b : m.a);
+    }
+    for (const d of dokumenty) {
+      const p = rodokmen.predchozi.get(d.id);
+      const m = mozna.get(d.id);
+      mapa.set(d.id, {
+        predchozi: p ? podleId.get(p) ?? null : null,
+        novejsi: (rodokmen.novejsi.get(d.id) ?? []).map((id) => podleId.get(id)).filter((x): x is BibleDokument => Boolean(x)),
+        mozna: m ? podleId.get(m) ?? null : null,
+        kandidati: () => kandidatiPredchozihoVydani(rodokmen, d.id, dokumenty),
+      });
+    }
+    return mapa;
+  }, [dokumenty, rodokmen, vydani]);
 
   const zpracovanych = dokumenty.filter((d) => jeZpracovany(d.stav)).length;
   const cekajicich = dokumenty.filter((d) => d.stav === 'ceka' || d.stav === 'zpracovava').length;
@@ -371,7 +477,8 @@ export function BibleKnihovna({ role, setPage, onCist }: {
         <ul className="space-y-3">
           {filtrovane.map((d) => (
             <KartaDokumentu key={d.id} d={d} role={role} mujId={user?.id ?? null} onZmena={zmenDokument} onSmazano={odeberDokument}
-              onRozpracovani={hlasRozpracovani} zpracovavaSeJina={zpracovavaSe} onCist={onCist} />
+              onRozpracovani={hlasRozpracovani} zpracovavaSeJina={zpracovavaSe} onCist={onCist}
+              vydani={vydaniKaret.get(d.id) ?? null} onVydani={zmenVydani} onUkaz={ukazKartu} />
           ))}
         </ul>
       )}

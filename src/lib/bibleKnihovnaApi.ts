@@ -16,7 +16,7 @@
 import { BIBLE_URL, odkazDoUloziste, volejBibli } from './bibleKlient';
 import {
   bezpecneJmeno, hlaskaChyby, LIMIT_SOUBORU_FREE, sha256Hex, souhrnNakladu, typSouboru,
-  type DruhDokumentu, type JazykDokumentu, type NakladyMesice, type PostupZpracovani, type StavDokumentu,
+  type DruhDokumentu, type JazykDokumentu, type NakladyMesice, type PostupZpracovani, type StavDokumentu, type VazbaVydani,
 } from './bibleKnihovna';
 
 export type { NakladyMesice } from './bibleKnihovna';
@@ -244,6 +244,24 @@ export function ulozenyPopis(popis: Popis): Required<Popis> {
 /** Úprava popisu (název, autor…). Stav a údaje zpracování databáze uživateli nedovolí měnit. */
 export async function upravPopis(id: string, popis: Popis): Promise<string | null> {
   const r = await volejBibli('bible-api', { akce: 'upravit_popis', id, popis: ulozenyPopis(popis) });
+  return r.ok ? null : r.chyba.zprava;
+}
+
+/** Vazby vydání (etapa 3c). Bez migrace `migrace: false` — appka vydání neukazuje. */
+export async function nactiVydani(): Promise<{ stav: 'ok'; vazby: VazbaVydani[]; migrace: boolean } | { stav: 'chyba'; zprava: string }> {
+  const r = await volejBibli<{ vydani?: unknown; migrace?: unknown }>('bible-api', { akce: 'vydani' });
+  if (!r.ok) return { stav: 'chyba', zprava: r.chyba.zprava };
+  const vazby: VazbaVydani[] = [];
+  for (const v of Array.isArray(r.data?.vydani) ? r.data.vydani : []) {
+    const o = (v ?? {}) as Record<string, unknown>;
+    if (typeof o.id === 'string' && typeof o.predchozi_vydani === 'string') vazby.push({ id: o.id, predchozi: o.predchozi_vydani });
+  }
+  return { stav: 'ok', vazby, migrace: r.data?.migrace !== false };
+}
+
+/** „Tahle kniha je novým vydáním té" (null = vazbu zrušit). */
+export async function nastavVydani(id: string, predchozi: string | null): Promise<string | null> {
+  const r = await volejBibli('bible-api', { akce: 'vydani_nastavit', id, predchozi });
   return r.ok ? null : r.chyba.zprava;
 }
 

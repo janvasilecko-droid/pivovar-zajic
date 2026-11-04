@@ -1,8 +1,9 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest';
 import {
-  ChybaNastroje, citovaneZdroje, INSTRUKCE, metadataZdroje, najdiTema, normalizujCitace, nahodnyToken, NASTROJE, odkazNaList, orizni, platnaChallenge,
-  platnyVerifier, prehledSOdkazy, registrace, s256, sha256hex, wwwAuthenticate, zpracujZpravu,
+  ChybaNastroje, citovaneZdroje, INSTRUKCE, metadataZdroje, nahodnyToken, najdiTema, NASTROJE, normalizujCitace, novejsiVydani,
+  odkazNaList, orizni, platnaChallenge, platnyVerifier, poznamkaVydani, prehledSOdkazy, registrace, s256, sha256hex,
+  wwwAuthenticate, zpracujZpravu,
 } from './mcp';
 
 const ZAKLAD = 'https://cegrelgvkygcatupqwrx.supabase.co/functions/v1/bible-mcp';
@@ -108,5 +109,20 @@ describe('citace přehledů v různých tvarech', () => {
     expect(t).toContain('[[1]](https://zajic-pivovar.pages.dev/?page=bible&sub=kniha:11111111-2222-3333-4444-555555555555:10)');
     expect(t).toContain('[[2]](');
     expect(t).not.toContain('[3] Kniha 3');
+  });
+});
+
+describe('vydání v odpovědích konektoru (etapa 3c)', () => {
+  it('výsledek ze staršího vydání nese poznámku s novějším; nejnovější nic', () => {
+    const novejsi = novejsiVydani([
+      { id: 'b', nazev: 'Technologie piva, 2. vyd.', rok: 2010, predchozi_vydani: 'a' },
+      { id: 'c', nazev: 'Sebe sama', rok: null, predchozi_vydani: 'c' },
+    ]);
+    expect(poznamkaVydani('a', novejsi)).toBe(' — starší vydání (novější: Technologie piva, 2. vyd., 2010)');
+    expect(poznamkaVydani('b', novejsi)).toBe('');
+    expect(poznamkaVydani('c', novejsi)).toBe('');
+  });
+  it('instrukce říká, že přednost má novější vydání', () => {
+    expect(INSTRUKCE).toContain('starší vydání');
   });
 });

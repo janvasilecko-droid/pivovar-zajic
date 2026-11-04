@@ -37,6 +37,10 @@ export const AKCE = {
   zkusenost_zapsat: 'prispiva',
   zkusenost_upravit: 'prispiva',
   zkusenost_smazat: 'prispiva',
+  // Nová vydání (etapa 3c): vazba „tahle kniha je novým vydáním té"; komu
+  // patří dokument, hlídá SQL (správce u čehokoli, přispěvatel u svých).
+  vydani: 'cte',
+  vydani_nastavit: 'prispiva',
 } as const satisfies Record<string, Pristup>;
 
 export type Akce = keyof typeof AKCE;
@@ -68,6 +72,14 @@ function text(v: unknown, jmeno: string, max: number, povinny = false): string |
 export function idDokumentu(telo: Record<string, unknown>): string {
   if (!jeUuid(telo.id)) throw new ChybaVstupu('Chybí id dokumentu.');
   return telo.id.toLowerCase();
+}
+
+/** Předchozí vydání: id jiného dokumentu, nebo null = vazbu zrušit. Chybějící pole je chyba (ne tiché zrušení). */
+export function predchoziVydani(telo: Record<string, unknown>): string | null {
+  if (!Object.prototype.hasOwnProperty.call(telo, 'predchozi')) throw new ChybaVstupu('Chybí předchozí vydání.');
+  if (telo.predchozi === null) return null;
+  if (!jeUuid(telo.predchozi)) throw new ChybaVstupu('Předchozí vydání musí být dokument z knihovny.');
+  return telo.predchozi.toLowerCase();
 }
 
 /** Popis dokumentu (název, autor…) — jen známá pole, nic dalšího do SQL nepustí. */

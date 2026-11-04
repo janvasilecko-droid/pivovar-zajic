@@ -347,3 +347,108 @@ export function souhrnNakladu(radky: { ucel: string; cena_usd: number | string; 
   }
   return { usd, volani, podleUcelu };
 }
+
+// --- Nová vydání (etapa 3c) --------------------------------------------------
+// „Různá vydání se seskupují. Nic se nemaže." Vazba „nové vydání → předchozí"
+// je potvrzená člověkem (bible_nastav_vydani); starší vydání zůstává celé.
+
+/** Dokument `id` je novým vydáním dokumentu `predchozi`. */
+export type VazbaVydani = { id: string; predchozi: string };
+
+type DokumentVydani = { id: string; nazev: string; rok: number | null; isbn: string | null; stav: StavDokumentu };
+
+export type RodokmenVydani = {
+  /** id → předchozí vydání */
+  predchozi: ReadonlyMap<string, string>;
+  /** id → novější vydání (přímá) */
+  novejsi: ReadonlyMap<string, readonly string[]>;
+};
+
+export function rodokmenVydani(vazby: readonly VazbaVydani[]): RodokmenVydani {
+  const predchozi = new Map<string, string>();
+  const novejsi = new Map<string, string[]>();
+  for (const v of vazby) {
+    if (v.id === v.predchozi) continue;
+    predchozi.set(v.id, v.predchozi);
+    novejsi.set(v.predchozi, [...(novejsi.get(v.predchozi) ?? []), v.id]);
+  }
+  return { predchozi, novejsi };
+}
+
+/** Všechna novější vydání (i nepřímá) — mezi kandidáty na předchozí vydání nesmí (kruh). */
+export function vsechnaNovejsi(r: RodokmenVydani, id: string): Set<string> {
+  const vysledek = new Set<string>();
+  const fronta = [...(r.novejsi.get(id) ?? [])];
+  while (fronta.length > 0) {
+    const x = fronta.shift()!;
+    if (vysledek.has(x) || x === id) continue;
+    vysledek.add(x);
+    fronta.push(...(r.novejsi.get(x) ?? []));
+  }
+  return vysledek;
+}
+
+/** Je starší vydání: v knihovně je jeho novější vydání (zpracované i ne — označení je fakt). */
+export function jeStarsiVydani(r: RodokmenVydani, id: string): boolean {
+  return (r.novejsi.get(id)?.length ?? 0) > 0;
+}
+
+/**
+ * Nahrazená vydání pro přehledy a hledání: mají novější vydání, které je už
+ * zpracované (jeho text jde číst a hledat). Dokud se novější zpracovává,
+ * starší se dál používá.
+ */
+export function nahrazenaVydani(r: RodokmenVydani, dokumenty: readonly DokumentVydani[]): Set<string> {
+  const zpracovane = new Set(dokumenty.filter((d) => jeZpracovany(d.stav)).map((d) => d.id));
+  const vysledek = new Set<string>();
+  for (const [starsi, nove] of r.novejsi) if (nove.some((n) => zpracovane.has(n))) vysledek.add(starsi);
+  return vysledek;
+}
+
+/** Kandidáti na předchozí vydání: jiné dokumenty kromě tohoto a jeho novějších vydání, podle názvu. */
+export function kandidatiPredchozihoVydani<T extends DokumentVydani>(r: RodokmenVydani, id: string, dokumenty: readonly T[]): T[] {
+  const vynechat = vsechnaNovejsi(r, id);
+  vynechat.add(id);
+  return dokumenty.filter((d) => !vynechat.has(d.id) && d.stav !== 'nahrava')
+    .sort((a, b) => a.nazev.localeCompare(b.nazev, 'cs') || (b.rok ?? 0) - (a.rok ?? 0));
+}
+
+/** Název bez označení vydání a roku — „Technologie piva, 2. vyd. (2019)" → „technologie piva". */
+export function jadroNazvu(nazev: string): string {
+  return bezDiakritiky(nazev).toLowerCase()
+    .replace(/\([^)]*\)/g, ' ')
+    .replace(/\b\d+\s*\.?\s*(vydani|vyd|edition|ed|auflage|aufl|uprav\w*)\b\.?/g, ' ')
+    .replace(/\b\d+(st|nd|rd|th)\b/g, ' ')
+    .replace(/\b(vydani|edition|auflage|revised|prepracovane|doplnene)\b/g, ' ')
+    .replace(/\b(1[5-9]|20)\d{2}\b/g, ' ')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+const cisliceIsbn = (isbn: string | null) => (isbn ?? '').replace(/[^0-9Xx]/g, '').toUpperCase();
+
+/**
+ * Možná jiné vydání téže knihy (stejné ISBN, nebo stejný název bez označení
+ * vydání a roku) a zatím nepropojené. Jen nápověda — propojit musí člověk.
+ * `novejsi` = odhad podle roku; bez roku (nebo se stejným) null.
+ */
+export function moznaJinaVydani(dokumenty: readonly DokumentVydani[], r: RodokmenVydani): { a: string; b: string; novejsi: string | null }[] {
+  const vysledek: { a: string; b: string; novejsi: string | null }[] = [];
+  const propojene = (x: string, y: string) => r.predchozi.get(x) === y || r.predchozi.get(y) === x
+    || vsechnaNovejsi(r, x).has(y) || vsechnaNovejsi(r, y).has(x);
+  const platne = dokumenty.filter((d) => d.stav !== 'nahrava');
+  for (let i = 0; i < platne.length; i += 1) {
+    for (let j = i + 1; j < platne.length; j += 1) {
+      const a = platne[i];
+      const b = platne[j];
+      const isbnA = cisliceIsbn(a.isbn);
+      const shodaIsbn = isbnA.length >= 10 && isbnA === cisliceIsbn(b.isbn);
+      const jadroA = jadroNazvu(a.nazev);
+      const shodaNazvu = jadroA.length >= 8 && jadroA === jadroNazvu(b.nazev);
+      if (!(shodaIsbn || shodaNazvu) || propojene(a.id, b.id)) continue;
+      const novejsi = a.rok && b.rok && a.rok !== b.rok ? (a.rok > b.rok ? a.id : b.id) : null;
+      vysledek.push({ a: a.id, b: b.id, novejsi });
+    }
+  }
+  return vysledek;
+}

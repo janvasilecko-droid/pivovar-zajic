@@ -132,7 +132,25 @@ export const NASTROJE: readonly Nastroj[] = [
 
 export const INSTRUKCE = 'Knihovna odborné pivovarské literatury Pivovaru Zajíc. Odpovídej česky. Fakta ber z nástrojů '
   + '(hledej_v_knihach, precti_stranu, prehled_tematu) a u každého tvrzení uveď odkaz na knihu a stránku přesně tak, jak je ve výsledku. '
-  + 'Čísla a jednotky opisuj přesně. Když knihy něco neříkají, řekni to; vlastní obecnou znalost jasně odliš od toho, co je v knihách.';
+  + 'Čísla a jednotky opisuj přesně. Když knihy něco neříkají, řekni to; vlastní obecnou znalost jasně odliš od toho, co je v knihách. '
+  + 'Výsledek označený „starší vydání" má v knihovně novější vydání: přednost má novější (hodnoty se mohly změnit), rozdíl řekni.';
+
+/** Novější vydání podle id staršího (etapa 3c): z dvojic dokument → předchozí vydání. */
+export function novejsiVydani(radky: readonly { id: string; nazev: string; rok: number | null; predchozi_vydani: string | null }[]): Map<string, { nazev: string; rok: number | null }[]> {
+  const mapa = new Map<string, { nazev: string; rok: number | null }[]>();
+  for (const r of radky) {
+    if (!r.predchozi_vydani || r.predchozi_vydani === r.id) continue;
+    mapa.set(r.predchozi_vydani, [...(mapa.get(r.predchozi_vydani) ?? []), { nazev: r.nazev, rok: r.rok }]);
+  }
+  return mapa;
+}
+
+/** Poznámka k výsledku ze staršího vydání; '' u nejnovějšího nebo bez vazby. */
+export function poznamkaVydani(dokumentId: string, novejsi: ReadonlyMap<string, readonly { nazev: string; rok: number | null }[]>): string {
+  const n = novejsi.get(dokumentId);
+  if (!n || n.length === 0) return '';
+  return ` — starší vydání (novější: ${n.map((x) => `${x.nazev}${x.rok ? `, ${x.rok}` : ''}`).join('; ')})`;
+}
 
 type Zprava = { jsonrpc?: unknown; id?: unknown; method?: unknown; params?: unknown };
 

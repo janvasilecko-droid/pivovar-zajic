@@ -1360,6 +1360,23 @@ def _nastav_aktualni(supa: Supa, hodnota: bool) -> None:
         log(f'Přehledy: stav nejde zapsat ({e}).')
 
 
+def nahrazena_vydani(supa: Supa) -> set[str]:
+    """Dokumenty se ZPRACOVANÝM novějším vydáním (etapa 3c) — přehledy z nich neberou.
+
+    Starší vydání v knihovně zůstává (čtení, hledání, odkazy); jen přehledy
+    a postupy berou zdroje z nejnovějšího zpracovaného vydání. Dokud se nové
+    vydání zpracovává, platí staré. Bez migrace 20261104050000_bible_vydani
+    (sloupec chybí) se nic nevyřazuje.
+    """
+    try:
+        radky = supa.vyber('bible_dokumenty', {'select': 'predchozi_vydani,stav', 'predchozi_vydani': 'not.is.null', 'limit': '10000'})
+    except ChybaSupabase as e:
+        if '42703' not in str(e):
+            log(f'Přehledy: vazby vydání nejde načíst ({e}) — berou se všechna vydání.')
+        return set()
+    return {str(r['predchozi_vydani']) for r in radky if r.get('predchozi_vydani') and r.get('stav') in ('hotovo', 'ke_kontrole')}
+
+
 def pis_prehledy(supa: Supa, prepisovac: Prepisovac, nastaveni: dict, konec: float) -> dict:
     """Napíše nebo obnoví přehledy témat — až když nic nečeká na zpracování ani překlad.
 
@@ -1400,6 +1417,9 @@ def pis_prehledy(supa: Supa, prepisovac: Prepisovac, nastaveni: dict, konec: flo
             log('Model z model_prehledu nemá v bible_nastaveni ceník — přehledy se přeskočí.')
             return souhrn
     log(f'Přehledy témat a pracovní postupy: {len(prehledy_mod.PREHLEDY)} + {len(prehledy_mod.POSTUPY)} (model {model})')
+    nahrazena = nahrazena_vydani(supa)
+    if nahrazena:
+        log(f'Přehledy: {len(nahrazena)} starších vydání se nahrazuje novějším zpracovaným.')
     try:
         for poradi, tema in enumerate(prehledy_mod.TEMATA):
             if time.time() >= konec:
@@ -1418,6 +1438,8 @@ def pis_prehledy(supa: Supa, prepisovac: Prepisovac, nastaveni: dict, konec: flo
                 log(f'  přehled {tema["klic"]}: hledání selhalo ({e})')
                 souhrn['nepovedlo'] += 1
                 continue
+            if nahrazena:
+                radky = [[r for r in rr if str(r.get('dokument_id')) not in nahrazena] for rr in radky]
             zdroje = prehledy_mod.vyber_zdroje(radky)
             if not zdroje:
                 souhrn['bez_zdroju'] += 1

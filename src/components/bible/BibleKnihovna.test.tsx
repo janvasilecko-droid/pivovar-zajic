@@ -8,10 +8,15 @@ import {
 vi.mock('../../lib/auth', () => ({ useAuth: () => ({ user: { id: 'u1', email: 'u@pivovar.cz' }, profile: { role: 'admin' } }) }));
 const nactiDokumenty = vi.fn<() => Promise<Nacteno>>();
 const smazDokument = vi.fn<(id: string) => Promise<string | null>>();
+type Vydani = { stav: 'ok'; vazby: { id: string; predchozi: string }[]; migrace: boolean };
+const nactiVydani = vi.fn<() => Promise<Vydani>>();
+const nastavVydani = vi.fn<(id: string, predchozi: string | null) => Promise<string | null>>();
 vi.mock('../../lib/bibleKnihovnaApi', async (puvodni) => ({
   ...(await puvodni<typeof import('../../lib/bibleKnihovnaApi')>()),
   nactiDokumenty: () => nactiDokumenty(),
   smazDokument: (id: string) => smazDokument(id),
+  nactiVydani: () => nactiVydani(),
+  nastavVydani: (id: string, predchozi: string | null) => nastavVydani(id, predchozi),
 }));
 
 import type { BibleRole } from '../../lib/bibleOpravneni';
@@ -36,6 +41,9 @@ beforeEach(() => {
   obnovy = [];
   nactiDokumenty.mockReset();
   smazDokument.mockReset();
+  nactiVydani.mockReset();
+  nactiVydani.mockResolvedValue({ stav: 'ok', vazby: [], migrace: true });
+  nastavVydani.mockReset();
   // Jen Date: 31. 10. 2026 19:30 v Praze (18:30 UTC), 13 minut po
   // plánovaném běhu zpracování (cron 17 */3 * * * v UTC).
   vi.useFakeTimers({ toFake: ['Date'], shouldAdvanceTime: true });
@@ -262,5 +270,70 @@ describe('Knihovna — procenta zpracování', () => {
     expect(screen.getByText('10 stran')).toBeTruthy();
     expect(within(screen.getByRole('listitem')).getByText('Zpracováno')).toBeTruthy();
     expect(obnovy).toEqual([]);
+  });
+});
+
+describe('Knihovna — nová vydání (etapa 3c)', () => {
+  const kniha = (id: string, nazev: string, rok: number | null, navic: Partial<BibleDokument> = {}): BibleDokument => ({
+    ...dok('hotovo', { stran: 10 }), id, nazev, rok, soubor_nazev: `${id}.pdf`, ...navic,
+  });
+
+  it('starší vydání ukazuje novější a nové ukazuje předchozí (nic se nemaže)', async () => {
+    nactiDokumenty.mockResolvedValueOnce(ok(kniha('v1', 'Technologie piva, 1. vyd.', 2001), kniha('v2', 'Technologie piva, 2. vyd.', 2010)));
+    nactiVydani.mockResolvedValueOnce({ stav: 'ok', vazby: [{ id: 'v2', predchozi: 'v1' }], migrace: true });
+    await vykresli('cte');
+    const [stara, nova] = screen.getAllByRole('listitem');
+    expect(within(stara).getByText(/Starší vydání — novější:/)).toBeTruthy();
+    expect(within(stara).getByRole('button', { name: 'Technologie piva, 2. vyd. (2010)' })).toBeTruthy();
+    expect(within(nova).getByText(/Nové vydání knihy/)).toBeTruthy();
+    // Čtenář vydání nemění.
+    expect(screen.queryByRole('button', { name: /Vydání/ })).toBeNull();
+  });
+
+  it('nastavení: výběr bez sebe a bez novějších vydání; uložení pošle vazbu a karta se hned překreslí', async () => {
+    nactiDokumenty.mockResolvedValueOnce(ok(kniha('v1', 'Kniha A', 2001), kniha('v2', 'Kniha B', 2010), kniha('v3', 'Kniha C', 2020)));
+    nactiVydani.mockResolvedValueOnce({ stav: 'ok', vazby: [{ id: 'v3', predchozi: 'v2' }], migrace: true });
+    nastavVydani.mockResolvedValueOnce(null);
+    await vykresli('spravuje');
+    const karta = screen.getAllByRole('listitem')[1]; // Kniha B
+    fireEvent.click(within(karta).getByRole('button', { name: /Vydání/ }));
+    const vyber = within(karta).getByLabelText('Tahle kniha je novým vydáním knihy') as HTMLSelectElement;
+    expect([...vyber.options].map((o) => o.textContent)).toEqual(['— není novým vydáním jiné knihy —', 'Kniha A (2001)']);
+    fireEvent.change(vyber, { target: { value: 'v1' } });
+    await act(async () => { fireEvent.click(within(karta).getByRole('button', { name: 'Uložit vydání' })); });
+    expect(nastavVydani).toHaveBeenCalledWith('v2', 'v1');
+    expect(within(screen.getAllByRole('listitem')[0]).getByText(/Starší vydání — novější:/)).toBeTruthy();
+    expect(within(screen.getAllByRole('listitem')[1]).getByText(/Nové vydání knihy/)).toBeTruthy();
+  });
+
+  it('chyba uložení se ukáže a vazba se nezmění', async () => {
+    nactiDokumenty.mockResolvedValueOnce(ok(kniha('v1', 'Kniha A', 2001), kniha('v2', 'Kniha B', 2010)));
+    nastavVydani.mockResolvedValueOnce('Upravit smíš jen svoje dokumenty.');
+    await vykresli('spravuje');
+    const karta = screen.getAllByRole('listitem')[1];
+    fireEvent.click(within(karta).getByRole('button', { name: /Vydání/ }));
+    fireEvent.change(within(karta).getByLabelText('Tahle kniha je novým vydáním knihy'), { target: { value: 'v1' } });
+    await act(async () => { fireEvent.click(within(karta).getByRole('button', { name: 'Uložit vydání' })); });
+    expect(within(karta).getByRole('alert').textContent).toBe('Upravit smíš jen svoje dokumenty.');
+    expect(screen.queryByText(/Starší vydání — novější:/)).toBeNull();
+  });
+
+  it('možná jiné vydání (stejný název bez označení vydání) nabídne propojení u novějšího', async () => {
+    nactiDokumenty.mockResolvedValueOnce(ok(kniha('v1', 'Technologie piva, 1. vyd.', 2001), kniha('v2', 'Technologie piva, 2. vyd.', 2010)));
+    await vykresli('spravuje');
+    const [stara, nova] = screen.getAllByRole('listitem');
+    expect(within(stara).queryByText(/Možná jiné vydání/)).toBeNull();
+    expect(within(nova).getByText(/Možná jiné vydání téže knihy: Technologie piva, 1. vyd. \(2001\)/)).toBeTruthy();
+    fireEvent.click(within(nova).getByRole('button', { name: 'Propojit vydání' }));
+    expect((within(nova).getByLabelText('Tahle kniha je novým vydáním knihy') as HTMLSelectElement).value).toBe('v1');
+  });
+
+  it('bez migrace se vydání neukazují a knihovna funguje', async () => {
+    nactiDokumenty.mockResolvedValueOnce(ok(kniha('v1', 'Technologie piva, 1. vyd.', 2001), kniha('v2', 'Technologie piva, 2. vyd.', 2010)));
+    nactiVydani.mockResolvedValueOnce({ stav: 'ok', vazby: [], migrace: false });
+    await vykresli('spravuje');
+    expect(screen.getAllByRole('listitem')).toHaveLength(2);
+    expect(screen.queryByRole('button', { name: /Vydání/ })).toBeNull();
+    expect(screen.queryByText(/Možná jiné vydání/)).toBeNull();
   });
 });

@@ -273,3 +273,16 @@ Každé rozhodnutí má datum, důvod a co by ho změnilo.
   na začátku obyčejného řádku se kontroluje dál), prompt chce každé číslo ve
   vlastních závorkách. Verze `prehled-2` a `postup-2` vynutí nové napsání.
   Ruční spuštění workflow projde vždy.
+
+## R22 — Nová vydání dokumentů (etapa 3c, 4. 11. 2026)
+
+- Majitel: „Pokračuj v té aplikaci podle původního promptu" — zadání etapy 3
+  „aktualizace dokumentů (nové vydání)", architektura § 4 „Různá vydání se
+  seskupují. Nic se nemaže."
+- Vazbu „tahle kniha je novým vydáním té" nastavuje člověk (správce u čehokoli,
+  přispěvatel u svých dokumentů); appka jen napoví podle ISBN nebo názvu.
+  Automaticky nic nepropojuje — omyl by schoval platnou knihu.
+- Starší vydání se nemaže ani neskrývá: hledání ho jen označí; přehledy témat
+  a postupy berou nejnovější zpracované vydání; konektor Claude dostane obojí
+  s poznámkou, které je novější.
+

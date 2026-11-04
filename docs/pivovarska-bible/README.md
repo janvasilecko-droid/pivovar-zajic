@@ -42,9 +42,30 @@ s citací kniha–kapitola–strana a počítá deterministickým výpočetním 
 | pracovní postupy krok za krokem (R20) | hotovo (4. 11. 2026) — bez migrace (tabulka přehledů, klíče `postup_…`) |
 | konektor do aplikace Claude (R16) | hotovo (3. 11. 2026) — migrace `20261103030000_bible_mcp`, funkce `bible-mcp` |
 | 3b: zkušenosti sládků | hotovo (4. 11. 2026) — migrace `20261104000000_bible_zkusenosti` |
-| 3c: nová vydání dokumentů | čeká |
+| 3c: nová vydání dokumentů (R22) | hotovo (4. 11. 2026) — migrace `20261104050000_bible_vydani` |
 | 5: chatbot | odloženo (R14) |
 | 6–10 | čeká |
+
+## Nová vydání dokumentů (etapa 3c)
+
+- **Kde:** Knihovna dokumentů → u knihy „Vydání" (správce u každé, přispěvatel
+  u svých) → „Tahle kniha je novým vydáním knihy …". Nic se nemaže: starší
+  vydání zůstává celé (čtení, hledání, odkazy) a dostane označení „Starší
+  vydání — novější: …", nové „Nové vydání knihy …" (klepnutím na název se
+  seznam posune na druhou kartu).
+- **Nápověda:** stejné ISBN nebo stejný název bez označení vydání a roku →
+  „Možná jiné vydání téže knihy" s tlačítkem „Propojit vydání" (u novější
+  podle roku). Jen nápověda, propojit musí člověk.
+- **Databáze:** sloupec `bible_dokumenty.predchozi_vydani` (nové vydání →
+  předchozí) a funkce `bible_nastav_vydani` (práva jako úprava popisu, kontrola
+  kruhu pod zámkem, kniha není vydáním sama sebe). Sloupec `duplikat_z`
+  zůstává pro automatické „možná duplicita" ze zpracování.
+- **Kde se to projeví:** Hledání v knihách označí výsledek ze staršího vydání;
+  přehledy témat a pracovní postupy berou zdroje z nejnovějšího ZPRACOVANÉHO
+  vydání (dokud se nové zpracovává, platí staré; změna zdrojů přehled přepíše);
+  konektor Claude u staršího vydání napíše, které je novější, a instrukce říká
+  dát přednost novějšímu.
+- **Bez migrace** appka vydání neukazuje a všechno ostatní funguje jako dřív.
 
 ## Zkušenosti sládků (etapa 3b)
 

@@ -79,8 +79,9 @@ def test_napis_prehled_posle_zdroje_a_vrati_kontrolovany_text():
 
 
 class PrehledySupa:
-    def __init__(self, existujici=None, ceka_dok=False, ceka_preklad=False, bez_tabulky=False):
+    def __init__(self, existujici=None, ceka_dok=False, ceka_preklad=False, bez_tabulky=False, vazby=None, bez_vydani=False):
         self.existujici = existujici or {}
+        self.vazby, self.bez_vydani = vazby or [], bez_vydani
         self.ceka_dok, self.ceka_preklad, self.bez_tabulky = ceka_dok, ceka_preklad, bez_tabulky
         self.zapsane = []
         self.stav = []
@@ -93,6 +94,10 @@ class PrehledySupa:
         return [{'klic': k, 'otisk': v} for k, v in self.existujici.items()]
 
     def vyber(self, tabulka, parametry):
+        if tabulka == 'bible_dokumenty' and 'predchozi_vydani' in parametry:
+            if self.bez_vydani:
+                raise ChybaSupabase('čtení bible_dokumenty: HTTP 400 42703')
+            return self.vazby
         if tabulka == 'bible_dokumenty':
             return [{'id': 'x'}] if self.ceka_dok else []
         return [{'pdf_index': 1}] if self.ceka_preklad else []
@@ -239,3 +244,17 @@ def test_cislo_na_zacatku_radku_bez_tecky_se_kontroluje():
     zdroje = prehledy.vyber_zdroje([[_r('A', 1, 'Vystírka při 37 °C.')]])
     assert '1 čísel' in prehledy.zkontroluj('62 °C je optimum [1].', zdroje)[1]  # není to číslování
     assert prehledy.zkontroluj('## 3.2 Vystírka\n\nPři 37 °C [1].', zdroje)[1] is None  # číslo nadpisu ano
+
+
+def test_pis_prehledy_bere_nejnovejsi_zpracovane_vydani(monkeypatch):
+    monkeypatch.setattr(prehledy, 'TEMATA', [{'klic': 'chmelovar', 'nazev': 'Chmelovar', 'oblast': 'F', 'dotazy': ['chmelovar']}])
+    # Kniha A má zpracované novější vydání (dokument N) → přehled bere jen B.
+    supa = PrehledySupa(vazby=[{'predchozi_vydani': 'A', 'stav': 'hotovo'}])
+    k = Klient(_odpoved('Odpar 8 % [1].'))
+    assert zpracuj.pis_prehledy(supa, _prepisovac(k), {}, time.time() + 600)['napsano'] == 1
+    assert [z['dokument_id'] for z in supa.zapsane[0]['zdroje']] == ['B']
+    # Nové vydání se teprve zpracovává → staré platí dál.
+    supa2 = PrehledySupa(vazby=[{'predchozi_vydani': 'A', 'stav': 'zpracovava'}])
+    assert zpracuj.nahrazena_vydani(supa2) == set()
+    # Bez migrace (sloupec chybí) se nic nevyřazuje a běh nespadne.
+    assert zpracuj.nahrazena_vydani(PrehledySupa(bez_vydani=True)) == set()

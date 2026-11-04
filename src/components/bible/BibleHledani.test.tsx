@@ -13,6 +13,9 @@ vi.mock('../../lib/bibleHledaniApi', async (puvodni) => ({
   nactiPrehled: (k: string) => nactiPrehled(k),
 }));
 
+let vazbyVydani: { stav: 'ok'; vazby: { id: string; predchozi: string }[]; migrace: boolean } = { stav: 'ok', vazby: [], migrace: true };
+vi.mock('../../lib/bibleKnihovnaApi', () => ({ nactiVydani: async () => vazbyVydani }));
+
 import { BibleHledani, prehledyKDotazu, ZvyraznenyUryvek } from './BibleHledani';
 
 const ID = '11111111-2222-3333-4444-555555555555';
@@ -21,9 +24,25 @@ beforeEach(() => {
   hledejVKnihach.mockReset();
   nactiPrehled.mockReset();
   seznamPrehledu = { stav: 'ok', prehledy: [], migrace: true };
+  vazbyVydani = { stav: 'ok', vazby: [], migrace: true };
 });
 
 describe('hledání v knihách', () => {
+  it('výsledek ze staršího vydání má označení (v knihovně je novější)', async () => {
+    vazbyVydani = { stav: 'ok', vazby: [{ id: 'nove-vydani', predchozi: ID }], migrace: true };
+    hledejVKnihach.mockResolvedValue({ stav: 'ok', vysledky: [
+      { dokumentId: ID, nazev: 'Pivovarství, 1. vyd.', autor: null, rok: 1990, zdroj: 'original', pdfIndex: 3, tistena: null, kapitola: null, druh: 'text', uryvek: 'Rmut 62 °C.' },
+      { dokumentId: 'nove-vydani', nazev: 'Pivovarství, 2. vyd.', autor: null, rok: 2010, zdroj: 'original', pdfIndex: 5, tistena: null, kapitola: null, druh: 'text', uryvek: 'Rmut 63 °C.' },
+    ] });
+    render(<BibleHledani otevri={() => {}} />);
+    fireEvent.change(screen.getByLabelText('Hledat v knihách'), { target: { value: 'rmut' } });
+    fireEvent.click(screen.getByRole('button', { name: /Hledat/ }));
+    await waitFor(() => expect(screen.getByText(/Nalezeno 2/)).toBeTruthy());
+    const oznaceni = screen.getAllByText('starší vydání — v knihovně je novější');
+    expect(oznaceni).toHaveLength(1);
+    expect(oznaceni[0].closest('button')!.textContent).toContain('Pivovarství, 1. vyd.');
+  });
+
   it('najde výsledky (originál i překlad) s místem v knize a otevře stránku', async () => {
     hledejVKnihach.mockResolvedValue({ stav: 'ok', vysledky: [
       { dokumentId: ID, nazev: 'Pivovarství', autor: 'Novák', rok: 2019, zdroj: 'preklad', pdfIndex: 170, tistena: '158', kapitola: 'Rmutování', druh: 'text', uryvek: 'β-amyláza pracuje při 62 °C.' },
