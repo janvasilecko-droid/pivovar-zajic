@@ -239,3 +239,28 @@ Každé rozhodnutí má datum, důvod a co by ho změnilo.
   nevzkřísí. Hledání ukazuje český název kapitoly.
 - Migrace `20261104020000_bible_kapitoly_preklad` (spouští majitel); bez ní
   bible-api vrací obsah jako dřív.
+
+## R19 — Strana z knihy jako obrázek (4. 11. 2026)
+
+- Majitel: „Můžeš z těch knih dát k tomu i obrázky? Přece jen text je takovej
+  ne vše říkající."
+- Čtečka u PDF vykreslí stranu přímo z originálu v úložišti (pdf.js v prohlížeči,
+  jen potřebné kousky souboru přes Range). Nic se neukládá ani nekopíruje — žádné
+  nové soubory, žádná migrace; obsah knihy zůstává jen v prohlížeči čtenáře.
+- Proč ne obrázky stran předem ve workeru: stovky MB na knihu v úložišti.
+- Slabina: první strana knihy se slovníky stran rozházenými po souboru stojí
+  jednotky až desítky MB (pdf.js je načte všechny); zmenšení je další krok.
+
+## R20 — Pracovní postupy krok za krokem (4. 11. 2026)
+
+- Majitel: „Najdi třeba i konkrétní návod na vaření piva nebo obsluhu varny,
+  všechno co může mít souvislost s vařením a prací v pivovaru … sformuluj."
+- Stejná cesta jako přehledy (R15): ~20 činností (šrotování až kontrola kvality),
+  Claude píše postup jen z úryvků knih, každý krok s citací [n]; co knihy
+  nepopisují, postup nemá a řekne to. Tabulka `bible_prehledy`, klíč `postup_…`,
+  appka ukáže zvlášť „Pracovní postupy krok za krokem" s upozorněním porovnat
+  postup s návodem k zařízení a s HACCP. Kontrola čísel nepočítá číslování kroků.
+- YouTube: přepisy videí se hromadně nestahují (podmínky YouTube). Návod z videa
+  jde do bible tak, že majitel uloží přepis (YouTube → … → Zobrazit přepis) jako
+  TXT s odkazem na video a nahraje ho do knihovny — jen pro vlastní potřebu.
+

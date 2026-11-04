@@ -17,6 +17,13 @@ Jak:
 - přehled se přepíše jen když se změnily jeho zdroje (otisk) — nová kniha nebo
   nový překlad = nová fakta; jinak zůstává.
 
+Pracovní postupy (4. 11. 2026, majitel: „najdi třeba i konkrétní návod na vaření
+piva nebo obsluhu varny … a sformuluj"): stejná cesta jako přehled — úryvky
+z knih, citace, kontrola čísel —, jen Claude píše postup krok za krokem
+(příprava, kroky s hodnotami, kontrola, chyby). Klíče začínají „postup_",
+appka je ukáže zvlášť. Bez vlastních znalostí: co knihy nepopisují, postup
+nemá a řekne to.
+
 Do logu odsud nejde nic z textu knih (repo i logy Actions jsou veřejné).
 """
 from __future__ import annotations
@@ -29,6 +36,7 @@ from dataclasses import dataclass, field
 import ocr
 
 PREHLED_VERZE = 'prehled-1'
+POSTUP_VERZE = 'postup-1'
 MAX_ZDROJU = 24
 ZNAKU_ZDROJE = 2500
 NA_DOTAZ = 12
@@ -36,7 +44,7 @@ NA_DOTAZ = 12
 # Témata podle oblastí A–T (src/lib/bibleOblasti.ts). Dotazy: všechna slova
 # jednoho dotazu musí být na jedné stránce, hledají se začátky slov; české
 # dotazy najdou překlady, anglické a německé originály.
-TEMATA: list[dict] = [
+PREHLEDY: list[dict] = [
     {'klic': 'slad', 'nazev': 'Slad a sladování', 'oblast': 'A', 'dotazy': ['sladování', 'hvozdění', 'malting', 'kilning', 'Mälzerei']},
     {'klic': 'jecmen', 'nazev': 'Ječmen a jakost sladu', 'oblast': 'A', 'dotazy': ['ječmen', 'barley', 'Gerste', 'malt quality', 'friabilita']},
     {'klic': 'chmel', 'nazev': 'Chmel a hořké látky', 'oblast': 'A', 'dotazy': ['chmel', 'alfa kyseliny', 'hops', 'alpha acids', 'Hopfen']},
@@ -75,6 +83,57 @@ TEMATA: list[dict] = [
     {'klic': 'vady', 'nazev': 'Vady piva a jejich příčiny', 'oblast': 'T', 'dotazy': ['vada', 'příchuť', 'off-flavour', 'off-flavor', 'Fehlgeschmack']},
 ]
 
+# Pracovní postupy krok za krokem — z toho, co knihy popisují jako postup v provozu.
+# Dotazy hledají stránky, kde se o činnosti píše jako o postupu (česky = překlady
+# i české knihy, anglicky a německy = originály).
+POSTUPY: list[dict] = [
+    {'klic': 'postup_srotovani', 'nazev': 'Postup: šrotování sladu', 'oblast': 'C',
+     'dotazy': ['šrotování', 'nastavení mlýna', 'milling', 'mill gap', 'Schroten']},
+    {'klic': 'postup_dekokce', 'nazev': 'Postup: dekokční rmutování (jedno- a dvourmutové)', 'oblast': 'D',
+     'dotazy': ['dvourmutový', 'dekokce rmut', 'decoction mashing', 'double decoction', 'Zweimaischverfahren']},
+    {'klic': 'postup_infuze', 'nazev': 'Postup: infuzní a stupňové rmutování', 'oblast': 'D',
+     'dotazy': ['infuzní rmutování', 'infusion mashing', 'step mashing', 'Infusionsverfahren']},
+    {'klic': 'postup_scezovani', 'nazev': 'Postup: scezování a vyslazování', 'oblast': 'E',
+     'dotazy': ['scezování', 'vyslazování', 'lautering', 'sparging', 'Läutern']},
+    {'klic': 'postup_chmelovar', 'nazev': 'Postup: chmelovar a dávkování chmele', 'oblast': 'F',
+     'dotazy': ['chmelovar', 'dávkování chmele', 'wort boiling', 'hop addition', 'Hopfengabe']},
+    {'klic': 'postup_virivka', 'nazev': 'Postup: vířivá káď, chlazení a provzdušnění mladiny', 'oblast': 'G',
+     'dotazy': ['vířivá káď', 'chlazení mladiny', 'whirlpool', 'wort cooling', 'wort aeration']},
+    {'klic': 'postup_zakvaseni', 'nazev': 'Postup: zakvašení mladiny', 'oblast': 'H',
+     'dotazy': ['zakvašení', 'násadní kvasnice', 'pitching rate', 'yeast pitching', 'Anstellen']},
+    {'klic': 'postup_kvaseni', 'nazev': 'Postup: vedení hlavního kvašení', 'oblast': 'H',
+     'dotazy': ['hlavní kvašení', 'spilka', 'primary fermentation', 'fermentation temperature', 'Hauptgärung']},
+    {'klic': 'postup_kvasnice', 'nazev': 'Postup: sběr, praní a uchování kvasnic', 'oblast': 'H',
+     'dotazy': ['sběr kvasnic', 'praní kvasnic', 'yeast cropping', 'yeast storage', 'acid washing']},
+    {'klic': 'postup_sudovani', 'nazev': 'Postup: sudování do ležáckých tanků a dokvašování', 'oblast': 'I',
+     'dotazy': ['sudování', 'ležácký tank', 'dokvašování', 'transfer to lager', 'Schlauchen']},
+    {'klic': 'postup_syceni', 'nazev': 'Postup: sycení piva oxidem uhličitým', 'oblast': 'I',
+     'dotazy': ['sycení piva', 'karbonizace', 'carbonation', 'carbonating', 'Karbonisierung']},
+    {'klic': 'postup_filtrace', 'nazev': 'Postup: filtrace piva', 'oblast': 'J',
+     'dotazy': ['filtrace piva', 'naplavování', 'kieselguhr filtration', 'precoat', 'Kieselgurfiltration']},
+    {'klic': 'postup_keg', 'nazev': 'Postup: mytí a plnění sudů (KEG)', 'oblast': 'K',
+     'dotazy': ['mytí sudů', 'plnění sudů', 'keg washing', 'keg filling', 'Fassreinigung']},
+    {'klic': 'postup_lahve', 'nazev': 'Postup: stáčení do lahví', 'oblast': 'K',
+     'dotazy': ['stáčení do lahví', 'plnič lahví', 'bottle filling', 'filler', 'Flaschenabfüllung']},
+    {'klic': 'postup_pasterace', 'nazev': 'Postup: pasterace', 'oblast': 'K',
+     'dotazy': ['pasterace', 'pasterační jednotky', 'pasteurization units', 'tunnel pasteurizer', 'Pasteurisation']},
+    {'klic': 'postup_cip', 'nazev': 'Postup: sanitace tanků a potrubí (CIP)', 'oblast': 'L',
+     'dotazy': ['sanitace tanků', 'CIP', 'tank cleaning', 'caustic cleaning', 'Tankreinigung']},
+    {'klic': 'postup_sanitace_varny', 'nazev': 'Postup: čištění varny', 'oblast': 'L',
+     'dotazy': ['čištění varny', 'pivní kámen', 'brewhouse cleaning', 'beerstone', 'Sudhausreinigung']},
+    {'klic': 'postup_vycep', 'nazev': 'Postup: sanitace výčepního zařízení', 'oblast': 'L',
+     'dotazy': ['sanitace výčepu', 'pivní vedení', 'beer line cleaning', 'draught system', 'Schankanlage']},
+    {'klic': 'postup_kontrola', 'nazev': 'Postup: kontrola kvality během výroby', 'oblast': 'N',
+     'dotazy': ['kontrola kvality', 'odběr vzorků', 'quality control', 'sampling', 'Qualitätskontrolle']},
+    {'klic': 'postup_senzorika', 'nazev': 'Postup: senzorické hodnocení piva', 'oblast': 'N',
+     'dotazy': ['senzorické hodnocení', 'degustace', 'sensory evaluation', 'tasting panel', 'Verkostung']},
+]
+for _p in POSTUPY:
+    _p['druh'] = 'postup'
+
+# Všechno, co worker píše (pořadí = poradi v appce): přehledy, pak postupy.
+TEMATA: list[dict] = PREHLEDY + POSTUPY
+
 PROMPT = """Jsi zkušený hlavní sládek a odborný autor. Dostaneš očíslované úryvky z odborných pivovarských knih
 a napíšeš česky přehled jednoho tématu: to nejlepší a nejdůležitější pro praxi pivovaru.
 - Piš JEN z přiložených úryvků. Nic nepřidávej z vlastních znalostí; co úryvky neříkají, nepiš.
@@ -86,6 +145,28 @@ a napíšeš česky přehled jednoho tématu: to nejlepší a nejdůležitějš�
 - Struktura: nejdřív 2–4 věty shrnutí, pak oddíly „## …" (např. Princip, Doporučené hodnoty, Postup,
   Na co si dát pozor), případně Markdown tabulka hodnot podle zdrojů. Odborná čeština, bez vaty.
 - Když úryvky k tématu skoro nic neříkají, napiš krátce, co v nich je, a že knihovna k tématu víc nemá."""
+
+PROMPT_POSTUP = """Jsi zkušený hlavní sládek, který zaučuje nového pracovníka pivovaru. Dostaneš očíslované úryvky
+z odborných pivovarských knih a napíšeš česky PRACOVNÍ POSTUP jedné činnosti — tak, aby podle něj šlo v provozu
+pracovat krok za krokem.
+- Piš JEN z přiložených úryvků. Nic nepřidávej z vlastních znalostí; krok, hodnotu nebo upozornění, které úryvky
+  neuvádějí, nepiš.
+- Každý krok, hodnotu a upozornění označ citací zdroje v hranatých závorkách, např. [3] nebo [2][5]. Používej jen
+  čísla přiložených úryvků.
+- Čísla, rozsahy a jednotky (°C, min, hl, bar, %, °P…) opiš přesně jako ve zdroji (nic nepřepočítávej, nezaokrouhluj).
+  Když se knihy liší, uveď varianty vedle sebe s citacemi (např. „76–78 °C [2], 75 °C [5]") a hodnotu, která ve
+  zdrojích není, nevymýšlej.
+- Struktura (oddíly „## …", vynech ty, ke kterým úryvky nic neříkají):
+  ## K čemu to je — 1–3 věty.
+  ## Než začneš — příprava, kontrola zařízení a surovin.
+  ## Postup — číslované kroky „1. …", „2. …", každý na vlastním řádku; jeden krok = jedna činnost s hodnotami.
+  ## Kontrola a měření — co, kdy a čím měřit, cílové hodnoty.
+  ## Časté chyby a jak jim předejít
+  ## Bezpečnost — jen co uvádějí úryvky.
+  ## Co v knihách chybí — stručně, které kroky úryvky nepopisují (bez doplňování).
+- Prostý text: bez tučného písma a kurzívy (žádné ** ani __), odrážky „- ", kroky „1. ".
+- Postup je obecný z knih — nepiš o konkrétním zařízení, které úryvky nepopisují.
+- Když úryvky k činnosti skoro nic neříkají, napiš krátce, co v nich je, a že knihovna k tomu postup nemá."""
 
 SCHEMA = {
     'type': 'object',
@@ -143,9 +224,18 @@ def vyber_zdroje(radky_po_dotazech: list[list[dict]], max_zdroju: int = MAX_ZDRO
     return vybrane
 
 
-def otisk_zdroju(zdroje: list[Zdroj]) -> str:
+def je_postup(tema: dict) -> bool:
+    return tema.get('druh') == 'postup'
+
+
+def verze_tematu(tema: dict) -> str:
+    """Verze zadání — její změna přepíše texty, i když se zdroje nezměnily."""
+    return POSTUP_VERZE if je_postup(tema) else PREHLED_VERZE
+
+
+def otisk_zdroju(zdroje: list[Zdroj], verze: str = PREHLED_VERZE) -> str:
     """Otisk zdrojů přehledu: změní se, když přibude nebo se změní pasáž (nová kniha, nový překlad)."""
-    h = hashlib.md5(PREHLED_VERZE.encode())
+    h = hashlib.md5(verze.encode())
     for z in sorted(zdroje, key=lambda z: (z.dokument_id, z.pdf_index, z.zdroj)):
         h.update(f'{z.dokument_id}|{z.pdf_index}|{z.zdroj}|'.encode())
         h.update(hashlib.md5(z.text.encode('utf-8')).digest())
@@ -162,11 +252,16 @@ def zadani(tema: dict, zdroje: list[Zdroj]) -> str:
         jazyk = 'český překlad' if z.zdroj == 'preklad' else 'originál'
         kap = f', kapitola „{z.kapitola}"' if z.kapitola else ''
         casti.append(f'[{i}] {z.nazev}, {_misto(z)}{kap} ({jazyk}):\n<uryvek>\n{z.text}\n</uryvek>')
-    casti.append(f'Napiš přehled tématu „{tema["nazev"]}" podle pravidel.')
+    if je_postup(tema):
+        casti.append(f'Napiš pracovní postup „{tema["nazev"]}" podle pravidel.')
+    else:
+        casti.append(f'Napiš přehled tématu „{tema["nazev"]}" podle pravidel.')
     return '\n\n'.join(casti)
 
 
 _CITACE = re.compile(r'\[(\d{1,3})\]')
+# Číslování kroků a odrážek („1. Vystírka…", „2) …") není hodnota z knihy.
+_CISLO_KROKU = re.compile(r'(?m)^[ \t]*(?:[-*][ \t]+)?\d{1,2}[.)][ \t]+')
 
 
 def zkontroluj(text: str, zdroje: list[Zdroj]) -> tuple[str, str | None, list[int]]:
@@ -189,7 +284,7 @@ def zkontroluj(text: str, zdroje: list[Zdroj]) -> tuple[str, str | None, list[in
     cisty = _CITACE.sub(oprav, text)
     pouzite = sorted({int(k) for k in _CITACE.findall(cisty)})
     ve_zdrojich = ocr.cisla('\n'.join(z.text for z in zdroje))
-    bez_citaci = _CITACE.sub('', cisty)
+    bez_citaci = _CISLO_KROKU.sub('', _CITACE.sub('', cisty))
     cizi = [c for c in ocr.cisla(bez_citaci) if c not in ve_zdrojich]
     duvody = []
     if spatne:
@@ -206,7 +301,7 @@ def napis_prehled(klient, tema: dict, zdroje: list[Zdroj], model: str, max_token
     parametry = {
         'model': model,
         'max_tokens': max_tokens,
-        'system': PROMPT,
+        'system': PROMPT_POSTUP if je_postup(tema) else PROMPT,
         'output_config': {'effort': 'high', 'format': {'type': 'json_schema', 'schema': SCHEMA}},
         'messages': [{'role': 'user', 'content': [{'type': 'text', 'text': zadani(tema, zdroje)}]}],
     }

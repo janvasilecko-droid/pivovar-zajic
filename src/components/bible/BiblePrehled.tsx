@@ -5,7 +5,7 @@
 // té stránce. Text se skládá z dat (lib/bibleText.ts), nikdy přes innerHTML.
 import { useEffect, useState, type ReactNode } from 'react';
 import { ArrowLeft } from 'lucide-react';
-import { nactiPrehled, type PrehledTematu, type ZdrojPrehledu } from '../../lib/bibleHledaniApi';
+import { jePostup, nactiPrehled, type PrehledTematu, type ZdrojPrehledu } from '../../lib/bibleHledaniApi';
 import { rozlozText } from '../../lib/bibleText';
 import { TextListuKnihy, VykresleniTextu } from './BibleKniha';
 
@@ -68,15 +68,21 @@ function PrehledObsah({ prehled, otevri }: { prehled: PrehledTematu; otevri: (do
   const mapa = new Map(prehled.zdroje.map((z) => [z.n, z]));
   const otevriZdroj = (z: ZdrojPrehledu) => otevri(z.dokumentId, z.pdfIndex);
   const knih = new Set(prehled.zdroje.map((z) => z.dokumentId)).size;
+  const postup = jePostup(prehled.klic);
   return (
-    <article className="rounded-xl border border-neutral-700 bg-neutral-900 text-neutral-100 p-3 sm:p-4 space-y-3" aria-label={`Přehled: ${prehled.nazev}`}>
+    <article className="rounded-xl border border-neutral-700 bg-neutral-900 text-neutral-100 p-3 sm:p-4 space-y-3" aria-label={`${postup ? 'Postup' : 'Přehled'}: ${prehled.nazev}`}>
       <div>
-        <div className="text-[11px] font-black uppercase tracking-wide text-amber-400">Přehled tématu</div>
+        <div className="text-[11px] font-black uppercase tracking-wide text-amber-400">{postup ? 'Pracovní postup' : 'Přehled tématu'}</div>
         <h2 className="text-lg font-black text-neutral-50">{prehled.nazev}</h2>
         <div className="text-xs font-bold text-neutral-300">
           Claude porovnal {prehled.zdroje.length} míst z {knih} {knih === 1 ? 'knihy' : 'knih'}; čísla v závorkách otevřou knihu na té stránce.
         </div>
       </div>
+      {postup && (
+        <div role="note" className="rounded-lg border border-neutral-600 bg-neutral-950 p-2 text-sm text-neutral-200">
+          Postup sestavil Claude jen z knih v bibli. Než podle něj začneš, porovnej ho s návodem k vašemu zařízení, s HACCP a s tím, jak to v pivovaru děláte.
+        </div>
+      )}
       {prehled.kontrola && (
         <div role="note" className="rounded-lg border border-amber-600 bg-neutral-950 p-2 text-sm font-bold text-amber-200">
           Pozor: {prehled.kontrola}.

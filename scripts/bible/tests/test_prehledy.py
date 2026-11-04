@@ -167,3 +167,49 @@ def test_temata_maji_platne_klice_a_oblasti():
     assert len(klice) == len(set(klice))
     assert all(__import__('re').fullmatch(r'[a-z0-9_]{1,40}', k) for k in klice)
     assert all(t['oblast'] in 'ABCDEFGHIJKLMNOPQRST' and t['dotazy'] for t in prehledy.TEMATA)
+
+
+def test_postupy_jsou_v_tematech_zvlast_oznacene():
+    klice = [t['klic'] for t in prehledy.POSTUPY]
+    assert klice and all(k.startswith('postup_') for k in klice)
+    assert all(prehledy.je_postup(t) for t in prehledy.POSTUPY)
+    assert not any(prehledy.je_postup(t) or t['klic'].startswith('postup_') for t in prehledy.PREHLEDY)
+    # Worker píše všechno z TEMATA: přehledy, pak postupy (pořadí = poradi v appce).
+    assert prehledy.TEMATA == prehledy.PREHLEDY + prehledy.POSTUPY
+
+
+def test_postup_ma_vlastni_zadani_verzi_a_otisk():
+    zdroje = prehledy.vyber_zdroje([[_r('A', 1, 'Vystírka při 37 °C.')]])
+    postup = {'klic': 'postup_dekokce', 'nazev': 'Postup: dekokce', 'druh': 'postup'}
+    assert prehledy.verze_tematu(postup) == prehledy.POSTUP_VERZE
+    assert prehledy.verze_tematu({'klic': 'chmelovar'}) == prehledy.PREHLED_VERZE
+    # Jiná verze zadání = jiný otisk, i když jsou zdroje stejné (změna zadání text přepíše).
+    assert prehledy.otisk_zdroju(zdroje, prehledy.POSTUP_VERZE) != prehledy.otisk_zdroju(zdroje)
+    assert 'Napiš pracovní postup „Postup: dekokce"' in prehledy.zadani(postup, zdroje)
+    k = Klient(_odpoved('## Postup\n1. Vystírka při 37 °C [1].'))
+    p = prehledy.napis_prehled(k, postup, zdroje, 'claude-opus-5-5')
+    assert k.pozadavky[0]['system'] == prehledy.PROMPT_POSTUP
+    assert p.text.startswith('## Postup') and p.kontrola is None and p.pouzite == [1]
+
+
+def test_pis_prehledy_zapise_postup_s_verzi_postupu(monkeypatch):
+    monkeypatch.setattr(prehledy, 'TEMATA', [
+        {'klic': 'postup_chmelovar', 'nazev': 'Postup: chmelovar', 'oblast': 'F', 'dotazy': ['chmelovar'], 'druh': 'postup'},
+    ])
+    supa = PrehledySupa()
+    k = Klient(_odpoved('## Postup\n1. Chmelovar 90 min [1].\n2. Odpar 8 % [2].'))
+    souhrn = zpracuj.pis_prehledy(supa, _prepisovac(k), {}, time.time() + 600)
+    assert souhrn['napsano'] == 1
+    r = supa.zapsane[0]
+    assert r['klic'] == 'postup_chmelovar' and r['verze'] == prehledy.POSTUP_VERZE
+    assert k.pozadavky[0]['system'] == prehledy.PROMPT_POSTUP
+    zdroje = prehledy.vyber_zdroje([[_r('A', 1, 'Chmelovar 90 min.', tistena='12'), _r('B', 3, 'Odpar 8 %.')]])
+    assert r['otisk'] == prehledy.otisk_zdroju(zdroje, prehledy.POSTUP_VERZE)
+
+
+def test_cislovani_kroku_neni_cislo_mimo_zdroje():
+    zdroje = prehledy.vyber_zdroje([[_r('A', 1, 'Vystírka při 37 °C, prodleva 20 min.')]])
+    text = '## Postup\n1. Vystírka při 37 °C [1].\n2. Prodleva 20 min [1].\n12) Konec [1].'
+    assert prehledy.zkontroluj(text, zdroje)[1] is None
+    # Hodnota uvnitř kroku se kontroluje dál.
+    assert '1 čísel' in prehledy.zkontroluj('3. Vystírka při 45 °C [1].', zdroje)[1]

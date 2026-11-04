@@ -114,8 +114,8 @@ export const NASTROJE: readonly Nastroj[] = [
   {
     name: 'prehled_tematu',
     title: 'Přehled tématu',
-    description: 'Hotové přehledy hlavních témat (chmelovar, rmutování, kvašení…) napsané z porovnání všech knih, s citacemi a odkazy. '
-      + 'Bez tématu vrátí seznam dostupných přehledů.',
+    description: 'Hotové přehledy hlavních témat (chmelovar, rmutování, kvašení…) napsané z porovnání všech knih, s citacemi a odkazy, '
+      + 'a pracovní postupy krok za krokem (klíče postup_…, např. „postup_chmelovar"). Bez tématu vrátí seznam dostupných přehledů a postupů.',
     inputSchema: {
       type: 'object',
       properties: { tema: { type: 'string', description: 'Název nebo klíč tématu, např. „chmelovar"' } },
