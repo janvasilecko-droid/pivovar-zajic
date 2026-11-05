@@ -109,6 +109,21 @@ describe('odběratel, který ještě není uložený', () => {
   it('jméno se očišťuje od předložky, ne ohýbá do 1. pádu na sílu', () => {
     expect(PRAVIDLA).toContain('na Vildštejn');
   });
+
+  // Z provozu 5. 11. 2026: „Na pristi tyden na Patejdovku:" skončilo jako Neznámý
+  // odběratel. Termín před jménem je jen termín; 4. pád ženského jména na -u je
+  // jistý a má se vrátit v 1. pádu.
+  it('server čte odběratele i z věty „na X:" — záloha, když AI jméno nevrátí', () => {
+    const autoParse = readFileSync('supabase/functions/whatsapp-auto-parse/index.ts', 'utf8');
+    expect(autoParse).toMatch(/import \{ odberatelZVety \} from "\.\.\/_shared\/odberatel-z-vety\.ts"/);
+    // Jen z VLASTNÍHO textu zprávy — ne z citace (ta patří jiné objednávce).
+    expect(autoParse).toMatch(/resolvePlace\(matchCandidates, freeformCandidates, ukotveniText, places, placeAliases, ownOrderCandidate, odberatelZVety\(message\.message_text\)\)/);
+  });
+
+  it('termín před jménem není odběratel a 4. pád na -u se vrací v 1. pádu', () => {
+    expect(PRAVIDLA).toContain('TERMÍN PŘED JMÉNEM JE JEN TERMÍN');
+    expect(PRAVIDLA).toMatch(/„na\s+Patejdovku" → „Patejdovka"/);
+  });
 });
 
 describe('historie objednávek jako kontext', () => {

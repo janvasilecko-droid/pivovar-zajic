@@ -1,6 +1,7 @@
 // Určení odběratele ze zprávy — viz hlavička place-match.ts, proč je tohle
 // vytažené z whatsapp-auto-parse/index.ts do samostatného souboru.
 import { describe, it, expect } from 'vitest';
+import { odberatelZVety } from './odberatel-z-vety';
 import { preferujExaktniOdberatele, normPlaceName, isPlaceGrounded, matchPlaceSafely, matchOwnOrderPlace, matchAgainstCatalog, resolvePlace, odberatelZHistorie, stripSenderName, wantsOwnOrder } from './place-match';
 
 const PLACES = [
@@ -35,6 +36,24 @@ describe('isPlaceGrounded', () => {
 
   it('krátký kandidát (pod 3 znaky) se nikdy nepovažuje za ukotvený', () => {
     expect(isPlaceGrounded('Aj', 'Aj potřebuju 4x30')).toBe(false);
+  });
+
+  // Z provozu 5. 11. 2026: „Na pristi tyden na Patejdovku:" — jméno ve zprávě stojí
+  // ve 4. pádu. AI, která ho vrátila správně v 1. pádu („Patejdovka"), vypadala
+  // jako vymýšlející a jméno se zahodilo → Neznámý odběratel.
+  it('jméno ve zprávě může stát v jiném pádě než u AI / v katalogu', () => {
+    expect(isPlaceGrounded('Patejdovka', 'Na pristi tyden na Patejdovku:\n30x30l 11sv')).toBe(true);
+    expect(isPlaceGrounded('Pohoda', 'pro Pohodu 3x30')).toBe(true);
+    expect(isPlaceGrounded('Seeberg', 'poslat na Seebergu 3x30')).toBe(true);
+  });
+
+  it('jiný pád ukotví jen tentýž kmen — cizí, vymyšlené ani krátké slovo ne', () => {
+    expect(isPlaceGrounded('Patejdovka', 'objednávka pro Pohodu 3x30')).toBe(false);
+    expect(isPlaceGrounded('Vymyšlený Podnik', 'objednávka 4x30 12sv')).toBe(false);
+    // krátká slova (pod 6 písmen) se na kmen nepárují, ať se nepotkávají s cizími
+    expect(isPlaceGrounded('Karel', 'pro Karla 3x30')).toBe(false);
+    // příliš dlouhá „koncovka" už není pád, ale jiné slovo
+    expect(isPlaceGrounded('Pohoda', 'pro pohodovitou 3x30')).toBe(false);
   });
 });
 
@@ -162,6 +181,69 @@ describe('resolvePlace', () => {
     const text = 'pro mě prosim zítra 2x30 12sv';
     const resolved = resolvePlace([], [], text, PLACES, NO_ALIASES, 'Nový Zákazník');
     expect(resolved).toEqual({ id: null, name: 'Nový Zákazník' });
+  });
+});
+
+describe('resolvePlace — jméno z věty „na X:" (5. 11. 2026)', () => {
+  // Z provozu 5. 11. 2026: tahle zpráva skončila jako „Neznámý odběratel".
+  // Majitel: „pro Patejdlovku — to znamená, že odběratel je Patejdlovka…
+  // tohle musí aplikace umět přečíst."
+  const TEXT = 'Na pristi tyden na Patejdovku:\n30x30l 11sv\n15x30l limo citron';
+  const zVety = odberatelZVety(TEXT);
+
+  it('věta se čte (sanity)', () => {
+    expect(zVety).toEqual({ zapsano: 'Patejdovku', nominativ: 'Patejdovka' });
+  });
+
+  it('AI nevrátila nic a odběratel v katalogu není → nový odběratel v 1. pádu', () => {
+    expect(resolvePlace([TEXT], [], TEXT, PLACES, NO_ALIASES, null, zVety)).toEqual({ id: null, name: 'Patejdovka' });
+  });
+
+  it('bez věty by to byl pořád neznámý odběratel (důvod, proč se věta čte)', () => {
+    expect(resolvePlace([TEXT], [], TEXT, PLACES, NO_ALIASES)).toEqual({ id: null, name: null });
+  });
+
+  it('AI vrátila jméno tak, jak je napsané („Patejdovku") → nabídne se v 1. pádu', () => {
+    expect(resolvePlace([TEXT, 'Patejdovku'], ['Patejdovku'], TEXT, PLACES, NO_ALIASES, null, zVety))
+      .toEqual({ id: null, name: 'Patejdovka' });
+  });
+
+  it('AI vrátila jméno v 1. pádu („Patejdovka") → ukotví se, i když je ve zprávě ve 4. pádu', () => {
+    expect(resolvePlace([TEXT, 'Patejdovka'], ['Patejdovka'], TEXT, PLACES, NO_ALIASES))
+      .toEqual({ id: null, name: 'Patejdovka' });
+  });
+
+  it('jiné jméno od AI má přednost před větou (věta je jen záloha)', () => {
+    const text = 'Seeberg prosim, pro Pohodu 3x30 12sv';
+    expect(resolvePlace(['Seeberg', text], ['Seeberg'], text, PLACES, NO_ALIASES, null, odberatelZVety(text)))
+      .toEqual({ id: 'p-seeberg', name: 'Seeberg' });
+  });
+
+  it('odběratel, který v katalogu je, se najde přes větu i ve 4. pádu', () => {
+    const katalog = [...PLACES, { id: 'p-pohoda', name: 'Pohoda' }];
+    const text = 'Objednávka pro Pohodu\n2x30l 12sv';
+    expect(resolvePlace([], [], text, katalog, NO_ALIASES, null, odberatelZVety(text))).toEqual({ id: 'p-pohoda', name: 'Pohoda' });
+  });
+
+  it('zákazník založený s překlepem se najde: „na Patejdovku" × katalog „Patejdlovka"', () => {
+    const katalog = [...PLACES, { id: 'p-patejdlovka', name: 'Patejdlovka' }];
+    expect(resolvePlace([TEXT], [], TEXT, katalog, NO_ALIASES, null, zVety)).toEqual({ id: 'p-patejdlovka', name: 'Patejdlovka' });
+  });
+
+  it('naučený alias má přednost: „patejdovku" → Patejdlovka', () => {
+    const katalog = [...PLACES, { id: 'p-patejdlovka', name: 'Patejdlovka' }];
+    const aliasy = [{ wrong_name: 'patejdovku', correct_name: 'Patejdlovka' }];
+    expect(resolvePlace([TEXT], [], TEXT, katalog, aliasy, null, zVety)).toEqual({ id: 'p-patejdlovka', name: 'Patejdlovka' });
+  });
+
+  it('„pro mě": odběratelem je odesílatel, věta ho nepřebije', () => {
+    const text = 'Posli mi prosim 3x30 12sv na Pohodu';
+    const resolved = resolvePlace([], [], text, PLACES, NO_ALIASES, 'Jan Novák', odberatelZVety(text));
+    expect(resolved).toEqual({ id: null, name: 'Jan Novák' });
+  });
+
+  it('zpráva bez věty o odběrateli (zVety = null) se chová jako dřív', () => {
+    expect(resolvePlace([], [], '3x30 12sv', PLACES, NO_ALIASES, null, null)).toEqual({ id: null, name: null });
   });
 });
 

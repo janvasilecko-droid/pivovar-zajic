@@ -1,5 +1,6 @@
 import { Beer, Package, Place, supabase } from './supabase';
 import { normPlaceName, stripSenderName, resolvePlace, odberatelZHistorie, preferujExaktniOdberatele, wantsOwnOrder as textWantsOwnOrder } from '../../supabase/functions/_shared/place-match';
+import { odberatelZVety } from '../../supabase/functions/_shared/odberatel-z-vety';
 import { nactiHistorii } from '../../supabase/functions/_shared/historie-objednavek';
 import { textRikaPristiTyden } from '../../supabase/functions/_shared/den-zavozu';
 import { parseGeminiItems, detectOrderNotes, parseOrderText, loadAliasMap, loadPlaceAliasMap, ParserAliasMap, ParsedLine, GeminiItem } from './orderParser';
@@ -675,7 +676,9 @@ export async function parseWhatsAppOrderMessageWithAI(
     [rawTextFromAi || rawMessage, quotedText].filter(Boolean).join('\n'),
     effectiveSender,
   );
-  const resolved = resolvePlace(matchCandidates, freeformCandidates, ukotveniText, places, placeAliasList, ownOrderCandidate);
+  // 🗣️ Záloha, když AI jméno nevrátila: „Na pristi tyden na Patejdovku:" / „pro
+  // Pohodu" přímo ve VLASTNÍM textu zprávy (ne v citaci) — stejně jako na serveru.
+  const resolved = resolvePlace(matchCandidates, freeformCandidates, ukotveniText, places, placeAliasList, ownOrderCandidate, odberatelZVety(rawMessage));
 
   let placeId = resolved.id;
   let placeName = resolved.name;

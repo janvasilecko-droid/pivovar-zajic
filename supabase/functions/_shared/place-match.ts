@@ -8,6 +8,7 @@
 // mu odpovídají, se vyřazují ještě před voláním `resolvePlace` (viz
 // whatsapp-auto-parse/index.ts, výjimka je jen „pro mě"/„mi"/„mně").
 import { bestFuzzyScoreInText } from "./beer-match.ts";
+import type { OdberatelZVety } from "./odberatel-z-vety.ts";
 
 export function normPlaceName(s: string | null | undefined): string {
   return (s || "")
@@ -81,6 +82,16 @@ export function isPlaceGrounded(candidate: string, messageText: string): boolean
   const words = placeSignificantWords(c);
   if (words.length > 0) {
     if (words.some((w) => msg.includes(w))) return true;
+    // Ve zprávě stojí jméno v jiném pádě než v katalogu / u AI: „na Patejdovku"
+    // × „Patejdovka", „pro Pohodu" × „Pohoda". Bez toho AI, která jméno
+    // správně vrátila v 1. pádu, vypadala jako vymýšlející a jméno se zahodilo.
+    // Jen delší slova (krátká by se potkávala s cizími) a jen koncovka do dvou
+    // písmen za kmenem.
+    const slovaZpravy = msg.split(' ');
+    if (words.some((w) => w.length >= 6 && slovaZpravy.some((m) => {
+      const kmen = w.slice(0, -1);
+      return m.startsWith(kmen) && m.length - kmen.length >= 1 && m.length - kmen.length <= 2;
+    }))) return true;
   }
   return false;
 }
@@ -328,7 +339,13 @@ export function resolvePlace(
   places: { id: string; name: string }[],
   placeAliases: { wrong_name: string; correct_name: string }[],
   /** Odesílatel zprávy, když text říká "pro mě"/"mi"/"mně"/"pro mne" — jinak `null`. */
-  ownOrderCandidate?: string | null
+  ownOrderCandidate?: string | null,
+  /**
+   * Jméno přímo z VLASTNÍHO textu zprávy („Na Patejdovku:", „pro Pohodu") —
+   * záloha, když ho AI nevrátila (viz odberatel-z-vety.ts, z provozu 5. 11. 2026).
+   * Smí se předat jen z textu této zprávy, ne z citace.
+   */
+  zVety?: OdberatelZVety | null,
 ): ResolvedPlace {
   // „Pro mě"/„mi" a odesílatel má v katalogu odběratele PŘESNĚ pod svým jménem
   // (celé, nebo křestní) — z provozu 12. 10. 2026: Petr Bednář napsal „Gabi
@@ -356,7 +373,25 @@ export function resolvePlace(
     if (!candidate) continue;
     const trimmed = candidate.trim();
     if (!trimmed || trimmed.length > MAX_FREEFORM_PLACE_LEN) continue;
-    if (isPlaceGrounded(trimmed, messageText)) return { id: null, name: trimmed };
+    if (isPlaceGrounded(trimmed, messageText)) {
+      // AI jméno přečetla tak, jak je napsané („Patejdovku" po „na") — odběratel
+      // se nabízí v 1. pádu, ne ve 4.
+      if (zVety && !ownOrderCandidate && normPlaceName(trimmed) === normPlaceName(zVety.zapsano)) {
+        return { id: null, name: zVety.nominativ };
+      }
+      return { id: null, name: trimmed };
+    }
+  }
+  // 🗣️ AI žádné (ukotvené) jméno nevrátila, ale věta ho jmenuje („Na pristi tyden na
+  // Patejdovku:") — odberatel-z-vety.ts. Napřed katalog (tak, jak je ve zprávě i
+  // v 1. pádu), potom nový odběratel. „Pro mě" má přednost: tam odběratele určuje
+  // odesílatel, ne věta.
+  if (zVety && !ownOrderCandidate) {
+    for (const c of [zVety.zapsano, zVety.nominativ]) {
+      const matched = matchAgainstCatalog(c, places, placeAliases);
+      if (matched.id) return matched;
+    }
+    if (zVety.nominativ.length <= MAX_FREEFORM_PLACE_LEN) return { id: null, name: zVety.nominativ };
   }
   // Odesílatel z "pro mě" katalogu neodpovídá (nový zákazník, ještě
   // nezaložený) — nabídnout aspoň jeho jméno jako nezávazný název, ať
