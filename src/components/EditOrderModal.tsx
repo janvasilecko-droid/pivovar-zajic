@@ -10,7 +10,7 @@ import { X } from 'lucide-react';
 import { PlaceCombobox } from './PlaceCombobox';
 import { supabase, Beer, Package, Place } from '../lib/supabase';
 import { saveAlias, canLearnBeerAlias, getOrCreatePlace } from '../lib/orderParser';
-import { autoReserveTapIfNeeded, isTapMentioned, detectTapType } from '../lib/tapReservations';
+import { isTapMentioned, detectTapType } from '../lib/tapReservations';
 import { TapReservationModal } from './TapReservationModal';
 import { QuickQtySelect } from './QuickQtySelect';
 import { IkonaVycep } from '../components/ikony';
@@ -93,7 +93,6 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
   // 🚰 Rezervace výčepu — modal
   const [showTapModal, setShowTapModal] = useState(false);
   const [pendingSave, setPendingSave] = useState(false); // true when save() was triggered but waiting for tap modal
-  const [tapWasConfirmed, setTapWasConfirmed] = useState(false); // true if user confirmed reservation in modal
 
 
   function setRow(idx: number, field: 'beerId' | 'pkgId' | 'qty', value: string) {
@@ -201,11 +200,11 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
         setPendingSave(true);
         setShowTapModal(true);
         setSaving(false);
-        return; // Stop here — modal will call finalizeSave on confirm/skip
+        return; // Stop here — modal calls dokonciUlozeni on confirm/skip
       }
 
       // No tap mentioned — finish normally
-      await finalizeSave(resolvedName || placeName.trim(), date, trimmedNote, order.id, false);
+      dokonciUlozeni();
     } catch (e: any) {
       setErr(e?.message ?? String(e));
     } finally {
@@ -213,14 +212,13 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
     }
   }
 
-  /** Called after tap modal is confirmed or skipped */
-  async function finalizeSave(customerName: string, dateStr: string, noteText: string, orderId: string, wasConfirmed: boolean) {
+  /**
+   * Po uložení objednávky (a po okně rezervace výčepu). Rezervaci zakládá nebo
+   * upravuje okno samo — „Přeskočit (nerezervovat)“ proto nerezervuje nic. Dřív
+   * se po přeskočení výčep tiše zarezervoval sám, přesně proti popisku tlačítka.
+   */
+  function dokonciUlozeni() {
     try {
-      // If user confirmed in modal, reservation was already saved by the modal itself
-      // If user skipped, fall back to silent auto-reserve (original behavior)
-      if (!wasConfirmed) {
-        void autoReserveTapIfNeeded(customerName, dateStr, noteText, orderId);
-      }
       onSaved();
       onClose();
     } catch (e: any) {
@@ -233,16 +231,12 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
 
   function handleTapConfirm() {
     setShowTapModal(false);
-    setTapWasConfirmed(true);
-    // Reservation was saved by the modal itself
-    finalizeSave(placeName.trim() || order.place_name || '', date, note.trim(), order.id, true);
+    dokonciUlozeni();
   }
 
   function handleTapSkip() {
     setShowTapModal(false);
-    setTapWasConfirmed(false);
-    // Fall back to silent auto-reserve (original behavior)
-    finalizeSave(placeName.trim() || order.place_name || '', date, note.trim(), order.id, false);
+    dokonciUlozeni();
   }
 
   return (

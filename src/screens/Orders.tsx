@@ -33,7 +33,8 @@ import { slozNavrh } from '../lib/whatsappAmendment';
 import { shareOrderToWhatsApp } from '../lib/whatsapp';
 import { oznacVlastniObjednavku } from '../lib/mojeObjednavky';
 import { subscribeToWhatsAppMessages, fetchPendingWhatsAppMessages, ignoreWhatsAppMessage, WhatsAppIncoming, fetchWhatsAppSenders, isSenderAllowed, triggerAutoParse, type WhatsAppSender } from '../lib/whatsappApi';
-import { autoReserveTapIfNeeded, isTapMentioned, detectTapType } from '../lib/tapReservations';
+import { autoReserveTapIfNeeded, isTapMentioned, detectTapType, propojRezervaciSObjednavkou } from '../lib/tapReservations';
+import { smazRezervaci } from '../lib/vycepyData';
 import { najdiDuplicitniObjednavky } from '../lib/orderDuplicates';
 import { nazvyZKatalogu, zeptejSeNaDuplicitu, zeptejSeNaZdvojeneRadky } from '../lib/duplicityDialog';
 import { najdiZdvojeneRadky } from '../lib/duplicityObjednavek';
@@ -48,7 +49,7 @@ import { IkonaVycep } from '../components/ikony';
 import { kartaOdberatele } from '../lib/kartaOdberatele';
 import { kusy } from '../lib/cisla';
 
-import { nactiJson, uloz, ulozJson } from '../lib/uloziste';
+import { nactiJson, ulozJson } from '../lib/uloziste';
 import { smazObjednavky } from '../lib/smazaniObjednavek';
 import { navrhSlouceni } from '../lib/slucObjednavky';
 import { nactiOdpocty, zrusOdepsaneSVracenim } from '../lib/zruseniObjednavky';
@@ -362,7 +363,9 @@ export default function Orders({
 
   // 🚰 Půjčení výčepu — zaškrtávací pole v zadávacím formuláři
   const [wantTap, setWantTap] = useState(false);
-  const [tapReservedEarly, setTapReservedEarly] = useState(false);
+  // ID rezervace potvrzené dřív, než objednávka vznikla (okno z pole „Půjčení
+  // výčepu“). Po uložení objednávky se podle něj naváže na objednávku.
+  const [tapReservedEarlyId, setTapReservedEarlyId] = useState<string | null>(null);
   const [tapModalAfterSave, setTapModalAfterSave] = useState(false);
 
   // 🚰 Rezervace výčepu — stav pro modální okno
@@ -1347,9 +1350,10 @@ export default function Orders({
       const trimmedNote = note.trim();
       const isVycepMentioned = isTapMentioned(trimmedNote);
       if ((wantTap || isVycepMentioned) && firstOrderId) {
-        if (tapReservedEarly) {
+        if (tapReservedEarlyId) {
           // Rezervace byla potvrzena už před uložením — jen ji propojíme s objednávkou
-          linkLatestReservationToOrder(firstOrderId);
+          const chybaVazby = await propojRezervaciSObjednavkou(tapReservedEarlyId, firstOrderId);
+          if (chybaVazby) chyba('Rezervaci výčepu se nepodařilo navázat na objednávku: ' + chybaVazby);
           finishOrderForm();
           return;
         }
@@ -1376,7 +1380,7 @@ export default function Orders({
     setNote(''); setDeliveryDate(''); setDeliveryDay(''); setErr(null);
     setFlash(true); zhasniFlash(800);
     setWeekKey(isoWeekKey(deliveryDate || date));
-    setWantTap(false); setTapReservedEarly(false);
+    setWantTap(false); setTapReservedEarlyId(null);
     setSaving(false);
     load();
   }
@@ -2448,9 +2452,20 @@ export default function Orders({
               type="checkbox"
               checked={wantTap}
               onChange={() => {
-                if (wantTap) { setWantTap(false); return; }
+                if (wantTap) {
+                  setWantTap(false);
+                  // Rezervace z okna už je v databázi, ale objednávka ji nepoužije —
+                  // zrušením zaškrtnutí se i ona zruší, ať výčep zbytečně neblokuje.
+                  if (tapReservedEarlyId) {
+                    const zrusit = tapReservedEarlyId;
+                    setTapReservedEarlyId(null);
+                    void smazRezervaci(zrusit).then((chybaMazani) => {
+                      if (chybaMazani) chyba('Rezervaci výčepu se nepodařilo zrušit: ' + chybaMazani);
+                    });
+                  }
+                  return;
+                }
                 setWantTap(true);
-                setTapReservedEarly(false);
                 setTapModalCustomer(placeNameFree || places.find((p) => p.id === placeId)?.name || '');
                 setShowTapModal(true);
               }}
@@ -3220,8 +3235,8 @@ export default function Orders({
           customerName={tapModalCustomer}
           orderId={tapModalOrderId}
           tapTypeHint={detectTapType(note)}
-          onConfirm={() => {
-            if (!tapModalOrderId) setTapReservedEarly(true);
+          onConfirm={(rezervace) => {
+            if (!tapModalOrderId) setTapReservedEarlyId(rezervace.id);
             handleTapModalDone();
           }}
           onSkip={handleTapModalDone}
@@ -3269,20 +3284,6 @@ function detectDeliveryDateFromNote(text: string, wk: string): string | null {
     }
   }
   return null;
-}
-
-// 🔗 Po uložení objednávky propojí nejnovější nezapojenou rezervaci výčepu s objednávkou
-function linkLatestReservationToOrder(orderId: string): void {
-  try {
-    const saved = localStorage.getItem('vycepy_reservations_v1');
-    if (!saved) return;
-    const list = JSON.parse(saved) as any[];
-    const idx = [...list].reverse().findIndex((r) => !r.order_id);
-    if (idx === -1) return;
-    const realIdx = list.length - 1 - idx;
-    list[realIdx] = { ...list[realIdx], order_id: orderId };
-    uloz('vycepy_reservations_v1', JSON.stringify(list));
-  } catch { /* tichá chyba */ }
 }
 
 /** „22. 9." — krátké datum do otázek. */

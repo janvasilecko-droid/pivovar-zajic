@@ -16,6 +16,8 @@
  * zbytečně a člověk štítky přestane číst.
  */
 
+import { jeZminenVycep } from '../../supabase/functions/_shared/vycep-z-textu';
+
 export type UkolKlic =
   | 'sudy'      // vyzvednout prázdné sudy
   | 'lahve'     // vrátit / vyzvednout lahve a přepravky
@@ -31,7 +33,13 @@ export type ZavozUkol = {
   popis: string;
 };
 
-type Vzor = { klic: UkolKlic; popis: string; re: RegExp };
+type Vzor = {
+  klic: UkolKlic;
+  popis: string;
+  re?: RegExp;
+  /** Místo regulárního výrazu — pro pravidla sdílená se čtením zprávy (viz výčep). */
+  shoda?: (text: string) => boolean;
+};
 
 /**
  * Poznámky píše člověk i parser, takže se diakritika střídá („prázdné"
@@ -85,7 +93,9 @@ const VZORY: Vzor[] = [
   {
     klic: 'vycep',
     popis: 'Naložit výčep',
-    re: /\bv[yý][cč]ep|\bna[rř]a[zž]e|\b(jedno|dvoj|troj|[cč]ty[rř]|[sš]esti)?(pipa|pipy|pipu|kohout)|\bchlad[ií]?[ck]|\bchlazen/i,
+    // Stejné pravidlo jako při čtení zprávy a při rezervaci výčepu — dřív tu bylo vlastní
+    // a „pípa" s diakritikou nebo „dvoukohout" k úkolu „Naložit výčep" nevedly.
+    shoda: jeZminenVycep,
   },
   {
     klic: 'spotak',
@@ -113,7 +123,7 @@ export function ukolyZPoznamky(poznamka: string | null | undefined): ZavozUkol[]
   const nalezene = new Map<UkolKlic, ZavozUkol>();
   for (const vzor of VZORY) {
     if (nalezene.has(vzor.klic)) continue;
-    if (vzor.re.test(text)) nalezene.set(vzor.klic, { klic: vzor.klic, popis: vzor.popis });
+    if (vzor.shoda ? vzor.shoda(text) : vzor.re!.test(text)) nalezene.set(vzor.klic, { klic: vzor.klic, popis: vzor.popis });
   }
 
   return PORADI.filter((k) => nalezene.has(k)).map((k) => nalezene.get(k)!);

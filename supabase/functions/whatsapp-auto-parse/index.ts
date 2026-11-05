@@ -5,6 +5,7 @@ import { poradiPodlePrepisu } from "../_shared/prepis-fotky.ts";
 import { normPlaceName, stripSenderName, resolvePlace, odberatelZHistorie, preferujExaktniOdberatele, wantsOwnOrder as textWantsOwnOrder } from "../_shared/place-match.ts";
 import { nactiHistorii } from "../_shared/historie-objednavek.ts";
 import { odberatelZVety } from "../_shared/odberatel-z-vety.ts";
+import { popisZminkyVycepu } from "../_shared/vycep-z-textu.ts";
 import { bezPolozekZCitace } from "../_shared/citace-polozky.ts";
 import { vypadaJakoVraceni } from "../_shared/vraceni-detekce.ts";
 import { jeVlastniHlaseniObjednavky } from "../_shared/vlastni-hlaseni-objednavky.ts";
@@ -864,8 +865,15 @@ Deno.serve(async (req: Request) => {
         // Klíčová slova poznámek — i když jsou na stejném řádku jako položky.
         // Pozor: label může být funkce (vrací nalezený text) NEBO statický string
         // (např. 'faktura', 'sleva') — viz použití níže.
+        // 🍺 Výčep (pípa, kohout, výčep, chlazení, narážeč) — jedno pravidlo s appkou, kontrolou
+        // rezervace a úkoly k závozu (_shared/vycep-z-textu.ts). Dřív tu bylo vlastní,
+        // které z „plus pipa jednokohout" nechalo holé „pipa" (druh se ztratil) a „pípu"
+        // s diakritikou nepoznalo vůbec.
+        const vycepVPoznamce = popisZminkyVycepu(message.message_text);
+        if (vycepVPoznamce && !noteParts.some((p) => p.toLowerCase().includes(vycepVPoznamce.toLowerCase()))) {
+          noteParts.push(vycepVPoznamce);
+        }
         const noteKeywords: { re: RegExp; label: ((m: RegExpMatchArray) => string) | string }[] = [
-          { re: /\b(?:jedno|dvoj|troj|ctyr|sesti)?(?:pipa|pipy|pipu|kohout|kohouty)\b|\bvycep\w*|\bvyčep\w*|\bpujcit\s*vycep\b|\bpůjčit\s*výčep\b|\bchlazeni\b|\bchladak\b|\bchlazení\b|\bchladák\b|\bnarazec\b|\bnaražeč\b|\bnarazeni\b|\bnaražení\b/i, label: (m) => m[0].trim() },
           { re: /\b(?:pridat\s+|jeste\s+|ještě\s+|a\s+|i\s+|take\s+|také\s+)(?:sklo\b|podtacky\b|podtácky\b)|\bsklenic[eí]?\b/i, label: (m) => m[0].trim() },
           { re: /\bbez\s*etiket\b|\bbez\s*etiket[a]?\b/i, label: 'bez etikety' },
           { re: /\betiket\w*\s*(?:mm|m\b|xxl)?/i, label: (m) => m[0].trim() },
