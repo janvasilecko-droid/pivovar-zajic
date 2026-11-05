@@ -329,7 +329,8 @@ export default function App() {
       {page === 'vycepy' && <VycepyScreen />}
       {(page === 'zavoz' || page === 'orders_zavoz') && <Zavoz setPage={setPage} />}
       {/* Dlaždice „Nakládka závoz" — Rozvoz rovnou na „Co naložit do auta"
-          pro den, který dlaždice ukazuje (pageSubTab = kód dne, např. „ut"). */}
+          pro den, který dlaždice ukazuje (pageSubTab = datum závozu, např.
+          „2026-11-12"; starší odkazy kód dne, např. „ut"). */}
       {page === 'nakladka' && <Zavoz setPage={setPage} nakladka denNakladky={pageSubTab} />}
       {page === 'stock' && <Stock setPage={setPage} />}
       {page === 'rozbor' && <RozborScreen setPage={setPage} />}

@@ -1,6 +1,6 @@
 // Z provozu 28. 9. 2026: dlaždice Rozvoz ukazuje, co naložit na další závoz.
 import { describe, it, expect } from 'vitest';
-import { coNalozitNaZavoz, nakladkyPoDnech, vychoziNakladka, BEZ_DATA } from './nalozitNaZavoz';
+import { coNalozitNaZavoz, nakladkyPoDnech, vychoziNakladka, kodDne, denProRozvoz, BEZ_DATA } from './nalozitNaZavoz';
 
 const o = (delivery_date: string, items: [string, string, number][], status = 'nova', place_name = 'U Zajíce') => ({
   delivery_date, status, place_name,
@@ -78,11 +78,51 @@ describe('nakladkyPoDnech', () => {
     expect(n.map((x) => [x.datum, x.kusuCelkem])).toEqual([['2026-10-06', 2]]);
   });
 
-  it('výchozí je nejbližší závoz po dnešku, jinak to, co je', () => {
-    const n = nakladkyPoDnech([o('2026-10-06', 2), o('2026-10-08', 1), o(null, 1)], '2026-10-06');
+  // 5. 11. 2026: „dnes se má zvézt Lužec a Seeberg, proč je tam nevidím
+  // a vidím tam závoz na příští týden?"
+  it('výchozí je dnešní závoz, dokud z něj něco neodjelo', () => {
+    const n = nakladkyPoDnech([
+      o('2026-11-05', 48, { place_name: 'Lužec' }), o('2026-11-05', 3, { place_name: 'Seeberg' }),
+      o('2026-11-12', 45, { place_name: 'Neznámý odběratel' }),
+    ], '2026-11-05');
+    expect(n.map((x) => [x.datum, x.kusuCelkem])).toEqual([['2026-11-05', 51], ['2026-11-12', 45]]);
+    expect(vychoziNakladka(n, '2026-11-05')).toBe('2026-11-05');
+    expect(n[0].mista).toEqual(['Lužec', 'Seeberg']);
+  });
+
+  it('když dnešní odjelo, je výchozí nejbližší další den, jinak to, co je', () => {
+    const n = nakladkyPoDnech([
+      o('2026-10-06', 2, { is_delivered: true }), o('2026-10-08', 1), o(null, 1),
+    ], '2026-10-06');
     expect(vychoziNakladka(n, '2026-10-06')).toBe('2026-10-08');
     expect(vychoziNakladka(nakladkyPoDnech([o(null, 1)], '2026-10-06'), '2026-10-06')).toBe(BEZ_DATA);
     expect(vychoziNakladka([], '2026-10-06')).toBeNull();
+  });
+
+  it('appka otevřená přes půlnoc: včerejší den se nevybere', () => {
+    const vcera = nakladkyPoDnech([o('2026-11-04', 5), o('2026-11-06', 2)], '2026-11-04');
+    expect(vychoziNakladka(vcera, '2026-11-05')).toBe('2026-11-06');
+  });
+});
+
+describe('denProRozvoz (z nakládky do Rozvozu na správný týden)', () => {
+  it('datum závozu určí den i týden', () => {
+    expect(denProRozvoz('2026-11-12')).toEqual({ datum: '2026-11-12', den: 'ct' });
+    expect(denProRozvoz('2026-11-09')).toEqual({ datum: '2026-11-09', den: 'po' });
+    expect(denProRozvoz('2026-11-08')).toEqual({ datum: '2026-11-08', den: 'ne' });
+  });
+
+  it('starší odkaz s kódem dne platí pro tento týden; nesmysl se ignoruje', () => {
+    expect(denProRozvoz('ut')).toEqual({ datum: null, den: 'ut' });
+    expect(denProRozvoz('xx')).toBeNull();
+    expect(denProRozvoz('2026-13-01')).toBeNull();
+    expect(denProRozvoz('')).toBeNull();
+    expect(denProRozvoz(undefined)).toBeNull();
+  });
+
+  it('kód dne nezávisí na časovém pásmu zařízení', () => {
+    expect(['2026-11-02', '2026-11-03', '2026-11-04', '2026-11-05', '2026-11-06', '2026-11-07', '2026-11-08'].map(kodDne))
+      .toEqual(['po', 'ut', 'st', 'ct', 'pa', 'so', 'ne']);
   });
 });
 

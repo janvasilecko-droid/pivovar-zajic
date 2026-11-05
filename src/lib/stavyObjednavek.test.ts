@@ -7,7 +7,7 @@
  * třemi různými způsoby.
  */
 import { describe, it, expect } from 'vitest';
-import { STAVY_OBJEDNAVKY, popisStavu, jeVyrizena, jePoTerminu, popisekVyjezdu } from './stavyObjednavek';
+import { STAVY_OBJEDNAVKY, popisStavu, jeVyrizena, terminZavozu, popisekVyjezdu } from './stavyObjednavek';
 
 describe('stavy objednávky', () => {
   it('každý stav má popisek, barvu i tvar', () => {
@@ -44,10 +44,20 @@ describe('stavy objednávky', () => {
     expect(popisStavu('neco_noveho')).toBe('neco_noveho');
   });
 
-  it('po termínu je nová objednávka se závozem dnes nebo dřív, která ještě nevyjela', () => {
-    expect(jePoTerminu({ status: 'nova', delivery_date: '2026-10-25', is_delivered: false }, '2026-10-26')).toBe(true);
-    expect(jePoTerminu({ status: 'nova', delivery_date: '2026-10-27', is_delivered: false }, '2026-10-26')).toBe(false);
-    expect(jePoTerminu({ status: 'nova', delivery_date: '2026-10-25', is_delivered: true }, '2026-10-26')).toBe(false);
+  it('po termínu je nová objednávka, jejíž den závozu už minul a ještě nevyjela', () => {
+    expect(terminZavozu({ status: 'nova', delivery_date: '2026-10-25', is_delivered: false }, '2026-10-26')).toBe('po_terminu');
+    expect(terminZavozu({ status: 'nova', delivery_date: '2026-10-27', is_delivered: false }, '2026-10-26')).toBeNull();
+    expect(terminZavozu({ status: 'nova', delivery_date: '2026-10-25', is_delivered: true }, '2026-10-26')).toBeNull();
+    expect(terminZavozu({ status: 'vyrizeno', delivery_date: '2026-10-25', is_delivered: false }, '2026-10-26')).toBeNull();
+    expect(terminZavozu({ status: 'nova', delivery_date: null, is_delivered: false }, '2026-10-26')).toBeNull();
+    expect(terminZavozu({ status: null, delivery_date: '2026-10-25' }, '2026-10-26')).toBe('po_terminu');
+  });
+
+  // 5. 11. 2026: dnešní Lužec a Seeberg svítily ráno „po termínu“.
+  it('v den závozu je to „dnes“, ne „po termínu“', () => {
+    expect(terminZavozu({ status: 'nova', delivery_date: '2026-11-05', is_delivered: false }, '2026-11-05')).toBe('dnes');
+    expect(terminZavozu({ status: 'nova', delivery_date: '2026-11-05', is_delivered: true }, '2026-11-05')).toBeNull();
+    expect(terminZavozu({ status: 'storno', delivery_date: '2026-11-05', is_delivered: false }, '2026-11-05')).toBeNull();
   });
 
   it('závoz a pouhé vyřízení jsou dvě různé věty', () => {

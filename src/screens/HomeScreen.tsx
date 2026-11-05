@@ -820,10 +820,11 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
       return;
     }
     // Nakládka závoz → Rozvoz rovnou na „Co naložit do auta" pro ten den,
-    // který dlaždice ukazuje (kód dne jde jako podzáložka, viz App.tsx).
+    // který dlaždice ukazuje. Jako podzáložka jde datum, ne jen kód dne —
+    // ten by u příštího týdne otevřel stejný den tohoto týdne (5. 11. 2026,
+    // lib/nalozitNaZavoz.ts denProRozvoz).
     if (id === 'nakladka') {
-      const kodDne = nalozit ? ['ne', 'po', 'ut', 'st', 'ct', 'pa', 'so'][new Date(nalozit.datum + 'T00:00:00').getDay()] : undefined;
-      setPage('nakladka', undefined, kodDne);
+      setPage('nakladka', undefined, nalozit?.datum);
       return;
     }
     // Rozbor = Sklad → Pohyby na celém aktuálním měsíci od 1. dne; týden se vybere tlačítkem.
@@ -1744,7 +1745,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
         <NakladkaOkno
           nakladky={nakladky}
           barvaPiva={(pivo) => barvyPiv.get(pivo.trim().toLowerCase()) ?? null}
-          onOtevrit={(datum) => setPage('nakladka', undefined, datum ? ['ne', 'po', 'ut', 'st', 'ct', 'pa', 'so'][new Date(datum + 'T00:00:00').getDay()] : undefined)}
+          onOtevrit={(datum) => setPage('nakladka', undefined, datum ?? undefined)}
         />
       )}
 

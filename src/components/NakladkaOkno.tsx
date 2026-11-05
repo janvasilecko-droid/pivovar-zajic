@@ -45,8 +45,10 @@ export default function NakladkaOkno({ nakladky, barvaPiva, onOtevrit }: {
     setSbaleno((s) => { uloz(KLIC_SBALENO, s ? '0' : '1'); return !s; });
   }
   // 📅 Den, na který se kouká (6. 10. 2026: „přidej tam možnost kliknout na
-  // dny, kdy jsou další nakládky… Po St Čt Neuvedeno"). Výchozí nejbližší
-  // závoz po dnešku; když vybraný den z dat zmizí, vrátí se na výchozí.
+  // dny, kdy jsou další nakládky… Po St Čt Neuvedeno"). Výchozí je dnešní
+  // závoz, dokud z něj něco neodjelo, jinak nejbližší další (5. 11. 2026,
+  // lib/nalozitNaZavoz.ts vychoziNakladka); když vybraný den z dat zmizí,
+  // vrátí se na výchozí.
   const dnes = businessDateISO();
   const [vybrany, setVybrany] = useState<string | null>(null);
   useEffect(() => {

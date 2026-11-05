@@ -32,6 +32,7 @@ import { ZavozVolba } from '../components/zavoz/ZavozVolba';
 import { datumProDenObjednavky } from '../lib/keggingPlan';
 import { uloz } from '../lib/uloziste';
 import { useOdskrtavani } from '../lib/useOdskrtavani';
+import { denProRozvoz } from '../lib/nalozitNaZavoz';
 
 // Stahuje se až při otevření — viz komentář u lazy() v Orders.tsx.
 const EditOrderModal = lazy(() => import('../components/EditOrderModal').then((m) => ({ default: m.EditOrderModal })));
@@ -55,7 +56,7 @@ export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
   setPage?: (p: any, sec?: string) => void;
   /** Otevřeno z dlaždice „Nakládka závoz" — rovnou seznam „Co naložit do auta". */
   nakladka?: boolean;
-  /** Kód dne závozu (po…ne), na který dlaždice ukazovala. */
+  /** Den, na který dlaždice ukazovala: datum závozu (YYYY-MM-DD), u starších odkazů kód dne (po…ne). */
   denNakladky?: string;
 } = {}) {
   const { profile, patchProfile } = useAuth();
@@ -84,7 +85,10 @@ export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
   const [places, setPlaces] = useState<Place[]>([]);
   const [loading, setLoading] = useState(true);
   const [editOrder, setEditOrder] = useState<Order | null>(null);
-  const [weekKey, setWeekKey] = useState(isoWeekKey(businessDateISO()));
+  // Z nakládky na ploše přijde datum závozu — Rozvoz se otevře na jeho
+  // týdnu (5. 11. 2026: z „Čt 12. 11." se dřív otevřel čtvrtek tohoto týdne).
+  const predvolbaDne = nakladka ? denProRozvoz(denNakladky) : null;
+  const [weekKey, setWeekKey] = useState(() => isoWeekKey(predvolbaDne?.datum ?? businessDateISO()));
   const [hideDelivered, setHideDelivered] = useState(false);
   const [selectedDayFilter, setSelectedDayFilter] = useState<string>('all');
   const [mobileTab, setMobileTab] = useState<'routes' | 'loading'>(nakladka ? 'loading' : 'routes');
@@ -299,11 +303,12 @@ export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
   // ukazovala — ale jen když na něj v týdnu něco jede, jinak by seznam byl
   // prázdný a vypadalo by to, že není co nakládat.
   const denPredvybran = useRef(false);
+  const denPredvolby = predvolbaDne?.den ?? null;
   useEffect(() => {
-    if (!nakladka || !denNakladky || denPredvybran.current || dayStats.size === 0) return;
+    if (!denPredvolby || denPredvybran.current || dayStats.size === 0) return;
     denPredvybran.current = true;
-    if (dayStats.has(denNakladky)) setSelectedDayFilter(denNakladky);
-  }, [nakladka, denNakladky, dayStats]);
+    if (dayStats.has(denPredvolby)) setSelectedDayFilter(denPredvolby);
+  }, [denPredvolby, dayStats]);
 
   const filteredOrders = useMemo(() => {
     return activeOrders.filter((o) => {
