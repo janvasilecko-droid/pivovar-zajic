@@ -15,6 +15,7 @@ import VyberZdrojovehoSudu from '../components/VyberZdrojovehoSudu';
 import { objemCesky } from '../components/VyberObalu';
 import { davkyStaceni, denACesky, pocetSuduCesky } from '../lib/prehledStaceni';
 import PrehledStaceniLahvi from '../components/PrehledStaceniLahvi';
+import UpravaUlozenehoStaceni from '../components/UpravaUlozenehoStaceni';
 import { upravyStaceni } from '../lib/upravyStaceni';
 import { UpravyStaceniZInventury } from '../components/UpravyStaceniZInventury';
 import { PruhUlozeni } from '../components/PruhUlozeni';
@@ -29,7 +30,7 @@ import {
   mnozstviLahve, mnozstviSudu, nastavLahve, nastavSud, odhadLahviZeSudu, poradiLahvi,
   rychleHodnoty, sudyDavky, sudyNaDavku, type KonceptLahve as RozepsanaDlazdice,
 } from '../lib/krokoveZadavani';
-import { dnesLahve, objemObalu } from '../lib/dnesUlozeno';
+import { davkyPivaVDni, dnesLahve, objemObalu } from '../lib/dnesUlozeno';
 import { jeChecklistKonceZUrl } from '../lib/vstupniStranka';
 import { navrhSudu } from '../lib/bottlingYield';
 import { posledniRucniZapis } from '../lib/posledniZapis';
@@ -116,6 +117,12 @@ export default function BottlingScreen({
   const [packages, setPackages] = useState<Package[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingRow, setEditingRow] = useState<EntryRow | null>(null);
+  /**
+   * Pivo, jehož uložené stáčení se právě upravuje pod zápisem (tužka u řádku
+   * v „Dnes stočeno" nebo v „Už uloženo" v panelu piva). Viz
+   * components/UpravaUlozenehoStaceni.tsx.
+   */
+  const [upravaPiva, setUpravaPiva] = useState<string | null>(null);
   const loadCountRef = useRef(0);
 
   const [date, setDate] = useState(businessDateISO());
@@ -171,6 +178,10 @@ export default function BottlingScreen({
     setTab((initialSubTab as any) || initialTab || defaultTab);
      
   }, [initialSubTab, initialTab]);
+
+  // Otevřená úprava uloženého stáčení patří záložce Zápis — po návratu z
+  // Přehledu by tam jinak ležela rozevřená a nikdo by nevěděl proč.
+  useEffect(() => { setUpravaPiva(null); }, [tab]);
 
   // Přepnutí záložky zapíšeme do historie stránek (setPage), ne jen do
   // lokálního stavu — jinak tlačítko Zpět z téhle obrazovky nevrátí
@@ -1722,6 +1733,7 @@ export default function BottlingScreen({
               onHotovo={() => void ulozZDlazdice()}
               den={date === businessDateISO() ? 'dnes' : date}
               dnes={dnesLahve(rows, date, packages).filter((p) => p.beerId === tileBeer.id)}
+              onUpravit={(p) => setUpravaPiva(p.beerId)}
               kroky={[krokSudy, krokLahve]}
             />
           )}
@@ -1808,8 +1820,30 @@ export default function BottlingScreen({
             nadpis={`${date === businessDateISO() ? 'Dnes' : date} stočeno do lahví`}
             polozky={dnesLahve(rows, date, packages)}
             beers={beers}
+            onUpravit={(p) => setUpravaPiva(p.beerId)}
           />
         </form>
+        )}
+        {/* ✏️ Úprava už uloženého — mimo formulář zápisu (je to samostatné
+            ukládání, žádný odeslaný zápis) a pod seznamem „Dnes stočeno". */}
+        {upravaPiva && (
+          <UpravaUlozenehoStaceni
+            key={upravaPiva}
+            nazevPiva={beerName(beers.find((b) => b.id === upravaPiva))}
+            davky={davkyPivaVDni(rows, date, upravaPiva, packages)}
+            onZavrit={() => setUpravaPiva(null)}
+            piva={beers}
+            obaly={packages}
+            getBatchId={getBatchId}
+            onLahve={upravLahve}
+            onSudy={upravSudy}
+            onSmazRadek={smazRadek}
+            onDatumPivo={upravDatumPivo}
+            onDalsiSud={pridejDalsiSud}
+            onKus={increment}
+            onUpravit={setEditingRow}
+            onSmazat={del}
+          />
         )}
         </>
       )}

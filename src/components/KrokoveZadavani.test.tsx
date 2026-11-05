@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { KrokoveZadavani, type KrokDef } from './KrokoveZadavani';
+import { DnesUlozeno, KrokoveZadavani, type KrokDef } from './KrokoveZadavani';
+import type { DnesPolozka } from '../lib/dnesUlozeno';
 import { mnozstviLahve, mnozstviSudu, nastavLahve, nastavSud, type KonceptLahve } from '../lib/krokoveZadavani';
 import type { Beer } from '../lib/supabase';
 
@@ -12,7 +13,13 @@ const prazdny: KonceptLahve = {
 };
 
 /** Dva kroky jako u Lahví: sudy (až dvě velikosti), pak lahve. */
-function Lahve({ onZavrit, zacatek = prazdny, sleduj }: { onZavrit: (d: KonceptLahve) => void; zacatek?: KonceptLahve; sleduj?: (d: KonceptLahve) => void }) {
+function Lahve({ onZavrit, zacatek = prazdny, sleduj, dnes, onUpravit }: {
+  onZavrit: (d: KonceptLahve) => void;
+  zacatek?: KonceptLahve;
+  sleduj?: (d: KonceptLahve) => void;
+  dnes?: DnesPolozka[];
+  onUpravit?: (p: DnesPolozka) => void;
+}) {
   const [d, setD] = useState(zacatek);
   sleduj?.(d);
   const kroky: KrokDef[] = [
@@ -39,7 +46,7 @@ function Lahve({ onZavrit, zacatek = prazdny, sleduj }: { onZavrit: (d: KonceptL
       povinny: 'Zadej počet lahví.',
     },
   ];
-  return <KrokoveZadavani beer={beer} podtitul="Stáčení lahví" kroky={kroky} onZavrit={() => onZavrit(d)} />;
+  return <KrokoveZadavani beer={beer} podtitul="Stáčení lahví" kroky={kroky} onZavrit={() => onZavrit(d)} dnes={dnes} onUpravit={onUpravit} />;
 }
 
 const pole = () => screen.getByRole('textbox') as HTMLInputElement;
@@ -196,5 +203,62 @@ describe('KrokoveZadavani', () => {
     } finally {
       Object.defineProperty(window, 'visualViewport', { configurable: true, value: puvodni });
     }
+  });
+});
+
+describe('uložené položky se dají upravit (5. 11. 2026)', () => {
+  const ulozene: DnesPolozka[] = [
+    { id: 'a|sv12', cas: '9:40', beerId: 'sv12', text: '90× 1 l ze 3× sud 50 l' },
+    { id: 'b|sv12', cas: '7:15', beerId: 'sv12', text: '20× 1,5 l · bez sudů' },
+  ];
+
+  it('„Už uloženo" v panelu je bez obsluhy jen ke čtení — žádná tužka', () => {
+    render(<Lahve onZavrit={() => {}} dnes={ulozene} />);
+    expect(screen.getByText('90× 1 l ze 3× sud 50 l')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Upravit uložené/ })).toBeNull();
+  });
+
+  it('tužka u uložené položky zavře panel (rozepsané číslo zůstane v zápisu) a předá položku k úpravě', () => {
+    const zavreno = vi.fn();
+    const uprav = vi.fn();
+    render(<Lahve onZavrit={zavreno} dnes={ulozene} onUpravit={uprav} />);
+    napis('4'); // rozepsané sudy — nesmí se ztratit
+    fireEvent.click(screen.getByRole('button', { name: 'Upravit uložené: 20× 1,5 l · bez sudů' }));
+    expect(uprav).toHaveBeenCalledTimes(1);
+    expect(uprav).toHaveBeenCalledWith(ulozene[1]);
+    expect(zavreno).toHaveBeenCalledTimes(1);
+    expect(zavreno.mock.calls[0][0]).toMatchObject({ kegQty: '4' });
+  });
+
+  it('každá uložená položka má svou tužku, tužka je tlačítko mimo odesílání formuláře', () => {
+    render(<Lahve onZavrit={() => {}} dnes={ulozene} onUpravit={() => {}} />);
+    const tuzky = screen.getAllByRole('button', { name: /^Upravit uložené/ });
+    expect(tuzky).toHaveLength(2);
+    expect(tuzky.every((t) => t.getAttribute('type') === 'button')).toBe(true);
+  });
+
+  describe('DnesUlozeno (seznam pod zápisem)', () => {
+    const piva = [beer];
+
+    it('s obsluhou má každý řádek tužku s názvem piva; klepnutí předá položku', () => {
+      const uprav = vi.fn();
+      render(<DnesUlozeno nadpis="Dnes stočeno do lahví" polozky={ulozene} beers={piva} onUpravit={uprav} />);
+      const tuzka = screen.getByRole('button', { name: 'Upravit uložené: 12° Světlá · 90× 1 l ze 3× sud 50 l' });
+      expect(tuzka.getAttribute('type')).toBe('button');
+      fireEvent.click(tuzka);
+      expect(uprav).toHaveBeenCalledWith(ulozene[0]);
+      expect(screen.getAllByRole('button', { name: /^Upravit uložené/ })).toHaveLength(2);
+    });
+
+    it('bez obsluhy (KEG, fasování) je seznam jen ke čtení, jako dřív', () => {
+      render(<DnesUlozeno nadpis="Dnes stočeno" polozky={ulozene} beers={piva} />);
+      expect(screen.getByText('Dnes stočeno')).toBeTruthy();
+      expect(screen.queryByRole('button')).toBeNull();
+    });
+
+    it('prázdný seznam se nevykreslí vůbec', () => {
+      const { container } = render(<DnesUlozeno nadpis="Dnes stočeno" polozky={[]} beers={piva} onUpravit={() => {}} />);
+      expect(container.firstChild).toBeNull();
+    });
   });
 });

@@ -7,6 +7,8 @@
 // Řádky jedné dávky se tu slučují: stáčení lahví je v databázi jeden řádek
 // na druh lahve, ale pro člověka je to jedno stáčení („90× 1 l, 20× 0,5 l
 // ze 3× sud 50 l").
+import { davkyStaceni, type DavkaStaceni } from './prehledStaceni';
+import type { EntryRow } from './supabase';
 
 export type DnesPolozka = {
   id: string;
@@ -81,4 +83,20 @@ export function dnesLahve(rows: RadekLahve[], den: string, obaly: Obal[]): DnesP
     })
     .sort((a, b) => b.t.localeCompare(a.t))
     .map((x) => x.p);
+}
+
+/**
+ * Uložené stáčení jednoho piva v jednom dni jako dávky pro tabulku úprav pod
+ * zápisem (components/UpravaUlozenehoStaceni.tsx → PrehledStaceniLahvi).
+ *
+ * Stejný výběr a pořadí jako v Přehledu, ať je v obou místech totéž: jen
+ * kladné záznamy (opravy z inventury jsou mínusové a mezi stáčením nemají co
+ * dělat) a šarže v pořadí, v jakém se zapsaly.
+ */
+export function davkyPivaVDni(rows: EntryRow[], den: string, beerId: string, obaly: Obal[]): DavkaStaceni<EntryRow>[] {
+  const objemL = new Map(obaly.map((o) => [o.id, Number(o.volume_l) || 0]));
+  const zaznamy = rows
+    .filter((r) => r.entry_date === den && r.beer_id === beerId && Number(r.quantity) > 0)
+    .sort((a, b) => (a.created_at ?? '').localeCompare(b.created_at ?? '') || a.id.localeCompare(b.id));
+  return davkyStaceni(zaznamy, (pkgId) => (pkgId ? objemL.get(pkgId) ?? 0 : 0));
 }

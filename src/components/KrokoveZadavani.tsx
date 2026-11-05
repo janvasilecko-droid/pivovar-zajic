@@ -15,7 +15,7 @@
 // (lib/rozepsanyZapis.ts, 15. 10. 2026). Zavření NIC nezahazuje: rozepsané
 // jde do zápisu pod dlaždicemi, jako vždycky.
 import { Fragment, ReactNode, useEffect, useRef, useState } from 'react';
-import { Check, Plus, X } from 'lucide-react';
+import { Check, Pencil, Plus, X } from 'lucide-react';
 import { Beer, beerBg, beerName, beerText } from '../lib/supabase';
 import { kusy } from '../lib/krokoveZadavani';
 import type { DnesPolozka } from '../lib/dnesUlozeno';
@@ -72,6 +72,12 @@ type Props = {
   onHotovo?: () => void;
   /** Co už se ten den uložilo u tohohle piva — pod polem. */
   dnes?: DnesPolozka[];
+  /**
+   * Úprava už uložené položky ze seznamu „Už uloženo": panel se zavře (co je
+   * v něm rozepsané, zůstane v zápisu) a obrazovka otevře úpravu. Bez zadání
+   * je seznam jen ke čtení.
+   */
+  onUpravit?: (polozka: DnesPolozka) => void;
   /** Který den to je: „dnes", nebo datum, když se zapisuje zpětně. */
   den?: string;
   /** Doplněk vpravo v liště (např. pole „pro koho" u fasování). */
@@ -80,7 +86,7 @@ type Props = {
 
 const kratky = (stitek: string) => stitek.replace(/^\d+\s*·\s*/, '');
 
-export function KrokoveZadavani({ beer, podtitul, kroky, onZavrit, onHotovo, dnes, den = 'dnes', hlavickaVpravo }: Props) {
+export function KrokoveZadavani({ beer, podtitul, kroky, onZavrit, onHotovo, dnes, onUpravit, den = 'dnes', hlavickaVpravo }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const vychozi = (i: number) => {
     const k = kroky[i];
@@ -383,7 +389,16 @@ export function KrokoveZadavani({ beer, podtitul, kroky, onZavrit, onHotovo, dne
                 {dnesPolozky.map((p) => (
                   <li key={p.id} className="flex items-baseline gap-2 text-sm text-neutral-800 dark:text-neutral-100">
                     <span className="font-black text-neutral-500 tabular-nums min-w-[2.5rem]">{p.cas}</span>
-                    <span className="font-bold">{p.text}</span>
+                    <span className="font-bold flex-1">{p.text}</span>
+                    {onUpravit && (
+                      <button
+                        type="button"
+                        onClick={() => { zavrit(); onUpravit(p); }}
+                        className="btn-ghost !flex-none !w-11 !px-0 self-center"
+                        title="Upravit uložené stáčení"
+                        aria-label={`Upravit uložené: ${p.text}`}
+                      ><Pencil size={16} /></button>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -408,7 +423,13 @@ export function KrokoveZadavani({ beer, podtitul, kroky, onZavrit, onHotovo, dne
 }
 
 /** Seznam dnešních uložených zápisů všech piv — pod zápisem na hlavní obrazovce. */
-export function DnesUlozeno({ nadpis, polozky, beers }: { nadpis: string; polozky: DnesPolozka[]; beers: Beer[] }) {
+export function DnesUlozeno({ nadpis, polozky, beers, onUpravit }: {
+  nadpis: string;
+  polozky: DnesPolozka[];
+  beers: Beer[];
+  /** Tužka u řádku — úprava už uloženého. Bez zadání je seznam jen ke čtení. */
+  onUpravit?: (polozka: DnesPolozka) => void;
+}) {
   if (polozky.length === 0) return null;
   return (
     <div className="mt-4 border border-emerald-200 dark:border-emerald-800/60 bg-white dark:bg-neutral-800 rounded p-3">
@@ -420,7 +441,16 @@ export function DnesUlozeno({ nadpis, polozky, beers }: { nadpis: string; polozk
             <li key={p.id} className="flex items-baseline gap-2 text-sm text-neutral-800 dark:text-neutral-100">
               <span className="font-black text-neutral-500 tabular-nums min-w-[2.5rem]">{p.cas}</span>
               {pivo && <span className="w-2.5 h-2.5 rounded-sm shrink-0 self-center border border-black/20" style={{ backgroundColor: beerBg(pivo) }} aria-hidden="true" />}
-              <span><span className="font-black">{pivo ? beerName(pivo) : ''}</span> · {p.text}</span>
+              <span className="flex-1"><span className="font-black">{pivo ? beerName(pivo) : ''}</span> · {p.text}</span>
+              {onUpravit && (
+                <button
+                  type="button"
+                  onClick={() => onUpravit(p)}
+                  className="btn-ghost !flex-none !w-11 !px-0 self-center"
+                  title="Upravit uložené stáčení"
+                  aria-label={`Upravit uložené: ${[pivo ? beerName(pivo) : '', p.text].filter(Boolean).join(' · ')}`}
+                ><Pencil size={16} /></button>
+              )}
             </li>
           );
         })}
