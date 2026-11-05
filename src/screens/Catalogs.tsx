@@ -6,6 +6,8 @@ import { Modal, Field, EmptyState, Spinner } from '../components/ui';
 import ExcelImportModal from '../components/ExcelImportModal';
 import { AlertTriangle, Beer as BeerIcon, Car, Copy, FileSpreadsheet, Check, Mail, MapPin, Milestone, NotebookPen, Package as PackageIcon, Pencil, Phone, Plus, Search, ShieldAlert, ShieldCheck, Sparkles, Store, Trash2, Wrench, X } from 'lucide-react';
 import { lookupPlaceOnline } from '../lib/placeLookup';
+import { MistaZavozuEditor, GpsNahled } from '../components/MistaZavozu';
+import { gpsText, gpsZFormulare, mistaOdberatele, mistaZRadku, radekZMista, chybiSloupecMist, HLASKA_MIGRACE_MIST, type MistoRadek } from '../lib/mistaZavozu';
 import { chyba, oznam, potvrd, uspech } from '../lib/toast';
 import { usePosledniNacteni } from '../lib/nacitani';
 import { useAuth } from '../lib/auth';
@@ -605,6 +607,12 @@ export function PlacesScreen() {
                     Adresa není zadána
                   </div>
                 )}
+                {mistaOdberatele(p).length > 0 && (
+                  <div className="text-xs text-neutral-700 font-bold mt-1 flex items-center gap-1">
+                    <MapPin size={14} className="text-amber-600 shrink-0" />
+                    <span className="truncate">Další místa: {mistaOdberatele(p).map((m) => m.nazev).join(', ')}</span>
+                  </div>
+                )}
                 {p.delivery_group && <div className="mt-2 text-xs font-bold text-emerald-800 bg-emerald-100 border border-emerald-200 rounded px-2 py-1 inline-block">Skupina: {p.delivery_group}</div>}
                 {p.contact_name && <div className="text-xs text-neutral-700 font-bold mt-2">Kontakt: {p.contact_name}</div>}
                 {p.phone ? (
@@ -1090,8 +1098,11 @@ function PlaceForm({ place, onClose, onSaved }: { place: Place | null; onClose: 
   const [email, setEmail] = useState(place?.email ?? '');
   const [deliveryGroup, setDeliveryGroup] = useState((place as any)?.delivery_group ?? '');
   const [note, setNote] = useState(place?.note ?? '');
-  const [lat, setLat] = useState<number | null>(place?.lat ?? null);
-  const [lng, setLng] = useState<number | null>(place?.lng ?? null);
+  // 📍 GPS hlavní adresy jako text (vložené GPS nebo odkaz z mapy) a další
+  // místa závozu (5. 11. 2026: „u Radek je potřeba 2 GPS…"), lib/mistaZavozu.ts.
+  const [gpsHlavni, setGpsHlavni] = useState(place?.lat != null && place?.lng != null ? gpsText(place.lat, place.lng) : '');
+  const nastavGps = (la?: number, ln?: number) => { if (la != null && ln != null) setGpsHlavni(gpsText(la, ln)); };
+  const [dalsiMista, setDalsiMista] = useState<MistoRadek[]>(() => mistaOdberatele(place).map(radekZMista));
   const [busy, setBusy] = useState(false);
   const [searchingAddress, setSearchingAddress] = useState(false);
   const [addressCandidates, setAddressCandidates] = useState<{ address: string; phone?: string; displayName: string; lat?: number; lng?: number }[]>([]);
@@ -1114,8 +1125,7 @@ function PlaceForm({ place, onClose, onSaved }: { place: Place | null; onClose: 
     } else if (results.length === 1) {
       setAddress(results[0].address);
       if (results[0].phone && !phone) setPhone(results[0].phone);
-      if (results[0].lat != null) setLat(results[0].lat);
-      if (results[0].lng != null) setLng(results[0].lng);
+      nastavGps(results[0].lat, results[0].lng);
       setLookupMsg(`Adresa načtena: ${results[0].address}`);
     } else {
       setAddressCandidates(results);
@@ -1128,10 +1138,24 @@ function PlaceForm({ place, onClose, onSaved }: { place: Place | null; onClose: 
       oznam('Vyplň název odběratele.');
       return;
     }
+    const gps = gpsZFormulare(gpsHlavni, place ?? undefined);
+    if (gps === 'nepoznane') {
+      oznam('GPS hlavní adresy jsem nepoznal — vlož třeba 50.2092, 15.8328 nebo odkaz z mapy.cz, případně pole vymaž.');
+      return;
+    }
+    const { lat, lng } = gps;
+    const { mista, chyby: chybyMist } = mistaZRadku(dalsiMista);
+    if (chybyMist.length > 0) {
+      oznam(`Další místa závozu: ${chybyMist.join('; ')}. Oprav GPS, nebo pole vymaž.`);
+      return;
+    }
+    // Sloupec mista_zavozu se posílá, jen když místa jsou nebo byla — u ostatních
+    // odběratelů jde uložení jako dřív i před migrací 20261231450000.
+    const sMisty = mista.length > 0 || mistaOdberatele(place).length > 0;
     setBusy(true);
 
     const trimmedName = name.trim();
-    const fullPayload = {
+    const fullBezMist = {
       name: trimmedName,
       address: address.trim() || null,
       contact_name: contactName.trim() || null,
@@ -1141,6 +1165,9 @@ function PlaceForm({ place, onClose, onSaved }: { place: Place | null; onClose: 
       delivery_group: deliveryGroup.trim() || null,
       lat, lng,
     };
+    const fullPayload = sMisty ? { ...fullBezMist, mista_zavozu: mista } : fullBezMist;
+    // Migrace ještě neproběhla: ostatní údaje se uloží, místa zůstanou ve formuláři.
+    let mistaNeulozena = false;
     const basePayload = {
       name: trimmedName,
       address: address.trim() || null,
@@ -1154,7 +1181,11 @@ function PlaceForm({ place, onClose, onSaved }: { place: Place | null; onClose: 
 
     let error: any = null;
     if (place) {
-      const res = await supabase.from('places').update(fullPayload).eq('id', place.id);
+      let res = await supabase.from('places').update(fullPayload).eq('id', place.id);
+      if (res.error && sMisty && chybiSloupecMist(res.error)) {
+        mistaNeulozena = true;
+        res = await supabase.from('places').update(fullBezMist).eq('id', place.id);
+      }
       error = res.error;
       if (error) {
         const retry1 = await supabase.from('places').update(basePayload).eq('id', place.id);
@@ -1165,7 +1196,11 @@ function PlaceForm({ place, onClose, onSaved }: { place: Place | null; onClose: 
         }
       }
     } else {
-      const res = await supabase.from('places').insert(fullPayload);
+      let res = await supabase.from('places').insert(fullPayload);
+      if (res.error && sMisty && chybiSloupecMist(res.error)) {
+        mistaNeulozena = true;
+        res = await supabase.from('places').insert(fullBezMist);
+      }
       error = res.error;
       if (error) {
         if (error.message?.includes('places_name_lower_uniq') || error.code === '23505') {
@@ -1189,6 +1224,10 @@ function PlaceForm({ place, onClose, onSaved }: { place: Place | null; onClose: 
     setBusy(false);
     if (error) {
       chyba(`Nepodařilo se uložit odběratele: ${error.message || JSON.stringify(error)}`);
+      return;
+    }
+    if (mistaNeulozena) {
+      chyba(`${HLASKA_MIGRACE_MIST} Ostatní údaje odběratele jsou uložené.`);
       return;
     }
     onSaved();
@@ -1233,8 +1272,7 @@ function PlaceForm({ place, onClose, onSaved }: { place: Place | null; onClose: 
                   onClick={() => {
                     setAddress(cand.address);
                     if (cand.phone && !phone) setPhone(cand.phone);
-                    if (cand.lat != null) setLat(cand.lat);
-                    if (cand.lng != null) setLng(cand.lng);
+                    nastavGps(cand.lat, cand.lng);
                     setAddressCandidates([]);
                     setLookupMsg(`Vybrána adresa: ${cand.address}`);
                   }}
@@ -1258,6 +1296,21 @@ function PlaceForm({ place, onClose, onSaved }: { place: Place | null; onClose: 
             placeholder="Ulice 123, Město"
           />
         </Field>
+
+        <div>
+          <label htmlFor="odberatel-gps" className="block text-xs font-bold text-neutral-700">GPS hlavní adresy</label>
+          <input
+            id="odberatel-gps"
+            className="input font-mono"
+            value={gpsHlavni}
+            onChange={(e) => setGpsHlavni(e.target.value)}
+            placeholder="50.2092, 15.8328 nebo odkaz z mapy"
+            aria-describedby="odberatel-gps-nahled"
+          />
+          <GpsNahled text={gpsHlavni} id="odberatel-gps-nahled" />
+        </div>
+
+        <MistaZavozuEditor radky={dalsiMista} onZmena={setDalsiMista} />
 
         <div className="grid grid-cols-2 gap-3">
           <Field label="Kontaktní osoba">

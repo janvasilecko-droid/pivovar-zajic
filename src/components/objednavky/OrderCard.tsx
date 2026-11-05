@@ -4,7 +4,7 @@ import { rozdelSudyLahve } from '../../lib/sudyLahve';
 import { DvaSloupcePolozek } from '../DvaSloupcePolozek';
 import { poradiPolozekObjednavky } from '../../lib/poradiPolozek';
 import { MaleSudyRadek, tridaRadkuSudu } from '../MaleSudyVolne';
-import { AlertTriangle, Ban, Beer as BeerIcon, Calendar, Check, CheckCircle2, Hourglass, MessageCircle, NotebookPen, Pencil, Phone, RotateCcw, Split, Trash2, Truck, Undo2, Droplet } from 'lucide-react';
+import { AlertTriangle, Ban, Beer as BeerIcon, Calendar, Check, CheckCircle2, Hourglass, MapPin, MessageCircle, NotebookPen, Pencil, Phone, RotateCcw, Split, Trash2, Truck, Undo2, Droplet } from 'lucide-react';
 import { Beer, Package, Place, beerBg, formatPackageLabel } from '../../lib/supabase';
 
 import { schodkyObjednavky } from '../../lib/tydenniZbytek';
@@ -21,6 +21,7 @@ import { StitekStavu } from '../StitekStavu';
 import { jeVyrizena, terminZavozu, popisekVyjezdu } from '../../lib/stavyObjednavek';
 import { businessDateISO } from '../../lib/businessDate';
 import { vracenoPodleObjednavky } from '../../lib/vraceniZObjednavky';
+import { maViceMist, mistaOdberatele, mistoObjednavky, nazevHlavnihoMista } from '../../lib/mistaZavozu';
 
 import { type Order, type OrderItem, dayColor, getTapNameForOrder } from './spolecne';
 
@@ -167,6 +168,23 @@ export function OrderCard({ o, items, stockRemainingForOrder, nadPocetMalychSudu
               <Truck size={18} /> {DAYS.find((d) => d.v === o.delivery_day)?.label ?? o.delivery_day}
             </span>
           )}
+          {/* 📍 Kam se veze — jen u odběratele s víc místy závozu (Radek: Praha / Hradec).
+              Nevybrané místo je vidět, ať se dá doplnit dřív, než ho počítá Kniha jízd. */}
+          {(() => {
+            const odberatel = places.find((p) => p.id === o.place_id);
+            if (!maViceMist(odberatel)) return null;
+            const cil = mistoObjednavky(o, odberatel);
+            const moznosti = [nazevHlavnihoMista(odberatel), ...mistaOdberatele(odberatel).map((m) => m.nazev)].join(' / ');
+            return cil.zvoleno ? (
+              <span className="chip bg-white text-neutral-900 border border-neutral-300 font-black shrink-0 flex items-center gap-1" title="Kam se veze — mění se v Rozvozu nebo v detailu objednávky">
+                <MapPin size={12} className="text-amber-700" /> {cil.nazev}
+              </span>
+            ) : (
+              <span className="chip bg-amber-100 text-amber-950 border border-amber-300 font-black shrink-0 flex items-center gap-1" title="Kam se veze — vyber v Rozvozu nebo v detailu objednávky">
+                <MapPin size={12} /> kam? {moznosti}
+              </span>
+            );
+          })()}
           {(() => {
             const termin = terminZavozu(o, businessDateISO());
             if (termin === 'po_terminu') return (

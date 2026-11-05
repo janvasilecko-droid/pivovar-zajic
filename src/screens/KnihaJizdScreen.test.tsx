@@ -10,6 +10,7 @@ const h = vi.hoisted(() => ({
   orders: [] as Record<string, unknown>[],
   places: [] as Record<string, unknown>[],
   stareVygenerovane: [] as { id: string }[],
+  trasy: [] as unknown[],
   auth: { profile: { role: 'admin' } as Record<string, unknown> | null, user: { id: 'u1' } },
   stav: { dostupne: true, mesice: [] as Record<string, unknown>[] },
   ulozDavku: vi.fn(),
@@ -60,7 +61,7 @@ vi.mock('../lib/toast', () => ({
 vi.mock('../lib/excel', () => ({ exportHistoryDetailToExcel: vi.fn() }));
 vi.mock('../lib/safePrint', () => ({ printTable: vi.fn() }));
 vi.mock('../lib/routeDistance', () => ({
-  computeRouteDistanceKm: async () => ({ km: 42.5, missingCoords: [] }),
+  computeRouteDistanceKm: async (zastavky: unknown) => { h.trasy.push(zastavky); return { km: 42.5, missingCoords: [] }; },
   popisTrasyDne: (jmena: string[]) => [...jmena, 'Kynšperk nad Ohří'].join(' → '),
 }));
 vi.mock('../lib/zavozKachnaDb', () => ({ preneseMistniKachnu: async () => [] }));
@@ -108,6 +109,7 @@ beforeEach(() => {
   h.orders = [];
   h.places = [];
   h.stareVygenerovane = [];
+  h.trasy = [];
   zakladniData();
 });
 
@@ -356,6 +358,44 @@ describe('Generování z objednávek', () => {
     await waitFor(() => expect(h.chyba).toHaveBeenCalled());
     expect(String(h.chyba.mock.calls[0][0])).toMatch(/říjen 2026 je u auta Kačena .* uzavřený/);
     expect(h.ulozDavku).not.toHaveBeenCalled();
+  });
+
+  // 📍 5. 11. 2026: „u Radek je potřeba 2 GPS, občas se vozí do Hradce a občas do Prahy."
+  const RADEK = {
+    id: 'radek', name: 'Radek', address: 'Korunní 10, Praha 2, 120 00', lat: 50.0755, lng: 14.4378,
+    mista_zavozu: [{ id: 'hk', nazev: 'Hradec', adresa: 'Gočárova třída 1, Hradec Králové', lat: 50.2092, lng: 15.8328 }],
+  };
+
+  it('Radek do Hradce: zastávka s GPS Hradce, v trase „Radek (Hradec)" a +30 km za město', async () => {
+    h.places = [RADEK];
+    h.orders = [objednavka({ place_id: 'radek', place_name: 'Radek', misto_zavozu: 'hk' })];
+    fireEvent.click(await dojdiNaNahled());
+    await waitFor(() => expect(h.ulozDavku).toHaveBeenCalledTimes(1));
+    expect(h.trasy[0]).toEqual([{ name: 'Radek (Hradec)', lat: 50.2092, lng: 15.8328, address: 'Gočárova třída 1, Hradec Králové' }]);
+    const jizda = (h.ulozDavku.mock.calls[0][0] as { vlozit: Record<string, unknown>[] }).vlozit[0];
+    expect(jizda).toMatchObject({ route_to: 'Radek (Hradec) → Kynšperk nad Ohří', km_driven: 72.5 });
+    expect(String(jizda.note)).toMatch(/Hradec Králové/);
+    expect(String(jizda.note)).not.toMatch(/nebylo vybrané místo/);
+  });
+
+  it('Radek bez vybraného místa: počítá hlavní adresu a upozorní v náhledu i v poznámce', async () => {
+    h.places = [RADEK];
+    h.orders = [objednavka({ place_id: 'radek', place_name: 'Radek', misto_zavozu: null })];
+    const tlacitko = await dojdiNaNahled();
+    expect(screen.getByText(/Radek: není vybráno, kam se vezlo/)).toBeTruthy();
+    expect(h.trasy[0]).toEqual([{ name: 'Radek', lat: 50.0755, lng: 14.4378, address: 'Korunní 10, Praha 2, 120 00' }]);
+    fireEvent.click(tlacitko);
+    await waitFor(() => expect(h.ulozDavku).toHaveBeenCalledTimes(1));
+    const jizda = (h.ulozDavku.mock.calls[0][0] as { vlozit: Record<string, unknown>[] }).vlozit[0];
+    expect(String(jizda.note)).toMatch(/u Radek nebylo vybrané místo závozu, počítáno s hlavní adresou/);
+  });
+
+  it('před migrací (odběratel bez mista_zavozu) se počítá jako dřív', async () => {
+    h.places = [{ id: 'p1', name: 'Sokolov', address: 'Sokolov', lat: 50.18, lng: 12.64 }];
+    h.orders = [objednavka()];
+    fireEvent.click(await dojdiNaNahled());
+    await waitFor(() => expect(h.ulozDavku).toHaveBeenCalledTimes(1));
+    expect(h.trasy[0]).toEqual([{ name: 'Sokolov', lat: 50.18, lng: 12.64, address: 'Sokolov' }]);
   });
 
   it('chyba atomického zápisu se ohlásí a okno zůstane otevřené', async () => {
