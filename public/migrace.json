@@ -186,6 +186,7 @@
     "20261231410000_pivovarska_bible_knihovna.sql",
     "20261231420000_pivovarska_bible_zpracovani.sql",
     "20261231430000_pivovarska_bible_samostatny_projekt.sql",
-    "20261231440000_pivovarska_bible_uklid_hlavniho_projektu.sql"
+    "20261231440000_pivovarska_bible_uklid_hlavniho_projektu.sql",
+    "20261231450000_odberatel_vic_mist_zavozu.sql"
   ]
 }

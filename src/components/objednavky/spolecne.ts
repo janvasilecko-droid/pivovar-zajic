@@ -15,6 +15,8 @@ export type Order = {
   whatsapp_message_id?: string | null; // WhatsApp zpráva, ze které objednávka vznikla (#18)
   /** Bez závozu — odběratel si pivo bere sám, nejde do trasy. Viz lib/bezZavozu.ts. */
   no_delivery?: boolean;
+  /** Zvolené místo závozu odběratele (lib/mistaZavozu.ts, migrace 20261231450000); prázdné = hlavní adresa. */
+  misto_zavozu?: string | null;
 };
 export type OrderItem = {
   id: string; order_id: string; beer_id: string | null; beer_name: string | null;

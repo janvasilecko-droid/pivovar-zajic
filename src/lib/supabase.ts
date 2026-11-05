@@ -732,6 +732,8 @@ export type Place = {
   contact_name?: string | null; email?: string | null;
   delivery_group?: string | null;
   lat?: number | null; lng?: number | null;
+  /** Další místa závozu (lib/mistaZavozu.ts); chybí, dokud neproběhne migrace 20261231450000. */
+  mista_zavozu?: unknown;
 };
 
 export type Profile = {

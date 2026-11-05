@@ -38,6 +38,7 @@ import { chyba, oznam, potvrd } from '../lib/toast';
 import { businessDateISO } from '../lib/businessDate';
 import { useAuth } from '../lib/auth';
 import { canUserEdit, getUserPermissions } from '../lib/permissions';
+import { zastavkaObjednavky, type OdberatelSMisty } from '../lib/mistaZavozu';
 
 export type LogbookEntry = {
   id: string;
@@ -172,7 +173,7 @@ export default function KnihaJizdScreen({ setPage, uvodniAkce }: {
   const [autoStartKm, setAutoStartKm] = useState<string>('120000');
   const [autoStartKmKachna, setAutoStartKmKachna] = useState<string>('0');
   const [autoGenerating, setAutoGenerating] = useState(false);
-  const [previewDays, setPreviewDays] = useState<{ date: string; routeTo: string; stopsCount: number; isKachna: boolean; zavozCislo: number; km: string; missingCoords: string[]; priplatekKm?: number; mesta?: string[] }[]>([]);
+  const [previewDays, setPreviewDays] = useState<{ date: string; routeTo: string; stopsCount: number; isKachna: boolean; zavozCislo: number; km: string; missingCoords: string[]; priplatekKm?: number; mesta?: string[]; bezVolbyMista?: string[] }[]>([]);
 
   function openAutoModal() {
     setAutoStep('form');
@@ -410,7 +411,9 @@ export default function KnihaJizdScreen({ setPage, uvodniAkce }: {
             `and(delivery_date.gte.${monthStart},delivery_date.lte.${monthEnd}),and(order_date.gte.${bufStart},order_date.lte.${bufEnd})`
           )
           .order('order_date', { ascending: true }),
-        supabase.from('places').select('id, name, lat, lng, address'),
+        // Celý řádek (*) — s ním přijdou i další místa závozu (mista_zavozu), když už
+        // proběhla migrace 20261231450000; bez ní se dotaz nerozbije.
+        supabase.from('places').select('*'),
       ]);
 
       const dayCodeOffset = (code: string | null | undefined): number | null => {
@@ -445,8 +448,8 @@ export default function KnihaJizdScreen({ setPage, uvodniAkce }: {
 
       const skippedNoDay = objednavky.filter((o) => !effectiveDeliveryDate(o)).length;
 
-      const placesById = new Map<string, { lat: number | null; lng: number | null; address: string | null }>(
-        ((rawPlaces as any[]) ?? []).map((p) => [p.id, { lat: p.lat, lng: p.lng, address: p.address ?? null }])
+      const placesById = new Map<string, OdberatelSMisty>(
+        ((rawPlaces as any[]) ?? []).map((p) => [p.id, p as OdberatelSMisty])
       );
 
       if (!ordersList.length) {
@@ -470,8 +473,12 @@ export default function KnihaJizdScreen({ setPage, uvodniAkce }: {
         dateGroups.set(d, arr);
       });
 
+      // 📍 Zastávka objednávky podle zvoleného místa závozu (5. 11. 2026: Radek
+      // jednou do Prahy, jindy do Hradce) — lib/mistaZavozu.ts zastavkaObjednavky.
+      const zastavka = (o: any) => zastavkaObjednavky(o, o.place_id ? placesById.get(o.place_id) : undefined);
+
       const buildRoute = (dayOrders: any[]) => {
-        const placeNames = Array.from(new Set(dayOrders.map((o) => o.place_name || 'Místní odběratel')));
+        const placeNames = Array.from(new Set(dayOrders.map((o) => zastavka(o).name)));
         return popisTrasyDne(placeNames);
       };
 
@@ -482,17 +489,18 @@ export default function KnihaJizdScreen({ setPage, uvodniAkce }: {
         const seen = new Set<string>();
         const stops: { name: string; lat: number | null; lng: number | null; address?: string | null }[] = [];
         dayOrders.forEach((o) => {
-          const name = o.place_name || 'Místní odběratel';
-          const key = o.place_id || name;
-          if (seen.has(key)) return;
-          seen.add(key);
-          const p = o.place_id ? placesById.get(o.place_id) : undefined;
-          stops.push({ name, lat: p?.lat ?? null, lng: p?.lng ?? null, address: p?.address ?? null });
+          const z = zastavka(o);
+          if (seen.has(z.klic)) return;
+          seen.add(z.klic);
+          stops.push({ name: z.name, lat: z.lat, lng: z.lng, address: z.address });
         });
         return stops;
       };
+      // Odběratelé s víc místy, u jejichž objednávky nikdo nevybral kam — počítá se hlavní adresa.
+      const bezVolbyMista = (dayOrders: any[]) =>
+        [...new Set(dayOrders.filter((o) => zastavka(o).bezVolby).map((o) => o.place_name || 'Místní odběratel'))];
 
-      const groups: { date: string; routeTo: string; stopsCount: number; isKachna: boolean; zavozCislo: number; stops: { name: string; lat: number | null; lng: number | null; address?: string | null }[] }[] = [];
+      const groups: { date: string; routeTo: string; stopsCount: number; isKachna: boolean; zavozCislo: number; stops: { name: string; lat: number | null; lng: number | null; address?: string | null }[]; bezVolby: string[] }[] = [];
       [...dateGroups.entries()]
         .sort((a, b) => a[0].localeCompare(b[0]))
         .forEach(([dDate, dayOrders]) => {
@@ -505,13 +513,15 @@ export default function KnihaJizdScreen({ setPage, uvodniAkce }: {
             [1, 2].forEach((cislo) => {
               const zavozOrders = carOrders.filter((o) => ((o.zavoz_cislo ?? 1) === 2 ? 2 : 1) === cislo);
               if (zavozOrders.length === 0) return;
+              const stops = buildStops(zavozOrders);
               groups.push({
                 date: dDate,
                 routeTo: buildRoute(zavozOrders),
-                stopsCount: new Set(zavozOrders.map((o) => o.place_name)).size,
+                stopsCount: stops.length,
                 isKachna,
                 zavozCislo: cislo,
-                stops: buildStops(zavozOrders),
+                stops,
+                bezVolby: bezVolbyMista(zavozOrders),
               });
             });
           };
@@ -538,6 +548,7 @@ export default function KnihaJizdScreen({ setPage, uvodniAkce }: {
             missingCoords,
             priplatekKm: priplatek.km,
             mesta: priplatek.mesta,
+            bezVolbyMista: g.bezVolby,
           };
         })
       );
@@ -562,9 +573,12 @@ export default function KnihaJizdScreen({ setPage, uvodniAkce }: {
     );
     const generatedEntries: LogbookEntry[] = previewDays.map((d, i) => {
       const maVicZavozu = previewDays.filter((x) => x.date === d.date && x.isKachna === d.isKachna).length > 1;
-      const missingNote = d.missingCoords.length > 0
+      const missingNote = (d.missingCoords.length > 0
         ? ` — km odhad neúplný, chybí souřadnice u: ${d.missingCoords.join(', ')} (doplň v Odběratelích)`
-        : '';
+        : '')
+        + (d.bezVolbyMista?.length
+          ? ` — u ${d.bezVolbyMista.join(', ')} nebylo vybrané místo závozu, počítáno s hlavní adresou`
+          : '');
       return {
         id: crypto.randomUUID(),
         date: d.date,
@@ -1094,6 +1108,11 @@ export default function KnihaJizdScreen({ setPage, uvodniAkce }: {
                   {d.missingCoords.length > 0 && (
                     <div className="text-udaj text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 font-semibold leading-snug">
                       <AlertTriangle className="ikona-text" /> Chybí souřadnice u: {d.missingCoords.join(', ')} — tahle zastávka se do km nezapočítala, doplň souřadnice v Odběratelích nebo km uprav ručně.
+                    </div>
+                  )}
+                  {!!d.bezVolbyMista?.length && (
+                    <div className="text-udaj text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 font-semibold leading-snug">
+                      <AlertTriangle className="ikona-text" /> {d.bezVolbyMista.join(', ')}: není vybráno, kam se vezlo — km počítané na hlavní adresu. Vyber místo u objednávky (Rozvoz nebo detail objednávky) a vygeneruj znovu, nebo km uprav ručně.
                     </div>
                   )}
                   <div className="flex items-center gap-2">

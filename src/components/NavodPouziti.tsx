@@ -639,6 +639,7 @@ const ODDILY: Oddil[] = [
     kCemu: 'Seznamy, ze kterých čerpá zbytek aplikace.',
     body: [
       { co: 'Odběratelé', jak: 'Jména, telefony a adresy. Odsud se berou do objednávek.' },
+      { co: 'Víc míst závozu', jak: 'Když se k jednomu odběrateli vozí na víc míst (třeba Radek: Praha a Hradec), v Odběratelích → Upravit přidej „Další místo závozu“ s adresou a GPS (vložit jde i odkaz z mapy.cz nebo Google Map). U objednávky pak v Rozvozu nebo v detailu vybereš „Kam“ — podle toho naviguje Rozvoz a počítá Kniha jízd.' },
       { co: 'Piva', jak: 'Název, stupňovitost a BARVA — ta barva se pak používá na štítcích v celé aplikaci.' },
       { co: 'Obaly', jak: 'Sudy, lahve, PET, podtácky. U sudu je objem, podle kterého se počítají litry.' },
       { co: 'Ceník', jak: 'Ceny za litr piva a za obal. Odsud se počítají částky v objednávkách a v exportu; když se cena změní, změň ji tady a projeví se všude.' },

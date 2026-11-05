@@ -33,6 +33,9 @@ import { datumProDenObjednavky } from '../lib/keggingPlan';
 import { uloz } from '../lib/uloziste';
 import { useOdskrtavani } from '../lib/useOdskrtavani';
 import { denProRozvoz } from '../lib/nalozitNaZavoz';
+import { cilNavigace, maViceMist, mistoObjednavky } from '../lib/mistaZavozu';
+import { ulozMistoObjednavky } from '../lib/mistaZavozuDb';
+import { VolbaMistaZavozu } from '../components/MistaZavozu';
 
 // Stahuje se až při otevření — viz komentář u lazy() v Orders.tsx.
 const EditOrderModal = lazy(() => import('../components/EditOrderModal').then((m) => ({ default: m.EditOrderModal })));
@@ -49,6 +52,8 @@ type Order = {
   zavoz_cislo?: number | null;
   /** Jede druhým autem (Kačena) — migrace 20261231390000; bez ní v řádcích chybí. */
   second_car?: boolean | null;
+  /** Zvolené místo závozu odběratele (lib/mistaZavozu.ts) — migrace 20261231450000; bez ní chybí. */
+  misto_zavozu?: string | null;
 };
 type OrderItem = { id: string; order_id: string; beer_id: string | null; beer_name: string | null; package_id: string | null; package_label: string | null; quantity: number; is_prepared: boolean; is_bottled: boolean };
 
@@ -346,6 +351,29 @@ export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
     return { 1: vDni.filter((o) => (o.zavoz_cislo ?? 1) === 1).length, 2: vDni.filter((o) => (o.zavoz_cislo ?? 1) === 2).length };
   }, [activeOrders, selectedDayFilter]);
 
+  // 📍 Kam se veze — u odběratele s víc místy (Radek: Praha / Hradec, 5. 11. 2026).
+  // Hned se překreslí; když uložení neprojde, vrátí se zpátky.
+  async function nastavMistoZavozu(o: Order, mistoId: string | null) {
+    const predtim = o.misto_zavozu ?? null;
+    setOrders((arr) => arr.map((x) => (x.id === o.id ? { ...x, misto_zavozu: mistoId } : x)));
+    const potiz = await ulozMistoObjednavky(o.id, mistoId);
+    if (potiz) {
+      setOrders((arr) => arr.map((x) => (x.id === o.id ? { ...x, misto_zavozu: predtim } : x)));
+      chyba(potiz);
+    }
+  }
+
+  /** Přepínač „Kam" pod objednávkou — jen u odběratele s víc místy závozu. */
+  function volbaMista(o: Order) {
+    const odberatel = places.find((p) => p.id === o.place_id);
+    if (!maViceMist(odberatel)) return null;
+    return (
+      <div className="mt-2">
+        <VolbaMistaZavozu odberatel={odberatel} mistoId={o.misto_zavozu} onVyber={(id) => void nastavMistoZavozu(o, id)} />
+      </div>
+    );
+  }
+
   async function nastavZavozCislo(o: Order, cislo: number) {
     const { error } = await supabase.from('orders').update({ zavoz_cislo: cislo }).eq('id', o.id);
     if (error) { chyba('Závoz se nepodařilo změnit: ' + error.message); return; }
@@ -559,7 +587,12 @@ export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
       summary: `Celkem objednávek: ${toPrint.length}`,
       emptyMessage: 'Žádné objednávky k vytištění.',
       orders: toPrint.map((order) => ({
-        placeName: order.place_name,
+        // U odběratele s víc místy i kam (Radek — Hradec), ať řidič neveze jinam.
+        placeName: (() => {
+          const odberatel = places.find((p) => p.id === order.place_id);
+          const cil = mistoObjednavky(order, odberatel);
+          return maViceMist(odberatel) && cil.zvoleno && order.place_name ? `${order.place_name} — ${cil.nazev}` : order.place_name;
+        })(),
         deliveryLabel: order.delivery_day
           ? DAYS.find((day) => day.v === order.delivery_day)?.label
           : 'Bez dne',
@@ -1144,6 +1177,7 @@ export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
                                             {o.note && <div className="text-xs text-neutral-600 font-medium mt-1 bg-amber-100/60 px-2.5 py-1 rounded italic flex items-start gap-1"><StickyNote size={12} className="mt-0.5 shrink-0" /> {o.note}</div>}
                                             <UkolyObjednavky poznamka={o.note} orderId={o.id} hotove={hotoveUkoly} onPrepni={prepniUkol} />
                                             <div className="mt-2"><ZavozVolba cislo={o.zavoz_cislo ?? 1} den={o.delivery_day} dostupne={zavozyDostupne} onCislo={(c) => nastavZavozCislo(o, c)} onDen={(d) => presunNaDen(o, d)} /></div>
+                                            {volbaMista(o)}
                                           </div>
                                           <div className="flex items-center gap-1.5">
                                             <button
@@ -1252,6 +1286,7 @@ export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
                                   )}
                                   <UkolyObjednavky poznamka={o.note} orderId={o.id} hotove={hotoveUkoly} onPrepni={prepniUkol} />
                                   <div className="mt-2"><ZavozVolba cislo={o.zavoz_cislo ?? 1} den={o.delivery_day} dostupne={zavozyDostupne} onCislo={(c) => nastavZavozCislo(o, c)} onDen={(d) => presunNaDen(o, d)} /></div>
+                                  {volbaMista(o)}
                                 </div>
                               </div>
 
@@ -1285,14 +1320,17 @@ export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
                                   <span>Váha: {fmtKg(weightKg)} kg</span>
                                 </div>
                                 <div className="flex items-center gap-1.5 flex-wrap justify-end">
-                                  {/* 🧭 1-Click Navigace — používá adresu z databáze pokud existuje */}
+                                  {/* 🧭 1-Click Navigace — na zvolené místo závozu (lib/mistaZavozu.ts):
+                                      adresa, jinak GPS, jinak název odběratele. */}
                                   {o.place_name && (() => {
                                     const placeRecord = places.find(p => p.id === o.place_id);
-                                    const navDest = placeRecord?.address || o.place_name!;
+                                    const cil = mistoObjednavky(o, placeRecord);
+                                    const navDest = cilNavigace(cil, o.place_name!);
+                                    const navNazev = cil.id ? `${o.place_name} — ${cil.nazev}` : o.place_name!;
                                     return (
                                       <button
                                         type="button"
-                                        onClick={() => setNavTarget({ name: o.place_name!, destination: navDest })}
+                                        onClick={() => setNavTarget({ name: navNazev, destination: navDest })}
                                         className="btn-ghost !rounded !py-1.5 !px-2.5 text-xs font-black flex items-center gap-1 bg-amber-50 text-amber-950 border border-amber-300 shadow-2xs hover:bg-amber-100"
                                         title={`Navigovat: ${navDest}`}
                                       >

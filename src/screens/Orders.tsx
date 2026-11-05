@@ -1778,6 +1778,9 @@ export default function Orders({
         order_date: today, place_id: o.place_id, place_name: o.place_name,
         source: 'duplikat', status: 'nova', delivery_day: o.delivery_day,
         delivery_date: null, is_prepared: false, is_packaged: false, note: o.note,
+        // 📍 Kopie jede tam, kam předloha (Radek: Hradec / Praha). Hodnota je v řádku
+        // jen po migraci 20261231450000 — do té doby se sloupec neposílá.
+        ...(o.misto_zavozu ? { misto_zavozu: o.misto_zavozu } : {}),
       }).select().single();
       if (error || !newOrder) return;
       oznacVlastniObjednavku(newOrder.id);

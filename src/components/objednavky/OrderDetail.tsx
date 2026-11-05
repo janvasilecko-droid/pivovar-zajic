@@ -31,6 +31,9 @@ import { StitekStavu } from '../StitekStavu';
 
 import { type Order, type OrderItem, dayColor } from './spolecne';
 import { WhatsAppOriginalBlock } from './WhatsAppOriginalBlock';
+import { VolbaMistaZavozu } from '../MistaZavozu';
+import { maViceMist } from '../../lib/mistaZavozu';
+import { ulozMistoObjednavky } from '../../lib/mistaZavozuDb';
 export function OrderDetail({ order, items, beers, packages, places, priceList, remaining, onClose, onChanged, onSplit, onToggleFlag, onToggleItemFlag, onImportImage, setItems, allOrders, allItems, setPage, weekKey, setWeekKey }: {
   order: Order; items: OrderItem[]; beers: Beer[]; packages: Package[]; places: Place[]; priceList: CenaPolozky[]; remaining: Map<string, number>; onClose: () => void; onChanged: () => void;
   /** Rozdělit na dva odběratele (viz SplitOrderModal) — jen když má 2+ položky. */
@@ -105,6 +108,18 @@ export function OrderDetail({ order, items, beers, packages, places, priceList, 
   const [day, setDay] = useState(order.delivery_day ?? '');
   const [deliveryDate, setDeliveryDate] = useState(order.delivery_date ?? '');
   const [savingMeta, setSavingMeta] = useState(false);
+  // 📍 Kam se veze — u odběratele s víc místy závozu (5. 11. 2026, Radek: Praha / Hradec).
+  const [mistoId, setMistoId] = useState<string | null>(order.misto_zavozu ?? null);
+  const [ukladamMisto, setUkladamMisto] = useState(false);
+  async function zmenMisto(id: string | null) {
+    const predtim = mistoId;
+    setMistoId(id);
+    setUkladamMisto(true);
+    const potiz = await ulozMistoObjednavky(order.id, id);
+    setUkladamMisto(false);
+    if (potiz) { setMistoId(predtim); chyba(potiz); return; }
+    onChanged();
+  }
   // Znění originální WhatsApp zprávy (viz WhatsAppOriginalBlock níž) — kvůli
   // odhadu času dovozu ("přijedou kolem poledne") i tehdy, když ho stáčeč
   // ještě neuložil do poznámky ručně.
@@ -394,6 +409,14 @@ export function OrderDetail({ order, items, beers, packages, places, priceList, 
               <Phone size={14} /> <span>{_ph}</span>
             </a>
           ) : null; })()}
+          {(() => {
+            const odberatel = places.find((p) => p.id === order.place_id);
+            return maViceMist(odberatel) ? (
+              <div className="mt-2 mb-3">
+                <VolbaMistaZavozu odberatel={odberatel} mistoId={mistoId} ukladam={ukladamMisto} onVyber={(id) => void zmenMisto(id)} />
+              </div>
+            ) : null;
+          })()}
 
           {placeHistory.length > 0 && (
             <div className="mb-3 rounded-xl bg-primary-50/60 border border-primary-100 p-3">
