@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { dnesLahve, dnesPodleObalu, objemObalu } from './dnesUlozeno';
+import { davkyPivaVDni, dnesLahve, dnesPodleObalu, objemObalu } from './dnesUlozeno';
+import type { EntryRow } from './supabase';
 
 const obaly = [
   { id: 'b1', label: '1L PET', volume_l: 1 },
@@ -49,5 +50,40 @@ describe('dnes uloženo', () => {
   it('lahve bez sudů to řekne', () => {
     const rows = [{ id: '1', entry_date: DEN, created_at: '2026-10-29T08:40:00Z', beer_id: 'sv12', package_id: 'b1', quantity: 10, kegs_used: null, kegs_used_package_id: null }];
     expect(dnesLahve(rows, DEN, obaly)[0].text).toBe('10× 1 l · bez sudů');
+  });
+});
+
+describe('davkyPivaVDni — uložené stáčení piva k úpravě pod zápisem', () => {
+  const radek = (o: Record<string, unknown>) => ({
+    id: 'x', entry_date: DEN, created_at: '2026-10-29T08:40:00Z', beer_id: 'sv12', beer_name: '12° Světlá',
+    package_id: 'b1', quantity: 10, kegs_used: 1, kegs_used_package_id: 'k50', ...o,
+  }) as unknown as EntryRow;
+
+  it('vybere jen dané pivo a den; nulové a mínusové záznamy (opravy z inventury) vynechá', () => {
+    const rows = [
+      radek({ id: '1', quantity: 90 }),
+      radek({ id: '2', package_id: 'b15', quantity: 20 }),
+      radek({ id: '3', beer_id: 'd10', beer_name: 'Desítka' }),
+      radek({ id: '4', entry_date: '2026-10-28' }),
+      radek({ id: '5', quantity: -4 }),
+      radek({ id: '6', quantity: 0 }),
+    ];
+    const davky = davkyPivaVDni(rows, DEN, 'sv12', obaly);
+    expect(davky).toHaveLength(1);
+    expect(davky[0].polozky.map((p) => p.zaznam.id).sort()).toEqual(['1', '2']);
+    expect(davky[0].celkemKs).toBe(110);
+    // 90 × 1 l + 20 × 1,5 l
+    expect(davky[0].celkemL).toBe(120);
+  });
+
+  it('nemá-li pivo ten den nic uloženého, nevrátí nic (úprava to řekne větou)', () => {
+    expect(davkyPivaVDni([radek({ id: '1' })], DEN, 'd10', obaly)).toEqual([]);
+    expect(davkyPivaVDni([], DEN, 'sv12', obaly)).toEqual([]);
+  });
+
+  it('obal mimo katalog nespadne, jen nemá litry', () => {
+    const davky = davkyPivaVDni([radek({ id: '1', package_id: 'smazany', quantity: 5 })], DEN, 'sv12', obaly);
+    expect(davky[0].celkemKs).toBe(5);
+    expect(davky[0].celkemL).toBe(0);
   });
 });
