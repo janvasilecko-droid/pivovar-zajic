@@ -221,6 +221,14 @@ Postup, v tomhle pořadí:
 Jméno pište tak, jak ho píše odběratel. Pády neohýbej do 1. pádu na sílu,
 ale jméno očisti od předložky: „pro Radka" → „Radek", „na Vildštejn" →
 „Vildštejn". Když si nejsi jistý základním tvarem, nech ho, jak je.
+Jistý je 4. pád ženského jména na -u: „pro Pohodu" → „Pohoda", „na
+Patejdovku" → „Patejdovka" (ne „Patejdovku").
+
+TERMÍN PŘED JMÉNEM JE JEN TERMÍN. „Na příští týden na Patejdovku: 30x30l
+11sv" → place_name „Patejdovka": „na příští týden" říká KDY, „na
+Patejdovku" říká KOMU. Odběratel je to, co následuje po „na" / „pro" a není
+to termín, den, obal ani pivo — v takové zprávě place_name NIKDY nevracej
+null (z provozu 5. 11. 2026 skončila jako „Neznámý odběratel").
 `;
 
 export const KDYZ_NEVIS = `

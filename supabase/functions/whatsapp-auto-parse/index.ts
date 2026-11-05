@@ -4,6 +4,7 @@ import { normText, matchBeerId, matchPackageId, jeLitrPsanyJakoJedenact } from "
 import { poradiPodlePrepisu } from "../_shared/prepis-fotky.ts";
 import { normPlaceName, stripSenderName, resolvePlace, odberatelZHistorie, preferujExaktniOdberatele, wantsOwnOrder as textWantsOwnOrder } from "../_shared/place-match.ts";
 import { nactiHistorii } from "../_shared/historie-objednavek.ts";
+import { odberatelZVety } from "../_shared/odberatel-z-vety.ts";
 import { bezPolozekZCitace } from "../_shared/citace-polozky.ts";
 import { vypadaJakoVraceni } from "../_shared/vraceni-detekce.ts";
 import { jeVlastniHlaseniObjednavky } from "../_shared/vlastni-hlaseni-objednavky.ts";
@@ -745,7 +746,10 @@ Deno.serve(async (req: Request) => {
         // odběratele "petr", i když se v textu zprávy vůbec nevyskytuje
         // (z provozu 16. 9. 2026: "Lucka jede zitra do skoly... pro me prosim").
         const ownOrderCandidate = wantsOwnOrder ? (message.participant_name || message.sender_name) : null;
-        const resolved = resolvePlace(matchCandidates, freeformCandidates, ukotveniText, places, placeAliases, ownOrderCandidate);
+        // 🗣️ Záloha, když AI jméno nevrátila: „Na pristi tyden na Patejdovku:" /
+        // „pro Pohodu" přímo ve VLASTNÍM textu zprávy (ne v citaci) — viz
+        // _shared/odberatel-z-vety.ts (z provozu 5. 11. 2026: Neznámý odběratel).
+        const resolved = resolvePlace(matchCandidates, freeformCandidates, ukotveniText, places, placeAliases, ownOrderCandidate, odberatelZVety(message.message_text));
         parsedPlaceId = resolved.id;
         parsedPlaceName = resolved.name;
 
