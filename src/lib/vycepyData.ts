@@ -35,6 +35,69 @@ type RezervaceRadek = {
   poznamka: string | null; order_id: string | null;
 };
 
+// ── Čas oplachu a louhování ────────────────────────────────────────────────
+// Sloupce `posledni_oplach` a `posledni_sanitace_louhem` jsou timestamptz.
+// Obrazovka Výčepy je ale dřív plnila ČESKÝM TEXTEM („5. 11. 2026 11:06“ — tak
+// vypadá toLocaleDateString('cs-CZ')) a Postgres takový text odmítne
+// („invalid input syntax for type timestamp with time zone“). Výčep ani oplach
+// se tak nikdy neuložil — v ostré databázi byly proto 0 výčepů (5. 11. 2026).
+// Do databáze proto odchází jen to, co z textu jde přečíst jako čas.
+
+/** Čeština: „5. 11. 2026 11:06“, „5.11.2026“ — mezery za tečkami jsou nepovinné. */
+const CESKY_CAS = /^(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})(?:\s+(\d{1,2}):(\d{2}))?$/;
+const JEN_DATUM = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/** Místní čas zařízení → ISO; `null`, když takové datum neexistuje (31. 2.). */
+function mistniNaIso(r: number, m: number, d: number, h = 0, min = 0): string | null {
+  const datum = new Date(r, m - 1, d, h, min);
+  const sedi = datum.getFullYear() === r && datum.getMonth() === m - 1 && datum.getDate() === d
+    && datum.getHours() === h && datum.getMinutes() === min;
+  return sedi ? datum.toISOString() : null;
+}
+
+/**
+ * Převede čas v kterémkoli tvaru, který appka kdy zapsala, na ISO, které
+ * databáze přijme. Český zápis a zápis bez pásma jsou MÍSTNÍ čas zařízení —
+ * tak ho vyrobil `toLocaleTimeString`. Co se přečíst nedá, je `null`
+ * (nikdy výjimka a nikdy uhodnuté datum).
+ */
+export function naIsoCas(text?: string | null): string | null {
+  const t = (text ?? '').trim();
+  if (!t) return null;
+
+  const cesky = CESKY_CAS.exec(t);
+  if (cesky) {
+    const [, d, m, r, h, min] = cesky;
+    return mistniNaIso(Number(r), Number(m), Number(d), h ? Number(h) : 0, min ? Number(min) : 0);
+  }
+
+  const jenDatum = JEN_DATUM.exec(t);
+  if (jenDatum) return mistniNaIso(Number(jenDatum[1]), Number(jenDatum[2]), Number(jenDatum[3]));
+
+  // ISO („2026-11-05T10:06:00+00:00“ z databáze) a starší „2026-07-26 18:00“.
+  // Bez pásma čte JS tvar s časem jako místní čas — stejně jako český zápis.
+  if (!/^\d{4}-\d{2}-\d{2}[ T]\d{1,2}:\d{2}/.test(t)) return null;
+  const datum = new Date(t.replace(' ', 'T'));
+  return Number.isNaN(datum.getTime()) ? null : datum.toISOString();
+}
+
+/** Čas oplachu / louhování tak, jak se ukáže na kartě výčepu: „5. 11. 2026 11:06“. */
+export function ukazCas(text?: string | null): string {
+  const iso = naIsoCas(text);
+  if (!iso) return text ?? '';
+  return new Date(iso).toLocaleString('cs-CZ', {
+    day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
+}
+
+/** Do databáze jen platný čas; nečitelný se zahodí (a ohlásí), ať neshodí uložení celého výčepu. */
+function casProDatabazi(text: string | undefined, co: string): string | null {
+  if (!text || !text.trim()) return null;
+  const iso = naIsoCas(text);
+  if (!iso) console.warn(`Výčep: ${co} „${text}“ nejde přečíst jako čas — neukládá se.`);
+  return iso;
+}
+
 function naVycep(r: VycepRadek): TapEquipment {
   return {
     id: r.id,
@@ -54,8 +117,8 @@ function zVycepu(v: TapEquipment, poradi = 0) {
     nazev: v.name,
     typ: v.tap_type,
     stav: v.status,
-    posledni_oplach: v.last_water_rinse ?? null,
-    posledni_sanitace_louhem: v.last_louh_sanitation ?? null,
+    posledni_oplach: casProDatabazi(v.last_water_rinse, 'čas oplachu'),
+    posledni_sanitace_louhem: casProDatabazi(v.last_louh_sanitation, 'čas louhování'),
     kohouty_rozebrane: !!v.taps_disassembled,
     poznamka: v.note ?? null,
     poradi,
@@ -175,14 +238,27 @@ export async function smazVycep(id: string): Promise<string | null> {
   return error?.message ?? null;
 }
 
+/**
+ * Uloží rezervaci a hned ji dá i do offline kopie. Seznam objednávek ukazuje
+ * štítek s výčepem (getTapNameForOrder) a čte ho synchronně z kopie — bez
+ * tohohle by štítek chyběl, dokud někdo neotevře Výčepy nebo nerestartuje appku.
+ * Při chybě databáze se kopie nemění (co v databázi není, nemá být ani tam).
+ */
 export async function ulozRezervaci(r: TapReservation): Promise<string | null> {
   const { error } = await supabase.from('vycepy_rezervace').upsert(zRezervace(r), { onConflict: 'id' });
-  return error?.message ?? null;
+  if (error) return error.message;
+  const kopie = nactiKopii<TapReservation>(KLIC_REZERVACE);
+  ulozKopii(KLIC_REZERVACE, kopie.some((x) => x.id === r.id)
+    ? kopie.map((x) => (x.id === r.id ? r : x))
+    : [r, ...kopie]);
+  return null;
 }
 
 export async function smazRezervaci(id: string): Promise<string | null> {
   const { error } = await supabase.from('vycepy_rezervace').delete().eq('id', id);
-  return error?.message ?? null;
+  if (error) return error.message;
+  ulozKopii(KLIC_REZERVACE, nactiKopii<TapReservation>(KLIC_REZERVACE).filter((x) => x.id !== id));
+  return null;
 }
 
 /**

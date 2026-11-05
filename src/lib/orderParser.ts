@@ -3,6 +3,7 @@ const BEER_DEGREES = new Set(['8', '10', '11', '12', '13', '14', '15', '16']);
 
 import type { Beer, Package, Place } from './supabase';
 import { uloz } from './uloziste';
+import { popisZminkyVycepu } from '../../supabase/functions/_shared/vycep-z-textu';
 
 export type ParsedVoiceOrder = {
   items: ParsedLine[];
@@ -1819,10 +1820,10 @@ export function matchPlaceFromText(
 }
 
 const NOTE_PATTERNS: { re: RegExp; label: string | ((m: RegExpMatchArray) => string) }[] = [
-  { re: /\b(\+\s*)?vycep\b|\bvycepy\b|\bvycepu\b|\bvycepni\b|\bpujcit\s*vycep\b|\bchlazeni\b|\bchladak\b|\bhospoda\b|\bna[řr]azec\b|\bna[řr]azen[ií]\b/i, label: (m) => m[0].trim() },
-  // 🚰 PIPA / KOHOUT — výčep se rezervuje i když je napsáno "pipa", "dvojkohout",
-  // "jednokohout", "trojkohout", "kohout" apod. (nejen slovo "výčep").
-  { re: /\b(jedno|dvoj|troj|ctyr|sesti)?(pipa|pipy|pipu|kohout|kohouty)\b/i, label: (m) => m[0].trim() },
+  // 🚰 Výčep (pípa, kohout, výčep, chlazení, narážeč) se do poznámky nezapisuje tady,
+  // ale přes `popisZminkyVycepu` (viz detectOrderNotes) — jedno pravidlo s kontrolou
+  // rezervace, serverem a úkoly k závozu. Tady zůstalo jen to, co s výčepem nesouvisí.
+  { re: /\bhospoda\b/i, label: (m) => m[0].trim() },
 
   // 🥛 SKLO — do poznámky jen když je to skutečný požadavek (např. "přidat/ještě/a sklo"),
   // ne samostatné vágní slovo "sklo"/"sklo?" (což AI z fotky zapisuje omylem).
@@ -1857,6 +1858,11 @@ const NOTE_PATTERNS: { re: RegExp; label: string | ((m: RegExpMatchArray) => str
 
 export function detectOrderNotes(rawText: string): string {
   const found: string[] = [];
+  // 🍺 Výčep jde do poznámky první a i s druhem („pipa jednokohout") — z poznámky se
+  // pak čte, jaký výčep rezervovat. Dřív z „plus pipa jednokohout" zbylo holé „pipa"
+  // a „pípu" / „výčep" s diakritikou se nepoznaly vůbec.
+  const vycep = popisZminkyVycepu(rawText);
+  if (vycep) found.push(vycep);
   for (const { re, label } of NOTE_PATTERNS) {
     const m = rawText.match(re);
     if (m) {

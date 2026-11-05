@@ -1,54 +1,39 @@
 import { nactiRezervace, nactiVycepy, ulozRezervaci } from './vycepyData';
 import type { TapEquipment, TapReservation } from '../screens/VycepyScreen';
+import { jeZminenVycep, typVycepu, type TypVycepu } from '../../supabase/functions/_shared/vycep-z-textu';
+import { chyba as chybaOznam, varovani } from './toast';
 
 /**
- * All synonyms that indicate a tap (výčep) is being requested in an order note.
- * Covers: výčep, jednokohout, dvojkohout, trojkohout, pipa, jednopipa, dvojpipa,
- * trojpipa, kohout, pípa, etc.
- */
-const TAP_SYNONYMS = [
-  'vycep', 'vycepy', 'vycepu', 'vycepem', 'vycepni', 'vycepu', 'vycepcima',
-  'jednokohout', 'dvojkohout', 'trojkohout', 'ctyrkohout', 'sestikohout',
-  'pipa', 'pipu', 'pipy', 'pipom', 'pipam',
-  'jednopipa', 'dvojpipa', 'trojpipa', 'sestipipa',
-  'kohout', 'kohouty', 'kohoutek', 'kohoutku',
-  'chlazeni', 'chladak',
-  'narazec', 'narazece',
-];
-
-/**
- * Detect whether the note text mentions a tap (výčep) using any of the synonyms.
+ * Zmínka o výčepu (pípa, kohout, výčep, chlazení, narážeč) v poznámce objednávky.
+ * Pravidla jsou na jednom místě společném se čtením zprávy na serveru a v appce
+ * i s úkoly k závozu: supabase/functions/_shared/vycep-z-textu.ts.
  */
 export function isTapMentioned(noteText?: string): boolean {
-  if (!noteText) return false;
-  const text = noteText.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  return TAP_SYNONYMS.some((syn) => {
-    return new RegExp(`(^|[^a-z0-9])${syn}([^a-z0-9]|$)`, 'i').test(text);
-  });
+  return jeZminenVycep(noteText);
 }
 
-export type TapTypeHint = 'jednokohout' | 'dvojkohout' | 'trojkohout' | 'sestikohout' | null;
+export type TapTypeHint = TypVycepu | null;
 
 /**
- * Detect the requested tap type from the note text (e.g. "jednokohout", "dvojkohout",
- * "trojpipa", "dvojpipa", "sestikohout", etc.). Returns null if no specific type is mentioned.
+ * Požadovaný druh výčepu z poznámky („jednokohout", „pipa dvoukohout",
+ * „šestikohout"…). `null`, když druh není řečen nebo je nejednoznačný.
  */
 export function detectTapType(noteText?: string): TapTypeHint {
-  if (!noteText) return null;
-  const text = noteText.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  return typVycepu(noteText);
+}
 
-  const has = (re: RegExp) => re.test(text);
-
-  // Šestikohout / šestipipa
-  if (has(/\bsest(pipa|kohout|vycep|pipy)\b/)) return 'sestikohout';
-  // Trojkohout / trojpipa
-  if (has(/\btroj(pipa|kohout|vycep|pipy)\b/)) return 'trojkohout';
-  // Dvojkohout / dvojpipa
-  if (has(/\bdvoj(pipa|kohout|vycep|pipy)\b/)) return 'dvojkohout';
-  // Jednokohout / jednopipa
-  if (has(/\bjedno(pipa|kohout|vycep|pipy)\b/)) return 'jednokohout';
-  // Generic "pipa" / "kohout" / "výčep" — no specific type
-  return null;
+/**
+ * Je výčep v CELÉM rozsahu od–do volný? Počítá se překryv rozsahů, ne jen
+ * krajní dny: rezervace 5.–6. blokuje výčep i pro zájemce o 4.–7. (okno
+ * rezervace dřív kontrolovalo jen první a poslední den, takže ten uprostřed
+ * prošel). `krome` = rezervace, která se nepočítá — vlastní rezervace téže
+ * objednávky, když se jen upravuje.
+ */
+export function jeVycepVolny(
+  tapId: string, od: string, doDne: string, rezervace: TapReservation[], krome?: string,
+): boolean {
+  return !rezervace.some((r) =>
+    r.id !== krome && r.tap_id === tapId && od <= r.date_to && doDne >= r.date_from);
 }
 
 /**
@@ -61,6 +46,9 @@ export function detectTapType(noteText?: string): TapTypeHint {
  * Dvojí rezervaci téže objednávky hlídá unikátní index na `order_id`, ne jen
  * kontrola níž: ukládá se při každém uložení objednávky a dvě uložení hned po
  * sobě by se přes samotnou kontrolu prosmýkla.
+ *
+ * Když se zápis nepovede (nemáte právo na Výčepy, vypadl signál…), ozve se to
+ * hláškou — dřív se rezervace potichu nevytvořila a nikdo se to nedozvěděl.
  */
 export async function autoReserveTapIfNeeded(
   customerName: string, dateStr: string, noteText?: string, orderId?: string,
@@ -70,13 +58,16 @@ export async function autoReserveTapIfNeeded(
   try {
     const [taps, resList] = await Promise.all([nactiVycepy(), nactiRezervace()]);
     // Bez založených výčepů není co rezervovat. Dřív se tu vyráběly čtyři
-    // ukázkové — a ty pak vypadaly jako skutečné vybavení pivovaru.
-    if (taps.length === 0) return;
+    // ukázkové — a ty pak vypadaly jako skutečné vybavení pivovaru. Mlčet se tu
+    // ale nesmí: poznámka „+ výčep“ vypadá, že se výčep zamluvil, a nezamluvil.
+    if (taps.length === 0) {
+      varovani('Výčep k objednávce se nezarezervoval — v evidenci nejsou žádné výčepy. Založíte je v sekci Výčepy.');
+      return;
+    }
 
     if (orderId && resList.some((r) => r.order_id === orderId)) return;
 
-    const jeVolny = (t: TapEquipment) =>
-      !resList.some((r) => r.tap_id === t.id && r.date_from <= dateStr && r.date_to >= dateStr);
+    const jeVolny = (t: TapEquipment) => jeVycepVolny(t.id, dateStr, dateStr, resList);
 
     // Přednost má výčep požadovaného typu; jinak první volný, jinak první.
     const typeHint = detectTapType(noteText);
@@ -96,8 +87,32 @@ export async function autoReserveTapIfNeeded(
       order_id: orderId,
     };
 
-    await ulozRezervaci(newReservation);
+    const chyba = await ulozRezervaci(newReservation);
+    if (chyba) {
+      // Druhé uložení téže objednávky těsně po prvním zamítl unikátní index na
+      // `order_id` — rezervace už je, o nic nejde.
+      if (orderId && (await nactiRezervace()).some((r) => r.order_id === orderId)) return;
+      console.warn('Auto tap reservation warning:', chyba);
+      chybaOznam('Výčep se nepodařilo zarezervovat: ' + chyba);
+    }
   } catch (e) {
     console.warn('Auto tap reservation warning:', e);
+    chybaOznam('Výčep se nepodařilo zarezervovat.');
   }
+}
+
+/**
+ * Rezervace potvrzená dřív, než objednávka vznikla („Půjčení výčepu" ve
+ * formuláři), se po uložení objednávky naváže na ni — podle ID rezervace, kterou
+ * okno vrátilo. Dřív se „nejnovější rezervace bez objednávky" hledala jen v
+ * kopii v prohlížeči a do databáze se vazba nezapsala vůbec.
+ *
+ * Vrací text chyby, nebo `null`.
+ */
+export async function propojRezervaciSObjednavkou(rezervaceId: string, orderId: string): Promise<string | null> {
+  const rezervace = await nactiRezervace();
+  const r = rezervace.find((x) => x.id === rezervaceId);
+  if (!r) return 'Rezervace výčepu už neexistuje.';
+  if (r.order_id === orderId) return null;
+  return ulozRezervaci({ ...r, order_id: orderId });
 }

@@ -4,7 +4,7 @@ import { EmptyState } from '../components/ui';
 
 import { AlertTriangle, Calendar, CalendarDays, Check, CheckCircle2, Droplet, Droplets, FlaskConical, Phone, Plus, RefreshCw, ShieldAlert, Trash2, Wrench, X } from 'lucide-react';
 import { chyba as chybaOznam, oznam, potvrd } from '../lib/toast';
-import { KLIC_REZERVACE, KLIC_VYCEPY, nactiRezervace, nactiVycepy, rozdilProUlozeni, smazRezervaci, smazVycep, ulozRezervaci, ulozVycep } from '../lib/vycepyData';
+import { KLIC_REZERVACE, KLIC_VYCEPY, nactiRezervace, nactiVycepy, rozdilProUlozeni, smazRezervaci, smazVycep, ukazCas, ulozRezervaci, ulozVycep } from '../lib/vycepyData';
 import { IkonaVycep } from '../components/ikony';
 import { uloz } from '../lib/uloziste';
 import { businessDateISO } from '../lib/businessDate';
@@ -38,15 +38,14 @@ export type TapReservation = {
 };
 
 export default function VycepyScreen() {
+  // Výchozí je PRÁZDNO, ne čtyři ukázkové výčepy: na novém zařízení (bez kopie
+  // v prohlížeči) se ukázkové na chvíli ukázaly jako skutečné vybavení pivovaru
+  // — a klepnutí na „Opláchnuto“ u nich hlásilo chybu, protože jejich id
+  // („t1“…) databáze nezná.
   const [taps, setTaps] = useState<TapEquipment[]>(() => {
     try {
       const saved = localStorage.getItem('vycepy_equipment_v1');
-      return saved ? JSON.parse(saved) : [
-        { id: 't1', name: 'Výčep #1 — Lindr Pygmy 25', tap_type: 'jednokohout', status: 'clean', last_water_rinse: '2026-07-26 18:00', last_louh_sanitation: '2026-07-20 10:00', taps_disassembled: true },
-        { id: 't2', name: 'Výčep #2 — Kontaktní Dvojkohout 50', tap_type: 'dvojkohout', status: 'dirty_beer', last_water_rinse: '2026-07-22 15:00', last_louh_sanitation: '2026-07-15 12:00', taps_disassembled: false },
-        { id: 't3', name: 'Výčep #3 — Trojkohout Master', tap_type: 'trojkohout', status: 'needs_louh', last_water_rinse: '2026-07-18 09:00', last_louh_sanitation: '2026-07-01 11:00', taps_disassembled: false },
-        { id: 't4', name: 'Výčep #4 — Šestikohout na akce', tap_type: 'sestikohout', status: 'clean', last_water_rinse: '2026-07-28 12:00', last_louh_sanitation: '2026-07-22 16:00', taps_disassembled: true },
-      ];
+      return saved ? JSON.parse(saved) : [];
     } catch { return []; }
   });
 
@@ -129,7 +128,7 @@ export default function VycepyScreen() {
       name: newTapName.trim(),
       tap_type: newTapType,
       status: 'clean',
-      last_water_rinse: new Date().toLocaleDateString('cs-CZ') + ' ' + new Date().toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' }),
+      last_water_rinse: new Date().toISOString(),
       taps_disassembled: true,
       note: newTapNote.trim() || undefined,
     };
@@ -291,11 +290,11 @@ export default function VycepyScreen() {
                       <div className="pt-2 border-t border-neutral-100 text-udaj text-neutral-700 space-y-1 font-mono">
                         <div className="flex justify-between">
                           <span><Droplet className="ikona-text" /> Oplach vodou:</span>
-                          <strong>{t.last_water_rinse || 'Zatím neproveden'}</strong>
+                          <strong>{ukazCas(t.last_water_rinse) || 'Zatím neproveden'}</strong>
                         </div>
                         <div className="flex justify-between">
                           <span><FlaskConical className="ikona-text" /> Louhování:</span>
-                          <strong>{t.last_louh_sanitation || 'Zatím neprovedeno'}</strong>
+                          <strong>{ukazCas(t.last_louh_sanitation) || 'Zatím neprovedeno'}</strong>
                         </div>
                         <div className="flex justify-between">
                           <span><Wrench className="ikona-text" /> Rozebrané kohouty:</span>
@@ -314,7 +313,7 @@ export default function VycepyScreen() {
                     <button
                       onClick={() => updateSanitation(t.id, {
                         status: 'clean',
-                        last_water_rinse: new Date().toLocaleDateString('cs-CZ') + ' ' + new Date().toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' }),
+                        last_water_rinse: new Date().toISOString(),
                         taps_disassembled: true
                       })}
                       className="px-2.5 py-1.5 rounded bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold shadow-2xs flex items-center justify-center gap-1 tap"
@@ -326,7 +325,7 @@ export default function VycepyScreen() {
                     <button
                       onClick={() => updateSanitation(t.id, {
                         status: 'clean',
-                        last_louh_sanitation: new Date().toLocaleDateString('cs-CZ') + ' ' + new Date().toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' }),
+                        last_louh_sanitation: new Date().toISOString(),
                         taps_disassembled: true
                       })}
                       className="px-2.5 py-1.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black shadow-2xs flex items-center justify-center gap-1 tap"

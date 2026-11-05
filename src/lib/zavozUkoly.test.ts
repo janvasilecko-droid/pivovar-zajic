@@ -44,6 +44,18 @@ describe('ukolyZPoznamky — ostatní úkoly', () => {
     expect(klice('vratné lahve')).toContain('lahve');
   });
 
+  it('výčep: pípa s diakritikou i „dvoukohout" vedou k úkolu „Naložit výčep"', () => {
+    // Úkol se čte ze STEJNÉHO pravidla jako rezervace výčepu a čtení zprávy
+    // (_shared/vycep-z-textu.ts); vlastní seznam slov se dřív rozešel.
+    expect(klice('pípa')).toContain('vycep');
+    expect(klice('pípu dvojkohout')).toContain('vycep');
+    expect(klice('dvoukohout')).toContain('vycep');
+    expect(klice('šestikohout na akci')).toContain('vycep');
+    expect(klice('chladák s sebou')).toContain('vycep');
+    expect(klice('narážeč')).toContain('vycep');
+    expect(klice('pipeta')).not.toContain('vycep');
+  });
+
   it('samotné „sklo" v poznámce je požadavek', () => {
     // Do poznámky se „sklo" nedostane samo — buď ho tam napsal parser,
     // protože ve zprávě byl požadavek, nebo ho tam napsal člověk ručně.

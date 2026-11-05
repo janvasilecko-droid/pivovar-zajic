@@ -126,6 +126,27 @@ describe('odběratel, který ještě není uložený', () => {
   });
 });
 
+// Výčep v poznámce: server píše poznámku objednávky, podle které se pak v appce
+// otevírá rezervace výčepu. Pravidlo je jedno pro server, appku, kontrolu
+// rezervace i úkoly k závozu (_shared/vycep-z-textu.ts) — vlastní seznam slov
+// na serveru by se zase rozešel s tím, co appka pozná.
+describe('výčep v poznámce objednávky — jedno pravidlo pro server i appku', () => {
+  const autoParse = readFileSync('supabase/functions/whatsapp-auto-parse/index.ts', 'utf8');
+
+  it('server bere popis výčepu ze sdíleného pravidla', () => {
+    expect(autoParse).toMatch(/import \{ popisZminkyVycepu \} from "\.\.\/_shared\/vycep-z-textu\.ts"/);
+    expect(autoParse).toMatch(/popisZminkyVycepu\(message\.message_text\)/);
+  });
+
+  it('server nemá vlastní seznam slov o výčepu (pipa, kohout, narazec…)', () => {
+    // Slova o výčepu smí stát jen v komentáři; v pravidlech klíčových slov ne.
+    // (Bez \b: ve zdrojáku regulárního výrazu stojí „\bpipa\b“ a hranice slova by
+    // tam žádnou shodu nenašla.)
+    const kodBezKomentaru = autoParse.replace(/\/\/[^\n]*/g, '');
+    expect(kodBezKomentaru).not.toMatch(/pip[aeuy]|pípa|pípu|narazec|naražeč|chladak|chladák|kohout/i);
+  });
+});
+
 describe('historie objednávek jako kontext', () => {
   const HISTORIE = readFileSync('supabase/functions/_shared/historie-objednavek.ts', 'utf8');
 

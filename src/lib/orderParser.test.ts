@@ -23,6 +23,7 @@ import {
   type ParserAliasMap,
 } from './orderParser';
 import type { Beer, Package, Place } from './supabase';
+import { jeZminenVycep, typVycepu } from '../../supabase/functions/_shared/vycep-z-textu';
 
 const beers: Beer[] = [
   { id: 'b-desitka', name: 'Desítka', short_name: null, degree: '10°', color: 'světlé', beer_color: null, price_per_liter: null, is_active: true, sort_order: 1, created_at: '' },
@@ -539,6 +540,30 @@ describe('detectOrderNotes', () => {
 
   it('vrátí prázdný řetězec, když žádná poznámka není', () => {
     expect(detectOrderNotes('2x50 12sv desitka')).toBe('');
+  });
+
+  // Z provozu 5. 11. 2026 (test čtení výčepů na skutečných zprávách): z „plus pipa
+  // jednokohout pro …" zbylo v poznámce holé „pipa" — druh se ztratil a rezervace
+  // pak vzala první volný výčep jakéhokoli druhu. „Pípu" a „výčep" s diakritikou
+  // se v poznámce nepoznaly vůbec, takže se okno rezervace ani neotevřelo.
+  it('výčep: druh se z věty neztratí', () => {
+    expect(detectOrderNotes('20l dvanactky a pipa jednokohout pro Frantu do Brna')).toBe('pipa jednokohout');
+    expect(detectOrderNotes('Na sobotu pipa dvoukohout, dve hadice a narazec')).toBe('pipa dvojkohout');
+    expect(detectOrderNotes('K tomu pípu dvojkohout a tlakovou láhev, díky')).toBe('pípu dvojkohout');
+  });
+
+  it('výčep s diakritikou se pozná', () => {
+    expect(detectOrderNotes('+ výčep')).toBe('výčep');
+    expect(detectOrderNotes('2x50 12sv, pípa, faktura')).toBe('pípa, faktura');
+    expect(detectOrderNotes('chladák s sebou')).toBe('chladák');
+  });
+
+  it('výčep v poznámce se dá znovu přečíst (druh i zmínka)', () => {
+    for (const text of ['20l dvanactky a pipa jednokohout', 'Plus pípu dvoukohout', 'šestikohout na akci']) {
+      const poznamka = detectOrderNotes(text);
+      expect(jeZminenVycep(poznamka)).toBe(true);
+      expect(typVycepu(poznamka)).toBe(typVycepu(text));
+    }
   });
 
   it('pozná požadavek na vyzvednutí prázdných sudů', () => {
