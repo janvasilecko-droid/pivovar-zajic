@@ -55,9 +55,42 @@ export function nakladkyPoDnech(
     .filter((n) => n.kusuCelkem > 0);
 }
 
-/** Výchozí den v okně: nejbližší závoz PO dnešku, jinak cokoli, co je. */
+/**
+ * Výchozí den v okně: dnešní závoz, dokud z něj něco neodjelo, jinak
+ * nejbližší další den, jinak cokoli, co je („Neuvedeno").
+ *
+ * Z provozu 5. 11. 2026: „dnes se má zvézt Lužec a Seeberg, proč je tam
+ * nevidím a vidím tam závoz na příští týden?" Dřív se bral jen den PO dnešku
+ * (28. 9.: „co naložit na závoz na další den"), takže ve čtvrtek ráno okno
+ * přeskočilo dnešní nezavezené objednávky na další čtvrtek. Dnešní záložka
+ * je v seznamu jen s tím, co ještě neodjelo (nakladkyPoDnech), a minulé
+ * závozy se v noci označí jako zavezené — po dnešku tak okno samo přejde
+ * na další den.
+ */
 export function vychoziNakladka(nakladky: NalozitNaZavoz[], dnesISO: string): string | null {
-  return (nakladky.find((n) => n.datum !== BEZ_DATA && n.datum > dnesISO) ?? nakladky[0])?.datum ?? null;
+  return (nakladky.find((n) => n.datum !== BEZ_DATA && n.datum >= dnesISO) ?? nakladky[0])?.datum ?? null;
+}
+
+const KODY_DNU = ['ne', 'po', 'ut', 'st', 'ct', 'pa', 'so'] as const;
+
+/** Kód dne závozu (po…ne) pro datum YYYY-MM-DD. */
+export function kodDne(datum: string): string {
+  return KODY_DNU[new Date(`${datum}T12:00:00Z`).getUTCDay()];
+}
+
+/**
+ * Na který den se z nakládky otevírá Rozvoz. Plocha posílá datum závozu
+ * (YYYY-MM-DD); starší odkazy jen kód dne (po…ne), ten platí pro tento týden.
+ *
+ * Kód dne sám týden neurčí: z okna na „Čt 12. 11." se dřív otevřel Rozvoz
+ * na čtvrtku TOHOTO týdne, tedy na jiných objednávkách.
+ */
+export function denProRozvoz(podstranka: string | null | undefined): { datum: string | null; den: string } | null {
+  if (!podstranka) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(podstranka) && !Number.isNaN(Date.parse(`${podstranka}T12:00:00Z`))) {
+    return { datum: podstranka, den: kodDne(podstranka) };
+  }
+  return (KODY_DNU as readonly string[]).includes(podstranka) ? { datum: null, den: podstranka } : null;
 }
 
 function secti(datum: string, toho: ObjednavkaNaZavoz[]): NalozitNaZavoz {

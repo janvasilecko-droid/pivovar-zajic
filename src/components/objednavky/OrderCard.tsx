@@ -18,7 +18,7 @@ import type {  } from '../../lib/tankUZapisu';
 import { shareOrderToWhatsApp } from '../../lib/whatsapp';
 
 import { StitekStavu } from '../StitekStavu';
-import { jeVyrizena, jePoTerminu, popisekVyjezdu } from '../../lib/stavyObjednavek';
+import { jeVyrizena, terminZavozu, popisekVyjezdu } from '../../lib/stavyObjednavek';
 import { businessDateISO } from '../../lib/businessDate';
 import { vracenoPodleObjednavky } from '../../lib/vraceniZObjednavky';
 
@@ -167,11 +167,21 @@ export function OrderCard({ o, items, stockRemainingForOrder, nadPocetMalychSudu
               <Truck size={18} /> {DAYS.find((d) => d.v === o.delivery_day)?.label ?? o.delivery_day}
             </span>
           )}
-          {jePoTerminu(o, businessDateISO()) && (
-            <span className="text-lg font-black leading-none text-rose-800 bg-rose-100 border border-rose-300 rounded px-2 py-1 shrink-0">
-              po termínu
-            </span>
-          )}
+          {(() => {
+            const termin = terminZavozu(o, businessDateISO());
+            if (termin === 'po_terminu') return (
+              <span className="text-lg font-black leading-none text-rose-800 bg-rose-100 border border-rose-300 rounded px-2 py-1 shrink-0">
+                po termínu
+              </span>
+            );
+            // V den závozu „závoz dnes“, ne „po termínu“ (5. 11. 2026).
+            if (termin === 'dnes') return (
+              <span className="text-lg font-black leading-none text-amber-900 bg-amber-100 border border-amber-300 rounded px-2 py-1 shrink-0">
+                závoz dnes
+              </span>
+            );
+            return null;
+          })()}
           <span className="text-udaj font-bold text-neutral-500 bg-white/80 border border-neutral-200 rounded-md px-1.5 py-0.5 shadow-2xs shrink-0 flex items-center gap-1" title="Datum zadání">
             <Calendar size={12} /> {new Date(o.order_date).toLocaleDateString('cs-CZ')}
           </span>

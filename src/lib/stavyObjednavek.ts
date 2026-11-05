@@ -54,9 +54,21 @@ export function jeVyrizena(status: string | null | undefined): boolean {
     || status === 'vyrizena' || status === 'hotova';
 }
 
-/** Závoz dnes nebo dřív, pořád Nová a ještě nevyjela — stejná podmínka jako filtr „po termínu“. */
-export function jePoTerminu(o: { is_delivered?: boolean; status?: string | null; delivery_date?: string | null }, dnes: string): boolean {
-  return !o.is_delivered && (o.status ?? 'nova') === 'nova' && !!o.delivery_date && o.delivery_date <= dnes;
+type TerminObjednavky = { is_delivered?: boolean; status?: string | null; delivery_date?: string | null };
+
+/**
+ * Štítek termínu u nové objednávky, která ještě nevyjela: „po termínu“, když
+ * den závozu už minul, „dnes“ v den závozu, jinak nic.
+ *
+ * Z provozu 5. 11. 2026: dnešní Lužec a Seeberg svítily ráno červeně „po
+ * termínu“ — dřív se tak značil i závoz dnes. Po termínu ale ještě nejsou,
+ * dnes se teprve vezou (minulé závozy se navíc v noci samy označí jako
+ * zavezené, takže „po termínu“ svítilo skoro jen u dnešních).
+ */
+export function terminZavozu(o: TerminObjednavky, dnes: string): 'po_terminu' | 'dnes' | null {
+  if (o.is_delivered || (o.status ?? 'nova') !== 'nova' || !o.delivery_date) return null;
+  if (o.delivery_date < dnes) return 'po_terminu';
+  return o.delivery_date === dnes ? 'dnes' : null;
 }
 
 /**
