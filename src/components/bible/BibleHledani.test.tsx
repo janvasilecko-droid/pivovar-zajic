@@ -22,6 +22,20 @@ vi.mock('../../lib/bibleKnihovnaApi', () => ({
   ] }),
 }));
 
+// Zkušenosti sládků (hledají se souběžně s knihami).
+type Zk = { id: string; typ: string; nazev: string; text: string; oblasti: string[]; uroven: number; zdroj: string | null;
+  zapsal: string | null; zapsalJmeno: string | null; vytvoreno: string | null; upraveno: string | null };
+const nactiZkusenosti = vi.fn<(f: { dotaz?: string; oblast?: string }, v?: { volne?: boolean }) => Promise<
+  { stav: 'ok'; zkusenosti: Zk[]; migrace: boolean; volne: boolean } | { stav: 'chyba'; zprava: string }>>();
+vi.mock('../../lib/bibleZkusenostiApi', async (puvodni) => ({
+  ...(await puvodni<typeof import('../../lib/bibleZkusenostiApi')>()),
+  nactiZkusenosti: (f: { dotaz?: string; oblast?: string }, v?: { volne?: boolean }) => nactiZkusenosti(f, v),
+}));
+const zk = (navic: Partial<Zk> = {}): Zk => ({
+  id: 'z1', typ: 'reseni_problemu', nazev: 'Pěna po stočení', text: 'Pomohlo snížit tlak při stáčení.', oblasti: ['F'], uroven: 4,
+  zdroj: 'Pivovar U Zajíce', zapsal: 'u1', zapsalJmeno: 'Honza', vytvoreno: null, upraveno: null, ...navic,
+});
+
 import { BibleHledani, prehledyKDotazu, ZvyraznenyUryvek } from './BibleHledani';
 
 const ID = '11111111-2222-3333-4444-555555555555';
@@ -29,8 +43,76 @@ const ID = '11111111-2222-3333-4444-555555555555';
 beforeEach(() => {
   hledejVKnihach.mockReset();
   nactiPrehled.mockReset();
+  nactiZkusenosti.mockReset().mockResolvedValue({ stav: 'ok', zkusenosti: [], migrace: true, volne: false });
   seznamPrehledu = { stav: 'ok', prehledy: [], migrace: true };
   vazbyVydani = { stav: 'ok', vazby: [], migrace: true };
+});
+
+describe('zkušenosti sládků v hledání', () => {
+  const vysledekKnihy = { dokumentId: ID, nazev: 'Pivovarství', autor: null, rok: null, zdroj: 'original' as const, pdfIndex: 3, tistena: null, kapitola: null, druh: 'text', uryvek: 'Pěna a tlak.' };
+
+  it('ukáže zkušenosti s úrovní důvěryhodnosti nad výsledky z knih (hledá se i volně)', async () => {
+    hledejVKnihach.mockResolvedValue({ stav: 'ok', vysledky: [vysledekKnihy] });
+    nactiZkusenosti.mockResolvedValue({ stav: 'ok', zkusenosti: [zk()], migrace: true, volne: false });
+    render(<BibleHledani otevri={() => {}} />);
+    fireEvent.change(screen.getByLabelText('Hledat v knihách'), { target: { value: 'pěna' } });
+    fireEvent.click(screen.getByRole('button', { name: /Hledat/ }));
+    const blok = await screen.findByRole('region', { name: 'Zkušenosti sládků k dotazu' });
+    expect(blok.textContent).toContain('Pěna po stočení');
+    expect(blok.textContent).toContain('úroveň 4: Zkušenost jednoho sládka');
+    expect(blok.textContent).toContain('Řešení problému');
+    expect(blok.textContent).toContain('Zdroj: Pivovar U Zajíce');
+    expect(nactiZkusenosti).toHaveBeenCalledWith({ dotaz: 'pěna', oblast: undefined }, { volne: true });
+    expect(screen.getByText(/Nalezeno 1/)).toBeTruthy();
+    // Blok zkušeností je v pořadí před výsledky z knih.
+    expect(blok.compareDocumentPosition(screen.getByText(/Nalezeno 1/)) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('dlouhý text se zkrátí a rozbalí; víc než tři zkušenosti až na požádání', async () => {
+    hledejVKnihach.mockResolvedValue({ stav: 'ok', vysledky: [] });
+    const dlouhy = `${'Slovo '.repeat(60)}konec textu.`;
+    nactiZkusenosti.mockResolvedValue({ stav: 'ok', migrace: true, volne: true, zkusenosti: [
+      zk({ id: 'a', text: dlouhy }), zk({ id: 'b', nazev: 'Druhá' }), zk({ id: 'c', nazev: 'Třetí' }), zk({ id: 'd', nazev: 'Čtvrtá' }),
+    ] });
+    render(<BibleHledani otevri={() => {}} />);
+    fireEvent.change(screen.getByLabelText('Hledat v knihách'), { target: { value: 'proč málo pění' } });
+    fireEvent.click(screen.getByRole('button', { name: /Hledat/ }));
+    const blok = await screen.findByRole('region', { name: 'Zkušenosti sládků k dotazu' });
+    expect(blok.textContent).not.toContain('konec textu.');
+    expect(blok.textContent).not.toContain('Čtvrtá');
+    // V knihách nic — hláška to řekne jen o knihách.
+    expect(screen.getByText(/V knihách jsem nic nenašel pro „proč málo pění“/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Celý text' }));
+    expect(blok.textContent).toContain('konec textu.');
+    expect(screen.getByRole('button', { name: 'Zkrátit' }).getAttribute('aria-expanded')).toBe('true');
+    fireEvent.click(screen.getByRole('button', { name: 'Další zkušenosti (1)' }));
+    expect(blok.textContent).toContain('Čtvrtá');
+  });
+
+  it('s filtrem knihy, autora, roku, jazyka nebo druhu se zkušenosti nehledají; oblast ano', async () => {
+    hledejVKnihach.mockResolvedValue({ stav: 'ok', vysledky: [vysledekKnihy] });
+    render(<BibleHledani otevri={() => {}} />);
+    fireEvent.click(screen.getByRole('button', { name: /Filtry/ }));
+    fireEvent.change(screen.getByLabelText('Oblast'), { target: { value: 'F' } });
+    fireEvent.change(screen.getByLabelText('Hledat v knihách'), { target: { value: 'pěna' } });
+    fireEvent.click(screen.getByRole('button', { name: /^Hledat/ }));
+    await waitFor(() => expect(nactiZkusenosti).toHaveBeenLastCalledWith({ dotaz: 'pěna', oblast: 'F' }, { volne: true }));
+    const pocet = nactiZkusenosti.mock.calls.length;
+    fireEvent.change(screen.getByLabelText('Jazyk knihy'), { target: { value: 'de' } });
+    await waitFor(() => expect(hledejVKnihach).toHaveBeenLastCalledWith('pěna', undefined, expect.objectContaining({ jazyk: 'de' })));
+    expect(nactiZkusenosti.mock.calls.length).toBe(pocet);
+  });
+
+  it('chyba zkušeností hledání v knihách nezastaví', async () => {
+    hledejVKnihach.mockResolvedValue({ stav: 'ok', vysledky: [vysledekKnihy] });
+    nactiZkusenosti.mockResolvedValue({ stav: 'chyba', zprava: 'Databáze neodpovídá.' });
+    render(<BibleHledani otevri={() => {}} />);
+    fireEvent.change(screen.getByLabelText('Hledat v knihách'), { target: { value: 'pěna' } });
+    fireEvent.click(screen.getByRole('button', { name: /Hledat/ }));
+    await waitFor(() => expect(screen.getByText(/Nalezeno 1/)).toBeTruthy());
+    expect(screen.queryByRole('region', { name: 'Zkušenosti sládků k dotazu' })).toBeNull();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
 });
 
 describe('hledání v knihách', () => {

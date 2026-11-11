@@ -62,14 +62,20 @@ const jeDruh = (v: unknown): v is DruhZkusenosti => DRUHY_ZKUSENOSTI.some((d) =>
 const NENASAZENO = 'Zkušenosti se právě nasazují — zkus to za pár minut.';
 const jeNenasazeno = (kod: string, zprava: string) => kod === 'nenasazeno' || (kod === 'neplatny_vstup' && zprava === 'Neznámá akce.');
 
+/**
+ * `volne` (Hledání v knihách): když přesné hledání nic nenajde, bible-api
+ * hledá otázkou v běžné řeči jako u knih — `volne` ve výsledku to řekne.
+ */
 export async function nactiZkusenosti(
   filtr: FiltrZkusenosti = {},
-): Promise<{ stav: 'ok'; zkusenosti: Zkusenost[]; migrace: boolean } | { stav: 'chyba' | 'nenasazeno'; zprava: string }> {
+  volby: { volne?: boolean } = {},
+): Promise<{ stav: 'ok'; zkusenosti: Zkusenost[]; migrace: boolean; volne: boolean } | { stav: 'chyba' | 'nenasazeno'; zprava: string }> {
   const telo: Record<string, unknown> = { akce: 'zkusenosti' };
   if (filtr.dotaz?.trim()) telo.dotaz = filtr.dotaz.trim();
   if (filtr.oblast) telo.oblast = filtr.oblast;
   if (filtr.nejhorsi && filtr.nejhorsi < 5) telo.nejhorsi = filtr.nejhorsi;
-  const r = await volejBibli<{ zkusenosti?: unknown; migrace?: unknown }>('bible-api', telo);
+  if (volby.volne) telo.volne = true;
+  const r = await volejBibli<{ zkusenosti?: unknown; migrace?: unknown; volne?: unknown }>('bible-api', telo);
   if (!r.ok) {
     if (jeNenasazeno(r.chyba.kod, r.chyba.zprava)) return { stav: 'nenasazeno', zprava: NENASAZENO };
     return { stav: 'chyba', zprava: r.chyba.zprava };
@@ -93,7 +99,7 @@ export async function nactiZkusenosti(
       upraveno: txt(o.upraveno_at),
     });
   }
-  return { stav: 'ok', zkusenosti, migrace: r.data?.migrace !== false };
+  return { stav: 'ok', zkusenosti, migrace: r.data?.migrace !== false, volne: r.data?.volne === true };
 }
 
 type Vysledek = { stav: 'ok' } | { stav: 'chyba'; zprava: string };

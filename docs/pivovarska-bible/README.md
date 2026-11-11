@@ -230,7 +230,10 @@ s citací kniha–kapitola–strana a počítá deterministickým výpočetním 
   mění jen správce, přispěvatel zapisuje 4 nebo 5 a upravuje/maže svoje záznamy,
   správce všechny. Čtenář jen čte.
 - **Hledání** bez diakritiky a po začátcích slov, filtr oblasti A–T a nejnižší
-  důvěryhodnosti. V knihách (Hledání) se zkušenosti zatím nehledají — čeká na etapu chatbota.
+  důvěryhodnosti. Hledání v knihách je ukáže nad výsledky z knih (11. 11. 2026): přesně,
+  a když nic, otázkou v běžné řeči jako u knih (`bible_hledej_zkusenosti_volne`); s filtrem
+  vázaným na knihu (kniha, autor, rok, jazyk, druh) se nehledají. AI sládek je hledá nástrojem
+  `hledej_zkusenosti`.
 - **UI:** dlaždice Zkušenosti sládků (`src/components/bible/BibleZkusenosti.tsx`),
   API klient `src/lib/bibleZkusenostiApi.ts`.
 

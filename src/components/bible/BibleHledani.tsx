@@ -11,6 +11,7 @@ import {
   hledejVKnihach, jePostup, nactiPrehledy, nazevPostupu, type FiltrHledani, type PolozkaPrehledu, type VysledekHledani,
 } from '../../lib/bibleHledaniApi';
 import { nactiDokumenty, nactiVydani } from '../../lib/bibleKnihovnaApi';
+import { nactiZkusenosti, nazevDruhu, nazevUrovne, type Zkusenost } from '../../lib/bibleZkusenostiApi';
 import { DRUH_POPIS, JAZYK_POPIS, jeStarsiVydani, jeZpracovany, rodokmenVydani, type RodokmenVydani } from '../../lib/bibleKnihovna';
 import { BIBLE_OBLASTI } from '../../lib/bibleOblasti';
 import { BiblePrehled } from './BiblePrehled';
@@ -39,6 +40,65 @@ export function ZvyraznenyUryvek({ text, dotaz, slova: hledanaSlova }: { text: s
 }
 
 const misto = (v: VysledekHledani) => (v.tistena ? `s. ${v.tistena}` : `list ${v.pdfIndex}`);
+
+/** Zkušeností sládků ukázaných hned; zbytek po rozbalení. */
+const ZKUSENOSTI_HNED = 3;
+const ZKRACENY_TEXT = 280;
+
+/** Zkrácení na celé slovo (dlouhý text zkušenosti v přehledu). */
+function zkrat(text: string, max: number): string {
+  if (text.length <= max) return text;
+  const kus = text.slice(0, max);
+  const mezera = kus.lastIndexOf(' ');
+  return `${(mezera > max * 0.6 ? kus.slice(0, mezera) : kus).trimEnd()}…`;
+}
+
+/**
+ * Zkušenosti sládků k dotazu — praxe, ne literatura: každá s úrovní
+ * důvěryhodnosti (1 ověřená publikace … 5 neověřená informace).
+ */
+function ZkusenostiKDotazu({ zkusenosti, dotaz, slova }: { zkusenosti: readonly Zkusenost[]; dotaz: string; slova?: readonly string[] }) {
+  const [rozbalene, setRozbalene] = useState<string | null>(null);
+  const [vse, setVse] = useState(false);
+  const ukazat = vse ? zkusenosti : zkusenosti.slice(0, ZKUSENOSTI_HNED);
+  return (
+    <section className="space-y-2" aria-label="Zkušenosti sládků k dotazu">
+      <div className="text-xs font-black uppercase tracking-wide text-amber-400">
+        Zkušenosti sládků ({zkusenosti.length}) · praxe, ne literatura
+      </div>
+      <ul className="space-y-2">
+        {ukazat.map((z) => {
+          const cely = rozbalene === z.id;
+          const dlouhy = z.text.length > ZKRACENY_TEXT;
+          return (
+            <li key={z.id} className="rounded-xl border border-neutral-700 bg-neutral-900 p-3 space-y-1">
+              <div className="flex flex-wrap items-baseline gap-x-2 text-xs font-bold text-neutral-300">
+                <span className="font-black text-amber-300">{z.nazev}</span>
+                <span className="rounded border border-neutral-600 px-1">úroveň {z.uroven}: {nazevUrovne(z.uroven)}</span>
+                <span>{nazevDruhu(z.typ)}</span>
+                {z.zapsalJmeno && <span>· {z.zapsalJmeno}</span>}
+              </div>
+              <div className="text-sm leading-relaxed text-neutral-100 whitespace-pre-line break-words">
+                <ZvyraznenyUryvek text={cely || !dlouhy ? z.text : zkrat(z.text, ZKRACENY_TEXT)} dotaz={dotaz} slova={slova} />
+              </div>
+              {z.zdroj && <div className="text-xs text-neutral-300">Zdroj: {z.zdroj}</div>}
+              {dlouhy && (
+                <button type="button" className="btn-tmave" aria-expanded={cely} onClick={() => setRozbalene(cely ? null : z.id)}>
+                  {cely ? 'Zkrátit' : 'Celý text'}
+                </button>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      {!vse && zkusenosti.length > ZKUSENOSTI_HNED && (
+        <button type="button" className="btn-tmave" onClick={() => setVse(true)}>
+          Další zkušenosti ({zkusenosti.length - ZKUSENOSTI_HNED})
+        </button>
+      )}
+    </section>
+  );
+}
 
 const POPISEK = 'space-y-1 text-xs font-black uppercase tracking-wide text-neutral-300';
 type Filtr = FiltrHledani & { kniha?: string };
@@ -76,7 +136,9 @@ export function BibleHledani({ otevri, pocatecniDotaz, zeptatSe }: {
   zeptatSe?: (otazka: string) => void;
 }) {
   const [dotaz, setDotaz] = useState(pocatecniDotaz ?? '');
-  const [stav, setStav] = useState<{ dotaz: string; vysledky: VysledekHledani[]; volne: boolean; slova: string[]; filtr: Filtr } | null>(null);
+  const [stav, setStav] = useState<{
+    dotaz: string; vysledky: VysledekHledani[]; volne: boolean; slova: string[]; filtr: Filtr; zkusenosti: Zkusenost[];
+  } | null>(null);
   // Filtry (etapa 4b): kniha, oblast, jazyk, druh, rok vydání, autor.
   const [filtr, setFiltr] = useState<Filtr>({});
   const [filtry, setFiltry] = useState(false);
@@ -118,10 +180,17 @@ export function BibleHledani({ otevri, pocatecniDotaz, zeptatSe }: {
     setHleda(true);
     setChyba(null);
     const { kniha, ...ostatni } = f;
-    const r = await hledejVKnihach(q, kniha, ostatni);
+    // Zkušenosti sládků souběžně — jen bez filtru vázaného na knihu (kniha, autor,
+    // rok, jazyk, druh); oblast platí pro obojí. Jejich chyba hledání v knihách nezastaví.
+    const knizniFiltr = !!(kniha || ostatni.autor || ostatni.rokOd || ostatni.rokDo || ostatni.jazyk || ostatni.druh);
+    const [r, zk] = await Promise.all([
+      hledejVKnihach(q, kniha, ostatni),
+      knizniFiltr ? Promise.resolve(null) : nactiZkusenosti({ dotaz: q, oblast: ostatni.oblast }, { volne: true }).catch(() => null),
+    ]);
     if (moje !== poradi.current) return; // mezitím přišlo novější hledání
     setHleda(false);
-    if (r.stav === 'ok') setStav({ dotaz: q, vysledky: r.vysledky, volne: r.volne === true, slova: r.slova ?? [], filtr: f });
+    const zkusenosti = zk?.stav === 'ok' ? zk.zkusenosti.slice(0, 15) : [];
+    if (r.stav === 'ok') setStav({ dotaz: q, vysledky: r.vysledky, volne: r.volne === true, slova: r.slova ?? [], filtr: f, zkusenosti });
     else { setStav(null); setChyba(r.zprava); }
   }
 
@@ -249,11 +318,14 @@ export function BibleHledani({ otevri, pocatecniDotaz, zeptatSe }: {
       )}
       {hleda && <div className="text-sm text-neutral-300">Hledám…</div>}
       {chyba && <div role="alert" className="text-sm font-bold text-rose-300">{chyba}</div>}
+      {stav && !hleda && stav.zkusenosti.length > 0 && (
+        <ZkusenostiKDotazu zkusenosti={stav.zkusenosti} dotaz={stav.dotaz} slova={stav.slova.length > 0 ? stav.slova : undefined} />
+      )}
       {stav && !hleda && (
         stav.vysledky.length === 0 ? (
           <div className="rounded-xl border border-neutral-700 bg-neutral-900 p-3 text-sm text-neutral-200 space-y-2">
             <div>
-              Nic jsem nenašel pro „{stav.dotaz}“{pocetFiltru(stav.filtr) > 0 ? ` s filtrem ${popisFiltru(stav.filtr, knihy ?? [])}` : ''}.
+              {stav.zkusenosti.length > 0 ? 'V knihách jsem nic nenašel' : 'Nic jsem nenašel'} pro „{stav.dotaz}“{pocetFiltru(stav.filtr) > 0 ? ` s filtrem ${popisFiltru(stav.filtr, knihy ?? [])}` : ''}.
               Zkus kratší nebo jiné slovo{pocetFiltru(stav.filtr) > 0 ? ', nebo filtr zruš' : ''}.
             </div>
             {zeptatSe && (

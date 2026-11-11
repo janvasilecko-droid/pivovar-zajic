@@ -403,7 +403,19 @@ const PROVEDENI: Record<Akce, (k: Kontext) => Promise<Response>> = {
     });
     if (error?.code === 'PGRST202') return hotovo(cors, { zkusenosti: [], migrace: false });
     if (error) return chybaDb(cors, error, 'zkusenosti');
-    return hotovo(cors, { zkusenosti: data ?? [], migrace: true });
+    let radky: unknown[] = data ?? [];
+    let volne = false;
+    // Hledání v knihách: otázka v běžné řeči jako u knih (bez migrace chatu funkce není → zůstane prázdno).
+    if (f.volne && f.dotaz && radky.length === 0 && slovaVolne(f.dotaz).length > 0) {
+      const v = await db.rpc('bible_hledej_zkusenosti_volne', {
+        p_dotaz: f.dotaz, p_oblast: f.oblast, p_nejhorsi: f.nejhorsi, p_limit: 15,
+      });
+      if (!v.error && Array.isArray(v.data) && v.data.length > 0) {
+        radky = v.data;
+        volne = true;
+      }
+    }
+    return hotovo(cors, { zkusenosti: radky, migrace: true, volne });
   },
 
   async zkusenost_zapsat({ db, u, telo, cors }) {
