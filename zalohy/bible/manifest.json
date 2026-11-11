@@ -2,11 +2,11 @@
  "format": "pivovar-zaloha-manifest",
  "v": 1,
  "sada": "bible",
- "datum": "2026-11-11T09:37:46.578Z",
+ "datum": "2026-11-11T15:35:22.564Z",
  "tabulky": {
   "migrace_aplikovane": {
-   "radku": 8,
-   "sha256": "1bf181aeeb5fc9378bdaa76aefcf5aa238d4f012d83ae4655738e9b21676433b"
+   "radku": 14,
+   "sha256": "0e739f48275f86c2fa7e8cde64b30fafbb847b4c44af2982ebf1927ab71dec9f"
   },
   "bible_nastaveni": {
    "radku": 12,
@@ -19,6 +19,42 @@
   "ai_naklady": {
    "radku": 81,
    "sha256": "2b11aa4e574f1cd3ca0d827bab4c87473967abcf6dba7794d9dc5a3f1a91febd"
+  },
+  "bible_zkusenosti": {
+   "radku": 0,
+   "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+  },
+  "bible_pivovary": {
+   "radku": 0,
+   "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+  },
+  "bible_zarizeni": {
+   "radku": 0,
+   "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+  },
+  "bible_postupy_provozu": {
+   "radku": 0,
+   "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+  },
+  "bible_receptury": {
+   "radku": 0,
+   "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+  },
+  "bible_varky": {
+   "radku": 0,
+   "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+  },
+  "bible_web_zdroje": {
+   "radku": 0,
+   "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+  },
+  "bible_problemy": {
+   "radku": 0,
+   "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+  },
+  "bible_problem_zjisteni": {
+   "radku": 0,
+   "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
   }
  },
  "nejsouVDatabazi": []
