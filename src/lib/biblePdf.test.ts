@@ -1,5 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
-import { ChybaStrany, MAX_PIXELU_PLATNA, OBNOVIT_ODKAZ_PO_MS, meritkoStrany, umiObrazekStrany, zdrojRozsahu, type Odkaz } from './biblePdf';
+import {
+  ChybaStrany, MAX_PIXELU_PLATNA, OBNOVIT_ODKAZ_PO_MS, dodatekZDat, meritkoStrany, umiObrazekStrany, zdrojRozsahu, type Odkaz,
+} from './biblePdf';
 
 function odpoved(status: number, telo: Uint8Array = new Uint8Array(), hlavicky: Record<string, string> = {}): Response {
   return {
@@ -112,6 +114,64 @@ describe('zdrojRozsahu — originál knihy po kouscích', () => {
   it('bez spojení: srozumitelná hláška', async () => {
     const z = zdrojRozsahu(odkazy('a'), { fetch: vi.fn(async () => { throw new TypeError('Failed to fetch'); }) });
     await expect(z.cti(0, 1)).rejects.toThrow('zkontroluj připojení');
+  });
+});
+
+describe('dodatek za originálem (rychlé otevření strany)', () => {
+  const DODATEK = Uint8Array.from([0x0a, ...Array.from({ length: 20 }, (_, i) => 200 + i)]);
+  const sDodatkem = (delkaOriginalu = 100) => vi.fn(async (prvni: boolean): Promise<Odkaz> => ({
+    url: 'https://bible.test/storage/v1/object/sign/knihovna/k.pdf?token=a',
+    ...(prvni ? { dodatek: { delkaOriginalu, data: DODATEK } } : {}),
+  }));
+
+  it('délka = originál + dodatek; bajty za koncem originálu jdou z paměti, ne z úložiště', async () => {
+    const fetch = uloziste();
+    const z = zdrojRozsahu(sDodatkem(), { fetch });
+    expect(await z.delka()).toBe(121);
+    expect(z.sDodatkem()).toBe(true);
+    expect(await z.cti(10, 20)).toEqual(SOUBOR.slice(10, 20));
+    const pocet = fetch.mock.calls.length;
+    expect(await z.cti(105, 121)).toEqual(DODATEK.slice(5, 21));
+    expect(fetch.mock.calls.length).toBe(pocet);
+    // Kus přes hranici: z úložiště jen konec originálu, zbytek z dodatku.
+    expect(await z.cti(90, 110)).toEqual(Uint8Array.from([...SOUBOR.slice(90, 100), ...DODATEK.slice(0, 10)]));
+    expect((fetch.mock.calls.at(-1)?.[1] as RequestInit).headers).toEqual({ Range: 'bytes=90-99' });
+  });
+
+  it('vrací kopii — pdf.js kus předá pracovnímu vláknu i s pamětí', async () => {
+    const z = zdrojRozsahu(sDodatkem(), { fetch: uloziste() });
+    await z.delka();
+    const kus = await z.cti(100, 121);
+    kus.fill(0);
+    expect(await z.cti(100, 121)).toEqual(DODATEK);
+  });
+
+  it('dodatek k jiné délce originálu se nepoužije', async () => {
+    const z = zdrojRozsahu(sDodatkem(99), { fetch: uloziste() });
+    expect(await z.delka()).toBe(100);
+    expect(z.sDodatkem()).toBe(false);
+  });
+
+  it('na dodatek se ptá jen první žádost o odkaz (obnovené odkazy ne)', async () => {
+    let cas = 0;
+    const ziskej = sDodatkem();
+    const z = zdrojRozsahu(ziskej, { fetch: uloziste(), ted: () => cas });
+    expect(await z.delka()).toBe(121);
+    cas += OBNOVIT_ODKAZ_PO_MS + 1;
+    await z.cti(0, 10);
+    expect(ziskej.mock.calls.map((c) => c[0])).toEqual([true, false]);
+    expect(z.sDodatkem()).toBe(true);
+  });
+
+  it('dodatek z odpovědi bible-api: base64, začíná novým řádkem, končí %%EOF', () => {
+    const d = dodatekZDat({ delka_originalu: 5, data: btoa('\nobsah\n%%EOF\n') });
+    expect(d?.delkaOriginalu).toBe(5);
+    expect(d && new TextDecoder().decode(d.data)).toBe('\nobsah\n%%EOF\n');
+    expect(dodatekZDat({ delka_originalu: 5, data: btoa('bez noveho radku %%EOF') })).toBeNull();
+    expect(dodatekZDat({ delka_originalu: 5, data: btoa('\nbez konce') })).toBeNull();
+    expect(dodatekZDat({ delka_originalu: 5, data: '***' })).toBeNull();
+    expect(dodatekZDat({ delka_originalu: -1, data: btoa('\n%%EOF') })).toBeNull();
+    expect(dodatekZDat(null)).toBeNull();
   });
 });
 

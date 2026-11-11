@@ -251,7 +251,7 @@ Každé rozhodnutí má datum, důvod a co by ho změnilo.
   nové soubory, žádná migrace; obsah knihy zůstává jen v prohlížeči čtenáře.
 - Proč ne obrázky stran předem ve workeru: stovky MB na knihu v úložišti.
 - Slabina: první strana knihy se slovníky stran rozházenými po souboru stojí
-  jednotky až desítky MB (pdf.js je načte všechny); zmenšení je další krok.
+  jednotky až desítky MB (pdf.js je načte všechny); vyřešeno dodatkem (R30).
 
 ## R20 — Pracovní postupy krok za krokem (4. 11. 2026)
 
@@ -483,3 +483,33 @@ Každé rozhodnutí má datum, důvod a co by ho změnilo.
   `hledej_v_knihach` (konektor i AI sládek) má filtry autor, rok_od, rok_do,
   jazyk, druh, oblast.
 - Vektory (embeddingy) dál až po měření na zlaté sadě otázek (§ 5).
+
+## R30 — Dodatek k PDF: rychlé otevření strany z knihy (11. 11. 2026)
+
+- Majitel: „pokračuj, dokud to nebude všechno hotové". Zbývala slabina R19:
+  pdf.js při otevření knihy ověřuje poslední stranu a u plochého stromu stran
+  čte slovník každé strany (rozházené mezi obrázky) — změřeno 22–26 MB
+  a stovky dotazů na 40MB knize, než se ukáže první strana. Na telefonu ve
+  sklepě minuty, a přenosy tarifu Free.
+- **Originál se nemění** (zásada knihovny) a **nekopíruje** (úložiště by se
+  zdvojilo). Worker postaví **dodatek** — přírůstkovou aktualizaci PDF podle
+  normy (kap. 7.5.6): nové uzly stromu stran s /Count (vyvážený strom, každá
+  strana pod vlastním obalem), katalog pod stejným číslem jen s novým
+  /Pages, objektový proud a proud křížových odkazů s /Prev na poslední
+  tabulku originálu. Pár kB (400 stran ≈ 6 kB, 3 000 stran ≈ 43 kB). Strany,
+  obsah, písma a obrázky zůstávají v originále; strany se dál odkazují
+  /Parent na původní uzly, takže zděděné rozměry a otočení platí dál.
+- Dodatek je jen struktura PDF (žádný text knihy) a leží v databázi bible
+  (`bible_dodatky`, mizí se smazáním knihy) — pro prohlížeč zavřené, appka
+  ho dostane od bible-api spolu s podepsaným odkazem a přilepí ho za
+  originál jen u sebe v paměti. Nesedí-li délka originálu, nepoužije se.
+- Dodatek vznikne jen z čistého PDF (pypdf ve striktním režimu, BSD, zamčený
+  s hashi) bez šifrování, s jednoznačným stromem stran a když ušetří aspoň
+  4 kousky po 64 kB (jinak řádek s důvodem „strom_staci", ať se nezkouší
+  znovu). Před uložením trojí kontrola: stejné pořadí stran; simulace hledání
+  strany v pdf.js (každá strana se najde a z originálu se čte jen její
+  slovník); pdfium přečte stejný počet stran se stejnými rozměry. Appka má
+  pojistku: když pdf.js s dodatkem selže, kniha se otevře znovu bez něj.
+- Starší knihy: worker je doplňuje při každém běhu (25 za běh) **bez
+  stažení celého souboru** — čte přes HTTP Range jen to, co potřebuje
+  (rozpočet nejvýš 8 MB nebo pětina souboru, jinak důvod „rozsah").

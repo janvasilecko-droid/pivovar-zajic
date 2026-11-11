@@ -98,6 +98,24 @@ export const SLOUPCE_DOKUMENTU =
 /** Platnost odkazu ke stažení originálu (s): prohlížeč PDF si dočítá části souboru průběžně. */
 export const PLATNOST_ODKAZU_S = 600;
 
+/**
+ * Dodatek k PDF (bible_dodatky, scripts/bible/dodatek.py) pro appku: bytea
+ * přijde z PostgRESTu jako text „\x0a…", appka dostane base64. Bez dat,
+ * s divnou délkou nebo nad 2 MB = null (čtečka pak čte holý originál).
+ */
+export function dodatekKOdeslani(radek: unknown): { delka_originalu: number; data: string } | null {
+  if (!radek || typeof radek !== 'object') return null;
+  const { delka_originalu: delkaSurova, data } = radek as Record<string, unknown>;
+  const delka = typeof delkaSurova === 'string' ? Number(delkaSurova) : delkaSurova;
+  if (typeof delka !== 'number' || !Number.isSafeInteger(delka) || delka <= 0) return null;
+  if (typeof data !== 'string' || !data.startsWith('\\x') || data.length % 2 !== 0 || data.length > 2 + 4_000_000) return null;
+  const hex = data.slice(2);
+  if (!hex || !/^[0-9a-fA-F]+$/.test(hex)) return null;
+  let bin = '';
+  for (let i = 0; i < hex.length; i += 2) bin += String.fromCharCode(parseInt(hex.slice(i, i + 2), 16));
+  return { delka_originalu: delka, data: btoa(bin) };
+}
+
 export class ChybaVstupu extends Error {}
 
 function text(v: unknown, jmeno: string, max: number, povinny = false): string | null {

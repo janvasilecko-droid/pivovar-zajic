@@ -5,13 +5,15 @@
  * Vykresluje se z originálního PDF v úložišti bible; stahují se jen kousky
  * souboru potřebné pro tuhle stranu (lib/biblePdf.ts). Dokument zůstává
  * otevřený, dokud je čtečka na stejné knize — listování pak už jen dočítá
- * další kousky.
+ * další kousky. S dodatkem od workeru (vyvážený strom stran) stačí na
+ * otevření pár kousků i u knih, kde by pdf.js jinak četlo slovník každé
+ * strany; kdyby si s ním pdf.js neporadilo, kniha se otevře znovu bez něj.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ZoomIn, ZoomOut } from 'lucide-react';
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { odkazNaSoubor } from '../../lib/bibleKnihovnaApi';
-import { ChybaStrany, meritkoStrany, otevriPdf, zdrojRozsahu } from '../../lib/biblePdf';
+import { ChybaStrany, meritkoStrany, otevriPdf, zdrojRozsahu, type ZdrojRozsahu } from '../../lib/biblePdf';
 
 type Dokument = {
   id: string;
@@ -19,14 +21,20 @@ type Dokument = {
   pdf: Promise<PDFDocumentProxy>;
   /** Chyba přenosu — pdf.js o ní neví, proto se dokument zavře a ukáže se tahle hláška. */
   chyba: Error | null;
+  zdroj: ZdrojRozsahu;
 };
 
 const PRIBLIZENI = [1, 1.5, 2, 3] as const;
 
+/** Knihy, u kterých pdf.js s dodatkem selhalo — do zavření appky se otevírají bez něj. */
+const bezDodatku = new Set<string>();
+
 function otevri(id: string, velikost: number | null): Dokument {
-  const dok: Dokument = { id, ukol: null, pdf: Promise.resolve(null as unknown as PDFDocumentProxy), chyba: null };
+  const sDodatkem = !bezDodatku.has(id);
+  const zdroj = zdrojRozsahu((prvni) => odkazNaSoubor(id, prvni && sDodatkem));
+  const dok: Dokument = { id, ukol: null, pdf: Promise.resolve(null as unknown as PDFDocumentProxy), chyba: null, zdroj };
   dok.pdf = (async () => {
-    const ukol = await otevriPdf(zdrojRozsahu(() => odkazNaSoubor(id)), velikost, (e) => {
+    const ukol = await otevriPdf(zdroj, velikost, (e) => {
       if (dok.chyba) return;
       dok.chyba = e;
       void dok.ukol?.destroy();
@@ -132,6 +140,15 @@ export function BibleStranaKnihy({ id, pdfIndex, velikost, oznaceni }: {
         setStav({ druh: 'hotovo' });
       } catch (e) {
         if (!platne) return;
+        // pdf.js si s dodatkem neporadilo (ne přenos, ne chybějící strana):
+        // hned znovu z holého originálu — jen pomaleji, jako dřív.
+        if (!aktualni.chyba && !(e instanceof ChybaStrany) && aktualni.zdroj.sDodatkem() && !bezDodatku.has(id)) {
+          bezDodatku.add(id);
+          zavri(aktualni);
+          if (dokument.current === aktualni) dokument.current = null;
+          setPokus((p) => p + 1);
+          return;
+        }
         // Nesmí zůstat vidět předchozí strana pod číslem nové.
         cil.current?.replaceChildren();
         setStav({ druh: 'chyba', zprava: hlaska(e, aktualni) });

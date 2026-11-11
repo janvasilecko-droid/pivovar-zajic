@@ -3,6 +3,8 @@
 # vygenerovat (po ověření nových verzí testy) příkazem z README.
 anthropic==2.3.0
 pypdfium2==5.14.0
+# Dodatek k PDF (dodatek.py): čtení struktury a zápis objektů — čistý Python, BSD.
+pypdf==6.21.3
 pillow==12.3.0
 python-docx==1.2.0
 openpyxl==3.1.5

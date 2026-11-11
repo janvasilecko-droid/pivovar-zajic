@@ -5,7 +5,7 @@ import {
   idZaznamu, parametryVstup, pivovarVstup, postupProvozuVstup, prevzetiVstup, vyberPivovaru, zarizeniVstup,
   datumVstup, hodnotyVarkyVstup, recepturaVstup, varkaVstup,
   overeniVstup, problemVstup, stavZjisteniVstup, urlVstup, webZdrojVstup, zjisteniVstup,
-  stropVstup, filtrHledani, filtrMimoKnihu,
+  stropVstup, filtrHledani, filtrMimoKnihu, dodatekKOdeslani,
 } from './vstupy';
 
 const SHA = 'a'.repeat(64);
@@ -60,6 +60,19 @@ describe('filtr hledání (etapa 4b)', () => {
     expect(filtrMimoKnihu(null)).toBe(false);
     expect(filtrMimoKnihu({ dokument: ID })).toBe(false);
     expect(filtrMimoKnihu({ dokument: ID, jazyk: 'de' })).toBe(true);
+  });
+});
+
+describe('dodatek k PDF pro čtečku strany', () => {
+  it('bytea z PostgRESTu (\\x…) → base64; nic divného se nepošle', () => {
+    expect(dodatekKOdeslani({ delka_originalu: 1000, data: '\\x0a2525454f460a' })).toEqual({ delka_originalu: 1000, data: btoa('\n%%EOF\n') });
+    expect(dodatekKOdeslani({ delka_originalu: '1000', data: '\\x0a' })).toEqual({ delka_originalu: 1000, data: 'Cg==' });
+    expect(dodatekKOdeslani(null)).toBeNull();
+    expect(dodatekKOdeslani({ delka_originalu: 1000, data: null })).toBeNull();
+    expect(dodatekKOdeslani({ delka_originalu: 0, data: '\\x0a' })).toBeNull();
+    expect(dodatekKOdeslani({ delka_originalu: 1000, data: '\\x0a2' })).toBeNull();
+    expect(dodatekKOdeslani({ delka_originalu: 1000, data: '\\xzz' })).toBeNull();
+    expect(dodatekKOdeslani({ delka_originalu: 1000, data: '0a25' })).toBeNull();
   });
 });
 

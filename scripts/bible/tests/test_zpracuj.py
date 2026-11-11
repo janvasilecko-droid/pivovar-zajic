@@ -185,7 +185,11 @@ def test_digitalni_pdf_bez_ai(capsys):
     assert pasaze[0]['jazyk'] == 'de'
     # Staré odvozené řádky pryč dřív, než se zapíšou nové; vždy jen s filtrem dokumentu.
     assert supa.poradi == ['smaz bible_pasaze', 'smaz bible_kapitoly', 'vloz bible_kapitoly', 'upsert bible_strany',
-                           'smaz bible_strany', 'vloz bible_pasaze']
+                           'smaz bible_strany', 'vloz bible_pasaze', 'upsert bible_dodatky']
+    # Šest stran: pdf.js ve stromu skoro nic nehledá — dodatek není, důvod se zapíše (nezkouší se znovu).
+    [dodatek_radek] = supa.tabulky['bible_dodatky']
+    assert dodatek_radek['duvod'] == 'strom_staci' and dodatek_radek['data'] is None
+    assert dodatek_radek['delka_originalu'] == len(data) and dodatek_radek['verze'] == zpracuj.dodatek_mod.VERZE
     assert supa.tabulky['ai_naklady'] == []
     # Stav se zapisuje jen s filtrem „pořád se zpracovává" (pauzu nepřepíše).
     assert all(f == {'id': f'eq.{ID}', 'stav': 'eq.zpracovava'} for t, f, _ in supa.upravy if t == 'bible_dokumenty')
@@ -522,7 +526,8 @@ def test_prepisy_se_ukladaji_po_davkach_uz_behem_ocr():
     puvodni = supa.vloz_nebo_prepis
 
     def zaznamenej(tabulka, radky, klic, davka=100):
-        davky.append(len(radky))
+        if tabulka == 'bible_strany':
+            davky.append(len(radky))
         return puvodni(tabulka, radky, klic, davka)
 
     supa.vloz_nebo_prepis = zaznamenej
@@ -995,3 +1000,94 @@ def test_overeni_uctu_po_jine_chybe_se_v_behu_neopakuje(capsys):
     prepisovac.over_ucet()
     assert len(volani) == 1
     assert capsys.readouterr().out.count('ověření účtu Claude se nepovedlo') == 1
+
+
+# --- dodatek k PDF pro rychlé otevření strany v appce -------------------------------
+
+def test_dodatek_po_zpracovani_a_jeho_chyba_knihu_nezmeni(monkeypatch, capsys):
+    from test_dodatek import vyrob
+    data = vyrob(n=40)
+    supa = FalesnaSupa({CESTA: data})
+    zpracuj.zpracuj_dokument(supa, _dokument(data, 'application/pdf'), None, _ucet())
+    assert supa.posledni_stav()['stav'] == 'hotovo'
+    [radek] = supa.tabulky['bible_dodatky']
+    assert radek['duvod'] is None and radek['data'].startswith('\\x0a') and radek['stran'] == 40
+    assert radek['kusu_pred'] >= 40 and radek['kusu_po'] <= 2
+    assert bytes.fromhex(radek['data'][2:]).endswith(b'%%EOF\n')
+    assert 'dodatek stran:' in capsys.readouterr().out
+    # Spadlý dodatek: kniha je hotová stejně, do logu jen typ chyby.
+    supa = FalesnaSupa({CESTA: data})
+
+    def spadni(*a, **k):
+        raise RuntimeError(TAJNY_TEXT)
+
+    monkeypatch.setattr(zpracuj, 'uloz_dodatek', spadni)
+    zpracuj.zpracuj_dokument(supa, _dokument(data, 'application/pdf'), None, _ucet())
+    assert supa.posledni_stav()['stav'] == 'hotovo'
+    vystup = capsys.readouterr().out
+    assert 'dodatek stran se nepovedl (RuntimeError)' in vystup and TAJNY_TEXT not in vystup
+
+
+def test_dodatek_jen_u_pdf():
+    supa = FalesnaSupa({CESTA: TAJNY_TEXT.encode()})
+    zpracuj.zpracuj_dokument(supa, _dokument(TAJNY_TEXT.encode(), 'text/plain'), None, _ucet())
+    assert supa.posledni_stav()['stav'] == 'hotovo'
+    assert 'bible_dodatky' not in supa.tabulky
+
+
+class SupaDodatku(FalesnaSupa):
+    """Starší knihy bez dodatku: seznam z bible_bez_dodatku a čtení po kouscích."""
+
+    def __init__(self, soubory, cekaji, chyba_seznamu=None, chyba_cteni=None):
+        super().__init__(soubory)
+        self.cekaji, self.chyba_seznamu, self.chyba_cteni = cekaji, chyba_seznamu, chyba_cteni
+        self.precteno = 0
+
+    def rpc(self, funkce, argumenty):
+        assert funkce == 'bible_bez_dodatku'
+        assert argumenty == {'p_verze': zpracuj.dodatek_mod.VERZE, 'p_limit': zpracuj.DODATKU_ZA_BEH}
+        if self.chyba_seznamu:
+            raise zpracuj.ChybaSupabase(self.chyba_seznamu)
+        return self.cekaji
+
+    def cti_rozsah(self, bucket, cesta, od, do_, celkem=None):
+        assert bucket == 'knihovna' and celkem == len(self.soubory[cesta])
+        if self.chyba_cteni:
+            raise zpracuj.ChybaSupabase(self.chyba_cteni)
+        self.precteno += do_ - od
+        return self.soubory[cesta][od:do_]
+
+
+def test_doplneni_dodatku_starsich_knih_bez_stazeni_celeho_souboru(capsys):
+    from test_dodatek import vyrob
+    data = vyrob(n=60)
+    cekaji = [{'id': ID, 'soubor_cesta': CESTA, 'soubor_velikost': len(data)},
+              {'id': ID, 'soubor_cesta': '../jinam/kniha.pdf', 'soubor_velikost': 10}]
+    supa = SupaDodatku({CESTA: data}, cekaji)
+    assert zpracuj.doplnit_dodatky(supa, time_konec()) == 1
+    assert supa.stazeno == []  # celý soubor se nestahoval
+    assert 0 < supa.precteno < len(data) / 10
+    [radek] = supa.tabulky['bible_dodatky']
+    assert radek['duvod'] is None and radek['stran'] == 60
+    assert 'přečteno' in capsys.readouterr().out
+
+
+@pytest.mark.parametrize('chyba_seznamu, chyba_cteni, hlaska', [
+    ('rpc bible_bez_dodatku: HTTP 404 PGRST202', None, 'chybí migrace bible 20261111050000_bible_dodatky'),
+    ('rpc bible_bez_dodatku: HTTP 500', None, 'seznam knih se nepodařilo načíst'),
+    (None, 'čtení kousku souboru z knihovna: HTTP 503', 'dodatek stran se nepovedl (ChybaCteni)'),
+])
+def test_doplneni_dodatku_chyby(capsys, chyba_seznamu, chyba_cteni, hlaska):
+    data = b'%PDF-1.7 ' + TAJNY_TEXT.encode() * 10
+    supa = SupaDodatku({CESTA: data}, [{'id': ID, 'soubor_cesta': CESTA, 'soubor_velikost': len(data)}],
+                       chyba_seznamu, chyba_cteni)
+    assert zpracuj.doplnit_dodatky(supa, time_konec()) == 0
+    # Nic se nezapíše — další běh to zkusí znovu.
+    assert 'bible_dodatky' not in supa.tabulky
+    vystup = capsys.readouterr().out
+    assert hlaska in vystup and TAJNY_TEXT not in vystup
+
+
+def time_konec():
+    import time
+    return time.time() + 600
