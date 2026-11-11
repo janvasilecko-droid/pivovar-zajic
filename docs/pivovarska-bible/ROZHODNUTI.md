@@ -372,3 +372,29 @@ Každé rozhodnutí má datum, důvod a co by ho změnilo.
   a pojistka v unikátním indexu jen pro várky s pivovarem — smazání pivovaru
   nesmí narazit na stejná čísla). Várku doplňuje kterýkoli přispěvatel;
   smazat smí autor nebo správce.
+
+## R27 — Rešerše z internetu a analýza problémů (etapy 9 a 10, 11. 11. 2026)
+
+- Pokračování „dokud nebude hotová" → poslední dvě etapy. Chatbot v appce
+  zůstává odložený (R14, náklady na API); obě etapy proto stojí na konektoru
+  do aplikace Claude (R16): Claude hledá na webu a analyzuje tam, bible
+  ukládá výsledky a ukazuje je v appce.
+- **Konektor poprvé zapisuje** (uloz_web_zdroj, zaloz_problem, zapis_zjisteni).
+  Zapisuje se za uživatele, který konektor schválil (bible_mcp_over vrací jeho
+  id, jméno a přístup), s příznakem `pres_claude`; právo přispěvatele hlídá
+  konektor i SQL (fail-closed). Přístup v tokenu je z doby schválení — po
+  odebrání práv v hlavní appce zůstane do vypršení obnovovacího tokenu (30 dní)
+  nebo do odpojení. Proto je zápis přes konektor omezený na záznamy, které
+  člověk stejně kontroluje: webový zdroj vždy **neověřený**, hypotéza vždy
+  **navržená**; ověřuje / potvrzuje člověk v appce.
+- Webový zdroj: shrnutí vlastními slovy + odkaz, ne text cizí stránky
+  (autorská práva); unikátní adresa (bez ohledu na velikost písmen).
+  Ověřuje jen správce (BIBLE_ROLE_SPRAVCE zahrnuje sládka).
+- Zjištění k problému mají šest typů z architektury § 6; fakt a výpočet bez
+  zdroje odmítne appka, bible-api i CHECK v tabulce. Problém si pamatuje id
+  várek (bez cizího klíče na pole — smazaná várka se prostě nenajde).
+- Trend várek: jednoduchý SVG graf bez knihovny (lazy kus bible), podle
+  zásad dataviz — jedna řada bez legendy, cíl receptury jako referenční čára,
+  bublina na najetí i z klávesnice, vždy i tabulka. Barvy ověřené proti
+  podkladu (řada 10,7 : 1, cíl 7,1 : 1).
+- Tím je hotových všech 8 dlaždic plochy bible; chatbot (etapa 5) dál odložený.

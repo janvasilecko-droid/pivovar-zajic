@@ -566,8 +566,16 @@ const ODDILY: Oddil[] = [
         jak: 'Pivovarská bible → Receptury a várky (nejdřív migrace bible 20261111010000_bible_varky v Systém → Databázové migrace → Databáze bible). V záložce Receptury zapiš recepturu s cíli (objem, stupňovitost, alkohol, IBU, barva), surovinami a kroky. „Zapsat várku“ uloží, co je změřené: sypání, vodu, pH, objemy a extrakty sladiny a mladiny, chmelovar, kvašení, ležení a laboratoř — prázdné pole zůstane nezapsané. Zaškrtni 2 až 12 várek a „Porovnat vybrané“ ukáže hodnoty vedle sebe s cílem receptury a odchylkou, spočítá výtěžek, odpar a prokvašení a vyjmenuje, co chybí. Příčiny odchylek najde Claude přes konektor („porovnej posledních 5 várek…“).',
       },
       {
+        co: 'Analýza problémů',
+        jak: 'Pivovarská bible → Analýza problémů (migrace bible 20261111020000_bible_web_problemy). „Nový problém“: název, příznaky, pivo a dotčené várky. U problému je porovnání dotčených várek a zjištění s typem — doložený fakt (vždy se zdrojem), výpočet, zkušenost, doporučení, hypotéza, chybí. Hypotézu potvrdíš nebo vyvrátíš tlačítkem. Příčiny hledá Claude přes konektor („analyzuj problém…“) a zjištění zapíše sám s typem. Dole je Trend várek: vyber hodnotu (výtěžek, extrakt…) a recepturu a graf ukáže várky v čase s cílem receptury.',
+      },
+      {
+        co: 'Rešerše z internetu',
+        jak: 'Pivovarská bible → Správa znalostí → Rešerše z internetu. Zdroje z webu jsou vždy odděleně od knih, s adresou, datem publikace a zjištění a důvěrou 1–5. Ukládá je Claude přes konektor („najdi na webu… a ulož zdroj“) vždy jako neověřené; správce je tady ověří nebo zamítne. Ručně jde zdroj přidat tlačítkem „Přidat zdroj“ — shrnutí piš vlastními slovy.',
+      },
+      {
         co: 'Správa znalostí',
-        jak: 'Dlaždice Správa znalostí ukazuje tematické oblasti A–T s počtem dokumentů, kdo má přístup a kolik místa zabírá databáze a úložiště. Je tu i připojení knihovny k aplikaci Claude. Dlaždice Analýza problémů řekne, ve které etapě přijde.',
+        jak: 'Dlaždice Správa znalostí ukazuje tematické oblasti A–T s počtem dokumentů, kdo má přístup a kolik místa zabírá databáze a úložiště. Je tu i připojení knihovny k aplikaci Claude a rešerše z internetu.',
       },
     ],
   },

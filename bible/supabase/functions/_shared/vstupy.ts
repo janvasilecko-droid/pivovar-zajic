@@ -6,6 +6,8 @@
 import { jeUuid, type Pristup } from './brana.ts';
 import { DRUHY_ZARIZENI, ZDROJE_PARAMETRU } from './technologie-popisy.ts';
 import { DRUHY_SUROVIN, FAZE_KROKU, HODNOTY_VARKY } from './varky-popisy.ts';
+import { STAVY_PROBLEMU, STAVY_ZJISTENI, TYPY_ZJISTENI } from './problemy-popisy.ts';
+import { STAVY_WEBU } from './web-popisy.ts';
 
 /** Akce bible-api a nejnižší potřebný přístup. */
 export const AKCE = {
@@ -60,6 +62,20 @@ export const AKCE = {
   receptura_smazat: 'prispiva',
   varka_ulozit: 'prispiva',
   varka_smazat: 'prispiva',
+  // Rešerše z internetu (etapa 9): čtení všem, zápis přispěvateli (nový zdroj
+  // je vždy neověřený), ověřit / zamítnout jen správce (hlídá i SQL).
+  web_zdroje: 'cte',
+  web_zdroj_ulozit: 'prispiva',
+  web_zdroj_overit: 'spravuje',
+  web_zdroj_smazat: 'prispiva',
+  // Analýza problémů (etapa 10): čtení všem, zápis přispěvateli; smazat autor
+  // nebo správce (hlídá SQL).
+  problemy: 'cte',
+  problem_ulozit: 'prispiva',
+  problem_smazat: 'prispiva',
+  zjisteni_ulozit: 'prispiva',
+  zjisteni_stav: 'prispiva',
+  zjisteni_smazat: 'prispiva',
 } as const satisfies Record<string, Pristup>;
 
 export type Akce = keyof typeof AKCE;
@@ -477,4 +493,88 @@ export function varkaVstup(v: unknown): Record<string, unknown> {
     hodnoty: hodnotyVarkyVstup(p.hodnoty),
     poznamka: text(p.poznamka, 'Poznámka', 4000)?.trim() || null,
   };
+}
+
+// --- Rešerše z internetu (etapa 9) a analýza problémů (etapa 10) ------------
+
+/** Adresa webového zdroje: http(s), bez mezer, nejvýš 2000 znaků. */
+export function urlVstup(v: unknown): string {
+  if (typeof v !== 'string') throw new ChybaVstupu('Chybí adresa zdroje.');
+  const url = v.trim();
+  if (url.length > 2000 || !/^https?:\/\/[^\s]+$/i.test(url)) throw new ChybaVstupu('Adresa zdroje musí začínat http:// nebo https:// a nesmí mít mezery.');
+  try {
+    const u = new URL(url);
+    if (!u.hostname.includes('.')) throw new Error('host');
+  } catch {
+    throw new ChybaVstupu('Adresa zdroje není platná webová adresa.');
+  }
+  return url;
+}
+
+export function webZdrojVstup(v: unknown): Record<string, unknown> {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) throw new ChybaVstupu('Chybí zdroj.');
+  const p = v as Record<string, unknown>;
+  const id = volitelneId(p.id, 'zdroje');
+  const duvera = p.duvera === undefined || p.duvera === null ? 5 : p.duvera;
+  if (typeof duvera !== 'number' || !Number.isInteger(duvera) || duvera < 1 || duvera > 5) throw new ChybaVstupu('Důvěra je celé číslo 1 až 5.');
+  const datumPublikace = p.datum_publikace === undefined || p.datum_publikace === null || p.datum_publikace === ''
+    ? null : datumVstup(p.datum_publikace, 'Datum publikace');
+  return {
+    ...(id ? { id } : {}),
+    url: urlVstup(p.url),
+    titulek: text(p.titulek, 'Titulek', 300, true)!.trim(),
+    vydavatel: text(p.vydavatel, 'Vydavatel', 200)?.trim() || null,
+    datum_publikace: datumPublikace,
+    shrnuti: text(p.shrnuti, 'Shrnutí', 4000, true)!.trim(),
+    oblasti: oblasti(p.oblasti),
+    duvera,
+  };
+}
+
+const ID_STAVU_WEBU = STAVY_WEBU.map((x) => x.id) as readonly string[];
+
+export function overeniVstup(telo: Record<string, unknown>): { id: string; stav: string; poznamka: string | null } {
+  if (typeof telo.stav !== 'string' || !ID_STAVU_WEBU.includes(telo.stav)) throw new ChybaVstupu('Neznámý stav zdroje.');
+  return { id: idZaznamu(telo, 'zdroje'), stav: telo.stav, poznamka: text(telo.poznamka, 'Poznámka k ověření', 1000)?.trim() || null };
+}
+
+const ID_STAVU_PROBLEMU = STAVY_PROBLEMU.map((x) => x.id) as readonly string[];
+const ID_TYPU_ZJISTENI = TYPY_ZJISTENI.map((x) => x.id) as readonly string[];
+const ID_STAVU_ZJISTENI = STAVY_ZJISTENI.map((x) => x.id) as readonly string[];
+
+export function problemVstup(v: unknown): Record<string, unknown> {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) throw new ChybaVstupu('Chybí problém.');
+  const p = v as Record<string, unknown>;
+  const id = volitelneId(p.id, 'problému');
+  const stav = p.stav === undefined || p.stav === null || p.stav === '' ? 'otevreny' : p.stav;
+  if (typeof stav !== 'string' || !ID_STAVU_PROBLEMU.includes(stav)) throw new ChybaVstupu('Neznámý stav problému.');
+  const varky = p.varky === undefined || p.varky === null ? [] : p.varky;
+  if (!Array.isArray(varky) || varky.length > 12 || varky.some((x) => !jeUuid(x))) throw new ChybaVstupu('Dotčené várky jsou seznam nejvýš 12 id várek.');
+  return {
+    ...(id ? { id } : {}),
+    nazev: text(p.nazev, 'Název problému', 200, true)!.trim(),
+    popis: text(p.popis, 'Příznaky', 4000)?.trim() || null,
+    pivo: text(p.pivo, 'Pivo', 120)?.trim() || null,
+    varky: [...new Set((varky as string[]).map((x) => x.toLowerCase()))],
+    oblasti: oblasti(p.oblasti),
+    stav,
+    reseni: text(p.reseni, 'Řešení', 4000)?.trim() || null,
+  };
+}
+
+export function zjisteniVstup(v: unknown): Record<string, unknown> {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) throw new ChybaVstupu('Chybí zjištění.');
+  const p = v as Record<string, unknown>;
+  if (!jeUuid(p.problem_id)) throw new ChybaVstupu('Chybí problém.');
+  if (typeof p.typ !== 'string' || !ID_TYPU_ZJISTENI.includes(p.typ)) {
+    throw new ChybaVstupu('Typ zjištění je fakt, vypocet, zkusenost, doporuceni, hypoteza nebo chybi.');
+  }
+  const zdroj = text(p.zdroj, 'Zdroj', 500)?.trim() || null;
+  if ((p.typ === 'fakt' || p.typ === 'vypocet') && !zdroj) throw new ChybaVstupu('Fakt a výpočet potřebují zdroj (kniha a strana, várka, výpočet…).');
+  return { problem_id: p.problem_id.toLowerCase(), typ: p.typ, text: text(p.text, 'Text zjištění', 2000, true)!.trim(), zdroj };
+}
+
+export function stavZjisteniVstup(telo: Record<string, unknown>): { id: string; stav: string } {
+  if (typeof telo.stav !== 'string' || !ID_STAVU_ZJISTENI.includes(telo.stav)) throw new ChybaVstupu('Neznámý stav zjištění.');
+  return { id: idZaznamu(telo, 'zjištění'), stav: telo.stav };
 }

@@ -643,5 +643,61 @@ SELECT pg_temp.selze($q$SELECT public.bible_varky_prehled()$q$, 'várky čte jen
 SELECT pg_temp.jako('service_role');
 DELETE FROM public.bible_varky WHERE id = (SELECT id FROM t8_v2);
 
+-- 🌐 Etapa 9 — Rešerše z internetu ------------------------------------------------
+SELECT pg_temp.jako('service_role');
+SELECT pg_temp.selze($q$SELECT public.bible_web_zdroj_uloz('00000000-0000-0000-0000-0000000000b1', 'cte', 'Čtenář', false,
+  '{"url":"https://example.org/a","titulek":"A","shrnuti":"S"}')$q$, 'čtenář webový zdroj nezapíše', '42501');
+SELECT pg_temp.selze($q$SELECT public.bible_web_zdroj_uloz('00000000-0000-0000-0000-0000000000b2', 'prispiva', 'Sládek', true,
+  '{"url":"ftp://example.org/a","titulek":"A","shrnuti":"S"}')$q$, 'adresa jinde než http(s) se odmítne', '23514');
+SELECT pg_temp.selze($q$SELECT public.bible_web_zdroj_uloz('00000000-0000-0000-0000-0000000000b2', 'prispiva', 'Sládek', true,
+  '{"url":"https://example.org/a","titulek":"A","shrnuti":"S","oblasti":["Z"]}')$q$, 'oblast mimo A–T se odmítne', '22023');
+CREATE TEMP TABLE t9_w AS SELECT public.bible_web_zdroj_uloz('00000000-0000-0000-0000-0000000000b2', 'prispiva', 'Sládek', true,
+  '{"url":"https://example.org/chmel","titulek":"Chmelení za studena","shrnuti":"Shrnutí vlastními slovy.","oblasti":["F","F","D"],"duvera":3,"datum_publikace":"2025-04-01"}') AS r;
+SELECT pg_temp.ocekavam((SELECT (r ->> 'novy')::boolean AND r ->> 'stav' = 'neovereno' FROM t9_w), 'nový zdroj je vždy neověřený');
+SELECT pg_temp.ocekavam((SELECT oblasti = ARRAY['D','F'] AND pres_claude AND duvera = 3 FROM public.bible_web_zdroje WHERE id = (SELECT (r ->> 'id')::uuid FROM t9_w)),
+  'oblasti bez opakování a seřazené, zapsal Claude');
+SELECT pg_temp.ocekavam((SELECT NOT (public.bible_web_zdroj_uloz('00000000-0000-0000-0000-0000000000b3', 'prispiva', 'Jiný', false,
+  '{"url":"HTTPS://EXAMPLE.ORG/chmel","titulek":"Jinak","shrnuti":"Jinak"}') ->> 'novy')::boolean),
+  'stejná adresa podruhé nezaloží nový zdroj (vrátí existující)');
+SELECT pg_temp.ocekavam((SELECT count(*) = 1 FROM public.bible_web_zdroje), 'zdroj je v rešerši jen jednou');
+SELECT pg_temp.selze($q$SELECT public.bible_web_zdroj_over('00000000-0000-0000-0000-0000000000b2', 'prispiva', 'Sládek', (SELECT (r ->> 'id')::uuid FROM t9_w), 'overeno', NULL)$q$,
+  'přispěvatel zdroj neověří', '42501');
+SELECT pg_temp.ocekavam(public.bible_web_zdroj_over('00000000-0000-0000-0000-0000000000a1', 'spravuje', 'Správce', (SELECT (r ->> 'id')::uuid FROM t9_w), 'overeno', 'Odborný časopis.'),
+  'správce zdroj ověří');
+SELECT pg_temp.ocekavam((SELECT stav = 'overeno' AND overil_jmeno = 'Správce' AND overeno_at IS NOT NULL FROM public.bible_web_zdroje), 'ověření se zapíše s kým a kdy');
+SELECT pg_temp.ocekavam(public.bible_web_zdroj_over('00000000-0000-0000-0000-0000000000a1', 'spravuje', 'Správce', (SELECT (r ->> 'id')::uuid FROM t9_w), 'neovereno', NULL),
+  'správce vrátí zdroj do neověřených');
+SELECT pg_temp.ocekavam((SELECT overil IS NULL AND overeno_at IS NULL FROM public.bible_web_zdroje), 'vrácení do neověřených smaže, kdo ověřil');
+SELECT pg_temp.selze($q$SELECT public.bible_web_zdroj_smaz('00000000-0000-0000-0000-0000000000b3', 'prispiva', (SELECT (r ->> 'id')::uuid FROM t9_w))$q$,
+  'cizí zdroj přispěvatel nesmaže', '42501');
+SELECT pg_temp.ocekavam(jsonb_array_length(public.bible_web_zdroje_prehled()) = 1, 'přehled vrátí zdroje');
+SELECT pg_temp.ocekavam(public.bible_web_zdroj_smaz('00000000-0000-0000-0000-0000000000b2', 'prispiva', (SELECT (r ->> 'id')::uuid FROM t9_w)), 'autor svůj zdroj smaže');
+
+-- 🩺 Etapa 10 — Analýza problémů ----------------------------------------------------
+CREATE TEMP TABLE t10_p AS SELECT public.bible_problem_uloz('00000000-0000-0000-0000-0000000000b2', 'prispiva', 'Sládek', false,
+  '{"nazev":"Nízký výtěžek","popis":"Poslední tři várky mají o 3 % nižší výtěžek.","varky":["11111111-0000-0000-0000-000000000001","11111111-0000-0000-0000-000000000001"],"oblasti":["T","E"]}') AS id;
+SELECT pg_temp.ocekavam((SELECT cardinality(varky) = 1 AND oblasti = ARRAY['E','T'] AND stav = 'otevreny' FROM public.bible_problemy WHERE id = (SELECT id FROM t10_p)),
+  'problém: várky bez opakování, oblasti seřazené, otevřený');
+SELECT pg_temp.selze($q$SELECT public.bible_zjisteni_uloz('00000000-0000-0000-0000-0000000000b2', 'prispiva', 'Sládek', true,
+  jsonb_build_object('problem_id', (SELECT id FROM t10_p), 'typ', 'fakt', 'text', 'Kunze uvádí…'))$q$, 'fakt bez zdroje se odmítne', '22023');
+SELECT pg_temp.selze($q$SELECT public.bible_zjisteni_uloz('00000000-0000-0000-0000-0000000000b2', 'prispiva', 'Sládek', true,
+  jsonb_build_object('problem_id', (SELECT id FROM t10_p), 'typ', 'domnenka', 'text', 'X'))$q$, 'neznámý typ zjištění se odmítne', '23514');
+CREATE TEMP TABLE t10_z AS SELECT public.bible_zjisteni_uloz('00000000-0000-0000-0000-0000000000b2', 'prispiva', 'Sládek', true,
+  jsonb_build_object('problem_id', (SELECT id FROM t10_p), 'typ', 'hypoteza', 'text', 'Hrubší šrot po výměně válců.')) AS id;
+SELECT pg_temp.ocekavam((SELECT stav = 'navrzeno' AND pres_claude FROM public.bible_problem_zjisteni WHERE id = (SELECT id FROM t10_z)), 'hypotéza začíná jako navržená');
+SELECT pg_temp.ocekavam(public.bible_zjisteni_stav('00000000-0000-0000-0000-0000000000b3', 'prispiva', (SELECT id FROM t10_z), 'potvrzeno'), 'přispěvatel hypotézu potvrdí');
+SELECT pg_temp.selze($q$SELECT public.bible_zjisteni_stav('00000000-0000-0000-0000-0000000000b3', 'prispiva', (SELECT id FROM t10_z), 'jiste')$q$,
+  'neznámý stav zjištění se odmítne', '22023');
+SELECT pg_temp.ocekavam((public.bible_problemy_prehled() -> 0 -> 'zjisteni' -> 0 ->> 'stav') = 'potvrzeno', 'přehled vrátí problém se zjištěními');
+SELECT pg_temp.selze($q$SELECT public.bible_zjisteni_smaz('00000000-0000-0000-0000-0000000000b3', 'prispiva', (SELECT id FROM t10_z))$q$,
+  'cizí zjištění přispěvatel nesmaže', '42501');
+SELECT pg_temp.selze($q$SELECT public.bible_problem_smaz('00000000-0000-0000-0000-0000000000b3', 'prispiva', (SELECT id FROM t10_p))$q$,
+  'cizí problém přispěvatel nesmaže', '42501');
+SELECT pg_temp.ocekavam(public.bible_problem_smaz('00000000-0000-0000-0000-0000000000a1', 'spravuje', (SELECT id FROM t10_p)), 'správce problém smaže');
+SELECT pg_temp.ocekavam(NOT EXISTS (SELECT 1 FROM public.bible_problem_zjisteni WHERE id = (SELECT id FROM t10_z)), 's problémem zmizí i jeho zjištění');
+SELECT pg_temp.selze($q$SELECT public.bible_problemy_prehled()$q$, 'problémy čte jen service role', '42501')
+  FROM (SELECT pg_temp.jako('authenticated')) j;
+SELECT pg_temp.jako('service_role');
+
 SELECT pg_temp.jako(NULL);
 SELECT 'VŠECHNY KONTROLY PROJEKTU BIBLE PROŠLY' AS vysledek;

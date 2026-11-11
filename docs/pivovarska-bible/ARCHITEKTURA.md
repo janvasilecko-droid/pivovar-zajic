@@ -301,6 +301,11 @@ Jednotlivou zkušenost appka nikdy nevydá za obecné technologické pravidlo.
   do `bible_web_zdroje`: URL, titulek, datum zjištění, datum publikace, důvěra
   a stav (neověřeno, ověřeno, zamítnuto).
 - V odpovědích jsou vždy zvlášť a s datem a nikdy nepřepíšou literaturu.
+- **Hotovo (etapa 9, R27):** Claude ukládá přes konektor (`uloz_web_zdroj`)
+  vždy jako neověřené, čte `web_zdroje`; správce ověřuje ve Správě znalostí.
+  Analýza problémů (etapa 10, R27): problémy se zjištěními šesti typů § 6,
+  porovnání dotčených várek, trend várek; nástroje `problemy`,
+  `zaloz_problem`, `zapis_zjisteni`.
 
 ## 11. Uživatelské rozhraní
 

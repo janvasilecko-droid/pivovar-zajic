@@ -17,6 +17,8 @@ vi.mock('../lib/bibleKlient', () => ({
     if (telo.akce === 'nastaveni') return { ok: true, data: {} };
     if (telo.akce === 'technologie') return { ok: true, data: { pivovary: [], pivovar_id: null, zarizeni: [], postupy: [], migrace: true } };
     if (telo.akce === 'varky') return { ok: true, data: { receptury: [], varky: [], migrace: true } };
+    if (telo.akce === 'problemy') return { ok: true, data: { problemy: [], migrace: true } };
+    if (telo.akce === 'web_zdroje') return { ok: true, data: { zdroje: [], migrace: true } };
     if (telo.akce === 'kniha') {
       return { ok: true, data: { dokument: { ...(dokumenty[0] as object), postup: {} }, kapitoly: [], listy: [[1, null, 'v', 0]] } };
     }
@@ -41,15 +43,22 @@ describe('Pivovarská bible — plocha', () => {
     expect(screen.queryByText('Knihovna dokumentů')).toBeNull();
   });
 
-  it('správce vidí plochu; nehotová dlaždice poctivě řekne etapu a nic nepředstírá', () => {
+  it('správce vidí plochu; žádná dlaždice už neukazuje „Připravujeme" (etapy 1–10 hotové, chatbot odložený R14)', () => {
+    profil = { role: 'admin' };
+    render(<BibleScreen />);
+    expect(screen.getByText('Knihovna dokumentů')).toBeTruthy();
+    expect(screen.queryByText(/Připravujeme/)).toBeNull();
+    expect(BIBLE_DLAZDICE.every((d) => d.etapa === undefined)).toBe(true);
+  });
+
+  it('Analýza problémů (etapa 10) je hotová: prázdná nabídne nový problém', async () => {
     profil = { role: 'admin' };
     const setPage = vi.fn();
     render(<BibleScreen setPage={setPage} />);
-    expect(screen.getByText('Knihovna dokumentů')).toBeTruthy();
-    fireEvent.click(screen.getByText('Analýza problémů'));
-    expect(screen.getByText(/Připravujeme · etapa 10/)).toBeTruthy();
-    expect(screen.getByText(/AI zatím z knih neodpovídá/)).toBeTruthy();
+    await act(async () => { fireEvent.click(screen.getByText('Analýza problémů')); });
     expect(setPage).toHaveBeenCalledWith('bible', undefined, 'problemy');
+    expect(await screen.findByText(/Zatím tu žádný problém není/)).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Nový problém/ })).toBeTruthy();
   });
 
   it('Technologie pivovaru (etapa 7) je hotová: bez pivovaru nabídne jeho založení', async () => {

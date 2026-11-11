@@ -9,6 +9,7 @@ import {
   dotazZkusenosti, idZkusenosti, zkusenostVstup,
   idZaznamu, pivovarVstup, postupProvozuVstup, prevzetiVstup, vyberPivovaru, zarizeniVstup,
   recepturaVstup, varkaVstup,
+  overeniVstup, problemVstup, stavZjisteniVstup, webZdrojVstup, zjisteniVstup,
 } from '../_shared/vstupy.ts';
 import {
   celeCislo, druhObjektu, DRUHY_OBJEKTU, jeCitelny, listyPodStropem, MAX_LISTU_NA_DOTAZ, nahled, OBJEKTU_NA_DOTAZ,
@@ -437,6 +438,85 @@ const PROVEDENI: Record<Akce, (k: Kontext) => Promise<Response>> = {
     const { data, error } = await db.rpc('bible_varka_smaz', { p_uzivatel: u.uid, p_pristup: u.pristup, p_id: idZaznamu(telo, 'várky') });
     if (error) return chybaDb(cors, error, 'varka_smazat');
     if (!data) return chyba(cors, 404, 'nenalezeno', 'Várka už v bibli není.');
+    return hotovo(cors, { ok: true });
+  },
+
+  // Rešerše z internetu (etapa 9): nový zdroj vždy neověřený, ověřuje správce.
+  async web_zdroje({ db, cors }) {
+    const { data, error } = await db.rpc('bible_web_zdroje_prehled', { p_limit: 500 });
+    if (error?.code === 'PGRST202') return hotovo(cors, { zdroje: [], migrace: false });
+    if (error) return chybaDb(cors, error, 'web_zdroje');
+    return hotovo(cors, { zdroje: data ?? [], migrace: true });
+  },
+
+  async web_zdroj_ulozit({ db, u, telo, cors }) {
+    const { data, error } = await db.rpc('bible_web_zdroj_uloz', {
+      p_uzivatel: u.uid, p_pristup: u.pristup, p_jmeno: u.jmeno ?? '', p_pres_claude: false, p_zdroj: webZdrojVstup(telo.zdroj),
+    });
+    if (error) return chybaDb(cors, error, 'web_zdroj_ulozit');
+    return hotovo(cors, data);
+  },
+
+  async web_zdroj_overit({ db, u, telo, cors }) {
+    const { id, stav, poznamka } = overeniVstup(telo);
+    const { data, error } = await db.rpc('bible_web_zdroj_over', {
+      p_uzivatel: u.uid, p_pristup: u.pristup, p_jmeno: u.jmeno ?? '', p_id: id, p_stav: stav, p_poznamka: poznamka,
+    });
+    if (error) return chybaDb(cors, error, 'web_zdroj_overit');
+    if (!data) return chyba(cors, 404, 'nenalezeno', 'Zdroj už v bibli není.');
+    return hotovo(cors, { ok: true });
+  },
+
+  async web_zdroj_smazat({ db, u, telo, cors }) {
+    const { data, error } = await db.rpc('bible_web_zdroj_smaz', { p_uzivatel: u.uid, p_pristup: u.pristup, p_id: idZaznamu(telo, 'zdroje') });
+    if (error) return chybaDb(cors, error, 'web_zdroj_smazat');
+    if (!data) return chyba(cors, 404, 'nenalezeno', 'Zdroj už v bibli není.');
+    return hotovo(cors, { ok: true });
+  },
+
+  // Analýza problémů (etapa 10): problémy s dotčenými várkami a typovanými zjištěními.
+  async problemy({ db, cors }) {
+    const { data, error } = await db.rpc('bible_problemy_prehled', { p_limit: 200 });
+    if (error?.code === 'PGRST202') return hotovo(cors, { problemy: [], migrace: false });
+    if (error) return chybaDb(cors, error, 'problemy');
+    return hotovo(cors, { problemy: data ?? [], migrace: true });
+  },
+
+  async problem_ulozit({ db, u, telo, cors }) {
+    const { data, error } = await db.rpc('bible_problem_uloz', {
+      p_uzivatel: u.uid, p_pristup: u.pristup, p_jmeno: u.jmeno ?? '', p_pres_claude: false, p_problem: problemVstup(telo.problem),
+    });
+    if (error) return chybaDb(cors, error, 'problem_ulozit');
+    return hotovo(cors, { id: data });
+  },
+
+  async problem_smazat({ db, u, telo, cors }) {
+    const { data, error } = await db.rpc('bible_problem_smaz', { p_uzivatel: u.uid, p_pristup: u.pristup, p_id: idZaznamu(telo, 'problému') });
+    if (error) return chybaDb(cors, error, 'problem_smazat');
+    if (!data) return chyba(cors, 404, 'nenalezeno', 'Problém už v bibli není.');
+    return hotovo(cors, { ok: true });
+  },
+
+  async zjisteni_ulozit({ db, u, telo, cors }) {
+    const { data, error } = await db.rpc('bible_zjisteni_uloz', {
+      p_uzivatel: u.uid, p_pristup: u.pristup, p_jmeno: u.jmeno ?? '', p_pres_claude: false, p_zjisteni: zjisteniVstup(telo.zjisteni),
+    });
+    if (error) return chybaDb(cors, error, 'zjisteni_ulozit');
+    return hotovo(cors, { id: data });
+  },
+
+  async zjisteni_stav({ db, u, telo, cors }) {
+    const { id, stav } = stavZjisteniVstup(telo);
+    const { data, error } = await db.rpc('bible_zjisteni_stav', { p_uzivatel: u.uid, p_pristup: u.pristup, p_id: id, p_stav: stav });
+    if (error) return chybaDb(cors, error, 'zjisteni_stav');
+    if (!data) return chyba(cors, 404, 'nenalezeno', 'Zjištění už v bibli není.');
+    return hotovo(cors, { ok: true });
+  },
+
+  async zjisteni_smazat({ db, u, telo, cors }) {
+    const { data, error } = await db.rpc('bible_zjisteni_smaz', { p_uzivatel: u.uid, p_pristup: u.pristup, p_id: idZaznamu(telo, 'zjištění') });
+    if (error) return chybaDb(cors, error, 'zjisteni_smazat');
+    if (!data) return chyba(cors, 404, 'nenalezeno', 'Zjištění už v bibli není.');
     return hotovo(cors, { ok: true });
   },
 
