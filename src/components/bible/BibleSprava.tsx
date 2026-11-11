@@ -1,10 +1,12 @@
 // ⚙️ Správa znalostí Pivovarské bible — tematické oblasti A–T, kdo má
-// přístup, kapacita databáze a úložiště, AI (Claude) a náklady.
+// přístup, kapacita databáze a úložiště, rešerše z internetu, AI (Claude)
+// a náklady.
 // ---------------------------------------------------------------------------
 // Kapacitu PROJEKTU BIBLE (samostatný Supabase Free, R12: vlastní 500 MB
 // databáze a 1 GB úložiště) vrací bible_kapacita() přes bible-api jen
 // správcům knihovny. Tarif z ní poznat nejde — limity Free jsou pro srovnání.
 import { ClaudeKonektorPanel } from './ClaudeKonektorPanel';
+import { BibleWebZdroje } from './BibleWebZdroje';
 import { useEffect, useState } from 'react';
 import { ExternalLink, ShieldCheck } from 'lucide-react';
 import { smiSpravovat, type BibleRole } from '../../lib/bibleOpravneni';
@@ -149,6 +151,9 @@ export function BibleSprava({ role, setPage }: {
       )}
 
       <ClaudeKonektorPanel />
+
+      {/* Etapa 9 (architektura § 11: Správa znalostí → rešerše z internetu). */}
+      <BibleWebZdroje role={role} />
 
       <section className="rounded-xl border border-neutral-700 bg-neutral-900 text-neutral-100 p-4 space-y-2">
         <h2 className="font-black">AI a náklady</h2>

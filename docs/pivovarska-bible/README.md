@@ -48,7 +48,35 @@ s citací kniha–kapitola–strana a počítá deterministickým výpočetním 
 | 6b: další výpočty — chlazení a výměníky, voda a pH, scezování, chmelovar, kvašení, dokvašení, hydraulika, CIP, energie, ekonomika (R24) | hotovo (11. 11. 2026) — bez migrace |
 | 7: technologie pivovaru — profil, zařízení s parametry a zdrojem, provozní postupy, víc pivovarů, převzetí tanků ze Sklepa, nástroj `profil_pivovaru` (R25) | hotovo (11. 11. 2026) — migrace `20261111000000_bible_technologie` |
 | 8: receptury a várky — evidence (pevný katalog 30 hodnot s rozsahem), receptury s cíli, porovnání várek (cíle, odchylky, výtěžek, odpar, prokvašení, co chybí), nástroje `seznam_varek` a `porovnej_varky` (R26) | hotovo (11. 11. 2026) — migrace `20261111010000_bible_varky` |
-| 9–10 | čeká |
+| 9: rešerše z internetu — `bible_web_zdroje` (adresa, titulek, datum publikace a zjištění, důvěra 1–5, stav), Claude ukládá přes konektor vždy jako neověřené, správce ověří ve Správě znalostí (R27) | hotovo (11. 11. 2026) — migrace `20261111020000_bible_web_problemy` |
+| 10: analýza problémů (oblast T) — problémy s dotčenými várkami, zjištění šesti typů (fakt se zdrojem, výpočet, zkušenost, doporučení, hypotéza, chybí), potvrzení hypotéz, trend várek v grafu; nástroje `problemy`, `zaloz_problem`, `zapis_zjisteni` (R27) | hotovo (11. 11. 2026) — stejná migrace |
+
+## Rešerše z internetu (etapa 9) a analýza problémů (etapa 10)
+
+- **Rešerše:** Claude hledá na webu v aplikaci Claude (předplatné majitele,
+  R16) a užitečný zdroj uloží nástrojem `uloz_web_zdroj` — adresa, titulek,
+  vydavatel, datum publikace, shrnutí **vlastními slovy** (žádné dlouhé
+  citace), oblasti a důvěra 1–5 (1 odborná instituce / recenzovaný článek …
+  5 neověřený). Nový zdroj je **vždy neověřený**; stejná adresa se podruhé
+  nezaloží. Uložené zdroje vrací `web_zdroje` (ověřené první, zamítnuté jen na
+  vyžádání) s výslovným „INTERNET, ne literatura" — v odpovědi vždy zvlášť,
+  s datem a stavem, nikdy nepřepíše knihy.
+- **Kde v appce:** Správa znalostí → Rešerše z internetu: seznam s filtrem
+  stavu a hledáním, ruční přidání (přispěvatel), **ověřit / zamítnout / vrátit
+  mezi neověřené jen správce**, smazat autor nebo správce.
+- **Analýza problémů** (dlaždice): problém má příznaky, pivo, oblasti a až 12
+  dotčených várek (porovnání stejným kódem jako etapa 8). Zjištění nesou jeden
+  ze šesti typů architektury § 6; fakt a výpočet **musí mít zdroj** (hlídá
+  appka, bible-api i SQL). Hypotézu potvrdí nebo vyvrátí přispěvatel. Claude
+  přes konektor: `problemy` (seznam / detail i s porovnáním várek),
+  `zaloz_problem`, `zapis_zjisteni`.
+- **Trend várek:** graf jedné hodnoty (zapsané nebo spočítané — výtěžek,
+  odpar, prokvašení, alkohol) přes várky v čase, filtr receptury a její cíl
+  jako referenční čára; bublina na najetí i z klávesnice, tabulka hodnot.
+  Várka bez hodnoty v grafu není a pod grafem se řekne, u kolika chybí.
+- **Zápis přes konektor** jde za uživatele, který konektor připojil
+  (`pres_claude`, v appce „Claude (konektor) za …"), a jen s právem
+  přispěvatele (hlídá konektor i SQL).
 
 ## Receptury a várky (etapa 8)
 

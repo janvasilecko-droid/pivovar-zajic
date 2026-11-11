@@ -190,6 +190,91 @@ export const NASTROJE: readonly Nastroj[] = [
     },
   },
   {
+    name: 'web_zdroje',
+    title: 'Webové zdroje (rešerše)',
+    description: 'Zdroje z internetu uložené v bibli — odděleně od knih: adresa, titulek, datum publikace a zjištění, důvěra 1–5 a stav '
+      + '(neověřeno, ověřeno). Filtr dotaz a oblast (A–T); zamítnuté jen s vcetne_zamitnutych.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        dotaz: { type: 'string', description: 'Slova k hledání (nepovinné)' },
+        oblast: { type: 'string', description: 'Oblast A–T (nepovinné)' },
+        vcetne_zamitnutych: { type: 'boolean', description: 'Ukázat i zamítnuté zdroje' },
+        limit: { type: 'integer', minimum: 1, maximum: 50, description: 'Kolik zdrojů vypsat (výchozí 20)' },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'uloz_web_zdroj',
+    title: 'Uložit webový zdroj',
+    description: 'Uloží do bible zdroj nalezený na internetu — vždy jako NEOVĚŘENÝ (ověří ho správce v appce). Shrnutí piš vlastními slovy '
+      + '(žádné dlouhé citace), datum publikace uveď, je-li známé, a důvěru 1–5: 1 odborná instituce nebo recenzovaný článek, 2 norma nebo '
+      + 'dokumentace výrobce, 3 odborný časopis nebo článek, 4 blog, diskuse nebo zkušenost jednoho autora, 5 neověřený zdroj. Stejná adresa se podruhé neuloží.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        url: { type: 'string', description: 'Adresa stránky (https://…)' },
+        titulek: { type: 'string', description: 'Titulek stránky nebo článku' },
+        shrnuti: { type: 'string', description: 'Co zdroj říká, vlastními slovy (nejvýš 4000 znaků)' },
+        vydavatel: { type: 'string', description: 'Web, instituce nebo autor (nepovinné)' },
+        datum_publikace: { type: 'string', description: 'RRRR-MM-DD (nepovinné)' },
+        oblasti: { type: 'array', items: { type: 'string' }, description: 'Oblasti A–T (nepovinné)' },
+        duvera: { type: 'integer', minimum: 1, maximum: 5, description: 'Důvěra 1–5' },
+      },
+      required: ['url', 'titulek', 'shrnuti', 'duvera'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'problemy',
+    title: 'Analýza problémů',
+    description: 'Technologické problémy (oblast T) zapsané v appce. Bez problem_id seznam otevřených (vse=true i uzavřené); s problem_id detail: '
+      + 'příznaky, zjištění podle typu (fakt, výpočet, zkušenost, doporučení, hypotéza, chybí) a porovnání dotčených várek.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        problem_id: { type: 'string', description: 'Id problému ze seznamu (nepovinné)' },
+        vse: { type: 'boolean', description: 'I vyřešené a odložené problémy' },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'zaloz_problem',
+    title: 'Založit problém',
+    description: 'Založí v bibli nový technologický problém: název, příznaky, pivo, dotčené várky (varka_ids ze seznam_varek) a oblasti A–T.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        nazev: { type: 'string', description: 'Krátký název problému' },
+        popis: { type: 'string', description: 'Příznaky: co se děje, od kdy, jak se to projevuje' },
+        pivo: { type: 'string', description: 'Pivo (nepovinné)' },
+        varka_ids: { type: 'array', items: { type: 'string' }, maxItems: 12, description: 'Dotčené várky (nepovinné)' },
+        oblasti: { type: 'array', items: { type: 'string' }, description: 'Oblasti A–T (nepovinné; řešení problémů je T)' },
+      },
+      required: ['nazev'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'zapis_zjisteni',
+    title: 'Zapsat zjištění k problému',
+    description: 'Zapíše k problému jedno zjištění jednoho typu: fakt (povinně se zdrojem — kniha a strana, várka, měření), vypocet (povinně '
+      + 'se zdrojem — který výpočet), zkusenost, doporuceni, hypoteza (nepotvrzený předpoklad; potvrdí nebo vyvrátí ho člověk v appce) nebo chybi (údaj, který chybí).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        problem_id: { type: 'string', description: 'Id problému' },
+        typ: { type: 'string', enum: ['fakt', 'vypocet', 'zkusenost', 'doporuceni', 'hypoteza', 'chybi'] },
+        text: { type: 'string', description: 'Zjištění jednou až dvěma větami' },
+        zdroj: { type: 'string', description: 'Zdroj (u faktu a výpočtu povinný)' },
+      },
+      required: ['problem_id', 'typ', 'text'],
+      additionalProperties: false,
+    },
+  },
+  {
     name: 'seznam_knih',
     title: 'Seznam knih',
     description: 'Knihy v knihovně: název, autor, rok, jazyk, stav zpracování a id pro další nástroje.',
@@ -204,7 +289,10 @@ export const INSTRUKCE = 'Knihovna odborné pivovarské literatury Pivovaru Zaj�
   + 'Čísla z výpočtů (stupňovitost, alkohol, ředění, výtěžek, IBU, barva, CO₂, chlazení, voda, potrubí, CIP, energie, daň, náklady…) '
   + 'počítej nástrojem vypocet, ne zpaměti. Parametry konkrétního provozu (objemy nádob, výkony, čerpadla, postupy) ber z profil_pivovaru, '
   + 'vždy je odliš od obecných znalostí z knih a u čísla řekni zdroj; co v profilu chybí, nedomýšlej. '
-  + 'Várky porovnávej nástrojem porovnej_varky: pracuj jen s uloženými údaji, co chybí, vyjmenuj, a příčiny odchylek uváděj jako hypotézy s oporou v knihách.';
+  + 'Várky porovnávej nástrojem porovnej_varky: pracuj jen s uloženými údaji, co chybí, vyjmenuj, a příčiny odchylek uváděj jako hypotézy s oporou v knihách. '
+  + 'Internet: užitečný nalezený zdroj ulož nástrojem uloz_web_zdroj (shrnutí vlastními slovy, datum, důvěra); uložené vrací web_zdroje. '
+  + 'Web v odpovědi vždy zvlášť od knih, s datem a stavem (neověřený tak označ), a nikdy nepřepíše literaturu. '
+  + 'Problémy (oblast T): problemy, zaloz_problem a zapis_zjisteni — každé zjištění jeden typ, fakt a výpočet se zdrojem, hypotézu nevydávej za fakt.';
 
 /** Novější vydání podle id staršího (etapa 3c): z dvojic dokument → předchozí vydání. */
 export function novejsiVydani(radky: readonly { id: string; nazev: string; rok: number | null; predchozi_vydani: string | null }[]): Map<string, { nazev: string; rok: number | null }[]> {

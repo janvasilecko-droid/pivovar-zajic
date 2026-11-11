@@ -25,6 +25,7 @@ import { BibleHledani } from '../components/bible/BibleHledani';
 import { BibleVypocty } from '../components/bible/BibleVypocty';
 import { BibleTechnologie } from '../components/bible/BibleTechnologie';
 import { BibleVarky } from '../components/bible/BibleVarky';
+import { BibleProblemy } from '../components/bible/BibleProblemy';
 
 export type BibleSekce = 'plocha' | 'chat' | 'knihovna' | 'vypocty' | 'technologie' | 'varky' | 'problemy' | 'zkusenosti' | 'sprava';
 
@@ -49,10 +50,8 @@ export const BIBLE_DLAZDICE: readonly BibleDlazdice[] = [
   { id: 'technologie', nazev: 'Technologie pivovaru', popis: 'Profil pivovaru: varna, tanky, čerpadla, chlazení a provozní postupy', ikona: Factory },
   // Etapa 8 (11. 11. 2026): evidence várek, porovnání stejným kódem jako Claude (porovnej_varky), nic se nedomýšlí.
   { id: 'varky', nazev: 'Receptury a várky', popis: 'Evidence várek, receptury a porovnání várek s cíli a výtěžkem', ikona: FlaskConical },
-  {
-    id: 'problemy', nazev: 'Analýza problémů', popis: 'Příčiny vad a odchylek z literatury a dat', ikona: Stethoscope, etapa: 10,
-    bude: 'Řešení technologických problémů (oblast T): chatbot nad várkami, výpočty a literaturou, s jasným označením, co je fakt, co hypotéza a co chybí.',
-  },
+  // Etapa 10 (11. 11. 2026): problémy se zjištěními šesti typů, porovnání dotčených várek a trend; příčiny hledá Claude přes konektor (R14).
+  { id: 'problemy', nazev: 'Analýza problémů', popis: 'Příčiny vad a odchylek: fakta, hypotézy, co chybí a trend várek', ikona: Stethoscope },
   { id: 'zkusenosti', nazev: 'Zkušenosti sládků', popis: 'Praxe s úrovní důvěryhodnosti 1–5, ruční zápis', ikona: Users },
   { id: 'sprava', nazev: 'Správa znalostí', popis: 'Oblasti A–T, přístup, kapacita, AI', ikona: Settings },
 ];
@@ -138,6 +137,8 @@ export default function BibleScreen({ setPage, pageSubTab }: {
         <BibleTechnologie role={role} />
       ) : sekce === 'varky' ? (
         <BibleVarky role={role} />
+      ) : sekce === 'problemy' ? (
+        <BibleProblemy role={role} />
       ) : sekce === 'sprava' ? (
         <BibleSprava role={role} setPage={setPage} />
       ) : dlazdice ? (

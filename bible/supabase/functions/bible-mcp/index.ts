@@ -1,6 +1,5 @@
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2.110.7';
-import { jeUuid, sluzebniKlic } from '../_shared/brana.ts';
-import { ChybaVstupu } from '../_shared/vstupy.ts';
+import { jeUuid, sluzebniKlic, uroven } from '../_shared/brana.ts';
 import {
   dotazHledani, jeCitelny, sPrekladem, SLOUPCE_LISTU, SLOUPCE_PREKLADU, slovaDotazu, uryvek,
 } from '../_shared/cteni.ts';
@@ -14,6 +13,9 @@ import {
   ChybaVyberu, filtrujVarky, filtrZArgumentu, porovnaniText, porovnejVarky, prehledVarek, seznamVarekText, vyberProPorovnani,
   type FiltrVarek, type PrehledVarek, type VarkaZaznam,
 } from '../_shared/varky-popisy.ts';
+import { filtrujWeb, prehledWebu, webZdrojeText } from '../_shared/web-popisy.ts';
+import { prehledProblemu, problemText, seznamProblemuText } from '../_shared/problemy-popisy.ts';
+import { ChybaVstupu, prekladChybyDb, problemVstup, webZdrojVstup, zjisteniVstup, type ChybaDb } from '../_shared/vstupy.ts';
 
 /**
  * 🔌 bible-mcp — konektor Pivovarské bible do aplikace Claude (R16).
@@ -230,6 +232,101 @@ async function porovnejVarkyNastroj(db: SupabaseClient, args: Record<string, unk
   return porovnaniText(porovnejVarky(vybrane, p.receptury), p.receptury);
 }
 
+// --- Zápis přes konektor (etapy 9 a 10) -------------------------------------
+// Kdo konektor připojil (bible_mcp_over): zapisuje se za něj, s příznakem
+// pres_claude. Práva hlídá tady i SQL (fail-closed); webový zdroj je vždy
+// neověřený — ověří ho správce v appce.
+export type Pripojeny = { uzivatel: string; jmeno: string | null; pristup: string };
+
+function smiZapisovat(kdo: Pripojeny): void {
+  if (uroven(kdo.pristup) < 2) throw new ChybaNastroje('Zapisovat do bible smí jen přispěvatel nebo správce — tvůj účet má v bibli jen čtení.');
+}
+
+/** Vstup z argumentů nástroje; chyba vstupu jde Claudovi jako srozumitelná hláška. */
+function vstup<T>(f: () => T): T {
+  try { return f(); } catch (e) { if (e instanceof ChybaVstupu) throw new ChybaNastroje(e.message); throw e; }
+}
+
+/** Chyba databáze při zápisu: srozumitelná (práva, vstup, neexistuje) Claudovi, jinak výjimka. */
+function chybaZapisu(error: ChybaDb): never {
+  const p = prekladChybyDb(error);
+  if (p.status < 500) throw new ChybaNastroje(p.zprava);
+  throw new Error(`db ${error?.code ?? '?'}`);
+}
+
+const BEZ_MIGRACE_9_10 = 'Rešerše a analýza problémů v databázi bible ještě nejsou zapnuté (migrace 20261111020000_bible_web_problemy).';
+
+async function webZdroje(db: SupabaseClient, args: Record<string, unknown>): Promise<string> {
+  const limit = args.limit === undefined || args.limit === null ? 20 : args.limit;
+  if (typeof limit !== 'number' || !Number.isInteger(limit) || limit < 1 || limit > 50) throw new ChybaNastroje('limit je celé číslo 1 až 50.');
+  if (args.dotaz !== undefined && args.dotaz !== null && (typeof args.dotaz !== 'string' || args.dotaz.length > 200)) throw new ChybaNastroje('dotaz je text (nejvýš 200 znaků).');
+  if (args.oblast !== undefined && args.oblast !== null && args.oblast !== '' && (typeof args.oblast !== 'string' || !/^[A-T]$/.test(args.oblast))) throw new ChybaNastroje('oblast je písmeno A–T.');
+  const { data, error } = await db.rpc('bible_web_zdroje_prehled', { p_limit: 2000 });
+  if (error?.code === 'PGRST202') return BEZ_MIGRACE_9_10;
+  if (error) throw new Error(`db ${error.code ?? '?'}`);
+  const zdroje = prehledWebu(data);
+  const vybrane = filtrujWeb(zdroje, {
+    dotaz: typeof args.dotaz === 'string' ? args.dotaz : undefined,
+    oblast: typeof args.oblast === 'string' && args.oblast ? args.oblast : undefined,
+    stavy: args.vcetne_zamitnutych === true ? undefined : ['overeno', 'neovereno'],
+  });
+  // Ověřené první, pak podle důvěry.
+  vybrane.sort((a, b) => (a.stav === 'overeno' ? 0 : 1) - (b.stav === 'overeno' ? 0 : 1) || a.duvera - b.duvera);
+  return webZdrojeText(vybrane.slice(0, limit), zdroje.length);
+}
+
+async function ulozWebZdroj(db: SupabaseClient, args: Record<string, unknown>, kdo: Pripojeny): Promise<string> {
+  smiZapisovat(kdo);
+  const zdroj = vstup(() => webZdrojVstup({ ...args, id: undefined }));
+  const { data, error } = await db.rpc('bible_web_zdroj_uloz', {
+    p_uzivatel: kdo.uzivatel, p_pristup: kdo.pristup, p_jmeno: kdo.jmeno ?? '', p_pres_claude: true, p_zdroj: zdroj,
+  });
+  if (error?.code === 'PGRST202') return BEZ_MIGRACE_9_10;
+  if (error) chybaZapisu(error);
+  const r = (data ?? {}) as { id?: string; novy?: boolean; stav?: string };
+  return r.novy
+    ? `Uloženo jako neověřený webový zdroj (id ${r.id}). Ověří ho správce v appce (Pivovarská bible → Správa znalostí → Rešerše z internetu).`
+    : `Tahle adresa už v rešerši je (id ${r.id}, stav: ${r.stav === 'overeno' ? 'ověřeno' : r.stav === 'zamitnuto' ? 'zamítnuto' : 'neověřeno'}) — nic se nezměnilo.`;
+}
+
+async function problemy(db: SupabaseClient, args: Record<string, unknown>): Promise<string> {
+  const id = args.problem_id === undefined || args.problem_id === null || args.problem_id === '' ? null : args.problem_id;
+  if (id !== null && !jeUuid(id)) throw new ChybaNastroje('problem_id musí být id problému ze seznamu.');
+  const { data, error } = await db.rpc('bible_problemy_prehled', { p_limit: 1000 });
+  if (error?.code === 'PGRST202') return BEZ_MIGRACE_9_10;
+  if (error) throw new Error(`db ${error.code ?? '?'}`);
+  const seznam = prehledProblemu(data);
+  if (id === null) return seznamProblemuText(seznam, args.vse === true);
+  const p = seznam.find((x) => x.id.toLowerCase() === (id as string).toLowerCase());
+  if (!p) throw new ChybaNastroje('Takový problém v bibli není.');
+  const varky = p.varky.length > 0 ? await nactiVarky(db) : null;
+  return problemText(p, varky?.varky ?? [], varky?.receptury ?? []);
+}
+
+async function zalozProblem(db: SupabaseClient, args: Record<string, unknown>, kdo: Pripojeny): Promise<string> {
+  smiZapisovat(kdo);
+  const problem = vstup(() => problemVstup({ nazev: args.nazev, popis: args.popis, pivo: args.pivo, varky: args.varka_ids, oblasti: args.oblasti }));
+  const { data, error } = await db.rpc('bible_problem_uloz', {
+    p_uzivatel: kdo.uzivatel, p_pristup: kdo.pristup, p_jmeno: kdo.jmeno ?? '', p_pres_claude: true, p_problem: problem,
+  });
+  if (error?.code === 'PGRST202') return BEZ_MIGRACE_9_10;
+  if (error) chybaZapisu(error);
+  return `Problém založen (problem_id=${data}). Zjištění k němu zapisuj nástrojem zapis_zjisteni.`;
+}
+
+async function zapisZjisteni(db: SupabaseClient, args: Record<string, unknown>, kdo: Pripojeny): Promise<string> {
+  smiZapisovat(kdo);
+  const zjisteni = vstup(() => zjisteniVstup(args));
+  const { error } = await db.rpc('bible_zjisteni_uloz', {
+    p_uzivatel: kdo.uzivatel, p_pristup: kdo.pristup, p_jmeno: kdo.jmeno ?? '', p_pres_claude: true, p_zjisteni: zjisteni,
+  });
+  if (error?.code === 'PGRST202') return BEZ_MIGRACE_9_10;
+  if (error) chybaZapisu(error);
+  return zjisteni.typ === 'hypoteza'
+    ? 'Hypotéza zapsaná jako navržená — potvrdí nebo vyvrátí ji člověk v appce.'
+    : 'Zjištění zapsané.';
+}
+
 async function seznamKnih(db: SupabaseClient): Promise<string> {
   const { data, error } = await db.from('bible_dokumenty').select('id,nazev,autor,rok,jazyk,stav,stran_celkem').order('nazev');
   if (error) throw new Error(`db ${error.code ?? '?'}`);
@@ -240,8 +337,13 @@ async function seznamKnih(db: SupabaseClient): Promise<string> {
     + ` — ${jeCitelny(k.stav) ? 'zpracovaná' : `stav: ${k.stav}`}${k.stran_celkem ? `, ${k.stran_celkem} stran` : ''}${poznamkaVydani(k.id, novejsi)} — kniha_id=${k.id}`).join('\n');
 }
 
-function zavolejNastroj(db: SupabaseClient) {
+function zavolejNastroj(db: SupabaseClient, kdo: Pripojeny) {
   return (jmeno: string, args: Record<string, unknown>): Promise<string> => {
+    if (jmeno === 'web_zdroje') return webZdroje(db, args);
+    if (jmeno === 'uloz_web_zdroj') return ulozWebZdroj(db, args, kdo);
+    if (jmeno === 'problemy') return problemy(db, args);
+    if (jmeno === 'zaloz_problem') return zalozProblem(db, args, kdo);
+    if (jmeno === 'zapis_zjisteni') return zapisZjisteni(db, args, kdo);
     if (jmeno === 'hledej_v_knihach') return hledej(db, args);
     if (jmeno === 'precti_stranu') return prectiStranu(db, args);
     if (jmeno === 'prehled_tematu') return prehledTematu(db, args);
@@ -308,7 +410,9 @@ Deno.serve(async (req: Request) => {
     const telo = await nactiTelo(req);
     if (telo === null) return json(400, { jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } });
     const zpravy = Array.isArray(telo) ? telo : [telo];
-    const zavolej = zavolejNastroj(db);
+    const radek = overeni[0] as { uzivatel?: unknown; jmeno?: unknown; pristup?: unknown };
+    if (typeof radek.uzivatel !== 'string' || typeof radek.pristup !== 'string') return neprihlasen();
+    const zavolej = zavolejNastroj(db, { uzivatel: radek.uzivatel, jmeno: typeof radek.jmeno === 'string' ? radek.jmeno : null, pristup: radek.pristup });
     const odpovedi = (await Promise.all(zpravy.map((z) => zpracujZpravu(z as Record<string, unknown>, zavolej)))).filter((o) => o !== null);
     if (odpovedi.length === 0) return new Response(null, { status: 202 });
     return json(200, Array.isArray(telo) ? odpovedi : odpovedi[0]);

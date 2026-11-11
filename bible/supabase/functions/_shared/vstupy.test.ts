@@ -4,6 +4,7 @@ import {
   AKCE, ChybaVstupu, dotazZkusenosti, idDokumentu, idZkusenosti, klicPrehledu, jeAkce, popisDokumentu, predchoziVydani, prekladChybyDb, souborKNahrani, stavDokumentu, zacatekObdobi, zkusenostVstup,
   idZaznamu, parametryVstup, pivovarVstup, postupProvozuVstup, prevzetiVstup, vyberPivovaru, zarizeniVstup,
   datumVstup, hodnotyVarkyVstup, recepturaVstup, varkaVstup,
+  overeniVstup, problemVstup, stavZjisteniVstup, urlVstup, webZdrojVstup, zjisteniVstup,
 } from './vstupy';
 
 const SHA = 'a'.repeat(64);
@@ -317,5 +318,60 @@ describe('receptury a várky (etapa 8)', () => {
     expect(() => varkaVstup({ datum_varu: '2026-11-03' })).toThrow(ChybaVstupu);
     expect(() => varkaVstup({ pivo: 'Ležák' })).toThrow('Datum varu chybí nebo není datum.');
     expect(() => varkaVstup({ pivo: 'Ležák', datum_varu: '2026-11-03', receptura_id: 'x' })).toThrow(ChybaVstupu);
+  });
+});
+
+describe('rešerše z internetu a analýza problémů (etapy 9 a 10)', () => {
+  const W = 'aaaaaaaa-1111-2222-3333-444444444444';
+  const P = 'bbbbbbbb-1111-2222-3333-444444444444';
+  const V = 'cccccccc-1111-2222-3333-444444444444';
+
+  it('práva: čtení všem, zápis přispěvateli, ověření zdroje jen správci', () => {
+    expect(AKCE.web_zdroje).toBe('cte');
+    expect(AKCE.web_zdroj_ulozit).toBe('prispiva');
+    expect(AKCE.web_zdroj_overit).toBe('spravuje');
+    expect(AKCE.web_zdroj_smazat).toBe('prispiva');
+    expect(AKCE.problemy).toBe('cte');
+    for (const a of ['problem_ulozit', 'problem_smazat', 'zjisteni_ulozit', 'zjisteni_stav', 'zjisteni_smazat'] as const) expect(AKCE[a]).toBe('prispiva');
+  });
+
+  it('adresa: jen http(s), bez mezer, se skutečným hostitelem', () => {
+    expect(urlVstup(' https://example.org/a?b=1 ')).toBe('https://example.org/a?b=1');
+    expect(() => urlVstup('javascript:alert(1)')).toThrow(ChybaVstupu);
+    expect(() => urlVstup('https://exa mple.org')).toThrow(ChybaVstupu);
+    expect(() => urlVstup('https://localhost/x')).toThrow('Adresa zdroje není platná webová adresa.');
+    expect(() => urlVstup(5)).toThrow('Chybí adresa zdroje.');
+  });
+
+  it('webový zdroj: povinné titulek a shrnutí, důvěra 1–5 (výchozí 5), oblasti A–T', () => {
+    expect(webZdrojVstup({ url: 'https://example.org/a', titulek: ' A ', shrnuti: ' S ', oblasti: ['F', 'D', 'F'], duvera: 3, datum_publikace: '2025-04-01' }))
+      .toEqual({ url: 'https://example.org/a', titulek: 'A', vydavatel: null, datum_publikace: '2025-04-01', shrnuti: 'S', oblasti: ['D', 'F'], duvera: 3 });
+    expect(webZdrojVstup({ id: W, url: 'https://example.org/a', titulek: 'A', shrnuti: 'S' })).toMatchObject({ id: W, duvera: 5, oblasti: [] });
+    expect(() => webZdrojVstup({ url: 'https://example.org/a', titulek: 'A', shrnuti: 'S', duvera: 6 })).toThrow('Důvěra je celé číslo 1 až 5.');
+    expect(() => webZdrojVstup({ url: 'https://example.org/a', titulek: 'A', shrnuti: ' ' })).toThrow(ChybaVstupu);
+    expect(() => webZdrojVstup({ url: 'https://example.org/a', titulek: 'A', shrnuti: 'S', datum_publikace: '1. 4. 2025' })).toThrow(ChybaVstupu);
+  });
+
+  it('ověření zdroje: známý stav a nepovinná poznámka', () => {
+    expect(overeniVstup({ id: W, stav: 'overeno', poznamka: ' ok ' })).toEqual({ id: W, stav: 'overeno', poznamka: 'ok' });
+    expect(() => overeniVstup({ id: W, stav: 'jiste' })).toThrow('Neznámý stav zdroje.');
+  });
+
+  it('problém: název povinný, várky jen id (bez opakování, nejvýš 12), stav ze seznamu', () => {
+    expect(problemVstup({ nazev: ' Výtěžek ', varky: [V, V.toUpperCase()], oblasti: ['T'] }))
+      .toEqual({ nazev: 'Výtěžek', popis: null, pivo: null, varky: [V], oblasti: ['T'], stav: 'otevreny', reseni: null });
+    expect(() => problemVstup({ nazev: 'X', varky: ['x'] })).toThrow(ChybaVstupu);
+    expect(() => problemVstup({ nazev: 'X', stav: 'hotovo' })).toThrow('Neznámý stav problému.');
+    expect(() => problemVstup({ nazev: ' ' })).toThrow(ChybaVstupu);
+  });
+
+  it('zjištění: typ ze šesti, fakt a výpočet jen se zdrojem; stav zjištění ze seznamu', () => {
+    expect(zjisteniVstup({ problem_id: P, typ: 'hypoteza', text: ' Hrubý šrot. ' })).toEqual({ problem_id: P, typ: 'hypoteza', text: 'Hrubý šrot.', zdroj: null });
+    expect(zjisteniVstup({ problem_id: P, typ: 'fakt', text: 'X', zdroj: 'Kunze, s. 158' })).toMatchObject({ zdroj: 'Kunze, s. 158' });
+    expect(() => zjisteniVstup({ problem_id: P, typ: 'fakt', text: 'X' })).toThrow('Fakt a výpočet potřebují zdroj (kniha a strana, várka, výpočet…).');
+    expect(() => zjisteniVstup({ problem_id: P, typ: 'domnenka', text: 'X' })).toThrow(ChybaVstupu);
+    expect(() => zjisteniVstup({ typ: 'chybi', text: 'X' })).toThrow('Chybí problém.');
+    expect(stavZjisteniVstup({ id: P, stav: 'vyvraceno' })).toEqual({ id: P, stav: 'vyvraceno' });
+    expect(() => stavZjisteniVstup({ id: P, stav: 'mozna' })).toThrow(ChybaVstupu);
   });
 });
