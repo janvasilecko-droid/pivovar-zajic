@@ -36,7 +36,8 @@ export function ClaudeKonektorPanel() {
       <h2 className="flex items-center gap-2 font-black"><Bot size={18} className="text-amber-400" /> Aplikace Claude</h2>
       <p className="text-sm text-neutral-200">
         Připoj knihovnu ke své aplikaci Claude (mobil i počítač, v rámci tvého předplatného). Pak se zeptáš třeba „napiš to nejlepší o chmelovaru
-        z mých knih" a Claude sám prohledá knihy, přečte stránky a odpoví s odkazy na knihu a stranu.
+        z mých knih" a Claude sám prohledá knihy, přečte stránky a odpoví s odkazy na knihu a stranu. Umí taky počítat (výpočty z laboratoře),
+        číst profil pivovaru, porovnat várky, uložit zdroj z webu (vždy jako neověřený) a zapsat zjištění k problému — co zapíše, je v appce označené „Claude (konektor)".
       </p>
       <ol className="list-decimal space-y-1 pl-5 text-sm text-neutral-200">
         <li>Na <a className="font-bold text-amber-300 underline" href="https://claude.ai/settings/connectors" target="_blank" rel="noopener noreferrer">claude.ai → Nastavení → Konektory</a> klikni „Přidat vlastní konektor".</li>
