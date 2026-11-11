@@ -252,7 +252,9 @@ Každé tvrzení nese jeden typ ze zadání (bod 11):
   s nezávislým přepočtem.
 - **Vazba na knihovnu:** u vzorce je odkaz na pasáž v knize, kde je uvedený.
   Hotovo v 6a jako „Najít v knihách" (hledání s dotazem výpočtu) — konkrétní
-  stránka se nevymýšlí; výpočty 6a jsou v README (R23).
+  stránka se nevymýšlí; výpočty 6a a 6b jsou v README (R23, R24).
+- **Materiálové hodnoty** bez ověřeného jednoho čísla (měrné teplo mladiny,
+  U výměníku, sazba daně…) zadává člověk s výchozí hodnotou a nápovědou (R24).
 
 ## 8. Technologie pivovaru, receptury a várky (Etapy 7 a 8)
 

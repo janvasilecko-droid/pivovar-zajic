@@ -303,3 +303,24 @@ Každé rozhodnutí má datum, důvod a co by ho změnilo.
 - Vazba na knihovnu přes hledání („Najít v knihách"), ne přes pevná čísla
   stran — strana se nesmí vymyslet (zásada 1).
 
+## R24 — Výpočetní modul, druhá část (etapa 6b, 11. 11. 2026)
+
+- Majitel: „Pokračuj na ty bibly, dokud nebude hotová" → zbytek etapy 6:
+  chlazení a výměníky, voda a pH, hydraulika a čerpadla, CIP, energie,
+  ekonomika; k tomu scezování (vyslazovací voda), chmelovar (odpar), kvašení
+  (dávka kvasnic) a dokvašení v lahvi.
+- Fyzika je přesná (bilance tepla a hmoty, Darcy–Weisbach se Swamee–Jain,
+  ΔT_ln, Kolbach, stechiometrie kvašení). Materiálové hodnoty, pro které nemám
+  ověřený zdroj jednoho čísla, se **zadávají** s výchozí hodnotou a nápovědou
+  místo natvrdo: měrné teplo mladiny a rmutu, součinitel prostupu tepla U,
+  viskozita a drsnost, hustoty koncentrátů, účinnosti, ceny. Tak výpočet nic
+  nedomýšlí a nejistota je vidět.
+- Sazba spotřební daně se zadává (výchozí 32 Kč/hl/°P, snížená sazba malého
+  pivovaru v % základní) — zákon se mění a zastaralé číslo napevno by bylo
+  nebezpečné. Daň se počítá z celých stupňů Plato (§ 82 zákona č. 353/2003 Sb.).
+- Přechodová oblast proudění (Re 2300–4000) se odmítne — tam tlakovou ztrátu
+  spolehlivě spočítat nejde.
+- Fyzikální vztahy sdílené 6a i 6b jsou v `fyzika.ts` (katalog 6b je
+  v `katalog-6b.ts`, aby se katalogy navzájem neimportovaly v kruhu).
+- Laboratoř řadí výpočty podle oblastí A–T (24 výpočtů v jednom seznamu se
+  ztrácelo).

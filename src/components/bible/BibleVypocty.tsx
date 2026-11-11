@@ -9,7 +9,7 @@ import { useMemo, useState } from 'react';
 import { ArrowLeft, Calculator, Plus, Search, Trash2 } from 'lucide-react';
 import { MimoRozsah, formatuj, spocitej, vychoziHodnoty, type Definice, type Vstup, type Vysledek } from '../../../bible/supabase/functions/_shared/vypocty/zaklad.ts';
 import { VYPOCTY } from '../../../bible/supabase/functions/_shared/vypocty/katalog.ts';
-import { nazevOblasti } from '../../lib/bibleOblasti';
+import { BIBLE_OBLASTI } from '../../lib/bibleOblasti';
 
 /** Text z pole → číslo (desetinná čárka i tečka, minus i „−"); prázdné/nesmysl = NaN. */
 export function cisloZTextu(t: string): number {
@@ -171,6 +171,13 @@ function DetailVypoctu({ d, zpet, hledej }: { d: Definice; zpet: () => void; hle
   );
 }
 
+/** Výpočty po tematických oblastech A–T (etapa 6b: 24 výpočtů se v jednom seznamu ztrácely). */
+export function vypoctyPoOblastech(vypocty: readonly Definice[]): { kod: string; nazev: string; vypocty: Definice[] }[] {
+  return BIBLE_OBLASTI
+    .map((o) => ({ kod: o.kod, nazev: o.nazev, vypocty: vypocty.filter((d) => d.oblast === o.kod) }))
+    .filter((g) => g.vypocty.length > 0);
+}
+
 export function BibleVypocty({ hledej }: { hledej?: (dotaz: string) => void }) {
   const [otevreny, setOtevreny] = useState<string | null>(null);
   const d = otevreny ? VYPOCTY.find((x) => x.id === otevreny) : undefined;
@@ -181,21 +188,25 @@ export function BibleVypocty({ hledej }: { hledej?: (dotaz: string) => void }) {
         Výpočty s ověřenými vzorci. U každého výsledku je vzorec, mezikroky, předpoklady, rozsah platnosti a nejistota; vstup mimo rozsah se odmítne.
         Stejně počítá i Claude přes konektor.
       </p>
-      <ul className="grid gap-2 sm:grid-cols-2">
-        {VYPOCTY.map((x) => (
-          <li key={x.id}>
-            <button
-              type="button"
-              onClick={() => setOtevreny(x.id)}
-              className="btn h-full w-full flex-col items-start gap-1 p-3 text-left bg-neutral-900 text-neutral-100 border border-neutral-700 hover:border-amber-500 hover:bg-neutral-800"
-            >
-              <span className="flex items-center gap-2 text-sm font-black"><Calculator size={16} className="shrink-0 text-amber-400" /> {x.nazev}</span>
-              <span className="text-xs font-normal text-neutral-300">{x.popis}</span>
-              <span className="text-[11px] font-bold text-neutral-400">Oblast {x.oblast} · {nazevOblasti(x.oblast)}</span>
-            </button>
-          </li>
-        ))}
-      </ul>
+      {vypoctyPoOblastech(VYPOCTY).map((g) => (
+        <section key={g.kod} className="space-y-2" aria-label={`Oblast ${g.kod} · ${g.nazev}`}>
+          <h2 className="text-xs font-black uppercase tracking-wide text-amber-400">{g.kod} · {g.nazev}</h2>
+          <ul className="grid gap-2 sm:grid-cols-2">
+            {g.vypocty.map((x) => (
+              <li key={x.id}>
+                <button
+                  type="button"
+                  onClick={() => setOtevreny(x.id)}
+                  className="btn h-full w-full flex-col items-start gap-1 p-3 text-left bg-neutral-900 text-neutral-100 border border-neutral-700 hover:border-amber-500 hover:bg-neutral-800"
+                >
+                  <span className="flex items-center gap-2 text-sm font-black"><Calculator size={16} className="shrink-0 text-amber-400" /> {x.nazev}</span>
+                  <span className="text-xs font-normal text-neutral-300">{x.popis}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
     </div>
   );
 }

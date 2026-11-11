@@ -126,7 +126,10 @@ export const NASTROJE: readonly Nastroj[] = [
     name: 'vypocet',
     title: 'Výpočet (ověřené vzorce)',
     description: 'Pivovarské výpočty výpočetním modulem bible: stupňovitost ↔ hustota, alkohol a prokvašení (Balling), ředění, '
-      + 'varní výtěžek, teplota vody pro vystírku, hořkost IBU (Tinseth), barva (Morey), obsah CO₂ a přetlak pro sycení. '
+      + 'varní výtěžek, teplota vody pro vystírku, hořkost IBU (Tinseth), barva (Morey), obsah CO₂ a přetlak pro sycení, '
+      + 'chlazení mladiny a plocha výměníku, zbytková alkalita vody a kyselina na její snížení, vyslazovací voda, odpar při chmelovaru, '
+      + 'dávka kvasnic, cukr na dokvašení v lahvi, tlaková ztráta potrubí a příkon čerpadla, CIP roztok z koncentrátu, '
+      + 'energie na ohřev a var, spotřební daň z piva a náklady várky. '
       + 'Bez id vrátí seznam výpočtů a jejich vstupy. Čísla ber z výsledku, nepočítej je sám.',
     inputSchema: {
       type: 'object',
@@ -150,7 +153,8 @@ export const INSTRUKCE = 'Knihovna odborné pivovarské literatury Pivovaru Zaj�
   + '(hledej_v_knihach, precti_stranu, prehled_tematu) a u každého tvrzení uveď odkaz na knihu a stránku přesně tak, jak je ve výsledku. '
   + 'Čísla a jednotky opisuj přesně. Když knihy něco neříkají, řekni to; vlastní obecnou znalost jasně odliš od toho, co je v knihách. '
   + 'Výsledek označený „starší vydání" má v knihovně novější vydání: přednost má novější (hodnoty se mohly změnit), rozdíl řekni. '
-  + 'Čísla z výpočtů (stupňovitost, alkohol, ředění, výtěžek, IBU, barva, CO₂…) počítej nástrojem vypocet, ne zpaměti.';
+  + 'Čísla z výpočtů (stupňovitost, alkohol, ředění, výtěžek, IBU, barva, CO₂, chlazení, voda, potrubí, CIP, energie, daň, náklady…) '
+  + 'počítej nástrojem vypocet, ne zpaměti.';
 
 /** Novější vydání podle id staršího (etapa 3c): z dvojic dokument → předchozí vydání. */
 export function novejsiVydani(radky: readonly { id: string; nazev: string; rok: number | null; predchozi_vydani: string | null }[]): Map<string, { nazev: string; rok: number | null }[]> {
