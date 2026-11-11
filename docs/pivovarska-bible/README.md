@@ -46,7 +46,35 @@ s citací kniha–kapitola–strana a počítá deterministickým výpočetním 
 | 5: chatbot | odloženo (R14) |
 | 6a: výpočetní modul, Výpočtová laboratoř, nástroj `vypocet` pro Claude (R23) | hotovo (4. 11. 2026) — bez migrace |
 | 6b: další výpočty — chlazení a výměníky, voda a pH, scezování, chmelovar, kvašení, dokvašení, hydraulika, CIP, energie, ekonomika (R24) | hotovo (11. 11. 2026) — bez migrace |
-| 7–10 | čeká |
+| 7: technologie pivovaru — profil, zařízení s parametry a zdrojem, provozní postupy, víc pivovarů, převzetí tanků ze Sklepa, nástroj `profil_pivovaru` (R25) | hotovo (11. 11. 2026) — migrace `20261111000000_bible_technologie` |
+| 8–10 | čeká |
+
+## Technologie pivovaru (etapa 7)
+
+- **Kde:** plocha bible → „Technologie pivovaru". Nejdřív migrace bible
+  `20261111000000_bible_technologie` (Systém → Databázové migrace → Databáze
+  bible); do té doby obrazovka řekne, kterou migraci pustit.
+- **Pivovar:** název a popis provozu (typ varny, technologické schéma slovy).
+  Jde založit i další pivovary; hlavní je vždy právě jeden (první založený,
+  nebo ten označený) a je výchozí pro appku i Clauda.
+- **Zařízení** podle druhu: varna, nádoby varny, kvasné a ležácké tanky,
+  jiné tanky, čerpadla, potrubí a ventily, výměníky, chlazení, filtrace,
+  stáčení, CIP, jiné. Formulář nabídne šablonu parametrů podle druhu (objem
+  užitný, max. přetlak, průtok, dopravní výška, výkon…); vyplní se jen, co je
+  známé — prázdné řádky se neuloží.
+- **Každý parametr má zdroj:** štítek zařízení, dokumentace výrobce, změřeno,
+  ze Sklepa v appce, nebo odhad (výchozí — nic se nevydává za ověřené).
+  Číslo zůstává číslem (s jednotkou zvlášť), jinak se uloží jako text.
+- **Převzít tanky ze Sklepa:** tlačítko načte tanky hlavní appky — Spilka =
+  kvasný tank, ostatní = ležácký, objem užitný v hl z kapacity tanku (zdroj
+  „ze Sklepa"). Tank, který už v profilu je (stejný název), se přeskočí.
+- **Provozní postupy:** název, oblast A–T, kroky a odkud postup je.
+- **Práva:** čte každý s přístupem do bible, zapisuje přispěvatel, celý
+  pivovar smaže jen správce (hlídá bible-api i SQL).
+- **Konektor Claude:** nástroj `profil_pivovaru` vrátí profil jako text
+  s výslovným „údaje provozu, ne literatura" a se zdrojem u každého čísla;
+  instrukce říká parametry provozu brát odtud, oddělit je od knih a co
+  v profilu chybí, nedomýšlet.
 
 ## Výpočtová laboratoř (etapy 6a a 6b)
 

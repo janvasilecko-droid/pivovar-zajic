@@ -142,6 +142,18 @@ export const NASTROJE: readonly Nastroj[] = [
     },
   },
   {
+    name: 'profil_pivovaru',
+    title: 'Profil pivovaru (parametry provozu)',
+    description: 'Zařízení a provozní postupy konkrétního pivovaru zapsané v appce (varna, nádoby, tanky, čerpadla, potrubí, výměníky, chlazení…) '
+      + 's parametry a jejich zdrojem (štítek, dokumentace, změřeno, odhad). Bez pivovar_id vrátí hlavní pivovar. '
+      + 'Jsou to údaje provozu, ne literatura — v odpovědi je odděl.',
+    inputSchema: {
+      type: 'object',
+      properties: { pivovar_id: { type: 'string', description: 'Id jiného pivovaru ze seznamu ve výsledku (nepovinné)' } },
+      additionalProperties: false,
+    },
+  },
+  {
     name: 'seznam_knih',
     title: 'Seznam knih',
     description: 'Knihy v knihovně: název, autor, rok, jazyk, stav zpracování a id pro další nástroje.',
@@ -154,7 +166,8 @@ export const INSTRUKCE = 'Knihovna odborné pivovarské literatury Pivovaru Zaj�
   + 'Čísla a jednotky opisuj přesně. Když knihy něco neříkají, řekni to; vlastní obecnou znalost jasně odliš od toho, co je v knihách. '
   + 'Výsledek označený „starší vydání" má v knihovně novější vydání: přednost má novější (hodnoty se mohly změnit), rozdíl řekni. '
   + 'Čísla z výpočtů (stupňovitost, alkohol, ředění, výtěžek, IBU, barva, CO₂, chlazení, voda, potrubí, CIP, energie, daň, náklady…) '
-  + 'počítej nástrojem vypocet, ne zpaměti.';
+  + 'počítej nástrojem vypocet, ne zpaměti. Parametry konkrétního provozu (objemy nádob, výkony, čerpadla, postupy) ber z profil_pivovaru, '
+  + 'vždy je odliš od obecných znalostí z knih a u čísla řekni zdroj; co v profilu chybí, nedomýšlej.';
 
 /** Novější vydání podle id staršího (etapa 3c): z dvojic dokument → předchozí vydání. */
 export function novejsiVydani(radky: readonly { id: string; nazev: string; rok: number | null; predchozi_vydani: string | null }[]): Map<string, { nazev: string; rok: number | null }[]> {

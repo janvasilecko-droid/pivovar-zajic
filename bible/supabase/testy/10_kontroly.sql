@@ -509,5 +509,77 @@ SELECT pg_temp.selze($q$SELECT public.bible_nastav_vydani('00000000-0000-0000-00
 SELECT pg_temp.jako('service_role');
 DELETE FROM public.bible_dokumenty WHERE id IN ('77777777-0000-0000-0000-000000000002', '77777777-0000-0000-0000-000000000003');
 
+-- 🏭 Etapa 7 — Technologie pivovaru (profil, zařízení, postupy) ----------------
+SELECT pg_temp.jako('service_role');
+SELECT pg_temp.selze($q$SELECT public.bible_pivovar_uloz('00000000-0000-0000-0000-0000000000b1', 'cte', 'Čtenář', '{"nazev":"Pivovar"}')$q$,
+  'čtenář profil pivovaru nezaloží', '42501');
+SELECT pg_temp.selze($q$SELECT public.bible_pivovar_uloz('00000000-0000-0000-0000-0000000000b2', 'prispiva', 'Sládek', '{"nazev":"  "}')$q$,
+  'pivovar bez názvu se odmítne', '23514');
+CREATE TEMP TABLE t_piv AS SELECT public.bible_pivovar_uloz('00000000-0000-0000-0000-0000000000b2', 'prispiva', 'Sládek',
+  '{"nazev":"Pivovar Zkušební","popis":"Dvounádobová varna 10 hl"}') AS id;
+SELECT pg_temp.ocekavam((SELECT hlavni FROM public.bible_pivovary WHERE id = (SELECT id FROM t_piv)), 'první pivovar je hlavní sám od sebe');
+CREATE TEMP TABLE t_piv2 AS SELECT public.bible_pivovar_uloz('00000000-0000-0000-0000-0000000000b2', 'prispiva', 'Sládek',
+  '{"nazev":"Pivovar Druhý","hlavni":true}') AS id;
+SELECT pg_temp.ocekavam((SELECT count(*) = 1 FROM public.bible_pivovary WHERE hlavni), 'hlavní je vždy nejvýš jeden');
+SELECT pg_temp.ocekavam((SELECT hlavni FROM public.bible_pivovary WHERE id = (SELECT id FROM t_piv2)), 'nový hlavní přebral označení');
+SELECT pg_temp.ocekavam(public.bible_pivovar_uloz('00000000-0000-0000-0000-0000000000b2', 'prispiva', 'Sládek',
+  jsonb_build_object('id', (SELECT id FROM t_piv2), 'nazev', 'Pivovar Druhý', 'hlavni', false)) = (SELECT id FROM t_piv2)
+  AND (SELECT hlavni FROM public.bible_pivovary WHERE id = (SELECT id FROM t_piv2)), 'hlavní pivovar nejde přepnout na „žádný hlavní"');
+SELECT pg_temp.selze($q$SELECT public.bible_pivovar_uloz('00000000-0000-0000-0000-0000000000b2', 'prispiva', 'Sládek',
+  jsonb_build_object('id', gen_random_uuid(), 'nazev', 'X'))$q$, 'úprava neexistujícího pivovaru se odmítne', 'P0002');
+
+SELECT pg_temp.selze($q$SELECT public.bible_zarizeni_uloz('00000000-0000-0000-0000-0000000000b2', 'prispiva', 'Sládek',
+  jsonb_build_object('pivovar_id', (SELECT id FROM t_piv), 'druh', 'raketa', 'nazev', 'X'))$q$, 'neznámý druh zařízení se odmítne', '23514');
+SELECT pg_temp.selze($q$SELECT public.bible_zarizeni_uloz('00000000-0000-0000-0000-0000000000b2', 'prispiva', 'Sládek',
+  jsonb_build_object('pivovar_id', (SELECT id FROM t_piv), 'druh', 'tank_kvasny', 'nazev', 'CKT 1',
+    'parametry', '[{"nazev":"Objem","hodnota":"80"}]'::jsonb))$q$, 'hodnota parametru jako text se odmítne', '22023');
+SELECT pg_temp.selze($q$SELECT public.bible_zarizeni_uloz('00000000-0000-0000-0000-0000000000b2', 'prispiva', 'Sládek',
+  jsonb_build_object('pivovar_id', (SELECT id FROM t_piv), 'druh', 'tank_kvasny', 'nazev', 'CKT 1',
+    'parametry', '[{"nazev":"Objem"}]'::jsonb))$q$, 'parametr bez hodnoty se odmítne', '22023');
+SELECT pg_temp.selze($q$SELECT public.bible_zarizeni_uloz('00000000-0000-0000-0000-0000000000b2', 'prispiva', 'Sládek',
+  jsonb_build_object('pivovar_id', (SELECT id FROM t_piv), 'druh', 'tank_kvasny', 'nazev', 'CKT 1',
+    'parametry', '[{"nazev":"Objem","hodnota":80,"zdroj":"hadam"}]'::jsonb))$q$, 'neznámý zdroj parametru se odmítne', '22023');
+CREATE TEMP TABLE t_zar AS SELECT public.bible_zarizeni_uloz('00000000-0000-0000-0000-0000000000b2', 'prispiva', 'Sládek',
+  jsonb_build_object('pivovar_id', (SELECT id FROM t_piv), 'druh', 'tank_kvasny', 'nazev', 'Spilka 1', 'pocet', 1,
+    'parametry', '[{"nazev":"Objem užitný","hodnota":80,"jednotka":"hl","zdroj":"sklep"},{"nazev":"Materiál","text":"nerez 1.4301"}]'::jsonb)) AS id;
+SELECT pg_temp.ocekavam((SELECT parametry -> 1 ->> 'zdroj' FROM public.bible_zarizeni WHERE id = (SELECT id FROM t_zar)) = 'odhad',
+  'parametr bez zdroje se uloží jako odhad');
+SELECT pg_temp.ocekavam((SELECT (parametry -> 0 ->> 'hodnota')::numeric = 80 FROM public.bible_zarizeni WHERE id = (SELECT id FROM t_zar)),
+  'číselná hodnota parametru se uloží jako číslo');
+SELECT pg_temp.ocekavam(public.bible_zarizeni_prevezmi('00000000-0000-0000-0000-0000000000b2', 'prispiva', 'Sládek', (SELECT id FROM t_piv),
+  '[{"druh":"tank_kvasny","nazev":"SPILKA 1"},{"druh":"tank_lezacky","nazev":"Tank 1","parametry":[{"nazev":"Objem užitný","hodnota":75,"jednotka":"hl","zdroj":"sklep"}]}]'::jsonb) = 1,
+  'převzetí ze Sklepa zapíše jen nové (stejný název se přeskočí bez ohledu na velikost písmen)');
+SELECT pg_temp.selze($q$SELECT public.bible_zarizeni_prevezmi('00000000-0000-0000-0000-0000000000b2', 'prispiva', 'Sládek', (SELECT id FROM t_piv),
+  '[{"druh":"tank_lezacky","nazev":"Tank 2"},{"druh":"tank_lezacky","nazev":"Tank 3","parametry":[{"nazev":"Objem"}]}]'::jsonb)$q$,
+  'chyba v jednom řádku převzetí zruší celé převzetí', '22023');
+SELECT pg_temp.ocekavam(NOT EXISTS (SELECT 1 FROM public.bible_zarizeni WHERE nazev = 'Tank 2'), 'po chybě nezůstal ani první řádek');
+
+CREATE TEMP TABLE t_post AS SELECT public.bible_postup_provozu_uloz('00000000-0000-0000-0000-0000000000b2', 'prispiva', 'Sládek',
+  jsonb_build_object('pivovar_id', (SELECT id FROM t_piv), 'nazev', 'CIP spilky', 'oblast', 'L', 'kroky', '1. Předplach. 2. Louh 2 % 75 °C.')) AS id;
+SELECT pg_temp.selze($q$SELECT public.bible_postup_provozu_uloz('00000000-0000-0000-0000-0000000000b2', 'prispiva', 'Sládek',
+  jsonb_build_object('pivovar_id', (SELECT id FROM t_piv), 'nazev', 'X', 'oblast', 'Z', 'kroky', 'a'))$q$, 'oblast mimo A–T se odmítne', '23514');
+
+SELECT pg_temp.ocekavam((public.bible_technologie(NULL) ->> 'pivovar_id')::uuid = (SELECT id FROM t_piv2), 'bez výběru se čte hlavní pivovar');
+SELECT pg_temp.ocekavam(jsonb_array_length(public.bible_technologie((SELECT id FROM t_piv)) -> 'zarizeni') = 2
+  AND jsonb_array_length(public.bible_technologie((SELECT id FROM t_piv)) -> 'postupy') = 1
+  AND jsonb_array_length(public.bible_technologie(NULL) -> 'pivovary') = 2, 'čtení vrátí pivovary, zařízení a postupy vybraného');
+
+SELECT pg_temp.selze($q$SELECT public.bible_pivovar_smaz('00000000-0000-0000-0000-0000000000b2', 'prispiva', (SELECT id FROM t_piv))$q$,
+  'přispěvatel celý pivovar nesmaže', '42501');
+SELECT pg_temp.ocekavam(public.bible_zarizeni_smaz('00000000-0000-0000-0000-0000000000b2', 'prispiva', (SELECT id FROM t_zar)), 'přispěvatel smaže zařízení');
+SELECT pg_temp.ocekavam(public.bible_pivovar_smaz('00000000-0000-0000-0000-0000000000a1', 'spravuje', (SELECT id FROM t_piv)), 'správce smaže pivovar');
+SELECT pg_temp.ocekavam(NOT EXISTS (SELECT 1 FROM public.bible_postupy_provozu WHERE id = (SELECT id FROM t_post))
+  AND NOT EXISTS (SELECT 1 FROM public.bible_zarizeni WHERE pivovar_id = (SELECT id FROM t_piv)), 's pivovarem zmizí i jeho zařízení a postupy');
+CREATE TEMP TABLE t_piv3 AS SELECT public.bible_pivovar_uloz('00000000-0000-0000-0000-0000000000b2', 'prispiva', 'Sládek', '{"nazev":"Pivovar Třetí"}') AS id;
+SELECT pg_temp.ocekavam(NOT (SELECT hlavni FROM public.bible_pivovary WHERE id = (SELECT id FROM t_piv3)), 'další pivovar hlavní sám od sebe není');
+SELECT pg_temp.ocekavam(public.bible_pivovar_smaz('00000000-0000-0000-0000-0000000000a1', 'spravuje', (SELECT id FROM t_piv2)), 'správce smaže hlavní pivovar');
+SELECT pg_temp.ocekavam((SELECT hlavni FROM public.bible_pivovary WHERE id = (SELECT id FROM t_piv3)), 'po smazání hlavního se hlavním stane zbývající pivovar');
+SELECT pg_temp.ocekavam(NOT public.bible_pivovar_smaz('00000000-0000-0000-0000-0000000000a1', 'spravuje', (SELECT id FROM t_piv2)),
+  'smazání pivovaru, který už není, vrátí ne');
+SELECT pg_temp.selze($q$SELECT public.bible_technologie(NULL)$q$, 'profil čte jen service role', '42501')
+  FROM (SELECT pg_temp.jako('authenticated')) j;
+SELECT pg_temp.jako('service_role');
+DELETE FROM public.bible_pivovary WHERE id IN ((SELECT id FROM t_piv2), (SELECT id FROM t_piv3));
+
 SELECT pg_temp.jako(NULL);
 SELECT 'VŠECHNY KONTROLY PROJEKTU BIBLE PROŠLY' AS vysledek;

@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   AKCE, ChybaVstupu, dotazZkusenosti, idDokumentu, idZkusenosti, klicPrehledu, jeAkce, popisDokumentu, predchoziVydani, prekladChybyDb, souborKNahrani, stavDokumentu, zacatekObdobi, zkusenostVstup,
+  idZaznamu, parametryVstup, pivovarVstup, postupProvozuVstup, prevzetiVstup, vyberPivovaru, zarizeniVstup,
 } from './vstupy';
 
 const SHA = 'a'.repeat(64);
@@ -161,5 +162,91 @@ describe('nová vydání (etapa 3c)', () => {
     expect(() => predchoziVydani({})).toThrow('Chybí předchozí vydání.');
     expect(() => predchoziVydani({ predchozi: 'x' })).toThrow(ChybaVstupu);
     expect(() => predchoziVydani({ predchozi: 7 })).toThrow(ChybaVstupu);
+  });
+});
+
+describe('technologie pivovaru (etapa 7)', () => {
+  const PIV = 'aaaaaaaa-1111-2222-3333-444444444444';
+  const ZAR = 'bbbbbbbb-1111-2222-3333-444444444444';
+
+  it('čtení všem, zápis přispěvateli, smazání celého pivovaru jen správci', () => {
+    expect(AKCE.technologie).toBe('cte');
+    expect(AKCE.pivovar_ulozit).toBe('prispiva');
+    expect(AKCE.zarizeni_ulozit).toBe('prispiva');
+    expect(AKCE.zarizeni_prevzit).toBe('prispiva');
+    expect(AKCE.zarizeni_smazat).toBe('prispiva');
+    expect(AKCE.postup_provozu_ulozit).toBe('prispiva');
+    expect(AKCE.postup_provozu_smazat).toBe('prispiva');
+    expect(AKCE.pivovar_smazat).toBe('spravuje');
+  });
+
+  it('chybějící záznam v SQL (P0002) je 404 s českou hláškou', () => {
+    expect(prekladChybyDb({ code: 'P0002', message: 'Pivovar neexistuje.' })).toEqual({ status: 404, kod: 'nenalezeno', zprava: 'Pivovar neexistuje.' });
+  });
+
+  it('id záznamu a výběr pivovaru jen jako uuid (malými písmeny)', () => {
+    expect(idZaznamu({ id: PIV.toUpperCase() }, 'pivovaru')).toBe(PIV);
+    expect(() => idZaznamu({ id: 'x' }, 'pivovaru')).toThrow('Chybí id pivovaru.');
+    expect(vyberPivovaru({})).toBeNull();
+    expect(vyberPivovaru({ pivovar_id: '' })).toBeNull();
+    expect(vyberPivovaru({ pivovar_id: PIV })).toBe(PIV);
+    expect(() => vyberPivovaru({ pivovar_id: "1' OR 1=1" })).toThrow(ChybaVstupu);
+  });
+
+  it('pivovar: oříznutý název, popis, hlavní jen ano/ne', () => {
+    expect(pivovarVstup({ nazev: '  Zajíc ', popis: 'Dvounádobová varna', hlavni: true, navic: 1 }))
+      .toEqual({ nazev: 'Zajíc', popis: 'Dvounádobová varna', hlavni: true });
+    expect(pivovarVstup({ id: PIV, nazev: 'Zajíc' })).toEqual({ id: PIV, nazev: 'Zajíc', popis: null, hlavni: false });
+    expect(() => pivovarVstup({ nazev: '  ' })).toThrow('Chybí Název pivovaru.');
+    expect(() => pivovarVstup({ nazev: 'Z', hlavni: 'ano' })).toThrow(ChybaVstupu);
+    expect(() => pivovarVstup({ nazev: 'x'.repeat(121) })).toThrow(ChybaVstupu);
+    expect(() => pivovarVstup(null)).toThrow('Chybí pivovar.');
+  });
+
+  it('parametry: číslo zůstane číslem, text textem, bez zdroje „odhad"; nic se nedomýšlí', () => {
+    expect(parametryVstup([
+      { nazev: ' Objem užitný ', hodnota: 80, jednotka: ' hl ', zdroj: 'sklep' },
+      { nazev: 'Materiál', text: ' nerez 1.4301 ' },
+    ])).toEqual([
+      { nazev: 'Objem užitný', hodnota: 80, jednotka: 'hl', zdroj: 'sklep' },
+      { nazev: 'Materiál', text: 'nerez 1.4301', zdroj: 'odhad' },
+    ]);
+    expect(parametryVstup(undefined)).toEqual([]);
+    expect(() => parametryVstup([{ nazev: 'Objem', hodnota: '80' }])).toThrow('Hodnota parametru „Objem" musí být číslo.');
+    expect(() => parametryVstup([{ nazev: 'Objem', hodnota: Number.NaN }])).toThrow(ChybaVstupu);
+    expect(() => parametryVstup([{ nazev: 'Objem' }])).toThrow('Parametr „Objem" nemá hodnotu.');
+    expect(() => parametryVstup([{ nazev: 'Objem', hodnota: 1, zdroj: 'hadam' }])).toThrow('Neznámý zdroj parametru „Objem".');
+    expect(() => parametryVstup([{ hodnota: 1 }])).toThrow(ChybaVstupu);
+    expect(() => parametryVstup(Array.from({ length: 41 }, () => ({ nazev: 'a', hodnota: 1 })))).toThrow(ChybaVstupu);
+    expect(() => parametryVstup('80 hl')).toThrow(ChybaVstupu);
+  });
+
+  it('zařízení: nové potřebuje pivovar, úprava pivovar neposílá; druh a počet se kontrolují', () => {
+    expect(zarizeniVstup({ pivovar_id: PIV, druh: 'tank_kvasny', nazev: ' Spilka 1 ', parametry: [{ nazev: 'Objem užitný', hodnota: 80, jednotka: 'hl', zdroj: 'sklep' }] }))
+      .toEqual({ pivovar_id: PIV, druh: 'tank_kvasny', nazev: 'Spilka 1', pocet: 1, parametry: [{ nazev: 'Objem užitný', hodnota: 80, jednotka: 'hl', zdroj: 'sklep' }], poznamka: null });
+    expect(zarizeniVstup({ id: ZAR, pivovar_id: PIV, druh: 'cerpadlo', nazev: 'Čerpadlo', pocet: 2 }))
+      .toEqual({ id: ZAR, druh: 'cerpadlo', nazev: 'Čerpadlo', pocet: 2, parametry: [], poznamka: null });
+    expect(() => zarizeniVstup({ druh: 'varna', nazev: 'Varna' })).toThrow('Chybí pivovar.');
+    expect(() => zarizeniVstup({ pivovar_id: PIV, druh: 'raketa', nazev: 'X' })).toThrow('Neznámý druh zařízení.');
+    expect(() => zarizeniVstup({ pivovar_id: PIV, druh: 'varna', nazev: 'X', pocet: 1.5 })).toThrow(ChybaVstupu);
+    expect(() => zarizeniVstup({ pivovar_id: PIV, druh: 'varna', nazev: 'X', pocet: 1000 })).toThrow(ChybaVstupu);
+  });
+
+  it('převzetí ze Sklepa: pivovar zvlášť, z řádků se id i pivovar zahodí', () => {
+    expect(prevzetiVstup({ pivovar_id: PIV, seznam: [{ id: ZAR, pivovar_id: ZAR, druh: 'tank_lezacky', nazev: 'Tank 1' }] }))
+      .toEqual({ pivovar: PIV, seznam: [{ druh: 'tank_lezacky', nazev: 'Tank 1', pocet: 1, parametry: [], poznamka: null }] });
+    expect(() => prevzetiVstup({ pivovar_id: PIV, seznam: [] })).toThrow(ChybaVstupu);
+    expect(() => prevzetiVstup({ seznam: [{ druh: 'varna', nazev: 'V' }] })).toThrow('Chybí pivovar.');
+    expect(() => prevzetiVstup({ pivovar_id: PIV, seznam: Array.from({ length: 201 }, (_, i) => ({ druh: 'jine', nazev: `Z${i}` })) })).toThrow(ChybaVstupu);
+  });
+
+  it('provozní postup: oblast A–T nebo žádná, kroky povinné', () => {
+    expect(postupProvozuVstup({ pivovar_id: PIV, nazev: ' CIP spilky ', oblast: 'L', kroky: '1. Předplach' }))
+      .toEqual({ pivovar_id: PIV, nazev: 'CIP spilky', oblast: 'L', kroky: '1. Předplach', zdroj: null });
+    expect(postupProvozuVstup({ id: ZAR, nazev: 'X', oblast: '', kroky: 'a', zdroj: 'návod' }))
+      .toEqual({ id: ZAR, nazev: 'X', oblast: null, kroky: 'a', zdroj: 'návod' });
+    expect(() => postupProvozuVstup({ pivovar_id: PIV, nazev: 'X', oblast: 'Z', kroky: 'a' })).toThrow('Oblast je písmeno A–T.');
+    expect(() => postupProvozuVstup({ pivovar_id: PIV, nazev: 'X', kroky: '  ' })).toThrow(ChybaVstupu);
+    expect(() => postupProvozuVstup({ nazev: 'X', kroky: 'a' })).toThrow('Chybí pivovar.');
   });
 });

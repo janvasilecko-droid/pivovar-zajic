@@ -554,8 +554,16 @@ const ODDILY: Oddil[] = [
         jak: 'Pivovarská bible → Správa znalostí → Aplikace Claude: zkopíruj adresu konektoru, v aplikaci Claude (claude.ai → Nastavení → Konektory) přidej vlastní konektor „Pivovarská bible" a v appce pivovaru potvrď „Povolit". Pak se v Claude (i v mobilu) zeptáš třeba „napiš to nejlepší o chmelovaru z mých knih" a Claude prohledá knihy, přečte stránky a odpoví s odkazy na knihu a stranu. Odpojit jde tamtéž tlačítkem Odpojit.',
       },
       {
+        co: 'Výpočtová laboratoř',
+        jak: 'Pivovarská bible → Výpočtová laboratoř: stupňovitost a hustota, alkohol, ředění, výtěžek, IBU, barva, CO₂, chlazení mladiny, výměník, voda a pH, vyslazovací voda, odpar, kvasnice, potrubí a čerpadla, CIP, energie, daň a náklady várky. Každý výsledek ukáže vzorec, mezikroky a předpoklady; vstup mimo rozsah se odmítne. Stejně počítá i Claude přes konektor.',
+      },
+      {
+        co: 'Technologie pivovaru',
+        jak: 'Pivovarská bible → Technologie pivovaru (nejdřív migrace bible 20261111000000_bible_technologie v Systém → Databázové migrace → Databáze bible). Založ pivovar a zapiš zařízení — varnu, tanky, čerpadla, potrubí, výměníky, chlazení — s parametry; u každého čísla vyber, odkud je (štítek, dokumentace, změřeno, odhad). „Převzít tanky ze Sklepa“ zapíše Spilky a Tanky s objemem z kapacity. Přidat jde i provozní postupy a další pivovary. Claude tyhle údaje přes konektor bere jako parametry našeho provozu, odděleně od knih.',
+      },
+      {
         co: 'Správa znalostí',
-        jak: 'Dlaždice Správa znalostí ukazuje tematické oblasti A–T s počtem dokumentů, kdo má přístup a kolik místa zabírá databáze a úložiště. Je tu i připojení knihovny k aplikaci Claude. Ostatní dlaždice (výpočty, technologie, várky, analýza problémů) řeknou, ve které etapě přijdou.',
+        jak: 'Dlaždice Správa znalostí ukazuje tematické oblasti A–T s počtem dokumentů, kdo má přístup a kolik místa zabírá databáze a úložiště. Je tu i připojení knihovny k aplikaci Claude. Dlaždice Receptury a várky a Analýza problémů řeknou, ve které etapě přijdou.',
       },
     ],
   },

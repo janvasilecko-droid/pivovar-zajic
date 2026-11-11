@@ -324,3 +324,26 @@ Každé rozhodnutí má datum, důvod a co by ho změnilo.
   v `katalog-6b.ts`, aby se katalogy navzájem neimportovaly v kruhu).
 - Laboratoř řadí výpočty podle oblastí A–T (24 výpočtů v jednom seznamu se
   ztrácelo).
+
+## R25 — Technologie pivovaru (etapa 7, 11. 11. 2026)
+
+- Majitel: „Pokračuj na ty bibly, dokud nebude hotová" → etapa 7 podle
+  architektury § 8: profil pivovaru, zařízení, provozní postupy, víc pivovarů.
+- Tři tabulky v projektu bible (`bible_pivovary`, `bible_zarizeni`,
+  `bible_postupy_provozu`), pro prohlížeč zavřené; zapisuje se jen přes SQL
+  funkce, které práva hlídají znovu. Hlavní pivovar je nejvýš jeden (unikátní
+  index); smaže-li se hlavní, hlavním se stane nejstarší zbývající.
+- Parametry zařízení jsou pole `{nazev, hodnota (číslo) | text, jednotka,
+  zdroj}` místo pevných sloupců: zařízení jsou různorodá a pevné sloupce by
+  vynucovaly prázdná nebo vymyšlená čísla. Šablona podle druhu jen nabízí
+  názvy; nic se nepředvyplňuje hodnotou.
+- **Zdroj u každého parametru** (štítek, dokumentace, změřeno, ze Sklepa,
+  odhad; výchozí odhad) — architektura § 8: „AI odliší obecné znalosti od
+  parametrů konkrétního provozu". Text pro Clauda to říká výslovně a nástroj
+  `profil_pivovaru` je od knih oddělený.
+- Sklep hlavní appky zůstává zdrojem pravdy o tancích; bible si z něj tanky
+  jen jednou převezme tlačítkem (bez průběžné synchronizace — projekty jsou
+  oddělené, R12). Objem užitný = kapacita tanku v hl, zdroj „ze Sklepa";
+  tank bez kapacity jde bez objemu.
+- Převzetí víc zařízení je jedna transakce: chyba v jednom řádku zruší celé
+  převzetí (nezůstane polovina).
