@@ -12,6 +12,14 @@ import { WhatsAppOrderReviewModal } from './WhatsAppOrderReviewModal';
 const inserted: any[] = [];
 const updated: any[] = [];
 
+// „Dnešek" = den zprávy. Nabídka objednávek k vrácení bere posledních 56 dní od
+// dneška — bez pevného dne test od 10. 11. 2026 padal, protože objednávka ze
+// 14. 9. z okna vypadla (chování appky je správně, jen test stárnul).
+vi.mock('../lib/businessDate', async (orig) => ({
+  ...(await orig<typeof import('../lib/businessDate')>()),
+  businessDateISO: () => '2026-09-21',
+}));
+
 vi.mock('../lib/useMaleSudy', () => ({
   useMaleSudy: () => ({ zasoba: {}, nacteno: true, chybiMigrace: false, ulozit: async () => null }),
   useHlidaniMalychSudu: () => ({ souhrn: [], nadPoPolozce: new Map(), poPolozce: new Map(), nacteno: true }),

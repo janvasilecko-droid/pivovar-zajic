@@ -10,6 +10,7 @@ import { bezPolozekZCitace } from "../_shared/citace-polozky.ts";
 import { vypadaJakoVraceni } from "../_shared/vraceni-detekce.ts";
 import { jeVlastniHlaseniObjednavky } from "../_shared/vlastni-hlaseni-objednavky.ts";
 import { datumDne, datumPraha, textRikaPristiTyden } from "../_shared/den-zavozu.ts";
+import { datumZeZpravy, relativniDen } from "../_shared/datum-ze-zpravy.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -97,100 +98,13 @@ function weekdayCode(dateStr: string): string {
   return ["ne", "po", "ut", "st", "ct", "pa", "so"][dow];
 }
 
-// 🗓️ Rozpoznání konkrétního data v textu (např. "25.8.") → ISO datum.
-// Datum se zapíše do poznámky a objednávka se přesune do týdne daného data.
-const CZ_MONTHS: [string, number][] = [
-  ["ledna", 1], ["února", 2], ["unora", 2], ["března", 3], ["brezna", 3],
-  ["dubna", 4], ["května", 5], ["kvetna", 5], ["června", 6], ["cervna", 6],
-  ["července", 7], ["cervence", 7], ["srpna", 8], ["září", 9], ["zari", 9],
-  ["října", 10], ["rijna", 10], ["listopadu", 11], ["prosince", 12],
-];
-
-// "Dnešek" podle Prahy, ne podle serveru — Deno Edge Function běží vždy v
-// UTC, takže kolem půlnoci pražského času by se bez tohohle odhad roku u
-// holého data (bez roku, např. "31.12.") mohl splést o celý rok
-// (nalezeno 13. 9. 2026, stejný bug jako v src/lib/orderDates.ts).
-function dnesniDatumPraha(): { rok: number; mesic: number; den: number } {
-  const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Europe/Prague",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(new Date());
-  const cislo = (typ: string) => Number(parts.find((p) => p.type === typ)?.value);
-  return { rok: cislo("year"), mesic: cislo("month"), den: cislo("day") };
-}
-
-function parseExplicitDate(text: string): { dateStr: string; display: string; matched: string } | null {
-  if (!text) return null;
-  const { rok: thisYear, mesic: todayMonth, den: todayDay } = dnesniDatumPraha();
-
-  const build = (day: number, month: number, year?: number, matched?: string): { dateStr: string; display: string; matched: string } | null => {
-    if (day < 1 || day > 31 || month < 1 || month > 12) return null;
-    let y = year ?? thisYear;
-    if (!year) {
-      const todayStart = Date.UTC(thisYear, todayMonth - 1, todayDay);
-      if (Date.UTC(y, month - 1, day) < todayStart) y = y + 1;
-    }
-    const d = new Date(Date.UTC(y, month - 1, day));
-    if (d.getUTCFullYear() !== y || d.getUTCMonth() !== month - 1 || d.getUTCDate() !== day) return null;
-    return {
-      dateStr: `${y}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`,
-      display: `${day}.${month}.`,
-      matched: matched ?? `${day}.${month}.`,
-    };
-  };
-
-  // 1) "25.8.2026"
-  let m = text.match(/(?<![\d.])(\d{1,2})\s*[.]\s*(\d{1,2})\s*[.]\s*(\d{4})(?![\d.])/);
-  if (m) {
-    const r = build(parseInt(m[1], 10), parseInt(m[2], 10), parseInt(m[3], 10), m[0].trim());
-    if (r) return r;
-  }
-  // 2) "25.8."
-  m = text.match(/(?<![\d.])(\d{1,2})\s*[.]\s*(\d{1,2})\s*[.](?![\d.])/);
-  if (m) {
-    const r = build(parseInt(m[1], 10), parseInt(m[2], 10), undefined, m[0].trim());
-    if (r) return r;
-  }
-  // 3) "25.8" bez tečky — ne objem (1.5l) ani cena
-  m = text.match(/(?<![\d.])(\d{1,2})\s*[.]\s*(\d{1,2})(?![\d.])(?![lL])/);
-  if (m) {
-    const day = parseInt(m[1], 10);
-    const month = parseInt(m[2], 10);
-    if (day >= 1 && day <= 31 && month >= 1 && month <= 12) {
-      const after = text.slice(m.index + m[0].length, m.index + m[0].length + 10);
-      const before = text.slice(Math.max(0, m.index - 10), m.index);
-      const looksLikeVolumeOrQty =
-        /\bl\b|\bl\.|litr|litru|litry|keg|sud|x\s*\d|\bks\b/i.test(after) ||
-        /\d+\s*x/i.test(before) || /cena|k[čc]\b/i.test(before);
-      if (!looksLikeVolumeOrQty) {
-        const r = build(day, month, undefined, m[0].trim());
-        if (r) return r;
-      }
-    }
-  }
-  // 4) "25. srpna"
-  m = text.match(/(?<![\d.])(\d{1,2})\s*[.]\s*(ledna|února|unora|března|brezna|dubna|května|kvetna|června|cervna|července|cervence|srpna|září|zari|října|rijna|listopadu|prosince)\b/i);
-  if (m) {
-    const day = parseInt(m[1], 10);
-    const month = CZ_MONTHS.find(([name]) => name === m[2].toLowerCase())?.[1];
-    if (month) {
-      const r = build(day, month, undefined, m[0].trim());
-      if (r) return r;
-    }
-  }
-  // 5) "25/8"
-  m = text.match(/(?<![\d./])(\d{1,2})[/](\d{1,2})(?![\d.])/);
-  if (m) {
-    const day = parseInt(m[1], 10);
-    const month = parseInt(m[2], 10);
-    if (day >= 1 && day <= 31 && month >= 1 && month <= 12) {
-      const r = build(day, month, undefined, m[0].trim());
-      if (r) return r;
-    }
-  }
-  return null;
+// 🗓️ Konkrétní datum ve zprávě („25.8.", „13 .11.30l", „13. listopadu") — jedno
+// pravidlo s appkou: ../_shared/datum-ze-zpravy.ts (6. 11. 2026: „Na 13 .11.30l
+// 12sv" nepřečetla dřív ani appka, ani tahle funkce, každá měla vlastní kopii).
+// Rok se doplní podle dne, kdy zpráva přišla (v Praze).
+function parseExplicitDate(text: string, dnes: string): { dateStr: string; display: string; matched: string } | null {
+  const d = datumZeZpravy(text, dnes);
+  return d ? { dateStr: d.datum, display: d.zobrazeni, matched: d.nalezeno } : null;
 }
 
 // ── Bezpečné přiřazení odběratele (místa) ──────────────────────────────────
@@ -805,25 +719,24 @@ Deno.serve(async (req: Request) => {
         let deliveryDay: string | null = null;
         let deliveryDate: string | null = null;
 
-        const dateInfo = parseExplicitDate(message.message_text);
+        // „Dnes" zprávy = den, kdy přišla, v Praze — ne čas zpracování v UTC
+        // (dřív „zítra" ve zprávě zpracované po půlnoci UTC skočilo o den).
+        const dnesZpravy = datumPraha(message.message_timestamp);
+        const dateInfo = parseExplicitDate(message.message_text, dnesZpravy);
+        const relativni = dateInfo ? null : relativniDen(message.message_text, dnesZpravy);
         if (dateInfo) {
           deliveryDate = dateInfo.dateStr;
           deliveryDay = weekdayCode(dateInfo.dateStr);
         } else {
-          const now = new Date();
-          if (/\bz[ií]tra\b/i.test(message.message_text)) {
-            const tomorrow = new Date(now);
-            tomorrow.setDate(now.getDate() + 1);
-            deliveryDate = tomorrow.toISOString().slice(0, 10);
-            deliveryDay = weekdayCode(deliveryDate);
-          } else if (/\bdnes\b/i.test(message.message_text)) {
-            deliveryDate = now.toISOString().slice(0, 10);
-            deliveryDay = weekdayCode(deliveryDate);
+          if (relativni) {
+            // zítra / pozítří / dnes
+            deliveryDate = relativni.datum;
+            deliveryDay = relativni.den;
           } else {
             const dayPatterns = [
               { regex: /(?:na\s+)?pond[eě]l[ií]/i, code: "po" },
               { regex: /(?:na\s+)?[uú]ter[yý]/i, code: "ut" },
-              { regex: /(?:na\s+)?st[rř]ed[uuy]/i, code: "st" },
+              { regex: /(?:na\s+)?st[rř]ed[auy]/i, code: "st" },
               { regex: /(?:na\s+)?[cč]tvrtek/i, code: "ct" },
               { regex: /(?:na\s+)?p[aá]tek/i, code: "pa" },
               { regex: /(?:na\s+)?sobot[au]/i, code: "so" },

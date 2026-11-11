@@ -399,7 +399,15 @@ export function detectDeliveryDay(text: string): { day: string | null; dateStr: 
   // dál se s ním pracuje jen přes ně (getDay/getDate/...), nikdy přes
   // toISOString(), aby datum a den v týdnu vyšly ze stejné časové zóny.
   const now = businessNow();
-  if (/\bz[ií]tra\b/i.test(text)) {
+  // „Pozítří" (6. 11. 2026) — dřív se nečetlo vůbec; „zítra" v něm není („zítří").
+  const POZITRI = /(?<!\p{L})poz[ií]t[rř][ií](?!\p{L})/giu;
+  if (new RegExp(POZITRI.source, 'iu').test(text)) {
+    const pozitri = new Date(now);
+    pozitri.setDate(now.getDate() + 2);
+    dayCode = ['po', 'ut', 'st', 'ct', 'pa', 'so', 'ne'][(pozitri.getDay() + 6) % 7];
+    dateStr = isoZMistnihoData(pozitri);
+    cleanText = cleanText.replace(POZITRI, '');
+  } else if (/\bz[ií]tra\b/i.test(text)) {
     const tomorrow = new Date(now);
     tomorrow.setDate(now.getDate() + 1);
     const dayIdx = (tomorrow.getDay() + 6) % 7; // 0=po, 6=ne

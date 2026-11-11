@@ -1,4 +1,5 @@
 import { WhatsAppIncoming } from './whatsappApi';
+import { bezData } from '../../supabase/functions/_shared/datum-ze-zpravy';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Kontrola čtení (readback) — porovnání toho, co AI tvrdí, že ze zprávy přečetla
@@ -238,7 +239,8 @@ export function partKindLabel(kind: ReadbackPartKind): string {
  * a stupeň (12°, 12sv, 12st). Vrací deduplikované části.
  */
 export function extractOrderParts(line: string): OrderPart[] {
-  const s = normalizeForReadbackParts(line);
+  // Datum pryč (6. 11. 2026: z „Na 13 .11.30l 12sv" vyšel objem „11.30l" a svítil červeně).
+  const s = normalizeForReadbackParts(bezData(line));
   const parts: OrderPart[] = [];
   const seen = new Set<string>();
   const add = (kind: ReadbackPartKind, value: string, display: string) => {
@@ -406,7 +408,8 @@ export function analyzeReadback(message: WhatsAppIncoming): ReadbackAnalysis {
     // Kontrola po částech: porovná se s oknem, ze kterého AI (pravděpodobně)
     // četla; bez okna (unmatched) s celým textem zprávy.
     const windowText = match ? text.slice(match.start, match.end) : text;
-    const canonWindow = canonicalizeNumbers(normalizeForReadbackParts(windowText));
+    // Bez data, ať se „30" z „13 .11.30l" najde jako samostatné číslo.
+    const canonWindow = canonicalizeNumbers(normalizeForReadbackParts(bezData(windowText)));
     const parts: ItemReadbackPart[] = extractOrderParts(rawLine).map((part) => ({
       part,
       found: valuePresent(part.value, canonWindow),

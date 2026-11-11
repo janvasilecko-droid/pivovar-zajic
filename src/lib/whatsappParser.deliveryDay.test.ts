@@ -106,3 +106,24 @@ describe('detectDeliveryDay — „příští týden"', () => {
   });
 });
 
+
+// 6. 11. 2026 (pátek): „Na 13 .11.30l 12sv, děkuji" — datum se nepřečetlo.
+describe('detectDeliveryDay — datum s mezerami a nalepeným množstvím, pozítří', () => {
+  beforeEach(() => { vi.useFakeTimers(); setToday('2026-11-06'); });
+  afterEach(() => { vi.useRealTimers(); });
+
+  it('„Na 13 .11.30l 12sv" = pátek 13. 11., z textu zmizí jen datum', () => {
+    const r = detectDeliveryDay('Na 13 .11.30l 12sv, děkuji');
+    expect(r).toMatchObject({ day: 'pa', dateStr: '2026-11-13' });
+    expect(r.cleanText).toBe('Na 30l 12sv, děkuji');
+  });
+
+  it('„na pozítří" od pátku = neděle 8. 11.', () => {
+    expect(detectDeliveryDay('na pozítří 2x30l')).toMatchObject({ day: 'ne', dateStr: '2026-11-08' });
+    expect(detectDeliveryDay('pozitri 2x30l').dateStr).toBe('2026-11-08');
+  });
+
+  it('„na příští středu" od pátku = středa 11. 11.', () => {
+    expect(detectDeliveryDay('na příští středu 1x30l 12sv')).toMatchObject({ day: 'st', dateStr: '2026-11-11' });
+  });
+});

@@ -29,7 +29,8 @@ import { STAVY_OBJEDNAVKY, popisStavu } from '../lib/stavyObjednavek';
 import { uloz } from '../lib/uloziste';
 import { pocetZRadku, pocetZTabulky } from '../lib/pocetZRadku';
 import { dayKeyFromISO } from '../lib/keggingPlan';
-import { datumDne, textRikaPristiTyden } from '../../supabase/functions/_shared/den-zavozu';
+import { datumDne, datumPraha, textRikaPristiTyden } from '../../supabase/functions/_shared/den-zavozu';
+import { datumZeZpravy, relativniDen } from '../../supabase/functions/_shared/datum-ze-zpravy';
 import { DenZavozuTlacitka } from './DenZavozuTlacitka';
 import { nactiZvyklosti, neobvykleMnozstvi, type Zvyklosti } from '../lib/zvyklostiOdberatele';
 import { useMaleSudy, useHlidaniMalychSudu } from '../lib/useMaleSudy';
@@ -68,6 +69,23 @@ interface WhatsAppOrderReviewModalProps {
    */
   orders?: Order[];
   orderItems?: Record<string, OrderItem[]>;
+}
+
+/**
+ * Den a datum závozu přečtené přímo z textu zprávy: konkrétní datum („13.11.",
+ * „Na 13 .11.30l"), jinak „zítra / pozítří / dnes" — vždy vůči dni, kdy zpráva
+ * přišla (v Praze). Název dne a „příští týden" řeší dál parsed_delivery_day,
+ * parseDeliveryDayFromText a textRikaPristiTyden. U fotky se bere jen text
+ * zprávy (popisek), ne přepis papíru — ten mívá dnů víc.
+ */
+function denADatumZeZpravy(m: { message_text?: string | null; message_timestamp?: string | null }): { den: string; datum: string } | null {
+  const text = m.message_text || '';
+  if (!text.trim()) return null;
+  const dnes = datumPraha(m.message_timestamp);
+  const d = datumZeZpravy(text, dnes);
+  if (d) return { den: d.den, datum: d.datum };
+  const r = relativniDen(text, dnes);
+  return r ? { den: r.den, datum: r.datum } : null;
 }
 
 function ButtonSpinner() {
@@ -298,7 +316,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
       try { aliasMap = await loadAliasMap(); } catch { /* bez aliasů pokračujeme */ }
       if (cancelled) return;
 
-      setDenZavozu(msg!.parsed_delivery_day || parseDeliveryDayFromText(msg!.message_text || '') || null);
+      setDenZavozu(msg!.parsed_delivery_day || denADatumZeZpravy(msg!)?.den || parseDeliveryDayFromText(msg!.message_text || '') || null);
       setZavozCislo(1);
       const parsedItems = msg!.parsed_items || [];
       const initItems: ReviewItem[] = parsedItems.map((item, i) => {
@@ -884,9 +902,14 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   // stejným pravidlem (_shared/den-zavozu.ts) — dřív vzalo nejbližší středu
   // od dneška, a ve středu je to dnešek.
   const pristiTyden = textRikaPristiTyden([msg?.message_text, msg?.parsed_raw_text].filter(Boolean).join('\n'));
+  // 📅 Konkrétní datum nebo „zítra / pozítří" přímo ze zprávy (6. 11. 2026: „Na 13 .11.30l
+  // 12sv" — server ho tehdy nepřečetl a okno ukázalo „Den závozu nevybráno").
+  // Platí pro zprávy, kde ho server nedoplnil (i ty přečtené před opravou).
+  const zeZpravy = msg ? denADatumZeZpravy(msg) : null;
   const datumDneZavozu = datumRucne ? datumRucne
     : !denZavozu ? null
     : denZavozu === msg?.parsed_delivery_day && msg?.parsed_delivery_date ? msg.parsed_delivery_date
+    : zeZpravy && denZavozu === zeZpravy.den ? zeZpravy.datum
     : datumDne(denZavozu, businessDateISO(), pristiTyden);
 
   if (!props.isOpen || !msg) return null;
