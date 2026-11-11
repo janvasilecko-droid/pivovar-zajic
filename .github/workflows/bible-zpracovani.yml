@@ -263,8 +263,14 @@ jobs:
           cache: 'pip'
           cache-dependency-path: scripts/bible/requirements.txt
 
+      # Bez Tesseractu by se přepisy skenů nekontrolovaly — instalace zůstává
+      # povinná (radši počkat než zpracovat hůř). Běžně trvá pár sekund; při
+      # výpadku zrcadel Ubuntu (11. 11. 2026 apt visel přes 25 minut a běh
+      # blokoval plánované běhy za sebou) krok po 15 minutách spadne a další
+      # plánovaný běh to zkusí znovu.
       - name: Nástroje (Tesseract, djvulibre)
         if: steps.fronta.outputs.prace == 'ano'
+        timeout-minutes: 15
         run: sudo apt-get update -qq && sudo apt-get install -y -qq tesseract-ocr tesseract-ocr-ces tesseract-ocr-deu djvulibre-bin > /dev/null
 
       # Jen zamčené závislosti workeru s hashi, bez pytestu (v tomhle jobu je service-role klíč).
