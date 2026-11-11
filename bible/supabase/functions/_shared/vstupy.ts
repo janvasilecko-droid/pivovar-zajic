@@ -5,6 +5,7 @@
 // funkcích projektu bible (bible/supabase/migrations), které jediné zapisují.
 import { jeUuid, type Pristup } from './brana.ts';
 import { DRUHY_ZARIZENI, ZDROJE_PARAMETRU } from './technologie-popisy.ts';
+import { DRUHY_SUROVIN, FAZE_KROKU, HODNOTY_VARKY } from './varky-popisy.ts';
 
 /** Akce bible-api a nejnižší potřebný přístup. */
 export const AKCE = {
@@ -52,6 +53,13 @@ export const AKCE = {
   zarizeni_smazat: 'prispiva',
   postup_provozu_ulozit: 'prispiva',
   postup_provozu_smazat: 'prispiva',
+  // Receptury a várky (etapa 8): čtení všem, zápis přispěvateli; smazat smí
+  // autor záznamu nebo správce (hlídá SQL).
+  varky: 'cte',
+  receptura_ulozit: 'prispiva',
+  receptura_smazat: 'prispiva',
+  varka_ulozit: 'prispiva',
+  varka_smazat: 'prispiva',
 } as const satisfies Record<string, Pristup>;
 
 export type Akce = keyof typeof AKCE;
@@ -169,6 +177,7 @@ export function prekladChybyDb(e: ChybaDb): { status: number; kod: string; zprav
   if (['PGRST202', 'PGRST205', '42P01', '42883', '3F000'].includes(code)) return { status: 503, kod: 'bez_migrace', zprava: BEZ_MIGRACE };
   if (code === '42501') return { status: 403, kod: 'zakazano', zprava: zprava || 'Na tohle nemáš právo.' };
   if (code === 'P0002') return { status: 404, kod: 'nenalezeno', zprava: zprava || 'Záznam už v bibli není.' };
+  if (code === '23505' && zprava.includes('bible_varky')) return { status: 409, kod: 'duplicita', zprava: 'Várka s tímhle číslem už v evidenci je.' };
   if (code === '23505') return { status: 409, kod: 'duplicita', zprava: 'Tenhle soubor už v knihovně je.' };
   if (code === '54000') return { status: 413, kod: 'velky_soubor', zprava: zprava || 'Soubor je příliš velký.' };
   if (['22023', '23514', '23502', '22P02', '22003', '22007', '22008'].includes(code)) {
@@ -358,5 +367,114 @@ export function postupProvozuVstup(v: unknown): Record<string, unknown> {
     oblast: typeof o === 'string' && o ? o : null,
     kroky: text(p.kroky, 'Kroky postupu', 12000, true),
     zdroj: text(p.zdroj, 'Zdroj', 500),
+  };
+}
+
+// --- Receptury a várky (etapa 8) ---------------------------------------------
+
+/** Volitelné číslo v rozsahu (null = nezadáno). */
+function cisloVRozsahu(v: unknown, co: string, min: number, max: number): number | null {
+  if (v === undefined || v === null) return null;
+  if (typeof v !== 'number' || !Number.isFinite(v)) throw new ChybaVstupu(`${co} musí být číslo.`);
+  if (v < min || v > max) throw new ChybaVstupu(`${co} je mimo rozsah ${String(min).replace('.', ',')} až ${String(max).replace('.', ',')}.`);
+  return v;
+}
+
+const ID_SUROVIN = DRUHY_SUROVIN.map((d) => d.id) as readonly string[];
+const ID_FAZI = FAZE_KROKU.map((f) => f.id) as readonly string[];
+
+function surovinyVstup(v: unknown): Record<string, unknown>[] {
+  if (v === undefined || v === null) return [];
+  if (!Array.isArray(v) || v.length > 60) throw new ChybaVstupu('Suroviny musí být seznam (nejvýš 60).');
+  return v.map((x, i) => {
+    if (!x || typeof x !== 'object' || Array.isArray(x)) throw new ChybaVstupu(`Surovina ${i + 1} musí mít druh a název.`);
+    const o = x as Record<string, unknown>;
+    if (typeof o.druh !== 'string' || !ID_SUROVIN.includes(o.druh)) throw new ChybaVstupu(`Neznámý druh suroviny ${i + 1}.`);
+    const nazev = text(o.nazev, `Název suroviny ${i + 1}`, 120, true)!.trim();
+    const mnozstvi = o.mnozstvi === undefined || o.mnozstvi === null ? null : o.mnozstvi;
+    if (mnozstvi !== null && (typeof mnozstvi !== 'number' || !Number.isFinite(mnozstvi) || mnozstvi <= 0 || mnozstvi > 1000000)) {
+      throw new ChybaVstupu(`Množství suroviny „${nazev}" musí být kladné číslo.`);
+    }
+    const jednotka = text(o.jednotka, `Jednotka suroviny „${nazev}"`, 20)?.trim() || undefined;
+    const kdy = text(o.kdy, `Kdy (surovina „${nazev}")`, 60)?.trim() || undefined;
+    const poznamka = text(o.poznamka, `Poznámka suroviny „${nazev}"`, 200)?.trim() || undefined;
+    return { druh: o.druh, nazev, ...(mnozstvi !== null ? { mnozstvi } : {}), ...(jednotka ? { jednotka } : {}), ...(kdy ? { kdy } : {}), ...(poznamka ? { poznamka } : {}) };
+  });
+}
+
+function krokyVstup(v: unknown): Record<string, unknown>[] {
+  if (v === undefined || v === null) return [];
+  if (!Array.isArray(v) || v.length > 40) throw new ChybaVstupu('Kroky musí být seznam (nejvýš 40).');
+  return v.map((x, i) => {
+    if (!x || typeof x !== 'object' || Array.isArray(x)) throw new ChybaVstupu(`Krok ${i + 1} musí mít fázi a název.`);
+    const o = x as Record<string, unknown>;
+    if (typeof o.faze !== 'string' || !ID_FAZI.includes(o.faze)) throw new ChybaVstupu(`Neznámá fáze kroku ${i + 1}.`);
+    const nazev = text(o.nazev, `Název kroku ${i + 1}`, 120, true)!.trim();
+    const teplota = cisloVRozsahu(o.teplota_c, `Teplota kroku „${nazev}"`, -5, 110);
+    const minut = cisloVRozsahu(o.minut, `Délka kroku „${nazev}"`, 0, 100000);
+    const poznamka = text(o.poznamka, `Poznámka kroku „${nazev}"`, 200)?.trim() || undefined;
+    return { faze: o.faze, nazev, ...(teplota !== null ? { teplota_c: teplota } : {}), ...(minut !== null ? { minut } : {}), ...(poznamka ? { poznamka } : {}) };
+  });
+}
+
+export function recepturaVstup(v: unknown): Record<string, unknown> {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) throw new ChybaVstupu('Chybí receptura.');
+  const p = v as Record<string, unknown>;
+  const id = volitelneId(p.id, 'receptury');
+  const pivovar = volitelneId(p.pivovar_id, 'pivovaru');
+  return {
+    ...(id ? { id } : {}),
+    pivovar_id: pivovar ?? null,
+    nazev: text(p.nazev, 'Název receptury', 120, true)!.trim(),
+    styl: text(p.styl, 'Styl', 120)?.trim() || null,
+    cil_objem_hl: cisloVRozsahu(p.cil_objem_hl, 'Cílový objem', 0.01, 2000),
+    cil_stupnovitost: cisloVRozsahu(p.cil_stupnovitost, 'Cílová stupňovitost', 1, 35),
+    cil_alkohol: cisloVRozsahu(p.cil_alkohol, 'Cílový alkohol', 0, 20),
+    cil_ibu: cisloVRozsahu(p.cil_ibu, 'Cílová hořkost', 0, 200),
+    cil_barva_ebc: cisloVRozsahu(p.cil_barva_ebc, 'Cílová barva', 0, 300),
+    suroviny: surovinyVstup(p.suroviny),
+    kroky: krokyVstup(p.kroky),
+    poznamka: text(p.poznamka, 'Poznámka', 4000)?.trim() || null,
+  };
+}
+
+/** Hodnoty várky {klíč: číslo} podle katalogu; null = nezapsáno (vynechá se). */
+export function hodnotyVarkyVstup(v: unknown): Record<string, number> {
+  if (v === undefined || v === null) return {};
+  if (typeof v !== 'object' || Array.isArray(v)) throw new ChybaVstupu('Hodnoty várky musí být objekt {klíč: číslo}.');
+  const out: Record<string, number> = {};
+  for (const [klic, hodnota] of Object.entries(v as Record<string, unknown>)) {
+    const k = HODNOTY_VARKY.find((h) => h.klic === klic);
+    if (!k) throw new ChybaVstupu(`Neznámá hodnota várky „${klic.slice(0, 60)}".`);
+    if (hodnota === null || hodnota === undefined) continue;
+    const n = cisloVRozsahu(hodnota, k.nazev, k.min, k.max)!;
+    if (k.cele && !Number.isInteger(n)) throw new ChybaVstupu(`${k.nazev} musí být celé číslo.`);
+    out[klic] = n;
+  }
+  return out;
+}
+
+/** Datum ve tvaru RRRR-MM-DD, skutečný den, 1990–2100. */
+export function datumVstup(v: unknown, co: string): string {
+  if (typeof v !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(v)) throw new ChybaVstupu(`${co} chybí nebo není datum.`);
+  const d = new Date(`${v}T00:00:00Z`);
+  if (Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== v) throw new ChybaVstupu(`${co} není platné datum.`);
+  if (v < '1990-01-01' || v > '2100-12-31') throw new ChybaVstupu(`${co} je mimo rozsah.`);
+  return v;
+}
+
+export function varkaVstup(v: unknown): Record<string, unknown> {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) throw new ChybaVstupu('Chybí várka.');
+  const p = v as Record<string, unknown>;
+  const id = volitelneId(p.id, 'várky');
+  return {
+    ...(id ? { id } : {}),
+    pivovar_id: volitelneId(p.pivovar_id, 'pivovaru') ?? null,
+    receptura_id: volitelneId(p.receptura_id, 'receptury') ?? null,
+    cislo: text(p.cislo, 'Číslo várky', 40)?.trim() || null,
+    pivo: text(p.pivo, 'Pivo', 120, true)!.trim(),
+    datum_varu: datumVstup(p.datum_varu, 'Datum varu'),
+    hodnoty: hodnotyVarkyVstup(p.hodnoty),
+    poznamka: text(p.poznamka, 'Poznámka', 4000)?.trim() || null,
   };
 }

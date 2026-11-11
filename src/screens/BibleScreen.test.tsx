@@ -16,6 +16,7 @@ vi.mock('../lib/bibleKlient', () => ({
     if (telo.akce === 'hledej') { hledano.push(String(telo.dotaz)); return { ok: true, data: { vysledky: [] } }; }
     if (telo.akce === 'nastaveni') return { ok: true, data: {} };
     if (telo.akce === 'technologie') return { ok: true, data: { pivovary: [], pivovar_id: null, zarizeni: [], postupy: [], migrace: true } };
+    if (telo.akce === 'varky') return { ok: true, data: { receptury: [], varky: [], migrace: true } };
     if (telo.akce === 'kniha') {
       return { ok: true, data: { dokument: { ...(dokumenty[0] as object), postup: {} }, kapitoly: [], listy: [[1, null, 'v', 0]] } };
     }
@@ -45,10 +46,10 @@ describe('Pivovarská bible — plocha', () => {
     const setPage = vi.fn();
     render(<BibleScreen setPage={setPage} />);
     expect(screen.getByText('Knihovna dokumentů')).toBeTruthy();
-    fireEvent.click(screen.getByText('Receptury a várky'));
-    expect(screen.getByText(/Připravujeme · etapa 8/)).toBeTruthy();
+    fireEvent.click(screen.getByText('Analýza problémů'));
+    expect(screen.getByText(/Připravujeme · etapa 10/)).toBeTruthy();
     expect(screen.getByText(/AI zatím z knih neodpovídá/)).toBeTruthy();
-    expect(setPage).toHaveBeenCalledWith('bible', undefined, 'varky');
+    expect(setPage).toHaveBeenCalledWith('bible', undefined, 'problemy');
   });
 
   it('Technologie pivovaru (etapa 7) je hotová: bez pivovaru nabídne jeho založení', async () => {
@@ -60,6 +61,17 @@ describe('Pivovarská bible — plocha', () => {
     expect(setPage).toHaveBeenCalledWith('bible', undefined, 'technologie');
     expect(await screen.findByText(/Zatím tu žádný pivovar není/)).toBeTruthy();
     expect(screen.getByRole('button', { name: /Založit pivovar/ })).toBeTruthy();
+  });
+
+  it('Receptury a várky (etapa 8) jsou hotové: prázdná evidence nabídne zápis várky', async () => {
+    profil = { role: 'admin' };
+    const setPage = vi.fn();
+    render(<BibleScreen setPage={setPage} />);
+    expect(screen.queryByText(/Připravujeme · etapa 8/)).toBeNull();
+    await act(async () => { fireEvent.click(screen.getByText('Receptury a várky')); });
+    expect(setPage).toHaveBeenCalledWith('bible', undefined, 'varky');
+    expect(await screen.findByText(/Zatím tu žádná várka není/)).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Zapsat várku/ })).toBeTruthy();
   });
 
   it('Výpočtová laboratoř počítá a „Najít v knihách“ otevře hledání s dotazem výpočtu', async () => {

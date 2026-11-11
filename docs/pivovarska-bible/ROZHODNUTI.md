@@ -347,3 +347,28 @@ Každé rozhodnutí má datum, důvod a co by ho změnilo.
   tank bez kapacity jde bez objemu.
 - Převzetí víc zařízení je jedna transakce: chyba v jednom řádku zruší celé
   převzetí (nezůstane polovina).
+
+## R26 — Receptury a várky (etapa 8, 11. 11. 2026)
+
+- Pokračování „dokud nebude hotová" → etapa 8 podle architektury § 8:
+  evidence várek, porovnání a hledání příčin odchylek, „jen s uloženými
+  údaji, chybějící hodnoty vyjmenuje, nedomýšlí je".
+- Hlavní appka várky zatím nezapisuje (Sklep: `cellar_batches` je prázdná),
+  evidence je proto v projektu bible (R12). Až se ve Sklepu várky zapisovat
+  začnou, jde doplnit převzetí jako u tanků (etapa 7).
+- Hodnoty várky jsou objekt `{klíč: číslo}` nad **pevným katalogem** (30 klíčů
+  s jednotkou a rozsahem, stejný v TS i SQL, shodu hlídá test) místo volných
+  parametrů: porovnání várek potřebuje stejné klíče a jednotky, a jen tak jde
+  říct, co chybí. Objemy mladiny a sladiny jsou horké (jak se měří ve varně).
+- Odvozené hodnoty (varní výtěžek, odpar, prokvašení, alkohol) počítá
+  výpočetní modul etapy 6 — žádný druhý vzorec. Chybí-li vstup, hodnota se
+  nespočítá a porovnání řekne proč; nesmyslný zápis (víc mladiny než
+  sladiny, zdánlivý extrakt nad původním) se ukáže u várky.
+- Porovnání i text pro Clauda dělá jeden sdílený modul
+  (`_shared/varky-popisy.ts`): appka a konektor nemůžou říkat něco jiného.
+  Příčiny odchylek hledá Claude přes konektor (literatura, profil pivovaru,
+  výpočty) a označí je jako hypotézy — chatbot v appce zůstává odložený (R14).
+- Číslo várky je v pivovaru jen jednou (kontrola ve funkci pod zámkem
+  a pojistka v unikátním indexu jen pro várky s pivovarem — smazání pivovaru
+  nesmí narazit na stejná čísla). Várku doplňuje kterýkoli přispěvatel;
+  smazat smí autor nebo správce.

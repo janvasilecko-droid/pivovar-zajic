@@ -154,6 +154,42 @@ export const NASTROJE: readonly Nastroj[] = [
     },
   },
   {
+    name: 'seznam_varek',
+    title: 'Seznam várek',
+    description: 'Várky z evidence v appce (nejnovější první) s krátkým přehledem hodnot a seznam receptur s id. '
+      + 'Filtry: pivo (část názvu), receptura_id, od a do (RRRR-MM-DD), limit (nejvýš 100). Id várek použij v porovnej_varky.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        pivo: { type: 'string', description: 'Část názvu piva (nepovinné)' },
+        receptura_id: { type: 'string', description: 'Id receptury ze seznamu (nepovinné)' },
+        od: { type: 'string', description: 'Datum varu od, RRRR-MM-DD (nepovinné)' },
+        do: { type: 'string', description: 'Datum varu do, RRRR-MM-DD (nepovinné)' },
+        limit: { type: 'integer', minimum: 1, maximum: 100, description: 'Kolik várek vypsat (výchozí 30)' },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'porovnej_varky',
+    title: 'Porovnání várek',
+    description: 'Porovná várky z evidence: hodnoty (sypání, objemy, extrakty, pH, kvašení, ležení, laboratoř) s cíli receptury a odchylkami, '
+      + 'odvozené hodnoty (varní výtěžek, odpar, prokvašení, alkohol) spočítané výpočetním modulem a seznam toho, co chybí. '
+      + 'Buď varka_ids (2–12 id ze seznam_varek), nebo posledni (2–12, výchozí 5) s filtrem pivo, receptura_id, od, do.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        varka_ids: { type: 'array', items: { type: 'string' }, minItems: 2, maxItems: 12, description: 'Id várek ze seznam_varek' },
+        posledni: { type: 'integer', minimum: 2, maximum: 12, description: 'Kolik posledních várek porovnat (výchozí 5)' },
+        pivo: { type: 'string', description: 'Část názvu piva (nepovinné)' },
+        receptura_id: { type: 'string', description: 'Id receptury (nepovinné)' },
+        od: { type: 'string', description: 'Datum varu od, RRRR-MM-DD (nepovinné)' },
+        do: { type: 'string', description: 'Datum varu do, RRRR-MM-DD (nepovinné)' },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
     name: 'seznam_knih',
     title: 'Seznam knih',
     description: 'Knihy v knihovně: název, autor, rok, jazyk, stav zpracování a id pro další nástroje.',
@@ -167,7 +203,8 @@ export const INSTRUKCE = 'Knihovna odborné pivovarské literatury Pivovaru Zaj�
   + 'Výsledek označený „starší vydání" má v knihovně novější vydání: přednost má novější (hodnoty se mohly změnit), rozdíl řekni. '
   + 'Čísla z výpočtů (stupňovitost, alkohol, ředění, výtěžek, IBU, barva, CO₂, chlazení, voda, potrubí, CIP, energie, daň, náklady…) '
   + 'počítej nástrojem vypocet, ne zpaměti. Parametry konkrétního provozu (objemy nádob, výkony, čerpadla, postupy) ber z profil_pivovaru, '
-  + 'vždy je odliš od obecných znalostí z knih a u čísla řekni zdroj; co v profilu chybí, nedomýšlej.';
+  + 'vždy je odliš od obecných znalostí z knih a u čísla řekni zdroj; co v profilu chybí, nedomýšlej. '
+  + 'Várky porovnávej nástrojem porovnej_varky: pracuj jen s uloženými údaji, co chybí, vyjmenuj, a příčiny odchylek uváděj jako hypotézy s oporou v knihách.';
 
 /** Novější vydání podle id staršího (etapa 3c): z dvojic dokument → předchozí vydání. */
 export function novejsiVydani(radky: readonly { id: string; nazev: string; rok: number | null; predchozi_vydani: string | null }[]): Map<string, { nazev: string; rok: number | null }[]> {

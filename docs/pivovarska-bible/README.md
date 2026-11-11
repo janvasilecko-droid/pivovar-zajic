@@ -47,7 +47,38 @@ s citací kniha–kapitola–strana a počítá deterministickým výpočetním 
 | 6a: výpočetní modul, Výpočtová laboratoř, nástroj `vypocet` pro Claude (R23) | hotovo (4. 11. 2026) — bez migrace |
 | 6b: další výpočty — chlazení a výměníky, voda a pH, scezování, chmelovar, kvašení, dokvašení, hydraulika, CIP, energie, ekonomika (R24) | hotovo (11. 11. 2026) — bez migrace |
 | 7: technologie pivovaru — profil, zařízení s parametry a zdrojem, provozní postupy, víc pivovarů, převzetí tanků ze Sklepa, nástroj `profil_pivovaru` (R25) | hotovo (11. 11. 2026) — migrace `20261111000000_bible_technologie` |
-| 8–10 | čeká |
+| 8: receptury a várky — evidence (pevný katalog 30 hodnot s rozsahem), receptury s cíli, porovnání várek (cíle, odchylky, výtěžek, odpar, prokvašení, co chybí), nástroje `seznam_varek` a `porovnej_varky` (R26) | hotovo (11. 11. 2026) — migrace `20261111010000_bible_varky` |
+| 9–10 | čeká |
+
+## Receptury a várky (etapa 8)
+
+- **Kde:** plocha bible → „Receptury a várky" (záložky Várky a Receptury).
+  Nejdřív migrace bible `20261111010000_bible_varky`.
+- **Receptura:** název, styl, cíle (objem vyražené mladiny, stupňovitost,
+  alkohol, IBU, barva), suroviny (slad, chmel, kvasnice, voda, přísada —
+  množství, jednotka, kdy) a kroky (rmutování, scezování, chmelovar,
+  chlazení, kvašení, ležení — teplota a délka).
+- **Várka:** pivo, číslo (v pivovaru nejvýš jednou), datum varu, receptura
+  a hodnoty z pevného katalogu (`_shared/varky-popisy.ts` = SQL
+  `bible_katalog_hodnot_varky`, shodu hlídá test): sypání, voda, pH rmutu
+  a mladiny, předek a poslední sladina, objemy a extrakty sladiny a mladiny
+  (objemy horké), chmelovar, zakvašení, generace a dávka kvasnic, kvašení,
+  sudování, ležení, hotové pivo (zdánlivý extrakt, alkohol, pH, barva,
+  IBU, CO₂) a stočeno. Každá hodnota má jednotku a rozsah; prázdné pole =
+  nezapsáno, nic se nedoplňuje.
+- **Porovnání** (2–12 várek, od nejstarší): hodnoty vedle sebe s cílem
+  receptury a odchylkou; odvozené hodnoty počítá výpočetní modul z etapy 6
+  (varní výtěžek s korekcí 0,96, odpar z horkých objemů, zdánlivé
+  prokvašení a alkohol podle Ballinga) jen ze zapsaných údajů; u každé
+  várky vyjmenuje, co chybí a co kvůli tomu nejde spočítat. Co nejde
+  spočítat u žádné várky, řekne jednou.
+- **Konektor Claude:** `seznam_varek` (filtr pivo, receptura, od–do) a
+  `porovnej_varky` (id várek, nebo posledních N) — stejný kód jako
+  v appce; instrukce: jen uložené údaje, co chybí vyjmenovat, příčiny
+  odchylek jako hypotézy s oporou v knihách a profilu pivovaru.
+- **Práva:** čte každý s přístupem do bible, zapisuje a doplňuje přispěvatel
+  (várku doplňuje varna, sklep i laboratoř), smazat smí autor záznamu nebo
+  správce. Smazání receptury ani pivovaru várky nemaže.
 
 ## Technologie pivovaru (etapa 7)
 

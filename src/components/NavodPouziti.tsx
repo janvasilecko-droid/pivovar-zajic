@@ -562,8 +562,12 @@ const ODDILY: Oddil[] = [
         jak: 'Pivovarská bible → Technologie pivovaru (nejdřív migrace bible 20261111000000_bible_technologie v Systém → Databázové migrace → Databáze bible). Založ pivovar a zapiš zařízení — varnu, tanky, čerpadla, potrubí, výměníky, chlazení — s parametry; u každého čísla vyber, odkud je (štítek, dokumentace, změřeno, odhad). „Převzít tanky ze Sklepa“ zapíše Spilky a Tanky s objemem z kapacity. Přidat jde i provozní postupy a další pivovary. Claude tyhle údaje přes konektor bere jako parametry našeho provozu, odděleně od knih.',
       },
       {
+        co: 'Receptury a várky',
+        jak: 'Pivovarská bible → Receptury a várky (nejdřív migrace bible 20261111010000_bible_varky v Systém → Databázové migrace → Databáze bible). V záložce Receptury zapiš recepturu s cíli (objem, stupňovitost, alkohol, IBU, barva), surovinami a kroky. „Zapsat várku“ uloží, co je změřené: sypání, vodu, pH, objemy a extrakty sladiny a mladiny, chmelovar, kvašení, ležení a laboratoř — prázdné pole zůstane nezapsané. Zaškrtni 2 až 12 várek a „Porovnat vybrané“ ukáže hodnoty vedle sebe s cílem receptury a odchylkou, spočítá výtěžek, odpar a prokvašení a vyjmenuje, co chybí. Příčiny odchylek najde Claude přes konektor („porovnej posledních 5 várek…“).',
+      },
+      {
         co: 'Správa znalostí',
-        jak: 'Dlaždice Správa znalostí ukazuje tematické oblasti A–T s počtem dokumentů, kdo má přístup a kolik místa zabírá databáze a úložiště. Je tu i připojení knihovny k aplikaci Claude. Dlaždice Receptury a várky a Analýza problémů řeknou, ve které etapě přijdou.',
+        jak: 'Dlaždice Správa znalostí ukazuje tematické oblasti A–T s počtem dokumentů, kdo má přístup a kolik místa zabírá databáze a úložiště. Je tu i připojení knihovny k aplikaci Claude. Dlaždice Analýza problémů řekne, ve které etapě přijde.',
       },
     ],
   },

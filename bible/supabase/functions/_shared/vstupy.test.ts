@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   AKCE, ChybaVstupu, dotazZkusenosti, idDokumentu, idZkusenosti, klicPrehledu, jeAkce, popisDokumentu, predchoziVydani, prekladChybyDb, souborKNahrani, stavDokumentu, zacatekObdobi, zkusenostVstup,
   idZaznamu, parametryVstup, pivovarVstup, postupProvozuVstup, prevzetiVstup, vyberPivovaru, zarizeniVstup,
+  datumVstup, hodnotyVarkyVstup, recepturaVstup, varkaVstup,
 } from './vstupy';
 
 const SHA = 'a'.repeat(64);
@@ -248,5 +249,73 @@ describe('technologie pivovaru (etapa 7)', () => {
     expect(() => postupProvozuVstup({ pivovar_id: PIV, nazev: 'X', oblast: 'Z', kroky: 'a' })).toThrow('Oblast je písmeno A–T.');
     expect(() => postupProvozuVstup({ pivovar_id: PIV, nazev: 'X', kroky: '  ' })).toThrow(ChybaVstupu);
     expect(() => postupProvozuVstup({ nazev: 'X', kroky: 'a' })).toThrow('Chybí pivovar.');
+  });
+});
+
+describe('receptury a várky (etapa 8)', () => {
+  const PIV = 'aaaaaaaa-1111-2222-3333-444444444444';
+  const REC = 'bbbbbbbb-1111-2222-3333-444444444444';
+  const VAR = 'cccccccc-1111-2222-3333-444444444444';
+
+  it('čtení všem, zápis a smazání přispěvateli (komu záznam patří, hlídá SQL)', () => {
+    expect(AKCE.varky).toBe('cte');
+    expect(AKCE.receptura_ulozit).toBe('prispiva');
+    expect(AKCE.receptura_smazat).toBe('prispiva');
+    expect(AKCE.varka_ulozit).toBe('prispiva');
+    expect(AKCE.varka_smazat).toBe('prispiva');
+  });
+
+  it('dvojí číslo várky (pojistka v indexu) má vlastní hlášku, jinde zůstává ta o souboru', () => {
+    expect(prekladChybyDb({ code: '23505', message: 'duplicate key value violates unique constraint "bible_varky_cislo_uniq"' }).zprava).toBe('Várka s tímhle číslem už v evidenci je.');
+    expect(prekladChybyDb({ code: '23505', message: 'duplicate key value violates unique constraint "bible_dokumenty_sha256_key"' }).zprava).toBe('Tenhle soubor už v knihovně je.');
+  });
+
+  it('receptura: oříznuté texty, cíle v rozsahu, suroviny a kroky jen známých druhů', () => {
+    expect(recepturaVstup({
+      pivovar_id: PIV, nazev: ' Ležák ', styl: '  ', cil_stupnovitost: 11.2, cil_ibu: null,
+      suroviny: [{ druh: 'slad', nazev: ' Plzeňský ', mnozstvi: 180, jednotka: 'kg', kdy: '' }],
+      kroky: [{ faze: 'rmutovani', nazev: 'Nástřik', teplota_c: 52, minut: 15, poznamka: ' ' }],
+    })).toEqual({
+      pivovar_id: PIV, nazev: 'Ležák', styl: null, cil_objem_hl: null, cil_stupnovitost: 11.2, cil_alkohol: null, cil_ibu: null, cil_barva_ebc: null,
+      suroviny: [{ druh: 'slad', nazev: 'Plzeňský', mnozstvi: 180, jednotka: 'kg' }],
+      kroky: [{ faze: 'rmutovani', nazev: 'Nástřik', teplota_c: 52, minut: 15 }],
+      poznamka: null,
+    });
+    expect(recepturaVstup({ id: REC, nazev: 'X' })).toMatchObject({ id: REC, pivovar_id: null, suroviny: [], kroky: [] });
+    expect(() => recepturaVstup({ nazev: ' ' })).toThrow(ChybaVstupu);
+    expect(() => recepturaVstup({ nazev: 'X', cil_stupnovitost: '11,2' })).toThrow('Cílová stupňovitost musí být číslo.');
+    expect(() => recepturaVstup({ nazev: 'X', cil_stupnovitost: 50 })).toThrow('Cílová stupňovitost je mimo rozsah 1 až 35.');
+    expect(() => recepturaVstup({ nazev: 'X', suroviny: [{ druh: 'cukr', nazev: 'Y' }] })).toThrow(ChybaVstupu);
+    expect(() => recepturaVstup({ nazev: 'X', suroviny: [{ druh: 'slad', nazev: 'Y', mnozstvi: 0 }] })).toThrow('Množství suroviny „Y" musí být kladné číslo.');
+    expect(() => recepturaVstup({ nazev: 'X', kroky: [{ faze: 'rmutovani', nazev: 'Y', teplota_c: 150 }] })).toThrow(ChybaVstupu);
+    expect(() => recepturaVstup({ nazev: 'X', kroky: [{ faze: 'vareni', nazev: 'Y' }] })).toThrow(ChybaVstupu);
+  });
+
+  it('hodnoty várky: jen klíče z katalogu, čísla v rozsahu, null = nezapsáno', () => {
+    expect(hodnotyVarkyVstup({ mladina_p: 11.3, sypani_kg: 180, pivo_ibu: null })).toEqual({ mladina_p: 11.3, sypani_kg: 180 });
+    expect(hodnotyVarkyVstup(undefined)).toEqual({});
+    expect(() => hodnotyVarkyVstup({ vytezek: 70 })).toThrow('Neznámá hodnota várky „vytezek".');
+    expect(() => hodnotyVarkyVstup({ mladina_p: '11,3' })).toThrow(ChybaVstupu);
+    expect(() => hodnotyVarkyVstup({ mladina_p: 40 })).toThrow(/mimo rozsah 1 až 35/);
+    expect(() => hodnotyVarkyVstup({ kvasnice_generace: 2.5 })).toThrow('Generace kvasnic musí být celé číslo.');
+    expect(() => hodnotyVarkyVstup([1])).toThrow(ChybaVstupu);
+  });
+
+  it('datum varu: skutečný den ve tvaru RRRR-MM-DD, 1990–2100', () => {
+    expect(datumVstup('2026-11-03', 'Datum varu')).toBe('2026-11-03');
+    expect(() => datumVstup('2026-02-30', 'Datum varu')).toThrow('Datum varu není platné datum.');
+    expect(() => datumVstup('3. 11. 2026', 'Datum varu')).toThrow(ChybaVstupu);
+    expect(() => datumVstup('1980-01-01', 'Datum varu')).toThrow('Datum varu je mimo rozsah.');
+  });
+
+  it('várka: pivo a datum povinné, číslo oříznuté, hodnoty z katalogu', () => {
+    expect(varkaVstup({ pivovar_id: PIV, receptura_id: REC, cislo: ' 12 ', pivo: ' Ležák ', datum_varu: '2026-11-03', hodnoty: { mladina_p: 11.3 }, poznamka: '' }))
+      .toEqual({ pivovar_id: PIV, receptura_id: REC, cislo: '12', pivo: 'Ležák', datum_varu: '2026-11-03', hodnoty: { mladina_p: 11.3 }, poznamka: null });
+    expect(varkaVstup({ id: VAR, pivo: 'Ležák', datum_varu: '2026-11-03' })).toEqual({
+      id: VAR, pivovar_id: null, receptura_id: null, cislo: null, pivo: 'Ležák', datum_varu: '2026-11-03', hodnoty: {}, poznamka: null,
+    });
+    expect(() => varkaVstup({ datum_varu: '2026-11-03' })).toThrow(ChybaVstupu);
+    expect(() => varkaVstup({ pivo: 'Ležák' })).toThrow('Datum varu chybí nebo není datum.');
+    expect(() => varkaVstup({ pivo: 'Ležák', datum_varu: '2026-11-03', receptura_id: 'x' })).toThrow(ChybaVstupu);
   });
 });
