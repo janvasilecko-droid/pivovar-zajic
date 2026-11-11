@@ -2,7 +2,7 @@
  "format": "pivovar-zaloha-manifest",
  "v": 1,
  "sada": "bible",
- "datum": "2026-11-10T10:06:10.454Z",
+ "datum": "2026-11-11T09:37:46.578Z",
  "tabulky": {
   "migrace_aplikovane": {
    "radku": 8,
@@ -17,8 +17,8 @@
    "sha256": "92bca7bfc74d7e6ad118ea4a07c959bb29255cb0b7631079703c1e2d07432a31"
   },
   "ai_naklady": {
-   "radku": 80,
-   "sha256": "4702a14477f6fe94e341165e22daeb9845aa96ce4e8ce7238c8ebd12c70bffe6"
+   "radku": 81,
+   "sha256": "2b11aa4e574f1cd3ca0d827bab4c87473967abcf6dba7794d9dc5a3f1a91febd"
   }
  },
  "nejsouVDatabazi": []
