@@ -1,8 +1,13 @@
 // 🗓️ Rozpoznání konkrétního data v textu objednávky (např. "25.8.", "25. 8. 2026",
-// "25/8", "25. srpna"). Datum se zapíše do poznámky a objednávka se automaticky
-// přesune do týdne, ve kterém dané datum je (delivery_date → isoWeekKey).
+// "25/8", "25. srpna", i "13 .11.30l"). Datum se zapíše do poznámky a objednávka
+// se automaticky přesune do týdne, ve kterém dané datum je (delivery_date → isoWeekKey).
+//
+// Pravidlo samo je od 6. 11. 2026 jedno pro appku i server (edge funkce
+// whatsapp-auto-parse): supabase/functions/_shared/datum-ze-zpravy.ts. Dřív měla
+// každá strana vlastní kopii a „Na 13 .11.30l 12sv" nepřečetla ani jedna.
 
 import { businessDateISO } from './businessDate';
+import { datumZeZpravy } from '../../supabase/functions/_shared/datum-ze-zpravy';
 
 export interface ExplicitDate {
   dateStr: string;   // YYYY-MM-DD
@@ -13,106 +18,14 @@ export interface ExplicitDate {
   day: number;
 }
 
-const CZ_MONTHS: [string, number][] = [
-  ['ledna', 1], ['února', 2], ['unora', 2], ['března', 3], ['brezna', 3],
-  ['dubna', 4], ['května', 5], ['kvetna', 5], ['června', 6], ['cervna', 6],
-  ['července', 7], ['cervence', 7], ['srpna', 8], ['září', 9], ['zari', 9],
-  ['října', 10], ['rijna', 10], ['listopadu', 11], ['prosince', 12],
-];
-
-function buildDate(day: number, month: number, year?: number, matched?: string): ExplicitDate | null {
-  if (day < 1 || day > 31 || month < 1 || month > 12) return null;
-  // "Dnešek" podle Prahy (businessDateISO), ne podle systémových hodin —
-  // appka běží i v Deno edge funkci, jejíž "lokální" čas je vždy UTC. Kolem
-  // půlnoci pražského času by se bez tohohle mohl odhad roku u holého data
-  // (bez roku, např. "31.12.") spletl o celý rok (nalezeno 13. 9. 2026).
-  const [todayY, todayM, todayD] = businessDateISO().split('-').map(Number);
-  let y = year ?? todayY;
-
-  // Bez roku: pokud by datum bylo už v minulosti (před dneškem), předpokládáme
-  // příští rok (typické u objednávek dopředu, např. "dodat 25.8." poslané v září).
-  if (!year) {
-    const todayStart = Date.UTC(todayY, todayM - 1, todayD);
-    if (Date.UTC(y, month - 1, day) < todayStart) y = y + 1;
-  }
-
-  // Ověření reálnosti data (např. 31.2. neexistuje)
-  const d = new Date(Date.UTC(y, month - 1, day));
-  if (d.getUTCFullYear() !== y || d.getUTCMonth() !== month - 1 || d.getUTCDate() !== day) return null;
-
-  return {
-    dateStr: `${y}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
-    display: `${day}.${month}.`,
-    matched: matched ?? `${day}.${month}.`,
-    year: y,
-    month,
-    day,
-  };
-}
-
 /**
  * Najde v textu konkrétní datum (např. "25.8."). Vrací ISO datum pro delivery_date,
  * zobrazení pro poznámku a přesný nalezený text. Pokud datum není, vrací null.
+ * Rok se doplní podle dneška v Praze (`dnes`, výchozí businessDateISO).
  */
-export function parseExplicitDate(text: string): ExplicitDate | null {
-  if (!text) return null;
-
-  // 1) "25.8.2026" / "25. 8. 2026" — s rokem
-  let m = text.match(/(?<![\d.])(\d{1,2})\s*[.]\s*(\d{1,2})\s*[.]\s*(\d{4})(?![\d.])/);
-  if (m) {
-    const r = buildDate(parseInt(m[1], 10), parseInt(m[2], 10), parseInt(m[3], 10), m[0].trim());
-    if (r) return r;
-  }
-
-  // 2) "25.8." (s tečkou na konci) — nejspolehlivější forma data v objednávce
-  m = text.match(/(?<![\d.])(\d{1,2})\s*[.]\s*(\d{1,2})\s*[.](?![\d.])/);
-  if (m) {
-    const r = buildDate(parseInt(m[1], 10), parseInt(m[2], 10), undefined, m[0].trim());
-    if (r) return r;
-  }
-
-  // 3) "25.8" / "25. 8" — bez tečky; nesmí to být objem (1.5l, 0.5...) ani cena
-  m = text.match(/(?<![\d.])(\d{1,2})\s*[.]\s*(\d{1,2})(?![\d.])(?![lL])/);
-  if (m) {
-    const day = parseInt(m[1], 10);
-    const month = parseInt(m[2], 10);
-    const mIndex = m.index ?? 0;
-    const mText = m[0] ?? '';
-    if (day >= 1 && day <= 31 && month >= 1 && month <= 12) {
-      const after = text.slice(mIndex + mText.length, mIndex + mText.length + 10);
-      const before = text.slice(Math.max(0, mIndex - 10), mIndex);
-      const looksLikeVolumeOrQty =
-        /\bl\b|\bl\.|litr|litru|litry|keg|sud|x\s*\d|\bks\b/i.test(after) ||
-        /\d+\s*x/i.test(before) || /cena|k[čc]\b/i.test(before);
-      if (!looksLikeVolumeOrQty) {
-        const r = buildDate(day, month, undefined, mText.trim());
-        if (r) return r;
-      }
-    }
-  }
-
-  // 4) "25. srpna" / "25.srpna"
-  m = text.match(/(?<![\d.])(\d{1,2})\s*[.]\s*(ledna|února|unora|března|brezna|dubna|května|kvetna|června|cervna|července|cervence|srpna|září|zari|října|rijna|listopadu|prosince)\b/i);
-  if (m) {
-    const mm = m;
-    const day = parseInt(mm[1], 10);
-    const month = CZ_MONTHS.find(([name]) => name === (mm[2] || '').toLowerCase())?.[1];
-    if (month) {
-      const r = buildDate(day, month, undefined, m[0].trim());
-      if (r) return r;
-    }
-  }
-
-  // 5) "25/8" — s lomítkem
-  m = text.match(/(?<![\d./])(\d{1,2})[/](\d{1,2})(?![\d.])/);
-  if (m) {
-    const day = parseInt(m[1], 10);
-    const month = parseInt(m[2], 10);
-    if (day >= 1 && day <= 31 && month >= 1 && month <= 12) {
-      const r = buildDate(day, month, undefined, m[0].trim());
-      if (r) return r;
-    }
-  }
-
-  return null;
+export function parseExplicitDate(text: string, dnes: string = businessDateISO()): ExplicitDate | null {
+  const d = datumZeZpravy(text, dnes);
+  if (!d) return null;
+  const [year, month, day] = d.datum.split('-').map(Number);
+  return { dateStr: d.datum, display: d.zobrazeni, matched: d.nalezeno, year, month, day };
 }

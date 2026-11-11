@@ -340,3 +340,27 @@ describe('SNÍMEK Z PROVOZU 8. 9. 2026: fotka „SKLAD" s popiskem „Pro Radka 
     expect(vypadaJakoZmenaObjednavky(ZPRAVA.message_text)).toBe('pridavek');
   });
 });
+
+// 6. 11. 2026: „Na 13 .11.30l 12sv, děkuji" — kontrola čtení si z „.11.30l" udělala
+// objem 11,30 l a svítila červeně, i když AI přečetla správně 1× 30 l 12°.
+describe('kontrola čtení — datum není objem', () => {
+  const ZPRAVA = 'Na 13 .11.30l 12sv, děkuji';
+
+  it('z řádku s datem vyjde objem 30 a stupeň 12, ne 11.30', () => {
+    const parts = extractOrderParts(ZPRAVA);
+    expect(parts.map((p) => `${p.kind}:${p.value}`)).toEqual(['volume:30', 'degree:12']);
+  });
+
+  it('obě části se v originálu najdou', () => {
+    const a = analyzeReadback({
+      id: 'z', message_text: ZPRAVA, message_type: 'text',
+      parsed_items: [{ raw_line: ZPRAVA, qty: 1, beer_name: '12° Světlá', package_label: '30l' }],
+    } as unknown as WhatsAppIncoming);
+    expect(a.items[0].parts.map((p) => [p.part.display, p.found])).toEqual([['30l', true], ['12°', true]]);
+  });
+
+  it('desetinný objem bez data zůstává („1,5l", „0.5l")', () => {
+    expect(extractOrderParts('6x 1,5l Jantar').map((p) => `${p.kind}:${p.value}`)).toContain('volume:1,5');
+    expect(extractOrderParts('20x 0.5l 12sv').map((p) => `${p.kind}:${p.value}`)).toContain('volume:0.5');
+  });
+});
