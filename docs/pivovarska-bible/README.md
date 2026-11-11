@@ -45,26 +45,37 @@ s citací kniha–kapitola–strana a počítá deterministickým výpočetním 
 | 3c: nová vydání dokumentů (R22) | hotovo (4. 11. 2026) — migrace `20261104050000_bible_vydani` |
 | 5: chatbot | odloženo (R14) |
 | 6a: výpočetní modul, Výpočtová laboratoř, nástroj `vypocet` pro Claude (R23) | hotovo (4. 11. 2026) — bez migrace |
-| 6b: další výpočty (chlazení a výměníky, voda a pH, hydraulika, CIP, energie, ekonomika) | čeká |
+| 6b: další výpočty — chlazení a výměníky, voda a pH, scezování, chmelovar, kvašení, dokvašení, hydraulika, CIP, energie, ekonomika (R24) | hotovo (11. 11. 2026) — bez migrace |
 | 7–10 | čeká |
 
-## Výpočtová laboratoř (etapa 6a)
+## Výpočtová laboratoř (etapy 6a a 6b)
 
-- **Kde:** plocha bible → „Výpočtová laboratoř". Výpočty: stupňovitost ↔
-  relativní hustota, alkohol a prokvašení (Balling), ředění na cílovou
-  stupňovitost (hmotnostní bilance), varní výtěžek, teplota vody pro vystírku,
-  hořkost IBU (Tinseth, víc dávek), barva (Morey, víc sladů), obsah CO₂ při
-  tlaku a teplotě a přetlak pro cílový obsah CO₂.
+- **Kde:** plocha bible → „Výpočtová laboratoř", výpočty po oblastech A–T.
+- **6a:** stupňovitost ↔ relativní hustota, alkohol a prokvašení (Balling),
+  ředění na cílovou stupňovitost (hmotnostní bilance), varní výtěžek, teplota
+  vody pro vystírku, hořkost IBU (Tinseth, víc dávek), barva (Morey, víc
+  sladů), obsah CO₂ při tlaku a teplotě a přetlak pro cílový obsah CO₂.
+- **6b (R24):** chlazení mladiny (teplo, výkon, chladicí voda), plocha
+  výměníku (střední logaritmický rozdíl), zbytková alkalita vody (Kolbach),
+  kyselina mléčná nebo fosforečná na snížení alkality, vyslazovací voda
+  (bilance vody), odpar při chmelovaru a stupňovitost mladiny, dávka kvasnic,
+  cukr na dokvašení v lahvi, rychlost a tlaková ztráta potrubí (Darcy–Weisbach,
+  Swamee–Jain), příkon čerpadla, CIP roztok z koncentrátu, energie a náklady
+  na ohřev a var, spotřební daň z piva (sazba zadaná ručně) a náklady várky.
+  Materiálové hodnoty, které nejde poctivě odvodit (měrné teplo mladiny,
+  součinitel prostupu tepla U, sazba daně, hustota koncentrátu), zadává člověk
+  — s výchozí hodnotou a nápovědou.
 - **Každý výsledek** ukáže vstupy s jednotkami, vzorec, mezikroky,
   předpoklady, rozsah platnosti, nejistotu a zdroj vzorce. Vstup mimo rozsah
   (nebo nesmysl, třeba zdánlivý extrakt nad původním) se odmítne s hláškou —
   nic se neodhaduje. „Najít v knihách" otevře hledání s dotazem výpočtu, ať je
   vidět, kde je vzorec v nahraných knihách (stránky se nevymýšlejí).
 - **Kód:** čisté TS moduly bez závislostí v
-  `bible/supabase/functions/_shared/vypocty/` (`zaklad.ts`, `katalog.ts`,
-  `nastroj.ts`) — stejný kód počítá v appce i v konektoru. Testy
-  (`vypocty.test.ts`) stojí na příkladech přepočtených nezávisle (samostatný
-  skript) a u hustoty na bodech tabulek extraktu.
+  `bible/supabase/functions/_shared/vypocty/` (`zaklad.ts`, `fyzika.ts`,
+  `katalog.ts`, `katalog-6b.ts`, `nastroj.ts`) — stejný kód počítá v appce
+  i v konektoru. Testy (`vypocty.test.ts`, `vypocty-6b.test.ts`) stojí na
+  příkladech přepočtených nezávisle (samostatný skript v Pythonu) a u hustoty
+  na bodech tabulek extraktu.
 - **Konektor Claude:** nástroj `vypocet` (bez id vrátí seznam výpočtů a vstupů);
   instrukce říká počítat čísla tímhle nástrojem, ne zpaměti (zásada 2).
 

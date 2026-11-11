@@ -41,8 +41,8 @@ export const BIBLE_DLAZDICE: readonly BibleDlazdice[] = [
   // Zatím hledání v knihách (3. 11. 2026, majitel k chatbotu: „zatím jen hledání").
   { id: 'chat', nazev: 'Hledání v knihách', popis: 'Česky i v anglických knihách, s otevřením stránky', ikona: Search },
   { id: 'knihovna', nazev: 'Knihovna dokumentů', popis: 'Odborná knihovna: knihy, nahrávání, zpracování a čtení', ikona: BookOpen },
-  // Etapa 6a (4. 11. 2026): výpočty s ověřenými vzorci; stejný kód počítá i Claude přes konektor.
-  { id: 'vypocty', nazev: 'Výpočtová laboratoř', popis: 'Plato, alkohol, ředění, výtěžek, vystírka, IBU, barva, CO₂', ikona: Calculator },
+  // Etapy 6a a 6b (4. a 11. 11. 2026): výpočty s ověřenými vzorci; stejný kód počítá i Claude přes konektor.
+  { id: 'vypocty', nazev: 'Výpočtová laboratoř', popis: 'Extrakt, alkohol, IBU, chlazení, voda, potrubí, CIP, energie, daň a náklady', ikona: Calculator },
   {
     id: 'technologie', nazev: 'Technologie pivovaru', popis: 'Profil pivovaru: varna, nádoby, čerpadla, chlazení', ikona: Factory, etapa: 7,
     bude: 'Typ varny, objemy nádob, technologické schéma, čerpadla, potrubí, výměníky, chlazení, kvasné a ležácké tanky a provozní postupy. Jde založit i další pivovary.',

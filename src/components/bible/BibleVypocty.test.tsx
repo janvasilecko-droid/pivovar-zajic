@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { fireEvent, render, screen, within } from '@testing-library/react';
-import { BibleVypocty, cisloZTextu } from './BibleVypocty';
+import { BibleVypocty, cisloZTextu, vypoctyPoOblastech } from './BibleVypocty';
 
 describe('Výpočtová laboratoř', () => {
   it('čísla z pole: čárka i tečka, minus, mezery; nesmysl = NaN', () => {
@@ -56,5 +56,25 @@ describe('Výpočtová laboratoř', () => {
     expect(hledej).toHaveBeenCalledWith('varní výtěžek');
     fireEvent.click(screen.getByRole('button', { name: /Zpět na výpočty/ }));
     expect(screen.getByRole('button', { name: /Barva piva \(Morey\)/ })).toBeTruthy();
+  });
+});
+
+describe('Výpočtová laboratoř po oblastech (etapa 6b)', () => {
+  it('výpočty jsou seskupené podle oblastí A–T a nic se neztratí', async () => {
+    const { VYPOCTY } = await import('../../../bible/supabase/functions/_shared/vypocty/katalog.ts');
+    const skupiny = vypoctyPoOblastech(VYPOCTY);
+    expect(skupiny.flatMap((g) => g.vypocty)).toHaveLength(VYPOCTY.length);
+    expect(skupiny.map((g) => g.kod)).toEqual([...skupiny.map((g) => g.kod)].sort());
+    render(<BibleVypocty />);
+    expect(screen.getByRole('region', { name: 'Oblast G · Chlazení mladiny' })).toBeTruthy();
+    expect(within(screen.getByRole('region', { name: 'Oblast B · Chemie a úprava vody' })).getByRole('button', { name: /Zbytková alkalita vody/ })).toBeTruthy();
+  });
+
+  it('nový výpočet jde otevřít a spočítat: chlazení mladiny', () => {
+    render(<BibleVypocty />);
+    fireEvent.click(screen.getByRole('button', { name: /Chlazení mladiny: teplo a chladicí voda/ }));
+    const vysledek = screen.getByRole('region', { name: 'Výsledek' });
+    expect(within(vysledek).getByText(/98,6 kWh/)).toBeTruthy();
+    expect(within(vysledek).getByText(/Kalorimetrická rovnice/)).toBeTruthy();
   });
 });
