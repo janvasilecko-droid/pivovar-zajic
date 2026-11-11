@@ -7,6 +7,7 @@
     "20261103030000_bible_mcp.sql",
     "20261104000000_bible_zkusenosti.sql",
     "20261104020000_bible_kapitoly_preklad.sql",
-    "20261104050000_bible_vydani.sql"
+    "20261104050000_bible_vydani.sql",
+    "20261111000000_bible_technologie.sql"
   ]
 }

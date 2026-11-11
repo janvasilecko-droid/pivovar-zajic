@@ -4,6 +4,7 @@
 // dvakrát: tady podle úrovně přístupu z hlavního projektu a znovu v SQL
 // funkcích projektu bible (bible/supabase/migrations), které jediné zapisují.
 import { jeUuid, type Pristup } from './brana.ts';
+import { DRUHY_ZARIZENI, ZDROJE_PARAMETRU } from './technologie-popisy.ts';
 
 /** Akce bible-api a nejnižší potřebný přístup. */
 export const AKCE = {
@@ -41,6 +42,16 @@ export const AKCE = {
   // patří dokument, hlídá SQL (správce u čehokoli, přispěvatel u svých).
   vydani: 'cte',
   vydani_nastavit: 'prispiva',
+  // Technologie pivovaru (etapa 7): čtení všem, zápis přispěvateli, smazat celý
+  // pivovar jen správce (hlídá i SQL).
+  technologie: 'cte',
+  pivovar_ulozit: 'prispiva',
+  pivovar_smazat: 'spravuje',
+  zarizeni_ulozit: 'prispiva',
+  zarizeni_prevzit: 'prispiva',
+  zarizeni_smazat: 'prispiva',
+  postup_provozu_ulozit: 'prispiva',
+  postup_provozu_smazat: 'prispiva',
 } as const satisfies Record<string, Pristup>;
 
 export type Akce = keyof typeof AKCE;
@@ -157,6 +168,7 @@ export function prekladChybyDb(e: ChybaDb): { status: number; kod: string; zprav
   const zprava = (e?.message ?? '').slice(0, 300);
   if (['PGRST202', 'PGRST205', '42P01', '42883', '3F000'].includes(code)) return { status: 503, kod: 'bez_migrace', zprava: BEZ_MIGRACE };
   if (code === '42501') return { status: 403, kod: 'zakazano', zprava: zprava || 'Na tohle nemáš právo.' };
+  if (code === 'P0002') return { status: 404, kod: 'nenalezeno', zprava: zprava || 'Záznam už v bibli není.' };
   if (code === '23505') return { status: 409, kod: 'duplicita', zprava: 'Tenhle soubor už v knihovně je.' };
   if (code === '54000') return { status: 413, kod: 'velky_soubor', zprava: zprava || 'Soubor je příliš velký.' };
   if (['22023', '23514', '23502', '22P02', '22003', '22007', '22008'].includes(code)) {
@@ -231,4 +243,120 @@ export function dotazZkusenosti(telo: Record<string, unknown>): { dotaz: string 
     throw new ChybaVstupu('Důvěryhodnost je číslo 1 až 5.');
   }
   return { dotaz, oblast: typeof o === 'string' && o ? o : null, nejhorsi: typeof n === 'number' ? n : 5 };
+}
+
+// --- Technologie pivovaru (etapa 7) -----------------------------------------
+
+/** Id záznamu z těla požadavku (pivovar, zařízení, postup). */
+export function idZaznamu(telo: Record<string, unknown>, co: string): string {
+  if (!jeUuid(telo.id)) throw new ChybaVstupu(`Chybí id ${co}.`);
+  return telo.id.toLowerCase();
+}
+
+/** Volitelný výběr pivovaru pro čtení profilu. */
+export function vyberPivovaru(telo: Record<string, unknown>): string | null {
+  const v = telo.pivovar_id;
+  if (v === undefined || v === null || v === '') return null;
+  if (!jeUuid(v)) throw new ChybaVstupu('Neplatné id pivovaru.');
+  return v.toLowerCase();
+}
+
+function volitelneId(v: unknown, co: string): string | undefined {
+  if (v === undefined || v === null || v === '') return undefined;
+  if (!jeUuid(v)) throw new ChybaVstupu(`Neplatné id ${co}.`);
+  return v.toLowerCase();
+}
+
+export function pivovarVstup(v: unknown): Record<string, unknown> {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) throw new ChybaVstupu('Chybí pivovar.');
+  const p = v as Record<string, unknown>;
+  if (p.hlavni !== undefined && typeof p.hlavni !== 'boolean') throw new ChybaVstupu('Hlavní pivovar je ano/ne.');
+  const id = volitelneId(p.id, 'pivovaru');
+  return {
+    ...(id ? { id } : {}),
+    nazev: text(p.nazev, 'Název pivovaru', 120, true)!.trim(),
+    popis: text(p.popis, 'Popis provozu', 4000),
+    hlavni: p.hlavni === true,
+  };
+}
+
+const ID_DRUHU = DRUHY_ZARIZENI.map((d) => d.id) as readonly string[];
+const ID_ZDROJU = ZDROJE_PARAMETRU.map((z) => z.id) as readonly string[];
+
+/** Parametry zařízení: {nazev, hodnota (číslo) nebo text, jednotka, zdroj}. */
+export function parametryVstup(v: unknown): Record<string, unknown>[] {
+  if (v === undefined || v === null) return [];
+  if (!Array.isArray(v) || v.length > 40) throw new ChybaVstupu('Parametry musí být seznam (nejvýš 40).');
+  return v.map((x, i) => {
+    if (!x || typeof x !== 'object' || Array.isArray(x)) throw new ChybaVstupu(`Parametr ${i + 1} musí mít název a hodnotu.`);
+    const o = x as Record<string, unknown>;
+    const nazev = text(o.nazev, `Název parametru ${i + 1}`, 80, true)!.trim();
+    if (o.hodnota !== undefined && o.hodnota !== null && (typeof o.hodnota !== 'number' || !Number.isFinite(o.hodnota))) {
+      throw new ChybaVstupu(`Hodnota parametru „${nazev}" musí být číslo.`);
+    }
+    const hodnota = typeof o.hodnota === 'number' ? o.hodnota : undefined;
+    const t = text(o.text, `Text parametru „${nazev}"`, 200)?.trim() || undefined;
+    if (hodnota === undefined && !t) throw new ChybaVstupu(`Parametr „${nazev}" nemá hodnotu.`);
+    const jednotka = text(o.jednotka, `Jednotka parametru „${nazev}"`, 30)?.trim() || undefined;
+    const zdroj = o.zdroj === undefined || o.zdroj === null || o.zdroj === '' ? 'odhad' : o.zdroj;
+    if (typeof zdroj !== 'string' || !ID_ZDROJU.includes(zdroj)) throw new ChybaVstupu(`Neznámý zdroj parametru „${nazev}".`);
+    return { nazev, ...(hodnota !== undefined ? { hodnota } : {}), ...(t ? { text: t } : {}), ...(jednotka ? { jednotka } : {}), zdroj };
+  });
+}
+
+/** Zařízení; nové potřebuje pivovar_id (jen když `sPivovarem`). */
+export function zarizeniVstup(v: unknown, sPivovarem = true): Record<string, unknown> {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) throw new ChybaVstupu('Chybí zařízení.');
+  const p = v as Record<string, unknown>;
+  const id = volitelneId(p.id, 'zařízení');
+  const pivovar = volitelneId(p.pivovar_id, 'pivovaru');
+  if (sPivovarem && !id && !pivovar) throw new ChybaVstupu('Chybí pivovar.');
+  if (typeof p.druh !== 'string' || !ID_DRUHU.includes(p.druh)) throw new ChybaVstupu('Neznámý druh zařízení.');
+  const pocet = p.pocet === undefined || p.pocet === null ? 1 : p.pocet;
+  if (typeof pocet !== 'number' || !Number.isInteger(pocet) || pocet < 1 || pocet > 999) throw new ChybaVstupu('Počet kusů je celé číslo 1 až 999.');
+  return {
+    ...(id ? { id } : {}),
+    ...(pivovar && !id ? { pivovar_id: pivovar } : {}),
+    druh: p.druh,
+    nazev: text(p.nazev, 'Název zařízení', 120, true)!.trim(),
+    pocet,
+    parametry: parametryVstup(p.parametry),
+    poznamka: text(p.poznamka, 'Poznámka', 2000),
+  };
+}
+
+/** Převzetí víc zařízení najednou (tanky ze Sklepa). */
+export function prevzetiVstup(telo: Record<string, unknown>): { pivovar: string; seznam: Record<string, unknown>[] } {
+  if (!jeUuid(telo.pivovar_id)) throw new ChybaVstupu('Chybí pivovar.');
+  if (!Array.isArray(telo.seznam) || telo.seznam.length === 0 || telo.seznam.length > 200) {
+    throw new ChybaVstupu('Seznam zařízení je prázdný nebo moc dlouhý (nejvýš 200).');
+  }
+  return {
+    pivovar: telo.pivovar_id.toLowerCase(),
+    seznam: telo.seznam.map((z) => {
+      const { id: _id, pivovar_id: _p, ...zbytek } = zarizeniVstup(z, false) as Record<string, unknown>;
+      void _id; void _p;
+      return zbytek;
+    }),
+  };
+}
+
+export function postupProvozuVstup(v: unknown): Record<string, unknown> {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) throw new ChybaVstupu('Chybí postup.');
+  const p = v as Record<string, unknown>;
+  const id = volitelneId(p.id, 'postupu');
+  const pivovar = volitelneId(p.pivovar_id, 'pivovaru');
+  if (!id && !pivovar) throw new ChybaVstupu('Chybí pivovar.');
+  const o = p.oblast;
+  if (o !== undefined && o !== null && o !== '' && (typeof o !== 'string' || o.length !== 1 || !OBLASTI.includes(o))) {
+    throw new ChybaVstupu('Oblast je písmeno A–T.');
+  }
+  return {
+    ...(id ? { id } : {}),
+    ...(pivovar && !id ? { pivovar_id: pivovar } : {}),
+    nazev: text(p.nazev, 'Název postupu', 200, true)!.trim(),
+    oblast: typeof o === 'string' && o ? o : null,
+    kroky: text(p.kroky, 'Kroky postupu', 12000, true),
+    zdroj: text(p.zdroj, 'Zdroj', 500),
+  };
 }

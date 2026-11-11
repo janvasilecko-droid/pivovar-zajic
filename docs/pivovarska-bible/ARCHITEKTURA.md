@@ -264,6 +264,9 @@ Každé tvrzení nese jeden typ ze zadání (bod 11):
   - Navazuje na stávající Sklep (tanky a várky).
   - Jde založit i profily dalších pivovarů.
   - AI odliší obecné znalosti od parametrů konkrétního provozu.
+  - **Hotovo (etapa 7, R25):** pivovary, zařízení s parametry a zdrojem
+    každého čísla, provozní postupy, převzetí tanků ze Sklepa, nástroj
+    konektoru `profil_pivovaru`. Receptury a historie várek jsou etapa 8.
 - **Analýza várek:** receptura, slady, voda, rmutování, scezování, hustoty,
   objemy, chmelovar, chlazení, kvašení, ležení a laboratorní hodnoty.
   - AI porovnává várky a hledá příčiny odchylek (třeba „proč byla výtěžnost

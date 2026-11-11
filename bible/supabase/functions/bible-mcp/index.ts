@@ -9,6 +9,7 @@ import {
   poznamkaVydani, prehledSOdkazy, registrace, s256, sha256hex, wwwAuthenticate, zpracujZpravu,
 } from '../_shared/mcp.ts';
 import { ChybaVypoctu, vypocetText } from '../_shared/vypocty/nastroj.ts';
+import { technologieText, type ProfilPivovaru } from '../_shared/technologie-popisy.ts';
 
 /**
  * 🔌 bible-mcp — konektor Pivovarské bible do aplikace Claude (R16).
@@ -185,6 +186,18 @@ async function prehledTematu(db: SupabaseClient, args: Record<string, unknown>):
   return `# Přehled: ${d.nazev}\n${d.kontrola ? `Pozor: ${d.kontrola}.\n` : ''}\n${prehledSOdkazy(d.text, Array.isArray(d.zdroje) ? d.zdroje : [])}`;
 }
 
+// Profil pivovaru (etapa 7): parametry provozu se zdrojem, odděleně od literatury.
+async function profilPivovaru(db: SupabaseClient, args: Record<string, unknown>): Promise<string> {
+  const pivovar = args.pivovar_id === undefined || args.pivovar_id === null || args.pivovar_id === '' ? null : args.pivovar_id;
+  if (pivovar !== null && !jeUuid(pivovar)) throw new ChybaNastroje('pivovar_id musí být id pivovaru ze seznamu ve výsledku.');
+  const { data, error } = await db.rpc('bible_technologie', { p_pivovar: pivovar });
+  if (error?.code === 'PGRST202') return 'Profil pivovaru v databázi bible ještě není zapnutý (migrace 20261111000000_bible_technologie).';
+  if (error) throw new Error(`db ${error.code ?? '?'}`);
+  const profil = data as ProfilPivovaru;
+  if (pivovar !== null && !profil.pivovar_id) throw new ChybaNastroje('Takový pivovar v bibli není.');
+  return technologieText(profil);
+}
+
 async function seznamKnih(db: SupabaseClient): Promise<string> {
   const { data, error } = await db.from('bible_dokumenty').select('id,nazev,autor,rok,jazyk,stav,stran_celkem').order('nazev');
   if (error) throw new Error(`db ${error.code ?? '?'}`);
@@ -200,6 +213,7 @@ function zavolejNastroj(db: SupabaseClient) {
     if (jmeno === 'hledej_v_knihach') return hledej(db, args);
     if (jmeno === 'precti_stranu') return prectiStranu(db, args);
     if (jmeno === 'prehled_tematu') return prehledTematu(db, args);
+    if (jmeno === 'profil_pivovaru') return profilPivovaru(db, args);
     if (jmeno === 'vypocet') {
       try {
         return Promise.resolve(vypocetText(args));

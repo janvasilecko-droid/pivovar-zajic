@@ -23,6 +23,7 @@ import { BibleZkusenosti } from '../components/bible/BibleZkusenosti';
 import { BiblePripravujeme } from '../components/bible/BiblePripravujeme';
 import { BibleHledani } from '../components/bible/BibleHledani';
 import { BibleVypocty } from '../components/bible/BibleVypocty';
+import { BibleTechnologie } from '../components/bible/BibleTechnologie';
 
 export type BibleSekce = 'plocha' | 'chat' | 'knihovna' | 'vypocty' | 'technologie' | 'varky' | 'problemy' | 'zkusenosti' | 'sprava';
 
@@ -43,10 +44,8 @@ export const BIBLE_DLAZDICE: readonly BibleDlazdice[] = [
   { id: 'knihovna', nazev: 'Knihovna dokumentů', popis: 'Odborná knihovna: knihy, nahrávání, zpracování a čtení', ikona: BookOpen },
   // Etapy 6a a 6b (4. a 11. 11. 2026): výpočty s ověřenými vzorci; stejný kód počítá i Claude přes konektor.
   { id: 'vypocty', nazev: 'Výpočtová laboratoř', popis: 'Extrakt, alkohol, IBU, chlazení, voda, potrubí, CIP, energie, daň a náklady', ikona: Calculator },
-  {
-    id: 'technologie', nazev: 'Technologie pivovaru', popis: 'Profil pivovaru: varna, nádoby, čerpadla, chlazení', ikona: Factory, etapa: 7,
-    bude: 'Typ varny, objemy nádob, technologické schéma, čerpadla, potrubí, výměníky, chlazení, kvasné a ležácké tanky a provozní postupy. Jde založit i další pivovary.',
-  },
+  // Etapa 7 (11. 11. 2026): parametry provozu se zdrojem; Claude je čte nástrojem profil_pivovaru.
+  { id: 'technologie', nazev: 'Technologie pivovaru', popis: 'Profil pivovaru: varna, tanky, čerpadla, chlazení a provozní postupy', ikona: Factory },
   {
     id: 'varky', nazev: 'Receptury a várky', popis: 'Evidence várek a hledání příčin odchylek', ikona: FlaskConical, etapa: 8,
     bude: 'Receptura, slady, voda, rmutování, scezování, hustoty, objemy, chmelovar, kvašení a laboratorní hodnoty. AI porovná várky z uložených údajů a nic si nedomýšlí.',
@@ -136,6 +135,8 @@ export default function BibleScreen({ setPage, pageSubTab }: {
         <BibleVypocty hledej={(dotaz) => { jdi('chat'); setDotazHledani(dotaz); }} />
       ) : sekce === 'zkusenosti' ? (
         <BibleZkusenosti role={role} />
+      ) : sekce === 'technologie' ? (
+        <BibleTechnologie role={role} />
       ) : sekce === 'sprava' ? (
         <BibleSprava role={role} setPage={setPage} />
       ) : dlazdice ? (

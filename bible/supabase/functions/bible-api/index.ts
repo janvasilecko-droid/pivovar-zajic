@@ -7,6 +7,7 @@ import {
   AKCE, ChybaVstupu, idDokumentu, jeAkce, PLATNOST_ODKAZU_S, popisDokumentu, predchoziVydani, prekladChybyDb, SLOUPCE_DOKUMENTU,
   souborKNahrani, stavDokumentu, zacatekObdobi, type Akce, type ChybaDb, klicPrehledu,
   dotazZkusenosti, idZkusenosti, zkusenostVstup,
+  idZaznamu, pivovarVstup, postupProvozuVstup, prevzetiVstup, vyberPivovaru, zarizeniVstup,
 } from '../_shared/vstupy.ts';
 import {
   celeCislo, druhObjektu, DRUHY_OBJEKTU, jeCitelny, listyPodStropem, MAX_LISTU_NA_DOTAZ, nahled, OBJEKTU_NA_DOTAZ,
@@ -335,6 +336,68 @@ const PROVEDENI: Record<Akce, (k: Kontext) => Promise<Response>> = {
     });
     if (error) return chybaDb(cors, error, 'zkusenost_upravit');
     if (!data) return chyba(cors, 404, 'nenalezeno', 'Zkušenost už v bibli není.');
+    return hotovo(cors, { ok: true });
+  },
+
+  // Technologie pivovaru (etapa 7): profil, zařízení s parametry a provozní postupy.
+  async technologie({ db, telo, cors }) {
+    const { data, error } = await db.rpc('bible_technologie', { p_pivovar: vyberPivovaru(telo) });
+    if (error?.code === 'PGRST202') return hotovo(cors, { pivovary: [], pivovar_id: null, zarizeni: [], postupy: [], migrace: false });
+    if (error) return chybaDb(cors, error, 'technologie');
+    return hotovo(cors, { ...(data as Record<string, unknown>), migrace: true });
+  },
+
+  async pivovar_ulozit({ db, u, telo, cors }) {
+    const { data, error } = await db.rpc('bible_pivovar_uloz', {
+      p_uzivatel: u.uid, p_pristup: u.pristup, p_jmeno: u.jmeno ?? '', p_pivovar: pivovarVstup(telo.pivovar),
+    });
+    if (error) return chybaDb(cors, error, 'pivovar_ulozit');
+    return hotovo(cors, { id: data });
+  },
+
+  async pivovar_smazat({ db, u, telo, cors }) {
+    const { data, error } = await db.rpc('bible_pivovar_smaz', { p_uzivatel: u.uid, p_pristup: u.pristup, p_id: idZaznamu(telo, 'pivovaru') });
+    if (error) return chybaDb(cors, error, 'pivovar_smazat');
+    if (!data) return chyba(cors, 404, 'nenalezeno', 'Pivovar už v bibli není.');
+    return hotovo(cors, { ok: true });
+  },
+
+  async zarizeni_ulozit({ db, u, telo, cors }) {
+    const { data, error } = await db.rpc('bible_zarizeni_uloz', {
+      p_uzivatel: u.uid, p_pristup: u.pristup, p_jmeno: u.jmeno ?? '', p_zarizeni: zarizeniVstup(telo.zarizeni),
+    });
+    if (error) return chybaDb(cors, error, 'zarizeni_ulozit');
+    return hotovo(cors, { id: data });
+  },
+
+  async zarizeni_prevzit({ db, u, telo, cors }) {
+    const { pivovar, seznam } = prevzetiVstup(telo);
+    const { data, error } = await db.rpc('bible_zarizeni_prevezmi', {
+      p_uzivatel: u.uid, p_pristup: u.pristup, p_jmeno: u.jmeno ?? '', p_pivovar: pivovar, p_seznam: seznam,
+    });
+    if (error) return chybaDb(cors, error, 'zarizeni_prevzit');
+    return hotovo(cors, { prevzato: data });
+  },
+
+  async zarizeni_smazat({ db, u, telo, cors }) {
+    const { data, error } = await db.rpc('bible_zarizeni_smaz', { p_uzivatel: u.uid, p_pristup: u.pristup, p_id: idZaznamu(telo, 'zařízení') });
+    if (error) return chybaDb(cors, error, 'zarizeni_smazat');
+    if (!data) return chyba(cors, 404, 'nenalezeno', 'Zařízení už v bibli není.');
+    return hotovo(cors, { ok: true });
+  },
+
+  async postup_provozu_ulozit({ db, u, telo, cors }) {
+    const { data, error } = await db.rpc('bible_postup_provozu_uloz', {
+      p_uzivatel: u.uid, p_pristup: u.pristup, p_jmeno: u.jmeno ?? '', p_postup: postupProvozuVstup(telo.postup),
+    });
+    if (error) return chybaDb(cors, error, 'postup_provozu_ulozit');
+    return hotovo(cors, { id: data });
+  },
+
+  async postup_provozu_smazat({ db, u, telo, cors }) {
+    const { data, error } = await db.rpc('bible_postup_provozu_smaz', { p_uzivatel: u.uid, p_pristup: u.pristup, p_id: idZaznamu(telo, 'postupu') });
+    if (error) return chybaDb(cors, error, 'postup_provozu_smazat');
+    if (!data) return chyba(cors, 404, 'nenalezeno', 'Postup už v bibli není.');
     return hotovo(cors, { ok: true });
   },
 
