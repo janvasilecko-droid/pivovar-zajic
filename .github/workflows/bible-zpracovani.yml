@@ -111,7 +111,14 @@ jobs:
           cache: 'pip'
           cache-dependency-path: scripts/bible/requirements-testy.txt
 
+      # Testy skutečný Tesseract nepotřebují (jeho dostupnost i volání podvrhují),
+      # instaluje se jen pro úplnost. Výpadek zrcadel Ubuntu (11. 11. 2026 runnery
+      # nepřeložily security.ubuntu.com, apt čekal 9 minut a job spadl dřív, než
+      # začaly testy) proto testy nezablokuje: krok má strop 5 minut a jeho chyba
+      # job nezastaví. Ve zpracování knih níž zůstává instalace povinná.
       - name: Tesseract (kontrolní čtení skenů)
+        continue-on-error: true
+        timeout-minutes: 5
         run: sudo apt-get update -qq && sudo apt-get install -y -qq tesseract-ocr tesseract-ocr-ces tesseract-ocr-deu > /dev/null
 
       # Celý strom závislostí je zamčený i s hashi (scripts/bible/requirements*.txt):
