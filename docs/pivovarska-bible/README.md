@@ -337,8 +337,19 @@ s citací kniha–kapitola–strana a počítá deterministickým výpočetním 
   pak hlavička Range), protože úložiště neukazuje prohlížeči hlavičky
   rozsahů a vestavěné načítání pdf.js by stáhlo celou knihu. Podepsaný
   odkaz (600 s) se obnovuje sám. Dekodéry skenů (JPEG 2000, JBIG2) kopíruje
-  build do `/pdfjs/wasm/`. Známá slabina: pdf.js si při prvním otevření
-  knihy načte slovníky všech stran — jsou-li rozházené po souboru (knihy
-  slepené z více PDF), stojí první strana jednotky až desítky MB, další už
-  jen svůj obsah. Tlačítko „Originál" při čtení otevře PDF rovnou na čtené
-  straně (`#page=`).
+  build do `/pdfjs/wasm/`. Tlačítko „Originál" při čtení otevře PDF rovnou
+  na čtené straně (`#page=`).
+- **Dodatek pro rychlé otevření strany (11. 11. 2026, R30):** pdf.js si při
+  prvním otevření knihy hledá poslední stranu, a u „plochého" stromu stran
+  (všechny strany pod jedním uzlem, typicky skeny) čte slovník každé strany
+  — na 40MB knize 22–26 MB a stovky dotazů. Worker proto ke každému
+  zpracovanému PDF postaví malý dodatek (`scripts/bible/dodatek.py`,
+  tabulka `bible_dodatky`, migrace `20261111050000_bible_dodatky`):
+  přírůstkovou aktualizaci PDF s vyváženým stromem stran, pár kB. bible-api
+  ho pošle s prvním odkazem a appka ho přilepí za originál jen v paměti —
+  otevření strany pak stojí pár set kB (změřeno na umělé 40MB knize:
+  26 MB / 402 dotazů → 0,3 MB / 5 dotazů). Originál se nemění. Starší knihy
+  worker doplní čtením jen malých kousků souboru (stovky kB až jednotky MB
+  na knihu, ne celé soubory). Bez migrace nebo dodatku čte čtečka holý
+  originál jako dřív; kdyby si pdf.js s dodatkem neporadilo, otevře knihu
+  znovu bez něj.

@@ -4,7 +4,7 @@ import {
   type Pristup, type Uzivatel,
 } from '../_shared/brana.ts';
 import {
-  AKCE, ChybaVstupu, idDokumentu, jeAkce, PLATNOST_ODKAZU_S, popisDokumentu, predchoziVydani, prekladChybyDb, SLOUPCE_DOKUMENTU,
+  AKCE, ChybaVstupu, dodatekKOdeslani, idDokumentu, jeAkce, PLATNOST_ODKAZU_S, popisDokumentu, predchoziVydani, prekladChybyDb, SLOUPCE_DOKUMENTU,
   souborKNahrani, stavDokumentu, zacatekObdobi, type Akce, type ChybaDb, klicPrehledu,
   dotazZkusenosti, idZkusenosti, zkusenostVstup,
   idZaznamu, pivovarVstup, postupProvozuVstup, prevzetiVstup, vyberPivovaru, zarizeniVstup,
@@ -121,9 +121,17 @@ const PROVEDENI: Record<Akce, (k: Kontext) => Promise<Response>> = {
     const dok = data as { soubor_cesta: string; stav: string } | null;
     if (!dok) return chyba(cors, 404, 'nenalezeno', 'Dokument už v knihovně není.');
     if (dok.stav === 'nahrava') return chyba(cors, 409, 'nahrava', 'Soubor se ještě nahrává.');
-    const { data: podepsany, error: e2 } = await db.storage.from(BUCKET).createSignedUrl(dok.soubor_cesta, PLATNOST_ODKAZU_S);
+    // Čtečka strany se při první žádosti ptá i na dodatek k PDF (rychlé otevření,
+    // migrace 20261111050000_bible_dodatky). Bez tabulky nebo řádku = bez dodatku.
+    const [{ data: podepsany, error: e2 }, dodatek] = await Promise.all([
+      db.storage.from(BUCKET).createSignedUrl(dok.soubor_cesta, PLATNOST_ODKAZU_S),
+      telo.dodatek === true
+        ? db.from('bible_dodatky').select('delka_originalu,data').eq('dokument_id', id).maybeSingle()
+          .then(({ data: radek, error: e3 }) => (e3 ? null : dodatekKOdeslani(radek)), () => null)
+        : Promise.resolve(null),
+    ]);
     if (e2 || !podepsany?.signedUrl) return chybaUloziste(cors, 'odkaz', 'odkaz ke stažení');
-    return hotovo(cors, { url: podepsany.signedUrl, platnost_s: PLATNOST_ODKAZU_S });
+    return hotovo(cors, { url: podepsany.signedUrl, platnost_s: PLATNOST_ODKAZU_S, dodatek });
   },
 
   async zalozit_nahrani({ db, u, telo, cors }) {

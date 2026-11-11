@@ -18,10 +18,46 @@
  * Odkaz na soubor je podepsaný a platí 600 s (PLATNOST_ODKAZU_S v bible-api);
  * při delším čtení se obnoví sám — předem podle stáří, a kdyby úložiště
  * přesto odmítlo (400/401/403), ještě jednou po odmítnutí.
+ *
+ * DODATEK (11. 11. 2026). U knih s „plochým" stromem stran (všechny strany pod
+ * jedním uzlem — tak ukládá PDF spousta programů, hlavně skenery) čte pdf.js
+ * při otevření slovník každé strany, a ty leží rozházené po celém souboru:
+ * na 40MB knize 22–26 MB a stovky dotazů, než se ukázala první strana. Worker
+ * proto ke knize postaví malý dodatek (scripts/bible/dodatek.py — přírůstková
+ * aktualizace PDF s vyváženým stromem stran, pár kB) a bible-api ho pošle
+ * s prvním odkazem. Tady se jen přilepí za originál: bajty za koncem
+ * originálu jdou z paměti, ne z úložiště. Originál se nemění; nesedí-li
+ * délka originálu, dodatek se nepoužije, a kdyby s ním pdf.js selhalo,
+ * čtečka knihu otevře znovu bez něj (BibleStranaKnihy).
  */
 import type { PDFDocumentLoadingTask } from 'pdfjs-dist/legacy/build/pdf.mjs';
 
-export type Odkaz = { url: string } | { chyba: string };
+/** Dodatek k PDF (přírůstková aktualizace se stromem stran) a délka originálu, ke kterému patří. */
+export type DodatekPdf = { delkaOriginalu: number; data: Uint8Array };
+
+export type Odkaz = { url: string; dodatek?: DodatekPdf | null } | { chyba: string };
+
+/** Strop velikosti dodatku (bible_dodatky má CHECK na 2 MB). */
+export const MAX_DODATKU = 2_000_000;
+
+/** Dodatek z odpovědi bible-api ({delka_originalu, data: base64}); cokoli divného = bez dodatku. */
+export function dodatekZDat(v: unknown): DodatekPdf | null {
+  if (!v || typeof v !== 'object') return null;
+  const { delka_originalu: delka, data } = v as Record<string, unknown>;
+  if (typeof delka !== 'number' || !Number.isSafeInteger(delka) || delka <= 0) return null;
+  if (typeof data !== 'string' || !data || data.length > Math.ceil(MAX_DODATKU / 3) * 4) return null;
+  let bin: string;
+  try {
+    bin = atob(data);
+  } catch {
+    return null;
+  }
+  const bajty = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bajty[i] = bin.charCodeAt(i);
+  // Přírůstková aktualizace: začíná novým řádkem (za koncem originálu), končí %%EOF.
+  if (bajty[0] !== 0x0a || !/%%EOF\s*$/.test(bin.slice(-16))) return null;
+  return { delkaOriginalu: delka, data: bajty };
+}
 
 /** Chyba, kterou jde ukázat čtenáři tak, jak je. */
 export class ChybaStrany extends Error {}
@@ -30,25 +66,42 @@ export class ChybaStrany extends Error {}
 export const OBNOVIT_ODKAZ_PO_MS = 9 * 60 * 1000;
 
 export type ZdrojRozsahu = {
-  /** Velikost souboru v bajtech (HEAD); `zaloha` = velikost z knihovny, kdyby úložiště mlčelo. */
+  /** Velikost souboru v bajtech (HEAD, s dodatkem i s ním); `zaloha` = velikost z knihovny, kdyby úložiště mlčelo. */
   delka(zaloha?: number | null): Promise<number>;
   /** Bajty od `od` do `do_` (bez něj) — tak, jak o ně žádá pdf.js. */
   cti(od: number, do_: number): Promise<Uint8Array>;
+  /** Čte se originál s dodatkem (rozhodne se v `delka`)? */
+  sDodatkem(): boolean;
 };
 
+/**
+ * `ziskejOdkaz(prvni)`: `prvni` = první žádost o odkaz — jen s ní se bible-api
+ * ptá i na dodatek (obnovené odkazy ho znovu neposílají).
+ */
 export function zdrojRozsahu(
-  ziskejOdkaz: () => Promise<Odkaz>,
+  ziskejOdkaz: (prvni: boolean) => Promise<Odkaz>,
   volby: { fetch?: typeof fetch; ted?: () => number } = {},
 ): ZdrojRozsahu {
   const stahni = volby.fetch ?? ((vstup: RequestInfo | URL, init?: RequestInit) => fetch(vstup, init));
   const ted = volby.ted ?? (() => Date.now());
   let aktualni: Promise<{ url: string; od: number }> | null = null;
+  let prvniHotovy = false;
+  let nabidnuty: DodatekPdf | null = null;
+  // Dodatek, který se opravdu čte (délka originálu sedí), a kde originál končí.
+  let dodatek: DodatekPdf | null = null;
 
   function odkaz(): Promise<{ url: string; od: number }> {
     if (!aktualni) {
       const od = ted();
-      const p = ziskejOdkaz().then((v) => {
-        if ('url' in v) return { url: v.url, od };
+      const prvni = !prvniHotovy;
+      const p = ziskejOdkaz(prvni).then((v) => {
+        if ('url' in v) {
+          if (prvni && !prvniHotovy) {
+            prvniHotovy = true;
+            nabidnuty = v.dodatek ?? null;
+          }
+          return { url: v.url, od };
+        }
         throw new ChybaStrany(v.chyba);
       });
       aktualni = p;
@@ -89,25 +142,44 @@ export function zdrojRozsahu(
     }
   }
 
+  async function ctiOriginal(od: number, do_: number): Promise<Uint8Array> {
+    const r = await zavolej({ headers: { Range: `bytes=${od}-${do_ - 1}` } });
+    const data = new Uint8Array(await r.arrayBuffer());
+    if (r.status === 206) {
+      if (data.length !== do_ - od) throw new ChybaStrany('Úložiště poslalo jiný kus souboru, než mělo.');
+      return data;
+    }
+    // Úložiště rozsah nevzalo a poslalo celý soubor (200) — vzít z něj jen požadovaný kus.
+    if (data.length < do_) throw new ChybaStrany('Úložiště poslalo neúplný soubor.');
+    return data.slice(od, do_);
+  }
+
   return {
     async delka(zaloha) {
       const r = await zavolej({ method: 'HEAD' });
       const n = Number(r.headers.get('content-length'));
-      if (Number.isFinite(n) && n > 0) return n;
-      if (typeof zaloha === 'number' && zaloha > 0) return zaloha;
-      throw new ChybaStrany('Úložiště neřeklo velikost souboru.');
+      let original: number;
+      if (Number.isFinite(n) && n > 0) original = n;
+      else if (typeof zaloha === 'number' && zaloha > 0) original = zaloha;
+      else throw new ChybaStrany('Úložiště neřeklo velikost souboru.');
+      // Dodatek patří jen k souboru přesně té délky, ke které ho worker postavil.
+      dodatek = nabidnuty && nabidnuty.delkaOriginalu === original ? nabidnuty : null;
+      return original + (dodatek ? dodatek.data.length : 0);
     },
     async cti(od, do_) {
-      const r = await zavolej({ headers: { Range: `bytes=${od}-${do_ - 1}` } });
-      const data = new Uint8Array(await r.arrayBuffer());
-      if (r.status === 206) {
-        if (data.length !== do_ - od) throw new ChybaStrany('Úložiště poslalo jiný kus souboru, než mělo.');
-        return data;
-      }
-      // Úložiště rozsah nevzalo a poslalo celý soubor (200) — vzít z něj jen požadovaný kus.
-      if (data.length < do_) throw new ChybaStrany('Úložiště poslalo neúplný soubor.');
-      return data.slice(od, do_);
+      const d = dodatek;
+      if (!d || do_ <= d.delkaOriginalu) return ctiOriginal(od, do_);
+      const konec = d.delkaOriginalu;
+      // Kopie, ne pohled: pdf.js kus předá pracovnímu vláknu i s pamětí (dodatek by zmizel).
+      const zDodatku = d.data.slice(Math.max(0, od - konec), do_ - konec);
+      if (od >= konec) return zDodatku;
+      const zOriginalu = await ctiOriginal(od, konec);
+      const spojene = new Uint8Array(do_ - od);
+      spojene.set(zOriginalu, 0);
+      spojene.set(zDodatku, zOriginalu.length);
+      return spojene;
     },
+    sDodatkem: () => dodatek !== null,
   };
 }
 

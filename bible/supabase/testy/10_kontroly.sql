@@ -804,5 +804,39 @@ SELECT pg_temp.selze($q$SELECT public.bible_konverzace_seznam('00000000-0000-000
 SELECT pg_temp.jako('service_role');
 DELETE FROM public.ai_naklady WHERE ucel = 'chat' AND poznamka = 'test';
 
+-- Dodatky k PDF (rychlé otevření strany): zavřené, mizí s dokumentem, worker vidí jen chybějící.
+SELECT pg_temp.jako(NULL);
+SELECT pg_temp.ocekavam(NOT has_table_privilege('anon', 'public.bible_dodatky', 'SELECT')
+  AND NOT has_table_privilege('authenticated', 'public.bible_dodatky', 'SELECT')
+  AND NOT has_table_privilege('authenticated', 'public.bible_dodatky', 'INSERT')
+  AND (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.bible_dodatky'::regclass),
+  'dodatky jsou pro prohlížeč zavřené (RLS, žádná práva)');
+SELECT pg_temp.ocekavam(NOT has_function_privilege('authenticated', 'public.bible_bez_dodatku(integer, integer)', 'EXECUTE')
+  AND NOT has_function_privilege('anon', 'public.bible_bez_dodatku(integer, integer)', 'EXECUTE'),
+  'seznam knih bez dodatku je jen pro worker');
+INSERT INTO public.bible_dokumenty (id, nazev, soubor_cesta, soubor_nazev, soubor_velikost, soubor_mime, soubor_sha256, prava_potvrzena_at, stav) VALUES
+  ('77777777-7777-7777-7777-777777777701', 'Kniha PDF', '77777777-7777-7777-7777-777777777701/a.pdf', 'a.pdf', 1000, 'application/pdf', repeat('7', 63) || '1', now(), 'hotovo'),
+  ('77777777-7777-7777-7777-777777777702', 'Text', '77777777-7777-7777-7777-777777777702/b.txt', 'b.txt', 10, 'text/plain', repeat('7', 63) || '2', now(), 'hotovo'),
+  ('77777777-7777-7777-7777-777777777703', 'Ve frontě', '77777777-7777-7777-7777-777777777703/c.pdf', 'c.pdf', 10, 'application/pdf', repeat('7', 63) || '3', now(), 'ceka');
+SELECT pg_temp.jako('service_role');
+SELECT pg_temp.ocekavam(ARRAY(SELECT id FROM public.bible_bez_dodatku(1, 25) WHERE id::text LIKE '77777777%')
+  = ARRAY['77777777-7777-7777-7777-777777777701'::uuid], 'bez dodatku: jen zpracované PDF (ne text, ne fronta)');
+INSERT INTO public.bible_dodatky (dokument_id, verze, delka_originalu, data, stran, kusu_pred, kusu_po)
+  VALUES ('77777777-7777-7777-7777-777777777701', 1, 1000, decode(repeat('0a', 20), 'hex'), 40, 40, 2);
+SELECT pg_temp.ocekavam(NOT EXISTS (SELECT 1 FROM public.bible_bez_dodatku(1, 25) WHERE id = '77777777-7777-7777-7777-777777777701'),
+  'kniha s dodatkem stejné verze se znovu nestaví');
+SELECT pg_temp.ocekavam(EXISTS (SELECT 1 FROM public.bible_bez_dodatku(2, 25) WHERE id = '77777777-7777-7777-7777-777777777701'),
+  'nová verze stavby dodatek postaví znovu');
+SELECT pg_temp.selze($q$UPDATE public.bible_dodatky SET duvod = 'strom_staci' WHERE dokument_id = '77777777-7777-7777-7777-777777777701'$q$,
+  'dodatek má buď data, nebo důvod — ne obojí', '23514');
+SELECT pg_temp.selze($q$UPDATE public.bible_dodatky SET data = NULL, duvod = 'jiny' WHERE dokument_id = '77777777-7777-7777-7777-777777777701'$q$,
+  'neznámý důvod se odmítne', '23514');
+SELECT pg_temp.selze($q$INSERT INTO public.bible_dodatky (dokument_id, verze, delka_originalu, duvod) VALUES (gen_random_uuid(), 1, 10, 'struktura')$q$,
+  'dodatek jen k existujícímu dokumentu', '23503');
+SELECT pg_temp.jako(NULL);
+DELETE FROM public.bible_dokumenty WHERE id::text LIKE '77777777-7777-7777-7777-7777777777%';
+SELECT pg_temp.ocekavam(NOT EXISTS (SELECT 1 FROM public.bible_dodatky WHERE dokument_id::text LIKE '77777777%'),
+  'se smazaným dokumentem zmizí i jeho dodatek');
+
 SELECT pg_temp.jako(NULL);
 SELECT 'VŠECHNY KONTROLY PROJEKTU BIBLE PROŠLY' AS vysledek;

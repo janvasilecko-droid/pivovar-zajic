@@ -9,7 +9,8 @@ vi.mock('../../lib/biblePdf', async (puvodni) => ({
 }));
 vi.mock('../../lib/bibleKnihovnaApi', () => ({ odkazNaSoubor: vi.fn(async () => ({ url: 'https://x/storage/v1/object/sign/knihovna/k.pdf?token=t' })) }));
 
-import { ChybaStrany } from '../../lib/biblePdf';
+import { ChybaStrany, type ZdrojRozsahu } from '../../lib/biblePdf';
+import { odkazNaSoubor } from '../../lib/bibleKnihovnaApi';
 import { BibleStranaKnihy } from './BibleStranaKnihy';
 
 function falesnePdf(stran = 3) {
@@ -35,6 +36,36 @@ async function vykresli(pdfIndex = 2) {
 }
 
 describe('Strana z knihy', () => {
+  it('pdf.js si s dodatkem neporadí: kniha se hned otevře znovu bez něj', async () => {
+    const puvodni = vi.mocked(odkazNaSoubor).getMockImplementation();
+    vi.mocked(odkazNaSoubor).mockImplementation(async (_id: string, sDodatkem?: boolean) => ({
+      url: 'https://x/storage/v1/object/sign/knihovna/k.pdf?token=t',
+      ...(sDodatkem ? { dodatek: { delkaOriginalu: 1000, data: Uint8Array.of(10) } } : {}),
+    }));
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, status: 200, headers: new Headers({ 'content-length': '1000' }) })));
+    const f = falesnePdf();
+    const sDodatkem: boolean[] = [];
+    otevriPdf.mockImplementation(async (zdroj: ZdrojRozsahu) => {
+      await zdroj.delka();
+      sDodatkem.push(zdroj.sDodatkem());
+      return zdroj.sDodatkem()
+        ? { promise: Promise.reject(new Error('Invalid PDF structure.')), destroy: vi.fn(async () => {}) }
+        : { promise: Promise.resolve(f.pdf), destroy: f.destroy };
+    });
+    try {
+      await act(async () => {
+        render(<BibleStranaKnihy id="kniha-s-dodatkem" pdfIndex={2} velikost={1000} oznaceni="s. 2" />);
+      });
+      expect(sDodatkem).toEqual([true, false]);
+      expect(vi.mocked(odkazNaSoubor).mock.calls.filter((c) => c[0] === 'kniha-s-dodatkem').map((c) => c[1])).toEqual([true, false]);
+      expect(screen.getByRole('img', { name: 'Strana z knihy: s. 2' })).toBeTruthy();
+      expect(screen.queryByRole('alert')).toBeNull();
+    } finally {
+      vi.unstubAllGlobals();
+      vi.mocked(odkazNaSoubor).mockImplementation(puvodni!);
+    }
+  });
+
   it('vykreslí požadovanou stranu originálu jako obrázek s popisem', async () => {
     const f = falesnePdf();
     otevriPdf.mockResolvedValue({ promise: Promise.resolve(f.pdf), destroy: f.destroy });

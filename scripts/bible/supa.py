@@ -115,9 +115,39 @@ class Supa:
         )
         self._kontrola(r, f'mazání {tabulka}')
 
-    def stahni(self, bucket: str, cesta: str) -> bytes:
+    @staticmethod
+    def _over_cestu(cesta: str) -> None:
         if not cesta or cesta.startswith('/') or any(c in ('', '.', '..') for c in cesta.split('/')):
             raise ChybaSupabase('stažení souboru: nepovolená cesta')
+
+    def stahni(self, bucket: str, cesta: str) -> bytes:
+        self._over_cestu(cesta)
         r = self.s.get(f'{self.url}/storage/v1/object/{bucket}/{quote(cesta)}', timeout=600)
         self._kontrola(r, f'stažení souboru z {bucket}')
         return r.content
+
+    def cti_rozsah(self, bucket: str, cesta: str, od: int, do_: int, celkem: int | None = None) -> bytes:
+        """Kousek souboru (HTTP Range, bajty od `od` do `do_` bez něj) — bez stažení celého.
+
+        Úložiště, které rozsah nevezme (200 = celý soubor), se nečte: tělo se
+        zahodí nepřečtené, aby se kvůli kousku nestahovalo desítky MB. `celkem`
+        = očekávaná délka souboru (z Content-Range) — jiná = jiný soubor.
+        """
+        self._over_cestu(cesta)
+        if not 0 <= od < do_:
+            raise ChybaSupabase('čtení kousku souboru: neplatný rozsah')
+        r = self.s.get(f'{self.url}/storage/v1/object/{bucket}/{quote(cesta)}',
+                       headers={'Range': f'bytes={od}-{do_ - 1}'}, timeout=60, stream=True)
+        try:
+            self._kontrola(r, f'čtení kousku souboru z {bucket}')
+            if r.status_code != 206:
+                raise ChybaSupabase(f'čtení kousku souboru z {bucket}: úložiště nevrátilo rozsah (HTTP {r.status_code})')
+            rozsah = r.headers.get('Content-Range', '')
+            if celkem is not None and not rozsah.endswith(f'/{celkem}'):
+                raise ChybaSupabase(f'čtení kousku souboru z {bucket}: soubor má jinou délku')
+            data = r.content
+        finally:
+            r.close()
+        if len(data) != do_ - od:
+            raise ChybaSupabase(f'čtení kousku souboru z {bucket}: kousek má jinou délku')
+        return data

@@ -29,6 +29,7 @@ v Actions se hned maskuje.
 from __future__ import annotations
 
 import hashlib
+import io
 import logging
 import os
 import re
@@ -49,6 +50,7 @@ from typing import Callable
 from xml.etree import ElementTree
 
 import claude_cli
+import dodatek as dodatek_mod
 import formaty
 import naklady
 import obrazky
@@ -879,6 +881,13 @@ def zpracuj_dokument(supa: Supa, dok: dict, prepisovac: Prepisovac | None, ucet:
             log('  dokument se mezitím změnil (pozastaven nebo smazán) — jeho stav zůstává')
         log(f'  hotovo: {postup["stran"]} stran, {postup["kapitol"]} kapitol, {postup["pasazi"]} pasáží, '
             f'{postup["ocr"]} přes OCR ({postup["ocr_znovu_pouzito"]} z dřívějška), {ke_kontrole} ke kontrole')
+        if mime == 'application/pdf':
+            # Dodatek pro rychlé otevření strany v appce — soubor je stažený, nic dalšího
+            # se nestahuje. Jen zrychlení: chyba zpracování knihy nezmění (doplní ho další běh).
+            try:
+                log(f'  {uloz_dodatek(supa, id_, io.BytesIO(data), len(data))}')
+            except Exception as e:  # noqa: BLE001 — do logu jen typ
+                log(f'  dodatek stran se nepovedl ({type(e).__name__}) — zkusí se dalším během')
     except DokumentZmenen:
         log('  přerušeno: dokument byl během zpracování smazán, pozastaven nebo vrácen do fronty')
     except Odlozit as e:
@@ -914,6 +923,73 @@ def zpracuj_dokument(supa: Supa, dok: dict, prepisovac: Prepisovac | None, ucet:
 
 
 MIGRACE = '20261101000000_bible_zaklad'
+
+
+# --- dodatek k PDF pro rychlé otevření strany v appce (dodatek.py) -------------
+
+DODATKY_MIGRACE = '20261111050000_bible_dodatky'
+# Starších knih bez dodatku za běh (každá stojí ~stovky malých čtení z úložiště).
+DODATKU_ZA_BEH = 25
+
+
+def uloz_dodatek(supa: Supa, dokument_id: str, soubor, delka: int) -> str:
+    """Postaví dodatek a zapíše ho do bible_dodatky (i důvod, proč není).
+
+    Vrátí řádek pro log — jen čísla a důvod, nic z knihy. Chyba čtení souboru
+    nebo zápisu se vyhodí (nic se nezapíše, další běh to zkusí znovu).
+    """
+    radek = {'dokument_id': dokument_id, 'verze': dodatek_mod.VERZE, 'delka_originalu': int(delka),
+             'data': None, 'duvod': None, 'stran': None, 'kusu_pred': None, 'kusu_po': None,
+             'vytvoreno_at': datetime.now(timezone.utc).isoformat(timespec='seconds')}
+    try:
+        d = dodatek_mod.postav(soubor, delka)
+        radek.update({'data': '\\x' + d.data.hex(), 'stran': d.stran, 'kusu_pred': d.kusu_pred, 'kusu_po': d.kusu_po})
+        vysledek = f'dodatek stran: {len(d.data)} B, otevření {d.kusu_pred} → {d.kusu_po} kousků po 64 kB'
+    except dodatek_mod.BezDodatku as e:
+        radek['duvod'] = e.duvod
+        vysledek = f'bez dodatku stran ({e.duvod})'
+    except (dodatek_mod.ChybaCteni, ChybaSupabase):
+        raise
+    except Exception as e:  # noqa: BLE001 — chyba ve stavbě: zapsat, ať se nezkouší každý běh (nová VERZE ji zkusí znovu)
+        radek['duvod'] = 'chyba'
+        vysledek = f'bez dodatku stran (chyba {type(e).__name__})'
+    supa.vloz_nebo_prepis('bible_dodatky', [radek], klic='dokument_id')
+    return vysledek
+
+
+def doplnit_dodatky(supa: Supa, konec: float, max_dokumentu: int = DODATKU_ZA_BEH) -> int:
+    """Dodatky ke knihám zpracovaným dřív. Soubor se nestahuje celý — čte se po
+    kouscích (HTTP Range) jen to, co potřebuje pypdf a pdfium. Vrátí počet knih."""
+    try:
+        cekaji = supa.rpc('bible_bez_dodatku', {'p_verze': dodatek_mod.VERZE, 'p_limit': max_dokumentu}) or []
+    except ChybaSupabase as e:
+        if any(k in str(e) for k in ('PGRST202', 'PGRST205', '42883', '42P01')):
+            log(f'Dodatky stran: chybí migrace bible {DODATKY_MIGRACE} (appka → Systém → Databázové migrace → Databáze bible).')
+        else:
+            log(f'Dodatky stran: seznam knih se nepodařilo načíst ({e}).')
+        return 0
+    hotovo = 0
+    for dok in cekaji if isinstance(cekaji, list) else []:
+        if time.time() > konec:
+            break
+        id_, cesta = str(dok.get('id') or ''), str(dok.get('soubor_cesta') or '')
+        velikost = int(_cislo(dok.get('soubor_velikost'), 0))
+        m = _CESTA.match(cesta)
+        if not m or m.group(1) != id_ or velikost <= 0:
+            continue
+
+        def cti(od: int, do_: int, cesta: str = cesta, velikost: int = velikost) -> bytes:
+            return supa.cti_rozsah(BUCKET, cesta, od, do_, celkem=velikost)
+
+        # Rozpočet: slovníky stran jsou malé; kdyby čtení chtělo víc, dodatek se nedělá.
+        soubor = dodatek_mod.RozsahovySoubor(cti, velikost, rozpocet=max(8_000_000, velikost // 5))
+        try:
+            vysledek = uloz_dodatek(supa, id_, soubor, velikost)
+            hotovo += 1
+            log(f'Dokument {id_}: {vysledek} (přečteno {soubor.stazeno // 1024} kB, {soubor.dotazu} dotazů)')
+        except Exception as e:  # noqa: BLE001 — síť, úložiště, zápis: zkusí se dalším během
+            log(f'Dokument {id_}: dodatek stran se nepovedl ({type(e).__name__}) — zkusí se dalším během')
+    return hotovo
 
 
 def _klient_api(klic: str):
@@ -1007,6 +1083,12 @@ def _beh() -> int:
     prepisovac, klient_cc = vyber_prepisovac(klic, token, model, nastaveni, ucet, konec)
     try:
         vysledek = _fronta(supa, prepisovac, ucet, konec, limit_db_bajtu)
+        # Dodatky starších knih (rychlé otevření strany v appce) — bez AI, jen pár MB čtení.
+        if time.time() < konec:
+            try:
+                doplnit_dodatky(supa, konec)
+            except Exception as e:  # noqa: BLE001 — zrychlení čtečky nesmí shodit běh
+                log(f'Dodatky stran spadly ({type(e).__name__}) — zkusí se dalším během.')
         # Překlad až po zpracování fronty, jen když běh skončil bez chyby účtu
         # (s chybou účtu, limitem předplatného nebo plnou DB by se nepovedl ani překlad).
         if vysledek == 0 and prepisovac is not None and time.time() < konec:

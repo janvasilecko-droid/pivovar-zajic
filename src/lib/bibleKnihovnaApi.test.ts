@@ -241,6 +241,22 @@ describe('knihovna — ostatní akce', () => {
     expect(await odkazNaSoubor(ID)).toEqual({ chyba: expect.stringMatching(/neplatný odkaz/) });
   });
 
+  it('odkaz s dodatkem pro čtečku strany: ptá se jen na požádání, vadný dodatek = bez něj', async () => {
+    const url = `${BIBLE_URL}/storage/v1/object/sign/knihovna/abc/kniha.pdf?token=t1`;
+    odpovedi.odkaz = { url, dodatek: { delka_originalu: 1000, data: btoa('\n1 0 obj\nstartxref\n1\n%%EOF\n') } };
+    const r = await odkazNaSoubor(ID, true);
+    expect(volani.at(-1)?.telo).toEqual({ akce: 'odkaz', id: ID, dodatek: true });
+    expect(r).toMatchObject({ url, dodatek: { delkaOriginalu: 1000 } });
+    expect('dodatek' in r && r.dodatek?.data.length).toBe(27);
+    // Obnovení odkazu se na dodatek neptá a nic s ním nevrací.
+    expect(await odkazNaSoubor(ID)).toEqual({ url });
+    expect(volani.at(-1)?.telo).toEqual({ akce: 'odkaz', id: ID });
+    odpovedi.odkaz = { url, dodatek: { delka_originalu: 1000, data: btoa('nezacina novym radkem %%EOF') } };
+    expect(await odkazNaSoubor(ID, true)).toEqual({ url, dodatek: null });
+    odpovedi.odkaz = { url, dodatek: null };
+    expect(await odkazNaSoubor(ID, true)).toEqual({ url, dodatek: null });
+  });
+
   it('útrata za AI: od začátku měsíce UTC, součet z databáze', async () => {
     odpovedi.naklady = [{ ucel: 'ocr', cena_usd: '1.250000', volani: 1200 }, { ucel: 'chat', cena_usd: 0.5, volani: 3 }];
     const v = await nactiNakladyMesice(new Date('2026-10-31T23:30:00Z'));

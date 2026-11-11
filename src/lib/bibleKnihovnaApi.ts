@@ -14,6 +14,7 @@
 //   znovu naváže (bez nového řádku), nebo jde nahrání zrušit. Nikdy soubor
 //   bez záznamu ani záznam ve frontě bez souboru.
 import { BIBLE_URL, odkazDoUloziste, volejBibli } from './bibleKlient';
+import { dodatekZDat, type Odkaz } from './biblePdf';
 import {
   bezpecneJmeno, hlaskaChyby, LIMIT_SOUBORU_FREE, sha256Hex, souhrnNakladu, typSouboru,
   type DruhDokumentu, type JazykDokumentu, type NakladyMesice, type PostupZpracovani, type StavDokumentu, type VazbaVydani,
@@ -283,11 +284,16 @@ export async function smazDokument(id: string): Promise<string | null> {
 }
 
 /** Odkaz ke stažení originálu na pár minut (soukromý bucket projektu bible). */
-export async function odkazNaSoubor(id: string): Promise<{ url: string } | { chyba: string }> {
-  const r = await volejBibli<{ url: string }>('bible-api', { akce: 'odkaz', id });
+/**
+ * Podepsaný odkaz na originál. `sDodatkem` = čtečka strany se ptá i na dodatek
+ * pro rychlé otevření (lib/biblePdf.ts) — jen při první žádosti o odkaz.
+ */
+export async function odkazNaSoubor(id: string, sDodatkem = false): Promise<Odkaz> {
+  const r = await volejBibli<{ url: string; dodatek?: unknown }>('bible-api', sDodatkem ? { akce: 'odkaz', id, dodatek: true } : { akce: 'odkaz', id });
   if (!r.ok) return { chyba: r.chyba.zprava };
   const url = odkazDoUloziste(r.data.url);
-  return url ? { url } : { chyba: 'Bot vrátil neplatný odkaz ke stažení.' };
+  if (!url) return { chyba: 'Bot vrátil neplatný odkaz ke stažení.' };
+  return sDodatkem ? { url, dodatek: dodatekZDat(r.data.dodatek) } : { url };
 }
 
 export type Kapacita = {

@@ -194,11 +194,20 @@ jobs:
                 # Názvy kapitol bez českého překladu (bez migrace 20261104020000 sloupec není → 400 → nic).
                 echo "prace=ano" >> "$GITHUB_OUTPUT"
                 echo "Názvy kapitol čekají na český překlad."
+              elif [ "$(curl -sS --max-time 30 -o dodatky.json -w '%{http_code}' -X POST \
+                       "$BIBLE_URL/rest/v1/rpc/bible_bez_dodatku" -H "Content-Type: application/json" \
+                       -d '{"p_verze": 1, "p_limit": 1}' \
+                       -H "apikey: $BIBLE_KLIC" -H "Authorization: Bearer $BIBLE_KLIC" || echo 000)" = "200" ] \
+                   && jq -e 'type == "array" and length > 0' dodatky.json > /dev/null 2>&1; then
+                # Zpracované PDF bez dodatku pro rychlé otevření strany v appce (scripts/bible/dodatek.py;
+                # p_verze = dodatek.VERZE). Bez migrace 20261111050000 funkce není → 404 → nic.
+                echo "prace=ano" >> "$GITHUB_OUTPUT"
+                echo "Knihy čekají na dodatek pro rychlé otevření strany v appce."
               else
                 echo "prace=ne" >> "$GITHUB_OUTPUT"
                 echo "Nic nečeká na zpracování, překlad ani přehledy."
               fi
-              rm -f prehledy.json oblasti.json kapitoly.json
+              rm -f prehledy.json oblasti.json kapitoly.json dodatky.json
             fi
             rm -f preklad.json
           elif jq -e '.code == "PGRST205" or .code == "42P01"' odpoved.json > /dev/null 2>&1; then
