@@ -83,14 +83,20 @@ export const NASTROJE: readonly Nastroj[] = [
     name: 'hledej_v_knihach',
     title: 'Hledat v knihách',
     description: 'Fulltextové hledání v odborných pivovarských knihách majitele (text knih i jejich český překlad). '
-      + 'Hledají se začátky slov: nejdřív stránky se všemi slovy, když žádné nejsou, stránky s nejvíc slovy dotazu. '
-      + 'Nejlíp 1–3 klíčová slova, zkoušej česky i anglicky/německy (např. „chmelovar", „wort boiling", „Würzekochen"). '
-      + 'Vrací úryvky s knihou, stranou a odkazem.',
+      + 'Hledají se začátky slov i odborné varianty v češtině, němčině a angličtině (mladina = Würze = wort, rmutování = Maischen = mashing): '
+      + 'nejdřív stránky se všemi slovy, když žádné nejsou, stránky s nejvíc slovy dotazu. Nejlíp 1–3 klíčová slova. '
+      + 'Volitelné filtry: autor, rok_od a rok_do (rok vydání), jazyk knihy, druh dokumentu, oblast A–T. Vrací úryvky s knihou, stranou a odkazem.',
     inputSchema: {
       type: 'object',
       properties: {
         dotaz: { type: 'string', description: '1–3 klíčová slova' },
         kniha_id: { type: 'string', description: 'Volitelně jen v jedné knize (id ze seznam_knih)' },
+        autor: { type: 'string', description: 'Část jména autora (nepovinné)' },
+        rok_od: { type: 'integer', minimum: 1400, maximum: 2100, description: 'Rok vydání od (nepovinné)' },
+        rok_do: { type: 'integer', minimum: 1400, maximum: 2100, description: 'Rok vydání do (nepovinné)' },
+        jazyk: { type: 'string', enum: ['cs', 'de', 'en', 'sk', 'jiny'], description: 'Jazyk knihy (nepovinné)' },
+        druh: { type: 'string', enum: ['kniha', 'skripta', 'clanek', 'norma', 'prirucka', 'poznamky', 'tabulky', 'jiny'], description: 'Druh dokumentu (nepovinné)' },
+        oblast: { type: 'string', description: 'Oblast A–T (nepovinné)' },
       },
       required: ['dotaz'],
       additionalProperties: false,
@@ -300,6 +306,7 @@ export const NASTROJE: readonly Nastroj[] = [
 
 export const INSTRUKCE = 'Knihovna odborné pivovarské literatury Pivovaru Zajíc. Odpovídej česky. Fakta ber z nástrojů '
   + '(hledej_v_knihach, precti_stranu, prehled_tematu) a u každého tvrzení uveď odkaz na knihu a stránku přesně tak, jak je ve výsledku. '
+  + 'Hledání samo zkouší odborné varianty v němčině a angličtině a umí filtry (rok vydání, autor, jazyk, druh, oblast). '
   + 'Čísla a jednotky opisuj přesně. Když knihy něco neříkají, řekni to; vlastní obecnou znalost jasně odliš od toho, co je v knihách. '
   + 'Praxi sládků (hledej_zkusenosti) uváděj zvlášť s úrovní důvěryhodnosti, nikdy jako obecné pravidlo. '
   + 'Výsledek označený „starší vydání" má v knihovně novější vydání: přednost má novější (hodnoty se mohly změnit), rozdíl řekni. '

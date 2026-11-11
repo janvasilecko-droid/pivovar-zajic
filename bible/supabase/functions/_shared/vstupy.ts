@@ -280,6 +280,57 @@ export function dotazZkusenosti(telo: Record<string, unknown>): { dotaz: string 
 // --- Technologie pivovaru (etapa 7) -----------------------------------------
 
 /** Id záznamu z těla požadavku (pivovar, zařízení, postup). */
+/** Filtr hledání v knihách (etapa 4b): kniha, autor, rok od–do, jazyk, druh, oblast A–T. */
+export type FiltrHledani = {
+  dokument?: string; autor?: string; rok_od?: number; rok_do?: number; jazyk?: string; druh?: string; oblast?: string;
+};
+
+const JAZYKY_DOKUMENTU = ['cs', 'de', 'en', 'sk', 'jiny'];
+const DRUHY_DOKUMENTU = ['kniha', 'skripta', 'clanek', 'norma', 'prirucka', 'poznamky', 'tabulky', 'jiny'];
+
+/**
+ * Filtr hledání z požadavku (objekt { autor, rok_od, … }, null = bez filtru).
+ * Prázdné hodnoty se vynechají, neplatné odmítnou česky. Bez jediné hodnoty null.
+ */
+export function filtrHledani(v: unknown, dokument: string | null = null): FiltrHledani | null {
+  if (v !== undefined && v !== null && (typeof v !== 'object' || Array.isArray(v))) throw new ChybaVstupu('Neplatný filtr hledání.');
+  const o = (v ?? {}) as Record<string, unknown>;
+  const f: FiltrHledani = {};
+  const prazdne = (x: unknown) => x === undefined || x === null || (typeof x === 'string' && !x.trim());
+  const dok = dokument ?? (prazdne(o.dokument) ? null : o.dokument);
+  if (dok !== null) {
+    if (!jeUuid(dok)) throw new ChybaVstupu('Neplatná kniha ve filtru.');
+    f.dokument = dok.toLowerCase();
+  }
+  if (!prazdne(o.autor)) {
+    if (typeof o.autor !== 'string' || o.autor.trim().length > 100) throw new ChybaVstupu('Autor ve filtru: 1–100 znaků.');
+    f.autor = o.autor.trim();
+  }
+  for (const klic of ['rok_od', 'rok_do'] as const) {
+    if (prazdne(o[klic])) continue;
+    const rok = typeof o[klic] === 'number' ? o[klic] : typeof o[klic] === 'string' ? Number(o[klic]) : Number.NaN;
+    if (!Number.isInteger(rok) || rok < 1400 || rok > 2100) throw new ChybaVstupu('Rok ve filtru musí být mezi 1400 a 2100.');
+    f[klic] = rok;
+  }
+  if (f.rok_od !== undefined && f.rok_do !== undefined && f.rok_od > f.rok_do) throw new ChybaVstupu('Rok „od“ je až po roku „do“.');
+  if (!prazdne(o.jazyk)) {
+    if (typeof o.jazyk !== 'string' || !JAZYKY_DOKUMENTU.includes(o.jazyk)) throw new ChybaVstupu('Neznámý jazyk ve filtru.');
+    f.jazyk = o.jazyk;
+  }
+  if (!prazdne(o.druh)) {
+    if (typeof o.druh !== 'string' || !DRUHY_DOKUMENTU.includes(o.druh)) throw new ChybaVstupu('Neznámý druh dokumentu ve filtru.');
+    f.druh = o.druh;
+  }
+  if (!prazdne(o.oblast)) {
+    if (typeof o.oblast !== 'string' || !/^[A-T]$/.test(o.oblast)) throw new ChybaVstupu('Oblast ve filtru musí být A–T.');
+    f.oblast = o.oblast;
+  }
+  return Object.keys(f).length > 0 ? f : null;
+}
+
+/** Filtr něčím víc než jen knihou (ten umí i hledání před migrací 20261111040000). */
+export const filtrMimoKnihu = (f: FiltrHledani | null) => !!f && Object.keys(f).some((k) => k !== 'dokument');
+
 /** Měsíční strop útraty za AI v USD (0 = AI sládek vypnutý), na centy. */
 export function stropVstup(telo: Record<string, unknown>): number {
   const v = typeof telo.usd === 'number' ? telo.usd : typeof telo.usd === 'string' && telo.usd.trim() ? Number(telo.usd.replace(',', '.')) : Number.NaN;

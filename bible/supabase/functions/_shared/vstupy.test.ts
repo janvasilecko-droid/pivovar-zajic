@@ -5,7 +5,7 @@ import {
   idZaznamu, parametryVstup, pivovarVstup, postupProvozuVstup, prevzetiVstup, vyberPivovaru, zarizeniVstup,
   datumVstup, hodnotyVarkyVstup, recepturaVstup, varkaVstup,
   overeniVstup, problemVstup, stavZjisteniVstup, urlVstup, webZdrojVstup, zjisteniVstup,
-  stropVstup,
+  stropVstup, filtrHledani, filtrMimoKnihu,
 } from './vstupy';
 
 const SHA = 'a'.repeat(64);
@@ -36,6 +36,30 @@ describe('akce a práva', () => {
     expect(jeAkce('toString')).toBe(false);
     expect(jeAkce('__proto__')).toBe(false);
     expect(jeAkce(undefined)).toBe(false);
+  });
+});
+
+describe('filtr hledání (etapa 4b)', () => {
+  const ID = '11111111-2222-3333-4444-555555555555';
+  it('prázdný = null; hodnoty se očistí a převedou', () => {
+    expect(filtrHledani(undefined)).toBeNull();
+    expect(filtrHledani({ autor: '  ', jazyk: '', rok_od: null })).toBeNull();
+    expect(filtrHledani({ autor: ' Kunze ', rok_od: '1970', rok_do: 1989, jazyk: 'de', druh: 'clanek', oblast: 'D' }, ID.toUpperCase()))
+      .toEqual({ dokument: ID, autor: 'Kunze', rok_od: 1970, rok_do: 1989, jazyk: 'de', druh: 'clanek', oblast: 'D' });
+    expect(filtrHledani({ dokument: ID })).toEqual({ dokument: ID });
+  });
+  it('neplatné hodnoty česky odmítne', () => {
+    for (const spatny of [{ jazyk: 'fr' }, { druh: 'kniha2' }, { oblast: 'Z' }, { oblast: 'd' }, { rok_od: 1300 }, { rok_do: '20x0' },
+      { rok_od: 1990, rok_do: 1980 }, { autor: 'x'.repeat(101) }, { autor: 5 }, { dokument: '1; drop' }]) {
+      expect(() => filtrHledani(spatny), JSON.stringify(spatny)).toThrow(ChybaVstupu);
+    }
+    expect(() => filtrHledani('jazyk=de')).toThrow(ChybaVstupu);
+    expect(() => filtrHledani([])).toThrow(ChybaVstupu);
+  });
+  it('filtr jen knihou umí i hledání před migrací', () => {
+    expect(filtrMimoKnihu(null)).toBe(false);
+    expect(filtrMimoKnihu({ dokument: ID })).toBe(false);
+    expect(filtrMimoKnihu({ dokument: ID, jazyk: 'de' })).toBe(true);
   });
 });
 

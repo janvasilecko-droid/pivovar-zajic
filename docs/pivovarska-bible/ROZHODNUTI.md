@@ -453,3 +453,33 @@ Každé rozhodnutí má datum, důvod a co by ho změnilo.
   z app_secrets (zamaskovaný, jen do souboru), krok funkcí bible ho při
   každém běhu přidá k secrets projektu bible. Výměna klíče v app_secrets se tak
   projeví příštím nasazením.
+
+## R29 — Hledání: vícejazyčné varianty slov a filtry (etapa 4b, 11. 11. 2026)
+
+- Majitel: „pokračuj, dokud to nebude všechno hotové". Etapa 4 měla v zadání
+  ještě „vícejazyčné varianty dotazu" a „filtry (oblast, autor, dokument, rok,
+  jazyk)". Architektura počítala s překladem dotazu přes Haiku — hledání ale
+  zůstává zdarma (R14), proto **slovník odborných výrazů** v databázi
+  (`bible_slovnik`, migrace `20261111040000_bible_hledani_filtry`): přes 50
+  pojmů v češtině, němčině a angličtině (mladina = Würze = wort, rmutování =
+  Maischen = mashing, pěna = Schaum = foam …). Slovo dotazu patří k pojmu
+  shodou českého kmene (stejná pravidla jako hledání otázkou, `bible_kmen`),
+  začátkem slova (Würze → wurz) nebo přesným slovem (hop/hops, ať „hope"
+  nenajde chmel). Varianty se hledají spolu se slovem: přesné hledání chce
+  na stránce každé slovo **nebo** jeho variantu, hledání otázkou počítá shodu
+  po pojmech. Slovník je veřejná terminologie, žádný text knih; doplňovat se
+  dá další migrací.
+- **Filtry** (`bible_dokumenty_filtr`): kniha, autor (část jména, bez
+  diakritiky, doslova — % není zástupný znak), rok vydání od–do, jazyk knihy,
+  druh dokumentu, oblast A–T (oblasti jsou u knihy, R17). Neplatnou hodnotu
+  odmítne už `filtrHledani` (appka, bible-api, nástroj Clauda), SQL ji pro
+  jistotu nepoužije.
+- Nové funkce `bible_hledej_v` a `bible_hledej_volne_v`; původní
+  `bible_hledej` a `bible_hledej_volne` beze změny (worker přehledů).
+  Bez migrace bible-api i nástroj hledají postaru (filtr jen knihou), jiný
+  filtr ohlásí, že čeká na migraci.
+- Obrazovka Hledání: tlačítko Filtry (kniha, oblast, jazyk, druh, autor, rok
+  od–do), filtr slovy nad výsledky, zvýraznění i variant. Nástroj
+  `hledej_v_knihach` (konektor i AI sládek) má filtry autor, rok_od, rok_do,
+  jazyk, druh, oblast.
+- Vektory (embeddingy) dál až po měření na zlaté sadě otázek (§ 5).
