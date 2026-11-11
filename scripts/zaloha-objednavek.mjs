@@ -21,7 +21,7 @@ import { mkdirSync, writeFileSync, readFileSync, existsSync, unlinkSync } from '
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { zasifruj, otisk } from './lib/sifraZalohy.mjs';
-import { BIBLE_URL, sadaZalohy } from './lib/zalohaTabulky.mjs';
+import { BIBLE_URL, bezVynechanych, sadaZalohy } from './lib/zalohaTabulky.mjs';
 import { prectiArgumenty } from './lib/argumenty.mjs';
 
 const KOREN = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -93,8 +93,10 @@ const manifest = {
 let prepsano = 0;
 
 for (const [tabulka, pk] of TABULKY) {
-  const radky = await nactiVse(tabulka, pk);
-  if (radky === null) { manifest.nejsouVDatabazi.push(tabulka); continue; }
+  const nactene = await nactiVse(tabulka, pk);
+  if (nactene === null) { manifest.nejsouVDatabazi.push(tabulka); continue; }
+  // Bez sloupců, které počítá databáze (VYNECHAT_SLOUPCE) — obnova by je zapsat nesměla.
+  const radky = nactene.map((r) => bezVynechanych(tabulka, r));
   const text = JSON.stringify(radky, null, 1) + '\n';
   const sha256 = otisk(text);
   const soubor = resolve(SLOZKA, `${tabulka}.json.enc`);
@@ -117,7 +119,7 @@ writeFileSync(
   [
     BIBLE ? '# Zálohy projektu bible' : '# Zálohy',
     '',
-    ...(BIBLE ? ['Katalog knihovny, nastavení a náklady na AI ze samostatného projektu Supabase (rozhodnutí R12). Obsah knih se nezálohuje.', ''] : []),
+    ...(BIBLE ? ['Katalog knihovny, nastavení, náklady na AI a ručně zadaná data bible (zkušenosti sládků, profil pivovaru, receptury a várky, webové zdroje, problémy) ze samostatného projektu Supabase (rozhodnutí R12). Obsah knih se nezálohuje.', ''] : []),
     `Poslední záloha: **${dnes}** · tabulek ${Object.keys(manifest.tabulky).length} · přepsáno ${prepsano}`,
     '',
     '🔐 **Soubory jsou zašifrované** (AES-256-GCM). Bez hesla `ZALOHA_HESLO` je',

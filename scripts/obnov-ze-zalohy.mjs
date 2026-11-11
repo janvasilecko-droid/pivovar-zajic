@@ -26,7 +26,7 @@ import { execFileSync } from 'node:child_process';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { desifruj } from './lib/sifraZalohy.mjs';
-import { BIBLE_URL, ODLOZENE_SLOUPCE, UNIKATNI_SLOUPCE, pk, sadaZalohy } from './lib/zalohaTabulky.mjs';
+import { BIBLE_URL, ODLOZENE_SLOUPCE, UNIKATNI_SLOUPCE, bezVynechanych, pk, sadaZalohy } from './lib/zalohaTabulky.mjs';
 import { prectiArgumenty } from './lib/argumenty.mjs';
 
 const KOREN = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -184,10 +184,12 @@ try {
   console.log('─'.repeat(72));
 
   for (const tabulka of tabulky) {
-    const zalohaRadky = nactiZalohu(tabulka, commit);
-    if (zalohaRadky === null) continue; // v téhle (starší) záloze tabulka není
+    const zeZalohy = nactiZalohu(tabulka, commit);
+    if (zeZalohy === null) continue; // v téhle (starší) záloze tabulka není
     const klic = pk(tabulka);
-    const dbRadky = await nactiZDb(tabulka);
+    // Sloupce, které počítá databáze, se nezapisují ani neporovnávají (VYNECHAT_SLOUPCE).
+    const zalohaRadky = zeZalohy.map((r) => bezVynechanych(tabulka, r));
+    const dbRadky = (await nactiZDb(tabulka)).map((r) => bezVynechanych(tabulka, r));
     const dbPodle = new Map(dbRadky.map((r) => [r[klic], r]));
     const zalohaPodle = new Map(zalohaRadky.map((r) => [r[klic], r]));
 
