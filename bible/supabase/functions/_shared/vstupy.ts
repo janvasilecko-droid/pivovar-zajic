@@ -277,7 +277,12 @@ export function zkusenostVstup(v: unknown): Record<string, unknown> {
 }
 
 /** Hledání ve zkušenostech: dotaz je volitelný (bez něj nejnovější), filtry oblast a nejnižší důvěryhodnost. */
-export function dotazZkusenosti(telo: Record<string, unknown>): { dotaz: string | null; oblast: string | null; nejhorsi: number } {
+/**
+ * Hledání ve zkušenostech sládků. `volne` (obrazovka Hledání v knihách): když
+ * přesné hledání (všechna slova) nic nenajde, hledá se otázkou v běžné řeči
+ * jako u knih a v nástroji AI sládka (bible_hledej_zkusenosti_volne).
+ */
+export function dotazZkusenosti(telo: Record<string, unknown>): { dotaz: string | null; oblast: string | null; nejhorsi: number; volne: boolean } {
   const d = telo.dotaz;
   let dotaz: string | null = null;
   if (d !== undefined && d !== null && d !== '') {
@@ -292,7 +297,7 @@ export function dotazZkusenosti(telo: Record<string, unknown>): { dotaz: string 
   if (n !== undefined && n !== null && (typeof n !== 'number' || !Number.isInteger(n) || n < 1 || n > 5)) {
     throw new ChybaVstupu('Důvěryhodnost je číslo 1 až 5.');
   }
-  return { dotaz, oblast: typeof o === 'string' && o ? o : null, nejhorsi: typeof n === 'number' ? n : 5 };
+  return { dotaz, oblast: typeof o === 'string' && o ? o : null, nejhorsi: typeof n === 'number' ? n : 5, volne: telo.volne === true };
 }
 
 // --- Technologie pivovaru (etapa 7) -----------------------------------------

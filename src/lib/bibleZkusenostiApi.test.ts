@@ -27,16 +27,23 @@ describe('zkušenosti sládků přes bible-api', () => {
     ] } };
     const r = await nactiZkusenosti({ dotaz: ' chmel ', oblast: 'F', nejhorsi: 4 });
     expect(volani[0]).toEqual({ funkce: 'bible-api', telo: { akce: 'zkusenosti', dotaz: 'chmel', oblast: 'F', nejhorsi: 4 } });
-    expect(r).toEqual({ stav: 'ok', migrace: true, zkusenosti: [
+    expect(r).toEqual({ stav: 'ok', migrace: true, volne: false, zkusenosti: [
       { id: ID, typ: 'postup', nazev: 'N', text: 'T', oblasti: ['F'], uroven: 3, zdroj: 'Z', zapsal: 'u1', zapsalJmeno: 'Honza', vytvoreno: 'a', upraveno: 'b' },
     ] });
+  });
+
+  it('Hledání v knihách se ptá i volně (otázkou v běžné řeči)', async () => {
+    odpoved = { ok: true, data: { zkusenosti: [], migrace: true, volne: true } };
+    const r = await nactiZkusenosti({ dotaz: 'proč málo pění' }, { volne: true });
+    expect(volani[0].telo).toEqual({ akce: 'zkusenosti', dotaz: 'proč málo pění', volne: true });
+    expect(r).toMatchObject({ stav: 'ok', volne: true });
   });
 
   it('bez filtru pošle jen akci (nejhorší úroveň 5 se neposílá)', async () => {
     odpoved = { ok: true, data: { zkusenosti: [], migrace: false } };
     const r = await nactiZkusenosti({ nejhorsi: 5 });
     expect(volani[0].telo).toEqual({ akce: 'zkusenosti' });
-    expect(r).toEqual({ stav: 'ok', zkusenosti: [], migrace: false });
+    expect(r).toEqual({ stav: 'ok', zkusenosti: [], migrace: false, volne: false });
   });
 
   it('stará bible-api akci nezná → srozumitelná hláška, ne chyba', async () => {

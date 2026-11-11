@@ -197,8 +197,11 @@ describe('zkušenosti sládků', () => {
     expect(() => idZkusenosti({ id: 'x' })).toThrow(ChybaVstupu);
   });
   it('dotaz: bez dotazu nejnovější, filtr oblasti a důvěryhodnosti', () => {
-    expect(dotazZkusenosti({})).toEqual({ dotaz: null, oblast: null, nejhorsi: 5 });
-    expect(dotazZkusenosti({ dotaz: ' pěnění ', oblast: 'F', nejhorsi: 4 })).toEqual({ dotaz: 'pěnění', oblast: 'F', nejhorsi: 4 });
+    expect(dotazZkusenosti({})).toEqual({ dotaz: null, oblast: null, nejhorsi: 5, volne: false });
+    expect(dotazZkusenosti({ dotaz: ' pěnění ', oblast: 'F', nejhorsi: 4 })).toEqual({ dotaz: 'pěnění', oblast: 'F', nejhorsi: 4, volne: false });
+    // Volné hledání jen na výslovné přání (Hledání v knihách), ne z „ano" nebo 1.
+    expect(dotazZkusenosti({ dotaz: 'proč málo pění', volne: true }).volne).toBe(true);
+    expect(dotazZkusenosti({ dotaz: 'pěna', volne: 'ano' }).volne).toBe(false);
     expect(() => dotazZkusenosti({ oblast: 'Z' })).toThrow(ChybaVstupu);
     expect(() => dotazZkusenosti({ nejhorsi: 0 })).toThrow(ChybaVstupu);
     expect(() => dotazZkusenosti({ dotaz: 'x'.repeat(201) })).toThrow(ChybaVstupu);
