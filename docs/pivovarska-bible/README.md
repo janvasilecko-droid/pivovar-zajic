@@ -17,8 +17,10 @@ s citací kniha–kapitola–strana a počítá deterministickým výpočetním 
 - **Spustit zpracování knih hned** (jinak běží samo zhruba každé 3 hodiny):
   https://github.com/janvasilecko-droid/pivovar-zajic/actions/workflows/bible-zpracovani.yml
   → „Run workflow"
-- **Kredit Anthropic API** (platí odpovědi a OCR):
+- **Kredit Anthropic API** (platí AI sládka v appce a OCR přes API):
   https://platform.claude.com/settings/billing
+- **AI sládek (chatbot):** https://zajic-pivovar.pages.dev/?page=bible&sub=chat ·
+  měsíční strop útraty: Bible → Správa znalostí → AI a náklady
 - **Supabase projekt bible** (knihy, zpracování, náklady na AI; rozhodnutí R12):
   https://supabase.com/dashboard/project/cegrelgvkygcatupqwrx
 - **Klíče projektu bible** (Secret key pro GitHub secret
@@ -43,13 +45,41 @@ s citací kniha–kapitola–strana a počítá deterministickým výpočetním 
 | konektor do aplikace Claude (R16) | hotovo (3. 11. 2026) — migrace `20261103030000_bible_mcp`, funkce `bible-mcp` |
 | 3b: zkušenosti sládků | hotovo (4. 11. 2026) — migrace `20261104000000_bible_zkusenosti` |
 | 3c: nová vydání dokumentů (R22) | hotovo (4. 11. 2026) — migrace `20261104050000_bible_vydani` |
-| 5: chatbot | odloženo (R14) |
+| 5: AI sládek — chatbot v appce přes Claude API (nástroje jako konektor, citace stránek přes search_result, kroky a průběžný text, historie konverzací, strop útraty, „Najít příčiny s AI sládkem“), hledání otázkou v běžné řeči (R28) | hotovo (11. 11. 2026) — migrace `20261111030000_bible_chat`, funkce `bible-chat` |
 | 6a: výpočetní modul, Výpočtová laboratoř, nástroj `vypocet` pro Claude (R23) | hotovo (4. 11. 2026) — bez migrace |
 | 6b: další výpočty — chlazení a výměníky, voda a pH, scezování, chmelovar, kvašení, dokvašení, hydraulika, CIP, energie, ekonomika (R24) | hotovo (11. 11. 2026) — bez migrace |
 | 7: technologie pivovaru — profil, zařízení s parametry a zdrojem, provozní postupy, víc pivovarů, převzetí tanků ze Sklepa, nástroj `profil_pivovaru` (R25) | hotovo (11. 11. 2026) — migrace `20261111000000_bible_technologie` |
 | 8: receptury a várky — evidence (pevný katalog 30 hodnot s rozsahem), receptury s cíli, porovnání várek (cíle, odchylky, výtěžek, odpar, prokvašení, co chybí), nástroje `seznam_varek` a `porovnej_varky` (R26) | hotovo (11. 11. 2026) — migrace `20261111010000_bible_varky` |
 | 9: rešerše z internetu — `bible_web_zdroje` (adresa, titulek, datum publikace a zjištění, důvěra 1–5, stav), Claude ukládá přes konektor vždy jako neověřené, správce ověří ve Správě znalostí (R27) | hotovo (11. 11. 2026) — migrace `20261111020000_bible_web_problemy` |
 | 10: analýza problémů (oblast T) — problémy s dotčenými várkami, zjištění šesti typů (fakt se zdrojem, výpočet, zkušenost, doporučení, hypotéza, chybí), potvrzení hypotéz, trend várek v grafu; nástroje `problemy`, `zaloz_problem`, `zapis_zjisteni` (R27) | hotovo (11. 11. 2026) — stejná migrace |
+
+## AI sládek — chatbot v appce (etapa 5)
+
+- **Kde:** Pivovarská bible → AI sládek → Zeptat se
+  (https://zajic-pivovar.pages.dev/?page=bible&sub=chat). Druhá karta je
+  Hledání v knihách. V Analýze problémů je tlačítko „Najít příčiny s AI sládkem".
+- **Jak odpovídá:** Claude (model z `bible_nastaveni.model_odpovedi`, dnes
+  Opus 5.5) hledá v knihách, čte stránky, bere várky, profil pivovaru,
+  zkušenosti sládků a výpočty — stejné nástroje jako konektor
+  (`_shared/nastroje.ts`). Odpověď má pevnou strukturu (krátká odpověď,
+  literatura, praxe, výpočet, doporučení, rozpory a co chybí); tvrzení z knih
+  mají čísla [n], která otevřou knihu na stránce, dole zdroje s citovanou větou.
+  Volitelně i web (vždy zvlášť, neověřený).
+- **Peníze:** chatbot volá Claude API (klíč `ANTHROPIC_API_KEY` z app_secrets
+  hlavní appky, do funkcí bible ho přenese nasazení) — předplatné na dotazy
+  z appky použít nejde (R14). Řádově desetníky dolaru za odpověď; měsíční strop
+  `strop_mesic_usd` (výchozí 20 USD) nastaví správce ve Správě znalostí,
+  0 = chatbot vypnutý. Útrata se zapisuje do `ai_naklady` (účel „chat").
+- **Limity:** nejvýš 8 volání Claude na otázku, po 80 s už jen odpověď bez
+  dalšího hledání, tvrdý konec ve 140 s (limit platformy 150 s) — co se
+  stihne, uloží se jako neúplná odpověď.
+- **Konverzace** vidí a maže jen ten, kdo se ptal (`bible_konverzace`,
+  `bible_zpravy`). Do logu nejde otázka, odpověď ani text knih.
+- **Hledání otázkou:** když přesné hledání (všechna slova na jedné stránce)
+  nic nenajde, hledá se bez výplňových slov, se začátky slov bez české
+  koncovky a podle počtu nalezených slov („shoda 2 z 3 slov"). Platí pro
+  obrazovku Hledání, konektor i chatbota.
+- Rozhodnutí: R28.
 
 ## Rešerše z internetu (etapa 9) a analýza problémů (etapa 10)
 

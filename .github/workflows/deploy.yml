@@ -322,6 +322,33 @@ jobs:
       # potřebují jeho veřejný klíč (secret funkce HLAVNI_ANON_KEY, stejný klíč
       # jako má web). Nikdy --prune (smazal by funkce, které tu nejsou), nikdy
       # `supabase link`. Verze CLI je připnutá.
+      # 🤖 Klíč Claude API pro AI sládka (chatbot v appce, etapa 5, R28) — z app_secrets
+      # HLAVNÍ appky (řádek ANTHROPIC_API_KEY), stejně jako u zpracování knih.
+      # Zvláštní krok: klíč service role hlavního projektu nevidí krok s npx
+      # (Supabase CLI). Klíč se hned zamaskuje a jde jen do souboru v RUNNER_TEMP,
+      # který krok bible přidá k secrets funkcí bible a smaže. Bez klíče se nic
+      # nerozbije — chatbot jen řekne, že klíč chybí.
+      - name: Klíč Claude pro AI sládka
+        if: always()
+        env:
+          HLAVNI_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          HLAVNI_KLIC: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          set -uo pipefail
+          rm -f "$RUNNER_TEMP/claude-klic"
+          klic=""
+          if [ -n "$HLAVNI_URL" ] && [ -n "$HLAVNI_KLIC" ]; then
+            klic=$(curl -sS --max-time 30 "$HLAVNI_URL/rest/v1/app_secrets?select=value&key=eq.ANTHROPIC_API_KEY" \
+              -H "apikey: $HLAVNI_KLIC" -H "Authorization: Bearer $HLAVNI_KLIC" 2>/dev/null | jq -r '.[0].value // empty' 2>/dev/null) || klic=""
+          fi
+          if [ -n "$klic" ]; then
+            echo "::add-mask::$klic"
+            ( umask 077; printf '%s' "$klic" > "$RUNNER_TEMP/claude-klic" )
+            echo "Klíč Claude pro AI sládka připraven."
+          else
+            echo "- ⚠️ klíč ANTHROPIC_API_KEY v app_secrets hlavní appky není (nebo nejde přečíst) — AI sládek bude hlásit, že klíč chybí" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       - name: Edge funkce projektu bible
         if: always()
         env:
@@ -330,7 +357,8 @@ jobs:
           BIBLE_REF: cegrelgvkygcatupqwrx
         run: |
           if [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
-            echo "SUPABASE_BIBLE_ACCESS_TOKEN není nastaven — funkce bible (bible-api, bible-migrace) se nenasadí." | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "SUPABASE_BIBLE_ACCESS_TOKEN není nastaven — funkce bible (bible-api, bible-chat, bible-mcp, bible-migrace) se nenasadí." | tee -a "$GITHUB_STEP_SUMMARY"
+            rm -f "$RUNNER_TEMP/claude-klic"
             exit 0
           fi
           echo "### Edge funkce projektu bible" >> "$GITHUB_STEP_SUMMARY"
@@ -351,14 +379,20 @@ jobs:
           fi
           # Při KAŽDÉM běhu (i bez změny funkcí): po výměně klíče hlavní appky
           # by brána jinak dál posílala starý a bible by byla všem zavřená.
-          # Klíč přes soubor, ne v příkazové řádce.
+          # Totéž klíč Claude pro AI sládka (z předchozího kroku, když je).
+          # Klíče přes soubor, ne v příkazové řádce.
           ( umask 077; printf 'HLAVNI_ANON_KEY=%s\n' "$HLAVNI_ANON_KEY" > "$RUNNER_TEMP/bible.env" )
+          if [ -s "$RUNNER_TEMP/claude-klic" ]; then
+            ( umask 077; printf 'ANTHROPIC_API_KEY=%s\n' "$(cat "$RUNNER_TEMP/claude-klic")" >> "$RUNNER_TEMP/bible.env" )
+          fi
+          rm -f "$RUNNER_TEMP/claude-klic"
           if ! npx --yes supabase@2.121.0 secrets set --project-ref "$BIBLE_REF" --env-file "$RUNNER_TEMP/bible.env"; then
             rm -f "$RUNNER_TEMP/bible.env"
-            echo "- ❌ secret HLAVNI_ANON_KEY se nepodařilo nastavit, funkce bible se nenasadily" >> "$GITHUB_STEP_SUMMARY"
+            echo "- ❌ secrets funkcí bible (HLAVNI_ANON_KEY, ANTHROPIC_API_KEY) se nepodařilo nastavit, funkce bible se nenasadily" >> "$GITHUB_STEP_SUMMARY"
             rada_token
             exit 1
           fi
+          if grep -q '^ANTHROPIC_API_KEY=' "$RUNNER_TEMP/bible.env"; then echo "- klíč Claude pro AI sládka obnoven" >> "$GITHUB_STEP_SUMMARY"; fi
           rm -f "$RUNNER_TEMP/bible.env"
           FUNKCE=$(node scripts/bible-nasazeni.mjs --jen-jmena)
           if [ -z "$FUNKCE" ]; then

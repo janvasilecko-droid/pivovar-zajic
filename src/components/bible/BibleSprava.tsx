@@ -16,6 +16,8 @@ import {
   nactiDokumenty, nactiKapacitu, nactiNakladyMesice, nactiNastaveni,
   type BibleDokument, type Kapacita, type NakladyMesice,
 } from '../../lib/bibleKnihovnaApi';
+import { nastavStrop } from '../../lib/bibleChatApi';
+import { uspech } from '../../lib/toast';
 
 const FREE_DB = 500 * 1024 * 1024;
 /** Ruční spuštění zpracování knih (GitHub Actions → Run workflow). */
@@ -66,16 +68,40 @@ function KapacitaPanel() {
 
 const usd = (n: number) => `${n.toFixed(n < 1 ? 3 : 2).replace('.', ',')} USD`;
 
+/** Kredit Claude API (AI sládek se platí z něj). */
+export const ODKAZ_KREDITU = 'https://platform.claude.com/settings/billing';
+
 function NakladyPanel() {
   const [naklady, setNaklady] = useState<{ naklady: NakladyMesice } | { chyba: string; bezMigrace: boolean } | null>(null);
   const [nastaveni, setNastaveni] = useState<Record<string, unknown> | null>(null);
+  const [novyStrop, setNovyStrop] = useState('');
+  const [uklada, setUklada] = useState(false);
+  const [chybaStropu, setChybaStropu] = useState<string | null>(null);
   useEffect(() => {
     void nactiNakladyMesice().then(setNaklady);
-    void nactiNastaveni().then(setNastaveni);
+    void nactiNastaveni().then((n) => {
+      setNastaveni(n);
+      const s = Number(n?.strop_mesic_usd ?? NaN);
+      if (Number.isFinite(s)) setNovyStrop(String(s));
+    });
   }, []);
   const strop = Number(nastaveni?.strop_mesic_usd ?? NaN);
+
+  async function ulozStrop(e: React.FormEvent) {
+    e.preventDefault();
+    const usdHodnota = Number(novyStrop.replace(',', '.'));
+    if (!novyStrop.trim() || !Number.isFinite(usdHodnota) || usdHodnota < 0 || usdHodnota > 1000) { setChybaStropu('Strop je 0 až 1000 USD za měsíc.'); return; }
+    setUklada(true);
+    setChybaStropu(null);
+    const r = await nastavStrop(usdHodnota);
+    setUklada(false);
+    if (r.stav !== 'ok') { setChybaStropu(r.zprava); return; }
+    setNastaveni((n) => ({ ...(n ?? {}), strop_mesic_usd: r.data }));
+    uspech(r.data > 0 ? `Měsíční strop útraty za AI: ${usd(r.data)}.` : 'AI sládek je vypnutý (strop 0 USD).');
+  }
+
   return (
-    <div className="space-y-1 text-sm">
+    <div className="space-y-2 text-sm">
       {naklady === null ? (
         <div className="text-neutral-300">Načítám útratu…</div>
       ) : 'chyba' in naklady ? (
@@ -91,6 +117,19 @@ function NakladyPanel() {
           <li>Přepis skenů: {String(nastaveni.model_ocr ?? '—')}</li>
         </ul>
       )}
+      <form className="flex flex-wrap items-end gap-2 pt-1" onSubmit={(e) => void ulozStrop(e)} aria-label="Útrata za AI">
+        <label className="space-y-1 text-xs font-black uppercase tracking-wide text-neutral-300" htmlFor="bible-strop">
+          <span className="block">Měsíční strop útraty za AI (USD)</span>
+          <input id="bible-strop" className="input w-32 normal-case" type="number" min={0} max={1000} step="any" inputMode="decimal"
+            value={novyStrop} onChange={(e) => setNovyStrop(e.target.value)} />
+        </label>
+        <button type="submit" className="btn-tmave" disabled={uklada || !nastaveni}>{uklada ? 'Ukládám…' : 'Uložit strop'}</button>
+      </form>
+      {chybaStropu && <div role="alert" className="text-xs font-bold text-rose-300">{chybaStropu}</div>}
+      <p className="text-xs text-neutral-300">
+        0 = AI sládek vypnutý. Nad stropem appka další otázku odmítne a řekne proč. Kredit Claude API:{' '}
+        <a className="font-bold text-amber-300 underline" href={ODKAZ_KREDITU} target="_blank" rel="noopener noreferrer">platform.claude.com</a>
+      </p>
     </div>
   );
 }
@@ -157,11 +196,16 @@ export function BibleSprava({ role, setPage }: {
 
       <section className="rounded-xl border border-neutral-700 bg-neutral-900 text-neutral-100 p-4 space-y-2">
         <h2 className="font-black">AI a náklady</h2>
-        {/* 3. 11. 2026 majitel: „žádný kredit… nebudu platit kredity" — všechno jede přes předplatné. */}
+        {/* 3. 11. 2026 majitel: „žádný kredit… nebudu platit kredity" — zpracování knih jede přes předplatné.
+            11. 11. 2026: „má to být chatbot" — chatbot v appce musí přes API (R14, R28), proto strop. */}
         <p className="text-sm text-neutral-200">
           Knihy zpracovává Claude přes tvoje předplatné Claude (Max): přepis skenů (Haiku 5.5), překlad do češtiny (Sonnet 5.5),
-          zařazení do oblastí a přehledy témat (Opus 5.5). Nic se nedoplácí — přes předplatné je cena 0, zapisují se jen počty tokenů.
-          Otázky na knihy pokládáš v aplikaci Claude přes konektor výš.
+          zařazení do oblastí a přehledy témat (Opus 5.5). Tady se nic nedoplácí — přes předplatné je cena 0, zapisují se jen počty tokenů.
+        </p>
+        <p className="text-sm text-neutral-200">
+          AI sládek (chatbot v appce) volá Claude API klíčem z app_secrets — to se platí z kreditu Anthropicu, řádově desetníky dolaru
+          za odpověď. Předplatné na dotazy z appky použít nejde (pravidla Anthropicu). Útratu hlídá měsíční strop. Zdarma přes předplatné
+          se dá ptát v aplikaci Claude přes konektor výš.
         </p>
         {smiSpravovat(role) && <NakladyPanel />}
       </section>

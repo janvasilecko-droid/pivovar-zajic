@@ -26,12 +26,20 @@ describe('hledání přes bible-api', () => {
     ] } };
     const r = await hledejVKnihach('slad', ID);
     expect(volani[0]).toEqual({ funkce: 'bible-api', telo: { akce: 'hledej', dotaz: 'slad', id: ID } });
-    expect(r).toEqual({ stav: 'ok', vysledky: [
-      { dokumentId: ID, nazev: 'Kniha', autor: 'A', rok: 2001, zdroj: 'preklad', pdfIndex: 5, tistena: '3', kapitola: 'K', druh: 'text', uryvek: 'u' },
-      { dokumentId: ID, nazev: 'Kniha', autor: null, rok: null, zdroj: 'original', pdfIndex: 6, tistena: null, kapitola: null, druh: 'text', uryvek: '' },
+    expect(r).toEqual({ stav: 'ok', volne: false, slova: [], vysledky: [
+      { dokumentId: ID, nazev: 'Kniha', autor: 'A', rok: 2001, zdroj: 'preklad', pdfIndex: 5, tistena: '3', kapitola: 'K', druh: 'text', uryvek: 'u', shoda: null, slov: null },
+      { dokumentId: ID, nazev: 'Kniha', autor: null, rok: null, zdroj: 'original', pdfIndex: 6, tistena: null, kapitola: null, druh: 'text', uryvek: '', shoda: null, slov: null },
     ] });
     await hledejVKnihach('slad');
     expect(volani[1].telo).toEqual({ akce: 'hledej', dotaz: 'slad' });
+  });
+
+  it('volné hledání (otázka v běžné řeči): příznak, slova a shoda u výsledku', async () => {
+    odpoved = { ok: true, data: { volne: true, slova: ['amylaz', 'prac', 7], vysledky: [
+      { dokument_id: ID, nazev: 'Kniha', zdroj: 'original', pdf_index: 2, uryvek: 'u', shoda: 2, slov: 3 },
+    ] } };
+    const r = await hledejVKnihach('proč amyláza pracuje pomalu');
+    expect(r).toMatchObject({ stav: 'ok', volne: true, slova: ['amylaz', 'prac'], vysledky: [{ pdfIndex: 2, shoda: 2, slov: 3 }] });
   });
 
   it('stará bible-api (neznámá akce) = nasazuje se; jiná chyba projde', async () => {

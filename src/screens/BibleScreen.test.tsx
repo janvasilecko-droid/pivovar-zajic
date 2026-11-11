@@ -31,7 +31,7 @@ import BibleScreen, { BIBLE_DLAZDICE } from './BibleScreen';
 describe('Pivovarská bible — plocha', () => {
   it('má 8 dlaždic přesně podle zadání (bod 10)', () => {
     expect(BIBLE_DLAZDICE.map((d) => d.nazev)).toEqual([
-      'Hledání v knihách', 'Knihovna dokumentů', 'Výpočtová laboratoř', 'Technologie pivovaru',
+      'AI sládek', 'Knihovna dokumentů', 'Výpočtová laboratoř', 'Technologie pivovaru',
       'Receptury a várky', 'Analýza problémů', 'Zkušenosti sládků', 'Správa znalostí',
     ]);
   });
@@ -43,7 +43,7 @@ describe('Pivovarská bible — plocha', () => {
     expect(screen.queryByText('Knihovna dokumentů')).toBeNull();
   });
 
-  it('správce vidí plochu; žádná dlaždice už neukazuje „Připravujeme" (etapy 1–10 hotové, chatbot odložený R14)', () => {
+  it('správce vidí plochu; žádná dlaždice už neukazuje „Připravujeme" (etapy 1–10 hotové, chatbot R28)', () => {
     profil = { role: 'admin' };
     render(<BibleScreen />);
     expect(screen.getByText('Knihovna dokumentů')).toBeTruthy();
@@ -95,6 +95,19 @@ describe('Pivovarská bible — plocha', () => {
     expect(setPage).toHaveBeenLastCalledWith('bible', undefined, 'chat');
     expect((screen.getByLabelText('Hledat v knihách') as HTMLInputElement).value).toBe('Balling skutečný extrakt alkohol');
     expect(hledano).toEqual(['Balling skutečný extrakt alkohol']);
+    expect(screen.getByRole('tab', { name: /Hledání v knihách/ }).getAttribute('aria-selected')).toBe('true');
+  });
+
+  it('AI sládek (etapa 5): dlaždice otevře chatbota, druhá karta je hledání v knihách', async () => {
+    profil = { role: 'admin' };
+    const setPage = vi.fn();
+    render(<BibleScreen setPage={setPage} />);
+    await act(async () => { fireEvent.click(screen.getByText('AI sládek')); });
+    expect(setPage).toHaveBeenCalledWith('bible', undefined, 'chat');
+    expect(screen.getByRole('tab', { name: /Zeptat se/ }).getAttribute('aria-selected')).toBe('true');
+    expect(screen.getByLabelText('Otázka pro AI sládka')).toBeTruthy();
+    await act(async () => { fireEvent.click(screen.getByRole('tab', { name: /Hledání v knihách/ })); });
+    expect(screen.getByLabelText('Hledat v knihách')).toBeTruthy();
   });
 
   it('uživatel s povoleným modulem bible plochu vidí', () => {

@@ -5,6 +5,7 @@ import {
   idZaznamu, parametryVstup, pivovarVstup, postupProvozuVstup, prevzetiVstup, vyberPivovaru, zarizeniVstup,
   datumVstup, hodnotyVarkyVstup, recepturaVstup, varkaVstup,
   overeniVstup, problemVstup, stavZjisteniVstup, urlVstup, webZdrojVstup, zjisteniVstup,
+  stropVstup,
 } from './vstupy';
 
 const SHA = 'a'.repeat(64);
@@ -25,10 +26,25 @@ describe('akce a práva', () => {
     expect(AKCE.prehledy).toBe('cte');
     expect(AKCE.prehled).toBe('cte');
     expect(AKCE.objekty).toBe('cte');
+    // AI sládek: vlastní konverzace každý, kdo má přístup; strop útraty jen správce.
+    expect(AKCE.chat_stav).toBe('cte');
+    expect(AKCE.konverzace).toBe('cte');
+    expect(AKCE.konverzace_detail).toBe('cte');
+    expect(AKCE.konverzace_smazat).toBe('cte');
+    expect(AKCE.strop_nastavit).toBe('spravuje');
     expect(jeAkce('dokumenty')).toBe(true);
     expect(jeAkce('toString')).toBe(false);
     expect(jeAkce('__proto__')).toBe(false);
     expect(jeAkce(undefined)).toBe(false);
+  });
+});
+
+describe('strop útraty za AI', () => {
+  it('0 až 1000 USD, na centy, i s desetinnou čárkou', () => {
+    expect(stropVstup({ usd: 20 })).toBe(20);
+    expect(stropVstup({ usd: '7,555' })).toBe(7.56);
+    expect(stropVstup({ usd: 0 })).toBe(0);
+    for (const spatne of [-1, 1000.01, 'abc', '', null, undefined, Number.NaN]) expect(() => stropVstup({ usd: spatne })).toThrow(ChybaVstupu);
   });
 });
 

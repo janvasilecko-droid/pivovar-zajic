@@ -17,16 +17,26 @@ export type VysledekHledani = {
   kapitola: string | null;
   druh: string;
   uryvek: string;
+  /** Volné hledání: kolik slov otázky na stránce je (z kolika). */
+  shoda?: number | null;
+  slov?: number | null;
 };
 
 export type Hledani =
-  | { stav: 'ok'; vysledky: VysledekHledani[] }
+  | {
+    stav: 'ok';
+    vysledky: VysledekHledani[];
+    /** Všechna slova na jedné stránce nebyla — výsledky jsou stránky s nejvíc slovy otázky. */
+    volne?: boolean;
+    /** Slova (začátky slov), podle kterých se hledalo a zvýrazňuje. */
+    slova?: string[];
+  }
   | { stav: 'chyba' | 'nenasazeno'; zprava: string };
 
 const text = (v: unknown): string | null => (typeof v === 'string' ? v : null);
 
 export async function hledejVKnihach(dotaz: string, dokumentId?: string): Promise<Hledani> {
-  const r = await volejBibli<{ vysledky?: unknown }>('bible-api', { akce: 'hledej', dotaz, ...(dokumentId ? { id: dokumentId } : {}) });
+  const r = await volejBibli<{ vysledky?: unknown; volne?: unknown; slova?: unknown }>('bible-api', { akce: 'hledej', dotaz, ...(dokumentId ? { id: dokumentId } : {}) });
   if (!r.ok) {
     // Web se nasazuje dřív než funkce bible: stará bible-api hledání ještě nezná.
     if (r.chyba.kod === 'nenasazeno' || (r.chyba.kod === 'neplatny_vstup' && r.chyba.zprava === 'Neznámá akce.')) {
@@ -50,9 +60,12 @@ export async function hledejVKnihach(dotaz: string, dokumentId?: string): Promis
       kapitola: text(o.kapitola),
       druh: text(o.druh) ?? 'text',
       uryvek: text(o.uryvek) ?? '',
+      shoda: typeof o.shoda === 'number' ? o.shoda : null,
+      slov: typeof o.slov === 'number' ? o.slov : null,
     });
   }
-  return { stav: 'ok', vysledky };
+  const slova = Array.isArray(r.data?.slova) ? r.data.slova.filter((w): w is string => typeof w === 'string').slice(0, 8) : [];
+  return { stav: 'ok', vysledky, volne: r.data?.volne === true, slova };
 }
 
 // --- Přehledy témat (Claude porovná knihy a napíše to nejlepší s odkazy) -------

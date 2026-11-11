@@ -313,6 +313,28 @@ SELECT pg_temp.ocekavam(NOT EXISTS (SELECT 1 FROM public.bible_hledej('pracuje')
 UPDATE public.bible_strany SET text = 'Die β-Amylase arbeitet bei 62–65 °C.' WHERE dokument_id = pg_temp.dok('a') AND pdf_index = 1;
 SELECT pg_temp.ocekavam((SELECT count(*) FROM public.bible_hledej('amyl', NULL, 1)) = 1, 'limit výsledků');
 SELECT pg_temp.ocekavam((SELECT count(*) FROM public.bible_hledej('amyl', gen_random_uuid())) = 0, 'filtr dokumentu');
+-- Hledání otázkou v běžné řeči (20261111030000_bible_chat): bez výplňových slov, podle shody.
+SELECT pg_temp.ocekavam(public.bible_slova_volne('Proč β-amyláza pracuje tak pomalu při rmutování?') = ARRAY['amylaz', 'prac', 'pomal', 'rmut'],
+  'slova otázky: bez výplňových slov, uříznuté koncovky');
+SELECT pg_temp.ocekavam(public.bible_slova_volne('chmelovaru pění pivo pH CO2 62 °C') = ARRAY['chmelovar', 'pen', 'piv', 'ph', 'co2', '62'],
+  'koncovky: kmen aspoň 3 písmena, čísla a krátké značky zůstanou');
+SELECT pg_temp.ocekavam(public.bible_slova_volne('kvašení kvasnice kvasnic') = ARRAY['kvas', 'kvasnic']
+                        AND public.bible_slova_volne('proč a jak?') = '{}'::text[]
+                        AND cardinality(public.bible_slova_volne('a1 b2 slad1 slad2 slad3 slad4 slad5 slad6 slad7 slad8 slad9')) = 8,
+  'opakované kmeny jednou, jen výplňová slova = nic, nejvýš 8 (stejně jako slovaVolne v TS)');
+SELECT pg_temp.ocekavam(public.bible_dotaz_volny('Proč amyláza pracuje pomalu?')::text = '''amylaz'':* | ''prac'':* | ''pomal'':*',
+  'volný dotaz spojí slova přes OR');
+SELECT pg_temp.ocekavam(public.bible_dotaz_volny('amyláza pracuje pomalu', 2)::text
+  = '''amylaz'':* & ''prac'':* | ''amylaz'':* & ''pomal'':* | ''prac'':* & ''pomal'':*', 'p_min 2 = aspoň dvě slova (dvojice)');
+SELECT pg_temp.ocekavam(public.bible_dotaz_volny('proč a jak?') IS NULL AND public.bible_dotaz_volny(NULL, 2) IS NULL, 'dotaz jen z výplňových slov nic nehledá');
+SELECT pg_temp.ocekavam(public.bible_dotaz_volny('pH rmutu', 2)::text = '''ph'':* & ''rmut'':*', 'pH zůstane i jako dvě písmena');
+SELECT pg_temp.ocekavam((SELECT count(*) FROM public.bible_hledej('Proč amyláza pracuje pomalu')) = 0, 'přesné hledání otázku v běžné řeči nenajde…');
+SELECT pg_temp.ocekavam((SELECT string_agg(zdroj || ':' || pdf_index || ':' || shoda || '/' || slov, ',' ORDER BY pdf_index) FROM public.bible_hledej_volne('Proč amyláza pracuje pomalu'))
+  = 'preklad:1:2/3,original:2:2/3', '…volné hledání najde stránky aspoň se dvěma slovy (český překlad strany 1 i česká pasáž strany 2)');
+SELECT pg_temp.ocekavam((SELECT string_agg(zdroj || ':' || pdf_index || ':' || shoda, ',' ORDER BY shoda DESC, pdf_index) FROM public.bible_hledej_volne('amyláza rmutovací kvasnice'))
+  = 'preklad:1:1,original:2:1', 'když žádná stránka nemá dvě slova, stačí jedno');
+SELECT pg_temp.ocekavam((SELECT count(*) FROM public.bible_hledej_volne('proč a jak')) = 0, 'volné hledání bez slov nevrátí nic');
+SELECT pg_temp.ocekavam((SELECT count(*) FROM public.bible_hledej_volne('amyláza pracuje', gen_random_uuid())) = 0, 'volné hledání: filtr dokumentu');
 -- Český název kapitoly (20261104020000_bible_kapitoly_preklad)
 SELECT pg_temp.ocekavam(public.bible_kapitoly_nazvy(ARRAY['33333333-3333-3333-3333-333333333333']::uuid[], ARRAY['3.2 Rmutování']) = 1,
   'přeložený název kapitoly se zapíše');
@@ -452,6 +474,10 @@ SELECT pg_temp.ocekavam((SELECT uroven FROM public.bible_zkusenosti WHERE id = (
   'zkušenost jednoho sládka = úroveň 4, oblasti bez opakování a seřazené');
 SELECT pg_temp.ocekavam((SELECT count(*) FROM public.bible_hledej_zkusenosti('pěnění chmelovar')) = 1, 'hledání bez diakritiky najde zkušenost');
 SELECT pg_temp.ocekavam((SELECT count(*) FROM public.bible_hledej_zkusenosti('penění')) = 1, 'předpona a diakritika v dotazu');
+SELECT pg_temp.ocekavam((SELECT count(*) FROM public.bible_hledej_zkusenosti('proč pivo málo pění při chmelovaru')) = 0
+                        AND (SELECT count(*) FROM public.bible_hledej_zkusenosti_volne('proč pivo málo pění při chmelovaru')) = 1
+                        AND (SELECT count(*) FROM public.bible_hledej_zkusenosti_volne('proč pivo málo pění', 'H')) = 0,
+                        'zkušenosti otázkou v běžné řeči (volné hledání, filtr oblasti)');
 SELECT pg_temp.ocekavam((SELECT count(*) FROM public.bible_hledej_zkusenosti(NULL, 'F')) = 1
                         AND (SELECT count(*) FROM public.bible_hledej_zkusenosti(NULL, 'H')) = 0, 'filtr oblasti');
 SELECT pg_temp.ocekavam((SELECT count(*) FROM public.bible_hledej_zkusenosti(NULL, NULL, 3::smallint)) = 0, 'filtr důvěryhodnosti (jen úroveň 1–3 nic nevrátí)');
@@ -698,6 +724,42 @@ SELECT pg_temp.ocekavam(NOT EXISTS (SELECT 1 FROM public.bible_problem_zjisteni 
 SELECT pg_temp.selze($q$SELECT public.bible_problemy_prehled()$q$, 'problémy čte jen service role', '42501')
   FROM (SELECT pg_temp.jako('authenticated')) j;
 SELECT pg_temp.jako('service_role');
+
+-- 💬 Chatbot (etapa 5) — konverzace, zprávy, náklady, strop ----------------------
+SELECT pg_temp.jako('service_role');
+CREATE TEMP TABLE t5_k AS SELECT public.bible_konverzace_zaloz('00000000-0000-0000-0000-0000000000b2', '  Proč málo pění?  ', NULL) AS id;
+SELECT pg_temp.ocekavam((SELECT nazev = 'Proč málo pění?' FROM public.bible_konverzace WHERE id = (SELECT id FROM t5_k)), 'konverzace dostane název z otázky');
+SELECT pg_temp.ocekavam(public.bible_zprava_uloz('00000000-0000-0000-0000-0000000000b2', (SELECT id FROM t5_k), 'uzivatel', 'Proč málo pění?',
+  NULL, NULL, NULL, 0, 0, 0, false) IS NOT NULL, 'otázka se uloží');
+SELECT pg_temp.ocekavam(public.bible_zprava_uloz('00000000-0000-0000-0000-0000000000b2', (SELECT id FROM t5_k), 'asistent', 'Krátká odpověď…',
+  '[{"nastroj":"hledej_v_knihach"}]', '[{"kniha_id":"x","list":12}]', 'claude-opus-5-5', 12000, 900, 0.066, false) IS NOT NULL, 'odpověď se uloží s náklady');
+SELECT pg_temp.selze($q$SELECT public.bible_zprava_uloz('00000000-0000-0000-0000-0000000000b3', (SELECT id FROM t5_k), 'uzivatel', 'cizí', NULL, NULL, NULL, 0, 0, 0, false)$q$,
+  'do cizí konverzace zapsat nejde', 'P0002');
+SELECT pg_temp.selze($q$SELECT public.bible_zprava_uloz('00000000-0000-0000-0000-0000000000b2', (SELECT id FROM t5_k), 'system', 'x', NULL, NULL, NULL, 0, 0, 0, false)$q$,
+  'neznámá role zprávy se odmítne', '23514');
+SELECT pg_temp.ocekavam(public.bible_konverzace_zpravy('00000000-0000-0000-0000-0000000000b3', (SELECT id FROM t5_k)) IS NULL, 'cizí konverzaci nikdo jiný nepřečte');
+SELECT pg_temp.ocekavam(jsonb_array_length(public.bible_konverzace_zpravy('00000000-0000-0000-0000-0000000000b2', (SELECT id FROM t5_k)) -> 'zpravy') = 2
+  AND (public.bible_konverzace_zpravy('00000000-0000-0000-0000-0000000000b2', (SELECT id FROM t5_k)) -> 'zpravy' -> 0 ->> 'role') = 'uzivatel',
+  'vlastní konverzace vrátí zprávy od nejstarší');
+SELECT pg_temp.ocekavam(jsonb_array_length(public.bible_konverzace_seznam('00000000-0000-0000-0000-0000000000b2')) = 1
+  AND jsonb_array_length(public.bible_konverzace_seznam('00000000-0000-0000-0000-0000000000b3')) = 0, 'seznam ukáže jen vlastní konverzace');
+SELECT pg_temp.ocekavam(public.bible_naklad_zapis('chat', 'claude-opus-5-5', 3, 12000, 900, 4000, 2000, 0.066, '00000000-0000-0000-0000-0000000000b2', 'test') IS NOT NULL,
+  'náklad chatu se zapíše');
+SELECT pg_temp.ocekavam((public.bible_ai_utrata_mesic() ->> 'chat_usd')::numeric = 0.066 AND (public.bible_ai_utrata_mesic() ->> 'chat_dotazu')::int = 1
+  AND (public.bible_ai_utrata_mesic() ->> 'strop_usd')::numeric = 20 AND public.bible_ai_utrata_mesic() ->> 'model' = 'claude-opus-5-5',
+  'útrata měsíce: chat, počet dotazů, strop a model');
+SELECT pg_temp.selze($q$SELECT public.bible_strop_nastav('00000000-0000-0000-0000-0000000000b2', 'prispiva', 50)$q$, 'přispěvatel strop nezmění', '42501');
+SELECT pg_temp.selze($q$SELECT public.bible_strop_nastav('00000000-0000-0000-0000-0000000000a1', 'spravuje', 5000)$q$, 'strop nad 1000 USD se odmítne', '22023');
+SELECT pg_temp.ocekavam(public.bible_strop_nastav('00000000-0000-0000-0000-0000000000a1', 'spravuje', 7.5), 'správce strop změní');
+SELECT pg_temp.ocekavam((public.bible_ai_utrata_mesic() ->> 'strop_usd')::numeric = 7.5, 'nový strop platí');
+SELECT public.bible_strop_nastav('00000000-0000-0000-0000-0000000000a1', 'spravuje', 20);
+SELECT pg_temp.ocekavam(NOT public.bible_konverzace_smaz('00000000-0000-0000-0000-0000000000b3', (SELECT id FROM t5_k)), 'cizí konverzaci smazat nejde');
+SELECT pg_temp.ocekavam(public.bible_konverzace_smaz('00000000-0000-0000-0000-0000000000b2', (SELECT id FROM t5_k)), 'vlastní konverzace se smaže');
+SELECT pg_temp.ocekavam(NOT EXISTS (SELECT 1 FROM public.bible_zpravy WHERE konverzace_id = (SELECT id FROM t5_k)), 's konverzací zmizí i zprávy');
+SELECT pg_temp.selze($q$SELECT public.bible_konverzace_seznam('00000000-0000-0000-0000-0000000000b2')$q$, 'konverzace čte jen service role', '42501')
+  FROM (SELECT pg_temp.jako('authenticated')) j;
+SELECT pg_temp.jako('service_role');
+DELETE FROM public.ai_naklady WHERE ucel = 'chat' AND poznamka = 'test';
 
 SELECT pg_temp.jako(NULL);
 SELECT 'VŠECHNY KONTROLY PROJEKTU BIBLE PROŠLY' AS vysledek;

@@ -10,11 +10,12 @@ import {
   idZaznamu, pivovarVstup, postupProvozuVstup, prevzetiVstup, vyberPivovaru, zarizeniVstup,
   recepturaVstup, varkaVstup,
   overeniVstup, problemVstup, stavZjisteniVstup, webZdrojVstup, zjisteniVstup,
+  stropVstup,
 } from '../_shared/vstupy.ts';
 import {
   celeCislo, druhObjektu, DRUHY_OBJEKTU, jeCitelny, listyPodStropem, MAX_LISTU_NA_DOTAZ, nahled, OBJEKTU_NA_DOTAZ,
   rejstrikListu, sPrekladem, SLOUPCE_LISTU, SLOUPCE_PREKLADU, vsechnyRadky, ZPRAVA_BEZ_TEXTU, zpravaNezpracovano,
-  dotazHledani, slovaDotazu, uryvek, VYSLEDKU_HLEDANI,
+  dotazHledani, slovaDotazu, slovaVolne, uryvek, VYSLEDKU_HLEDANI,
 } from '../_shared/cteni.ts';
 import { nahodnyToken, platnaChallenge, platnyClient, POVOLENE_NAVRATY, sha256hex } from '../_shared/mcp.ts';
 
@@ -279,18 +280,73 @@ const PROVEDENI: Record<Akce, (k: Kontext) => Promise<Response>> = {
       return chyba(cors, 409, 'nezpracovano', 'Hledání čeká na migraci databáze bible 20261103010000_bible_hledani (Systém → Databázové migrace → Databáze bible).');
     }
     if (error) return chybaDb(cors, error, 'hledej');
-    const slova = slovaDotazu(dotaz);
-    const radky = (data ?? []) as {
+    type Radek = {
       dokument_id: string; nazev: string; autor: string | null; rok: number | null; jazyk: string | null;
       zdroj: string; pdf_index: number; tistena_strana: string | null; kapitola: string | null; druh: string; text: string;
-    }[];
+      shoda?: number; slov?: number;
+    };
+    let radky = (data ?? []) as Radek[];
+    // Otázka v běžné řeči: všechna slova na jedné stránce nejsou → stránky s nejvíc
+    // slovy otázky (bez výplňových slov, s uříznutou koncovkou; migrace 20261111030000).
+    const kmeny = slovaVolne(dotaz);
+    let volne = false;
+    if (radky.length === 0 && kmeny.length > 0) {
+      const v = await db.rpc('bible_hledej_volne', { p_dotaz: dotaz, p_dokument: dokument, p_limit: VYSLEDKU_HLEDANI });
+      if (v.error && v.error.code !== 'PGRST202') return chybaDb(cors, v.error, 'hledej');
+      if (!v.error && Array.isArray(v.data) && v.data.length > 0) { radky = v.data as Radek[]; volne = true; }
+    }
+    const slova = volne ? kmeny : slovaDotazu(dotaz);
     return hotovo(cors, {
+      volne,
+      slova,
       vysledky: radky.map((r) => ({
         dokument_id: r.dokument_id, nazev: r.nazev, autor: r.autor, rok: r.rok, jazyk: r.jazyk,
         zdroj: r.zdroj, pdf_index: r.pdf_index, tistena_strana: r.tistena_strana, kapitola: r.kapitola, druh: r.druh,
         uryvek: uryvek(r.text, slova),
+        ...(volne ? { shoda: r.shoda ?? null, slov: r.slov ?? null } : {}),
       })),
     });
+  },
+
+  // AI sládek (etapa 5): útrata za AI tento měsíc, strop, model a jestli má chatbot klíč
+  // (secret ANTHROPIC_API_KEY projektu bible — hodnota se nikdy nevrací).
+  async chat_stav({ db, cors }) {
+    const klic = Boolean(Deno.env.get('ANTHROPIC_API_KEY'));
+    const { data, error } = await db.rpc('bible_ai_utrata_mesic');
+    if (error?.code === 'PGRST202') return hotovo(cors, { migrace: false, klic });
+    if (error) return chybaDb(cors, error, 'chat_stav');
+    return hotovo(cors, { ...((data ?? {}) as Record<string, unknown>), migrace: true, klic });
+  },
+
+  // Vlastní konverzace s AI sládkem (nejnovější první) — cizí SQL nevrátí.
+  async konverzace({ db, u, cors }) {
+    const { data, error } = await db.rpc('bible_konverzace_seznam', { p_uzivatel: u.uid, p_limit: 50 });
+    if (error?.code === 'PGRST202') return hotovo(cors, { konverzace: [], migrace: false });
+    if (error) return chybaDb(cors, error, 'konverzace');
+    return hotovo(cors, { konverzace: data ?? [], migrace: true });
+  },
+
+  async konverzace_detail({ db, u, telo, cors }) {
+    const id = idZaznamu(telo, 'konverzace');
+    const { data, error } = await db.rpc('bible_konverzace_zpravy', { p_uzivatel: u.uid, p_konverzace: id });
+    if (error) return chybaDb(cors, error, 'konverzace_detail');
+    if (!data) return chyba(cors, 404, 'nenalezeno', 'Tahle konverzace neexistuje (nebo není tvoje).');
+    return hotovo(cors, data);
+  },
+
+  async konverzace_smazat({ db, u, telo, cors }) {
+    const id = idZaznamu(telo, 'konverzace');
+    const { data, error } = await db.rpc('bible_konverzace_smaz', { p_uzivatel: u.uid, p_konverzace: id });
+    if (error) return chybaDb(cors, error, 'konverzace_smazat');
+    return hotovo(cors, { smazano: data === true });
+  },
+
+  // Měsíční strop útraty za AI — jen správce (hlídá i SQL).
+  async strop_nastavit({ db, u, telo, cors }) {
+    const usd = stropVstup(telo);
+    const { error } = await db.rpc('bible_strop_nastav', { p_uzivatel: u.uid, p_pristup: u.pristup, p_usd: usd });
+    if (error) return chybaDb(cors, error, 'strop_nastavit');
+    return hotovo(cors, { strop_usd: usd });
   },
 
   // Přehledy témat: seznam (bez textu). Bez migrace přehledů prázdný seznam s příznakem.

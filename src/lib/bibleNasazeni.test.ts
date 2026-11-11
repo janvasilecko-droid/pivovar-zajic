@@ -14,8 +14,8 @@ const krok = (nazev: string) => {
 };
 
 describe('funkce projektu bible', () => {
-  it('otisk: bible-api a bible-migrace, stabilní a různý pro každou funkci', () => {
-    expect(funkceBible()).toEqual(['bible-api', 'bible-mcp', 'bible-migrace']);
+  it('otisk: bible-api, bible-chat, bible-mcp a bible-migrace, stabilní a různý pro každou funkci', () => {
+    expect(funkceBible()).toEqual(['bible-api', 'bible-chat', 'bible-mcp', 'bible-migrace']);
     const a = otiskFunkce('bible-api');
     expect(a).toMatch(/^[0-9a-f]{16}$/);
     expect(otiskFunkce('bible-api')).toBe(a);
@@ -36,6 +36,21 @@ describe('funkce projektu bible', () => {
     expect(k).toMatch(/if: always\(\)/);
     expect(k).not.toMatch(/--prune|supabase link|sasqexjadvlqyticxwja|git diff --name-only|github\.event\.before/);
     expect(k).toMatch(/bible-nasazeni\.mjs --jen-jmena/);
+  });
+
+  it('klíč Claude pro AI sládka: zvláštní krok z app_secrets, zamaskovaný, jen přes soubor; npx klíč hlavního projektu nevidí', () => {
+    const k = krok('Klíč Claude pro AI sládka');
+    expect(k).toMatch(/if: always\(\)/);
+    expect(k).toMatch(/HLAVNI_KLIC: \$\{\{ secrets\.SUPABASE_SERVICE_ROLE_KEY \}\}/);
+    expect(k).toMatch(/app_secrets\?select=value&key=eq\.ANTHROPIC_API_KEY/);
+    expect(k.indexOf('::add-mask::$klic')).toBeGreaterThan(-1);
+    expect(k.indexOf('::add-mask::$klic')).toBeLessThan(k.indexOf('claude-klic" )'));
+    expect(k).not.toMatch(/npx|GITHUB_ENV|echo "\$klic"/);
+    const bible = krok('Edge funkce projektu bible');
+    expect(bible).not.toMatch(/SUPABASE_SERVICE_ROLE_KEY/);
+    expect(bible).toMatch(/ANTHROPIC_API_KEY=%s/);
+    expect(bible).toMatch(/rm -f "\$RUNNER_TEMP\/claude-klic"/);
+    expect(DEPLOY.indexOf('- name: Klíč Claude pro AI sládka')).toBeLessThan(DEPLOY.indexOf('- name: Edge funkce projektu bible'));
   });
 
   it('funkce appky se dál nasazují jen do hlavního projektu a bible do nich nepatří', () => {

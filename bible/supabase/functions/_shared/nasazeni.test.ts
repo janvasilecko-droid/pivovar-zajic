@@ -12,8 +12,8 @@ const slozkyFunkci = readdirSync(FUNKCE).filter((s) => !s.startsWith('_') && sta
 const zdroj = (slug: string) => readFileSync(join(FUNKCE, slug, 'index.ts'), 'utf8');
 
 describe('funkce projektu bible', () => {
-  it('jsou bible-api, bible-mcp (konektor do aplikace Claude) a bible-migrace', () => {
-    expect(slozkyFunkci.sort()).toEqual(['bible-api', 'bible-mcp', 'bible-migrace']);
+  it('jsou bible-api, bible-chat (AI sládek v appce), bible-mcp (konektor do aplikace Claude) a bible-migrace', () => {
+    expect(slozkyFunkci.sort()).toEqual(['bible-api', 'bible-chat', 'bible-mcp', 'bible-migrace']);
     for (const s of slozkyFunkci) expect(existsSync(join(FUNKCE, s, 'index.ts')), s).toBe(true);
   });
 
@@ -47,6 +47,27 @@ describe('funkce projektu bible', () => {
     const kod = zdroj('bible-api');
     expect(kod).not.toMatch(/\.(insert|update|upsert|delete)\(/);
     expect(kod).toMatch(/rpc\('bible_zaloz_nahrani'/);
+  });
+
+  it('chatbot a sdílené nástroje (konektor i chatbot) zapisují jen přes SQL funkce', () => {
+    for (const kod of [zdroj('bible-chat'), ...['nastroje.ts', 'chat.ts', 'chat-smycka.ts'].map((f) => readFileSync(join(__dirname, f), 'utf8'))]) {
+      expect(kod).not.toMatch(/\.(insert|update|upsert|delete)\(/);
+    }
+    const kod = zdroj('bible-chat');
+    for (const f of ['bible_konverzace_zaloz', 'bible_zprava_uloz', 'bible_naklad_zapis']) expect(kod).toMatch(new RegExp(`rpc\\('${f}'`));
+  });
+
+  it('bible-chat: strop útraty před voláním Claude, klíč jen na api.anthropic.com, čas pod limitem platformy', () => {
+    const kod = zdroj('bible-chat');
+    expect(kod).toMatch(/const ANTHROPIC_URL = 'https:\/\/api\.anthropic\.com';/);
+    expect(kod).toMatch(/baseURL: ANTHROPIC_URL/);
+    expect(kod.indexOf("db.rpc('bible_ai_utrata_mesic')")).toBeGreaterThan(0);
+    expect(kod.indexOf('if (utraceno >= strop)')).toBeLessThan(kod.indexOf('claude.beta.messages.stream('));
+    // Strop se hlídá i před každým dalším kolem (smyčka v _shared/chat-smycka.ts).
+    expect(readFileSync(join(__dirname, 'chat-smycka.ts'), 'utf8')).toMatch(/if \(k\.utraceno \+ cena\.cena >= k\.strop\) \{ duvod = 'strop'; break; \}/);
+    expect(kod).toMatch(/setTimeout\(\(\) => preruseni\.abort\(\), CAS_KONEC_MS\)/);
+    expect(kod).toMatch(/signal: preruseni\.signal/);
+    expect(kod).not.toMatch(/temperature|top_p|top_k/);
   });
 
   it('každá akce z AKCE má v bible-api obsluhu (chybějící by se ukázala až jako 500 za běhu)', () => {

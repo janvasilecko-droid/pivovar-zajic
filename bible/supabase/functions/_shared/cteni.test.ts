@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   celeCislo, druhObjektu, jeCitelny, listyPodStropem, MAX_ZNAKU_ODPOVEDI, nahled, rejstrikListu, sPrekladem, dotazHledani, slovaDotazu, uryvek, STRANKA_DB, vsechnyRadky,
   zpravaNezpracovano,
+  slovaVolne,
 } from './cteni';
 import { ChybaVstupu } from './vstupy';
 
@@ -115,6 +116,18 @@ describe('odpověď čtení', () => {
     // Pojistka: nikdy víc než max řádků.
     const mnoho = await vsechnyRadky<number>(async (od, do_) => ({ data: Array.from({ length: do_ - od + 1 }, (_, i) => od + i), error: null }), 2500);
     expect(mnoho.data).toHaveLength(2500);
+  });
+});
+
+describe('hledání otázkou v běžné řeči (stejně jako bible_slova_volne v SQL)', () => {
+  it('vynechá výplňová slova a uřízne českou koncovku (kmen aspoň 3 písmena)', () => {
+    expect(slovaVolne('Proč β-amyláza pracuje tak pomalu při rmutování?')).toEqual(['amylaz', 'prac', 'pomal', 'rmut']);
+    expect(slovaVolne('chmelovaru pění pivo pH CO2 62 °C')).toEqual(['chmelovar', 'pen', 'piv', 'ph', 'co2', '62']);
+  });
+  it('jen výplňová slova = nic; opakované kmeny jednou; nejvýš 8', () => {
+    expect(slovaVolne('proč a jak?')).toEqual([]);
+    expect(slovaVolne('kvašení kvasnice kvasnic')).toEqual(['kvas', 'kvasnic']);
+    expect(slovaVolne('a1 b2 slad1 slad2 slad3 slad4 slad5 slad6 slad7 slad8 slad9')).toHaveLength(8);
   });
 });
 

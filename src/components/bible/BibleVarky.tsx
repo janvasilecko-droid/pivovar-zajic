@@ -5,7 +5,7 @@
 // Porovnání tady počítá stejný kód jako Claude přes konektor (nástroj
 // porovnej_varky): hodnoty, cíle receptury s odchylkou, odvozené hodnoty
 // z výpočetního modulu (výtěžek, odpar, prokvašení, alkohol) a co chybí.
-// Příčiny odchylek hledá Claude (konektor) — chatbot v appce je odložený (R14).
+// Příčiny odchylek hledá Claude — AI sládek v appce (R28) nebo konektor (R16).
 import { useEffect, useRef, useState } from 'react';
 import { GitCompare, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useAuth } from '../../lib/auth';

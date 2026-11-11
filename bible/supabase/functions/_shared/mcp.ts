@@ -83,8 +83,9 @@ export const NASTROJE: readonly Nastroj[] = [
     name: 'hledej_v_knihach',
     title: 'Hledat v knihách',
     description: 'Fulltextové hledání v odborných pivovarských knihách majitele (text knih i jejich český překlad). '
-      + 'Hledají se začátky slov, všechna slova musí být na jedné stránce — používej 1–3 klíčová slova, '
-      + 'zkoušej česky i anglicky/německy (např. „chmelovar", „wort boiling", „Würzekochen"). Vrací úryvky s knihou, stranou a odkazem.',
+      + 'Hledají se začátky slov: nejdřív stránky se všemi slovy, když žádné nejsou, stránky s nejvíc slovy dotazu. '
+      + 'Nejlíp 1–3 klíčová slova, zkoušej česky i anglicky/německy (např. „chmelovar", „wort boiling", „Würzekochen"). '
+      + 'Vrací úryvky s knihou, stranou a odkazem.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -119,6 +120,21 @@ export const NASTROJE: readonly Nastroj[] = [
     inputSchema: {
       type: 'object',
       properties: { tema: { type: 'string', description: 'Název nebo klíč tématu, např. „chmelovar"' } },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'hledej_zkusenosti',
+    title: 'Zkušenosti sládků',
+    description: 'Praktické zkušenosti sládků zapsané v appce (řešení problémů, provozní postupy, rozhovory) s úrovní důvěryhodnosti: '
+      + '1 ověřená odborná publikace, 2 výrobní dokumentace, 3 opakovaně ověřená provozní zkušenost, 4 zkušenost jednoho sládka, '
+      + '5 neověřená informace. Je to praxe, ne literatura — v odpovědi ji odděl a řekni úroveň. Filtr dotaz a oblast (A–T).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        dotaz: { type: 'string', description: 'Slova k hledání (nepovinné)' },
+        oblast: { type: 'string', description: 'Oblast A–T (nepovinné)' },
+      },
       additionalProperties: false,
     },
   },
@@ -285,6 +301,7 @@ export const NASTROJE: readonly Nastroj[] = [
 export const INSTRUKCE = 'Knihovna odborné pivovarské literatury Pivovaru Zajíc. Odpovídej česky. Fakta ber z nástrojů '
   + '(hledej_v_knihach, precti_stranu, prehled_tematu) a u každého tvrzení uveď odkaz na knihu a stránku přesně tak, jak je ve výsledku. '
   + 'Čísla a jednotky opisuj přesně. Když knihy něco neříkají, řekni to; vlastní obecnou znalost jasně odliš od toho, co je v knihách. '
+  + 'Praxi sládků (hledej_zkusenosti) uváděj zvlášť s úrovní důvěryhodnosti, nikdy jako obecné pravidlo. '
   + 'Výsledek označený „starší vydání" má v knihovně novější vydání: přednost má novější (hodnoty se mohly změnit), rozdíl řekni. '
   + 'Čísla z výpočtů (stupňovitost, alkohol, ředění, výtěžek, IBU, barva, CO₂, chlazení, voda, potrubí, CIP, energie, daň, náklady…) '
   + 'počítej nástrojem vypocet, ne zpaměti. Parametry konkrétního provozu (objemy nádob, výkony, čerpadla, postupy) ber z profil_pivovaru, '

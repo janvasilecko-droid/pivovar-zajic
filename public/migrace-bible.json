@@ -10,6 +10,7 @@
     "20261104050000_bible_vydani.sql",
     "20261111000000_bible_technologie.sql",
     "20261111010000_bible_varky.sql",
-    "20261111020000_bible_web_problemy.sql"
+    "20261111020000_bible_web_problemy.sql",
+    "20261111030000_bible_chat.sql"
   ]
 }
