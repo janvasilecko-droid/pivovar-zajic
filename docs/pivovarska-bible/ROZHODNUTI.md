@@ -114,7 +114,11 @@ Každé rozhodnutí má datum, důvod a co by ho změnilo.
   klíč hlavní appky) nastaví CI.
 - **Worker:** data v projektu bible (`BIBLE_SUPABASE_SERVICE_ROLE_KEY`),
   klíč Claude z `app_secrets` hlavní appky.
-- **Zálohy:** `zalohy/bible/` (katalog, nastavení, náklady, evidence migrací).
+- **Zálohy:** `zalohy/bible/` (katalog, nastavení, náklady, evidence migrací;
+  od 11. 11. 2026 i ručně zadaná data — zkušenosti, profil pivovaru, receptury
+  a várky, webové zdroje, problémy a zjištění; obsah knih ani historie chatu
+  ne). Každou tabulku z migrací bible hlídá test: zálohovaná, nebo vědomě
+  vynechaná s důvodem.
 - **Hlavní projekt:** migrace `20261231410000` a `20261231420000` zůstávají
   (běžely, přesun by v Auditu vyrobil „osiřelé" migrace). Tabulky bible tam
   zůstaly prázdné; zápis do nich zavřela `20261231430000`. Majitel smazání

@@ -77,10 +77,16 @@ nový repozitář.
 ## Projekt bible (zalohy/bible/)
 
 Pivovarská bible má od 31. 10. 2026 vlastní projekt Supabase (rozhodnutí R12
-v `docs/pivovarska-bible/ROZHODNUTI.md`). Jeho katalog knihovny, nastavení,
-náklady na AI a evidence migrací se zálohují zvlášť do `zalohy/bible/`
-(stejné heslo). Obsah knih (strany, kapitoly, pasáže) se nezálohuje —
-zpracování ho vytvoří znovu z originálů; originály mají druhou kopii u majitele.
+v `docs/pivovarska-bible/ROZHODNUTI.md`). Zálohuje se zvlášť do `zalohy/bible/`
+(stejné heslo): katalog knihovny, nastavení, náklady na AI, evidence migrací
+a od 11. 11. 2026 i všechno, co lidé do bible zapisují ručně — zkušenosti
+sládků, profil pivovaru (zařízení, provozní postupy), receptury a várky,
+webové zdroje, problémy a jejich zjištění (free tarif Supabase vlastní zálohy
+nemá). Obsah knih (strany, kapitoly, pasáže) se nezálohuje — zpracování ho
+vytvoří znovu z originálů; originály mají druhou kopii u majitele. Vědomě
+vynechané jsou i přehledy témat a historie chatu AI sládka (citují knihy),
+dodatky k PDF (worker je postaví znovu), slovník z migrace a tokeny konektoru
+(seznam s důvody: `scripts/lib/zalohaTabulky.mjs`, NEZALOHOVAT_BIBLE).
 
 Obnova potřebuje v `.env` klíč projektu bible
 `BIBLE_SUPABASE_SERVICE_ROLE_KEY=…` (Secret key z

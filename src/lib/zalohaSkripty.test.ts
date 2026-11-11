@@ -2,7 +2,7 @@
 // Actions), proto se volají skutečným Node, ne přes transformaci vitestu.
 import { describe, it, expect } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 
 function node(kod: string): unknown {
   const vystup = execFileSync(
@@ -73,15 +73,73 @@ describe('seznam zálohovaných tabulek', () => {
     for (const t of [...odlozene, ...vazby, ...unikatni]) expect([...zalohovane, ...bible]).toContain(t);
   });
 
-  it('projekt bible má vlastní sadu: katalog, nastavení, náklady a evidence migrací — obsah knih ne', () => {
-    expect(bible.sort()).toEqual(['ai_naklady', 'bible_dokumenty', 'bible_nastaveni', 'migrace_aplikovane']);
-    expect(pkBible).toEqual({ migrace_aplikovane: 'nazev', bible_nastaveni: 'klic', bible_dokumenty: 'id', ai_naklady: 'id' });
-    for (const t of ['bible_strany', 'bible_pasaze', 'bible_kapitoly']) {
+  it('projekt bible má vlastní sadu: katalog, nastavení, náklady, migrace a ručně zadaná data — obsah knih ne', () => {
+    expect([...bible].sort()).toEqual([
+      'ai_naklady', 'bible_dokumenty', 'bible_nastaveni', 'bible_pivovary', 'bible_postupy_provozu', 'bible_problem_zjisteni',
+      'bible_problemy', 'bible_receptury', 'bible_varky', 'bible_web_zdroje', 'bible_zarizeni', 'bible_zkusenosti', 'migrace_aplikovane',
+    ]);
+    expect(pkBible).toMatchObject({ migrace_aplikovane: 'nazev', bible_nastaveni: 'klic', bible_dokumenty: 'id', ai_naklady: 'id', bible_varky: 'id' });
+    // Obsah knih, chat s citacemi, přehledy z knih a tajemství konektoru nikdy.
+    for (const t of ['bible_strany', 'bible_pasaze', 'bible_kapitoly', 'bible_prehledy', 'bible_zpravy', 'bible_konverzace',
+      'bible_mcp_klienti', 'bible_mcp_kody', 'bible_mcp_tokeny']) {
       expect(bible).not.toContain(t);
       expect(nezalohovatBible).toContain(t);
     }
     // Prázdné tabulky bible v hlavním projektu se do hlavní zálohy nepletou.
     for (const t of zalohovane) expect(t).not.toMatch(/^bible_|^ai_naklady$/);
+  });
+
+  describe('projekt bible podle migrací', () => {
+    const migrace = readdirSync('bible/supabase/migrations').filter((j) => j.endsWith('.sql')).sort()
+      .map((j) => readFileSync(`bible/supabase/migrations/${j}`, 'utf8').replace(/\r\n/g, '\n')).join('\n');
+    // Tabulky z migrací a pro každou její odkazy (REFERENCES) a počítané sloupce (GENERATED).
+    const tabulky = new Map<string, { odkazy: Set<string>; pocitane: Set<string> }>();
+    for (const blok of migrace.split(/CREATE TABLE IF NOT EXISTS public\./).slice(1)) {
+      const jmeno = /^(\w+)/.exec(blok)![1];
+      const telo = blok.slice(0, blok.indexOf('\n);'));
+      tabulky.set(jmeno, {
+        odkazy: new Set([...telo.matchAll(/REFERENCES public\.(\w+)/g)].map((m) => m[1])),
+        pocitane: new Set([...telo.matchAll(/^\s+(\w+) [^\n]*GENERATED ALWAYS/gm)].map((m) => m[1])),
+      });
+    }
+    for (const m of migrace.matchAll(/ALTER TABLE public\.(\w+)\s+ADD COLUMN IF NOT EXISTS (\w+)([^;]*);/g)) {
+      const t = tabulky.get(m[1]);
+      if (!t) continue;
+      for (const o of m[3].matchAll(/REFERENCES public\.(\w+)/g)) t.odkazy.add(o[1]);
+      if (/GENERATED ALWAYS/.test(m[3])) t.pocitane.add(m[2]);
+    }
+    const { vynechat } = node('({ vynechat: t.VYNECHAT_SLOUPCE })') as { vynechat: Record<string, string[]> };
+
+    it('každá tabulka bible je zálohovaná, nebo vědomě vynechaná (ne obojí)', () => {
+      expect(tabulky.size).toBeGreaterThanOrEqual(25);
+      const zapomenute = [...tabulky.keys()].filter((t) => !bible.includes(t) && !nezalohovatBible.includes(t));
+      // Spadne-li to: novou tabulku bible přidej do scripts/lib/zalohaTabulky.mjs
+      // (TABULKY_BIBLE v pořadí obnovy, nebo NEZALOHOVAT_BIBLE s důvodem).
+      expect(zapomenute).toEqual([]);
+      expect(bible.filter((t) => nezalohovatBible.includes(t))).toEqual([]);
+      for (const t of [...bible, ...nezalohovatBible]) expect(tabulky.has(t)).toBe(true);
+    });
+
+    it('při obnově jdou rodiče před dětmi (odkazy z migrací)', () => {
+      for (const t of bible) {
+        for (const rodic of tabulky.get(t)!.odkazy) {
+          if (rodic === t) continue; // vlastní odkaz řeší ODLOZENE_SLOUPCE
+          expect(bible, `${t} odkazuje na ${rodic}`).toContain(rodic);
+          expect(bible.indexOf(rodic), `${rodic} musí být v záloze před ${t}`).toBeLessThan(bible.indexOf(t));
+        }
+      }
+    });
+
+    it('sloupce, které počítá databáze, se do zálohy nepíšou (obnova by je zapsat nesměla)', () => {
+      for (const t of bible) {
+        expect([...(vynechat[t] ?? [])].sort(), t).toEqual([...tabulky.get(t)!.pocitane].sort());
+      }
+    });
+  });
+
+  it('počítané sloupce zmizí z řádku zálohy i obnovy', () => {
+    expect(node(`t.bezVynechanych('bible_zkusenosti', { id: 'a', text: 'x', hledani: "'x'" })`)).toEqual({ id: 'a', text: 'x' });
+    expect(node(`t.bezVynechanych('orders', { id: 'a', hledani: 1 })`)).toEqual({ id: 'a', hledani: 1 });
   });
 
   it('rodiče jdou v pořadí obnovy před dětmi', () => {

@@ -57,14 +57,24 @@ export const TABULKY = [
 
 /**
  * 📚 PROJEKT BIBLE (samostatný Supabase projekt, rozhodnutí R12) — vlastní
- * sada zálohy (zalohy/bible/, `--sada bible`): jen katalog knihovny (názvy,
+ * sada zálohy (zalohy/bible/, `--sada bible`): katalog knihovny (názvy,
  * soubory, stav zpracování), nastavení modelů, evidence nákladů na AI
- * a evidence migrací. Obsah knih se nezálohuje — viz NEZALOHOVAT_BIBLE.
- * Prázdné tabulky bible, které v hlavním projektu zůstaly po přestěhování,
- * se nezálohují (nic v nich není a migrace 20261231440000 je smaže).
+ * a migrací — a od 11. 11. 2026 i všechno, co lidé do bible zapisují ručně:
+ * zkušenosti sládků, profil pivovaru (zařízení, provozní postupy), receptury
+ * a várky, webové zdroje, problémy a jejich zjištění. Free tarif Supabase
+ * vlastní zálohy nemá — bez téhle by se ztratily. Obsah knih se nezálohuje
+ * (NEZALOHOVAT_BIBLE). Pořadí = pořadí obnovy: rodiče před dětmi (hlídá test
+ * podle REFERENCES v migracích). Tabulka z ještě nespuštěné migrace se
+ * přeskočí (zaloha-objednavek.mjs). Prázdné tabulky bible, které v hlavním
+ * projektu zůstaly po přestěhování, se nezálohují (migrace 20261231440000 je smaže).
  */
 export const TABULKY_BIBLE = [
   ['migrace_aplikovane', 'nazev'], ['bible_nastaveni', 'klic'], ['bible_dokumenty', 'id'], ['ai_naklady', 'id'],
+  ['bible_zkusenosti', 'id'],
+  ['bible_pivovary', 'id'], ['bible_zarizeni', 'id'], ['bible_postupy_provozu', 'id'],
+  ['bible_receptury', 'id'], ['bible_varky', 'id'],
+  ['bible_web_zdroje', 'id'],
+  ['bible_problemy', 'id'], ['bible_problem_zjisteni', 'id'],
 ];
 
 /** Adresa projektu bible (veřejná); klíč je v secretu BIBLE_SUPABASE_SERVICE_ROLE_KEY. */
@@ -84,18 +94,52 @@ export const NEZALOHOVAT = [
 ];
 
 /**
- * Projekt bible: strany, kapitoly a pasáže knih jsou odvozené z originálů
- * v bucketu „knihovna" (zpracování je kdykoli vytvoří znovu). Obsah knih
- * chráněný autorským právem do zálohy ve veřejném repu nepatří.
+ * Projekt bible — vědomě vynechané tabulky (každou tabulku z
+ * bible/supabase/migrations musí mít test buď tady, nebo v TABULKY_BIBLE):
  */
-export const NEZALOHOVAT_BIBLE = ['bible_kapitoly', 'bible_strany', 'bible_pasaze'];
+export const NEZALOHOVAT_BIBLE = [
+  // Strany, kapitoly a pasáže knih jsou odvozené z originálů v bucketu
+  // „knihovna" (zpracování je kdykoli vytvoří znovu). Obsah knih chráněný
+  // autorským právem do zálohy ve veřejném repu nepatří.
+  'bible_kapitoly', 'bible_strany', 'bible_pasaze',
+  // Přehledy témat: syntéza z knih s citacemi — worker je napíše znovu.
+  'bible_prehledy',
+  // Historie chatu AI sládka: odpovědi citují knihy; soukromé konverzace.
+  'bible_konverzace', 'bible_zpravy',
+  // Dodatky k PDF (rychlé otevření strany): jen struktura, worker je postaví znovu.
+  'bible_dodatky',
+  // Slovník odborných výrazů: celý z migrace 20261111040000, appka ho nemění.
+  'bible_slovnik',
+  // Tajemství konektoru Claude (OAuth klienti, kódy, tokeny) — jako app_secrets nikdy.
+  'bible_mcp_klienti', 'bible_mcp_kody', 'bible_mcp_tokeny',
+  // Fronta úklidu souborů smazaných dokumentů — provozní, za pár minut prázdná.
+  'bible_smazane_soubory',
+];
+
+/**
+ * Sloupce, které se do zálohy nepíšou: počítá je databáze sama (GENERATED
+ * ALWAYS) — obnova by je zapsat nesměla (Postgres takový zápis odmítne)
+ * a porovnání se zálohou by je hlásilo jako rozdíl. Hlídá test podle migrací.
+ */
+export const VYNECHAT_SLOUPCE = {
+  bible_zkusenosti: ['hledani'],
+};
+
+/** Řádek bez sloupců z VYNECHAT_SLOUPCE (záloha i obnova). */
+export function bezVynechanych(tabulka, radek) {
+  const sloupce = VYNECHAT_SLOUPCE[tabulka];
+  if (!sloupce) return radek;
+  const kopie = { ...radek };
+  for (const s of sloupce) delete kopie[s];
+  return kopie;
+}
 
 /** Sloupce, které se při obnově zapíšou až ve druhém kole (kruhové a vlastní odkazy). */
 export const ODLOZENE_SLOUPCE = {
   orders: ['whatsapp_message_id'],
   whatsapp_incoming: ['imported_order_id', 'amends_order_id', 'amends_message_id'],
   cellar_batches: ['kvasnice_z_varky'],
-  bible_dokumenty: ['duplikat_z'],
+  bible_dokumenty: ['duplikat_z', 'predchozi_vydani'],
 };
 
 /**
@@ -106,6 +150,9 @@ export const ODLOZENE_SLOUPCE = {
  */
 export const UNIKATNI_SLOUPCE = {
   bible_dokumenty: ['soubor_sha256', 'soubor_cesta'],
+  // Unikátní je lower(url); stejná adresa jinak psaná velkými písmeny je vzácná.
+  // (Číslo várky je unikátní jen v páru s pivovarem — sem se nevejde.)
+  bible_web_zdroje: ['url'],
 };
 
 /** Kontroly návaznosti pro zkoušku obnovy: [tabulka, sloupec, cílová tabulka]. */
@@ -115,6 +162,11 @@ export const VAZBY = [
   ['cellar_batch_mereni', 'batch_id', 'cellar_batches'],
   ['festival_equipment_loans', 'equipment_id', 'festival_equipment'],
   ['place_aliases', 'place_id', 'places'],
+  // Projekt bible (zkouška obnovy sady bible; v hlavní sadě se přeskočí).
+  ['bible_zarizeni', 'pivovar_id', 'bible_pivovary'],
+  ['bible_postupy_provozu', 'pivovar_id', 'bible_pivovary'],
+  ['bible_varky', 'receptura_id', 'bible_receptury'],
+  ['bible_problem_zjisteni', 'problem_id', 'bible_problemy'],
 ];
 
 export const pk = (tabulka) => [...TABULKY, ...TABULKY_BIBLE].find(([t]) => t === tabulka)?.[1] ?? 'id';
