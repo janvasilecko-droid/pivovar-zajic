@@ -53,6 +53,7 @@ export const POZNAMKY = {
   cas: '(Odpověď se nestihla dokončit v časovém limitu — zeptej se znovu nebo užeji.)',
   strop: '(Měsíční strop útraty za AI je vyčerpaný — zvýšit ho může správce ve Správě znalostí.)',
   kola: '(Došel počet kroků hledání — odpověď je z toho, co se stihlo najít.)',
+  prazdna: 'Claude nevrátil žádnou odpověď — zkus otázku položit znovu nebo jinak.',
 } as const;
 
 const textZpravy = (obsah: readonly unknown[]) => (obsah as { type?: unknown; text?: unknown }[])
@@ -169,9 +170,12 @@ export async function smyckaChatu(k: {
   if (!text && mezitexty.length > 0) text = mezitexty.join('\n\n');
   if (duvod === 'odmitnuto') { text = POZNAMKY.odmitnuto; zdroje = []; } else if (duvod && duvod !== 'api') text = text ? `${text}\n\n${POZNAMKY[duvod]}` : POZNAMKY[duvod];
   if (chybaClauda) text = text ? `${text}\n\n(${chybaClauda.zprava})` : chybaClauda.zprava;
+  // Prázdná odpověď se neukládá jako prázdná (appka by ukázala prázdnou kartu).
+  const prazdna = !text.trim();
+  if (prazdna) text = POZNAMKY.prazdna;
 
   return {
-    text, zdroje, kroky, neuplna: duvod !== null, duvod, chybaClauda, dokoncena: konecna !== null,
+    text, zdroje, kroky, neuplna: duvod !== null || prazdna, duvod, chybaClauda, dokoncena: konecna !== null,
     cena, volani, modelOdpovedi,
   };
 }

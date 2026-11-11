@@ -129,6 +129,12 @@ describe('smyčka chatbota', () => {
     expect(v.text).toBe(`Dlouhá.\n\n${POZNAMKY.delka}`);
   });
 
+  it('prázdná odpověď (jen přemýšlení): srozumitelná hláška, neúplná', async () => {
+    const { beh } = priprav([{ model: 'claude-opus-5-5', stop_reason: 'end_turn', usage, content: [{ type: 'thinking', thinking: '' }] }]);
+    const v = await beh;
+    expect(v).toMatchObject({ text: POZNAMKY.prazdna, neuplna: true, dokoncena: true, duvod: null });
+  });
+
   it('chyba nástroje: Claude ji dostane jako is_error a krok je označený', async () => {
     const { beh, volani } = priprav([hledani(), odpoved('Nic', false)], { zavolej: async () => { throw new ChybaNastroje('Kniha ještě není zpracovaná.'); } });
     const v = await beh;
