@@ -90,8 +90,11 @@ Majitel 30. 10. 2026: „chci aby to bylo napojené na Claude", „ne Gemini".
 - **Nástroje:** `hledej_v_knihovne`, `vypocet_*`, `profil_pivovaru` a `data_varky`.
   Počet kol je omezený. Nástroje se nevynucují (`tool_choice: auto`), protože
   Opus 5.5 vynucené volání odmítá.
-- **Odpověď se streamuje** (SSE) z edge funkce a musí doběhnout do 150 s
-  (limit platformy).
+- **Odpověď se streamuje** z edge funkce `bible-chat` po řádcích (NDJSON:
+  kroky, průběžný text, hotová odpověď s citacemi) a musí doběhnout do 150 s
+  (limit platformy) — po 80 s už bez dalšího hledání, tvrdý konec ve 140 s.
+  Hotovo 11. 11. 2026 (R28); stránky knih jdou Claudovi jako `search_result`
+  se zdrojem = odkaz do čtečky.
 - **Prompt caching:** systémový prompt a definice nástrojů se ukládají
   do mezipaměti, takže opakované dotazy jsou levnější.
 - **Náklady:** každé volání se zapíše do `ai_naklady` (model, tokeny vstup,

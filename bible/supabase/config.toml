@@ -16,3 +16,7 @@ verify_jwt = false
 
 [functions.bible-mcp]
 verify_jwt = false
+
+# AI sládek (chatbot v appce, etapa 5): token hlavní appky ověřuje brána sama.
+[functions.bible-chat]
+verify_jwt = false

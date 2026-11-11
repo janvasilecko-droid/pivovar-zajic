@@ -150,6 +150,39 @@ export function slovaDotazu(dotaz: string): string[] {
   return bezDiakritiky(dotaz).split(/[^a-z0-9]+/).filter((w) => w.length >= 2 || /^[0-9]$/.test(w)).slice(0, 8);
 }
 
+// Hledání otázkou v běžné řeči — stejná výplňová slova a koncovky jako
+// bible_slova_volne v SQL (migrace 20261111030000_bible_chat). Změna jen na obou místech.
+const VYPLNOVA = new Set((
+  'proc jak jaky jaka jake jaci kdy kde kam kolik ktery ktera ktere kteri neco nejak pro pri pod nad mezi jsem jsme jste jsou '
+  + 'byl byla bylo byly bude budou mam mame mate maji mit mel mela melo meli muze muzu mohu mohl muzeme lze neni nebo ale ani '
+  + 'tak take jen aby bych bys bychom byste kdyz jako jeho jeji jejich tento tato toto tyto tech tem ten tam tady zde jeste '
+  + 'velmi moc hodne malo trochu nas nase nasi vas vase muj moje svuj sve sva treba proto protoze potom pak nez chci chceme '
+  + 'potrebuji potrebuju vim nevim delat udelat resit poradit poradte prosim dekuji diky '
+  + 'the and for with why how what when does from that this are was not der die das und mit fur wie warum ist sind ein eine bei von'
+).split(' '));
+const KONCOVKY = (
+  'ovani ovat ujeme ujete ovych ovymi ovemu oveho ovou eni ani uje uji ovy ova ove ovi ich ych ech ach ami emi imi ymi eho emu '
+  + 'iho imu ou em im ym um am at it et a e i o u y'
+).split(' ').sort((a, b) => b.length - a.length);
+const ZNACKY = new Set(['ph', 'o2', 'fe', 'cu', 'zn', 'ca', 'mg']);
+
+/** Slova otázky pro volné hledání: bez výplňových slov, s uříznutou českou koncovkou (chmelovaru → chmelovar), nejvýš 8. */
+export function slovaVolne(dotaz: string): string[] {
+  const vysledek: string[] = [];
+  for (const slovo of bezDiakritiky(dotaz).split(/[^a-z0-9]+/)) {
+    const cislo = /^[0-9]+$/.test(slovo);
+    if (!(slovo.length >= 3 || cislo || ZNACKY.has(slovo)) || VYPLNOVA.has(slovo)) continue;
+    let kmen = slovo;
+    if (!cislo && slovo.length >= 4) {
+      const k = KONCOVKY.find((x) => slovo.endsWith(x) && slovo.length - x.length >= 3);
+      if (k) kmen = slovo.slice(0, -k.length);
+    }
+    if (!vysledek.includes(kmen)) vysledek.push(kmen);
+    if (vysledek.length === 8) break;
+  }
+  return vysledek;
+}
+
 /**
  * Úryvek textu kolem prvního nalezeného slova dotazu (bez ohledu na diakritiku
  * a velikost písmen). Nenajde-li se nic, začátek textu. Celá slova, s „…".

@@ -3,11 +3,12 @@
 // doporučení, hypotéza, chybí), porovnání dotčených várek a trend várek.
 // ---------------------------------------------------------------------------
 // Architektura § 6 a § 11: „s jasným označením, co je fakt, co hypotéza a co
-// chybí". Analýzu příčin dělá Claude přes konektor (nástroje problemy,
-// porovnej_varky, hledej_v_knihach…) a zjištění zapíše s typem; chatbot
-// v appce zůstává odložený (R14). Hypotézu potvrdí nebo vyvrátí člověk.
+// chybí". Příčiny hledá Claude — v appce tlačítkem „Najít příčiny s AI
+// sládkem" (chatbot, R28) nebo přes konektor (R16) se stejnými nástroji
+// (problemy, porovnej_varky, hledej_v_knihach…) — a zjištění zapíše s typem.
+// Hypotézu potvrdí nebo vyvrátí člověk.
 import { useEffect, useRef, useState } from 'react';
-import { Check, ChevronDown, ChevronUp, Pencil, Plus, RotateCcw, Trash2, X } from 'lucide-react';
+import { Bot, Check, ChevronDown, ChevronUp, Pencil, Plus, RotateCcw, Trash2, X } from 'lucide-react';
 import { useAuth } from '../../lib/auth';
 import { BIBLE_OBLASTI } from '../../lib/bibleOblasti';
 import { smiPrispivat, smiSpravovat, type BibleRole } from '../../lib/bibleOpravneni';
@@ -184,7 +185,11 @@ function SeznamZjisteni({ zjisteni, smiPsat, smiMazat, nastavStav, smazat }: {
   );
 }
 
-export function BibleProblemy({ role }: { role: BibleRole }) {
+export function BibleProblemy({ role, najdiPriciny }: {
+  role: BibleRole;
+  /** Otevře AI sládka (chatbot) s tímto problémem — příčiny najde z knih, várek a výpočtů. */
+  najdiPriciny?: (p: { id: string; nazev: string }) => void;
+}) {
   const { profile } = useAuth();
   const mojeId = profile?.id ?? null;
   const smiPsat = smiPrispivat(role);
@@ -226,7 +231,7 @@ export function BibleProblemy({ role }: { role: BibleRole }) {
     <div className="space-y-4">
       <p className="text-sm text-neutral-300 max-w-2xl">
         Technologické problémy (oblast T): příznaky, dotčené várky a zjištění s jasným označením, co je doložený fakt, výpočet, zkušenost, doporučení, hypotéza a co chybí.
-        Příčiny hledá Claude přes konektor — napiš mu třeba „analyzuj problém Nižší výtěžek" a zjištění zapíše sem.
+        Příčiny najde AI sládek: otevři problém a klepni na „Najít příčiny s AI sládkem" (nebo napiš Claudovi přes konektor „analyzuj problém …"). Zjištění zapíše sem.
       </p>
       {!problemy && !zprava && <div className="text-sm text-neutral-300">Načítám…</div>}
       {zprava && <div role="alert" className="text-sm font-bold text-rose-300">{zprava}</div>}
@@ -279,6 +284,11 @@ export function BibleProblemy({ role }: { role: BibleRole }) {
                           </div>
                         )}
                         <p className="text-xs font-semibold text-neutral-300">Založil {kdoZapsal(p)}{p.oblasti.length ? ` · oblasti ${p.oblasti.join(', ')}` : ''}</p>
+                        {najdiPriciny && (
+                          <button type="button" className="btn-amber" onClick={() => najdiPriciny({ id: p.id, nazev: p.nazev })}>
+                            <Bot size={18} /> Najít příčiny s AI sládkem
+                          </button>
+                        )}
                         {dotcene.length > 0 ? <TabulkaPorovnani varky={dotcene} receptury={prehled?.receptury ?? []} /> : (
                           <p className="text-sm text-neutral-300">{p.varky.length > 0 ? 'Přiřazené várky už v evidenci nejsou.' : 'K problému nejsou přiřazené várky (Upravit → Dotčené várky).'}</p>
                         )}

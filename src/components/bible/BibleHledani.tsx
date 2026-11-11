@@ -3,8 +3,10 @@
 // Majitel 3. 11. 2026: „po překladu pokračuj v bibli" a k chatbotu „zatím jen
 // hledání". Výsledek ukáže knihu, kapitolu a stranu („s. 158", jinak „list 170")
 // a úryvek se zvýrazněnými slovy; klepnutím se otevře čtečka na té stránce.
+// 11. 11. 2026 („hlavně ať funguje vyhledávání"): otázka v běžné řeči najde
+// stránky s nejvíc slovy otázky, když všechna na jedné stránce nejsou.
 import { useEffect, useRef, useState } from 'react';
-import { FileText, ListOrdered, Search } from 'lucide-react';
+import { Bot, FileText, ListOrdered, Search } from 'lucide-react';
 import { hledejVKnihach, jePostup, nactiPrehledy, nazevPostupu, type PolozkaPrehledu, type VysledekHledani } from '../../lib/bibleHledaniApi';
 import { nactiVydani } from '../../lib/bibleKnihovnaApi';
 import { jeStarsiVydani, rodokmenVydani, type RodokmenVydani } from '../../lib/bibleKnihovna';
@@ -13,8 +15,10 @@ import { BiblePrehled } from './BiblePrehled';
 const bezDiakritiky = (z: string) => z.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
 
 /** Úryvek s vyznačenými slovy dotazu (bez ohledu na diakritiku) — jen React elementy, žádné innerHTML. */
-export function ZvyraznenyUryvek({ text, dotaz }: { text: string; dotaz: string }) {
-  const slova = bezDiakritiky(dotaz).split(/[^a-z0-9]+/).filter((w) => w.length >= 2);
+export function ZvyraznenyUryvek({ text, dotaz, slova: hledanaSlova }: { text: string; dotaz: string; slova?: readonly string[] }) {
+  const slova = hledanaSlova && hledanaSlova.length > 0
+    ? hledanaSlova.map(bezDiakritiky)
+    : bezDiakritiky(dotaz).split(/[^a-z0-9]+/).filter((w) => w.length >= 2);
   if (slova.length === 0) return <>{text}</>;
   const casti: { t: string; nalez: boolean }[] = [];
   // Slovo textu je nález, když (bez diakritiky) začíná některým slovem dotazu — stejně jako předpony v hledání.
@@ -43,13 +47,15 @@ export function prehledyKDotazu(prehledy: readonly PolozkaPrehledu[], dotaz: str
   });
 }
 
-export function BibleHledani({ otevri, pocatecniDotaz }: {
+export function BibleHledani({ otevri, pocatecniDotaz, zeptatSe }: {
   otevri: (dokumentId: string, list: number) => void;
   /** Hledání spuštěné odjinud (Výpočtová laboratoř → „Najít v knihách“). */
   pocatecniDotaz?: string;
+  /** Položit stejnou otázku AI sládkovi (chatbot odpoví z knih, várek a výpočtů). */
+  zeptatSe?: (otazka: string) => void;
 }) {
   const [dotaz, setDotaz] = useState(pocatecniDotaz ?? '');
-  const [stav, setStav] = useState<{ dotaz: string; vysledky: VysledekHledani[] } | null>(null);
+  const [stav, setStav] = useState<{ dotaz: string; vysledky: VysledekHledani[]; volne: boolean; slova: string[] } | null>(null);
   const [chyba, setChyba] = useState<string | null>(null);
   const [hleda, setHleda] = useState(false);
   const poradi = useRef(0);
@@ -89,7 +95,7 @@ export function BibleHledani({ otevri, pocatecniDotaz }: {
     const r = await hledejVKnihach(q);
     if (moje !== poradi.current) return; // mezitím přišlo novější hledání
     setHleda(false);
-    if (r.stav === 'ok') setStav({ dotaz: q, vysledky: r.vysledky });
+    if (r.stav === 'ok') setStav({ dotaz: q, vysledky: r.vysledky, volne: r.volne === true, slova: r.slova ?? [] });
     else { setStav(null); setChyba(r.zprava); }
   }
 
@@ -118,7 +124,8 @@ export function BibleHledani({ otevri, pocatecniDotaz }: {
     <div className="space-y-4">
       <p className="text-sm text-neutral-300 max-w-2xl">
         Hledá v textu zpracovaných knih i v jejich českém překladu — česky najdeš i to, co je v anglické knize.
-        Hledají se začátky slov (např. „amyl“ najde amylázu), všechna slova musí být na jedné stránce.
+        Hledají se začátky slov (např. „amyl“ najde amylázu). Nejdřív stránky se všemi slovy; když takové nejsou,
+        stránky s nejvíc slovy z otázky — klidně napiš celou otázku.
       </p>
       <form className="flex gap-2" onSubmit={hledej} role="search">
         <label className="sr-only" htmlFor="bible-hledani">Hledat v knihách</label>
@@ -142,11 +149,29 @@ export function BibleHledani({ otevri, pocatecniDotaz }: {
       {chyba && <div role="alert" className="text-sm font-bold text-rose-300">{chyba}</div>}
       {stav && !hleda && (
         stav.vysledky.length === 0 ? (
-          <div className="rounded-xl border border-neutral-700 bg-neutral-900 p-3 text-sm text-neutral-200">
-            Nic jsem nenašel pro „{stav.dotaz}“. Zkus kratší nebo jiné slovo, případně anglický výraz.
+          <div className="rounded-xl border border-neutral-700 bg-neutral-900 p-3 text-sm text-neutral-200 space-y-2">
+            <div>Nic jsem nenašel pro „{stav.dotaz}“. Zkus kratší nebo jiné slovo, případně anglický výraz.</div>
+            {zeptatSe && (
+              <button type="button" className="btn-tmave" onClick={() => zeptatSe(stav.dotaz)}>
+                <Bot size={18} /> Zeptat se AI sládka
+              </button>
+            )}
           </div>
         ) : (
           <div className="space-y-2">
+            {stav.volne && (
+              <div role="note" className="rounded-lg border border-amber-700 bg-neutral-900 p-2 text-sm text-amber-100 space-y-2">
+                <div>
+                  Všechna slova na jedné stránce nejsou. Ukazuji stránky s nejvíc slovy z otázky
+                  {stav.slova.length > 0 && <> (hledám začátky slov: {stav.slova.map((w) => `${w}…`).join(', ')})</>} — ověř, že opravdu odpovídají.
+                </div>
+                {zeptatSe && (
+                  <button type="button" className="btn-tmave" onClick={() => zeptatSe(stav.dotaz)}>
+                    <Bot size={18} /> Zeptat se AI sládka — odpoví celou odpovědí s odkazy
+                  </button>
+                )}
+              </div>
+            )}
             <div className="text-xs font-bold text-neutral-300">Nalezeno {stav.vysledky.length}{stav.vysledky.length >= 40 ? ' (nejlepší)' : ''}</div>
             <ul className="space-y-2">
               {stav.vysledky.map((v, i) => (
@@ -165,9 +190,12 @@ export function BibleHledani({ otevri, pocatecniDotaz }: {
                       {vydani && jeStarsiVydani(vydani, v.dokumentId) && (
                         <span className="rounded border border-amber-600 px-1 text-amber-200">starší vydání — v knihovně je novější</span>
                       )}
+                      {stav.volne && v.shoda && v.slov ? (
+                        <span className="rounded border border-neutral-600 px-1">shoda {v.shoda} z {v.slov} slov</span>
+                      ) : null}
                     </span>
                     <span className="block text-sm font-normal leading-relaxed text-neutral-100 break-words">
-                      <ZvyraznenyUryvek text={v.uryvek} dotaz={stav.dotaz} />
+                      <ZvyraznenyUryvek text={v.uryvek} dotaz={stav.dotaz} slova={stav.volne ? stav.slova : undefined} />
                     </span>
                   </button>
                 </li>

@@ -76,6 +76,13 @@ export const AKCE = {
   zjisteni_ulozit: 'prispiva',
   zjisteni_stav: 'prispiva',
   zjisteni_smazat: 'prispiva',
+  // AI sládek (chatbot, etapa 5): každý vidí a maže jen svoje konverzace
+  // (hlídá SQL); měsíční strop útraty za AI mění jen správce.
+  chat_stav: 'cte',
+  konverzace: 'cte',
+  konverzace_detail: 'cte',
+  konverzace_smazat: 'cte',
+  strop_nastavit: 'spravuje',
 } as const satisfies Record<string, Pristup>;
 
 export type Akce = keyof typeof AKCE;
@@ -273,6 +280,13 @@ export function dotazZkusenosti(telo: Record<string, unknown>): { dotaz: string 
 // --- Technologie pivovaru (etapa 7) -----------------------------------------
 
 /** Id záznamu z těla požadavku (pivovar, zařízení, postup). */
+/** Měsíční strop útraty za AI v USD (0 = AI sládek vypnutý), na centy. */
+export function stropVstup(telo: Record<string, unknown>): number {
+  const v = typeof telo.usd === 'number' ? telo.usd : typeof telo.usd === 'string' && telo.usd.trim() ? Number(telo.usd.replace(',', '.')) : Number.NaN;
+  if (!Number.isFinite(v) || v < 0 || v > 1000) throw new ChybaVstupu('Strop je 0 až 1000 USD za měsíc.');
+  return Math.round(v * 100) / 100;
+}
+
 export function idZaznamu(telo: Record<string, unknown>, co: string): string {
   if (!jeUuid(telo.id)) throw new ChybaVstupu(`Chybí id ${co}.`);
   return telo.id.toLowerCase();

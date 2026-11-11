@@ -63,6 +63,23 @@ describe('hledání v knihách', () => {
     expect(otevri).toHaveBeenCalledWith(ID, 170);
   });
 
+  it('otázka v běžné řeči: poznámka o volném hledání, shoda a zvýraznění začátků slov; otázka pro AI sládka', async () => {
+    hledejVKnihach.mockResolvedValue({ stav: 'ok', volne: true, slova: ['amylaz', 'pomal'], vysledky: [
+      { dokumentId: ID, nazev: 'Pivovarství', autor: null, rok: null, zdroj: 'original', pdfIndex: 4, tistena: null, kapitola: null, druh: 'text', uryvek: 'Amyláza pracuje pomaleji.', shoda: 2, slov: 3 },
+    ] });
+    const zeptatSe = vi.fn();
+    render(<BibleHledani otevri={() => {}} zeptatSe={zeptatSe} />);
+    fireEvent.change(screen.getByLabelText('Hledat v knihách'), { target: { value: 'proč amyláza pracuje pomalu' } });
+    fireEvent.click(screen.getByRole('button', { name: /Hledat/ }));
+    await waitFor(() => expect(screen.getByText(/Všechna slova na jedné stránce nejsou/)).toBeTruthy());
+    expect(screen.getByText(/amylaz…, pomal…/)).toBeTruthy();
+    expect(screen.getByText('shoda 2 z 3 slov')).toBeTruthy();
+    expect(screen.getByText('pomaleji.').tagName).toBe('MARK');
+    expect(screen.getByText('pracuje').tagName).toBe('SPAN');
+    fireEvent.click(screen.getByRole('button', { name: /Zeptat se AI sládka/ }));
+    expect(zeptatSe).toHaveBeenCalledWith('proč amyláza pracuje pomalu');
+  });
+
   it('nic nenalezeno, chyba a krátký dotaz', async () => {
     hledejVKnihach.mockResolvedValueOnce({ stav: 'ok', vysledky: [] });
     render(<BibleHledani otevri={() => {}} />);

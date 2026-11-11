@@ -546,8 +546,12 @@ const ODDILY: Oddil[] = [
         jak: 'U zpracované knihy klepni na „Číst“. Obsah ukáže kapitoly (klepnutím otevřeš jejich stranu), Čtení listuje stranu po straně šipkami nebo skokem na číslo strany a Tabulky a vzorce ukáže tabulky a vzorce rozpoznané v přepisu skenů. Strana „s. 158“ je vytištěné číslo, „list 170“ pořadí v souboru. U strany ke kontrole ověř čísla v originále. Cizojazyčná kniha se po zpracování sama přeloží do češtiny (strany i názvy kapitol v obsahu): čtení ukáže češtinu, tlačítkem „Originál“ přepneš na text knihy. Překlad, kde čísla nesedí s originálem, má upozornění.',
       },
       {
+        co: 'Zeptat se AI sládka (chatbot)',
+        jak: 'Pivovarská bible → AI sládek → Zeptat se (nejdřív migrace bible 20261111030000_bible_chat v Systém → Databázové migrace → Databáze bible). Napiš otázku jako sládkovi — „Proč mi pivo málo pění?“, „Porovnej poslední várky Desítky“ — a klepni „Zeptat se“. AI sládek (Claude) průběžně ukazuje, co hledá: v knihách, várkách, profilu pivovaru a zkušenostech sládků, čísla počítá výpočetním modulem. Odpověď má pevnou strukturu (krátká odpověď, literatura, praxe, výpočet, doporučení, rozpory a co chybí) a u tvrzení z knih číslo [n] — klepnutím se kniha otevře na té stránce; dole jsou zdroje s citovanou větou. Navazující otázky pokračují v konverzaci, Historie ukáže starší. „Hledat i na internetu“ přidá web, vždy zvlášť jako neověřený zdroj. V Analýze problémů je tlačítko „Najít příčiny s AI sládkem“. Odpověď trvá 20–90 s a platí se z kreditu Claude API (řádově desetníky dolaru); měsíční strop nastaví správce ve Správě znalostí (0 = vypnuto).',
+      },
+      {
         co: 'Hledat v knihách',
-        jak: 'Pivovarská bible → Hledání v knihách. Napiš slova (např. „chmelovar odpar“) a klepni Hledat. Hledá se v textu zpracovaných knih i v jejich českém překladu, takže česky najdeš i to, co je v anglické knize. Stačí začátek slova („amyl“ najde amylázu), všechna slova musí být na jedné stránce. Výsledek ukáže knihu, kapitolu a stranu; klepnutím se kniha otevře přesně na té stránce. Pod hledáním jsou Přehledy témat: Claude porovná, co o tématu (chmelovar, rmutování…) píšou všechny knihy, a napíše to nejlepší; čísla v závorkách otevřou knihu na té stránce. Přehledy vzniknou, až jsou všechny knihy zpracované a přeložené, a po přidání nové knihy se doplní o nová fakta.',
+        jak: 'Pivovarská bible → AI sládek → Hledání v knihách. Napiš slova (např. „chmelovar odpar“) nebo celou otázku a klepni Hledat. Hledá se v textu zpracovaných knih i v jejich českém překladu, takže česky najdeš i to, co je v anglické knize. Stačí začátek slova („amyl“ najde amylázu). Nejdřív se ukážou stránky se všemi slovy; když takové nejsou, stránky s nejvíc slovy z otázky (u výsledku „shoda 2 z 3 slov“) — odtud jde otázka jedním klepnutím položit AI sládkovi. Výsledek ukáže knihu, kapitolu a stranu; klepnutím se kniha otevře přesně na té stránce. Pod hledáním jsou Přehledy témat: Claude porovná, co o tématu (chmelovar, rmutování…) píšou všechny knihy, a napíše to nejlepší; čísla v závorkách otevřou knihu na té stránce. Přehledy vzniknou, až jsou všechny knihy zpracované a přeložené, a po přidání nové knihy se doplní o nová fakta.',
       },
       {
         co: 'Ptát se Clauda na knihy',
@@ -567,7 +571,7 @@ const ODDILY: Oddil[] = [
       },
       {
         co: 'Analýza problémů',
-        jak: 'Pivovarská bible → Analýza problémů (migrace bible 20261111020000_bible_web_problemy). „Nový problém“: název, příznaky, pivo a dotčené várky. U problému je porovnání dotčených várek a zjištění s typem — doložený fakt (vždy se zdrojem), výpočet, zkušenost, doporučení, hypotéza, chybí. Hypotézu potvrdíš nebo vyvrátíš tlačítkem. Příčiny hledá Claude přes konektor („analyzuj problém…“) a zjištění zapíše sám s typem. Dole je Trend várek: vyber hodnotu (výtěžek, extrakt…) a recepturu a graf ukáže várky v čase s cílem receptury.',
+        jak: 'Pivovarská bible → Analýza problémů (migrace bible 20261111020000_bible_web_problemy). „Nový problém“: název, příznaky, pivo a dotčené várky. U problému je porovnání dotčených várek a zjištění s typem — doložený fakt (vždy se zdrojem), výpočet, zkušenost, doporučení, hypotéza, chybí. Hypotézu potvrdíš nebo vyvrátíš tlačítkem. Příčiny najde AI sládek tlačítkem „Najít příčiny s AI sládkem“ (nebo Claude přes konektor „analyzuj problém…“) a zjištění zapíše sám s typem. Dole je Trend várek: vyber hodnotu (výtěžek, extrakt…) a recepturu a graf ukáže várky v čase s cílem receptury.',
       },
       {
         co: 'Rešerše z internetu',

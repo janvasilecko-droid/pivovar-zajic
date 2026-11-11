@@ -181,6 +181,8 @@ Každé rozhodnutí má datum, důvod a co by ho změnilo.
   bible-api `hledej` vrací úryvek a místo (kniha, kapitola, strana), čtečka se
   otevře na stránce. Vektory a vícejazyčné varianty dotazu až s AI.
 - Dlaždice „Odborný chatbot" je zatím „Hledání v knihách".
+- **Odklad chatbota skončil 11. 11. 2026 — viz R28** (chatbot v appce přes
+  Claude API se stropem útraty; hledání zůstalo jako druhá karta).
 
 ## R15 — Přehledy témat z porovnání knih (3. 11. 2026)
 
@@ -398,3 +400,56 @@ Každé rozhodnutí má datum, důvod a co by ho změnilo.
   bublina na najetí i z klávesnice, vždy i tabulka. Barvy ověřené proti
   podkladu (řada 10,7 : 1, cíl 7,1 : 1).
 - Tím je hotových všech 8 dlaždic plochy bible; chatbot (etapa 5) dál odložený.
+
+## R28 — AI sládek: chatbot v appce přes Claude API (etapa 5, 11. 11. 2026)
+
+- Majitel: „hlavně ať v aplikaci funguje vyhledávání a hledání komplexních
+  odpovědí na problémy — má to být chatbot, který mi bude vyhledávat problémy",
+  „dělej vše, dokud nebude hotový, máš vše povoleno". Tím padá odklad z R14:
+  chatbot v appce je hotový. Podle pravidel Anthropicu musí volat **Claude
+  API** (klíč `ANTHROPIC_API_KEY` z app_secrets hlavní appky), předplatné na
+  dotazy z appky použít nejde (R14). Zpracování knih dál jede přes předplatné;
+  zdarma se dá ptát i přes konektor (R16).
+- **Funkce `bible-chat`** (projekt bible, `verify_jwt = false`, brána jako
+  bible-api): otázka → Claude (`model_odpovedi`, dnes Opus 5.5, adaptivní
+  přemýšlení, střední úsilí) se stejnými nástroji jako konektor — kód nástrojů
+  je společný (`_shared/nastroje.ts`). Chat jen čte; zjištění k problému
+  zapisuje jen v analýze problému a jen přispěvatel (hypotéza vždy navržená).
+  Uložit webový zdroj nebo založit problém chatbot neumí (to dělá člověk nebo
+  konektor). Volitelně serverové hledání na webu (`web_search_20260209`, max. 5).
+- **Citace**: stránky knih dostává Claude jako bloky `search_result`
+  s citacemi zapnutými (zdroj = odkaz do čtečky). Citace v odpovědi tak
+  ukazují jen na stránky, které Claude opravdu dostal; appka je převede na
+  čísla [n] a seznam zdrojů s citovanou větou (`textSCitacemi`). Vlastní
+  „[n]" od Clauda se změní na „(n)".
+- **Hlídání**: měsíční strop `strop_mesic_usd` (výchozí 20 USD, mění správce
+  ve Správě znalostí, 0 = vypnuto) se kontroluje před otázkou i před každým
+  dalším kolem nástrojů; nejvýš 8 volání na otázku; po 80 s už jen odpověď
+  bez dalšího hledání, tvrdý konec ve 140 s (limit platformy 150 s) — co se
+  stihlo, se uloží jako neúplná odpověď. Cena z usage podle ceníku
+  v `bible_nastaveni` (po záložním modelu podle usage.iterations, model bez
+  ceníku odhadem cenou Opus 5), web 0,01 USD za hledání; zápis do
+  `ai_naklady` (účel „chat").
+- **Záložní model**: `fallbacks: "default"` (beta
+  `server-side-fallback-2026-07-01`) — odmítne-li model otázku (např. falešný
+  poplach bezpečnostního filtru u mikrobiologie), odpoví doporučený záložní
+  model; po přepnutí uprostřed odpovědi se zpátky posílá obsah podle pravidel
+  API (`obsahKOdeslani`).
+- **Konverzace** (`bible_konverzace`, `bible_zpravy`, migrace
+  `20261111030000_bible_chat`) vidí a maže jen ten, kdo se ptal; zapisuje se
+  jen přes SQL funkce. Navazující otázky dostanou posledních 12 zpráv i se
+  seznamem zdrojů. Odpověď jde do appky po řádcích (NDJSON): kroky („Hledám
+  v knihách: …"), průběžný text, hotová odpověď s citacemi. Do logu nejde
+  otázka, odpověď ani text knih.
+- **Hledání otázkou**: `bible_hledej` chce všechna slova na jedné stránce,
+  otázka v běžné řeči proto nenašla nic. Když přesné hledání nic nenajde,
+  `bible_hledej_volne` hledá bez výplňových slov, s uříznutou českou
+  koncovkou (chmelovaru → chmelovar, pění → pen) nejdřív stránky aspoň se
+  dvěma slovy otázky, pak s jedním, seřazené podle počtu nalezených slov
+  („shoda 2 z 3 slov"). Stejně zkušenosti sládků
+  (`bible_hledej_zkusenosti_volne`). Výplňová slova a koncovky jsou v SQL
+  i v TS (`slovaVolne`) stejné — hlídají to testy na obou stranách.
+- Nasazení: zvláštní krok „Klíč Claude pro AI sládka" přečte klíč
+  z app_secrets (zamaskovaný, jen do souboru), krok funkcí bible ho při
+  každém běhu přidá k secrets projektu bible. Výměna klíče v app_secrets se tak
+  projeví příštím nasazením.
