@@ -8,6 +8,7 @@ import {
   souborKNahrani, stavDokumentu, zacatekObdobi, type Akce, type ChybaDb, klicPrehledu,
   dotazZkusenosti, idZkusenosti, zkusenostVstup,
   idZaznamu, pivovarVstup, postupProvozuVstup, prevzetiVstup, vyberPivovaru, zarizeniVstup,
+  recepturaVstup, varkaVstup,
 } from '../_shared/vstupy.ts';
 import {
   celeCislo, druhObjektu, DRUHY_OBJEKTU, jeCitelny, listyPodStropem, MAX_LISTU_NA_DOTAZ, nahled, OBJEKTU_NA_DOTAZ,
@@ -398,6 +399,44 @@ const PROVEDENI: Record<Akce, (k: Kontext) => Promise<Response>> = {
     const { data, error } = await db.rpc('bible_postup_provozu_smaz', { p_uzivatel: u.uid, p_pristup: u.pristup, p_id: idZaznamu(telo, 'postupu') });
     if (error) return chybaDb(cors, error, 'postup_provozu_smazat');
     if (!data) return chyba(cors, 404, 'nenalezeno', 'Postup už v bibli není.');
+    return hotovo(cors, { ok: true });
+  },
+
+  // Receptury a várky (etapa 8): evidence; porovnání počítá appka i konektor stejným kódem (varky-popisy.ts).
+  async varky({ db, cors }) {
+    const { data, error } = await db.rpc('bible_varky_prehled', { p_limit: 500 });
+    if (error?.code === 'PGRST202') return hotovo(cors, { receptury: [], varky: [], migrace: false });
+    if (error) return chybaDb(cors, error, 'varky');
+    return hotovo(cors, { ...(data as Record<string, unknown>), migrace: true });
+  },
+
+  async receptura_ulozit({ db, u, telo, cors }) {
+    const { data, error } = await db.rpc('bible_receptura_uloz', {
+      p_uzivatel: u.uid, p_pristup: u.pristup, p_jmeno: u.jmeno ?? '', p_receptura: recepturaVstup(telo.receptura),
+    });
+    if (error) return chybaDb(cors, error, 'receptura_ulozit');
+    return hotovo(cors, { id: data });
+  },
+
+  async receptura_smazat({ db, u, telo, cors }) {
+    const { data, error } = await db.rpc('bible_receptura_smaz', { p_uzivatel: u.uid, p_pristup: u.pristup, p_id: idZaznamu(telo, 'receptury') });
+    if (error) return chybaDb(cors, error, 'receptura_smazat');
+    if (!data) return chyba(cors, 404, 'nenalezeno', 'Receptura už v bibli není.');
+    return hotovo(cors, { ok: true });
+  },
+
+  async varka_ulozit({ db, u, telo, cors }) {
+    const { data, error } = await db.rpc('bible_varka_uloz', {
+      p_uzivatel: u.uid, p_pristup: u.pristup, p_jmeno: u.jmeno ?? '', p_varka: varkaVstup(telo.varka),
+    });
+    if (error) return chybaDb(cors, error, 'varka_ulozit');
+    return hotovo(cors, { id: data });
+  },
+
+  async varka_smazat({ db, u, telo, cors }) {
+    const { data, error } = await db.rpc('bible_varka_smaz', { p_uzivatel: u.uid, p_pristup: u.pristup, p_id: idZaznamu(telo, 'várky') });
+    if (error) return chybaDb(cors, error, 'varka_smazat');
+    if (!data) return chyba(cors, 404, 'nenalezeno', 'Várka už v bibli není.');
     return hotovo(cors, { ok: true });
   },
 

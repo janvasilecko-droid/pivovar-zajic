@@ -24,6 +24,7 @@ import { BiblePripravujeme } from '../components/bible/BiblePripravujeme';
 import { BibleHledani } from '../components/bible/BibleHledani';
 import { BibleVypocty } from '../components/bible/BibleVypocty';
 import { BibleTechnologie } from '../components/bible/BibleTechnologie';
+import { BibleVarky } from '../components/bible/BibleVarky';
 
 export type BibleSekce = 'plocha' | 'chat' | 'knihovna' | 'vypocty' | 'technologie' | 'varky' | 'problemy' | 'zkusenosti' | 'sprava';
 
@@ -46,10 +47,8 @@ export const BIBLE_DLAZDICE: readonly BibleDlazdice[] = [
   { id: 'vypocty', nazev: 'Výpočtová laboratoř', popis: 'Extrakt, alkohol, IBU, chlazení, voda, potrubí, CIP, energie, daň a náklady', ikona: Calculator },
   // Etapa 7 (11. 11. 2026): parametry provozu se zdrojem; Claude je čte nástrojem profil_pivovaru.
   { id: 'technologie', nazev: 'Technologie pivovaru', popis: 'Profil pivovaru: varna, tanky, čerpadla, chlazení a provozní postupy', ikona: Factory },
-  {
-    id: 'varky', nazev: 'Receptury a várky', popis: 'Evidence várek a hledání příčin odchylek', ikona: FlaskConical, etapa: 8,
-    bude: 'Receptura, slady, voda, rmutování, scezování, hustoty, objemy, chmelovar, kvašení a laboratorní hodnoty. AI porovná várky z uložených údajů a nic si nedomýšlí.',
-  },
+  // Etapa 8 (11. 11. 2026): evidence várek, porovnání stejným kódem jako Claude (porovnej_varky), nic se nedomýšlí.
+  { id: 'varky', nazev: 'Receptury a várky', popis: 'Evidence várek, receptury a porovnání várek s cíli a výtěžkem', ikona: FlaskConical },
   {
     id: 'problemy', nazev: 'Analýza problémů', popis: 'Příčiny vad a odchylek z literatury a dat', ikona: Stethoscope, etapa: 10,
     bude: 'Řešení technologických problémů (oblast T): chatbot nad várkami, výpočty a literaturou, s jasným označením, co je fakt, co hypotéza a co chybí.',
@@ -97,7 +96,7 @@ export default function BibleScreen({ setPage, pageSubTab }: {
   const dlazdice = kniha ? undefined : BIBLE_DLAZDICE.find((d) => d.id === sekce);
 
   return (
-    <div className="rounded-2xl bg-neutral-950 text-neutral-100 border border-neutral-800 p-3 sm:p-5 space-y-4 min-h-[70vh]">
+    <div className="bible-plocha rounded-2xl bg-neutral-950 text-neutral-100 border border-neutral-800 p-3 sm:p-5 space-y-4 min-h-[70vh]">
       <header className="flex items-center gap-3">
         {kniha ? (
           <button type="button" className="btn-tmave w-11 px-0" aria-label="Zpět do knihovny" onClick={() => jdi('knihovna')}>
@@ -137,6 +136,8 @@ export default function BibleScreen({ setPage, pageSubTab }: {
         <BibleZkusenosti role={role} />
       ) : sekce === 'technologie' ? (
         <BibleTechnologie role={role} />
+      ) : sekce === 'varky' ? (
+        <BibleVarky role={role} />
       ) : sekce === 'sprava' ? (
         <BibleSprava role={role} setPage={setPage} />
       ) : dlazdice ? (

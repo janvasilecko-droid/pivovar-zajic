@@ -10,6 +10,10 @@ import {
 } from '../_shared/mcp.ts';
 import { ChybaVypoctu, vypocetText } from '../_shared/vypocty/nastroj.ts';
 import { technologieText, type ProfilPivovaru } from '../_shared/technologie-popisy.ts';
+import {
+  ChybaVyberu, filtrujVarky, filtrZArgumentu, porovnaniText, porovnejVarky, prehledVarek, seznamVarekText, vyberProPorovnani,
+  type FiltrVarek, type PrehledVarek, type VarkaZaznam,
+} from '../_shared/varky-popisy.ts';
 
 /**
  * 🔌 bible-mcp — konektor Pivovarské bible do aplikace Claude (R16).
@@ -198,6 +202,34 @@ async function profilPivovaru(db: SupabaseClient, args: Record<string, unknown>)
   return technologieText(profil);
 }
 
+// Receptury a várky (etapa 8): jen uložené údaje; co chybí, porovnání vyjmenuje.
+const BEZ_VAREK = 'Evidence várek v databázi bible ještě není zapnutá (migrace 20261111010000_bible_varky).';
+
+async function nactiVarky(db: SupabaseClient): Promise<PrehledVarek | null> {
+  const { data, error } = await db.rpc('bible_varky_prehled', { p_limit: 2000 });
+  if (error?.code === 'PGRST202') return null;
+  if (error) throw new Error(`db ${error.code ?? '?'}`);
+  return prehledVarek(data);
+}
+
+async function seznamVarek(db: SupabaseClient, args: Record<string, unknown>): Promise<string> {
+  const limit = args.limit === undefined || args.limit === null ? 30 : args.limit;
+  if (typeof limit !== 'number' || !Number.isInteger(limit) || limit < 1 || limit > 100) throw new ChybaNastroje('limit je celé číslo 1 až 100.');
+  let filtr: FiltrVarek;
+  try { filtr = filtrZArgumentu(args); } catch (e) { if (e instanceof ChybaVyberu) throw new ChybaNastroje(e.message); throw e; }
+  const p = await nactiVarky(db);
+  if (!p) return BEZ_VAREK;
+  return seznamVarekText(p, filtrujVarky(p.varky, filtr), limit);
+}
+
+async function porovnejVarkyNastroj(db: SupabaseClient, args: Record<string, unknown>): Promise<string> {
+  const p = await nactiVarky(db);
+  if (!p) return BEZ_VAREK;
+  let vybrane: VarkaZaznam[];
+  try { vybrane = vyberProPorovnani(p.varky, args); } catch (e) { if (e instanceof ChybaVyberu) throw new ChybaNastroje(e.message); throw e; }
+  return porovnaniText(porovnejVarky(vybrane, p.receptury), p.receptury);
+}
+
 async function seznamKnih(db: SupabaseClient): Promise<string> {
   const { data, error } = await db.from('bible_dokumenty').select('id,nazev,autor,rok,jazyk,stav,stran_celkem').order('nazev');
   if (error) throw new Error(`db ${error.code ?? '?'}`);
@@ -214,6 +246,8 @@ function zavolejNastroj(db: SupabaseClient) {
     if (jmeno === 'precti_stranu') return prectiStranu(db, args);
     if (jmeno === 'prehled_tematu') return prehledTematu(db, args);
     if (jmeno === 'profil_pivovaru') return profilPivovaru(db, args);
+    if (jmeno === 'seznam_varek') return seznamVarek(db, args);
+    if (jmeno === 'porovnej_varky') return porovnejVarkyNastroj(db, args);
     if (jmeno === 'vypocet') {
       try {
         return Promise.resolve(vypocetText(args));

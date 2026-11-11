@@ -581,5 +581,67 @@ SELECT pg_temp.selze($q$SELECT public.bible_technologie(NULL)$q$, 'profil čte j
 SELECT pg_temp.jako('service_role');
 DELETE FROM public.bible_pivovary WHERE id IN ((SELECT id FROM t_piv2), (SELECT id FROM t_piv3));
 
+-- 🍺 Etapa 8 — Receptury a várky ------------------------------------------------
+SELECT pg_temp.jako('service_role');
+CREATE TEMP TABLE t8_piv AS SELECT public.bible_pivovar_uloz('00000000-0000-0000-0000-0000000000b2', 'prispiva', 'Sládek', '{"nazev":"Pivovar Várkový"}') AS id;
+SELECT pg_temp.selze($q$SELECT public.bible_receptura_uloz('00000000-0000-0000-0000-0000000000b1', 'cte', 'Čtenář', '{"nazev":"Ležák"}')$q$,
+  'čtenář recepturu nezapíše', '42501');
+SELECT pg_temp.selze($q$SELECT public.bible_receptura_uloz('00000000-0000-0000-0000-0000000000b2', 'prispiva', 'Sládek',
+  '{"nazev":"Ležák","suroviny":[{"druh":"cukr","nazev":"X"}]}')$q$, 'neznámý druh suroviny se odmítne', '22023');
+SELECT pg_temp.selze($q$SELECT public.bible_receptura_uloz('00000000-0000-0000-0000-0000000000b2', 'prispiva', 'Sládek',
+  '{"nazev":"Ležák","cil_stupnovitost":"11"}')$q$, 'cíl jako text se odmítne', '22023');
+SELECT pg_temp.selze($q$SELECT public.bible_receptura_uloz('00000000-0000-0000-0000-0000000000b2', 'prispiva', 'Sládek',
+  '{"nazev":"Ležák","cil_stupnovitost":50}')$q$, 'cíl mimo rozsah se odmítne', '23514');
+SELECT pg_temp.selze($q$SELECT public.bible_receptura_uloz('00000000-0000-0000-0000-0000000000b2', 'prispiva', 'Sládek',
+  '{"nazev":"Ležák","kroky":[{"faze":"rmutovani","nazev":"Peptonizace","teplota_c":150}]}')$q$, 'teplota kroku mimo rozsah se odmítne', '22023');
+CREATE TEMP TABLE t8_rec AS SELECT public.bible_receptura_uloz('00000000-0000-0000-0000-0000000000b2', 'prispiva', 'Sládek', jsonb_build_object(
+  'pivovar_id', (SELECT id FROM t8_piv), 'nazev', 'Světlý ležák 11', 'styl', 'český ležák', 'cil_objem_hl', 10, 'cil_stupnovitost', 11.2,
+  'suroviny', '[{"druh":"slad","nazev":"Plzeňský","mnozstvi":180,"jednotka":"kg"},{"druh":"chmel","nazev":"Žatecký","mnozstvi":1.2,"jednotka":"kg","kdy":"60 min"}]'::jsonb,
+  'kroky', '[{"faze":"rmutovani","nazev":"Nástřik","teplota_c":52,"minut":15},{"faze":"chmelovar","nazev":"Var","minut":90}]'::jsonb)) AS id;
+SELECT pg_temp.ocekavam((SELECT jsonb_array_length(suroviny) = 2 AND jsonb_array_length(kroky) = 2 AND cil_stupnovitost = 11.2
+  FROM public.bible_receptury WHERE id = (SELECT id FROM t8_rec)), 'receptura se uloží se surovinami, kroky a cíli');
+
+SELECT pg_temp.selze($q$SELECT public.bible_varka_uloz('00000000-0000-0000-0000-0000000000b2', 'prispiva', 'Sládek',
+  '{"pivo":"Ležák","datum_varu":"2026-11-03","hodnoty":{"vytezek":70}}')$q$, 'neznámá hodnota várky se odmítne', '22023');
+SELECT pg_temp.selze($q$SELECT public.bible_varka_uloz('00000000-0000-0000-0000-0000000000b2', 'prispiva', 'Sládek',
+  '{"pivo":"Ležák","datum_varu":"2026-11-03","hodnoty":{"mladina_p":"11,2"}}')$q$, 'hodnota várky jako text se odmítne', '22023');
+SELECT pg_temp.selze($q$SELECT public.bible_varka_uloz('00000000-0000-0000-0000-0000000000b2', 'prispiva', 'Sládek',
+  '{"pivo":"Ležák","datum_varu":"2026-11-03","hodnoty":{"mladina_p":40}}')$q$, 'hodnota várky mimo rozsah se odmítne', '22023');
+SELECT pg_temp.selze($q$SELECT public.bible_varka_uloz('00000000-0000-0000-0000-0000000000b2', 'prispiva', 'Sládek',
+  '{"pivo":"Ležák","datum_varu":"2026-11-03","hodnoty":{"kvasnice_generace":2.5}}')$q$, 'generace kvasnic musí být celé číslo', '22023');
+SELECT pg_temp.selze($q$SELECT public.bible_varka_uloz('00000000-0000-0000-0000-0000000000b2', 'prispiva', 'Sládek',
+  '{"pivo":"Ležák","datum_varu":"1980-01-01"}')$q$, 'datum varu mimo rozsah se odmítne', '23514');
+CREATE TEMP TABLE t8_v1 AS SELECT public.bible_varka_uloz('00000000-0000-0000-0000-0000000000b2', 'prispiva', 'Sládek', jsonb_build_object(
+  'pivovar_id', (SELECT id FROM t8_piv), 'receptura_id', (SELECT id FROM t8_rec), 'cislo', ' 12 ', 'pivo', 'Světlý ležák 11', 'datum_varu', '2026-11-03',
+  'hodnoty', '{"sypani_kg":180,"mladina_objem_hl":10.4,"mladina_p":11.3,"pivo_ibu":null}'::jsonb)) AS id;
+SELECT pg_temp.ocekavam((SELECT hodnoty = '{"sypani_kg":180,"mladina_objem_hl":10.4,"mladina_p":11.3}'::jsonb AND cislo = '12'
+  FROM public.bible_varky WHERE id = (SELECT id FROM t8_v1)), 'hodnoty várky se uloží, null se vynechá, číslo se ořízne');
+SELECT pg_temp.selze($q$SELECT public.bible_varka_uloz('00000000-0000-0000-0000-0000000000b3', 'prispiva', 'Jiný sládek', jsonb_build_object(
+  'pivovar_id', (SELECT id FROM t8_piv), 'cislo', '12', 'pivo', 'Ležák', 'datum_varu', '2026-11-04'))$q$,
+  'stejné číslo várky v pivovaru se podruhé nezapíše', '22023');
+CREATE TEMP TABLE t8_v2 AS SELECT public.bible_varka_uloz('00000000-0000-0000-0000-0000000000b3', 'prispiva', 'Jiný sládek',
+  '{"cislo":"12","pivo":"Ležák","datum_varu":"2026-11-04"}'::jsonb) AS id;
+SELECT pg_temp.ocekavam((SELECT count(*) = 2 FROM public.bible_varky WHERE cislo = '12'), 'stejné číslo bez pivovaru je jiná várka');
+SELECT pg_temp.ocekavam(public.bible_varka_uloz('00000000-0000-0000-0000-0000000000b3', 'prispiva', 'Jiný sládek', jsonb_build_object(
+  'id', (SELECT id FROM t8_v1), 'pivovar_id', (SELECT id FROM t8_piv), 'receptura_id', (SELECT id FROM t8_rec), 'cislo', '12', 'pivo', 'Světlý ležák 11',
+  'datum_varu', '2026-11-03', 'hodnoty', '{"sypani_kg":180,"mladina_objem_hl":10.4,"mladina_p":11.3,"pivo_zdanlivy_p":2.4}'::jsonb)) = (SELECT id FROM t8_v1),
+  'várku doplní jiný přispěvatel (laboratoř) a vlastní číslo duplicitu není');
+SELECT pg_temp.selze($q$SELECT public.bible_varka_smaz('00000000-0000-0000-0000-0000000000b3', 'prispiva', (SELECT id FROM t8_v1))$q$,
+  'cizí várku přispěvatel nesmaže', '42501');
+SELECT pg_temp.ocekavam(jsonb_array_length(public.bible_varky_prehled() -> 'varky') = 2
+  AND (public.bible_varky_prehled() -> 'varky' -> 0 ->> 'datum_varu') = '2026-11-04'
+  AND jsonb_array_length(public.bible_varky_prehled() -> 'receptury') = 1, 'přehled vrátí várky od nejnovější a receptury');
+SELECT pg_temp.ocekavam(public.bible_receptura_smaz('00000000-0000-0000-0000-0000000000a1', 'spravuje', (SELECT id FROM t8_rec)), 'správce smaže recepturu');
+SELECT pg_temp.ocekavam((SELECT receptura_id IS NULL FROM public.bible_varky WHERE id = (SELECT id FROM t8_v1)), 'po smazání receptury várka zůstane bez receptury');
+SELECT pg_temp.ocekavam(public.bible_pivovar_smaz('00000000-0000-0000-0000-0000000000a1', 'spravuje', (SELECT id FROM t8_piv)), 'správce smaže pivovar');
+SELECT pg_temp.ocekavam((SELECT pivovar_id IS NULL FROM public.bible_varky WHERE id = (SELECT id FROM t8_v1)),
+  'po smazání pivovaru várka zůstane (i když stejné číslo má várka bez pivovaru)');
+SELECT pg_temp.ocekavam(public.bible_varka_smaz('00000000-0000-0000-0000-0000000000b2', 'prispiva', (SELECT id FROM t8_v1)), 'autor svou várku smaže');
+SELECT pg_temp.ocekavam(NOT public.bible_varka_smaz('00000000-0000-0000-0000-0000000000b2', 'prispiva', (SELECT id FROM t8_v1)), 'smazání neexistující várky vrátí ne');
+SELECT pg_temp.selze($q$SELECT public.bible_varky_prehled()$q$, 'várky čte jen service role', '42501')
+  FROM (SELECT pg_temp.jako('authenticated')) j;
+SELECT pg_temp.jako('service_role');
+DELETE FROM public.bible_varky WHERE id = (SELECT id FROM t8_v2);
+
 SELECT pg_temp.jako(NULL);
 SELECT 'VŠECHNY KONTROLY PROJEKTU BIBLE PROŠLY' AS vysledek;

@@ -272,6 +272,9 @@ Každé tvrzení nese jeden typ ze zadání (bod 11):
   - AI porovnává várky a hledá příčiny odchylek (třeba „proč byla výtěžnost
     posledních tří várek nižší").
   - Pracuje jen s uloženými údaji. Chybějící hodnoty vyjmenuje, nedomýšlí je.
+  - **Hotovo (etapa 8, R26):** receptury s cíli, várky s pevným katalogem
+    hodnot, porovnání (cíle, odchylky, výtěžek, odpar, prokvašení, co chybí)
+    v appce i v konektoru (`seznam_varek`, `porovnej_varky`).
 
 ## 9. Zkušenosti sládků (Etapa 3)
 
