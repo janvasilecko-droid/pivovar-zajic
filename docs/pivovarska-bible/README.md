@@ -39,6 +39,7 @@ s citací kniha–kapitola–strana a počítá deterministickým výpočetním 
 | 3a: čtení zpracované knihy | hotovo (1. 11. 2026) — bez migrace |
 | český překlad stran (R13) | hotovo (3. 11. 2026) — migrace `20261103000000_bible_preklad` |
 | 4: hledání v knihách (bez AI, R14) | hotovo (3. 11. 2026) — migrace `20261103010000_bible_hledani` |
+| 4b: vícejazyčné varianty slov (slovník cs/de/en, mladina = Würze = wort) a filtry hledání (kniha, autor, rok, jazyk, druh, oblast) (R29) | hotovo (11. 11. 2026) — migrace `20261111040000_bible_hledani_filtry` |
 | přehledy témat z porovnání knih (R15) | hotovo (3. 11. 2026) — migrace `20261103020000_bible_prehledy` |
 | strana z knihy jako obrázek (R19) | hotovo (4. 11. 2026) — bez migrace |
 | pracovní postupy krok za krokem (R20) | hotovo (4. 11. 2026) — bez migrace (tabulka přehledů, klíče `postup_…`) |
@@ -79,6 +80,9 @@ s citací kniha–kapitola–strana a počítá deterministickým výpočetním 
   nic nenajde, hledá se bez výplňových slov, se začátky slov bez české
   koncovky a podle počtu nalezených slov („shoda 2 z 3 slov"). Platí pro
   obrazovku Hledání, konektor i chatbota.
+- **Varianty a filtry (etapa 4b, R29):** slovník odborných výrazů hledá
+  i německé a anglické varianty (mladina = Würze = wort); Filtry omezí
+  hledání na knihu, autora, rok vydání, jazyk, druh nebo oblast A–T.
 - Rozhodnutí: R28.
 
 ## Rešerše z internetu (etapa 9) a analýza problémů (etapa 10)

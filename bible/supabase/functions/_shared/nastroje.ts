@@ -17,7 +17,9 @@ import {
 } from './varky-popisy.ts';
 import { filtrujWeb, prehledWebu, webZdrojeText } from './web-popisy.ts';
 import { prehledProblemu, problemText, seznamProblemuText } from './problemy-popisy.ts';
-import { ChybaVstupu, prekladChybyDb, problemVstup, webZdrojVstup, zjisteniVstup, type ChybaDb } from './vstupy.ts';
+import {
+  ChybaVstupu, filtrHledani, filtrMimoKnihu, prekladChybyDb, problemVstup, webZdrojVstup, zjisteniVstup, type ChybaDb, type FiltrHledani,
+} from './vstupy.ts';
 import type { ZdrojKnihy } from './chat.ts';
 
 /**
@@ -57,44 +59,75 @@ type NalezKnihy = {
   kapitola: string | null; zdroj: 'original' | 'preklad'; vydani: string; shoda: number | null; slov: number | null; uryvek: string;
 };
 
-async function hledejData(db: Db, args: Record<string, unknown>): Promise<{ dotaz: string; volne: boolean; slova: string[]; nalezy: NalezKnihy[] }> {
+async function hledejData(db: Db, args: Record<string, unknown>): Promise<{ dotaz: string; volne: boolean; slova: string[]; nalezy: NalezKnihy[]; filtr: FiltrHledani | null }> {
   let dotaz: string;
-  try { dotaz = dotazHledani(args.dotaz); } catch (e) { textVstupu(e); }
-  const kniha = args.kniha_id === undefined || args.kniha_id === null || args.kniha_id === '' ? null : args.kniha_id;
-  if (kniha !== null && !jeUuid(kniha)) throw new ChybaNastroje('kniha_id musí být id knihy ze seznam_knih.');
-  const { data, error } = await db.rpc('bible_hledej', { p_dotaz: dotaz, p_dokument: kniha, p_limit: VYSLEDKU });
-  if (error?.code === 'PGRST202') throw new ChybaNastroje('Hledání v databázi bible ještě není zapnuté (migrace 20261103010000_bible_hledani).');
-  if (error) throw new Error(`db ${error.code ?? '?'}`);
+  let filtr: FiltrHledani | null;
+  try {
+    dotaz = dotazHledani(args.dotaz);
+    const kniha = args.kniha_id === undefined || args.kniha_id === null || args.kniha_id === '' ? null : args.kniha_id;
+    if (kniha !== null && !jeUuid(kniha)) throw new ChybaVstupu('kniha_id musí být id knihy ze seznam_knih.');
+    filtr = filtrHledani({ autor: args.autor, rok_od: args.rok_od, rok_do: args.rok_do, jazyk: args.jazyk, druh: args.druh, oblast: args.oblast }, kniha);
+  } catch (e) { textVstupu(e); }
   type Radek = {
     dokument_id: string; nazev: string; autor: string | null; rok: number | null; zdroj: string;
     pdf_index: number; tistena_strana: string | null; kapitola: string | null; text: string; shoda?: number; slov?: number;
   };
-  let radky = (data ?? []) as Radek[];
+  // Varianty slov a filtry (migrace 20261111040000); bez ní původní hledání (jen filtr knihy).
+  let varianty = true;
+  let r = await db.rpc('bible_hledej_v', { p_dotaz: dotaz, p_filtr: filtr, p_limit: VYSLEDKU });
+  if (r.error?.code === 'PGRST202') {
+    if (filtrMimoKnihu(filtr)) throw new ChybaNastroje('Filtry hledání (autor, rok, jazyk, druh, oblast) čekají na migraci 20261111040000_bible_hledani_filtry — hledej bez nich.');
+    varianty = false;
+    r = await db.rpc('bible_hledej', { p_dotaz: dotaz, p_dokument: filtr?.dokument ?? null, p_limit: VYSLEDKU });
+  }
+  if (r.error?.code === 'PGRST202') throw new ChybaNastroje('Hledání v databázi bible ještě není zapnuté (migrace 20261103010000_bible_hledani).');
+  if (r.error) throw new Error(`db ${r.error.code ?? '?'}`);
+  let radky = (r.data ?? []) as Radek[];
   // Všechna slova na jedné stránce nejsou → stránky s nejvíc slovy otázky (bez výplňových slov, migrace 20261111030000).
   let volne = false;
   if (radky.length === 0 && slovaVolne(dotaz).length > 0) {
-    const v = await db.rpc('bible_hledej_volne', { p_dotaz: dotaz, p_dokument: kniha, p_limit: VYSLEDKU });
+    const v = varianty
+      ? await db.rpc('bible_hledej_volne_v', { p_dotaz: dotaz, p_filtr: filtr, p_limit: VYSLEDKU })
+      : await db.rpc('bible_hledej_volne', { p_dotaz: dotaz, p_dokument: filtr?.dokument ?? null, p_limit: VYSLEDKU });
     if (!v.error && Array.isArray(v.data) && v.data.length > 0) { radky = v.data as Radek[]; volne = true; }
   }
-  const slova = volne ? slovaVolne(dotaz) : slovaDotazu(dotaz);
+  let slova = volne ? slovaVolne(dotaz) : slovaDotazu(dotaz);
+  if (varianty && radky.length > 0) {
+    const s = await db.rpc('bible_slova_hledani', { p_dotaz: dotaz, p_volne: volne });
+    if (!s.error && Array.isArray(s.data) && s.data.length > 0) slova = (s.data as unknown[]).filter((w): w is string => typeof w === 'string').slice(0, 40);
+  }
   const novejsi = radky.length > 0 ? await vydaniKnih(db) : new Map();
   return {
-    dotaz, volne, slova,
-    nalezy: radky.map((r) => ({
-      dokumentId: r.dokument_id, nazev: r.nazev, autor: r.autor, rok: r.rok, tistena: r.tistena_strana, list: r.pdf_index,
-      kapitola: r.kapitola, zdroj: r.zdroj === 'preklad' ? 'preklad' : 'original', vydani: poznamkaVydani(r.dokument_id, novejsi),
-      shoda: volne && typeof r.shoda === 'number' ? r.shoda : null, slov: volne && typeof r.slov === 'number' ? r.slov : null,
-      uryvek: uryvek(r.text, slova),
+    dotaz, volne, slova, filtr,
+    nalezy: radky.map((x) => ({
+      dokumentId: x.dokument_id, nazev: x.nazev, autor: x.autor, rok: x.rok, tistena: x.tistena_strana, list: x.pdf_index,
+      kapitola: x.kapitola, zdroj: x.zdroj === 'preklad' ? 'preklad' : 'original', vydani: poznamkaVydani(x.dokument_id, novejsi),
+      shoda: volne && typeof x.shoda === 'number' ? x.shoda : null, slov: volne && typeof x.slov === 'number' ? x.slov : null,
+      uryvek: uryvek(x.text, slova),
     })),
   };
 }
 
-const nicNenalezeno = (dotaz: string) => `Pro „${dotaz}" jsem v knihách nic nenašel. Zkus jiné nebo kratší slovo, případně anglicky či německy.`;
+/** Filtr hledání slovy (do výsledku pro Clauda), např. „němčina, 1970–1989, autor Kunze". */
+function popisFiltru(f: FiltrHledani | null): string {
+  if (!f) return '';
+  const casti = [
+    f.dokument ? 'jen jedna kniha' : '',
+    f.autor ? `autor „${f.autor}"` : '',
+    f.rok_od !== undefined || f.rok_do !== undefined ? `rok ${f.rok_od ?? '…'}–${f.rok_do ?? '…'}` : '',
+    f.jazyk ? `jazyk ${f.jazyk}` : '',
+    f.druh ? `druh ${f.druh}` : '',
+    f.oblast ? `oblast ${f.oblast}` : '',
+  ].filter(Boolean);
+  return casti.length ? ` [filtr: ${casti.join(', ')}]` : '';
+}
 
-function hlavaHledani(d: { dotaz: string; volne: boolean; slova: string[]; nalezy: NalezKnihy[] }): string {
+const nicNenalezeno = (dotaz: string, filtr: FiltrHledani | null = null) => `Pro „${dotaz}"${popisFiltru(filtr)} jsem v knihách nic nenašel. Zkus jiné nebo kratší slovo${filtr ? ', nebo bez filtru' : ''}.`;
+
+function hlavaHledani(d: { dotaz: string; volne: boolean; slova: string[]; nalezy: NalezKnihy[]; filtr: FiltrHledani | null }): string {
   return `${d.volne
-    ? `Všechna slova „${d.dotaz}" na jedné stránce nejsou. Stránky s nejvíc slovy otázky (${d.slova.join(', ')}) — ověř, že opravdu odpovídají:`
-    : `Nalezeno ${d.nalezy.length} míst pro „${d.dotaz}":`} (celý text a kontext: precti_stranu s kniha_id a list)`;
+    ? `Všechna slova „${d.dotaz}" na jedné stránce nejsou. Stránky s nejvíc slovy otázky (i odborné varianty: ${d.slova.slice(0, 12).join(', ')}) — ověř, že opravdu odpovídají`
+    : `Nalezeno ${d.nalezy.length} míst pro „${d.dotaz}" (i odborné varianty v češtině, němčině a angličtině)`}${popisFiltru(d.filtr)}: (celý text a kontext: precti_stranu s kniha_id a list)`;
 }
 
 /** Jeden řádek popisu místa: kniha, autor, strana, kapitola, originál/překlad, vydání, shoda. */
@@ -106,7 +139,7 @@ function popisNalezu(r: NalezKnihy): string {
 
 async function hledej(db: Db, args: Record<string, unknown>): Promise<string> {
   const d = await hledejData(db, args);
-  if (d.nalezy.length === 0) return nicNenalezeno(d.dotaz);
+  if (d.nalezy.length === 0) return nicNenalezeno(d.dotaz, d.filtr);
   const casti = d.nalezy.map((r, i) => [
     `${i + 1}. ${popisNalezu(r)}`,
     `   kniha_id=${r.dokumentId} list=${r.list} odkaz: ${odkazNaList(r.dokumentId, r.list)}`,
@@ -171,7 +204,7 @@ const vysledekKnihy = (source: string, title: string, texty: string[]): BlokVysl
 
 async function hledejBloky(db: Db, args: Record<string, unknown>): Promise<VysledekChatu> {
   const d = await hledejData(db, args);
-  if (d.nalezy.length === 0) return { text: nicNenalezeno(d.dotaz) };
+  if (d.nalezy.length === 0) return { text: nicNenalezeno(d.dotaz, d.filtr) };
   const zdroje: ZdrojKnihy[] = d.nalezy.map((r) => ({
     source: odkazNaList(r.dokumentId, r.list), dokumentId: r.dokumentId, list: r.list, nazev: r.nazev,
     tistena: r.tistena, kapitola: r.kapitola, zdroj: r.zdroj,

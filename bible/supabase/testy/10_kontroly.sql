@@ -335,6 +335,49 @@ SELECT pg_temp.ocekavam((SELECT string_agg(zdroj || ':' || pdf_index || ':' || s
   = 'preklad:1:1,original:2:1', 'když žádná stránka nemá dvě slova, stačí jedno');
 SELECT pg_temp.ocekavam((SELECT count(*) FROM public.bible_hledej_volne('proč a jak')) = 0, 'volné hledání bez slov nevrátí nic');
 SELECT pg_temp.ocekavam((SELECT count(*) FROM public.bible_hledej_volne('amyláza pracuje', gen_random_uuid())) = 0, 'volné hledání: filtr dokumentu');
+-- Varianty slov a filtry hledání (20261111040000_bible_hledani_filtry). Kunze: de, 2016, kniha, oblasti A a D.
+SELECT pg_temp.ocekavam(public.bible_kmen('rmutovani') = 'rmut' AND public.bible_kmen('sladky') = 'sladk' AND public.bible_kmen('62') = '62'
+                        AND public.bible_kmen('chmelovaru') = (public.bible_slova_volne('chmelovaru'))[1],
+  'kmen slova: uříznutá koncovka jako u hledání otázkou, čísla beze změny');
+SELECT pg_temp.ocekavam(public.bible_pojmy_slova('mladiny') = '{mladina}' AND public.bible_pojmy_slova('wurze') = '{mladina}'
+                        AND public.bible_pojmy_slova('sladky') = '{}' AND public.bible_pojmy_slova('hope') = '{}' AND public.bible_pojmy_slova('hops') = '{chmel}',
+  'slovník: shoda kmene, začátku slova i přesného slova (sladký není slad, hope není hop)');
+SELECT pg_temp.ocekavam(public.bible_pojmy_slova('peni') = '{pena}' AND public.bible_varianty('foam', 'foam') LIKE '%pena%'
+                        AND public.bible_varianty('foam', 'foam') NOT LIKE '%pen:*%',
+  'pěna: přesné české tvary — „foam“ nenajde anglické pending ani pentose');
+SELECT pg_temp.ocekavam(public.bible_dotaz_v('chmelovar odpar')::text
+  = '( ''chmelovar'':* | ''boil'':* | ''wuerzekoch'':* | ''wurzekoch'':* ) & ( ''odpar'':* | ''evapor'':* | ''verdampf'':* )',
+  'přesné hledání s variantami: na stránce je každé slovo, nebo jeho varianta');
+SELECT pg_temp.ocekavam((SELECT count(*) FROM public.bible_hledej('mladina')) = 0
+                        AND (SELECT string_agg(zdroj || ':' || pdf_index, ',') FROM public.bible_hledej_v('mladina')) = 'original:1',
+  '„mladina“ najde německou pasáž s „Würze“ (bez variant nic)');
+SELECT pg_temp.ocekavam((SELECT string_agg(zdroj || ':' || pdf_index, ',' ORDER BY pdf_index) FROM public.bible_hledej_v('mash')) = 'original:1,original:2',
+  '„mash“ najde „Maischen“ i „Rmutování“');
+SELECT pg_temp.ocekavam((SELECT string_agg(zdroj || ':' || pdf_index || ':' || shoda || '/' || slov, ',') FROM public.bible_hledej_volne_v('Proč mladina pění při rmutování'))
+  = 'original:1:2/3', 'otázka s variantami: německá stránka má dva pojmy ze tří (Würze, Maischen)');
+SELECT pg_temp.ocekavam(public.bible_slova_hledani('mladina') @> ARRAY['mladin', 'wurz', 'wort'] AND public.bible_slova_hledani('proč a jak', true) = '{}',
+  'slova pro úryvek a zvýraznění i s variantami');
+SELECT pg_temp.ocekavam(
+  (SELECT count(*) FROM public.bible_hledej_v('amyláza', '{"jazyk": "de", "rok_od": 2016, "rok_do": 2016, "autor": "kunze", "oblast": "D", "druh": "kniha"}')) > 0
+  AND (SELECT count(*) FROM public.bible_hledej_v('amyláza', jsonb_build_object('dokument', pg_temp.dok('a')))) > 0,
+  'filtry, kterým kniha odpovídá, výsledky nechají');
+SELECT pg_temp.ocekavam(
+  (SELECT count(*) FROM public.bible_hledej_v('amyláza', '{"jazyk": "cs"}')) = 0
+  AND (SELECT count(*) FROM public.bible_hledej_v('amyláza', '{"rok_od": 2017}')) = 0
+  AND (SELECT count(*) FROM public.bible_hledej_v('amyláza', '{"rok_do": 2015}')) = 0
+  AND (SELECT count(*) FROM public.bible_hledej_v('amyláza', '{"autor": "Novák"}')) = 0
+  AND (SELECT count(*) FROM public.bible_hledej_v('amyláza', '{"oblast": "H"}')) = 0
+  AND (SELECT count(*) FROM public.bible_hledej_v('amyláza', '{"druh": "clanek"}')) = 0
+  AND (SELECT count(*) FROM public.bible_hledej_v('amyláza', jsonb_build_object('dokument', gen_random_uuid()))) = 0
+  AND (SELECT count(*) FROM public.bible_hledej_volne_v('proč amyláza pracuje', '{"jazyk": "cs"}')) = 0,
+  'každý filtr, kterému kniha neodpovídá, ji vyřadí (i u hledání otázkou)');
+SELECT pg_temp.ocekavam((SELECT count(*) FROM public.bible_hledej_v('amyláza', '{"autor": "%"}')) = 0
+                        AND (SELECT count(*) FROM public.bible_hledej_v('amyláza', '{"rok_od": "x", "jazyk": "xx", "oblast": "Z", "dokument": "1; drop"}')) > 0,
+  'autor doslova (% není zástupný znak), neplatné hodnoty filtru se nepoužijí');
+SELECT pg_temp.ocekavam(NOT EXISTS (SELECT 1 FROM public.bible_slovnik WHERE vzor !~ '^[a-z0-9]+$') AND (SELECT count(DISTINCT pojem) FROM public.bible_slovnik) >= 50,
+  'slovník: aspoň 50 pojmů, vzory jen malá písmena a číslice');
+SELECT pg_temp.selze('SELECT * FROM public.bible_slovnik', 'slovník čte jen service role', '42501') FROM (SELECT pg_temp.jako('authenticated')) j;
+SELECT pg_temp.jako(NULL);
 -- Český název kapitoly (20261104020000_bible_kapitoly_preklad)
 SELECT pg_temp.ocekavam(public.bible_kapitoly_nazvy(ARRAY['33333333-3333-3333-3333-333333333333']::uuid[], ARRAY['3.2 Rmutování']) = 1,
   'přeložený název kapitoly se zapíše');

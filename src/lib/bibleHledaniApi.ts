@@ -28,15 +28,36 @@ export type Hledani =
     vysledky: VysledekHledani[];
     /** Všechna slova na jedné stránce nebyla — výsledky jsou stránky s nejvíc slovy otázky. */
     volne?: boolean;
-    /** Slova (začátky slov), podle kterých se hledalo a zvýrazňuje. */
+    /** Slova (začátky slov), podle kterých se hledalo a zvýrazňuje — i odborné varianty. */
     slova?: string[];
+    /** Hledalo se i s odbornými variantami (mladina = Würze = wort; migrace 20261111040000). */
+    varianty?: boolean;
   }
   | { stav: 'chyba' | 'nenasazeno'; zprava: string };
 
 const text = (v: unknown): string | null => (typeof v === 'string' ? v : null);
 
-export async function hledejVKnihach(dotaz: string, dokumentId?: string): Promise<Hledani> {
-  const r = await volejBibli<{ vysledky?: unknown; volne?: unknown; slova?: unknown }>('bible-api', { akce: 'hledej', dotaz, ...(dokumentId ? { id: dokumentId } : {}) });
+/** Filtr hledání (etapa 4b): autor, rok vydání od–do, jazyk, druh dokumentu, oblast A–T. */
+export type FiltrHledani = { autor?: string; rokOd?: number; rokDo?: number; jazyk?: string; druh?: string; oblast?: string };
+
+/** Filtr pro bible-api (prázdné hodnoty pryč); null = bez filtru. */
+export function filtrKOdeslani(f: FiltrHledani | null | undefined): Record<string, string | number> | null {
+  if (!f) return null;
+  const o: Record<string, string | number> = {};
+  if (f.autor?.trim()) o.autor = f.autor.trim();
+  if (f.rokOd !== undefined && Number.isFinite(f.rokOd)) o.rok_od = f.rokOd;
+  if (f.rokDo !== undefined && Number.isFinite(f.rokDo)) o.rok_do = f.rokDo;
+  if (f.jazyk) o.jazyk = f.jazyk;
+  if (f.druh) o.druh = f.druh;
+  if (f.oblast) o.oblast = f.oblast;
+  return Object.keys(o).length > 0 ? o : null;
+}
+
+export async function hledejVKnihach(dotaz: string, dokumentId?: string, filtr?: FiltrHledani | null): Promise<Hledani> {
+  const f = filtrKOdeslani(filtr);
+  const r = await volejBibli<{ vysledky?: unknown; volne?: unknown; slova?: unknown; varianty?: unknown }>('bible-api', {
+    akce: 'hledej', dotaz, ...(dokumentId ? { id: dokumentId } : {}), ...(f ? { filtr: f } : {}),
+  });
   if (!r.ok) {
     // Web se nasazuje dřív než funkce bible: stará bible-api hledání ještě nezná.
     if (r.chyba.kod === 'nenasazeno' || (r.chyba.kod === 'neplatny_vstup' && r.chyba.zprava === 'Neznámá akce.')) {
@@ -64,8 +85,8 @@ export async function hledejVKnihach(dotaz: string, dokumentId?: string): Promis
       slov: typeof o.slov === 'number' ? o.slov : null,
     });
   }
-  const slova = Array.isArray(r.data?.slova) ? r.data.slova.filter((w): w is string => typeof w === 'string').slice(0, 8) : [];
-  return { stav: 'ok', vysledky, volne: r.data?.volne === true, slova };
+  const slova = Array.isArray(r.data?.slova) ? r.data.slova.filter((w): w is string => typeof w === 'string').slice(0, 40) : [];
+  return { stav: 'ok', vysledky, volne: r.data?.volne === true, slova, varianty: r.data?.varianty === true };
 }
 
 // --- Přehledy témat (Claude porovná knihy a napíše to nejlepší s odkazy) -------

@@ -10,7 +10,7 @@ import {
   idZaznamu, pivovarVstup, postupProvozuVstup, prevzetiVstup, vyberPivovaru, zarizeniVstup,
   recepturaVstup, varkaVstup,
   overeniVstup, problemVstup, stavZjisteniVstup, webZdrojVstup, zjisteniVstup,
-  stropVstup,
+  stropVstup, filtrHledani, filtrMimoKnihu,
 } from '../_shared/vstupy.ts';
 import {
   celeCislo, druhObjektu, DRUHY_OBJEKTU, jeCitelny, listyPodStropem, MAX_LISTU_NA_DOTAZ, nahled, OBJEKTU_NA_DOTAZ,
@@ -275,35 +275,54 @@ const PROVEDENI: Record<Akce, (k: Kontext) => Promise<Response>> = {
   async hledej({ db, telo, cors }) {
     const dotaz = dotazHledani(telo.dotaz);
     const dokument = telo.id === undefined || telo.id === null ? null : idDokumentu(telo);
-    const { data, error } = await db.rpc('bible_hledej', { p_dotaz: dotaz, p_dokument: dokument, p_limit: VYSLEDKU_HLEDANI });
-    if (error?.code === 'PGRST202') {
-      return chyba(cors, 409, 'nezpracovano', 'Hledání čeká na migraci databáze bible 20261103010000_bible_hledani (Systém → Databázové migrace → Databáze bible).');
-    }
-    if (error) return chybaDb(cors, error, 'hledej');
+    const filtr = filtrHledani(telo.filtr, dokument);
     type Radek = {
       dokument_id: string; nazev: string; autor: string | null; rok: number | null; jazyk: string | null;
       zdroj: string; pdf_index: number; tistena_strana: string | null; kapitola: string | null; druh: string; text: string;
       shoda?: number; slov?: number;
     };
-    let radky = (data ?? []) as Radek[];
+    // Varianty slov (mladina = Würze = wort) a filtry: migrace 20261111040000. Bez ní
+    // původní hledání — filtr jen podle knihy, jiný filtr hlásí migraci.
+    let varianty = true;
+    let r = await db.rpc('bible_hledej_v', { p_dotaz: dotaz, p_filtr: filtr, p_limit: VYSLEDKU_HLEDANI });
+    if (r.error?.code === 'PGRST202') {
+      if (filtrMimoKnihu(filtr)) {
+        return chyba(cors, 409, 'nezpracovano', 'Filtry hledání čekají na migraci databáze bible 20261111040000_bible_hledani_filtry (Systém → Databázové migrace → Databáze bible).');
+      }
+      varianty = false;
+      r = await db.rpc('bible_hledej', { p_dotaz: dotaz, p_dokument: dokument, p_limit: VYSLEDKU_HLEDANI });
+    }
+    if (r.error?.code === 'PGRST202') {
+      return chyba(cors, 409, 'nezpracovano', 'Hledání čeká na migraci databáze bible 20261103010000_bible_hledani (Systém → Databázové migrace → Databáze bible).');
+    }
+    if (r.error) return chybaDb(cors, r.error, 'hledej');
+    let radky = (r.data ?? []) as Radek[];
     // Otázka v běžné řeči: všechna slova na jedné stránce nejsou → stránky s nejvíc
     // slovy otázky (bez výplňových slov, s uříznutou koncovkou; migrace 20261111030000).
     const kmeny = slovaVolne(dotaz);
     let volne = false;
     if (radky.length === 0 && kmeny.length > 0) {
-      const v = await db.rpc('bible_hledej_volne', { p_dotaz: dotaz, p_dokument: dokument, p_limit: VYSLEDKU_HLEDANI });
+      const v = varianty
+        ? await db.rpc('bible_hledej_volne_v', { p_dotaz: dotaz, p_filtr: filtr, p_limit: VYSLEDKU_HLEDANI })
+        : await db.rpc('bible_hledej_volne', { p_dotaz: dotaz, p_dokument: dokument, p_limit: VYSLEDKU_HLEDANI });
       if (v.error && v.error.code !== 'PGRST202') return chybaDb(cors, v.error, 'hledej');
       if (!v.error && Array.isArray(v.data) && v.data.length > 0) { radky = v.data as Radek[]; volne = true; }
     }
-    const slova = volne ? kmeny : slovaDotazu(dotaz);
+    // Slova pro úryvek a zvýraznění — s variantami z databáze, jinak z dotazu.
+    let slova = volne ? kmeny : slovaDotazu(dotaz);
+    if (varianty && radky.length > 0) {
+      const s = await db.rpc('bible_slova_hledani', { p_dotaz: dotaz, p_volne: volne });
+      if (!s.error && Array.isArray(s.data) && s.data.length > 0) slova = (s.data as unknown[]).filter((w): w is string => typeof w === 'string').slice(0, 40);
+    }
     return hotovo(cors, {
       volne,
+      varianty,
       slova,
-      vysledky: radky.map((r) => ({
-        dokument_id: r.dokument_id, nazev: r.nazev, autor: r.autor, rok: r.rok, jazyk: r.jazyk,
-        zdroj: r.zdroj, pdf_index: r.pdf_index, tistena_strana: r.tistena_strana, kapitola: r.kapitola, druh: r.druh,
-        uryvek: uryvek(r.text, slova),
-        ...(volne ? { shoda: r.shoda ?? null, slov: r.slov ?? null } : {}),
+      vysledky: radky.map((x) => ({
+        dokument_id: x.dokument_id, nazev: x.nazev, autor: x.autor, rok: x.rok, jazyk: x.jazyk,
+        zdroj: x.zdroj, pdf_index: x.pdf_index, tistena_strana: x.tistena_strana, kapitola: x.kapitola, druh: x.druh,
+        uryvek: uryvek(x.text, slova),
+        ...(volne ? { shoda: x.shoda ?? null, slov: x.slov ?? null } : {}),
       })),
     });
   },

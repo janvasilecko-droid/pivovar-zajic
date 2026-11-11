@@ -1,20 +1,26 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import type { Hledani, PolozkaPrehledu, PrehledTematu } from '../../lib/bibleHledaniApi';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import type { FiltrHledani, Hledani, PolozkaPrehledu, PrehledTematu } from '../../lib/bibleHledaniApi';
 
 // Jen vymyšlené krátké věty — žádný text skutečných knih (repo je veřejné).
-const hledejVKnihach = vi.fn<(dotaz: string, id?: string) => Promise<Hledani>>();
+const hledejVKnihach = vi.fn<(dotaz: string, id?: string, filtr?: FiltrHledani | null) => Promise<Hledani>>();
 let seznamPrehledu: { stav: 'ok'; prehledy: PolozkaPrehledu[]; migrace: boolean } = { stav: 'ok', prehledy: [], migrace: true };
 const nactiPrehled = vi.fn<(klic: string) => Promise<{ stav: 'ok'; prehled: PrehledTematu } | { stav: 'chyba'; zprava: string }>>();
 vi.mock('../../lib/bibleHledaniApi', async (puvodni) => ({
   ...(await puvodni<typeof import('../../lib/bibleHledaniApi')>()),
-  hledejVKnihach: (d: string, id?: string) => hledejVKnihach(d, id),
+  hledejVKnihach: (d: string, id?: string, f?: FiltrHledani | null) => hledejVKnihach(d, id, f),
   nactiPrehledy: async () => seznamPrehledu,
   nactiPrehled: (k: string) => nactiPrehled(k),
 }));
 
 let vazbyVydani: { stav: 'ok'; vazby: { id: string; predchozi: string }[]; migrace: boolean } = { stav: 'ok', vazby: [], migrace: true };
-vi.mock('../../lib/bibleKnihovnaApi', () => ({ nactiVydani: async () => vazbyVydani }));
+vi.mock('../../lib/bibleKnihovnaApi', () => ({
+  nactiVydani: async () => vazbyVydani,
+  nactiDokumenty: async () => ({ stav: 'ok', dokumenty: [
+    { id: '11111111-2222-3333-4444-555555555555', nazev: 'Pivovarství', rok: 2019, stav: 'hotovo' },
+    { id: '99999999-2222-3333-4444-555555555555', nazev: 'Rozpracovaná', rok: 2020, stav: 'zpracovava' },
+  ] }),
+}));
 
 import { BibleHledani, prehledyKDotazu, ZvyraznenyUryvek } from './BibleHledani';
 
@@ -53,7 +59,7 @@ describe('hledání v knihách', () => {
     fireEvent.change(screen.getByLabelText('Hledat v knihách'), { target: { value: 'amylaza' } });
     fireEvent.click(screen.getByRole('button', { name: /Hledat/ }));
     await waitFor(() => expect(screen.getByText(/Nalezeno 2/)).toBeTruthy());
-    expect(hledejVKnihach).toHaveBeenCalledWith('amylaza', undefined);
+    expect(hledejVKnihach).toHaveBeenCalledWith('amylaza', undefined, {});
     expect(screen.getByText('· s. 158')).toBeTruthy();
     expect(screen.getByText('· list 12')).toBeTruthy();
     expect(screen.getByText('český překlad')).toBeTruthy();
@@ -78,6 +84,31 @@ describe('hledání v knihách', () => {
     expect(screen.getByText('pracuje').tagName).toBe('SPAN');
     fireEvent.click(screen.getByRole('button', { name: /Zeptat se AI sládka/ }));
     expect(zeptatSe).toHaveBeenCalledWith('proč amyláza pracuje pomalu');
+  });
+
+  it('filtry: výběr hned hledá znovu, nad výsledky je filtr slovy, zrušení hledá bez filtru', async () => {
+    hledejVKnihach.mockResolvedValue({ stav: 'ok', vysledky: [
+      { dokumentId: ID, nazev: 'Pivovarství', autor: null, rok: 2019, zdroj: 'original', pdfIndex: 4, tistena: null, kapitola: null, druh: 'text', uryvek: 'Würze und Maische.' },
+    ], slova: ['mladin', 'wurz'], varianty: true });
+    render(<BibleHledani otevri={() => {}} />);
+    fireEvent.change(screen.getByLabelText('Hledat v knihách'), { target: { value: 'mladina' } });
+    fireEvent.click(screen.getByRole('button', { name: /^Hledat$/ }));
+    await waitFor(() => expect(screen.getByText(/Nalezeno 1/)).toBeTruthy());
+    expect(screen.getByText('Würze').tagName).toBe('MARK');
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Filtry/ })); });
+    expect(screen.getByRole('option', { name: 'Pivovarství (2019)' })).toBeTruthy();
+    expect(screen.queryByRole('option', { name: /Rozpracovaná/ })).toBeNull();
+    await act(async () => { fireEvent.change(screen.getByLabelText('Jazyk knihy'), { target: { value: 'de' } }); });
+    await waitFor(() => expect(hledejVKnihach).toHaveBeenLastCalledWith('mladina', undefined, { jazyk: 'de' }));
+    await act(async () => { fireEvent.change(screen.getByLabelText('Kniha'), { target: { value: ID } }); });
+    await waitFor(() => expect(hledejVKnihach).toHaveBeenLastCalledWith('mladina', ID, { jazyk: 'de' }));
+    expect(screen.getByText(/filtr: Pivovarství · němčina/)).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Rok od'), { target: { value: '1970' } });
+    await act(async () => { fireEvent.blur(screen.getByLabelText('Rok od')); });
+    await waitFor(() => expect(hledejVKnihach).toHaveBeenLastCalledWith('mladina', ID, { jazyk: 'de', rokOd: 1970 }));
+    expect(screen.getByRole('button', { name: 'Filtry (3)' })).toBeTruthy();
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Zrušit filtry' })); });
+    await waitFor(() => expect(hledejVKnihach).toHaveBeenLastCalledWith('mladina', undefined, {}));
   });
 
   it('nic nenalezeno, chyba a krátký dotaz', async () => {

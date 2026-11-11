@@ -6,10 +6,13 @@
 // 11. 11. 2026 („hlavně ať funguje vyhledávání"): otázka v běžné řeči najde
 // stránky s nejvíc slovy otázky, když všechna na jedné stránce nejsou.
 import { useEffect, useRef, useState } from 'react';
-import { Bot, FileText, ListOrdered, Search } from 'lucide-react';
-import { hledejVKnihach, jePostup, nactiPrehledy, nazevPostupu, type PolozkaPrehledu, type VysledekHledani } from '../../lib/bibleHledaniApi';
-import { nactiVydani } from '../../lib/bibleKnihovnaApi';
-import { jeStarsiVydani, rodokmenVydani, type RodokmenVydani } from '../../lib/bibleKnihovna';
+import { Bot, FileText, ListOrdered, Search, SlidersHorizontal } from 'lucide-react';
+import {
+  hledejVKnihach, jePostup, nactiPrehledy, nazevPostupu, type FiltrHledani, type PolozkaPrehledu, type VysledekHledani,
+} from '../../lib/bibleHledaniApi';
+import { nactiDokumenty, nactiVydani } from '../../lib/bibleKnihovnaApi';
+import { DRUH_POPIS, JAZYK_POPIS, jeStarsiVydani, jeZpracovany, rodokmenVydani, type RodokmenVydani } from '../../lib/bibleKnihovna';
+import { BIBLE_OBLASTI } from '../../lib/bibleOblasti';
 import { BiblePrehled } from './BiblePrehled';
 
 const bezDiakritiky = (z: string) => z.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
@@ -37,6 +40,24 @@ export function ZvyraznenyUryvek({ text, dotaz, slova: hledanaSlova }: { text: s
 
 const misto = (v: VysledekHledani) => (v.tistena ? `s. ${v.tistena}` : `list ${v.pdfIndex}`);
 
+const POPISEK = 'space-y-1 text-xs font-black uppercase tracking-wide text-neutral-300';
+type Filtr = FiltrHledani & { kniha?: string };
+
+/** Filtr slovy pro řádek nad výsledky, např. „oblast D · němčina · 1970–1989“. */
+export function popisFiltru(f: Filtr, knihy: readonly { id: string; nazev: string }[] = []): string {
+  const kniha = f.kniha ? knihy.find((k) => k.id === f.kniha)?.nazev ?? 'jedna kniha' : '';
+  return [
+    kniha,
+    f.oblast ? `oblast ${f.oblast}` : '',
+    f.jazyk ? JAZYK_POPIS[f.jazyk as keyof typeof JAZYK_POPIS] ?? f.jazyk : '',
+    f.druh ? DRUH_POPIS[f.druh as keyof typeof DRUH_POPIS] ?? f.druh : '',
+    f.rokOd !== undefined || f.rokDo !== undefined ? `${f.rokOd ?? '…'}–${f.rokDo ?? '…'}` : '',
+    f.autor?.trim() ? `autor „${f.autor.trim()}“` : '',
+  ].filter(Boolean).join(' · ');
+}
+
+const pocetFiltru = (f: Filtr) => [f.kniha, f.oblast, f.jazyk, f.druh, f.autor?.trim(), f.rokOd, f.rokDo].filter((x) => x !== undefined && x !== '').length;
+
 /** Přehledy, jejichž název obsahuje slovo dotazu (bez diakritiky, začátek slova). */
 export function prehledyKDotazu(prehledy: readonly PolozkaPrehledu[], dotaz: string): PolozkaPrehledu[] {
   const slova = bezDiakritiky(dotaz).split(/[^a-z0-9]+/).filter((w) => w.length >= 3);
@@ -55,7 +76,11 @@ export function BibleHledani({ otevri, pocatecniDotaz, zeptatSe }: {
   zeptatSe?: (otazka: string) => void;
 }) {
   const [dotaz, setDotaz] = useState(pocatecniDotaz ?? '');
-  const [stav, setStav] = useState<{ dotaz: string; vysledky: VysledekHledani[]; volne: boolean; slova: string[] } | null>(null);
+  const [stav, setStav] = useState<{ dotaz: string; vysledky: VysledekHledani[]; volne: boolean; slova: string[]; filtr: Filtr } | null>(null);
+  // Filtry (etapa 4b): kniha, oblast, jazyk, druh, rok vydání, autor.
+  const [filtr, setFiltr] = useState<Filtr>({});
+  const [filtry, setFiltry] = useState(false);
+  const [knihy, setKnihy] = useState<{ id: string; nazev: string; rok: number | null }[] | null>(null);
   const [chyba, setChyba] = useState<string | null>(null);
   const [hleda, setHleda] = useState(false);
   const poradi = useRef(0);
@@ -86,18 +111,36 @@ export function BibleHledani({ otevri, pocatecniDotaz, zeptatSe }: {
     void spustHledani(dotaz);
   }
 
-  async function spustHledani(text: string) {
+  async function spustHledani(text: string, f: Filtr = filtr) {
     const q = text.trim();
     if (q.length < 2) { setChyba('Napiš aspoň dva znaky.'); return; }
     const moje = ++poradi.current;
     setHleda(true);
     setChyba(null);
-    const r = await hledejVKnihach(q);
+    const { kniha, ...ostatni } = f;
+    const r = await hledejVKnihach(q, kniha, ostatni);
     if (moje !== poradi.current) return; // mezitím přišlo novější hledání
     setHleda(false);
-    if (r.stav === 'ok') setStav({ dotaz: q, vysledky: r.vysledky, volne: r.volne === true, slova: r.slova ?? [] });
+    if (r.stav === 'ok') setStav({ dotaz: q, vysledky: r.vysledky, volne: r.volne === true, slova: r.slova ?? [], filtr: f });
     else { setStav(null); setChyba(r.zprava); }
   }
+
+  function otevriFiltry() {
+    setFiltry((o) => !o);
+    if (knihy === null) {
+      void nactiDokumenty().then((r) => setKnihy(r.stav === 'ok'
+        ? r.dokumenty.filter((d) => jeZpracovany(d.stav)).map((d) => ({ id: d.id, nazev: d.nazev, rok: d.rok })).sort((a, b) => a.nazev.localeCompare(b.nazev, 'cs'))
+        : []));
+    }
+  }
+
+  /** Změna filtru; u výběru se hned hledá znovu (u textu až po opuštění políčka). */
+  function zmenFiltr(zmena: Partial<Filtr>, hned: boolean) {
+    const novy = { ...filtr, ...zmena };
+    setFiltr(novy);
+    if (hned && stav) void spustHledani(stav.dotaz, novy);
+  }
+  const rok = (v: string) => (v.trim() && Number.isFinite(Number(v)) ? Math.trunc(Number(v)) : undefined);
 
   if (otevrenyPrehled) {
     return <BiblePrehled klic={otevrenyPrehled} otevri={otevri} zpet={() => setOtevrenyPrehled(null)} />;
@@ -124,8 +167,8 @@ export function BibleHledani({ otevri, pocatecniDotaz, zeptatSe }: {
     <div className="space-y-4">
       <p className="text-sm text-neutral-300 max-w-2xl">
         Hledá v textu zpracovaných knih i v jejich českém překladu — česky najdeš i to, co je v anglické knize.
-        Hledají se začátky slov (např. „amyl“ najde amylázu). Nejdřív stránky se všemi slovy; když takové nejsou,
-        stránky s nejvíc slovy z otázky — klidně napiš celou otázku.
+        Hledají se začátky slov (např. „amyl“ najde amylázu) i odborné varianty v němčině a angličtině („mladina“ najde i Würze a wort).
+        Nejdřív stránky se všemi slovy; když takové nejsou, stránky s nejvíc slovy z otázky — klidně napiš celou otázku.
       </p>
       <form className="flex gap-2" onSubmit={hledej} role="search">
         <label className="sr-only" htmlFor="bible-hledani">Hledat v knihách</label>
@@ -139,6 +182,65 @@ export function BibleHledani({ otevri, pocatecniDotaz, zeptatSe }: {
         />
         <button type="submit" className="btn-amber" disabled={hleda}><Search size={18} /> Hledat</button>
       </form>
+      <div className="flex flex-wrap items-center gap-2">
+        <button type="button" className="btn-tmave" aria-expanded={filtry} aria-controls="bible-filtry" onClick={otevriFiltry}>
+          <SlidersHorizontal size={18} /> Filtry{pocetFiltru(filtr) ? ` (${pocetFiltru(filtr)})` : ''}
+        </button>
+        {pocetFiltru(filtr) > 0 && (
+          <button type="button" className="btn-tmave" onClick={() => { setFiltr({}); if (stav) void spustHledani(stav.dotaz, {}); }}>Zrušit filtry</button>
+        )}
+      </div>
+      {filtry && (
+        <section id="bible-filtry" className="rounded-xl border border-neutral-700 bg-neutral-900 p-3" aria-label="Filtry hledání">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <label className={POPISEK}>
+              <span className="block">Kniha</span>
+              <select className="input w-full normal-case" value={filtr.kniha ?? ''} onChange={(e) => zmenFiltr({ kniha: e.target.value || undefined }, true)}>
+                <option value="">všechny knihy</option>
+                {(knihy ?? []).map((k) => <option key={k.id} value={k.id}>{k.nazev}{k.rok ? ` (${k.rok})` : ''}</option>)}
+              </select>
+            </label>
+            <label className={POPISEK}>
+              <span className="block">Oblast</span>
+              <select className="input w-full normal-case" value={filtr.oblast ?? ''} onChange={(e) => zmenFiltr({ oblast: e.target.value || undefined }, true)}>
+                <option value="">všechny oblasti</option>
+                {BIBLE_OBLASTI.map((o) => <option key={o.kod} value={o.kod}>{o.kod} — {o.nazev}</option>)}
+              </select>
+            </label>
+            <label className={POPISEK}>
+              <span className="block">Jazyk knihy</span>
+              <select className="input w-full normal-case" value={filtr.jazyk ?? ''} onChange={(e) => zmenFiltr({ jazyk: e.target.value || undefined }, true)}>
+                <option value="">všechny jazyky</option>
+                {Object.entries(JAZYK_POPIS).map(([k, n]) => <option key={k} value={k}>{n}</option>)}
+              </select>
+            </label>
+            <label className={POPISEK}>
+              <span className="block">Druh dokumentu</span>
+              <select className="input w-full normal-case" value={filtr.druh ?? ''} onChange={(e) => zmenFiltr({ druh: e.target.value || undefined }, true)}>
+                <option value="">všechny druhy</option>
+                {Object.entries(DRUH_POPIS).map(([k, n]) => <option key={k} value={k}>{n}</option>)}
+              </select>
+            </label>
+            <label className={POPISEK}>
+              <span className="block">Autor</span>
+              <input className="input w-full normal-case" maxLength={100} value={filtr.autor ?? ''} placeholder="část jména"
+                onChange={(e) => zmenFiltr({ autor: e.target.value }, false)} onBlur={() => { if (stav) void spustHledani(stav.dotaz); }} />
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <label className={POPISEK}>
+                <span className="block">Rok od</span>
+                <input className="input w-full normal-case" type="number" inputMode="numeric" min={1400} max={2100} value={filtr.rokOd ?? ''}
+                  onChange={(e) => zmenFiltr({ rokOd: rok(e.target.value) }, false)} onBlur={() => { if (stav) void spustHledani(stav.dotaz); }} />
+              </label>
+              <label className={POPISEK}>
+                <span className="block">Rok do</span>
+                <input className="input w-full normal-case" type="number" inputMode="numeric" min={1400} max={2100} value={filtr.rokDo ?? ''}
+                  onChange={(e) => zmenFiltr({ rokDo: rok(e.target.value) }, false)} onBlur={() => { if (stav) void spustHledani(stav.dotaz); }} />
+              </label>
+            </div>
+          </div>
+        </section>
+      )}
       {kDotazu.length > 0 && !hleda && (
         <section className="space-y-2" aria-label="Přehledy k dotazu">
           <div className="text-xs font-black uppercase tracking-wide text-amber-400">Přehled z knih</div>
@@ -150,7 +252,10 @@ export function BibleHledani({ otevri, pocatecniDotaz, zeptatSe }: {
       {stav && !hleda && (
         stav.vysledky.length === 0 ? (
           <div className="rounded-xl border border-neutral-700 bg-neutral-900 p-3 text-sm text-neutral-200 space-y-2">
-            <div>Nic jsem nenašel pro „{stav.dotaz}“. Zkus kratší nebo jiné slovo, případně anglický výraz.</div>
+            <div>
+              Nic jsem nenašel pro „{stav.dotaz}“{pocetFiltru(stav.filtr) > 0 ? ` s filtrem ${popisFiltru(stav.filtr, knihy ?? [])}` : ''}.
+              Zkus kratší nebo jiné slovo{pocetFiltru(stav.filtr) > 0 ? ', nebo filtr zruš' : ''}.
+            </div>
             {zeptatSe && (
               <button type="button" className="btn-tmave" onClick={() => zeptatSe(stav.dotaz)}>
                 <Bot size={18} /> Zeptat se AI sládka
@@ -172,7 +277,10 @@ export function BibleHledani({ otevri, pocatecniDotaz, zeptatSe }: {
                 )}
               </div>
             )}
-            <div className="text-xs font-bold text-neutral-300">Nalezeno {stav.vysledky.length}{stav.vysledky.length >= 40 ? ' (nejlepší)' : ''}</div>
+            <div className="text-xs font-bold text-neutral-300">
+              Nalezeno {stav.vysledky.length}{stav.vysledky.length >= 40 ? ' (nejlepší)' : ''}
+              {pocetFiltru(stav.filtr) > 0 && <> · filtr: {popisFiltru(stav.filtr, knihy ?? [])}</>}
+            </div>
             <ul className="space-y-2">
               {stav.vysledky.map((v, i) => (
                 <li key={`${v.dokumentId}-${v.zdroj}-${v.pdfIndex}-${i}`}>
@@ -195,7 +303,7 @@ export function BibleHledani({ otevri, pocatecniDotaz, zeptatSe }: {
                       ) : null}
                     </span>
                     <span className="block text-sm font-normal leading-relaxed text-neutral-100 break-words">
-                      <ZvyraznenyUryvek text={v.uryvek} dotaz={stav.dotaz} slova={stav.volne ? stav.slova : undefined} />
+                      <ZvyraznenyUryvek text={v.uryvek} dotaz={stav.dotaz} slova={stav.slova.length > 0 ? stav.slova : undefined} />
                     </span>
                   </button>
                 </li>
