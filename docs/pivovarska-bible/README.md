@@ -66,11 +66,17 @@ s citací kniha–kapitola–strana a počítá deterministickým výpočetním 
   literatura, praxe, výpočet, doporučení, rozpory a co chybí); tvrzení z knih
   mají čísla [n], která otevřou knihu na stránce, dole zdroje s citovanou větou.
   Volitelně i web (vždy zvlášť, neověřený).
-- **Peníze:** chatbot volá Claude API (klíč `ANTHROPIC_API_KEY` z app_secrets
-  hlavní appky, do funkcí bible ho přenese nasazení) — předplatné na dotazy
-  z appky použít nejde (R14). Řádově desetníky dolaru za odpověď; měsíční strop
+- **Na předplatné (R31):** tlačítko „Zeptat se v Claude (předplatné)" předá
+  otázku do aplikace Claude (https://claude.ai/new?q=…, zadání i do schránky
+  pro mobilní aplikaci) — odpovídá Claude z předplatného majitele přes konektor
+  „Pivovarská bible" (R16) se stejnými nástroji. Přímo v appce předplatné použít
+  nejde: pravidla Anthropicu ho dovolují jen v aplikacích Claude a v Claude Code.
+- **Peníze (odpověď tady):** „Odpovědět tady (Claude API)" volá Claude API
+  (klíč `ANTHROPIC_API_KEY` z app_secrets hlavní appky, do funkcí bible ho
+  přenese nasazení). Řádově desetníky dolaru za odpověď; měsíční strop
   `strop_mesic_usd` (výchozí 20 USD) nastaví správce ve Správě znalostí,
-  0 = chatbot vypnutý. Útrata se zapisuje do `ai_naklady` (účel „chat").
+  0 = odpovídání tady vypnuté. Útrata se zapisuje do `ai_naklady` (účel „chat").
+  Bez kreditu appka doporučí předplatné a otázku nechá v políčku.
 - **Limity:** nejvýš 8 volání Claude na otázku, po 80 s už jen odpověď bez
   dalšího hledání, tvrdý konec ve 140 s (limit platformy 150 s) — co se
   stihne, uloží se jako neúplná odpověď.

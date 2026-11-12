@@ -55,6 +55,8 @@ export type UdalostChatu =
   | {
     typ: 'hotovo'; konverzaceId: string; zpravaId: string | null; text: string; citace: ZdrojOdpovedi[]; kroky: KrokOdpovedi[];
     neuplna: boolean; model: string | null; cenaUsd: number; utracenoUsd: number; stropUsd: number;
+    /** Kód chyby Claude API, když odpověď nedoběhla (např. „kredit"); jinak null. */
+    chybaKod: string | null;
   }
   | { typ: 'chyba'; kod: string; zprava: string; konverzaceId: string | null };
 
@@ -119,6 +121,7 @@ export function udalostZRadku(radek: string): UdalostChatu | null {
       return {
         typ: 'hotovo', konverzaceId: kid, zpravaId: id(o.zprava_id), text: o.text, citace: zdrojeZDat(o.citace), kroky: krokyZDat(o.kroky),
         neuplna: o.neuplna === true, model: text(o.model), cenaUsd: cislo(o.cena_usd), utracenoUsd: cislo(o.utraceno_usd), stropUsd: cislo(o.strop_usd),
+        chybaKod: text(o.chyba),
       };
     }
     case 'chyba':
