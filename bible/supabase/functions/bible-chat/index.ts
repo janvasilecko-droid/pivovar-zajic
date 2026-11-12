@@ -262,5 +262,7 @@ async function odpovez(k: {
     typ: 'hotovo', konverzace_id: k.konverzaceId, zprava_id: typeof ulozena.data === 'string' ? ulozena.data : null,
     text: v.text, citace: v.zdroje, kroky: v.kroky, neuplna: v.neuplna, model: v.modelOdpovedi, cena_usd: zaokrouhli(v.cena.cena),
     utraceno_usd: zaokrouhli(k.utraceno + v.cena.cena), strop_usd: k.strop,
+    // Kód chyby Claude API (např. „kredit") — appka pak nabídne dotaz přes předplatné v aplikaci Claude.
+    chyba: v.chybaClauda?.kod ?? null,
   });
 }

@@ -517,3 +517,25 @@ Každé rozhodnutí má datum, důvod a co by ho změnilo.
 - Starší knihy: worker je doplňuje při každém běhu (25 za běh) **bez
   stažení celého souboru** — čte přes HTTP Range jen to, co potřebuje
   (rozpočet nejvýš 8 MB nebo pětina souboru, jinak důvod „rozsah").
+
+## R31 — AI sládek na předplatné: předání do aplikace Claude (12. 11. 2026)
+
+- Majitel 12. 11. 2026: „Ten chatbot má fungovat na moje předplatné." (Na
+  Claude API je nulový kredit; 3. 11. „nebudu platit kredity".)
+- Přímo v appce to nejde: přihlášení z předplatného (Free, Pro, Max) dovolují
+  pravidla Anthropicu jen v aplikacích Claude a v Claude Code; směrovat přes
+  něj dotazy z cizí aplikace zakazují a od 2026 to Anthropic i technicky
+  blokuje (https://code.claude.com/docs/en/legal-and-compliance, R14).
+- Předplatné se proto používá tam, kde smí: v aplikaci Claude s konektorem
+  „Pivovarská bible" (R16), který má stejné nástroje jako chatbot v appce
+  (knihy se stránkami, várky, profil pivovaru, zkušenosti, výpočty, problémy).
+  V AI sládkovi je hlavní tlačítko „Zeptat se v Claude (předplatné)": otevře
+  nový chat https://claude.ai/new?q=… s otázkou a pokynem použít konektor
+  (odeslat musí člověk) a zadání zkopíruje do schránky — v mobilní aplikaci
+  Claude ho stačí vložit (odkaz s otázkou mobilní aplikace pro chat nemá).
+  U analýzy problému zadání nese jméno problému a pokyn zapsat zjištění.
+- „Odpovědět tady (Claude API)" zůstává jako druhá možnost (kredit, strop
+  útraty, R28). Otázka odjinud (Hledání, Analýza problémů) se jen připraví do
+  políčka — dřív se rovnou poslala na placené API. Když API nemá kredit,
+  appka doporučí předplatné a otázku nechá v políčku (bible-chat posílá
+  v hotové odpovědi kód chyby Clauda).

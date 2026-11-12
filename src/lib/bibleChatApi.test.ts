@@ -55,7 +55,9 @@ describe('události odpovědi', () => {
     expect(u.citace.map((c) => c.n)).toEqual([1, 2]);
     expect(u.citace[0]).toEqual({ n: 1, dokumentId: ID, pdfIndex: 12, nazev: 'Kniha', tistena: '10', kapitola: null, zdroj: 'preklad', url: null, citat: 'c' });
     expect(u.kroky).toEqual([{ nastroj: 'hledej_v_knihach', popis: 'Hledám', chyba: true }]);
-    expect(u).toMatchObject({ cenaUsd: 0.12, utracenoUsd: 1.5, stropUsd: 20, zpravaId: ID });
+    expect(u).toMatchObject({ cenaUsd: 0.12, utracenoUsd: 1.5, stropUsd: 20, zpravaId: ID, chybaKod: null });
+    // Odpověď, které došel kredit Claude API, nese kód chyby (appka nabídne předplatné v Claude).
+    expect(udalostZRadku(JSON.stringify({ typ: 'hotovo', konverzace_id: KID, text: 'x', chyba: 'kredit' }))).toMatchObject({ chybaKod: 'kredit', neuplna: false });
     expect(zdrojZDat({ n: 0, dokumentId: ID, pdfIndex: 1 })).toBeNull();
   });
 });

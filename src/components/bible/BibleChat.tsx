@@ -13,6 +13,7 @@ import {
   nactiKonverzace, nactiKonverzaci, nactiStavChatu, smazKonverzaci, usdText, zeptejSe,
   type Konverzace, type StavChatu, type UdalostChatu, type ZdrojOdpovedi, type ZpravaChatu,
 } from '../../lib/bibleChatApi';
+import { odkazNaClaude, KONEKTOR, zadaniProClaude } from '../../lib/bibleClaude';
 import { rozlozText } from '../../lib/bibleText';
 import { potvrd } from '../../lib/toast';
 import { TextListuKnihy, VykresleniTextu } from './BibleKniha';
@@ -143,6 +144,11 @@ export function BibleChat({ otevri, problem, otazkaZvenku }: {
   const [otazka, setOtazka] = useState('');
   const [web, setWeb] = useState(false);
   const [chyba, setChyba] = useState<string | null>(null);
+  // Claude API bez kreditu (zjištěno z odpovědi) — appka doporučí dotaz přes předplatné v Claude.
+  const [bezKreditu, setBezKreditu] = useState(false);
+  // Otázka předaná do aplikace Claude (předplatné) — vysvětlení, co dál.
+  const [predano, setPredano] = useState(false);
+  const policko = useRef<HTMLTextAreaElement | null>(null);
   const zruseni = useRef<AbortController | null>(null);
   const odeslano = useRef<number | null>(null);
   const konec = useRef<HTMLDivElement | null>(null);
@@ -158,13 +164,16 @@ export function BibleChat({ otevri, problem, otazkaZvenku }: {
     return () => zruseni.current?.abort();
   }, []);
 
+  // Otázka odjinud (Hledání, Analýza problémů) se jen připraví do políčka — kudy se zeptat
+  // (předplatné v Claude, nebo tady přes kreditové API), vybere člověk.
   useEffect(() => {
     if (otazkaZvenku?.text.trim() && odeslano.current !== otazkaZvenku.klic) {
       odeslano.current = otazkaZvenku.klic;
-      void posli(otazkaZvenku.text);
+      setOtazka(otazkaZvenku.text);
+      setPredano(false);
+      policko.current?.focus();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [otazkaZvenku?.klic]);
+  }, [otazkaZvenku?.klic, otazkaZvenku?.text]);
 
   const vypnuto = stav !== null && (!stav.migrace || !stav.klic || stav.stropUsd <= 0 || stav.utracenoUsd >= stav.stropUsd);
 
@@ -186,6 +195,7 @@ export function BibleChat({ otevri, problem, otazkaZvenku }: {
       if (u.typ === 'text') { setProbiha((p) => (p ? { ...p, text: p.text + u.text } : p)); return; }
       if (u.typ === 'mezikrok') { setProbiha((p) => (p ? { ...p, text: '' } : p)); return; }
       if (u.typ === 'hotovo') {
+        if (u.chybaKod === 'kredit') { setBezKreditu(true); setOtazka(q); }
         setZpravy((z) => [...z, {
           id: u.zpravaId ?? `odpoved-${Date.now()}`, role: 'asistent', text: u.text, kroky: u.kroky, citace: u.citace,
           model: u.model, cenaUsd: u.cenaUsd, neuplna: u.neuplna, vytvoreno: null,
@@ -194,12 +204,17 @@ export function BibleChat({ otevri, problem, otazkaZvenku }: {
         setProbiha(null);
         return;
       }
-      if (u.typ === 'chyba') { setChyba(u.zprava); setProbiha(null); }
+      if (u.typ === 'chyba') {
+        if (u.kod === 'kredit') { setBezKreditu(true); setOtazka(q); }
+        setChyba(u.zprava);
+        setProbiha(null);
+      }
     };
     const r = await zeptejSe({ otazka: q, konverzaceId: aktivni.id, problemId: problem?.id ?? aktivni.problemId, web }, naUdalost, ctl.signal);
     if (zruseni.current === ctl) zruseni.current = null;
     setProbiha(null);
     if (!r.ok && r.chyba.kod !== 'zruseno') {
+      if (r.chyba.kod === 'kredit') setBezKreditu(true);
       setChyba(r.chyba.zprava);
       // Otázka se neuložila (strop, chybí klíč…) — vrátí se do políčka, ať se neztratí.
       if (!zacala) { setZpravy((z) => z.filter((x) => x.id !== docasna.id)); setOtazka(q); }
@@ -225,6 +240,16 @@ export function BibleChat({ otevri, problem, otazkaZvenku }: {
     nactiHistorii();
   }
 
+  /** Předání do aplikace Claude: odkaz otevře chat s otázkou, zadání jde i do schránky (mobilní aplikace). */
+  function predejClaudovi(zadani: string) {
+    setPredano(true);
+    try {
+      void navigator.clipboard?.writeText(zadani).catch(() => {});
+    } catch {
+      // Schránka není (starý prohlížeč) — odkaz otázku předvyplní i tak.
+    }
+  }
+
   function novaKonverzace() {
     zruseni.current?.abort();
     setAktivni({ id: null, nazev: null, problemId: problem?.id ?? null });
@@ -237,7 +262,8 @@ export function BibleChat({ otevri, problem, otazkaZvenku }: {
     <div className="space-y-3">
       <p className="text-sm text-neutral-300 max-w-2xl">
         Zeptej se jako sládka — na problém, postup, hodnotu nebo várky. AI sládek (Claude) hledá v knihách, várkách, profilu pivovaru
-        a ve zkušenostech, čísla počítá výpočetním modulem a u každého tvrzení z knih dá odkaz [n] na stránku.
+        a ve zkušenostech, čísla počítá výpočetním modulem a u každého tvrzení z knih dá odkaz na stránku. Na tvoje předplatné Claude
+        odpovídá v aplikaci Claude přes konektor „{KONEKTOR}“; přímo tady v appce přes Claude API (platí se kredit).
       </p>
 
       {chybaStavu && <div role="alert" className="text-sm font-bold text-rose-300">{chybaStavu}</div>}
@@ -245,9 +271,9 @@ export function BibleChat({ otevri, problem, otazkaZvenku }: {
         !stav.migrace ? (
           <div role="note" className={`${KARTA} text-sm text-amber-100`}>AI sládek čeká na migraci databáze bible (Systém → Databázové migrace → Databáze bible → 20261111030000_bible_chat).</div>
         ) : !stav.klic ? (
-          <div role="note" className={`${KARTA} text-sm text-amber-100`}>AI sládek ještě nemá klíč k Claude API — doplní ho příští nasazení appky z app_secrets (ANTHROPIC_API_KEY).</div>
+          <div role="note" className={`${KARTA} text-sm text-amber-100`}>AI sládek ještě nemá klíč k Claude API — doplní ho příští nasazení appky z app_secrets (ANTHROPIC_API_KEY). Přes předplatné se zeptáš tlačítkem „Zeptat se v Claude“.</div>
         ) : stav.stropUsd <= 0 ? (
-          <div role="note" className={`${KARTA} text-sm text-amber-100`}>AI sládek je vypnutý (měsíční strop útraty je 0 USD). Zapne ho správce ve Správě znalostí → Útrata za AI.</div>
+          <div role="note" className={`${KARTA} text-sm text-amber-100`}>AI sládek je vypnutý (měsíční strop útraty je 0 USD). Zapne ho správce ve Správě znalostí → Útrata za AI. Přes předplatné se zeptáš tlačítkem „Zeptat se v Claude“.</div>
         ) : (
           <div className={`text-xs ${stav.utracenoUsd >= stav.stropUsd ? 'font-bold text-rose-300' : 'text-neutral-300'}`}>
             Útrata za AI tento měsíc: {usdText(stav.utracenoUsd)} z {usdText(stav.stropUsd)}{stav.model ? ` · model ${stav.model}` : ''}
@@ -329,24 +355,48 @@ export function BibleChat({ otevri, problem, otazkaZvenku }: {
         <label className="sr-only" htmlFor="bible-chat-otazka">Otázka pro AI sládka</label>
         <textarea
           id="bible-chat-otazka"
+          ref={policko}
           className="input w-full min-h-[90px] normal-case"
           maxLength={4000}
           value={otazka}
           placeholder={problem ? 'Např. Najdi možné příčiny a co mám ověřit.' : 'Např. Proč mi pivo málo pění?'}
-          onChange={(e) => setOtazka(e.target.value)}
+          onChange={(e) => { setOtazka(e.target.value); setPredano(false); }}
           onKeyDown={(e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); void posli(otazka); } }}
         />
+        {bezKreditu && (
+          <div role="note" className="rounded-lg border border-amber-700 bg-neutral-900 p-2 text-sm text-amber-100">
+            Claude API nemá kredit. Zeptej se zdarma přes svoje předplatné — tlačítkem „Zeptat se v Claude (předplatné)“, otázka je v políčku.
+          </div>
+        )}
         <div className="flex flex-wrap items-center gap-3">
-          <button type="submit" className="btn-amber" disabled={!!probiha || otazka.trim().length < 2 || vypnuto}>
-            <Send size={18} /> Zeptat se
+          {otazka.trim().length >= 2 ? (
+            <a className="btn-amber" href={odkazNaClaude(zadaniProClaude(otazka, problem ?? null))} target="_blank" rel="noopener noreferrer"
+              onClick={() => predejClaudovi(zadaniProClaude(otazka, problem ?? null))}>
+              <ExternalLink size={18} aria-hidden="true" /> Zeptat se v Claude (předplatné)
+            </a>
+          ) : (
+            <button type="button" className="btn-amber" disabled>
+              <ExternalLink size={18} aria-hidden="true" /> Zeptat se v Claude (předplatné)
+            </button>
+          )}
+          <button type="submit" className="btn-tmave" disabled={!!probiha || otazka.trim().length < 2 || vypnuto}>
+            <Send size={18} /> Odpovědět tady (Claude API)
           </button>
           <label className="tap flex items-center gap-2 text-sm text-neutral-200">
             <input type="checkbox" className="h-5 w-5 accent-amber-500" checked={web} onChange={(e) => setWeb(e.target.checked)} />
             <Globe size={16} aria-hidden="true" /> Hledat i na internetu
           </label>
         </div>
+        {predano && (
+          <div role="status" className="rounded-lg border border-neutral-700 bg-neutral-900 p-2 text-sm text-neutral-100">
+            Otázka je v Claude — odeslat ji musíš tam. Je i ve schránce: v mobilní aplikaci Claude ji stačí vložit. Konektor „{KONEKTOR}“
+            musí být v Claude připojený (Pivovarská bible → Správa znalostí → Aplikace Claude).
+          </div>
+        )}
         <p className="text-xs text-neutral-400">
-          Odpověď trvá obvykle 20–90 sekund a stojí řádově desetníky dolaru (Claude API). Internet je pomalejší a dražší; web se v odpovědi uvádí zvlášť jako neověřený zdroj.
+          „Zeptat se v Claude“: odpovídá tvoje předplatné Claude přes konektor „{KONEKTOR}“, odpověď i s odkazy na stránky knih je v aplikaci Claude.
+          „Odpovědět tady“: odpověď přímo v appce přes Claude API — obvykle 20–90 sekund, řádově desetníky dolaru z kreditu. Internet je pomalejší
+          a dražší; web se v odpovědi uvádí zvlášť jako neověřený zdroj.
         </p>
       </form>
     </div>

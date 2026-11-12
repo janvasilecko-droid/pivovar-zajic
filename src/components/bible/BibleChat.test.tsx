@@ -26,7 +26,7 @@ import { BibleChat, vykresliOdpoved } from './BibleChat';
 const ZAPNUTO: Odpoved<StavChatu> = { stav: 'ok', data: { migrace: true, klic: true, utracenoUsd: 1.25, chatUsd: 1, chatDotazu: 4, stropUsd: 20, model: 'claude-opus-5-5' } };
 const HOTOVO: UdalostChatu = {
   typ: 'hotovo', konverzaceId: KID, zpravaId: ID, text: '## Krátká odpověď\nPěnu drží **bílkoviny**[1].\n- ověř pH[2]', neuplna: false,
-  model: 'claude-opus-5-5', cenaUsd: 0.12, utracenoUsd: 1.37, stropUsd: 20,
+  model: 'claude-opus-5-5', cenaUsd: 0.12, utracenoUsd: 1.37, stropUsd: 20, chybaKod: null,
   kroky: [{ nastroj: 'hledej_v_knihach', popis: 'Hledám v knihách: „pěna“', chyba: false }],
   citace: [
     { n: 1, dokumentId: ID, pdfIndex: 12, nazev: 'Pivovarství', tistena: '10', kapitola: null, zdroj: 'preklad', url: null, citat: 'Bílkoviny drží pěnu.' },
@@ -44,7 +44,7 @@ beforeEach(() => {
 
 function zeptatSe(text: string) {
   fireEvent.change(screen.getByLabelText('Otázka pro AI sládka'), { target: { value: text } });
-  fireEvent.click(screen.getByRole('button', { name: /Zeptat se/ }));
+  fireEvent.click(screen.getByRole('button', { name: /Odpovědět tady/ }));
 }
 
 describe('AI sládek (chatbot)', () => {
@@ -99,7 +99,9 @@ describe('AI sládek (chatbot)', () => {
     const { unmount } = render(<BibleChat otevri={() => {}} />);
     expect(await screen.findByText(/AI sládek je vypnutý/)).toBeTruthy();
     fireEvent.change(screen.getByLabelText('Otázka pro AI sládka'), { target: { value: 'Otázka' } });
-    expect((screen.getByRole('button', { name: /Zeptat se/ }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: /Odpovědět tady/ }) as HTMLButtonElement).disabled).toBe(true);
+    // Přes předplatné v aplikaci Claude to jde dál.
+    expect(screen.getByRole('link', { name: /Zeptat se v Claude \(předplatné\)/ }).getAttribute('href')).toMatch(/^https:\/\/claude\.ai\/new\?q=/);
     unmount();
     stav = { stav: 'ok', data: { ...(ZAPNUTO as { data: StavChatu }).data, klic: false } };
     render(<BibleChat otevri={() => {}} />);
@@ -126,15 +128,58 @@ describe('AI sládek (chatbot)', () => {
     expect(screen.queryByText('Starší otázka')).toBeNull();
   });
 
-  it('otázka zvenku (Analýza problémů) se pošle hned jednou, s problémem', async () => {
+  it('otázka zvenku (Analýza problémů) se jen připraví — kudy se zeptat, vybere člověk; API dostane i problém', async () => {
     zeptejSe.mockResolvedValue({ ok: true });
-    const { rerender } = render(<BibleChat otevri={() => {}} problem={{ id: ID, nazev: 'Málo pěny' }} otazkaZvenku={{ text: 'Najdi příčiny', klic: 1 }} />);
-    await waitFor(() => expect(zeptejSe).toHaveBeenCalledTimes(1));
-    expect(zeptejSe.mock.calls[0][0]).toMatchObject({ otazka: 'Najdi příčiny', problemId: ID });
+    render(<BibleChat otevri={() => {}} problem={{ id: ID, nazev: 'Málo pěny' }} otazkaZvenku={{ text: 'Najdi příčiny', klic: 1 }} />);
+    await screen.findByText(/Útrata za AI/);
+    expect(zeptejSe).not.toHaveBeenCalled();
+    expect((screen.getByLabelText('Otázka pro AI sládka') as HTMLTextAreaElement).value).toBe('Najdi příčiny');
     expect(screen.getByText(/Analýza problému „Málo pěny“/)).toBeTruthy();
-    rerender(<BibleChat otevri={() => {}} problem={{ id: ID, nazev: 'Málo pěny' }} otazkaZvenku={{ text: 'Najdi příčiny', klic: 1 }} />);
-    await act(async () => {});
+    // Do Claude jde zadání s názvem problému.
+    const zadani = decodeURIComponent(screen.getByRole('link', { name: /Zeptat se v Claude/ }).getAttribute('href')!.split('?q=')[1]);
+    expect(zadani).toContain('analyzuj problém „Málo pěny“');
+    expect(zadani).toContain('Otázka: Najdi příčiny');
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Odpovědět tady/ })); });
     expect(zeptejSe).toHaveBeenCalledTimes(1);
+    expect(zeptejSe.mock.calls[0][0]).toMatchObject({ otazka: 'Najdi příčiny', problemId: ID });
+  });
+
+  it('„Zeptat se v Claude": odkaz s otázkou a konektorem, zadání do schránky a vysvětlení', async () => {
+    const zapis = vi.fn(async () => {});
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText: zapis }, configurable: true });
+    render(<BibleChat otevri={() => {}} />);
+    await screen.findByText(/Útrata za AI/);
+    // Bez otázky nejde.
+    expect((screen.getByRole('button', { name: /Zeptat se v Claude/ }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText('Otázka pro AI sládka'), { target: { value: 'Proč málo pění?' } });
+    const odkaz = screen.getByRole('link', { name: /Zeptat se v Claude \(předplatné\)/ });
+    expect(odkaz.getAttribute('target')).toBe('_blank');
+    expect(odkaz.getAttribute('rel')).toContain('noopener');
+    const zadani = decodeURIComponent(odkaz.getAttribute('href')!.replace('https://claude.ai/new?q=', ''));
+    expect(zadani).toContain('konektor „Pivovarská bible“');
+    expect(zadani.endsWith('Otázka: Proč málo pění?')).toBe(true);
+    fireEvent.click(odkaz);
+    expect(zapis).toHaveBeenCalledWith(zadani);
+    expect(screen.getByRole('status').textContent).toMatch(/v mobilní aplikaci Claude ji stačí vložit/);
+    expect(zeptejSe).not.toHaveBeenCalled();
+  });
+
+  it('API bez kreditu: doporučí předplatné a otázka zůstane v políčku (chyba i hotová odpověď s chybou)', async () => {
+    zeptejSe.mockResolvedValueOnce({ ok: false, chyba: { kod: 'kredit', zprava: 'Na účtu Claude API došel kredit.', status: 402 } });
+    render(<BibleChat otevri={() => {}} />);
+    await screen.findByText(/Útrata za AI/);
+    zeptatSe('Proč kalné pivo?');
+    expect(await screen.findByText(/Claude API nemá kredit/)).toBeTruthy();
+    expect((screen.getByLabelText('Otázka pro AI sládka') as HTMLTextAreaElement).value).toBe('Proč kalné pivo?');
+    // Chyba kreditu uvnitř hotové (neúplné) odpovědi — otázka se vrátí do políčka.
+    zeptejSe.mockImplementationOnce(async (_p, na) => {
+      na({ typ: 'start', konverzaceId: KID });
+      na({ ...HOTOVO, text: 'Na účtu Claude API došel kredit.', citace: [], neuplna: true, chybaKod: 'kredit' } as UdalostChatu);
+      return { ok: true };
+    });
+    zeptatSe('Proč málo pění?');
+    await waitFor(() => expect((screen.getByLabelText('Otázka pro AI sládka') as HTMLTextAreaElement).value).toBe('Proč málo pění?'));
+    expect(screen.getByRole('link', { name: /Zeptat se v Claude/ })).toBeTruthy();
   });
 
   it('vykreslení textu: odrážky, tučně i s citací uvnitř, neznámé číslo zůstane textem', () => {
