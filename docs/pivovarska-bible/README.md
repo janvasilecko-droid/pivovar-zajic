@@ -53,6 +53,7 @@ s citací kniha–kapitola–strana a počítá deterministickým výpočetním 
 | 8: receptury a várky — evidence (pevný katalog 30 hodnot s rozsahem), receptury s cíli, porovnání várek (cíle, odchylky, výtěžek, odpar, prokvašení, co chybí), nástroje `seznam_varek` a `porovnej_varky` (R26) | hotovo (11. 11. 2026) — migrace `20261111010000_bible_varky` |
 | 9: rešerše z internetu — `bible_web_zdroje` (adresa, titulek, datum publikace a zjištění, důvěra 1–5, stav), Claude ukládá přes konektor vždy jako neověřené, správce ověří ve Správě znalostí (R27) | hotovo (11. 11. 2026) — migrace `20261111020000_bible_web_problemy` |
 | 10: analýza problémů (oblast T) — problémy s dotčenými várkami, zjištění šesti typů (fakt se zdrojem, výpočet, zkušenost, doporučení, hypotéza, chybí), potvrzení hypotéz, trend várek v grafu; nástroje `problemy`, `zaloz_problem`, `zapis_zjisteni` (R27) | hotovo (11. 11. 2026) — stejná migrace |
+| zápis z provozu hlasem přes konektor — nástroje `zapis_varku`, `dopln_varku`, `zapis_zkusenost` (shrnutí a potvrzení před uložením, pojistky proti zápisu navíc a přepsání; R32) | hotovo (12. 11. 2026) — bez migrace |
 
 ## AI sládek — chatbot v appce (etapa 5)
 
@@ -117,6 +118,22 @@ s citací kniha–kapitola–strana a počítá deterministickým výpočetním 
 - **Zápis přes konektor** jde za uživatele, který konektor připojil
   (`pres_claude`, v appce „Claude (konektor) za …"), a jen s právem
   přispěvatele (hlídá konektor i SQL).
+
+## Zápis z provozu hlasem přes konektor (R32)
+
+- **Jak:** v aplikaci Claude (i v mobilu, i hlasem) s konektorem „Pivovarská
+  bible" řekni třeba „Zapiš várku Desítky z dneška: sypání 450 kg, pH rmutu
+  5,6, mladina 11,8 °P", „K poslední várce Desítky doplň: kvašení 8 dní,
+  nejvyšší teplota 10,5 °C" nebo „Zapiš zkušenost: …". Claude hodnoty
+  s jednotkami shrne, po potvrzení je uloží a vypíše, co přesně uložil.
+- **Nástroje:** `zapis_varku` (nová várka), `dopln_varku` (další hodnoty nebo
+  poznámka s dnešním datem k várce ze `seznam_varek`), `zapis_zkusenost`
+  (výchozí úroveň 4 — zkušenost jednoho sládka). Stejný katalog hodnot,
+  rozsahy a SQL funkce jako formulář appky.
+- **Pojistky:** stejné pivo téhož dne ani stejná zkušenost se podruhé neuloží;
+  uloženou jinou hodnotu `dopln_varku` nepřepíše bez výslovné opravy
+  (`opravit=true`); účet jen se čtením nezapíše nic. V appce chatbot tyhle
+  nástroje nemá.
 
 ## Receptury a várky (etapa 8)
 

@@ -3,7 +3,7 @@
 // žádný text skutečných knih (repo je veřejné).
 import { describe, expect, it } from 'vitest';
 import {
-  CENA_HLEDANI_USD, cenaVolani, chybaApi, historieProApi, kontextDotazu, knihaZOdkazu, MAX_OTAZKA, nastrojeChatu, nastrojeKProvedeni,
+  CENA_HLEDANI_USD, cenaVolani, chybaApi, historieProApi, JEN_KONEKTOR, kontextDotazu, knihaZOdkazu, MAX_OTAZKA, nastrojeChatu, nastrojeKProvedeni,
   nazevKonverzace, obsahKOdeslani, popisKroku, pozadavekChatu, sectiCeny, SYSTEM_PROMPT, textSCitacemi, type ZdrojKnihy,
 } from './chat';
 import { NASTROJE, odkazNaList } from './mcp';
@@ -68,7 +68,8 @@ describe('nástroje chatbota', () => {
     expect(zakladni).not.toContain('uloz_web_zdroj');
     expect(zakladni).not.toContain('zaloz_problem');
     expect(zakladni).not.toContain('zapis_zjisteni');
-    expect(zakladni).toEqual(NASTROJE.map((n) => n.name).filter((n) => !['uloz_web_zdroj', 'zaloz_problem', 'zapis_zjisteni'].includes(n)));
+    for (const n of ['zapis_varku', 'dopln_varku', 'zapis_zkusenost']) expect(zakladni).not.toContain(n);
+    expect(zakladni).toEqual(NASTROJE.map((n) => n.name).filter((n) => !JEN_KONEKTOR.has(n) && n !== 'zapis_zjisteni'));
     expect(zakladni).toContain('hledej_zkusenosti');
     expect(jmena(nastrojeChatu(NASTROJE, { zapis: true, web: false }))).toContain('zapis_zjisteni');
     const sWebem = nastrojeChatu(NASTROJE, { zapis: false, web: true });

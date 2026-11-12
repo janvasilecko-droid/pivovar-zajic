@@ -108,8 +108,12 @@ export const NULOVA_CENA: CenaVolani = { cena: 0, vstup: 0, vystup: 0, cacheCten
 
 // --- Nástroje -------------------------------------------------------------------
 
-/** Konektor ukládá web a zakládá problémy; chatbot jen čte (zjištění zapisuje jen v analýze problému). */
-const JEN_KONEKTOR = new Set(['uloz_web_zdroj', 'zaloz_problem']);
+/**
+ * Jen v konektoru (aplikace Claude, předplatné): ukládání webu, zakládání
+ * problémů a zápis z provozu (várky, zkušenosti — R32). Chatbot v appce jen
+ * čte; zjištění zapisuje jen v analýze problému.
+ */
+export const JEN_KONEKTOR: ReadonlySet<string> = new Set(['uloz_web_zdroj', 'zaloz_problem', 'zapis_varku', 'dopln_varku', 'zapis_zkusenost']);
 
 export type NastrojApi =
   | { name: string; description: string; input_schema: Record<string, unknown> }

@@ -12,7 +12,11 @@ vi.mock('./bibleKlient', async (puvodni) => ({
   }),
 }));
 
-import { nactiZkusenosti, nazevUrovne, smazZkusenost, upravZkusenost, zapisZkusenost, type ZkusenostVstup } from './bibleZkusenostiApi';
+import {
+  DRUHY_ZKUSENOSTI, nactiZkusenosti, nazevUrovne, smazZkusenost, upravZkusenost, zapisZkusenost, type ZkusenostVstup,
+} from './bibleZkusenostiApi';
+import { DRUHY_ZKUSENOSTI_NAZVY } from '../../bible/supabase/functions/_shared/nastroje';
+import { TYPY_ZKUSENOSTI } from '../../bible/supabase/functions/_shared/vstupy';
 
 const ID = '11111111-2222-3333-4444-555555555555';
 const VSTUP: ZkusenostVstup = { typ: 'reseni_problemu', nazev: '  Pěnění  ', text: ' Snížit výkon. ', oblasti: ['F'], uroven: 4, zdroj: '  ' };
@@ -70,5 +74,10 @@ describe('zkušenosti sládků přes bible-api', () => {
   it('názvy úrovní', () => {
     expect(nazevUrovne(4)).toBe('Zkušenost jednoho sládka');
     expect(nazevUrovne(9)).toBe('Úroveň 9');
+  });
+
+  it('druhy zkušeností: appka, kontrola vstupu i konektor (zapis_zkusenost) znají stejné a stejně je pojmenují', () => {
+    expect(DRUHY_ZKUSENOSTI.map((d) => d.id).sort()).toEqual([...TYPY_ZKUSENOSTI].sort());
+    expect(Object.fromEntries(DRUHY_ZKUSENOSTI.map((d) => [d.id, d.nazev]))).toEqual(DRUHY_ZKUSENOSTI_NAZVY);
   });
 });

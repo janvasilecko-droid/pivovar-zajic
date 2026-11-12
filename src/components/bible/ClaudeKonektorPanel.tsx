@@ -39,6 +39,11 @@ export function ClaudeKonektorPanel() {
         z mých knih" a Claude sám prohledá knihy, přečte stránky a odpoví s odkazy na knihu a stranu. Umí taky počítat (výpočty z laboratoře),
         číst profil pivovaru, porovnat várky, uložit zdroj z webu (vždy jako neověřený) a zapsat zjištění k problému — co zapíše, je v appce označené „Claude (konektor)".
       </p>
+      <p className="text-sm text-neutral-200">
+        Zapisuje i z provozu, klidně hlasem v mobilu: „Zapiš várku Desítky z dneška: sypání 450 kg, pH rmutu 5,6, mladina 11,8 °P",
+        „K poslední várce Desítky doplň kvašení 8 dní" nebo „Zapiš zkušenost: …". Claude hodnoty s jednotkami shrne a uloží je až po tvém
+        potvrzení; stejnou várku ani zkušenost neuloží dvakrát a už zapsanou hodnotu nepřepíše bez výslovné opravy.
+      </p>
       <ol className="list-decimal space-y-1 pl-5 text-sm text-neutral-200">
         <li>Na <a className="font-bold text-amber-300 underline" href="https://claude.ai/settings/connectors" target="_blank" rel="noopener noreferrer">claude.ai → Nastavení → Konektory</a> klikni „Přidat vlastní konektor".</li>
         <li>Název: Pivovarská bible. Adresa: tahle (tlačítko ji zkopíruje):</li>
