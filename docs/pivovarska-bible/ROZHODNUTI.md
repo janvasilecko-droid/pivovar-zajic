@@ -539,3 +539,30 @@ Každé rozhodnutí má datum, důvod a co by ho změnilo.
   políčka — dřív se rovnou poslala na placené API. Když API nemá kredit,
   appka doporučí předplatné a otázku nechá v políčku (bible-chat posílá
   v hotové odpovědi kód chyby Clauda).
+
+## R32 — Zápis z provozu hlasem přes konektor: várky a zkušenosti (12. 11. 2026)
+
+- Majitel 12. 11. 2026 k doporučení „zapisovat várky a zkušenosti hlasem přes
+  Claude" (v mobilu: „Zapiš várku Desítky z dneška: sypání 450 kg, pH rmutu
+  5,6, mladina 11,8 °P"): „Ano, pokračuj automaticky". Jede to na předplatné
+  (aplikace Claude s konektorem, R16 a R31), bez formulářů.
+- Konektor dostal nástroje `zapis_varku` (nová várka), `dopln_varku` (další
+  hodnoty nebo poznámka k várce ze seznamu) a `zapis_zkusenost`. Kontroly jsou
+  stejné jako ve formuláři appky (pevný katalog 30 hodnot s jednotkou
+  a rozsahem, R26; druhy a úrovně zkušeností) a ukládá se stejnými SQL
+  funkcemi, které práva hlídají znovu (`bible_varka_uloz`,
+  `bible_zapis_zkusenost`). Bez migrace.
+- Správnost před rychlostí: popis nástrojů i instrukce konektoru říkají, že
+  Claude zápis **před uložením shrne a nechá potvrdit**, nic nedomýšlí,
+  nepřepočítává ani nezaokrouhluje. Pojistky v nástrojích: stejné pivo téhož
+  dne se podruhé neuloží (další várku téhož dne až s výslovným potvrzením),
+  stejná zkušenost (název i text) taky ne, a hodnotu, kterou várka už má jinou,
+  `dopln_varku` nepřepíše — vrátí rozdíly a uloží až s `opravit=true` po
+  potvrzení opravy. Výsledek vypíše přesně, co se uložilo.
+- Kdo zapsal: připojený uživatel s doplňkem „přes Claude" (u zkušenosti je
+  to vidět v appce). Pivovar várky se přiřadí jako ve formuláři appky (jediný
+  pivovar z Technologie pivovaru, jinak žádný). Účet jen se čtením nezapíše nic;
+  úroveň zkušenosti 1–3 smí jen správce.
+- Chatbot v appce (Claude API) tyhle nástroje nedostane — zápis z provozu je
+  jen v konektoru. Nástroje konektoru nesou popisky MCP (jen čtení / zápis),
+  aplikace Claude se tak u zápisu může ptát na schválení.

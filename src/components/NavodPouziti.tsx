@@ -555,7 +555,7 @@ const ODDILY: Oddil[] = [
       },
       {
         co: 'Ptát se Clauda na knihy',
-        jak: 'Pivovarská bible → Správa znalostí → Aplikace Claude: zkopíruj adresu konektoru, v aplikaci Claude (claude.ai → Nastavení → Konektory) přidej vlastní konektor „Pivovarská bible" a v appce pivovaru potvrď „Povolit". Pak se v Claude (i v mobilu) zeptáš třeba „napiš to nejlepší o chmelovaru z mých knih" a Claude prohledá knihy, přečte stránky a odpoví s odkazy na knihu a stranu. Odpojit jde tamtéž tlačítkem Odpojit.',
+        jak: 'Pivovarská bible → Správa znalostí → Aplikace Claude: zkopíruj adresu konektoru, v aplikaci Claude (claude.ai → Nastavení → Konektory) přidej vlastní konektor „Pivovarská bible" a v appce pivovaru potvrď „Povolit". Pak se v Claude (i v mobilu) zeptáš třeba „napiš to nejlepší o chmelovaru z mých knih" a Claude prohledá knihy, přečte stránky a odpoví s odkazy na knihu a stranu. Zapisovat jde i hlasem: „Zapiš várku Desítky z dneška: sypání 450 kg, pH rmutu 5,6, mladina 11,8 °P", „K poslední várce Desítky doplň kvašení 8 dní" nebo „Zapiš zkušenost: …" — Claude hodnoty shrne a uloží je až po tvém potvrzení; stejnou várku ani zkušenost neuloží dvakrát a zapsanou hodnotu nepřepíše bez výslovné opravy. Odpojit jde tamtéž tlačítkem Odpojit.',
       },
       {
         co: 'Výpočtová laboratoř',
@@ -567,7 +567,7 @@ const ODDILY: Oddil[] = [
       },
       {
         co: 'Receptury a várky',
-        jak: 'Pivovarská bible → Receptury a várky (nejdřív migrace bible 20261111010000_bible_varky v Systém → Databázové migrace → Databáze bible). V záložce Receptury zapiš recepturu s cíli (objem, stupňovitost, alkohol, IBU, barva), surovinami a kroky. „Zapsat várku“ uloží, co je změřené: sypání, vodu, pH, objemy a extrakty sladiny a mladiny, chmelovar, kvašení, ležení a laboratoř — prázdné pole zůstane nezapsané. Zaškrtni 2 až 12 várek a „Porovnat vybrané“ ukáže hodnoty vedle sebe s cílem receptury a odchylkou, spočítá výtěžek, odpar a prokvašení a vyjmenuje, co chybí. Příčiny odchylek najde Claude přes konektor („porovnej posledních 5 várek…“).',
+        jak: 'Pivovarská bible → Receptury a várky (nejdřív migrace bible 20261111010000_bible_varky v Systém → Databázové migrace → Databáze bible). V záložce Receptury zapiš recepturu s cíli (objem, stupňovitost, alkohol, IBU, barva), surovinami a kroky. „Zapsat várku“ uloží, co je změřené: sypání, vodu, pH, objemy a extrakty sladiny a mladiny, chmelovar, kvašení, ležení a laboratoř — prázdné pole zůstane nezapsané. Zaškrtni 2 až 12 várek a „Porovnat vybrané“ ukáže hodnoty vedle sebe s cílem receptury a odchylkou, spočítá výtěžek, odpar a prokvašení a vyjmenuje, co chybí. Příčiny odchylek najde Claude přes konektor („porovnej posledních 5 várek…“) a přes něj jde várku i zapsat nebo doplnit hlasem („Zapiš várku Desítky z dneška…“).',
       },
       {
         co: 'Analýza problémů',

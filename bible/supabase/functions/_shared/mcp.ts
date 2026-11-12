@@ -4,6 +4,8 @@
 // Majitel 3. 11. 2026 zvolil „obě" (přehledy + konektor), R16 v
 // docs/pivovarska-bible/ROZHODNUTI.md. Bez sítě a bez Dena — síť, databáze
 // a nástroje jsou v bible-mcp/index.ts.
+import { HODNOTY_VARKY } from './varky-popisy.ts';
+import { TYPY_ZKUSENOSTI } from './vstupy.ts';
 
 /** Adresa appky (čtečka knih, schválení připojení, metadata OAuth). */
 export const APP_URL = 'https://zajic-pivovar.pages.dev';
@@ -71,12 +73,43 @@ export const odkazNaList = (dokumentId: string, list: number) => `${APP_URL}/?pa
 
 // --- JSON-RPC ---------------------------------------------------------------------
 
+/**
+ * Popisky nástroje podle MCP (ToolAnnotations): aplikace Claude podle nich
+ * odliší nástroje, které jen čtou (smí běžet bez ptaní), od těch, které
+ * zapisují (u nich se může ptát na schválení).
+ */
+export type PopiskyNastroje = { readOnlyHint: boolean; destructiveHint?: boolean; idempotentHint?: boolean; openWorldHint: boolean };
+
 export type Nastroj = {
   name: string;
   title: string;
   description: string;
   inputSchema: Record<string, unknown>;
+  annotations: PopiskyNastroje;
 };
+
+/** Jen čte knihovnu a data appky (nic mimo bibli). */
+const CTE: PopiskyNastroje = { readOnlyHint: true, openWorldHint: false };
+/** Přidá nový záznam, nic nepřepíše. */
+const PRIDAVA: PopiskyNastroje = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false };
+/** Doplní záznam; uloženou hodnotu přepíše jen na výslovnou opravu. Stejné volání podruhé nic nezmění. */
+const UPRAVUJE: PopiskyNastroje = { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false };
+
+/** Hodnoty várky pro Clauda: klíč → číslo s jednotkou a rozsahem (katalog HODNOTY_VARKY, stejný jako formulář appky a SQL). */
+const SCHEMA_HODNOT: Record<string, unknown> = {
+  type: 'object',
+  description: 'Změřené hodnoty {klíč: číslo} — jen ty, které sládek řekl, v jednotce z popisu klíče (objemy sladiny a mladiny v hl, horké; '
+    + 'extrakty v °P; pH bez jednotky). Nic nepřepočítávej a nedoplňuj.',
+  properties: Object.fromEntries(HODNOTY_VARKY.map((h) => [h.klic, {
+    type: h.cele ? 'integer' : 'number',
+    minimum: h.min,
+    maximum: h.max,
+    description: `${h.nazev}${h.jednotka ? ` [${h.jednotka}]` : ''}`,
+  }])),
+  additionalProperties: false,
+};
+
+const POTVRZENI = 'PŘED ULOŽENÍM sládkovi shrň, co zapíšeš, a ulož až po jeho potvrzení. Nic nedomýšlej, nepřepočítávej a nezaokrouhluj; co neřekl, nezapisuj.';
 
 export const NASTROJE: readonly Nastroj[] = [
   {
@@ -101,6 +134,7 @@ export const NASTROJE: readonly Nastroj[] = [
       required: ['dotaz'],
       additionalProperties: false,
     },
+    annotations: CTE,
   },
   {
     name: 'precti_stranu',
@@ -117,6 +151,7 @@ export const NASTROJE: readonly Nastroj[] = [
       required: ['kniha_id', 'list'],
       additionalProperties: false,
     },
+    annotations: CTE,
   },
   {
     name: 'prehled_tematu',
@@ -128,6 +163,7 @@ export const NASTROJE: readonly Nastroj[] = [
       properties: { tema: { type: 'string', description: 'Název nebo klíč tématu, např. „chmelovar"' } },
       additionalProperties: false,
     },
+    annotations: CTE,
   },
   {
     name: 'hledej_zkusenosti',
@@ -143,6 +179,7 @@ export const NASTROJE: readonly Nastroj[] = [
       },
       additionalProperties: false,
     },
+    annotations: CTE,
   },
   {
     name: 'vypocet',
@@ -162,6 +199,7 @@ export const NASTROJE: readonly Nastroj[] = [
       },
       additionalProperties: false,
     },
+    annotations: CTE,
   },
   {
     name: 'profil_pivovaru',
@@ -174,6 +212,7 @@ export const NASTROJE: readonly Nastroj[] = [
       properties: { pivovar_id: { type: 'string', description: 'Id jiného pivovaru ze seznamu ve výsledku (nepovinné)' } },
       additionalProperties: false,
     },
+    annotations: CTE,
   },
   {
     name: 'seznam_varek',
@@ -191,6 +230,7 @@ export const NASTROJE: readonly Nastroj[] = [
       },
       additionalProperties: false,
     },
+    annotations: CTE,
   },
   {
     name: 'porovnej_varky',
@@ -210,6 +250,7 @@ export const NASTROJE: readonly Nastroj[] = [
       },
       additionalProperties: false,
     },
+    annotations: CTE,
   },
   {
     name: 'web_zdroje',
@@ -226,6 +267,7 @@ export const NASTROJE: readonly Nastroj[] = [
       },
       additionalProperties: false,
     },
+    annotations: CTE,
   },
   {
     name: 'uloz_web_zdroj',
@@ -247,6 +289,7 @@ export const NASTROJE: readonly Nastroj[] = [
       required: ['url', 'titulek', 'shrnuti', 'duvera'],
       additionalProperties: false,
     },
+    annotations: PRIDAVA,
   },
   {
     name: 'problemy',
@@ -261,6 +304,7 @@ export const NASTROJE: readonly Nastroj[] = [
       },
       additionalProperties: false,
     },
+    annotations: CTE,
   },
   {
     name: 'zaloz_problem',
@@ -278,6 +322,7 @@ export const NASTROJE: readonly Nastroj[] = [
       required: ['nazev'],
       additionalProperties: false,
     },
+    annotations: PRIDAVA,
   },
   {
     name: 'zapis_zjisteni',
@@ -295,12 +340,83 @@ export const NASTROJE: readonly Nastroj[] = [
       required: ['problem_id', 'typ', 'text'],
       additionalProperties: false,
     },
+    annotations: PRIDAVA,
+  },
+  {
+    name: 'zapis_varku',
+    title: 'Zapsat várku',
+    description: 'Zapíše do evidence novou várku — třeba když ji sládek diktuje hlasem („Zapiš várku Desítky z dneška: sypání 450 kg, '
+      + `pH rmutu 5,6, mladina 11,8 °P"). ${POTVRZENI} Shrnutí: pivo, datum varu, číslo várky a každá hodnota s jednotkou. `
+      + 'Rozsahy hodnot hlídá nástroj i databáze. Recepturu (receptura_id) ber jen ze seznam_varek, pivovar (pivovar_id) jen z profil_pivovaru; '
+      + 'bez pivovar_id se várka přiřadí k pivovaru jako ve formuláři appky (jen když je v bibli jediný). Stejné pivo téhož dne podruhé neuloží — '
+      + 'další várku téhož dne pošli s dalsi_varka_tehoz_dne=true, až ji sládek potvrdí. Hodnoty k už zapsané várce přidá dopln_varku.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        pivo: { type: 'string', description: 'Název piva, např. „Desítka"' },
+        datum_varu: { type: 'string', description: 'Datum varu RRRR-MM-DD' },
+        cislo: { type: 'string', description: 'Číslo várky, jak se píše v provozu (nepovinné)' },
+        receptura_id: { type: 'string', description: 'Id receptury ze seznam_varek (nepovinné)' },
+        pivovar_id: { type: 'string', description: 'Id pivovaru z profil_pivovaru (nepovinné)' },
+        hodnoty: SCHEMA_HODNOT,
+        poznamka: { type: 'string', description: 'Průběh a odchylky od receptury slovy sládka (nepovinné)' },
+        dalsi_varka_tehoz_dne: { type: 'boolean', description: 'Jen když sládek potvrdil další várku stejného piva téhož dne' },
+      },
+      required: ['pivo', 'datum_varu'],
+      additionalProperties: false,
+    },
+    annotations: PRIDAVA,
+  },
+  {
+    name: 'dopln_varku',
+    title: 'Doplnit várku',
+    description: 'Doplní k várce z evidence další hodnoty (kvašení, ležení, laboratoř…) nebo poznámku. Várku najdi přes seznam_varek (varka_id) '
+      + `a v shrnutí ji jmenuj (pivo, číslo, datum varu). ${POTVRZENI} Hodnotu, kterou už várka má jinou, nepřepíše: vrátí rozdíly a nic neuloží. `
+      + 'opravit=true pošli, jen když sládek opravu výslovně potvrdil. Poznámka se připíše k dosavadní s dnešním datem.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        varka_id: { type: 'string', description: 'Id várky ze seznam_varek' },
+        hodnoty: SCHEMA_HODNOT,
+        poznamka: { type: 'string', description: 'Co připsat k poznámce várky (nepovinné)' },
+        opravit: { type: 'boolean', description: 'Přepsat už uložené hodnoty — jen na výslovnou opravu sládka' },
+      },
+      required: ['varka_id'],
+      additionalProperties: false,
+    },
+    annotations: UPRAVUJE,
+  },
+  {
+    name: 'zapis_zkusenost',
+    title: 'Zapsat zkušenost sládka',
+    description: 'Zapíše do bible praktickou zkušenost sládka (řešení problému, provozní postup, rozhovor…). '
+      + `${POTVRZENI} Shrnutí: název, text, druh a úroveň. Text piš slovy sládka, nic nepřidávej z knih ani z vlastní znalosti. `
+      + 'Úroveň důvěryhodnosti: 4 zkušenost jednoho sládka (výchozí), 5 neověřená informace; 1–3 (ověřené zdroje) smí nastavit jen správce. '
+      + 'Stejnou zkušenost (stejný název i text) podruhé neuloží.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        nazev: { type: 'string', description: 'Krátký název (nejvýš 200 znaků)' },
+        text: { type: 'string', description: 'Zkušenost slovy sládka (nejvýš 8000 znaků)' },
+        typ: {
+          type: 'string', enum: [...TYPY_ZKUSENOSTI],
+          description: 'Druh: provozni_zkusenost (výchozí), reseni_problemu, postup, pripadova_studie, rozhovor, diskuse, doporuceni_vyrobce',
+        },
+        oblasti: { type: 'array', items: { type: 'string' }, description: 'Oblasti A–T (nepovinné; řešení problémů je T)' },
+        uroven: { type: 'integer', minimum: 1, maximum: 5, description: 'Úroveň důvěryhodnosti 1–5 (výchozí 4)' },
+        zdroj: { type: 'string', description: 'Kdo, kde, kdy — např. „sládek Honza, várka 112" (nepovinné)' },
+      },
+      required: ['nazev', 'text'],
+      additionalProperties: false,
+    },
+    annotations: PRIDAVA,
   },
   {
     name: 'seznam_knih',
     title: 'Seznam knih',
     description: 'Knihy v knihovně: název, autor, rok, jazyk, stav zpracování a id pro další nástroje.',
     inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+    annotations: CTE,
   },
 ];
 
@@ -316,7 +432,9 @@ export const INSTRUKCE = 'Knihovna odborné pivovarské literatury Pivovaru Zaj�
   + 'Várky porovnávej nástrojem porovnej_varky: pracuj jen s uloženými údaji, co chybí, vyjmenuj, a příčiny odchylek uváděj jako hypotézy s oporou v knihách. '
   + 'Internet: užitečný nalezený zdroj ulož nástrojem uloz_web_zdroj (shrnutí vlastními slovy, datum, důvěra); uložené vrací web_zdroje. '
   + 'Web v odpovědi vždy zvlášť od knih, s datem a stavem (neověřený tak označ), a nikdy nepřepíše literaturu. '
-  + 'Problémy (oblast T): problemy, zaloz_problem a zapis_zjisteni — každé zjištění jeden typ, fakt a výpočet se zdrojem, hypotézu nevydávej za fakt.';
+  + 'Problémy (oblast T): problemy, zaloz_problem a zapis_zjisteni — každé zjištění jeden typ, fakt a výpočet se zdrojem, hypotézu nevydávej za fakt. '
+  + 'Zápis z provozu, často hlasem (zapis_varku, dopln_varku, zapis_zkusenost): před uložením vždy shrň, co zapíšeš (pivo, datum, hodnoty '
+  + 's jednotkami; u zkušenosti název a text), a ulož až po potvrzení; nic nedomýšlej ani nepřepočítávej a uloženou hodnotu přepiš jen na výslovnou opravu.';
 
 /** Novější vydání podle id staršího (etapa 3c): z dvojic dokument → předchozí vydání. */
 export function novejsiVydani(radky: readonly { id: string; nazev: string; rok: number | null; predchozi_vydani: string | null }[]): Map<string, { nazev: string; rok: number | null }[]> {
