@@ -1,6 +1,7 @@
 // AI sládek na předplatné: zadání pro aplikaci Claude a odkaz s předvyplněnou otázkou.
 import { describe, expect, it } from 'vitest';
-import { KONEKTOR, odkazNaClaude, zadaniProClaude } from './bibleClaude';
+import { afterEach, vi } from 'vitest';
+import { KONEKTOR, noveIdDotazu, odkazNaClaude, zadaniProClaude } from './bibleClaude';
 
 describe('předání otázky do aplikace Claude', () => {
   it('zadání: pokyn použít konektor a otázka na konci', () => {
@@ -27,5 +28,34 @@ describe('předání otázky do aplikace Claude', () => {
     const odkaz = odkazNaClaude(z);
     expect(odkaz.startsWith('https://claude.ai/new?q=')).toBe(true);
     expect(new URL(odkaz).searchParams.get('q')).toBe(z);
+  });
+});
+
+describe('odpověď zpátky do appky (R33)', () => {
+  const DOTAZ = 'dddddddd-0000-4000-8000-000000000001';
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  it('s dotazem: pokyn uložit odpověď nástrojem uloz_odpoved s dotaz_id, před otázkou', () => {
+    const z = zadaniProClaude('Proč kvašení stojí?', null, { id: DOTAZ, navazuje: false });
+    expect(z).toContain(`Otázka je z appky Pivovar Zajíc (dotaz_id: ${DOTAZ}). Hotovou odpověď celou ulož do appky nástrojem uloz_odpoved`);
+    expect(z).not.toContain('dotaz_z_appky');
+    expect(z.indexOf('dotaz_id')).toBeLessThan(z.indexOf('Otázka: Proč kvašení stojí?'));
+    expect(z.endsWith('Otázka: Proč kvašení stojí?')).toBe(true);
+    expect(zadaniProClaude('Proč?', null)).not.toContain('dotaz_id');
+  });
+
+  it('navazující otázka: Claude si načte předchozí konverzaci; dlouhá otázka dotaz_id neusekne', () => {
+    expect(zadaniProClaude('A teplota?', null, { id: DOTAZ, navazuje: true })).toContain('nejdřív si ji načti nástrojem dotaz_z_appky');
+    const dlouha = zadaniProClaude('slovo '.repeat(5000), { nazev: 'Pomalé kvašení' }, { id: DOTAZ, navazuje: false });
+    expect(dlouha.length).toBeLessThanOrEqual(12_000);
+    expect(dlouha).toContain(DOTAZ);
+  });
+
+  it('id dotazu je UUID v4 (i bez crypto.randomUUID) a pokaždé jiné', () => {
+    const tvar = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+    expect(noveIdDotazu()).toMatch(tvar);
+    expect(noveIdDotazu()).not.toBe(noveIdDotazu());
+    vi.stubGlobal('crypto', { getRandomValues: (b: Uint8Array) => { b.fill(0xff); return b; } });
+    expect(noveIdDotazu()).toBe('ffffffff-ffff-4fff-bfff-ffffffffffff');
   });
 });

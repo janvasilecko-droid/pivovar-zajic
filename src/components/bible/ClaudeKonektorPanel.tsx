@@ -44,6 +44,10 @@ export function ClaudeKonektorPanel() {
         „K poslední várce Desítky doplň kvašení 8 dní" nebo „Zapiš zkušenost: …". Claude hodnoty s jednotkami shrne a uloží je až po tvém
         potvrzení; stejnou várku ani zkušenost neuloží dvakrát a už zapsanou hodnotu nepřepíše bez výslovné opravy.
       </p>
+      <p className="text-sm text-neutral-200">
+        Otázky z AI sládka v appce („Zeptat se v Claude“) Claude zodpoví na tvoje předplatné a odpověď uloží zpátky do appky — uvidíš ji v AI sládkovi
+        i v historii.
+      </p>
       <ol className="list-decimal space-y-1 pl-5 text-sm text-neutral-200">
         <li>Na <a className="font-bold text-amber-300 underline" href="https://claude.ai/settings/connectors" target="_blank" rel="noopener noreferrer">claude.ai → Nastavení → Konektory</a> klikni „Přidat vlastní konektor".</li>
         <li>Název: Pivovarská bible. Adresa: tahle (tlačítko ji zkopíruje):</li>

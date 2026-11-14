@@ -804,6 +804,88 @@ SELECT pg_temp.selze($q$SELECT public.bible_konverzace_seznam('00000000-0000-000
 SELECT pg_temp.jako('service_role');
 DELETE FROM public.ai_naklady WHERE ucel = 'chat' AND poznamka = 'test';
 
+-- 💬 Dotaz pro aplikaci Claude (R33): otázka s id od appky, odpověď přes konektor, nejvýš jedna.
+SELECT pg_temp.jako('service_role');
+CREATE TEMP TABLE t33 AS SELECT public.bible_dotaz_claude_zaloz('00000000-0000-0000-0000-0000000000b2', NULL, NULL,
+  'd0000000-0000-4000-8000-000000000001', '  Proč kvašení stojí?  ') AS r;
+SELECT pg_temp.ocekavam((SELECT (r ->> 'novy')::boolean AND r ->> 'dotaz_id' = 'd0000000-0000-4000-8000-000000000001' FROM t33),
+  'dotaz pro Claude se uloží s id od appky');
+SELECT pg_temp.ocekavam((SELECT k.nazev = 'Proč kvašení stojí?' AND k.uzivatel = '00000000-0000-0000-0000-0000000000b2'
+  FROM public.bible_konverzace k WHERE k.id = (SELECT (r ->> 'konverzace_id')::uuid FROM t33)), 'nová konverzace dostane název z otázky');
+SELECT pg_temp.ocekavam((SELECT pro_claude AND role = 'uzivatel' AND text = 'Proč kvašení stojí?' FROM public.bible_zpravy
+  WHERE id = 'd0000000-0000-4000-8000-000000000001'), 'otázka je označená jako pro Claude');
+SELECT pg_temp.ocekavam((public.bible_dotaz_claude_zaloz('00000000-0000-0000-0000-0000000000b2', NULL, NULL,
+  'd0000000-0000-4000-8000-000000000001', 'Proč kvašení stojí?') ->> 'novy')::boolean = false
+  AND (SELECT count(*) FROM public.bible_zpravy WHERE konverzace_id = (SELECT (r ->> 'konverzace_id')::uuid FROM t33)) = 1
+  AND (SELECT count(*) FROM public.bible_konverzace WHERE uzivatel = '00000000-0000-0000-0000-0000000000b2') = 1,
+  'stejný dotaz podruhé nic nezdvojí (ani konverzaci)');
+SELECT pg_temp.selze($q$SELECT public.bible_dotaz_claude_zaloz('00000000-0000-0000-0000-0000000000b3', NULL, NULL,
+  'd0000000-0000-4000-8000-000000000001', 'Cizí dotaz')$q$, 'cizí id dotazu nikdo jiný nepoužije', '22023');
+SELECT pg_temp.selze($q$SELECT public.bible_dotaz_claude_zaloz('00000000-0000-0000-0000-0000000000b3', (SELECT (r ->> 'konverzace_id')::uuid FROM t33), NULL,
+  'd0000000-0000-4000-8000-0000000000f1', 'Do cizí konverzace')$q$, 'do cizí konverzace se dotaz nezapíše', 'P0002');
+SELECT pg_temp.selze($q$SELECT public.bible_dotaz_claude_zaloz('00000000-0000-0000-0000-0000000000b2', NULL, NULL,
+  'd0000000-0000-4000-8000-0000000000f2', ' x ')$q$, 'příliš krátká otázka se odmítne', '22023');
+SELECT pg_temp.selze($q$SELECT public.bible_dotaz_claude_zaloz('00000000-0000-0000-0000-0000000000b2', NULL, 'eeeeeeee-0000-4000-8000-000000000000',
+  'd0000000-0000-4000-8000-0000000000f3', 'O neexistujícím problému')$q$, 'neexistující problém se odmítne', 'P0002');
+SELECT pg_temp.ocekavam((public.bible_dotaz_claude_nacti('00000000-0000-0000-0000-0000000000b2', 'd0000000-0000-4000-8000-000000000001') ->> 'otazka') = 'Proč kvašení stojí?'
+  AND (public.bible_dotaz_claude_nacti('00000000-0000-0000-0000-0000000000b2', 'd0000000-0000-4000-8000-000000000001') ->> 'zodpovezeno')::boolean = false
+  AND jsonb_array_length(public.bible_dotaz_claude_nacti('00000000-0000-0000-0000-0000000000b2', 'd0000000-0000-4000-8000-000000000001') -> 'historie') = 0,
+  'konektor načte vlastní dotaz: otázka, nezodpovězeno, bez historie');
+SELECT pg_temp.ocekavam(public.bible_dotaz_claude_nacti('00000000-0000-0000-0000-0000000000b3', 'd0000000-0000-4000-8000-000000000001') IS NULL,
+  'cizí dotaz konektor nenačte');
+-- Otázka přes Claude API (bez pro_claude) se přes konektor zodpovědět nedá.
+CREATE TEMP TABLE t33_api AS SELECT public.bible_zprava_uloz('00000000-0000-0000-0000-0000000000b2', (SELECT (r ->> 'konverzace_id')::uuid FROM t33),
+  'uzivatel', 'Otázka přes API', NULL, NULL, NULL, 0, 0, 0, false) AS id;
+SELECT pg_temp.selze($q$SELECT public.bible_dotaz_claude_odpovez('00000000-0000-0000-0000-0000000000b2', (SELECT id FROM t33_api), 'Odpověď', '[]', 'x')$q$,
+  'otázku přes API konektor nezodpoví', 'P0002');
+SELECT pg_temp.ocekavam(public.bible_dotaz_claude_nacti('00000000-0000-0000-0000-0000000000b2', (SELECT id FROM t33_api)) IS NULL,
+  'otázku přes API konektor ani nenačte');
+SELECT public.bible_dotaz_claude_zaloz('00000000-0000-0000-0000-0000000000b2', (SELECT (r ->> 'konverzace_id')::uuid FROM t33), NULL,
+  'd0000000-0000-4000-8000-000000000002', 'A co teplota?');
+SELECT pg_temp.ocekavam(jsonb_array_length(public.bible_dotaz_claude_nacti('00000000-0000-0000-0000-0000000000b2', 'd0000000-0000-4000-8000-000000000002') -> 'historie') = 2
+  AND (public.bible_dotaz_claude_nacti('00000000-0000-0000-0000-0000000000b2', 'd0000000-0000-4000-8000-000000000002') -> 'historie' -> 0 ->> 'text') = 'Proč kvašení stojí?',
+  'navazující dotaz vrátí předchozí zprávy od nejstarší');
+SELECT pg_temp.ocekavam((public.bible_konverzace_seznam('00000000-0000-0000-0000-0000000000b2') -> 0 ->> 'ceka_claude')::boolean,
+  'seznam konverzací ukáže, že se čeká na Claude');
+SELECT pg_temp.selze($q$SELECT public.bible_dotaz_claude_odpovez('00000000-0000-0000-0000-0000000000b3', 'd0000000-0000-4000-8000-000000000001', 'Cizí odpověď', '[]', 'x')$q$,
+  'na cizí dotaz odpověď nezapíše nikdo jiný', 'P0002');
+SELECT pg_temp.selze($q$SELECT public.bible_dotaz_claude_odpovez('00000000-0000-0000-0000-0000000000b2', 'd0000000-0000-4000-8000-000000000001', '   ', '[]', 'x')$q$,
+  'prázdná odpověď se odmítne', '22023');
+SELECT pg_temp.selze($q$SELECT public.bible_dotaz_claude_odpovez('00000000-0000-0000-0000-0000000000b2', 'd0000000-0000-4000-8000-000000000001', 'Text', '{"n":1}', 'x')$q$,
+  'citace musí být seznam', '22023');
+SELECT pg_temp.ocekavam((public.bible_dotaz_claude_odpovez('00000000-0000-0000-0000-0000000000b2', 'd0000000-0000-4000-8000-000000000001',
+  '  ## Krátká odpověď\nZkontroluj teplotu [1].  ', '[{"n":1,"dokumentId":"x","pdfIndex":3}]', 'aplikace Claude (předplatné)') ->> 'zprava_id') IS NOT NULL,
+  'odpověď na vlastní dotaz se uloží');
+SELECT pg_temp.ocekavam((SELECT role = 'asistent' AND text = E'## Krátká odpověď\\nZkontroluj teplotu [1].' AND model = 'aplikace Claude (předplatné)'
+  AND jsonb_array_length(citace) = 1 AND NOT pro_claude FROM public.bible_zpravy WHERE odpoved_na = 'd0000000-0000-4000-8000-000000000001'),
+  'odpověď je zpráva asistenta s citacemi a vazbou na otázku');
+SELECT pg_temp.selze($q$SELECT public.bible_dotaz_claude_odpovez('00000000-0000-0000-0000-0000000000b2', 'd0000000-0000-4000-8000-000000000001', 'Druhá', '[]', 'x')$q$,
+  'druhá odpověď na stejný dotaz se odmítne', '22023');
+SELECT pg_temp.ocekavam((public.bible_dotaz_claude_nacti('00000000-0000-0000-0000-0000000000b2', 'd0000000-0000-4000-8000-000000000001') ->> 'zodpovezeno')::boolean,
+  'načtený dotaz ví, že už je zodpovězený');
+SELECT pg_temp.ocekavam((public.bible_konverzace_seznam('00000000-0000-0000-0000-0000000000b2') -> 0 ->> 'ceka_claude')::boolean,
+  'pořád se čeká na odpověď na druhý dotaz');
+SELECT public.bible_dotaz_claude_odpovez('00000000-0000-0000-0000-0000000000b2', 'd0000000-0000-4000-8000-000000000002', 'Teplota je v pořádku.', NULL, NULL);
+SELECT pg_temp.ocekavam(NOT (public.bible_konverzace_seznam('00000000-0000-0000-0000-0000000000b2') -> 0 ->> 'ceka_claude')::boolean,
+  'po odpovědích se už na Claude nečeká');
+SELECT pg_temp.ocekavam((SELECT count(*) FILTER (WHERE (z ->> 'pro_claude')::boolean) = 2
+    AND count(*) FILTER (WHERE z ->> 'odpoved_na' = 'd0000000-0000-4000-8000-000000000001') = 1
+  FROM jsonb_array_elements(public.bible_konverzace_zpravy('00000000-0000-0000-0000-0000000000b2', (SELECT (r ->> 'konverzace_id')::uuid FROM t33)) -> 'zpravy') z),
+  'zprávy konverzace nesou otázky pro Claude i vazbu odpovědi');
+SELECT pg_temp.selze($q$INSERT INTO public.bible_zpravy (konverzace_id, role, text, pro_claude)
+  VALUES ((SELECT (r ->> 'konverzace_id')::uuid FROM t33), 'asistent', 'x', true)$q$, 'pro Claude smí být jen otázka uživatele', '23514');
+SELECT pg_temp.selze($q$INSERT INTO public.bible_zpravy (konverzace_id, role, text, odpoved_na)
+  VALUES ((SELECT (r ->> 'konverzace_id')::uuid FROM t33), 'uzivatel', 'x', 'd0000000-0000-4000-8000-000000000002')$q$,
+  'odpovědí smí být jen zpráva asistenta', '23514');
+SELECT pg_temp.selze($q$SELECT public.bible_dotaz_claude_nacti('00000000-0000-0000-0000-0000000000b2', 'd0000000-0000-4000-8000-000000000001')$q$,
+  'dotazy pro Claude čte jen service role', '42501')
+  FROM (SELECT pg_temp.jako('authenticated')) j;
+SELECT pg_temp.jako('service_role');
+SELECT pg_temp.ocekavam(public.bible_konverzace_smaz('00000000-0000-0000-0000-0000000000b2', (SELECT (r ->> 'konverzace_id')::uuid FROM t33)),
+  'konverzace s dotazy pro Claude se smaže');
+SELECT pg_temp.ocekavam(NOT EXISTS (SELECT 1 FROM public.bible_zpravy WHERE id::text LIKE 'd0000000-%' OR odpoved_na::text LIKE 'd0000000-%'),
+  's konverzací zmizí otázky i odpovědi');
+
 -- Dodatky k PDF (rychlé otevření strany): zavřené, mizí s dokumentem, worker vidí jen chybějící.
 SELECT pg_temp.jako(NULL);
 SELECT pg_temp.ocekavam(NOT has_table_privilege('anon', 'public.bible_dodatky', 'SELECT')

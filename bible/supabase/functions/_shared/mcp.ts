@@ -412,6 +412,37 @@ export const NASTROJE: readonly Nastroj[] = [
     annotations: PRIDAVA,
   },
   {
+    name: 'dotaz_z_appky',
+    title: 'Dotaz z appky',
+    description: 'Otázka, kterou uživatel položil v appce pivovaru a poslal sem k zodpovězení (dotaz_id je v zadání): text otázky, '
+      + 'konverzace, předchozí zprávy a případně problém z Analýzy problémů. Odpověď pak ulož nástrojem uloz_odpoved, ať ji uživatel vidí v appce.',
+    inputSchema: {
+      type: 'object',
+      properties: { dotaz_id: { type: 'string', description: 'dotaz_id ze zadání' } },
+      required: ['dotaz_id'],
+      additionalProperties: false,
+    },
+    annotations: CTE,
+  },
+  {
+    name: 'uloz_odpoved',
+    title: 'Uložit odpověď do appky',
+    description: 'Uloží tvou hotovou odpověď na dotaz z appky pivovaru (dotaz_id ze zadání) do konverzace AI sládka — uživatel ji uvidí v appce '
+      + 'i v historii. Pošli celou odpověď v Markdownu tak, jak jsi ji napsal (nadpisy, odrážky, tabulky). Odkazy na stránky knih nech přesně tak, '
+      + `jak byly ve výsledcích nástrojů (${APP_URL}/?page=bible&sub=kniha:…), a webové adresy jako odkazy — appka z nich udělá klikací citace [n]; `
+      + 'vlastní čísla citací v hranatých závorkách nepiš. Na jeden dotaz jde uložit jen jedna odpověď.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        dotaz_id: { type: 'string', description: 'dotaz_id ze zadání' },
+        odpoved: { type: 'string', description: 'Celá odpověď v Markdownu (nejvýš 60 000 znaků)' },
+      },
+      required: ['dotaz_id', 'odpoved'],
+      additionalProperties: false,
+    },
+    annotations: PRIDAVA,
+  },
+  {
     name: 'seznam_knih',
     title: 'Seznam knih',
     description: 'Knihy v knihovně: název, autor, rok, jazyk, stav zpracování a id pro další nástroje.',
@@ -434,7 +465,9 @@ export const INSTRUKCE = 'Knihovna odborné pivovarské literatury Pivovaru Zaj�
   + 'Web v odpovědi vždy zvlášť od knih, s datem a stavem (neověřený tak označ), a nikdy nepřepíše literaturu. '
   + 'Problémy (oblast T): problemy, zaloz_problem a zapis_zjisteni — každé zjištění jeden typ, fakt a výpočet se zdrojem, hypotézu nevydávej za fakt. '
   + 'Zápis z provozu, často hlasem (zapis_varku, dopln_varku, zapis_zkusenost): před uložením vždy shrň, co zapíšeš (pivo, datum, hodnoty '
-  + 's jednotkami; u zkušenosti název a text), a ulož až po potvrzení; nic nedomýšlej ani nepřepočítávej a uloženou hodnotu přepiš jen na výslovnou opravu.';
+  + 's jednotkami; u zkušenosti název a text), a ulož až po potvrzení; nic nedomýšlej ani nepřepočítávej a uloženou hodnotu přepiš jen na výslovnou opravu. '
+  + 'Otázka z appky (zadání s dotaz_id): odpověz a celou odpověď ulož nástrojem uloz_odpoved, ať ji uživatel vidí v appce; navazuje-li na předchozí '
+  + 'konverzaci, načti si ji nejdřív nástrojem dotaz_z_appky.';
 
 /** Novější vydání podle id staršího (etapa 3c): z dvojic dokument → předchozí vydání. */
 export function novejsiVydani(radky: readonly { id: string; nazev: string; rok: number | null; predchozi_vydani: string | null }[]): Map<string, { nazev: string; rok: number | null }[]> {

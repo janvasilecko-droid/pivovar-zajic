@@ -5,8 +5,9 @@ import {
   idZaznamu, parametryVstup, pivovarVstup, postupProvozuVstup, prevzetiVstup, vyberPivovaru, zarizeniVstup,
   datumVstup, hodnotyVarkyVstup, recepturaVstup, varkaVstup,
   overeniVstup, problemVstup, stavZjisteniVstup, urlVstup, webZdrojVstup, zjisteniVstup,
-  stropVstup, filtrHledani, filtrMimoKnihu, dodatekKOdeslani,
+  stropVstup, filtrHledani, filtrMimoKnihu, dodatekKOdeslani, dotazClaudeVstup, MAX_OTAZKA_CLAUDE,
 } from './vstupy';
+import { MAX_OTAZKA } from './chat';
 
 const SHA = 'a'.repeat(64);
 const soubor = (navic: Record<string, unknown> = {}) => ({ nazev: 'Kunze.pdf', jmeno: 'Kunze.pdf', velikost: 1234, mime: 'application/pdf', sha256: SHA, ...navic });
@@ -429,5 +430,21 @@ describe('rešerše z internetu a analýza problémů (etapy 9 a 10)', () => {
     expect(() => zjisteniVstup({ typ: 'chybi', text: 'X' })).toThrow('Chybí problém.');
     expect(stavZjisteniVstup({ id: P, stav: 'vyvraceno' })).toEqual({ id: P, stav: 'vyvraceno' });
     expect(() => stavZjisteniVstup({ id: P, stav: 'mozna' })).toThrow(ChybaVstupu);
+  });
+});
+
+describe('otázka pro aplikaci Claude (R33)', () => {
+  const D = 'DDDDDDDD-0000-4000-8000-000000000001';
+  const K = '99999999-8888-7777-6666-555555555555';
+  it('id dotazu povinné (malými písmeny), otázka 2–4000 znaků, konverzace a problém nepovinné', () => {
+    expect(dotazClaudeVstup({ dotaz_id: D, otazka: '  Proč kvašení stojí?  ' }))
+      .toEqual({ dotaz: D.toLowerCase(), otazka: 'Proč kvašení stojí?', konverzace: null, problem: null });
+    expect(dotazClaudeVstup({ dotaz_id: D, otazka: 'Ok?', konverzace_id: K, problem_id: '' })).toMatchObject({ konverzace: K, problem: null });
+    expect(() => dotazClaudeVstup({ otazka: 'Proč?' })).toThrow('Chybí id dotazu.');
+    expect(() => dotazClaudeVstup({ dotaz_id: D, otazka: ' x ' })).toThrow('Napiš otázku');
+    expect(() => dotazClaudeVstup({ dotaz_id: D, otazka: 'x'.repeat(MAX_OTAZKA_CLAUDE + 1) })).toThrow('moc dlouhá');
+    expect(() => dotazClaudeVstup({ dotaz_id: D, otazka: 'Proč?', konverzace_id: 'abc' })).toThrow('Neplatné id konverzace.');
+    expect(MAX_OTAZKA_CLAUDE).toBe(MAX_OTAZKA);
+    expect(AKCE.dotaz_claude).toBe('cte');
   });
 });

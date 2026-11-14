@@ -7,13 +7,17 @@
 // které odpověď je. Průběžně ukazuje, co právě hledá. Konverzace jsou vidět
 // jen tomu, kdo se ptal; útratu hlídá měsíční strop (Správa znalostí).
 // Text se skládá z dat (lib/bibleText.ts), nikdy přes innerHTML.
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+//
+// Na předplatné (R31, R33): „Zeptat se v Claude" otevře aplikaci Claude
+// s otázkou; otázka se zároveň uloží sem (id dotazu je v zadání) a Claude
+// hotovou odpověď uloží konektorem zpátky — appka ji tu sama načte.
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Bot, ExternalLink, Globe, History, Loader2, Plus, Send, Trash2 } from 'lucide-react';
 import {
-  nactiKonverzace, nactiKonverzaci, nactiStavChatu, smazKonverzaci, usdText, zeptejSe,
+  cekajiciNaClauda, nactiKonverzace, nactiKonverzaci, nactiStavChatu, smazKonverzaci, usdText, zalozDotazClaude, zeptejSe,
   type Konverzace, type StavChatu, type UdalostChatu, type ZdrojOdpovedi, type ZpravaChatu,
 } from '../../lib/bibleChatApi';
-import { odkazNaClaude, KONEKTOR, zadaniProClaude } from '../../lib/bibleClaude';
+import { odkazNaClaude, KONEKTOR, noveIdDotazu, zadaniProClaude } from '../../lib/bibleClaude';
 import { rozlozText } from '../../lib/bibleText';
 import { potvrd } from '../../lib/toast';
 import { TextListuKnihy, VykresleniTextu } from './BibleKniha';
@@ -26,6 +30,12 @@ const PRIKLADY = [
 ];
 
 const misto = (z: ZdrojOdpovedi) => (z.tistena ? `s. ${z.tistena}` : `list ${z.pdfIndex}`);
+
+/** Jak často se appka ptá, jestli už odpověď z aplikace Claude přišla (prvních 10 min, pak řidčeji). */
+export const KONTROLA_ODPOVEDI_MS = 8_000;
+const KONTROLA_POZDEJI_MS = 30_000;
+/** Po této době bez odpovědi appka napoví, co zkontrolovat. */
+const DLOUHO_MS = 15 * 60_000;
 
 /** Číslo citace [n] jako odkaz: kniha otevře čtečku, web novou kartu. */
 function Citace({ z, otevri }: { z: ZdrojOdpovedi; otevri: (dokumentId: string, list: number) => void }) {
@@ -111,8 +121,28 @@ function Odpoved({ z, otevri }: { z: ZpravaChatu; otevri: (dokumentId: string, l
       <Zdroje zdroje={z.citace} otevri={otevri} />
       <div className="text-xs text-neutral-400">
         {z.neuplna && <span className="mr-2 rounded border border-amber-600 px-1 font-bold text-amber-200">neúplná odpověď</span>}
-        {z.model ? `${z.model} · ` : ''}{usdText(z.cenaUsd)}
+        {z.odpovedNa ? 'Odpověď z aplikace Claude · předplatné' : `${z.model ? `${z.model} · ` : ''}${usdText(z.cenaUsd)}`}
       </div>
+    </article>
+  );
+}
+
+/** Otázka je v aplikaci Claude — odpověď sem uloží konektor; appka ji průběžně načítá. */
+function CekaNaClauda({ kontroluj, kontroluji, dlouho }: { kontroluj: () => void; kontroluji: boolean; dlouho: boolean }) {
+  return (
+    <article className={`${KARTA} space-y-2`} aria-label="Čeká na odpověď z aplikace Claude" aria-busy="true">
+      <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-wide text-amber-400">
+        <Loader2 size={16} className="animate-spin" aria-hidden="true" /> Čeká na odpověď z aplikace Claude
+      </div>
+      <p className="text-sm text-neutral-200">
+        Otázku odešli v aplikaci Claude (v mobilu ji tam vlož ze schránky). Claude odpověď uloží sem — appka ji načte sama, i když se sem vrátíš později.
+      </p>
+      {dlouho && (
+        <p className="text-sm text-amber-200">
+          Odpověď zatím nepřišla. Je otázka v Claude odeslaná a je tam zapnutý konektor „{KONEKTOR}“? Kdyby ji Claude neuložil, napiš mu „ulož odpověď do appky“.
+        </p>
+      )}
+      <button type="button" className="btn-tmave" onClick={kontroluj} disabled={kontroluji}>{kontroluji ? 'Kontroluji…' : 'Zkontrolovat teď'}</button>
     </article>
   );
 }
@@ -148,6 +178,15 @@ export function BibleChat({ otevri, problem, otazkaZvenku }: {
   const [bezKreditu, setBezKreditu] = useState(false);
   // Otázka předaná do aplikace Claude (předplatné) — vysvětlení, co dál.
   const [predano, setPredano] = useState(false);
+  // Id dalšího dotazu pro aplikaci Claude: je v zadání, ať Claude ví, kam odpověď uložit (R33).
+  const [dotazId, setDotazId] = useState(() => noveIdDotazu());
+  const [kontroluji, setKontroluji] = useState(false);
+  const [dlouho, setDlouho] = useState(false);
+  // Otázky pro Clauda, které se právě ukládají (načtení konverzace je nesmí smazat) a kdy odešly.
+  const docasne = useRef(new Set<string>());
+  const odeslanoKdy = useRef(new Map<string, number>());
+  // Která konverzace je právě otevřená — pozdní odpověď serveru nesmí přepsat jinou.
+  const aktivniId = useRef<string | null>(null);
   const policko = useRef<HTMLTextAreaElement | null>(null);
   const zruseni = useRef<AbortController | null>(null);
   const odeslano = useRef<number | null>(null);
@@ -176,12 +215,62 @@ export function BibleChat({ otevri, problem, otazkaZvenku }: {
   }, [otazkaZvenku?.klic, otazkaZvenku?.text]);
 
   const vypnuto = stav !== null && (!stav.migrace || !stav.klic || stav.stropUsd <= 0 || stav.utracenoUsd >= stav.stropUsd);
+  const ulozitOdpoved = stav?.dotazy === true;
+  useEffect(() => { aktivniId.current = aktivni.id; }, [aktivni.id]);
+  const cekajici = cekajiciNaClauda(zpravy);
+  const cekaNaClauda = cekajici.size > 0 && aktivni.id !== null;
+
+  /** Načte aktivní konverzaci znovu (přišla odpověď z Claude?) — rozepsané otázky nechá. */
+  const obnovKonverzaci = useCallback(async (konverzaceId: string): Promise<void> => {
+    const r = await nactiKonverzaci(konverzaceId);
+    if (r.stav !== 'ok' || aktivniId.current !== konverzaceId) return;
+    const naServeru = new Set(r.data.zpravy.map((z) => z.id));
+    setZpravy((puv) => [...r.data.zpravy, ...puv.filter((z) => docasne.current.has(z.id) && !naServeru.has(z.id))]);
+    const zbyva = cekajiciNaClauda(r.data.zpravy);
+    const nejstarsi = Math.min(...r.data.zpravy.filter((z) => zbyva.has(z.id))
+      .map((z) => odeslanoKdy.current.get(z.id) ?? (z.vytvoreno ? Date.parse(z.vytvoreno) : Date.now())));
+    setDlouho(zbyva.size > 0 && Date.now() - nejstarsi > DLOUHO_MS);
+    if (zbyva.size === 0) void nactiKonverzace().then((h) => setKonverzace(h.stav === 'ok' ? h.data : []));
+  }, []);
+
+  // Čeká se na odpověď z aplikace Claude: kontrola po pár sekundách (jen když je appka vidět)
+  // a hned po návratu do appky (z aplikace Claude).
+  useEffect(() => {
+    if (!cekaNaClauda || !aktivni.id) return;
+    const konverzaceId = aktivni.id;
+    const zacatek = Date.now();
+    let casovac: ReturnType<typeof setTimeout> | undefined;
+    let konec = false;
+    const zkontroluj = async () => {
+      if (konec) return;
+      if (typeof document === 'undefined' || document.visibilityState !== 'hidden') await obnovKonverzaci(konverzaceId);
+      if (!konec) casovac = setTimeout(() => void zkontroluj(), Date.now() - zacatek < 10 * 60_000 ? KONTROLA_ODPOVEDI_MS : KONTROLA_POZDEJI_MS);
+    };
+    casovac = setTimeout(() => void zkontroluj(), KONTROLA_ODPOVEDI_MS);
+    const naNavrat = () => { if (document.visibilityState === 'visible') void obnovKonverzaci(konverzaceId); };
+    document.addEventListener('visibilitychange', naNavrat);
+    window.addEventListener('focus', naNavrat);
+    return () => {
+      konec = true;
+      clearTimeout(casovac);
+      document.removeEventListener('visibilitychange', naNavrat);
+      window.removeEventListener('focus', naNavrat);
+    };
+  }, [cekaNaClauda, aktivni.id, obnovKonverzaci]);
+
+  async function zkontrolujTed() {
+    if (!aktivni.id || kontroluji) return;
+    setKontroluji(true);
+    try { await obnovKonverzaci(aktivni.id); } finally { setKontroluji(false); }
+  }
 
   async function posli(text: string) {
     const q = text.trim();
     if (q.length < 2 || probiha) return;
     setChyba(null);
-    const docasna: ZpravaChatu = { id: `nova-${Date.now()}`, role: 'uzivatel', text: q, kroky: [], citace: [], model: null, cenaUsd: 0, neuplna: false, vytvoreno: null };
+    const docasna: ZpravaChatu = {
+      id: `nova-${Date.now()}`, role: 'uzivatel', text: q, kroky: [], citace: [], model: null, cenaUsd: 0, neuplna: false, vytvoreno: null, proClaude: false, odpovedNa: null,
+    };
     setZpravy((z) => [...z, docasna]);
     setOtazka('');
     setProbiha({ kroky: [], text: '' });
@@ -198,7 +287,7 @@ export function BibleChat({ otevri, problem, otazkaZvenku }: {
         if (u.chybaKod === 'kredit') { setBezKreditu(true); setOtazka(q); }
         setZpravy((z) => [...z, {
           id: u.zpravaId ?? `odpoved-${Date.now()}`, role: 'asistent', text: u.text, kroky: u.kroky, citace: u.citace,
-          model: u.model, cenaUsd: u.cenaUsd, neuplna: u.neuplna, vytvoreno: null,
+          model: u.model, cenaUsd: u.cenaUsd, neuplna: u.neuplna, vytvoreno: null, proClaude: false, odpovedNa: null,
         }]);
         setStav((s) => (s ? { ...s, utracenoUsd: u.utracenoUsd, stropUsd: u.stropUsd } : s));
         setProbiha(null);
@@ -240,14 +329,49 @@ export function BibleChat({ otevri, problem, otazkaZvenku }: {
     nactiHistorii();
   }
 
-  /** Předání do aplikace Claude: odkaz otevře chat s otázkou, zadání jde i do schránky (mobilní aplikace). */
-  function predejClaudovi(zadani: string) {
+  /**
+   * Předání do aplikace Claude: odkaz otevře chat s otázkou, zadání jde i do
+   * schránky (mobilní aplikace). S `id` se otázka zároveň uloží do konverzace
+   * a appka čeká na odpověď, kterou sem Claude uloží konektorem (R33).
+   */
+  function predejClaudovi(zadani: string, q: string, id: string | null) {
     setPredano(true);
     try {
       void navigator.clipboard?.writeText(zadani).catch(() => {});
     } catch {
       // Schránka není (starý prohlížeč) — odkaz otázku předvyplní i tak.
     }
+    if (!id) return;
+    const konverzaceId = aktivni.id;
+    const problemId = problem?.id ?? aktivni.problemId;
+    // Změny stavu až po klepnutí: odkaz se musí otevřít s adresou, na kterou člověk klepl.
+    setTimeout(() => {
+      docasne.current.add(id);
+      odeslanoKdy.current.set(id, Date.now());
+      setZpravy((z) => [...z, {
+        id, role: 'uzivatel', text: q, kroky: [], citace: [], model: null, cenaUsd: 0, neuplna: false, vytvoreno: null, proClaude: true, odpovedNa: null,
+      }]);
+      setOtazka('');
+      setDlouho(false);
+      setDotazId(noveIdDotazu());
+      setTimeout(() => konec.current?.scrollIntoView?.({ block: 'nearest' }), 0);
+      void zalozDotazClaude({ dotazId: id, otazka: q, konverzaceId, problemId }).then((r) => {
+        docasne.current.delete(id);
+        // Mezitím otevřel jinou konverzaci (nebo novou otázku) — tam nic neměnit.
+        const jinde = aktivniId.current !== konverzaceId;
+        if (r.stav === 'ok') {
+          if (r.data.konverzaceId && !jinde) setAktivni((a) => ({ ...a, id: r.data.konverzaceId, nazev: a.nazev ?? q }));
+          nactiHistorii();
+          return;
+        }
+        if (jinde) { setChyba(`Otázka „${q.slice(0, 60)}“ se do appky neuložila — odpověď uvidíš jen v aplikaci Claude.`); return; }
+        setZpravy((z) => z.filter((x) => x.id !== id));
+        setOtazka(q);
+        setChyba(r.kod === 'bez_migrace'
+          ? 'Otázka se do appky neuložila — ukládání odpovědí čeká na migraci databáze bible 20261114000000_bible_dotazy_claude. Odpověď uvidíš v aplikaci Claude.'
+          : `Otázka se do appky neuložila (${r.zprava}) — odpověď uvidíš jen v aplikaci Claude.`);
+      });
+    }, 0);
   }
 
   function novaKonverzace() {
@@ -256,14 +380,17 @@ export function BibleChat({ otevri, problem, otazkaZvenku }: {
     setZpravy([]);
     setProbiha(null);
     setChyba(null);
+    setDlouho(false);
   }
+
+  const zadaniClaude = zadaniProClaude(otazka, problem ?? null, ulozitOdpoved ? { id: dotazId, navazuje: zpravy.length > 0 } : null);
 
   return (
     <div className="space-y-3">
       <p className="text-sm text-neutral-300 max-w-2xl">
         Zeptej se jako sládka — na problém, postup, hodnotu nebo várky. AI sládek (Claude) hledá v knihách, várkách, profilu pivovaru
         a ve zkušenostech, čísla počítá výpočetním modulem a u každého tvrzení z knih dá odkaz na stránku. Na tvoje předplatné Claude
-        odpovídá v aplikaci Claude přes konektor „{KONEKTOR}“; přímo tady v appce přes Claude API (platí se kredit).
+        odpovídá v aplikaci Claude přes konektor „{KONEKTOR}“{ulozitOdpoved ? ' a odpověď uloží sem' : ''}; přímo tady v appce přes Claude API (platí se kredit).
       </p>
 
       {chybaStavu && <div role="alert" className="text-sm font-bold text-rose-300">{chybaStavu}</div>}
@@ -306,7 +433,7 @@ export function BibleChat({ otevri, problem, otazkaZvenku }: {
                     <button type="button" className={`tap min-w-0 flex-1 rounded-lg px-2 py-1.5 text-left text-sm hover:underline ${aktivni.id === k.id ? 'font-black text-amber-200' : 'text-neutral-100'}`}
                       onClick={() => void otevriKonverzaci(k)}>
                       <span className="block truncate">{k.nazev}</span>
-                      <span className="block text-xs text-neutral-400">{datum(k.upraveno)} · {k.zprav} zpráv{k.problemId ? ' · problém' : ''}</span>
+                      <span className="block text-xs text-neutral-400">{datum(k.upraveno)} · {k.zprav} zpráv{k.problemId ? ' · problém' : ''}{k.cekaClaude ? ' · čeká na odpověď z Claude' : ''}</span>
                     </button>
                     <button type="button" className="btn-tmave w-11 px-0" aria-label={`Smazat konverzaci ${k.nazev}`} onClick={() => void smaz(k)}>
                       <Trash2 size={16} />
@@ -333,6 +460,7 @@ export function BibleChat({ otevri, problem, otazkaZvenku }: {
           </div>
         )}
         {zpravy.map((z) => (z.role === 'uzivatel' ? <Otazka key={z.id} text={z.text} /> : <Odpoved key={z.id} z={z} otevri={otevri} />))}
+        {cekajici.size > 0 && <CekaNaClauda kontroluj={() => void zkontrolujTed()} kontroluji={kontroluji || !cekaNaClauda} dlouho={dlouho} />}
         {probiha && (
           <article className={`${KARTA} space-y-2`} aria-label="AI sládek odpovídá" aria-busy="true">
             <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-wide text-amber-400">
@@ -370,8 +498,8 @@ export function BibleChat({ otevri, problem, otazkaZvenku }: {
         )}
         <div className="flex flex-wrap items-center gap-3">
           {otazka.trim().length >= 2 ? (
-            <a className="btn-amber" href={odkazNaClaude(zadaniProClaude(otazka, problem ?? null))} target="_blank" rel="noopener noreferrer"
-              onClick={() => predejClaudovi(zadaniProClaude(otazka, problem ?? null))}>
+            <a className="btn-amber" href={odkazNaClaude(zadaniClaude)} target="_blank" rel="noopener noreferrer"
+              onClick={() => predejClaudovi(zadaniClaude, otazka.trim(), ulozitOdpoved ? dotazId : null)}>
               <ExternalLink size={18} aria-hidden="true" /> Zeptat se v Claude (předplatné)
             </a>
           ) : (
@@ -391,10 +519,14 @@ export function BibleChat({ otevri, problem, otazkaZvenku }: {
           <div role="status" className="rounded-lg border border-neutral-700 bg-neutral-900 p-2 text-sm text-neutral-100">
             Otázka je v Claude — odeslat ji musíš tam. Je i ve schránce: v mobilní aplikaci Claude ji stačí vložit. Konektor „{KONEKTOR}“
             musí být v Claude připojený (Pivovarská bible → Správa znalostí → Aplikace Claude).
+            {ulozitOdpoved
+              ? ' Claude odpověď uloží sem do konverzace a appka ji načte sama.'
+              : ' Aby se odpovědi ukládaly i sem, je potřeba pustit migraci bible 20261114000000_bible_dotazy_claude (Systém → Databázové migrace → Databáze bible).'}
           </div>
         )}
         <p className="text-xs text-neutral-400">
-          „Zeptat se v Claude“: odpovídá tvoje předplatné Claude přes konektor „{KONEKTOR}“, odpověď i s odkazy na stránky knih je v aplikaci Claude.
+          „Zeptat se v Claude“: odpovídá tvoje předplatné Claude přes konektor „{KONEKTOR}“; v Claude otázku jen odešli
+          {ulozitOdpoved ? ' a odpověď i s odkazy na stránky knih se uloží sem (i do historie)' : ' — odpověď s odkazy na stránky knih je v aplikaci Claude'}.
           „Odpovědět tady“: odpověď přímo v appce přes Claude API — obvykle 20–90 sekund, řádově desetníky dolaru z kreditu. Internet je pomalejší
           a dražší; web se v odpovědi uvádí zvlášť jako neověřený zdroj.
         </p>
