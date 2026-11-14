@@ -2,8 +2,8 @@
 // Claude (bible-mcp, R16) i chatbot v appce (bible-chat, etapa 5), ať oba
 // hledají, čtou a počítají stejně. Jen čtení přes service roli; zápis
 // (uloz_web_zdroj, zaloz_problem, zapis_zjisteni, zapis_varku, dopln_varku,
-// zapis_zkusenost) za připojeného uživatele přes SQL funkce, které práva
-// hlídají znovu. Žádný přímý insert/update/delete (hlídá test). Do logu nikdy
+// zapis_zkusenost, uloz_odpoved) za připojeného uživatele přes SQL funkce,
+// které práva hlídají znovu. Žádný přímý insert/update/delete (hlídá test). Do logu nikdy
 // text knih.
 import { jeUuid, uroven } from './brana.ts';
 import {
@@ -23,6 +23,7 @@ import {
   zkusenostVstup, type ChybaDb, type FiltrHledani,
 } from './vstupy.ts';
 import type { ZdrojKnihy } from './chat.ts';
+import { odkazyNaCitace, stranyVOdpovedi } from './odpoved-claude.ts';
 
 /**
  * Klient databáze bible (supabase-js s service rolí). Strukturní typ, ať se
@@ -579,6 +580,85 @@ async function zapisZkusenost(db: Db, args: Record<string, unknown>, kdo: Pripoj
   ].filter(Boolean).join('\n');
 }
 
+// --- Dotaz z appky a odpověď zpátky do appky (R33) ----------------------------
+// Majitel 14. 11. 2026: „Chci, abych se mohl ptát v té aplikaci a v té viděl
+// odpovědi od Claude" — přes předplatné: otázka se v appce uloží předem
+// (dotaz_id je v zadání pro Clauda), Claude v aplikaci Claude odpoví a odpověď
+// uloží sem; appka ji ukáže v AI sládkovi. Číst a zapsat smí jen ten, kdo se
+// ptal (konektor jedná za připojeného uživatele, hlídá SQL).
+
+const MODEL_PREDPLATNE = 'aplikace Claude (předplatné)';
+const BEZ_MIGRACE_DOTAZU = 'Ukládání odpovědí do appky čeká na migraci databáze bible 20261114000000_bible_dotazy_claude '
+  + '(v appce: Systém → Databázové migrace → Databáze bible). Odpověz zatím jen tady v Claude.';
+const NENI_DOTAZ = 'Tenhle dotaz v appce není (nebo patří jinému uživateli) — odpověz jen tady v Claude.';
+
+function idDotazu(v: unknown): string {
+  if (!jeUuid(v)) throw new ChybaNastroje('dotaz_id musí být id ze zadání (36 znaků, např. 1b2c…-…).');
+  return v.toLowerCase();
+}
+
+async function dotazZAppky(db: Db, args: Record<string, unknown>, kdo: Pripojeny): Promise<string> {
+  const dotaz = idDotazu(args.dotaz_id);
+  const { data, error } = await db.rpc('bible_dotaz_claude_nacti', { p_uzivatel: kdo.uzivatel, p_dotaz: dotaz });
+  if (error?.code === 'PGRST202') throw new ChybaNastroje(BEZ_MIGRACE_DOTAZU);
+  if (error) throw new Error(`db ${error.code ?? '?'}`);
+  if (!data) throw new ChybaNastroje(NENI_DOTAZ);
+  const d = data as {
+    otazka: string; nazev: string; problem_id: string | null; problem_nazev: string | null; zodpovezeno: boolean;
+    historie: { role: string; text: string }[];
+  };
+  const historie = Array.isArray(d.historie) ? d.historie : [];
+  return [
+    `# Dotaz z appky (dotaz_id=${dotaz})`,
+    `Otázka: ${d.otazka}`,
+    `Konverzace v appce: „${d.nazev}"`,
+    d.problem_id ? `Je o problému z Analýzy problémů „${d.problem_nazev ?? ''}" (problem_id=${d.problem_id}) — načti ho nástrojem problemy.` : '',
+    d.zodpovezeno
+      ? 'Odpověď na tenhle dotaz už v appce je — druhou uložit nejde.'
+      : 'Až odpovíš, ulož celou odpověď nástrojem uloz_odpoved s tímto dotaz_id.',
+    historie.length > 0
+      ? `\n## Předchozí zprávy konverzace (nejstarší první)\n${historie.map((h) => `${h.role === 'uzivatel' ? 'Uživatel' : 'AI sládek'}: ${h.text}`).join('\n\n')}`
+      : '',
+  ].filter(Boolean).join('\n');
+}
+
+async function ulozOdpoved(db: Db, args: Record<string, unknown>, kdo: Pripojeny): Promise<string> {
+  if (uroven(kdo.pristup) < 1) throw new ChybaNastroje('Tvůj účet nemá do bible přístup.');
+  const dotaz = idDotazu(args.dotaz_id);
+  const odpoved = typeof args.odpoved === 'string' ? args.odpoved.trim() : '';
+  if (!odpoved) throw new ChybaNastroje('Chybí odpověď.');
+  if (odpoved.length > 60_000) throw new ChybaNastroje('Odpověď je moc dlouhá (nejvýš 60 000 znaků) — zkrať ji.');
+  // Názvy knih a tištěné strany k odkazům na stránky (kniha mimo knihovnu se necituje).
+  const odkazy = stranyVOdpovedi(odpoved);
+  const nazvy = new Map<string, string>();
+  const strany = new Map<string, string | null>();
+  if (odkazy.length > 0) {
+    const ids = [...new Set(odkazy.map((o) => o.dokumentId))];
+    const knihy = await db.from('bible_dokumenty').select('id,nazev').in('id', ids);
+    if (knihy.error) throw new Error(`db ${knihy.error.code ?? '?'}`);
+    for (const k of (knihy.data ?? []) as { id: string; nazev: string }[]) nazvy.set(String(k.id).toLowerCase(), String(k.nazev));
+    const listy = [...new Set(odkazy.map((o) => o.list))];
+    const r = await db.from('bible_strany').select('dokument_id,pdf_index,tistena_strana').in('dokument_id', ids).in('pdf_index', listy);
+    if (r.error) throw new Error(`db ${r.error.code ?? '?'}`);
+    for (const x of (r.data ?? []) as { dokument_id: string; pdf_index: number; tistena_strana: string | null }[]) {
+      strany.set(`${String(x.dokument_id).toLowerCase()}:${x.pdf_index}`, x.tistena_strana ?? null);
+    }
+  }
+  const prevod = odkazyNaCitace(odpoved, { nazvy, strany });
+  const { error } = await db.rpc('bible_dotaz_claude_odpovez', {
+    p_uzivatel: kdo.uzivatel, p_dotaz: dotaz, p_text: prevod.text, p_citace: prevod.citace, p_model: MODEL_PREDPLATNE,
+  });
+  if (error?.code === 'PGRST202') throw new ChybaNastroje(BEZ_MIGRACE_DOTAZU);
+  if (error) chybaZapisu(error);
+  const knih = prevod.citace.filter((c) => c.zdroj !== 'web').length;
+  const webu = prevod.citace.length - knih;
+  return [
+    `Odpověď je uložená v appce — uživatel ji uvidí v AI sládkovi (i v Historii): ${APP_URL}/?page=bible&sub=chat`,
+    `Citace: ${knih} ze stránek knih, ${webu} z webu.`,
+    prevod.vynechano > 0 ? `Pozor: ${prevod.vynechano} odkaz(ů) na knihu, která v knihovně není, jsem necitoval — řekni to uživateli.` : '',
+  ].filter(Boolean).join('\n');
+}
+
 // Zkušenosti sládků (etapa 3b): praxe s úrovní důvěryhodnosti — nikdy obecné pravidlo.
 const BEZ_ZKUSENOSTI = 'Zkušenosti sládků v databázi bible ještě nejsou (migrace 20261104000000_bible_zkusenosti).';
 const UROVNE = ['', 'ověřená odborná publikace', 'výrobní dokumentace', 'opakovaně ověřená provozní zkušenost', 'zkušenost jednoho sládka', 'neověřená informace'];
@@ -633,6 +713,8 @@ export function zavolejNastroj(db: Db, kdo: Pripojeny) {
     if (jmeno === 'zapis_varku') return zapisVarku(db, args, kdo);
     if (jmeno === 'dopln_varku') return doplnVarku(db, args, kdo);
     if (jmeno === 'zapis_zkusenost') return zapisZkusenost(db, args, kdo);
+    if (jmeno === 'dotaz_z_appky') return dotazZAppky(db, args, kdo);
+    if (jmeno === 'uloz_odpoved') return ulozOdpoved(db, args, kdo);
     if (jmeno === 'hledej_v_knihach') return hledej(db, args);
     if (jmeno === 'precti_stranu') return prectiStranu(db, args);
     if (jmeno === 'prehled_tematu') return prehledTematu(db, args);

@@ -13,7 +13,8 @@ vi.mock('./bibleKlient', () => ({
 }));
 
 import {
-  nactiKonverzaci, nactiStavChatu, udalostZRadku, usdText, zdrojZDat, zeptejSe, type UdalostChatu,
+  cekajiciNaClauda, nactiKonverzace, nactiKonverzaci, nactiStavChatu, udalostZRadku, usdText, zalozDotazClaude, zdrojZDat, zeptejSe,
+  type UdalostChatu,
 } from './bibleChatApi';
 
 const ID = '11111111-2222-3333-4444-555555555555';
@@ -103,7 +104,11 @@ describe('otázka pro AI sládka', () => {
 describe('stav, konverzace a strop přes bible-api', () => {
   it('stav chatu; stará bible-api (neznámá akce) = nasazuje se', async () => {
     odpovedApi = { ok: true, data: { migrace: true, klic: true, utraceno_usd: '1.25', chat_usd: 1, chat_dotazu: 3, strop_usd: 20, model: 'claude-opus-5-5' } };
-    expect(await nactiStavChatu()).toEqual({ stav: 'ok', data: { migrace: true, klic: true, utracenoUsd: 1.25, chatUsd: 1, chatDotazu: 3, stropUsd: 20, model: 'claude-opus-5-5' } });
+    expect(await nactiStavChatu()).toEqual({ stav: 'ok', data: {
+      migrace: true, klic: true, dotazy: false, utracenoUsd: 1.25, chatUsd: 1, chatDotazu: 3, stropUsd: 20, model: 'claude-opus-5-5',
+    } });
+    odpovedApi = { ok: true, data: { migrace: true, klic: false, dotazy: true } };
+    expect(await nactiStavChatu()).toMatchObject({ stav: 'ok', data: { dotazy: true, klic: false } });
     expect(volaniApi[0]).toEqual({ akce: 'chat_stav' });
     odpovedApi = { ok: false, chyba: { kod: 'neplatny_vstup', zprava: 'Neznámá akce.', status: 400 } };
     expect(await nactiStavChatu()).toMatchObject({ stav: 'chyba', kod: 'nenasazeno' });
@@ -118,6 +123,35 @@ describe('stav, konverzace a strop přes bible-api', () => {
     const r = await nactiKonverzaci(KID);
     expect(volaniApi[0]).toEqual({ akce: 'konverzace_detail', id: KID });
     expect(r.stav === 'ok' && r.data.zpravy.map((z) => [z.role, z.text, z.neuplna])).toEqual([['uzivatel', 'Otázka', false], ['asistent', 'Odpověď', true]]);
+  });
+
+  it('otázka pro aplikaci Claude (R33): uloží se s id od appky; zprávy nesou otázku pro Clauda i vazbu odpovědi', async () => {
+    const DOTAZ = 'dddddddd-0000-4000-8000-000000000001';
+    odpovedApi = { ok: true, data: { konverzace_id: KID, dotaz_id: DOTAZ, novy: true } };
+    expect(await zalozDotazClaude({ dotazId: DOTAZ, otazka: 'Proč kvašení stojí?', konverzaceId: null, problemId: null }))
+      .toEqual({ stav: 'ok', data: { konverzaceId: KID, dotazId: DOTAZ } });
+    expect(volaniApi[0]).toEqual({ akce: 'dotaz_claude', dotaz_id: DOTAZ, otazka: 'Proč kvašení stojí?', konverzace_id: null, problem_id: null });
+    odpovedApi = { ok: false, chyba: { kod: 'bez_migrace', zprava: 'Databáze bible ještě nemá potřebnou migraci.', status: 503 } };
+    expect(await zalozDotazClaude({ dotazId: DOTAZ, otazka: 'x y', konverzaceId: KID, problemId: null })).toMatchObject({ stav: 'chyba', kod: 'bez_migrace' });
+
+    odpovedApi = { ok: true, data: { konverzace: { id: KID, nazev: 'Kvašení', problem_id: null }, zpravy: [
+      { id: DOTAZ, role: 'uzivatel', text: 'Proč kvašení stojí?', pro_claude: true },
+      { id: ID, role: 'asistent', text: 'Odpověď', odpoved_na: DOTAZ, pro_claude: true },
+      { id: 'dddddddd-0000-4000-8000-000000000002', role: 'uzivatel', text: 'A teplota?', pro_claude: true },
+      { id: 'dddddddd-0000-4000-8000-000000000003', role: 'uzivatel', text: 'Přes API', pro_claude: false, odpoved_na: DOTAZ },
+    ] } };
+    const r = await nactiKonverzaci(KID);
+    expect(r.stav === 'ok' && r.data.zpravy.map((z) => [z.proClaude, z.odpovedNa])).toEqual([
+      [true, null], [false, DOTAZ], [true, null], [false, null],
+    ]);
+    expect(r.stav === 'ok' && [...cekajiciNaClauda(r.data.zpravy)]).toEqual(['dddddddd-0000-4000-8000-000000000002']);
+
+    odpovedApi = { ok: true, data: { konverzace: [
+      { id: KID, nazev: 'Kvašení', problem_id: null, upraveno_at: '2026-11-14T10:00:00Z', zprav: 3, ceka_claude: true },
+      { id: ID, nazev: 'Pěna', problem_id: null, upraveno_at: null, zprav: 2 },
+    ] } };
+    const k = await nactiKonverzace();
+    expect(k.stav === 'ok' && k.data.map((x) => [x.nazev, x.cekaClaude])).toEqual([['Kvašení', true], ['Pěna', false]]);
   });
 
   it('cena česky', () => {

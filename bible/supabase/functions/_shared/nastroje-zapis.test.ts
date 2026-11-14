@@ -11,6 +11,7 @@ import { ChybaNastroje, INSTRUKCE, NASTROJE, zpracujZpravu } from './mcp';
 import { zavolejNastroj, type Pripojeny } from './nastroje';
 import { HODNOTY_VARKY } from './varky-popisy';
 import { TYPY_ZKUSENOSTI } from './vstupy';
+import { MAX_ZDROJU_ODPOVEDI, odkazNaStranu, odkazyNaCitace, stranyVOdpovedi } from './odpoved-claude';
 
 const PIVOVAR = 'aaaaaaaa-0000-4000-8000-000000000001';
 const PIVOVAR_2 = 'aaaaaaaa-0000-4000-8000-000000000002';
@@ -36,11 +37,14 @@ function falesnaDb(o: {
       const vysledek = () => {
         const chyba = o.chybaTabulky?.[tabulka];
         if (chyba) return { data: null, error: chyba };
-        return { data: (o.tabulky?.[tabulka] ?? []).filter((r) => filtry.every(([k, v]) => r[k] === v)).slice(0, limit), error: null };
+        const sedi = (r: Radek, k: string, v: unknown) => (v && typeof v === 'object' && 'vSeznamu' in v
+          ? (v as { vSeznamu: unknown[] }).vSeznamu.includes(r[k]) : r[k] === v);
+        return { data: (o.tabulky?.[tabulka] ?? []).filter((r) => filtry.every(([k, v]) => sedi(r, k, v))).slice(0, limit), error: null };
       };
       const q = {
         select: () => q,
         eq: (k: string, v: unknown) => { filtry.push([k, v]); return q; },
+        in: (k: string, v: unknown[]) => { filtry.push([k, { vSeznamu: v }]); return q; },
         limit: (n: number) => { limit = n; return q; },
         maybeSingle: async () => { const r = vysledek(); return r.error ? r : { data: r.data?.[0] ?? null, error: null }; },
         then: (ok: (v: unknown) => unknown, ko: (e: unknown) => unknown) => Promise.resolve(vysledek()).then(ok, ko),
@@ -322,7 +326,7 @@ describe('zapis_zkusenost', () => {
 
 describe('nástroje zápisu v konektoru', () => {
   const najdi = (jmeno: string) => NASTROJE.find((n) => n.name === jmeno)!;
-  const ZAPISUJI = ['uloz_web_zdroj', 'zaloz_problem', 'zapis_zjisteni', 'zapis_varku', 'dopln_varku', 'zapis_zkusenost'];
+  const ZAPISUJI = ['uloz_web_zdroj', 'zaloz_problem', 'zapis_zjisteni', 'zapis_varku', 'dopln_varku', 'zapis_zkusenost', 'uloz_odpoved'];
 
   it('hodnoty várky v popisu nástroje = katalog appky (klíč, jednotka, rozsah, celé číslo)', () => {
     for (const jmeno of ['zapis_varku', 'dopln_varku']) {
@@ -383,5 +387,119 @@ describe('nástroje zápisu v konektoru', () => {
     expect(odmitnuto).toMatchObject({ result: { isError: true } });
     const ok = await zpracujZpravu({ jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'zapis_varku', arguments: { pivo: 'Jantar', datum_varu: '2026-11-12' } } }, zavolej);
     expect(ok).toMatchObject({ result: { isError: false } });
+  });
+});
+
+describe('dotaz z appky a odpověď zpátky do appky (R33)', () => {
+  const KNIHA = 'eeeeeeee-0000-4000-8000-000000000001';
+  const CIZI_KNIHA = 'eeeeeeee-0000-4000-8000-0000000000ff';
+  const DOTAZ = 'dddddddd-0000-4000-8000-0000000000aa';
+  const strana = (id: string, list: number) => `https://zajic-pivovar.pages.dev/?page=bible&sub=kniha:${id}:${list}`;
+  const udaje = { nazvy: new Map([[KNIHA, 'Technologie piva']]), strany: new Map([[`${KNIHA}:12`, '10']]) };
+
+  it('odkaz do čtečky appky → stránka knihy (i zakódovaný); jiné adresy ne', () => {
+    expect(odkazNaStranu(strana(KNIHA, 12))).toEqual({ dokumentId: KNIHA, list: 12 });
+    expect(odkazNaStranu(`https://zajic-pivovar.pages.dev/?page=bible&sub=kniha%3A${KNIHA.toUpperCase()}%3A7`)).toEqual({ dokumentId: KNIHA, list: 7 });
+    expect(odkazNaStranu('https://zajic-pivovar.pages.dev/?page=bible&sub=chat')).toBeNull();
+    expect(odkazNaStranu(`https://jiny.example/?page=bible&sub=kniha:${KNIHA}:12`)).toBeNull();
+    expect(odkazNaStranu(`${strana(KNIHA, 0)}`)).toBeNull();
+  });
+
+  it('odkazy na stránky a web → citace [n]; stejná stránka stejné číslo; čísla navazují za [n] v textu', () => {
+    const text = `## Krátká odpověď\nPěnu drží bílkoviny ([Technologie piva, s. 10](${strana(KNIHA, 12)})).\n`
+      + `- Znovu tatáž strana: ${strana(KNIHA, 12)}.\n- Web: [Článek o pěně](https://example.org/pena) a <https://example.com/x>\n`
+      + `- Moje poznámka [2] zůstane.`;
+    const r = odkazyNaCitace(text, udaje);
+    expect(r.text).toBe('## Krátká odpověď\nPěnu drží bílkoviny (Technologie piva, s. 10 [3]).\n- Znovu tatáž strana: [3].\n'
+      + '- Web: Článek o pěně [4] a [5]\n- Moje poznámka [2] zůstane.');
+    expect(r.citace).toEqual([
+      { n: 3, dokumentId: KNIHA, pdfIndex: 12, nazev: 'Technologie piva', tistena: '10', kapitola: null, zdroj: 'original', url: null, citat: '' },
+      { n: 4, dokumentId: null, pdfIndex: null, nazev: 'Článek o pěně', tistena: null, kapitola: null, zdroj: 'web', url: 'https://example.org/pena', citat: '' },
+      { n: 5, dokumentId: null, pdfIndex: null, nazev: 'example.com', tistena: null, kapitola: null, zdroj: 'web', url: 'https://example.com/x', citat: '' },
+    ]);
+    expect(r.vynechano).toBe(0);
+    expect(stranyVOdpovedi(text)).toEqual([{ dokumentId: KNIHA, list: 12 }]);
+  });
+
+  it('kniha, která v knihovně není, se necituje (zůstane popis) a nahlásí se', () => {
+    const r = odkazyNaCitace(`Viz [Neznámá kniha](${strana(CIZI_KNIHA, 3)}) a ${strana(CIZI_KNIHA, 4)}.`, udaje);
+    expect(r.text).toBe('Viz Neznámá kniha a.');
+    expect(r.citace).toEqual([]);
+    expect(r.vynechano).toBe(2);
+  });
+
+  it('zdrojů nejvýš MAX_ZDROJU_ODPOVEDI, zbytek odkazů zůstane jako text', () => {
+    const odkazy = Array.from({ length: MAX_ZDROJU_ODPOVEDI + 2 }, (_, i) => `[zdroj ${i}](https://example.org/${i})`).join(' ');
+    const r = odkazyNaCitace(odkazy, udaje);
+    expect(r.citace).toHaveLength(MAX_ZDROJU_ODPOVEDI);
+    expect(r.text.endsWith(`zdroj ${MAX_ZDROJU_ODPOVEDI + 1}`)).toBe(true);
+  });
+
+  it('dotaz_z_appky: otázka, problém a předchozí zprávy jen z vlastního dotazu; bez migrace srozumitelně', async () => {
+    const { db, rpc } = falesnaDb({ rpc: (jmeno, p) => (jmeno === 'bible_dotaz_claude_nacti' && p.p_dotaz === DOTAZ ? {
+      data: {
+        dotaz_id: DOTAZ, otazka: 'A co teplota?', nazev: 'Proč kvašení stojí?', problem_id: VARKA, problem_nazev: 'Pomalé kvašení', zodpovezeno: false,
+        historie: [{ role: 'uzivatel', text: 'Proč kvašení stojí?' }, { role: 'asistent', text: 'Zkontroluj kvasnice.' }],
+      },
+    } : { data: null }) });
+    const t = await nastroj(db)('dotaz_z_appky', { dotaz_id: DOTAZ.toUpperCase() });
+    expect(rpc[0]).toEqual(['bible_dotaz_claude_nacti', { p_uzivatel: HONZA.uzivatel, p_dotaz: DOTAZ }]);
+    expect(t).toContain(`# Dotaz z appky (dotaz_id=${DOTAZ})\nOtázka: A co teplota?`);
+    expect(t).toContain(`„Pomalé kvašení" (problem_id=${VARKA}) — načti ho nástrojem problemy.`);
+    expect(t).toContain('ulož celou odpověď nástrojem uloz_odpoved');
+    expect(t).toContain('Uživatel: Proč kvašení stojí?\n\nAI sládek: Zkontroluj kvasnice.');
+    await expect(nastroj(db)('dotaz_z_appky', { dotaz_id: NOVA })).rejects.toThrow(/Tenhle dotaz v appce není/);
+    await expect(nastroj(db)('dotaz_z_appky', { dotaz_id: 'abc' })).rejects.toThrow(/dotaz_id musí být id ze zadání/);
+    const bez = falesnaDb({ rpc: () => ({ error: { code: 'PGRST202' } }) });
+    await expect(nastroj(bez.db)('dotaz_z_appky', { dotaz_id: DOTAZ })).rejects.toThrow(/migraci databáze bible 20261114000000_bible_dotazy_claude/);
+  });
+
+  it('uloz_odpoved: odkazy na stránky převede na citace s názvem a stranou z knihovny a uloží za připojeného uživatele', async () => {
+    const { db, rpc } = falesnaDb({
+      tabulky: {
+        bible_dokumenty: [{ id: KNIHA, nazev: 'Technologie piva' }],
+        bible_strany: [{ dokument_id: KNIHA, pdf_index: 12, tistena_strana: '10' }, { dokument_id: KNIHA, pdf_index: 13, tistena_strana: '11' }],
+      },
+      rpc: () => ({ data: { zprava_id: NOVA, konverzace_id: VARKA } }),
+    });
+    const t = await nastroj(db, { ...HONZA, pristup: 'cte' })('uloz_odpoved', {
+      dotaz_id: DOTAZ, odpoved: `  ## Krátká odpověď\nTeplota je nízká [Technologie piva](${strana(KNIHA, 12)}); web: https://example.org/kvaseni.  `,
+    });
+    expect(rpc).toEqual([['bible_dotaz_claude_odpovez', {
+      p_uzivatel: HONZA.uzivatel, p_dotaz: DOTAZ,
+      p_text: '## Krátká odpověď\nTeplota je nízká Technologie piva [1]; web: [2].',
+      p_citace: [
+        { n: 1, dokumentId: KNIHA, pdfIndex: 12, nazev: 'Technologie piva', tistena: '10', kapitola: null, zdroj: 'original', url: null, citat: '' },
+        { n: 2, dokumentId: null, pdfIndex: null, nazev: 'example.org', tistena: null, kapitola: null, zdroj: 'web', url: 'https://example.org/kvaseni', citat: '' },
+      ],
+      p_model: 'aplikace Claude (předplatné)',
+    }]]);
+    expect(t).toContain('Odpověď je uložená v appce');
+    expect(t).toContain('https://zajic-pivovar.pages.dev/?page=bible&sub=chat');
+    expect(t).toContain('Citace: 1 ze stránek knih, 1 z webu.');
+  });
+
+  it('uloz_odpoved: cizí nebo už zodpovězený dotaz, prázdná či dlouhá odpověď a chybějící migrace — chyba, ne „uloženo"', async () => {
+    const cizi = falesnaDb({ rpc: () => ({ error: { code: 'P0002', message: 'Tenhle dotaz v appce není (nebo patří jinému uživateli).' } }) });
+    await expect(nastroj(cizi.db)('uloz_odpoved', { dotaz_id: DOTAZ, odpoved: 'Text' })).rejects.toThrow('Tenhle dotaz v appce není (nebo patří jinému uživateli).');
+    const druha = falesnaDb({ rpc: () => ({ error: { code: '22023', message: 'Odpověď na tenhle dotaz už v appce je.' } }) });
+    await expect(nastroj(druha.db)('uloz_odpoved', { dotaz_id: DOTAZ, odpoved: 'Text' })).rejects.toThrow('Odpověď na tenhle dotaz už v appce je.');
+    const { db, rpc } = falesnaDb();
+    await expect(nastroj(db)('uloz_odpoved', { dotaz_id: DOTAZ, odpoved: '   ' })).rejects.toThrow('Chybí odpověď.');
+    await expect(nastroj(db)('uloz_odpoved', { dotaz_id: DOTAZ, odpoved: 'x'.repeat(60_001) })).rejects.toThrow(/moc dlouhá/);
+    await expect(nastroj(db, { ...HONZA, pristup: 'zadny' })('uloz_odpoved', { dotaz_id: DOTAZ, odpoved: 'Text' })).rejects.toThrow(/nemá do bible přístup/);
+    expect(rpc).toEqual([]);
+    const bez = falesnaDb({ rpc: () => ({ error: { code: 'PGRST202' } }) });
+    await expect(nastroj(bez.db)('uloz_odpoved', { dotaz_id: DOTAZ, odpoved: 'Text' })).rejects.toThrow(/20261114000000_bible_dotazy_claude/);
+  });
+
+  it('nabídka konektoru: dotaz_z_appky jen čte, uloz_odpoved zapisuje; chatbot v appce je nemá; instrukce říkají ukládat odpověď', () => {
+    expect(NASTROJE.find((n) => n.name === 'dotaz_z_appky')!.annotations.readOnlyHint).toBe(true);
+    expect(NASTROJE.find((n) => n.name === 'uloz_odpoved')!.annotations.readOnlyHint).toBe(false);
+    expect((NASTROJE.find((n) => n.name === 'uloz_odpoved')!.inputSchema as { required: string[] }).required).toEqual(['dotaz_id', 'odpoved']);
+    const jmena = nastrojeChatu(NASTROJE, { zapis: true, web: true }).map((t) => t.name);
+    expect(jmena).not.toContain('dotaz_z_appky');
+    expect(jmena).not.toContain('uloz_odpoved');
+    expect(INSTRUKCE).toMatch(/ulož nástrojem uloz_odpoved/);
   });
 });

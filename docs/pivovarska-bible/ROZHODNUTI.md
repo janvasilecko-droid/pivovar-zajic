@@ -566,3 +566,30 @@ Každé rozhodnutí má datum, důvod a co by ho změnilo.
 - Chatbot v appce (Claude API) tyhle nástroje nedostane — zápis z provozu je
   jen v konektoru. Nástroje konektoru nesou popisky MCP (jen čtení / zápis),
   aplikace Claude se tak u zápisu může ptát na schválení.
+
+## R33 — Odpověď z aplikace Claude zpátky do appky (14. 11. 2026)
+
+- Majitel 14. 11. 2026: „Chci, abych se mohl ptát v té aplikaci a v té viděl
+  odpovědi od Claude." Na otázku, jakou cestou (předplatné jde podle pravidel
+  Anthropicu použít jen v aplikacích Claude a v Claude Code — R14, R31; přímo
+  v appce jen Claude API za kredit), vybral „Odpověď z Claude do appky".
+- Jak to funguje: „Zeptat se v Claude (předplatné)" v AI sládkovi otevře
+  aplikaci Claude s otázkou a zároveň otázku uloží do konverzace AI sládka
+  s id, které dá appka předem (je v zadání jako dotaz_id). Claude odpoví na
+  předplatné přes konektor a hotovou odpověď uloží nástrojem `uloz_odpoved`;
+  appka čeká, ptá se po pár sekundách (jen když je vidět) a hned po návratu
+  do appky, a odpověď ukáže i v historii. Navazující otázka si předchozí
+  konverzaci načte nástrojem `dotaz_z_appky`.
+- Odkazy na stránky knih, které Claude v odpovědi dává (INSTRUKCE konektoru),
+  se při uložení převedou na stejné klikací citace [n] se seznamem zdrojů jako
+  u odpovědí přes API (název knihy a tištěná strana z knihovny); webové
+  adresy na zdroje „web". Odkaz na knihu, která v knihovně není, se necituje
+  a nástroj to Claudovi řekne.
+- Bezpečnost a pořádek: odpověď smí zapsat jen ten, kdo se ptal (konektor
+  jedná za připojeného uživatele, hlídá SQL), na jednu otázku nejvýš jedna
+  odpověď (jedinečný index), stejné odeslání podruhé nic nezdvojí. Appka
+  Clauda sama nevolá a nic se neplatí.
+- Migrace `20261114000000_bible_dotazy_claude` (sloupce `pro_claude`
+  a `odpoved_na` ve zprávách, funkce pro dotaz a odpověď). Bez ní appka
+  předává otázky jako dřív a řekne, že odpovědi se ukládat nebudou.
+

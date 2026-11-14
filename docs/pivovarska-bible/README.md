@@ -54,6 +54,7 @@ s citací kniha–kapitola–strana a počítá deterministickým výpočetním 
 | 9: rešerše z internetu — `bible_web_zdroje` (adresa, titulek, datum publikace a zjištění, důvěra 1–5, stav), Claude ukládá přes konektor vždy jako neověřené, správce ověří ve Správě znalostí (R27) | hotovo (11. 11. 2026) — migrace `20261111020000_bible_web_problemy` |
 | 10: analýza problémů (oblast T) — problémy s dotčenými várkami, zjištění šesti typů (fakt se zdrojem, výpočet, zkušenost, doporučení, hypotéza, chybí), potvrzení hypotéz, trend várek v grafu; nástroje `problemy`, `zaloz_problem`, `zapis_zjisteni` (R27) | hotovo (11. 11. 2026) — stejná migrace |
 | zápis z provozu hlasem přes konektor — nástroje `zapis_varku`, `dopln_varku`, `zapis_zkusenost` (shrnutí a potvrzení před uložením, pojistky proti zápisu navíc a přepsání; R32) | hotovo (12. 11. 2026) — bez migrace |
+| odpověď z aplikace Claude zpátky do appky — otázka se uloží při předání, Claude uloží odpověď nástrojem `uloz_odpoved` (citace stránek), appka ji sama načte (R33) | hotovo (14. 11. 2026) — migrace `20261114000000_bible_dotazy_claude` |
 
 ## AI sládek — chatbot v appce (etapa 5)
 
@@ -67,11 +68,14 @@ s citací kniha–kapitola–strana a počítá deterministickým výpočetním 
   literatura, praxe, výpočet, doporučení, rozpory a co chybí); tvrzení z knih
   mají čísla [n], která otevřou knihu na stránce, dole zdroje s citovanou větou.
   Volitelně i web (vždy zvlášť, neověřený).
-- **Na předplatné (R31):** tlačítko „Zeptat se v Claude (předplatné)" předá
-  otázku do aplikace Claude (https://claude.ai/new?q=…, zadání i do schránky
-  pro mobilní aplikaci) — odpovídá Claude z předplatného majitele přes konektor
-  „Pivovarská bible" (R16) se stejnými nástroji. Přímo v appce předplatné použít
-  nejde: pravidla Anthropicu ho dovolují jen v aplikacích Claude a v Claude Code.
+- **Na předplatné (R31, R33):** tlačítko „Zeptat se v Claude (předplatné)"
+  předá otázku do aplikace Claude (https://claude.ai/new?q=…, zadání i do
+  schránky pro mobilní aplikaci) — odpovídá Claude z předplatného majitele přes
+  konektor „Pivovarská bible" (R16) se stejnými nástroji. Otázka se zároveň
+  uloží sem a Claude hotovou odpověď uloží konektorem zpátky (`uloz_odpoved`):
+  appka ji sama načte a ukáže i s citacemi stránek a v historii (migrace
+  `20261114000000_bible_dotazy_claude`). Přímo v appce předplatné použít nejde:
+  pravidla Anthropicu ho dovolují jen v aplikacích Claude a v Claude Code.
 - **Peníze (odpověď tady):** „Odpovědět tady (Claude API)" volá Claude API
   (klíč `ANTHROPIC_API_KEY` z app_secrets hlavní appky, do funkcí bible ho
   přenese nasazení). Řádově desetníky dolaru za odpověď; měsíční strop

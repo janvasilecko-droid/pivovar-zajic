@@ -83,6 +83,9 @@ export const AKCE = {
   konverzace_detail: 'cte',
   konverzace_smazat: 'cte',
   strop_nastavit: 'spravuje',
+  // AI sládek na předplatné (R33): otázka se uloží předem, odpověď sem zapíše
+  // konektor z aplikace Claude za toho, kdo se ptal (hlídá SQL).
+  dotaz_claude: 'cte',
 } as const satisfies Record<string, Pristup>;
 
 export type Akce = keyof typeof AKCE;
@@ -580,6 +583,28 @@ export function varkaVstup(v: unknown): Record<string, unknown> {
     datum_varu: datumVstup(p.datum_varu, 'Datum varu'),
     hodnoty: hodnotyVarkyVstup(p.hodnoty),
     poznamka: text(p.poznamka, 'Poznámka', 4000)?.trim() || null,
+  };
+}
+
+// --- AI sládek na předplatné: otázka pro aplikaci Claude (R33) -------------
+
+/** Nejvýš tolik znaků má otázka (stejně jako chatbot, chat.ts MAX_OTAZKA a SQL). */
+export const MAX_OTAZKA_CLAUDE = 4000;
+
+/**
+ * Otázka pro aplikaci Claude: id dotazu dává appka předem (je v zadání pro
+ * Clauda jako dotaz_id), konverzace a problém jsou nepovinné.
+ */
+export function dotazClaudeVstup(telo: Record<string, unknown>): { dotaz: string; otazka: string; konverzace: string | null; problem: string | null } {
+  if (!jeUuid(telo.dotaz_id)) throw new ChybaVstupu('Chybí id dotazu.');
+  const otazka = typeof telo.otazka === 'string' ? telo.otazka.trim() : '';
+  if (otazka.length < 2) throw new ChybaVstupu('Napiš otázku (aspoň dva znaky).');
+  if (otazka.length > MAX_OTAZKA_CLAUDE) throw new ChybaVstupu(`Otázka je moc dlouhá (nejvýš ${MAX_OTAZKA_CLAUDE} znaků).`);
+  return {
+    dotaz: telo.dotaz_id.toLowerCase(),
+    otazka,
+    konverzace: volitelneId(telo.konverzace_id, 'konverzace') ?? null,
+    problem: volitelneId(telo.problem_id, 'problému') ?? null,
   };
 }
 

@@ -31,14 +31,24 @@ export type ZpravaChatu = {
   cenaUsd: number;
   neuplna: boolean;
   vytvoreno: string | null;
+  /** Otázka poslaná do aplikace Claude (předplatné) — odpověď uloží konektor (R33). */
+  proClaude: boolean;
+  /** Odpověď z aplikace Claude: id otázky, ke které patří. */
+  odpovedNa: string | null;
 };
 
-export type Konverzace = { id: string; nazev: string; problemId: string | null; upraveno: string | null; zprav: number };
+export type Konverzace = {
+  id: string; nazev: string; problemId: string | null; upraveno: string | null; zprav: number;
+  /** Některá otázka čeká na odpověď z aplikace Claude. */
+  cekaClaude: boolean;
+};
 
 export type StavChatu = {
   migrace: boolean;
   /** Má chatbot klíč k Claude API (secret projektu bible)? */
   klic: boolean;
+  /** Ukládají se odpovědi z aplikace Claude zpátky do appky (migrace 20261114000000_bible_dotazy_claude)? */
+  dotazy: boolean;
   utracenoUsd: number;
   chatUsd: number;
   chatDotazu: number;
@@ -96,7 +106,14 @@ export function zpravaZDat(v: unknown): ZpravaChatu | null {
   return {
     id: zid, role: o.role, text: o.text, kroky: krokyZDat(o.kroky), citace: zdrojeZDat(o.citace), model: text(o.model),
     cenaUsd: cislo(o.cena_usd), neuplna: o.neuplna === true, vytvoreno: text(o.created_at),
+    proClaude: o.role === 'uzivatel' && o.pro_claude === true, odpovedNa: o.role === 'asistent' ? id(o.odpoved_na) : null,
   };
+}
+
+/** Otázky pro aplikaci Claude, na které ještě nepřišla odpověď (id). */
+export function cekajiciNaClauda(zpravy: readonly ZpravaChatu[]): Set<string> {
+  const zodpovezene = new Set(zpravy.map((z) => z.odpovedNa).filter((x): x is string => x !== null));
+  return new Set(zpravy.filter((z) => z.proClaude && !zodpovezene.has(z.id)).map((z) => z.id));
 }
 
 /** Jeden řádek odpovědi bible-chat → událost (neznámý nebo vadný řádek = null). */
@@ -212,14 +229,26 @@ async function api<T>(telo: Record<string, unknown>, prevod: (d: Record<string, 
 }
 
 export const nactiStavChatu = (): Promise<Odpoved<StavChatu>> => api({ akce: 'chat_stav' }, (d) => ({
-  migrace: d.migrace === true, klic: d.klic === true, utracenoUsd: cislo(d.utraceno_usd), chatUsd: cislo(d.chat_usd),
+  migrace: d.migrace === true, klic: d.klic === true, dotazy: d.dotazy === true, utracenoUsd: cislo(d.utraceno_usd), chatUsd: cislo(d.chat_usd),
   chatDotazu: cislo(d.chat_dotazu), stropUsd: cislo(d.strop_usd), model: text(d.model),
 }));
 
 export const nactiKonverzace = (): Promise<Odpoved<Konverzace[]>> => api({ akce: 'konverzace' }, (d) => (Array.isArray(d.konverzace) ? d.konverzace : [])
   .map((k) => (k ?? {}) as Record<string, unknown>)
   .filter((k) => id(k.id) && typeof k.nazev === 'string')
-  .map((k) => ({ id: k.id as string, nazev: k.nazev as string, problemId: id(k.problem_id), upraveno: text(k.upraveno_at), zprav: cislo(k.zprav) })));
+  .map((k) => ({
+    id: k.id as string, nazev: k.nazev as string, problemId: id(k.problem_id), upraveno: text(k.upraveno_at), zprav: cislo(k.zprav),
+    cekaClaude: k.ceka_claude === true,
+  })));
+
+/**
+ * Otázka pro aplikaci Claude (R33): uloží se do konverzace dřív, než ji člověk
+ * v Claude odešle — id dotazu je v zadání a konektor k němu zapíše odpověď.
+ */
+export const zalozDotazClaude = (p: { dotazId: string; otazka: string; konverzaceId: string | null; problemId: string | null }) =>
+  api({ akce: 'dotaz_claude', dotaz_id: p.dotazId, otazka: p.otazka, konverzace_id: p.konverzaceId, problem_id: p.problemId }, (d) => ({
+    konverzaceId: id(d.konverzace_id), dotazId: id(d.dotaz_id) ?? p.dotazId,
+  }));
 
 export const nactiKonverzaci = (konverzaceId: string): Promise<Odpoved<{ id: string; nazev: string; problemId: string | null; zpravy: ZpravaChatu[] }>> =>
   api({ akce: 'konverzace_detail', id: konverzaceId }, (d) => {

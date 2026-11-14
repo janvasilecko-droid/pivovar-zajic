@@ -10,7 +10,7 @@ import {
   idZaznamu, pivovarVstup, postupProvozuVstup, prevzetiVstup, vyberPivovaru, zarizeniVstup,
   recepturaVstup, varkaVstup,
   overeniVstup, problemVstup, stavZjisteniVstup, webZdrojVstup, zjisteniVstup,
-  stropVstup, filtrHledani, filtrMimoKnihu,
+  stropVstup, filtrHledani, filtrMimoKnihu, dotazClaudeVstup,
 } from '../_shared/vstupy.ts';
 import {
   celeCislo, druhObjektu, DRUHY_OBJEKTU, jeCitelny, listyPodStropem, MAX_LISTU_NA_DOTAZ, nahled, OBJEKTU_NA_DOTAZ,
@@ -337,12 +337,14 @@ const PROVEDENI: Record<Akce, (k: Kontext) => Promise<Response>> = {
 
   // AI sládek (etapa 5): útrata za AI tento měsíc, strop, model a jestli má chatbot klíč
   // (secret ANTHROPIC_API_KEY projektu bible — hodnota se nikdy nevrací).
-  async chat_stav({ db, cors }) {
+  async chat_stav({ db, u, cors }) {
     const klic = Boolean(Deno.env.get('ANTHROPIC_API_KEY'));
     const { data, error } = await db.rpc('bible_ai_utrata_mesic');
-    if (error?.code === 'PGRST202') return hotovo(cors, { migrace: false, klic });
+    if (error?.code === 'PGRST202') return hotovo(cors, { migrace: false, klic, dotazy: false });
     if (error) return chybaDb(cors, error, 'chat_stav');
-    return hotovo(cors, { ...((data ?? {}) as Record<string, unknown>), migrace: true, klic });
+    // Odpovědi z aplikace Claude zpátky do appky (R33) — jen s migrací 20261114000000_bible_dotazy_claude.
+    const dotazy = await db.rpc('bible_dotaz_claude_nacti', { p_uzivatel: u.uid, p_dotaz: '00000000-0000-0000-0000-000000000000' });
+    return hotovo(cors, { ...((data ?? {}) as Record<string, unknown>), migrace: true, klic, dotazy: !dotazy.error });
   },
 
   // Vlastní konverzace s AI sládkem (nejnovější první) — cizí SQL nevrátí.
@@ -366,6 +368,17 @@ const PROVEDENI: Record<Akce, (k: Kontext) => Promise<Response>> = {
     const { data, error } = await db.rpc('bible_konverzace_smaz', { p_uzivatel: u.uid, p_konverzace: id });
     if (error) return chybaDb(cors, error, 'konverzace_smazat');
     return hotovo(cors, { smazano: data === true });
+  },
+
+  // AI sládek na předplatné (R33): otázka se uloží předem s id ze zadání pro
+  // Clauda; odpověď sem zapíše konektor (uloz_odpoved) za toho, kdo se ptal.
+  async dotaz_claude({ db, u, telo, cors }) {
+    const d = dotazClaudeVstup(telo);
+    const { data, error } = await db.rpc('bible_dotaz_claude_zaloz', {
+      p_uzivatel: u.uid, p_konverzace: d.konverzace, p_problem: d.problem, p_dotaz: d.dotaz, p_otazka: d.otazka,
+    });
+    if (error) return chybaDb(cors, error, 'dotaz_claude');
+    return hotovo(cors, (data ?? {}) as Record<string, unknown>);
   },
 
   // Měsíční strop útraty za AI — jen správce (hlídá i SQL).
