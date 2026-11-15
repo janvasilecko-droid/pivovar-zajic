@@ -40,7 +40,8 @@ export function zadaniProClaude(otazka: string, problem?: { nazev: string } | nu
       + 'a ve zkušenostech sládků, čísla počítej jeho výpočty.';
   const ulozit = dotaz
     ? `\n\nOtázka je z appky Pivovar Zajíc (dotaz_id: ${dotaz.id}). Hotovou odpověď celou ulož do appky nástrojem uloz_odpoved `
-      + 's tímto dotaz_id — odkazy na stránky knih v textu nech, appka z nich udělá citace.'
+      + 's tímto dotaz_id — odkazy na stránky knih v textu nech, appka z nich udělá citace. Když se tady zeptám dál, ulož i každou '
+      + 'další otázku s odpovědí (uloz_odpoved s otazka a tímto dotaz_id).'
       + (dotaz.navazuje ? ' Otázka navazuje na předchozí konverzaci v appce: nejdřív si ji načti nástrojem dotaz_z_appky.' : '')
     : '';
   const text = `${uvod} Odpověz česky jako zkušený sládek: krátká odpověď, co říká literatura, praxe, výpočet, doporučení `

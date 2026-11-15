@@ -268,6 +268,54 @@ describe('AI sládek (chatbot)', () => {
     expect(screen.queryByText('Pozdní odpověď pro A')).toBeNull();
   });
 
+  it('návrat do appky: ukáže navazující otázku a odpověď uložené z Claude i novou konverzaci v historii; běžící odpověď přes API nepřepíše', async () => {
+    stav = { stav: 'ok', data: { ...(ZAPNUTO as { data: StavChatu }).data, dotazy: true } };
+    konverzace = [{ id: KID, nazev: 'Kvašení', problemId: null, upraveno: null, zprav: 2, cekaClaude: false }];
+    const z = (id: string, role: 'uzivatel' | 'asistent', text: string, navic: Partial<ZpravaChatu> = {}): ZpravaChatu => ({
+      id, role, text, kroky: [], citace: [], model: null, cenaUsd: 0, neuplna: false, vytvoreno: null, proClaude: false, odpovedNa: null, ...navic,
+    });
+    const q1 = z('dddddddd-0000-4000-8000-000000000011', 'uzivatel', 'Proč kvašení stojí?', { proClaude: true });
+    const a1 = z('dddddddd-0000-4000-8000-000000000012', 'asistent', 'Zkontroluj kvasnice.', { odpovedNa: q1.id });
+    const q2 = z('dddddddd-0000-4000-8000-000000000013', 'uzivatel', 'A co teplota?', { proClaude: true });
+    const a2 = z('dddddddd-0000-4000-8000-000000000014', 'asistent', 'Teplota je nízká.', { odpovedNa: q2.id });
+    nactiKonverzaci.mockResolvedValueOnce({ stav: 'ok', data: { id: KID, nazev: 'Kvašení', problemId: null, zpravy: [q1, a1] } })
+      .mockResolvedValue({ stav: 'ok', data: { id: KID, nazev: 'Kvašení', problemId: null, zpravy: [q1, a1, q2, a2] } });
+    render(<BibleChat otevri={() => {}} />);
+    fireEvent.click(await screen.findByRole('button', { name: /Historie/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /^Kvašení/ }));
+    await screen.findByText('Zkontroluj kvasnice.');
+    expect(screen.queryByText('A co teplota?')).toBeNull();
+    konverzace = [{ id: '77777777-8888-7777-6666-555555555555', nazev: 'Nová z Claude', problemId: null, upraveno: null, zprav: 2, cekaClaude: false }, ...konverzace];
+    await act(async () => { document.dispatchEvent(new Event('visibilitychange')); });
+    expect(await screen.findByText('Teplota je nízká.')).toBeTruthy();
+    expect(screen.getAllByLabelText('Tvoje otázka').map((x) => x.textContent)).toEqual(['Proč kvašení stojí?', 'A co teplota?']);
+    fireEvent.click(screen.getByRole('button', { name: /Historie/ }));
+    expect(await screen.findByText('Nová z Claude')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /Historie/ }));
+    // Na mobilu přijde hned i „focus" — načte se jen jednou; na počítači (návrat do okna) „focus" načte znovu.
+    const poNavratu = nactiKonverzaci.mock.calls.length;
+    await act(async () => { window.dispatchEvent(new Event('focus')); });
+    expect(nactiKonverzaci.mock.calls.length).toBe(poNavratu);
+    const ted = Date.now();
+    const hodiny = vi.spyOn(Date, 'now').mockReturnValue(ted + 5_000);
+    try {
+      await act(async () => { window.dispatchEvent(new Event('focus')); });
+      expect(nactiKonverzaci.mock.calls.length).toBe(poNavratu + 1);
+      // Během odpovědi přes API se po návratu konverzace nenačítá (přepsala by rozepsanou odpověď).
+      let dokonci: () => void = () => {};
+      zeptejSe.mockImplementation(async (_p, na) => { na({ typ: 'start', konverzaceId: KID }); await new Promise<void>((r) => { dokonci = r; }); return { ok: true }; });
+      zeptatSe('Ještě něco?');
+      await screen.findByRole('article', { name: 'AI sládek odpovídá' });
+      const pred = nactiKonverzaci.mock.calls.length;
+      hodiny.mockReturnValue(ted + 10_000);
+      await act(async () => { document.dispatchEvent(new Event('visibilitychange')); });
+      expect(nactiKonverzaci.mock.calls.length).toBe(pred);
+      await act(async () => { dokonci(); });
+    } finally {
+      hodiny.mockRestore();
+    }
+  });
+
   it('historie ukáže konverzaci, která čeká na odpověď z Claude; po otevření se na ni čeká', async () => {
     // Falešné hodiny od začátku (běží i reálně, ať čekání testovací knihovny funguje).
     vi.useFakeTimers({ shouldAdvanceTime: true });

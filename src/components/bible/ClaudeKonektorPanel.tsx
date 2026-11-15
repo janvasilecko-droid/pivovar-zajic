@@ -46,7 +46,8 @@ export function ClaudeKonektorPanel() {
       </p>
       <p className="text-sm text-neutral-200">
         Otázky z AI sládka v appce („Zeptat se v Claude“) Claude zodpoví na tvoje předplatné a odpověď uloží zpátky do appky — uvidíš ji v AI sládkovi
-        i v historii.
+        i v historii. Další otázky v tom chatu se uloží taky (jako pokračování konverzace). Otázku položenou rovnou v Claude uloží do appky, když
+        řekneš „ulož to do appky“.
       </p>
       <ol className="list-decimal space-y-1 pl-5 text-sm text-neutral-200">
         <li>Na <a className="font-bold text-amber-300 underline" href="https://claude.ai/settings/connectors" target="_blank" rel="noopener noreferrer">claude.ai → Nastavení → Konektory</a> klikni „Přidat vlastní konektor".</li>

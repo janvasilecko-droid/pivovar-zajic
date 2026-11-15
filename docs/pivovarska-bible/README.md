@@ -55,6 +55,7 @@ s citací kniha–kapitola–strana a počítá deterministickým výpočetním 
 | 10: analýza problémů (oblast T) — problémy s dotčenými várkami, zjištění šesti typů (fakt se zdrojem, výpočet, zkušenost, doporučení, hypotéza, chybí), potvrzení hypotéz, trend várek v grafu; nástroje `problemy`, `zaloz_problem`, `zapis_zjisteni` (R27) | hotovo (11. 11. 2026) — stejná migrace |
 | zápis z provozu hlasem přes konektor — nástroje `zapis_varku`, `dopln_varku`, `zapis_zkusenost` (shrnutí a potvrzení před uložením, pojistky proti zápisu navíc a přepsání; R32) | hotovo (12. 11. 2026) — bez migrace |
 | odpověď z aplikace Claude zpátky do appky — otázka se uloží při předání, Claude uloží odpověď nástrojem `uloz_odpoved` (citace stránek), appka ji sama načte (R33) | hotovo (14. 11. 2026) — migrace `20261114000000_bible_dotazy_claude` |
+| celá konverzace z Claude v appce — navazující otázky z chatu v Claude jako pokračování konverzace, otázka položená rovnou v Claude na požádání jako nová konverzace, appka po návratu načte znovu (R33, doplněk) | hotovo (15. 11. 2026) — bez další migrace |
 
 ## AI sládek — chatbot v appce (etapa 5)
 
@@ -74,7 +75,10 @@ s citací kniha–kapitola–strana a počítá deterministickým výpočetním 
   konektor „Pivovarská bible" (R16) se stejnými nástroji. Otázka se zároveň
   uloží sem a Claude hotovou odpověď uloží konektorem zpátky (`uloz_odpoved`):
   appka ji sama načte a ukáže i s citacemi stránek a v historii (migrace
-  `20261114000000_bible_dotazy_claude`). Přímo v appce předplatné použít nejde:
+  `20261114000000_bible_dotazy_claude`). Další otázky v tom chatu v Claude se
+  uloží jako pokračování konverzace; otázku položenou rovnou v Claude uloží
+  Claude do appky na požádání („ulož to do appky") jako novou konverzaci.
+  Přímo v appce předplatné použít nejde:
   pravidla Anthropicu ho dovolují jen v aplikacích Claude a v Claude Code.
 - **Peníze (odpověď tady):** „Odpovědět tady (Claude API)" volá Claude API
   (klíč `ANTHROPIC_API_KEY` z app_secrets hlavní appky, do funkcí bible ho

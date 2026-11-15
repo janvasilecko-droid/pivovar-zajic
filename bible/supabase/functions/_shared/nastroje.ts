@@ -9,7 +9,7 @@ import { jeUuid, uroven } from './brana.ts';
 import {
   dotazHledani, jeCitelny, sPrekladem, SLOUPCE_LISTU, SLOUPCE_PREKLADU, slovaDotazu, slovaVolne, uryvek,
 } from './cteni.ts';
-import { APP_URL, ChybaNastroje, najdiTema, novejsiVydani, odkazNaList, poznamkaVydani, prehledSOdkazy } from './mcp.ts';
+import { APP_URL, ChybaNastroje, najdiTema, novejsiVydani, odkazNaList, poznamkaVydani, prehledSOdkazy, sha256hex } from './mcp.ts';
 import { ChybaVypoctu, vypocetText } from './vypocty/nastroj.ts';
 import { technologieText, type ProfilPivovaru } from './technologie-popisy.ts';
 import {
@@ -19,8 +19,8 @@ import {
 import { filtrujWeb, prehledWebu, webZdrojeText } from './web-popisy.ts';
 import { prehledProblemu, problemText, seznamProblemuText } from './problemy-popisy.ts';
 import {
-  ChybaVstupu, filtrHledani, filtrMimoKnihu, hodnotyVarkyVstup, prekladChybyDb, problemVstup, varkaVstup, webZdrojVstup, zjisteniVstup,
-  zkusenostVstup, type ChybaDb, type FiltrHledani,
+  ChybaVstupu, filtrHledani, filtrMimoKnihu, hodnotyVarkyVstup, MAX_OTAZKA_CLAUDE, prekladChybyDb, problemVstup, varkaVstup, webZdrojVstup,
+  zjisteniVstup, zkusenostVstup, type ChybaDb, type FiltrHledani,
 } from './vstupy.ts';
 import type { ZdrojKnihy } from './chat.ts';
 import { odkazyNaCitace, stranyVOdpovedi } from './odpoved-claude.ts';
@@ -597,6 +597,18 @@ function idDotazu(v: unknown): string {
   return v.toLowerCase();
 }
 
+/** Stejná otázka (bez ohledu na mezery a velikost písmen). */
+const stejnaOtazka = (a: string, b: string) => a.replace(/\s+/g, ' ').trim().toLowerCase() === b.replace(/\s+/g, ' ').trim().toLowerCase();
+
+/**
+ * Id otázky položené rovnou v Claude — z obsahu (kdo, konverzace, otázka,
+ * odpověď), ať opakované uložení téhož (síť, dvojí volání) nic nezdvojí.
+ */
+async function idZObsahu(...casti: string[]): Promise<string> {
+  const h = await sha256hex(casti.join('\u0000'));
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-${'89ab'[parseInt(h[16], 16) % 4]}${h.slice(17, 20)}-${h.slice(20, 32)}`;
+}
+
 async function dotazZAppky(db: Db, args: Record<string, unknown>, kdo: Pripojeny): Promise<string> {
   const dotaz = idDotazu(args.dotaz_id);
   const { data, error } = await db.rpc('bible_dotaz_claude_nacti', { p_uzivatel: kdo.uzivatel, p_dotaz: dotaz });
@@ -624,10 +636,31 @@ async function dotazZAppky(db: Db, args: Record<string, unknown>, kdo: Pripojeny
 
 async function ulozOdpoved(db: Db, args: Record<string, unknown>, kdo: Pripojeny): Promise<string> {
   if (uroven(kdo.pristup) < 1) throw new ChybaNastroje('Tvůj účet nemá do bible přístup.');
-  const dotaz = idDotazu(args.dotaz_id);
   const odpoved = typeof args.odpoved === 'string' ? args.odpoved.trim() : '';
   if (!odpoved) throw new ChybaNastroje('Chybí odpověď.');
   if (odpoved.length > 60_000) throw new ChybaNastroje('Odpověď je moc dlouhá (nejvýš 60 000 znaků) — zkrať ji.');
+  if (args.otazka !== undefined && args.otazka !== null && typeof args.otazka !== 'string') throw new ChybaNastroje('otazka je text.');
+  const otazka = typeof args.otazka === 'string' ? args.otazka.trim() : '';
+  const sDotazem = args.dotaz_id !== undefined && args.dotaz_id !== null && args.dotaz_id !== '';
+  if (!sDotazem && !otazka) throw new ChybaNastroje('Chybí dotaz_id (otázka z appky), nebo otazka (otázka položená tady v Claude).');
+  if (otazka && (otazka.length < 2 || otazka.length > MAX_OTAZKA_CLAUDE)) throw new ChybaNastroje(`otazka má mít 2 až ${MAX_OTAZKA_CLAUDE} znaků.`);
+  let dotaz = sDotazem ? idDotazu(args.dotaz_id) : '';
+  // Otázka položená rovnou tady: do appky jako nová konverzace, s dotaz_id jako pokračování té konverzace.
+  let pokracovani = false;
+  let otazkaUz = false;
+  let novaOtazka = otazka !== '';
+  let konverzace: string | null = null;
+  if (novaOtazka && sDotazem) {
+    const n = await db.rpc('bible_dotaz_claude_nacti', { p_uzivatel: kdo.uzivatel, p_dotaz: dotaz });
+    if (n.error?.code === 'PGRST202') throw new ChybaNastroje(BEZ_MIGRACE_DOTAZU);
+    if (n.error) throw new Error(`db ${n.error.code ?? '?'}`);
+    if (!n.data) throw new ChybaNastroje(NENI_DOTAZ);
+    const d = n.data as { konverzace_id: string; otazka?: string; zodpovezeno?: boolean };
+    konverzace = String(d.konverzace_id);
+    pokracovani = true;
+    // Jako „navazující" poslal zase původní otázku z appky, která odpověď ještě nemá: odpověď patří k ní.
+    if (!d.zodpovezeno && stejnaOtazka(otazka, d.otazka ?? '')) novaOtazka = false;
+  }
   // Názvy knih a tištěné strany k odkazům na stránky (kniha mimo knihovnu se necituje).
   const odkazy = stranyVOdpovedi(odpoved);
   const nazvy = new Map<string, string>();
@@ -645,15 +678,30 @@ async function ulozOdpoved(db: Db, args: Record<string, unknown>, kdo: Pripojeny
     }
   }
   const prevod = odkazyNaCitace(odpoved, { nazvy, strany });
+  // Otázka se zakládá až teď, těsně před odpovědí — chyba při dohledání knih nenechá v appce otázku bez odpovědi.
+  if (novaOtazka) {
+    dotaz = await idZObsahu(kdo.uzivatel, konverzace ?? '', otazka, odpoved);
+    const z = await db.rpc('bible_dotaz_claude_zaloz', {
+      p_uzivatel: kdo.uzivatel, p_konverzace: konverzace, p_problem: null, p_dotaz: dotaz, p_otazka: otazka,
+    });
+    if (z.error?.code === 'PGRST202') throw new ChybaNastroje(BEZ_MIGRACE_DOTAZU);
+    if (z.error) chybaZapisu(z.error);
+    otazkaUz = (z.data as { novy?: boolean } | null)?.novy === false;
+  }
   const { error } = await db.rpc('bible_dotaz_claude_odpovez', {
     p_uzivatel: kdo.uzivatel, p_dotaz: dotaz, p_text: prevod.text, p_citace: prevod.citace, p_model: MODEL_PREDPLATNE,
   });
   if (error?.code === 'PGRST202') throw new ChybaNastroje(BEZ_MIGRACE_DOTAZU);
+  // Stejná otázka i odpověď položená tady už jednou uložená (stejné id z obsahu): nic nového.
+  if (error && otazkaUz && error.code === '22023' && /už v appce je/.test(error.message ?? '')) {
+    return 'Tahle otázka i odpověď už v appce jsou — nic nového jsem neukládal.';
+  }
   if (error) chybaZapisu(error);
   const knih = prevod.citace.filter((c) => c.zdroj !== 'web').length;
   const webu = prevod.citace.length - knih;
   return [
-    `Odpověď je uložená v appce — uživatel ji uvidí v AI sládkovi (i v Historii): ${APP_URL}/?page=bible&sub=chat`,
+    `Odpověď je uložená v appce${novaOtazka ? (pokracovani ? ' jako pokračování konverzace' : ' jako nová konverzace') : ''} — uživatel ji uvidí `
+      + `v AI sládkovi (i v Historii): ${APP_URL}/?page=bible&sub=chat`,
     `Citace: ${knih} ze stránek knih, ${webu} z webu.`,
     prevod.vynechano > 0 ? `Pozor: ${prevod.vynechano} odkaz(ů) na knihu, která v knihovně není, jsem necitoval — řekni to uživateli.` : '',
   ].filter(Boolean).join('\n');

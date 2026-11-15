@@ -592,4 +592,16 @@ Každé rozhodnutí má datum, důvod a co by ho změnilo.
 - Migrace `20261114000000_bible_dotazy_claude` (sloupce `pro_claude`
   a `odpoved_na` ve zprávách, funkce pro dotaz a odpověď). Bez ní appka
   předává otázky jako dřív a řekne, že odpovědi se ukládat nebudou.
+- Doplněno 15. 11. 2026 (majitel: „Pokračuj na appce"): v appce je celá
+  konverzace, ne jen první otázka. Každou další otázku v chatu, který začal
+  zadáním z appky, Claude uloží taky (`uloz_odpoved` s `otazka` a `dotaz_id`
+  ze zadání) — v appce přibude jako pokračování té konverzace. Otázku
+  položenou rovnou v Claude (bez zadání z appky) uloží do appky jen na
+  požádání („ulož to do appky"; `uloz_odpoved` s `otazka`) — vznikne nová
+  konverzace. Id takové otázky se počítá z obsahu (kdo, konverzace, otázka,
+  odpověď), takže opakované uložení téhož nic nezdvojí; když Claude jako
+  „navazující" pošle znovu původní otázku z appky bez odpovědi, odpověď se
+  uloží k ní. Bez nové migrace (stejné funkce z R33). Appka po návratu
+  (přepnutí z aplikace Claude, návrat do okna) načte otevřenou konverzaci
+  i historii znovu; během odpovědi přes API ne, ať ji nepřepíše.
 
