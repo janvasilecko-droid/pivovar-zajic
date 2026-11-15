@@ -21,9 +21,10 @@ vi.mock('../../lib/bibleChatApi', async (puvodni) => ({
   zeptejSe: (p: never, na: never) => zeptejSe(p, na),
   zalozDotazClaude: (p: never) => zalozDotazClaude(p),
 }));
-vi.mock('../../lib/toast', () => ({ potvrd: async () => true }));
+const chybaToast = vi.fn<(text: string) => void>();
+vi.mock('../../lib/toast', () => ({ potvrd: async () => true, chyba: (t: string) => chybaToast(t) }));
 
-import { BibleChat, KONTROLA_ODPOVEDI_MS, vykresliOdpoved } from './BibleChat';
+import { BibleChat, KONTROLA_ODPOVEDI_MS, otazkaKOdpovedi, vykresliOdpoved } from './BibleChat';
 
 const ZAPNUTO: Odpoved<StavChatu> = { stav: 'ok', data: { migrace: true, klic: true, utracenoUsd: 1.25, chatUsd: 1, chatDotazu: 4, stropUsd: 20, model: 'claude-opus-5-5' } };
 const HOTOVO: UdalostChatu = {
@@ -43,6 +44,7 @@ beforeEach(() => {
   nactiKonverzaci.mockReset();
   smazKonverzaci.mockReset();
   zalozDotazClaude.mockReset();
+  chybaToast.mockReset();
 });
 afterEach(() => { vi.useRealTimers(); });
 
@@ -358,6 +360,82 @@ describe('AI sládek (chatbot)', () => {
     zeptatSe('Proč málo pění?');
     await waitFor(() => expect((screen.getByLabelText('Otázka pro AI sládka') as HTMLTextAreaElement).value).toBe('Proč málo pění?'));
     expect(screen.getByRole('link', { name: /Zeptat se v Claude/ })).toBeTruthy();
+  });
+
+  it('Kopírovat: otázka, odpověď bez Markdownu a zdroje do schránky; Sdílet jen tam, kde to prohlížeč umí; chyba schránky se řekne', async () => {
+    zeptejSe.mockImplementation(async (_p, na) => { na({ typ: 'start', konverzaceId: KID }); na(HOTOVO); return { ok: true }; });
+    const zapis = vi.fn(async (_t: string) => {});
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText: zapis }, configurable: true });
+    render(<BibleChat otevri={() => {}} />);
+    await screen.findByText(/Útrata za AI/);
+    zeptatSe('Proč mi pivo málo pění?');
+    await screen.findByRole('article', { name: 'Odpověď AI sládka' });
+    expect(screen.queryByRole('button', { name: /Sdílet/ })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /Kopírovat/ }));
+    await screen.findByRole('button', { name: /Zkopírováno/ });
+    const text = zapis.mock.calls[0][0];
+    expect(text.startsWith('Otázka: Proč mi pivo málo pění?\n\nKrátká odpověď\nPěnu drží bílkoviny[1].')).toBe(true);
+    expect(text).toContain(`[1] Pivovarství, s. 10 (český překlad) — ${window.location.origin}/?page=bible&sub=kniha:${ID}:12`);
+    expect(text).toContain('[2] Článek o pH (web, neověřený zdroj) — https://example.org/ph');
+    expect(text).not.toContain('Bílkoviny drží pěnu.');
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText: vi.fn(async () => { throw new Error('zakázáno'); }) }, configurable: true });
+    fireEvent.click(screen.getByRole('button', { name: /Zkopírováno|Kopírovat/ }));
+    await waitFor(() => expect(chybaToast).toHaveBeenCalledWith('Kopírování se nepovedlo — označ text odpovědi a zkopíruj ho ručně.'));
+  });
+
+  it('Sdílet: otevře nabídku telefonu s textem odpovědi; zavření nabídky nic nedělá', async () => {
+    zeptejSe.mockImplementation(async (_p, na) => { na({ typ: 'start', konverzaceId: KID }); na(HOTOVO); return { ok: true }; });
+    const sdilej = vi.fn(async (_d: { title: string; text: string }) => { throw Object.assign(new Error('zavřeno'), { name: 'AbortError' }); });
+    const zapis = vi.fn(async (_t: string) => {});
+    Object.defineProperty(navigator, 'share', { value: sdilej, configurable: true });
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText: zapis }, configurable: true });
+    try {
+      render(<BibleChat otevri={() => {}} />);
+      await screen.findByText(/Útrata za AI/);
+      zeptatSe('Proč mi pivo málo pění?');
+      await screen.findByRole('article', { name: 'Odpověď AI sládka' });
+      fireEvent.click(screen.getByRole('button', { name: /Sdílet/ }));
+      await waitFor(() => expect(sdilej).toHaveBeenCalledTimes(1));
+      expect(sdilej.mock.calls[0][0].title).toBe('AI sládek — Pivovar Zajíc');
+      expect(sdilej.mock.calls[0][0].text).toContain('Otázka: Proč mi pivo málo pění?');
+      expect(zapis).not.toHaveBeenCalled();
+    } finally {
+      delete (navigator as { share?: unknown }).share;
+    }
+  });
+
+  it('otázka k odpovědi: z aplikace Claude podle id, jinak předchozí otázka', () => {
+    const z = (id: string, role: 'uzivatel' | 'asistent', text: string, odpovedNa: string | null = null): ZpravaChatu => ({
+      id, role, text, kroky: [], citace: [], model: null, cenaUsd: 0, neuplna: false, vytvoreno: null, proClaude: false, odpovedNa,
+    });
+    const zpravy = [z('q1', 'uzivatel', 'První?'), z('q2', 'uzivatel', 'Druhá?'), z('a1', 'asistent', 'Odpověď na první', 'q1'), z('a2', 'asistent', 'Přes API')];
+    expect(otazkaKOdpovedi(zpravy, 2)).toBe('První?');
+    expect(otazkaKOdpovedi(zpravy, 3)).toBe('Druhá?');
+    expect(otazkaKOdpovedi([z('a', 'asistent', 'Bez otázky')], 0)).toBeNull();
+  });
+
+  it('historie: od šesti konverzací hledání podle názvu (bez ohledu na diakritiku a velikost písmen)', async () => {
+    const k = (i: number, nazev: string): Konverzace => ({ id: `77777777-0000-4000-8000-00000000000${i}`, nazev, problemId: null, upraveno: null, zprav: 2, cekaClaude: false });
+    konverzace = [k(1, 'Pěna padá'), k(2, 'Kvašení stojí'), k(3, 'Výtěžek Desítky'), k(4, 'pH rmutu'), k(5, 'Chmelovar'), k(6, 'Pěnivost ležáku')];
+    render(<BibleChat otevri={() => {}} />);
+    fireEvent.click(await screen.findByRole('button', { name: /Historie \(6\)/ }));
+    const pole = await screen.findByLabelText('Hledat v historii konverzací');
+    fireEvent.change(pole, { target: { value: 'PENA' } });
+    expect(screen.getByText('Pěna padá')).toBeTruthy();
+    expect(screen.queryByText('Kvašení stojí')).toBeNull();
+    fireEvent.change(pole, { target: { value: 'kvaseni' } });
+    expect(screen.getByText('Kvašení stojí')).toBeTruthy();
+    expect(screen.queryByText('Pěna padá')).toBeNull();
+    fireEvent.change(pole, { target: { value: 'nic takového' } });
+    expect(screen.getByText('Nic takového v historii není.')).toBeTruthy();
+  });
+
+  it('historie s pár konverzacemi hledání nemá', async () => {
+    konverzace = [{ id: KID, nazev: 'Kvašení', problemId: null, upraveno: null, zprav: 2, cekaClaude: false }];
+    render(<BibleChat otevri={() => {}} />);
+    fireEvent.click(await screen.findByRole('button', { name: /Historie \(1\)/ }));
+    await screen.findByRole('button', { name: /^Kvašení/ });
+    expect(screen.queryByLabelText('Hledat v historii konverzací')).toBeNull();
   });
 
   it('vykreslení textu: odrážky, tučně i s citací uvnitř, neznámé číslo zůstane textem', () => {

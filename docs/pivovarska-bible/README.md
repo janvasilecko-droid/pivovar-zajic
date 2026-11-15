@@ -56,6 +56,7 @@ s citací kniha–kapitola–strana a počítá deterministickým výpočetním 
 | zápis z provozu hlasem přes konektor — nástroje `zapis_varku`, `dopln_varku`, `zapis_zkusenost` (shrnutí a potvrzení před uložením, pojistky proti zápisu navíc a přepsání; R32) | hotovo (12. 11. 2026) — bez migrace |
 | odpověď z aplikace Claude zpátky do appky — otázka se uloží při předání, Claude uloží odpověď nástrojem `uloz_odpoved` (citace stránek), appka ji sama načte (R33) | hotovo (14. 11. 2026) — migrace `20261114000000_bible_dotazy_claude` |
 | celá konverzace z Claude v appce — navazující otázky z chatu v Claude jako pokračování konverzace, otázka položená rovnou v Claude na požádání jako nová konverzace, appka po návratu načte znovu (R33, doplněk) | hotovo (15. 11. 2026) — bez další migrace |
+| Kopírovat a Sdílet u odpovědi AI sládka (otázka, odpověď bez Markdownu, zdroje s odkazem do čtečky) a hledání v Historii konverzací | hotovo (15. 11. 2026) — bez migrace |
 
 ## AI sládek — chatbot v appce (etapa 5)
 

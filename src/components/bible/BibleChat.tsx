@@ -12,14 +12,15 @@
 // s otázkou; otázka se zároveň uloží sem (id dotazu je v zadání) a Claude
 // hotovou odpověď uloží konektorem zpátky — appka ji tu sama načte.
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { Bot, ExternalLink, Globe, History, Loader2, Plus, Send, Trash2 } from 'lucide-react';
+import { Bot, Check, Copy, ExternalLink, Globe, History, Loader2, Plus, Search, Send, Share2, Trash2 } from 'lucide-react';
 import {
   cekajiciNaClauda, nactiKonverzace, nactiKonverzaci, nactiStavChatu, smazKonverzaci, usdText, zalozDotazClaude, zeptejSe,
   type Konverzace, type StavChatu, type UdalostChatu, type ZdrojOdpovedi, type ZpravaChatu,
 } from '../../lib/bibleChatApi';
 import { odkazNaClaude, KONEKTOR, noveIdDotazu, zadaniProClaude } from '../../lib/bibleClaude';
+import { textOdpovedi } from '../../lib/bibleOdpovedText';
 import { rozlozText } from '../../lib/bibleText';
-import { potvrd } from '../../lib/toast';
+import { chyba as chybaToast, potvrd } from '../../lib/toast';
 import { TextListuKnihy, VykresleniTextu } from './BibleKniha';
 
 const KARTA = 'rounded-xl border border-neutral-700 bg-neutral-900 p-3';
@@ -30,6 +31,18 @@ const PRIKLADY = [
 ];
 
 const misto = (z: ZdrojOdpovedi) => (z.tistena ? `s. ${z.tistena}` : `list ${z.pdfIndex}`);
+
+/** Otázka, na kterou odpověď odpovídá (z aplikace Claude podle id, jinak předchozí otázka). */
+export function otazkaKOdpovedi(zpravy: readonly ZpravaChatu[], i: number): string | null {
+  const z = zpravy[i];
+  if (z?.odpovedNa) return zpravy.find((x) => x.id === z.odpovedNa)?.text ?? null;
+  for (let j = i - 1; j >= 0; j--) if (zpravy[j].role === 'uzivatel') return zpravy[j].text;
+  return null;
+}
+
+/** Historie: od tolika konverzací se nahoře ukáže hledání. */
+const HLEDANI_OD = 6;
+const proHledani = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
 /** Jak často se appka ptá, jestli už odpověď z aplikace Claude přišla (prvních 10 min, pak řidčeji). */
 export const KONTROLA_ODPOVEDI_MS = 8_000;
@@ -111,8 +124,27 @@ function Kroky({ kroky }: { kroky: { popis: string; chyba: boolean }[] }) {
   );
 }
 
-function Odpoved({ z, otevri }: { z: ZpravaChatu; otevri: (dokumentId: string, list: number) => void }) {
+function Odpoved({ z, otazka, otevri }: { z: ZpravaChatu; otazka: string | null; otevri: (dokumentId: string, list: number) => void }) {
   const mapa = new Map(z.citace.map((c) => [c.n, c]));
+  const [zkopirovano, setZkopirovano] = useState(false);
+  const muzeSdilet = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
+  async function kopiruj() {
+    try {
+      await navigator.clipboard.writeText(textOdpovedi(z, otazka));
+      setZkopirovano(true);
+      setTimeout(() => setZkopirovano(false), 2_500);
+    } catch {
+      chybaToast('Kopírování se nepovedlo — označ text odpovědi a zkopíruj ho ručně.');
+    }
+  }
+  async function sdilej() {
+    try {
+      await navigator.share({ title: 'AI sládek — Pivovar Zajíc', text: textOdpovedi(z, otazka) });
+    } catch (e) {
+      // Zavřel nabídku sdílení — nic. Jiná chyba (prohlížeč sdílení nepovolil): aspoň zkopírovat.
+      if ((e as { name?: string } | null)?.name !== 'AbortError') await kopiruj();
+    }
+  }
   return (
     <article className={`${KARTA} space-y-3`} aria-label="Odpověď AI sládka">
       <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-wide text-amber-400"><Bot size={16} aria-hidden="true" /> AI sládek</div>
@@ -121,9 +153,22 @@ function Odpoved({ z, otevri }: { z: ZpravaChatu; otevri: (dokumentId: string, l
         <TextListuKnihy bloky={rozlozText(z.text, 'ocr')} />
       </VykresleniTextu.Provider>
       <Zdroje zdroje={z.citace} otevri={otevri} />
-      <div className="text-xs text-neutral-400">
-        {z.neuplna && <span className="mr-2 rounded border border-amber-600 px-1 font-bold text-amber-200">neúplná odpověď</span>}
-        {z.odpovedNa ? 'Odpověď z aplikace Claude · předplatné' : `${z.model ? `${z.model} · ` : ''}${usdText(z.cenaUsd)}`}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="text-xs text-neutral-400">
+          {z.neuplna && <span className="mr-2 rounded border border-amber-600 px-1 font-bold text-amber-200">neúplná odpověď</span>}
+          {z.odpovedNa ? 'Odpověď z aplikace Claude · předplatné' : `${z.model ? `${z.model} · ` : ''}${usdText(z.cenaUsd)}`}
+        </div>
+        <div className="flex gap-2">
+          <button type="button" className="btn-tmave text-sm" onClick={() => void kopiruj()}>
+            {zkopirovano ? <Check size={16} aria-hidden="true" /> : <Copy size={16} aria-hidden="true" />}
+            <span aria-live="polite">{zkopirovano ? 'Zkopírováno' : 'Kopírovat'}</span>
+          </button>
+          {muzeSdilet && (
+            <button type="button" className="btn-tmave text-sm" onClick={() => void sdilej()}>
+              <Share2 size={16} aria-hidden="true" /> Sdílet
+            </button>
+          )}
+        </div>
       </div>
     </article>
   );
@@ -170,6 +215,7 @@ export function BibleChat({ otevri, problem, otazkaZvenku }: {
   const [chybaStavu, setChybaStavu] = useState<string | null>(null);
   const [konverzace, setKonverzace] = useState<Konverzace[] | null>(null);
   const [historie, setHistorie] = useState(false);
+  const [hledani, setHledani] = useState('');
   const [aktivni, setAktivni] = useState<{ id: string | null; nazev: string | null; problemId: string | null }>({ id: null, nazev: null, problemId: problem?.id ?? null });
   const [zpravy, setZpravy] = useState<ZpravaChatu[]>([]);
   const [probiha, setProbiha] = useState<{ kroky: string[]; text: string } | null>(null);
@@ -223,6 +269,8 @@ export function BibleChat({ otevri, problem, otazkaZvenku }: {
   useEffect(() => { aktivniId.current = aktivni.id; }, [aktivni.id]);
   useEffect(() => { bezi.current = probiha !== null; }, [probiha]);
   const cekajici = cekajiciNaClauda(zpravy);
+  const hledaneSlovo = proHledani(hledani.trim());
+  const vyfiltrovane = (konverzace ?? []).filter((k) => !hledaneSlovo || proHledani(k.nazev).includes(hledaneSlovo));
   const cekaNaClauda = cekajici.size > 0 && aktivni.id !== null;
 
   /** Načte aktivní konverzaci znovu (přišla odpověď z Claude?) — rozepsané otázky nechá. */
@@ -443,10 +491,19 @@ export function BibleChat({ otevri, problem, otazkaZvenku }: {
 
       {historie && (
         <section className={`${KARTA} space-y-2`} aria-label="Historie konverzací">
+          {konverzace !== null && konverzace.length >= HLEDANI_OD && (
+            <label className="flex items-center gap-2 rounded-lg border border-neutral-700 bg-neutral-950 px-2 focus-within:border-amber-500">
+              <Search size={16} className="shrink-0 text-neutral-400" aria-hidden="true" />
+              <span className="sr-only">Hledat v historii konverzací</span>
+              <input type="search" value={hledani} onChange={(e) => setHledani(e.target.value)} placeholder="Hledat v historii…"
+                className="min-w-0 flex-1 bg-transparent py-2 text-sm text-neutral-100 outline-none placeholder:text-neutral-400" />
+            </label>
+          )}
           {konverzace === null ? <div className="text-sm text-neutral-300">Načítám…</div>
-            : konverzace.length === 0 ? <div className="text-sm text-neutral-300">Zatím žádné konverzace.</div> : (
+            : konverzace.length === 0 ? <div className="text-sm text-neutral-300">Zatím žádné konverzace.</div>
+            : vyfiltrovane.length === 0 ? <div className="text-sm text-neutral-300">Nic takového v historii není.</div> : (
               <ul className="space-y-1">
-                {konverzace.map((k) => (
+                {vyfiltrovane.map((k) => (
                   <li key={k.id} className="flex items-center gap-2">
                     <button type="button" className={`tap min-w-0 flex-1 rounded-lg px-2 py-1.5 text-left text-sm hover:underline ${aktivni.id === k.id ? 'font-black text-amber-200' : 'text-neutral-100'}`}
                       onClick={() => void otevriKonverzaci(k)}>
@@ -477,7 +534,8 @@ export function BibleChat({ otevri, problem, otazkaZvenku }: {
             </div>
           </div>
         )}
-        {zpravy.map((z) => (z.role === 'uzivatel' ? <Otazka key={z.id} text={z.text} /> : <Odpoved key={z.id} z={z} otevri={otevri} />))}
+        {zpravy.map((z, i) => (z.role === 'uzivatel' ? <Otazka key={z.id} text={z.text} />
+          : <Odpoved key={z.id} z={z} otazka={otazkaKOdpovedi(zpravy, i)} otevri={otevri} />))}
         {cekajici.size > 0 && <CekaNaClauda kontroluj={() => void zkontrolujTed()} kontroluji={kontroluji || !cekaNaClauda} dlouho={dlouho} />}
         {probiha && (
           <article className={`${KARTA} space-y-2`} aria-label="AI sládek odpovídá" aria-busy="true">
