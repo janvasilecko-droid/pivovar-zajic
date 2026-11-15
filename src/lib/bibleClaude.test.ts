@@ -39,6 +39,7 @@ describe('odpověď zpátky do appky (R33)', () => {
     const z = zadaniProClaude('Proč kvašení stojí?', null, { id: DOTAZ, navazuje: false });
     expect(z).toContain(`Otázka je z appky Pivovar Zajíc (dotaz_id: ${DOTAZ}). Hotovou odpověď celou ulož do appky nástrojem uloz_odpoved`);
     expect(z).not.toContain('dotaz_z_appky');
+    expect(z).toContain('Když se tady zeptám dál, ulož i každou další otázku s odpovědí (uloz_odpoved s otazka a tímto dotaz_id).');
     expect(z.indexOf('dotaz_id')).toBeLessThan(z.indexOf('Otázka: Proč kvašení stojí?'));
     expect(z.endsWith('Otázka: Proč kvašení stojí?')).toBe(true);
     expect(zadaniProClaude('Proč?', null)).not.toContain('dotaz_id');

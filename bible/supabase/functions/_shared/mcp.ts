@@ -427,17 +427,20 @@ export const NASTROJE: readonly Nastroj[] = [
   {
     name: 'uloz_odpoved',
     title: 'Uložit odpověď do appky',
-    description: 'Uloží tvou hotovou odpověď na dotaz z appky pivovaru (dotaz_id ze zadání) do konverzace AI sládka — uživatel ji uvidí v appce '
-      + 'i v historii. Pošli celou odpověď v Markdownu tak, jak jsi ji napsal (nadpisy, odrážky, tabulky). Odkazy na stránky knih nech přesně tak, '
-      + `jak byly ve výsledcích nástrojů (${APP_URL}/?page=bible&sub=kniha:…), a webové adresy jako odkazy — appka z nich udělá klikací citace [n]; `
-      + 'vlastní čísla citací v hranatých závorkách nepiš. Na jeden dotaz jde uložit jen jedna odpověď.',
+    description: 'Uloží tvou hotovou odpověď do konverzace AI sládka v appce pivovaru — uživatel ji uvidí v appce i v historii. '
+      + 'Na otázku z appky pošli dotaz_id ze zadání. Navazující otázku položenou tady v chatu pošli jako otazka (jak ji uživatel položil) '
+      + 's dotaz_id ze zadání — uloží se jako pokračování té konverzace. Otázku položenou rovnou tady (bez zadání z appky) pošli jako otazka '
+      + 'bez dotaz_id — v appce vznikne nová konverzace. Pošli celou odpověď v Markdownu tak, jak jsi ji napsal (nadpisy, odrážky, tabulky). '
+      + `Odkazy na stránky knih nech přesně tak, jak byly ve výsledcích nástrojů (${APP_URL}/?page=bible&sub=kniha:…), a webové adresy jako odkazy `
+      + '— appka z nich udělá klikací citace [n]; vlastní čísla citací v hranatých závorkách nepiš. Na jednu otázku jde uložit jen jedna odpověď.',
     inputSchema: {
       type: 'object',
       properties: {
-        dotaz_id: { type: 'string', description: 'dotaz_id ze zadání' },
+        dotaz_id: { type: 'string', description: 'dotaz_id ze zadání z appky (nepovinné u otázky položené rovnou tady)' },
+        otazka: { type: 'string', description: 'Otázka položená tady v chatu, jak ji uživatel řekl (nejvýš 4000 znaků; u otázky z appky vynech)' },
         odpoved: { type: 'string', description: 'Celá odpověď v Markdownu (nejvýš 60 000 znaků)' },
       },
-      required: ['dotaz_id', 'odpoved'],
+      required: ['odpoved'],
       additionalProperties: false,
     },
     annotations: PRIDAVA,
@@ -467,7 +470,8 @@ export const INSTRUKCE = 'Knihovna odborné pivovarské literatury Pivovaru Zaj�
   + 'Zápis z provozu, často hlasem (zapis_varku, dopln_varku, zapis_zkusenost): před uložením vždy shrň, co zapíšeš (pivo, datum, hodnoty '
   + 's jednotkami; u zkušenosti název a text), a ulož až po potvrzení; nic nedomýšlej ani nepřepočítávej a uloženou hodnotu přepiš jen na výslovnou opravu. '
   + 'Otázka z appky (zadání s dotaz_id): odpověz a celou odpověď ulož nástrojem uloz_odpoved, ať ji uživatel vidí v appce; navazuje-li na předchozí '
-  + 'konverzaci, načti si ji nejdřív nástrojem dotaz_z_appky.';
+  + 'konverzaci, načti si ji nejdřív nástrojem dotaz_z_appky. Každou další otázku v takovém chatu ulož taky (uloz_odpoved s otazka a dotaz_id ze '
+  + 'zadání), ať je v appce celá konverzace. Otázku položenou rovnou tady ulož do appky, jen když o to uživatel požádá (uloz_odpoved s otazka).';
 
 /** Novější vydání podle id staršího (etapa 3c): z dvojic dokument → předchozí vydání. */
 export function novejsiVydani(radky: readonly { id: string; nazev: string; rok: number | null; predchozi_vydani: string | null }[]): Map<string, { nazev: string; rok: number | null }[]> {

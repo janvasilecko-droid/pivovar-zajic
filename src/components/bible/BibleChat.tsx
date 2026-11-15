@@ -36,6 +36,8 @@ export const KONTROLA_ODPOVEDI_MS = 8_000;
 const KONTROLA_POZDEJI_MS = 30_000;
 /** Po této době bez odpovědi appka napoví, co zkontrolovat. */
 const DLOUHO_MS = 15 * 60_000;
+/** Po návratu do appky se konverzace načte znovu nejvýš jednou za tuto dobu. */
+const NAVRAT_MS = 2_000;
 
 /** Číslo citace [n] jako odkaz: kniha otevře čtečku, web novou kartu. */
 function Citace({ z, otevri }: { z: ZdrojOdpovedi; otevri: (dokumentId: string, list: number) => void }) {
@@ -187,6 +189,8 @@ export function BibleChat({ otevri, problem, otazkaZvenku }: {
   const odeslanoKdy = useRef(new Map<string, number>());
   // Která konverzace je právě otevřená — pozdní odpověď serveru nesmí přepsat jinou.
   const aktivniId = useRef<string | null>(null);
+  // Běží odpověď přes API — návrat do appky ji nesmí přepsat stavem ze serveru.
+  const bezi = useRef(false);
   const policko = useRef<HTMLTextAreaElement | null>(null);
   const zruseni = useRef<AbortController | null>(null);
   const odeslano = useRef<number | null>(null);
@@ -217,6 +221,7 @@ export function BibleChat({ otevri, problem, otazkaZvenku }: {
   const vypnuto = stav !== null && (!stav.migrace || !stav.klic || stav.stropUsd <= 0 || stav.utracenoUsd >= stav.stropUsd);
   const ulozitOdpoved = stav?.dotazy === true;
   useEffect(() => { aktivniId.current = aktivni.id; }, [aktivni.id]);
+  useEffect(() => { bezi.current = probiha !== null; }, [probiha]);
   const cekajici = cekajiciNaClauda(zpravy);
   const cekaNaClauda = cekajici.size > 0 && aktivni.id !== null;
 
@@ -233,8 +238,7 @@ export function BibleChat({ otevri, problem, otazkaZvenku }: {
     if (zbyva.size === 0) void nactiKonverzace().then((h) => setKonverzace(h.stav === 'ok' ? h.data : []));
   }, []);
 
-  // Čeká se na odpověď z aplikace Claude: kontrola po pár sekundách (jen když je appka vidět)
-  // a hned po návratu do appky (z aplikace Claude).
+  // Čeká se na odpověď z aplikace Claude: kontrola po pár sekundách (jen když je appka vidět).
   useEffect(() => {
     if (!cekaNaClauda || !aktivni.id) return;
     const konverzaceId = aktivni.id;
@@ -247,16 +251,30 @@ export function BibleChat({ otevri, problem, otazkaZvenku }: {
       if (!konec) casovac = setTimeout(() => void zkontroluj(), Date.now() - zacatek < 10 * 60_000 ? KONTROLA_ODPOVEDI_MS : KONTROLA_POZDEJI_MS);
     };
     casovac = setTimeout(() => void zkontroluj(), KONTROLA_ODPOVEDI_MS);
-    const naNavrat = () => { if (document.visibilityState === 'visible') void obnovKonverzaci(konverzaceId); };
-    document.addEventListener('visibilitychange', naNavrat);
-    window.addEventListener('focus', naNavrat);
     return () => {
       konec = true;
       clearTimeout(casovac);
+    };
+  }, [cekaNaClauda, aktivni.id, obnovKonverzaci]);
+
+  // Návrat do appky (třeba z aplikace Claude): načte otevřenou konverzaci i historii znovu —
+  // ukáže odpověď, navazující otázky uložené z Claude i nové konverzace z Claude. Návrat do
+  // okna na počítači hlásí jen „focus"; na mobilu přijdou obě události — načte se jednou.
+  useEffect(() => {
+    let naposled = 0;
+    const naNavrat = () => {
+      if (document.visibilityState === 'hidden' || Date.now() - naposled < NAVRAT_MS) return;
+      naposled = Date.now();
+      void nactiKonverzace().then((h) => { if (h.stav === 'ok') setKonverzace(h.data); });
+      if (aktivniId.current && !bezi.current) void obnovKonverzaci(aktivniId.current);
+    };
+    document.addEventListener('visibilitychange', naNavrat);
+    window.addEventListener('focus', naNavrat);
+    return () => {
       document.removeEventListener('visibilitychange', naNavrat);
       window.removeEventListener('focus', naNavrat);
     };
-  }, [cekaNaClauda, aktivni.id, obnovKonverzaci]);
+  }, [obnovKonverzaci]);
 
   async function zkontrolujTed() {
     if (!aktivni.id || kontroluji) return;

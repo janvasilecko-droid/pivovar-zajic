@@ -493,10 +493,95 @@ describe('dotaz z appky a odpověď zpátky do appky (R33)', () => {
     await expect(nastroj(bez.db)('uloz_odpoved', { dotaz_id: DOTAZ, odpoved: 'Text' })).rejects.toThrow(/20261114000000_bible_dotazy_claude/);
   });
 
+  it('otázka položená rovnou v Claude: do appky jako nová konverzace, id z obsahu (opakované uložení nic nezdvojí)', async () => {
+    const volani: [string, Record<string, unknown>][] = [];
+    const db = falesnaDb({ rpc: (jmeno, p) => {
+      volani.push([jmeno, p]);
+      if (jmeno === 'bible_dotaz_claude_zaloz') return { data: { konverzace_id: VARKA, dotaz_id: p.p_dotaz, novy: true } };
+      return { data: { zprava_id: NOVA, konverzace_id: VARKA } };
+    } }).db;
+    const t = await nastroj(db)('uloz_odpoved', { otazka: '  Proč pivo málo pění?  ', odpoved: 'Zkontroluj tuky na skle.' });
+    expect(volani.map(([j]) => j)).toEqual(['bible_dotaz_claude_zaloz', 'bible_dotaz_claude_odpovez']);
+    const zaloz = volani[0][1];
+    expect(zaloz).toMatchObject({ p_uzivatel: HONZA.uzivatel, p_konverzace: null, p_problem: null, p_otazka: 'Proč pivo málo pění?' });
+    expect(zaloz.p_dotaz).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    expect(volani[1][1]).toMatchObject({ p_dotaz: zaloz.p_dotaz, p_text: 'Zkontroluj tuky na skle.' });
+    expect(t).toContain('Odpověď je uložená v appce jako nová konverzace');
+    // Stejná otázka i odpověď → stejné id; jiná odpověď → jiné.
+    await nastroj(db)('uloz_odpoved', { otazka: 'Proč pivo málo pění?', odpoved: 'Zkontroluj tuky na skle.' });
+    expect(volani[2][1].p_dotaz).toBe(zaloz.p_dotaz);
+    await nastroj(db)('uloz_odpoved', { otazka: 'Proč pivo málo pění?', odpoved: 'Jiná odpověď.' });
+    expect(volani[4][1].p_dotaz).not.toBe(zaloz.p_dotaz);
+  });
+
+  it('navazující otázka z chatu v Claude: s dotaz_id ze zadání jako pokračování té konverzace; cizí dotaz se odmítne', async () => {
+    const volani: [string, Record<string, unknown>][] = [];
+    const db = falesnaDb({ rpc: (jmeno, p) => {
+      volani.push([jmeno, p]);
+      if (jmeno === 'bible_dotaz_claude_nacti') return p.p_dotaz === DOTAZ ? { data: { dotaz_id: DOTAZ, konverzace_id: VARKA, otazka: 'Proč?' } } : { data: null };
+      if (jmeno === 'bible_dotaz_claude_zaloz') return { data: { konverzace_id: VARKA, dotaz_id: p.p_dotaz, novy: true } };
+      return { data: { zprava_id: NOVA, konverzace_id: VARKA } };
+    } }).db;
+    const t = await nastroj(db)('uloz_odpoved', { dotaz_id: DOTAZ, otazka: 'A co teplota?', odpoved: 'Teplota je v pořádku.' });
+    expect(volani.map(([j]) => j)).toEqual(['bible_dotaz_claude_nacti', 'bible_dotaz_claude_zaloz', 'bible_dotaz_claude_odpovez']);
+    expect(volani[1][1]).toMatchObject({ p_konverzace: VARKA, p_otazka: 'A co teplota?' });
+    expect(volani[1][1].p_dotaz).not.toBe(DOTAZ);
+    expect(t).toContain('jako pokračování konverzace');
+    volani.length = 0;
+    await expect(nastroj(db)('uloz_odpoved', { dotaz_id: NOVA, otazka: 'Cizí?', odpoved: 'x' })).rejects.toThrow(/Tenhle dotaz v appce není/);
+    expect(volani.map(([j]) => j)).toEqual(['bible_dotaz_claude_nacti']);
+  });
+
+  it('jako „navazující" poslal zase původní otázku z appky: odpověď patří k ní (bez nové otázky); po odpovědi už je to nová otázka', async () => {
+    const volani: [string, Record<string, unknown>][] = [];
+    let zodpovezeno = false;
+    const db = falesnaDb({ rpc: (jmeno, p) => {
+      volani.push([jmeno, p]);
+      if (jmeno === 'bible_dotaz_claude_nacti') return { data: { dotaz_id: DOTAZ, konverzace_id: VARKA, otazka: 'Proč pivo  málo pění?', zodpovezeno } };
+      if (jmeno === 'bible_dotaz_claude_zaloz') return { data: { konverzace_id: VARKA, dotaz_id: p.p_dotaz, novy: true } };
+      return { data: { zprava_id: NOVA, konverzace_id: VARKA } };
+    } }).db;
+    const t = await nastroj(db)('uloz_odpoved', { dotaz_id: DOTAZ, otazka: ' proč pivo málo pění? ', odpoved: 'Zkontroluj tuky.' });
+    expect(volani.map(([j]) => j)).toEqual(['bible_dotaz_claude_nacti', 'bible_dotaz_claude_odpovez']);
+    expect(volani[1][1]).toMatchObject({ p_dotaz: DOTAZ, p_text: 'Zkontroluj tuky.' });
+    expect(t).not.toContain('pokračování');
+    volani.length = 0;
+    zodpovezeno = true;
+    await nastroj(db)('uloz_odpoved', { dotaz_id: DOTAZ, otazka: 'Proč pivo málo pění?', odpoved: 'Ještě jednou: tuky.' });
+    expect(volani.map(([j]) => j)).toEqual(['bible_dotaz_claude_nacti', 'bible_dotaz_claude_zaloz', 'bible_dotaz_claude_odpovez']);
+    expect(volani[1][1]).toMatchObject({ p_konverzace: VARKA });
+  });
+
+  it('otázka položená v Claude se zakládá až po dohledání knih: chyba databáze nenechá v appce otázku bez odpovědi', async () => {
+    const { db, rpc } = falesnaDb({ chybaTabulky: { bible_dokumenty: { code: '57014', message: 'timeout' } } });
+    await expect(nastroj(db)('uloz_odpoved', { otazka: 'Proč pivo málo pění?', odpoved: `Viz [kniha](${strana(KNIHA, 12)}).` })).rejects.toThrow('db 57014');
+    expect(rpc).toEqual([]);
+  });
+
+  it('jiná chyba odpovědi u už uložené otázky se nezamlčí jako „už v appce jsou"', async () => {
+    const { db } = falesnaDb({ rpc: (jmeno, p) => (jmeno === 'bible_dotaz_claude_zaloz'
+      ? { data: { konverzace_id: VARKA, dotaz_id: p.p_dotaz, novy: false } }
+      : { error: { code: '22023', message: 'Odpověď má mít 1 až 60000 znaků.' } }) });
+    await expect(nastroj(db)('uloz_odpoved', { otazka: 'Proč pivo málo pění?', odpoved: 'Text' })).rejects.not.toThrow(/už v appce jsou/);
+  });
+
+  it('opakované uložení téže otázky i odpovědi položené v Claude: „už v appce jsou", ne chyba; bez dotazu i otázky chyba', async () => {
+    const { db } = falesnaDb({ rpc: (jmeno, p) => (jmeno === 'bible_dotaz_claude_zaloz'
+      ? { data: { konverzace_id: VARKA, dotaz_id: p.p_dotaz, novy: false } }
+      : { error: { code: '22023', message: 'Odpověď na tenhle dotaz už v appce je.' } }) });
+    expect(await nastroj(db)('uloz_odpoved', { otazka: 'Proč pivo málo pění?', odpoved: 'Text' }))
+      .toBe('Tahle otázka i odpověď už v appce jsou — nic nového jsem neukládal.');
+    const prazdna = falesnaDb();
+    await expect(nastroj(prazdna.db)('uloz_odpoved', { odpoved: 'Text' })).rejects.toThrow('Chybí dotaz_id (otázka z appky), nebo otazka');
+    await expect(nastroj(prazdna.db)('uloz_odpoved', { otazka: 'x', odpoved: 'Text' })).rejects.toThrow('otazka má mít 2 až 4000 znaků.');
+    await expect(nastroj(prazdna.db)('uloz_odpoved', { otazka: 5, odpoved: 'Text' })).rejects.toThrow('otazka je text.');
+    expect(prazdna.rpc).toEqual([]);
+  });
+
   it('nabídka konektoru: dotaz_z_appky jen čte, uloz_odpoved zapisuje; chatbot v appce je nemá; instrukce říkají ukládat odpověď', () => {
     expect(NASTROJE.find((n) => n.name === 'dotaz_z_appky')!.annotations.readOnlyHint).toBe(true);
     expect(NASTROJE.find((n) => n.name === 'uloz_odpoved')!.annotations.readOnlyHint).toBe(false);
-    expect((NASTROJE.find((n) => n.name === 'uloz_odpoved')!.inputSchema as { required: string[] }).required).toEqual(['dotaz_id', 'odpoved']);
+    expect((NASTROJE.find((n) => n.name === 'uloz_odpoved')!.inputSchema as { required: string[] }).required).toEqual(['odpoved']);
     const jmena = nastrojeChatu(NASTROJE, { zapis: true, web: true }).map((t) => t.name);
     expect(jmena).not.toContain('dotaz_z_appky');
     expect(jmena).not.toContain('uloz_odpoved');
