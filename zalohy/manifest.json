@@ -2,7 +2,7 @@
  "format": "pivovar-zaloha-manifest",
  "v": 1,
  "sada": "hlavni",
- "datum": "2026-11-15T09:37:55.192Z",
+ "datum": "2026-11-16T09:56:34.874Z",
  "tabulky": {
   "beers": {
    "radku": 13,
@@ -57,8 +57,8 @@
    "sha256": "d07c6dff820810edaefa7ebd0a66f9701913ead3e95ec2e65277a619bb9049ae"
   },
   "calendar_events": {
-   "radku": 345,
-   "sha256": "f53fd6285f2d495d775ec2194e399da657bb57b8a96dfe32c7dab9e47c84a1ca"
+   "radku": 346,
+   "sha256": "d2f4e054770aa475270b920f16be0434e7d89690daa7949572e298e9edbd8ea4"
   },
   "checklisty_hotovo": {
    "radku": 313,
@@ -145,8 +145,8 @@
    "sha256": "4fbf6369753727de331547bae94630eac8ac27923c7e153e1c8fb796c76dea6c"
   },
   "fasovani": {
-   "radku": 33,
-   "sha256": "030cd025772ad0279a99f121f0ecdb556004c06a10db5153fe5507928584adb8"
+   "radku": 35,
+   "sha256": "ce35cc98e4e7d5ed73fec2e21ec99dbe61df5581eb2138edc62c280f3b7cbf49"
   },
   "fasovani_private": {
    "radku": 221,
@@ -245,20 +245,20 @@
    "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
   },
   "orders": {
-   "radku": 352,
-   "sha256": "b83aab3f4859ce33249b929184fc8058956ed4c523ad5db70c1c34f8cff597f2"
+   "radku": 353,
+   "sha256": "574383c7357c0e5c8041f5eccc2e21aea6ee58f6e5d51f667675afa14e6bb3cd"
   },
   "whatsapp_incoming": {
    "radku": 466,
-   "sha256": "a9e438a07ce905ffea4180e4622e0461524faf3fe3a5197ae1d306e047025521"
+   "sha256": "989c21b2f5f409e733c3b7f98e25c155989506dfb21d92fcc2b60ac700fd401e"
   },
   "whatsapp_prijem_log": {
    "radku": 370,
    "sha256": "13f009e2de228585aa27534c4915ecb1bf17664b0652a1c3069872aa1ac7bc11"
   },
   "order_items": {
-   "radku": 999,
-   "sha256": "1749071677bf9314c71f59adde0bb558320f7ea7420d53ea400df87569cec545"
+   "radku": 1001,
+   "sha256": "167ad49228dc232537bb15327fce6276d105eaa46cf18ee6a764368599e992bf"
   },
   "kegging": {
    "radku": 411,
