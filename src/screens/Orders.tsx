@@ -218,7 +218,7 @@ export default function Orders({
   // 📅 Den, který objednávka dostane, když se žádný nevybere — ukáže se předem
   // (17. 11. 2026: „u objednávek nastav primárně závoz středa… automaticky se
   // označí středa, ale uživatel si ji může změnit"). Se závozem je to výchozí
-  // den odběratele (středa; Restaurace, Lužec, Seeberg, Prodejna žádný),
+  // den odběratele (středa; Seeberg a Lužec pátek; Restaurace a Prodejna žádný),
   // u „bez závozu" dnešek. Stejný výpočet jako při uložení (addOrder).
   const zavozBezVyberu = !deliveryDay && !deliveryDate
     ? denZavozuProUlozeni({

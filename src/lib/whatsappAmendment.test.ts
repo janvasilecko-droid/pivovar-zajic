@@ -506,6 +506,37 @@ describe('slozNavrh — přídavek, když odpověď obsahuje celou objednávku',
     ]);
   });
 
+  // 3. 11. 2026 (Lužec): „Plus na další fakturu 2x basa třetinek" — AI vrátila
+  // jen přidávanou položku, přestože měla vrátit celou objednávku. Jako celý
+  // výsledný stav by zbytek objednávky zmizel (náhled ho ukazoval „odebrat").
+  it('s oznámením „výsledný stav", ale AI vrátila jen přídavek: zbytek objednávky zůstane a přídavek se přičte', () => {
+    const jenPridavek = slozNavrh({ soucasne: MALESICE, zOdpovedi: [{ beer_id: 'sv12', package_id: 'keg50', quantity: 1 }], text, obaly: OBALY, zOdpovediJePlnyStav: true });
+    expect(jenPridavek).toEqual([{ beer_id: 'sv12', package_id: 'keg50', quantity: 3 }, ...MALESICE.slice(1)]);
+
+    const novaPolozka = slozNavrh({ soucasne: MALESICE, zOdpovedi: [{ beer_id: 'sv12', package_id: 'lah033', quantity: 40 }], text: 'Plus na dalsi fakturu 2xbasa tretinek 12sv', obaly: OBALY, zOdpovediJePlnyStav: true });
+    expect(novaPolozka).toEqual([...MALESICE, { beer_id: 'sv12', package_id: 'lah033', quantity: 40 }]);
+  });
+
+  it('s oznámením „výsledný stav" a AI přídavek sečetla (3x50 v jedné položce): platí součet, nic se nezdvojí', () => {
+    const secteno = [{ beer_id: 'sv12', package_id: 'keg50', quantity: 3 }, ...MALESICE.slice(1)];
+    expect(slozNavrh({ soucasne: MALESICE, zOdpovedi: secteno, text, obaly: OBALY, zOdpovediJePlnyStav: true })).toEqual(secteno);
+  });
+
+  it('s oznámením „výsledný stav" a AI část objednávky zapomněla: u přídavku se nic neodebere', () => {
+    const cast = [
+      { beer_id: 'sv12', package_id: 'keg50', quantity: 2 },
+      { beer_id: 'jantar', package_id: 'keg30', quantity: 1 },
+      { beer_id: 'sv11', package_id: 'keg30', quantity: 3 },
+    ];
+    expect(slozNavrh({ soucasne: MALESICE, zOdpovedi: cast, text: 'A jeste plus 3x30 11sv', obaly: OBALY, zOdpovediJePlnyStav: true }))
+      .toEqual([...MALESICE, { beer_id: 'sv11', package_id: 'keg30', quantity: 3 }]);
+  });
+
+  it('bez „plus" platí výsledný stav doslova — „Bez jantaru" položky odebere', () => {
+    const bezJantaru = MALESICE.filter((i) => i.beer_id !== 'jantar');
+    expect(slozNavrh({ soucasne: MALESICE, zOdpovedi: bezJantaru, text: 'Bez jantaru', obaly: OBALY, zOdpovediJePlnyStav: true })).toEqual(bezJantaru);
+  });
+
   it('bez oznámení (odpověď jen s tím, co zpráva říká) se dál přičítá', () => {
     const navrh = slozNavrh({ soucasne: MALESICE, zOdpovedi: [{ beer_id: 'sv12', package_id: 'keg50', quantity: 1 }], text, obaly: OBALY });
     expect(navrh.find((i) => i.beer_id === 'sv12' && i.package_id === 'keg50')?.quantity).toBe(3);

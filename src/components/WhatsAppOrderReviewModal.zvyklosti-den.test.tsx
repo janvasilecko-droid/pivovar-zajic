@@ -7,9 +7,10 @@
 // 17. 11. 2026, majitel: „u objednávek nastav primárně závoz středa, pokud není
 // jinak označeno ve zprávě — objednávka typu 2x30 se automaticky označí středa,
 // ale uživatel si ji může změnit; pokud tam bude 2x30 na pátek, označí se pátek.“
-// Zpráva bez dne proto dostane VÝCHOZÍ den odběratele (středa; Restaurace,
-// Lužec, Seeberg a Prodejna žádný — stejné pravidlo jako databáze, která ho
-// dosud doplnila potichu až po schválení). Je vidět předem a jde změnit.
+// Zpráva bez dne proto dostane VÝCHOZÍ den odběratele (středa; Seeberg a Lužec
+// pátek — „u objednávek Seeberg, Lužec dávej automaticky objednávky na pátek";
+// Restaurace a Prodejna žádný — stejné pravidlo jako databáze, která ho dosud
+// doplnila potichu až po schválení). Je vidět předem a jde změnit.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { WhatsAppOrderReviewModal } from './WhatsAppOrderReviewModal';
@@ -53,6 +54,7 @@ const packages: any[] = [{ id: 'p10', label: '10l', kind: 'keg', volume_l: 10 }]
 const places: any[] = [
   { id: 'pl-martin', name: 'Martin' },
   { id: 'pl-rest', name: 'Restaurace', vychozi_den_zavozu: 'zadny' },
+  { id: 'pl-seeberg', name: 'Seeberg', vychozi_den_zavozu: 'pa' },
 ];
 
 const zprava = (extra: Record<string, unknown> = {}): any => ({
@@ -182,6 +184,30 @@ describe('WhatsAppOrderReviewModal — výchozí den závozu (středa) a den ze 
     schvalit();
     await waitFor(() => expect(onApprove).toHaveBeenCalledTimes(1));
     expect(onApprove.mock.calls[0][0]).toMatchObject({ parsed_delivery_day: null, parsed_delivery_date: null });
+  });
+
+  // 17. 11. 2026: „u objednávek Seeberg, Lužec dávej automaticky objednávky na pátek".
+  it('Seeberg bez dne ve zprávě: označí se výchozí pátek a schválení ho pošle i s datem', async () => {
+    const seeberg = { parsed_place_id: 'pl-seeberg', parsed_place_name: 'Seeberg', message_text: 'seeberg 1x10l 11sv', parsed_raw_text: 'seeberg 1x10l 11sv' };
+    const { onApprove } = renderModal(zprava(seeberg));
+    await pockejNaZvyklosti();
+
+    expect(jeZmacknuto('Pá')).toBe(true);
+    expect(jeZmacknuto('St')).toBe(false);
+    // Ve čtvrtek 29. 10. je nejbližší pátek 30. 10.
+    expect(screen.getByText(/pá 30\. 10\./)).toBeTruthy();
+    expect(screen.getByText(/výchozí den, jde změnit/)).toBeTruthy();
+    schvalit();
+    await waitFor(() => expect(onApprove).toHaveBeenCalledTimes(1));
+    expect(onApprove.mock.calls[0][0]).toMatchObject({ parsed_delivery_day: 'pa', parsed_delivery_date: '2026-10-30' });
+  });
+
+  it('Seeberg s dnem ve zprávě („na úterý“): platí den ze zprávy, ne výchozí pátek', async () => {
+    renderModal(zprava({ parsed_place_id: 'pl-seeberg', parsed_place_name: 'Seeberg', message_text: 'seeberg 1x10l 11sv na úterý', parsed_raw_text: 'seeberg 1x10l 11sv na úterý' }));
+    await waitFor(() => expect(screen.getByText(/út 3\. 11\./)).toBeTruthy());
+    expect(jeZmacknuto('Út')).toBe(true);
+    expect(jeZmacknuto('Pá')).toBe(false);
+    expect(screen.queryByText(/výchozí den/)).toBeNull();
   });
 
   it('odpověď, která doplňuje existující objednávku, výchozí den neukazuje (den objednávky se nemění)', async () => {

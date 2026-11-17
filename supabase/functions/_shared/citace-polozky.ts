@@ -14,13 +14,29 @@ export function bezPolozekZCitace<T extends { raw_line?: string | null }>(
   messageText: string | null | undefined,
   quotedText: string | null | undefined,
 ): T[] {
+  if (!normText(quotedText || "")) return items;
+  return items.filter((item) => !radekJeZCitace(item.raw_line, messageText, quotedText));
+}
+
+/**
+ * Pochází raw_line položky z CITOVANÉ zprávy, a ne z textu odpovědi samé?
+ * (Řádek, který stojí i v odpovědi, je z odpovědi.)
+ *
+ * U odpovědi, která upravuje objednávku, vrací AI výsledný stav celé
+ * objednávky a k řádkům, které jen opakuje, přikládá text původní zprávy.
+ * Takový text už pro položku neplatí doslova — odpověď v ní mohla změnit
+ * pivo i počet — a nesmí proto přebít to, co AI určila (17. 11. 2026,
+ * Malešice: viz matchBeerId v beer-match.ts a kontrolní okno v appce).
+ */
+export function radekJeZCitace(
+  rawLine: string | null | undefined,
+  messageText: string | null | undefined,
+  quotedText: string | null | undefined,
+): boolean {
   const citace = normText(quotedText || "");
-  if (!citace) return items;
-  const zprava = normText(messageText || "");
-  return items.filter((item) => {
-    const raw = normText(item.raw_line || "");
-    if (!raw || raw.length < 4) return true;
-    if (zprava.includes(raw)) return true;
-    return !(citace.includes(raw) || raw.includes(citace));
-  });
+  if (!citace) return false;
+  const raw = normText(rawLine || "");
+  if (!raw || raw.length < 4) return false;
+  if (normText(messageText || "").includes(raw)) return false;
+  return citace.includes(raw) || raw.includes(citace);
 }

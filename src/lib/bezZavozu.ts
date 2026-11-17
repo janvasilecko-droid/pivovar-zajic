@@ -33,10 +33,10 @@ const KLICE_DNU = ['po', 'ut', 'st', 'ct', 'pa', 'so', 'ne'] as const;
  * příštího týdne.
  *
  * Objednávka se závozem bez vybraného dne dostane výchozí den odběratele
- * (`vychoziDen` z lib/denZavozu.ts — středa; 17. 11. 2026: „u objednávek
- * nastav primárně závoz středa") a datum nejbližšího takového dne od data
- * objednávky. Bez výchozího dne (Restaurace se závozem, Lužec…) zůstane bez
- * dne i data.
+ * (`vychoziDen` z lib/denZavozu.ts — středa, Seeberg a Lužec pátek;
+ * 17. 11. 2026: „u objednávek nastav primárně závoz středa") a datum
+ * nejbližšího takového dne od data objednávky. Bez výchozího dne (Restaurace
+ * se závozem, Prodejna) zůstane bez dne i data.
  *
  * Vybraný den nebo datum se nikdy nepřepisuje; stejná pravidla má databáze
  * (doplnit_datum_zavozu).

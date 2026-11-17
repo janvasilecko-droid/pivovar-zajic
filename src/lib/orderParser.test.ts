@@ -787,6 +787,25 @@ describe('pivoNapsanePodleJmena', () => {
     expect(pivoNapsanePodleJmena('10x 11 11° winter', '11°', beers)).toBeNull(); // stupeň nesedí
     expect(pivoNapsanePodleJmena('winter a jantar', null, beers)).toBeNull();      // dvě piva v řádku
   });
+
+  // 17. 11. 2026 (Malešice): položky odpovědi nesly celou citovanou zprávu
+  // a „Jantar" z jejího druhého řádku se v kontrole propsal i do sudů 12° Světlé.
+  it('řádek, který jmenuje i jiné pivo stupněm a barvou, jméno nikomu nevnucuje', async () => {
+    const { pivoNapsanePodleJmena } = await import('./orderParser');
+    const citace = 'Malesice •⁠ ⁠SV 12 = 2x50l KEG + 2x30l KEG + 12x1,5l PET (bez etikety) •⁠ Jantar 12 = 2x30l KEG + 12x1,5l PET . Děkuji moc.';
+    expect(pivoNapsanePodleJmena(citace, '12°', beers)).toBeNull();
+    expect(pivoNapsanePodleJmena(citace, null, beers)).toBeNull();
+    expect(pivoNapsanePodleJmena('Lokálka Říčany prosim 10x50l 12sv 2x30l Winter Hazy 12', '12°', beers)).toBeNull();
+    expect(pivoNapsanePodleJmena('2x30l světle, 1x30l jantar', null, beers)).toBeNull();
+  });
+
+  it('jedno pivo v řádku (i se stupněm u jména) platí dál', async () => {
+    const { pivoNapsanePodleJmena } = await import('./orderParser');
+    expect(pivoNapsanePodleJmena('Jantar 12 = 1x30l KEG + 10x0,5l lahev…..Děkuji moc.', '12°', beers)?.id).toBe('j');
+    expect(pivoNapsanePodleJmena('Jantar 12 = 2x30l KEG + 12x1,5l PET', null, beers)?.id).toBe('j');
+    expect(pivoNapsanePodleJmena('5x30 12° winter', '12°', beers)?.id).toBe('w');
+    expect(pivoNapsanePodleJmena('Tak těch Jantaru v pet bude jen 11 kusů', null, beers)?.id).toBe('j');
+  });
 });
 
 describe('matchPackage: „10x 11 12° winter" je obal 1 l', () => {

@@ -4,6 +4,7 @@ const BEER_DEGREES = new Set(['8', '10', '11', '12', '13', '14', '15', '16']);
 import type { Beer, Package, Place } from './supabase';
 import { uloz } from './uloziste';
 import { popisZminkyVycepu } from '../../supabase/functions/_shared/vycep-z-textu';
+import { pivaJmenovanaVTextu } from '../../supabase/functions/_shared/beer-match';
 
 export type ParsedVoiceOrder = {
   items: ParsedLine[];
@@ -314,6 +315,13 @@ function pickPackageByVolume(v: number, packages: Package[], norm: string): Pack
  * Použije se jen když je takový název v řádku právě jeden, název není generický
  * (nezačíná stupněm, není „světlá/tmavá…") a stupeň piva sedí k položce — pak
  * má přednost před tím, co k položce uložila AI/server (stupeň 12° ≠ pivo).
+ *
+ * Neplatí, když řádek vedle toho jména výslovně jmenuje i JINÉ pivo („SV 12 =
+ * … • Jantar 12 = …", „10x50l 12sv 2x30l Winter"): takový řádek sdílí víc
+ * položek a jméno patří jen některé z nich. 17. 11. 2026 (Malešice) se takhle
+ * „Jantar" z citované zprávy propsal v kontrole i do sudů 12° Světlé a do
+ * objednávky přibylo 2× 50 l Jantar. U takového řádku platí pivo, které
+ * položce přiřadil server (supabase/functions/_shared/beer-match.ts).
  */
 export function pivoNapsanePodleJmena<B extends { id: string; name: string; degree?: string | null }>(
   radek: string | null | undefined,
@@ -331,6 +339,7 @@ export function pivoNapsanePodleJmena<B extends { id: string; name: string; degr
   });
   if (nalezy.length !== 1) return null;
   const pivo = nalezy[0];
+  if (pivaJmenovanaVTextu(radek, beers, { beer: new Map(), package: new Map() }).some((id) => id !== pivo.id)) return null;
   const sPivo = (pivo.degree || '').replace('°', '').trim();
   const sPolozky = (stupen || '').replace('°', '').trim();
   if (sPivo && sPolozky && sPivo !== sPolozky) return null;

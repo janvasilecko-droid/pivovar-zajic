@@ -343,6 +343,34 @@ function slucPlnyStav(soucasne: ItemRef[], zOdpovedi: ItemRef[]): ItemRef[] {
 }
 
 /**
+ * „Ještě plus 1x50" u odpovědi, která má být výsledným stavem objednávky.
+ *
+ * AI má vrátit celou objednávku i s přídavkem — a většinou to udělá. Občas ale
+ * vrátí jen to, co se přidává (z provozu 3. 11. 2026: „Plus na další fakturu
+ * 2x basa třetinek" → jediná položka), nebo část objednávky zapomene. Brát
+ * takovou odpověď jako celý výsledný stav by zbytek objednávky SMAZALO.
+ * Přídavek ale nic neodebírá ani nesnižuje, takže se dá složit bezpečně pro
+ * oba případy:
+ *   • co v odpovědi není, zůstává, jak je;
+ *   • stejný počet jako v objednávce = řádek se jen opakuje;
+ *   • větší počet = AI přídavek sečetla (2 → 3), platí součet;
+ *   • menší počet = AI vrátila jen přídavek („1x50" ke dvěma), přičte se;
+ *   • položka, která v objednávce není, se přidá.
+ */
+function slucPridavek(soucasne: ItemRef[], zOdpovedi: ItemRef[]): ItemRef[] {
+  const vysledek: ItemRef[] = soucasne.map((i) => ({ ...i, quantity: Number(i.quantity || 0) }));
+  for (const p of slucPlnyStav(soucasne, zOdpovedi)) {
+    const q = Number(p.quantity || 0);
+    if (q <= 0) continue;
+    const i = vysledek.findIndex((v) => itemKey(v) === itemKey(p));
+    if (i < 0) vysledek.push({ ...p, quantity: q });
+    else if (q > vysledek[i].quantity) vysledek[i] = { ...vysledek[i], quantity: q };
+    else if (q < vysledek[i].quantity) vysledek[i] = { ...vysledek[i], quantity: vysledek[i].quantity + q };
+  }
+  return vysledek;
+}
+
+/**
  * Složí navrhovaný obsah objednávky: co odpověď nadiktovala znovu, se
  * nahradí; co nejmenuje, zůstává.
  *
@@ -378,7 +406,11 @@ export function slozNavrh(opts: {
   if (opts.zpusob === 'prepsat') return zOdpovedi.filter((i) => Number(i.quantity) > 0);
   const { nahradit } = rozsahOdpovedi(text);
   if (nahradit.length === 0) {
-    if (opts.zOdpovediJePlnyStav) return slucPlnyStav(soucasne, zOdpovedi);
+    // Výsledný stav od AI. U přídavku („ještě plus…") se navíc nic neodebírá
+    // ani nesnižuje — viz slucPridavek (AI občas vrátí jen přidávané položky).
+    if (opts.zOdpovediJePlnyStav) {
+      return vypadaJakoPridavek(text) ? slucPridavek(soucasne, zOdpovedi) : slucPlnyStav(soucasne, zOdpovedi);
+    }
     // ➕ PŘÍDAVEK: „Pro Radka ještě plus toto", „Plus 3x10 11sv". Tahle zpráva
     //    objednávku NEPOPISUJE ZNOVU — přidává k ní. Bez téhle větve by z ní
     //    vyšel návrh „objednávka = jen tyhle dvě limonády" a schválení by
