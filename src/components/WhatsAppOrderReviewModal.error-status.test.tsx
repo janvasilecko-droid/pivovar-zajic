@@ -114,6 +114,43 @@ describe('WhatsAppOrderReviewModal — stav "error" po neúspěšném AI čtení
     expect(screen.getAllByText(/Je to 2 sudy 10 l, nebo 10 piv\?/i)).toHaveLength(1);
   });
 
+  it('17. 11. 2026: fotka čeká na další pokus čtení (AI přetížená) → okno řekne, že se to zkouší samo, a jde číst hned ručně', async () => {
+    renderModal({
+      id: 'ceka-1',
+      sender_name: 'Radek',
+      message_text: '📷 Fotka objednávky (bez popisu)',
+      message_type: 'image',
+      media_url: 'https://xyz.supabase.co/storage/v1/object/public/whatsapp-media/incoming/wa-1.jpg',
+      status: 'pending',
+      error_message: 'AI je teď přetížená — zkusí se znovu automaticky za pár minut. (pokus 2026-11-17T09:35:07.000Z)',
+      created_at: '2026-11-17T09:32:41+00:00',
+      parsed_items: null,
+      parsed_raw_text: null,
+    });
+    await waitFor(() => expect(screen.getByText(/čtení se samo zkouší znovu každé 3 minuty \(naposledy v 10:35\)/)).toBeTruthy());
+    expect(screen.queryByText('Čeká na parsování')).toBeNull();
+    expect(screen.queryByText(/Čtení se nepovedlo/)).toBeNull();
+    expect(screen.queryByText(/pokus 2026-11-17T/)).toBeNull();
+    expect((screen.getByText('Znovu parsovat').closest('button') as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('obyčejná čekající zpráva (ještě se nečetla) ukazuje dál „Čeká na parsování"', async () => {
+    renderModal({
+      id: 'ceka-2', sender_name: 'Odběratel', message_text: '2x 12° 30l', message_type: 'text',
+      status: 'pending', error_message: null, created_at: '2026-11-17T09:32:41+00:00', parsed_items: null, parsed_raw_text: null,
+    });
+    await waitFor(() => expect(screen.getByText('Čeká na parsování')).toBeTruthy());
+  });
+
+  it('chyba „Parse API error: 546" se obsluze ukáže jako přetížené čtení, ne jako kód', async () => {
+    renderModal({
+      id: 'error-kod', sender_name: 'Radek', message_text: '📷 Fotka objednávky (bez popisu)', message_type: 'image',
+      status: 'error', error_message: 'Parse API error: 546', created_at: '2026-11-17T09:32:41+00:00', parsed_items: [], parsed_raw_text: null,
+    });
+    await waitFor(() => expect(screen.getByText(/Čtení se nepovedlo — Čtení je teď přetížené\. Zkuste znovu za chvíli\./)).toBeTruthy());
+    expect(screen.queryByText(/Parse API error|546/)).toBeNull();
+  });
+
   it('skutečně běžící zpracování ("processing") dál ukazuje "Zpracovává se..." bez tlačítka', async () => {
     renderModal({
       id: 'processing-1',

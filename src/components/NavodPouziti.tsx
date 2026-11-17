@@ -297,7 +297,7 @@ const ODDILY: Oddil[] = [
       },
       {
         co: 'Kontrola WhatsApp zpráv',
-        jak: 'Zelená dlaždice bliká, když zpráva čeká. V kontrole je vidět originál vedle toho, co z něj AI přečetla; položky se dají opravit a oprava se zapamatuje pro příště.',
+        jak: 'Zelená dlaždice bliká, když zpráva čeká. V kontrole je vidět originál vedle toho, co z něj AI přečetla; položky se dají opravit a oprava se zapamatuje pro příště. Když je AI zrovna přetížená, zpráva nezmizí ani nespadne: čeká a čtení se samo zkouší znovu každé 3 minuty (první hodinu, i se zavřenou appkou). Fotku objednávky čte nejlíp Gemini — prvních 6 minut se čeká jen na něj, teprve pak ji přečte záložní AI a v kontrole je nahoře upozornění, ať řádky porovnáš s fotkou. Nechceš čekat? Otevři zprávu a dej „Znovu parsovat“ — přečte se hned (do dvou minut).',
       },
       {
         co: 'Přídavek k objednávce',

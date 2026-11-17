@@ -474,7 +474,9 @@ export async function updateWhatsAppParsedData(
     readbackUnmatchedCount?: number | null;
   }
 ): Promise<void> {
-  const payload: any = { status: 'parsed' };
+  // Zpráva je přečtená — stará chyba čtení („Parse API error: 546", čekání na
+  // další pokus) u ní nesmí zůstat svítit (stejně to dělá server po přečtení).
+  const payload: any = { status: 'parsed', error_message: null };
   if (updates.parsedItems !== undefined) payload.parsed_items = updates.parsedItems;
   if (updates.parsedPlaceId !== undefined) payload.parsed_place_id = updates.parsedPlaceId || null;
   if (updates.parsedPlaceName !== undefined) payload.parsed_place_name = updates.parsedPlaceName || null;

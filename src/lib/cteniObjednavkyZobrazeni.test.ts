@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   unikatniHlaseni,
   srozumitelnaChybaCteni,
+  cekaNaCteni,
   popisPrectenychPolozek,
   popisMistaADne,
 } from './cteniObjednavkyZobrazeni';
@@ -31,6 +32,35 @@ describe('srozumitelnaChybaCteni', () => {
 
   it('krátkou srozumitelnou hlášku nechá', () => {
     expect(srozumitelnaChybaCteni('Fotka nedorazila.')).toBe('Fotka nedorazila.');
+  });
+
+  it('17. 11. 2026: „Parse API error: 546" (server čtení ukončil) není pro obsluhu — řekne se, že je čtení přetížené', () => {
+    for (const kod of ['Parse API error: 546', 'Parse API error: 502', 'HTTP 546: {"code":"WORKER_LIMIT"}', 'HTTP 502: Gemini teď fotku nepřečetl', 'HTTP 504', 'HTTP 408']) {
+      expect(srozumitelnaChybaCteni(kod), kod).toBe('Čtení je teď přetížené. Zkuste znovu za chvíli.');
+    }
+    // Číslo v běžné větě se za kód chyby nebere.
+    expect(srozumitelnaChybaCteni('Objednávka 546 sudů?')).toBe('Objednávka 546 sudů?');
+  });
+
+  it('zpráva, která čeká na další pokus čtení: řekne, že se to zkouší samo, kdy naposledy a co jde udělat hned', () => {
+    const poznamka = 'AI je teď přetížená — zkusí se znovu automaticky za pár minut. (pokus 2026-11-17T09:35:07.000Z)';
+    expect(cekaNaCteni(poznamka)).toBe(true);
+    expect(srozumitelnaChybaCteni(poznamka))
+      .toBe('AI je teď přetížená — čtení se samo zkouší znovu každé 3 minuty (naposledy v 10:35). Nechceš čekat? Otevři zprávu a dej „Znovu parsovat“.');
+    // Starší poznámka bez času pokusu.
+    expect(srozumitelnaChybaCteni('AI je teď přetížená — zkusí se znovu automaticky za pár minut.'))
+      .toBe('AI je teď přetížená — čtení se samo zkouší znovu každé 3 minuty. Nechceš čekat? Otevři zprávu a dej „Znovu parsovat“.');
+    for (const jine of [null, '', 'Parse API error: 546', 'Fotka nedorazila.']) expect(cekaNaCteni(jine)).toBe(false);
+  });
+
+  it('značka „čte se" (server zprávu právě čte) se jako chyba neukazuje', () => {
+    expect(srozumitelnaChybaCteni('Čte se (od 2026-11-17T09:35:07.000Z)')).toBeNull();
+    expect(cekaNaCteni('Čte se (od 2026-11-17T09:35:07.000Z)')).toBe(false);
+  });
+
+  it('chyba po hodině opakování se ukáže celá (je to rada, co dál)', () => {
+    const t = 'AI je přetížená a zprávu se nepodařilo přečíst ani po opakování (kód 546). Zkus později „Znovu parsovat“.';
+    expect(srozumitelnaChybaCteni(t)).toBe(t);
   });
 });
 

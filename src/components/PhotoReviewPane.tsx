@@ -10,7 +10,31 @@ type Props = {
   activeBbox?: Bbox;
   /** ✂️ Oříznout zobrazenou fotku a přečíst ji znovu (30. 9. 2026). */
   onOrez?: () => void;
+  /**
+   * Výchozí pohled: fotka na celou šířku plochy, od horního okraje (ne celá
+   * zmenšená). Pro nízký ukotvený pruh nad položkami (kontrola objednávky
+   * z WhatsAppu): lístek na výšku by se do něj vešel jen jako nečitelná
+   * miniatura a pokaždé by se musel napřed přibližovat prsty.
+   */
+  vychoziNaSirku?: boolean;
 };
+
+const NEJVETSI_ZVETSENI = 8;
+
+/**
+ * Výchozí pohled „na šířku": zvětšení, při kterém fotka (už zmenšená tak, aby
+ * se vešla celá — `fotka`) vyplní šířku plochy, a posun, při kterém je vidět
+ * její horní okraj. Fotka, která šířku vyplňuje i tak, zůstává celá.
+ */
+export function vychoziPohledNaSirku(
+  plocha: { w: number; h: number },
+  fotka: { w: number; h: number },
+): { scale: number; pos: { x: number; y: number } } {
+  if (!(plocha.w > 0) || !(plocha.h > 0) || !(fotka.w > 0) || !(fotka.h > 0)) return { scale: 1, pos: { x: 0, y: 0 } };
+  const scale = Math.min(NEJVETSI_ZVETSENI, Math.max(1, plocha.w / fotka.w));
+  // Zvětšuje se kolem středu plochy — o polovinu přesahu dolů, ať je vidět vršek.
+  return { scale, pos: { x: 0, y: Math.max(0, (fotka.h * scale - plocha.h) / 2) } };
+}
 
 /**
  * Top half of the fullscreen review screen: shows the currently active
@@ -18,7 +42,7 @@ type Props = {
  * between multiple uploaded photos. If a bbox estimate is available for
  * the currently selected item, draws an orientational rectangle over it.
  */
-export function PhotoReviewPane({ photos, activeIndex, onChangeIndex, activeBbox, onOrez }: Props) {
+export function PhotoReviewPane({ photos, activeIndex, onChangeIndex, activeBbox, onOrez, vychoziNaSirku }: Props) {
   const [scale, setScale] = useState(1);
   const [pos, setPos] = useState({ x: 0, y: 0 });
   const dragRef = useRef<{ dragging: boolean; startX: number; startY: number; startPosX: number; startPosY: number }>({
@@ -33,9 +57,13 @@ export function PhotoReviewPane({ photos, activeIndex, onChangeIndex, activeBbox
   // Přírodní rozměry načtené fotky (naturalWidth / naturalHeight).
   const [nat, setNat] = useState<{ w: number; h: number } | null>(null);
 
-  const clampScale = (s: number) => Math.min(8, Math.max(1, s));
+  const clampScale = (s: number) => Math.min(NEJVETSI_ZVETSENI, Math.max(1, s));
+  // Sáhl už člověk na fotku (přiblížení, posun)? Dokud ne, drží se výchozí
+  // pohled i při změně velikosti plochy (otočení telefonu).
+  const dotcenoRef = useRef(false);
 
   const zoomBy = useCallback((factor: number) => {
+    dotcenoRef.current = true;
     setScale((prev) => {
       const next = clampScale(prev * factor);
       scaleRef.current = next;
@@ -45,9 +73,13 @@ export function PhotoReviewPane({ photos, activeIndex, onChangeIndex, activeBbox
 
   function resetView() {
     cancelAnimationFrame(rafRef.current);
-    scaleRef.current = 1;
-    setScale(1);
-    setPos({ x: 0, y: 0 });
+    dotcenoRef.current = false;
+    const v = vychoziNaSirku && stage && imgW != null && imgH != null
+      ? vychoziPohledNaSirku(stage, { w: imgW, h: imgH })
+      : { scale: 1, pos: { x: 0, y: 0 } };
+    scaleRef.current = v.scale;
+    setScale(v.scale);
+    setPos(v.pos);
   }
 
   function goTo(i: number) {
@@ -85,6 +117,7 @@ export function PhotoReviewPane({ photos, activeIndex, onChangeIndex, activeBbox
   }
   function onPointerDown(e: PointerEvent<HTMLDivElement>) {
     if (pinchRef.current.active) return;
+    dotcenoRef.current = true;
     (e.target as Element).setPointerCapture?.(e.pointerId);
     dragRef.current = { dragging: true, startX: e.clientX, startY: e.clientY, startPosX: pos.x, startPosY: pos.y };
   }
@@ -108,6 +141,7 @@ export function PhotoReviewPane({ photos, activeIndex, onChangeIndex, activeBbox
   }
   function onTouchStart(e: React.TouchEvent<HTMLDivElement>) {
     if (e.touches.length === 2) {
+      dotcenoRef.current = true;
       pinchRef.current = { active: true, startDist: dist(e.touches as unknown as TouchList), startScale: scaleRef.current };
       dragRef.current.dragging = false; // pinch místo jednoprstového tahu
     }
@@ -139,6 +173,16 @@ export function PhotoReviewPane({ photos, activeIndex, onChangeIndex, activeBbox
   const renderScale = stage && nat ? Math.min(stage.w / nat.w, stage.h / nat.h) : null;
   const imgW = renderScale != null && nat ? Math.max(1, nat.w * renderScale) : null;
   const imgH = renderScale != null && nat ? Math.max(1, nat.h * renderScale) : null;
+
+  // Výchozí pohled „na šířku" — jakmile jsou známé rozměry plochy a fotky,
+  // a znovu při jejich změně, dokud na fotku nikdo nesáhl.
+  useEffect(() => {
+    if (!vychoziNaSirku || dotcenoRef.current || !stage || imgW == null || imgH == null) return;
+    const v = vychoziPohledNaSirku(stage, { w: imgW, h: imgH });
+    scaleRef.current = v.scale;
+    setScale(v.scale);
+    setPos(v.pos);
+  }, [vychoziNaSirku, stage, imgW, imgH]);
 
   return (
     <div data-own-zoom className="relative h-full w-full bg-primary-950 flex flex-col">

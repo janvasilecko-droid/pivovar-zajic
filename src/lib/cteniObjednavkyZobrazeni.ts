@@ -1,5 +1,6 @@
 // Jen zobrazení v okně čtení objednávky — parser ani data v DB nemění.
 // 27. 10. 2026: majitel nechce opakované / technické chyby čtení.
+import { casPoslednihoPokusu, cekaNaDalsiPokus, jeZnackaCteSe } from '../../supabase/functions/_shared/opakovani-cteni';
 
 export function unikatniHlaseni(texty: (string | null | undefined)[]): string[] {
   const videne = new Set<string>();
@@ -19,10 +20,32 @@ export function unikatniHlaseni(texty: (string | null | undefined)[]): string[] 
   return vysledek;
 }
 
+/**
+ * Čeká zpráva na další pokus čtení? (AI byla přetížená — server to zkouší sám
+ * znovu, viz supabase/functions/_shared/opakovani-cteni.ts.) Není to chyba,
+ * appka to ukazuje jako čekání.
+ */
+export function cekaNaCteni(raw?: string | null): boolean {
+  return cekaNaDalsiPokus(raw);
+}
+
 /** Technický dump (timeout, JSON, stack) přeloží na krátkou větu pro obsluhu. */
 export function srozumitelnaChybaCteni(raw?: string | null): string | null {
   const text = String(raw ?? '').trim();
   if (!text) return null;
+  // Značka „čte se" není chyba — zprávu právě čte server.
+  if (jeZnackaCteSe(text)) return null;
+  if (cekaNaDalsiPokus(text)) {
+    const pokus = casPoslednihoPokusu(text);
+    const kdy = pokus === null
+      ? ''
+      : ` (naposledy v ${new Date(pokus).toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Prague' })})`;
+    return `AI je teď přetížená — čtení se samo zkouší znovu každé 3 minuty${kdy}. Nechceš čekat? Otevři zprávu a dej „Znovu parsovat“.`;
+  }
+  // Server čtení ukončil nebo AI neodpověděla („Parse API error: 546", „HTTP 502: …").
+  if (/(?:Parse API error|HTTP):?\s*(?:5\d\d|408)\b/i.test(text)) {
+    return 'Čtení je teď přetížené. Zkuste znovu za chvíli.';
+  }
   if (/timed?\s*out|timeout|ETIMEDOUT|aborted/i.test(text)) {
     return 'Čtení trvalo moc dlouho. Zkuste znovu.';
   }

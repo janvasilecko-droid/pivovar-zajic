@@ -11,6 +11,10 @@ import { vypadaJakoVraceni } from "../_shared/vraceni-detekce.ts";
 import { jeVlastniHlaseniObjednavky } from "../_shared/vlastni-hlaseni-objednavky.ts";
 import { datumDne, datumPraha, textRikaPristiTyden } from "../_shared/den-zavozu.ts";
 import { datumZeZpravy, relativniDen } from "../_shared/datum-ze-zpravy.ts";
+import {
+  casProCteni, jeNaRade, koloCteni, poChybeCteni, poradiZpracovani, rezimCteniFotky,
+  jeUvizla, UPOZORNENI_ZALOZNI_CTENI, ZNACKA_CTE_SE, znackaCteSe,
+} from "../_shared/opakovani-cteni.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -145,7 +149,77 @@ async function safeUpdateMessage(
   return { ok: false, error: error.message };
 }
 
+/** Čtecí funkce (parse-order-text) neodpověděla OK; `status` = HTTP kód, null = neodpověděla vůbec. */
+class ChybaCteni extends Error {
+  status: number | null;
+  constructor(message: string, status: number | null) {
+    super(message);
+    this.status = status;
+  }
+}
+
+/**
+ * Vezme si z fronty čekající zprávy (stav pending → processing), nejvýš `limit`,
+ * od nejstarší. Zprávu, která čeká na další pokus čtení a ještě jí neuplynul
+ * odstup, nechá být — viz jeNaRade v ../_shared/opakovani-cteni.ts.
+ *
+ * Dřív to dělala databázová funkce claim_pending_whatsapp_messages, ta ale
+ * bere všechno čekající naráz a odstup mezi pokusy nezná. Proti dvojímu
+ * zpracování chrání podmínka `status = 'pending'` v samotném zápisu: když si
+ * tutéž zprávu vyberou dva běhy, databáze ji přepíše jen prvnímu a druhému
+ * ji nevrátí.
+ */
+async function prevezmiCekajici(supabase: any, ted: number, limit = 10): Promise<{ data: any[]; error: any }> {
+  // Zpráva, která zůstala viset „ve zpracování" (běh funkce skončil dřív, než
+  // ji dočetl), se po pěti minutách vrací do fronty — v seznamu ke kontrole
+  // totiž není vidět a sama by se už nikdy nepřečetla. Pozná se podle značky
+  // s časem převzetí (níž); zprávy bez značky se nechávají být.
+  const { data: veZpracovani, error: uvizleError } = await supabase
+    .from("whatsapp_incoming")
+    .select("id, error_message")
+    .eq("status", "processing")
+    .like("error_message", `${ZNACKA_CTE_SE}%`)
+    .limit(50);
+  if (uvizleError) console.error("Hledání uvízlých zpráv selhalo:", uvizleError);
+  const uvizle = (veZpracovani ?? []).filter((z: any) => jeUvizla(z.error_message, ted)).map((z: any) => z.id);
+  if (uvizle.length > 0) {
+    const { error } = await supabase
+      .from("whatsapp_incoming")
+      .update({ status: "pending", error_message: null })
+      .in("id", uvizle)
+      .eq("status", "processing");
+    if (error) console.error("Vrácení uvízlých zpráv do fronty selhalo:", error);
+  }
+
+  const { data: kandidati, error } = await supabase
+    .from("whatsapp_incoming")
+    .select("id, error_message")
+    .eq("status", "pending")
+    .order("created_at", { ascending: true })
+    .limit(50);
+  if (error) return { data: [], error };
+  const naRade = (kandidati ?? []).filter((z: any) => jeNaRade(z.error_message, ted)).slice(0, limit);
+  if (naRade.length === 0) return { data: [], error: null };
+
+  // Převzetí: stav + značka s časem (podle ní se pozná uvízlá zpráva).
+  const { data, error: zapisError } = await supabase
+    .from("whatsapp_incoming")
+    .update({ status: "processing", error_message: znackaCteSe(ted) })
+    .in("id", naRade.map((z: any) => z.id))
+    .eq("status", "pending")
+    .select("*");
+  // Dál se pracuje s poznámkou, jakou zpráva měla PŘED převzetím — zpráva,
+  // na kterou v tomhle běhu nezbude čas, se s ní vrací do fronty.
+  const puvodni = new Map<string, string | null>(naRade.map((z: any) => [z.id, z.error_message ?? null]));
+  return {
+    data: (data ?? []).map((z: any) => ({ ...z, error_message: puvodni.get(z.id) ?? null })),
+    error: zapisError,
+  };
+}
+
 Deno.serve(async (req: Request) => {
+  // Od kdy běh trvá — jeden běh má jistých jen 75 s (../_shared/cas-cteni.ts).
+  const zacatekBehu = Date.now();
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 200, headers: corsHeaders });
@@ -181,10 +255,9 @@ Deno.serve(async (req: Request) => {
     // stejnou pojistku v requireApprovedUser a secret rozpozná stejně.
     const cronSecretHeader = req.headers.get("X-Internal-Cron-Secret");
 
-    // Claim rows atomically so concurrent browser tabs cannot process the same
-    // message and create duplicate AI calls/orders.
-    const { data: pendingMessages, error: fetchError } = await supabase
-      .rpc("claim_pending_whatsapp_messages", { p_limit: 10 });
+    // Převzít čekající zprávy tak, aby tutéž zprávu nezpracovaly dva běhy
+    // (víc otevřených zařízení, cron) — viz prevezmiCekajici výš.
+    const { data: pendingMessages, error: fetchError } = await prevezmiCekajici(supabase, zacatekBehu);
 
     if (fetchError) {
       console.error("Error fetching pending messages:", fetchError);
@@ -276,9 +349,10 @@ Deno.serve(async (req: Request) => {
       return allowedNames.includes(normName(message.sender_name));
     };
 
-    // Process each pending message
+    // Process each pending message — napřed texty, pak fotky (fotka umí sníst
+    // celý běh, viz poradiZpracovani).
     const results = [];
-    for (const message of pendingMessages) {
+    for (const message of poradiZpracovani(pendingMessages as any[])) {
       try {
         // Whitelist odesílatelů — do aplikace smí projít jen zprávy ze skupiny
         // „Objednávky pivovar" (webhook jiné zprávy už ani neuloží). Starší
@@ -327,8 +401,16 @@ Deno.serve(async (req: Request) => {
           continue;
         }
 
-        // Mark as processing — když se to nepodaří, zpráva zůstane 'pending'
-        // a v této iteraci ji přeskočíme (zpracuje ji někdo příště).
+        // ⏱️ Vejde se čtení téhle zprávy ještě do tohohle běhu? Když ne, vrátí
+        // se do fronty a přečte ji další běh (cron do 3 minut, otevřená appka
+        // hned). Bez toho by server běh ukončil uprostřed čtení (HTTP 546)
+        // a zpráva by zůstala viset „ve zpracování".
+        if (casProCteni({ ubehloMs: Date.now() - zacatekBehu, fotka: !!message.media_url }) === null) {
+          await safeUpdateMessage(supabase, message.id, { status: "pending", error_message: message.error_message ?? null }, "pending");
+          results.push({ id: message.id, status: "skipped", reason: "no time left in this run" });
+          continue;
+        }
+
         // Načteme CELOU předešlou konverzaci ze stejné skupiny/chatu (chat_id) před
         // touto zprávou. Uživatel na předchozí objednávku často ODPOVÍDÁ — odpověď
         // navazuje na původní zprávu, takže AI musí vidět VŠECHNY předchozí zprávy
@@ -490,7 +572,20 @@ Deno.serve(async (req: Request) => {
 
         const parseUrl = `${supabaseUrl}/functions/v1/parse-order-text`;
 
+        // Kolik času čtení dostane (načítání výš mohlo chvíli trvat — počítá
+        // se znovu) a jak se má číst fotka: čerstvá čeká jen na nejlepší
+        // čtení, starší se čte vším (../_shared/opakovani-cteni.ts).
+        const casCteniMs = casProCteni({ ubehloMs: Date.now() - zacatekBehu, fotka: !!imageBase64 });
+        if (casCteniMs === null) {
+          await safeUpdateMessage(supabase, message.id, { status: "pending", error_message: message.error_message ?? null }, "pending");
+          results.push({ id: message.id, status: "skipped", reason: "no time left in this run" });
+          continue;
+        }
+        const stariZpravyMs = Date.now() - new Date(message.created_at).getTime();
+
         const parseBody = {
+          maxMs: casCteniMs,
+          ...(imageBase64 ? { cteniFotky: rezimCteniFotky(stariZpravyMs), kolo: koloCteni(stariZpravyMs) } : {}),
           rawText: message.message_text,
           beers,
           packages,
@@ -538,20 +633,28 @@ Deno.serve(async (req: Request) => {
           ]
         };
 
-        const parseResponse = await fetch(parseUrl, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(cronSecretHeader
-              ? { "X-Internal-Cron-Secret": cronSecretHeader }
-              : { "Authorization": callerAuthorization }),
-            "Apikey": Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-          },
-          body: JSON.stringify(parseBody),
-        });
+        let parseResponse: Response;
+        try {
+          parseResponse = await fetch(parseUrl, {
+            method: "POST",
+            // Čtecí funkce si čas hlídá sama (maxMs); tohle je pojistka, kdyby
+            // neodpověděla vůbec — běh nesmí čekat přes svůj vlastní čas.
+            signal: AbortSignal.timeout(casCteniMs + 6_000),
+            headers: {
+              "Content-Type": "application/json",
+              ...(cronSecretHeader
+                ? { "X-Internal-Cron-Secret": cronSecretHeader }
+                : { "Authorization": callerAuthorization }),
+              "Apikey": Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+            },
+            body: JSON.stringify(parseBody),
+          });
+        } catch (err) {
+          throw new ChybaCteni(`Čtení neodpovědělo (${err instanceof Error ? err.name : "chyba"})`, null);
+        }
 
         if (!parseResponse.ok) {
-          throw new Error(`Parse API error: ${parseResponse.status}`);
+          throw new ChybaCteni(`Parse API error: ${parseResponse.status}`, parseResponse.status);
         }
 
         const parseResult = await parseResponse.json();
@@ -857,6 +960,8 @@ Deno.serve(async (req: Request) => {
           itemsForStorage.splice(0, itemsForStorage.length, ...serazene);
         }
         const otazkyZpravy: string[] = Array.isArray(parseResult?.otazky) ? [...parseResult.otazky] : [];
+        // Fotku nepřečetl Gemini, ale slabší čtení — obsluha to má vědět první.
+        if (message.media_url && parseResult?._zalozni === true) otazkyZpravy.unshift(UPOZORNENI_ZALOZNI_CTENI);
         if (doplneno.length) {
           otazkyZpravy.push(`Z přepisu fotky se doplnilo ${doplneno.length} řádků, které AI nevložila do položek — zkontroluj je (jsou na svém místě podle fotky).`);
         }
@@ -934,21 +1039,22 @@ Deno.serve(async (req: Request) => {
       } catch (error: any) {
         console.error(`Error processing message ${message.id}:`, error);
 
-        // AI je přetížená / bez kvóty (parse-order-text 502 = žádný bezplatný
-        // poskytovatel neodpověděl) → zpráva zůstane čekat a cron (každé 3 min)
-        // ji zkusí znovu. Jen první hodinu — pak 'error' a „Přečíst znovu" ručně.
-        // (12. 10. 2026: „ať to zkouší víckrát, po nějaké době")
-        const aiNedostupna = /Parse API error: 50[234]/.test(String(error?.message ?? ""));
-        const staraMs = Date.now() - new Date(message.created_at).getTime();
-        const zkusitZnovu = aiNedostupna && staraMs < 60 * 60 * 1000;
-        await safeUpdateMessage(
-          supabase,
-          message.id,
-          zkusitZnovu
-            ? { status: "pending", error_message: "AI je teď přetížená — zkusí se znovu automaticky za pár minut." }
-            : { status: "error", error_message: error.message || "Unknown processing error" },
-          "pending"
-        );
+        // Dočasná chyba čtení (AI přetížená, server čtení ukončil — 546, síť)
+        // → zpráva zůstane čekat a za pár minut se zkusí znovu. Jen první
+        // hodinu — pak 'error' a „Znovu parsovat" ručně. Pravidla jsou
+        // v ../_shared/opakovani-cteni.ts (12. 10. 2026: „ať to zkouší
+        // víckrát, po nějaké době"; 17. 11. 2026: 546 se neopakovalo vůbec).
+        // Jiná chyba (pád v téhle funkci, špatný požadavek) = 'error' hned.
+        const ted = Date.now();
+        const poChybe = error instanceof ChybaCteni
+          ? poChybeCteni({
+            status: error.status,
+            chyba: error.message,
+            stariMs: ted - new Date(message.created_at).getTime(),
+            ted,
+          })
+          : { status: "error" as const, error_message: error?.message || "Unknown processing error" };
+        await safeUpdateMessage(supabase, message.id, poChybe, "pending");
 
         results.push({
           id: message.id,

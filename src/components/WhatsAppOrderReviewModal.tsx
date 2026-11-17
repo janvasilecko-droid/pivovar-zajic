@@ -13,7 +13,7 @@ import { PlaceCombobox } from './PlaceCombobox';
 import { Modal } from './ui';
 import { PhotoReviewPane } from './PhotoReviewPane';
 import { analyzeReadback, buildHighlightedSegments, diffWords, computeReadbackUnmatchedCount, partKindLabel, type ReadbackItem, type ReadbackMatch } from '../lib/whatsappReadback';
-import { srozumitelnaChybaCteni, unikatniHlaseni } from '../lib/cteniObjednavkyZobrazeni';
+import { cekaNaCteni, srozumitelnaChybaCteni, unikatniHlaseni } from '../lib/cteniObjednavkyZobrazeni';
 import { AlertCircle, AlertTriangle, Check, CheckCircle2, ChevronDown, Download, ExternalLink, Eye, FileText, Image as ImageIcon, MessageSquare, CornerDownRight, HelpCircle, RefreshCw, RotateCcw, ShieldAlert, ShieldCheck, ShoppingCart, UserCheck, X, FilePlus, Plus } from 'lucide-react';
 import { chyba, potvrd, uspech } from '../lib/toast';
 import { zalogujANahlas } from '../lib/chybyHlaseni';
@@ -935,9 +935,13 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   // Starší zprávy (Make.com/Tasker před bridge) můžou mít message_type NULL —
   // nesmí to shodit render (TypeError na .includes).
   const isImage = (message.message_type || '').includes('image');
-  // Fotoobjednávka s dostupnou fotkou → napevno přilepený panel s fotkou
-  // nahoře a scrollovatelný zbytek dole (místo běžného Modalu), ať jde
-  // fotku průběžně porovnávat s přepsanými položkami při scrollování.
+  // Fotoobjednávka s dostupnou fotkou → napevno ukotvený panel s fotkou
+  // (na telefonu pruh nahoře, na širokém displeji pravá půlka) a rolovatelný
+  // zbytek vedle/pod ním — fotku jde průběžně porovnávat s přepsanými
+  // položkami. Fotka proto NENÍ součástí rolovaného obsahu (`body`), ale
+  // vykresluje se zvlášť dole u návratu komponenty. 17. 11. 2026 majitel:
+  // „ta fotka tam má být ukotvená pro kontrolu" — do té doby byla nahoře
+  // v obsahu a při rolování k položkám odjela pryč.
   const useFullscreenPhotoLayout = isImage && !!message.media_url;
   // Textová objednávka s originálním textem → stejný princip jako u fotky:
   // napevno přilepený originál zprávy nahoře a scrollovatelné položky dole,
@@ -1851,8 +1855,9 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
           </div>
         )}
 
-        {/* Lístek vedle originálu — originál musí zůstat vidět, ne v Další. */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+        {/* Lístek vedle originálu — originál musí zůstat vidět, ne v Další.
+            U fotky je vedle (ukotvená) fotka sama, proto tu stačí jeden sloupec. */}
+        <div className={`grid grid-cols-1 gap-4 items-start ${useFullscreenPhotoLayout ? '' : 'lg:grid-cols-2'}`}>
           <div className="order-2 lg:order-1 min-w-0">
             <div className="text-sm font-medium mb-2 flex items-center gap-2">
               <Check size={16} className="text-emerald-600" />
@@ -2119,16 +2124,8 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
               </div>
             </div>
           </div>
-          <div className="order-1 lg:order-2 min-w-0 border rounded p-3 bg-sky-50/50 space-y-3">
-            {isImage && message.media_url && (
-              <div className="h-[36vh] sm:h-72 rounded overflow-hidden border border-sky-200">
-                <PhotoReviewPane
-                  photos={[{ dataUrl: message.media_url, name: 'Fotka objednávky' }]}
-                  activeIndex={0}
-                  onChangeIndex={() => {}}
-                />
-              </div>
-            )}
+          {/* Fotka tu není — je ukotvená mimo rolovaný obsah (viz návrat komponenty). */}
+          <div className={`order-1 min-w-0 border rounded p-3 bg-sky-50/50 space-y-3 ${useFullscreenPhotoLayout ? '' : 'lg:order-2'}`}>
             {originalMessageBlock}
           </div>
         </div>
@@ -2237,8 +2234,9 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
               <Check size={15} /> Rozparsováno a importováno do objednávky
             </span>
           ) : isPending ? (
-            <span className="flex items-center gap-1.5">
-              <AlertCircle size={15} /> Čeká na parsování
+            <span className="flex items-center gap-1.5 min-w-0">
+              <AlertCircle size={15} className="shrink-0" />
+              {cekaNaCteni(message.error_message) && chybaCteniText ? chybaCteniText : 'Čeká na parsování'}
             </span>
           ) : isError ? (
             <span className="flex items-center gap-1.5 min-w-0">
@@ -2469,8 +2467,27 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
             <X size={18} />
           </button>
         </div>
-        <div className="flex-1 min-h-0 overflow-y-auto scrollbar-thin p-4 sm:p-6">
-          {body}
+        <div className="flex-1 min-h-0 flex flex-col lg:flex-row sm:landscape:flex-row">
+          {/* 📌 Fotka ukotvená pro kontrolu: stojí mimo rolovaný obsah, takže
+              při rolování k položkám a tlačítkům zůstává vidět. Na telefonu
+              na výšku pruh nahoře; na širokém displeji a na telefonu
+              otočeném na šířku pravá půlka okna (pruh by tam byl moc nízký). */}
+          {useFullscreenPhotoLayout && message.media_url && (
+            <div
+              data-fotka-ukotvena
+              className="shrink-0 h-[36vh] border-b border-sky-200 lg:h-auto lg:w-1/2 lg:order-2 lg:border-b-0 lg:border-l sm:landscape:h-auto sm:landscape:w-1/2 sm:landscape:order-2 sm:landscape:border-b-0 sm:landscape:border-l"
+            >
+              <PhotoReviewPane
+                photos={[{ dataUrl: message.media_url, name: 'Fotka objednávky' }]}
+                activeIndex={0}
+                onChangeIndex={() => {}}
+                vychoziNaSirku
+              />
+            </div>
+          )}
+          <div data-obsah-rolovany className="flex-1 min-h-0 min-w-0 overflow-y-auto scrollbar-thin p-4 sm:p-6">
+            {body}
+          </div>
         </div>
       </div>
     );
