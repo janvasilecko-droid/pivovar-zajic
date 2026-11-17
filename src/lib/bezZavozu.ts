@@ -30,19 +30,35 @@ const KLICE_DNU = ['po', 'ut', 'st', 'ct', 'pa', 'so', 'ne'] as const;
  * nevybere, pivo odchází v den objednávky. Z provozu 16. 11. 2026: objednávka
  * Restaurace bez vybraného dne se ve skladu neodečetla („nevidím ji
  * v rozboru") — databáze objednávce bez dne dává pátek, tady až pátek
- * příštího týdne. Vybraný den nebo datum se nikdy nepřepisuje; stejné
- * pravidlo má databáze (doplnit_datum_zavozu).
+ * příštího týdne.
+ *
+ * Objednávka se závozem bez vybraného dne dostane výchozí den odběratele
+ * (`vychoziDen` z lib/denZavozu.ts — středa; 17. 11. 2026: „u objednávek
+ * nastav primárně závoz středa") a datum nejbližšího takového dne od data
+ * objednávky. Bez výchozího dne (Restaurace se závozem, Lužec…) zůstane bez
+ * dne i data.
+ *
+ * Vybraný den nebo datum se nikdy nepřepisuje; stejná pravidla má databáze
+ * (doplnit_datum_zavozu).
  */
 export function denZavozuProUlozeni(p: {
   bezZavozu: boolean;
   den: string | null | undefined;
   datum: string | null | undefined;
   datumObjednavky: string;
+  /** Výchozí den odběratele ('po'…'ne'), null = žádný. */
+  vychoziDen?: string | null;
 }): { den: string | null; datum: string | null } {
   const den = (p.den ?? '').trim();
   const datum = (p.datum ?? '').trim();
-  if (den || datum || !p.bezZavozu) return { den: den || null, datum: datum || null };
+  if (den || datum) return { den: den || null, datum: datum || null };
   const d = new Date(`${p.datumObjednavky}T00:00:00Z`);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(p.datumObjednavky) || Number.isNaN(d.getTime())) return { den: null, datum: null };
-  return { den: KLICE_DNU[(d.getUTCDay() + 6) % 7], datum: p.datumObjednavky };
+  const denObjednavky = (d.getUTCDay() + 6) % 7;
+  if (p.bezZavozu) return { den: KLICE_DNU[denObjednavky], datum: p.datumObjednavky };
+  const cil = (KLICE_DNU as readonly string[]).indexOf(p.vychoziDen ?? '');
+  if (cil < 0) return { den: null, datum: null };
+  // Nejbližší takový den od data objednávky (ten den včetně) — jako databáze.
+  d.setUTCDate(d.getUTCDate() + ((cil - denObjednavky + 7) % 7));
+  return { den: KLICE_DNU[cil], datum: d.toISOString().slice(0, 10) };
 }

@@ -33,6 +33,7 @@ import { datumDne, datumPraha, textRikaPristiTyden } from '../../supabase/functi
 import { datumZeZpravy, relativniDen } from '../../supabase/functions/_shared/datum-ze-zpravy';
 import { DenZavozuTlacitka } from './DenZavozuTlacitka';
 import { nactiZvyklosti, neobvykleMnozstvi, type Zvyklosti } from '../lib/zvyklostiOdberatele';
+import { vychoziDenZavozu } from '../lib/denZavozu';
 import { useMaleSudy, useHlidaniMalychSudu } from '../lib/useMaleSudy';
 import { rozdelMaleSudyVObjednavce, silaPiva } from '../lib/maleSudy';
 import { MaleSudyRadek, tridaRadkuSudu } from './MaleSudyVolne';
@@ -123,6 +124,8 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   // 📅 Den závozu hned při čtení zprávy (29. 9. 2026) — předvyplní se tím,
   // co přečetla AI nebo co je v textu („závoz v úterý"), a jde změnit.
   // Z historie odběratele se NEdoplňuje (29. 10. 2026) — viz efekt níž.
+  // Když zpráva den neříká a nikdo ho nevybral, zůstává tu null a platí
+  // výchozí den odběratele (`den` níž — středa, 17. 11. 2026).
   const [denZavozu, setDenZavozu] = useState<string | null>(null);
   // 🧭 Zvyklosti odběratele (lib/zvyklostiOdberatele.ts): 2. závoz se
   // předvyplní, neobvyklé množství se u položky označí.
@@ -906,11 +909,25 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   // 12sv" — server ho tehdy nepřečetl a okno ukázalo „Den závozu nevybráno").
   // Platí pro zprávy, kde ho server nedoplnil (i ty přečtené před opravou).
   const zeZpravy = msg ? denADatumZeZpravy(msg) : null;
+  // 📅 Výchozí den (17. 11. 2026, majitel: „u objednávek nastav primárně závoz
+  // středa, pokud není jinak označeno ve zprávě — objednávka typu 2x30 se
+  // automaticky označí středa, ale uživatel si ji může změnit"). Zpráva bez
+  // dne dostane den odběratele podle stejného pravidla jako databáze
+  // (lib/denZavozu.ts): středa, u Restaurace, Lužce, Seebergu a Prodejny žádný.
+  // Databáze ho dosud doplnila potichu až po schválení a okno přitom hlásilo
+  // „nevybráno"; teď je den vidět předem a jde změnit. Den ze zprávy, od AI
+  // nebo vybraný rukou má vždy přednost.
+  // Odpověď, která jen doplňuje existující objednávku, její den nemění — tam se výchozí den neukazuje.
+  const denVychozi = msg?.amends_order_id
+    ? null
+    : vychoziDenZavozu(props.places, placeId || msg?.parsed_place_id || null, placeName || msg?.parsed_place_name || null);
+  const den = denZavozu ?? (datumRucne ? null : denVychozi);
+  const denJeVychozi = !denZavozu && !!den;
   const datumDneZavozu = datumRucne ? datumRucne
-    : !denZavozu ? null
-    : denZavozu === msg?.parsed_delivery_day && msg?.parsed_delivery_date ? msg.parsed_delivery_date
-    : zeZpravy && denZavozu === zeZpravy.den ? zeZpravy.datum
-    : datumDne(denZavozu, businessDateISO(), pristiTyden);
+    : !den ? null
+    : den === msg?.parsed_delivery_day && msg?.parsed_delivery_date ? msg.parsed_delivery_date
+    : zeZpravy && den === zeZpravy.den ? zeZpravy.datum
+    : datumDne(den, businessDateISO(), pristiTyden);
 
   if (!props.isOpen || !msg) return null;
 
@@ -1123,7 +1140,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
         zpusob_napojeni: zpusobNapojeni ?? undefined,
         parsed_place_id: placeId || message.parsed_place_id,
         parsed_place_name: placeName || message.parsed_place_name,
-        parsed_delivery_day: denZavozu,
+        parsed_delivery_day: den,
         parsed_delivery_date: datumDneZavozu,
         zavoz_cislo: zavozCislo,
         // „Do jejich sudu" se k objednávce připíše do poznámky — pozná ji
@@ -1151,7 +1168,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
         parsedPlaceId: editedMessage.parsed_place_id || null,
         parsedPlaceName: editedMessage.parsed_place_name || null,
         parsedItems: editedMessage.parsed_items,
-        parsedDeliveryDay: denZavozu,
+        parsedDeliveryDay: den,
         parsedDeliveryDate: datumDneZavozu,
       }).catch(() => {});
 
@@ -1172,7 +1189,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
           order_date: businessDateISO(),
           place_id: resolvedPlaceId, place_name: resolvedPlaceName || null,
           source: 'whatsapp', status: 'nova',
-          delivery_day: denZavozu,
+          delivery_day: den,
           delivery_date: datumDneZavozu,
           is_prepared: false, is_packaged: false, is_delivered: false,
         }).select().single();
@@ -1895,12 +1912,15 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
               )}
 
               <DenZavozuTlacitka
-                den={denZavozu}
+                den={den}
                 datum={datumDneZavozu}
                 onDen={(d) => { setDenZavozu(d); setDatumRucne(null); }}
                 onDatum={(d) => { setDatumRucne(d); if (d) setDenZavozu(dayKeyFromISO(d)); }}
                 dnes={businessDateISO()}
-                poznamka={pristiTyden && !datumRucne ? 'příští týden podle zprávy' : null}
+                poznamka={[
+                  denJeVychozi ? 'výchozí den, jde změnit' : null,
+                  pristiTyden && !datumRucne ? 'příští týden podle zprávy' : null,
+                ].filter(Boolean).join(', ') || null}
                 zavoz={zavozCislo}
                 onZavoz={setZavozCislo}
               />

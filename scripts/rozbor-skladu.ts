@@ -23,6 +23,9 @@ import { najdiChybejiciZdrojSudu, najdiPodezrele } from '../src/lib/kontrolaPohy
 // Ne z sdilenaData.ts — ta při načtení zakládá klienta appky z VITE_* proměnných
 // a skript na tom padal dřív, než se vůbec přihlásil.
 import { SLOUPCE } from '../src/lib/sdilenaDataSloupce';
+import { tydenniDoSkladu } from '../src/lib/tydenniInventura';
+import { TYDENNI_INVENTURA_DO_SKLADU } from '../src/lib/skryteModuly';
+import { businessDateISO } from '../src/lib/businessDate';
 
 const URL_DB = process.env.PIVOVAR_SUPABASE_URL || 'https://sasqexjadvlqyticxwja.supabase.co';
 const APPKA = process.env.PIVOVAR_APP_URL || 'https://zajic-pivovar.pages.dev';
@@ -49,21 +52,29 @@ async function anonKlic(): Promise<string> {
 }
 
 async function main() {
-  const email = process.env.PIVOVAR_EMAIL;
-  const heslo = process.env.PIVOVAR_HESLO;
-  if (!email || !heslo) {
-    console.error('Chybí PIVOVAR_EMAIL / PIVOVAR_HESLO v prostředí (nastavení cloudového prostředí → Environment variables).');
-    process.exit(2);
+  // Servisní klíč z prostředí (SUPABASE_SERVICE_ROLE_KEY, viz CLAUDE.md) stačí
+  // sám — bez něj se skript přihlásí jako běžný uživatel appky.
+  const servisniKlic = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  let db: ReturnType<typeof createClient>;
+  if (servisniKlic) {
+    db = createClient(process.env.VITE_SUPABASE_URL || URL_DB, servisniKlic, { auth: { persistSession: false } });
+  } else {
+    const email = process.env.PIVOVAR_EMAIL;
+    const heslo = process.env.PIVOVAR_HESLO;
+    if (!email || !heslo) {
+      console.error('Chybí SUPABASE_SERVICE_ROLE_KEY nebo PIVOVAR_EMAIL / PIVOVAR_HESLO v prostředí (nastavení cloudového prostředí → Environment variables).');
+      process.exit(2);
+    }
+    // Zástupný text („…") místo skutečných údajů dopadne na serveru jako
+    // „Invalid login credentials" a vypadá to jako špatné heslo.
+    if (!email.includes('@')) {
+      console.error('PIVOVAR_EMAIL není e-mail (je v něm jen zástupný text?) — v nastavení cloudového prostředí musí být skutečné přihlašovací údaje do appky.');
+      process.exit(2);
+    }
+    db = createClient(URL_DB, await anonKlic(), { auth: { persistSession: false } });
+    const { error: chybaPrihlaseni } = await db.auth.signInWithPassword({ email, password: heslo });
+    if (chybaPrihlaseni) throw new Error('Přihlášení selhalo: ' + chybaPrihlaseni.message);
   }
-  // Zástupný text („…") místo skutečných údajů dopadne na serveru jako
-  // „Invalid login credentials" a vypadá to jako špatné heslo.
-  if (!email.includes('@')) {
-    console.error('PIVOVAR_EMAIL není e-mail (je v něm jen zástupný text?) — v nastavení cloudového prostředí musí být skutečné přihlašovací údaje do appky.');
-    process.exit(2);
-  }
-  const db = createClient(URL_DB, await anonKlic(), { auth: { persistSession: false } });
-  const { error: chybaPrihlaseni } = await db.auth.signInWithPassword({ email, password: heslo });
-  if (chybaPrihlaseni) throw new Error('Přihlášení selhalo: ' + chybaPrihlaseni.message);
 
   async function vse(tabulka: string, sloupce: string): Promise<any[]> {
     const out: any[] = [];
@@ -75,7 +86,7 @@ async function main() {
     }
   }
 
-  const [piva, obaly, bottling, kegging, fasovani, prodejna, odpisy, inventura, dorovnani, odpocty, akce, prefuk, objednavky, polozky] = await Promise.all([
+  const [piva, obaly, bottling, kegging, fasovani, prodejna, odpisy, inventuraMesicni, dorovnani, odpoctyVse, akce, prefuk, objednavky, polozky, tydenni] = await Promise.all([
     vse('beers', 'id,name'),
     vse('packages', 'id,label,kind,volume_l'),
     vse('bottling', SLOUPCE.bottling),
@@ -91,7 +102,13 @@ async function main() {
     vse('keg_prefuk', SLOUPCE.keg_prefuk),
     vse('orders', 'id,order_date,delivery_date,delivery_day,place_name,status,is_delivered,note,created_at'),
     vse('order_items', 'id,order_id,beer_id,package_id,quantity'),
+    vse('tydenni_inventura', 'tyden_od,tyden_do,beer_id,beer_name,package_id,package_label,napocitano,updated_at'),
   ]);
+  // Stejně jako Sklad v appce (lib/sdilenaData.ts): Úprava skladu z týdenní
+  // inventury je reset stavu a odpočet s datem v budoucnu se ještě nepočítá.
+  const inventura = TYDENNI_INVENTURA_DO_SKLADU ? [...inventuraMesicni, ...tydenniDoSkladu(tydenni)] : inventuraMesicni;
+  const dnes = businessDateISO();
+  const odpocty = odpoctyVse.filter((d: any) => !d.deduct_date || String(d.deduct_date).slice(0, 10) <= dnes);
   const pohyby = buildMovements({
     inventoryRows: inventura, bottlingRows: bottling, keggingRows: kegging, fasovaniRows: fasovani,
     prodejnaRows: prodejna, writeoffsRows: odpisy, zavozDeductionRows: odpocty, akceRows: akce,
