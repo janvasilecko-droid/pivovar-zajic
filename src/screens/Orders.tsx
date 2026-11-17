@@ -17,7 +17,7 @@ import { consumeOrdersItemFilter, consumeOrdersAutoImportRequest, consumeOrdersO
 import { businessDateISO, posunMesic, posunDen } from '../lib/businessDate';
 import { computeVariantTotals } from '../lib/variantTotals';
 import { vyhovujeDruhu, type DruhObaluFiltr } from '../lib/druhObalu';
-import { jeAutomatickyBezZavozu } from '../lib/bezZavozu';
+import { denZavozuProUlozeni, jeAutomatickyBezZavozu } from '../lib/bezZavozu';
 
 import { PlaceCombobox } from '../components/PlaceCombobox'; // Assuming this is needed
 import { DAYS } from '../lib/shared';
@@ -190,7 +190,11 @@ export default function Orders({
   const [weekKey, setWeekKey] = useState(isoWeekKey(businessDateISO()));
 
   // inline quick-add
-  const [date, setDate] = useState(businessDateISO());
+  // Datum objednávky se bere až při uložení (addOrder), ne z doby, kdy se
+  // obrazovka otevřela: appka otevřená přes půlnoc uložila 16. 11. 2026
+  // objednávku s včerejším datem. Tady zůstává jen datum z fotky pro okno
+  // rezervace výčepu.
+  const [datumProVycep, setDatumProVycep] = useState<string | null>(null);
   const [placeId, setPlaceId] = useState('');
   const [placeNameFree, setPlaceNameFree] = useState('');
   // 🚚❌ Bez závozu — u jmenovaných odběratelů (viz lib/bezZavozu.ts) se
@@ -1173,6 +1177,11 @@ export default function Orders({
     if (jeVMinulemTydnu(deliveryDate, businessDateISO())
       && !(await potvrd(`Závoz ${datumKratce(deliveryDate)} je v MINULÉM týdnu. Opravdu tam objednávku uložit?`))) return;
     setSaving(true);
+    // Datum objednávky = dnešek v okamžiku uložení. „Bez závozu" bez vybraného
+    // dne odchází ten den (lib/bezZavozu.ts) — jinak by se ze skladu odečetla
+    // až v pátek.
+    const datumObjednavky = businessDateISO();
+    const zavoz = denZavozuProUlozeni({ bezZavozu: noDelivery, den: deliveryDay, datum: deliveryDate, datumObjednavky });
 
     const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
 
@@ -1210,8 +1219,8 @@ export default function Orders({
       const shody = await najdiDuplicitniObjednavky({
         placeId: group.resolvedPlaceId,
         placeName: group.resolvedName,
-        orderDate: date,
-        deliveryDate: deliveryDate || null,
+        orderDate: datumObjednavky,
+        deliveryDate: zavoz.datum,
         radky: group.rows.map((r) => ({ beerId: r.beerId, pkgId: r.pkgId, qty: Number(r.qty) })),
       });
       if (shody?.length && (await zeptejSeNaDuplicitu(shody, nazvyZKatalogu(beers, packages))) !== 'presto') {
@@ -1235,9 +1244,9 @@ export default function Orders({
         }
 
         const { data: order, error } = await supabase.from('orders').insert({
-          order_date: date, place_id: pId, place_name: group.resolvedName || null,
-          source: 'rucne', status: 'nova', delivery_day: deliveryDay || null,
-          delivery_date: deliveryDate || null,
+          order_date: datumObjednavky, place_id: pId, place_name: group.resolvedName || null,
+          source: 'rucne', status: 'nova', delivery_day: zavoz.den,
+          delivery_date: zavoz.datum,
           is_prepared: false, is_packaged: false, note: note.trim() || null,
           no_delivery: noDelivery,
         }).select().single();
@@ -1266,7 +1275,7 @@ export default function Orders({
       // WhatsApp s předvyplněnou zprávou, uživatel jen vybere kam poslat.
       if (sendWhatsApp && firstOrderItems) {
         shareOrderToWhatsApp(
-          { place_name: firstPlaceName || null, order_date: date, delivery_day: deliveryDay || null, delivery_date: deliveryDate || null, note: note.trim() || null },
+          { place_name: firstPlaceName || null, order_date: datumObjednavky, delivery_day: zavoz.den, delivery_date: zavoz.datum, note: note.trim() || null },
           firstOrderItems
         );
       }
@@ -1379,7 +1388,7 @@ export default function Orders({
     setBeerRows(Array.from({ length: 4 }, () => novyRadek()));
     setNote(''); setDeliveryDate(''); setDeliveryDay(''); setErr(null);
     setFlash(true); zhasniFlash(800);
-    setWeekKey(isoWeekKey(deliveryDate || date));
+    setWeekKey(isoWeekKey(deliveryDate || businessDateISO()));
     setWantTap(false); setTapReservedEarlyId(null);
     setSaving(false);
     load();
@@ -1389,6 +1398,7 @@ export default function Orders({
   function handleTapModalDone() {
     setShowTapModal(false);
     setTapModalOrderId(undefined);
+    setDatumProVycep(null);
     // Okno otevřené ze zaškrtávacího pole „Půjčení výčepu" před uložením —
     // jen ho zavřeme a necháme formulář nedotčený.
     if (!tapModalAfterSave) return;
@@ -2331,6 +2341,14 @@ export default function Orders({
             />
             <span>Bez závozu — odběratel si bere pivo sám, nejde do trasy.</span>
           </label>
+          {/* Bez vybraného dne odchází pivo v den objednávky — 16. 11. 2026 se
+              objednávka Restaurace bez dne ze skladu neodečetla (databáze jí
+              dala pátek). Ať je vidět, co se stane, dřív než se uloží. */}
+          {noDelivery && !deliveryDay && !deliveryDate && (
+            <p data-testid="bez-zavozu-dnes" className="mt-1 text-[11px] font-bold text-neutral-700">
+              Den není vybraný — objednávka se odečte ze skladu dnes ({datumKratce(businessDateISO())}). Jiný den vyber nahoře v „Datum závozu“.
+            </p>
+          )}
 
           {/* 🚨 Výjimka „Stočit dnes" — sud/lahev potřebuje den na dozrání,
               takže normálně se stáčí na den PŘED závozem (viz Domů, „Co
@@ -3174,7 +3192,7 @@ export default function Orders({
                 if (meta.note && isTapMentioned(meta.note)) {
                   setTapModalOrderId(order.id);
                   setTapModalCustomer(placeName || meta.placeName || '');
-                  setDate(orderDate);
+                  setDatumProVycep(orderDate);
                   setNote(meta.note);
                   setShowTapModal(true);
                 }
@@ -3216,7 +3234,7 @@ export default function Orders({
               if (meta.note && isTapMentioned(meta.note)) {
                 setTapModalOrderId(orderId);
                 setTapModalCustomer(meta.placeName || '');
-                setDate(targetDate);
+                setDatumProVycep(targetDate);
                 setNote(meta.note);
                 setShowTapModal(true);
               }
@@ -3234,7 +3252,7 @@ export default function Orders({
       {/* 🚰 Modální okno pro výběr výčepu k rezervaci */}
       {showTapModal && (
         <TapReservationModal
-          orderDate={deliveryDate || date}
+          orderDate={deliveryDate || datumProVycep || businessDateISO()}
           customerName={tapModalCustomer}
           orderId={tapModalOrderId}
           tapTypeHint={detectTapType(note)}
