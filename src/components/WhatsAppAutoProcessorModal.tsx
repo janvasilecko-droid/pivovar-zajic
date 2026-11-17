@@ -3,7 +3,7 @@ import { Beer, Package, Place } from '../lib/supabase';
 import { WhatsAppIncoming, fetchPendingWhatsAppMessages, updateWhatsAppMessageStatus, fetchWhatsAppSenders, isSenderAllowed, type WhatsAppSender } from '../lib/whatsappApi';
 import { parseWhatsAppOrderMessageWithAI } from '../lib/whatsappParser';
 import { analyzeReadback, findSimilarMessages } from '../lib/whatsappReadback';
-import { popisMistaADne, popisPrectenychPolozek, srozumitelnaChybaCteni } from '../lib/cteniObjednavkyZobrazeni';
+import { cekaNaCteni, popisMistaADne, popisPrectenychPolozek, srozumitelnaChybaCteni } from '../lib/cteniObjednavkyZobrazeni';
 import { Modal, Spinner } from './ui';
 import { AlertCircle, AlertTriangle, ArrowDownUp, Check, CheckSquare, Clock, Copy, Download, Filter, MessageSquare, RefreshCw, Square, Trash2, X, XCircle } from 'lucide-react';
 import { zalogujANahlas } from '../lib/chybyHlaseni';
@@ -545,7 +545,12 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
                         </div>
                       )}
                       {chybaCteni && (
-                        <div className="text-xs font-bold text-rose-800 mt-1.5">{chybaCteni}</div>
+                        <div
+                          data-stav-cteni={cekaNaCteni(message.error_message) ? 'ceka' : 'chyba'}
+                          className={`text-xs font-bold mt-1.5 ${cekaNaCteni(message.error_message) ? 'text-amber-900' : 'text-rose-800'}`}
+                        >
+                          {chybaCteni}
+                        </div>
                       )}
                       {isMismatch && !chybaCteni && (
                         <div className="text-xs font-bold text-amber-900 mt-1.5">

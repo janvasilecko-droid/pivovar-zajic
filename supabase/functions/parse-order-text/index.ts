@@ -1,37 +1,35 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { readJsonWithLimit, requireApprovedUser } from "../_shared/require-user.ts";
 import { vlastniJmenaPiv } from "../_shared/beer-match.ts";
-import { ctiPresGemini, dostupneModelyGemini, planPokusuFoto, planPokusuText } from "../_shared/gemini-cteni.ts";
+import { ctiPresGemini, dostupneModelyGemini, planPokusuText, planyFotky, type PokusGemini } from "../_shared/gemini-cteni.ts";
+import { ctiSPoradim, NEPRECTENO, signalSCasem, type DrahaCteni } from "../_shared/cteni-poradi.ts";
+import { REZERVA_PRO_ZALOHY_MS, stropCteni } from "../_shared/cas-cteni.ts";
 import { PRAVIDLA_CTENI_OBJEDNAVEK, RUKOPIS_LISTKU } from "../_shared/order-rules.ts";
 import { prepisFotkyGoogle, sekceOcr, textSOcr } from "../_shared/google-ocr.ts";
 
 // ⏱️ Časové stropy pro jednotlivé AI poskytovatele.
 // ---------------------------------------------------------------------------
-// Funkce zkouší Gemini → Groq → Mistral (jen bezplatné tarify — 12. 10. 2026
-// majitel: „chci to zadarmo"; placené OpenAI a Claude se nevolají) a při chybě
-// přepne na dalšího. Dokud tady timeouty nebyly, platilo to jen pro poskytovatele, který
-// ODPOVĚDĚL chybou — když se některý zasekl a neodpověděl vůbec, čekalo se na
-// něj až do tvrdého limitu platformy (150 s) a záložní poskytovatelé se nikdy
-// nespustili. Volání skončilo HTTP 546/504 a objednávka se nepřečetla vůbec,
-// přestože tři funkční záložní poskytovatelé byli k dispozici.
-// Součet stropů musí zůstat bezpečně pod 150 s.
+// Čte se jen zdarma (12. 10. 2026 majitel: „chci to zadarmo"; placené OpenAI
+// a Claude se nevolají): Gemini, Groq, Mistral, OpenRouter. Každé volání má
+// vlastní strop — poskytovatel, který se zasekne a neodpoví vůbec, by jinak
+// držel čtení až do konce a ostatní by se nedostali na řadu.
+//
+// CELÉ čtení se musí vejít do času, který server jednomu volání dá — a to je
+// jistých jen 75 s, ne 150 (viz _shared/cas-cteni.ts). Do 17. 11. 2026 se tu
+// počítalo se 140 s a pokusy šly za sebou; ten den byl Gemini přetížený, čtení
+// fotky trvalo přes dvě minuty a skončilo HTTP 546 — zpráva se nepřečetla
+// vůbec. Proto teď pokusy běží SOUBĚŽNĚ s pořadím (_shared/cteni-poradi.ts)
+// a celek hlídá stropCteni() (58 s, volající může poslat míň).
 const AI_TIMEOUT_MS = {
   gemini: 30_000,
   // Ručně psaná fotka trvá Gemini déle než 30 s — 12. 10. 2026 při 30 s
   // spadla na gpt-4o-mini, který vynechal půlku řádků; Gemini sám ji
-  // přečetl celou (21/21). U fotky hlídá celkový strop CELKOVY_STROP_MS.
+  // přečetl celou (21/21). U fotky hlídá celek stropCteni().
   geminiFoto: 55_000,
   groq: 25_000,
   mistral: 25_000,
   openrouter: 40_000,
 };
-
-// Celkový čas na čtení — pod tvrdým limitem platformy 150 s. Každý další
-// provider dostane nejvýš to, co zbývá (u fotky se Gemini může zkoušet dvakrát).
-const CELKOVY_STROP_MS = 140_000;
-// Když je fotka přepsaná (OCR), Gemini smí číst fotku jen do téhle rezervy —
-// zbytek času dostanou AI, které čtou přepis jako text.
-const REZERVA_PRO_TEXT_MS = 40_000;
 
 // Fotku umí z bezplatných poskytovatelů jen modely s obrazem. Groq je
 // průběžně mění (12. 10. 2026 neměl žádný — Llama 4 vyřazena), proto se
@@ -413,13 +411,26 @@ PŘÍKLAD PŘIDÁNÍ (přesně tenhle případ se v provozu spletl):
       auth.user.id === "system-cron" && Array.isArray(body._vynechat) ? body._vynechat : [],
     );
     const zacatekCteni = Date.now();
+    // Kolik času tohle čtení má (viz _shared/cas-cteni.ts); volající může
+    // poslat míň (whatsapp-auto-parse hlídá i svůj vlastní čas).
+    const stropMs = stropCteni(body.maxMs);
+    // 📷 „Jen nejlepší čtení": u čerstvé fotky z WhatsAppu se slabší čtení
+    // (menší modely, čtení z přepisu) vůbec nezkouší — když Gemini zrovna
+    // nemůže, zpráva počká a za pár minut se zkusí znovu (whatsapp-auto-parse).
+    // 12. 10. 2026 majitel: „ať to Gemini zkouší víckrát, po nějaké době".
+    const jenNejlepsi = !!imageBase64 && body.cteniFotky === "nejlepsi";
+    // „Vším hned": fotka, kterou Gemini nepřečetl ani po několika minutách —
+    // zálohy startují zároveň s ním (jinak až při potížích, viz cteni-poradi.ts).
+    const zalohyHned = !!imageBase64 && body.cteniFotky === "vse";
+    // Kolikáté čtení téže zprávy to je — střídá náhradní verze Gemini.
+    const kolo = Number.isFinite(Number(body.kolo)) ? Math.max(0, Math.floor(Number(body.kolo))) : 0;
 
     // 🔎 Fotka se nejdřív přepíše na text (Google Vision, 12. 10. 2026 majitel:
     // „ať to rovnou udělá Google Vision a pak teprve AI čte ten text"). Gemini
     // pak dostane fotku i přepis, ostatní AI čtou přepis jako text.
     const chybyOcr: string[] = [];
     const ocrText = imageBase64 && visionKey && !vynechat.has("ocr")
-      ? await prepisFotkyGoogle({ klic: visionKey, imageBase64, admin: supabase, chyby: chybyOcr, timeoutMs: 15_000 })
+      ? await prepisFotkyGoogle({ klic: visionKey, imageBase64, admin: supabase, chyby: chybyOcr, timeoutMs: Math.min(12_000, Math.round(stropMs / 4)) })
       : "";
 
     // Když je ke zprávě přiložená i FOTKA, AI ji přečte taky (Gemini vision).
@@ -732,211 +743,269 @@ ${photoSection}`;
     };
 
 
-    let text = "";
     // Kolik smí trvat další volání: nominální strop, ale nejvýš co zbývá z celku.
-    const zbyvaMs = () => CELKOVY_STROP_MS - (Date.now() - zacatekCteni);
+    const zbyvaMs = () => stropMs - (Date.now() - zacatekCteni);
     const strop = (ms: number) => Math.max(1_000, Math.min(ms, zbyvaMs()));
 
-    // Který provider odpověděl a proč ostatní ne — vrací se v odpovědi
-    // (_provider, _provider_chyby), ať jde čtení fotky zpětně dohledat.
-    let pouzityProvider = "";
+    // Proč kdo nepřečetl — vrací se v odpovědi (_provider_chyby), ať jde
+    // čtení fotky zpětně dohledat. Kdo přečetl, vrací dráha sama (_provider).
     const chybyProvideru: string[] = [...chybyOcr];
     const prijmi = (provider: string, candidate: string): string => {
       const t = acceptOutput(provider, candidate, beerNameKeys, pkgLabelKeys);
-      if (t) pouzityProvider = ocrText ? `ocr+${provider}` : provider;
-      else chybyProvideru.push(`${provider}: ${candidate ? "nevalidní výstup" : "prázdná odpověď"}`);
+      if (!t) chybyProvideru.push(`${provider}: ${candidate ? "nevalidní výstup" : "prázdná odpověď"}`);
       return t;
     };
 
-    // 1) Primární provider: Google Gemini (nativní JSON mode).
-    //    Gemini má velkorysé rate limity (na rozdíl od OpenAI TPM limitů)
-    //    a čtení funguje bez kreditů navíc.
-    //    Pozn.: "gemini-2.5-flash" už Google nezpřístupňuje novým klíčům (HTTP 404),
-    //    proto používáme gemini-3.5-flash (GA, stejná kategorie flash).
-    // U fotky se Gemini zkouší víckrát s pauzami a s jinými bezplatnými modely
-    // téhož klíče (viz _shared/gemini-cteni.ts) — jeho čtení rukopisu je
-    // výrazně lepší než ostatní (12. 10. 2026: Gemini 21/21 řádků správně).
-    if (!text && geminiKey && !vynechat.has("gemini")) {
-      // I text: 12. 10. 2026 byl gemini-3.5-flash přetížený (503) a jediný
-      // pokus nestačil — zkusí se i další bezplatné verze (vlastní kvóty).
+    // Dráhy čtení — běží souběžně a vyhrává ta nejvýš v pořadí, která něco
+    // přečetla (viz _shared/cteni-poradi.ts). `nejlepsi` startují hned,
+    // `zalohy` až když nejlepší skončí bez výsledku nebo dochází čas.
+    const nejlepsi: DrahaCteni[] = [];
+    const zalohy: DrahaCteni[] = [];
+
+    // 1) Google Gemini (nativní JSON mode) — bezplatný klíč, čtení funguje bez
+    //    kreditů navíc. "gemini-2.5-flash" Google novým klíčům nezpřístupňuje
+    //    (HTTP 404), proto gemini-3.5-flash (GA, stejná kategorie flash).
+    //    U FOTKY čte hlavní model (při přetížení ještě dvakrát po pauze)
+    //    a vedle něj dvě náhradní „flash" verze téhož klíče — čtou rukopis
+    //    výrazně líp než ostatní (12. 10. 2026: Gemini 21/21 řádků správně).
+    //    Gemma a „lite" čtou hůř, ty jsou až mezi zálohami.
+    //    U TEXTU jde napřed „lite" (velká bezplatná kvóta), pak další verze —
+    //    12. 10. 2026 byl gemini-3.5-flash přetížený (503) a jediný pokus nestačil.
+    if (geminiKey && !vynechat.has("gemini")) {
       const dostupne = await dostupneModelyGemini(geminiKey);
       chybyProvideru.push(`gemini nabízí: ${dostupne ? dostupne.filter((m) => /flash|gemma/.test(m)).join(", ") : "seznam nenačten"}`);
-      const plan = imageBase64 ? planPokusuFoto(dostupne) : planPokusuText(dostupne);
-      text = await ctiPresGemini({
-        klic: geminiKey,
-        plan,
-        parts: [
-          { text: prompt },
-          { text: ocrText ? textSOcr(rawText, ocrText) : `TEXT OBJEDNÁVKY Z WHATSAPP:\n"""\n${rawText}\n"""` },
-          ...(imageBase64 ? [{ inline_data: { mime_type: imageMimeType, data: imageBase64 } }] : []),
-        ],
-        timeoutMs: imageBase64 ? AI_TIMEOUT_MS.geminiFoto : AI_TIMEOUT_MS.gemini,
-        // S přepisem nechá Gemini čas i AI na text (fotku pak čtou z přepisu).
-        zbyvaMs: ocrText ? () => zbyvaMs() - REZERVA_PRO_TEXT_MS : zbyvaMs,
-        prijmi: (model, candidate) => prijmi(model === "gemini-3.5-flash" ? "gemini" : `gemini:${model}`, candidate),
-        chyby: chybyProvideru,
-      });
+      const casti = [
+        { text: prompt },
+        { text: ocrText ? textSOcr(rawText, ocrText) : `TEXT OBJEDNÁVKY Z WHATSAPP:\n"""\n${rawText}\n"""` },
+        ...(imageBase64 ? [{ inline_data: { mime_type: imageMimeType, data: imageBase64 } }] : []),
+      ];
+      // `hlasiPotiz`: selhání téhle dráhy znamená, že nejlepší čtení má potíže
+      // (hlavní model fotky, čtení textu) — ne náhradní verze, ty jsou navíc.
+      const drahaGemini = (plan: PokusGemini[], hlasiPotiz = false): DrahaCteni => async (zrus, potiz) => {
+        let provider = "";
+        const text = await ctiPresGemini({
+          klic: geminiKey,
+          plan,
+          parts: casti,
+          timeoutMs: imageBase64 ? AI_TIMEOUT_MS.geminiFoto : AI_TIMEOUT_MS.gemini,
+          zbyvaMs,
+          zrus,
+          priChybe: hlasiPotiz ? potiz : undefined,
+          prijmi: (model, candidate) => {
+            const jmeno = model === "gemini-3.5-flash" ? "gemini" : `gemini:${model}`;
+            const t = prijmi(jmeno, candidate);
+            if (t) provider = jmeno;
+            return t;
+          },
+          chyby: chybyProvideru,
+        });
+        return { text, provider };
+      };
+      if (imageBase64) {
+        const plany = planyFotky(dostupne, kolo);
+        nejlepsi.push(drahaGemini(plany.hlavni, true), ...plany.nahradni.map((plan) => drahaGemini(plan)));
+        if (plany.slabsi.length > 0) zalohy.push(drahaGemini(plany.slabsi));
+      } else {
+        nejlepsi.push(drahaGemini(planPokusuText(dostupne), true));
+      }
     }
 
-    // 2) Fallback: Groq. Jakmile Gemini vrátí chybu nebo vyčerpá denní limit
-    //    (HTTP 429/500/503), přepneme OKAMŽITĚ (bez čekání, řádově 0,5 s),
-    //    takže čtení objednávek z WhatsAppu funguje 24/7 bez přerušení.
-    //
+    // 2) Záloha: Groq.
     //    ⚠️ Groq modely průběžně vyřazuje. 26. 8. 2026 vracel natvrdo zadraný
     //    "llama-3.3-70b-versatile" chybu 404 "model does not exist" — záloha
     //    tedy tiše nefungovala vůbec a nikdo to nepoznal, protože se to
     //    logovalo jen jako varování. Proto se zkouší několik modelů za sebou:
     //    404 přijde řádově do 200 ms, takže to nic nestojí, a když Groq model
     //    zase přejmenuje, záloha se opraví sama.
-    if (!text && groqKey && !vynechat.has("groq") && zbyvaMs() > 5_000) {
-      const groqUrl = "https://api.groq.com/openai/v1/chat/completions";
-      // Groq modely průběžně vyřazuje (12. 10. 2026: llama-3.3/3.1/4 už 404,
-      // zbyl gpt-oss-120b s limitem 8000 tokenů/min) — model se vybere podle
-      // toho, co Groq právě nabízí. Fotka jen modely s obrazem.
-      let groqModely = fotkaOstatnim ? GROQ_MODELY_FOTO : GROQ_MODELY;
-      try {
-        const seznam = await fetch("https://api.groq.com/openai/v1/models", {
-          signal: AbortSignal.timeout(5_000),
-          headers: { "Authorization": `Bearer ${groqKey}` },
-        });
-        if (seznam.ok) {
-          const ids: string[] = ((await seznam.json())?.data ?? [])
-            .filter((m: any) => m?.active !== false)
-            .map((m: any) => String(m?.id ?? ""));
-          if (fotkaOstatnim) {
-            groqModely = ids.filter((id) => /vision|llama-4|scout|maverick|-vl\b|vl-|gemma-3|pixtral|llava/i.test(id));
-          } else {
-            const textove = ids.filter((id) => !/whisper|guard|tts|playai|orpheus|compound|distil|embed/i.test(id));
-            // Známé dobré napřed, ostatní dostupné za nimi.
-            groqModely = [...GROQ_MODELY.filter((m) => textove.includes(m)), ...textove.filter((m) => !GROQ_MODELY.includes(m))];
-          }
-          chybyProvideru.push(`groq nabízí: ${ids.join(", ") || "nic"}`);
-        }
-      } catch { /* bez seznamu zkusí pevné názvy */ }
-      for (const model of groqModely) {
-        if (text || zbyvaMs() < 5_000) break;
+    if (groqKey && !vynechat.has("groq")) {
+      zalohy.push(async (zrus) => {
+        const groqUrl = "https://api.groq.com/openai/v1/chat/completions";
+        // Model se vybere podle toho, co Groq právě nabízí (12. 10. 2026:
+        // llama-3.3/3.1/4 už 404, zbyl gpt-oss-120b s limitem 8000 tokenů/min).
+        // Fotka jen modely s obrazem.
+        let groqModely = fotkaOstatnim ? GROQ_MODELY_FOTO : GROQ_MODELY;
         try {
-          const groqResp = await fetch(groqUrl, {
-            signal: AbortSignal.timeout(strop(AI_TIMEOUT_MS.groq)),
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${groqKey}`,
-            },
-            body: JSON.stringify({ ...groqBody, model }),
+          const seznam = await fetch("https://api.groq.com/openai/v1/models", {
+            signal: signalSCasem(5_000, zrus),
+            headers: { "Authorization": `Bearer ${groqKey}` },
           });
-
-          if (groqResp.ok) {
-            const groqData = await groqResp.json();
-            const candidate = groqData?.choices?.[0]?.message?.content ?? "";
-            text = prijmi("groq", candidate);
-            if (text) console.log(`Groq: použit model ${model}`);
-          } else {
-            const errText = await groqResp.text();
-            console.warn(`Groq API error (model ${model}, status ${groqResp.status}): ${errText.slice(0, 200)}`);
-            chybyProvideru.push(`groq ${model}: HTTP ${groqResp.status} ${errText.slice(0, 200)}`);
-            // Model neexistuje (404) nebo je na něj prompt moc velký (413) →
-            // zkus další model. Jiná chyba (limit, výpadek) → další model to
-            // nespraví, jdi rovnou na dalšího poskytovatele.
-            // 429 = limit modelu (Groq má limity po modelech) → další model.
-            if (![400, 404, 413, 429].includes(groqResp.status)) break;
+          if (seznam.ok) {
+            const ids: string[] = ((await seznam.json())?.data ?? [])
+              .filter((m: any) => m?.active !== false)
+              .map((m: any) => String(m?.id ?? ""));
+            if (fotkaOstatnim) {
+              groqModely = ids.filter((id) => /vision|llama-4|scout|maverick|-vl\b|vl-|gemma-3|pixtral|llava/i.test(id));
+            } else {
+              const textove = ids.filter((id) => !/whisper|guard|tts|playai|orpheus|compound|distil|embed/i.test(id));
+              // Známé dobré napřed, ostatní dostupné za nimi.
+              groqModely = [...GROQ_MODELY.filter((m) => textove.includes(m)), ...textove.filter((m) => !GROQ_MODELY.includes(m))];
+            }
+            chybyProvideru.push(`groq nabízí: ${ids.join(", ") || "nic"}`);
           }
-        } catch (err) {
-          console.warn(`Groq API exception (model ${model}, timeout nebo síť): ${err instanceof Error ? err.name + ": " + err.message : err}`);
-          break;
+        } catch { /* bez seznamu zkusí pevné názvy */ }
+        for (const model of groqModely) {
+          if (zrus.aborted || zbyvaMs() < 5_000) break;
+          try {
+            const groqResp = await fetch(groqUrl, {
+              signal: signalSCasem(strop(AI_TIMEOUT_MS.groq), zrus),
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${groqKey}`,
+              },
+              body: JSON.stringify({ ...groqBody, model }),
+            });
+
+            if (groqResp.ok) {
+              const groqData = await groqResp.json();
+              const candidate = groqData?.choices?.[0]?.message?.content ?? "";
+              const text = prijmi("groq", candidate);
+              if (text) {
+                console.log(`Groq: použit model ${model}`);
+                return { text, provider: "groq" };
+              }
+            } else {
+              const errText = await groqResp.text();
+              console.warn(`Groq API error (model ${model}, status ${groqResp.status}): ${errText.slice(0, 200)}`);
+              chybyProvideru.push(`groq ${model}: HTTP ${groqResp.status} ${errText.slice(0, 200)}`);
+              // Model neexistuje (404) nebo je na něj prompt moc velký (413) →
+              // zkus další model. Jiná chyba (limit, výpadek) → další model to
+              // nespraví, jdi rovnou na dalšího poskytovatele.
+              // 429 = limit modelu (Groq má limity po modelech) → další model.
+              if (![400, 404, 413, 429].includes(groqResp.status)) break;
+            }
+          } catch (err) {
+            if (zrus.aborted) break;
+            console.warn(`Groq API exception (model ${model}, timeout nebo síť): ${err instanceof Error ? err.name + ": " + err.message : err}`);
+            chybyProvideru.push(`groq ${model}: ${err instanceof Error ? err.name : "chyba"}`);
+            break;
+          }
         }
-      }
+        return NEPRECTENO;
+      });
     }
 
-    // 3) Další pojistka: Mistral (mistral-large-latest). Když vyčerpá limit
-    //    i Groq (HTTP 429/500), přepneme OKAMŽITĚ dál — bez čekání, řádově 0,5 s.
-    if (!text && mistralKey && !vynechat.has("mistral") && zbyvaMs() > 5_000) {
-      const mistralUrl = "https://api.mistral.ai/v1/chat/completions";
-      for (const model of fotkaOstatnim ? MISTRAL_MODELY_FOTO : MISTRAL_MODELY_TEXT) {
-        if (text || zbyvaMs() < 5_000) break;
-        try {
-          const mistralResp = await fetch(mistralUrl, {
-            signal: AbortSignal.timeout(strop(AI_TIMEOUT_MS.mistral)),
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${mistralKey}`,
-            },
-            body: JSON.stringify({ ...mistralBody, model }),
-          });
+    // 3) Záloha: Mistral.
+    if (mistralKey && !vynechat.has("mistral")) {
+      zalohy.push(async (zrus) => {
+        const mistralUrl = "https://api.mistral.ai/v1/chat/completions";
+        for (const model of fotkaOstatnim ? MISTRAL_MODELY_FOTO : MISTRAL_MODELY_TEXT) {
+          if (zrus.aborted || zbyvaMs() < 5_000) break;
+          try {
+            const mistralResp = await fetch(mistralUrl, {
+              signal: signalSCasem(strop(AI_TIMEOUT_MS.mistral), zrus),
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${mistralKey}`,
+              },
+              body: JSON.stringify({ ...mistralBody, model }),
+            });
 
-          if (mistralResp.ok) {
-            const mistralData = await mistralResp.json();
-            const candidate = mistralData?.choices?.[0]?.message?.content ?? "";
-            text = prijmi("mistral", candidate);
-            if (text) console.log(`Mistral: použit model ${model}`);
-          } else {
-            const errText = await mistralResp.text();
-            console.warn(`Mistral API error (model ${model}, status ${mistralResp.status}): ${errText}`);
-            chybyProvideru.push(`mistral ${model}: HTTP ${mistralResp.status} ${errText.slice(0, 200)}`);
-            // Model neexistuje / neumí obrázek → zkus další; limit nebo výpadek → dál.
-            // 429 a 403 (model mimo bezplatný tarif) jdou dál taky — limit/tarif bývá na model.
-            if (![400, 403, 404, 422, 429].includes(mistralResp.status)) break;
+            if (mistralResp.ok) {
+              const mistralData = await mistralResp.json();
+              const candidate = mistralData?.choices?.[0]?.message?.content ?? "";
+              const text = prijmi("mistral", candidate);
+              if (text) {
+                console.log(`Mistral: použit model ${model}`);
+                return { text, provider: "mistral" };
+              }
+            } else {
+              const errText = await mistralResp.text();
+              console.warn(`Mistral API error (model ${model}, status ${mistralResp.status}): ${errText}`);
+              chybyProvideru.push(`mistral ${model}: HTTP ${mistralResp.status} ${errText.slice(0, 200)}`);
+              // Model neexistuje / neumí obrázek → zkus další; limit nebo výpadek → dál.
+              // 429 a 403 (model mimo bezplatný tarif) jdou dál taky — limit/tarif bývá na model.
+              if (![400, 403, 404, 422, 429].includes(mistralResp.status)) break;
+            }
+          } catch (err) {
+            if (zrus.aborted) break;
+            console.warn(`Mistral API exception (model ${model}, timeout nebo síť): ${err instanceof Error ? err.name + ": " + err.message : err}`);
+            chybyProvideru.push(`mistral ${model}: ${err instanceof Error ? err.name : "chyba"}`);
+            break;
           }
-        } catch (err) {
-          console.warn(`Mistral API exception (model ${model}, timeout nebo síť): ${err instanceof Error ? err.name + ": " + err.message : err}`);
-          chybyProvideru.push(`mistral ${model}: ${err instanceof Error ? err.name : "chyba"}`);
-          break;
         }
-      }
+        return NEPRECTENO;
+      });
     }
 
-    // 4) OpenRouter — jen bezplatné modely („:free"). Seznam se bere z jejich
-    //    veřejného přehledu (mění se), u fotky jen modely s obrazem, bez
+    // 4) Záloha: OpenRouter — jen bezplatné modely („:free"). Seznam se bere
+    //    z jejich veřejného přehledu (mění se), u fotky jen modely s obrazem, bez
     //    „content-safety"/„guard" — automatický „openrouter/free" 12. 10. 2026
     //    vybral bezpečnostní model, který objednávku nečte. Zapne se, až je
     //    v app_secrets klíč OPENROUTER_API_KEY.
-    if (!text && openrouterKey && !vynechat.has("openrouter") && zbyvaMs() > 5_000) {
-      let modely = fotkaOstatnim ? OPENROUTER_FOTO : OPENROUTER_TEXT;
-      try {
-        const seznam = await fetch("https://openrouter.ai/api/v1/models", { signal: AbortSignal.timeout(5_000) });
-        if (seznam.ok) {
-          const nabidka = ((await seznam.json())?.data ?? []) as any[];
-          const zdarma = nabidka.filter((m) => String(m?.id ?? "").endsWith(":free")
-            && !/safety|guard|code|coder|laguna|lfm|apodex/i.test(String(m.id))
-            && (!fotkaOstatnim || (m?.architecture?.input_modalities ?? []).includes("image")));
-          const ids = zdarma.map((m) => String(m.id));
-          const znamePrvni = modely.filter((m) => ids.includes(m));
-          modely = [...znamePrvni, ...ids.filter((m) => !znamePrvni.includes(m))].slice(0, 4);
-          chybyProvideru.push(`openrouter zdarma: ${modely.join(", ") || "nic"}`);
-        }
-      } catch { /* bez seznamu zkusí známé modely */ }
-      for (const model of modely) {
-        if (text || zbyvaMs() < 8_000) break;
+    if (openrouterKey && !vynechat.has("openrouter")) {
+      zalohy.push(async (zrus) => {
+        let modely = fotkaOstatnim ? OPENROUTER_FOTO : OPENROUTER_TEXT;
         try {
-          const orResp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-            signal: AbortSignal.timeout(strop(AI_TIMEOUT_MS.openrouter)),
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${openrouterKey}`,
-              "X-Title": "Pivovar Zajic",
-            },
-            body: JSON.stringify({ ...groqBody, model }),
-          });
-          if (orResp.ok) {
-            const orData = await orResp.json();
-            const candidate = orData?.choices?.[0]?.message?.content ?? "";
-            text = prijmi(`openrouter:${model}`, candidate);
-          } else {
-            const errText = await orResp.text();
-            console.warn(`OpenRouter ${model} error (status ${orResp.status}): ${errText.slice(0, 300)}`);
-            chybyProvideru.push(`openrouter ${model}: HTTP ${orResp.status} ${errText.slice(0, 200)}`);
+          const seznam = await fetch("https://openrouter.ai/api/v1/models", { signal: signalSCasem(5_000, zrus) });
+          if (seznam.ok) {
+            const nabidka = ((await seznam.json())?.data ?? []) as any[];
+            const zdarma = nabidka.filter((m) => String(m?.id ?? "").endsWith(":free")
+              && !/safety|guard|code|coder|laguna|lfm|apodex/i.test(String(m.id))
+              && (!fotkaOstatnim || (m?.architecture?.input_modalities ?? []).includes("image")));
+            const ids = zdarma.map((m) => String(m.id));
+            const znamePrvni = modely.filter((m) => ids.includes(m));
+            modely = [...znamePrvni, ...ids.filter((m) => !znamePrvni.includes(m))].slice(0, 4);
+            chybyProvideru.push(`openrouter zdarma: ${modely.join(", ") || "nic"}`);
           }
-        } catch (err) {
-          chybyProvideru.push(`openrouter ${model}: ${err instanceof Error ? err.name : "chyba"}`);
+        } catch { /* bez seznamu zkusí známé modely */ }
+        for (const model of modely) {
+          if (zrus.aborted || zbyvaMs() < 8_000) break;
+          try {
+            const orResp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+              signal: signalSCasem(strop(AI_TIMEOUT_MS.openrouter), zrus),
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${openrouterKey}`,
+                "X-Title": "Pivovar Zajic",
+              },
+              body: JSON.stringify({ ...groqBody, model }),
+            });
+            if (orResp.ok) {
+              const orData = await orResp.json();
+              const candidate = orData?.choices?.[0]?.message?.content ?? "";
+              const text = prijmi(`openrouter:${model}`, candidate);
+              if (text) return { text, provider: `openrouter:${model}` };
+            } else {
+              const errText = await orResp.text();
+              console.warn(`OpenRouter ${model} error (status ${orResp.status}): ${errText.slice(0, 300)}`);
+              chybyProvideru.push(`openrouter ${model}: HTTP ${orResp.status} ${errText.slice(0, 200)}`);
+            }
+          } catch (err) {
+            if (zrus.aborted) break;
+            chybyProvideru.push(`openrouter ${model}: ${err instanceof Error ? err.name : "chyba"}`);
+          }
         }
-      }
+        return NEPRECTENO;
+      });
     }
 
+    const vysledek = await ctiSPoradim({
+      nejlepsi,
+      zalohy: jenNejlepsi ? null : zalohy,
+      zbyvaMs,
+      rezervaMs: REZERVA_PRO_ZALOHY_MS,
+      zalohyHned,
+    });
+    const text = vysledek.text;
+    const pouzityProvider = text ? (ocrText ? `ocr+${vysledek.provider}` : vysledek.provider) : "";
+    // Fotku nakonec přečetlo slabší čtení (menší model nebo čtení z přepisu) —
+    // volající na to obsluhu upozorní, ať řádky zkontroluje proti fotce.
+    const zalozniCteniFotky = !!imageBase64 && vysledek.zalozni;
+
     if (!text) {
+      // 502 = teď to nejde, zkus to později: whatsapp-auto-parse zprávu nechá
+      // čekat a zkusí ji znovu (viz _shared/opakovani-cteni.ts).
       return new Response(
-        JSON.stringify({ error: "Failed to get response from any LLM provider (Gemini, Groq, Mistral, OpenRouter)", _provider_chyby: chybyProvideru }),
+        JSON.stringify({
+          error: jenNejlepsi
+            ? "Gemini teď fotku nepřečetl (je přetížený) — zkusí se to znovu za pár minut."
+            : "Failed to get response from any LLM provider (Gemini, Groq, Mistral, OpenRouter)",
+          _docasne: true,
+          _provider_chyby: chybyProvideru,
+        }),
         { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
@@ -977,7 +1046,7 @@ ${photoSection}`;
       .slice(0, 3);
 
     return new Response(
-      JSON.stringify({ ...parsed, _provider: pouzityProvider, _provider_chyby: chybyProvideru }),
+      JSON.stringify({ ...parsed, _provider: pouzityProvider, _provider_chyby: chybyProvideru, _zalozni: zalozniCteniFotky }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (err: any) {

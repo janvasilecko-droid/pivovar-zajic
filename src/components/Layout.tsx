@@ -12,6 +12,9 @@ import { supabase, Beer, Package, Place } from '../lib/supabase';
 const EditOrderModal = lazy(() => import('./EditOrderModal').then((m) => ({ default: m.EditOrderModal })));
 import { getNotificationPermission, notifyNewOrder, notifyNewWhatsAppMessage, NewOrderNotifyData } from '../lib/notifications';
 import { subscribeToWhatsAppMessages, fetchWhatsAppSenders, fetchPendingWhatsAppCount, isSenderAllowed, triggerAutoParse, type WhatsAppSender, type WhatsAppIncoming } from '../lib/whatsappApi';
+// Rovnou ze sdílených pravidel (ne přes lib/cteniObjednavkyZobrazeni) — Layout je
+// ve startovním balíku a tahle jedna funkce do něj nemá přitáhnout celé zobrazení čtení.
+import { cekaNaDalsiPokus } from '../../supabase/functions/_shared/opakovani-cteni';
 import { requestOrdersAutoImport } from '../lib/ordersFilter';
 import { getDensity, DensityMode } from '../lib/density';
 import { QuickSearchModal } from './QuickSearchModal';
@@ -553,6 +556,10 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
         // uložená zpráva je potenciální objednávka. Necháme ji rozparsovat a
         // notifikaci pošleme až ve stavu 'parsed'.
         if (message.status === 'pending' || message.status === 'processing') {
+          // Zpráva, která čeká na další pokus čtení (AI je přetížená), se zkouší
+          // znovu po odstupu — hlídá to server (cron po 3 minutách). Hned po
+          // nepovedeném pokusu by další volání nic nepřečetlo.
+          if (message.status === 'pending' && cekaNaDalsiPokus(message.error_message)) return;
           triggerAutoParseDebounced();
           return;
         }

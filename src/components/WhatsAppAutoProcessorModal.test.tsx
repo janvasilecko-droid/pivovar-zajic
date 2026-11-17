@@ -62,4 +62,25 @@ describe('WhatsAppAutoProcessorModal — přehled čtení', () => {
     expect(screen.queryByText(/opakovaná chyba/i)).toBeNull();
     expect(fetchRecent).not.toHaveBeenCalled();
   });
+
+  it('17. 11. 2026: fotka čekající na další pokus čtení není „chyba" — jantarově a s vysvětlením; skutečná chyba zůstává červená', async () => {
+    const fotka = {
+      ...zprava, id: 'w2', message_type: 'image', message_text: '📷 Fotka objednávky (bez popisu)', status: 'pending' as const,
+      parsed_place_name: null, parsed_delivery_day: null, parsed_delivery_date: null, parsed_items: null,
+      media_url: 'https://xyz.supabase.co/storage/v1/object/public/whatsapp-media/incoming/wa-1.jpg',
+      error_message: 'AI je teď přetížená — zkusí se znovu automaticky za pár minut. (pokus 2026-11-17T09:35:07.000Z)',
+    };
+    const spadla = { ...fotka, id: 'w3', status: 'error' as const, error_message: 'Parse API error: 546' };
+    fetchPending.mockResolvedValue([fotka, spadla]);
+    render(<WhatsAppAutoProcessorModal isOpen onClose={vi.fn()} beers={[]} packages={[]} places={[]} onImport={vi.fn()} />);
+    const ceka = await screen.findByText(/čtení se samo zkouší znovu každé 3 minuty \(naposledy v 10:35\)/, {}, { timeout: 4000 });
+    expect(ceka.getAttribute('data-stav-cteni')).toBe('ceka');
+    expect(ceka.className).toContain('text-amber-900');
+    expect(ceka.className).not.toContain('text-rose-800');
+    const chyba = screen.getByText('Čtení je teď přetížené. Zkuste znovu za chvíli.');
+    expect(chyba.getAttribute('data-stav-cteni')).toBe('chyba');
+    expect(chyba.className).toContain('text-rose-800');
+    expect(screen.queryByText(/Parse API error/)).toBeNull();
+    expect(screen.queryByText(/pokus 2026-11-17T/)).toBeNull();
+  });
 });

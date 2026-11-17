@@ -1,7 +1,9 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { readJsonWithLimit, requireApprovedUser } from "../_shared/require-user.ts";
 import { vlastniJmenaPiv } from "../_shared/beer-match.ts";
-import { ctiPresGemini, dostupneModelyGemini, planPokusuFoto, planPokusuText } from "../_shared/gemini-cteni.ts";
+import { ctiPresGemini, dostupneModelyGemini, planPokusuText, planyFotky, type PokusGemini } from "../_shared/gemini-cteni.ts";
+import { ctiSPoradim, type DrahaCteni } from "../_shared/cteni-poradi.ts";
+import { REZERVA_PRO_ZALOHY_MS, stropCteni } from "../_shared/cas-cteni.ts";
 import { odpovedVisionGoogle, prepisFotkyGoogle } from "../_shared/google-ocr.ts";
 import { PRAVIDLA_CTENI_OBJEDNAVEK, RUKOPIS_LISTKU } from "../_shared/order-rules.ts";
 import { cteniTabulky } from "../_shared/tabulka-cteni.ts";
@@ -14,21 +16,62 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-// ⏱️ Časové stropy pro jednotlivé AI poskytovatele.
+// ⏱️ Časové stropy.
 // ---------------------------------------------------------------------------
-// Funkce zkouší poskytovatele za sebou a při chybě přepne na dalšího. Dokud
-// tady timeouty nebyly, platilo to jen pro poskytovatele, který ODPOVĚDĚL
-// chybou — když se některý zasekl a neodpověděl vůbec, čekalo se na něj až do
-// tvrdého limitu platformy (150 s) a záložní poskytovatelé se nikdy
-// nespustili. Volání pak skončilo HTTP 546/504 a objednávka se nepřečetla.
-// Součet stropů musí zůstat bezpečně pod 150 s.
 // 12. 10. 2026: majitel chce čtení zdarma — jen Gemini (bezplatný tarif).
-// Claude ani OpenAI se nevolají. Gemini dostane až 3 pokusy (přetížení 503/429
-// nebo timeout), celkem pod CELKOVY_STROP_MS.
+// Claude ani OpenAI se nevolají.
+//
+// CELÉ čtení se musí vejít do času, který server jednomu volání dá — a to je
+// jistých jen 75 s, ne 150 (viz _shared/cas-cteni.ts). Do 17. 11. 2026 se tu
+// počítalo se 140 s a pokusy šly za sebou: když byl Gemini přetížený, čtení
+// se protáhlo a server ho ukončil (HTTP 546). Proto teď hlavní model a dvě
+// náhradní verze čtou fotku SOUBĚŽNĚ, slabší čtení (Gemma, „lite", čtení
+// z přepisu) se přidá jen při potížích (_shared/cteni-poradi.ts) a celek
+// hlídá stropCteni() (58 s).
 const AI_TIMEOUT_MS = {
   gemini: 55_000,
 };
-const CELKOVY_STROP_MS = 140_000;
+
+/**
+ * Přečte fotku přes Gemini: hlavní model a náhradní „flash" verze vedle sebe,
+ * Gemma a „lite" (a `dalsiZalohy`) jako záloha. Vrací text odpovědi ("" když
+ * nepřečetl nikdo) a jestli četla záloha.
+ */
+async function ctiFotkuPresGemini(o: {
+  klic: string;
+  dostupne: string[] | null;
+  // deno-lint-ignore no-explicit-any
+  parts: any[];
+  prijmi: (candidate: string) => string;
+  zbyvaMs: () => number;
+  chyby: string[];
+  extra?: Record<string, unknown>;
+  dalsiZalohy?: DrahaCteni[];
+}): Promise<{ text: string; zalozni: boolean }> {
+  const plany = planyFotky(o.dostupne);
+  const draha = (plan: PokusGemini[], hlasiPotiz = false): DrahaCteni => async (zrus, potiz) => ({
+    provider: "gemini",
+    text: await ctiPresGemini({
+      klic: o.klic,
+      plan,
+      parts: o.parts,
+      timeoutMs: AI_TIMEOUT_MS.gemini,
+      zbyvaMs: o.zbyvaMs,
+      zrus,
+      priChybe: hlasiPotiz ? potiz : undefined,
+      prijmi: (_model, candidate) => o.prijmi(candidate),
+      chyby: o.chyby,
+      extra: o.extra,
+    }),
+  });
+  const vysledek = await ctiSPoradim({
+    nejlepsi: [draha(plany.hlavni, true), ...plany.nahradni.map((plan) => draha(plan))],
+    zalohy: [...(plany.slabsi.length > 0 ? [draha(plany.slabsi)] : []), ...(o.dalsiZalohy ?? [])],
+    zbyvaMs: o.zbyvaMs,
+    rezervaMs: REZERVA_PRO_ZALOHY_MS,
+  });
+  return { text: vysledek.text, zalozni: vysledek.zalozni };
+}
 
 interface OrderItem {
   quantity: number | null;
@@ -134,6 +177,7 @@ Deno.serve(async (req: Request) => {
     // níž tuhle tabulku četl špatně (všechno jako „KEG 30l", lahve vůbec).
     if (body.rezim === "tabulka-okno" || body.rezim === "tabulka") {
       const zacatekTabulky = Date.now();
+      const stropTabulkyMs = stropCteni(body.maxMs);
       const chybyTabulky: string[] = [];
       const iso = (v: unknown) => (typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null);
       const odpoved = await cteniTabulky({
@@ -146,17 +190,16 @@ Deno.serve(async (req: Request) => {
           ? async () => (await odpovedVisionGoogle({ klic: visionKey, imageBase64, admin: supabase, chyby: chybyTabulky, timeoutMs: 20_000 }))?.data ?? null
           : null,
         ai: async (pokyn) =>
-          await ctiPresGemini({
+          (await ctiFotkuPresGemini({
             klic: geminiKey,
-            plan: planPokusuFoto(await dostupneModelyGemini(geminiKey)),
+            dostupne: await dostupneModelyGemini(geminiKey),
             parts: [{ text: pokyn }, { inline_data: { mime_type: imageMimeType, data: imageBase64 } }],
-            timeoutMs: AI_TIMEOUT_MS.gemini,
-            zbyvaMs: () => CELKOVY_STROP_MS - (Date.now() - zacatekTabulky),
-            prijmi: (_model, candidate) => (parsujOdpovedAi(candidate) ? candidate : ""),
+            zbyvaMs: () => stropTabulkyMs - (Date.now() - zacatekTabulky),
+            prijmi: (candidate) => (parsujOdpovedAi(candidate) ? candidate : ""),
             chyby: chybyTabulky,
             // Čtení buněk nepotřebuje „přemýšlet" — bez toho trvá 3–15 s místo ~50 s.
             extra: { thinkingConfig: { thinkingBudget: 0 } },
-          }),
+          })).text,
       });
       const telo = odpoved.status === 200 ? odpoved.telo : { ...odpoved.telo, _chyby: chybyTabulky };
       return new Response(JSON.stringify(telo), {
@@ -432,45 +475,30 @@ Do odpovědi VŽDY přidej i top-level pole "place_name" (na úrovni celé odpov
 
 
 
-    let text = "";
     const zacatekCteni = Date.now();
+    const stropMs = stropCteni(body.maxMs);
 
-    // 1) Primární provider: Google Gemini (nativní JSON mode, vision).
-    //    Gemini má velkorysé rate limity a čtení funguje bez Anthropic kreditů.
-    //    Pozn.: "gemini-2.5-flash" už Google nezpřístupňuje novým klíčům (HTTP 404),
-    //    proto používáme gemini-3.5-flash (GA, stejná kategorie flash).
-    // Víc pokusů s pauzami a jiné bezplatné modely téhož klíče — viz
-    // _shared/gemini-cteni.ts (12. 10. 2026: Gemini přetížený, záloha četla špatně).
+    // Google Gemini (nativní JSON mode, vision) — bezplatný klíč. Hlavní model
+    // (při přetížení ještě dvakrát po pauze) a dvě náhradní „flash" verze čtou
+    // fotku vedle sebe; Gemma, „lite" a čtení z přepisu jsou záloha — viz
+    // ctiFotkuPresGemini výš (12. 10. 2026: Gemini přetížený, záloha četla špatně).
     const chybyGemini: string[] = [];
-    const zbyvaMs = () => CELKOVY_STROP_MS - (Date.now() - zacatekCteni);
+    const zbyvaMs = () => stropMs - (Date.now() - zacatekCteni);
     // 🔎 Fotka se nejdřív přepíše na text (Google Vision). Gemini dostane fotku
     // i přepis; když fotku nepřečte, čte se objednávka z přepisu jako text
     // (lite modely mají velkou bezplatnou kvótu).
     const ocrText = visionKey
-      ? await prepisFotkyGoogle({ klic: visionKey, imageBase64, admin: supabase, chyby: chybyGemini, timeoutMs: 15_000 })
+      ? await prepisFotkyGoogle({ klic: visionKey, imageBase64, admin: supabase, chyby: chybyGemini, timeoutMs: Math.min(12_000, Math.round(stropMs / 4)) })
       : "";
     const prepis = ocrText
       ? `\n\nPŘEPIS FOTKY (OCR — strojový přepis, u rukopisu plete znaky: „1l"/„1,5l" jako „11"/„1,51", „0,5" jako „05", „5"↔„S", „0"↔„O"):\n"""\n${ocrText}\n"""`
       : "";
     const dostupne = await dostupneModelyGemini(geminiKey);
-    text = await ctiPresGemini({
-      klic: geminiKey,
-      plan: planPokusuFoto(dostupne),
-      parts: [
-        { text: prompt },
-        {
-          text: "Toto je fotka objednávky piva. Přečti ji přesně podle instrukcí a vrať JSON."
-            + (ocrText ? " Čti z fotky; přepis OCR níže je pomůcka, ať nevynecháš žádný řádek — když se s fotkou liší, platí fotka." + prepis : ""),
-        },
-        { inline_data: { mime_type: imageMimeType, data: imageBase64 } },
-      ],
-      timeoutMs: AI_TIMEOUT_MS.gemini,
-      zbyvaMs: ocrText ? () => zbyvaMs() - 40_000 : zbyvaMs,
-      prijmi: (_model, candidate) => (candidate.includes("{") ? candidate : ""),
-      chyby: chybyGemini,
-    });
-    if (!text && ocrText) {
-      text = await ctiPresGemini({
+    const prijmi = (candidate: string) => (candidate.includes("{") ? candidate : "");
+    // Záloha: objednávka z přepisu jako text (bez fotky).
+    const zPrepisu: DrahaCteni = async (zrus) => ({
+      provider: "gemini",
+      text: await ctiPresGemini({
         klic: geminiKey,
         plan: planPokusuText(dostupne),
         parts: [
@@ -479,10 +507,27 @@ Do odpovědi VŽDY přidej i top-level pole "place_name" (na úrovni celé odpov
         ],
         timeoutMs: AI_TIMEOUT_MS.gemini,
         zbyvaMs,
-        prijmi: (_model, candidate) => (candidate.includes("{") ? candidate : ""),
+        zrus,
+        prijmi: (_model, candidate) => prijmi(candidate),
         chyby: chybyGemini,
-      });
-    }
+      }),
+    });
+    const { text, zalozni } = await ctiFotkuPresGemini({
+      klic: geminiKey,
+      dostupne,
+      parts: [
+        { text: prompt },
+        {
+          text: "Toto je fotka objednávky piva. Přečti ji přesně podle instrukcí a vrať JSON."
+            + (ocrText ? " Čti z fotky; přepis OCR níže je pomůcka, ať nevynecháš žádný řádek — když se s fotkou liší, platí fotka." + prepis : ""),
+        },
+        { inline_data: { mime_type: imageMimeType, data: imageBase64 } },
+      ],
+      prijmi,
+      zbyvaMs,
+      chyby: chybyGemini,
+      dalsiZalohy: ocrText ? [zPrepisu] : [],
+    });
 
     if (!text) {
       return new Response(
@@ -516,8 +561,10 @@ Do odpovědi VŽDY přidej i top-level pole "place_name" (na úrovni celé odpov
       parsed.items = dedupeItems(parsed.items);
     }
 
+    // `_zalozni` = fotku nepřečetl hlavní Gemini ani jeho náhradní verze, ale
+    // slabší čtení (Gemma, „lite", čtení z přepisu) — víc chyb v řádcích.
     return new Response(
-      JSON.stringify(parsed),
+      JSON.stringify({ ...parsed, _zalozni: zalozni }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (err: any) {

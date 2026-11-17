@@ -123,6 +123,72 @@ describe('parseWhatsAppOrderMessageWithAI — čtení fotky (reálný kód, mock
     ).rejects.toThrow(/Cannot read properties of null/);
   });
 
+  // 17. 11. 2026: „nechce se mi naparsovat fotka objednávky" — Gemini přetížený,
+  // server čtení ukončil (HTTP 546). Ruční čtení to teď zkusí ještě jednou vším.
+  const POLOZKY = {
+    items: [{ quantity: 2, degree: '12°', beer_name: 'Světlý ležák 12°', package_label: 'KEG 30l', raw_line: '2x KEG30 12sv', place_name: null, date: null }],
+    place_name: 'U Dubu', raw_text: '2x KEG30 12sv', otazky: ['Není jasné datum.'],
+  };
+  /** fetch: fotka se stáhne, čtecí funkce odpovídá postupně podle `odpovedi`; vrací těla, která dostala. */
+  function ctecka(odpovedi: { status: number; json: unknown }[]) {
+    const tela: Record<string, unknown>[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+      if (url === PHOTO_URL) return new Response(pngBlob(), { status: 200, headers: { 'Content-Type': 'image/png' } });
+      if (url.endsWith('/functions/v1/parse-order-text')) {
+        tela.push(JSON.parse(String(init?.body)));
+        const o = odpovedi[Math.min(tela.length - 1, odpovedi.length - 1)];
+        return new Response(JSON.stringify(o.json), { status: o.status, headers: { 'Content-Type': 'application/json' } });
+      }
+      throw new Error(`Neočekávaný fetch: ${url}`);
+    }));
+    return tela;
+  }
+  const ctiFotku = () => parseWhatsAppOrderMessageWithAI('', noBeers, noPackages, noPlaces, 'Odesílatel', null, undefined, undefined, 'msg-1', PHOTO_URL);
+
+  it('4. Gemini fotku teď nepřečetl (502) → hned se zkusí ještě jednou vším; záložní čtení je označené jako první upozornění', async () => {
+    const tela = ctecka([
+      { status: 502, json: { error: 'Failed to get response from any LLM provider', _docasne: true } },
+      { status: 200, json: { ...POLOZKY, _provider: 'ocr+mistral', _zalozni: true } },
+    ]);
+    const vysledek = await ctiFotku();
+    expect(tela).toHaveLength(2);
+    expect(tela[0].cteniFotky).toBeUndefined();
+    expect(tela[1]).toMatchObject({ cteniFotky: 'vse', kolo: 1 });
+    expect(tela[1].imageBase64).toBe(tela[0].imageBase64);
+    expect(vysledek.items.length).toBeGreaterThan(0);
+    expect(vysledek.otazky).toEqual([
+      'Fotku četla záložní AI (Gemini byl přetížený) — zkontroluj každý řádek proti fotce, nebo dej později „Znovu parsovat“.',
+      'Není jasné datum.',
+    ]);
+  });
+
+  it('5. server čtení ukončil (546) i napodruhé → chyba s kódem (appka ji ukáže jako „čtení je přetížené")', async () => {
+    const tela = ctecka([{ status: 546, json: { code: 'WORKER_LIMIT' } }]);
+    await expect(ctiFotku()).rejects.toThrow(/HTTP 546/);
+    expect(tela).toHaveLength(2);
+  });
+
+  it('6. fotku přečetl Gemini → jedno volání a žádné upozornění na záložní čtení', async () => {
+    const tela = ctecka([{ status: 200, json: { ...POLOZKY, _provider: 'ocr+gemini', _zalozni: false } }]);
+    const vysledek = await ctiFotku();
+    expect(tela).toHaveLength(1);
+    expect(vysledek.otazky).toEqual(['Není jasné datum.']);
+  });
+
+  it('7. textová zpráva se po 502 znovu nevolá (opakování je jen u fotky, kde obsluha čeká na Gemini)', async () => {
+    const tela = ctecka([{ status: 502, json: { error: 'Failed to get response from any LLM provider' } }]);
+    await expect(
+      parseWhatsAppOrderMessageWithAI('Sklad 2x30 12sv', noBeers, noPackages, noPlaces, 'Odesílatel', null, undefined, undefined, 'msg-1', null)
+    ).rejects.toThrow(/HTTP 502/);
+    expect(tela).toHaveLength(1);
+  });
+
+  it('8. trvalá chyba (400) se u fotky neopakuje', async () => {
+    const tela = ctecka([{ status: 400, json: { error: 'Missing rawText or imageBase64' } }]);
+    await expect(ctiFotku()).rejects.toThrow(/HTTP 400/);
+    expect(tela).toHaveLength(1);
+  });
+
   it('3. fotka bez media_url (médium nedoručeno) → čistá HTTP 400, ne pád', async () => {
     vi.stubGlobal(
       'fetch',

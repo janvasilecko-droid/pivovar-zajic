@@ -3,6 +3,7 @@ import { normPlaceName, stripSenderName, resolvePlace, odberatelZHistorie, prefe
 import { odberatelZVety } from '../../supabase/functions/_shared/odberatel-z-vety';
 import { nactiHistorii } from '../../supabase/functions/_shared/historie-objednavek';
 import { textRikaPristiTyden } from '../../supabase/functions/_shared/den-zavozu';
+import { jeDocasnaChyba, UPOZORNENI_ZALOZNI_CTENI } from '../../supabase/functions/_shared/opakovani-cteni';
 import { parseGeminiItems, detectOrderNotes, parseOrderText, loadAliasMap, loadPlaceAliasMap, ParserAliasMap, ParsedLine, GeminiItem } from './orderParser';
 import { parseExplicitDate } from './orderDates';
 import { businessNow } from './businessDate';
@@ -610,9 +611,10 @@ export async function parseWhatsAppOrderMessageWithAI(
 
   const fnUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-order-text`;
 
-  const resp = await fetch(fnUrl, {
+  const hlavicky = await authenticatedFunctionHeaders();
+  const zavolejCteni = (navic: Record<string, unknown> = {}) => fetch(fnUrl, {
     method: 'POST',
-    headers: await authenticatedFunctionHeaders(),
+    headers: hlavicky,
     body: JSON.stringify({
       rawText: rawMessage,
       beers: beers.map((b) => ({ id: b.id, name: b.name, degree: b.degree ?? '' })),
@@ -626,8 +628,18 @@ export async function parseWhatsAppOrderMessageWithAI(
         { sender: effectiveSender, date, text: rawMessage, ...(quotedText ? { quotedText } : {}) }
       ],
       ...(imageBase64 ? { imageBase64, imageMimeType } : {}),
+      ...navic,
     }),
   });
+
+  let resp = await zavolejCteni();
+  // 📷 Fotku teď Gemini nepřečetl (přetížený, server čtení ukončil)? Obsluha
+  // u toho čeká — zkusí se to hned ještě jednou a tentokrát vším, co je
+  // (slabší čtení startují zároveň s Gemini, viz parse-order-text). Jedno
+  // čtení se vejde do minuty; dřív trvalo až 140 s a končilo chybou 546.
+  if (imageBase64 && !resp.ok && jeDocasnaChyba(resp.status)) {
+    resp = await zavolejCteni({ cteniFotky: 'vse', kolo: 1 });
+  }
 
   const respText = await resp.text();
   if (!resp.ok) {
@@ -745,6 +757,8 @@ export async function parseWhatsAppOrderMessageWithAI(
         .map((o: string) => o.trim())
         .slice(0, 3)
     : [];
+  // Fotku nepřečetl Gemini, ale slabší čtení — obsluha to má vědět první.
+  if (imageBase64 && data?._zalozni === true) otazky.unshift(UPOZORNENI_ZALOZNI_CTENI);
 
   // 🕸️ ZÁCHRANNÁ SÍŤ: co AI přehlédla, dopočítá lokální parser.
   //

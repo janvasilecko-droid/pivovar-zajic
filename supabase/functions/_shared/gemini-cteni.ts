@@ -10,6 +10,8 @@
 // bezplatný model ze stejného klíče (jiná „flash" verze, Gemma 3 — má vlastní
 // kvótu a umí obrázky). Všechno jde přes jeden bezplatný klíč GEMINI_API_KEY.
 
+import { pauza, signalSCasem } from "./cteni-poradi.ts";
+
 export type PokusGemini = {
   model: string;
   /** Nativní JSON režim — Gemma ho nemá, výstup se pak čistí z textu. */
@@ -31,10 +33,7 @@ export function planPokusuFoto(dostupne: string[] | null): PokusGemini[] {
   // ne image/tts/live varianty, které obyčejný dotaz neberou).
   // Každá verze má vlastní bezplatnou kvótu (12. 10. 2026: gemini-3.5-flash
   // vyčerpal denní limit, gemini-flash-latest přečetl lístek 21/21).
-  const jineFlash = (dostupne ?? [])
-    .filter((m) => /^gemini-[\d.]+-flash(-latest|-\d+)?$|^gemini-flash-latest$/.test(m) && m !== HLAVNI)
-    .sort((a, b) => (a === "gemini-flash-latest" ? -1 : b === "gemini-flash-latest" ? 1 : b.localeCompare(a, "en", { numeric: true })))
-    .slice(0, 2);
+  const jineFlash = jineFlashVerze(dostupne).slice(0, 2);
   const plan: PokusGemini[] = [
     { model: HLAVNI, json: true, pauzaMs: 0 },
     { model: HLAVNI, json: true, pauzaMs: 3_000 },
@@ -51,6 +50,44 @@ export function planPokusuFoto(dostupne: string[] | null): PokusGemini[] {
   // Poslední záchrana: lite (čte rukopis hůř, ale má velkou bezplatnou kvótu).
   for (const m of liteVerze(dostupne).slice(0, 1)) plan.push({ model: m, json: true, pauzaMs: 0 });
   return plan;
+}
+
+/**
+ * Jiné plné „flash" verze než hlavní model (ne lite, ne image/tts/live) —
+ * „gemini-flash-latest" první, pak od nejnovější. Každá má vlastní kvótu.
+ */
+export function jineFlashVerze(dostupne: string[] | null): string[] {
+  return (dostupne ?? [])
+    .filter((m) => /^gemini-[\d.]+-flash(-latest|-\d+)?$|^gemini-flash-latest$/.test(m) && m !== HLAVNI)
+    .sort((a, b) => (a === "gemini-flash-latest" ? -1 : b === "gemini-flash-latest" ? 1 : b.localeCompare(a, "en", { numeric: true })));
+}
+
+/**
+ * Plány pro čtení fotky VÍC MODELY NAJEDNOU (viz _shared/cteni-poradi.ts) —
+ * jedno volání má jistých jen 75 s, pokusy za sebou se do nich nevešly
+ * (17. 11. 2026: hlavní model 503, dvě náhradní verze po sobě nestihly
+ * odpovědět, čtení trvalo 123 s).
+ *  • `hlavni` — hlavní model, při přetížení ještě dvakrát po pauze,
+ *  • `nahradni` — dvě jiné plné flash verze, každá jako vlastní dráha vedle
+ *    hlavního modelu. `kolo` (kolikáté čtení téže zprávy) je střídá: když
+ *    dvojice z minulého kola neodpověděla, další kolo zkusí jiné verze,
+ *  • `slabsi` — Gemma s obrazem a lite verze: čtou rukopis hůř, proto až
+ *    jako záloha.
+ */
+export function planyFotky(dostupne: string[] | null, kolo = 0): {
+  hlavni: PokusGemini[];
+  nahradni: PokusGemini[][];
+  slabsi: PokusGemini[];
+} {
+  const jine = jineFlashVerze(dostupne);
+  const od = jine.length > 2 ? ((Math.max(0, Math.floor(kolo)) * 2) % jine.length) : 0;
+  const vybrane = jine.length > 2 ? [jine[od], jine[(od + 1) % jine.length]] : jine;
+  const cely = planPokusuFoto(dostupne);
+  return {
+    hlavni: cely.filter((p) => p.model === HLAVNI),
+    nahradni: vybrane.map((model) => [{ model, json: true, pauzaMs: 0 }]),
+    slabsi: cely.filter((p) => p.model !== HLAVNI && !jine.includes(p.model)),
+  };
 }
 
 /** Bezplatné „flash-lite" verze, které klíč nabízí (nejnovější první). */
@@ -101,14 +138,20 @@ export async function ctiPresGemini(opts: {
   chyby: string[];
   /** Další nastavení generování (např. vypnuté přemýšlení pro rychlé čtení tabulky); model, který ho odmítne, se zkusí bez něj. */
   extra?: Record<string, unknown>;
+  /** Zrušení zvenku (čtení už vyhrála jiná dráha) — plán skončí a nic nehlásí. */
+  zrus?: AbortSignal;
+  /** Zavolá se, když pokus selže (přetížení, chyba, nepoužitelná odpověď, čas). */
+  priChybe?: () => void;
 }): Promise<string> {
   // Model s vyčerpanou kvótou (429) se už v tomhle čtení nezkouší znovu.
   const vycerpane = new Set<string>();
   plan: for (const pokus of opts.plan) {
+    if (opts.zrus?.aborted) break;
     if (vycerpane.has(pokus.model)) continue;
     if (pokus.pauzaMs) {
       if (opts.zbyvaMs() < pokus.pauzaMs + 15_000) break;
-      await new Promise((r) => setTimeout(r, pokus.pauzaMs));
+      await pauza(pokus.pauzaMs, opts.zrus);
+      if (opts.zrus?.aborted) break;
     }
     if (opts.zbyvaMs() < 15_000) break;
     // Další nastavení generování (opts.extra) dostane jen model s JSON režimem.
@@ -121,7 +164,7 @@ export async function ctiPresGemini(opts: {
         const resp = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/${pokus.model}:generateContent?key=${encodeURIComponent(opts.klic)}`,
           {
-            signal: AbortSignal.timeout(Math.max(5_000, Math.min(opts.timeoutMs, opts.zbyvaMs()))),
+            signal: signalSCasem(Math.max(5_000, Math.min(opts.timeoutMs, opts.zbyvaMs())), opts.zrus),
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -137,11 +180,13 @@ export async function ctiPresGemini(opts: {
           const candidate = data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text || "").join("") ?? "";
           const text = opts.prijmi(pokus.model, candidate);
           if (text) return text;
+          opts.priChybe?.();
           continue plan; // nepoužitelný výstup → další pokus
         }
         const errText = await resp.text();
         console.warn(`Gemini ${pokus.model} error (status ${resp.status}): ${errText.slice(0, 300)}`);
         opts.chyby.push(`gemini ${pokus.model}: HTTP ${resp.status} ${errText.slice(0, 200)}`);
+        opts.priChybe?.();
         if (resp.status === 429) vycerpane.add(pokus.model);
         if (resp.status === 400 && sExtra) {
           odmitnutoExtra = true;
@@ -150,8 +195,11 @@ export async function ctiPresGemini(opts: {
           if (pokus.model === HLAVNI) break plan;
         }
       } catch (err) {
+        // Zrušeno zvenku (vyhrála jiná dráha) není chyba modelu.
+        if (opts.zrus?.aborted) break plan;
         console.warn(`Gemini ${pokus.model} exception: ${err instanceof Error ? err.name + ": " + err.message : err}`);
         opts.chyby.push(`gemini ${pokus.model}: ${err instanceof Error ? err.name : "chyba"}`);
+        opts.priChybe?.();
       }
       if (!odmitnutoExtra) break;
     }
