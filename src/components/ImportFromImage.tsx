@@ -22,6 +22,7 @@ import { businessDateISO } from '../lib/businessDate';
 import { dayKeyFromISO, nejblizsiDatumDne } from '../lib/keggingPlan';
 import { datumKratce, nabidkaDnuZavozu, objednavkyZFotky, odberatelRadku, zavozZTextuRadku } from '../lib/fotkaObjednavky';
 import { DenZavozuTlacitka } from './DenZavozuTlacitka';
+import { DEN_KDY, vychoziDenZavozu } from '../lib/denZavozu';
 import { nactiZvyklosti, neobvykleMnozstvi, type Zvyklosti } from '../lib/zvyklostiOdberatele';
 import { matchAgainstCatalog } from '../../supabase/functions/_shared/place-match';
 
@@ -778,6 +779,11 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
   const vicOdberatelu = new Set(ulozeniDo.map((o) => o.odberatel)).size > 1;
   // Závoz, který už proběhl, se po uložení hned odečte ze skladu (viz DenZavozuTlacitka).
   const zpetneObjednavky = ulozeniDo.filter((o) => o.zavoz && o.zavoz < today);
+  // 📅 Bez vybraného dne dostane objednávka výchozí den odběratele — doplní ho
+  // databáze po uložení (středa; Restaurace, Lužec, Seeberg a Prodejna žádný).
+  // Ať je to vidět už tady (17. 11. 2026: „primárně závoz středa").
+  const vychoziDenFotky = vychoziDenZavozu(places, placeId || null, placeName || null);
+  const bezVyberuDne = vychoziDenFotky ? `nevybráno — pojede ${DEN_KDY[vychoziDenFotky] ?? vychoziDenFotky} (výchozí den odběratele)` : null;
   const nabidkaDnu = nabidkaDnuZavozu(today);
   const queueLeft = pendingFiles.length;
   const activeLineIdx = focusedLine ?? 0;
@@ -848,6 +854,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                 onDen={(d) => { setDenZavozu(d); setDatumZavozuRucne(null); }}
                 onDatum={(d) => { setDatumZavozuRucne(d); setDenZavozu(d ? dayKeyFromISO(d) : null); }}
                 dnes={today}
+                bezVyberu={bezVyberuDne}
               />
             </div>
           </div>
@@ -1056,6 +1063,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                   onDen={(d) => { setDenZavozu(d); setDatumZavozuRucne(null); }}
                   onDatum={(d) => { setDatumZavozuRucne(d); setDenZavozu(d ? dayKeyFromISO(d) : null); }}
                   dnes={today}
+                  bezVyberu={bezVyberuDne}
                 />
                 <p className="text-udaj text-neutral-600">Platí pro všechny položky, u kterých dole nevybereš jiný den závozu.</p>
               </div>

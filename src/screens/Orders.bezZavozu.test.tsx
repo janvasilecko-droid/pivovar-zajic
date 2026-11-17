@@ -165,7 +165,8 @@ const OBALY = [
   { id: 'keg-50', label: 'KEG 50l', kind: 'keg', volume_l: 50, sort_order: 3 },
 ];
 const MISTA = [
-  { id: 'p-rest', name: 'Restaurace' },
+  // Restaurace nemá výchozí den závozu (migrace 20261231260000).
+  { id: 'p-rest', name: 'Restaurace', vychozi_den_zavozu: 'zadny' },
   { id: 'p-lipa', name: 'Hospoda U Lípy' },
 ];
 
@@ -247,25 +248,66 @@ describe('formulář objednávky — „Bez závozu" bez vybraného dne', () => 
     expect(ulozena()).toMatchObject({ delivery_day: 'st', delivery_date: '2026-11-18', no_delivery: true, order_date: '2026-11-16' });
   });
 
-  it('objednávka se závozem bez dne zůstane bez dne i data — výchozí den doplní databáze podle odběratele', async () => {
-    render(<Orders mode="entry_only" />);
-    await vyberOdberatele('Hospoda U Lípy');
-    expect(bezZavozu().checked).toBe(false);
-    expect(screen.queryByTestId('bez-zavozu-dnes')).toBeNull();
-    await zadejPolozku('Světlá', 'KEG 50 L', 1);
-    await uloz();
-    expect(ulozena()).toMatchObject({ delivery_day: null, delivery_date: null, no_delivery: false, order_date: '2026-11-16' });
-  });
-
-  it('ručně odškrtnuté „bez závozu" u Restaurace den nedoplní', async () => {
+  it('ručně odškrtnuté „bez závozu" u Restaurace den nedoplní (Restaurace výchozí den nemá)', async () => {
     render(<Orders mode="entry_only" />);
     await vyberOdberatele('Restaurace');
     await waitFor(() => expect(bezZavozu().checked).toBe(true));
     fireEvent.click(bezZavozu());
     expect(screen.queryByTestId('bez-zavozu-dnes')).toBeNull();
+    expect(screen.queryByTestId('vychozi-den-zavozu')).toBeNull();
     await zadejPolozku('Světlá', 'KEG 50 L', 1);
     await uloz();
     expect(ulozena()).toMatchObject({ delivery_day: null, delivery_date: null, no_delivery: false });
+  });
+});
+
+// 17. 11. 2026, majitel: „u objednávek nastav primárně závoz středa, pokud není
+// jinak označeno — automaticky se označí středa, ale uživatel si ji může změnit."
+describe('formulář objednávky — výchozí den závozu středa', () => {
+  const tlacitkoDne = (nazev: string) => screen.getAllByRole('button', { name: nazev })[0];
+
+  it('objednávka se závozem bez vybraného dne: středa je označená jako výchozí a uloží se i s datem', async () => {
+    render(<Orders mode="entry_only" />);
+    await vyberOdberatele('Hospoda U Lípy');
+    expect(bezZavozu().checked).toBe(false);
+    expect(screen.queryByTestId('bez-zavozu-dnes')).toBeNull();
+    expect(screen.getByTestId('vychozi-den-zavozu').textContent).toContain('závoz bude ve středu 18. 11. (výchozí den)');
+    expect(tlacitkoDne('St').className).toContain('border-dashed');
+    await zadejPolozku('Světlá', 'KEG 50 L', 1);
+    await uloz();
+    expect(ulozena()).toMatchObject({ delivery_day: 'st', delivery_date: '2026-11-18', no_delivery: false, order_date: '2026-11-16' });
+  });
+
+  it('vybraný jiný den (pátek) výchozí středu nahradí', async () => {
+    render(<Orders mode="entry_only" />);
+    await vyberOdberatele('Hospoda U Lípy');
+    fireEvent.click(tlacitkoDne('Pá'));
+    expect(screen.queryByTestId('vychozi-den-zavozu')).toBeNull();
+    expect(tlacitkoDne('St').className).not.toContain('border-dashed');
+    await zadejPolozku('Světlá', 'KEG 50 L', 1);
+    await uloz();
+    expect(ulozena()).toMatchObject({ delivery_day: 'pa', delivery_date: '2026-11-20' });
+  });
+
+  it('ve čtvrtek je výchozí středa až příští týden — a klepnutí na označenou středu vybere tu samou, ne včerejšek', async () => {
+    h.dnes = '2026-11-19';
+    render(<Orders mode="entry_only" />);
+    await vyberOdberatele('Hospoda U Lípy');
+    expect(screen.getByTestId('vychozi-den-zavozu').textContent).toContain('ve středu 25. 11.');
+    fireEvent.click(tlacitkoDne('St'));
+    expect(screen.queryByTestId('vychozi-den-zavozu')).toBeNull();
+    await zadejPolozku('Světlá', 'KEG 50 L', 1);
+    await uloz();
+    expect(ulozena()).toMatchObject({ delivery_day: 'st', delivery_date: '2026-11-25', order_date: '2026-11-19' });
+  });
+
+  it('ve čtvrtek bez klepnutí se uloží středa příštího týdne', async () => {
+    h.dnes = '2026-11-19';
+    render(<Orders mode="entry_only" />);
+    await vyberOdberatele('Hospoda U Lípy');
+    await zadejPolozku('Světlá', 'KEG 50 L', 1);
+    await uloz();
+    expect(ulozena()).toMatchObject({ delivery_day: 'st', delivery_date: '2026-11-25' });
   });
 });
 

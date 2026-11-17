@@ -68,7 +68,8 @@ describe('ImportFromImage — den závozu ze zvyklostí odběratele', () => {
   it('fotka bez dne + odběratel s obvyklou středou: společný den zůstane nevybráno', async () => {
     await otevri();
     const spolecny = screen.getByTestId('spolecny-den-zavozu');
-    expect(within(spolecny).getByText('nevybráno')).toBeTruthy();
+    // Den se nevybírá sám; okno jen řekne, který den objednávka bez výběru dostane (výchozí středa).
+    expect(within(spolecny).getByText('nevybráno — pojede ve středu (výchozí den odběratele)')).toBeTruthy();
     expect(within(spolecny).getByRole('button', { name: 'St' }).getAttribute('aria-pressed')).toBe('false');
     expect(screen.queryByText(/obvyklý den odběratele/)).toBeNull();
     // (Nabídka dnů v rozbalovátku u položky „St 4. 11.“ obsahuje; šipka u dne ne.)

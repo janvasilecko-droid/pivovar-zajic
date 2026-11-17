@@ -58,6 +58,28 @@ describe('denZavozuProUlozeni', () => {
     expect(denZavozuProUlozeni({ bezZavozu: false, den: 'st', datum: '2026-11-18', datumObjednavky: '2026-11-16' })).toEqual({ den: 'st', datum: '2026-11-18' });
   });
 
+  // 17. 11. 2026: „u objednávek nastav primárně závoz středa, pokud není jinak označeno".
+  it('se závozem bez vybraného dne: výchozí den odběratele a nejbližší takové datum (jako databáze)', () => {
+    // pondělí → středa téhož týdne
+    expect(denZavozuProUlozeni({ bezZavozu: false, den: '', datum: '', datumObjednavky: '2026-11-16', vychoziDen: 'st' })).toEqual({ den: 'st', datum: '2026-11-18' });
+    // středa → dnešek
+    expect(denZavozuProUlozeni({ bezZavozu: false, den: '', datum: '', datumObjednavky: '2026-11-18', vychoziDen: 'st' })).toEqual({ den: 'st', datum: '2026-11-18' });
+    // čtvrtek → středa příštího týdne
+    expect(denZavozuProUlozeni({ bezZavozu: false, den: '', datum: '', datumObjednavky: '2026-11-19', vychoziDen: 'st' })).toEqual({ den: 'st', datum: '2026-11-25' });
+    // odběratel s vlastním dnem
+    expect(denZavozuProUlozeni({ bezZavozu: false, den: '', datum: '', datumObjednavky: '2026-11-16', vychoziDen: 'pa' })).toEqual({ den: 'pa', datum: '2026-11-20' });
+  });
+
+  it('bez výchozího dne (Restaurace se závozem, Lužec) a bez výběru zůstane bez dne i data', () => {
+    expect(denZavozuProUlozeni({ bezZavozu: false, den: '', datum: '', datumObjednavky: '2026-11-16', vychoziDen: null })).toEqual({ den: null, datum: null });
+    expect(denZavozuProUlozeni({ bezZavozu: false, den: '', datum: '', datumObjednavky: '2026-11-16', vychoziDen: 'zadny' })).toEqual({ den: null, datum: null });
+  });
+
+  it('bez závozu má přednost před výchozím dnem; vybraný den před obojím', () => {
+    expect(denZavozuProUlozeni({ bezZavozu: true, den: '', datum: '', datumObjednavky: '2026-11-16', vychoziDen: 'st' })).toEqual({ den: 'po', datum: '2026-11-16' });
+    expect(denZavozuProUlozeni({ bezZavozu: false, den: 'pa', datum: '2026-11-20', datumObjednavky: '2026-11-16', vychoziDen: 'st' })).toEqual({ den: 'pa', datum: '2026-11-20' });
+  });
+
   it('neplatné datum objednávky nic nedomýšlí', () => {
     expect(denZavozuProUlozeni({ bezZavozu: true, den: '', datum: '', datumObjednavky: '' })).toEqual({ den: null, datum: null });
     expect(denZavozuProUlozeni({ bezZavozu: true, den: '', datum: '', datumObjednavky: '16. 11. 2026' })).toEqual({ den: null, datum: null });

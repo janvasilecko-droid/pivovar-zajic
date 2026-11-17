@@ -734,6 +734,8 @@ export type Place = {
   lat?: number | null; lng?: number | null;
   /** Další místa závozu (lib/mistaZavozu.ts); chybí, dokud neproběhne migrace 20261231450000. */
   mista_zavozu?: unknown;
+  /** Výchozí den závozu: null = středa, po–ne = ten den, 'zadny' = žádný (lib/denZavozu.ts). */
+  vychozi_den_zavozu?: string | null;
 };
 
 export type Profile = {

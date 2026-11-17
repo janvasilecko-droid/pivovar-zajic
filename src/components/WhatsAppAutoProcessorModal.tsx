@@ -8,6 +8,8 @@ import { Modal, Spinner } from './ui';
 import { AlertCircle, AlertTriangle, ArrowDownUp, Check, CheckSquare, Clock, Copy, Download, Filter, MessageSquare, RefreshCw, Square, Trash2, X, XCircle } from 'lucide-react';
 import { zalogujANahlas } from '../lib/chybyHlaseni';
 import { businessDateISO } from '../lib/businessDate';
+import { denADatumZeZpravyNeboVychozi } from '../lib/denZavozu';
+import { textRikaPristiTyden } from '../../supabase/functions/_shared/den-zavozu';
 
 interface WhatsAppAutoProcessorModalProps {
   isOpen: boolean;
@@ -155,12 +157,18 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
       const message = messages.find(m => m.id === messageId);
       if (!message) return;
 
+      // Den ze zprávy, jinak výchozí den odběratele (středa) — lib/denZavozu.ts.
+      const zavoz = denADatumZeZpravyNeboVychozi({
+        den: parsedResult.deliveryDay, datum: parsedResult.deliveryDate,
+        mista: props.places, placeId: parsedResult.placeId, placeName: parsedResult.placeName,
+        dnes: businessDateISO(), pristiTyden: textRikaPristiTyden(message.message_text),
+      });
       const orderData = {
         placeId: parsedResult.placeId,
         placeNameFree: parsedResult.placeName || 'Neznámý odběratel',
         orderDate: businessDateISO(),
-        deliveryDay: parsedResult.deliveryDay || 'po',
-        deliveryDate: parsedResult.deliveryDate || businessDateISO(),
+        deliveryDay: zavoz.den,
+        deliveryDate: zavoz.datum,
         note: parsedResult.note || '',
         whatsappMessageId: message.id, // zpětný odkaz objednávka → zpráva (#18)
         items: parsedResult.items.map((item: any) => ({

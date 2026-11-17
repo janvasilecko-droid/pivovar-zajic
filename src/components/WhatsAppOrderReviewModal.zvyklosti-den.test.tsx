@@ -1,10 +1,15 @@
-// 📅 „martin 1x10l 11sv“ (29. 10. 2026, čtvrtek) skončilo na středě 4. 11.
-// Majitel: „musím výslovně napsat datum, nebo musí být ve čtené objednávce datum.“
+// 📅 Den závozu v kontrolním okně WhatsApp zprávy.
 //
-// Zpráva den neuváděla. Kontrolní okno si ho doplnilo ze zvyklostí odběratele
-// (Martin bere obvykle ve středu) a datum dopočetlo jako nejbližší středu od
-// dneška — ve čtvrtek je to středa PŘÍŠTÍHO týdne. Den ani datum se z historie
-// odběratele doplňovat nesmí; platí jen zpráva, AI nebo ruční volba.
+// 29. 10. 2026 (čtvrtek): „martin 1x10l 11sv“ skončilo na středě 4. 11. — okno si
+// den doplnilo ze ZVYKLOSTÍ odběratele (Martin bere obvykle ve středu). Ze
+// zvyklostí se den nedoplňuje dál.
+//
+// 17. 11. 2026, majitel: „u objednávek nastav primárně závoz středa, pokud není
+// jinak označeno ve zprávě — objednávka typu 2x30 se automaticky označí středa,
+// ale uživatel si ji může změnit; pokud tam bude 2x30 na pátek, označí se pátek.“
+// Zpráva bez dne proto dostane VÝCHOZÍ den odběratele (středa; Restaurace,
+// Lužec, Seeberg a Prodejna žádný — stejné pravidlo jako databáze, která ho
+// dosud doplnila potichu až po schválení). Je vidět předem a jde změnit.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { WhatsAppOrderReviewModal } from './WhatsAppOrderReviewModal';
@@ -24,11 +29,15 @@ vi.mock('../lib/useMaleSudy', () => ({
   useHlidaniMalychSudu: () => ({ souhrn: [], nadPoPolozce: new Map(), poPolozce: new Map(), nacteno: true }),
 }));
 vi.mock('../lib/supabase', () => {
-  const stub = () => ({
-    select: vi.fn().mockReturnValue(Promise.resolve({ data: [], error: null })),
-    eq: vi.fn().mockReturnThis(),
-    maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
-  });
+  // Řetězitelný dotaz bez dat (okno se u odpovědi na objednávku ptá i na ni).
+  const stub = () => {
+    const q: any = {
+      then: (ok: any, ko: any) => Promise.resolve({ data: [], error: null }).then(ok, ko),
+      maybeSingle: () => Promise.resolve({ data: null, error: null }),
+    };
+    for (const m of ['select', 'eq', 'lt', 'in', 'order', 'limit']) q[m] = () => q;
+    return q;
+  };
   return { supabase: { from: vi.fn(() => stub()) } };
 });
 vi.mock('../lib/whatsappApi', () => ({
@@ -41,7 +50,10 @@ vi.mock('../lib/whatsappParser', () => ({
 
 const beers: any[] = [{ id: 'b-11', name: '11° Světlá' }];
 const packages: any[] = [{ id: 'p10', label: '10l', kind: 'keg', volume_l: 10 }];
-const places: any[] = [{ id: 'pl-martin', name: 'Martin' }];
+const places: any[] = [
+  { id: 'pl-martin', name: 'Martin' },
+  { id: 'pl-rest', name: 'Restaurace', vychozi_den_zavozu: 'zadny' },
+];
 
 const zprava = (extra: Record<string, unknown> = {}): any => ({
   id: 'martin-1',
@@ -81,50 +93,101 @@ const schvalit = () => fireEvent.click(screen.getByText('Schválit a odeslat do 
 const jeZmacknuto = (nazev: string) =>
   (screen.getByRole('button', { name: nazev }) as HTMLButtonElement).getAttribute('aria-pressed') === 'true';
 
-describe('WhatsAppOrderReviewModal — den závozu se nedomýšlí ze zvyklostí odběratele', () => {
+describe('WhatsAppOrderReviewModal — výchozí den závozu (středa) a den ze zprávy', () => {
   beforeEach(() => {
     localStorage.clear();
     window.confirm = vi.fn(() => true);
     h.nactiZvyklosti.mockReset();
-    h.nactiZvyklosti.mockResolvedValue({ obvyklyDen: 'st', obvyklyZavoz: null, obvykleMnozstvi: new Map(), objednavek: 8 });
+    // Zvyklost odběratele je PÁTEK — den z ní se brát nesmí.
+    h.nactiZvyklosti.mockResolvedValue({ obvyklyDen: 'pa', obvyklyZavoz: null, obvykleMnozstvi: new Map(), objednavek: 8 });
   });
 
-  it('zpráva bez dne + odběratel s obvyklou středou: den ani datum zůstane nevybráno', async () => {
-    renderModal(zprava());
-    await waitFor(() => expect(h.nactiZvyklosti).toHaveBeenCalled());
-    // Zvyklosti jsou načtené; případné předvyplnění by se projevilo hned.
+  const pockejNaZvyklosti = async () => {
     await waitFor(() => expect(h.nactiZvyklosti).toHaveReturned());
     await new Promise((r) => setTimeout(r, 30));
+  };
 
-    expect(screen.getByText('nevybráno')).toBeTruthy();
-    expect(jeZmacknuto('St')).toBe(false);
-    expect(screen.queryByText(/4\. 11\./)).toBeNull();
+  it('zpráva bez dne („1x10l 11sv“): označí se výchozí středa a je vidět, že jde o výchozí den', async () => {
+    renderModal(zprava());
+    await pockejNaZvyklosti();
+
+    expect(jeZmacknuto('St')).toBe(true);
+    // Ve čtvrtek 29. 10. je nejbližší středa 4. 11.
+    expect(screen.getByText(/st 4\. 11\./)).toBeTruthy();
+    expect(screen.getByText(/výchozí den, jde změnit/)).toBeTruthy();
+    expect(screen.queryByText('nevybráno')).toBeNull();
+  });
+
+  it('zvyklosti odběratele (obvyklý pátek) den neurčují — platí výchozí středa', async () => {
+    renderModal(zprava());
+    await pockejNaZvyklosti();
+
+    expect(jeZmacknuto('Pá')).toBe(false);
+    expect(jeZmacknuto('St')).toBe(true);
     expect(screen.queryByText(/obvyklý den odběratele/)).toBeNull();
   });
 
-  it('schválení pošle bez dne i bez data (objednávka se nepřesune do příštího týdne)', async () => {
+  it('schválení pošle výchozí středu i s datem — stejně, jak by ji doplnila databáze', async () => {
     const { onApprove } = renderModal(zprava());
-    await waitFor(() => expect(h.nactiZvyklosti).toHaveReturned());
-    await new Promise((r) => setTimeout(r, 30));
+    await pockejNaZvyklosti();
 
+    schvalit();
+    await waitFor(() => expect(onApprove).toHaveBeenCalledTimes(1));
+    expect(onApprove.mock.calls[0][0]).toMatchObject({ parsed_delivery_day: 'st', parsed_delivery_date: '2026-11-04' });
+  });
+
+  it('den napsaný ve zprávě má přednost: „2x30 na pátek“ označí pátek (i když ho server nepřečetl)', async () => {
+    renderModal(zprava({ message_text: 'martin 2x30 na pátek', parsed_raw_text: 'martin 2x30 na pátek' }));
+    await waitFor(() => expect(screen.getByText(/pá 30\. 10\./)).toBeTruthy());
+    expect(jeZmacknuto('Pá')).toBe(true);
+    expect(jeZmacknuto('St')).toBe(false);
+    expect(screen.queryByText(/výchozí den/)).toBeNull();
+  });
+
+  it('den napsaný ve zprávě platí dál (ve čtvrtek „na středu“ = 4. 11.) a není označený jako výchozí', async () => {
+    renderModal(zprava({ message_text: 'martin na stredu 1x10l 11sv', parsed_delivery_day: 'st' }));
+    await waitFor(() => expect(screen.getByText(/st 4\. 11\./)).toBeTruthy());
+    expect(jeZmacknuto('St')).toBe(true);
+    expect(screen.queryByText(/výchozí den/)).toBeNull();
+  });
+
+  it('den vybraný rukou platí a výchozí středu nahradí', async () => {
+    const { onApprove } = renderModal(zprava());
+    await pockejNaZvyklosti();
+    fireEvent.click(screen.getByRole('button', { name: 'Pá' }));
+    await waitFor(() => expect(screen.getByText(/pá 30\. 10\./)).toBeTruthy());
+    expect(jeZmacknuto('St')).toBe(false);
+    expect(screen.queryByText(/výchozí den/)).toBeNull();
+    schvalit();
+    await waitFor(() => expect(onApprove).toHaveBeenCalledTimes(1));
+    expect(onApprove.mock.calls[0][0]).toMatchObject({ parsed_delivery_day: 'pa', parsed_delivery_date: '2026-10-30' });
+  });
+
+  it('klepnutí na označenou výchozí středu ji nezruší — objednávka by ji stejně dostala', async () => {
+    const { onApprove } = renderModal(zprava());
+    await pockejNaZvyklosti();
+    fireEvent.click(screen.getByRole('button', { name: 'St' }));
+    expect(jeZmacknuto('St')).toBe(true);
+    schvalit();
+    await waitFor(() => expect(onApprove).toHaveBeenCalledTimes(1));
+    expect(onApprove.mock.calls[0][0]).toMatchObject({ parsed_delivery_day: 'st', parsed_delivery_date: '2026-11-04' });
+  });
+
+  it('odběratel bez výchozího dne (Restaurace): zůstane nevybráno a schválení pošle bez dne i data', async () => {
+    const { onApprove } = renderModal(zprava({ parsed_place_id: 'pl-rest', parsed_place_name: 'Restaurace', message_text: 'restaurace 1x10l 11sv', parsed_raw_text: 'restaurace 1x10l 11sv' }));
+    await pockejNaZvyklosti();
+
+    expect(screen.getByText('nevybráno')).toBeTruthy();
+    expect(jeZmacknuto('St')).toBe(false);
     schvalit();
     await waitFor(() => expect(onApprove).toHaveBeenCalledTimes(1));
     expect(onApprove.mock.calls[0][0]).toMatchObject({ parsed_delivery_day: null, parsed_delivery_date: null });
   });
 
-  it('den napsaný ve zprávě platí dál (ve čtvrtek „na středu“ = 4. 11.)', async () => {
-    renderModal(zprava({ message_text: 'martin na stredu 1x10l 11sv', parsed_delivery_day: 'st' }));
-    await waitFor(() => expect(screen.getByText(/st 4\. 11\./)).toBeTruthy());
-    expect(jeZmacknuto('St')).toBe(true);
-  });
-
-  it('den vybraný rukou platí dál', async () => {
-    const { onApprove } = renderModal(zprava());
-    await waitFor(() => expect(h.nactiZvyklosti).toHaveReturned());
-    fireEvent.click(screen.getByRole('button', { name: 'Pá' }));
-    await waitFor(() => expect(screen.getByText(/pá 30\. 10\./)).toBeTruthy());
-    schvalit();
-    await waitFor(() => expect(onApprove).toHaveBeenCalledTimes(1));
-    expect(onApprove.mock.calls[0][0]).toMatchObject({ parsed_delivery_day: 'pa', parsed_delivery_date: '2026-10-30' });
+  it('odpověď, která doplňuje existující objednávku, výchozí den neukazuje (den objednávky se nemění)', async () => {
+    renderModal(zprava({ amends_order_id: 'obj-1', message_text: 'plus 1x10l 11sv', parsed_raw_text: 'plus 1x10l 11sv' }));
+    await pockejNaZvyklosti();
+    expect(jeZmacknuto('St')).toBe(false);
+    expect(screen.queryByText(/výchozí den/)).toBeNull();
   });
 });

@@ -18,6 +18,7 @@ import { businessDateISO, posunMesic, posunDen } from '../lib/businessDate';
 import { computeVariantTotals } from '../lib/variantTotals';
 import { vyhovujeDruhu, type DruhObaluFiltr } from '../lib/druhObalu';
 import { denZavozuProUlozeni, jeAutomatickyBezZavozu } from '../lib/bezZavozu';
+import { DEN_KDY, vychoziDenZavozu } from '../lib/denZavozu';
 
 import { PlaceCombobox } from '../components/PlaceCombobox'; // Assuming this is needed
 import { DAYS } from '../lib/shared';
@@ -214,6 +215,18 @@ export default function Orders({
   // změní, ať nezůstane omylem zaškrtnuté z předchozí objednávky.
   const [confirmNextMonth, setConfirmNextMonth] = useState(false);
   const deliveryInFutureMonth = !!deliveryDate && deliveryDate.slice(0, 7) > businessDateISO().slice(0, 7);
+  // 📅 Den, který objednávka dostane, když se žádný nevybere — ukáže se předem
+  // (17. 11. 2026: „u objednávek nastav primárně závoz středa… automaticky se
+  // označí středa, ale uživatel si ji může změnit"). Se závozem je to výchozí
+  // den odběratele (středa; Restaurace, Lužec, Seeberg, Prodejna žádný),
+  // u „bez závozu" dnešek. Stejný výpočet jako při uložení (addOrder).
+  const zavozBezVyberu = !deliveryDay && !deliveryDate
+    ? denZavozuProUlozeni({
+      bezZavozu: noDelivery, den: '', datum: '', datumObjednavky: businessDateISO(),
+      vychoziDen: vychoziDenZavozu(places, placeId || null, placeNameFree || null),
+    })
+    : null;
+  const vychoziDenFormulare = zavozBezVyberu && !noDelivery ? zavozBezVyberu.den : null;
   useEffect(() => { setConfirmNextMonth(false); }, [deliveryDate]);
   const [beerRows, setBeerRows] = useState<BeerRowItem[]>(() => Array.from({ length: 4 }, () => novyRadek()));
   // 🍺 Změna množství u dlaždice piva (obal + počet ks). `radekId` z souhrnu
@@ -1179,9 +1192,13 @@ export default function Orders({
     setSaving(true);
     // Datum objednávky = dnešek v okamžiku uložení. „Bez závozu" bez vybraného
     // dne odchází ten den (lib/bezZavozu.ts) — jinak by se ze skladu odečetla
-    // až v pátek.
+    // až v pátek. Se závozem bez vybraného dne platí výchozí den odběratele
+    // (středa, lib/denZavozu.ts) — pro každého odběratele zvlášť.
     const datumObjednavky = businessDateISO();
-    const zavoz = denZavozuProUlozeni({ bezZavozu: noDelivery, den: deliveryDay, datum: deliveryDate, datumObjednavky });
+    const zavozPro = (g: { resolvedPlaceId: string | null; resolvedName: string | null }) => denZavozuProUlozeni({
+      bezZavozu: noDelivery, den: deliveryDay, datum: deliveryDate, datumObjednavky,
+      vychoziDen: vychoziDenZavozu(places, g.resolvedPlaceId, g.resolvedName),
+    });
 
     const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
 
@@ -1220,7 +1237,7 @@ export default function Orders({
         placeId: group.resolvedPlaceId,
         placeName: group.resolvedName,
         orderDate: datumObjednavky,
-        deliveryDate: zavoz.datum,
+        deliveryDate: zavozPro(group).datum,
         radky: group.rows.map((r) => ({ beerId: r.beerId, pkgId: r.pkgId, qty: Number(r.qty) })),
       });
       if (shody?.length && (await zeptejSeNaDuplicitu(shody, nazvyZKatalogu(beers, packages))) !== 'presto') {
@@ -1234,6 +1251,7 @@ export default function Orders({
     let firstOrderId: string | undefined;
     let firstPlaceName: string | undefined;
     let firstOrderItems: { beer_name: string | null; package_label: string | null; quantity: number }[] | undefined;
+    let firstZavoz: { den: string | null; datum: string | null } | undefined;
 
     try {
       for (const group of groups.values()) {
@@ -1243,6 +1261,8 @@ export default function Orders({
           if (place) pId = place.id;
         }
 
+        const zavoz = zavozPro(group);
+        if (!firstZavoz) firstZavoz = zavoz;
         const { data: order, error } = await supabase.from('orders').insert({
           order_date: datumObjednavky, place_id: pId, place_name: group.resolvedName || null,
           source: 'rucne', status: 'nova', delivery_day: zavoz.den,
@@ -1275,7 +1295,7 @@ export default function Orders({
       // WhatsApp s předvyplněnou zprávou, uživatel jen vybere kam poslat.
       if (sendWhatsApp && firstOrderItems) {
         shareOrderToWhatsApp(
-          { place_name: firstPlaceName || null, order_date: datumObjednavky, delivery_day: zavoz.den, delivery_date: zavoz.datum, note: note.trim() || null },
+          { place_name: firstPlaceName || null, order_date: datumObjednavky, delivery_day: firstZavoz?.den ?? null, delivery_date: firstZavoz?.datum ?? null, note: note.trim() || null },
           firstOrderItems
         );
       }
@@ -2162,17 +2182,35 @@ export default function Orders({
                 <button
                   key={d.v}
                   type="button"
-                  onClick={() => pickDeliveryDay(d.v)}
+                  onClick={() => {
+                    // Klepnutí na označený výchozí den ho potvrdí i s jeho datem
+                    // (ve čtvrtek je to středa PŘÍŠTÍHO týdne, ne včerejšek).
+                    if (vychoziDenFormulare === d.v && zavozBezVyberu?.datum) {
+                      setDeliveryDay(d.v);
+                      setDeliveryDate(zavozBezVyberu.datum);
+                      setWeekKey(isoWeekKey(zavozBezVyberu.datum));
+                      return;
+                    }
+                    pickDeliveryDay(d.v);
+                  }}
+                  aria-pressed={deliveryDay === d.v}
                   className={`tap flex-1 min-w-0 h-10 px-1 rounded font-black text-xs transition ${
                     deliveryDay === d.v
                       ? 'bg-amber-500 text-neutral-950 shadow-md'
-                      : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
+                      : vychoziDenFormulare === d.v
+                        ? 'bg-amber-200 text-amber-950 border-2 border-dashed border-amber-700'
+                        : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
                   }`}
                 >
                   {d.label}
                 </button>
               ))}
             </div>
+            {vychoziDenFormulare && zavozBezVyberu?.datum && (
+              <p data-testid="vychozi-den-zavozu" className="mt-1 text-[11px] font-bold text-neutral-700">
+                Den není vybraný — závoz bude {DEN_KDY[vychoziDenFormulare] ?? vychoziDenFormulare} {datumKratce(zavozBezVyberu.datum)} (výchozí den). Jiný den vyber klepnutím.
+              </p>
+            )}
 
             <div className="mt-3">
               <label className="label" htmlFor="konkretni-datum-zavozu">Konkrétní datum závozu</label>
