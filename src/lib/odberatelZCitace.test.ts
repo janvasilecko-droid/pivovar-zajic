@@ -32,12 +32,39 @@ describe('odberatelZCitace', () => {
     expect(odberatelZCitace(odpoved, [zprava({ id: 'radek' })])).toBeNull();
   });
 
-  it('přednost má zpráva, ze které vznikla objednávka', () => {
+  it('ignorovaná zpráva téhož znění odběratele nepřebije', () => {
     const drivejsi = [
-      zprava({ id: 'bez', parsed_place_name: 'Špatný' }),
-      zprava({ id: 's', imported_order_id: 'o1', parsed_place_name: 'Radek' }),
+      zprava({ id: 'ignorovana', created_at: '2026-09-17T08:30:00Z', status: 'ignored', parsed_place_name: 'Špatný' }),
+      zprava({ id: 's', created_at: '2026-09-17T08:00:00Z', imported_order_id: 'o1', parsed_place_name: 'Radek' }),
     ];
     expect(odberatelZCitace(odpoved, drivejsi)?.placeName).toBe('Radek');
+  });
+
+  // Stejně jako u napojení na objednávku: citovaná je NEJNOVĚJŠÍ zpráva
+  // téhož znění, i když z ní ještě není objednávka (čeká na schválení).
+  it('přednost má nejnovější zpráva, i když z ní ještě není objednávka', () => {
+    const drivejsi = [
+      zprava({ id: 'nova', created_at: '2026-09-17T08:30:00Z', status: 'parsed', parsed_place_id: 'p-radek', parsed_place_name: 'Radek' }),
+      zprava({ id: 'stara', created_at: '2026-09-10T08:00:00Z', status: 'imported', imported_order_id: 'o1', parsed_place_name: 'Jiný' }),
+    ];
+    expect(odberatelZCitace(odpoved, drivejsi)).toMatchObject({ placeId: 'p-radek', placeName: 'Radek' });
+  });
+
+  it('nejnovější zpráva odběratele nemá (ještě se nepřečetla) → pomůže starší téhož znění', () => {
+    const drivejsi = [
+      zprava({ id: 'nova', created_at: '2026-09-17T08:30:00Z', status: 'pending' }),
+      zprava({ id: 'stara', created_at: '2026-09-10T08:00:00Z', status: 'imported', imported_order_id: 'o1', parsed_place_name: 'Radek' }),
+    ];
+    expect(odberatelZCitace(odpoved, drivejsi)?.placeName).toBe('Radek');
+  });
+
+  it('starší zprávy téhož znění se na odběrateli neshodnou → pole zůstane prázdné', () => {
+    const drivejsi = [
+      zprava({ id: 'nova', created_at: '2026-09-17T08:30:00Z', status: 'pending' }),
+      zprava({ id: 'a', created_at: '2026-09-10T08:00:00Z', status: 'imported', imported_order_id: 'o1', parsed_place_name: 'Radek' }),
+      zprava({ id: 'b', created_at: '2026-09-03T08:00:00Z', status: 'imported', imported_order_id: 'o2', parsed_place_name: 'Maneo' }),
+    ];
+    expect(odberatelZCitace(odpoved, drivejsi)).toBeNull();
   });
 });
 

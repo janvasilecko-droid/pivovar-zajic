@@ -16,6 +16,7 @@
 // ve kterém se sudy doopravdy vrátily, a na originální objednávce zůstane
 // jen čitelná poznámka, ne přepsané číslo.
 import { pondeliTydne, stitekTydne } from './tydenniInventura';
+import { shodaHledani } from './hledani';
 
 export type PolozkaVraceni = {
   beer_id: string;
@@ -162,14 +163,14 @@ export function objednavkyKVraceni<O extends ObjednavkaProVraceni>(
   const mez = new Date(`${opts.dnes}T00:00:00Z`);
   mez.setUTCDate(mez.getUTCDate() - dnuZpet);
   const mezISO = mez.toISOString().slice(0, 10);
-  const hledat = (opts.hledat ?? '').trim().toLowerCase();
+  const hledat = opts.hledat ?? '';
 
   return objednavky
     .filter((o) => o.is_delivered && o.status !== 'storno')
     .filter((o) => (polozky[o.id] ?? []).length > 0)
     .filter((o) => datumZavozu(o) >= mezISO)
     .filter((o) => (opts.placeId ? o.place_id === opts.placeId : true))
-    .filter((o) => (hledat ? (o.place_name ?? '').toLowerCase().includes(hledat) : true))
+    .filter((o) => shodaHledani(o.place_name, hledat))
     .sort((a, b) => datumZavozu(b).localeCompare(datumZavozu(a)));
 }
 

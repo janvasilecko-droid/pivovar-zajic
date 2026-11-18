@@ -6,7 +6,7 @@
 // zobrazuje se jen komu je nastaveno (Uživatelé → "Dostává upozornění na
 // vozidla") a musí ho jednou potvrdit, pak zmizí (dokud se stav nezmění).
 import { lazy, Suspense, useEffect, useMemo, useState, useRef, type ComponentType } from 'react';
-import { CalendarX2, CloudUpload, Download, Check, ChevronLeft, ChevronRight, Lightbulb, LogOut, Palette, Plus, SlidersHorizontal, Trash2, TriangleAlert, X, Truck, ClipboardList, MessageCircle, PlusCircle, Snowflake, FlaskConical, CalendarDays, BarChart3, TrendingDown, GlassWater, BookOpen, Droplet, Car, FileText, ClipboardCheck, Shield, Store, Receipt, MapPin, Beer as BeerIcon, Tag, Sparkles, Compass, ArrowLeftRight, StickyNote, AlarmClock, Play, Pause, RotateCcw, Pin, Flame, Settings, LayoutGrid, ArrowUpDown, Scissors, Wind } from 'lucide-react';
+import { CalendarX2, CloudUpload, Download, Check, ChevronLeft, ChevronRight, Lightbulb, LogOut, Palette, Plus, AlarmClockPlus, SlidersHorizontal, Trash2, TriangleAlert, X, Truck, ClipboardList, MessageCircle, PlusCircle, Snowflake, FlaskConical, CalendarDays, BarChart3, TrendingDown, GlassWater, BookOpen, Droplet, Car, FileText, ClipboardCheck, Shield, Store, Receipt, MapPin, Beer as BeerIcon, Tag, Sparkles, Compass, ArrowLeftRight, StickyNote, AlarmClock, Play, Pause, RotateCcw, Pin, Flame, Settings, LayoutGrid, ArrowUpDown, Scissors, Wind } from 'lucide-react';
 import { NAV, EXTRA_NAV, type Page, type NavItem } from '../components/Layout';
 import LauncherTile, { tileGridStyle } from '../components/LauncherTile';
 import { QuickSearchModal } from '../components/QuickSearchModal';
@@ -24,10 +24,15 @@ import { HomeNotesModal } from '../components/HomeNotesModal';
 import CoStocitOkno from '../components/CoStocitOkno';
 import NakladkaOkno from '../components/NakladkaOkno';
 import { PrehledTankuPlocha } from '../components/PrehledTankuPlocha';
+import type { FazeTanku, ZapisSanitace } from '../lib/fazeTanku';
+import { barvyPiv as barvyPivZDb, sestavTankyNaPlochu } from '../lib/tankyNaPlochu';
 import { nactiSdilenouTabulku } from '../lib/sdilenaData';
 // Návod je přes deset kilobajtů textu, který většina lidí za den neotevře —
 // stáhne se až při klepnutí na dlaždici.
 const NavodPouziti = lazy(() => import('../components/NavodPouziti').then((m) => ({ default: m.NavodPouziti })));
+// Okno úprav rychlých odpočtů se načte až po klepnutí na budík s plusem — do startu aplikace nepatří
+// (strop velikosti, scripts/zkontroluj-velikost.mjs).
+const RychleOdpoctyModal = lazy(() => import('../components/RychleOdpoctyModal').then((m) => ({ default: m.RychleOdpoctyModal })));
 import { HomeChecklistModal } from '../components/HomeChecklistModal';
 import { smiBytDlazdici, CHECKLISTY_ZAPNUTE, CO2_ZAPNUTO } from '../lib/skryteModuly';
 import { polozkyDlazdice, pocetCekajicich } from '../lib/dlazdicePoznamek';
@@ -36,7 +41,8 @@ import { getHomeNotes, toggleHomeNote, HOME_NOTES_CHANGED_EVENT, OPEN_HOME_NOTES
 import { getDailyTasks, DAILY_CHECKLIST_CHANGED_EVENT, type DailyTask } from '../lib/homeChecklist';
 import { getHomeLayout, saveHomeLayout, pouzijPozadavekNakladky, type PozadavekNakladky, addPage, removePage, moveTileToPage, hideTile, addTile, mergeTiles, addToGroup, removeFromGroup, deleteGroup, isGroupId, isCountdownId, ensurePositions, ensureTrailingEmptyPage, unifyColorsByCategory, stepTileCell, addDockSlot, removeDockSlot, moveDockSlot, PAGE_CATEGORY, CATEGORY_ORDER, CATEGORY_SHADES, type Category, moveTileToPageCell, okrajProPrepnuti, dalsiStranka, rozdelVseDoStranek, idsKRozmisteni, vyrovnejStranku, VYCHOZI_STRANKA, type OkrajTazeni, MIN_OPACITY, MAX_OPACITY, MIN_TILE_GAP, MAX_TILE_GAP, MIN_W, MAX_W, MIN_H, MAX_H, TILE_COLORS, COLOR_HEX, defaultTileColor, GRID_COLS_DESKTOP, GRID_COLS_MOBILE, MOBILE_BREAKPOINT_PX, ROW_HEIGHT_DESKTOP, ROW_HEIGHT_MOBILE, MIN_DOCK, MAX_DOCK, UNIT_COLS, CO2_TILE_ID, type HomeLayout, type TileColor, type TileId, type GroupId, type CountdownTileId } from '../lib/homeLayout';
 import { co2Bezi, co2Zbyva, prepniCo2, zastavOdpocetVSeznamu, CO2_ID } from '../lib/co2Foukani';
-import { RYCHLE_ODPOCTY, prepniRychlyOdpocet, rychlyBezi, rychlyZbyva, rychlyOdpocet } from '../lib/rychleOdpocty';
+import { seznamRychlychOdpoctu, prepniRychlyOdpocet, rychlyBezi, rychlyZbyva, rychlyOdpocet, spustJednorazovy, kratkyCas, stitekDelky, popisDelky } from '../lib/rychleOdpocty';
+import { getNastaveniRychlychOdpoctu, saveNastaveniRychlychOdpoctu, RYCHLE_ODPOCTY_NASTAVENI_EVENT } from '../lib/rychleOdpoctyNastaveni';
 import { zajistiUpozorneniOdpoctu } from '../lib/odpoctyPush';
 import { zavibruj } from '../lib/haptika';
 import { getKegTimerState, formatDurationMs, getCountdowns, saveCountdowns, countdownRemainingMs, toggleCountdown, resetCountdown, startAllCountdowns, pauseAllCountdowns, COUNTDOWN_CHANGED_EVENT, type CountdownTimer, getStopwatchState, saveStopwatchState, stopwatchElapsedMs, STOPWATCH_CHANGED_EVENT, type StopwatchState } from '../lib/stopwatchTimers';
@@ -69,7 +75,6 @@ const MESICE_KRATCE = ['leden', 'únor', 'březen', 'duben', 'květen', 'červen
 import { kauceVenku, vycepyVenku, type VycepVenku } from '../lib/vycepyVenku';
 import './HomeScreen.css';
 import { uloz } from '../lib/uloziste';
-import { kapacitaTanku } from '../lib/tankPlnost';
 
 /** true = jméno přednastaveného odstínu (CSS třída c-*); false = vlastní hex barva (inline styl). */
 function isPresetColor(c: string): c is TileColor {
@@ -976,6 +981,16 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
     return () => window.removeEventListener(COUNTDOWN_CHANGED_EVENT, handleUpdate);
   }, []);
 
+  // ⏱️ Rychlé odpočty v liště nahoře: co v ní je a jak dlouho se odpočítává
+  // si nastavuje majitel sám (lib/rychleOdpocty.ts, okno RychleOdpoctyModal).
+  const [nastaveniOdpoctu, setNastaveniOdpoctu] = useState(() => getNastaveniRychlychOdpoctu());
+  const [oknoOdpoctu, setOknoOdpoctu] = useState(false);
+  useEffect(() => {
+    const handleUpdate = () => setNastaveniOdpoctu(getNastaveniRychlychOdpoctu());
+    window.addEventListener(RYCHLE_ODPOCTY_NASTAVENI_EVENT, handleUpdate);
+    return () => window.removeEventListener(RYCHLE_ODPOCTY_NASTAVENI_EVENT, handleUpdate);
+  }, []);
+
   // ---- Stopky na ploše ----
   const [stopwatchState, setStopwatchState] = useState<StopwatchState>(() => getStopwatchState());
   useEffect(() => {
@@ -1101,7 +1116,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   // Sklepa a hned zpátky.
   // Od 28. 9. 2026 VŠECHNY tanky, i prázdné („dlaždici sklep udělej tak, aby
   // šly vidět všechny tanky") — Spilka nejdřív, pak Tanky podle čísla.
-  const [tankyNaPlochu, setTankyNaPlochu] = useState<{ id: string; label: string; pivo: string; barva: string | null; litry: number; vystav: number; staci: boolean; prazdny: boolean }[]>([]);
+  const [tankyNaPlochu, setTankyNaPlochu] = useState<{ id: string; label: string; pivo: string; barva: string | null; litry: number; vystav: number; staci: boolean; prazdny: boolean; faze: FazeTanku | null }[]>([]);
   // Barvy piv z nastavení piv — přehledové dlaždice podle nich barví jednotlivá
   // piva, ať je na první pohled vidět rozdíl (28. 9. 2026). Klíč je id i jméno
   // (malými písmeny), protože řádky objednávek nesou jméno piva.
@@ -1109,44 +1124,25 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   const nactiTankyNaPlochu = () => {
     if (!visibleIds.includes('cellar')) return;
     void (async () => {
-      const [{ data: tanky }, { data: piva }] = await Promise.all([
-        supabase.from('cellar_tanks').select('id,label,current_beer_id,current_volume_l,initial_volume_l,capacity_l,status,kegging_active'),
+      const [{ data: tanky }, { data: piva }, { data: sanitace }] = await Promise.all([
+        supabase.from('cellar_tanks').select('id,label,current_beer_id,current_volume_l,initial_volume_l,capacity_l,status,kegging_active,kegging_ended_at'),
         supabase.from('beers').select('id,name,beer_color'),
+        // Sanitační deník tanků — z něj se pozná „vysanitovaný" (lib/fazeTanku.ts).
+        // Chyba čtení deníku tank neschová, jen zůstane „prázdný".
+        supabase.from('sanitation_logs').select('tank_id,method,created_at').not('tank_id', 'is', null).order('created_at', { ascending: false }).limit(300),
       ]);
-      const jmenoPiva = new Map(((piva as any[]) ?? []).map((b) => [b.id, b.name as string]));
-      const barvy = new Map<string, string | null>();
-      for (const b of (piva as any[]) ?? []) {
-        barvy.set(b.id, b.beer_color ?? null);
-        if (b.name) barvy.set(String(b.name).trim().toLowerCase(), b.beer_color ?? null);
-      }
-      setBarvyPiv(barvy);
-      const spilka = (l: string) => l.toLowerCase().includes('spilka');
-      // Jen ležácké tanky 1–8 — Spilka na dlaždici nepatří (28. 9. 2026:
-      // „1–8 stačí, když tam budou ležácké tanky, musí jít vidět, co je tam
-      // za pivo a kolik").
-      const radky = (((tanky as any[]) ?? [])
-        .filter((t) => !spilka(String(t.label ?? '')))
-        .map((t) => {
-          const litry = Math.round(Number(t.current_volume_l || 0));
-          return {
-            id: String(t.id ?? ''),
-            label: String(t.label ?? '?'),
-            pivo: jmenoPiva.get(t.current_beer_id) ?? '',
-            barva: barvy.get(t.current_beer_id) ?? null,
-            litry,
-            // Pruh = kolik zbývá z VÝSTAVU (počáteční objem = 100 %), ne
-            // z celého tanku (30. 10. 2026, viz Cellar.tsx). Bez zapsaného
-            // výstavu z nominálu nádoby (7 500 l, spilka 8 000 l).
-            vystav: Number(t.initial_volume_l) > 0 ? Number(t.initial_volume_l) : kapacitaTanku(String(t.label ?? '')),
-            // Tank, ze kterého se právě stáčí — označí se.
-            staci: !!t.kegging_active,
-            prazdny: t.status === 'empty' || litry <= 0,
-          };
-        })
-        .sort((a, b) => a.label.localeCompare(b.label, 'cs', { numeric: true })));
-      setTankyNaPlochu(radky);
+      // Sanitace se zapisuje i do úložiště zařízení (Cellar.tsx, kdyby selhala databáze).
+      let mistniSanitace: ZapisSanitace[] = [];
+      try { mistniSanitace = JSON.parse(localStorage.getItem('sanitation_logs_data') ?? '[]'); } catch { /* bez místního deníku */ }
+      setBarvyPiv(barvyPivZDb((piva as any[]) ?? []));
+      setTankyNaPlochu(sestavTankyNaPlochu({
+        tanky: (tanky as any[]) ?? [],
+        piva: (piva as any[]) ?? [],
+        zapisySanitace: [...(((sanitace as any[]) ?? [])), ...(Array.isArray(mistniSanitace) ? mistniSanitace : [])],
+      }));
     })();
   };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { nactiTankyNaPlochu(); }, [visibleIds]);
 
   // ---- Živá dlaždice Objednávky: co se dnes veze ----
@@ -1634,39 +1630,54 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
               15 minut"; „tu lupu můžeš vymazat"). Klepnutí spustí, další
               zastaví — stejně jako dlaždice CO2 (lib/rychleOdpocty.ts).
               Hledání zůstává na přetažení plochy dolů. */}
-          {RYCHLE_ODPOCTY.filter((r) => CO2_ZAPNUTO || r.id !== CO2_ID).map((r) => {
+          {/* Co je v liště a na jak dlouho si majitel nastavuje sám (18. 11. 2026:
+              „ať je tam volba různých libovolných odpočtů") — viz tlačítko
+              s budíkem a plusem za ikonami. Vlastní odpočty ukazují místo
+              ikony svůj čas. */}
+          {seznamRychlychOdpoctu(nastaveniOdpoctu, { co2: CO2_ZAPNUTO }).map((r) => {
             const bezi = rychlyBezi(countdowns, r.id);
-            const zbyva = rychlyZbyva(countdowns, r.id);
-            const minut = Math.round(r.delkaMs / 60000);
+            const zbyva = rychlyZbyva(countdowns, r.id, nastaveniOdpoctu);
+            const delka = popisDelky(r.delkaMs);
             return (
               <button
                 key={r.id}
                 type="button"
                 className={`hs-pager-manage hs-rychly vlastni-vyska ${bezi ? 'hs-rychly-bezi' : ''}`}
-                title={bezi ? `${r.popis} — zbývá ${formatDurationMs(zbyva)}, klepnutím zastavíš` : `${r.popis} — spustit odpočet ${minut} min`}
-                aria-label={bezi ? `${r.popis}: zbývá ${formatDurationMs(zbyva)}, zastavit` : `${r.popis}: spustit ${minut} minut`}
+                title={bezi ? `${r.popis} — zbývá ${formatDurationMs(zbyva)}, klepnutím zastavíš` : `${r.popis} — spustit odpočet ${delka}`}
+                aria-label={bezi ? `${r.popis}: zbývá ${formatDurationMs(zbyva)}, zastavit` : `${r.popis}: spustit ${delka}`}
                 onClick={() => {
                   zavibruj('odskrtnuto');
                   // Při spuštění (ne zastavení) se zajistí upozornění na displej — lib/odpoctyPush.ts.
                   if (!bezi) void zajistiUpozorneniOdpoctu();
-                  saveCountdowns(prepniRychlyOdpocet(getCountdowns(), r.id));
+                  saveCountdowns(prepniRychlyOdpocet(getCountdowns(), r.id, Date.now(), nastaveniOdpoctu));
                   setCountdowns(getCountdowns());
                 }}
               >
                 {bezi ? (
-                  <span className="hs-rychly-cas">{formatDurationMs(zbyva)}</span>
+                  <span className="hs-rychly-cas">{kratkyCas(zbyva)}</span>
                 ) : r.id === CO2_ID ? (
                   <span className="hs-rychly-co2">CO2</span>
                 ) : r.id === 'rychly-kotel' ? (
                   <Flame size={17} />
                 ) : r.id === 'rychly-sud-maly' ? (
                   <IkonaSud className="hs-sud-maly" />
-                ) : (
+                ) : r.id === 'rychly-sud-velky' ? (
                   <IkonaSud className="hs-sud-velky" />
+                ) : (
+                  <span className="hs-rychly-cas">{stitekDelky(r.delkaMs)}</span>
                 )}
               </button>
             );
           })}
+          <button
+            type="button"
+            className="hs-pager-manage vlastni-vyska"
+            title="Rychlé odpočty — přidat vlastní, upravit čas, spustit jednorázově"
+            aria-label="Rychlé odpočty: přidat nebo upravit"
+            onClick={() => setOknoOdpoctu(true)}
+          >
+            <AlarmClockPlus size={16} />
+          </button>
           <button
             type="button"
             className={`hs-pager-manage vlastni-vyska ${editMode ? 'hs-pager-manage-on' : ''}`}
@@ -2888,6 +2899,26 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
             })}
           </div>
         </Modal>
+      )}
+
+      {oknoOdpoctu && (
+        <Suspense fallback={null}>
+          <RychleOdpoctyModal
+            open
+            onClose={() => setOknoOdpoctu(false)}
+            nastaveni={nastaveniOdpoctu}
+            onZmena={(n) => { setNastaveniOdpoctu(n); saveNastaveniRychlychOdpoctu(n); }}
+            onSpustJednorazovy={(popis, delkaMs) => {
+              zavibruj('odskrtnuto');
+              // Jako u ikon v liště: při spuštění se zajistí upozornění na displej (lib/odpoctyPush.ts).
+              void zajistiUpozorneniOdpoctu();
+              saveCountdowns(spustJednorazovy(getCountdowns(), popis, delkaMs));
+              setCountdowns(getCountdowns());
+              setOknoOdpoctu(false);
+            }}
+            co2={CO2_ZAPNUTO}
+          />
+        </Suspense>
       )}
 
       {showAddTileModal && (

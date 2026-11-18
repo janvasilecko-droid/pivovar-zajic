@@ -556,6 +556,12 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
   const [upravDatum, setUpravDatum] = useState('');
   const [upravKs, setUpravKs] = useState('');
   const [upravVPocitani, setUpravVPocitani] = useState(false);
+  // Pivo, obal a „pro koho" jdou měnit taky (18. 11. 2026: „když zadám fasování,
+  // musí jít editovat hned") — dřív šlo opravit jen datum a počet a překlep
+  // v pivu se musel smazat a zapsat znovu.
+  const [upravPivoId, setUpravPivoId] = useState('');
+  const [upravObalId, setUpravObalId] = useState('');
+  const [upravKdo, setUpravKdo] = useState('');
 
   async function presunCelyDen() {
     const stary = (presunZ ?? '').slice(0, 10);
@@ -589,6 +595,15 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
     setUpravDatum((r.entry_date ?? '').slice(0, 10));
     setUpravKs(String(r.quantity));
     setUpravVPocitani(jeVPocitani(r.note));
+    setUpravPivoId(r.beer_id ?? '');
+    setUpravObalId(r.package_id ?? '');
+    setUpravKdo(getRowWho(r) === '—' ? '' : getRowWho(r));
+  }
+
+  /** Právě uložený zápis ze seznamu „Dnes uloženo" (tužka u řádku) — otevře stejnou úpravu. */
+  function upravUlozene(p: { id: string }) {
+    const r = rows.find((x) => x.id === p.id);
+    if (r) otevriUpravu(r);
   }
 
   async function ulozUpravu() {
@@ -600,7 +615,11 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
     const bezZnacky = (upravovany.note ?? '').split(ZNACKA_V_POCITANI).join('').replace(/\s*·\s*$/, '').trim();
     const novaPoznamka = upravVPocitani ? [bezZnacky, ZNACKA_V_POCITANI].filter(Boolean).join(' · ') : bezZnacky;
     const poznamkaSeMeni = table !== 'writeoffs' && jeVPocitani(upravovany.note) !== upravVPocitani;
-    if (upravDatum === puvodniDatum && ks === Number(upravovany.quantity) && !poznamkaSeMeni) { setUpravovany(null); return; }
+    const pivoSeMeni = !!upravPivoId && upravPivoId !== (upravovany.beer_id ?? '');
+    const obalSeMeni = !!upravObalId && upravObalId !== (upravovany.package_id ?? '');
+    const puvodniKdo = getRowWho(upravovany) === '—' ? '' : getRowWho(upravovany);
+    const kdoSeMeni = showWhoColumn && upravKdo.trim() !== puvodniKdo;
+    if (upravDatum === puvodniDatum && ks === Number(upravovany.quantity) && !poznamkaSeMeni && !pivoSeMeni && !obalSeMeni && !kdoSeMeni) { setUpravovany(null); return; }
     // Úprava do (nebo z) už napočítaného měsíce mění uzavřené číslo — nejdřív se zeptá.
     const uzamcene = [...new Set([puvodniDatum, upravDatum])].filter((d) => jeMesicUzamcen(inventoryRows, d));
     if (uzamcene.length > 0) {
@@ -612,9 +631,16 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
     }
     const zmena: Record<string, unknown> = { entry_date: upravDatum, quantity: ks };
     if (poznamkaSeMeni) zmena.note = novaPoznamka || null;
+    // Pivo a obal se mění i se jménem/štítkem, které si záznam nese (beer_name,
+    // package_label) — jinak by přehledy ukazovaly staré pivo vedle nového id.
+    const pivo = pivoSeMeni ? beers.find((b) => b.id === upravPivoId) : undefined;
+    const obal = obalSeMeni ? packages.find((x) => x.id === upravObalId) : undefined;
+    if (pivoSeMeni) { zmena.beer_id = upravPivoId; zmena.beer_name = pivo?.name ?? null; }
+    if (obalSeMeni) { zmena.package_id = upravObalId; zmena.package_label = obal?.label ?? null; }
+    if (kdoSeMeni) zmena.who = upravKdo.trim() || null;
     const { error } = await supabase.from(table).update(zmena).eq('id', upravovany.id);
     if (error) { chyba(error); return; }
-    setRows((rs) => rs.map((r) => (r.id === upravovany.id ? { ...r, entry_date: upravDatum, quantity: ks, ...(poznamkaSeMeni ? { note: novaPoznamka || null } : {}) } : r)));
+    setRows((rs) => rs.map((r) => (r.id === upravovany.id ? { ...r, ...zmena } as EntryRow : r)));
     setUpravovany(null);
     load(true);
   }
@@ -860,6 +886,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
               onZavrit={() => setExpandedProdejnaBeerId(null)}
               den={date === businessDateISO() ? 'dnes' : date}
               dnes={dnesPodleObalu(rows, date, packages).filter((p) => p.beerId === expandedProdejnaBeer.id)}
+              onUpravit={upravUlozene}
               kroky={[krokVydej(expandedProdejnaBeer)]}
               hlavickaVpravo={showWhoColumn ? (
                 /* „Pro koho" patří do lišty, ne k jednotlivým obalům: fasuje se
@@ -956,6 +983,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
             nadpis={`${date === businessDateISO() ? 'Dnes' : date} uloženo — ${title}`}
             polozky={dnesPodleObalu(rows, date, packages)}
             beers={beers}
+            onUpravit={upravUlozene}
           />
         </form>
       )}
@@ -1311,6 +1339,26 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
       {upravovany && (
         <Modal open onClose={() => setUpravovany(null)} title={`Upravit záznam: ${upravovany.beer_name ?? 'pivo'} ${upravovany.package_label ?? ''}`.trim()}>
           <form onSubmit={(e) => { e.preventDefault(); void ulozUpravu(); }} className="space-y-4">
+            <div>
+              <label className="label" htmlFor="uprav-pivo">Pivo</label>
+              <select id="uprav-pivo" className="input" value={upravPivoId} onChange={(e) => setUpravPivoId(e.target.value)}>
+                {!beers.some((b) => b.id === upravPivoId) && <option value={upravPivoId}>{upravovany.beer_name ?? '—'}</option>}
+                {beers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="label" htmlFor="uprav-obal">Obal</label>
+              <select id="uprav-obal" className="input" value={upravObalId} onChange={(e) => setUpravObalId(e.target.value)}>
+                {!shopPackages.some((x) => x.id === upravObalId) && <option value={upravObalId}>{upravovany.package_label ?? '—'}</option>}
+                {shopPackages.map((x) => <option key={x.id} value={x.id}>{objemObalu(x)}{x.kind === 'keg' ? ' (sud)' : ''}</option>)}
+              </select>
+            </div>
+            {showWhoColumn && (
+              <div>
+                <label className="label" htmlFor="uprav-kdo">{druh.popisek}</label>
+                <input id="uprav-kdo" type="text" className="input" value={upravKdo} onChange={(e) => setUpravKdo(e.target.value)} placeholder={druh.napoveda} />
+              </div>
+            )}
             <div>
               <label className="label" htmlFor="uprav-datum">Datum</label>
               <input id="uprav-datum" type="date" className="input" value={upravDatum} onChange={(e) => setUpravDatum(e.target.value)} />

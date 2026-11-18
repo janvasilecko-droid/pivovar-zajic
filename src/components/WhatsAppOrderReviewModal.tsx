@@ -8,7 +8,7 @@ import { poradiPodlePrepisu } from '../../supabase/functions/_shared/prepis-fotk
 import { oznacVlastniObjednavku } from '../lib/mojeObjednavky';
 import { najdiDuplicitniObjednavky } from '../lib/orderDuplicates';
 import { nazvyZKatalogu, zeptejSeNaDuplicitu } from '../lib/duplicityDialog';
-import { diffOrderItems, rozsahOdpovedi, slozNavrh, potvrzeneBezPolozek, kandidatiNaDoplneni, opravenyCilUpravy, datumObjednavky, vypadaJakoZmenaObjednavky, type DiffRow, type RozsahOdpovedi, type SkupinaObalu, type ObjednavkaKandidat } from '../lib/whatsappAmendment';
+import { diffOrderItems, rozsahOdpovedi, slozNavrh, potvrzeneBezPolozek, kandidatiNaDoplneni, posudNapojeni, datumObjednavky, vypadaJakoZmenaObjednavky, type DiffRow, type RozsahOdpovedi, type SkupinaObalu, type ObjednavkaKandidat } from '../lib/whatsappAmendment';
 import { PlaceCombobox } from './PlaceCombobox';
 import { Modal } from './ui';
 import { PhotoReviewPane } from './PhotoReviewPane';
@@ -292,7 +292,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
     (async () => {
       const { data } = await supabase
         .from('whatsapp_incoming')
-        .select('id, created_at, message_text, quoted_text, imported_order_id, parsed_place_id, parsed_place_name')
+        .select('id, created_at, message_text, status, quoted_text, imported_order_id, parsed_place_id, parsed_place_name')
         .lt('created_at', msg.created_at)
         .order('created_at', { ascending: false })
         // Celý chat se netáhne — citace se týká něčeho z posledních dní.
@@ -452,29 +452,50 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
     if (zvyklosti.obvyklyZavoz === 2) setZavozCislo(2);
   }, [zvyklosti]);
 
-  // 🔗 Odpověď může být napojená na jinou objednávku, než ze které vznikla
-  // citovaná zpráva (ta se schválila až po odpovědi). Při otevření se cíl ověří
-  // a případně přepojí, ať se přídavek nepřičte ke staré objednávce.
+  // 🔗 Odpověď může být napojená na jinou objednávku, než ke které podle
+  // citace patří. Objednávky se posílají pořád stejným zněním, takže citaci
+  // sedí i zprávy z minulých týdnů; napojení se dělá hned, jak odpověď přijde,
+  // tedy dřív, než se schválí nová zpráva, na kterou odpovídá. Při otevření se
+  // cíl ověří znovu (pravidlo je sdílené se serverem: lib/whatsappAmendment.ts
+  // → posudNapojeni):
+  //  • nová zpráva už má objednávku → odpověď se přepojí na ni,
+  //  • nová zpráva ještě čeká na schválení a odpověď visí na objednávce starší
+  //    zprávy stejného znění → napojení se zruší (přídavek by se přičetl ke
+  //    staré objednávce) a obsluha se to dozví nahoře v kontrole.
+  const [cekaNaRodice, setCekaNaRodice] = useState<{ created_at: string; text: string } | null>(null);
   useEffect(() => {
+    setCekaNaRodice(null);
     if (!props.isOpen || !msg?.quoted_text || jeVraceni) return;
     let zruseno = false;
     (async () => {
       const { data } = await supabase
         .from('whatsapp_incoming')
-        .select('id, created_at, message_text, quoted_text, imported_order_id')
+        .select('id, created_at, message_text, status, quoted_text, imported_order_id')
         .lt('created_at', msg.created_at)
         .order('created_at', { ascending: false })
         .limit(200);
       if (zruseno || !data) return;
-      const spravna = opravenyCilUpravy(msg as any, data as any);
-      if (!spravna) return;
-      try {
-        await napojNaObjednavku(msg.id, spravna);
-        if (!zruseno) {
-          setMsg((m) => (m ? { ...m, amends_order_id: spravna } : m));
-          setStatusMessage('Odpověď byla napojená na jinou objednávku, než ze které vznikla citovaná zpráva — přepojeno na tu správnou.');
-        }
-      } catch { /* zůstane původní napojení, obsluha ho vidí a může změnit */ }
+      const posudek = posudNapojeni(msg as any, data as any);
+      if (posudek.ceka && posudek.rodic) {
+        setCekaNaRodice({ created_at: posudek.rodic.created_at, text: posudek.rodic.message_text ?? '' });
+      }
+      if (posudek.akce === 'prepojit' && posudek.orderId) {
+        try {
+          await napojNaObjednavku(msg.id, posudek.orderId, posudek.rodic?.id);
+          if (!zruseno) {
+            setMsg((m) => (m ? { ...m, amends_order_id: posudek.orderId, amends_message_id: posudek.rodic?.id ?? m.amends_message_id } : m));
+            setStatusMessage('Odpověď byla napojená na jinou objednávku, než ze které vznikla citovaná zpráva — přepojeno na tu správnou.');
+          }
+        } catch { /* zůstane původní napojení, obsluha ho vidí a může změnit */ }
+      } else if (posudek.akce === 'zrusit' && posudek.rodic) {
+        try {
+          await napojNaObjednavku(msg.id, null, posudek.rodic.id);
+          if (!zruseno) {
+            setMsg((m) => (m ? { ...m, amends_order_id: null, amends_message_id: posudek.rodic?.id ?? null } : m));
+            setStatusMessage('Odpověď byla napojená na starší objednávku, ale patří k novější zprávě, která ještě není schválená — napojení jsem zrušil.');
+          }
+        } catch { /* zůstane původní napojení, nahoře ho obsluha vidí */ }
+      }
     })();
     return () => { zruseno = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1581,6 +1602,29 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                   >
                     Není to vrácení — je to objednávka
                   </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ⏳ Odpověď cituje NOVĚJŠÍ zprávu, ze které ještě není objednávka.
+            Objednávky chodí pořád stejným zněním, takže citaci sedí i zprávy
+            z minulých týdnů — k jejich objednávkám se odpověď nepřipojuje.
+            Po schválení nové zprávy se napojí sama (to udělá kontrola napojení výš). */}
+        {cekaNaRodice && !msg?.amends_order_id && !jeVraceni && (
+          <div role="status" data-testid="odpoved-ceka-na-zpravu" className="border-2 border-amber-300 rounded bg-amber-50 p-4">
+            <div className="flex items-start gap-2">
+              <AlertCircle size={18} className="text-amber-700 shrink-0 mt-0.5" />
+              <div className="min-w-0 flex-1">
+                <div className="font-display font-black text-amber-950 text-sm">
+                  Odpověď patří k novější zprávě, která ještě není schválená
+                </div>
+                <div className="text-xs font-bold text-amber-900 mt-1">
+                  Cituje zprávu z {new Date(cekaNaRodice.created_at).toLocaleString('cs-CZ', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                  {cekaNaRodice.text.trim() ? <> („{cekaNaRodice.text.replace(/\s+/g, ' ').trim().slice(0, 50)}…")</> : null}.
+                  Nejdřív schval ji — odpověď se pak sama napojí na její objednávku, ne na starší
+                  objednávku se stejným zněním z minulých týdnů. Teď se k žádné nepřipojuje.
                 </div>
               </div>
             </div>

@@ -3,6 +3,8 @@
 // jistotou, ne jen podle sedících čísel. Čistě zobrazovací pomocníci;
 // data se táhnou přímo v TydenniInventuraPanel.tsx (fetchAllRows).
 
+import { shodaHledani } from './hledani';
+
 export type PrehledPolozka = { beer_name: string; package_label: string; quantity: number };
 
 export type PrehledObjednavka = {
@@ -30,21 +32,13 @@ export function popisPolozek(polozky: PrehledPolozka[]): string {
   return polozky.map((p) => `${p.quantity}× ${p.beer_name} ${p.package_label}`).join(', ');
 }
 
+// Hledá se bez ohledu na diakritiku (lib/hledani.ts): „luzec" najde „Lužec".
 export function objednavkaShoduje(o: PrehledObjednavka, dotaz: string): boolean {
-  const q = dotaz.trim().toLowerCase();
-  if (!q) return true;
-  if ((o.place_name || '').toLowerCase().includes(q)) return true;
-  return o.polozky.some(
-    (p) => p.beer_name.toLowerCase().includes(q) || p.package_label.toLowerCase().includes(q),
-  );
+  // Odběratel i položky se hledají dohromady — „lužec světlá" najde objednávku
+  // Lužce se světlým pivem (slova se mohou dělit mezi odběratele a položky).
+  return shodaHledani([o.place_name, ...o.polozky.flatMap((p) => [p.beer_name, p.package_label])], dotaz);
 }
 
 export function zapisShoduje(z: PrehledZapis, dotaz: string): boolean {
-  const q = dotaz.trim().toLowerCase();
-  if (!q) return true;
-  return (
-    z.beer_name.toLowerCase().includes(q) ||
-    z.package_label.toLowerCase().includes(q) ||
-    (z.note || '').toLowerCase().includes(q)
-  );
+  return shodaHledani([z.beer_name, z.package_label, z.note], dotaz);
 }

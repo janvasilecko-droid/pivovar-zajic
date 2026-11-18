@@ -1,4 +1,5 @@
 import { useState, useEffect, type FormEvent } from 'react';
+import type { LucideIcon } from 'lucide-react';
 import { AlertCircle, AlertTriangle, Bell, BellOff, BookOpen, Brush, CloudDownload, Download, Eraser, Eye, CheckCircle2, Lock, Megaphone, MessageSquare, Monitor, Moon, Palette, Plus, RefreshCw, Settings, Smartphone, Stethoscope, Sun, Timer, Trash2, Users, Vibrate, Volume2, VolumeX, Zap } from 'lucide-react';
 import { NavodPouziti } from '../components/NavodPouziti';
 import { InstalaceKroky } from '../components/InstalaceKroky';
@@ -25,12 +26,24 @@ import { forceRefresh } from '../lib/versionCheck';
 import { isAdminEmail } from '../lib/config';
 import { fetchWhatsAppSenders, addWhatsAppSender, removeWhatsAppSender, type WhatsAppSender } from '../lib/whatsappApi';
 import { oznam, uspech, chyba as toastChyba } from '../lib/toast';
-import { uloz, smaz } from '../lib/uloziste';
+import { uloz, smaz, nacti } from '../lib/uloziste';
 import { POLOHY_DOKU, ulozPolohuDoku, usePolohuDoku } from '../lib/polohaDoku';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+}
+
+// 🎨 Dva oddíly nastavení: Vzhled zvlášť (18. 11. 2026). Volba oddílu se
+// pamatuje jen na tomhle zařízení.
+type Zalozka = 'vzhled' | 'ostatni';
+const KLIC_ZALOZKY = 'pivovar_nastaveni_zalozka';
+const ZALOZKY: { id: Zalozka; nazev: string; popis: string; ikona: LucideIcon }[] = [
+  { id: 'vzhled', nazev: 'Vzhled', popis: 'Režim, velikost, efekty, lišta', ikona: Palette },
+  { id: 'ostatni', nazev: 'Ostatní', popis: 'Instalace, upozornění, účet', ikona: Settings },
+];
+function nactiZalozku(): Zalozka {
+  return nacti(KLIC_ZALOZKY) === 'ostatni' ? 'ostatni' : 'vzhled';
 }
 
 export default function AppSettingsScreen({ setPage }: { setPage?: (p: any, sec?: string, sub?: string) => void } = {}) {
@@ -40,6 +53,11 @@ export default function AppSettingsScreen({ setPage }: { setPage?: (p: any, sec?
   const [meneEfektu, setMeneEfektu] = useState<boolean>(mensiEfekty());
   const [haptika, setHaptika] = useState(haptikaZapnuta());
   const [theme, setThemeState] = useState<Theme>(getTheme());
+  const [zalozka, setZalozka] = useState<Zalozka>(() => nactiZalozku());
+  function vyberZalozku(z: Zalozka) {
+    setZalozka(z);
+    uloz(KLIC_ZALOZKY, z);
+  }
   const [notifPermission, setNotifPermission] = useState(getNotificationPermission());
   const [notifSettings, setNotifSettings] = useState<NotificationSettings>(getNotificationSettings());
 
@@ -267,546 +285,590 @@ export default function AppSettingsScreen({ setPage }: { setPage?: (p: any, sec?
         <p className="text-xs text-neutral-400 font-medium mt-1">Přizpůsobte si vzhled, chování a upozornění aplikace.</p>
       </div>
 
-      {/* Instalace */}
-      <div className="card p-6">
-        <h2 className="font-display font-bold text-lg flex items-center gap-2"><Smartphone size={18} /> Instalace aplikace</h2>
-        {isStandalone ? (
-          <p className="text-sm text-emerald-700 font-bold mt-2">Aplikace je již nainstalována na vašem zařízení.</p>
-        ) : (
-          <div className="mt-3">
-            <p className="text-sm text-neutral-600 mb-3">Dej si aplikaci na plochu — ikona se přidá rovnou z prohlížeče, bez obchodu Google Play.</p>
-            <InstalaceKroky pripravenaInstalace={!!installPrompt} naInstalaci={handleInstall} />
-          </div>
-        )}
-      </div>
-
-      {/* Přepínání účtů — jen pro správce */}
-      {isAdmin && <PrepinacUctu />}
-
-      {/* Náhled „nový běžný uživatel“ — jen pro správce */}
-      {isAdmin && (
-        <div className="card p-6">
-          <h2 className="font-display font-bold text-lg flex items-center gap-2"><Eye size={18} /> Jak to vidí nový uživatel</h2>
-          <p className="text-sm text-neutral-600 mt-2">
-            Aplikace se ti hned zobrazí tak, jak ji dostane čerstvě založený běžný uživatel: výchozí plocha, jeho dlaždice a spodní lišta, bez správcovských dlaždic. Zůstáváš přihlášený jako správce, nic se nepřepíná a změny plochy se v náhledu neukládají.
-          </p>
-          <button type="button" className="btn-primary !rounded mt-3 text-sm font-black" onClick={() => nastavNahled(!jeNahled())}>
-            {jeNahled() ? 'Ukončit náhled' : 'Zobrazit jako nový běžný uživatel'}
-          </button>
-        </div>
-      )}
-
-      {/* Druhá aplikace „Zajíc 2“ — jiný účet než správce, na kontrolu pohledu běžného uživatele */}
-      <div className="card p-6">
-        <h2 className="font-display font-bold text-lg flex items-center gap-2"><Smartphone size={18} /> Zajíc 2 — druhá aplikace s jiným účtem</h2>
-        {JE_DRUHA_APLIKACE ? (
-          <>
-            <p className="text-sm text-emerald-700 font-bold mt-2">Právě jsi v aplikaci Zajíc 2. Přihlášení je oddělené od hlavní aplikace.</p>
-            <p className="text-sm text-neutral-600 mt-2">Chceš ji mít jako samostatnou ikonu? Nainstaluj ji přímo odsud:</p>
-            <div className="mt-3"><InstalaceKroky pripravenaInstalace={!!installPrompt} naInstalaci={handleInstall} /></div>
-          </>
-        ) : (
-          <>
-            <p className="text-sm text-neutral-600 mt-2">
-              Na plochu si můžeš dát druhou ikonu „Zajíc 2“ s vlastním přihlášením — třeba pod účtem běžného uživatele — a kontrolovat, co a jak vidí. Hlavní aplikace zůstává přihlášená jako správce.
-            </p>
-            <ol className="text-sm text-neutral-700 mt-2 space-y-1 list-decimal pl-5">
-              <li>Klepni na „Otevřít Zajíc 2“ (otevře se v prohlížeči).</li>
-              <li>Přihlas se jiným účtem (Uživatelé → „Nové dočasné heslo“ ti ho nastaví).</li>
-              <li>V prohlížeči zvol „Přidat na plochu“ / „Nainstalovat aplikaci“. Ikona je zajíc s červenou 2.</li>
-            </ol>
-            <div className="flex flex-wrap gap-2 mt-3">
-              <a className="btn-primary !rounded text-sm font-black" href={adresaDruheAplikace()} target="_blank" rel="noreferrer">Otevřít Zajíc 2</a>
-              <button
-                type="button"
-                className="btn-ghost !rounded text-sm font-black"
-                onClick={async () => {
-                  try { await navigator.clipboard.writeText(adresaDruheAplikace()); uspech('Odkaz na Zajíc 2 je zkopírovaný.'); }
-                  catch { toastChyba(`Odkaz se nepodařilo zkopírovat — je to ${adresaDruheAplikace()}`); }
-                }}
-              >
-                Zkopírovat odkaz
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* Přihlášení přes Google */}
-      {GOOGLE_PRIHLASENI_ZAPNUTO && (<div className="card p-6">
-        <h2 className="font-display font-bold text-lg flex items-center gap-2"><Lock size={18} /> Přihlášení přes Google</h2>
-        {maGoogle(user) ? (
-          <p className="text-sm text-emerald-700 font-bold mt-2">Tvůj účet je propojený s Google — můžeš se přihlásit i jedním klepnutím na „Přihlásit přes Google“.</p>
-        ) : (
-          <>
-            <p className="text-sm text-neutral-600 mt-2">Propoj účet s Google a nemusíš si pamatovat heslo. Použij Google účet se stejným e-mailem, jakým se sem přihlašuješ.</p>
-            <button
-              type="button"
-              className="btn-ghost !rounded mt-3 text-sm font-black"
-              onClick={async () => {
-                const r = await propojitSGoogle();
-                if (r.error) toastChyba(r.error);
-              }}
-            >
-              Propojit s Google
-            </button>
-          </>
-        )}
-      </div>)}
-
-      {/* Návod k použití */}
-      <div className="card p-6 border-2 border-amber-400/60 bg-gradient-to-br from-amber-50/50 to-white rounded shadow-sm">
-        {/* Celý pruh je jedno tlačítko. Dřív visel `onClick` na `div`u a uvnitř
-            bylo ještě druhé tlačítko — klávesnicí se to ovládat nedalo a
-            čtečka obrazovky o rozbalování nevěděla. */}
-        <button
-          type="button"
-          onClick={() => setShowGuide(!showGuide)}
-          aria-expanded={showGuide}
-          className="w-full flex items-center justify-between gap-2 text-left min-h-[44px]"
-        >
-          <h2 className="font-display font-black text-lg text-amber-950 flex items-center gap-2">
-            <BookOpen className="ikona-text" /> Návod k použití & Přehled funkcí
-          </h2>
-          <span className="text-xs font-bold text-amber-800 bg-amber-100 px-3 py-1.5 rounded transition shrink-0">
-            {showGuide ? 'Skrýt návod ▲' : 'Zobrazit návod ▼'}
-          </span>
-        </button>
-
-        {showGuide && (
-          <div className="mt-5 border-t border-amber-200 pt-5">
-            <NavodPouziti />
-          </div>
-        )}
-      </div>
-
-      {/* Menu */}
-      <div className="card p-6">
-        <h2 className="font-display font-bold text-lg flex items-center gap-2"><Eye size={18} /> Přizpůsobení menu</h2>
-        <p className="text-sm text-neutral-600 mt-2">Vyberte si, které položky chcete vidět v hlavním menu pro rychlejší navigaci.</p>
-        <button onClick={() => setShowMenuCustomize(true)} className="btn-ghost !rounded mt-3 text-sm font-black">Upravit viditelnost menu</button>
-      </div>
-
-      {/* 📍 Poloha spodní lišty — na pravák/levák zvlášť (29. 10. 2026) */}
-      <div className="card p-6">
-        <h2 className="font-display font-bold text-lg flex items-center gap-2"><Smartphone size={18} /> Poloha navigační lišty</h2>
-        <p className="text-sm text-neutral-600 mt-2">Kde je lišta Lahve · Sklad · Objednávky · …. Platí jen na tomhle zařízení.</p>
-        <div className="grid grid-cols-2 gap-2 mt-4" role="radiogroup" aria-label="Poloha navigační lišty">
-          {POLOHY_DOKU.map((o) => (
-            <button
-              key={o.id}
-              type="button"
-              role="radio"
-              aria-checked={polohaDoku === o.id}
-              onClick={() => ulozPolohuDoku(o.id)}
-              className={`${polohaDoku === o.id ? 'btn-amber' : 'btn-ghost'} !flex-col !gap-0 !py-2`}
-            >
-              <span className="font-black">{o.nazev}</span>
-              <span className="text-udaj font-medium opacity-80">{o.popis}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Hustota / Velikost */}
-      <div className="card p-6">
-        <h2 className="font-display font-bold text-lg flex items-center gap-2"><Palette size={18} /> Hustota zobrazení</h2>
-        <p className="text-sm text-neutral-600 mt-2">Zvolte velikost prvků a písma. XS = nejhustší, XL = největší.</p>
-        <div className="flex flex-wrap gap-2 mt-4">
-          {DENSITY_OPTIONS.map(opt => (
-            <button
-              key={opt.value}
-              onClick={() => { setDensity(opt.value); setDensityState(opt.value); }}
-              className={`flex flex-col items-center px-4 py-2.5 rounded border-2 font-black text-sm transition-all min-w-[56px] ${
-                density === opt.value
-                  ? 'bg-amber-500 border-amber-400 text-neutral-950 shadow-md scale-105'
-                  : 'bg-white border-neutral-200 text-neutral-700 hover:border-amber-300 hover:bg-amber-50'
-              }`}
-            >
-              <span className="text-base">{opt.label}</span>
-              <span className="text-udaj font-medium mt-0.5 opacity-70">{opt.desc}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* ⚡ Méně efektů — plynulost na starším telefonu */}
-      <div className="card p-6">
-        <h2 className="font-display font-bold text-lg flex items-center gap-2"><Zap size={18} /> Plynulost</h2>
-        <p className="text-sm text-neutral-600 mt-2">
-          Když se aplikace na telefonu seká, vypni tímhle skleněné rozostření
-          a blikání upozornění. Je to nejdražší věc, kterou aplikace kreslí —
-          rozostření se počítá znovu při každém pohybu, a to zvlášť pro každou
-          dlaždici na ploše i pro horní a spodní lištu na všech obrazovkách.
-        </p>
-        <p className="text-sm text-neutral-600 mt-2">
-          Upozornění nezmizí: místo blikání dostanou stálý barevný rámeček.
-          Nastavuje se na každém telefonu zvlášť a nic to neposílá do databáze.
-        </p>
-        <button
-          type="button"
-          onClick={() => { const n = !meneEfektu; nastavEfekty(n); setMeneEfektu(n); }}
-          aria-pressed={meneEfektu}
-          className={`mt-4 ${meneEfektu ? 'btn-primary' : 'btn-ghost'}`}
-        >
-          <Zap size={16} />
-          {meneEfektu ? 'Méně efektů je ZAPNUTÉ' : 'Zapnout méně efektů'}
-        </button>
-      </div>
-
-      {/* Odezva do prstu */}
-      <div className="card p-6">
-        <h2 className="font-display font-bold text-lg flex items-center gap-2"><Vibrate size={18} /> Odezva při dotyku</h2>
-        <p className="text-sm text-neutral-600 mt-2">
-          Krátké zavibrování při odškrtnutí položky nebo zápisu. Na telefonu se
-          díky tomu nemusí kontrolovat očima, jestli klepnutí prošlo.
-        </p>
-        <button
-          onClick={() => { const n = !haptika; nastavHaptiku(n); setHaptika(n); if (n) zavibruj('hotovo'); }}
-          className={`w-full text-left p-4 rounded-xl border-2 font-bold flex items-center gap-3 transition mt-4 min-h-[56px] ${
-            haptika ? 'bg-emerald-50 border-emerald-300 text-emerald-900' : 'bg-neutral-50 border-neutral-200 text-neutral-600'
-          }`}
-        >
-          <Vibrate size={18} />
-          <span className="flex-1">{haptika ? 'Zapnuto' : 'Vypnuto'}</span>
-          <span className={`w-12 h-7 rounded-full transition relative ${haptika ? 'bg-emerald-500' : 'bg-neutral-300'}`}>
-            <span className={`absolute top-1 w-5 h-5 rounded-full bg-white shadow transition-all ${haptika ? 'left-6' : 'left-1'}`} />
-          </span>
-        </button>
-      </div>
-
-      {/* Upozornění */}
-      <div className="card p-6">
-        <h2 className="font-display font-bold text-lg flex items-center gap-2"><Bell size={18} /> Upozornění (notifikace)</h2>
-        <p className="text-sm text-neutral-600 mt-2">Nastavte si chování upozornění na nové objednávky.</p>
-
-        <div className="mt-5 space-y-4">
-          {/* Povolení systémových notifikací */}
+      {/* 🎨 Dva oddíly: Vzhled zvlášť (18. 11. 2026: „nastavení zvlášť vzhled").
+          Co člověk otevírá kvůli vzhledu (barevný režim, velikost prvků,
+          efekty, poloha lišty, menu), je pohromadě a nemusí se hledat mezi
+          instalací, upozorněními a heslem. Volba oddílu se pamatuje. */}
+      <div role="tablist" aria-label="Oddíly nastavení" className="grid grid-cols-2 gap-2">
+        {ZALOZKY.map((z) => (
           <button
-            onClick={handleToggleNotifications}
-            className={`w-full text-left p-4 rounded border-2 font-bold flex items-center gap-3 transition ${
-              notifPermission === 'granted'
-                ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
-                : 'bg-rose-50 border-rose-300 text-rose-900'
-            }`}
+            key={z.id}
+            type="button"
+            role="tab"
+            id={`nastaveni-zalozka-${z.id}`}
+            aria-selected={zalozka === z.id}
+            aria-controls={`nastaveni-panel-${z.id}`}
+            onClick={() => vyberZalozku(z.id)}
+            className={`${zalozka === z.id ? 'btn-amber' : 'btn-ghost'} !rounded !flex-col !gap-0 !py-2.5 text-left`}
           >
-            {notifPermission === 'granted' ? <Bell size={18} /> : <BellOff size={18} />}
-            <span>
-              {notifPermission === 'granted' ? 'Systémová upozornění jsou POVOLENA' : 'Systémová upozornění jsou ZAKÁZÁNA'}
-              <span className="block text-xs font-medium opacity-75 mt-0.5">
-                {notifPermission === 'granted'
-                  ? 'Kliknutím otevřete nastavení prohlížeče pro odebrání.'
-                  : 'Kliknutím požádáte o povolení zobrazovat systémová upozornění.'}
-              </span>
-            </span>
+            <span className="font-black flex items-center gap-2"><z.ikona size={16} /> {z.nazev}</span>
+            <span className="text-udaj font-medium opacity-80">{z.popis}</span>
           </button>
+        ))}
+      </div>
 
-          {/* 🔔 Push i se zavřenou aplikací. Dosavadní upozornění fungujou
-              jen s otevřenou appkou — „přišla objednávka" se tak dozvěděl
-              jen ten, kdo se zrovna koukal. */}
-          {(() => {
-            const stav = stavPushu({
-              podporovano: jePushPodporovan(),
-              povoleni: notifPermission,
-              klicNastaven: !!VAPID_KLIC,
-              prihlasen: pushPrihlasen,
-            });
-            return (
-              <div className="p-4 rounded bg-neutral-50 border border-neutral-200 space-y-2">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <Bell size={16} className="text-neutral-600" />
-                    <span className="text-sm font-black text-neutral-800">Upozornění i se zavřenou aplikací</span>
-                  </div>
-                  <button
-                    disabled={pushPracuje || (!stav.muzeZapnout && !stav.muzeVypnout)}
-                    onClick={() => { void prepniPush(!pushPrihlasen); }}
-                    className={`tap relative w-11 h-6 rounded-full transition-colors disabled:opacity-40 ${pushPrihlasen ? 'bg-amber-500' : 'bg-neutral-300'}`}
-                  >
-                    <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${pushPrihlasen ? 'translate-x-5' : ''}`} />
-                  </button>
-                </div>
-                <p className="text-xs text-neutral-600 font-semibold">{stav.popis}</p>
-                {pushChyba && (
-                  <p className="text-xs text-amber-900 font-bold">{pushChyba}</p>
-                )}
-                <p className="text-xs text-neutral-500">
-                  Platí pro tenhle telefon. Zapnout se to musí na každém zařízení zvlášť.
-                </p>
-                {pushPrihlasen && (
-                  <button
-                    type="button"
-                    disabled={testPushPracuje}
-                    onClick={() => { void posliZkusebniPush(); }}
-                    className="tap text-xs font-bold text-primary-700 underline disabled:opacity-40"
-                  >
-                    {testPushPracuje ? 'Posílám…' : 'Odeslat zkušební upozornění'}
-                  </button>
-                )}
-              </div>
-            );
-          })()}
-
-          {/* In-app banner */}
-          <div className="p-4 rounded bg-neutral-50 border border-neutral-200 space-y-1">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <MessageSquare size={16} className="text-neutral-600" />
-                <span className="text-sm font-black text-neutral-800">In-app banner</span>
-              </div>
-              <button
-                onClick={() => handleNotifSettingsChange({ showInAppBanner: !notifSettings.showInAppBanner })}
-                className={`tap relative w-11 h-6 rounded-full transition-colors ${notifSettings.showInAppBanner ? 'bg-amber-500' : 'bg-neutral-300'}`}
-              >
-                <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${notifSettings.showInAppBanner ? 'translate-x-5' : ''}`} />
+      {zalozka === 'vzhled' && (
+        <div role="tabpanel" id="nastaveni-panel-vzhled" aria-labelledby="nastaveni-zalozka-vzhled" className="space-y-6">
+          {/* Vzhled */}
+          <div className="card p-6">
+            <h2 className="font-display font-bold text-lg flex items-center gap-2"><Palette size={18} /> Barevný režim (světlý / tmavý)</h2>
+            <p className="text-sm text-neutral-600 mt-2">Vyberte si preferovaný barevný režim.</p>
+            <div className="flex gap-2 mt-3 flex-wrap">
+              <button onClick={() => { setTheme('light'); setThemeState('light'); }} className={`btn ${theme === 'light' ? 'btn-primary' : 'btn-ghost'} flex items-center gap-2`}>
+                <Sun size={16} /> Světlý
+              </button>
+              <button onClick={() => { setTheme('dark'); setThemeState('dark'); }} className={`btn ${theme === 'dark' ? 'btn-primary' : 'btn-ghost'} flex items-center gap-2`}>
+                <Moon size={16} /> Tmavý
+              </button>
+              <button onClick={() => { setTheme('system'); setThemeState('system'); }} className={`btn ${theme === 'system' ? 'btn-primary' : 'btn-ghost'} flex items-center gap-2`}>
+                <Monitor size={16} /> Podle systému
               </button>
             </div>
-            <p className="text-xs text-neutral-500">Zobrazit plovoucí banner v aplikaci při nové objednávce.</p>
           </div>
 
-          {/* Zvukové upozornění */}
-          <div className="p-4 rounded bg-neutral-50 border border-neutral-200 space-y-1">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                {notifSettings.playSound ? <Volume2 size={16} className="text-neutral-600" /> : <VolumeX size={16} className="text-neutral-500" />}
-                <span className="text-sm font-black text-neutral-800">Zvukové upozornění</span>
-              </div>
-              <button
-                onClick={() => handleNotifSettingsChange({ playSound: !notifSettings.playSound })}
-                className={`tap relative w-11 h-6 rounded-full transition-colors ${notifSettings.playSound ? 'bg-amber-500' : 'bg-neutral-300'}`}
-              >
-                <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${notifSettings.playSound ? 'translate-x-5' : ''}`} />
-              </button>
-            </div>
-            <p className="text-xs text-neutral-500">Přehrát zvukový signál při příchodu nové objednávky.</p>
-          </div>
-
-          {/* Vyžadovat kliknutí */}
-          <div className="p-4 rounded bg-neutral-50 border border-neutral-200 space-y-1">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Bell size={16} className="text-neutral-600" />
-                <span className="text-sm font-black text-neutral-800">Vyžadovat potvrzení (systémová notif.)</span>
-              </div>
-              <button
-                onClick={() => handleNotifSettingsChange({ requireInteraction: !notifSettings.requireInteraction })}
-                className={`tap relative w-11 h-6 rounded-full transition-colors ${notifSettings.requireInteraction ? 'bg-amber-500' : 'bg-neutral-300'}`}
-              >
-                <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${notifSettings.requireInteraction ? 'translate-x-5' : ''}`} />
-              </button>
-            </div>
-            <p className="text-xs text-neutral-500">Systémová push notifikace zůstane viditelná dokud ji nekliknete. Pokud vypnete, automaticky zmizí.</p>
-          </div>
- 
-          {/* Auto-hide čas */}
-          <div className="p-4 rounded bg-neutral-50 border border-neutral-200">
-            <div className="flex items-center gap-2 mb-2">
-              <Timer size={16} className="text-neutral-600" />
-              <span className="text-sm font-black text-neutral-800">Automaticky skrýt banner po:</span>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {([5, 10, 30, 60, 0] as const).map(secs => (
+          {/* Hustota / Velikost */}
+          <div className="card p-6">
+            <h2 className="font-display font-bold text-lg flex items-center gap-2"><Palette size={18} /> Hustota zobrazení</h2>
+            <p className="text-sm text-neutral-600 mt-2">Zvolte velikost prvků a písma. XS = nejhustší, XL = největší.</p>
+            <div className="flex flex-wrap gap-2 mt-4">
+              {DENSITY_OPTIONS.map(opt => (
                 <button
-                  key={secs}
-                  onClick={() => handleNotifSettingsChange({ autoHideSeconds: secs })}
-                  className={`tap px-3 py-1.5 rounded border-2 font-bold text-sm transition-all ${
-                    notifSettings.autoHideSeconds === secs
-                      ? 'bg-amber-500 border-amber-400 text-neutral-950 shadow-sm'
-                      : 'bg-white border-neutral-200 text-neutral-700 hover:border-amber-300'
+                  key={opt.value}
+                  onClick={() => { setDensity(opt.value); setDensityState(opt.value); }}
+                  className={`flex flex-col items-center px-4 py-2.5 rounded border-2 font-black text-sm transition-all min-w-[56px] ${
+                    density === opt.value
+                      ? 'bg-amber-500 border-amber-400 text-neutral-950 shadow-md scale-105'
+                      : 'bg-white border-neutral-200 text-neutral-700 hover:border-amber-300 hover:bg-amber-50'
                   }`}
                 >
-                  {secs === 0 ? 'Nikdy (ručně)' : `${secs} s`}
+                  <span className="text-base">{opt.label}</span>
+                  <span className="text-udaj font-medium mt-0.5 opacity-70">{opt.desc}</span>
                 </button>
               ))}
             </div>
-            <p className="text-udaj text-neutral-500 mt-2">
-              Platí pro in-app banner. Systémové notifikace se řídí nastavením &quot;Vyžadovat potvrzení&quot; výše.
+          </div>
+
+          {/* ⚡ Méně efektů — plynulost na starším telefonu */}
+          <div className="card p-6">
+            <h2 className="font-display font-bold text-lg flex items-center gap-2"><Zap size={18} /> Plynulost</h2>
+            <p className="text-sm text-neutral-600 mt-2">
+              Když se aplikace na telefonu seká, vypni tímhle skleněné rozostření
+              a blikání upozornění. Je to nejdražší věc, kterou aplikace kreslí —
+              rozostření se počítá znovu při každém pohybu, a to zvlášť pro každou
+              dlaždici na ploše i pro horní a spodní lištu na všech obrazovkách.
             </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Vzhled */}
-      <div className="card p-6">
-        <h2 className="font-display font-bold text-lg flex items-center gap-2"><Palette size={18} /> Vzhled (Světlý/Tmavý)</h2>
-        <p className="text-sm text-neutral-600 mt-2">Vyberte si preferovaný barevný režim.</p>
-        <div className="flex gap-2 mt-3 flex-wrap">
-          <button onClick={() => { setTheme('light'); setThemeState('light'); }} className={`btn ${theme === 'light' ? 'btn-primary' : 'btn-ghost'} flex items-center gap-2`}>
-            <Sun size={16} /> Světlý
-          </button>
-          <button onClick={() => { setTheme('dark'); setThemeState('dark'); }} className={`btn ${theme === 'dark' ? 'btn-primary' : 'btn-ghost'} flex items-center gap-2`}>
-            <Moon size={16} /> Tmavý
-          </button>
-          <button onClick={() => { setTheme('system'); setThemeState('system'); }} className={`btn ${theme === 'system' ? 'btn-primary' : 'btn-ghost'} flex items-center gap-2`}>
-            <Monitor size={16} /> Podle systému
-          </button>
-        </div>
-      </div>
-
-      {/* 🔄 ADMIN: Verze & Synchronizace dat */}
-      {/* WhatsApp — povolení odesílatelé */}
-      <div className="card p-6">
-        <h2 className="font-display font-bold text-lg flex items-center gap-2"><MessageSquare size={18} /> WhatsApp — povolení odesílatelé</h2>
-        <p className="text-sm text-neutral-600 mt-2">
-          Zprávy se načítají automaticky jen od povolených kontaktů.
-          {whatsappSenders.length === 0
-            ? ' Seznam je prázdný — načítají se zprávy od VŠECH odesílatelů.'
-            : ' Zprávy od ostatních zůstanou v seznamu pro ruční zpracování.'}
-        </p>
-
-        <div className="mt-4 space-y-2">
-          {whatsappSenders.map((s) => (
-            <div key={s.id} className="flex items-center justify-between p-3 rounded bg-neutral-50 border border-neutral-200">
-              <div>
-                <div className="text-sm font-black text-neutral-800">{s.sender_name}</div>
-                {s.sender_number && <div className="text-xs text-neutral-500">{s.sender_number}</div>}
-              </div>
-              <button
-                onClick={() => handleRemoveSender(s.id)}
-                className="p-2 rounded hover:bg-rose-100 text-rose-500 hover:text-rose-700 transition"
-                title="Odebrat odesílatele" aria-label="Odebrat odesílatele"
-              >
-                <Trash2 size={16} />
-              </button>
-            </div>
-          ))}
-          {whatsappSenders.length === 0 && (
-            <div className="text-sm text-neutral-400 py-2 italic">Zatím žádný povolený odesílatel.</div>
-          )}
-        </div>
-
-        <div className="flex flex-col sm:flex-row gap-2 mt-3">
-          <input
-            type="text"
-            value={newSenderName}
-            onChange={(e) => setNewSenderName(e.target.value)}
-            placeholder="Jméno kontaktu (např. Hospoda U Zajíce)"
-            className="input flex-1"
-            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddSender(); } }}
-          />
-          <input
-            type="text"
-            value={newSenderNumber}
-            onChange={(e) => setNewSenderNumber(e.target.value)}
-            placeholder="Telefon (volitelné)"
-            className="input w-full sm:w-44"
-            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddSender(); } }}
-          />
-          <button
-            onClick={handleAddSender}
-            className="btn-primary !rounded text-sm font-black flex items-center justify-center gap-1.5 shrink-0"
-          >
-            <Plus size={16} /> Přidat
-          </button>
-        </div>
-
-        {senderErr && <div className="mt-2 p-2 rounded bg-rose-50 text-rose-700 text-xs font-bold border border-rose-200">{senderErr}</div>}
-        {senderMsg && <div className="mt-2 p-2 rounded bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200">{senderMsg}</div>}
-      </div>
-
-      {/* 🧠 Naučení odběratelé — přesunuto na Odběratelé (Catalogs.tsx →
-          PlacesScreen), kde se dá alias i ručně přidat/upravit, ne jen
-          smazat. Bydlelo tady jen jako výpis toho, co appka sama napozorovala
-          z oprav; teď je vedle skutečného katalogu odběratelů, kde vzniká. */}
-
-      {/* 👤 Změna jména */}
-      <div className="card p-6">
-        <h2 className="font-display font-bold text-lg flex items-center gap-2"><Users size={18} /> Změna jména</h2>
-        <p className="text-sm text-neutral-600 mt-2">Jméno se používá pro zápisy (např. fasování, stáčení, sanitace). Změní se i v menu u vašeho profilu.</p>
-        <form onSubmit={handleChangeName} className="mt-4 space-y-3">
-          <div>
-            <label className="label">Vaše jméno</label>
-            <input
-              type="text"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              placeholder="Jak se máte zobrazovat v zápisech"
-              className="input w-full"
-            />
-          </div>
-          {nameMsg && <div className="p-3 bg-emerald-100 text-emerald-900 font-bold text-xs rounded">{nameMsg}</div>}
-          {nameErr && <div className="p-3 bg-rose-100 text-rose-900 font-bold text-xs rounded">{nameErr}</div>}
-          <button
-            type="submit"
-            disabled={nameBusy}
-            className="btn-primary !rounded text-sm font-black flex items-center justify-center gap-1.5 w-full sm:w-auto"
-          >
-            {nameBusy ? 'Ukládám…' : 'Uložit jméno'}
-          </button>
-        </form>
-      </div>
-
-      {/* 🔒 Změna hesla */}
-      <div className="card p-6">
-        <h2 className="font-display font-bold text-lg flex items-center gap-2"><Lock size={18} /> Změna hesla</h2>
-        <p className="text-sm text-neutral-600 mt-2">Zadejte nové heslo pro přihlášení do aplikace (min. 6 znaků).</p>
-        <form onSubmit={handleChangePassword} className="mt-4 space-y-3">
-          <div>
-            <label className="label">Nové heslo</label>
-            <input
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="Zadejte nové heslo (min. 6 znaků)"
-              className="input w-full"
-            />
-          </div>
-          {passwordMsg && <div className="p-3 bg-emerald-100 text-emerald-900 font-bold text-xs rounded">{passwordMsg}</div>}
-          {passwordErr && <div className="p-3 bg-rose-100 text-rose-900 font-bold text-xs rounded">{passwordErr}</div>}
-          <button
-            type="submit"
-            disabled={passwordBusy}
-            className="btn-primary !rounded text-sm font-black flex items-center justify-center gap-1.5 w-full sm:w-auto"
-          >
-            {passwordBusy ? 'Ukládám…' : 'Uložit nové heslo'}
-          </button>
-        </form>
-      </div>
-
-      {/* 📣 Hlášení — zpráva přes celou obrazovku pro všechny. Z plochy se
-          28. 9. 2026 přesunulo sem („hlášení a audit schovat do Nastavení"),
-          vyhlásit ho může dál každý. */}
-      <div className="card p-4 space-y-2">
-        <h2 className="font-display font-bold text-lg flex items-center gap-2">
-          <Megaphone size={18} /> Hlášení
-        </h2>
-        <p className="text-xs text-neutral-600 dark:text-neutral-400">
-          Zpráva přes celou obrazovku, kterou musí každý odklepnout.
-        </p>
-        <button
-          type="button"
-          onClick={() => setPage?.('hlaseni')}
-          className="btn-primary !rounded text-sm font-black w-full sm:w-auto"
-        >
-          Otevřít Hlášení
-        </button>
-      </div>
-
-      {isAdmin && (
-        <>
-          <AdminVersionSyncSection />
-          {/* 🔎 Diagnostika (chyby aplikace, stav migrací, nedokončené odečty
-              z tanků) se 22. 9. 2026 přesunula do dlaždice Systém — ze zadání
-              „odstraň z nastavení ty audity, dej je jen do dlaždice Audit (dnes Systém)".
-              Tady zůstává jen rozcestník, ať se po ní nemusí pátrat a ať
-              fungují starší návody, které posílaly do Nastavení. */}
-          <div className="card p-4 space-y-2">
-            <h2 className="font-display font-bold text-lg flex items-center gap-2">
-              <Stethoscope size={18} /> Diagnostika a kontroly
-            </h2>
-            <p className="text-xs text-neutral-600 dark:text-neutral-400">
-              Chyby aplikace, stav databázových migrací, zálohy a všechny audity jsou pohromadě
-              v dlaždici <strong>Systém</strong>.
+            <p className="text-sm text-neutral-600 mt-2">
+              Upozornění nezmizí: místo blikání dostanou stálý barevný rámeček.
+              Nastavuje se na každém telefonu zvlášť a nic to neposílá do databáze.
             </p>
             <button
               type="button"
-              onClick={() => setPage?.('audit')}
-              className="btn-primary !rounded text-sm font-black w-full sm:w-auto"
+              onClick={() => { const n = !meneEfektu; nastavEfekty(n); setMeneEfektu(n); }}
+              aria-pressed={meneEfektu}
+              className={`mt-4 ${meneEfektu ? 'btn-primary' : 'btn-ghost'}`}
             >
-              Otevřít Systém
+              <Zap size={16} />
+              {meneEfektu ? 'Méně efektů je ZAPNUTÉ' : 'Zapnout méně efektů'}
             </button>
           </div>
-        </>
+
+          {/* 📍 Poloha spodní lišty — na pravák/levák zvlášť (29. 10. 2026) */}
+          <div className="card p-6">
+            <h2 className="font-display font-bold text-lg flex items-center gap-2"><Smartphone size={18} /> Poloha navigační lišty</h2>
+            <p className="text-sm text-neutral-600 mt-2">Kde je lišta Lahve · Sklad · Objednávky · …. Platí jen na tomhle zařízení.</p>
+            <div className="grid grid-cols-2 gap-2 mt-4" role="radiogroup" aria-label="Poloha navigační lišty">
+              {POLOHY_DOKU.map((o) => (
+                <button
+                  key={o.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={polohaDoku === o.id}
+                  onClick={() => ulozPolohuDoku(o.id)}
+                  className={`${polohaDoku === o.id ? 'btn-amber' : 'btn-ghost'} !flex-col !gap-0 !py-2`}
+                >
+                  <span className="font-black">{o.nazev}</span>
+                  <span className="text-udaj font-medium opacity-80">{o.popis}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Menu */}
+          <div className="card p-6">
+            <h2 className="font-display font-bold text-lg flex items-center gap-2"><Eye size={18} /> Přizpůsobení menu</h2>
+            <p className="text-sm text-neutral-600 mt-2">Vyberte si, které položky chcete vidět v hlavním menu pro rychlejší navigaci.</p>
+            <button onClick={() => setShowMenuCustomize(true)} className="btn-ghost !rounded mt-3 text-sm font-black">Upravit viditelnost menu</button>
+          </div>
+
+          {/* ⏱️ Rychlé odpočty nahoře na ploše se nastavují přímo tam. */}
+          <div className="card p-6">
+            <h2 className="font-display font-bold text-lg flex items-center gap-2"><Timer size={18} /> Lišta nahoře na ploše</h2>
+            <p className="text-sm text-neutral-600 mt-2">
+              Kulaté ikony s odpočty (kotel, malý a velký sud) si nastavíš přímo na ploše — klepni na budík s plusem.
+              Jde schovat výchozí, změnit jim čas, přidat vlastní odpočet nebo spustit jednorázový na libovolný čas.
+            </p>
+            {setPage && (
+              <button type="button" className="btn-ghost !rounded mt-3 text-sm font-black" onClick={() => setPage('home')}>
+                Otevřít plochu
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {zalozka === 'ostatni' && (
+        <div role="tabpanel" id="nastaveni-panel-ostatni" aria-labelledby="nastaveni-zalozka-ostatni" className="space-y-6">
+          {/* Instalace */}
+          <div className="card p-6">
+            <h2 className="font-display font-bold text-lg flex items-center gap-2"><Smartphone size={18} /> Instalace aplikace</h2>
+            {isStandalone ? (
+              <p className="text-sm text-emerald-700 font-bold mt-2">Aplikace je již nainstalována na vašem zařízení.</p>
+            ) : (
+              <div className="mt-3">
+                <p className="text-sm text-neutral-600 mb-3">Dej si aplikaci na plochu — ikona se přidá rovnou z prohlížeče, bez obchodu Google Play.</p>
+                <InstalaceKroky pripravenaInstalace={!!installPrompt} naInstalaci={handleInstall} />
+              </div>
+            )}
+          </div>
+
+          {/* Přepínání účtů — jen pro správce */}
+          {isAdmin && <PrepinacUctu />}
+
+          {/* Náhled „nový běžný uživatel“ — jen pro správce */}
+          {isAdmin && (
+            <div className="card p-6">
+              <h2 className="font-display font-bold text-lg flex items-center gap-2"><Eye size={18} /> Jak to vidí nový uživatel</h2>
+              <p className="text-sm text-neutral-600 mt-2">
+                Aplikace se ti hned zobrazí tak, jak ji dostane čerstvě založený běžný uživatel: výchozí plocha, jeho dlaždice a spodní lišta, bez správcovských dlaždic. Zůstáváš přihlášený jako správce, nic se nepřepíná a změny plochy se v náhledu neukládají.
+              </p>
+              <button type="button" className="btn-primary !rounded mt-3 text-sm font-black" onClick={() => nastavNahled(!jeNahled())}>
+                {jeNahled() ? 'Ukončit náhled' : 'Zobrazit jako nový běžný uživatel'}
+              </button>
+            </div>
+          )}
+
+          {/* Druhá aplikace „Zajíc 2“ — jiný účet než správce, na kontrolu pohledu běžného uživatele */}
+          <div className="card p-6">
+            <h2 className="font-display font-bold text-lg flex items-center gap-2"><Smartphone size={18} /> Zajíc 2 — druhá aplikace s jiným účtem</h2>
+            {JE_DRUHA_APLIKACE ? (
+              <>
+                <p className="text-sm text-emerald-700 font-bold mt-2">Právě jsi v aplikaci Zajíc 2. Přihlášení je oddělené od hlavní aplikace.</p>
+                <p className="text-sm text-neutral-600 mt-2">Chceš ji mít jako samostatnou ikonu? Nainstaluj ji přímo odsud:</p>
+                <div className="mt-3"><InstalaceKroky pripravenaInstalace={!!installPrompt} naInstalaci={handleInstall} /></div>
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-neutral-600 mt-2">
+                  Na plochu si můžeš dát druhou ikonu „Zajíc 2“ s vlastním přihlášením — třeba pod účtem běžného uživatele — a kontrolovat, co a jak vidí. Hlavní aplikace zůstává přihlášená jako správce.
+                </p>
+                <ol className="text-sm text-neutral-700 mt-2 space-y-1 list-decimal pl-5">
+                  <li>Klepni na „Otevřít Zajíc 2“ (otevře se v prohlížeči).</li>
+                  <li>Přihlas se jiným účtem (Uživatelé → „Nové dočasné heslo“ ti ho nastaví).</li>
+                  <li>V prohlížeči zvol „Přidat na plochu“ / „Nainstalovat aplikaci“. Ikona je zajíc s červenou 2.</li>
+                </ol>
+                <div className="flex flex-wrap gap-2 mt-3">
+                  <a className="btn-primary !rounded text-sm font-black" href={adresaDruheAplikace()} target="_blank" rel="noreferrer">Otevřít Zajíc 2</a>
+                  <button
+                    type="button"
+                    className="btn-ghost !rounded text-sm font-black"
+                    onClick={async () => {
+                      try { await navigator.clipboard.writeText(adresaDruheAplikace()); uspech('Odkaz na Zajíc 2 je zkopírovaný.'); }
+                      catch { toastChyba(`Odkaz se nepodařilo zkopírovat — je to ${adresaDruheAplikace()}`); }
+                    }}
+                  >
+                    Zkopírovat odkaz
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Přihlášení přes Google */}
+          {GOOGLE_PRIHLASENI_ZAPNUTO && (<div className="card p-6">
+            <h2 className="font-display font-bold text-lg flex items-center gap-2"><Lock size={18} /> Přihlášení přes Google</h2>
+            {maGoogle(user) ? (
+              <p className="text-sm text-emerald-700 font-bold mt-2">Tvůj účet je propojený s Google — můžeš se přihlásit i jedním klepnutím na „Přihlásit přes Google“.</p>
+            ) : (
+              <>
+                <p className="text-sm text-neutral-600 mt-2">Propoj účet s Google a nemusíš si pamatovat heslo. Použij Google účet se stejným e-mailem, jakým se sem přihlašuješ.</p>
+                <button
+                  type="button"
+                  className="btn-ghost !rounded mt-3 text-sm font-black"
+                  onClick={async () => {
+                    const r = await propojitSGoogle();
+                    if (r.error) toastChyba(r.error);
+                  }}
+                >
+                  Propojit s Google
+                </button>
+              </>
+            )}
+          </div>)}
+
+          {/* Návod k použití */}
+          <div className="card p-6 border-2 border-amber-400/60 bg-gradient-to-br from-amber-50/50 to-white rounded shadow-sm">
+            {/* Celý pruh je jedno tlačítko. Dřív visel `onClick` na `div`u a uvnitř
+                bylo ještě druhé tlačítko — klávesnicí se to ovládat nedalo a
+                čtečka obrazovky o rozbalování nevěděla. */}
+            <button
+              type="button"
+              onClick={() => setShowGuide(!showGuide)}
+              aria-expanded={showGuide}
+              className="w-full flex items-center justify-between gap-2 text-left min-h-[44px]"
+            >
+              <h2 className="font-display font-black text-lg text-amber-950 flex items-center gap-2">
+                <BookOpen className="ikona-text" /> Návod k použití & Přehled funkcí
+              </h2>
+              <span className="text-xs font-bold text-amber-800 bg-amber-100 px-3 py-1.5 rounded transition shrink-0">
+                {showGuide ? 'Skrýt návod ▲' : 'Zobrazit návod ▼'}
+              </span>
+            </button>
+
+            {showGuide && (
+              <div className="mt-5 border-t border-amber-200 pt-5">
+                <NavodPouziti />
+              </div>
+            )}
+          </div>
+
+          {/* Odezva do prstu */}
+          <div className="card p-6">
+            <h2 className="font-display font-bold text-lg flex items-center gap-2"><Vibrate size={18} /> Odezva při dotyku</h2>
+            <p className="text-sm text-neutral-600 mt-2">
+              Krátké zavibrování při odškrtnutí položky nebo zápisu. Na telefonu se
+              díky tomu nemusí kontrolovat očima, jestli klepnutí prošlo.
+            </p>
+            <button
+              onClick={() => { const n = !haptika; nastavHaptiku(n); setHaptika(n); if (n) zavibruj('hotovo'); }}
+              className={`w-full text-left p-4 rounded-xl border-2 font-bold flex items-center gap-3 transition mt-4 min-h-[56px] ${
+                haptika ? 'bg-emerald-50 border-emerald-300 text-emerald-900' : 'bg-neutral-50 border-neutral-200 text-neutral-600'
+              }`}
+            >
+              <Vibrate size={18} />
+              <span className="flex-1">{haptika ? 'Zapnuto' : 'Vypnuto'}</span>
+              <span className={`w-12 h-7 rounded-full transition relative ${haptika ? 'bg-emerald-500' : 'bg-neutral-300'}`}>
+                <span className={`absolute top-1 w-5 h-5 rounded-full bg-white shadow transition-all ${haptika ? 'left-6' : 'left-1'}`} />
+              </span>
+            </button>
+          </div>
+
+          {/* Upozornění */}
+          <div className="card p-6">
+            <h2 className="font-display font-bold text-lg flex items-center gap-2"><Bell size={18} /> Upozornění (notifikace)</h2>
+            <p className="text-sm text-neutral-600 mt-2">Nastavte si chování upozornění na nové objednávky.</p>
+
+            <div className="mt-5 space-y-4">
+              {/* Povolení systémových notifikací */}
+              <button
+                onClick={handleToggleNotifications}
+                className={`w-full text-left p-4 rounded border-2 font-bold flex items-center gap-3 transition ${
+                  notifPermission === 'granted'
+                    ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
+                    : 'bg-rose-50 border-rose-300 text-rose-900'
+                }`}
+              >
+                {notifPermission === 'granted' ? <Bell size={18} /> : <BellOff size={18} />}
+                <span>
+                  {notifPermission === 'granted' ? 'Systémová upozornění jsou POVOLENA' : 'Systémová upozornění jsou ZAKÁZÁNA'}
+                  <span className="block text-xs font-medium opacity-75 mt-0.5">
+                    {notifPermission === 'granted'
+                      ? 'Kliknutím otevřete nastavení prohlížeče pro odebrání.'
+                      : 'Kliknutím požádáte o povolení zobrazovat systémová upozornění.'}
+                  </span>
+                </span>
+              </button>
+
+              {/* 🔔 Push i se zavřenou aplikací. Dosavadní upozornění fungujou
+                  jen s otevřenou appkou — „přišla objednávka" se tak dozvěděl
+                  jen ten, kdo se zrovna koukal. */}
+              {(() => {
+                const stav = stavPushu({
+                  podporovano: jePushPodporovan(),
+                  povoleni: notifPermission,
+                  klicNastaven: !!VAPID_KLIC,
+                  prihlasen: pushPrihlasen,
+                });
+                return (
+                  <div className="p-4 rounded bg-neutral-50 border border-neutral-200 space-y-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <Bell size={16} className="text-neutral-600" />
+                        <span className="text-sm font-black text-neutral-800">Upozornění i se zavřenou aplikací</span>
+                      </div>
+                      <button
+                        disabled={pushPracuje || (!stav.muzeZapnout && !stav.muzeVypnout)}
+                        onClick={() => { void prepniPush(!pushPrihlasen); }}
+                        className={`tap relative w-11 h-6 rounded-full transition-colors disabled:opacity-40 ${pushPrihlasen ? 'bg-amber-500' : 'bg-neutral-300'}`}
+                      >
+                        <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${pushPrihlasen ? 'translate-x-5' : ''}`} />
+                      </button>
+                    </div>
+                    <p className="text-xs text-neutral-600 font-semibold">{stav.popis}</p>
+                    {pushChyba && (
+                      <p className="text-xs text-amber-900 font-bold">{pushChyba}</p>
+                    )}
+                    <p className="text-xs text-neutral-500">
+                      Platí pro tenhle telefon. Zapnout se to musí na každém zařízení zvlášť.
+                    </p>
+                    {pushPrihlasen && (
+                      <button
+                        type="button"
+                        disabled={testPushPracuje}
+                        onClick={() => { void posliZkusebniPush(); }}
+                        className="tap text-xs font-bold text-primary-700 underline disabled:opacity-40"
+                      >
+                        {testPushPracuje ? 'Posílám…' : 'Odeslat zkušební upozornění'}
+                      </button>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* In-app banner */}
+              <div className="p-4 rounded bg-neutral-50 border border-neutral-200 space-y-1">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <MessageSquare size={16} className="text-neutral-600" />
+                    <span className="text-sm font-black text-neutral-800">In-app banner</span>
+                  </div>
+                  <button
+                    onClick={() => handleNotifSettingsChange({ showInAppBanner: !notifSettings.showInAppBanner })}
+                    className={`tap relative w-11 h-6 rounded-full transition-colors ${notifSettings.showInAppBanner ? 'bg-amber-500' : 'bg-neutral-300'}`}
+                  >
+                    <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${notifSettings.showInAppBanner ? 'translate-x-5' : ''}`} />
+                  </button>
+                </div>
+                <p className="text-xs text-neutral-500">Zobrazit plovoucí banner v aplikaci při nové objednávce.</p>
+              </div>
+
+              {/* Zvukové upozornění */}
+              <div className="p-4 rounded bg-neutral-50 border border-neutral-200 space-y-1">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    {notifSettings.playSound ? <Volume2 size={16} className="text-neutral-600" /> : <VolumeX size={16} className="text-neutral-500" />}
+                    <span className="text-sm font-black text-neutral-800">Zvukové upozornění</span>
+                  </div>
+                  <button
+                    onClick={() => handleNotifSettingsChange({ playSound: !notifSettings.playSound })}
+                    className={`tap relative w-11 h-6 rounded-full transition-colors ${notifSettings.playSound ? 'bg-amber-500' : 'bg-neutral-300'}`}
+                  >
+                    <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${notifSettings.playSound ? 'translate-x-5' : ''}`} />
+                  </button>
+                </div>
+                <p className="text-xs text-neutral-500">Přehrát zvukový signál při příchodu nové objednávky.</p>
+              </div>
+
+              {/* Vyžadovat kliknutí */}
+              <div className="p-4 rounded bg-neutral-50 border border-neutral-200 space-y-1">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Bell size={16} className="text-neutral-600" />
+                    <span className="text-sm font-black text-neutral-800">Vyžadovat potvrzení (systémová notif.)</span>
+                  </div>
+                  <button
+                    onClick={() => handleNotifSettingsChange({ requireInteraction: !notifSettings.requireInteraction })}
+                    className={`tap relative w-11 h-6 rounded-full transition-colors ${notifSettings.requireInteraction ? 'bg-amber-500' : 'bg-neutral-300'}`}
+                  >
+                    <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${notifSettings.requireInteraction ? 'translate-x-5' : ''}`} />
+                  </button>
+                </div>
+                <p className="text-xs text-neutral-500">Systémová push notifikace zůstane viditelná dokud ji nekliknete. Pokud vypnete, automaticky zmizí.</p>
+              </div>
+ 
+              {/* Auto-hide čas */}
+              <div className="p-4 rounded bg-neutral-50 border border-neutral-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <Timer size={16} className="text-neutral-600" />
+                  <span className="text-sm font-black text-neutral-800">Automaticky skrýt banner po:</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {([5, 10, 30, 60, 0] as const).map(secs => (
+                    <button
+                      key={secs}
+                      onClick={() => handleNotifSettingsChange({ autoHideSeconds: secs })}
+                      className={`tap px-3 py-1.5 rounded border-2 font-bold text-sm transition-all ${
+                        notifSettings.autoHideSeconds === secs
+                          ? 'bg-amber-500 border-amber-400 text-neutral-950 shadow-sm'
+                          : 'bg-white border-neutral-200 text-neutral-700 hover:border-amber-300'
+                      }`}
+                    >
+                      {secs === 0 ? 'Nikdy (ručně)' : `${secs} s`}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-udaj text-neutral-500 mt-2">
+                  Platí pro in-app banner. Systémové notifikace se řídí nastavením &quot;Vyžadovat potvrzení&quot; výše.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* 🔄 ADMIN: Verze & Synchronizace dat */}
+          {/* WhatsApp — povolení odesílatelé */}
+          <div className="card p-6">
+            <h2 className="font-display font-bold text-lg flex items-center gap-2"><MessageSquare size={18} /> WhatsApp — povolení odesílatelé</h2>
+            <p className="text-sm text-neutral-600 mt-2">
+              Zprávy se načítají automaticky jen od povolených kontaktů.
+              {whatsappSenders.length === 0
+                ? ' Seznam je prázdný — načítají se zprávy od VŠECH odesílatelů.'
+                : ' Zprávy od ostatních zůstanou v seznamu pro ruční zpracování.'}
+            </p>
+
+            <div className="mt-4 space-y-2">
+              {whatsappSenders.map((s) => (
+                <div key={s.id} className="flex items-center justify-between p-3 rounded bg-neutral-50 border border-neutral-200">
+                  <div>
+                    <div className="text-sm font-black text-neutral-800">{s.sender_name}</div>
+                    {s.sender_number && <div className="text-xs text-neutral-500">{s.sender_number}</div>}
+                  </div>
+                  <button
+                    onClick={() => handleRemoveSender(s.id)}
+                    className="p-2 rounded hover:bg-rose-100 text-rose-500 hover:text-rose-700 transition"
+                    title="Odebrat odesílatele" aria-label="Odebrat odesílatele"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              ))}
+              {whatsappSenders.length === 0 && (
+                <div className="text-sm text-neutral-400 py-2 italic">Zatím žádný povolený odesílatel.</div>
+              )}
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-2 mt-3">
+              <input
+                type="text"
+                value={newSenderName}
+                onChange={(e) => setNewSenderName(e.target.value)}
+                placeholder="Jméno kontaktu (např. Hospoda U Zajíce)"
+                className="input flex-1"
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddSender(); } }}
+              />
+              <input
+                type="text"
+                value={newSenderNumber}
+                onChange={(e) => setNewSenderNumber(e.target.value)}
+                placeholder="Telefon (volitelné)"
+                className="input w-full sm:w-44"
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddSender(); } }}
+              />
+              <button
+                onClick={handleAddSender}
+                className="btn-primary !rounded text-sm font-black flex items-center justify-center gap-1.5 shrink-0"
+              >
+                <Plus size={16} /> Přidat
+              </button>
+            </div>
+
+            {senderErr && <div className="mt-2 p-2 rounded bg-rose-50 text-rose-700 text-xs font-bold border border-rose-200">{senderErr}</div>}
+            {senderMsg && <div className="mt-2 p-2 rounded bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200">{senderMsg}</div>}
+          </div>
+
+          {/* 🧠 Naučení odběratelé — přesunuto na Odběratelé (Catalogs.tsx →
+              PlacesScreen), kde se dá alias i ručně přidat/upravit, ne jen
+              smazat. Bydlelo tady jen jako výpis toho, co appka sama napozorovala
+              z oprav; teď je vedle skutečného katalogu odběratelů, kde vzniká. */}
+
+          {/* 👤 Změna jména */}
+          <div className="card p-6">
+            <h2 className="font-display font-bold text-lg flex items-center gap-2"><Users size={18} /> Změna jména</h2>
+            <p className="text-sm text-neutral-600 mt-2">Jméno se používá pro zápisy (např. fasování, stáčení, sanitace). Změní se i v menu u vašeho profilu.</p>
+            <form onSubmit={handleChangeName} className="mt-4 space-y-3">
+              <div>
+                <label className="label">Vaše jméno</label>
+                <input
+                  type="text"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  placeholder="Jak se máte zobrazovat v zápisech"
+                  className="input w-full"
+                />
+              </div>
+              {nameMsg && <div className="p-3 bg-emerald-100 text-emerald-900 font-bold text-xs rounded">{nameMsg}</div>}
+              {nameErr && <div className="p-3 bg-rose-100 text-rose-900 font-bold text-xs rounded">{nameErr}</div>}
+              <button
+                type="submit"
+                disabled={nameBusy}
+                className="btn-primary !rounded text-sm font-black flex items-center justify-center gap-1.5 w-full sm:w-auto"
+              >
+                {nameBusy ? 'Ukládám…' : 'Uložit jméno'}
+              </button>
+            </form>
+          </div>
+
+          {/* 🔒 Změna hesla */}
+          <div className="card p-6">
+            <h2 className="font-display font-bold text-lg flex items-center gap-2"><Lock size={18} /> Změna hesla</h2>
+            <p className="text-sm text-neutral-600 mt-2">Zadejte nové heslo pro přihlášení do aplikace (min. 6 znaků).</p>
+            <form onSubmit={handleChangePassword} className="mt-4 space-y-3">
+              <div>
+                <label className="label">Nové heslo</label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Zadejte nové heslo (min. 6 znaků)"
+                  className="input w-full"
+                />
+              </div>
+              {passwordMsg && <div className="p-3 bg-emerald-100 text-emerald-900 font-bold text-xs rounded">{passwordMsg}</div>}
+              {passwordErr && <div className="p-3 bg-rose-100 text-rose-900 font-bold text-xs rounded">{passwordErr}</div>}
+              <button
+                type="submit"
+                disabled={passwordBusy}
+                className="btn-primary !rounded text-sm font-black flex items-center justify-center gap-1.5 w-full sm:w-auto"
+              >
+                {passwordBusy ? 'Ukládám…' : 'Uložit nové heslo'}
+              </button>
+            </form>
+          </div>
+
+          {/* 📣 Hlášení — zpráva přes celou obrazovku pro všechny. Z plochy se
+              28. 9. 2026 přesunulo sem („hlášení a audit schovat do Nastavení"),
+              vyhlásit ho může dál každý. */}
+          <div className="card p-4 space-y-2">
+            <h2 className="font-display font-bold text-lg flex items-center gap-2">
+              <Megaphone size={18} /> Hlášení
+            </h2>
+            <p className="text-xs text-neutral-600 dark:text-neutral-400">
+              Zpráva přes celou obrazovku, kterou musí každý odklepnout.
+            </p>
+            <button
+              type="button"
+              onClick={() => setPage?.('hlaseni')}
+              className="btn-primary !rounded text-sm font-black w-full sm:w-auto"
+            >
+              Otevřít Hlášení
+            </button>
+          </div>
+
+          {isAdmin && (
+            <>
+              <AdminVersionSyncSection />
+              {/* 🔎 Diagnostika (chyby aplikace, stav migrací, nedokončené odečty
+                  z tanků) se 22. 9. 2026 přesunula do dlaždice Systém — ze zadání
+                  „odstraň z nastavení ty audity, dej je jen do dlaždice Audit (dnes Systém)".
+                  Tady zůstává jen rozcestník, ať se po ní nemusí pátrat a ať
+                  fungují starší návody, které posílaly do Nastavení. */}
+              <div className="card p-4 space-y-2">
+                <h2 className="font-display font-bold text-lg flex items-center gap-2">
+                  <Stethoscope size={18} /> Diagnostika a kontroly
+                </h2>
+                <p className="text-xs text-neutral-600 dark:text-neutral-400">
+                  Chyby aplikace, stav databázových migrací, zálohy a všechny audity jsou pohromadě
+                  v dlaždici <strong>Systém</strong>.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setPage?.('audit')}
+                  className="btn-primary !rounded text-sm font-black w-full sm:w-auto"
+                >
+                  Otevřít Systém
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       )}
     </div>
   );

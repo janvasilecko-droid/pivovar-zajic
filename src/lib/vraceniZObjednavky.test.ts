@@ -132,6 +132,12 @@ describe('objednavkyKVraceni', () => {
     const ven = objednavkyKVraceni(vstup, sPolozkou(['a', 'b']), { dnes, hledat: 'duck' });
     expect(ven.map((o) => o.id)).toEqual(['b']);
   });
+
+  it('hledání jde i bez diakritiky (18. 11. 2026)', () => {
+    const vstup = [obj({ id: 'a', place_name: 'Seeberg' }), obj({ id: 'b', place_name: 'Lužec' }), obj({ id: 'c', place_name: 'Lokálka Říčany' })];
+    expect(objednavkyKVraceni(vstup, sPolozkou(['a', 'b', 'c']), { dnes, hledat: 'luzec' }).map((o) => o.id)).toEqual(['b']);
+    expect(objednavkyKVraceni(vstup, sPolozkou(['a', 'b', 'c']), { dnes, hledat: 'RICANY' }).map((o) => o.id)).toEqual(['c']);
+  });
 });
 
 describe('datumZavozu', () => {

@@ -11,6 +11,7 @@ import { vypadaJakoVraceni } from "../_shared/vraceni-detekce.ts";
 import { jeVlastniHlaseniObjednavky } from "../_shared/vlastni-hlaseni-objednavky.ts";
 import { datumDne, datumPraha, textRikaPristiTyden } from "../_shared/den-zavozu.ts";
 import { datumZeZpravy, relativniDen } from "../_shared/datum-ze-zpravy.ts";
+import { normCitace, vyberRodice, mistoZCitace } from "../_shared/citovana-zprava.ts";
 import {
   casProCteni, jeNaRade, koloCteni, poChybeCteni, poradiZpracovani, rezimCteniFotky,
   jeUvizla, UPOZORNENI_ZALOZNI_CTENI, ZNACKA_CTE_SE, znackaCteSe,
@@ -83,18 +84,6 @@ function readbackUnmatchedCount(
 }
 
 // ── Pomocné funkce pro fuzzy párování s databází aplikace ──────────────────
-
-// Normalizace pro porovnání citace s původní zprávou. WhatsApp v citaci
-// posílá jen ZAČÁTEK delší zprávy, proto se porovnává prefixem v obou směrech.
-// Zrcadlí norm() v src/lib/whatsappAmendment.ts.
-function normQuote(s: string | null | undefined): string {
-  return (s ?? "")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
 
 // Kód dne (po/ut/st/ct/pa/so/ne) pro zadané ISO datum.
 function weekdayCode(dateStr: string): string {
@@ -512,26 +501,33 @@ Deno.serve(async (req: Request) => {
         let quotedPlaceName: string | null = null;
 
         if (message.quoted_text) {
-          const q = normQuote(message.quoted_text);
-          if (q.length >= 3) {
+          if (normCitace(message.quoted_text).length >= 3) {
             const { data: drivejsi } = await supabase
               .from("whatsapp_incoming")
-              .select("id, created_at, message_text, imported_order_id, parsed_place_id, parsed_place_name")
+              .select("id, created_at, message_text, status, imported_order_id, parsed_place_id, parsed_place_name")
               .lt("created_at", message.created_at)
               .order("created_at", { ascending: false })
               .limit(200);
-            const kandidati = (drivejsi ?? []).filter((z: any) => {
-              const t = normQuote(z.message_text);
-              return t && (t.startsWith(q) || q.startsWith(t));
-            });
-            // Přednost má zpráva, ze které objednávka opravdu vznikla; mezi nimi
-            // ta časově nejbližší (dotaz je řazený sestupně, takže první).
-            const vybrany = kandidati.find((z: any) => z.imported_order_id) ?? kandidati[0] ?? null;
-            if (vybrany) {
-              amendsMessageId = vybrany.id;
-              amendsOrderId = vybrany.imported_order_id ?? null;
-              quotedPlaceId = vybrany.parsed_place_id ?? null;
-              quotedPlaceName = vybrany.parsed_place_name ?? null;
+            // Ke které zprávě odpověď patří: NEJNOVĚJŠÍ shoda citace. Objednávky
+            // se posílají pořád stejným zněním, takže citaci splní i zprávy
+            // z minulých týdnů — dřív vyhrála ta, ze které už objednávka vznikla,
+            // a odpověď na novou, ještě neschválenou zprávu se napojila na
+            // objednávku z minulého týdne. Čekající novější zpráva je teď rodič
+            // BEZ objednávky (amendsOrderId zůstane null; po jejím schválení
+            // odpověď přepojí kontrola v aplikaci). Jedno pravidlo s aplikací:
+            // _shared/citovana-zprava.ts.
+            const rodic = vyberRodice(message, drivejsi ?? []);
+            if (rodic.zprava) {
+              amendsMessageId = rodic.zprava.id;
+              amendsOrderId = rodic.objednavkaId;
+              if (rodic.ceka) {
+                console.log(`Odpověď ${message.id} patří k novější zprávě ${rodic.zprava.id}, která ještě nemá objednávku — nenapojuje se na starší.`);
+              }
+            }
+            const mistoCitace = mistoZCitace(message, drivejsi ?? []);
+            if (mistoCitace) {
+              quotedPlaceId = mistoCitace.placeId;
+              quotedPlaceName = mistoCitace.placeName;
             }
           }
         }

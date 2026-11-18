@@ -452,11 +452,20 @@ export function subscribeToWhatsAppMessages(
  */
 export async function napojNaObjednavku(
   messageId: string,
-  orderId: string | null
+  orderId: string | null,
+  /**
+   * Zpráva, ke které odpověď patří (`amends_message_id`). Zadává se, když se
+   * napojení opravuje podle citace — jinak by odpověď dál ukazovala na starší
+   * zprávu stejného znění a kontrola by ji opravovala pořád dokola. Bez ní se
+   * zapíše jen objednávka (ruční napojení).
+   */
+  citovanaZpravaId?: string | null
 ): Promise<void> {
+  const zmena: { amends_order_id: string | null; amends_message_id?: string | null } = { amends_order_id: orderId };
+  if (citovanaZpravaId !== undefined) zmena.amends_message_id = citovanaZpravaId;
   const { error } = await supabase
     .from('whatsapp_incoming')
-    .update({ amends_order_id: orderId })
+    .update(zmena)
     .eq('id', messageId);
   if (error) throw new Error(error.message);
 }

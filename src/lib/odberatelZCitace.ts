@@ -17,7 +17,8 @@
 //
 // Nic se nikam nezapisuje — jen se PŘEDVYPLNÍ pole v kontrole objednávky,
 // které člověk před schválením vidí a může přepsat.
-import { findQuotedMessage, type WhatsAppMsgRef } from './whatsappAmendment';
+import type { WhatsAppMsgRef } from './whatsappAmendment';
+import { mistoZCitace } from '../../supabase/functions/_shared/citovana-zprava';
 
 export type ZpravaSOdberatelem = WhatsAppMsgRef & {
   parsed_place_id?: string | null;
@@ -42,15 +43,17 @@ export function odberatelZCitace(
   odpoved: WhatsAppMsgRef,
   drivejsi: ZpravaSOdberatelem[],
 ): OdberatelZCitace | null {
-  const puvodni = findQuotedMessage(odpoved, drivejsi) as ZpravaSOdberatelem | null;
-  if (!puvodni) return null;
-  const placeId = puvodni.parsed_place_id ?? null;
-  const placeName = puvodni.parsed_place_name ?? null;
+  // Pravidlo „která zpráva je citovaná" je sdílené se serverem a s kontrolou
+  // napojení (_shared/citovana-zprava.ts): bere se nejnovější shoda, ne ta
+  // nejstarší s objednávkou.
+  const nalez = mistoZCitace(odpoved, drivejsi);
+  if (!nalez) return null;
+  const { placeId, placeName } = nalez;
   if (!placeId && !placeName) return null;
   return {
     placeId,
     placeName,
-    zCitace: (puvodni.message_text ?? '').slice(0, 40),
+    zCitace: (nalez.zprava.message_text ?? '').slice(0, 40),
   };
 }
 

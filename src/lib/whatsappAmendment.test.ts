@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { findQuotedMessage, findAmendedOrderId, opravenyCilUpravy, diffOrderItems, maZmeny, rozsahOdpovedi, skupinaObalu, slozNavrh, potvrzeneBezPolozek, type WhatsAppMsgRef, vypadaJakoPridavek, prictiPolozky, vypadaJakoOdebrani, odectiPolozky, kandidatiNaDoplneni, vypadaJakoZmenaObjednavky, type ObjednavkaKandidat } from './whatsappAmendment';
+import { findQuotedMessage, findAmendedOrderId, opravenyCilUpravy, posudNapojeni, diffOrderItems, maZmeny, rozsahOdpovedi, skupinaObalu, slozNavrh, potvrzeneBezPolozek, type WhatsAppMsgRef, vypadaJakoPridavek, prictiPolozky, vypadaJakoOdebrani, odectiPolozky, kandidatiNaDoplneni, vypadaJakoZmenaObjednavky, type ObjednavkaKandidat } from './whatsappAmendment';
 
 const m = (id: string, created_at: string, message_text: string, extra: Partial<WhatsAppMsgRef> = {}): WhatsAppMsgRef =>
   ({ id, created_at, message_text, ...extra });
@@ -26,13 +26,24 @@ describe('findQuotedMessage — ke které zprávě odpověď patří', () => {
     expect(findQuotedMessage(odpoved, [pozdejsi, odpoved])).toBeNull();
   });
 
-  // „Maneo" jako citace sedí na spoustu zpráv — musí vyhrát ta, ze které
-  // objednávka opravdu vznikla, a z těch ta časově nejbližší.
-  it('u nejednoznačné citace vyhraje zpráva s objednávkou', () => {
-    const bezObj = m('a', '2026-08-25T08:00:00Z', 'Maneo');
+  // „Maneo" jako citace sedí na spoustu zpráv — vyhrává NEJNOVĚJŠÍ shoda;
+  // zpráva, která objednávkou už nebude (ignorovaná), se přeskočí.
+  it('u nejednoznačné citace vyhraje nejnovější zpráva s objednávkou (ignorovaná se přeskočí)', () => {
+    const ignorovana = m('a', '2026-08-25T08:00:00Z', 'Maneo', { status: 'ignored' });
     const sObj = m('b', '2026-08-25T07:00:00Z', 'Maneo', { imported_order_id: 'ord-9' });
     const odpoved = m('c', '2026-08-25T09:00:00Z', 'Plus 3x10 11sv', { quoted_text: 'Maneo' });
-    expect(findAmendedOrderId(odpoved, [bezObj, sObj, odpoved])).toBe('ord-9');
+    expect(findAmendedOrderId(odpoved, [ignorovana, sObj, odpoved])).toBe('ord-9');
+  });
+
+  // Lužec 3. 11. 2026 a otázka majitele z 18. 11.: odpověď se chtěla přiřadit
+  // ke starší objednávce a ne k té z aktuálního týdne. Nová zpráva ještě
+  // nemá objednávku (čeká na schválení), starší stejného znění ano.
+  it('novější zpráva, která teprve čeká na schválení, je rodič BEZ objednávky — odpověď se nepřipojí ke starší', () => {
+    const ceka = m('a', '2026-08-25T08:00:00Z', 'Maneo', { status: 'parsed' });
+    const sObj = m('b', '2026-08-18T07:00:00Z', 'Maneo', { imported_order_id: 'ord-9' });
+    const odpoved = m('c', '2026-08-25T09:00:00Z', 'Plus 3x10 11sv', { quoted_text: 'Maneo' });
+    expect(findQuotedMessage(odpoved, [ceka, sObj, odpoved])?.id).toBe('a');
+    expect(findAmendedOrderId(odpoved, [ceka, sObj, odpoved])).toBeNull();
   });
 
   it('mezi víc objednávkami vyhraje ta časově nejbližší', () => {
@@ -653,7 +664,70 @@ describe('opravenyCilUpravy — odpověď napojená na starou objednávku', () =
     expect(opravenyCilUpravy(odpoved, [puvodni])).toBe('nova');
   });
   it('už napojeno správně nebo není z čeho určit → null', () => {
+    expect(opravenyCilUpravy(odpoved, [puvodni])).toBe('nova');
     expect(opravenyCilUpravy({ ...odpoved, amends_order_id: 'nova' }, [puvodni])).toBeNull();
     expect(opravenyCilUpravy(odpoved, [{ ...puvodni, imported_order_id: null }])).toBeNull();
+  });
+});
+
+describe('posudNapojeni — sedí uložené napojení odpovědi na to, co se citovalo?', () => {
+  const TEXT = 'Luzec 2 *50 světlé pivo\n1x basa 0,33';
+  const CITACE = 'Luzec 2 *50 světlé pivo';
+  // Minulý týden: schválená zpráva, objednávka založená.
+  const minuly = m('m-26-10', '2026-10-26T08:10:00Z', TEXT, { status: 'imported', imported_order_id: 'ord-26-10' });
+  // Tento týden: totéž, zatím neschválené.
+  const tento = m('m-03-11', '2026-11-03T13:45:00Z', TEXT, { status: 'parsed' });
+  const tentoSchvaleny = { ...tento, status: 'imported', imported_order_id: 'ord-03-11' };
+  const odpoved = (extra: Record<string, unknown> = {}) =>
+    ({ ...m('r-1', '2026-11-03T13:47:00Z', 'Plus na další fakturu 2 basy', { quoted_text: CITACE }), ...extra }) as WhatsAppMsgRef & {
+      amends_order_id?: string | null; amends_message_id?: string | null;
+    };
+
+  it('Lužec 3. 11.: odpověď visí na objednávce z 26. 10., ale patří k nové zprávě, která čeká → zrušit napojení', () => {
+    const p = posudNapojeni(odpoved({ amends_order_id: 'ord-26-10', amends_message_id: 'm-26-10' }), [minuly, tento]);
+    expect(p).toMatchObject({ akce: 'zrusit', ceka: true, orderId: null });
+    expect(p.rodic?.id).toBe('m-03-11');
+  });
+
+  it('nová zpráva mezitím dostala objednávku → přepojit na ni', () => {
+    const p = posudNapojeni(odpoved({ amends_order_id: 'ord-26-10', amends_message_id: 'm-26-10' }), [minuly, tentoSchvaleny]);
+    expect(p).toMatchObject({ akce: 'prepojit', ceka: false, orderId: 'ord-03-11' });
+    expect(p.rodic?.id).toBe('m-03-11');
+  });
+
+  it('napojení už sedí → nic', () => {
+    expect(posudNapojeni(odpoved({ amends_order_id: 'ord-03-11', amends_message_id: 'm-03-11' }), [minuly, tentoSchvaleny]).akce).toBe('nic');
+    expect(posudNapojeni(odpoved({ amends_order_id: 'ord-26-10', amends_message_id: 'm-26-10' }), [minuly]).akce).toBe('nic');
+  });
+
+  it('server už odpověď správně nenapojil (čeká na novou zprávu) → nic se nemění, jen se hlásí, že čeká', () => {
+    const p = posudNapojeni(odpoved({ amends_order_id: null, amends_message_id: 'm-03-11' }), [minuly, tento]);
+    expect(p).toMatchObject({ akce: 'nic', ceka: true });
+  });
+
+  it('po zrušení se napojení nerozhoduje znovu a znovu (amends_message_id ukazuje na novou zprávu)', () => {
+    // Obsluha mezitím ručně napojila starou objednávku — to se nepřebíjí.
+    const p = posudNapojeni(odpoved({ amends_order_id: 'ord-26-10', amends_message_id: 'm-03-11' }), [minuly, tento]);
+    expect(p.akce).toBe('nic');
+  });
+
+  it('ruční napojení na jinou objednávku se neruší', () => {
+    const p = posudNapojeni(odpoved({ amends_order_id: 'ord-jina', amends_message_id: 'm-26-10' }), [minuly, tento]);
+    expect(p).toMatchObject({ akce: 'nic', ceka: true });
+  });
+
+  it('nelze dokázat, že napojení udělala appka z citace (chybí amends_message_id) → nic', () => {
+    const p = posudNapojeni(odpoved({ amends_order_id: 'ord-26-10', amends_message_id: null }), [minuly, tento]);
+    expect(p.akce).toBe('nic');
+  });
+
+  it('citovaná zpráva se nenašla → nic', () => {
+    const p = posudNapojeni(odpoved({ quoted_text: 'Úplně jiná zpráva', amends_order_id: 'ord-26-10' }), [minuly, tento]);
+    expect(p).toMatchObject({ rodic: null, akce: 'nic', ceka: false });
+  });
+
+  it('novější zpráva je ignorovaná → odpověď patří k objednávce ze starší', () => {
+    const p = posudNapojeni(odpoved({ amends_order_id: null }), [minuly, { ...tento, status: 'ignored' }]);
+    expect(p).toMatchObject({ akce: 'prepojit', orderId: 'ord-26-10', ceka: false });
   });
 });

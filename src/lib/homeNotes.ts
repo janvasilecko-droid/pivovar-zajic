@@ -60,6 +60,22 @@ export const HOME_NOTES_CHANGED_EVENT = 'pivovar_home_notes_changed';
 
 const DEFAULT_NOTES: HomeNote[] = [];
 
+/**
+ * Poznámky přesně tak, jak jsou uložené v úložišti — bez úklidu odškrtnutých
+ * (`getHomeNotes` při úklidu zapisuje, a tedy i posílá změnu do cloudu).
+ * Na porovnání s tím, co přišlo z cloudu; `null` = nic uloženo / nečitelné.
+ */
+export function poznamkyUlozene(): HomeNote[] | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as HomeNote[]) : null;
+  } catch {
+    return null;
+  }
+}
+
 export function getHomeNotes(): HomeNote[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
