@@ -300,6 +300,14 @@ try {
   const horni = await polohaPoRolovani(nadpisCh);
   overit(horni >= 0 && horni < 400, `po klepnutí na CH se skočilo na jeho nadpis (${horni} px od horního okraje)`);
   await kontrolaAbecedy('rozbalený seznam po písmenech');
+  // Nejčastější odběratelé zůstávají nahoře i při rozbalené abecedě (majitel 18. 11.).
+  const nejcastejsiNahore = await abeceda.evaluate(() => {
+    const dlazdice = document.querySelector('[role=group][aria-label="Odběratelé"]');
+    const nadpis = [...document.querySelectorAll('h3')].find((h) => h.textContent?.trim() === 'CH');
+    return !!dlazdice && !!nadpis && dlazdice.querySelectorAll('button').length === 6
+      && !!(dlazdice.compareDocumentPosition(nadpis) & Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+  overit(nejcastejsiNahore, 'nahoře zůstává 6 nejčastějších odběratelů i při rozbalené abecedě');
   await abeceda.getByRole('button', { name: /^Chlapy z Toužimi/ }).click();
   await abeceda.waitForTimeout(200);
   overit(await abeceda.getByRole('heading', { name: 'CH', exact: true }).count() === 0, 'po výběru se seznam sbalí');
