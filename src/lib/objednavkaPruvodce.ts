@@ -43,7 +43,14 @@ export type KonceptObjednavky = {
   potvrzenoDalsiMesic: boolean;
   poznamka: string;
   radky: RadekKonceptu[];
+  /** Půjčení výčepu zaškrtnuto (zřídka — okno rezervace se otevře po zaškrtnutí). */
+  vycep: boolean;
+  /** Rezervace výčepu potvrzená v okně ještě před uložením; po uložení se naváže na objednávku. */
+  vycepRezervace: RezervaceVycepuKonceptu | null;
 };
+
+/** Co si koncept pamatuje o rezervaci výčepu: id k navázání na objednávku a popis pro člověka. */
+export type RezervaceVycepuKonceptu = { id: string; popis: string };
 
 export type OdberatelPruvodce = MistoSVychozimDnem & OdberatelSMisty;
 
@@ -55,12 +62,13 @@ export function prazdnyKoncept(): KonceptObjednavky {
     placeId: '', placeName: '', mistoZavozu: null,
     den: '', datum: '', bezZavozu: false, bezZavozuRucne: false, potvrzenoDalsiMesic: false,
     poznamka: '', radky: [],
+    vycep: false, vycepRezervace: null,
   };
 }
 
 /** Je v konceptu cokoli, o co by člověk zavřením přišel? */
 export function konceptMaObsah(k: KonceptObjednavky): boolean {
-  return k.radky.length > 0 || k.placeName.trim() !== '' || k.poznamka.trim() !== '';
+  return k.radky.length > 0 || k.placeName.trim() !== '' || k.poznamka.trim() !== '' || k.vycep;
 }
 
 const norm = (s: string | null | undefined) => (s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
@@ -92,6 +100,36 @@ export function vyberOdberatele(k: KonceptObjednavky, odberatel: { id: string; n
 
 export function nastavBezZavozu(k: KonceptObjednavky, bezZavozu: boolean): KonceptObjednavky {
   return { ...k, bezZavozu, bezZavozuRucne: true };
+}
+
+/** Půjčení výčepu: odškrtnutí zahodí i potvrzenou rezervaci (zrušit ji v databázi musí volající). */
+export function nastavVycep(k: KonceptObjednavky, chce: boolean): KonceptObjednavky {
+  return chce ? { ...k, vycep: true } : { ...k, vycep: false, vycepRezervace: null };
+}
+
+/** Rezervace potvrzená v okně; platí jen, když je půjčení výčepu pořád zaškrtnuté. */
+export function potvrdRezervaciVycepu(k: KonceptObjednavky, rezervace: RezervaceVycepuKonceptu): KonceptObjednavky {
+  return k.vycep ? { ...k, vycepRezervace: rezervace } : k;
+}
+
+/** „Výčep 2 · 20.–22. 11." — co je zarezervované, jedním řádkem (jeden den, jeden měsíc i přes měsíce). */
+export function popisRezervaceVycepu(nazevVycepu: string, od: string, doDne: string): string {
+  const [rokOd, mesOd, denOd] = od.slice(0, 10).split('-').map(Number);
+  const [, mesDo, denDo] = doDne.slice(0, 10).split('-').map(Number);
+  const platne = (...c: number[]) => c.every(Number.isFinite);
+  let kdy = '';
+  if (platne(rokOd, mesOd, denOd)) {
+    if (!platne(mesDo, denDo) || doDne.slice(0, 10) === od.slice(0, 10)) kdy = `${denOd}. ${mesOd}.`;
+    else if (mesDo === mesOd) kdy = `${denOd}.–${denDo}. ${mesOd}.`;
+    else kdy = `${denOd}. ${mesOd}.–${denDo}. ${mesDo}.`;
+  }
+  return [nazevVycepu.trim(), kdy].filter(Boolean).join(' · ') || 'výčep';
+}
+
+/** Řádek pod zaškrtávacím polem: co se s výčepem stalo, nebo stane. Prázdný, když není zaškrtnutý. */
+export function stavVycepu(k: KonceptObjednavky): string {
+  if (!k.vycep) return '';
+  return k.vycepRezervace ? `Rezervováno: ${k.vycepRezervace.popis}` : 'Okno rezervace se otevře po uložení objednávky';
 }
 
 // ── Místa závozu ────────────────────────────────────────────────────────────

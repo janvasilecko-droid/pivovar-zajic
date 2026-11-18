@@ -25,6 +25,10 @@ const h = vi.hoisted(() => ({
   whatsappHromadne: [] as any[],
   /** Zpráva, kterou zástupné okno kontroly WhatsAppu schvaluje. */
   zprava: {} as any,
+  /** Půjčení výčepu: navázání rezervace na objednávku, smazání rezervace a rezervace, kterou „potvrdí" zástupné okno. */
+  propojVycep: vi.fn(async (..._a: unknown[]): Promise<string | null> => null),
+  smazVycep: vi.fn(async (..._a: unknown[]): Promise<string | null> => null),
+  rezervace: {} as any,
 }));
 
 vi.mock('../lib/supabase', async (puvodni) => {
@@ -133,9 +137,30 @@ vi.mock('../lib/whatsappApi', () => ({
 }));
 vi.mock('../lib/tapReservations', () => ({
   autoReserveTapIfNeeded: vi.fn(async () => {}),
-  isTapMentioned: () => false,
-  detectTapType: () => null,
+  isTapMentioned: (t?: string) => /v[ýy]čep/i.test(t ?? ''),
+  detectTapType: (t?: string) => (/jednokohout/i.test(t ?? '') ? 'jednokohout' : null),
+  propojRezervaciSObjednavkou: (...a: unknown[]) => h.propojVycep(...a),
 }));
+vi.mock('../lib/vycepyData', async (puvodni) => ({
+  ...(await puvodni<typeof import('../lib/vycepyData')>()),
+  smazRezervaci: (...a: unknown[]) => h.smazVycep(...a),
+}));
+// Okno rezervace výčepu čte výčepy z databáze — tady ho nahrazuje zástupné, které ukáže,
+// s čím se otevřelo, a tlačítky „potvrdí" rezervaci nebo ji přeskočí.
+vi.mock('../components/TapReservationModal', async () => {
+  const { createElement: e } = await import('react');
+  return {
+    TapReservationModal: (props: any) => e('div', {
+      'data-testid': 'okno-vycep',
+      'data-order-date': props.orderDate,
+      'data-customer': props.customerName,
+      'data-order-id': props.orderId ?? '',
+      'data-tap-hint': props.tapTypeHint ?? '',
+    },
+    e('button', { onClick: () => props.onConfirm(h.rezervace) }, 'Potvrdit rezervaci'),
+    e('button', { onClick: () => props.onSkip() }, 'Přeskočit rezervaci')),
+  };
+});
 vi.mock('../lib/reminders', () => ({ createReminder: vi.fn(async () => {}), getLocalReminders: () => [] }));
 
 // Těžká okna se v produkci stahují líně; tady je nahrazují tlačítka, která
@@ -244,6 +269,11 @@ beforeEach(() => {
   h.potvrd.mockResolvedValue(true);
   h.chyba.mockReset();
   h.ignorovatZpravu.mockReset();
+  h.propojVycep.mockReset();
+  h.propojVycep.mockResolvedValue(null);
+  h.smazVycep.mockReset();
+  h.smazVycep.mockResolvedValue(null);
+  h.rezervace = { id: 'rez-1', tap_id: 't2', tap_name: 'Výčep 2', date_from: '2026-10-21', date_to: '2026-10-22', customer_name: 'Hospoda U Lípy' };
 });
 
 
@@ -481,5 +511,245 @@ describe('průvodce zadáním objednávky na obrazovce Objednávky', () => {
     expect(objednavka).toMatchObject({ place_id: 'p-lipa', delivery_date: '2026-10-20', source: 'rucne', status: 'nova' });
     expect(Object.keys(objednavka)).not.toContain('misto_zavozu');
     await waitFor(() => expect(zapsano('order_items', 'insert')).toHaveLength(1));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Půjčení výčepu z průvodce (18. 11. 2026: „stačí zaklikávací pole, otevře se
+// rezervační okno, používá se to málo, ať to nepřekáží")
+// ---------------------------------------------------------------------------
+
+describe('půjčení výčepu v průvodci zadáním objednávky', () => {
+  /** Hospoda U Lípy, 2× 12° Světlá, výchozí den (st 21. 10.) → souhrn. */
+  async function naSouhrn() {
+    render(<Orders mode="entry_only" />);
+    await otevriPruvodce();
+    hledej('u lipy');
+    fireEvent.click(dlazdiceOdberatele('Hospoda U Lípy'));
+    dal();
+    pridejPivo(/Světlá/, '2');
+    fireEvent.click(okno().getByRole('button', { name: /^Souhrn/ }));
+  }
+  const poleVycep = () => okno().getByRole('checkbox', { name: 'Půjčení výčepu' }) as HTMLInputElement;
+  const oknoVycepu = () => screen.getByTestId('okno-vycep');
+  const potvrdVycep = () => fireEvent.click(within(oknoVycepu()).getByRole('button', { name: 'Potvrdit rezervaci' }));
+  const preskocVycep = () => fireEvent.click(within(oknoVycepu()).getByRole('button', { name: 'Přeskočit rezervaci' }));
+  const idUlozeneObjednavky = () => (h.DB.orders as any[]).find((o) => o.place_id === 'p-lipa').id as string;
+
+  it('zaškrtnutí otevře okno rezervace s odběratelem, dnem závozu a druhem výčepu z poznámky', async () => {
+    await naSouhrn();
+    fireEvent.change(okno().getByLabelText('Poznámka'), { target: { value: 'jednokohout' } });
+    expect(screen.queryByTestId('okno-vycep')).toBeNull();
+    fireEvent.click(poleVycep());
+    const dialog = await screen.findByTestId('okno-vycep');
+    expect(dialog.dataset.orderDate).toBe('2026-10-21');
+    expect(dialog.dataset.customer).toBe('Hospoda U Lípy');
+    expect(dialog.dataset.tapHint).toBe('jednokohout');
+    expect(dialog.dataset.orderId).toBe('');
+    expect(okno().getByTestId('pruvodce-vycep')).toBeTruthy();
+  });
+
+  it('potvrzená rezervace se po uložení naváže na objednávku a okno se neotevře podruhé', async () => {
+    await naSouhrn();
+    fireEvent.click(poleVycep());
+    await screen.findByTestId('okno-vycep');
+    potvrdVycep();
+    expect(await okno().findByText('Rezervováno: Výčep 2 · 21.–22. 10.')).toBeTruthy();
+    await waitFor(() => expect(screen.queryByTestId('okno-vycep')).toBeNull());
+    await act(async () => { ulozitObjednavku(); });
+
+    await screen.findByText('Objednávka uložena');
+    expect(zapsano('orders', 'insert')).toHaveLength(1);
+    expect(h.propojVycep).toHaveBeenCalledTimes(1);
+    expect(h.propojVycep).toHaveBeenCalledWith('rez-1', idUlozeneObjednavky());
+    expect(screen.queryByTestId('okno-vycep')).toBeNull();
+    expect(h.smazVycep).not.toHaveBeenCalled();
+  });
+
+  it('zaškrtnuto, ale okno zavřené bez rezervace: po uložení se otevře znovu, už s objednávkou a dnem závozu', async () => {
+    await naSouhrn();
+    fireEvent.click(poleVycep());
+    await screen.findByTestId('okno-vycep');
+    preskocVycep();
+    expect(await okno().findByText('Okno rezervace se otevře po uložení objednávky')).toBeTruthy();
+    expect(screen.queryByTestId('okno-vycep')).toBeNull();
+    await act(async () => { ulozitObjednavku(); });
+
+    await screen.findByText('Objednávka uložena');
+    const dialog = await screen.findByTestId('okno-vycep');
+    expect(dialog.dataset.orderId).toBe(idUlozeneObjednavky());
+    expect(dialog.dataset.orderDate).toBe('2026-10-21'); // závoz z průvodce, ne dnešek
+    expect(dialog.dataset.customer).toBe('Hospoda U Lípy');
+    expect(h.propojVycep).not.toHaveBeenCalled(); // rezervaci s objednávkou svazuje samo okno
+    preskocVycep();
+    await waitFor(() => expect(screen.queryByTestId('okno-vycep')).toBeNull());
+    // Okno průvodce zůstává na potvrzení a nic se nesmazalo.
+    expect(okno().getByText('Objednávka uložena')).toBeTruthy();
+    expect(h.smazVycep).not.toHaveBeenCalled();
+  });
+
+  it('zmínka o výčepu v poznámce otevře po uložení okno rezervace i bez zaškrtnutí — se dnem závozu z průvodce', async () => {
+    await naSouhrn();
+    fireEvent.change(okno().getByLabelText('Poznámka'), { target: { value: 'potřebují půjčit výčep, jednokohout' } });
+    await act(async () => { ulozitObjednavku(); });
+
+    await screen.findByText('Objednávka uložena');
+    const dialog = await screen.findByTestId('okno-vycep');
+    expect(dialog.dataset.orderId).toBe(idUlozeneObjednavky());
+    expect(dialog.dataset.orderDate).toBe('2026-10-21');
+    expect(dialog.dataset.tapHint).toBe('jednokohout');
+  });
+
+  it('potvrzená rezervace a zmínka o výčepu v poznámce: okno se po uložení neotevře podruhé', async () => {
+    await naSouhrn();
+    fireEvent.change(okno().getByLabelText('Poznámka'), { target: { value: 'půjčení výčepu' } });
+    fireEvent.click(poleVycep());
+    await screen.findByTestId('okno-vycep');
+    potvrdVycep();
+    await okno().findByText('Rezervováno: Výčep 2 · 21.–22. 10.');
+    await act(async () => { ulozitObjednavku(); });
+
+    await screen.findByText('Objednávka uložena');
+    expect(h.propojVycep).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId('okno-vycep')).toBeNull();
+  });
+
+  it('bez zaškrtnutí a bez zmínky v poznámce se výčep neřeší', async () => {
+    await naSouhrn();
+    await act(async () => { ulozitObjednavku(); });
+
+    await screen.findByText('Objednávka uložena');
+    expect(screen.queryByTestId('okno-vycep')).toBeNull();
+    expect(h.propojVycep).not.toHaveBeenCalled();
+    expect(h.smazVycep).not.toHaveBeenCalled();
+  });
+
+  it('odškrtnutí smaže rezervaci, kterou okno už uložilo do databáze', async () => {
+    await naSouhrn();
+    fireEvent.click(poleVycep());
+    await screen.findByTestId('okno-vycep');
+    potvrdVycep();
+    await okno().findByText('Rezervováno: Výčep 2 · 21.–22. 10.');
+    fireEvent.click(poleVycep());
+
+    await waitFor(() => expect(h.smazVycep).toHaveBeenCalledWith('rez-1'));
+    expect(poleVycep().checked).toBe(false);
+    await act(async () => { ulozitObjednavku(); });
+    await screen.findByText('Objednávka uložena');
+    expect(h.propojVycep).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('okno-vycep')).toBeNull();
+  });
+
+  it('zahození rozepsané objednávky smaže i rezervaci výčepu', async () => {
+    await naSouhrn();
+    fireEvent.click(poleVycep());
+    await screen.findByTestId('okno-vycep');
+    potvrdVycep();
+    await okno().findByText('Rezervováno: Výčep 2 · 21.–22. 10.');
+    fireEvent.click(okno().getByRole('button', { name: 'Zpět na výběr piva' }));
+    fireEvent.click(okno().getByRole('button', { name: 'Zpět na výběr odběratele' }));
+    fireEvent.click(okno().getByRole('button', { name: 'Zavřít' }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Nová objednávka' })).toBeNull());
+    expect(h.potvrd).toHaveBeenCalledWith('Zahodit rozepsanou objednávku?', expect.anything());
+    expect(h.smazVycep).toHaveBeenCalledWith('rez-1');
+    expect(zapsano('orders', 'insert')).toHaveLength(0);
+  });
+
+  it('když se uložení nepovede (zdvojená objednávka), rezervace zůstane a po „Přesto vytvořit" se naváže', async () => {
+    h.DB.orders = [
+      ...(h.DB.orders as any[]),
+      { ...RESTAURACE_11_10, id: 'o-lipa-21', order_date: '2026-10-14', delivery_date: '2026-10-21', delivery_day: 'st', place_id: 'p-lipa', place_name: 'Hospoda U Lípy', created_at: '2026-10-14T10:00:00Z' },
+    ];
+    h.DB.order_items = [
+      ...(h.DB.order_items as any[]),
+      { id: 'i-lipa', order_id: 'o-lipa-21', beer_id: 'beer-12', beer_name: '12° Světlá', package_id: 'keg-50', package_label: 'KEG 50l', quantity: 2 },
+    ];
+    await naSouhrn();
+    fireEvent.click(poleVycep());
+    await screen.findByTestId('okno-vycep');
+    potvrdVycep();
+    await okno().findByText('Rezervováno: Výčep 2 · 21.–22. 10.');
+    await act(async () => { ulozitObjednavku(); });
+
+    await waitFor(() => expect(h.volba).toHaveBeenCalledTimes(1));
+    expect((await screen.findByRole('alert')).textContent).toContain('už má podobnou objednávku');
+    expect(zapsano('orders', 'insert')).toHaveLength(0);
+    expect(h.propojVycep).not.toHaveBeenCalled();
+    expect(h.smazVycep).not.toHaveBeenCalled();
+    expect(okno().getByText('Rezervováno: Výčep 2 · 21.–22. 10.')).toBeTruthy();
+
+    h.volba.mockResolvedValue('presto');
+    await act(async () => { ulozitObjednavku(); });
+    await screen.findByText('Objednávka uložena');
+    expect(h.propojVycep).toHaveBeenCalledTimes(1);
+    expect(h.propojVycep).toHaveBeenCalledWith('rez-1', expect.stringMatching(/^nove-/));
+  });
+
+  it('selhání navázání rezervace se ohlásí, objednávka zůstane uložená', async () => {
+    h.propojVycep.mockResolvedValue('Rezervace výčepu už neexistuje.');
+    await naSouhrn();
+    fireEvent.click(poleVycep());
+    await screen.findByTestId('okno-vycep');
+    potvrdVycep();
+    await okno().findByText('Rezervováno: Výčep 2 · 21.–22. 10.');
+    await act(async () => { ulozitObjednavku(); });
+
+    await screen.findByText('Objednávka uložena');
+    expect(zapsano('orders', 'insert')).toHaveLength(1);
+    expect(h.chyba).toHaveBeenCalledWith('Rezervaci výčepu se nepodařilo navázat na objednávku: Rezervace výčepu už neexistuje.');
+  });
+});
+
+describe('půjčení výčepu ve starém formuláři (beze změny)', () => {
+  const poleStarehoFormulare = () => screen.getByRole('checkbox', { name: /Půjčení výčepu/ }) as HTMLInputElement;
+
+  it('zaškrtnutí otevře okno, potvrzená rezervace se při vytvoření naváže na objednávku', async () => {
+    render(<Orders mode="entry_only" />);
+    await vyberOdberatele('Hospoda U Lípy');
+    nastavDatumZavozu('2026-10-20');
+    await zadejPolozku('Světlá', 'KEG 50 L', 1);
+    fireEvent.click(poleStarehoFormulare());
+    const dialog = await screen.findByTestId('okno-vycep');
+    expect(dialog.dataset.orderDate).toBe('2026-10-20');
+    expect(dialog.dataset.customer).toBe('Hospoda U Lípy');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Potvrdit rezervaci' }));
+    await waitFor(() => expect(screen.queryByTestId('okno-vycep')).toBeNull());
+    await act(async () => { fireEvent.click(vytvorit()); });
+
+    await waitFor(() => expect(zapsano('orders', 'insert')).toHaveLength(1));
+    await waitFor(() => expect(h.propojVycep).toHaveBeenCalledTimes(1));
+    expect(h.propojVycep.mock.calls[0][0]).toBe('rez-1');
+  });
+
+  it('bez potvrzené rezervace se okno otevře po uložení a po jeho zavření se formulář vyčistí', async () => {
+    render(<Orders mode="entry_only" />);
+    await vyberOdberatele('Hospoda U Lípy');
+    nastavDatumZavozu('2026-10-20');
+    await zadejPolozku('Světlá', 'KEG 50 L', 1);
+    fireEvent.click(poleStarehoFormulare());
+    fireEvent.click(within(await screen.findByTestId('okno-vycep')).getByRole('button', { name: 'Přeskočit rezervaci' }));
+    await waitFor(() => expect(screen.queryByTestId('okno-vycep')).toBeNull());
+    expect(poleStarehoFormulare().checked).toBe(true);
+    await act(async () => { fireEvent.click(vytvorit()); });
+
+    const dialog = await screen.findByTestId('okno-vycep');
+    await waitFor(() => expect(zapsano('orders', 'insert')).toHaveLength(1));
+    expect(dialog.dataset.orderId).toBe((h.DB.orders as any[]).find((o) => o.place_id === 'p-lipa').id);
+    expect(screen.getByTestId('pruh-ulozeni').textContent).toContain('1 pol.'); // formulář čeká, až se okno zavře
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Přeskočit rezervaci' }));
+    await waitFor(() => expect(screen.queryByTestId('okno-vycep')).toBeNull());
+    await waitFor(() => expect(screen.getByTestId('pruh-ulozeni').textContent).not.toContain('1 pol.'));
+    expect(h.propojVycep).not.toHaveBeenCalled();
+  });
+
+  it('odškrtnutí smaže rezervaci z databáze', async () => {
+    render(<Orders mode="entry_only" />);
+    await vyberOdberatele('Hospoda U Lípy');
+    fireEvent.click(poleStarehoFormulare());
+    fireEvent.click(within(await screen.findByTestId('okno-vycep')).getByRole('button', { name: 'Potvrdit rezervaci' }));
+    await waitFor(() => expect(screen.queryByTestId('okno-vycep')).toBeNull());
+    fireEvent.click(poleStarehoFormulare());
+    await waitFor(() => expect(h.smazVycep).toHaveBeenCalledWith('rez-1'));
   });
 });

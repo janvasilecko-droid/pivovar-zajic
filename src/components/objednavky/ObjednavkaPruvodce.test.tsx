@@ -10,7 +10,7 @@ import type { DataPruvodce } from './pruvodceTypy';
 import type { KonceptObjednavky } from '../../lib/objednavkaPruvodce';
 import type { Beer, Package, Place } from '../../lib/supabase';
 import type { Order, OrderItem } from './spolecne';
-import { oznam, potvrd, toastZpet } from '../../lib/toast';
+import { chyba, oznam, potvrd, toastZpet } from '../../lib/toast';
 
 vi.mock('../../lib/toast', () => ({
   potvrd: vi.fn(async () => true),
@@ -642,6 +642,207 @@ describe('tlačítko Zpět a zavírání', () => {
     zpet();
     expect(onZavrit).toHaveBeenCalledTimes(1);
     expect(potvrd).not.toHaveBeenCalled();
+  });
+});
+
+describe('půjčení výčepu — nenápadné pole v souhrnu', () => {
+  const zpet = () => act(() => { window.dispatchEvent(new PopStateEvent('popstate')); });
+  const REZERVACE = { id: 'rez-1', popis: 'Výčep 2 · 20.–22. 11.' };
+
+  function naSouhrnVycep(props: Partial<Parameters<typeof ObjednavkaPruvodce>[0]> = {}) {
+    const vyberVycep = vi.fn(async () => REZERVACE as { id: string; popis: string } | null);
+    const zrusVycep = vi.fn(async (_id: string) => null as string | null);
+    const r = pripravit({ vyberVycep, zrusVycep, ...props });
+    vyberOdberatele('Žižkov');
+    dal();
+    zadejPivo('Jantar', '1');
+    fireEvent.click(tlacitko(/^Souhrn/));
+    return { ...r, vyberVycep, zrusVycep };
+  }
+  const pole = () => screen.getByRole('checkbox', { name: 'Půjčení výčepu' }) as HTMLInputElement;
+  const stav = () => screen.getByTestId('pruvodce-vycep').textContent;
+
+  it('bez okna rezervace se pole vůbec nenabízí', () => {
+    pripravit();
+    vyberOdberatele('Žižkov');
+    dal();
+    zadejPivo('Jantar', '1');
+    fireEvent.click(tlacitko(/^Souhrn/));
+    expect(screen.queryByRole('checkbox', { name: 'Půjčení výčepu' })).toBeNull();
+    expect(screen.queryByTestId('pruvodce-vycep')).toBeNull();
+  });
+
+  it('pole je odškrtnuté a nic o výčepu nehlásí', () => {
+    naSouhrnVycep();
+    expect(pole().checked).toBe(false);
+    expect(stav()).toBe('Půjčení výčepu');
+  });
+
+  it('zaškrtnutí otevře okno rezervace s odběratelem, dnem závozu a poznámkou', async () => {
+    const { vyberVycep } = naSouhrnVycep();
+    fireEvent.change(screen.getByLabelText('Poznámka'), { target: { value: 'jednokohout na sobotu' } });
+    fireEvent.click(pole());
+    await waitFor(() => expect(vyberVycep).toHaveBeenCalledTimes(1));
+    expect(vyberVycep).toHaveBeenCalledWith({ zakaznik: 'Žižkov', datum: DNES, poznamka: 'jednokohout na sobotu' });
+    expect(await screen.findByText('Rezervováno: Výčep 2 · 20.–22. 11.')).toBeTruthy();
+    expect(pole().checked).toBe(true);
+  });
+
+  it('se zvoleným dnem závozu se rezervace navrhuje na ten den', async () => {
+    const vyberVycep = vi.fn(async () => null);
+    pripravit({ vyberVycep, zrusVycep: vi.fn(async () => null) });
+    vyberOdberatele('Žižkov');
+    fireEvent.change(screen.getByLabelText(/Jiné datum závozu/), { target: { value: '2026-11-21' } });
+    dal();
+    zadejPivo('Jantar', '1');
+    fireEvent.click(tlacitko(/^Souhrn/));
+    fireEvent.click(pole());
+    await waitFor(() => expect(vyberVycep).toHaveBeenCalledWith(expect.objectContaining({ datum: '2026-11-21' })));
+  });
+
+  it('potvrzená rezervace se uloží s konceptem, ať se naváže na objednávku', async () => {
+    const { onUlozit } = naSouhrnVycep();
+    fireEvent.click(pole());
+    await screen.findByText('Rezervováno: Výčep 2 · 20.–22. 11.');
+    fireEvent.click(tlacitko(/Uložit objednávku/));
+    await screen.findByText('Objednávka uložena');
+    expect(onUlozit.mock.calls[0][0]).toMatchObject({ vycep: true, vycepRezervace: REZERVACE });
+  });
+
+  it('okno zavřené bez rezervace nechá pole zaškrtnuté a řekne, že se otevře po uložení', async () => {
+    const { onUlozit } = naSouhrnVycep({ vyberVycep: vi.fn(async () => null) });
+    fireEvent.click(pole());
+    await screen.findByText('Okno rezervace se otevře po uložení objednávky');
+    expect(pole().checked).toBe(true);
+    fireEvent.click(tlacitko(/Uložit objednávku/));
+    await screen.findByText('Objednávka uložena');
+    expect(onUlozit.mock.calls[0][0]).toMatchObject({ vycep: true, vycepRezervace: null });
+  });
+
+  it('bez zaškrtnutí se uloží bez výčepu', async () => {
+    const { onUlozit, vyberVycep } = naSouhrnVycep();
+    fireEvent.click(tlacitko(/Uložit objednávku/));
+    await screen.findByText('Objednávka uložena');
+    expect(vyberVycep).not.toHaveBeenCalled();
+    expect(onUlozit.mock.calls[0][0]).toMatchObject({ vycep: false, vycepRezervace: null });
+  });
+
+  it('odškrtnutí zruší rezervaci, která už je v databázi', async () => {
+    const { zrusVycep, onUlozit } = naSouhrnVycep();
+    fireEvent.click(pole());
+    await screen.findByText('Rezervováno: Výčep 2 · 20.–22. 11.');
+    fireEvent.click(pole());
+    await waitFor(() => expect(zrusVycep).toHaveBeenCalledWith('rez-1'));
+    expect(pole().checked).toBe(false);
+    expect(stav()).toBe('Půjčení výčepu');
+    fireEvent.click(tlacitko(/Uložit objednávku/));
+    await screen.findByText('Objednávka uložena');
+    expect(onUlozit.mock.calls[0][0]).toMatchObject({ vycep: false, vycepRezervace: null });
+  });
+
+  it('odškrtnutí zaškrtnutého pole bez rezervace nic nemaže', async () => {
+    const { zrusVycep } = naSouhrnVycep({ vyberVycep: vi.fn(async () => null) });
+    fireEvent.click(pole());
+    await screen.findByText('Okno rezervace se otevře po uložení objednávky');
+    fireEvent.click(pole());
+    await waitFor(() => expect(pole().checked).toBe(false));
+    expect(zrusVycep).not.toHaveBeenCalled();
+  });
+
+  it('když se rezervaci nepodaří zrušit, ohlásí se to (pole se odškrtne tak jako tak)', async () => {
+    naSouhrnVycep({ zrusVycep: vi.fn(async () => 'Síť nedostupná') });
+    fireEvent.click(pole());
+    await screen.findByText('Rezervováno: Výčep 2 · 20.–22. 11.');
+    fireEvent.click(pole());
+    await waitFor(() => expect(chyba).toHaveBeenCalledWith('Rezervaci výčepu se nepodařilo zrušit: Síť nedostupná'));
+    expect(pole().checked).toBe(false);
+  });
+
+  it('selhání okna rezervace se ohlásí a pole zůstane zaškrtnuté bez rezervace', async () => {
+    naSouhrnVycep({ vyberVycep: vi.fn(async () => { throw new Error('Výčepy se nenačetly'); }) });
+    fireEvent.click(pole());
+    await waitFor(() => expect(chyba).toHaveBeenCalledTimes(1));
+    expect(pole().checked).toBe(true);
+    expect(stav()).toContain('Okno rezervace se otevře po uložení objednávky');
+  });
+
+  it('zahození rozepsané objednávky zruší i rezervaci výčepu', async () => {
+    const { zrusVycep, onZavrit } = naSouhrnVycep();
+    fireEvent.click(pole());
+    await screen.findByText('Rezervováno: Výčep 2 · 20.–22. 11.');
+    zpet(); // souhrn → pivo
+    zpet(); // pivo → odběratel
+    vi.mocked(potvrd).mockResolvedValueOnce(true);
+    zpet(); // zavřít → zeptá se
+    await waitFor(() => expect(onZavrit).toHaveBeenCalledTimes(1));
+    expect(zrusVycep).toHaveBeenCalledWith('rez-1');
+  });
+
+  it('„Pokračovat v zadávání" rezervaci nechá', async () => {
+    const { zrusVycep, onZavrit } = naSouhrnVycep();
+    fireEvent.click(pole());
+    await screen.findByText('Rezervováno: Výčep 2 · 20.–22. 11.');
+    zpet();
+    zpet();
+    vi.mocked(potvrd).mockResolvedValueOnce(false);
+    zpet();
+    await waitFor(() => expect(potvrd).toHaveBeenCalled());
+    expect(onZavrit).not.toHaveBeenCalled();
+    expect(zrusVycep).not.toHaveBeenCalled();
+  });
+
+  it('po uložení se rezervace při zavření okna nemaže — patří objednávce', async () => {
+    const { zrusVycep, onZavrit } = naSouhrnVycep();
+    fireEvent.click(pole());
+    await screen.findByText('Rezervováno: Výčep 2 · 20.–22. 11.');
+    fireEvent.click(tlacitko(/Uložit objednávku/));
+    await screen.findByText('Objednávka uložena');
+    fireEvent.click(tlacitko('Hotovo'));
+    expect(onZavrit).toHaveBeenCalledTimes(1);
+    expect(zrusVycep).not.toHaveBeenCalled();
+  });
+
+  it('„Zadat další objednávku" začne bez výčepu', async () => {
+    naSouhrnVycep();
+    fireEvent.click(pole());
+    await screen.findByText('Rezervováno: Výčep 2 · 20.–22. 11.');
+    fireEvent.click(tlacitko(/Uložit objednávku/));
+    await screen.findByText('Objednávka uložena');
+    fireEvent.click(tlacitko(/Zadat další objednávku/));
+    vyberOdberatele('Žižkov');
+    dal();
+    zadejPivo('Jantar', '1');
+    fireEvent.click(tlacitko(/^Souhrn/));
+    expect(pole().checked).toBe(false);
+  });
+
+  it('Zpět a Escape při otevřeném okně rezervace průvodcem nehýbou (okno leží nad ním)', async () => {
+    let potvrdOkno: (r: { id: string; popis: string } | null) => void = () => {};
+    const vyberVycep = vi.fn(() => new Promise<{ id: string; popis: string } | null>((resolve) => { potvrdOkno = resolve; }));
+    naSouhrnVycep({ vyberVycep });
+    fireEvent.click(pole());
+    await waitFor(() => expect(vyberVycep).toHaveBeenCalledTimes(1));
+    zpet();
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.getByRole('heading', { name: 'Souhrn objednávky' })).toBeTruthy();
+    expect(potvrd).not.toHaveBeenCalled();
+    await act(async () => { potvrdOkno(REZERVACE); });
+    expect(await screen.findByText('Rezervováno: Výčep 2 · 20.–22. 11.')).toBeTruthy();
+    // Po zavření okna Zpět zase funguje.
+    zpet();
+    expect(screen.getByRole('heading', { name: 'Které pivo?' })).toBeTruthy();
+  });
+
+  it('během ukládání se pole nedá přepnout', async () => {
+    let dokonci: (v: { stav: 'ulozeno' }) => void = () => {};
+    const onUlozit = vi.fn(() => new Promise<{ stav: 'ulozeno' }>((resolve) => { dokonci = resolve; }));
+    const { vyberVycep } = naSouhrnVycep({ onUlozit });
+    fireEvent.click(tlacitko(/Uložit objednávku/));
+    expect(tlacitko(/Ukládám/)).toBeTruthy();
+    fireEvent.click(pole());
+    expect(vyberVycep).not.toHaveBeenCalled();
+    expect(pole().checked).toBe(false);
+    await act(async () => { dokonci({ stav: 'ulozeno' }); });
   });
 });
 

@@ -40,7 +40,7 @@ export function PrehledTankuPlocha({ tanky, onOtevrit }: { tanky: TankNaPlose[];
   if (tanky.length === 0) return null;
   return (
     <section className="bg-white rounded border border-neutral-200/90 shadow-xs overflow-hidden">
-      <div className="grid grid-cols-4 gap-x-2 gap-y-2 p-2.5 select-none">
+      <div className="grid grid-cols-4 gap-x-1.5 gap-y-2 p-2 select-none">
         {tanky.map((t) => {
           const faze = t.faze ?? null;
           const pct = t.prazdny || faze || !(t.vystav > 0) ? 0 : Math.min(100, Math.max(2, Math.round((t.litry / t.vystav) * 100)));
@@ -64,7 +64,7 @@ export function PrehledTankuPlocha({ tanky, onOtevrit }: { tanky: TankNaPlose[];
               {faze ? (
                 <div
                   data-faze-tanku={faze}
-                  className={`text-udaj font-black leading-tight truncate rounded px-1 ${BARVY_FAZE[faze]}`}
+                  className={`text-udaj font-bold tracking-tight leading-tight truncate rounded px-0.5 ${BARVY_FAZE[faze]}`}
                 >
                   {POPIS_FAZE[faze].text}
                 </div>

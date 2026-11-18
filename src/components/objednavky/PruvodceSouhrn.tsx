@@ -17,7 +17,7 @@ import type { DataPruvodce, PrideleniMalychSudu, ZmenaKonceptu } from './pruvodc
 
 const KARTA = 'rounded-2xl border border-neutral-200 bg-white dark:bg-neutral-800 dark:border-neutral-700';
 
-export function PruvodceSouhrn({ data, koncept, zmen, upravPivo, zpetNaOdberatele, prideleniSudu, patka }: {
+export function PruvodceSouhrn({ data, koncept, zmen, upravPivo, zpetNaOdberatele, prideleniSudu, vycep, patka }: {
   data: DataPruvodce;
   koncept: KonceptObjednavky;
   zmen: ZmenaKonceptu;
@@ -26,6 +26,8 @@ export function PruvodceSouhrn({ data, koncept, zmen, upravPivo, zpetNaOdberatel
   /** Změna odběratele nebo dne: vrátí na krok 1. */
   zpetNaOdberatele: () => void;
   prideleniSudu?: PrideleniMalychSudu;
+  /** Pole „Půjčení výčepu" pod poznámkou (PruvodceVycep); bez něj se výčep nenabízí. */
+  vycep?: ReactNode;
   /** Tlačítka uložení uvnitř souhrnu (na počítači; na telefonu jsou v patičce okna). */
   patka?: ReactNode;
 }) {
@@ -128,6 +130,8 @@ export function PruvodceSouhrn({ data, koncept, zmen, upravPivo, zpetNaOdberatel
           placeholder="Nepovinné — třeba „vozí řidič Petr“"
         />
       </div>
+
+      {vycep}
 
       {patka}
     </div>

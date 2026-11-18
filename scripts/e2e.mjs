@@ -198,6 +198,21 @@ try {
   await pruvodce.getByRole('heading', { name: 'Souhrn objednávky' }).waitFor();
   await kontrolaRozlozeni('krok 3 (souhrn)');
   overit(await pruvodce.getByText('2× 50 l').count() > 0, 'souhrn ukazuje „2× 50 l"');
+  // Půjčení výčepu: nenápadné pole, které otevře okno rezervace (v náhledu ho nahrazuje hotová rezervace).
+  const vycep = pruvodce.getByTestId('pruvodce-vycep');
+  const poleVycep = pruvodce.getByRole('checkbox', { name: 'Půjčení výčepu' });
+  const vyskaVycepu = await vycep.locator('label').evaluate((el) => el.getBoundingClientRect().height);
+  overit(vyskaVycepu >= 43.5, `pole „Půjčení výčepu" má aspoň 44 px (${Math.round(vyskaVycepu)} px)`);
+  overit(!(await poleVycep.isChecked()), 'výčep je ze začátku odškrtnutý');
+  await poleVycep.click();
+  await vycep.getByText(/^Rezervováno: Výčep 2 · \d{1,2}\. \d{1,2}\.$/).waitFor();
+  overit(await poleVycep.isChecked(), 'po zaškrtnutí je výčep rezervovaný');
+  await kontrolaRozlozeni('krok 3 (souhrn s výčepem)');
+  await poleVycep.click();
+  await vycep.getByText(/^Půjčení výčepu$/).waitFor();
+  overit(JSON.parse((await pruvodce.getByTestId('zruseno').textContent()) ?? '[]').join() === 'rez-nahled', 'odškrtnutí zrušilo rezervaci');
+  await poleVycep.click();
+  await vycep.getByText(/^Rezervováno: /).waitFor();
   await pruvodce.getByRole('button', { name: /Uložit objednávku/ }).click();
   await pruvodce.getByText('Objednávka uložena').waitFor();
   const ulozeno = JSON.parse((await pruvodce.getByTestId('ulozeno').textContent()) ?? '[]');
@@ -206,6 +221,7 @@ try {
       && ulozeno[0].radky.length === 1 && ulozeno[0].radky[0].qty === 2,
     'uložila se jedna objednávka: Radek, místo Sklad, 2× sud 50 l',
   );
+  overit(ulozeno[0].vycep === true && ulozeno[0].vycepRezervace?.id === 'rez-nahled', 'objednávka nese rezervaci výčepu');
   overit(chybyPruvodce.length === 0, `průvodce nevyhodil chybu${chybyPruvodce.length ? ': ' + chybyPruvodce[0] : ''}`);
   await pruvodce.close();
 
@@ -222,6 +238,26 @@ try {
   overit(sirkaPc.doc <= sirkaPc.okno + 1, `počítač: stránka se neroluje do stran (${sirkaPc.doc} ≤ ${sirkaPc.okno})`);
   overit(chybyPocitac.length === 0, `průvodce na počítači nevyhodil chybu${chybyPocitac.length ? ': ' + chybyPocitac[0] : ''}`);
   await pocitac.close();
+
+  // ── Scénář 4: štítky fáze tanku na ploše ─────────────────────────────
+  // 18. 11. 2026: „vysanitovaný" se na telefonu ořízl na „vysanitovan…". Šířku
+  // písma jednotkový test nevidí, proto se tu měří skutečné CSS na nejužších
+  // běžných telefonech (360 a 390 px).
+  console.log('\nScénář: plocha — štítky fáze tanku se vejdou na telefon');
+  for (const sirka of [360, 390]) {
+    const tanky = await b.newPage({ viewport: { width: sirka, height: 600 } });
+    const chybyTanky = [];
+    tanky.on('pageerror', (e) => chybyTanky.push(String(e)));
+    await tanky.goto(`${ADRESA}/tanky.html`, { waitUntil: 'networkidle' });
+    await tanky.locator('[data-faze-tanku]').first().waitFor();
+    const orizle = await tanky.evaluate(() => [...document.querySelectorAll('[data-faze-tanku]')]
+      .filter((el) => el.scrollWidth > el.clientWidth + 0.5).map((el) => el.textContent));
+    overit(orizle.length === 0, `${sirka} px: štítky fáze tanku se vejdou celé${orizle.length ? ` — oříznuté: ${[...new Set(orizle)].join(', ')}` : ''}`);
+    const sirkaStranky = await tanky.evaluate(() => ({ doc: document.documentElement.scrollWidth, okno: window.innerWidth }));
+    overit(sirkaStranky.doc <= sirkaStranky.okno + 1, `${sirka} px: tanky se nerolují do stran (${sirkaStranky.doc} ≤ ${sirkaStranky.okno})`);
+    overit(chybyTanky.length === 0, `${sirka} px: tanky nevyhodily chybu${chybyTanky.length ? ': ' + chybyTanky[0] : ''}`);
+    await tanky.close();
+  }
 } finally {
   await b.close();
 }
