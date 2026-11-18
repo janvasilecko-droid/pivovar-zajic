@@ -75,6 +75,9 @@ export function filtrujOdberatele<T extends OdberatelProRazeni>(odberatele: T[],
   });
 }
 
+/** Od kolika odběratelů se nad abecedním seznamem ukáže lišta písmen (u krátkého seznamu stačí rolovat). */
+export const LISTA_PISMEN_OD = 12;
+
 /**
  * Písmeno, pod které odběratel v abecedním seznamu spadá (nadpis skupiny).
  * Řídí se českou abecedou stejně jako řazení: Č, Ř, Š a Ž jsou samostatná

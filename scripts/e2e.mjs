@@ -72,6 +72,22 @@ async function dodejPisma(page) {
     contentType: 'font/woff2',
   }));
 }
+/**
+ * Počká, až se plynulé rolování (scrollIntoView s behavior: 'smooth') zastaví, a vrátí polohu prvku
+ * od horního okraje okna. Pevné čekání by na pomalejším počítači (CI) měřilo uprostřed skoku.
+ */
+async function polohaPoRolovani(locator) {
+  let predchozi = null;
+  let stejnych = 0;
+  for (let i = 0; i < 50 && stejnych < 3; i++) {
+    const top = await locator.evaluate((el) => Math.round(el.getBoundingClientRect().top));
+    stejnych = top === predchozi ? stejnych + 1 : 0;
+    predchozi = top;
+    await locator.page().waitForTimeout(100);
+  }
+  return predchozi;
+}
+
 /** Počká na písmo appky (včetně českých znaků) a řekne, jestli se opravdu načetlo. */
 async function pockejNaPisma(page) {
   return page.evaluate(async () => {
@@ -246,6 +262,51 @@ try {
   overit(ulozeno[0].vycep === true && ulozeno[0].vycepRezervace?.id === 'rez-nahled', 'objednávka nese rezervaci výčepu');
   overit(chybyPruvodce.length === 0, `průvodce nevyhodil chybu${chybyPruvodce.length ? ': ' + chybyPruvodce[0] : ''}`);
   await pruvodce.close();
+
+  // Lišta písmen A–Ž pod dlaždicemi (jako ve starém výběru odběratele, 18. 11. 2026):
+  // klepnutí rozbalí seznam po písmenech a skočí na něj, výběr seznam zase sbalí.
+  console.log('\nScénář: nová objednávka — lišta písmen pod dlaždicemi odběratelů');
+  const abeceda = await b.newPage({ viewport: { width: 390, height: 844 } });
+  const chybyAbeceda = [];
+  abeceda.on('pageerror', (e) => chybyAbeceda.push(String(e)));
+  await abeceda.goto(`${ADRESA}/pruvodce.html`, { waitUntil: 'networkidle' });
+  const kontrolaAbecedy = async (kde) => {
+    const r = await abeceda.evaluate(() => {
+      const male = [];
+      for (const el of document.querySelectorAll('button, input:not([type=checkbox])')) {
+        const box = el.getBoundingClientRect();
+        if (box.width === 0 || box.height === 0) continue;
+        if (box.height < 43.5) male.push(`${(el.textContent || '').trim().slice(0, 20)} ${Math.round(box.height)} px`);
+      }
+      return { doc: document.documentElement.scrollWidth, okno: window.innerWidth, male };
+    });
+    overit(r.doc <= r.okno + 1, `${kde}: stránka se neroluje do stran (${r.doc} ≤ ${r.okno})`);
+    overit(r.male.length === 0, `${kde}: každý cíl pro prst má aspoň 44 px${r.male.length ? ` — malé: ${r.male.join(', ')}` : ''}`);
+  };
+
+  // Lupa je v řádku vedle pole, ne přes ně (na telefonu majitele ležela přes „Hledat").
+  const vstupHledani = await abeceda.getByLabel('Hledat odběratele').boundingBox();
+  const lupaHledani = await abeceda.locator('#pruvodce-hledani').locator('xpath=preceding-sibling::*[local-name()="svg"]').boundingBox();
+  overit(vstupHledani !== null && lupaHledani !== null && lupaHledani.x + lupaHledani.width <= vstupHledani.x + 0.5, 'lupa nepřekrývá pole pro hledání');
+
+  const lista = abeceda.getByRole('navigation', { name: 'Přeskočit na písmeno' });
+  overit(await lista.isVisible(), 'pod dlaždicemi je lišta písmen');
+  const pismena = await lista.getByRole('button').allInnerTexts();
+  overit(pismena.join(' ') === '# A B Č D CH J L M R S Ž', `lišta má českou abecedu: # A B Č D CH J L M R S Ž (je: ${pismena.join(' ')})`);
+  await kontrolaAbecedy('lišta písmen');
+  await lista.getByRole('button', { name: 'CH', exact: true }).click();
+  const nadpisCh = abeceda.getByRole('heading', { name: 'CH', exact: true });
+  await nadpisCh.waitFor();
+  const horni = await polohaPoRolovani(nadpisCh);
+  overit(horni >= 0 && horni < 400, `po klepnutí na CH se skočilo na jeho nadpis (${horni} px od horního okraje)`);
+  await kontrolaAbecedy('rozbalený seznam po písmenech');
+  await abeceda.getByRole('button', { name: /^Chlapy z Toužimi/ }).click();
+  await abeceda.waitForTimeout(200);
+  overit(await abeceda.getByRole('heading', { name: 'CH', exact: true }).count() === 0, 'po výběru se seznam sbalí');
+  overit(await abeceda.getByRole('button', { name: /^Chlapy z Toužimi/ }).getAttribute('aria-pressed') === 'true', 'vybraný odběratel je navrchu');
+  overit(await abeceda.getByRole('button', { name: /Dál — vybrat pivo/ }).isEnabled(), 'po výběru z abecedy je „Dál" odemčené');
+  overit(chybyAbeceda.length === 0, `lišta písmen nevyhodila chybu${chybyAbeceda.length ? ': ' + chybyAbeceda[0] : ''}`);
+  await abeceda.close();
 
   // Na počítači jsou všechny tři kroky vedle sebe.
   const pocitac = await b.newPage({ viewport: { width: 1280, height: 800 } });

@@ -6,10 +6,15 @@
 // dlaždice, u odběratele s víc místy „kam tentokrát?" a dny závozu na jedno
 // klepnutí. Den, který nikdo nevybere, se ukáže předem (výchozí den
 // odběratele) — stejné pravidlo jako ve starém formuláři i v databázi.
-import { useMemo, useState } from 'react';
+//
+// Majitel 18. 11. 2026: „udělej to, ať je pod těma písmena A až Z" — pod
+// dlaždicemi je lišta písmen jako ve starém výběru odběratele (OdberatelTlacitko):
+// klepnutí na písmeno rozbalí všechny odběratele podle abecedy (s nadpisy
+// písmen) a skočí na něj.
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, Check, Search, UserPlus } from 'lucide-react';
 import type { Place } from '../../lib/supabase';
-import { nejcastejsiOdberatele, odberateleAbecedne } from '../../lib/odberateleDleCetnosti';
+import { LISTA_PISMEN_OD, nejcastejsiOdberatele, odberateleAbecedne, rozdelDlePismen } from '../../lib/odberateleDleCetnosti';
 import { proHledani } from '../../lib/hledani';
 import { jeAutomatickyBezZavozu } from '../../lib/bezZavozu';
 import { vychoziDenZavozu } from '../../lib/denZavozu';
@@ -51,6 +56,10 @@ export function PruvodceOdberatel({ data, koncept, zmen }: {
   const { places, orders, dnes } = data;
   const [hledani, setHledani] = useState('');
   const [vsichni, setVsichni] = useState(false);
+  /** Písmeno, na které se skočí, jakmile se seznam rozbalí (klepnutí na písmeno při sbaleném seznamu). */
+  const [skocNa, setSkocNa] = useState<string | null>(null);
+  const nadpisy = useRef<Record<string, HTMLElement | null>>({});
+  const koren = useRef<HTMLDivElement>(null);
 
   const vybrany = odberatelKonceptu(koncept, places);
   // Nový odběratel = napsané jméno, které v katalogu není (založí se při uložení).
@@ -70,24 +79,46 @@ export function PruvodceOdberatel({ data, koncept, zmen }: {
     ? [vybrany, ...rychli.slice(0, POCET_RYCHLYCH_ODBERATELU - 1)]
     : rychli;
   // `misto` = hledání trefilo název místa závozu („sklad" → Radek, místo Sklad).
+  // Rozbalený seznam („Všichni odběratelé") se kreslí po písmenech, ne jako seznam dlaždic.
+  const rozbaleno = vsichni && !dotaz && nabidka.length > zakladni.length;
   let seznam: { odberatel: Place; misto: string | null }[];
   if (dotaz) seznam = hledejOdberatele(nabidka, dotaz);
-  else if (vsichni) seznam = odberateleAbecedne(nabidka).map((odberatel) => ({ odberatel, misto: null }));
+  else if (rozbaleno) seznam = [];
   else seznam = zakladni.map((odberatel) => ({ odberatel, misto: null }));
+  const skupiny = useMemo(() => rozdelDlePismen(odberateleAbecedne(nabidka)), [nabidka]);
+  const lista = !dotaz && nabidka.length >= LISTA_PISMEN_OD;
 
   // Nový odběratel se nenabízí, když napsané už je odběratel nebo jméno místa závozu.
   const jeZnamy = nabidka.some((p) => proHledani(p.name) === proHledani(dotaz))
     || nabidka.some((p) => mistaOdberatele(p).some((m) => proHledani(m.nazev) === proHledani(dotaz)));
   const novyKNabidnuti = dotaz && !jeZnamy ? dotaz : '';
 
+  /** Po výběru z dlouhého seznamu se seznam sbalí a obsah vrátí nahoru: je vidět, koho jsi vybral, a pod ním dny. */
+  const sbal = () => {
+    if (!vsichni) return;
+    setVsichni(false);
+    window.setTimeout(() => koren.current?.scrollIntoView?.({ block: 'start' }), 0);
+  };
   const vyber = (p: Place, misto: string | null) => {
     zmen((k) => {
       const n = vyberOdberatele(k, { id: p.id, name: p.name });
       return misto ? nastavMisto(n, misto) : n;
     });
     setHledani('');
+    sbal();
   };
-  const vyberNoveho = (nazev: string) => { zmen((k) => vyberOdberatele(k, null, nazev)); setHledani(''); };
+  const vyberNoveho = (nazev: string) => { zmen((k) => vyberOdberatele(k, null, nazev)); setHledani(''); sbal(); };
+
+  function skocNaPismeno(pismeno: string) {
+    if (rozbaleno) nadpisy.current[pismeno]?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+    else { setVsichni(true); setSkocNa(pismeno); }
+  }
+  // Skok, který čekal na rozbalení seznamu: nadpisy písmen už jsou vykreslené.
+  useEffect(() => {
+    if (!skocNa || !rozbaleno) return;
+    nadpisy.current[skocNa]?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+    setSkocNa(null);
+  }, [skocNa, rozbaleno]);
 
   const mista = mistaKVolbe(vybrany);
   const ucinny = ucinnyZavoz(koncept, places, dnes);
@@ -101,13 +132,65 @@ export function PruvodceOdberatel({ data, koncept, zmen }: {
     else vysvetleniDne = 'Tenhle odběratel nemá pevný den závozu — vyber den, nebo nech objednávku bez dne.';
   }
 
+  /** Dlaždice odběratele — stejná ve zkratce, ve výsledcích hledání i v rozbaleném seznamu. */
+  const dlazdice = (p: Place, misto: string | null) => {
+    const vyb = vybrany?.id === p.id;
+    const nazevMista = misto ? mistaOdberatele(p).find((m) => m.id === misto)?.nazev : null;
+    return (
+      <button
+        key={p.id}
+        type="button"
+        aria-pressed={vyb}
+        onClick={() => vyber(p, misto)}
+        className={`${DLAZDICE} ${vyb ? DLAZDICE_VYBRANA : DLAZDICE_JINA}`}
+      >
+        <span className="flex items-center justify-between gap-1.5 font-display font-black text-lg">
+          <span className="truncate">{p.name}</span>
+          {vyb && <Check size={20} className="shrink-0 text-primary-700" aria-hidden="true" />}
+        </span>
+        <span className="text-xs font-semibold text-neutral-600 dark:text-neutral-300">{nazevMista ? `místo: ${nazevMista}` : podNazvem(p, places)}</span>
+      </button>
+    );
+  };
+  const novyVybranyEl = vybranyNovy && !dotaz ? (
+    <button type="button" aria-pressed="true" onClick={() => vyberNoveho(vybranyNovy)} className={`${DLAZDICE} ${DLAZDICE_VYBRANA}`}>
+      <span className="flex items-center justify-between gap-1.5 font-display font-black text-lg"><span className="truncate">{vybranyNovy}</span><Check size={20} className="shrink-0 text-primary-700" aria-hidden="true" /></span>
+      <span className="text-xs font-semibold text-neutral-600">nový odběratel</span>
+    </button>
+  ) : null;
+  const prepinac = !dotaz && nabidka.length > zakladni.length ? (
+    <button type="button" onClick={() => setVsichni((v) => !v)} className="btn-ghost w-full">
+      {rozbaleno ? 'Jen nejčastější' : `Všichni odběratelé (${nabidka.length})`}
+    </button>
+  ) : null;
+  // Lišta písmen jako ve starém výběru odběratele; zůstává nahoře, když se pod ní roluje.
+  const listaEl = lista ? (
+    <nav
+      aria-label="Přeskočit na písmeno"
+      className="sticky top-0 z-10 py-1.5 flex gap-1 overflow-x-auto scrollbar-thin bg-neutral-100/95 dark:bg-neutral-900/95 backdrop-blur-md border-b border-neutral-200 dark:border-neutral-700"
+    >
+      {skupiny.map((sk) => (
+        <button
+          key={sk.pismeno}
+          type="button"
+          onClick={() => skocNaPismeno(sk.pismeno)}
+          className="btn-zalozka !px-0 !py-0 h-11 min-w-9 justify-center"
+        >
+          {sk.pismeno}
+        </button>
+      ))}
+    </nav>
+  ) : null;
+
   return (
-    <div className="space-y-4">
+    <div ref={koren} data-testid="pruvodce-odberatel" className="space-y-4">
       <h2 className="font-display font-black text-2xl text-neutral-900 dark:text-neutral-100">Pro koho?</h2>
 
-      <div className="relative">
+      {/* Lupa je součástí řádku (ne položená přes pole), takže se nikdy nepřekryje s textem —
+          na telefonu majitele (18. 11.) ležela přes „Hledat". */}
+      <div className="flex items-center gap-2.5 min-h-[52px] pl-4 pr-2 rounded-xl border border-neutral-200 bg-white text-neutral-900 transition-all focus-within:border-primary-500 focus-within:ring-4 focus-within:ring-primary-500/15 dark:bg-neutral-800 dark:border-neutral-700 dark:text-neutral-100">
+        <Search size={20} className="shrink-0 text-neutral-500" aria-hidden="true" />
         <label htmlFor="pruvodce-hledani" className="sr-only">Hledat odběratele</label>
-        <Search size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500 pointer-events-none" aria-hidden="true" />
         <input
           id="pruvodce-hledani"
           type="search"
@@ -115,51 +198,53 @@ export function PruvodceOdberatel({ data, koncept, zmen }: {
           value={hledani}
           onChange={(e) => setHledani(e.target.value)}
           placeholder="Hledat — „zizkov“ najde i Žižkov"
-          className="input !pl-11 !min-h-[52px] !text-base"
+          className="flex-1 min-w-0 px-0 bg-transparent border-0 shadow-none outline-none focus:outline-none focus:ring-0 placeholder:text-neutral-500"
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-2.5" role="group" aria-label="Odběratelé">
-        {vybranyNovy && !dotaz && (
-          <button type="button" aria-pressed="true" onClick={() => vyberNoveho(vybranyNovy)} className={`${DLAZDICE} ${DLAZDICE_VYBRANA}`}>
-            <span className="flex items-center justify-between gap-1.5 font-display font-black text-lg"><span className="truncate">{vybranyNovy}</span><Check size={20} className="shrink-0 text-primary-700" aria-hidden="true" /></span>
-            <span className="text-xs font-semibold text-neutral-600">nový odběratel</span>
-          </button>
-        )}
-        {seznam.map(({ odberatel: p, misto }) => {
-          const vyb = vybrany?.id === p.id;
-          const nazevMista = misto ? mistaOdberatele(p).find((m) => m.id === misto)?.nazev : null;
-          return (
-            <button
-              key={p.id}
-              type="button"
-              aria-pressed={vyb}
-              onClick={() => vyber(p, misto)}
-              className={`${DLAZDICE} ${vyb ? DLAZDICE_VYBRANA : DLAZDICE_JINA}`}
-            >
-              <span className="flex items-center justify-between gap-1.5 font-display font-black text-lg">
-                <span className="truncate">{p.name}</span>
-                {vyb && <Check size={20} className="shrink-0 text-primary-700" aria-hidden="true" />}
-              </span>
-              <span className="text-xs font-semibold text-neutral-600 dark:text-neutral-300">{nazevMista ? `místo: ${nazevMista}` : podNazvem(p, places)}</span>
-            </button>
-          );
-        })}
-        {novyKNabidnuti && (
-          <button type="button" onClick={() => vyberNoveho(novyKNabidnuti)} className={`${DLAZDICE} ${DLAZDICE_JINA} border-dashed`}>
-            <span className="flex items-center gap-1.5 font-display font-black text-lg"><UserPlus size={20} className="shrink-0" aria-hidden="true" /><span className="truncate">Nový: {novyKNabidnuti}</span></span>
-            <span className="text-xs font-semibold text-neutral-600 dark:text-neutral-300">založí se při uložení</span>
-          </button>
-        )}
-        {dotaz && seznam.length === 0 && !novyKNabidnuti && (
-          <p className="col-span-2 text-sm font-semibold text-neutral-600">Nikdo odpovídající „{dotaz}“.</p>
-        )}
-      </div>
+      {rozbaleno ? (
+        <>
+          {novyVybranyEl && <div className="grid grid-cols-2 gap-2.5">{novyVybranyEl}</div>}
+          {listaEl && prepinac}
+          <section aria-label="Všichni odběratelé podle abecedy" className="space-y-3">
+            {listaEl}
+            <div role="group" aria-label="Odběratelé" className="space-y-3">
+              {skupiny.map((sk) => (
+                <div key={sk.pismeno}>
+                  <h3
+                    ref={(el) => { nadpisy.current[sk.pismeno] = el; }}
+                    className="scroll-mt-16 mb-1.5 flex items-center gap-2 font-display font-black text-neutral-900 dark:text-neutral-100"
+                  >
+                    <span className="grid place-items-center min-w-7 h-7 px-1.5 rounded bg-amber-100 text-amber-900 text-sm">{sk.pismeno}</span>
+                    <span className="flex-1 h-px bg-neutral-200 dark:bg-neutral-700" aria-hidden="true" />
+                  </h3>
+                  <div className="grid grid-cols-2 gap-2.5">{sk.odberatele.map((p) => dlazdice(p, null))}</div>
+                </div>
+              ))}
+            </div>
+          </section>
+          {!listaEl && prepinac}
+        </>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-2.5" role="group" aria-label="Odběratelé">
+            {novyVybranyEl}
+            {seznam.map(({ odberatel: p, misto }) => dlazdice(p, misto))}
+            {novyKNabidnuti && (
+              <button type="button" onClick={() => vyberNoveho(novyKNabidnuti)} className={`${DLAZDICE} ${DLAZDICE_JINA} border-dashed`}>
+                <span className="flex items-center gap-1.5 font-display font-black text-lg"><UserPlus size={20} className="shrink-0" aria-hidden="true" /><span className="truncate">Nový: {novyKNabidnuti}</span></span>
+                <span className="text-xs font-semibold text-neutral-600 dark:text-neutral-300">založí se při uložení</span>
+              </button>
+            )}
+            {dotaz && seznam.length === 0 && !novyKNabidnuti && (
+              <p className="col-span-2 text-sm font-semibold text-neutral-600">Nikdo odpovídající „{dotaz}“.</p>
+            )}
+          </div>
 
-      {!dotaz && nabidka.length > zakladni.length && (
-        <button type="button" onClick={() => setVsichni((v) => !v)} className="btn-ghost w-full">
-          {vsichni ? 'Jen nejčastější' : `Všichni odběratelé (${nabidka.length})`}
-        </button>
+          {/* Pod dlaždicemi lišta písmen A–Ž: klepnutí rozbalí všechny odběratele a skočí na písmeno. */}
+          {listaEl && <section aria-label="Odběratelé podle abecedy">{listaEl}</section>}
+          {prepinac}
+        </>
       )}
 
       {mista.length > 0 && vybrany && (

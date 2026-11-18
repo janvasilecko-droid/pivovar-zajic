@@ -30,6 +30,13 @@ const places = [
   odberatel('p-luzec', 'Lužec', { vychozi_den_zavozu: 'pa' }),
   odberatel('p-restaurace', 'Restaurace', { vychozi_den_zavozu: 'zadny' }),
   odberatel('p-mates', 'Mates'),
+  // Další odběratelé, ať je jich dost na lištu písmen (od 12) a na Č / CH / číslici.
+  odberatel('p-karlin', '7 stupňů Karlín'),
+  odberatel('p-adam', 'Adam'),
+  odberatel('p-borek', 'Bořek'),
+  odberatel('p-cenek', 'Čeněk'),
+  odberatel('p-chlapy', 'Chlapy z Toužimi'),
+  odberatel('p-dadali', 'Dadali'),
   // Starý odběratel z doby před sloučením — jméno je teď místem Radka, průvodce ho nenabízí.
   odberatel('p-sklad-stary', 'Sklad'),
 ];

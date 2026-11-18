@@ -360,10 +360,14 @@ export function ObjednavkaPruvodce({ data, historie, idUzivatele, onUlozit, onZa
       ) : (
         <>
           {lista}
-          <main className="flex-1 min-h-0 overflow-y-auto px-4 py-4">
-            {krok === 'odberatel' && odberatelEl}
-            {krok === 'pivo' && pivoEl}
-            {krok === 'souhrn' && souhrnEl}
+          {/* Horní odsazení je až uvnitř (pt-4), ne na rolovací ploše: lišta písmen v kroku 1 se přilepí
+              k úplnému horního okraji a pod ní není mezera, kterou by prosvítal rolovaný obsah. */}
+          <main className="flex-1 min-h-0 overflow-y-auto px-4 pb-4">
+            <div className="pt-4">
+              {krok === 'odberatel' && odberatelEl}
+              {krok === 'pivo' && pivoEl}
+              {krok === 'souhrn' && souhrnEl}
+            </div>
           </main>
         </>
       )}
