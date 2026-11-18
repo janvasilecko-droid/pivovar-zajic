@@ -21,6 +21,8 @@
  * skončí nulou. Padá jen tehdy, když se scénář opravdu nepovede.
  */
 import { existsSync } from 'node:fs';
+import { basename } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const ADRESA = process.env.NAHLED_URL ?? 'http://localhost:5199';
 const KANDIDATI = [
@@ -57,6 +59,26 @@ const chyby = [];
 function overit(podminka, popis) {
   if (podminka) console.log(`  ✓ ${popis}`);
   else { console.log(`  ✗ ${popis}`); chyby.push(popis); }
+}
+
+// Náhledový server má kořen `nahled/` a složku `public/` nezná: na `/fonts/…`
+// odpoví stránkou HTML, takže by se text vykreslil NÁHRADNÍM písmem — a to je
+// jiné (v CI širší) než písmo appky. Šířku textu proto měří jen scénáře, které
+// si skutečná písma dodají ze `public/fonts` tímhle párem pomocníků.
+const SLOZKA_PISEM = fileURLToPath(new URL('../public/fonts/', import.meta.url));
+async function dodejPisma(page) {
+  await page.route('**/fonts/*.woff2', (route) => route.fulfill({
+    path: `${SLOZKA_PISEM}${basename(new URL(route.request().url()).pathname)}`,
+    contentType: 'font/woff2',
+  }));
+}
+/** Počká na písmo appky (včetně českých znaků) a řekne, jestli se opravdu načetlo. */
+async function pockejNaPisma(page) {
+  return page.evaluate(async () => {
+    await document.fonts.load('700 11px "Plus Jakarta Sans"', 'vysanitovaný uzavřený ěščřž');
+    await document.fonts.ready;
+    return [...document.fonts].some((f) => f.family.includes('Plus Jakarta Sans') && f.status === 'loaded');
+  });
 }
 
 const b = await chromium.launch({ executablePath: prohlizec, args: ['--no-sandbox'] });
@@ -242,14 +264,17 @@ try {
   // ── Scénář 4: štítky fáze tanku na ploše ─────────────────────────────
   // 18. 11. 2026: „vysanitovaný" se na telefonu ořízl na „vysanitovan…". Šířku
   // písma jednotkový test nevidí, proto se tu měří skutečné CSS na nejužších
-  // běžných telefonech (360 a 390 px).
+  // běžných telefonech (360 a 390 px) — a se SKUTEČNÝM písmem appky (viz
+  // dodejPisma): s náhradním písmem to v CI dopadlo jinak než v provozu.
   console.log('\nScénář: plocha — štítky fáze tanku se vejdou na telefon');
   for (const sirka of [360, 390]) {
     const tanky = await b.newPage({ viewport: { width: sirka, height: 600 } });
     const chybyTanky = [];
     tanky.on('pageerror', (e) => chybyTanky.push(String(e)));
+    await dodejPisma(tanky);
     await tanky.goto(`${ADRESA}/tanky.html`, { waitUntil: 'networkidle' });
     await tanky.locator('[data-faze-tanku]').first().waitFor();
+    overit(await pockejNaPisma(tanky), `${sirka} px: načetlo se písmo appky (Plus Jakarta Sans)`);
     const orizle = await tanky.evaluate(() => [...document.querySelectorAll('[data-faze-tanku]')]
       .filter((el) => el.scrollWidth > el.clientWidth + 0.5).map((el) => el.textContent));
     overit(orizle.length === 0, `${sirka} px: štítky fáze tanku se vejdou celé${orizle.length ? ` — oříznuté: ${[...new Set(orizle)].join(', ')}` : ''}`);
