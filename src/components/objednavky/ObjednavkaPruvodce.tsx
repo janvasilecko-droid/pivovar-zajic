@@ -16,6 +16,11 @@
 //
 // Tlačítko Zpět (i hardwarové na telefonu) vrací o krok, ne z obrazovky;
 // rozepsanou objednávku nezahodí bez zeptání.
+//
+// Půjčení výčepu je jen nenápadné zaškrtávací pole v souhrnu: otevře okno
+// rezervace, které patří obrazovce Objednávky (vyberVycep). Rezervace potvrzená
+// před uložením se po uložení naváže na objednávku; při odškrtnutí nebo zahození
+// rozepsané objednávky se zruší (zrusVycep), ať výčep zbytečně neblokuje.
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowRight, Check, ChevronLeft, Plus, X } from 'lucide-react';
 import type { Beer } from '../../lib/supabase';
@@ -26,16 +31,18 @@ import type { QtyHistoryRow } from '../../lib/quickQty';
 import { klicVyberu, nactiNaposled, zapamatujVyber } from '../../lib/naposledyPouzite';
 import { useViditelnaOblast } from '../../lib/useViditelnaOblast';
 import { useZavriNaEscape, useZpetNaKrok } from '../../lib/zavriNaZpet';
-import { potvrd } from '../../lib/toast';
+import { chyba as ohlasChybu, potvrd } from '../../lib/toast';
 import {
-  chybaKroku, konceptMaObsah, mistaKVolbe, mnozstvi, nastavMnozstvi, nejcastejsiObal, obalyProPanel, odberatelKonceptu,
-  popisObalu, popisObsahu, popisZavozu, prazdnyKoncept, skupinaObalu, souctyObjednavky, ucinnyZavoz, zalohaRychlych,
+  chybaKroku, konceptMaObsah, mistaKVolbe, mnozstvi, nastavMnozstvi, nastavVycep, nejcastejsiObal, obalyProPanel, odberatelKonceptu,
+  popisObalu, popisObsahu, popisZavozu, potvrdRezervaciVycepu, prazdnyKoncept, skupinaObalu, souctyObjednavky, stavVycepu,
+  ucinnyZavoz, zalohaRychlych,
   type KonceptObjednavky, type KrokPruvodce,
 } from '../../lib/objednavkaPruvodce';
 import { PruvodceOdberatel } from './PruvodceOdberatel';
 import { PruvodcePivo } from './PruvodcePivo';
 import { PruvodceSouhrn } from './PruvodceSouhrn';
-import type { DataPruvodce, PrideleniMalychSudu, VysledekUlozeni, ZmenaKonceptu } from './pruvodceTypy';
+import { PruvodceVycep } from './PruvodceVycep';
+import type { DataPruvodce, PrideleniMalychSudu, VyberVycepu, VysledekUlozeni, ZmenaKonceptu, ZrusVycep } from './pruvodceTypy';
 
 const SIRKA_POCITACE = 1024;
 
@@ -70,9 +77,13 @@ type Props = {
   volneMaleSudy?: (pkgId: string) => number | null;
   /** Rozdělení malých sudů po řádcích konceptu (lib/maleSudy.ts). */
   prideleniMalychSudu?: (koncept: KonceptObjednavky) => PrideleniMalychSudu;
+  /** Okno rezervace výčepu; bez něj se pole „Půjčení výčepu" nenabízí. */
+  vyberVycep?: VyberVycepu;
+  /** Zrušení rezervace potvrzené před uložením (odškrtnutí, zahození objednávky). */
+  zrusVycep?: ZrusVycep;
 };
 
-export function ObjednavkaPruvodce({ data, historie, idUzivatele, onUlozit, onZavrit, volneMaleSudy, prideleniMalychSudu }: Props) {
+export function ObjednavkaPruvodce({ data, historie, idUzivatele, onUlozit, onZavrit, volneMaleSudy, prideleniMalychSudu, vyberVycep, zrusVycep }: Props) {
   const { places, beers, packages, dnes } = data;
   const siroka = useSirokaObrazovka();
   const nadKlavesnici = useViditelnaOblast();
@@ -83,6 +94,8 @@ export function ObjednavkaPruvodce({ data, historie, idUzivatele, onUlozit, onZa
   const [ukladam, setUkladam] = useState(false);
   const [chyba, setChyba] = useState<string | null>(null);
   const [hotovo, setHotovo] = useState<{ komu: string; kdy: string; obsah: string } | null>(null);
+  /** Okno rezervace výčepu je právě otevřené (leží nad průvodcem). */
+  const [vycepOtevren, setVycepOtevren] = useState(false);
   const klicPiv = klicVyberu('objednavky', idUzivatele);
   const [naposledPiva, setNaposledPiva] = useState<string[]>(() => nactiNaposled(klicPiv));
 
@@ -103,12 +116,15 @@ export function ObjednavkaPruvodce({ data, historie, idUzivatele, onUlozit, onZa
   async function zavritSPotvrzenim() {
     if (!konceptMaObsah(koncept) || hotovo
       || await potvrd('Zahodit rozepsanou objednávku?', { potvrdit: 'Zahodit', zrusit: 'Pokračovat v zadávání', nebezpecne: true })) {
+      // Rezervace výčepu potvrzená v okně už je v databázi — zahozená objednávka ji nepotřebuje.
+      if (!hotovo && koncept.vycepRezervace) await zrusRezervaciVycepu(koncept.vycepRezervace.id);
       onZavrit();
     }
   }
 
   /** Co udělá Zpět / Escape. 'zustan' = okno zůstává (vrátil se krok, zavřel panel, čeká se na odpověď). */
   function zpetLogika(): 'zustan' | 'zavri' {
+    if (vycepOtevren) return 'zustan'; // okno rezervace leží nad průvodcem a zavírá se samo
     if (panel) { setPanel(null); return 'zustan'; }
     if (ukladam) return 'zustan';
     if (hotovo) { onZavrit(); return 'zavri'; }
@@ -151,6 +167,36 @@ export function ObjednavkaPruvodce({ data, historie, idUzivatele, onUlozit, onZa
 
   const panelPivo = panel ? beers.find((b) => b.id === panel.beerId) : undefined;
   const zavoz = ucinnyZavoz(koncept, places, dnes);
+
+  // ── Půjčení výčepu ────────────────────────────────────────────────────────
+
+  async function zrusRezervaciVycepu(id: string) {
+    if (!zrusVycep) return;
+    const text = await zrusVycep(id).catch((e: unknown) => (e instanceof Error && e.message ? e.message : 'neznámá chyba'));
+    if (text) ohlasChybu(`Rezervaci výčepu se nepodařilo zrušit: ${text}`);
+  }
+
+  /** Zaškrtnutí otevře okno rezervace; odškrtnutí rezervaci zruší. */
+  async function prepniVycep() {
+    if (ukladam) return;
+    if (koncept.vycep) {
+      const rezervace = koncept.vycepRezervace;
+      zmen((k) => nastavVycep(k, false));
+      if (rezervace) await zrusRezervaciVycepu(rezervace.id);
+      return;
+    }
+    zmen((k) => nastavVycep(k, true));
+    if (!vyberVycep) return;
+    setVycepOtevren(true);
+    try {
+      const rezervace = await vyberVycep({ zakaznik: koncept.placeName, datum: zavoz.datum ?? dnes, poznamka: koncept.poznamka });
+      if (rezervace) zmen((k) => potvrdRezervaciVycepu(k, rezervace));
+    } catch (e) {
+      ohlasChybu(e);
+    } finally {
+      setVycepOtevren(false);
+    }
+  }
 
   // ── Uložení ───────────────────────────────────────────────────────────────
 
@@ -212,6 +258,7 @@ export function ObjednavkaPruvodce({ data, historie, idUzivatele, onUlozit, onZa
       upravPivo={(beerId, pkgId) => otevriPivo(beerId, pkgId)}
       zpetNaOdberatele={() => setKrok('odberatel')}
       prideleniSudu={prideleni}
+      vycep={vyberVycep ? <PruvodceVycep zaskrtnuto={koncept.vycep} stav={stavVycepu(koncept)} prepni={() => void prepniVycep()} /> : undefined}
       patka={siroka ? <div className="space-y-2 pt-1">{hlaseniUlozeni}{tlacitkoUlozit}</div> : undefined}
     />
   );

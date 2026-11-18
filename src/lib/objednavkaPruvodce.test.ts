@@ -6,9 +6,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   chybaKroku, datumKratce, denKlic, hledejOdberatele, jeDalsiMesic, konceptMaObsah, mistaKVolbe, mnozstvi, nabidkaDnu, nejcastejsiObal, odberateleKVyberu,
-  nastavBezZavozu, nastavDatum, nastavDen, nastavMisto, nastavMnozstvi, obalyProPanel, odberatelKonceptu, odeberRadek,
-  pocetSlov, popisMist, popisObalu, popisObsahu, popisSouctu, popisZavozu, posledniObjednavka, potvrdDalsiMesic,
-  prazdnyKoncept, skupinaObalu, skupinyPodlePiv, souctyObjednavky, stitekPiva, ucinnyZavoz, vyberOdberatele,
+  nastavBezZavozu, nastavDatum, nastavDen, nastavMisto, nastavMnozstvi, nastavVycep, obalyProPanel, odberatelKonceptu, odeberRadek,
+  pocetSlov, popisMist, popisObalu, popisObsahu, popisRezervaceVycepu, popisSouctu, popisZavozu, posledniObjednavka, potvrdDalsiMesic,
+  potvrdRezervaciVycepu, prazdnyKoncept, skupinaObalu, skupinyPodlePiv, souctyObjednavky, stavVycepu, stitekPiva, ucinnyZavoz, vyberOdberatele,
   zalohaRychlych, zopakujPolozky, zrusVyberDne,
   type KonceptObjednavky, type OdberatelPruvodce, type RadekKonceptu,
 } from './objednavkaPruvodce';
@@ -59,6 +59,12 @@ describe('koncept a výběr odběratele', () => {
     expect(konceptMaObsah({ ...k, radky: [radek('1', 'b12', 'k50', 1)] })).toBe(true);
     // Samé mezery jsou prázdné.
     expect(konceptMaObsah({ ...k, placeName: '   ', poznamka: ' ' })).toBe(false);
+  });
+
+  it('zaškrtnutý výčep je rozepsaná práce — odškrtnutý ne', () => {
+    const k = prazdnyKoncept();
+    expect(konceptMaObsah(nastavVycep(k, true))).toBe(true);
+    expect(konceptMaObsah(nastavVycep(nastavVycep(k, true), false))).toBe(false);
   });
 
   it('vybraný odběratel se zapíše s id i jménem', () => {
@@ -505,5 +511,61 @@ describe('odběratelé k výběru a hledání podle místa závozu', () => {
   it('když se hledané jmenuje stejně jako odběratel, místo se nepředvybírá', () => {
     const praha: OdberatelPruvodce[] = [{ id: 'p-a', name: 'Praha Pivo', mista_zavozu: [{ id: 'm1', nazev: 'Praha', adresa: null, lat: null, lng: null }] }];
     expect(hledejOdberatele(praha, 'praha').map((n) => [n.odberatel.name, n.misto])).toEqual([['Praha Pivo', null]]);
+  });
+});
+
+describe('půjčení výčepu', () => {
+  const rezervace = { id: 'rez-1', popis: 'Výčep 2 · 20.–22. 11.' };
+
+  it('nový koncept je bez výčepu a bez rezervace', () => {
+    expect(prazdnyKoncept()).toMatchObject({ vycep: false, vycepRezervace: null });
+  });
+
+  it('zaškrtnutí výčep zapne, potvrzená rezervace se zapamatuje', () => {
+    const k = potvrdRezervaciVycepu(nastavVycep(prazdnyKoncept(), true), rezervace);
+    expect(k).toMatchObject({ vycep: true, vycepRezervace: rezervace });
+  });
+
+  it('odškrtnutí zahodí i rezervaci', () => {
+    const k = nastavVycep(potvrdRezervaciVycepu(nastavVycep(prazdnyKoncept(), true), rezervace), false);
+    expect(k).toMatchObject({ vycep: false, vycepRezervace: null });
+  });
+
+  it('rezervace potvrzená po odškrtnutí se do konceptu nedostane', () => {
+    const k = potvrdRezervaciVycepu(prazdnyKoncept(), rezervace);
+    expect(k.vycepRezervace).toBeNull();
+    expect(k.vycep).toBe(false);
+  });
+
+  it('zaškrtnutí znovu nesmaže už potvrzenou rezervaci', () => {
+    const k = nastavVycep(potvrdRezervaciVycepu(nastavVycep(prazdnyKoncept(), true), rezervace), true);
+    expect(k.vycepRezervace).toEqual(rezervace);
+  });
+
+  it('ostatní pole konceptu zůstanou', () => {
+    const z = vyberOdberatele(prazdnyKoncept(), { id: 'p-zizkov', name: 'Žižkov' });
+    const k = nastavVycep(z, true);
+    expect(k).toMatchObject({ placeId: 'p-zizkov', placeName: 'Žižkov' });
+    expect(z.vycep).toBe(false); // původní koncept se nemění
+  });
+
+  it('popis rezervace: jeden den, jeden měsíc i přes měsíce', () => {
+    expect(popisRezervaceVycepu('Výčep 2', '2026-11-20', '2026-11-20')).toBe('Výčep 2 · 20. 11.');
+    expect(popisRezervaceVycepu('Výčep 2', '2026-11-20', '2026-11-22')).toBe('Výčep 2 · 20.–22. 11.');
+    expect(popisRezervaceVycepu('Výčep 2', '2026-11-30', '2026-12-02')).toBe('Výčep 2 · 30. 11.–2. 12.');
+  });
+
+  it('popis rezervace: chybějící část se vynechá a nikdy nevznikne prázdný text', () => {
+    expect(popisRezervaceVycepu('  Pípa ', '2026-11-20', '')).toBe('Pípa · 20. 11.');
+    expect(popisRezervaceVycepu('Pípa', 'nesmysl', 'nesmysl')).toBe('Pípa');
+    expect(popisRezervaceVycepu('', '2026-11-20', '2026-11-20')).toBe('20. 11.');
+    expect(popisRezervaceVycepu('', '', '')).toBe('výčep');
+  });
+
+  it('stavový řádek: nic / okno se otevře po uložení / rezervováno', () => {
+    const zaskrtnuty = nastavVycep(prazdnyKoncept(), true);
+    expect(stavVycepu(prazdnyKoncept())).toBe('');
+    expect(stavVycepu(zaskrtnuty)).toBe('Okno rezervace se otevře po uložení objednávky');
+    expect(stavVycepu(potvrdRezervaciVycepu(zaskrtnuty, rezervace))).toBe('Rezervováno: Výčep 2 · 20.–22. 11.');
   });
 });

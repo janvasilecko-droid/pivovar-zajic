@@ -87,8 +87,9 @@ const SplitOrderModal = lazy(() => import('../components/SplitOrderModal').then(
 const ObjednavkaPruvodce = lazy(() => import('../components/objednavky/ObjednavkaPruvodce').then((m) => ({ default: m.ObjednavkaPruvodce })));
 
 import { type Order, type OrderItem, dayColor } from '../components/objednavky/spolecne';
-import type { VysledekUlozeni } from '../components/objednavky/pruvodceTypy';
-import type { KonceptObjednavky } from '../lib/objednavkaPruvodce';
+import type { VyberVycepu, VysledekUlozeni } from '../components/objednavky/pruvodceTypy';
+import { popisRezervaceVycepu, type KonceptObjednavky } from '../lib/objednavkaPruvodce';
+import type { TapReservation } from './VycepyScreen';
 import { VariantTotalsPanel } from '../components/objednavky/VariantTotalsPanel';
 import { OrderCard } from '../components/objednavky/OrderCard';
 import { OrderTabulka } from '../components/objednavky/OrderTabulka';
@@ -415,6 +416,12 @@ export default function Orders({
   const [showTapModal, setShowTapModal] = useState(false);
   const [tapModalOrderId, setTapModalOrderId] = useState<string | undefined>(undefined);
   const [tapModalCustomer, setTapModalCustomer] = useState('');
+  // Okno rezervace výčepu otevřené z průvodce — před uložením (pole „Půjčení výčepu"
+  // v souhrnu) i po něm. Má vlastní stav, aby se nemíchalo se starým formulářem pod ním.
+  const [vycepZPruvodce, setVycepZPruvodce] = useState<{
+    datum: string; zakaznik: string; poznamka: string; orderId?: string;
+    konec: (rezervace: TapReservation | null) => void;
+  } | null>(null);
   const [showImport, setShowImport] = useState(false);
   // 🧭 Průvodce zadáním objednávky (okno přes celou obrazovku).
   const [pruvodceOtevren, setPruvodceOtevren] = useState(false);
@@ -1212,10 +1219,23 @@ export default function Orders({
       note: k.poznamka,
       confirmNextMonth: k.potvrzenoDalsiMesic,
       mistoZavozu: k.mistoZavozu,
-      wantTap: false,
-      tapReservedEarlyId: null,
+      wantTap: k.vycep,
+      tapReservedEarlyId: k.vycepRezervace?.id ?? null,
     }, { sendWhatsApp: false, zFormulare: false });
   }
+
+  /** Otevře okno rezervace výčepu z průvodce a počká, až ho člověk potvrdí (rezervace) nebo zavře (null). */
+  function otevriVycepZPruvodce(p: { datum: string; zakaznik: string; poznamka: string; orderId?: string }): Promise<TapReservation | null> {
+    return new Promise((resolve) => {
+      setVycepZPruvodce({ ...p, konec: (rezervace) => { setVycepZPruvodce(null); resolve(rezervace); } });
+    });
+  }
+
+  /** Pole „Půjčení výčepu" v souhrnu průvodce: okno rezervace → rezervace s popisem pro souhrn. */
+  const vyberVycepProPruvodce: VyberVycepu = async (p) => {
+    const rezervace = await otevriVycepZPruvodce(p);
+    return rezervace ? { id: rezervace.id, popis: popisRezervaceVycepu(rezervace.tap_name, rezervace.date_from, rezervace.date_to) } : null;
+  };
 
   /**
    * Samotné uložení objednávky. `zFormulare`: chyby se ukazují v pruhu uložení
@@ -1465,9 +1485,17 @@ export default function Orders({
           finishOrderForm(zFormulare);
           return { stav: 'ulozeno' };
         }
+        const zakaznikVycepu = firstPlaceName || placeNameFree || places.find(p => p.id === placeId)?.name || '';
+        if (!zFormulare) {
+          // Průvodce má vlastní okno: datum závozu a druh výčepu z JEHO poznámky
+          // (starý formulář pod ním je prázdný). Po zavření se jen načtou data —
+          // rozepsané ve formuláři zůstává.
+          void otevriVycepZPruvodce({ zakaznik: zakaznikVycepu, datum: firstZavoz?.datum ?? datumObjednavky, poznamka: note, orderId: firstOrderId })
+            .then(() => finishOrderForm(false));
+          return { stav: 'ulozeno' };
+        }
         setTapModalOrderId(firstOrderId);
-        setTapModalCustomer(firstPlaceName || placeNameFree || places.find(p => p.id === placeId)?.name || '');
-        tapZPruvoduRef.current = !zFormulare;
+        setTapModalCustomer(zakaznikVycepu);
         setTapModalAfterSave(true);
         setShowTapModal(true);
         setSaving(false);
@@ -1483,9 +1511,6 @@ export default function Orders({
       if (!showTapModal) setSaving(false);
     }
   }
-
-  /** Okno rezervace výčepu po uložení patří objednávce z průvodce — formulář se po něm nesmí vyčistit. */
-  const tapZPruvoduRef = useRef(false);
 
   /**
    * Dokončí zadání po vytvoření objednávky (znovu načte data). Formulář se
@@ -1513,9 +1538,7 @@ export default function Orders({
     if (!tapModalAfterSave) return;
     setTapModalAfterSave(false);
     // Okno otevřené po uložení objednávky — dokončíme tok vytvoření.
-    const zPruvodce = tapZPruvoduRef.current;
-    tapZPruvoduRef.current = false;
-    finishOrderForm(!zPruvodce);
+    finishOrderForm();
   }
 
   async function updateDeliveryDay(o: Order, day: string) {
@@ -3257,6 +3280,8 @@ export default function Orders({
             historie={orderQtyHistory}
             onUlozit={ulozZPruvodce}
             onZavrit={() => setPruvodceOtevren(false)}
+            vyberVycep={vyberVycepProPruvodce}
+            zrusVycep={smazRezervaci}
             volneMaleSudy={(pkgId) => volneProObjednavku(maleSudy.souhrn, pkgId)}
             prideleniMalychSudu={(k) => rozdelMaleSudyVObjednavce(
               maleSudy.souhrn,
@@ -3429,6 +3454,18 @@ export default function Orders({
             handleTapModalDone();
           }}
           onSkip={handleTapModalDone}
+        />
+      )}
+
+      {/* 🚰 Totéž z průvodce objednávky (leží nad ním — je v DOMu později) */}
+      {vycepZPruvodce && (
+        <TapReservationModal
+          orderDate={vycepZPruvodce.datum}
+          customerName={vycepZPruvodce.zakaznik}
+          orderId={vycepZPruvodce.orderId}
+          tapTypeHint={detectTapType(vycepZPruvodce.poznamka)}
+          onConfirm={(rezervace) => vycepZPruvodce.konec(rezervace)}
+          onSkip={() => vycepZPruvodce.konec(null)}
         />
       )}
     </div>

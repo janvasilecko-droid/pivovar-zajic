@@ -2,7 +2,8 @@
 //
 // Okno přes celou obrazovku s vymyšlenými odběrateli a pivy; „uložit" jen
 // zapíše koncept do výpisu pod oknem (`data-testid="ulozeno"`), nic se
-// neukládá. Slouží ke kontrole vzhledu na telefonu i na počítači a
+// neukládá. Okno rezervace výčepu nahrazuje hotová rezervace „Výčep 2" na den
+// závozu a zrušené rezervace se vypisují do `data-testid="zruseno"`. Slouží ke kontrole vzhledu na telefonu i na počítači a
 // k E2E scénáři (scripts/e2e.mjs). Otevírá se `/pruvodce.html`, šířku okna
 // řídí rodič (iframe) nebo prohlížeč — Tailwind se řídí šířkou okna.
 import { useState } from 'react';
@@ -11,7 +12,7 @@ import '../src/index.css';
 import { ObjednavkaPruvodce } from '../src/components/objednavky/ObjednavkaPruvodce';
 import ToastHost from '../src/components/ToastHost';
 import type { DataPruvodce } from '../src/components/objednavky/pruvodceTypy';
-import type { KonceptObjednavky } from '../src/lib/objednavkaPruvodce';
+import { popisRezervaceVycepu, type KonceptObjednavky } from '../src/lib/objednavkaPruvodce';
 import { businessDateISO, posunDen } from '../src/lib/businessDate';
 
 const dnes = businessDateISO();
@@ -87,6 +88,7 @@ const data = { places, beers, packages, orders, items, dnes } as unknown as Data
 function Obsah() {
   const [otevrene, setOtevrene] = useState(true);
   const [ulozeno, setUlozeno] = useState<KonceptObjednavky[]>([]);
+  const [zruseno, setZruseno] = useState<string[]>([]);
   return (
     <>
       {otevrene ? (
@@ -95,11 +97,14 @@ function Obsah() {
           historie={historie}
           onUlozit={async (k) => { setUlozeno((u) => [...u, k]); return { stav: 'ulozeno' as const }; }}
           onZavrit={() => setOtevrene(false)}
+          vyberVycep={async ({ datum }) => ({ id: 'rez-nahled', popis: popisRezervaceVycepu('Výčep 2', datum, datum) })}
+          zrusVycep={async (id) => { setZruseno((z) => [...z, id]); return null; }}
         />
       ) : (
         <button type="button" className="btn-primary m-4" onClick={() => setOtevrene(true)}>Otevřít průvodce</button>
       )}
       <pre data-testid="ulozeno" className="sr-only">{JSON.stringify(ulozeno)}</pre>
+      <pre data-testid="zruseno" className="sr-only">{JSON.stringify(zruseno)}</pre>
       <ToastHost />
     </>
   );
