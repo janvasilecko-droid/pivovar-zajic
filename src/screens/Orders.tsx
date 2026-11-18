@@ -83,8 +83,12 @@ const WhatsAppAuditModal = lazy(() => import('../components/WhatsAppAuditModal')
 const OrderAuditModal = lazy(() => import('../components/OrderAuditModal').then((m) => ({ default: m.OrderAuditModal })));
 const EditOrderModal = lazy(() => import('../components/EditOrderModal').then((m) => ({ default: m.EditOrderModal })));
 const SplitOrderModal = lazy(() => import('../components/SplitOrderModal').then((m) => ({ default: m.SplitOrderModal })));
+// Průvodce zadáním objednávky (třikrokové okno podle návrhu z 18. 11. 2026) se stáhne až po klepnutí.
+const ObjednavkaPruvodce = lazy(() => import('../components/objednavky/ObjednavkaPruvodce').then((m) => ({ default: m.ObjednavkaPruvodce })));
 
 import { type Order, type OrderItem, dayColor } from '../components/objednavky/spolecne';
+import type { VysledekUlozeni } from '../components/objednavky/pruvodceTypy';
+import type { KonceptObjednavky } from '../lib/objednavkaPruvodce';
 import { VariantTotalsPanel } from '../components/objednavky/VariantTotalsPanel';
 import { OrderCard } from '../components/objednavky/OrderCard';
 import { OrderTabulka } from '../components/objednavky/OrderTabulka';
@@ -105,6 +109,28 @@ function pkgPanelIndex(p: Package): number {
 }
 
 type BeerRowItem = { id: string; beerId: string; pkgId: string; qty: string; placeId?: string; placeNameFree?: string };
+
+/**
+ * Všechno, co ukládání objednávky potřebuje vědět. Starý formulář to skládá
+ * ze svých polí, průvodce (components/objednavky/ObjednavkaPruvodce.tsx) ze svého
+ * konceptu — ukládá se ale jednou funkcí (ulozObjednavku), ať se pravidla
+ * (zdvojená objednávka, závoz v minulém týdnu, upomínky, výčep) nerozejdou.
+ */
+type KonceptKUlozeni = {
+  beerRows: BeerRowItem[];
+  manualText: string;
+  deliveryDate: string;
+  deliveryDay: string;
+  noDelivery: boolean;
+  placeId: string;
+  placeNameFree: string;
+  note: string;
+  confirmNextMonth: boolean;
+  /** Kam se veze (lib/mistaZavozu.ts); null = nevybráno / odběratel má jedno místo. */
+  mistoZavozu: string | null;
+  wantTap: boolean;
+  tapReservedEarlyId: string | null;
+};
 let dalsiRadekId = 1;
 function novyRadek(patch: Partial<Omit<BeerRowItem, 'id'>> = {}): BeerRowItem {
   return {
@@ -390,6 +416,8 @@ export default function Orders({
   const [tapModalOrderId, setTapModalOrderId] = useState<string | undefined>(undefined);
   const [tapModalCustomer, setTapModalCustomer] = useState('');
   const [showImport, setShowImport] = useState(false);
+  // 🧭 Průvodce zadáním objednávky (okno přes celou obrazovku).
+  const [pruvodceOtevren, setPruvodceOtevren] = useState(false);
   const [showWhatsAppAutoProcessor, setShowWhatsAppAutoProcessor] = useState(false);
   const [showWhatsAppAudit, setShowWhatsAppAudit] = useState(false);
   const [showOrderAudit, setShowOrderAudit] = useState(false);
@@ -1157,9 +1185,54 @@ export default function Orders({
     return hotove.get(o.id) ?? new Map();
   }
 
+  /** Uložení ze starého formuláře — pole formuláře se složí do konceptu a uloží společnou cestou. */
   async function addOrder(e?: React.FormEvent, sendWhatsApp = false) {
     e?.preventDefault();
-    setErr(null);
+    await ulozObjednavku({
+      beerRows, manualText, deliveryDate, deliveryDay, noDelivery, placeId, placeNameFree, note,
+      confirmNextMonth, mistoZavozu: null, wantTap, tapReservedEarlyId,
+    }, { sendWhatsApp, zFormulare: true });
+  }
+
+  /**
+   * Uložení z průvodce (components/objednavky/ObjednavkaPruvodce.tsx). Koncept se
+   * převede na stejná pole jako ve formuláři a uloží STEJNOU funkcí — kontrola
+   * zdvojené objednávky, potvrzení „závoz v minulém týdnu", upomínky i výčep
+   * proto platí beze změny. Formulář se přitom nesahá (rozepsané v něm zůstane).
+   */
+  async function ulozZPruvodce(k: KonceptObjednavky): Promise<VysledekUlozeni> {
+    return ulozObjednavku({
+      beerRows: k.radky.map((r) => novyRadek({ beerId: r.beerId, pkgId: r.pkgId, qty: String(r.qty) })),
+      manualText: '',
+      deliveryDate: k.datum,
+      deliveryDay: k.den,
+      noDelivery: k.bezZavozu,
+      placeId: k.placeId,
+      placeNameFree: k.placeName,
+      note: k.poznamka,
+      confirmNextMonth: k.potvrzenoDalsiMesic,
+      mistoZavozu: k.mistoZavozu,
+      wantTap: false,
+      tapReservedEarlyId: null,
+    }, { sendWhatsApp: false, zFormulare: false });
+  }
+
+  /**
+   * Samotné uložení objednávky. `zFormulare`: chyby se ukazují v pruhu uložení
+   * formuláře a po uložení se formulář vyčistí; z průvodce se chyba jen vrátí
+   * (okno si ji ukáže samo) a formulář zůstává, jak byl.
+   */
+  async function ulozObjednavku(
+    koncept: KonceptKUlozeni,
+    { sendWhatsApp, zFormulare }: { sendWhatsApp: boolean; zFormulare: boolean },
+  ): Promise<VysledekUlozeni> {
+    // Pole konceptu přebijí stejnojmenná pole formuláře — tělo funkce se tím
+    // nemusí přepisovat a žádné pole formuláře se do uložení z průvodce
+    // nemůže dostat omylem.
+    const { beerRows, manualText, deliveryDate, deliveryDay, noDelivery, placeId, placeNameFree, note, confirmNextMonth, mistoZavozu, wantTap, tapReservedEarlyId } = koncept;
+    const deliveryInFutureMonth = !!deliveryDate && deliveryDate.slice(0, 7) > businessDateISO().slice(0, 7);
+    const selhalo = (text: string): VysledekUlozeni => { if (zFormulare) setErr(text); return { stav: 'chyba', text }; };
+    if (zFormulare) setErr(null);
     // 📝 Pokud uživatel napsal objednávku textem, ale tabulka je prázdná,
     // rozparsuj text automaticky při vytvoření objednávky.
     let rows = beerRows;
@@ -1184,11 +1257,16 @@ export default function Orders({
       }
     }
     const filled = rows.filter((r) => r.beerId && r.pkgId && Number(r.qty) > 0);
-    if (!filled.length) { setErr('Vyplň alespoň jednu položku (pivo, obal, množství) nebo napiš objednávku textem výše.'); return; }
-    if (deliveryInFutureMonth && !confirmNextMonth) { setErr('Potvrď zaškrtnutím výše, že závoz spadá do jiného měsíce, nebo uprav datum závozu.'); return; }
+    // Upomínky níž se skládají z toho, co se opravdu ukládá (i z rozparsovaného textu).
+    const filledBeerRows = filled;
+    if (!filled.length) return selhalo('Vyplň alespoň jednu položku (pivo, obal, množství) nebo napiš objednávku textem výše.');
+    if (deliveryInFutureMonth && !confirmNextMonth) return selhalo('Potvrď zaškrtnutím výše, že závoz spadá do jiného měsíce, nebo uprav datum závozu.');
     // Závoz v minulém týdnu je skoro vždycky omyl (29. 9. 2026).
     if (jeVMinulemTydnu(deliveryDate, businessDateISO())
-      && !(await potvrd(`Závoz ${datumKratce(deliveryDate)} je v MINULÉM týdnu. Opravdu tam objednávku uložit?`))) return;
+      && !(await potvrd(`Závoz ${datumKratce(deliveryDate)} je v MINULÉM týdnu. Opravdu tam objednávku uložit?`))) {
+      // Člověk to sám odmítl — ve formuláři se nic neukazuje, průvodce text zobrazí.
+      return { stav: 'chyba', text: 'Nic se neuložilo — závoz v minulém týdnu jsi nepotvrdil.' };
+    }
     setSaving(true);
     // Datum objednávky = dnešek v okamžiku uložení. „Bez závozu" bez vybraného
     // dne odchází ten den (lib/bezZavozu.ts) — jinak by se ze skladu odečetla
@@ -1242,8 +1320,7 @@ export default function Orders({
       });
       if (shody?.length && (await zeptejSeNaDuplicitu(shody, nazvyZKatalogu(beers, packages))) !== 'presto') {
         setSaving(false);
-        setErr(`Nic se neuložilo — ${group.resolvedName || 'odběratel'} už má podobnou objednávku. Zkontroluj ji v seznamu, nebo ulož znovu a potvrď „Přesto vytvořit".`);
-        return;
+        return selhalo(`Nic se neuložilo — ${group.resolvedName || 'odběratel'} už má podobnou objednávku. Zkontroluj ji v seznamu, nebo ulož znovu a potvrď „Přesto vytvořit".`);
       }
     }
 
@@ -1269,6 +1346,8 @@ export default function Orders({
           delivery_date: zavoz.datum,
           is_prepared: false, is_packaged: false, note: note.trim() || null,
           no_delivery: noDelivery,
+          // Sloupec existuje až po migraci 20261231450000; bez zvoleného místa se do dotazu vůbec nedává.
+          ...(mistoZavozu ? { misto_zavozu: mistoZavozu } : {}),
         }).select().single();
         if (error) throw new Error(error.message);
         oznacVlastniObjednavku(order.id);
@@ -1383,33 +1462,43 @@ export default function Orders({
           // Rezervace byla potvrzena už před uložením — jen ji propojíme s objednávkou
           const chybaVazby = await propojRezervaciSObjednavkou(tapReservedEarlyId, firstOrderId);
           if (chybaVazby) chyba('Rezervaci výčepu se nepodařilo navázat na objednávku: ' + chybaVazby);
-          finishOrderForm();
-          return;
+          finishOrderForm(zFormulare);
+          return { stav: 'ulozeno' };
         }
         setTapModalOrderId(firstOrderId);
         setTapModalCustomer(firstPlaceName || placeNameFree || places.find(p => p.id === placeId)?.name || '');
+        tapZPruvoduRef.current = !zFormulare;
         setTapModalAfterSave(true);
         setShowTapModal(true);
         setSaving(false);
-        return; // Stop — modal will handle the rest
+        return { stav: 'ulozeno' }; // Stop — modal will handle the rest
       }
 
       // Bez výčepu — dokončíme normálně
-      finishOrderForm();
+      finishOrderForm(zFormulare);
+      return { stav: 'ulozeno' };
     } catch (err: any) {
-      setErr(err.message ?? 'Chyba při vytváření objednávky');
+      return selhalo(err.message ?? 'Chyba při vytváření objednávky');
     } finally {
       if (!showTapModal) setSaving(false);
     }
   }
 
-  /** Dokončí formulář po vytvoření objednávky (vyčistí položky a znovu načte data) */
-  function finishOrderForm() {
-    setBeerRows(Array.from({ length: 4 }, () => novyRadek()));
-    setNote(''); setDeliveryDate(''); setDeliveryDay(''); setErr(null);
-    setFlash(true); zhasniFlash(800);
-    setWeekKey(isoWeekKey(deliveryDate || businessDateISO()));
-    setWantTap(false); setTapReservedEarlyId(null);
+  /** Okno rezervace výčepu po uložení patří objednávce z průvodce — formulář se po něm nesmí vyčistit. */
+  const tapZPruvoduRef = useRef(false);
+
+  /**
+   * Dokončí zadání po vytvoření objednávky (znovu načte data). Formulář se
+   * vyčistí jen po uložení z formuláře — rozepsané tam po uložení z průvodce zůstává.
+   */
+  function finishOrderForm(zFormulare = true) {
+    if (zFormulare) {
+      setBeerRows(Array.from({ length: 4 }, () => novyRadek()));
+      setNote(''); setDeliveryDate(''); setDeliveryDay(''); setErr(null);
+      setFlash(true); zhasniFlash(800);
+      setWeekKey(isoWeekKey(deliveryDate || businessDateISO()));
+      setWantTap(false); setTapReservedEarlyId(null);
+    }
     setSaving(false);
     load();
   }
@@ -1424,7 +1513,9 @@ export default function Orders({
     if (!tapModalAfterSave) return;
     setTapModalAfterSave(false);
     // Okno otevřené po uložení objednávky — dokončíme tok vytvoření.
-    finishOrderForm();
+    const zPruvodce = tapZPruvoduRef.current;
+    tapZPruvoduRef.current = false;
+    finishOrderForm(!zPruvodce);
   }
 
   async function updateDeliveryDay(o: Order, day: string) {
@@ -2062,6 +2153,23 @@ export default function Orders({
           )}
         </div>
       </div>
+      )}
+
+      {/* 🧭 Nová objednávka krok za krokem (18. 11. 2026: „udělej ty objednávky
+          tak jako první návrh"): odběratel a den → pivo → souhrn, stejně jako
+          Fasování a Lahve. Starý formulář je hned pod tím a funguje dál. */}
+      {mode !== 'overviews_only' && viewMode === 'summary' && (
+        <div className="rounded-2xl border border-primary-200 bg-primary-50 p-3 space-y-1.5">
+          <button
+            type="button"
+            onClick={() => setPruvodceOtevren(true)}
+            className="btn-primary w-full min-h-[56px] !text-base shadow-md"
+            data-testid="spustit-pruvodce"
+          >
+            <Plus size={20} aria-hidden="true" /> Nová objednávka — krok za krokem
+          </button>
+          <p className="text-xs font-semibold text-neutral-700">Odběratel, pivo, souhrn — stejně jednoduše jako ve Fasování. Podrobný formulář je níž.</p>
+        </div>
       )}
 
       {/* 1. ZADÁVÁNÍ OBJEDNÁVEK (jen v záložce Zadání objednávek) — bez bílé
@@ -3139,6 +3247,28 @@ export default function Orders({
           onReject={handleRejectWhatsAppOrder}
           onDecision={advanceWhatsAppReview}
         />
+        </Suspense>
+      )}
+
+      {pruvodceOtevren && (
+        <Suspense fallback={null}>
+          <ObjednavkaPruvodce
+            data={{ places, beers, packages, orders, items, dnes: businessDateISO() }}
+            historie={orderQtyHistory}
+            onUlozit={ulozZPruvodce}
+            onZavrit={() => setPruvodceOtevren(false)}
+            volneMaleSudy={(pkgId) => volneProObjednavku(maleSudy.souhrn, pkgId)}
+            prideleniMalychSudu={(k) => rozdelMaleSudyVObjednavce(
+              maleSudy.souhrn,
+              k.radky.map((r) => ({
+                klic: r.id,
+                // Kdo má vlastní sudy, malé sudy pivovaru nebere (lib/vlastniSudy.ts).
+                pkgId: vlastniSudyOdberatele(k.placeName, k.poznamka) ? null : r.pkgId,
+                qty: r.qty,
+                sila: silaPodleId.get(r.beerId) ?? 0,
+              })),
+            )}
+          />
         </Suspense>
       )}
 
