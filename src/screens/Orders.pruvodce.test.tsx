@@ -359,6 +359,29 @@ describe('průvodce zadáním objednávky na obrazovce Objednávky', () => {
     expect(zapsano('orders', 'insert')[0].data).toMatchObject({ place_id: 'p-radek', place_name: 'Radek', misto_zavozu: 'drobak' });
   });
 
+  it('„sklad" najde Radka a uloží objednávku s místem Sklad; starý odběratel Sklad se nenabízí', async () => {
+    h.DB.places = [
+      ...MISTA.map((m) => ({ ...m })),
+      { id: 'p-radek', name: 'Radek', mista_zavozu: [
+        { id: 'misto-sklad', nazev: 'Sklad', adresa: null, lat: null, lng: null },
+        { id: 'misto-drobak', nazev: 'Drobák', adresa: null, lat: null, lng: null },
+      ] },
+      { id: 'p-sklad-stary', name: 'Sklad' },
+    ];
+    render(<Orders mode="entry_only" />);
+    await otevriPruvodce();
+    hledej('sklad');
+    expect(okno().queryByRole('button', { name: /^Sklad/ })).toBeNull();
+    fireEvent.click(dlazdiceOdberatele('Radek'));
+    dal();
+    pridejPivo(/Světlá/, '2');
+    fireEvent.click(okno().getByRole('button', { name: /^Souhrn/ }));
+    await act(async () => { ulozitObjednavku(); });
+
+    await screen.findByText('Objednávka uložena');
+    expect(zapsano('orders', 'insert')[0].data).toMatchObject({ place_id: 'p-radek', place_name: 'Radek', misto_zavozu: 'misto-sklad' });
+  });
+
   it('ručně vybraný den a „Bez závozu" se uloží tak, jak jsou', async () => {
     render(<Orders mode="entry_only" />);
     await otevriPruvodce();

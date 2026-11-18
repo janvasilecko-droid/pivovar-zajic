@@ -29,6 +29,8 @@ const places = [
   odberatel('p-luzec', 'Lužec', { vychozi_den_zavozu: 'pa' }),
   odberatel('p-restaurace', 'Restaurace', { vychozi_den_zavozu: 'zadny' }),
   odberatel('p-mates', 'Mates'),
+  // Starý odběratel z doby před sloučením — jméno je teď místem Radka, průvodce ho nenabízí.
+  odberatel('p-sklad-stary', 'Sklad'),
 ];
 
 const pivo = (id: string, name: string, sort: number, beer_color: string) => ({

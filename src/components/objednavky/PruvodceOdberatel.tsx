@@ -9,14 +9,16 @@
 import { useMemo, useState } from 'react';
 import { AlertTriangle, Check, Search, UserPlus } from 'lucide-react';
 import type { Place } from '../../lib/supabase';
-import { filtrujOdberatele, nejcastejsiOdberatele, odberateleAbecedne } from '../../lib/odberateleDleCetnosti';
+import { nejcastejsiOdberatele, odberateleAbecedne } from '../../lib/odberateleDleCetnosti';
 import { proHledani } from '../../lib/hledani';
 import { jeAutomatickyBezZavozu } from '../../lib/bezZavozu';
 import { vychoziDenZavozu } from '../../lib/denZavozu';
 import { DAYS } from '../../lib/shared';
+import { mistaOdberatele } from '../../lib/mistaZavozu';
 import {
-  POCET_RYCHLYCH_ODBERATELU, datumKratce, jeDalsiMesic, mistaKVolbe, nabidkaDnu, nastavBezZavozu, nastavDatum, nastavDen,
-  nastavMisto, odberatelKonceptu, popisMist, popisZavozu, potvrdDalsiMesic, ucinnyZavoz, vyberOdberatele, zrusVyberDne,
+  POCET_RYCHLYCH_ODBERATELU, datumKratce, hledejOdberatele, jeDalsiMesic, mistaKVolbe, nabidkaDnu, nastavBezZavozu, nastavDatum,
+  nastavDen, nastavMisto, odberateleKVyberu, odberatelKonceptu, popisMist, popisZavozu, potvrdDalsiMesic, ucinnyZavoz,
+  vyberOdberatele, zrusVyberDne,
 } from '../../lib/objednavkaPruvodce';
 import type { DataPruvodce, ZmenaKonceptu } from './pruvodceTypy';
 import type { KonceptObjednavky } from '../../lib/objednavkaPruvodce';
@@ -54,10 +56,12 @@ export function PruvodceOdberatel({ data, koncept, zmen }: {
   // Nový odběratel = napsané jméno, které v katalogu není (založí se při uložení).
   const vybranyNovy = !vybrany && koncept.placeName.trim() !== '' ? koncept.placeName : '';
 
+  // Bez odběratelů, kteří jsou už jen místem jiného (Sklad a Drobák patří pod Radka).
+  const nabidka = useMemo(() => odberateleKVyberu(places, orders), [places, orders]);
   const rychli = useMemo(() => {
-    const caste = nejcastejsiOdberatele(places, orders, POCET_RYCHLYCH_ODBERATELU);
-    return caste.length > 0 ? caste : odberateleAbecedne(places).slice(0, POCET_RYCHLYCH_ODBERATELU);
-  }, [places, orders]);
+    const caste = nejcastejsiOdberatele(nabidka, orders, POCET_RYCHLYCH_ODBERATELU);
+    return caste.length > 0 ? caste : odberateleAbecedne(nabidka).slice(0, POCET_RYCHLYCH_ODBERATELU);
+  }, [nabidka, orders]);
 
   const dotaz = hledani.trim();
   // Zkratka bez hledání: největší odběratelé; vybraný, který mezi nimi není, se
@@ -65,14 +69,24 @@ export function PruvodceOdberatel({ data, koncept, zmen }: {
   const zakladni = vybrany && !rychli.some((p) => p.id === vybrany.id)
     ? [vybrany, ...rychli.slice(0, POCET_RYCHLYCH_ODBERATELU - 1)]
     : rychli;
-  let seznam: Place[];
-  if (dotaz) seznam = filtrujOdberatele(places, dotaz);
-  else if (vsichni) seznam = odberateleAbecedne(places);
-  else seznam = zakladni;
+  // `misto` = hledání trefilo název místa závozu („sklad" → Radek, místo Sklad).
+  let seznam: { odberatel: Place; misto: string | null }[];
+  if (dotaz) seznam = hledejOdberatele(nabidka, dotaz);
+  else if (vsichni) seznam = odberateleAbecedne(nabidka).map((odberatel) => ({ odberatel, misto: null }));
+  else seznam = zakladni.map((odberatel) => ({ odberatel, misto: null }));
 
-  const novyKNabidnuti = dotaz && !places.some((p) => proHledani(p.name) === proHledani(dotaz)) ? dotaz : '';
+  // Nový odběratel se nenabízí, když napsané už je odběratel nebo jméno místa závozu.
+  const jeZnamy = nabidka.some((p) => proHledani(p.name) === proHledani(dotaz))
+    || nabidka.some((p) => mistaOdberatele(p).some((m) => proHledani(m.nazev) === proHledani(dotaz)));
+  const novyKNabidnuti = dotaz && !jeZnamy ? dotaz : '';
 
-  const vyber = (p: Place) => { zmen((k) => vyberOdberatele(k, { id: p.id, name: p.name })); setHledani(''); };
+  const vyber = (p: Place, misto: string | null) => {
+    zmen((k) => {
+      const n = vyberOdberatele(k, { id: p.id, name: p.name });
+      return misto ? nastavMisto(n, misto) : n;
+    });
+    setHledani('');
+  };
   const vyberNoveho = (nazev: string) => { zmen((k) => vyberOdberatele(k, null, nazev)); setHledani(''); };
 
   const mista = mistaKVolbe(vybrany);
@@ -112,21 +126,22 @@ export function PruvodceOdberatel({ data, koncept, zmen }: {
             <span className="text-xs font-semibold text-neutral-600">nový odběratel</span>
           </button>
         )}
-        {seznam.map((p) => {
+        {seznam.map(({ odberatel: p, misto }) => {
           const vyb = vybrany?.id === p.id;
+          const nazevMista = misto ? mistaOdberatele(p).find((m) => m.id === misto)?.nazev : null;
           return (
             <button
               key={p.id}
               type="button"
               aria-pressed={vyb}
-              onClick={() => vyber(p)}
+              onClick={() => vyber(p, misto)}
               className={`${DLAZDICE} ${vyb ? DLAZDICE_VYBRANA : DLAZDICE_JINA}`}
             >
               <span className="flex items-center justify-between gap-1.5 font-display font-black text-lg">
                 <span className="truncate">{p.name}</span>
                 {vyb && <Check size={20} className="shrink-0 text-primary-700" aria-hidden="true" />}
               </span>
-              <span className="text-xs font-semibold text-neutral-600 dark:text-neutral-300">{podNazvem(p, places)}</span>
+              <span className="text-xs font-semibold text-neutral-600 dark:text-neutral-300">{nazevMista ? `místo: ${nazevMista}` : podNazvem(p, places)}</span>
             </button>
           );
         })}
@@ -141,9 +156,9 @@ export function PruvodceOdberatel({ data, koncept, zmen }: {
         )}
       </div>
 
-      {!dotaz && places.length > zakladni.length && (
+      {!dotaz && nabidka.length > zakladni.length && (
         <button type="button" onClick={() => setVsichni((v) => !v)} className="btn-ghost w-full">
-          {vsichni ? 'Jen nejčastější' : `Všichni odběratelé (${places.length})`}
+          {vsichni ? 'Jen nejčastější' : `Všichni odběratelé (${nabidka.length})`}
         </button>
       )}
 

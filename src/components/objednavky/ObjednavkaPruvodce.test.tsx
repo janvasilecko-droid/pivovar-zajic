@@ -231,6 +231,70 @@ describe('krok 1 — odběratel a den', () => {
   });
 });
 
+describe('Sklad a Drobák patří pod Radka', () => {
+  const starySklad: Place = { id: 'p-sklad-stary', name: 'Sklad', note: null, created_at: '', address: null, phone: null, opening_hours: null };
+  const sPrezdivkou = { ...data, places: [...places, starySklad] };
+
+  it('starý odběratel „Sklad", který nic neobjednává, se nenabízí ani mezi všemi', () => {
+    pripravit({ data: sPrezdivkou });
+    fireEvent.click(tlacitko(/Všichni odběratelé \(5\)/));
+    expect(screen.queryByRole('button', { name: /^Sklad/ })).toBeNull();
+    expect(dlazdice('Radek')).toBeTruthy();
+  });
+
+  it('„sklad" najde Radka s místem Sklad a rovnou ho předvybere', () => {
+    pripravit({ data: sPrezdivkou });
+    fireEvent.change(screen.getByLabelText('Hledat odběratele'), { target: { value: 'sklad' } });
+    const dlazdiceRadek = dlazdice('Radek');
+    expect(dlazdiceRadek.textContent).toContain('místo: Sklad');
+    expect(screen.queryByRole('button', { name: /^Sklad/ })).toBeNull();
+    // Nový odběratel „sklad" se nenabízí — je to místo Radka.
+    expect(screen.queryByRole('button', { name: /Nový:/ })).toBeNull();
+
+    fireEvent.click(dlazdiceRadek);
+    expect(screen.getByRole('button', { name: /^Radek/, pressed: true })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Sklad', pressed: true })).toBeTruthy();
+    expect((tlacitko(/Dál — vybrat pivo/) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('„drobák" (s diakritikou) předvybere Drobák', () => {
+    pripravit({ data: sPrezdivkou });
+    fireEvent.change(screen.getByLabelText('Hledat odběratele'), { target: { value: 'drobák' } });
+    fireEvent.click(dlazdice('Radek'));
+    expect(screen.getByRole('button', { name: 'Drobák', pressed: true })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Sklad', pressed: false })).toBeTruthy();
+  });
+
+  it('výběr Radka přes jeho jméno místo nepředvybere', () => {
+    pripravit({ data: sPrezdivkou });
+    fireEvent.change(screen.getByLabelText('Hledat odběratele'), { target: { value: 'radek' } });
+    fireEvent.click(dlazdice('Radek'));
+    expect(screen.getByRole('button', { name: 'Sklad', pressed: false })).toBeTruthy();
+    expect((tlacitko(/Dál — vybrat pivo/) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('starý „Sklad" s objednávkou zůstane vidět (nic se neschová, co se používá)', () => {
+    const sObjednavkou = { ...sPrezdivkou, orders: [...orders, objednavka('o-sklad', 'p-sklad-stary', 'Sklad', '2026-11-10')] };
+    pripravit({ data: sObjednavkou });
+    fireEvent.change(screen.getByLabelText('Hledat odběratele'), { target: { value: 'sklad' } });
+    expect(screen.getByRole('button', { name: /^Sklad/ })).toBeTruthy();
+    expect(dlazdice('Radek')).toBeTruthy();
+  });
+
+  it('uloží se Radek s místem Sklad, když se napsalo „sklad"', async () => {
+    const { onUlozit } = pripravit({ data: sPrezdivkou });
+    fireEvent.change(screen.getByLabelText('Hledat odběratele'), { target: { value: 'sklad' } });
+    fireEvent.click(dlazdice('Radek'));
+    dal();
+    zadejPivo('Jantar', '1');
+    fireEvent.click(tlacitko(/^Souhrn/));
+    expect(screen.getByRole('region', { name: 'Komu a kdy' }).textContent).toContain('Radek · Sklad');
+    fireEvent.click(tlacitko(/Uložit objednávku/));
+    await screen.findByText('Objednávka uložena');
+    expect(onUlozit.mock.calls[0][0]).toMatchObject({ placeId: 'p-radek', placeName: 'Radek', mistoZavozu: 'sklad' });
+  });
+});
+
 describe('krok 2 — pivo (stejný panel jako Fasování)', () => {
   function naPivo(odberatel = 'Žižkov') {
     const r = pripravit();
