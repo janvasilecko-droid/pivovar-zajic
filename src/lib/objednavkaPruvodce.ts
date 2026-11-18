@@ -16,6 +16,7 @@ import { poradiLahvi } from './krokoveZadavani';
 import { denZavozuProUlozeni, jeAutomatickyBezZavozu } from './bezZavozu';
 import { vychoziDenZavozu, type MistoSVychozimDnem } from './denZavozu';
 import { HLAVNI_MISTO, maViceMist, mistaOdberatele, nazevHlavnihoMista, type OdberatelSMisty } from './mistaZavozu';
+import { filtrujOdberatele } from './odberateleDleCetnosti';
 import { poradiRadkuZadavani } from './poradiPolozek';
 import { posunDen } from './businessDate';
 import { DAYS } from './shared';
@@ -116,6 +117,61 @@ export function popisMist(o: OdberatelSMisty | null | undefined): string {
 
 export function nastavMisto(k: KonceptObjednavky, mistoZavozu: string | null): KonceptObjednavky {
   return { ...k, mistoZavozu };
+}
+
+/**
+ * Odběratelé, které průvodce nabízí. Bez těch, kdo už nejsou samostatný
+ * odběratel: jméno je místem závozu jiného odběratele (Sklad a Drobák jsou
+ * místa Radka, 18. 11. 2026) a pod starým jménem se už nic neobjednává.
+ * Skryje se jen ten, kdo nemá žádnou (nestornovanou) objednávku — kdyby se
+ * náhodou jmenoval stejně jako cizí místo, ale objednával, zůstane vidět.
+ */
+export function odberateleKVyberu<T extends OdberatelSMisty & { id: string; name: string }>(
+  places: readonly T[],
+  objednavky: readonly { place_id: string | null; place_name: string | null; status?: string | null }[],
+): T[] {
+  const jmenaMist = new Map<string, string>();
+  for (const p of places) {
+    for (const m of mistaOdberatele(p)) jmenaMist.set(norm(m.nazev), p.id);
+  }
+  if (jmenaMist.size === 0) return [...places];
+  const maObjednavky = new Set<string>();
+  for (const o of objednavky) {
+    if (o.status === 'storno') continue;
+    if (o.place_id) maObjednavky.add(o.place_id);
+    else if (o.place_name) maObjednavky.add(`jmeno:${norm(o.place_name)}`);
+  }
+  return places.filter((p) => {
+    const vlastnik = jmenaMist.get(norm(p.name));
+    if (!vlastnik || vlastnik === p.id) return true;
+    return maObjednavky.has(p.id) || maObjednavky.has(`jmeno:${norm(p.name)}`);
+  });
+}
+
+/**
+ * Hledání odběratele při psaní: podle jména, nebo podle názvu jeho místa
+ * závozu — „sklad" najde Radka a rovnou předvybere místo Sklad (`misto`).
+ * Místo se předvybere jen tehdy, když napsané jednoznačně míří na jedno místo
+ * (celý název, nebo aspoň tři začáteční písmena jednoho místa).
+ */
+export function hledejOdberatele<T extends OdberatelSMisty & { id: string; name: string }>(
+  places: readonly T[],
+  dotaz: string,
+): { odberatel: T; misto: string | null }[] {
+  const q = norm(dotaz).replace(/\s+/g, ' ');
+  if (!q) return places.map((odberatel) => ({ odberatel, misto: null }));
+  const poJmene = new Set(filtrujOdberatele([...places], dotaz).map((p) => p.id));
+  const out: { odberatel: T; misto: string | null }[] = [];
+  for (const p of places) {
+    const mista = q.length >= 3 ? mistaOdberatele(p) : [];
+    const presne = mista.filter((m) => norm(m.nazev) === q);
+    const zacatek = mista.filter((m) => norm(m.nazev).startsWith(q));
+    // Přesný název má přednost před začátkem jiných (Sklad před Skladištěm).
+    const misto = presne.length === 1 ? presne[0].id : presne.length === 0 && zacatek.length === 1 ? zacatek[0].id : null;
+    if (poJmene.has(p.id)) out.push({ odberatel: p, misto: !norm(p.name).includes(q) ? misto : null });
+    else if (zacatek.length > 0) out.push({ odberatel: p, misto });
+  }
+  return out;
 }
 
 // ── Den a datum závozu ──────────────────────────────────────────────────────

@@ -5,7 +5,7 @@
 // koncept objednávky, dny závozu, místa závozu, řádky, souhrny a kontrola kroků.
 import { describe, expect, it } from 'vitest';
 import {
-  chybaKroku, datumKratce, denKlic, jeDalsiMesic, konceptMaObsah, mistaKVolbe, mnozstvi, nabidkaDnu, nejcastejsiObal,
+  chybaKroku, datumKratce, denKlic, hledejOdberatele, jeDalsiMesic, konceptMaObsah, mistaKVolbe, mnozstvi, nabidkaDnu, nejcastejsiObal, odberateleKVyberu,
   nastavBezZavozu, nastavDatum, nastavDen, nastavMisto, nastavMnozstvi, obalyProPanel, odberatelKonceptu, odeberRadek,
   pocetSlov, popisMist, popisObalu, popisObsahu, popisSouctu, popisZavozu, posledniObjednavka, potvrdDalsiMesic,
   prazdnyKoncept, skupinaObalu, skupinyPodlePiv, souctyObjednavky, stitekPiva, ucinnyZavoz, vyberOdberatele,
@@ -436,5 +436,74 @@ describe('zopakování poslední objednávky', () => {
     expect(radky.map((r) => [r.beerId, r.pkgId, r.qty])).toEqual([['b12', 'k50', 3], ['b11', 'l1', 10]]);
     expect(new Set(radky.map((r) => r.id)).size).toBe(2);
     expect(vynechano).toBe(4);
+  });
+});
+
+describe('odběratelé k výběru a hledání podle místa závozu', () => {
+  // Radek vozí do míst Sklad a Drobák; starý odběratel „Sklad" z doby před sloučením.
+  const starySklad: OdberatelPruvodce = { id: 'p-sklad-stary', name: 'Sklad' };
+  const vse = [...odberatele, starySklad];
+  const bezObjednavek: { place_id: string | null; place_name: string | null; status?: string | null }[] = [];
+
+  it('starý odběratel, jehož jméno je místem jiného a nic neobjednává, se nenabízí', () => {
+    expect(odberateleKVyberu(vse, bezObjednavek).map((p) => p.name)).toEqual(['Radek', 'Žižkov', 'Seeberg', 'Restaurace', 'Mates']);
+  });
+
+  it('kdo ale objednává, zůstane vidět (podle id i podle jména); stornovaná objednávka se nepočítá', () => {
+    const poId = [{ place_id: 'p-sklad-stary', place_name: 'Sklad', status: 'nova' }];
+    expect(odberateleKVyberu(vse, poId).map((p) => p.name)).toContain('Sklad');
+    const poJmene = [{ place_id: null, place_name: 'sklad', status: 'nova' }];
+    expect(odberateleKVyberu(vse, poJmene).map((p) => p.name)).toContain('Sklad');
+    const storno = [{ place_id: 'p-sklad-stary', place_name: 'Sklad', status: 'storno' }];
+    expect(odberateleKVyberu(vse, storno).map((p) => p.name)).not.toContain('Sklad');
+  });
+
+  it('bez míst závozu u nikoho se seznam nemění; odběratel stejného jména jako vlastní místo zůstává', () => {
+    const jednoducha = [odberatele[1], odberatele[2]];
+    expect(odberateleKVyberu(jednoducha, bezObjednavek)).toEqual(jednoducha);
+    const sVlastnim: OdberatelPruvodce[] = [{ id: 'p-a', name: 'Praha', mista_zavozu: [{ id: 'm1', nazev: 'Praha', adresa: null, lat: null, lng: null }] }];
+    expect(odberateleKVyberu(sVlastnim, bezObjednavek)).toEqual(sVlastnim);
+  });
+
+  it('„sklad" najde Radka a předvybere místo Sklad, „drobák" místo Drobák', () => {
+    const nabidka = odberateleKVyberu(vse, bezObjednavek);
+    expect(hledejOdberatele(nabidka, 'sklad').map((n) => [n.odberatel.name, n.misto])).toEqual([['Radek', 'sklad']]);
+    expect(hledejOdberatele(nabidka, 'Drobák').map((n) => [n.odberatel.name, n.misto])).toEqual([['Radek', 'drobak']]);
+    expect(hledejOdberatele(nabidka, 'DROBAK ').map((n) => [n.odberatel.name, n.misto])).toEqual([['Radek', 'drobak']]);
+  });
+
+  it('i začátek názvu místa stačí (od tří písmen); dvě písmena na místo nemíří', () => {
+    const nabidka = odberateleKVyberu(vse, bezObjednavek);
+    expect(hledejOdberatele(nabidka, 'skl').map((n) => [n.odberatel.name, n.misto])).toEqual([['Radek', 'sklad']]);
+    expect(hledejOdberatele(nabidka, 'sk')).toEqual([]);
+  });
+
+  it('hledání podle jména odběratele místo nepředvybírá', () => {
+    const nabidka = odberateleKVyberu(vse, bezObjednavek);
+    expect(hledejOdberatele(nabidka, 'radek').map((n) => [n.odberatel.name, n.misto])).toEqual([['Radek', null]]);
+    expect(hledejOdberatele(nabidka, 'zizkov').map((n) => [n.odberatel.name, n.misto])).toEqual([['Žižkov', null]]);
+  });
+
+  it('prázdné hledání vrátí všechny a nic nepředvybere', () => {
+    const nabidka = odberateleKVyberu(vse, bezObjednavek);
+    const vsichni = hledejOdberatele(nabidka, '  ');
+    expect(vsichni).toHaveLength(nabidka.length);
+    expect(vsichni.every((n) => n.misto === null)).toBe(true);
+  });
+
+  it('dvě místa se stejným začátkem: místo se nepředvybere, odběratel se najde', () => {
+    const dvojznacny: OdberatelPruvodce[] = [{
+      id: 'p-b', name: 'Bořek',
+      mista_zavozu: [{ id: 'm1', nazev: 'Sklad', adresa: null, lat: null, lng: null }, { id: 'm2', nazev: 'Skladiště', adresa: null, lat: null, lng: null }],
+    }];
+    expect(hledejOdberatele(dvojznacny, 'skl').map((n) => [n.odberatel.name, n.misto])).toEqual([['Bořek', null]]);
+    // Přesný název má přednost před začátkem jiného místa (Sklad před Skladištěm).
+    expect(hledejOdberatele(dvojznacny, 'sklad').map((n) => n.misto)).toEqual(['m1']);
+    expect(hledejOdberatele(dvojznacny, 'skladis').map((n) => n.misto)).toEqual(['m2']);
+  });
+
+  it('když se hledané jmenuje stejně jako odběratel, místo se nepředvybírá', () => {
+    const praha: OdberatelPruvodce[] = [{ id: 'p-a', name: 'Praha Pivo', mista_zavozu: [{ id: 'm1', nazev: 'Praha', adresa: null, lat: null, lng: null }] }];
+    expect(hledejOdberatele(praha, 'praha').map((n) => [n.odberatel.name, n.misto])).toEqual([['Praha Pivo', null]]);
   });
 });

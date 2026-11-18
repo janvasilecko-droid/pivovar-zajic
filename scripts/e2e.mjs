@@ -175,7 +175,14 @@ try {
   overit(await dal.isDisabled(), 'bez odběratele je „Dál" zamčené');
   await pruvodce.getByRole('button', { name: /^Radek/ }).click();
   overit(await dal.isDisabled(), 'odběratel s víc místy: „Dál" čeká, až se vybere místo');
-  await pruvodce.getByRole('button', { name: 'Sklad', exact: true }).click();
+  // „Sklad" a „Drobák" patří pod Radka: hledání najde Radka a předvybere místo.
+  const odberatele = pruvodce.getByRole('group', { name: 'Odběratelé' });
+  await pruvodce.getByLabel('Hledat odběratele').fill('sklad');
+  overit(await odberatele.getByRole('button', { name: /^Sklad/ }).count() === 0, 'starý odběratel „Sklad" se v nabídce neukazuje');
+  const radekPodleMista = odberatele.getByRole('button', { name: /^Radek/ });
+  overit((await radekPodleMista.textContent())?.includes('místo: Sklad') === true, '„sklad" najde Radka s místem Sklad');
+  await radekPodleMista.click();
+  overit(await pruvodce.getByRole('button', { name: 'Sklad', exact: true }).getAttribute('aria-pressed') === 'true', 'místo Sklad je předvybrané');
   overit(await dal.isEnabled(), 'po výběru místa je „Dál" odemčené');
   await dal.click();
 
