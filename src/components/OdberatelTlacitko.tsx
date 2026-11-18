@@ -4,14 +4,12 @@ import { Modal } from './ui';
 import { PlaceCombobox } from './PlaceCombobox';
 import type { Place } from '../lib/supabase';
 import {
-  filtrujOdberatele, nejcastejsiOdberatele, odberateleAbecedne, odberateleDleCetnosti, rozdelDlePismen,
+  LISTA_PISMEN_OD, filtrujOdberatele, nejcastejsiOdberatele, odberateleAbecedne, odberateleDleCetnosti, rozdelDlePismen,
   type ObjednavkaProRazeni,
 } from '../lib/odberateleDleCetnosti';
 
 /** Kolik odběratelů je nahoře ve zkratce „Nejčastější“. */
 const POCET_NEJCASTEJSICH = 8;
-/** Od kolika odběratelů se nad abecedním seznamem ukáže lišta písmen (u krátkého seznamu stačí rolovat). */
-const LISTA_PISMEN_OD = 12;
 
 /**
  * Výběr odběratele u nové objednávky jako TLAČÍTKO (5. 10. 2026).

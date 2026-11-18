@@ -295,6 +295,146 @@ describe('Sklad a Drobák patří pod Radka', () => {
   });
 });
 
+describe('lišta písmen A–Ž pod dlaždicemi (18. 11. 2026: „ať je pod těma písmena A až Z")', () => {
+  // 13 odběratelů (od 12 se lišta ukazuje). V české abecedě: # A B Č D E CH M R S Š Ž.
+  const dalsi: Place[] = ['7 stupňů Karlín', 'Adam', 'Bořek', 'Čeněk', 'Chlapy z Toužimi', 'Dadali', 'Eigl', 'Šárka']
+    .map((name, i) => ({ id: `p-x${i}`, name, note: null, created_at: '', address: null, phone: null, opening_hours: null }));
+  const dlouha: DataPruvodce = { ...data, places: [...places, ...dalsi] };
+  const PISMENA = ['#', 'A', 'B', 'Č', 'D', 'E', 'CH', 'M', 'R', 'S', 'Š', 'Ž'];
+
+  const lista = () => screen.getByRole('navigation', { name: 'Přeskočit na písmeno' });
+  const pismeno = (p: string) => within(lista()).getByRole('button', { name: p });
+  const nadpis = (p: string) => screen.getByRole('heading', { name: p });
+
+  const puvodniSkok = window.HTMLElement.prototype.scrollIntoView;
+  let skok: ReturnType<typeof vi.fn>;
+  beforeEach(() => {
+    skok = vi.fn();
+    window.HTMLElement.prototype.scrollIntoView = skok as unknown as typeof window.HTMLElement.prototype.scrollIntoView;
+  });
+  afterEach(() => { window.HTMLElement.prototype.scrollIntoView = puvodniSkok; });
+  /** Prvky, na které se skočilo (this volání). */
+  const skokNa = () => skok.mock.contexts as HTMLElement[];
+
+  it('u krátkého seznamu (5 odběratelů) lišta není — stačí rolovat', () => {
+    pripravit();
+    expect(screen.queryByRole('navigation', { name: 'Přeskočit na písmeno' })).toBeNull();
+  });
+
+  it('od 12 odběratelů je lišta pod dlaždicemi nejčastějších a nad „Všichni odběratelé", s českou abecedou', () => {
+    pripravit({ data: dlouha });
+    expect(within(lista()).getAllByRole('button').map((b) => b.textContent)).toEqual(PISMENA);
+    const dlazdice = screen.getByRole('group', { name: 'Odběratelé' });
+    const vsichni = tlacitko(/Všichni odběratelé \(13\)/);
+    expect(dlazdice.compareDocumentPosition(lista()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(lista().compareDocumentPosition(vsichni) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // Sbalený seznam zůstává krátký: jen nejčastější, žádné nadpisy písmen.
+    expect(within(dlazdice).getAllByRole('button')).toHaveLength(3);
+    expect(screen.queryByRole('heading', { name: 'CH' })).toBeNull();
+  });
+
+  it('každé písmeno je trefitelné prstem (výška 44 px) a lišta se dá posouvat do stran', () => {
+    pripravit({ data: dlouha });
+    for (const b of within(lista()).getAllByRole('button')) expect(b.className).toContain('h-11');
+    expect(lista().className).toContain('overflow-x-auto');
+  });
+
+  it('klepnutí na písmeno rozbalí seznam po písmenech a skočí na nadpis toho písmena', async () => {
+    pripravit({ data: dlouha });
+    fireEvent.click(pismeno('CH'));
+    expect(nadpis('CH')).toBeTruthy();
+    expect(within(nadpis('CH').parentElement!).getByRole('button', { name: /^Chlapy z Toužimi/ })).toBeTruthy();
+    await waitFor(() => expect(skokNa()).toContain(nadpis('CH')));
+    expect(skok).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
+    // Rozbalené: tlačítko se mění na „Jen nejčastější" a lišta zůstává.
+    expect(tlacitko('Jen nejčastější')).toBeTruthy();
+    expect(lista()).toBeTruthy();
+  });
+
+  it('rozbalený seznam má nadpis pro každé písmeno z lišty a odběratele pod správným písmenem', () => {
+    pripravit({ data: dlouha });
+    fireEvent.click(tlacitko(/Všichni odběratelé \(13\)/));
+    expect(screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual(PISMENA);
+    const pod = (p: string) => within(nadpis(p).parentElement!).getAllByRole('button').map((b) => b.textContent?.replace(/\s*(obvykle|bez|Sklad).*$/, '').trim());
+    expect(pod('R')).toEqual(['Radek', 'Restaurace']);
+    expect(pod('Ž')).toEqual(['Žižkov']);
+    expect(pod('#')).toEqual(['7 stupňů Karlín']);
+    expect(pod('Č')).toEqual(['Čeněk']);
+  });
+
+  it('je-li seznam rozbalený, další písmeno jen přeskočí (nic se nesbaluje)', async () => {
+    pripravit({ data: dlouha });
+    fireEvent.click(tlacitko(/Všichni odběratelé \(13\)/));
+    skok.mockClear();
+    fireEvent.click(pismeno('M'));
+    expect(skok).toHaveBeenCalledTimes(1);
+    expect(skokNa()[0]).toBe(nadpis('M'));
+    expect(screen.getAllByRole('heading', { level: 3 })).toHaveLength(PISMENA.length);
+  });
+
+  it('výběr z rozbaleného seznamu seznam sbalí, vybraný je nahoře a obsah se vrátí na začátek', async () => {
+    pripravit({ data: dlouha });
+    fireEvent.click(pismeno('M'));
+    fireEvent.click(within(nadpis('M').parentElement!).getByRole('button', { name: /^Mates/ }));
+    // Seznam je zase krátký: vybraný odběratel navrch, pak nejčastější.
+    expect(screen.queryByRole('heading', { name: 'M' })).toBeNull();
+    const dlazdice = within(screen.getByRole('group', { name: 'Odběratelé' })).getAllByRole('button');
+    expect(dlazdice).toHaveLength(4);
+    expect(dlazdice[0].textContent).toContain('Mates');
+    expect(dlazdice[0].getAttribute('aria-pressed')).toBe('true');
+    expect(tlacitko(/Všichni odběratelé \(13\)/)).toBeTruthy();
+    await waitFor(() => expect(skokNa()).toContain(screen.getByTestId('pruvodce-odberatel')));
+    // A dá se pokračovat: Dál je odemčené.
+    expect((tlacitko(/Dál — vybrat pivo/) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('výběr dlaždice ze sbaleného seznamu nic neposouvá', () => {
+    pripravit({ data: dlouha });
+    fireEvent.click(dlazdice('Žižkov'));
+    expect(skok).not.toHaveBeenCalled();
+  });
+
+  it('psaní do hledání schová lištu i nadpisy písmen a ukáže jen nalezené', () => {
+    pripravit({ data: dlouha });
+    fireEvent.click(tlacitko(/Všichni odběratelé \(13\)/));
+    fireEvent.change(screen.getByLabelText('Hledat odběratele'), { target: { value: 'dadali' } });
+    expect(screen.queryByRole('navigation', { name: 'Přeskočit na písmeno' })).toBeNull();
+    expect(screen.queryByRole('heading', { level: 3 })).toBeNull();
+    expect(within(screen.getByRole('group', { name: 'Odběratelé' })).getAllByRole('button').map((b) => b.textContent)).toEqual([expect.stringContaining('Dadali')]);
+    // Po smazání hledání je seznam zase rozbalený, jak byl.
+    fireEvent.change(screen.getByLabelText('Hledat odběratele'), { target: { value: '' } });
+    expect(screen.getAllByRole('heading', { level: 3 })).toHaveLength(PISMENA.length);
+  });
+
+  it('„Jen nejčastější" nahoře sbalí seznam bez výběru', () => {
+    pripravit({ data: dlouha });
+    fireEvent.click(pismeno('S'));
+    fireEvent.click(tlacitko('Jen nejčastější'));
+    expect(screen.queryByRole('heading', { level: 3 })).toBeNull();
+    expect(within(screen.getByRole('group', { name: 'Odběratelé' })).getAllByRole('button')).toHaveLength(3);
+  });
+
+  it('nový odběratel, který je vybraný, zůstává vidět i v rozbaleném seznamu', () => {
+    pripravit({ data: dlouha });
+    fireEvent.change(screen.getByLabelText('Hledat odběratele'), { target: { value: 'Zbrusu nový' } });
+    fireEvent.click(tlacitko(/^Nový: Zbrusu nový/));
+    fireEvent.click(pismeno('A'));
+    expect(screen.getByRole('button', { name: /^Zbrusu nový/, pressed: true })).toBeTruthy();
+    expect(nadpis('A')).toBeTruthy();
+  });
+
+  it('lupa je součástí řádku s polem, ne položená přes něj (na telefonu ležela přes „Hledat")', () => {
+    pripravit();
+    const pole = screen.getByLabelText('Hledat odběratele');
+    const radek = pole.parentElement!;
+    expect(radek.className).toContain('flex');
+    const lupa = radek.querySelector('svg')!;
+    expect(lupa).toBeTruthy();
+    expect(lupa.getAttribute('class')).not.toContain('absolute');
+    expect(radek.className).not.toContain('relative');
+  });
+});
+
 describe('krok 2 — pivo (stejný panel jako Fasování)', () => {
   function naPivo(odberatel = 'Žižkov') {
     const r = pripravit();
