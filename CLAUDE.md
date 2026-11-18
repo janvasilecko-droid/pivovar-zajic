@@ -37,6 +37,11 @@
   a v souhrnu běhu jsou odkazy na výměnu.
 
 ## Databáze
+- **Uzavřené měsíce se nemění.** Říjen 2026 je uzavřený — majitel 18. 11. 2026:
+  „Na data ze října nesahej, to je uzavřený". Objednávky, pohyby skladu ani jiné
+  záznamy s datem v uzavřeném měsíci neopravuj, nepřepisuj a nedorovnávej — ani
+  migrací, ani přímo v databázi, ani když v nich najdeš chybu. Chybu jen oznam
+  majiteli a nech to na něm. Který další měsíc je uzavřený, řekne majitel.
 - Migrace se NEspouští samy (`AUTO_MIGRACE` není „ano"). Majitel je pouští
   v appce: Audit → Databázové migrace. Migrace projektu bible
   (`bible/supabase/migrations`, nikdy do `supabase/migrations`) tamtéž v bloku
