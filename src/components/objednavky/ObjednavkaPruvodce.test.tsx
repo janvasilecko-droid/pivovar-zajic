@@ -158,13 +158,15 @@ describe('krok 1 — odběratel a den', () => {
     expect(screen.queryByRole('button', { name: /Nový:/ })).toBeNull();
   });
 
-  it('„Všichni odběratelé" ukáže i ty, co nikdy neobjednávali', () => {
+  it('„Všichni odběratelé" ukáže pod nejčastějšími i ty, co nikdy neobjednávali', () => {
     pripravit();
     expect(screen.queryByRole('button', { name: /^Mates/ })).toBeNull();
     fireEvent.click(tlacitko(/Všichni odběratelé \(5\)/));
     expect(dlazdice('Mates')).toBeTruthy();
     expect(dlazdice('Restaurace')).toBeTruthy();
-    fireEvent.click(tlacitko('Jen nejčastější'));
+    // Nejčastější zůstávají nahoře (majitel 18. 11.: „ať je nahoře primárně 6 nejčastějších").
+    expect(within(screen.getByRole('group', { name: 'Odběratelé' })).getAllByRole('button')).toHaveLength(3);
+    fireEvent.click(tlacitko('Skrýt abecední seznam'));
     expect(screen.queryByRole('button', { name: /^Mates/ })).toBeNull();
   });
 
@@ -239,7 +241,8 @@ describe('Sklad a Drobák patří pod Radka', () => {
     pripravit({ data: sPrezdivkou });
     fireEvent.click(tlacitko(/Všichni odběratelé \(5\)/));
     expect(screen.queryByRole('button', { name: /^Sklad/ })).toBeNull();
-    expect(dlazdice('Radek')).toBeTruthy();
+    // Radek je mezi nejčastějšími nahoře i v abecedním seznamu pod nimi.
+    expect(screen.getAllByRole('button', { name: /^Radek/ })).toHaveLength(2);
   });
 
   it('„sklad" najde Radka s místem Sklad a rovnou ho předvybere', () => {
@@ -321,13 +324,13 @@ describe('lišta písmen A–Ž pod dlaždicemi (18. 11. 2026: „ať je pod tě
     expect(screen.queryByRole('navigation', { name: 'Přeskočit na písmeno' })).toBeNull();
   });
 
-  it('od 12 odběratelů je lišta pod dlaždicemi nejčastějších a nad „Všichni odběratelé", s českou abecedou', () => {
+  it('od 12 odběratelů je lišta pod dlaždicemi nejčastějších (a pod „Všichni odběratelé"), s českou abecedou', () => {
     pripravit({ data: dlouha });
     expect(within(lista()).getAllByRole('button').map((b) => b.textContent)).toEqual(PISMENA);
     const dlazdice = screen.getByRole('group', { name: 'Odběratelé' });
     const vsichni = tlacitko(/Všichni odběratelé \(13\)/);
-    expect(dlazdice.compareDocumentPosition(lista()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(lista().compareDocumentPosition(vsichni) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(dlazdice.compareDocumentPosition(vsichni) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(vsichni.compareDocumentPosition(lista()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     // Sbalený seznam zůstává krátký: jen nejčastější, žádné nadpisy písmen.
     expect(within(dlazdice).getAllByRole('button')).toHaveLength(3);
     expect(screen.queryByRole('heading', { name: 'CH' })).toBeNull();
@@ -346,9 +349,28 @@ describe('lišta písmen A–Ž pod dlaždicemi (18. 11. 2026: „ať je pod tě
     expect(within(nadpis('CH').parentElement!).getByRole('button', { name: /^Chlapy z Toužimi/ })).toBeTruthy();
     await waitFor(() => expect(skokNa()).toContain(nadpis('CH')));
     expect(skok).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
-    // Rozbalené: tlačítko se mění na „Jen nejčastější" a lišta zůstává.
-    expect(tlacitko('Jen nejčastější')).toBeTruthy();
+    // Rozbalené: tlačítko se mění na „Skrýt abecední seznam" a lišta zůstává.
+    expect(tlacitko('Skrýt abecední seznam')).toBeTruthy();
     expect(lista()).toBeTruthy();
+  });
+
+  it('nejčastější odběratelé zůstávají nahoře i při rozbalené abecedě (nad lištou a seznamem)', () => {
+    pripravit({ data: dlouha });
+    fireEvent.click(pismeno('R'));
+    const dlazdice = screen.getByRole('group', { name: 'Odběratelé' });
+    expect(within(dlazdice).getAllByRole('button').map((b) => b.textContent?.replace(/\s*(obvykle|bez|Sklad).*$/, '').trim())).toEqual(['Žižkov', 'Radek', 'Seeberg']);
+    expect(dlazdice.compareDocumentPosition(lista()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(dlazdice.compareDocumentPosition(nadpis('R')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('vybraný odběratel, který není mezi nejčastějšími, je navrchu a při rozbalené abecedě', () => {
+    pripravit({ data: dlouha });
+    fireEvent.click(pismeno('D'));
+    fireEvent.click(within(nadpis('D').parentElement!).getByRole('button', { name: /^Dadali/ }));
+    fireEvent.click(pismeno('M'));
+    const dlazdice = within(screen.getByRole('group', { name: 'Odběratelé' })).getAllByRole('button');
+    expect(dlazdice[0].textContent).toContain('Dadali');
+    expect(dlazdice[0].getAttribute('aria-pressed')).toBe('true');
   });
 
   it('rozbalený seznam má nadpis pro každé písmeno z lišty a odběratele pod správným písmenem', () => {
@@ -375,6 +397,7 @@ describe('lišta písmen A–Ž pod dlaždicemi (18. 11. 2026: „ať je pod tě
   it('výběr z rozbaleného seznamu seznam sbalí, vybraný je nahoře a obsah se vrátí na začátek', async () => {
     pripravit({ data: dlouha });
     fireEvent.click(pismeno('M'));
+    expect(within(screen.getByRole('group', { name: 'Odběratelé' })).getAllByRole('button')).toHaveLength(3);
     fireEvent.click(within(nadpis('M').parentElement!).getByRole('button', { name: /^Mates/ }));
     // Seznam je zase krátký: vybraný odběratel navrch, pak nejčastější.
     expect(screen.queryByRole('heading', { name: 'M' })).toBeNull();
@@ -406,10 +429,10 @@ describe('lišta písmen A–Ž pod dlaždicemi (18. 11. 2026: „ať je pod tě
     expect(screen.getAllByRole('heading', { level: 3 })).toHaveLength(PISMENA.length);
   });
 
-  it('„Jen nejčastější" nahoře sbalí seznam bez výběru', () => {
+  it('„Skrýt abecední seznam" sbalí seznam bez výběru', () => {
     pripravit({ data: dlouha });
     fireEvent.click(pismeno('S'));
-    fireEvent.click(tlacitko('Jen nejčastější'));
+    fireEvent.click(tlacitko('Skrýt abecední seznam'));
     expect(screen.queryByRole('heading', { level: 3 })).toBeNull();
     expect(within(screen.getByRole('group', { name: 'Odběratelé' })).getAllByRole('button')).toHaveLength(3);
   });

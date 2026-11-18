@@ -10,7 +10,8 @@
 // Majitel 18. 11. 2026: „udělej to, ať je pod těma písmena A až Z" — pod
 // dlaždicemi je lišta písmen jako ve starém výběru odběratele (OdberatelTlacitko):
 // klepnutí na písmeno rozbalí všechny odběratele podle abecedy (s nadpisy
-// písmen) a skočí na něj.
+// písmen) a skočí na něj. A hned potom: „ať je nahoře primárně 6 nejčastějších" —
+// nejčastější odběratelé zůstávají nahoře i při rozbaleném seznamu, abeceda je pod nimi.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, Check, Search, UserPlus } from 'lucide-react';
 import type { Place } from '../../lib/supabase';
@@ -79,11 +80,11 @@ export function PruvodceOdberatel({ data, koncept, zmen }: {
     ? [vybrany, ...rychli.slice(0, POCET_RYCHLYCH_ODBERATELU - 1)]
     : rychli;
   // `misto` = hledání trefilo název místa závozu („sklad" → Radek, místo Sklad).
-  // Rozbalený seznam („Všichni odběratelé") se kreslí po písmenech, ne jako seznam dlaždic.
+  // Nahoře jsou vždy nejčastější odběratelé; rozbalený seznam („Všichni odběratelé") se kreslí
+  // pod nimi po písmenech.
   const rozbaleno = vsichni && !dotaz && nabidka.length > zakladni.length;
   let seznam: { odberatel: Place; misto: string | null }[];
   if (dotaz) seznam = hledejOdberatele(nabidka, dotaz);
-  else if (rozbaleno) seznam = [];
   else seznam = zakladni.map((odberatel) => ({ odberatel, misto: null }));
   const skupiny = useMemo(() => rozdelDlePismen(odberateleAbecedne(nabidka)), [nabidka]);
   const lista = !dotaz && nabidka.length >= LISTA_PISMEN_OD;
@@ -160,7 +161,7 @@ export function PruvodceOdberatel({ data, koncept, zmen }: {
   ) : null;
   const prepinac = !dotaz && nabidka.length > zakladni.length ? (
     <button type="button" onClick={() => setVsichni((v) => !v)} className="btn-ghost w-full">
-      {rozbaleno ? 'Jen nejčastější' : `Všichni odběratelé (${nabidka.length})`}
+      {rozbaleno ? 'Skrýt abecední seznam' : `Všichni odběratelé (${nabidka.length})`}
     </button>
   ) : null;
   // Lišta písmen jako ve starém výběru odběratele; zůstává nahoře, když se pod ní roluje.
@@ -202,13 +203,30 @@ export function PruvodceOdberatel({ data, koncept, zmen }: {
         />
       </div>
 
-      {rozbaleno ? (
-        <>
-          {novyVybranyEl && <div className="grid grid-cols-2 gap-2.5">{novyVybranyEl}</div>}
-          {listaEl && prepinac}
-          <section aria-label="Všichni odběratelé podle abecedy" className="space-y-3">
-            {listaEl}
-            <div role="group" aria-label="Odběratelé" className="space-y-3">
+      {/* Nahoře vždy nejčastější odběratelé (nebo výsledky hledání) — i když je pod nimi rozbalená abeceda. */}
+      <div className="grid grid-cols-2 gap-2.5" role="group" aria-label="Odběratelé">
+        {novyVybranyEl}
+        {seznam.map(({ odberatel: p, misto }) => dlazdice(p, misto))}
+        {novyKNabidnuti && (
+          <button type="button" onClick={() => vyberNoveho(novyKNabidnuti)} className={`${DLAZDICE} ${DLAZDICE_JINA} border-dashed`}>
+            <span className="flex items-center gap-1.5 font-display font-black text-lg"><UserPlus size={20} className="shrink-0" aria-hidden="true" /><span className="truncate">Nový: {novyKNabidnuti}</span></span>
+            <span className="text-xs font-semibold text-neutral-600 dark:text-neutral-300">založí se při uložení</span>
+          </button>
+        )}
+        {dotaz && seznam.length === 0 && !novyKNabidnuti && (
+          <p className="col-span-2 text-sm font-semibold text-neutral-600">Nikdo odpovídající „{dotaz}“.</p>
+        )}
+      </div>
+
+      {prepinac}
+
+      {/* Pod dlaždicemi lišta písmen A–Ž: klepnutí rozbalí všechny odběratele a skočí na písmeno.
+          Lišta a seznam jsou v jednom obalu, aby lišta zůstávala nahoře jen po dobu rolování seznamu. */}
+      {!dotaz && (listaEl || rozbaleno) && (
+        <section aria-label="Všichni odběratelé podle abecedy" className="space-y-3">
+          {listaEl}
+          {rozbaleno && (
+            <div className="space-y-3">
               {skupiny.map((sk) => (
                 <div key={sk.pismeno}>
                   <h3
@@ -222,29 +240,8 @@ export function PruvodceOdberatel({ data, koncept, zmen }: {
                 </div>
               ))}
             </div>
-          </section>
-          {!listaEl && prepinac}
-        </>
-      ) : (
-        <>
-          <div className="grid grid-cols-2 gap-2.5" role="group" aria-label="Odběratelé">
-            {novyVybranyEl}
-            {seznam.map(({ odberatel: p, misto }) => dlazdice(p, misto))}
-            {novyKNabidnuti && (
-              <button type="button" onClick={() => vyberNoveho(novyKNabidnuti)} className={`${DLAZDICE} ${DLAZDICE_JINA} border-dashed`}>
-                <span className="flex items-center gap-1.5 font-display font-black text-lg"><UserPlus size={20} className="shrink-0" aria-hidden="true" /><span className="truncate">Nový: {novyKNabidnuti}</span></span>
-                <span className="text-xs font-semibold text-neutral-600 dark:text-neutral-300">založí se při uložení</span>
-              </button>
-            )}
-            {dotaz && seznam.length === 0 && !novyKNabidnuti && (
-              <p className="col-span-2 text-sm font-semibold text-neutral-600">Nikdo odpovídající „{dotaz}“.</p>
-            )}
-          </div>
-
-          {/* Pod dlaždicemi lišta písmen A–Ž: klepnutí rozbalí všechny odběratele a skočí na písmeno. */}
-          {listaEl && <section aria-label="Odběratelé podle abecedy">{listaEl}</section>}
-          {prepinac}
-        </>
+          )}
+        </section>
       )}
 
       {mista.length > 0 && vybrany && (
