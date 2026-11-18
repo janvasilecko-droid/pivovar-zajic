@@ -10,7 +10,7 @@
 // i za objemem, „vše 11%" na konci, bedny, PET, vlastní jména piv, hovorové
 // tvary „vosma"/„desítka"/„dvanáctka", překlepy).
 import { describe, it, expect } from 'vitest';
-import { matchBeerId, matchPackageId } from './beer-match';
+import { matchBeerId, matchPackageId, pivaJmenovanaVTextu, vlastniRadekPolozky } from './beer-match';
 
 // Katalog přesně jako v produkci — VČETNĚ toho, že Osma má stupeň zapsaný
 // bez znaku ° („8", ne „8°"). Na tom závisí porovnávání stupňů.
@@ -43,7 +43,7 @@ const prazdneAliasy = () => ({ beer: new Map<string, string>(), package: new Map
 const jmeno = (id: string | null) => BEERS.find((b) => b.id === id)?.name ?? null;
 const obal = (id: string | null) => PACKAGES.find((p) => p.id === id)?.label ?? null;
 
-type Polozka = { quantity?: number | null; degree?: string | null; beer_name?: string | null; package_label?: string | null; raw_line?: string | null };
+type Polozka = { quantity?: number | null; degree?: string | null; beer_name?: string | null; package_label?: string | null; raw_line?: string | null; z_citace?: boolean };
 const pivo = (item: Polozka, aliasy = prazdneAliasy()) => jmeno(matchBeerId(item, BEERS, aliasy));
 const balení = (item: Polozka, aliasy = prazdneAliasy()) => obal(matchPackageId(item, PACKAGES, aliasy));
 
@@ -234,6 +234,173 @@ describe('Zkratka „tm" je tmavá', () => {
 
   it('slova, která jen obsahují „tm", tmavé nejsou', () => {
     expect(pivo({ degree: '12°', quantity: 1, raw_line: '1x50 12 atm' })).toBe('12° Světlá');
+  });
+});
+
+// Z provozu 17. 11. 2026 (Malešice). Na objednávku
+//   „Malesice
+//    • SV 12 = 2x50l KEG + 2x30l KEG + 12x1,5l PET (bez etikety)
+//    • Jantar 12 = 2x30l KEG + 12x1,5l PET . Děkuji moc."
+// přišla odpověď „Bude bez pet 1,5l. 12cky". AI vrátila výsledný stav objednávky
+// správně (čtyři položky), ale ke každé jako raw_line přiložila CELOU citovanou
+// zprávu na jednom řádku. Slovo „Jantar" kdekoli v tom textu pak vyhrálo
+// u všech čtyř položek — ze sudů 12° Světlé byl Jantar a do objednávky
+// přibylo „2× 50 l Jantar". Jantar nemá v katalogu stupeň, takže ho
+// nezastavila ani pojistka „neodporuje stupni položky".
+describe('Řádek s více pivy: jméno jednoho piva nepřebije položky druhého', () => {
+  const CITACE = 'Malesice •⁠ ⁠SV 12 = 2x50l KEG + 2x30l KEG + 12x1,5l PET (bez etikety) •⁠ Jantar 12 = 2x30l KEG + 12x1,5l PET . Děkuji moc.';
+
+  it('Malešice 17. 11.: sudy 12° Světlé zůstanou 12° Světlá, Jantar zůstane Jantar', () => {
+    expect(pivo({ quantity: 2, degree: '12°', beer_name: '12° Světlá', package_label: 'KEG 50l', raw_line: CITACE })).toBe('12° Světlá');
+    expect(pivo({ quantity: 2, degree: '12°', beer_name: '12° Světlá', package_label: 'KEG 30l', raw_line: CITACE })).toBe('12° Světlá');
+    expect(pivo({ quantity: 2, degree: null, beer_name: 'Jantar', package_label: 'KEG 30l', raw_line: CITACE })).toBe('Jantar');
+    expect(pivo({ quantity: 12, degree: null, beer_name: 'Jantar', package_label: 'PET 1.5l', raw_line: CITACE })).toBe('Jantar');
+  });
+
+  it('obal psaný jako v objednávce („50l", „1.5l") a stupeň 12° u Jantaru („Jantar 12") nic nezmění', () => {
+    expect(pivo({ quantity: 2, degree: '12°', beer_name: '12° Světlá', package_label: '50l', raw_line: CITACE })).toBe('12° Světlá');
+    expect(pivo({ quantity: 2, degree: '12°', beer_name: 'Jantar', package_label: '30l', raw_line: CITACE })).toBe('Jantar');
+    expect(pivo({ quantity: 12, degree: '12°', beer_name: 'Jantar', package_label: '1.5l', raw_line: CITACE })).toBe('Jantar');
+  });
+
+  it('položka, která je v textu jen na jednom řádku, bere pivo z toho řádku — i bez názvu od AI a i proti němu', () => {
+    // „2x50l" stojí jen na řádku „SV 12 = …".
+    expect(pivo({ quantity: 2, degree: '12°', package_label: 'KEG 50l', raw_line: CITACE })).toBe('12° Světlá');
+    expect(pivo({ quantity: 2, degree: '12°', beer_name: 'Jantar', package_label: 'KEG 50l', raw_line: CITACE })).toBe('12° Světlá');
+  });
+
+  // Řádek výsledného stavu upravované objednávky, ke kterému AI přiložila text
+  // z citované zprávy (z_citace): odpověď mohla u položky změnit pivo —
+  // „těch 2x50 bude Jantar", „místo jantaru dej světlou". Text původní zprávy
+  // pak neplatí doslova a rozhoduje pivo od AI.
+  it('řádek výsledného stavu z citace: pivo od AI má přednost před textem původní zprávy', () => {
+    expect(pivo({ quantity: 2, degree: '12°', beer_name: '12° Světlá', package_label: 'KEG 50l', raw_line: CITACE, z_citace: true })).toBe('12° Světlá');
+    expect(pivo({ quantity: 2, degree: '12°', beer_name: '12° Světlá', package_label: 'KEG 30l', raw_line: CITACE, z_citace: true })).toBe('12° Světlá');
+    expect(pivo({ quantity: 12, beer_name: 'Jantar', package_label: 'PET 1.5l', raw_line: CITACE, z_citace: true })).toBe('Jantar');
+    // Odpověď pivo změnila:
+    expect(pivo({ quantity: 2, beer_name: 'Jantar', package_label: 'KEG 50l', raw_line: CITACE, z_citace: true })).toBe('Jantar');
+    expect(pivo({ quantity: 2, beer_name: '12° Světlá', package_label: 'KEG 30l', raw_line: 'Jantar 12 = 2x30l KEG + 12x1,5l PET', z_citace: true })).toBe('12° Světlá');
+    expect(pivo({ quantity: 2, beer_name: 'Summer Ale', package_label: 'KEG 30l', raw_line: 'Jantar 12 = 2x30l KEG + 12x1,5l PET', z_citace: true })).toBe('Summer Ale');
+    // …a barva z citace ji nepřebarví zpátky.
+    expect(pivo({ quantity: 2, degree: '12°', beer_name: '12° Světlá', package_label: 'KEG 30l', raw_line: 'Seeberg 4x30 12sv, 2x30 tm', z_citace: true })).toBe('12° Světlá');
+  });
+
+  it('řádek z citace bez použitelného názvu od AI se čte z textu jako jindy', () => {
+    expect(pivo({ quantity: 2, degree: '12°', package_label: 'KEG 50l', raw_line: CITACE, z_citace: true })).toBe('12° Světlá');
+    expect(pivo({ quantity: 2, degree: '12°', beer_name: 'pivo', package_label: 'KEG 50l', raw_line: CITACE, z_citace: true })).toBe('12° Světlá');
+    // Název od AI, kterému odporuje stupeň položky, nerozhoduje.
+    expect(pivo({ quantity: 2, degree: '11°', beer_name: '12° Světlá', package_label: 'KEG 30l', raw_line: 'Jantar 12 = 2x30l KEG', z_citace: true })).toBe('Jantar');
+  });
+
+  it('nová položka z textu odpovědi (bez značky): text má dál přednost před názvem od AI', () => {
+    expect(pivo({ quantity: 2, degree: '12°', beer_name: '12° Světlá', package_label: 'KEG 30l', raw_line: 'Plus 2x30 tm' })).toBe('12° Tmavá');
+    expect(pivo({ quantity: 2, beer_name: '12° Světlá', package_label: 'KEG 30l', raw_line: 'Plus 2x30 jantar' })).toBe('Jantar');
+  });
+
+  it('změněné množství (není v citaci doslova): rozhodne název od AI, když ho citace jmenuje', () => {
+    // „Tak těch Jantaru v pet bude jen 11 kusů" → 11× PET 1,5 l Jantar.
+    expect(pivo({ quantity: 11, degree: null, beer_name: 'Jantar', package_label: 'PET 1.5l', raw_line: CITACE })).toBe('Jantar');
+  });
+
+  it('totéž s opravdovými konci řádků místo zploštěného textu', () => {
+    const zprava = 'Malesice\n•⁠  ⁠SV 12 = 2x50l KEG + 2x30l KEG + 12x1,5l PET (bez etikety)\n•⁠  Jantar 12 = 2x30l KEG + 12x1,5l PET . Děkuji moc.';
+    expect(pivo({ quantity: 2, degree: '12°', beer_name: '12° Světlá', package_label: 'KEG 30l', raw_line: zprava })).toBe('12° Světlá');
+    expect(pivo({ quantity: 2, degree: null, beer_name: 'Jantar', package_label: 'KEG 30l', raw_line: zprava })).toBe('Jantar');
+    expect(pivo({ quantity: 2, degree: '12°', package_label: 'KEG 50l', raw_line: zprava })).toBe('12° Světlá');
+  });
+
+  // Malešice 13. 10. 2026 — každá položka je v citaci jen na jednom řádku,
+  // takže se pozná i bez názvu od AI.
+  it('Malešice 13. 10.: šest položek ze dvou řádků, každá podle svého řádku', () => {
+    const citace = 'Malesice •⁠ ⁠SV 12 = 2x50l KEG + 2x30l KEG + 12x1,5l PET (bez etikety) + 20x0,5l lahev (etiketa MM) •⁠ Jantar 12 = 1x30l KEG + 10x0,5l lahev. Děkuji moc.';
+    expect(pivo({ quantity: 2, package_label: 'KEG 50l', raw_line: citace })).toBe('12° Světlá');
+    expect(pivo({ quantity: 2, package_label: 'KEG 30l', raw_line: citace })).toBe('12° Světlá');
+    expect(pivo({ quantity: 12, package_label: 'PET 1.5l', raw_line: citace })).toBe('12° Světlá');
+    expect(pivo({ quantity: 20, package_label: 'Lahve 0.5l', raw_line: citace })).toBe('12° Světlá');
+    expect(pivo({ quantity: 1, package_label: 'KEG 30l', raw_line: citace })).toBe('Jantar');
+    expect(pivo({ quantity: 10, package_label: 'Lahve 0.5l', raw_line: citace })).toBe('Jantar');
+  });
+
+  it('výčet pod nadpisem („Jantar:" a pod ním řádky s počty): rozhodne název od AI', () => {
+    const zprava = 'Jantar:\n2x30l\n12x1,5l\nSvětlá 12:\n2x50l';
+    expect(pivo({ quantity: 2, beer_name: 'Jantar', package_label: 'KEG 30l', raw_line: zprava })).toBe('Jantar');
+    expect(pivo({ quantity: 2, degree: '12°', beer_name: '12° Světlá', package_label: 'KEG 50l', raw_line: zprava })).toBe('12° Světlá');
+  });
+
+  it('barva z jiného řádku položku nepřebarví („tm" pod řádkem se světlou)', () => {
+    const zprava = '• 12sv = 2x50l • tm = 2x30l';
+    expect(pivo({ quantity: 2, degree: '12°', package_label: 'KEG 50l', raw_line: zprava })).toBe('12° Světlá');
+    expect(pivo({ quantity: 2, degree: '12°', package_label: 'KEG 30l', raw_line: zprava })).toBe('12° Tmavá');
+    // Stejné množství i obal na obou řádcích: rozhodne název od AI.
+    const stejne = '• 12sv = 2x30l • tm = 2x30l';
+    expect(pivo({ quantity: 2, degree: '12°', beer_name: '12° Světlá', package_label: 'KEG 30l', raw_line: stejne })).toBe('12° Světlá');
+    expect(pivo({ quantity: 2, degree: '12°', beer_name: '12° Tmavá', package_label: 'KEG 30l', raw_line: stejne })).toBe('12° Tmavá');
+  });
+
+  // Lokálka Říčany 19. 10. 2026: „10x50l 12sv 2x30l Winter Hazy 12" na jednom
+  // řádku bez oddělovačů — Winter (stupeň 12) se propsal i do 10× 50 l 12sv.
+  it('jeden řádek bez oddělovačů se dvěma pivy: rozhodne název od AI', () => {
+    const beers = [...BEERS, { id: 'b-winter', name: 'winter', degree: '12' }];
+    const m = (item: Polozka) => beers.find((b) => b.id === matchBeerId(item, beers, prazdneAliasy()))?.name ?? null;
+    const radek = 'Lokálka Říčany prosim 10x50l 12sv 2x30l Winter Hazy 12';
+    expect(m({ quantity: 10, degree: '12°', beer_name: '12° Světlá', package_label: 'KEG 50l', raw_line: radek })).toBe('12° Světlá');
+    expect(m({ quantity: 2, degree: '12°', beer_name: 'winter', package_label: 'KEG 30l', raw_line: radek })).toBe('winter');
+  });
+
+  it('název od AI, který v řádku není, jméno z řádku nepřebije (jako dosud)', () => {
+    expect(pivo({ quantity: 1, degree: '12°', beer_name: '12° Světlá', package_label: 'KEG 30l', raw_line: 'Jantar 12 = 1x30l KEG' })).toBe('Jantar');
+    expect(pivo({ quantity: 2, beer_name: 'Summer Ale', package_label: 'KEG 30l', raw_line: 'Seeberg 2x30l jantar' })).toBe('Jantar');
+  });
+});
+
+describe('Která piva řádek jmenuje (pivaJmenovanaVTextu)', () => {
+  const jmena = (text: string) => pivaJmenovanaVTextu(text, BEERS, prazdneAliasy()).map(jmeno);
+
+  it('najde všechna, ne jen první', () => {
+    expect(jmena('Malesice • SV 12 = 2x50l KEG + 2x30l KEG • Jantar 12 = 2x30l KEG')).toEqual(['12° Světlá', 'Jantar']);
+    expect(jmena('2x30l světle, 1x30l jantar')).toEqual(['12° Světlá', 'Jantar']);
+    expect(jmena('Restaurace 1x50 12, 1x50 10 a 1x50 tm, terasa 2x50 12 2x50 osma')).toEqual(['12° Tmavá', 'Osma']);
+  });
+
+  it('holý stupeň není další pivo („Jantar 12", „12° Jantar")', () => {
+    expect(jmena('Jantar 12 = 1x30l KEG + 10x0,5l lahev')).toEqual(['Jantar']);
+    expect(jmena('12° 2x30 jantar')).toEqual(['Jantar']);
+    expect(jmena('Na utery Duck and Dog 5x20 15x30 13x50 Vsechno 11% Pak jeste 2x50 Nase sudy 12%')).toEqual([]);
+  });
+
+  it('stupeň s barvou nebo slovem pivo je („12sv", „11° sv", „desítka")', () => {
+    expect(jmena('10x50l 12sv')).toEqual(['12° Světlá']);
+    expect(jmena('5x 30l 11° sv')).toEqual(['11° Světlá']);
+    expect(jmena('8sudu 30l na pátek, desítka')).toEqual(['10° Desítka']);
+    expect(jmena('3x50 12° Tmavá')).toEqual(['12° Tmavá']);
+  });
+});
+
+describe('Vlastní řádek položky (vlastniRadekPolozky)', () => {
+  const CITACE = 'Malesice •⁠ ⁠SV 12 = 2x50l KEG + 2x30l KEG + 12x1,5l PET (bez etikety) •⁠ Jantar 12 = 2x30l KEG + 12x1,5l PET . Děkuji moc.';
+  const radek = (item: Polozka) => vlastniRadekPolozky(item, BEERS, prazdneAliasy());
+
+  it('množství × objem jen na jednom řádku → ten řádek', () => {
+    expect(radek({ quantity: 2, package_label: 'KEG 50l', raw_line: CITACE })).toBe('SV 12 = 2x50l KEG + 2x30l KEG + 12x1,5l PET (bez etikety)');
+  });
+
+  it('na dvou řádcích, na žádném, nebo jednořádkový text → nic (rozhodne se jinak)', () => {
+    expect(radek({ quantity: 2, package_label: 'KEG 30l', raw_line: CITACE })).toBe(null);
+    expect(radek({ quantity: 12, package_label: 'PET 1.5l', raw_line: CITACE })).toBe(null);
+    expect(radek({ quantity: 11, package_label: 'PET 1.5l', raw_line: CITACE })).toBe(null);
+    expect(radek({ quantity: 2, package_label: 'KEG 50l', raw_line: 'SV 12 = 2x50l KEG + 2x30l KEG' })).toBe(null);
+  });
+
+  it('„12x1,5" není „2x1,5" ani „12x1" a „2x50" není „2x500"', () => {
+    const text = '• 12sv = 12x1,5l PET • tm = 2x500 ks';
+    expect(radek({ quantity: 2, package_label: 'PET 1.5l', raw_line: text })).toBe(null);
+    expect(radek({ quantity: 12, package_label: 'PET 1l', raw_line: text })).toBe(null);
+    expect(radek({ quantity: 2, package_label: 'KEG 50l', raw_line: text })).toBe(null);
+    expect(radek({ quantity: 12, package_label: 'PET 1.5l', raw_line: text })).toBe('12sv = 12x1,5l PET');
+  });
+
+  it('řádek, který sám pivo nejmenuje (výčet pod nadpisem), se nebere', () => {
+    expect(radek({ quantity: 2, package_label: 'KEG 30l', raw_line: 'Jantar:\n2x30l\n12x1,5l\nSvětlá 12:\n2x50l' })).toBe(null);
   });
 });
 

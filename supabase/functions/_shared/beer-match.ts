@@ -96,6 +96,34 @@ export function barvaPolozky(item: any): Barva | null {
   return barvy.size === 1 ? [...barvy][0] : null;
 }
 
+// Odrážky, kterými se v objednávkách začínají řádky („• SV 12 = …"). Když AI
+// zprávu přepíše na jeden řádek, konec řádku zmizí a odrážka je to jediné,
+// podle čeho se řádky ještě dají od sebe poznat.
+const ODRAZKY = "•◦▪●■‣⁃∙";
+const RADKY_RE = new RegExp(`[\\n\\r${ODRAZKY}]+`);
+// Čárka mezi číslicemi je desetinná („1,5l"), ne oddělovač — viz usekyPolozky.
+const USEKY_RE = new RegExp(`(?<![0-9]),|,(?![0-9])|[;/+\\n\\r${ODRAZKY}]|\\s+a\\s+`, "i");
+// WhatsApp kolem odrážek vkládá neviditelné znaky (U+2060), které trim() nechá.
+const ocisti = (t: string) => t.replace(/[\u200B-\u200D\u2060\uFEFF]/g, "").trim();
+
+/** Řádky textu: dělí je konec řádku nebo odrážka. */
+function radkyTextu(raw: string): string[] {
+  return raw.split(RADKY_RE).map(ocisti).filter(Boolean);
+}
+
+/**
+ * Kusy textu, z nichž každý mluví nejvýš o jedné položce: úseky (jako
+ * usekyPolozky) a v nich kusy, které začínají množstvím — „10x50l 12sv 2x30l
+ * Winter" jsou dva kusy, i když mezi nimi žádný oddělovač není.
+ */
+function kusyTextu(raw: string): string[] {
+  return raw
+    .split(USEKY_RE)
+    .flatMap((u) => u.split(/(?=(?:^|[^0-9.,])\d{1,4}\s*(?:x|×|\*)\s*\d)/i))
+    .map(ocisti)
+    .filter(Boolean);
+}
+
 /**
  * Úseky raw_line, které patří TÉHLE položce. Raw_line s jediným úsekem patří
  * celý položce; jinak se berou úseky s jejím množstvím („4x30", „6x", „5 beden").
@@ -104,6 +132,7 @@ export function barvaPolozky(item: any): Barva | null {
  * 13. 9. 2026: kontrola všech objednávek našla „2x30l světle, 1x30l jantar"
  * (Seeberg) — jméno „jantar" kdekoli v řádku by vyhrálo i u položky 2×30l
  * světlé. Proto se pivo hledá napřed v úseku položky (viz matchBeerId).
+ * Úseky dělí čárka, středník, lomítko, plus, „a", nový řádek a odrážka.
  */
 export function usekyPolozky(item: any): string[] {
   const raw = String(item?.raw_line || '');
@@ -111,7 +140,7 @@ export function usekyPolozky(item: any): string[] {
   // Čárka mezi číslicemi je desetinná („1,5l", „0,5l"), ne oddělovač — jinak
   // by se „10xpet 1,5l tmava" rozpadlo na „10xpet 1" a „5l tmava" a položka by
   // barvu ztratila (nalezeno kontrolou objednávek 13. 9. 2026: Sedláčková, Kebab).
-  const useky = raw.split(/(?<![0-9]),|,(?![0-9])|[;/+\n]|\s+a\s+/i).map((u) => u.trim()).filter(Boolean);
+  const useky = raw.split(USEKY_RE).map(ocisti).filter(Boolean);
   if (useky.length === 1) return useky;
   const ks = Number(item?.quantity ?? item?.qty);
   if (!Number.isFinite(ks) || ks <= 0) return [];
@@ -126,9 +155,24 @@ export function matchBeerId(
   beers: { id: string; name: string; degree?: string | null; short_name?: string | null }[],
   aliasMap: { beer: Map<string, string>; package: Map<string, string> }
 ): string | null {
+  // ↩️ Řádek VÝSLEDNÉHO STAVU upravované objednávky, ke kterému AI přiložila
+  // text z CITOVANÉ (původní) zprávy — značku z_citace dává volající, viz
+  // radekJeZCitace v citace-polozky.ts. AI dostala současný obsah objednávky
+  // s přesnými názvy piv a vrátila, jak má vypadat po zapracování odpovědi;
+  // text původní zprávy už pro položku neplatí doslova (odpověď mohla změnit
+  // pivo, obal i počet) a často je to celá zpráva s víc pivy. Platí proto
+  // pivo, které určila AI; z textu se čte, jen když její název nic neurčí.
+  if (item?.z_citace === true) {
+    const odAI = pivoOdAI(item, beers, aliasMap);
+    if (odAI) return odAI;
+  }
+  // Když raw_line obsahuje víc řádků objednávky (AI k položce přiložila celou
+  // zprávu), platí pro položku jen JEJÍ řádek — viz vlastniRadekPolozky.
+  const radek = vlastniRadekPolozky(item, beers, aliasMap);
+  const polozka = radek ? { ...item, raw_line: radek } : item;
   // Barva z vlastního úseku položky má poslední slovo mezi světlou a tmavou
   // téhož stupně (viz barvaPolozky) — AI i shoda podle stupně se v tom pletly.
-  const barva = barvaPolozky(item);
+  const barva = barvaPolozky(polozka);
   const opravBarvu = (beerId: string | null): string | null => {
     if (!beerId || !barva) return beerId;
     const b = beers.find((x) => x.id === beerId);
@@ -143,7 +187,41 @@ export function matchBeerId(
     }
     return beerId;
   };
-  return opravBarvu(matchBeerIdBezBarvy(item, beers, aliasMap));
+  return opravBarvu(matchBeerIdBezBarvy(polozka, beers, aliasMap));
+}
+
+/**
+ * Pivo, které k položce určila AI (beer_name). Název musí pivo určit sám
+ * (jménem, stupněm s barvou…), ne až přes stupeň položky, a stupeň položky mu
+ * nesmí odporovat. null = název od AI nic neurčí.
+ */
+function pivoOdAI(
+  item: any,
+  beers: { id: string; name: string; degree?: string | null; short_name?: string | null }[],
+  aliasMap: { beer: Map<string, string>; package: Map<string, string> },
+): string | null {
+  const aiName = normText(item?.beer_name || "");
+  const odAI = aiName ? matchBeerInText(aiName, beers, aliasMap, null) : null;
+  if (!odAI) return null;
+  const stupen = String(item?.degree || "").replace("°", "").trim();
+  const stupenOdAI = stupenPiva(beers.find((b) => b.id === odAI));
+  return stupen && stupenOdAI && stupen !== stupenOdAI ? null : odAI;
+}
+
+/**
+ * Pivo od AI — jen když raw_line jmenuje víc piv a tohle je jedno z nich.
+ * Jinak null: název od AI bez opory v textu nerozhoduje, a u řádku s jediným
+ * pivem není co rozhodovat.
+ */
+function pivoOdAIMeziJmenovanymi(
+  item: any,
+  beers: { id: string; name: string; degree?: string | null; short_name?: string | null }[],
+  aliasMap: { beer: Map<string, string>; package: Map<string, string> },
+): string | null {
+  const odAI = pivoOdAI(item, beers, aliasMap);
+  if (!odAI) return null;
+  const jmenovana = pivaJmenovanaVTextu(item?.raw_line, beers, aliasMap);
+  return jmenovana.length > 1 && jmenovana.includes(odAI) ? odAI : null;
 }
 
 function matchBeerIdBezBarvy(
@@ -184,12 +262,27 @@ function matchBeerIdBezBarvy(
     if (hit) return hit;
   }
 
+  // Řádek jmenuje VÍC PIV a z textu se nepoznalo, které patří téhle položce
+  // (žádný vlastní úsek). Jméno jednoho z nich pak nesmí vyhrát u všech
+  // položek, které ten řádek sdílejí: rozhodne pivo, které k položce určila
+  // AI — ale jen když je mezi těmi, která řádek opravdu jmenuje. Název od AI,
+  // který v textu oporu nemá, jméno z řádku dál nepřebije.
+  //
+  // 17. 11. 2026 (Malešice): odpověď „Bude bez pet 1,5l. 12cky" — AI vrátila
+  // výsledný stav objednávky správně, ale ke každé položce přiložila celou
+  // citovanou zprávu („• SV 12 = 2x50l KEG + 2x30l KEG + … • Jantar 12 =
+  // 2x30l KEG + …"). Slovo „Jantar" vyhrálo u všech čtyř položek a v objednávce
+  // přibylo 2× 50 l Jantar. Stejně 19. 10. 2026 (Lokálka Říčany): „10x50l 12sv
+  // 2x30l Winter Hazy 12" udělalo Winter i z 10× 50 l dvanáctky.
+  const odAI = pivoOdAIMeziJmenovanymi(item, beers, aliasMap);
+  if (odAI) return odAI;
+  const aiName = normText(item.beer_name || "");
+
   const rawText = normText([item.raw_line, item.degree].filter(Boolean).join(" "));
   if (rawText) {
     const hit = neodporuje(matchBeerInText(rawText, beers, aliasMap, item.degree));
     if (hit) return hit;
   }
-  const aiName = normText(item.beer_name || "");
   if (aiName) {
     const hit = neodporuje(matchBeerInText(aiName, beers, aliasMap, item.degree));
     if (hit) return hit;
@@ -206,6 +299,74 @@ function matchBeerIdBezBarvy(
     }
   }
   return null;
+}
+
+/**
+ * Všechna piva, která text VÝSLOVNĚ jmenuje — ne jen první nález. Počítá se
+ * jméno („Jantar", „winter"), naučená zkratka, stupeň s barvou („12sv",
+ * „SV 12", „11° sv"), slovo („desítka", „dvanáctky") i samotná barva („tm",
+ * „světle"). Holý stupeň („12°", „12 st") další pivo není: „Jantar 12" je
+ * jedno pivo, ne Jantar a dvanáctka. Pořadí podle prvního výskytu.
+ */
+export function pivaJmenovanaVTextu(
+  raw: string | null | undefined,
+  beers: { id: string; name: string; degree?: string | null; short_name?: string | null }[],
+  aliasMap: { beer: Map<string, string>; package: Map<string, string> },
+): string[] {
+  const nalezena: string[] = [];
+  for (const kus of kusyTextu(String(raw || ""))) {
+    const text = normText(kus);
+    const id = text ? matchBeerInText(text, beers, aliasMap, null) : null;
+    if (!id || nalezena.includes(id)) continue;
+    // Nález, který stojí jen na holém stupni, se nepočítá.
+    const bezStupne = text.replace(/(?:^|[^0-9.,])(?:8|9|1[0-6])\s*(?:°|st(?![a-z]))/g, " ").replace(/\s+/g, " ").trim();
+    if (bezStupne !== text && !matchBeerInText(bezStupne, beers, aliasMap, null)) continue;
+    nalezena.push(id);
+  }
+  return nalezena;
+}
+
+/** Objem obalu položky v litrech („KEG 50l", „PET 1,5l", „0.33l"); null = neznámý. */
+function objemPolozky(item: any): number | null {
+  const label = String(item?.package_label ?? "");
+  const m = label.match(/(\d+(?:[.,]\d+)?)\s*l(?![a-z])/i) ?? label.match(/(\d+(?:[.,]\d+)?)/);
+  const objem = m ? Number(m[1].replace(",", ".")) : Number.NaN;
+  return Number.isFinite(objem) && objem > 0 ? objem : null;
+}
+
+/**
+ * Řádek raw_line, který patří TÉHLE položce — když má raw_line víc řádků
+ * (konec řádku, odrážka) a „množství × objem" položky („2x50", „12x1,5") stojí
+ * právě na jednom z nich. Vrací ho, jen když ten řádek sám nějaké pivo jmenuje;
+ * řádek s holým počtem pod nadpisem („Jantar:" a pod ním „2x30l") pivo neurčí.
+ * null = nedá se určit (jeden řádek, shoda na víc řádcích nebo na žádném).
+ *
+ * K čemu: AI u odpovědi na objednávku vrací výsledný stav celé objednávky
+ * a k položkám občas přiloží CELOU citovanou zprávu. Položka, která v ní
+ * doslova stojí na jednom řádku, pak má brát pivo z něj, ne ze jména
+ * napsaného na jiném řádku (17. 11. 2026, Malešice — viz matchBeerIdBezBarvy).
+ */
+export function vlastniRadekPolozky(
+  item: any,
+  beers: { id: string; name: string; degree?: string | null; short_name?: string | null }[],
+  aliasMap: { beer: Map<string, string>; package: Map<string, string> },
+): string | null {
+  const radky = radkyTextu(String(item?.raw_line || ""));
+  if (radky.length < 2) return null;
+  const ks = Number(item?.quantity ?? item?.qty);
+  if (!Number.isInteger(ks) || ks <= 0) return null;
+  const objem = objemPolozky(item);
+  // „2x50" nesmí sednout na „12x50" ani „2x500"; „12x1" ne na „12x1,5".
+  let cislo = "";
+  if (objem !== null) {
+    const [cele, des = ""] = String(objem).split(".");
+    // „0,33" se píše i „0,3".
+    cislo = (des ? `${cele}[.,]${des}${des === "33" ? "?" : ""}` : `${cele}(?:[.,]0+)?`) + "(?![0-9]|[.,][0-9])";
+  }
+  const vzor = new RegExp(`(?:^|[^0-9.,])${ks}\\s*(?:x|×|\\*)\\s*${cislo}`, "i");
+  const sedi = radky.filter((r) => vzor.test(r));
+  if (sedi.length !== 1) return null;
+  return pivaJmenovanaVTextu(sedi[0], beers, aliasMap).length ? sedi[0] : null;
 }
 
 // Jak se stupeň a barva píšou v objednávkách slovy, ne číslem: „desítka",

@@ -108,38 +108,43 @@ const zprava = (id: string, navic: Radek = {}): Radek => ({
 const fotka = (id: string, navic: Radek = {}) => zprava(id, { message_type: 'image', message_text: '📷 Fotka objednávky (bez popisu)', media_url: FOTKA_URL, ...navic });
 const radek = (id: string) => db.whatsapp_incoming.find((r) => r.id === id)!;
 
-describe('whatsapp-auto-parse: po chybě čtení se zpráva zkusí znovu a běh se vejde do času serveru', () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-    vi.setSystemTime(T0 + 2_000);
-    vi.spyOn(AbortSignal, 'timeout').mockImplementation((ms: number) => {
-      const c = new AbortController();
-      setTimeout(() => c.abort(new DOMException('čas vypršel', 'TimeoutError')), ms);
-      return c.signal;
-    });
-    vi.spyOn(console, 'error').mockImplementation(() => {});
-    vi.spyOn(console, 'warn').mockImplementation(() => {});
-    vi.spyOn(console, 'log').mockImplementation(() => {});
-    for (const t of Object.keys(db)) delete db[t];
-    db.app_secrets = [{ key: 'WHATSAPP_CRON_SECRET', value: TAJNE }];
-    db.beers = [{ id: 'b1', name: '12° Světlá', degree: '12°', short_name: '12sv' }];
-    db.packages = [{ id: 'p1', label: '30l', volume_l: 30 }];
-    db.places = [{ id: 'm1', name: 'Sklad' }];
-    db.whatsapp_incoming = [];
+/** Čistý začátek každého testu: napodobený čas, prázdná databáze s malým katalogem. */
+function pripravBeh() {
+  vi.useFakeTimers();
+  vi.setSystemTime(T0 + 2_000);
+  vi.spyOn(AbortSignal, 'timeout').mockImplementation((ms: number) => {
+    const c = new AbortController();
+    setTimeout(() => c.abort(new DOMException('čas vypršel', 'TimeoutError')), ms);
+    return c.signal;
   });
-  afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); napodobDeno(); });
+  vi.spyOn(console, 'error').mockImplementation(() => {});
+  vi.spyOn(console, 'warn').mockImplementation(() => {});
+  vi.spyOn(console, 'log').mockImplementation(() => {});
+  for (const t of Object.keys(db)) delete db[t];
+  db.app_secrets = [{ key: 'WHATSAPP_CRON_SECRET', value: TAJNE }];
+  db.beers = [{ id: 'b1', name: '12° Světlá', degree: '12°', short_name: '12sv' }];
+  db.packages = [{ id: 'p1', label: '30l', volume_l: 30 }];
+  db.places = [{ id: 'm1', name: 'Sklad' }];
+  db.whatsapp_incoming = [];
+}
+const uklidPoBehu = () => { vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); napodobDeno(); };
 
-  const spust = async () => {
-    const zacatek = Date.now();
-    const slib = obsluha(new Request(`${URL_PROJEKTU}/functions/v1/whatsapp-auto-parse`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Internal-Cron-Secret': TAJNE }, body: '{}',
-    }));
-    let trvalo = -1;
-    void slib.then(() => { trvalo = Date.now() - zacatek; });
-    await vi.runAllTimersAsync();
-    const odpoved = await slib;
-    return { status: odpoved.status, json: await odpoved.json(), trvalo };
-  };
+/** Jeden běh funkce (jako ho volá pg_cron). */
+async function spust() {
+  const zacatek = Date.now();
+  const slib = obsluha(new Request(`${URL_PROJEKTU}/functions/v1/whatsapp-auto-parse`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Internal-Cron-Secret': TAJNE }, body: '{}',
+  }));
+  let trvalo = -1;
+  void slib.then(() => { trvalo = Date.now() - zacatek; });
+  await vi.runAllTimersAsync();
+  const odpoved = await slib;
+  return { status: odpoved.status, json: await odpoved.json(), trvalo };
+}
+
+describe('whatsapp-auto-parse: po chybě čtení se zpráva zkusí znovu a běh se vejde do času serveru', () => {
+  beforeEach(pripravBeh);
+  afterEach(uklidPoBehu);
 
   it('17. 11. 2026: server čtení fotky ukončil (546) → fotka čeká na další pokus, nezůstane jako chyba', async () => {
     db.whatsapp_incoming.push(fotka('f1'));
@@ -285,3 +290,96 @@ describe('whatsapp-auto-parse: po chybě čtení se zpráva zkusí znovu a běh 
     expect(db.whatsapp_incoming.filter((r) => r.status === 'pending')).toHaveLength(json.summary.skipped);
   });
 });
+
+// 17. 11. 2026 (Malešice), majitel: „Objevilo se tam 2x50 jantar … zjisti proč
+// a udělej to, ať se to neopakuje." Odpověď „Bude bez pet 1,5l. 12cky" na
+// objednávku se dvěma řádky (12° Světlá a Jantar): AI vrátila výsledný stav
+// objednávky správně, ale ke každé položce přiložila celou citovanou zprávu
+// — a jméno „Jantar" z jejího druhého řádku se propsalo do všech položek.
+describe('whatsapp-auto-parse: odpověď, která upravuje objednávku', () => {
+  beforeEach(pripravBeh);
+  afterEach(uklidPoBehu);
+
+  const PUVODNI = 'Malesice\n•⁠  ⁠SV 12 = 2x50l KEG + 2x30l KEG + 12x1,5l PET (bez etikety)\n•⁠  Jantar 12 = 2x30l KEG + 12x1,5l PET . Děkuji moc.';
+  const CITACE = 'Malesice •⁠ ⁠SV 12 = 2x50l KEG + 2x30l KEG + 12x1,5l PET (bez etikety) •⁠ Jantar 12 = 2x30l KEG + 12x1,5l PET . Děkuji moc.';
+  const polozka = (quantity: number, degree: string | null, beer_name: string, package_label: string, raw_line: string) =>
+    ({ quantity, degree, beer_name, package_label, raw_line, place_name: 'Malešice', date: null });
+  const ulozene = (id: string) => radek(id).parsed_items.map((i: Radek) => `${i.qty}× ${i.beer_name} ${i.package_label}`);
+
+  beforeEach(() => {
+    db.beers = [
+      { id: 'b12', name: '12° Světlá', degree: '12°', short_name: null },
+      { id: 'bj', name: 'Jantar', degree: null, short_name: null },
+    ];
+    db.packages = [
+      { id: 'p50', label: '50l', volume_l: 50 },
+      { id: 'p30', label: '30l', volume_l: 30 },
+      { id: 'p15', label: '1.5l', volume_l: 1.5 },
+    ];
+    db.places = [{ id: 'm-mal', name: 'Malešice' }];
+    db.orders = [{
+      id: 'obj-1', place_id: 'm-mal', place_name: 'Malešice', status: 'nova',
+      items: [
+        { beer_name: '12° Světlá', package_label: '50l', quantity: 2 },
+        { beer_name: '12° Světlá', package_label: '30l', quantity: 2 },
+        { beer_name: '12° Světlá', package_label: '1.5l', quantity: 12 },
+        { beer_name: 'Jantar', package_label: '30l', quantity: 2 },
+        { beer_name: 'Jantar', package_label: '1.5l', quantity: 12 },
+      ],
+    }];
+    db.whatsapp_incoming.push(zprava('puvodni', {
+      status: 'imported', created_at: new Date(T0 - 3 * 3_600_000).toISOString(), message_text: PUVODNI,
+      imported_order_id: 'obj-1', parsed_place_id: 'm-mal', parsed_place_name: 'Malešice', participant_name: 'Petr',
+    }));
+  });
+
+  it('položky s celou citovanou zprávou dostanou pivo, které určila AI — sudy 12° Světlé nejsou Jantar', async () => {
+    db.whatsapp_incoming.push(zprava('odpoved', { message_text: 'Bude bez pet 1,5l. 12cky', quoted_text: PUVODNI, participant_name: 'Miroslav' }));
+    const tela = ctecka(() => ({ ms: 4_000, json: {
+      items: [
+        polozka(2, '12°', '12° Světlá', 'KEG 50l', CITACE),
+        polozka(2, '12°', '12° Světlá', 'KEG 30l', CITACE),
+        polozka(2, null, 'Jantar', 'KEG 30l', CITACE),
+        polozka(12, null, 'Jantar', 'PET 1.5l', CITACE),
+      ],
+      place_name: 'Malešice', raw_text: 'Bude bez pet 1,5l. 12cky', otazky: [],
+    } }));
+    await spust();
+    // AI dostala současný obsah objednávky (odpověď je úprava).
+    expect(tela).toHaveLength(1);
+    expect(tela[0].amendOrder.items).toHaveLength(5);
+    expect(radek('odpoved')).toMatchObject({ status: 'parsed', amends_order_id: 'obj-1', amends_message_id: 'puvodni' });
+    expect(ulozene('odpoved')).toEqual(['2× 12° Světlá 50l', '2× 12° Světlá 30l', '2× Jantar 30l', '12× Jantar 1.5l']);
+    expect(radek('odpoved').parsed_items.map((i: Radek) => i.beer_id)).toEqual(['b12', 'b12', 'bj', 'bj']);
+    expect(radek('odpoved').parsed_items.every((i: Radek) => i.plny_stav === true)).toBe(true);
+  });
+
+  it('odpověď změní pivo položky („místo jantaru v petkách světlou") → platí pivo od AI, ne jméno z řádku citace', async () => {
+    db.whatsapp_incoming.push(zprava('odpoved', { message_text: 'Misto jantaru v petkach dejte svetlou', quoted_text: PUVODNI, participant_name: 'Miroslav' }));
+    ctecka(() => ({ ms: 4_000, json: {
+      items: [
+        polozka(2, '12°', '12° Světlá', 'KEG 50l', 'SV 12 = 2x50l KEG + 2x30l KEG + 12x1,5l PET (bez etikety)'),
+        polozka(2, '12°', '12° Světlá', 'KEG 30l', 'SV 12 = 2x50l KEG + 2x30l KEG + 12x1,5l PET (bez etikety)'),
+        polozka(2, null, 'Jantar', 'KEG 30l', 'Jantar 12 = 2x30l KEG + 12x1,5l PET'),
+        polozka(24, '12°', '12° Světlá', 'PET 1.5l', 'Jantar 12 = 2x30l KEG + 12x1,5l PET'),
+      ],
+      place_name: 'Malešice', raw_text: 'Misto jantaru v petkach dejte svetlou', otazky: [],
+    } }));
+    await spust();
+    expect(ulozene('odpoved')).toEqual(['2× 12° Světlá 50l', '2× 12° Světlá 30l', '2× Jantar 30l', '24× 12° Světlá 1.5l']);
+  });
+
+  it('nová položka z textu odpovědi se dál čte z textu („plus 2x30 jantar", i když AI napíše 12° Světlá)', async () => {
+    db.whatsapp_incoming.push(zprava('odpoved', { message_text: 'Plus 2x30 jantar', quoted_text: PUVODNI, participant_name: 'Miroslav' }));
+    ctecka(() => ({ ms: 4_000, json: {
+      items: [
+        polozka(2, '12°', '12° Světlá', 'KEG 50l', CITACE),
+        polozka(2, null, '12° Světlá', 'KEG 30l', 'Plus 2x30 jantar'),
+      ],
+      place_name: 'Malešice', raw_text: 'Plus 2x30 jantar', otazky: [],
+    } }));
+    await spust();
+    expect(ulozene('odpoved')).toEqual(['2× 12° Světlá 50l', '2× Jantar 30l']);
+  });
+});
+

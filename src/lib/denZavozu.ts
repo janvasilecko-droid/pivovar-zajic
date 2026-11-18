@@ -52,7 +52,9 @@ export type MistoSVychozimDnem = { id: string; name: string; vychozi_den_zavozu?
 /**
  * Výchozí den závozu odběratele — stejné pravidlo jako databáze
  * (vychozi_den_zavozu, migrace 20261231260000): středa; odběratel s vlastním
- * dnem ten den; 'zadny' (Restaurace, Lužec, Seeberg, Prodejna) žádný den.
+ * dnem ten den (Seeberg a Lužec pátek — 17. 11. 2026: „u objednávek Seeberg,
+ * Lužec dávej automaticky objednávky na pátek", migrace 20261231470000);
+ * 'zadny' (Restaurace, Prodejna) žádný den.
  * Odběratel se hledá podle id, jinak podle jména (bez ohledu na velikost
  * písmen a mezery kolem); neznámý odběratel má středu.
  *
@@ -87,7 +89,7 @@ const KLICE_DNU_OD_PONDELI = ['po', 'ut', 'st', 'ct', 'pa', 'so', 'ne'] as const
  * (středa) a datum nejbližšího takového dne od dneška; „příští týden" ve
  * zprávě ho posune o týden (`pristiTyden`). Dřív se tu bez dne dosazovalo
  * pondělí s dnešním datem — objednávka se pak hned odečetla ze skladu, i když
- * měla jet až ve středu. Odběratel bez výchozího dne (Restaurace, Lužec…)
+ * měla jet až ve středu. Odběratel bez výchozího dne (Restaurace, Prodejna)
  * zůstává na dnešku jako dřív, jen se správným dnem v týdnu.
  */
 export function denADatumZeZpravyNeboVychozi(p: {

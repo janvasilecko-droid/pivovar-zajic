@@ -780,7 +780,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
   // Závoz, který už proběhl, se po uložení hned odečte ze skladu (viz DenZavozuTlacitka).
   const zpetneObjednavky = ulozeniDo.filter((o) => o.zavoz && o.zavoz < today);
   // 📅 Bez vybraného dne dostane objednávka výchozí den odběratele — doplní ho
-  // databáze po uložení (středa; Restaurace, Lužec, Seeberg a Prodejna žádný).
+  // databáze po uložení (středa; Seeberg a Lužec pátek; Restaurace a Prodejna žádný).
   // Ať je to vidět už tady (17. 11. 2026: „primárně závoz středa").
   const vychoziDenFotky = vychoziDenZavozu(places, placeId || null, placeName || null);
   const bezVyberuDne = vychoziDenFotky ? `nevybráno — pojede ${DEN_KDY[vychoziDenFotky] ?? vychoziDenFotky} (výchozí den odběratele)` : null;

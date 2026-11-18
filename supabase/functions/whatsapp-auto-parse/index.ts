@@ -6,7 +6,7 @@ import { normPlaceName, stripSenderName, resolvePlace, odberatelZHistorie, prefe
 import { nactiHistorii } from "../_shared/historie-objednavek.ts";
 import { odberatelZVety } from "../_shared/odberatel-z-vety.ts";
 import { popisZminkyVycepu } from "../_shared/vycep-z-textu.ts";
-import { bezPolozekZCitace } from "../_shared/citace-polozky.ts";
+import { bezPolozekZCitace, radekJeZCitace } from "../_shared/citace-polozky.ts";
 import { vypadaJakoVraceni } from "../_shared/vraceni-detekce.ts";
 import { jeVlastniHlaseniObjednavky } from "../_shared/vlastni-hlaseni-objednavky.ts";
 import { datumDne, datumPraha, textRikaPristiTyden } from "../_shared/den-zavozu.ts";
@@ -919,8 +919,17 @@ Deno.serve(async (req: Request) => {
 
         // Spárovat položky s katalogem (beer_id, pkg_id) podle názvu/stupně/balení,
         // aby objednávka odkazovala na skutečná piva a obaly.
+        // Odpověď upravující objednávku: AI dostala současný obsah a vrací
+        // VÝSLEDNÝ stav celé objednávky, ne jen to, co zpráva říká.
+        const jeVyslednyStav = !!amendsOrderId && !vypadaJakoVraceni(message.message_text);
         const itemsForStorage = parsedItems.map((item: any) => {
-          const beerId = matchBeerId(item, beers, aliasMap);
+          // Řádek výsledného stavu, ke kterému AI přiložila text CITOVANÉ zprávy
+          // (jen ho opakuje, nebo v něm odpověď něco změnila): platí pivo od AI,
+          // ne jméno vyčtené z původní zprávy — ta může jmenovat víc piv
+          // (17. 11. 2026, Malešice: „Jantar" z druhého řádku citace se propsal
+          // i do sudů 12° Světlé; viz _shared/beer-match.ts).
+          const zCitace = jeVyslednyStav && radekJeZCitace(item.raw_line, message.message_text, message.quoted_text);
+          const beerId = matchBeerId(zCitace ? { ...item, z_citace: true } : item, beers, aliasMap);
           const pkgId = matchPackageId(item, packages, aliasMap);
           // ⚠️ beer_name MUSÍ odpovídat beer_id. Dřív se určovaly dvěma
           // nezávislými cestami (id párováním s katalogem, název od AI) a nic
@@ -939,12 +948,11 @@ Deno.serve(async (req: Request) => {
             beer_name: beer?.name ?? item.beer_name ?? null,
             package_label: pkg?.label ?? item.package_label ?? null,
             raw_line: item.raw_line || null,
-            // Odpověď upravující objednávku: AI dostala současný obsah a vrací
-            // VÝSLEDNÝ stav celé objednávky, ne jen to, co zpráva říká. Aplikace
-            // to pozná podle téhle značky a „plus 1x50" k objednávce nepřičte
-            // celou odpověď znovu (12. 10. 2026: Malešice 2x50 + „ještě plus
-            // 1x50l" dalo 5x50 a zdvojené všechny ostatní řádky).
-            ...(amendsOrderId && !vypadaJakoVraceni(message.message_text) ? { plny_stav: true } : {}),
+            // Výsledný stav (viz jeVyslednyStav výš). Aplikace to pozná podle
+            // téhle značky a „plus 1x50" k objednávce nepřičte celou odpověď
+            // znovu (12. 10. 2026: Malešice 2x50 + „ještě plus 1x50l" dalo 5x50
+            // a zdvojené všechny ostatní řádky).
+            ...(jeVyslednyStav ? { plny_stav: true } : {}),
           };
         });
 

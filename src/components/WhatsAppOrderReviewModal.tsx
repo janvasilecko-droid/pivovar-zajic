@@ -28,6 +28,7 @@ import {
 import { STAVY_OBJEDNAVKY, popisStavu } from '../lib/stavyObjednavek';
 import { uloz } from '../lib/uloziste';
 import { pocetZRadku, pocetZTabulky } from '../lib/pocetZRadku';
+import { radekJeZCitace } from '../../supabase/functions/_shared/citace-polozky';
 import { dayKeyFromISO } from '../lib/keggingPlan';
 import { datumDne, datumPraha, textRikaPristiTyden } from '../../supabase/functions/_shared/den-zavozu';
 import { datumZeZpravy, relativniDen } from '../../supabase/functions/_shared/datum-ze-zpravy';
@@ -322,11 +323,22 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
       setDenZavozu(msg!.parsed_delivery_day || denADatumZeZpravy(msg!)?.den || parseDeliveryDayFromText(msg!.message_text || '') || null);
       setZavozCislo(1);
       const parsedItems = msg!.parsed_items || [];
+      // ↩️ Odpověď, která upravuje objednávku: položky jsou VÝSLEDNÝ stav celé
+      // objednávky (značka plny_stav ze serveru) a k řádkům, které AI jen
+      // opakuje, je přiložený text PŮVODNÍ (citované) zprávy. Ten už pro položku
+      // neplatí doslova — odpověď v ní mohla změnit pivo i počet — takže z něj
+      // kontrola nesmí „opravovat" pivo (a počet se u výsledného stavu z textu
+      // neopravuje vůbec, viz níž). 17. 11. 2026 (Malešice): všechny položky
+      // nesly celou citovanou zprávu, jméno „Jantar" z jejího druhého řádku
+      // přepsalo i sudy 12° Světlé a přibylo 2× 50 l Jantar.
+      const vyslednyStav = parsedItems.some((it) => it.plny_stav);
       const initItems: ReviewItem[] = parsedItems.map((item, i) => {
+        const zCitace = vyslednyStav && radekJeZCitace(item.raw_line, msg!.message_text, msg!.quoted_text);
         // Pivo napsané v řádku celým názvem (Winter…) má přednost před uloženým
         // beer_id — starší zpracování z toho udělalo 12° Světlou podle stupně.
+        // Ne u řádku z citace: tam platí pivo, které k položce určil server.
         const beer =
-          pivoNapsanePodleJmena(item.raw_line, item.degree, props.beers) ??
+          (zCitace ? null : pivoNapsanePodleJmena(item.raw_line, item.degree, props.beers)) ??
           props.beers.find((b) => b.id === item.beer_id) ??
           // Přednost má původní text objednávky (raw_line) — název od AI může být špatný
           matchBeerFromHints(
@@ -352,8 +364,13 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
         // Pojistka: řádek výslovně píše „2x30" → platí 2, i kdyby AI
         // přečetla stupeň „10°" jako počet (lib/pocetZRadku.ts).
         // Tabulka se sloupcem „Množství" (Maneo) má přednost.
-        const zTextu = pocetZTabulky(msg!.message_text, item.raw_line)
-          ?? pocetZRadku(item.raw_line, Number(pkg?.volume_l ?? 0));
+        // Ne u výsledného stavu upravované objednávky: počet položky je tam
+        // VÝSLEDEK úpravy, ne opis textu. „2x50" v původní zprávě není počet
+        // po úpravě („těch padesátek budou 3" by se vrátilo na 2) a „ještě plus
+        // 1x50" je přídavek ke dvěma, které už v objednávce jsou (AI vrací 3).
+        // Co se mění, ukazuje náhled úpravy výš.
+        const zTextu = vyslednyStav ? null : (pocetZTabulky(msg!.message_text, item.raw_line)
+          ?? pocetZRadku(item.raw_line, Number(pkg?.volume_l ?? 0)));
         const aiQty = item.qty ?? 1;
         return {
           key: `item-${msg!.id}-${i}-${Date.now()}`,
@@ -516,7 +533,13 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
       const obaly = props.packages.map((p) => ({
         id: p.id, label: p.label, kind: (p as any).kind, volume_l: (p as any).volume_l,
       }));
-      const navrh = slozNavrh({ soucasne, zOdpovedi, text: msg.message_text, obaly, zOdpovediJePlnyStav: (msg.parsed_items ?? []).some((i) => i.plny_stav) });
+      // Stejný výpočet jako při zápisu (handleApproveWhatsAppOrder v Orders.tsx) —
+      // včetně tlačítek Přepsat / Přidat, ať náhled ukazuje to, co se zapíše.
+      const navrh = slozNavrh({
+        soucasne, zOdpovedi, text: msg.message_text, obaly,
+        zOdpovediJePlnyStav: (msg.parsed_items ?? []).some((i) => i.plny_stav),
+        zpusob: zpusobNapojeni ?? undefined,
+      });
 
       setAmendDiff(diffOrderItems(soucasne, navrh));
       setAmendPotvrzenoPrazdne(potvrzeneBezPolozek({ soucasne, potvrzeno: rozsah.potvrzeno, obaly }));
@@ -524,7 +547,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
     })();
     return () => { zruseno = true; };
      
-  }, [props.isOpen, msg?.amends_order_id, msg?.message_text, items, props.packages, jeVraceni]);
+  }, [props.isOpen, msg?.amends_order_id, msg?.message_text, items, props.packages, jeVraceni, zpusobNapojeni]);
 
   // „Pro Radka jeste plus toto" — zpráva říká, že je to PŘÍDAVEK k něčemu, co
   // už je objednané. Jistě to z textu poznat nejde (a tichá záměna „přidat" za
@@ -913,7 +936,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   // středa, pokud není jinak označeno ve zprávě — objednávka typu 2x30 se
   // automaticky označí středa, ale uživatel si ji může změnit"). Zpráva bez
   // dne dostane den odběratele podle stejného pravidla jako databáze
-  // (lib/denZavozu.ts): středa, u Restaurace, Lužce, Seebergu a Prodejny žádný.
+  // (lib/denZavozu.ts): středa, u Seebergu a Lužce pátek, u Restaurace a Prodejny žádný.
   // Databáze ho dosud doplnila potichu až po schválení a okno přitom hlásilo
   // „nevybráno"; teď je den vidět předem a jde změnit. Den ze zprávy, od AI
   // nebo vybraný rukou má vždy přednost.
@@ -1136,6 +1159,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
 
       // Zkopírujeme zprávu s položkami, jak je uživatel případně opravil
       // (správné pivo/obal z katalogu, upravené množství, opravený odběratel).
+      const jeVyslednyStav = !asNew && !!message.amends_order_id && (message.parsed_items ?? []).some((it) => it.plny_stav);
       const editedMessage: WhatsAppIncoming = {
         ...message,
         // Když se schvaluje jako nová, zahodíme vazbu na upravovanou objednávku
@@ -1160,6 +1184,11 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
           beer_name: it.beerName || null,
           package_label: it.packageLabel || null,
           raw_line: it.rawLine || null,
+          // Značka „výsledný stav upravované objednávky" musí schválení přežít:
+          // import podle ní skládá objednávku stejně jako náhled výš (slozNavrh).
+          // Bez ní by „ještě plus 1x50" celý výsledný stav k objednávce PŘIČETL
+          // (náhled 3× 50 l, zápis 5× 50 l a zdvojené ostatní řádky).
+          ...(jeVyslednyStav ? { plny_stav: true } : {}),
         })) as WhatsAppIncoming['parsed_items'],
       };
 

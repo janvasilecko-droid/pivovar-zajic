@@ -1,14 +1,17 @@
 // Výchozí den závozu odběratele (17. 11. 2026: „u objednávek nastav primárně
-// závoz středa, pokud není jinak označeno ve zprávě"). Musí říkat totéž co
-// databáze (vychozi_den_zavozu, migrace 20261231260000).
+// závoz středa, pokud není jinak označeno ve zprávě" a „u objednávek Seeberg,
+// Lužec dávej automaticky objednávky na pátek"). Musí říkat totéž co databáze
+// (vychozi_den_zavozu, migrace 20261231260000 a 20261231470000).
 import { describe, it, expect } from 'vitest';
 import { computeDeliveryDateISO, denADatumZeZpravyNeboVychozi, vychoziDenZavozu, VYCHOZI_DEN_ZAVOZU } from './denZavozu';
 
 const MISTA = [
   { id: 'p-lipa', name: 'Hospoda U Lípy' },
   { id: 'p-rest', name: 'Restaurace', vychozi_den_zavozu: 'zadny' },
-  { id: 'p-luzec', name: 'Lužec', vychozi_den_zavozu: 'zadny' },
-  { id: 'p-truck', name: 'Food truck', vychozi_den_zavozu: 'pa' },
+  { id: 'p-prodejna', name: 'Prodejna', vychozi_den_zavozu: 'zadny' },
+  { id: 'p-luzec', name: 'Lužec', vychozi_den_zavozu: 'pa' },
+  { id: 'p-seeberg', name: 'Seeberg', vychozi_den_zavozu: 'pa' },
+  { id: 'p-truck', name: 'Food truck', vychozi_den_zavozu: 'ct' },
   { id: 'p-null', name: 'Maneo', vychozi_den_zavozu: null },
 ];
 
@@ -22,13 +25,20 @@ describe('vychoziDenZavozu', () => {
     expect(vychoziDenZavozu([], null, '')).toBe('st');
   });
 
-  it('Restaurace, Lužec (zadny) žádný výchozí den nemají', () => {
+  it('Restaurace a Prodejna (zadny) žádný výchozí den nemají', () => {
     expect(vychoziDenZavozu(MISTA, 'p-rest', 'Restaurace')).toBeNull();
-    expect(vychoziDenZavozu(MISTA, null, 'Lužec')).toBeNull();
+    expect(vychoziDenZavozu(MISTA, null, 'Prodejna')).toBeNull();
+  });
+
+  it('Seeberg a Lužec mají pátek — podle id i jen podle jména', () => {
+    expect(vychoziDenZavozu(MISTA, 'p-seeberg', 'Seeberg')).toBe('pa');
+    expect(vychoziDenZavozu(MISTA, 'p-luzec', null)).toBe('pa');
+    expect(vychoziDenZavozu(MISTA, null, 'Lužec')).toBe('pa');
+    expect(vychoziDenZavozu(MISTA, null, ' seeberg ')).toBe('pa');
   });
 
   it('odběratel s vlastním dnem má ten den', () => {
-    expect(vychoziDenZavozu(MISTA, 'p-truck', null)).toBe('pa');
+    expect(vychoziDenZavozu(MISTA, 'p-truck', null)).toBe('ct');
   });
 
   it('jméno se hledá bez ohledu na velikost písmen a mezery; id má přednost před jménem', () => {
@@ -39,9 +49,11 @@ describe('vychoziDenZavozu', () => {
   });
 
   it('dva odběratelé stejného jména bez id: platí ten s nastaveným dnem (jako v databázi)', () => {
-    const dva = [{ id: 'a', name: 'Seeberg' }, { id: 'b', name: 'seeberg', vychozi_den_zavozu: 'zadny' }];
-    expect(vychoziDenZavozu(dva, null, 'Seeberg')).toBeNull();
+    const dva = [{ id: 'a', name: 'Seeberg' }, { id: 'b', name: 'seeberg', vychozi_den_zavozu: 'pa' }];
+    expect(vychoziDenZavozu(dva, null, 'Seeberg')).toBe('pa');
     expect(vychoziDenZavozu(dva, 'a', 'Seeberg')).toBe('st');
+    const bezDne = [{ id: 'a', name: 'Prodejna' }, { id: 'b', name: 'prodejna', vychozi_den_zavozu: 'zadny' }];
+    expect(vychoziDenZavozu(bezDne, null, 'Prodejna')).toBeNull();
   });
 
   it('neplatná hodnota ve sloupci se bere jako středa', () => {
@@ -86,5 +98,20 @@ describe('denADatumZeZpravyNeboVychozi — rychlý import zprávy bez kontrolní
 
   it('datum ze zprávy bez dne: den výchozí, datum ze zprávy', () => {
     expect(denADatumZeZpravyNeboVychozi({ ...zaklad, datum: '2026-11-27' })).toEqual({ den: 'st', datum: '2026-11-27' });
+  });
+
+  // 17. 11. 2026: „u objednávek Seeberg, Lužec dávej automaticky objednávky na pátek".
+  it('Seeberg a Lužec bez dne ve zprávě: nejbližší pátek (v pátek týž den, v sobotu až další)', () => {
+    const seeberg = { ...zaklad, placeId: 'p-seeberg', placeName: 'Seeberg' };
+    expect(denADatumZeZpravyNeboVychozi({ ...seeberg, dnes: '2026-11-17' })).toEqual({ den: 'pa', datum: '2026-11-20' });
+    expect(denADatumZeZpravyNeboVychozi({ ...seeberg, dnes: '2026-11-20' })).toEqual({ den: 'pa', datum: '2026-11-20' });
+    expect(denADatumZeZpravyNeboVychozi({ ...seeberg, dnes: '2026-11-21' })).toEqual({ den: 'pa', datum: '2026-11-27' });
+    expect(denADatumZeZpravyNeboVychozi({ ...zaklad, placeId: null, placeName: 'Lužec', dnes: '2026-11-17' })).toEqual({ den: 'pa', datum: '2026-11-20' });
+  });
+
+  it('Seeberg s dnem ve zprávě („na čtvrtek"): platí den ze zprávy, ne pátek', () => {
+    const seeberg = { ...zaklad, placeId: 'p-seeberg', placeName: 'Seeberg', dnes: '2026-11-17' };
+    expect(denADatumZeZpravyNeboVychozi({ ...seeberg, den: 'ct' })).toEqual({ den: 'ct', datum: '2026-11-19' });
+    expect(denADatumZeZpravyNeboVychozi({ ...seeberg, den: 'ut', datum: '2026-11-24' })).toEqual({ den: 'ut', datum: '2026-11-24' });
   });
 });
