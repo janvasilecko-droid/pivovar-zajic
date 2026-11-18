@@ -82,11 +82,17 @@ type Props = {
   den?: string;
   /** Doplněk vpravo v liště (např. pole „pro koho" u fasování). */
   hlavickaVpravo?: ReactNode;
+  /**
+   * Schová seznam „Už uloženo". U objednávky nic uloženého není — řádky jsou
+   * rozepsané v průvodci a vidět jsou na odznacích obalů, takže nadpis
+   * „Už uloženo … Zatím nic." by jen mátl.
+   */
+  skrytUlozene?: boolean;
 };
 
 const kratky = (stitek: string) => stitek.replace(/^\d+\s*·\s*/, '');
 
-export function KrokoveZadavani({ beer, podtitul, kroky, onZavrit, onHotovo, dnes, onUpravit, den = 'dnes', hlavickaVpravo }: Props) {
+export function KrokoveZadavani({ beer, podtitul, kroky, onZavrit, onHotovo, dnes, onUpravit, den = 'dnes', hlavickaVpravo, skrytUlozene }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const vychozi = (i: number) => {
     const k = kroky[i];
@@ -382,6 +388,7 @@ export function KrokoveZadavani({ beer, podtitul, kroky, onZavrit, onHotovo, dne
           </div>
 
 
+          {!skrytUlozene && (
           <div className="border-t border-neutral-200 dark:border-neutral-700 pt-2.5">
             <div className="text-udaj font-black uppercase tracking-wider text-neutral-500 mb-1">Už uloženo {den} u {beerName(beer)}</div>
             {dnesPolozky.length > 0 ? (
@@ -406,6 +413,7 @@ export function KrokoveZadavani({ beer, podtitul, kroky, onZavrit, onHotovo, dne
               <p className="text-sm text-neutral-500">Zatím nic.</p>
             )}
           </div>
+          )}
         </div>
         <div className="shrink-0 border-t border-neutral-200 dark:border-neutral-700 p-3 bg-white dark:bg-neutral-800" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 0px))' }}>
           <div className="grid grid-cols-[1fr_1.4fr] gap-2">

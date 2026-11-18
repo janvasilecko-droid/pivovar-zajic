@@ -44,6 +44,7 @@ export default defineConfig({
         index: resolve(__dirname, 'nahled/index.html'),
         panel: resolve(__dirname, 'nahled/panel.html'),
         obrazovky: resolve(__dirname, 'nahled/obrazovky.html'),
+        pruvodce: resolve(__dirname, 'nahled/pruvodce.html'),
       },
     },
   },

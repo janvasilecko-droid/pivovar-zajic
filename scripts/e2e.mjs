@@ -143,6 +143,78 @@ try {
   }
   overit(chybyVzorniku.length === 0, `vzorník nevyhodil chybu${chybyVzorniku.length ? ': ' + chybyVzorniku[0] : ''}`);
   await vzornik.close();
+
+  // ── Scénář 3: průvodce zadáním objednávky ────────────────────────────
+  // Nová objednávka krok za krokem na telefonu: odběratel → pivo → souhrn →
+  // uložení. Okno samo neukládá — náhled vypíše koncept, který by dostala
+  // obrazovka Objednávky. Chrání to, co jednotkové testy nevidí: že se dá
+  // proklikat skutečným CSS, že se žádný krok nerozjede do stran a že žádný
+  // cíl pro prst není menší než 44 px.
+  console.log('\nScénář: nová objednávka — průvodce, tři kroky na telefonu');
+  const pruvodce = await b.newPage({ viewport: { width: 390, height: 844 } });
+  const chybyPruvodce = [];
+  pruvodce.on('pageerror', (e) => chybyPruvodce.push(String(e)));
+  await pruvodce.goto(`${ADRESA}/pruvodce.html`, { waitUntil: 'networkidle' });
+
+  const kontrolaRozlozeni = async (kde) => {
+    const r = await pruvodce.evaluate(() => {
+      const male = [];
+      for (const el of document.querySelectorAll('button, input:not([type=checkbox]), select, [role=radio]')) {
+        const box = el.getBoundingClientRect();
+        if (box.width === 0 || box.height === 0 || getComputedStyle(el).visibility === 'hidden') continue;
+        if (box.height < 43.5) male.push(`${(el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 24)} ${Math.round(box.height)} px`);
+      }
+      return { doc: document.documentElement.scrollWidth, okno: window.innerWidth, male };
+    });
+    overit(r.doc <= r.okno + 1, `${kde}: stránka se neroluje do stran (${r.doc} ≤ ${r.okno})`);
+    overit(r.male.length === 0, `${kde}: každý cíl pro prst má aspoň 44 px${r.male.length ? ` — malé: ${r.male.join(', ')}` : ''}`);
+  };
+
+  await kontrolaRozlozeni('krok 1 (odběratel)');
+  const dal = pruvodce.getByRole('button', { name: /Dál — vybrat pivo/ });
+  overit(await dal.isDisabled(), 'bez odběratele je „Dál" zamčené');
+  await pruvodce.getByRole('button', { name: /^Radek/ }).click();
+  overit(await dal.isDisabled(), 'odběratel s víc místy: „Dál" čeká, až se vybere místo');
+  await pruvodce.getByRole('button', { name: 'Sklad', exact: true }).click();
+  overit(await dal.isEnabled(), 'po výběru místa je „Dál" odemčené');
+  await dal.click();
+
+  await pruvodce.getByRole('heading', { name: 'Které pivo?' }).waitFor();
+  await kontrolaRozlozeni('krok 2 (pivo)');
+  await pruvodce.getByRole('button', { name: /12° Světlá/ }).click();
+  await pruvodce.getByRole('textbox', { name: 'Kolik kusů?' }).fill('2');
+  await kontrolaRozlozeni('panel obalu a počtu');
+  await pruvodce.getByRole('button', { name: /^Hotovo/ }).click();
+  overit(await pruvodce.getByRole('button', { name: /12° Světlá.*2×50/ }).count() > 0, 'dlaždice piva ukazuje rozepsané „2×50"');
+
+  await pruvodce.getByRole('button', { name: /^Souhrn/ }).click();
+  await pruvodce.getByRole('heading', { name: 'Souhrn objednávky' }).waitFor();
+  await kontrolaRozlozeni('krok 3 (souhrn)');
+  overit(await pruvodce.getByText('2× 50 l').count() > 0, 'souhrn ukazuje „2× 50 l"');
+  await pruvodce.getByRole('button', { name: /Uložit objednávku/ }).click();
+  await pruvodce.getByText('Objednávka uložena').waitFor();
+  const ulozeno = JSON.parse((await pruvodce.getByTestId('ulozeno').textContent()) ?? '[]');
+  overit(
+    ulozeno.length === 1 && ulozeno[0].placeId === 'p-radek' && ulozeno[0].mistoZavozu === 'sklad'
+      && ulozeno[0].radky.length === 1 && ulozeno[0].radky[0].qty === 2,
+    'uložila se jedna objednávka: Radek, místo Sklad, 2× sud 50 l',
+  );
+  overit(chybyPruvodce.length === 0, `průvodce nevyhodil chybu${chybyPruvodce.length ? ': ' + chybyPruvodce[0] : ''}`);
+  await pruvodce.close();
+
+  // Na počítači jsou všechny tři kroky vedle sebe.
+  const pocitac = await b.newPage({ viewport: { width: 1280, height: 800 } });
+  const chybyPocitac = [];
+  pocitac.on('pageerror', (e) => chybyPocitac.push(String(e)));
+  await pocitac.goto(`${ADRESA}/pruvodce.html`, { waitUntil: 'networkidle' });
+  await pocitac.getByRole('region', { name: 'Souhrn objednávky' }).waitFor();
+  overit(await pocitac.getByRole('region', { name: 'Pro koho a na kdy' }).isVisible(), 'počítač: vidět odběratele a den');
+  overit(await pocitac.getByRole('region', { name: 'Pivo, obal a počet' }).isVisible(), 'počítač: vidět piva');
+  overit(await pocitac.getByRole('region', { name: 'Souhrn objednávky' }).isVisible(), 'počítač: vidět souhrn');
+  const sirkaPc = await pocitac.evaluate(() => ({ doc: document.documentElement.scrollWidth, okno: window.innerWidth }));
+  overit(sirkaPc.doc <= sirkaPc.okno + 1, `počítač: stránka se neroluje do stran (${sirkaPc.doc} ≤ ${sirkaPc.okno})`);
+  overit(chybyPocitac.length === 0, `průvodce na počítači nevyhodil chybu${chybyPocitac.length ? ': ' + chybyPocitac[0] : ''}`);
+  await pocitac.close();
 } finally {
   await b.close();
 }

@@ -8,7 +8,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { useZavriNaZpet } from './zavriNaZpet';
+import { useZavriNaZpet, useZpetNaKrok } from './zavriNaZpet';
 
 describe('useZavriNaZpet', () => {
   beforeEach(() => {
@@ -88,5 +88,66 @@ describe('useZavriNaZpet', () => {
       await act(async () => { await Promise.resolve(); });
       expect(backSpy).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe('useZpetNaKrok', () => {
+  beforeEach(() => { window.history.replaceState({ page: 'orders_entry' }, ''); });
+
+  it('otevření přidá krok do historie a zachová stránku', () => {
+    renderHook(() => useZpetNaKrok(true, () => 'zavri'));
+    expect(window.history.state).toMatchObject({ modalOpen: true, page: 'orders_entry' });
+  });
+
+  it('zavřený dialog do historie nesahá', () => {
+    renderHook(() => useZpetNaKrok(false, () => 'zavri'));
+    expect(window.history.state?.modalOpen).toBeUndefined();
+  });
+
+  it('když dialog po Zpět zůstává (krok zpět), vloží se záznam znovu, ať jde Zpět stisknout i dál', () => {
+    const naZpet = vi.fn(() => 'zustan' as const);
+    renderHook(() => useZpetNaKrok(true, naZpet));
+    // Prohlížeč po stisku Zpět záznam odebral — simulace: stav je zase ten bez dialogu.
+    window.history.replaceState({ page: 'orders_entry' }, '');
+    act(() => { window.dispatchEvent(new PopStateEvent('popstate')); });
+    expect(naZpet).toHaveBeenCalledTimes(1);
+    expect(window.history.state).toMatchObject({ modalOpen: true, page: 'orders_entry' });
+  });
+
+  it('když se dialog zavřel sám, nic se do historie nevrací', () => {
+    renderHook(() => useZpetNaKrok(true, () => 'zavri'));
+    window.history.replaceState({ page: 'orders_entry' }, '');
+    act(() => { window.dispatchEvent(new PopStateEvent('popstate')); });
+    expect(window.history.state?.modalOpen).toBeUndefined();
+  });
+
+  it('používá se vždy aktuální obsluha, ne ta z prvního vykreslení', () => {
+    const prvni = vi.fn(() => 'zavri' as const);
+    const druhy = vi.fn(() => 'zavri' as const);
+    const { rerender } = renderHook(({ fn }) => useZpetNaKrok(true, fn), { initialProps: { fn: prvni } });
+    rerender({ fn: druhy });
+    act(() => { window.dispatchEvent(new PopStateEvent('popstate')); });
+    expect(prvni).not.toHaveBeenCalled();
+    expect(druhy).toHaveBeenCalledTimes(1);
+  });
+
+  it('po zavření dialogu křížkem se back() zavolá až v mikrotasku a jen když je navrchu vlastní záznam', async () => {
+    const backSpy = vi.spyOn(window.history, 'back').mockImplementation(() => {});
+    try {
+      const { unmount } = renderHook(() => useZpetNaKrok(true, () => 'zavri'));
+      unmount();
+      expect(backSpy).not.toHaveBeenCalled();
+      await act(async () => { await Promise.resolve(); });
+      expect(backSpy).toHaveBeenCalledTimes(1);
+      // Navrchu cizí záznam (nový dialog ve stejném commitu) → back() se přeskočí.
+      backSpy.mockClear();
+      const druhy = renderHook(() => useZpetNaKrok(true, () => 'zavri'));
+      druhy.unmount();
+      window.history.pushState({ modalOpen: true, modalId: 'cizi' }, '');
+      await act(async () => { await Promise.resolve(); });
+      expect(backSpy).not.toHaveBeenCalled();
+    } finally {
+      backSpy.mockRestore();
+    }
   });
 });

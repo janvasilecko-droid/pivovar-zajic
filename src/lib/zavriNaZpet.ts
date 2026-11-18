@@ -70,6 +70,40 @@ export function useZavriNaZpet(open: boolean, onClose: () => void): void {
 }
 
 /**
+ * ⬅️ Zpět po krocích — pro dialog s víc kroky (průvodce zadáním objednávky).
+ *
+ * Jako `useZavriNaZpet`, jen o tom, co Zpět udělá, rozhoduje `naZpet`:
+ *  - `'zustan'` — dialog zůstává otevřený (vrátil se o krok, zavřel se vnořený
+ *    panel, nebo se čeká na odpověď „zahodit rozepsané?"). Prohlížeč záznam
+ *    z historie už odebral, proto se vloží znovu — jinak by příští Zpět odešel
+ *    z celé obrazovky.
+ *  - `'zavri'` — dialog se zavřel sám (zavolal `onClose`); záznam už je pryč.
+ *
+ * Úklid při zavření dialogu křížkem je stejný jako u `useZavriNaZpet`.
+ */
+export function useZpetNaKrok(open: boolean, naZpet: () => 'zustan' | 'zavri'): void {
+  const naZpetRef = useRef(naZpet);
+  useEffect(() => { naZpetRef.current = naZpet; }, [naZpet]);
+
+  useEffect(() => {
+    if (!open) return;
+    const modalId = Math.random().toString(36).slice(2);
+    const vloz = () => window.history.pushState({ ...window.history.state, modalOpen: true, modalId }, '');
+    vloz();
+    const onPopState = () => { if (naZpetRef.current() === 'zustan') vloz(); };
+    window.addEventListener('popstate', onPopState);
+    return () => {
+      window.removeEventListener('popstate', onPopState);
+      queueMicrotask(() => {
+        if (window.history.state?.modalOpen && window.history.state?.modalId === modalId) {
+          window.history.back();
+        }
+      });
+    };
+  }, [open]);
+}
+
+/**
  * Escape zavírá a pod otevřeným dialogem se neroluje stránka.
  *
  * Druhá půlka toho, co `Modal` dělá navíc proti ručně nakresleným dialogům.
