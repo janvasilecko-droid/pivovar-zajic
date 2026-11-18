@@ -292,6 +292,10 @@ const ODDILY: Oddil[] = [
     kCemu: 'Evidence objednávek od zadání po podpis při předání.',
     body: [
       {
+        co: 'Nová objednávka krok za krokem',
+        jak: 'Nahoře na stránce „Nová obj.“ je velké tlačítko „Nová objednávka — krok za krokem“. 1) Odběratel: napiš ho do hledání (jde i bez háčků — „zizkov“ najde Žižkov) nebo klepni na dlaždici; odběratel, který vozí na víc míst (třeba Radek: Sklad, Drobák), se zeptá „kam tentokrát?“. Pod tím vyber den závozu — bez výběru platí výchozí den odběratele (středa, Seeberg a Lužec pátek) a appka ho napíše předem; jiné datum, i zpětné, je pod dny. 2) Pivo: dlaždice piv jako ve Fasování — klepni na pivo, vyber obal (sudy nahoře, lahve pod nimi) a napiš počet, nebo klepni na jedno z pěti nejčastějších čísel; „+ další obal“ přidá druhou velikost téhož piva. Stálému odběrateli nabídne „Zopakovat tyhle položky“. 3) Souhrn: tužkou položku upravíš, košem odebereš (jde vzít zpět), dole je poznámka a „Uložit objednávku“. Tlačítko Zpět vrací o krok a rozepsanou objednávku nezahodí bez zeptání. Na počítači jsou všechny tři kroky vedle sebe. Podrobný formulář, zadání textem, z WhatsAppu a z fotky zůstávají pod tlačítkem.',
+      },
+      {
         co: 'Pět způsobů zadání',
         jak: 'Klepni na tlačítko Odběratel — v okně ho napiš (seznam se při psaní zúží na odpovídající odběratele), nebo vyber z tlačítek: nahoře jsou Nejčastější, pod nimi všichni podle abecedy s nadpisy písmen a lištou písmen na rychlý skok (třeba M → Martin). Pak piva dlaždicemi, nebo vložením textu, z WhatsApp zprávy či vyfocením papíru. Bez závozu a Stočit dnes jsou pod pivy. Objednávka bez závozu (Restaurace, Jitka, Mates, Terasa — odběratel si bere pivo sám) se bez vybraného dne odečte ze skladu hned ten den, kdy ji zapíšeš; když si pivo vzali jindy, vyber den nahoře v „Datum závozu“. U objednávky se závozem je bez vybraného dne označená středa (výchozí den; Seeberg a Lužec mají pátek, Restaurace a Prodejna žádný) — klepnutím na jiný den ji změníš. Stejně to dělá čtení zprávy z WhatsAppu: „2x30“ označí středu (u Seebergu a Lužce pátek), „2x30 na pátek“ pátek.',
       },
