@@ -86,7 +86,7 @@ describe('Fasování — krokové zadávání', () => {
 
   it('klepnutí na pivo otevře otázku s polem; lahve a pod nimi sudy, rychlá čísla z historie', async () => {
     otevri();
-    fireEvent.click(await screen.findByRole('button', { name: /12° Světlá/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /^12° Světlá$/ }));
     const panel = await screen.findByRole('dialog');
     expect(within(panel).getByText('Kolik kusů?')).toBeTruthy();
     expect(document.activeElement).toBe(pole(panel));
@@ -100,7 +100,7 @@ describe('Fasování — krokové zadávání', () => {
 
   it('obal a počet: 0,5 l × 24 a 50 l × 1 → oba v zápisu, uložení až tlačítkem', async () => {
     otevri();
-    fireEvent.click(await screen.findByRole('button', { name: /12° Světlá/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /^12° Světlá$/ }));
     const panel = await screen.findByRole('dialog');
     fireEvent.click(within(panel).getByRole('radio', { name: '0,5 l' }));
     fireEvent.change(pole(panel), { target: { value: '24' } });
@@ -116,7 +116,7 @@ describe('Fasování — krokové zadávání', () => {
 
   it('pod polem je dnešní zápis téhle tabulky, včerejší ne', async () => {
     otevri();
-    fireEvent.click(await screen.findByRole('button', { name: /12° Světlá/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /^12° Světlá$/ }));
     const panel = await screen.findByRole('dialog');
     expect(within(panel).getByText(/Už uloženo dnes u 12° Světlá/)).toBeTruthy();
     expect(within(panel).getByText('10× 1 l')).toBeTruthy();
@@ -125,7 +125,7 @@ describe('Fasování — krokové zadávání', () => {
 
   it('„pro koho" zůstává v liště panelu (fasování pro personál)', async () => {
     render(<ProdejnaScreen table="fasovani" title="Fasování personál" />);
-    fireEvent.click(await screen.findByRole('button', { name: /12° Světlá/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /^12° Světlá$/ }));
     const panel = await screen.findByRole('dialog');
     const kdo = within(panel).getAllByRole('textbox').find((i) => (i as HTMLInputElement).placeholder !== '0') as HTMLInputElement;
     expect(kdo).toBeTruthy();

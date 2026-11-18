@@ -9,7 +9,7 @@ import { parseExplicitDate } from './orderDates';
 import { businessNow } from './businessDate';
 import { authenticatedFunctionHeaders } from './functionAuth';
 import { zalogujANahlas } from './chybyHlaseni';
-import { norm } from './whatsappAmendment';
+import { mistoZCitace } from '../../supabase/functions/_shared/citovana-zprava';
 
 // 📷 Stažení fotky z WhatsApp (media_url ze Supabase Storage) a převod na base64
 // pro AI čtení. Velké fotky zmenšíme na max. 1600 px (JPEG), aby se request
@@ -554,7 +554,7 @@ export async function parseWhatsAppOrderMessageWithAI(
         ).toISOString();
         const { data: contextData } = await supabase
           .from('whatsapp_incoming')
-          .select('sender_name, participant_name, message_timestamp, message_text, from_me, created_at, imported_order_id, parsed_place_id, parsed_place_name')
+          .select('id, sender_name, participant_name, message_timestamp, message_text, from_me, created_at, status, imported_order_id, parsed_place_id, parsed_place_name')
           .eq('chat_id', currentMsg.chat_id)
           .lt('created_at', currentMsg.created_at)
           .gte('created_at', since)
@@ -569,17 +569,16 @@ export async function parseWhatsAppOrderMessageWithAI(
             fromMe: !!m.from_me,
           }));
 
-          const q = norm(quotedText);
-          if (q.length >= 3) {
-            const kandidati = contextData.filter((z: any) => {
-              const t = norm(z.message_text);
-              return t && (t.startsWith(q) || q.startsWith(t));
-            });
-            const vybrany = kandidati.find((z: any) => z.imported_order_id) ?? kandidati[0] ?? null;
-            if (vybrany) {
-              quotedPlaceId = vybrany.parsed_place_id ?? null;
-              quotedPlaceName = vybrany.parsed_place_name ?? null;
-            }
+          // Odběratel z citované zprávy — stejné pravidlo jako na serveru
+          // (_shared/citovana-zprava.ts): nejnovější shoda citace, ne nejstarší
+          // zpráva s objednávkou.
+          const nalez = mistoZCitace(
+            { id: messageId, created_at: currentMsg.created_at, quoted_text: quotedText },
+            contextData as any[],
+          );
+          if (nalez) {
+            quotedPlaceId = nalez.placeId;
+            quotedPlaceName = nalez.placeName;
           }
         }
       }

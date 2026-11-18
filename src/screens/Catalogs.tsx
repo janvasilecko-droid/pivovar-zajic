@@ -13,6 +13,7 @@ import { usePosledniNacteni } from '../lib/nacitani';
 import { useAuth } from '../lib/auth';
 import { isAdminEmail } from '../lib/config';
 import { fetchPlaceAliasesForAdmin, deletePlaceAlias, pridejPlaceAliasRucne, upravPlaceAlias, type PlaceAliasRow, fetchAliasesForAdmin, deleteAlias, pridejAliasRucne, upravAlias, type ParserAliasRow } from '../lib/orderParser';
+import { shodaHledani } from '../lib/hledani';
 
 /* ===== PIVA ===== */
 export function BeersScreen() {
@@ -55,8 +56,7 @@ export function BeersScreen() {
 
   const filtered = useMemo(() => {
     if (!search.trim()) return rows;
-    const term = search.toLowerCase();
-    return rows.filter((b) => b.name.toLowerCase().includes(term) || (b.degree ?? '').toLowerCase().includes(term) || (b.color ?? '').toLowerCase().includes(term));
+    return rows.filter((b) => shodaHledani([b.name, b.degree, b.color], search));
   }, [rows, search]);
 
   return (
@@ -538,8 +538,8 @@ export function PlacesScreen() {
 
   const filtered = useMemo(() => {
     if (!search.trim()) return rows;
-    const term = search.toLowerCase();
-    return rows.filter((p) => p.name.toLowerCase().includes(term) || (p.address ?? '').toLowerCase().includes(term) || (p.contact_name ?? '').toLowerCase().includes(term));
+    // Bez ohledu na diakritiku (lib/hledani.ts): „luzec" najde „Lužec".
+    return rows.filter((p) => shodaHledani([p.name, p.address, p.contact_name], search));
   }, [rows, search]);
 
   const missingGps = useMemo(

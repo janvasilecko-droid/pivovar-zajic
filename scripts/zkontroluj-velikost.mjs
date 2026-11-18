@@ -38,8 +38,15 @@ const DIST = join(KOREN, 'dist');
  * Před opravou to bylo 341 kB. Strop je 260 kB, tedy ~15 % rezerva na
  * běžný růst; kdo ho překročí, má se nejdřív podívat, jestli mu do startu
  * nespadlo něco, co tam nepatří (grafy, xlsx, celá obrazovka).
+ *
+ * 18. 11. 2026: naměřeno 259,8 kB, tedy těsně pod stropem, a to po samých
+ * skutečných funkcích plochy (fáze tanků, rychlé odpočty v liště, stahování
+ * poznámek z jiného zařízení) a po tom, co se okno úprav odpočtů vyndalo do
+ * samostatného kusu. Žádná knihovna ani celá obrazovka do startu nespadla,
+ * proto se strop zvedá rozmyšleně na 265 kB — ať se při příští drobné změně
+ * neřeší desetiny kilobajtu.
  */
-const STROP_KB = 260;
+const STROP_KB = 265;
 
 if (!existsSync(join(DIST, 'index.html'))) {
   console.error('Chybí dist/index.html — nejdřív `npm run build`.');

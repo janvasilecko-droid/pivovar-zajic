@@ -36,6 +36,17 @@ describe('objednavkaShoduje', () => {
   it('nenajde, co tam není', () => {
     expect(objednavkaShoduje(OBJEDNAVKA, 'tmavá')).toBe(false);
   });
+  it('najde i bez diakritiky a bez ohledu na velikost písmen (18. 11. 2026)', () => {
+    expect(objednavkaShoduje({ ...OBJEDNAVKA, place_name: 'Lužec' }, 'luzec')).toBe(true);
+    expect(objednavkaShoduje({ ...OBJEDNAVKA, place_name: 'Lokálka Říčany' }, 'RICANY')).toBe(true);
+    expect(objednavkaShoduje(OBJEDNAVKA, 'svetla')).toBe(true);
+    expect(objednavkaShoduje(OBJEDNAVKA, 'tmava')).toBe(false);
+  });
+  it('odběratel + pivo v jednom dotazu', () => {
+    expect(objednavkaShoduje({ ...OBJEDNAVKA, place_name: 'Lužec' }, 'luzec svetla')).toBe(true);
+    expect(objednavkaShoduje({ ...OBJEDNAVKA, place_name: 'Lužec' }, 'luzec tmava')).toBe(false);
+    expect(objednavkaShoduje(OBJEDNAVKA, '12 svetla')).toBe(true);
+  });
 });
 
 const ZAPIS: PrehledZapis = {

@@ -20,57 +20,39 @@
 //      aby šlo obsluze ukázat původní objednávku se zvýrazněnými změnami
 //      a nechat ji potvrdit.
 
+import { normCitace, vyberRodice } from '../../supabase/functions/_shared/citovana-zprava';
+
 export type WhatsAppMsgRef = {
   id: string;
   created_at: string;
   message_text: string | null;
   quoted_text?: string | null;
   imported_order_id?: string | null;
+  /** pending / processing / parsed / imported / ignored / error — rozhoduje, jestli ze zprávy ještě může být objednávka. */
+  status?: string | null;
 };
 
-/** Normalizace pro porovnání citace s původní zprávou. */
-export function norm(s: string | null | undefined): string {
-  return (s ?? '')
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
+/** Normalizace pro porovnání citace s původní zprávou (jedna pro server i aplikaci). */
+export const norm = normCitace;
 
 /**
  * Najde původní zprávu, na kterou odpověď reaguje.
  *
  * WhatsApp v citaci posílá jen ZAČÁTEK původní zprávy a delší text ořezává,
- * proto se porovnává prefixem v obou směrech. Krátké citace („Maneo",
- * „Pullitry") sedí na víc zpráv naráz — proto se z kandidátů bere ta, která
- * odpovědi časově nejblíž PŘEDCHÁZÍ, a přednost dostane zpráva, ze které
- * skutečně vznikla objednávka (tu má smysl upravovat).
+ * proto se porovnává prefixem v obou směrech. Citaci ale sedí víc zpráv naráz
+ * (objednávky se posílají pořád stejným zněním, krátké citace jako „Maneo"
+ * sedí na spoustu zpráv) — rozhoduje se podle pravidla v
+ * `_shared/citovana-zprava.ts`, stejného jako na serveru: bere se NEJNOVĚJŠÍ
+ * shoda. Zpráva, ze které vznikla objednávka, se upravuje; novější zpráva,
+ * která zatím jen čeká na schválení, je rodič BEZ objednávky (vrací se i ona,
+ * s `imported_order_id` prázdným) — odpověď se nesmí přišít ke staré objednávce
+ * z minulého týdne jen proto, že ta nová ještě nemá objednávku.
  */
 export function findQuotedMessage(
   reply: WhatsAppMsgRef,
   vsechny: WhatsAppMsgRef[]
 ): WhatsAppMsgRef | null {
-  const q = norm(reply.quoted_text);
-  if (q.length < 3) return null;
-
-  const kandidati = vsechny.filter((m) => {
-    if (m.id === reply.id) return false;
-    if (m.created_at >= reply.created_at) return false;
-    const t = norm(m.message_text);
-    if (!t) return false;
-    return t.startsWith(q) || q.startsWith(t);
-  });
-  if (kandidati.length === 0) return null;
-
-  // Nejbližší předcházející; při shodě vyhraje ta s objednávkou.
-  kandidati.sort((a, z) => {
-    const aOrd = a.imported_order_id ? 1 : 0;
-    const zOrd = z.imported_order_id ? 1 : 0;
-    if (aOrd !== zOrd) return zOrd - aOrd;
-    return a.created_at < z.created_at ? 1 : -1;
-  });
-  return kandidati[0];
+  return vyberRodice(reply, vsechny).zprava;
 }
 
 /**
@@ -89,6 +71,50 @@ export function opravenyCilUpravy(
   const spravna = findAmendedOrderId(reply, vsechny);
   if (!spravna || spravna === (reply.amends_order_id ?? null)) return null;
   return spravna;
+}
+
+export type PosudekNapojeni = {
+  /** Zpráva, ke které odpověď patří (null = nenašla se). */
+  rodic: WhatsAppMsgRef | null;
+  /** Rodič je novější zpráva, která ještě není schválená — odpověď se zatím k žádné objednávce nepřipojí. */
+  ceka: boolean;
+  /**
+   * Co udělat s uloženým napojením odpovědi:
+   *  - `prepojit` — odpověď visí na jiné objednávce, než ze které vznikl rodič,
+   *  - `zrusit`   — visí na objednávce STARŠÍ zprávy stejného znění, ale patří
+   *                 k novější zprávě, ze které objednávka teprve vznikne,
+   *  - `nic`      — napojení sedí (nebo ho udělal člověk, to se nepřebíjí).
+   */
+  akce: 'nic' | 'prepojit' | 'zrusit';
+  /** Objednávka, na kterou přepojit (jen u `prepojit`). */
+  orderId: string | null;
+};
+
+/**
+ * Posoudí, jestli uložené napojení odpovědi odpovídá tomu, ke které zprávě
+ * podle citace opravdu patří. Napojení z citace udělá server hned, jak
+ * odpověď přijde — dřív, než obsluha schválí novou zprávu, na kterou odpovídá;
+ * proto se při otevření kontroly ověřuje znovu (viz `opravenyCilUpravy`).
+ *
+ * `zrusit` se hlásí jen u napojení, které udělal server z citace: odpověď si
+ * pamatuje, kterou zprávu citovala (`amends_message_id`), a objednávka musí být
+ * právě ta z té zprávy. Co obsluha napojila ručně (jiná objednávka), se nechává.
+ */
+export function posudNapojeni(
+  reply: WhatsAppMsgRef & { amends_order_id?: string | null; amends_message_id?: string | null },
+  vsechny: WhatsAppMsgRef[]
+): PosudekNapojeni {
+  const r = vyberRodice(reply, vsechny);
+  const aktualni = reply.amends_order_id ?? null;
+  if (r.objednavkaId) {
+    return { rodic: r.zprava, ceka: false, akce: r.objednavkaId === aktualni ? 'nic' : 'prepojit', orderId: r.objednavkaId };
+  }
+  let akce: PosudekNapojeni['akce'] = 'nic';
+  if (r.ceka && r.zprava && aktualni && reply.amends_message_id && reply.amends_message_id !== r.zprava.id) {
+    const drivejsiRodic = vsechny.find((m) => m.id === reply.amends_message_id);
+    if (drivejsiRodic && drivejsiRodic.imported_order_id === aktualni) akce = 'zrusit';
+  }
+  return { rodic: r.zprava, ceka: r.ceka, akce, orderId: null };
 }
 
 /** Objednávku, kterou odpověď upravuje (pokud z citované zprávy nějaká vznikla). */

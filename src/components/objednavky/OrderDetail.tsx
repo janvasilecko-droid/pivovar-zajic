@@ -11,7 +11,7 @@ import { DAYS } from '../../lib/shared';
 
 import type {  } from '../../lib/tankUZapisu';
 
-import { chyba, oznam, potvrd, uspech } from '../../lib/toast';
+import { chyba, oznam, potvrd, toastZpet, uspech } from '../../lib/toast';
 import { srovnaniPoUprave, type UpravaPolozky } from '../../lib/zavozSync';
 import { parseDeliveryTimeHint } from '../../lib/orderParser';
 import { createReminder, getLocalReminders } from '../../lib/reminders';
@@ -32,6 +32,7 @@ import { StitekStavu } from '../StitekStavu';
 import { type Order, type OrderItem, dayColor } from './spolecne';
 import { WhatsAppOriginalBlock } from './WhatsAppOriginalBlock';
 import { VolbaMistaZavozu } from '../MistaZavozu';
+import { OdberatelTlacitko } from '../OdberatelTlacitko';
 import { maViceMist } from '../../lib/mistaZavozu';
 import { ulozMistoObjednavky } from '../../lib/mistaZavozuDb';
 export function OrderDetail({ order, items, beers, packages, places, priceList, remaining, onClose, onChanged, onSplit, onToggleFlag, onToggleItemFlag, onImportImage, setItems, allOrders, allItems, setPage, weekKey, setWeekKey }: {
@@ -119,6 +120,30 @@ export function OrderDetail({ order, items, beers, packages, places, priceList, 
     setUkladamMisto(false);
     if (potiz) { setMistoId(predtim); chyba(potiz); return; }
     onChanged();
+  }
+  // 👤 Změna odběratele přímo v objednávce (18. 11. 2026: „ať se edituje odběratel
+  // přímo v objednávce jednodušeji"). Dřív jen přes Upravit → pole s napovídáním.
+  // Stejné okno výběru jako u nové objednávky (Nejčastější, A–Z, hledání bez
+  // diakritiky) a hned se uloží; „Vrátit zpět" vrátí původního.
+  const [vybranyOdberatel, setVybranyOdberatel] = useState({ id: order.place_id ?? '', jmeno: order.place_name ?? '' });
+  async function zmenOdberatele(id: string, jmeno: string) {
+    const puvodniId = order.place_id;
+    const puvodniJmeno = order.place_name;
+    const puvodniMisto = order.misto_zavozu ?? null;
+    if (id === puvodniId && jmeno === (puvodniJmeno ?? '')) return;
+    // Místa závozu patří odběrateli — z původního se u nového nedá nic vybrat.
+    const zmena: Record<string, unknown> = { place_id: id, place_name: jmeno };
+    if (puvodniMisto) zmena.misto_zavozu = null;
+    const { error } = await supabase.from('orders').update(zmena).eq('id', order.id);
+    if (error) { chyba(`Odběratele se nepodařilo změnit: ${error.message}`); return; }
+    onChanged();
+    toastZpet(`Odběratel změněn: ${puvodniJmeno || '—'} → ${jmeno}`, async () => {
+      const zpet: Record<string, unknown> = { place_id: puvodniId, place_name: puvodniJmeno };
+      if (puvodniMisto) zpet.misto_zavozu = puvodniMisto;
+      const { error: chybaZpet } = await supabase.from('orders').update(zpet).eq('id', order.id);
+      if (chybaZpet) throw chybaZpet;
+      onChanged();
+    });
   }
   // Znění originální WhatsApp zprávy (viz WhatsAppOriginalBlock níž) — kvůli
   // odhadu času dovozu ("přijedou kolem poledne") i tehdy, když ho stáčeč
@@ -393,17 +418,37 @@ export function OrderDetail({ order, items, beers, packages, places, priceList, 
               </span>
             )}
           </div>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-3">
           <a
             onClick={() => order.place_id && setPage && setPage('places', order.place_id)}
-            className={`font-display font-extrabold text-2xl text-primary-800 mb-3 text-left hover:underline flex items-center gap-2 cursor-pointer ${!order.place_id ? 'pointer-events-none opacity-70' : ''}`}
+            className={`font-display font-extrabold text-2xl text-primary-800 text-left hover:underline flex items-center gap-2 cursor-pointer min-w-0 ${!order.place_id ? 'pointer-events-none opacity-70' : ''}`}
           >
-            <Building2 size={22} className="text-amber-700" />
-            <span>
+            <Building2 size={22} className="text-amber-700 shrink-0" />
+            <span className="min-w-0">
               {(order.place_name && order.place_name.trim())
                 || (order.place_id && places.find((p) => p.id === order.place_id)?.name)
                 || '—'}
             </span>
           </a>
+          <OdberatelTlacitko
+            placeId={vybranyOdberatel.id}
+            placeName={vybranyOdberatel.jmeno}
+            places={places}
+            objednavky={allOrders}
+            onChange={(id, jmeno) => { setVybranyOdberatel({ id, jmeno }); if (id) void zmenOdberatele(id, jmeno); }}
+            onPlacesChanged={onChanged}
+            spoustec={(otevri) => (
+              <button
+                type="button"
+                className="btn-ghost !rounded !py-1.5 !px-3 text-xs font-black shrink-0"
+                onClick={() => { setVybranyOdberatel({ id: order.place_id ?? '', jmeno: order.place_name ?? '' }); otevri(); }}
+                title="Změnit odběratele u téhle objednávky"
+              >
+                <Pencil size={14} /> Změnit odběratele
+              </button>
+            )}
+          />
+          </div>
           {(() => { const _ph = places.find(p => p.id === order.place_id)?.phone; return _ph ? (
             <a href={`tel:${_ph}`} className="text-sm text-sky-700 font-bold mt-1.5 flex items-center gap-1 hover:underline">
               <Phone size={14} /> <span>{_ph}</span>

@@ -35,6 +35,7 @@ import { useOdskrtavani } from '../lib/useOdskrtavani';
 import { denProRozvoz } from '../lib/nalozitNaZavoz';
 import { cilNavigace, maViceMist, mistoObjednavky } from '../lib/mistaZavozu';
 import { ulozMistoObjednavky } from '../lib/mistaZavozuDb';
+import { shodaHledani } from '../lib/hledani';
 import { VolbaMistaZavozu } from '../components/MistaZavozu';
 
 // Stahuje se až při otevření — viz komentář u lazy() v Orders.tsx.
@@ -326,11 +327,10 @@ export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
         if (selectedDayFilter !== '_none' && o.delivery_day !== selectedDayFilter) return false;
       }
       if (searchTerm.trim()) {
-        const q = searchTerm.toLowerCase();
-        const pName = (o.place_name ?? '').toLowerCase();
+        // Bez ohledu na diakritiku (lib/hledani.ts): „luzec" najde „Lužec".
+        // Odběratel a piva se hledají dohromady („lužec světlá").
         const oItems = items[o.id] ?? [];
-        const hasBeer = oItems.some((i) => (i.beer_name ?? '').toLowerCase().includes(q));
-        if (!pName.includes(q) && !hasBeer) return false;
+        if (!shodaHledani([o.place_name, ...oItems.map((i) => i.beer_name)], searchTerm)) return false;
       }
       return true;
     });

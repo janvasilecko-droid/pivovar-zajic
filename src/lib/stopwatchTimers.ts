@@ -69,27 +69,37 @@ export type CountdownTimer = {
 const COUNTDOWNS_KEY = 'timers_countdowns_v1';
 export const COUNTDOWN_CHANGED_EVENT = 'timers_countdown_changed';
 
+/** Doplní `initialDurationMs`, který starší odpočty nemají. */
+export function normalizujOdpocty(list: CountdownTimer[]): CountdownTimer[] {
+  return list.map((t) => ({
+    ...t,
+    initialDurationMs: t.initialDurationMs || t.durationMs,
+  }));
+}
+
 export function getCountdowns(): CountdownTimer[] {
   try {
     const saved = localStorage.getItem(COUNTDOWNS_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed)) {
-        return parsed.map((t) => ({
-          ...t,
-          initialDurationMs: t.initialDurationMs || t.durationMs,
-        }));
-      }
+      if (Array.isArray(parsed)) return normalizujOdpocty(parsed);
     }
   } catch {}
   return [];
 }
 
-export function saveCountdowns(list: CountdownTimer[]) {
+/**
+ * @param zCloudu Seznam přišel ze serveru — neposílat ho rovnou zpátky.
+ *   Bez toho by každé převzetí z cloudu spustilo zápis do cloudu (a pravidelné
+ *   stahování z jiného zařízení by tak pořád dokola přepisovalo odpočty, které
+ *   mezitím někdo změnil). Totéž dělá `saveHomeNotes(…, true)`.
+ */
+export function saveCountdowns(list: CountdownTimer[], zCloudu = false) {
   try {
     uloz(COUNTDOWNS_KEY, JSON.stringify(list));
     window.dispatchEvent(new CustomEvent(COUNTDOWN_CHANGED_EVENT, { detail: list }));
   } catch {}
+  if (zCloudu) return;
   // Cloud sync — viz lib/profileSync.ts (sériový zápis, slučuje souběžné
   // změny místo dvou zápisů, co si mohly navzájem přepsat čerstvá data —
   // odsud pramenil bug, kdy se při přidání poznámky "vzkřísil" už oznámený

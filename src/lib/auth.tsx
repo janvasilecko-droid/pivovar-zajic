@@ -3,9 +3,12 @@ import type { Session, User } from '@supabase/supabase-js';
 import { supabase, Profile } from './supabase';
 import { reportAppVersion } from './appVersionTracker';
 import { isAdminEmail, getAdminName } from './config';
-import { saveCountdowns } from './stopwatchTimers';
-import { saveHomeNotes } from './homeNotes';
-import { cloudSmiPrepsat } from './profileSync';
+import { saveCountdowns, getCountdowns, normalizujOdpocty } from './stopwatchTimers';
+import { saveHomeNotes, poznamkyUlozene } from './homeNotes';
+import { cloudSmiPrepsat, zkusOdeslatZnovu } from './profileSync';
+import { spustObnovuZCloudu, stejnyObsah } from './obnovaZCloudu';
+import { getNastaveniRychlychOdpoctu, saveNastaveniRychlychOdpoctu } from './rychleOdpoctyNastaveni';
+import { normalizujNastaveni } from './rychleOdpocty';
 import { jeNahled, profilNovehoUzivatele } from './nahledUzivatele';
 
 type AuthCtx = {
@@ -39,11 +42,23 @@ const Ctx = createContext<AuthCtx>({} as AuthCtx);
  */
 function prevezmiZCloudu(home_layout: unknown): void {
   const hl = (home_layout as any) || {};
+  // Beze změny se nic nepřepisuje: profil se stahuje pravidelně (viz
+  // lib/obnovaZCloudu.ts) a každý zápis do úložiště rozesílá událost „změnilo
+  // se" — odpočty by se kvůli ní pořád dokola přepočítávaly a hlídače konce
+  // odpočtu by to zbytečně budilo. Převzaté se do cloudu neposílá zpátky
+  // (`zCloudu`), jinak by pravidelné stahování přepisovalo odpočty, které
+  // mezitím někdo na jiném zařízení změnil.
   if (Array.isArray(hl?.countdowns) && cloudSmiPrepsat('countdowns')) {
-    saveCountdowns(hl.countdowns);
+    if (!stejnyObsah(normalizujOdpocty(hl.countdowns), getCountdowns())) saveCountdowns(hl.countdowns, true);
   }
   if (Array.isArray(hl?.notes) && cloudSmiPrepsat('notes')) {
-    saveHomeNotes(hl.notes, true);
+    if (!stejnyObsah(hl.notes, poznamkyUlozene() ?? [])) saveHomeNotes(hl.notes, true);
+  }
+  // Rychlé odpočty v liště (co v ní je a jak dlouho se odpočítává) — stejný
+  // účet má stejnou lištu na telefonu i na počítači.
+  if (hl?.rychleOdpocty && typeof hl.rychleOdpocty === 'object' && cloudSmiPrepsat('rychleOdpocty')) {
+    const prevzate = normalizujNastaveni(hl.rychleOdpocty);
+    if (!stejnyObsah(prevzate, getNastaveniRychlychOdpoctu())) saveNastaveniRychlychOdpoctu(prevzate, true);
   }
 }
 
@@ -118,6 +133,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       sub.subscription.unsubscribe();
     };
   }, [session?.user?.id]); // Dependency array matches sessions
+
+  // 🔄 Poznámky a odpočty z jiného zařízení na stejném účtu. Realtime odběr
+  // níž sám nestačí: tabulka `profiles` není v realtime publikaci Supabase
+  // (zkouškou ověřeno — změna u `whatsapp_incoming` dorazí, u `profiles`
+  // nikdy), takže poznámka z telefonu by se na počítači ukázala až po
+  // obnovení stránky. Profil se proto stahuje při návratu do appky, po
+  // obnovení sítě a pravidelně, dokud je vidět (lib/obnovaZCloudu.ts).
+  // Stažením se převezmou jen poznámky a odpočty — a jen ty, které tohle
+  // zařízení nemá rozepsané nebo neodeslané (cloudSmiPrepsat).
+  useEffect(() => {
+    const uid = session?.user?.id;
+    if (!uid) return;
+    return spustObnovuZCloudu({
+      stahni: async () => {
+        // Co minule neodešlo (špatný signál), jde ven dřív, než se cokoli stáhne.
+        zkusOdeslatZnovu();
+        const { data } = await supabase.from('profiles').select('home_layout').eq('id', uid).maybeSingle();
+        if (data) prevezmiZCloudu((data as { home_layout?: unknown }).home_layout);
+      },
+    });
+  }, [session?.user?.id]);
 
   // Realtime synchronizace profilu (plocha, lišta, poznámky, odpočty) mezi zařízeními
   useEffect(() => {

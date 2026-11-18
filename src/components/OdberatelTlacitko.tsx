@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { Store } from 'lucide-react';
 import { Modal } from './ui';
 import { PlaceCombobox } from './PlaceCombobox';
@@ -24,13 +24,19 @@ const LISTA_PISMEN_OD = 12;
  *    „docela dlouho jsem hledal Martina“).
  * Výběr okno zavře.
  */
-export function OdberatelTlacitko({ placeId, placeName, places, objednavky, onChange, onPlacesChanged }: {
+export function OdberatelTlacitko({ placeId, placeName, places, objednavky, onChange, onPlacesChanged, spoustec }: {
   placeId: string;
   placeName: string;
   places: Place[];
   objednavky: ObjednavkaProRazeni[];
   onChange: (placeId: string, placeName: string) => void;
   onPlacesChanged?: () => void;
+  /**
+   * Vlastní tlačítko, které okno otevře (detail objednávky: malé „Změnit"
+   * vedle jména) — místo velkého tlačítka s vybraným odběratelem. Dostane
+   * funkci, která okno otevře.
+   */
+  spoustec?: (otevri: () => void) => ReactNode;
 }) {
   const [otevreno, setOtevreno] = useState(false);
   const nadpisy = useRef<Record<string, HTMLElement | null>>({});
@@ -78,14 +84,16 @@ export function OdberatelTlacitko({ placeId, placeName, places, objednavky, onCh
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOtevreno(true)}
-        className={`${vybrany ? 'btn-primary' : 'btn-ghost'} w-full min-h-[48px] !justify-start text-left`}
-      >
-        <Store size={18} className="shrink-0" />
-        <span className="truncate">{vybrany || 'Vybrat odběratele'}</span>
-      </button>
+      {spoustec ? spoustec(() => setOtevreno(true)) : (
+        <button
+          type="button"
+          onClick={() => setOtevreno(true)}
+          className={`${vybrany ? 'btn-primary' : 'btn-ghost'} w-full min-h-[48px] !justify-start text-left`}
+        >
+          <Store size={18} className="shrink-0" />
+          <span className="truncate">{vybrany || 'Vybrat odběratele'}</span>
+        </button>
+      )}
 
       {/* Úsporné okno: seznam potřebuje každý pixel. Odsazení si řeší sám (px-4), takže se lišta
           písmen přilepí k úplnému hornímu okraji rolování, ne pod odsazení okna. */}
