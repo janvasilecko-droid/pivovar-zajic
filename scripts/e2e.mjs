@@ -183,12 +183,15 @@ try {
   await vzornik.close();
 
   // ── Scénář 3: průvodce zadáním objednávky ────────────────────────────
-  // Nová objednávka krok za krokem na telefonu: odběratel → pivo → souhrn →
-  // uložení. Okno samo neukládá — náhled vypíše koncept, který by dostala
-  // obrazovka Objednávky. Chrání to, co jednotkové testy nevidí: že se dá
-  // proklikat skutečným CSS, že se žádný krok nerozjede do stran a že žádný
-  // cíl pro prst není menší než 44 px.
-  console.log('\nScénář: nová objednávka — průvodce, tři kroky na telefonu');
+  // Nová objednávka na JEDNÉ stránce na telefonu (19. 11. 2026: „tady ať je vše
+  // na jedné stránce vidět a na konci ať je i možnost odeslat na WhatsApp"):
+  // odběratel a den, pivo a souhrn pod sebou, dole pořád „Uložit objednávku"
+  // a pod ním „Uložit a odeslat na WhatsApp". Okno samo neukládá — náhled vypíše
+  // koncept, který by dostala obrazovka Objednávky. Chrání to, co jednotkové
+  // testy nevidí: že se stránka dá proklikat skutečným CSS, že se nerozjede do
+  // stran, že tlačítka uložení zůstávají vidět a že žádný cíl pro prst není
+  // menší než 44 px.
+  console.log('\nScénář: nová objednávka — průvodce, jedna stránka na telefonu');
   const pruvodce = await b.newPage({ viewport: { width: 390, height: 844 } });
   const chybyPruvodce = [];
   pruvodce.on('pageerror', (e) => chybyPruvodce.push(String(e)));
@@ -202,17 +205,39 @@ try {
         if (box.width === 0 || box.height === 0 || getComputedStyle(el).visibility === 'hidden') continue;
         if (box.height < 43.5) male.push(`${(el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 24)} ${Math.round(box.height)} px`);
       }
-      return { doc: document.documentElement.scrollWidth, okno: window.innerWidth, male };
+      // Celá stránka je v rolovací ploše okna: do stran se nesmí rozjet ani ta.
+      const plocha = document.querySelector('main');
+      return { doc: document.documentElement.scrollWidth, okno: window.innerWidth, male, plocha: plocha ? plocha.scrollWidth - plocha.clientWidth : 0 };
     });
     overit(r.doc <= r.okno + 1, `${kde}: stránka se neroluje do stran (${r.doc} ≤ ${r.okno})`);
+    overit(r.plocha <= 1, `${kde}: ani rolovací plocha okna se nerozjíždí do stran (přesah ${r.plocha} px)`);
     overit(r.male.length === 0, `${kde}: každý cíl pro prst má aspoň 44 px${r.male.length ? ` — malé: ${r.male.join(', ')}` : ''}`);
   };
 
-  await kontrolaRozlozeni('krok 1 (odběratel)');
-  const dal = pruvodce.getByRole('button', { name: /Dál — vybrat pivo/ });
-  overit(await dal.isDisabled(), 'bez odběratele je „Dál" zamčené');
+  const tlUlozit = pruvodce.getByRole('button', { name: 'Uložit objednávku', exact: true });
+  const tlWhatsapp = pruvodce.getByRole('button', { name: 'Uložit a odeslat na WhatsApp', exact: true });
+  const hlaseniUlozeni = pruvodce.getByTestId('pruvodce-hlaseni');
+  // Tlačítka uložení jsou celá v okně, pod sebou, a nikdy nescrollují pryč.
+  const kontrolaTlacitekUlozeni = async (kde) => {
+    const horni = await tlUlozit.boundingBox();
+    const dolni = await tlWhatsapp.boundingBox();
+    const vyska = pruvodce.viewportSize()?.height ?? 844;
+    overit(
+      horni !== null && dolni !== null && horni.y >= 0 && horni.y + horni.height <= dolni.y + 1 && dolni.y + dolni.height <= vyska + 0.5,
+      `${kde}: dole v okně jsou pod sebou „Uložit objednávku" a „Uložit a odeslat na WhatsApp"`,
+    );
+  };
+
+  for (const nadpis of ['Pro koho?', 'Kdy se veze?', 'Které pivo?', 'Souhrn objednávky']) {
+    overit(await pruvodce.getByRole('heading', { name: nadpis }).count() === 1, `na stránce je „${nadpis}" (nic se nepřepíná po krocích)`);
+  }
+  overit(await pruvodce.getByRole('button', { name: /^(Dál|Souhrn)/ }).count() === 0, 'žádné tlačítko „Dál" ani „Souhrn"');
+  await kontrolaRozlozeni('prázdná stránka');
+  await kontrolaTlacitekUlozeni('prázdná stránka');
+  overit(await tlUlozit.isDisabled() && await tlWhatsapp.isDisabled(), 'bez odběratele jsou obě tlačítka uložení zamčená');
+  overit((await hlaseniUlozeni.textContent())?.includes('Vyber odběratele') === true, 'prázdná stránka říká „Vyber odběratele."');
   await pruvodce.getByRole('button', { name: /^Radek/ }).click();
-  overit(await dal.isDisabled(), 'odběratel s víc místy: „Dál" čeká, až se vybere místo');
+  overit((await hlaseniUlozeni.textContent())?.includes('kam se veze') === true, 'odběratel s víc místy: hláška chce vybrat místo');
   // „Sklad" a „Drobák" patří pod Radka: hledání najde Radka a předvybere místo.
   const odberatele = pruvodce.getByRole('group', { name: 'Odběratelé' });
   await pruvodce.getByLabel('Hledat odběratele').fill('sklad');
@@ -221,21 +246,26 @@ try {
   overit((await radekPodleMista.textContent())?.includes('místo: Sklad') === true, '„sklad" najde Radka s místem Sklad');
   await radekPodleMista.click();
   overit(await pruvodce.getByRole('button', { name: 'Sklad', exact: true }).getAttribute('aria-pressed') === 'true', 'místo Sklad je předvybrané');
-  overit(await dal.isEnabled(), 'po výběru místa je „Dál" odemčené');
-  await dal.click();
+  overit((await hlaseniUlozeni.textContent())?.includes('Přidej aspoň jedno pivo') === true, 'po výběru místa chybí už jen pivo');
+  overit(await tlUlozit.isDisabled(), 'bez piva je uložení zamčené');
 
-  await pruvodce.getByRole('heading', { name: 'Které pivo?' }).waitFor();
-  await kontrolaRozlozeni('krok 2 (pivo)');
-  await pruvodce.getByRole('button', { name: /12° Světlá/ }).click();
+  await kontrolaRozlozeni('odběratel vybraný');
+  await pruvodce.getByRole('button', { name: /^12° Světlá/ }).click();
   await pruvodce.getByRole('textbox', { name: 'Kolik kusů?' }).fill('2');
   await kontrolaRozlozeni('panel obalu a počtu');
   await pruvodce.getByRole('button', { name: /^Hotovo/ }).click();
-  overit(await pruvodce.getByRole('button', { name: /12° Světlá.*2×50/ }).count() > 0, 'dlaždice piva ukazuje rozepsané „2×50"');
+  overit(await pruvodce.getByRole('button', { name: /^12° Světlá.*2×50/ }).count() > 0, 'dlaždice piva ukazuje rozepsané „2×50"');
+  overit(await tlUlozit.isEnabled() && await tlWhatsapp.isEnabled(), 'odběratel, místo i pivo jsou — obě tlačítka uložení jsou odemčená');
 
-  await pruvodce.getByRole('button', { name: /^Souhrn/ }).click();
-  await pruvodce.getByRole('heading', { name: 'Souhrn objednávky' }).waitFor();
-  await kontrolaRozlozeni('krok 3 (souhrn)');
+  await pruvodce.getByRole('heading', { name: 'Souhrn objednávky' }).scrollIntoViewIfNeeded();
+  await kontrolaRozlozeni('souhrn');
+  await kontrolaTlacitekUlozeni('souhrn');
   overit(await pruvodce.getByText('2× 50 l').count() > 0, 'souhrn ukazuje „2× 50 l"');
+  // Tužka u „Kdy" přeroluje stránku ke dnům závozu (nic se nepřepíná, nic se nezahodí).
+  await pruvodce.getByRole('button', { name: 'Změnit den závozu' }).click();
+  const hornyKdy = await polohaPoRolovani(pruvodce.getByRole('heading', { name: 'Kdy se veze?' }));
+  overit(hornyKdy >= 0 && hornyKdy < 300, `tužka u dne závozu přerolovala ke dnům (${hornyKdy} px od horního okraje)`);
+  await pruvodce.getByRole('heading', { name: 'Souhrn objednávky' }).scrollIntoViewIfNeeded();
   // Půjčení výčepu: nenápadné pole, které otevře okno rezervace (v náhledu ho nahrazuje hotová rezervace).
   const vycep = pruvodce.getByTestId('pruvodce-vycep');
   const poleVycep = pruvodce.getByRole('checkbox', { name: 'Půjčení výčepu' });
@@ -245,21 +275,43 @@ try {
   await poleVycep.click();
   await vycep.getByText(/^Rezervováno: Výčep 2 · \d{1,2}\. \d{1,2}\.$/).waitFor();
   overit(await poleVycep.isChecked(), 'po zaškrtnutí je výčep rezervovaný');
-  await kontrolaRozlozeni('krok 3 (souhrn s výčepem)');
+  await kontrolaRozlozeni('souhrn s výčepem');
   await poleVycep.click();
   await vycep.getByText(/^Půjčení výčepu$/).waitFor();
   overit(JSON.parse((await pruvodce.getByTestId('zruseno').textContent()) ?? '[]').join() === 'rez-nahled', 'odškrtnutí zrušilo rezervaci');
   await poleVycep.click();
   await vycep.getByText(/^Rezervováno: /).waitFor();
-  await pruvodce.getByRole('button', { name: /Uložit objednávku/ }).click();
-  await pruvodce.getByText('Objednávka uložena').waitFor();
-  const ulozeno = JSON.parse((await pruvodce.getByTestId('ulozeno').textContent()) ?? '[]');
+
+  await tlUlozit.click();
+  // Po uložení se okno samo zavře — žádná potvrzovací stránka (19. 11.: „tohle se nemusí zobrazovat“),
+  // jen krátké potvrzení nahoře.
+  const otevritZnovu = pruvodce.getByRole('button', { name: 'Otevřít průvodce' });
+  await otevritZnovu.waitFor();
+  overit(await pruvodce.getByRole('dialog', { name: 'Nová objednávka' }).count() === 0, 'po uložení se okno průvodce samo zavřelo');
+  overit(await pruvodce.getByText('Zadat další objednávku').count() === 0, 'žádná potvrzovací stránka s „Zadat další objednávku“');
+  overit(await pruvodce.getByText(/Objednávka uložena: Radek · Sklad/).count() > 0, 'naskočilo krátké potvrzení „Objednávka uložena: Radek · Sklad …“');
+  let ulozeno = JSON.parse((await pruvodce.getByTestId('ulozeno').textContent()) ?? '[]');
   overit(
     ulozeno.length === 1 && ulozeno[0].placeId === 'p-radek' && ulozeno[0].mistoZavozu === 'sklad'
       && ulozeno[0].radky.length === 1 && ulozeno[0].radky[0].qty === 2,
     'uložila se jedna objednávka: Radek, místo Sklad, 2× sud 50 l',
   );
   overit(ulozeno[0].vycep === true && ulozeno[0].vycepRezervace?.id === 'rez-nahled', 'objednávka nese rezervaci výčepu');
+  overit(ulozeno[0].odeslatNaWhatsApp === false, '„Uložit objednávku" WhatsApp neotevírá');
+
+  // Druhá objednávka: „Uložit a odeslat na WhatsApp" uloží stejně, jen s příznakem odeslání.
+  await otevritZnovu.click();
+  await pruvodce.getByRole('button', { name: /^Žižkov/ }).click();
+  await pruvodce.getByRole('button', { name: /^Jantar/ }).click();
+  await pruvodce.getByRole('textbox', { name: 'Kolik kusů?' }).fill('1');
+  await pruvodce.getByRole('button', { name: /^Hotovo/ }).click();
+  await tlWhatsapp.click();
+  await otevritZnovu.waitFor();
+  ulozeno = JSON.parse((await pruvodce.getByTestId('ulozeno').textContent()) ?? '[]');
+  overit(
+    ulozeno.length === 2 && ulozeno[1].placeName === 'Žižkov' && ulozeno[1].radky.length === 1 && ulozeno[1].odeslatNaWhatsApp === true,
+    '„Uložit a odeslat na WhatsApp" uložilo druhou objednávku (Žižkov) s příznakem odeslání',
+  );
   overit(chybyPruvodce.length === 0, `průvodce nevyhodil chybu${chybyPruvodce.length ? ': ' + chybyPruvodce[0] : ''}`);
   await pruvodce.close();
 
@@ -312,11 +364,11 @@ try {
   await abeceda.waitForTimeout(200);
   overit(await abeceda.getByRole('heading', { name: 'CH', exact: true }).count() === 0, 'po výběru se seznam sbalí');
   overit(await abeceda.getByRole('button', { name: /^Chlapy z Toužimi/ }).getAttribute('aria-pressed') === 'true', 'vybraný odběratel je navrchu');
-  overit(await abeceda.getByRole('button', { name: /Dál — vybrat pivo/ }).isEnabled(), 'po výběru z abecedy je „Dál" odemčené');
+  overit((await abeceda.getByTestId('pruvodce-hlaseni').textContent())?.includes('Přidej aspoň jedno pivo') === true, 'po výběru z abecedy chybí už jen pivo (hláška nad tlačítky uložení)');
   overit(chybyAbeceda.length === 0, `lišta písmen nevyhodila chybu${chybyAbeceda.length ? ': ' + chybyAbeceda[0] : ''}`);
   await abeceda.close();
 
-  // Na počítači jsou všechny tři kroky vedle sebe.
+  // Na počítači jsou všechny tři části vedle sebe a obě tlačítka uložení jsou v souhrnu.
   const pocitac = await b.newPage({ viewport: { width: 1280, height: 800 } });
   const chybyPocitac = [];
   pocitac.on('pageerror', (e) => chybyPocitac.push(String(e)));
@@ -325,6 +377,9 @@ try {
   overit(await pocitac.getByRole('region', { name: 'Pro koho a na kdy' }).isVisible(), 'počítač: vidět odběratele a den');
   overit(await pocitac.getByRole('region', { name: 'Pivo, obal a počet' }).isVisible(), 'počítač: vidět piva');
   overit(await pocitac.getByRole('region', { name: 'Souhrn objednávky' }).isVisible(), 'počítač: vidět souhrn');
+  const souhrnPc = pocitac.getByRole('region', { name: 'Souhrn objednávky' });
+  overit(await souhrnPc.getByRole('button', { name: 'Uložit objednávku', exact: true }).isVisible(), 'počítač: v souhrnu je „Uložit objednávku"');
+  overit(await souhrnPc.getByRole('button', { name: 'Uložit a odeslat na WhatsApp', exact: true }).isVisible(), 'počítač: pod ním je „Uložit a odeslat na WhatsApp"');
   const sirkaPc = await pocitac.evaluate(() => ({ doc: document.documentElement.scrollWidth, okno: window.innerWidth }));
   overit(sirkaPc.doc <= sirkaPc.okno + 1, `počítač: stránka se neroluje do stran (${sirkaPc.doc} ≤ ${sirkaPc.okno})`);
   overit(chybyPocitac.length === 0, `průvodce na počítači nevyhodil chybu${chybyPocitac.length ? ': ' + chybyPocitac[0] : ''}`);

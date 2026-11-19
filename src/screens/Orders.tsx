@@ -87,7 +87,7 @@ const SplitOrderModal = lazy(() => import('../components/SplitOrderModal').then(
 const ObjednavkaPruvodce = lazy(() => import('../components/objednavky/ObjednavkaPruvodce').then((m) => ({ default: m.ObjednavkaPruvodce })));
 
 import { type Order, type OrderItem, dayColor } from '../components/objednavky/spolecne';
-import type { VyberVycepu, VysledekUlozeni } from '../components/objednavky/pruvodceTypy';
+import type { VolbyUlozeni, VyberVycepu, VysledekUlozeni } from '../components/objednavky/pruvodceTypy';
 import { popisRezervaceVycepu, type KonceptObjednavky } from '../lib/objednavkaPruvodce';
 import type { TapReservation } from './VycepyScreen';
 import { VariantTotalsPanel } from '../components/objednavky/VariantTotalsPanel';
@@ -1207,7 +1207,7 @@ export default function Orders({
    * zdvojené objednávky, potvrzení „závoz v minulém týdnu", upomínky i výčep
    * proto platí beze změny. Formulář se přitom nesahá (rozepsané v něm zůstane).
    */
-  async function ulozZPruvodce(k: KonceptObjednavky): Promise<VysledekUlozeni> {
+  async function ulozZPruvodce(k: KonceptObjednavky, volby: VolbyUlozeni): Promise<VysledekUlozeni> {
     return ulozObjednavku({
       beerRows: k.radky.map((r) => novyRadek({ beerId: r.beerId, pkgId: r.pkgId, qty: String(r.qty) })),
       manualText: '',
@@ -1221,7 +1221,7 @@ export default function Orders({
       mistoZavozu: k.mistoZavozu,
       wantTap: k.vycep,
       tapReservedEarlyId: k.vycepRezervace?.id ?? null,
-    }, { sendWhatsApp: false, zFormulare: false });
+    }, { sendWhatsApp: volby.whatsapp, zFormulare: false });
   }
 
   /** Otevře okno rezervace výčepu z průvodce a počká, až ho člověk potvrdí (rezervace) nebo zavře (null). */
@@ -2178,9 +2178,10 @@ export default function Orders({
       </div>
       )}
 
-      {/* 🧭 Nová objednávka krok za krokem (18. 11. 2026: „udělej ty objednávky
-          tak jako první návrh"): odběratel a den → pivo → souhrn, stejně jako
-          Fasování a Lahve. Starý formulář je hned pod tím a funguje dál. */}
+      {/* 🧭 Nová objednávka na jedné stránce (18. 11. 2026: „udělej ty objednávky
+          tak jako první návrh", 19. 11.: „vše na jedné stránce"): odběratel a den,
+          pivo a souhrn pod sebou, pivo zadává stejný panel jako Fasování a Lahve.
+          Starý formulář je hned pod tím a funguje dál. */}
       {mode !== 'overviews_only' && viewMode === 'summary' && (
         <div className="rounded-2xl border border-primary-200 bg-primary-50 p-3 space-y-1.5">
           <button
@@ -2189,9 +2190,9 @@ export default function Orders({
             className="btn-primary w-full min-h-[56px] !text-base shadow-md"
             data-testid="spustit-pruvodce"
           >
-            <Plus size={20} aria-hidden="true" /> Nová objednávka — krok za krokem
+            <Plus size={20} aria-hidden="true" /> Nová objednávka
           </button>
-          <p className="text-xs font-semibold text-neutral-700">Odběratel, pivo, souhrn — stejně jednoduše jako ve Fasování. Podrobný formulář je níž.</p>
+          <p className="text-xs font-semibold text-neutral-700">Odběratel, pivo a souhrn na jedné stránce, dole uložit i s odesláním na WhatsApp. Podrobný formulář je níž.</p>
         </div>
       )}
 

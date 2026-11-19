@@ -6,6 +6,9 @@ import type { Order, OrderItem } from './spolecne';
 /** Výsledek uložení: obrazovka Objednávky ukládá stejnou cestou jako starý formulář. */
 export type VysledekUlozeni = { stav: 'ulozeno' } | { stav: 'chyba'; text: string };
 
+/** Co si člověk u uložení zvolil: `whatsapp` = po uložení otevřít WhatsApp s hotovou zprávou. */
+export type VolbyUlozeni = { whatsapp: boolean };
+
 /** Co průvodce potřebuje znát o katalogu a o dosavadních objednávkách. */
 export type DataPruvodce = {
   places: Place[];
