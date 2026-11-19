@@ -42,6 +42,12 @@
   záznamy s datem v uzavřeném měsíci neopravuj, nepřepisuj a nedorovnávej — ani
   migrací, ani přímo v databázi, ani když v nich najdeš chybu. Chybu jen oznam
   majiteli a nech to na něm. Který další měsíc je uzavřený, řekne majitel.
+- **Data neopravuj.** Majitel 19. 11. 2026: „Neopravuj žádný data". Chyby
+  v objednávkách, skladu, pohybech ani jinde (zdvojené zápisy, rozdíl proti
+  fyzickému stavu …) neopravuj, nepřepisuj, nemaž ani nedorovnávej — ani
+  migrací, ani přímo v databázi. Jen je oznam a pošli odkaz, kde je majitel
+  vidí; opraví je sám v appce. Opravu dělej, až když o ni majitel výslovně
+  požádá.
 - Migrace se NEspouští samy (`AUTO_MIGRACE` není „ano"). Majitel je pouští
   v appce: Audit → Databázové migrace. Migrace projektu bible
   (`bible/supabase/migrations`, nikdy do `supabase/migrations`) tamtéž v bloku
