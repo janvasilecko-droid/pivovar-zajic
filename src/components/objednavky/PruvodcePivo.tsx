@@ -1,4 +1,4 @@
-// 🧭 Průvodce objednávkou — krok 2: které pivo.
+// 🧭 Průvodce objednávkou — část 2: které pivo.
 // ---------------------------------------------------------------------------
 // Dlaždice piv jako ve Fasování a Lahvích (BeerTileGrid): klepnutí na pivo
 // otevře krokové zadávání obalu a počtu (KrokoveZadavani — velké pole, pět

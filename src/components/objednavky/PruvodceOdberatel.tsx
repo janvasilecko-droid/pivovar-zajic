@@ -1,4 +1,4 @@
-// 🧭 Průvodce objednávkou — krok 1: pro koho a na kdy.
+// 🧭 Průvodce objednávkou — část 1: pro koho a na kdy.
 // ---------------------------------------------------------------------------
 // Majitel 18. 11. 2026 („hledání odběratelů ať jde i bez diakritiky",
 // „Sklad a Drobák patří pod odběratele Radek", „udělej ty objednávky tak jako

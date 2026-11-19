@@ -2,10 +2,12 @@
 //
 // Okno přes celou obrazovku s vymyšlenými odběrateli a pivy; „uložit" jen
 // zapíše koncept do výpisu pod oknem (`data-testid="ulozeno"`), nic se
-// neukládá. Okno rezervace výčepu nahrazuje hotová rezervace „Výčep 2" na den
-// závozu a zrušené rezervace se vypisují do `data-testid="zruseno"`. Slouží ke kontrole vzhledu na telefonu i na počítači a
-// k E2E scénáři (scripts/e2e.mjs). Otevírá se `/pruvodce.html`, šířku okna
-// řídí rodič (iframe) nebo prohlížeč — Tailwind se řídí šířkou okna.
+// neukládá a WhatsApp se neotevírá — „Uložit a odeslat na WhatsApp" se do
+// výpisu zapíše stejně, jen s `odeslatNaWhatsApp: true`. Okno rezervace výčepu
+// nahrazuje hotová rezervace „Výčep 2" na den závozu a zrušené rezervace se
+// vypisují do `data-testid="zruseno"`. Slouží ke kontrole vzhledu na telefonu
+// i na počítači a k E2E scénáři (scripts/e2e.mjs). Otevírá se `/pruvodce.html`,
+// šířku okna řídí rodič (iframe) nebo prohlížeč — Tailwind se řídí šířkou okna.
 import { useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import '../src/index.css';
@@ -94,7 +96,7 @@ const data = { places, beers, packages, orders, items, dnes } as unknown as Data
 
 function Obsah() {
   const [otevrene, setOtevrene] = useState(true);
-  const [ulozeno, setUlozeno] = useState<KonceptObjednavky[]>([]);
+  const [ulozeno, setUlozeno] = useState<(KonceptObjednavky & { odeslatNaWhatsApp: boolean })[]>([]);
   const [zruseno, setZruseno] = useState<string[]>([]);
   return (
     <>
@@ -102,7 +104,7 @@ function Obsah() {
         <ObjednavkaPruvodce
           data={data}
           historie={historie}
-          onUlozit={async (k) => { setUlozeno((u) => [...u, k]); return { stav: 'ulozeno' as const }; }}
+          onUlozit={async (k, volby) => { setUlozeno((u) => [...u, { ...k, odeslatNaWhatsApp: volby.whatsapp }]); return { stav: 'ulozeno' as const }; }}
           onZavrit={() => setOtevrene(false)}
           vyberVycep={async ({ datum }) => ({ id: 'rez-nahled', popis: popisRezervaceVycepu('Výčep 2', datum, datum) })}
           zrusVycep={async (id) => { setZruseno((z) => [...z, id]); return null; }}

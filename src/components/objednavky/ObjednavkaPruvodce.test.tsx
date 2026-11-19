@@ -1,16 +1,19 @@
 // 🧭 Průvodce zadáním objednávky — okno.
 //
-// Majitel 18. 11. 2026: „udělej ty objednávky tak jako první návrh". Hlídá se
-// celý průchod tak, jak ho projde člověk: odběratel a den → pivo (stejný panel
-// jako Fasování) → souhrn → uložení, a taky tlačítko Zpět, které vrací o krok.
+// Majitel 18. 11. 2026: „udělej ty objednávky tak jako první návrh". 19. 11.:
+// „tady ať je vše na jedné stránce vidět" a „ať je uložit a pod tím uložit
+// a odeslat na WhatsApp". Hlídá se celý průchod tak, jak ho projde člověk:
+// odběratel a den, pivo (stejný panel jako Fasování) a souhrn leží pod sebou
+// na jedné stránce, dole jsou dvě tlačítka uložení; tlačítko Zpět nezahodí
+// rozepsané bez zeptání.
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { ObjednavkaPruvodce } from './ObjednavkaPruvodce';
-import type { DataPruvodce } from './pruvodceTypy';
+import type { DataPruvodce, VolbyUlozeni } from './pruvodceTypy';
 import type { KonceptObjednavky } from '../../lib/objednavkaPruvodce';
 import type { Beer, Package, Place } from '../../lib/supabase';
 import type { Order, OrderItem } from './spolecne';
-import { chyba, oznam, potvrd, toastZpet } from '../../lib/toast';
+import { chyba, oznam, potvrd, toastZpet, uspech } from '../../lib/toast';
 
 vi.mock('../../lib/toast', () => ({
   potvrd: vi.fn(async () => true),
@@ -74,27 +77,35 @@ const items: Record<string, OrderItem[]> = {
 
 const data: DataPruvodce = { places, beers, packages, orders, items, dnes: DNES };
 
+/** Poslední `onZavrit` z `pripravit()` — po uložení se okno samo zavře, žádná potvrzovací stránka. */
+let posledniZavrit = vi.fn();
+/** Počká, až se po uložení okno zavře (a jen jednou). */
+const cekejNaUlozeni = () => waitFor(() => expect(posledniZavrit).toHaveBeenCalledTimes(1));
+
 function pripravit(props: Partial<Parameters<typeof ObjednavkaPruvodce>[0]> = {}) {
-  const onUlozit = vi.fn(async (_k: KonceptObjednavky) => ({ stav: 'ulozeno' as const }));
+  const onUlozit = vi.fn(async (_k: KonceptObjednavky, _v: VolbyUlozeni) => ({ stav: 'ulozeno' as const }));
   const onZavrit = vi.fn();
+  posledniZavrit = onZavrit;
   const vysledek = render(<ObjednavkaPruvodce data={data} historie={[]} onUlozit={onUlozit} onZavrit={onZavrit} {...props} />);
   return { ...vysledek, onUlozit, onZavrit };
 }
 
 const tlacitko = (nazev: RegExp | string) => screen.getByRole('button', { name: nazev });
+const ulozitTl = () => tlacitko('Uložit objednávku') as HTMLButtonElement;
+const whatsappTl = () => tlacitko('Uložit a odeslat na WhatsApp') as HTMLButtonElement;
+/** Hláška nad tlačítky uložení: co ještě chybí, nebo chyba uložení. */
+const hlaseni = () => screen.getByTestId('pruvodce-hlaseni').textContent;
 const dlazdice = (jmeno: string) => screen.getByRole('button', { name: new RegExp(`^${jmeno}`) });
 
-/** Odběratel → Dál. */
+/** Odběratel: klepnutí na dlaždici. */
 function vyberOdberatele(jmeno: string) {
   fireEvent.click(dlazdice(jmeno));
-}
-function dal() {
-  fireEvent.click(tlacitko(/Dál — vybrat pivo/));
 }
 
 /** Pivo → panel → počet v prvním (předvoleném) obalu → Hotovo. */
 function zadejPivo(jmeno: string, pocet: string, bezHotovo = false) {
-  fireEvent.click(screen.getByRole('button', { name: new RegExp(jmeno) }));
+  // Od začátku názvu: tužka a koš u řádku v souhrnu („Upravit 12° Světlá …") leží teď na stejné stránce.
+  fireEvent.click(screen.getByRole('button', { name: new RegExp(`^${jmeno}`) }));
   const pole = screen.getByRole('textbox', { name: 'Kolik kusů?' });
   fireEvent.change(pole, { target: { value: pocet } });
   if (!bezHotovo) fireEvent.click(tlacitko(/^Hotovo/));
@@ -107,8 +118,8 @@ beforeEach(() => {
   window.localStorage.clear();
 });
 
-describe('krok 1 — odběratel a den', () => {
-  it('nejdřív největší odběratelé podle počtu objednávek (stornované se nepočítají) a Dál je zamčené', () => {
+describe('odběratel a den (nahoře na stránce)', () => {
+  it('nejdřív největší odběratelé podle počtu objednávek (stornované se nepočítají) a uložení je zamčené', () => {
     pripravit();
     expect(screen.getByRole('heading', { name: 'Pro koho?' })).toBeTruthy();
     const dlazdiceJmena = within(screen.getByRole('group', { name: 'Odběratelé' })).getAllByRole('button').map((b) => b.textContent);
@@ -116,8 +127,9 @@ describe('krok 1 — odběratel a den', () => {
     expect(dlazdiceJmena[1]).toMatch(/^Radek/);
     expect(dlazdiceJmena[2]).toMatch(/^Seeberg/);
     expect(dlazdiceJmena).toHaveLength(3);
-    expect((tlacitko(/Dál — vybrat pivo/) as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByRole('status').textContent).toBe('Vyber odběratele.');
+    expect(ulozitTl().disabled).toBe(true);
+    expect(whatsappTl().disabled).toBe(true);
+    expect(hlaseni()).toBe('Vyber odběratele.');
   });
 
   it('pod jménem je obvyklý den a místa závozu', () => {
@@ -135,13 +147,14 @@ describe('krok 1 — odběratel a den', () => {
     expect(dlazdice('Mates')).toBeTruthy();
   });
 
-  it('výběr odběratele odemkne Dál a vyčistí hledání', () => {
+  it('výběr odběratele vyčistí hledání a hláška se posune k pivu', () => {
     pripravit();
     fireEvent.change(screen.getByLabelText('Hledat odběratele'), { target: { value: 'zizkov' } });
     vyberOdberatele('Žižkov');
     expect((screen.getByLabelText('Hledat odběratele') as HTMLInputElement).value).toBe('');
     expect(screen.getByRole('button', { name: /^Žižkov/, pressed: true })).toBeTruthy();
-    expect((tlacitko(/Dál — vybrat pivo/) as HTMLButtonElement).disabled).toBe(false);
+    expect(hlaseni()).toBe('Přidej aspoň jedno pivo.');
+    expect(ulozitTl().disabled).toBe(true);
   });
 
   it('nový odběratel: napsané jméno, které v katalogu není, jde vybrat', () => {
@@ -149,7 +162,7 @@ describe('krok 1 — odběratel a den', () => {
     fireEvent.change(screen.getByLabelText('Hledat odběratele'), { target: { value: 'U Lípy' } });
     fireEvent.click(screen.getByRole('button', { name: /Nový: U Lípy/ }));
     expect(screen.getByRole('button', { name: /^U Lípy/, pressed: true }).textContent).toContain('nový odběratel');
-    expect((tlacitko(/Dál — vybrat pivo/) as HTMLButtonElement).disabled).toBe(false);
+    expect(hlaseni()).toBe('Přidej aspoň jedno pivo.');
   });
 
   it('existující jméno se nenabízí jako nový odběratel', () => {
@@ -170,15 +183,18 @@ describe('krok 1 — odběratel a den', () => {
     expect(screen.queryByRole('button', { name: /^Mates/ })).toBeNull();
   });
 
-  it('odběratel s víc místy: bez výběru místa se dál nejde, po výběru ano', () => {
+  it('odběratel s víc místy: bez výběru místa se uložit nedá, po výběru ano', () => {
     pripravit();
     vyberOdberatele('Radek');
     expect(screen.getByRole('heading', { name: /Radek vozí na víc míst — kam tentokrát\?/ })).toBeTruthy();
-    expect((tlacitko(/Dál — vybrat pivo/) as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByRole('status').textContent).toMatch(/kam se veze/);
+    zadejPivo('Jantar', '1');
+    expect(ulozitTl().disabled).toBe(true);
+    expect(whatsappTl().disabled).toBe(true);
+    expect(hlaseni()).toBe('Vyber, kam se veze (Radek má víc míst).');
     fireEvent.click(tlacitko('Sklad'));
     expect(screen.getByRole('button', { name: 'Sklad', pressed: true })).toBeTruthy();
-    expect((tlacitko(/Dál — vybrat pivo/) as HTMLButtonElement).disabled).toBe(false);
+    expect(ulozitTl().disabled).toBe(false);
+    expect(hlaseni()).toBe('');
   });
 
   it('odběratel s jedním místem se na místo neptá', () => {
@@ -223,13 +239,16 @@ describe('krok 1 — odběratel a den', () => {
     expect(screen.queryByTestId('pruvodce-vychozi-den')).toBeNull();
   });
 
-  it('závoz v dalším měsíci se musí potvrdit', () => {
+  it('závoz v dalším měsíci se musí potvrdit, jinak se uložit nedá', () => {
     pripravit();
     vyberOdberatele('Žižkov');
+    zadejPivo('Jantar', '1');
     fireEvent.change(screen.getByLabelText(/Jiné datum závozu/), { target: { value: '2026-12-02' } });
-    expect((tlacitko(/Dál — vybrat pivo/) as HTMLButtonElement).disabled).toBe(true);
+    expect(ulozitTl().disabled).toBe(true);
+    expect(hlaseni()).toBe('Závoz spadá do dalšího měsíce — potvrď to zaškrtnutím.');
     fireEvent.click(screen.getByRole('checkbox', { name: /Potvrzuji, že závoz/ }));
-    expect((tlacitko(/Dál — vybrat pivo/) as HTMLButtonElement).disabled).toBe(false);
+    expect(ulozitTl().disabled).toBe(false);
+    expect(hlaseni()).toBe('');
   });
 });
 
@@ -257,7 +276,8 @@ describe('Sklad a Drobák patří pod Radka', () => {
     fireEvent.click(dlazdiceRadek);
     expect(screen.getByRole('button', { name: /^Radek/, pressed: true })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Sklad', pressed: true })).toBeTruthy();
-    expect((tlacitko(/Dál — vybrat pivo/) as HTMLButtonElement).disabled).toBe(false);
+    // Místo je předvybrané, na místo se už nikdo neptá.
+    expect(hlaseni()).toBe('Přidej aspoň jedno pivo.');
   });
 
   it('„drobák" (s diakritikou) předvybere Drobák', () => {
@@ -273,7 +293,7 @@ describe('Sklad a Drobák patří pod Radka', () => {
     fireEvent.change(screen.getByLabelText('Hledat odběratele'), { target: { value: 'radek' } });
     fireEvent.click(dlazdice('Radek'));
     expect(screen.getByRole('button', { name: 'Sklad', pressed: false })).toBeTruthy();
-    expect((tlacitko(/Dál — vybrat pivo/) as HTMLButtonElement).disabled).toBe(true);
+    expect(hlaseni()).toBe('Vyber, kam se veze (Radek má víc míst).');
   });
 
   it('starý „Sklad" s objednávkou zůstane vidět (nic se neschová, co se používá)', () => {
@@ -288,12 +308,10 @@ describe('Sklad a Drobák patří pod Radka', () => {
     const { onUlozit } = pripravit({ data: sPrezdivkou });
     fireEvent.change(screen.getByLabelText('Hledat odběratele'), { target: { value: 'sklad' } });
     fireEvent.click(dlazdice('Radek'));
-    dal();
     zadejPivo('Jantar', '1');
-    fireEvent.click(tlacitko(/^Souhrn/));
     expect(screen.getByRole('region', { name: 'Komu a kdy' }).textContent).toContain('Radek · Sklad');
     fireEvent.click(tlacitko(/Uložit objednávku/));
-    await screen.findByText('Objednávka uložena');
+    await cekejNaUlozeni();
     expect(onUlozit.mock.calls[0][0]).toMatchObject({ placeId: 'p-radek', placeName: 'Radek', mistoZavozu: 'sklad' });
   });
 });
@@ -407,8 +425,8 @@ describe('lišta písmen A–Ž pod dlaždicemi (18. 11. 2026: „ať je pod tě
     expect(dlazdice[0].getAttribute('aria-pressed')).toBe('true');
     expect(tlacitko(/Všichni odběratelé \(13\)/)).toBeTruthy();
     await waitFor(() => expect(skokNa()).toContain(screen.getByTestId('pruvodce-odberatel')));
-    // A dá se pokračovat: Dál je odemčené.
-    expect((tlacitko(/Dál — vybrat pivo/) as HTMLButtonElement).disabled).toBe(false);
+    // Odběratel je vybraný, zbývá pivo.
+    expect(hlaseni()).toBe('Přidej aspoň jedno pivo.');
   });
 
   it('výběr dlaždice ze sbaleného seznamu nic neposouvá', () => {
@@ -458,21 +476,20 @@ describe('lišta písmen A–Ž pod dlaždicemi (18. 11. 2026: „ať je pod tě
   });
 });
 
-describe('krok 2 — pivo (stejný panel jako Fasování)', () => {
+describe('pivo (stejný panel jako Fasování)', () => {
   function naPivo(odberatel = 'Žižkov') {
     const r = pripravit();
     vyberOdberatele(odberatel);
-    dal();
     return r;
   }
 
-  it('po Dál jsou dlaždice piv, Souhrn je zamčený a lišta říká, že nic není', () => {
+  it('dlaždice piv jsou na stránce rovnou pod odběratelem, souhrn říká, že nic není, a uložit nejde', () => {
     naPivo();
     expect(screen.getByRole('heading', { name: 'Které pivo?' })).toBeTruthy();
     expect(screen.getByRole('button', { name: /12° Světlá/ })).toBeTruthy();
     expect(screen.getByRole('button', { name: /Jantar/ })).toBeTruthy();
-    expect((tlacitko(/^Souhrn/) as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByText('zatím nic')).toBeTruthy();
+    expect(screen.getByText('Zatím žádné pivo — vyber ho výše.')).toBeTruthy();
+    expect(ulozitTl().disabled).toBe(true);
   });
 
   it('klepnutí na pivo otevře panel s obaly (sudy, lahve) a nabídne sud 50 l', () => {
@@ -489,13 +506,15 @@ describe('krok 2 — pivo (stejný panel jako Fasování)', () => {
     expect(screen.queryByText(/Už uloženo/)).toBeNull();
   });
 
-  it('číslo se zapíše hned a po Hotovo je na dlaždici „2×50", lišta počítá položky', () => {
+  it('číslo se zapíše hned a po Hotovo je na dlaždici „2×50", v souhrnu pod tím je řádek a uložit už jde', () => {
     naPivo();
     zadejPivo('12° Světlá', '2');
     expect(screen.queryByRole('dialog', { name: /12° Světlá/ })).toBeNull();
     expect(screen.getByRole('button', { name: /12° Světlá.*2×50/ })).toBeTruthy();
-    expect(screen.getByText('1 pivo · 1 položka')).toBeTruthy();
-    expect((tlacitko(/^Souhrn/) as HTMLButtonElement).disabled).toBe(false);
+    const polozky = screen.getByRole('region', { name: 'Položky objednávky' });
+    expect(within(polozky).getByText('2× 50 l')).toBeTruthy();
+    expect(polozky.textContent).toContain('Celkem: 100 l v sudech');
+    expect(ulozitTl().disabled).toBe(false);
   });
 
   it('„+ další obal" přidá druhou velikost téhož piva', () => {
@@ -506,16 +525,19 @@ describe('krok 2 — pivo (stejný panel jako Fasování)', () => {
     fireEvent.change(screen.getByRole('textbox', { name: 'Kolik kusů?' }), { target: { value: '1' } });
     fireEvent.click(tlacitko(/^Hotovo/));
     expect(screen.getByRole('button', { name: /12° Světlá.*2×50, 1×30/ })).toBeTruthy();
-    expect(screen.getByText('1 pivo · 2 položky')).toBeTruthy();
+    const polozky = screen.getByRole('region', { name: 'Položky objednávky' });
+    expect(within(polozky).getByText('2× 50 l')).toBeTruthy();
+    expect(within(polozky).getByText('1× 30 l')).toBeTruthy();
   });
 
-  it('nula počet zase smaže a lišta se vrátí na „zatím nic"', () => {
+  it('nula počet zase smaže a souhrn se vrátí na „zatím žádné pivo"', () => {
     naPivo();
     zadejPivo('12° Světlá', '2');
-    fireEvent.click(screen.getByRole('button', { name: /12° Světlá/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^12° Světlá/ }));
     fireEvent.change(screen.getByRole('textbox', { name: 'Kolik kusů?' }), { target: { value: '' } });
     fireEvent.click(tlacitko(/^Hotovo/));
-    expect(screen.getByText('zatím nic')).toBeTruthy();
+    expect(screen.getByText('Zatím žádné pivo — vyber ho výše.')).toBeTruthy();
+    expect(ulozitTl().disabled).toBe(true);
   });
 
   it('nejčastěji objednávaný obal piva se nabídne první (podle historie)', () => {
@@ -525,7 +547,6 @@ describe('krok 2 — pivo (stejný panel jako Fasování)', () => {
     ];
     pripravit({ historie });
     vyberOdberatele('Žižkov');
-    dal();
     fireEvent.click(screen.getByRole('button', { name: /11° Světlá/ }));
     expect(screen.getByRole('radio', { name: '1 l', checked: true })).toBeTruthy();
     // A pod polem jsou nejčastější čísla z historie.
@@ -552,7 +573,6 @@ describe('krok 2 — pivo (stejný panel jako Fasování)', () => {
     const upravene = { ...data, items: { o2: [...items.o2, polozka('i3', 'o2', 'zmizele', 'Zmizelé', 'k30', 'KEG 30l', 1)] } };
     pripravit({ data: upravene });
     vyberOdberatele('Žižkov');
-    dal();
     expect(screen.getByText(/Poslední objednávka \(11\. 11\.\)/)).toBeTruthy();
     fireEvent.click(tlacitko(/Zopakovat tyhle položky/));
     expect(screen.getByRole('button', { name: /12° Světlá.*2×50/ })).toBeTruthy();
@@ -570,7 +590,6 @@ describe('krok 2 — pivo (stejný panel jako Fasování)', () => {
   it('hlídání malých sudů: nad volné sudy se ukáže varování červeně', () => {
     pripravit({ volneMaleSudy: (id) => (id === 'k20' ? 1 : null) });
     vyberOdberatele('Žižkov');
-    dal();
     fireEvent.click(screen.getByRole('button', { name: /12° Světlá/ }));
     fireEvent.click(screen.getByRole('radio', { name: '20 l' }));
     fireEvent.change(screen.getByRole('textbox', { name: 'Kolik kusů?' }), { target: { value: '2' } });
@@ -578,22 +597,20 @@ describe('krok 2 — pivo (stejný panel jako Fasování)', () => {
   });
 });
 
-describe('krok 3 — souhrn a uložení', () => {
-  function naSouhrn() {
+describe('souhrn a uložení (pod pivem na stejné stránce)', () => {
+  function vyplnena() {
     const r = pripravit();
     vyberOdberatele('Žižkov');
-    dal();
     zadejPivo('12° Světlá', '2');
     fireEvent.click(screen.getByRole('button', { name: /11° Světlá/ }));
     fireEvent.click(screen.getByRole('radio', { name: '1 l' }));
     fireEvent.change(screen.getByRole('textbox', { name: 'Kolik kusů?' }), { target: { value: '10' } });
     fireEvent.click(tlacitko(/^Hotovo/));
-    fireEvent.click(tlacitko(/^Souhrn/));
     return r;
   }
 
   it('souhrn ukazuje komu a kdy, položky po pivech a součet', () => {
-    naSouhrn();
+    vyplnena();
     expect(screen.getByRole('heading', { name: 'Souhrn objednávky' })).toBeTruthy();
     const komuKdy = screen.getByRole('region', { name: 'Komu a kdy' });
     expect(komuKdy.textContent).toContain('Žižkov');
@@ -606,45 +623,54 @@ describe('krok 3 — souhrn a uložení', () => {
     expect(polozky.textContent).toContain('100 l v sudech · 10 lahví');
   });
 
-  it('uložení předá koncept obrazovce Objednávky a ukáže potvrzení', async () => {
-    const { onUlozit } = naSouhrn();
+  it('uložení předá koncept obrazovce Objednávky, okno se zavře a naskočí krátké potvrzení', async () => {
+    const { onUlozit } = vyplnena();
     fireEvent.change(screen.getByLabelText('Poznámka'), { target: { value: 'vozí řidič Petr' } });
     fireEvent.click(tlacitko(/Uložit objednávku/));
-    await screen.findByText('Objednávka uložena');
+    await cekejNaUlozeni();
     expect(onUlozit).toHaveBeenCalledTimes(1);
     const k = onUlozit.mock.calls[0][0];
     expect(k).toMatchObject({ placeId: 'p-zizkov', placeName: 'Žižkov', mistoZavozu: null, den: '', datum: '', bezZavozu: false, poznamka: 'vozí řidič Petr' });
     expect(k.radky.map((r) => [r.beerId, r.pkgId, r.qty])).toEqual([['b12', 'k50', 2], ['b11', 'l1', 10]]);
-    expect(screen.getByRole('status').textContent).toContain('Žižkov · St 18. 11.');
+    // Obyčejné uložení: bez odeslání na WhatsApp.
+    expect(onUlozit.mock.calls[0][1]).toEqual({ whatsapp: false });
+    expect(uspech).toHaveBeenCalledWith('Objednávka uložena: Žižkov · St 18. 11.');
+    // Žádná potvrzovací stránka s tlačítky „Zadat další objednávku“ a „Hotovo“.
+    expect(screen.queryByText('Objednávka uložena')).toBeNull();
+    expect(screen.queryByRole('button', { name: /Zadat další objednávku/ })).toBeNull();
   });
 
   it('odběratel s víc místy se uloží s místem závozu', async () => {
     const { onUlozit } = pripravit();
     vyberOdberatele('Radek');
     fireEvent.click(tlacitko('Drobák'));
-    dal();
     zadejPivo('Jantar', '1');
-    fireEvent.click(tlacitko(/^Souhrn/));
     expect(screen.getByRole('region', { name: 'Komu a kdy' }).textContent).toContain('Radek · Drobák');
     fireEvent.click(tlacitko(/Uložit objednávku/));
-    await screen.findByText('Objednávka uložena');
+    await cekejNaUlozeni();
     expect(onUlozit.mock.calls[0][0]).toMatchObject({ placeId: 'p-radek', mistoZavozu: 'drobak' });
   });
 
-  it('chyba při uložení zůstane na souhrnu a jde to zkusit znovu', async () => {
+  it('chyba při uložení zůstane na stránce nad tlačítky a jde to zkusit znovu', async () => {
     const onUlozit = vi.fn()
       .mockResolvedValueOnce({ stav: 'chyba', text: 'Nic se neuložilo — Žižkov už má podobnou objednávku.' })
       .mockResolvedValueOnce({ stav: 'ulozeno' });
     pripravit({ onUlozit });
     vyberOdberatele('Žižkov');
-    dal();
     zadejPivo('Jantar', '1');
-    fireEvent.click(tlacitko(/^Souhrn/));
     fireEvent.click(tlacitko(/Uložit objednávku/));
-    expect((await screen.findByRole('alert')).textContent).toContain('už má podobnou objednávku');
-    expect(screen.queryByText('Objednávka uložena')).toBeNull();
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain('už má podobnou objednávku');
+    // Chyba je v hlášce přímo nad tlačítky, ať ji člověk neminul.
+    expect(screen.getByTestId('pruvodce-hlaseni').contains(alert)).toBe(true);
+    // Při chybě okno zůstává otevřené a nic se nepotvrzuje.
+    expect(posledniZavrit).not.toHaveBeenCalled();
+    expect(uspech).not.toHaveBeenCalled();
+    // Obě tlačítka jsou zase k dispozici.
+    expect(ulozitTl().disabled).toBe(false);
+    expect(whatsappTl().disabled).toBe(false);
     fireEvent.click(tlacitko(/Uložit objednávku/));
-    await screen.findByText('Objednávka uložena');
+    await cekejNaUlozeni();
     expect(onUlozit).toHaveBeenCalledTimes(2);
   });
 
@@ -652,9 +678,7 @@ describe('krok 3 — souhrn a uložení', () => {
     const onUlozit = vi.fn().mockRejectedValue(new Error('Síť nedostupná'));
     pripravit({ onUlozit });
     vyberOdberatele('Žižkov');
-    dal();
     zadejPivo('Jantar', '1');
-    fireEvent.click(tlacitko(/^Souhrn/));
     fireEvent.click(tlacitko(/Uložit objednávku/));
     expect((await screen.findByRole('alert')).textContent).toBe('Síť nedostupná');
   });
@@ -664,30 +688,120 @@ describe('krok 3 — souhrn a uložení', () => {
     const onUlozit = vi.fn(() => new Promise<{ stav: 'ulozeno' }>((resolve) => { dokonci = resolve; }));
     pripravit({ onUlozit });
     vyberOdberatele('Žižkov');
-    dal();
     zadejPivo('Jantar', '1');
-    fireEvent.click(tlacitko(/^Souhrn/));
     const ulozit = tlacitko(/Uložit objednávku/);
     fireEvent.click(ulozit);
     fireEvent.click(ulozit);
     expect(onUlozit).toHaveBeenCalledTimes(1);
     expect(tlacitko(/Ukládám/)).toBeTruthy();
+    // Druhé tlačítko je během ukládání zamčené — objednávka se nezaloží dvakrát ani přes WhatsApp.
+    expect(whatsappTl().disabled).toBe(true);
+    fireEvent.click(whatsappTl());
+    expect(onUlozit).toHaveBeenCalledTimes(1);
     await act(async () => { dokonci({ stav: 'ulozeno' }); });
-    await screen.findByText('Objednávka uložena');
+    await cekejNaUlozeni();
   });
 
-  it('„Zadat další objednávku" začne od nuly', async () => {
-    naSouhrn();
-    fireEvent.click(tlacitko(/Uložit objednávku/));
-    await screen.findByText('Objednávka uložena');
-    fireEvent.click(tlacitko(/Zadat další objednávku/));
-    expect(screen.getByRole('heading', { name: 'Pro koho?' })).toBeTruthy();
-    expect((tlacitko(/Dál — vybrat pivo/) as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.queryByRole('button', { name: /^Žižkov/, pressed: true })).toBeNull();
+  it('dvojklik na Uložit a odeslat na WhatsApp nezaloží dvě a „Ukládám…" je jen na tom stisknutém', async () => {
+    let dokonci: (v: { stav: 'ulozeno' }) => void = () => {};
+    const onUlozit = vi.fn((_k: KonceptObjednavky, _v: VolbyUlozeni) => new Promise<{ stav: 'ulozeno' }>((resolve) => { dokonci = resolve; }));
+    pripravit({ onUlozit });
+    vyberOdberatele('Žižkov');
+    zadejPivo('Jantar', '1');
+    const whatsapp = whatsappTl();
+    fireEvent.click(whatsapp);
+    fireEvent.click(whatsapp);
+    fireEvent.click(ulozitTl());
+    expect(onUlozit).toHaveBeenCalledTimes(1);
+    expect(screen.getAllByRole('button', { name: /Ukládám/ })).toHaveLength(1);
+    expect(screen.getByRole('button', { name: /Ukládám/ }).className).toContain('btn-emerald');
+    expect(ulozitTl().textContent).toContain('Uložit objednávku');
+    await act(async () => { dokonci({ stav: 'ulozeno' }); });
+    await cekejNaUlozeni();
+  });
+
+  it('dvě tlačítka: nahoře Uložit objednávku, pod ním Uložit a odeslat na WhatsApp (19. 11.)', () => {
+    vyplnena();
+    const patka = screen.getByTestId('pruvodce-hlaseni').parentElement!;
+    const tlacitka = within(patka).getAllByRole('button').map((b) => b.textContent?.trim());
+    expect(tlacitka).toEqual(['Uložit objednávku', 'Uložit a odeslat na WhatsApp']);
+    expect(ulozitTl().disabled).toBe(false);
+    expect(whatsappTl().disabled).toBe(false);
+  });
+
+  it('Uložit a odeslat na WhatsApp předá uložení příznak whatsapp a okno se stejně zavře s potvrzením', async () => {
+    const { onUlozit } = vyplnena();
+    fireEvent.click(whatsappTl());
+    await cekejNaUlozeni();
+    expect(onUlozit).toHaveBeenCalledTimes(1);
+    expect(onUlozit.mock.calls[0][1]).toEqual({ whatsapp: true });
+    expect(onUlozit.mock.calls[0][0]).toMatchObject({ placeId: 'p-zizkov', placeName: 'Žižkov' });
+    expect(uspech).toHaveBeenCalledWith('Objednávka uložena: Žižkov · St 18. 11.');
+  });
+
+  it('Uložit a odeslat na WhatsApp při chybě uložení nic nepotvrdí; zkusit jde obojím tlačítkem', async () => {
+    const onUlozit = vi.fn()
+      .mockResolvedValueOnce({ stav: 'chyba', text: 'Nic se neuložilo.' })
+      .mockResolvedValueOnce({ stav: 'ulozeno' });
+    pripravit({ onUlozit });
+    vyberOdberatele('Žižkov');
+    zadejPivo('Jantar', '1');
+    fireEvent.click(whatsappTl());
+    expect((await screen.findByRole('alert')).textContent).toBe('Nic se neuložilo.');
+    expect(posledniZavrit).not.toHaveBeenCalled();
+    expect(uspech).not.toHaveBeenCalled();
+    fireEvent.click(ulozitTl());
+    await cekejNaUlozeni();
+    expect(onUlozit.mock.calls.map((c) => c[1])).toEqual([{ whatsapp: true }, { whatsapp: false }]);
+  });
+
+  it('výjimka při Uložit a odeslat na WhatsApp se ukáže srozumitelně', async () => {
+    const onUlozit = vi.fn().mockRejectedValue(new Error('Síť nedostupná'));
+    pripravit({ onUlozit });
+    vyberOdberatele('Žižkov');
+    zadejPivo('Jantar', '1');
+    fireEvent.click(whatsappTl());
+    expect((await screen.findByRole('alert')).textContent).toBe('Síť nedostupná');
+    expect(whatsappTl().textContent).toContain('Uložit a odeslat na WhatsApp');
+  });
+
+  it('bez dokončené objednávky se nedá uložit ani odeslat (nic nevolá uložení)', () => {
+    const { onUlozit } = pripravit();
+    fireEvent.click(ulozitTl());
+    fireEvent.click(whatsappTl());
+    vyberOdberatele('Žižkov');
+    fireEvent.click(ulozitTl());
+    fireEvent.click(whatsappTl());
+    expect(onUlozit).not.toHaveBeenCalled();
+  });
+
+  it('po uložení se okno samo zavře a žádná potvrzovací stránka se neukáže (19. 11.: „tohle se nemusí zobrazovat")', async () => {
+    const { onZavrit } = vyplnena();
+    fireEvent.click(ulozitTl());
+    await cekejNaUlozeni();
+    expect(onZavrit).toHaveBeenCalledTimes(1);
+    // Jen krátké potvrzení (toast): kdo, kdy.
+    expect(uspech).toHaveBeenCalledTimes(1);
+    expect(uspech).toHaveBeenCalledWith('Objednávka uložena: Žižkov · St 18. 11.');
+    expect(screen.queryByText('Objednávka uložena')).toBeNull();
+    expect(screen.queryByRole('button', { name: /Zadat další objednávku/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Hotovo' })).toBeNull();
+    // Stránka s odběratelem, pivem a souhrnem zůstala, jak byla — o zavření se stará obrazovka Objednávky.
+    expect(screen.getByRole('heading', { name: 'Souhrn objednávky' })).toBeTruthy();
+  });
+
+  it('potvrzení nese i místo závozu', async () => {
+    pripravit();
+    vyberOdberatele('Radek');
+    fireEvent.click(tlacitko('Drobák'));
+    zadejPivo('Jantar', '1');
+    fireEvent.click(ulozitTl());
+    await cekejNaUlozeni();
+    expect(uspech).toHaveBeenCalledWith('Objednávka uložena: Radek · Drobák · St 18. 11.');
   });
 
   it('odebrání řádku jde vzít zpět', () => {
-    naSouhrn();
+    vyplnena();
     fireEvent.click(screen.getByRole('button', { name: 'Odebrat 11° Světlá 10× 1 l' }));
     expect(screen.queryByText('10× 1 l')).toBeNull();
     expect(toastZpet).toHaveBeenCalledTimes(1);
@@ -698,7 +812,7 @@ describe('krok 3 — souhrn a uložení', () => {
   });
 
   it('úprava řádku otevře panel piva rovnou na tom obalu', () => {
-    naSouhrn();
+    vyplnena();
     fireEvent.click(screen.getByRole('button', { name: 'Upravit 11° Světlá 10× 1 l' }));
     expect(screen.getByRole('dialog', { name: /11° Světlá/ })).toBeTruthy();
     // Na tlačítku obalu je odznak s počtem („1 l" + „10").
@@ -706,48 +820,115 @@ describe('krok 3 — souhrn a uložení', () => {
     expect((screen.getByRole('textbox', { name: 'Kolik kusů?' }) as HTMLInputElement).value).toBe('10');
   });
 
-  it('tužky u „Komu" a „Kdy" vrátí na první krok, odebrání posledního řádku se nepřihlásí', () => {
-    naSouhrn();
-    fireEvent.click(screen.getByRole('button', { name: 'Změnit den závozu' }));
-    expect(screen.getByRole('heading', { name: 'Pro koho?' })).toBeTruthy();
+  it('tužky u „Komu" a „Kdy" přerolují stránku k odběrateli a ke dnům závozu (nic se nepřepíná)', () => {
+    const puvodniSkok = window.HTMLElement.prototype.scrollIntoView;
+    const skok = vi.fn();
+    window.HTMLElement.prototype.scrollIntoView = skok as unknown as typeof window.HTMLElement.prototype.scrollIntoView;
+    try {
+      vyplnena();
+      fireEvent.click(screen.getByRole('button', { name: 'Změnit den závozu' }));
+      expect(skok).toHaveBeenCalledTimes(1);
+      expect(skok.mock.contexts[0]).toBe(document.getElementById('pruvodce-kdy'));
+      expect(skok).toHaveBeenLastCalledWith({ behavior: 'smooth', block: 'start' });
+
+      fireEvent.click(screen.getByRole('button', { name: 'Změnit odběratele' }));
+      expect(skok).toHaveBeenCalledTimes(2);
+      expect(skok.mock.contexts[1]).toBe(screen.getByLabelText('Hledat odběratele'));
+    } finally {
+      window.HTMLElement.prototype.scrollIntoView = puvodniSkok;
+    }
+    // Nic se nezavřelo, nic se nezahodilo.
+    expect(screen.getByRole('button', { name: /^Žižkov/, pressed: true })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Souhrn objednávky' })).toBeTruthy();
   });
 
-  it('bez položek jde uložit až po přidání piva (tlačítko je zamčené)', () => {
+  it('bez položek jde uložit až po přidání piva (obě tlačítka jsou do té doby zamčená)', () => {
     pripravit();
     vyberOdberatele('Žižkov');
-    dal();
-    expect((tlacitko(/^Souhrn/) as HTMLButtonElement).disabled).toBe(true);
+    expect(ulozitTl().disabled).toBe(true);
+    expect(whatsappTl().disabled).toBe(true);
+    expect(hlaseni()).toBe('Přidej aspoň jedno pivo.');
+    zadejPivo('Jantar', '1');
+    expect(ulozitTl().disabled).toBe(false);
+    expect(whatsappTl().disabled).toBe(false);
+  });
+});
+
+describe('jedna stránka místo tří kroků (19. 11. 2026)', () => {
+  it('odběratel, pivo a souhrn jsou na stránce najednou a pod sebou v tomto pořadí', () => {
+    pripravit();
+    const pro = screen.getByRole('heading', { name: 'Pro koho?' });
+    const kdy = screen.getByRole('heading', { name: 'Kdy se veze?' });
+    const pivo = screen.getByRole('heading', { name: 'Které pivo?' });
+    const souhrn = screen.getByRole('heading', { name: 'Souhrn objednávky' });
+    const jeZa = (a: Node, b: Node) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(jeZa(pro, kdy)).toBe(true);
+    expect(jeZa(kdy, pivo)).toBe(true);
+    expect(jeZa(pivo, souhrn)).toBe(true);
+    // Tlačítka uložení jsou až za celou stránkou (v patičce okna).
+    expect(jeZa(souhrn, ulozitTl())).toBe(true);
+    expect(jeZa(ulozitTl(), whatsappTl())).toBe(true);
+  });
+
+  it('žádné kroky: ani Dál, ani Souhrn, ani šipka Zpět o krok, ani „1 ze 3", ani „Přidat další pivo"', () => {
+    pripravit();
+    vyberOdberatele('Žižkov');
+    zadejPivo('Jantar', '1');
+    expect(screen.queryByRole('button', { name: /^Dál/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Souhrn/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Zpět na výběr odběratele' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Přidat další pivo/ })).toBeNull();
+    expect(screen.queryByText(/\d ze 3/)).toBeNull();
+    expect(screen.queryByRole('progressbar')).toBeNull();
+  });
+
+  it('v hlavičce je jen křížek a název; vybraný odběratel s dnem je vidět vpravo', () => {
+    pripravit();
+    const hlavicka = screen.getByRole('banner');
+    expect(within(hlavicka).getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual(['Zavřít']);
+    expect(within(hlavicka).getByRole('heading', { name: 'Nová objednávka' })).toBeTruthy();
+    vyberOdberatele('Žižkov');
+    expect(hlavicka.textContent).toContain('Žižkov · St 18. 11.');
+  });
+
+  it('tlačítka uložení jsou pořád k dispozici — i s otevřeným dlouhým seznamem odběratelů', () => {
+    pripravit();
+    fireEvent.click(tlacitko(/Všichni odběratelé \(5\)/));
+    expect(ulozitTl()).toBeTruthy();
+    expect(whatsappTl()).toBeTruthy();
+    // Patička s tlačítky leží mimo rolovací plochu, takže nikdy nescrolluje pryč.
+    const patka = ulozitTl().closest('footer')!;
+    expect(patka).toBeTruthy();
+    expect(screen.getByRole('main').contains(patka)).toBe(false);
   });
 });
 
 describe('tlačítko Zpět a zavírání', () => {
   const zpet = () => act(() => { window.dispatchEvent(new PopStateEvent('popstate')); });
 
-  it('Zpět na souhrnu vrací na pivo, odtud na odběratele a rozepsané zůstává', () => {
-    pripravit();
+  it('Zpět s odběratelem a pivem nevrací po krocích — rovnou se zeptá a „Pokračovat" nechá všechno, jak bylo', async () => {
+    const { onZavrit } = pripravit();
     vyberOdberatele('Žižkov');
-    dal();
     zadejPivo('Jantar', '1');
-    fireEvent.click(tlacitko(/^Souhrn/));
+    vi.mocked(potvrd).mockResolvedValueOnce(false);
     zpet();
-    expect(screen.getByRole('heading', { name: 'Které pivo?' })).toBeTruthy();
-    zpet();
-    expect(screen.getByRole('heading', { name: 'Pro koho?' })).toBeTruthy();
+    await waitFor(() => expect(potvrd).toHaveBeenCalledTimes(1));
+    expect(onZavrit).not.toHaveBeenCalled();
     expect(screen.getByRole('button', { name: /^Žižkov/, pressed: true })).toBeTruthy();
-    expect(potvrd).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: /Jantar.*1×50/ })).toBeTruthy();
   });
 
-  it('Zpět při otevřeném panelu zavře panel, ne krok', () => {
+  it('Zpět při otevřeném panelu zavře jen panel — okno ani rozepsané se nezeptá', () => {
     pripravit();
     vyberOdberatele('Žižkov');
-    dal();
     fireEvent.click(screen.getByRole('button', { name: /Jantar/ }));
     zpet();
     expect(screen.queryByRole('dialog', { name: /Jantar/ })).toBeNull();
     expect(screen.getByRole('heading', { name: 'Které pivo?' })).toBeTruthy();
+    expect(potvrd).not.toHaveBeenCalled();
   });
 
-  it('Zpět na prvním kroku s rozepsaným se zeptá; „Zahodit" zavře, „Pokračovat" nechá', async () => {
+  it('Zpět s rozepsaným se zeptá; „Zahodit" zavře, „Pokračovat" nechá', async () => {
     const { onZavrit } = pripravit();
     vyberOdberatele('Žižkov');
     vi.mocked(potvrd).mockResolvedValueOnce(false);
@@ -760,7 +941,7 @@ describe('tlačítko Zpět a zavírání', () => {
     await waitFor(() => expect(onZavrit).toHaveBeenCalledTimes(1));
   });
 
-  it('Zpět na prázdném prvním kroku zavře rovnou, bez ptaní', () => {
+  it('Zpět na prázdné stránce zavře rovnou, bez ptaní', () => {
     const { onZavrit } = pripravit();
     zpet();
     expect(onZavrit).toHaveBeenCalledTimes(1);
@@ -778,32 +959,36 @@ describe('tlačítko Zpět a zavírání', () => {
     expect(onZavrit).toHaveBeenCalledTimes(1);
   });
 
-  it('Escape se chová jako Zpět', () => {
-    pripravit();
-    vyberOdberatele('Žižkov');
-    dal();
-    fireEvent.keyDown(window, { key: 'Escape' });
-    expect(screen.getByRole('heading', { name: 'Pro koho?' })).toBeTruthy();
-  });
-
-  it('šipka v hlavičce vrací o krok', () => {
-    pripravit();
-    vyberOdberatele('Žižkov');
-    dal();
-    fireEvent.click(tlacitko('Zpět na výběr odběratele'));
-    expect(screen.getByRole('heading', { name: 'Pro koho?' })).toBeTruthy();
-  });
-
-  it('po uložení Zpět okno zavře bez ptaní', async () => {
+  it('Escape se chová jako Zpět: s rozepsaným se zeptá, na prázdné stránce zavře', async () => {
     const { onZavrit } = pripravit();
     vyberOdberatele('Žižkov');
-    dal();
-    zadejPivo('Jantar', '1');
-    fireEvent.click(tlacitko(/^Souhrn/));
-    fireEvent.click(tlacitko(/Uložit objednávku/));
-    await screen.findByText('Objednávka uložena');
-    zpet();
+    vi.mocked(potvrd).mockResolvedValueOnce(false);
+    fireEvent.keyDown(window, { key: 'Escape' });
+    await waitFor(() => expect(potvrd).toHaveBeenCalledTimes(1));
+    expect(onZavrit).not.toHaveBeenCalled();
+    expect(screen.getByRole('heading', { name: 'Pro koho?' })).toBeTruthy();
+  });
+
+  it('Escape na prázdné stránce zavře okno bez ptaní', () => {
+    const { onZavrit } = pripravit();
+    fireEvent.keyDown(window, { key: 'Escape' });
     expect(onZavrit).toHaveBeenCalledTimes(1);
+    expect(potvrd).not.toHaveBeenCalled();
+  });
+
+  it('během ukládání Zpět ani Escape okno nezavřou (čeká se na výsledek)', async () => {
+    let dokonci: (v: { stav: 'ulozeno' }) => void = () => {};
+    const onUlozit = vi.fn(() => new Promise<{ stav: 'ulozeno' }>((resolve) => { dokonci = resolve; }));
+    const { onZavrit } = pripravit({ onUlozit });
+    vyberOdberatele('Žižkov');
+    zadejPivo('Jantar', '1');
+    fireEvent.click(ulozitTl());
+    zpet();
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(onZavrit).not.toHaveBeenCalled();
+    expect(potvrd).not.toHaveBeenCalled();
+    await act(async () => { dokonci({ stav: 'ulozeno' }); });
+    await cekejNaUlozeni();
     expect(potvrd).not.toHaveBeenCalled();
   });
 });
@@ -812,14 +997,12 @@ describe('půjčení výčepu — nenápadné pole v souhrnu', () => {
   const zpet = () => act(() => { window.dispatchEvent(new PopStateEvent('popstate')); });
   const REZERVACE = { id: 'rez-1', popis: 'Výčep 2 · 20.–22. 11.' };
 
-  function naSouhrnVycep(props: Partial<Parameters<typeof ObjednavkaPruvodce>[0]> = {}) {
+  function vyplnenaVycep(props: Partial<Parameters<typeof ObjednavkaPruvodce>[0]> = {}) {
     const vyberVycep = vi.fn(async () => REZERVACE as { id: string; popis: string } | null);
     const zrusVycep = vi.fn(async (_id: string) => null as string | null);
     const r = pripravit({ vyberVycep, zrusVycep, ...props });
     vyberOdberatele('Žižkov');
-    dal();
     zadejPivo('Jantar', '1');
-    fireEvent.click(tlacitko(/^Souhrn/));
     return { ...r, vyberVycep, zrusVycep };
   }
   const pole = () => screen.getByRole('checkbox', { name: 'Půjčení výčepu' }) as HTMLInputElement;
@@ -828,21 +1011,19 @@ describe('půjčení výčepu — nenápadné pole v souhrnu', () => {
   it('bez okna rezervace se pole vůbec nenabízí', () => {
     pripravit();
     vyberOdberatele('Žižkov');
-    dal();
     zadejPivo('Jantar', '1');
-    fireEvent.click(tlacitko(/^Souhrn/));
     expect(screen.queryByRole('checkbox', { name: 'Půjčení výčepu' })).toBeNull();
     expect(screen.queryByTestId('pruvodce-vycep')).toBeNull();
   });
 
   it('pole je odškrtnuté a nic o výčepu nehlásí', () => {
-    naSouhrnVycep();
+    vyplnenaVycep();
     expect(pole().checked).toBe(false);
     expect(stav()).toBe('Půjčení výčepu');
   });
 
   it('zaškrtnutí otevře okno rezervace s odběratelem, dnem závozu a poznámkou', async () => {
-    const { vyberVycep } = naSouhrnVycep();
+    const { vyberVycep } = vyplnenaVycep();
     fireEvent.change(screen.getByLabelText('Poznámka'), { target: { value: 'jednokohout na sobotu' } });
     fireEvent.click(pole());
     await waitFor(() => expect(vyberVycep).toHaveBeenCalledTimes(1));
@@ -856,42 +1037,40 @@ describe('půjčení výčepu — nenápadné pole v souhrnu', () => {
     pripravit({ vyberVycep, zrusVycep: vi.fn(async () => null) });
     vyberOdberatele('Žižkov');
     fireEvent.change(screen.getByLabelText(/Jiné datum závozu/), { target: { value: '2026-11-21' } });
-    dal();
     zadejPivo('Jantar', '1');
-    fireEvent.click(tlacitko(/^Souhrn/));
     fireEvent.click(pole());
     await waitFor(() => expect(vyberVycep).toHaveBeenCalledWith(expect.objectContaining({ datum: '2026-11-21' })));
   });
 
   it('potvrzená rezervace se uloží s konceptem, ať se naváže na objednávku', async () => {
-    const { onUlozit } = naSouhrnVycep();
+    const { onUlozit } = vyplnenaVycep();
     fireEvent.click(pole());
     await screen.findByText('Rezervováno: Výčep 2 · 20.–22. 11.');
     fireEvent.click(tlacitko(/Uložit objednávku/));
-    await screen.findByText('Objednávka uložena');
+    await cekejNaUlozeni();
     expect(onUlozit.mock.calls[0][0]).toMatchObject({ vycep: true, vycepRezervace: REZERVACE });
   });
 
   it('okno zavřené bez rezervace nechá pole zaškrtnuté a řekne, že se otevře po uložení', async () => {
-    const { onUlozit } = naSouhrnVycep({ vyberVycep: vi.fn(async () => null) });
+    const { onUlozit } = vyplnenaVycep({ vyberVycep: vi.fn(async () => null) });
     fireEvent.click(pole());
     await screen.findByText('Okno rezervace se otevře po uložení objednávky');
     expect(pole().checked).toBe(true);
     fireEvent.click(tlacitko(/Uložit objednávku/));
-    await screen.findByText('Objednávka uložena');
+    await cekejNaUlozeni();
     expect(onUlozit.mock.calls[0][0]).toMatchObject({ vycep: true, vycepRezervace: null });
   });
 
   it('bez zaškrtnutí se uloží bez výčepu', async () => {
-    const { onUlozit, vyberVycep } = naSouhrnVycep();
+    const { onUlozit, vyberVycep } = vyplnenaVycep();
     fireEvent.click(tlacitko(/Uložit objednávku/));
-    await screen.findByText('Objednávka uložena');
+    await cekejNaUlozeni();
     expect(vyberVycep).not.toHaveBeenCalled();
     expect(onUlozit.mock.calls[0][0]).toMatchObject({ vycep: false, vycepRezervace: null });
   });
 
   it('odškrtnutí zruší rezervaci, která už je v databázi', async () => {
-    const { zrusVycep, onUlozit } = naSouhrnVycep();
+    const { zrusVycep, onUlozit } = vyplnenaVycep();
     fireEvent.click(pole());
     await screen.findByText('Rezervováno: Výčep 2 · 20.–22. 11.');
     fireEvent.click(pole());
@@ -899,12 +1078,12 @@ describe('půjčení výčepu — nenápadné pole v souhrnu', () => {
     expect(pole().checked).toBe(false);
     expect(stav()).toBe('Půjčení výčepu');
     fireEvent.click(tlacitko(/Uložit objednávku/));
-    await screen.findByText('Objednávka uložena');
+    await cekejNaUlozeni();
     expect(onUlozit.mock.calls[0][0]).toMatchObject({ vycep: false, vycepRezervace: null });
   });
 
   it('odškrtnutí zaškrtnutého pole bez rezervace nic nemaže', async () => {
-    const { zrusVycep } = naSouhrnVycep({ vyberVycep: vi.fn(async () => null) });
+    const { zrusVycep } = vyplnenaVycep({ vyberVycep: vi.fn(async () => null) });
     fireEvent.click(pole());
     await screen.findByText('Okno rezervace se otevře po uložení objednávky');
     fireEvent.click(pole());
@@ -913,7 +1092,7 @@ describe('půjčení výčepu — nenápadné pole v souhrnu', () => {
   });
 
   it('když se rezervaci nepodaří zrušit, ohlásí se to (pole se odškrtne tak jako tak)', async () => {
-    naSouhrnVycep({ zrusVycep: vi.fn(async () => 'Síť nedostupná') });
+    vyplnenaVycep({ zrusVycep: vi.fn(async () => 'Síť nedostupná') });
     fireEvent.click(pole());
     await screen.findByText('Rezervováno: Výčep 2 · 20.–22. 11.');
     fireEvent.click(pole());
@@ -922,7 +1101,7 @@ describe('půjčení výčepu — nenápadné pole v souhrnu', () => {
   });
 
   it('selhání okna rezervace se ohlásí a pole zůstane zaškrtnuté bez rezervace', async () => {
-    naSouhrnVycep({ vyberVycep: vi.fn(async () => { throw new Error('Výčepy se nenačetly'); }) });
+    vyplnenaVycep({ vyberVycep: vi.fn(async () => { throw new Error('Výčepy se nenačetly'); }) });
     fireEvent.click(pole());
     await waitFor(() => expect(chyba).toHaveBeenCalledTimes(1));
     expect(pole().checked).toBe(true);
@@ -930,23 +1109,19 @@ describe('půjčení výčepu — nenápadné pole v souhrnu', () => {
   });
 
   it('zahození rozepsané objednávky zruší i rezervaci výčepu', async () => {
-    const { zrusVycep, onZavrit } = naSouhrnVycep();
+    const { zrusVycep, onZavrit } = vyplnenaVycep();
     fireEvent.click(pole());
     await screen.findByText('Rezervováno: Výčep 2 · 20.–22. 11.');
-    zpet(); // souhrn → pivo
-    zpet(); // pivo → odběratel
     vi.mocked(potvrd).mockResolvedValueOnce(true);
-    zpet(); // zavřít → zeptá se
+    zpet(); // zeptá se na zahození
     await waitFor(() => expect(onZavrit).toHaveBeenCalledTimes(1));
     expect(zrusVycep).toHaveBeenCalledWith('rez-1');
   });
 
   it('„Pokračovat v zadávání" rezervaci nechá', async () => {
-    const { zrusVycep, onZavrit } = naSouhrnVycep();
+    const { zrusVycep, onZavrit } = vyplnenaVycep();
     fireEvent.click(pole());
     await screen.findByText('Rezervováno: Výčep 2 · 20.–22. 11.');
-    zpet();
-    zpet();
     vi.mocked(potvrd).mockResolvedValueOnce(false);
     zpet();
     await waitFor(() => expect(potvrd).toHaveBeenCalled());
@@ -955,34 +1130,20 @@ describe('půjčení výčepu — nenápadné pole v souhrnu', () => {
   });
 
   it('po uložení se rezervace při zavření okna nemaže — patří objednávce', async () => {
-    const { zrusVycep, onZavrit } = naSouhrnVycep();
+    const { zrusVycep, onZavrit } = vyplnenaVycep();
     fireEvent.click(pole());
     await screen.findByText('Rezervováno: Výčep 2 · 20.–22. 11.');
     fireEvent.click(tlacitko(/Uložit objednávku/));
-    await screen.findByText('Objednávka uložena');
-    fireEvent.click(tlacitko('Hotovo'));
+    await cekejNaUlozeni();
     expect(onZavrit).toHaveBeenCalledTimes(1);
+    // Okno se zavřelo po uložení, ne zahozením — rezervace patří objednávce a zůstává.
     expect(zrusVycep).not.toHaveBeenCalled();
-  });
-
-  it('„Zadat další objednávku" začne bez výčepu', async () => {
-    naSouhrnVycep();
-    fireEvent.click(pole());
-    await screen.findByText('Rezervováno: Výčep 2 · 20.–22. 11.');
-    fireEvent.click(tlacitko(/Uložit objednávku/));
-    await screen.findByText('Objednávka uložena');
-    fireEvent.click(tlacitko(/Zadat další objednávku/));
-    vyberOdberatele('Žižkov');
-    dal();
-    zadejPivo('Jantar', '1');
-    fireEvent.click(tlacitko(/^Souhrn/));
-    expect(pole().checked).toBe(false);
   });
 
   it('Zpět a Escape při otevřeném okně rezervace průvodcem nehýbou (okno leží nad ním)', async () => {
     let potvrdOkno: (r: { id: string; popis: string } | null) => void = () => {};
     const vyberVycep = vi.fn(() => new Promise<{ id: string; popis: string } | null>((resolve) => { potvrdOkno = resolve; }));
-    naSouhrnVycep({ vyberVycep });
+    vyplnenaVycep({ vyberVycep });
     fireEvent.click(pole());
     await waitFor(() => expect(vyberVycep).toHaveBeenCalledTimes(1));
     zpet();
@@ -991,15 +1152,16 @@ describe('půjčení výčepu — nenápadné pole v souhrnu', () => {
     expect(potvrd).not.toHaveBeenCalled();
     await act(async () => { potvrdOkno(REZERVACE); });
     expect(await screen.findByText('Rezervováno: Výčep 2 · 20.–22. 11.')).toBeTruthy();
-    // Po zavření okna Zpět zase funguje.
+    // Po zavření okna Zpět zase funguje: rozepsaná objednávka se zeptá na zahození.
+    vi.mocked(potvrd).mockResolvedValueOnce(false);
     zpet();
-    expect(screen.getByRole('heading', { name: 'Které pivo?' })).toBeTruthy();
+    await waitFor(() => expect(potvrd).toHaveBeenCalledTimes(1));
   });
 
   it('během ukládání se pole nedá přepnout', async () => {
     let dokonci: (v: { stav: 'ulozeno' }) => void = () => {};
     const onUlozit = vi.fn(() => new Promise<{ stav: 'ulozeno' }>((resolve) => { dokonci = resolve; }));
-    const { vyberVycep } = naSouhrnVycep({ onUlozit });
+    const { vyberVycep } = vyplnenaVycep({ onUlozit });
     fireEvent.click(tlacitko(/Uložit objednávku/));
     expect(tlacitko(/Ukládám/)).toBeTruthy();
     fireEvent.click(pole());
@@ -1016,24 +1178,39 @@ describe('široká obrazovka (počítač)', () => {
   });
   afterEach(() => { window.matchMedia = puvodni; });
 
-  it('všechny tři kroky jsou vedle sebe a uložit jde z pravého sloupce', async () => {
+  it('všechny tři části jsou vedle sebe a oba způsoby uložení jsou v pravém sloupci', async () => {
     const { onUlozit } = pripravit();
     expect(screen.getByRole('region', { name: 'Pro koho a na kdy' })).toBeTruthy();
     expect(screen.getByRole('region', { name: 'Pivo, obal a počet' })).toBeTruthy();
-    expect(screen.getByRole('region', { name: 'Souhrn objednávky' })).toBeTruthy();
-    // Patička s Dál a Souhrn tu není.
-    expect(screen.queryByRole('button', { name: /Dál — vybrat pivo/ })).toBeNull();
+    const souhrn = screen.getByRole('region', { name: 'Souhrn objednávky' });
+    // Na počítači je tlačítek uložení v souhrnu, ne v patičce okna.
+    expect(within(souhrn).getByRole('button', { name: 'Uložit objednávku' })).toBeTruthy();
+    expect(within(souhrn).getByRole('button', { name: 'Uložit a odeslat na WhatsApp' })).toBeTruthy();
+    expect(ulozitTl().closest('footer')).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Dál/ })).toBeNull();
     expect((tlacitko(/Uložit objednávku/) as HTMLButtonElement).disabled).toBe(true);
 
     vyberOdberatele('Žižkov');
     zadejPivo('12° Světlá', '2');
     expect((tlacitko(/Uložit objednávku/) as HTMLButtonElement).disabled).toBe(false);
     fireEvent.click(tlacitko(/Uložit objednávku/));
-    await screen.findByText('Objednávka uložena');
+    await cekejNaUlozeni();
     expect(onUlozit.mock.calls[0][0].radky.map((r) => [r.beerId, r.pkgId, r.qty])).toEqual([['b12', 'k50', 2]]);
+    expect(onUlozit.mock.calls[0][1]).toEqual({ whatsapp: false });
   });
 
-  it('Zpět tu nevrací o krok (kroky nejsou za sebou), jen se zeptá na rozepsané', async () => {
+  it('i z pravého sloupce jde „Uložit a odeslat na WhatsApp"', async () => {
+    const { onUlozit } = pripravit();
+    expect(whatsappTl().disabled).toBe(true);
+    vyberOdberatele('Žižkov');
+    zadejPivo('12° Světlá', '2');
+    expect(whatsappTl().disabled).toBe(false);
+    fireEvent.click(whatsappTl());
+    await cekejNaUlozeni();
+    expect(onUlozit.mock.calls[0][1]).toEqual({ whatsapp: true });
+  });
+
+  it('Zpět se tu jen zeptá na rozepsané', async () => {
     const { onZavrit } = pripravit();
     vyberOdberatele('Žižkov');
     vi.mocked(potvrd).mockResolvedValueOnce(true);

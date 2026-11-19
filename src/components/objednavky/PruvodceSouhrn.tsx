@@ -1,4 +1,4 @@
-// 🧭 Průvodce objednávkou — krok 3: souhrn a uložení.
+// 🧭 Průvodce objednávkou — část 3: souhrn a uložení.
 // ---------------------------------------------------------------------------
 // Všechno, co se uloží, na jedné obrazovce: komu a kdy, položky po pivech
 // (každou jde upravit tužkou a odebrat koškem — odebrání jde vzít zpět),
@@ -17,14 +17,14 @@ import type { DataPruvodce, PrideleniMalychSudu, ZmenaKonceptu } from './pruvodc
 
 const KARTA = 'rounded-2xl border border-neutral-200 bg-white dark:bg-neutral-800 dark:border-neutral-700';
 
-export function PruvodceSouhrn({ data, koncept, zmen, upravPivo, zpetNaOdberatele, prideleniSudu, vycep, patka }: {
+export function PruvodceSouhrn({ data, koncept, zmen, upravPivo, naSekci, prideleniSudu, vycep, patka }: {
   data: DataPruvodce;
   koncept: KonceptObjednavky;
   zmen: ZmenaKonceptu;
   /** Úprava řádku: otevře krokové zadávání piva s předvoleným obalem. */
   upravPivo: (beerId: string, pkgId: string) => void;
-  /** Změna odběratele nebo dne: vrátí na krok 1. */
-  zpetNaOdberatele: () => void;
+  /** Změna odběratele nebo dne: stránka se přerolují k odběrateli, nebo ke dnům závozu. */
+  naSekci: (cil: 'odberatel' | 'kdy') => void;
   prideleniSudu?: PrideleniMalychSudu;
   /** Pole „Půjčení výčepu" pod poznámkou (PruvodceVycep); bez něj se výčep nenabízí. */
   vycep?: ReactNode;
@@ -60,7 +60,7 @@ export function PruvodceSouhrn({ data, koncept, zmen, upravPivo, zpetNaOdberatel
             {koncept.placeName || '—'}{misto ? ` · ${misto.nazev}` : ''}
             {!odberatel && koncept.placeName && <span className="ml-1.5 text-xs font-bold text-neutral-600 dark:text-neutral-300">nový</span>}
           </span>
-          <button type="button" onClick={zpetNaOdberatele} className={tuzka} aria-label="Změnit odběratele"><Pencil size={16} /></button>
+          <button type="button" onClick={() => naSekci('odberatel')} className={tuzka} aria-label="Změnit odběratele"><Pencil size={16} /></button>
         </div>
         <div className={radekKarty}>
           <span className="w-16 shrink-0 text-xs font-black uppercase tracking-wider text-neutral-600 dark:text-neutral-300">Kdy</span>
@@ -69,13 +69,13 @@ export function PruvodceSouhrn({ data, koncept, zmen, upravPivo, zpetNaOdberatel
             {z.vychozi && z.datum && <span className="ml-1.5 text-xs font-bold text-neutral-600 dark:text-neutral-300">výchozí den</span>}
             {koncept.bezZavozu && <span className="ml-1.5 text-xs font-bold text-neutral-600 dark:text-neutral-300">bez závozu</span>}
           </span>
-          <button type="button" onClick={zpetNaOdberatele} className={tuzka} aria-label="Změnit den závozu"><Pencil size={16} /></button>
+          <button type="button" onClick={() => naSekci('kdy')} className={tuzka} aria-label="Změnit den závozu"><Pencil size={16} /></button>
         </div>
       </section>
 
       <section aria-label="Položky objednávky" className={`${KARTA} py-2`}>
         {skupiny.length === 0 ? (
-          <p className="px-3.5 py-3 text-sm font-semibold text-neutral-600 dark:text-neutral-300">Zatím žádné pivo — vrať se na výběr piva.</p>
+          <p className="px-3.5 py-3 text-sm font-semibold text-neutral-600 dark:text-neutral-300">Zatím žádné pivo — vyber ho výše.</p>
         ) : (
           <div className="divide-y divide-neutral-100 dark:divide-neutral-700">
             {skupiny.map((s) => {
