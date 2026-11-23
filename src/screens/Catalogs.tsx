@@ -14,6 +14,7 @@ import { useAuth } from '../lib/auth';
 import { isAdminEmail } from '../lib/config';
 import { fetchPlaceAliasesForAdmin, deletePlaceAlias, pridejPlaceAliasRucne, upravPlaceAlias, type PlaceAliasRow, fetchAliasesForAdmin, deleteAlias, pridejAliasRucne, upravAlias, type ParserAliasRow } from '../lib/orderParser';
 import { shodaHledani } from '../lib/hledani';
+import { NauceneOpravySeznam } from '../components/NauceneOpravySeznam';
 
 /* ===== PIVA ===== */
 export function BeersScreen() {
@@ -289,6 +290,8 @@ function NauceneZkratkyModal({ beers, onClose }: { beers: Beer[]; onClose: () =>
   return (
     <Modal open={true} onClose={onClose} title="Naučené zkratky">
       <div className="space-y-4">
+        <NauceneOpravySeznam beers={beers} packages={packages} />
+        <h4 className="text-sm font-black text-neutral-800 pt-2 border-t border-neutral-200">Starší zkratky</h4>
         <p className="text-sm text-neutral-600">
           Zkratky, které tu jsou, vznikly do 23. 11. 2026 samy z každé ruční změny piva
           nebo obalu — i když šlo o záměnu jen pro jednu objednávku („30l" → 1 l).

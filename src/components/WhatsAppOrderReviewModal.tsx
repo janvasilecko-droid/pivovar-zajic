@@ -16,6 +16,8 @@ import { analyzeReadback, buildHighlightedSegments, diffWords, computeReadbackUn
 import { cekaNaCteni, srozumitelnaChybaCteni, unikatniHlaseni } from '../lib/cteniObjednavkyZobrazeni';
 import { AlertCircle, AlertTriangle, Check, CheckCircle2, ChevronDown, Download, ExternalLink, Eye, FileText, Image as ImageIcon, MessageSquare, CornerDownRight, HelpCircle, RefreshCw, RotateCcw, ShieldAlert, ShieldCheck, ShoppingCart, UserCheck, X, FilePlus, Plus } from 'lucide-react';
 import { chyba, potvrd, uspech } from '../lib/toast';
+import { duvodProcNelzeNaucit, sestavOpravu } from '../../supabase/functions/_shared/naucene-opravy';
+import { ulozNauceneOpravy, pocetOprav } from '../lib/nauceneOpravy';
 import { zalogujANahlas } from '../lib/chybyHlaseni';
 import { useChovaniDialogu } from '../lib/zavriNaZpet';
 import { businessDateISO } from '../lib/businessDate';
@@ -105,6 +107,23 @@ interface ReviewItem {
   rawLine?: string | null;
   /** Počet, který přečetla AI, když ho pojistka opravila podle textu řádku. */
   aiQty?: number | null;
+  /**
+   * Pivo a obal, jak je položce přiřadila čtečka — než je člověk změnil. Podle
+   * nich se pozná OPRAVA čtení (a nabídne se „Naučit"). Ručně přidaný řádek je
+   * nemá: nic se u něj nečetlo, není co učit.
+   */
+  ctenoBeerId?: string;
+  ctenoPkgId?: string;
+  /** U opravy je zaškrtnuté „Naučit" — po schválení se zapamatuje pro odběratele. */
+  naucit?: boolean;
+}
+
+/** Co člověk u položky změnil proti přečtenému (null = beze změny / není co porovnat). */
+function opravaPolozky(it: ReviewItem): { pivo: string | null; obal: string | null } {
+  return {
+    pivo: it.ctenoBeerId !== undefined && it.beerId && it.beerId !== it.ctenoBeerId ? it.beerId : null,
+    obal: it.ctenoPkgId !== undefined && it.pkgId && it.pkgId !== it.ctenoPkgId ? it.pkgId : null,
+  };
 }
 
 /** Klíč přísného režimu (blokace schválení při nesouladu) v localStorage. */
@@ -383,6 +402,8 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
           beerName: item.beer_name,
           packageLabel: item.package_label,
           rawLine: item.raw_line,
+          ctenoBeerId: beer?.id || '',
+          ctenoPkgId: pkg?.id || '',
         };
       });
       // 📷 Fotka: položky se seřadí tak, jak jdou řádky na fotce, a řádky
@@ -418,6 +439,8 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
               beerName: d.beer_name,
               packageLabel: d.package_label,
               rawLine: d.raw_line,
+              ctenoBeerId: (pivoNapsanePodleJmena(d.raw_line, d.degree, props.beers)?.id) || d.beer_id || '',
+              ctenoPkgId: (litr ?? pkg)?.id || '',
             };
           });
           if (doplneno) {
@@ -814,17 +837,21 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   // patnáctku). Vzniklo tak 184 pravidel typu „30l → 1 l" a „0.33l → 0,5 l",
   // podle kterých se pak četly další zprávy špatně. Pamatovat si appka smí jen
   // opravu, kterou uživatel výslovně potvrdí.
-  function updateItemBeer(index: number, beerId: string) {
+  // 🧠 „Naučit" (23. 11. 2026, majitel: „pokud to uživatel opraví a bude chtít,
+  // aby si AI pamatovala tu opravu, tak to může zakliknout"). U položky, kterou
+  // člověk změnil proti přečtenému, se nabídne zaškrtávátko; zapamatuje se až po
+  // schválení a jen se zaškrtnutím (viz handleApprove a _shared/naucene-opravy.ts).
+  const upravPolozku = (index: number, zmena: Partial<ReviewItem>) => {
     const next = [...items];
-    next[index] = { ...next[index], beerId };
+    const nova = { ...next[index], ...zmena };
+    const o = opravaPolozky(nova);
+    // Vrátil-li člověk položku k přečtenému, není co učit.
+    next[index] = o.pivo || o.obal ? nova : { ...nova, naucit: false };
     setItems(next);
-  }
-
-  function updateItemPkg(index: number, pkgId: string) {
-    const next = [...items];
-    next[index] = { ...next[index], pkgId };
-    setItems(next);
-  }
+  };
+  function updateItemBeer(index: number, beerId: string) { upravPolozku(index, { beerId }); }
+  function updateItemPkg(index: number, pkgId: string) { upravPolozku(index, { pkgId }); }
+  function nastavNaucit(index: number, naucit: boolean) { upravPolozku(index, { naucit }); }
 
   function updateItemQty(index: number, qty: string) {
     const next = [...items];
@@ -999,6 +1026,9 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   // u položky (níže) samo o sobě schválení nezablokuje, proto se to musí
   // vynutit i tady — stejně jako EditOrderModal.tsx vyžaduje beerId+pkgId.
   const hasUnmatchedItems = items.some((it) => !it.beerId || !it.pkgId);
+  // Odpověď upravující objednávku: položky jsou výsledný stav s textem citované
+  // zprávy — z těch se nic neučí (viz duvodProcNelzeNaucit).
+  const polozkyJsouVyslednyStav = (message.parsed_items ?? []).some((it) => it.plny_stav);
 
   // Kontrola čtení: porovnání raw_line položek (to, co AI tvrdí, že přečetla)
   // s originálním textem zprávy. Přesná shoda ✓, částečná (překlepy/pořadí slov)
@@ -1038,12 +1068,13 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   // Originál zprávy — v běžném (Modal) zobrazení součást gridu "Kontrola
   // čtení", u textových objednávek (useFullscreenTextLayout) se stejný obsah
   // vykreslí zvlášť v napevno přilepeném panelu nahoře (viz níže).
-  const originalMessageBlock = (
+  const originalBlok = (ukotveny: boolean) => (
     <div>
       <div className="text-xs font-medium text-neutral-500 mb-1 flex items-center gap-1">
         <MessageSquare size={12} /> Originál zprávy
       </div>
-      <div className="border rounded p-3 bg-white font-mono text-sm whitespace-pre-wrap max-h-80 overflow-y-auto">
+      {/* V ukotveném panelu roluje panel sám, proto tu výška omezená není. */}
+      <div className={`border rounded p-3 bg-white font-mono text-sm whitespace-pre-wrap ${ukotveny ? '' : 'max-h-80 overflow-y-auto'}`}>
         {message.message_text ? (
           originalSegments.map((seg, si) =>
             seg.highlighted ? (
@@ -1067,6 +1098,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
       </div>
     </div>
   );
+  const originalMessageBlock = originalBlok(false);
 
   /**
    * ✅ Schválit jde VŽDYCKY — rozhodnutí majitele 2. 10. 2026: „dej tam to
@@ -1251,6 +1283,25 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
         const { error: itemsErr } = await supabase.from('order_items').insert(radky);
         if (itemsErr) throw new Error(itemsErr.message);
       }
+
+      // 🧠 Naučit: zapamatuj opravy, u kterých je zaškrtnuto — až teď, když je
+      // objednávka opravdu schválená, a pro odběratele, u kterého skončila.
+      // Odštěpené položky druhého odběratele se neučí. Selhání zapamatování
+      // objednávku neshodí; člověk se o něm dozví.
+      const mistoOprav = { placeId: editedMessage.parsed_place_id || null, placeName: editedMessage.parsed_place_name || null };
+      const kNauceni = primaryItems.flatMap((it) => {
+        const o = opravaPolozky(it);
+        if (!it.naucit || (!o.pivo && !o.obal)) return [];
+        const nelze = duvodProcNelzeNaucit({
+          rawLine: it.rawLine, noveBeerId: o.pivo, novePackageId: o.obal,
+          beers: props.beers, packages: props.packages, zCitace: (message.parsed_items ?? []).some((p) => p.plny_stav),
+        });
+        const radek = nelze ? null : sestavOpravu({ misto: mistoOprav, rawLine: it.rawLine, beerId: o.pivo, packageId: o.obal });
+        return radek ? [radek] : [];
+      });
+      const uceni = await ulozNauceneOpravy(kNauceni);
+      if (uceni.chyba) chyba(`Objednávka je schválená, ale zapamatování oprav se nepovedlo: ${uceni.chyba}`);
+      else if (uceni.ulozeno > 0) uspech(`Zapamatováno pro příště: ${pocetOprav(uceni.ulozeno)}.`);
 
       setStatusMessage(
         splitActive ? 'Schváleno — rozděleno na dvě objednávky!'
@@ -1920,7 +1971,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
 
         {/* Lístek vedle originálu — originál musí zůstat vidět, ne v Další.
             U fotky je vedle (ukotvená) fotka sama, proto tu stačí jeden sloupec. */}
-        <div className={`grid grid-cols-1 gap-4 items-start ${useFullscreenPhotoLayout ? '' : 'lg:grid-cols-2'}`}>
+        <div className={`grid grid-cols-1 gap-4 items-start ${useFullscreenPhotoLayout || useFullscreenTextLayout ? '' : 'lg:grid-cols-2'}`}>
           <div className="order-2 lg:order-1 min-w-0">
             <div className="text-sm font-medium mb-2 flex items-center gap-2">
               <Check size={16} className="text-emerald-600" />
@@ -2095,6 +2146,32 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                             </button>
                           </div>
 
+                          {(() => {
+                            // 🧠 Oprava přečteného piva/obalu → nabídni „Naučit" (nebo řekni, proč to nejde).
+                            const o = opravaPolozky(item);
+                            if (!o.pivo && !o.obal) return null;
+                            const komu = (placeName || message.parsed_place_name || '').trim();
+                            const duvod = !placeId && !komu
+                              ? 'Vyber odběratele — oprava se pamatuje pro něj.'
+                              : duvodProcNelzeNaucit({
+                                rawLine: item.rawLine, noveBeerId: o.pivo, novePackageId: o.obal,
+                                beers: props.beers, packages: props.packages, zCitace: polozkyJsouVyslednyStav,
+                              });
+                            if (duvod) {
+                              return <div className="text-xs mt-1 text-neutral-600" data-testid="naucit-nelze">{duvod}</div>;
+                            }
+                            return (
+                              <label className="mt-1 flex items-center gap-2 min-h-[44px] px-2 rounded border border-emerald-300 bg-emerald-50 text-sm text-emerald-900 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  className="w-5 h-5 shrink-0"
+                                  checked={!!item.naucit}
+                                  onChange={(e) => nastavNaucit(index, e.target.checked)}
+                                />
+                                <span><b>Naučit</b> — příště takhle číst{komu ? ` u odběratele ${komu}` : ''}</span>
+                              </label>
+                            );
+                          })()}
                           {item.aiQty != null && (
                             <div className="text-xs mt-1 font-bold text-amber-900 flex items-start gap-1">
                               <AlertTriangle size={12} className="mt-0.5 shrink-0" />
@@ -2187,10 +2264,13 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
               </div>
             </div>
           </div>
-          {/* Fotka tu není — je ukotvená mimo rolovaný obsah (viz návrat komponenty). */}
-          <div className={`order-1 min-w-0 border rounded p-3 bg-sky-50/50 space-y-3 ${useFullscreenPhotoLayout ? '' : 'lg:order-2'}`}>
-            {originalMessageBlock}
-          </div>
+          {/* Fotka tu není — je ukotvená mimo rolovaný obsah (viz návrat komponenty).
+              Stejně originál textové zprávy: je v ukotveném panelu, tady by byl podruhé. */}
+          {!useFullscreenTextLayout && (
+            <div className={`order-1 min-w-0 border rounded p-3 bg-sky-50/50 space-y-3 ${useFullscreenPhotoLayout ? '' : 'lg:order-2'}`}>
+              {originalMessageBlock}
+            </div>
+          )}
         </div>
 
         {statusMessage && (
@@ -2546,6 +2626,20 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                 onChangeIndex={() => {}}
                 vychoziNaSirku
               />
+            </div>
+          )}
+          {/* 📌 Originál textové zprávy ukotvený stejně jako fotka (23. 11. 2026,
+              majitel: „při čtení objednávek má být fotka nebo originál z WhatsAppu
+              ukotvený a hýbat dolů jen přečtenýma položkama, aby se přečtený
+              položky daly zkontrolovat s originálem"). Na telefonu na výšku pruh
+              nahoře vysoký podle zprávy (nejvýš třetina okna, delší zpráva se
+              v něm roluje sama); na širokém displeji pravá půlka okna. */}
+          {useFullscreenTextLayout && (
+            <div
+              data-original-ukotveny
+              className="shrink-0 max-h-[34vh] overflow-y-auto scrollbar-thin p-3 bg-sky-50 border-b border-sky-200 lg:max-h-none lg:w-1/2 lg:order-2 lg:border-b-0 lg:border-l lg:p-6 sm:landscape:max-h-none sm:landscape:w-1/2 sm:landscape:order-2 sm:landscape:border-b-0 sm:landscape:border-l"
+            >
+              {originalBlok(true)}
             </div>
           )}
           <div data-obsah-rolovany className="flex-1 min-h-0 min-w-0 overflow-y-auto scrollbar-thin p-4 sm:p-6">

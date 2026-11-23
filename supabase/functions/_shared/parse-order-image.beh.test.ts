@@ -188,4 +188,23 @@ describe('parse-order-image: čtení fotky v appce se vejde do času serveru', (
     expect(pokyn).not.toContain('hazy spring day');
     expect(pokyn).toContain('(žádné naučené zkratky zatím)');
   });
+
+  // 🧠 Opravy, které uživatel výslovně potvrdil („Naučit"), do pokynu jdou —
+  // s odběratelem, u kterého vznikly.
+  it('naučené opravy (`opravy`) se do pokynu pro AI dostanou jako příklady s odběratelem', async () => {
+    sluzby((model) => (model === 'gemini-3.5-flash' ? { ms: 2_000 } : { visi: true }));
+    const { status } = await zavolej({
+      opravy: [
+        { odberatel: 'Lužec', radek: '5 beden světlého', pivo: null, obal: 'Lahve 0.33l' },
+        { odberatel: 'Lužec', radek: 'Tm: 2x30l', pivo: '12° Tmavá', obal: null },
+      ],
+    });
+    expect(status).toBe(200);
+    const pokyn = pokyny.join('\n');
+    expect(pokyn).toContain('[Lužec]');
+    expect(pokyn).toContain('5 beden světlého');
+    expect(pokyn).toContain('→ Lahve 0.33l');
+    expect(pokyn).toContain('→ 12° Tmavá');
+    expect(pokyn).not.toContain('(žádné naučené zkratky zatím)');
+  });
 });

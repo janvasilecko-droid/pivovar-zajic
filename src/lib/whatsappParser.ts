@@ -3,7 +3,8 @@ import { normPlaceName, stripSenderName, resolvePlace, odberatelZHistorie, prefe
 import { odberatelZVety } from '../../supabase/functions/_shared/odberatel-z-vety';
 import { nactiHistorii } from '../../supabase/functions/_shared/historie-objednavek';
 import { nactiZvykLahve } from '../../supabase/functions/_shared/zvyk-lahve';
-import { lahevBezUdaneVelikosti } from '../../supabase/functions/_shared/beer-match';
+import { lahevBezUdaneVelikosti, obalVyslovneVRadku } from '../../supabase/functions/_shared/beer-match';
+import { nactiNauceneOpravy, najdiOpravu, lahevZOprav, prikladyProAI } from '../../supabase/functions/_shared/naucene-opravy';
 import { textRikaPristiTyden } from '../../supabase/functions/_shared/den-zavozu';
 import { jeDocasnaChyba, UPOZORNENI_ZALOZNI_CTENI } from '../../supabase/functions/_shared/opakovani-cteni';
 import { parseGeminiItems, detectOrderNotes, parseOrderText, emptyAliasMap, loadPlaceAliasMap, ParserAliasMap, ParsedLine, GeminiItem } from './orderParser';
@@ -600,6 +601,10 @@ export async function parseWhatsAppOrderMessageWithAI(
 
   const fnUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-order-text`;
 
+  // 🧠 Opravy, které uživatel výslovně potvrdil („Naučit") — stejně jako server
+  // (whatsapp-auto-parse): AI je dostane jako příklady a stejně napsaný řádek
+  // se u téhož odběratele přečte najisto (níž, až je odběratel znám).
+  const nauceneOpravy = await nactiNauceneOpravy(supabase);
   const hlavicky = await authenticatedFunctionHeaders();
   const zavolejCteni = (navic: Record<string, unknown> = {}) => fetch(fnUrl, {
     method: 'POST',
@@ -609,6 +614,7 @@ export async function parseWhatsAppOrderMessageWithAI(
       beers: beers.map((b) => ({ id: b.id, name: b.name, degree: b.degree ?? '' })),
       packages: packages.map((p) => ({ id: p.id, label: p.label })),
       places: places.map((pl) => pl.name),
+      opravy: prikladyProAI(nauceneOpravy, beers, packages),
       placeAliases: placeAliasList,
       historie: historieText,
       messages: [
@@ -798,9 +804,23 @@ export async function parseWhatsAppOrderMessageWithAI(
   // odběratel bere, jinak 0,5 l — stejně jako server (whatsapp-auto-parse,
   // lahevBezUdaneVelikosti v _shared/beer-match.ts). AI ani místní parser
   // velikost lahve neurčují.
+  const mistoOprav = { placeId, placeName };
+  // 🧠 Naučená oprava pro tenhle řádek u tohohle odběratele: pivo a obal, které
+  // uživatel tehdy opravil. Obal napsaný v řádku výslovně má přednost i před ní.
+  for (const l of items) {
+    const oprava = najdiOpravu(nauceneOpravy, mistoOprav, l.raw);
+    if (!oprava) continue;
+    const pivo = oprava.beer_id ? beers.find((b) => b.id === oprava.beer_id) : null;
+    if (pivo) { l.beer_id = pivo.id; l.beer_name = pivo.name; }
+    const obal = oprava.package_id && !obalVyslovneVRadku({ raw_line: l.raw, quantity: l.quantity }, packages)
+      ? packages.find((p) => p.id === oprava.package_id) : null;
+    if (obal) { l.package_id = obal.id; l.package_label = obal.label; }
+  }
+
   const jeSklo = (id: string | null) => [0.33, 0.5].includes(Number(packages.find((p) => p.id === id)?.volume_l));
   if (items.some((l) => jeSklo(l.package_id))) {
-    const zvyk = await nactiZvykLahve(supabase, {
+    // Velikost lahve, kterou uživatel odběrateli výslovně naučil, má přednost před zvykem z historie.
+    const zvyk = lahevZOprav(nauceneOpravy, mistoOprav, packages) ?? await nactiZvykLahve(supabase, {
       placeId, placeName, kdy: messageTimestamp || new Date().toISOString(), packages,
     });
     for (const l of items) {

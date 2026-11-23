@@ -39,7 +39,7 @@ export const TABULKY = [
   ['cellar_tanks', 'id'], ['price_list', 'id'], ['cenik_zmeny', 'id'], ['akce', 'id'],
   ['bottling', 'id'], ['fasovani', 'id'], ['fasovani_private', 'id'], ['inventory', 'id'],
   ['inventory_adjustments', 'id'], ['keg_prefuk', 'id'], ['kegging_plan_checks', 'id'],
-  ['parser_aliases', 'id'], ['place_aliases', 'id'], ['writeoffs', 'id'], ['tydenni_inventura', 'id'],
+  ['parser_aliases', 'id'], ['place_aliases', 'id'], ['naucene_opravy', 'id'], ['writeoffs', 'id'], ['tydenni_inventura', 'id'],
   ['label_purchases', 'id'], ['srotovani', 'id'], ['zadavani', 'id'], ['bottling_plans', 'id'],
   ['logbook_entries', 'id'], ['logbook_closures', 'id'], ['festival_equipment_loans', 'id'],
   // Sklep

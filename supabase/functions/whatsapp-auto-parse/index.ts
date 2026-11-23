@@ -1,7 +1,8 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { requireApprovedUser } from "../_shared/require-user.ts";
-import { normText, matchBeerId, matchPackageId, jeLitrPsanyJakoJedenact, jeLahevBezObjemu } from "../_shared/beer-match.ts";
+import { normText, matchBeerId, matchPackageId, obalVyslovneVRadku, jeLitrPsanyJakoJedenact, jeLahevBezObjemu } from "../_shared/beer-match.ts";
 import { nactiZvykLahve } from "../_shared/zvyk-lahve.ts";
+import { nactiNauceneOpravy, najdiOpravu, lahevZOprav, prikladyProAI } from "../_shared/naucene-opravy.ts";
 import { poradiPodlePrepisu } from "../_shared/prepis-fotky.ts";
 import { normPlaceName, stripSenderName, resolvePlace, odberatelZHistorie, preferujExaktniOdberatele, wantsOwnOrder as textWantsOwnOrder } from "../_shared/place-match.ts";
 import { nactiHistorii } from "../_shared/historie-objednavek.ts";
@@ -292,6 +293,14 @@ Deno.serve(async (req: Request) => {
       package: new Map<string, string>(),
     };
 
+    // 🧠 Pamatuje se jen oprava, u které uživatel v kontrole zprávy zaškrtl
+    // „Naučit" (tabulka naucene_opravy, ../_shared/naucene-opravy.ts). Patří
+    // odběrateli, u kterého vznikla: stejně napsaný řádek se u něj přečte
+    // stejně najisto a AI ji dostane jako příklad pro podobné řádky. Bez tabulky
+    // (migrace ještě neběžela) je seznam prázdný a čte se jako dosud.
+    const nauceneOpravy = await nactiNauceneOpravy(supabase);
+    const prikladyOprav = prikladyProAI(nauceneOpravy, beers as any[], packages as any[]);
+
     // Get place aliases
     const { data: placeAliasRows } = await supabase
       .from("place_aliases")
@@ -578,6 +587,7 @@ Deno.serve(async (req: Request) => {
           beers,
           packages,
           places: places.map(p => p.name),
+          opravy: prikladyOprav,
           placeAliases,
           historie: historieText,
           // Když jde o úpravu, dostane AI SOUČASNÝ obsah objednávky a má vrátit
@@ -911,10 +921,13 @@ Deno.serve(async (req: Request) => {
         const jeVyslednyStav = !!amendsOrderId && !vypadaJakoVraceni(message.message_text);
         // 🍾 Lahve/bedny bez udané velikosti („5 beden světlého"): rozhodne, co
         // odběratel bere — viz ../_shared/zvyk-lahve.ts. Dotaz jen když je potřeba.
+        // Velikost, kterou uživatel odběrateli výslovně naučil, má přednost před zvykem z historie.
+        const mistoOprav = { placeId: parsedPlaceId, placeName: parsedPlaceName };
         const jeOLahvich = (item: any) => jeLahevBezObjemu(item.raw_line) || /0[.,](?:33|5)/.test(String(item.package_label || ""));
-        const lahevOdberatele = parsedItems.some(jeOLahvich)
-          ? await nactiZvykLahve(supabase, { placeId: parsedPlaceId, placeName: parsedPlaceName, kdy: message.created_at, packages })
-          : null;
+        const lahevOdberatele = lahevZOprav(nauceneOpravy, mistoOprav, packages as any[])
+          ?? (parsedItems.some(jeOLahvich)
+            ? await nactiZvykLahve(supabase, { placeId: parsedPlaceId, placeName: parsedPlaceName, kdy: message.created_at, packages })
+            : null);
         const itemsForStorage = parsedItems.map((item: any) => {
           // Řádek výsledného stavu, ke kterému AI přiložila text CITOVANÉ zprávy
           // (jen ho opakuje, nebo v něm odpověď něco změnila): platí pivo od AI,
@@ -923,10 +936,16 @@ Deno.serve(async (req: Request) => {
           // i do sudů 12° Světlé; viz _shared/beer-match.ts).
           const zCitace = jeVyslednyStav && radekJeZCitace(item.raw_line, message.message_text, message.quoted_text);
           const polozka = zCitace ? { ...item, z_citace: true } : item;
-          const beerId = matchBeerId(polozka, beers, aliasMap);
+          // 🧠 Naučená oprava pro tenhle řádek u tohohle odběratele (zaškrtnuté
+          // „Naučit") — vyplněné je jen to, co uživatel tehdy opravil.
+          const oprava = zCitace ? null : najdiOpravu(nauceneOpravy, mistoOprav, item.raw_line);
+          const beerId = oprava?.beer_id ?? matchBeerId(polozka, beers, aliasMap);
           // Obal: co v řádku stojí výslovně („15l", „0,33"), přebije i obal od AI
-          // — kromě řádku z citace, kde ho odpověď mohla změnit (stejně jako pivo).
-          const pkgId = matchPackageId(polozka, packages, aliasMap, { lahevOdberatele });
+          // i naučenou opravu — kromě řádku z citace, kde ho odpověď mohla změnit
+          // (stejně jako pivo).
+          const pkgId = obalVyslovneVRadku(polozka, packages)
+            ?? oprava?.package_id
+            ?? matchPackageId(polozka, packages, aliasMap, { lahevOdberatele });
           // ⚠️ beer_name MUSÍ odpovídat beer_id. Dřív se určovaly dvěma
           // nezávislými cestami (id párováním s katalogem, název od AI) a nic
           // je nesrovnávalo — 25. 8. 2026 tak vznikla položka s beer_id

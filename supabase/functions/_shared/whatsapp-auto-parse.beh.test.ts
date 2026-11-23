@@ -480,4 +480,55 @@ describe('whatsapp-auto-parse: obal podle toho, co ve zprávě stojí', () => {
     await spust();
     expect(prectene('l2')).toEqual(['20× 12° Světlá / 0.5l', '20× 12° Tmavá / 0.33l']);
   });
+
+  // 🧠 „Naučit" (23. 11. 2026): pamatuje se jen oprava, kterou uživatel
+  // v kontrole zprávy výslovně potvrdil (tabulka naucene_opravy).
+  const naucena = (navic: Radek): Radek => ({
+    id: `o-${Math.random()}`, misto_klic: 'm-luzec', place_id: 'm-luzec', place_name: 'Lužec',
+    radek: '10x zajíc 1l', klic: 'zajic 1l', beer_id: 'b12', package_id: null, created_at: '2026-11-10T10:00:00Z', ...navic,
+  });
+
+  it('naučená oprava: stejně napsaný řádek se u téhož odběratele přečte stejně, AI ji dostane jako příklad, jinde neplatí', async () => {
+    db.naucene_opravy = [naucena({})];
+    db.whatsapp_incoming.push(
+      zprava('z1', { message_text: 'Lužec 5x zajíc 1l' }),
+      zprava('z2', { message_text: 'Maneo 5x zajíc 1l', created_at: new Date(T0 + 1_000).toISOString() }),
+    );
+    const tela = ctecka((telo) => {
+      const misto = String(telo.rawText).startsWith('Lužec') ? 'Lužec' : 'Maneo';
+      return { ms: 3_000, json: PRECTENO({ place_name: misto, raw_text: misto, items: [
+        { quantity: 5, degree: null, beer_name: null, package_label: 'PET 1l', raw_line: '5x zajíc 1l', place_name: misto, date: null },
+      ] }) };
+    });
+    await spust();
+    expect(tela[0].opravy).toEqual([{ odberatel: 'Lužec', radek: '10x zajíc 1l', pivo: '12° Světlá', obal: null }]);
+    expect(radek('z1').parsed_items).toMatchObject([{ beer_id: 'b12', beer_name: '12° Světlá', pkg_id: 'l1', qty: 5 }]);
+    expect(radek('z2').parsed_items).toMatchObject([{ beer_id: null, pkg_id: 'l1', qty: 5 }]);
+  });
+
+  it('velikost lahve, kterou uživatel odběrateli naučil, má přednost před zvykem z historie', async () => {
+    // Historie říká půllitry, ale uživatel u Malešic zaškrtl „Naučit" u beden jako třetinek.
+    db.order_items = [lahve('o1', '2026-11-03', 'm-jina', 'l05'), lahve('o2', '2026-11-10', 'm-jina', 'l05')];
+    db.naucene_opravy = [naucena({ misto_klic: 'm-jina', place_id: 'm-jina', place_name: 'Malešice', radek: '2 bedny světlého', klic: 'bedny svetleho', beer_id: null, package_id: 'l033' })];
+    db.whatsapp_incoming.push(zprava('s1', { message_text: 'Malešice 3 bedny tmavého' }));
+    ctecka(() => ({ ms: 3_000, json: PRECTENO({ place_name: 'Malešice', raw_text: 'Malešice', items: [polozka(60, '12° Tmavá', 'Lahve 0.5l', '3 bedny tmavého', 'Malešice')] }) }));
+    await spust();
+    expect(prectene('s1')).toEqual(['60× 12° Tmavá / 0.33l']);
+  });
+
+  it('objem napsaný v řádku má přednost i před naučenou opravou', async () => {
+    db.naucene_opravy = [naucena({ misto_klic: 'm-maneo', place_id: 'm-maneo', place_name: 'Maneo', radek: '3x 15l desitka', klic: '15l desitka', beer_id: null, package_id: 'k20' })];
+    db.whatsapp_incoming.push(zprava('m2', { message_text: 'Maneo 2x 15l desitka' }));
+    ctecka(() => ({ ms: 3_000, json: PRECTENO({ place_name: 'Maneo', raw_text: 'Maneo', items: [polozka(2, '10° Desítka', 'KEG 15l', '2x 15l desitka', 'Maneo')] }) }));
+    await spust();
+    expect(prectene('m2')).toEqual(['2× 10° Desítka / 15l']);
+  });
+
+  it('bez tabulky naučených oprav (migrace ještě neběžela) se čte jako dosud', async () => {
+    db.whatsapp_incoming.push(zprava('z3', { message_text: 'Lužec 2x 15l desitka' }));
+    const tela = ctecka(() => ({ ms: 3_000, json: PRECTENO({ place_name: 'Lužec', raw_text: 'Lužec', items: [polozka(2, '10° Desítka', 'KEG 15l', '2x 15l desitka', 'Lužec')] }) }));
+    await spust();
+    expect(tela[0].opravy).toEqual([]);
+    expect(prectene('z3')).toEqual(['2× 10° Desítka / 15l']);
+  });
 });

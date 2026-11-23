@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { readJsonWithLimit, requireApprovedUser } from "../_shared/require-user.ts";
 import { vlastniJmenaPiv } from "../_shared/beer-match.ts";
+import { radkyDoPokynu } from "../_shared/naucene-opravy.ts";
 import { ctiPresGemini, dostupneModelyGemini, planPokusuText, planyFotky, type PokusGemini } from "../_shared/gemini-cteni.ts";
 import { ctiSPoradim, NEPRECTENO, signalSCasem, type DrahaCteni } from "../_shared/cteni-poradi.ts";
 import { REZERVA_PRO_ZALOHY_MS, stropCteni } from "../_shared/cas-cteni.ts";
@@ -289,12 +290,12 @@ Deno.serve(async (req: Request) => {
       return ['bednar', 'petr', 'sladek', 'gabina', 'ucetni', 'pojmi', 'bendat'].some((x) => norm.includes(x));
     };
     const places: string[] = (body.places ?? []).filter((p: string) => !isSenderName(p));
-    // „Naučené zkratky" z tabulky parser_aliases se do promptu NEPOSÍLAJÍ — ani když
-    // je volající (starší verze appky) v těle pošle. Ukládaly se potichu z každé
-    // ruční změny piva nebo obalu a AI se jimi řídila i proti tomu, co v řádku
-    // stojí („15l → 20l" u Manea 6. 10. 2026). Pamatovat si appka smí jen opravu,
-    // kterou uživatel výslovně potvrdí; viz whatsapp-auto-parse/index.ts.
-    const aliases: { alias_text: string; beer_name: string | null; package_label: string | null }[] = [];
+    // 🧠 Do pokynu jdou jen opravy, které uživatel výslovně potvrdil („Naučit",
+    // tabulka naucene_opravy) — volající je posílá jako `opravy`. Staré „naučené
+    // zkratky" (`aliases`, tabulka parser_aliases) se NEČTOU, ani když je pošle
+    // starší verze appky: ukládaly se potichu z každé ruční změny a AI se jimi
+    // řídila i proti tomu, co v řádku stojí („15l → 20l" u Manea 6. 10. 2026).
+    const naucene = radkyDoPokynu(body.opravy);
     const placeAliases: { wrong_name: string; correct_name: string }[] = (body.placeAliases ?? []).filter((a: any) => !isSenderName(a.wrong_name) && !isSenderName(a.correct_name));
     const messages: WhatsAppMessageHint[] = body.messages ?? [];
 
@@ -310,14 +311,8 @@ Deno.serve(async (req: Request) => {
       + (vlastniJmenaPiv(beers).size ? `\nVLASTNÍ NÁZVY PIV (slovo v textu = přesně toto pivo, NE stupeň ani 12° světlá; např. u nově přidaného piva): ${[...vlastniJmenaPiv(beers).keys()].join(", ")}` : "");
     const pkgList = packages.map((p) => `${p.id}: ${p.label}`).join("\n");
     const placesList = places.length ? places.join(", ") : "(žádní uložení odběratelé zatím)";
-    const beerAliases = aliases.filter((a) => a.beer_name);
-    const pkgAliases = aliases.filter((a) => a.package_label);
-    const beerAliasList = beerAliases.length
-      ? beerAliases.map((a) => `"${a.alias_text}" → ${a.beer_name}`).join("\n")
-      : "(žádné naučené zkratky zatím)";
-    const pkgAliasList = pkgAliases.length
-      ? pkgAliases.map((a) => `"${a.alias_text}" → ${a.package_label}`).join("\n")
-      : "(žádné naučené zkratky zatím)";
+    const beerAliasList = naucene.piva.length ? naucene.piva.join("\n") : "(žádné naučené zkratky zatím)";
+    const pkgAliasList = naucene.obaly.length ? naucene.obaly.join("\n") : "(žádné naučené zkratky zatím)";
     const placeAliasList = placeAliases.length
       ? placeAliases.map((a) => `"${a.wrong_name}" → ${a.correct_name}`).join("\n")
       : "(žádné naučené aliasy odběratelů zatím)";
@@ -642,10 +637,10 @@ ${pkgList}
 ZNÁMÍ ODBĚRATELÉ (použij přesně tento název, pokud text odpovídá byť jen přibližně):
 ${placesList}
 
-NAUČENÉ ZKRATKY PRO PIVA (text v objednávce → skutečný název piva; uživatel tyto opravy ručně potvrdil v minulosti, ber je jako velmi spolehlivé):
+NAUČENÉ ZKRATKY PRO PIVA (text v objednávce → skutečný název piva; uživatel tyto opravy ručně potvrdil v minulosti, ber je jako velmi spolehlivé. V hranaté závorce je odběratel, u kterého oprava vznikla: u něj platí i pro podobně napsané řádky, u jiných odběratelů ji ber jen jako nápovědu. Co je v řádku napsané výslovně, má vždy přednost):
 ${beerAliasList}
 
-NAUČENÉ ZKRATKY PRO OBALY (text v objednávce → skutečný obal):
+NAUČENÉ ZKRATKY PRO OBALY (text v objednávce → skutečný obal; i tyhle opravy uživatel výslovně potvrdil a v hranaté závorce je odběratel, u kterého platí. Objem napsaný v řádku — „15l“, „0,33“ — má vždy přednost):
 ${pkgAliasList}
 
 NAUČENÉ ALIASY ODBĚRATELŮ (špatný název → správný název; uživatel tyto opravy ručně potvrdil v minulosti, ber je jako VELMI spolehlivé — pokud text odpovídá "špatnému názvu" z tohoto seznamu, POUŽIJ PŘESNĚ "správný název"):

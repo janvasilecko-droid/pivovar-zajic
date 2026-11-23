@@ -692,6 +692,18 @@ function kusyPolozky(item: any): string[] {
 }
 
 /**
+ * Mluví řádek jen o JEDNÉ položce? „3x 15l desítka" ano; „12sv: 3x50l + 4x30l"
+ * nebo „2x50 12sv 1x30l jantar" ne — takový řádek sdílí víc položek a nejde
+ * poznat, které z nich patří (naučená oprava by platila všem).
+ */
+export function jeRadekJednePolozky(raw: string | null | undefined): boolean {
+  const useky = String(raw || "").split(USEKY_RE).map(ocisti).filter(Boolean);
+  if (useky.length !== 1) return false;
+  // Nejvýš jedno „množství × …": „Tm: 2x30l" je jedna položka s nadpisem před počtem.
+  return (useky[0].match(/(?:^|[^0-9.,])\d{1,4}\s*(?:x|×|\*)\s*\d/gi) ?? []).length <= 1;
+}
+
+/**
  * Obal, který řádek položky říká VÝSLOVNĚ — a který proto platí, ať AI vrátila
  * cokoli. null = řádek sám obal jednoznačně neurčuje (rozhodne zbytek
  * matchPackageId).
